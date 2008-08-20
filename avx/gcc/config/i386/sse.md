@@ -4150,6 +4150,63 @@
 	  	     (const_int 3)])))]
   "TARGET_SSE2")
 
+;; punpcklqdq and punpckhqdq are shorter than shufpd.
+(define_insn "*avx_punpckhqdq"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(vec_select:V2DI
+	  (vec_concat:V4DI
+	    (match_operand:V2DI 1 "register_operand" "x")
+	    (match_operand:V2DI 2 "nonimmediate_operand" "xm"))
+	  (parallel [(const_int 1)
+		     (const_int 3)])))]
+  "TARGET_AVX"
+  "vpunpckhqdq\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI")])
+
+(define_insn "sse2_punpckhqdq"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(vec_select:V2DI
+	  (vec_concat:V4DI
+	    (match_operand:V2DI 1 "register_operand" "0")
+	    (match_operand:V2DI 2 "nonimmediate_operand" "xm"))
+	  (parallel [(const_int 1)
+		     (const_int 3)])))]
+  "TARGET_SSE2"
+  "punpckhqdq\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "prefix_data16" "1")
+   (set_attr "mode" "TI")])
+
+(define_insn "*avx_punpcklqdq"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(vec_select:V2DI
+	  (vec_concat:V4DI
+	    (match_operand:V2DI 1 "register_operand" "x")
+	    (match_operand:V2DI 2 "nonimmediate_operand" "xm"))
+	  (parallel [(const_int 0)
+		     (const_int 2)])))]
+  "TARGET_AVX"
+  "vpunpcklqdq\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI")])
+
+(define_insn "sse2_punpcklqdq"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(vec_select:V2DI
+	  (vec_concat:V4DI
+	    (match_operand:V2DI 1 "register_operand" "0")
+	    (match_operand:V2DI 2 "nonimmediate_operand" "xm"))
+	  (parallel [(const_int 0)
+		     (const_int 2)])))]
+  "TARGET_SSE2"
+  "punpcklqdq\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "prefix_data16" "1")
+   (set_attr "mode" "TI")])
+
 (define_insn "*avx_shufpd_<mode>"
   [(set (match_operand:SSEMODE2D 0 "register_operand" "=x")
 	(vec_select:SSEMODE2D
@@ -6473,62 +6530,6 @@
 		     (const_int 1) (const_int 5)])))]
   "TARGET_SSE2"
   "punpckldq\t{%2, %0|%0, %2}"
-  [(set_attr "type" "sselog")
-   (set_attr "prefix_data16" "1")
-   (set_attr "mode" "TI")])
-
-(define_insn "*avx_punpckhqdq"
-  [(set (match_operand:V2DI 0 "register_operand" "=x")
-	(vec_select:V2DI
-	  (vec_concat:V4DI
-	    (match_operand:V2DI 1 "register_operand" "x")
-	    (match_operand:V2DI 2 "nonimmediate_operand" "xm"))
-	  (parallel [(const_int 1)
-		     (const_int 3)])))]
-  "TARGET_AVX"
-  "vpunpckhqdq\t{%2, %1, %0|%0, %1, %2}"
-  [(set_attr "type" "sselog")
-   (set_attr "prefix" "vex")
-   (set_attr "mode" "TI")])
-
-(define_insn "sse2_punpckhqdq"
-  [(set (match_operand:V2DI 0 "register_operand" "=x")
-	(vec_select:V2DI
-	  (vec_concat:V4DI
-	    (match_operand:V2DI 1 "register_operand" "0")
-	    (match_operand:V2DI 2 "nonimmediate_operand" "xm"))
-	  (parallel [(const_int 1)
-		     (const_int 3)])))]
-  "TARGET_SSE2"
-  "punpckhqdq\t{%2, %0|%0, %2}"
-  [(set_attr "type" "sselog")
-   (set_attr "prefix_data16" "1")
-   (set_attr "mode" "TI")])
-
-(define_insn "*avx_punpcklqdq"
-  [(set (match_operand:V2DI 0 "register_operand" "=x")
-	(vec_select:V2DI
-	  (vec_concat:V4DI
-	    (match_operand:V2DI 1 "register_operand" "x")
-	    (match_operand:V2DI 2 "nonimmediate_operand" "xm"))
-	  (parallel [(const_int 0)
-		     (const_int 2)])))]
-  "TARGET_AVX"
-  "vpunpcklqdq\t{%2, %1, %0|%0, %1, %2}"
-  [(set_attr "type" "sselog")
-   (set_attr "prefix" "vex")
-   (set_attr "mode" "TI")])
-
-(define_insn "sse2_punpcklqdq"
-  [(set (match_operand:V2DI 0 "register_operand" "=x")
-	(vec_select:V2DI
-	  (vec_concat:V4DI
-	    (match_operand:V2DI 1 "register_operand" "0")
-	    (match_operand:V2DI 2 "nonimmediate_operand" "xm"))
-	  (parallel [(const_int 0)
-		     (const_int 2)])))]
-  "TARGET_SSE2"
-  "punpcklqdq\t{%2, %0|%0, %2}"
   [(set_attr "type" "sselog")
    (set_attr "prefix_data16" "1")
    (set_attr "mode" "TI")])

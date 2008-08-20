@@ -1436,7 +1436,7 @@ vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
   if (emit_lax_note && !emitted_lax_note)
     {
       emitted_lax_note = true;
-      inform ("use -flax-vector-conversions to permit "
+      inform (input_location, "use -flax-vector-conversions to permit "
               "conversions between vectors with differing "
               "element types or numbers of subparts");
     }
@@ -1556,10 +1556,21 @@ conversion_warning (tree type, tree expr)
 {
   bool give_warning = false;
 
+  int i;
+  const int expr_num_operands = TREE_OPERAND_LENGTH (expr);
   tree expr_type = TREE_TYPE (expr);
 
   if (!warn_conversion && !warn_sign_conversion)
     return;
+
+  /* If any operand is artificial, then this expression was generated
+     by the compiler and we do not warn.  */
+  for (i = 0; i < expr_num_operands; i++)
+    {
+      tree op = TREE_OPERAND (expr, i);
+      if (DECL_P (op) && DECL_ARTIFICIAL (op))
+	return;
+    }
 
   switch (TREE_CODE (expr))
     {
@@ -1682,13 +1693,16 @@ conversion_warning (tree type, tree expr)
 					     TREE_OPERAND (expr, 1), 
 					     /* bitwise */1);
 
-	      /* If one of the operands is a non-negative constant
-		 that fits in the target type, then the type of the
-		 other operand does not matter. */
 	      if (TREE_CODE (expr) == BIT_AND_EXPR)
 		{
 		  tree op0 = TREE_OPERAND (expr, 0);
 		  tree op1 = TREE_OPERAND (expr, 1);
+		  bool unsigned0 = TYPE_UNSIGNED (TREE_TYPE (op0));
+		  bool unsigned1 = TYPE_UNSIGNED (TREE_TYPE (op1));
+
+		  /* If one of the operands is a non-negative constant
+		     that fits in the target type, then the type of the
+		     other operand does not matter. */
 		  if ((TREE_CODE (op0) == INTEGER_CST
 		       && int_fits_type_p (op0, c_common_signed_type (type))
 		       && int_fits_type_p (op0, c_common_unsigned_type (type)))
@@ -1696,6 +1710,15 @@ conversion_warning (tree type, tree expr)
 			  && int_fits_type_p (op1, c_common_signed_type (type))
 			  && int_fits_type_p (op1, 
 					      c_common_unsigned_type (type))))
+		    return;
+		  /* If constant is unsigned and fits in the target
+		     type, then the result will also fit.  */
+		  else if ((TREE_CODE (op0) == INTEGER_CST
+			    && unsigned0 
+			    && int_fits_type_p (op0, type))
+			   || (TREE_CODE (op1) == INTEGER_CST
+			       && unsigned1
+			       && int_fits_type_p (op1, type)))
 		    return;
 		}
 	    }

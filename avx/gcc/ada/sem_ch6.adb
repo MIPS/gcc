@@ -1724,6 +1724,12 @@ package body Sem_Ch6 is
                 "if subprogram is primitive",
                 Body_Spec);
             end if;
+
+         elsif Style_Check
+           and then Is_Overriding_Operation (Spec_Id)
+         then
+            pragma Assert (Unit_Declaration_Node (Body_Id) = N);
+            Style.Missing_Overriding (N, Body_Id);
          end if;
       end Verify_Overriding_Indicator;
 
@@ -4167,6 +4173,10 @@ package body Sem_Ch6 is
             Set_Is_Overriding_Operation (Subp);
          end if;
 
+         if Style_Check and then not Must_Override (Spec) then
+            Style.Missing_Overriding (Decl, Subp);
+         end if;
+
       --  If Subp is an operator, it may override a predefined operation.
       --  In that case overridden_subp is empty because of our implicit
       --  representation for predefined operators. We have to check whether the
@@ -4190,16 +4200,23 @@ package body Sem_Ch6 is
                  ("subprogram & overrides predefined operator ", Spec, Subp);
             end if;
 
-         elsif Is_Overriding_Operation (Subp) then
-            null;
-
          elsif Must_Override (Spec) then
-            if not Operator_Matches_Spec (Subp, Subp) then
-               Error_Msg_NE ("subprogram & is not overriding", Spec, Subp);
-
-            else
+            if Is_Overriding_Operation (Subp) then
                Set_Is_Overriding_Operation (Subp);
+
+            elsif not Operator_Matches_Spec (Subp, Subp) then
+               Error_Msg_NE ("subprogram & is not overriding", Spec, Subp);
             end if;
+
+         elsif not Error_Posted (Subp)
+           and then Style_Check
+           and then Operator_Matches_Spec (Subp, Subp)
+             and then
+               not Is_Predefined_File_Name
+                 (Unit_File_Name (Get_Source_Unit (Subp)))
+         then
+            Set_Is_Overriding_Operation (Subp);
+            Style.Missing_Overriding (Decl, Subp);
          end if;
 
       elsif Must_Override (Spec) then
@@ -6481,7 +6498,7 @@ package body Sem_Ch6 is
 
          procedure Check_Private_Overriding (T : Entity_Id) is
          begin
-            if Ekind (Current_Scope) = E_Package
+            if Is_Package_Or_Generic_Package (Current_Scope)
               and then In_Private_Part (Current_Scope)
               and then Visible_Part_Type (T)
               and then not In_Instance
@@ -6566,8 +6583,7 @@ package body Sem_Ch6 is
          elsif Current_Scope = Standard_Standard then
             null;
 
-         elsif ((Ekind (Current_Scope) = E_Package
-                  or else Ekind (Current_Scope) = E_Generic_Package)
+         elsif (Is_Package_Or_Generic_Package (Current_Scope)
                  and then not In_Package_Body (Current_Scope))
            or else Is_Overriding
          then

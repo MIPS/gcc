@@ -313,18 +313,18 @@ abstract_virtuals_error (tree decl, tree type)
       unsigned ix;
       tree fn;
 
-      inform ("%J  because the following virtual functions are pure "
+      inform (input_location, "%J  because the following virtual functions are pure "
 	      "within %qT:", TYPE_MAIN_DECL (type), type);
 
       for (ix = 0; VEC_iterate (tree, pure, ix, fn); ix++)
-	inform ("\t%+#D", fn);
+	inform (input_location, "\t%+#D", fn);
       /* Now truncate the vector.  This leaves it non-null, so we know
 	 there are pure virtuals, but empty so we don't list them out
 	 again.  */
       VEC_truncate (tree, pure, 0);
     }
   else
-    inform ("%J  since type %qT has pure virtual functions",
+    inform (input_location, "%J  since type %qT has pure virtual functions",
 	    TYPE_MAIN_DECL (type), type);
 
   return 1;
@@ -777,7 +777,7 @@ digest_init_r (tree type, tree init, bool nested)
 		 counted in the length of the constant, but in C++ this would
 		 be invalid.  */
 	      if (size < TREE_STRING_LENGTH (init))
-		permerror ("initializer-string for array of chars is too long");
+		permerror (input_location, "initializer-string for array of chars is too long");
 	    }
 	  return init;
 	}

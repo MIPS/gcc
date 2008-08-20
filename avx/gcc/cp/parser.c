@@ -2229,8 +2229,9 @@ cp_parser_check_for_definition_in_return_type (cp_declarator *declarator,
       && declarator->kind == cdk_function)
     {
       error ("%Hnew types may not be defined in a return type", &type_location);
-      inform ("%H(perhaps a semicolon is missing after the definition of %qT)",
-	      &type_location, type);
+      inform (type_location, 
+	      "(perhaps a semicolon is missing after the definition of %qT)",
+	      type);
     }
 }
 
@@ -2358,8 +2359,9 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser,
 		    if (TREE_CODE (field) == TYPE_DECL
 			&& DECL_NAME (field) == id)
 		      {
-			inform ("%H(perhaps %<typename %T::%E%> was intended)",
-				&location, BINFO_TYPE (b), id);
+			inform (location, 
+				"(perhaps %<typename %T::%E%> was intended)",
+				BINFO_TYPE (b), id);
 			break;
 		      }
 		  if (field)
@@ -4142,7 +4144,7 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	  && !(TREE_CODE (new_scope) == TYPENAME_TYPE
 	       && (TREE_CODE (TYPENAME_TYPE_FULLNAME (new_scope))
 		   == TEMPLATE_ID_EXPR)))
-	permerror (TYPE_P (new_scope)
+	permerror (input_location, TYPE_P (new_scope)
 		   ? "%qT is not a template"
 		   : "%qD is not a template",
 		   new_scope);
@@ -5576,8 +5578,8 @@ cp_parser_new_expression (cp_parser* parser)
 	{
 	  error ("%Harray bound forbidden after parenthesized type-id",
 		 &token->location);
-	  inform ("%Htry removing the parentheses around the type-id",
-		 &token->location);
+	  inform (token->location, 
+		  "try removing the parentheses around the type-id");
 	  cp_parser_direct_new_declarator (parser);
 	}
       nelts = NULL_TREE;
@@ -9046,8 +9048,8 @@ cp_parser_mem_initializer (cp_parser* parser)
   /* Find out what is being initialized.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
     {
-      permerror ("%Hanachronistic old-style base class initializer",
-                 &token->location);
+      permerror (token->location,
+		 "anachronistic old-style base class initializer");
       mem_initializer_id = NULL_TREE;
     }
   else
@@ -9980,17 +9982,17 @@ cp_parser_template_id (cp_parser *parser,
 	}
       /* Otherwise, emit an error about the invalid digraph, but continue
 	 parsing because we got our argument list.  */
-      if (permerror ("%H%<<::%> cannot begin a template-argument list",
-		     &next_token->location))
+      if (permerror (next_token->location,
+		     "%<<::%> cannot begin a template-argument list"))
 	{
 	  static bool hint = false;
-	  inform ("%H%<<:%> is an alternate spelling for %<[%>. Insert whitespace "
-	      "between %<<%> and %<::%>",
-	      &next_token->location);
+	  inform (next_token->location,
+		  "%<<:%> is an alternate spelling for %<[%>."
+		  " Insert whitespace between %<<%> and %<::%>");
 	  if (!hint && !flag_permissive)
 	    {
-	      inform ("%H(if you use %<-fpermissive%> G++ will accept your code)",
-                      &next_token->location);
+	      inform (next_token->location, "(if you use %<-fpermissive%>"
+		      " G++ will accept your code)");
 	      hint = true;
 	    }
 	}
@@ -10180,7 +10182,7 @@ cp_parser_template_name (cp_parser* parser,
 	  /* Explain what went wrong.  */
 	  error ("%Hnon-template %qD used as template",
 		 &token->location, identifier);
-	  inform ("use %<%T::template %D%> to indicate that it is a template",
+	  inform (input_location, "use %<%T::template %D%> to indicate that it is a template",
 		  parser->scope, identifier);
 	  /* If parsing tentatively, find the location of the "<" token.  */
 	  if (cp_parser_simulate_error (parser))
@@ -11358,7 +11360,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
       tag_type = typename_type;
       /* The `typename' keyword is only allowed in templates.  */
       if (!processing_template_decl)
-	permerror ("using %<typename%> outside of template");
+	permerror (input_location, "using %<typename%> outside of template");
     }
   /* Otherwise it must be a class-key.  */
   else
@@ -13168,7 +13170,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 			{
 			  error ("%Hinvalid use of constructor as a template",
 				 &declarator_id_start_token->location);
-			  inform ("use %<%T::%D%> instead of %<%T::%D%> to "
+			  inform (input_location, "use %<%T::%D%> instead of %<%T::%D%> to "
 				  "name the constructor in a qualified name",
 				  class_type,
 				  DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
@@ -15031,7 +15033,7 @@ cp_parser_class_head (cp_parser* parser,
 	 class member of a namespace outside of its namespace.  */
       if (scope == nested_name_specifier)
 	{
-	  permerror ("%Hextra qualification not allowed",
+	  permerror (input_location, "%Hextra qualification not allowed",
 		     &nested_name_specifier_token_start->location);
 	  nested_name_specifier = NULL_TREE;
 	  num_templates = 0;
@@ -18469,7 +18471,7 @@ static void
 cp_parser_check_class_key (enum tag_types class_key, tree type)
 {
   if ((TREE_CODE (type) == UNION_TYPE) != (class_key == union_type))
-    permerror ("%qs tag used in naming %q#T",
+    permerror (input_location, "%qs tag used in naming %q#T",
 	    class_key == union_type ? "union"
 	     : class_key == record_type ? "struct" : "class",
 	     type);
@@ -20857,6 +20859,14 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
       this_pre_body = push_stmt_list ();
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
 	{
+	  /* See 2.5.1 (in OpenMP 3.0, similar wording is in 2.5 standard too):
+
+	     init-expr:
+	               var = lb
+		       integer-type var = lb
+		       random-access-iterator-type var = lb
+		       pointer-type var = lb
+	  */
 	  cp_decl_specifier_seq type_specifiers;
 
 	  /* First, try to parse as an initialized declaration.  See
@@ -20865,8 +20875,10 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	  cp_parser_parse_tentatively (parser);
 	  cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
 					&type_specifiers);
-	  if (!cp_parser_error_occurred (parser))
+	  if (cp_parser_parse_definitely (parser))
 	    {
+	      /* If parsing a type specifier seq succeeded, then this
+		 MUST be a initialized declaration.  */
 	      tree asm_specification, attributes;
 	      cp_declarator *declarator;
 
@@ -20878,9 +20890,10 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	      attributes = cp_parser_attributes_opt (parser);
 	      asm_specification = cp_parser_asm_specification_opt (parser);
 
-	      if (cp_lexer_next_token_is_not (parser->lexer, CPP_EQ))
-		cp_parser_require (parser, CPP_EQ, "%<=%>");
-	      if (cp_parser_parse_definitely (parser))
+	      if (declarator == cp_error_declarator) 
+		cp_parser_skip_to_end_of_statement (parser);
+
+	      else 
 		{
 		  tree pushed_scope;
 
@@ -20889,8 +20902,21 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 				     /*prefix_attributes=*/NULL_TREE,
 				     &pushed_scope);
 
-		  if (CLASS_TYPE_P (TREE_TYPE (decl))
-		      || type_dependent_expression_p (decl))
+		  if (cp_lexer_next_token_is_not (parser->lexer, CPP_EQ))
+		    {
+		      if (cp_lexer_next_token_is (parser->lexer, 
+						  CPP_OPEN_PAREN))
+			error ("parenthesized initialization is not allowed in "
+			       "OpenMP %<for%> loop");
+		      else
+			/* Trigger an error.  */
+			cp_parser_require (parser, CPP_EQ, "%<=%>");
+
+		      init = error_mark_node;
+		      cp_parser_skip_to_end_of_statement (parser);
+		    }
+		  else if (CLASS_TYPE_P (TREE_TYPE (decl))
+			   || type_dependent_expression_p (decl))
 		    {
 		      bool is_direct_init, is_non_constant_init;
 
@@ -20913,7 +20939,8 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 		    }
 		  else
 		    {
-		      cp_parser_require (parser, CPP_EQ, "%<=%>");
+		      /* Consume '='.  */
+		      cp_lexer_consume_token (parser->lexer);
 		      init = cp_parser_assignment_expression (parser, false);
 
 		      if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE)
@@ -20929,14 +20956,11 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 		    pop_scope (pushed_scope);
 		}
 	    }
-	  else
-	    cp_parser_abort_tentative_parse (parser);
-
-	  /* If parsing as an initialized declaration failed, try again as
-	     a simple expression.  */
-	  if (decl == NULL)
+	  else 
 	    {
 	      cp_id_kind idk;
+	      /* If parsing a type specifier sequence failed, then
+		 this MUST be a simple expression.  */
 	      cp_parser_parse_tentatively (parser);
 	      decl = cp_parser_primary_expression (parser, false, false,
 						   false, &idk);

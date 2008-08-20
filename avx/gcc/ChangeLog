@@ -1,3 +1,355 @@
+2008-08-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR bootstrap/37155
+	* rtlanal.c (subreg_offset_representable_p): Revert last change.
+
+2008-08-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 35701
+	* c-common.c (conversion_warning): Do not warn if applying bit-and
+	operator to unsigned constant that fits in the target type.
+
+2008-08-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35602
+	* c-common.c (conversion_warning): Do not warn for artificial
+	expressions.
+
+2008-08-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vrp.c (op_with_constant_singleton_value_range): New function.
+	(extract_range_from_binary_expr): Fall back to constant propagation.
+	(extract_range_from_unary_expr): Likewise.
+
+2008-08-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-ccp.c (maybe_fold_stmt_indirect): Do not mess
+	with TREE_THIS_VOLATILE on shared nodes.
+	(fold_stmt_r): Likewise.
+
+2008-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/37171
+	* c-parser.c (c_parser_attributes): For keywords use canonical
+	spelling for attr_name.
+
+2008-08-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* value-prof.c (check_counter): Revert wrong call to error.
+	
+2008-08-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* profile.c: Update calls to inform.
+	* value-prof.c: Update calls to inform.
+	
+2008-08-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* diagnostic.c (inform): Add an explicit location_t parameter.
+	* toplev.h (inform): Update declaration.
+	* builtins.c: Update all calls to inform.
+	* c-common.c: Likewise.
+	* c-decl.c: Likewise.
+	* c-opts.c: Likewise.
+	* c-pch.c: Likewise.
+	* c-pragma.c: Likewise.
+	* c-typeck.c: Likewise.
+	* coverage.c: Likewise.
+	* opts.c: Likewise.
+	* toplev.c: Likewise.
+	* tree-cfg.c: Likewise.
+	* tree-ssa.c: Likewise.
+
+2008-08-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/37169
+	* config/i386/i386.c (ix86_expand_vector_init_one_nonzero): In
+	V2DI mode, for SSE4.1, use movq instead of vector set if the
+	second element is zero and inter-unit moves are OK.
+
+2008-08-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): More
+	properly handle conversion/copy chains after tuplification.
+
+2008-08-20  Richard Guenther  <rguenther@suse.de>
+
+	* passes.c (init_optimization_passes): Move the second
+	forwprop pass before alias computation.  Remove the second
+	DCE pass.  Remove the first dominator and phi copy/const
+	prop passes.
+
+2008-08-20  Nick Clifton  <nickc@redhat.com>
+
+	* configure.ac (HAVE_GAS_CFI_DIRECTIVE): Always test for assembler
+	support of this feature.  Do not assume that a sufficiently new
+	assembler will support the feature regardless of the target type.
+	(HAVE_GAS_CFI_PERSONALITY_DIRECTIVE): Likewise.
+	* configure: Regenerate.
+
+2008-08-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vrp.c (found_in_subgraph): Remove.
+	(live): New global static.
+	(live_on_edge): New function.
+	(blocks_visited): Remove.
+	(register_edge_assert_for_2): Use live_on_edge.
+	(find_conditional_asserts): Remove code dealing with
+	found_in_subgraph.  Do not walk the CFG.
+	(find_switch_asserts): Likewise.
+	(find_assert_locations_1): Renamed from find_assert_locations.
+	Move finding assert locations for conditional and switch
+	statements first.  Update live bitmap.  Do not walk the CFG.
+	(find_assert_locations): New function.
+	(insert_range_assertions): Remove entry of CFG walk.
+	Adjust call to find_assert_locations.
+	* tree-ssa-pre.c (do_regular_insertion): Ignore critical edges
+	that only can appear because of fake exit edges but assert we
+	never try to insert on those.
+	(fini_pre): Do not remove fake exit edges here...
+	(execute_pre): ...but here, before committing edge inserts.
+
+2008-08-19  Richard Guenther  <rguenther@suse.de>
+
+	* passes.c (init_optimization_passes): Exchange store-ccp
+	with a ccp pass.
+
+2008-08-19  Rafael Espindola  <espindola@google.com>
+
+      * varasm.c (weak_decls): Move earlier in the file.
+      (assemble_external): Add weak decls to the weak_decls list.
+      (declare_weak): Don't add decls to the weak_decls list.
+
+2008-08-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/37157
+	* config/i386/sse.md (sse2_punpckhqdq, sse2_punpcklqdq): Moved
+	before (sse2_shufpd_<mode>).
+
+2008-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37156
+	* pretty-print.c (pp_base_format): Deal with recursive BLOCK trees.
+	* tree.c (block_nonartificial_location): Likewise.
+
+2008-08-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35972
+	PR tree-optimization/23094
+	* tree-ssa-sccvn.h (vn_reference_lookup_pieces): Add maywalk
+	parameter.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Properly
+	handle MISALIGNED_INDIRECT_REF.
+	(get_ref_from_reference_ops): New helper.
+	(vn_reference_lookup_pieces): Walk the use-def chain using the
+	alias-oracle if requested.
+	* tree-ssa-pre.c (phi_translate_1): Do reference lookup with
+	walking the use-def chain.
+	(compute_avail): But not here.
+	(create_component_ref_by_pieces_1): Properly handle
+	MISALIGNED_INDIRECT_REF.
+	(do_regular_insertion): Handle fully redundant
+	expressions after PHI-translation also for SSA_NAME values, not
+	only constants.  Correctly use edoubleprime for that.
+
+2008-08-19  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.c (supportable_widening_operation): Support
+	multi-step conversion, return the number of steps in such conversion
+	and the required intermediate types.
+	(supportable_narrowing_operation): Likewise.
+	* tree-vectorizer.h (vect_pow2): New function.
+	(supportable_widening_operation): Change argument types.
+	(supportable_narrowing_operation): Likewise.
+	(vectorizable_type_promotion): Add an argument.
+	(vectorizable_type_demotion): Likewise.
+	* tree-vect-analyze.c (vect_analyze_operations): Call 
+	vectorizable_type_promotion and vectorizable_type_demotion with
+	additional argument.
+	(vect_get_and_check_slp_defs): Detect patterns.
+	(vect_build_slp_tree): Add an argument, don't fail in case of multiple
+	types. 
+	(vect_analyze_slp_instance): Don't fail in case of multiple types. Call
+	vect_build_slp_tree with correct arguments. Calculate unrolling factor
+	according to the smallest type in the loop.
+	(vect_detect_hybrid_slp_stmts): Include statements from patterns.
+	* tree-vect-patterns.c (vect_recog_widen_mult_pattern): Call 
+	supportable_widening_operation with correct arguments. 
+	* tree-vect-transform.c (vect_get_slp_defs): Allocate output vector 
+	operands lists according to the number of vector statements in left
+	or right node, if exists.
+	(vect_gen_widened_results_half): Remove unused argument.
+	(vectorizable_conversion): Call supportable_widening_operation, 
+	supportable_narrowing_operation, and vect_gen_widened_results_half
+	with correct arguments. 
+	(vectorizable_assignment): Change documentation, support multiple
+	types in SLP. 
+	(vectorizable_operation): Likewise.
+	(vect_get_loop_based_defs): New function.
+	(vect_create_vectorized_demotion_stmts): Likewise.
+	(vectorizable_type_demotion): Support loop-aware SLP and general
+	multi-step conversion. Call vect_get_loop_based_defs and
+	vect_create_vectorized_demotion_stmts for transformation.
+	(vect_create_vectorized_promotion_stmts): New function.
+	(vectorizable_type_promotion): Support loop-aware SLP and general
+	multi-step conversion. Call vect_create_vectorized_promotion_stmts
+	for transformation.	
+	(vectorizable_store): Change documentation, support multiple
+	types in SLP. 
+	(vectorizable_load): Likewise.
+	(vect_transform_stmt): Pass SLP_NODE to 
+	vectorizable_type_promotion and vectorizable_type_demotion.
+	(vect_schedule_slp_instance): Move here the calculation of number
+	of vectorized statements for each node from...
+	(vect_schedule_slp): ... here.
+	(vect_transform_loop): Call vect_schedule_slp without the last
+	argument.
+
+2008-08-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR bootstrap/37152
+	* tree-vect-transform.c (vect_create_epilog_for_reduction): Change = 
+	to == in assert statement.
+	(vectorizable_reduction): Fix typo.
+
+2008-08-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/37153
+	* value-prof.c (check_counter): Dereference pointer to overall
+	count when printing it.
+
+2008-08-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* profile.h: Really add it.
+
+2008-08-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* mcf.c: Really add it.
+
+2008-08-18  Paul Yuan  <yingbo.com@gmail.com>
+	    Vinodha Ramasamy  <vinodha@google.com>
+
+	* cgraph.c (cgraph_edge): Handle inconsistent counts when setting
+	count_scale.
+	* value-prof.c (check_counter): Fix the counter if
+	flag_profile_correction is true.
+	(tree_divmod_fixed_value_transform, tree_mod_pow2_value_transform,
+	tree_mod_subtract_transform):
+	Follow check_counter parameter change.
+	* common.opt (fprofile-correction): New option.
+	* mcf.c: New file.
+	* profile.h: Likewise.
+	* profile.c (edge_info, EDGE_INFO): Moved to new file profile.h.
+	(sum_edge_counts, is_edge_inconsistent, correct_negative_edge_counts,
+	is_inconsistent, set_bb_counts, read_profile_edge_counts): New
+	functions.
+	(compute_branch_probabilities): Refactored. Invokes mcf_smooth_cfg if
+	flag_profile_correction is set.
+
+2008-08-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* rtlanal.c (subreg_offset_representable_p): Check HARD_REGNO_MODE_OK.
+
+2008-08-18  Tomas Bily  <tbily@suse.cz>
+
+	* tree.h (IS_CONVERT_EXPR_CODE_P): Renamed to CONVERT_EXPR_CODE_P.
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Use
+	CONVERT_EXPR_P.
+	* tree-data-ref.c (split_constant_offset_1): Likewise.
+	* tree-inline.c (estimate_operator_cost): Use CASE_CONVERT.
+	* tree-sra.c (sra_walk_expr): Likewise.
+	* matrix-reorg.c (ssa_accessed_in_assign_rhs): Likewise.
+	* tree-ssa-loop-niter.c (expand_simple_operations): Likewise.
+	* gimple.h (gimple_assign_cast_p): Use CONVERT_EXPR_CODE_P.
+	* tree-ssa-structalias.c (find_func_aliases, find_func_aliases):
+	Likewise.
+	* gimple.c (gimple_assign_unary_nop_p): Likewise.
+	* tree-vect-transform.c (vectorizable_type_demotion)
+	(vectorizable_type_promotion): Likewise.
+	* tree-inline.c (expand_call_inline): 
+	* tree-ssa-forwprop.c (get_prop_source_stmt, can_propagate_from)
+	(forward_propagate_addr_expr_1, forward_propagate_comparison)
+	(tree_ssa_forward_propagate_single_use_vars): Likewise.
+	* expr.c (expand_expr_real_1): Likewise.
+	* tree-ssa-dom.c (hashable_expr_equal_p, iterative_hash_hashable_expr)
+	(gimple_assign_unary_useless_conversion_p): Likewise.
+	* tree-stdarg.c (execute_optimize_stdarg): Likewise.
+	* tree-ssa-ccp.c (ccp_fold, fold_gimple_assign): Likewise.
+	* fold-const.c (fold_unary): Likewise.
+	* tree.h (CONVERT_EXPR_P): Likewise.
+	* tree.c (simple_cst_equal, iterative_hash_expr): Likewise.
+	* tree-ssa-loop-im.c (rewrite_bittest): Likewise.
+	* tree-vrp.c: 
+	(register_edge_assert_for_2, extract_range_from_unary_expr)
+	(register_edge_assert_for_1): Likewise.
+	
+2008-08-18  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* real.h (dconst_e, dconst_third, dconst_sqrt2, dconst_e_ptr,
+	dconst_third_ptr, dconst_sqrt2_ptr): Declare.
+	(enum real_value_const): Delete.
+	(get_real_const): Delete.
+	* real.c (get_real_const): Delete.
+	(dconst_e_ptr): Define.
+	(dconst_third_ptr): Define.
+	(dconst_sqrt2_ptr): Define.
+	* builtins.c: Update all callers.
+
+2008-08-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-reassoc.c (reassociate_bb): Properly reset the
+	statement iterator after statement removal.
+
+2008-08-18  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* config/rs6000/driver-rs6000.c (detect_caches_freebsd): New function.
+	(detect_processor_freebsd): Likewise.
+	(host_detect_local_cpu): Call newly added functions for FreeBSD.
+
+2008-08-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (verify_types_in_gimple_assign): Verify copies
+	and loads have the correct types.
+
+2008-08-18  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR cpp/7263
+	* c-opts.c (cpp_opts): Remove static.
+	* c-parser.c (cpp_opts): Declare it extern.
+	(disable_extension_diagnostics): Handle cpp options.
+	(enable_extension_diagnostics): Likewise.
+
+2008-08-18  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* diagnostics.c (permerror_at): Rename as permerror.
+	(permerror): Delete.
+	* toplev.h: Likewise.
+
+2008-08-18  Richard Guenther  <rguenther@suse.de>
+
+	* passes.c (init_optimization_passes): Remove cleanup_cfg1,
+	sdse1 and addressables2 passes.  Replace dce1 with cddce1.
+	Move call_cdce before build_alias.  Move copyrename2,
+	cunrolli and ccp2 beafore build_alias.  Re-add addressable2
+	right after final inlining.
+	* tree-cfg.c (build_gimple_cfg): Do not dump function here.
+	(pass_build_cfg): But instead via TODO_dump_func.
+
+2008-08-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-sra.c (generate_element_init_1): Deal with NULL constructor
+	element index.
+	(scalarize_init): If we failed to generate some initializers
+	do not generate zeros for not instantiated members.  Instead
+	rely on the copy out.
+	* tree-ssa-operands.c (get_addr_dereference_operands): Warn
+	about missing flow-sensitive alias info only if we have
+	aliases computed.
+
+2008-08-17  Nick Clifton  <nickc@redhat.com>
+
+	* doc/extend.texi (Function Attributes): Fix typo in description
+	if hot function attribute.
+
 2008-08-17  Daniel Jacobowitz  <dan@codesourcery.com>
 	    Richard Sandiford  <rdsandiford@googlemail.com>
 
@@ -105,24 +457,24 @@
 
 	* config/s390/2097.md New file.
 	* config/s390/s390.md ("z10prop" attribute): Define none,
-        z10_super, z10_super_E1, z10_super_A1, z10_super_c,
-        z10_super_c_E1, z10_fwd, z10_fwd_A1, z10_fwd_A3, z10_fwd_E1,
-        z10_rec, z10_fr, z10_fr_A3, z10_fr_E1, z10_c, and z10_cobra as
-        possible values and apply them to insns as appropriate.
-        ("type" attribute): Removed itof and added ftrunctf,ftruncdf,
-        ftruncsd, ftruncdd, itoftf, itofdf, itofsf, itofdd, itoftd,
-        fdivdd, fdivtd, floaddd, floadsd, fmuldd, fmultd, fsimpdd,
-        fsimpsd, fsimptd, fstoredd, fstoresd, ftoidfp as possible
-        values.
+	z10_super, z10_super_E1, z10_super_A1, z10_super_c,
+	z10_super_c_E1, z10_fwd, z10_fwd_A1, z10_fwd_A3, z10_fwd_E1,
+	z10_rec, z10_fr, z10_fr_A3, z10_fr_E1, z10_c, and z10_cobra as
+	possible values and apply them to insns as appropriate.
+	("type" attribute): Removed itof and added ftrunctf,ftruncdf,
+	ftruncsd, ftruncdd, itoftf, itofdf, itofsf, itofdd, itoftd,
+	fdivdd, fdivtd, floaddd, floadsd, fmuldd, fmultd, fsimpdd,
+	fsimpsd, fsimptd, fstoredd, fstoresd, ftoidfp as possible
+	values.
 	("bfp" mode attribute): Removed.  Every occurence replaced
 	with <mode>.
 	* config/s390/s390.c (struct "z10_cost"): Updated entries.
 	* config/s390/2084.md (insn_reservation "x_itof"): Updated
-          type attribute.
+	  type attribute.
 
 2008-08-14  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
-        PR c/28152
+	PR c/28152
 	* c-parser.c (c_lex_one_token): Do not store the canonical spelling
 	for keywords.
 	

@@ -710,8 +710,8 @@ check_specialization_namespace (tree tmpl)
     return true;
   else
     {
-      permerror ("specialization of %qD in different namespace", tmpl);
-      permerror ("  from definition of %q+#D", tmpl);
+      permerror (input_location, "specialization of %qD in different namespace", tmpl);
+      permerror (input_location, "  from definition of %q+#D", tmpl);
       return false;
     }
 }
@@ -728,7 +728,7 @@ check_explicit_instantiation_namespace (tree spec)
      namespace of its template.  */
   ns = decl_namespace_context (spec);
   if (!is_ancestor (current_namespace, ns))
-    permerror ("explicit instantiation of %qD in namespace %qD "
+    permerror (input_location, "explicit instantiation of %qD in namespace %qD "
 	       "(which does not enclose namespace %qD)",
 	       spec, current_namespace, ns);
 }
@@ -811,8 +811,8 @@ maybe_process_partial_specialization (tree type)
 	  if (current_namespace
 	      != decl_namespace_context (CLASSTYPE_TI_TEMPLATE (type)))
 	    {
-	      permerror ("specializing %q#T in different namespace", type);
-	      permerror ("  from definition of %q+#D",
+	      permerror (input_location, "specializing %q#T in different namespace", type);
+	      permerror (input_location, "  from definition of %q+#D",
 		         CLASSTYPE_TI_TEMPLATE (type));
 	    }
 
@@ -2002,8 +2002,8 @@ check_explicit_specialization (tree declarator,
       for (; t; t = TREE_CHAIN (t))
 	if (TREE_PURPOSE (t))
 	  {
-	    permerror
-	      ("default argument specified in explicit specialization");
+	    permerror (input_location, 
+		       "default argument specified in explicit specialization");
 	    break;
 	  }
     }
@@ -2741,9 +2741,9 @@ check_for_bare_parameter_packs (tree t)
             name = DECL_NAME (pack);
 
 	  if (name)
-	    inform ("        %qD", name);
+	    inform (input_location, "        %qD", name);
 	  else
-	    inform ("        <anonymous>");
+	    inform (input_location, "        <anonymous>");
 
           parameter_packs = TREE_CHAIN (parameter_packs);
         }
@@ -4020,7 +4020,7 @@ push_template_decl_real (tree decl, bool is_friend)
 template arguments to %qD do not match original template %qD",
 		 decl, DECL_TEMPLATE_RESULT (tmpl));
 	  if (!uses_template_parms (TI_ARGS (tinfo)))
-	    inform ("use template<> for an explicit specialization");
+	    inform (input_location, "use template<> for an explicit specialization");
 	  /* Avoid crash in import_export_decl.  */
 	  DECL_INTERFACE_KNOWN (decl) = 1;
 	  return error_mark_node;
@@ -4141,7 +4141,7 @@ redeclare_class_template (tree type, tree parms)
     {
       error ("redeclared with %d template parameter(s)", 
              TREE_VEC_LENGTH (parms));
-      inform ("previous declaration %q+D used %d template parameter(s)", 
+      inform (input_location, "previous declaration %q+D used %d template parameter(s)", 
              tmpl, TREE_VEC_LENGTH (tmpl_parms));
       return false;
     }
@@ -4187,7 +4187,7 @@ redeclare_class_template (tree type, tree parms)
 	     A template-parameter may not be given default arguments
 	     by two different declarations in the same scope.  */
 	  error ("redefinition of default argument for %q#D", parm);
-	  inform ("%Joriginal definition appeared here", tmpl_parm);
+	  inform (input_location, "%Joriginal definition appeared here", tmpl_parm);
 	  return false;
 	}
 
@@ -4570,7 +4570,7 @@ convert_nontype_argument (tree type, tree expr)
 	{
 	  error ("%qE is not a valid template argument for type %qT "
 		 "because it is a pointer", expr, type);
-	  inform ("try using %qE instead", TREE_OPERAND (expr, 0));
+	  inform (input_location, "try using %qE instead", TREE_OPERAND (expr, 0));
 	  return NULL_TREE;
 	}
 
@@ -4608,7 +4608,7 @@ convert_nontype_argument (tree type, tree expr)
 	  error ("%qE is not a valid template argument for type %qT "
 		 "because it is of type %qT", expr, type,
 		 TREE_TYPE (expr));
-	  inform ("standard conversions are not allowed in this context");
+	  inform (input_location, "standard conversions are not allowed in this context");
 	  return NULL_TREE;
 	}
     }
@@ -4942,7 +4942,7 @@ convert_template_argument (tree parm,
   if (requires_type && ! is_type && TREE_CODE (arg) == SCOPE_REF
       && TREE_CODE (TREE_OPERAND (arg, 0)) == TEMPLATE_TYPE_PARM)
     {
-      permerror ("to refer to a type member of a template parameter, "
+      permerror (input_location, "to refer to a type member of a template parameter, "
 	         "use %<typename %E%>", orig_arg);
 
       orig_arg = make_typename_type (TREE_OPERAND (arg, 0),
@@ -9722,7 +9722,7 @@ tsubst_qualified_id (tree qualified_id, tree args,
 	    {
 	      error ("dependent-name %qE is parsed as a non-type, but "
 		     "instantiation yields a type", qualified_id);
-	      inform ("say %<typename %E%> if a type is meant", qualified_id);
+	      inform (input_location, "say %<typename %E%> if a type is meant", qualified_id);
 	    }
 	  return error_mark_node;
 	}
@@ -14591,7 +14591,7 @@ do_decl_instantiation (tree decl, tree storage)
 	 the first instantiation was `extern' and the second is not,
 	 and EXTERN_P for the opposite case.  */
       if (DECL_NOT_REALLY_EXTERN (result) && !extern_p)
-	permerror ("duplicate explicit instantiation of %q#D", result);
+	permerror (input_location, "duplicate explicit instantiation of %q#D", result);
       /* If an "extern" explicit instantiation follows an ordinary
 	 explicit instantiation, the template is instantiated.  */
       if (extern_p)
@@ -14604,7 +14604,7 @@ do_decl_instantiation (tree decl, tree storage)
     }
   else if (!DECL_TEMPLATE_INFO (result))
     {
-      permerror ("explicit instantiation of non-template %q#D", result);
+      permerror (input_location, "explicit instantiation of non-template %q#D", result);
       return;
     }
 
@@ -14756,7 +14756,7 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
 
       if (!previous_instantiation_extern_p && !extern_p
 	  && (complain & tf_error))
-	permerror ("duplicate explicit instantiation of %q#T", t);
+	permerror (input_location, "duplicate explicit instantiation of %q#T", t);
 
       /* If we've already instantiated the template, just return now.  */
       if (!CLASSTYPE_INTERFACE_ONLY (t))
@@ -15200,8 +15200,8 @@ instantiate_decl (tree d, int defer_ok,
 	   member function or static data member of a class template
 	   shall be present in every translation unit in which it is
 	   explicitly instantiated.  */
-	permerror
-	  ("explicit instantiation of %qD but no definition available", d);
+	permerror (input_location,  "explicit instantiation of %qD "
+		   "but no definition available", d);
 
       /* ??? Historically, we have instantiated inline functions, even
 	 when marked as "extern template".  */
