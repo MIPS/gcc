@@ -437,6 +437,26 @@
 #define TARGET_VALID_POINTER_MODE default_valid_pointer_mode
 #endif
 
+#ifndef TARGET_ADDR_SPACE_POINTER_MODE
+#define TARGET_ADDR_SPACE_POINTER_MODE default_addr_space_pointer_mode
+#endif
+
+#ifndef TARGET_ADDR_SPACE_NAME
+#define TARGET_ADDR_SPACE_NAME default_addr_space_name
+#endif
+
+#ifndef TARGET_ADDR_SPACE_NUMBER
+#define TARGET_ADDR_SPACE_NUMBER default_addr_space_number
+#endif
+
+#ifndef TARGET_ADDR_SPACE_CONVERSION_RTL
+#define TARGET_ADDR_SPACE_CONVERSION_RTL default_addr_space_conversion_rtl
+#endif
+
+#ifndef TARGET_VALID_ADDR_SPACE
+#define TARGET_VALID_ADDR_SPACE hook_bool_const_tree_false
+#endif
+
 #ifndef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P default_scalar_mode_supported_p
 #endif
@@ -750,6 +770,11 @@
   TARGET_MIN_DIVISIONS_FOR_RECIP_MUL,		\
   TARGET_MODE_REP_EXTENDED,			\
   TARGET_VALID_POINTER_MODE,                    \
+  TARGET_ADDR_SPACE_POINTER_MODE,		\
+  TARGET_ADDR_SPACE_NAME,			\
+  TARGET_ADDR_SPACE_NUMBER,			\
+  TARGET_ADDR_SPACE_CONVERSION_RTL,		\
+  TARGET_VALID_ADDR_SPACE,			\
   TARGET_SCALAR_MODE_SUPPORTED_P,		\
   TARGET_VECTOR_MODE_SUPPORTED_P,               \
   TARGET_VECTOR_OPAQUE_P,			\

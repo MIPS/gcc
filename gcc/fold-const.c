@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "langhooks.h"
 #include "md5.h"
+#include "target.h"
 
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
@@ -202,8 +203,10 @@ fit_double_type (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
   unsigned int prec;
   int sign_extended_type;
 
-  if (POINTER_TYPE_P (type)
-      || TREE_CODE (type) == OFFSET_TYPE)
+  if (OTHER_ADDR_SPACE_POINTER_TYPE_P (type))
+    prec = GET_MODE_BITSIZE (targetm.addr_space_pointer_mode (TYPE_ADDR_SPACE (type)));
+  else if (POINTER_TYPE_P (type)
+	   || TREE_CODE (type) == OFFSET_TYPE)
     prec = POINTER_SIZE;
   else
     prec = TYPE_PRECISION (type);
@@ -2397,7 +2400,9 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
   if (TREE_TYPE (arg1) == type)
     return arg1;
 
-  if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type))
+  if (OTHER_ADDR_SPACE_POINTER_TYPE_P (type))
+    return NULL_TREE;
+  else if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type))
     {
       if (TREE_CODE (arg1) == INTEGER_CST)
 	return fold_convert_const_int_from_int (type, arg1);

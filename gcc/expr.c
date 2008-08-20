@@ -6883,17 +6883,22 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
 		       enum expand_modifier modifier)
 {
   enum machine_mode rmode;
+  enum machine_mode addrmode;
   rtx result;
 
   /* Target mode of VOIDmode says "whatever's natural".  */
   if (tmode == VOIDmode)
     tmode = TYPE_MODE (TREE_TYPE (exp));
 
+  addrmode = Pmode;
+  if (OTHER_ADDR_SPACE_POINTER_TYPE_P (TREE_TYPE (exp)))
+    addrmode = targetm.addr_space_pointer_mode (TYPE_ADDR_SPACE (TREE_TYPE (exp)));
+
   /* We can get called with some Weird Things if the user does silliness
      like "(short) &a".  In that case, convert_memory_address won't do
      the right thing, so ignore the given target mode.  */
-  if (tmode != Pmode && tmode != ptr_mode)
-    tmode = Pmode;
+  if (tmode != addrmode && tmode != ptr_mode)
+    tmode = addrmode;
 
   result = expand_expr_addr_expr_1 (TREE_OPERAND (exp, 0), target,
 				    tmode, modifier);
@@ -7133,6 +7138,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
   int ignore;
   tree context, subexp0, subexp1;
   bool reduce_bit_field = false;
+  rtx (*genfn) (rtx, rtx);
 #define REDUCE_BIT_FIELD(expr)	(reduce_bit_field && !ignore		  \
 				 ? reduce_to_bit_field_precision ((expr), \
 								  target, \
@@ -8103,6 +8109,27 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	  /* Return the entire union.  */
 	  return target;
+	}
+
+      /* Handle casts of pointers to/from address space qualified
+	 pointers.  */
+      if (OTHER_ADDR_SPACE_POINTER_TYPE_P (type)
+	  && GENERIC_ADDR_SPACE_POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0))))
+	{
+	  rtx reg = gen_reg_rtx (TYPE_MODE (type));
+	  op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, modifier);
+	  genfn = targetm.addr_space_conversion_rtl (0, 1);
+	  emit_insn (genfn (reg, op0));
+	  return reg;
+	}
+      else if (GENERIC_ADDR_SPACE_POINTER_TYPE_P (type)
+	       && (OTHER_ADDR_SPACE_POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0)))))
+	{
+	  rtx reg = gen_reg_rtx (Pmode);
+	  op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, modifier);
+	  genfn = targetm.addr_space_conversion_rtl (1, 0);
+	  emit_insn (genfn (reg, op0));
+	  return reg;
 	}
 
       if (mode == TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0))))

@@ -35,6 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "fixed-value.h"
 #include "value-prof.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Local functions, macros and variables.  */
 static int op_prio (const_tree);
@@ -550,6 +552,13 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	else if (quals & TYPE_QUAL_RESTRICT)
 	  pp_string (buffer, "restrict ");
 
+ 	if (TYPE_ADDR_SPACE (node))
+ 	  {
+ 	    const char *as = targetm.addr_space_name (TYPE_ADDR_SPACE (node));
+	    pp_string (buffer, as);
+	    pp_space (buffer);
+ 	  }
+
 	class = TREE_CODE_CLASS (TREE_CODE (node));
 
 	if (class == tcc_declaration)
@@ -626,6 +635,13 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  if (quals & TYPE_QUAL_RESTRICT)
 	    pp_string (buffer, " restrict");
 
+	  if (TYPE_ADDR_SPACE (node))
+	    {
+	      const char *as = targetm.addr_space_name (TYPE_ADDR_SPACE (node));
+	      pp_string (buffer, as);
+	      pp_space (buffer);
+	    }
+	  
 	  if (TYPE_REF_CAN_ALIAS_ALL (node))
 	    pp_string (buffer, " {ref-all}");
 	}

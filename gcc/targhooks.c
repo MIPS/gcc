@@ -691,6 +691,22 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
    return id;
 }
 
+const char *
+default_addr_space_name (int addrspace ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+rtx (* default_addr_space_conversion_rtl (int from ATTRIBUTE_UNUSED, int to ATTRIBUTE_UNUSED)) (rtx, rtx)
+{
+  gcc_unreachable ();
+}
+
+unsigned char default_addr_space_number (const tree ident ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
 bool
 default_builtin_vector_alignment_reachable (const_tree type, bool is_packed)
 {

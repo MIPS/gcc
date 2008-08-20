@@ -1250,6 +1250,7 @@ make_decl_rtl (tree decl)
   const char *name = 0;
   int reg_number;
   rtx x;
+  enum machine_mode addrmode;
 
   /* Check that we are not being given an automatic variable.  */
   gcc_assert (TREE_CODE (decl) != PARM_DECL
@@ -1394,7 +1395,10 @@ make_decl_rtl (tree decl)
   if (use_object_blocks_p () && use_blocks_for_decl_p (decl))
     x = create_block_symbol (name, get_block_for_decl (decl), -1);
   else
-    x = gen_rtx_SYMBOL_REF (Pmode, name);
+    {
+      addrmode = (TREE_TYPE (decl) == error_mark_node) ? Pmode : targetm.addr_space_pointer_mode (TYPE_ADDR_SPACE (TREE_TYPE (decl)));
+      x = gen_rtx_SYMBOL_REF (addrmode, name);
+    }
   SYMBOL_REF_WEAK (x) = DECL_WEAK (decl);
   SET_SYMBOL_REF_DECL (x, decl);
 
@@ -6221,6 +6225,13 @@ bool
 default_valid_pointer_mode (enum machine_mode mode)
 {
   return (mode == ptr_mode || mode == Pmode);
+}
+
+enum machine_mode
+default_addr_space_pointer_mode (int addrspace)
+{
+  gcc_assert (addrspace == 0);
+  return ptr_mode;
 }
 
 /* Default function to output code that will globalize a label.  A

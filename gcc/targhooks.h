@@ -95,3 +95,6 @@ extern void hook_void_bitmap (bitmap);
 extern bool default_handle_c_option (size_t, const char *, int);
 extern int default_reloc_rw_mask (void);
 extern tree default_mangle_decl_assembler_name (tree, tree);
+extern const char *default_addr_space_name (int);
+extern unsigned char default_addr_space_number (const tree);
+extern rtx (*default_addr_space_conversion_rtl (int, int)) (rtx, rtx);

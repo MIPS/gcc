@@ -1115,6 +1115,16 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define POINTER_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || TREE_CODE (TYPE) == REFERENCE_TYPE)
 
+/* Nonzero if TYPE is pointer or reference type qualified as belonging
+   to an address space that is not the generic address space.  */
+#define OTHER_ADDR_SPACE_POINTER_TYPE_P(TYPE) \
+  (POINTER_TYPE_P (TYPE) && TYPE_ADDR_SPACE (TREE_TYPE (TYPE)))
+
+/* Nonzero if TYPE is a pointer or reference type, but does not belong
+   to an address space outside the generic address space.  */
+#define GENERIC_ADDR_SPACE_POINTER_TYPE_P(TYPE) \
+  (POINTER_TYPE_P (TYPE) && !TYPE_ADDR_SPACE (TREE_TYPE (TYPE)))
+
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 
@@ -2222,6 +2232,9 @@ struct tree_block GTY(())
    the term.  */
 #define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->type.restrict_flag)
 
+/* If nonzero, this type is in the extended address space.  */
+#define TYPE_ADDR_SPACE(NODE) (TYPE_CHECK (NODE)->type.address_space)
+
 /* There is a TYPE_QUAL value for each type qualifier.  They can be
    combined by bitwise-or to form the complete set of qualifiers for a
    type.  */
@@ -2231,11 +2244,15 @@ struct tree_block GTY(())
 #define TYPE_QUAL_VOLATILE 0x2
 #define TYPE_QUAL_RESTRICT 0x4
 
+#define ENCODE_QUAL_ADDR_SPACE(NUM) ((NUM & 0xFF) << 8)
+#define DECODE_QUAL_ADDR_SPACE(X) (((X) >> 8) && 0xFF)
+
 /* The set of type qualifiers for this type.  */
 #define TYPE_QUALS(NODE)					\
   ((TYPE_READONLY (NODE) * TYPE_QUAL_CONST)			\
    | (TYPE_VOLATILE (NODE) * TYPE_QUAL_VOLATILE)		\
-   | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT))
+   | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)		\
+   | (ENCODE_QUAL_ADDR_SPACE (TYPE_ADDR_SPACE (NODE))))
 
 /* These flags are available for each language front end to use internally.  */
 #define TYPE_LANG_FLAG_0(NODE) (TYPE_CHECK (NODE)->type.lang_flag_0)
@@ -2327,6 +2344,8 @@ struct tree_type GTY(())
   unsigned user_align : 1;
 
   unsigned int align;
+  unsigned char address_space;
+
   tree pointer_to;
   tree reference_to;
   union tree_type_symtab {

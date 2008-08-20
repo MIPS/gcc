@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "langhooks-def.h"
 #include "pointer-set.h"
+#include "targhooks.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -2922,7 +2923,8 @@ shadow_tag_warned (const struct c_declspecs *declspecs, int warned)
 	  else if (!declspecs->tag_defined_p
 		   && (declspecs->const_p
 		       || declspecs->volatile_p
-		       || declspecs->restrict_p))
+		       || declspecs->restrict_p
+		       || declspecs->address_space))
 	    {
 	      if (warned != 1)
 		pedwarn ("empty declaration with type qualifier "
@@ -2991,7 +2993,8 @@ shadow_tag_warned (const struct c_declspecs *declspecs, int warned)
 
   if (!warned && !in_system_header && (declspecs->const_p
 				       || declspecs->volatile_p
-				       || declspecs->restrict_p))
+				       || declspecs->restrict_p
+				       || declspecs->address_space))
     {
       warning (0, "useless type qualifier in empty declaration");
       warned = 2;
@@ -3014,7 +3017,8 @@ quals_from_declspecs (const struct c_declspecs *specs)
 {
   int quals = ((specs->const_p ? TYPE_QUAL_CONST : 0)
 	       | (specs->volatile_p ? TYPE_QUAL_VOLATILE : 0)
-	       | (specs->restrict_p ? TYPE_QUAL_RESTRICT : 0));
+	       | (specs->restrict_p ? TYPE_QUAL_RESTRICT : 0)
+	       | (ENCODE_QUAL_ADDR_SPACE (specs->address_space)));
   gcc_assert (!specs->type
 	      && !specs->decl_attr
 	      && specs->typespec_word == cts_none
@@ -3980,6 +3984,7 @@ grokdeclarator (const struct c_declarator *declarator,
   int constp;
   int restrictp;
   int volatilep;
+  int addr_space_p;
   int type_quals = TYPE_UNQUALIFIED;
   const char *name, *orig_name;
   tree typedef_type = 0;
@@ -4095,6 +4100,7 @@ grokdeclarator (const struct c_declarator *declarator,
   constp = declspecs->const_p + TYPE_READONLY (element_type);
   restrictp = declspecs->restrict_p + TYPE_RESTRICT (element_type);
   volatilep = declspecs->volatile_p + TYPE_VOLATILE (element_type);
+  addr_space_p = (declspecs->address_space > 0) + (TYPE_ADDR_SPACE (element_type) > 0);
   if (pedantic && !flag_isoc99)
     {
       if (constp > 1)
@@ -4103,12 +4109,18 @@ grokdeclarator (const struct c_declarator *declarator,
 	pedwarn ("duplicate %<restrict%>");
       if (volatilep > 1)
 	pedwarn ("duplicate %<volatile%>");
+      if (addr_space_p > 1)
+	pedwarn ("duplicate %qs",
+		 targetm.addr_space_name (TYPE_ADDR_SPACE (element_type)));
+
     }
   if (!flag_gen_aux_info && (TYPE_QUALS (element_type)))
     type = TYPE_MAIN_VARIANT (type);
   type_quals = ((constp ? TYPE_QUAL_CONST : 0)
 		| (restrictp ? TYPE_QUAL_RESTRICT : 0)
-		| (volatilep ? TYPE_QUAL_VOLATILE : 0));
+		| (volatilep ? TYPE_QUAL_VOLATILE : 0)
+		| (addr_space_p ?
+		   ENCODE_QUAL_ADDR_SPACE (declspecs->address_space) : 0));
 
   /* Warn about storage classes that are invalid for certain
      kinds of declarations (parameters, typenames, etc.).  */
@@ -4133,6 +4145,56 @@ grokdeclarator (const struct c_declarator *declarator,
 	  || storage_class == csc_register
 	  || storage_class == csc_typedef)
 	storage_class = csc_none;
+    }
+  else if (declspecs->address_space)
+    {
+      const char *addrspace_name;
+
+      /* Does the target have named address spaces?  */
+      if (targetm.addr_space_name == default_addr_space_name)
+	{
+	  /* A mere warning is sure to result in improper semantics
+	     at runtime.  Don't bother to allow this to compile.  */
+	  error ("extended address space not supported for this target");
+	  return 0;
+	}
+
+      addrspace_name = targetm.addr_space_name (declspecs->address_space);
+      if (decl_context == NORMAL)
+	{
+	  if (declarator->kind == cdk_function)
+	    error ("%qs specified for function %qs", addrspace_name, name);
+	  else if (declarator->kind == cdk_id)
+	    {
+
+	      switch (storage_class)
+		{
+		case csc_auto:
+		  error ("%qs combined with %<auto%> qualifier for %qs", addrspace_name, name);
+		  break;
+		case csc_register:
+		  error ("%qs combined with %<register%> qualifier for %qs", addrspace_name, name);
+		  break;
+		case csc_static:
+		  error ("%qs combined with %<static%> qualifier for %qs", addrspace_name, name);
+		  break;
+		case csc_none:
+		  if (current_function_scope)
+		    error ("%qs specified for auto variable %qs", addrspace_name, name);
+		  else
+		    error ("%qs variable %qs must be extern", addrspace_name, name);
+		  break;
+		case csc_extern:
+		  /* fall through */
+		case csc_typedef:
+		  break;
+		}
+	    }
+	}
+      else if (decl_context == PARM && declarator->kind == cdk_id)
+	error ("%qs specified for parameter %qs", addrspace_name, name);
+      else if (decl_context == FIELD)
+	error ("%qs specified for structure field %qs", addrspace_name, name);
     }
   else if (decl_context != NORMAL && (storage_class != csc_none || threadp))
     {
@@ -4895,6 +4957,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	int extern_ref = !initialized && storage_class == csc_extern;
 
 	type = c_build_qualified_type (type, type_quals);
+
+	if (POINTER_TYPE_P (type) && TYPE_ADDR_SPACE (type) && !extern_ref)
+	  error ("%qs variable %qs must be extern", 
+		 targetm.addr_space_name (TYPE_ADDR_SPACE (type)), name);
 
 	/* C99 6.2.2p7: It is invalid (compile-time undefined
 	   behavior) to create an 'extern' declaration for a
@@ -7146,7 +7212,21 @@ build_null_declspecs (void)
   ret->volatile_p = false;
   ret->restrict_p = false;
   ret->saturating_p = false;
+  ret->address_space = 0;
   return ret;
+}
+
+struct c_declspecs *
+declspecs_add_addrspace (struct c_declspecs *specs, tree addrspace)
+{
+  specs->non_sc_seen_p = true;
+  specs->declspecs_seen_p = true;
+
+  if (specs->address_space > 0)
+    pedwarn ("duplicate %qs", targetm.addr_space_name (specs->address_space));
+
+  specs->address_space = targetm.addr_space_number (addrspace);
+  return specs;
 }
 
 /* Add the type qualifier QUAL to the declaration specifiers SPECS,

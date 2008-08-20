@@ -238,6 +238,8 @@ typedef enum c_id_kind {
   C_ID_TYPENAME,
   /* An identifier declared as an Objective-C class name.  */
   C_ID_CLASSNAME,
+  /* An address space identifier.  */
+  C_ID_ADDRSPACE,
   /* Not an identifier.  */
   C_ID_NONE
 } c_id_kind;
@@ -362,6 +364,11 @@ c_lex_one_token (c_parser *parser, c_token *token)
 		break;
 	      }
 	  }
+	else if (targetm.valid_addr_space (token->value))
+	  {
+	    token->id_kind = C_ID_ADDRSPACE;
+	    break;
+	  }
 	else if (c_dialect_objc ())
 	  {
 	    tree objc_interface_decl = objc_is_class_name (token->value);
@@ -463,6 +470,8 @@ c_token_starts_typename (c_token *token)
 	{
 	case C_ID_ID:
 	  return false;
+	case C_ID_ADDRSPACE:
+	  return true;
 	case C_ID_TYPENAME:
 	  return true;
 	case C_ID_CLASSNAME:
@@ -533,6 +542,8 @@ c_token_starts_declspecs (c_token *token)
 	{
 	case C_ID_ID:
 	  return false;
+	case C_ID_ADDRSPACE:
+	  return true;
 	case C_ID_TYPENAME:
 	  return true;
 	case C_ID_CLASSNAME:
@@ -1497,6 +1508,7 @@ c_parser_asm_definition (c_parser *parser)
      const
      restrict
      volatile
+     address-space-qualifier
 
    (restrict is new in C99.)
 
@@ -1504,6 +1516,12 @@ c_parser_asm_definition (c_parser *parser)
 
    declaration-specifiers:
      attributes declaration-specifiers[opt]
+
+   type-qualifier:
+     address-space
+
+   address-space:
+     identifier recognized by the target
 
    storage-class-specifier:
      __thread
@@ -1544,6 +1562,16 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	{
 	  tree value = c_parser_peek_token (parser)->value;
 	  c_id_kind kind = c_parser_peek_token (parser)->id_kind;
+
+	  if (kind == C_ID_ADDRSPACE && !c_dialect_objc ())
+	    {
+	      declspecs_add_addrspace (specs, c_parser_peek_token (parser)->value);
+	      c_parser_consume_token (parser);
+	      attrs_ok = true;
+	      seen_type = true;
+	      continue;
+	    }
+
 	  /* This finishes the specifiers unless a type name is OK, it
 	     is declared as a type name and a type name hasn't yet
 	     been seen.  */
@@ -5590,6 +5618,13 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
   init = c_parser_braced_init (parser, type, false);
   finish_init ();
   maybe_warn_string_init (type, init);
+
+  if (type != error_mark_node && TYPE_ADDR_SPACE (type) 
+      && current_function_decl)
+    {
+      error ("compound literal qualified by address-space qualifier");
+      type = error_mark_node;
+    }
 
   if (pedantic && !flag_isoc99)
     pedwarn ("%HISO C90 forbids compound literals", &start_loc);

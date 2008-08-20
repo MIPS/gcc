@@ -1415,8 +1415,13 @@ integer_pow2p (const_tree expr)
   if (TREE_CODE (expr) != INTEGER_CST)
     return 0;
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
-	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
+  if (OTHER_ADDR_SPACE_POINTER_TYPE_P (TREE_TYPE (expr)))
+    prec = GET_MODE_BITSIZE (targetm.addr_space_pointer_mode (TYPE_ADDR_SPACE (TREE_TYPE (expr))));
+  else if (POINTER_TYPE_P (TREE_TYPE (expr)))
+    prec = POINTER_SIZE;
+  else
+    prec = TYPE_PRECISION (TREE_TYPE (expr));
+
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
 
@@ -1480,8 +1485,12 @@ tree_log2 (const_tree expr)
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
-	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
+  if (OTHER_ADDR_SPACE_POINTER_TYPE_P (TREE_TYPE (expr)))
+    prec = GET_MODE_BITSIZE (targetm.addr_space_pointer_mode (TYPE_ADDR_SPACE (TREE_TYPE (expr))));
+  else if (POINTER_TYPE_P (TREE_TYPE (expr)))
+    prec = POINTER_SIZE;
+  else
+    prec = TYPE_PRECISION (TREE_TYPE (expr));
 
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
@@ -1518,8 +1527,12 @@ tree_floor_log2 (const_tree expr)
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
-	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
+  if (OTHER_ADDR_SPACE_POINTER_TYPE_P (TREE_TYPE (expr)))
+    prec = GET_MODE_BITSIZE (targetm.addr_space_pointer_mode (TYPE_ADDR_SPACE (TREE_TYPE (expr))));
+  else if (POINTER_TYPE_P (TREE_TYPE (expr)))
+    prec = POINTER_SIZE;
+  else
+    prec = TYPE_PRECISION (TREE_TYPE (expr));
 
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
@@ -4163,6 +4176,7 @@ set_type_quals (tree type, int type_quals)
   TYPE_READONLY (type) = (type_quals & TYPE_QUAL_CONST) != 0;
   TYPE_VOLATILE (type) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
+  TYPE_ADDR_SPACE (type) = DECODE_QUAL_ADDR_SPACE (type_quals);
 }
 
 /* Returns true iff CAND is equivalent to BASE with TYPE_QUALS.  */
@@ -5469,7 +5483,8 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_pointer_type (tree to_type)
 {
-  return build_pointer_type_for_mode (to_type, ptr_mode, false);
+  enum machine_mode mode = targetm.addr_space_pointer_mode (TYPE_ADDR_SPACE (to_type));
+  return build_pointer_type_for_mode (to_type, mode, false);
 }
 
 /* Same as build_pointer_type_for_mode, but for REFERENCE_TYPE.  */

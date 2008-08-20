@@ -627,6 +627,21 @@ struct gcc_target
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
 
+  /* MODE to use for a pointer into another address space.  */
+  enum machine_mode (* addr_space_pointer_mode) (int);
+
+  /* Function to map an address space to a descriptive string.  */
+  const char * (* addr_space_name) (int);
+
+  /* Function to map an address space to a descriptive string.  */
+  unsigned char (* addr_space_number) (const tree);
+
+  /* Function to return a gen function for the pointer conversion.  */
+  rtx (* (* addr_space_conversion_rtl) (int, int)) (rtx, rtx);
+
+  /* True if an identifier that is a valid address space.  */
+  bool (* valid_addr_space) (const_tree);
+
   /* True if MODE is valid for the target.  By "valid", we mean able to
      be manipulated in non-trivial ways.  In particular, this means all
      the arithmetic is supported.  */
