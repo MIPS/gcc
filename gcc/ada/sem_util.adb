@@ -7031,11 +7031,8 @@ package body Sem_Util is
          --  If scope is a package, also clear current values of all
          --  private entities in the scope.
 
-         if Ekind (S) = E_Package
-              or else
-            Ekind (S) = E_Generic_Package
-              or else
-            Is_Concurrent_Type (S)
+         if Is_Package_Or_Generic_Package (S)
+           or else Is_Concurrent_Type (S)
          then
             Kill_Current_Values_For_Entity_Chain (First_Private_Entity (S));
          end if;
@@ -8974,6 +8971,16 @@ package body Sem_Util is
            and then not Needs_Debug_Info (E)
          then
             Set_Debug_Info_Needed (E);
+
+            --  For a private type, indicate that the full view also needs
+            --  debug information.
+
+            if Is_Type (E)
+              and then Is_Private_Type (E)
+              and then Present (Full_View (E))
+            then
+               Set_Debug_Info_Needed (Full_View (E));
+            end if;
          end if;
       end Set_Debug_Info_Needed_If_Not_Set;
 

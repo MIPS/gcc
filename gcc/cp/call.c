@@ -2545,24 +2545,24 @@ print_z_candidate (const char *msgstr, struct z_candidate *candidate)
   if (TREE_CODE (candidate->fn) == IDENTIFIER_NODE)
     {
       if (candidate->num_convs == 3)
-	inform ("%s %D(%T, %T, %T) <built-in>", msgstr, candidate->fn,
+	inform (input_location, "%s %D(%T, %T, %T) <built-in>", msgstr, candidate->fn,
 		candidate->convs[0]->type,
 		candidate->convs[1]->type,
 		candidate->convs[2]->type);
       else if (candidate->num_convs == 2)
-	inform ("%s %D(%T, %T) <built-in>", msgstr, candidate->fn,
+	inform (input_location, "%s %D(%T, %T) <built-in>", msgstr, candidate->fn,
 		candidate->convs[0]->type,
 		candidate->convs[1]->type);
       else
-	inform ("%s %D(%T) <built-in>", msgstr, candidate->fn,
+	inform (input_location, "%s %D(%T) <built-in>", msgstr, candidate->fn,
 		candidate->convs[0]->type);
     }
   else if (TYPE_P (candidate->fn))
-    inform ("%s %T <conversion>", msgstr, candidate->fn);
+    inform (input_location, "%s %T <conversion>", msgstr, candidate->fn);
   else if (candidate->viable == -1)
-    inform ("%s %+#D <near match>", msgstr, candidate->fn);
+    inform (input_location, "%s %+#D <near match>", msgstr, candidate->fn);
   else
-    inform ("%s %+#D", msgstr, candidate->fn);
+    inform (input_location, "%s %+#D", msgstr, candidate->fn);
 }
 
 static void
@@ -4038,7 +4038,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 	  /* Look for an `operator++ (int)'.  If they didn't have
 	     one, then we fall back to the old way of doing things.  */
 	  if (flags & LOOKUP_COMPLAIN)
-	    permerror ("no %<%D(int)%> declared for postfix %qs, "
+	    permerror (input_location, "no %<%D(int)%> declared for postfix %qs, "
 		       "trying prefix operator instead",
 		       fnname,
 		       operator_name_info[code].name);
@@ -4535,9 +4535,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	}
       if (complain & tf_error)
 	{
-	  permerror ("invalid conversion from %qT to %qT", TREE_TYPE (expr), totype);
+	  permerror (input_location, "invalid conversion from %qT to %qT", TREE_TYPE (expr), totype);
 	  if (fn)
-	    permerror ("  initializing argument %P of %qD", argnum, fn);
+	    permerror (input_location, "  initializing argument %P of %qD", argnum, fn);
 	}
       else
 	return error_mark_node;
@@ -5191,7 +5191,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       if (convs[i]->bad_p)
 	{
 	  if (complain & tf_error)
-	    permerror ("passing %qT as %<this%> argument of %q#D discards qualifiers",
+	    permerror (input_location, "passing %qT as %<this%> argument of %q#D discards qualifiers",
 		       TREE_TYPE (argtype), fn);
 	  else
 	    return error_mark_node;
@@ -6651,7 +6651,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 	      && warning (OPT_Wconversion, "  for conversion from %qT to %qT",
 			  source, w->second_conv->type)) 
 	    {
-	      inform ("  because conversion sequence for the argument is better");
+	      inform (input_location, "  because conversion sequence for the argument is better");
 	    }
 	}
       else

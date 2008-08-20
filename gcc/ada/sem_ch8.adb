@@ -1822,16 +1822,19 @@ package body Sem_Ch8 is
 
          --  Ada 2005: check overriding indicator
 
-         if Must_Override (Specification (N))
-           and then not Is_Overriding_Operation (Rename_Spec)
-         then
-            Error_Msg_NE ("subprogram& is not overriding", N, Rename_Spec);
+         if Is_Overriding_Operation (Rename_Spec) then
+            if Must_Not_Override (Specification (N)) then
+               Error_Msg_NE
+                 ("subprogram& overrides inherited operation",
+                    N, Rename_Spec);
+            elsif
+              Style_Check and then not Must_Override (Specification (N))
+            then
+               Style.Missing_Overriding (N, Rename_Spec);
+            end if;
 
-         elsif Must_Not_Override (Specification (N))
-           and then Is_Overriding_Operation (Rename_Spec)
-         then
-            Error_Msg_NE
-              ("subprogram& overrides inherited operation", N, Rename_Spec);
+         elsif Must_Override (Specification (N)) then
+            Error_Msg_NE ("subprogram& is not overriding", N, Rename_Spec);
          end if;
 
       --  Normal subprogram renaming (not renaming as body)
@@ -1965,9 +1968,11 @@ package body Sem_Ch8 is
 
       --  Most common case: subprogram renames subprogram. No body is generated
       --  in this case, so we must indicate the declaration is complete as is.
+      --  and inherit various attributes of the renamed subprogram.
 
       if No (Rename_Spec) then
          Set_Has_Completion   (New_S);
+         Set_Is_Imported      (New_S, Is_Imported      (Entity (Nam)));
          Set_Is_Pure          (New_S, Is_Pure          (Entity (Nam)));
          Set_Is_Preelaborated (New_S, Is_Preelaborated (Entity (Nam)));
 
@@ -2933,9 +2938,8 @@ package body Sem_Ch8 is
          Error_Msg_N
            ("renamed generic unit must be a library unit", Name (N));
 
-      elsif Ekind (Old_E) = E_Package
-        or else Ekind (Old_E) = E_Generic_Package
-      then
+      elsif Is_Package_Or_Generic_Package (Old_E) then
+
          --  Inherit categorization flags
 
          New_E := Defining_Entity (N);
@@ -6645,8 +6649,7 @@ package body Sem_Ch8 is
             then
                Full_Vis := True;
 
-            elsif (Ekind (S) = E_Package
-                    or else Ekind (S) = E_Generic_Package)
+            elsif Is_Package_Or_Generic_Package (S)
               and then (In_Private_Part (S)
                          or else In_Package_Body (S))
             then
