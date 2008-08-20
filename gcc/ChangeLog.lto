@@ -1,5 +1,16 @@
 2008-08-20  Rafael Avila de Espindola  <espindola@google.com>
 
+	* lto-header.h (lto_section_type): Add LTO_section_symtab.
+	* lto-section-out.c: Include stdint.h.
+	(lto_get_section_name): Handle LTO_section_symtab.
+	(ld_plugin_symbol_kind): New.
+	(ld_plugin_symbol_visibility): New.
+	(produce_symtab_1): New.
+	(produce_symtab): New.
+	(produce_asm_for_decls): Call produce_symtab.
+
+2008-08-20  Rafael Avila de Espindola  <espindola@google.com>
+
 	Backport revision 39233 from trunk.
 
 2008-08-19  Rafael Avila de Espindola  <espindola@google.com>

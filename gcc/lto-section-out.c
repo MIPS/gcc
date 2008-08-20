@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-section.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
+#include "stdint.h"
 
 /* Add FLAG onto the end of BASE.  */
  
@@ -164,6 +165,9 @@ lto_get_section_name (enum lto_section_type section_type, const char *name)
 
     case LTO_section_static_initializer:
       return concat (LTO_SECTION_NAME_PREFIX, ".statics", NULL);
+
+    case LTO_section_symtab:
+      return concat (LTO_SECTION_NAME_PREFIX, ".symtab", NULL);
 
     case LTO_section_decls:
       return concat (LTO_SECTION_NAME_PREFIX, ".decls", NULL);
@@ -903,6 +907,122 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
 }
 
 
+/* FIXME: These enums should come from some header that is shared with the
+   plugin. */
+
+enum ld_plugin_symbol_kind
+  {
+    LDPK_DEF,
+    LDPK_WEAKDEF,
+    LDPK_UNDEF,
+    LDPK_WEAKUNDEF,
+    LDPK_COMMON
+  };
+
+  enum ld_plugin_symbol_visibility
+  {
+    LDPV_DEFAULT,
+    LDPV_PROTECTED,
+    LDPV_INTERNAL,
+    LDPV_HIDDEN
+  };
+
+/* Helper function of produce_symtab. HASH is the hash with the
+   decl -> slot_num mapping. STREAM is the stream where to write the table.
+   V is a vector with the DECLs that should be on the table. */
+
+static void
+produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
+		  VEC(tree,heap) *v)
+{
+  tree t;
+  int index;
+
+  for (index = 0; VEC_iterate(tree, v, index, t); index++)
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_NAME(t));
+      enum ld_plugin_symbol_kind kind;
+      enum ld_plugin_symbol_visibility visibility;
+      struct lto_decl_slot d_slot;
+      int slot_num;
+      void **slot;
+      uint64_t size;
+
+      d_slot.t = t;
+      slot = htab_find_slot (hash, &d_slot, NO_INSERT);
+      gcc_assert (slot != NULL);
+      slot_num = ((struct lto_decl_slot *)*slot)->slot_num;
+
+      if (DECL_EXTERNAL (t))
+	{
+	  if (DECL_WEAK (t))
+	    kind = LDPK_WEAKUNDEF;
+	  else
+	    kind = LDPK_UNDEF;
+	}
+      else
+	{
+	  if (DECL_WEAK (t))
+	    kind = LDPK_WEAKDEF;
+	  else if (DECL_COMMON (t))
+	    kind = LDPK_COMMON;
+	  else
+	    kind = LDPK_DEF;
+	}
+
+      switch (DECL_VISIBILITY(t))
+	{
+	case VISIBILITY_DEFAULT:
+	  visibility = LDPV_DEFAULT;
+	  break;
+	case VISIBILITY_PROTECTED:
+	  visibility = LDPV_PROTECTED;
+	  break;
+	case VISIBILITY_HIDDEN:
+	  visibility = LDPV_HIDDEN;
+	  break;
+	case VISIBILITY_INTERNAL:
+	  visibility = LDPV_INTERNAL;
+	  break;
+	}
+
+      if (kind == LDPK_COMMON)
+	size = TREE_INT_CST_HIGH (DECL_SIZE (t)) << 32
+	  | TREE_INT_CST_LOW (DECL_SIZE (t));
+      else
+	size = 0;
+
+      lto_output_data_stream (stream, name, strlen (name) + 1);
+      lto_output_data_stream (stream, &kind, 1);
+      lto_output_data_stream (stream, &visibility, 1);
+      lto_output_data_stream (stream, &size, 8);
+      lto_output_data_stream (stream, &slot_num, 4);
+    }
+}
+
+/* Write an IL symbol table. HASH is the hash with the decl -> slot_num mapping.
+   FUNCTIONS is a vector of function decls. VARIABLES is a vector of variable
+   decls. */
+
+static void
+produce_symtab (htab_t hash, VEC(tree,heap) *functions,
+		VEC(tree,heap) *variables)
+{
+  char *section_name = lto_get_section_name (LTO_section_symtab, NULL);
+  struct lto_output_stream stream;
+
+  lto_begin_section (section_name);
+  free(section_name);
+  memset (&stream, 0, sizeof (stream));
+
+
+  produce_symtab_1 (hash, &stream, functions);
+  produce_symtab_1 (hash, &stream, variables);
+
+  lto_write_stream (&stream);
+  lto_end_section ();
+}
+
 /* This pass is run after all of the functions are serialized and all
    of the IPA passes have written their serialized forms.  This pass
    causes the vector of all of the global decls and types used from
@@ -989,7 +1109,6 @@ produce_asm_for_decls (void)
 #endif
 
   /* Deallocate memory and clean up.  */
-  htab_delete (ob->main_hash_table);
   destroy_output_block (ob);
 
   htab_delete (out_state->field_decl_hash_table);
@@ -999,14 +1118,22 @@ produce_asm_for_decls (void)
   htab_delete (out_state->namespace_decl_hash_table);
   htab_delete (out_state->type_hash_table);
 
+  lto_end_section ();
+
+  /* Write the symbol table. */
+  produce_symtab (ob->main_hash_table,
+		  out_state->fn_decls,
+		  out_state->var_decls);
+
+  /* Finish cleanup. */
+  htab_delete (ob->main_hash_table);
+
   VEC_free (tree, heap, out_state->field_decls);
   VEC_free (tree, heap, out_state->fn_decls);
   VEC_free (tree, heap, out_state->var_decls);
   VEC_free (tree, heap, out_state->type_decls);
   VEC_free (tree, heap, out_state->namespace_decls);
   VEC_free (tree, heap, out_state->types);
-
-  lto_end_section ();
 }
 
 
