@@ -1,3 +1,8 @@
+2008-08-20  Doug Kwan  <dougkwan@google.com>
+
+	* lto-section-out.c (produce_symtab_1): Fix a 32-bit bootstrap
+	failure due to a missing cast.
+
 2008-08-20  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-header.h (lto_section_type): Add LTO_section_symtab.

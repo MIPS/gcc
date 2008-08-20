@@ -987,7 +987,7 @@ produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
 	}
 
       if (kind == LDPK_COMMON)
-	size = TREE_INT_CST_HIGH (DECL_SIZE (t)) << 32
+	size = ((uint64_t) TREE_INT_CST_HIGH (DECL_SIZE (t))) << 32
 	  | TREE_INT_CST_LOW (DECL_SIZE (t));
       else
 	size = 0;
