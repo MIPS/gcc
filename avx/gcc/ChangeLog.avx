@@ -1,3 +1,12 @@
+2008-08-20  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_aesenc): New.
+	(*avx_aesenclast): Likewise.
+	(*avx_aesdec): Likewise.
+	(*avx_aesdeclast): Likewise.
+	(aesimc): Support AVX.
+	(aeskeygenassist): Likewise.
+
 2008-08-15  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (standard_sse_mode_p): Return 2 for 256bit

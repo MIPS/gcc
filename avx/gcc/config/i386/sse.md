@@ -11352,6 +11352,17 @@
   [(set_attr "type" "ssecmp")
    (set_attr "mode" "TI")])
 
+(define_insn "*avx_aesenc"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "x")
+		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
+		      UNSPEC_AESENC))]
+  "TARGET_AES && TARGET_AVX"
+  "vaesenc\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI")])
+
 (define_insn "aesenc"
   [(set (match_operand:V2DI 0 "register_operand" "=x")
 	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
@@ -11361,6 +11372,17 @@
   "aesenc\t{%2, %0|%0, %2}"
   [(set_attr "type" "sselog1")
    (set_attr "prefix_extra" "1")
+   (set_attr "mode" "TI")])
+
+(define_insn "*avx_aesenclast"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "x")
+		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
+		      UNSPEC_AESENCLAST))]
+  "TARGET_AES && TARGET_AVX"
+  "vaesenclast\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix" "vex")
    (set_attr "mode" "TI")])
 
 (define_insn "aesenclast"
@@ -11374,6 +11396,17 @@
    (set_attr "prefix_extra" "1")
    (set_attr "mode" "TI")])
 
+(define_insn "*avx_aesdec"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "x")
+		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
+		      UNSPEC_AESDEC))]
+  "TARGET_AES && TARGET_AVX"
+  "vaesdec\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI")])
+
 (define_insn "aesdec"
   [(set (match_operand:V2DI 0 "register_operand" "=x")
 	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
@@ -11383,6 +11416,17 @@
   "aesdec\t{%2, %0|%0, %2}"
   [(set_attr "type" "sselog1")
    (set_attr "prefix_extra" "1")
+   (set_attr "mode" "TI")])
+
+(define_insn "*avx_aesdeclast"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "x")
+		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
+		      UNSPEC_AESDECLAST))]
+  "TARGET_AES && TARGET_AVX"
+  "vaesdeclast\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix" "vex")
    (set_attr "mode" "TI")])
 
 (define_insn "aesdeclast"
@@ -11401,9 +11445,10 @@
 	(unspec:V2DI [(match_operand:V2DI 1 "nonimmediate_operand" "xm")]
 		      UNSPEC_AESIMC))]
   "TARGET_AES"
-  "aesimc\t{%1, %0|%0, %1}"
+  "%vaesimc\t{%1, %0|%0, %1}"
   [(set_attr "type" "sselog1")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "aeskeygenassist"
@@ -11412,9 +11457,10 @@
 		      (match_operand:SI 2 "const_0_to_255_operand" "n")]
 		     UNSPEC_AESKEYGENASSIST))]
   "TARGET_AES"
-  "aeskeygenassist\t{%2, %1, %0|%0, %1, %2}"
+  "%vaeskeygenassist\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog1")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "pclmulqdq"
