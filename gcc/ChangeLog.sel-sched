@@ -1,3 +1,8 @@
+2008-08-20  Alexander Monakov  <amonakov@ispras.ru>
+
+	* final.c (compute_alignments): Free dominance info after
+	loop_optimizer_finalize.
+
 2008-08-20  Andrey Belevantsev  <abel@ispras.ru>
 
 	Additionally merge rev. 139129.
