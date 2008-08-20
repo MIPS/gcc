@@ -33,7 +33,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-out.h"
 
 /* A file.  */
-typedef struct lto_file_struct GTY(())
+typedef struct lto_file_struct
 {
   /* The name of the file.  */
   const char *filename;

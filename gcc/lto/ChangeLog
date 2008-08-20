@@ -1,5 +1,19 @@
 2008-08-20  Bill Maddox  <maddox@google.com>
 
+	* lto.c (current_lto_file): Remove GTY marker from static
+	variable.  Remove include of file gt-lto-lto.h.
+	* Make-lang.in: Remove dependency of lto/lto.o on
+	gt-lto-lto.h.
+	* lto-elf.c (lto_file_close): Removed.
+	(lto_elf_file_open): Use XCNEW instead of GGC_CNEW to
+	allocate lto_elf_file object.
+	(lto_elf_file_close): Free lto_elf_file object after close.
+	* lto.h (struct lto_file_struct): Remove GTY marker.
+	* config-lang.in: Remove lto/lto.h and lto/lto.c from
+	gtfiles.
+	
+2008-08-20  Bill Maddox  <maddox@google.com>
+
 	* lto.c (lto_read_decls): Provide dummy argument to input_tree
 	to conform to its new signature.
 	* lto-symtab.c (lto_symtab_merge_decl): Do not invoke ggc_free

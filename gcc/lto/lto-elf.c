@@ -46,13 +46,6 @@ lto_file_init (lto_file *file, const char *filename)
   file->filename = filename;
 }
 
-/* Close FILE.  */
-static void
-lto_file_close (lto_file *file ATTRIBUTE_UNUSED)
-{
-  ggc_free (file);
-}
-
 /* An ELF file.  */
 struct lto_elf_file 
 {
@@ -534,8 +527,8 @@ lto_elf_file_open (const char *filename, bool writable)
   lto_file *result;
 
   /* Set up.  */
-  elf_file = GGC_CNEW (lto_elf_file);
-  result = (lto_file *)elf_file;
+  elf_file = XCNEW (lto_elf_file);
+  result = (lto_file *) elf_file;
   lto_file_init (result, filename);
   elf_file->fd = -1;
 
@@ -624,7 +617,7 @@ lto_elf_file_close (lto_file *file)
       free (tmp);
     }
 
-  lto_file_close (file);
+  free (file);
 }
 
 

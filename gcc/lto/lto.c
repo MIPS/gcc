@@ -431,10 +431,7 @@ free_section_data (struct lto_file_decl_data *file_data,
 }
 
 
-/* Needed so the garbage collector knows to root around in functions we
-   have not yet materialized and the huge DIE -> tree table we keep
-   around.  */
-static GTY(()) lto_file *current_lto_file;
+static lto_file *current_lto_file;
 
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
@@ -544,5 +541,3 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       lto_elf_file_close (file);
     }
 }
-
-#include "gt-lto-lto.h"
