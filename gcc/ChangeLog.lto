@@ -1,3 +1,7 @@
+2008-08-20  Rafael Avila de Espindola  <espindola@google.com>
+
+	Backport revision 39233 from trunk.
+
 2008-08-19  Rafael Avila de Espindola  <espindola@google.com>
 
        Backport revisions 138310, 138347 and 139100 from trunk.
