@@ -118,6 +118,8 @@ host_modules= { module= libtermcap; no_check=true;
                 missing=maintainer-clean; };
 host_modules= { module= utils; no_check=true; };
 host_modules= { module= gnattools; };
+host_modules= { module= lto-plugin; };
+
 
 target_modules = { module= libstdc++-v3; lib_path=.libs; raw_cxx=true; };
 target_modules = { module= libmudflap; lib_path=.libs; };

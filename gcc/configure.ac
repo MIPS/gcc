@@ -915,9 +915,7 @@ AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h iconv.h \
 AC_CHECK_HEADER(thread.h, [have_thread_h=yes], [have_thread_h=])
 AC_CHECK_HEADER(pthread.h, [have_pthread_h=yes], [have_pthread_h=])
 
-# Check for ELF header.  Prefer <libelf.h>, but fall back to
-# <libelf/libelf.h> if <libelf.h> is not available.
-AC_CHECK_HEADERS(libelf.h libelf/libelf.h, [break])
+AC_CHECK_LIBELF
 
 # These tests can't be done till we know if we have limits.h.
 gcc_AC_C_CHAR_BIT

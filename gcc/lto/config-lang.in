@@ -23,4 +23,6 @@ language="lto"
 compilers="lto1\$(exeext)"
 stagestuff="lto1\$(exeext)"
 
+target_libs="lto-plugin"
+
 gtfiles="\$(srcdir)/lto/lto-tree.h \$(srcdir)/lto/lto-lang.c"

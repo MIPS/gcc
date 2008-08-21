@@ -1,0 +1,8 @@
+AC_PREREQ(2.59)
+AC_INIT([LTO plugin for ld], 0.1,,[lto-plugin])
+GCC_TOPLEV_SUBDIRS
+AM_INIT_AUTOMAKE([foreign])
+AC_PROG_CC
+AC_CHECK_LIBELF
+AC_CONFIG_FILES(Makefile)
+AC_OUTPUT

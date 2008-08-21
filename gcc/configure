@@ -9311,8 +9311,7 @@ else
 fi
 
 
-# Check for ELF header.  Prefer <libelf.h>, but fall back to
-# <libelf/libelf.h> if <libelf.h> is not available.
+
 
 
 for ac_header in libelf.h libelf/libelf.h
@@ -9367,6 +9366,7 @@ _ACEOF
  break
 fi
 done
+
 
 
 # These tests can't be done till we know if we have limits.h.

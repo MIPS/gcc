@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
 #include "stdint.h"
+#include "lto-symtab.h"
 
 /* Add FLAG onto the end of BASE.  */
  
@@ -906,27 +907,6 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
   free (ref_stream);
 }
 
-
-/* FIXME: These enums should come from some header that is shared with the
-   plugin. */
-
-enum ld_plugin_symbol_kind
-  {
-    LDPK_DEF,
-    LDPK_WEAKDEF,
-    LDPK_UNDEF,
-    LDPK_WEAKUNDEF,
-    LDPK_COMMON
-  };
-
-  enum ld_plugin_symbol_visibility
-  {
-    LDPV_DEFAULT,
-    LDPV_PROTECTED,
-    LDPV_INTERNAL,
-    LDPV_HIDDEN
-  };
-
 /* Helper function of produce_symtab. HASH is the hash with the
    decl -> slot_num mapping. STREAM is the stream where to write the table.
    V is a vector with the DECLs that should be on the table. */
@@ -941,8 +921,8 @@ produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
   for (index = 0; VEC_iterate(tree, v, index, t); index++)
     {
       const char *name = IDENTIFIER_POINTER (DECL_NAME(t));
-      enum ld_plugin_symbol_kind kind;
-      enum ld_plugin_symbol_visibility visibility;
+      enum gcc_plugin_symbol_kind kind;
+      enum gcc_plugin_symbol_visibility visibility;
       struct lto_decl_slot d_slot;
       int slot_num;
       void **slot;
@@ -956,37 +936,37 @@ produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
       if (DECL_EXTERNAL (t))
 	{
 	  if (DECL_WEAK (t))
-	    kind = LDPK_WEAKUNDEF;
+	    kind = GCCPK_WEAKUNDEF;
 	  else
-	    kind = LDPK_UNDEF;
+	    kind = GCCPK_UNDEF;
 	}
       else
 	{
 	  if (DECL_WEAK (t))
-	    kind = LDPK_WEAKDEF;
+	    kind = GCCPK_WEAKDEF;
 	  else if (DECL_COMMON (t))
-	    kind = LDPK_COMMON;
+	    kind = GCCPK_COMMON;
 	  else
-	    kind = LDPK_DEF;
+	    kind = GCCPK_DEF;
 	}
 
       switch (DECL_VISIBILITY(t))
 	{
 	case VISIBILITY_DEFAULT:
-	  visibility = LDPV_DEFAULT;
+	  visibility = GCCPV_DEFAULT;
 	  break;
 	case VISIBILITY_PROTECTED:
-	  visibility = LDPV_PROTECTED;
+	  visibility = GCCPV_PROTECTED;
 	  break;
 	case VISIBILITY_HIDDEN:
-	  visibility = LDPV_HIDDEN;
+	  visibility = GCCPV_HIDDEN;
 	  break;
 	case VISIBILITY_INTERNAL:
-	  visibility = LDPV_INTERNAL;
+	  visibility = GCCPV_INTERNAL;
 	  break;
 	}
 
-      if (kind == LDPK_COMMON)
+      if (kind == GCCPK_COMMON)
 	size = ((uint64_t) TREE_INT_CST_HIGH (DECL_SIZE (t))) << 32
 	  | TREE_INT_CST_LOW (DECL_SIZE (t));
       else

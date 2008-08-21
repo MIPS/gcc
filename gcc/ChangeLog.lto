@@ -1,3 +1,13 @@
+2008-08-21  Rafael Espindola  <espindola@google.com>
+
+	* aclocal.m4: Include ../config/libelf.m4.
+	* configure.ac: Use AC_CHECK_LIBELF.
+	* configure: Update.
+	* lto-section-out.c: include lto-symtab.h
+	(ld_plugin_symbol_kind): Remove.
+	(ld_plugin_symbol_visibility): Remove.
+	(produce_symtab_1): Update to use lto-symtab.h
+
 2008-08-20  Bill Maddox <maddox@google.com>
 
 	* lto-tree-flags.def: Stream private_flag for
