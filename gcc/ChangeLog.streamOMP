@@ -1,0 +1,14 @@
+2008-04-22  Antoniu Pop  <antoniu.pop@gmail.com>
+         Sebastian Pop  <sebastian.pop@amd.com>
+
+     * builtin-types.def (BT_FN_BOOL_PTR, BT_FN_VOID_PTR_PTR_SIZE,
+     BT_FN_PTR_SIZE_SIZE_SIZE): New types.
+     * fortran/types.def (BT_FN_BOOL_PTR, BT_FN_VOID_PTR_SIZE,
+     BT_FN_VOID_PTR_PTR_SIZE, BT_FN_PTR_SIZE_SIZE_SIZE): New types.
+
+     * omp-builtins.def (BUILT_IN_GOMP_STREAM_CREATE,
+     BUILT_IN_GOMP_STREAM_PUSH, BUILT_IN_GOMP_STREAM_HEAD,
+     BUILT_IN_GOMP_STREAM_POP, BUILT_IN_GOMP_STREAM_EOS_P,
+     BUILT_IN_GOMP_STREAM_SET_EOS, BUILT_IN_GOMP_STREAM_DESTROY,
+     BUILT_IN_GOMP_STREAM_ALIGN_PUSH, BUILT_IN_GOMP_STREAM_ALIGN_POP):
+     New builtins.
