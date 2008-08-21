@@ -167,4 +167,13 @@ GOMP_2.0 {
 	GOMP_loop_ull_runtime_start;
 	GOMP_loop_ull_static_next;
 	GOMP_loop_ull_static_start;
+	GOMP_stream_create;
+	GOMP_stream_push;
+	GOMP_stream_head;
+	GOMP_stream_pop;
+ 	GOMP_stream_eos_p;
+ 	GOMP_stream_set_eos;
+ 	GOMP_stream_destroy;
+ 	GOMP_stream_align_push;
+ 	GOMP_stream_align_pop;
 } GOMP_1.0;
