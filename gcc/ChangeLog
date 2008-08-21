@@ -1,3 +1,40 @@
+2008-08-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37181
+	* tree-vrp.c (extract_range_from_binary_expr): Check for NULL
+	folding result.
+	(extract_range_from_unary_expr): Likewise.
+
+2008-08-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* diagnostic.c (pedwarn_at): Rename as pedwarn.
+	(pedwarn): Delete.
+	* toplev.h (pedwarn_at): Likewise.
+	* builtins.c: Update all calls to pedwarn.
+	* c-lex.c: Likewise.
+	* toplev.c: Likewise.
+	* c-tree.h: Likewise.
+	* c-decl.c: Likewise.
+	* c-errors.c: Likewise.
+	* c-typeck.c: Likewise.
+	* c-common.c: Likewise.
+	* c-parser.c: Likewise.
+
+2008-08-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/31070
+	* config/sparc/sparc.c (function_arg_slotno): Handle structure
+	with MODE_VECTOR_INT mode.
+
+2008-08-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR middle-end/179
+	* tree-ssa.c (warn_uninit): Do not warn for variables that can be
+	initialized outside the current module.
+	(warn_uninitialized_var): Ignore left-hand side when walking the
+	trees. Ignore address expressions. Examine VUSE operands in gimple
+	statements with a variable declaration on the right-hand side.
+
 2008-08-20  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	PR bootstrap/37155
