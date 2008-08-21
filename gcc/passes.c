@@ -84,6 +84,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "df.h"
 #include "predict.h"
+#include "lto-header.h"
+#include "lto-section-out.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -1353,6 +1355,9 @@ execute_pass_list (struct opt_pass *pass)
 static void
 ipa_write_summaries_1 (struct opt_pass *pass)
 {
+  struct lto_out_decl_state *state = lto_new_out_decl_state ();
+
+  lto_push_out_decl_state (state);
   do
     {
       struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *)pass;
@@ -1366,6 +1371,10 @@ ipa_write_summaries_1 (struct opt_pass *pass)
       pass = pass->next;
     }
   while (pass);
+
+  gcc_assert (lto_get_out_decl_state () == state);
+  lto_pop_out_decl_state ();
+  lto_delete_out_decl_state (state);
 }
 
 void

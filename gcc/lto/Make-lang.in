@@ -28,7 +28,7 @@ LTO_EXE = lto1$(exeext)
 # The LTO-specific object files inclued in $(LTO_EXE).
 LTO_OBJS = lto/lto-lang.o lto/lto.o lto/lto-elf.o \
 	lto/lto-symtab.o attribs.o
-LTO_H = lto/lto.h lto-header.h lto-section-in.h lto-section-out.h \
+LTO_H = lto/lto.h lto-header.h lto-section-in.h $(LTO_SECTION_OUT_H) \
 	$(HASHTAB_H) $(TREE_H)
 
 ########################################################################
@@ -86,7 +86,7 @@ lto/lto-lang.o: lto/lto-lang.c $(CONFIG_H) coretypes.h debug.h \
 lto/lto.o: lto/lto.c $(CONFIG_H) $(CGRAPH_H) coretypes.h \
 	$(GGC_H) opts.h $(SYSTEM_H) toplev.h $(TM_H) $(LTO_H) langhooks.h \
 	lto/lto-tree.h dwarf2out.h tm.h tree-ssa-operands.h \
-	lto-section.h lto-section-in.h tree-pass.h lto-section-out.h
+	lto-section.h lto-section-in.h tree-pass.h $(LTO_SECTION_OUT_H)
 lto/lto-elf.o: lto/lto-elf.c $(CONFIG_H) coretypes.h $(SYSTEM_H) \
 	toplev.h $(LTO_H) $(TM_H)
 lto/lto-symtab.o: lto/lto-symtab.c $(CONFIG_H) coretypes.h \

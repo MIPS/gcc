@@ -29,13 +29,7 @@
 struct lto_decl_header
 {
   struct lto_header lto_header;   /* The header for all types of sections. */
-  int32_t num_field_decls;        /* Number of FIELD_DECLS.  */
-  int32_t num_fn_decls;           /* Number of FUNCTION_DECLS.  */
-  int32_t num_var_decls;          /* Number of non local VAR_DECLS.  */
-  int32_t num_type_decls;         /* Number of TYPE_DECLs.  */
-  int32_t num_namespace_decls;    /* Number of NAMESPACE_DECLs.  */
-  int32_t num_types;              /* Number of types.  */
-
+  int32_t decl_state_size;	  /* Size of region for decl state. */
   int32_t num_nodes;              /* Number of nodes in globals stream.  */
   int32_t main_size;		  /* Size of region for expressions, decls, types, etc. */
   int32_t string_size;		  /* Size of the string table.  */

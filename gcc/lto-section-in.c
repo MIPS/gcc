@@ -429,6 +429,73 @@ lto_original_decl_name (struct lto_file_decl_data *decl_data,
 }
 
 /*****************************************************************************/
+/* Input decl state object.                                                  */
+/*****************************************************************************/
+
+/* Return a newly created in-decl state object. */
+
+struct lto_in_decl_state *
+lto_new_in_decl_state (void)
+{
+  struct lto_in_decl_state *state;
+
+  state = ((struct lto_in_decl_state *) xmalloc (sizeof (*state)));
+  memset (state, 0, sizeof (*state));
+  return state;
+}
+
+/* Delete STATE and its components. */
+
+void
+lto_delete_in_decl_state (struct lto_in_decl_state *state)
+{
+  int i;
+
+  for (i = 0; i < LTO_N_DECL_STREAMS; i++)
+    if (state->streams[i].trees)
+      free (state->streams[i].trees);
+  free (state);
+}
+
+/* Hashtable helpers. lto_in_decl_states are hash by their function decls. */
+
+hashval_t
+lto_hash_in_decl_state (const void *p)
+{
+  const struct lto_in_decl_state *state = (const struct lto_in_decl_state *) p;
+  return htab_hash_pointer (state->fn_decl);
+}
+
+/* Return true if the fn_decl field of the lto_in_decl_state pointed to by
+   P1 equals to the function decl P2. */
+
+int
+lto_eq_in_decl_state (const void *p1, const void *p2)
+{
+  const struct lto_in_decl_state *state1 =
+   (const struct lto_in_decl_state *) p1;
+  const struct lto_in_decl_state *state2 =
+   (const struct lto_in_decl_state *) p2;
+  return state1->fn_decl == state2->fn_decl;
+}
+
+
+/* Search the in-decl state of a function FUNC contained in the file
+   associated with FILE_DATA.  Return NULL if not found.  */
+
+struct lto_in_decl_state*
+lto_get_function_in_decl_state (struct lto_file_decl_data *file_data,
+				tree func)
+{
+  struct lto_in_decl_state temp;
+  void **slot;
+
+  temp.fn_decl = func;
+  slot = htab_find_slot (file_data->function_decl_states, &temp, NO_INSERT);
+  return slot? ((struct lto_in_decl_state*) *slot) : NULL;
+}
+
+/*****************************************************************************/
 /* Stream debugging support code.                                            */
 /*****************************************************************************/
 

@@ -863,6 +863,7 @@ EBIMAP_H = ebitmap.h sbitmap.h
 LTO_TAGS_H = lto-tags.h tree.h sbitmap.h lto-header.h
 LTO_SECTION_H = lto-section.h lto-header.h
 LTO_SECTION_IN_H = lto-section-in.h lto-header.h
+LTO_SECTION_OUT_H = lto-section-in.h lto-section.h
 TREE_VECTORIZER_H = tree-vectorizer.h $(TREE_DATA_REF_H)
 IPA_PROP_H = ipa-prop.h $(TREE_H) vec.h $(CGRAPH_H)
 GSTAB_H = gstab.h stab.def
@@ -2037,7 +2038,7 @@ lto-cgraph.o: lto-cgraph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
    except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) $(LTO_SECTION_IN_H) \
-   lto-section-out.h output.h dwarf2asm.h dwarf2out.h
+   $(LTO_SECTION_OUT_H) output.h dwarf2asm.h dwarf2out.h
 lto-function-in.o: lto-function-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TOPLEV_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h $(VARRAY_H) \
    $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h tree-pass.h \
@@ -2048,8 +2049,9 @@ lto-function-out.o : lto-function-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
-   except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def lto-tree-tags.def \
-   lto-tags.h lto-header.h lto-section-out.h output.h dwarf2asm.h dwarf2out.h 
+   except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def \
+   lto-tree-tags.def lto-tags.h lto-header.h $(LTO_SECTION_OUT_H) output.h \
+   dwarf2asm.h dwarf2out.h 
 lto-section-in.o: lto-section-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TOPLEV_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h $(VARRAY_H) \
    $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h tree-pass.h \
@@ -2059,7 +2061,7 @@ lto-section-out.o : lto-section-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
-   except.h debug.h $(TIMEVAR_H) lto-header.h lto-section-out.h output.h \
+   except.h debug.h $(TIMEVAR_H) lto-header.h $(LTO_SECTION_OUT_H) output.h \
    dwarf2asm.h dwarf2out.h 
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(TOPLEV_H) $(TREE_INLINE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) \
@@ -2462,7 +2464,7 @@ passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(REAL_H) $(CFGLOOP_H) \
    hosthooks.h $(CGRAPH_H) $(COVERAGE_H) tree-pass.h $(TREE_DUMP_H) \
    $(GGC_H) $(INTEGRATE_H) $(CPPLIB_H) opts.h $(TREE_FLOW_H) $(TREE_INLINE_H) \
-   gt-passes.h $(DF_H) $(PREDICT_H)
+   gt-passes.h $(DF_H) $(PREDICT_H) lto-header.h $(LTO_SECTION_OUT_H)
 
 main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TOPLEV_H)
 
@@ -2633,13 +2635,14 @@ ipa-pure-const.o : ipa-pure-const.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(IPA_UTILS_H) $(C_COMMON_H) $(TARGET_H) \
    $(TREE_GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h $(TIMEVAR_H) \
-   $(LTO_SECTION_IN_H) lto-section-out.h \
+   $(LTO_SECTION_IN_H) $(LTO_SECTION_OUT_H) \
    $(DIAGNOSTIC_H)
 ipa-reference.o : ipa-reference.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(IPA_REFERENCE_H) $(IPA_UTILS_H) $(C_COMMON_H) \
    $(TREE_GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h \
-   $(TIMEVAR_H) $(DIAGNOSTIC_H) $(FUNCTION_H) $(LTO_SECTION_IN_H) lto-section-out.h
+   $(TIMEVAR_H) $(DIAGNOSTIC_H) $(FUNCTION_H) $(LTO_SECTION_IN_H) \
+   $(LTO_SECTION_OUT_H)
 ipa-type-escape.o : ipa-type-escape.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(IPA_TYPE_ESCAPE_H) $(IPA_UTILS_H) $(C_COMMON_H) \

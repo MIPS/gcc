@@ -234,7 +234,7 @@ input_type_ref_1 (struct data_in *data_in, struct lto_input_block *ib)
   if (tag == LTO_global_type_ref)
     {
       index = lto_input_uleb128 (ib);
-      result = data_in->file_data->types[index];
+      result = lto_file_decl_data_get_type (data_in->file_data, index);
     }
   else if (tag == LTO_local_type_ref)
     {
@@ -504,7 +504,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
   if (tag == LTO_global_type_ref)
     {
       int index = lto_input_uleb128 (ib);
-      result = data_in->file_data->types[index];
+      result = lto_file_decl_data_get_type (data_in->file_data, index);
 
       LTO_DEBUG_UNDENT();
       return result;
@@ -703,7 +703,9 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
     case FIELD_DECL:
       if (tag == LTO_field_decl1)
         {
-          result = data_in->file_data->field_decls [lto_input_uleb128 (ib)];
+	  unsigned index = lto_input_uleb128 (ib);
+          result = lto_file_decl_data_get_field_decl (data_in->file_data,
+						      index);
           gcc_assert (result);
         }
       else if (tag == LTO_field_decl0)
@@ -752,14 +754,16 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case FUNCTION_DECL:
-      result = data_in->file_data->fn_decls [lto_input_uleb128 (ib)];
+      result = lto_file_decl_data_get_fn_decl (data_in->file_data,
+					       lto_input_uleb128 (ib));
       gcc_assert (result);
       break;
 
     case TYPE_DECL:
       if (tag == LTO_type_decl1)
         {
-          result = data_in->file_data->type_decls [lto_input_uleb128 (ib)];
+          result = lto_file_decl_data_get_field_decl (data_in->file_data,
+						      lto_input_uleb128 (ib));
           gcc_assert (result);
         }
       else if (tag == LTO_type_decl0)
@@ -808,7 +812,8 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case NAMESPACE_DECL:
-      result = data_in->file_data->namespace_decls [lto_input_uleb128 (ib)];
+      result = lto_file_decl_data_get_namespace_decl (data_in->file_data,
+						      lto_input_uleb128 (ib));
       gcc_assert (result);
       break;
 
@@ -817,7 +822,8 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       if (tag == LTO_var_decl1)
         {
           /* Static or externs are here.  */
-          result = data_in->file_data->var_decls [lto_input_uleb128 (ib)];
+          result = lto_file_decl_data_get_var_decl (data_in->file_data,
+						    lto_input_uleb128 (ib));
 	  varpool_mark_needed_node (varpool_node (result));
         }
       else 
@@ -1306,7 +1312,7 @@ input_local_tree (struct lto_input_block *ib, struct data_in *data_in,
   else if (tag == LTO_global_type_ref)
     {
       index = lto_input_uleb128 (ib);
-      result = data_in->file_data->types[index];
+      result = lto_file_decl_data_get_type (data_in->file_data, index);
     }
   else if (tag == LTO_local_type_ref)
     {
@@ -2341,9 +2347,16 @@ lto_read_body (struct lto_file_decl_data* file_data,
   if (section_type == LTO_section_function_body)
     {
       struct function *fn = DECL_STRUCT_FUNCTION (fn_decl);
+      struct lto_in_decl_state *decl_state;
+
       push_cfun (fn);
       init_tree_ssa (fn);
       data_in.num_named_labels = header->num_named_labels;
+
+      /* Use the function's decl state. */
+      decl_state = lto_get_function_in_decl_state (file_data, fn_decl);
+      gcc_assert (decl_state);
+      file_data->current_decl_state = decl_state;
 
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_label;
@@ -2376,9 +2389,13 @@ lto_read_body (struct lto_file_decl_data* file_data,
       {
 	unsigned int i;
 	int j;
+	unsigned int n = lto_file_decl_data_num_var_decls (file_data);
 
-	for (i = 0; i < file_data->num_var_decls; i++)
-	  add_referenced_var (file_data->var_decls[i]);
+	for (i = 0; i < n; i++)
+	  {
+	    tree var = lto_file_decl_data_get_var_decl (file_data, i);
+	    add_referenced_var (var);
+	  }
 	for (j = 0; j < header->num_local_decls; j++)
           {
             tree decl = data_in.local_decls[j];
@@ -2398,6 +2415,9 @@ lto_read_body (struct lto_file_decl_data* file_data,
       cfun->gimple_df->in_ssa_p = true;
       /* Fill in properties we know hold for the rebuilt CFG.  */
       cfun->curr_properties = PROP_ssa | PROP_cfg | PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_referenced_vars;
+
+      /* Restore decl state */
+      file_data->current_decl_state = file_data->global_decl_state;
 
       pop_cfun ();
     }

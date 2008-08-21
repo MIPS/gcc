@@ -47,8 +47,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-section.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
+#include "pointer-set.h"
 #include "stdint.h"
 #include "lto-symtab.h"
+
+static VEC(lto_out_decl_state_ptr, heap) *decl_state_stack;
+
+/* List of out decl states used by functions.  We use this to
+   generate the decl directory later. */
+
+static VEC(lto_out_decl_state_ptr, heap) *function_decl_states;
 
 /* Add FLAG onto the end of BASE.  */
  
@@ -447,47 +455,48 @@ lto_output_integer_stream (struct lto_output_stream *obs, tree t)
 }
 
 
-/* Lookup NAME in TABLE.  If NAME is not found, create a new entry in
-   TABLE for NAME with NEXT_INDEX and increment NEXT_INDEX.  Then
-   print the index to OBS.  True is returned if NAME was added to the
-   table.  The resulting index is stored in THIS_INDEX.
+/* Lookup NAME in ENCODER.  If NAME is not found, create a new entry in
+   ENCODER for NAME with the next available index of ENCODER,  then
+   print the index to OBS.  True is returned if NAME was added to
+   ENCODER.  The resulting index is stored in THIS_INDEX.
 
-   If OBS is NULL, the only action is to add NAME to the table. */
+   If OBS is NULL, the only action is to add NAME to the encoder. */
 
 bool
-lto_output_decl_index (struct lto_output_stream *obs, htab_t table,
-		       unsigned int *next_index, tree name, 
-		       unsigned int *this_index)
+lto_output_decl_index (struct lto_output_stream *obs,
+		       struct lto_tree_ref_encoder *encoder,
+		       tree name, unsigned int *this_index)
 {
   void **slot;
   struct lto_decl_slot d_slot;
-  d_slot.t = name;
+  int index;
+  bool new_entry_p = FALSE;
 
-  slot = htab_find_slot (table, &d_slot, INSERT);
+  d_slot.t = name;
+  slot = htab_find_slot (encoder->tree_hash_table, &d_slot, INSERT);
   if (*slot == NULL)
     {
       struct lto_decl_slot *new_slot
 	= (struct lto_decl_slot *) xmalloc (sizeof (struct lto_decl_slot));
-      int index = (*next_index)++;
+      index = encoder->next_index++;
 
       new_slot->t = name;
       new_slot->slot_num = index;
-      *this_index = index;
       *slot = new_slot;
-      if (obs)
-	lto_output_uleb128_stream (obs, index);
-      return true;
+      VEC_safe_push (tree, heap, encoder->trees, name);
+      new_entry_p = TRUE;
     }
   else
     {
       struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
-      *this_index = old_slot->slot_num;
-      if (obs)
-	lto_output_uleb128_stream (obs, old_slot->slot_num);
-      return false;
+      index = old_slot->slot_num;
     }
-}
 
+  if (obs)
+    lto_output_uleb128_stream (obs, index);
+  *this_index = index;
+  return new_entry_p;
+}
 
 /* Output a field DECL to OBS.  */
 
@@ -496,14 +505,9 @@ lto_output_field_decl_index (struct lto_out_decl_state *decl_state,
 			     struct lto_output_stream * obs, tree decl)
 {
   unsigned int index;
-  bool new = lto_output_decl_index (obs, 
-				    decl_state->field_decl_hash_table,
-				    &decl_state->next_field_decl_index, 
-				    decl, &index);
-  if (new)
-    VEC_safe_push (tree, heap, decl_state->field_decls, decl);
+  lto_output_decl_index (obs, &decl_state->streams[LTO_DECL_STREAM_FIELD_DECL],
+			 decl, &index);
 }
-
 
 /* Output a function DECL to OBS.  */
 
@@ -512,14 +516,9 @@ lto_output_fn_decl_index (struct lto_out_decl_state *decl_state,
 			  struct lto_output_stream * obs, tree decl)
 {
   unsigned int index;
-  bool new = lto_output_decl_index (obs, 
-				    decl_state->fn_decl_hash_table,
-				    &decl_state->next_fn_decl_index, 
-				    decl, &index);
-  if (new)
-    VEC_safe_push (tree, heap, decl_state->fn_decls, decl);
+  lto_output_decl_index (obs, &decl_state->streams[LTO_DECL_STREAM_FN_DECL],
+			 decl, &index);
 }
-
 
 /* Output a namespace DECL to OBS.  */
 
@@ -528,14 +527,10 @@ lto_output_namespace_decl_index (struct lto_out_decl_state *decl_state,
 				 struct lto_output_stream * obs, tree decl)
 {
   unsigned int index;
-  bool new = lto_output_decl_index (obs,
-				    decl_state->namespace_decl_hash_table,
-				    &decl_state->next_namespace_decl_index,
-				    decl, &index);
-  if (new)
-    VEC_safe_push (tree, heap, decl_state->namespace_decls, decl);
+  lto_output_decl_index (obs,
+			 &decl_state->streams[LTO_DECL_STREAM_NAMESPACE_DECL],
+			 decl, &index);
 }
-
 
 /* Output a static or extern var DECL to OBS.  */
 
@@ -544,14 +539,9 @@ lto_output_var_decl_index (struct lto_out_decl_state *decl_state,
 			   struct lto_output_stream * obs, tree decl)
 {
   unsigned int index;
-  bool new = lto_output_decl_index (obs, 
-				    decl_state->var_decl_hash_table,
-				    &decl_state->next_var_decl_index, 
-				    decl, &index);
-  if (new)
-    VEC_safe_push (tree, heap, decl_state->var_decls, decl);
+  lto_output_decl_index (obs, &decl_state->streams[LTO_DECL_STREAM_VAR_DECL],
+			 decl, &index);
 }
-
 
 /* Output a type DECL to OBS.  */
 
@@ -560,14 +550,9 @@ lto_output_type_decl_index (struct lto_out_decl_state *decl_state,
 			    struct lto_output_stream * obs, tree decl)
 {
   unsigned int index;
-  bool new = lto_output_decl_index (obs, 
-				    decl_state->type_decl_hash_table,
-				    &decl_state->next_type_decl_index, 
-				    decl, &index);
-  if (new)
-    VEC_safe_push (tree, heap, decl_state->type_decls, decl);
+  lto_output_decl_index (obs, &decl_state->streams[LTO_DECL_STREAM_TYPE_DECL],
+			 decl, &index);
 }
-
 
 /* Output a type REF to OBS.  */
 
@@ -576,13 +561,8 @@ lto_output_type_ref_index (struct lto_out_decl_state *decl_state,
 			   struct lto_output_stream *obs, tree ref)
 {
   unsigned int index;
-  bool new = lto_output_decl_index (obs, 
-				    decl_state->type_hash_table,
-				    &decl_state->next_type_index, 
-				    ref, &index);
-  
-  if (new)
-    VEC_safe_push (tree, heap, decl_state->types, ref);
+  lto_output_decl_index (obs, &decl_state->streams[LTO_DECL_STREAM_TYPE],
+			 ref, &index);
 }
 
 
@@ -664,6 +644,46 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
   free (ob);
 }
 
+/* Return a new lto_out_decl_state. */
+
+struct lto_out_decl_state *
+lto_new_out_decl_state (void)
+{
+  struct lto_out_decl_state *state = XCNEW (struct lto_out_decl_state);
+  int i;
+  htab_hash hash_fn;
+  htab_eq eq_fn;
+
+  for (i = 0; i < LTO_N_DECL_STREAMS; i++)
+    {
+      if (i == LTO_DECL_STREAM_TYPE)
+	{
+	  hash_fn = lto_hash_type_slot_node;
+	  eq_fn = lto_eq_type_slot_node;
+	}
+      else
+	{
+	  hash_fn = lto_hash_decl_slot_node;
+	  eq_fn = lto_eq_decl_slot_node;
+	}
+    lto_init_tree_ref_encoder (&state->streams[i], hash_fn, eq_fn);
+    }
+
+  return state;
+}
+
+/* Delete STATE and components.  */
+
+void
+lto_delete_out_decl_state (struct lto_out_decl_state *state)
+{
+  int i;
+
+  for (i = 0; i < LTO_N_DECL_STREAMS; i++)
+    lto_destroy_tree_ref_encoder (&state->streams[i]);
+
+  free (state);
+}
 
 /*****************************************************************************
   This part is used to store all of the global decls and types that
@@ -674,36 +694,45 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
 struct lto_out_decl_state *
 lto_get_out_decl_state (void)
 {
-  static struct lto_out_decl_state *out_state;
-
-  if (!out_state)
-    {
-      out_state = ((struct lto_out_decl_state *)
-		   xcalloc (1, sizeof (struct lto_out_decl_state)));
-
-      out_state->field_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
-	               free);
-      out_state->fn_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
-		       free);
-      out_state->type_hash_table
-	= htab_create (37, lto_hash_type_slot_node, lto_eq_type_slot_node,
-		       free);
-      out_state->type_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
-		       free);
-      out_state->namespace_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
-		       free);
-      out_state->var_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
-		       free);
-    }
-
-  return out_state;
+  return VEC_last (lto_out_decl_state_ptr, decl_state_stack);
 }
 
+/* Push STATE to top of out decl stack. */
+
+void
+lto_push_out_decl_state (struct lto_out_decl_state *state)
+{
+  VEC_safe_push (lto_out_decl_state_ptr, heap, decl_state_stack, state);
+}
+
+/* Pop the currently used out-decl state from top of stack. */
+
+struct lto_out_decl_state *
+lto_pop_out_decl_state (void)
+{
+  return VEC_pop (lto_out_decl_state_ptr, decl_state_stack);
+}
+
+/* Record STATE after it has been used in serializing the body of
+   FN_DECL.  STATE should no longer be used by the caller.  The ownership
+   of it is taken over from this point.  */
+
+void
+lto_record_function_out_decl_state (tree fn_decl,
+				    struct lto_out_decl_state *state)
+{
+  int i;
+
+  /* Strip all hash tables to save some memory. */
+  for (i = 0; i < LTO_N_DECL_STREAMS; i++)
+    if (state->streams[i].tree_hash_table)
+      {
+	htab_delete (state->streams[i].tree_hash_table);
+	state->streams[i].tree_hash_table = NULL;
+      }
+  state->fn_decl = fn_decl;
+  VEC_safe_push (lto_out_decl_state_ptr, heap, function_decl_states, state);
+}
 
 /* Return a reference index for tree node T from hash table H.  If
    node T does not already exist in table H, a new entry is created
@@ -762,6 +791,78 @@ get_ref_idx_for (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
   return retval;
 }
 
+/* Record NODE in COMMON_NODES if it is not NULL and is not already in
+   SEEN_NODES.  In some cases, also record reachable nodes.  */
+
+static void
+lto_record_common_node (tree node, VEC(tree, heap) **common_nodes,
+			struct pointer_set_t *seen_nodes)
+{
+  /* Skip empty slots.  Note that we will be in trouble if
+     the empty slots do not match on both the writer and reader side.  */
+  if (!node)
+    return;
+
+  /* Return if node is already seen.  */
+  if (pointer_set_insert (seen_nodes, node))
+    return;
+
+  VEC_safe_push (tree, heap, *common_nodes, node);
+
+  /* FIXME lto: In principle, we should perform a walk over all nodes reachable
+     from each preloaded node.  This is going to be a lot of work.  At present,
+     we catch the case that was causing test failures.  A small step.  */
+  if (tree_node_can_be_shared (node))
+    {
+      if (TYPE_P (node))
+	{
+	  lto_record_common_node (TYPE_MAIN_VARIANT (node), common_nodes,
+				  seen_nodes);
+	}
+    }
+}
+
+/* Generate a vector of common nodes. */
+
+VEC(tree,heap)*
+lto_get_common_nodes (void)
+{
+  unsigned i;
+  VEC(tree,heap) *common_nodes = NULL;
+  struct pointer_set_t *seen_nodes;
+
+  /* The MAIN_IDENTIFIER_NODE is normally set up by the front-end, but the
+     LTO back-end must agree. Currently, the only languages that set this
+     use the name "main".  */
+  if (main_identifier_node)
+    {
+      const char *main_name = IDENTIFIER_POINTER (main_identifier_node);
+      gcc_assert (strcmp (main_name, "main") == 0);
+    }
+
+  gcc_assert (ptrdiff_type_node == integer_type_node);
+
+  /* FIXME lto.  In the C++ front-end, fileptr_type_node is defined as a
+     variant copy of of ptr_type_node, rather than ptr_node itself.  The
+     distinction should only be relevant to the front-end, so we always
+     use the C definition here in lto1.
+
+     These should be assured in free_lang_specifics.  */
+
+  gcc_assert (fileptr_type_node == ptr_type_node);
+  gcc_assert (TYPE_MAIN_VARIANT (fileptr_type_node) == ptr_type_node);
+  
+  seen_nodes = pointer_set_create ();
+  
+  for (i = 0; i < TI_MAX; i++)
+    lto_record_common_node (global_trees[i], &common_nodes, seen_nodes);
+
+  for (i = 0; i < itk_none; i++)
+    lto_record_common_node (integer_types[i], &common_nodes, seen_nodes);
+
+  pointer_set_destroy (seen_nodes);
+  return common_nodes;
+} 
 
 /* Assign an index to tree node T and enter it in the global streamer
    hash table OB->MAIN_HASH_TABLE.  */
@@ -769,9 +870,7 @@ get_ref_idx_for (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
 void
 preload_common_node (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
 {
-  /* Skip empty slots.  Note that we will be in trouble if
-     the empty slots do not match on both the writer and reader side.  */
-  if (!t) return;
+  gcc_assert (t);
 
 #ifdef GLOBAL_STREAMER_TRACE
   fprintf (stderr, "Preloading common node: [%s] ",
@@ -780,18 +879,7 @@ preload_common_node (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
   fprintf (stderr, "\n");
 #endif
 
-  get_ref_idx_for (t, h, v, ref_p);
-
-  /* FIXME lto: In principle, we should perform a walk over all nodes reachable
-     from each preloaded node.  This is going to be a lot of work.  At present,
-     we catch the case that was causing test failures.  A small step.  */
-  if (tree_node_can_be_shared (t))
-    {
-      if (TYPE_P (t))
-	{
-	  get_ref_idx_for (TYPE_MAIN_VARIANT (t), h, v, ref_p);
-	}
-    }
+ get_ref_idx_for (t, h, v, ref_p);
 }
 
 
@@ -803,64 +891,45 @@ static void
 preload_common_nodes (struct output_block *ob)
 {
   unsigned i;
-  
-  /* The MAIN_IDENTIFIER_NODE is normally set up by the front-end, but the
-     LTO back-end must agree. Currently, the only languages that set this
-     use the name "main".  */
-  if (main_identifier_node)
-    {
-      const char *main_name = IDENTIFIER_POINTER (main_identifier_node);
-      gcc_assert (strcmp (main_name, "main") == 0);
-    }
-
-  gcc_assert (ptrdiff_type_node == integer_type_node);
-  /* These should be assured in free_lang_specifics.  */
-  gcc_assert (fileptr_type_node == ptr_type_node);
-  gcc_assert (TYPE_MAIN_VARIANT (fileptr_type_node) == ptr_type_node);
+  VEC(tree, heap) *common_nodes = lto_get_common_nodes ();
+  tree node;
   
 #ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloading all global_trees[]\n");
+  fprintf (stderr, "\n\nPreloading all common nodes.\n");
 #endif
 
-  for (i = 0; i < TI_MAX; i++)
-    preload_common_node (global_trees[i], ob->main_hash_table, NULL, NULL);
+  for (i = 0; VEC_iterate (tree, common_nodes, i, node); i++)
+    preload_common_node (node, ob->main_hash_table, NULL, NULL);
 
 #ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloaded %u entries in global_trees[]\n", i - 1);
+  fprintf (stderr, "\n\nPreloaded %u common nodes\n", i - 1);
 #endif
 
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloading all integer_types[]\n");
-#endif
-
-  for (i = 0; i < itk_none; i++)
-    preload_common_node (integer_types[i], ob->main_hash_table, NULL, NULL);
-
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloaded %u entries in integer_types[]\n", i - 1);
-#endif
+  VEC_free (tree, heap, common_nodes);
 }
 
-
-/* Write each node in vector V to OB, as well as those reachable
+/* Write each node in encoded by ENCODER to OB, as well as those reachable 
    from it and required for correct representation of its semantics.
-   Each node in V must be a global declaration or a type.  A node
+   Each node in ENCODER must be a global declaration or a type.  A node
    is written only once, even if it appears multiple times in the
    vector.  Certain transitively-reachable nodes, such as those
    representing expressions, may be duplicated, but such nodes
-   must not appear in V itself.  */
+   must not appear in ENCODER itself.  */
 
 static void
-write_global_stream (struct output_block *ob, VEC(tree,heap) *v)
+write_global_stream (struct output_block *ob,
+		     struct lto_tree_ref_encoder *encoder)
 {
   tree t;
-  int index;
+  size_t index;
+  const size_t size = lto_tree_ref_encoder_size (encoder);
 
-  for (index = 0; VEC_iterate(tree, v, index, t); index++)
+  for (index = 0; index < size; index++)
     {
       void *slot;
       struct lto_decl_slot d_slot;
 
+      t = lto_tree_ref_encoder_get_tree (encoder, index);
       d_slot.t = t;
       slot = htab_find_slot (ob->main_hash_table, &d_slot, NO_INSERT);
       if (slot == NULL)
@@ -870,26 +939,30 @@ write_global_stream (struct output_block *ob, VEC(tree,heap) *v)
 
 
 /* Write a sequence of indices into the globals vector corresponding
-   to the trees in vector V.  These are used by the reader to map the
+   to the trees in ENCODER.  These are used by the reader to map the
    indices used to refer to global entities within function bodies to
    their referents.  */
 
 static void
-write_global_references (struct output_block *ob, VEC(tree,heap) *v)
+write_global_references (struct output_block *ob,
+			 struct lto_output_stream *ref_stream,
+ 			 struct lto_tree_ref_encoder *encoder)
 {
   tree t;
-  int index;
-  struct lto_output_stream *ref_stream;
+  int32_t index;
+  const int32_t size = lto_tree_ref_encoder_size (encoder);
 
-  ref_stream = ((struct lto_output_stream *)
-		xcalloc (1, sizeof (struct lto_output_stream)));
-  for (index = 0; VEC_iterate(tree, v, index, t); index++)
+  /* Write size as 32-bit unsigned. */
+  lto_output_data_stream (ref_stream, &size, sizeof (int32_t));
+
+  for (index = 0; index < size; index++)
     {
       void **slot;
       struct lto_decl_slot d_slot;
       struct lto_decl_slot *old_slot;
       int32_t slot_num;
 
+      t = lto_tree_ref_encoder_get_tree (encoder, index);
       d_slot.t = t;
       slot = htab_find_slot (ob->main_hash_table, &d_slot, NO_INSERT);
       gcc_assert (slot);
@@ -902,9 +975,66 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
       slot_num = old_slot->slot_num;
       lto_output_data_stream (ref_stream, &slot_num, sizeof slot_num);
     }
+}
 
-  lto_write_stream (ref_stream);
-  free (ref_stream);
+/* Write all the streams in an lto_out_decl_state STATE using
+   output block OB and output stream OUT_STREAM.  */
+
+static void
+lto_output_decl_state_streams (struct output_block *ob,
+			       struct lto_out_decl_state *state)
+{
+  int i;
+
+  for (i = 0;  i < LTO_N_DECL_STREAMS; i++)
+    write_global_stream (ob, &state->streams[i]);
+}
+
+/* Write all the references in an lto_out_decl_state STATE using
+   output block OB and output stream OUT_STREAM.  */
+
+static void
+lto_output_decl_state_refs (struct output_block *ob,
+			    struct lto_output_stream *out_stream,
+			    struct lto_out_decl_state *state)
+{
+  unsigned i;
+  int32_t ref;
+  void **slot;
+  struct lto_decl_slot d_slot;
+  struct lto_decl_slot *old_slot;
+  tree decl;
+  
+  /* Write reference to FUNCTION_DECL.  If there is not function,
+     write reference to void_type_node. */
+  decl = (state->fn_decl) ? state->fn_decl : void_type_node;
+  d_slot.t = decl;
+  slot = htab_find_slot (ob->main_hash_table, &d_slot, NO_INSERT);
+  gcc_assert (slot);
+  old_slot = (struct lto_decl_slot *)*slot;
+  ref = old_slot->slot_num;
+  lto_output_data_stream (out_stream, &ref, sizeof (int32_t));
+
+  for (i = 0;  i < LTO_N_DECL_STREAMS; i++)
+    write_global_references (ob, out_stream, &state->streams[i]);
+}
+
+/* Return the written size of STATE. */
+
+static size_t
+lto_out_decl_state_written_size (struct lto_out_decl_state *state)
+{
+  int i;
+  size_t size;
+
+  size = sizeof (int32_t);	/* fn_ref. */
+  for (i = 0; i < LTO_N_DECL_STREAMS; i++)
+    {
+      size += sizeof (int32_t); /* vector size. */
+      size += (lto_tree_ref_encoder_size (&state->streams[i])
+	       * sizeof (int32_t));
+    }
+  return size;
 }
 
 /* Helper function of produce_symtab. HASH is the hash with the
@@ -1013,10 +1143,14 @@ static void
 produce_asm_for_decls (void)
 {
   struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
+  struct lto_out_decl_state *fn_out_state;
   struct lto_decl_header header;
   char *section_name;
   struct output_block *ob = create_output_block (LTO_section_decls);
-  struct lto_output_stream *header_stream;
+  struct lto_output_stream *header_stream, *decl_state_stream;
+  unsigned idx, num_fns;
+  size_t decl_state_size;
+  int32_t num_decl_states;
 
   free_lang_specifics ();
 
@@ -1039,27 +1173,33 @@ produce_asm_for_decls (void)
 
   /* Write the global var decls.  */
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
-  write_global_stream (ob, out_state->field_decls);
-  write_global_stream (ob, out_state->fn_decls);
-  write_global_stream (ob, out_state->var_decls);
-  write_global_stream (ob, out_state->type_decls);
-  write_global_stream (ob, out_state->namespace_decls);
-  write_global_stream (ob, out_state->types);
+  num_fns = VEC_length (lto_out_decl_state_ptr, function_decl_states);
+  lto_output_decl_state_streams (ob, out_state);
+  for (idx = 0; idx < num_fns; idx++)
+    {
+      fn_out_state =
+	VEC_index (lto_out_decl_state_ptr, function_decl_states, idx);
+      lto_output_decl_state_streams (ob, fn_out_state);
+    }
 
   header.lto_header.major_version = LTO_major_version;
   header.lto_header.minor_version = LTO_minor_version;
   header.lto_header.section_type = LTO_section_decls;
 
-  header.num_field_decls = VEC_length (tree, out_state->field_decls);
-  header.num_fn_decls = VEC_length (tree, out_state->fn_decls);
-  header.num_var_decls = VEC_length (tree, out_state->var_decls);
-  header.num_type_decls = VEC_length (tree, out_state->type_decls);
-  header.num_namespace_decls = VEC_length (tree, out_state->namespace_decls);
-  header.num_types = VEC_length (tree, out_state->types);
-
   /* Currently not used.  This field would allow us to preallocate
      the globals vector, so that it need not be resized as it is extended.  */
   header.num_nodes = -1;
+
+  /* Compute the total size of all decl out states. */
+  decl_state_size = sizeof (int32_t); /* number of decl_states. */
+  decl_state_size += lto_out_decl_state_written_size (out_state);
+  for (idx = 0; idx < num_fns; idx++)
+    {
+      fn_out_state =
+	VEC_index (lto_out_decl_state_ptr, function_decl_states, idx);
+      decl_state_size += lto_out_decl_state_written_size (fn_out_state);
+    }
+  header.decl_state_size = decl_state_size;
 
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
@@ -1072,14 +1212,23 @@ produce_asm_for_decls (void)
   lto_output_data_stream (header_stream, &header, sizeof header);
   lto_write_stream (header_stream);
   free (header_stream);
-
-  /* We must write the types first.  */
-  write_global_references (ob, out_state->types);
-  write_global_references (ob, out_state->field_decls);
-  write_global_references (ob, out_state->fn_decls);
-  write_global_references (ob, out_state->var_decls);
-  write_global_references (ob, out_state->type_decls);
-  write_global_references (ob, out_state->namespace_decls);
+ 
+  /* Write the main out-decl state, followed by out-decl states of
+     functions. */
+  decl_state_stream = ((struct lto_output_stream *)
+		       xcalloc (1, sizeof (struct lto_output_stream)));
+  num_decl_states = num_fns + 1;
+  lto_output_data_stream (decl_state_stream, &num_decl_states,
+			  sizeof (num_decl_states));
+  lto_output_decl_state_refs (ob, decl_state_stream, out_state);
+  for (idx = 0; idx < num_fns; idx++)
+    {
+      fn_out_state =
+	VEC_index (lto_out_decl_state_ptr, function_decl_states, idx);
+      lto_output_decl_state_refs (ob, decl_state_stream, fn_out_state);
+    }
+  lto_write_stream (decl_state_stream);
+  free(decl_state_stream); 
 
   lto_write_stream (ob->main_stream);
   lto_write_stream (ob->string_stream);
@@ -1088,30 +1237,15 @@ produce_asm_for_decls (void)
   lto_write_stream (ob->debug_main_stream);
 #endif
 
-
-  htab_delete (out_state->field_decl_hash_table);
-  htab_delete (out_state->fn_decl_hash_table);
-  htab_delete (out_state->var_decl_hash_table);
-  htab_delete (out_state->type_decl_hash_table);
-  htab_delete (out_state->namespace_decl_hash_table);
-  htab_delete (out_state->type_hash_table);
-
   lto_end_section ();
 
   /* Write the symbol table. */
   produce_symtab (ob->main_hash_table,
-		  out_state->fn_decls,
-		  out_state->var_decls);
+		  out_state->streams[LTO_DECL_STREAM_FN_DECL].trees,
+		  out_state->streams[LTO_DECL_STREAM_VAR_DECL].trees);
 
   /* Deallocate memory and clean up.  */
   destroy_output_block (ob);
-
-  VEC_free (tree, heap, out_state->field_decls);
-  VEC_free (tree, heap, out_state->fn_decls);
-  VEC_free (tree, heap, out_state->var_decls);
-  VEC_free (tree, heap, out_state->type_decls);
-  VEC_free (tree, heap, out_state->namespace_decls);
-  VEC_free (tree, heap, out_state->types);
 }
 
 
@@ -1124,7 +1258,6 @@ gate_lto_out (void)
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !(errorcount || sorrycount));
 }
-
 
 struct ipa_opt_pass pass_ipa_lto_finish_out =
 {

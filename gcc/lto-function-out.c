@@ -184,11 +184,13 @@ create_output_block (enum lto_section_type section_type)
 
   ob->label_hash_table
     = htab_create (37, hash_label_slot_node, eq_label_slot_node, free);
-  ob->local_decl_hash_table
-    = htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
 
   ob->string_hash_table
-    = htab_create (37, hash_string_slot_node, eq_string_slot_node, string_slot_free);
+    = htab_create (37, hash_string_slot_node, eq_string_slot_node,
+		   string_slot_free);
+
+  lto_init_tree_ref_encoder (&ob->local_decl_encoder, lto_hash_decl_slot_node,
+			     lto_eq_decl_slot_node);
 
   /* The unnamed labels must all be negative.  */
   ob->next_unnamed_label_index = -1;
@@ -197,7 +199,8 @@ create_output_block (enum lto_section_type section_type)
 
 
 /* Destroy the output block OB.  */
-/* FIXME: Now declared in lto-section-out.h.  Move definition to lto-section-out.c ? */
+/* FIXME: Now declared in lto-section-out.h.  Move definition to
+   lto-section-out.c ? */
 
 void
 destroy_output_block (struct output_block * ob)
@@ -205,8 +208,6 @@ destroy_output_block (struct output_block * ob)
   enum lto_section_type section_type = ob->section_type;
 
   htab_delete (ob->label_hash_table);
-  htab_delete (ob->local_decl_hash_table);
-
   htab_delete (ob->string_hash_table);
 
   if (ob->main_hash_table)
@@ -242,7 +243,8 @@ destroy_output_block (struct output_block * ob)
       VEC_free (int, heap, ob->local_decls_index_d);
 #endif
     }
-  VEC_free (tree, heap, ob->local_decls);
+
+  lto_destroy_tree_ref_encoder (&ob->local_decl_encoder);
 
   free (ob);
 }
@@ -635,13 +637,11 @@ output_local_decl_ref (struct output_block *ob, tree name, bool write)
   unsigned int index;
 
   new = lto_output_decl_index (write ? ob->main_stream : NULL, 
-                               ob->local_decl_hash_table,
-                               &ob->next_local_decl_index, 
+                               &ob->local_decl_encoder,
                                name, &index);
   /* Push the new local decl onto a vector for later processing.  */
   if (new)
     {
-      VEC_safe_push (tree, heap, ob->local_decls, name);
       VEC_safe_push (int, heap, ob->local_decls_index, 0);
       VEC_safe_push (int, heap, ob->unexpanded_local_decls_index, -1);
 #ifdef LTO_STREAM_DEBUGGING
@@ -1362,7 +1362,7 @@ output_expr_operand (struct output_block *ob, tree expr)
 static void
 output_local_var_decl (struct output_block *ob, int index)
 {
-  tree decl = VEC_index (tree, ob->local_decls, index);
+  tree decl = lto_tree_ref_encoder_get_tree (&ob->local_decl_encoder, index);
   unsigned int variant = 0;
   bool is_var = (TREE_CODE (decl) == VAR_DECL);
   bool needs_backing_var
@@ -1647,7 +1647,7 @@ output_local_type (struct output_block *ob, tree type, enum LTO_tags tag)
 static void
 output_local_decl (struct output_block *ob, int index)
 {
-  tree decl = VEC_index (tree, ob->local_decls, index);
+  tree decl = lto_tree_ref_encoder_get_tree (&ob->local_decl_encoder, index);
 
   /* DEBUG */
   /*
@@ -1742,7 +1742,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
      process the local variables first, rather than have to back patch
      them.  */
   LTO_DEBUG_TOKEN ("local vars");
-  while (index < VEC_length (tree, ob->local_decls))
+  while (index < lto_tree_ref_encoder_size (&ob->local_decl_encoder))
     output_local_decl (ob, index++);
 
   ob->main_stream = tmp_stream;
@@ -1990,7 +1990,8 @@ produce_asm (struct output_block *ob, tree fn)
   header.lto_header.minor_version = LTO_minor_version;
   header.lto_header.section_type = section_type;
   
-  header.num_local_decls = VEC_length (tree, ob->local_decls);
+  header.num_local_decls =
+    lto_tree_ref_encoder_size (&ob->local_decl_encoder);
   header.num_named_labels = ob->next_named_label_index;
   header.num_unnamed_labels = -ob->next_unnamed_label_index;
   header.compressed_size = 0;
@@ -2350,6 +2351,7 @@ static void
 lto_output (void)
 {
   struct cgraph_node *node;
+  struct lto_out_decl_state *decl_state;
 
   lto_static_init_local ();
 
@@ -2357,7 +2359,14 @@ lto_output (void)
      ones of them.  */
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed && cgraph_is_master_clone (node, false))
-      output_function (node);
+      {
+	decl_state = lto_new_out_decl_state ();
+	lto_push_out_decl_state (decl_state);
+        output_function (node);
+	gcc_assert (lto_get_out_decl_state () == decl_state);
+	lto_pop_out_decl_state ();
+	lto_record_function_out_decl_state (node->decl, decl_state);
+      }
 
   output_constructors_and_inits ();
 }

@@ -44,24 +44,40 @@ struct lto_input_block
     BASE->len = L;                           \
   } while (0)
 
+/* An lto_tree_reference_table is a mapping from indices to tree. */
+
+struct lto_tree_ref_table {
+  tree *trees;		/* Array of referenced trees . */
+  unsigned int size;	/* Size of array. */
+};
+
+/* Structure to hold states of input scope. */
+struct lto_in_decl_state {
+  /* Array of lto_in_decl_buffers to store type and decls streams. */
+  struct lto_tree_ref_table	streams[LTO_N_DECL_STREAMS];
+
+  /* If this in-decl state is associated with a function. FN_DECL
+     point to the FUNCTION_DECL. */
+  tree fn_decl;
+};
+
+typedef struct lto_in_decl_state *lto_in_decl_state_ptr;
+
 /* One of these is allocated for each object file that being compiled
    by lto.  This structure contains the tables that are needed for the
    by the serialized functions and ipa passes to connect themselves to
    the global types and decls as they are reconstituted.  */
 struct lto_file_decl_data
 {
-  tree *field_decls;            /* The field decls.  */
-  tree *fn_decls;               /* The function decls.  */
-  tree *var_decls;              /* The global or static var_decls.  */
-  tree *type_decls;             /* The type_decls.  */
-  tree *namespace_decls;        /* The namespace_decls.  */
-  tree *types;                  /* All of the types.  */
-  unsigned int num_field_decls; /* The number of field decls.  */
-  unsigned int num_fn_decls;    /* The number of function decls.  */
-  unsigned int num_var_decls;   /* The number of global or static var_decls.  */
-  unsigned int num_type_decls;  /* The number of type_decls.  */
-  unsigned int num_namespace_decls; /* The number of namespace_decls.  */
-  unsigned int num_types;       /* All number of of the types.  */
+  /* Decl state currently used. */
+  struct lto_in_decl_state	*current_decl_state;
+
+  /* Decl state corresponding to regions outside of any functions
+     in the compilation unit. */
+  struct lto_in_decl_state	*global_decl_state;
+
+  /* Hash table maps lto-related section names to location in file.  */
+  htab_t function_decl_states;
 
   /* The .o file that these offsets relate to.  
 
@@ -80,7 +96,32 @@ struct lto_file_decl_data
   htab_t renaming_hash_table;
 };
 
-struct lto_file_decl_data;
+/* Macro to define convenience functions for type and decl streams
+   in lto_file_decl_data.  */ 
+
+#define DEFINE_DECL_STREAM_FUNCS(UPPER_NAME, name) \
+static inline tree \
+lto_file_decl_data_get_ ## name (struct lto_file_decl_data *data, \
+				 unsigned int idx) \
+{ \
+  struct lto_in_decl_state *state = data->current_decl_state; \
+  gcc_assert (idx < state->streams[LTO_DECL_STREAM_## UPPER_NAME].size); \
+  return state->streams[LTO_DECL_STREAM_## UPPER_NAME].trees[idx]; \
+} \
+\
+static inline unsigned int \
+lto_file_decl_data_num_ ## name ## s (struct lto_file_decl_data *data) \
+{ \
+  struct lto_in_decl_state *state = data->current_decl_state; \
+  return state->streams[LTO_DECL_STREAM_## UPPER_NAME].size; \
+}
+
+DEFINE_DECL_STREAM_FUNCS (TYPE, type)
+DEFINE_DECL_STREAM_FUNCS (FIELD_DECL, field_decl)
+DEFINE_DECL_STREAM_FUNCS (FN_DECL, fn_decl)
+DEFINE_DECL_STREAM_FUNCS (VAR_DECL, var_decl)
+DEFINE_DECL_STREAM_FUNCS (TYPE_DECL, type_decl)
+DEFINE_DECL_STREAM_FUNCS (NAMESPACE_DECL, namespace_decl)
 
 /* Return a char pointer to the start of a data stream for an lto pass
    or function.  The first parameter is the file data that contains
@@ -163,6 +204,13 @@ extern void lto_record_renamed_decl (struct lto_file_decl_data *,
 				     const char *, const char *);
 extern const char *lto_original_decl_name (struct lto_file_decl_data *,
 					   const char *);
+extern struct lto_in_decl_state *lto_new_in_decl_state (void);
+extern void lto_delete_in_decl_state (struct lto_in_decl_state *);
+extern hashval_t lto_hash_in_decl_state (const void *);
+extern int lto_eq_in_decl_state (const void *, const void *);
+
+extern struct lto_in_decl_state *
+  lto_get_function_in_decl_state (struct lto_file_decl_data *, tree);
 
 #ifdef LTO_STREAM_DEBUGGING
 extern void lto_debug_in_fun (struct lto_debug_context *, char);

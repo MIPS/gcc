@@ -70,10 +70,10 @@ struct output_block
   int next_unnamed_label_index;
   VEC(tree,heap) *named_labels;
 
-  /* The hash table that contains the set of local parm and var decls
+  /* The out decl buffer that contains the set of local parm and var decls
      we have seen so far and the indexes assigned to them.  */
-  htab_t local_decl_hash_table;
-  unsigned int next_local_decl_index;
+  struct lto_tree_ref_encoder local_decl_encoder;
+
   /* The local_decls_index and the local_decls_index_d are the indexes
      in the local var stream and the local var debugging stream where
      a particular local var is located.  This allows the local vars to
@@ -85,7 +85,6 @@ struct output_block
 #ifdef LTO_STREAM_DEBUGGING
   VEC(int,heap) *local_decls_index_d;
 #endif
-  VEC(tree,heap) *local_decls;
 
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */

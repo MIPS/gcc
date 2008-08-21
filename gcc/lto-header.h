@@ -64,6 +64,17 @@ struct lto_simple_header
   int32_t compressed_size;
 };
 
+/* This are indices to the type and decl streams. */
+enum {
+  LTO_DECL_STREAM_TYPE = 0,		/* Must be first. */
+  LTO_DECL_STREAM_FIELD_DECL,
+  LTO_DECL_STREAM_FN_DECL,
+  LTO_DECL_STREAM_VAR_DECL,
+  LTO_DECL_STREAM_TYPE_DECL,
+  LTO_DECL_STREAM_NAMESPACE_DECL,
+  LTO_N_DECL_STREAMS
+};
+
 /* In lto-section-out.c.  */
 char *lto_get_section_name (enum lto_section_type, const char *);
 

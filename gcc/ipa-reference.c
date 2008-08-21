@@ -1142,7 +1142,8 @@ read_summary (void)
       f_count = lto_input_uleb128 (ib);
       for (i = 0; i < f_count; i++)
 	{
-	  tree fn_decl = file_data->fn_decls [lto_input_uleb128 (ib)];
+	  unsigned int fn_index = lto_input_uleb128 (ib);
+	  tree fn_decl = lto_file_decl_data_get_fn_decl (file_data, fn_index);
 	  unsigned int j;
 	  struct cgraph_node *node = cgraph_node (fn_decl);
 	  ipa_reference_local_vars_info_t l = init_function_info (node);
@@ -1151,7 +1152,9 @@ read_summary (void)
 	  unsigned int v_count = lto_input_uleb128 (ib);
 	  for (j = 0; j < v_count; j++)
 	    {
-	      tree v_decl = file_data->var_decls [lto_input_uleb128 (ib)];
+	      unsigned int var_index = lto_input_uleb128 (ib);
+	      tree v_decl = lto_file_decl_data_get_var_decl (file_data,
+							     var_index);
 	      add_static_var (v_decl);
 	      bitmap_set_bit (l->statics_read, DECL_UID (v_decl));
 	    } 
@@ -1160,7 +1163,9 @@ read_summary (void)
 	  v_count = lto_input_uleb128 (ib);
 	  for (j = 0; j < v_count; j++)
 	    {
-	      tree v_decl = file_data->var_decls [lto_input_uleb128 (ib)];
+	      unsigned int var_index = lto_input_uleb128 (ib);
+	      tree v_decl = lto_file_decl_data_get_var_decl (file_data,
+							     var_index);
 	      add_static_var (v_decl);
 	      bitmap_set_bit (l->statics_written, DECL_UID (v_decl));
 	    } 

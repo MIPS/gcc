@@ -276,8 +276,9 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 	  unsigned int count;
 	  unsigned int freq;
 	  unsigned int nest;
+	  unsigned int decl_idx = lto_input_uleb128 (ib);
 
-	  callee_decl = file_data->fn_decls [lto_input_uleb128 (ib)];
+	  callee_decl = lto_file_decl_data_get_fn_decl (file_data, decl_idx);
 	  LTO_DEBUG_FN_NAME (callee_decl);
 	  callee = cgraph_node (callee_decl);
 	  
@@ -300,8 +301,9 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 	  unsigned int flags;
 	  int stack_size = 0;
 	  int self_insns = 0;
+	  unsigned decl_index = lto_input_uleb128 (ib);
 	  
-	  fn_decl = file_data->fn_decls [lto_input_uleb128 (ib)];
+	  fn_decl = lto_file_decl_data_get_fn_decl (file_data, decl_index);
 	  LTO_DEBUG_FN_NAME (fn_decl);
 	  LTO_DEBUG_TOKEN ("flags");
 	  flags = lto_input_uleb128 (ib);

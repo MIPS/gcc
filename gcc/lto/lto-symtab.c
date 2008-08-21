@@ -515,6 +515,8 @@ lto_symtab_merge_decl (tree new_decl)
     {
       TREE_STATIC (old_decl) |= TREE_STATIC (new_decl);
       DECL_DECLARED_INLINE_P (old_decl) &= DECL_DECLARED_INLINE_P (new_decl);
+      if (!DECL_RESULT (old_decl) && DECL_RESULT (new_decl))
+	DECL_RESULT (old_decl) = DECL_RESULT (new_decl);
     }
 
   /* We cannot free NEW_DECL just yet, as we still have a reference

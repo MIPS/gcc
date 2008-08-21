@@ -754,7 +754,8 @@ read_summary (void)
       count = lto_input_uleb128 (ib);
       for (i = 0; i < count; i++)
 	{
-	  tree fn_decl = file_data->fn_decls [lto_input_uleb128 (ib)];
+	  unsigned int index = lto_input_uleb128 (ib);
+	  tree fn_decl = lto_file_decl_data_get_fn_decl (file_data, index);
 	  unsigned HOST_WIDEST_INT flags = lto_input_uleb128 (ib);
 	  funct_state fs = XCNEW (struct funct_state_d);
 	  

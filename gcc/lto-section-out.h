@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_LTO_SECTION_OUT_H
 #define GCC_LTO_SECTION_OUT_H
 
+#include "lto-section.h"
+
 #ifdef LTO_STREAM_DEBUGGING
 void lto_debug_out_fun (struct lto_debug_context *, char);
 #endif
@@ -73,48 +75,33 @@ struct lto_decl_slot {
 };
 
 
+/* The lto_tree_ref_encoder struct is used to encode trees into indices. */
+
+struct lto_tree_ref_encoder
+{
+  htab_t tree_hash_table;	/* Maps pointers to indices. */
+  unsigned int next_index;	/* Next available index. */
+  VEC(tree,heap) *trees;	/* Maps indices to pointers. */
+};
+
 /* The structure that holds all of the vectors of global types and
    decls used in lto serialization for this file.  */
 
 struct lto_out_decl_state
 {
-  /* The hash table that contains the set of field_decls we have
+  /* The buffers contain the sets of decls of various kinds and types we have
      seen so far and the indexes assigned to them.  */
-  htab_t field_decl_hash_table;
-  unsigned int next_field_decl_index;
-  VEC(tree,heap) *field_decls;
+  struct lto_tree_ref_encoder streams[LTO_N_DECL_STREAMS];
 
-  /* The hash table that contains the set of function_decls we have
-     seen so far and the indexes assigned to them.  */
-  htab_t fn_decl_hash_table;
-  unsigned int next_fn_decl_index;
-  VEC(tree,heap) *fn_decls;
-
-  /* The hash table that contains the set of var_decls we have
-     seen so far and the indexes assigned to them.  */
-  htab_t var_decl_hash_table;
-  unsigned int next_var_decl_index;
-  VEC(tree,heap) *var_decls;
-
-  /* The hash table that contains the set of type_decls we have
-     seen so far and the indexes assigned to them.  */
-  htab_t type_decl_hash_table;
-  unsigned int next_type_decl_index;
-  VEC(tree,heap) *type_decls;
-
-  /* The hash table that contains the set of namespace_decls we have
-     seen so far and the indexes assigned to them.  */
-  htab_t namespace_decl_hash_table;
-  unsigned int next_namespace_decl_index;
-  VEC(tree,heap) *namespace_decls;
-
-  /* The hash table that contains the set of type we have seen so far
-     and the indexes assigned to them.  */
-  htab_t type_hash_table;
-  unsigned int next_type_index;
-  VEC(tree,heap) *types;
+  /* If this out-decl state belongs to a function, fn_decl points to that
+     function.  Otherwise, it is NULL. */
+  tree fn_decl;
 };
 
+typedef struct lto_out_decl_state *lto_out_decl_state_ptr;
+
+DEF_VEC_P(lto_out_decl_state_ptr);
+DEF_VEC_ALLOC_P(lto_out_decl_state_ptr, heap);
 
 /* A simple output block.  This can be used for simple ipa passes that
    do not need more than one stream.  */
@@ -132,7 +119,46 @@ struct lto_simple_output_block
 #endif
 };
 
+/* Iniitialize an lto_out_decl_buffer ENCODER.  */
 
+static inline void
+lto_init_tree_ref_encoder (struct lto_tree_ref_encoder *encoder,
+			   htab_hash hash_fn, htab_eq eq_fn)
+{
+  encoder->tree_hash_table = htab_create (37, hash_fn, eq_fn, free);
+  encoder->next_index = 0;
+  encoder->trees = NULL;
+}
+
+/* Destory an lto_tree_ref_encoder ENCODER by freeing its contents.  The
+   memory used by ENCODER is not freed by this function.  */
+
+static inline void
+lto_destroy_tree_ref_encoder (struct lto_tree_ref_encoder *encoder)
+{
+  /* Hash table may be delete already.  */
+  if (encoder->tree_hash_table)
+    htab_delete (encoder->tree_hash_table);
+  VEC_free (tree, heap, encoder->trees);
+}
+
+/* Return the number of trees encoded in ENCODER. */
+
+static inline unsigned int
+lto_tree_ref_encoder_size (struct lto_tree_ref_encoder *encoder)
+{
+  return VEC_length (tree, encoder->trees);
+}
+
+/* Return the IDX-th tree in ENCODER. */
+
+static inline tree
+lto_tree_ref_encoder_get_tree (struct lto_tree_ref_encoder *encoder,
+			       unsigned int idx)
+{
+  return VEC_index (tree, encoder->trees, idx);
+}
+ 
 void lto_set_flag (unsigned HOST_WIDEST_INT *, unsigned int);
 void lto_set_flags (unsigned HOST_WIDEST_INT *, unsigned int, unsigned int);
 hashval_t lto_hash_decl_slot_node (const void *);
@@ -153,8 +179,9 @@ void lto_output_widest_uint_uleb128_stream (struct lto_output_stream *,
 					    unsigned HOST_WIDEST_INT);
 void lto_output_sleb128_stream (struct lto_output_stream *, HOST_WIDE_INT);
 void lto_output_integer_stream (struct lto_output_stream *, tree);
-bool lto_output_decl_index (struct lto_output_stream *, htab_t, 
-			    unsigned int *, tree, unsigned int *);
+bool lto_output_decl_index (struct lto_output_stream *,
+			    struct lto_tree_ref_encoder *,
+			    tree, unsigned int *);
 void lto_output_field_decl_index (struct lto_out_decl_state *,
 				  struct lto_output_stream *, tree);
 void lto_output_fn_decl_index (struct lto_out_decl_state *,
@@ -171,7 +198,14 @@ void lto_output_type_ref_index (struct lto_out_decl_state *,
 struct lto_simple_output_block *lto_create_simple_output_block (enum lto_section_type);
 void lto_destroy_simple_output_block (struct lto_simple_output_block * ob);
 
+struct lto_out_decl_state *lto_new_out_decl_state (void);
+void lto_delete_out_decl_state (struct lto_out_decl_state *);
 struct lto_out_decl_state *lto_get_out_decl_state (void);
+void lto_push_out_decl_state (struct lto_out_decl_state *);
+struct lto_out_decl_state *lto_pop_out_decl_state (void);
+void lto_record_function_out_decl_state (tree, struct lto_out_decl_state*);
+
+VEC(tree,heap)* lto_get_common_nodes (void);
 
 bool gate_lto_out (void);
 

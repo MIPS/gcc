@@ -114,6 +114,8 @@ preload_common_nodes (struct data_in *data_in)
 {
   unsigned i;
   htab_t index_table;
+  VEC(tree, heap) *common_nodes;
+  tree node;
 
   /* The global tree for the main identifier is filled in by language-specific
      front-end initialization that is not run in the LTO back-end.  It appears
@@ -124,6 +126,7 @@ preload_common_nodes (struct data_in *data_in)
 
   ptrdiff_type_node = integer_type_node;
 
+  common_nodes = lto_get_common_nodes ();
   /* FIXME lto.  In the C++ front-end, fileptr_type_node is defined as a
      variant copy of of ptr_type_node, rather than ptr_node itself.  The
      distinction should only be relevant to the front-end, so we always
@@ -134,89 +137,83 @@ preload_common_nodes (struct data_in *data_in)
 			     lto_eq_global_slot_node, free);
 
 #ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloading all global_trees[]\n");
+  fprintf (stderr, "\n\nPreloading all common_nodes.\n");
 #endif
 
-  for (i = 0; i < TI_MAX; i++)
-    preload_common_node (global_trees[i], index_table, &data_in->globals_index,
-			 NULL);
+  for (i = 0; VEC_iterate (tree, common_nodes, i, node); i++)
+    preload_common_node (node, index_table, &data_in->globals_index, NULL);
 
 #ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloaded %u entries in global_trees[]\n", i - 1);
+  fprintf (stderr, "\n\nPreloaded %u common nodes.\n", i - 1);
 #endif
 
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloading all integer_types[]\n");
-#endif
-
-  for (i = 0; i < itk_none; i++)
-    preload_common_node (integer_types[i], index_table, &data_in->globals_index,
-			 NULL);
-
-#ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "\n\nPreloaded %u entries in integer_types[]\n", i - 1);
-#endif
-
+  VEC_free(tree, heap, common_nodes);
   htab_delete (index_table);
 }
 
-/* Load in the global vars and all of the types from the main symbol
-   table.  */
+/* Decode the content of memory pointed to by DATA in the the
+   in decl state object STATE. DATA_IN points to a data_in structure for
+   decoding. Return the address after the decoded object in the input.  */
+
+static const uint32_t*
+lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
+			struct lto_in_decl_state *state)
+{
+  uint32_t fn_decl_index;
+  tree decl;
+  uint32_t i, j;
+  
+  fn_decl_index = *data++;
+  decl = VEC_index (tree, data_in->globals_index, fn_decl_index);
+  if (TREE_CODE (decl) != FUNCTION_DECL)
+    {
+      gcc_assert (decl == void_type_node);
+      decl = NULL_TREE;
+    }
+  state->fn_decl = decl;
+
+  for (i = 0; i < LTO_N_DECL_STREAMS; i++)
+    {
+      uint32_t size = *data++;
+      tree *decls = (tree *) xcalloc (size, sizeof (tree));
+
+      for (j = 0; j < size; j++)
+        decls[j] = VEC_index (tree, data_in->globals_index, data[j]);
+      state->streams[i].size = size;
+      state->streams[i].trees = decls;
+      data += size;
+    }
+
+  return data;
+}
 
 static void
 lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
 {
   const struct lto_decl_header * header 
       = (const struct lto_decl_header *) data;
-
-  int32_t types_offset = sizeof (struct lto_decl_header); 
-  int32_t fields_offset
-      = types_offset + (header->num_types * sizeof (uint32_t));
-  int32_t fns_offset 
-      = fields_offset + (header->num_field_decls * sizeof (uint32_t));
-  int32_t vars_offset 
-      = fns_offset + (header->num_fn_decls * sizeof (uint32_t));
-  int32_t type_decls_offset 
-      = vars_offset + (header->num_var_decls * sizeof (uint32_t));
-  int32_t namespace_decls_offset
-      = type_decls_offset + (header->num_type_decls * sizeof (uint32_t));
-
-  const uint32_t *in_types
-    = (const uint32_t *) ((const char *) data + types_offset);
-  const uint32_t *in_field_decls
-    = (const uint32_t *) ((const char *) data + fields_offset);
-  const uint32_t *in_fn_decls
-    = (const uint32_t *) ((const char *) data + fns_offset);
-  const uint32_t *in_var_decls
-    = (const uint32_t *) ((const char *) data + vars_offset);
-  const uint32_t *in_type_decls
-    = (const uint32_t *) ((const char *) data + type_decls_offset);
-  const uint32_t *in_namespace_decls
-    = (const uint32_t *) ((const char *) data + namespace_decls_offset);
-
-  int32_t main_offset
-      = namespace_decls_offset + (header->num_namespace_decls * sizeof (uint32_t));
+  const int32_t decl_offset = sizeof (struct lto_decl_header);
+  const int32_t main_offset = decl_offset + header->decl_state_size;
   const int32_t string_offset = main_offset + header->main_size;
 #ifdef LTO_STREAM_DEBUGGING
-  const int32_t debug_main_offset = string_offset + header->string_size;
+  int32_t debug_main_offset;
 #endif
 
   struct lto_input_block ib_main;
   struct lto_input_block debug_main;
   struct data_in data_in;
-  int i;
+  unsigned int i;
+  const uint32_t *data_ptr, *data_end;
+  uint32_t num_decl_states;
 
+#ifdef LTO_STREAM_DEBUGGING
+  debug_main_offset = string_offset + header->string_size;
+#endif
+  
   LTO_INIT_INPUT_BLOCK (ib_main, (const char*) data + main_offset, 0, header->main_size);
 #ifdef LTO_STREAM_DEBUGGING
   LTO_INIT_INPUT_BLOCK (debug_main, (const char*) data + debug_main_offset, 0, header->debug_main_size);
 #endif
-
-  decl_data->field_decls = (tree *) xcalloc (header->num_field_decls, sizeof (tree));
-  decl_data->fn_decls    = (tree *) xcalloc (header->num_fn_decls, sizeof (tree));
-  decl_data->var_decls   = (tree *) xcalloc (header->num_var_decls, sizeof (tree));
-  decl_data->type_decls  = (tree *) xcalloc (header->num_type_decls, sizeof (tree));
-  decl_data->namespace_decls = (tree *) xcalloc (header->num_namespace_decls, sizeof (tree));
-  decl_data->types       = (tree *) xcalloc (header->num_types, sizeof (tree));
 
   memset (&data_in, 0, sizeof (struct data_in));
   data_in.file_data          = decl_data;
@@ -248,37 +245,36 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
       gcc_assert (ib_main.p <= ib_main.len);
     }
 
-  /* Construct index vectors for use when reading function bodies.  */
+  /* Read in lto_in_decl_state objects. */
 
-  for (i=0; i<header->num_types; i++)
-    decl_data->types[i]
-        = VEC_index (tree, data_in.globals_index, in_types[i]);
-  decl_data->num_types = header->num_types;
+  data_ptr = (const uint32_t*) ((const char*) data + decl_offset); 
+  data_end =
+     (const uint32_t*) ((const char*) data_ptr + header->decl_state_size);
+  num_decl_states = *data_ptr++;
+  
+  gcc_assert (num_decl_states > 0);
+  decl_data->global_decl_state = lto_new_in_decl_state ();
+  data_ptr = lto_read_in_decl_state (&data_in, data_ptr,
+				     decl_data->global_decl_state);
 
-  for (i=0; i<header->num_field_decls; i++)
-    decl_data->field_decls[i]
-        = VEC_index (tree, data_in.globals_index, in_field_decls[i]);
-  decl_data->num_field_decls = header->num_field_decls;
+  /* Read in per-function decl states and enter them in hash table.  */
 
-  for (i=0; i<header->num_fn_decls; i++)
-    decl_data->fn_decls[i]
-        = VEC_index (tree, data_in.globals_index, in_fn_decls[i]);
-  decl_data->num_fn_decls = header->num_fn_decls;
+  decl_data->function_decl_states =
+    htab_create (37, lto_hash_in_decl_state, lto_eq_in_decl_state, free);
+  for (i = 1; i < num_decl_states; i++)
+    {
+      struct lto_in_decl_state *state = lto_new_in_decl_state ();
+      void **slot;
 
-  for (i=0; i<header->num_var_decls; i++)
-    decl_data->var_decls[i]
-        = VEC_index (tree, data_in.globals_index, in_var_decls[i]);
-  decl_data->num_var_decls = header->num_var_decls;
-
-  for (i=0; i<header->num_type_decls; i++)
-    decl_data->type_decls[i]
-        = VEC_index (tree, data_in.globals_index, in_type_decls[i]);
-  decl_data->num_type_decls = header->num_type_decls;
-
-  for (i=0; i<header->num_namespace_decls; i++)
-    decl_data->namespace_decls[i]
-        = VEC_index (tree, data_in.globals_index, in_namespace_decls[i]);
-  decl_data->num_namespace_decls = header->num_namespace_decls;
+      data_ptr = lto_read_in_decl_state (&data_in, data_ptr, state);
+      slot = htab_find_slot (decl_data->function_decl_states, state, INSERT);
+      gcc_assert (*slot == NULL);
+      *slot = state;
+    }
+  gcc_assert (data_ptr == data_end);
+  
+  /* Set the current decl state to be the global state. */
+  decl_data->current_decl_state = decl_data->global_decl_state;
 
   /* The globals index vector is needed only while reading.  */
 
