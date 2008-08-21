@@ -1,3 +1,8 @@
+2008-08-20  Joey Ye  <joey.ye@intel.com>
+
+	* doc/extend.texi: Document AVX built-in function.
+	* doc/invoke.texi: Document -mavx.
+
 2008-08-20  Xuepeng Guo  <xuepeng.guo@intel.com>
 
 	* config/i386/sse.md (*avx_aesenc): New.
