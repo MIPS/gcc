@@ -1,0 +1,6 @@
+2008-08-21  Rafael Espindola  <espindola@google.com>
+
+	* Makefile.def (host_modules): Add lto-plugin.
+	* Makefile.in: Update.
+	* configure: Update.
+	* configure.ac (host_libs): Add lto-plugin.
