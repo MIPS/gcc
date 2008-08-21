@@ -1,5 +1,10 @@
 2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (setup_incoming_varargs_64): Remove FIXME.
+	* config/i386/i386.md (*sse_prologue_save_insn): Likewise.
+
+2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (ix86_expand_vector_move_misalign): Handle
 	MODE_INT for AVX.
 

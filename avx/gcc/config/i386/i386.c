@@ -6335,7 +6335,6 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
       label = gen_label_rtx ();
       label_ref = gen_rtx_LABEL_REF (Pmode, label);
 
-      /* FIXME: It doesn't work for 256bit AVX registers.  */
       /* Compute address to jump to :
          label - eax*4 + nnamed_sse_arguments*4 Or
          label - eax*5 + nnamed_sse_arguments*5 for AVX.  */
