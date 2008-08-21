@@ -1,4 +1,8 @@
 2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/avx-3.c: New.
+
+2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
 	    Xuepeng Guo  <xuepeng.guo@intel.com>
 	    Joey Ye  <joey.ye@intel.com>
 

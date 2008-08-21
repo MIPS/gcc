@@ -12119,8 +12119,10 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 
   if (TARGET_AVX)
     {
-      if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+      switch (GET_MODE_CLASS (mode))
 	{
+	case MODE_VECTOR_INT:
+	case MODE_INT:
 	  switch (GET_MODE_SIZE (mode))
 	    {
 	    case 16:
@@ -12136,9 +12138,8 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	    default:
 	      gcc_unreachable ();
 	    }
-	}
-      else
-	{
+	  break;
+	case MODE_VECTOR_FLOAT:
 	  op0 = gen_lowpart (mode, op0);
 	  op1 = gen_lowpart (mode, op1);
 
@@ -12159,6 +12160,10 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	    default:
 	      gcc_unreachable ();
 	    }
+	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
 
       return;
