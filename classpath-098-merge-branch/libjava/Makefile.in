@@ -1223,7 +1223,7 @@ gnu/awt/xlib/XToolkit.java
 
 gnu_awt_xlib_header_files = $(patsubst %.java,%.h,$(gnu_awt_xlib_source_files))
 gnu_classpath_source_files = \
-gnu/classpath/Configuration.java \
+classpath/gnu/classpath/Configuration.java \
 classpath/gnu/classpath/NotImplementedException.java \
 classpath/gnu/classpath/Pair.java \
 classpath/gnu/classpath/Pointer.java \

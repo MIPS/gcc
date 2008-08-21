@@ -1,3 +1,8 @@
+2008-08-21  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+	
+	* Makefile.in: Updated location of Configuration.java.
+	* classpath/lib/gnu/java/locale/LocaleData.class: Regenerated.
+
 2008-08-18  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 	
 	* Makefile.in: Updated with new Java files.
