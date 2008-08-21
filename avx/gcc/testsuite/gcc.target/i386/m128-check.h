@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <xmmintrin.h>
+
+#ifdef __SSE2__
 #include <emmintrin.h>
 
 typedef union
@@ -39,15 +42,16 @@ typedef union
 
 typedef union
 {
-  __m128  x;
-  float a[4];
-} union128;
-
-typedef union
-{
   __m128d x;
   double a[2];
 } union128d;
+#endif
+
+typedef union
+{
+  __m128  x;
+  float a[4];
+} union128;
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(A) (sizeof (A) / sizeof ((A)[0]))
@@ -77,14 +81,17 @@ check_##UINON_TYPE (UINON_TYPE u, const VALUE_TYPE *v)	\
   return err;						\
 }
 
+#ifdef __SSE2__
 CHECK_EXP (union128i_b, char, "%d")
 CHECK_EXP (union128i_ub, unsigned char, "%d")
 CHECK_EXP (union128i_w, short, "%d")
 CHECK_EXP (union128i_uw, unsigned short, "%d")
 CHECK_EXP (union128i_d, int, "0x%x")
 CHECK_EXP (union128i_q, long long, "0x%llx")
-CHECK_EXP (union128, float, "%f")
 CHECK_EXP (union128d, double, "%f")
+#endif
+
+CHECK_EXP (union128, float, "%f")
 
 #define ESP_FLOAT 0.000001
 #define ESP_DOUBLE 0.000001
@@ -130,3 +137,26 @@ checkV##ARRAY (const TYPE *v, const TYPE *e, int n)     \
 
 CHECK_FP_ARRAY (d, double, ESP_DOUBLE, "%f")
 CHECK_FP_ARRAY (f, float, ESP_FLOAT, "%f")
+
+union ieee754_float
+{
+   float d;
+   struct 
+   {
+      unsigned long frac : 23;
+      unsigned exp : 8;
+      unsigned sign : 1;
+   } bits __attribute__((packed));
+};
+
+union ieee754_double
+{
+   double d;
+   struct 
+   {
+      unsigned long frac1 : 32;
+      unsigned long frac0 : 20;
+      unsigned exp : 11;
+      unsigned sign : 1;
+   } bits __attribute__((packed));
+};
