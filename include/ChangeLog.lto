@@ -1,0 +1,3 @@
+2008-08-21  Rafael Espindola  <espindola@google.com>
+
+	* lto-symtab.h: New.

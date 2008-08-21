@@ -1,0 +1,9 @@
+2008-08-21  Rafael Espindola  <espindola@google.com>
+
+	* Makefile.am: New.
+	* Makefile.in: New.
+	* acinclude.m4: New.
+	* aclocal.m4: New.
+	* configure: New.
+	* configure.ac: New.
+	* lto-symtab.c: New.
