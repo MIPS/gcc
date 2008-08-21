@@ -1088,8 +1088,6 @@ produce_asm_for_decls (void)
   lto_write_stream (ob->debug_main_stream);
 #endif
 
-  /* Deallocate memory and clean up.  */
-  destroy_output_block (ob);
 
   htab_delete (out_state->field_decl_hash_table);
   htab_delete (out_state->fn_decl_hash_table);
@@ -1105,8 +1103,8 @@ produce_asm_for_decls (void)
 		  out_state->fn_decls,
 		  out_state->var_decls);
 
-  /* Finish cleanup. */
-  htab_delete (ob->main_hash_table);
+  /* Deallocate memory and clean up.  */
+  destroy_output_block (ob);
 
   VEC_free (tree, heap, out_state->field_decls);
   VEC_free (tree, heap, out_state->fn_decls);

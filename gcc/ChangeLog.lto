@@ -1,3 +1,11 @@
+2008-08-21  Doug Kwan  <dougkwan@google.com>
+
+	* lto-function-out.c (create_output_block): Use XCNEW instead of
+	xcalloc.
+	(destroy_output_block): Delete MAIN_HASH_TABLE if present.
+	* lto-section-out.c: Move call to destroy_output_block to be after
+	all use of OB.  Remove call to htab_delete of MAIN_HASH_TABLE of OB.
+
 2008-08-21  Rafael Espindola  <espindola@google.com>
 
 	* aclocal.m4: Include ../config/libelf.m4.

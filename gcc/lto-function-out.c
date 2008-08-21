@@ -159,8 +159,7 @@ clear_line_info (struct output_block *ob)
 struct output_block *
 create_output_block (enum lto_section_type section_type)
 {
-  struct output_block *ob
-    = (struct output_block *) xcalloc (1, sizeof (struct output_block));
+  struct output_block *ob = XCNEW (struct output_block);
 
   ob->section_type = section_type;
   ob->decl_state = lto_get_out_decl_state ();
@@ -209,6 +208,9 @@ destroy_output_block (struct output_block * ob)
   htab_delete (ob->local_decl_hash_table);
 
   htab_delete (ob->string_hash_table);
+
+  if (ob->main_hash_table)
+    htab_delete (ob->main_hash_table);
 
   free (ob->main_stream);
   free (ob->string_stream);
