@@ -1,3 +1,7 @@
+2008-07-22  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-section-out.c (produce_symtab_1): Write comdat.
+
 2008-08-21  Doug Kwan  <dougkwan@google.com>
 
 	* lto-function-out.c (create_output_block): Replace code to initialize

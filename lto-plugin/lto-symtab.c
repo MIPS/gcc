@@ -82,6 +82,7 @@ get_symtab (Elf *elf)
 struct table_entry
 {
   char *name;
+  char *comdat;
   enum gcc_plugin_symbol_kind kind;
   enum gcc_plugin_symbol_visibility visibility;
   uint64_t size;
@@ -95,6 +96,11 @@ struct table_entry
 char *parse_table_entry (char *p, struct table_entry *entry)
 {
   entry->name = p;
+  while (*p)
+    p++;
+  p++;
+
+  entry->comdat = p;
   while (*p)
     p++;
   p++;
@@ -129,8 +135,9 @@ void printTable (Elf_Data *symtab)
 				      "GCCPV_INTERNAL", "GCCPV_HIDDEN"};
       data = parse_table_entry (data, &entry);
 
-      printf("%s %s %s %ld %d\n", entry.name, kind_str[entry.kind],
-	     visibility_str[entry.visibility], entry.size, entry.slot_num);
+      printf("%s %s %s %s %ld %d\n", entry.name, entry.comdat,
+	     kind_str[entry.kind], visibility_str[entry.visibility],
+	     entry.size, entry.slot_num);
     }
 }
 

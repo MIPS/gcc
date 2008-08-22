@@ -1,3 +1,7 @@
+2008-07-22  Rafael Avila de Espindola  <espindola@google.com>
+	* lto-symtab.c (table_entry): Add comdat.
+	(parse_table_entry): Read comdat.
+
 2008-08-21  Rafael Espindola  <espindola@google.com>
 
 	* Makefile.am: New.

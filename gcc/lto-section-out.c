@@ -1057,6 +1057,7 @@ produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
       int slot_num;
       void **slot;
       uint64_t size;
+      const char *comdat;
 
       d_slot.t = t;
       slot = htab_find_slot (hash, &d_slot, NO_INSERT);
@@ -1102,7 +1103,13 @@ produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
       else
 	size = 0;
 
+      if (DECL_COMDAT (t))
+	comdat = lang_hooks.decls.comdat_group (t);
+      else
+	comdat = "";
+
       lto_output_data_stream (stream, name, strlen (name) + 1);
+      lto_output_data_stream (stream, comdat, strlen (comdat) + 1);
       lto_output_data_stream (stream, &kind, 1);
       lto_output_data_stream (stream, &visibility, 1);
       lto_output_data_stream (stream, &size, 8);
