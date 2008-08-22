@@ -1,3 +1,8 @@
+2008-08-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_loadhpd): Correct attributes.
+	(*avx_loadlpd): Likewise.
+
 2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.md (*cmpfp_iu_sse): Remove extra athlon_decode

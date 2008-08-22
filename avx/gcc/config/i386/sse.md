@@ -4353,9 +4353,9 @@
    #
    #
    #"
-  [(set_attr "type" "ssemov,sselog,sselog,ssemov,fmov,imov")
+  [(set_attr "type" "ssemov,sselog,ssemov,fmov,imov")
    (set_attr "prefix" "vex")
-   (set_attr "mode" "V1DF,V2DF,V2DF,DF,DF,DF")])
+   (set_attr "mode" "V1DF,V2DF,DF,DF,DF")])
 
 (define_insn "sse2_loadhpd"
   [(set (match_operand:V2DF 0 "nonimmediate_operand"     "=x,x,x,o,o,o")
@@ -4414,9 +4414,9 @@
    #
    #
    #"
-  [(set_attr "type" "ssemov,ssemov,ssemov,sselog,ssemov,ssemov,fmov,imov")
+  [(set_attr "type" "ssemov,ssemov,ssemov,ssemov,ssemov,fmov,imov")
    (set_attr "prefix" "vex")
-   (set_attr "mode" "DF,V1DF,V1DF,V2DF,V1DF,DF,DF,DF")])
+   (set_attr "mode" "DF,V1DF,V1DF,V1DF,DF,DF,DF")])
 
 (define_insn "sse2_loadlpd"
   [(set (match_operand:V2DF 0 "nonimmediate_operand"    "=x,x,x,x,x,m,m,m")
