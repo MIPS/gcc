@@ -289,7 +289,7 @@ cgraph_mark_inline (struct cgraph_edge *edge)
   struct cgraph_node *what = edge->callee;
   struct cgraph_edge *e, *next;
 
-  gcc_assert (!CALL_STMT_CANNOT_INLINE_P (edge->call_stmt));
+  gcc_assert (!edge->call_stmt_cannot_inline_p);
   /* Look for all calls, mark them inline and clone recursively
      all inlined functions.  */
   for (e = what->callers; e; e = next)
@@ -971,7 +971,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	}
       if (!tree_can_inline_p (edge->caller->decl, edge->callee->decl))
 	{
-	  CALL_STMT_CANNOT_INLINE_P (edge->call_stmt) = true;
+	  edge->call_stmt_cannot_inline_p = true;
 	  edge->inline_failed = N_("target specific option mismatch");
 	  if (dump_file)
 	    fprintf (dump_file, " inline_failed:%s.\n", edge->inline_failed);
@@ -992,7 +992,7 @@ cgraph_decide_inlining_of_small_functions (void)
       else
 	{
 	  struct cgraph_node *callee;
-	  if (CALL_STMT_CANNOT_INLINE_P (edge->call_stmt)
+	  if (edge->call_stmt_cannot_inline_p
 	      || !cgraph_check_inline_limits (edge->caller, edge->callee,
 					      &edge->inline_failed, true))
 	    {
@@ -1126,14 +1126,14 @@ cgraph_decide_inlining (void)
       for (e = node->callers; e; e = next)
 	{
 	  next = e->next_caller;
-	  if (!e->inline_failed || CALL_STMT_CANNOT_INLINE_P (e->call_stmt))
+	  if (!e->inline_failed || e->call_stmt_cannot_inline_p)
 	    continue;
 	  if (cgraph_recursive_inlining_p (e->caller, e->callee,
 				  	   &e->inline_failed))
 	    continue;
 	  if (!tree_can_inline_p (e->caller->decl, e->callee->decl))
 	    {
-	      CALL_STMT_CANNOT_INLINE_P (e->call_stmt) = true;
+	      e->call_stmt_cannot_inline_p = true;
 	      continue;
 	    }
 	  cgraph_mark_inline_edge (e, true);
@@ -1179,7 +1179,7 @@ cgraph_decide_inlining (void)
 
 	  if (node->callers && !node->callers->next_caller && !node->needed
 	      && node->local.inlinable && node->callers->inline_failed
-	      && !CALL_STMT_CANNOT_INLINE_P (node->callers->call_stmt)
+	      && !node->callers->call_stmt_cannot_inline_p
 	      && !DECL_EXTERNAL (node->decl) && !DECL_COMDAT (node->decl))
 	    {
 	      if (dump_file)
@@ -1342,7 +1342,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
       if (!e->callee->local.disregard_inline_limits
 	  && (mode != INLINE_ALL || !e->callee->local.inlinable))
 	continue;
-      if (CALL_STMT_CANNOT_INLINE_P (e->call_stmt))
+      if (e->call_stmt_cannot_inline_p)
 	continue;
       /* When the edge is already inlined, we just need to recurse into
 	 it in order to fully flatten the leaves.  */
@@ -1369,7 +1369,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	}
       if (!tree_can_inline_p (node->decl, e->callee->decl))
 	{
-	  CALL_STMT_CANNOT_INLINE_P (e->call_stmt) = true;
+	  e->call_stmt_cannot_inline_p = true;
 	  if (dump_file)
 	    {
 	      indent_to (dump_file, depth);
@@ -1455,7 +1455,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	  }
 	if (!cgraph_check_inline_limits (node, e->callee, &e->inline_failed,
 				        false)
-	    || CALL_STMT_CANNOT_INLINE_P (e->call_stmt))
+	    || e->call_stmt_cannot_inline_p)
 	  {
 	    if (dump_file)
 	      {
@@ -1476,7 +1476,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	  }
 	if (!tree_can_inline_p (node->decl, e->callee->decl))
 	  {
-	    CALL_STMT_CANNOT_INLINE_P (e->call_stmt) = true;
+	    e->call_stmt_cannot_inline_p = true;
 	    if (dump_file)
 	      {
 		indent_to (dump_file, depth);

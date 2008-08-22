@@ -86,6 +86,8 @@ output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge)
   lto_output_uleb128_stream (ob->main_stream, edge->frequency);
   LTO_DEBUG_TOKEN ("loop_next");
   lto_output_uleb128_stream (ob->main_stream, edge->loop_nest);
+  LTO_DEBUG_TOKEN ("call_stmt_cannot_inline_p");
+  lto_output_uleb128_stream (ob->main_stream, edge->call_stmt_cannot_inline_p);
   LTO_DEBUG_UNDENT();
 }
 
@@ -276,6 +278,7 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 	  unsigned int count;
 	  unsigned int freq;
 	  unsigned int nest;
+	  unsigned int call_stmt_cannot_inline_p;
 	  unsigned int decl_idx = lto_input_uleb128 (ib);
 
 	  callee_decl = lto_file_decl_data_get_fn_decl (file_data, decl_idx);
@@ -290,9 +293,13 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 	  freq = lto_input_uleb128 (ib);
 	  LTO_DEBUG_TOKEN ("loop_next");
 	  nest = lto_input_uleb128 (ib);
+	  LTO_DEBUG_TOKEN ("call_stmt_cannot_inline_p");
+	  call_stmt_cannot_inline_p = lto_input_uleb128 (ib);
 	  
-	  edge = cgraph_create_edge (last_caller, callee, NULL, count, freq, nest);
+	  edge = cgraph_create_edge (last_caller, callee, NULL, count,
+				     freq, nest);
 	  edge->lto_stmt_uid = stmt_id;
+	  edge->call_stmt_cannot_inline_p = call_stmt_cannot_inline_p;
 	}
       else 
 	{

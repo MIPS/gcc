@@ -1,3 +1,22 @@
+2008-08-22  Doug Kwan  <dougkwan@google.com>
+
+	* cgraphbuild.c	(initialize_inline_failed): Use cgraph_edge field
+	CALL_STMT_CANNOT_INLINE_P instead of looking at the corresponding
+	CALL_STMT of a cgraph_edge.
+	* cgraph.c (cgraph_create_edge): Copy CALL_STMT_CANNOT_INLINE_P
+	of cgraph_edge struct from CALL_STMT if CALL_STMT is not NULL.
+	* cgraph.hraph.h (struct cgraph_edge) Reduce size of LOOP_NEST
+	by one bit to make room for a new filed CALL_STMT_CANNOT_INLINE_P.
+	* tree-gimple.h (CALL_CANNOT_INLINE_P): Remove macro.
+	* lto-cgraph.c (output_edge): Write CALL_STMT_CANNOT_INLINE_P.
+	(input_cgraph_1): Read CALL_STMT_CANNOT_INLINE_P.
+	* ipa-inline.c (initialize_inline_failed): Use cgraph_edge field
+	CALL_STMT_CANNOT_INLINE_P instead of looking at the corresponding
+	CALL_STMT of a cgraph_edge.
+	(cgraph_decide_inlining_of_small_function): Ditto.
+	(cgraph_decide_inlining): Ditto.
+	(cgraph_decide_inlining_incrementally): Ditto.
+
 2008-07-22  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-section-out.c (produce_symtab_1): Write comdat.

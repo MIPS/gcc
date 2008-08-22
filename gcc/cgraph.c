@@ -621,6 +621,8 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   gcc_assert (freq <= CGRAPH_FREQ_MAX);
   edge->loop_nest = nest;
   edge->indirect_call = 0;
+  edge->call_stmt_cannot_inline_p =
+    (call_stmt ? CALL_CANNOT_INLINE_P (get_call_expr_in (call_stmt)) : false);
   edge->uid = cgraph_edge_max_uid++;
   if (call_stmt && caller->call_site_hash)
     {

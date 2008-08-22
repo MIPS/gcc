@@ -231,9 +231,11 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_call
      per function call.  The range is 0 to CGRAPH_FREQ_MAX.  */
   int frequency;
   /* Depth of loop nest, 1 means no loop nest.  */
-  unsigned int loop_nest : 31;
+  unsigned int loop_nest : 30;
   /* Whether this edge describes a call that was originally indirect.  */
   unsigned int indirect_call : 1;
+  /* True if the corresponding CALL stmt cannot be inlined.  */
+  unsigned int call_stmt_cannot_inline_p : 1;
   /* Unique id of the edge.  */
   int uid;
 };
