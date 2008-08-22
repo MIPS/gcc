@@ -1,3 +1,15 @@
+2008-08-22  Alexander Monakov  <amonakov@ispras.ru>
+        
+	* haifa-sched.c (dep_weak): Remove declaration.
+	(sched_extend_bb): Likewise.
+	(move_insn): Make static.
+	(try_ready): Use ds_weak instead of dep_weak.
+	(dep_weak): Kill.
+	(sched_extend_bb, sched_init_bbs): Move up after
+	find_fallthru_edge.  
+
+	* sched-int.h (move_insn): Remove declaration.
+
 2008-08-20  Alexander Monakov  <amonakov@ispras.ru>
 
 	* final.c (compute_alignments): Free dominance info after

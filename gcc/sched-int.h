@@ -151,7 +151,6 @@ extern void sched_insns_finish (void);
 extern void *xrecalloc (void *, size_t, size_t, size_t);
 extern rtx bb_note (basic_block);
 
-extern void move_insn (rtx, rtx, rtx);
 extern void reemit_notes (rtx);
 
 /* Functions in sched-vis.c.  */

@@ -512,7 +512,6 @@ static void find_insn_reg_weight (const_rtx);
 static void adjust_priority (rtx);
 static void advance_one_cycle (void);
 static void extend_h_i_d (void);
-static dw_t dep_weak (ds_t);
 
 
 /* Notes handling mechanism:
@@ -572,7 +571,6 @@ static void sched_remove_insn (rtx);
 static void clear_priorities (rtx, rtx_vec_t *);
 static void calc_priorities (rtx_vec_t);
 static void add_jump_dependencies (rtx, rtx);
-static void sched_extend_bb (void);
 #ifdef ENABLE_CHECKING
 static int has_edge_p (VEC(edge,gc) *, int);
 static void check_cfg (rtx, rtx);
@@ -1885,7 +1883,7 @@ reemit_notes (rtx insn)
 }
 
 /* Move INSN.  Reemit notes if needed.  Update CFG, if needed.  */
-void
+static void
 move_insn (rtx insn, rtx last, rtx nt)
 {
   if (PREV_INSN (insn) != last)
@@ -3154,7 +3152,7 @@ try_ready (rtx next)
 		*ts = ds_merge (*ts, ds);
 	    }
 
-	  if (dep_weak (*ts) < spec_info->data_weakness_cutoff)
+	  if (ds_weak (*ts) < spec_info->data_weakness_cutoff)
 	    /* Too few points.  */
 	    *ts = (*ts & ~SPECULATIVE) | HARD_DEP;
 	}
@@ -3667,41 +3665,6 @@ xrecalloc (void *p, size_t new_nmemb, size_t old_nmemb, size_t size)
   return p;
 }
 
-/* Return the probability of speculation success for the speculation
-   status DS.  */
-static dw_t
-dep_weak (ds_t ds)
-{
-  ds_t res = 1, dt;
-  int n = 0;
-
-  dt = FIRST_SPEC_TYPE;
-  do
-    {
-      if (ds & dt)
-        {
-          res *= (ds_t) get_dep_weak (ds, dt);
-          n++;
-        }
-
-      if (dt == LAST_SPEC_TYPE)
-        break;
-      dt <<= SPEC_TYPE_SHIFT;
-    }
-  while (1);
-
-  gcc_assert (n);
-  while (--n)
-    res /= MAX_DEP_WEAK;
-
-  if (res < MIN_DEP_WEAK)
-    res = MIN_DEP_WEAK;
-
-  gcc_assert (res <= MAX_DEP_WEAK);
-
-  return (dw_t) res;
-}
-
 /* Helper function.
    Find fallthru edge from PRED.  */
 edge
@@ -3734,6 +3697,34 @@ find_fallthru_edge (basic_block pred)
     }
 
   return NULL;
+}
+
+/* Extend per basic block data structures.  */
+static void
+sched_extend_bb (void)
+{
+  rtx insn;
+
+  /* The following is done to keep current_sched_info->next_tail non null.  */
+  insn = BB_END (EXIT_BLOCK_PTR->prev_bb);
+  if (NEXT_INSN (insn) == 0
+      || (!NOTE_P (insn)
+	  && !LABEL_P (insn)
+	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
+	  && !BARRIER_P (NEXT_INSN (insn))))
+    {
+      rtx note = emit_note_after (NOTE_INSN_DELETED, insn);
+      /* Make insn appear outside BB.  */
+      set_block_for_insn (note, NULL);
+      BB_END (EXIT_BLOCK_PTR->prev_bb) = insn;
+    }
+}
+
+/* Init per basic block data structures.  */
+void
+sched_init_bbs (void)
+{
+  sched_extend_bb ();
 }
 
 /* Initialize BEFORE_RECOVERY variable.  */
@@ -4792,34 +4783,6 @@ sched_scan (const struct sched_scan_info_def *ssi,
     init_insn (insn);
 }
 
-
-/* Extend per basic block data structures.  */
-static void
-sched_extend_bb (void)
-{
-  rtx insn;
-
-  /* The following is done to keep current_sched_info->next_tail non null.  */
-  insn = BB_END (EXIT_BLOCK_PTR->prev_bb);
-  if (NEXT_INSN (insn) == 0
-      || (!NOTE_P (insn)
-	  && !LABEL_P (insn)
-	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
-	  && !BARRIER_P (NEXT_INSN (insn))))
-    {
-      rtx note = emit_note_after (NOTE_INSN_DELETED, insn);
-      /* Make insn appear outside BB.  */
-      set_block_for_insn (note, NULL);
-      BB_END (EXIT_BLOCK_PTR->prev_bb) = insn;
-    }
-}
-
-/* Init per basic block data structures.  */
-void
-sched_init_bbs (void)
-{
-  sched_extend_bb ();
-}
 
 /* Extend data structures for logical insn UID.  */
 static void
