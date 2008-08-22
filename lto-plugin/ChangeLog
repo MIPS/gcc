@@ -1,3 +1,8 @@
+2008-08-22  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-symtab.c (parse_table_entry): Assert entry->kind and
+	entry->visibility are valid.
+
 2008-07-22  Rafael Avila de Espindola  <espindola@google.com>
 	* lto-symtab.c (table_entry): Add comdat.
 	(parse_table_entry): Read comdat.

@@ -106,9 +106,11 @@ char *parse_table_entry (char *p, struct table_entry *entry)
   p++;
 
   entry->kind = *p;
+  assert (entry->kind <= 4);
   p++;
 
   entry->visibility = *p;
+  assert (entry->visibility <= 3);
   p++;
 
   entry->size = *(uint64_t *) p;
