@@ -1,3 +1,60 @@
+2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
+
+	* sel-sched.c: Fix spacing in the overview comment.
+	(enum MOVEUP_EXPR_CODE): Fix formatting, document entries.
+	(struct sel_sched_region_2_data_def, 
+	sel_sched_region_2_data_t): Remove.
+	(vec_target_unavailable_vinsns): Document.
+	(stat_bookkeeping_copies, stat_insns_needed_bookkeeping, 
+	stat_renamed_scheduled, stat_substitutions_total): Likewise.
+	(code_motion_path_driver): Change return type to bool.
+	(extract_new_fences_from): Fix comment.  Pass orig_max_seqno
+	instead of data.
+	(substitute_reg_in_expr): Document parameters.
+	(vinsn_writes_one_of_regs_p): Likewise.
+	(mode_ok_for_rename_p): Remove.
+	(reg_rename_this_tick): Document.
+	(choose_best_reg_1): Update comment.  Document parameters.
+	(choose_best_reg): Likewise.
+	(verify_target_availability): Likewise.
+	(collect_unavailable_regs_from_bnds): Likewise.
+	(find_best_reg_for_expr): Likewise.  Fix formatting.
+	(get_spec_check_type_for_insn): Remove unneeded forward declaration.
+	(can_speculate_dep_p): Fix comment.
+	(CANT_MOVE_TRAPPING): Document.
+	(moveup_expr): Fix typo in comment.
+	(try_bitmap_cache): Document parameters.
+	(try_transformation_cache): Likewise.
+	(compute_av_set_at_bb_end): Likewise.
+	(compute_live_after_bb): Likewise.
+	(find_used_regs): Update comment.
+	(process_pipelined_exprs): Likewise.
+	(fill_vec_av_set): Likewise.  Also document missing parameters.
+	(fill_ready_list): Likewise.
+	(invoke_reorder_hooks): Likewise.
+	(invoke_aftermath_hooks): Likewise.
+	(compute_av_set_on_boundaries): Likewise.
+	(find_sequential_best_exprs): Likewise.
+	(update_fence_and_insn): Likewise.
+	(update_boundaries): Likewise.
+	(move_op_after_merge_succs): Add blank line.
+	(maybe_emit_renaming_copy): Document parameters.
+	(maybe_emit_speculative_check): Likewise.
+	(remove_insn_from_stream): Likewise.
+	(move_op_orig_expr_found): Likewise.
+	(code_motion_process_successors): Likewise.
+	(code_motion_path_driver_cleanup): Likewise.
+	(code_motion_path_driver): Likewise.  Change return type to bool.
+	(move_op): Update comment.  Document missing parameters.
+	(init_seqno_1): Likewise.
+	(init_seqno): Likewise.
+	(schedule_on_fences): Likewise.
+	(calculate_new_fences): Pass orig_max_seqno instead of data.
+	(update_seqnos_and_stage): Document parameters.
+	(sel_sched_region_2): Pass orig_max_seqno instead of data.  Document it.
+	(sel_sched_region_1): Remove data variable, add orig_max_seqno.
+	Update all uses.
+	
 2008-08-22  Alexander Monakov  <amonakov@ispras.ru>
 
 	* sel-sched.c (move_op): Fix typo in comment.
