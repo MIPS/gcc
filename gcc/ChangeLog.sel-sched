@@ -1,5 +1,17 @@
 2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
 
+	* dbgcnt.def (sel_sched_cnt, sel_sched_region_cnt, 
+	sel_sched_insn_cnt): New counters.
+	* sel-sched.c: Include dbgcnt.h.
+	(remove_insns_for_debug): Remove insns basing on debug counter.
+	Compile always.
+	(fill_insns): Remove ENABLE_ASSERT_CHECKING around 
+	remove_insns_for_debug call.
+	(sel_sched_region): Schedule region also based on debug counter.
+	(maybe_skip_selective_scheduling): Skip when debug counter tells us.
+
+2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
+
 	* sel-sched.c: Fix spacing in the overview comment.
 	(enum MOVEUP_EXPR_CODE): Fix formatting, document entries.
 	(struct sel_sched_region_2_data_def, 

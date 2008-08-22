@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sel-sched-ir.h"
 #include "sel-sched-dump.h"
 #include "sel-sched.h"
+#include "dbgcnt.h"
 
 /* Implementation of selective scheduling approach.
    The below implementation follows the original approach with the following
@@ -4664,13 +4665,12 @@ remove_temp_moveop_nops (void)
    distinguishing between bookkeeping copies and original insns.  */
 static int max_uid_before_move_op = 0;
 
-#ifdef ENABLE_ASSERT_CHECKING
+/* Remove from AV_VLIW_P all instructions but next when debug counter
+   tells us so.  Next instruction is fetched from BNDS.  */
 static void
 remove_insns_for_debug (blist_t bnds, av_set_t *av_vliw_p)
 {
-  bool do_p = true;
-
-  if (!do_p)
+  if (! dbg_cnt (sel_sched_insn_cnt))
     /* Leave only the next insn in av_vliw.  */
     {
       av_set_iterator av_it;
@@ -4685,7 +4685,6 @@ remove_insns_for_debug (blist_t bnds, av_set_t *av_vliw_p)
           av_set_iter_remove (&av_it);
     }
 }
-#endif
 
 /* Compute available instructions on BNDS.  FENCE is the current fence.  Write 
    the computed set to *AV_VLIW_P.  */
@@ -5142,12 +5141,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
       
       compute_av_set_on_boundaries (fence, bnds, &av_vliw);
       remove_insns_that_need_bookkeeping (fence, &av_vliw);
-
-#ifdef ENABLE_ASSERT_CHECKING
-      /* If debug parameters tell us to ignore this attempt to move an insn,
-	 obey.  */
       remove_insns_for_debug (bnds, &av_vliw);
-#endif
 
       /* Return early if we have nothing to schedule.  */
       if (av_vliw == NULL)
@@ -7136,7 +7130,8 @@ sel_sched_region (int rgn)
   if (sched_verbose >= 1)
     sel_print ("Scheduling region %d\n", rgn);
 
-  schedule_p = !sched_is_disabled_for_current_region_p ();
+  schedule_p = (!sched_is_disabled_for_current_region_p ()
+                && dbg_cnt (sel_sched_region_cnt));
   reset_sched_cycles_p = pipelining_p;
   if (schedule_p)
     sel_sched_region_1 ();
@@ -7200,7 +7195,7 @@ sel_global_finish (void)
 bool
 maybe_skip_selective_scheduling (void)
 {
-  return false;
+  return ! dbg_cnt (sel_sched_cnt);
 }
 
 /* The entry point.  */
