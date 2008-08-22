@@ -576,11 +576,6 @@ DEFPARAM(PARAM_SCHED_SPEC_PROB_CUTOFF,
          "The minimal probability of speculation success (in percents), so that speculative insn will be scheduled.",
          40, 0, 100)
 
-DEFPARAM(PARAM_SELSCHED_DUMP_CFG_FLAGS,
-         "selsched-dump-cfg-flags",
-         "Override sel_dump_cfg_flags",
-         0, 0, 0)
-
 DEFPARAM(PARAM_SELSCHED_MAX_LOOKAHEAD,
          "selsched-max-lookahead",
          "The maximum size of the lookahead window of selective scheduling",
@@ -603,66 +598,6 @@ DEFPARAM (PARAM_SCHED_MEM_TRUE_DEP_COST,
 	  "sched-mem-true-dep-cost",
 	  "Minimal distance between possibly conflicting store and load",
 	  1, 0, 0)
-
-DEFPARAM(PARAM_SEL1_START,
-         "sel1-start",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_SEL1_STOP,
-         "sel1-stop",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_SEL1_P,
-         "sel1-p",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_SEL2_START,
-         "sel2-start",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_SEL2_STOP,
-         "sel2-stop",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_SEL2_P,
-         "sel2-p",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_REGION_START,
-         "region-start",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_REGION_STOP,
-         "region-stop",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_REGION_P,
-         "region-p",
-         "Allow something",
-         0, 0, 0)
-	 
-DEFPARAM(PARAM_INSN_START,
-         "insn-start",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_INSN_STOP,
-         "insn-stop",
-         "Allow something",
-         0, 0, 0)
-
-DEFPARAM(PARAM_INSN_P,
-         "insn-p",
-         "Allow something",
-         0, 0, 0)
 
 DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 	 "max-last-value-rtl",

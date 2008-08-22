@@ -1894,14 +1894,6 @@ common_handle_option (size_t scode, const char *arg, int value,
     case OPT_fselective_scheduling2:
       sel_sched_switch_set = true;
       break;
-    case OPT_fsel_insn_range:
-      if (value)
-	return 0;
-      break;
-
-    case OPT_fsel_insn_range_:
-      sel_sched_fix_param ("insn-range", arg);
-      break;
 
     case OPT_fsched_verbose_:
 #ifdef INSN_SCHEDULING

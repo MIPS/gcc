@@ -941,10 +941,6 @@ fselective-scheduling2
 Common Report Var(flag_selective_scheduling2) Optimization 
 Run selective scheduling after reload
 
-fsel-sched-bookkeeping
-Common Report Var(flag_sel_sched_bookkeeping) Init(1) Optimization
-Schedule instructions that require a copy to be moved
-
 fsel-sched-pipelining
 Common Report Var(flag_sel_sched_pipelining) Init(0) Optimization
 Perform software pipelining of inner loops during selective scheduling
@@ -956,25 +952,6 @@ Perform software pipelining of outer loops during selective scheduling
 fsel-sched-reschedule-pipelined
 Common Report Var(flag_sel_sched_reschedule_pipelined) Init(0) Optimization
 Reschedule pipelined regions without pipelining
-
-fsel-sched-renaming
-Common Report Var(flag_sel_sched_renaming) Init(1) Optimization
-Do register renaming in selective scheduling
-
-fsel-sched-substitution
-Common Report Var(flag_sel_sched_substitution) Init(1) Optimization
-Perform substitution in selective scheduling
-
-fsel-sched-dump-cfg
-Common Report Var(flag_sel_sched_dump_cfg) Init(0)
-Dump CFG information during selective scheduling pass.
-
-fsel-insn-range
-Common
-
-fsel-insn-range=
-Common Joined RejectNegative
-fsel-insn-range=<number>  Expression that determines range of insns to handle with sel-sched
 
 ; sched_stalled_insns means that insns can be moved prematurely from the queue
 ; of stalled insns into the ready list.

@@ -37,22 +37,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "sel-sched-ir.h"
 #include "sel-sched-dump.h"
 
-#include "pwd.h"
-#include <fcntl.h>
 #include <unistd.h>
-
-/* File for dumping statistics into the one directory for
-   the whole make run.  */
-static FILE *sel_stat_file = NULL;
-
 
 
 /* These variables control high-level pretty printing.  */
 static int sel_dump_cfg_flags = SEL_DUMP_CFG_FLAGS;
 static int sel_debug_cfg_flags = SEL_DUMP_CFG_FLAGS;
 
-/* True when a cfg should be dumped (either flag_sel_sched_dump cfg
-   or the below flag is set.  */
+/* True when a cfg should be dumped.  */
 static bool sel_dump_cfg_p;
 
 /* Variables that are used to build the cfg dump file name.  */
@@ -71,12 +63,6 @@ bool sched_dump_to_dot_p = false;
 /* Controls how insns from a fence list should be dumped.  */
 static int dump_flist_insn_flags = (DUMP_INSN_UID | DUMP_INSN_BBN
                                     | DUMP_INSN_SEQNO);
-
-/* Stores an expression according to which either insns will be scheduled 
-   using all features of the selective scheduling or the corresponding 
-   code motion will be skipped.  */
-const char *flag_insn_range = NULL;
-static char sel_stat_output_buf[16384];
 
 
 static FILE *sched_dump1;
@@ -582,7 +568,7 @@ sel_prepare_string_for_dot_label (char *buf)
 }
 
 /* Dump INSN with FLAGS.  */
-void
+static void
 sel_dump_cfg_insn (insn_t insn, int flags)
 {
   int insn_flags = DUMP_INSN_UID | DUMP_INSN_PATTERN;
@@ -597,7 +583,7 @@ sel_dump_cfg_insn (insn_t insn, int flags)
 }
 
 /* Dump E to the dot file F.  */
-void
+static void
 sel_dump_cfg_edge (FILE *f, edge e)
 {
   int w;
@@ -643,7 +629,7 @@ has_preds_in_current_region_p (basic_block bb)
 }
 
 /* Dump a cfg region to the dot file F honoring FLAGS.  */
-void
+static void
 sel_dump_cfg_2 (FILE *f, int flags)
 {
   basic_block bb;
@@ -805,7 +791,7 @@ sel_dump_cfg_2 (FILE *f, int flags)
 
 /* Dump a cfg region to the file specified by TAG honoring flags.  
    The file is created by the function.  */
-void
+static void
 sel_dump_cfg_1 (const char *tag, int flags)
 {
   char *buf;
@@ -837,29 +823,14 @@ sel_dump_cfg_1 (const char *tag, int flags)
   free (buf);
 }
 
-
-/* Setup cfg dumping flags.  */
+/* Setup cfg dumping flags.  Used for debugging.  */
 void
 setup_dump_cfg_params (void)
 {
-  int dump_flags = PARAM_VALUE (PARAM_SELSCHED_DUMP_CFG_FLAGS);
-
-  if (dump_flags != 0)
-    sel_dump_cfg_flags = dump_flags;
-  else
-    sel_dump_cfg_flags = SEL_DUMP_CFG_FLAGS;
-
-  sel_dump_cfg_p = (flag_sel_sched_dump_cfg != 0);
+  sel_dump_cfg_flags = SEL_DUMP_CFG_FLAGS;
+  sel_dump_cfg_p = 0;
   sel_debug_cfg_root_postfix = sel_debug_cfg_root_postfix_default;
 }
-
-/* Dump a cfg region to the file specified to by TAG with default flags.  */
-void
-sel_dump_cfg (const char *tag)
-{
-  sel_dump_cfg_1 (tag, sel_dump_cfg_flags);
-}
-
 
 /* Debug a cfg region with FLAGS.  */
 void
@@ -1005,160 +976,4 @@ debug_mem_addr_value (rtx x)
   return t;
 }
 
-/* Test a memory allocating N pointers.  */
-void
-mem_test (int n)
-{
-  int **p, i;
-
-  p = XNEWVEC (int *, n);
-
-  for (i = 0; i < n; i++)
-    *p++ = XNEWVEC (int, n * i);
-
-  for (i = 0; i < n; i++)
-    free (*--p);
-
-  free (p);
-}
-
-/* Helper function for in_range_p.  */
-static int in_range_p_1 (int val, const char *expr, int i1, int i2, bool *err)
-{
-  int br = 0;
-  int i = -1, x;
-  char ops[] = "|&-";
-  char *p;
-  char c = 0;
-
-  if (i1 > i2)
-    *err = true;
-    
-  if (*err)
-    return 0;    
-  
-  for (p = ops; *p; p++) 
-    {
-      for (i = i2; i >= i1; i--) 
-	{
-	  c = expr[i];
-	  if (c == ')')
-	    br++;
-	  else if (c == '(')
-	    br--;
-	  
-	 if (!br && c == *p)
-	   goto l;
-	}    
-    }
-
-  l: if (br)
-    {
-      *err = 1;
-      return 0;
-    }
-
-  if (*p) {
-    if (c == '&')
-      return in_range_p_1 (val, expr, i1, i-1, err)
-               && in_range_p_1 (val, expr, i+1, i2, err);
-
-    if (c == '|')
-      return in_range_p_1 (val, expr, i1, i-1, err)
-             || in_range_p_1 (val, expr, i+1, i2, err);
-  }	      
-
-  if (expr[i1] == '(' && expr[i2] == ')')
-    return in_range_p_1 (val, expr, i1+1, i2-1, err);
-
-  if (expr[i1] == '!')
-    return !in_range_p_1 (val, expr, i1+1, i2, err);
-
-  if (*p && c == '-')
-      return (in_range_p_1 (val, expr, i1, i-1, err) <= val)
-              && val <= in_range_p_1 (val, expr, i+1, i2, err);
-      
-  sscanf (expr+i1, "%d%n", &x, &i);
-  if (i1 + i != i2 + 1)
-    {
-      *err = true;
-      return false;
-    }
-  else
-    return x;
-}
-
-
-/* Returns whether VAL is within the range given by the EXPR.  
-   E.g. "30-40&!32-34|33-33" will return true only for the following values:
-   30 31 33 35 36 37 38 39 40.  The expression may consist only from the
-   numbers, operators "-", "&", "|" and "!".  Ranges containing only the
-   single integer N should be written as "N-N", the expession should not 
-   contain any spaces.  If the expression is not valid, ERR is set to TRUE.  */
-
-bool in_range_p (int val, const char *expr, bool *err)
-{
-  return in_range_p_1 (val, expr, 0, strlen (expr) - 1, err);
-}
-
-/* sel_sched_fix_param() is called from toplev.c upon detection
-   of the -fsel-insn-range=EXPR option.  */
-void
-sel_sched_fix_param (const char *param, const char *val)
-{
-  if (!strcmp (param, "insn-range"))
-    flag_insn_range = val;
-  else
-    warning (0, "sel_sched_fix_param: unknown param: %s", param);
-}
-      
-/* The file name is either copied from the SEL_STAT_FILE variable, or generated
-   from the current time.  If the environment variable is set, then
-   all the statistics will be written to the single file, otherwise
-   statistics will be stored in separate files in the ~/sel-stat directory.  */
-static void
-sel_get_stat_filename (char *buf)
-{
-  struct passwd *rpw = getpwuid (getuid());
-  char buf2[1024];
-  char *stat_file_name = getenv ("SEL_STAT_FILE");
-
-  strcpy (buf, rpw->pw_dir);
-  strcat (buf, "/sel-stat");
-  mkdir (buf, 0775);
-
-  if (stat_file_name)
-    sprintf (buf2, "/%s", stat_file_name);
-  else
-    sprintf (buf2, "/stat-%d.txt", (int) time (NULL));
-
-  strcat (buf, buf2);
-}
-
-/* Get a pointer to a FILE where various per-build statistics could be stored.
-   See sel_get_stat_filename for how this file name is determined.
-   It's guaranteed that every line of output (unless its greater than 1024 
-   chars) will not be intermixed with output from any other process that
-   may also be writing to the same file.  */
-FILE *
-sel_get_stat_file (void)
-{
-  if (!sel_stat_file)
-    {
-      char stat_filename[1024];
-
-      sel_get_stat_filename (stat_filename);
-      sel_stat_file = fopen (stat_filename, "at");
-    }
-
-  if (sel_stat_file)
-    {
-      setvbuf (sel_stat_file, sel_stat_output_buf, _IOLBF,
-              sizeof sel_stat_output_buf);
-
-      return sel_stat_file;
-    }
-  else
-    return stderr;
-}
 

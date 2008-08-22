@@ -32,8 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 /* For VEC (int, heap).  */
 #include "vecprim.h"
 
-extern int sched_verbose_param;
-
 /* Identificator of a scheduler pass.  */
 enum sched_pass_id_t { SCHED_PASS_UNKNOWN, SCHED_RGN_PASS, SCHED_EBB_PASS,
 		       SCHED_SMS_PASS, SCHED_SEL_PASS };

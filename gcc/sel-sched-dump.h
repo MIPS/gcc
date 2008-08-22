@@ -133,7 +133,6 @@ enum _dump_insn
 		   | DUMP_INSN_PATTERN)
 };
 
-extern const char *flag_insn_range;
 extern void dump_insn_1 (insn_t, int);
 extern void dump_insn (insn_t);
 extern void debug_insn (insn_t);
@@ -183,11 +182,6 @@ extern void dump_lv_set (regset);
 extern void dump_blist (blist_t);
 extern void dump_flist (flist_t);
 extern void dump_hard_reg_set (const char *, HARD_REG_SET);
-extern void sel_dump_cfg_insn (insn_t, int);
-extern void sel_dump_cfg_edge (FILE *, edge);
-extern void sel_dump_cfg_2 (FILE *, int);
-extern void sel_dump_cfg_1 (const char *, int);
-extern void sel_dump_cfg (const char *);
 extern void sel_debug_cfg_1 (int);
 extern void sel_debug_cfg (void);
 extern void setup_dump_cfg_params (void);

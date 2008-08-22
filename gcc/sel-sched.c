@@ -253,10 +253,6 @@ bool pipelining_p;
 /* True if bookkeeping is enabled.  */
 bool bookkeeping_p;
 
-/* True if we should make an aditional pass to set somewhat correct
-   sched cycles.  */
-bool reset_sched_cycles_p;
-
 /* Maximum number of insns that are eligible for renaming.  */
 int max_insns_to_rename;
 
@@ -523,9 +519,6 @@ static bitmap current_copies = NULL;
    visit them afterwards.  */
 static bitmap code_motion_visited_blocks = NULL;
 
-/* This shows how many times the scheduler was run.  */
-static int sel_sched_region_run = 0;
-
 /* Variables to accumulate different statistics.  */
 static int stat_bookkeeping_copies;
 static int stat_insns_needed_bookkeeping;
@@ -695,8 +688,7 @@ static bool
 can_substitute_through_p (insn_t insn, ds_t ds)
 {
   /* We can substitute only true dependencies.  */
-  if (!flag_sel_sched_substitution
-      || (ds & DEP_OUTPUT)
+  if ((ds & DEP_OUTPUT)
       || (ds & DEP_ANTI)
       || ! INSN_RHS (insn)
       || ! INSN_LHS (insn))
@@ -1800,8 +1792,6 @@ create_speculation_check (expr_t c_expr, ds_t check_ds, insn_t orig_insn)
   basic_block recovery_block;
   rtx label;
 
-  sel_dump_cfg ("before-gen-spec-check");
-
   /* Create a recovery block if target is going to emit branchy check, or if
      ORIG_INSN was speculative already.  */
   if (targetm.sched.needs_block_p (check_ds)
@@ -1862,8 +1852,6 @@ create_speculation_check (expr_t c_expr, ds_t check_ds, insn_t orig_insn)
   check_ds = ds_get_max_dep_weak (check_ds);
   speculate_expr (c_expr, check_ds);
     
-  sel_dump_cfg ("after-gen-spec-check");
-
   return insn;
 }
 
@@ -4657,39 +4645,10 @@ remove_temp_moveop_nops (void)
 static int max_uid_before_move_op = 0;
 
 #ifdef ENABLE_ASSERT_CHECKING
-/* Records the number of fill_insns runs for debugging purposes.  */
-static int fill_insns_run = 0;
-
 static void
 remove_insns_for_debug (blist_t bnds, av_set_t *av_vliw_p)
 {
-  int now;
-  int start;
-  int stop;
-  bool do_p;
-
-  sel_dump_cfg ("after-compute_av");
-
-  now = ++fill_insns_run;
-  start = PARAM_VALUE (PARAM_INSN_START);
-  stop = PARAM_VALUE (PARAM_INSN_STOP);
-  do_p = (PARAM_VALUE (PARAM_INSN_P) == 1);
-
-  if (do_p)
-    do_p = (start <= now) && (now <= stop);
-  else
-    do_p = (start > now) || (now > stop);
-
-  /* If more advanced --param insn-range was specified, use only it.  */
-  if (flag_insn_range) 
-    {
-      bool err = false;
-
-      do_p = in_range_p (now, flag_insn_range, &err);
-      /* Error may be caused by invalid expression.  Note that the
-         valid expression shouldn't contain any spaces.  */
-      gcc_assert (!err);
-    }
+  bool do_p = true;
 
   if (!do_p)
     /* Leave only the next insn in av_vliw.  */
@@ -4879,8 +4838,6 @@ move_exprs_to_boundary (bnd_t bnd, expr_t expr_vliw,
   int n_bookkeeping_copies_before_moveop;
 
 #ifdef ENABLE_CHECKING  
-  sel_dump_cfg ("before-move_op");
-
   /* Marker is useful to bind .dot dumps and the log.  */
   if (sched_verbose >= 6)
     print_marker_to_log ();
@@ -6325,14 +6282,11 @@ init_seqno (int number_of_insns, bitmap blocks_to_reschedule, basic_block from)
 static void
 sel_setup_region_sched_flags (void)
 {
-  /* We need to treat insns as EXPRes only when renaming is enabled.  */
-  enable_schedule_as_rhs_p = (flag_sel_sched_renaming != 0);
-
-  bookkeeping_p = (flag_sel_sched_bookkeeping != 0);
-  pipelining_p = (bookkeeping_p && (flag_sel_sched_pipelining != 0)
+  enable_schedule_as_rhs_p = 1;
+  bookkeeping_p = 1;
+  pipelining_p = (bookkeeping_p 
+                  && (flag_sel_sched_pipelining != 0)
 		  && current_loop_nest != NULL);
-  reset_sched_cycles_p = (pipelining_p
-			  && !flag_sel_sched_reschedule_pipelined);
   max_insns_to_rename = PARAM_VALUE (PARAM_SELSCHED_INSNS_TO_RENAME);
   max_ws = MAX_WS;
 }
@@ -6473,6 +6427,7 @@ sel_region_init (int rgn)
     targetm.sched.md_init (sched_dump, sched_verbose, -1);
 
   first_emitted_uid = get_max_uid () + 1;
+  preheader_removed = false;
 
   /* Reset register allocation ticks array.  */
   memset (reg_rename_tick, 0, sizeof reg_rename_tick);
@@ -6706,9 +6661,11 @@ put_TImodes (void)
     }
 }
 
-/* Perform MD_FINISH on EBBs comprising current region.  */
+/* Perform MD_FINISH on EBBs comprising current region.  When 
+   RESET_SCHED_CYCLES_P is true, run a pass emulating the scheduler
+   to produce correct sched cycles on insns.  */
 static void
-sel_region_target_finish (void)
+sel_region_target_finish (bool reset_sched_cycles_p)
 {
   int i;
   bitmap scheduled_blocks = BITMAP_ALLOC (NULL);
@@ -6749,9 +6706,11 @@ sel_region_target_finish (void)
   BITMAP_FREE (scheduled_blocks);
 }
 
-/* Free the scheduling data for the current region.  */
+/* Free the scheduling data for the current region.  When RESET_SCHED_CYCLES_P
+   is true, make an additional pass emulating scheduler to get correct insn 
+   cycles for md_finish calls.  */
 static void
-sel_region_finish (void)
+sel_region_finish (bool reset_sched_cycles_p)
 {
   simplify_changed_insns ();
   sched_finish_ready_list ();
@@ -6784,7 +6743,7 @@ sel_region_finish (void)
 
   /* Emulate the Haifa scheduler for bundling.  */
   if (reload_completed)
-    sel_region_target_finish ();
+    sel_region_target_finish (reset_sched_cycles_p);
 
   sel_finish_global_and_expr ();
 
@@ -7038,161 +6997,79 @@ sel_sched_region_1 (void)
   if (pipelining_p)
     {
       int i;
-      insn_t head;
       basic_block bb;
       struct flist_tail_def _new_fences;
       flist_tail_t new_fences = &_new_fences;
+      bool do_p = true;
 
       pipelining_p = false;
       max_ws = MIN (max_ws, issue_rate * 3 / 2);
       bookkeeping_p = false;
       enable_schedule_as_rhs_p = false;
 
-      if (!flag_sel_sched_reschedule_pipelined)
+      /* Schedule newly created code, that has not been scheduled yet.  */
+      do_p = true;
+
+      while (do_p)
         {
-          /* Schedule newly created code, that has not been scheduled yet.  */
-          bool do_p = true;
+          do_p = false;
 
-          while (do_p)
+          for (i = 0; i < current_nr_blocks; i++)
             {
-              do_p = false;
+              basic_block bb = EBB_FIRST_BB (i);
 
-              for (i = 0; i < current_nr_blocks; i++)
-		{
-		  basic_block bb = EBB_FIRST_BB (i);
-
-		  if (sel_bb_empty_p (bb))
-		    {
-		      bitmap_clear_bit (blocks_to_reschedule, bb->index);
-		      continue;
-		    }
-
-		  if (bitmap_bit_p (blocks_to_reschedule, bb->index))
-		    {
-		      clear_outdated_rtx_info (bb);
-		      if (sel_insn_is_speculation_check (BB_END (bb))
-			  && JUMP_P (BB_END (bb)))
-			bitmap_set_bit (blocks_to_reschedule,
-					BRANCH_EDGE (bb)->dest->index);
-		    }
-		  else if (INSN_SCHED_TIMES (sel_bb_head (bb)) <= 0)
-		    bitmap_set_bit (blocks_to_reschedule, bb->index);
-		}
-
-              for (i = 0; i < current_nr_blocks; i++)
+              if (sel_bb_empty_p (bb))
                 {
-                  bb = EBB_FIRST_BB (i);
+                  bitmap_clear_bit (blocks_to_reschedule, bb->index);
+                  continue;
+                }
 
-                  /* While pipelining outer loops, skip bundling for loop 
-                     preheaders.  Those will be rescheduled in the outer
-		     loop.  */
-                  if (sel_is_loop_preheader_p (bb))
-                    {
-                      clear_outdated_rtx_info (bb);
-                      continue;
-                    }
+              if (bitmap_bit_p (blocks_to_reschedule, bb->index))
+                {
+                  clear_outdated_rtx_info (bb);
+                  if (sel_insn_is_speculation_check (BB_END (bb))
+                      && JUMP_P (BB_END (bb)))
+                    bitmap_set_bit (blocks_to_reschedule,
+                                    BRANCH_EDGE (bb)->dest->index);
+                }
+              else if (INSN_SCHED_TIMES (sel_bb_head (bb)) <= 0)
+                bitmap_set_bit (blocks_to_reschedule, bb->index);
+            }
+
+          for (i = 0; i < current_nr_blocks; i++)
+            {
+              bb = EBB_FIRST_BB (i);
+
+              /* While pipelining outer loops, skip bundling for loop 
+                 preheaders.  Those will be rescheduled in the outer
+                 loop.  */
+              if (sel_is_loop_preheader_p (bb))
+                {
+                  clear_outdated_rtx_info (bb);
+                  continue;
+                }
                   
-                  if (bitmap_bit_p (blocks_to_reschedule, bb->index))
-                    {
-                      flist_tail_init (new_fences);
-
-		      data->orig_max_seqno = init_seqno (0, blocks_to_reschedule, bb);
-
-                      /* Mark BB as head of the new ebb.  */
-                      bitmap_set_bit (forced_ebb_heads, bb->index);
-
-		      bitmap_clear_bit (blocks_to_reschedule, bb->index);
-  
-                      gcc_assert (fences == NULL);
-
-                      init_fences (bb_note (bb));
-  
-                      sel_sched_region_2 (data);
-  
-                      do_p = true;
-                      break;
-                    }
-                }
-            }
-        }
-      else
-        {
-          basic_block loop_entry, loop_preheader = EBB_FIRST_BB (0);
-
-          /* Schedule region pre-header first, if not pipelining 
-             outer loops.  */
-          bb = EBB_FIRST_BB (0);
-          head = sel_bb_head (bb);
-          loop_entry = EBB_FIRST_BB (1);
-          
-          /* Don't leave old flags on insns in loop preheader.  */
-          if (sel_is_loop_preheader_p (loop_preheader))          
-            {
-              basic_block prev_bb = loop_preheader->prev_bb;
-
-              /* If...  */
-              if (/* Preheader is empty;  */
-                  sel_bb_empty_p (loop_preheader)
-                  /* Block before preheader is in current region and
-                     contains only unconditional jump to header.  */
-                  && in_current_region_p (prev_bb)
-                  && NEXT_INSN (bb_note (prev_bb)) == BB_END (prev_bb)
-                  && jump_leads_only_to_bb_p (BB_END (prev_bb), 
-                                              loop_preheader->next_bb))
+              if (bitmap_bit_p (blocks_to_reschedule, bb->index))
                 {
-                  /* Then remove empty preheader and unnecessary jump from
-                     previous block of preheader (usually latch).  */
+                  flist_tail_init (new_fences);
 
-                  if (current_loop_nest->latch == prev_bb)
-                    current_loop_nest->latch = NULL;
+                  data->orig_max_seqno = init_seqno (0, blocks_to_reschedule, bb);
 
-                  /* Remove latch!  */
-                  clear_expr (INSN_EXPR (BB_END (prev_bb)));
-                  sel_redirect_edge_and_branch (EDGE_SUCC (prev_bb, 0),
-                                                loop_preheader);
+                  /* Mark BB as head of the new ebb.  */
+                  bitmap_set_bit (forced_ebb_heads, bb->index);
 
-                  /* Correct wrong moving of header to BB.  */
-                  if (current_loop_nest->header == loop_preheader)
-                    current_loop_nest->header = loop_preheader->next_bb;
+                  bitmap_clear_bit (blocks_to_reschedule, bb->index);
+  
+                  gcc_assert (fences == NULL);
 
-                  gcc_assert (EDGE_SUCC (prev_bb, 0)->flags & EDGE_FALLTHRU);
-
-                  /* Empty basic blocks should not have av and lv sets.  */
-                  free_data_sets (prev_bb);
-
-                  gcc_assert (BB_AV_SET (loop_preheader) == NULL);
-                  gcc_assert (sel_bb_empty_p (loop_preheader)
-                              && sel_bb_empty_p (prev_bb));
-
-                  sel_remove_empty_bb (prev_bb, false, true);
-                  sel_remove_empty_bb (loop_preheader, false, true);
-                  preheader_removed = true;
-                  loop_preheader = NULL;
+                  init_fences (bb_note (bb));
+  
+                  sel_sched_region_2 (data);
+  
+                  do_p = true;
+                  break;
                 }
-
-              /* If BB was not deleted.  */
-              if (loop_preheader)
-                clear_outdated_rtx_info (loop_preheader);
             }
-
-          /* Reschedule pipelined code without pipelining.  */
-          for (i = BLOCK_TO_BB (loop_entry->index); i < current_nr_blocks; i++)
-	    clear_outdated_rtx_info (EBB_FIRST_BB (i));
-
-          data->orig_max_seqno = init_seqno (0, NULL, NULL);
-          flist_tail_init (new_fences);
-
-          /* Mark BB as head of the new ebb.  */
-          bitmap_set_bit (forced_ebb_heads, loop_entry->index);
-          
-          gcc_assert (fences == NULL);
-
-          if (loop_preheader)
-            init_fences (BB_END (loop_preheader));
-          else
-            init_fences (bb_note (loop_entry));
-
-          sel_sched_region_2 (data);
         }
     }
 }
@@ -7201,50 +7078,24 @@ sel_sched_region_1 (void)
 void
 sel_sched_region (int rgn)
 {
+  bool schedule_p;
+  bool reset_sched_cycles_p;
+
   if (sel_region_init (rgn))
     return;
-
-  gcc_assert (preheader_removed == false);
-
-  sel_dump_cfg ("after-region-init");
 
   if (sched_verbose >= 1)
     sel_print ("Scheduling region %d\n", rgn);
 
-  {
-    /* Decide if we want to schedule this region.  */
-    int region;
-    int region_start;
-    int region_stop;
-    bool region_p;
-    bool schedule_p;
-    
-    region = ++sel_sched_region_run;
-    region_start = PARAM_VALUE (PARAM_REGION_START);
-    region_stop = PARAM_VALUE (PARAM_REGION_STOP);
-    region_p = (PARAM_VALUE (PARAM_REGION_P) == 1);
-
-    if (region_p)
-      schedule_p = (region_start <= region) && (region <= region_stop);
-    else
-      schedule_p = (region_start > region) || (region > region_stop);
-
-    if (sched_is_disabled_for_current_region_p ())
-      schedule_p = false;
-
-    if (schedule_p)
-      sel_sched_region_1 ();
-    else
-      /* Force initialization of INSN_SCHED_CYCLEs for correct bundling.  */
-      reset_sched_cycles_p = true;
-  }
-
-  sel_region_finish ();
-  preheader_removed = false;
+  schedule_p = !sched_is_disabled_for_current_region_p ();
+  reset_sched_cycles_p = pipelining_p;
+  if (schedule_p)
+    sel_sched_region_1 ();
+  else
+    /* Force initialization of INSN_SCHED_CYCLEs for correct bundling.  */
+    reset_sched_cycles_p = true;
   
-  sel_dump_cfg_1 ("after-region-finish",
-		  SEL_DUMP_CFG_CURRENT_REGION | SEL_DUMP_CFG_LV_SET
-		  | SEL_DUMP_CFG_BB_INSNS);
+  sel_region_finish (reset_sched_cycles_p);
 }
 
 /* Perform global init for the scheduler.  */
@@ -7300,34 +7151,7 @@ sel_global_finish (void)
 bool
 maybe_skip_selective_scheduling (void)
 {
-  int now;
-  int start;
-  int stop;
-  bool do_p;
-  static int sel1_run = 0;
-  static int sel2_run = 0;
-
-  if (!reload_completed)
-    {
-      now = ++sel1_run;
-      start = PARAM_VALUE (PARAM_SEL1_START);
-      stop = PARAM_VALUE (PARAM_SEL1_STOP);
-      do_p = (PARAM_VALUE (PARAM_SEL1_P) == 1);
-    }
-  else
-    {
-      now = ++sel2_run;
-      start = PARAM_VALUE (PARAM_SEL2_START);
-      stop = PARAM_VALUE (PARAM_SEL2_STOP);
-      do_p = (PARAM_VALUE (PARAM_SEL2_P) == 1);
-    }
-
-  if (do_p)
-    do_p = (start <= now) && (now <= stop);
-  else
-    do_p = (start > now) || (now > stop);
-  
-  return !do_p;
+  return false;
 }
 
 /* The entry point.  */
@@ -7336,38 +7160,15 @@ run_selective_scheduling (void)
 {
   int rgn;
 
-  /* Taking care of this degenerate case makes the rest of
-     this code simpler.  */
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return;
-
-  setup_dump_cfg_params ();
-
-  sel_dump_cfg_1 ("before-init",
-		  (SEL_DUMP_CFG_BB_INSNS | SEL_DUMP_CFG_FUNCTION_NAME));
 
   sel_global_init ();
 
   for (rgn = 0; rgn < nr_regions; rgn++)
-    {
-      char *buf;
-      int buf_len = 1 + snprintf (NULL, 0, "before-region-%d", rgn);
-
-      buf = XNEWVEC (char, buf_len);
-      snprintf (buf, buf_len, "before-region-%d", rgn);
-      sel_dump_cfg_1 (buf, SEL_DUMP_CFG_LV_SET | SEL_DUMP_CFG_BB_INSNS);
-
-      sel_sched_region (rgn);
-
-      snprintf (buf, buf_len, "after-region-%d", rgn);
-      sel_dump_cfg_1 (buf, SEL_DUMP_CFG_LV_SET | SEL_DUMP_CFG_BB_INSNS);
-      free (buf);
-    }
+    sel_sched_region (rgn);
 
   sel_global_finish ();
-
-  sel_dump_cfg_1 ("after-finish",
-		  (SEL_DUMP_CFG_BB_INSNS | SEL_DUMP_CFG_FUNCTION_NAME));
 }
 
 #endif

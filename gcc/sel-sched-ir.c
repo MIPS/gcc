@@ -5094,7 +5094,6 @@ find_new_jump (basic_block from, basic_block jump_bb, int prev_max_uid)
   return NULL;
 }
 
-
 /* Splits E and adds the newly created basic block to the current region.
    Returns this basic block.  */
 basic_block
@@ -5127,11 +5126,10 @@ sel_split_edge (edge e)
           }
     }
 
-  jump = find_new_jump (src, new_bb, prev_max_uid);
-  
   /* Add all last_added_blocks to the region.  */
   sel_add_bb (NULL);
 
+  jump = find_new_jump (src, new_bb, prev_max_uid);
   if (jump)
     sel_init_new_insn (jump, INSN_INIT_TODO_LUID | INSN_INIT_TODO_SIMPLEJUMP);
 
@@ -5156,7 +5154,6 @@ sel_create_empty_bb (basic_block after)
 	      && VEC_index (basic_block, last_added_blocks, 0) == new_bb);
 
   VEC_free (basic_block, heap, last_added_blocks);
-
   return new_bb;
 }
 

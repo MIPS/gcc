@@ -1,3 +1,46 @@
+2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
+
+	* haifa-sched.c (sched_verbose_param): Make static.
+	* sel-sched.c (reset_sched_cycles_p): Remove.
+	(sel_sched_region_run): Likewise.
+	(fill_insns_run): Likewise.
+	(create_speculation_check): Do not call sel_dump_cfg.
+	(move_exprs_to_boundary): Likewise.
+	(remove_insns_for_debug): Never remove insns for now.
+	(sel_region_init): Set preheader_removed to false here 
+	instead of sel_sched_region_1.
+	(sel_region_target_finish): New parameter reset_sched_cycles_p.
+	Use it instead of the former global variable.
+	(sel_region_finish): Likewise.
+	(sel_sched_region_1): Remove code that did full rescheduling.
+	Remove calls to sel_dump_cfg.  Do not use debug parameters
+	to decide whether the region should be skipped.
+	(sel_sched_region): New local variable reset_sched_cycles_p.
+	Pass it to sel_region_finish instead of the global variable.
+	(maybe_skip_selective_scheduling): Always return false for now.
+	(run_selective_scheduling): Do not call sel_dump_cfg_1 and 
+	do not prepare code for that.
+	* opts.c (case OPT_fsel_insn_range): Remove.
+	* sel-sched-ir.c (sel_split_edge): Move find_new_jump call after
+	sel_add_bb.
+	* sel-sched-dump.c: Remove wrong POSIX includes.
+	(sel_stat_file): Remove.
+	(flag_insn_range, sel_stat_output_buf): Remove.
+	(sel_dump_cfg_insn, sel_dump_cfg_edge, sel_dump_cfg_2,
+	sel_dump_cfg_1): Make static.
+	(mem_test, in_range_p, in_range_p_1, sel_sched_fix_param,
+	sel_get_stat_filename, sel_get_stat_file): Remove.
+	* sel-sched-dump.h (flag_insn_range): Remove declaration.
+	(sel_dump_cfg_insn, sel_dump_cfg_edge, sel_dump_cfg_2,
+	sel_dump_cfg_1): Likewise.
+	* common.opt (flag_sel_sched_bookkeeping, flag_sel_sched_renaming, 
+	flag_sel_sched_substitution, flag_sel_sched_dump_cfg, 
+	fsel-insn-range): Remove flags and all uses.
+	* sched-int.h (sched_verbose_param): Remove declaration.
+	* params.def (PARAM_SELSCHED_DUMP_CFG_FLAGS, PARAM_SEL1_*, 
+	PARAM_SEL2_*, PARAM_REGION_*, PARAM_INSN_*): Remove parameters
+	and all uses.
+	
 2008-08-22  Alexander Monakov  <amonakov@ispras.ru>
         
 	* haifa-sched.c (dep_weak): Remove declaration.
