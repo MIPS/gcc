@@ -10444,7 +10444,7 @@ ia64_optimization_options (int level ATTRIBUTE_UNUSED,
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
 
-  if (optimize >= 2
+  if (optimize >= 3
       && ! sel_sched_switch_set)
     {
       flag_selective_scheduling2 = 1;
