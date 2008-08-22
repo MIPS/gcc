@@ -1,3 +1,21 @@
+2008-08-22  Alexander Monakov  <amonakov@ispras.ru>
+	    Andrey Belevantsev  <abel@ispras.ru>
+
+	* target.h (struct gcc_target): Fix typo in comment.
+	Add comments for alloc_sched_context, clear_sched_context 
+	and free_sched_context hooks.
+	* sched-int.h (dump_insn_slim_1): Remove declaration.
+	Remove commented dep_weak declaration.
+	* Makefile.in (sched-vis.o): Add $(INSN_ATTR_H).
+	* sched-rgn.c (rgn_common_sched_info): Add comment.
+	(rgn_sched_deps_info, rgn_const_sched_deps_info,
+	rgn_const_sel_sched_deps_info): Likewise.
+	(rgn_sched_info): Likewise.
+	(ref_counts): Likewise.
+	(rgn_setup_sched_infos): Likewise.
+	* sched-vis.c (dump_insn_slim_1): Inline in dump_insn_slim
+	and remove.
+
 2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
 
 	* doc/invoke.texi (fsel-sched-bookkeeping, fsel-sched-renaming, 

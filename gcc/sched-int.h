@@ -207,8 +207,6 @@ extern basic_block sched_create_recovery_block (basic_block *);
 extern void sched_create_recovery_edges (basic_block, basic_block,
 					 basic_block);
 
-extern void dump_insn_slim_1 (FILE *, rtx);
-
 /* Pointer to data describing the current DFA state.  */
 extern state_t curr_state;
 
@@ -1222,8 +1220,6 @@ extern void dump_region_dot_file (const char *, int);
 
 extern void haifa_sched_init (void);
 extern void haifa_sched_finish (void);
-
-/* extern dw_t dep_weak (ds_t); */
 
 /* sched-deps.c interface to walk, add, search, update, resolve, delete
    and debug instruction dependencies.  */

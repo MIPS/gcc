@@ -364,8 +364,9 @@ struct gcc_target
        that new instructions were emitted.  */
     void (* h_i_d_extended) (void);
 
-    /* Next 6 functions are for multi-point scheduling.  */
+    /* Next 5 functions are for multi-point scheduling.  */
 
+    /* Allocate memory for scheduler context.  */
     void *(* alloc_sched_context) (void);
 
     /* Fills the context from the local machine scheduler context.  */
@@ -374,8 +375,10 @@ struct gcc_target
     /* Sets local machine scheduler context to a saved value.  */
     void (* set_sched_context) (void *);
 
+    /* Clears a scheduler context so it becomes like after init.  */
     void (* clear_sched_context) (void *);
 
+    /* Frees the scheduler context.  */
     void (* free_sched_context) (void *);
 
     /* The following member value is a pointer to a function called

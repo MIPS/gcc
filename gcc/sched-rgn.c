@@ -2312,8 +2312,17 @@ compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
      add_branch_dependences.  */
 }
 
+/* This variable holds common_sched_info hooks and data relevant to 
+   the interblock scheduler.  */
 static struct common_sched_info_def rgn_common_sched_info;
 
+
+/* This holds data for the dependence analysis relevant to
+   the interblock scheduler.  */
+static struct sched_deps_info_def rgn_sched_deps_info;
+
+/* This holds constant data used for initializing the above structure
+   for the Haifa scheduler.  */
 static const struct sched_deps_info_def rgn_const_sched_deps_info =
   {
     compute_jump_reg_dependencies,
@@ -2321,14 +2330,13 @@ static const struct sched_deps_info_def rgn_const_sched_deps_info =
     0, 0, 0
   };
 
+/* Same as above, but for the selective scheduler.  */
 static const struct sched_deps_info_def rgn_const_sel_sched_deps_info =
   {
     compute_jump_reg_dependencies,
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     0, 0, 0
   };
-
-static struct sched_deps_info_def rgn_sched_deps_info;
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
    regions (or single basic blocks).  */
@@ -2353,6 +2361,8 @@ static const struct haifa_sched_info rgn_const_sched_info =
   SCHED_RGN
 };
 
+/* This variable holds the data and hooks needed to the Haifa scheduler backend
+   for the interblock scheduler frontend.  */
 static struct haifa_sched_info rgn_sched_info;
 
 /* Determine if PAT sets a CLASS_LIKELY_SPILLED_P register.  */
@@ -2377,6 +2387,8 @@ sets_likely_spilled_1 (rtx x, const_rtx pat, void *data)
     *ret = true;
 }
 
+/* An array used to hold the number of dependencies in which insn 
+   participates.  Used in add_branch_dependences.  */
 static int *ref_counts;
 
 /* Add dependences so that branches are scheduled to run last in their
@@ -3189,6 +3201,8 @@ rgn_setup_common_sched_info (void)
   common_sched_info = &rgn_common_sched_info;
 }
 
+/* Setup all *_sched_info structures (for the Haifa frontend
+   and for the dependence analysis) in the interblock scheduler.  */
 void
 rgn_setup_sched_infos (void)
 {

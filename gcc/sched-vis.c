@@ -700,15 +700,6 @@ print_insn (char *buf, const_rtx x, int verbose)
     }
 }				/* print_insn */
 
-void
-dump_insn_slim_1 (FILE *f, rtx x)
-{
-  char t[BUF_LEN + 32];
-
-  print_insn (t, x, 1);
-  fputs (t, f);
-}
-
 /* Emit a slim dump of X (an insn) to the file F, including any register
    note attached to the instruction.  */
 void
@@ -717,9 +708,9 @@ dump_insn_slim (FILE *f, rtx x)
   char t[BUF_LEN + 32];
   rtx note;
 
-  dump_insn_slim_1 (f, x);
+  print_insn (t, x, 1);
+  fputs (t, f);
   putc ('\n', f);
-
   if (INSN_P (x) && REG_NOTES (x))
     for (note = REG_NOTES (x); note; note = XEXP (note, 1))
       {
