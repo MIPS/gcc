@@ -1,5 +1,98 @@
 2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
 
+	* sel-sched.c (move_exprs_to_boundary): Do not call print_marker_to_log.
+	* sel-sched-ir.c (regset_pool, nop_pool): Document fields.
+	(finish_insns): Move forward declaration up.
+	(def_list_add): Add blank line.
+	(_advance_deps_context_sched_deps_info): Remove underscore in name,
+	adjust alll users, add comment.
+	(merge_fences): Document parameters.
+	(get_regset_from_pool): Document return value.
+	(get_clear_regset_from_pool): Likewise.
+	(return_regset_to_pool): Document function.
+	(cmp_v_in_regset_pool): Document function and parameters.
+	(free_regset_pool): Likewise.  Use #ifdef ENABLE_CHECKING instead of 
+	ENABLE_SEL_CHECKING.  Add new page symbol after the function.
+	(skip_unspecs_callback): Document parameters.
+	(hash_with_unspec_callback): Likewise.
+	(vinsn_init): Likewise.
+	(find_in_history_vect_1): Likewise.
+	(find_in_history_vect): Likewise.
+	(insert_in_history_vect): Likewise.
+	(update_target_availability): Likewise.
+	(update_speculative_bits): Likewise.
+	(merge_expr): Likewise.
+	(speculate_expr): Likewise.
+	(sel_init_global_and_expr): Likewise.  Remove extra parentheses.
+	(deps_init_id_data): Document fields.
+	(deps_init_id_sched_deps_info, const_deps_init_id_sched_deps_info):
+	Document variables.
+	(has_dependence_sched_deps_info, const_has_dependence_sched_deps_info):
+	Likewise.
+	(sel_clear_has_dependence): Document function.
+	(has_dependence_p): Document parameters.
+	(tidy_control_flow): Likewise.
+	(copy_lv_set_from): Likewise.
+	(get_av_set): Document return parameter.
+	(tick_check_dep_with_dw): Remove assert.
+	(_tick_check_sched_deps_info): Remove underscore, document.
+	(verify_backedges): Move comment before the function.
+	(has_dependence_data): When declaring, remove _has_dependence_data.
+	(succs_info_pool): Document fields.
+	(compute_succs_info): Document parameters.  
+	(sel_remove_empty_bb): Likewise.
+	(change_loops_latches): Likewise.
+	(sel_create_recovery_block): Likewise.
+	(create_vinsn_from_insn_rtx): Likewise.
+	(setup_nop_and_exit_insns): Remove extra parentheses.
+	(get_all_loop_exits): Likewise.
+	(bb_top_order_comparator): Fix comment.
+	* sel-sched-ir.h (ENABLE_SEL_CHECKING): Remove.
+	(struct _expr): Document usefulness field.
+	(struct _bnd): Document fields.
+	(_list_iterator): Likewise.
+	(struct idata_def): Remove commented field.
+	(struct transformed_insns): Document fields.
+	(INSN_NOP_P): Fix typo in comment.
+	(IN_CURRENT_FENCE_P): Likewise.
+	* sel-sched-dump.c: Do not include unistd.h.
+	(switch_dump): Document.  Add assert.
+	(sched_dump1): Rename to saved_sched_dump.
+	(restore_dump): Document.
+	(dump_vinsn_flags, debug_vinsn_flags, debug_expr_flags,
+	debug_insn_flags): Likewise.
+	(dump_all): Remove.  Update all code.
+	(dump_insn_rtx_1): Document.
+	(dump_insn_rtx): Likewise.
+	(debug_insn_rtx): Likewise.
+	(dump_vinsn_1): Likewise.
+	(dump_vinsn): Likewise.
+	(debug_vinsn): Likewise.
+	(dump_expr, debug_expr): Likewise.
+	(debug_insn): Likewise.
+	(dump_insn_1): Remove dead code.
+	(sel_prepare_string_for_dot_label): Make arrays static.
+	(insn_uid, block_for_insn, bb_av_set, insn_pattern, insn_code,
+	insn_is_set_p, hard_regno_rename_ok): Remove.
+	* sel-sched-dump.h (SEL_DUMP_CFG_*): Remove.
+	(enum sel_dump_cfg_def): Document fields.
+	(enum dump_insn_rtx_def): Likewise.  Kill first underscore from name, 
+	add def suffix.
+	(enum dump_vinsn_def): Likewise.
+	(enum dump_expr_def): Likewise.
+	(enum dump_insn_def): Likewise.  Remove unneeded entries.
+	(enum _dump_idata): Remove.
+	(sel_print_to_dot, sel_print): Document macros.
+	(print_marker_to_log, insn_uid, block_for_insn, bb_av_set, 
+	insn_pattern, insn_code, insn_is_set_p, hard_regno_rename_ok): Remove
+	declarations.
+	(debug_find_insn_loop, debug_find_unreachable_blocks, sel_debug_cfg,
+	mem_test, in_range_p, av_set_contains_insn_with_uid, av_set_for_bb_n,
+	sel_get_stat_file): Likewise.
+	* rtl.c (rtx_equal_p_cb): Remove unneeded blank line before function.
+	
+2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
+
 	* sel-sched.c (try_replace_dest_reg): Remove assert
 	with insn_rtx_valid.
 	* sel-sched-ir.c (insn_rtx_valid): Remove.

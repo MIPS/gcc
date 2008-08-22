@@ -337,7 +337,6 @@ int currently_expanding_to_rtl;
 /* Same as rtx_equal_p, but call CB on each pair of rtx if CB is not NULL.  
    When the callback returns true, we continue with the new pair.  */
 
-
 int
 rtx_equal_p_cb (const_rtx x, const_rtx y, rtx_equal_p_callback_function cb)
 {

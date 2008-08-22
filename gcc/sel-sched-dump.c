@@ -36,8 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cselib.h"
 #include "sel-sched-ir.h"
 #include "sel-sched-dump.h"
-
-#include <unistd.h>
 
 
 /* These variables control high-level pretty printing.  */
@@ -65,43 +63,52 @@ static int dump_flist_insn_flags = (DUMP_INSN_UID | DUMP_INSN_BBN
                                     | DUMP_INSN_SEQNO);
 
 
-static FILE *sched_dump1;
+/* The variable used to hold the value of sched_dump when temporarily
+   switching dump output to the other source, e.g. the .dot file.  */
+static FILE *saved_sched_dump = NULL;
 
+/* Switch sched_dump to TO.  It must not be called twice.  */
 static void
 switch_dump (FILE *to)
 {
-  sched_dump1 = sched_dump;
+  gcc_assert (saved_sched_dump == NULL);
+  
+  saved_sched_dump = sched_dump;
   sched_dump = to;
 }
 
+/* Restore previously switched dump.  */
 static void
 restore_dump (void)
 {
-  sched_dump = sched_dump1;
-}
-
-void 
-print_marker_to_log (void)
-{
-  sel_print ("Marker: %d\n:", sel_dump_cfg_fileno);
+  sched_dump = saved_sched_dump;
+  saved_sched_dump = NULL;
 }
 
 
 /* Functions for dumping instructions, av sets, and exprs.  */ 
 
-static int dump_all = 0;
+/* Default flags for dumping insns.  */
 static int dump_insn_rtx_flags = DUMP_INSN_RTX_PATTERN;
+
+/* Default flags for dumping vinsns.  */
 static int dump_vinsn_flags = (DUMP_VINSN_INSN_RTX | DUMP_VINSN_TYPE
 			       | DUMP_VINSN_COUNT);
-static int debug_vinsn_flags = 1;
-static int debug_insn_rtx_flags = 1;
+
+/* Default flags for dumping expressions.  */
 static int dump_expr_flags = DUMP_EXPR_ALL;
-static int debug_expr_flags = 1;
 
-/* Controls how an insn should be dumped.  It can be changed from debugger.  */
-static int dump_insn_flags = (DUMP_INSN_EXPR | DUMP_INSN_SCHED_CYCLE);
-static int debug_insn_flags = 1;
+/* Default flags for dumping insns when debugging.  */
+static int debug_insn_rtx_flags = DUMP_INSN_RTX_ALL;
 
+/* Default flags for dumping vinsns when debugging.  */
+static int debug_vinsn_flags = DUMP_VINSN_ALL;
+
+/* Default flags for dumping expressions when debugging.  */
+static int debug_expr_flags = DUMP_EXPR_ALL;
+
+/* Controls how an insn from stream should be dumped when debugging.  */
+static int debug_insn_flags = DUMP_INSN_ALL;
 
 /* Print an rtx X.  */
 void
@@ -110,12 +117,14 @@ sel_print_rtl (rtx x)
   print_rtl_single (sched_dump, x);
 }
 
+/* Dump insn INSN honoring FLAGS.  */
 void
 dump_insn_rtx_1 (rtx insn, int flags)
 {
   int all;
 
-  all = (flags & 1) | dump_all;
+  /* flags == -1 also means dumping all.  */
+  all = (flags & 1);;
   if (all)
     flags |= DUMP_INSN_RTX_ALL;
 
@@ -142,12 +151,16 @@ dump_insn_rtx_1 (rtx insn, int flags)
   sel_print (")");
 }
 
+
+/* Dump INSN with default flags.  */
 void
 dump_insn_rtx (rtx insn)
 {
   dump_insn_rtx_1 (insn, dump_insn_rtx_flags);
 }
 
+
+/* Dump INSN to stderr.  */
 void
 debug_insn_rtx (rtx insn)
 {
@@ -157,12 +170,14 @@ debug_insn_rtx (rtx insn)
   restore_dump ();
 }
 
+/* Dump vinsn VI honoring flags.  */
 void
 dump_vinsn_1 (vinsn_t vi, int flags)
 {
   int all;
 
-  all = (flags & 1) | dump_all;
+  /* flags == -1 also means dumping all.  */
+  all = flags & 1;
   if (all)
     flags |= DUMP_VINSN_ALL;
 
@@ -188,12 +203,14 @@ dump_vinsn_1 (vinsn_t vi, int flags)
   sel_print (")");
 }
 
+/* Dump vinsn VI with default flags.  */
 void
 dump_vinsn (vinsn_t vi)
 {
   dump_vinsn_1 (vi, dump_vinsn_flags);
 }
 
+/* Dump vinsn VI to stderr.  */
 void
 debug_vinsn (vinsn_t vi)
 {
@@ -203,13 +220,14 @@ debug_vinsn (vinsn_t vi)
   restore_dump ();
 }
 
-/* Dump EXPR.  */
+/* Dump EXPR honoring flags.  */
 void
 dump_expr_1 (expr_t expr, int flags)
 {
   int all;
 
-  all = (flags & 1) | dump_all;
+  /* flags == -1 also means dumping all.  */
+  all = flags & 1;
   if (all)
     flags |= DUMP_EXPR_ALL;
 
@@ -266,12 +284,14 @@ dump_expr_1 (expr_t expr, int flags)
   sel_print ("]");
 }
 
+/* Dump expression EXPR with default flags.  */
 void
 dump_expr (expr_t expr)
 {
   dump_expr_1 (expr, dump_expr_flags);
 }
 
+/* Dump expression EXPR to stderr.  */
 void
 debug_expr (expr_t expr)
 {
@@ -287,18 +307,12 @@ dump_insn_1 (insn_t i, int flags)
 {
   int all;
 
-  all = (flags & 1) | dump_all;
+  all = flags & 1;
   if (all)
     flags |= DUMP_INSN_ALL;
 
   if (!sched_dump_to_dot_p)
     sel_print ("(");
-
-  if (flags & DUMP_INSN_ASM_P)
-    flags = flags;
-
-  if (flags & DUMP_INSN_SCHED_NEXT)
-    flags = flags;
 
   if (flags & DUMP_INSN_EXPR)
     {
@@ -313,15 +327,9 @@ dump_insn_1 (insn_t i, int flags)
   else if (flags & DUMP_INSN_UID)
     sel_print ("uid:%d;", INSN_UID (i));
 
-  if (flags & DUMP_INSN_AV)
-    flags = flags;
-
   if (flags & DUMP_INSN_SEQNO)
     sel_print ("seqno:%d;", INSN_SEQNO (i));
 
-  if (flags & DUMP_INSN_AFTER_STALL_P)
-    flags = flags;
- 
   if (flags & DUMP_INSN_SCHED_CYCLE)
     {
       int cycle = INSN_SCHED_CYCLE (i);
@@ -338,9 +346,10 @@ dump_insn_1 (insn_t i, int flags)
 void
 dump_insn (insn_t i)
 {
-  dump_insn_1 (i, dump_insn_flags);
+  dump_insn_1 (i, DUMP_INSN_EXPR | DUMP_INSN_SCHED_CYCLE);
 }
 
+/* Dump INSN to stderr.  */
 void
 debug_insn (insn_t insn)
 {
@@ -461,7 +470,7 @@ dump_insn_vector (rtx_vec_t succs)
       sel_print ("NULL ");
 }
 
-/* Dumps a hard reg set SET to FILE using PREFIX. */
+/* Dumps a hard reg set SET to FILE using PREFIX.  */
 static void
 print_hard_reg_set (FILE *file, const char *prefix, HARD_REG_SET set)
 {
@@ -557,10 +566,10 @@ replace_str_in_buf (char *buf, const char *str1, const char *str2)
 void
 sel_prepare_string_for_dot_label (char *buf)
 {
-  char specials_from[7][2] = { "<", ">", "{", "|", "}", "\"",
-			       "\n" };
-  char specials_to[7][3] = { "\\<", "\\>", "\\{", "\\|", "\\}", "\\\"",
-			     "\\l" };
+  static char specials_from[7][2] = { "<", ">", "{", "|", "}", "\"",
+                                      "\n" };
+  static char specials_to[7][3] = { "\\<", "\\>", "\\{", "\\|", "\\}", 
+                                    "\\\"", "\\l" };
   unsigned i;
 
   for (i = 0; i < 7; i++)
@@ -848,50 +857,7 @@ sel_debug_cfg_1 (int flags)
   sel_dump_cfg_p = t1;
 }
 
-
-/* Functions callable from a debugger.  */
-int
-insn_uid (rtx insn)
-{
-  return INSN_UID (insn);
-}
-
-basic_block
-block_for_insn (rtx insn)
-{
-  return BLOCK_FOR_INSN (insn);
-}
-
-av_set_t
-bb_av_set (basic_block bb)
-{
-  return BB_AV_SET (bb);
-}
-
-rtx insn_pattern (rtx insn)
-{
-  return PATTERN (insn);
-}
-
-int insn_code (rtx insn)
-{
-  return GET_CODE (insn);
-}
-
-bool insn_is_set_p (rtx insn)
-{
-  return GET_CODE (PATTERN (insn)) == SET;
-}
-
-#ifdef HARD_REGNO_RENAME_OK
-int
-hard_regno_rename_ok (int i ATTRIBUTE_UNUSED, int j ATTRIBUTE_UNUSED)
-{
-  return HARD_REGNO_RENAME_OK (i, j);
-}
-#endif
-
-/* Dumps av_set AV to stderr. */
+/* Dumps av_set AV to stderr.  */
 void
 debug_av_set (av_set_t av)
 {

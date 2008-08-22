@@ -88,25 +88,40 @@ static int rev_top_order_index_len = -1;
 /* A regset pool structure.  */
 static struct
 {
+  /* The stack to which regsets are returned.  */
   regset *v;
+
+  /* Its pointer.  */
   int n;
+
+  /* Its size.  */
   int s;
 
-  /* In VV we accumulate all generated regsets so that, when destucting the
+  /* In VV we save all generated regsets so that, when destructing the
      pool, we can compare it with V and check that every regset was returned
      back to pool.  */
   regset *vv;
+
+  /* The pointer of VV stack.  */
   int nn;
+
+  /* Its size.  */
   int ss;
 
+  /* The difference between allocated and returned regsets.  */
   int diff;
 } regset_pool = { NULL, 0, 0, NULL, 0, 0, 0 };
 
 /* This represents the nop pool.  */
 static struct
 {
+  /* The vector which holds previously emitted nops.  */
   insn_t *v;
+
+  /* Its pointer.  */
   int n;
+
+  /* Its size.  */
   int s;  
 } nop_pool = { NULL, 0, 0 };
 
@@ -145,6 +160,7 @@ static void create_initial_data_sets (basic_block);
 static void invalidate_av_set (basic_block);
 static void extend_insn_data (void);
 static void sel_init_new_insn (insn_t, int);
+static void finish_insns (void);
 
 /* Various list functions.  */
 
@@ -300,6 +316,7 @@ void
 def_list_add (def_list_t *dl, insn_t original_insn, bool crosses_call)
 {
   def_t d;
+  
   _list_add (dl);
   d = DEF_LIST_DEF (*dl);
 
@@ -314,9 +331,8 @@ def_list_add (def_list_t *dl, insn_t original_insn, bool crosses_call)
    that there are no uninitialized (null) target contexts.  */
 static tc_t bulk_tc = (tc_t) 1;
 
-/* Target hooks wrappers.
-   Possibly it would be nice to provide some default implementations for
-   them. */
+/* Target hooks wrappers.  In the future we can provide some default 
+   implementations for them.  */
 
 /* Allocate a store for the target context.  */
 static tc_t
@@ -470,7 +486,9 @@ reset_deps_context (deps_t dc)
   init_deps (dc);
 }
 
-static struct sched_deps_info_def _advance_deps_context_sched_deps_info =
+/* This structure describes the dependence analysis hooks for advancing 
+   dependence context.  */
+static struct sched_deps_info_def advance_deps_context_sched_deps_info =
   {
     NULL,
 
@@ -493,7 +511,7 @@ static struct sched_deps_info_def _advance_deps_context_sched_deps_info =
 void
 advance_deps_context (deps_t dc, insn_t insn)
 {
-  sched_deps_info = &_advance_deps_context_sched_deps_info;
+  sched_deps_info = &advance_deps_context_sched_deps_info;
   deps_analyze_insn (dc, insn);
 }
 
@@ -603,11 +621,15 @@ init_fences (insn_t old_fence)
     }
 }
 
-/* Merges two fences (filling fields of OLD_FENCE with resulting values) by
+/* Merges two fences (filling fields of fence F with resulting values) by
    following rules: 1) state, target context and last scheduled insn are
    propagated from fallthrough edge if it is available; 
    2) deps context and cycle is propagated from more probable edge;
-   3) all other fields are set to corresponding constant values.  */
+   3) all other fields are set to corresponding constant values.  
+
+   INSN, STATE, DC, TC, LAST_SCHEDULED_INSN, EXECUTING_INSNS, 
+   READY_TICKS, READY_TICKS_SIZE, SCHED_NEXT, CYCLE and AFTER_STALL_P
+   are the corresponding fields of the second fence.  */
 static void
 merge_fences (fence_t f, insn_t insn,
 	      state_t state, deps_t dc, void *tc, 
@@ -870,6 +892,8 @@ add_dirty_fence_to_fences (flist_tail_t new_fences, insn_t succ, fence_t fence)
 
 /* Functions to work with regset and nop pools.  */
 
+/* Returns the new regset from pool.  It might have some of the bits set
+   from the previous usage.  */
 regset
 get_regset_from_pool (void)
 {
@@ -893,6 +917,7 @@ get_regset_from_pool (void)
   return rs;
 }
 
+/* Same as above, but returns the empty regset.  */
 regset
 get_clear_regset_from_pool (void)
 {
@@ -902,6 +927,7 @@ get_clear_regset_from_pool (void)
   return rs;
 }
 
+/* Return regset RS to the pool for future use.  */
 void
 return_regset_to_pool (regset rs)
 {
@@ -913,50 +939,54 @@ return_regset_to_pool (regset rs)
   regset_pool.v[regset_pool.n++] = rs;
 }
 
+/* This is used as a qsort callback for sorting regset pool stacks.
+   X and XX are addresses of two regsets.  They are never equal.  */
 static int
 cmp_v_in_regset_pool (const void *x, const void *xx)
 {
   return *((const regset *) x) - *((const regset *) xx);
 }
 
+/*  Free the regset pool possibly checking for memory leaks.  */
 void
 free_regset_pool (void)
 {
-  if (ENABLE_SEL_CHECKING)
-    {
-      regset *v = regset_pool.v;
-      int i = 0;
-      int n = regset_pool.n;
-
-      regset *vv = regset_pool.vv;
-      int ii = 0;
-      int nn = regset_pool.nn;
-
-      int diff = 0;
-
-      gcc_assert (n <= nn);
-
-      /* Sort both vectors so it will be possible to compare them.  */
-      qsort (v, n, sizeof (*v), cmp_v_in_regset_pool);
-      qsort (vv, nn, sizeof (*vv), cmp_v_in_regset_pool);
-
-      while (ii < nn)
-	{
-	  if (v[i] == vv[ii])
-	    i++;
-	  else
-	    /* VV[II] was lost.  */
-	    diff++;
-
-	  ii++;
-	}
-
-      gcc_assert (diff == regset_pool.diff);
-    }
-
+#ifdef ENABLE_CHECKING
+  {
+    regset *v = regset_pool.v;
+    int i = 0;
+    int n = regset_pool.n;
+    
+    regset *vv = regset_pool.vv;
+    int ii = 0;
+    int nn = regset_pool.nn;
+    
+    int diff = 0;
+    
+    gcc_assert (n <= nn);
+    
+    /* Sort both vectors so it will be possible to compare them.  */
+    qsort (v, n, sizeof (*v), cmp_v_in_regset_pool);
+    qsort (vv, nn, sizeof (*vv), cmp_v_in_regset_pool);
+    
+    while (ii < nn)
+      {
+        if (v[i] == vv[ii])
+          i++;
+        else
+          /* VV[II] was lost.  */
+          diff++;
+        
+        ii++;
+      }
+    
+    gcc_assert (diff == regset_pool.diff);
+  }
+#endif
+  
   /* If not true - we have a memory leak.  */
   gcc_assert (regset_pool.diff == 0);
-
+  
   while (regset_pool.n)
     {
       --regset_pool.n;
@@ -974,6 +1004,7 @@ free_regset_pool (void)
 
   regset_pool.diff = 0;
 }
+
 
 /* Functions to work with nop pools.  NOP insns are used as temporary 
    placeholders of the insns being scheduled to allow correct update of 
@@ -1033,7 +1064,9 @@ free_nop_pool (void)
 }
 
 
-/* Skip unspec to support ia64 speculation. Called from rtx_equal_p_cb.  */
+/* Skip unspec to support ia64 speculation. Called from rtx_equal_p_cb.  
+   The callback is given two rtxes XX and YY and writes the new rtxes
+   to NX and NY in case some needs to be skipped.  */
 static int
 skip_unspecs_callback (const_rtx *xx, const_rtx *yy, rtx *nx, rtx* ny)
 {
@@ -1061,15 +1094,16 @@ skip_unspecs_callback (const_rtx *xx, const_rtx *yy, rtx *nx, rtx* ny)
   return 0;
 }
 
-/* Callback, called from hash_rtx_cb.
-   Helps to hash UNSPEC rtx in a correct way to support ia64 speculation. */
+/* Callback, called from hash_rtx_cb.  Helps to hash UNSPEC rtx X in a correct way 
+   to support ia64 speculation.  When changes are needed, new rtx X and new mode
+   NMODE are written, and the callback returns true.  */
 static int
 hash_with_unspec_callback (const_rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
                            rtx *nx, enum machine_mode* nmode)
 {
   if (GET_CODE (x) == UNSPEC 
       && targetm.sched.skip_rtx_p
-      && targetm.sched.skip_rtx_p(x))
+      && targetm.sched.skip_rtx_p (x))
     {
       *nx = XVECEXP (x, 0 ,0);
       *nmode = 0;
@@ -1115,7 +1149,9 @@ lhs_and_rhs_separable_p (rtx lhs, rtx rhs)
   return true;
 }
 
-/* Initialize vinsn VI for INSN.  Only for use from vinsn_create ().  */
+/* Initialize vinsn VI for INSN.  Only for use from vinsn_create ().  When 
+   FORCE_UNIQUE_P is true, the resulting vinsn will not be clonable.  This is 
+   used e.g. for insns from recovery blocks.  */
 static void
 vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
 {
@@ -1373,9 +1409,11 @@ sel_move_insn (expr_t expr, int seqno, insn_t after)
 
 /* Functions to work with right-hand sides.  */
 
-/* Search for a hash value HASH in a sorted vector VECT and return true
-   when found.  Write to INDP the index on which the search has stopped,
-   such that inserting HASH at INDP will retain VECT's sort order.  */
+/* Search for a hash value determined by UID/NEW_VINSN in a sorted vector 
+   VECT and return true when found.  Use NEW_VINSN for comparison only when
+   COMPARE_VINSNS is true.  Write to INDP the index on which 
+   the search has stopped, such that inserting the new element at INDP will 
+   retain VECT's sort order.  */
 static bool
 find_in_history_vect_1 (VEC(expr_history_def, heap) *vect, 
                         unsigned uid, vinsn_t new_vinsn, 
@@ -1418,7 +1456,7 @@ find_in_history_vect_1 (VEC(expr_history_def, heap) *vect,
   return false;
 }
 
-/* Search for a uid of INSN a sorted vector VECT.  Return 
+/* Search for a uid of INSN and NEW_VINSN in a sorted vector VECT.  Return 
    the position found or -1, if no such value is in vector.  
    Search also for UIDs of insn's originators, if ORIGINATORS_P is true.  */
 int
@@ -1444,8 +1482,10 @@ find_in_history_vect (VEC(expr_history_def, heap) *vect, rtx insn,
   return -1;
 }
 
-/* Insert HASH in a sorted vector pointed to by PVECT, if HASH is
-   not there already.  */
+/* Insert new element in a sorted history vector pointed to by PVECT, 
+   if it is not there already.  The element is searched using 
+   UID/NEW_EXPR_VINSN pair.  TYPE, OLD_EXPR_VINSN and SPEC_DS save
+   the history of a transformation.  */
 void
 insert_in_history_vect (VEC (expr_history_def, heap) **pvect,
                         unsigned uid, enum local_trans_type type,
@@ -1651,7 +1691,9 @@ prepare_insn_expr (insn_t insn, int seqno)
   free_history_vect (&EXPR_HISTORY_OF_CHANGES (expr));
 }
 
-/* Update target_available bits when merging exprs TO and FROM.  */
+/* Update target_available bits when merging exprs TO and FROM.  SPLIT_POINT
+   is non-null when expressions are merged from different successors at 
+   a split point.  */
 static void
 update_target_availability (expr_t to, expr_t from, insn_t split_point)
 {
@@ -1682,7 +1724,9 @@ update_target_availability (expr_t to, expr_t from, insn_t split_point)
     }
 }
 
-/* Update speculation bits when merging exprs TO and FROM.  */
+/* Update speculation bits when merging exprs TO and FROM.  SPLIT_POINT
+   is non-null when expressions are merged from different successors at 
+   a split point.  */
 static void
 update_speculative_bits (expr_t to, expr_t from, insn_t split_point)
 {
@@ -1784,7 +1828,9 @@ merge_expr_data (expr_t to, expr_t from, insn_t split_point)
   update_speculative_bits (to, from, split_point);
 }
 
-/* Merge bits of FROM expr to TO expr.  Vinsns in the exprs should correlate.  */
+/* Merge bits of FROM expr to TO expr.  Vinsns in the exprs should be equal
+   in terms of vinsn_equal_p.  SPLIT_POINT is non-null when expressions 
+   are merged from different successors at a split point.  */
 void
 merge_expr (expr_t to, expr_t from, insn_t split_point)
 {
@@ -1875,7 +1921,7 @@ set_unavailable_target_for_expr (expr_t expr, regset lv_set)
 
 /* Try to make EXPR speculative.  Return 1 when EXPR's pattern 
    or dependence status have changed, 2 when also the target register
-   became unavailable, 0 if nothing had to be changed. */
+   became unavailable, 0 if nothing had to be changed.  */
 int
 speculate_expr (expr_t expr, ds_t ds)
 {
@@ -2286,16 +2332,26 @@ av_set_intersect (av_set_t *avp, av_set_t av)
 
 /* Dependence hooks to initialize insn data.  */
 
+/* This is used in hooks callable from dependence analysis when initializing
+   instruction's data.  */
 static struct
 {
+  /* Where the dependence was found (lhs/rhs).  */
   deps_where_t where;
+
+  /* The actual data object to initialize.  */
   idata_t id;
+
+  /* True when the insn should not be made clonable.  */
   bool force_unique_p;
+
+  /* True when insn should be treated as of type USE, i.e. never renamed.  */
   bool force_use_p;
 } deps_init_id_data;
 
 
-/* Setup ID for INSN.  */
+/* Setup ID for INSN.  FORCE_UNIQUE_P is true when INSN should not be 
+   clonable.  */
 static void
 setup_id_for_insn (idata_t id, insn_t insn, bool force_unique_p)
 {
@@ -2444,6 +2500,10 @@ deps_init_id_finish_insn (void)
   deps_init_id_data.where = DEPS_IN_NOWHERE;
 }
 
+/* This is dependence info used for initializing insn's data.  */
+static struct sched_deps_info_def deps_init_id_sched_deps_info;
+
+/* This initializes most of the static part of the above structure.  */
 static const struct sched_deps_info_def const_deps_init_id_sched_deps_info =
   {
     NULL,
@@ -2465,9 +2525,8 @@ static const struct sched_deps_info_def const_deps_init_id_sched_deps_info =
     0 /* generate_spec_deps */
   };
 
-static struct sched_deps_info_def deps_init_id_sched_deps_info;
-
-/* Initialize INSN's lhs and rhs in ID.  */
+/* Initialize INSN's lhs and rhs in ID.  When FORCE_UNIQUE_P is true,
+   we don't actually need information about lhs and rhs.  */
 static void
 setup_id_lhs_rhs (idata_t id, insn_t insn, bool force_unique_p)
 {
@@ -2807,22 +2866,20 @@ init_global_and_expr_for_insn (insn_t insn)
   init_first_time_insn_data (insn);
 }
 
-/* Scan the region and initialize instruction data.  */
+/* Scan the region and initialize instruction data for basic blocks BBS.  */
 void
 sel_init_global_and_expr (bb_vec_t bbs)
 {
-  {
-    /* ??? It would be nice to implement push / pop scheme for sched_infos.  */
-    const struct sched_scan_info_def ssi =
-      {
-	NULL, /* extend_bb */
-	init_global_and_expr_for_bb, /* init_bb */
-	extend_insn_data, /* extend_insn */
-	init_global_and_expr_for_insn /* init_insn */
-      };
-
-    sched_scan (&ssi, bbs, NULL, NULL, NULL);
-  }
+  /* ??? It would be nice to implement push / pop scheme for sched_infos.  */
+  const struct sched_scan_info_def ssi =
+    {
+      NULL, /* extend_bb */
+      init_global_and_expr_for_bb, /* init_bb */
+      extend_insn_data, /* extend_insn */
+      init_global_and_expr_for_insn /* init_insn */
+    };
+  
+  sched_scan (&ssi, bbs, NULL, NULL, NULL);
 }
 
 /* Finalize region-scope data structures for basic blocks.  */
@@ -2855,8 +2912,6 @@ finish_global_and_expr_insn (insn_t insn)
       clear_expr (INSN_EXPR (insn));
     }
 }
-
-static void finish_insns (void);
 
 /* Finalize per instruction data for the whole region.  */
 void
@@ -2896,7 +2951,7 @@ sel_finish_global_and_expr (void)
    when we'll start caching dependence requests.  */
 
 /* Container to hold information for dependency analysis.  */
-static struct _has_dependence_data
+static struct
 {
   deps_t dc;
 
@@ -3093,6 +3148,11 @@ sel_mark_hard_insn (rtx insn)
     has_dependence_data.has_dep_p[i] &= ~SPECULATIVE;
 }
 
+/* This structure holds the hooks for the dependency analysis used when
+   actually processing dependencies in the scheduler.  */
+static struct sched_deps_info_def has_dependence_sched_deps_info;
+
+/* This initializes most of the fields of the above structure.  */
 static const struct sched_deps_info_def const_has_dependence_sched_deps_info =
   {
     NULL,
@@ -3114,8 +3174,7 @@ static const struct sched_deps_info_def const_has_dependence_sched_deps_info =
     0 /* generate_spec_deps */
   };
 
-static struct sched_deps_info_def has_dependence_sched_deps_info;
-
+/* Initialize has_dependence_sched_deps_info with extra spec field.  */
 static void
 setup_has_dependence_sched_deps_info (void)
 {
@@ -3129,6 +3188,7 @@ setup_has_dependence_sched_deps_info (void)
   sched_deps_info = &has_dependence_sched_deps_info;
 }
 
+/* Remove all dependences found and recorded in has_dependence_data array.  */
 void
 sel_clear_has_dependence (void)
 {
@@ -3138,7 +3198,8 @@ sel_clear_has_dependence (void)
     has_dependence_data.has_dep_p[i] = 0;
 }
 
-/* Return nonzero if EXPR has is dependent upon PRED.  */
+/* Return nonzero if EXPR has is dependent upon PRED.  Return the pointer
+   to the dependence information array in HAS_DEP_PP.  */
 ds_t
 has_dependence_p (expr_t expr, insn_t pred, ds_t **has_dep_pp)
 {
@@ -3227,21 +3288,14 @@ tick_check_dep_with_dw (insn_t pro_insn, ds_t ds, dw_t dw)
       enum reg_note dt;
       int tick;
 
-      if (/* PROducer was removed from above due to pipelining.  See PR8.  */
+      if (/* PROducer was removed from above due to pipelining.  */
 	  !INSN_IN_STREAM_P (pro_insn)
 	  /* Or PROducer was originally on the next iteration regarding the
 	     CONsumer.  */
 	  || (INSN_SCHED_TIMES (pro_insn)
 	      - EXPR_SCHED_TIMES (con_expr)) > 1)
 	/* Don't count this dependence.  */
-	{
-	  /* ??? This assert fails on a large testcase.  It is not clear
-	     to me if the assert is right so defer debugging until a smaller
-	     testcase is avalailable.  */
-	  gcc_assert (1 || pipelining_p);
-
-	  return;
-	}
+        return;
 
       dt = ds_to_dt (ds);
       if (dt == REG_DEP_TRUE)
@@ -3285,7 +3339,9 @@ tick_check_note_mem_dep (rtx mem1, rtx mem2, insn_t pro, ds_t ds)
   tick_check_dep_with_dw (pro, ds, dw);
 }
 
-static struct sched_deps_info_def _tick_check_sched_deps_info =
+/* This structure contains hooks for dependence analysis used when determining
+   whether an insn is ready for scheduling.  */
+static struct sched_deps_info_def tick_check_sched_deps_info =
   {
     NULL,
 
@@ -3314,7 +3370,7 @@ tick_check_p (expr_t expr, deps_t dc, fence_t fence)
   tick_check_data.expr = expr;
   tick_check_data.cycle = 0;
   tick_check_data.seen_true_dep_p = false;
-  sched_deps_info = &_tick_check_sched_deps_info;
+  sched_deps_info = &tick_check_sched_deps_info;
   
   gcc_assert (!dc->readonly);
   dc->readonly = 1;
@@ -3400,11 +3456,11 @@ insn_is_the_only_one_in_bb_p (insn_t insn)
 }
 
 #ifdef ENABLE_CHECKING
+/* Check that the region we're scheduling still has at most one 
+   backedge.  */
 static void
 verify_backedges (void)
 {
-  /* Check that the region we're scheduling still has at most one 
-     backedge.  */
   if (pipelining_p)
     {
       int i, n = 0;
@@ -3498,7 +3554,8 @@ maybe_tidy_empty_bb (basic_block bb)
 }
 
 /* Tidy the control flow after we have removed original insn from 
-   XBB.  Return true if we have removed some blocks.  */
+   XBB.  Return true if we have removed some blocks.  When FULL_TIDYING
+   is true, also try to optimize control flow on non-empty blocks.  */
 bool
 tidy_control_flow (basic_block xbb, bool full_tidying)
 {
@@ -3906,6 +3963,7 @@ init_lv_set (basic_block bb)
   BB_LV_SET_VALID_P (bb) = true;
 }
 
+/* Copy liveness information to BB from FROM_BB.  */
 static void
 copy_lv_set_from (basic_block bb, basic_block from_bb)
 {
@@ -4061,6 +4119,7 @@ copy_data_sets (basic_block to, basic_block from)
     }
 }
 
+/* Return an av set for INSN, if any.  */
 av_set_t
 get_av_set (insn_t insn)
 {
@@ -4103,8 +4162,17 @@ static VEC (basic_block, heap) *last_added_blocks = NULL;
 /* A pool for allocating successor infos.  */
 static struct
 {
+  /* A stack for saving succs_info structures.  */
   struct succs_info *stack;
-  int size, top, max_top;
+
+  /* Its size.  */
+  int size;
+
+  /* Top of the stack.  */
+  int top;
+
+  /* Maximal value of the top.  */
+  int max_top;
 }  succs_info_pool;
 
 /* Functions to work with control-flow graph.  */
@@ -4314,8 +4382,8 @@ free_succs_info (struct succs_info * sinfo)
   sinfo->all_succs_n = 0;
 }
 
-/* Same as above, but fill PROBS vector with probabilities of corresponding
-   successors depending on INSN.  */
+/* Compute successor info for INSN.  FLAGS are the flags passed 
+   to the FOR_EACH_SUCC_1 iterator.  */
 struct succs_info *
 compute_succs_info (insn_t insn, short flags)
 {
@@ -4836,7 +4904,8 @@ move_bb_info (basic_block merge_bb, basic_block empty_bb)
 
 /* Remove an empty basic block EMPTY_BB.  When MERGE_UP_P is true, we put 
    EMPTY_BB's note lists into its predecessor instead of putting them 
-   into the successor.  */
+   into the successor.  When REMOVE_FROM_CFG_P is true, also remove 
+   the empty block.  */
 void
 sel_remove_empty_bb (basic_block empty_bb, bool merge_up_p,
 		     bool remove_from_cfg_p)
@@ -4981,7 +5050,7 @@ sel_init_only_bb (basic_block bb, basic_block after)
   rgn_make_new_region_out_of_new_block (bb);
 }
 
-/* Update the latch when we've splitted or merged it.
+/* Update the latch when we've splitted or merged it from FROM block to TO.
    This should be checked for all outer loops, too.  */
 static void
 change_loops_latches (basic_block from, basic_block to)
@@ -5138,7 +5207,8 @@ sel_create_empty_bb (basic_block after)
   return new_bb;
 }
 
-/* Implement sched_create_recovery_block ().  */
+/* Implement sched_create_recovery_block.  ORIG_INSN is where block
+   will be splitted to insert a check.  */
 basic_block
 sel_create_recovery_block (insn_t orig_insn)
 {
@@ -5247,6 +5317,7 @@ sel_redirect_edge_and_branch (edge e, basic_block to)
     sel_init_new_insn (jump, INSN_INIT_TODO_LUID | INSN_INIT_TODO_SIMPLEJUMP);
 }
 
+/* This variable holds the cfg hooks used by the selective scheduler.  */
 static struct cfg_hooks sel_cfg_hooks;
 
 /* Register sel-sched cfg hooks.  */
@@ -5279,8 +5350,8 @@ sel_unregister_cfg_hooks (void)
 }
 
 
-/* Emit an insn rtx based on PATTERN and ICE if the result is not a valid
-   insn.  */
+/* Emit an insn rtx based on PATTERN.  If a jump insn is wanted,
+   LABEL is where this jump should be directed.  */
 rtx
 create_insn_rtx_from_pattern (rtx pattern, rtx label)
 {
@@ -5310,7 +5381,8 @@ create_insn_rtx_from_pattern (rtx pattern, rtx label)
   return insn_rtx;
 }
 
-/* Create a new vinsn for INSN_RTX.  */
+/* Create a new vinsn for INSN_RTX.  FORCE_UNIQUE_P is true when the vinsn
+   must not be clonable.  */
 vinsn_t
 create_vinsn_from_insn_rtx (rtx insn_rtx, bool force_unique_p)
 {
@@ -5375,13 +5447,11 @@ setup_nop_and_exit_insns (void)
 
   nop_pattern = gen_nop ();
 
-  {
-    start_sequence ();
-    emit_insn (nop_pattern);
-    exit_insn = get_insns ();
-    end_sequence ();
-    set_block_for_insn (exit_insn, EXIT_BLOCK_PTR);
-  }
+  start_sequence ();
+  emit_insn (nop_pattern);
+  exit_insn = get_insns ();
+  end_sequence ();
+  set_block_for_insn (exit_insn, EXIT_BLOCK_PTR);
 }
 
 /* Free special insns used in the scheduler.  */
@@ -5442,6 +5512,7 @@ sel_setup_sched_infos (void)
   
   sel_set_sched_flags ();
 }
+
 
 /* Adds basic block BB to region RGN at the position *BB_ORD_INDEX,
    *BB_ORD_INDEX after that is increased.  */
@@ -5487,7 +5558,7 @@ sel_create_new_region (void)
   return new_rgn_number;
 }
 
-/* If BB1 has a smaller topological sort number than BB2, returns -1;
+/* If X has a smaller topological sort number than Y, returns -1;
    if greater, returns 1.  */
 static int
 bb_top_order_comparator (const void *x, const void *y)

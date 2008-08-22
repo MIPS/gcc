@@ -4834,12 +4834,6 @@ move_exprs_to_boundary (bnd_t bnd, expr_t expr_vliw,
   bitmap_iterator bi;
   int n_bookkeeping_copies_before_moveop;
 
-#ifdef ENABLE_CHECKING  
-  /* Marker is useful to bind .dot dumps and the log.  */
-  if (sched_verbose >= 6)
-    print_marker_to_log ();
-#endif
-
   /* Make a move.  This call will remove the original operation,
      insert all necessary bookkeeping instructions and update the
      data sets.  After that all we have to do is add the operation

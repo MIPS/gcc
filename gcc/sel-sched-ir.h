@@ -21,13 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SEL_SCHED_IR_H
 #define GCC_SEL_SCHED_IR_H
 
-/* A define to use ENABLE_CHECKING logic inside conditionals.  */
-#ifdef ENABLE_CHECKING
-#define ENABLE_SEL_CHECKING 1
-#else
-#define ENABLE_SEL_CHECKING 0
-#endif
-
 /* For state_t.  */
 #include "insn-attr.h"
 /* For regset_head.  */
@@ -121,8 +114,9 @@ struct _expr
      control on scheduling.  */
   int spec;
 
-  /* Degree of speculativeness too.  Shows the chance of the result of 
-     instruction to be actually used if it is moved to the current point.  */
+  /* Degree of speculativeness measured as probability of executing 
+     instruction's original basic block given relative to 
+     the current scheduling point.  */
   int usefulness;
 
   /* A priority of this expression.  */
@@ -214,21 +208,28 @@ struct _def
 typedef struct _def *def_t;
 
 
-/* Availability sets arae sets of expressions we're scheduling.  */
+/* Availability sets are sets of expressions we're scheduling.  */
 typedef _list_t av_set_t;
 #define _AV_SET_EXPR(L) (&(L)->u.expr)
 #define _AV_SET_NEXT(L) (_LIST_NEXT (L))
 
 
-/* Scheduling boundary.  This now corresponds to fence as we finish a cycle
-   at the end of bb.  */
+/* Boundary of the current fence group.  */
 struct _bnd
 {
+  /* The actual boundary instruction.  */
   insn_t to;
+
+  /* Its path to the fence.  */
   ilist_t ptr;
+
+  /* Availability set at the boundary.  */
   av_set_t av;
+
+  /* This set moved to the fence.  */
   av_set_t av1;
-  /* Deps Context at this boundary.  As long as we have one boundary per fence,
+  
+  /* Deps context at this boundary.  As long as we have one boundary per fence,
      this is just a pointer to the same deps context as in the corresponding
      fence.  */
   deps_t dc;
@@ -406,8 +407,13 @@ _list_clear (_list_t *l)
 /* List iterator backend.  */
 typedef struct
 {
+  /* The list we're iterating.  */
   _list_t *lp;
+
+  /* True when this iterator supprts removing.  */
   bool can_remove_p;
+
+  /* True when we've actually removed something.  */
   bool removed_p;
 } _list_iterator;
 
@@ -451,10 +457,10 @@ _list_iter_remove_nofree (_list_iterator *ip)
        _list_iter_cond_##TYPE (*(I).lp, &(ELEM));		\
        _list_iter_next (&(I)))
 
-#define _FOR_EACH_1(TYPE, ELEM, I, LP)			\
-  for (_list_iter_start (&(I), (LP), true);		\
-       _list_iter_cond_##TYPE (*(I).lp, &(ELEM));	\
-       _list_iter_next (&(I)))
+#define _FOR_EACH_1(TYPE, ELEM, I, LP)                              \
+  for (_list_iter_start (&(I), (LP), true);                         \
+       _list_iter_cond_##TYPE (*(I).lp, &(ELEM));                   \
+       _list_iter_next (&(I))) 
 
 
 /* _xlist_t functions.  */
@@ -590,9 +596,6 @@ struct idata_def
   regset reg_clobbers;
 
   regset reg_uses;
-
-  /* I hope that our renaming infrastructure handles this.  */
-  /* bool has_internal_dep; */
 };
 
 #define IDATA_TYPE(ID) ((ID)->type)
@@ -604,6 +607,9 @@ struct idata_def
 
 /* Type to represent all needed info to emit an insn.
    This is a virtual equivalent of the insn.
+   Every insn in the stream has an associated vinsn.  This is used
+   to reduce memory consumption basing on the fact that many insns
+   don't change through the scheduler.
 
    vinsn can be either normal or unique.
    * Normal vinsn is the one, that can be cloned multiple times and typically
@@ -662,14 +668,19 @@ struct transformed_insns
 {
   /* Previous vinsn.  Used to find the proper element.  */
   vinsn_t vinsn_old;
+
   /* A new vinsn.  */
   vinsn_t vinsn_new;
+
   /* Speculative status.  */
   ds_t ds;
+
   /* Type of transformation happened.  */
   enum local_trans_type type;
+
   /* Whether a conflict on the target register happened.  */
   BOOL_BITFIELD was_target_conflict : 1;
+
   /* Whether a check was needed.  */
   BOOL_BITFIELD needs_check : 1;
 };
@@ -678,13 +689,8 @@ struct transformed_insns
    a single instruction that is in the stream.  */
 struct _sel_insn_data
 {
-  /* Every insn in the stream has an associated vinsn.  This is used
-     to reduce memory consumption and give use the fact that many insns
-     (all of them at the moment) don't change through the scheduler.
-
-     Much of the information, that reflect information about the insn itself
-     (e.g. not about where it stands in CFG) is contained in the VINSN_ID
-     field of this home VI.  */
+  /* The expression that contains vinsn for this insn and some
+     flow-sensitive data like priority.  */
   expr_def expr;
 
   /* If (WS_LEVEL == GLOBAL_LEVEL) then AV is empty.  */
@@ -811,7 +817,7 @@ extern rtx exit_insn;
 /* Initialize data for simplejump.  */
 #define INSN_INIT_TODO_SIMPLEJUMP (4)
 
-/* Return true is INSN is a local NOP.  The nop is local in the sense that
+/* Return true if INSN is a local NOP.  The nop is local in the sense that
    it was emitted by the scheduler as a temporary insn and will soon be
    deleted.  These nops are identified by their pattern.  */
 #define INSN_NOP_P(INSN) (PATTERN (INSN) == nop_pattern)
@@ -822,7 +828,7 @@ extern rtx exit_insn;
    == (NEXT_INSN (INSN) == NULL_RTX)) is valid.  */
 #define INSN_IN_STREAM_P(INSN) (PREV_INSN (INSN) && NEXT_INSN (INSN))
 
-/* Return true in INSN is in current fence.  */
+/* Return true if INSN is in current fence.  */
 #define IN_CURRENT_FENCE_P(INSN) (flist_lookup (fences, INSN) != NULL)
 
 /* Marks loop as being considered for pipelining.  */
@@ -951,10 +957,19 @@ extern regset sel_all_regs;
 /* Successor iterator backend.  */
 typedef struct
 {
+  /* True if we're at BB end.  */
   bool bb_end;
+
+  /* An edge on which we're iterating.  */
   edge e1;
+
+  /* The previous edge saved after skipping empty blocks.  */
   edge e2;
+  
+  /* Edge iterator used when there are successors in other basic blocks.  */
   edge_iterator ei;
+
+  /* Successor block we're traversing.  */
   basic_block bb;
 
   /* Flags that are passed to the iterator.  We return only successors
@@ -1085,21 +1100,17 @@ get_all_loop_exits (basic_block bb)
   if (inner_loop_header_p (bb))
     {
       struct loop *this_loop;
+      struct loop *pred_loop = NULL;
       int i;
       edge e;
-
-      {
-	struct loop *pred_loop = NULL;
-
-	for (this_loop = bb->loop_father;
-	     this_loop && this_loop != current_loop_nest;
-	     this_loop = loop_outer (this_loop))
-	  pred_loop = this_loop;
-
-	this_loop = pred_loop;
-
-	gcc_assert (this_loop != NULL);
-      }
+      
+      for (this_loop = bb->loop_father;
+           this_loop && this_loop != current_loop_nest;
+           this_loop = loop_outer (this_loop))
+        pred_loop = this_loop;
+      
+      this_loop = pred_loop;
+      gcc_assert (this_loop != NULL);
 
       exits = get_loop_exit_edges_unique_dests (this_loop);
 
@@ -1133,14 +1144,17 @@ get_all_loop_exits (basic_block bb)
 }
 
 /* Flags to pass to compute_succs_info and FOR_EACH_SUCC.
-   NB: Any successor will fall into exactly one category.   */
+   Any successor will fall into exactly one category.   */
 
 /* Include normal successors.  */
 #define SUCCS_NORMAL (1)
+
 /* Include back-edge successors.  */
 #define SUCCS_BACK (2)
+
 /* Include successors that are outside of the current region.  */
 #define SUCCS_OUT (4)
+
 /* When pipelining of the outer loops is enabled, skip innermost loops 
    to their exits.  */
 #define SUCCS_SKIP_TO_LOOP_EXITS (8)
