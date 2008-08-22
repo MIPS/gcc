@@ -591,9 +591,6 @@ DEFPARAM(PARAM_SELSCHED_INSNS_TO_RENAME,
          "Maximum number of instructions in the ready list that are considered eligible for renaming",
          2, 0, 0)
 
-/* Minimal distance (in CPU cycles) between store and load targeting same
-   memory locations.  */
-
 DEFPARAM (PARAM_SCHED_MEM_TRUE_DEP_COST,
 	  "sched-mem-true-dep-cost",
 	  "Minimal distance between possibly conflicting store and load",

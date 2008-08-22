@@ -1,5 +1,17 @@
 2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
 
+	* doc/invoke.texi (fsel-sched-bookkeeping, fsel-sched-renaming, 
+	fsel-sched-substitution): Remove documentation.
+	(fsel-sched-dump-cfg): Likewise.
+	(fsel-sched-pipelining-outer-loops): Add documentation.
+	(max-pipeline-region-blocks, max-pipeline-region-insns,
+	sched-mem-true-dep-cost): Document parameters.
+	(selsched-max-insns-to-rename): Likewise.
+	* params.def: Move comment about PARAM_SCHED_MEM_TRUE_DEP_COST
+	to doc/invoke.texi.
+
+2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
+
 	* dbgcnt.def (sel_sched_cnt, sel_sched_region_cnt, 
 	sel_sched_insn_cnt): New counters.
 	* sel-sched.c: Include dbgcnt.h.

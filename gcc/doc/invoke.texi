@@ -352,8 +352,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsched2-use-traces -fsched-spec-load -fsched-spec-load-dangerous @gol
 -fsched-stalled-insns-dep[=@var{n}] -fsched-stalled-insns[=@var{n}] @gol
 -fschedule-insns -fschedule-insns2 -fsection-anchors -fsee @gol
--fselective-scheduling -fselective-scheduling2 -fsel-sched-bookkeeping @gol
--fsel-sched-pipelining -fsel-sched-renaming -fsel-sched-substitution @gol
+-fselective-scheduling -fselective-scheduling2 @gol
+-fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fsignaling-nans -fsingle-precision-constant -fsplit-ivs-in-unroller @gol
 -fsplit-wide-types -fstack-protector -fstack-protector-all @gol
 -fstrict-aliasing -fstrict-overflow -fthread-jumps -ftracer @gol
@@ -4975,10 +4975,6 @@ and unit/insn info.  For @var{n} greater than two, it includes RTL
 at abort point, control-flow and regions info.  And for @var{n} over
 four, @option{-fsched-verbose} also includes dependence info.
 
-@item -fsel-sched-dump-cfg
-@opindex sel-sched-dump-cfg
-Dump CFG information during selective scheduling pass.
-
 @item -save-temps
 @opindex save-temps
 Store the usual ``temporary'' intermediate files permanently; place them
@@ -5790,38 +5786,23 @@ from changing its schedule, we use this option to control that.
 @item -fselective-scheduling
 @opindex fselective-scheduling
 Schedule instructions using selective scheduling algorithm.  Selective
-scheduling runs instead of the first haifa scheduler pass.
+scheduling runs instead of the first scheduler pass.
 
 @item -fselective-scheduling2
 @opindex fselective-scheduling2
 Schedule instructions using selective scheduling algorithm.  Selective
-scheduling runs instead of the second haifa scheduler pass.
-
-@item -fsel-sched-bookkeeping
-@opindex fsel-sched-bookkeeping
-Enable generation of bookkeeping code during selective scheduling.  This option
-allows insns to be moved through join point.
+scheduling runs instead of the second scheduler pass.
 
 @item -fsel-sched-pipelining
 @opindex fsel-sched-pipelining
-Enable software pipelining of loops during selective scheduling.  This option
-requires @option{-fsel-sched-bookkeeping}.
+Enable software pipelining of innermost loops during selective scheduling.  
+This option has no effect until one of @option{-fselective-scheduling} or 
+@option{-fselective-scheduling2} is turned on.
 
-@item -fsel-sched-renaming
-@opindex fsel-sched-renaming
-Enable register renaming during selective scheduling.  This option allows the
-scheduler to split insns into rhs and lhs, and choose a different register
-for lhs, if instruction can not be scheduled at given point with the original
-one.
-
-@item -fsel-sched-substitution
-@opindex fsel-sched-substitution
-Enable register substitution during selective scheduling.  This option allows
-to overcome true dependencies, while scheduling insns before assignments.
-E.g.: scheduling 'z = x*2' before 'x = y' will yield 'z = y*2'.
-This option is useful in combination with @option{-fsel-sched-pipelining} to
-move instructions through back loop edges, though
-@option{-fsel-sched-pipelining} is not required for substitution to work.
+@item -fsel-sched-pipelining-outer-loops
+@opindex fsel-sched-pipelining-outer-loops
+When pipelining loops during selective scheduling, also pipeline outer loops.
+This option has no effect until @option{-fsel-sched-pipelining} is turned on.
 
 @item -fcaller-saves
 @opindex fcaller-saves
@@ -7301,9 +7282,17 @@ with probably little benefit.  The default value is 100.
 The maximum number of blocks in a region to be considered for
 interblock scheduling.  The default value is 10.
 
+@item max-pipeline-region-blocks
+The maximum number of blocks in a region to be considered for
+pipelining in the selective scheduler.  The default value is 15.
+
 @item max-sched-region-insns
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
+
+@item max-pipeline-region-insns
+The maximum number of insns in a region to be considered for
+pipelining in the selective scheduler.  The default value is 200.
 
 @item min-spec-prob
 The minimum probability (in percents) of reaching a source block
@@ -7324,13 +7313,25 @@ The minimal probability of speculation success (in percents), so that
 speculative insn will be scheduled.
 The default value is 40.
 
+@item sched-mem-true-dep-cost
+Minimal distance (in CPU cycles) between store and load targeting same
+memory locations.  The default value is 1.
+
 @item selsched-max-lookahead
 The maximum size of the lookahead window of selective scheduling.  It is a
 depth of search for available instructions.
 The default value is 50.
 
-@item max-last-value-rtl
+@item selsched-max-sched-times
+The maximum number of times that an instruction will be scheduled during 
+selective scheduling.  This is the limit on the number of iterations 
+through which the instruction may be pipelined.  The default value is 2.
 
+@item selsched-max-insns-to-rename
+The maximum number of best instructions in the ready list that are considered
+for renaming in the selective scheduler.  The default value is 2.
+
+@item max-last-value-rtl
 The maximum size measured as number of RTLs that can be recorded in an expression
 in combiner for a pseudo register as last known value of that register.  The default
 is 10000.
