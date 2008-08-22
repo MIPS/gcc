@@ -1,5 +1,38 @@
 2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* gcc.target/i386/avx-set-v16hi-1.c: New.
+	* gcc.target/i386/avx-set-v16hi-2.c: Likewise.
+	* gcc.target/i386/avx-set-v16hi-3.c: Likewise.
+	* gcc.target/i386/avx-set-v16hi-4.c: Likewise.
+	* gcc.target/i386/avx-set-v16hi-5.c: Likewise.
+	* gcc.target/i386/avx-set-v32qi-1.c: Likewise.
+	* gcc.target/i386/avx-set-v32qi-2.c: Likewise.
+	* gcc.target/i386/avx-set-v32qi-3.c: Likewise.
+	* gcc.target/i386/avx-set-v32qi-4.c: Likewise.
+	* gcc.target/i386/avx-set-v32qi-5.c: Likewise.
+	* gcc.target/i386/avx-set-v4df-1.c: Likewise.
+	* gcc.target/i386/avx-set-v4df-2.c: Likewise.
+	* gcc.target/i386/avx-set-v4df-3.c: Likewise.
+	* gcc.target/i386/avx-set-v4df-4.c: Likewise.
+	* gcc.target/i386/avx-set-v4df-5.c: Likewise.
+	* gcc.target/i386/avx-set-v4di-1.c: Likewise.
+	* gcc.target/i386/avx-set-v4di-2.c: Likewise.
+	* gcc.target/i386/avx-set-v4di-3.c: Likewise.
+	* gcc.target/i386/avx-set-v4di-4.c: Likewise.
+	* gcc.target/i386/avx-set-v4di-5.c: Likewise.
+	* gcc.target/i386/avx-set-v8sf-1.c: Likewise.
+	* gcc.target/i386/avx-set-v8sf-2.c: Likewise.
+	* gcc.target/i386/avx-set-v8sf-3.c: Likewise.
+	* gcc.target/i386/avx-set-v8sf-4.c: Likewise.
+	* gcc.target/i386/avx-set-v8sf-5.c: Likewise.
+	* gcc.target/i386/avx-set-v8si-1.c: Likewise.
+	* gcc.target/i386/avx-set-v8si-2.c: Likewise.
+	* gcc.target/i386/avx-set-v8si-3.c: Likewise.
+	* gcc.target/i386/avx-set-v8si-4.c: Likewise.
+	* gcc.target/i386/avx-set-v8si-5.c: Likewise.
+
+2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* gcc.target/i386/avx-3.c: New.
 
 2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
