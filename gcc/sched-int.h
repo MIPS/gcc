@@ -1089,13 +1089,7 @@ extern void init_deps_global (void);
 extern void finish_deps_global (void);
 extern void deps_analyze_insn (struct deps *, rtx);
 extern void remove_from_deps (struct deps *, rtx);
-extern void add_forw_dep (dep_link_t);
-extern void compute_forward_dependences (rtx, rtx);
-extern enum DEPS_ADJUST_RESULT add_or_update_back_dep (rtx, rtx, 
-						       enum reg_note, ds_t);
-extern void add_or_update_back_forw_dep (rtx, rtx, enum reg_note, ds_t);
-extern void add_back_forw_dep (rtx, rtx, enum reg_note, ds_t);
-extern void delete_back_forw_dep (dep_link_t);
+
 extern dw_t get_dep_weak_1 (ds_t, ds_t);
 extern dw_t get_dep_weak (ds_t, ds_t);
 extern ds_t set_dep_weak (ds_t, ds_t, dw_t);
@@ -1109,7 +1103,6 @@ extern ds_t ds_get_max_dep_weak (ds_t);
 
 extern void sched_deps_init (bool);
 extern void sched_deps_finish (void);
-extern void sched_deps_local_finish (void);
 
 extern void haifa_note_reg_set (int);
 extern void haifa_note_reg_clobber (int);

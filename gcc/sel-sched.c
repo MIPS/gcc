@@ -6186,7 +6186,7 @@ move_op (insn_t insn, av_set_t orig_ops, expr_t expr_vliw,
   /* We haven't visited any blocks yet.  */
   bitmap_clear (code_motion_visited_blocks);
   
-  /* Set approriate hooks and data.  */
+  /* Set appropriate hooks and data.  */
   code_motion_path_driver_info = &move_op_hooks;
   res = code_motion_path_driver (insn, orig_ops, NULL, &lparams, &sparams);
 

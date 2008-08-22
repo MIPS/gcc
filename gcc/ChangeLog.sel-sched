@@ -1,3 +1,13 @@
+2008-08-22  Alexander Monakov  <amonakov@ispras.ru>
+
+	* sel-sched.c (move_op): Fix typo in comment.
+	* sched-int.h (add_forw_dep, compute_forward_dependences, 
+	add_or_update_back_dep, add_or_update_back_forw_dep, 
+	add_back_forw_dep, delete_back_forw_dep): Remove prototypes.
+	(sched_deps_local_finish): Likewise.
+	* sched-rgn.c: Do not include cselib.h.
+	(compute_block_dependences): Remove if 0'd code.
+	
 2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
 
 	* sel-sched.c (move_exprs_to_boundary): Do not call print_marker_to_log.

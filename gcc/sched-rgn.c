@@ -65,7 +65,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "sched-int.h"
 #include "sel-sched.h"
-#include "cselib.h"
 #include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
@@ -2665,15 +2664,6 @@ compute_block_dependences (int bb)
   get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
 
   sched_analyze (&tmp_deps, head, tail);
-
-#if 0
-  if (bb_ends_ebb_p (BASIC_BLOCK (BB_TO_BLOCK (bb))) 
-      && sched_deps_info->use_cselib)
-    {
-      cselib_finish ();
-      cselib_init (true);
-    }
-#endif  
 
   /* Selective scheduling handles control dependencies by itself.  */
   if (!sel_sched_p ())
