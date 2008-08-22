@@ -1520,7 +1520,6 @@ extern int tick_check_p (expr_t, deps_t, fence_t);
 
 /* Functions to work with insns.  */
 extern bool lhs_of_insn_equals_to_dest_p (insn_t, rtx);
-extern bool insn_rtx_valid (rtx);
 extern bool insn_eligible_for_subst_p (insn_t);
 extern void get_dest_and_mode (rtx, rtx *, enum machine_mode *);
 

@@ -1,5 +1,17 @@
 2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
 
+	* sel-sched.c (try_replace_dest_reg): Remove assert
+	with insn_rtx_valid.
+	* sel-sched-ir.c (insn_rtx_valid): Remove.
+	(create_insn_rtx_from_pattern_1): Inline in ...
+	(create_insn_rtx_from_pattern): ... here.  Do not call
+	insn_rtx_valid, call recog_memoized instead.
+	(create_copy_of_insn_rtx): Do not assert anything with
+	insn_rtx_valid.
+	* sel-sched-ir.h (insn_rtx_valid): Remove declaration.
+
+2008-08-22  Andrey Belevantsev  <abel@ispras.ru>
+
 	* haifa-sched.c (sched_verbose_param): Make static.
 	* sel-sched.c (reset_sched_cycles_p): Remove.
 	(sel_sched_region_run): Likewise.

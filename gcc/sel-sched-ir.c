@@ -3342,25 +3342,6 @@ lhs_of_insn_equals_to_dest_p (insn_t insn, rtx dest)
   return rtx_equal_p (lhs, dest);
 }
 
-/* Returns whether INSN_RTX is valid in terms of target architecture.
-   Don't use this function inside gcc_assert () because it has side effects:
-   e.g. it initializes INSN_CODE (INSN_RTX).  */
-bool
-insn_rtx_valid (rtx insn_rtx)
-{
-  /* Reset the INSN_CODE.  After register replacement it might have became
-     a different insn.  */
-  INSN_CODE (insn_rtx) = -1;
-
-  if (recog_memoized (insn_rtx) >= 0)
-    {
-      extract_insn (insn_rtx);
-      return constrain_operands (reload_completed) != 0;
-    }
-  else
-    return false;
-}
-
 /* Return s_i_d entry of INSN.  Callable from debugger.  */
 sel_insn_data_def
 insn_sid (insn_t insn)
@@ -5298,9 +5279,10 @@ sel_unregister_cfg_hooks (void)
 }
 
 
-/* Emit an insn rtx based on PATTERN.  */
-static rtx
-create_insn_rtx_from_pattern_1 (rtx pattern, rtx label)
+/* Emit an insn rtx based on PATTERN and ICE if the result is not a valid
+   insn.  */
+rtx
+create_insn_rtx_from_pattern (rtx pattern, rtx label)
 {
   rtx insn_rtx;
 
@@ -5323,19 +5305,8 @@ create_insn_rtx_from_pattern_1 (rtx pattern, rtx label)
   sched_extend_target ();
   sched_deps_init (false);
 
-  return insn_rtx;
-}
-
-/* Emit an insn rtx based on PATTERN and ICE if the result is not a valid
-   insn.  */
-rtx
-create_insn_rtx_from_pattern (rtx pattern, rtx label)
-{
-  rtx insn_rtx = create_insn_rtx_from_pattern_1 (pattern, label);
-
-  if (!insn_rtx_valid (insn_rtx))
-    gcc_unreachable ();
-
+  /* Initialize INSN_CODE now.  */
+  recog_memoized (insn_rtx);
   return insn_rtx;
 }
 
@@ -5353,19 +5324,12 @@ create_vinsn_from_insn_rtx (rtx insn_rtx, bool force_unique_p)
 rtx
 create_copy_of_insn_rtx (rtx insn_rtx)
 {
-  bool orig_is_valid_p;
   rtx res;
 
   gcc_assert (NONJUMP_INSN_P (insn_rtx));
 
-  orig_is_valid_p = insn_rtx_valid (insn_rtx);
-  res = create_insn_rtx_from_pattern_1 (copy_rtx (PATTERN (insn_rtx)),
-					NULL_RTX);
-  if (insn_rtx_valid (res))
-    gcc_assert (orig_is_valid_p);
-  else
-    gcc_assert (!orig_is_valid_p);
-
+  res = create_insn_rtx_from_pattern (copy_rtx (PATTERN (insn_rtx)),
+                                      NULL_RTX);
   return res;
 }
 

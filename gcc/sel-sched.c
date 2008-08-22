@@ -1635,9 +1635,6 @@ try_replace_dest_reg (ilist_t orig_insns, rtx best_reg, expr_t expr)
   /* Make sure that EXPR has the right destination
      register.  */
   replace_dest_with_reg_in_expr (expr, best_reg);
-
-  /* The resulting insn should be valid.  */
-  gcc_assert (insn_rtx_valid (EXPR_INSN_RTX (expr)));
   return true;
 }
 
