@@ -1,3 +1,138 @@
+2008-08-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37184
+	* config/i386/i386.c (ix86_match_ccmode): Handle CCAmode,
+	CCCmode, CCOmode and CCSmode destination modes.
+
+	PR target/37191
+	* config/i386/mmx.md (*vec_extractv2sf_0): Avoid combining registers
+	from different units in a single alternative.
+	(*vec_extractv2sf_1): Ditto.
+	(*vec_extractv2si_0): Ditto.
+	(*vec_extractv2si_1): Ditto.
+	* config/i386/sse.md (sse2_storehpd): Ditto.
+	(sse2_storelpd): Ditto.
+	(sse2_loadhpd): Ditto.
+	(sse2_loadlpd): Ditto.
+
+	PR target/37197
+	* config/i386/i386.md (clzsi2_abm): Fix operand 1 constraints.
+	(popcountsi2): Ditto.
+	(clzdi2_abm): Ditto.
+	(popcountdi2): Ditto.
+	(clzhi2_abm): Ditto.
+	(popcounthi2): Ditto.
+
+2008-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36548
+	PR middle-end/37125
+	* fold-const.c (extract_muldiv_1): Optimize (X * C1) % C2 only
+	if the multiplication does not overflow.
+
+2008-08-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-ppoutput.c (init_pp_output): Initialize src_line to 1.
+
+2008-08-21  Richard Henderson  <rth@redhat.com>
+
+	* configure.ac (HAVE_GAS_CFI_PERSONALITY_DIRECTIVE): Remove
+	spurrious comma from test.
+	* configure: Rebuild.
+
+2008-08-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 30457
+	* builtins.c (fold_builtin_next_arg): Add warning about undefined
+	behaviour.
+	
+2008-08-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-tree.h (grokfield): New argument.
+	* c-decl.c (grokfield): Handle new location argument.
+	* c-parser.c (c_parser_struct_declaration): Pass location to
+	grokfield.
+
+2008-08-21  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-ccp.c (ccp_fold): Fold VIEW_CONVERT_EXPRs of constants.
+
+2008-08-21  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (first_cgraph_function_insertion_hook): New variable.
+	(cgraph_add_function_insertion_hook,
+	cgraph_remove_function_insertion_hook,
+	cgraph_call_function_insertion_hooks): New functions.
+	* cgraph.h (cgraph_add_function_insertion_hook,
+	cgraph_remove_function_insertion_hook,
+	cgraph_call_function_insertion_hooks): Declare.
+	* ipa-reference.c (function_insertion_hook_holder): New variable.
+	(check_operand, look_for_address_of): When checking late, do not care
+	about module bitmaps.
+	(add_new_function): New function.
+	(generate_summary): Register hooks; zero module bitmaps.
+	(propagate): Unregister hooks.
+	* ipa-pure-const.c (function_insertion_hook_holder): New variable.
+	(add_new_function): New function.
+	(generate_summary): Register hook.
+	(propagate): Remove hook.
+
+	* ipa-cp.c (ipcp_need_redirect_p): Fix to not be constant 0.
+
+	* tree-pass.h (pass_ipa_cp): Make ipa_opt_pass.
+	* ipa-cp.c (ipcp_update_cloned_node): New function.
+	(build_const_val): Handle functions correctly; bring type logic
+	into sync with tree-inline.c
+	(ipcp_init_stage):  Take care of computing stuff needed by
+	indirect inlining; update clones.
+	(ipcp_generate_summary): Break out of ipcp_driver.
+	(ipcp_driver): Do only execution and transformation.
+	(pass_ipa_cp): Make IPA_PASS.
+	* tree-ssa-ccp.c (fold_stmt_r): Check type before trying to fold
+	offset to address.
+	* ipa-inline.c (inline_indirect_intraprocedural_analysis): When doing
+	ipcp, some info is already available.
+	* ipa-prop.c (ipa_count_arguments): Grow edge lists as needed.
+	* tree-inline.c (remap_ssa_name): Unshare expression.
+
+2008-08-21  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (insert_into_preds_of_block): Before inserting
+	a PHI ask VN if it is already available.
+	* tree-ssa-sccvn.h (vn_phi_lookup): Declare.
+	* tree-ssa-sccvn.c (vn_phi_lookup): Export.
+
+2008-08-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36817
+	* tree-chrec.c (chrec_apply): Always call chrec_fold_plus which
+	makes sure to produce a result of the correct type.
+
+2008-08-21  Jan Hubicka  <jh@suse.cz>
+	Backport from LTO branch:
+
+	2008-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+		    Jan Hubicka  <jh@suse.cz>
+	
+	* ipa-pure-const.c
+	(init_state, finish_state, set_function_state, generate_summary):
+	New functions.
+	(scan_stmt): Renamed from scan_function.  Changed to keep state in
+	local static vars rather than cgraph aux field.
+	(propagate): Renamed from static_execute. Changed to keep state in
+	local static vars rather than cgraph aux field.
+	(pass_ipa_pure_const): Changed from SIMPLE_IPA_PASS to IPA_PASS.
+	* tree-pass.h (pass_ipa_pure_const): Turn into IPA_PASS.
+
+	2008-07-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h (pass_ipa_reference): Make into ipa_opt_pass.
+	* ipa-reference.c (init_function_info, generate_summary, 
+	propagate): New functions.
+	(analyze_function):  Call init_function_info.
+	(static_execute): Stripped into generate_summary and propagate.
+	(pass_ipa_reference): Made into ipa_opt_pass.
+
 2008-08-21  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/37181
@@ -152,9 +287,9 @@
 
 2008-08-19  Rafael Espindola  <espindola@google.com>
 
-      * varasm.c (weak_decls): Move earlier in the file.
-      (assemble_external): Add weak decls to the weak_decls list.
-      (declare_weak): Don't add decls to the weak_decls list.
+	* varasm.c (weak_decls): Move earlier in the file.
+	(assemble_external): Add weak decls to the weak_decls list.
+	(declare_weak): Don't add decls to the weak_decls list.
 
 2008-08-19  H.J. Lu  <hongjiu.lu@intel.com>
 

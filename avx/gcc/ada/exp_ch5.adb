@@ -614,10 +614,14 @@ package body Exp_Ch5 is
             --  or upper bounds at compile time and compare them.
 
             else
-               Cresult := Compile_Time_Compare (Left_Lo, Right_Lo);
+               Cresult :=
+                 Compile_Time_Compare
+                   (Left_Lo, Right_Lo, Assume_Valid => True);
 
                if Cresult = Unknown then
-                  Cresult := Compile_Time_Compare (Left_Hi, Right_Hi);
+                  Cresult :=
+                    Compile_Time_Compare
+                      (Left_Hi, Right_Hi, Assume_Valid => True);
                end if;
 
                case Cresult is
@@ -728,7 +732,7 @@ package body Exp_Ch5 is
          --  Cases where either Forwards_OK or Backwards_OK is true
 
          if Forwards_OK (N) or else Backwards_OK (N) then
-            if Controlled_Type (Component_Type (L_Type))
+            if Needs_Finalization (Component_Type (L_Type))
               and then Base_Type (L_Type) = Base_Type (R_Type)
               and then Ndim = 1
               and then not No_Ctrl_Actions (N)
@@ -862,7 +866,7 @@ package body Exp_Ch5 is
                    Right_Opnd => Cright_Lo);
             end if;
 
-            if Controlled_Type (Component_Type (L_Type))
+            if Needs_Finalization (Component_Type (L_Type))
               and then Base_Type (L_Type) = Base_Type (R_Type)
               and then Ndim = 1
               and then not No_Ctrl_Actions (N)
@@ -1775,7 +1779,7 @@ package body Exp_Ch5 is
          return;
 
       elsif Is_Tagged_Type (Typ)
-        or else (Controlled_Type (Typ) and then not Is_Array_Type (Typ))
+        or else (Needs_Finalization (Typ) and then not Is_Array_Type (Typ))
       then
          Tagged_Case : declare
             L                   : List_Id := No_List;
@@ -1937,7 +1941,7 @@ package body Exp_Ch5 is
             --  If no restrictions on aborts, protect the whole assignment
             --  for controlled objects as per 9.8(11).
 
-            if Controlled_Type (Typ)
+            if Needs_Finalization (Typ)
               and then Expand_Ctrl_Actions
               and then Abort_Allowed
             then
@@ -2381,9 +2385,9 @@ package body Exp_Ch5 is
       Result          : Node_Id;
       Exp             : Node_Id;
 
-      function Controlled_Type (Typ : Entity_Id) return Boolean;
+      function Has_Controlled_Parts (Typ : Entity_Id) return Boolean;
       --  Determine whether type Typ is controlled or contains a controlled
-      --  component.
+      --  subcomponent.
 
       function Move_Activation_Chain return Node_Id;
       --  Construct a call to System.Tasking.Stages.Move_Activation_Chain
@@ -2399,16 +2403,16 @@ package body Exp_Ch5 is
       --    From         finalization list of the return statement
       --    To           finalization list passed in by the caller
 
-      ---------------------
-      -- Controlled_Type --
-      ---------------------
+      --------------------------
+      -- Has_Controlled_Parts --
+      --------------------------
 
-      function Controlled_Type (Typ : Entity_Id) return Boolean is
+      function Has_Controlled_Parts (Typ : Entity_Id) return Boolean is
       begin
          return
            Is_Controlled (Typ)
              or else Has_Controlled_Component (Typ);
-      end Controlled_Type;
+      end Has_Controlled_Parts;
 
       ---------------------------
       -- Move_Activation_Chain --
@@ -2542,13 +2546,13 @@ package body Exp_Ch5 is
 
          if Is_Build_In_Place
            and then
-               (Controlled_Type (Parent_Function_Typ)
+               (Has_Controlled_Parts (Parent_Function_Typ)
                  or else (Is_Class_Wide_Type (Parent_Function_Typ)
                            and then
-                             Controlled_Type (Root_Type (Parent_Function_Typ)))
-                 or else Controlled_Type (Etype (Return_Object_Entity))
+                        Has_Controlled_Parts (Root_Type (Parent_Function_Typ)))
+                 or else Has_Controlled_Parts (Etype (Return_Object_Entity))
                  or else (Present (Exp)
-                           and then Controlled_Type (Etype (Exp))))
+                           and then Has_Controlled_Parts (Etype (Exp))))
          then
             Append_To (Statements, Move_Final_List);
          end if;
@@ -3671,7 +3675,23 @@ package body Exp_Ch5 is
       Exptyp : constant Entity_Id := Etype (Exp);
       --  The type of the expression (not necessarily the same as R_Type)
 
+      Subtype_Ind : Node_Id;
+      --  If the result type of the function is class-wide and the
+      --  expression has a specific type, then we use the expression's
+      --  type as the type of the return object. In cases where the
+      --  expression is an aggregate that is built in place, this avoids
+      --  the need for an expensive conversion of the return object to
+      --  the specific type on assignments to the individual components.
+
    begin
+      if Is_Class_Wide_Type (R_Type)
+        and then not Is_Class_Wide_Type (Etype (Exp))
+      then
+         Subtype_Ind := New_Occurrence_Of (Etype (Exp), Loc);
+      else
+         Subtype_Ind := New_Occurrence_Of (R_Type, Loc);
+      end if;
+
       --  For the case of a simple return that does not come from an extended
       --  return, in the case of Ada 2005 where we are returning a limited
       --  type, we rewrite "return <expression>;" to be:
@@ -3711,43 +3731,21 @@ package body Exp_Ch5 is
             Return_Object_Entity : constant Entity_Id :=
                                      Make_Defining_Identifier (Loc,
                                        New_Internal_Name ('R'));
-            Subtype_Ind : Node_Id;
+            Obj_Decl : constant Node_Id :=
+                         Make_Object_Declaration (Loc,
+                           Defining_Identifier => Return_Object_Entity,
+                           Object_Definition   => Subtype_Ind,
+                           Expression          => Exp);
 
-         begin
-            --  If the result type of the function is class-wide and the
-            --  expression has a specific type, then we use the expression's
-            --  type as the type of the return object. In cases where the
-            --  expression is an aggregate that is built in place, this avoids
-            --  the need for an expensive conversion of the return object to
-            --  the specific type on assignments to the individual components.
+            Ext : constant Node_Id := Make_Extended_Return_Statement (Loc,
+                    Return_Object_Declarations => New_List (Obj_Decl));
             --  Do not perform this high-level optimization if the result type
             --  is an interface because the "this" pointer must be displaced.
 
-            if Is_Class_Wide_Type (R_Type)
-              and then not Is_Interface (R_Type)
-              and then not Is_Class_Wide_Type (Etype (Exp))
-            then
-               Subtype_Ind := New_Occurrence_Of (Etype (Exp), Loc);
-            else
-               Subtype_Ind := New_Occurrence_Of (R_Type, Loc);
-            end if;
-
-            declare
-               Obj_Decl : constant Node_Id :=
-                            Make_Object_Declaration (Loc,
-                              Defining_Identifier => Return_Object_Entity,
-                              Object_Definition   => Subtype_Ind,
-                              Expression          => Exp);
-
-               Ext : constant Node_Id :=
-                       Make_Extended_Return_Statement (Loc,
-                         Return_Object_Declarations => New_List (Obj_Decl));
-
-            begin
-               Rewrite (N, Ext);
-               Analyze (N);
-               return;
-            end;
+         begin
+            Rewrite (N, Ext);
+            Analyze (N);
+            return;
          end;
       end if;
 
@@ -3856,7 +3854,7 @@ package body Exp_Ch5 is
            and then
               (not Is_Array_Type (Exptyp)
                 or else Is_Constrained (Exptyp) = Is_Constrained (R_Type)
-                or else CW_Or_Controlled_Type (Utyp))
+                or else CW_Or_Has_Controlled_Part (Utyp))
            and then Nkind (Exp) = N_Function_Call
          then
             Set_By_Ref (N);
@@ -3879,7 +3877,7 @@ package body Exp_Ch5 is
          --  controlled (by the virtue of restriction No_Finalization) because
          --  gigi is not able to properly allocate class-wide types.
 
-         elsif CW_Or_Controlled_Type (Utyp) then
+         elsif CW_Or_Has_Controlled_Part (Utyp) then
             declare
                Loc        : constant Source_Ptr := Sloc (N);
                Temp       : constant Entity_Id :=
@@ -3902,13 +3900,17 @@ package body Exp_Ch5 is
                        Subtype_Mark => New_Reference_To (Etype (Exp), Loc),
                        Expression => Relocate_Node (Exp)));
 
+               --  We do not want discriminant checks on the declaration,
+               --  given that it gets its value from the allocator.
+
+               Set_No_Initialization (Alloc_Node);
+
                Insert_List_Before_And_Analyze (N, New_List (
                  Make_Full_Type_Declaration (Loc,
                    Defining_Identifier => Acc_Typ,
                    Type_Definition     =>
                      Make_Access_To_Object_Definition (Loc,
-                       Subtype_Indication =>
-                          New_Reference_To (R_Type, Loc))),
+                       Subtype_Indication => Subtype_Ind)),
 
                  Make_Object_Declaration (Loc,
                    Defining_Identifier => Temp,
@@ -4223,7 +4225,7 @@ package body Exp_Ch5 is
       L   : constant Node_Id    := Name (N);
       T   : constant Entity_Id  := Underlying_Type (Etype (L));
 
-      Ctrl_Act : constant Boolean := Controlled_Type (T)
+      Ctrl_Act : constant Boolean := Needs_Finalization (T)
                                        and then not No_Ctrl_Actions (N);
 
       Save_Tag : constant Boolean := Is_Tagged_Type (T)

@@ -1,3 +1,68 @@
+2008-08-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37184
+	* gcc.target/i386/pr37184.c: New test.
+
+	PR target/37191
+	* gcc.target/i386/pr37191.c: New test.
+
+	PR target/37197
+	* gcc.target/i386/pr37197.c: New test.
+
+2008-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36548
+	PR middle-end/37125
+	* gcc.c-torture/execute/pr37125.c: New testcase.
+
+2008-08-22  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.dg/used_before_typed_4.f90: New test.
+
+2008-08-22  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/32095
+	PR fortran/34228
+	* gfortran.dg/used_before_typed_1.f90: New test.
+	* gfortran.dg/used_before_typed_2.f90: New test.
+	* gfortran.dg/used_before_typed_3.f90: New test.
+	* gfortran.dg/array_constructor_26.f03: Add -std=gnu to not enable
+	legacy-behaviour for the new check.
+	* gfortran.dg/array_constructor_27.f03: Ditto.
+	* gfortran.dg/blockdata_4.f90: Ditto.
+	* gfortran.dg/bound_2.f90: Reordered declarations to satisfy the check.
+	* gfortran.dg/result_in_spec_1.f90: Ditto.
+	* gfortran.dg/argument_checking_7.f90: Adapted expected error messages.
+
+2008-08-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 30457
+	* gcc.dg/pr30457.c: New.
+
+2008-08-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/20011008-1.c: Test column.
+	* gcc.dg/20080820.c: New.
+	* gcc.dg/fltconst-1.c: Test column.
+	* gcc.dg/cpp/cpp.exp: Add -fno-show-column.
+	* gcc.dg/cpp/trad/trad.exp: Same.
+	* lib/gcc.exp (gcc_target_compile): Remove -fno-show-column.
+	* lib/gcc-dg.exp (process-message): Handle columns.
+
+2008-08-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* g++.dg/opt/anchor1.C (foo): Return the return value of
+	ycf->ascent.
+
+2008-08-21  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/vect/vect-fold-1.c: Scan ccp1 dump instead of dom1.
+
+2008-08-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36817
+	* gcc.c-torture/compile/pr36817.c: New testcase.
+
 2008-08-21  Richard Guenther  <rguenther@suse.de>
 
 	* gcc.dg/tree-ssa/ssa-fre-13.c: Remove XFAIL.
