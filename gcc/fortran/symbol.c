@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "gfortran.h"
 #include "parse.h"
+#include "match.h"
 
 
 /* Strings for all symbol attributes.  We use these for dumping the
@@ -1539,9 +1540,11 @@ gfc_add_type (gfc_symbol *sym, gfc_typespec *ts, locus *where)
 	  gfc_error (msg, sym->name, where, gfc_basic_typename (sym->ts.type));
 	  return FAILURE;
 	}
-      else if (gfc_notify_std (GFC_STD_GNU, msg, sym->name, where,
-			       gfc_basic_typename (sym->ts.type)) == FAILURE)
+      if (gfc_notify_std (GFC_STD_GNU, msg, sym->name, where,
+	      		  gfc_basic_typename (sym->ts.type)) == FAILURE)
 	return FAILURE;
+      if (gfc_option.warn_surprising)
+	gfc_warning (msg, sym->name, where, gfc_basic_typename (sym->ts.type));
     }
 
   flavor = sym->attr.flavor;
@@ -4230,3 +4233,36 @@ get_iso_c_sym (gfc_symbol *old_sym, char *new_name,
   return new_symtree->n.sym;
 }
 
+
+/* Check that a symbol is already typed.  If strict is not set, an untyped
+   symbol is acceptable for non-standard-conforming mode.  */
+
+gfc_try
+gfc_check_symbol_typed (gfc_symbol* sym, gfc_namespace* ns,
+			bool strict, locus where)
+{
+  gcc_assert (sym);
+
+  if (gfc_matching_prefix)
+    return SUCCESS;
+
+  /* Check for the type and try to give it an implicit one.  */
+  if (sym->ts.type == BT_UNKNOWN
+      && gfc_set_default_type (sym, 0, ns) == FAILURE)
+    {
+      if (strict)
+	{
+	  gfc_error ("Symbol '%s' is used before it is typed at %L",
+		     sym->name, &where);
+	  return FAILURE;
+	}
+
+      if (gfc_notify_std (GFC_STD_GNU,
+			  "Extension: Symbol '%s' is used before"
+			  " it is typed at %L", sym->name, &where) == FAILURE)
+	return FAILURE;
+    }
+
+  /* Everything is ok.  */
+  return SUCCESS;
+}
