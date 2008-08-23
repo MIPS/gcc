@@ -725,7 +725,7 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	  else if (t == wchar_decl_node)
 	    {
 	      if (! DECL_IN_SYSTEM_HEADER (x))
-		pedwarn (OPT_pedantic, "redeclaration of %<wchar_t%> as %qT",
+		pedwarn (input_location, OPT_pedantic, "redeclaration of %<wchar_t%> as %qT",
 			 TREE_TYPE (x));
 	      
 	      /* Throw away the redeclaration.  */
@@ -796,11 +796,11 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 					  x_exception_spec,
 					  true))
 		    {
-		      pedwarn (0, "declaration of %q#D with C language linkage",
+		      pedwarn (input_location, 0, "declaration of %q#D with C language linkage",
 			       x);
-		      pedwarn (0, "conflicts with previous declaration %q+#D",
+		      pedwarn (input_location, 0, "conflicts with previous declaration %q+#D",
 			       previous);
-		      pedwarn (0, "due to different exception specifications");
+		      pedwarn (input_location, 0, "due to different exception specifications");
 		      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 		    }
 		}
@@ -890,8 +890,8 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	      && TREE_CODE (decl) == TREE_CODE (x)
 	      && !same_type_p (TREE_TYPE (x), TREE_TYPE (decl)))
 	    {
-	      permerror ("type mismatch with previous external decl of %q#D", x);
-	      permerror ("previous external decl of %q+#D", decl);
+	      permerror (input_location, "type mismatch with previous external decl of %q#D", x);
+	      permerror (input_location, "previous external decl of %q+#D", decl);
 	    }
 	}
 
@@ -1217,16 +1217,16 @@ check_for_out_of_scope_variable (tree decl)
     }
   else
     {
-      permerror ("name lookup of %qD changed for ISO %<for%> scoping",
+      permerror (input_location, "name lookup of %qD changed for ISO %<for%> scoping",
 	         DECL_NAME (decl));
       if (flag_permissive)
-        permerror ("  using obsolete binding at %q+D", decl);
+        permerror (input_location, "  using obsolete binding at %q+D", decl);
       else
 	{
 	  static bool hint;
 	  if (!hint)
 	    {
-	      inform ("(if you use %<-fpermissive%> G++ will accept your code)");
+	      inform (input_location, "(if you use %<-fpermissive%> G++ will accept your code)");
 	      hint = true;
 	    }
 	}
@@ -2753,7 +2753,8 @@ push_class_level_binding (tree name, tree x)
       && TREE_TYPE (decl) == error_mark_node)
     decl = TREE_VALUE (decl);
 
-  check_template_shadow (decl);
+  if (!check_template_shadow (decl))
+    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, false);
 
   /* [class.mem]
 

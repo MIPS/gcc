@@ -308,7 +308,7 @@ process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
 {
   int hard_regno, cost, index;
   ira_allocno_t a;
-  enum reg_class class, cover_class;
+  enum reg_class rclass, cover_class;
   enum machine_mode mode;
   ira_copy_t cp;
 
@@ -336,21 +336,21 @@ process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
     }
   else
     return false;
-  class = REGNO_REG_CLASS (hard_regno);
+  rclass = REGNO_REG_CLASS (hard_regno);
   mode = ALLOCNO_MODE (a);
   cover_class = ALLOCNO_COVER_CLASS (a);
-  if (! ira_class_subset_p[class][cover_class])
+  if (! ira_class_subset_p[rclass][cover_class])
     return false;
-  if (reg_class_size[class] <= (unsigned) CLASS_MAX_NREGS (class, mode))
+  if (reg_class_size[rclass] <= (unsigned) CLASS_MAX_NREGS (rclass, mode))
     /* It is already taken into account in ira-costs.c.  */
     return false;
   index = ira_class_hard_reg_index[cover_class][hard_regno];
   if (index < 0)
     return false;
   if (HARD_REGISTER_P (reg1))
-    cost = ira_register_move_cost[mode][cover_class][class] * freq;
+    cost = ira_register_move_cost[mode][cover_class][rclass] * freq;
   else
-    cost = ira_register_move_cost[mode][class][cover_class] * freq;
+    cost = ira_register_move_cost[mode][rclass][cover_class] * freq;
   ira_allocate_and_set_costs
     (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
      ALLOCNO_COVER_CLASS_COST (a));

@@ -82,8 +82,9 @@ package Tbuild is
    pragma Inline (Make_Implicit_Exception_Handler);
    --  This is just like Make_Exception_Handler, except that it also sets the
    --  Local_Raise_Statements field to No_Elist, ensuring that it is properly
-   --  initialized. This should always be used when creating exception handlers
-   --  as part of the expansion.
+   --  initialized. This should always be used when creating implicit exception
+   --  handlers during expansion (i.e. handlers that do not correspond to user
+   --  source program exception handlers).
 
    function Make_Implicit_If_Statement
      (Node            : Node_Id;
@@ -202,11 +203,11 @@ package Tbuild is
    --
    --  Prefix is prepended only if Prefix is non-blank (in which case it
    --  must be an upper case letter other than O,Q,U,W (which are used for
-   --  identifier encoding, see Namet), and T is reserved for use by implicit
-   --  types, and X is reserved for use by debug type encoding (see package
-   --  Exp_Dbug). Note: the reason that Prefix is last is that it is almost
-   --  always omitted. The notable case of Prefix being non-null is when
-   --  it is 'T' for an implicit type.
+   --  identifier encoding, see Namet), or an underscore, and T is reserved for
+   --  use by implicit types, and X is reserved for use by debug type encoding
+   --  (see package Exp_Dbug). Note: the reason that Prefix is last is that it
+   --  is almost always omitted. The notable case of Prefix being non-null is
+   --  when it is 'T' for an implicit type.
 
    --  Suffix_Index'Image is appended only if the value of Suffix_Index is
    --  positive, or if Suffix_Index is negative 1, then a unique serialized

@@ -126,7 +126,6 @@ package body Bindgen is
    --     Detect_Blocking               : Integer;
    --     Default_Stack_Size            : Integer;
    --     Leap_Seconds_Support          : Integer;
-   --     Canonical_Streams             : Integer;
 
    --  Main_Priority is the priority value set by pragma Priority in the main
    --  program. If no such pragma is present, the value is -1.
@@ -211,10 +210,6 @@ package body Bindgen is
    --  Leap_Seconds_Support denotes whether leap seconds have been enabled or
    --  disabled. A value of zero indicates that leap seconds are turned "off",
    --  while a value of one signifies "on" status.
-
-   --  Canonical_Streams indicates whether stream-related optimizations are
-   --  active. A value of zero indicates that all optimizations are active,
-   --  while a value of one signifies that they have been disabled.
 
    -----------------------
    -- Local Subprograms --
@@ -596,9 +591,6 @@ package body Bindgen is
          WBI ("      Leap_Seconds_Support : Integer;");
          WBI ("      pragma Import (C, Leap_Seconds_Support, " &
               """__gl_leap_seconds_support"");");
-         WBI ("      Canonical_Streams : Integer;");
-         WBI ("      pragma Import (C, Canonical_Streams, " &
-              """__gl_canonical_streams"");");
 
          --  Import entry point for elaboration time signal handler
          --  installation, and indication of if it's been called previously.
@@ -611,6 +603,20 @@ package body Bindgen is
          WBI ("      Handler_Installed : Integer;");
          WBI ("      pragma Import (C, Handler_Installed, " &
               """__gnat_handler_installed"");");
+
+         --  Import entry point for environment feature enable/disable
+         --  routine, and indication that it's been called previously.
+
+         if OpenVMS_On_Target then
+            WBI ("");
+            WBI ("      procedure Set_Features;");
+            WBI ("      pragma Import (C, Set_Features, " &
+                 """__gnat_set_features"");");
+            WBI ("");
+            WBI ("      Features_Set : Integer;");
+            WBI ("      pragma Import (C, Features_Set, " &
+                 """__gnat_features_set"");");
+         end if;
 
          --  Initialize stack limit variable of the environment task if the
          --  stack check method is stack limit and stack check is enabled.
@@ -767,23 +773,21 @@ package body Bindgen is
          Set_String (";");
          Write_Statement_Buffer;
 
-         Set_String ("      Canonical_Streams := ");
-
-         if Canonical_Streams then
-            Set_Int (1);
-         else
-            Set_Int (0);
-         end if;
-
-         Set_String (";");
-         Write_Statement_Buffer;
-
          --  Generate call to Install_Handler
 
          WBI ("");
          WBI ("      if Handler_Installed = 0 then");
          WBI ("         Install_Handler;");
          WBI ("      end if;");
+
+         --  Generate call to Set_Features
+
+         if OpenVMS_On_Target then
+            WBI ("");
+            WBI ("      if Features_Set = 0 then");
+            WBI ("         Set_Features;");
+            WBI ("      end if;");
+         end if;
       end if;
 
       --  Generate call to set Initialize_Scalar values if active
@@ -1059,18 +1063,6 @@ package body Bindgen is
          Set_String (";");
          Write_Statement_Buffer;
 
-         WBI ("   extern int __gl_canonical_streams;");
-         Set_String ("   __gl_canonical_streams = ");
-
-         if Canonical_Streams then
-            Set_Int (1);
-         else
-            Set_Int (0);
-         end if;
-
-         Set_String (";");
-         Write_Statement_Buffer;
-
          WBI ("");
 
          --  Install elaboration time signal handler
@@ -1079,6 +1071,15 @@ package body Bindgen is
          WBI ("     {");
          WBI ("        __gnat_install_handler ();");
          WBI ("     }");
+
+         --  Call feature enable/disable routine
+
+         if OpenVMS_On_Target then
+            WBI ("   if (__gnat_features_set == 0)");
+            WBI ("     {");
+            WBI ("        __gnat_set_features ();");
+            WBI ("     }");
+         end if;
       end if;
 
       --  Initialize stack limit for the environment task if the stack
@@ -2298,17 +2299,19 @@ package body Bindgen is
                WBI ("   gnat_exit_status : Integer;");
                WBI ("   pragma Import (C, gnat_exit_status);");
             end if;
-
-            --  Generate the GNAT_Version and Ada_Main_Program_Name info only
-            --  for the main program. Otherwise, it can lead under some
-            --  circumstances to a symbol duplication during the link (for
-            --  instance when a C program uses 2 Ada libraries)
          end if;
+
+         --  Generate the GNAT_Version and Ada_Main_Program_Name info only for
+         --  the main program. Otherwise, it can lead under some circumstances
+         --  to a symbol duplication during the link (for instance when a C
+         --  program uses two Ada libraries). Also zero terminate the string
+         --  so that its end can be found reliably at run time.
 
          WBI ("");
          WBI ("   GNAT_Version : constant String :=");
          WBI ("                    ""GNAT Version: " &
-                                Gnat_Version_String & """;");
+                                   Gnat_Version_String &
+                                   """ & ASCII.NUL;");
          WBI ("   pragma Export (C, GNAT_Version, ""__gnat_version"");");
 
          WBI ("");
@@ -2628,12 +2631,21 @@ package body Bindgen is
 
       Gen_Elab_Defs_C;
 
-      --  Imported variable used to track elaboration/finalization phase.
-      --  Used only when we have a runtime.
+      --  Imported variables used only when we have a runtime.
 
       if not Suppress_Standard_Library_On_Target then
+
+         --  Track elaboration/finalization phase.
+
          WBI ("extern int  __gnat_handler_installed;");
          WBI ("");
+
+         --  Track feature enable/disable on VMS.
+
+         if OpenVMS_On_Target then
+            WBI ("extern int  __gnat_features_set;");
+            WBI ("");
+         end if;
       end if;
 
       --  Write argv/argc exit status stuff if main program case

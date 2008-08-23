@@ -73,6 +73,19 @@
 #define TARGET_ABI_OPEN_VMS 0
 #endif
 
+/* For efficient float-to-int rounding, it is necessary to know whether
+   floating-point arithmetic on may use wider intermediate results.
+   When FP_ARITH_MAY_WIDEN is not defined, be conservative and only assume
+   floating-point arithmetic does not widen if double precision is emulated. */
+
+#ifndef FP_ARITH_MAY_WIDEN
+#if defined(HAVE_extendsfdf2)
+#define FP_ARITH_MAY_WIDEN HAVE_extendsfdf2
+#else
+#define FP_ARITH_MAY_WIDEN 0
+#endif
+#endif
+
 extern char *__gnat_to_canonical_file_spec (char *);
 
 int max_gnat_nodes;
@@ -2249,7 +2262,7 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 	    {
 	      gnu_temp = build_binary_op (MODIFY_EXPR, NULL_TREE, gnu_copy,
 					  gnu_name);
-	      set_expr_location_from_node (gnu_temp, gnat_actual);
+	      set_expr_location_from_node (gnu_temp, gnat_node);
 	      append_to_statement_list (gnu_temp, &gnu_after_list);
 	    }
 	}
@@ -2601,7 +2614,7 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 
 	    gnu_result = build_binary_op (MODIFY_EXPR, NULL_TREE,
 					  gnu_actual, gnu_result);
-	    set_expr_location_from_node (gnu_result, gnat_actual);
+	    set_expr_location_from_node (gnu_result, gnat_node);
 	    append_to_statement_list (gnu_result, &gnu_before_list);
 	    scalar_return_list = TREE_CHAIN (scalar_return_list);
 	    gnu_name_list = TREE_CHAIN (gnu_name_list);
@@ -3397,6 +3410,15 @@ gnat_to_gnu (Node_Id gnat_node)
 
       if (type_annotate_only && gnu_expr && TREE_CODE (gnu_expr) == ERROR_MARK)
 	gnu_expr = NULL_TREE;
+
+      /* If this is a deferred constant with an address clause, we ignore the
+	 full view since the clause is on the partial view and we cannot have
+	 2 different GCC trees for the object.  The only bits of the full view
+	 we will use is the initializer, but it will be directly fetched.  */
+      if (Ekind(gnat_temp) == E_Constant
+	  && Present (Address_Clause (gnat_temp))
+	  && Present (Full_View (gnat_temp)))
+	save_gnu_tree (Full_View (gnat_temp), error_mark_node, true);
 
       if (No (Freeze_Node (gnat_temp)))
 	gnat_to_gnu_entity (gnat_temp, gnu_expr, 1);
@@ -4542,21 +4564,22 @@ gnat_to_gnu (Node_Id gnat_node)
     /***************************************************/
 
     case N_Attribute_Definition_Clause:
-
       gnu_result = alloc_stmt_list ();
 
-      /* The only one we need deal with is for 'Address.  For the others, SEM
-	 puts the information elsewhere.  We need only deal with 'Address
-	 if the object has a Freeze_Node (which it never will currently).  */
-      if (Get_Attribute_Id (Chars (gnat_node)) != Attr_Address
-	  || No (Freeze_Node (Entity (Name (gnat_node)))))
+      /* The only one we need to deal with is 'Address since, for the others,
+	 the front-end puts the information elsewhere.  */
+      if (Get_Attribute_Id (Chars (gnat_node)) != Attr_Address)
 	break;
 
-      /* Get the value to use as the address and save it as the
-	 equivalent for GNAT_TEMP.  When the object is frozen,
-	 gnat_to_gnu_entity will do the right thing. */
-      save_gnu_tree (Entity (Name (gnat_node)),
-                     gnat_to_gnu (Expression (gnat_node)), true);
+      /* And we only deal with 'Address if the object has a Freeze node.  */
+      gnat_temp = Entity (Name (gnat_node));
+      if (No (Freeze_Node (gnat_temp)))
+	break;
+
+      /* Get the value to use as the address and save it as the equivalent
+	 for the object.  When it is frozen, gnat_to_gnu_entity will do the
+	 right thing.  */
+      save_gnu_tree (gnat_temp, gnat_to_gnu (Expression (gnat_node)), true);
       break;
 
     case N_Enumeration_Representation_Clause:
@@ -5910,7 +5933,7 @@ build_unary_op_trapv (enum tree_code code,
 {
   gcc_assert ((code == NEGATE_EXPR) || (code == ABS_EXPR));
 
-  operand = save_expr (operand);
+  operand = protect_multiple_eval (operand);
 
   return emit_check (build_binary_op (EQ_EXPR, integer_type_node,
 				      operand, TYPE_MIN_VALUE (gnu_type)),
@@ -5929,8 +5952,8 @@ build_binary_op_trapv (enum tree_code code,
 		       tree left,
 		       tree right)
 {
-  tree lhs = save_expr (left);
-  tree rhs = save_expr (right);
+  tree lhs = protect_multiple_eval (left);
+  tree rhs = protect_multiple_eval (right);
   tree type_max = TYPE_MAX_VALUE (gnu_type);
   tree type_min = TYPE_MIN_VALUE (gnu_type);
   tree gnu_expr;
@@ -6298,12 +6321,11 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
       /* The following calculations depend on proper rounding to even
          of each arithmetic operation. In order to prevent excess
          precision from spoiling this property, use the widest hardware
-         floating-point type.
+         floating-point type if FP_ARITH_MAY_WIDEN is true.  */
 
-         FIXME: For maximum efficiency, this should only be done for machines
-         and types where intermediates may have extra precision.  */
+      calc_type = (FP_ARITH_MAY_WIDEN ? longest_float_type_node
+                                      : gnu_in_basetype);
 
-      calc_type = longest_float_type_node;
       /* FIXME: Should not have padding in the first place */
       if (TREE_CODE (calc_type) == RECORD_TYPE
               && TYPE_IS_PADDING_P (calc_type))

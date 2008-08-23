@@ -2911,7 +2911,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
   if (real_identical (&c, &cint)
       && ((n >= -1 && n <= 2)
 	  || (flag_unsafe_math_optimizations
-	      && !optimize_size
+	      && optimize_insn_for_speed_p ()
 	      && powi_cost (n) <= POWI_MAX_MULTS)))
     {
       op = expand_expr (arg0, subtarget, VOIDmode, EXPAND_NORMAL);
@@ -2935,7 +2935,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
       real_from_integer (&cint, VOIDmode, n, n < 0 ? -1 : 0, 0);
       if (real_identical (&c2, &cint)
 	  && ((flag_unsafe_math_optimizations
-	       && !optimize_size
+	       && optimize_insn_for_speed_p ()
 	       && powi_cost (n/2) <= POWI_MAX_MULTS)
 	      || n == 1))
 	{
@@ -2980,7 +2980,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
       real_arithmetic (&c2, RDIV_EXPR, &cint, &dconst3);
       real_convert (&c2, mode, &c2);
       if (real_identical (&c2, &c)
-	  && ((!optimize_size
+	  && ((optimize_insn_for_speed_p ()
 	       && powi_cost (n/3) <= POWI_MAX_MULTS)
 	      || n == 1))
 	{
@@ -3042,7 +3042,7 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
       if ((TREE_INT_CST_HIGH (arg1) == 0
 	   || TREE_INT_CST_HIGH (arg1) == -1)
 	  && ((n >= -1 && n <= 2)
-	      || (! optimize_size
+	      || (optimize_insn_for_speed_p ()
 		  && powi_cost (n) <= POWI_MAX_MULTS)))
 	{
 	  op0 = expand_expr (arg0, subtarget, VOIDmode, EXPAND_NORMAL);
@@ -4464,7 +4464,7 @@ expand_builtin_strcat (tree fndecl, tree exp, rtx target, enum machine_mode mode
       if (p && *p == '\0')
 	return expand_expr (dst, target, mode, EXPAND_NORMAL);
 
-      if (!optimize_size)
+      if (optimize_insn_for_speed_p ())
 	{
 	  /* See if we can store by pieces into (dst + strlen(dst)).  */
 	  tree newsrc, newdst,
@@ -4923,22 +4923,24 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	   != type)
     {
       static bool gave_help;
+      bool warned;
 
       /* Unfortunately, this is merely undefined, rather than a constraint
 	 violation, so we cannot make this an error.  If this call is never
 	 executed, the program is still strictly conforming.  */
-      warning (0, "%qT is promoted to %qT when passed through %<...%>",
-	       type, promoted_type);
-      if (! gave_help)
+      warned = warning (0, "%qT is promoted to %qT when passed through %<...%>",
+			type, promoted_type);
+      if (!gave_help && warned)
 	{
 	  gave_help = true;
-	  inform ("(so you should pass %qT not %qT to %<va_arg%>)",
+	  inform (input_location, "(so you should pass %qT not %qT to %<va_arg%>)",
 		   promoted_type, type);
 	}
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
-      inform ("if this code is reached, the program will abort");
+      if (warned)
+	inform (input_location, "if this code is reached, the program will abort");
       t = build_call_expr (implicit_built_in_decls[BUILT_IN_TRAP], 0);
       gimplify_and_add (t, pre_p);
 
@@ -5576,18 +5578,18 @@ expand_builtin_sprintf (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_profile_func (bool exitp)
 {
-  rtx this, which;
+  rtx this_rtx, which;
 
-  this = DECL_RTL (current_function_decl);
-  gcc_assert (MEM_P (this));
-  this = XEXP (this, 0);
+  this_rtx = DECL_RTL (current_function_decl);
+  gcc_assert (MEM_P (this_rtx));
+  this_rtx = XEXP (this_rtx, 0);
 
   if (exitp)
     which = profile_function_exit_libfunc;
   else
     which = profile_function_entry_libfunc;
 
-  emit_library_call (which, LCT_NORMAL, VOIDmode, 2, this, Pmode,
+  emit_library_call (which, LCT_NORMAL, VOIDmode, 2, this_rtx, Pmode,
 		     expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
 						 0),
 		     Pmode);
@@ -7277,7 +7279,7 @@ fold_builtin_inf (tree type, int warn)
      Thus we pedwarn to ensure this constraint violation is
      diagnosed.  */
   if (!MODE_HAS_INFINITIES (TYPE_MODE (type)) && warn)
-    pedwarn (0, "target format does not support infinity");
+    pedwarn (input_location, 0, "target format does not support infinity");
 
   real_inf (&real);
   return build_real (type, real);
@@ -7513,8 +7515,7 @@ fold_builtin_cabs (tree arg, tree type, tree fndecl)
 	  && operand_equal_p (real, imag, OEP_PURE_SAME))
         {
 	  const REAL_VALUE_TYPE sqrt2_trunc
-	    = real_value_truncate (TYPE_MODE (type),
-				   *get_real_const (rv_sqrt2));
+	    = real_value_truncate (TYPE_MODE (type), dconst_sqrt2 ());
 	  STRIP_NOPS (real);
 	  return fold_build2 (MULT_EXPR, type,
 			      fold_build1 (ABS_EXPR, type, real),
@@ -7597,7 +7598,7 @@ fold_builtin_sqrt (tree arg, tree type)
 	  tree tree_root;
 	  /* The inner root was either sqrt or cbrt.  */
 	  REAL_VALUE_TYPE dconstroot =
-	    BUILTIN_SQRT_P (fcode) ? dconsthalf : *get_real_const (rv_third);
+	    BUILTIN_SQRT_P (fcode) ? dconsthalf : dconst_third ();
 
 	  /* Adjust for the outer root.  */
 	  SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
@@ -7650,7 +7651,7 @@ fold_builtin_cbrt (tree arg, tree type)
 	{
 	  tree expfn = TREE_OPERAND (CALL_EXPR_FN (arg), 0);
 	  const REAL_VALUE_TYPE third_trunc =
-	    real_value_truncate (TYPE_MODE (type), *get_real_const (rv_third));
+	    real_value_truncate (TYPE_MODE (type), dconst_third ());
 	  arg = fold_build2 (MULT_EXPR, type,
 			     CALL_EXPR_ARG (arg, 0),
 			     build_real (type, third_trunc));
@@ -7666,7 +7667,7 @@ fold_builtin_cbrt (tree arg, tree type)
 	    {
 	      tree arg0 = CALL_EXPR_ARG (arg, 0);
 	      tree tree_root;
-	      REAL_VALUE_TYPE dconstroot = *get_real_const (rv_third);
+	      REAL_VALUE_TYPE dconstroot = dconst_third ();
 
 	      SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
 	      dconstroot = real_value_truncate (TYPE_MODE (type), dconstroot);
@@ -7689,8 +7690,7 @@ fold_builtin_cbrt (tree arg, tree type)
 		  REAL_VALUE_TYPE dconstroot;
 
 		  real_arithmetic (&dconstroot, MULT_EXPR,
-				   get_real_const (rv_third),
-				   get_real_const (rv_third));
+                                   dconst_third_ptr (), dconst_third_ptr ());
 		  dconstroot = real_value_truncate (TYPE_MODE (type), dconstroot);
 		  tree_root = build_real (type, dconstroot);
 		  return build_call_expr (powfn, 2, arg0, tree_root);
@@ -7709,8 +7709,7 @@ fold_builtin_cbrt (tree arg, tree type)
 	    {
 	      tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg), 0);
 	      const REAL_VALUE_TYPE dconstroot
-		= real_value_truncate (TYPE_MODE (type),
-				       *get_real_const (rv_third));
+		= real_value_truncate (TYPE_MODE (type), dconst_third ());
 	      tree narg01 = fold_build2 (MULT_EXPR, type, arg01,
 					 build_real (type, dconstroot));
 	      return build_call_expr (powfn, 2, arg00, narg01);
@@ -8258,7 +8257,7 @@ fold_builtin_logarithm (tree fndecl, tree arg,
       if (flag_unsafe_math_optimizations && func == mpfr_log)
         {
 	  const REAL_VALUE_TYPE e_truncated =
-	    real_value_truncate (TYPE_MODE (type), *get_real_const (rv_e));
+	    real_value_truncate (TYPE_MODE (type), dconst_e ());
 	  if (real_dconstp (arg, &e_truncated))
 	    return build_real (type, dconst1);
 	}
@@ -8291,9 +8290,8 @@ fold_builtin_logarithm (tree fndecl, tree arg,
 	  {
 	  CASE_FLT_FN (BUILT_IN_EXP):
 	    /* Prepare to do logN(exp(exponent) -> exponent*logN(e).  */
-	    x = build_real (type,
-			    real_value_truncate (TYPE_MODE (type),
-						 *get_real_const (rv_e)));
+	    x = build_real (type, real_value_truncate (TYPE_MODE (type), 
+                                                       dconst_e ()));
 	    exponent = CALL_EXPR_ARG (arg, 0);
 	    break;
 	  CASE_FLT_FN (BUILT_IN_EXP2):
@@ -8320,7 +8318,7 @@ fold_builtin_logarithm (tree fndecl, tree arg,
 	    /* Prepare to do logN(cbrt(x) -> (1/3)*logN(x).  */
 	    x = CALL_EXPR_ARG (arg, 0);
 	    exponent = build_real (type, real_value_truncate (TYPE_MODE (type),
-							      *get_real_const (rv_third)));
+							      dconst_third ()));
 	    break;
 	  CASE_FLT_FN (BUILT_IN_POW):
 	    /* Prepare to do logN(pow(x,exponent) -> exponent*logN(x).  */
@@ -8380,7 +8378,7 @@ fold_builtin_hypot (tree fndecl, tree arg0, tree arg1, tree type)
       && operand_equal_p (arg0, arg1, OEP_PURE_SAME))
     {
       const REAL_VALUE_TYPE sqrt2_trunc
-	= real_value_truncate (TYPE_MODE (type), *get_real_const (rv_sqrt2));
+	= real_value_truncate (TYPE_MODE (type), dconst_sqrt2 ());
       return fold_build2 (MULT_EXPR, type,
 			  fold_build1 (ABS_EXPR, type, arg0),
 			  build_real (type, sqrt2_trunc));
@@ -8446,8 +8444,7 @@ fold_builtin_pow (tree fndecl, tree arg0, tree arg1, tree type)
       if (flag_unsafe_math_optimizations)
 	{
 	  const REAL_VALUE_TYPE dconstroot
-	    = real_value_truncate (TYPE_MODE (type),
-				   *get_real_const (rv_third));
+	    = real_value_truncate (TYPE_MODE (type), dconst_third ());
 
 	  if (REAL_VALUES_EQUAL (c, dconstroot))
 	    {
@@ -8514,8 +8511,7 @@ fold_builtin_pow (tree fndecl, tree arg0, tree arg1, tree type)
 	  if (tree_expr_nonnegative_p (arg))
 	    {
 	      const REAL_VALUE_TYPE dconstroot
-		= real_value_truncate (TYPE_MODE (type),
-				       *get_real_const (rv_third));
+		= real_value_truncate (TYPE_MODE (type), dconst_third ());
 	      tree narg1 = fold_build2 (MULT_EXPR, type, arg1,
 					build_real (type, dconstroot));
 	      return build_call_expr (fndecl, 2, arg, narg1);
@@ -11590,6 +11586,17 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 	     it.  */
 	  warning (0, "second parameter of %<va_start%> not last named argument");
 	}
+
+      /* Undefined by C99 7.15.1.4p4 (va_start):
+         "If the parameter parmN is declared with the register storage
+         class, with a function or array type, or with a type that is
+         not compatible with the type that results after application of
+         the default argument promotions, the behavior is undefined."
+      */
+      else if (DECL_REGISTER (arg))
+        warning (0, "undefined behaviour when second parameter of "
+                 "%<va_start%> is declared with %<register%> storage");
+
       /* We want to verify the second parameter just once before the tree
 	 optimizers are run and then avoid keeping it in the tree,
 	 as otherwise we could warn even for correct code like:
@@ -12865,14 +12872,16 @@ do_mpfr_arg1 (tree arg, tree type, int (*func)(mpfr_ptr, mpfr_srcptr, mp_rnd_t),
 	  && (!min || real_compare (inclusive ? GE_EXPR: GT_EXPR , ra, min))
 	  && (!max || real_compare (inclusive ? LE_EXPR: LT_EXPR , ra, max)))
         {
-	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  const struct real_format *fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+	  const int prec = fmt->p;
+	  const mp_rnd_t rnd = fmt->round_towards_zero? GMP_RNDZ : GMP_RNDN;
 	  int inexact;
 	  mpfr_t m;
 
 	  mpfr_init2 (m, prec);
 	  mpfr_from_real (m, ra, GMP_RNDN);
 	  mpfr_clear_flags ();
-	  inexact = func (m, m, GMP_RNDN);
+	  inexact = func (m, m, rnd);
 	  result = do_mpfr_ckconv (m, type, inexact);
 	  mpfr_clear (m);
 	}
@@ -12907,7 +12916,9 @@ do_mpfr_arg2 (tree arg1, tree arg2, tree type,
 
       if (real_isfinite (ra1) && real_isfinite (ra2))
         {
-	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  const struct real_format *fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+	  const int prec = fmt->p;
+	  const mp_rnd_t rnd = fmt->round_towards_zero? GMP_RNDZ : GMP_RNDN;
 	  int inexact;
 	  mpfr_t m1, m2;
 
@@ -12915,7 +12926,7 @@ do_mpfr_arg2 (tree arg1, tree arg2, tree type,
 	  mpfr_from_real (m1, ra1, GMP_RNDN);
 	  mpfr_from_real (m2, ra2, GMP_RNDN);
 	  mpfr_clear_flags ();
-	  inexact = func (m1, m1, m2, GMP_RNDN);
+	  inexact = func (m1, m1, m2, rnd);
 	  result = do_mpfr_ckconv (m1, type, inexact);
 	  mpfr_clears (m1, m2, NULL);
 	}
@@ -12953,7 +12964,9 @@ do_mpfr_arg3 (tree arg1, tree arg2, tree arg3, tree type,
 
       if (real_isfinite (ra1) && real_isfinite (ra2) && real_isfinite (ra3))
         {
-	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  const struct real_format *fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+	  const int prec = fmt->p;
+	  const mp_rnd_t rnd = fmt->round_towards_zero? GMP_RNDZ : GMP_RNDN;
 	  int inexact;
 	  mpfr_t m1, m2, m3;
 
@@ -12962,7 +12975,7 @@ do_mpfr_arg3 (tree arg1, tree arg2, tree arg3, tree type,
 	  mpfr_from_real (m2, ra2, GMP_RNDN);
 	  mpfr_from_real (m3, ra3, GMP_RNDN);
 	  mpfr_clear_flags ();
-	  inexact = func (m1, m1, m2, m3, GMP_RNDN);
+	  inexact = func (m1, m1, m2, m3, rnd);
 	  result = do_mpfr_ckconv (m1, type, inexact);
 	  mpfr_clears (m1, m2, m3, NULL);
 	}
@@ -12996,7 +13009,9 @@ do_mpfr_sincos (tree arg, tree arg_sinp, tree arg_cosp)
 
       if (real_isfinite (ra))
         {
-	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  const struct real_format *fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+	  const int prec = fmt->p;
+	  const mp_rnd_t rnd = fmt->round_towards_zero? GMP_RNDZ : GMP_RNDN;
 	  tree result_s, result_c;
 	  int inexact;
 	  mpfr_t m, ms, mc;
@@ -13004,7 +13019,7 @@ do_mpfr_sincos (tree arg, tree arg_sinp, tree arg_cosp)
 	  mpfr_inits2 (prec, m, ms, mc, NULL);
 	  mpfr_from_real (m, ra, GMP_RNDN);
 	  mpfr_clear_flags ();
-	  inexact = mpfr_sin_cos (ms, mc, m, GMP_RNDN);
+	  inexact = mpfr_sin_cos (ms, mc, m, rnd);
 	  result_s = do_mpfr_ckconv (ms, type, inexact);
 	  result_c = do_mpfr_ckconv (mc, type, inexact);
 	  mpfr_clears (m, ms, mc, NULL);
@@ -13069,14 +13084,16 @@ do_mpfr_bessel_n (tree arg1, tree arg2, tree type,
 	  && real_isfinite (ra)
 	  && (!min || real_compare (inclusive ? GE_EXPR: GT_EXPR , ra, min)))
         {
-	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  const struct real_format *fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+	  const int prec = fmt->p;
+	  const mp_rnd_t rnd = fmt->round_towards_zero? GMP_RNDZ : GMP_RNDN;
 	  int inexact;
 	  mpfr_t m;
 
 	  mpfr_init2 (m, prec);
 	  mpfr_from_real (m, ra, GMP_RNDN);
 	  mpfr_clear_flags ();
-	  inexact = func (m, n, m, GMP_RNDN);
+	  inexact = func (m, n, m, rnd);
 	  result = do_mpfr_ckconv (m, type, inexact);
 	  mpfr_clear (m);
 	}
@@ -13110,7 +13127,9 @@ do_mpfr_remquo (tree arg0, tree arg1, tree arg_quo)
 
       if (real_isfinite (ra0) && real_isfinite (ra1))
         {
-	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  const struct real_format *fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+	  const int prec = fmt->p;
+	  const mp_rnd_t rnd = fmt->round_towards_zero? GMP_RNDZ : GMP_RNDN;
 	  tree result_rem;
 	  long integer_quo;
 	  mpfr_t m0, m1;
@@ -13119,7 +13138,7 @@ do_mpfr_remquo (tree arg0, tree arg1, tree arg_quo)
 	  mpfr_from_real (m0, ra0, GMP_RNDN);
 	  mpfr_from_real (m1, ra1, GMP_RNDN);
 	  mpfr_clear_flags ();
-	  mpfr_remquo (m0, &integer_quo, m0, m1, GMP_RNDN);
+	  mpfr_remquo (m0, &integer_quo, m0, m1, rnd);
 	  /* Remquo is independent of the rounding mode, so pass
 	     inexact=0 to do_mpfr_ckconv().  */
 	  result_rem = do_mpfr_ckconv (m0, type, /*inexact=*/ 0);
@@ -13187,7 +13206,9 @@ do_mpfr_lgamma_r (tree arg, tree arg_sg, tree type)
 	  && ra->cl != rvc_zero
 	  && !(real_isneg(ra) && real_isinteger(ra, TYPE_MODE (type))))
         {
-	  const int prec = REAL_MODE_FORMAT (TYPE_MODE (type))->p;
+	  const struct real_format *fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+	  const int prec = fmt->p;
+	  const mp_rnd_t rnd = fmt->round_towards_zero? GMP_RNDZ : GMP_RNDN;
 	  int inexact, sg;
 	  mpfr_t m;
 	  tree result_lg;
@@ -13195,7 +13216,7 @@ do_mpfr_lgamma_r (tree arg, tree arg_sg, tree type)
 	  mpfr_init2 (m, prec);
 	  mpfr_from_real (m, ra, GMP_RNDN);
 	  mpfr_clear_flags ();
-	  inexact = mpfr_lgamma (m, &sg, m, GMP_RNDN);
+	  inexact = mpfr_lgamma (m, &sg, m, rnd);
 	  result_lg = do_mpfr_ckconv (m, type, inexact);
 	  mpfr_clear (m);
 	  if (result_lg)

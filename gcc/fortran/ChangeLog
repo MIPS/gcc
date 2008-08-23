@@ -1,3 +1,112 @@
+2008-08-22  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/30239
+	* symbol.c (gfc_add_type): Warn on -Wsurprising if a function-result
+	type is re-declared but neither -pedantic nor -std=f* is given and so
+	this is no error.
+	* invoke.texi (-Wsurprising): Document this new behaviour.
+
+2008-08-22  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.h (in_prefix): Removed from this header.
+	* match.h (gfc_matching_prefix): Moved and renamed from `in_prefix'.
+	* decl.c (in_prefix): Removed from here.
+	(gfc_match_prefix): Use new name of `gfc_matching_prefix'.
+	* symbol.c (gfc_check_symbol_typed): Ditto.
+	* expr.c (check_typed_ns): New helper variable.
+	(expr_check_typed_help): New helper method.
+	(gfc_expr_check_typed): Rewrote to use gfc_traverse_expr to do the
+	work, fixing a minor problem.
+	* match.c (gfc_matching_prefix): New variable.
+
+2008-08-22  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/32095
+	PR fortran/34228
+	* gfortran.h (in_prefix): New global.
+	(gfc_check_symbol_typed), (gfc_check_expr_typed): New methods.
+	* array.c (match_array_element_spec): Check that bounds-expressions
+	don't have symbols not-yet-typed in them.
+	* decl.c (var_element): Check that variable used is already typed.
+	(char_len_param_value): Check that expression does not contain
+	not-yet-typed symbols.
+	(in_prefix): New global.
+	(gfc_match_prefix): Record using `in_prefix' if we're at the moment
+	parsing a prefix or not.
+	* expr.c (gfc_expr_check_typed): New method.
+	* parse.c (verify_st_order): New argument to disable error output.
+	(check_function_result_typed): New helper method.
+	(parse_spec): Check that the function-result declaration, if given in
+	a prefix, contains no not-yet-typed symbols when the IMPLICIT rules are
+	parsed.
+	* symbol.c (gfc_check_symbol_typed): Check that a symbol already has
+	a type associated to it, otherwise use the IMPLICIT rules or signal
+	an error.
+
+2008-08-21  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* f95-lang.c: Update all calls to pedwarn.
+
+2008-08-18  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/37032
+	* gfortran.texi: Document decision on include file handling in
+	preprocessed files.
+
+2008-08-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/36825
+	* libgfortran.h: Reduce GFC_MAX_DIMENSIONS to 7.
+
+2008-08-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35863
+	* io.c (gfc_match_open): Enable UTF-8 in checks.
+	* simplify.c (gfc_simplify_selected_char_kind): Enable iso_10646.
+
+2008-08-14  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/36705
+	* symbol.c (check_conflict): Move conflict checks for (procedure,save)
+	and (procedure,intent) to resolve_fl_procedure.
+	* resolve.c (resolve_fl_procedure): Ditto.
+
+2008-08-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 36901
+	* f95-lang.c (gfc_mark_addressable): Use "pedwarn (0," instead of
+	'pedwarn0'.
+
+2008-08-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/37011
+	* symbol.c (gfc_add_extension): New function.
+	* decl.c (gfc_get_type_attr_spec): Call it.
+	(gfc_match_derived_decl): Set symbol extension attribute from
+	attr.extension.
+	* gfortran.h : Add prototype for gfc_add_extension.
+
+2008-08-08  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 28875
+	* options.c (set_Wall): Replace set_Wunused by warn_unused.
+
+2008-08-08  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.h (gfc_finalizer):  Replaced member `procedure' by two
+	new members `proc_sym' and `proc_tree' to store the symtree after
+	resolution.
+	(gfc_find_sym_in_symtree):  Made public.
+	* decl.c (gfc_match_final_decl):  Adapted for new member name.
+	* interface.c (gfc_find_sym_in_symtree):  Made public.
+	(gfc_extend_expr), (gfc_extend_assign):  Changed call accordingly.
+	* module.c (mio_finalizer), (mio_f2k_derived), (mio_full_f2k_derived):
+	New methods for module-file IO of f2k_derived.
+	(mio_symbol):  Do IO of f2k_derived namespace.
+	* resolve.c (gfc_resolve_finalizers):  Adapted for new member name and
+	finding the symtree for the symbol here.
+	* symbol.c (gfc_free_finalizer):  Adapted for new members.
+
 2008-07-30  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* gfc-internals.texi: Update to GFDL 1.2.  Do not list GPL as

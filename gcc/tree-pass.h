@@ -104,7 +104,8 @@ struct opt_pass
     SIMPLE_IPA_PASS,
     IPA_PASS
   } type;
-  /* Terse name of the pass used as a fragment of the dump file name.  */
+  /* Terse name of the pass used as a fragment of the dump file
+     name.  If the name starts with a star, no dump happens. */
   const char *name;
 
   /* If non-null, this pass and all sub-passes are executed only if
@@ -389,12 +390,12 @@ extern struct gimple_opt_pass pass_reset_cc_flags;
 
 /* IPA Passes */
 extern struct ipa_opt_pass pass_ipa_inline;
-extern struct simple_ipa_opt_pass pass_ipa_reference;
+extern struct ipa_opt_pass pass_ipa_cp;
+extern struct ipa_opt_pass pass_ipa_reference;
+extern struct ipa_opt_pass pass_ipa_pure_const;
 
 extern struct simple_ipa_opt_pass pass_ipa_matrix_reorg;
-extern struct simple_ipa_opt_pass pass_ipa_cp;
 extern struct simple_ipa_opt_pass pass_ipa_early_inline;
-extern struct simple_ipa_opt_pass pass_ipa_pure_const;
 extern struct simple_ipa_opt_pass pass_ipa_type_escape;
 extern struct simple_ipa_opt_pass pass_ipa_pta;
 extern struct simple_ipa_opt_pass pass_ipa_struct_reorg;

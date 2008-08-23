@@ -33,6 +33,7 @@ with Exp_Ch2;  use Exp_Ch2;
 with Exp_Ch3;  use Exp_Ch3;
 with Exp_Ch6;  use Exp_Ch6;
 with Exp_Ch9;  use Exp_Ch9;
+with Exp_Dist; use Exp_Dist;
 with Exp_Imgv; use Exp_Imgv;
 with Exp_Pakd; use Exp_Pakd;
 with Exp_Strm; use Exp_Strm;
@@ -606,10 +607,14 @@ package body Exp_Attr is
    begin
       --  Do required validity checking, if enabled. Do not apply check to
       --  output parameters of an Asm instruction, since the value of this
-      --  is not set till after the attribute has been elaborated.
+      --  is not set till after the attribute has been elaborated, and do
+      --  not apply the check to the arguments of a 'Read or 'Input attribute
+      --  reference since the scalar argument is an OUT scalar.
 
       if Validity_Checks_On and then Validity_Check_Operands
         and then Id /= Attribute_Asm_Output
+        and then Id /= Attribute_Read
+        and then Id /= Attribute_Input
       then
          declare
             Expr : Node_Id;
@@ -635,6 +640,14 @@ package body Exp_Attr is
          Make_Build_In_Place_Call_In_Anonymous_Context (Pref);
       end if;
 
+      --  If prefix is a protected type name, this is a reference to
+      --  the current instance of the type.
+
+      if Is_Protected_Self_Reference (Pref) then
+         Rewrite (Pref, Concurrent_Ref (Pref));
+         Analyze (Pref);
+      end if;
+
       --  Remaining processing depends on specific attribute
 
       case Id is
@@ -648,8 +661,8 @@ package body Exp_Attr is
            Attribute_Unrestricted_Access =>
 
          Access_Cases : declare
-            Btyp_DDT   : constant Entity_Id := Directly_Designated_Type (Btyp);
             Ref_Object : constant Node_Id := Get_Referenced_Object (Pref);
+            Btyp_DDT   : Entity_Id;
 
             function Enclosing_Object (N : Node_Id) return Node_Id;
             --  If N denotes a compound name (selected component, indexed
@@ -683,6 +696,27 @@ package body Exp_Attr is
          --  Start of processing for Access_Cases
 
          begin
+            Btyp_DDT := Designated_Type (Btyp);
+
+            --  Handle designated types that come from the limited view
+
+            if Ekind (Btyp_DDT) = E_Incomplete_Type
+              and then From_With_Type (Btyp_DDT)
+              and then Present (Non_Limited_View (Btyp_DDT))
+            then
+               Btyp_DDT := Non_Limited_View (Btyp_DDT);
+
+            elsif Is_Class_Wide_Type (Btyp_DDT)
+               and then Ekind (Etype (Btyp_DDT)) = E_Incomplete_Type
+               and then From_With_Type (Etype (Btyp_DDT))
+               and then Present (Non_Limited_View (Etype (Btyp_DDT)))
+               and then Present (Class_Wide_Type
+                                  (Non_Limited_View (Etype (Btyp_DDT))))
+            then
+               Btyp_DDT :=
+                 Class_Wide_Type (Non_Limited_View (Etype (Btyp_DDT)));
+            end if;
+
             --  In order to improve the text of error messages, the designated
             --  type of access-to-subprogram itypes is set by the semantics as
             --  the associated subprogram entity (see sem_attr). Now we replace
@@ -873,11 +907,10 @@ package body Exp_Attr is
 
                   if Btyp_DDT /= Etype (Ref_Object) then
                      Rewrite (Prefix (N),
-                       Convert_To (Directly_Designated_Type (Typ),
+                       Convert_To (Btyp_DDT,
                          New_Copy_Tree (Prefix (N))));
 
-                     Analyze_And_Resolve (Prefix (N),
-                                          Directly_Designated_Type (Typ));
+                     Analyze_And_Resolve (Prefix (N), Btyp_DDT);
                   end if;
 
                --  When the object is an explicit dereference, convert the
@@ -2073,6 +2106,22 @@ package body Exp_Attr is
 
       when Attribute_Fraction =>
          Expand_Fpt_Attribute_R (N);
+
+      --------------
+      -- From_Any --
+      --------------
+
+      when Attribute_From_Any => From_Any : declare
+         P_Type : constant Entity_Id := Etype (Pref);
+         Decls  : constant List_Id   := New_List;
+      begin
+         Rewrite (N,
+           Build_From_Any_Call (P_Type,
+             Relocate_Node (First (Exprs)),
+             Decls));
+         Insert_Actions (N, Decls);
+         Analyze_And_Resolve (N, P_Type);
+      end From_Any;
 
       --------------
       -- Identity --
@@ -4396,6 +4445,22 @@ package body Exp_Attr is
              Relocate_Node (First (Exprs))));
          Analyze_And_Resolve (N, RTE (RE_Address));
 
+      ------------
+      -- To_Any --
+      ------------
+
+      when Attribute_To_Any => To_Any : declare
+         P_Type : constant Entity_Id := Etype (Pref);
+         Decls  : constant List_Id   := New_List;
+      begin
+         Rewrite (N,
+           Build_To_Any_Call
+             (Convert_To (P_Type,
+              Relocate_Node (First (Exprs))), Decls));
+         Insert_Actions (N, Decls);
+         Analyze_And_Resolve (N, RTE (RE_Any));
+      end To_Any;
+
       ----------------
       -- Truncation --
       ----------------
@@ -4408,6 +4473,19 @@ package body Exp_Attr is
          if not Is_Inline_Floating_Point_Attribute (N) then
             Expand_Fpt_Attribute_R (N);
          end if;
+
+      --------------
+      -- TypeCode --
+      --------------
+
+      when Attribute_TypeCode => TypeCode : declare
+         P_Type : constant Entity_Id := Etype (Pref);
+         Decls  : constant List_Id   := New_List;
+      begin
+         Rewrite (N, Build_TypeCode_Call (Loc, P_Type, Decls));
+         Insert_Actions (N, Decls);
+         Analyze_And_Resolve (N, RTE (RE_TypeCode));
+      end TypeCode;
 
       -----------------------
       -- Unbiased_Rounding --
@@ -5365,53 +5443,100 @@ package body Exp_Attr is
         and then
           not Is_Predefined_File_Name (Unit_File_Name (Current_Sem_Unit))
       then
-
          --  String as defined in package Ada
 
          if Base_Typ = Standard_String then
-            if Nam = TSS_Stream_Input then
-               return RTE (RE_String_Input);
+            if Restriction_Active (No_Stream_Optimizations) then
+               if Nam = TSS_Stream_Input then
+                  return RTE (RE_String_Input);
 
-            elsif Nam = TSS_Stream_Output then
-               return RTE (RE_String_Output);
+               elsif Nam = TSS_Stream_Output then
+                  return RTE (RE_String_Output);
 
-            elsif Nam = TSS_Stream_Read then
-               return RTE (RE_String_Read);
+               elsif Nam = TSS_Stream_Read then
+                  return RTE (RE_String_Read);
 
-            else pragma Assert (Nam = TSS_Stream_Write);
-               return RTE (RE_String_Write);
+               else pragma Assert (Nam = TSS_Stream_Write);
+                  return RTE (RE_String_Write);
+               end if;
+
+            else
+               if Nam = TSS_Stream_Input then
+                  return RTE (RE_String_Input_Blk_IO);
+
+               elsif Nam = TSS_Stream_Output then
+                  return RTE (RE_String_Output_Blk_IO);
+
+               elsif Nam = TSS_Stream_Read then
+                  return RTE (RE_String_Read_Blk_IO);
+
+               else pragma Assert (Nam = TSS_Stream_Write);
+                  return RTE (RE_String_Write_Blk_IO);
+               end if;
             end if;
 
          --  Wide_String as defined in package Ada
 
          elsif Base_Typ = Standard_Wide_String then
-            if Nam = TSS_Stream_Input then
-               return RTE (RE_Wide_String_Input);
+            if Restriction_Active (No_Stream_Optimizations) then
+               if Nam = TSS_Stream_Input then
+                  return RTE (RE_Wide_String_Input);
 
-            elsif Nam = TSS_Stream_Output then
-               return RTE (RE_Wide_String_Output);
+               elsif Nam = TSS_Stream_Output then
+                  return RTE (RE_Wide_String_Output);
 
-            elsif Nam = TSS_Stream_Read then
-               return RTE (RE_Wide_String_Read);
+               elsif Nam = TSS_Stream_Read then
+                  return RTE (RE_Wide_String_Read);
 
-            else pragma Assert (Nam = TSS_Stream_Write);
-               return RTE (RE_Wide_String_Write);
+               else pragma Assert (Nam = TSS_Stream_Write);
+                  return RTE (RE_Wide_String_Write);
+               end if;
+
+            else
+               if Nam = TSS_Stream_Input then
+                  return RTE (RE_Wide_String_Input_Blk_IO);
+
+               elsif Nam = TSS_Stream_Output then
+                  return RTE (RE_Wide_String_Output_Blk_IO);
+
+               elsif Nam = TSS_Stream_Read then
+                  return RTE (RE_Wide_String_Read_Blk_IO);
+
+               else pragma Assert (Nam = TSS_Stream_Write);
+                  return RTE (RE_Wide_String_Write_Blk_IO);
+               end if;
             end if;
 
          --  Wide_Wide_String as defined in package Ada
 
          elsif Base_Typ = Standard_Wide_Wide_String then
-            if Nam = TSS_Stream_Input then
-               return RTE (RE_Wide_Wide_String_Input);
+            if Restriction_Active (No_Stream_Optimizations) then
+               if Nam = TSS_Stream_Input then
+                  return RTE (RE_Wide_Wide_String_Input);
 
-            elsif Nam = TSS_Stream_Output then
-               return RTE (RE_Wide_Wide_String_Output);
+               elsif Nam = TSS_Stream_Output then
+                  return RTE (RE_Wide_Wide_String_Output);
 
-            elsif Nam = TSS_Stream_Read then
-               return RTE (RE_Wide_Wide_String_Read);
+               elsif Nam = TSS_Stream_Read then
+                  return RTE (RE_Wide_Wide_String_Read);
 
-            else pragma Assert (Nam = TSS_Stream_Write);
-               return RTE (RE_Wide_Wide_String_Write);
+               else pragma Assert (Nam = TSS_Stream_Write);
+                  return RTE (RE_Wide_Wide_String_Write);
+               end if;
+
+            else
+               if Nam = TSS_Stream_Input then
+                  return RTE (RE_Wide_Wide_String_Input_Blk_IO);
+
+               elsif Nam = TSS_Stream_Output then
+                  return RTE (RE_Wide_Wide_String_Output_Blk_IO);
+
+               elsif Nam = TSS_Stream_Read then
+                  return RTE (RE_Wide_Wide_String_Read_Blk_IO);
+
+               else pragma Assert (Nam = TSS_Stream_Write);
+                  return RTE (RE_Wide_Wide_String_Write_Blk_IO);
+               end if;
             end if;
          end if;
       end if;

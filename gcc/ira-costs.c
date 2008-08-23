@@ -111,10 +111,10 @@ static int frequency;
 
 
 /* Compute the cost of loading X into (if TO_P is TRUE) or from (if
-   TO_P is FALSE) a register of class CLASS in mode MODE.  X must not
+   TO_P is FALSE) a register of class RCLASS in mode MODE.  X must not
    be a pseudo register.  */
 static int
-copy_cost (rtx x, enum machine_mode mode, enum reg_class class, bool to_p,
+copy_cost (rtx x, enum machine_mode mode, enum reg_class rclass, bool to_p,
 	   secondary_reload_info *prev_sri)
 {
   secondary_reload_info sri;
@@ -126,30 +126,30 @@ copy_cost (rtx x, enum machine_mode mode, enum reg_class class, bool to_p,
     return 0;
 
   /* Get the class we will actually use for a reload.  */
-  class = PREFERRED_RELOAD_CLASS (x, class);
+  rclass = PREFERRED_RELOAD_CLASS (x, rclass);
 
   /* If we need a secondary reload for an intermediate, the cost is
      that to load the input into the intermediate register, then to
      copy it.  */
   sri.prev_sri = prev_sri;
   sri.extra_cost = 0;
-  secondary_class = targetm.secondary_reload (to_p, x, class, mode, &sri);
+  secondary_class = targetm.secondary_reload (to_p, x, rclass, mode, &sri);
 
   if (ira_register_move_cost[mode] == NULL)
     ira_init_register_move_cost (mode);
 
   if (secondary_class != NO_REGS)
-    return (move_cost[mode][secondary_class][class] + sri.extra_cost
+    return (move_cost[mode][secondary_class][rclass] + sri.extra_cost
 	    + copy_cost (x, mode, secondary_class, to_p, &sri));
 
   /* For memory, use the memory move cost, for (hard) registers, use
      the cost to move between the register classes, and use 2 for
      everything else (constants).  */
-  if (MEM_P (x) || class == NO_REGS)
-    return sri.extra_cost + ira_memory_move_cost[mode][class][to_p != 0];
+  if (MEM_P (x) || rclass == NO_REGS)
+    return sri.extra_cost + ira_memory_move_cost[mode][rclass][to_p != 0];
   else if (REG_P (x))
     return
-      (sri.extra_cost + move_cost[mode][REGNO_REG_CLASS (REGNO (x))][class]);
+      (sri.extra_cost + move_cost[mode][REGNO_REG_CLASS (REGNO (x))][rclass]);
   else
     /* If this is a constant, we may eventually want to call rtx_cost
        here.  */
@@ -194,7 +194,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
     {
       enum reg_class classes[MAX_RECOG_OPERANDS];
       int allows_mem[MAX_RECOG_OPERANDS];
-      int class;
+      int rclass;
       int alt_fail = 0;
       int alt_cost = 0, op_cost_add;
 
@@ -283,14 +283,14 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 
 		  for (k = 0; k < cost_classes_num; k++)
 		    {
-		      class = cost_classes[k];
+		      rclass = cost_classes[k];
 		      pp->cost[k]
 			= ((recog_data.operand_type[i] != OP_OUT
-			    ? ira_may_move_in_cost[mode][class]
+			    ? ira_may_move_in_cost[mode][rclass]
 			      [classes[i]] * frequency : 0)
 			   + (recog_data.operand_type[i] != OP_IN
 			      ? ira_may_move_out_cost[mode][classes[i]]
-			        [class] * frequency : 0));
+			        [rclass] * frequency : 0));
 		    }
 
 		  /* If the alternative actually allows memory, make
@@ -528,14 +528,14 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 
 		  for (k = 0; k < cost_classes_num; k++)
 		    {
-		      class = cost_classes[k];
+		      rclass = cost_classes[k];
 		      pp->cost[k]
 			= ((recog_data.operand_type[i] != OP_OUT
-			    ? ira_may_move_in_cost[mode][class]
+			    ? ira_may_move_in_cost[mode][rclass]
 			      [classes[i]] * frequency : 0)
 			   + (recog_data.operand_type[i] != OP_IN
 			      ? ira_may_move_out_cost[mode][classes[i]]
-			        [class] * frequency : 0));
+			        [rclass] * frequency : 0));
 		    }
 
 		  /* If the alternative actually allows memory, make
@@ -648,25 +648,25 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	{
 	  unsigned int regno = REGNO (ops[!i]);
 	  enum machine_mode mode = GET_MODE (ops[!i]);
-	  int class;
+	  int rclass;
 	  unsigned int nr;
 
 	  if (regno < FIRST_PSEUDO_REGISTER)
 	    for (k = 0; k < cost_classes_num; k++)
 	      {
-		class = cost_classes[k];
-		if (TEST_HARD_REG_BIT (reg_class_contents[class], regno)
-		    && (reg_class_size[class]
-			== (unsigned) CLASS_MAX_NREGS (class, mode)))
+		rclass = cost_classes[k];
+		if (TEST_HARD_REG_BIT (reg_class_contents[rclass], regno)
+		    && (reg_class_size[rclass]
+			== (unsigned) CLASS_MAX_NREGS (rclass, mode)))
 		  {
-		    if (reg_class_size[class] == 1)
+		    if (reg_class_size[rclass] == 1)
 		      op_costs[i]->cost[k] = -frequency;
 		    else
 		      {
 			for (nr = 0;
 			     nr < (unsigned) hard_regno_nregs[regno][mode];
 			     nr++)
-			  if (! TEST_HARD_REG_BIT (reg_class_contents[class],
+			  if (! TEST_HARD_REG_BIT (reg_class_contents[rclass],
 						   regno + nr))
 			    break;
 			
@@ -721,12 +721,12 @@ record_address_regs (enum machine_mode mode, rtx x, int context,
 		     int scale)
 {
   enum rtx_code code = GET_CODE (x);
-  enum reg_class class;
+  enum reg_class rclass;
 
   if (context == 1)
-    class = INDEX_REG_CLASS;
+    rclass = INDEX_REG_CLASS;
   else
-    class = base_reg_class (mode, outer_code, index_code);
+    rclass = base_reg_class (mode, outer_code, index_code);
 
   switch (code)
     {
@@ -870,14 +870,14 @@ record_address_regs (enum machine_mode mode, rtx x, int context,
 	pp = COSTS_OF_ALLOCNO (allocno_costs,
 			       ALLOCNO_NUM (ira_curr_regno_allocno_map
 					    [REGNO (x)]));
-	pp->mem_cost += (ira_memory_move_cost[Pmode][class][1] * scale) / 2;
+	pp->mem_cost += (ira_memory_move_cost[Pmode][rclass][1] * scale) / 2;
 	if (ira_register_move_cost[Pmode] == NULL)
 	  ira_init_register_move_cost (Pmode);
 	for (k = 0; k < cost_classes_num; k++)
 	  {
 	    i = cost_classes[k];
 	    pp->cost[k]
-	      += (ira_may_move_in_cost[Pmode][i][class] * scale) / 2;
+	      += (ira_may_move_in_cost[Pmode][i][rclass] * scale) / 2;
 	  }
       }
       break;
@@ -1033,7 +1033,7 @@ print_costs (FILE *f)
   fprintf (f, "\n");
   FOR_EACH_ALLOCNO (a, ai)
     {
-      int i, class;
+      int i, rclass;
       basic_block bb;
       int regno = ALLOCNO_REGNO (a);
 
@@ -1046,18 +1046,18 @@ print_costs (FILE *f)
       fprintf (f, ") costs:");
       for (k = 0; k < cost_classes_num; k++)
 	{
-	  class = cost_classes[k];
-	  if (contains_reg_of_mode[class][PSEUDO_REGNO_MODE (regno)]
+	  rclass = cost_classes[k];
+	  if (contains_reg_of_mode[rclass][PSEUDO_REGNO_MODE (regno)]
 #ifdef FORBIDDEN_INC_DEC_CLASSES
-	      && (! in_inc_dec[i] || ! forbidden_inc_dec_class[class])
+	      && (! in_inc_dec[i] || ! forbidden_inc_dec_class[rclass])
 #endif
 #ifdef CANNOT_CHANGE_MODE_CLASS
-	      && ! invalid_mode_change_p (regno, (enum reg_class) class,
+	      && ! invalid_mode_change_p (regno, (enum reg_class) rclass,
 					  PSEUDO_REGNO_MODE (regno))
 #endif
 	      )
 	    {
-	      fprintf (f, " %s:%d", reg_class_names[class],
+	      fprintf (f, " %s:%d", reg_class_names[rclass],
 		       COSTS_OF_ALLOCNO (allocno_costs, i)->cost[k]);
 	      if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
 		  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
@@ -1145,7 +1145,7 @@ find_allocno_class_costs (void)
       for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
 	{
 	  ira_allocno_t a, parent_a;
-	  int class, a_num, parent_a_num;
+	  int rclass, a_num, parent_a_num;
 	  ira_loop_tree_node_t parent;
 	  int best_cost;
 	  enum reg_class best, alt_class, common_class;
@@ -1196,15 +1196,15 @@ find_allocno_class_costs (void)
 	     regno.  */
 	  for (k = 0; k < cost_classes_num; k++)
 	    {
-	      class = cost_classes[k];
+	      rclass = cost_classes[k];
 	      /* Ignore classes that are too small for this operand or
 		 invalid for an operand that was auto-incremented.  */
-	      if (! contains_reg_of_mode[class][PSEUDO_REGNO_MODE (i)]
+	      if (! contains_reg_of_mode[rclass][PSEUDO_REGNO_MODE (i)]
 #ifdef FORBIDDEN_INC_DEC_CLASSES
-		  || (inc_dec_p && forbidden_inc_dec_class[class])
+		  || (inc_dec_p && forbidden_inc_dec_class[rclass])
 #endif
 #ifdef CANNOT_CHANGE_MODE_CLASS
-		  || invalid_mode_change_p (i, (enum reg_class) class,
+		  || invalid_mode_change_p (i, (enum reg_class) rclass,
 					    PSEUDO_REGNO_MODE (i))
 #endif
 		  )
@@ -1212,15 +1212,15 @@ find_allocno_class_costs (void)
 	      if (temp_costs->cost[k] < best_cost)
 		{
 		  best_cost = temp_costs->cost[k];
-		  best = (enum reg_class) class;
+		  best = (enum reg_class) rclass;
 		}
 	      else if (temp_costs->cost[k] == best_cost)
-		best = ira_reg_class_union[best][class];
+		best = ira_reg_class_union[best][rclass];
 	      if (pass == flag_expensive_optimizations
 		  && temp_costs->cost[k] < temp_costs->mem_cost
-		  && (reg_class_size[reg_class_subunion[alt_class][class]]
+		  && (reg_class_size[reg_class_subunion[alt_class][rclass]]
 		      > reg_class_size[alt_class]))
-		alt_class = reg_class_subunion[alt_class][class];
+		alt_class = reg_class_subunion[alt_class][rclass];
 	    }
 	  if (pass == flag_expensive_optimizations)
 	    {
@@ -1256,18 +1256,18 @@ find_allocno_class_costs (void)
 		  best = ALL_REGS;
 		  for (k = 0; k < cost_classes_num; k++)
 		    {
-		      class = cost_classes[k];
-		      if (! ira_class_subset_p[class][common_class])
+		      rclass = cost_classes[k];
+		      if (! ira_class_subset_p[rclass][common_class])
 			continue;
 		      /* Ignore classes that are too small for this
 			 operand or invalid for an operand that was
 			 auto-incremented.  */
-		      if (! contains_reg_of_mode[class][PSEUDO_REGNO_MODE (i)]
+		      if (! contains_reg_of_mode[rclass][PSEUDO_REGNO_MODE (i)]
 #ifdef FORBIDDEN_INC_DEC_CLASSES
-			  || (inc_dec_p && forbidden_inc_dec_class[class])
+			  || (inc_dec_p && forbidden_inc_dec_class[rclass])
 #endif
 #ifdef CANNOT_CHANGE_MODE_CLASS
-			  || invalid_mode_change_p (i, (enum reg_class) class,
+			  || invalid_mode_change_p (i, (enum reg_class) rclass,
 						    PSEUDO_REGNO_MODE (i))
 #endif
 			  )
@@ -1277,11 +1277,11 @@ find_allocno_class_costs (void)
 			{
 			  best_cost
 			    = COSTS_OF_ALLOCNO (total_costs, a_num)->cost[k];
-			  best = (enum reg_class) class;
+			  best = (enum reg_class) rclass;
 			}
 		      else if (COSTS_OF_ALLOCNO (total_costs, a_num)->cost[k]
 			       == best_cost)
-			best = ira_reg_class_union[best][class];
+			best = ira_reg_class_union[best][rclass];
 		    }
 		}
 	      if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL
@@ -1325,7 +1325,7 @@ process_bb_node_for_hard_reg_moves (ira_loop_tree_node_t loop_tree_node)
   int i, freq, cost, src_regno, dst_regno, hard_regno;
   bool to_p;
   ira_allocno_t a;
-  enum reg_class class, hard_reg_class;
+  enum reg_class rclass, hard_reg_class;
   enum machine_mode mode;
   basic_block bb;
   rtx insn, set, src, dst;
@@ -1365,20 +1365,20 @@ process_bb_node_for_hard_reg_moves (ira_loop_tree_node_t loop_tree_node)
 	}
       else
 	continue;
-      class = ALLOCNO_COVER_CLASS (a);
-      if (! TEST_HARD_REG_BIT (reg_class_contents[class], hard_regno))
+      rclass = ALLOCNO_COVER_CLASS (a);
+      if (! TEST_HARD_REG_BIT (reg_class_contents[rclass], hard_regno))
 	continue;
-      i = ira_class_hard_reg_index[class][hard_regno];
+      i = ira_class_hard_reg_index[rclass][hard_regno];
       if (i < 0)
 	continue;
       mode = ALLOCNO_MODE (a);
       hard_reg_class = REGNO_REG_CLASS (hard_regno);
-      cost = (to_p ? ira_register_move_cost[mode][hard_reg_class][class]
-	      : ira_register_move_cost[mode][class][hard_reg_class]) * freq;
-      ira_allocate_and_set_costs (&ALLOCNO_HARD_REG_COSTS (a), class,
+      cost = (to_p ? ira_register_move_cost[mode][hard_reg_class][rclass]
+	      : ira_register_move_cost[mode][rclass][hard_reg_class]) * freq;
+      ira_allocate_and_set_costs (&ALLOCNO_HARD_REG_COSTS (a), rclass,
 				  ALLOCNO_COVER_CLASS_COST (a));
       ira_allocate_and_set_costs (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
-				  class, 0);
+				  rclass, 0);
       ALLOCNO_HARD_REG_COSTS (a)[i] -= cost;
       ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[i] -= cost;
       ALLOCNO_COVER_CLASS_COST (a) = MIN (ALLOCNO_COVER_CLASS_COST (a),
@@ -1394,7 +1394,7 @@ setup_allocno_cover_class_and_costs (void)
 {
   int i, j, n, regno;
   int *reg_costs;
-  enum reg_class cover_class, class;
+  enum reg_class cover_class, rclass;
   enum machine_mode mode;
   ira_allocno_t a;
   ira_allocno_iterator ai;
@@ -1422,9 +1422,9 @@ setup_allocno_cover_class_and_costs (void)
 	  for (j = n - 1; j >= 0; j--)
 	    {
 	      regno = ira_class_hard_regs[cover_class][j];
-	      class = REGNO_REG_CLASS (regno);
+	      rclass = REGNO_REG_CLASS (regno);
 	      reg_costs[j] = (COSTS_OF_ALLOCNO (allocno_costs, i)
-			       ->cost[cost_class_nums[class]]);
+			       ->cost[cost_class_nums[rclass]]);
 	    }
 	}
     }
@@ -1548,7 +1548,7 @@ ira_tune_allocno_costs_and_cover_classes (void)
 {
   int j, n, regno;
   int cost, min_cost, *reg_costs;
-  enum reg_class cover_class, class;
+  enum reg_class cover_class, rclass;
   enum machine_mode mode;
   ira_allocno_t a;
   ira_allocno_iterator ai;
@@ -1570,16 +1570,16 @@ ira_tune_allocno_costs_and_cover_classes (void)
 	  for (j = n - 1; j >= 0; j--)
 	    {
 	      regno = ira_class_hard_regs[cover_class][j];
-	      class = REGNO_REG_CLASS (regno);
+	      rclass = REGNO_REG_CLASS (regno);
 	      cost = 0;
 	      /* ??? If only part is call clobbered.  */
 	      if (! ira_hard_reg_not_in_set_p (regno, mode, call_used_reg_set))
 		cost += (ALLOCNO_CALL_FREQ (a)
-			 * (ira_memory_move_cost[mode][class][0]
-			    + ira_memory_move_cost[mode][class][1]));
+			 * (ira_memory_move_cost[mode][rclass][0]
+			    + ira_memory_move_cost[mode][rclass][1]));
 #ifdef IRA_HARD_REGNO_ADD_COST_MULTIPLIER
-	      cost += ((ira_memory_move_cost[mode][class][0]
-			+ ira_memory_move_cost[mode][class][1])
+	      cost += ((ira_memory_move_cost[mode][rclass][0]
+			+ ira_memory_move_cost[mode][rclass][1])
 		       * ALLOCNO_FREQ (a)
 		       * IRA_HARD_REGNO_ADD_COST_MULTIPLIER (regno) / 2);
 #endif

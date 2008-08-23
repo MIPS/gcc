@@ -542,16 +542,33 @@ package body Sem_Ch6 is
 
          --  "return access T" case; check that the return statement also has
          --  "access T", and that the subtypes statically match:
+         --   if this is an access to subprogram the signatures must match.
 
          if R_Type_Is_Anon_Access then
             if R_Stm_Type_Is_Anon_Access then
-               if Base_Type (Designated_Type (R_Stm_Type)) /=
-                    Base_Type (Designated_Type (R_Type))
-                 or else not Subtypes_Statically_Match (R_Stm_Type, R_Type)
+               if
+                 Ekind (Designated_Type (R_Stm_Type)) /= E_Subprogram_Type
                then
-                  Error_Msg_N
-                    ("subtype must statically match function result subtype",
-                     Subtype_Mark (Subtype_Ind));
+                  if Base_Type (Designated_Type (R_Stm_Type)) /=
+                     Base_Type (Designated_Type (R_Type))
+                    or else not Subtypes_Statically_Match (R_Stm_Type, R_Type)
+                  then
+                     Error_Msg_N
+                      ("subtype must statically match function result subtype",
+                       Subtype_Mark (Subtype_Ind));
+                  end if;
+
+               else
+                  --  For two anonymous access to subprogram types, the
+                  --  types themselves must be type conformant.
+
+                  if not Conforming_Types
+                    (R_Stm_Type, R_Type, Fully_Conformant)
+                  then
+                     Error_Msg_N
+                      ("subtype must statically match function result subtype",
+                         Subtype_Ind);
+                  end if;
                end if;
 
             else
@@ -589,17 +606,22 @@ package body Sem_Ch6 is
          --  definition matches the class-wide type. This prevents rejection
          --  in the case where the object declaration is initialized by a call
          --  to a build-in-place function with a specific result type and the
-         --  object entity had its type changed to that specific type. (Note
-         --  that the ARG believes that return objects should be allowed to
-         --  have a type covered by a class-wide result type in any case, so
-         --  once that relaxation is made (see AI05-32), the above check for
-         --  type compatibility should be changed to test Covers rather than
-         --  equality, and then the following special test will no longer be
-         --  needed. ???)
+         --  object entity had its type changed to that specific type. This is
+         --  also allowed in the case where Obj_Decl does not come from source,
+         --  which can occur for an expansion of a simple return statement of
+         --  a build-in-place class-wide function when the result expression
+         --  has a specific type, because a return object with a specific type
+         --  is created. (Note that the ARG believes that return objects should
+         --  be allowed to have a type covered by a class-wide result type in
+         --  any case, so once that relaxation is made (see AI05-32), the above
+         --  check for type compatibility should be changed to test Covers
+         --  rather than equality, and the following special test will no
+         --  longer be needed. ???)
 
          elsif Is_Class_Wide_Type (R_Type)
            and then
-             R_Type = Etype (Object_Definition (Original_Node (Obj_Decl)))
+             (R_Type = Etype (Object_Definition (Original_Node (Obj_Decl)))
+               or else not Comes_From_Source (Obj_Decl))
          then
             null;
 
@@ -641,9 +663,9 @@ package body Sem_Ch6 is
             --  Analyze_Object_Declaration; we treat it as a normal
             --  object declaration.
 
+            Set_Is_Return_Object (Defining_Identifier (Obj_Decl));
             Analyze (Obj_Decl);
 
-            Set_Is_Return_Object (Defining_Identifier (Obj_Decl));
             Check_Return_Subtype_Indication (Obj_Decl);
 
             if Present (HSS) then
@@ -1240,7 +1262,20 @@ package body Sem_Ch6 is
 
       if Result_Definition (N) /= Error then
          if Nkind (Result_Definition (N)) = N_Access_Definition then
-            Typ := Access_Definition (N, Result_Definition (N));
+
+            --  Ada 2005 (AI-254): Handle anonymous access to subprograms
+
+            declare
+               AD : constant Node_Id :=
+                      Access_To_Subprogram_Definition (Result_Definition (N));
+            begin
+               if Present (AD) and then Protected_Present (AD) then
+                  Typ := Replace_Anonymous_Access_To_Protected_Subprogram (N);
+               else
+                  Typ := Access_Definition (N, Result_Definition (N));
+               end if;
+            end;
+
             Set_Parent (Typ, Result_Definition (N));
             Set_Is_Local_Anonymous_Access (Typ);
             Set_Etype (Designator, Typ);
@@ -1564,6 +1599,7 @@ package body Sem_Ch6 is
          --  Subprogram_Specification. In such cases, we undo the change
          --  made by the analysis of the specification and try to find the
          --  spec again.
+
          --  Note that wrappers already have their corresponding specs and
          --  bodies set during their creation, so if the candidate spec is
          --  a wrapper, then we definately need to swap all types to their
@@ -1688,6 +1724,12 @@ package body Sem_Ch6 is
                 "if subprogram is primitive",
                 Body_Spec);
             end if;
+
+         elsif Style_Check
+           and then Is_Overriding_Operation (Spec_Id)
+         then
+            pragma Assert (Unit_Declaration_Node (Body_Id) = N);
+            Style.Missing_Overriding (N, Body_Id);
          end if;
       end Verify_Overriding_Indicator;
 
@@ -1768,12 +1810,19 @@ package body Sem_Ch6 is
             --  the body that depends on the subprogram having been frozen,
             --  such as uses of extra formals), so we force it to be frozen
             --  here. Same holds if the body and spec are compilation units.
+            --  Finally, if the return type is an anonymous access to protected
+            --  subprogram, it must be frozen before the body because its
+            --  expansion has generated an equivalent type that is used when
+            --  elaborating the body.
 
             if No (Spec_Id) then
                Freeze_Before (N, Body_Id);
 
             elsif Nkind (Parent (N)) = N_Compilation_Unit then
                Freeze_Before (N, Spec_Id);
+
+            elsif Is_Access_Subprogram_Type (Etype (Body_Id)) then
+               Freeze_Before (N, Etype (Body_Id));
             end if;
 
          else
@@ -2404,17 +2453,6 @@ package body Sem_Ch6 is
                      if Ekind (Ent) = E_Procedure
                        and then No_Return (Ent)
                      then
-                        Set_Trivial_Subprogram (Stm);
-
-                     --  If the procedure name is Raise_Exception, then also
-                     --  assume that it raises an exception. The main target
-                     --  here is Ada.Exceptions.Raise_Exception, but this name
-                     --  is pretty evocative in any context! Note that the
-                     --  procedure in Ada.Exceptions is not marked No_Return
-                     --  because of the annoying case of the null exception Id
-                     --  when operating in Ada 95 mode.
-
-                     elsif Chars (Ent) = Name_Raise_Exception then
                         Set_Trivial_Subprogram (Stm);
                      end if;
                   end;
@@ -3080,7 +3118,7 @@ package body Sem_Ch6 is
       --  actions interfere in complex ways with inlining.
 
       elsif Ekind (Subp) = E_Function
-        and then Controlled_Type (Etype (Subp))
+        and then Needs_Finalization (Etype (Subp))
       then
          Cannot_Inline
            ("cannot inline & (controlled return type)?", N, Subp);
@@ -3889,7 +3927,7 @@ package body Sem_Ch6 is
             if Is_Inherently_Limited_Type (Typ) then
                Set_Returns_By_Ref (Designator);
 
-            elsif Present (Utyp) and then CW_Or_Controlled_Type (Utyp) then
+            elsif Present (Utyp) and then CW_Or_Has_Controlled_Part (Utyp) then
                Set_Returns_By_Ref (Designator);
             end if;
          end;
@@ -4135,6 +4173,10 @@ package body Sem_Ch6 is
             Set_Is_Overriding_Operation (Subp);
          end if;
 
+         if Style_Check and then not Must_Override (Spec) then
+            Style.Missing_Overriding (Decl, Subp);
+         end if;
+
       --  If Subp is an operator, it may override a predefined operation.
       --  In that case overridden_subp is empty because of our implicit
       --  representation for predefined operators. We have to check whether the
@@ -4158,16 +4200,23 @@ package body Sem_Ch6 is
                  ("subprogram & overrides predefined operator ", Spec, Subp);
             end if;
 
-         elsif Is_Overriding_Operation (Subp) then
-            null;
-
          elsif Must_Override (Spec) then
-            if not Operator_Matches_Spec (Subp, Subp) then
-               Error_Msg_NE ("subprogram & is not overriding", Spec, Subp);
-
-            else
+            if Is_Overriding_Operation (Subp) then
                Set_Is_Overriding_Operation (Subp);
+
+            elsif not Operator_Matches_Spec (Subp, Subp) then
+               Error_Msg_NE ("subprogram & is not overriding", Spec, Subp);
             end if;
+
+         elsif not Error_Posted (Subp)
+           and then Style_Check
+           and then Operator_Matches_Spec (Subp, Subp)
+             and then
+               not Is_Predefined_File_Name
+                 (Unit_File_Name (Get_Source_Unit (Subp)))
+         then
+            Set_Is_Overriding_Operation (Subp);
+            Style.Missing_Overriding (Decl, Subp);
          end if;
 
       elsif Must_Override (Spec) then
@@ -5219,13 +5268,9 @@ package body Sem_Ch6 is
             --  returns. This is true even if we are able to get away with
             --  having 'in out' parameters, which are normally illegal for
             --  functions. This formal is also needed when the function has
-            --  a tagged result, because generally such functions can be called
-            --  in a dispatching context and such calls must be handled like
-            --  calls to class-wide functions.
+            --  a tagged result.
 
-            if Controlled_Type (Result_Subt)
-              or else Is_Tagged_Type (Underlying_Type (Result_Subt))
-            then
+            if Needs_BIP_Final_List (E) then
                Discard :=
                  Add_Extra_Formal
                    (E, RTE (RE_Finalizable_Ptr_Ptr),
@@ -6449,7 +6494,7 @@ package body Sem_Ch6 is
 
          procedure Check_Private_Overriding (T : Entity_Id) is
          begin
-            if Ekind (Current_Scope) = E_Package
+            if Is_Package_Or_Generic_Package (Current_Scope)
               and then In_Private_Part (Current_Scope)
               and then Visible_Part_Type (T)
               and then not In_Instance
@@ -6534,8 +6579,7 @@ package body Sem_Ch6 is
          elsif Current_Scope = Standard_Standard then
             null;
 
-         elsif ((Ekind (Current_Scope) = E_Package
-                  or else Ekind (Current_Scope) = E_Generic_Package)
+         elsif (Is_Package_Or_Generic_Package (Current_Scope)
                  and then not In_Package_Body (Current_Scope))
            or else Is_Overriding
          then
@@ -7756,6 +7800,7 @@ package body Sem_Ch6 is
          --  procedure. Note that it is only at the outer level that we
          --  do this fiddling, for the spec cases, the already preanalyzed
          --  parameters are not affected.
+
          --  For a postcondition pragma within a generic, preserve the pragma
          --  for later expansion.
 
@@ -7784,6 +7829,12 @@ package body Sem_Ch6 is
    --  Start of processing for Process_PPCs
 
    begin
+      --  Nothing to do if we are not generating code
+
+      if Operating_Mode /= Generate_Code then
+         return;
+      end if;
+
       --  Grab preconditions from spec
 
       if Present (Spec_Id) then
@@ -7891,7 +7942,7 @@ package body Sem_Ch6 is
          end loop;
       end if;
 
-      --  If we had any postconditions and expansion is enabled,, build
+      --  If we had any postconditions and expansion is enabled, build
       --  the Postconditions procedure.
 
       if Present (Plist)

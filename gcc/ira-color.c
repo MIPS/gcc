@@ -126,7 +126,7 @@ update_copy_costs_1 (ira_allocno_t allocno, int hard_regno,
 {
   int i, cost, update_cost;
   enum machine_mode mode;
-  enum reg_class class, cover_class;
+  enum reg_class rclass, cover_class;
   ira_allocno_t another_allocno;
   ira_copy_t cp, next_cp;
 
@@ -139,7 +139,7 @@ update_copy_costs_1 (ira_allocno_t allocno, int hard_regno,
   ira_assert (hard_regno >= 0);
   i = ira_class_hard_reg_index[cover_class][hard_regno];
   ira_assert (i >= 0);
-  class = REGNO_REG_CLASS (hard_regno);
+  rclass = REGNO_REG_CLASS (hard_regno);
   mode = ALLOCNO_MODE (allocno);
   for (cp = ALLOCNO_COPIES (allocno); cp != NULL; cp = next_cp)
     {
@@ -160,10 +160,10 @@ update_copy_costs_1 (ira_allocno_t allocno, int hard_regno,
 	  || ALLOCNO_ASSIGNED_P (another_allocno))
 	continue;
       cost = (cp->second == allocno
-	      ? ira_register_move_cost[mode][class]
+	      ? ira_register_move_cost[mode][rclass]
 	        [ALLOCNO_COVER_CLASS (another_allocno)]
 	      : ira_register_move_cost[mode]
-	        [ALLOCNO_COVER_CLASS (another_allocno)][class]);
+	        [ALLOCNO_COVER_CLASS (another_allocno)][rclass]);
       if (decr_p)
 	cost = -cost;
       ira_allocate_and_set_or_copy_costs
@@ -243,7 +243,7 @@ assign_hard_reg (ira_allocno_t allocno, bool retry_p)
   int cost, mem_cost, min_cost, full_cost, min_full_cost, add_cost;
   int *a_costs;
   int *conflict_costs;
-  enum reg_class cover_class, class;
+  enum reg_class cover_class, rclass;
   enum machine_mode mode;
   ira_allocno_t a, conflict_allocno;
   ira_allocno_t another_allocno;
@@ -397,9 +397,9 @@ assign_hard_reg (ira_allocno_t allocno, bool retry_p)
 	   epilogue/prologue.  Therefore we increase the cost.  */
 	{
 	  /* ??? If only part is call clobbered.  */
-	  class = REGNO_REG_CLASS (hard_regno);
-	  add_cost = (ira_memory_move_cost[mode][class][0]
-		      + ira_memory_move_cost[mode][class][1] - 1);
+	  rclass = REGNO_REG_CLASS (hard_regno);
+	  add_cost = (ira_memory_move_cost[mode][rclass][0]
+		      + ira_memory_move_cost[mode][rclass][1] - 1);
 	  cost += add_cost;
 	  full_cost += add_cost;
 	}
@@ -827,7 +827,7 @@ calculate_allocno_spill_cost (ira_allocno_t a)
 {
   int regno, cost;
   enum machine_mode mode;
-  enum reg_class class;
+  enum reg_class rclass;
   ira_allocno_t parent_allocno;
   ira_loop_tree_node_t parent_node, loop_node;
 
@@ -841,18 +841,18 @@ calculate_allocno_spill_cost (ira_allocno_t a)
   if ((parent_allocno = parent_node->regno_allocno_map[regno]) == NULL)
     return cost;
   mode = ALLOCNO_MODE (a);
-  class = ALLOCNO_COVER_CLASS (a);
+  rclass = ALLOCNO_COVER_CLASS (a);
   if (ALLOCNO_HARD_REGNO (parent_allocno) < 0)
-    cost -= (ira_memory_move_cost[mode][class][0]
+    cost -= (ira_memory_move_cost[mode][rclass][0]
 	     * ira_loop_edge_freq (loop_node, regno, true)
-	     + ira_memory_move_cost[mode][class][1]
+	     + ira_memory_move_cost[mode][rclass][1]
 	     * ira_loop_edge_freq (loop_node, regno, false));
   else
-    cost += ((ira_memory_move_cost[mode][class][1]
+    cost += ((ira_memory_move_cost[mode][rclass][1]
 	      * ira_loop_edge_freq (loop_node, regno, true)
-	      + ira_memory_move_cost[mode][class][0]
+	      + ira_memory_move_cost[mode][rclass][0]
 	      * ira_loop_edge_freq (loop_node, regno, false))
-	     - (ira_register_move_cost[mode][class][class]
+	     - (ira_register_move_cost[mode][rclass][rclass]
 		* (ira_loop_edge_freq (loop_node, regno, false)
 		   + ira_loop_edge_freq (loop_node, regno, true))));
   return cost;
@@ -919,7 +919,7 @@ static void
 push_allocnos_to_stack (void)
 {
   ira_allocno_t allocno, a, i_allocno, *allocno_vec;
-  enum reg_class cover_class, class;
+  enum reg_class cover_class, rclass;
   int allocno_pri, i_allocno_pri, allocno_cost, i_allocno_cost;
   int i, j, num, cover_class_allocnos_num[N_REG_CLASSES];
   ira_allocno_t *cover_class_allocnos[N_REG_CLASSES];
@@ -1006,12 +1006,12 @@ push_allocnos_to_stack (void)
 	    {
 	      allocno = VEC_pop (ira_allocno_t, removed_splay_allocno_vec);
 	      ALLOCNO_SPLAY_REMOVED_P (allocno) = false;
-	      class = ALLOCNO_COVER_CLASS (allocno);
+	      rclass = ALLOCNO_COVER_CLASS (allocno);
 	      if (ALLOCNO_LEFT_CONFLICTS_NUM (allocno)
-		  + ira_reg_class_nregs [class][ALLOCNO_MODE (allocno)]
+		  + ira_reg_class_nregs [rclass][ALLOCNO_MODE (allocno)]
 		  > ALLOCNO_AVAILABLE_REGS_NUM (allocno))
 		splay_tree_insert
-		  (uncolorable_allocnos_splay_tree[class],
+		  (uncolorable_allocnos_splay_tree[rclass],
 		   (splay_tree_key) allocno, (splay_tree_value) allocno);
 	    }
 	  allocno = ((ira_allocno_t)
@@ -1573,7 +1573,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
   unsigned int j;
   bitmap_iterator bi;
   enum machine_mode mode;
-  enum reg_class class, cover_class;
+  enum reg_class rclass, cover_class;
   ira_allocno_t a, subloop_allocno;
   ira_loop_tree_node_t subloop_node;
 
@@ -1603,16 +1603,16 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	  continue;
 	/* Remove from processing in the next loop.  */
 	bitmap_clear_bit (consideration_allocno_bitmap, j);
-	class = ALLOCNO_COVER_CLASS (a);
+	rclass = ALLOCNO_COVER_CLASS (a);
 	if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
-	     && loop_tree_node->reg_pressure[class]
-	     <= ira_available_class_regs[class]))
+	     && loop_tree_node->reg_pressure[rclass]
+	     <= ira_available_class_regs[rclass]))
 	  {
 	    mode = ALLOCNO_MODE (a);
 	    hard_regno = ALLOCNO_HARD_REGNO (a);
 	    if (hard_regno >= 0)
 	      {
-		index = ira_class_hard_reg_index[class][hard_regno];
+		index = ira_class_hard_reg_index[rclass][hard_regno];
 		ira_assert (index >= 0);
 	      }
 	    regno = ALLOCNO_REGNO (a);
@@ -1639,11 +1639,11 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	  a = ira_allocnos[j];
 	  ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
 	  mode = ALLOCNO_MODE (a);
-	  class = ALLOCNO_COVER_CLASS (a);
+	  rclass = ALLOCNO_COVER_CLASS (a);
 	  hard_regno = ALLOCNO_HARD_REGNO (a);
 	  if (hard_regno >= 0)
 	    {
-	      index = ira_class_hard_reg_index[class][hard_regno];
+	      index = ira_class_hard_reg_index[rclass][hard_regno];
 	      ira_assert (index >= 0);
 	    }
 	  regno = ALLOCNO_REGNO (a);
@@ -1653,8 +1653,8 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	      || ALLOCNO_CAP (subloop_allocno) != NULL)
 	    continue;
 	  if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
-	       && (loop_tree_node->reg_pressure[class]
-		   <= ira_available_class_regs[class]))
+	       && (loop_tree_node->reg_pressure[rclass]
+		   <= ira_available_class_regs[rclass]))
 	      || (hard_regno < 0
 		  && ! bitmap_bit_p (subloop_node->mentioned_allocnos,
 				     ALLOCNO_NUM (subloop_allocno))))
@@ -1689,8 +1689,8 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	  else if (hard_regno < 0)
 	    {
 	      ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
-		-= ((ira_memory_move_cost[mode][class][1] * enter_freq)
-		    + (ira_memory_move_cost[mode][class][0] * exit_freq));
+		-= ((ira_memory_move_cost[mode][rclass][1] * enter_freq)
+		    + (ira_memory_move_cost[mode][rclass][0] * exit_freq));
 	    }
 	  else
 	    {
@@ -1701,14 +1701,14 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	      ira_allocate_and_set_costs
 		(&ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno),
 		 cover_class, 0);
-	      cost = (ira_register_move_cost[mode][class][class] 
+	      cost = (ira_register_move_cost[mode][rclass][rclass] 
 		      * (exit_freq + enter_freq));
 	      ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index] -= cost;
 	      ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno)[index]
 		-= cost;
 	      ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
-		+= (ira_memory_move_cost[mode][class][0] * enter_freq
-		    + ira_memory_move_cost[mode][class][1] * exit_freq);
+		+= (ira_memory_move_cost[mode][rclass][0] * enter_freq
+		    + ira_memory_move_cost[mode][rclass][1] * exit_freq);
 	      if (ALLOCNO_COVER_CLASS_COST (subloop_allocno)
 		  > ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index])
 		ALLOCNO_COVER_CLASS_COST (subloop_allocno)
@@ -1757,7 +1757,7 @@ move_spill_restore (void)
   bool changed_p;
   int enter_freq, exit_freq;
   enum machine_mode mode;
-  enum reg_class class;
+  enum reg_class rclass;
   ira_allocno_t a, parent_allocno, subloop_allocno;
   ira_loop_tree_node_t parent, loop_node, subloop_node;
   ira_allocno_iterator ai;
@@ -1784,8 +1784,8 @@ move_spill_restore (void)
 	      || !bitmap_bit_p (loop_node->border_allocnos, ALLOCNO_NUM (a)))
 	    continue;
 	  mode = ALLOCNO_MODE (a);
-	  class = ALLOCNO_COVER_CLASS (a);
-	  index = ira_class_hard_reg_index[class][hard_regno];
+	  rclass = ALLOCNO_COVER_CLASS (a);
+	  index = ira_class_hard_reg_index[rclass][hard_regno];
 	  ira_assert (index >= 0);
 	  cost = (ALLOCNO_MEMORY_COST (a)
 		  - (ALLOCNO_HARD_REG_COSTS (a) == NULL
@@ -1809,15 +1809,15 @@ move_spill_restore (void)
 	      exit_freq = ira_loop_edge_freq (subloop_node, regno, true);
 	      enter_freq = ira_loop_edge_freq (subloop_node, regno, false);
 	      if ((hard_regno2 = ALLOCNO_HARD_REGNO (subloop_allocno)) < 0)
-		cost -= (ira_memory_move_cost[mode][class][0] * exit_freq
-			 + ira_memory_move_cost[mode][class][1] * enter_freq);
+		cost -= (ira_memory_move_cost[mode][rclass][0] * exit_freq
+			 + ira_memory_move_cost[mode][rclass][1] * enter_freq);
 	      else
 		{
 		  cost
-		    += (ira_memory_move_cost[mode][class][0] * exit_freq
-			+ ira_memory_move_cost[mode][class][1] * enter_freq);
+		    += (ira_memory_move_cost[mode][rclass][0] * exit_freq
+			+ ira_memory_move_cost[mode][rclass][1] * enter_freq);
 		  if (hard_regno2 != hard_regno)
-		    cost -= (ira_register_move_cost[mode][class][class]
+		    cost -= (ira_register_move_cost[mode][rclass][rclass]
 			     * (exit_freq + enter_freq));
 		}
 	    }
@@ -1827,15 +1827,15 @@ move_spill_restore (void)
 	      exit_freq	= ira_loop_edge_freq (loop_node, regno, true);
 	      enter_freq = ira_loop_edge_freq (loop_node, regno, false);
 	      if ((hard_regno2 = ALLOCNO_HARD_REGNO (parent_allocno)) < 0)
-		cost -= (ira_memory_move_cost[mode][class][0] * exit_freq
-			 + ira_memory_move_cost[mode][class][1] * enter_freq);
+		cost -= (ira_memory_move_cost[mode][rclass][0] * exit_freq
+			 + ira_memory_move_cost[mode][rclass][1] * enter_freq);
 	      else
 		{
 		  cost
-		    += (ira_memory_move_cost[mode][class][1] * exit_freq
-			+ ira_memory_move_cost[mode][class][0] * enter_freq);
+		    += (ira_memory_move_cost[mode][rclass][1] * exit_freq
+			+ ira_memory_move_cost[mode][rclass][0] * enter_freq);
 		  if (hard_regno2 != hard_regno)
-		    cost -= (ira_register_move_cost[mode][class][class]
+		    cost -= (ira_register_move_cost[mode][rclass][rclass]
 			     * (exit_freq + enter_freq));
 		}
 	    }
@@ -1868,7 +1868,7 @@ update_curr_costs (ira_allocno_t a)
 {
   int i, hard_regno, cost;
   enum machine_mode mode;
-  enum reg_class cover_class, class;
+  enum reg_class cover_class, rclass;
   ira_allocno_t another_a;
   ira_copy_t cp, next_cp;
 
@@ -1895,12 +1895,12 @@ update_curr_costs (ira_allocno_t a)
 	  || ! ALLOCNO_ASSIGNED_P (another_a)
 	  || (hard_regno = ALLOCNO_HARD_REGNO (another_a)) < 0)
 	continue;
-      class = REGNO_REG_CLASS (hard_regno);
+      rclass = REGNO_REG_CLASS (hard_regno);
       i = ira_class_hard_reg_index[cover_class][hard_regno];
       ira_assert (i >= 0);
       cost = (cp->first == a
-	      ? ira_register_move_cost[mode][class][cover_class]
-	      : ira_register_move_cost[mode][cover_class][class]);
+	      ? ira_register_move_cost[mode][rclass][cover_class]
+	      : ira_register_move_cost[mode][cover_class][rclass]);
       ira_allocate_and_set_or_copy_costs
 	(&ALLOCNO_UPDATED_HARD_REG_COSTS (a),
 	 cover_class, ALLOCNO_COVER_CLASS_COST (a),

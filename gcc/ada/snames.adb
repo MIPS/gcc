@@ -104,9 +104,6 @@ package body Snames is
      "finalize#" &
      "next#" &
      "prev#" &
-     "_typecode#" &
-     "_from_any#" &
-     "_to_any#" &
      "allocate#" &
      "deallocate#" &
      "dereference#" &
@@ -182,8 +179,8 @@ package body Snames is
      "ada_05#" &
      "ada_2005#" &
      "assertion_policy#" &
+     "assume_no_invalid_values#" &
      "c_pass_by_copy#" &
-     "canonical_streams#" &
      "check_name#" &
      "check_policy#" &
      "compile_time_error#" &
@@ -415,6 +412,7 @@ package body Snames is
      "secondary_stack_size#" &
      "section#" &
      "semaphore#" &
+     "short_descriptor#" &
      "simple_barriers#" &
      "spec_file_name#" &
      "state#" &
@@ -557,6 +555,7 @@ package body Snames is
      "copy_sign#" &
      "floor#" &
      "fraction#" &
+     "from_any#" &
      "image#" &
      "input#" &
      "machine#" &
@@ -567,7 +566,9 @@ package body Snames is
      "remainder#" &
      "rounding#" &
      "succ#" &
+     "to_any#" &
      "truncation#" &
+     "typecode#" &
      "value#" &
      "wide_image#" &
      "wide_wide_image#" &
@@ -727,6 +728,7 @@ package body Snames is
      "extends#" &
      "externally_built#" &
      "finder#" &
+     "global_compilation_switches#" &
      "global_configuration_pragmas#" &
      "global_config_file#" &
      "gnatls#" &
@@ -779,6 +781,7 @@ package body Snames is
      "objects_path#" &
      "objects_path_file#" &
      "object_dir#" &
+     "path_syntax#" &
      "pic_option#" &
      "pretty_printer#" &
      "prefix#" &
