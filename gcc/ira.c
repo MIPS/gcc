@@ -909,7 +909,14 @@ setup_reg_class_intersect_union (void)
 		     reg_class_contents[(int)
 					ira_reg_class_intersect[cl1][cl2]]);
 		  AND_COMPL_HARD_REG_SET (temp_set2, no_unit_alloc_regs);
-	 	  if (! hard_reg_set_subset_p (temp_hard_regset, temp_set2))
+	 	  if (! hard_reg_set_subset_p (temp_hard_regset, temp_set2)
+		      /* Ignore unavailable hard registers and prefer
+			 smallest class for debugging purposes.  */
+		      || (hard_reg_set_equal_p (temp_hard_regset, temp_set2)
+			  && hard_reg_set_subset_p
+			     (reg_class_contents[cl3],
+			      reg_class_contents
+			      [(int) ira_reg_class_intersect[cl1][cl2]])))
 		    ira_reg_class_intersect[cl1][cl2] = (enum reg_class) cl3;
 		}
 	      if (hard_reg_set_subset_p (temp_hard_regset, union_set))
@@ -918,7 +925,18 @@ setup_reg_class_intersect_union (void)
 		    (temp_set2,
 		     reg_class_contents[(int) ira_reg_class_union[cl1][cl2]]);
 		  AND_COMPL_HARD_REG_SET (temp_set2, no_unit_alloc_regs);
-	 	  if (hard_reg_set_subset_p (temp_set2, temp_hard_regset))
+	 	  if (ira_reg_class_union[cl1][cl2] == NO_REGS
+		      || (hard_reg_set_subset_p (temp_set2, temp_hard_regset)
+		      
+			  && (! hard_reg_set_equal_p (temp_set2,
+						      temp_hard_regset)
+			      /* Ignore unavailable hard registers and
+				 prefer smallest class for debugging
+				 purposes.  */
+			      || hard_reg_set_subset_p
+			         (reg_class_contents[cl3],
+				  reg_class_contents
+				  [(int) ira_reg_class_union[cl1][cl2]]))))
 		    ira_reg_class_union[cl1][cl2] = (enum reg_class) cl3;
 		}
 	    }

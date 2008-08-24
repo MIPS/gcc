@@ -1,6 +1,12 @@
 2008-08-24  Jeff Law  <law@redhat.com>
 	    Vladimir Makarov  <vmakarov@redhat.com>
 
+	* ira.c (setup_reg_class_intersect_union): Prefer smallest class
+	when ignoring unavailable registers.
+
+2008-08-24  Jeff Law  <law@redhat.com>
+	    Vladimir Makarov  <vmakarov@redhat.com>
+
 	* ira-color.c (coalesced_pseudo_reg_slot_compare): Check
 	FRAME_GROWS_DOWNWARD and STACK_GROWS_DOWNWARD.
 
