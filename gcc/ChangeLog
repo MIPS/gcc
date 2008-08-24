@@ -1,3 +1,11 @@
+2008-08-24  Jeff Law  <law@redhat.com>
+	    Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (coalesced_pseudo_reg_slot_compare): Check
+	FRAME_GROWS_DOWNWARD and STACK_GROWS_DOWNWARD.
+
+	* ira.c (setup_eliminable_regset): Check stack_realign_needed.
+
 2008-08-1  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-conflicts.c (process_regs_for_copy): Don't add copy for

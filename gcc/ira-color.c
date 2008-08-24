@@ -2074,6 +2074,14 @@ coalesced_pseudo_reg_freq_compare (const void *v1p, const void *v2p)
    It is used for sorting pseudo registers.  */
 static unsigned int *regno_max_ref_width;
 
+/* Redefine STACK_GROWS_DOWNWARD in terms of 0 or 1.  */
+#ifdef STACK_GROWS_DOWNWARD
+# undef STACK_GROWS_DOWNWARD
+# define STACK_GROWS_DOWNWARD 1
+#else
+# define STACK_GROWS_DOWNWARD 0
+#endif
+
 /* Sort pseudos according their slot numbers (putting ones with
   smaller numbers first, or last when the frame pointer is not
   needed).  */
@@ -2098,7 +2106,8 @@ coalesced_pseudo_reg_slot_compare (const void *v1p, const void *v2p)
   slot_num1 = -ALLOCNO_HARD_REGNO (a1);
   slot_num2 = -ALLOCNO_HARD_REGNO (a2);
   if ((diff = slot_num1 - slot_num2) != 0)
-    return frame_pointer_needed ? diff : -diff;
+    return (frame_pointer_needed
+	    || !FRAME_GROWS_DOWNWARD == STACK_GROWS_DOWNWARD ? diff : -diff);
   total_size1 = MAX (PSEUDO_REGNO_BYTES (regno1), regno_max_ref_width[regno1]);
   total_size2 = MAX (PSEUDO_REGNO_BYTES (regno2), regno_max_ref_width[regno2]);
   if ((diff = total_size2 - total_size1) != 0)
