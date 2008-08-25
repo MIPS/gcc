@@ -1455,8 +1455,13 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
   LTO_DEBUG_TOKEN ("align");
   DECL_ALIGN (result) = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("size");
-  DECL_SIZE (result) = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-
+  /* FIXME lto:  We allow for a null value of DECL_SIZE, which will occur
+     for variably-modified types.  See comments in output_local_var_decl.  */
+  tag = input_record_start (ib);
+  if (tag)
+    DECL_SIZE (result) = input_expr_operand (ib, data_in, fn, tag);
+  else
+    DECL_SIZE (result) = NULL_TREE;
   if (variant & 0x1)
     {
       LTO_DEBUG_TOKEN ("attributes");
@@ -2718,7 +2723,17 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 	 may set the assembler name where it was previously empty.  */
       tree old_assembler_name = decl->decl_with_vis.assembler_name;
 
-      lang_hooks.set_decl_assembler_name (decl);
+      /* FIXME lto:  We normally pre-mangle names before we serialize them
+	 out.  Here, in lto1, we do not know the language, and thus cannot
+	 do the mangling again. Instead, we just append a suffix to the
+	 mangled name.  The resulting name, however, is not a properly-formed
+	 mangled name, and will confuse any attempt to unmangle it.  */
+
+      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      char *label;
+      
+      ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
+      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
 
       /* We may arrive here with the old assembler name not set
 	 if the function body is not needed, e.g., it has been
@@ -2815,22 +2830,31 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
   }
 
   /* FIXME: Adapted from DWARF reader. Probably needs more thought.  */
-  if (!(decl->decl_minimal.context
-        && TREE_CODE (decl->decl_minimal.context) == FUNCTION_DECL))
+  if (DECL_FILE_SCOPE_P (decl))
     {
-      /* Variable has file scope, not local.  */
+      /* Variable has file scope, not local. Need to ensure static variables
+	 between different files don't clash unexpectedly.  */
       if (!TREE_PUBLIC (decl))
         {
-          /* Need to ensure static variables between different files
-             don't clash unexpectedly.  */
-          lang_hooks.set_decl_assembler_name (decl);
+	  /* FIXME lto:  We normally pre-mangle names before we serialize them
+	     out.  Here, in lto1, we do not know the language, and thus cannot
+	     do the mangling again. Instead, we just append a suffix to the
+	     mangled name.  The resulting name, however, is not a properly-formed
+	     mangled name, and will confuse any attempt to unmangle it.  */
+
+	  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+	  char *label;
+      
+	  ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
+	  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
+
           rest_of_decl_compilation (decl,
                                     /*top_level=*/1,
                                     /*at_end=*/0);
         }
 
-      /* The DWARF reader always sets DECL_STATIC for a global,
-         and lto_symtab_merge will assert if it is not set.
+      /* FIXME lto: The DWARF reader always sets DECL_STATIC for a
+	 global, and lto_symtab_merge will assert if it is not set.
          We should likely not set it, and fix lto_symtab_merge.  */
       TREE_STATIC (decl) = 1;
 
@@ -2949,7 +2973,8 @@ input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
   /* omit locus, uid */
   /* Must output name before type.  */
   input_tree (&decl->decl_minimal.name, ib, data_in);
-  input_tree (&decl->decl_minimal.context, ib, data_in);
+
+  /* omit context */
 
   input_tree (&decl->decl_with_vis.assembler_name, ib, data_in);
   input_tree (&decl->decl_with_vis.section_name, ib, data_in);
@@ -3194,8 +3219,9 @@ input_type (struct lto_input_block *ib, struct data_in *data_in, enum tree_code 
   input_tree (&type->type.main_variant, ib, data_in);
   LTO_DEBUG_TOKEN ("binfo");
   input_tree (&type->type.binfo, ib, data_in);
-  LTO_DEBUG_TOKEN ("context");
-  input_tree (&type->type.context, ib, data_in);
+
+  /* omit context */
+
   LTO_DEBUG_TOKEN ("canonical");
   input_tree (&type->type.canonical, ib, data_in);
 

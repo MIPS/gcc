@@ -279,6 +279,8 @@ decl_is_template_id (const tree decl, tree* const template_info)
       /* Check if this is a primary template.  */
       if (DECL_LANG_SPECIFIC (decl) != NULL
 	  && DECL_USE_TEMPLATE (decl)
+	  && TREE_CODE (DECL_TI_TEMPLATE (decl)) != OVERLOAD
+	  && TREE_CODE (DECL_TI_TEMPLATE (decl)) != IDENTIFIER_NODE
 	  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (decl))
 	  && TREE_CODE (decl) != TEMPLATE_DECL)
 	{

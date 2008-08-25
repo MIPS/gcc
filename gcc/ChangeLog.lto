@@ -1,3 +1,28 @@
+2008-08-25  Bill Maddox <maddox@google.com>
+
+	* tree.c (reset_type_lang_specific): Clear TYPE_CONTEXT of
+	TYPE_DECL nodes.  Clear TYPE_LANG_SLOT_1 where applicable.
+	(set_asm_name): New function.
+	(reset_lang_specific): Clear DECL_CONTEXT.  Add/update comments.
+	(free_lang_specifics): Apply set_asm_name to declarations.  Apply
+	reset_type_lang_specific last, after asm names are set.
+	* lto-function-out.c (output_local_var_decl): Allow for DECL_SIZE
+	to be null
+	(lto_output): Invoke free_lang_specifics before output of functions.
+	(output_type_decl): Verify context is null and don't stream it out.
+	(output_type): Assert that binfo only is present for record or union.
+	Verify context is null and don't stream it out.	
+	* lto-function-in.c (input_local_var_decl): Allow for null DECL_SIZE.
+	(input_function_decl): Don't rely on set_decl_assembler_name langhook
+	to make static function names unique.
+	(input_var_decl): Don't rely on set_decl_assembler_name langhook
+	to make static variable names unique.  Use DECL_FILE_SCOPE_P to test
+	declaration for file scope.
+	(input_type_decl):  Don't read DECL_CONTEXT.
+	(input_type): Don't read TYPE_CONTEXT.
+	* lto-section-out.c (produce_asm_for_decls): Remove call to
+	free_lang_specifics, moved to lto_input.
+
 2008-08-25  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-section-out.c (produce_symtab_1): Use DECL_ASSEMBLER_NAME

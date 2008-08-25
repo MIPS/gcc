@@ -1159,8 +1159,6 @@ produce_asm_for_decls (void)
   size_t decl_state_size;
   int32_t num_decl_states;
 
-  free_lang_specifics ();
-
   ob->global = true;
   ob->main_hash_table = htab_create (37, lto_hash_global_slot_node,
 				     lto_eq_global_slot_node, free);

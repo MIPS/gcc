@@ -1,3 +1,8 @@
+2008-08-25  Bill Maddox <maddox@google.com>
+
+	* lto-symtab.c (lto_symtab_merge_decl): Remove a suspect
+	assertion and leave an explanatory comment in its place.
+	
 2008-08-21  Doug Kwan  <dougkwan@google.com>
 
 	* lto.c (preload_common_nodes): Call lto_get_common_nodes to get a list

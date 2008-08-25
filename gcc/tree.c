@@ -4036,10 +4036,41 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	TYPE_MIN_VALUE (type) = old_min;
     }
 
+  if (TREE_CODE (type) != RECORD_TYPE && TREE_CODE (type) != UNION_TYPE)
+    /* Overloads TYPE_BINFO for non-record, non-union types.  */
+    TYPE_LANG_SLOT_1 (type) = NULL_TREE;
+
+  /* Clear TYPE_CONTEXT, which reflects source-language
+     scoping and should not be part of the IR.
+     FIXME lto: This will break debug info generation.  */
+  TYPE_CONTEXT (type) = NULL_TREE;
+
+  return 1;
+}
+
+
+/* Helper function of free_lang_specifics.
+   Set the assembler name for nodes that may need one.  */
+
+static int
+set_asm_name (void **slot, void *unused ATTRIBUTE_UNUSED)
+{
+  tree decl = *(tree*) slot;
+  if (HAS_DECL_ASSEMBLER_NAME_P (decl)
+      && (TREE_CODE (decl) == FUNCTION_DECL
+          || TREE_CODE (decl) == VAR_DECL)
+      && !DECL_ASSEMBLER_NAME_SET_P (decl)
+      && !DECL_IGNORED_P (decl)
+      && (TREE_CODE (decl) != VAR_DECL
+	  || TREE_STATIC (decl)
+	  || TREE_PUBLIC (decl)
+	  || DECL_EXTERNAL (decl)))
+    lang_hooks.set_decl_assembler_name (decl);
   return 1;
 }
 
 /* Helper function of free_lang_specifics. */
+
 static int
 reset_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 {
@@ -4066,11 +4097,34 @@ reset_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
     }
   if (TREE_CODE (decl) == TYPE_DECL)
     {
-      /* According to tree.h, the DECL_INITIAL field isn't
-	 used for TYPE_DECLs, but in C++, I've seen a TREE_LIST
-	 here full of language-specific stuff.  Omit it.  */
+      /* FIXME lto:
+	 DECL_INITIAL should not be defined here, but it is
+	 overloaded by the C++ front-end as DECL_FRIENDLIST.
+	 We should probably call out to FE-specific cleanup
+	 routines to handle this sort of thing.  */
       DECL_INITIAL (decl) = NULL_TREE;
+  
+      /* DECL_CONTEXT is overloaded as DECL_FIELD_CONTEXT for
+	 FIELD_DECLs, which should be preserved.  Otherwise,
+	 we shouldn't be concerned with source-level lexical
+	 nesting beyond this point. */
+      /* FIXME lto: Unfortunately, calls to decl_function_context
+	 may occur in the back-end and depend on the DECL_CONTEXT
+	 being set for FUNCTION_DECL and possibly others.
+	 See also the use of DECL_CONTEXT of FUNCTION_DECL
+	 in cgraph_node.  */
+      DECL_CONTEXT (decl) = NULL_TREE;
     }
+  /* FIXME lto: Ideally, we would like to flatten out the nesting
+     of other non-field declarations within types, however this does
+     not work.  This should be investigated further.  */
+#if 0
+  else if (TREE_CODE (decl) != FIELD_DECL)
+    /* Ignore any intervening types, because we
+       are going to clear their TYPE_CONTEXT fields.  */
+    DECL_CONTEXT (decl) = decl_function_context (decl);
+#endif
+
   return 1;
 }
 
@@ -4079,8 +4133,12 @@ reset_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 void
 free_lang_specifics (void)
 {
-  htab_traverse (uid2type_map, reset_type_lang_specific, NULL);
+  /* Set assembler names now, as callbacks from the back-end
+     will fail after we strip DECL_CONTEXT from declaration nodes.  */
+  htab_traverse (decl_for_uid_map, set_asm_name, NULL);
+
   htab_traverse (decl_for_uid_map, reset_lang_specific, NULL);
+  htab_traverse (uid2type_map, reset_type_lang_specific, NULL);
 
   /* FIXME lto.  This is a hack.  ptrdiff_type_node is only created
      by the C/C++ FE.  This should be converted to some similar

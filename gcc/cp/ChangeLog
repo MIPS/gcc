@@ -1,3 +1,8 @@
+2008-08-25  Bill Maddox <maddox@google.com>
+
+	* mangle.c (decl_is_template_id): Protect against unexpected
+	node type as argument to PRIMARY_TEMPLATE_P.
+	
 2008-07-25  Jason Merrill  <jason@redhat.com>
 
 	* class.c (type_has_user_provided_default_constructor): Handle

@@ -266,7 +266,11 @@ lto_symtab_merge_decl (tree new_decl)
      properties inconsistent with having external linkage.  If any of
      these asertions fail, then the object file reader has failed to
      detect these cases and issue appropriate error messages.  */
-  gcc_assert (!DECL_NONLOCAL (new_decl));
+  /* FIXME lto: The assertion below may fail incorrectly on a static
+     class member.  The problem seems to be the (documented) fact
+     that DECL_NONLOCAL may be set for class instance variables as
+     well as for variables referenced from inner functions.  */
+  /*gcc_assert (!DECL_NONLOCAL (new_decl));*/
   if (TREE_CODE (new_decl) == VAR_DECL)
     {
       gcc_assert (TREE_STATIC (new_decl));

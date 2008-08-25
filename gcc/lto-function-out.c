@@ -1371,7 +1371,11 @@ output_local_var_decl (struct output_block *ob, int index)
   /* This will either be a local var decl or a parm decl. */
   unsigned int tag;
   
-  gcc_assert (DECL_SIZE (decl));
+  /* FIXME lto: If we agree that is is correct for reset_lang_specific
+     to null out the DECL_SIZE expression for variably-modified types,
+     then we cannot assume that DECL_SIZE is non-null here.  This assertion
+     fails on gcc.c-torture/compile/20020210-1.c for that reason.  */
+  /*gcc_assert (DECL_SIZE (decl));*/
   variant |= DECL_ATTRIBUTES (decl)      != NULL_TREE ? 0x01 : 0;
   variant |= DECL_SIZE_UNIT (decl)       != NULL_TREE ? 0x02 : 0;
   variant |= needs_backing_var                        ? 0x04 : 0;
@@ -1433,7 +1437,13 @@ output_local_var_decl (struct output_block *ob, int index)
   
   /* Put out the subtrees.  */
   LTO_DEBUG_TOKEN ("size");
-  output_expr_operand (ob, DECL_SIZE (decl));
+  /* Note that DECL_SIZE might be NULL_TREE for a
+     variably-modified type.  See reset_lang_specific
+     and the comment above.  */
+  if (DECL_SIZE (decl))
+    output_expr_operand (ob, DECL_SIZE (decl));
+  else
+    output_zero (ob);
   if (DECL_ATTRIBUTES (decl)!= NULL_TREE)
     {
       LTO_DEBUG_TOKEN ("attributes");
@@ -2355,7 +2365,12 @@ lto_output (void)
 
   lto_static_init_local ();
 
-  /* Process only the fuctions with bodies and only process the master
+  /* Remove some front-end specific garbage from the tree.
+     We don't yet have a middle-end type system, so front-end
+     specific types leak into the middle-end.  */
+  free_lang_specifics ();
+
+  /* Process only the functions with bodies and only process the master
      ones of them.  */
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed && cgraph_is_master_clone (node, false))
@@ -2746,7 +2761,9 @@ output_type_decl (struct output_block *ob, tree decl)
   /* uid and locus are handled specially */
   /* Must output name before type.  */
   output_tree (ob, decl->decl_minimal.name);
-  output_tree (ob, decl->decl_minimal.context);
+
+  /* Should be cleared by free_lang_specifics.  */
+  gcc_assert (decl->decl_minimal.context == NULL_TREE);
 
   output_tree (ob, decl->decl_with_vis.assembler_name);
   output_tree (ob, decl->decl_with_vis.section_name);
@@ -2846,8 +2863,8 @@ output_namespace_decl (struct output_block *ob, tree decl)
   gcc_assert (decl->decl_with_rtl.rtl == NULL);
 
   output_tree (ob, decl->decl_non_common.saved_tree);  		/* ??? */
-  gcc_assert (decl->decl_non_common.arguments == NULL_TREE); 	/* ??? */
-  gcc_assert (decl->decl_non_common.result == NULL_TREE); 	/* ??? */
+  gcc_assert (decl->decl_non_common.arguments == NULL_TREE);
+  gcc_assert (decl->decl_non_common.result == NULL_TREE);
   output_tree (ob, decl->decl_non_common.vindex);
 
   /* omit chain */
@@ -2966,10 +2983,15 @@ output_type (struct output_block *ob, tree type, enum LTO_tags tag)
   output_tree (ob, type->type.next_variant);
   LTO_DEBUG_TOKEN ("main_variant");
   output_tree (ob, type->type.main_variant);
+  gcc_assert (type->type.binfo == NULL_TREE
+	      || TREE_CODE (type) == RECORD_TYPE
+	      || TREE_CODE (type) == UNION_TYPE);
   LTO_DEBUG_TOKEN ("binfo");
   output_tree (ob, type->type.binfo);
-  LTO_DEBUG_TOKEN ("context");
-  output_tree (ob, type->type.context);
+
+  /* Should be cleared by free_lang_specifics.  */
+  gcc_assert (type->type.context == NULL_TREE);
+
   LTO_DEBUG_TOKEN ("canonical");
   output_tree (ob, type->type.canonical);
 
