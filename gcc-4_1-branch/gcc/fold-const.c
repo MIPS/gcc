@@ -5344,6 +5344,9 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type)
             }
           break;
         }
+      /* If the constant is negative, we cannot simplify this.  */
+      if (tree_int_cst_sgn (c) == -1)
+        break;
       /* FALLTHROUGH */
     case NEGATE_EXPR:
       if ((t1 = extract_muldiv (op0, c, code, wide_type)) != 0)
@@ -6302,12 +6305,18 @@ fold_widened_comparison (enum tree_code code, tree type, tree arg0, tree arg1)
   if (TYPE_PRECISION (TREE_TYPE (arg0)) <= TYPE_PRECISION (shorter_type))
     return NULL_TREE;
 
-  arg1_unw = get_unwidened (arg1, shorter_type);
+  arg1_unw = get_unwidened (arg1, NULL_TREE);
 
   /* If possible, express the comparison in the shorter mode.  */
   if ((code == EQ_EXPR || code == NE_EXPR
        || TYPE_UNSIGNED (TREE_TYPE (arg0)) == TYPE_UNSIGNED (shorter_type))
       && (TREE_TYPE (arg1_unw) == shorter_type
+	  || (TYPE_PRECISION (shorter_type)
+	      > TYPE_PRECISION (TREE_TYPE (arg1_unw)))
+	  || ((TYPE_PRECISION (shorter_type)
+	       == TYPE_PRECISION (TREE_TYPE (arg1_unw)))
+	      && (TYPE_UNSIGNED (shorter_type)
+		  == TYPE_UNSIGNED (TREE_TYPE (arg1_unw))))
 	  || (TREE_CODE (arg1_unw) == INTEGER_CST
 	      && (TREE_CODE (shorter_type) == INTEGER_TYPE
 		  || TREE_CODE (shorter_type) == BOOLEAN_TYPE)

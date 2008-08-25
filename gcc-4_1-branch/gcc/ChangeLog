@@ -1,3 +1,138 @@
+2008-06-05  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_emit_loadgp): Emit a blockage if
+	current_function_profile.
+	* config/mips/mips.md (loadgp_blockage): Use SI rather than DI.
+
+2008-05-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-nested.c (check_for_nested_with_variably_modified): Fix typo.
+
+2008-04-08  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_widened_comparison): Do not allow
+	sign-changes that change the result.
+
+2008-03-25  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-02-12  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35163
+	* fold-const.c (fold_widened_comparison): Use get_unwidened in
+	value-preserving mode.  Disallow final truncation.
+
+2008-03-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2007-09-27  Matthias Klose  <doko@ubuntu.com>
+
+	* config/i386/t-linux64 (MULTILIB_OSDIRNAMES): Use ../lib32 as the
+	multilib osdirname if it exists.
+	* config/rs6000/t-linux64 (MULTILIB_OSDIRNAMES): Likewise.
+
+2008-02-14  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/34393
+	* config/rs6000/rs6000.md (restore_stack_block): Force operands[1]
+	to a reg.
+
+2008-02-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle_end/34150
+	* pa.c (legitimize_pic_address): Add REG_EQUAL note on sets with a
+	pic_label_operand source.  Similarly, add a REG_LABEL note and
+	update LABEL_NUSES during and after reload.
+
+2008-02-08  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	PR middle-end/34627
+	* combine.c (simplify_if_then_else): Make sure the comparison is
+	against const0_rtx when simplifying to (abs x) or (neg (abs X)).
+
+2008-02-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33631
+	* expr.c (count_type_elements): Give for unions instead of
+	guessing.
+
+2008-02-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2007-08-02  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR middle-end/25445
+	* varasm.c (default_binds_local_p_1): Consult flag_whole_program
+	if we are compiling with -fPIC.
+
+2008-01-31  Richard Henderson  <rth@redhat.com>
+
+        PR c/34993
+        * tree.c (build_type_attribute_qual_variant): Skip TYPE_DOMAIN
+        for unbounded arrays.
+
+2008-01-31  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/fixdfdi.h (__fixunstfdi, __fixtfdi): Rearrange
+	the overflow check to make it easier to read.
+	(__fixtfdi): Change the type of the ll member in union
+	long_double to UDItype_x.
+
+2008-01-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2007-11-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+	
+	PR middle-end/33826
+	* ipa-pure-const (static_execute): Added code to keep recursive
+	functions from being marked as pure or const.
+	* ipa-utils (searchc): Fixed comment.
+	
+2008-01-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libgfortran/34699
+	* pa-hpux.h (LINK_SPEC): Only search /lib/pa1.1 and /usr/lib/pa1.1 on
+	static links.
+	* pa-hpux10.h (LINK_SPEC): Likewise.
+	* pa-hpux11.h (LINK_SPEC): Don't search /lib/pa1.1 and /usr/lib/pa1.1.
+
+2008-01-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/31944
+	* cse.c (remove_pseudo_from_table): New function.
+	(merge_equiv_classes): Use above function to remove pseudo-registers.
+	(invalidate): Likewise.
+
+2007-12-31  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR driver/33772
+	* collect2.c (SHLIB_SUFFIX): Define if not defined.
+	(write_c_file_stat): Use SHLIB_SUFFIX.
+	* som.h (SHLIB_SUFFIX): Define.
+	* doc/tm.texi (SHLIB_SUFFIX): Document.
+
+2007-12-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/34003
+	* c-decl.c (merge_decls): Copy RTL from olddecl to newdecl.
+	* config/pa/pa.c (pa_encode_section_info): If !first, preserve
+	SYMBOL_FLAG_REFERENCED flag.
+
+2007-12-19  Kaz Kylheku  <kaz@zeugmasystems.com>
+
+	PR rtl-optimization/34456
+	* resource.c (mark_set_resources): Use regs_invalidated_by_call
+	rather than call_used_regs and global_regs.
+
+2007-11-29  Matthias Klose  <doko@ubuntu.com>
+
+	Backport from mainline:
+	2007-11-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34130
+	* fold-const.c (extract_muldiv_1): Do not move negative
+	constants inside ABS_EXPR.
+
 2007-11-16  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/34030
