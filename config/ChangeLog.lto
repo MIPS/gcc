@@ -1,3 +1,7 @@
+2008-08-25  Rafael Avila de Espindola  <espindola@google.com>
+
+	* libelf.m4(AC_CHECK_GELF): New
+
 2008-08-21  Rafael Espindola  <espindola@google.com>
 
 	* libelf.m4: New.

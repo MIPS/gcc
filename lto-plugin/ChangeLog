@@ -1,3 +1,11 @@
+2008-08-25  Rafael Avila de Espindola  <espindola@google.com>
+
+	* configure: Regenerate.
+	* configure.ac: Use AC_CHECK_GELF.
+	* lto-symtab.c: Include gelf.h.
+	(get_string_table): Use size independent API.
+	(printTable): Use lld to print 64 bit integers.
+
 2008-08-22  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-symtab.c (parse_table_entry): Assert entry->kind and

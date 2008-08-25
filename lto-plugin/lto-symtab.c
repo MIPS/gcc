@@ -18,13 +18,13 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 
 #include <fcntl.h>
 #include <assert.h>
-#ifdef HAVE_LIBELF_H
-# include <libelf.h>
+#ifdef HAVE_GELF_H
+# include <gelf.h>
 #else
-# if defined(HAVE_LIBELF_LIBELF_H)
-#   include <libelf/libelf.h>
+# if defined(HAVE_LIBELF_GELF_H)
+#   include <libelf/gelf.h>
 # else
-#  error "libelf.h not available"
+#  error "gelf.h not available"
 # endif
 #endif
 #include <stdio.h>
@@ -36,9 +36,10 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 const char *
 get_string_table (Elf *elf)
 {
-  Elf64_Ehdr *header = elf64_getehdr (elf);
-  assert (header);
-  Elf_Scn *section = elf_getscn (elf, header->e_shstrndx);
+  GElf_Ehdr header;
+  GElf_Ehdr *t = gelf_getehdr (elf, &header);
+  assert (t == &header);
+  Elf_Scn *section = elf_getscn (elf, header.e_shstrndx);
   assert (section);
   Elf_Data *data = 0;
   data = elf_getdata (section, data);
@@ -56,10 +57,11 @@ get_section (Elf *elf, const char *name)
   Elf_Scn *section = 0;
   while ((section = elf_nextscn(elf, section)) != 0)
     {
-      Elf64_Shdr *shdr = elf64_getshdr (section);
+      GElf_Shdr shdr;
+      GElf_Shdr *tshdr = gelf_getshdr (section, &shdr);
       const char *t;
-      assert (shdr);
-      t = string_table + shdr->sh_name;
+      assert (tshdr == &shdr);
+      t = string_table + shdr.sh_name;
       if (strcmp (t, name) == 0)
 	return section;
     }
@@ -137,7 +139,7 @@ void printTable (Elf_Data *symtab)
 				      "GCCPV_INTERNAL", "GCCPV_HIDDEN"};
       data = parse_table_entry (data, &entry);
 
-      printf("%s %s %s %s %ld %d\n", entry.name, entry.comdat,
+      printf("%s %s %s %s %lld %d\n", entry.name, entry.comdat,
 	     kind_str[entry.kind], visibility_str[entry.visibility],
 	     entry.size, entry.slot_num);
     }
