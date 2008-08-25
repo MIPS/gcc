@@ -1,3 +1,42 @@
+2008-08-26  Ben Elliston  <bje@au.ibm.com>
+	    Alan Modra  <amodra@au.ibm.com>
+
+	* gcc/c-decl.c (start_decl): Set DECL_SECTION_NAME to "._ea" for
+	__ea variable definitions.
+	(grokdeclarator): Allow static and global __ea variable
+	definitions.
+	* gcc/config/spu/spu.c (TARGET_SECTION_TYPE_FLAGS): Define.
+	(spu_section_type_flags): New function.
+	(ea_symbol_ref): Convert to for_each_rtx predicate.
+	(spu_legitimate_constant_p): Reject __ea symbol refs wrapped in
+	const.
+	(spu_legitimate_address): Likewise.
+	* gcc/config/spu/spu.h (TEXT_SECTION_ASM_OP): Add a tab.
+	(DATA_SECTION_ASM_OP): Likewise.
+	* gcc/config/spu/spu.opt: Add -mall-ea.
+	* gcc/c-typeck.c (build_array_ref): Do not strip qualifiers from
+	the array element type.  (PR 33726)
+
+	* gcc/c-common.h (strip_array_types): Move declaration to..
+	* gcc/tree.h: ..here.
+	(OTHER_ADDR_SPACE_POINTER_TYPE_P,
+	GENERIC_ADDR_SPACE_POINTER_TYPE_P, TYPE_QUALS): Invoke
+	strip_array_types on TYPE_ADDR_SPACE argument.
+	* gcc/c-objc-common.c (c_types_compatible_p): Likewise.
+	* gcc/config/spu/spu.h (ASM_OUTPUT_SYMBOL_REF): Likewise.
+	* gcc/config/spu/spu.c (ea_symbol_ref): Likewise.
+	* gcc/convert.c (convert_to_integer): Likewise.
+	* gcc/c-parser.c (c_parser_postfix_expression_after_paren_type): Ditto.
+	* gcc/dwarf2out.c (modified_type_die): Likewise.
+	* gcc/emit-rtl.c (set_mem_attributes_minus_bitpos): Likewise.
+	* gcc/varasm (make_decl_rtl): Likewise.
+	* gcc/tree.c (build_pointer_type): Likewise.
+	(strip_array_types): Move from here ..
+	* gcc/c-common.c: .. to here.
+	* gcc/testsuite/gcc.target/spu/ea/compile.c: Update test.
+	* gcc/testsuite/gcc.target/spu/ea/errors.c: Likewise.
+	* gcc/testsuite/gcc.target/spu/cache.c: Likewise.
+
 2008-08-25  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc/fwprop.c (PR_HANDLE_MEM): Remove trailing comma.

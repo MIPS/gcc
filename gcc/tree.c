@@ -5483,7 +5483,8 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_pointer_type (tree to_type)
 {
-  enum machine_mode mode = targetm.addr_space_pointer_mode (TYPE_ADDR_SPACE (to_type));
+  enum machine_mode mode = targetm.addr_space_pointer_mode
+    (TYPE_ADDR_SPACE (strip_array_types (to_type)));
   return build_pointer_type_for_mode (to_type, mode, false);
 }
 
@@ -5818,6 +5819,18 @@ maybe_canonicalize_argtypes(tree argtypes,
 
   /* The canonical argument types are the same as ARGTYPES.  */
   return argtypes;
+}
+
+/* Recursively examines the array elements of TYPE, until a non-array
+   element type is found.  */
+
+tree
+strip_array_types (tree type)
+{
+  while (TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+
+  return type;
 }
 
 /* Construct, lay out and return

@@ -1740,7 +1740,8 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 
   /* Now set the attributes we computed above.  */
   MEM_ATTRS (ref)
-    = get_mem_attrs (alias, expr, offset, size, align, TYPE_ADDR_SPACE (type), GET_MODE (ref));
+    = get_mem_attrs (alias, expr, offset, size, align,
+		     TYPE_ADDR_SPACE (strip_array_types (type)), GET_MODE (ref));
 
   /* If this is already known to be a scalar or aggregate, we are done.  */
   if (MEM_IN_STRUCT_P (ref) || MEM_SCALAR_P (ref))
