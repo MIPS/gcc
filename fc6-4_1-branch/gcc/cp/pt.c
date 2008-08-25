@@ -6162,8 +6162,14 @@ tsubst_aggr_type (tree t,
 	     up.  */
 	  context = TYPE_CONTEXT (t);
 	  if (context)
-	    context = tsubst_aggr_type (context, args, complain,
-					in_decl, /*entering_scope=*/1);
+	    {
+	      context = tsubst_aggr_type (context, args, complain,
+					  in_decl, /*entering_scope=*/1);
+	      /* If context is a nested class inside a class template,
+	         it may still need to be instantiated (c++/33959).  */
+	      if (TYPE_P (context))
+		complete_type (context);
+	    }
 
 	  /* Then, figure out what arguments are appropriate for the
 	     type we are trying to find.  For example, given:
@@ -9921,6 +9927,7 @@ resolve_overloaded_unification (tree tparms,
 	  if (TREE_CODE (fn) != TEMPLATE_DECL)
 	    continue;
 
+	  ++processing_template_decl;
 	  subargs = get_bindings (fn, DECL_TEMPLATE_RESULT (fn),
 				  expl_subargs, /*check_ret=*/false);
 	  if (subargs)
@@ -9929,6 +9936,7 @@ resolve_overloaded_unification (tree tparms,
 	      good += try_one_overload (tparms, targs, tempargs, parm,
 					elem, strict, sub_strict, addr_p);
 	    }
+	  --processing_template_decl;
 	}
     }
   else
@@ -12693,7 +12701,7 @@ value_dependent_expression_p (tree expression)
       /* A non-type template parm.  */
       if (DECL_TEMPLATE_PARM_P (expression))
 	return true;
-      return false;
+      return value_dependent_expression_p (DECL_INITIAL (expression));
 
     case VAR_DECL:
        /* A constant with integral or enumeration type and is initialized
