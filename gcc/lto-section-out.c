@@ -1050,7 +1050,7 @@ produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
 
   for (index = 0; VEC_iterate(tree, v, index, t); index++)
     {
-      const char *name = IDENTIFIER_POINTER (DECL_NAME(t));
+      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t));
       enum gcc_plugin_symbol_kind kind;
       enum gcc_plugin_symbol_visibility visibility;
       struct lto_decl_slot d_slot;

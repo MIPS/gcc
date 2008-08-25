@@ -1,3 +1,8 @@
+2008-08-25  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-section-out.c (produce_symtab_1): Use DECL_ASSEMBLER_NAME
+	instead of DECL_NAME.
+
 2008-08-22  Doug Kwan  <dougkwan@google.com>
 
 	* cgraphbuild.c	(initialize_inline_failed): Use cgraph_edge field
