@@ -1,3 +1,84 @@
+2008-08-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* real.h (struct real_format): New member round_towards_zero.
+	* real.c (round_for_format): Respect fmt->round_towards_zero.
+	(ieee_single_format, mips_single_format, motorola_single_format,
+	spu_single_format, ieee_double_format, mips_double_format,
+	motorola_double_format, ieee_extended_motorola_format,
+	ieee_extended_intel_96_format, ieee_extended_intel_128_format,
+	ieee_extended_intel_96_round_53_format, ibm_extended_format,
+	mips_extended_format, ieee_quad_format, mips_quad_format,
+	vax_f_format, vax_d_format, vax_g_format): Initialize it.
+	* config/pdp11/pdp11.c (pdp11_f_format, pdp11_d_format): Likewise.
+
+	* builtins.s (do_mpfr_arg1): Consider round_towards_zero member of
+	real_format to choose rounding mode when calling MPFR functions.
+	(do_mpfr_arg2, do_mpfr_arg3, do_mpfr_sincos): Likewise.
+	(do_mpfr_bessel_n, do_mpfr_remquo, do_mpfr_lgamma_r): Likewise.
+
+	* real.h (real_to_decimal_for_mode): Add prototype.
+	* real.c (real_to_decimal_for_mode): Renames old real_to_decimal.
+	Respect target rounding mode when generating decimal representation.
+	(real_to_decimal): New stub for backwards compatibility.
+	* c-cppbuiltin.c (builtin_define_with_hex_fp_value): Use
+	real_to_decimal_for_mode instead of real_to_decimal.
+
+	* config/spu/spu.md ("floatdisf2", "floatunsdisf2"): New.
+
+	* config/spu/float_disf.c: New file.
+	* config/spu/float_unsdisf.c: New file.
+	* config/spu/t-elf (LIB2FUNCS_STATIC_EXTRA): Add them.
+	(LIB2FUNCS_EXCLUDE): Define.
+
+2008-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37156
+	* pretty-print.c (pp_base_format): Deal with recursive BLOCK trees.
+	* tree.c (block_nonartificial_location): Likewise.
+
+2008-08-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* real.c (spu_single_format): New variable.
+	* real.h (spu_single_format): Declare.
+
+	* config/spu/spu.c (spu_override_options): Install SFmode format.
+	(spu_split_immediate): Use integer mode to operate on pieces of
+	floating-point values in all cases.
+
+	* config/spu/spu.md (UNSPEC_FLOAT_EXTEND, UNSPEC_FLOAT_TRUNCATE): New.
+	("extendsfdf2"): Use UNSPEC_FLOAT_EXTEND instead of FLOAT_EXTEND.
+	("truncdfsf2"): Use UNSPEC_FLOAT_TRUNCATE instead of FLOAT_TRUNCATE.
+
+2008-08-18  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* config/rs6000/driver-rs6000.c (detect_caches_freebsd): New function.
+	(detect_processor_freebsd): Likewise.
+	(host_detect_local_cpu): Call newly added functions for FreeBSD.
+
+2008-08-18  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* reload.c (find_reloads): Force constants into literal pool
+	also if they are wrapped in a SUBREG.
+
+2008-08-17  Christophe Saout  <christophe@saout.de>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37101
+	* config/i386/sse.md (vec_concatv2di): Remove movlps alternative.
+	(*vec_concatv2di_rex64_sse): Ditto.
+
+2008-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/37103
+	* fold-const.c (fold_widened_comparison): Do not allow
+	sign changes that change the result even if shorter type
+	is wider than arg1_unw's type.
+
+2008-08-13  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Predefine
+	__PPU__ when targeting the Cell/B.E. PPU processor.
+
 2008-08-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/37014
@@ -482,17 +563,15 @@
 2008-07-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	PR rtl-optimization/34744
-	* df-scan.c (df_scan_free_ref_vec, df_scan_free_mws_vec): New
-	macros.
-       	(df_scan_free_internal): Free data structures not
+	* df-scan.c (df_scan_free_ref_vec, df_scan_free_mws_vec): New macros.
+	(df_scan_free_internal): Free data structures not
 	allocated in storage pools.
 	(df_mw_hardreg_chain_delete_eq_uses): Use df_scan_free_mws_vec.
 	(df_refs_add_to_chains): Use df_scan_free_ref_vec and
 	df_scan_free_mws_vec.
 	* dse.c (dse_step6): Free offset_map_p and offset_map_n
 	unconditionally.
-	* ifcvt.c (cond_move_process_if_block): Free vectors on false
-	return.
+	* ifcvt.c (cond_move_process_if_block): Free vectors on false return.
 
 2008-07-01  Ira Rosen  <irar@il.ibm.com>
 

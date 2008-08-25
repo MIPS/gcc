@@ -1,3 +1,39 @@
+2008-08-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.c-torture/execute/20031003-1.c (main): Update test to
+	accommodate SPU single-precision rounding mode.
+	* gcc.c-torture/execute/conversion.c (test_float_to_integer,
+	test_float_to_longlong_integer): Likewise.
+	* gcc.c-torture/execute/ieee/rbug.c (main): Likewise.
+	* gcc.dg/hex-round-1.c: Skip test on SPU.
+	* gcc.dg/hex-round-2.c: Likewise.
+
+	* gcc.dg/torture/fp-int-convert-float.c: Reenable test on SPU.
+	* gcc.dg/torture/fp-int-convert-timode.c: Reenable "float" test on SPU.
+
+2008-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37156
+	* gcc.dg/pr37156.c: New test.
+
+2008-08-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.c-torture/execute/ieee/inf-2.c (testf): Skip on the SPU.
+
+2008-08-18  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+ 	* gcc.c-torture/compile/20080806-1.c: New testcase.
+
+2008-08-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37101
+	* gcc.target/i386/pr37101.c: New test.
+
+2008-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/37103
+	* gcc.c-torture/execute/20080813-1.c: New test.
+
 2008-08-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/37014
