@@ -1,3 +1,7 @@
+2008-08-25  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc/fwprop.c (PR_HANDLE_MEM): Remove trailing comma.
+
 2008-08-25  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* gcc/config/spu/cachemgr.c: Make interrupt safe and respect tag
