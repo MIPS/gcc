@@ -4395,6 +4395,15 @@ bb_note (basic_block bb)
   return note;
 }
 
+rtx
+sched_emit_insn (rtx pat)
+{
+  rtx insn = emit_insn_after (pat, last_scheduled_insn);
+  last_scheduled_insn = insn;
+  extend_global (insn);
+  return insn;
+}
+
 #ifdef ENABLE_CHECKING
 /* Helper function for check_cfg.
    Return nonzero, if edge vector pointed to by EL has edge with TYPE in

@@ -2368,6 +2368,7 @@ insert_hbrp_for_ilb_runout (rtx first)
   rtx insn, before_4 = 0, before_16 = 0;
   int addr = 0, length, first_addr = -1;
   int hbrp_addr0 = 128 * 4, hbrp_addr1 = 128 * 4;
+  int insert_lnop_after = 0;
   for (insn = first; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       {
@@ -2378,8 +2379,30 @@ insert_hbrp_for_ilb_runout (rtx first)
 
 	if (before_4 == 0 && addr + length >= 4 * 4)
 	  before_4 = insn;
-	if (before_16 == 0 && addr + length >= 16 * 4)
+	/* We test for 14 instructions because the first hbrp will add
+	   up to 2 instructions. */
+	if (before_16 == 0 && addr + length >= 14 * 4)
 	  before_16 = insn;
+
+	if (INSN_CODE (insn) == CODE_FOR_hbr)
+	  {
+	    /* Make sure an hbrp is at least 2 cycles away from a hint. 
+	       Insert an lnop after the hbrp when necessary. */
+	    if (before_4 == 0 && addr > 0)
+	      {
+		before_4 = insn;
+		insert_lnop_after |= 1;
+	      }
+	    else if (before_4 && addr <= 4 * 4)
+	      insert_lnop_after |= 1;
+	    if (before_16 == 0 && addr > 10 * 4)
+	      {
+		before_16 = insn;
+		insert_lnop_after |= 2;
+	      }
+	    else if (before_16 && addr <= 14 * 4)
+	      insert_lnop_after |= 2;
+	  }
 
 	if (INSN_CODE (insn) == CODE_FOR_iprefetch)
 	  {
@@ -2418,6 +2441,14 @@ insert_hbrp_for_ilb_runout (rtx first)
 				    INSN_ADDRESSES (INSN_UID (before_4)));
 		PUT_MODE (insn, GET_MODE (before_4));
 		PUT_MODE (before_4, TImode);
+		if (insert_lnop_after & 1)
+		  {
+		    insn = emit_insn_before (gen_lnop (), before_4);
+		    recog_memoized (insn);
+		    INSN_ADDRESSES_NEW (insn,
+					INSN_ADDRESSES (INSN_UID (before_4)));
+		    PUT_MODE (insn, TImode);
+		  }
 	      }
 	    if ((hbrp_addr0 <= 4 * 4 || hbrp_addr0 > 16 * 4)
 		&& hbrp_addr1 > 16 * 4)
@@ -2429,6 +2460,15 @@ insert_hbrp_for_ilb_runout (rtx first)
 				    INSN_ADDRESSES (INSN_UID (before_16)));
 		PUT_MODE (insn, GET_MODE (before_16));
 		PUT_MODE (before_16, TImode);
+		if (insert_lnop_after & 2)
+		  {
+		    insn = emit_insn_before (gen_lnop (), before_16);
+		    recog_memoized (insn);
+		    INSN_ADDRESSES_NEW (insn,
+					INSN_ADDRESSES (INSN_UID
+							(before_16)));
+		    PUT_MODE (insn, TImode);
+		  }
 	      }
 	    return;
 	  }
@@ -2943,7 +2983,7 @@ spu_sched_reorder (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
       && spu_sched_length - spu_ls_first >= 4 * 15
       && !(pipe0_clock < clock && pipe_0 >= 0) && pipe_1 == pipe_ls)
     {
-      insn = emit_insn (gen_iprefetch (GEN_INT (3)));
+      insn = sched_emit_insn (gen_iprefetch (GEN_INT (3)));
       recog_memoized (insn);
       if (pipe0_clock < clock)
 	PUT_MODE (insn, TImode);
