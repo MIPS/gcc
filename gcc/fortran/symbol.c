@@ -1722,7 +1722,7 @@ gfc_add_component (gfc_symbol *sym, const char *name,
     }
 
   if (sym->attr.extension
-	&& gfc_find_component (sym->components->ts.derived, name))
+	&& gfc_find_component (sym->components->ts.derived, name, true, true))
     {
       gfc_error ("Component '%s' at %C already in the parent type "
 		 "at %L", name, &sym->components->ts.derived->declared_at);
@@ -1839,10 +1839,12 @@ bad:
 
 /* Given a derived type node and a component name, try to locate the
    component structure.  Returns the NULL pointer if the component is
-   not found or the components are private.  */
+   not found or the components are private.  If noaccess is set, no access
+   checks are done.  */
 
 gfc_component *
-gfc_find_component (gfc_symbol *sym, const char *name)
+gfc_find_component (gfc_symbol *sym, const char *name,
+		    bool noaccess, bool silent)
 {
   gfc_component *p;
 
@@ -1862,31 +1864,34 @@ gfc_find_component (gfc_symbol *sym, const char *name)
 	&& sym->attr.extension
 	&& sym->components->ts.type == BT_DERIVED)
     {
-      p = gfc_find_component (sym->components->ts.derived, name);
+      p = gfc_find_component (sym->components->ts.derived, name,
+			      noaccess, silent);
       /* Do not overwrite the error.  */
       if (p == NULL)
 	return p;
     }
 
-  if (p == NULL)
+  if (p == NULL && !silent)
     gfc_error ("'%s' at %C is not a member of the '%s' structure",
 	       name, sym->name);
 
-  else if (sym->attr.use_assoc)
+  else if (sym->attr.use_assoc && !noaccess)
     {
-      if (p->access == ACCESS_PRIVATE)
+      if (p->attr.access == ACCESS_PRIVATE)
 	{
-	  gfc_error ("Component '%s' at %C is a PRIVATE component of '%s'",
-		     name, sym->name);
+	  if (!silent)
+	    gfc_error ("Component '%s' at %C is a PRIVATE component of '%s'",
+		       name, sym->name);
 	  return NULL;
 	}
 	
       /* If there were components given and all components are private, error
 	 out at this place.  */
-      if (p->access != ACCESS_PUBLIC && sym->component_access == ACCESS_PRIVATE)
+      if (p->attr.access != ACCESS_PUBLIC && sym->component_access == ACCESS_PRIVATE)
 	{
-	  gfc_error ("All components of '%s' are PRIVATE in structure"
-		     " constructor at %C", sym->name);
+	  if (!silent)
+	    gfc_error ("All components of '%s' are PRIVATE in structure"
+		       " constructor at %C", sym->name);
 	  return NULL;
 	}
     }
@@ -1912,34 +1917,6 @@ free_components (gfc_component *p)
 
       gfc_free (p);
     }
-}
-
-
-/* Set component attributes from a standard symbol attribute structure.  */
-
-void
-gfc_set_component_attr (gfc_component *c, symbol_attribute *attr)
-{
-
-  c->dimension = attr->dimension;
-  c->pointer = attr->pointer;
-  c->allocatable = attr->allocatable;
-  c->access = attr->access;
-}
-
-
-/* Get a standard symbol attribute structure given the component
-   structure.  */
-
-void
-gfc_get_component_attr (symbol_attribute *attr, gfc_component *c)
-{
-
-  gfc_clear_attr (attr);
-  attr->dimension = c->dimension;
-  attr->pointer = c->pointer;
-  attr->allocatable = c->allocatable;
-  attr->access = c->access;
 }
 
 
@@ -2253,6 +2230,7 @@ gfc_new_symtree (gfc_symtree **root, const char *name)
 
   st = XCNEW (gfc_symtree);
   st->name = gfc_get_string (name);
+  st->typebound = NULL;
 
   gfc_insert_bbt (root, st, compare_symtree);
   return st;
@@ -3354,7 +3332,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
     {
       /* The components cannot be pointers (fortran sense).  
          J3/04-007, Section 15.2.3, C1505.	*/
-      if (curr_comp->pointer != 0)
+      if (curr_comp->attr.pointer != 0)
         {
           gfc_error ("Component '%s' at %L cannot have the "
                      "POINTER attribute because it is a member "
@@ -3366,7 +3344,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 
       /* The components cannot be allocatable.
          J3/04-007, Section 15.2.3, C1505.	*/
-      if (curr_comp->allocatable != 0)
+      if (curr_comp->attr.allocatable != 0)
         {
           gfc_error ("Component '%s' at %L cannot have the "
                      "ALLOCATABLE attribute because it is a member "
@@ -4081,8 +4059,8 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
         index = get_c_kind ("c_ptr", c_interop_kinds_table);
         tmp_comp->ts.kind = c_interop_kinds_table[index].value;
 
-        tmp_comp->pointer = 0;
-        tmp_comp->dimension = 0;
+        tmp_comp->attr.pointer = 0;
+        tmp_comp->attr.dimension = 0;
 
         /* Mark the component as C interoperable.  */
         tmp_comp->ts.is_c_interop = 1;
@@ -4265,4 +4243,48 @@ gfc_check_symbol_typed (gfc_symbol* sym, gfc_namespace* ns,
 
   /* Everything is ok.  */
   return SUCCESS;
+}
+
+
+/* Get the super-type of a given derived type.  */
+
+gfc_symbol*
+gfc_get_derived_super_type (gfc_symbol* derived)
+{
+  if (!derived->attr.extension)
+    return NULL;
+
+  gcc_assert (derived->components);
+  gcc_assert (derived->components->ts.type == BT_DERIVED);
+  gcc_assert (derived->components->ts.derived);
+
+  return derived->components->ts.derived;
+}
+
+
+/* Find a type-bound procedure by name for a derived-type (looking recursively
+   through the super-types).  */
+
+gfc_symtree*
+gfc_find_typebound_proc (gfc_symbol* derived, const char* name)
+{
+  gfc_symtree* res;
+
+  /* Try to find it in the current type's namespace.  */
+  gcc_assert (derived->f2k_derived);
+  res = gfc_find_symtree (derived->f2k_derived->sym_root, name);
+  if (res)
+    return res->typebound ? res : NULL;
+
+  /* Otherwise, recurse on parent type if derived is an extension.  */
+  if (derived->attr.extension)
+    {
+      gfc_symbol* super_type;
+      super_type = gfc_get_derived_super_type (derived);
+      gcc_assert (super_type);
+      return gfc_find_typebound_proc (super_type, name);
+    }
+
+  /* Nothing found.  */
+  return NULL;
 }
