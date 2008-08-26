@@ -4184,7 +4184,7 @@ set_type_quals (tree type, int type_quals)
 bool
 check_qualified_type (const_tree cand, const_tree base, int type_quals)
 {
-  return (TYPE_QUALS (cand) == type_quals
+  return (TYPE_QUALS (CONST_CAST_TREE (cand)) == type_quals
 	  && TYPE_NAME (cand) == TYPE_NAME (base)
 	  /* Apparently this is needed for Objective-C.  */
 	  && TYPE_CONTEXT (cand) == TYPE_CONTEXT (base)
@@ -5825,7 +5825,7 @@ maybe_canonicalize_argtypes(tree argtypes,
    element type is found.  */
 
 tree
-strip_array_types (const_tree type)
+strip_array_types (tree type)
 {
   while (TREE_CODE (type) == ARRAY_TYPE)
     type = TREE_TYPE (type);

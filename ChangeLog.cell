@@ -1,8 +1,15 @@
+2008-08-27  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc/tree.h (check_qualified_type): Use CONST_CAST_TREE as
+	needed.
+	* gcc/langhooks.c (lhd_tree_dump_type_quals): Likewise.
+	* gcc/c-typeck.c (comptypes_internal): Likewise.
+	* gcc/cp/typeck.c (cp_type_quals): Likewise.
+
 2008-08-26  Ben Elliston  <bje@au.ibm.com>
 
-	* gcc/tree.h (strip_array_types): Take a const_tree argument.
-	* gcc/tree.c (strip_array_types): Likewise.
-	* gcc/config/spu/spu.c (spu_valid_addr_space): Likewise.
+	* gcc/config/spu/spu.c (spu_valid_addr_space): Take a
+	const_tree argument.
 
 2008-08-26  Ben Elliston  <bje@au.ibm.com>
 	    Alan Modra  <amodra@au.ibm.com>
