@@ -1719,8 +1719,9 @@ save_call_clobbered_regs (void)
   loop_iterator li;
   int save_pseudo[FIRST_PSEUDO_REGISTER];
   int free_pseudo[FIRST_PSEUDO_REGISTER];
+  bool do_placement_opt_p = 0 /* flag_ira && optimize */;
 
-  if (flag_ira && optimize)
+  if (do_placement_opt_p)
     {
       /* Do global analysis for better placement of spill code. */
       alloc_aux_for_blocks (sizeof (struct bb_info));
@@ -1737,7 +1738,7 @@ save_call_clobbered_regs (void)
   CLEAR_HARD_REG_SET (hard_regs_saved);
   n_regs_saved = 0;
 
-  if (flag_ira && reload_insn_chain != NULL)
+  if (do_placement_opt_p && reload_insn_chain != NULL)
     {
       bb_info = BB_INFO_BY_INDEX (reload_insn_chain->block);
       set_hard_reg_saved (bb_info->restore_in,
@@ -1758,7 +1759,7 @@ save_call_clobbered_regs (void)
 	{
 	  if (n_regs_saved)
 	    {
-	      if (!flag_ira && code == JUMP_INSN)
+	      if (!do_placement_opt_p && code == JUMP_INSN)
 		/* Restore all registers if this is a JUMP_INSN.  */
 		COPY_HARD_REG_SET (referenced_regs, hard_regs_saved);
 	      else
@@ -1780,7 +1781,7 @@ save_call_clobbered_regs (void)
 		    
 		    regno += insert_restore (chain, 1, regno, MOVE_MAX_WORDS,
 					     save_mode, save_pseudo);
-		    if (flag_ira && optimize)
+		    if (do_placement_opt_p)
 		      {
 			gcc_assert (before == regno);
 			save_mode[before] = VOIDmode;
@@ -1852,7 +1853,7 @@ save_call_clobbered_regs (void)
 	      COPY_HARD_REG_SET (used_regs, call_used_reg_set);
 	      AND_HARD_REG_SET (hard_regs_to_save, used_regs);
 
-	      if (flag_ira)
+	      if (do_placement_opt_p)
 		IOR_HARD_REG_SET (hard_regs_saved, hard_regs_to_save);
 	      else
 		{
@@ -1883,7 +1884,7 @@ save_call_clobbered_regs (void)
 	     remain saved.  If the last insn in the block is a JUMP_INSN, put
 	     the restore before the insn, otherwise, put it after the insn.  */
 
-	  if (flag_ira && optimize)
+	  if (do_placement_opt_p)
 	    set_hard_reg_saved
 	      (BB_INFO_BY_INDEX (chain->block)->restore_here,
 	       BB_INFO_BY_INDEX (chain->block)->restore_out_mode, save_mode,
@@ -1899,15 +1900,12 @@ save_call_clobbered_regs (void)
 		  regno += insert_restore (chain, JUMP_P (insn),
 					   regno, MOVE_MAX_WORDS, save_mode,
 					   save_pseudo);
-		  if (flag_ira && optimize)
-		    {
-		      gcc_assert (before == regno);
-		      save_mode[before] = VOIDmode;
-		      save_pseudo[before] = -1;
-		    }
+		  gcc_assert (before == regno);
+		  save_mode[before] = VOIDmode;
+		  save_pseudo[before] = -1;
 		}
 
-	  if (flag_ira && optimize && next_bb_info != NULL)
+	  if (do_placement_opt_p && next_bb_info != NULL)
 	    set_hard_reg_saved (next_bb_info->restore_in,
 				next_bb_info->restore_in_mode, save_mode,
 				next_bb_info->restore_in_pseudo, save_pseudo);
@@ -1915,7 +1913,7 @@ save_call_clobbered_regs (void)
 	}
     }
 
-  if (!flag_ira)
+  if (!do_placement_opt_p)
     return;
 
   CLEAR_HARD_REG_SET (hard_regs_to_save);

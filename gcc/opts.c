@@ -878,6 +878,11 @@ decode_options (unsigned int argc, const char **argv)
       flag_section_anchors = 0;
     }
 
+#ifdef IRA_COVER_CLASSES
+  /* Use IRA if it is implemented for the target.  */
+  flag_ira = 1;
+#endif
+
   /* Originally we just set the variables if a particular optimization level,
      but with the advent of being able to change the optimization level for a
      function, we need to reset optimizations.  */

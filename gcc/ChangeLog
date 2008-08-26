@@ -1,3 +1,12 @@
+2008-08-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* opts.c (decode_options): Set up flag_ira.
+
+	* doc/invoke.texi (fira): Document it.
+	
+	* caller-save.c (save_call_clobbered_regs): Define and use
+	do_placement_opt_p.
+	
 2008-08-24  Jeff Law  <law@redhat.com>
 	    Vladimir Makarov  <vmakarov@redhat.com>
 

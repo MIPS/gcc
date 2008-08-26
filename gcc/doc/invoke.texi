@@ -5683,8 +5683,9 @@ Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fira
 @opindex fira
-If supported for the target machine, use the integrated register
-allocator (@acronym{IRA}) for register allocation.
+Use the integrated register allocator (@acronym{IRA}) for register
+allocation.  It is a default if @acronym{IRA} has been ported for the
+target.
 
 @item -fira-algorithm=@var{algorithm}
 Use specified algorithm for the integrated register allocator.  The
