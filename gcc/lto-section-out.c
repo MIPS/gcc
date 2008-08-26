@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "stdint.h"
 #include "lto-symtab.h"
+#include "bitmap.h"
 
 static VEC(lto_out_decl_state_ptr, heap) *decl_state_stack;
 
@@ -1037,13 +1038,14 @@ lto_out_decl_state_written_size (struct lto_out_decl_state *state)
   return size;
 }
 
-/* Helper function of produce_symtab. HASH is the hash with the
+/* Helper function of write_symbols_of_kind.  HASH is the hash with the
    decl -> slot_num mapping. STREAM is the stream where to write the table.
-   V is a vector with the DECLs that should be on the table. */
+   V is a vector with the DECLs that should be on the table.  SEEN is
+   a bitmap of symbols written so far.  */
 
 static void
-produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
-		  VEC(tree,heap) *v)
+write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
+		  VEC(tree,heap) *v, bitmap seen)
 {
   tree t;
   int index;
@@ -1063,6 +1065,12 @@ produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
       slot = htab_find_slot (hash, &d_slot, NO_INSERT);
       gcc_assert (slot != NULL);
       slot_num = ((struct lto_decl_slot *)*slot)->slot_num;
+
+      /* Avoid duplicate symbols. */
+      if (bitmap_bit_p (seen, slot_num))
+	continue;
+      else
+        bitmap_set_bit (seen, slot_num);
 
       if (DECL_EXTERNAL (t))
 	{
@@ -1117,26 +1125,48 @@ produce_symtab_1 (htab_t hash, struct lto_output_stream *stream,
     }
 }
 
-/* Write an IL symbol table. HASH is the hash with the decl -> slot_num mapping.
-   FUNCTIONS is a vector of function decls. VARIABLES is a vector of variable
-   decls. */
+/* Write IL symbols of KIND. HASH is the hash with the decl -> slot_num
+   mapping.  SEEN is a bitmap of symbols written so far.  */
 
 static void
-produce_symtab (htab_t hash, VEC(tree,heap) *functions,
-		VEC(tree,heap) *variables)
+write_symbols_of_kind (lto_decl_stream_e_t kind, htab_t hash, bitmap seen)
+{
+  struct lto_out_decl_state *out_state;
+  struct lto_output_stream stream;
+  unsigned num_fns = VEC_length (lto_out_decl_state_ptr, function_decl_states);
+  unsigned idx;
+
+  memset (&stream, 0, sizeof (stream));
+  out_state = lto_get_out_decl_state ();
+  write_symbol_vec (hash, &stream, out_state->streams[kind].trees, seen);
+
+  for (idx = 0; idx < num_fns; idx++)
+    {
+      out_state =
+	VEC_index (lto_out_decl_state_ptr, function_decl_states, idx);
+      write_symbol_vec (hash, &stream, out_state->streams[kind].trees, seen);
+    }
+
+  lto_write_stream (&stream);
+}
+
+/* Write an IL symbol table. HASH is the hash with the decl -> slot_num
+   mapping.  */
+
+static void
+produce_symtab (htab_t hash)
 {
   char *section_name = lto_get_section_name (LTO_section_symtab, NULL);
-  struct lto_output_stream stream;
+  bitmap seen;
 
   lto_begin_section (section_name);
   free(section_name);
-  memset (&stream, 0, sizeof (stream));
 
+  seen = BITMAP_ALLOC (NULL);
+  write_symbols_of_kind (LTO_DECL_STREAM_FN_DECL, hash, seen);
+  write_symbols_of_kind (LTO_DECL_STREAM_VAR_DECL, hash, seen);
 
-  produce_symtab_1 (hash, &stream, functions);
-  produce_symtab_1 (hash, &stream, variables);
-
-  lto_write_stream (&stream);
+  BITMAP_FREE (seen);
   lto_end_section ();
 }
 
@@ -1245,9 +1275,7 @@ produce_asm_for_decls (void)
   lto_end_section ();
 
   /* Write the symbol table. */
-  produce_symtab (ob->main_hash_table,
-		  out_state->streams[LTO_DECL_STREAM_FN_DECL].trees,
-		  out_state->streams[LTO_DECL_STREAM_VAR_DECL].trees);
+  produce_symtab (ob->main_hash_table);
 
   /* Deallocate memory and clean up.  */
   destroy_output_block (ob);

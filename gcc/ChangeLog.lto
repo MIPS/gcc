@@ -1,3 +1,14 @@
+2008-08-26  Doug Kwan  <dougkwan@google.com>
+
+	* (lto_decl_stream_e_t): New type.
+	* Makefile.in (lto-section-out.o): Add BITMAP_H.
+	* lto-section-out.c (bitmap.h): New include.
+	(write_symbol_vec): Renamed from produce_symtabl_1.  Also take a new
+	parameter SEEN to avoid duplicate symbols.
+	(write_symbols_of_kind): New.
+	(produce_symtab): Remove FUNCTIONS and VARIABLES parameters.
+	Now also look at out-decl states of functions for symbols.
+
 2008-08-25  Bill Maddox <maddox@google.com>
 
 	* tree.c (reset_type_lang_specific): Clear TYPE_CONTEXT of
