@@ -132,6 +132,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
+#include "fibheap.h"
+#include "params.h"
 
 /* Get the original node field of ipa_node_params associated with node NODE.  */
 static inline struct cgraph_node *
@@ -159,6 +161,18 @@ ipcp_init_cloned_node (struct cgraph_node *orig_node,
   ipa_create_param_decls_array (new_node);
 }
 
+/* Perform intraprocedrual analysis needed for ipcp.  */
+static void
+ipcp_analyze_node (struct cgraph_node *node)
+{
+  /* Unreachable nodes should have been eliminated before ipcp.  */
+  gcc_assert (node->needed || node->reachable);
+
+  ipa_count_formal_params (node);
+  ipa_create_param_decls_array (node);
+  ipa_detect_param_modifications (node);
+}
+
 /* Recompute all local information since node might've got new
    direct calls after clonning.  */
 static void
@@ -169,15 +183,13 @@ ipcp_update_cloned_node (struct cgraph_node *new_node)
   current_function_decl = new_node->decl;
   rebuild_cgraph_edges ();
 
+  /* Indirect inlinng rely on fact that we've already analyzed
+     the body..  */
   if (flag_indirect_inlining)
     {
       struct cgraph_edge *cs;
 
-      ipa_check_create_node_params ();
-      ipa_count_formal_params (new_node);
-      ipa_create_param_decls_array (new_node);
-      ipa_detect_param_modifications (new_node);
-      ipa_analyze_params_uses (new_node);
+      ipcp_analyze_node (new_node);
 
       for (cs = new_node->callees; cs; cs = cs->next_callee)
 	{
@@ -207,7 +219,7 @@ ipcp_set_node_scale (struct cgraph_node *node, gcov_type count)
 static inline bool
 ipcp_lat_is_const (struct ipcp_lattice *lat)
 {
-  if (lat->type == IPA_CONST_VALUE || lat->type == IPA_CONST_VALUE_REF)
+  if (lat->type == IPA_CONST_VALUE)
     return true;
   else
     return false;
@@ -218,11 +230,7 @@ ipcp_lat_is_const (struct ipcp_lattice *lat)
 static inline bool
 ipcp_lat_is_insertable (struct ipcp_lattice *lat)
 {
-  if ((lat->type == IPA_CONST_VALUE || lat->type == IPA_CONST_VALUE_REF)
-      && !POINTER_TYPE_P (TREE_TYPE (lat->constant)))
-    return true;
-  else
-    return false;
+  return lat->type == IPA_CONST_VALUE;
 }
 
 /* Return true if LAT1 and LAT2 are equal.  */
@@ -294,11 +302,6 @@ ipcp_lattice_from_jfunc (struct ipa_node_params *info, struct ipcp_lattice *lat,
       lat->type = IPA_CONST_VALUE;
       lat->constant = jfunc->value.constant;
     }
-  else if (jfunc->type == IPA_CONST_REF)
-    {
-      lat->type = IPA_CONST_VALUE_REF;
-      lat->constant = jfunc->value.constant;
-    }
   else if (jfunc->type == IPA_PASS_THROUGH)
     {
       struct ipcp_lattice *caller_lat;
@@ -349,7 +352,7 @@ ipcp_print_all_lattices (FILE * f)
 	  struct ipcp_lattice *lat = ipcp_get_ith_lattice (info, i);
 
 	  fprintf (f, " param [%d]: ", i);
-	  if (lat->type == IPA_CONST_VALUE || lat->type == IPA_CONST_VALUE_REF)
+	  if (lat->type == IPA_CONST_VALUE)
 	    {
 	      fprintf (f, "type is CONST ");
 	      print_generic_expr (f, lat->constant, 0);
@@ -374,32 +377,15 @@ ipcp_initialize_node_lattices (struct cgraph_node *node)
 
   info->ipcp_lattices = XCNEWVEC (struct ipcp_lattice,
 				  ipa_get_param_count (info));
-  for (i = 0; i < ipa_get_param_count (info) ; i++)
-    {
-      tree parm_tree = ipa_get_ith_param (info, i);
-      struct ipcp_lattice *lat = ipcp_get_ith_lattice (info, i);
-
-      if (INTEGRAL_TYPE_P (TREE_TYPE (parm_tree))
-	  || SCALAR_FLOAT_TYPE_P (TREE_TYPE (parm_tree))
-	  || POINTER_TYPE_P (TREE_TYPE (parm_tree)))
-	lat->type = IPA_TOP;
-      else
-	lat->type = IPA_BOTTOM;
-    }
-}
-
-/* Create a new assignment statement and make it the first statement in the
-   function.  PARM1 is the lhs of the assignment and VAL is the rhs. */
-static void
-constant_val_insert (tree parm1 ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED)
-{
-  gimple init_stmt = NULL;
-  edge e_step;
-
-  init_stmt = gimple_build_assign (parm1, val);
-  gcc_assert (init_stmt);
-  e_step = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FUNCTION (cfun));
-  gsi_insert_on_edge_immediate (e_step, init_stmt);
+  
+  /* When cloning is allowed, we can assume that externally visible functions
+     are not called.  We will compensate this by cloning later.  */
+  if (flag_ipa_cp_clone || !node->needed)
+    for (i = 0; i < ipa_get_param_count (info) ; i++)
+      ipcp_get_ith_lattice (info, i)->type = IPA_TOP;
+  else
+    for (i = 0; i < ipa_get_param_count (info) ; i++)
+      ipcp_get_ith_lattice (info, i)->type = IPA_BOTTOM;
 }
 
 /* build INTEGER_CST tree with type TREE_TYPE and value according to LAT.
@@ -412,14 +398,6 @@ build_const_val (struct ipcp_lattice *lat, tree tree_type)
   gcc_assert (ipcp_lat_is_const (lat));
   val = lat->constant;
 
-  /* compute_jump_functions inserts FUNCTION_DECL as value of parameter
-     when address of function is taken.  It would make more sense to pass
-     whole ADDR_EXPR, but for now compensate here.  */
-  if ((lat->type == IPA_CONST_VALUE
-        && TREE_CODE (val) == FUNCTION_DECL)
-      || lat->type == IPA_CONST_VALUE_REF)
-    return build_fold_addr_expr_with_type (val, tree_type);
-
   if (!useless_type_conversion_p (tree_type, TREE_TYPE (val)))
     {
       if (fold_convertible_p (tree_type, val))
@@ -428,21 +406,6 @@ build_const_val (struct ipcp_lattice *lat, tree tree_type)
 	return fold_build1 (VIEW_CONVERT_EXPR, tree_type, val);
     }
   return val;
-}
-
-/* Build the tree representing the constant and call constant_val_insert().  */
-static void
-ipcp_propagate_one_const (struct cgraph_node *node, int param,
-			  struct ipcp_lattice *lat)
-{
-  tree const_val;
-  tree parm_tree;
-
-  if (dump_file)
-    fprintf (dump_file, "propagating const to %s\n", cgraph_node_name (node));
-  parm_tree = ipa_get_ith_param (IPA_NODE_REF (node), param);
-  const_val = build_const_val (lat, TREE_TYPE (parm_tree));
-  constant_val_insert (parm_tree, const_val);
 }
 
 /* Compute the proper scale for NODE.  It is the ratio between the number of
@@ -474,18 +437,12 @@ ipcp_init_stage (void)
   struct cgraph_edge *cs;
 
   for (node = cgraph_nodes; node; node = node->next)
-    {
-      if (!node->analyzed)
-	continue;
-      /* Unreachable nodes should have been eliminated before ipcp.  */
-      gcc_assert (node->needed || node->reachable);
-
-      ipa_count_formal_params (node);
-      ipa_create_param_decls_array (node);
-      ipcp_initialize_node_lattices (node);
-      ipa_detect_param_modifications (node);
-      ipcp_compute_node_scale (node);
-    }
+    if (node->analyzed)
+      {
+        ipcp_analyze_node (node);
+        ipcp_initialize_node_lattices (node);
+        ipcp_compute_node_scale (node);
+      }
   for (node = cgraph_nodes; node; node = node->next)
     {
       if (!node->analyzed)
@@ -782,32 +739,19 @@ ipcp_print_profile_data (FILE * f)
    PARM_TREE is the formal parameter found to be constant.  LAT represents the
    constant.  */
 static struct ipa_replace_map *
-ipcp_create_replace_map (struct function *func, tree parm_tree,
-			 struct ipcp_lattice *lat)
+ipcp_create_replace_map (tree parm_tree, struct ipcp_lattice *lat)
 {
   struct ipa_replace_map *replace_map;
   tree const_val;
 
   replace_map = XCNEW (struct ipa_replace_map);
-  if (is_gimple_reg (parm_tree) && gimple_default_def (func, parm_tree)
-      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_default_def (func,
-								 parm_tree)))
-    {
-      if (dump_file)
-	fprintf (dump_file, "replacing param with const\n");
-      const_val = build_const_val (lat, TREE_TYPE (parm_tree));
-      replace_map->old_tree =gimple_default_def (func, parm_tree);
-      replace_map->new_tree = const_val;
-      replace_map->replace_p = true;
-      replace_map->ref_p = false;
-    }
-  else
-    {
-      replace_map->old_tree = NULL;
-      replace_map->new_tree = NULL;
-      replace_map->replace_p = false;
-      replace_map->ref_p = false;
-    }
+  if (dump_file)
+    fprintf (dump_file, "replacing param with const\n");
+  const_val = build_const_val (lat, TREE_TYPE (parm_tree));
+  replace_map->old_tree = parm_tree;
+  replace_map->new_tree = const_val;
+  replace_map->replace_p = true;
+  replace_map->ref_p = false;
 
   return replace_map;
 }
@@ -820,8 +764,14 @@ ipcp_need_redirect_p (struct cgraph_edge *cs)
   struct ipa_node_params *orig_callee_info;
   int i, count;
   struct ipa_jump_func *jump_func;
+  struct cgraph_node *node = cs->callee, *orig;
 
-  orig_callee_info = IPA_NODE_REF (ipcp_get_orig_node (cs->callee));
+  if ((orig = ipcp_get_orig_node (node)) != NULL)
+    node = orig;
+  if (ipcp_get_orig_node (cs->caller))
+    return false;
+
+  orig_callee_info = IPA_NODE_REF (node);
   count = ipa_get_param_count (orig_callee_info);
   for (i = 0; i < count; i++)
     {
@@ -829,8 +779,7 @@ ipcp_need_redirect_p (struct cgraph_edge *cs)
       if (ipcp_lat_is_const (lat))
 	{
 	  jump_func = ipa_get_ith_jump_func (IPA_EDGE_REF (cs), i);
-	  if (jump_func->type != IPA_CONST && jump_func->type != IPA_CONST_REF
-	      && jump_func->type != IPA_CONST_MEMBER_PTR)
+	  if (jump_func->type != IPA_CONST)
 	    return true;
 	}
     }
@@ -918,23 +867,124 @@ ipcp_update_profiling (void)
     }
 }
 
+/* Maximal count found in program.  */
+static gcov_type max_count;
+bitmap dead_nodes;
+
+/* Return true if original clone needs to be preserved.  */
+static bool
+ipcp_need_original_clone_p (struct cgraph_node *node)
+{
+  struct cgraph_edge *e;
+
+  if (node->needed)
+    return true;
+  for (e = node->callers; e; e = e->next_caller)
+    if (!bitmap_bit_p (dead_nodes, e->caller->uid)
+        && ipcp_need_redirect_p (e))
+      return true;
+
+  return false;
+}
+
+/* Estimate cost of cloning NODE.  */
+static long
+ipcp_estimate_cloning_cost (struct cgraph_node *node)
+{
+  int freq_sum = 1;
+  gcov_type count_sum = 1;
+  struct cgraph_edge *e;
+  int cost;
+
+  /* When we don't need original clone; we should always propagate.  */
+  if (!ipcp_need_original_clone_p (node))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Function %s can be fully propagated\n",
+		 cgraph_node_name (node));
+      return 0;
+    }
+
+  for (e = node->callers; e; e = e->next_caller)
+    if (!bitmap_bit_p (dead_nodes, e->caller->uid)
+        && !ipcp_need_redirect_p (e))
+      {
+	count_sum += e->count;
+	freq_sum += e->frequency + 1;
+      }
+
+  cost = node->local.inline_summary.self_insns * 1000;
+  if (max_count)
+    cost /= count_sum * 1000 / max_count + 1;
+  else
+    cost /= freq_sum * 1000 / REG_BR_PROB_BASE + 1;
+  if (dump_file)
+    fprintf (dump_file, "Cost of versioning %s is %i, (size: %i, freq: %i)\n",
+             cgraph_node_name (node), cost, node->local.inline_summary.self_insns,
+	     freq_sum);
+  return cost + 1;
+}
+
+/* Return number of live constant parameters.  */
+static int
+ipcp_const_param_count (struct cgraph_node *node)
+{
+  int const_param = 0;
+  struct ipa_node_params *info = IPA_NODE_REF (node);
+  int count = ipa_get_param_count (info);
+  int i;
+
+  for (i = 0; i < count; i++)
+    {
+      struct ipcp_lattice *lat = ipcp_get_ith_lattice (info, i);
+      tree parm_tree = ipa_get_ith_param (info, i);
+      if (ipcp_lat_is_insertable (lat)
+	  /* Do not count obviously unused arguments.  */
+	  && (!is_gimple_reg (parm_tree)
+	      || gimple_default_def (DECL_STRUCT_FUNCTION (node->decl),
+				     parm_tree)))
+	const_param++;
+    }
+  return const_param;
+}
+
 /* Propagate the constant parameters found by ipcp_iterate_stage()
    to the function's code.  */
 static void
 ipcp_insert_stage (void)
 {
   struct cgraph_node *node, *node1 = NULL;
-  int i, const_param;
+  int i;
   VEC (cgraph_edge_p, heap) * redirect_callers;
   varray_type replace_trees;
   struct cgraph_edge *cs;
   int node_callers, count;
   tree parm_tree;
   struct ipa_replace_map *replace_param;
+  fibheap_t heap;
+  long overall_insns = 0, new_insns = 0;
+  long max_new_insns;
 
   ipa_check_create_node_params ();
   ipa_check_create_edge_args ();
 
+  dead_nodes = BITMAP_ALLOC (NULL);
+
+  for (node = cgraph_nodes; node; node = node->next)
+    if (node->analyzed)
+      {
+	if (node->count > max_count)
+	  max_count = node->count;
+	overall_insns += node->local.inline_summary.self_insns;
+      }
+
+  max_new_insns = overall_insns;
+  if (max_new_insns < PARAM_VALUE (PARAM_LARGE_UNIT_INSNS))
+    max_new_insns = PARAM_VALUE (PARAM_LARGE_UNIT_INSNS);
+  max_new_insns = max_new_insns * PARAM_VALUE (PARAM_IPCP_UNIT_GROWTH) / 100 + 1;
+
+  /* First collect all functions we proved to have constant arguments to heap.  */
+  heap = fibheap_new ();
   for (node = cgraph_nodes; node; node = node->next)
     {
       struct ipa_node_params *info;
@@ -944,30 +994,64 @@ ipcp_insert_stage (void)
       info = IPA_NODE_REF (node);
       if (ipa_is_called_with_var_arguments (info))
 	continue;
-      const_param = 0;
-      count = ipa_get_param_count (info);
-      for (i = 0; i < count; i++)
+      if (ipcp_const_param_count (node))
+	node->aux = fibheap_insert (heap, ipcp_estimate_cloning_cost (node), node);
+     }
+
+  /* Now clone in priority order until code size growth limits are met or
+     heap is emptied.  */
+  while (!fibheap_empty (heap))
+    {
+      struct ipa_node_params *info;
+      int growth = 0;
+
+      node = (struct cgraph_node *)fibheap_extract_min (heap);
+      node->aux = NULL;
+      if (dump_file)
+	fprintf (dump_file, "considering function %s\n",
+		 cgraph_node_name (node));
+
+      if (ipcp_need_original_clone_p (node))
+        growth = node->local.inline_summary.self_insns;
+      else
+	bitmap_set_bit (dead_nodes, node->uid);
+
+      if (new_insns + growth > max_new_insns)
+	break;
+      if (growth
+          && (optimize_size
+	      || (DECL_STRUCT_FUNCTION (node->decl)
+	          ->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)))
 	{
-	  struct ipcp_lattice *lat = ipcp_get_ith_lattice (info, i);
-	  if (ipcp_lat_is_insertable (lat))
-	    const_param++;
+	  if (dump_file)
+	    fprintf (dump_file, "Not versioning, cold code would grow");
+	  continue;
 	}
-      if (const_param == 0)
-	continue;
-      VARRAY_GENERIC_PTR_INIT (replace_trees, const_param, "replace_trees");
+
+      new_insns += growth;
+
+      info = IPA_NODE_REF (node);
+      count = ipa_get_param_count (info);
+
+      VARRAY_GENERIC_PTR_INIT (replace_trees, ipcp_const_param_count (node),
+				"replace_trees");
       for (i = 0; i < count; i++)
 	{
 	  struct ipcp_lattice *lat = ipcp_get_ith_lattice (info, i);
+	  parm_tree = ipa_get_ith_param (info, i);
+
 	  if (lat->type == IPA_CONST_VALUE
-	      && !POINTER_TYPE_P (TREE_TYPE (lat->constant)))
+	      /* Do not count obviously unused arguments.  */
+	      && (!is_gimple_reg (parm_tree)
+		  || gimple_default_def (DECL_STRUCT_FUNCTION (node->decl),
+					 parm_tree)))
 	    {
-	      parm_tree = ipa_get_ith_param (info, i);
 	      replace_param =
-		ipcp_create_replace_map (DECL_STRUCT_FUNCTION (node->decl),
-					 parm_tree, lat);
+		ipcp_create_replace_map (parm_tree, lat);
 	      VARRAY_PUSH_GENERIC_PTR (replace_trees, replace_param);
 	    }
 	}
+
       /* Compute how many callers node has.  */
       node_callers = 0;
       for (cs = node->callers; cs != NULL; cs = cs->next_caller)
@@ -975,6 +1059,7 @@ ipcp_insert_stage (void)
       redirect_callers = VEC_alloc (cgraph_edge_p, heap, node_callers);
       for (cs = node->callers; cs != NULL; cs = cs->next_caller)
 	VEC_quick_push (cgraph_edge_p, redirect_callers, cs);
+
       /* Redirecting all the callers of the node to the
          new versioned node.  */
       node1 =
@@ -984,44 +1069,36 @@ ipcp_insert_stage (void)
       if (node1 == NULL)
 	continue;
       if (dump_file)
-	fprintf (dump_file, "versioned function %s\n",
-		 cgraph_node_name (node));
+	fprintf (dump_file, "versioned function %s with growth %i, overall %i\n",
+		 cgraph_node_name (node), (int)growth, (int)new_insns);
       ipcp_init_cloned_node (node, node1);
-      if (const_param > 0)
-	{
-	  push_cfun (DECL_STRUCT_FUNCTION (node1->decl));
-	  gimple_register_cfg_hooks ();
-	  current_function_decl = node1->decl;
 
-	  for (i = 0; i < count; i++)
-	    {
-	      struct ipcp_lattice *lat = ipcp_get_ith_lattice (info, i);
-	      if (ipcp_lat_is_insertable (lat))
-		{
-		  parm_tree = ipa_get_ith_param (info, i);
-		  if (lat->type != IPA_CONST_VALUE_REF
-		      && !is_gimple_reg (parm_tree))
-		    ipcp_propagate_one_const (node1, i, lat);
-		}
-	    }
-	  if (gimple_in_ssa_p (cfun))
-	    {
-	      update_ssa (TODO_update_ssa);
-#ifdef   ENABLE_CHECKING
-	      verify_ssa (true);
-#endif
-	    }
-	  free_dominance_info (CDI_DOMINATORS);
-	  free_dominance_info (CDI_POST_DOMINATORS);
-	  pop_cfun ();
-	  current_function_decl = NULL;
-	  /* We've possibly introduced direct calls.  */
-	  ipcp_update_cloned_node (node1);
-	}
+      /* We've possibly introduced direct calls.  */
+      ipcp_update_cloned_node (node1);
 
       if (dump_file)
 	dump_function_to_file (node1->decl, dump_file, dump_flags);
+
+      for (cs = node->callees; cs; cs = cs->next_callee)
+        if (cs->callee->aux)
+	  {
+	    fibheap_delete_node (heap, (fibnode_t) cs->callee->aux);
+	    cs->callee->aux = fibheap_insert (heap,
+	    				      ipcp_estimate_cloning_cost (cs->callee),
+					      cs->callee);
+	  }
     }
+
+  while (!fibheap_empty (heap))
+    {
+      if (dump_file)
+	fprintf (dump_file, "skipping function %s\n",
+		 cgraph_node_name (node));
+      node = (struct cgraph_node *) fibheap_extract_min (heap);
+      node->aux = NULL;
+    }
+  fibheap_delete (heap);
+  BITMAP_FREE (dead_nodes);
   ipcp_update_callgraph ();
   ipcp_update_profiling ();
 }

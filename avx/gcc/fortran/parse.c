@@ -1691,13 +1691,154 @@ unexpected_eof (void)
 }
 
 
+/* Set the default access attribute for a typebound procedure; this is used
+   as callback for gfc_traverse_symtree.  */
+
+static gfc_access typebound_default_access;
+
+static void
+set_typebound_default_access (gfc_symtree* stree)
+{
+  if (stree->typebound && stree->typebound->access == ACCESS_UNKNOWN)
+    stree->typebound->access = typebound_default_access;
+}
+
+
+/* Parse the CONTAINS section of a derived type definition.  */
+
+static bool
+parse_derived_contains (void)
+{
+  gfc_state_data s;
+  bool seen_private = false;
+  bool seen_comps = false;
+  bool error_flag = false;
+  bool to_finish;
+
+  gcc_assert (gfc_current_state () == COMP_DERIVED);
+  gcc_assert (gfc_current_block ());
+
+  /* Derived-types with SEQUENCE and/or BIND(C) must not have a CONTAINS
+     section.  */
+  if (gfc_current_block ()->attr.sequence)
+    gfc_error ("Derived-type '%s' with SEQUENCE must not have a CONTAINS"
+	       " section at %C", gfc_current_block ()->name);
+  if (gfc_current_block ()->attr.is_bind_c)
+    gfc_error ("Derived-type '%s' with BIND(C) must not have a CONTAINS"
+	       " section at %C", gfc_current_block ()->name);
+
+  accept_statement (ST_CONTAINS);
+  push_state (&s, COMP_DERIVED_CONTAINS, NULL);
+
+  to_finish = false;
+  while (!to_finish)
+    {
+      gfc_statement st;
+      st = next_statement ();
+      switch (st)
+	{
+	case ST_NONE:
+	  unexpected_eof ();
+	  break;
+
+	case ST_DATA_DECL:
+	  gfc_error ("Components in TYPE at %C must precede CONTAINS");
+	  error_flag = true;
+	  break;
+
+	case ST_PROCEDURE:
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003:  Type-bound"
+					     " procedure at %C") == FAILURE)
+	    error_flag = true;
+
+	  accept_statement (ST_PROCEDURE);
+	  seen_comps = true;
+	  break;
+
+	case ST_FINAL:
+	  if (gfc_notify_std (GFC_STD_F2003,
+			      "Fortran 2003:  FINAL procedure declaration"
+			      " at %C") == FAILURE)
+	    error_flag = true;
+
+	  accept_statement (ST_FINAL);
+	  seen_comps = true;
+	  break;
+
+	case ST_END_TYPE:
+	  to_finish = true;
+
+	  if (!seen_comps
+	      && (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: Derived type "
+				  "definition at %C with empty CONTAINS "
+				  "section") == FAILURE))
+	    error_flag = true;
+
+	  /* ST_END_TYPE is accepted by parse_derived after return.  */
+	  break;
+
+	case ST_PRIVATE:
+	  if (gfc_find_state (COMP_MODULE) == FAILURE)
+	    {
+	      gfc_error ("PRIVATE statement in TYPE at %C must be inside "
+			 "a MODULE");
+	      error_flag = true;
+	      break;
+	    }
+
+	  if (seen_comps)
+	    {
+	      gfc_error ("PRIVATE statement at %C must precede procedure"
+			 " bindings");
+	      error_flag = true;
+	      break;
+	    }
+
+	  if (seen_private)
+	    {
+	      gfc_error ("Duplicate PRIVATE statement at %C");
+	      error_flag = true;
+	    }
+
+	  accept_statement (ST_PRIVATE);
+	  seen_private = true;
+	  break;
+
+	case ST_SEQUENCE:
+	  gfc_error ("SEQUENCE statement at %C must precede CONTAINS");
+	  error_flag = true;
+	  break;
+
+	case ST_CONTAINS:
+	  gfc_error ("Already inside a CONTAINS block at %C");
+	  error_flag = true;
+	  break;
+
+	default:
+	  unexpected_statement (st);
+	  break;
+	}
+    }
+
+  pop_state ();
+  gcc_assert (gfc_current_state () == COMP_DERIVED);
+
+  /* Walk the parsed type-bound procedures and set ACCESS_UNKNOWN attributes
+     to PUBLIC or PRIVATE depending on seen_private.  */
+  typebound_default_access = (seen_private ? ACCESS_PRIVATE : ACCESS_PUBLIC);
+  gfc_traverse_symtree (gfc_current_block ()->f2k_derived->sym_root,
+			&set_typebound_default_access);
+
+  return error_flag;
+}
+
+
 /* Parse a derived type.  */
 
 static void
 parse_derived (void)
 {
   int compiling_type, seen_private, seen_sequence, seen_component, error_flag;
-  int seen_contains, seen_contains_comp;
   gfc_statement st;
   gfc_state_data s;
   gfc_symbol *derived_sym = NULL;
@@ -1713,8 +1854,6 @@ parse_derived (void)
   seen_private = 0;
   seen_sequence = 0;
   seen_component = 0;
-  seen_contains = 0;
-  seen_contains_comp = 0;
 
   compiling_type = 1;
 
@@ -1727,34 +1866,22 @@ parse_derived (void)
 	  unexpected_eof ();
 
 	case ST_DATA_DECL:
-	case ST_PROCEDURE:
-	  if (seen_contains)
-	    {
-	      gfc_error ("Components in TYPE at %C must precede CONTAINS");
-	      error_flag = 1;
-	    }
-
 	  accept_statement (st);
 	  seen_component = 1;
 	  break;
 
+	case ST_PROCEDURE:
+	  gfc_error ("PROCEDURE binding at %C must be inside CONTAINS");
+	  error_flag = 1;
+	  break;
+
 	case ST_FINAL:
-	  if (!seen_contains)
-	    {
-	      gfc_error ("FINAL declaration at %C must be inside CONTAINS");
-	      error_flag = 1;
-	    }
-
-	  if (gfc_notify_std (GFC_STD_F2003,
-			      "Fortran 2003:  FINAL procedure declaration"
-			      " at %C") == FAILURE)
-	    error_flag = 1;
-
-	  accept_statement (ST_FINAL);
-	  seen_contains_comp = 1;
+	  gfc_error ("FINAL declaration at %C must be inside CONTAINS");
+	  error_flag = 1;
 	  break;
 
 	case ST_END_TYPE:
+endType:
 	  compiling_type = 0;
 
 	  if (!seen_component
@@ -1763,22 +1890,10 @@ parse_derived (void)
 		  == FAILURE))
 	    error_flag = 1;
 
-	  if (seen_contains && !seen_contains_comp
-	      && (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: Derived type "
-				 "definition at %C with empty CONTAINS "
-				 "section") == FAILURE))
-	    error_flag = 1;
-
 	  accept_statement (ST_END_TYPE);
 	  break;
 
 	case ST_PRIVATE:
-	  if (seen_contains)
-	    {
-	      gfc_error ("PRIVATE statement at %C must precede CONTAINS");
-	      error_flag = 1;
-	    }
-
 	  if (gfc_find_state (COMP_MODULE) == FAILURE)
 	    {
 	      gfc_error ("PRIVATE statement in TYPE at %C must be inside "
@@ -1802,17 +1917,12 @@ parse_derived (void)
 	    }
 
 	  s.sym->component_access = ACCESS_PRIVATE;
+
 	  accept_statement (ST_PRIVATE);
 	  seen_private = 1;
 	  break;
 
 	case ST_SEQUENCE:
-	  if (seen_contains)
-	    {
-	      gfc_error ("SEQUENCE statement at %C must precede CONTAINS");
-	      error_flag = 1;
-	    }
-
 	  if (seen_component)
 	    {
 	      gfc_error ("SEQUENCE statement at %C must precede "
@@ -1842,15 +1952,10 @@ parse_derived (void)
 			      " definition at %C") == FAILURE)
 	    error_flag = 1;
 
-	  if (seen_contains)
-	    {
-	      gfc_error ("Already inside a CONTAINS block at %C");
-	      error_flag = 1;
-	    }
-
-	  seen_contains = 1;
 	  accept_statement (ST_CONTAINS);
-	  break;
+	  if (parse_derived_contains ())
+	    error_flag = 1;
+	  goto endType;
 
 	default:
 	  unexpected_statement (st);
@@ -1867,7 +1972,7 @@ parse_derived (void)
   for (c = sym->components; c; c = c->next)
     {
       /* Look for allocatable components.  */
-      if (c->allocatable
+      if (c->attr.allocatable
 	  || (c->ts.type == BT_DERIVED && c->ts.derived->attr.alloc_comp))
 	{
 	  sym->attr.alloc_comp = 1;
@@ -1875,7 +1980,7 @@ parse_derived (void)
 	}
 
       /* Look for pointer components.  */
-      if (c->pointer
+      if (c->attr.pointer
 	  || (c->ts.type == BT_DERIVED && c->ts.derived->attr.pointer_comp))
 	{
 	  sym->attr.pointer_comp = 1;
@@ -1884,7 +1989,7 @@ parse_derived (void)
 
       /* Look for private components.  */
       if (sym->component_access == ACCESS_PRIVATE
-	  || c->access == ACCESS_PRIVATE
+	  || c->attr.access == ACCESS_PRIVATE
 	  || (c->ts.type == BT_DERIVED && c->ts.derived->attr.private_comp))
 	{
 	  sym->attr.private_comp = 1;

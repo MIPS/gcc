@@ -1,3 +1,67 @@
+2008-08-26  Victor Kaplansky  <victork@il.ibm.com>
+
+	* gcc.dg/vect/slp-18.c: Require vect_intfloat_cvt.
+	* gcc.dg/vect/slp-11.c: Likewise.
+	* gcc.dg/vect/fast-math-pr35982.c: Likewise.
+	* lib/target-supports.exp:
+	(check_effective_target_vect_pack_trunc): Add SPU to the list.
+	(check_effective_target_vect_extract_even_odd): Likewise.
+	(check_effective_target_vect_extract_even_odd_wide): Likewise.
+	(check_effective_target_vect_interleave): Likewise.
+
+2008-08-25  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+	    Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.target/powerpc/altivec-volatile.c: New test.
+
+2008-08-25  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.dg/extends_7.f03: New test.
+	* gfortran.dg/typebound_proc_7.f03: New test.
+	* gfortran.dg/typebound_proc_8.f03: New test.
+
+2008-08-24  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/octeon-pop-1.c: New test.
+
+2008-08-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37201
+	* gfortran.dg/bind_c_18.f90: New.
+
+2008-08-24  Jan Hubicka <jh@suse.cz>
+
+	* gcc.dg/ipa/ipacost-1.c: New testcase.
+	* gcc.dg/ipa/ipacost-2.c: New testcase.
+	* gcc.dg/ipa/ipa-7.c: Update template.
+
+2008-08-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37201
+	* gfortran.dg/bind_c_usage_17.f90: New.
+	* gfortran.dg/bind_c_usage_17_c.c: New.
+
+2008-08-24  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.dg/finalize_5.f03:  Adapted expected error message to changes
+	to handling of CONTAINS in derived-type declarations.
+	* gfortran.dg/typebound_proc_1.f08:  New test.
+	* gfortran.dg/typebound_proc_2.f90:  New test.
+	* gfortran.dg/typebound_proc_3.f03:  New test.
+	* gfortran.dg/typebound_proc_4.f03:  New test.
+	* gfortran.dg/typebound_proc_5.f03:  New test.
+	* gfortran.dg/typebound_proc_6.f03:  New test.
+
+2008-08-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37076
+	* gfortran.dg/widechar_9.f90: New.
+
+2008-08-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37025
+	* gfortran.dg/widechar_8.f90: New.
+
 2008-08-23  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/37174
