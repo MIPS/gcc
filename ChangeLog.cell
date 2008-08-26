@@ -1,4 +1,10 @@
 2008-08-26  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc/tree.h (strip_array_types): Take a const_tree argument.
+	* gcc/tree.c (strip_array_types): Likewise.
+	* gcc/config/spu/spu.c (spu_valid_addr_space): Likewise.
+
+2008-08-26  Ben Elliston  <bje@au.ibm.com>
 	    Alan Modra  <amodra@au.ibm.com>
 
 	* gcc/c-decl.c (start_decl): Set DECL_SECTION_NAME to "._ea" for

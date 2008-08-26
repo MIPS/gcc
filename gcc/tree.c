@@ -5825,7 +5825,7 @@ maybe_canonicalize_argtypes(tree argtypes,
    element type is found.  */
 
 tree
-strip_array_types (tree type)
+strip_array_types (const_tree type)
 {
   while (TREE_CODE (type) == ARRAY_TYPE)
     type = TREE_TYPE (type);
