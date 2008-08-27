@@ -1,3 +1,12 @@
+2008-08-26  Bill Maddox <maddox@google.com>
+
+	* tree-gimple.h (mark_addressable): Declare extern.
+	* lto-function-in.c (input_expr_operand,
+	input_tree_operand): Read RESX_EXPR operand properly.
+	* gimplify.c (make_addressable): Export.
+	* stmt.c (expand_asm_operands): Add comments regarding
+	dubious use of lang_hooks.mark_addressable.
+
 2008-08-26  Doug Kwan  <dougkwan@google.com>
 
 	* (lto_decl_stream_e_t): New type.

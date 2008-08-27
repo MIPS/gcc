@@ -1,3 +1,11 @@
+2008-08-26  Bill Maddox  <maddox@google.com>
+
+	* lto-lang.c  Include tree-gimple.h.
+	(lto_mark_addressable): Call mark_addressable rather than
+	asserting.
+	(lto_post_options): Suppress debug info generation.
+	* Make-lang.in: Add dependency of lto-lang.o on tree-gimple.h.
+	
 2008-08-25  Bill Maddox <maddox@google.com>
 
 	* lto-symtab.c (lto_symtab_merge_decl): Remove a suspect

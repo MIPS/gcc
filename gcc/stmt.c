@@ -742,6 +742,11 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	      || (DECL_P (val)
 		  && REG_P (DECL_RTL (val))
 		  && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type))))
+	/* FIXME lto: The operands should be gimplified at this
+	   point, so it should be safe just to call mark_addressable
+	   here.  Gimplification may keep language-specific checks
+	   in the langhook from working as expected.  These belong
+	   in the front-ends.  */
 	lang_hooks.mark_addressable (val);
 
       if (is_inout)
@@ -771,6 +776,11 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	return;
 
       if (! allows_reg && allows_mem)
+	/* FIXME lto: The operands should be gimplified at this
+	   point, so it should be safe just to call mark_addressable
+	   here.  Gimplification may keep language-specific checks
+	   in the langhook from working as expected.  These belong
+	   in the front-ends.  */
 	lang_hooks.mark_addressable (TREE_VALUE (tail));
     }
 

@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree-iterator.h"
 
+extern void mark_addressable (tree);
+
 extern tree create_tmp_var_raw (tree, const char *);
 extern tree create_tmp_var_name (const char *);
 extern tree create_tmp_var (tree, const char *);

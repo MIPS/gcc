@@ -1017,7 +1017,9 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case RESX_EXPR:
-      result = build1 (code, void_type_node, lto_input_integer (ib, NULL_TREE));
+      result = build1 (code, void_type_node,
+		       build_int_cstu (unsigned_type_node,
+				       lto_input_uleb128 (ib)));
       break;
 
     case RETURN_EXPR:
@@ -3668,7 +3670,9 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case RESX_EXPR:
-      result = build1 (code, void_type_node, lto_input_integer (ib, NULL_TREE));
+      result = build1 (code, void_type_node,
+		       build_int_cstu (unsigned_type_node,
+				       lto_input_uleb128 (ib)));
       break;
 
     case RETURN_EXPR:

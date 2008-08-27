@@ -32,6 +32,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tree.h"
 #include "lto.h"
 #include "tree-inline.h"
+#include "tree-gimple.h"
 #include "toplev.h"
 
 enum built_in_attribute
@@ -308,14 +309,25 @@ lto_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED, int value ATT
 static bool
 lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 {
+  /* FIXME lto: We have stripped enough type and other
+     debugging information out of the IR that it may
+     appear ill-formed to dwarf2out, etc.  We must not
+     attempt to generate debug info in lto1.  A more
+     graceful solution would disable the option flags
+     rather than ignoring them, but we'd also have to
+     worry about default debugging options.  */
+  write_symbols = NO_DEBUG;
+  debug_info_level = DINFO_LEVEL_NONE;
+
   /* Initialize the compiler back end.  */
   return false;
 }
 
 static bool 
-lto_mark_addressable (tree t ATTRIBUTE_UNUSED)
+lto_mark_addressable (tree t)
 {
-  gcc_unreachable ();
+  mark_addressable (t);
+  return true;
 }
 
 static tree
