@@ -6517,11 +6517,25 @@ spu_sms_res_mii (struct ddg *g)
 void
 spu_init_expanders (void)
 {   
-  /* HARD_FRAME_REGISTER is only 128 bit aligned when
-   * frame_pointer_needed is true.  We don't know that until we're
-   * expanding the prologue. */
   if (cfun)
-    REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = 8;
+    {
+      rtx r0, r1;
+      /* HARD_FRAME_REGISTER is only 128 bit aligned when
+         frame_pointer_needed is true.  We don't know that until we're
+         expanding the prologue. */
+      REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = 8;
+
+      /* A number of passes use LAST_VIRTUAL_REGISTER+1 and
+         LAST_VIRTUAL_REGISTER+2 to test the back-end.  We want to
+         handle those cases specially, so we reserve those two registers
+         here by generating them. */
+      r0 = gen_reg_rtx (SImode);
+      r1 = gen_reg_rtx (SImode);
+      mark_reg_pointer (r0, 128);
+      mark_reg_pointer (r1, 128);
+      gcc_assert (REGNO (r0) == LAST_VIRTUAL_REGISTER + 1
+		  && REGNO (r1) == LAST_VIRTUAL_REGISTER + 2);
+    }
 }
 
 static enum machine_mode

@@ -1,4 +1,11 @@
 2008-08-27  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
+	Fix a bug caused by the previous change.
+
+	* gcc/config/spu/spu.c (spu_init_expanders) : Pregenerate
+	a couple of pseudo-registers.
+
+2008-08-27  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
 	
 	Improve code generated for loads and stores on SPU.
 
