@@ -271,8 +271,7 @@
 (define_split 
   [(set (match_operand 0 "spu_reg_operand")
 	(match_operand 1 "immediate_operand"))]
-
-  ""
+  "split0_completed"
   [(set (match_dup 0)
 	(high (match_dup 1)))
    (set (match_dup 0)
@@ -309,9 +308,10 @@
 ;; move internal
 
 (define_insn "_mov<mode>"
-  [(set (match_operand:MOV 0 "spu_nonimm_operand" "=r,r,r,r,r,m")
+  [(set (match_operand:MOV 0 "spu_dest_operand" "=r,r,r,r,r,m")
 	(match_operand:MOV 1 "spu_mov_operand" "r,A,f,j,m,r"))]
-  "spu_valid_move (operands)"
+  "register_operand(operands[0], <MODE>mode)
+   || register_operand(operands[1], <MODE>mode)"
   "@
    ori\t%0,%1,0
    il%s1\t%0,%S1
@@ -329,9 +329,10 @@
   "iohl\t%0,%2@l")
 
 (define_insn "_movdi"
-  [(set (match_operand:DI 0 "spu_nonimm_operand" "=r,r,r,r,r,m")
+  [(set (match_operand:DI 0 "spu_dest_operand" "=r,r,r,r,r,m")
 	(match_operand:DI 1 "spu_mov_operand" "r,a,f,k,m,r"))]
-  "spu_valid_move (operands)"
+  "register_operand(operands[0], DImode)
+   || register_operand(operands[1], DImode)"
   "@
    ori\t%0,%1,0
    il%d1\t%0,%D1
@@ -342,9 +343,10 @@
   [(set_attr "type" "fx2,fx2,shuf,shuf,load,store")])
 
 (define_insn "_movti"
-  [(set (match_operand:TI 0 "spu_nonimm_operand" "=r,r,r,r,r,m")
+  [(set (match_operand:TI 0 "spu_dest_operand" "=r,r,r,r,r,m")
 	(match_operand:TI 1 "spu_mov_operand" "r,U,f,l,m,r"))]
-  "spu_valid_move (operands)"
+  "register_operand(operands[0], TImode)
+   || register_operand(operands[1], TImode)"
   "@
    ori\t%0,%1,0
    il%t1\t%0,%T1
@@ -354,29 +356,25 @@
    stq%p0\t%1,%0"
   [(set_attr "type" "fx2,fx2,shuf,shuf,load,store")])
 
-(define_insn_and_split "load"
-  [(set (match_operand 0 "spu_reg_operand" "=r")
-	(match_operand 1 "memory_operand" "m"))
-   (clobber (match_operand:TI 2 "spu_reg_operand" "=&r"))
-   (clobber (match_operand:SI 3 "spu_reg_operand" "=&r"))]
-  "GET_MODE(operands[0]) == GET_MODE(operands[1])"
-  "#"
-  ""
+(define_split
+  [(set (match_operand 0 "spu_reg_operand")
+	(match_operand 1 "memory_operand"))]
+  "GET_MODE(operands[0]) == GET_MODE(operands[1]) && !split0_completed"
   [(set (match_dup 0)
 	(match_dup 1))]
-  { spu_split_load(operands); DONE; })
+  { if (spu_split_load(operands))
+      DONE;
+  })
 
-(define_insn_and_split "store"
-  [(set (match_operand 0 "memory_operand" "=m")
-	(match_operand 1 "spu_reg_operand" "r"))
-   (clobber (match_operand:TI 2 "spu_reg_operand" "=&r"))
-   (clobber (match_operand:TI 3 "spu_reg_operand" "=&r"))]
-  "GET_MODE(operands[0]) == GET_MODE(operands[1])"
-  "#"
-  ""
+(define_split
+  [(set (match_operand 0 "memory_operand")
+	(match_operand 1 "spu_reg_operand"))]
+  "GET_MODE(operands[0]) == GET_MODE(operands[1]) && !split0_completed"
   [(set (match_dup 0)
 	(match_dup 1))]
-  { spu_split_store(operands); DONE; })
+  { if (spu_split_store(operands))
+      DONE;
+  })
 
 ;; Operand 3 is the number of bytes. 1:b 2:h 4:w 8:d
 

@@ -715,6 +715,7 @@ init_optimization_passes (void)
 	}
       NEXT_PASS (pass_web);
       NEXT_PASS (pass_jump_bypass);
+      NEXT_PASS (pass_split_before_cse2);
       NEXT_PASS (pass_cse2);
       NEXT_PASS (pass_rtl_dse1);
       NEXT_PASS (pass_rtl_fwprop_addr);

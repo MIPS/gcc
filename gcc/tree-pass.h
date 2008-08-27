@@ -385,6 +385,7 @@ extern struct tree_opt_pass pass_rtl_doloop;
 extern struct tree_opt_pass pass_rtl_loop_done;
 
 extern struct tree_opt_pass pass_web;
+extern struct tree_opt_pass pass_split_before_cse2;
 extern struct tree_opt_pass pass_cse2;
 extern struct tree_opt_pass pass_df_initialize_opt;
 extern struct tree_opt_pass pass_df_initialize_no_opt;

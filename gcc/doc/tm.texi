@@ -10438,3 +10438,16 @@ Define this to return true if the @var{address_space} is recognized
 for the target.  The default version of this hook unconditionally
 returns false.
 @end deftypefn
+
+@defmac SPLIT_BEFORE_CSE2
+This macro determines whether to use an additional split pass before the
+second CSE pass.  @code{split0_completed} will be set after this pass is
+completed. 
+
+For example, the Cell SPU target uses this for better optimization of
+the multiple instructions required to do simple loads and stores.  The
+optimizations before this pass work better on simple memory
+instructions, and the optimizations right after this pass (e.g., CSE and
+combine) are be able to optimize the split instructions.
+@end defmac
+

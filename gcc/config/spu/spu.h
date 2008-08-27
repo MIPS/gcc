@@ -239,6 +239,11 @@ enum reg_class {
 #define INT_REG_OK_FOR_BASE_P(X,STRICT) \
 	((!(STRICT) || REGNO_OK_FOR_BASE_P (REGNO (X))))
 
+#define REG_ALIGN(X) \
+	(REG_POINTER(X) \
+	 	? REGNO_POINTER_ALIGN (ORIGINAL_REGNO (X)) \
+		: 0)
+
 #define PREFERRED_RELOAD_CLASS(X,CLASS)  (CLASS)
 
 #define CLASS_MAX_NREGS(CLASS, MODE)	\
@@ -421,7 +426,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 #endif
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)			\
-    { if (spu_legitimate_address (MODE, X, REG_OK_STRICT_FLAG))	\
+    { if (spu_legitimate_address (MODE, X, REG_OK_STRICT_FLAG, 0))	\
 	goto ADDR;						\
     }
 
@@ -625,4 +630,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
    conditional branches. */
 extern GTY(()) rtx spu_compare_op0;
 extern GTY(()) rtx spu_compare_op1;
+
+#define SPLIT_BEFORE_CSE2 1
 

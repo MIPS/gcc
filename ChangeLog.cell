@@ -1,3 +1,37 @@
+2008-08-27  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+	
+	Improve code generated for loads and stores on SPU.
+
+	* gcc/doc/tm.texi (SPLIT_BEFORE_CSE2) : Document.
+	* gcc/tree-pass.h (pass_split_before_cse2) : Declare.
+	* gcc/final.c (rest_of_clean_state) : Initialize split0_completed.
+	* gcc/testsuite/gcc.target/spu/split0-1.c : Add test.
+	* gcc/recog.c (split0_completed) : Define.
+	(gate_handle_split_before_cse2, rest_of_handle_split_before_cse2) :
+	New functions.
+	(pass_split_before_cse2) : New pass.
+	* gcc/rtl.h (split0_completed) : Declare.
+	* gcc/passes.c (init_optimization_passes) : Add
+	pass_split_before_cse2 before pass_cse2 .
+	* gcc/config/spu/spu-protos.h (spu_legitimate_address) : Add
+	for_split argument.
+	(aligned_mem_p, spu_valid_move) : Remove prototypes.
+	(spu_split_load, spu_split_store) : Change return type to int.
+	* gcc/config/spu/predicates.md (spu_mem_operand) : Remove.
+	(spu_dest_operand) : Add.
+	* gcc/config/spu/spu-builtins.md (spu_lqd, spu_lqx, spu_lqa,
+	spu_lqr, spu_stqd, spu_stqx, spu_stqa, spu_stqr) : Remove AND
+	operation.
+	* gcc/config/spu/spu.c (regno_aligned_for_load) : Remove.
+	(reg_aligned_for_addr, address_needs_split) : New functions.
+	(spu_legitimate_address, spu_expand_mov, spu_split_load,
+	spu_split_store) : Update.
+	* gcc/config/spu/spu.h (REG_ALIGN, SPLIT_BEFORE_CSE2) : Define.
+	(GO_IF_LEGITIMATE_ADDRESS) : Update for spu_legitimate_address.
+	* gcc/config/spu/spu.md ("_mov<mode>", "_movdi", "_movti") : Update
+	predicates.
+	("load", "store") : Change to define_split.
+
 2008-08-26  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
 	
 	Fix hbrp issues.

@@ -2002,6 +2002,9 @@ extern int reload_completed;
 /* Nonzero after thread_prologue_and_epilogue_insns has run.  */
 extern int epilogue_completed;
 
+/* Nonzero after the split0 pass has completed. */
+extern int split0_completed;
+
 /* Set to 1 while reload_as_needed is operating.
    Required by some machines to handle any generated moves differently.  */
 
