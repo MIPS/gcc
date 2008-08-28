@@ -344,7 +344,8 @@ lto_output_data_stream (struct lto_output_stream *obs, const void *data,
 /* Output an unsigned LEB128 quantity to OBS.  */
 
 void
-lto_output_uleb128_stream (struct lto_output_stream *obs, unsigned HOST_WIDE_INT work)
+lto_output_uleb128_stream (struct lto_output_stream *obs,
+			   unsigned HOST_WIDE_INT work)
 {
   LTO_DEBUG_WIDE ("U", work);
   do
@@ -971,11 +972,6 @@ write_global_references (struct output_block *ob,
       slot = htab_find_slot (ob->main_hash_table, &d_slot, NO_INSERT);
       gcc_assert (slot);
       old_slot = (struct lto_decl_slot *)*slot;
-#if 0
-      fprintf (stderr, "*** %d: ", old_slot->slot_num);
-      print_generic_expr (stderr, t, 0);
-      fprintf (stderr, "\n");
-#endif
       slot_num = old_slot->slot_num;
       lto_output_data_stream (ref_stream, &slot_num, sizeof slot_num);
     }
@@ -1180,7 +1176,7 @@ produce_symtab (htab_t hash)
    recover these on other side.  */
 
 static void
-produce_asm_for_decls (cgraph_node_set set)
+produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED)
 {
   struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
   struct lto_out_decl_state *fn_out_state;

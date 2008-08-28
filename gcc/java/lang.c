@@ -221,7 +221,7 @@ java_handle_option (size_t scode, const char *arg, int value)
       flag_wall = value;
       /* When -Wall given, enable -Wunused.  We do this because the C
 	 compiler does it, and people expect it.  */
-      set_Wunused (value);
+      warn_unused = value;
       break;
 
     case OPT_fenable_assertions_:
@@ -531,10 +531,6 @@ static bool
 java_post_options (const char **pfilename)
 {
   const char *filename = *pfilename;
-
-  /* Use tree inlining.  */
-  if (!flag_no_inline)
-    flag_no_inline = 1;
 
   /* An absolute requirement: if we're not using indirect dispatch, we
      must always verify everything.  */

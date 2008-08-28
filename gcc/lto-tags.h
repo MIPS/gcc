@@ -264,15 +264,30 @@ struct lto_function_header
 #define REDUNDANT_TYPE_SYSTEM 1
 
 enum LTO_tags {
-/* The 1 variant indicates that the basic block is not empty.  */
+  LTO_null = 0,
+
+  /* The 1 variant indicates that the basic block is not empty.  */
   LTO_bb0 = 1,
   LTO_bb1,
 
-/* Variant 1 is used to set region to no zero value.  */
+  /* Variant 1 is used to set region to no zero value.  */
   LTO_set_eh0,
   LTO_set_eh1,
 
-/* All of the expression types that we can see.  */
+  /* All the supported GIMPLE statement codes.  Note that we only
+     support Low GIMPLE codes.  */
+  LTO_gimple_asm,
+  LTO_gimple_assign,
+  LTO_gimple_call,
+  LTO_gimple_cond,
+  LTO_gimple_goto,
+  LTO_gimple_label,
+  LTO_gimple_phi,
+  LTO_gimple_return,
+  LTO_gimple_resx,
+  LTO_gimple_switch,
+
+  /* All of the expression types that we can see.  */
   LTO_abs_expr,
   LTO_addr_expr,
   LTO_align_indirect_ref,
@@ -283,20 +298,20 @@ enum LTO_tags {
   LTO_bit_and_expr,
   LTO_bit_ior_expr,
 
-/* Variant 1 is used if both operands 1 and 2 are constant ints.  */
+  /* Variant 1 is used if both operands 1 and 2 are constant ints.  */
   LTO_bit_field_ref0,
   LTO_bit_field_ref1,
   LTO_bit_not_expr,
   LTO_bit_xor_expr,
 
-/* Call_exprs are terminated by a 0 to indicate the end of the
-   parameter list.  Variant 1 indicates the presence of a call
-   chain.  */
+  /* Call_exprs are terminated by a 0 to indicate the end of the
+     parameter list.  Variant 1 indicates the presence of a call
+     chain.  */
   LTO_call_expr0,
   LTO_call_expr1,
 
-/* Variant 1 and 3 are if CASE_LOW exists and variant 2 and 3 are if
-   CASE_HIGH exists.  */
+  /* Variant 1 and 3 are if CASE_LOW exists and variant 2 and 3 are if
+     CASE_HIGH exists.  */
   LTO_case_label_expr0,
   LTO_case_label_expr1,
   LTO_case_label_expr2,
@@ -305,20 +320,18 @@ enum LTO_tags {
   LTO_ceil_mod_expr,
   LTO_change_dynamic_type_expr,
 
-/* Variant 1 if the elements are reals and 0 if the elements are ints.  */
+  /* Variant 1 if the elements are reals and 0 if the elements are ints.  */
   LTO_complex_cst0,
   LTO_complex_cst1,
   LTO_complex_expr,
   LTO_component_ref,
   LTO_compound_expr,
 
-/* Variant 1 if operands 1 and 2 are NULL.  */
-  LTO_cond_expr0,
-  LTO_cond_expr1,
+  LTO_cond_expr,
   LTO_conj_expr,
   LTO_const_decl,
 
-/* This form is terminated by a zero.  */
+  /* This form is terminated by a zero.  */
   LTO_constructor,
   LTO_convert_expr,
   LTO_dot_prod_expr,
@@ -339,7 +352,6 @@ enum LTO_tags {
   LTO_floor_mod_expr,
   LTO_function_decl,
   LTO_ge_expr,
-  LTO_gimple_modify_stmt,
   LTO_goto_expr,
   LTO_gt_expr,
   LTO_imagpart_expr,
@@ -366,7 +378,6 @@ enum LTO_tags {
   LTO_obj_type_ref,
   LTO_ordered_expr,
   LTO_parm_decl,
-  LTO_phi_node,
   LTO_pointer_plus_expr,
   LTO_paren_expr,
   LTO_plus_expr,
@@ -381,14 +392,12 @@ enum LTO_tags {
   LTO_reduc_plus_expr,
   LTO_result_decl,
 
-/* Form "return;"  */
+  /* Form "return;"  */
   LTO_return_expr0,
 
-/* Form "return x;"  */
+  /* Form "return x;"  */
   LTO_return_expr1,
 
-/* Form "return x=y;"  */
-  LTO_return_expr2,
   LTO_resx_expr,
   LTO_round_div_expr,
   LTO_round_mod_expr,
@@ -397,7 +406,7 @@ enum LTO_tags {
   LTO_ssa_name,
   LTO_string_cst,
 
-/* Cases are terminated with a zero.  */
+  /* Cases are terminated with a zero.  */
   LTO_switch_expr,
   LTO_tree_list,
   LTO_tree_vec,

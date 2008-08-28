@@ -32,7 +32,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tree.h"
 #include "lto.h"
 #include "tree-inline.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "toplev.h"
 
 enum built_in_attribute

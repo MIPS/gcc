@@ -1,17 +1,22 @@
+2008-08-25  Bill Maddox <maddox@google.com>
+
+	* mangle.c (decl_is_template_id): Protect against unexpected
+	node type as argument to PRIMARY_TEMPLATE_P.
+
 2008-06-27  Rafael Espindola  <espindola@google.com>
 
 	* decl.c (duplicate_decls): Call remove_decl_from_map.
 
 2008-06-24  Rafael Espindola  <espindola@google.com>
 
-       * lang-specs.h: add invoke_lto_single before invoke_as.
+	* lang-specs.h: add invoke_lto_single before invoke_as.
 
 2008-06-09 Rafael Espindola  <espindola@google.com>
-       based on http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
+	based on http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
 
-       * cp-objcp-common.h (LANG_HOOKS_RESET_LANG_SPECIFICS): New.
-       * cp-tree.h (cp_reset_lang_specifics): New.
-       * tree.c (cp_reset_lang_specifics): New.
+	* cp-objcp-common.h (LANG_HOOKS_RESET_LANG_SPECIFICS): New.
+	* cp-tree.h (cp_reset_lang_specifics): New.
+	* tree.c (cp_reset_lang_specifics): New.
 
 2008-04-04  Ollie Wild  <aaw@google.com>
 

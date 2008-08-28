@@ -50,7 +50,7 @@ enum lto_tree_node_structure_enum {
 
 union lang_tree_node GTY(
  (desc ("lto_tree_node_structure (&%h)"),
-  chain_next ("(union lang_tree_node *)GENERIC_NEXT (&%h.generic)")))
+  chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   union tree_node GTY ((tag ("TS_LTO_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;

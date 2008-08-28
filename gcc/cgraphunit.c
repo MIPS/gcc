@@ -130,7 +130,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "function.h"
 #include "ipa-prop.h"
-#include "tree-gimple.h"
+#include "gimple.h"
+#include "tree-iterator.h"
 #include "tree-pass.h"
 #include "output.h"
 
@@ -172,7 +173,6 @@ record_cdtor_fn (tree fndecl)
       VEC_safe_push (tree, gc, static_dtors, fndecl);
       DECL_STATIC_DESTRUCTOR (fndecl) = 0;
     }
-  DECL_INLINE (fndecl) = 1;
   node = cgraph_node (fndecl);
   node->local.disregard_inline_limits = 1;
   cgraph_mark_reachable_node (node);
@@ -407,7 +407,7 @@ cgraph_process_new_functions (void)
 	     transformations that has been already performed on the whole
 	     cgraph but not on this function.  */
 
-	  tree_register_cfg_hooks ();
+	  gimple_register_cfg_hooks ();
 	  if (!node->analyzed)
 	    cgraph_analyze_function (node);
 	  push_cfun (DECL_STRUCT_FUNCTION (fndecl));
@@ -570,7 +570,7 @@ verify_cgraph_node (struct cgraph_node *node)
   struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
   struct function *saved_cfun = cfun;
   basic_block this_block;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   bool error_found = false;
 
   if (errorcount || sorrycount)
@@ -652,7 +652,8 @@ verify_cgraph_node (struct cgraph_node *node)
     }
 
   if (node->analyzed
-      && DECL_SAVED_TREE (node->decl) && !TREE_ASM_WRITTEN (node->decl)
+      && gimple_body (node->decl)
+      && !TREE_ASM_WRITTEN (node->decl)
       && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to))
     {
       if (this_cfun->cfg)
@@ -663,12 +664,13 @@ verify_cgraph_node (struct cgraph_node *node)
 	  /* Reach the trees by walking over the CFG, and note the
 	     enclosing basic-blocks in the call edges.  */
 	  FOR_EACH_BB_FN (this_block, this_cfun)
-	    for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
+	    for (gsi = gsi_start_bb (this_block);
+                 !gsi_end_p (gsi);
+                 gsi_next (&gsi))
 	      {
-		tree stmt = bsi_stmt (bsi);
-		tree call = get_call_expr_in (stmt);
+		gimple stmt = gsi_stmt (gsi);
 		tree decl;
-		if (call && (decl = get_callee_fndecl (call)))
+		if (is_gimple_call (stmt) && (decl = gimple_call_fndecl (stmt)))
 		  {
 		    struct cgraph_edge *e = cgraph_edge (node, stmt);
 		    if (e)
@@ -676,7 +678,7 @@ verify_cgraph_node (struct cgraph_node *node)
 			if (e->aux)
 			  {
 			    error ("shared call_stmt:");
-			    debug_generic_stmt (stmt);
+			    debug_gimple_stmt (stmt);
 			    error_found = true;
 			  }
 			if (e->callee->decl != cgraph_node (decl)->decl
@@ -692,7 +694,7 @@ verify_cgraph_node (struct cgraph_node *node)
 		    else
 		      {
 			error ("missing callgraph edge for call stmt:");
-			debug_generic_stmt (stmt);
+			debug_gimple_stmt (stmt);
 			error_found = true;
 		      }
 		  }
@@ -710,7 +712,7 @@ verify_cgraph_node (struct cgraph_node *node)
 	      error ("edge %s->%s has no corresponding call_stmt",
 		     cgraph_node_name (e->caller),
 		     cgraph_node_name (e->callee));
-	      debug_generic_stmt (e->call_stmt);
+	      debug_gimple_stmt (e->call_stmt);
 	      error_found = true;
 	    }
 	  e->aux = 0;
@@ -871,7 +873,7 @@ cgraph_analyze_functions (void)
     {
       fprintf (cgraph_dump_file, "Initial entry points:");
       for (node = cgraph_nodes; node != first_analyzed; node = node->next)
-	if (node->needed && DECL_SAVED_TREE (node->decl))
+	if (node->needed && gimple_body (node->decl))
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n");
     }
@@ -893,14 +895,16 @@ cgraph_analyze_functions (void)
       /* ??? It is possible to create extern inline function and later using
 	 weak alias attribute to kill its body. See
 	 gcc.c-torture/compile/20011119-1.c  */
-      if (!DECL_SAVED_TREE (decl))
+      if (!DECL_STRUCT_FUNCTION (decl))
 	{
 	  cgraph_reset_node (node);
 	  continue;
 	}
 
-      gcc_assert (node->reachable);
-      gcc_assert (node->analyzed || DECL_SAVED_TREE (decl));
+#if 0
+      gcc_assert (!node->analyzed && node->reachable);
+      gcc_assert (gimple_body (decl));
+#endif
 
       if (!node->analyzed)
         cgraph_analyze_function (node);
@@ -924,7 +928,7 @@ cgraph_analyze_functions (void)
     {
       fprintf (cgraph_dump_file, "Unit entry points:");
       for (node = cgraph_nodes; node != first_analyzed; node = node->next)
-	if (node->needed && DECL_SAVED_TREE (node->decl))
+	if (node->needed && gimple_body (node->decl))
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n\nInitial ");
       dump_cgraph (cgraph_dump_file);
@@ -938,10 +942,10 @@ cgraph_analyze_functions (void)
       tree decl = node->decl;
       next = node->next;
 
-      if (node->local.finalized && !DECL_SAVED_TREE (decl))
+      if (node->local.finalized && !gimple_body (decl))
 	cgraph_reset_node (node);
 
-      if (!node->reachable && DECL_SAVED_TREE (decl))
+      if (!node->reachable && gimple_body (decl))
 	{
 	  if (cgraph_dump_file)
 	    fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
@@ -950,7 +954,7 @@ cgraph_analyze_functions (void)
 	}
       else
 	node->next_needed = NULL;
-      gcc_assert (!node->local.finalized || DECL_SAVED_TREE (decl));
+      gcc_assert (!node->local.finalized || gimple_body (decl));
       gcc_assert (node->analyzed == node->local.finalized);
     }
   if (cgraph_dump_file)
@@ -1003,7 +1007,7 @@ cgraph_mark_functions_to_output (void)
       /* We need to output all local functions that are used and not
 	 always inlined, as well as those that are reachable from
 	 outside the current compilation unit.  */
-      if (DECL_SAVED_TREE (decl)
+      if (gimple_body (decl)
 	  && !node->global.inlined_to
 	  && (node->needed
 	      || (e && node->reachable))
@@ -1014,14 +1018,16 @@ cgraph_mark_functions_to_output (void)
 	{
 	  /* We should've reclaimed all functions that are not needed.  */
 #ifdef ENABLE_CHECKING
-	  if (!node->global.inlined_to && DECL_SAVED_TREE (decl)
+	  if (!node->global.inlined_to
+	      && gimple_body (decl)
 	      && !DECL_EXTERNAL (decl))
 	    {
 	      dump_cgraph_node (stderr, node);
 	      internal_error ("failed to reclaim unneeded function");
 	    }
 #endif
-	  gcc_assert (node->global.inlined_to || !DECL_SAVED_TREE (decl)
+	  gcc_assert (node->global.inlined_to
+		      || !gimple_body (decl)
 		      || DECL_EXTERNAL (decl));
 
 	}
@@ -1051,7 +1057,6 @@ cgraph_expand_function (struct cgraph_node *node)
   /* Make sure that BE didn't give up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
   gcc_assert (TREE_ASM_WRITTEN (decl));
-
   current_function_decl = NULL;
   if (!cgraph_preserve_function_body_p (decl))
     {
@@ -1226,10 +1231,8 @@ bool
 cgraph_preserve_function_body_p (tree decl)
 {
   struct cgraph_node *node;
-  if (!cgraph_global_info_ready)
-    return (flag_really_no_inline
-	    ? DECL_DISREGARD_INLINE_LIMITS (decl)
-	    : DECL_INLINE (decl));
+
+  gcc_assert (cgraph_global_info_ready);
   /* Look if there is any clone around.  */
   for (node = cgraph_node (decl); node; node = node->next_clone)
     if (node->global.inlined_to)
@@ -1242,7 +1245,7 @@ ipa_passes (void)
 {
   set_cfun (NULL);
   current_function_decl = NULL;
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
   bitmap_obstack_initialize (NULL);
   execute_ipa_pass_list (all_ipa_passes);
   bitmap_obstack_release (NULL);
@@ -1342,7 +1345,7 @@ cgraph_optimize (void)
       for (node = cgraph_nodes; node; node = node->next)
 	if (node->analyzed
 	    && (node->global.inlined_to
-		|| DECL_SAVED_TREE (node->decl)))
+		|| gimple_body (node->decl)))
 	  {
 	    error_found = true;
 	    dump_cgraph_node (stderr, node);
@@ -1431,10 +1434,10 @@ update_call_expr (struct cgraph_node *new_version)
   struct cgraph_edge *e;
 
   gcc_assert (new_version);
+
+  /* Update the call expr on the edges to call the new version.  */
   for (e = new_version->callers; e; e = e->next_caller)
-    /* Update the call expr on the edges
-       to call the new version.  */
-    TREE_OPERAND (CALL_EXPR_FN (get_call_expr_in (e->call_stmt)), 0) = new_version->decl;
+    gimple_call_set_fndecl (e->call_stmt, new_version->decl);
 }
 
 

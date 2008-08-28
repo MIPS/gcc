@@ -1,3 +1,13 @@
+2008-08-28  Diego Novillo  <dnovillo@google.com>
+
+	* Make-lang.in (lto-lang.o): Replace tree-gimple.h with
+	$(GIMPLE_H).
+	(lto-symtab.o): Add dependency on $(GIMPLE_H).
+	* lto-lang.c: Include gimple.h instead of tree-gimple.h.
+	* lto-symtab.c: Include gimple.h.
+	* lto-tree.h (chain_next): Replace GENERIC_NEXT with
+	TREE_CHAIN.
+
 2008-08-27  Doug Kwan  <dougkwan@google.com>
 
 	* lto.c (vec.h, bitmap.h, pointer-set.h, ipa-prop.h, ggc.h,
@@ -7,7 +17,7 @@
 	(lto_cgraph_node_sets): New garbage collected variable.
 	(lto_1_to_1_map, lto_add_all_inlinees, lto_wpa_write_files):
 	New functions.
- 	(lto_main): Initialize bitmap obstack.  Add code to handle WPA mode.
+	(lto_main): Initialize bitmap obstack.  Add code to handle WPA mode.
 	* Make-lang.in (LTO_H): Replace filename lto-section-in.h with 
 	variable LTO_SECTION_IN_H.
 	(lto/lto.o): Include gt-lto-lto-c.h ggc.h ,VEC_H, BITMAP_H,
@@ -35,7 +45,7 @@
 	* lto.c (preload_common_nodes): Call lto_get_common_nodes to get a list
 	of common nodes instead of computing locallly.
 	(lto_read_in_decl_state): New.
- 	(lto_read_decls): Change code for udpate in struct lto_decl_header.
+	(lto_read_decls): Change code for udpate in struct lto_decl_header.
 	Read global and per-function in-decl states.
 	* Make-lang.in (LTO_H): Update dependency.
 	(lto/lto.o): Same.
@@ -79,16 +89,16 @@
 
 2008-07-30  Bill Maddox  <maddox@google.com>
 
- 	* lto.c (lto_materialize_function): Call lto_original_decl_name.
- 	Remove obsolete comments.
- 	(lto_read_decls): Remove initialization of deleted field data_in.global.
- 	Tidy up comments.
- 	(lto_main): Remove redundant initialization of section_hash_table.
- 	* lto-elf.c: Removed obsolete comments.
- 	* lto.h: Tidy up comments.
- 	* lto-symtab.c (lto_least_common_multiple): New function.
- 	(lto_symtab_merge_decl): Merge variable alignments in some cases.
- 	Tidy up comments.
+	* lto.c (lto_materialize_function): Call lto_original_decl_name.
+	Remove obsolete comments.
+	(lto_read_decls): Remove initialization of deleted field data_in.global.
+	Tidy up comments.
+	(lto_main): Remove redundant initialization of section_hash_table.
+	* lto-elf.c: Removed obsolete comments.
+	* lto.h: Tidy up comments.
+	* lto-symtab.c (lto_least_common_multiple): New function.
+	(lto_symtab_merge_decl): Merge variable alignments in some cases.
+	Tidy up comments.
 
 2008-07-25  Diego Novillo  <dnovillo@google.com>
 	    Bill Maddox  <maddox@google.com>
@@ -1213,7 +1223,7 @@
 	
 2007-08-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-        * lto-read.c (input_expr_operand): Assert that there really is a
+	* lto-read.c (input_expr_operand): Assert that there really is a
 	FUNCTION_DECL.
 	(input_globals): Removed checks on 0 section.
 	

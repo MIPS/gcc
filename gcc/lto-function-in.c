@@ -468,8 +468,6 @@ set_line_info (struct data_in *data_in, tree node)
 {
   if (EXPR_P (node))
     LINEMAP_POSITION_FOR_COLUMN (EXPR_CHECK (node)->exp.locus, line_table, data_in->current_col);
-  else if (GIMPLE_STMT_P (node))
-    LINEMAP_POSITION_FOR_COLUMN (GIMPLE_STMT_LOCUS (node), line_table, data_in->current_col);
   else if (DECL_P (node))
     LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col);
 }
@@ -505,8 +503,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
     {
       int index = lto_input_uleb128 (ib);
       result = lto_file_decl_data_get_type (data_in->file_data, index);
-
-      LTO_DEBUG_UNDENT();
+      LTO_DEBUG_UNDENT ();
       return result;
     }
   else if (tag == LTO_local_type_ref)
@@ -561,8 +558,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
   flags = input_tree_flags (ib, code, false);
 
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
-      || IS_GIMPLE_STMT_CODE_CLASS(TREE_CODE_CLASS (code)))
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     needs_line_set = input_line_info (ib, data_in, flags);
 
   switch (code)
@@ -876,33 +872,16 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       result = get_label_decl (data_in, ib);
       break;
 
-    case LABEL_EXPR:
-      result = build1 (code, void_type_node, get_label_decl (data_in, ib));
-      if (!DECL_CONTEXT (LABEL_EXPR_LABEL (result)))
-	DECL_CONTEXT (LABEL_EXPR_LABEL (result)) = fn->decl;
-      break;
-
     case COND_EXPR:
-      if (tag == LTO_cond_expr0)
-	{
-	  tree op0;
-	  tree op1;
-	  tree op2;
-	  op0 = input_expr_operand (ib, data_in, fn, 
-				    input_record_start (ib));
-	  op1 = input_expr_operand (ib, data_in, fn, 
-				    input_record_start (ib));
-	  op2 = input_expr_operand (ib, data_in, fn, 
-				    input_record_start (ib));
-	  result = build3 (code, type, op0, op1, op2);
-	}
-      else
-	{
-	  tree op0;
-	  op0 = input_expr_operand (ib, data_in, fn, 
-				    input_record_start (ib));
-	  result = build3 (code, type, op0, NULL, NULL);
-	}
+      {
+	tree op0;
+	tree op1;
+	tree op2;
+	op0 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
+	op1 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
+	op2 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
+	result = build3 (code, type, op0, op1, op2);
+      }
       break;
       
 
@@ -922,33 +901,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
   
 	/* Ignore 3 because it can be recomputed.  */
 	result = build3 (code, type, op0, op1, NULL_TREE);
-      }
-      break;
-
-    case CALL_EXPR:
-      {
-	unsigned int i;
-	unsigned int count = lto_input_uleb128 (ib);
-	tree op1;
-	tree op2 = NULL_TREE;
-
-	/* The call chain.  */
-	if (tag == LTO_call_expr1)
-	  op2 = input_expr_operand (ib, data_in, fn, 
-				    input_record_start (ib));
-
-	/* The callee.  */
-	op1 = input_expr_operand (ib, data_in, fn, 
-				  input_record_start (ib));
-
-	result = build_vl_exp (code, count);
-	CALL_EXPR_FN (result) = op1;
-	CALL_EXPR_STATIC_CHAIN (result) = op2;
-	for (i = 3; i < count; i++)
-	  TREE_OPERAND (result, i) 
-	    = input_expr_operand (ib, data_in, fn, 
-				  input_record_start (ib));
-        TREE_TYPE (result) = type;
       }
       break;
 
@@ -990,116 +942,11 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       }
       break;
 
-    case ASM_EXPR:
-      {
-	tree str = input_string (data_in, lto_input_uleb128 (ib));
-	tree ins = NULL_TREE;
-	tree outs = NULL_TREE;
-	tree clobbers = NULL_TREE;
-	tree tl;
-
-	tag = input_record_start (ib);
-	if (tag)
-	  ins = input_expr_operand (ib, data_in, fn, tag); 
-	tag = input_record_start (ib);
-	if (tag)
-	  outs = input_expr_operand (ib, data_in, fn, tag); 
-	tag = input_record_start (ib);
-	if (tag)
-	  clobbers = input_expr_operand (ib, data_in, fn, tag);
-
-	result = build4 (code, void_type_node, str, outs, ins, clobbers);
-
-	for (tl = ASM_OUTPUTS (result); tl; tl = TREE_CHAIN (tl))
-	  if (TREE_CODE (TREE_VALUE (tl)) == SSA_NAME)
-	    SSA_NAME_DEF_STMT (TREE_VALUE (tl)) = result;
-      }
-      break;
-
-    case RESX_EXPR:
-      result = build1 (code, void_type_node,
-		       build_int_cstu (unsigned_type_node,
-				       lto_input_uleb128 (ib)));
-      break;
-
-    case RETURN_EXPR:
-      switch (tag) 
-	{
-	case LTO_return_expr0:
-	  result = build1 (code, type, NULL_TREE);
-	  break;
-	  
-	case LTO_return_expr1:
-          {
-            enum LTO_tags tag = input_record_start (ib);
-            tree op0;
-
-            if (tag)
-              op0 = input_expr_operand (ib, data_in, fn, tag);
-            else
-	      {
-		op0 = DECL_RESULT (current_function_decl);
-		add_referenced_var (op0);
-	      }
-
-            result = build1 (code, type, op0);
-
-	    if ((TREE_CODE (op0) == GIMPLE_MODIFY_STMT)
-		&& (TREE_CODE (GIMPLE_STMT_OPERAND (op0, 0)) == SSA_NAME))
-		SSA_NAME_DEF_STMT (GIMPLE_STMT_OPERAND (op0, 0)) = result;
-          }
-	  break;
-	  
-	case LTO_return_expr2:
-	  {
-	    tree op0 = input_expr_operand (ib, data_in, fn,
-					   input_record_start (ib));
-	    tree op1 = input_expr_operand (ib, data_in, fn,
-					   input_record_start (ib));
-	    result = build1 (code, type, 
-			     build2 (MODIFY_EXPR, NULL_TREE, op0, op1));
-	  }
-	  break;
-
-        default:
-          gcc_unreachable ();
-	}
-      break;
-
     case RANGE_EXPR:
       {
 	tree op0 = lto_input_integer (ib, input_type_ref (data_in, ib));
 	tree op1 = lto_input_integer (ib, input_type_ref (data_in, ib));
 	result = build2 (RANGE_EXPR, sizetype, op0, op1);
-      }
-      break;
-
-    case GIMPLE_MODIFY_STMT:
-      {
-	tree op0 = input_expr_operand (ib, data_in, fn, 
-				       input_record_start (ib));
-	tree op1 = input_expr_operand (ib, data_in, fn,
-				       input_record_start (ib));
-
-	result = build_gimple_modify_stmt (op0, op1);
-	if (TREE_CODE (op0) == SSA_NAME)
-	  SSA_NAME_DEF_STMT (op0) = result;
-      }
-      break;
-
-    case SWITCH_EXPR:
-      {
-	unsigned int len = lto_input_uleb128 (ib);
-	unsigned int i;
-	tree op0 = input_expr_operand (ib, data_in, fn, 
-				       input_record_start (ib));
-	tree op2 = make_tree_vec (len);
-	
-	for (i = 0; i < len; ++i)
-	  TREE_VEC_ELT (op2, i) 
-	    = input_expr_operand (ib, data_in, fn,
-				  input_record_start (ib));
-	result = build3 (code, type, op0, NULL_TREE, op2);
       }
       break;
 
@@ -1142,6 +989,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 #define SET_NAME(a,b)
 #define TREE_SINGLE_MECHANICAL_TRUE
 #define MAP_EXPR_TAG(expr,tag) case expr:
+#define MAP_STMT_TAG(expr,tag) case expr:
 #include "lto-tree-tags.def"
 #undef MAP_EXPR_TAG
 #undef TREE_SINGLE_MECHANICAL_TRUE
@@ -1184,6 +1032,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 	  }
       }
       break;
+
       /* This is the error case, these are type codes that will either
 	 never happen or that we have not gotten around to dealing
 	 with are here.  */
@@ -1192,13 +1041,11 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
     case NAME_MEMORY_TAG:
-    case OMP_CONTINUE:
     case OMP_CRITICAL:
     case OMP_FOR:
     case OMP_MASTER:
     case OMP_ORDERED:
     case OMP_PARALLEL:
-    case OMP_RETURN:
     case OMP_SECTIONS:
     case OMP_SINGLE:
     case SYMBOL_MEMORY_TAG:
@@ -1384,13 +1231,6 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
   tree result;
   tree context;
 
-#if 0
-  /* The line number info needs to be reset for each local var since
-     they are read in random order.  */
-  clear_line_info (data_in);
-
-  tag = input_record_start (ib);
-#endif
   variant = tag & 0xF;
   is_var = ((tag & 0xFFF0) == LTO_local_var_decl_body0);
   
@@ -1798,10 +1638,10 @@ make_new_block (struct function *fn, unsigned int index)
   basic_block bb = alloc_block ();
   bb->index = index;
   SET_BASIC_BLOCK_FOR_FUNCTION (fn, index, bb);
-  bb->il.tree = GGC_CNEW (struct tree_bb_info);
+  bb->il.gimple = GGC_CNEW (struct gimple_bb_info);
   n_basic_blocks_for_function (fn)++;
   bb->flags = 0;
-  set_bb_stmt_list (bb, alloc_stmt_list ());
+  set_bb_seq (bb, gimple_seq_alloc ());
   return bb;
 }
 
@@ -1884,16 +1724,15 @@ input_cfg (struct lto_input_block *ib, struct function *fn)
 
 /* Input the next phi function for BB.  */
 
-static tree
-input_phi (struct lto_input_block *ib, basic_block bb, 
-	   struct data_in *data_in, struct function *fn)
+static gimple
+input_phi (struct lto_input_block *ib, basic_block bb, struct data_in *data_in,
+	   struct function *fn)
 {
-  lto_flags_type flags = input_tree_flags (ib, PHI_NODE, false);
-
-  tree phi_result = VEC_index (tree, SSANAMES (fn), lto_input_uleb128 (ib));
+  unsigned HOST_WIDE_INT ix = lto_input_uleb128 (ib);
+  tree phi_result = VEC_index (tree, SSANAMES (fn), ix);
   int len = EDGE_COUNT (bb->preds);
   int i;
-  tree result = create_phi_node (phi_result, bb);
+  gimple result = create_phi_node (phi_result, bb);
 
   SSA_NAME_DEF_STMT (phi_result) = result;
 
@@ -1919,9 +1758,6 @@ input_phi (struct lto_input_block *ib, basic_block bb,
       add_phi_arg (result, def, e); 
     }
 
-  if (flags)
-    process_tree_flags (result, flags);
-
   LTO_DEBUG_UNDENT();
 
   return result;
@@ -1931,7 +1767,8 @@ input_phi (struct lto_input_block *ib, basic_block bb,
 /* Read in the ssa_names array from IB.  */
 
 static void
-input_ssa_names (struct lto_input_block *ib, struct data_in *data_in, struct function *fn)
+input_ssa_names (struct lto_input_block *ib, struct data_in *data_in,
+		 struct function *fn)
 {
   unsigned int i;
   int size = lto_input_uleb128 (ib);
@@ -1950,7 +1787,7 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in, struct fun
 	VEC_quick_push (tree, SSANAMES (fn), NULL_TREE);
 
       name = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-      ssa_name = make_ssa_name_fn (fn, name, build_empty_stmt ());
+      ssa_name = make_ssa_name_fn (fn, name, gimple_build_nop ());
 
       flags = input_tree_flags (ib, 0, true);
       /* Bug fix for handling debug info previously omitted.
@@ -1964,6 +1801,104 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in, struct fun
     } 
 }
 
+
+/* Read a statement with tag TAG in function FN from block IB using
+   descriptors in DATA_IN.  */
+
+static gimple
+input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
+		   struct function *fn, enum LTO_tags tag)
+{
+  gimple stmt;
+  enum gimple_code code;
+  unsigned HOST_WIDE_INT num_ops;
+  size_t i, nbytes;
+  char *buf;
+
+  if (tag == LTO_gimple_asm)
+    code = GIMPLE_ASM;
+  else if (tag == LTO_gimple_assign)
+    code = GIMPLE_ASSIGN;
+  else if (tag == LTO_gimple_call)
+    code = GIMPLE_CALL;
+  else if (tag == LTO_gimple_cond)
+    code = GIMPLE_COND;
+  else if (tag == LTO_gimple_goto)
+    code = GIMPLE_GOTO;
+  else if (tag == LTO_gimple_label)
+    code = GIMPLE_LABEL;
+  else if (tag == LTO_gimple_return)
+    code = GIMPLE_RETURN;
+  else if (tag == LTO_gimple_switch)
+    code = GIMPLE_SWITCH;
+  else if (tag == LTO_gimple_resx)
+    code = GIMPLE_RESX;
+  else
+    gcc_unreachable ();
+
+  /* Read the number of operands in the statement.  */
+  num_ops = lto_input_uleb128 (ib);
+
+  /* Read the tuple header.  FIXME lto.  This seems unnecessarily slow.  */
+  nbytes = gimple_size (code);
+  stmt = gimple_alloc (code, num_ops);
+  buf = (char *) stmt;
+  for (i = 0; i < nbytes; i++)
+    buf[i] = lto_input_1_unsigned (ib);
+
+  /* Read in all the operands.  */
+  if (code == GIMPLE_ASM)
+    {
+      /* FIXME lto.  Move most of this into a new gimple_asm_set_string().  */
+      unsigned loc = lto_input_uleb128 (ib);
+      tree str = input_string (data_in, loc);
+      stmt->gimple_asm.string = TREE_STRING_POINTER (str);
+    }
+
+  for (i = 0; i < num_ops; i++)
+    {
+      enum LTO_tags tag = input_record_start (ib);
+      if (tag)
+	{
+	  /* FIXME lto.  We shouldn't be writing NULL operands.  Use
+	     alternate tags to identify tuple variants (e.g.,
+	     GIMPLE_CALLs without a return value).  */
+	  tree op = input_expr_operand (ib, data_in, fn, tag);
+	  gimple_set_op (stmt, i, op);
+	}
+    }
+
+  /* Reset any memory operand vectors in STMT.  FIXME lto, we
+     shouldn't need to do this.  The writer should simply not emit
+     these fields.  */
+  gimple_reset_mem_ops (stmt);
+
+  /* Update the properties of symbols, SSA names and labels associated
+     with STMT.  */
+  if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
+    {
+      tree lhs = gimple_get_lhs (stmt);
+      if (lhs && TREE_CODE (lhs) == SSA_NAME)
+	SSA_NAME_DEF_STMT (lhs) = stmt;
+    }
+  else if (code == GIMPLE_LABEL)
+    DECL_CONTEXT (gimple_label_label (stmt)) = fn->decl;
+  else if (code == GIMPLE_ASM)
+    {
+      unsigned i;
+
+      for (i = 0; i < gimple_asm_noutputs (stmt); i++)
+	{
+	  tree op = TREE_VALUE (gimple_asm_output_op (stmt, i));
+	  if (TREE_CODE (op) == SSA_NAME)
+	    SSA_NAME_DEF_STMT (op) = stmt;
+	}
+    }
+
+  LTO_DEBUG_UNDENT ();
+  return stmt;
+}
+
  
 /* Read in the next basic block.  */
 
@@ -1973,7 +1908,7 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
 {
   unsigned int index;
   basic_block bb;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
 
   LTO_DEBUG_TOKEN ("bbindex");
   index = lto_input_uleb128 (ib);
@@ -1986,17 +1921,18 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
       return;
     }
 
-  bsi = bsi_start (bb);
+  bsi = gsi_start_bb (bb);
   LTO_DEBUG_INDENT_TOKEN ("stmt");
   tag = input_record_start (ib);
   while (tag)
     {
-      tree stmt = input_expr_operand (ib, data_in, fn, tag);
-      TREE_BLOCK (stmt) = DECL_INITIAL (fn->decl);
-      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+      gimple stmt = input_gimple_stmt (ib, data_in, fn, tag);
+      gimple_set_block (stmt, DECL_INITIAL (fn->decl));
+      gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
       LTO_DEBUG_INDENT_TOKEN ("stmt");
       tag = input_record_start (ib);
-    /* FIXME, add code to handle the exception.  */
+
+      /* FIXME lto, add code to handle EH regions.  */
     }
 
   LTO_DEBUG_INDENT_TOKEN ("phi");  
@@ -2020,7 +1956,7 @@ input_function (tree fn_decl, struct data_in *data_in,
 {
   struct function *fn = DECL_STRUCT_FUNCTION (fn_decl);
   enum LTO_tags tag = input_record_start (ib);
-  tree *stmts;
+  gimple *stmts;
   struct cgraph_edge *cedge; 
   basic_block bb;
 
@@ -2028,7 +1964,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
   clear_line_info (data_in);
 
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
   gcc_assert (tag == LTO_function);
 
   input_eh_regions (ib, fn, data_in);
@@ -2058,22 +1994,31 @@ input_function (tree fn_decl, struct data_in *data_in,
       tag = input_record_start (ib);
     }
 
-  /* Fix up the call stmts that are mentioned in the cgraph_edges.  */
+  /* Fix up the call statements that are mentioned in the cgraph_edges.  */
   renumber_gimple_stmt_uids ();
-  stmts = (tree *) xcalloc (gimple_stmt_max_uid(fn), sizeof (tree));
+  stmts = (gimple *) xcalloc (gimple_stmt_max_uid (fn), sizeof (gimple));
   FOR_ALL_BB (bb)
     {
-      block_stmt_iterator bsi;
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      gimple_stmt_iterator bsi;
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  tree stmt = bsi_stmt (bsi);
-	  stmts [gimple_stmt_uid (stmt)] = stmt;
+	  gimple stmt = gsi_stmt (bsi);
+	  stmts[gimple_uid (stmt)] = stmt;
 #ifdef LOCAL_TRACE
 	  fprintf (stderr, "%d = ", gimple_stmt_uid (stmt));
 	  print_generic_stmt (stderr, stmt, 0);
 #endif
 	}
     }
+
+  /* Set the gimple body to the statement sequence in the entry
+     basic block.  FIXME lto, this is fairly hacky.  The existence
+     of a gimple body is used by the cgraph routines, but we should
+     really use the presence of the CFG.  */
+  {
+    edge_iterator ei = ei_start (ENTRY_BLOCK_PTR->succs);
+    gimple_set_body (fn_decl, bb_seq (ei_edge (ei)->dest));
+  }
 
 #ifdef LOCAL_TRACE
   fprintf (stderr, "%s\n", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn_decl)));
@@ -2082,7 +2027,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   cedge = cgraph_node (fn_decl)->callees;
   while (cedge)
     {
-      cedge->call_stmt = stmts [cedge->lto_stmt_uid];
+      cedge->call_stmt = stmts[cedge->lto_stmt_uid];
 #ifdef LOCAL_TRACE
       fprintf (stderr, "fixing up call %d\n", cedge->lto_stmt_uid);
 #endif
@@ -2149,12 +2094,18 @@ lto_static_init_local (void)
 
   /* Initialize the expression to tag mapping.  */
 #define MAP_EXPR_TAG(expr,tag)   tag_to_expr [tag] = expr;
-#define MAP_EXPR_TAGS(expr,tag,count) \
-  {                                   \
-    int i;                            \
-    for (i=0; i<count; i++)           \
-      tag_to_expr [tag + i] = expr;   \
-  }
+#define MAP_EXPR_TAGS(expr,tag,count)	\
+    {					\
+      int i;				\
+      for (i = 0; i < count; i++)	\
+	tag_to_expr[tag + i] = expr;	\
+    }
+#define MAP_STMT_TAGS(stmt,tag,count)	\
+    {					\
+      int i;				\
+      for (i = 0; i < count; i++)	\
+	tag_to_stmt[tag + i] = stmt;	\
+    }
 #define TREE_MULTIPLE
 #define TREE_SINGLE_MECHANICAL_TRUE
 #define TREE_SINGLE_MECHANICAL_FALSE
@@ -2173,7 +2124,7 @@ lto_static_init_local (void)
 #define START_CLASS_SWITCH()                  \
   {                                           \
     int code;				      \
-    for (code=0; code<NUM_TREE_CODES; code++) \
+    for (code = 0; code < NUM_TREE_CODES; code++) \
       {                                       \
 	/* The LTO_SOURCE_LOC_BITS leaves room for file and line number for exprs.  */ \
         flags_length_for_code[code] = LTO_SOURCE_LOC_BITS; \
@@ -2242,7 +2193,7 @@ lto_static_init_local (void)
   }
   
   lto_static_init ();
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
 
   file_name_hash_table
     = htab_create (37, hash_string_slot_node, eq_string_slot_node, free);
@@ -3332,8 +3283,7 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
 
   /* Handlers for declarations currently handle line info themselves.  */
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
-      || IS_GIMPLE_STMT_CODE_CLASS(TREE_CODE_CLASS (code)))
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     needs_line_set = input_line_info (ib, data_in, flags);
 
   switch (code)
@@ -3542,25 +3492,14 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case COND_EXPR:
-      if (tag == LTO_cond_expr0)
 	{
 	  tree op0;
 	  tree op1;
 	  tree op2;
-	  op0 = input_tree_operand (ib, data_in, fn, 
-				    input_record_start (ib));
-	  op1 = input_tree_operand (ib, data_in, fn, 
-				    input_record_start (ib));
-	  op2 = input_tree_operand (ib, data_in, fn, 
-				    input_record_start (ib));
+	  op0 = input_tree_operand (ib, data_in, fn, input_record_start (ib));
+	  op1 = input_tree_operand (ib, data_in, fn, input_record_start (ib));
+	  op2 = input_tree_operand (ib, data_in, fn, input_record_start (ib));
 	  result = build3 (code, type, op0, op1, op2);
-	}
-      else
-	{
-	  tree op0;
-	  op0 = input_tree_operand (ib, data_in, fn, 
-				    input_record_start (ib));
-	  result = build3 (code, type, op0, NULL, NULL);
 	}
       break;
       
@@ -3643,77 +3582,11 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       }
       break;
 
-    case ASM_EXPR:
-      {
-	tree str = input_string (data_in, lto_input_uleb128 (ib));
-	tree ins = NULL_TREE;
-	tree outs = NULL_TREE;
-	tree clobbers = NULL_TREE;
-	tree tl;
-
-	tag = input_record_start (ib);
-	if (tag)
-	  ins = input_tree_operand (ib, data_in, fn, tag); 
-	tag = input_record_start (ib);
-	if (tag)
-	  outs = input_tree_operand (ib, data_in, fn, tag); 
-	tag = input_record_start (ib);
-	if (tag)
-	  clobbers = input_tree_operand (ib, data_in, fn, tag);
-
-	result = build4 (code, void_type_node, str, outs, ins, clobbers);
-
-	for (tl = ASM_OUTPUTS (result); tl; tl = TREE_CHAIN (tl))
-	  if (TREE_CODE (TREE_VALUE (tl)) == SSA_NAME)
-	    SSA_NAME_DEF_STMT (TREE_VALUE (tl)) = result;
-      }
-      break;
-
-    case RESX_EXPR:
-      result = build1 (code, void_type_node,
-		       build_int_cstu (unsigned_type_node,
-				       lto_input_uleb128 (ib)));
-      break;
-
-    case RETURN_EXPR:
-      /* We shouldn't see these here.  */
-      gcc_unreachable ();
-
     case RANGE_EXPR:
       {
 	tree op0 = lto_input_integer (ib, input_type_tree (data_in, ib));
 	tree op1 = lto_input_integer (ib, input_type_tree (data_in, ib));
 	result = build2 (RANGE_EXPR, sizetype, op0, op1);
-      }
-      break;
-
-    case GIMPLE_MODIFY_STMT:
-      {
-	tree op0 = input_tree_operand (ib, data_in, fn, 
-				       input_record_start (ib));
-	tree op1 = input_tree_operand (ib, data_in, fn,
-				       input_record_start (ib));
-
-	result = build_gimple_modify_stmt (op0, op1);
-	if (TREE_CODE (op0) == SSA_NAME)
-	  SSA_NAME_DEF_STMT (op0) = result;
-      }
-      break;
-
-    case SWITCH_EXPR:
-      /* FIXME: We shouldn't see these here.  Replace with assert?  */
-      {
-	unsigned int len = lto_input_uleb128 (ib);
-	unsigned int i;
-	tree op0 = input_tree_operand (ib, data_in, fn, 
-				       input_record_start (ib));
-	tree op2 = make_tree_vec (len);
-	
-	for (i = 0; i < len; ++i)
-	  TREE_VEC_ELT (op2, i) 
-            = input_tree_operand (ib, data_in, fn,
-				  input_record_start (ib));
-	result = build3 (code, type, op0, NULL_TREE, op2);
       }
       break;
 
@@ -3817,13 +3690,11 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
     case NAME_MEMORY_TAG:
-    case OMP_CONTINUE:
     case OMP_CRITICAL:
     case OMP_FOR:
     case OMP_MASTER:
     case OMP_ORDERED:
     case OMP_PARALLEL:
-    case OMP_RETURN:
     case OMP_SECTIONS:
     case OMP_SINGLE:
     case SYMBOL_MEMORY_TAG:

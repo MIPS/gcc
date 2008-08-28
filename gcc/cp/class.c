@@ -2497,10 +2497,10 @@ finish_struct_anon (tree t)
 	      if (TREE_CODE (elt) != FIELD_DECL)
 		{
 		  if (is_union)
-		    permerror ("%q+#D invalid; an anonymous union can "
+		    permerror (input_location, "%q+#D invalid; an anonymous union can "
 			       "only have non-static data members", elt);
 		  else
-		    permerror ("%q+#D invalid; an anonymous struct can "
+		    permerror (input_location, "%q+#D invalid; an anonymous struct can "
 			       "only have non-static data members", elt);
 		  continue;
 		}
@@ -2508,16 +2508,16 @@ finish_struct_anon (tree t)
 	      if (TREE_PRIVATE (elt))
 		{
 		  if (is_union)
-		    permerror ("private member %q+#D in anonymous union", elt);
+		    permerror (input_location, "private member %q+#D in anonymous union", elt);
 		  else
-		    permerror ("private member %q+#D in anonymous struct", elt);
+		    permerror (input_location, "private member %q+#D in anonymous struct", elt);
 		}
 	      else if (TREE_PROTECTED (elt))
 		{
 		  if (is_union)
-		    permerror ("protected member %q+#D in anonymous union", elt);
+		    permerror (input_location, "protected member %q+#D in anonymous union", elt);
 		  else
-		    permerror ("protected member %q+#D in anonymous struct", elt);
+		    permerror (input_location, "protected member %q+#D in anonymous struct", elt);
 		}
 
 	      TREE_PRIVATE (elt) = TREE_PRIVATE (field);
@@ -3048,7 +3048,7 @@ check_field_decls (tree t, tree *access_decls,
 	 user-declared constructor.  */
       if (constructor_name_p (DECL_NAME (x), t)
 	  && TYPE_HAS_USER_CONSTRUCTOR (t))
-	permerror ("field %q+#D with same name as class", x);
+	permerror (input_location, "field %q+#D with same name as class", x);
 
       /* We set DECL_C_BIT_FIELD in grokbitfield.
 	 If the type and width are valid, we'll also set DECL_BIT_FIELD.  */
@@ -4107,7 +4107,7 @@ type_has_user_provided_constructor (tree t)
 bool
 type_has_user_provided_default_constructor (tree t)
 {
-  tree fns;
+  tree fns, args;
 
   if (!TYPE_HAS_USER_CONSTRUCTOR (t))
     return false;
@@ -4116,10 +4116,14 @@ type_has_user_provided_default_constructor (tree t)
     {
       tree fn = OVL_CURRENT (fns);
       if (TREE_CODE (fn) == FUNCTION_DECL
-	  && user_provided_p (fn)
-	  && (skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn))
-	      == NULL_TREE))
-	return true;
+	  && user_provided_p (fn))
+	{
+	  args = FUNCTION_FIRST_USER_PARMTYPE (fn);
+	  while (args && TREE_PURPOSE (args))
+	    args = TREE_CHAIN (args);
+	  if (!args || args == void_list_node)
+	    return true;
+	}
     }
 
   return false;
@@ -4302,7 +4306,7 @@ check_bases_and_members (tree t)
   /* If the class has no user-declared constructor, but does have
      non-static const or reference data members that can never be
      initialized, issue a warning.  */
-  if (extra_warnings
+  if (warn_uninitialized
       /* Classes with user-declared constructors are presumed to
 	 initialize these members.  */
       && !TYPE_HAS_USER_CONSTRUCTOR (t)
@@ -4321,13 +4325,13 @@ check_bases_and_members (tree t)
 
 	  type = TREE_TYPE (field);
 	  if (TREE_CODE (type) == REFERENCE_TYPE)
-	    warning (OPT_Wextra, "non-static reference %q+#D in class "
-		     "without a constructor", field);
+	    warning (OPT_Wuninitialized, "non-static reference %q+#D "
+		     "in class without a constructor", field);
 	  else if (CP_TYPE_CONST_P (type)
 		   && (!CLASS_TYPE_P (type)
 		       || !TYPE_HAS_DEFAULT_CONSTRUCTOR (type)))
-	    warning (OPT_Wextra, "non-static const member %q+#D in class "
-		     "without a constructor", field);
+	    warning (OPT_Wuninitialized, "non-static const member %q+#D "
+		     "in class without a constructor", field);
 	}
     }
 
@@ -6167,7 +6171,7 @@ resolve_address_of_overloaded_function (tree target_type,
       if (!(flags & tf_error))
 	return error_mark_node;
 
-      permerror ("assuming pointer to member %qD", fn);
+      permerror (input_location, "assuming pointer to member %qD", fn);
       if (!explained)
 	{
 	  inform ("(a pointer to member can only be formed with %<&%E%>)", fn);
@@ -6530,8 +6534,8 @@ note_name_declared_in_class (tree name, tree decl)
 	 A name N used in a class S shall refer to the same declaration
 	 in its context and when re-evaluated in the completed scope of
 	 S.  */
-      permerror ("declaration of %q#D", decl);
-      permerror ("changes meaning of %qD from %q+#D",
+      permerror (input_location, "declaration of %q#D", decl);
+      permerror (input_location, "changes meaning of %qD from %q+#D",
 	       DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
     }
 }

@@ -367,7 +367,7 @@ match_data_constant (gfc_expr **result)
       return MATCH_ERROR;
     }
   else if (sym->attr.flavor == FL_DERIVED)
-    return gfc_match_structure_constructor (sym, result);
+    return gfc_match_structure_constructor (sym, result, false);
 
   /* Check to see if the value is an initialization array expression.  */
   if (sym->value->expr_type == EXPR_ARRAY)
@@ -867,11 +867,11 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
    the compiler could have automatically handled the varying sizes
    across platforms.  */
 
-try
+gfc_try
 verify_c_interop_param (gfc_symbol *sym)
 {
   int is_c_interop = 0;
-  try retval = SUCCESS;
+  gfc_try retval = SUCCESS;
 
   /* We check implicitly typed variables in symbol.c:gfc_set_default_type().
      Don't repeat the checks here.  */
@@ -1009,7 +1009,7 @@ verify_c_interop_param (gfc_symbol *sym)
 
 /* Function called by variable_decl() that adds a name to the symbol table.  */
 
-static try
+static gfc_try
 build_sym (const char *name, gfc_charlen *cl,
 	   gfc_array_spec **as, locus *var_locus)
 {
@@ -1185,7 +1185,7 @@ gfc_free_enum_history (void)
 /* Function called by variable_decl() that adds an initialization
    expression to a symbol.  */
 
-static try
+static gfc_try
 add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 {
   symbol_attribute attr;
@@ -1362,7 +1362,7 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 /* Function called by variable_decl() that adds a name to a structure
    being built.  */
 
-static try
+static gfc_try
 build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 	      gfc_array_spec **as)
 {
@@ -1548,7 +1548,7 @@ variable_decl (int elem)
   gfc_charlen *cl;
   locus var_locus;
   match m;
-  try t;
+  gfc_try t;
   gfc_symbol *sym;
   locus old_locus;
 
@@ -2786,7 +2786,7 @@ match_attr_spec (void)
   decl_types d;
   const char *attr;
   match m;
-  try t;
+  gfc_try t;
 
   gfc_clear_attr (&current_attr);
   start = gfc_current_locus;
@@ -3248,7 +3248,7 @@ cleanup:
    (J3/04-007, section 15.4.1).  If a binding label was given and
    there is more than one argument (num_idents), it is an error.  */
 
-try
+gfc_try
 set_binding_label (char *dest_label, const char *sym_name, int num_idents)
 {
   if (num_idents > 1 && has_name_equals)
@@ -3288,10 +3288,10 @@ set_com_block_bind_c (gfc_common_head *com_block, int is_bind_c)
 
 /* Verify that the given gfc_typespec is for a C interoperable type.  */
 
-try
+gfc_try
 verify_c_interop (gfc_typespec *ts, const char *name, locus *where)
 {
-  try t;
+  gfc_try t;
 
   /* Make sure the kind used is appropriate for the type.
      The f90_type is unknown if an integer constant was
@@ -3326,11 +3326,11 @@ verify_c_interop (gfc_typespec *ts, const char *name, locus *where)
    interoperable type.  Errors will be reported here, if
    encountered.  */
 
-try
+gfc_try
 verify_com_block_vars_c_interop (gfc_common_head *com_block)
 {
   gfc_symbol *curr_sym = NULL;
-  try retval = SUCCESS;
+  gfc_try retval = SUCCESS;
 
   curr_sym = com_block->head;
   
@@ -3354,11 +3354,11 @@ verify_com_block_vars_c_interop (gfc_common_head *com_block)
 /* Verify that a given BIND(C) symbol is C interoperable.  If it is not,
    an appropriate error message is reported.  */
 
-try
+gfc_try
 verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
                    int is_in_common, gfc_common_head *com_block)
 {
-  try retval = SUCCESS;
+  gfc_try retval = SUCCESS;
 
   if (tmp_sym->attr.function && tmp_sym->result != NULL)
     {
@@ -3478,10 +3478,10 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
    the type is C interoperable.  Errors are reported by the functions
    used to set/test these fields.  */
 
-try
+gfc_try
 set_verify_bind_c_sym (gfc_symbol *tmp_sym, int num_idents)
 {
-  try retval = SUCCESS;
+  gfc_try retval = SUCCESS;
   
   /* TODO: Do we need to make sure the vars aren't marked private?  */
 
@@ -3499,10 +3499,10 @@ set_verify_bind_c_sym (gfc_symbol *tmp_sym, int num_idents)
 /* Set the fields marking the given common block as BIND(C), including
    a binding label, and report any errors encountered.  */
 
-try
+gfc_try
 set_verify_bind_c_com_block (gfc_common_head *com_block, int num_idents)
 {
-  try retval = SUCCESS;
+  gfc_try retval = SUCCESS;
   
   /* destLabel, common name, typespec (which may have binding label).  */
   if (set_binding_label (com_block->binding_label, com_block->name, num_idents)
@@ -3519,7 +3519,7 @@ set_verify_bind_c_com_block (gfc_common_head *com_block, int num_idents)
 /* Retrieve the list of one or more identifiers that the given bind(c)
    attribute applies to.  */
 
-try
+gfc_try
 get_bind_c_idents (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
@@ -3792,7 +3792,7 @@ loop:
 
 /* Copy attributes matched by gfc_match_prefix() to attributes on a symbol.  */
 
-static try
+static gfc_try
 copy_prefix (symbol_attribute *dest, locus *where)
 {
   if (current_attr.pure && gfc_add_pure (dest, where) == FAILURE)
@@ -6250,6 +6250,49 @@ syntax:
 }
 
 
+/* Check a derived type that is being extended.  */
+static gfc_symbol*
+check_extended_derived_type (char *name)
+{
+  gfc_symbol *extended;
+
+  if (gfc_find_symbol (name, gfc_current_ns, 1, &extended))
+    {
+      gfc_error ("Ambiguous symbol in TYPE definition at %C");
+      return NULL;
+    }
+
+  if (!extended)
+    {
+      gfc_error ("No such symbol in TYPE definition at %C");
+      return NULL;
+    }
+
+  if (extended->attr.flavor != FL_DERIVED)
+    {
+      gfc_error ("'%s' in EXTENDS expression at %C is not a "
+		 "derived type", name);
+      return NULL;
+    }
+
+  if (extended->attr.is_bind_c)
+    {
+      gfc_error ("'%s' cannot be extended at %C because it "
+		 "is BIND(C)", extended->name);
+      return NULL;
+    }
+
+  if (extended->attr.sequence)
+    {
+      gfc_error ("'%s' cannot be extended at %C because it "
+		 "is a SEQUENCE type", extended->name);
+      return NULL;
+    }
+
+  return extended;
+}
+
+
 /* Match the optional attribute specifiers for a type declaration.
    Return MATCH_ERROR if an error is encountered in one of the handled
    attributes (public, private, bind(c)), MATCH_NO if what's found is
@@ -6257,7 +6300,7 @@ syntax:
    checking on attribute conflicts needs to be done.  */
 
 match
-gfc_get_type_attr_spec (symbol_attribute *attr)
+gfc_get_type_attr_spec (symbol_attribute *attr, char *name)
 {
   /* See if the derived type is marked as private.  */
   if (gfc_match (" , private") == MATCH_YES)
@@ -6295,6 +6338,11 @@ gfc_get_type_attr_spec (symbol_attribute *attr)
 
       /* TODO: attr conflicts need to be checked, probably in symbol.c.  */
     }
+  else if (name && gfc_match(" , extends ( %n )", name) == MATCH_YES)
+    {
+      if (gfc_add_extension (attr, &gfc_current_locus) == FAILURE)
+	return MATCH_ERROR;
+    }
   else
     return MATCH_NO;
 
@@ -6311,8 +6359,10 @@ match
 gfc_match_derived_decl (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
+  char parent[GFC_MAX_SYMBOL_LEN + 1];
   symbol_attribute attr;
   gfc_symbol *sym;
+  gfc_symbol *extended;
   match m;
   match is_type_attr_spec = MATCH_NO;
   bool seen_attr = false;
@@ -6320,16 +6370,28 @@ gfc_match_derived_decl (void)
   if (gfc_current_state () == COMP_DERIVED)
     return MATCH_NO;
 
+  name[0] = '\0';
+  parent[0] = '\0';
   gfc_clear_attr (&attr);
+  extended = NULL;
 
   do
     {
-      is_type_attr_spec = gfc_get_type_attr_spec (&attr);
+      is_type_attr_spec = gfc_get_type_attr_spec (&attr, parent);
       if (is_type_attr_spec == MATCH_ERROR)
 	return MATCH_ERROR;
       if (is_type_attr_spec == MATCH_YES)
 	seen_attr = true;
     } while (is_type_attr_spec == MATCH_YES);
+
+  /* Deal with derived type extensions.  The extension attribute has
+     been added to 'attr' but now the parent type must be found and
+     checked.  */
+  if (parent[0])
+    extended = check_extended_derived_type (parent);
+
+  if (parent[0] && !extended)
+    return MATCH_ERROR;
 
   if (gfc_match (" ::") != MATCH_YES && seen_attr)
     {
@@ -6383,9 +6445,33 @@ gfc_match_derived_decl (void)
   if (attr.is_bind_c != 0)
     sym->attr.is_bind_c = attr.is_bind_c;
 
+
   /* Construct the f2k_derived namespace if it is not yet there.  */
   if (!sym->f2k_derived)
     sym->f2k_derived = gfc_get_namespace (NULL, 0);
+
+  
+  if (extended && !sym->components)
+    {
+      gfc_component *p;
+      gfc_symtree *st;
+
+      /* Add the extended derived type as the first component.  */
+      gfc_add_component (sym, parent, &p);
+      sym->attr.extension = attr.extension;
+      extended->refs++;
+      gfc_set_sym_referenced (extended);
+
+      p->ts.type = BT_DERIVED;
+      p->ts.derived = extended;
+      p->initializer = gfc_default_initializer (&p->ts);
+
+      /* Provide the links between the extended type and its extension.  */
+      if (!extended->f2k_derived)
+	extended->f2k_derived = gfc_get_namespace (NULL, 0);
+      st = gfc_new_symtree (&extended->f2k_derived->sym_root, sym->name);
+      st->n.sym = sym;
+    }
 
   gfc_new_block = sym;
 
@@ -6400,7 +6486,7 @@ gfc_match_derived_decl (void)
    is the case. Since there is no bounds-checking for Cray Pointees,
    this will be okay.  */
 
-try
+gfc_try
 gfc_mod_pointee_as (gfc_array_spec *as)
 {
   as->cray_pointee = true; /* This will be useful to know later.  */
@@ -6454,7 +6540,7 @@ enumerator_decl (void)
   gfc_symbol *sym;
   locus var_locus;
   match m;
-  try t;
+  gfc_try t;
   locus old_locus;
 
   initializer = NULL;
@@ -6537,7 +6623,7 @@ match
 gfc_match_enumerator_def (void)
 {
   match m;
-  try t;
+  gfc_try t;
 
   gfc_clear_ts (&current_ts);
 
@@ -6596,6 +6682,7 @@ cleanup:
   return m;
 
 }
+
 
 /* Match a FINAL declaration inside a derived type.  */
 
@@ -6677,7 +6764,7 @@ gfc_match_final_decl (void)
 
       /* Check if we already have this symbol in the list, this is an error.  */
       for (f = gfc_current_block ()->f2k_derived->finalizers; f; f = f->next)
-	if (f->procedure == sym)
+	if (f->proc_sym == sym)
 	  {
 	    gfc_error ("'%s' at %C is already defined as FINAL procedure!",
 		       name);
@@ -6688,7 +6775,8 @@ gfc_match_final_decl (void)
       gcc_assert (gfc_current_block ()->f2k_derived);
       ++sym->refs;
       f = XCNEW (gfc_finalizer);
-      f->procedure = sym;
+      f->proc_sym = sym;
+      f->proc_tree = NULL;
       f->where = gfc_current_locus;
       f->next = gfc_current_block ()->f2k_derived->finalizers;
       gfc_current_block ()->f2k_derived->finalizers = f;

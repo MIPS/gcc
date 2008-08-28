@@ -195,9 +195,11 @@ cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
    clones or re-using node originally representing out-of-line function call.
    */
 void
-cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate, bool update_original)
+cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
+			    bool update_original)
 {
   HOST_WIDE_INT peak;
+
   if (duplicate)
     {
       /* We may eliminate the need for out-of-line copy to be output.
@@ -207,7 +209,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate, bool update_o
 	  && !cgraph_new_nodes)
 	{
 	  gcc_assert (!e->callee->global.inlined_to);
-	  if (DECL_SAVED_TREE (e->callee->decl))
+	  if (gimple_body (e->callee->decl))
 	    overall_insns -= e->callee->global.insns, nfunctions_inlined++;
 	  duplicate = false;
 	}
@@ -1158,30 +1160,31 @@ cgraph_decide_inlining (void)
 		 overall_insns - old_insns);
     }
 
-  if (!flag_really_no_inline)
-    cgraph_decide_inlining_of_small_functions ();
+  cgraph_decide_inlining_of_small_functions ();
 
   /* After this point, any edge discovery performed by indirect inlining is no
      good so let's give up. */
   if (flag_indirect_inlining)
     free_all_ipa_structures_after_iinln ();
 
-  if (!flag_really_no_inline
-      && flag_inline_functions_called_once)
+  if (flag_inline_functions_called_once)
     {
       if (dump_file)
 	fprintf (dump_file, "\nDeciding on functions called once:\n");
 
       /* And finally decide what functions are called once.  */
-
       for (i = nnodes - 1; i >= 0; i--)
 	{
 	  node = order[i];
 
-	  if (node->callers && !node->callers->next_caller && !node->needed
-	      && node->local.inlinable && node->callers->inline_failed
+	  if (node->callers
+	      && !node->callers->next_caller
+	      && !node->needed
+	      && node->local.inlinable
+	      && node->callers->inline_failed
 	      && !node->callers->call_stmt_cannot_inline_p
-	      && !DECL_EXTERNAL (node->decl) && !DECL_COMDAT (node->decl))
+	      && !DECL_EXTERNAL (node->decl)
+	      && !DECL_COMDAT (node->decl))
 	    {
 	      if (dump_file)
 		{
@@ -1389,7 +1392,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	    }
 	  continue;
 	}
-      if (!DECL_SAVED_TREE (e->callee->decl) && !e->callee->inline_decl)
+      if (!gimple_body (e->callee->decl) && !e->callee->inline_decl)
 	{
 	  if (dump_file)
 	    {
@@ -1403,8 +1406,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
     }
 
   /* Now do the automatic inlining.  */
-  if (!flag_really_no_inline && mode != INLINE_ALL
-      && mode != INLINE_ALWAYS_INLINE)
+  if (mode != INLINE_ALL && mode != INLINE_ALWAYS_INLINE)
     for (e = node->callees; e; e = e->next_callee)
       {
 	if (!e->callee->local.inlinable
@@ -1465,7 +1467,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	      }
 	    continue;
 	  }
-	if (!DECL_SAVED_TREE (e->callee->decl) && !e->callee->inline_decl)
+	if (!gimple_body (e->callee->decl) && !e->callee->inline_decl)
 	  {
 	    if (dump_file)
 	      {
@@ -1587,13 +1589,11 @@ compute_inline_parameters (struct cgraph_node *node)
     = inline_summary (node)->estimated_self_stack_size;
   node->global.stack_frame_offset = 0;
   node->local.inlinable = tree_inlinable_function_p (current_function_decl);
-  inline_summary (node)->self_insns = estimate_num_insns (current_function_decl,
-					                  &eni_inlining_weights);
+  inline_summary (node)->self_insns
+      = estimate_num_insns_fn (current_function_decl, &eni_inlining_weights);
   if (node->local.inlinable && !node->local.disregard_inline_limits)
     node->local.disregard_inline_limits
       = DECL_DISREGARD_INLINE_LIMITS (current_function_decl);
-  if (flag_really_no_inline && !node->local.disregard_inline_limits)
-    node->local.inlinable = 0;
   /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
   node->global.insns = inline_summary (node)->self_insns;
   return 0;
@@ -1708,6 +1708,7 @@ inline_transform (struct cgraph_node *node)
   for (e = node->callees; e; e = e->next_callee)
     if (!e->inline_failed || warn_inline)
       break;
+
   if (e)
     {
       timevar_push (TV_INTEGRATION);

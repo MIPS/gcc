@@ -101,6 +101,7 @@ gfc_init_options (unsigned int argc, const char **argv)
   gfc_option.flag_backslash = 0;
   gfc_option.flag_module_private = 0;
   gfc_option.flag_backtrace = 0;
+  gfc_option.flag_check_array_temporaries = 0;
   gfc_option.flag_allow_leading_underscore = 0;
   gfc_option.flag_dump_core = 0;
   gfc_option.flag_external_blas = 0;
@@ -293,10 +294,6 @@ gfc_post_options (const char **pfilename)
 	gfc_warning_now ("'-fd-lines-as-code' has no effect in free form");
     }
 
-  /* Use tree inlining.  */
-  if (!flag_no_inline)
-    flag_no_inline = 1;
-
   /* If -pedantic, warn about the use of GNU extensions.  */
   if (pedantic && (gfc_option.allow_std & GFC_STD_GNU) != 0)
     gfc_option.warn_std |= GFC_STD_GNU;
@@ -379,7 +376,7 @@ set_Wall (int setting)
   gfc_option.warn_intrinsics_std = setting;
   gfc_option.warn_character_truncation = setting;
 
-  set_Wunused (setting);
+  warn_unused = setting;
   warn_return_type = setting;
   warn_switch = setting;
 
@@ -538,6 +535,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       
     case OPT_fbacktrace:
       gfc_option.flag_backtrace = value;
+      break;
+      
+    case OPT_fcheck_array_temporaries:
+      gfc_option.flag_check_array_temporaries = value;
       break;
       
     case OPT_fdump_core:

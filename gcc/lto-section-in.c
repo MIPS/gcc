@@ -48,7 +48,6 @@ Boston, MA 02110-1301, USA.  */
 #include "output.h"
 #include "lto-section.h"
 #include "lto-section-in.h"
-#include <ctype.h>
 #include "cpplib.h"
 
 
@@ -107,7 +106,8 @@ lto_input_uleb128 (struct lto_input_block *ib)
     }
 }
 
-/* HOST_WIDEST_INT version of lto_input_uleb128.  IB is as in lto_input_uleb128.  */
+/* HOST_WIDEST_INT version of lto_input_uleb128.  IB is as in
+   lto_input_uleb128.  */
 
 unsigned HOST_WIDEST_INT 
 lto_input_widest_uint_uleb128 (struct lto_input_block *ib)

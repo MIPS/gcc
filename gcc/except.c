@@ -86,7 +86,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Protect cleanup actions with must-not-throw regions, with a call
    to the given failure handler.  */
-tree (*lang_protect_cleanup_actions) (void);
+gimple (*lang_protect_cleanup_actions) (void);
 
 /* Return true if type A catches type B.  */
 int (*lang_eh_type_covers) (tree a, tree b);
@@ -135,11 +135,12 @@ struct eh_region GTY(())
   enum eh_region_type
   {
     ERT_UNKNOWN = 0,
-    ERT_CLEANUP,             /* eh_region_u_cleanup.  */
-    ERT_TRY,                 /* eh_region_u_try.  */
-    ERT_CATCH,               /* eh_region_u_catch.  */
-    ERT_ALLOWED_EXCEPTIONS,  /* eh_region_u_allowed.  */
-    ERT_MUST_NOT_THROW       /* None.  */
+    ERT_CLEANUP,
+    ERT_TRY,
+    ERT_CATCH,
+    ERT_ALLOWED_EXCEPTIONS,
+    ERT_MUST_NOT_THROW,
+    ERT_THROW
   } type;
 
   /* Holds the action to perform based on the preceding type.  */
@@ -147,9 +148,9 @@ struct eh_region GTY(())
     /* A list of catch blocks, a surrounding try block,
        and the label for continuing after a catch.  */
     struct eh_region_u_try {
-      struct eh_region *catch;
+      struct eh_region *eh_catch;
       struct eh_region *last_catch;
-    } GTY ((tag ("ERT_TRY"))) try;
+    } GTY ((tag ("ERT_TRY"))) eh_try;
 
     /* The list through the catch handlers, the list of type objects
        matched, and the list of associated filters.  */
@@ -158,13 +159,19 @@ struct eh_region GTY(())
       struct eh_region *prev_catch;
       tree type_list;
       tree filter_list;
-    } GTY ((tag ("ERT_CATCH"))) catch;
+    } GTY ((tag ("ERT_CATCH"))) eh_catch;
 
     /* A tree_list of allowed types.  */
     struct eh_region_u_allowed {
       tree type_list;
       int filter;
     } GTY ((tag ("ERT_ALLOWED_EXCEPTIONS"))) allowed;
+
+    /* The type given by a call to "throw foo();", or discovered
+       for a throw.  */
+    struct eh_region_u_throw {
+      tree type;
+    } GTY ((tag ("ERT_THROW"))) eh_throw;
 
     /* Retain the cleanup expression even after expansion so that
        we can match up fixup regions.  */
@@ -472,14 +479,14 @@ gen_eh_region_catch (struct eh_region *t, tree type_or_list)
     }
 
   c = gen_eh_region (ERT_CATCH, t->outer);
-  c->u.catch.type_list = type_list;
-  l = t->u.try.last_catch;
-  c->u.catch.prev_catch = l;
+  c->u.eh_catch.type_list = type_list;
+  l = t->u.eh_try.last_catch;
+  c->u.eh_catch.prev_catch = l;
   if (l)
-    l->u.catch.next_catch = c;
+    l->u.eh_catch.next_catch = c;
   else
-    t->u.try.catch = c;
-  t->u.try.last_catch = c;
+    t->u.eh_try.eh_catch = c;
+  t->u.eh_try.last_catch = c;
 
   return c;
 }
@@ -657,6 +664,13 @@ remove_unreachable_regions (rtx insns)
 	  bool kill_it = true;
 	  switch (r->type)
 	    {
+	    case ERT_THROW:
+	      /* Don't remove ERT_THROW regions if their outer region
+		 is reachable.  */
+	      if (r->outer && reachable[r->outer->region_number])
+		kill_it = false;
+	      break;
+
 	    case ERT_MUST_NOT_THROW:
 	      /* MUST_NOT_THROW regions are implementable solely in the
 		 runtime, but their existence continues to affect calls
@@ -669,7 +683,7 @@ remove_unreachable_regions (rtx insns)
 		/* TRY regions are reachable if any of its CATCH regions
 		   are reachable.  */
 		struct eh_region *c;
-		for (c = r->u.try.catch; c ; c = c->u.catch.next_catch)
+		for (c = r->u.eh_try.eh_catch; c ; c = c->u.eh_catch.next_catch)
 		  if (reachable[c->region_number])
 		    {
 		      kill_it = false;
@@ -793,7 +807,8 @@ current_function_has_exception_handlers (void)
 
       region = VEC_index (eh_region, cfun->eh->region_array, i);
       if (region
-	  && region->region_number == i)
+	  && region->region_number == i
+	  && region->type != ERT_THROW)
 	return true;
     }
 
@@ -973,17 +988,17 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
       switch (cur->type)
 	{
 	case ERT_TRY:
-	  if (cur->u.try.catch)
-	    REMAP (cur->u.try.catch);
-	  if (cur->u.try.last_catch)
-	    REMAP (cur->u.try.last_catch);
+	  if (cur->u.eh_try.eh_catch)
+	    REMAP (cur->u.eh_try.eh_catch);
+	  if (cur->u.eh_try.last_catch)
+	    REMAP (cur->u.eh_try.last_catch);
 	  break;
 
 	case ERT_CATCH:
-	  if (cur->u.catch.next_catch)
-	    REMAP (cur->u.catch.next_catch);
-	  if (cur->u.catch.prev_catch)
-	    REMAP (cur->u.catch.prev_catch);
+	  if (cur->u.eh_catch.next_catch)
+	    REMAP (cur->u.eh_catch.next_catch);
+	  if (cur->u.eh_catch.prev_catch)
+	    REMAP (cur->u.eh_catch.prev_catch);
 	  break;
 
 	case ERT_CLEANUP:
@@ -1275,21 +1290,21 @@ assign_filter_values (void)
 	case ERT_CATCH:
 	  /* Whatever type_list is (NULL or true list), we build a list
 	     of filters for the region.  */
-	  r->u.catch.filter_list = NULL_TREE;
+	  r->u.eh_catch.filter_list = NULL_TREE;
 
-	  if (r->u.catch.type_list != NULL)
+	  if (r->u.eh_catch.type_list != NULL)
 	    {
 	      /* Get a filter value for each of the types caught and store
 		 them in the region's dedicated list.  */
-	      tree tp_node = r->u.catch.type_list;
+	      tree tp_node = r->u.eh_catch.type_list;
 
 	      for (;tp_node; tp_node = TREE_CHAIN (tp_node))
 		{
 		  int flt = add_ttypes_entry (ttypes, TREE_VALUE (tp_node));
 		  tree flt_node = build_int_cst (NULL_TREE, flt);
 
-		  r->u.catch.filter_list
-		    = tree_cons (NULL_TREE, flt_node, r->u.catch.filter_list);
+		  r->u.eh_catch.filter_list
+		    = tree_cons (NULL_TREE, flt_node, r->u.eh_catch.filter_list);
 		}
 	    }
 	  else
@@ -1299,8 +1314,8 @@ assign_filter_values (void)
 	      int flt = add_ttypes_entry (ttypes, NULL);
 	      tree flt_node = build_int_cst (NULL_TREE, flt);
 
-	      r->u.catch.filter_list
-		= tree_cons (NULL_TREE, flt_node, r->u.catch.filter_list);
+	      r->u.eh_catch.filter_list
+		= tree_cons (NULL_TREE, flt_node, r->u.eh_catch.filter_list);
 	    }
 
 	  break;
@@ -1385,17 +1400,17 @@ build_post_landing_pads (void)
 	     Rapid prototyping sez a sequence of ifs.  */
 	  {
 	    struct eh_region *c;
-	    for (c = region->u.try.catch; c ; c = c->u.catch.next_catch)
+	    for (c = region->u.eh_try.eh_catch; c ; c = c->u.eh_catch.next_catch)
 	      {
-		if (c->u.catch.type_list == NULL)
+		if (c->u.eh_catch.type_list == NULL)
 		  emit_jump (c->label);
 		else
 		  {
 		    /* Need for one cmp/jump per type caught. Each type
 		       list entry has a matching entry in the filter list
 		       (see assign_filter_values).  */
-		    tree tp_node = c->u.catch.type_list;
-		    tree flt_node = c->u.catch.filter_list;
+		    tree tp_node = c->u.eh_catch.type_list;
+		    tree flt_node = c->u.eh_catch.filter_list;
 
 		    for (; tp_node; )
 		      {
@@ -1422,7 +1437,7 @@ build_post_landing_pads (void)
 	  seq = get_insns ();
 	  end_sequence ();
 
-	  emit_to_new_bb_before (seq, region->u.try.catch->label);
+	  emit_to_new_bb_before (seq, region->u.eh_try.eh_catch->label);
 
 	  break;
 
@@ -1457,6 +1472,7 @@ build_post_landing_pads (void)
 	  break;
 
 	case ERT_CATCH:
+	case ERT_THROW:
 	  /* Nothing to do.  */
 	  break;
 
@@ -1633,6 +1649,12 @@ sjlj_find_directly_reachable_regions (struct sjlj_lp_info *lp_info)
       region = VEC_index (eh_region, cfun->eh->region_array, INTVAL (XEXP (note, 0)));
 
       type_thrown = NULL_TREE;
+      if (region->type == ERT_THROW)
+	{
+	  type_thrown = region->u.eh_throw.type;
+	  region = region->outer;
+	}
+
       /* Find the first containing region that might handle the exception.
 	 That's the landing pad to which we will transfer control.  */
       rc = RNL_NOT_CAUGHT;
@@ -2024,7 +2046,7 @@ finish_eh_generation (void)
   /* The object here is to provide find_basic_blocks with detailed
      information (via reachable_handlers) on how exception control
      flows within the function.  In this first pass, we can include
-     type information garnered from ERT_ALLOWED_EXCEPTIONS
+     type information garnered from ERT_THROW and ERT_ALLOWED_EXCEPTIONS
      regions, and hope that it will be useful in deleting unreachable
      handlers.  Subsequently, we will generate landing pads which will
      connect many of the handlers, and then type information will not
@@ -2182,28 +2204,28 @@ remove_eh_handler (struct eh_region *region)
 
   if (region->type == ERT_CATCH)
     {
-      struct eh_region *try, *next, *prev;
+      struct eh_region *eh_try, *next, *prev;
 
-      for (try = region->next_peer;
-	   try->type == ERT_CATCH;
-	   try = try->next_peer)
+      for (eh_try = region->next_peer;
+	   eh_try->type == ERT_CATCH;
+	   eh_try = eh_try->next_peer)
 	continue;
-      gcc_assert (try->type == ERT_TRY);
+      gcc_assert (eh_try->type == ERT_TRY);
 
-      next = region->u.catch.next_catch;
-      prev = region->u.catch.prev_catch;
+      next = region->u.eh_catch.next_catch;
+      prev = region->u.eh_catch.prev_catch;
 
       if (next)
-	next->u.catch.prev_catch = prev;
+	next->u.eh_catch.prev_catch = prev;
       else
-	try->u.try.last_catch = prev;
+	eh_try->u.eh_try.last_catch = prev;
       if (prev)
-	prev->u.catch.next_catch = next;
+	prev->u.eh_catch.next_catch = next;
       else
 	{
-	  try->u.try.catch = next;
+	  eh_try->u.eh_try.eh_catch = next;
 	  if (! next)
-	    remove_eh_handler (try);
+	    remove_eh_handler (eh_try);
 	}
     }
 }
@@ -2366,10 +2388,10 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	struct eh_region *c;
 	enum reachable_code ret = RNL_NOT_CAUGHT;
 
-	for (c = region->u.try.catch; c ; c = c->u.catch.next_catch)
+	for (c = region->u.eh_try.eh_catch; c ; c = c->u.eh_catch.next_catch)
 	  {
 	    /* A catch-all handler ends the search.  */
-	    if (c->u.catch.type_list == NULL)
+	    if (c->u.eh_catch.type_list == NULL)
 	      {
 		add_reachable_handler (info, region, c);
 		return RNL_CAUGHT;
@@ -2378,7 +2400,7 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	    if (type_thrown)
 	      {
 		/* If we have at least one type match, end the search.  */
-		tree tp_node = c->u.catch.type_list;
+		tree tp_node = c->u.eh_catch.type_list;
 
 		for (; tp_node; tp_node = TREE_CHAIN (tp_node))
 		  {
@@ -2416,7 +2438,7 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	      ret = RNL_MAYBE_CAUGHT;
 	    else
 	      {
-		tree tp_node = c->u.catch.type_list;
+		tree tp_node = c->u.eh_catch.type_list;
 		bool maybe_reachable = false;
 
 		/* Compute the potential reachability of this handler and
@@ -2502,6 +2524,7 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
       else
 	return RNL_BLOCKED;
 
+    case ERT_THROW:
     case ERT_UNKNOWN:
       /* Shouldn't see these here.  */
       gcc_unreachable ();
@@ -2535,6 +2558,11 @@ foreach_reachable_handler (int region_number, bool is_resx,
 	 region itself may have been deleted out from under us.  */
       if (region == NULL)
 	return;
+      region = region->outer;
+    }
+  else if (region->type == ERT_THROW)
+    {
+      type_thrown = region->u.eh_throw.type;
       region = region->outer;
     }
 
@@ -2615,6 +2643,11 @@ can_throw_internal_1 (int region_number, bool is_resx)
   type_thrown = NULL_TREE;
   if (is_resx)
     region = region->outer;
+  else if (region->type == ERT_THROW)
+    {
+      type_thrown = region->u.eh_throw.type;
+      region = region->outer;
+    }
 
   /* If this exception is ignored by each and every containing region,
      then control passes straight out.  The runtime may handle some
@@ -2670,6 +2703,11 @@ can_throw_external_1 (int region_number, bool is_resx)
   type_thrown = NULL_TREE;
   if (is_resx)
     region = region->outer;
+  else if (region->type == ERT_THROW)
+    {
+      type_thrown = region->u.eh_throw.type;
+      region = region->outer;
+    }
 
   /* If the exception is caught or blocked by any containing region,
      then it is not seen by any calling function.  */
@@ -3071,14 +3109,14 @@ collect_one_action_chain (htab_t ar_hash, struct eh_region *region)
 	 search outer regions.  Use a magic -3 value to record
 	 that we haven't done the outer search.  */
       next = -3;
-      for (c = region->u.try.last_catch; c ; c = c->u.catch.prev_catch)
+      for (c = region->u.eh_try.last_catch; c ; c = c->u.eh_catch.prev_catch)
 	{
-	  if (c->u.catch.type_list == NULL)
+	  if (c->u.eh_catch.type_list == NULL)
 	    {
 	      /* Retrieve the filter from the head of the filter list
 		 where we have stored it (see assign_filter_values).  */
 	      int filter
-		= TREE_INT_CST_LOW (TREE_VALUE (c->u.catch.filter_list));
+		= TREE_INT_CST_LOW (TREE_VALUE (c->u.eh_catch.filter_list));
 
 	      next = add_action_record (ar_hash, filter, 0);
 	    }
@@ -3103,7 +3141,7 @@ collect_one_action_chain (htab_t ar_hash, struct eh_region *region)
 		    next = add_action_record (ar_hash, 0, 0);
 		}
 
-	      flt_node = c->u.catch.filter_list;
+	      flt_node = c->u.eh_catch.filter_list;
 	      for (; flt_node; flt_node = TREE_CHAIN (flt_node))
 		{
 		  int filter = TREE_INT_CST_LOW (TREE_VALUE (flt_node));
@@ -3138,7 +3176,9 @@ collect_one_action_chain (htab_t ar_hash, struct eh_region *region)
       return -2;
 
     case ERT_CATCH:
-      /* CATCH regions are handled in TRY above.  */
+    case ERT_THROW:
+      /* CATCH regions are handled in TRY above.  THROW regions are
+	 for optimization information only and produce no output.  */
       return collect_one_action_chain (ar_hash, region->outer);
 
     default:
@@ -3550,86 +3590,6 @@ output_ttype (tree type, int tt_format, int tt_format_size)
   else
     dw2_asm_output_encoded_addr_rtx (tt_format, value, is_public, NULL);
 }
-
-
-#if 0
-/* This call is for the generation of lto function information.  The
-   five output functions are used as callbacks to output each of the
-   five flavors of eh_region.  */
-
-void 
-output_eh_records (void *ob, struct function * cfun,
-		   output_eh_cleanup_t cleanup, 
-		   output_eh_try_t try,
-		   output_eh_catch_t catch,
-		   output_eh_allowed_t allowed,
-		   output_eh_must_not_throw_t must_not_throw)
-{
-  struct eh_region *i = cfun->eh->region_tree;
-  if (! i)
-    return;
-
-  while (1)
-    {
-      switch (i->type)
-	{
-	case ERT_CLEANUP:
-	  cleanup (ob, i->region_number, 
-		   i->inner != NULL, i->next_peer != NULL, 
-		   i->may_contain_throw, 
-		   i->u.cleanup.prev_try 
-		   ? i->u.cleanup.prev_try->region_number : 0);
-	  break;
-	case ERT_TRY:
-	  try (ob, i->region_number, 
-	       i->inner != NULL, i->next_peer != NULL, 
-	       i->may_contain_throw, i->u.try.catch->region_number, 
-	       i->u.try.last_catch ? 
-	       i->u.try.last_catch->region_number : 0);
-	  break;
-	case ERT_CATCH:
-	  catch (ob, i->region_number, 
-		 i->inner != NULL, i->next_peer != NULL, 
-		 i->may_contain_throw, 
-		 i->u.catch.next_catch 
-		 ? i->u.catch.next_catch->region_number : 0, 
-		 i->u.catch.prev_catch 
-		 ? i->u.catch.prev_catch->region_number : 0,
-		 i->u.catch.type_list);
-	  break;
-	case ERT_ALLOWED_EXCEPTIONS:
-	  allowed (ob, i->region_number, 
-		   i->inner != NULL, i->next_peer != NULL, 
-		   i->may_contain_throw, i->u.allowed.type_list);
-	  break;
-	case ERT_MUST_NOT_THROW:
-	  must_not_throw (ob, i->region_number, 
-			  i->inner != NULL, i->next_peer != NULL, 
-			  i->may_contain_throw);
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-
-      /* If there are sub-regions, process them.  */
-      if (i->inner)
-	i = i->inner;
-      /* If there are peers, process them.  */
-      else if (i->next_peer)
-	i = i->next_peer;
-      /* Otherwise, step back up the tree to the next peer.  */
-      else
-	{
-	  do {
-	    i = i->outer;
-	    if (i == NULL)
-	      return;
-	  } while (i->next_peer == NULL);
-	  i = i->next_peer;
-	}
-    }
-}
-#endif
 
 void
 output_function_exception_table (const char * ARG_UNUSED (fnname))

@@ -1,4 +1,4 @@
-/* Code to decode the gimple tree flags. 
+/* Code to decode tree flags. 
 
    Copyright (C) 2006 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -82,16 +82,6 @@
       ADD_CLASS_EXPR_FLAG (used_flag)
       ADD_CLASS_EXPR_FLAG (nowarning_flag)
     END_CLASS_CASE (tcc_expression)
-
-    START_CLASS_CASE (tcc_gimple_stmt)
-      ADD_CLASS_EXPR_FLAG (asm_written_flag)
-      ADD_CLASS_EXPR_FLAG (side_effects_flag)
-      ADD_CLASS_EXPR_FLAG (volatile_flag)
-      ADD_CLASS_EXPR_FLAG (readonly_flag)
-      ADD_CLASS_EXPR_FLAG (constant_flag)
-      ADD_CLASS_EXPR_FLAG (used_flag)
-      ADD_CLASS_EXPR_FLAG (nowarning_flag)
-    END_CLASS_CASE (tcc_gimple_stmt)
 
     START_CLASS_CASE (tcc_reference)
       ADD_CLASS_EXPR_FLAG (side_effects_flag)
@@ -391,9 +381,6 @@
     START_EXPR_CASE (GE_EXPR)
     END_EXPR_CASE (GE_EXPR)
       
-    START_EXPR_CASE (GIMPLE_MODIFY_STMT)
-    END_EXPR_CASE (GIMPLE_MODIFY_STMT)
-
     START_EXPR_CASE (GOTO_EXPR)
     END_EXPR_CASE (GOTO_EXPR)
       
@@ -520,18 +507,9 @@
     START_EXPR_CASE (OMP_ATOMIC)
     END_EXPR_CASE (OMP_ATOMIC)
       
-    START_EXPR_CASE (OMP_ATOMIC_LOAD)
-    END_EXPR_CASE (OMP_ATOMIC_LOAD)
-      
-    START_EXPR_CASE (OMP_ATOMIC_STORE)
-    END_EXPR_CASE (OMP_ATOMIC_STORE)
-      
     START_EXPR_CASE (OMP_CLAUSE)
       ADD_EXPR_FLAG (public_flag)
     END_EXPR_CASE (OMP_CLAUSE)
-      
-    START_EXPR_CASE (OMP_CONTINUE)
-    END_EXPR_CASE (OMP_CONTINUE)
       
     START_EXPR_CASE (OMP_CRITICAL)
     END_EXPR_CASE (OMP_CRITICAL)
@@ -549,20 +527,12 @@
       ADD_EXPR_FLAG (private_flag)
     END_EXPR_CASE (OMP_PARALLEL)
       
-    START_EXPR_CASE (OMP_RETURN)
-      ADD_EXPR_FLAG (private_flag)
-    END_EXPR_CASE (OMP_RETURN)
-      
     START_EXPR_CASE (OMP_SECTION)
       ADD_EXPR_FLAG (private_flag)
     END_EXPR_CASE (OMP_SECTION)
       
     START_EXPR_CASE (OMP_SECTIONS)
     END_EXPR_CASE (OMP_SECTIONS)
-      
-    START_EXPR_CASE (OMP_SECTIONS_SWITCH)
-      ADD_EXPR_FLAG (private_flag)
-    END_EXPR_CASE (OMP_SECTIONS_SWITCH)
       
     START_EXPR_CASE (OMP_SINGLE)
     END_EXPR_CASE (OMP_SINGLE)
@@ -588,10 +558,6 @@
       ADD_DECL_FLAG (decl_flag_3)
       ADD_DECL_FLAG (gimple_reg_flag)
     END_EXPR_CASE (PARM_DECL)
-      
-    START_EXPR_CASE (PHI_NODE)
-      ADD_EXPR_FLAG (asm_written_flag)
-    END_EXPR_CASE (PHI_NODE)
       
     START_EXPR_CASE (PLACEHOLDER_EXPR)
     END_EXPR_CASE (PLACEHOLDER_EXPR)

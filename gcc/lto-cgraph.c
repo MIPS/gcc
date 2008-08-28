@@ -81,7 +81,7 @@ output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge)
   LTO_DEBUG_FN_NAME (edge->callee->decl);
 
   LTO_DEBUG_TOKEN ("stmt");
-  uid = flag_wpa ? edge->lto_stmt_uid : gimple_stmt_uid (edge->call_stmt);
+  uid = flag_wpa ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt);
   lto_output_uleb128_stream (ob->main_stream, uid);
   LTO_DEBUG_TOKEN ("count");
   lto_output_uleb128_stream (ob->main_stream, edge->count);
@@ -290,7 +290,7 @@ input_overwrite_node (struct lto_file_decl_data* file_data,
   node->local.externally_visible = lto_get_flag (&flags);
   node->local.local = lto_get_flag (&flags);
   node->analyzed = node->local.finalized;
-    node->lowered = node->local.finalized;
+  node->lowered = node->local.finalized;
   if (cgraph_decide_is_function_needed (node))
     cgraph_mark_needed_node (node);
 }

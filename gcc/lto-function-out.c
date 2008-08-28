@@ -58,12 +58,16 @@ sbitmap lto_types_needed_for;
 const char *LTO_tree_tag_names[LTO_tree_last_tag];
 #endif
 
+/* Forward declarations to break cyclical dependencies.  */
+static void output_record_start (struct output_block *, tree, tree,
+				 unsigned int);
 
 /* The index of the last eh_region seen for an instruction.  The
    eh_region for an instruction is only emitted if it different from
    the last instruction.  */
 static int last_eh_region_seen;
 static unsigned int expr_to_tag[NUM_TREE_CODES];
+static unsigned int stmt_to_tag[LAST_AND_UNUSED_GIMPLE_CODE];
 
 /* Returns nonzero if P1 and P2 are equal.  */
 
@@ -368,7 +372,7 @@ output_integer (struct output_block *ob, tree t)
 /* Build a densely packed word that contains only the flags that are
    used for this type of tree EXPR and write the word in uleb128 to
    the OB.  IF CODE is 0 (ERROR_MARK), put the flags anyway.
-   FORCE_LOC forces the line number to be serialized reguardless of
+   FORCE_LOC forces the line number to be serialized regardless of
    the type of tree.  */
 
 
@@ -391,14 +395,14 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
     switch (TREE_CODE_CLASS (code))       \
     {
 
-#define START_CLASS_CASE(class)    case class:
+#define START_CLASS_CASE(klass)    case klass:
 #define ADD_CLASS_DECL_FLAG(flag_name)    \
       { flags <<= 1; if (expr->decl_common. flag_name ) flags |= 1; }
 #define ADD_CLASS_EXPR_FLAG(flag_name)    \
       { flags <<= 1; if (expr->base. flag_name ) flags |= 1; }
 #define ADD_CLASS_TYPE_FLAG(flag_name)    \
       { flags <<= 1; if (expr->type. flag_name ) flags |= 1; }
-#define END_CLASS_CASE(class)      break;
+#define END_CLASS_CASE(klass)      break;
 #define END_CLASS_SWITCH()                \
     default:                              \
       gcc_unreachable ();                 \
@@ -421,7 +425,7 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
       { flags <<= size; if (expr->decl_with_vis. flag_name ) flags |= expr->decl_with_vis. flag_name; }
 #define ADD_FUN_FLAG(flag_name)  \
       { flags <<= 1; if (expr->function_decl. flag_name ) flags |= 1; }
-#define END_EXPR_CASE(class)      break;
+#define END_EXPR_CASE(klass)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
       gcc_unreachable ();                 \
@@ -454,7 +458,7 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
 	  const char *current_file = NULL;
 	  int current_line = 0;
 	  int current_col = 0;
-	  if (EXPR_P (expr) || GIMPLE_STMT_P (expr))
+	  if (EXPR_P (expr))
 	    {
 	      if (EXPR_HAS_LOCATION (expr))
 		{
@@ -540,8 +544,6 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
     }
 }
 
-static void output_record_start (struct output_block *, tree, tree, unsigned int);
-static unsigned int output_local_decl_ref (struct output_block *, tree, bool);
 
 /* Return innermost enclosing FUNCTION_DECL for a type,
    or NULL_TREE if there is none.  */
@@ -595,6 +597,7 @@ type_decl_is_local (tree decl ATTRIBUTE_UNUSED)
 #endif
 }
 
+
 /* Like output_type_ref, but no debug information is written.  */
 
 static void
@@ -634,14 +637,14 @@ output_type_ref (struct output_block *ob, tree node)
 static unsigned int
 output_local_decl_ref (struct output_block *ob, tree name, bool write)
 {
-  bool new;
+  bool new_local;
   unsigned int index;
 
-  new = lto_output_decl_index (write ? ob->main_stream : NULL, 
-                               &ob->local_decl_encoder,
-                               name, &index);
+  new_local = lto_output_decl_index (write ? ob->main_stream : NULL, 
+                                     &ob->local_decl_encoder,
+                                     name, &index);
   /* Push the new local decl onto a vector for later processing.  */
-  if (new)
+  if (new_local)
     {
       VEC_safe_push (int, heap, ob->local_decls_index, 0);
       VEC_safe_push (int, heap, ob->unexpanded_local_decls_index, -1);
@@ -758,14 +761,14 @@ output_eh_cleanup (void *obv,
 
 /* Output an eh_try region with REGION_NUMBER.  HAS_INNER is true if
    there are children of this node and HAS_PEER is true if there are
-   siblings of this node.  MAY_CONTAIN_THROW, CATCH and LAST_CATCH are
+   siblings of this node.  MAY_CONTAIN_THROW, EH_CATCH and LAST_CATCH are
    the fields of the eh_region.  */
 
 static void
 output_eh_try (void *obv,
 	       int region_number,
 	       bool has_inner, bool has_peer,
-	       bool may_contain_throw, int catch,
+	       bool may_contain_throw, int eh_catch,
 	       int last_catch)
 {
   struct output_block *ob = (struct output_block*)obv;
@@ -773,7 +776,7 @@ output_eh_try (void *obv,
 		       LTO_eh_table_try0 +
 		     (has_inner ? 1 : 0) + (may_contain_throw ? 2 : 0));
   output_sleb128 (ob, region_number);
-  output_sleb128 (ob, catch);
+  output_sleb128 (ob, eh_catch);
   output_sleb128 (ob, last_catch);
   if (!has_peer)
     output_zero (ob);
@@ -908,16 +911,16 @@ static void
 output_expr_operand (struct output_block *ob, tree expr)
 {
   enum tree_code code;
-  enum tree_code_class class;
+  enum tree_code_class klass;
   unsigned int tag;
 
   gcc_assert (expr);
 
   code = TREE_CODE (expr);
-  class = TREE_CODE_CLASS (code);
+  klass = TREE_CODE_CLASS (code);
   tag = expr_to_tag [code];
 
-  gcc_assert (class != tcc_type);
+  gcc_assert (klass != tcc_type);
 
   switch (code)
     {
@@ -1098,26 +1101,6 @@ output_expr_operand (struct output_block *ob, tree expr)
       output_label_ref (ob, expr);
       break;
 
-    case LABEL_EXPR:
-      output_record_start (ob, expr, NULL, tag);
-      output_label_ref (ob, TREE_OPERAND (expr, 0));
-      break;
-
-    case COND_EXPR:
-      if (TREE_OPERAND (expr, 1))
-	{
-	  output_record_start (ob, expr, expr, LTO_cond_expr0);
-	  output_expr_operand (ob, TREE_OPERAND (expr, 0));
-	  output_expr_operand (ob, TREE_OPERAND (expr, 1));
-	  output_expr_operand (ob, TREE_OPERAND (expr, 2));
-	}
-      else 
-	{
-	  output_record_start (ob, expr, expr, LTO_cond_expr1);
-	  output_expr_operand (ob, TREE_OPERAND (expr, 0));
-	}
-      break;
-
     case RESULT_DECL:
       output_record_start (ob, expr, expr, tag);
       break;
@@ -1127,29 +1110,6 @@ output_expr_operand (struct output_block *ob, tree expr)
       output_expr_operand (ob, TREE_OPERAND (expr, 0));
       output_expr_operand (ob, TREE_OPERAND (expr, 1));
       /* Ignore 3 because it can be recomputed.  */
-      break;
-
-    case CALL_EXPR:
-      {
-	unsigned int count = TREE_INT_CST_LOW (TREE_OPERAND (expr, 0));
-	unsigned int i;
-
-	/* Operand 2 is the call chain.  */
-	if (TREE_OPERAND (expr, 2))
-	  {
-	    output_record_start (ob, expr, expr, LTO_call_expr1);
-	    output_uleb128 (ob, count);
-	    output_expr_operand (ob, TREE_OPERAND (expr, 2));
-	  }
-	else
-	  {
-	    output_record_start (ob, expr, expr, LTO_call_expr0);
-	    output_uleb128 (ob, count);
-	  }
-	output_expr_operand (ob, TREE_OPERAND (expr, 1));
-	for (i = 3; i < count; i++)
-	  output_expr_operand (ob, TREE_OPERAND (expr, i));
-      }
       break;
 
     case BIT_FIELD_REF:
@@ -1221,67 +1181,6 @@ output_expr_operand (struct output_block *ob, tree expr)
       }
       break; 
 
-    case RESX_EXPR:
-      output_record_start (ob, expr, NULL, tag);
-      output_uleb128 (ob, TREE_INT_CST_LOW (TREE_OPERAND (expr, 0)));
-      break;
-
-    case RETURN_EXPR:
-      {
-	tree t = TREE_OPERAND (expr, 0);
-	if (t == NULL)
-	  {
-	    /* Form return.  */
-	    output_record_start (ob, expr, expr,
-				 LTO_return_expr0);
-	  }
-	else if (TREE_CODE (t) == MODIFY_EXPR)
-	  {
-	    /* Form return a = b;  */
-	    output_record_start (ob, expr, expr,
-				 LTO_return_expr2);
-	    output_expr_operand (ob, TREE_OPERAND (t, 0));
-	    output_expr_operand (ob, TREE_OPERAND (t, 1));
-	  }
-	else
-	  {
-	    /* Form return a; */
-	    output_record_start (ob, expr, expr,
-				 LTO_return_expr1);
-            /* If the type of the argument is a type that gets returned
-               in memory, then the gimplifier would have changed the
-               argument of the RETURN_EXPR to point at DECL_RESULT of
-               the current function.  Communicate this fact to the
-               reader so we avoid reading in superfluous trees.  */
-            if (t == DECL_RESULT (current_function_decl))
-              output_zero (ob);
-            else
-              output_expr_operand (ob, t);
-	  }
-      }
-      break;
-
-    case GIMPLE_MODIFY_STMT:
-      output_record_start (ob, expr, NULL, tag);
-      output_expr_operand (ob, GIMPLE_STMT_OPERAND (expr, 0));
-      output_expr_operand (ob, GIMPLE_STMT_OPERAND (expr, 1));
-      break;
-
-    case SWITCH_EXPR:
-      {
-	tree label_vec = TREE_OPERAND (expr, 2);
-	size_t len = TREE_VEC_LENGTH (label_vec);
-	size_t i;
-	output_record_start (ob, expr, expr, tag);
-	output_uleb128 (ob, len);
-	output_expr_operand (ob, TREE_OPERAND (expr, 0));
-	gcc_assert (TREE_OPERAND (expr, 1) == NULL);
-
-	for (i = 0; i < len; ++i)
-	  output_expr_operand (ob, TREE_VEC_ELT (label_vec, i));
-      }
-      break;
-
     case TREE_LIST:
       {
 	tree tl;
@@ -1334,13 +1233,11 @@ output_expr_operand (struct output_block *ob, tree expr)
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
     case NAME_MEMORY_TAG:
-    case OMP_CONTINUE:
     case OMP_CRITICAL:
     case OMP_FOR:
     case OMP_MASTER:
     case OMP_ORDERED:
     case OMP_PARALLEL:
-    case OMP_RETURN:
     case OMP_SECTIONS:
     case OMP_SINGLE:
     case SYMBOL_MEMORY_TAG:
@@ -1885,22 +1782,81 @@ output_cfg (struct output_block *ob, struct function *fn)
 }
 
 
-/* Output a phi function to the main stream in OB.  */
+/* Output PHI function PHI to the main stream in OB.  */
 
 static void
-output_phi (struct output_block *ob, tree expr)
+output_phi (struct output_block *ob, gimple phi)
 {
-  int len = PHI_NUM_ARGS (expr);
-  int i;
+  unsigned i, len = gimple_phi_num_args (phi);
   
-  output_record_start (ob, expr, expr, LTO_phi_node);
-  output_uleb128 (ob, SSA_NAME_VERSION (PHI_RESULT (expr)));
+  lto_output_1_stream (ob->main_stream, LTO_gimple_phi);
+  LTO_DEBUG_INDENT (LTO_gimple_phi);
+  output_uleb128 (ob, SSA_NAME_VERSION (PHI_RESULT (phi)));
 
   for (i = 0; i < len; i++)
     {
-      output_expr_operand (ob, PHI_ARG_DEF (expr, i));
-      output_uleb128 (ob, PHI_ARG_EDGE (expr, i)->src->index);
+      output_expr_operand (ob, gimple_phi_arg_def (phi, i));
+      output_uleb128 (ob, gimple_phi_arg_edge (phi, i)->src->index);
     }
+
+  LTO_DEBUG_UNDENT ();
+}
+
+
+/* Emit statement STMT on the main stream of output block OB.  */
+
+static void
+output_gimple_stmt (struct output_block *ob, gimple stmt)
+{
+  unsigned i;
+  enum gimple_code code = gimple_code (stmt);
+  unsigned int tag = stmt_to_tag[code];
+
+  LTO_DEBUG_INDENT_TOKEN ("stmt");
+
+  /* Emit identifying tag.  */
+  gcc_assert (tag < UCHAR_MAX);
+  lto_output_1_stream (ob->main_stream, (char) tag);
+  LTO_DEBUG_INDENT (tag);
+
+  /* Emit the number of operands in the statement.  */
+  lto_output_uleb128_stream (ob->main_stream, gimple_num_ops (stmt));
+
+  /* Emit the tuple header.  FIXME lto.  This is emitting fields that are not
+     necessary to emit (e.g., gimple_statement_base.bb,
+     gimple_statement_base.block).  */
+  lto_output_data_stream (ob->main_stream, stmt, gimple_size (code));
+
+  /* Emit the operands.  */
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_ASM:
+      output_string (ob, ob->main_stream, gimple_asm_string (stmt),
+		     strlen (gimple_asm_string (stmt)));
+      /* Fallthru  */
+
+    case GIMPLE_ASSIGN:
+    case GIMPLE_CALL:
+    case GIMPLE_RETURN:
+    case GIMPLE_SWITCH:
+    case GIMPLE_LABEL:
+    case GIMPLE_COND:
+    case GIMPLE_GOTO:
+    case GIMPLE_RESX:
+      for (i = 0; i < gimple_num_ops (stmt); i++)
+	{
+	  tree op = gimple_op (stmt, i);
+	  if (op)
+	    output_expr_operand (ob, op);
+	  else
+	    output_zero (ob);
+	}
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
   LTO_DEBUG_UNDENT ();
 }
 
@@ -1910,33 +1866,29 @@ output_phi (struct output_block *ob, tree expr)
 static void
 output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 {
-  block_stmt_iterator bsi = bsi_start (bb);
+  gimple_stmt_iterator bsi = gsi_start_bb (bb);
 
   output_record_start (ob, NULL, NULL,
-		       (!bsi_end_p (bsi)) || phi_nodes (bb) ? LTO_bb1 : LTO_bb0);
+		       (!gsi_end_p (bsi)) || phi_nodes (bb) ? LTO_bb1 : LTO_bb0);
 
   /* The index of the basic block.  */
   LTO_DEBUG_TOKEN ("bbindex");
   output_uleb128 (ob, bb->index);
 
-  if ((!bsi_end_p (bsi)) || phi_nodes (bb))
+  if ((!gsi_end_p (bsi)) || phi_nodes (bb))
     {
       /* Output the statements.  The list of statements is terminated
 	 with a zero.  */
-      tree phi;
-
-      for (bsi = bsi_start (bb);
-	   !bsi_end_p (bsi); bsi_next (&bsi))
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  tree stmt = bsi_stmt (bsi);
+	  gimple stmt = gsi_stmt (bsi);
 
-	  LTO_DEBUG_INDENT_TOKEN ("stmt");
-	  output_expr_operand (ob, stmt);
+	  output_gimple_stmt (ob, stmt);
 	
 	  /* We only need to set the region number of the tree that
 	     could throw if the region number is different from the
 	     last region number we set.  */
-	  if (0 && tree_could_throw_p (stmt))
+	  if (0 && stmt_could_throw_p (stmt))
 	    {
 	      int region = lookup_stmt_eh_region_fn (fn, stmt);
 	      if (region != last_eh_region_seen)
@@ -1954,10 +1906,10 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
       LTO_DEBUG_INDENT_TOKEN ("stmt");
       output_zero (ob);
 
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+      for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
 	  LTO_DEBUG_INDENT_TOKEN ("phi");
-	  output_phi (ob, phi);
+	  output_phi (ob, gsi_stmt (bsi));
 	}
 
       LTO_DEBUG_INDENT_TOKEN ("phi");
@@ -2114,13 +2066,11 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, CASE_LABEL_EXPR);
   RESET_BIT (lto_types_needed_for, FIELD_DECL);
   RESET_BIT (lto_types_needed_for, FUNCTION_DECL);
-  RESET_BIT (lto_types_needed_for, GIMPLE_MODIFY_STMT);
   RESET_BIT (lto_types_needed_for, IDENTIFIER_NODE);
   RESET_BIT (lto_types_needed_for, LABEL_DECL);
   RESET_BIT (lto_types_needed_for, LABEL_EXPR);
   RESET_BIT (lto_types_needed_for, MODIFY_EXPR);
   RESET_BIT (lto_types_needed_for, PARM_DECL);
-  RESET_BIT (lto_types_needed_for, PHI_NODE);
   RESET_BIT (lto_types_needed_for, RESX_EXPR);
   RESET_BIT (lto_types_needed_for, SSA_NAME);
   RESET_BIT (lto_types_needed_for, VAR_DECL);
@@ -2182,15 +2132,18 @@ lto_static_init_local (void)
 
   initialized_local = true;
 
-  /* Initialize the expression to tag mapping.  */
-#define MAP_EXPR_TAG(expr,tag)   expr_to_tag [expr] = tag;
+  /* Initialize the expression and statement to tag mappings.  */
+#define MAP_EXPR_TAG(expr,tag)   expr_to_tag[expr] = tag;
+#define MAP_STMT_TAG(stmt,tag)   stmt_to_tag[stmt] = tag;
 #define TREE_SINGLE_MECHANICAL_TRUE
 #define TREE_SINGLE_MECHANICAL_FALSE
+#define GIMPLE_CODES
 #include "lto-tree-tags.def"
 
 #undef MAP_EXPR_TAG
 #undef TREE_SINGLE_MECHANICAL_TRUE
 #undef TREE_SINGLE_MECHANICAL_FALSE
+#undef GIMPLE_CODES
 
   lto_static_init ();
 }
@@ -2491,14 +2444,14 @@ lto_debug_tree_flags (struct lto_debug_context *context,
     switch (TREE_CODE_CLASS (code))       \
     {
 
-#define START_CLASS_CASE(class)    case class:
+#define START_CLASS_CASE(klass)    case klass:
 #define ADD_CLASS_DECL_FLAG(flag_name) \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_CLASS_EXPR_FLAG(flag_name) \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_CLASS_TYPE_FLAG(flag_name) \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define END_CLASS_CASE(class)      break;
+#define END_CLASS_CASE(klass)      break;
 #define END_CLASS_SWITCH()                \
     default:                              \
       gcc_unreachable ();                 \
@@ -2521,7 +2474,7 @@ lto_debug_tree_flags (struct lto_debug_context *context,
   { if (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
 #define ADD_FUN_FLAG(flag_name)  \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
-#define END_EXPR_CASE(class)      break;
+#define END_EXPR_CASE(klass)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
       gcc_unreachable ();                 \
@@ -3153,7 +3106,7 @@ void
 output_tree (struct output_block *ob, tree expr)
 {
   enum tree_code code;
-  enum tree_code_class class;
+  enum tree_code_class klass;
   unsigned int tag;
   void **slot;
   struct lto_decl_slot d_slot;
@@ -3260,7 +3213,7 @@ output_tree (struct output_block *ob, tree expr)
     }
 
   code = TREE_CODE (expr);
-  class = TREE_CODE_CLASS (code);
+  klass = TREE_CODE_CLASS (code);
   tag = expr_to_tag [code];
 
   switch (code)
@@ -3346,25 +3299,6 @@ output_tree (struct output_block *ob, tree expr)
       }
       break;
 
-    case CASE_LABEL_EXPR:
-      /* FIXME: We should see case labels here.  Assert?  */
-      {
-	int variant = 0;
-	if (CASE_LOW (expr) != NULL_TREE)
-	  variant |= 0x1;
-	if (CASE_HIGH (expr) != NULL_TREE)
-	  variant |= 0x2;
-	output_global_record_start (ob, expr, NULL,
-                                    LTO_case_label_expr0 + variant);
-
-	if (CASE_LOW (expr) != NULL_TREE)
-	  output_tree (ob, CASE_LOW (expr));
-	if (CASE_HIGH (expr) != NULL_TREE)
-	  output_tree (ob, CASE_HIGH (expr));
-	output_tree (ob, CASE_LABEL (expr));
-      }
-      break;
-
     case CONSTRUCTOR:
       output_global_constructor (ob, expr);
       break;
@@ -3428,49 +3362,11 @@ output_tree (struct output_block *ob, tree expr)
       output_tree (ob, TREE_OPERAND (expr, 0));
       break;
 
-    case COND_EXPR:
-      if (TREE_OPERAND (expr, 1))
-	{
-	  output_global_record_start (ob, expr, expr, LTO_cond_expr0);
-	  output_tree (ob, TREE_OPERAND (expr, 0));
-	  output_tree (ob, TREE_OPERAND (expr, 1));
-	  output_tree (ob, TREE_OPERAND (expr, 2));
-	}
-      else 
-	{
-	  output_global_record_start (ob, expr, expr, LTO_cond_expr1);
-	  output_tree (ob, TREE_OPERAND (expr, 0));
-	}
-      break;
-
     case COMPONENT_REF:
       output_global_record_start (ob, expr, expr, tag);
       output_tree (ob, TREE_OPERAND (expr, 0));
       output_tree (ob, TREE_OPERAND (expr, 1));
       /* Ignore 3 because it can be recomputed.  */
-      break;
-
-    case CALL_EXPR:
-      {
-	unsigned int count = TREE_INT_CST_LOW (TREE_OPERAND (expr, 0));
-	unsigned int i;
-
-	/* Operand 2 is the call chain.  */
-	if (TREE_OPERAND (expr, 2))
-	  {
-	    output_global_record_start (ob, expr, expr, LTO_call_expr1);
-	    output_uleb128 (ob, count);
-	    output_tree (ob, TREE_OPERAND (expr, 2));
-	  }
-	else
-	  {
-	    output_global_record_start (ob, expr, expr, LTO_call_expr0);
-	    output_uleb128 (ob, count);
-	  }
-	output_tree (ob, TREE_OPERAND (expr, 1));
-	for (i = 3; i < count; i++)
-	  output_tree (ob, TREE_OPERAND (expr, i));
-      }
       break;
 
     case BIT_FIELD_REF:
@@ -3507,30 +3403,6 @@ output_tree (struct output_block *ob, tree expr)
       break;
 
 
-    case ASM_EXPR:
-      {
-	tree string_cst = ASM_STRING (expr);
-	output_global_record_start (ob, expr, NULL, LTO_asm_expr);
-	output_string (ob, ob->main_stream, 
-		       TREE_STRING_POINTER (string_cst),
-		       TREE_STRING_LENGTH (string_cst));
-	if (ASM_INPUTS (expr))
-	  output_tree (ob, ASM_INPUTS (expr));
-	else 
-	  output_zero (ob);
-
-	if (ASM_OUTPUTS (expr))
-	  output_tree (ob, ASM_OUTPUTS (expr));
-	else 
-	  output_zero (ob);
-
-	if (ASM_CLOBBERS (expr))
-	  output_tree (ob, ASM_CLOBBERS (expr));
-	else 
-	  output_zero (ob);
-      }
-      break;
-
     case RANGE_EXPR:
       {
 	output_global_record_start (ob, NULL, NULL, LTO_range_expr);
@@ -3545,63 +3417,6 @@ output_tree (struct output_block *ob, tree expr)
     case RESX_EXPR:
       output_global_record_start (ob, expr, NULL, tag);
       output_uleb128 (ob, TREE_INT_CST_LOW (TREE_OPERAND (expr, 0)));
-      break;
-
-    case RETURN_EXPR:
-      {
-	tree t = TREE_OPERAND (expr, 0);
-	if (t == NULL)
-	  {
-	    /* Form return.  */
-	    output_global_record_start (ob, expr, expr,
-				 LTO_return_expr0);
-	  }
-	else if (TREE_CODE (t) == MODIFY_EXPR)
-	  {
-	    /* Form return a = b;  */
-	    output_global_record_start (ob, expr, expr,
-				 LTO_return_expr2);
-	    output_tree (ob, TREE_OPERAND (t, 0));
-	    output_tree (ob, TREE_OPERAND (t, 1));
-	  }
-	else
-	  {
-	    /* Form return a; */
-	    output_global_record_start (ob, expr, expr,
-				 LTO_return_expr1);
-            /* If the type of the argument is a type that gets returned
-               in memory, then the gimplifier would have changed the
-               argument of the RETURN_EXPR to point at DECL_RESULT of
-               the current function.  Communicate this fact to the
-               reader so we avoid reading in superfluous trees.  */
-            if (t == DECL_RESULT (current_function_decl))
-              output_zero (ob);
-            else
-              output_tree (ob, t);
-	  }
-      }
-      break;
-
-    case GIMPLE_MODIFY_STMT:
-      output_global_record_start (ob, expr, NULL, tag);
-      output_tree (ob, GIMPLE_STMT_OPERAND (expr, 0));
-      output_tree (ob, GIMPLE_STMT_OPERAND (expr, 1));
-      break;
-
-    case SWITCH_EXPR:
-      /* FIXME: We should not see these  here.  Assert?  */
-      {
-	tree label_vec = TREE_OPERAND (expr, 2);
-	size_t len = TREE_VEC_LENGTH (label_vec);
-	size_t i;
-	output_global_record_start (ob, expr, expr, tag);
-	output_uleb128 (ob, len);
-	output_tree (ob, TREE_OPERAND (expr, 0));
-	gcc_assert (TREE_OPERAND (expr, 1) == NULL);
-
-	for (i = 0; i < len; ++i)
-	  output_tree (ob, TREE_VEC_ELT (label_vec, i));
-      }
       break;
 
     case TREE_LIST:
@@ -3701,13 +3516,11 @@ output_tree (struct output_block *ob, tree expr)
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
     case NAME_MEMORY_TAG:
-    case OMP_CONTINUE:
     case OMP_CRITICAL:
     case OMP_FOR:
     case OMP_MASTER:
     case OMP_ORDERED:
     case OMP_PARALLEL:
-    case OMP_RETURN:
     case OMP_SECTIONS:
     case OMP_SINGLE:
     case SYMBOL_MEMORY_TAG:

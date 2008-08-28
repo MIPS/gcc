@@ -82,7 +82,7 @@ $(LTO_EXE): $(LTO_OBJS) $(BACKEND) $(LIBDEPS)
 
 lto/lto-lang.o: lto/lto-lang.c $(CONFIG_H) coretypes.h debug.h \
 	flags.h $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(SYSTEM_H) \
-	$(TM_H) lto/lto-tree.h $(LTO_H) tree-gimple.h \
+	$(TM_H) lto/lto-tree.h $(LTO_H) $(GIMPLE_H) \
 	gtype-lto.h gt-lto-lto-lang.h
 lto/lto.o: lto/lto.c $(CONFIG_H) $(CGRAPH_H) coretypes.h \
 	$(GGC_H) opts.h $(SYSTEM_H) toplev.h $(TM_H) $(LTO_H) langhooks.h \
@@ -92,4 +92,5 @@ lto/lto.o: lto/lto.c $(CONFIG_H) $(CGRAPH_H) coretypes.h \
 lto/lto-elf.o: lto/lto-elf.c $(CONFIG_H) coretypes.h $(SYSTEM_H) \
 	toplev.h $(LTO_H) $(TM_H)
 lto/lto-symtab.o: lto/lto-symtab.c $(CONFIG_H) coretypes.h \
-	$(SYSTEM_H) toplev.h $(LTO_H) lto/lto-tree.h $(GGC_H) $(LAMBDA_H)
+	$(SYSTEM_H) toplev.h $(LTO_H) lto/lto-tree.h $(GGC_H) $(LAMBDA_H) \
+	$(GIMPLE_H)
