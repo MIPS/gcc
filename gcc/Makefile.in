@@ -2051,7 +2051,7 @@ lto-function-out.o : lto-function-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
    except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def \
    lto-tree-tags.def lto-tags.h lto-header.h $(LTO_SECTION_OUT_H) output.h \
-   dwarf2asm.h dwarf2out.h 
+   dwarf2asm.h dwarf2out.h $(LTO_SECTION_IN_H)
 lto-section-in.o: lto-section-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TOPLEV_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h $(VARRAY_H) \
    $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h tree-pass.h \

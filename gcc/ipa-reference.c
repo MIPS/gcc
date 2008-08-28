@@ -1069,49 +1069,63 @@ generate_summary (void)
 }
 
 
+/* Return true if we need to write summary of NODE. */
+
+static bool
+write_node_summary_p (struct cgraph_node *node)
+{
+  return (node->analyzed 
+	  && (cgraph_is_master_clone (node, true)
+	      || (cgraph_function_body_availability (node) 
+		  == AVAIL_OVERWRITABLE)));
+}
+
 /* Serialize the ipa info for lto.  */
 
 static void 
-write_summary (void)
+write_summary (cgraph_node_set set)
 {
   struct cgraph_node *node;
   struct lto_simple_output_block *ob
     = lto_create_simple_output_block (LTO_section_ipa_reference);
   unsigned int count = 0;
+  cgraph_node_set_iterator csi;
 
-  for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed 
-	&& (cgraph_is_master_clone (node, true)
-	    || (cgraph_function_body_availability (node) 
-		== AVAIL_OVERWRITABLE)))
-      count++;
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+    if (write_node_summary_p (csi_node (csi)))
+	count++;
   
   lto_output_uleb128_stream (ob->main_stream, count);
   
   /* Process all of the functions.  */
-  for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed 
-	&& (cgraph_is_master_clone (node, true)
-	    || (cgraph_function_body_availability (node) 
-		== AVAIL_OVERWRITABLE)))
-      {
-	ipa_reference_local_vars_info_t l
-	  = get_reference_vars_info_from_cgraph (node)->local;
-	unsigned int index;
-	bitmap_iterator bi;
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+    {
+      node = csi_node (csi);
+      if (write_node_summary_p (node))
+	{
+	  ipa_reference_local_vars_info_t l
+	    = get_reference_vars_info_from_cgraph (node)->local;
+	  unsigned int index;
+	  bitmap_iterator bi;
 
-	lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
+	  lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
+				    node->decl);
 
-	/* Stream out the statics read.  */
- 	lto_output_uleb128_stream (ob->main_stream, bitmap_count_bits (l->statics_read));
-	EXECUTE_IF_SET_IN_BITMAP (l->statics_read, 0, index, bi)
-	  lto_output_var_decl_index(ob->decl_state, ob->main_stream, get_static_decl (index));
+	  /* Stream out the statics read.  */
+	  lto_output_uleb128_stream (ob->main_stream,
+				     bitmap_count_bits (l->statics_read));
+	  EXECUTE_IF_SET_IN_BITMAP (l->statics_read, 0, index, bi)
+	    lto_output_var_decl_index(ob->decl_state, ob->main_stream,
+				      get_static_decl (index));
 
-	/* Stream out the statics written.  */
-	lto_output_uleb128_stream (ob->main_stream, bitmap_count_bits (l->statics_written));
-	EXECUTE_IF_SET_IN_BITMAP (l->statics_written, 0, index, bi)
-	  lto_output_var_decl_index(ob->decl_state, ob->main_stream, get_static_decl (index));
-      }
+	  /* Stream out the statics written.  */
+	  lto_output_uleb128_stream (ob->main_stream,
+				     bitmap_count_bits (l->statics_written));
+	  EXECUTE_IF_SET_IN_BITMAP (l->statics_written, 0, index, bi)
+	    lto_output_var_decl_index(ob->decl_state, ob->main_stream,
+				      get_static_decl (index));
+	}
+    }
   lto_destroy_simple_output_block (ob);
 }
 

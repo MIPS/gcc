@@ -412,7 +412,8 @@ cgraph_default_inline_p (struct cgraph_node *n, const char **reason)
       return false;
     }
 
-  if (!DECL_STRUCT_FUNCTION (decl)->cfg)
+  if (!DECL_STRUCT_FUNCTION (decl)->cfg
+      && !flag_wpa)
     {
       if (reason)
 	*reason = N_("function body not available");

@@ -1279,6 +1279,10 @@ fwhole-program
 Common Report Var(flag_whole_program) Init(0) Optimization
 Perform whole program optimizations
 
+fwpa
+Common Report Var(flag_wpa) Init(0) Optimization
+Run LTO in WPA mode
+
 fwrapv
 Common Report Var(flag_wrapv) Optimization
 Assume signed arithmetic overflow wraps around

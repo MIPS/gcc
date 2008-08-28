@@ -697,33 +697,42 @@ generate_summary (void)
 /* Serialize the ipa info for lto.  */
 
 static void
-write_summary (void)
+write_summary (cgraph_node_set set)
 {
   struct cgraph_node *node;
   struct lto_simple_output_block *ob
     = lto_create_simple_output_block (LTO_section_ipa_pure_const);
   unsigned int count = 0;
+  cgraph_node_set_iterator csi;
 
-  for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && cgraph_is_master_clone (node, true))
-      count++;
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+    {
+      node = csi_node (csi);
+      if (node->analyzed && cgraph_is_master_clone (node, true))
+	count++;
+    }
   
   lto_output_uleb128_stream (ob->main_stream, count);
   
   /* Process all of the functions.  */
-  for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && cgraph_is_master_clone (node, true))
-      {
-	unsigned HOST_WIDEST_INT flags = 0;
-	funct_state fs = get_function_state (node);
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+    {
+      node = csi_node (csi);
+      if (node->analyzed && cgraph_is_master_clone (node, true))
+	{
+	  unsigned HOST_WIDEST_INT flags = 0;
+	  funct_state fs = get_function_state (node);
 	
-	lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
+	  lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
+				    node->decl);
 	
-	lto_set_flags (&flags, fs->pure_const_state, 2);
-	lto_set_flag (&flags, fs->looping);
-	lto_set_flag (&flags, fs->state_set_in_source);
-	lto_output_uleb128_stream (ob->main_stream, flags);
-      }
+	  lto_set_flags (&flags, fs->pure_const_state, 2);
+	  lto_set_flag (&flags, fs->looping);
+	  lto_set_flag (&flags, fs->state_set_in_source);
+	  lto_output_uleb128_stream (ob->main_stream, flags);
+	}
+    }
+
   lto_destroy_simple_output_block (ob);
 }
 

@@ -25,4 +25,4 @@ stagestuff="lto1\$(exeext)"
 
 target_libs="lto-plugin"
 
-gtfiles="\$(srcdir)/lto/lto-tree.h \$(srcdir)/lto/lto-lang.c"
+gtfiles="\$(srcdir)/lto/lto-tree.h \$(srcdir)/lto/lto-lang.c \$(srcdir)/lto/lto.c"

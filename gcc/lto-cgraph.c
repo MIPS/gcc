@@ -73,13 +73,16 @@ static const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag] =
 static void
 output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge)
 {
+  unsigned int uid;
+
   lto_output_uleb128_stream (ob->main_stream, LTO_cgraph_edge);
   LTO_DEBUG_INDENT (LTO_cgraph_edge);
   lto_output_fn_decl_index (ob->decl_state, ob->main_stream, edge->callee->decl);
   LTO_DEBUG_FN_NAME (edge->callee->decl);
 
   LTO_DEBUG_TOKEN ("stmt");
-  lto_output_uleb128_stream (ob->main_stream, gimple_stmt_uid (edge->call_stmt));
+  uid = flag_wpa ? edge->lto_stmt_uid : gimple_stmt_uid (edge->call_stmt);
+  lto_output_uleb128_stream (ob->main_stream, uid);
   LTO_DEBUG_TOKEN ("count");
   lto_output_uleb128_stream (ob->main_stream, edge->count);
   LTO_DEBUG_TOKEN ("frequency");
@@ -92,10 +95,13 @@ output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge)
 }
 
 
-/* Output the cgraph NODE to OB.  */
+/* Output the cgraph NODE to OB.  If BOUNDARY_P is true, NODE is a boundary
+   of a cgraph_node_set and we pretend NODE just have a decl and no callees.
+   */
 
 static void
-output_node (struct lto_simple_output_block *ob, struct cgraph_node *node)
+output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
+	     bool boundary_p)
 {
   unsigned int tag;
   unsigned HOST_WIDEST_INT flags = 0;
@@ -119,6 +125,9 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node)
     default:
     gcc_unreachable();
     }
+ 
+  if (boundary_p)
+    tag = LTO_cgraph_unavail_node;
 
   lto_output_uleb128_stream (ob->main_stream, tag);
   LTO_DEBUG_INDENT (tag);
@@ -153,63 +162,95 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node)
   gcc_assert (lto_debug_context.indent == 0);
 #endif
 
-  while (callees)
-    {
-      output_edge (ob, callees);
-      callees = callees->next_callee;
-    }
+  if (!boundary_p)
+    while (callees)
+      {
+	output_edge (ob, callees);
+	callees = callees->next_callee;
+      }
 
 #ifdef LTO_STREAM_DEBUGGING
   gcc_assert (lto_debug_context.indent == 0);
 #endif
 }
 
+#ifdef ENABLE_CHECKING
+/* Just a little sanity check to keep the cgraph machinery.  At the
+   point where we stream out the functions there must only be
+   master_clone nodes or nodes that have no function bodies.  */
+
+static void
+output_cgraph_verify_node (struct cgraph_node *node)
+{
+  switch (cgraph_function_body_availability (node))
+    {
+    case AVAIL_UNSET:
+      fprintf (stderr, "found unset function\n.");
+      gcc_assert (0);
+      break;
+
+    case AVAIL_NOT_AVAILABLE:
+      break;
+
+    case AVAIL_OVERWRITABLE:
+    case AVAIL_AVAILABLE:
+    case AVAIL_LOCAL:
+      if  (node != cgraph_master_clone (node, false))
+	{
+	  fprintf (stderr, "found clone\n.");
+	  gcc_assert (0);
+	}
+      break;
+    }
+}
+#endif
 
 /* Output the cgraph.  */
 
 static void
-output_cgraph (void)
+output_cgraph (cgraph_node_set set)
 {
   struct cgraph_node *node;
   struct lto_simple_output_block *ob 
     = lto_create_simple_output_block (LTO_section_cgraph);
   int i = 0;
+  cgraph_node_set_iterator csi;
+  cgraph_node_set boundary;
+  struct cgraph_edge *callee;
 
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.tag_names = LTO_cgraph_tag_names;
   lto_debug_context.stream_name = "cgraph";
 #endif
 
-  for (node = cgraph_nodes; node; node = node->next)
+  /* Compute the boundary nodes. There are nodes not in SET but
+     directly reachable from there. */
+  boundary = cgraph_node_set_new ();
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
+      node = csi_node (csi);
+      for (callee = node->callees; callee; callee = callee->next_callee)
+	if (!cgraph_node_in_set_p (callee->callee, set))
+	    cgraph_node_set_add (boundary, callee->callee);
+    }
+
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+    {
+      node = csi_node (csi);
 #ifdef ENABLE_CHECKING
-      /* Just a little sanity check to keep Honza honest.  At the
-	 point where we stream out the functions there must only be
-	 master_clone nodes or nodes that have no function bodies.  */
-
-      switch (cgraph_function_body_availability (node))
-	{
-	case AVAIL_UNSET:
-	  fprintf (stderr, "found unset function\n.");
-	  gcc_assert (0);
-	  break;
-
-	case AVAIL_NOT_AVAILABLE:
-	  break;
-
-	case AVAIL_OVERWRITABLE:
-	case AVAIL_AVAILABLE:
-	case AVAIL_LOCAL:
-	  if  (node != cgraph_master_clone (node, false))
-	    {
-	      fprintf (stderr, "found clone\n.");
-	      gcc_assert (0);
-	    }
-	  break;
-	}
+      output_cgraph_verify_node (node);
 #endif
-      output_node (ob, node);
+      output_node (ob, node, false /* boundary_p */);
       i++;
+    }
+
+  for (csi = csi_start (boundary); !csi_end_p (csi); csi_next (&csi))
+    {
+      node = csi_node (csi);
+#ifdef ENABLE_CHECKING
+      output_cgraph_verify_node (node);
+#endif
+      output_node (ob, node, true /* boundary_p */);
     }
 
   lto_output_uleb128_stream (ob->main_stream, 0);

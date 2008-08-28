@@ -1,3 +1,22 @@
+2008-08-27  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (vec.h, bitmap.h, pointer-set.h, ipa-prop.h, ggc.h,
+	gt-lto-lto.h): New includes.
+	(lto_materialize_function): Do not read in function body in WPA mode.
+	Format a line to fit in 80 columns.
+	(lto_cgraph_node_sets): New garbage collected variable.
+	(lto_1_to_1_map, lto_add_all_inlinees, lto_wpa_write_files):
+	New functions.
+ 	(lto_main): Initialize bitmap obstack.  Add code to handle WPA mode.
+	* Make-lang.in (LTO_H): Replace filename lto-section-in.h with 
+	variable LTO_SECTION_IN_H.
+	(lto/lto.o): Include gt-lto-lto-c.h ggc.h ,VEC_H, BITMAP_H,
+	pointer-set.h and IPA_PROP_H. Also replace filename lto-section-in.h
+	with variable LTO_SECTION_IN_H.
+	* config-lang.in (gtfiles): Add lto/lto.c.
+	* lto-symtab.c (lto_symtab_merge_decl): Set DECL_CONTEXT of
+	merged DECL_RESULT correctly.
+
 2008-08-26  Bill Maddox  <maddox@google.com>
 
 	* lto-lang.c  Include tree-gimple.h.

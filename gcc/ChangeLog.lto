@@ -1,3 +1,55 @@
+2008-08-27  Doug Kwan  <dougkwan@google.com>
+
+	* cgraph.c (hash_cgraph_node_set_element, eq_cgraph_node_set_element,
+	cgraph_node_set_new, cgraph_node_set_add, cgraph_node_set_remove,
+	cgraph_node_set_find, dump_cgraph_node_set, debug_cgraph_node_set):
+	New functions.
+	* cgraph.h (cgraph_node_ptr): New type for vector functions.
+	(struct cgraph_node_set_def): New type.
+	(cgraph_node_set) New type. Also declare vector functions.
+	(struct cgraph_node_set_element_def): New type.
+	(cgraph_node_set_element): Ditto.
+	(cgraph_node_set_iterator): New iterator type.
+	(cgraph_node_set_new, cgraph_node_set_find, cgraph_node_set_add,
+	cgraph_node_set_remove, dump_cgraph_node_set,
+	debug_cgraph_node_set): New prototypes.
+	(csi_end_p, csi_next, csi_node, csi_start, cgraph_node_in_set_p,
+	cgraph_node_set_size): New inlines.
+	* tree-pass.h (struct cgraph_node_set_def): New decl to avoid
+	including cgraph.h.
+	(struct ipa_opt_pass): Add a struct cgraph_node_set_def pointer
+	type parameter to WRITE_SUMMARY.
+	(ipa_write_summaries_of_cgraph_node_set): New prototype.
+	* lto-function-out.c (lto-section-in.h): New include.
+	(copy_function): New function.
+	(lto_output): Add new parameter for set of nodes written.
+	* ipa-reference.c (write_node_summary_p): New function from
+	refactoring.
+	(write_summary): Add new parameter for set of nodes written. Also
+	replace repeated code with calls to write_node_summary_p.
+	* lto-cgraph.c (output_edge): Do not look at CALL_STMT of EDGE in
+	WPA mode.
+	(output_node): Add new parameter BOUNDARY_P. Fake availability and
+	omit out-going edges for when BOUNDARY_P is set.
+	(output_cgraph_verify_node): New function factored from...
+	(output_cgraph): Use it.  Also add a new parameter SET.  Compute
+	the boundary of SET and output boundary nodes specially.
+	* ipa-pure-const.c (write_summary): Add parameter for set of nodes
+	written.
+	* ipa-inline.c (cgraph_default_inline_p): Do not check for CFG of
+	functions in WPA mode.
+	* common.opt (flag_wpa): New flag.
+	* Makefile.in (lto-function-out.o): Add variable LTO_SECTION_IN_H
+	to dependencies.
+	* passes.c (ipa_write_summaries_1): Add new parameter SET and pass
+	it to IPA passes.
+ 	(ipa_write_summaries): Create a new set for the whole call-graph
+	and pass it to ipa_write_summaries_1.
+	(ipa_write_summaries_of_cgraph_node_set): New function.
+	* lto-section-out.c (lto_get_out_decl_state): Add comments.
+	(produce_asm_for_decls): Add new parameter SET.
+	* doc/invoke.texi (fwpa): Document new option.
+
 2008-08-26  Bill Maddox <maddox@google.com>
 
 	* tree-gimple.h (mark_addressable): Declare extern.

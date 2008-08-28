@@ -692,6 +692,9 @@ lto_delete_out_decl_state (struct lto_out_decl_state *state)
   built that allows the decls and types to be reconnected to the code
   or the ipa summary information.
 *****************************************************************************/
+
+/* Get the currently used lto_out_decl_state structure. */
+
 struct lto_out_decl_state *
 lto_get_out_decl_state (void)
 {
@@ -1177,7 +1180,7 @@ produce_symtab (htab_t hash)
    recover these on other side.  */
 
 static void
-produce_asm_for_decls (void)
+produce_asm_for_decls (cgraph_node_set set)
 {
   struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
   struct lto_out_decl_state *fn_out_state;
@@ -1273,6 +1276,9 @@ produce_asm_for_decls (void)
 #endif
 
   lto_end_section ();
+
+  VEC_free (lto_out_decl_state_ptr, heap, function_decl_states);
+  function_decl_states = NULL;
 
   /* Write the symbol table. */
   produce_symtab (ob->main_hash_table);

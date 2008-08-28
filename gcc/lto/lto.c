@@ -39,6 +39,12 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-out.h"
 #include "lto-tree-in.h"
 #include "lto-tags.h"
+#include "vec.h"
+#include "bitmap.h"
+#include "pointer-set.h"
+#include "ipa-prop.h"
+
+static bitmap_obstack lto_bitmap_obstack;
 
 /* Read the constructors and inits.  */
 
@@ -78,9 +84,11 @@ lto_materialize_function (struct cgraph_node *node)
       DECL_EXTERNAL (decl) = 0;
 
       allocate_struct_function (decl, false);
-      lto_input_function_body (file_data, decl, data);
+      if (!flag_wpa)
+         lto_input_function_body (file_data, decl, data);
       fn = DECL_STRUCT_FUNCTION (decl);
-      lto_free_section_data (file_data, LTO_section_function_body, name, data, len);
+      lto_free_section_data (file_data, LTO_section_function_body, name,
+			     data, len);
 
       /* Look for initializers of constant variables and private
 	 statics.  */
@@ -426,8 +434,131 @@ free_section_data (struct lto_file_decl_data *file_data,
   munmap ((void *)computed_offset, computed_len);
 }
 
+/* Vector of all cgraph node sets. */
+static GTY (()) VEC(cgraph_node_set ,gc) *lto_cgraph_node_sets;
+
+/* Group cgrah nodes by input files.  This is used mainly for testing
+   right now. */
+
+static void
+lto_1_to_1_map (void)
+{
+  struct cgraph_node *node;
+  struct lto_file_decl_data *file_data;
+  struct pointer_map_t *pmap;
+  cgraph_node_set set;
+  void **slot;
+
+  lto_cgraph_node_sets = VEC_alloc (cgraph_node_set, gc, 1);
+  pmap = pointer_map_create ();
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      /* We assume file_data are unique. */
+      file_data = node->local.lto_file_data;
+      gcc_assert(file_data);
+
+      slot = pointer_map_contains (pmap, file_data);
+      if (slot)
+	  set = (cgraph_node_set) *slot;
+      else
+	{
+	  set = cgraph_node_set_new ();
+	  slot = pointer_map_insert (pmap, file_data);
+	  *slot = set;
+	  VEC_safe_push (cgraph_node_set, gc, lto_cgraph_node_sets, set);
+	}
+      cgraph_node_set_add (set, node);
+    }
+
+  pointer_map_destroy (pmap);
+}
+
+/* Compute the transitive closure of inlining of SET based on the
+   information in the call-graph.  Insert the inlinees into SET.  */
+
+static void
+lto_add_all_inlinees (cgraph_node_set set)
+{
+  cgraph_node_set_iterator csi;
+  struct cgraph_node *node, *callee;
+  size_t i, orig_size = cgraph_node_set_size (set);
+  VEC(cgraph_node_ptr,heap) *queue =
+    VEC_alloc(cgraph_node_ptr,heap, orig_size);
+  struct cgraph_edge *edge;
+  bitmap queued_p = BITMAP_ALLOC (&lto_bitmap_obstack);
+
+  /* Perform a breadth-first-search to find the transitive closure
+     of inlinees. */
+
+  /* Nodes in SET are root of BFS.  */
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+    {
+      node = csi_node (csi);
+      bitmap_set_bit (queued_p, node->uid);
+      VEC_quick_push (cgraph_node_ptr, queue, node);
+    }
+
+  i = 0;
+  while (i < VEC_length (cgraph_node_ptr, queue))
+    {
+      node = VEC_index (cgraph_node_ptr, queue, i);
+      for (edge = node->callees; edge != NULL; edge = edge->next_callee)
+	if (edge->inline_failed == NULL)
+	  {
+	    callee = edge->callee;
+	    if (!bitmap_bit_p (queued_p, callee->uid))
+	      {
+		bitmap_set_bit (queued_p, callee->uid);
+		VEC_safe_push (cgraph_node_ptr, heap, queue, callee);
+	      }
+	  }
+      i++;
+    }
+
+  /* Add found inlinees to set.  We can skip entries [0..orig_size)
+     in queue as these are already in set. */
+  for (i = orig_size; i < VEC_length (cgraph_node_ptr, queue); i++)
+    {
+      node = VEC_index (cgraph_node_ptr, queue, i);
+      cgraph_node_set_add (set, node);
+    }
+
+  BITMAP_FREE (queued_p);
+}
 
 static lto_file *current_lto_file;
+
+/* Write all output files in WPA modes. */
+
+static void
+lto_wpa_write_files (void)
+{
+  unsigned i;
+  char temp_filename[100];
+  lto_file *file;
+  cgraph_node_set set;
+
+  for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
+    {
+      sprintf (temp_filename, "bogus%d.lto.o", i);
+      fprintf (stderr, "output to %s\n", temp_filename);
+
+      file = lto_elf_file_open (temp_filename, /*writable=*/true);
+      if (!file)
+        fatal_error ("lto_elf_file_open() failed");
+
+      lto_set_current_out_file (file);
+
+      /* Include all inlined function. */
+      lto_add_all_inlinees (set);
+
+      ipa_write_summaries_of_cgraph_node_set (set);
+      
+      lto_set_current_out_file (NULL);
+      lto_elf_file_close (file);
+    } 
+}
 
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
@@ -443,6 +574,8 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data,
 		    free_section_data);
+
+  bitmap_obstack_initialize (&lto_bitmap_obstack);
 
   /* Read all of the object files specified on the command line.  */
   for (i = 0; i < num_in_fnames; ++i)
@@ -477,8 +610,11 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 
   ipa_read_summaries ();
 
+  if (flag_wpa)
+    lto_1_to_1_map ();
+
   /* Now that we have input the cgraph, we need to clear all of the aux
-     nodes and read the functions.  
+     nodes and read the functions if we are not running in WPA mode.  
 
      FIXME!!!!! This loop obviously leaves a lot to be desired:
      1) it loads all of the functions at once.  
@@ -502,6 +638,8 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 	 the proper determination.   Honza will fix this.  */
       lto_materialize_function (node);
     }
+  current_function_decl = NULL;
+  set_cfun (NULL);
 
   /* Inform the middle end about the global variables we have seen.  */
   for (i = 0; VEC_iterate (tree, lto_global_var_decls, i, decl); i++)
@@ -525,7 +663,30 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   /* Let the middle end know that we have read and merged all of the
      input files.  */ 
   /*cgraph_finalize_compilation_unit ();*/
-  cgraph_optimize ();
+  if (!flag_wpa)
+    cgraph_optimize ();
+  else
+    {
+      /* FIXME-lto: Hack. We should use the IPA passes.  There are a number
+         of issues with this now. 1. There is no convenient way to do this.
+         2. Some passes may depend on properties that requires the function
+	 bodies to compute.  */
+      cgraph_function_flags_ready = true;
+      bitmap_obstack_initialize (NULL);
+      ipa_register_cgraph_hooks ();
+      for (node = cgraph_nodes; node; node = node->next)
+	{
+	  struct cgraph_edge *e;
+	
+	  for (e = node->callees; e != NULL; e = e->next_callee)
+	    e->inline_failed = NULL;
+	}
+
+      /* FIXME: We should not call this function directly. */
+      pass_ipa_inline.pass.execute ();
+
+      bitmap_obstack_release (NULL);
+    }
 
   /* This is the continuation of the previous bogus wrapper code.  It will be
      replaced once some basic WPA partitioning logic is implemented.  */
@@ -536,4 +697,13 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       file = lto_set_current_out_file (NULL);
       lto_elf_file_close (file);
     }
+
+  if (flag_wpa)
+    {
+      lto_wpa_write_files ();
+    }
+
+  bitmap_obstack_release (&lto_bitmap_obstack);
 }
+
+#include "gt-lto-lto.h"

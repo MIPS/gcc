@@ -365,7 +365,7 @@ Objective-C and Objective-C++ Dialects}.
 -funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
 -fvariable-expansion-in-unroller -fvect-cost-model -fvpt -fweb @gol
--fwhole-program @gol
+-fwhole-program -fwpa @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -6365,6 +6365,17 @@ programs since the functions and variables become local for the whole combined
 compilation unit, not for the single source file itself.
 
 This option is not supported for Fortran programs.
+
+@item -fwpa
+@opindex fwap
+This option runs the link-time optimizer in the whole-program-analysis (WAP)
+mode, which reads in summary information from all inputs and performs
+a whole-program analysis based on summary information only.  It generate
+objects files for subsequent runs of the link-time optimizer where
+individual object files are optimized using both summary information from
+the WPA mode and the actual function bodies.
+
+Disable by default.
 
 @item -fcprop-registers
 @opindex fcprop-registers

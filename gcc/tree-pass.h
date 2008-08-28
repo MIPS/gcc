@@ -151,6 +151,7 @@ struct rtl_opt_pass
 
 struct varpool_node;
 struct cgraph_node;
+struct cgraph_node_set_def;
 
 /* Description of IPA pass with generate summary, write, execute, read and
    transform stages.  */
@@ -163,7 +164,7 @@ struct ipa_opt_pass
   void (*generate_summary) (void);
 
   /* This hook is used to serialize IPA summaries on disk.  */
-  void (*write_summary) (void);
+  void (*write_summary) (struct cgraph_node_set_def *);
 
   /* For most ipa passes, the information can only be deserialized in
      one chunk.  However, function bodies are read function at a time
@@ -525,6 +526,8 @@ extern void execute_ipa_pass_list (struct opt_pass *);
 extern void print_current_pass (FILE *);
 extern void debug_pass (void);
 extern void ipa_write_summaries (void);
+extern void ipa_write_summaries_of_cgraph_node_set (
+	      struct cgraph_node_set_def *);
 extern void ipa_read_summaries (void);
 
 /* Set to true if the pass is called the first time during compilation of the

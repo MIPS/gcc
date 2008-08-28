@@ -47,6 +47,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-vectorizer.h"
 #include "timevar.h"
 #include "lto-tags.h"
+#include "lto-section-in.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
 
@@ -2354,15 +2355,69 @@ output_constructors_and_inits (void)
   destroy_output_block (ob);
 }
 
+/* Copy the function body of NODE without deserializing. */
+
+static void
+copy_function (struct cgraph_node *node)
+{
+  tree function = node->decl;
+  struct lto_file_decl_data *file_data = node->local.lto_file_data;
+  struct lto_output_stream *output_stream = XCNEW (struct lto_output_stream);
+  const char *data;
+  size_t len;
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (function));
+  char *section_name =
+    lto_get_section_name (LTO_section_function_body, name);
+  size_t i, j;
+  struct lto_in_decl_state *in_state;
+  struct lto_out_decl_state *out_state = lto_get_out_decl_state();
+
+  lto_begin_section (section_name);
+  free (section_name);
+
+  /* We may have renamed the declaration, e.g., a static function.  */
+  name = lto_original_decl_name (file_data, name);
+
+  data = lto_get_section_data (file_data, LTO_section_function_body,
+                               name, &len);
+  gcc_assert (data);
+
+  /* Do a bit copy of the function body.  */
+  lto_output_data_stream (output_stream, data, len);
+  lto_write_stream (output_stream);
+
+  /* Copy decls. */
+  in_state =
+    lto_get_function_in_decl_state (node->local.lto_file_data, function);
+  gcc_assert (in_state);
+
+  for (i = 0; i < LTO_N_DECL_STREAMS; i++)
+    {
+      size_t n = in_state->streams[i].size;
+      tree *trees = in_state->streams[i].trees;
+      struct lto_tree_ref_encoder *encoder = &(out_state->streams[i]);
+      unsigned int dummy = 0;
+
+      for (j = 0; j < n; j++)
+	lto_output_decl_index (NULL, encoder, trees[j], &dummy);
+    }
+  
+  lto_free_section_data (file_data, LTO_section_function_body, name,
+			 data, len);
+  free (output_stream);
+  lto_end_section ();
+}
 
 /* Main entry point from the pass manager.  */
 
 static void
-lto_output (void)
+lto_output (cgraph_node_set set)
 {
   struct cgraph_node *node;
   struct lto_out_decl_state *decl_state;
+  cgraph_node_set_iterator csi;
 
+  bitmap_obstack_initialize (NULL);
   lto_static_init_local ();
 
   /* Remove some front-end specific garbage from the tree.
@@ -2372,18 +2427,25 @@ lto_output (void)
 
   /* Process only the functions with bodies and only process the master
      ones of them.  */
-  for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && cgraph_is_master_clone (node, false))
-      {
-	decl_state = lto_new_out_decl_state ();
-	lto_push_out_decl_state (decl_state);
-        output_function (node);
-	gcc_assert (lto_get_out_decl_state () == decl_state);
-	lto_pop_out_decl_state ();
-	lto_record_function_out_decl_state (node->decl, decl_state);
-      }
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+    {
+      node = csi_node (csi);
+      if (node->analyzed && cgraph_is_master_clone (node, false))
+	{
+	  decl_state = lto_new_out_decl_state ();
+	  lto_push_out_decl_state (decl_state);
+	  if (!flag_wpa)
+	    output_function (node);
+	  else
+	    copy_function (node);
+	  gcc_assert (lto_get_out_decl_state () == decl_state);
+	  lto_pop_out_decl_state ();
+	  lto_record_function_out_decl_state (node->decl, decl_state);
+	}
+    }
 
   output_constructors_and_inits ();
+  bitmap_obstack_release (NULL);
 }
 
 struct ipa_opt_pass pass_ipa_lto_gimple_out =

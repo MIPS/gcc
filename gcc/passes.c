@@ -1351,9 +1351,11 @@ execute_pass_list (struct opt_pass *pass)
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
-   are local passes.  */
+   are local passes. If SET is not NULL, write out summaries of only
+   those node in SET. */
+
 static void
-ipa_write_summaries_1 (struct opt_pass *pass)
+ipa_write_summaries_1 (struct opt_pass *pass, cgraph_node_set set)
 {
   struct lto_out_decl_state *state = lto_new_out_decl_state ();
 
@@ -1364,10 +1366,12 @@ ipa_write_summaries_1 (struct opt_pass *pass)
       gcc_assert (!current_function_decl);
       gcc_assert (!cfun);
       gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
-      if (pass->type == IPA_PASS && ipa_pass->write_summary && (!pass->gate || pass->gate ()))
-	ipa_pass->write_summary ();
+      if (pass->type == IPA_PASS
+	  && ipa_pass->write_summary
+	  && (!pass->gate || pass->gate ()))
+	ipa_pass->write_summary (set);
       if (pass->sub && pass->sub->type != GIMPLE_PASS)
-	ipa_write_summaries_1 (pass->sub);
+	ipa_write_summaries_1 (pass->sub, set);
       pass = pass->next;
     }
   while (pass);
@@ -1377,11 +1381,30 @@ ipa_write_summaries_1 (struct opt_pass *pass)
   lto_delete_out_decl_state (state);
 }
 
+/* Write out summaries of all cgraph nodes in SET.  If SET is NULL, write out
+   all summaries of all nodes. */
+
 void
 ipa_write_summaries (void)
 {
+  cgraph_node_set set;
+  struct cgraph_node *node;
+ 
   if (flag_generate_lto && !(errorcount || sorrycount))
-    ipa_write_summaries_1 (all_ipa_passes);
+    {
+      set = cgraph_node_set_new ();
+      for (node = cgraph_nodes; node; node = node->next)
+	cgraph_node_set_add (set, node);
+      ipa_write_summaries_1 (all_ipa_passes, set);
+      ggc_free (set);
+    }
+}
+
+void
+ipa_write_summaries_of_cgraph_node_set (cgraph_node_set set)
+{
+  if (flag_generate_lto && !(errorcount || sorrycount))
+    ipa_write_summaries_1 (all_ipa_passes, set);
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
