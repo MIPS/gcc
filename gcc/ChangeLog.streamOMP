@@ -1,14 +1,38 @@
+2008-08-28  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* c-pragma.h (PRAGMA_OMP_CLAUSE_INPUT, PRAGMA_OMP_CLAUSE_OUTPUT):
+	New.	
+	* c-parser.c (c_parser_omp_clause_name, c_parser_omp_all_clauses):
+	Handle PRAGMA_OMP_CLAUSE_INPUT and PRAGMA_OMP_CLAUSE_OUTPUT.
+	(OMP_TASK_CLAUSE_MASK): Added PRAGMA_OMP_CLAUSE_INPUT and
+	PRAGMA_OMP_CLAUSE_OUTPUT.
+	(c_parser_omp_clause_input, c_parser_omp_clause_output): New.
+	
+	* tree.h (OMP_CLAUSE_INPUT, OMP_CLAUSE_OUTPUT): New clause codes.
+	(OMP_CLAUSE_DECL): Updated the range of codes for clauses that
+	take variable lists for argument.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name): Added entries
+	for OMP_CLAUSE_INPUT and OMP_CLAUSE_OUTPUT.
+	(walk_tree_1): Handle OMP_CLAUSE_INPUT and OMP_CLAUSE_OUTPUT.
+
+	* c-typeck.c (c_finish_omp_clauses): Stubs for supporting input
+	and output clauses.	
+	* gimplify.c (gimplify_scan_omp_clauses): Stubs for supporting
+	input and output clauses.
+	* omp-low.c (scan_sharing_clauses): Stubs for supporting input and
+	output clauses.
+
 2008-04-22  Antoniu Pop  <antoniu.pop@gmail.com>
-         Sebastian Pop  <sebastian.pop@amd.com>
+        Sebastian Pop <sebastian.pop@amd.com>
 
-     * builtin-types.def (BT_FN_BOOL_PTR, BT_FN_VOID_PTR_PTR_SIZE,
-     BT_FN_PTR_SIZE_SIZE_SIZE): New types.
-     * fortran/types.def (BT_FN_BOOL_PTR, BT_FN_VOID_PTR_SIZE,
-     BT_FN_VOID_PTR_PTR_SIZE, BT_FN_PTR_SIZE_SIZE_SIZE): New types.
+	* builtin-types.def (BT_FN_BOOL_PTR, BT_FN_VOID_PTR_PTR_SIZE,
+	BT_FN_PTR_SIZE_SIZE_SIZE): New types.     
+	* fortran/types.def (BT_FN_BOOL_PTR, BT_FN_VOID_PTR_SIZE,
+	BT_FN_VOID_PTR_PTR_SIZE, BT_FN_PTR_SIZE_SIZE_SIZE): New types.
 
-     * omp-builtins.def (BUILT_IN_GOMP_STREAM_CREATE,
-     BUILT_IN_GOMP_STREAM_PUSH, BUILT_IN_GOMP_STREAM_HEAD,
-     BUILT_IN_GOMP_STREAM_POP, BUILT_IN_GOMP_STREAM_EOS_P,
-     BUILT_IN_GOMP_STREAM_SET_EOS, BUILT_IN_GOMP_STREAM_DESTROY,
-     BUILT_IN_GOMP_STREAM_ALIGN_PUSH, BUILT_IN_GOMP_STREAM_ALIGN_POP):
-     New builtins.
+	* omp-builtins.def (BUILT_IN_GOMP_STREAM_CREATE,
+	BUILT_IN_GOMP_STREAM_PUSH, BUILT_IN_GOMP_STREAM_HEAD,
+	BUILT_IN_GOMP_STREAM_POP, BUILT_IN_GOMP_STREAM_EOS_P,
+	BUILT_IN_GOMP_STREAM_SET_EOS, BUILT_IN_GOMP_STREAM_DESTROY,
+	BUILT_IN_GOMP_STREAM_ALIGN_PUSH, BUILT_IN_GOMP_STREAM_ALIGN_POP):
+	New builtins.

@@ -1420,6 +1420,12 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  install_var_local (decl, ctx);
 	  break;
 
+	case OMP_CLAUSE_INPUT:
+	case OMP_CLAUSE_OUTPUT:
+	  /* StreamOMP-FIXME: add code for outer ctx (generate stream
+	     if no output of task matches input clause).  */
+	  break;
+	  
 	case OMP_CLAUSE_COPYPRIVATE:
 	  if (ctx->outer)
 	    scan_omp_op (&OMP_CLAUSE_DECL (c), ctx->outer);
@@ -1486,6 +1492,12 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    fixup_remapped_decl (decl, ctx, false);
 	  break;
 
+	case OMP_CLAUSE_INPUT:
+	case OMP_CLAUSE_OUTPUT:
+	  /* StreamOMP-FIXME: add code for outer ctx (generate stream
+	     if no output of task matches input clause).  */
+	  break;
+	  
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_DEFAULT:

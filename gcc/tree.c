@@ -228,6 +228,8 @@ unsigned const char omp_clause_num_ops[] =
   4, /* OMP_CLAUSE_REDUCTION  */
   1, /* OMP_CLAUSE_COPYIN  */
   1, /* OMP_CLAUSE_COPYPRIVATE  */
+  1, /* OMP_CLAUSE_INPUT  */
+  1, /* OMP_CLAUSE_OUTPUT  */
   1, /* OMP_CLAUSE_IF  */
   1, /* OMP_CLAUSE_NUM_THREADS  */
   1, /* OMP_CLAUSE_SCHEDULE  */
@@ -248,6 +250,8 @@ const char * const omp_clause_code_name[] =
   "reduction",
   "copyin",
   "copyprivate",
+  "input",
+  "output",
   "if",
   "num_threads",
   "schedule",
@@ -8518,6 +8522,8 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COPYPRIVATE:
+	case OMP_CLAUSE_INPUT:
+	case OMP_CLAUSE_OUTPUT:
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:

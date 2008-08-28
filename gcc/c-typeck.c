@@ -8657,6 +8657,15 @@ c_finish_omp_clauses (tree clauses)
 	  name = "copyprivate";
 	  goto check_dup_generic;
 
+	case OMP_CLAUSE_INPUT:
+	  name = "input";
+	  goto check_dup_generic;
+
+	case OMP_CLAUSE_OUTPUT:
+	  name = "output";
+	  goto check_dup_generic;
+
+
 	case OMP_CLAUSE_COPYIN:
 	  name = "copyin";
 	  t = OMP_CLAUSE_DECL (c);
@@ -8692,7 +8701,7 @@ c_finish_omp_clauses (tree clauses)
 	  need_implicitly_determined = true;
 	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 	    {
-	      error ("%qE is not a variable in clause %<firstprivate%>", t);
+	      error ("%qE is not a variable in clause %qs", t, name);
 	      remove = true;
 	    }
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
