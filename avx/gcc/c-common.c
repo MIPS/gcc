@@ -1568,7 +1568,7 @@ conversion_warning (tree type, tree expr)
   for (i = 0; i < expr_num_operands; i++)
     {
       tree op = TREE_OPERAND (expr, i);
-      if (DECL_P (op) && DECL_ARTIFICIAL (op))
+      if (op && DECL_P (op) && DECL_ARTIFICIAL (op))
 	return;
     }
 
@@ -4928,6 +4928,8 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
   for (chain = TYPE_VALUES (type); chain; chain = TREE_CHAIN (chain))
     {
       tree value = TREE_VALUE (chain);
+      if (TREE_CODE (value) == CONST_DECL)
+        value = DECL_INITIAL (value);
       node = splay_tree_lookup (cases, (splay_tree_key) value);
       if (node)
 	{
@@ -7683,6 +7685,7 @@ fold_offsetof_1 (tree expr, tree stop_ref)
       return error_mark_node;
 
     case CALL_EXPR:
+    case TARGET_EXPR:
       error ("cannot apply %<offsetof%> when %<operator[]%> is overloaded");
       return error_mark_node;
 

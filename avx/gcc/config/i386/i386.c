@@ -5391,21 +5391,9 @@ function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 {
   int int_nregs, sse_nregs;
 
-  switch (mode)
-    {
-    case V8SFmode:
-    case V8SImode:
-    case V32QImode:
-    case V16HImode:
-    case V4DFmode:
-    case V4DImode:
-      /* Unnamed 256bit vector mode parameters are passed on stack.  */
-      if (!named)
-	return;
-
-    default:
-      break;
-    }
+  /* Unnamed 256bit vector mode parameters are passed on stack.  */
+  if (!named && VALID_AVX256_REG_MODE (mode))
+    return;
 
   if (!examine_argument (mode, type, 0, &int_nregs, &sse_nregs))
     cum->words += words;
@@ -6937,22 +6925,12 @@ standard_80387_constant_rtx (int idx)
 				       XFmode);
 }
 
-/* Return 1 if mode is a valid mode for sse and return 2 if mode is a
-   valid mode for AVX.  */
-
+/* Return 1 if mode is a valid mode for sse.  */
 static int
 standard_sse_mode_p (enum machine_mode mode)
 {
   switch (mode)
     {
-    case V32QImode:
-    case V16HImode:
-    case V8SImode:
-    case V8SFmode:
-    case V4DImode:
-    case V4DFmode:
-      return 2;
-
     case V16QImode:
     case V8HImode:
     case V4SImode:
@@ -6978,15 +6956,12 @@ standard_sse_constant_p (rtx x)
   if (x == const0_rtx || x == CONST0_RTX (GET_MODE (x)))
     return 1;
   if (vector_all_ones_operand (x, mode))
-    switch (standard_sse_mode_p (mode))
-      {
-      case 1:
+    {
+      if (standard_sse_mode_p (mode))
 	return TARGET_SSE2 ? 2 : -2;
-      case 2:
+      else if (VALID_AVX256_REG_MODE (mode))
 	return TARGET_AVX ? 3 : -3;
-      default:
-	break;
-      }
+    }
 
   return 0;
 }

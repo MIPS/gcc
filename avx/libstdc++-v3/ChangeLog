@@ -1,3 +1,54 @@
+2008-08-28  Chris Fairles  <chris.fairles@gmail.com>
+
+        * acinclude.m4 ([GLIBCXX_CHECK_GTHREADS]): New. Checks for gthread
+	support used by c++0x thread library.
+	* configure.ac: Test unconditionally.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2008-08-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* doc/Makefile.am: Edit xml file list.
+	* doc/Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* doc/xml/manual/intro.xml: Edit, correct links, structure.
+	* doc/xml/manual/configure.xml: Same.
+	* doc/xml/manual/debug.xml: Same.
+	* doc/xml/manual/test.xml: Same.
+	* doc/xml/manual/build.xml: Remove.
+	* doc/xml/manual/prerequisites.xml: Add.
+	* doc/html/*: Regenerate. 
+	
+2008-08-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/tr1_impl/hashtable (_Hashtable<>): Add missing pointer and
+	const_pointer typedefs.
+	* testsuite/tr1/6_containers/unordered_set/requirements/typedef.cc:
+	Add.
+	* testsuite/tr1/6_containers/unordered_map/requirements/typedef.cc:
+	Likewise.
+	* testsuite/tr1/6_containers/unordered_multiset/requirements/
+	typedef.cc: Likewise.
+	* testsuite/tr1/6_containers/unordered_multimap/requirements/
+	typedef.cc: Likewise.
+	* testsuite/23_containers/unordered_set/requirements/typedef.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_map/requirements/typedef.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multiset/requirements/typedef.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multimap/requirements/typedef.cc:
+	Likewise.
+
+2008-08-27  Paul Brook  <paul@codesourcery.com>
+
+	* libsupc++/eh_call.cc (__cxa_call_unexpected): Fix name of
+	__get_object_from_ambiguous_exception.
+
+2008-08-26  Ben Elliston  <bje@au.ibm.com>
+
+	* src/mt_allocator.cc (__pool): Fix error in comment.
+
 2008-08-25  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* linkage.m4 ([GLIBCXX_CHECK_BUILTIN_MATH_DECL_AND_LINKAGE_1],
