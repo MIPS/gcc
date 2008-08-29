@@ -1,3 +1,38 @@
+2008-08-28  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.target/powerpc/altivec-volatile.c: New test.
+
+2008-08-28  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/36741
+	* g++.dg/other/new-size-type.C: New test.
+
+2008-08-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36548
+	PR middle-end/37125
+	* gcc.c-torture/execute/pr37125.c: New testcase.
+
+2008-08-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36817
+	* gcc.c-torture/compile/pr36817.c: New testcase.
+
+2008-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37184
+	* gcc.target/i386/pr37184.c: New test.
+
+	PR target/37191
+	* gcc.target/i386/pr37191.c: New test.
+
+	PR target/37197
+	* gcc.target/i386/pr37197.c: New test.
+
+2008-08-27  Release Manager
+
+	* GCC 4.3.2 released.
+
 2008-08-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* gcc.c-torture/execute/20031003-1.c (main): Update test to

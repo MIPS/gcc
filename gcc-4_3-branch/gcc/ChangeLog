@@ -1,3 +1,66 @@
+2008-08-28  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu_mfcio.h (mfc_begin_critical_section): New function.
+	(mfc_end_critical_section): Likewise.
+
+2008-08-28  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_handle_altivec_attribute): Propagate
+	all type qualifiers from element type to vector type.
+
+2008-08-28  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/36741
+	* tree.c (int_fits_type_p): Don't forget unsigned integers
+	  of type sizetype which higher end word equals -1.
+
+2008-08-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36548
+	PR middle-end/37125
+	* fold-const.c (extract_muldiv_1): Optimize (X * C1) % C2 only
+	if the multiplication does not overflow.
+
+2008-08-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36817
+	* tree-chrec.c (chrec_apply): Always call chrec_fold_plus which
+	makes sure to produce a result of the correct type.
+
+2008-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37184
+	* config/i386/i386.c (ix86_match_ccmode): Handle CCAmode,
+	CCCmode, CCOmode and CCSmode destination modes.
+
+	PR target/37191
+	* config/i386/mmx.md (*vec_extractv2sf_0): Avoid combining registers
+	from different units in a single alternative.
+	(*vec_extractv2sf_1): Ditto.
+	(*vec_extractv2si_0): Ditto.
+	(*vec_extractv2si_1): Ditto.
+	* config/i386/sse.md (sse2_storehpd): Ditto.
+	(sse2_storelpd): Ditto.
+	(sse2_loadhpd): Ditto.
+	(sse2_loadlpd): Ditto.
+
+	PR target/37197
+	* config/i386/i386.md (clzsi2_abm): Fix operand 1 constraints.
+	(popcountsi2): Ditto.
+	(clzdi2_abm): Ditto.
+	(popcountdi2): Ditto.
+	(clzhi2_abm): Ditto.
+	(popcounthi2): Ditto.
+
+2008-08-27  Joseph Myers  <joseph@codesourcery.com>
+
+	* BASE-VER: Set to 4.3.3.
+	* DEV-PHASE: Set to prerelease.
+
+2008-08-27  Release Manager
+
+	* GCC 4.3.2 released.
+
 2008-08-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* real.h (struct real_format): New member round_towards_zero.
