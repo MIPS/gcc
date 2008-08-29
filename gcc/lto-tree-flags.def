@@ -338,6 +338,7 @@
       ADD_EXPR_FLAG (public_flag)
       ADD_EXPR_FLAG (asm_written_flag)
       ADD_EXPR_FLAG (nothrow_flag)
+      ADD_EXPR_FLAG (readonly_flag)
       ADD_DECL_FLAG (nonlocal_flag)
       ADD_DECL_FLAG (virtual_flag)
       ADD_DECL_FLAG (ignored_flag)

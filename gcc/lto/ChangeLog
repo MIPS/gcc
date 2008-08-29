@@ -1,3 +1,24 @@
+2008-08-29  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c (handle_noreturn_attribute): New local function.
+	(handle_const_attribute): New local function.
+	(handle_malloc_attribute): New local function.
+	(handle_pure_attribute): New local function.
+	(handle_novops_attribute): New local function.
+	(handle_nonnull_attribute): New local function.
+	(handle_nothrow_attribute): New local function.
+	(handle_sentinel_attribute): New local function.
+	(handle_type_generic_attribute): New local function.
+	(handle_format_attribute): New local function.
+	(handle_format_arg_attribute): New local function.
+	(lto_attribute_table): Declare.
+	(lto_format_attribute_table): Declare.
+	(lto_init_attributes): New local function.
+	(lto_define_builtins): Call it.
+	Call targetm.init_builtins and build_common_builtin_nodes.
+	(LANG_HOOKS_COMMON_ATTRIBUTE_TABLE): Define.
+	(LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE): Define.
+
 2008-08-28  Diego Novillo  <dnovillo@google.com>
 
 	* Make-lang.in (lto-lang.o): Replace tree-gimple.h with

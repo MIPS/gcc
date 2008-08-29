@@ -35,6 +35,72 @@ Boston, MA 02110-1301, USA.  */
 #include "gimple.h"
 #include "toplev.h"
 
+static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
+static tree handle_const_attribute (tree *, tree, tree, int, bool *);
+static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
+static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
+static tree handle_novops_attribute (tree *, tree, tree, int, bool *);
+static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
+static tree handle_nothrow_attribute (tree *, tree, tree, int, bool *);
+static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
+static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
+static tree handle_format_attribute (tree *, tree, tree, int, bool *);
+static tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
+
+/* Table of machine-independent attributes supported in GIMPLE.
+   
+   FIXME lto, this started as a copy of c_common_attribute_table, as
+   initially LTO only really supports C-like languages.  Only
+   attributes that are used in builtins are included (See
+   builtin-attrs.def).  Every other attribute is already streamed with
+   their corresponding DECLs.  Perhaps one solution is to stream out
+   builtin tables as well, though this seems wasteful.
+
+   When other languages are incorporated this needs to be adapted for
+   the new languages.  */
+const struct attribute_spec lto_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  /* FIXME: logically, noreturn attributes should be listed as
+     "false, true, true" and apply to function types.  But implementing this
+     would require all the places in the compiler that use TREE_THIS_VOLATILE
+     on a decl to identify non-returning functions to be located and fixed
+     to check the function type instead.  */
+  { "noreturn",               0, 0, true,  false, false,
+			      handle_noreturn_attribute },
+  /* The same comments as for noreturn attributes apply to const ones.  */
+  { "const",                  0, 0, true,  false, false,
+			      handle_const_attribute },
+  { "malloc",                 0, 0, true,  false, false,
+			      handle_malloc_attribute },
+  { "pure",                   0, 0, true,  false, false,
+			      handle_pure_attribute },
+  { "no vops",                0, 0, true,  false, false,
+			      handle_novops_attribute },
+  { "nonnull",                0, -1, false, true, true,
+			      handle_nonnull_attribute },
+  { "nothrow",                0, 0, true,  false, false,
+			      handle_nothrow_attribute },
+  { "sentinel",               0, 1, false, true, true,
+			      handle_sentinel_attribute },
+  { "type generic",           0, 0, false, true, true,
+			      handle_type_generic_attribute },
+  { NULL,                     0, 0, false, false, false, NULL }
+};
+
+/* Give the specifications for the format attributes, used by C and all
+   descendants.  */
+
+const struct attribute_spec lto_format_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "format",                 3, 3, false, true,  true,
+			      handle_format_attribute },
+  { "format_arg",             1, 1, false, true,  true,
+			      handle_format_arg_attribute },
+  { NULL,                     0, 0, false, false, false, NULL }
+};
+
 enum built_in_attribute
 {
 #define DEF_ATTR_NULL_TREE(ENUM) ENUM,
@@ -105,12 +171,269 @@ static GTY(()) tree intmax_type_node;
 static GTY(()) tree uintmax_type_node;
 static GTY(()) tree signed_size_type_node;
 
-/* Dummy flags that we need to include builtins.def.  These need to go
-   away somehow FIXME.  */
+/* FIXME lto.  Dummy flags that we need to include builtins.def.
+   These need to go away somehow.  */
 int flag_no_builtin;
 int flag_no_nonansi_builtin;
 int flag_isoc94;
 int flag_isoc99;
+
+/* Attribute handlers.  */
+
+/* Handle a "noreturn" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_noreturn_attribute (tree *node, tree ARG_UNUSED (name),
+			   tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			   bool * ARG_UNUSED (no_add_attrs))
+{
+  tree type = TREE_TYPE (*node);
+
+  /* See FIXME comment in c_common_attribute_table.  */
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    TREE_THIS_VOLATILE (*node) = 1;
+  else if (TREE_CODE (type) == POINTER_TYPE
+	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
+    TREE_TYPE (*node)
+      = build_pointer_type
+	(build_type_variant (TREE_TYPE (type),
+			     TYPE_READONLY (TREE_TYPE (type)), 1));
+  else
+    gcc_unreachable ();
+
+  return NULL_TREE;
+}
+
+
+/* Handle a "const" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_const_attribute (tree *node, tree ARG_UNUSED (name),
+			tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			bool * ARG_UNUSED (no_add_attrs))
+{
+  tree type = TREE_TYPE (*node);
+
+  /* See FIXME comment on noreturn in c_common_attribute_table.  */
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    TREE_READONLY (*node) = 1;
+  else if (TREE_CODE (type) == POINTER_TYPE
+	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
+    TREE_TYPE (*node)
+      = build_pointer_type
+	(build_type_variant (TREE_TYPE (type), 1,
+			     TREE_THIS_VOLATILE (TREE_TYPE (type))));
+  else
+    gcc_unreachable ();
+
+  return NULL_TREE;
+}
+
+
+/* Handle a "malloc" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_malloc_attribute (tree *node, tree ARG_UNUSED (name),
+			 tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			 bool * ARG_UNUSED (no_add_attrs))
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      && POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (*node))))
+    DECL_IS_MALLOC (*node) = 1;
+  else
+    gcc_unreachable ();
+
+  return NULL_TREE;
+}
+
+
+/* Handle a "pure" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_pure_attribute (tree *node, tree ARG_UNUSED (name),
+		       tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+		       bool * ARG_UNUSED (no_add_attrs))
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    DECL_PURE_P (*node) = 1;
+  else
+    gcc_unreachable ();
+
+  return NULL_TREE;
+}
+
+
+/* Handle a "no vops" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_novops_attribute (tree *node, tree ARG_UNUSED (name),
+			 tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			 bool *ARG_UNUSED (no_add_attrs))
+{
+  gcc_assert (TREE_CODE (*node) == FUNCTION_DECL);
+  DECL_IS_NOVOPS (*node) = 1;
+  return NULL_TREE;
+}
+
+
+/* Helper for nonnull attribute handling; fetch the operand number
+   from the attribute argument list.  */
+
+static bool
+get_nonnull_operand (tree arg_num_expr, unsigned HOST_WIDE_INT *valp)
+{
+  /* Verify the arg number is a constant.  */
+  if (TREE_CODE (arg_num_expr) != INTEGER_CST
+      || TREE_INT_CST_HIGH (arg_num_expr) != 0)
+    return false;
+
+  *valp = TREE_INT_CST_LOW (arg_num_expr);
+  return true;
+}
+
+/* Handle the "nonnull" attribute.  */
+
+static tree
+handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
+			  tree args, int ARG_UNUSED (flags),
+			  bool * ARG_UNUSED (no_add_attrs))
+{
+  tree type = *node;
+  unsigned HOST_WIDE_INT attr_arg_num;
+
+  /* If no arguments are specified, all pointer arguments should be
+     non-null.  Verify a full prototype is given so that the arguments
+     will have the correct types when we actually check them later.  */
+  if (!args)
+    {
+      gcc_assert (TYPE_ARG_TYPES (type));
+      return NULL_TREE;
+    }
+
+  /* Argument list specified.  Verify that each argument number references
+     a pointer argument.  */
+  for (attr_arg_num = 1; args; args = TREE_CHAIN (args))
+    {
+      tree argument;
+      unsigned HOST_WIDE_INT arg_num = 0, ck_num;
+
+      if (!get_nonnull_operand (TREE_VALUE (args), &arg_num))
+	gcc_unreachable ();
+
+      argument = TYPE_ARG_TYPES (type);
+      if (argument)
+	{
+	  for (ck_num = 1; ; ck_num++)
+	    {
+	      if (!argument || ck_num == arg_num)
+		break;
+	      argument = TREE_CHAIN (argument);
+	    }
+
+	  gcc_assert (argument
+		      && TREE_CODE (TREE_VALUE (argument)) == POINTER_TYPE);
+	}
+    }
+
+  return NULL_TREE;
+}
+
+
+/* Handle a "nothrow" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_nothrow_attribute (tree *node, tree ARG_UNUSED (name),
+			  tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			  bool * ARG_UNUSED (no_add_attrs))
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    TREE_NOTHROW (*node) = 1;
+  else
+    gcc_unreachable ();
+
+  return NULL_TREE;
+}
+
+
+/* Handle a "sentinel" attribute.  */
+
+static tree
+handle_sentinel_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			   int ARG_UNUSED (flags),
+			   bool * ARG_UNUSED (no_add_attrs))
+{
+  tree params = TYPE_ARG_TYPES (*node);
+  gcc_assert (params);
+
+  while (TREE_CHAIN (params))
+    params = TREE_CHAIN (params);
+
+  gcc_assert (!VOID_TYPE_P (TREE_VALUE (params)));
+
+  if (args)
+    {
+      tree position = TREE_VALUE (args);
+      gcc_assert (TREE_CODE (position) == INTEGER_CST);
+      if (tree_int_cst_lt (position, integer_zero_node))
+	gcc_unreachable ();
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "type_generic" attribute.  */
+
+static tree
+handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
+			       tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			       bool * ARG_UNUSED (no_add_attrs))
+{
+  tree params;
+  
+  /* Ensure we have a function type.  */
+  gcc_assert (TREE_CODE (*node) == FUNCTION_TYPE);
+  
+  params = TYPE_ARG_TYPES (*node);
+  while (params && ! VOID_TYPE_P (TREE_VALUE (params)))
+    params = TREE_CHAIN (params);
+
+  /* Ensure we have a variadic function.  */
+  gcc_assert (!params);
+
+  return NULL_TREE;
+}
+
+/* Handle a "format" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_format_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
+			 tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			 bool *no_add_attrs)
+{
+  *no_add_attrs = true;
+  return NULL_TREE;
+}
+
+
+/* Handle a "format_arg" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+tree
+handle_format_arg_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
+			     tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			     bool *no_add_attrs)
+{
+  *no_add_attrs = true;
+  return NULL_TREE;
+}
+
 
 /* Cribbed from c-common.c.  */
 
@@ -187,6 +510,32 @@ def_builtin_1 (enum built_in_function fncode, const char *name,
     implicit_built_in_decls[(int) fncode] = decl;
 }
 
+
+/* Initialize the attribute table for all the supported builtins.  */
+
+static void
+lto_init_attributes (void)
+{
+  /* Fill in the built_in_attributes array.  */
+#define DEF_ATTR_NULL_TREE(ENUM)				\
+  built_in_attributes[(int) ENUM] = NULL_TREE;
+#define DEF_ATTR_INT(ENUM, VALUE)				\
+  built_in_attributes[(int) ENUM] = build_int_cst (NULL_TREE, VALUE);
+#define DEF_ATTR_IDENT(ENUM, STRING)				\
+  built_in_attributes[(int) ENUM] = get_identifier (STRING);
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)	\
+  built_in_attributes[(int) ENUM]			\
+    = tree_cons (built_in_attributes[(int) PURPOSE],	\
+		 built_in_attributes[(int) VALUE],	\
+		 built_in_attributes[(int) CHAIN]);
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+}
+
+
 static void
 lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
 		     tree va_list_arg_type_node ATTRIBUTE_UNUSED)
@@ -244,6 +593,8 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
 
+  lto_init_attributes ();
+
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P,	\
 		    NONANSI_P, ATTRS, IMPLICIT, COND)				\
     if (NAME && COND)								\
@@ -253,6 +604,9 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
 #include "builtins.def"
 #undef DEF_BUILTIN
 
+  targetm.init_builtins ();
+
+  build_common_builtin_nodes ();
 }
 
 /* This variable keeps a table for types for each precision so that we only 
@@ -607,18 +961,19 @@ static void lto_init_ts (void)
   tree_contains_struct[NAMESPACE_DECL][TS_DECL_MINIMAL] = 1;
 }
 
-/* rs6000.c wants to look at this and we really only do C for the time
-   being.  */
 #undef LANG_HOOKS_NAME
-#define LANG_HOOKS_NAME "GNU C"
+#define LANG_HOOKS_NAME "GNU GIMPLE"
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS lto_init_options
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION lto_handle_option
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS lto_post_options
+#undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE lto_mark_addressable
+#undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE lto_type_for_mode
+#undef LANG_HOOKS_TYPE_FOR_SIZE
 #define LANG_HOOKS_TYPE_FOR_SIZE lto_type_for_size
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lto_set_decl_assembler_name
@@ -644,6 +999,12 @@ static void lto_init_ts (void)
 #define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef LANG_HOOKS_TYPES_COMPATIBLE_P
 #define LANG_HOOKS_TYPES_COMPATIBLE_P lto_types_compatible_p
+
+/* Attribute hooks.  */
+#undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
+#define LANG_HOOKS_COMMON_ATTRIBUTE_TABLE lto_attribute_table
+#undef LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE
+#define LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE lto_format_attribute_table
 
 #undef LANG_HOOKS_BEGIN_SECTION
 #define LANG_HOOKS_BEGIN_SECTION lto_elf_begin_section

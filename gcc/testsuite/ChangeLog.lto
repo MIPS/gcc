@@ -1,3 +1,7 @@
+2008-08-29  Simon Baldwin  <simonb@google.com>
+
+	* g++.dg/other/lto2.C: New test.
+
 2008-08-14  Rafael Avila de Espindola  <espindola@google.com>
 
 	Files missing from the previous commit.

@@ -1,3 +1,8 @@
+2008-08-29  Diego Novillo  <dnovillo@google.com>
+
+	* lto-tree-flags.def: Add readonly_flag for
+	FUNCTION_DECLs.
+
 2008-08-28  Diego Novillo  <dnovillo@google.com>
 
 	* cgraph.c (hash_cgraph_node_set_element,
@@ -403,7 +408,7 @@
 
 2008-08-19  Rafael Avila de Espindola  <espindola@google.com>
 
-       Backport revisions 138310, 138347 and 139100 from trunk.
+	Backport revisions 138310, 138347 and 139100 from trunk.
 
 2008-08-19  Rafael Avila de Espindola  <espindola@google.com>
 
