@@ -1143,7 +1143,7 @@
    (set (match_dup 4) (match_dup 5))]
   "
 {
-  rtx set1, set2;
+  rtx set1, set2, insn2;
   rtx replacements[4];
 
   /* We want to replace occurrences of operands[0] with operands[1] and
@@ -1173,7 +1173,10 @@
   extract_insn (emit_insn (set1));
   if (! constrain_operands (1))
     goto failure;
-  extract_insn (emit (set2));
+  insn2 = emit (set2);
+  if (GET_CODE (insn2) == BARRIER)
+    goto failure;
+  extract_insn (insn2);
   if (! constrain_operands (1))
     {
       rtx tmp;
@@ -8879,9 +8882,6 @@ label:
   MEM_NOTRAP_P (mem) = 1;
   /* ??? Should we have a special alias set for the GOT?  */
   insn = emit_move_insn (operands[0], mem);
-
-  set_unique_reg_note (insn, REG_EQUAL,
-		       XVECEXP (XEXP (operands[1], 0), 0, 0));
 
   DONE;
 }")

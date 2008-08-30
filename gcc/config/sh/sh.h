@@ -463,7 +463,7 @@ do { \
 do {									\
   if (LEVEL)								\
     {									\
-      flag_omit_frame_pointer = -1;					\
+      flag_omit_frame_pointer = 2;					\
       if (! SIZE)							\
 	sh_div_str = "inv:minlat";					\
     }									\
@@ -690,7 +690,7 @@ do {									\
     if (! VALID_REGISTER_P (ADDREGNAMES_REGNO (regno)))			\
       sh_additional_register_names[regno][0] = '\0';			\
 									\
-  if (flag_omit_frame_pointer < 0)					\
+  if (flag_omit_frame_pointer == 2)					\
    {									\
      /* The debugging information is sufficient,			\
         but gdb doesn't implement this yet */				\
@@ -1466,7 +1466,7 @@ enum reg_class
 /* MAC_REGS:  */							\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00300000 },	\
 /* FPUL_REGS:  */							\
-  { 0x00000000, 0x00000000, 0x00000000, 0x00000001, 0x00400000 },	\
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00400000 },	\
 /* SIBCALL_REGS: Initialized in CONDITIONAL_REGISTER_USAGE.  */	\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	\
 /* GENERAL_REGS:  */							\
@@ -1498,6 +1498,20 @@ enum reg_class
 
 extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) regno_reg_class[(REGNO)]
+
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, FP_REGS, PR_REGS, T_REGS, MAC_REGS, TARGET_REGS,  	     \
+  FPUL_REGS, LIM_REG_CLASSES						     \
+}
 
 /* When defined, the compiler allows registers explicitly used in the
    rtl to be used as spill registers but prevents the compiler from
@@ -2501,19 +2515,6 @@ struct sh_args {
 	    goto LABEL;							\
 	}								\
     }									\
-  /* FIXME: This is a temporary hack which should be removed.		\
-     When reload in progress, find_reloads_subreg_address tries to	\
-     make a new reload for some types of address.  Unfortunately it	\
-     generates wrong code on SH.  See PR36780.  The following is to	\
-     avoid this issue.  */						\
-  if (!TARGET_SHMEDIA && reload_in_progress				\
-      && GET_CODE (X) == PLUS						\
-      && (GET_MODE_SIZE (MODE) == 4 || GET_MODE_SIZE (MODE) == 8)	\
-      && GET_CODE (XEXP ((X), 0)) == PLUS				\
-      && GET_CODE (XEXP (XEXP ((X), 0), 1)) == CONST_INT		\
-      && BASE_REGISTER_RTX_P (XEXP (XEXP ((X), 0), 0))			\
-      && GET_CODE (XEXP ((X), 1)) == CONST_INT)				\
-    goto LABEL;								\
 }
 
 /* Try machine-dependent ways of modifying an illegitimate address

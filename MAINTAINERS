@@ -50,7 +50,7 @@ frv port		Alexandre Oliva		aoliva@redhat.com
 h8 port			Jeff Law		law@redhat.com
 h8 port			Kazu Hirata		kazu@codesourcery.com
 hppa port		Jeff Law		law@redhat.com
-hppa port		Dave Anglin		dave.anglin@nrc.ca
+hppa port		John David Anglin	dave.anglin@nrc-cnrc.gc.ca
 i386 port		Richard Henderson	rth@redhat.com
 i386 port		Jan Hubicka		jh@suse.cz
 i386 port		Uros Bizjak		ubizjak@gmail.com
@@ -70,7 +70,7 @@ mn10300 port		Jeff Law		law@redhat.com
 mn10300 port		Alexandre Oliva		aoliva@redhat.com
 pdp11 port		Paul Koning		ni1d@arrl.net
 rs6000 port		Geoff Keating		geoffk@geoffk.org
-rs6000 port		David Edelsohn		dje@watson.ibm.com
+rs6000 port		David Edelsohn		edelsohn@gnu.org
 rs6000 vector extns	Aldy Hernandez		aldyh@redhat.com
 s390 port		Hartmut Penner		hpenner@de.ibm.com
 s390 port		Ulrich Weigand		uweigand@de.ibm.com
@@ -83,9 +83,8 @@ sparc port		Jakub Jelinek		jakub@redhat.com
 sparc port		Eric Botcazou		ebotcazou@libertysurf.fr
 spu port		Trevor Smigiel		trevor_smigiel@playstation.sony.com
 spu port		Andrew Pinski		andrew_pinski@playstation.sony.com
-spu port		David Edelsohn		dje@watson.ibm.com
+spu port		David Edelsohn		edelsohn@gnu.org
 v850 port		Nick Clifton		nickc@redhat.com
-vax port		Dave Anglin		dave.anglin@nrc.ca
 vax port		Matt Thomas		matt@3am-software.com
 x86-64 port		Jan Hubicka		jh@suse.cz
 xstormy16 port		Nick Clifton		nickc@redhat.com
@@ -99,7 +98,7 @@ darwin port		Eric Christopher	echristo@apple.com
 darwin port		Stan Shebs		stanshebs@earthlink.net
 DJGPP			DJ Delorie		dj@delorie.com
 freebsd			Loren J. Rittle		ljrittle@acm.org
-hpux			Dave Anglin		dave.anglin@nrc.ca
+hpux			John David Anglin	dave.anglin@nrc-cnrc.gc.ca
 hpux			Steve Ellcey		sje@cup.hp.com
 irix, osf		Rainer Orth		ro@TechFak.Uni-Bielefeld.DE
 netbsd			Jason Thorpe		thorpej@netbsd.org
@@ -166,6 +165,8 @@ c++ runtime libs	Loren J. Rittle		ljrittle@acm.org
 *synthetic multiply	Torbjorn Granlund	tege@swox.com
 *c-torture		Torbjorn Granlund	tege@swox.com
 fixincludes		Bruce Korb		bkorb@gnu.org
+*gimpl*			Jakub Jelinek		jakub@redhat.com
+*gimpl*			Aldy Hernandez		aldyh@redhat.com
 gcse.c 			Jeff Law		law@redhat.com
 global opt framework	Jeff Law		law@redhat.com
 jump.c			David S. Miller		davem@redhat.com
@@ -236,10 +237,9 @@ dataflow		Seongbae Park		seongbae.park@gmail.com
 dataflow 		Kenneth Zadeck		zadeck@naturalbridge.com
 Fortran			Janne Blomqvist		jb@gcc.gnu.org
 Fortran			Tobias Burnus		burnus@net-b.de
-Fortran			François-Xavier Coudert	fxcoudert@gcc.gnu.org
 Fortran			Jerry DeLisle		jvdelisle@gcc.gnu.org
 Fortran			Erik Edelmann		erik.edelmann@iki.fi
-Fortran			Thomas Koenig		tkoenig@gcc.gnu.org
+Fortran			Thomas König		tkoenig@gcc.gnu.org
 Fortran			Toon Moene		toon@moene.indiv.nluug.nl
 Fortran			Brooks Moses		brooks.moses@codesourcery.com
 Fortran			Tobias Schlüter		tobias.schlueter@physik.uni-muenchen.de
@@ -292,6 +292,7 @@ William Cohen					wcohen@redhat.com
 Josh Conner					jconner@apple.com
 R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
+François-Xavier Coudert				fxcoudert@gcc.gnu.org
 Ian Dall					ian@beware.dropbear.id.au
 David Daney					ddaney@avtrex.com
 Bud Davis					jmdavis@link.com
@@ -310,6 +311,7 @@ Nathan Froyd					froydnj@codesourcery.com
 Chao-ying Fu					fu@mips.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Matthew Gingell					gingell@gnat.com
+Tristan Gingold					gingold@adacore.com
 Anthony Green					green@redhat.com
 Doug Gregor					doug.gregor@gmail.com
 Jon Grimm					jgrimm2@us.ibm.com

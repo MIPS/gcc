@@ -124,14 +124,14 @@ int gfc_character_storage_size;
    if a mismatch occurs between ts->f90_type and ts->type; SUCCESS if
    they match.  */
 
-try
+gfc_try
 gfc_validate_c_kind (gfc_typespec *ts)
 {
    return ((ts->type == ts->f90_type) ? SUCCESS : FAILURE);
 }
 
 
-try
+gfc_try
 gfc_check_any_c_kind (gfc_typespec *ts)
 {
   int i;
@@ -361,7 +361,7 @@ gfc_init_kinds (void)
       if (kind == 16)
 	saw_r16 = true;
 
-      /* Careful we don't stumble a wierd internal mode.  */
+      /* Careful we don't stumble a weird internal mode.  */
       gcc_assert (r_index <= 0 || gfc_real_kinds[r_index-1].kind != kind);
       /* Or have too many modes for the allocated space.  */
       gcc_assert (r_index != MAX_REAL_KINDS);
@@ -393,7 +393,7 @@ gfc_init_kinds (void)
       gfc_default_integer_kind = 8;
 
       /* Even if the user specified that the default integer kind be 8,
-         the numerica storage size isn't 64.  In this case, a warning will
+         the numeric storage size isn't 64.  In this case, a warning will
 	 be issued when NUMERIC_STORAGE_SIZE is used.  */
       gfc_numeric_storage_size = 4 * 8;
     }
@@ -1065,8 +1065,8 @@ gfc_get_element_type (tree type)
    ARRAYS comment.
 
    The data component points to the first element in the array.  The
-   offset field is the position of the origin of the array (ie element
-   (0, 0 ...)).  This may be outsite the bounds of the array.
+   offset field is the position of the origin of the array (i.e. element
+   (0, 0 ...)).  This may be outside the bounds of the array.
 
    An element is accessed by
     data[offset + index0*stride0 + index1*stride1 + index2*stride2]
@@ -1078,7 +1078,7 @@ gfc_get_element_type (tree type)
    elements of the origin (2^63 on 64-bit machines).  For example
     integer, dimension (80000:90000, 80000:90000, 2) :: array
    may not work properly on 32-bit machines because 80000*80000 >
-   2^31, so the calculation for stride02 would overflow.  This may
+   2^31, so the calculation for stride2 would overflow.  This may
    still work, but I haven't checked, and it relies on the overflow
    doing the right thing.
 
@@ -1513,7 +1513,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 {
   char name[8 + GFC_RANK_DIGITS + GFC_MAX_SYMBOL_LEN];
   tree fat_type, base_type, arraytype, lower, upper, stride, tmp, rtype;
-  const char *typename;
+  const char *type_name;
   int n;
 
   base_type = gfc_get_array_descriptor_base (dimen);
@@ -1523,11 +1523,11 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   if (tmp && TREE_CODE (tmp) == TYPE_DECL)
     tmp = DECL_NAME (tmp);
   if (tmp)
-    typename = IDENTIFIER_POINTER (tmp);
+    type_name = IDENTIFIER_POINTER (tmp);
   else
-    typename = "unknown";
+    type_name = "unknown";
   sprintf (name, "array" GFC_RANK_PRINTF_FORMAT "_%.*s", dimen,
-	   GFC_MAX_SYMBOL_LEN, typename);
+	   GFC_MAX_SYMBOL_LEN, type_name);
   TYPE_NAME (fat_type) = get_identifier (name);
 
   GFC_DESCRIPTOR_TYPE_P (fat_type) = 1;
@@ -1764,7 +1764,7 @@ copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to)
   for (; to_cm; to_cm = to_cm->next, from_cm = from_cm->next)
     {
       to_cm->backend_decl = from_cm->backend_decl;
-      if (!from_cm->pointer && from_cm->ts.type == BT_DERIVED)
+      if (!from_cm->attr.pointer && from_cm->ts.type == BT_DERIVED)
 	gfc_get_derived_type (to_cm->ts.derived);
 
       else if (from_cm->ts.type == BT_CHARACTER)
@@ -1848,7 +1848,7 @@ gfc_get_derived_type (gfc_symbol * derived)
       if (c->ts.type != BT_DERIVED)
 	continue;
 
-      if (!c->pointer || c->ts.derived->backend_decl == NULL)
+      if (!c->attr.pointer || c->ts.derived->backend_decl == NULL)
 	c->ts.derived->backend_decl = gfc_get_derived_type (c->ts.derived);
 
       if (c->ts.derived && c->ts.derived->attr.is_iso_c)
@@ -1893,12 +1893,12 @@ gfc_get_derived_type (gfc_symbol * derived)
 
       /* This returns an array descriptor type.  Initialization may be
          required.  */
-      if (c->dimension)
+      if (c->attr.dimension)
 	{
-	  if (c->pointer || c->allocatable)
+	  if (c->attr.pointer || c->attr.allocatable)
 	    {
 	      enum gfc_array_kind akind;
-	      if (c->pointer)
+	      if (c->attr.pointer)
 		akind = GFC_ARRAY_POINTER;
 	      else
 		akind = GFC_ARRAY_ALLOCATABLE;
@@ -1910,7 +1910,7 @@ gfc_get_derived_type (gfc_symbol * derived)
 	    field_type = gfc_get_nodesc_array_type (field_type, c->as,
 						    PACKED_STATIC);
 	}
-      else if (c->pointer)
+      else if (c->attr.pointer)
 	field_type = build_pointer_type (field_type);
 
       field = gfc_add_field_to_struct (&fieldlist, typenode,
@@ -1934,12 +1934,23 @@ gfc_get_derived_type (gfc_symbol * derived)
 
   gfc_finish_type (typenode);
   gfc_set_decl_location (TYPE_STUB_DECL (typenode), &derived->declared_at);
+  if (derived->module && derived->ns->proc_name->attr.flavor == FL_MODULE)
+    {
+      if (derived->ns->proc_name->backend_decl
+	  && TREE_CODE (derived->ns->proc_name->backend_decl)
+	     == NAMESPACE_DECL)
+	{
+	  TYPE_CONTEXT (typenode) = derived->ns->proc_name->backend_decl;
+	  DECL_CONTEXT (TYPE_STUB_DECL (typenode))
+	    = derived->ns->proc_name->backend_decl;
+	}
+    }
 
   derived->backend_decl = typenode;
 
-    /* Add this backend_decl to all the other, equal derived types.  */
-    for (dt = gfc_derived_types; dt; dt = dt->next)
-      copy_dt_decls_ifequal (derived, dt->derived);
+  /* Add this backend_decl to all the other, equal derived types.  */
+  for (dt = gfc_derived_types; dt; dt = dt->next)
+    copy_dt_decls_ifequal (derived, dt->derived);
 
   return derived->backend_decl;
 }
@@ -2163,7 +2174,7 @@ gfc_type_for_size (unsigned bits, int unsignedp)
 	}
 
       /* Handle TImode as a special case because it is used by some backends
-         (eg. ARM) even though it is not available for normal use.  */
+         (e.g. ARM) even though it is not available for normal use.  */
 #if HOST_BITS_PER_WIDE_INT >= 64
       if (bits == TYPE_PRECISION (intTI_type_node))
 	return intTI_type_node;
@@ -2278,7 +2289,10 @@ gfc_get_array_descr_info (const_tree type, struct array_descr_info *info)
   else
     info->base_decl = base_decl = build_decl (VAR_DECL, NULL_TREE, ptype);
 
-  elem_size = fold_convert (gfc_array_index_type, TYPE_SIZE_UNIT (etype));
+  if (GFC_TYPE_ARRAY_SPAN (type))
+    elem_size = GFC_TYPE_ARRAY_SPAN (type);
+  else
+    elem_size = fold_convert (gfc_array_index_type, TYPE_SIZE_UNIT (etype));
   field = TYPE_FIELDS (TYPE_MAIN_VARIANT (type));
   data_off = byte_position (field);
   field = TREE_CHAIN (field);

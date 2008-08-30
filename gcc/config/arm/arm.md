@@ -193,6 +193,8 @@
 ; scheduling of writes.
 
 ; Classification of each insn
+; Note: vfp.md has different meanings for some of these, and some further
+; types as well.  See that file for details.
 ; alu		any alu  instruction that doesn't hit memory or fp
 ;		regs or have a shifted source operand
 ; alu_shift	any data instruction that doesn't hit memory or fp
@@ -351,6 +353,7 @@
 (include "arm1136jfs.md")
 (include "cortex-a8.md")
 (include "cortex-r4.md")
+(include "vfp11.md")
 
 
 ;;---------------------------------------------------------------------------
@@ -5286,12 +5289,12 @@
 			   && GET_CODE (base = XEXP (base, 0)) == REG))
 		      && REGNO_POINTER_ALIGN (REGNO (base)) >= 32)
 		    {
-		      rtx new;
+		      rtx new_rtx;
 
-		      new = widen_memory_access (operands[1], SImode,
-						 ((INTVAL (offset) & ~3)
-						  - INTVAL (offset)));
-		      emit_insn (gen_movsi (reg, new));
+		      new_rtx = widen_memory_access (operands[1], SImode,
+						     ((INTVAL (offset) & ~3)
+						      - INTVAL (offset)));
+		      emit_insn (gen_movsi (reg, new_rtx));
 		      if (((INTVAL (offset) & 2) != 0)
 			  ^ (BYTES_BIG_ENDIAN ? 1 : 0))
 			{

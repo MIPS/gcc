@@ -981,9 +981,12 @@ extern int sparc_mode_class[];
 
 /* Pick a default value we can notice from override_options:
    !v9: Default is on.
-   v9: Default is off.  */
+   v9: Default is off.
+   Originally it was -1, but later on the container of options changed to
+   unsigned byte, so we decided to pick 127 as default value, which does
+   reflect an undefined default value in case of 0/1.  */
 
-#define DEFAULT_PCC_STRUCT_RETURN -1
+#define DEFAULT_PCC_STRUCT_RETURN 127
 
 /* Functions which return large structures get the address
    to place the wanted value at offset 64 from the frame.
@@ -1074,6 +1077,19 @@ enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
    {-1, -1, 0, 0x20},	/* GENERAL_OR_FP_REGS */	\
    {-1, -1, -1, 0x20},	/* GENERAL_OR_EXTRA_FP_REGS */	\
    {-1, -1, -1, 0x3f}}	/* ALL_REGS */
+
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, EXTRA_FP_REGS, FPCC_REGS, LIM_REG_CLASSES		     \
+}
 
 /* Defines invalid mode changes.  Borrowed from pa64-regs.h.
 

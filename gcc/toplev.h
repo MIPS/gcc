@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_TOPLEV_H
 #define GCC_TOPLEV_H
+#include "input.h"
 
 /* If non-NULL, return one past-the-end of the matching SUBPART of
    the WHOLE string.  */
@@ -55,16 +56,19 @@ extern void _fatal_insn (const char *, const_rtx, const char *, int, const char 
 #endif
 extern void internal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void warning0 (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 /* Pass one of the OPT_W* from options.h as the first parameter.  */
-extern void warning (int, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern bool warning (int, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern bool warning_at (location_t, int, const char *, ...)
+    ATTRIBUTE_GCC_DIAG(3,4);
 extern void error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void pedwarn (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
-extern void permerror (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+/* Pass one of the OPT_W* from options.h as the second parameter.  */
+extern bool pedwarn (location_t, int, const char *, ...) 
+     ATTRIBUTE_GCC_DIAG(3,4);
+extern bool permerror (location_t, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void sorry (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
-extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void inform (location_t, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void verbatim (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
 extern void rest_of_decl_compilation (tree, int, int);
@@ -79,6 +83,7 @@ extern void announce_function (tree);
 extern void error_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warning_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warn_deprecated_use (tree);
+extern bool parse_optimize_options (tree, bool);
 
 #ifdef BUFSIZ
 extern void output_quoted_string	(FILE *, const char *);
@@ -134,6 +139,11 @@ extern int flag_unroll_all_loops;
 extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
 extern int time_report;
+extern int flag_ira;
+extern int flag_ira_coalesce;
+extern int flag_ira_move_spills;
+extern int flag_ira_share_save_slots;
+extern int flag_ira_share_spill_slots;
 
 /* Things to do with target switches.  */
 extern void print_version (FILE *, const char *);
@@ -155,6 +165,7 @@ extern void decode_d_option		(const char *);
 
 /* Return true iff flags are set as if -ffast-math.  */
 extern bool fast_math_flags_set_p	(void);
+extern bool fast_math_flags_struct_set_p (struct cl_optimization *);
 
 /* Return log2, or -1 if not exact.  */
 extern int exact_log2                  (unsigned HOST_WIDE_INT);

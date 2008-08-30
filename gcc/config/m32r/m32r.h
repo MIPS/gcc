@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, Renesas M32R cpu.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -624,6 +624,11 @@ enum reg_class
   NO_REGS, CARRY_REG, ACCUM_REGS, GENERAL_REGS, ALL_REGS, LIM_REG_CLASSES
 };
 
+#define IRA_COVER_CLASSES				\
+{							\
+  ACCUM_REGS, GENERAL_REGS, LIM_REG_CLASSES		\
+}
+
 #define N_REG_CLASSES ((int) LIM_REG_CLASSES)
 
 /* Give names of register classes as strings for dump file.  */
@@ -1067,7 +1072,7 @@ L2:     .word STATIC
 #define LEGITIMATE_CONSTANT_P(X)					\
   (! (GET_CODE (X) == CONST						\
       && GET_CODE (XEXP (X, 0)) == PLUS					\
-      && GET_CODE (XEXP (XEXP (X, 0), 0)) == SYMBOL_REF			\
+      && (GET_CODE (XEXP (XEXP (X, 0), 0)) == SYMBOL_REF || GET_CODE (XEXP (XEXP (X, 0), 0)) == LABEL_REF) \
       && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT			\
       && (unsigned HOST_WIDE_INT) INTVAL (XEXP (XEXP (X, 0), 1)) > 32767))
 

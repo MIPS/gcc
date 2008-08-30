@@ -479,6 +479,11 @@ enum reg_class
   { 0xffffffff, 0x0000000f }  /* all registers */ \
 }
 
+#define IRA_COVER_CLASSES						\
+{									\
+  BR_REGS, FP_REGS, ACC_REG, AR_REGS, LIM_REG_CLASSES			\
+}
+
 /* A C expression whose value is a register class containing hard
    register REGNO.  In general there is more that one such class;
    choose a class which is "minimal", meaning that no smaller class
@@ -607,22 +612,6 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
 
 #define LIBCALL_OUTGOING_VALUE(MODE)			 		\
   XTENSA_LIBCALL_VALUE ((MODE), 1)
-
-/* Define how to find the value returned by a function.
-   VALTYPE is the data type of the value (as a tree).
-   If the precise function being called is known, FUNC is its FUNCTION_DECL;
-   otherwise, FUNC is 0.  */
-#define XTENSA_FUNCTION_VALUE(VALTYPE, FUNC, OUTGOINGP)			\
-  gen_rtx_REG ((INTEGRAL_TYPE_P (VALTYPE)				\
-	        && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)		\
-	       ? SImode: TYPE_MODE (VALTYPE),				\
-	       OUTGOINGP ? GP_OUTGOING_RETURN : GP_RETURN)
-
-#define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  XTENSA_FUNCTION_VALUE (VALTYPE, FUNC, 0)
-
-#define FUNCTION_OUTGOING_VALUE(VALTYPE, FUNC)				\
-  XTENSA_FUNCTION_VALUE (VALTYPE, FUNC, 1)
 
 /* A C expression that is nonzero if REGNO is the number of a hard
    register in which the values of called function may come back.  A

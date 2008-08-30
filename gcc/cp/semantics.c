@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "vec.h"
 #include "target.h"
+#include "gimple.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -571,7 +572,8 @@ finish_goto_stmt (tree destination)
 }
 
 /* COND is the condition-expression for an if, while, etc.,
-   statement.  Convert it to a boolean value, if appropriate.  */
+   statement.  Convert it to a boolean value, if appropriate.
+   In addition, verify sequence points if -Wsequence-point is enabled.  */
 
 static tree
 maybe_convert_cond (tree cond)
@@ -583,6 +585,9 @@ maybe_convert_cond (tree cond)
   /* Wait until we instantiate templates before doing conversion.  */
   if (processing_template_decl)
     return cond;
+
+  if (warn_sequence_point)
+    verify_sequence_points (cond);
 
   /* Do the conversion.  */
   cond = convert_from_reference (cond);
@@ -789,6 +794,9 @@ finish_return_stmt (tree expr)
     return error_mark_node;
   if (!processing_template_decl)
     {
+      if (warn_sequence_point)
+	verify_sequence_points (expr);
+      
       if (DECL_DESTRUCTOR_P (current_function_decl)
 	  || (DECL_CONSTRUCTOR_P (current_function_decl)
 	      && targetm.cxx.cdtor_returns_this ()))
@@ -977,6 +985,9 @@ finish_switch_cond (tree cond, tree switch_stmt)
     }
   if (check_for_bare_parameter_packs (cond))
     cond = error_mark_node;
+  else if (!processing_template_decl && warn_sequence_point)
+    verify_sequence_points (cond);
+
   finish_cond (&SWITCH_STMT_COND (switch_stmt), cond);
   SWITCH_STMT_TYPE (switch_stmt) = orig_type;
   add_stmt (switch_stmt);
@@ -2190,7 +2201,7 @@ finish_template_type_parm (tree aggr, tree identifier)
 {
   if (aggr != class_type_node)
     {
-      permerror ("template type parameters must use the keyword %<class%> or %<typename%>");
+      permerror (input_location, "template type parameters must use the keyword %<class%> or %<typename%>");
       aggr = class_type_node;
     }
 
@@ -3200,6 +3211,8 @@ expand_or_defer_fn (tree fn)
 	ggc_collect ();
       return;
     }
+
+  gcc_assert (gimple_body (fn));
 
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
   cp_walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
@@ -4472,7 +4485,7 @@ tree
 finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
 {
   tree orig_expr = expr;
-  tree type;
+  tree type = NULL_TREE;
 
   if (!expr || error_operand_p (expr))
     return error_mark_node;
@@ -4583,8 +4596,6 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
     }
   else
     {
-      tree fndecl;
-
       /* Expressions of reference type are sometimes wrapped in
          INDIRECT_REFs.  INDIRECT_REFs are just internal compiler
          representation, not part of the language, so we have to look
@@ -4594,14 +4605,28 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
   	  == REFERENCE_TYPE)
         expr = TREE_OPERAND (expr, 0);
 
-      if (TREE_CODE (expr) == CALL_EXPR
-          && (fndecl = get_callee_fndecl (expr))
-          && (fndecl != error_mark_node))
-        /* If e is a function call (5.2.2 [expr.call]) or an
+      if (TREE_CODE (expr) == CALL_EXPR)
+        {
+          /* If e is a function call (5.2.2 [expr.call]) or an
            invocation of an overloaded operator (parentheses around e
            are ignored), decltype(e) is defined as the return type of
            that function.  */
-        type = TREE_TYPE (TREE_TYPE (fndecl));
+          tree fndecl = get_callee_fndecl (expr);
+          if (fndecl && fndecl != error_mark_node)
+            type = TREE_TYPE (TREE_TYPE (fndecl));
+          else 
+            {
+              tree target_type = TREE_TYPE (CALL_EXPR_FN (expr));
+              if ((TREE_CODE (target_type) == REFERENCE_TYPE
+                   || TREE_CODE (target_type) == POINTER_TYPE)
+                  && (TREE_CODE (TREE_TYPE (target_type)) == FUNCTION_TYPE
+                      || TREE_CODE (TREE_TYPE (target_type)) == METHOD_TYPE))
+                type = TREE_TYPE (TREE_TYPE (target_type));
+              else
+                sorry ("unable to determine the declared type of expression %<%E%>",
+                       expr);
+            }
+        }
       else 
         {
           type = is_bitfield_expr_with_lowered_type (expr);
@@ -4677,8 +4702,20 @@ classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
     return false;
 
   for (; fns; fns = OVL_NEXT (fns))
-    if (!TREE_NOTHROW (OVL_CURRENT (fns)))
-      return false;
+    {
+      tree fn = OVL_CURRENT (fns);
+ 
+      if (assign_p)
+	{
+	  if (copy_fn_p (fn) == 0)
+	    continue;
+	}
+      else if (copy_fn_p (fn) <= 0)
+	continue;
+
+      if (!TYPE_NOTHROW_P (TREE_TYPE (fn)))
+	return false;
+    }
 
   return true;
 }
@@ -4712,7 +4749,8 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
       type1 = strip_array_types (type1);
       return (trait_expr_value (CPTK_HAS_TRIVIAL_CONSTRUCTOR, type1, type2) 
 	      || (CLASS_TYPE_P (type1)
-		  && (t = locate_ctor (type1, NULL)) && TREE_NOTHROW (t)));
+		  && (t = locate_ctor (type1, NULL))
+		  && TYPE_NOTHROW_P (TREE_TYPE (t))));
 
     case CPTK_HAS_TRIVIAL_CONSTRUCTOR:
       type1 = strip_array_types (type1);
@@ -4730,7 +4768,7 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
 
     case CPTK_HAS_TRIVIAL_DESTRUCTOR:
       type1 = strip_array_types (type1);
-      return (pod_type_p (type1)
+      return (pod_type_p (type1) || type_code1 == REFERENCE_TYPE
 	      || (CLASS_TYPE_P (type1)
 		  && TYPE_HAS_TRIVIAL_DESTRUCTOR (type1)));
 

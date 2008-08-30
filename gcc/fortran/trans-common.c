@@ -321,10 +321,10 @@ build_field (segment_info *h, tree union_type, record_layout_info rli)
   /* If this field is volatile, mark it.  */
   if (h->sym->attr.volatile_)
     {
-      tree new;
+      tree new_type;
       TREE_THIS_VOLATILE (field) = 1;
-      new = build_qualified_type (TREE_TYPE (field), TYPE_QUAL_VOLATILE);
-      TREE_TYPE (field) = new;
+      new_type = build_qualified_type (TREE_TYPE (field), TYPE_QUAL_VOLATILE);
+      TREE_TYPE (field) = new_type;
     }
 
   h->field = field;
@@ -416,6 +416,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
       SET_DECL_ASSEMBLER_NAME (decl, gfc_sym_mangled_common_id (com));
       TREE_PUBLIC (decl) = 1;
       TREE_STATIC (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
       if (!com->is_bind_c)
 	DECL_ALIGN (decl) = BIGGEST_ALIGNMENT;
       else
@@ -680,6 +681,8 @@ create_common (gfc_common_head *com, segment_info *head, bool saw_equiv)
       TREE_PUBLIC (var_decl) = TREE_PUBLIC (decl);
       TREE_STATIC (var_decl) = TREE_STATIC (decl);
       TREE_USED (var_decl) = TREE_USED (decl);
+      if (s->sym->attr.use_assoc)
+	DECL_IGNORED_P (var_decl) = 1;
       if (s->sym->attr.target)
 	TREE_ADDRESSABLE (var_decl) = 1;
       /* This is a fake variable just for debugging purposes.  */
@@ -955,7 +958,7 @@ find_equivalence (segment_info *n)
    segment list multiple times to include indirect equivalences.  Since
    a new segment_info can inserted at the beginning of the segment list,
    depending on its offset, we have to force a final pass through the
-   loop by demanding that completion sees a pass with no matches; ie.
+   loop by demanding that completion sees a pass with no matches; i.e.,
    all symbols with equiv_built set and no new equivalences found.  */
 
 static void

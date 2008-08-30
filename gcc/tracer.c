@@ -92,7 +92,7 @@ ignore_bb_p (const_basic_block bb)
 {
   if (bb->index < NUM_FIXED_BLOCKS)
     return true;
-  if (!maybe_hot_bb_p (bb))
+  if (optimize_bb_for_size_p (bb))
     return true;
   return false;
 }
@@ -102,13 +102,13 @@ ignore_bb_p (const_basic_block bb)
 static int
 count_insns (basic_block bb)
 {
-  block_stmt_iterator bsi;
-  tree stmt;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
   int n = 0;
 
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      stmt = bsi_stmt (bsi);
+      stmt = gsi_stmt (gsi);
       n += estimate_num_insns (stmt, &eni_size_weights);
     }
   return n;

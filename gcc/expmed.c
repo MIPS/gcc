@@ -521,6 +521,8 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  != CODE_FOR_nothing))
     {
       int icode = optab_handler (movstrict_optab, fieldmode)->insn_code;
+      rtx insn;
+      rtx start = get_last_insn ();
 
       /* Get appropriate low part of the value being stored.  */
       if (GET_CODE (value) == CONST_INT || REG_P (value))
@@ -544,13 +546,17 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  op0 = SUBREG_REG (op0);
 	}
 
-      emit_insn (GEN_FCN (icode)
+      insn = (GEN_FCN (icode)
 		 (gen_rtx_SUBREG (fieldmode, op0,
 				  (bitnum % BITS_PER_WORD) / BITS_PER_UNIT
 				  + (offset * UNITS_PER_WORD)),
 				  value));
-
-      return true;
+      if (insn)
+	{
+	  emit_insn (insn);
+	  return true;
+	}
+      delete_insns_since (start);
     }
 
   /* Handle fields bigger than a word.  */
@@ -2050,7 +2056,7 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
   optab lrotate_optab = rotl_optab;
   optab rrotate_optab = rotr_optab;
   enum machine_mode op1_mode;
-  int try;
+  int attempt;
 
   op1 = expand_normal (amount);
   op1_mode = GET_MODE (op1);
@@ -2105,13 +2111,13 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
       return shifted;
     }
 
-  for (try = 0; temp == 0 && try < 3; try++)
+  for (attempt = 0; temp == 0 && attempt < 3; attempt++)
     {
       enum optab_methods methods;
 
-      if (try == 0)
+      if (attempt == 0)
 	methods = OPTAB_DIRECT;
-      else if (try == 1)
+      else if (attempt == 1)
 	methods = OPTAB_WIDEN;
       else
 	methods = OPTAB_LIB_WIDEN;
@@ -3487,7 +3493,7 @@ expand_smod_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
 
   /* Avoid conditional branches when they're expensive.  */
   if (BRANCH_COST >= 2
-      && !optimize_size)
+      && optimize_insn_for_speed_p ())
     {
       rtx signmask = emit_store_flag (result, LT, op0, const0_rtx,
 				      mode, 0, -1);
