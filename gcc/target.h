@@ -471,7 +471,10 @@ struct gcc_target
     /* Return true if vector alignment is reachable (by peeling N
        iterations) for the given type.  */
     bool (* vector_alignment_reachable) (const_tree, bool);
-  } vectorize;
+
+    /* Target builtin that implements vector permute.  */
+    tree (* builtin_vec_perm) (tree, tree*);
+} vectorize;
 
   /* The initial value of target_flags.  */
   int default_target_flags;
@@ -678,11 +681,11 @@ struct gcc_target
      scanned.  In either case, *TOTAL contains the cost result.  */
   /* Note that CODE and OUTER_CODE ought to be RTX_CODE, but that's
      not necessarily defined at this point.  */
-  bool (* rtx_costs) (rtx x, int code, int outer_code, int *total);
+  bool (* rtx_costs) (rtx x, int code, int outer_code, int *total, bool speed);
 
   /* Compute the cost of X, used as an address.  Never called with
      invalid addresses.  */
-  int (* address_cost) (rtx x);
+  int (* address_cost) (rtx x, bool speed);
 
   /* Return where to allocate pseudo for a given hard register initial
      value.  */
@@ -1021,19 +1024,13 @@ struct gcc_target
     void (*print) (FILE *, int, struct cl_target_option *);
 
     /* Function to parse arguments to be validated for #pragma option, and to
-       change the state if the options are valid.  If the arguments are NULL,
-       use the default target options.  Return true if the options are valid,
-       and set the current state.  */
-    bool (*pragma_parse) (tree);
+       change the state if the options are valid.  If the first argument is
+       NULL, the second argument specifies the default options to use.  Return
+       true if the options are valid, and set the current state.  */
+    bool (*pragma_parse) (tree, tree);
 
     /* Function to determine if one function can inline another function.  */
     bool (*can_inline_p) (tree, tree);
-
-    /* Whether the cold attribute changes the optimization level.  */
-    bool cold_attribute_sets_optimization;
-
-    /* Whether the hot attribute changes the optimization level.  */
-    bool hot_attribute_sets_optimization;
   } target_option;
 
   /* For targets that need to mark extra registers as live on entry to
