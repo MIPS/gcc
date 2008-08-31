@@ -379,6 +379,11 @@ struct moveop_static_params
      they are to be removed.  */
   int uid;
 
+#ifdef ENABLE_CHECKING
+  /* This is initialized to the insn on which the driver stopped its traversal.  */
+  insn_t failed_insn;
+#endif
+
   /* True if we scheduled an insn with different register.  */
   bool was_renamed;
 };
@@ -1636,7 +1641,10 @@ static bool
 try_replace_dest_reg (ilist_t orig_insns, rtx best_reg, expr_t expr)
 {
   if (expr_dest_regno (expr) == REGNO (best_reg))
-    return true;
+    {
+      EXPR_TARGET_AVAILABLE (expr) = 1;
+      return true;
+    }
 
   gcc_assert (orig_insns);
 
@@ -3483,20 +3491,49 @@ vinsn_vec_has_expr_p (vinsn_vec_t vinsn_vec, expr_t expr)
   return false;
 }
 
+#ifdef ENABLE_CHECKING
 /* Return true if either of expressions from ORIG_OPS can be blocked
-   by previously created bookkeeping code.  */
+   by previously created bookkeeping code.  STATIC_PARAMS points to static
+   parameters of move_op.  */
 static bool
-av_set_could_be_blocked_by_bookkeeping_p (av_set_t orig_ops)
+av_set_could_be_blocked_by_bookkeeping_p (av_set_t orig_ops, void *static_params)
 {
   expr_t expr;
   av_set_iterator iter;
+  moveop_static_params_p sparams;
 
+  /* This checks that expressions in ORIG_OPS are not blocked by bookkeeping
+     created while scheduling on another fence.  */
   FOR_EACH_EXPR (expr, iter, orig_ops)
     if (vinsn_vec_has_expr_p (vec_bookkeeping_blocked_vinsns, expr))
       return true;
 
+  gcc_assert (code_motion_path_driver_info == &move_op_hooks);
+  sparams = (moveop_static_params_p) static_params;
+
+  /* Expressions can be also blocked by bookkeeping created during current
+     move_op.  */
+  if (bitmap_bit_p (current_copies, INSN_UID (sparams->failed_insn)))
+    FOR_EACH_EXPR (expr, iter, orig_ops)
+      if (moveup_expr_cached (expr, sparams->failed_insn, false) != MOVEUP_EXPR_NULL)
+        return true;
+
+  /* Expressions in ORIG_OPS may have wrong destination register due to
+     renaming.  Check with the right register instead.  */
+  if (sparams->dest && REG_P (sparams->dest))
+    {
+      unsigned regno = REGNO (sparams->dest);
+      vinsn_t failed_vinsn = INSN_VINSN (sparams->failed_insn);
+
+      if (bitmap_bit_p (VINSN_REG_SETS (failed_vinsn), regno)
+	  || bitmap_bit_p (VINSN_REG_USES (failed_vinsn), regno)
+	  || bitmap_bit_p (VINSN_REG_CLOBBERS (failed_vinsn), regno))
+	return true;
+    }
+
   return false;
 }
+#endif
 
 /* Clear VINSN_VEC and detach vinsns.  */
 static void
@@ -4763,12 +4800,23 @@ find_sequential_best_exprs (bnd_t bnd, expr_t expr_vliw, bool for_moveop)
               /* The sequential expression has the right form to pass 
                  to move_op except when renaming happened.  Put the 
                  correct register in EXPR then.  */
-              if (EXPR_SEPARABLE_P (expr) && REG_P (EXPR_LHS (expr))
-                  && expr_dest_regno (expr) != expr_dest_regno (expr_vliw))
-                {
-                  replace_dest_with_reg_in_expr (expr, EXPR_LHS (expr_vliw));
-                  stat_renamed_scheduled++;
-                }
+              if (EXPR_SEPARABLE_P (expr) && REG_P (EXPR_LHS (expr)))
+		{
+                  if (expr_dest_regno (expr) != expr_dest_regno (expr_vliw))
+		    {
+		      replace_dest_with_reg_in_expr (expr, EXPR_LHS (expr_vliw));
+		      stat_renamed_scheduled++;
+		    }
+		  /* Also put the correct TARGET_AVAILABLE bit on the expr.  
+                     This is needed when renaming came up with original 
+                     register.  */
+                  else if (EXPR_TARGET_AVAILABLE (expr) 
+                           != EXPR_TARGET_AVAILABLE (expr_vliw))
+		    {
+		      gcc_assert (EXPR_TARGET_AVAILABLE (expr_vliw) == 1);
+		      EXPR_TARGET_AVAILABLE (expr) = 1;
+		    }
+		}
               if (EXPR_WAS_SUBSTITUTED (expr))
                 stat_substitutions_total++;
             }
@@ -5782,6 +5830,10 @@ move_op_orig_expr_not_found (insn_t insn, av_set_t orig_ops ATTRIBUTE_UNUSED,
 {
   moveop_static_params_p sparams = (moveop_static_params_p) static_params;
 
+#ifdef ENABLE_CHECKING
+  sparams->failed_insn = insn;
+#endif
+
   /* If we're scheduling separate expr, in order to generate correct code
      we need to stop the search at bookkeeping code generated with the 
      same destination register or memory.  */
@@ -5935,16 +5987,20 @@ code_motion_process_successors (insn_t insn, av_set_t orig_ops,
         goto rescan;
     }
 
+#ifdef ENABLE_CHECKING
   /* Here, RES==1 if original expr was found at least for one of the 
      successors.  After the loop, RES may happen to have zero value
      only if at some point the expr searched is present in av_set, but is 
      not found below.  In most cases, this situation is an error.  
      The exception is when the original operation is blocked by
-     bookkeeping generated for another branch.  */
+     bookkeeping generated for another fence or for another path in current
+     move_op.  */
   gcc_assert (res == 1 
               || (res == 0 
-                  && av_set_could_be_blocked_by_bookkeeping_p (orig_ops))
+                  && av_set_could_be_blocked_by_bookkeeping_p (orig_ops,
+							       static_params))
               || res == -1);
+#endif
   
   /* Merge data, clean up, etc.  */
   if (code_motion_path_driver_info->after_merge_succs)
@@ -6224,6 +6280,9 @@ move_op (insn_t insn, av_set_t orig_ops, expr_t expr_vliw,
   sparams.dest = dest;
   sparams.c_expr = c_expr;
   sparams.uid = INSN_UID (EXPR_INSN_RTX (expr_vliw));
+#ifdef ENABLE_CHECKING
+  sparams.failed_insn = NULL;
+#endif
   sparams.was_renamed = false;
   lparams.e1 = NULL;
 

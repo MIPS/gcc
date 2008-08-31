@@ -1,3 +1,23 @@
+2008-08-31  Alexander Monakov  <amonakov@ispras.ru>
+	    Andrey Belevantsev  <abel@ispras.ru>  
+
+	* sel-sched.c (struct moveop_static_params): Add new field
+	failed_insn for runtime assertion purpose.
+	(move_op): Initialize it.
+	(move_op_orig_expr_not_found): Update it.
+	(try_replace_dest_reg): Mark target register as available if chosen
+	register is the same as original.
+	(av_set_could_be_blocked_by_bookkeeping_p): Define only if
+	ENABLE_CHECKING.  Add new parameter (static_params).  Extend to
+	operate correctly for bookkeeping insns created during current code
+	motion.
+	(find_sequential_best_exprs): If availability of target register was
+	unknown and no renaming happened, assert that target register is
+	available and update expression attribute.
+	(code_motion_process_successors): Update call to
+	av_set_could_be_blocked_by_bookkeeping_p.  Surround costly runtime
+	assertion in #ifdef ENABLE_CHECKING.
+
 2008-08-22  Alexander Monakov  <amonakov@ispras.ru>
 	    Andrey Belevantsev  <abel@ispras.ru>
 
