@@ -1,5 +1,9 @@
 2008-08-31  Andrey Belevantsev  <abel@ispras.ru>
 
+        Merge with trunk rev. 139848.
+ 
+2008-08-31  Andrey Belevantsev  <abel@ispras.ru>
+
 	* config/rs6000/rs6000.c (rs6000_sched_finish): Check sel_sched_p ()
 	in separate condition.
 	* haifa-sched.c (increase_insn_priority): New.
