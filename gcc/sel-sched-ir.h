@@ -122,6 +122,9 @@ struct _expr
   /* A priority of this expression.  */
   int priority;
 
+  /* A priority adjustment of this expression.  */
+  int priority_adj;
+
   /* Number of times the insn was scheduled.  */
   int sched_times;
 
@@ -178,6 +181,7 @@ typedef expr_def *expr_t;
 #define EXPR_SPEC(EXPR) ((EXPR)->spec)
 #define EXPR_USEFULNESS(EXPR) ((EXPR)->usefulness)
 #define EXPR_PRIORITY(EXPR) ((EXPR)->priority)
+#define EXPR_PRIORITY_ADJ(EXPR) ((EXPR)->priority_adj)
 #define EXPR_SCHED_TIMES(EXPR) ((EXPR)->sched_times)
 #define EXPR_ORIG_BB_INDEX(EXPR) ((EXPR)->orig_bb_index)
 #define EXPR_ORIG_SCHED_CYCLE(EXPR) ((EXPR)->orig_sched_cycle)

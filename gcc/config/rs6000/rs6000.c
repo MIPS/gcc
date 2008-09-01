@@ -20143,8 +20143,11 @@ rs6000_sched_finish (FILE *dump, int sched_verbose)
 
   if (reload_completed && rs6000_sched_groups)
     {
-      if (rs6000_sched_insert_nops == sched_finish_none
-	  || sel_sched_p ())
+      /* Do not run sched_finish hook when selective scheduling enabled.  */
+      if (sel_sched_p ())
+	return;
+
+      if (rs6000_sched_insert_nops == sched_finish_none)
 	return;
 
       if (rs6000_sched_insert_nops == sched_finish_pad_groups)

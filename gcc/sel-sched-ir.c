@@ -1600,6 +1600,7 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
   EXPR_SPEC (expr) = spec;
   EXPR_USEFULNESS (expr) = use;
   EXPR_PRIORITY (expr) = priority;
+  EXPR_PRIORITY_ADJ (expr) = 0;
   EXPR_SCHED_TIMES (expr) = sched_times;
   EXPR_ORIG_BB_INDEX (expr) = orig_bb_index;
   EXPR_ORIG_SCHED_CYCLE (expr) = orig_sched_cycle;
@@ -4592,6 +4593,7 @@ clear_outdated_rtx_info (basic_block bb)
 	SCHED_GROUP_P (insn) = 0;
 	INSN_AFTER_STALL_P (insn) = 0;
 	INSN_SCHED_TIMES (insn) = 0;
+	EXPR_PRIORITY_ADJ (INSN_EXPR (insn)) = 0;
 
         /* We cannot use the changed caches, as previously we could ignore
            the LHS dependence due to enabled renaming and transform 
@@ -5508,7 +5510,10 @@ sel_setup_sched_infos (void)
   sel_common_sched_info.sched_pass_id = SCHED_SEL_PASS;
 
   common_sched_info = &sel_common_sched_info;
+
   current_sched_info = &sched_sel_haifa_sched_info;
+  current_sched_info->sched_max_insns_priority = 
+    get_rgn_sched_max_insns_priority ();
   
   sel_set_sched_flags ();
 }

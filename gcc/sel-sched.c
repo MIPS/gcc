@@ -3220,6 +3220,31 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
 
 /* Functions to choose the best insn from available ones.  */
 
+/* Adjusts the priority for EXPR using the backend *_adjust_priority hook.  */
+static int
+sel_target_adjust_priority (expr_t expr)
+{
+  int priority = EXPR_PRIORITY (expr);
+  int new_priority;
+
+  if (targetm.sched.adjust_priority)
+    new_priority = targetm.sched.adjust_priority (EXPR_INSN_RTX (expr), priority);
+  else
+    new_priority = priority;
+
+  /* If the priority has changed, adjust EXPR_PRIORITY_ADJ accordingly.  */
+  EXPR_PRIORITY_ADJ (expr) = new_priority - EXPR_PRIORITY (expr);
+
+  gcc_assert (EXPR_PRIORITY_ADJ (expr) >= 0);
+
+  if (sched_verbose >= 2)
+    sel_print ("sel_target_adjust_priority: insn %d,  %d +%d = %d.\n", 
+	       INSN_UID (EXPR_INSN_RTX (expr)), EXPR_PRIORITY (expr), 
+	       EXPR_PRIORITY_ADJ (expr), new_priority);
+
+  return new_priority;
+}
+
 /* Rank two available exprs for schedule.  Never return 0 here.  */
 static int 
 sel_rank_for_schedule (const void *x, const void *y)
@@ -3271,11 +3296,14 @@ sel_rank_for_schedule (const void *x, const void *y)
   /* Prefer an expr with greater priority.  */
   if (EXPR_USEFULNESS (tmp) != 0 && EXPR_USEFULNESS (tmp2) != 0)
     {
-      val = EXPR_PRIORITY (tmp2) * EXPR_USEFULNESS (tmp2)
-            - EXPR_PRIORITY (tmp) * EXPR_USEFULNESS (tmp);
+      int p2 = EXPR_PRIORITY (tmp2) + EXPR_PRIORITY_ADJ (tmp2),
+          p1 = EXPR_PRIORITY (tmp) + EXPR_PRIORITY_ADJ (tmp);
+
+      val = p2 * EXPR_USEFULNESS (tmp2) - p1 * EXPR_USEFULNESS (tmp);
     }
   else
-    val = EXPR_PRIORITY (tmp2) - EXPR_PRIORITY (tmp);
+    val = EXPR_PRIORITY (tmp2) - EXPR_PRIORITY (tmp) 
+	  + EXPR_PRIORITY_ADJ (tmp2) - EXPR_PRIORITY_ADJ (tmp);
   if (val)
     return val;
 
@@ -3567,6 +3595,18 @@ vinsn_vec_free (vinsn_vec_t *vinsn_vec)
     VEC_free (vinsn_t, heap, *vinsn_vec);
 }
 
+/* Increase EXPR_PRIORITY_ADJ for INSN by AMOUNT.  */
+
+void sel_add_to_insn_priority (rtx insn, int amount)
+{
+  EXPR_PRIORITY_ADJ (INSN_EXPR (insn)) += amount;
+
+  if (sched_verbose >= 2)
+    sel_print ("sel_add_to_insn_priority: insn %d, by %d (now %d+%d).\n", 
+	       INSN_UID (insn), amount, EXPR_PRIORITY (INSN_EXPR (insn)),
+	       EXPR_PRIORITY_ADJ (INSN_EXPR (insn)));
+}
+
 /* Turn AV into a vector, filter inappropriate insns and sort it.  Return 
    true if there is something to schedule.  BNDS and FENCE are current
    boundaries and fence, respectively.  If we need to stall for some cycles
@@ -3592,10 +3632,18 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
   if (VEC_length (expr_t, vec_av_set) > 0)
     VEC_block_remove (expr_t, vec_av_set, 0, VEC_length (expr_t, vec_av_set));
 
-  /* Turn the set into a vector for sorting.  */
+  /* Turn the set into a vector for sorting and call sel_target_adjust_priority
+     for each insn.  */
   gcc_assert (VEC_empty (expr_t, vec_av_set));
   FOR_EACH_EXPR (expr, si, av)
-    VEC_safe_push (expr_t, heap, vec_av_set, expr);
+    {  
+      VEC_safe_push (expr_t, heap, vec_av_set, expr);
+
+      gcc_assert (EXPR_PRIORITY_ADJ (expr) == 0 || *pneed_stall);
+
+      /* Adjust priority using target backend hook.  */
+      sel_target_adjust_priority (expr);
+    }
 
   /* Sort the vector.  */
   qsort (VEC_address (expr_t, vec_av_set), VEC_length (expr_t, vec_av_set),
@@ -3615,7 +3663,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
       insn_t insn = EXPR_INSN_RTX (expr);
       char target_available;
       bool is_orig_reg_p = true;
-      int need_cycles;
+      int need_cycles, new_prio;
 
       /* Don't allow any insns other than from SCHED_GROUP if we have one.  */
       if (FENCE_SCHED_NEXT (fence) && insn != FENCE_SCHED_NEXT (fence))
@@ -3752,9 +3800,11 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
       /* Now resort to dependence analysis to find whether EXPR might be 
          stalled due to dependencies from FENCE's context.  */
       need_cycles = tick_check_p (expr, dc, fence);
+      new_prio = EXPR_PRIORITY (expr) + EXPR_PRIORITY_ADJ (expr) + need_cycles;
+
       if (EXPR_ORIG_SCHED_CYCLE (expr) <= 0)
 	est_ticks_till_branch = MAX (est_ticks_till_branch,
-				     EXPR_PRIORITY (expr) + need_cycles);
+				     new_prio);
 
       if (need_cycles > 0)
         {

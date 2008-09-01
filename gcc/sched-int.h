@@ -118,6 +118,12 @@ sel_sched_p (void)
   return common_sched_info->sched_pass_id == SCHED_SEL_PASS;
 }
 
+/* Returns maximum priority that an insn was assigned to.  */
+extern int get_rgn_sched_max_insns_priority (void);
+
+/* Increases effective priority for INSN by AMOUNT.  */
+extern void sel_add_to_insn_priority (rtx, int);
+
 /* True if during selective scheduling we need to emulate some of haifa
    scheduler behaviour.  */
 extern int sched_emulate_haifa_p;
@@ -1203,6 +1209,7 @@ extern void extend_regions (void);
 extern void rgn_make_new_region_out_of_new_block (basic_block);
 
 extern void compute_priorities (void);
+extern void increase_insn_priority (rtx, int);
 extern void debug_rgn_dependencies (int);
 extern void debug_dependencies (rtx, rtx);
 extern void free_rgn_deps (void);          

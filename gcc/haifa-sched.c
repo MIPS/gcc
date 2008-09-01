@@ -721,6 +721,25 @@ dep_cost (dep_t link)
   return dep_cost_1 (link, 0);
 }
 
+/* Use this sel-sched.c friendly function in reorder2 instead of increasing
+   INSN_PRIORITY explicitly.  */
+void
+increase_insn_priority (rtx insn, int amount)
+{
+  if (!sel_sched_p ())
+    {
+      /* We're dealing with haifa-sched.c INSN_PRIORITY.  */
+      if (INSN_PRIORITY_KNOWN (insn))
+	  INSN_PRIORITY (insn) += amount;
+    }
+  else
+    {
+      /* In sel-sched.c INSN_PRIORITY is not kept up to date.  
+	 Use EXPR_PRIORITY instead. */
+      sel_add_to_insn_priority (insn, amount);
+    }
+}
+
 /* Return 'true' if DEP should be included in priority calculations.  */
 static bool
 contributes_to_priority_p (dep_t dep)

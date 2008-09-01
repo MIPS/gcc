@@ -2365,6 +2365,14 @@ static const struct haifa_sched_info rgn_const_sched_info =
    for the interblock scheduler frontend.  */
 static struct haifa_sched_info rgn_sched_info;
 
+/* Returns maximum priority that an insn was assigned to.  */
+
+int
+get_rgn_sched_max_insns_priority (void)
+{
+  return rgn_sched_info.sched_max_insns_priority;
+}
+
 /* Determine if PAT sets a CLASS_LIKELY_SPILLED_P register.  */
 
 static bool

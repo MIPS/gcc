@@ -1,4 +1,24 @@
 2008-08-31  Andrey Belevantsev  <abel@ispras.ru>
+
+	* config/rs6000/rs6000.c (rs6000_sched_finish): Check sel_sched_p ()
+	in separate condition.
+	* haifa-sched.c (increase_insn_priority): New.
+	* sched-int.h (get_rgn_sched_max_insns_priority): Declare.
+	(sel_add_to_insn_priority): Likewise.
+	(increase_insn_priority): Likewise.
+	* sel-sched.c (sel_target_adjust_priority): New.
+	(fill_vec_av_set): Call it.  Account for adjusted priority.
+	(sel_add_to_insn_priority): New.
+	(sel_rank_for_schedule): When comparing, also account for adjusted
+	priority.
+	* sel-sched-ir.c (init_expr): Clear EXPR_PRIORITY_ADJ.
+	(clear_outdated_rtx_info): Likewise.
+	(sel_setup_sched_infos): Also setup sched_max_insns_priority.
+	* sel-sched-ir.h (struct _expr): New field priority_adj.
+	(EXPR_PRIORITY_ADJ): New accessor macro.
+	* sched-rgn.c (get_rgn_sched_max_insns_priority): New.
+
+2008-08-31  Andrey Belevantsev  <abel@ispras.ru>
 	Revert ia64 changes on the branch.
 
 	* config/ia64/*: Make it as on trunk.
