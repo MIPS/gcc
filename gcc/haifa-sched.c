@@ -3900,7 +3900,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
   gcc_assert (ORIG_PAT (insn) != NULL_RTX);
 
   if (!mutate_p)
-    todo_spec= TODO_SPEC (insn);
+    todo_spec = TODO_SPEC (insn);
   else
     {
       gcc_assert (IS_SPECULATION_SIMPLE_CHECK_P (insn)
@@ -3912,7 +3912,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
   todo_spec &= SPECULATIVE;
 
   /* Create recovery block.  */
-  if (mutate_p || targetm.sched.needs_block_p (todo_spec))
+  if (mutate_p || targetm.sched.needs_block_p (insn))
     {
       rec = sched_create_recovery_block (NULL);
       label = BB_HEAD (rec);
@@ -3924,7 +3924,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
     }
 
   /* Emit CHECK.  */
-  check = targetm.sched.gen_spec_check (insn, label, todo_spec);
+  check = targetm.sched.gen_spec_check (insn, label, mutate_p);
 
   if (rec != EXIT_BLOCK_PTR)
     {

@@ -1,4 +1,15 @@
 2008-08-31  Andrey Belevantsev  <abel@ispras.ru>
+	Revert ia64 changes on the branch.
+
+	* config/ia64/*: Make it as on trunk.
+	* config/ia64/ia64.c (TARGET_SCHED_GEN_SPEC_CHECK): Define to ia64_gen_check.
+	* target.h (struct gcc_target): Change the argument of needs_block_p to
+	const_rtx.  Change the third argument of gen_spec_check to bool.  Update comment.
+	* haifa-sched.c (create_check_block_twin): Pass correct parameters to 
+	gen_spec_check and needs_block_p.
+	* sel-sched.c (create_speculation_check): Likewise.
+
+2008-08-31  Andrey Belevantsev  <abel@ispras.ru>
 
         Merge with trunk rev. 139840.
  
