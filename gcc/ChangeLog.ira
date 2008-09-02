@@ -1,3 +1,22 @@
+2008-09-02  Richard Sandiford <rsandifo@nildram.co.uk>
+
+	* ira-build.c (form_loop_tree): Use FOR_EACH_BB instead of
+	FOR_EACH_BB_REVERSE.
+	(create_bb_allocnos): Use FOR_BB_INSNS_REVERSE instead of
+	FOR_BB_INSNS.
+
+	* ira-lives.c (make_regno_born_and_dead): Removed.
+	(regs_set): Likewise.
+	(mark_reg_store): Likewise.
+	(mark_reg_clobber): Likewise.
+	(mark_reg_conflicts): Likewise.
+	(mark_reg_death): Likewise.
+	(mark_ref_live): New.
+	(def_conflicts_with_inputs_p): Likewise.
+	(mark_ref_dead): Likewise.
+	(process_bb_node_lives): Updated to use DF instead.
+	(ira_create_allocno_live_ranges): Updated.
+
 2008-09-02  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-opt/37243
