@@ -134,6 +134,7 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 
   lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
   LTO_DEBUG_FN_NAME (node->decl);
+  lto_set_flag (&flags, node->needed);
   lto_set_flag (&flags, node->local.local);
   lto_set_flag (&flags, node->local.externally_visible);
   lto_set_flag (&flags, node->local.finalized);
@@ -289,6 +290,7 @@ input_overwrite_node (struct lto_file_decl_data* file_data,
   node->local.finalized = lto_get_flag (&flags);
   node->local.externally_visible = lto_get_flag (&flags);
   node->local.local = lto_get_flag (&flags);
+  node->needed = lto_get_flag (&flags);
   node->analyzed = node->local.finalized;
   node->lowered = node->local.finalized;
   if (cgraph_decide_is_function_needed (node))

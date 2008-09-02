@@ -1084,8 +1084,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
       if (TREE_CODE (x) == VAR_DECL || TREE_CODE (x) == PARM_DECL)
 	TREE_ADDRESSABLE (x) = 1;
-      else if (TREE_CODE (x) == FUNCTION_DECL)
-	cgraph_mark_needed_node (cgraph_node (x));
 
       recompute_tree_invariant_for_addr_expr (result);
     }
@@ -3733,8 +3731,6 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
       if (TREE_CODE (x) == VAR_DECL || TREE_CODE (x) == PARM_DECL)
 	TREE_ADDRESSABLE (x) = 1;
-      else if (TREE_CODE (x) == FUNCTION_DECL)
-	cgraph_mark_needed_node (cgraph_node (x));
 
       recompute_tree_invariant_for_addr_expr (result);
     }

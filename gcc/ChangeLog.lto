@@ -1,3 +1,10 @@
+2008-09-01  Bill Maddox  <maddox@google.com>
+
+	* lto-cgraph.c (output_node): Stream out 'needed' flag.
+	(input_overwrite_node): Stream in 'needed' flag.
+	* lto-function-in.c (input_expr_operand, input_tree_operand):
+	Remove call to cgraph_mark_needed_node.
+
 2008-08-29  Diego Novillo  <dnovillo@google.com>
 
 	* lto-tree-flags.def: Add readonly_flag for
