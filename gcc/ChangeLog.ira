@@ -1,0 +1,19 @@
+2008-09-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-09-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* ira.c (setup_eliminable_regset): Only declare i if ELIMINABLE_REGS is
+	defined.
+
+	2008-08-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-opt/37251
+	* ira-color.c (push_allocnos_to_stack): Truncate
+	removed_splay_allocno_vec.
+
+	2008-08-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-opt/37243
+	* ira-color (ira_fast_allocation): Don't assign hard registers to
+	global allocnos.
