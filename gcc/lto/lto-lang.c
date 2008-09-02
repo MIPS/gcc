@@ -609,10 +609,6 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
   build_common_builtin_nodes ();
 }
 
-/* This variable keeps a table for types for each precision so that we only 
-   allocate each of them once. Signed and unsigned types are kept separate.  */
-static GTY(()) tree signed_and_unsigned_types[MAX_BITS_PER_WORD + 1][2];
-
 static GTY(()) tree registered_builtin_types;
 
 /* A chain of builtin functions that we need to recognize.  We will
@@ -684,32 +680,53 @@ lto_mark_addressable (tree t)
   return true;
 }
 
+/* Return an integer type with PRECISION bits of precision,
+   that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
+
 static tree
-lto_type_for_size (unsigned precision ATTRIBUTE_UNUSED, 
-		   int unsignedp ATTRIBUTE_UNUSED)
+lto_type_for_size (unsigned precision, int unsignedp)
 {
-  tree t = NULL_TREE;
+  if (precision == TYPE_PRECISION (integer_type_node))
+    return unsignedp ? unsigned_type_node : integer_type_node;
 
-  if (precision <= MAX_BITS_PER_WORD
-      && signed_and_unsigned_types[precision][unsignedp] != 0)
-    return signed_and_unsigned_types[precision][unsignedp];
+  if (precision == TYPE_PRECISION (signed_char_type_node))
+    return unsignedp ? unsigned_char_type_node : signed_char_type_node;
 
-  if (unsignedp)
-    t = signed_and_unsigned_types[precision][1]
-      = make_unsigned_type (precision);
-  else
-    t = signed_and_unsigned_types[precision][0]
-      = make_signed_type (precision);
-  
-  return t;
+  if (precision == TYPE_PRECISION (short_integer_type_node))
+    return unsignedp ? short_unsigned_type_node : short_integer_type_node;
+
+  if (precision == TYPE_PRECISION (long_integer_type_node))
+    return unsignedp ? long_unsigned_type_node : long_integer_type_node;
+
+  if (precision == TYPE_PRECISION (long_long_integer_type_node))
+    return (unsignedp
+	    ? long_long_unsigned_type_node
+	    : long_long_integer_type_node);
+
+  if (precision <= TYPE_PRECISION (intQI_type_node))
+    return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
+
+  if (precision <= TYPE_PRECISION (intHI_type_node))
+    return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
+
+  if (precision <= TYPE_PRECISION (intSI_type_node))
+    return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
+
+  if (precision <= TYPE_PRECISION (intDI_type_node))
+    return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
+
+  return NULL_TREE;
 }
 
-/* For better or for worse, we have copied a good chunk of this from
-   c-common.c.  */
+
+/* Return a data type that has machine mode MODE.
+   If the mode is an integer,
+   then UNSIGNEDP selects between signed and unsigned types.
+   If the mode is a fixed-point mode,
+   then UNSIGNEDP selects between saturating and nonsaturating types.  */
 
 static tree
-lto_type_for_mode (enum machine_mode mode ATTRIBUTE_UNUSED, 
-		   int unsigned_p ATTRIBUTE_UNUSED)
+lto_type_for_mode (enum machine_mode mode, int unsigned_p)
 {
   tree t;
 
@@ -912,9 +929,13 @@ lto_build_c_type_nodes (void)
 static bool
 lto_init (void)
 {
+  /* Initialize libcpp line maps for gcc_assert to work.  */
+  linemap_add (line_table, LC_RENAME, 0, NULL, 0);
+
   /* Create the basic integer types.  */
   build_common_tree_nodes (flag_signed_char, 
 			   /*signed_sizetype=*/false);
+
   /* Tell the middle end what type to use for the size of objects.  */
   if (strcmp (SIZE_TYPE, "unsigned int") == 0)
     {
@@ -928,6 +949,7 @@ lto_init (void)
     }
   else
     gcc_unreachable();
+
   /* Create other basic types.  */
   build_common_tree_nodes_2 (/*short_double=*/false);
   lto_build_c_type_nodes ();

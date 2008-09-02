@@ -1,3 +1,12 @@
+2008-09-02  Diego Novillo  <dnovillo@google.com>
+	    Simon Baldwin  <simonb@google.com>
+
+	* lto-lang.c (lto_type_for_size): Rewrite.  Adapt from
+	c_common_type_for_size.
+	(lto_type_for_mode): Remove ATTRIBUTE_UNUSED markers.
+	(lto_init): Call linemap_add.
+	(signed_and_unsigned_types): Remove.
+
 2008-08-29  Diego Novillo  <dnovillo@google.com>
 
 	* lto-lang.c (handle_noreturn_attribute): New local function.
