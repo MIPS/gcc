@@ -1,3 +1,22 @@
+2008-09-03  Rafael Avila de Espindola  <espindola@google.com>
+
+	* Makefile.am (AM_CFLAGS): New.
+	(ltosymtab_LDADD): Remove -lelf. Add -ldl.
+	(lib_LTLIBRARIES): New.
+	(liblto_plugin_la_SOURCES): New.
+	(liblto_plugin_la_LIBADD): New.
+	* Makefile.in: Regenerate.
+	* acinclude.m4: Don't include ../config/acx.m4 and
+	../config/no-executables.m4.
+	Include ../ltsugar.m4, ../ltoptions.m4, ../ltversion.m4 and
+	../libtool.m4.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Use AM_PROG_LIBTOOL.
+	* lto-plugin.c: New.
+	* lto-symtab.c: Rewrite to use the plugin.
+	* plugin-api.h: New.
+
 2008-08-25  Rafael Avila de Espindola  <espindola@google.com>
 
 	* configure: Regenerate.
