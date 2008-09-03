@@ -596,14 +596,13 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
     }
 
   if (!gimple_body (callee->decl))
-    edge->inline_failed = N_("function body not available");
+    edge->inline_failed = CIF_BODY_NOT_AVAILABLE;
   else if (callee->local.redefined_extern_inline)
-    edge->inline_failed = N_("redefined extern inline functions are not "
-			     "considered for inlining");
+    edge->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
   else if (callee->local.inlinable)
-    edge->inline_failed = N_("function not considered for inlining");
+    edge->inline_failed = CIF_FUNCTION_NOT_CONSIDERED;
   else
-    edge->inline_failed = N_("function not inlinable");
+    edge->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
 
   edge->aux = NULL;
 
@@ -1548,6 +1547,22 @@ cgraph_node_set_find (cgraph_node_set set, struct cgraph_node *node)
   csi.set = set;
 
   return csi;
+}
+
+/* Return a string describing the failure REASON.  */
+
+const char*
+cgraph_inline_failed_string (cgraph_inline_failed_t reason)
+{
+#undef DEFCIFCODE
+#define DEFCIFCODE(code, string)	string,
+
+  static const char *cif_string_table[CIF_N_REASONS] = {
+#include "cif-code.def"
+  };
+
+  gcc_assert (reason >= CIF_OK && reason < CIF_N_REASONS);
+  return cif_string_table[reason];
 }
 
 /* Dump content of SET to file F. */

@@ -254,7 +254,7 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original)
     cgraph_redirect_edge_callee (e, cgraph_node (e->callee->inline_decl));
 
   gcc_assert (e->inline_failed);
-  e->inline_failed = NULL;
+  e->inline_failed = CIF_OK;
 
   if (!e->callee->global.inlined)
     DECL_POSSIBLY_INLINED (e->callee->decl) = true;
@@ -342,7 +342,7 @@ cgraph_estimate_growth (struct cgraph_node *node)
 
 static bool
 cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
-			    const char **reason, bool one_only)
+			    cgraph_inline_failed_t *reason, bool one_only)
 {
   int times = 0;
   struct cgraph_edge *e;
@@ -377,7 +377,7 @@ cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
       && newsize > limit)
     {
       if (reason)
-        *reason = N_("--param large-function-growth limit reached");
+        *reason = CIF_LARGE_FUNCTION_GROWTH_LIMIT;
       return false;
     }
 
@@ -392,7 +392,7 @@ cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
       && inlined_stack > PARAM_VALUE (PARAM_LARGE_STACK_FRAME))
     {
       if (reason)
-        *reason = N_("--param large-stack-frame-growth limit reached");
+        *reason = CIF_LARGE_STACK_FRAME_GROWTH_LIMIT;
       return false;
     }
   return true;
@@ -401,7 +401,7 @@ cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
 /* Return true when function N is small enough to be inlined.  */
 
 bool
-cgraph_default_inline_p (struct cgraph_node *n, const char **reason)
+cgraph_default_inline_p (struct cgraph_node *n, cgraph_inline_failed_t *reason)
 {
   tree decl = n->decl;
 
@@ -410,7 +410,7 @@ cgraph_default_inline_p (struct cgraph_node *n, const char **reason)
   if (!flag_inline_small_functions && !DECL_DECLARED_INLINE_P (decl))
     {
       if (reason)
-	*reason = N_("function not inline candidate");
+	*reason = CIF_FUNCTION_NOT_INLINE_CANDIDATE;
       return false;
     }
 
@@ -418,7 +418,7 @@ cgraph_default_inline_p (struct cgraph_node *n, const char **reason)
       && !flag_wpa)
     {
       if (reason)
-	*reason = N_("function body not available");
+	*reason = CIF_BODY_NOT_AVAILABLE;
       return false;
     }
 
@@ -427,7 +427,7 @@ cgraph_default_inline_p (struct cgraph_node *n, const char **reason)
       if (n->global.insns >= MAX_INLINE_INSNS_SINGLE)
 	{
 	  if (reason)
-	    *reason = N_("--param max-inline-insns-single limit reached");
+	    *reason = CIF_MAX_INLINE_INSNS_SINGLE_LIMIT;
 	  return false;
 	}
     }
@@ -436,7 +436,7 @@ cgraph_default_inline_p (struct cgraph_node *n, const char **reason)
       if (n->global.insns >= MAX_INLINE_INSNS_AUTO)
 	{
 	  if (reason)
-	    *reason = N_("--param max-inline-insns-auto limit reached");
+	    *reason = CIF_MAX_INLINE_INSNS_AUTO_LIMIT;
 	  return false;
 	}
     }
@@ -451,7 +451,7 @@ cgraph_default_inline_p (struct cgraph_node *n, const char **reason)
 static bool
 cgraph_recursive_inlining_p (struct cgraph_node *to,
 			     struct cgraph_node *what,
-			     const char **reason)
+			     cgraph_inline_failed_t *reason)
 {
   bool recursive;
   if (to->global.inlined_to)
@@ -462,7 +462,7 @@ cgraph_recursive_inlining_p (struct cgraph_node *to,
      not warn on it.  */
   if (recursive && reason)
     *reason = (what->local.disregard_inline_limits
-	       ? N_("recursive inlining") : "");
+	       ? CIF_RECURSIVE_INLINING : CIF_UNSPECIFIED);
   return recursive;
 }
 
@@ -568,7 +568,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
 		    bitmap updated_nodes)
 {
   struct cgraph_edge *edge;
-  const char *failed_reason;
+  cgraph_inline_failed_t failed_reason;
 
   if (!node->local.inlinable || node->local.disregard_inline_limits
       || node->global.inlined_to)
@@ -793,12 +793,14 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node,
 /* Set inline_failed for all callers of given function to REASON.  */
 
 static void
-cgraph_set_inline_failed (struct cgraph_node *node, const char *reason)
+cgraph_set_inline_failed (struct cgraph_node *node,
+			  cgraph_inline_failed_t reason)
 {
   struct cgraph_edge *e;
 
   if (dump_file)
-    fprintf (dump_file, "Inlining failed: %s\n", reason);
+    fprintf (dump_file, "Inlining failed: %s\n",
+	     cgraph_inline_failed_string (reason));
   for (e = node->callers; e; e = e->next_caller)
     if (e->inline_failed)
       e->inline_failed = reason;
@@ -843,7 +845,7 @@ cgraph_decide_inlining_of_small_functions (void)
 {
   struct cgraph_node *node;
   struct cgraph_edge *edge;
-  const char *failed_reason;
+  cgraph_inline_failed_t failed_reason;
   fibheap_t heap = fibheap_new ();
   bitmap updated_nodes = BITMAP_ALLOC (NULL);
   int min_insns, max_insns;
@@ -890,7 +892,7 @@ cgraph_decide_inlining_of_small_functions (void)
       struct cgraph_node *where;
       int growth =
 	cgraph_estimate_size_after_inlining (1, edge->caller, edge->callee);
-      const char *not_good = NULL;
+      cgraph_inline_failed_t not_good = CIF_OK;
 
       growth -= edge->caller->global.insns;
 
@@ -937,7 +939,8 @@ cgraph_decide_inlining_of_small_functions (void)
 	  if (where->global.inlined_to)
 	    {
 	      edge->inline_failed
-		= (edge->callee->local.disregard_inline_limits ? N_("recursive inlining") : "");
+		= (edge->callee->local.disregard_inline_limits
+		   ? CIF_RECURSIVE_INLINING : CIF_UNSPECIFIED);
 	      if (dump_file)
 		fprintf (dump_file, " inline_failed:Recursive inlining performed only for function itself.\n");
 	      continue;
@@ -945,12 +948,12 @@ cgraph_decide_inlining_of_small_functions (void)
 	}
 
       if (!cgraph_maybe_hot_edge_p (edge))
- 	not_good = N_("call is unlikely and code size would grow");
+ 	not_good = CIF_UNLIKELY_CALL;
       if (!flag_inline_functions
 	  && !DECL_DECLARED_INLINE_P (edge->callee->decl))
- 	not_good = N_("function not declared inline and code size would grow");
+ 	not_good = CIF_NOT_DECLARED_INLINED;
       if (optimize_size)
- 	not_good = N_("optimizing for size and code size would grow");
+ 	not_good = CIF_OPTIMIZING_FOR_SIZE;
       if (not_good && growth > 0 && cgraph_estimate_growth (edge->callee) > 0)
 	{
           if (!cgraph_recursive_inlining_p (edge->caller, edge->callee,
@@ -958,7 +961,8 @@ cgraph_decide_inlining_of_small_functions (void)
 	    {
 	      edge->inline_failed = not_good;
 	      if (dump_file)
-		fprintf (dump_file, " inline_failed:%s.\n", edge->inline_failed);
+		fprintf (dump_file, " inline_failed:%s.\n",
+			 cgraph_inline_failed_string (edge->inline_failed));
 	    }
 	  continue;
 	}
@@ -968,16 +972,18 @@ cgraph_decide_inlining_of_small_functions (void)
 				            &edge->inline_failed))
 	    {
 	      if (dump_file)
-		fprintf (dump_file, " inline_failed:%s.\n", edge->inline_failed);
+		fprintf (dump_file, " inline_failed:%s.\n",
+			 cgraph_inline_failed_string (edge->inline_failed));
 	    }
 	  continue;
 	}
       if (!tree_can_inline_p (edge->caller->decl, edge->callee->decl))
 	{
 	  edge->call_stmt_cannot_inline_p = true;
-	  edge->inline_failed = N_("target specific option mismatch");
+	  edge->inline_failed = CIF_TARGET_OPTION_MISMATCH;
 	  if (dump_file)
-	    fprintf (dump_file, " inline_failed:%s.\n", edge->inline_failed);
+	    fprintf (dump_file, " inline_failed:%s.\n",
+		     cgraph_inline_failed_string (edge->inline_failed));
 	  continue;
 	}
       if (cgraph_recursive_inlining_p (edge->caller, edge->callee,
@@ -1001,7 +1007,8 @@ cgraph_decide_inlining_of_small_functions (void)
 	    {
 	      if (dump_file)
 		fprintf (dump_file, " Not inlining into %s:%s.\n",
-			 cgraph_node_name (edge->caller), edge->inline_failed);
+			 cgraph_node_name (edge->caller),
+			 cgraph_inline_failed_string (edge->inline_failed));
 	      continue;
 	    }
 	  callee = edge->callee;
@@ -1051,7 +1058,7 @@ cgraph_decide_inlining_of_small_functions (void)
       if (!edge->callee->local.disregard_inline_limits && edge->inline_failed
           && !cgraph_recursive_inlining_p (edge->caller, edge->callee,
 				           &edge->inline_failed))
-	edge->inline_failed = N_("--param inline-unit-growth limit reached");
+	edge->inline_failed = CIF_INLINE_UNIT_GROWTH_LIMIT;
     }
 
   if (new_indirect_edges)
@@ -1153,7 +1160,7 @@ cgraph_decide_inlining (void)
 	 reason why inline failed.  */
       for (e = node->callers; e; e = e->next_caller)
 	if (e->inline_failed)
-	  e->inline_failed = N_("recursive inlining");
+	  e->inline_failed = CIF_RECURSIVE_INLINING;
       if (dump_file)
 	fprintf (dump_file, 
 		 " Inlined for a net change of %+i insns.\n",
@@ -1279,7 +1286,7 @@ try_inline (struct cgraph_edge *e, enum inlining_mode mode, int depth)
 		       cgraph_node_name (e->caller));
 	    }
 	  e->inline_failed = (e->callee->local.disregard_inline_limits
-		              ? N_("recursive inlining") : "");
+		              ? CIF_RECURSIVE_INLINING : CIF_UNSPECIFIED);
           return false;
 	}
     }
@@ -1318,7 +1325,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 {
   struct cgraph_edge *e;
   bool inlined = false;
-  const char *failed_reason;
+  cgraph_inline_failed_t failed_reason;
   enum inlining_mode old_mode;
 
 #ifdef ENABLE_CHECKING
@@ -1463,7 +1470,8 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	    if (dump_file)
 	      {
 		indent_to (dump_file, depth);
-		fprintf (dump_file, "Not inlining: %s.\n", e->inline_failed);
+		fprintf (dump_file, "Not inlining: %s.\n",
+			 cgraph_inline_failed_string (e->inline_failed));
 	      }
 	    continue;
 	  }

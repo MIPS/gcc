@@ -504,7 +504,7 @@ lto_add_all_inlinees (cgraph_node_set set)
     {
       node = VEC_index (cgraph_node_ptr, queue, i);
       for (edge = node->callees; edge != NULL; edge = edge->next_callee)
-	if (edge->inline_failed == NULL)
+	if (edge->inline_failed == CIF_OK)
 	  {
 	    callee = edge->callee;
 	    if (!bitmap_bit_p (queued_p, callee->uid))
@@ -679,7 +679,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 	  struct cgraph_edge *e;
 	
 	  for (e = node->callees; e != NULL; e = e->next_callee)
-	    e->inline_failed = NULL;
+	    e->inline_failed = CIF_OK;
 	}
 
       /* FIXME: We should not call this function directly. */

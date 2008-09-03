@@ -215,6 +215,13 @@ DEF_VEC_P(cgraph_node_ptr);
 DEF_VEC_ALLOC_P(cgraph_node_ptr,heap);
 DEF_VEC_ALLOC_P(cgraph_node_ptr,gc);
 
+#define DEFCIFCODE(code, string)	CIF_ ## code,
+/* Reasons for inlining failures.  */
+typedef enum {
+#include "cif-code.def"
+  CIF_N_REASONS
+} cgraph_inline_failed_t;
+
 struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller")))
 {
   struct cgraph_node *caller;
@@ -228,9 +235,9 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_call
      the call_stmt when the function is serialized in.  */
   unsigned int lto_stmt_uid;
   PTR GTY ((skip (""))) aux;
-  /* When NULL, inline this call.  When non-NULL, points to the explanation
-     why function was not inlined.  */
-  const char *inline_failed;
+  /* When equal to CIF_OK, inline this call.  Otherwise, points to the
+     explanation why the function was not inlined.  */
+  cgraph_inline_failed_t inline_failed;
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
   /* Expected frequency of executions within the function. 
@@ -405,6 +412,7 @@ void cgraph_node_set_add (cgraph_node_set, struct cgraph_node *);
 void cgraph_node_set_remove (cgraph_node_set, struct cgraph_node *);
 void dump_cgraph_node_set (FILE *f, cgraph_node_set);
 void debug_cgraph_node_set (cgraph_node_set);
+const char *cgraph_inline_failed_string (cgraph_inline_failed_t);
 
 /* Return true if iterator CSI points to nothing. */
 
@@ -467,7 +475,7 @@ void cgraph_finalize_compilation_unit (void);
 void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
-bool cgraph_inline_p (struct cgraph_edge *, const char **reason);
+bool cgraph_inline_p (struct cgraph_edge *, cgraph_inline_failed_t *reason);
 bool cgraph_preserve_function_body_p (tree);
 void verify_cgraph (void);
 void verify_cgraph_node (struct cgraph_node *);
@@ -573,7 +581,7 @@ varpool_next_static_initializer (struct varpool_node *node)
 /* In ipa-inline.c  */
 void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool, bool);
 void cgraph_mark_inline_edge (struct cgraph_edge *, bool);
-bool cgraph_default_inline_p (struct cgraph_node *, const char **);
+bool cgraph_default_inline_p (struct cgraph_node *, cgraph_inline_failed_t *);
 unsigned int build_cgraph_edges (void);
 unsigned int compute_inline_parameters (struct cgraph_node *);
 
