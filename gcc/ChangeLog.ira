@@ -1,3 +1,14 @@
+2008-09-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	rtl-opt/37296
+	* ira-int.h (ira_sort_insn_chain): Remove.
+
+	* ira.c (basic_block_order_nums, chain_insn_order,
+	chain_freq_compare, chain_bb_compare, ira_sort_insn_chain): Remove.
+	(ira): Don't call ira_sort_insn_chain.
+
+	* reload1.c (reload): Don't call ira_sort_insn_chain.
+
 2008-09-02  Richard Sandiford <rsandifo@nildram.co.uk>
 
 	* ira-build.c (form_loop_tree): Use FOR_EACH_BB instead of
