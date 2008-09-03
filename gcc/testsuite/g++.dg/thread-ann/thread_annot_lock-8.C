@@ -49,7 +49,7 @@ Foo *q  GUARDED_BY(mu1);
 Foo y;
 Cat w[3];
 Bar *p GUARDED_BY((y.mu_));
-int gx GUARDED_BY((w[1].bar->foo[2].get_lock()));
+int gx GUARDED_BY((w[1].bar->foo[2].mu_));
 
 
 main()
@@ -75,9 +75,9 @@ main()
   gx = 7;
   w[1].bar->foo[2].get_lock()->Unlock();
   y.mu_.Lock();
-  p->get_foo()->get_lock()->Lock();
-  p->get_foo()->b_ += 1;
-  p->get_foo()->mu_.Unlock();
+  p->foo[2].get_lock()->Lock();
+  p->foo[2].b_ += 1;
+  p->foo[2].mu_.Unlock();
   y.a_ = 2;
   y.mu_.Unlock();
 }

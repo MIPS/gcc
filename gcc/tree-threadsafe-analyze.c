@@ -75,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "c-common.h"
+#include "cp/cp-tree.h"
 #include "toplev.h"
 #include "input.h"
 #include "diagnostic.h"
@@ -83,7 +84,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
-#include "cp/cp-tree.h"
 #include "pointer-set.h"
 #include "pretty-print.h"
 #include "tree-threadsafe-analyze.h"
@@ -104,6 +104,11 @@ struct bb_threadsafe_info
   struct pointer_set_t *liveout_exclusive_locks;
   struct pointer_set_t *liveout_shared_locks;
 
+  /* Working live lock sets. These sets are used and updated during the
+     analysis of statements.  */
+  struct pointer_set_t *live_excl_locks;
+  struct pointer_set_t *live_shared_locks;
+
   /* The outgoing edge that a successful trylock call takes.  */
   edge trylock_live_edge;
 
@@ -117,7 +122,7 @@ struct bb_threadsafe_info
    trylock. A map entry that maps the trylock call to its associated
    trylock_info structure is inserted to trylock_info_map (see below).
    The map (and the trylock_info structure) will later be used when we
-   analysis a blocking-ending if-statement whose condition expression is
+   analyze a block-ending if-statement whose condition expression is
    fed by a trylock.  */
 struct trylock_info
 {
@@ -225,7 +230,7 @@ static const location_t *current_loc;
 static pretty_printer pp_buf;
 
 /* Forward declaration */
-static void analyze_expr (tree, tree, struct pointer_set_t *,
+static void analyze_expr (tree, tree, bool, struct pointer_set_t *,
                           struct pointer_set_t *, const location_t *,
                           enum access_mode);
 static tree get_canonical_expr (tree lock, bool is_temp_expr);
@@ -459,6 +464,26 @@ is_base_object_this_pointer (tree base)
     return false;
 }
 
+/* Given a CALL gimple statment, check if its function decl is annotated
+   with "lock_returned" attribute. If so, return the lock specified in
+   the attribute. Otherise, return NULL_TREE.  */
+
+static tree
+get_lock_returned_by_call (gimple call)
+{
+  tree fdecl = gimple_call_fndecl (call);
+  tree attr = (fdecl
+               ? lookup_attribute ("lock_returned", DECL_ATTRIBUTES (fdecl))
+               : NULL_TREE);
+  if (attr)
+    {
+      gcc_assert (TREE_VALUE (attr) && TREE_VALUE (TREE_VALUE (attr)));
+      return TREE_VALUE (TREE_VALUE (attr));
+    }
+  else
+    return NULL_TREE;
+}
+
 /* Given a lock expression (LOCKABLE), this function returns the
    var/field/parm decl part of the lockable. For example, if the lockable 
    is a[2].foo->mu, it returns the decl tree of mu.  */
@@ -494,19 +519,22 @@ get_lockable_decl (tree lockable)
              by back-tracing its SSA def (as shown in the following example).
                D.2_1 = &this->mu;
                Lock (D.2_1);
-             Note that for some named temps, the original var decl is already
-             there in the debug expr (see create_tmp_from_val() in gimplify.c),
-             so in that case we don't have to look at the SSA def. Also note
-             that the SSA name doesn't always have a def statement (e.g. "this"
-             pointer).  */
+             Note that the SSA name doesn't always have a def statement
+             (e.g. "this" pointer).  */
           tree vdecl = SSA_NAME_VAR (lockable);
-          if (!DECL_NAME (vdecl))
-            return get_lockable_decl (get_rhs (SSA_NAME_DEF_STMT (lockable)));
-          else if (DECL_ARTIFICIAL (vdecl)
-                   && (!DECL_DEBUG_EXPR_IS_FROM (vdecl)
-                       || !DECL_DEBUG_EXPR (vdecl))
-                   && TREE_CODE (SSA_NAME_DEF_STMT (lockable)) != NOP_EXPR)
-            return get_lockable_decl (get_rhs (SSA_NAME_DEF_STMT (lockable)));
+          if (DECL_ARTIFICIAL (vdecl)
+              && !gimple_nop_p (SSA_NAME_DEF_STMT (lockable)))
+            {
+              gimple def_stmt = SSA_NAME_DEF_STMT (lockable);
+              if (is_gimple_assign (def_stmt)
+                  && (get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt))
+                      == GIMPLE_SINGLE_RHS))
+                return get_lockable_decl (gimple_assign_rhs1 (def_stmt));
+              else if (is_gimple_call (def_stmt))
+                return get_lock_returned_by_call (def_stmt);
+              else
+                return get_lockable_decl (vdecl);
+            }
           else
             return get_lockable_decl (vdecl);
         }
@@ -515,23 +543,6 @@ get_lockable_decl (tree lockable)
         return get_lockable_decl (TREE_OPERAND (lockable, 1));
       case ARRAY_REF:
         return get_lockable_decl (TREE_OPERAND (lockable, 0));
-      case CALL_EXPR:
-        {
-          /* If the function is annotated with "lock_returned" attribute,
-             grab the actual lock from the attribute.  */
-          tree fdecl = get_callee_fndecl (lockable);
-          tree attr = (fdecl
-                       ? lookup_attribute ("lock_returned",
-                                           DECL_ATTRIBUTES (fdecl))
-                       : NULL_TREE);
-          if (attr)
-            {
-              gcc_assert (TREE_VALUE (attr) && TREE_VALUE (TREE_VALUE (attr)));
-              return TREE_VALUE (TREE_VALUE (attr));
-            }
-          else
-            return NULL_TREE;
-        }
       default:
         return NULL_TREE;
     }
@@ -566,6 +577,7 @@ get_lockable_decl (tree lockable)
    the fully-qualified name to the live lock set. The same goes for the unlock
    statement in S4. Without using the fully-qualified lock names, we won't
    be able to tell the lock requirement difference between S2 and S3.  */
+
 static tree
 build_fully_qualified_lock (tree lock_field, tree base)
 {
@@ -650,23 +662,36 @@ get_canonical_expr (tree lock, bool is_temp_expr)
                D.2_1 = &this->mu;
                Lock (D.2_1);
 
-             For some named temps, the original var decl is already there
-             in the debug expr (see lookup_tmp_var() in gimplify.c), so in that
-             case we don't have to look at the SSA def. Also note that
-             the SSA name doesn't always have a def statement (e.g. "this"
-             pointer).  */
+             Note that the SSA name doesn't always have a def statement
+             (e.g. "this" pointer).  */
           tree vdecl = SSA_NAME_VAR (lock);
-          if (!DECL_NAME (vdecl))
-            return get_canonical_expr (get_rhs (SSA_NAME_DEF_STMT (lock)),
-                                       is_temp_expr);
-          else if (DECL_ARTIFICIAL (vdecl)
-                   && (!DECL_DEBUG_EXPR_IS_FROM (vdecl)
-                       || !DECL_DEBUG_EXPR (vdecl))
-                   && TREE_CODE (SSA_NAME_DEF_STMT (lock)) != NOP_EXPR)
-            return get_canonical_expr (get_rhs (SSA_NAME_DEF_STMT (lock)),
-                                       is_temp_expr);
-          else
-            return get_canonical_expr (vdecl, is_temp_expr);
+          if (DECL_ARTIFICIAL (vdecl)
+              && !gimple_nop_p (SSA_NAME_DEF_STMT (lock)))
+            {
+              gimple def_stmt = SSA_NAME_DEF_STMT (lock);
+              if (is_gimple_assign (def_stmt)
+                  && (get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt))
+                      == GIMPLE_SINGLE_RHS))
+                return get_canonical_expr (gimple_assign_rhs1 (def_stmt),
+                                           is_temp_expr);
+              else if (is_gimple_call (def_stmt))
+                {
+                  tree real_lock = get_lock_returned_by_call (def_stmt);
+                  if (real_lock)
+                    {
+                      tree fdecl = gimple_call_fndecl (def_stmt);
+                      if (TREE_CODE (TREE_TYPE (fdecl)) == METHOD_TYPE)
+                        {
+                          tree base = gimple_call_arg (def_stmt, 0);
+                          lock = build_fully_qualified_lock (real_lock, base);
+                        }
+                      else
+                        lock = real_lock;
+                      break;
+                    }
+                }
+            }
+          return get_canonical_expr (vdecl, is_temp_expr);
         }
       case ADDR_EXPR:
         {
@@ -716,51 +741,6 @@ get_canonical_expr (tree lock, bool is_temp_expr)
           if (base != canon_base)
             lock = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (canon_base)),
                            canon_base);
-          break;
-        }
-      case CALL_EXPR:
-        {
-          tree fdecl = get_callee_fndecl (lock);
-          tree real_lock = NULL_TREE;
-          tree attr = (fdecl
-                       ? lookup_attribute ("lock_returned",
-                                           DECL_ATTRIBUTES (fdecl))
-                       : NULL_TREE);
-          if (attr)
-            {
-              gcc_assert (TREE_VALUE (attr));
-              real_lock = TREE_VALUE (TREE_VALUE (attr));
-              gcc_assert (real_lock);
-            }
-
-          if (fdecl && TREE_CODE (TREE_TYPE (fdecl)) == METHOD_TYPE)
-            {
-              call_expr_arg_iterator iter;
-              tree base = first_call_expr_arg (lock, &iter);
-              if (attr)
-                lock = build_fully_qualified_lock (real_lock, base);
-              else
-                {
-                  tree canon_base = get_canonical_expr (
-                      base, true /* is_temp_expr */);
-                  if (base != canon_base)
-                    {
-                      tree arglist = build_tree_list (NULL_TREE, canon_base);
-                      tree arg = next_call_expr_arg (&iter);
-                      tree new_arg = arglist;
-                      for ( ; arg; arg = next_call_expr_arg (&iter))
-                        {
-                          TREE_CHAIN (new_arg) = build_tree_list (NULL_TREE,
-                                                                  arg);
-                          new_arg = TREE_CHAIN (new_arg);
-                        }
-                      lock = build_function_call_expr (fdecl, arglist);
-                    }
-                }
-            }
-          else if (attr)
-            lock = real_lock;
-
           break;
         }
       default:
@@ -1270,24 +1250,20 @@ check_locking_order (tree lock,
    through the call's actual parameter list.  */
 
 static tree
-get_actual_argument_from_position (tree call, tree pos_arg)
+get_actual_argument_from_position (gimple call, tree pos_arg)
 {
-  int i;
   int lock_pos;
-  tree arg;
-  call_expr_arg_iterator iter;
+  int num_args = gimple_call_num_args (call);
 
   gcc_assert (TREE_CODE (pos_arg) == INTEGER_CST);
 
   lock_pos = TREE_INT_CST_LOW (pos_arg);
 
-  for (arg = first_call_expr_arg (call, &iter), i = 1; arg;
-       arg = next_call_expr_arg (&iter), ++i)
-    if (i == lock_pos) break;
+  gcc_assert (lock_pos >= 1 && lock_pos <= num_args);
 
-  gcc_assert (arg);
-
-  return arg;
+  /* The lock position specified in the attributes is 1-based, so we need to
+     subtract 1 from it when accessing the call arguments.  */
+  return gimple_call_arg (call, lock_pos - 1);
 }
 
 /* This function handles function calls that acquire or try to acquire
@@ -1322,13 +1298,13 @@ get_actual_argument_from_position (tree call, tree pos_arg)
    argument that corresponds to the lock to be acquired.  */
 
 static void
-handle_lock_primitive_attrs (tree call, tree arg, tree base_obj,
+handle_lock_primitive_attrs (gimple call, tree arg, tree base_obj,
                              bool is_exclusive_lock, bool is_trylock,
                              struct pointer_set_t *live_excl_locks,
                              struct pointer_set_t *live_shared_locks,
                              const location_t *locus)
 {
-  tree fdecl = get_callee_fndecl (call);
+  tree fdecl = gimple_call_fndecl (call);
   char lname[LOCK_NAME_LEN];
   void **entry;
   tree lockable;
@@ -1339,8 +1315,8 @@ handle_lock_primitive_attrs (tree call, tree arg, tree base_obj,
   if (!arg)
     arg = base_obj;
   /* When ARG is an integer that specifies the position of the
-     call's argument corresponding to the lock, we need to iterate
-     through the call's actual parameter list to grab the lock.  */
+     call's argument corresponding to the lock, we need to grab
+     the corresponding actual parameter of the call.  */
   else if (TREE_CODE (arg) == INTEGER_CST)
     arg = get_actual_argument_from_position (call, arg);
   else if (base_obj)
@@ -1463,7 +1439,7 @@ handle_lock_primitive_attrs (tree call, tree arg, tree base_obj,
    handle_lock_primitive_attrs above.  */
 
 static void
-handle_unlock_primitive_attr (tree call, tree arg, tree base_obj,
+handle_unlock_primitive_attr (gimple call, tree arg, tree base_obj,
                               struct pointer_set_t *live_excl_locks,
                               struct pointer_set_t *live_shared_locks,
                               const location_t *locus)
@@ -1529,7 +1505,7 @@ handle_unlock_primitive_attr (tree call, tree arg, tree base_obj,
    LOCUS is the source location of the call expression.  */
 
 static void
-process_function_attrs (tree call, tree fdecl,
+process_function_attrs (gimple call, tree fdecl,
                         struct pointer_set_t *live_excl_locks,
                         struct pointer_set_t *live_shared_locks,
                         const location_t *locus)
@@ -1537,16 +1513,15 @@ process_function_attrs (tree call, tree fdecl,
   tree attr = NULL_TREE;
   char lname[LOCK_NAME_LEN];
   tree base_obj = NULL_TREE;
-  call_expr_arg_iterator iter;
   bool is_exclusive_lock;
   bool is_trylock;
 
-  gcc_assert (TREE_CODE (call) == CALL_EXPR);
+  gcc_assert (is_gimple_call (call));
 
   /* If the function is a class member, the first argument of the function
      (i.e. "this" pointer) would be the base object.  */
   if (TREE_CODE (TREE_TYPE (fdecl)) == METHOD_TYPE)
-    base_obj = first_call_expr_arg (call, &iter);
+    base_obj = gimple_call_arg (call, 0);
 
   /* Check whether this is a locking primitive of any kind.  */
   if ((attr = lookup_attribute("exclusive_lock",
@@ -1873,13 +1848,20 @@ handle_indirect_ref (tree ptr, struct pointer_set_t *excl_locks,
   tree vdecl;
 
   /* The pointer itself is accessed as a read */
-  analyze_expr (ptr, NULL_TREE, excl_locks, shared_locks, locus, TSA_READ);
+  analyze_expr (ptr, NULL_TREE,  false /* is_indirect_ref */, excl_locks,
+                shared_locks, locus, TSA_READ);
 
   if (TREE_CODE (ptr) == SSA_NAME)
     {
       vdecl = SSA_NAME_VAR (ptr);
       if (!DECL_NAME (vdecl))
-        vdecl = get_rhs (SSA_NAME_DEF_STMT (ptr));
+        {
+          gimple def_stmt = SSA_NAME_DEF_STMT (ptr);
+          if (is_gimple_assign (def_stmt)
+              && (get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt))
+                  == GIMPLE_SINGLE_RHS))
+            vdecl = gimple_assign_rhs1 (def_stmt);
+        }
     }
   else
     vdecl = ptr;
@@ -1887,19 +1869,29 @@ handle_indirect_ref (tree ptr, struct pointer_set_t *excl_locks,
   if (DECL_P (vdecl))
     process_guarded_by_attrs (vdecl, NULL_TREE, true /* is_indirect_ref */,
                               excl_locks, shared_locks, locus, mode);
+  else
+    analyze_expr (vdecl, NULL_TREE, true /* is_indirect_ref */,
+                  excl_locks, shared_locks, locus, mode);
+
   return;
 }
 
-/* The main routine that handles call expressions.  */
+/* The main routine that handles gimple call statements.  */
 
 static void
-handle_call_expr (tree call, struct pointer_set_t *excl_locks,
-                  struct pointer_set_t *shared_locks,
-                  const location_t *locus)
+handle_call_gs (gimple call, struct bb_threadsafe_info *current_bb_info)
 {
-  tree fdecl = get_callee_fndecl (call);
-  call_expr_arg_iterator iter;
-  tree arg = first_call_expr_arg (call, &iter);
+  tree fdecl = gimple_call_fndecl (call);
+  int num_args = gimple_call_num_args (call);
+  int arg_index = 0;
+  tree arg;
+  tree lhs;
+  location_t locus;
+
+  if (!gimple_has_location (call))
+    locus = input_location;
+  else
+    locus = gimple_location (call);
 
   /* The callee fndecl could be NULL, e.g., when the function is passed in
      as an argument.  */
@@ -1916,36 +1908,54 @@ handle_call_expr (tree call, struct pointer_set_t *excl_locks,
       enum access_mode rw_mode = is_const_memfun ? TSA_READ : TSA_WRITE;
 
       /* A method should have at least one argument, i.e."this" pointer */
-      gcc_assert (arg);
+      gcc_assert (num_args);
+      arg = gimple_call_arg (call, 0);
 
       /* Analyze the base object ("this").  */
       if (TREE_CODE (arg) == ADDR_EXPR)
         {
           /* Handle the case of x.foo() or foo(&x) */
-          analyze_expr (TREE_OPERAND (arg, 0), NULL_TREE, excl_locks,
-                        shared_locks, locus, rw_mode);
+          analyze_expr (TREE_OPERAND (arg, 0), NULL_TREE,
+                        false /* is_indirect_ref */,
+                        current_bb_info->live_excl_locks,
+                        current_bb_info->live_shared_locks, &locus, rw_mode);
         }
       else
         {
           /* Handle the case of x->foo() or foo(x) */
           gcc_assert (POINTER_TYPE_P (TREE_TYPE (arg)));
-          handle_indirect_ref(arg, excl_locks, shared_locks, locus, rw_mode);
+          handle_indirect_ref(arg, current_bb_info->live_excl_locks,
+                              current_bb_info->live_shared_locks,
+                              &locus, rw_mode);
         }
 
       /* Advance to the next argument */
-      arg = next_call_expr_arg (&iter);
+      ++arg_index;
     }
 
   /* Analyze the call's arguments */
-  for ( ; arg; arg = next_call_expr_arg (&iter))
-    if (!CONSTANT_CLASS_P (arg))
-      analyze_expr (arg, NULL_TREE, excl_locks, shared_locks, locus, TSA_READ);
+  for ( ; arg_index < num_args; ++arg_index)
+    {
+      arg = gimple_call_arg (call, arg_index);
+      if (!CONSTANT_CLASS_P (arg))
+        analyze_expr (arg, NULL_TREE, false /* is_indirect_ref */,
+                      current_bb_info->live_excl_locks,
+                      current_bb_info->live_shared_locks, &locus, TSA_READ);
+    }
+
+  /* Analyze the call's lhs if existing.  */
+  lhs = gimple_call_lhs (call);
+  if (lhs != NULL_TREE)
+    analyze_expr (lhs, NULL_TREE, false /* is_indirect_ref */,
+                  current_bb_info->live_excl_locks,
+                  current_bb_info->live_shared_locks, &locus, TSA_WRITE);
 
   /* Process the attributes associated with the callee func decl.
      Note that we want to process the arguments first so that the callee
      func decl attributes have no effects on the arguments.  */
   if (fdecl)
-    process_function_attrs (call, fdecl, excl_locks, shared_locks, locus);
+    process_function_attrs (call, fdecl, current_bb_info->live_excl_locks,
+                            current_bb_info->live_shared_locks, &locus);
 
   return;
 }
@@ -1962,7 +1972,8 @@ handle_call_expr (tree call, struct pointer_set_t *excl_locks,
    MODE indicates whether the access is a read or a write.  */
 
 static void
-analyze_expr (tree expr, tree base_obj, struct pointer_set_t *excl_locks,
+analyze_expr (tree expr, tree base_obj,  bool is_indirect_ref,
+              struct pointer_set_t *excl_locks,
               struct pointer_set_t *shared_locks,
               const location_t *locus, enum access_mode mode)
 {
@@ -1980,15 +1991,8 @@ analyze_expr (tree expr, tree base_obj, struct pointer_set_t *excl_locks,
 
       if (TREE_CODE (expr) == INDIRECT_REF)
         {
-          /* The pointer itself is being read */
           tree ptr = TREE_OPERAND (expr, 0);
           handle_indirect_ref (ptr, excl_locks, shared_locks, locus, mode);
-          return;
-        }
-
-      if (TREE_CODE (expr) == CALL_EXPR)
-        {
-          handle_call_expr (expr, excl_locks, shared_locks, locus);
           return;
         }
 
@@ -1998,10 +2002,10 @@ analyze_expr (tree expr, tree base_obj, struct pointer_set_t *excl_locks,
         {
           tree base = TREE_OPERAND (expr, 0);
           tree component = TREE_OPERAND (expr, 1);
-          analyze_expr (base, NULL_TREE, excl_locks, shared_locks, locus,
-                        mode);
-          analyze_expr (component, base, excl_locks, shared_locks, locus,
-                        mode);
+          analyze_expr (base, NULL_TREE, false /* is_indirect_ref */,
+                        excl_locks, shared_locks, locus, mode);
+          analyze_expr (component, base, is_indirect_ref,
+                        excl_locks, shared_locks, locus, mode);
           return;
         }
 
@@ -2012,7 +2016,8 @@ analyze_expr (tree expr, tree base_obj, struct pointer_set_t *excl_locks,
         {
           tree op = TREE_OPERAND (expr, i);
           if (op != 0 && !CONSTANT_CLASS_P (op))
-            analyze_expr (op, base_obj, excl_locks, shared_locks, locus, mode);
+            analyze_expr (op, base_obj, false /* is_indirect_ref */,
+                          excl_locks, shared_locks, locus, mode);
         }
 
       return;
@@ -2023,18 +2028,29 @@ analyze_expr (tree expr, tree base_obj, struct pointer_set_t *excl_locks,
     {
       vdecl = SSA_NAME_VAR (expr);
       if (!DECL_NAME (vdecl))
-        vdecl = get_rhs (SSA_NAME_DEF_STMT (expr));
+        {
+          gimple def_stmt = SSA_NAME_DEF_STMT (expr);
+          if (is_gimple_assign (def_stmt)
+              && (get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt))
+                  == GIMPLE_SINGLE_RHS))
+            vdecl = gimple_assign_rhs1 (def_stmt);
+        }
     }
-  else
+  else if (DECL_P (expr))
     vdecl = expr;
+  else
+    return;
 
   if (DECL_P (vdecl))
-    process_guarded_by_attrs (vdecl, base_obj, false /* is_indirect_ref */,
+    process_guarded_by_attrs (vdecl, base_obj, is_indirect_ref,
                               excl_locks, shared_locks, locus, mode);
+  else
+    analyze_expr (vdecl, base_obj, is_indirect_ref, excl_locks, shared_locks,
+                  locus, mode);
 }
 
-/* This is a helper function called by is_condition_fed_by_trylock() to
-   check if EXPR is a trylock call (or a simple expression fed by a trylock
+/* This is a helper function called by handle_cond_gs() to check if
+   GS is a trylock call (or a simple expression fed by a trylock
    call that involves only logic "not" operations). And if so, grab and
    return the corresponding trylock_info structure. Otherwise, return NULL.
    In the process, *LOCK_ON_TRUE_PATH is set to indicate whether the true
@@ -2042,43 +2058,50 @@ analyze_expr (tree expr, tree base_obj, struct pointer_set_t *excl_locks,
    acquired.  */
 
 static struct trylock_info *
-get_trylock_info(tree expr, bool *lock_on_true_path)
+get_trylock_info(gimple gs, bool *lock_on_true_path)
 {
   while (1)
     {
-      switch (TREE_CODE (expr))
+      if (is_gimple_assign (gs))
         {
-          case SSA_NAME:
-            expr = get_rhs (SSA_NAME_DEF_STMT (expr));
-            continue;
-          case TRUTH_NOT_EXPR:
-            /* If the expr is a logic "not" operation, negate the value
-               pointed to by lock_on_true_apth and continue trace back
-               the expr's operand.  */
-            *lock_on_true_path = !*lock_on_true_path;
-            expr = TREE_OPERAND (expr, 0);
-            continue;
-          case CALL_EXPR:
+          enum tree_code subcode = gimple_assign_rhs_code (gs);
+          if (subcode == SSA_NAME)
             {
-              tree fdecl = get_callee_fndecl (expr);
-              /* The function decl could be null in some cases, e.g.
-                 a function pointer passed in as a parameter.  */
-              if (fdecl
-                  && (lookup_attribute ("exclusive_trylock",
-                                        DECL_ATTRIBUTES (fdecl))
-                      || lookup_attribute ("shared_trylock",
-                                           DECL_ATTRIBUTES (fdecl))))
-                {
-                  void **entry = pointer_map_contains (trylock_info_map, expr);
-                  gcc_assert (entry);
-                  return (struct trylock_info *)*entry;
-                }
-              else
-                return NULL;
+              gs = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (gs));
+              continue;
             }
-          default:
+          else if (subcode == TRUTH_NOT_EXPR)
+            {
+              /* If the expr is a logic "not" operation, negate the value
+                 pointed to by lock_on_true_apth and continue trace back
+                 the expr's operand.  */
+              *lock_on_true_path = !*lock_on_true_path;
+              gs = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (gs));
+              continue;
+            }
+          else
             return NULL;
         }
+      else if (is_gimple_call (gs))
+        {
+          tree fdecl = gimple_call_fndecl (gs);
+          /* The function decl could be null in some cases, e.g.
+             a function pointer passed in as a parameter.  */
+          if (fdecl
+              && (lookup_attribute ("exclusive_trylock",
+                                    DECL_ATTRIBUTES (fdecl))
+                  || lookup_attribute ("shared_trylock",
+                                       DECL_ATTRIBUTES (fdecl))))
+            {
+              void **entry = pointer_map_contains (trylock_info_map, gs);
+              gcc_assert (entry);
+              return (struct trylock_info *)*entry;
+            }
+          else
+            return NULL;
+        }
+      else
+        return NULL;
     }
 
   gcc_unreachable ();
@@ -2086,10 +2109,10 @@ get_trylock_info(tree expr, bool *lock_on_true_path)
   return NULL;
 }
 
-/* This routine determines whether a given if-condition expression (COND) is
+/* This routine determines whether the given condition statment (COND_STMT) is
    fed by a trylock call through expressions involving only "not", "equal"
-   "not-equal" operations. For example, this routine returns true for all
-   the following code examples:
+   "not-equal" operations. Here are several examples where the condition
+   statements are fed by trylock calls:
 
      (1) if (mu.Trylock()) {
            ...
@@ -2114,54 +2137,99 @@ get_trylock_info(tree expr, bool *lock_on_true_path)
            ...
          }
 
-   If the condition is determined to be fed by a trylock call, this routine
-   populates the data structure pointed to by THREADSAFE_INFO, and
+   If COND_STMT is determined to be fed by a trylock call, this routine
+   populates the data structure pointed to by CURRENT_BB_INFO, and
    sets *LOCK_ON_TRUE_PATH to indicate whether the true (control flow) path
    should be taken when the lock is successfully acquired.  */
 
-static bool
-is_condition_fed_by_trylock(tree cond,
-                            struct bb_threadsafe_info *threadsafe_info,
-                            bool *lock_on_true_path)
+static void
+handle_cond_gs (gimple cond_stmt, struct bb_threadsafe_info *current_bb_info)
 {
+  gimple gs = NULL;
+  bool lock_on_true_path = true;
+  bool is_cond_stmt = true;
+  edge true_edge, false_edge;
+  basic_block bb = gimple_bb (cond_stmt);
+  tree op0 = gimple_cond_lhs (cond_stmt);
+  tree op1 = gimple_cond_rhs (cond_stmt);
+  enum tree_code subcode = gimple_cond_code (cond_stmt);
+
+  /* We only handle condition expressions with "equal" or "not-equal"
+     operations.  */
+  if (subcode != EQ_EXPR && subcode != NE_EXPR)
+    return;
+
+  /* In the new gimple tuple IR, a single operand if-condition such as
+
+       if (a) {
+       }
+
+     would be represented as
+
+       GIMPLE_COND <NE_EXPR, a, 0, TRUE_LABEL, FALSE_LABEL>
+
+     Here we are trying this case and grab the SSA definition of a.  */
+
+  if (TREE_CODE (op0) == SSA_NAME
+      && subcode == NE_EXPR
+      && TREE_CODE (op1) == INTEGER_CST
+      && TREE_INT_CST_LOW (op1) == 0)
+    {
+      gs = SSA_NAME_DEF_STMT (op0);
+      is_cond_stmt = false;
+    }
+
+  /* Iteratively back-tracing the SSA definitions to determine if the
+     condition expression is fed by a trylock call. If so, record the
+     edge that indicates successful lock acquisition.  */
   while (1)
     {
-      switch (TREE_CODE (cond))
+      if (is_cond_stmt || is_gimple_assign (gs))
         {
-          case SSA_NAME:
-            /* If the cond is an ssa name, look at the rhs of its ssa def.  */
-            cond = get_rhs (SSA_NAME_DEF_STMT (cond));
-            continue;
-          case TRUTH_NOT_EXPR:
-            /* If the cond is a logic "not" operation, negate the value
-               pointed to by lock_on_true_apth and continue trace back the
-               cond's operand.  */
-            *lock_on_true_path = !*lock_on_true_path;
-            cond = TREE_OPERAND (cond, 0);
-            continue;
-          case EQ_EXPR:
-          case NE_EXPR:
+          if (!is_cond_stmt)
             {
-              /* For either "equal" or "not-equal" operations, we currently
-                 only support the case where one of the operands is an
-                 integer constant. The other operand should be a trylock call
-                 or a simple expression fed by a trylock call.  */
-              tree op0 = TREE_OPERAND (cond, 0);
-              tree op1 = TREE_OPERAND (cond, 1);
+              gcc_assert (gs);
+              subcode = gimple_assign_rhs_code (gs);
+            }
+
+          if (subcode == SSA_NAME)
+            {
+              gcc_assert (!is_cond_stmt);
+              gs = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (gs));
+              continue;
+            }
+          else if (subcode == TRUTH_NOT_EXPR)
+            {
+              gcc_assert (!is_cond_stmt);
+              lock_on_true_path = !lock_on_true_path;
+              gs = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (gs));
+              continue;
+            }
+          else if (subcode == EQ_EXPR || subcode == NE_EXPR)
+            {
               struct trylock_info *tryinfo;
               int const_op;
-              if (TREE_CODE (op0) == INTEGER_CST)
+              if (!is_cond_stmt)
+                {
+                  op0 = gimple_assign_rhs1 (gs);
+                  op1 = gimple_assign_rhs2 (gs);
+                }
+              if (TREE_CODE (op0) == INTEGER_CST
+                  && TREE_CODE (op1) == SSA_NAME)
                 {
                   const_op = TREE_INT_CST_LOW (op0);
-                  tryinfo = get_trylock_info (op1, lock_on_true_path);
+                  tryinfo = get_trylock_info (SSA_NAME_DEF_STMT (op1),
+                                              &lock_on_true_path);
                 }
-              else if (TREE_CODE (op1) == INTEGER_CST)
+              else if (TREE_CODE (op1) == INTEGER_CST
+                       && TREE_CODE (op0) == SSA_NAME)
                 {
                   const_op = TREE_INT_CST_LOW (op1);
-                  tryinfo = get_trylock_info (op0, lock_on_true_path);
+                  tryinfo = get_trylock_info (SSA_NAME_DEF_STMT (op0),
+                                              &lock_on_true_path);
                 }
               else
-                return false;
+                return;
 
               if (tryinfo)
                 {
@@ -2174,51 +2242,57 @@ is_condition_fed_by_trylock(tree cond,
                      (mu.TryLock() != 0), we need to negate the
                      lock_on_true_path value.  */ 
                   if ((tryinfo->succ_retval == const_op
-                       && TREE_CODE (cond) == NE_EXPR)
+                       && subcode == NE_EXPR)
                       || (tryinfo->succ_retval != const_op
-                          && TREE_CODE (cond) == EQ_EXPR))
-                    *lock_on_true_path = !*lock_on_true_path;
+                          && subcode == EQ_EXPR))
+                    lock_on_true_path = !lock_on_true_path;
 
                   edge_locks = pointer_set_copy (tryinfo->locks);
                   if (tryinfo->is_exclusive)
-                    threadsafe_info->edge_exclusive_locks = edge_locks;
+                    current_bb_info->edge_exclusive_locks = edge_locks;
                   else
-                    threadsafe_info->edge_shared_locks = edge_locks;
-                  return true;
+                    current_bb_info->edge_shared_locks = edge_locks;
+                  break;
                 }
               else
-                return false;
+                return;
             }
-          case CALL_EXPR:
-            {
-              struct trylock_info *tryinfo;
-              tryinfo = get_trylock_info (cond, lock_on_true_path);
-              if (tryinfo)
-                {
-                  struct pointer_set_t *edge_locks;
-                  /* If the succ_retval of the trylock is 0 (or boolean
-                     "false"), we need to negate the value pointed to by
-                     lock_on_true_path.  */
-                  if (tryinfo->succ_retval == 0)
-                    *lock_on_true_path = !*lock_on_true_path;
-                  edge_locks = pointer_set_copy (tryinfo->locks);
-                  if (tryinfo->is_exclusive)
-                    threadsafe_info->edge_exclusive_locks = edge_locks;
-                  else
-                    threadsafe_info->edge_shared_locks = edge_locks;
-                  return true;
-                }
-              else
-                return false;
-            }
-          default:
-            return false;
+          else
+            return;
         }
+      else if (is_gimple_call (gs))
+        {
+          struct trylock_info *tryinfo;
+          tryinfo = get_trylock_info (gs, &lock_on_true_path);
+          if (tryinfo)
+            {
+              struct pointer_set_t *edge_locks;
+              /* If the succ_retval of the trylock is 0 (or boolean
+                 "false"), we need to negate the value pointed to by
+                 lock_on_true_path.  */
+              if (tryinfo->succ_retval == 0)
+                lock_on_true_path = !lock_on_true_path;
+              edge_locks = pointer_set_copy (tryinfo->locks);
+              if (tryinfo->is_exclusive)
+                current_bb_info->edge_exclusive_locks = edge_locks;
+              else
+                current_bb_info->edge_shared_locks = edge_locks;
+              break;
+            }
+          else
+            return;
+        }
+      else
+        return;
     }
 
-  gcc_unreachable ();
-
-  return false;
+  gcc_assert (current_bb_info->edge_exclusive_locks
+              || current_bb_info->edge_shared_locks);
+  extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+  if (lock_on_true_path)
+    current_bb_info->trylock_live_edge = true_edge;
+  else
+    current_bb_info->trylock_live_edge = false_edge;
 }
 
 /* This is a helper function to populate the LOCK_SET with the locks
@@ -2394,6 +2468,84 @@ delete_trylock_info (const void * ARG_UNUSED (call),
   return true;
 }
 
+/* Helper function for walk_gimple_stmt() that is called on each gimple
+   statement. Except for call statements and SSA definitions of namesless
+   temp variables, the operands of the statements will be analyzed by
+   analyze_op_r().  */
+
+static tree
+analyze_stmt_r (gimple_stmt_iterator *gsi, bool *handled_ops,
+                struct walk_stmt_info *wi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  struct bb_threadsafe_info *current_bb_info =
+      (struct bb_threadsafe_info *) wi->info;
+
+  if (is_gimple_assign (stmt))
+    {
+      /* If the statement is an SSA definition of a nameless temp variable
+         and it has a single RHS, we will not analyze its operands because
+         the RHS of the statement will be analyzed later when we see the use
+         of the temp variable. For example, in the following snippet of
+         gimple IR, we would skip S1 but come back to analyze foo.a_ when
+         we see the use of D.1803_1 in S2. This way we can avoid emitting
+         duplicate warning messages.
+
+         S1:  D.1803_1 = foo.a_;
+         S2:  res.1_4 = *D.1803_1;  */
+      enum tree_code subcode = gimple_assign_rhs_code (stmt);
+      tree lhs = gimple_get_lhs (stmt);
+      if (get_gimple_rhs_class (subcode) == GIMPLE_SINGLE_RHS
+          && TREE_CODE (lhs) == SSA_NAME)
+        {
+          tree vdecl = SSA_NAME_VAR (lhs);
+          if (!DECL_NAME (vdecl))
+            *handled_ops = true;
+        }
+    }
+  else if (is_gimple_call (stmt))
+    {
+      handle_call_gs (stmt, current_bb_info);
+      /* The arguments of the call is already analyzed in handle_call_gs.
+         Set *handled_ops to true to skip calling analyze_op_r later.  */
+      *handled_ops = true;
+    }
+  else if (gimple_code (stmt) == GIMPLE_COND)
+    handle_cond_gs (stmt, current_bb_info);
+
+  return NULL_TREE;
+}
+
+/* Helper function for walk_gimple_stmt() that is called on each operand of
+   a visited gimple statement.  */
+
+static tree
+analyze_op_r (tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  struct bb_threadsafe_info *current_bb_info =
+      (struct bb_threadsafe_info *) wi->info;
+  gimple stmt = gsi_stmt (wi->gsi);
+  enum access_mode mode = wi->is_lhs ? TSA_WRITE : TSA_READ;
+  location_t locus;
+
+  if (!CONSTANT_CLASS_P (*tp))
+    {
+      if (!gimple_has_location (stmt))
+        locus = input_location;
+      else
+        locus = gimple_location (stmt);
+
+      analyze_expr(*tp, NULL_TREE, false /* is_indirect_ref */,
+                   current_bb_info->live_excl_locks,
+                   current_bb_info->live_shared_locks, &locus, mode);
+    }
+
+  *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
 /* Perform thread safety analysis using the attributes mentioned above
    (see comments at the beginning of the file).  The analysis pass uses
    a single-pass (or single iteration) data-flow analysis to calculate
@@ -2525,13 +2677,13 @@ execute_threadsafe_analyze (void)
      is done.  */
   while (visit_ptr != append_ptr)
     {
-      struct pointer_set_t *live_excl_locks = NULL;
-      struct pointer_set_t *live_shared_locks = NULL;
       struct pointer_set_t *reported_unreleased_locks = pointer_set_create();
-      block_stmt_iterator bsi;
+      struct bb_threadsafe_info *current_bb_info;
+      gimple_stmt_iterator gsi;
 
       bb = worklist[visit_ptr++];
-      threadsafe_info[bb->index].visited = true;
+      current_bb_info = &threadsafe_info[bb->index];
+      current_bb_info->visited = true;
 
       /* First create the live-in lock sets for bb by intersecting all of its
          predecessors' live-out sets */
@@ -2548,11 +2700,11 @@ execute_threadsafe_analyze (void)
 
           /* If this is the first predecessor of bb's, simply copy the
              predecessor's live-out sets to bb's live (working) sets.  */
-          if (live_excl_locks == NULL)
+          if (current_bb_info->live_excl_locks == NULL)
             {
-              live_excl_locks = pointer_set_copy (
+              current_bb_info->live_excl_locks = pointer_set_copy (
                   threadsafe_info[pred_bb->index].liveout_exclusive_locks);
-              live_shared_locks = pointer_set_copy (
+              current_bb_info->live_shared_locks = pointer_set_copy (
                   threadsafe_info[pred_bb->index].liveout_shared_locks);
               /* If the pred bb has a trylock call and its edge to the current
                  bb is the one for successful lock acquisition, add the
@@ -2563,11 +2715,13 @@ execute_threadsafe_analyze (void)
                       threadsafe_info[pred_bb->index].edge_exclusive_locks
                       || threadsafe_info[pred_bb->index].edge_shared_locks);
                   if (threadsafe_info[pred_bb->index].edge_exclusive_locks)
-                    pointer_set_union_inplace (live_excl_locks,
-                         threadsafe_info[pred_bb->index].edge_exclusive_locks);
+                    pointer_set_union_inplace (
+                        current_bb_info->live_excl_locks,
+                        threadsafe_info[pred_bb->index].edge_exclusive_locks);
                   if (threadsafe_info[pred_bb->index].edge_shared_locks)
-                    pointer_set_union_inplace (live_shared_locks,
-                            threadsafe_info[pred_bb->index].edge_shared_locks);
+                    pointer_set_union_inplace (
+                        current_bb_info->live_shared_locks,
+                        threadsafe_info[pred_bb->index].edge_shared_locks);
                 }
               continue;
             }
@@ -2610,12 +2764,14 @@ execute_threadsafe_analyze (void)
           /* Intersect the current (working) live set with the predecessor's
              live-out set. Locks that are not in the intersection (i.e.
              complement set) should be reported as improperly released.  */
-          pointer_set_intersection_complement (live_excl_locks,
-                                               pred_liveout_excl_locks,
-                                               unreleased_locks);
-          pointer_set_intersection_complement (live_shared_locks,
-                                               pred_liveout_shared_locks,
-                                               unreleased_locks);
+          pointer_set_intersection_complement (
+              current_bb_info->live_excl_locks,
+              pred_liveout_excl_locks,
+              unreleased_locks);
+          pointer_set_intersection_complement (
+              current_bb_info->live_shared_locks,
+              pred_liveout_shared_locks,
+              unreleased_locks);
 
           /* Emit warnings for the locks that are not properly released.
              That is, the places they are released are not control
@@ -2629,87 +2785,16 @@ execute_threadsafe_analyze (void)
         }
 
       pointer_set_destroy (reported_unreleased_locks);
-      gcc_assert (live_excl_locks != NULL);
+      gcc_assert (current_bb_info->live_excl_locks != NULL);
 
       /* Now iterate through each statement of the bb and analyze its
-         expressions/operands. Note that when analyzing a statement,
-         instead of using the SSA tree operand iterators, we manually
-         analyze the expressions/operands on both rhs and lhs of the
-         statement. The reason for that is because the SSA operand iterators
-         do not visit non-SSA operands while we would like to take
-         advantage of the fact that a non-pointer variable would be
-         accessed the same way when it is in the SSA form. For example,
-         if we have an original statement like this:
-
-             S1: gx = gy + 1; // read gy, write gx
-
-         After SSA transformation, we have the following code sequence:
-
-             S1': gy.0 = gy;   // read gy
-             S2': gx.1 = gy.0 + 1;
-             S3': gx = gx.1;   // write gx
-
-         Using the SSA operand iterators, variable gy in S1' and gx in S3'
-         will not be visited. Even if we can get gy from gy.0, for example,
-         gy.0 is not accessed exactly the same way as gy (as gy.0 is written
-         in S1' while gy is never written in original statement S1). So it
-         seems using SSA operand iterators will only make our lives harder.  */
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+         operands.  */
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
         {
-          tree stmt = bsi_stmt (bsi);
-          tree rhs;
-          location_t locus;
-
-          /* Ignore labels.  */
-          if (TREE_CODE (stmt) == LABEL_EXPR)
-            continue;
-
-          rhs = get_rhs(stmt);
-
-          /* If the main expression of the stmt is NULL, nothing in this
-             stmt is interesting so simply continue to the next one.  */
-          if (!rhs)
-            continue;
-
-          if (!EXPR_HAS_LOCATION (stmt))
-            locus = input_location;
-          else
-            locus = EXPR_LOCATION (stmt);
-
-          if (!CONSTANT_CLASS_P (rhs))
-            analyze_expr(rhs, NULL_TREE, live_excl_locks, live_shared_locks,
-                         &locus, TSA_READ);
-
-          if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
-            {
-              tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-
-              analyze_expr(lhs, NULL_TREE, live_excl_locks, live_shared_locks,
-                           &locus, TSA_WRITE);
-            }
-          else if (TREE_CODE (stmt) == COND_EXPR)
-            {
-              tree cond = COND_EXPR_COND (stmt);
-              bool lock_on_true_path = true;
-              gcc_assert (stmt == last_stmt (bb));
-              /* Check if the condition expression is fed by a trylock call.
-                 If so, record the edge that indicates successful lock
-                 acquisition.  */
-              if (is_condition_fed_by_trylock(cond,
-                                              &threadsafe_info[bb->index],
-                                              &lock_on_true_path))
-                {
-                  edge true_edge, false_edge;
-                  gcc_assert (threadsafe_info[bb->index].edge_exclusive_locks
-                              || threadsafe_info[bb->index].edge_shared_locks);
-                  extract_true_false_edges_from_block (bb, &true_edge,
-                                                       &false_edge);
-                  if (lock_on_true_path)
-                    threadsafe_info[bb->index].trylock_live_edge = true_edge;
-                  else
-                    threadsafe_info[bb->index].trylock_live_edge = false_edge;
-                }
-            }
+          struct walk_stmt_info wi;
+          memset (&wi, 0, sizeof (wi));
+          wi.info = (void *) current_bb_info;
+          walk_gimple_stmt (&gsi, analyze_stmt_r, analyze_op_r, &wi);
         }
 
       /* Now that we have visited the current bb, check if any of its
@@ -2728,8 +2813,10 @@ execute_threadsafe_analyze (void)
             worklist[append_ptr++] = succ_bb;
         }
 
-      threadsafe_info[bb->index].liveout_exclusive_locks = live_excl_locks;
-      threadsafe_info[bb->index].liveout_shared_locks = live_shared_locks;
+      current_bb_info->liveout_exclusive_locks =
+          current_bb_info->live_excl_locks;
+      current_bb_info->liveout_shared_locks =
+          current_bb_info->live_shared_locks;
     }
 
   /* If there are still live locks at the end of the function that are held

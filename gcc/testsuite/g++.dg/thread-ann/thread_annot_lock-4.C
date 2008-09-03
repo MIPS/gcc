@@ -12,12 +12,12 @@ Mutex mu4[5];
 
 class Foo {
  private:
-  Mutex mu_ ACQUIRED_AFTER(mu2);
   int a_ GUARDED_BY(mu_);
   float b_ GUARDED_BY(mu_);
 
  public:
-  Mutex *get_lock() __attribute__((pure)) { return &mu_; }
+  Mutex mu_ ACQUIRED_AFTER(mu2);
+  Mutex *get_lock() LOCK_RETURNED(mu_) __attribute__((pure)) { return &mu_; }
   void incrementA(int i);
   float decrementB(float f);
 };
@@ -32,7 +32,7 @@ class Bar {
 Foo *foo;
 Bar bar[2];
 int gx GUARDED_BY((mu4[1])) = 3;
-float gy GUARDED_BY((foo->get_lock())) = 5.0;
+float gy GUARDED_BY((foo->mu_)) = 5.0;
 int *gp PT_GUARDED_VAR GUARDED_BY((bar[0].mu_));
 
 void func1(void) LOCKS_EXCLUDED(mu1, mu2, mu3);
@@ -40,7 +40,7 @@ void func1(void) LOCKS_EXCLUDED(mu1, mu2, mu3);
 void func1(void)
 {
   int la;
-  float *p PT_GUARDED_BY((foo->get_lock())) = &gy;
+  float *p PT_GUARDED_BY((foo->mu_)) = &gy;
 
   bar[0].mu_.Lock();
   gp = &gx;

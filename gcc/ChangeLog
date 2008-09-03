@@ -1,3 +1,27 @@
+2008-09-02  Le-Chun Wu  <lcwu@google.com>
+
+	* tree-threadsafe-analyze.c (get_lock_returned_by_call): New function
+	to return the lock specified in the lock_returned attribute.
+	(get_lockable_decl): Modified to use the GIMPLE tuple IR.
+	(get_canonical_expr): Ditto. 
+	(get_actual_argument_from_position): Ditto.
+	(handle_lock_primitive_attrs): Ditto.
+	(handle_unlock_primitive_attr): Ditto.
+	(process_function_attrs): Ditto.
+	(handle_call_gs): New function that handles gimple call statements. It
+	replaces the old function handle_call_expr.
+	(analyze_expr): Modified to use the GIMPLE tuple IR. Added a new
+	parameter "is_indirect_ref" to support "point_to_guarded_by" attribute
+	in class members.
+	(get_trylock_info): Modified to use the GIMPLE tuple IR.
+	(handle_cond_gs): New function to handle gimple condition statements.
+	It replaces the old function is_condition_fed_by_trylock.
+	(analyze_stmt_r): New helper function for walk_gimple_stmt() that is
+	called on each gimple statement.
+	(analyze_op_r): New helper function for walk_gimple_stmt() that is
+	called on each operand of a visited gimple statement.
+	(execute_threadsafe_analyze): Modified to use the GIMPLE tuple IR.
+
 2008-08-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/37261

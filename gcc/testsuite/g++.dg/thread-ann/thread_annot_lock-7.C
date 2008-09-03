@@ -42,7 +42,7 @@ Foo *q  GUARDED_BY(mu1);
 Foo y;
 Cat w[3];
 Bar *p GUARDED_BY((y.mu_));
-int gx GUARDED_BY((w[1].bar->foo[2].get_lock()));
+int gx GUARDED_BY((w[1].bar->foo[2].mu_));
 
 
 main()
@@ -63,8 +63,8 @@ main()
   w[1].bar->foo[2].get_lock()->Lock();
   gx = 7;
   y.mu_.Lock();
-  p->get_foo()->get_lock()->Lock();
-  p->get_foo()->b_ += 1;
+  p->foo[2].get_lock()->Lock();
+  p->foo[2].b_ += 1;
   y.a_ = 2;
   y.mu_.Unlock();
 }
@@ -73,4 +73,4 @@ main()
 // { dg-warning "Reading variable 'x->b_' requires lock 'x->mu_'" "" { target *-*-* } 21 }
 // { dg-warning "Reading variable 'y->b_' requires lock 'y->mu_'" "" { target *-*-* } 21 }
 // { dg-warning "Lock 'w\\\[1\\\].bar->foo\\\[2\\\].mu_' \\(acquired at line 63\\) is not released at the end of function 'main'" "" { target *-*-* } 63 }
-// { dg-warning "Lock 'get_foo \\(p\\)->mu_' \\(acquired at line 66\\) is not released at the end of function 'main'" "" { target *-*-* } 66 }
+// { dg-warning "Lock 'p->foo\\\[2\\\].mu_' \\(acquired at line 66\\) is not released at the end of function 'main'" "" { target *-*-* } 66 }

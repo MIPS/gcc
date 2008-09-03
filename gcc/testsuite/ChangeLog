@@ -1,3 +1,13 @@
+2008-09-02  Le-Chun Wu  <lcwu@google.com>
+
+	* g++.dg/thread-ann/thread_annot_lock-21.C: New test.
+	* g++.dg/thread-ann/thread_annot_lock-22.C: New test.
+	* g++.dg/thread-ann/thread_annot_lock-4.C: Modified to not use function
+	calls in the lock expression, which is not longer supported after
+	moving lock annotation support to the new GIMPLE tuple IR.
+	* g++.dg/thread-ann/thread_annot_lock-7.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-8.C: Ditto.
+
 2008-08-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/37261
