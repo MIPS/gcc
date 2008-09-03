@@ -1,3 +1,8 @@
+2008-09-03  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-section-out.c (produce_asm_for_decls): Free function_decl_states
+	after calling produce_symtab.
+
 2008-09-01  Bill Maddox  <maddox@google.com>
 
 	* lto-cgraph.c (output_node): Stream out 'needed' flag.

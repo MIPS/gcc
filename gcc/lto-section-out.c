@@ -1273,11 +1273,11 @@ produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED)
 
   lto_end_section ();
 
-  VEC_free (lto_out_decl_state_ptr, heap, function_decl_states);
-  function_decl_states = NULL;
-
   /* Write the symbol table. */
   produce_symtab (ob->main_hash_table);
+
+  VEC_free (lto_out_decl_state_ptr, heap, function_decl_states);
+  function_decl_states = NULL;
 
   /* Deallocate memory and clean up.  */
   destroy_output_block (ob);
