@@ -1,3 +1,8 @@
+2008-09-04  Doug Kwan  <dougkwan@google.com>
+
+	* cgraph.c (cgraph_inlined_failed_string): Cast REASON from
+	implementation-defined integer type to unsigned before comparison.
+
 2008-09-04  Diego Novillo  <dnovillo@google.com>
 
 	* cgraph.c (cgraph_inlined_failed_string): Fix always

@@ -1561,7 +1561,9 @@ cgraph_inline_failed_string (cgraph_inline_failed_t reason)
 #include "cif-code.def"
   };
 
-  gcc_assert (reason < CIF_N_REASONS);
+  /* Signedness of an enum type is implementation defined, so cast it
+     to unsigned before testing. */
+  gcc_assert ((unsigned) reason < CIF_N_REASONS);
   return cif_string_table[reason];
 }
 
