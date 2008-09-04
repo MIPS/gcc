@@ -1561,7 +1561,7 @@ cgraph_inline_failed_string (cgraph_inline_failed_t reason)
 #include "cif-code.def"
   };
 
-  gcc_assert (reason >= CIF_OK && reason < CIF_N_REASONS);
+  gcc_assert (reason < CIF_N_REASONS);
   return cif_string_table[reason];
 }
 
