@@ -1,3 +1,8 @@
+2008-09-04  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* tree-pretty-print.c (dump_omp_clause): Handle
+        OMP_CLAUSE_INPUT and OMP_CLAUSE_OUTPUT.
+
 2008-08-28  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* c-pragma.h (PRAGMA_OMP_CLAUSE_INPUT, PRAGMA_OMP_CLAUSE_OUTPUT):
