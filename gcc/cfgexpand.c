@@ -2041,6 +2041,7 @@ expand_debug_expr (tree exp)
 
       /* Fall through.  */
 
+    case PAREN_EXPR:
     case NOP_EXPR:
     case CONVERT_EXPR:
       {

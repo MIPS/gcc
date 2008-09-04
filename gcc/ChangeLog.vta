@@ -1,3 +1,8 @@
+2008-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/37098
+	* cfgexpand.c (expand_debug_expr): Handle PAREN_EXPR.
+
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
 	* tree-into-ssa.c (var_debug_value_for_decl): Don't track
