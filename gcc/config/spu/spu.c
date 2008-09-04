@@ -126,7 +126,7 @@ static int mem_is_padded_component_ref (rtx x);
 static bool spu_assemble_integer (rtx x, unsigned int size, int aligned_p);
 static void spu_asm_globalize_label (FILE * file, const char *name);
 static unsigned char spu_rtx_costs (rtx x, int code, int outer_code,
-				    int *total);
+				    int *total, bool speed);
 static unsigned char spu_function_ok_for_sibcall (tree decl, tree exp);
 static void spu_init_libfuncs (void);
 static bool spu_return_in_memory (const_tree type, const_tree fntype);
@@ -208,7 +208,7 @@ tree spu_builtin_types[SPU_BTI_MAX];
 #define TARGET_RTX_COSTS spu_rtx_costs
 
 #undef TARGET_ADDRESS_COST
-#define TARGET_ADDRESS_COST hook_int_rtx_0
+#define TARGET_ADDRESS_COST hook_int_rtx_bool_0
 
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE spu_sched_issue_rate
@@ -663,7 +663,7 @@ spu_expand_block_move (rtx ops[])
   int i;
   if (GET_CODE (ops[2]) != CONST_INT
       || GET_CODE (ops[3]) != CONST_INT
-      || INTVAL (ops[2]) > (HOST_WIDE_INT) (MOVE_RATIO * 8))
+      || INTVAL (ops[2]) > (HOST_WIDE_INT) (MOVE_RATIO (optimize_insn_for_speed_p ()) * 8))
     return 0;
 
   bytes = INTVAL (ops[2]);
@@ -4209,7 +4209,8 @@ spu_asm_globalize_label (FILE * file, const char *name)
 }
 
 static bool
-spu_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
+spu_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total,
+	       bool speed ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode = GET_MODE (x);
   int cost = COSTS_N_INSNS (2);

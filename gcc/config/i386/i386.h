@@ -1906,12 +1906,12 @@ do {									\
 
    If you don't define this, a reasonable default is used.  */
 
-#define MOVE_RATIO (optimize_size ? 3 : ix86_cost->move_ratio)
+#define MOVE_RATIO(speed) ((speed) ? ix86_cost->move_ratio : 3)
 
 /* If a clear memory operation would take CLEAR_RATIO or more simple
    move-instruction sequences, we will do a clrmem or libcall instead.  */
 
-#define CLEAR_RATIO (optimize_size ? 2 : MIN (6, ix86_cost->move_ratio))
+#define CLEAR_RATIO(speed) ((speed) ? MIN (6, ix86_cost->move_ratio) : 2)
 
 /* Define if shifts truncate the shift count
    which implies one can omit a sign-extension or zero-extension
@@ -1975,7 +1975,8 @@ do {							\
 /* A C expression for the cost of a branch instruction.  A value of 1
    is the default; other values are interpreted relative to that.  */
 
-#define BRANCH_COST ix86_branch_cost
+#define BRANCH_COST(speed_p, predictable_p) \
+  (!(speed_p) ? 2 : (predictable_p) ? 0 : ix86_branch_cost)
 
 /* Define this macro as a C expression which is nonzero if accessing
    less than a word of memory (i.e. a `char' or a `short') is no
@@ -2389,7 +2390,8 @@ struct machine_function GTY(())
 {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
-  int save_varrargs_registers;
+  int varargs_gpr_size;
+  int varargs_fpr_size;
   int accesses_prev_frame;
   int optimize_mode_switching[MAX_386_ENTITIES];
   int needs_cld;
@@ -2415,7 +2417,8 @@ struct machine_function GTY(())
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
-#define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
+#define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
+#define ix86_varargs_fpr_size (cfun->machine->varargs_fpr_size)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
 #define ix86_current_function_needs_cld (cfun->machine->needs_cld)
 #define ix86_tls_descriptor_calls_expanded_in_cfun \

@@ -1594,10 +1594,14 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	 to CONST_INT since overflow won't be computed properly if wider
 	 than HOST_BITS_PER_WIDE_INT.  */
 
-      if (CONSTANT_P (op0) && GET_MODE (op0) != VOIDmode
+      if ((GET_CODE (op0) == CONST
+	   || GET_CODE (op0) == SYMBOL_REF
+	   || GET_CODE (op0) == LABEL_REF)
 	  && GET_CODE (op1) == CONST_INT)
 	return plus_constant (op0, INTVAL (op1));
-      else if (CONSTANT_P (op1) && GET_MODE (op1) != VOIDmode
+      else if ((GET_CODE (op1) == CONST
+		|| GET_CODE (op1) == SYMBOL_REF
+		|| GET_CODE (op1) == LABEL_REF)
 	       && GET_CODE (op0) == CONST_INT)
 	return plus_constant (op1, INTVAL (op0));
 
@@ -1665,12 +1669,13 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	      rtx coeff;
 	      unsigned HOST_WIDE_INT l;
 	      HOST_WIDE_INT h;
+	      bool speed = optimize_function_for_speed_p (cfun);
 
 	      add_double (coeff0l, coeff0h, coeff1l, coeff1h, &l, &h);
 	      coeff = immed_double_const (l, h, mode);
 
 	      tem = simplify_gen_binary (MULT, mode, lhs, coeff);
-	      return rtx_cost (tem, SET) <= rtx_cost (orig, SET)
+	      return rtx_cost (tem, SET, speed) <= rtx_cost (orig, SET, speed)
 		? tem : 0;
 	    }
 	}
@@ -1859,12 +1864,13 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	      rtx coeff;
 	      unsigned HOST_WIDE_INT l;
 	      HOST_WIDE_INT h;
+	      bool speed = optimize_function_for_speed_p (cfun);
 
 	      add_double (coeff0l, coeff0h, negcoeff1l, negcoeff1h, &l, &h);
 	      coeff = immed_double_const (l, h, mode);
 
 	      tem = simplify_gen_binary (MULT, mode, lhs, coeff);
-	      return rtx_cost (tem, SET) <= rtx_cost (orig, SET)
+	      return rtx_cost (tem, SET, speed) <= rtx_cost (orig, SET, speed)
 		? tem : 0;
 	    }
 	}

@@ -161,7 +161,8 @@ gfc_conv_missing_dummy (gfc_se * se, gfc_expr * arg, gfc_typespec ts, int kind)
       tmp = fold_convert (tmp, build_fold_indirect_ref (se->expr));
     
       /* Test for a NULL value.  */
-      tmp = build3 (COND_EXPR, TREE_TYPE (tmp), present, tmp, integer_one_node);
+      tmp = build3 (COND_EXPR, TREE_TYPE (tmp), present, tmp,
+		    fold_convert (TREE_TYPE (tmp), integer_one_node));
       tmp = gfc_evaluate_now (tmp, &se->pre);
       se->expr = build_fold_addr_expr (tmp);
     }
@@ -3066,10 +3067,12 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
   /* For non-default character kinds, we have to multiply the string
      length by the base type size.  */
   chartype = gfc_get_char_type (dkind);
-  slen = fold_build2 (MULT_EXPR, size_type_node, slen,
-		      TYPE_SIZE_UNIT (chartype));
-  dlen = fold_build2 (MULT_EXPR, size_type_node, dlen,
-		      TYPE_SIZE_UNIT (chartype));
+  slen = fold_build2 (MULT_EXPR, size_type_node,
+		      fold_convert (size_type_node, slen),
+		      fold_convert (size_type_node, TYPE_SIZE_UNIT (chartype)));
+  dlen = fold_build2 (MULT_EXPR, size_type_node,
+		      fold_convert (size_type_node, dlen),
+		      fold_convert (size_type_node, TYPE_SIZE_UNIT (chartype)));
 
   if (dlength)
     dest = fold_convert (pvoid_type_node, dest);

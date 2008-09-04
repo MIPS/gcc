@@ -1709,7 +1709,6 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag)
   gfc_ref *substring, *tail;
   gfc_component *component;
   gfc_symbol *sym = primary->symtree->n.sym;
-  gfc_symtree *tbp;
   match m;
   bool unknown;
 
@@ -1754,6 +1753,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag)
   for (;;)
     {
       gfc_try t;
+      gfc_symtree *tbp;
 
       m = gfc_match_name (name);
       if (m == MATCH_NO)
@@ -1772,13 +1772,19 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag)
 	  gcc_assert (!tail || !tail->next);
 	  gcc_assert (primary->expr_type == EXPR_VARIABLE);
 
-	  tbp_sym = tbp->typebound->target->n.sym;
+	  if (tbp->typebound->is_generic)
+	    tbp_sym = NULL;
+	  else
+	    tbp_sym = tbp->typebound->u.specific->n.sym;
 
 	  primary->expr_type = EXPR_COMPCALL;
-	  primary->value.compcall.tbp = tbp;
-	  primary->ts = tbp_sym->ts;
+	  primary->value.compcall.tbp = tbp->typebound;
+	  primary->value.compcall.name = tbp->name;
+	  gcc_assert (primary->symtree->n.sym->attr.referenced);
+	  if (tbp_sym)
+	    primary->ts = tbp_sym->ts;
 
-	  m = gfc_match_actual_arglist (tbp_sym->attr.subroutine,
+	  m = gfc_match_actual_arglist (tbp->typebound->subroutine,
 					&primary->value.compcall.actual);
 	  if (m == MATCH_ERROR)
 	    return MATCH_ERROR;
@@ -1793,16 +1799,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag)
 		}
 	    }
 
-	  if (sub_flag && !tbp_sym->attr.subroutine)
-	    {
-	      gfc_error ("'%s' at %C should be a SUBROUTINE", name);
-	      return MATCH_ERROR;
-	    }
-	  if (!sub_flag && !tbp_sym->attr.function)
-	    {
-	      gfc_error ("'%s' at %C should be a FUNCTION", name);
-	      return MATCH_ERROR;
-	    }
+	  gfc_set_sym_referenced (tbp->n.sym);
 
 	  break;
 	}
@@ -2128,7 +2125,8 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 }
 
 match
-gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result, bool parent)
+gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result,
+				 bool parent)
 {
   gfc_structure_ctor_component *comp_tail, *comp_head, *comp_iter;
   gfc_constructor *ctor_head, *ctor_tail;
@@ -2147,6 +2145,13 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result, bool parent
   where = gfc_current_locus;
 
   gfc_find_component (sym, NULL, false, true);
+
+  /* Check that we're not about to construct an ABSTRACT type.  */
+  if (!parent && sym->attr.abstract)
+    {
+      gfc_error ("Can't construct ABSTRACT type '%s' at %C", sym->name);
+      return MATCH_ERROR;
+    }
 
   /* Match the component list and store it in a list together with the
      corresponding component names.  Check for empty argument list first.  */
@@ -2246,6 +2251,7 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result, bool parent
 	    {
 	      gfc_current_locus = where;
 	      gfc_free_expr (comp_tail->val);
+	      comp_tail->val = NULL;
 
 	      m = gfc_match_structure_constructor (comp->ts.derived, 
 						   &comp_tail->val, true);

@@ -11846,7 +11846,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 		pos = (tree_low_cst (TREE_OPERAND (index, 0), 0) - min_index)
 		      * fieldsize;
 	      else if (index)
-		pos = tree_low_cst (index, 0) * fieldsize;
+		pos = (tree_low_cst (index, 0) - min_index) * fieldsize;
 
 	      if (val)
 		{
@@ -11916,6 +11916,9 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	  return true;
 	}
       return false;
+    case VIEW_CONVERT_EXPR:
+    case NON_LVALUE_EXPR:
+      return native_encode_initializer (TREE_OPERAND (init, 0), array, size);
     default:
       return native_encode_expr (init, array, size) == size;
     }
@@ -11928,10 +11931,14 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 static void
 tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
 {
-  tree init = DECL_INITIAL (decl);
+  tree init;
   tree type = TREE_TYPE (decl);
   rtx rtl;
 
+  if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != CONST_DECL)
+    return;
+
+  init = DECL_INITIAL (decl);
   if (TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl) && init)
     /* OK */;
   else
@@ -15033,11 +15040,15 @@ gen_namespace_die (tree decl)
      they are an alias of.  */
   if (DECL_ABSTRACT_ORIGIN (decl) == NULL)
     {
-      /* Output a real namespace.  */
+      /* Output a real namespace or module.  */
       dw_die_ref namespace_die
 	= new_die (is_fortran () ? DW_TAG_module : DW_TAG_namespace,
 		   context_die, decl);
-      add_name_and_src_coords_attributes (namespace_die, decl);
+      /* For Fortran modules defined in different CU don't add src coords.  */
+      if (namespace_die->die_tag == DW_TAG_module && DECL_EXTERNAL (decl))
+	add_name_attribute (namespace_die, dwarf2_name (decl, 0));
+      else
+	add_name_and_src_coords_attributes (namespace_die, decl);
       if (DECL_EXTERNAL (decl))
 	add_AT_flag (namespace_die, DW_AT_declaration, 1);
       equate_decl_number_to_die (decl, namespace_die);

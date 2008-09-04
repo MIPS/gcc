@@ -21610,9 +21610,15 @@ int
 main ()
 {
 
-     	#ifndef __GTHREADS_CXX0X
-	#error
-	#endif
+      #ifndef __GTHREADS_CXX0X
+      #error
+      #endif
+
+      // In case of POSIX threads check _POSIX_TIMEOUTS too.
+      #if (defined(_PTHREADS) \
+           && (!defined(_POSIX_TIMEOUTS) || _POSIX_TIMEOUTS <= 0))
+      #error
+      #endif
 
   ;
   return 0;
@@ -106551,7 +106557,12 @@ if test x$enable_symvers = xyes ; then
     enable_symvers=no
   else
     if test $with_gnu_ld = yes ; then
-      enable_symvers=gnu
+      case ${target_os} in
+        cygwin* | pe | mingw32*)
+          enable_symvers=no ;;
+        *)
+          enable_symvers=gnu ;;
+      esac
     else
       case ${target_os} in
         darwin*)

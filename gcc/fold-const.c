@@ -5109,7 +5109,9 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
 
 
 #ifndef LOGICAL_OP_NON_SHORT_CIRCUIT
-#define LOGICAL_OP_NON_SHORT_CIRCUIT (BRANCH_COST >= 2)
+#define LOGICAL_OP_NON_SHORT_CIRCUIT \
+  (BRANCH_COST (!cfun || optimize_function_for_speed_p (cfun), \
+		false) >= 2)
 #endif
 
 /* EXP is some logical combination of boolean tests.  See if we can
@@ -5357,7 +5359,8 @@ fold_truthop (enum tree_code code, tree truth_type, tree lhs, tree rhs)
      that can be merged.  Avoid doing this if the RHS is a floating-point
      comparison since those can trap.  */
 
-  if (BRANCH_COST >= 2
+  if (BRANCH_COST (!cfun || optimize_function_for_speed_p (cfun),
+		   false) >= 2
       && ! FLOAT_TYPE_P (TREE_TYPE (rl_arg))
       && simple_operand_p (rl_arg)
       && simple_operand_p (rr_arg))
@@ -9495,7 +9498,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  /* Convert ~A + 1 to -A.  */
 	  if (TREE_CODE (arg0) == BIT_NOT_EXPR
 	      && integer_onep (arg1))
-	    return fold_build1 (NEGATE_EXPR, type, TREE_OPERAND (arg0, 0));
+	    return fold_build1 (NEGATE_EXPR, type,
+				fold_convert (type, TREE_OPERAND (arg0, 0)));
 
 	  /* ~X + X is -1.  */
 	  if (TREE_CODE (arg0) == BIT_NOT_EXPR

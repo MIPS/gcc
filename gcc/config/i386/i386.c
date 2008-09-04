@@ -1631,9 +1631,6 @@ rtx ix86_compare_op0 = NULL_RTX;
 rtx ix86_compare_op1 = NULL_RTX;
 rtx ix86_compare_emitted = NULL_RTX;
 
-/* Size of the register save area.  */
-#define X86_64_VARARGS_SIZE (X86_64_REGPARM_MAX * UNITS_PER_WORD + X86_64_SSE_REGPARM_MAX * 16)
-
 /* Define the structure for the machine field in struct function.  */
 
 struct stack_local_entry GTY(())
@@ -1793,6 +1790,7 @@ static int ix86_function_regparm (const_tree, const_tree);
 static void ix86_compute_frame_layout (struct ix86_frame *);
 static bool ix86_expand_vector_init_one_nonzero (bool, enum machine_mode,
 						 rtx, rtx, int);
+static void ix86_add_new_builtins (int);
 
 enum ix86_function_specific_strings
 {
@@ -1809,8 +1807,8 @@ static void ix86_function_specific_save (struct cl_target_option *);
 static void ix86_function_specific_restore (struct cl_target_option *);
 static void ix86_function_specific_print (FILE *, int,
 					  struct cl_target_option *);
-static bool ix86_valid_option_attribute_p (tree, tree, tree, int);
-static bool ix86_valid_option_attribute_inner_p (tree, char *[]);
+static bool ix86_valid_target_attribute_p (tree, tree, tree, int);
+static bool ix86_valid_target_attribute_inner_p (tree, char *[]);
 static bool ix86_can_inline_p (tree, tree);
 static void ix86_set_current_function (tree);
 
@@ -2583,7 +2581,7 @@ override_options (bool main_args_p)
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
   /* Set up prefix/suffix so the error messages refer to either the command
-     line argument, or the attribute(option).  */
+     line argument, or the attribute(target).  */
   if (main_args_p)
     {
       prefix = "-m";
@@ -3366,12 +3364,12 @@ ix86_function_specific_print (FILE *file, int indent,
 }
 
 
-/* Inner function to process the attribute((option(...))), take an argument and
+/* Inner function to process the attribute((target(...))), take an argument and
    set the current options from the argument. If we have a list, recursively go
    over the list.  */
 
 static bool
-ix86_valid_option_attribute_inner_p (tree args, char *p_strings[])
+ix86_valid_target_attribute_inner_p (tree args, char *p_strings[])
 {
   char *next_optstr;
   bool ret = true;
@@ -3462,7 +3460,7 @@ ix86_valid_option_attribute_inner_p (tree args, char *p_strings[])
 
       for (; args; args = TREE_CHAIN (args))
 	if (TREE_VALUE (args)
-	    && !ix86_valid_option_attribute_inner_p (TREE_VALUE (args), p_strings))
+	    && !ix86_valid_target_attribute_inner_p (TREE_VALUE (args), p_strings))
 	  ret = false;
 
       return ret;
@@ -3531,7 +3529,7 @@ ix86_valid_option_attribute_inner_p (tree args, char *p_strings[])
       /* Process the option.  */
       if (opt == N_OPTS)
 	{
-	  error ("attribute(option(\"%s\")) is unknown", orig_p);
+	  error ("attribute(target(\"%s\")) is unknown", orig_p);
 	  ret = false;
 	}
 
@@ -3570,7 +3568,7 @@ ix86_valid_option_attribute_inner_p (tree args, char *p_strings[])
 /* Return a TARGET_OPTION_NODE tree of the target options listed or NULL.  */
 
 tree
-ix86_valid_option_attribute_tree (tree args)
+ix86_valid_target_attribute_tree (tree args)
 {
   const char *orig_arch_string = ix86_arch_string;
   const char *orig_tune_string = ix86_tune_string;
@@ -3584,7 +3582,7 @@ ix86_valid_option_attribute_tree (tree args)
     = TREE_TARGET_OPTION (target_option_default_node);
 
   /* Process each of the options on the chain.  */
-  if (! ix86_valid_option_attribute_inner_p (args, option_strings))
+  if (! ix86_valid_target_attribute_inner_p (args, option_strings))
     return NULL_TREE;
 
   /* If the changed options are different from the default, rerun override_options,
@@ -3617,6 +3615,9 @@ ix86_valid_option_attribute_tree (tree args)
       /* Do any overrides, such as arch=xxx, or tune=xxx support.  */
       override_options (false);
 
+      /* Add any builtin functions with the new isa if any.  */
+      ix86_add_new_builtins (ix86_isa_flags);
+
       /* Save the current options unless we are validating options for
 	 #pragma.  */
       t = build_target_option_node ();
@@ -3634,27 +3635,47 @@ ix86_valid_option_attribute_tree (tree args)
   return t;
 }
 
-/* Hook to validate attribute((option("string"))).  */
+/* Hook to validate attribute((target("string"))).  */
 
 static bool
-ix86_valid_option_attribute_p (tree fndecl,
+ix86_valid_target_attribute_p (tree fndecl,
 			       tree ARG_UNUSED (name),
 			       tree args,
 			       int ARG_UNUSED (flags))
 {
-  struct cl_target_option cur_opts;
+  struct cl_target_option cur_target;
   bool ret = true;
-  tree new_opts;
+  tree old_optimize = build_optimization_node ();
+  tree new_target, new_optimize;
+  tree func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
 
-  cl_target_option_save (&cur_opts);
-  new_opts = ix86_valid_option_attribute_tree (args);
-  if (!new_opts)
+  /* If the function changed the optimization levels as well as setting target
+     options, start with the optimizations specified.  */
+  if (func_optimize && func_optimize != old_optimize)
+    cl_optimization_restore (TREE_OPTIMIZATION (func_optimize));
+
+  /* The target attributes may also change some optimization flags, so update
+     the optimization options if necessary.  */
+  cl_target_option_save (&cur_target);
+  new_target = ix86_valid_target_attribute_tree (args);
+  new_optimize = build_optimization_node ();
+
+  if (!new_target)
     ret = false;
 
   else if (fndecl)
-    DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = new_opts;
+    {
+      DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = new_target;
 
-  cl_target_option_restore (&cur_opts);
+      if (old_optimize != new_optimize)
+	DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl) = new_optimize;
+    }
+
+  cl_target_option_restore (&cur_target);
+
+  if (old_optimize != new_optimize)
+    cl_optimization_restore (TREE_OPTIMIZATION (old_optimize));
+
   return ret;
 }
 
@@ -6288,14 +6309,24 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
   int i;
   int regparm = ix86_regparm;
 
-  if((cum ? cum->call_abi : ix86_cfun_abi ()) != DEFAULT_ABI)
+  if (cum->call_abi != DEFAULT_ABI)
     regparm = DEFAULT_ABI != SYSV_ABI ? X86_64_REGPARM_MAX : X64_REGPARM_MAX;
 
-  if (! cfun->va_list_gpr_size && ! cfun->va_list_fpr_size)
-    return;
+  /* GPR size of varargs save area.  */
+  if (cfun->va_list_gpr_size)
+    ix86_varargs_gpr_size = X86_64_REGPARM_MAX * UNITS_PER_WORD;
+  else
+    ix86_varargs_gpr_size = 0;
 
-  /* Indicate to allocate space on the stack for varargs save area.  */
-  ix86_save_varrargs_registers = 1;
+  /* FPR size of varargs save area.  We don't need it if we don't pass
+     anything in SSE registers.  */
+  if (cum->sse_nregs && cfun->va_list_fpr_size)
+    ix86_varargs_fpr_size = X86_64_SSE_REGPARM_MAX * 16;
+  else
+    ix86_varargs_fpr_size = 0;
+
+  if (! ix86_varargs_gpr_size && ! ix86_varargs_fpr_size)
+    return;
 
   save_area = frame_pointer_rtx;
   set = get_varargs_alias_set ();
@@ -6313,7 +6344,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 					x86_64_int_parameter_registers[i]));
     }
 
-  if (cum->sse_nregs && cfun->va_list_fpr_size)
+  if (ix86_varargs_fpr_size)
     {
       /* Now emit code to save SSE registers.  The AX parameter contains number
 	 of SSE parameter registers used to call this function.  We use
@@ -6358,7 +6389,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
       tmp_reg = gen_reg_rtx (Pmode);
       emit_insn (gen_rtx_SET (VOIDmode, tmp_reg,
 			      plus_constant (save_area,
-					     8 * X86_64_REGPARM_MAX + 127)));
+					     ix86_varargs_gpr_size + 127)));
       mem = gen_rtx_MEM (BLKmode, plus_constant (tmp_reg, -127));
       MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
@@ -6414,7 +6445,7 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (stdarg_p (fntype))
     function_arg_advance (&next_cum, mode, type, 1);
 
-  if ((cum ? cum->call_abi : DEFAULT_ABI) == MS_ABI)
+  if (cum->call_abi == MS_ABI)
     setup_incoming_varargs_ms_64 (&next_cum);
   else
     setup_incoming_varargs_64 (&next_cum);
@@ -6477,7 +6508,7 @@ ix86_va_start (tree valist, rtx nextarg)
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
-  if (cfun->va_list_fpr_size)
+  if (TARGET_SSE && cfun->va_list_fpr_size)
     {
       type = TREE_TYPE (fpr);
       t = build2 (MODIFY_EXPR, type, fpr,
@@ -6496,12 +6527,15 @@ ix86_va_start (tree valist, rtx nextarg)
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  if (cfun->va_list_gpr_size || cfun->va_list_fpr_size)
+  if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
     {
       /* Find the register save area.
 	 Prologue of the function save it right above stack frame.  */
       type = TREE_TYPE (sav);
       t = make_tree (type, frame_pointer_rtx);
+      if (!ix86_varargs_gpr_size)
+	t = build2 (POINTER_PLUS_EXPR, type, t,
+		    size_int (-8 * X86_64_REGPARM_MAX));
       t = build2 (MODIFY_EXPR, type, sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7476,13 +7510,8 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   offset += frame->nregs * UNITS_PER_WORD;
 
   /* Va-arg area */
-  if (ix86_save_varrargs_registers)
-    {
-      offset += X86_64_VARARGS_SIZE;
-      frame->va_arg_size = X86_64_VARARGS_SIZE;
-    }
-  else
-    frame->va_arg_size = 0;
+  frame->va_arg_size = ix86_varargs_gpr_size + ix86_varargs_fpr_size;
+  offset += frame->va_arg_size;
 
   /* Align start of frame for local function.  */
   frame->padding1 = ((offset + stack_alignment_needed - 1)
@@ -8467,7 +8496,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
    requires to two regs - that would mean more pseudos with longer
    lifetimes.  */
 static int
-ix86_address_cost (rtx x)
+ix86_address_cost (rtx x, bool speed ATTRIBUTE_UNUSED)
 {
   struct ix86_address parts;
   int cost = 1;
@@ -14636,7 +14665,8 @@ ix86_expand_int_movcc (rtx operands[])
        */
 
       if ((!TARGET_CMOVE || (mode == QImode && TARGET_PARTIAL_REG_STALL))
-	  && BRANCH_COST >= 2)
+	  && BRANCH_COST (optimize_insn_for_speed_p (),
+		  	  false) >= 2)
 	{
 	  if (cf == 0)
 	    {
@@ -14721,7 +14751,7 @@ ix86_expand_int_movcc (rtx operands[])
       optab op;
       rtx var, orig_out, out, tmp;
 
-      if (BRANCH_COST <= 2)
+      if (BRANCH_COST (optimize_insn_for_speed_p (), false) <= 2)
 	return 0; /* FAIL */
 
       /* If one of the two operands is an interesting constant, load a
@@ -19534,6 +19564,7 @@ enum ix86_builtins
   IX86_BUILTIN_FNMSUBSD,
   IX86_BUILTIN_FNMSUBPS,
   IX86_BUILTIN_FNMSUBPD,
+  IX86_BUILTIN_PCMOV,
   IX86_BUILTIN_PCMOV_V2DI,
   IX86_BUILTIN_PCMOV_V4SI,
   IX86_BUILTIN_PCMOV_V8HI,
@@ -19733,17 +19764,35 @@ enum ix86_builtins
 /* Table for the ix86 builtin decls.  */
 static GTY(()) tree ix86_builtins[(int) IX86_BUILTIN_MAX];
 
-/* Table to record which ISA options the builtin needs.  */
-static int ix86_builtins_isa[(int) IX86_BUILTIN_MAX];
+/* Table of all of the builtin functions that are possible with different ISA's
+   but are waiting to be built until a function is declared to use that
+   ISA.  */
+struct builtin_isa GTY(())
+{
+  tree type;			/* builtin type to use in the declaration */
+  const char *name;		/* function name */
+  int isa;			/* isa_flags this builtin is defined for */
+  bool const_p;			/* true if the declaration is constant */
+};
+
+static GTY(()) struct builtin_isa ix86_builtins_isa[(int) IX86_BUILTIN_MAX];
+
 
 /* Add an ix86 target builtin function with CODE, NAME and TYPE.  Save the MASK
  * of which isa_flags to use in the ix86_builtins_isa array.  Stores the
  * function decl in the ix86_builtins array.  Returns the function decl or
  * NULL_TREE, if the builtin was not added.
  *
- * Record all builtins, even if it isn't an instruction set in the current ISA
- * in case the user uses function specific options for a different ISA.  When
- * the builtin is expanded, check at that time whether it is valid.  */
+ * If the front end has a special hook for builtin functions, delay adding
+ * builtin functions that aren't in the current ISA until the ISA is changed
+ * with function specific optimization.  Doing so, can save about 300K for the
+ * default compiler.  When the builtin is expanded, check at that time whether
+ * it is valid.
+ *
+ * If the front end doesn't have a special hook, record all builtins, even if
+ * it isn't an instruction set in the current ISA in case the user uses
+ * function specific options for a different ISA, so that we don't get scope
+ * errors if a builtin is added in the middle of a function scope.  */
 
 static inline tree
 def_builtin (int mask, const char *name, tree type, enum ix86_builtins code)
@@ -19752,10 +19801,25 @@ def_builtin (int mask, const char *name, tree type, enum ix86_builtins code)
 
   if (!(mask & OPTION_MASK_ISA_64BIT) || TARGET_64BIT)
     {
-      decl = add_builtin_function (name, type, code, BUILT_IN_MD,
-				   NULL, NULL_TREE);
-      ix86_builtins[(int) code] = decl;
-      ix86_builtins_isa[(int) code] = mask;
+      ix86_builtins_isa[(int) code].isa = mask;
+
+      if ((mask & ix86_isa_flags) != 0
+	  || (lang_hooks.builtin_function
+	      == lang_hooks.builtin_function_ext_scope))
+
+	{
+	  decl = add_builtin_function (name, type, code, BUILT_IN_MD, NULL,
+				       NULL_TREE);
+	  ix86_builtins[(int) code] = decl;
+	  ix86_builtins_isa[(int) code].type = NULL_TREE;
+	}
+      else
+	{
+	  ix86_builtins[(int) code] = NULL_TREE;
+	  ix86_builtins_isa[(int) code].const_p = false;
+	  ix86_builtins_isa[(int) code].type = type;
+	  ix86_builtins_isa[(int) code].name = name;
+	}
     }
 
   return decl;
@@ -19770,7 +19834,38 @@ def_builtin_const (int mask, const char *name, tree type,
   tree decl = def_builtin (mask, name, type, code);
   if (decl)
     TREE_READONLY (decl) = 1;
+  else
+    ix86_builtins_isa[(int) code].const_p = true;
+
   return decl;
+}
+
+/* Add any new builtin functions for a given ISA that may not have been
+   declared.  This saves a bit of space compared to adding all of the
+   declarations to the tree, even if we didn't use them.  */
+
+static void
+ix86_add_new_builtins (int isa)
+{
+  int i;
+  tree decl;
+
+  for (i = 0; i < (int)IX86_BUILTIN_MAX; i++)
+    {
+      if ((ix86_builtins_isa[i].isa & isa) != 0
+	  && ix86_builtins_isa[i].type != NULL_TREE)
+	{
+	  decl = add_builtin_function_ext_scope (ix86_builtins_isa[i].name,
+						 ix86_builtins_isa[i].type,
+						 i, BUILT_IN_MD, NULL,
+						 NULL_TREE);
+
+	  ix86_builtins[i] = decl;
+	  ix86_builtins_isa[i].type = NULL_TREE;
+	  if (ix86_builtins_isa[i].const_p)
+	    TREE_READONLY (decl) = 1;
+	}
+    }
 }
 
 /* Bits for builtin_description.flag.  */
@@ -20786,7 +20881,7 @@ static const struct builtin_description bdesc_multi_arg[] =
   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5i_vmfnmsubv2df4,    "__builtin_ia32_fnmsubsd",   IX86_BUILTIN_FNMSUBSD,   0,            (int)MULTI_ARG_3_DF },
   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5i_fnmsubv4sf4,      "__builtin_ia32_fnmsubps",   IX86_BUILTIN_FNMSUBPS,   0,            (int)MULTI_ARG_3_SF },
   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5i_fnmsubv2df4,      "__builtin_ia32_fnmsubpd",   IX86_BUILTIN_FNMSUBPD,   0,            (int)MULTI_ARG_3_DF },
-  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_pcmov_v2di,        "__builtin_ia32_pcmov",      IX86_BUILTIN_PCMOV_V2DI, 0,            (int)MULTI_ARG_3_DI },
+  { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_pcmov_v2di,        "__builtin_ia32_pcmov",      IX86_BUILTIN_PCMOV,	 0,            (int)MULTI_ARG_3_DI },
   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_pcmov_v2di,        "__builtin_ia32_pcmov_v2di", IX86_BUILTIN_PCMOV_V2DI, 0,            (int)MULTI_ARG_3_DI },
   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_pcmov_v4si,        "__builtin_ia32_pcmov_v4si", IX86_BUILTIN_PCMOV_V4SI, 0,            (int)MULTI_ARG_3_SI },
   { OPTION_MASK_ISA_SSE5, CODE_FOR_sse5_pcmov_v8hi,        "__builtin_ia32_pcmov_v8hi", IX86_BUILTIN_PCMOV_V8HI, 0,            (int)MULTI_ARG_3_HI },
@@ -23985,10 +24080,10 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
      current ISA based on the command line switches.  With function specific
      options, we need to check in the context of the function making the call
      whether it is supported.  */
-  if (ix86_builtins_isa[fcode]
-      && !(ix86_builtins_isa[fcode] & ix86_isa_flags))
+  if (ix86_builtins_isa[fcode].isa
+      && !(ix86_builtins_isa[fcode].isa & ix86_isa_flags))
     {
-      char *opts = ix86_target_string (ix86_builtins_isa[fcode], 0, NULL,
+      char *opts = ix86_target_string (ix86_builtins_isa[fcode].isa, 0, NULL,
 				       NULL, NULL, false);
 
       if (!opts)
@@ -25154,10 +25249,11 @@ ix86_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
+ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total, bool speed)
 {
   enum rtx_code outer_code = (enum rtx_code) outer_code_i;
   enum machine_mode mode = GET_MODE (x);
+  const struct processor_costs *cost = speed ? ix86_cost : &ix86_size_cost;
 
   switch (code)
     {
@@ -25209,13 +25305,13 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
 	  && GET_MODE (XEXP (x, 0)) == SImode)
 	*total = 1;
       else if (TARGET_ZERO_EXTEND_WITH_AND)
-	*total = ix86_cost->add;
+	*total = cost->add;
       else
-	*total = ix86_cost->movzx;
+	*total = cost->movzx;
       return false;
 
     case SIGN_EXTEND:
-      *total = ix86_cost->movsx;
+      *total = cost->movsx;
       return false;
 
     case ASHIFT:
@@ -25225,13 +25321,13 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
 	  HOST_WIDE_INT value = INTVAL (XEXP (x, 1));
 	  if (value == 1)
 	    {
-	      *total = ix86_cost->add;
+	      *total = cost->add;
 	      return false;
 	    }
 	  if ((value == 2 || value == 3)
-	      && ix86_cost->lea <= ix86_cost->shift_const)
+	      && cost->lea <= cost->shift_const)
 	    {
-	      *total = ix86_cost->lea;
+	      *total = cost->lea;
 	      return false;
 	    }
 	}
@@ -25246,24 +25342,24 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
 	  if (CONST_INT_P (XEXP (x, 1)))
 	    {
 	      if (INTVAL (XEXP (x, 1)) > 32)
-		*total = ix86_cost->shift_const + COSTS_N_INSNS (2);
+		*total = cost->shift_const + COSTS_N_INSNS (2);
 	      else
-		*total = ix86_cost->shift_const * 2;
+		*total = cost->shift_const * 2;
 	    }
 	  else
 	    {
 	      if (GET_CODE (XEXP (x, 1)) == AND)
-		*total = ix86_cost->shift_var * 2;
+		*total = cost->shift_var * 2;
 	      else
-		*total = ix86_cost->shift_var * 6 + COSTS_N_INSNS (2);
+		*total = cost->shift_var * 6 + COSTS_N_INSNS (2);
 	    }
 	}
       else
 	{
 	  if (CONST_INT_P (XEXP (x, 1)))
-	    *total = ix86_cost->shift_const;
+	    *total = cost->shift_const;
 	  else
-	    *total = ix86_cost->shift_var;
+	    *total = cost->shift_var;
 	}
       return false;
 
@@ -25271,18 +25367,18 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
       if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
 	{
 	  /* ??? SSE scalar cost should be used here.  */
-	  *total = ix86_cost->fmul;
+	  *total = cost->fmul;
 	  return false;
 	}
       else if (X87_FLOAT_MODE_P (mode))
 	{
-	  *total = ix86_cost->fmul;
+	  *total = cost->fmul;
 	  return false;
 	}
       else if (FLOAT_MODE_P (mode))
 	{
 	  /* ??? SSE vector cost should be used here.  */
-	  *total = ix86_cost->fmul;
+	  *total = cost->fmul;
 	  return false;
 	}
       else
@@ -25323,9 +25419,9 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
 	        op0 = XEXP (op0, 0), mode = GET_MODE (op0);
 	    }
 
-  	  *total = (ix86_cost->mult_init[MODE_INDEX (mode)]
-		    + nbits * ix86_cost->mult_bit
-	            + rtx_cost (op0, outer_code) + rtx_cost (op1, outer_code));
+  	  *total = (cost->mult_init[MODE_INDEX (mode)]
+		    + nbits * cost->mult_bit
+	            + rtx_cost (op0, outer_code, speed) + rtx_cost (op1, outer_code, speed));
 
           return true;
 	}
@@ -25336,14 +25432,14 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
     case UMOD:
       if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
 	/* ??? SSE cost should be used here.  */
-	*total = ix86_cost->fdiv;
+	*total = cost->fdiv;
       else if (X87_FLOAT_MODE_P (mode))
-	*total = ix86_cost->fdiv;
+	*total = cost->fdiv;
       else if (FLOAT_MODE_P (mode))
 	/* ??? SSE vector cost should be used here.  */
-	*total = ix86_cost->fdiv;
+	*total = cost->fdiv;
       else
-	*total = ix86_cost->divide[MODE_INDEX (mode)];
+	*total = cost->divide[MODE_INDEX (mode)];
       return false;
 
     case PLUS:
@@ -25358,11 +25454,11 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
 	      HOST_WIDE_INT val = INTVAL (XEXP (XEXP (XEXP (x, 0), 0), 1));
 	      if (val == 2 || val == 4 || val == 8)
 		{
-		  *total = ix86_cost->lea;
-		  *total += rtx_cost (XEXP (XEXP (x, 0), 1), outer_code);
+		  *total = cost->lea;
+		  *total += rtx_cost (XEXP (XEXP (x, 0), 1), outer_code, speed);
 		  *total += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 0),
-				      outer_code);
-		  *total += rtx_cost (XEXP (x, 1), outer_code);
+				      outer_code, speed);
+		  *total += rtx_cost (XEXP (x, 1), outer_code, speed);
 		  return true;
 		}
 	    }
@@ -25372,18 +25468,18 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
 	      HOST_WIDE_INT val = INTVAL (XEXP (XEXP (x, 0), 1));
 	      if (val == 2 || val == 4 || val == 8)
 		{
-		  *total = ix86_cost->lea;
-		  *total += rtx_cost (XEXP (XEXP (x, 0), 0), outer_code);
-		  *total += rtx_cost (XEXP (x, 1), outer_code);
+		  *total = cost->lea;
+		  *total += rtx_cost (XEXP (XEXP (x, 0), 0), outer_code, speed);
+		  *total += rtx_cost (XEXP (x, 1), outer_code, speed);
 		  return true;
 		}
 	    }
 	  else if (GET_CODE (XEXP (x, 0)) == PLUS)
 	    {
-	      *total = ix86_cost->lea;
-	      *total += rtx_cost (XEXP (XEXP (x, 0), 0), outer_code);
-	      *total += rtx_cost (XEXP (XEXP (x, 0), 1), outer_code);
-	      *total += rtx_cost (XEXP (x, 1), outer_code);
+	      *total = cost->lea;
+	      *total += rtx_cost (XEXP (XEXP (x, 0), 0), outer_code, speed);
+	      *total += rtx_cost (XEXP (XEXP (x, 0), 1), outer_code, speed);
+	      *total += rtx_cost (XEXP (x, 1), outer_code, speed);
 	      return true;
 	    }
 	}
@@ -25393,18 +25489,18 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
       if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
 	{
 	  /* ??? SSE cost should be used here.  */
-	  *total = ix86_cost->fadd;
+	  *total = cost->fadd;
 	  return false;
 	}
       else if (X87_FLOAT_MODE_P (mode))
 	{
-	  *total = ix86_cost->fadd;
+	  *total = cost->fadd;
 	  return false;
 	}
       else if (FLOAT_MODE_P (mode))
 	{
 	  /* ??? SSE vector cost should be used here.  */
-	  *total = ix86_cost->fadd;
+	  *total = cost->fadd;
 	  return false;
 	}
       /* FALLTHRU */
@@ -25414,10 +25510,10 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
     case XOR:
       if (!TARGET_64BIT && mode == DImode)
 	{
-	  *total = (ix86_cost->add * 2
-		    + (rtx_cost (XEXP (x, 0), outer_code)
+	  *total = (cost->add * 2
+		    + (rtx_cost (XEXP (x, 0), outer_code, speed)
 		       << (GET_MODE (XEXP (x, 0)) != DImode))
-		    + (rtx_cost (XEXP (x, 1), outer_code)
+		    + (rtx_cost (XEXP (x, 1), outer_code, speed)
 	               << (GET_MODE (XEXP (x, 1)) != DImode)));
 	  return true;
 	}
@@ -25427,27 +25523,27 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
       if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
 	{
 	  /* ??? SSE cost should be used here.  */
-	  *total = ix86_cost->fchs;
+	  *total = cost->fchs;
 	  return false;
 	}
       else if (X87_FLOAT_MODE_P (mode))
 	{
-	  *total = ix86_cost->fchs;
+	  *total = cost->fchs;
 	  return false;
 	}
       else if (FLOAT_MODE_P (mode))
 	{
 	  /* ??? SSE vector cost should be used here.  */
-	  *total = ix86_cost->fchs;
+	  *total = cost->fchs;
 	  return false;
 	}
       /* FALLTHRU */
 
     case NOT:
       if (!TARGET_64BIT && mode == DImode)
-	*total = ix86_cost->add * 2;
+	*total = cost->add * 2;
       else
-	*total = ix86_cost->add;
+	*total = cost->add;
       return false;
 
     case COMPARE:
@@ -25458,9 +25554,9 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
 	{
 	  /* This kind of construct is implemented using test[bwl].
 	     Treat it as if we had an AND.  */
-	  *total = (ix86_cost->add
-		    + rtx_cost (XEXP (XEXP (x, 0), 0), outer_code)
-		    + rtx_cost (const1_rtx, outer_code));
+	  *total = (cost->add
+		    + rtx_cost (XEXP (XEXP (x, 0), 0), outer_code, speed)
+		    + rtx_cost (const1_rtx, outer_code, speed));
 	  return true;
 	}
       return false;
@@ -25473,23 +25569,23 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
     case ABS:
       if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
 	/* ??? SSE cost should be used here.  */
-	*total = ix86_cost->fabs;
+	*total = cost->fabs;
       else if (X87_FLOAT_MODE_P (mode))
-	*total = ix86_cost->fabs;
+	*total = cost->fabs;
       else if (FLOAT_MODE_P (mode))
 	/* ??? SSE vector cost should be used here.  */
-	*total = ix86_cost->fabs;
+	*total = cost->fabs;
       return false;
 
     case SQRT:
       if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
 	/* ??? SSE cost should be used here.  */
-	*total = ix86_cost->fsqrt;
+	*total = cost->fsqrt;
       else if (X87_FLOAT_MODE_P (mode))
-	*total = ix86_cost->fsqrt;
+	*total = cost->fsqrt;
       else if (FLOAT_MODE_P (mode))
 	/* ??? SSE vector cost should be used here.  */
-	*total = ix86_cost->fsqrt;
+	*total = cost->fsqrt;
       return false;
 
     case UNSPEC:
@@ -29025,7 +29121,7 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 #define TARGET_SET_CURRENT_FUNCTION ix86_set_current_function
 
 #undef TARGET_OPTION_VALID_ATTRIBUTE_P
-#define TARGET_OPTION_VALID_ATTRIBUTE_P ix86_valid_option_attribute_p
+#define TARGET_OPTION_VALID_ATTRIBUTE_P ix86_valid_target_attribute_p
 
 #undef TARGET_OPTION_SAVE
 #define TARGET_OPTION_SAVE ix86_function_specific_save
@@ -29038,12 +29134,6 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 
 #undef TARGET_OPTION_CAN_INLINE_P
 #define TARGET_OPTION_CAN_INLINE_P ix86_can_inline_p
-
-#undef TARGET_OPTION_COLD_ATTRIBUTE_SETS_OPTIMIZATION
-#define TARGET_OPTION_COLD_ATTRIBUTE_SETS_OPTIMIZATION true
-
-#undef TARGET_OPTION_HOT_ATTRIBUTE_SETS_OPTIMIZATION
-#define TARGET_OPTION_HOT_ATTRIBUTE_SETS_OPTIMIZATION true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

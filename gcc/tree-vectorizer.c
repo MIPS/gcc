@@ -201,7 +201,7 @@ rename_use_op (use_operand_p op_p)
 
 /* Renames the variables in basic block BB.  */
 
-static void
+void
 rename_variables_in_bb (basic_block bb)
 {
   gimple_stmt_iterator gsi;
@@ -2806,19 +2806,20 @@ vectorize_loops (void)
      than all previously defined loops. This fact allows us to run 
      only over initial loops skipping newly generated ones.  */
   FOR_EACH_LOOP (li, loop, 0)
-    {
-      loop_vec_info loop_vinfo;
+    if (optimize_loop_nest_for_speed_p (loop))
+      {
+	loop_vec_info loop_vinfo;
 
-      vect_loop_location = find_loop_location (loop);
-      loop_vinfo = vect_analyze_loop (loop);
-      loop->aux = loop_vinfo;
+	vect_loop_location = find_loop_location (loop);
+	loop_vinfo = vect_analyze_loop (loop);
+	loop->aux = loop_vinfo;
 
-      if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
-	continue;
+	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
+	  continue;
 
-      vect_transform_loop (loop_vinfo);
-      num_vectorized_loops++;
-    }
+	vect_transform_loop (loop_vinfo);
+	num_vectorized_loops++;
+      }
   vect_loop_location = UNKNOWN_LOC;
 
   statistics_counter_event (cfun, "Vectorized loops", num_vectorized_loops);

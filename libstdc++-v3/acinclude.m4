@@ -2637,7 +2637,12 @@ if test x$enable_symvers = xyes ; then
     enable_symvers=no
   else
     if test $with_gnu_ld = yes ; then
-      enable_symvers=gnu
+      case ${target_os} in
+        cygwin* | pe | mingw32*)
+          enable_symvers=no ;;
+        *)
+          enable_symvers=gnu ;;
+      esac
     else
       case ${target_os} in
         darwin*)
@@ -2838,9 +2843,15 @@ AC_DEFUN([GLIBCXX_CHECK_GTHREADS], [
 
   AC_TRY_COMPILE([#include "gthr.h"],
     [
-     	#ifndef __GTHREADS_CXX0X
-	#error
-	#endif
+      #ifndef __GTHREADS_CXX0X
+      #error
+      #endif
+
+      // In case of POSIX threads check _POSIX_TIMEOUTS too.
+      #if (defined(_PTHREADS) \
+           && (!defined(_POSIX_TIMEOUTS) || _POSIX_TIMEOUTS <= 0))
+      #error
+      #endif
     ], [ac_has_gthreads=yes], [ac_has_gthreads=no])
 
   AC_MSG_RESULT([$ac_has_gthreads])

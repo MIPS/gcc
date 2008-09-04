@@ -1,3 +1,118 @@
+2008-09-04  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/seq-1.c: New test.
+	* gcc.target/mips/octeon-seq-1.c: New test.
+	* gcc.target/mips/octeon-seq-2.c: New test.
+	* gcc.target/mips/octeon-seq-3.c: New test.
+	* gcc.target/mips/octeon-seq-4.c: New test.
+	* gcc.target/mips/scc-2.c: Also pass on sltiu.
+	* gcc.target/mips/scc-3.c: Likewise.
+
+2008-09-04  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/truncate-2.c: New test.
+	* gcc.target/mips/octeon-exts-1.c: New test.
+	* gcc.target/mips/octeon-exts-2.c: New test.
+	* gcc.target/mips/octeon-exts-3.c: New test.
+	* gcc.target/mips/octeon-exts-4.c: New test.
+
+2008-09-04  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/octeon-cins-1.c: New test.
+	* gcc.target/mips/octeon-cins-2.c: New test.
+
+2008-09-04  Richard Guenther  <rguenther@suse.de>
+
+	* gfortran.dg/internal_pack_4.f90: Adjust pattern.
+
+2008-09-04  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/37099
+	* gfortran.dg/string_compare_1.f90: New text.
+	* gfortran.dg/string_compare_2.f90: New text.
+	* gfortran.dg/string_compare_3.f90: New text.
+
+2008-09-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/37243
+	* gfortran.dg/pr37243.f: New.
+
+2008-09-03  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/37343
+	* g++.dg/torture/pr37343.C New file.
+
+2008-09-03  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/slp-perm-1.c: Add call to check_vect.
+	* gcc.dg/vect/slp-perm-2.c, gcc.dg/vect/slp-perm-3.c,
+	gcc.dg/vect/slp-perm-4.c, gcc.dg/vect/slp-perm-5.c,
+	gcc.dg/vect/slp-perm-6.c, gcc.dg/vect/slp-perm-7.c,
+	gcc.dg/vect/slp-perm-8.c, gcc.dg/vect/slp-perm-9.c: Likewise.
+
+2008-09-03  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/37345
+	PR tree-optimization/37358
+	PR tree-optimization/37357
+	* g++.dg/torture/pr37345.C: New file.
+
+2008-09-03  Tobias Grosser  <grosser@fim.uni-passau.de>
+
+	* lib/target-supports.exp (check_effective_target_fgraphite): Fix test.
+	Graphite is only available with -O1.
+
+2008-09-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.c-torture/compile/vector-4.c: Add -mavx for x86.
+
+	* gcc.target/i386/avx-3.c: Require DFP support.
+
+2008-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37348
+	* g++.dg/parse/crash45.C: New test.
+
+	PR c++/37189
+	* g++.dg/gomp/pr37189.C: New test.
+
+	PR debug/37322
+	* gfortran.dg/debug/pr35154-dwarf2.f: Fix up scan-assembler regexps.
+
+2008-09-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/36445
+	* g++.dg/torture/pr36445.C: New test.
+
+2008-09-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/37293
+	* g++.dg/torture/ipa-cp-1.C: New test.
+
+2008-09-03  David Edelsohn  <edelsohn@gnu.org>
+
+	* g++.dg/ext/java-2.C: Disable on AIX.
+
+2008-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37346
+	* g++.dg/gomp/pr37346.C: New test.
+
+2008-09-03  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	From Mike Frysinger  <michael.frysinger@analog.com>
+	* gcc.target/bfin/mcpu-bf522.c: Check SILICON_REVISION is 0x0001.
+	* gcc.target/bfin/mcpu-bf523.c: Likewise.
+	* gcc.target/bfin/mcpu-bf524.c: Likewise.
+	* gcc.target/bfin/mcpu-bf525.c: Likewise.
+	* gcc.target/bfin/mcpu-bf526.c: Likewise.
+	* gcc.target/bfin/mcpu-bf527.c: Likewise.
+	* gcc.target/bfin/mcpu-bf542.c: Likewise.
+	* gcc.target/bfin/mcpu-bf544.c: Likewise.
+	* gcc.target/bfin/mcpu-bf547.c: Likewise.
+	* gcc.target/bfin/mcpu-bf548.c: Likewise.
+	* gcc.target/bfin/mcpu-bf549.c: Likewise.
+
 2008-09-02  Le-Chun Wu  <lcwu@google.com>
 
 	* g++.dg/thread-ann/thread_annot_lock-21.C: New test.
@@ -7,6 +122,172 @@
 	moving lock annotation support to the new GIMPLE tuple IR.
 	* g++.dg/thread-ann/thread_annot_lock-7.C: Ditto.
 	* g++.dg/thread-ann/thread_annot_lock-8.C: Ditto.
+
+2008-09-02  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.c-torture/compile/pr33009.c: xfail on hppa*-*-*.
+	* gcc.c-torture/compile/pr11832.c: Likewise.
+
+2008-09-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/amd64-abi-3.c: New test.
+	* gcc.target/i386/amd64-abi-4.c: Likewise.
+	* gcc.target/i386/amd64-abi-5.c: Likewise.
+	* gcc.target/i386/amd64-abi-6.c: Likewise.
+
+2008-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36766
+	* g++.dg/tree-ssa/pr36766.C: New test.
+
+	PR target/36332
+	* gcc.c-torture/execute/ieee/pr36332.c: New test.
+
+	PR c/37171
+	* g++.dg/ext/attrib34.C: New test.
+
+2008-09-02  Sebastian Pop  <sebastian.pop@amd.com>
+	    Tobias Grosser  <grosser@fim.uni-passau.de>
+	    Jan Sjodin  <jan.sjodin@amd.com>
+	    Harsha Jagasia  <harsha.jagasia@amd.com>
+	    Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
+	    Konrad Trifunovic  <konrad.trifunovic@inria.fr>
+	    Adrien Eliche  <aeliche@isty.uvsq.fr>
+
+	Merge from graphite branch.
+	* gcc.dg/graphite/scop-{0,1,2,3,4,5,6,7,8,9,
+	10,11,12,13,14,15,16,17,18}.c: New.
+	* gcc.dg/graphite/graphite.exp: New.
+	* gcc.dg/graphite/scop-matmult.c: New.
+	* gcc.dg/graphite/block-0.c: New.
+	* lib/target-supports.exp (check_effective_target_fgraphite): New.
+	* gfortran.dg/graphite/block-1.f90: New.
+	* gfortran.dg/graphite/scop-{1,2}.f: New.
+	* gfortran.dg/graphite/block-{1,3,4}.f90: New.
+	* gfortran.dg/graphite/graphite.exp: New.
+	
+2008-09-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37327
+	* gcc.c-torture/compile/pr37327.c: New testcase.
+
+2008-09-02  Victor Kaplansky  <victork@il.ibm.com>
+
+	* gcc.dg/fastmath-2.c: New.
+    
+2008-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/37095
+	* g++.dg/inherit/thunk9.C: New test.
+
+2008-09-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/37228
+	* gfortran.dg/fmt_g0_4.f08: Revised test.
+
+2008-09-02  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.dg/abstract_type_1.f90: New test.
+	* gfortran.dg/abstract_type_2.f03: New test.
+	* gfortran.dg/abstract_type_3.f03: New test.
+	* gfortran.dg/abstract_type_4.f03: New test.
+
+2008-09-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/20010516-1.c: Test for columns.
+
+2008-09-01  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/37193
+	* gfortran.dg/use_rename_4.f90: New test.
+	* gfortran.dg/use_rename_5.f90: New test.
+
+2008-09-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37305
+	* gcc.c-torture/compile/pr37305.c: New testcase.
+
+2008-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36449
+	* g++.dg/opt/pr36449.C: New test.
+
+2008-08-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c/37271
+	* gcc.dg/pr37186.c: Add dg-message command for line 5.
+
+2008-08-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37289
+	* gcc.dg/pr37289.c: New testcase.
+
+2008-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/37168
+	* gcc.target/powerpc/pr37168.c: New test.
+
+2008-08-31  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.target/i386/cold-attribute-1.c: New testcase.
+	* gcc.target/i386/cold-attribute-2.c: New testcase.
+	* gcc.target/i386/cold-attribute-3.c: New testcase.
+	* gcc.target/i386/cold-attribute-4.c: New testcase.
+
+2008-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37287
+	* gfortran.dg/pr37287-1.f90: New test.
+	* gfortran.dg/pr37287-2.F90: New test.
+
+2008-08-31  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.dg/typebound_generic_1.f03: New test.
+	* gfortran.dg/typebound_generic_2.f03: New test.
+	* gfortran.dg/typebound_generic_3.f03: New test.
+
+2008-08-30  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/36444
+	* g++.dg/torture/pr36444.C: New testcase.
+	* gcc.c-torture/compile/vector-4.c: New testcase.
+
+2008-08-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/36895
+	* gfortran.dg/namelist_53.f90: New test.
+
+2008-08-29  Michael Meissner  <gnu@the-meissners.org>
+
+	* gcc.target/i386/sse-22.c: Change #pragma GCC option to #pragma
+	GCC target.  Change attribute((option(...))) to
+	attribute((target(...))).
+	* gcc.target/i386/sse-23.c: Ditto.
+	* gcc.target/i386/funcspec-1.c: Ditto.
+	* gcc.target/i386/funcspec-2.c: Ditto.
+	* gcc.target/i386/funcspec-3.c: Ditto.
+	* gcc.target/i386/funcspec-4.c: Ditto.
+	* gcc.target/i386/funcspec-5.c: Ditto.
+	* gcc.target/i386/funcspec-6.c: Ditto.
+	* gcc.target/i386/funcspec-7.c: Ditto.
+	* gcc.target/i386/funcspec-8.c: Ditto.
+	* gcc.target/i386/funcspec-9.c: Ditto.
+	* gcc.target/i386/funcspec-10.c: Ditto.
+	* gcc.target/i386/funcspec-11.c: Ditto.
+
+	* gcc.target/i386/cold-1.c: Delete.
+	* gcc.target/i386/hot-1.c: Ditto.
+
+	* gcc.dg/pr36997.c: Add -msse2 to the target flags.
+
+	* gcc.target/i386/funcspec-8.c: #pragma GCC option push is now
+	#pragma GCC push_options, and #pragma GCC option pop is now
+	#pragma GCC pop_options.
+	* gcc.target/i386/opt-2.c: Ditto.
+
+2008-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/mangle-neon.C: Add substitution test.
 
 2008-08-29  Jakub Jelinek  <jakub@redhat.com>
 

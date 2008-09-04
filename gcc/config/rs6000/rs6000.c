@@ -829,7 +829,7 @@ static void rs6000_xcoff_file_start (void);
 static void rs6000_xcoff_file_end (void);
 #endif
 static int rs6000_variable_issue (FILE *, int, rtx, int);
-static bool rs6000_rtx_costs (rtx, int, int, int *);
+static bool rs6000_rtx_costs (rtx, int, int, int *, bool);
 static int rs6000_adjust_cost (rtx, rtx, rtx, int);
 static void rs6000_sched_init (FILE *, int, int);
 static bool is_microcoded_insn (rtx);
@@ -857,6 +857,10 @@ static int rs6000_sched_reorder (FILE *, int, rtx *, int *, int);
 static int rs6000_sched_reorder2 (FILE *, int, rtx *, int *, int);
 static int rs6000_use_sched_lookahead (void);
 static int rs6000_use_sched_lookahead_guard (rtx);
+static void * rs6000_alloc_sched_context (void);
+static void rs6000_init_sched_context (void *, bool);
+static void rs6000_set_sched_context (void *);
+static void rs6000_free_sched_context (void *);
 static tree rs6000_builtin_reciprocal (unsigned int, bool, bool);
 static tree rs6000_builtin_mask_for_load (void);
 static tree rs6000_builtin_mul_widen_even (tree);
@@ -1131,6 +1135,15 @@ static const char alt_reg_names[][8] =
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD rs6000_use_sched_lookahead_guard
 
+#undef TARGET_SCHED_ALLOC_SCHED_CONTEXT
+#define TARGET_SCHED_ALLOC_SCHED_CONTEXT rs6000_alloc_sched_context
+#undef TARGET_SCHED_INIT_SCHED_CONTEXT
+#define TARGET_SCHED_INIT_SCHED_CONTEXT rs6000_init_sched_context
+#undef TARGET_SCHED_SET_SCHED_CONTEXT
+#define TARGET_SCHED_SET_SCHED_CONTEXT rs6000_set_sched_context
+#undef TARGET_SCHED_FREE_SCHED_CONTEXT
+#define TARGET_SCHED_FREE_SCHED_CONTEXT rs6000_free_sched_context
+
 #undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD rs6000_builtin_mask_for_load
 #undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN
@@ -1180,7 +1193,7 @@ static const char alt_reg_names[][8] =
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS rs6000_rtx_costs
 #undef TARGET_ADDRESS_COST
-#define TARGET_ADDRESS_COST hook_int_rtx_0
+#define TARGET_ADDRESS_COST hook_int_rtx_bool_0
 
 #undef TARGET_VECTOR_OPAQUE_P
 #define TARGET_VECTOR_OPAQUE_P rs6000_is_opaque_type
@@ -1505,11 +1518,12 @@ rs6000_override_options (const char *default_cpu)
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
 	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND},
  	 {"power6", PROCESSOR_POWER6,
-	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
-	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP},
+	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
+	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP},
 	 {"power6x", PROCESSOR_POWER6,
-	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
-	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_MFPGPR},
+	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_PPC_GFXOPT
+	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP
+	  | MASK_MFPGPR},
 	 {"power7", PROCESSOR_POWER5,
 	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
 	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP},
@@ -2690,7 +2704,7 @@ num_insns_constant (rtx op, enum machine_mode mode)
    corresponding element of the vector, but for V4SFmode and V2SFmode,
    the corresponding "float" is interpreted as an SImode integer.  */
 
-static HOST_WIDE_INT
+HOST_WIDE_INT
 const_vector_elt_as_int (rtx op, unsigned int elt)
 {
   rtx tmp = CONST_VECTOR_ELT (op, elt);
@@ -13987,8 +14001,6 @@ rs6000_split_lock_test_and_set (rtx retval, rtx mem, rtx val, rtx scratch)
   enum machine_mode mode = GET_MODE (mem);
   rtx label, x, cond = gen_rtx_REG (CCmode, CR0_REGNO);
 
-  emit_insn (gen_memory_barrier ());
-
   label = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
   emit_label (XEXP (label, 0));
 
@@ -19476,7 +19488,8 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
                   for (i=pos; i<*pn_ready-1; i++)
                     ready[i] = ready[i + 1];
                   ready[*pn_ready-1] = tmp;
-                  if INSN_PRIORITY_KNOWN (tmp)
+
+                  if (!sel_sched_p () && INSN_PRIORITY_KNOWN (tmp))
                     INSN_PRIORITY (tmp)++;
                   break;
                 }
@@ -19493,7 +19506,8 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
           while (pos >= 0)
             {
               if (is_load_insn (ready[pos])
-                  && INSN_PRIORITY_KNOWN (ready[pos]))
+                  && !sel_sched_p ()
+		  && INSN_PRIORITY_KNOWN (ready[pos]))
                 {
                   INSN_PRIORITY (ready[pos])++;
 
@@ -19535,8 +19549,10 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
                       for (i=pos; i<*pn_ready-1; i++)
                         ready[i] = ready[i + 1];
                       ready[*pn_ready-1] = tmp;
-                      if INSN_PRIORITY_KNOWN (tmp)
+
+                      if (!sel_sched_p () && INSN_PRIORITY_KNOWN (tmp))
                         INSN_PRIORITY (tmp)++;
+
                       first_store_pos = -1;
 
                       break;
@@ -19555,7 +19571,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
               for (i=first_store_pos; i<*pn_ready-1; i++)
                 ready[i] = ready[i + 1];
               ready[*pn_ready-1] = tmp;
-              if INSN_PRIORITY_KNOWN (tmp)
+              if (!sel_sched_p () && INSN_PRIORITY_KNOWN (tmp))
                 INSN_PRIORITY (tmp)++;
             }
         }
@@ -19569,7 +19585,8 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
           while (pos >= 0)
             {
               if (is_store_insn (ready[pos])
-                  && INSN_PRIORITY_KNOWN (ready[pos]))
+                  && !sel_sched_p ()
+		  && INSN_PRIORITY_KNOWN (ready[pos]))
                 {
                   INSN_PRIORITY (ready[pos])++;
 
@@ -20071,7 +20088,7 @@ pad_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
       if (group_end)
 	{
 	  /* If the scheduler had marked group termination at this location
-	     (between insn and next_indn), and neither insn nor next_insn will
+	     (between insn and next_insn), and neither insn nor next_insn will
 	     force group termination, pad the group with nops to force group
 	     termination.  */
 	  if (can_issue_more
@@ -20125,6 +20142,10 @@ rs6000_sched_finish (FILE *dump, int sched_verbose)
 
   if (reload_completed && rs6000_sched_groups)
     {
+      /* Do not run sched_finish hook when selective scheduling enabled.  */
+      if (sel_sched_p ())
+	return;
+
       if (rs6000_sched_insert_nops == sched_finish_none)
 	return;
 
@@ -20145,6 +20166,67 @@ rs6000_sched_finish (FILE *dump, int sched_verbose)
 	}
     }
 }
+
+struct _rs6000_sched_context
+{
+  short cached_can_issue_more;
+  rtx last_scheduled_insn;
+  int load_store_pendulum;
+};
+
+typedef struct _rs6000_sched_context rs6000_sched_context_def;
+typedef rs6000_sched_context_def *rs6000_sched_context_t;
+
+/* Allocate store for new scheduling context.  */
+static void *
+rs6000_alloc_sched_context (void)
+{
+  return xmalloc (sizeof (rs6000_sched_context_def));
+}
+
+/* If CLEAN_P is true then initializes _SC with clean data,
+   and from the global context otherwise.  */
+static void
+rs6000_init_sched_context (void *_sc, bool clean_p)
+{
+  rs6000_sched_context_t sc = (rs6000_sched_context_t) _sc;
+
+  if (clean_p)
+    {
+      sc->cached_can_issue_more = 0;
+      sc->last_scheduled_insn = NULL_RTX;
+      sc->load_store_pendulum = 0;
+    }
+  else
+    {
+      sc->cached_can_issue_more = cached_can_issue_more;
+      sc->last_scheduled_insn = last_scheduled_insn;
+      sc->load_store_pendulum = load_store_pendulum;
+    }
+}
+
+/* Sets the global scheduling context to the one pointed to by _SC.  */
+static void
+rs6000_set_sched_context (void *_sc)
+{
+  rs6000_sched_context_t sc = (rs6000_sched_context_t) _sc;
+
+  gcc_assert (sc != NULL);
+
+  cached_can_issue_more = sc->cached_can_issue_more;
+  last_scheduled_insn = sc->last_scheduled_insn;
+  load_store_pendulum = sc->load_store_pendulum;
+}
+
+/* Free _SC.  */
+static void
+rs6000_free_sched_context (void *_sc)
+{
+  gcc_assert (_sc != NULL);
+
+  free (_sc);
+}
+
 
 /* Length in units of the trampoline for entering a nested function.  */
 
@@ -21456,7 +21538,8 @@ rs6000_xcoff_file_end (void)
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
+rs6000_rtx_costs (rtx x, int code, int outer_code, int *total,
+		  bool speed)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -21555,7 +21638,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
       /* When optimizing for size, MEM should be slightly more expensive
 	 than generating address, e.g., (plus (reg) (const)).
 	 L1 cache latency is about two instructions.  */
-      *total = optimize_size ? COSTS_N_INSNS (1) + 1 : COSTS_N_INSNS (2);
+      *total = !speed ? COSTS_N_INSNS (1) + 1 : COSTS_N_INSNS (2);
       return true;
 
     case LABEL_REF:
@@ -21766,7 +21849,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case CALL:
     case IF_THEN_ELSE:
-      if (optimize_size)
+      if (!speed)
 	{
 	  *total = COSTS_N_INSNS (1);
 	  return true;

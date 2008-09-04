@@ -1,3 +1,117 @@
+2008-09-04  Ian Lance Taylor  <iant@google.com>
+
+	* parser.c (check_no_duplicate_clause): Change code parameter to
+	enum omp_clause_code.
+
+2008-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37348
+	* decl.c (cp_finish_decl): Only set
+	DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P if decl is VAR_DECL.
+
+	PR c++/37189
+	* cp-tree.h (defer_mark_used_calls, deferred_mark_used_calls): New
+	extern decls.
+	* decl2.c (mark_used): If defer_mark_used_calls, push decl into
+	deferred_mark_used_calls vector and exit early.
+	* decl.c (defer_mark_used_calls, deferred_mark_used_calls): New
+	variables.
+	(finish_function): Set defer_mark_used_calls for the duration of the
+	function.  Call mark_used on any queued decls.
+
+2008-09-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37208
+	* call.c (build_over_call): Make =delete work with SFINAE.
+	* class.c (resolve_address_of_overloaded_function): Likewise.
+
+	* cp-tree.h (struct lang_decl_flags): Rename threadprivate_p to
+	threadprivate_or_deleted_p.
+	(CP_DECL_THREADPRIVATE_P): Adjust.
+	(DECL_DELETED_FN): Likewise.
+	(SD_UNINITIALIZED, SD_INITIALIZED, SD_DEFAULTED): New macros.
+	(SD_DELETED): New macro.
+	* parser.c (cp_parser_init_declarator): Use them.
+	* decl.c (start_decl): Use them.
+
+	* decl2.c (mark_used): Give =deleted error even in sizeof.
+
+	* typeck2.c (check_narrowing): Downgrade narrowing error to
+	permerror.
+
+2008-09-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	* typeck.c (build_array_ref): Use new location argument.
+	* class.c (build_vtbl_ref_1): Pass location to build_array_ref.
+	* call.c (build_new_op): Same.
+	* decl2.c (grok_array_decl): Same.
+	* cp-tree.h (build_array_ref): Add location argument to prototype.
+
+2008-09-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* typeck.c (build_x_indirect_ref): Add location argument.
+	* class.c (build_base_path): Pass location to build_indirect_ref.
+	* pt.c (tsubst_copy_and_build): Pass location to
+	finish_label_address_expr.
+	* parser.c (cp_parser_unary_expression): Same.
+
+2008-08-31  Jason Merrill  <jason@redhat.com>
+
+	Implement late-specified return type using 'auto'.
+	* cp-tree.h (struct cp_declarator): Add late_return_type field to
+	function declarator.
+	* parser.c (cp_parser_late_return_type_opt): New fn.
+	(cp_parser_direct_declarator): Use it.
+	(make_call_declarator): Put it in the declarator.
+	* decl.c (grokdeclarator): Splice in late-specified return type.
+	* pt.c (splice_late_return_type): New fn.
+
+2008-08-29  Michael Meissner  <gnu@the-meissners.org>
+
+	* decl.c (builtin_function_1): Take a bool argument to decide
+	whether to use pushdecl or pushdecl_top_level.
+	(duplicate_decls): Copy function specific target and optimization
+	options on duplicate declarations.
+	(cxx_builtin_function): Update builtin_function_1 call.
+	(cxx_builtin_function_ext_scope): New function, guarantee that the
+	declaration is done at global scope.
+
+	* cp-objcp-common.h (LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE): New
+	macro, define builtin function hook for delayed machine specific
+	builtins.
+
+	* cp-tree.h (cxx_builtin_function_ext_scope): Add declaration.
+
+2008-08-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37288
+	* pt.c (dependent_type_p): Don't abort on auto outside of a template.
+
+2008-08-29  Jason Merrill  <jason@redhat.com>
+
+	Implement C++0x 'auto' semantics.
+	* decl.c (start_decl_1): Don't complain about auto being incomplete.
+	(cp_finish_decl): Deduce auto.
+	* init.c (build_new): Handle 'new auto'.
+	* typeck2.c (cxx_incomplete_type_diagnostic): Give a different
+	message for auto than for normal template type parms.
+	* pt.c (type_dependent_expression_p): Handle { }.
+	(make_auto): New function.
+	(listify_autos): New function.
+	(do_auto_deduction): New function.
+	(is_auto): New function.
+	(type_uses_auto): New function.
+	* cp-tree.h: Declare them.
+	* parser.c (cp_parser_decl_specifier_seq): In C++0x mode, don't
+	treat auto as a declspec.
+	(cp_parser_simple_type_specifier): It's a type-specifier.
+
+2008-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* mangle.c (write_type): Add target-specific manglings for
+	non-fundamental types to the substitution table.
+	gcc/testsuite/
+
 2008-08-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/29635

@@ -66,8 +66,10 @@ along with GCC; see the file COPYING3.  If not see
 static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
 	     real_inv_br_prob_base, real_one_half, real_bb_freq_max;
 
-/* Random guesstimation given names.  */
-#define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 100 - 1)
+/* Random guesstimation given names.  
+   PROV_VERY_UNLIKELY should be small enough so basic block predicted
+   by it gets bellow HOT_BB_FREQUENCY_FRANCTION.  */
+#define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 2000 - 1)
 #define PROB_EVEN		(REG_BR_PROB_BASE / 2)
 #define PROB_VERY_LIKELY	(REG_BR_PROB_BASE - PROB_VERY_UNLIKELY)
 #define PROB_ALWAYS		(REG_BR_PROB_BASE)
@@ -108,7 +110,8 @@ static const struct predictor_info predictor_info[]= {
 #undef DEF_PREDICTOR
 
 /* Return TRUE if frequency FREQ is considered to be hot.  */
-static bool
+
+static inline bool
 maybe_hot_frequency_p (int freq)
 {
   if (!profile_info || !flag_branch_probabilities)
@@ -125,16 +128,28 @@ maybe_hot_frequency_p (int freq)
   return true;
 }
 
+/* Return TRUE if frequency FREQ is considered to be hot.  */
+
+static inline bool
+maybe_hot_count_p (gcov_type count)
+{
+  if (profile_status != PROFILE_READ)
+    return true;
+  /* Code executed at most once is not hot.  */
+  if (profile_info->runs >= count)
+    return false;
+  return (count
+	  > profile_info->sum_max / PARAM_VALUE (HOT_BB_COUNT_FRACTION));
+}
+
 /* Return true in case BB can be CPU intensive and should be optimized
    for maximal performance.  */
 
 bool
 maybe_hot_bb_p (const_basic_block bb)
 {
-  if (profile_info && flag_branch_probabilities
-      && (bb->count
-	  < profile_info->sum_max / PARAM_VALUE (HOT_BB_COUNT_FRACTION)))
-    return false;
+  if (profile_status == PROFILE_READ)
+    return maybe_hot_count_p (bb->count);
   return maybe_hot_frequency_p (bb->frequency);
 }
 
@@ -165,28 +180,9 @@ cgraph_maybe_hot_edge_p (struct cgraph_edge *edge)
 bool
 maybe_hot_edge_p (edge e)
 {
-  if (profile_info && flag_branch_probabilities
-      && (e->count
-	  < profile_info->sum_max / PARAM_VALUE (HOT_BB_COUNT_FRACTION)))
-    return false;
+  if (profile_status == PROFILE_READ)
+    return maybe_hot_count_p (e->count);
   return maybe_hot_frequency_p (EDGE_FREQUENCY (e));
-}
-
-/* Return true in case BB is cold and should be optimized for size.  */
-
-bool
-probably_cold_bb_p (const_basic_block bb)
-{
-  if (profile_info && flag_branch_probabilities
-      && (bb->count
-	  < profile_info->sum_max / PARAM_VALUE (HOT_BB_COUNT_FRACTION)))
-    return true;
-  if ((!profile_info || !flag_branch_probabilities)
-      && cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
-    return true;
-  if (bb->frequency < BB_FREQ_MAX / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION))
-    return true;
-  return false;
 }
 
 /* Return true in case BB is probably never executed.  */
@@ -300,7 +296,12 @@ optimize_loop_nest_for_speed_p (struct loop *loop)
       else if (l->next)
         l = l->next;
       else
-	l = loop_outer (l);
+        {
+	  while (l != loop && !l->next)
+	    l = loop_outer (l);
+	  if (l != loop)
+	    l = l->next;
+	}
     }
   return false;
 }
@@ -312,6 +313,23 @@ optimize_loop_nest_for_size_p (struct loop *loop)
 {
   return !optimize_loop_nest_for_speed_p (loop);
 }
+
+/* Return true when edge E is likely to be well predictable by branch
+   predictor.  */
+
+bool
+predictable_edge_p (edge e)
+{
+  if (profile_status == PROFILE_ABSENT)
+    return false;
+  if ((e->probability
+       <= PARAM_VALUE (PARAM_PREDICTABLE_BRANCH_OUTCOME) * REG_BR_PROB_BASE / 100)
+      || (REG_BR_PROB_BASE - e->probability
+          <= PARAM_VALUE (PARAM_PREDICTABLE_BRANCH_OUTCOME) * REG_BR_PROB_BASE / 100))
+    return true;
+  return false;
+}
+
 
 /* Set RTL expansion for BB profile.  */
 
@@ -1995,7 +2013,7 @@ estimate_bb_frequencies (void)
   basic_block bb;
   sreal freq_max;
 
-  if (!flag_branch_probabilities || !counts_to_freqs ())
+  if (cfun->function_frequency != PROFILE_READ || !counts_to_freqs ())
     {
       static int real_values_initialized = 0;
 
@@ -2161,7 +2179,7 @@ struct gimple_opt_pass pass_strip_predict_hints =
 {
  {
   GIMPLE_PASS,
-  "",					/* name */
+  NULL,					/* name */
   NULL,					/* gate */
   strip_predict_hints,			/* execute */
   NULL,					/* sub */

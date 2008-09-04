@@ -3225,8 +3225,8 @@ mips_binary_cost (rtx x, int single_cost, int double_cost)
   else
     cost = single_cost;
   return (cost
-	  + rtx_cost (XEXP (x, 0), 0)
-	  + rtx_cost (XEXP (x, 1), GET_CODE (x)));
+	  + rtx_cost (XEXP (x, 0), 0, !optimize_size)
+	  + rtx_cost (XEXP (x, 1), GET_CODE (x), !optimize_size));
 }
 
 /* Return the cost of floating-point multiplications of mode MODE.  */
@@ -3296,7 +3296,8 @@ mips_zero_extend_cost (enum machine_mode mode, rtx op)
 /* Implement TARGET_RTX_COSTS.  */
 
 static bool
-mips_rtx_costs (rtx x, int code, int outer_code, int *total)
+mips_rtx_costs (rtx x, int code, int outer_code, int *total,
+		bool speed)
 {
   enum machine_mode mode = GET_MODE (x);
   bool float_mode_p = FLOAT_MODE_P (mode);
@@ -3443,7 +3444,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && UINTVAL (XEXP (x, 1)) == 0xffffffff)
 	{
 	  *total = (mips_zero_extend_cost (mode, XEXP (x, 0))
-		    + rtx_cost (XEXP (x, 0), 0));
+		    + rtx_cost (XEXP (x, 0), 0, speed));
 	  return true;
 	}
       /* Fall through.  */
@@ -3475,7 +3476,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
     case LO_SUM:
       /* Low-part immediates need an extended MIPS16 instruction.  */
       *total = (COSTS_N_INSNS (TARGET_MIPS16 ? 2 : 1)
-		+ rtx_cost (XEXP (x, 0), 0));
+		+ rtx_cost (XEXP (x, 0), 0, speed));
       return true;
 
     case LT:
@@ -3515,17 +3516,17 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  if (GET_CODE (op0) == MULT && GET_CODE (XEXP (op0, 0)) == NEG)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ rtx_cost (XEXP (XEXP (op0, 0), 0), 0)
-			+ rtx_cost (XEXP (op0, 1), 0)
-			+ rtx_cost (op1, 0));
+			+ rtx_cost (XEXP (XEXP (op0, 0), 0), 0, speed)
+			+ rtx_cost (XEXP (op0, 1), 0, speed)
+			+ rtx_cost (op1, 0, speed));
 	      return true;
 	    }
 	  if (GET_CODE (op1) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ rtx_cost (op0, 0)
-			+ rtx_cost (XEXP (op1, 0), 0)
-			+ rtx_cost (XEXP (op1, 1), 0));
+			+ rtx_cost (op0, 0, speed)
+			+ rtx_cost (XEXP (op1, 0), 0, speed)
+			+ rtx_cost (XEXP (op1, 1), 0, speed));
 	      return true;
 	    }
 	}
@@ -3566,9 +3567,9 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      && GET_CODE (XEXP (op, 0)) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ rtx_cost (XEXP (XEXP (op, 0), 0), 0)
-			+ rtx_cost (XEXP (XEXP (op, 0), 1), 0)
-			+ rtx_cost (XEXP (op, 1), 0));
+			+ rtx_cost (XEXP (XEXP (op, 0), 0), 0, speed)
+			+ rtx_cost (XEXP (XEXP (op, 0), 1), 0, speed)
+			+ rtx_cost (XEXP (op, 1), 0, speed));
 	      return true;
 	    }
 	}
@@ -3606,9 +3607,9 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  if (outer_code == SQRT || GET_CODE (XEXP (x, 1)) == SQRT)
 	    /* An rsqrt<mode>a or rsqrt<mode>b pattern.  Count the
 	       division as being free.  */
-	    *total = rtx_cost (XEXP (x, 1), 0);
+	    *total = rtx_cost (XEXP (x, 1), 0, speed);
 	  else
-	    *total = mips_fp_div_cost (mode) + rtx_cost (XEXP (x, 1), 0);
+	    *total = mips_fp_div_cost (mode) + rtx_cost (XEXP (x, 1), 0, speed);
 	  return true;
 	}
       /* Fall through.  */
@@ -3636,7 +3637,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      && CONST_INT_P (XEXP (x, 1))
 	      && exact_log2 (INTVAL (XEXP (x, 1))) >= 0)
 	    {
-	      *total = COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 0), 0);
+	      *total = COSTS_N_INSNS (2) + rtx_cost (XEXP (x, 0), 0, speed);
 	      return true;
 	    }
 	  *total = COSTS_N_INSNS (mips_idiv_insns ());
@@ -3671,7 +3672,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 /* Implement TARGET_ADDRESS_COST.  */
 
 static int
-mips_address_cost (rtx addr)
+mips_address_cost (rtx addr, bool speed ATTRIBUTE_UNUSED)
 {
   return mips_address_insns (addr, SImode, false);
 }
@@ -4221,8 +4222,14 @@ mips_expand_scc (enum rtx_code code, rtx target)
 
   if (code == EQ || code == NE)
     {
-      rtx zie = mips_zero_if_equal (cmp_operands[0], cmp_operands[1]);
-      mips_emit_binary (code, target, zie, const0_rtx);
+      if (ISA_HAS_SEQ_SNE
+	  && reg_imm10_operand (cmp_operands[1], GET_MODE (cmp_operands[1])))
+	mips_emit_binary (code, target, cmp_operands[0], cmp_operands[1]);
+      else
+	{
+	  rtx zie = mips_zero_if_equal (cmp_operands[0], cmp_operands[1]);
+	  mips_emit_binary (code, target, zie, const0_rtx);
+	}
     }
   else
     mips_emit_int_order_test (code, 0, target,
@@ -6658,6 +6665,32 @@ mips_use_ins_ext_p (rtx op, HOST_WIDE_INT width, HOST_WIDE_INT bitpos)
 
   return true;
 }
+
+/* Check if MASK and SHIFT are valid in mask-low-and-shift-left
+   operation if MAXLEN is the maxium length of consecutive bits that
+   can make up MASK.  MODE is the mode of the operation.  See
+   mask_low_and_shift_len for the actual definition.  */
+
+bool
+mask_low_and_shift_p (enum machine_mode mode, rtx mask, rtx shift, int maxlen)
+{
+  return IN_RANGE (mask_low_and_shift_len (mode, mask, shift), 1, maxlen);
+}
+
+/* The canonical form of a mask-low-and-shift-left operation is
+   (and (ashift X SHIFT) MASK) where MASK has the lower SHIFT number of bits
+   cleared.  Thus we need to shift MASK to the right before checking if it
+   is a valid mask value.  MODE is the mode of the operation.  If true
+   return the length of the mask, otherwise return -1.  */
+
+int
+mask_low_and_shift_len (enum machine_mode mode, rtx mask, rtx shift)
+{
+  HOST_WIDE_INT shval;
+
+  shval = INTVAL (shift) & (GET_MODE_BITSIZE (mode) - 1);
+  return exact_log2 ((UINTVAL (mask) >> shval) + 1);
+}
 
 /* Return true if -msplit-addresses is selected and should be honored.
 
@@ -7025,6 +7058,7 @@ mips_print_float_branch_condition (FILE *file, enum rtx_code code, int letter)
    'X'	Print CONST_INT OP in hexadecimal format.
    'x'	Print the low 16 bits of CONST_INT OP in hexadecimal format.
    'd'	Print CONST_INT OP in decimal.
+   'm'	Print one less than CONST_INT OP in decimal.
    'h'	Print the high-part relocation associated with OP, after stripping
 	  any outermost HIGH.
    'R'	Print the low-part relocation associated with OP.
@@ -7076,6 +7110,13 @@ mips_print_operand (FILE *file, rtx op, int letter)
     case 'd':
       if (GET_CODE (op) == CONST_INT)
 	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (op));
+      else
+	output_operand_lossage ("invalid use of '%%%c'", letter);
+      break;
+
+    case 'm':
+      if (GET_CODE (op) == CONST_INT)
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (op) - 1);
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
       break;

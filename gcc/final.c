@@ -664,7 +664,7 @@ insn_current_reference_address (rtx branch)
 /* Compute branch alignments based on frequency information in the
    CFG.  */
 
-static unsigned int
+unsigned int
 compute_alignments (void)
 {
   int log, max_skip, max_log;
@@ -707,7 +707,7 @@ compute_alignments (void)
       edge_iterator ei;
 
       if (!LABEL_P (label)
-	  || probably_never_executed_bb_p (bb))
+	  || optimize_bb_for_size_p (bb))
 	{
 	  if (dump_file)
 	    fprintf(dump_file, "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
@@ -784,7 +784,10 @@ compute_alignments (void)
     }
 
   if (dump_file)
-    loop_optimizer_finalize ();
+    {
+      loop_optimizer_finalize ();
+      free_dominance_info (CDI_DOMINATORS);
+    }
   return 0;
 }
 

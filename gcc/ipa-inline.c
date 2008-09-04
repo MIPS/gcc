@@ -212,7 +212,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
 	  && !cgraph_new_nodes)
 	{
 	  gcc_assert (!e->callee->global.inlined_to);
-	  if (gimple_body (e->callee->decl))
+	  if (e->callee->analyzed)
 	    overall_insns -= e->callee->global.insns, nfunctions_inlined++;
 	  duplicate = false;
 	}
@@ -318,18 +318,25 @@ cgraph_estimate_growth (struct cgraph_node *node)
 {
   int growth = 0;
   struct cgraph_edge *e;
+  bool self_recursive = false;
+
   if (node->global.estimated_growth != INT_MIN)
     return node->global.estimated_growth;
 
   for (e = node->callers; e; e = e->next_caller)
-    if (e->inline_failed)
-      growth += (cgraph_estimate_size_after_inlining (1, e->caller, node)
-		 - e->caller->global.insns);
+    {
+      if (e->caller == node)
+        self_recursive = true;
+      if (e->inline_failed)
+	growth += (cgraph_estimate_size_after_inlining (1, e->caller, node)
+		   - e->caller->global.insns);
+    }
 
-  /* ??? Wrong for self recursive functions or cases where we decide to not
-     inline for different reasons, but it is not big deal as in that case
-     we will keep the body around, but we will also avoid some inlining.  */
-  if (!node->needed && !DECL_EXTERNAL (node->decl))
+  /* ??? Wrong for non-trivially self recursive functions or cases where
+     we decide to not inline for different reasons, but it is not big deal
+     as in that case we will keep the body around, but we will also avoid
+     some inlining.  */
+  if (!node->needed && !DECL_EXTERNAL (node->decl) && !self_recursive)
     growth -= node->global.insns;
 
   node->global.estimated_growth = growth;
@@ -906,8 +913,13 @@ cgraph_decide_inlining_of_small_functions (void)
 	 is not good idea so prohibit the recursive inlining.
 
 	 ??? When the frequencies are taken into account we might not need this
-	 restriction.   */
-      if (!max_count)
+	 restriction.
+
+	 We need to be cureful here, in some testcases, e.g. directivec.c in
+	 libcpp, we can estimate self recursive function to have negative growth
+	 for inlining completely.
+	 */
+      if (!edge->count)
 	{
 	  where = edge->caller;
 	  while (where->global.inlined_to)
@@ -1376,7 +1388,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	    }
 	  continue;
 	}
-      if (!gimple_body (e->callee->decl) && !e->callee->inline_decl)
+      if (!e->callee->analyzed && !e->callee->inline_decl)
 	{
 	  if (dump_file)
 	    {
@@ -1451,7 +1463,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	      }
 	    continue;
 	  }
-	if (!gimple_body (e->callee->decl) && !e->callee->inline_decl)
+	if (!e->callee->analyzed && !e->callee->inline_decl)
 	  {
 	    if (dump_file)
 	      {
@@ -1694,7 +1706,7 @@ inline_transform (struct cgraph_node *node)
 
   /* We might need the body of this function so that we can expand
      it inline somewhere else.  */
-  if (cgraph_preserve_function_body_p (current_function_decl))
+  if (cgraph_preserve_function_body_p (node->decl))
     save_inline_function_body (node);
 
   for (e = node->callees; e; e = e->next_callee)

@@ -66,7 +66,7 @@ static tree grok_reference_init (tree, tree, tree, tree *);
 static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 			 int, int, tree);
 static void record_unknown_type (tree, const char *);
-static tree builtin_function_1 (tree, tree);
+static tree builtin_function_1 (tree, tree, bool);
 static tree build_library_fn_1 (tree, enum tree_code, tree);
 static int member_function_or_else (tree, tree, enum overload_flags);
 static void bad_specifiers (tree, const char *, int, int, int, int,
@@ -226,6 +226,11 @@ struct named_label_entry GTY(())
    (Zero if we are at namespace scope, one inside the body of a
    function, two inside the body of a function in a local class, etc.)  */
 int function_depth;
+
+/* To avoid unwanted recursion, finish_function defers all mark_used calls
+   encountered during its execution until it finishes.  */
+bool defer_mark_used_calls;
+VEC(tree, gc) *deferred_mark_used_calls;
 
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
@@ -1763,6 +1768,20 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       /* Merge deprecatedness.  */
       if (TREE_DEPRECATED (newdecl))
 	TREE_DEPRECATED (olddecl) = 1;
+
+      /* Preserve function specific target and optimization options */
+      if (TREE_CODE (newdecl) == FUNCTION_DECL)
+	{
+	  if (DECL_FUNCTION_SPECIFIC_TARGET (olddecl)
+	      && !DECL_FUNCTION_SPECIFIC_TARGET (newdecl))
+	    DECL_FUNCTION_SPECIFIC_TARGET (newdecl)
+	      = DECL_FUNCTION_SPECIFIC_TARGET (olddecl);
+
+	  if (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (olddecl)
+	      && !DECL_FUNCTION_SPECIFIC_OPTIMIZATION (newdecl))
+	    DECL_FUNCTION_SPECIFIC_OPTIMIZATION (newdecl)
+	      = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (olddecl);
+	}
 
       /* Merge the initialization information.  */
       if (DECL_INITIAL (newdecl) == NULL_TREE
@@ -3497,7 +3516,7 @@ cp_make_fname_decl (tree id, int type_dep)
 }
 
 static tree
-builtin_function_1 (tree decl, tree context)
+builtin_function_1 (tree decl, tree context, bool is_global)
 {
   tree          id = DECL_NAME (decl);
   const char *name = IDENTIFIER_POINTER (id);
@@ -3518,7 +3537,10 @@ builtin_function_1 (tree decl, tree context)
 
   DECL_CONTEXT (decl) = context;
 
-  pushdecl (decl);
+  if (is_global)
+    pushdecl_top_level (decl);
+  else
+    pushdecl (decl);
 
   /* A function in the user's namespace should have an explicit
      declaration before it is used.  Mark the built-in function as
@@ -3551,11 +3573,36 @@ cxx_builtin_function (tree decl)
     {
       tree decl2 = copy_node(decl);
       push_namespace (std_identifier);
-      builtin_function_1 (decl2, std_node);
+      builtin_function_1 (decl2, std_node, false);
       pop_namespace ();
     }
 
-  return builtin_function_1 (decl, NULL_TREE);
+  return builtin_function_1 (decl, NULL_TREE, false);
+}
+
+/* Like cxx_builtin_function, but guarantee the function is added to the global
+   scope.  This is to allow function specific options to add new machine
+   dependent builtins when the target ISA changes via attribute((target(...)))
+   which saves space on program startup if the program does not use non-generic
+   ISAs.  */
+
+tree
+cxx_builtin_function_ext_scope (tree decl)
+{
+
+  tree          id = DECL_NAME (decl);
+  const char *name = IDENTIFIER_POINTER (id);
+  /* All builtins that don't begin with an '_' should additionally
+     go in the 'std' namespace.  */
+  if (name[0] != '_')
+    {
+      tree decl2 = copy_node(decl);
+      push_namespace (std_identifier);
+      builtin_function_1 (decl2, std_node, true);
+      pop_namespace ();
+    }
+
+  return builtin_function_1 (decl, NULL_TREE, true);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library
@@ -3927,14 +3974,14 @@ groktypename (cp_decl_specifier_seq *type_specifiers,
    grokfield.)  The DECL corresponding to the DECLARATOR is returned.
    If an error occurs, the error_mark_node is returned instead.
    
-   DECLSPECS are the decl-specifiers for the declaration.  INITIALIZED is 1
-   if an explicit initializer is present, or 2 for an explicitly defaulted
-   function, or 3 for an explicitly deleted function, but 0 if this is a
-   variable implicitly initialized via a default constructor.  ATTRIBUTES
-   and PREFIX_ATTRIBUTES are GNU attributes associated with this
-   declaration.  *PUSHED_SCOPE_P is set to the scope entered in this
-   function, if any; if set, the caller is responsible for calling
-   pop_scope.  */
+   DECLSPECS are the decl-specifiers for the declaration.  INITIALIZED is
+   SD_INITIALIZED if an explicit initializer is present, or SD_DEFAULTED
+   for an explicitly defaulted function, or SD_DELETED for an explicitly
+   deleted function, but 0 (SD_UNINITIALIZED) if this is a variable
+   implicitly initialized via a default constructor.  ATTRIBUTES and
+   PREFIX_ATTRIBUTES are GNU attributes associated with this declaration.
+   *PUSHED_SCOPE_P is set to the scope entered in this function, if any; if
+   set, the caller is responsible for calling pop_scope.  */
 
 tree
 start_decl (const cp_declarator *declarator,
@@ -3992,7 +4039,7 @@ start_decl (const cp_declarator *declarator,
 	return error_mark_node;
 
       case FUNCTION_DECL:
-	if (initialized == 3)
+	if (initialized == SD_DELETED)
 	  /* We'll handle the rest of the semantics later, but we need to
 	     set this now so it's visible to duplicate_decls.  */
 	  DECL_DELETED_FN (decl) = 1;
@@ -4203,6 +4250,8 @@ start_decl_1 (tree decl, bool initialized)
 	 arrays which might be completed by the initialization.  */
       if (complete_p)
 	;			/* A complete type is ok.  */
+      else if (type_uses_auto (type))
+	; 			/* An auto type is ok.  */
       else if (TREE_CODE (type) != ARRAY_TYPE)
 	{
 	  error ("variable %q#D has initializer but incomplete type", decl);
@@ -4217,8 +4266,11 @@ start_decl_1 (tree decl, bool initialized)
     }
   else if (aggregate_definition_p && !complete_p)
     {
-      error ("aggregate %q#D has incomplete type and cannot be defined",
-	     decl);
+      if (type_uses_auto (type))
+	error ("declaration of %q#D has no initializer", decl);
+      else
+	error ("aggregate %q#D has incomplete type and cannot be defined",
+	       decl);
       /* Change the type so that assemble_variable will give
 	 DECL an rtl we can live with: (mem (const_int 0)).  */
       type = TREE_TYPE (decl) = error_mark_node;
@@ -5406,6 +5458,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
   int was_readonly = 0;
   bool var_definition_p = false;
   int saved_processing_template_decl;
+  tree auto_node;
 
   if (decl == error_mark_node)
     return;
@@ -5440,6 +5493,14 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       && (DECL_INITIAL (decl) || init))
     DECL_INITIALIZED_IN_CLASS_P (decl) = 1;
 
+  auto_node = type_uses_auto (type);
+  if (auto_node && !type_dependent_expression_p (init))
+    {
+      type = TREE_TYPE (decl) = do_auto_deduction (type, init, auto_node);
+      if (type == error_mark_node)
+	return;
+    }
+
   if (processing_template_decl)
     {
       bool type_dependent_p;
@@ -5456,7 +5517,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  DECL_INITIAL (decl) = NULL_TREE;
 	}
 
-      if (init && init_const_expr_p)
+      if (init && init_const_expr_p && TREE_CODE (decl) == VAR_DECL)
 	{
 	  DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
 	  if (DECL_INTEGRAL_CONSTANT_VAR_P (decl))
@@ -8163,6 +8224,12 @@ grokdeclarator (const cp_declarator *declarator,
 
 	    /* Pick up the exception specifications.  */
 	    raises = declarator->u.function.exception_specification;
+
+	    /* Handle a late-specified return type.  */
+	    type = splice_late_return_type
+	      (type, declarator->u.function.late_return_type);
+	    if (type == error_mark_node)
+	      return error_mark_node;
 
 	    /* Say it's a definition only for the CALL_EXPR
 	       closest to the identifier.  */
@@ -11971,6 +12038,9 @@ finish_function (int flags)
   if (fndecl == NULL_TREE)
     return error_mark_node;
 
+  gcc_assert (!defer_mark_used_calls);
+  defer_mark_used_calls = true;
+
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fndecl)
       && DECL_VIRTUAL_P (fndecl)
       && !processing_template_decl)
@@ -12169,6 +12239,17 @@ finish_function (int flags)
        function.  For a nested function, this value is used in
        cxx_pop_function_context and then reset via pop_function_context.  */
     current_function_decl = NULL_TREE;
+
+  defer_mark_used_calls = false;
+  if (deferred_mark_used_calls)
+    {
+      unsigned int i;
+      tree decl;
+
+      for (i = 0; VEC_iterate (tree, deferred_mark_used_calls, i, decl); i++)
+	mark_used (decl);
+      VEC_free (tree, gc, deferred_mark_used_calls);
+    }
 
   return fndecl;
 }
