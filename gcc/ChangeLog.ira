@@ -1,6 +1,11 @@
 2008-09-03  Vladimir Makarov  <vmakarov@redhat.com>
 
-	rtl-opt/37296
+	PR middle-end/37359
+	* ira-lives.c (process_bb_node_lives): Check setjmp.
+
+2008-09-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-opt/37296
 	* ira-int.h (ira_sort_insn_chain): Remove.
 
 	* ira.c (basic_block_order_nums, chain_insn_order,
