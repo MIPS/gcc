@@ -1,5 +1,10 @@
 2008-09-04  Alexandre Oliva  <aoliva@redhat.com>
 
+	* print-rtl.c (print_rtx): Remove excess parenthesis after
+	VAR_LOCATION.
+
+2008-09-04  Alexandre Oliva  <aoliva@redhat.com>
+
 	PR debug/37098
 	* cfgexpand.c (expand_debug_expr): Handle PAREN_EXPR.
 
