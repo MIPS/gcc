@@ -1,3 +1,48 @@
+2008-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36332
+	* real.c (real_maxval): Clear a lower bit to make real_maxval
+	match get_max_float for IBM long double format.
+
+2008-09-02  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.md (<u>mulsidi3): Use a temporary register.
+
+2008-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/37248
+	PR middle-end/36449
+	* fold-const.c (make_bit_field_ref): Change bitpos and bitsize
+	arguments to HOST_WIDE_INT.
+	(fold_truthop): Change first_bit and end_bit to HOST_WIDE_INT.
+
+	Revert:
+	2008-06-11  Richard Guenther  <rguenther@suse.de>
+	PR middle-end/36449
+	* fold-const.c (fold_truthop): Remove code generating
+	BIT_FIELD_REFs of structure bases.
+	(fold_binary): Likewise.
+	(make_bit_field_ref): Remove.
+	(optimize_bit_field_compare): Remove.
+	(all_ones_mask_p): Remove.
+
+2008-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/37168
+	* config/rs6000/rs6000-protos.h (const_vector_elt_as_int): Add
+	prototype.
+	* config/rs6000/rs6000.c (const_vector_elt_as_int): No longer static.
+	* config/rs6000/altivec.md (easy_vector_constant_add_self splitter):
+	Also split V4SFmode.
+	* config/rs6000/predicates.md (easy_vector_constant_add_self): Handle
+	vector float modes.
+
+2008-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/37261
+	* fold-const.c (fold_binary): In (X | C1) & C2 canonicalization
+	compute new & and | in type rather than TREE_TYPE (arg0).
+
 2008-08-28  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* config/spu/spu_mfcio.h (mfc_begin_critical_section): New function.
