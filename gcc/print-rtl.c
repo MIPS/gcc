@@ -226,7 +226,6 @@ print_rtx (const_rtx in_rtx)
 	      if (PAT_VAR_LOCATION_STATUS (in_rtx)
 		  == VAR_INIT_STATUS_UNINITIALIZED)
 		fprintf (outfile, " [uninit]");
-	      fputc (')', outfile);
 	      sawclose = 1;
 	      i = GET_RTX_LENGTH (VAR_LOCATION);
 	    }
