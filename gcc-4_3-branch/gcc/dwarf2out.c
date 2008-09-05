@@ -10658,6 +10658,10 @@ rtl_for_decl_init (tree init, tree type)
   else if (initializer_constant_valid_p (init, type)
 	   && ! walk_tree (&init, reference_to_unused, NULL, NULL))
     {
+      if (TREE_CODE (init) == VIEW_CONVERT_EXPR
+	  && TREE_CODE (TREE_OPERAND (init, 0)) == STRING_CST)
+	return NULL;
+
       /* Convert vector CONSTRUCTOR initializers to VECTOR_CST if
 	 possible.  */
       if (TREE_CODE (type) == VECTOR_TYPE)

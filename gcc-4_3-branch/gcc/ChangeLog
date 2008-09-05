@@ -1,3 +1,7 @@
+2008-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (rtl_for_decl_init): Don't ICE on VCE <STRING_CST>.
+
 2008-09-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (tree_add_const_value_attribute): Only handle
