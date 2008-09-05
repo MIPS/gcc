@@ -46,6 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_SSSE3	OPTION_ISA_SSSE3
 #define TARGET_SSE4_1	OPTION_ISA_SSE4_1
 #define TARGET_SSE4_2	OPTION_ISA_SSE4_2
+#define TARGET_AVX	OPTION_ISA_AVX
+#define TARGET_FMA	OPTION_ISA_FMA
 #define TARGET_SSE4A	OPTION_ISA_SSE4A
 #define TARGET_SSE5	OPTION_ISA_SSE5
 #define TARGET_ROUND	OPTION_ISA_ROUND
@@ -702,7 +704,7 @@ enum target_cpu_default
    Pentium+ prefers DFmode values to be aligned to 64 bit boundary
    and Pentium Pro XFmode values at 128 bit boundaries.  */
 
-#define BIGGEST_ALIGNMENT 128
+#define BIGGEST_ALIGNMENT (TARGET_AVX ? 256: 128)
 
 /* Maximum stack alignment.  */
 #define MAX_STACK_ALIGNMENT MAX_OFILE_ALIGNMENT
@@ -996,6 +998,10 @@ do {									\
 
 #define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
 
+#define VALID_AVX256_REG_MODE(MODE)					\
+  ((MODE) == V32QImode || (MODE) == V16HImode || (MODE) == V8SImode	\
+   || (MODE) == V4DImode || (MODE) == V8SFmode || (MODE) == V4DFmode)
+
 #define VALID_SSE2_REG_MODE(MODE)					\
   ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode	\
    || (MODE) == V2DImode || (MODE) == DFmode)
@@ -1013,8 +1019,14 @@ do {									\
    || (MODE) == V4HImode || (MODE) == V8QImode)
 
 /* ??? No autovectorization into MMX or 3DNOW until we can reliably
-   place emms and femms instructions.  */
-#define UNITS_PER_SIMD_WORD(MODE) (TARGET_SSE ? 16 : UNITS_PER_WORD)
+   place emms and femms instructions.
+   FIXME: AVX has 32byte floating point vector operations and 16byte
+   integer vector operations.  But vectorizer doesn't support
+   different sizes for integer and floating point vectors.  We limit
+   vector size to 16byte.  */
+#define UNITS_PER_SIMD_WORD(MODE)					\
+  (TARGET_AVX ? (((MODE) == DFmode || (MODE) == SFmode) ? 16 : 16)	\
+   	      : (TARGET_SSE ? 16 : UNITS_PER_WORD))
 
 #define VALID_DFP_MODE_P(MODE) \
   ((MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)
@@ -1035,7 +1047,9 @@ do {									\
 #define SSE_REG_MODE_P(MODE)						\
   ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
-   || (MODE) == V4SFmode || (MODE) == V4SImode)
+   || (MODE) == V4SFmode || (MODE) == V4SImode || (MODE) == V32QImode	\
+   || (MODE) == V16HImode || (MODE) == V8SImode || (MODE) == V4DImode	\
+   || (MODE) == V8SFmode || (MODE) == V4DFmode)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 
@@ -1274,6 +1288,19 @@ enum reg_class
 { 0xffffffff,0x1fffff }							\
 }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, FLOAT_REGS, MMX_REGS, SSE_REGS, LIM_REG_CLASSES		     \
+}
+
 /* The same information, inverted:
    Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
@@ -1325,6 +1352,19 @@ enum reg_class
 
 #define SSE_VEC_FLOAT_MODE_P(MODE) \
   ((TARGET_SSE && (MODE) == V4SFmode) || (TARGET_SSE2 && (MODE) == V2DFmode))
+
+#define AVX_FLOAT_MODE_P(MODE) \
+  (TARGET_AVX && ((MODE) == SFmode || (MODE) == DFmode))
+
+#define AVX128_VEC_FLOAT_MODE_P(MODE) \
+  (TARGET_AVX && ((MODE) == V4SFmode || (MODE) == V2DFmode))
+
+#define AVX256_VEC_FLOAT_MODE_P(MODE) \
+  (TARGET_AVX && ((MODE) == V8SFmode || (MODE) == V4DFmode))
+
+#define AVX_VEC_FLOAT_MODE_P(MODE) \
+  (TARGET_AVX && ((MODE) == V4SFmode || (MODE) == V2DFmode \
+		  || (MODE) == V8SFmode || (MODE) == V4DFmode))
 
 #define MMX_REG_P(XOP) (REG_P (XOP) && MMX_REGNO_P (REGNO (XOP)))
 #define MMX_REGNO_P(N) IN_RANGE ((N), FIRST_MMX_REG, LAST_MMX_REG)
@@ -1546,6 +1586,7 @@ typedef struct ix86_args {
   int fastcall;			/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
+  int warn_avx;			/* True when we want to warn about AVX ABI.  */
   int warn_sse;			/* True when we want to warn about SSE ABI.  */
   int warn_mmx;			/* True when we want to warn about MMX ABI.  */
   int sse_regno;		/* next available sse register number */
@@ -1865,12 +1906,12 @@ do {									\
 
    If you don't define this, a reasonable default is used.  */
 
-#define MOVE_RATIO (optimize_size ? 3 : ix86_cost->move_ratio)
+#define MOVE_RATIO(speed) ((speed) ? ix86_cost->move_ratio : 3)
 
 /* If a clear memory operation would take CLEAR_RATIO or more simple
    move-instruction sequences, we will do a clrmem or libcall instead.  */
 
-#define CLEAR_RATIO (optimize_size ? 2 : MIN (6, ix86_cost->move_ratio))
+#define CLEAR_RATIO(speed) ((speed) ? MIN (6, ix86_cost->move_ratio) : 2)
 
 /* Define if shifts truncate the shift count
    which implies one can omit a sign-extension or zero-extension
@@ -1934,7 +1975,8 @@ do {							\
 /* A C expression for the cost of a branch instruction.  A value of 1
    is the default; other values are interpreted relative to that.  */
 
-#define BRANCH_COST ix86_branch_cost
+#define BRANCH_COST(speed_p, predictable_p) \
+  (!(speed_p) ? 2 : (predictable_p) ? 0 : ix86_branch_cost)
 
 /* Define this macro as a C expression which is nonzero if accessing
    less than a word of memory (i.e. a `char' or a `short') is no
@@ -2119,6 +2161,29 @@ do {									\
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
   ix86_output_addr_diff_elt ((FILE), (VALUE), (REL))
+
+/* When we see %v, we will print the 'v' prefix if TARGET_AVX is
+   true.  */
+
+#define ASM_OUTPUT_AVX_PREFIX(STREAM, PTR)	\
+{						\
+  if ((PTR)[0] == '%' && (PTR)[1] == 'v')	\
+    {						\
+      if (TARGET_AVX)				\
+	(PTR) += 1;				\
+      else					\
+	(PTR) += 2;				\
+    }						\
+}
+
+/* A C statement or statements which output an assembler instruction
+   opcode to the stdio stream STREAM.  The macro-operand PTR is a
+   variable of type `char *' which points to the opcode name in
+   its "internal" form--the form that is written in the machine
+   description.  */
+
+#define ASM_OUTPUT_OPCODE(STREAM, PTR) \
+  ASM_OUTPUT_AVX_PREFIX ((STREAM), (PTR))
 
 /* Under some conditions we need jump tables in the text section,
    because the assembler cannot handle label differences between
@@ -2325,7 +2390,8 @@ struct machine_function GTY(())
 {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
-  int save_varrargs_registers;
+  int varargs_gpr_size;
+  int varargs_fpr_size;
   int accesses_prev_frame;
   int optimize_mode_switching[MAX_386_ENTITIES];
   int needs_cld;
@@ -2351,7 +2417,8 @@ struct machine_function GTY(())
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
-#define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
+#define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
+#define ix86_varargs_fpr_size (cfun->machine->varargs_fpr_size)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
 #define ix86_current_function_needs_cld (cfun->machine->needs_cld)
 #define ix86_tls_descriptor_calls_expanded_in_cfun \

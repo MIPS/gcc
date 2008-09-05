@@ -212,16 +212,15 @@ build_gimple_cfg (gimple_seq seq)
 #ifdef ENABLE_CHECKING
   verify_stmts ();
 #endif
-
-  /* Dump a textual representation of the flowgraph.  */
-  if (dump_file)
-    gimple_dump_cfg (dump_file, dump_flags);
 }
 
 static unsigned int
 execute_build_cfg (void)
 {
-  build_gimple_cfg (gimple_body (current_function_decl));
+  gimple_seq body = gimple_body (current_function_decl);
+
+  build_gimple_cfg (body);
+  gimple_set_body (current_function_decl, NULL);
   return 0;
 }
 
@@ -240,7 +239,8 @@ struct gimple_opt_pass pass_build_cfg =
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_verify_stmts | TODO_cleanup_cfg	/* todo_flags_finish */
+  TODO_verify_stmts | TODO_cleanup_cfg
+  | TODO_dump_func			/* todo_flags_finish */
  }
 };
 
@@ -3547,17 +3547,44 @@ verify_types_in_gimple_assign (gimple stmt)
   /* Generic handling via classes.  */
   switch (TREE_CODE_CLASS (rhs_code))
     {
+    case tcc_exceptional: /* for SSA_NAME */
     case tcc_unary:
       if (!useless_type_conversion_p (lhs_type, rhs1_type))
 	{
 	  error ("non-trivial conversion at assignment");
-	  debug_generic_expr (lhs);
-	  debug_generic_expr (rhs1);
+	  debug_generic_expr (lhs_type);
+	  debug_generic_expr (rhs1_type);
+	  return true;
+	}
+      break;
+
+    case tcc_binary:
+      if (!is_gimple_val (rhs1) || !is_gimple_val (rhs2))
+	{
+	  error ("invalid operands in binary expression");
+	  return true;
+	}
+      if (!useless_type_conversion_p (lhs_type, rhs1_type)
+	  || !useless_type_conversion_p (lhs_type, rhs2_type))
+	{
+	  error ("type mismatch in binary expression");
+	  debug_generic_stmt (lhs_type);
+	  debug_generic_stmt (rhs1_type);
+	  debug_generic_stmt (rhs2_type);
 	  return true;
 	}
       break;
 
     case tcc_reference:
+      /* All tcc_reference trees are GIMPLE_SINGLE_RHS.  Verify that
+         no implicit type change happens here.  */
+      if (!useless_type_conversion_p (lhs_type, rhs1_type))
+	{
+	  error ("non-trivial conversion at assignment");
+	  debug_generic_expr (lhs_type);
+	  debug_generic_expr (rhs1_type);
+	  return true;
+	}
       return verify_types_in_gimple_reference (rhs1);
 
     case tcc_comparison:
@@ -3835,7 +3862,7 @@ verify_stmt (gimple_stmt_iterator *gsi)
   if (addr)
     {
       debug_generic_expr (addr);
-      inform ("in statement");
+      inform (input_location, "in statement");
       debug_gimple_stmt (stmt);
       return true;
     }
@@ -5874,7 +5901,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   if (dsf && (flags & TDF_DETAILS))
     dump_eh_tree (file, dsf);
 
-  if (flags & TDF_RAW && !gimple_body (fn))
+  if (flags & TDF_RAW && !gimple_has_body_p (fn))
     {
       dump_node (fn, TDF_SLIM | flags, file);
       return;
@@ -6116,7 +6143,7 @@ print_loops (FILE *file, int verbosity)
 {
   basic_block bb;
 
-  bb = BASIC_BLOCK (NUM_FIXED_BLOCKS);
+  bb = ENTRY_BLOCK_PTR;
   if (bb && bb->loop_father)
     print_loop_and_siblings (file, bb->loop_father, 0, verbosity);
 }
@@ -6204,7 +6231,7 @@ need_fake_edge_p (gimple t)
       && !(call_flags & ECF_NORETURN))
     return true;
 
-  if (gimple_code (t) == ASM_EXPR
+  if (gimple_code (t) == GIMPLE_ASM
        && (gimple_asm_volatile_p (t) || gimple_asm_input_p (t)))
     return true;
 
@@ -6536,7 +6563,13 @@ gimple_purge_all_dead_eh_edges (const_bitmap blocks)
 
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i, bi)
     {
-      changed |= gimple_purge_dead_eh_edges (BASIC_BLOCK (i));
+      basic_block bb = BASIC_BLOCK (i);
+
+      /* Earlier gimple_purge_dead_eh_edges could have removed
+	 this basic block already.  */
+      gcc_assert (bb || changed);
+      if (bb != NULL)
+	changed |= gimple_purge_dead_eh_edges (bb);
     }
 
   return changed;

@@ -114,21 +114,33 @@ struct bfin_cpu
 
 struct bfin_cpu bfin_cpus[] =
 {
+  {"bf522", BFIN_CPU_BF522, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf522", BFIN_CPU_BF522, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf523", BFIN_CPU_BF523, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf523", BFIN_CPU_BF523, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf524", BFIN_CPU_BF524, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf524", BFIN_CPU_BF524, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf525", BFIN_CPU_BF525, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf525", BFIN_CPU_BF525, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf526", BFIN_CPU_BF526, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf526", BFIN_CPU_BF526, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf527", BFIN_CPU_BF527, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf527", BFIN_CPU_BF527, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
@@ -178,6 +190,8 @@ struct bfin_cpu bfin_cpus[] =
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf538", BFIN_CPU_BF538, 0x0003,
    WA_SPECULATIVE_LOADS | WA_RETS},
+  {"bf538", BFIN_CPU_BF538, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
   {"bf539", BFIN_CPU_BF539, 0x0004,
    WA_SPECULATIVE_LOADS | WA_RETS},
@@ -186,18 +200,28 @@ struct bfin_cpu bfin_cpus[] =
   {"bf539", BFIN_CPU_BF539, 0x0002,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf542", BFIN_CPU_BF542, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf542", BFIN_CPU_BF542, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf544", BFIN_CPU_BF544, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf544", BFIN_CPU_BF544, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf547", BFIN_CPU_BF547, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf547", BFIN_CPU_BF547, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf548", BFIN_CPU_BF548, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf548", BFIN_CPU_BF548, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf549", BFIN_CPU_BF549, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf549", BFIN_CPU_BF549, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
@@ -1165,7 +1189,8 @@ bfin_expand_prologue (void)
     }
 
   if (crtl->limit_stack
-      || TARGET_STACK_CHECK_L1)
+      || (TARGET_STACK_CHECK_L1
+	  && !DECL_NO_LIMIT_STACK (current_function_decl)))
     {
       HOST_WIDE_INT offset
 	= bfin_initial_elimination_offset (ARG_POINTER_REGNUM,
@@ -1378,7 +1403,7 @@ bfin_dsp_memref_p (rtx x)
    All addressing modes are equally cheap on the Blackfin.  */
 
 static int
-bfin_address_cost (rtx addr ATTRIBUTE_UNUSED)
+bfin_address_cost (rtx addr ATTRIBUTE_UNUSED, bool speed ATTRIBUTE_UNUSED)
 {
   return 1;
 }
@@ -1917,6 +1942,9 @@ bfin_function_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED,
      not need to reload P5 in the prologue, but the sibcall wil pop P5 in the
      sibcall epilogue, and we end up with the wrong value in P5.  */
 
+  if (!decl)
+    /* Not enough information.  */
+    return false;
  
   this_func = cgraph_local_info (current_function_decl);
   called_func = cgraph_local_info (decl);
@@ -2413,9 +2441,6 @@ bfin_handle_option (size_t code, const char *arg, int value)
 	    bfin_workarounds |= bfin_cpus[i].workarounds;
 	  }
 
-	if (bfin_cpu_type == BFIN_CPU_BF561)
-	  warning (0, "bf561 support is incomplete yet.");
-
 	return true;
       }
 
@@ -2871,7 +2896,7 @@ bfin_legitimate_constant_p (rtx x)
 }
 
 static bool
-bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
+bfin_rtx_costs (rtx x, int code, int outer_code, int *total, bool speed)
 {
   int cost2 = COSTS_N_INSNS (1);
   rtx op0, op1;
@@ -2919,19 +2944,19 @@ bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      if (val == 2 || val == 4)
 		{
 		  *total = cost2;
-		  *total += rtx_cost (XEXP (op0, 0), outer_code);
-		  *total += rtx_cost (op1, outer_code);
+		  *total += rtx_cost (XEXP (op0, 0), outer_code, speed);
+		  *total += rtx_cost (op1, outer_code, speed);
 		  return true;
 		}
 	    }
 	  *total = cost2;
 	  if (GET_CODE (op0) != REG
 	      && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
-	    *total += rtx_cost (op0, SET);
+	    *total += rtx_cost (op0, SET, speed);
 #if 0 /* We'd like to do this for accuracy, but it biases the loop optimizer
 	 towards creating too many induction variables.  */
 	  if (!reg_or_7bit_operand (op1, SImode))
-	    *total += rtx_cost (op1, SET);
+	    *total += rtx_cost (op1, SET, speed);
 #endif
 	}
       else if (GET_MODE (x) == DImode)
@@ -2939,10 +2964,10 @@ bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  *total = 6 * cost2;
 	  if (GET_CODE (op1) != CONST_INT
 	      || !satisfies_constraint_Ks7 (op1))
-	    *total += rtx_cost (op1, PLUS);
+	    *total += rtx_cost (op1, PLUS, speed);
 	  if (GET_CODE (op0) != REG
 	      && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
-	    *total += rtx_cost (op0, PLUS);
+	    *total += rtx_cost (op0, PLUS, speed);
 	}
       return true;
 
@@ -2965,7 +2990,7 @@ bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
       op1 = XEXP (x, 1);
       if (GET_CODE (op0) != REG
 	  && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
-	*total += rtx_cost (op0, code);
+	*total += rtx_cost (op0, code, speed);
 
       return true;
 	  
@@ -2990,7 +3015,7 @@ bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
 
       if (GET_CODE (op0) != REG
 	  && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
-	*total += rtx_cost (op0, code);
+	*total += rtx_cost (op0, code, speed);
 
       if (GET_MODE (x) == DImode)
 	{
@@ -3004,12 +3029,12 @@ bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
       if (code == AND)
 	{
 	  if (! rhs_andsi3_operand (XEXP (x, 1), SImode))
-	    *total += rtx_cost (XEXP (x, 1), code);
+	    *total += rtx_cost (XEXP (x, 1), code, speed);
 	}
       else
 	{
 	  if (! regorlog2_operand (XEXP (x, 1), SImode))
-	    *total += rtx_cost (XEXP (x, 1), code);
+	    *total += rtx_cost (XEXP (x, 1), code, speed);
 	}
 
       return true;
@@ -3042,17 +3067,17 @@ bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      op0 = XEXP (op0, 0);
 	      op1 = XEXP (op1, 0);
 	    }
-	  else if (optimize_size)
+	  else if (!speed)
 	    *total = COSTS_N_INSNS (1);
 	  else
 	    *total = COSTS_N_INSNS (3);
 
 	  if (GET_CODE (op0) != REG
 	      && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
-	    *total += rtx_cost (op0, MULT);
+	    *total += rtx_cost (op0, MULT, speed);
 	  if (GET_CODE (op1) != REG
 	      && (GET_CODE (op1) != SUBREG || GET_CODE (SUBREG_REG (op1)) != REG))
-	    *total += rtx_cost (op1, MULT);
+	    *total += rtx_cost (op1, MULT, speed);
 	}
       return true;
 
@@ -4431,6 +4456,11 @@ static bool
 gen_one_bundle (rtx slot[3])
 {
   gcc_assert (slot[1] != NULL_RTX);
+
+  /* Don't add extra NOPs if optimizing for size.  */
+  if (optimize_size
+      && (slot[0] == NULL_RTX || slot[2] == NULL_RTX))
+    return false;
 
   /* Verify that we really can do the multi-issue.  */
   if (slot[0])
