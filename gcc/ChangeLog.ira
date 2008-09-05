@@ -1,3 +1,8 @@
+2008-09-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (ira_fast_allocation): Permit global allocno
+	allocation.
+
 2008-09-04  Richard Sandiford  <rdsandiford@googlemail.com>
 	    Vladimir Makarov  <vmakarov@redhat.com>
 
