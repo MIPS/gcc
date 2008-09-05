@@ -1,5 +1,112 @@
 2008-09-02  Jakub Jelinek  <jakub@redhat.com>
 
+	* dwarf2out.c (tree_add_const_value_attribute): Only handle
+	VAR_DECL and CONST_DECL.
+
+2008-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37287
+	* dwarf2out.c (gen_namespace_die): For DECL_EXTERNAL modules don't
+	add source coords.
+
+	* dwarf2out.c (native_encode_initializer): Subtract min_index for
+	non-range array index.  Handle VIEW_CONVERT_EXPR and NON_LVALUE_EXPR.
+
+2008-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (fortran_common): Update comment.
+	(gen_variable_die): Swap com_die and var_die variables in Fortran
+	COMMON block handling code.
+
+	* dwarf2out.c (descr_info_loc): Handle VAR_DECL.
+
+	* dwarf2out.c (gen_const_die): New function.
+	(size_of_die, value_format, output_die): Output larger
+	dw_val_class_vec using DW_FORM_block2 or DW_FORM_block4.
+	(native_encode_initializer): New function.
+	(tree_add_const_value_attribute): Call it.
+	(gen_decl_die, dwarf2out_decl): Handle CONST_DECLs if is_fortran ().
+
+	* dwarf2out.c (gen_formal_parameter_die, gen_variable_die): For
+	DECL_BY_REFERENCE decls don't pass TREE_READONLY and
+	TREE_THIS_VOLATILE to add_type_attribute.
+
+	* dwarf2out.c (add_subscript_info): Stop on Fortran TYPE_STRING_FLAG
+	types.
+	(gen_array_type_die): Emit DW_TAG_string_type for Fortran character
+	types.
+
+	* dwarf2out.c (loc_by_reference): New function.
+	(add_location_or_const_value_attribute): Use it.
+
+	PR fortran/23057
+	* dwarf2out.c (gen_variable_die): Represent Fortran COMMON vars
+	as DW_TAG_variable children of DW_TAG_common_block rather than
+	DW_TAG_member children.  Put DW_AT_external to individual
+	DW_TAG_variable DIEs, not to DW_TAG_common_block.
+
+	* dwarf2out.c (add_bound_info): If lookup_decl_die failed, try
+	loc_descriptor_from_tree_1.
+
+	PR fortran/29635
+	PR fortran/23057
+	* debug.h (struct gcc_debug_hooks): Add NAME and CHILD
+	arguments to imported_module_or_decl.
+	(debug_nothing_tree_tree): Removed.
+	(debug_nothing_tree_tree_tree_bool): New prototype.
+	* debug.c (do_nothing_debug_hooks): Adjust.
+	(debug_nothing_tree_tree): Removed.
+	(debug_nothing_tree_tree_tree_bool): New function.
+	* dwarf2out.c (is_symbol_die): Handle DW_TAG_module.
+	(gen_variable_die): Put all common vars for the
+	same COMMON block under one DW_TAG_common_block.
+	(declare_in_namespace): Return new context_die, for Fortran
+	return the module DIE instead of adding extra declarations into
+	the namespace.
+	(gen_type_die_with_usage): Adjust declare_in_namespace caller.
+	(gen_namespace_die): If is_fortran (), generate DW_TAG_module
+	instead of DW_TAG_namespace.  If DECL_EXTERNAL is set, add
+	DW_AT_declaration.
+	(dwarf2out_global_decl): Don't skip Fortran global vars.
+	(gen_decl_die): Likewise.  Adjust declare_in_namespace callers.
+	(dwarf2out_imported_module_or_decl): Add NAME and CHILD arguments.
+	If NAME is non-NULL, add DW_AT_name.  If CHILD is non-NULL, put
+	DW_TAG_imported_declaration as child of previous
+	DW_TAG_imported_module.
+	* dbxout.c (dbx_debug_hooks, xcoff_debug_hooks): Adjust.
+	* sdbout.c (sdb_debug_hooks): Likewise.
+	* vmsdbgout.c (vmsdbg_debug_hooks): Likewise.
+
+2008-05-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/35896
+	* dwarf2out.c (dw_expand_expr, common_check): Removed.
+	(fortran_common): New function.
+	(gen_variable_die): Call fortran_common instead of common_check,
+	adjust for it returning tree instead of rtx.  Formatting.
+
+2008-04-01  George Helffrich  <george@gcc.gnu.org>
+
+	PR fortran/PR35154, fortran/PR23057
+	* dbxout.c: Emit .stabs debug info for Fortran COMMON block
+	variables as base symbol name + offset using N_BCOMM/N_ECOMM.
+	(is_fortran, dbxout_common_name, dbxout_common_check): New functions.
+	(dbxout_symbol_location): Transform N_LCSYM to N_GSYM for storage
+	in common.
+	(dbxout_syms): Check for COMMON-based symbol and wrap in
+	N_BCOMM/N_ECOMM stab bracket, including as many symbols as possible
+	in bracket for efficiency.
+
+	* dwarf2out.c: Emit DWARF debug info for Fortran COMMON block
+	using DW_TAG_common_block + member offset.
+	(add_pubname_string): New function.
+	(dw_expand_expr): New function to find block name and offset for
+	COMMON var.
+	(common_check): New function to check whether symbol in Fortran COMMON.
+	(gen_variable_die): If COMMON, use DW_TAG_common_block.
+
+2008-09-02  Jakub Jelinek  <jakub@redhat.com>
+
 	PR target/36332
 	* real.c (real_maxval): Clear a lower bit to make real_maxval
 	match get_max_float for IBM long double format.

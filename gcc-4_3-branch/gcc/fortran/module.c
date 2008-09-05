@@ -161,20 +161,6 @@ pointer_info;
 #define gfc_get_pointer_info() gfc_getmem(sizeof(pointer_info))
 
 
-/* Lists of rename info for the USE statement.  */
-
-typedef struct gfc_use_rename
-{
-  char local_name[GFC_MAX_SYMBOL_LEN + 1], use_name[GFC_MAX_SYMBOL_LEN + 1];
-  struct gfc_use_rename *next;
-  int found;
-  gfc_intrinsic_op operator;
-  locus where;
-}
-gfc_use_rename;
-
-#define gfc_get_use_rename() gfc_getmem(sizeof(gfc_use_rename))
-
 /* Local variables */
 
 /* The FILE for the module we're reading or writing.  */
@@ -200,6 +186,8 @@ static int symbol_number;	/* Counter for assigning symbol numbers */
 
 /* Tells mio_expr_ref to make symbols for unused equivalence members.  */
 static bool in_load_equiv;
+
+static locus use_locus;
 
 
 
@@ -558,6 +546,8 @@ gfc_match_use (void)
 	    return m;
 	}
     }
+
+  use_locus = gfc_current_locus;
 
   m = gfc_match_name (module_name);
   if (m != MATCH_YES)
@@ -4754,6 +4744,7 @@ gfc_use_module (void)
   gfc_state_data *p;
   int c, line, start;
   gfc_symtree *mod_symtree;
+  gfc_use_list *use_stmt;
 
   filename = (char *) alloca (strlen (module_name) + strlen (MODULE_EXTENSION)
 			      + 1);
@@ -4846,6 +4837,34 @@ gfc_use_module (void)
   pi_root = NULL;
 
   fclose (module_fp);
+
+  use_stmt = gfc_get_use_list ();
+  use_stmt->module_name = gfc_get_string (module_name);
+  use_stmt->only_flag = only_flag;
+  use_stmt->rename = gfc_rename_list;
+  use_stmt->where = use_locus;
+  gfc_rename_list = NULL;
+  use_stmt->next = gfc_current_ns->use_stmts;
+  gfc_current_ns->use_stmts = use_stmt;
+}
+
+
+void
+gfc_free_use_stmts (gfc_use_list *use_stmts)
+{
+  gfc_use_list *next;
+  for (; use_stmts; use_stmts = next)
+    {
+      gfc_use_rename *next_rename;
+
+      for (; use_stmts->rename; use_stmts->rename = next_rename)
+	{
+	  next_rename = use_stmts->rename->next;
+	  gfc_free (use_stmts->rename);
+	}
+      next = use_stmts->next;
+      gfc_free (use_stmts);
+    }
 }
 
 

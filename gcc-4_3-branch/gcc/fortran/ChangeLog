@@ -1,3 +1,97 @@
+2008-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans.h (struct lang_type): Add span.
+	(GFC_TYPE_ARRAY_SPAN): Define.
+	* trans-decl.c (gfc_get_symbol_decl): For subref array pointers,
+	copy TREE_STATIC from decl to span instead of setting it
+	unconditionally, set DECL_ARTIFICIAL, fix type of initializer
+	and set GFC_TYPE_ARRAY_SPAN on decl's type.
+	* trans-types.c (gfc_get_array_descr_info): If
+	GFC_TYPE_ARRAY_SPAN is non-NULL, use it as element size.
+
+	* trans-decl.c (check_constant_initializer,
+	gfc_emit_parameter_debug_info): New functions.
+	(gfc_generate_module_vars, gfc_generate_function_code): Emit
+	PARAMETERs and unreferenced variables with initializers into
+	debug info.
+
+	* gfortran.h (gfc_use_list): Add where field.
+	* module.c (use_locus): New static variable.
+	(gfc_match_use): Set it.
+	(gfc_use_module): Copy it to gfc_use_list's where field.
+	* trans-decl.c (gfc_generate_module_vars): Call gfc_trans_use_stmts.
+	(gfc_trans_use_stmts): Set backend locus before calling the debug
+	hook.  Allow non-VAR_DECLs to be created even for non-external
+	module.  Don't emit anything so far for renames from different
+	modules.
+
+	PR fortran/24790
+	* trans-decl.c (create_function_arglist): Set DECL_BY_REFERENCE on
+	PARM_DECLs with pointer or reference type.
+
+	* trans-decl.c (gfc_build_qualified_array): Build non-flat
+	array type for debug info purposes.
+
+	PR fortran/29635
+	PR fortran/23057
+	* f95-lang.c (gfc_init_ts): New function.
+	(LANG_HOOKS_INIT_TS): Define.
+	* gfortran.h (gfc_use_rename): New type, moved from module.c.
+	(gfc_get_use_rename): New macro, moved from module.c.
+	(gfc_use_list): New type.
+	(gfc_get_use_list): New macro.
+	(gfc_namespace): Add use_stmts field.
+	(gfc_free_use_stmts): New prototype.
+	* Make-lang.in (fortran/trans-decl.o): Depend on debug.h.
+	* module.c (gfc_use_rename, gfc_get_use_rename): Moved to
+	gfortran.h.
+	(gfc_use_module): Chain the USE statement info to
+	ns->use_stmts.
+	(gfc_free_use_stmts): New function.
+	* symbol.c (gfc_free_namespace): Call gfc_free_use_stmts.
+	* trans.h (struct module_htab_entry): New type.
+	(gfc_find_module, gfc_module_add_decl): New functions.
+	* trans.c (gfc_generate_module_code): Create NAMESPACE_DECL for
+	the module, adjust DECL_CONTEXTs of module procedures and
+	call gfc_module_add_decl for them.
+	* trans-common.c (build_common_decl): Set DECL_IGNORED_P
+	on the common variable.
+	(create_common): Set DECL_IGNORED_P for use associated vars.
+	* trans-decl.c: Include debug.h.
+	(gfc_get_symbol_decl): Set DECL_IGNORED_P on use_assoc vars from
+	modules.
+	(build_function_decl): Allow current_function_decl's context
+	to be a NAMESPACE_DECL.
+	(module_htab, cur_module): New variables.
+	(module_htab_do_hash, module_htab_eq, module_htab_decls_hash,
+	module_htab_decls_eq, gfc_find_module, gfc_module_add_decl): New
+	functions.
+	(gfc_create_module_variable): Adjust DECL_CONTEXTs of module
+	variables and types and call gfc_module_add_decl for them.
+	(gfc_generate_module_vars): Temporarily set cur_module.
+	(gfc_trans_use_stmts): New function.
+	(gfc_generate_function_code): Call it.
+	(gfc_generate_block_data): Set DECL_IGNORED_P on decl.
+	* trans-types.c (gfc_get_derived_type): Adjust DECL_CONTEXT
+	and TYPE_CONTEXT of module derived types.
+
+2008-04-26  George Helffrich <george@gcc.gnu.org>
+
+	PR fortran/35892
+	PR fortran/35154
+	* trans-common.c (create_common):  Add decl to function
+	chain (if inside one) to preserve identifier scope in debug output.
+
+2008-04-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35724
+	* trans-common.c (create_common): Revert patch causing regression.
+
+2008-04-01  George Helffrich <george@gcc.gnu.org>
+
+	* trans-common.c (create_common):  Add decl to function
+	chain to preserve identifier scope in debug output.
+
 2008-08-30  Daniel Kraft  <d@domob.eu>
 
 	PR fortran/37193
