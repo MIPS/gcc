@@ -1,3 +1,7 @@
+2008-09-04  Bill Maddox  <maddox@google.com>
+
+	* g++.dg/other/lto3.C:  New test.
+
 2008-08-29  Simon Baldwin  <simonb@google.com>
 
 	* g++.dg/other/lto2.C: New test.

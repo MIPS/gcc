@@ -2780,8 +2780,12 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
     gcc_assert (!debug_expr);
   }
 
-  /* FIXME: Adapted from DWARF reader. Probably needs more thought.  */
-  if (DECL_FILE_SCOPE_P (decl))
+  /* FIXME lto: Adapted from DWARF reader. Probably needs more thought.
+     We are only interested in variables with static storage duration.
+     I expected the test "DECL_FILE_SCOPE_P (decl)" to suffice below, but
+     it does not work.  In particular, the context of a vtable is the
+     class to which it belongs.  */
+  if (!decl_function_context (decl))
     {
       /* Variable has file scope, not local. Need to ensure static variables
 	 between different files don't clash unexpectedly.  */

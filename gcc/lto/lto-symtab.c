@@ -259,7 +259,11 @@ lto_symtab_merge_decl (tree new_decl)
 
   gcc_assert (TREE_CODE (new_decl) == VAR_DECL
 	      || TREE_CODE (new_decl) == FUNCTION_DECL);
-  /* Variables with internal linkage do not need to be merged.  */
+
+  /* Variables with internal linkage do not need to be merged.
+     Note that we do not add these variables to lto_global_var_decls,
+     as they have already been processed by rest_of_decl_compilation
+     just after they were internalized by input_var_decl.  */
   if (!TREE_PUBLIC (new_decl))
     return new_decl;
 

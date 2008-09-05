@@ -1,3 +1,9 @@
+2008-09-04  Bill Maddox  <maddox@google.com>
+
+	* lto-function-in.c (input_var_decl): Use decl_function_context
+	rather than DECL_FILE_SCOPE_P to determine whether a VAR_DECL
+	is global.
+
 2008-09-04  Doug Kwan  <dougkwan@google.com>
 
 	* cgraph.c (cgraph_inlined_failed_string): Cast REASON from
