@@ -295,7 +295,7 @@ allocno_cost_compare_func (const void *v1p, const void *v2p)
 
   /* If regs are equally good, sort by allocno numbers, so that the
      results of qsort leave nothing to chance.  */
-  return ALLOCNO_NUM (p1) - ALLOCNO_NUM (p2);
+  return ALLOCNO_ORDER_COMPARE (p1, p2);
 }
 
 /* Print all allocnos coalesced with ALLOCNO.  */
@@ -615,7 +615,7 @@ bucket_allocno_compare_func (const void *v1p, const void *v2p)
     return diff;
   else if ((diff = a1_freq - a2_freq) != 0)
     return diff;
-  return ALLOCNO_NUM (a2) - ALLOCNO_NUM (a1);
+  return ALLOCNO_ORDER_COMPARE (a2, a1);
 }
 
 /* Sort bucket *BUCKET_PTR and return the result through
@@ -950,7 +950,7 @@ allocno_spill_priority_compare (splay_tree_key k1, splay_tree_key k2)
     return diff;
   if ((diff = IRA_ALLOCNO_TEMP (a1) - IRA_ALLOCNO_TEMP (a2)) != 0)
     return diff;
-  return ALLOCNO_NUM (a1) - ALLOCNO_NUM (a2);
+  return ALLOCNO_ORDER_COMPARE (a1, a2);
 }
 
 /* Allocate data of SIZE for the splay trees.  We allocate only spay
@@ -1142,8 +1142,8 @@ push_allocnos_to_stack (void)
 		      || (allocno_pri == i_allocno_pri
 			  && (allocno_cost > i_allocno_cost
 			      || (allocno_cost == i_allocno_cost 
-				  && (ALLOCNO_NUM (allocno)
-				      > ALLOCNO_NUM (i_allocno))))))
+				  && ALLOCNO_ORDER_COMPARE (allocno,
+							    i_allocno) > 0))))
 		    {
 		      allocno = i_allocno;
 		      allocno_cost = i_allocno_cost;
@@ -2030,7 +2030,7 @@ allocno_priority_compare_func (const void *v1p, const void *v2p)
 
   /* If regs are equally good, sort by allocnos, so that the results of
      qsort leave nothing to chance.  */
-  return ALLOCNO_NUM (a1) - ALLOCNO_NUM (a2);
+  return ALLOCNO_ORDER_COMPARE (a1, a2);
 }
 
 /* Try to assign hard registers to the unassigned allocnos and

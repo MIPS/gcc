@@ -1,3 +1,14 @@
+2008-09-04  Richard Sandiford  <rdsandiford@googlemail.com>
+	    Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (ALLOCNO_ORDER_COMPARE): New.
+
+	* ira-color.c (allocno_cost_compare_func,
+	bucket_allocno_compare_func, bucket_allocno_compare_func,
+	push_allocnos_to_stack, allocno_priority_compare_func): Use it.
+
+	* ira-build.c (ira_swap_allocno_copy_ends_if_necessary): Ditto.
+
 2008-09-04  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-conflicts.c (process_regs_for_copy): Check insn to check
