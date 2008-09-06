@@ -1,5 +1,12 @@
 2008-09-06  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* ira-color.c (allocno_live_range_length): New function.
+	(allocno_spill_priority_compare): Use it.
+	(push_allocnos_to_stack): Ditto.  Use double for priority
+	calculations.
+
+2008-09-06  Vladimir Makarov  <vmakarov@redhat.com>
+
 	PR rtl-opt/37333
 	* ira-build.c (ira_create_allocno): Setup frequency to 0.
 

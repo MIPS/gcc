@@ -932,25 +932,42 @@ calculate_allocno_spill_cost (ira_allocno_t a)
   return cost;
 }
 
+/* Return length of live ranges of ALLOCNO.  */
+static int
+allocno_live_range_length (ira_allocno_t allocno)
+{
+  int allocno_lr = 0;
+  allocno_live_range_t r;
+  
+  for (r = ALLOCNO_LIVE_RANGES (allocno); r != NULL; r = r->next)
+    allocno_lr += r->finish - r->start + 1;
+  ira_assert (allocno_lr >= 0);
+  return allocno_lr;
+}
+
 /* Compare keys in the splay tree used to choose best allocno for
    spilling.  The best allocno has the minimal key.  */
 static int
 allocno_spill_priority_compare (splay_tree_key k1, splay_tree_key k2)
 {
-  int pri1, pri2, diff;
+  double pri1, pri2;
+  int diff;
   ira_allocno_t a1 = (ira_allocno_t) k1, a2 = (ira_allocno_t) k2;
   
-  pri1 = (IRA_ALLOCNO_TEMP (a1)
+  pri1 = ((double) IRA_ALLOCNO_TEMP (a1)
 	  / (ALLOCNO_LEFT_CONFLICTS_NUM (a1)
 	     * ira_reg_class_nregs[ALLOCNO_COVER_CLASS (a1)][ALLOCNO_MODE (a1)]
 	     + 1));
-  pri2 = (IRA_ALLOCNO_TEMP (a2)
+  pri2 = ((double) IRA_ALLOCNO_TEMP (a2)
 	  / (ALLOCNO_LEFT_CONFLICTS_NUM (a2)
 	     * ira_reg_class_nregs[ALLOCNO_COVER_CLASS (a2)][ALLOCNO_MODE (a2)]
 	     + 1));
-  if ((diff = pri1 - pri2) != 0)
-    return diff;
+  if (pri1 != pri2)
+    return pri1 < pri2 ? -1 : 1;
   if ((diff = IRA_ALLOCNO_TEMP (a1) - IRA_ALLOCNO_TEMP (a2)) != 0)
+    return diff;
+  if ((diff = (allocno_live_range_length (a2)
+	       - allocno_live_range_length (a1))) != 0)
     return diff;
   return ALLOCNO_NUM (a1) - ALLOCNO_NUM (a2);
 }
@@ -994,10 +1011,12 @@ push_allocnos_to_stack (void)
 {
   ira_allocno_t allocno, a, i_allocno, *allocno_vec;
   enum reg_class cover_class, rclass;
-  int allocno_pri, i_allocno_pri, allocno_cost, i_allocno_cost;
+  double allocno_pri, i_allocno_pri;
+  int allocno_cost, i_allocno_cost, allocno_lr, i_allocno_lr;
   int i, j, num, cover_class_allocnos_num[N_REG_CLASSES];
   ira_allocno_t *cover_class_allocnos[N_REG_CLASSES];
   int cost;
+  bool set_p;
 
   /* Initialize.  */
   VEC_truncate(ira_allocno_t, removed_splay_allocno_vec, 0);
@@ -1101,7 +1120,7 @@ push_allocnos_to_stack (void)
 	  ira_assert (num > 0);
 	  allocno_vec = cover_class_allocnos[cover_class];
 	  allocno = NULL;
-	  allocno_pri = allocno_cost = 0;
+	  allocno_pri = 0.0; allocno_cost = 0; allocno_lr = -1;
 	  /* Sort uncolorable allocno to find the one with the lowest
 	     spill cost.  */
 	  for (i = 0, j = num - 1; i <= j;)
@@ -1135,17 +1154,36 @@ push_allocnos_to_stack (void)
 		    }
 		  i_allocno_cost = IRA_ALLOCNO_TEMP (i_allocno);
 		  i_allocno_pri
-		    = (i_allocno_cost
+		    = ((double) i_allocno_cost
 		       / (ALLOCNO_LEFT_CONFLICTS_NUM (i_allocno)
 			  * ira_reg_class_nregs[ALLOCNO_COVER_CLASS
 						(i_allocno)]
 			  [ALLOCNO_MODE (i_allocno)] + 1));
-		  if (allocno == NULL || allocno_pri > i_allocno_pri
-		      || (allocno_pri == i_allocno_pri
-			  && (allocno_cost > i_allocno_cost
-			      || (allocno_cost == i_allocno_cost 
-				  && (ALLOCNO_NUM (allocno)
-				      > ALLOCNO_NUM (i_allocno))))))
+		  i_allocno_lr = -1;
+		  if (allocno == NULL)
+		    set_p = true;
+		  else if (allocno_pri > i_allocno_pri)
+		    set_p = true;
+		  else if (allocno_pri != i_allocno_pri)
+		    set_p = false;
+		  else if (allocno_cost > i_allocno_cost)
+		    set_p = true;
+		  else if (allocno_cost != i_allocno_cost)
+		    set_p = false;
+		  else
+		    {
+		      i_allocno_lr = allocno_live_range_length (i_allocno);
+		      if (allocno_lr < 0)
+			allocno_lr = allocno_live_range_length (allocno);
+		      if (allocno_lr < i_allocno_lr)
+			set_p = true;
+		      else if (allocno_lr != i_allocno_lr)
+			set_p = false;
+		      else
+			set_p
+			  = ALLOCNO_NUM (allocno) > ALLOCNO_NUM (i_allocno);
+		    }
+		  if (set_p)
 		    {
 		      allocno = i_allocno;
 		      allocno_cost = i_allocno_cost;
