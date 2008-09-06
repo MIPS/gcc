@@ -1059,7 +1059,7 @@ ira_swap_allocno_copy_ends_if_necessary (ira_copy_t cp)
   ira_allocno_t temp;
   ira_copy_t temp_cp;
 
-  if (ALLOCNO_ORDER_COMPARE (cp->first, cp->second) <= 0)
+  if (ALLOCNO_NUM (cp->first) <= ALLOCNO_NUM (cp->second))
     return;
 
   temp = cp->first;
@@ -1899,7 +1899,7 @@ allocno_range_compare_func (const void *v1p, const void *v2p)
     return diff;
   if ((diff = ALLOCNO_MAX (a1) - ALLOCNO_MAX (a2)) != 0)
      return diff;
-  return ALLOCNO_ORDER_COMPARE (a1, a2);
+  return ALLOCNO_NUM (a1) - ALLOCNO_NUM (a2);
 }
 
 /* Sort ira_conflict_id_allocno_map and set up conflict id of

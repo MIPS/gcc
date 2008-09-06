@@ -1,3 +1,11 @@
+2008-09-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ira-int.h (ALLOCNO_ORDER_COMPARE): Reverted.
+	* ira-color.c (allocno_cost_compare_func,
+	bucket_allocno_compare_func, bucket_allocno_compare_func,
+	push_allocnos_to_stack, allocno_priority_compare_func): Likewise.
+	* ira-build.c (ira_swap_allocno_copy_ends_if_necessary): Likewise.
+
 2008-09-04  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-color.c (ira_fast_allocation): Permit global allocno

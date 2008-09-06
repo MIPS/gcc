@@ -465,18 +465,6 @@ struct ira_allocno
 #define ALLOCNO_MAX(A) ((A)->max)
 #define ALLOCNO_CONFLICT_ID(A) ((A)->conflict_id)
 
-/* IRA is very sensitive to order of allocno processing.  The wrong
-   order might hurt generated code performance significantly.  This
-   macro is used to decide in which order to process allocnos when all
-   other allocno characteristics are the same.  Our experience shows
-   preference of processing allocnos occurring first in the BB.  We
-   creates allocnos on reverse traversing of BB insns therefore we
-   prefer allocnos created last.
-
-   ??? The reason of such impact on the generated code performance is
-   not known yet.  It should be investigated.  */  
-#define ALLOCNO_ORDER_COMPARE(A1, A2) (ALLOCNO_NUM (A2) - ALLOCNO_NUM (A1))
-
 /* Map regno -> allocnos with given regno (see comments for 
    allocno member `next_regno_allocno').  */
 extern ira_allocno_t *ira_regno_allocno_map;
