@@ -1,3 +1,7 @@
+2008-09-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* doc/tm.texi (IRA_COVER_CLASSES): Fix a typo.
+
 2008-09-06  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* ira-int.h (ALLOCNO_ORDER_COMPARE): Reverted.
