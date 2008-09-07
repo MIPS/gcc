@@ -266,13 +266,14 @@ output_cgraph (cgraph_node_set set)
    NODE or to replace the values in it, for instance becasue the first
    time we saw it, the function body was not available but now it
    is.  */
+
 static void
 input_overwrite_node (struct lto_file_decl_data* file_data,
-		struct cgraph_node *node,
-		enum LTO_cgraph_tags tag,
-		unsigned HOST_WIDEST_INT flags,
-		unsigned int stack_size,
-		unsigned int self_insns)
+		      struct cgraph_node *node,
+		      enum LTO_cgraph_tags tag,
+		      unsigned HOST_WIDEST_INT flags,
+		      unsigned int stack_size,
+		      unsigned int self_insns)
 {
   node->aux = (void *)tag;
   node->local.inline_summary.estimated_self_stack_size = stack_size;
@@ -372,7 +373,8 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 	    {
 	    case LTO_cgraph_avail_node:
 	      /* We cannot have two avail functions that are the same.  */
-	      gcc_assert (((enum LTO_cgraph_tags)(node->aux)) != LTO_cgraph_avail_node);
+	      gcc_assert (((enum LTO_cgraph_tags)(node->aux))
+			  != LTO_cgraph_avail_node);
 	      input_overwrite_node (file_data, node, tag, 
 				    flags, stack_size, self_insns);
 	      break;

@@ -64,9 +64,9 @@ struct lto_in_decl_state {
 typedef struct lto_in_decl_state *lto_in_decl_state_ptr;
 
 /* One of these is allocated for each object file that being compiled
-   by lto.  This structure contains the tables that are needed for the
-   by the serialized functions and ipa passes to connect themselves to
-   the global types and decls as they are reconstituted.  */
+   by lto.  This structure contains the tables that are needed by the
+   serialized functions and ipa passes to connect themselves to the
+   global types and decls as they are reconstituted.  */
 struct lto_file_decl_data
 {
   /* Decl state currently used. */
@@ -83,10 +83,10 @@ struct lto_file_decl_data
 
   FIXME!!! This will most likely have to be upgraded if the .o files
   have been archived.  */ 
-  const char * file_name;
+  const char *file_name;
 
-  /* If the file is open, this is the fd of the mapped section.  This is -1 if
-     the file has not yet been opened.  */
+  /* If the file is open, this is the fd of the mapped section.  This
+     is -1 if the file has not yet been opened.  */
   int fd;
 
   /* Hash table maps lto-related section names to location in file.  */

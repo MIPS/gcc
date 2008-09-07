@@ -784,6 +784,7 @@ extern bool refs_may_alias_p (tree, tree);
 extern gimple get_single_def_stmt (gimple);
 extern gimple get_single_def_stmt_from_phi (tree, gimple);
 extern gimple get_single_def_stmt_with_phi (tree, gimple);
+extern void find_referenced_vars_in (gimple);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);

@@ -1051,7 +1051,7 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
 
   for (index = 0; VEC_iterate(tree, v, index, t); index++)
     {
-      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t));
+      const char *name;
       enum gcc_plugin_symbol_kind kind;
       enum gcc_plugin_symbol_visibility visibility;
       struct lto_decl_slot d_slot;
@@ -1059,6 +1059,14 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
       void **slot;
       uint64_t size;
       const char *comdat;
+
+      if (TREE_CODE (t) == VAR_DECL
+	  || TREE_CODE (t) == FUNCTION_DECL)
+	name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t));
+      else if (TREE_CODE (t) == RESULT_DECL)
+	name = "<retval>";
+      else
+	gcc_unreachable ();
 
       d_slot.t = t;
       slot = htab_find_slot (hash, &d_slot, NO_INSERT);
@@ -1071,49 +1079,59 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
       else
         bitmap_set_bit (seen, slot_num);
 
-      if (DECL_EXTERNAL (t))
+      if (TREE_CODE (t) != RESULT_DECL)
 	{
-	  if (DECL_WEAK (t))
-	    kind = GCCPK_WEAKUNDEF;
+	  if (DECL_EXTERNAL (t))
+	    {
+	      if (DECL_WEAK (t))
+		kind = GCCPK_WEAKUNDEF;
+	      else
+		kind = GCCPK_UNDEF;
+	    }
 	  else
-	    kind = GCCPK_UNDEF;
+	    {
+	      if (DECL_WEAK (t))
+		kind = GCCPK_WEAKDEF;
+	      else if (DECL_COMMON (t))
+		kind = GCCPK_COMMON;
+	      else
+		kind = GCCPK_DEF;
+	    }
+
+	  switch (DECL_VISIBILITY(t))
+	    {
+	    case VISIBILITY_DEFAULT:
+	      visibility = GCCPV_DEFAULT;
+	      break;
+	    case VISIBILITY_PROTECTED:
+	      visibility = GCCPV_PROTECTED;
+	      break;
+	    case VISIBILITY_HIDDEN:
+	      visibility = GCCPV_HIDDEN;
+	      break;
+	    case VISIBILITY_INTERNAL:
+	      visibility = GCCPV_INTERNAL;
+	      break;
+	    }
+
+	  if (kind == GCCPK_COMMON)
+	    size = (((uint64_t) TREE_INT_CST_HIGH (DECL_SIZE (t))) << 32)
+		   | TREE_INT_CST_LOW (DECL_SIZE (t));
+	  else
+	    size = 0;
+
+	  if (DECL_COMDAT (t))
+	    comdat = lang_hooks.decls.comdat_group (t);
+	  else
+	    comdat = "";
 	}
       else
 	{
-	  if (DECL_WEAK (t))
-	    kind = GCCPK_WEAKDEF;
-	  else if (DECL_COMMON (t))
-	    kind = GCCPK_COMMON;
-	  else
-	    kind = GCCPK_DEF;
-	}
-
-      switch (DECL_VISIBILITY(t))
-	{
-	case VISIBILITY_DEFAULT:
-	  visibility = GCCPV_DEFAULT;
-	  break;
-	case VISIBILITY_PROTECTED:
-	  visibility = GCCPV_PROTECTED;
-	  break;
-	case VISIBILITY_HIDDEN:
-	  visibility = GCCPV_HIDDEN;
-	  break;
-	case VISIBILITY_INTERNAL:
+	  kind = GCCPK_DEF;
 	  visibility = GCCPV_INTERNAL;
-	  break;
+	  size = 0;
+	  comdat = "";
 	}
-
-      if (kind == GCCPK_COMMON)
-	size = ((uint64_t) TREE_INT_CST_HIGH (DECL_SIZE (t))) << 32
-	  | TREE_INT_CST_LOW (DECL_SIZE (t));
-      else
-	size = 0;
-
-      if (DECL_COMDAT (t))
-	comdat = lang_hooks.decls.comdat_group (t);
-      else
-	comdat = "";
 
       lto_output_data_stream (stream, name, strlen (name) + 1);
       lto_output_data_stream (stream, comdat, strlen (comdat) + 1);

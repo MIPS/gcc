@@ -689,7 +689,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case SSA_NAME:
       result = VEC_index (tree, SSANAMES (fn), lto_input_uleb128 (ib));
-      add_referenced_var (SSA_NAME_VAR (result));
       break;
 
     case CONST_DECL:
@@ -815,12 +814,14 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case VAR_DECL:
     case PARM_DECL:
-      if (tag == LTO_var_decl1)
+    case RESULT_DECL:
+      if (tag == LTO_var_decl1 || tag == LTO_result_decl)
         {
           /* Static or externs are here.  */
           result = lto_file_decl_data_get_var_decl (data_in->file_data,
 						    lto_input_uleb128 (ib));
-	  varpool_mark_needed_node (varpool_node (result));
+	  if (tag != LTO_result_decl)
+	    varpool_mark_needed_node (varpool_node (result));
         }
       else 
 	{
@@ -884,12 +885,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       }
       break;
       
-
-    case RESULT_DECL:
-      result = DECL_RESULT (current_function_decl);
-      add_referenced_var (result);
-      break;
-
     case COMPONENT_REF:
       {
 	tree op0;
@@ -1087,6 +1082,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
       recompute_tree_invariant_for_addr_expr (result);
     }
+
   return result;
 }
 
@@ -1925,6 +1921,7 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   while (tag)
     {
       gimple stmt = input_gimple_stmt (ib, data_in, fn, tag);
+      find_referenced_vars_in (stmt);
       gimple_set_block (stmt, DECL_INITIAL (fn->decl));
       gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
       LTO_DEBUG_INDENT_TOKEN ("stmt");
@@ -1937,7 +1934,8 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   tag = input_record_start (ib);
   while (tag)
     {
-      input_phi (ib, bb, data_in, fn);
+      gimple phi = input_phi (ib, bb, data_in, fn);
+      find_referenced_vars_in (phi);
       LTO_DEBUG_INDENT_TOKEN ("phi");
       tag = input_record_start (ib);
     }
@@ -2198,8 +2196,8 @@ lto_static_init_local (void)
 }
 
 
-/* Read the body from DATA for tree T and fill it in.  File_data are
-   the global decls and types.  SECTION_TYPE is either
+/* Read the body from DATA for function FN_DECL T and fill it in.
+   FILE_DATA are the global decls and types.  SECTION_TYPE is either
    LTO_section_function_body or LTO_section_static_initializer.  IF
    section type is LTO_section_function_body, FN must be the decl for
    that function.  */
@@ -2340,27 +2338,6 @@ lto_read_body (struct lto_file_decl_data* file_data,
 #endif
       input_cfg (&ib_cfg, fn);
 
-      /* Ensure that all our variables have annotations attached to them
-	 so building SSA doesn't choke.  */
-      {
-	unsigned int i;
-	int j;
-	unsigned int n = lto_file_decl_data_num_var_decls (file_data);
-
-	for (i = 0; i < n; i++)
-	  {
-	    tree var = lto_file_decl_data_get_var_decl (file_data, i);
-	    add_referenced_var (var);
-	  }
-	for (j = 0; j < header->num_local_decls; j++)
-          {
-            tree decl = data_in.local_decls[j];
-            if (TREE_CODE (decl) == VAR_DECL
-                || TREE_CODE (decl) == PARM_DECL)
-              add_referenced_var (decl);
-          }
-      }
-
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_main;
 #endif
@@ -2369,8 +2346,14 @@ lto_read_body (struct lto_file_decl_data* file_data,
 
       /* We should now be in SSA.  */
       cfun->gimple_df->in_ssa_p = true;
+
       /* Fill in properties we know hold for the rebuilt CFG.  */
-      cfun->curr_properties = PROP_ssa | PROP_cfg | PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_referenced_vars;
+      cfun->curr_properties = PROP_ssa
+			      | PROP_cfg
+			      | PROP_gimple_any
+			      | PROP_gimple_lcf
+			      | PROP_gimple_leh
+			      | PROP_referenced_vars;
 
       /* Restore decl state */
       file_data->current_decl_state = file_data->global_decl_state;
@@ -2406,7 +2389,7 @@ lto_read_body (struct lto_file_decl_data* file_data,
 /* Read in FN_DECL using DATA.  File_data are the global decls and types.  */
 
 void 
-lto_input_function_body (struct lto_file_decl_data* file_data,
+lto_input_function_body (struct lto_file_decl_data *file_data,
 			 tree fn_decl,
 			 const char *data)
 {
@@ -2904,9 +2887,6 @@ input_result_decl (struct lto_input_block *ib, struct data_in *data_in)
   /* lang_specific */
   /* omit rtl */
 
-  input_tree (&decl->decl_common.initial, ib, data_in);
-
-  /* omit chain */
 
   LTO_DEBUG_TOKEN ("end_result_decl");
 
@@ -3815,8 +3795,9 @@ input_tree (tree *slot, struct lto_input_block *ib, struct data_in *data_in)
 	  /* Handle the case that the vector was resized.  */
 	  DECL_LANG_SPECIFIC (result) = (struct lang_decl *) fixups;
 	}
-    } else
-      *slot = input_tree_operand (ib, data_in, NULL, tag);
+    }
+  else
+    *slot = input_tree_operand (ib, data_in, NULL, tag);
 }
 
 /* FIXME: Note reversed argument order.  */

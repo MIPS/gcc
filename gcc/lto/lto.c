@@ -325,8 +325,6 @@ lto_file_read (lto_file *file)
   lto_read_decls (file_data, data);
   lto_free_section_data (file_data, LTO_section_decls, NULL, data, len);
 
-  /* FIXME: We never free file_data.  */
-
   return file_data;
 }
 
@@ -396,7 +394,7 @@ get_section_data (struct lto_file_decl_data *file_data,
   struct lto_section_slot *f_slot;
   struct lto_section_slot s_slot;
   const char *section_name = lto_get_section_name (section_type, name);
-  char * data = NULL;
+  char *data = NULL;
 
   s_slot.name = section_name;
   f_slot = (struct lto_section_slot *)htab_find (section_hash_table, &s_slot);
@@ -416,9 +414,9 @@ get_section_data (struct lto_file_decl_data *file_data,
 
 static void
 free_section_data (struct lto_file_decl_data *file_data,
-		       enum lto_section_type section_type ATTRIBUTE_UNUSED,
-		       const char *name ATTRIBUTE_UNUSED,
-		       const char *offset, size_t len)
+		   enum lto_section_type section_type ATTRIBUTE_UNUSED,
+		   const char *name ATTRIBUTE_UNUSED,
+		   const char *offset, size_t len)
 {
   intptr_t computed_len;
   intptr_t computed_offset;
@@ -667,7 +665,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
     cgraph_optimize ();
   else
     {
-      /* FIXME-lto: Hack. We should use the IPA passes.  There are a number
+      /* FIXME lto. Hack. We should use the IPA passes.  There are a number
          of issues with this now. 1. There is no convenient way to do this.
          2. Some passes may depend on properties that requires the function
 	 bodies to compute.  */
@@ -682,7 +680,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 	    e->inline_failed = CIF_OK;
 	}
 
-      /* FIXME: We should not call this function directly. */
+      /* FIXME lto. We should not call this function directly. */
       pass_ipa_inline.pass.execute ();
 
       bitmap_obstack_release (NULL);

@@ -1,3 +1,30 @@
+2008-09-07  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_expr_operand) <RESULT_DECL>: Call
+	lto_output_var_decl_index.
+	(output_result_decl): Do not output DECL_INITIAL.
+	* lto-function-in.c (input_expr_operand) <SSA_NAME>: Do
+	not call add_referenced_var.
+	<VAR_DECL>: Also handle RESULT_DECL.
+	<RESULT_DECL>: Remove.
+	(input_bb): Call find_referenced_vars_in after reading
+	statements and PHI nodes.
+	(lto_read_body): Do not add every symbol to referenced
+	variables.
+	Tidy formatting.
+	(input_result_decl): Do not read DECL_INITIAL.
+	(input_tree): Tidy formatting.
+	* lto-cgraph.c: Tidy formatting.
+	* lto-section-in.h: Likewise.
+	* tree-dfa.c (find_referenced_vars): Factor calls to
+	find_vars_r ...
+	(find_referenced_vars_in): ... here.
+	* tree-flow.h (find_referenced_vars_in): Declare.
+	* passes.c (init_optimization_passes): Move
+	pass_ipa_lto_finish_out as the last IPA pass.
+	* lto-section-out.c (write_symbol_vec): Handle
+	RESULT_DECL.
+
 2008-09-04  Bill Maddox  <maddox@google.com>
 
 	* lto-function-in.c (input_var_decl): Use decl_function_context
@@ -31,10 +58,10 @@
 	* cif-code.def: New file.
 	* ipa-inline.c (cgraph_mark_inline_edge): Use an enum instead of a
 	reason string.
- 	(cgraph_check_inline_limits): Change type of REASON to pointer to
+	(cgraph_check_inline_limits): Change type of REASON to pointer to
 	cgraph_inline_failed_t.  Replace reason strings with enums.
 	(cgraph_default_inline_p): Ditto.
- 	(cgraph_recursive_inlining_p): Ditto.
+	(cgraph_recursive_inlining_p): Ditto.
 	(update_caller_keys): Change type of FAILED_REASON to
 	cgraph_inline_failed_t.
 	(cgraph_set_inline_failed): Change type of REASON to pointer to

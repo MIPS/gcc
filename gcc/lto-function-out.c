@@ -1103,6 +1103,7 @@ output_expr_operand (struct output_block *ob, tree expr)
 
     case RESULT_DECL:
       output_record_start (ob, expr, expr, tag);
+      lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case COMPONENT_REF:
@@ -2756,10 +2757,7 @@ output_result_decl (struct output_block *ob, tree decl)
   /* lang_specific */
   /* omit rtl */
 
-  /* FIXME: Does this make sense for result?  */
-  output_tree (ob, decl->decl_common.initial);
-
-  gcc_assert (!decl->common.chain);
+  gcc_assert (decl->common.chain == NULL_TREE);
 
   LTO_DEBUG_TOKEN ("end_result_decl");
 }
