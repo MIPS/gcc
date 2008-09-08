@@ -436,11 +436,8 @@ abstract class AbstractStringBuffer
    * @return this <code>StringBuffer</code>
    * @see String#valueOf(int)
    */
-  // This is native in libgcj, for efficiency.
-  public AbstractStringBuffer append(int inum)
-  {
-    return append(String.valueOf(inum));
-  }
+  // GCJ LOCAL: this is native for efficiency.
+  public native AbstractStringBuffer append (int inum);
 
   /**
    * Append the <code>String</code> value of the argument to this
@@ -1024,17 +1021,7 @@ abstract class AbstractStringBuffer
    * @see #lastIndexOf(String, int)
    * @see String#regionMatches(boolean, int, String, int, int)
    */
-  private boolean regionMatches(int toffset, String other)
-  {
-  /*
-    int len = other.count;
-    int index = other.offset;
-    while (--len >= 0)
-      if (value[toffset++] != other.value[index++])
-        return false;
-    return true;
-  */
-    throw new UnsupportedOperationException();
-  }
+  // GCJ LOCAL: native for gcj.
+  private native boolean regionMatches(int toffset, String other);
 
 }

@@ -352,12 +352,11 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc \
 	java/lang/natConcreteProcess.cc java/lang/natVMDouble.cc \
 	java/lang/natVMFloat.cc java/lang/natMath.cc \
 	java/lang/natObject.cc java/lang/natRuntime.cc \
-	java/lang/natString.cc java/lang/natStringBuffer.cc \
-	java/lang/natStringBuilder.cc java/lang/natSystem.cc \
-	java/lang/natThread.cc java/lang/natThreadLocal.cc \
-	java/lang/natVMClassLoader.cc java/lang/natVMProcess.cc \
-	java/lang/natVMThrowable.cc java/lang/ref/natReference.cc \
-	java/lang/reflect/natArray.cc \
+	java/lang/natString.cc java/lang/natAbstractStringBuffer.cc \
+	java/lang/natSystem.cc java/lang/natThread.cc \
+	java/lang/natThreadLocal.cc java/lang/natVMClassLoader.cc \
+	java/lang/natVMProcess.cc java/lang/natVMThrowable.cc \
+	java/lang/ref/natReference.cc java/lang/reflect/natArray.cc \
 	java/lang/reflect/natConstructor.cc \
 	java/lang/reflect/natField.cc java/lang/reflect/natMethod.cc \
 	java/lang/reflect/natVMProxy.cc java/net/natVMInetAddress.cc \
@@ -417,12 +416,11 @@ am__objects_5 = $(am__objects_3) gnu/classpath/natConfiguration.lo \
 	java/lang/natConcreteProcess.lo java/lang/natVMDouble.lo \
 	java/lang/natVMFloat.lo java/lang/natMath.lo \
 	java/lang/natObject.lo java/lang/natRuntime.lo \
-	java/lang/natString.lo java/lang/natStringBuffer.lo \
-	java/lang/natStringBuilder.lo java/lang/natSystem.lo \
-	java/lang/natThread.lo java/lang/natThreadLocal.lo \
-	java/lang/natVMClassLoader.lo java/lang/natVMProcess.lo \
-	java/lang/natVMThrowable.lo java/lang/ref/natReference.lo \
-	java/lang/reflect/natArray.lo \
+	java/lang/natString.lo java/lang/natAbstractStringBuffer.lo \
+	java/lang/natSystem.lo java/lang/natThread.lo \
+	java/lang/natThreadLocal.lo java/lang/natVMClassLoader.lo \
+	java/lang/natVMProcess.lo java/lang/natVMThrowable.lo \
+	java/lang/ref/natReference.lo java/lang/reflect/natArray.lo \
 	java/lang/reflect/natConstructor.lo \
 	java/lang/reflect/natField.lo java/lang/reflect/natMethod.lo \
 	java/lang/reflect/natVMProxy.lo java/net/natVMInetAddress.lo \
@@ -8443,8 +8441,7 @@ java/lang/natMath.cc \
 java/lang/natObject.cc \
 java/lang/natRuntime.cc	\
 java/lang/natString.cc \
-java/lang/natStringBuffer.cc \
-java/lang/natStringBuilder.cc \
+java/lang/natAbstractStringBuffer.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThreadLocal.cc \
@@ -8961,9 +8958,7 @@ java/lang/natRuntime.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/natString.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
-java/lang/natStringBuffer.lo: java/lang/$(am__dirstamp) \
-	java/lang/$(DEPDIR)/$(am__dirstamp)
-java/lang/natStringBuilder.lo: java/lang/$(am__dirstamp) \
+java/lang/natAbstractStringBuffer.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/natSystem.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
@@ -9395,6 +9390,8 @@ mostlyclean-compile:
 	-rm -f java/io/natVMObjectStreamClass.lo
 	-rm -f java/lang/Object.$(OBJEXT)
 	-rm -f java/lang/Object.lo
+	-rm -f java/lang/natAbstractStringBuffer.$(OBJEXT)
+	-rm -f java/lang/natAbstractStringBuffer.lo
 	-rm -f java/lang/natCharacter.$(OBJEXT)
 	-rm -f java/lang/natCharacter.lo
 	-rm -f java/lang/natClass.$(OBJEXT)
@@ -9411,10 +9408,6 @@ mostlyclean-compile:
 	-rm -f java/lang/natRuntime.lo
 	-rm -f java/lang/natString.$(OBJEXT)
 	-rm -f java/lang/natString.lo
-	-rm -f java/lang/natStringBuffer.$(OBJEXT)
-	-rm -f java/lang/natStringBuffer.lo
-	-rm -f java/lang/natStringBuilder.$(OBJEXT)
-	-rm -f java/lang/natStringBuilder.lo
 	-rm -f java/lang/natSystem.$(OBJEXT)
 	-rm -f java/lang/natSystem.lo
 	-rm -f java/lang/natThread.$(OBJEXT)
@@ -9566,6 +9559,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/io/$(DEPDIR)/natVMObjectInputStream.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/io/$(DEPDIR)/natVMObjectStreamClass.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/Object.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natAbstractStringBuffer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natCharacter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natClass.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natClassLoader.Plo@am__quote@
@@ -9574,8 +9568,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natObject.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natRuntime.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natString.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natStringBuffer.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natStringBuilder.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natSystem.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natThread.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natThreadLocal.Plo@am__quote@

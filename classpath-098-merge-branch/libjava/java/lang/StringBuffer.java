@@ -1,5 +1,5 @@
 /* StringBuffer.java -- Growable strings
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2008
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -360,39 +360,6 @@ public final class StringBuffer
   }
 
   /**
-   * Append the characters in the <code>CharSequence</code> to this
-   * buffer.
-   *
-   * @param seq the <code>CharSequence</code> providing the characters
-   * @return this <code>StringBuffer</code>
-   * @since 1.5
-   */
-  public synchronized StringBuffer append(CharSequence seq)
-  {
-    if (seq == null)
-      seq = "null";
-    super.append(seq, 0, seq.length());
-    return this;
-  }
-
-  /**
-   * Append some characters from the <code>CharSequence</code> to this
-   * buffer.  If the argument is null, the four characters "null" are
-   * appended.
-   *
-   * @param seq the <code>CharSequence</code> providing the characters
-   * @param start the starting index
-   * @param end one past the final index
-   * @return this <code>StringBuffer</code>
-   * @since 1.5
-   */
-  public synchronized StringBuffer append(CharSequence seq, int start, int end)
-  {
-    super.append(seq, start, end);
-    return this;
-  }
-
-  /**
    * Append the <code>String</code> value of the argument to this
    * <code>StringBuffer</code>. Uses <code>String.valueOf()</code> to convert
    * to <code>String</code>.
@@ -420,6 +387,37 @@ public final class StringBuffer
   }
 
   /**
+   * Append the characters in the <code>CharSequence</code> to this
+   * buffer.
+   *
+   * @param seq the <code>CharSequence</code> providing the characters
+   * @return this <code>StringBuffer</code>
+   * @since 1.5
+   */
+  public synchronized StringBuffer append(CharSequence seq)
+  {
+    super.append(seq, 0, seq.length());
+    return this;
+  }
+
+  /**
+   * Append some characters from the <code>CharSequence</code> to this
+   * buffer.  If the argument is null, the four characters "null" are
+   * appended.
+   *
+   * @param seq the <code>CharSequence</code> providing the characters
+   * @param start the starting index
+   * @param end one past the final index
+   * @return this <code>StringBuffer</code>
+   * @since 1.5
+   */
+  public synchronized StringBuffer append(CharSequence seq, int start, int end)
+  {
+    super.append(seq, start, end);
+    return this;
+  }
+
+  /**
    * Append the <code>String</code> value of the argument to this
    * <code>StringBuffer</code>. Uses <code>String.valueOf()</code> to convert
    * to <code>String</code>.
@@ -428,8 +426,12 @@ public final class StringBuffer
    * @return this <code>StringBuffer</code>
    * @see String#valueOf(int)
    */
-  // GCJ LOCAL: this is native for efficiency.
-  public native StringBuffer append (int inum);
+  // This is native in libgcj, for efficiency.
+  public synchronized StringBuffer append(int inum)
+  {
+    super.append(inum);
+    return this;
+  }
 
   /**
    * Append the <code>String</code> value of the argument to this
@@ -971,19 +973,4 @@ public final class StringBuffer
       }
   }
 
-  /**
-   * Predicate which determines if a substring of this matches another String
-   * starting at a specified offset for each String and continuing for a
-   * specified length. This is more efficient than creating a String to call
-   * indexOf on.
-   *
-   * @param toffset index to start comparison at for this String
-   * @param other non-null String to compare to region of this
-   * @return true if regions match, false otherwise
-   * @see #indexOf(String, int)
-   * @see #lastIndexOf(String, int)
-   * @see String#regionMatches(boolean, int, String, int, int)
-   */
-  // GCJ LOCAL: native for gcj.
-  private native boolean regionMatches(int toffset, String other);
 }

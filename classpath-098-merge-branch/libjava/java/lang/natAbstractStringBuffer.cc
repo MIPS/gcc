@@ -10,15 +10,14 @@ details.  */
 
 #include <config.h>
 #include <gcj/cni.h>
-#include <java/lang/StringBuffer.h>
+#include <java/lang/AbstractStringBuffer.h>
 
-java::lang::StringBuffer*
-java::lang::StringBuffer::StringBuffer$append (jint num)
+java::lang::AbstractStringBuffer*
+java::lang::AbstractStringBuffer::append (jint num)
 {
   // Use an array large enough for "-2147483648"; i.e. 11 chars.
   jchar buffer[11];
   int i = _Jv_FormatInt (buffer+11, num);
-  JvSynchronize dummy (this);
   jint needed = count + i;
   ensureCapacity_unsynchronized (needed);
   jchar* dst = elements (value) + count;
@@ -30,7 +29,7 @@ java::lang::StringBuffer::StringBuffer$append (jint num)
 }
 
 jboolean
-java::lang::StringBuffer::regionMatches(jint toffset, jstring other)
+java::lang::AbstractStringBuffer::regionMatches(jint toffset, jstring other)
 {
   jint len = other->count;
   jchar *tptr = elements(value) + toffset;

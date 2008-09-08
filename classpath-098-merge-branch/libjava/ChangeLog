@@ -1,3 +1,20 @@
+2008-09-08  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* Makefile.am: Replace natStringBuffer.cc
+	and natStringBuilder.cc with natAbstractStringBuffer.cc.
+	* Makefile.in: Regenerated.
+	* java/lang/AbstractStringBuffer.java:
+	(append(int)): Made native.
+	(regionMatches(int,String)): Likewise.
+	* java/lang/StringBuffer.h: Regenerated.
+	* java/lang/StringBuffer.java: Remerged with GNU Classpath.
+	* java/lang/StringBuilder.h: Regenerated.
+	* java/lang/StringBuilder.java: Remerged with GNU Classpath.
+	* java/lang/natAbstractStringBuffer.cc: Provide common
+	native methods for StringBuffer and StringBuilder.
+	* java/lang/natStringBuffer.cc,
+	* java/lang/natStringBuilder.cc: Removed.
+
 2008-09-04  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
 	* Makefile.in,

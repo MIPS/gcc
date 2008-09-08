@@ -32,10 +32,10 @@ public:
   ::java::lang::StringBuffer * StringBuffer$append(::java::lang::StringBuffer *);
   ::java::lang::StringBuffer * StringBuffer$append(JArray< jchar > *);
   ::java::lang::StringBuffer * StringBuffer$append(JArray< jchar > *, jint, jint);
-  ::java::lang::StringBuffer * StringBuffer$append(::java::lang::CharSequence *);
-  ::java::lang::StringBuffer * StringBuffer$append(::java::lang::CharSequence *, jint, jint);
   ::java::lang::StringBuffer * StringBuffer$append(jboolean);
   ::java::lang::StringBuffer * StringBuffer$append(jchar);
+  ::java::lang::StringBuffer * StringBuffer$append(::java::lang::CharSequence *);
+  ::java::lang::StringBuffer * StringBuffer$append(::java::lang::CharSequence *, jint, jint);
   ::java::lang::StringBuffer * StringBuffer$append(jint);
   ::java::lang::StringBuffer * StringBuffer$append(jlong);
   ::java::lang::StringBuffer * StringBuffer$append(jfloat);
@@ -70,8 +70,6 @@ public:
   jint offsetByCodePoints(jint, jint);
 public: // actually package-private
   void ensureCapacity_unsynchronized(jint);
-private:
-  jboolean regionMatches(jint, ::java::lang::String *);
 public:
   ::java::lang::AbstractStringBuffer * reverse();
   ::java::lang::AbstractStringBuffer * deleteCharAt(jint);
@@ -93,13 +91,13 @@ public:
   ::java::lang::AbstractStringBuffer * append(jfloat);
   ::java::lang::AbstractStringBuffer * append(jlong);
   ::java::lang::AbstractStringBuffer * append(jint);
-  ::java::lang::Appendable * append(jchar);
-  ::java::lang::AbstractStringBuffer * AbstractStringBuffer$append(jchar);
-  ::java::lang::AbstractStringBuffer * append(jboolean);
   ::java::lang::Appendable * append(::java::lang::CharSequence *, jint, jint);
   ::java::lang::AbstractStringBuffer * AbstractStringBuffer$append(::java::lang::CharSequence *, jint, jint);
   ::java::lang::Appendable * append(::java::lang::CharSequence *);
   ::java::lang::AbstractStringBuffer * AbstractStringBuffer$append(::java::lang::CharSequence *);
+  ::java::lang::Appendable * append(jchar);
+  ::java::lang::AbstractStringBuffer * AbstractStringBuffer$append(jchar);
+  ::java::lang::AbstractStringBuffer * append(jboolean);
   ::java::lang::AbstractStringBuffer * append(JArray< jchar > *, jint, jint);
   ::java::lang::AbstractStringBuffer * append(JArray< jchar > *);
   ::java::lang::AbstractStringBuffer * append(::java::lang::StringBuffer *);
