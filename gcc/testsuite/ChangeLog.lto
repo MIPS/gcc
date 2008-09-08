@@ -1,5 +1,10 @@
 2008-09-08  Diego Novillo  <dnovillo@google.com>
 
+	* g++.dg/lto/20080908-2.C: New test.
+	* g++.dg/lto/20080908-1.C: Rename from 20080908.C
+
+2008-09-08  Diego Novillo  <dnovillo@google.com>
+
 	* g++.dg/lto/20080709.C: Rename from lto1.C.
 	* g++.dg/lto/20080829.C: Rename from lto2.C.
 	* g++.dg/lto/20080904.C: Rename from lto3.C.
