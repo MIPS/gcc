@@ -13,7 +13,7 @@ details.  */
 #include <java/lang/StringBuffer.h>
 
 java::lang::StringBuffer*
-java::lang::StringBuffer::append (jint num)
+java::lang::StringBuffer::StringBuffer$append (jint num)
 {
   // Use an array large enough for "-2147483648"; i.e. 11 chars.
   jchar buffer[11];

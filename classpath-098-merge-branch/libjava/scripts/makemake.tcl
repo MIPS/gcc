@@ -95,6 +95,7 @@ set package_map(gnu/java/lang/management) bcheaders
 set package_map(java/lang/management) bc
 set package_map(gnu/classpath/management) bc
 set package_map(gnu/javax/management) bc
+set package_map(gnu/java/math) bc
 
 # parser/HTML_401F.class is really big, and there have been complaints
 # about this package requiring too much memory to build.  So, we

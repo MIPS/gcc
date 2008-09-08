@@ -1,3 +1,29 @@
+2008-09-04  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* Makefile.in,
+	* classpath/configure: Regenerated.
+	* gnu/gcj/util/natDebug.cc,
+	* gnu/gcj/xlib/natColormap.cc,
+	* gnu/gcj/xlib/natDisplay.cc,
+	* gnu/gcj/xlib/natDrawable.cc,
+	* gnu/gcj/xlib/natFont.cc,
+	* gnu/gcj/xlib/natWMSizeHints.cc,
+	* gnu/gcj/xlib/natWindow.cc,
+	* gnu/gcj/xlib/natXImage.cc:
+	Add :: prefix to namespaces.
+	* java/io/CharArrayWriter.h,
+	* java/lang/StringBuffer.h:
+	Regenerated using patched gjavah.
+	* java/lang/natStringBuffer.cc:
+	Fix naming of append(jint).
+	* java/sql/Timestamp.h: Regenerated
+	using patched gjavah.
+	* jni.cc: Rename p to functions
+	to match change in GNU Classpath.
+	* scripts/makemake.tcl: Switch
+	gnu.java.math to BC compilation.
+	* sources.am: Regenerated.
+
 2008-08-21  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 	
 	* Makefile.in: Updated location of Configuration.java.

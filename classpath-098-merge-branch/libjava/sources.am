@@ -1227,14 +1227,10 @@ classpath/gnu/java/math/Fixed.java \
 classpath/gnu/java/math/GMP.java \
 classpath/gnu/java/math/MPN.java
 
-gnu_java_math_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_math_source_files)))
-
-gnu/java/math.list: $(gnu_java_math_source_files)
-	@$(mkinstalldirs) $(dir $@)
-	echo $(srcdir)/classpath/lib/gnu/java/math/*.class > gnu/java/math.list
-
--include gnu/java/math.deps
-
+gnu-java-math.lo: $(gnu_java_math_source_files)
+	@find $(srcdir)/classpath/lib/gnu/java/math -name '*.class' > gnu-java-math.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni $(LIBGCJ_BC_FLAGS) -c -o gnu-java-math.lo @gnu-java-math.list
+	@rm -f gnu-java-math.list
 
 gnu_java_net_source_files = \
 classpath/gnu/java/net/CRLFInputStream.java \
@@ -8619,7 +8615,6 @@ all_packages_source_files = \
   gnu/java/lang.list \
   gnu/java/lang/reflect.list \
   gnu/java/locale.list \
-  gnu/java/math.list \
   gnu/java/net.list \
   gnu/java/net/loader.list \
   gnu/java/net/local.list \
@@ -8871,7 +8866,6 @@ ordinary_header_files = \
   $(gnu_java_lang_management_header_files) \
   $(gnu_java_lang_reflect_header_files) \
   $(gnu_java_locale_header_files) \
-  $(gnu_java_math_header_files) \
   $(gnu_java_net_header_files) \
   $(gnu_java_net_loader_header_files) \
   $(gnu_java_net_local_header_files) \
@@ -9096,6 +9090,7 @@ bc_objects = \
   gnu-java-awt-peer-swing.lo \
   gnu-java-beans.lo \
   gnu-java-lang-management.lo \
+  gnu-java-math.lo \
   gnu-java-util-prefs-gconf.lo \
   gnu-javax-management.lo \
   gnu-javax-rmi.lo \

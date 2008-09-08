@@ -94,12 +94,12 @@ public:
   ::java::lang::AbstractStringBuffer * append(jlong);
   ::java::lang::AbstractStringBuffer * append(jint);
   ::java::lang::Appendable * append(jchar);
-  ::java::lang::AbstractStringBuffer * StringBuffer$append(jchar);
+  ::java::lang::AbstractStringBuffer * AbstractStringBuffer$append(jchar);
   ::java::lang::AbstractStringBuffer * append(jboolean);
   ::java::lang::Appendable * append(::java::lang::CharSequence *, jint, jint);
-  ::java::lang::AbstractStringBuffer * StringBuffer$append(::java::lang::CharSequence *, jint, jint);
+  ::java::lang::AbstractStringBuffer * AbstractStringBuffer$append(::java::lang::CharSequence *, jint, jint);
   ::java::lang::Appendable * append(::java::lang::CharSequence *);
-  ::java::lang::AbstractStringBuffer * StringBuffer$append(::java::lang::CharSequence *);
+  ::java::lang::AbstractStringBuffer * AbstractStringBuffer$append(::java::lang::CharSequence *);
   ::java::lang::AbstractStringBuffer * append(JArray< jchar > *, jint, jint);
   ::java::lang::AbstractStringBuffer * append(JArray< jchar > *);
   ::java::lang::AbstractStringBuffer * append(::java::lang::StringBuffer *);

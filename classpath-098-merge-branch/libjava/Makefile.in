@@ -183,14 +183,14 @@ am__DEPENDENCIES_2 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	gnu/java/awt/java2d.lo gnu/java/awt/peer.lo \
 	gnu/java/awt/peer/headless.lo gnu/java/awt/print.lo \
 	gnu/java/io.lo gnu/java/lang.lo gnu/java/lang/reflect.lo \
-	gnu/java/locale.lo gnu/java/math.lo gnu/java/net.lo \
-	gnu/java/net/loader.lo gnu/java/net/local.lo \
-	gnu/java/net/protocol/core.lo gnu/java/net/protocol/file.lo \
-	gnu/java/net/protocol/ftp.lo gnu/java/net/protocol/gcjlib.lo \
-	gnu/java/net/protocol/http.lo gnu/java/net/protocol/https.lo \
-	gnu/java/net/protocol/jar.lo gnu/java/nio.lo \
-	gnu/java/nio/channels.lo gnu/java/nio/charset.lo \
-	gnu/java/rmi.lo gnu/java/rmi/activation.lo gnu/java/rmi/dgc.lo \
+	gnu/java/locale.lo gnu/java/net.lo gnu/java/net/loader.lo \
+	gnu/java/net/local.lo gnu/java/net/protocol/core.lo \
+	gnu/java/net/protocol/file.lo gnu/java/net/protocol/ftp.lo \
+	gnu/java/net/protocol/gcjlib.lo gnu/java/net/protocol/http.lo \
+	gnu/java/net/protocol/https.lo gnu/java/net/protocol/jar.lo \
+	gnu/java/nio.lo gnu/java/nio/channels.lo \
+	gnu/java/nio/charset.lo gnu/java/rmi.lo \
+	gnu/java/rmi/activation.lo gnu/java/rmi/dgc.lo \
 	gnu/java/rmi/registry.lo gnu/java/rmi/server.lo \
 	gnu/java/security.lo gnu/java/security/action.lo \
 	gnu/java/security/ber.lo gnu/java/security/der.lo \
@@ -292,7 +292,7 @@ am__DEPENDENCIES_2 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	sun/reflect/misc.lo $(am__DEPENDENCIES_1)
 am__DEPENDENCIES_3 = gnu-CORBA.lo gnu-java-awt-dnd-peer-gtk.lo \
 	gnu-java-awt-peer-gtk.lo gnu-java-awt-peer-swing.lo \
-	gnu-java-beans.lo gnu-java-lang-management.lo \
+	gnu-java-beans.lo gnu-java-lang-management.lo gnu-java-math.lo \
 	gnu-java-util-prefs-gconf.lo gnu-javax-management.lo \
 	gnu-javax-rmi.lo gnu-javax-sound-midi.lo gnu-xml-aelfred2.lo \
 	gnu-xml-dom.lo gnu-xml-libxmlj.lo gnu-xml-pipeline.lo \
@@ -1904,7 +1904,6 @@ classpath/gnu/java/math/Fixed.java \
 classpath/gnu/java/math/GMP.java \
 classpath/gnu/java/math/MPN.java
 
-gnu_java_math_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_math_source_files)))
 gnu_java_net_source_files = \
 classpath/gnu/java/net/CRLFInputStream.java \
 classpath/gnu/java/net/CRLFOutputStream.java \
@@ -7349,7 +7348,6 @@ all_packages_source_files = \
   gnu/java/lang.list \
   gnu/java/lang/reflect.list \
   gnu/java/locale.list \
-  gnu/java/math.list \
   gnu/java/net.list \
   gnu/java/net/loader.list \
   gnu/java/net/local.list \
@@ -7601,7 +7599,6 @@ ordinary_header_files = \
   $(gnu_java_lang_management_header_files) \
   $(gnu_java_lang_reflect_header_files) \
   $(gnu_java_locale_header_files) \
-  $(gnu_java_math_header_files) \
   $(gnu_java_net_header_files) \
   $(gnu_java_net_loader_header_files) \
   $(gnu_java_net_local_header_files) \
@@ -7826,6 +7823,7 @@ bc_objects = \
   gnu-java-awt-peer-swing.lo \
   gnu-java-beans.lo \
   gnu-java-lang-management.lo \
+  gnu-java-math.lo \
   gnu-java-util-prefs-gconf.lo \
   gnu-javax-management.lo \
   gnu-javax-rmi.lo \
@@ -10735,11 +10733,10 @@ gnu/java/locale.list: $(gnu_java_locale_source_files)
 
 -include gnu/java/locale.deps
 
-gnu/java/math.list: $(gnu_java_math_source_files)
-	@$(mkinstalldirs) $(dir $@)
-	echo $(srcdir)/classpath/lib/gnu/java/math/*.class > gnu/java/math.list
-
--include gnu/java/math.deps
+gnu-java-math.lo: $(gnu_java_math_source_files)
+	@find $(srcdir)/classpath/lib/gnu/java/math -name '*.class' > gnu-java-math.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni $(LIBGCJ_BC_FLAGS) -c -o gnu-java-math.lo @gnu-java-math.list
+	@rm -f gnu-java-math.list
 
 gnu/java/net.list: $(gnu_java_net_source_files)
 	@$(mkinstalldirs) $(dir $@)
