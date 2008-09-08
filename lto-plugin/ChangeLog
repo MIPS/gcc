@@ -1,3 +1,8 @@
+2008-09-08  Doug Kwan  <dougkwan@google.com>
+
+	* lto-plugin.c (all_symbols_read_handler): Widen fprintf arguments
+	to 64-bit to fix a 32-bit bootstrap failure due to format warnings.
+
 2008-09-08  Rafael Avila de Espindola  <espindola@google.com>
 
 	* Makefile.am (ltosymtab_SOURCES): add common.c.

@@ -277,8 +277,8 @@ all_symbols_read_handler (void)
 	  uint32_t slot = symtab->slots[j];
 	  unsigned int resolution = syms[j].resolution;
 	  fprintf(f, "%s\n%" PRId64 " %" PRId64 " %d %s\n",
-		  file->name, file->offset, file->filesize, slot,
-		  lto_resolution_str[resolution]);
+		  file->name, (int64_t) file->offset, (int64_t) file->filesize,
+		  slot, lto_resolution_str[resolution]);
 	}
       free (syms);
     }
