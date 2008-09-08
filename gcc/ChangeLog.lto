@@ -1,3 +1,7 @@
+2008-09-08  Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa-pre.c (gate_pre): Disable.
+
 2008-09-07  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_expr_operand) <RESULT_DECL>: Call

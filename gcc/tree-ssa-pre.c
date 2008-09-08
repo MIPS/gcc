@@ -4216,7 +4216,7 @@ do_pre (void)
 static bool
 gate_pre (void)
 {
-  return flag_tree_pre != 0;
+  return 0 && flag_tree_pre != 0;
 }
 
 struct gimple_opt_pass pass_pre =
