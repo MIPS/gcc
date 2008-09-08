@@ -366,6 +366,9 @@ process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
     }
   else
     return false;
+  if (hard_regno < 0)
+    /* Can not be tied.  */
+    return false;
   rclass = REGNO_REG_CLASS (hard_regno);
   mode = ALLOCNO_MODE (a);
   cover_class = ALLOCNO_COVER_CLASS (a);
@@ -377,6 +380,7 @@ process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
     return false;
   index = ira_class_hard_reg_index[cover_class][hard_regno];
   if (index < 0)
+    /* Can not be tied.  It is not in the cover class.  */
     return false;
   if (HARD_REGISTER_P (reg1))
     cost = ira_register_move_cost[mode][cover_class][rclass] * freq;
