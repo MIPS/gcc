@@ -1,3 +1,45 @@
+2008-09-08  Rafael Avila de Espindola  <espindola@google.com>
+
+	* Makefile.am (ltosymtab_SOURCES): add common.c.
+	(ltosymtab_CFLAGS): New.
+	(liblto_plugin_la_SOURCES): Add common.c.
+	* Makefile.in: Regenerate.
+	* common.c: New.
+	* common.h: New.
+	* lto-plugin.c: Include stdio.h, inttypes.h and common.h.
+	(plugin_symtab): New.
+	(plugin_file_info): New.
+	(register_all_symbols_read): New.
+	(get_symbols): New.
+	(claimed_files): New.
+	(num_claimed_files): New.
+	(translate): Don't drop the slot number.
+	(free_1): New.
+	(free_2): New.
+	(all_symbols_read_handler): New.
+	(claim_file_handler): Record every claimed file.
+	(onload): Handle LDPT_REGISTER_ALL_SYMBOLS_READ_HOOK and
+	LDPT_GET_SYMBOLS.
+	* lto-symtab.c: Include stdlib.h, string.h and common.h.
+	(current_file_handle): Remove.
+	(ld_plugin_all_symbols_read_handler): New.
+	(plugin_handle): New.
+	(file_handle): New.
+	(all_file_handles): New.
+	(num_file_handles): New.
+	(get_symbols): New.
+	(register_all_symbols_read): New.
+	(add_symbols): Don't print the symbols, just record them.
+	(ld_plugin_tv): Add LDPT_REGISTER_ALL_SYMBOLS_READ_HOOK and
+	LDPT_GET_SYMBOLS.
+	(load_plugin): Use plugin_handle.
+	(register_file): Add the file handle to all_file_handles.
+	(resolve): New.
+	(print): New.
+	(unload_plugin): New.
+	(free_all): New.
+	(main): Call all_symbols_read_handler and free resources.
+
 2008-09-03  Rafael Avila de Espindola  <espindola@google.com>
 
 	* Makefile.am (AM_CFLAGS): New.

@@ -30,6 +30,8 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <inttypes.h>
 
 #ifdef HAVE_GELF_H
 # include <gelf.h>
@@ -42,9 +44,36 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #endif
 
 #include "plugin-api.h"
+#include "common.h"
+
+/* The part of the symbol table the plugin has to keep track of. Note that we must
+   keep SYMS until all_symbols_read is called to give the linker time to copy the
+   symbol information. */
+
+struct plugin_symtab
+{
+  int nsyms;
+  uint32_t *slots;
+  struct ld_plugin_symbol *syms;
+};
+
+/* All that we have to remember about a file. */
+
+struct plugin_file_info
+{
+  Elf *elf;
+  struct ld_plugin_input_file file;
+  struct plugin_symtab symtab;
+};
+
 
 static ld_plugin_register_claim_file register_claim_file;
 static ld_plugin_add_symbols add_symbols;
+static ld_plugin_register_all_symbols_read register_all_symbols_read;
+static ld_plugin_get_symbols get_symbols;
+
+static struct plugin_file_info *claimed_files = NULL;
+static unsigned int num_claimed_files = 0;
 
 /* Parse an entry of the IL symbol table. The data to be parsed is pointed
    by P and the result is written in ENTRY. The slot number is stored in SLOT.
@@ -160,26 +189,102 @@ get_symtab (Elf *elf)
   return data;
 }
 
-/* Translate the IL symbol tabel SYMTAB into an array of ld_plugin_symbol
-   and return it. Write the array size in SIZE. */
+/* Translate the IL symbol table SYMTAB. Write the slots and symbols in OUT. */
 
-static struct ld_plugin_symbol *
-translate (Elf_Data *symtab, int *size)
+static void
+translate (Elf_Data *symtab, struct plugin_symtab *out)
 {
+  uint32_t *slots = NULL;
   char *data = symtab->d_buf;
   char *end = data + symtab->d_size;
-  struct ld_plugin_symbol *ret = NULL;
+  struct ld_plugin_symbol *syms = NULL;
   int n = 0;
+
   while (data < end)
     {
-      uint32_t slot;
       n++;
-      ret = realloc (ret, n * sizeof (struct ld_plugin_symbol));
-      assert (ret);
-      data = parse_table_entry (data, &ret[n - 1], &slot);
+      syms = realloc (syms, n * sizeof (struct ld_plugin_symbol));
+      assert (syms);
+      slots = realloc (slots, n * sizeof (uint32_t));
+      assert (slots);
+      data = parse_table_entry (data, &syms[n - 1], &slots[n - 1]);
     }
-  *size = n;
-  return ret;
+
+  out->nsyms = n;
+  out->syms = syms;
+  out->slots = slots;
+}
+
+/* Free all memory that is no longer needed at the beginning of all_symbols_read. */
+
+static void
+free_1 (void)
+{
+  unsigned int i;
+  for (i = 0; i < num_claimed_files; i++)
+    {
+      struct plugin_file_info *info = &claimed_files[i];
+      struct plugin_symtab *symtab = &info->symtab;
+      free (symtab->syms);
+      symtab->syms = NULL;
+      elf_end (info->elf);
+      info->elf = NULL;
+    }
+}
+
+/* Free all remaining memory. */
+
+static void
+free_2 (void)
+{
+  unsigned int i;
+  for (i = 0; i < num_claimed_files; i++)
+    {
+      struct plugin_file_info *info = &claimed_files[i];
+      struct plugin_symtab *symtab = &info->symtab;
+      free (symtab->slots);
+    }
+  free (claimed_files);
+  claimed_files = NULL;
+  num_claimed_files = 0;
+}
+
+/* Called by the linker once all symbols have been read. Writes the
+   relocations to disk. */
+
+static enum ld_plugin_status
+all_symbols_read_handler (void)
+{
+  free_1 ();
+
+  unsigned int i;
+  /* FIXME: This should be a temporary file. */
+  FILE *f = fopen ("resolution", "w");
+  for (i = 0; i < num_claimed_files; i++)
+    {
+      struct plugin_file_info *info = &claimed_files[i];
+      struct plugin_symtab *symtab = &info->symtab;
+      struct ld_plugin_input_file *file = &info->file;
+      struct ld_plugin_symbol *syms = calloc (symtab->nsyms,
+					      sizeof (struct ld_plugin_symbol));
+
+      unsigned j;
+      assert (syms);
+      get_symbols (file->handle, symtab->nsyms, syms);
+
+      for (j = 0; j < info->symtab.nsyms; j++)
+	{
+	  uint32_t slot = symtab->slots[j];
+	  unsigned int resolution = syms[j].resolution;
+	  fprintf(f, "%s\n%" PRId64 " %" PRId64 " %d %s\n",
+		  file->name, file->offset, file->filesize, slot,
+		  lto_resolution_str[resolution]);
+	}
+      free (syms);
+    }
+  fclose (f);
+  free_2 ();
+  return LDPS_OK;
 }
 
 /* Callback used by gold to check if the plugin will claim FILE. Writes
@@ -190,9 +295,8 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
 {
   enum ld_plugin_status status;
   Elf *elf = elf_begin (file->fd, ELF_C_READ, NULL);
-  int num;
+  struct plugin_file_info lto_file;
   Elf_Data *symtab;
-  struct ld_plugin_symbol *syms;
 
   *claimed = 0;
 
@@ -203,12 +307,21 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
   if (!symtab)
     return LDPS_OK;
 
-  syms = translate (symtab, &num);
+  translate (symtab, &lto_file.symtab);
+  lto_file.file = *file;
+  lto_file.elf = elf;
 
-  status = add_symbols (file->handle, num, syms);
+  status = add_symbols (file->handle, lto_file.symtab.nsyms,
+			lto_file.symtab.syms);
   assert (status == LDPS_OK);
 
   *claimed = 1;
+  num_claimed_files++;
+  claimed_files =
+    realloc (claimed_files,
+	     num_claimed_files * sizeof (struct plugin_file_info));
+  claimed_files[num_claimed_files - 1] = lto_file;
+
   return LDPS_OK;
 }
 
@@ -234,6 +347,10 @@ onload (struct ld_plugin_tv *tv)
 	case LDPT_ADD_SYMBOLS:
 	  add_symbols = p->tv_u.tv_add_symbols;
 	  break;
+	case LDPT_REGISTER_ALL_SYMBOLS_READ_HOOK:
+	  register_all_symbols_read = p->tv_u.tv_register_all_symbols_read;
+	case LDPT_GET_SYMBOLS:
+	  get_symbols = p->tv_u.tv_get_symbols;
 	default:
 	  break;
 	}
@@ -243,5 +360,12 @@ onload (struct ld_plugin_tv *tv)
   assert (register_claim_file);
   assert (add_symbols);
   status = register_claim_file (claim_file_handler);
+
+  if (register_all_symbols_read)
+    {
+      assert (get_symbols);
+      register_all_symbols_read (all_symbols_read_handler);
+    }
+
   assert (status == LDPS_OK);
 }
