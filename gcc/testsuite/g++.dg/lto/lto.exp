@@ -22,7 +22,7 @@ load_lib g++-dg.exp
 # If a testcase doesn't have special options, use these.
 global DEFAULT_CXXFLAGS
 if ![info exists DEFAULT_CXXFLAGS] then {
-    set DEFAULT_CXXFLAGS "-O2 -flto-single"
+    set DEFAULT_CXXFLAGS " -O2 -flto-single -pedantic-errors"
 }
 
 # Initialize `dg'.

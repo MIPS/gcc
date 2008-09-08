@@ -1,5 +1,7 @@
-/* { dg-do run }  */
-extern "C" { extern void *memcpy (void *, const void *, unsigned); }
+/* { dg-do compile } */
+
+#include <stdio.h>
+#include <string.h>
 
 inline int
 bci (const float &source)
@@ -28,9 +30,10 @@ Foo ()
  return bcf (bar);
 }
 
-int main ()
+int
+main ()
 {
-  if (Foo () != 0.0)
-    return 1;
+  printf ("Foo() = %f\n", Foo());
   return 0;
 }
+

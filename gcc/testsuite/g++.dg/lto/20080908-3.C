@@ -6,7 +6,7 @@ int foo()
  return baz <= -bar;
 }
 
-main()
+int main()
 {
   if (foo () != 1)
     return 1;

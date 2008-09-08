@@ -1,5 +1,17 @@
 2008-09-08  Diego Novillo  <dnovillo@google.com>
 
+	* tree-ssa-pre.c (gate_pre): Re-enable.
+
+	Bring from mainline @140111
+
+	2008-09-08  Richard Guenther  <rguenther@suse.de>
+
+		PR tree-optimization/37421
+		* tree-ssa-sccvn.c (visit_copy): Make sure to fully
+		valueize the RHS.
+
+2008-09-08  Diego Novillo  <dnovillo@google.com>
+
 	* tree-ssa-pre.c (gate_pre): Disable.
 
 2008-09-07  Diego Novillo  <dnovillo@google.com>
