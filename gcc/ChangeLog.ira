@@ -1,3 +1,11 @@
+2008-09-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-09-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ira-color.c (ira_reuse_stack_slot): Set slot_num on success at the
+	end of the search.
+
 2008-09-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* ira-color.c (allocno_live_range_length): Reverted.
