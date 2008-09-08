@@ -1,3 +1,8 @@
+2008-09-08  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c (lto_global_bindings_p): Return 1 during
+	IPA passes.
+
 2008-09-07  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c: Tidy formatting.

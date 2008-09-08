@@ -797,7 +797,7 @@ lto_type_for_mode (enum machine_mode mode, int unsigned_p)
 static int
 lto_global_bindings_p (void) 
 {
-  gcc_unreachable ();
+  return cfun == NULL;
 }
 
 static void
