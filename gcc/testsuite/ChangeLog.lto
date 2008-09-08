@@ -1,3 +1,14 @@
+2008-09-08  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/lto.exp: New.
+	* gcc.dg/lto/20080908.c: New test.
+	* g++.dg/other/lto1.C: Move to g++.dg/lto
+	* g++.dg/other/lto2.C: Likewise.
+	* g++.dg/other/lto3.C: Likewise.
+	* g++.dg/other/lto4.C: Likewise.
+	* g++.dg/lto/lto.exp: New.
+	* g++.dg/README: Document lto directory.
+
 2008-09-07  Simon Baldwin  <simonb@google.com>
 
 	* g++.dg/other/lto4.C: New test.

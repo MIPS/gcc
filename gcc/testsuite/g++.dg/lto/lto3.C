@@ -1,5 +1,4 @@
-// { dg-do link }
-// { dg-options "-flto-single -O2" }
+// { dg-do run }
 
 /* This test will fail to link if the vtable for Derived is not emitted.  */
 

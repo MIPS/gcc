@@ -1,7 +1,6 @@
-// FIXME lto.  We should really use 'compile' instead of 'link', but
-// -S confuses lto1.
-// { dg-do link }
-// { dg-options "-c -flto-single -O2" }
+// FIXME lto.  We should really use 'compile' instead of 'assemble', but
+// -S confuses cc1plus.
+// { dg-do assemble }
 
 /* The replacement of cos+sin with __builtin_cexpi done by
    pass_cse_sincos was using a builtin for which we had no attributes.
