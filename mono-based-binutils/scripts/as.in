@@ -1,0 +1,45 @@
+#!/bin/sh
+
+basedir=`dirname $0`
+basedir=`cd $basedir/@DPREFIX@ ; pwd`
+
+ILASM=@ILASM@
+VERBOSE=
+PARAM=
+CMD=
+
+while test -n "$1"; do
+  case $1 in
+      --verbose)
+          VERBOSE=true
+          shift
+          ;;
+      --fatal-warnings)
+          shift
+          ;;
+      -o)
+          PARAM="$PARAM $1$2";
+          shift
+          shift
+          ;;
+      *)
+          PARAM="$PARAM $1";
+          shift
+          ;;
+  esac
+done
+
+if [ `$ILASM --version | grep Mono | wc -l` == 0 ]
+then
+    #needed by Pnet ilasm
+    PARAM=`echo "--format dll  $PARAM" | sed 's? -o? -o ?'`;
+else
+    #needed by Mono ilasm
+    PARAM=`echo "-dll -quiet $PARAM" | sed 's? -o? -output:?'`;
+fi
+
+CMD="$ILASM $PARAM"
+if test -n "$VERBOSE"; then
+    echo $CMD
+fi
+$CMD

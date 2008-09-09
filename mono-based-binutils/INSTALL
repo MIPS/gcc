@@ -1,0 +1,20 @@
+
+First of all download from Mono subversion repository Mono.Cecil 
+(http://anonsvn.mono-project.com/viewcvs/trunk/mcs/class/Mono.Cecil.tar.gz?view=tar)
+and uncompress it in the directory tools
+
+  ( cd tools ; tar xzvf .../Mono.Cecil.tar.gz )
+
+create a directory where to build, enter it and configure
+
+  mkdir builddir
+  cd builddir
+  .../configure --target=cil32 --with-ilasm=<.../ilasm> --prefix=<installdir>
+
+for the moment use ilasm from pnet (DotGNU),
+the one from Mono has a bug compiling varargs function calls (Bug 364580)
+
+now just build and install it
+
+  make
+  make install
