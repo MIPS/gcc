@@ -366,7 +366,7 @@ process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
     }
   else
     return false;
-  if (hard_regno < 0)
+  if (hard_regno < 0 || hard_regno >= FIRST_PSEUDO_REGISTER)
     /* Can not be tied.  */
     return false;
   rclass = REGNO_REG_CLASS (hard_regno);
