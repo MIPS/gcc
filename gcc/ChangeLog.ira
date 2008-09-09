@@ -1,3 +1,11 @@
+2008-09-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-09-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-conflicts.c (process_regs_for_copy): Check that the hard
+	regno is in the right range.  Add comments.
+
 2008-09-08  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-conflicts.c (process_regs_for_copy): Check that the hard
