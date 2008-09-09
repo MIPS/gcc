@@ -63,7 +63,12 @@ DEF_VEC_ALLOC_P (tree_ptr, heap);
 static enum tree_code tag_to_expr[LTO_tree_last_tag];
 
 /* The number of flags that are defined for each tree code.  */
-static int flags_length_for_code[NUM_TREE_CODES];
+/* FIXME lto: The size of this array should be NUM_TREE_CODES,
+   but that accounts only for the base tree codes.  We are currently
+   serializing certain FE-specific nodes, such as COMPOUND_LITERAL_EXPR.
+   Here, we generously allow for all tree codes.  This has the unpleasant
+   property of leaving many undefined entries in the array.  */
+static int flags_length_for_code[MAX_TREE_CODES];
 
 /* This hash table is used to hash the file names in the
    source_location field.  Unlike other structures here, this is a

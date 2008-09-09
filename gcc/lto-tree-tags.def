@@ -117,8 +117,10 @@
   MAP_EXPR_TAG(CEIL_MOD_EXPR, LTO_ceil_mod_expr)
   MAP_EXPR_TAG(COMPLEX_EXPR, LTO_complex_expr)
   MAP_EXPR_TAG(COMPOUND_EXPR, LTO_compound_expr)
+  MAP_EXPR_TAG(COMPOUND_LITERAL_EXPR, LTO_compound_literal_expr)
   MAP_EXPR_TAG(CONJ_EXPR, LTO_conj_expr)
   MAP_EXPR_TAG(CONVERT_EXPR, LTO_convert_expr)
+  MAP_EXPR_TAG(DECL_EXPR, LTO_decl_expr)
   MAP_EXPR_TAG(DOT_PROD_EXPR, LTO_dot_prod_expr)
   MAP_EXPR_TAG(EQ_EXPR, LTO_eq_expr)
   MAP_EXPR_TAG(EXACT_DIV_EXPR, LTO_exact_div_expr)
@@ -223,11 +225,13 @@
   SET_NAME (LTO_complex_expr, "complex_expr")
   SET_NAME (LTO_component_ref, "component_ref")
   SET_NAME (LTO_compound_expr, "compound_expr")
+  SET_NAME (LTO_compound_literal_expr, "compound_literal_expr")
   SET_NAME (LTO_cond_expr, "cond_expr")
   SET_NAME (LTO_conj_expr, "conj_expr")
   SET_NAME (LTO_const_decl, "const_decl")
   SET_NAME (LTO_constructor, "constructor")
   SET_NAME (LTO_convert_expr, "convert_expr")
+  SET_NAME (LTO_decl_expr, "decl_expr")
   SET_NAME (LTO_dot_prod_expr, "dot_prod_expr")
   SET_NAME (LTO_eq_expr, "eq_expr")
   SET_NAME (LTO_exact_div_expr, "exact_div_expr")
@@ -322,9 +326,9 @@
   SET_NAME (LTO_with_size_expr, "with_size_expr")
 
   /* ### Should put these in alphabetical order as above. */
-  SET_NAME (LTO_asm_inputs, "asm_inputs")		/* ### used? */
-  SET_NAME (LTO_asm_outputs, "asm_outputs")		/* ### used? */
-  SET_NAME (LTO_asm_clobbers, "asm_clobbers")		/* ### used? */
+  SET_NAME (LTO_asm_inputs, "asm_inputs")
+  SET_NAME (LTO_asm_outputs, "asm_outputs")
+  SET_NAME (LTO_asm_clobbers, "asm_clobbers")
   SET_NAME (LTO_function, "function")
   SET_NAME (LTO_type, "type")
 

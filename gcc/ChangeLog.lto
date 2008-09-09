@@ -1,3 +1,16 @@
+2008-09-09  Bill Maddox  <maddox@google.com>
+
+	* lto-tags.h (enum LTO_tags): Add new tags LTO_decl_expr and
+	LTO_compound_literal_expr.
+	* lto-tree-tags.h:  Add MAP_EXPR_TAG and SET_NAME calls for
+	new LTO tags.  Cleanup comments.
+	* lto-tree-flags.def: Add START_EXPR_CASE/END_EXPR_CASE calls
+	for COMPOUND_LITERAL_EXPR.
+	* lto-function-out.c (static expr_to_tag): Size array to
+	include all tree codes, including front-end specific ones.
+	* lto-function-in.c (static flags_length_for_code): Size array
+	to include all tree codes, including front-end specific ones.
+
 2008-09-08  Diego Novillo  <dnovillo@google.com>
 
 	* tree-ssa-pre.c (gate_pre): Re-enable.

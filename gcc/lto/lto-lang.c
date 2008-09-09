@@ -25,6 +25,7 @@ Boston, MA 02110-1301, USA.  */
 #include "flags.h"
 #include "tm.h"
 #include "tree.h"
+#include "expr.h"
 #include "target.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -892,6 +893,69 @@ lto_register_builtin_type (tree type, const char *name)
   registered_builtin_types = tree_cons (0, type, registered_builtin_types);
 }
 
+/* FIXME lto: COMPOUND_LITERAL_EXPR is specific to the C-family front ends
+   but is not removed by the gimplifier when it appears in an initializer.
+   It is likely that we will simply want to add it to the language-independent
+   IR, but a less intrusive solution is to simply implement the same langhooks
+   in lto1 that cc1 and cc1plus use.  */
+
+/* COMPOUND_LITERAL_EXPR accessors.  Cribbed from c-common.h.  */
+#define COMPOUND_LITERAL_EXPR_DECL_STMT(NODE)		\
+  TREE_OPERAND (COMPOUND_LITERAL_EXPR_CHECK (NODE), 0)
+#define COMPOUND_LITERAL_EXPR_DECL(NODE)			\
+  DECL_EXPR_DECL (COMPOUND_LITERAL_EXPR_DECL_STMT (NODE))
+
+/* Let the back-end know about DECL.  Cribbed from the c-semantics.c.  */
+static void
+emit_local_var (tree decl)
+{
+  /* Create RTL for this variable.  */
+  if (!DECL_RTL_SET_P (decl))
+    {
+      if (DECL_HARD_REGISTER (decl))
+	/* The user specified an assembler name for this variable.
+	   Set that up now.  */
+	rest_of_decl_compilation (decl, 0, 0);
+      else
+	expand_decl (decl);
+    }
+}
+
+/* Hook used by expand_expr to expand language-specific tree codes.
+   The only things that should go here are bits needed to expand
+   constant initializers.  Cribbed from c-common.c.  */
+static rtx
+lto_expand_expr (tree exp, rtx target, enum machine_mode tmode,
+	       int modifiera /* Actually enum expand_modifier.  */,
+	       rtx *alt_rtl)
+{
+  enum expand_modifier modifier = (enum expand_modifier) modifiera;
+  switch (TREE_CODE (exp))
+    {
+    case COMPOUND_LITERAL_EXPR:
+      {
+	/* Initialize the anonymous variable declared in the compound
+	   literal, then return the variable.  */
+	tree decl = COMPOUND_LITERAL_EXPR_DECL (exp);
+	emit_local_var (decl);
+	return expand_expr_real (decl, target, tmode, modifier, alt_rtl);
+      }
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Hook used by staticp to handle language-specific tree codes.
+   Cribbed from c-common.c.  */
+static tree
+lto_staticp (tree exp)
+{
+  return (TREE_CODE (exp) == COMPOUND_LITERAL_EXPR
+	  && TREE_STATIC (COMPOUND_LITERAL_EXPR_DECL (exp))
+	  ? exp : NULL);
+}
+
 /* Build nodes that would have be created by the C front-end; necessary
    for including builtin-types.def and ultimately builtins.def.  */
 
@@ -1037,6 +1101,11 @@ static void lto_init_ts (void)
 
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS lto_init_ts
+
+#undef LANG_HOOKS_EXPAND_EXPR
+#define LANG_HOOKS_EXPAND_EXPR lto_expand_expr
+#undef LANG_HOOKS_STATICP
+#define LANG_HOOKS_STATICP lto_staticp
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

@@ -1,3 +1,13 @@
+2008-09-09  Bill Maddox  <maddox@google.com>
+
+	* lto-lang.c: Include header file expr.h.
+	(COMPOUND_LITERAL_EXPR_DECL_STMT,
+	COMPOUND_LITERAL_EXPR_DECL): Copied from c-common.h.
+	(emit_local_var):  Copied from c-semantics.c.
+	(lto_expand_expr, lto_staticp): Copied from c_expand_expr
+	and c_staticp in c-common.c.
+	(LANG_HOOKS_EXPAND_EXPR,LANG_HOOKS_STATICP):  Redefined.
+
 2008-09-08  Diego Novillo  <dnovillo@google.com>
 
 	* lto-lang.c (lto_global_bindings_p): Return 1 during

@@ -326,6 +326,7 @@ enum LTO_tags {
   LTO_complex_expr,
   LTO_component_ref,
   LTO_compound_expr,
+  LTO_compound_literal_expr,
 
   LTO_cond_expr,
   LTO_conj_expr,
@@ -334,6 +335,7 @@ enum LTO_tags {
   /* This form is terminated by a zero.  */
   LTO_constructor,
   LTO_convert_expr,
+  LTO_decl_expr,
   LTO_dot_prod_expr,
   LTO_eq_expr,
   LTO_exact_div_expr,

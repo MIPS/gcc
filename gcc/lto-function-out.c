@@ -66,7 +66,12 @@ static void output_record_start (struct output_block *, tree, tree,
    eh_region for an instruction is only emitted if it different from
    the last instruction.  */
 static int last_eh_region_seen;
-static unsigned int expr_to_tag[NUM_TREE_CODES];
+/* FIXME lto: The size of this array should be NUM_TREE_CODES,
+   but that accounts only for the base tree codes.  We are currently
+   serializing certain FE-specific nodes, such as COMPOUND_LITERAL_EXPR.
+   Here, we generously allow for all tree codes.  This has the unpleasant
+   property of leaving many undefined entries in the array.  */
+static unsigned int expr_to_tag[MAX_TREE_CODES];
 static unsigned int stmt_to_tag[LAST_AND_UNUSED_GIMPLE_CODE];
 
 /* Returns nonzero if P1 and P2 are equal.  */
