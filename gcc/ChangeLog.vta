@@ -1,5 +1,9 @@
 2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgcleanup.c (try_crossjump_to_edge): Skip debug insns.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* gimple.c (gimple_build_debug_bind_stat): Copy block and location
 	information from new stmt argument.
 	* gimple.h (gimple_build_debug_bind_stat): Adjust declaration.
