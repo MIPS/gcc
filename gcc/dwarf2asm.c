@@ -1,5 +1,6 @@
 /* Dwarf2 assembler output helper routines.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -738,7 +739,7 @@ dw2_force_const_mem (rtx x, bool is_public)
 {
   splay_tree_node node;
   const char *str;
-  tree decl;
+  tree decl_id;
 
   if (! indirect_pool)
     /* We use strcmp, rather than just comparing pointers, so that the
@@ -750,7 +751,7 @@ dw2_force_const_mem (rtx x, bool is_public)
   str = targetm.strip_name_encoding (XSTR (x, 0));
   node = splay_tree_lookup (indirect_pool, (splay_tree_key) str);
   if (node)
-    decl = (tree) node->value;
+    decl_id = (tree) node->value;
   else
     {
       tree id;
@@ -760,13 +761,9 @@ dw2_force_const_mem (rtx x, bool is_public)
 	  char *ref_name = XALLOCAVEC (char, strlen (str) + sizeof "DW.ref.");
 
 	  sprintf (ref_name, "DW.ref.%s", str);
-	  id = get_identifier (ref_name);
-	  decl = build_decl (VAR_DECL, id, ptr_type_node);
-	  DECL_ARTIFICIAL (decl) = 1;
-	  DECL_IGNORED_P (decl) = 1;
-	  TREE_PUBLIC (decl) = 1;
-	  DECL_INITIAL (decl) = decl;
-	  make_decl_one_only (decl);
+	  gcc_assert (!maybe_get_identifier (ref_name));
+	  decl_id = get_identifier (ref_name);
+	  TREE_PUBLIC (decl_id) = 1;
 	}
       else
 	{
@@ -774,12 +771,8 @@ dw2_force_const_mem (rtx x, bool is_public)
 
 	  ASM_GENERATE_INTERNAL_LABEL (label, "LDFCM", dw2_const_labelno);
 	  ++dw2_const_labelno;
-	  id = get_identifier (label);
-	  decl = build_decl (VAR_DECL, id, ptr_type_node);
-	  DECL_ARTIFICIAL (decl) = 1;
-	  DECL_IGNORED_P (decl) = 1;
-	  TREE_STATIC (decl) = 1;
-	  DECL_INITIAL (decl) = decl;
+	  gcc_assert (!maybe_get_identifier (label));
+	  decl_id = get_identifier (label);
 	}
 
       id = maybe_get_identifier (str);
@@ -787,10 +780,10 @@ dw2_force_const_mem (rtx x, bool is_public)
 	TREE_SYMBOL_REFERENCED (id) = 1;
 
       splay_tree_insert (indirect_pool, (splay_tree_key) str,
-			 (splay_tree_value) decl);
+			 (splay_tree_value) decl_id);
     }
 
-  return XEXP (DECL_RTL (decl), 0);
+  return gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (decl_id));
 }
 
 /* A helper function for dw2_output_indirect_constants called through
@@ -802,10 +795,24 @@ dw2_output_indirect_constant_1 (splay_tree_node node,
 {
   const char *sym;
   rtx sym_ref;
-  tree decl;
+  tree id, decl;
 
   sym = (const char *) node->key;
-  decl = (tree) node->value;
+  id = (tree) node->value;
+
+  decl = build_decl (VAR_DECL, id, ptr_type_node);
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
+  DECL_INITIAL (decl) = decl;
+
+  if (TREE_PUBLIC (id))
+    {
+      TREE_PUBLIC (decl) = 1;
+      make_decl_one_only (decl);
+    }
+  else
+    TREE_STATIC (decl) = 1;
+
   sym_ref = gen_rtx_SYMBOL_REF (Pmode, sym);
   if (TREE_PUBLIC (decl) && USE_LINKONCE_INDIRECT)
     fprintf (asm_out_file, "\t.hidden %sDW.ref.%s\n", user_label_prefix, sym);

@@ -1,5 +1,11 @@
 2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* dwarf2asm.c (dw2_force_const_mem): Defer creation of
+	declarations for constants until...
+	(dw2_output_indirect_constant_1): ... this point.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* gengtype.c (adjust_field_rtx_def): Add NOTE_INSN_DELETED_LABEL's
 	label string.
 
