@@ -2312,8 +2312,9 @@ expand_gimple_basic_block (basic_block bb)
 
   for (; !tsi_end_p (tsi); tsi_next (&tsi))
     {
-      tree stmt = tsi_stmt (tsi);
       basic_block new_bb;
+
+      stmt = tsi_stmt (tsi);
 
       if (!stmt)
 	continue;
@@ -2328,44 +2329,66 @@ expand_gimple_basic_block (basic_block bb)
 	}
       else if (TREE_CODE (stmt) == VAR_DEBUG_VALUE)
 	{
-	  tree var = VAR_DEBUG_VALUE_VAR (stmt);
-	  tree value = VAR_DEBUG_VALUE_VALUE (stmt);
-	  rtx val;
-	  enum machine_mode mode;
+	  location_t sloc = get_curr_insn_source_location ();
+	  tree sblock = get_curr_insn_block ();
+	  tree_stmt_iterator nsi = tsi;
 
-	  last = get_last_insn ();
-
-	  if (value == VAR_DEBUG_VALUE_NOVALUE)
-	    val = NULL_RTX;
-	  else
-	    val = expand_debug_expr (value);
-
-	  if (DECL_P (var))
-	    mode = DECL_MODE (var);
-	  else
-	    mode = TYPE_MODE (TREE_TYPE (var));
-
-	  if (!val)
-	    val = gen_rtx_UNKNOWN_VAR_LOC ();
-	  else
-	    gcc_assert (mode == GET_MODE (val)
-			|| GET_CODE (val) == CONST_INT
-			|| GET_CODE (val) == CONST_FIXED
-			|| GET_CODE (val) == CONST_DOUBLE);
-
-	  val = gen_rtx_VAR_LOCATION
-	    (mode, var, val, VAR_INIT_STATUS_INITIALIZED);
-
-	  val = emit_debug_insn (val);
-
-	  maybe_dump_rtl_for_tree_stmt (stmt, last);
-
-	  if (last != PREV_INSN (val))
+	  for (;;)
 	    {
-	      debug_generic_expr (stmt);
-	      debug_rtx_range (NEXT_INSN (last), get_last_insn ());
-	      gcc_unreachable ();
+	      tree var = VAR_DEBUG_VALUE_VAR (stmt);
+	      tree value = VAR_DEBUG_VALUE_VALUE (stmt);
+	      rtx val;
+	      enum machine_mode mode;
+
+	      last = get_last_insn ();
+
+	      if (value == VAR_DEBUG_VALUE_NOVALUE)
+		val = NULL_RTX;
+	      else
+		val = expand_debug_expr (value);
+
+	      set_curr_insn_source_location (location_from_locus
+					     (GIMPLE_STMT_LOCUS (stmt)));
+	      set_curr_insn_block (GIMPLE_STMT_BLOCK (stmt));
+
+	      if (DECL_P (var))
+		mode = DECL_MODE (var);
+	      else
+		mode = TYPE_MODE (TREE_TYPE (var));
+
+	      if (!val)
+		val = gen_rtx_UNKNOWN_VAR_LOC ();
+	      else
+		gcc_assert (mode == GET_MODE (val)
+			    || GET_CODE (val) == CONST_INT
+			    || GET_CODE (val) == CONST_FIXED
+			    || GET_CODE (val) == CONST_DOUBLE);
+
+	      val = gen_rtx_VAR_LOCATION
+		(mode, var, val, VAR_INIT_STATUS_INITIALIZED);
+
+	      val = emit_debug_insn (val);
+
+	      maybe_dump_rtl_for_tree_stmt (stmt, last);
+
+	      if (last != PREV_INSN (val))
+		{
+		  debug_generic_expr (stmt);
+		  debug_rtx_range (NEXT_INSN (last), get_last_insn ());
+		  gcc_unreachable ();
+		}
+
+	      tsi = nsi;
+	      tsi_next (&nsi);
+	      if (tsi_end_p (nsi))
+		break;
+	      stmt = tsi_stmt (nsi);
+	      if (!IS_DEBUG_STMT (stmt))
+		break;
 	    }
+
+	  set_curr_insn_source_location (sloc);
+	  set_curr_insn_block (sblock);
 	}
       else
 	{
