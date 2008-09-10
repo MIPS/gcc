@@ -2196,8 +2196,10 @@ df_ref_debug (struct df_ref *ref, FILE *file)
 	   DF_REF_INSN_INFO (ref) ? INSN_UID (DF_REF_INSN (ref)) : -1,
 	   DF_REF_FLAGS (ref),
 	   DF_REF_TYPE (ref));
-  if (DF_REF_LOC (ref))
+  if (DF_REF_LOC (ref) && !flag_dump_noaddr)
     fprintf (file, "loc %p(%p) chain ", (void *)DF_REF_LOC (ref), (void *)*DF_REF_LOC (ref));
+  else if (DF_REF_LOC (ref) && flag_dump_noaddr)
+    fprintf (file, "loc #(#) chain ");
   else
     fprintf (file, "chain ");
   df_chain_dump (DF_REF_CHAIN (ref), file);
