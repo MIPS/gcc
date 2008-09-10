@@ -1,5 +1,9 @@
 2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgcleanup.c (try_crossjump_to_edge): Skip debug insns.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree.c (build_var_debug_value_stat): Copy block and location
 	information from new stmt argument.
 	* tree.h (build_var_debug_value_stat): Adjust declaration.
