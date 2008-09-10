@@ -1202,7 +1202,8 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
       if (IS_DEBUG_BIND (stmt))
 	{
 	  copy = gimple_build_debug_bind (VAR_DEBUG_VALUE_VAR (stmt),
-					  VAR_DEBUG_VALUE_VALUE (stmt));
+					  VAR_DEBUG_VALUE_VALUE (stmt),
+					  stmt);
 	  VARRAY_PUSH_GENERIC_PTR (id->debug_stmts, copy);
 	}
       else
@@ -2055,7 +2056,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
 	    {
 	      gimple note = gimple_build_debug_bind (var,
 						     is_gimple_reg (p)
-						     ? def : var);
+						     ? def : var,
+						     init_stmt);
 	      gsi_insert_after (&si, note, GSI_SAME_STMT);
 	    }
 

@@ -834,13 +834,18 @@ gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
    VAR is bound to VALUE.  */
 
 gimple
-gimple_build_debug_bind_stat (tree var, tree value MEM_STAT_DECL)
+gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
 {
   gimple p = gimple_build_with_ops_stat (GIMPLE_DEBUG, VAR_DEBUG_VALUE, 2
 					 PASS_MEM_STAT);
   
   gimple_debug_bind_set_var (p, var);
   gimple_debug_bind_set_value (p, value);
+  if (stmt)
+    {
+      gimple_set_block (p, gimple_block (stmt));
+      gimple_set_location (p, gimple_location (stmt));
+    }
 
   return p;
 }

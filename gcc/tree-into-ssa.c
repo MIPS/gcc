@@ -1395,7 +1395,8 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	  phi = create_phi_node (var, bb);
 	  if (!update_p && var_debug_value_for_decl (var))
 	    {
-	      gimple note = gimple_build_debug_bind (var, PHI_RESULT (phi));
+	      gimple note = gimple_build_debug_bind (var, PHI_RESULT (phi),
+						     phi);
 	      gimple_stmt_iterator si = gsi_after_labels (bb);
 	      gsi_insert_before (&si, note, GSI_SAME_STMT);
 	    }
@@ -1613,7 +1614,7 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	SET_DEF (def_p, name = make_ssa_name (var, stmt));
 	if (var_debug_value_for_decl (var))
 	  {
-	    gimple note = gimple_build_debug_bind (var, name);
+	    gimple note = gimple_build_debug_bind (var, name, stmt);
 	    gsi_insert_after (&si, note, GSI_SAME_STMT);
 	  }
 	register_new_def (DEF_FROM_PTR (def_p), var);

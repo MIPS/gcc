@@ -776,9 +776,9 @@ gimple gimple_build_assign_with_ops_stat (enum tree_code, tree, tree,
 #define gimple_build_assign_with_ops(c,o1,o2,o3) \
   gimple_build_assign_with_ops_stat (c, o1, o2, o3 MEM_STAT_INFO)
 
-gimple gimple_build_debug_bind_stat (tree, tree MEM_STAT_DECL);
-#define gimple_build_debug_bind(var,val) \
-  gimple_build_debug_bind_stat ((var), (val) MEM_STAT_INFO)
+gimple gimple_build_debug_bind_stat (tree, tree, gimple MEM_STAT_DECL);
+#define gimple_build_debug_bind(var,val,stmt)			\
+  gimple_build_debug_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
 
 gimple gimple_build_call_vec (tree, VEC(tree, heap) *);
 gimple gimple_build_call (tree, unsigned, ...);
