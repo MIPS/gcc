@@ -1,5 +1,10 @@
 2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgexpand.c (maybe_dump_rtl_for_tree_stmt): Dump line number
+	information if requested.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfglayout.c (set_curr_insn_source_location): Don't refrain from
 	switching to last_location.
 

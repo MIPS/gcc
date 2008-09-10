@@ -1232,7 +1232,8 @@ maybe_dump_rtl_for_tree_stmt (tree stmt, rtx since)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\n;; ");
-      print_generic_expr (dump_file, stmt, TDF_SLIM);
+      print_generic_expr (dump_file, stmt,
+			  TDF_SLIM | (dump_flags & TDF_LINENO));
       fprintf (dump_file, "\n");
 
       print_rtl (dump_file, since ? NEXT_INSN (since) : since);
