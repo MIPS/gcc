@@ -2367,7 +2367,9 @@ extern const struct rtl_hooks general_rtl_hooks;
 extern void insn_locators_alloc (void);
 extern void insn_locators_finalize (void);
 extern void set_curr_insn_source_location (location_t);
+extern location_t get_curr_insn_source_location (void);
 extern void set_curr_insn_block (tree);
+extern tree get_curr_insn_block (void);
 extern int curr_insn_locator (void);
 
 #endif /* ! GCC_RTL_H */

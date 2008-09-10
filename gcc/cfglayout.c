@@ -282,7 +282,14 @@ set_curr_insn_source_location (location_t location)
   curr_location = location;
 }
 
-/* Set current scope block. */
+/* Get current location.  */
+location_t
+get_curr_insn_source_location (void)
+{
+  return curr_location;
+}
+
+/* Set current scope block.  */
 void
 set_curr_insn_block (tree b)
 {
@@ -292,6 +299,13 @@ set_curr_insn_block (tree b)
     return;
   if (b)
     curr_block = b;
+}
+
+/* Get current scope block.  */
+tree
+get_curr_insn_block (void)
+{
+  return curr_block;
 }
 
 /* Return current insn locator.  */
