@@ -1,5 +1,9 @@
 2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* df-core.c (df_ref_debug): Honor -fdump-noaddr.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* emit-rtl (emit_insn_after, emit_jump_insn_after,
 	emit_call_insn_after, emit_insn_before, emit_jump_insn_before,
 	emit_call_insn_before): Take locator from non-debug insn.
