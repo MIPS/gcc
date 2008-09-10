@@ -32,6 +32,7 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <ar.h>
 
 #ifdef HAVE_GELF_H
 # include <gelf.h>
@@ -46,9 +47,9 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include "plugin-api.h"
 #include "common.h"
 
-/* The part of the symbol table the plugin has to keep track of. Note that we must
-   keep SYMS until all_symbols_read is called to give the linker time to copy the
-   symbol information. */
+/* The part of the symbol table the plugin has to keep track of. Note that we
+   must keep SYMS until all_symbols_read is called to give the linker time to
+   copy the symbol information. */
 
 struct plugin_symtab
 {
@@ -283,6 +284,14 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
   Elf *elf = elf_begin (file->fd, ELF_C_READ, NULL);
   struct plugin_file_info lto_file;
   Elf_Data *symtab;
+
+  if (file->offset != 0)
+    {
+      elf_rand (elf, file->offset - sizeof (struct ar_hdr));
+      Elf *member = elf_begin (file->fd, ELF_C_READ, elf);
+      elf_end (elf);
+      elf = member;
+    }
 
   *claimed = 0;
 

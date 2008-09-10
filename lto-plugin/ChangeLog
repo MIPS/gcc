@@ -1,5 +1,20 @@
 2008-09-10  Rafael Avila de Espindola  <espindola@google.com>
 
+	* Makefile.am (ltosymtab_LDADD): Add -lelf.
+	* Makefiel.in: Regenerate.
+	* lto-plugin.c: Include ar.h.
+	(claim_file_handler): Handle file->offset != 0.
+	* lto-symtab.c: Include gelf.h.
+	(all_file_handles): Change type.
+	(register_object): New.
+	(register_file): Add support for archives.
+	(resolve): Update to new type of all_file_handles.
+	(print): Update to new type of all_file_handles.
+	(free_all): Update to new type of all_file_handles.
+	(main): Update to new type of all_file_handles.
+
+2008-09-10  Rafael Avila de Espindola  <espindola@google.com>
+
 	* lto-plugin.c (get_string_table): Remove.
 	(get_section): Use elf_strptr instead of get_string_table.
 

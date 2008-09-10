@@ -27,6 +27,16 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include "plugin-api.h"
 #include "common.h"
 
+#ifdef HAVE_GELF_H
+# include <gelf.h>
+#else
+# if defined(HAVE_LIBELF_GELF_H)
+#   include <libelf/gelf.h>
+# else
+#  error "gelf.h not available"
+# endif
+#endif
+
 ld_plugin_claim_file_handler claim_file_handler;
 ld_plugin_all_symbols_read_handler all_symbols_read_handler;
 static void *plugin_handle;
@@ -36,7 +46,7 @@ struct file_handle {
   struct ld_plugin_symbol *syms;
 };
 
-struct file_handle *all_file_handles = NULL;
+struct file_handle **all_file_handles = NULL;
 unsigned int num_file_handles;
 
 /* Write NSYMS symbols from file HANDLE in SYMS. */
@@ -131,24 +141,77 @@ load_plugin (const char *name)
   assert (claim_file_handler);
 }
 
-/* Send file named NAME to the plugin. */
+/* Send object to the plugin. The file (archive or object) name is NAME.
+   FD is an open file descriptor. The object data starts at OFFSET and is
+   FILESIZE bytes long. */
 
 static void
-register_file (const char *name, struct file_handle *handle)
+register_object (const char *name, int fd, off_t offset, off_t filesize)
 {
  int claimed;
  struct ld_plugin_input_file file;
- int fd = open (name, O_RDONLY);
- assert (fd >= 0);
+ void *handle;
+
+ num_file_handles++;
+ all_file_handles = realloc (all_file_handles, num_file_handles
+			     * sizeof (struct file_handle *));
+ assert (all_file_handles);
+
+ all_file_handles[num_file_handles - 1] = calloc (1,
+						  sizeof (struct file_handle));
+ handle = all_file_handles[num_file_handles - 1];
+ assert (handle);
 
  file.name = (char *) name;
  file.fd = fd;
- file.offset = 0; /* Used only in archives. */
- file.filesize = 0; /* Used only in archives. */
+ file.offset = offset;
+ file.filesize = filesize;
 
  file.handle = handle;
 
  claim_file_handler (&file, &claimed);
+}
+
+/* Send file named NAME to the plugin. */
+
+static void
+register_file (const char *name)
+{
+ int fd = open (name, O_RDONLY);
+ Elf *elf;
+
+ assert (fd >= 0);
+
+ elf = elf_begin (fd, ELF_C_READ, NULL);
+ assert (elf);
+
+ Elf_Kind kind = elf_kind (elf);
+
+ assert (kind == ELF_K_ELF || kind == ELF_K_AR);
+
+ if (kind == ELF_K_AR)
+   {
+     Elf *member = elf_begin (fd, ELF_C_READ, elf);
+     while (member)
+       {
+	 Elf_Arhdr *h = elf_getarhdr (member);
+	 assert (h);
+
+	 if (h->ar_name[0] != '/')
+	   {
+	     off_t offset = elf_getbase (member);
+	     register_object (name, fd, offset, h->ar_size);
+	   }
+
+	 Elf_Cmd cmd = elf_next (member);
+	 elf_end (member);
+	 member = elf_begin (fd, cmd, elf);
+       }
+   }
+ else /* Single File */
+   register_object (name, fd, 0, 0);
+
+ elf_end (elf);
 }
 
 /* Fake symbol resolution for testing. */
@@ -159,8 +222,9 @@ resolve (void)
   unsigned j;
   for (j = 0; j < num_file_handles; j++)
     {
-      unsigned int nsyms = all_file_handles[j].nsyms;
-      struct ld_plugin_symbol *syms = all_file_handles[j].syms;
+      struct file_handle *handle = all_file_handles[j];
+      unsigned int nsyms = handle->nsyms;
+      struct ld_plugin_symbol *syms = handle->syms;
       unsigned i;
       for (i = 0; i < nsyms; i++)
 	{
@@ -188,8 +252,9 @@ print (void)
   unsigned j;
   for (j = 0; j < num_file_handles; j++)
     {
-      unsigned int nsyms = all_file_handles[j].nsyms;
-      struct ld_plugin_symbol *syms = all_file_handles[j].syms;
+      struct file_handle *handle = all_file_handles[j];
+      unsigned int nsyms = handle->nsyms;
+      struct ld_plugin_symbol *syms = handle->syms;
       unsigned i;
       for (i = 0; i < nsyms; i++)
 	{
@@ -229,8 +294,9 @@ free_all (void)
   unsigned j;
   for (j = 0; j < num_file_handles; j++)
     {
-      unsigned int nsyms = all_file_handles[j].nsyms;
-      struct ld_plugin_symbol *syms = all_file_handles[j].syms;
+      struct file_handle *handle = all_file_handles[j];
+      unsigned int nsyms = handle->nsyms;
+      struct ld_plugin_symbol *syms = handle->syms;
       unsigned i;
       for (i = 0; i < nsyms; i++)
 	{
@@ -248,8 +314,10 @@ free_all (void)
 	    }
 	}
       free (syms);
-      all_file_handles[j].syms = NULL;
-      all_file_handles[j].nsyms = 0;
+      handle->syms = NULL;
+      handle->nsyms = 0;
+      free (all_file_handles[j]);
+      all_file_handles[j] = NULL;
     }
 
   free (all_file_handles);
@@ -267,11 +335,8 @@ main(int argc, char *argv[])
 
   load_plugin (plugin);
 
-  num_file_handles = argc - 2;
-  all_file_handles = calloc (num_file_handles, sizeof (struct file_handle));
-  assert (all_file_handles);
   for (i = 2; i < argc; i++)
-    register_file (argv[i], &all_file_handles [i - 2]);
+    register_file (argv[i]);
 
   resolve ();
 
