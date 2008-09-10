@@ -4321,8 +4321,13 @@ emit_insn_after_setloc (rtx pattern, rtx after, int loc)
 rtx
 emit_insn_after (rtx pattern, rtx after)
 {
-  if (INSN_P (after))
-    return emit_insn_after_setloc (pattern, after, INSN_LOCATOR (after));
+  rtx prev = after;
+
+  while (DEBUG_INSN_P (prev))
+    prev = PREV_INSN (prev);
+
+  if (INSN_P (prev))
+    return emit_insn_after_setloc (pattern, after, INSN_LOCATOR (prev));
   else
     return emit_insn_after_noloc (pattern, after, NULL);
 }
@@ -4352,8 +4357,13 @@ emit_jump_insn_after_setloc (rtx pattern, rtx after, int loc)
 rtx
 emit_jump_insn_after (rtx pattern, rtx after)
 {
-  if (INSN_P (after))
-    return emit_jump_insn_after_setloc (pattern, after, INSN_LOCATOR (after));
+  rtx prev = after;
+
+  while (DEBUG_INSN_P (prev))
+    prev = PREV_INSN (prev);
+
+  if (INSN_P (prev))
+    return emit_jump_insn_after_setloc (pattern, after, INSN_LOCATOR (prev));
   else
     return emit_jump_insn_after_noloc (pattern, after);
 }
@@ -4383,8 +4393,13 @@ emit_call_insn_after_setloc (rtx pattern, rtx after, int loc)
 rtx
 emit_call_insn_after (rtx pattern, rtx after)
 {
-  if (INSN_P (after))
-    return emit_call_insn_after_setloc (pattern, after, INSN_LOCATOR (after));
+  rtx prev = after;
+
+  while (DEBUG_INSN_P (prev))
+    prev = PREV_INSN (prev);
+
+  if (INSN_P (prev))
+    return emit_call_insn_after_setloc (pattern, after, INSN_LOCATOR (prev));
   else
     return emit_call_insn_after_noloc (pattern, after);
 }
@@ -4449,8 +4464,13 @@ emit_insn_before_setloc (rtx pattern, rtx before, int loc)
 rtx
 emit_insn_before (rtx pattern, rtx before)
 {
-  if (INSN_P (before))
-    return emit_insn_before_setloc (pattern, before, INSN_LOCATOR (before));
+  rtx next = before;
+
+  while (DEBUG_INSN_P (next))
+    next = PREV_INSN (next);
+
+  if (INSN_P (next))
+    return emit_insn_before_setloc (pattern, before, INSN_LOCATOR (next));
   else
     return emit_insn_before_noloc (pattern, before, NULL);
 }
@@ -4481,8 +4501,13 @@ emit_jump_insn_before_setloc (rtx pattern, rtx before, int loc)
 rtx
 emit_jump_insn_before (rtx pattern, rtx before)
 {
-  if (INSN_P (before))
-    return emit_jump_insn_before_setloc (pattern, before, INSN_LOCATOR (before));
+  rtx next = before;
+
+  while (DEBUG_INSN_P (next))
+    next = PREV_INSN (next);
+
+  if (INSN_P (next))
+    return emit_jump_insn_before_setloc (pattern, before, INSN_LOCATOR (next));
   else
     return emit_jump_insn_before_noloc (pattern, before);
 }
@@ -4514,8 +4539,13 @@ emit_call_insn_before_setloc (rtx pattern, rtx before, int loc)
 rtx
 emit_call_insn_before (rtx pattern, rtx before)
 {
-  if (INSN_P (before))
-    return emit_call_insn_before_setloc (pattern, before, INSN_LOCATOR (before));
+  rtx next = before;
+
+  while (DEBUG_INSN_P (next))
+    next = PREV_INSN (next);
+
+  if (INSN_P (next))
+    return emit_call_insn_before_setloc (pattern, before, INSN_LOCATOR (next));
   else
     return emit_call_insn_before_noloc (pattern, before);
 }
