@@ -1,3 +1,9 @@
+2008-09-10 Rafael Espindola  <espindola@google.com>
+
+	* class.c (build_vtbl_ref_1): Don't call assemble_external.
+	* decl2.c (mark_used): Don't call assemble_external.
+	* init.c (build_vtbl_address): Don't call assemble_external
+
 2008-08-25  Bill Maddox <maddox@google.com>
 
 	* mangle.c (decl_is_template_id): Protect against unexpected
