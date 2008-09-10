@@ -1,5 +1,10 @@
 2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgexpand.c (maybe_dump_rtl_for_gimple_stmt): Dump line number
+	information if requested.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* gimple-pretty-print.c (dump_bb_header): Don't take line info
 	from debug stmt.
 
