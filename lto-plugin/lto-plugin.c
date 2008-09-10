@@ -344,8 +344,10 @@ onload (struct ld_plugin_tv *tv)
 	  break;
 	case LDPT_REGISTER_ALL_SYMBOLS_READ_HOOK:
 	  register_all_symbols_read = p->tv_u.tv_register_all_symbols_read;
+	  break;
 	case LDPT_GET_SYMBOLS:
 	  get_symbols = p->tv_u.tv_get_symbols;
+	  break;
 	default:
 	  break;
 	}
@@ -355,12 +357,12 @@ onload (struct ld_plugin_tv *tv)
   assert (register_claim_file);
   assert (add_symbols);
   status = register_claim_file (claim_file_handler);
+  assert (status == LDPS_OK);
 
   if (register_all_symbols_read)
     {
       assert (get_symbols);
-      register_all_symbols_read (all_symbols_read_handler);
+      status = register_all_symbols_read (all_symbols_read_handler);
+      assert (status == LDPS_OK);
     }
-
-  assert (status == LDPS_OK);
 }

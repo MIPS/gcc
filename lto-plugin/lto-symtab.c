@@ -37,8 +37,8 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 # endif
 #endif
 
-ld_plugin_claim_file_handler claim_file_handler;
-ld_plugin_all_symbols_read_handler all_symbols_read_handler;
+static ld_plugin_claim_file_handler claim_file_handler;
+static ld_plugin_all_symbols_read_handler all_symbols_read_handler;
 static void *plugin_handle;
 
 struct file_handle {
@@ -46,8 +46,8 @@ struct file_handle {
   struct ld_plugin_symbol *syms;
 };
 
-struct file_handle **all_file_handles = NULL;
-unsigned int num_file_handles;
+static struct file_handle **all_file_handles = NULL;
+static unsigned int num_file_handles;
 
 /* Write NSYMS symbols from file HANDLE in SYMS. */
 
@@ -76,7 +76,7 @@ register_all_symbols_read (ld_plugin_all_symbols_read_handler handler)
 
 /* Register HANDLER as the callback for claiming a file. */
 
-enum ld_plugin_status
+static enum ld_plugin_status
 register_claim_file(ld_plugin_claim_file_handler handler)
 {
   claim_file_handler = handler;
@@ -148,28 +148,28 @@ load_plugin (const char *name)
 static void
 register_object (const char *name, int fd, off_t offset, off_t filesize)
 {
- int claimed;
- struct ld_plugin_input_file file;
- void *handle;
+  int claimed;
+  struct ld_plugin_input_file file;
+  void *handle;
 
- num_file_handles++;
- all_file_handles = realloc (all_file_handles, num_file_handles
-			     * sizeof (struct file_handle *));
- assert (all_file_handles);
+  num_file_handles++;
+  all_file_handles = realloc (all_file_handles, num_file_handles
+			      * sizeof (struct file_handle *));
+  assert (all_file_handles);
 
- all_file_handles[num_file_handles - 1] = calloc (1,
-						  sizeof (struct file_handle));
- handle = all_file_handles[num_file_handles - 1];
- assert (handle);
+  all_file_handles[num_file_handles - 1] = calloc (1,
+						   sizeof (struct file_handle));
+  handle = all_file_handles[num_file_handles - 1];
+  assert (handle);
 
- file.name = (char *) name;
- file.fd = fd;
- file.offset = offset;
- file.filesize = filesize;
+  file.name = (char *) name;
+  file.fd = fd;
+  file.offset = offset;
+  file.filesize = filesize;
 
- file.handle = handle;
+  file.handle = handle;
 
- claim_file_handler (&file, &claimed);
+  claim_file_handler (&file, &claimed);
 }
 
 /* Send file named NAME to the plugin. */
