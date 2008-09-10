@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -3166,7 +3166,7 @@ build_gimple_modify_stmt_stat (tree arg0, tree arg1 MEM_STAT_DECL)
    type, so we can't use build2 (a.k.a. build2_stat).  */
 
 tree
-build_var_debug_value_stat (tree arg0, tree arg1 MEM_STAT_DECL)
+build_var_debug_value_stat (tree arg0, tree arg1, tree stmt MEM_STAT_DECL)
 {
   tree t;
 
@@ -3174,6 +3174,12 @@ build_var_debug_value_stat (tree arg0, tree arg1 MEM_STAT_DECL)
   /* ?? We don't care about setting flags for tuples...  */
   VAR_DEBUG_VALUE_SET_VAR (t, arg0);
   VAR_DEBUG_VALUE_VALUE (t) = arg1;
+  if (stmt && GIMPLE_STMT_P (stmt))
+    {
+      GIMPLE_STMT_BLOCK (t) = GIMPLE_STMT_BLOCK (stmt);
+      GIMPLE_STMT_LOCUS (t) = GIMPLE_STMT_LOCUS (stmt);
+    }
+
   return t;
 }
 

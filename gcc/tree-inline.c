@@ -1633,7 +1633,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
 	    {
 	      tree note = build_var_debug_value (var,
 						 is_gimple_reg (p)
-						 ? def : var);
+						 ? def : var,
+						 bsi_stmt (bsi));
 	      bsi_insert_after (&bsi, note, BSI_SAME_STMT);
 	    }
 

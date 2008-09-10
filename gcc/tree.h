@@ -4020,9 +4020,9 @@ extern tree build_gimple_modify_stmt_stat (tree, tree MEM_STAT_DECL);
 #define build_gimple_modify_stmt(t1,t2) \
   build_gimple_modify_stmt_stat (t1,t2 MEM_STAT_INFO)
 
-extern tree build_var_debug_value_stat (tree, tree MEM_STAT_DECL);
-#define build_var_debug_value(t1,t2) \
-  build_var_debug_value_stat (t1,t2 MEM_STAT_INFO)
+extern tree build_var_debug_value_stat (tree, tree, tree MEM_STAT_DECL);
+#define build_var_debug_value(t1,t2,t3)	\
+  build_var_debug_value_stat (t1,t2,t3 MEM_STAT_INFO)
 
 extern tree build_int_cst (tree, HOST_WIDE_INT);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);

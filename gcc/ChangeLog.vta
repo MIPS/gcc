@@ -1,5 +1,14 @@
 2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree.c (build_var_debug_value_stat): Copy block and location
+	information from new stmt argument.
+	* tree.h (build_var_debug_value_stat): Adjust declaration.
+	(build_var_debug_value): Adjust.
+	* tree-inline.c (setup_one_parameter): Adjust.
+	* tree-into-ssa.c (insert_phi_nodes_for, rewrite_stmt): Adjust.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgexpand.c (expand_gimple_basic_block): Remove duplicate stmt
 	declaration.  Preserve source location around expanding debug
 	stmts.

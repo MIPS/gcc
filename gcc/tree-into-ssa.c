@@ -1423,7 +1423,7 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	  phi = create_phi_node (sym, bb);
 	  if (!update_p && var_debug_value_for_decl (sym))
 	    {
-	      tree note = build_var_debug_value (sym, PHI_RESULT (phi));
+	      tree note = build_var_debug_value (sym, PHI_RESULT (phi), phi);
 	      block_stmt_iterator si = bsi_after_labels (bb);
 	      bsi_insert_before (&si, note, BSI_SAME_STMT);
 	    }
@@ -1637,7 +1637,7 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	SET_DEF (def_p, name = make_ssa_name (var, stmt));
 	if (var_debug_value_for_decl (var))
 	  {
-	    tree note = build_var_debug_value (var, name);
+	    tree note = build_var_debug_value (var, name, stmt);
 	    bsi_insert_after (&si, note, BSI_SAME_STMT);
 	  }
 	register_new_def (DEF_FROM_PTR (def_p), var);
