@@ -2151,8 +2151,9 @@ expand_debug_expr (tree exp)
 	int volatilep = 0;
 	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
 					&mode1, &unsignedp, &volatilep, false);
+	rtx orig_op0;
 
-	op0 = expand_debug_expr (tem);
+	orig_op0 = op0 = expand_debug_expr (tem);
 
 	if (!op0)
 	  return NULL;
@@ -2181,6 +2182,8 @@ expand_debug_expr (tree exp)
 	      op0 = adjust_address_nv (op0, mode1, 0);
 	    else
 	      op0 = copy_rtx (op0);
+	    if (op0 == orig_op0)
+	      op0 = shallow_copy_rtx (op0);
 	    set_mem_attributes (op0, exp, 0);
 	  }
 
