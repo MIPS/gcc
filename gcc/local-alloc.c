@@ -774,7 +774,7 @@ memref_used_between_p (rtx memref, rtx start, rtx end)
   for (insn = NEXT_INSN (start); insn != NEXT_INSN (end);
        insn = NEXT_INSN (insn))
     {
-      if (!INSN_P (insn))
+      if (!INSN_P (insn) || DEBUG_INSN_P (insn))
 	continue;
       
       if (memref_referenced_p (memref, PATTERN (insn)))
