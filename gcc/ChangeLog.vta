@@ -1,5 +1,10 @@
 2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfglayout.c (set_curr_insn_source_location): Don't refrain from
+	switching to last_location.
+
+2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfglayout.c (curr_location, last_location): Make static.
 
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>

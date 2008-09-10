@@ -279,8 +279,6 @@ set_curr_insn_source_location (location_t location)
      time locators are not initialized.  */
   if (curr_rtl_loc == -1)
     return;
-  if (location == last_location)
-    return;
   curr_location = location;
 }
 
