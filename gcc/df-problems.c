@@ -3574,7 +3574,7 @@ df_note_bb_compute (unsigned int bb_index,
 	  unsigned int uregno = DF_REF_REGNO (use);
 
 #ifdef REG_DEAD_DEBUGGING
-	  if (dump_file)
+	  if (dump_file && !debug_insn)
 	    {
 	      fprintf (dump_file, "  regular looking at use ");
 	      df_ref_debug (use, dump_file);
