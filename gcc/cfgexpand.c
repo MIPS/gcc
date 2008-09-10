@@ -1870,6 +1870,12 @@ expand_debug_expr (tree exp)
 		op0 = adjust_address_nv (op0, mode1, bitpos / BITS_PER_UNIT);
 		bitpos %= BITS_PER_UNIT;
 	      }
+	    else if (bitpos < 0)
+	      {
+		int units = (-bitpos + BITS_PER_UNIT - 1) / BITS_PER_UNIT;
+		op0 = adjust_address_nv (op0, mode1, units);
+		bitpos += units * BITS_PER_UNIT;
+	      }
 	    else if (bitpos == 0 && bitsize == GET_MODE_BITSIZE (mode))
 	      op0 = adjust_address_nv (op0, mode, 0);
 	    else if (GET_MODE (op0) != mode1)
