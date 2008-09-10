@@ -136,38 +136,24 @@ parse_table_entry (char *p, struct ld_plugin_symbol *entry, uint32_t *slot)
   return p;
 }
 
-/* Returns the string table of file ELF. */
-
-static const char *
-get_string_table (Elf *elf)
-{
-  GElf_Ehdr header;
-  GElf_Ehdr *t = gelf_getehdr (elf, &header);
-  assert (t == &header);
-  Elf_Scn *section = elf_getscn (elf, header.e_shstrndx);
-  assert (section);
-  Elf_Data *data = 0;
-  data = elf_getdata (section, data);
-  assert (data);
-  assert (data->d_buf);
-  return (const char *) data->d_buf;
-}
-
-
 /* Return the section in ELF that is named NAME. */
 
 static Elf_Scn *
 get_section (Elf *elf, const char *name)
 {
-  const char *string_table = get_string_table (elf);
   Elf_Scn *section = 0;
+  GElf_Ehdr header;
+  GElf_Ehdr *t = gelf_getehdr (elf, &header);
+  assert (t == &header);
+
   while ((section = elf_nextscn(elf, section)) != 0)
     {
       GElf_Shdr shdr;
       GElf_Shdr *tshdr = gelf_getshdr (section, &shdr);
       const char *t;
       assert (tshdr == &shdr);
-      t = string_table + shdr.sh_name;
+      t = elf_strptr (elf, header.e_shstrndx, shdr.sh_name);
+      assert (t != NULL);
       if (strcmp (t, name) == 0)
 	return section;
     }

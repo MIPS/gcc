@@ -1,3 +1,8 @@
+2008-09-10  Rafael Avila de Espindola  <espindola@google.com>
+
+       * lto-plugin.c (get_string_table): Remove.
+       (get_section): Use elf_strptr instead of get_string_table.
+
 2008-09-08  Doug Kwan  <dougkwan@google.com>
 
 	* lto-plugin.c (all_symbols_read_handler): Widen fprintf arguments
