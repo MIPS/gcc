@@ -104,7 +104,7 @@ static GTY (()) VEC(tinfo_s,gc) *tinfo_descs;
 
 static tree ifnonnull (tree, tree);
 static tree tinfo_name (tree);
-static tree build_dynamic_cast_1 (tree, tree, tsubst_flags_t);
+static tree build_dynamic_cast_1 (tree, tree, int);
 static tree throw_bad_cast (void);
 static tree throw_bad_typeid (void);
 static tree get_tinfo_decl_dynamic (tree);
@@ -488,7 +488,7 @@ ifnonnull (tree test, tree result)
    paper.  */
 
 static tree
-build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
+build_dynamic_cast_1 (tree type, tree expr, int complain)
 {
   enum tree_code tc = TREE_CODE (type);
   tree exprtype = TREE_TYPE (expr);
@@ -741,7 +741,7 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 }
 
 tree
-build_dynamic_cast (tree type, tree expr, tsubst_flags_t complain)
+build_dynamic_cast (tree type, tree expr, int complain)
 {
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;

@@ -2339,14 +2339,14 @@ hash_rtx_cb (const_rtx x, enum machine_mode mode,
 	      goto repeat;
 	    }
           
-	  hash += hash_rtx_cb (XEXP (x, i), 0, do_not_record_p,
+	  hash += hash_rtx_cb (XEXP (x, i), VOIDmode, do_not_record_p,
                                hash_arg_in_memory_p,
                                have_reg_qty, cb);
 	  break;
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (x, i); j++)
-	    hash += hash_rtx_cb (XVECEXP (x, i, j), 0, do_not_record_p,
+	    hash += hash_rtx_cb (XVECEXP (x, i, j), VOIDmode, do_not_record_p,
                                  hash_arg_in_memory_p,
                                  have_reg_qty, cb);
 	  break;

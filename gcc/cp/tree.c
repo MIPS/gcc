@@ -729,7 +729,7 @@ c_build_qualified_type (tree type, int type_quals)
 tree
 cp_build_qualified_type_real (tree type,
 			      int type_quals,
-			      tsubst_flags_t complain)
+			      int complain)
 {
   tree result;
   int bad_quals = TYPE_UNQUALIFIED;

@@ -2240,7 +2240,7 @@ gfc_try gfc_add_optional (symbol_attribute *, locus *);
 gfc_try gfc_add_pointer (symbol_attribute *, locus *);
 gfc_try gfc_add_cray_pointer (symbol_attribute *, locus *);
 gfc_try gfc_add_cray_pointee (symbol_attribute *, locus *);
-gfc_try gfc_mod_pointee_as (gfc_array_spec *);
+match gfc_mod_pointee_as (gfc_array_spec *);
 gfc_try gfc_add_protected (symbol_attribute *, const char *, locus *);
 gfc_try gfc_add_result (symbol_attribute *, const char *, locus *);
 gfc_try gfc_add_save (symbol_attribute *, const char *, locus *);

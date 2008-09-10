@@ -3808,12 +3808,13 @@ new_reg_loc_descr (unsigned int reg,  unsigned HOST_WIDE_INT offset)
   if (offset)
     {
       if (reg <= 31)
-	return new_loc_descr (DW_OP_breg0 + reg, offset, 0);
+	return new_loc_descr ((enum dwarf_location_atom) (DW_OP_breg0 + reg),
+			      offset, 0);
       else
 	return new_loc_descr (DW_OP_bregx, reg, offset);
     }
   else if (reg <= 31)
-    return new_loc_descr (DW_OP_reg0 + reg, 0, 0);
+    return new_loc_descr ((enum dwarf_location_atom) (DW_OP_reg0 + reg), 0, 0);
   else
    return new_loc_descr (DW_OP_regx, reg, 0);
 }
@@ -9836,7 +9837,8 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 
   regno = dbx_reg_number (reg);
   if (regno <= 31)
-    result = new_loc_descr (DW_OP_breg0 + regno, offset, 0);
+    result = new_loc_descr ((enum dwarf_location_atom) (DW_OP_breg0 + regno),
+			    offset, 0);
   else
     result = new_loc_descr (DW_OP_bregx, regno, offset);
 
@@ -10295,8 +10297,8 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       if (DECL_THREAD_LOCAL_P (loc))
 	{
 	  rtx rtl;
-	  unsigned first_op;
-	  unsigned second_op;
+	  enum dwarf_location_atom first_op;
+	  enum dwarf_location_atom second_op;
 
 	  if (targetm.have_tls)
 	    {

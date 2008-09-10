@@ -1401,7 +1401,7 @@ init_predicate_table (void)
       if (std_preds[i].allows_const_p)
 	for (j = 0; j < NUM_RTX_CODE; j++)
 	  if (GET_RTX_CLASS (j) == RTX_CONST_OBJ)
-	    add_predicate_code (pred, j);
+	    add_predicate_code (pred, (enum rtx_code) j);
       
       add_predicate (pred);
     }

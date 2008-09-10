@@ -109,12 +109,11 @@ static void pop_tinst_level (void);
 static tree reopen_tinst_level (struct tinst_level *);
 static tree tsubst_initializer_list (tree, tree);
 static tree get_class_bindings (tree, tree, tree);
-static tree coerce_template_parms (tree, tree, tree, tsubst_flags_t,
-				   bool, bool);
+static tree coerce_template_parms (tree, tree, tree, int, bool, bool);
 static void tsubst_enum	(tree, tree, tree);
 static tree add_to_template_args (tree, tree);
 static tree add_outermost_template_args (tree, tree);
-static bool check_instantiated_args (tree, tree, tsubst_flags_t);
+static bool check_instantiated_args (tree, tree, int);
 static int maybe_adjust_types_for_deduction (unification_kind_t, tree*, tree*,
 					     tree);
 static int  type_unification_real (tree, tree, tree, tree,
@@ -122,8 +121,7 @@ static int  type_unification_real (tree, tree, tree, tree,
 static void note_template_header (int);
 static tree convert_nontype_argument_function (tree, tree);
 static tree convert_nontype_argument (tree, tree);
-static tree convert_template_argument (tree, tree, tree,
-				       tsubst_flags_t, int, tree);
+static tree convert_template_argument (tree, tree, tree, int, int, tree);
 static int for_each_template_parm (tree, tree_fn_t, void*,
 				   struct pointer_set_t*, bool);
 static tree expand_template_argument_pack (tree);
@@ -132,7 +130,7 @@ static bool inline_needs_template_parms (tree);
 static void push_inline_template_parms_recursive (tree, int);
 static tree retrieve_local_specialization (tree);
 static void register_local_specialization (tree, tree);
-static tree reduce_template_parm_level (tree, tree, int, tree, tsubst_flags_t);
+static tree reduce_template_parm_level (tree, tree, int, tree, int);
 static int mark_template_parm (tree, void *);
 static int template_parm_this_level_p (tree, void *);
 static tree tsubst_friend_function (tree, tree);
@@ -143,36 +141,35 @@ static int template_decl_level (tree);
 static int check_cv_quals_for_unify (int, tree, tree);
 static void template_parm_level_and_index (tree, int*, int*);
 static int unify_pack_expansion (tree, tree, tree, tree, int, bool, bool);
-static tree tsubst_template_arg (tree, tree, tsubst_flags_t, tree);
-static tree tsubst_template_args (tree, tree, tsubst_flags_t, tree);
-static tree tsubst_template_parms (tree, tree, tsubst_flags_t);
+static tree tsubst_template_arg (tree, tree, int, tree);
+static tree tsubst_template_args (tree, tree, int, tree);
+static tree tsubst_template_parms (tree, tree, int);
 static void regenerate_decl_from_template (tree, tree);
 static tree most_specialized_class (tree, tree);
-static tree tsubst_aggr_type (tree, tree, tsubst_flags_t, tree, int);
-static tree tsubst_arg_types (tree, tree, tsubst_flags_t, tree);
-static tree tsubst_function_type (tree, tree, tsubst_flags_t, tree);
+static tree tsubst_aggr_type (tree, tree, int, tree, int);
+static tree tsubst_arg_types (tree, tree, int, tree);
+static tree tsubst_function_type (tree, tree, int, tree);
 static bool check_specialization_scope (void);
 static tree process_partial_specialization (tree);
 static void set_current_access_from_decl (tree);
 static tree get_template_base (tree, tree, tree, tree);
 static tree try_class_unification (tree, tree, tree, tree);
-static int coerce_template_template_parms (tree, tree, tsubst_flags_t,
-					   tree, tree);
+static int coerce_template_template_parms (tree, tree, int, tree, tree);
 static bool template_template_parm_bindings_ok_p (tree, tree);
 static int template_args_equal (tree, tree);
 static void tsubst_default_arguments (tree);
 static tree for_each_template_parm_r (tree *, int *, void *);
 static tree copy_default_args_to_explicit_spec_1 (tree, tree);
 static void copy_default_args_to_explicit_spec (tree);
-static int invalid_nontype_parm_type_p (tree, tsubst_flags_t);
+static int invalid_nontype_parm_type_p (tree, int);
 static int eq_local_specializations (const void *, const void *);
 static bool dependent_template_arg_p (tree);
 static bool any_template_arguments_need_structural_equality_p (tree);
 static bool dependent_type_p_r (tree);
-static tree tsubst (tree, tree, tsubst_flags_t, tree);
-static tree tsubst_expr	(tree, tree, tsubst_flags_t, tree, bool);
-static tree tsubst_copy	(tree, tree, tsubst_flags_t, tree);
-static tree tsubst_pack_expansion (tree, tree, tsubst_flags_t, tree);
+static tree tsubst (tree, tree, int, tree);
+static tree tsubst_expr	(tree, tree, int, tree, bool);
+static tree tsubst_copy	(tree, tree, int, tree);
+static tree tsubst_pack_expansion (tree, tree, int, tree);
 
 /* Make the current scope suitable for access checking when we are
    processing T.  T can be FUNCTION_DECL for instantiated function
@@ -2914,7 +2911,7 @@ canonical_type_parameter (tree type)
 
 static tree
 reduce_template_parm_level (tree index, tree type, int levels, tree args,
-			    tsubst_flags_t complain)
+			    int complain)
 {
   if (TEMPLATE_PARM_DESCENDANTS (index) == NULL_TREE
       || (TEMPLATE_PARM_LEVEL (TEMPLATE_PARM_DESCENDANTS (index))
@@ -3001,7 +2998,7 @@ process_template_parm (tree list, tree parm, bool is_non_type,
 	   The top-level cv-qualifiers on the template-parameter are
 	   ignored when determining its type.  */
 	TREE_TYPE (parm) = TYPE_MAIN_VARIANT (TREE_TYPE (parm));
-	if (invalid_nontype_parm_type_p (TREE_TYPE (parm), 1))
+	if (invalid_nontype_parm_type_p (TREE_TYPE (parm), tf_error))
           {
             err_parm_list = build_tree_list (defval, parm);
             TREE_VALUE (err_parm_list) = error_mark_node;
@@ -4641,7 +4638,7 @@ convert_nontype_argument (tree type, tree expr)
 static int
 coerce_template_template_parm (tree parm,
                               tree arg,
-                              tsubst_flags_t complain,
+                              int complain,
                               tree in_decl,
                               tree outer_args)
 {
@@ -4719,7 +4716,7 @@ coerce_template_template_parm (tree parm,
 static int
 coerce_template_template_parms (tree parm_parms,
 				tree arg_parms,
-				tsubst_flags_t complain,
+				int complain,
 				tree in_decl,
 				tree outer_args)
 {
@@ -4895,7 +4892,7 @@ static tree
 convert_template_argument (tree parm,
 			   tree arg,
 			   tree args,
-			   tsubst_flags_t complain,
+			   int complain,
 			   int i,
 			   tree in_decl)
 {
@@ -5093,7 +5090,7 @@ coerce_template_parameter_pack (tree parms,
                                 tree new_args,
                                 int* lost,
                                 tree in_decl,
-                                tsubst_flags_t complain)
+                                int complain)
 {
   tree parm = TREE_VEC_ELT (parms, parm_idx);
   int nargs = inner_args ? NUM_TMPL_ARGS (inner_args) : 0;
@@ -5212,7 +5209,7 @@ static tree
 coerce_template_parms (tree parms,
 		       tree args,
 		       tree in_decl,
-		       tsubst_flags_t complain,
+		       int complain,
 		       bool require_all_args,
 		       bool use_default_args)
 {
@@ -5534,7 +5531,7 @@ lookup_template_class (tree d1,
 		       tree in_decl,
 		       tree context,
 		       int entering_scope,
-		       tsubst_flags_t complain)
+		       int complain)
 {
   tree templ = NULL_TREE, parmlist;
   tree t;
@@ -6770,7 +6767,7 @@ can_complete_type_without_circularity (tree type)
 
 static void
 apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
-				tree args, tsubst_flags_t complain, tree in_decl)
+				tree args, int complain, tree in_decl)
 {
   tree last_dep = NULL_TREE;
   tree t;
@@ -7330,7 +7327,7 @@ instantiate_class_template (tree type)
 }
 
 static tree
-tsubst_template_arg (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+tsubst_template_arg (tree t, tree args, int complain, tree in_decl)
 {
   tree r;
 
@@ -7353,8 +7350,7 @@ tsubst_template_arg (tree t, tree args, tsubst_flags_t complain, tree in_decl)
    (if only a partial substitution could be performed) or
    ERROR_MARK_NODE if there was an error.  */
 tree
-tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
-		       tree in_decl)
+tsubst_pack_expansion (tree t, tree args, int complain, tree in_decl)
 {
   tree pattern;
   tree pack, packs = NULL_TREE, unsubstituted_packs = NULL_TREE;
@@ -7561,7 +7557,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 /* Substitute ARGS into the vector or list of template arguments T.  */
 
 static tree
-tsubst_template_args (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+tsubst_template_args (tree t, tree args, int complain, tree in_decl)
 {
   tree orig_t = t;
   int len = TREE_VEC_LENGTH (t);
@@ -7658,7 +7654,7 @@ tsubst_template_args (tree t, tree args, tsubst_flags_t complain, tree in_decl)
    result will be `template <int*, double, class V>'.  */
 
 static tree
-tsubst_template_parms (tree parms, tree args, tsubst_flags_t complain)
+tsubst_template_parms (tree parms, tree args, int complain)
 {
   tree r = NULL_TREE;
   tree* new_parms;
@@ -7726,7 +7722,7 @@ tsubst_template_parms (tree parms, tree args, tsubst_flags_t complain)
 static tree
 tsubst_aggr_type (tree t,
 		  tree args,
-		  tsubst_flags_t complain,
+		  int complain,
 		  tree in_decl,
 		  int entering_scope)
 {
@@ -7887,7 +7883,7 @@ tsubst_default_arguments (tree fn)
    control of COMPLAIN.  */
 
 static tree
-tsubst_decl (tree t, tree args, tsubst_flags_t complain)
+tsubst_decl (tree t, tree args, int complain)
 {
   location_t saved_loc;
   tree r = NULL_TREE;
@@ -8626,7 +8622,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 static tree
 tsubst_arg_types (tree arg_types,
 		  tree args,
-		  tsubst_flags_t complain,
+		  int complain,
 		  tree in_decl)
 {
   tree remaining_arg_types;
@@ -8732,7 +8728,7 @@ tsubst_arg_types (tree arg_types,
 static tree
 tsubst_function_type (tree t,
 		      tree args,
-		      tsubst_flags_t complain,
+		      int complain,
 		      tree in_decl)
 {
   tree return_type;
@@ -8806,7 +8802,7 @@ tsubst_function_type (tree t,
 static tree
 tsubst_exception_specification (tree fntype,
 				tree args,
-				tsubst_flags_t complain,
+				int complain,
 				tree in_decl)
 {
   tree specs;
@@ -8886,7 +8882,7 @@ tsubst_exception_specification (tree fntype,
    for expressions, use tsubst_expr or tsubst_copy.  */
 
 static tree
-tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+tsubst (tree t, tree args, int complain, tree in_decl)
 {
   tree type, r;
 
@@ -9601,7 +9597,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 static tree
 tsubst_baselink (tree baselink, tree object_type,
-		 tree args, tsubst_flags_t complain, tree in_decl)
+		 tree args, int complain, tree in_decl)
 {
     tree name;
     tree qualifying_scope;
@@ -9667,7 +9663,7 @@ tsubst_baselink (tree baselink, tree object_type,
 
 static tree
 tsubst_qualified_id (tree qualified_id, tree args,
-		     tsubst_flags_t complain, tree in_decl,
+		     int complain, tree in_decl,
 		     bool done, bool address_p)
 {
   tree expr;
@@ -9782,7 +9778,7 @@ tsubst_qualified_id (tree qualified_id, tree args,
    tsubst_expr.  */
 
 static tree
-tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+tsubst_copy (tree t, tree args, int complain, tree in_decl)
 {
   enum tree_code code;
   tree r;
@@ -10202,8 +10198,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 /* Like tsubst_copy, but specifically for OpenMP clauses.  */
 
 static tree
-tsubst_omp_clauses (tree clauses, tree args, tsubst_flags_t complain,
-		    tree in_decl)
+tsubst_omp_clauses (tree clauses, tree args, int complain, tree in_decl)
 {
   tree new_clauses = NULL, nc, oc;
 
@@ -10255,8 +10250,7 @@ tsubst_omp_clauses (tree clauses, tree args, tsubst_flags_t complain,
 /* Like tsubst_copy_and_build, but unshare TREE_LIST nodes.  */
 
 static tree
-tsubst_copy_asm_operands (tree t, tree args, tsubst_flags_t complain,
-			  tree in_decl)
+tsubst_copy_asm_operands (tree t, tree args, int complain, tree in_decl)
 {
 #define RECUR(t) tsubst_copy_asm_operands (t, args, complain, in_decl)
 
@@ -10291,7 +10285,7 @@ tsubst_copy_asm_operands (tree t, tree args, tsubst_flags_t complain,
 static void
 tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
 			 tree condv, tree incrv, tree *clauses,
-			 tree args, tsubst_flags_t complain, tree in_decl,
+			 tree args, int complain, tree in_decl,
 			 bool integral_constant_expression_p)
 {
 #define RECUR(NODE)				\
@@ -10421,7 +10415,7 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
    processing.  */
 
 static tree
-tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
+tsubst_expr (tree t, tree args, int complain, tree in_decl,
 	     bool integral_constant_expression_p)
 {
 #define RECUR(NODE)				\
@@ -10865,7 +10859,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 
 static tree
 tsubst_non_call_postfix_expression (tree t, tree args,
-				    tsubst_flags_t complain,
+				    int complain,
 				    tree in_decl)
 {
   if (TREE_CODE (t) == SCOPE_REF)
@@ -10885,7 +10879,7 @@ tsubst_non_call_postfix_expression (tree t, tree args,
 tree
 tsubst_copy_and_build (tree t,
 		       tree args,
-		       tsubst_flags_t complain,
+		       int complain,
 		       tree in_decl,
 		       bool function_p,
 		       bool integral_constant_expression_p)
@@ -11670,7 +11664,7 @@ tsubst_copy_and_build (tree t,
    Emit an error under control of COMPLAIN, and return TRUE on error.  */
 
 static bool
-check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
+check_instantiated_args (tree tmpl, tree args, int complain)
 {
   int ix, len = DECL_NTPARMS (tmpl);
   bool result = false;
@@ -12847,7 +12841,9 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
                        match.  */
 
                     if (resolve_overloaded_unification
-                        (tparms, targs, parm, arg, strict, sub_strict)
+                        (tparms, targs, parm, arg,
+			 (unification_kind_t) strict,
+			 sub_strict)
                         != 0)
                       return 1;
                     skip_arg_p = true;
@@ -12866,8 +12862,8 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
 
             if (!subr)
               arg_strict |= 
-                maybe_adjust_types_for_deduction (strict, &parm, &arg, 
-						  arg_expr);
+                maybe_adjust_types_for_deduction ((unification_kind_t) strict,
+						  &parm, &arg, arg_expr);
           }
 
         if (!skip_arg_p)
@@ -14679,7 +14675,7 @@ instantiate_class_member (tree decl, int extern_p)
    since the standard is unclear (as detailed below).  */
 
 void
-do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
+do_type_instantiation (tree t, tree storage, int complain)
 {
   int extern_p = 0;
   int nomem_p = 0;
@@ -15740,7 +15736,7 @@ current_instantiation (void)
    warning messages under control of COMPLAIN.  */
 
 static int
-invalid_nontype_parm_type_p (tree type, tsubst_flags_t complain)
+invalid_nontype_parm_type_p (tree type, int complain)
 {
   if (INTEGRAL_TYPE_P (type))
     return 0;

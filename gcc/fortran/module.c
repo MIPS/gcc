@@ -4902,9 +4902,11 @@ import_iso_c_binding_module (void)
       
       for (u = gfc_rename_list; u; u = u->next)
 	{
-	  i = get_c_kind (u->use_name, c_interop_kinds_table);
+	  iso_c_binding_symbol is;
 
-	  if (i == ISOCBINDING_INVALID || i == ISOCBINDING_LAST)
+	  is = get_c_kind (u->use_name, c_interop_kinds_table);
+
+	  if (is == ISOCBINDING_INVALID || is == ISOCBINDING_LAST)
 	    {
 	      gfc_error ("Symbol '%s' referenced at %L does not exist in "
 			 "intrinsic module ISO_C_BINDING.", u->use_name,
@@ -4912,7 +4914,7 @@ import_iso_c_binding_module (void)
 	      continue;
 	    }
 	  
-	  generate_isocbinding_symbol (iso_c_module_name, i, u->local_name);
+	  generate_isocbinding_symbol (iso_c_module_name, is, u->local_name);
 	}
     }
   else
@@ -4929,7 +4931,9 @@ import_iso_c_binding_module (void)
 		  break;
 		}
 	    }
-	  generate_isocbinding_symbol (iso_c_module_name, i, local_name);
+	  generate_isocbinding_symbol (iso_c_module_name,
+				       (iso_c_binding_symbol) i,
+				       local_name);
 	}
 
       for (u = gfc_rename_list; u; u = u->next)

@@ -41,7 +41,7 @@ enum mode_class { MODE_CLASSES, MAX_MODE_CLASS };
    (integer, floating, complex, etc.)  */
 
 extern const unsigned char mode_class[NUM_MACHINE_MODES];
-#define GET_MODE_CLASS(MODE)  mode_class[MODE]
+#define GET_MODE_CLASS(MODE)  ((enum mode_class) mode_class[MODE])
 
 /* Nonzero if MODE is an integral mode.  */
 #define INTEGRAL_MODE_P(MODE)			\
@@ -257,7 +257,8 @@ extern unsigned get_mode_alignment (enum machine_mode);
 /* For each class, get the narrowest mode in that class.  */
 
 extern const unsigned char class_narrowest_mode[MAX_MODE_CLASS];
-#define GET_CLASS_NARROWEST_MODE(CLASS) class_narrowest_mode[CLASS]
+#define GET_CLASS_NARROWEST_MODE(CLASS) \
+  ((enum machine_mode) class_narrowest_mode[CLASS])
 
 /* Define the integer modes whose sizes are BITS_PER_UNIT and BITS_PER_WORD
    and the mode whose class is Pmode and whose size is POINTER_SIZE.  */

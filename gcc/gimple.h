@@ -68,7 +68,7 @@ extern void gimple_range_check_failed (const_gimple, const char *, int,    \
     const_gimple __gs = (GS);						\
     if (gimple_code (__gs) != (CODE))					\
       gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
-	  		   (CODE), 0);					\
+	  		   (CODE), ERROR_MARK);				\
   } while (0)
 #else  /* not ENABLE_GIMPLE_CHECKING  */
 #define GIMPLE_CHECK(GS, CODE)			(void)0
@@ -973,7 +973,7 @@ struct gimplify_ctx
 };
 
 extern enum gimplify_status gimplify_expr (tree *, gimple_seq *, gimple_seq *,
-					   bool (*) (tree), fallback_t);
+					   bool (*) (tree), int);
 extern void gimplify_type_sizes (tree, gimple_seq *);
 extern void gimplify_one_sizepos (tree *, gimple_seq *);
 extern bool gimplify_stmt (tree *, gimple_seq *);

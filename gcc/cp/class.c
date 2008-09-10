@@ -6224,7 +6224,7 @@ resolve_address_of_overloaded_function (tree target_type,
    function, or a pointer to member function.  */
 
 tree
-instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
+instantiate_type (tree lhstype, tree rhs, int flags)
 {
   tsubst_flags_t flags_in = flags;
   tree access_path = NULL_TREE;

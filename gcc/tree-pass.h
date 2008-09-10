@@ -23,6 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_PASS_H
 #define GCC_TREE_PASS_H 1
 
+#include "timevar.h"
+
 /* In tree-dump.c */
 
 /* Different tree dump places.  When you add new tree dump places,
@@ -76,14 +78,14 @@ enum tree_dump_index
 #define TDF_RHS_ONLY	(1 << 17)	/* a flag to only print the RHS of
 					   a gimple stmt.  */
 
-extern char *get_dump_file_name (enum tree_dump_index);
-extern int dump_enabled_p (enum tree_dump_index);
-extern int dump_initialized_p (enum tree_dump_index);
-extern FILE *dump_begin (enum tree_dump_index, int *);
-extern void dump_end (enum tree_dump_index, FILE *);
+extern char *get_dump_file_name (int);
+extern int dump_enabled_p (int);
+extern int dump_initialized_p (int);
+extern FILE *dump_begin (int, int *);
+extern void dump_end (int, FILE *);
 extern void dump_node (const_tree, int, FILE *);
 extern int dump_switch_p (const char *);
-extern const char *dump_flag_name (enum tree_dump_index);
+extern const char *dump_flag_name (int);
 
 /* Global variables used to communicate with passes.  */
 extern FILE *dump_file;
@@ -91,7 +93,7 @@ extern int dump_flags;
 extern const char *dump_file_name;
 
 /* Return the dump_file_info for the given phase.  */
-extern struct dump_file_info *get_dump_file_info (enum tree_dump_index);
+extern struct dump_file_info *get_dump_file_info (int);
 
 /* The possible types of optimization pass.  */
 enum opt_pass_type {
@@ -131,7 +133,7 @@ struct opt_pass
 
   /* The timevar id associated with this pass.  */
   /* ??? Ideally would be dynamically assigned.  */
-  unsigned int tv_id;
+  timevar_id_t tv_id;
 
   /* Sets of properties input and output from this pass.  */
   unsigned int properties_required;

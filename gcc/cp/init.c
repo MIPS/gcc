@@ -39,8 +39,8 @@ along with GCC; see the file COPYING3.  If not see
 static bool begin_init_stmts (tree *, tree *);
 static tree finish_init_stmts (bool, tree, tree);
 static void construct_virtual_base (tree, tree);
-static void expand_aggr_init_1 (tree, tree, tree, tree, int, tsubst_flags_t);
-static void expand_default_init (tree, tree, tree, tree, int, tsubst_flags_t);
+static void expand_aggr_init_1 (tree, tree, tree, tree, int, int);
+static void expand_default_init (tree, tree, tree, tree, int, int);
 static tree build_vec_delete_1 (tree, tree, tree, special_function_kind, int);
 static void perform_member_init (tree, tree);
 static tree build_builtin_delete_call (tree);
@@ -1247,7 +1247,7 @@ expand_member_init (tree name)
    perform the initialization, but not both, as it would be ambiguous.  */
 
 tree
-build_aggr_init (tree exp, tree init, int flags, tsubst_flags_t complain)
+build_aggr_init (tree exp, tree init, int flags, int complain)
 {
   tree stmt_expr;
   tree compound_stmt;
@@ -1317,7 +1317,7 @@ build_aggr_init (tree exp, tree init, int flags, tsubst_flags_t complain)
 
 static void
 expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags,
-                     tsubst_flags_t complain)
+                     int complain)
 {
   tree type = TREE_TYPE (exp);
   tree ctor_name;
@@ -1412,7 +1412,7 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags,
 
 static void
 expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags,
-                    tsubst_flags_t complain)
+                    int complain)
 {
   tree type = TREE_TYPE (exp);
 
@@ -1788,7 +1788,7 @@ avoid_placement_new_aliasing (tree t, tree placement)
 
 static tree
 build_new_1 (tree placement, tree type, tree nelts, tree init,
-	     bool globally_qualified_p, tsubst_flags_t complain)
+	     bool globally_qualified_p, int complain)
 {
   tree size, rval;
   /* True iff this is a call to "operator new[]" instead of just
@@ -2351,7 +2351,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
 
 tree
 build_new (tree placement, tree type, tree nelts, tree init,
-	   int use_global_new, tsubst_flags_t complain)
+	   int use_global_new, int complain)
 {
   tree rval;
   tree orig_placement;
@@ -2689,7 +2689,7 @@ get_temp_regvar (tree type, tree init)
 tree
 build_vec_init (tree base, tree maxindex, tree init,
 		bool explicit_value_init_p,
-		int from_array, tsubst_flags_t complain)
+		int from_array, int complain)
 {
   tree rval;
   tree base2 = NULL_TREE;

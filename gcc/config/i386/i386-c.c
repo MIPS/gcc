@@ -290,14 +290,14 @@ ix86_pragma_target_parse (tree args, tree pop_target)
   ix86_target_macros_internal (prev_isa & diff_isa,
 			       prev_arch,
 			       prev_tune,
-			       prev_opt->fpmath,
+			       (enum fpmath_unit) prev_opt->fpmath,
 			       cpp_undef);
 
   /* Define all of the macros for new options that were just turned on.  */
   ix86_target_macros_internal (cur_isa & diff_isa,
 			       cur_arch,
 			       cur_tune,
-			       cur_opt->fpmath,
+			       (enum fpmath_unit) cur_opt->fpmath,
 			       cpp_define);
 
   return true;

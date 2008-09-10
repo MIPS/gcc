@@ -9462,7 +9462,7 @@ objc_lookup_ivar (tree other, tree id)
    needs to be done if we are calling a function through a cast.  */
 
 tree
-objc_rewrite_function_call (tree function, tree params)
+objc_rewrite_function_call (tree function, VEC(tree,gc) *params)
 {
   if (TREE_CODE (function) == NOP_EXPR
       && TREE_CODE (TREE_OPERAND (function, 0)) == ADDR_EXPR
@@ -9471,7 +9471,7 @@ objc_rewrite_function_call (tree function, tree params)
     {
       function = build3 (OBJ_TYPE_REF, TREE_TYPE (function),
 			 TREE_OPERAND (function, 0),
-			 TREE_VALUE (params), size_zero_node);
+			 VEC_index (tree, params, 0), size_zero_node);
     }
 
   return function;

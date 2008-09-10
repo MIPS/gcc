@@ -783,7 +783,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
    IMPLICIT is tells us the context of an implicit void conversion.  */
 
 tree
-convert_to_void (tree expr, const char *implicit, tsubst_flags_t complain)
+convert_to_void (tree expr, const char *implicit, int complain)
 {
   if (expr == error_mark_node
       || TREE_TYPE (expr) == error_mark_node)

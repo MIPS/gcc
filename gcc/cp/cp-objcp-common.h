@@ -23,8 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* In cp/cp-lang.c and objcp/objcp-lang.c.  */
 
-extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
-					 tree, bool);
+extern tree objcp_tsubst_copy_and_build (tree, tree, int, tree, bool);
 
 /* Lang hooks that are shared between C++ and ObjC++ are defined here.  Hooks
    specific to C++ or ObjC++ go in cp/cp-lang.c and objcp/objcp-lang.c,

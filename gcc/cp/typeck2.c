@@ -1405,7 +1405,7 @@ build_m_component_ref (tree datum, tree component)
 /* Return a tree node for the expression TYPENAME '(' PARMS ')'.  */
 
 tree
-build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
+build_functional_cast (tree exp, tree parms, int complain)
 {
   /* This is either a call to a constructor,
      or a C cast in C++'s `functional' notation.  */

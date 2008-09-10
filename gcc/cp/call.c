@@ -131,7 +131,7 @@ static struct z_candidate * tourney (struct z_candidate *);
 static int equal_functions (tree, tree);
 static int joust (struct z_candidate *, struct z_candidate *, bool);
 static int compare_ics (conversion *, conversion *);
-static tree build_over_call (struct z_candidate *, int, tsubst_flags_t);
+static tree build_over_call (struct z_candidate *, int, int);
 static tree build_java_interface_fn_ref (tree, tree);
 #define convert_like(CONV, EXPR, COMPLAIN)			\
   convert_like_real ((CONV), (EXPR), NULL_TREE, 0, 0,		\
@@ -142,10 +142,10 @@ static tree build_java_interface_fn_ref (tree, tree);
 		     /*issue_conversion_warnings=*/true,		\
 		     /*c_cast_p=*/false, (COMPLAIN))
 static tree convert_like_real (conversion *, tree, tree, int, int, bool,
-			       bool, tsubst_flags_t);
+			       bool, int);
 static void op_error (enum tree_code, enum tree_code, tree, tree,
 		      tree, const char *);
-static tree build_object_call (tree, tree, tsubst_flags_t);
+static tree build_object_call (tree, tree, int);
 static tree resolve_args (tree);
 static struct z_candidate *build_user_type_conversion_1 (tree, tree, int);
 static void print_z_candidate (const char *, struct z_candidate *);
@@ -2979,7 +2979,7 @@ perform_overload_resolution (tree fn,
 
 tree
 build_new_function_call (tree fn, tree args, bool koenig_p, 
-			 tsubst_flags_t complain)
+			 int complain)
 {
   struct z_candidate *candidates, *cand;
   bool any_viable_p;
@@ -3147,7 +3147,7 @@ build_operator_new_call (tree fnname, tree args,
 }
 
 static tree
-build_object_call (tree obj, tree args, tsubst_flags_t complain)
+build_object_call (tree obj, tree args, int complain)
 {
   struct z_candidate *candidates = 0, *cand;
   tree fns, convs, mem_args = NULL_TREE;
@@ -3387,8 +3387,7 @@ conditional_conversion (tree e1, tree e2)
    arguments to the conditional expression.  */
 
 tree
-build_conditional_expr (tree arg1, tree arg2, tree arg3,
-                        tsubst_flags_t complain)
+build_conditional_expr (tree arg1, tree arg2, tree arg3, int complain)
 {
   tree arg2_type;
   tree arg3_type;
@@ -3883,7 +3882,7 @@ add_candidates (tree fns, tree args,
 
 tree
 build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
-	      bool *overloaded_p, tsubst_flags_t complain)
+	      bool *overloaded_p, int complain)
 {
   struct z_candidate *candidates = 0, *cand;
   tree arglist, fnname;
@@ -4503,7 +4502,7 @@ conversion_null_warnings (tree totype, tree expr, tree fn, int argnum)
 static tree
 convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 		   int inner, bool issue_conversion_warnings,
-		   bool c_cast_p, tsubst_flags_t complain)
+		   bool c_cast_p, int complain)
 {
   tree totype = convs->type;
   diagnostic_t diag_kind;
@@ -5078,7 +5077,7 @@ magic_varargs_p (tree fn)
    bitmask of various LOOKUP_* flags which apply to the call itself.  */
 
 static tree
-build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
+build_over_call (struct z_candidate *cand, int flags, int complain)
 {
   tree fn = cand->fn;
   tree args = cand->args;
@@ -5555,7 +5554,7 @@ in_charge_arg_for_name (tree name)
 
 tree
 build_special_member_call (tree instance, tree name, tree args,
-			   tree binfo, int flags, tsubst_flags_t complain)
+			   tree binfo, int flags, int complain)
 {
   tree fns;
   /* The type of the subobject to be constructed or destroyed.  */
@@ -5700,7 +5699,7 @@ name_as_c_string (tree name, tree type, bool *free_p)
 tree
 build_new_method_call (tree instance, tree fns, tree args,
 		       tree conversion_path, int flags,
-		       tree *fn_p, tsubst_flags_t complain)
+		       tree *fn_p, int complain)
 {
   struct z_candidate *candidates = 0, *cand;
   tree explicit_targs = NULL_TREE;
@@ -6900,7 +6899,7 @@ can_convert_arg_bad (tree to, tree from, tree arg)
    doing a bad conversion, convert_like will complain.  */
 
 tree
-perform_implicit_conversion (tree type, tree expr, tsubst_flags_t complain)
+perform_implicit_conversion (tree type, tree expr, int complain)
 {
   conversion *conv;
   void *p;
@@ -6949,7 +6948,7 @@ tree
 perform_direct_initialization_if_possible (tree type,
 					   tree expr,
 					   bool c_cast_p,
-                                           tsubst_flags_t complain)
+                                           int complain)
 {
   conversion *conv;
   void *p;

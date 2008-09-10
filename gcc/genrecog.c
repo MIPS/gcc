@@ -378,7 +378,7 @@ process_define_predicate (rtx desc)
 
   for (i = 0; i < NUM_RTX_CODE; i++)
     if (codes[i] != N)
-      add_predicate_code (pred, i);
+      add_predicate_code (pred, (enum rtx_code) i);
 
   add_predicate (pred);
 }

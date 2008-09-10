@@ -388,7 +388,7 @@ df_rd_bb_local_compute (unsigned int bb_index)
   if (!(df->changeable_flags & DF_NO_HARD_REGS))
     df_rd_bb_local_compute_process_def (bb_info, 
 					df_get_artificial_defs (bb_index),
-					0);
+					DF_REF_NONE);
 
   FOR_BB_INSNS_REVERSE (bb, insn)
     {
@@ -398,7 +398,8 @@ df_rd_bb_local_compute (unsigned int bb_index)
 	continue;
 
       df_rd_bb_local_compute_process_def (bb_info, 
-					  DF_INSN_UID_DEFS (uid), 0);
+					  DF_INSN_UID_DEFS (uid),
+					  DF_REF_NONE);
 
       /* This complex dance with the two bitmaps is required because
 	 instructions can assign twice to the same pseudo.  This
@@ -2112,10 +2113,11 @@ df_chain_create_bb (unsigned int bb_index)
       /* Now scan the uses and link them up with the defs that remain
 	 in the cpy vector.  */
       
-      df_chain_create_bb_process_use (cpy, DF_INSN_UID_USES (uid), 0);
+      df_chain_create_bb_process_use (cpy, DF_INSN_UID_USES (uid), DF_REF_NONE);
 
       if (df->changeable_flags & DF_EQ_NOTES)
-	df_chain_create_bb_process_use (cpy, DF_INSN_UID_EQ_USES (uid), 0);
+	df_chain_create_bb_process_use (cpy, DF_INSN_UID_EQ_USES (uid),
+					DF_REF_NONE);
 
 
       /* Since we are going forwards, process the defs second.  This
@@ -2143,7 +2145,7 @@ df_chain_create_bb (unsigned int bb_index)
   if (!(df->changeable_flags & DF_NO_HARD_REGS))
     df_chain_create_bb_process_use (cpy,
 				    df_get_artificial_uses (bb->index), 
-				    0);
+				    DF_REF_NONE);
 
   BITMAP_FREE (cpy);
 }
@@ -2316,10 +2318,10 @@ static struct df_problem problem_CHAIN =
    solution.  */
 
 void
-df_chain_add_problem (enum df_chain_flags chain_flags)
+df_chain_add_problem (unsigned int chain_flags)
 {
   df_add_problem (&problem_CHAIN);
-  df_chain->local_flags = (unsigned int)chain_flags;
+  df_chain->local_flags = chain_flags;
   df_chain->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
 }
 

@@ -88,7 +88,7 @@ extern void dump_string_field (dump_info_p, const char *, const char *);
 extern void dump_stmt (dump_info_p, const_tree);
 extern void queue_and_dump_index (dump_info_p, const char *, const_tree, int);
 extern void queue_and_dump_type (dump_info_p, const_tree);
-extern void dump_function (enum tree_dump_index, tree);
+extern void dump_function (int, tree);
 extern void dump_function_to_file (tree, FILE *, int);
 extern void debug_function (tree, int);
 extern int dump_flag (dump_info_p, int, const_tree);

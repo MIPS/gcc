@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "basic-block.h"
 #include "alloc-pool.h"
+#include "timevar.h"
 
 struct dataflow;
 struct df;
@@ -78,6 +79,8 @@ enum df_ref_type {DF_REF_REG_DEF, DF_REF_REG_USE, DF_REF_REG_MEM_LOAD,
 
 enum df_ref_flags
   {
+    DF_REF_NONE = 0,
+
     /* This flag is set if this ref occurs inside of a conditional
        execution instruction.  */
     DF_REF_CONDITIONAL = 1 << 0,
@@ -272,7 +275,7 @@ struct df_problem {
   struct df_problem *dependent_problem;
 
   /* The timevar id associated with this pass.  */
-  unsigned int tv_id;
+  timevar_id_t tv_id;
 
   /* True if the df_set_blocks should null out the basic block info if
      this block drops out of df->blocks_to_analyze.  */
@@ -574,8 +577,9 @@ struct df
      addresses.  It is incremented whenever a ref is created.  */
   unsigned int ref_order;
 
-  /* Problem specific control information.  */
-  enum df_changeable_flags changeable_flags;
+  /* Problem specific control information.  This is a bitmask of the
+     values defined in enum df_changeable_flags.  */
+  int changeable_flags;
 };
 
 #define DF_SCAN_BB_INFO(BB) (df_scan_get_bb_info((BB)->index))
@@ -844,8 +848,8 @@ extern struct df *df;
 /* Functions defined in df-core.c.  */
 
 extern void df_add_problem (struct df_problem *);
-extern enum df_changeable_flags df_set_flags (enum df_changeable_flags);
-extern enum df_changeable_flags df_clear_flags (enum df_changeable_flags);
+extern int df_set_flags (int flags);
+extern int df_clear_flags (int flags);
 extern void df_set_blocks (bitmap);
 extern void df_remove_problem (struct dataflow *);
 extern void df_finish_pass (bool);
@@ -910,7 +914,7 @@ extern void df_lr_verify_transfer_functions (void);
 extern void df_live_verify_transfer_functions (void);
 extern void df_live_add_problem (void);
 extern void df_live_set_all_dirty (void);
-extern void df_chain_add_problem (enum df_chain_flags);
+extern void df_chain_add_problem (unsigned int);
 extern void df_byte_lr_add_problem (void);
 extern int df_byte_lr_get_regno_start (unsigned int);
 extern int df_byte_lr_get_regno_len (unsigned int);
@@ -934,8 +938,8 @@ extern void df_grow_reg_info (void);
 extern void df_grow_insn_info (void);
 extern void df_scan_blocks (void);
 extern struct df_ref *df_ref_create (rtx, rtx *, rtx,basic_block, 
-				     enum df_ref_type, enum df_ref_flags,
-				     int, int, enum machine_mode);
+				     enum df_ref_type, int, int, int,
+				     enum machine_mode);
 extern void df_ref_remove (struct df_ref *);
 extern struct df_insn_info * df_insn_create_insn_record (rtx);
 extern void df_insn_delete (basic_block, unsigned int);

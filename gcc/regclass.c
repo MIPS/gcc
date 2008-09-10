@@ -328,7 +328,8 @@ init_move_cost (enum machine_mode m)
 	    cost = 65535;
 	  else
 	    {
-	      cost = REGISTER_MOVE_COST (m, i, j);
+	      cost = REGISTER_MOVE_COST (m, (enum reg_class) i,
+					 (enum reg_class) j);
 	      gcc_assert (cost < 65535);
 	    }
 	  all_match &= (last_move_cost[i][j] == cost);
@@ -378,12 +379,12 @@ init_move_cost (enum machine_mode m)
 	      gcc_assert (cost <= 65535);
 	      move_cost[m][i][j] = cost;
 
-	      if (reg_class_subset_p (i, j))
+	      if (reg_class_subset_p ((enum reg_class) i, (enum reg_class) j))
 		may_move_in_cost[m][i][j] = 0;
 	      else
 		may_move_in_cost[m][i][j] = cost;
 
-	      if (reg_class_subset_p (j, i))
+	      if (reg_class_subset_p ((enum reg_class) j, (enum reg_class) i))
 		may_move_out_cost[m][i][j] = 0;
 	      else
 		may_move_out_cost[m][i][j] = cost;
@@ -640,11 +641,12 @@ init_reg_sets_1 (void)
       HARD_REG_SET ok_regs;
       CLEAR_HARD_REG_SET (ok_regs);
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-	if (!fixed_regs [j] && HARD_REGNO_MODE_OK (j, m))
+	if (!fixed_regs [j] && HARD_REGNO_MODE_OK (j, (enum machine_mode) m))
 	  SET_HARD_REG_BIT (ok_regs, j);
       
       for (i = 0; i < N_REG_CLASSES; i++)
-	if ((unsigned) CLASS_MAX_NREGS (i, m) <= reg_class_size[i]
+	if (((unsigned) CLASS_MAX_NREGS ((enum reg_class) i, m)
+	     <= reg_class_size[i])
 	    && hard_reg_set_intersect_p (ok_regs, reg_class_contents[i]))
 	  {
 	     contains_reg_of_mode [i][m] = 1;
@@ -727,7 +729,7 @@ init_fake_stack_mems (void)
     int i;
 
     for (i = 0; i < MAX_MACHINE_MODE; i++)
-      top_of_stack[i] = gen_rtx_MEM (i, stack_pointer_rtx);
+      top_of_stack[i] = gen_rtx_MEM ((enum machine_mode) i, stack_pointer_rtx);
   }
 }
 
@@ -1992,7 +1994,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	  else if (regno < FIRST_PSEUDO_REGISTER)
 	    for (rclass = 0; rclass < N_REG_CLASSES; rclass++)
 	      if (TEST_HARD_REG_BIT (reg_class_contents[rclass], regno)
-		  && reg_class_size[rclass] == (unsigned) CLASS_MAX_NREGS (rclass, mode))
+		  && (reg_class_size[rclass]
+		      == (unsigned) CLASS_MAX_NREGS ((enum reg_class) rclass,
+						     mode)))
 		{
 		  if (reg_class_size[rclass] == 1)
 		    op_costs[i].cost[rclass] = -1;

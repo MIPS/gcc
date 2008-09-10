@@ -657,7 +657,8 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		rclass = cost_classes[k];
 		if (TEST_HARD_REG_BIT (reg_class_contents[rclass], regno)
 		    && (reg_class_size[rclass]
-			== (unsigned) CLASS_MAX_NREGS (rclass, mode)))
+			== (unsigned) CLASS_MAX_NREGS ((enum reg_class) rclass,
+						       mode)))
 		  {
 		    if (reg_class_size[rclass] == 1)
 		      op_costs[i]->cost[k] = -frequency;

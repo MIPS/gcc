@@ -508,8 +508,10 @@ setup_class_subset_and_memory_move_costs (void)
       if (cl != (int) NO_REGS)
 	for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	  {
-	    ira_memory_move_cost[mode][cl][0] = MEMORY_MOVE_COST (mode, cl, 0);
-	    ira_memory_move_cost[mode][cl][1] = MEMORY_MOVE_COST (mode, cl, 1);
+	    ira_memory_move_cost[mode][cl][0] =
+	      MEMORY_MOVE_COST (mode, (enum reg_class) cl, 0);
+	    ira_memory_move_cost[mode][cl][1] =
+	      MEMORY_MOVE_COST (mode, (enum reg_class) cl, 1);
 	    /* Costs for NO_REGS are used in cost calculation on the
 	       1st pass when the preferred register classes are not
 	       known yet.  In this case we take the best scenario.  */
@@ -884,7 +886,7 @@ setup_reg_class_intersect_union (void)
 		  if (cl3 == LIM_REG_CLASSES)
 		    break;
 		  if (reg_class_subset_p (ira_reg_class_intersect[cl1][cl2],
-					  cl3))
+					  (enum reg_class) cl3))
 		    ira_reg_class_intersect[cl1][cl2] = cl3;
 		}
 	      ira_reg_class_union[cl1][cl2] = reg_class_subunion[cl1][cl2];
@@ -1033,7 +1035,7 @@ setup_prohibited_class_mode_regs (void)
 	  for (k = ira_class_hard_regs_num[cl] - 1; k >= 0; k--)
 	    {
 	      hard_regno = ira_class_hard_regs[cl][k];
-	      if (! HARD_REGNO_MODE_OK (hard_regno, j))
+	      if (! HARD_REGNO_MODE_OK (hard_regno, (enum machine_mode) j))
 		SET_HARD_REG_BIT (prohibited_class_mode_regs[cl][j],
 				  hard_regno);
 	    }
@@ -1175,7 +1177,7 @@ setup_prohibited_mode_move_regs (void)
       SET_HARD_REG_SET (ira_prohibited_mode_move_regs[i]);
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	{
-	  if (! HARD_REGNO_MODE_OK (j, i))
+	  if (! HARD_REGNO_MODE_OK (j, (enum machine_mode) i))
 	    continue;
 	  SET_REGNO (test_reg1, j);
 	  PUT_MODE (test_reg1, i);

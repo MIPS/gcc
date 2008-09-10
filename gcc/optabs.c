@@ -6658,7 +6658,7 @@ debug_optab_libfuncs (void)
 	rtx l;
 
 	o = &optab_table[i];
-	l = optab_libfunc (o, j);
+	l = optab_libfunc (o, (enum machine_mode) j);
 	if (l)
 	  {
 	    gcc_assert (GET_CODE (l) == SYMBOL_REF);
@@ -6678,7 +6678,8 @@ debug_optab_libfuncs (void)
 	  rtx l;
 
 	  o = &convert_optab_table[i];
-	  l = convert_optab_libfunc (o, j, k);
+	  l = convert_optab_libfunc (o, (enum machine_mode) j,
+				     (enum machine_mode) k);
 	  if (l)
 	    {
 	      gcc_assert (GET_CODE (l) == SYMBOL_REF);

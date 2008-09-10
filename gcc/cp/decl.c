@@ -2937,7 +2937,7 @@ build_typename_type (tree context, tree name, tree fullname,
 
 tree
 make_typename_type (tree context, tree name, enum tag_types tag_type,
-		    tsubst_flags_t complain)
+		    int complain)
 {
   tree fullname;
   tree t;
@@ -3051,7 +3051,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
 
 tree
 make_unbound_class_template (tree context, tree name, tree parm_list,
-			     tsubst_flags_t complain)
+			     int complain)
 {
   tree t;
   tree d;
