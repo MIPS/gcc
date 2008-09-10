@@ -284,15 +284,6 @@ set_curr_insn_source_location (location_t location)
      time locators are not initialized.  */
   if (curr_rtl_loc == -1)
     return;
-#ifdef USE_MAPPED_LOCATION
-  if (location == last_location)
-    return;
-#else
-  if (location.file && last_location.file
-      && !strcmp (location.file, last_location.file)
-      && location.line == last_location.line)
-    return;
-#endif
   curr_location = location;
 }
 
