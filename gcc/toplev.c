@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1953,21 +1953,17 @@ process_options (void)
 
   if (flag_var_tracking_assignments == AUTODETECT_VALUE)
     flag_var_tracking_assignments = flag_var_tracking && optimize;
-  else if (flag_var_tracking_assignments)
-    {
-      if (!optimize)
-	{
-	  warning (0, "variable tracking in assignments requested, "
-		   "but useless without optimization");
-	  flag_var_tracking_assignments = 0;
-	}
-    }
 
   if (flag_var_tracking_assignments_toggle)
     flag_var_tracking_assignments = !flag_var_tracking_assignments
-      && flag_var_tracking && optimize
-      && (debug_info_level < DINFO_LEVEL_NORMAL
-	  || debug_hooks->var_location == do_nothing_debug_hooks.var_location);
+      && flag_var_tracking && optimize;
+
+  if (flag_var_tracking_assignments && !(flag_var_tracking || optimize))
+    {
+      warning (0, "variable tracking in assignments requested, "
+	       "but useless without variable tracking or optimization");
+      flag_var_tracking_assignments = 0;
+    }
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
 #ifdef HAVE_conditional_move

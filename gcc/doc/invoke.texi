@@ -5096,8 +5096,8 @@ the debug info format supports it.
 Annotate assignments to user variables early in the compilation and
 attempt to carry the annotations over throughout the compilation all the
 way to the end, in an attempt to improve debug information while
-optimizing.  It is silently disabled if debug information generation,
-optimization or var-tracking are disabled.
+optimizing.  It is verbosely disabled if it's enabled with var-tracking
+or optimization disabled.
 
 @item -fvar-tracking-assignments-toggle
 @opindex fvar-tracking-assignments-toggle
