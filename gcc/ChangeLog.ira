@@ -1,6 +1,13 @@
 2008-09-11  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
+	2008-09-11  Andreas Schwab  <schwab@suse.de>
+
+	* config/m68k/m68k.h (IRA_COVER_CLASSES): Define.
+
+2008-09-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
 	2008-09-11  Jeff Law <law@redhat.com>
 
 	* reload1.c (alter_reg): Undo the BYTE_BIG_ENDIAN correction performed
