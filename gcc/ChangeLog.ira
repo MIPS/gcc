@@ -1,3 +1,9 @@
+2008-09-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/37424
+	* ira-color.c (coalesced_pseudo_reg_slot_compare): Untie by comparing
+	the regnos instead of the addresses.
+
 2008-09-09  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-opt/37435
