@@ -1,6 +1,13 @@
 2008-09-11  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
+	2008-09-02  M R Swami Reddy <MR.Swami.Reddy@nsc.com>
+
+	* config/crx/crx.h (IRA_COVER_CLASSES): Define.
+
+2008-09-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
 	2008-09-11  Andreas Schwab  <schwab@suse.de>
 
 	* config/m68k/m68k.h (IRA_COVER_CLASSES): Define.
