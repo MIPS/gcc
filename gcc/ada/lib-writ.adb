@@ -195,6 +195,10 @@ package body Lib.Writ is
       Num_Sdep : Nat := 0;
       --  Number of active entries in Sdep_Table
 
+      flag_compare_debug : Int;
+      pragma Import (C, flag_compare_debug);
+      --  Import from toplev.c
+
       -----------------------
       -- Local Subprograms --
       -----------------------
@@ -777,7 +781,9 @@ package body Lib.Writ is
       --  We never write an ALI file if the original operating mode was
       --  syntax-only (-gnats switch used in compiler invocation line)
 
-      if Original_Operating_Mode = Check_Syntax then
+      if Original_Operating_Mode = Check_Syntax
+        or flag_compare_debug /= 0
+      then
          return;
       end if;
 

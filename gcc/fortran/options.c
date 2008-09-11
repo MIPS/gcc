@@ -1,5 +1,5 @@
 /* Parse and display command line options.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -217,6 +217,9 @@ gfc_post_options (const char **pfilename)
   /* Issue an error if -fwhole-program was used.  */
   if (flag_whole_program)
     gfc_fatal_error ("Option -fwhole-program is not supported for Fortran");
+
+  if (flag_compare_debug)
+    gfc_option.verbose = 0;
 
   /* Verify the input file name.  */
   if (!filename || strcmp (filename, "-") == 0)
