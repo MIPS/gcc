@@ -2691,6 +2691,7 @@ expand_gimple_basic_block (basic_block bb)
 		{
 		  debug_gimple_stmt (stmt);
 		  debug_rtx_range (NEXT_INSN (last), get_last_insn ());
+		  internal_error ("debug stmt expanded to too many insns");
 		  gcc_unreachable ();
 		}
 
