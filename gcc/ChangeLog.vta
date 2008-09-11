@@ -1,3 +1,11 @@
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* dwarf2out.c (deferred_asm_name): New.
+	(add_name_and_src_coords_attributes): Defer creation of
+	DW_AT_MIPS_linkage_name attribute if DECL_ASSEMBLER_NAME was not
+	computed yet.
+	(dwarf2out_finish): Revisit deferrals and emit attributes.
+
 2008-09-10  Alexandre Oliva  <aoliva@redhat.com>
 
 	* dwarf2asm.c (dw2_force_const_mem): Defer creation of
