@@ -1,5 +1,12 @@
 2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
 
+	* gcc.c (report_times_to_file): New.
+	(execute): Implement it.
+	(process_command): Support -time=.
+	* doc/invoke.texi: Document it.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
 	* toplev.c (process_options): Disregard implied debug
 	generation in flag_var_tracking_assignments auto-detect.  Warn
 	and disable if it's enabled without -fvar-tracking or optimization.
