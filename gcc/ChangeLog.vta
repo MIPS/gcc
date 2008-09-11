@@ -1,5 +1,10 @@
 2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
 
+	* c-gimplify.c (c_genericize): Don't refer to DECL_ASSEMBLER_NAME
+	before ensuring it's already computed.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
 	* dwarf2out.c (deferred_asm_name): New.
 	(add_name_and_src_coords_attributes): Defer creation of
 	DW_AT_MIPS_linkage_name attribute if DECL_ASSEMBLER_NAME was not
