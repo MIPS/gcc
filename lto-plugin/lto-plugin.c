@@ -33,6 +33,9 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include <stdio.h>
 #include <inttypes.h>
 #include <ar.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #ifdef HAVE_GELF_H
 # include <gelf.h>
@@ -62,16 +65,20 @@ struct plugin_symtab
 
 struct plugin_file_info
 {
+  char *name;
+  int fd;
+  void *handle;
   Elf *elf;
-  struct ld_plugin_input_file file;
   struct plugin_symtab symtab;
 };
 
 
+static char *temp_obj_dir_name;
 static ld_plugin_register_claim_file register_claim_file;
 static ld_plugin_add_symbols add_symbols;
 static ld_plugin_register_all_symbols_read register_all_symbols_read;
 static ld_plugin_get_symbols get_symbols;
+static ld_plugin_register_cleanup register_cleanup;
 
 static struct plugin_file_info *claimed_files = NULL;
 static unsigned int num_claimed_files = 0;
@@ -212,6 +219,8 @@ free_1 (void)
     {
       struct plugin_file_info *info = &claimed_files[i];
       struct plugin_symtab *symtab = &info->symtab;
+      int t = close (info->fd);
+      assert (t == 0);
       free (symtab->syms);
       symtab->syms = NULL;
       elf_end (info->elf);
@@ -230,10 +239,14 @@ free_2 (void)
       struct plugin_file_info *info = &claimed_files[i];
       struct plugin_symtab *symtab = &info->symtab;
       free (symtab->slots);
+      free (info->name);
     }
   free (claimed_files);
   claimed_files = NULL;
   num_claimed_files = 0;
+
+  free (temp_obj_dir_name);
+  temp_obj_dir_name = NULL;
 }
 
 /* Called by the linker once all symbols have been read. Writes the
@@ -251,25 +264,42 @@ all_symbols_read_handler (void)
     {
       struct plugin_file_info *info = &claimed_files[i];
       struct plugin_symtab *symtab = &info->symtab;
-      struct ld_plugin_input_file *file = &info->file;
       struct ld_plugin_symbol *syms = calloc (symtab->nsyms,
 					      sizeof (struct ld_plugin_symbol));
 
       unsigned j;
       assert (syms);
-      get_symbols (file->handle, symtab->nsyms, syms);
+      get_symbols (info->handle, symtab->nsyms, syms);
 
       for (j = 0; j < info->symtab.nsyms; j++)
 	{
 	  uint32_t slot = symtab->slots[j];
 	  unsigned int resolution = syms[j].resolution;
-	  fprintf(f, "%s\n%" PRId64 " %" PRId64 " %d %s\n",
-		  file->name, (int64_t) file->offset, (int64_t) file->filesize,
-		  slot, lto_resolution_str[resolution]);
+	  fprintf(f, "%s\n%d %s\n",
+		  info->name, slot, lto_resolution_str[resolution]);
 	}
       free (syms);
     }
   fclose (f);
+  return LDPS_OK;
+}
+
+/* Remove temporary files at the end of the link. */
+
+static enum ld_plugin_status
+cleanup_handler (void)
+{
+  int t;
+  unsigned i;
+  for (i = 0; i < num_claimed_files; i++)
+    {
+      struct plugin_file_info *info = &claimed_files[i];
+      t = unlink (info->name);
+      assert (t == 0);
+    }
+  t = rmdir (temp_obj_dir_name);
+  assert (t == 0);
+
   free_2 ();
   return LDPS_OK;
 }
@@ -281,30 +311,62 @@ static enum ld_plugin_status
 claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
 {
   enum ld_plugin_status status;
-  Elf *elf = elf_begin (file->fd, ELF_C_READ, NULL);
+  Elf *elf;
   struct plugin_file_info lto_file;
   Elf_Data *symtab;
 
   if (file->offset != 0)
     {
-      elf_rand (elf, file->offset - sizeof (struct ar_hdr));
-      Elf *member = elf_begin (file->fd, ELF_C_READ, elf);
-      elf_end (elf);
-      elf = member;
+      /* FIXME lto: lto1 should know how to handle archives. */
+      int fd;
+      off_t size = file->filesize;
+      off_t offset;
+
+      static int objnum = 0;
+      const int name_size = 100;
+      char *objname = malloc (name_size);
+      int t = snprintf (objname, name_size, "%s/obj%d.o",
+			temp_obj_dir_name, objnum);
+      assert (t >= 0 && t < name_size);
+      objnum++;
+
+      fd = open (objname, O_RDWR | O_CREAT, 0666);
+      assert (fd > 0);
+      offset = lseek (file->fd, file->offset, SEEK_SET);
+      assert (offset == file->offset);
+      while (size > 0)
+	{
+	  ssize_t r, written;
+	  char buf[1000];
+	  off_t s = sizeof (buf) < size ? sizeof (buf) : size;
+	  r = read (file->fd, buf, s);
+	  written = write (fd, buf, r);
+	  assert (written = r);
+	  size -= r;
+	}
+      lto_file.name = objname;
+      lto_file.fd = fd;
+      lto_file.handle = file->handle;
     }
+  else
+    {
+      lto_file.name = strdup (file->name);
+      lto_file.fd = file->fd;
+      lto_file.handle = file->handle;
+    }
+  lto_file.elf = elf_begin (lto_file.fd, ELF_C_READ, NULL);
+  elf = lto_file.elf;
 
   *claimed = 0;
 
   if (!elf)
-    return LDPS_OK;
+    goto err;
 
   symtab = get_symtab (elf);
   if (!symtab)
-    return LDPS_OK;
+    goto err;
 
   translate (symtab, &lto_file.symtab);
-  lto_file.file = *file;
-  lto_file.elf = elf;
 
   status = add_symbols (file->handle, lto_file.symtab.nsyms,
 			lto_file.symtab.syms);
@@ -318,6 +380,14 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
   claimed_files[num_claimed_files - 1] = lto_file;
 
   return LDPS_OK;
+
+ err:
+  if (file->offset != 0)
+    {
+      int t = unlink (file->name);
+      assert (t == 0);
+    }
+  return LDPS_OK;
 }
 
 /* Called by gold after loading the plugin. TV is the transfer vector. */
@@ -327,6 +397,7 @@ onload (struct ld_plugin_tv *tv)
 {
   struct ld_plugin_tv *p;
   enum ld_plugin_status status;
+  char *t;
 
   unsigned version = elf_version (EV_CURRENT);
   assert (version != EV_NONE);
@@ -348,15 +419,22 @@ onload (struct ld_plugin_tv *tv)
 	case LDPT_GET_SYMBOLS:
 	  get_symbols = p->tv_u.tv_get_symbols;
 	  break;
+	case LDPT_REGISTER_CLEANUP_HOOK:
+	  register_cleanup = p->tv_u.tv_register_cleanup;
+	  break;
 	default:
 	  break;
 	}
       p++;
     }
 
+  assert (register_cleanup);
   assert (register_claim_file);
   assert (add_symbols);
   status = register_claim_file (claim_file_handler);
+  assert (status == LDPS_OK);
+
+  status = register_cleanup (cleanup_handler);
   assert (status == LDPS_OK);
 
   if (register_all_symbols_read)
@@ -365,4 +443,8 @@ onload (struct ld_plugin_tv *tv)
       status = register_all_symbols_read (all_symbols_read_handler);
       assert (status == LDPS_OK);
     }
+
+  temp_obj_dir_name = strdup ("tmp_objectsXXXXXX");
+  t = mkdtemp (temp_obj_dir_name);
+  assert (t == temp_obj_dir_name);
 }

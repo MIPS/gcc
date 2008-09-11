@@ -39,6 +39,7 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 
 static ld_plugin_claim_file_handler claim_file_handler;
 static ld_plugin_all_symbols_read_handler all_symbols_read_handler;
+static ld_plugin_cleanup_handler cleanup_handler;
 static void *plugin_handle;
 
 struct file_handle {
@@ -83,6 +84,15 @@ register_claim_file(ld_plugin_claim_file_handler handler)
   return LDPS_OK;
 }
 
+/* Register HANDLER as the callback to removing temporary files. */
+
+static enum ld_plugin_status
+register_cleanup (ld_plugin_cleanup_handler handler)
+{
+  cleanup_handler = handler;
+  return LDPS_OK;
+}
+
 /* For a file identified by HANDLE, add NSYMS symbols from SYMS. */
 
 static enum ld_plugin_status
@@ -122,7 +132,9 @@ struct ld_plugin_tv tv[] = {
   {LDPT_GET_SYMBOLS,
    {.tv_get_symbols = get_symbols}
   },
-
+  {LDPT_REGISTER_CLEANUP_HOOK,
+   {.tv_register_cleanup = register_cleanup}
+  },
   {0, {0}}
 };
 
@@ -345,6 +357,8 @@ main(int argc, char *argv[])
   all_symbols_read_handler ();
 
   free_all ();
+
+  cleanup_handler ();
 
   unload_plugin ();
 
