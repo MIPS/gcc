@@ -2046,7 +2046,13 @@ lto_static_init (void)
 
   initialized = true;
 
-  lto_flags_needed_for = sbitmap_alloc (NUM_TREE_CODES);
+/* FIXME lto: The size of this array should be NUM_TREE_CODES,
+   but that accounts only for the base tree codes.  We are currently
+   serializing certain FE-specific nodes, such as COMPOUND_LITERAL_EXPR.
+   Here, we generously allow for all tree codes.  This has the unpleasant
+   property of leaving many undefined entries in the array.  */
+
+  lto_flags_needed_for = sbitmap_alloc (MAX_TREE_CODES);
   sbitmap_ones (lto_flags_needed_for);
   RESET_BIT (lto_flags_needed_for, FIELD_DECL);
   RESET_BIT (lto_flags_needed_for, FUNCTION_DECL);
@@ -2060,7 +2066,13 @@ lto_static_init (void)
   RESET_BIT (lto_flags_needed_for, TRANSLATION_UNIT_DECL);
   RESET_BIT (lto_flags_needed_for, NAMESPACE_DECL);
 
-  lto_types_needed_for = sbitmap_alloc (NUM_TREE_CODES);
+/* FIXME lto: The size of this array should be NUM_TREE_CODES,
+   but that accounts only for the base tree codes.  We are currently
+   serializing certain FE-specific nodes, such as COMPOUND_LITERAL_EXPR.
+   Here, we generously allow for all tree codes.  This has the unpleasant
+   property of leaving many undefined entries in the array.  */
+
+  lto_types_needed_for = sbitmap_alloc (MAX_TREE_CODES);
 
   /* Global declarations and types will handle the
      type field by other means, so lto_types_needed_for

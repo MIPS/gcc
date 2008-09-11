@@ -1,3 +1,8 @@
+2008-09-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-out.c (lto_static_init):  Allocate enough space in
+	lto_types_needed_for and lto_flags_needed_for.
+
 2008-09-09  Bill Maddox  <maddox@google.com>
 
 	* lto-tags.h (enum LTO_tags): Add new tags LTO_decl_expr and
