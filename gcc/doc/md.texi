@@ -5102,6 +5102,15 @@ inclusive and operand 1 exclusive.
 If this pattern is not defined, a call to the library function
 @code{__clear_cache} is used.
 
+@cindex @code{builtin_expect} instruction pattern
+@item @samp{builtin_expect}
+
+This pattern, if defined, handles a call to @code{__builtin_expect} with
+a non-constant second argument.  Operand 0 is the target register of
+@code{__builtin_expect} and can be compared against operands of the
+following compare or branch to determine when it applies.  Operand 1 is
+the expanded value of the second argument.  
+
 @end table
 
 @end ifset

@@ -1054,7 +1054,13 @@ strip_builtin_expect (void)
 	      && (fndecl = get_callee_fndecl (call))
 	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT
-	      && call_expr_nargs (call) == 2)
+	      && call_expr_nargs (call) == 2
+#ifdef HAVE_builtin_expect
+	      /* When the target provides a builtin_expect rtl pattern
+	         keep the calls that aren't constant. */
+	      && TREE_CONSTANT (CALL_EXPR_ARG (call, 1))
+#endif
+	      )
 	    {
 	      GIMPLE_STMT_OPERAND (stmt, 1) = CALL_EXPR_ARG (call, 0);
 	      update_stmt (stmt);

@@ -630,6 +630,8 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
    conditional branches. */
 extern GTY(()) rtx spu_compare_op0;
 extern GTY(()) rtx spu_compare_op1;
+extern GTY(()) rtx spu_expect_op0;
+extern GTY(()) rtx spu_expect_op1;
 
 #define SPLIT_BEFORE_CSE2 1
 

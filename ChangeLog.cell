@@ -1,3 +1,24 @@
+2008-09-10  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
+	Support dynamic hints via __builtin_expect with a non-constant
+	second argument.
+
+	* gcc/doc/md.texi (builtin_expect): Document new pattern.
+	* gcc/builtins.c (expand_builtin_expect): Handle target defined
+	builtin_expect.
+	* gcc/predict.c (strip_builtin_expect): Don't strip all the time
+	when the target provides builtin_expect.
+	* gcc/config/spu/spu.c (spu_expect_op0, spu_expect_op1): Define.
+	(spu_emit_branch_or_set): Handle spu_expect_op0 and spu_expect_op1.
+	(spu_emit_branch_hint): Handle dynamic hints.
+	(get_branch_target): Handle expect_then and expect_else rtl.
+	(insn_clobbers_hbr): Return true for hints.
+	(spu_machine_dependent_reorg): Reposition lables for hints.
+	* gcc/config/spu/spu.h (spu_expect_op0, spu_expect_op1): Declare.
+	* gcc/config/spu/spu.md (expect_then, expect_else, builtin_expect):
+	Declare.
+
+
 2008-08-27  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
 
 	Fix a bug caused by the previous change.

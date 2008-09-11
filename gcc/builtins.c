@@ -5153,17 +5153,35 @@ static rtx
 expand_builtin_expect (tree exp, rtx target)
 {
   tree arg, c;
+  rtx new_target;
 
   if (call_expr_nargs (exp) < 2)
     return const0_rtx;
   arg = CALL_EXPR_ARG (exp, 0);
   c = CALL_EXPR_ARG (exp, 1);
 
-  target = expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
+  new_target = expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
+
+#ifdef HAVE_builtin_expect
+  if (HAVE_builtin_expect)
+    {
+      int icode = CODE_FOR_builtin_expect;
+      enum machine_mode mode1 = insn_data[icode].operand[1].mode;
+      rtx op1 = expand_expr (c, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+      if (GET_MODE (op1) != mode1 && mode1 != VOIDmode
+	  && GET_MODE (op1) != VOIDmode)
+	op1 = convert_modes (mode1, GET_MODE (op1), op1, 0);
+      if (!insn_data[icode].operand[1].predicate (op1, mode1)
+	  && mode1 != VOIDmode)
+	op1 = copy_to_mode_reg (mode1, op1);
+      emit_insn (gen_builtin_expect (target, op1));
+    }
+#else
   /* When guessing was done, the hints should be already stripped away.  */
   gcc_assert (!flag_guess_branch_prob
 	      || optimize == 0 || errorcount || sorrycount);
-  return target;
+#endif
+  return new_target;
 }
 
 void

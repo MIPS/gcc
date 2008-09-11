@@ -157,7 +157,7 @@ static int spu_sms_res_mii (struct ddg *g);
 static void asm_file_start (void);
 
 extern const char *reg_names[];
-rtx spu_compare_op0, spu_compare_op1;
+rtx spu_compare_op0, spu_compare_op1, spu_expect_op0, spu_expect_op1;
 
 /* Which instruction set architecture to use.  */
 int spu_arch;
@@ -1021,6 +1021,7 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
     {
       rtx bcomp;
       rtx loc_ref;
+      rtx jump_pat;
 
       /* We don't have branch on QI compare insns, so we convert the
          QI compare result to a HI result. */
@@ -1038,9 +1039,59 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 	bcomp = gen_rtx_NE (comp_mode, compare_result, const0_rtx);
 
       loc_ref = gen_rtx_LABEL_REF (VOIDmode, target);
-      emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-				   gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
-							 loc_ref, pc_rtx)));
+      jump_pat = gen_rtx_SET (VOIDmode, pc_rtx,
+			      gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
+						    loc_ref, pc_rtx));
+
+      if (flag_schedule_insns_after_reload && TARGET_BRANCH_HINTS
+	  && spu_expect_op0 && comp_mode == Pmode
+	  && spu_expect_op0 == spu_compare_op0)
+	{
+	  rtx then_reg = gen_reg_rtx (Pmode);
+	  rtx else_reg = gen_reg_rtx (Pmode);
+	  rtx expect_cmp = gen_reg_rtx (Pmode);
+	  rtx hint_target = gen_reg_rtx (Pmode);
+	  rtx branch_label = gen_label_rtx ();
+	  rtx branch_ref = gen_rtx_LABEL_REF (VOIDmode, branch_label);
+	  rtx then_label = gen_label_rtx ();
+	  rtx then_ref = gen_rtx_LABEL_REF (VOIDmode, then_label);
+	  rtx else_label = gen_label_rtx ();
+	  rtx else_ref = gen_rtx_LABEL_REF (VOIDmode, else_label);
+	  rtvec v;
+
+	  emit_move_insn (then_reg, then_ref);
+	  emit_move_insn (else_reg, else_ref);
+	  emit_insn (gen_clgt_si (expect_cmp, spu_expect_op1, const0_rtx));
+	  emit_insn (gen_selb (hint_target, then_reg, else_reg, expect_cmp));
+	  emit_insn (gen_hbr (plus_constant (branch_ref, -4), hint_target));
+
+	  LABEL_NUSES (branch_label)++;
+	  LABEL_PRESERVE_P (branch_label) = 1;
+	  LABEL_NUSES (then_label)++;
+	  LABEL_PRESERVE_P (then_label) = 1;
+	  LABEL_NUSES (else_label)++;
+	  LABEL_PRESERVE_P (else_label) = 1;
+
+	  /* We delete the labels to make sure they don't get used for
+	     anything else.  The machine reorg phase will move them to
+	     the correct place.  We don't try to reuse existing labels
+	     because we move these around later. */
+	  delete_insn (emit_label (branch_label));
+	  delete_insn (emit_label (then_label));
+	  delete_insn (emit_label (else_label));
+
+	  v = rtvec_alloc (5);
+	  RTVEC_ELT (v, 0) = jump_pat;
+	  RTVEC_ELT (v, 1) = gen_rtx_USE (VOIDmode, branch_ref);
+	  RTVEC_ELT (v, 2) = gen_rtx_USE (VOIDmode, then_ref);
+	  RTVEC_ELT (v, 3) = gen_rtx_USE (VOIDmode, else_ref);
+	  RTVEC_ELT (v, 4) = gen_rtx_CLOBBER (VOIDmode,
+					      gen_rtx_REG (SImode,
+							   HBR_REGNUM));
+	  jump_pat = gen_rtx_PARALLEL (VOIDmode, v);
+	}
+
+      emit_jump_insn (jump_pat);
     }
   else if (is_set == 2)
     {
@@ -1089,6 +1140,7 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
       else
 	emit_move_insn (target, compare_result);
     }
+  spu_expect_op0 = spu_expect_op1 = 0;
 }
 
 HOST_WIDE_INT
@@ -2208,16 +2260,33 @@ spu_emit_branch_hint (rtx before, rtx branch, rtx target,
   if (NOTE_KIND (before) == NOTE_INSN_BASIC_BLOCK)
     before = NEXT_INSN (before);
 
-  branch_label = gen_label_rtx ();
-  LABEL_NUSES (branch_label)++;
-  LABEL_PRESERVE_P (branch_label) = 1;
-  insn = emit_label_before (branch_label, branch);
-  branch_label = gen_rtx_LABEL_REF (VOIDmode, branch_label);
-  SET_BIT (blocks, BLOCK_FOR_INSN (branch)->index);
+  if (INSN_CODE (branch) == CODE_FOR_expect_then
+      || INSN_CODE (branch) == CODE_FOR_expect_else)
+    {
+      HINTED_P (branch) = 1;
+      hint = PREV_INSN (before);
+    }
+  else
+    {
+      branch_label = gen_label_rtx ();
+      LABEL_NUSES (branch_label)++;
+      LABEL_PRESERVE_P (branch_label) = 1;
+      /* We place the label after the branch because pad_nops or
+	 insert_hbrp might insert an insn before the branch.  Also, we
+	 force a new basic block after a call because a label at block
+	 boundaries will not get moved by schedule_insns */
+      insn = emit_label_after (branch_label, branch);
+      branch_label =
+	plus_constant (gen_rtx_LABEL_REF (VOIDmode, branch_label), -4);
+      if (CALL_P (branch))
+	SET_BIT (blocks, BLOCK_FOR_INSN (branch)->index);
+      else
+	delete_insn (insn);
 
-  hint = emit_insn_before (gen_hbr (branch_label, target), before);
-  recog_memoized (hint);
-  HINTED_P (branch) = 1;
+      hint = emit_insn_before (gen_hbr (branch_label, target), before);
+      recog_memoized (hint);
+      HINTED_P (branch) = 1;
+    }
 
   if (GET_CODE (target) == LABEL_REF)
     HINTED_P (XEXP (target, 0)) = 1;
@@ -2287,6 +2356,12 @@ get_branch_target (rtx branch)
 	{
 	  rtx lab = 0;
 	  rtx note = find_reg_note (branch, REG_BR_PROB, 0);
+
+	  if (INSN_CODE (branch) == CODE_FOR_expect_then)
+	    return XEXP (src, 1);
+	  if (INSN_CODE (branch) == CODE_FOR_expect_else)
+	    return XEXP (src, 2);
+
 	  if (note)
 	    {
 	      /* If the more probable case is not a fall through, then
@@ -2334,6 +2409,8 @@ get_branch_target (rtx branch)
 static bool
 insn_clobbers_hbr (rtx insn)
 {
+  if (NONJUMP_INSN_P (insn) && INSN_CODE (insn) == CODE_FOR_hbr)
+    return 1;
   if (INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == PARALLEL)
     {
@@ -2606,6 +2683,9 @@ spu_machine_dependent_reorg (void)
 		      branch = insn;
 		      branch_addr = insn_addr;
 		      required_dist = spu_hint_dist;
+		      if (INSN_CODE (branch) == CODE_FOR_expect_then
+			  || INSN_CODE (branch) == CODE_FOR_expect_else)
+			required_dist = 0;
 		    }
 		}
 	    }
@@ -2711,6 +2791,40 @@ spu_machine_dependent_reorg (void)
 
   pad_bb ();
 
+  /* __builtin_expect with a non-constant second argument generates
+     patterns which contain labels that need to be relocated.  These
+     are generated in spu_emit_branch_or_set. */
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (JUMP_P (insn) && (INSN_CODE (insn) == CODE_FOR_expect_then
+	                  || INSN_CODE (insn) == CODE_FOR_expect_else))
+      {
+	rtx set0 = XVECEXP (PATTERN (insn), 0, 0);
+	rtx use1 = XVECEXP (PATTERN (insn), 0, 1);
+	rtx use2 = XVECEXP (PATTERN (insn), 0, 2);
+	rtx use3 = XVECEXP (PATTERN (insn), 0, 3);
+	rtx label0 = XEXP (XEXP (set0, 1), 1);
+	rtx label1 = XEXP (XEXP (use1, 0), 0);
+	rtx label2 = XEXP (XEXP (use2, 0), 0);
+	rtx label3 = XEXP (XEXP (use3, 0), 0);
+	if (GET_CODE (label0) == PC)
+	  label0 = XEXP (XEXP (set0, 1), 2);
+	remove_insn (label1);
+	add_insn_after (label1, insn, 0);
+	if (GET_CODE (XEXP (XEXP (set0, 1), 0)) == NE)
+	  {
+	    remove_insn (label2);
+	    add_insn_after (label2, insn, 0);
+	    remove_insn (label3);
+	    add_insn_after (label3, XEXP (label0, 0), 0);
+	  }
+	else
+	  {
+	    remove_insn (label2);
+	    add_insn_after (label2, XEXP (label0, 0), 0);
+	    remove_insn (label3);
+	    add_insn_after (label3, insn, 0);
+	  }
+      }
 
   if (spu_flag_var_tracking)
     {

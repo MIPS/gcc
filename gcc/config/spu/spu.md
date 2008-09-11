@@ -3556,6 +3556,41 @@ selb\t%0,%4,%0,%3"
   "bi%b1%b0z\t%1,$lr"
   [(set_attr "type" "br")])
 
+;; The following 2 variations are used when the using __builtin_expect
+;; with a non-constant second argument.  They include a reference to a
+;; deleted label which will be placed immediately after the branch.
+(define_insn "expect_then"
+  [(set (pc)
+	(if_then_else (match_operator 1 "branch_comparison_operator"
+				      [(match_operand 2
+						      "spu_reg_operand" "r")
+				       (const_int 0)])
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))
+   (use (match_operand 3 "" ""))
+   (use (match_operand 4 "" ""))
+   (use (match_operand 5 "" ""))
+   (clobber (reg:SI 130))]
+  ""
+  "br%b2%b1z\t%2,%0"
+  [(set_attr "type" "br")])
+
+(define_insn "expect_else"
+  [(set (pc)
+	(if_then_else (match_operator 1 "branch_comparison_operator"
+				      [(match_operand 2
+						      "spu_reg_operand" "r")
+				       (const_int 0)])
+		      (pc)
+		      (label_ref (match_operand 0 "" ""))))
+   (use (match_operand 3 "" ""))
+   (use (match_operand 4 "" ""))
+   (use (match_operand 5 "" ""))
+   (clobber (reg:SI 130))]
+  ""
+  "br%b2%b1z\t%2,%0"
+  [(set_attr "type" "br")])
+
 
 ;; Compare insns are next.  Note that the spu has two types of compares,
 ;; signed & unsigned, and one type of branch.
@@ -4570,3 +4605,14 @@ selb\t%0,%4,%0,%3"
   emit_insn (gen_subsi3 (op0, tmp, ls));
   DONE;
 })
+
+;; Save the operands for use by spu_emit_branch_or_set
+(define_expand "builtin_expect"
+  [(use (match_operand:SI 0 "spu_reg_operand" "r"))
+   (use (match_operand:SI 1 "spu_reg_operand" "r"))]
+  ""
+  {
+    spu_expect_op0 = operands[0];
+    spu_expect_op1 = operands[1];
+    DONE;
+  })
