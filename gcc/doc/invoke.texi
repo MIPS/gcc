@@ -305,7 +305,8 @@ Objective-C and Objective-C++ Dialects}.
 -fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -ftest-coverage  -ftime-report -fvar-tracking @gol
--fvar-tracking-assigments  -g  -g@var{level}  -gtoggle @gol
+-fvar-tracking-assigments  -fvar-tracking-assignments-toggle @gol
+-g  -g@var{level}  -gtoggle @gol
 -gcoff  -gdwarf-2 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -fno-merge-debug-strings -fdebug-prefix-map=@var{old}=@var{new} @gol
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
@@ -5090,12 +5091,19 @@ It is enabled by default when compiling with optimization (@option{-Os},
 the debug info format supports it.
 
 @item -fvar-tracking-assignments
-@opindex -fvar-tracking-assignments
+@opindex fvar-tracking-assignments
+@opindex fno-var-tracking-assignments
 Annotate assignments to user variables early in the compilation and
 attempt to carry the annotations over throughout the compilation all the
 way to the end, in an attempt to improve debug information while
 optimizing.  It is silently disabled if debug information generation,
 optimization or var-tracking are disabled.
+
+@item -fvar-tracking-assignments-toggle
+@opindex fvar-tracking-assignments-toggle
+@opindex fno-var-tracking-assignments-toggle
+Toggle @option{-fvar-tracking-assignments}, in the same way that
+@option{-gtoggle} toggles @option{-g}.
 
 @item -print-file-name=@var{library}
 @opindex print-file-name

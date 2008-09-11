@@ -335,6 +335,10 @@ int flag_var_tracking = AUTODETECT_VALUE;
    debug_hooks in process_options ().  */
 int flag_var_tracking_assignments = AUTODETECT_VALUE;
 
+/* Nonzero if we should toggle flag_var_tracking_assignments after
+   processing options and computing its default.  */
+int flag_var_tracking_assignments_toggle = 0;
+
 /* True if the user has tagged the function with the 'section'
    attribute.  */
 
@@ -1958,6 +1962,12 @@ process_options (void)
 	  flag_var_tracking_assignments = 0;
 	}
     }
+
+  if (flag_var_tracking_assignments_toggle)
+    flag_var_tracking_assignments = !flag_var_tracking_assignments
+      && flag_var_tracking && optimize
+      && (debug_info_level < DINFO_LEVEL_NORMAL
+	  || debug_hooks->var_location == do_nothing_debug_hooks.var_location);
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
 #ifdef HAVE_conditional_move

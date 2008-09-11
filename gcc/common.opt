@@ -1212,6 +1212,10 @@ fvar-tracking-assignments
 Common Report Var(flag_var_tracking_assignments) VarExists Optimization
 Perform variable tracking by annotating assignments
 
+fvar-tracking-assignments-toggle
+Common Report Var(flag_var_tracking_assignments_toggle) VarExists Optimization
+Toggle -fvar-tracking-assignments
+
 fvar-tracking-uninit
 Common Report Var(flag_var_tracking_uninit) Optimization
 Perform variable tracking and also tag variables that are uninitialized

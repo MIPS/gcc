@@ -1,5 +1,13 @@
 2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
 
+	* common.opt (fvar-tracking_assignments-toggle): New.
+	* toplev.c (flag_var_tracking_assignments_toggle): New.
+	(process_options): Handle it.
+	* doc/invoke.texi: Document it.
+	(fvar-tracking-assignments): Fix index entries.
+
+2008-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
 	* common.opt (fcompare-debug=, fcompare-debug-second): New.
 	(fdump-final-insns=): New.
 	(gtoggle): New.
