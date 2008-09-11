@@ -1863,22 +1863,18 @@ process_options (void)
     flag_var_tracking = optimize >= 1;
 
   if (flag_var_tracking_assignments == AUTODETECT_VALUE)
-    flag_var_tracking_assignments = flag_var_tracking && optimize;
-  else if (flag_var_tracking_assignments)
-    {
-      if (!optimize)
-	{
-	  warning (0, "variable tracking in assignments requested, "
-		   "but useless without optimization");
-	  flag_var_tracking_assignments = 0;
-	}
-    }
+    flag_var_tracking_assignments = flag_var_tracking;
 
   if (flag_var_tracking_assignments_toggle)
     flag_var_tracking_assignments = !flag_var_tracking_assignments
-      && flag_var_tracking && optimize
-      && (debug_info_level < DINFO_LEVEL_NORMAL
-	  || debug_hooks->var_location == do_nothing_debug_hooks.var_location);
+      && flag_var_tracking;
+
+  if (flag_var_tracking_assignments && !flag_var_tracking)
+    {
+      warning (0, "variable tracking in assignments requested, "
+	       "but useless without variable tracking");
+      flag_var_tracking_assignments = 0;
+    }
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
 #ifdef HAVE_conditional_move
