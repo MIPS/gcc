@@ -2901,7 +2901,7 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
      we must reserve the slot in the globals vector here,
      because the writer allocates the indices before writing
      out the type, etc.  */
-  index = global_vector_enter (data_in, NULL, true);
+  index = global_vector_enter (data_in, decl, true);
 
   /* omit locus, uid */
   input_tree (&decl->decl_minimal.name, ib, data_in);
