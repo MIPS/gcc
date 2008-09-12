@@ -1,5 +1,9 @@
 2008-09-12  Simon Baldwin  <simonb@google.com>
 
+	* g++.dg/lto/20080912-1.C: New.
+
+2008-09-12  Simon Baldwin  <simonb@google.com>
+
 	* g++.dg/lto/20080912.C: New.
 
 2008-09-11  Simon Baldwin  <simonb@google.com>
