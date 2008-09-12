@@ -283,6 +283,7 @@ enum LTO_tags {
   LTO_gimple_goto,
   LTO_gimple_label,
   LTO_gimple_phi,
+  LTO_gimple_predict,
   LTO_gimple_return,
   LTO_gimple_resx,
   LTO_gimple_switch,

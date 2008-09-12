@@ -1024,8 +1024,10 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case CONST_DECL:
-      /* We should not see these.  */
+      /* We should not see these by the time we get here.  All these
+	 have been folded into their DECL_INITIAL values.  */
       gcc_unreachable ();
+      break;
 
     case FIELD_DECL:
       if (!field_decl_is_local (expr))
@@ -1042,8 +1044,6 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case FUNCTION_DECL:
-      /* FIXME: Local FUNCTION_DECLS are possible, i.e.,
-         nested functions.  */
       output_record_start (ob, NULL, NULL, tag);
       lto_output_fn_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
@@ -1834,6 +1834,7 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
     case GIMPLE_LABEL:
     case GIMPLE_COND:
     case GIMPLE_GOTO:
+    case GIMPLE_PREDICT:
     case GIMPLE_RESX:
       for (i = 0; i < gimple_num_ops (stmt); i++)
 	{
@@ -2553,6 +2554,28 @@ global_vector_debug (struct output_block *ob)
 #else
 #define global_vector_debug(ob)
 #endif
+
+static void
+output_const_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_const_decl);
+  output_tree_flags (ob, 0, decl, true);
+
+  global_vector_debug (ob);
+
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+  output_tree (ob, decl->common.type);
+  output_tree (ob, decl->decl_common.abstract_origin);
+  output_uleb128 (ob, decl->decl_common.mode);
+  output_uleb128 (ob, decl->decl_common.align);
+  gcc_assert (decl->decl_common.off_align == 0);
+  output_tree (ob, decl->decl_common.initial);
+
+  LTO_DEBUG_TOKEN ("end_const_decl");
+}
+
 
 static void
 output_field_decl (struct output_block *ob, tree decl)
@@ -3321,8 +3344,8 @@ output_tree (struct output_block *ob, tree expr)
       break;
 
     case CONST_DECL:
-      /* We should not see these.  */
-      gcc_unreachable ();
+      output_const_decl (ob, expr);
+      break;
 
     case FIELD_DECL:
       output_field_decl (ob, expr);

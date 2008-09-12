@@ -1,3 +1,19 @@
+2008-09-12  Diego Novillo  <dnovillo@google.com>
+
+	* lto-tags.h (enum LTO_tags): Add LTO_gimple_predict
+	* lto-tree-tags.def: Handle it.
+	(CONST_DECL): Add decl_flag2, addressable_flag,
+	public_flag, readonly_flag and static_flag.
+	(CONSTRUCTOR): Add readonly_flag and volatile_flag.
+	* lto-function-in.c (input_gimple_stmt): Handle GIMPLE_PREDICT.
+	(input_const_decl): New.
+	(input_tree_operand): Call it.
+	* lto-function-out.c (output_gimple_stmt): Handle GIMPLE_PREDICT.
+	(output_expr_operand): Clarify why CONST_DECLs should not
+	show up.
+	(output_const_decl): New.
+	(output_tree): Call it.
+
 2008-09-12  Bill Maddox  <maddox@google.com>
 
 	* lto-function-in.c (input_var_decl): Enter DECL in the

@@ -251,6 +251,11 @@
     END_EXPR_CASE (CONJ_EXPR)
       
     START_EXPR_CASE (CONST_DECL)
+      ADD_DECL_FLAG (decl_flag_2)
+      ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (public_flag)
+      ADD_EXPR_FLAG (readonly_flag)
+      ADD_EXPR_FLAG (static_flag)
     END_EXPR_CASE (CONST_DECL)
       
     START_EXPR_CASE (CONSTRUCTOR)
@@ -825,6 +830,8 @@
       /* ### We need to serialize the init priority itself.  */
       ADD_VIS_FLAG (init_priority_p)
       ADD_VIS_FLAG_SIZE (tls_model, 3)
+      ADD_EXPR_FLAG (readonly_flag)
+      ADD_EXPR_FLAG (volatile_flag)
     END_EXPR_CASE (VAR_DECL)
       
     START_EXPR_CASE (VEC_COND_EXPR)

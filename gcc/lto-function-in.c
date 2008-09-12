@@ -701,7 +701,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case CONST_DECL:
-      /* We should not see these.  */
       gcc_unreachable ();
 
     case FIELD_DECL:
@@ -1999,6 +1998,8 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     code = GIMPLE_SWITCH;
   else if (tag == LTO_gimple_resx)
     code = GIMPLE_RESX;
+  else if (tag == LTO_gimple_predict)
+    code = GIMPLE_PREDICT;
   else
     gcc_unreachable ();
 
@@ -2781,6 +2782,31 @@ input_field_decl (struct lto_input_block *ib, struct data_in *data_in)
   input_tree (&decl->common.chain, ib, data_in);
 
   LTO_DEBUG_TOKEN ("end_field_decl");
+
+  return decl;
+}
+
+static tree
+input_const_decl (struct lto_input_block *ib, struct data_in *data_in)
+{
+  tree decl = make_node (CONST_DECL);
+
+  lto_flags_type flags = input_tree_flags (ib, CONST_DECL, true);
+  if (input_line_info (ib, data_in, flags))
+    set_line_info (data_in, decl);
+  process_tree_flags (decl, flags);
+
+  global_vector_enter (data_in, NULL, false);
+
+  input_tree (&decl->decl_minimal.name, ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
+  input_tree (&decl->common.type, ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
+  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.align = lto_input_uleb128 (ib);
+  input_tree (&decl->decl_common.initial, ib, data_in);
+
+  LTO_DEBUG_TOKEN ("end_const_decl");
 
   return decl;
 }
@@ -3588,8 +3614,8 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       gcc_unreachable ();
       
     case CONST_DECL:
-      /* We should not see these.  */
-      gcc_unreachable ();
+      result = input_const_decl (ib, data_in);
+      break;
 
     case FIELD_DECL:
       result = input_field_decl (ib, data_in);
