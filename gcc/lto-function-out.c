@@ -741,120 +741,100 @@ output_type_list (struct output_block *ob, tree list)
 }
 
 
-/* Output an eh_cleanup region with REGION_NUMBER.  HAS_INNER is true if
-   there are children of this node and HAS_PEER is true if there are
-   siblings of this node.  MAY_CONTAIN_THROW and PREV_TRY are the
-   fields of the eh_region.  */
+/* Output the header of EH region R to OB.  */
 
 static void
-output_eh_cleanup (void *obv,
-		   int region_number,
-		   bool has_inner, bool has_peer,
-		   bool may_contain_throw, int prev_try)
+output_eh_region (struct output_block *ob, eh_region r)
 {
-  struct output_block *ob = (struct output_block*)obv;
-  output_record_start (ob, NULL, NULL,
-		       LTO_eh_table_cleanup0 +
-		     (has_inner ? 1 : 0) + (may_contain_throw ? 2 : 0));
-  output_sleb128 (ob, region_number);
-  output_sleb128 (ob, prev_try);
-  if (!has_peer)
+  enum LTO_tags tag;
+
+  if (r->type == ERT_CLEANUP)
+    tag = LTO_eh_table_cleanup0;
+  else if (r->type == ERT_TRY)
+    tag = LTO_eh_table_try0;
+  else if (r->type == ERT_CATCH)
+    tag = LTO_eh_table_catch0;
+  else if (r->type == ERT_ALLOWED_EXCEPTIONS)
+    tag = LTO_eh_table_allowed0;
+  else if (r->type == ERT_MUST_NOT_THROW)
+    tag = LTO_eh_table_must_not_throw0;
+  else if (r->type == ERT_THROW)
+    tag = LTO_eh_table_throw0;
+  else
+    gcc_unreachable ();
+
+  /* If the region may contain a throw, use the '1' variant for TAG.  */
+  if (r->may_contain_throw)
+    tag++;
+
+  output_record_start (ob, NULL, NULL, tag);
+  output_sleb128 (ob, r->region_number);
+  if (r->outer)
+    output_uleb128 (ob, r->outer->region_number);
+  else
     output_zero (ob);
-  LTO_DEBUG_UNDENT ();
-}
 
-
-/* Output an eh_try region with REGION_NUMBER.  HAS_INNER is true if
-   there are children of this node and HAS_PEER is true if there are
-   siblings of this node.  MAY_CONTAIN_THROW, EH_CATCH and LAST_CATCH are
-   the fields of the eh_region.  */
-
-static void
-output_eh_try (void *obv,
-	       int region_number,
-	       bool has_inner, bool has_peer,
-	       bool may_contain_throw, int eh_catch,
-	       int last_catch)
-{
-  struct output_block *ob = (struct output_block*)obv;
-  output_record_start (ob, NULL, NULL,
-		       LTO_eh_table_try0 +
-		     (has_inner ? 1 : 0) + (may_contain_throw ? 2 : 0));
-  output_sleb128 (ob, region_number);
-  output_sleb128 (ob, eh_catch);
-  output_sleb128 (ob, last_catch);
-  if (!has_peer)
+  if (r->inner)
+    output_uleb128 (ob, r->inner->region_number);
+  else
     output_zero (ob);
-  LTO_DEBUG_UNDENT ();
-}
 
-
-/* Output an eh_catch region with REGION_NUMBER.  HAS_INNER is true if
-   there are children of this node and HAS_PEER is true if there are
-   siblings of this node.  MAY_CONTAIN_THROW, NEXT_CATCH and
-   PREV_CATCH, and TYPE_LIST are the fields of the eh_region.  */
-
-static void
-output_eh_catch (void *obv,
-		 int region_number,
-		 bool has_inner, bool has_peer,
-		 bool may_contain_throw, int next_catch,
-		 int prev_catch, tree type_list)
-{
-  struct output_block *ob = (struct output_block*)obv;
-  output_record_start (ob, NULL, NULL,
-		       LTO_eh_table_catch0 +
-		     (has_inner ? 1 : 0) + (may_contain_throw ? 2 : 0));
-  output_sleb128 (ob, region_number);
-  output_sleb128 (ob, next_catch);
-  output_sleb128 (ob, prev_catch);
-  output_type_list (ob, type_list);
-  if (!has_peer)
+  if (r->next_peer)
+    output_uleb128 (ob, r->next_peer->region_number);
+  else
     output_zero (ob);
-  LTO_DEBUG_UNDENT ();
-}
 
-/* Output an eh_allowed_exceptions region with REGION_NUMBER.
-   HAS_INNER is true if there are children of this node and HAS_PEER
-   is true if there are siblings of this node.  MAY_CONTAIN_THROW, and
-   TYPE_LIST are the fields of the eh_region.  */
-
-static void
-output_eh_allowed (void *obv,
-		   int region_number,
-		   bool has_inner, bool has_peer,
-		   bool may_contain_throw, tree type_list)
-{
-  struct output_block *ob = (struct output_block*)obv;
-  output_record_start (ob, NULL, NULL,
-		       LTO_eh_table_allowed0 +
-		     (has_inner ? 1 : 0) + (may_contain_throw ? 2 : 0));
-  output_sleb128 (ob, region_number);
-  output_type_list (ob, type_list);
-  if (!has_peer)
+  if (r->tree_label)
+    output_expr_operand (ob, r->tree_label);
+  else
     output_zero (ob);
-  LTO_DEBUG_UNDENT ();
-}
 
+  if (r->type == ERT_CLEANUP)
+    {
+      eh_region prev_try = r->u.cleanup.prev_try;
+      if (prev_try)
+	output_uleb128 (ob, prev_try->region_number);
+      else
+	output_zero (ob);
+    }
+  else if (r->type == ERT_TRY)
+    {
+      eh_region eh_catch = r->u.eh_try.eh_catch;
+      eh_region last_catch = r->u.eh_try.last_catch;
+      if (eh_catch)
+	output_uleb128 (ob, eh_catch->region_number);
+      else
+	output_zero (ob);
+      if (last_catch)
+	output_uleb128 (ob, last_catch->region_number);
+      else
+	output_zero (ob);
+    }
+  else if (r->type == ERT_CATCH)
+    {
+      eh_region next_catch = r->u.eh_catch.next_catch;
+      eh_region prev_catch = r->u.eh_catch.prev_catch;
+      if (next_catch)
+	output_uleb128 (ob, next_catch->region_number);
+      else
+	output_zero (ob);
+      if (prev_catch)
+	output_uleb128 (ob, prev_catch->region_number);
+      else
+	output_zero (ob);
+      output_type_list (ob, r->u.eh_catch.type_list);
+      output_type_list (ob, r->u.eh_catch.filter_list);
+    }
+  else if (r->type == ERT_ALLOWED_EXCEPTIONS)
+    {
+      output_type_list (ob, r->u.allowed.type_list);
+      output_uleb128 (ob, r->u.allowed.filter);
+    }
+  else if (r->type == ERT_THROW)
+    {
+      output_type_ref (ob, r->u.eh_throw.type);
+    }
 
-/* Output an eh_must_not_throw region with REGION_NUMBER.  HAS_INNER
-   is true if there are children of this node and HAS_PEER is true if
-   there are siblings of this node.  MAY_CONTAIN_THROW is the field of
-   the eh_region.  */
-
-static void
-output_eh_must_not_throw (void *obv,
-			  int region_number,
-			  bool has_inner, bool has_peer,
-			  bool may_contain_throw)
-{
-  struct output_block *ob = (struct output_block*)obv;
-  output_record_start (ob, NULL, NULL,
-		       LTO_eh_table_must_not_throw0 +
-		     (has_inner ? 1 : 0) + (may_contain_throw ? 2 : 0));
-  output_sleb128 (ob, region_number);
-  if (!has_peer)
-    output_zero (ob);
   LTO_DEBUG_UNDENT ();
 }
 
@@ -864,17 +844,23 @@ output_eh_must_not_throw (void *obv,
 static void
 output_eh_regions (struct output_block *ob, struct function *fn)
 {
-  if (0 && fn->eh)
+  eh_region curr;
+
+  if (fn->eh->region_array)
     {
+      unsigned i;
+
       output_record_start (ob, NULL, NULL, LTO_eh_table);
-      output_eh_records (ob, fn,
-			 output_eh_cleanup,
-			 output_eh_try,
-			 output_eh_catch,
-			 output_eh_allowed,
-			 output_eh_must_not_throw);
+      output_sleb128 (ob, fn->eh->last_region_number);
+      output_sleb128 (ob, fn->eh->region_tree->region_number);
+
+      for (i = 0; VEC_iterate (eh_region, fn->eh->region_array, i, curr); i++)
+	if (curr)
+	  output_eh_region (ob, curr);
+
       LTO_DEBUG_UNDENT ();
     }
+
   /* The 0 either terminates the record or indicates that there are no
      eh_records at all.  */
   output_zero (ob);
@@ -1875,13 +1861,15 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
   gimple_stmt_iterator bsi = gsi_start_bb (bb);
 
   output_record_start (ob, NULL, NULL,
-		       (!gsi_end_p (bsi)) || phi_nodes (bb) ? LTO_bb1 : LTO_bb0);
+		       (!gsi_end_p (bsi)) || phi_nodes (bb)
+		        ? LTO_bb1
+			: LTO_bb0);
 
   /* The index of the basic block.  */
   LTO_DEBUG_TOKEN ("bbindex");
   output_uleb128 (ob, bb->index);
 
-  if ((!gsi_end_p (bsi)) || phi_nodes (bb))
+  if (!gsi_end_p (bsi) || phi_nodes (bb))
     {
       /* Output the statements.  The list of statements is terminated
 	 with a zero.  */
@@ -1891,22 +1879,27 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 
 	  output_gimple_stmt (ob, stmt);
 	
-	  /* We only need to set the region number of the tree that
+	  /* We only need to set the region number of a statement that
 	     could throw if the region number is different from the
 	     last region number we set.  */
-	  if (0 && stmt_could_throw_p (stmt))
+	  if (stmt_could_throw_p (stmt))
 	    {
 	      int region = lookup_stmt_eh_region_fn (fn, stmt);
 	      if (region != last_eh_region_seen)
 		{
 		  output_record_start (ob, NULL, NULL,
-				       LTO_set_eh0 + region ? 1 : 0);
+				       LTO_set_eh0 + (region ? 1 : 0));
 		  if (region)
 		    output_sleb128 (ob, region);
 		
 		  last_eh_region_seen = region;
+		  LTO_DEBUG_UNDENT ();
 		}
+	      else
+		output_zero (ob);
 	    }
+	  else
+	    output_zero (ob);
 	}
 
       LTO_DEBUG_INDENT_TOKEN ("stmt");

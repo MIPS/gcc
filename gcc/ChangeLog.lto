@@ -1,3 +1,35 @@
+2008-09-11  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_eh_cleanup): Remove.
+	(output_eh_try): Remove.
+	(output_eh_catch): Remove.
+	(output_eh_allowed): Remove.
+	(output_eh_must_not_throw): Remove.
+	(output_eh_region): New.
+	(output_eh_regions): Call it.
+	(output_bb): Emit EH region information for statements.
+	* lto-function-in.c: Do not include ctype.h.
+	(input_tree, input_type_tree, input_tree_operand): Move
+	forward declarations to the top of the file.
+	(fixup_eh_region_pointers): New.
+	(input_eh_region): New.
+	(input_eh_regions): Call them.
+	(input_bb): Read EH information for every statement.
+	* lto-tree-tags.def (LTO_eh_table_cleanup2,
+	LTO_eh_table_cleanup3, LTO_eh_table_try2,
+	LTO_eh_table_try3, LTO_eh_table_catch2,
+	LTO_eh_table_catch3, LTO_eh_table_allowed2,
+	LTO_eh_table_allowed3, LTO_eh_table_must_not_throw2,
+	LTO_eh_table_must_not_throw3): Remove.
+	(LTO_eh_table_throw0, LTO_eh_table_throw1): Add.
+	* lto-tags.h: Likewise.
+	* except.c (struct eh_region, struct eh_status): Move ...
+	* except.h: ... here.
+	(output_eh_cleanup_t, output_eh_try_t, output_eh_catch_t,
+	output_eh_allowed_t, output_eh_must_not_throw_t,
+	output_eh_records): Remove.
+	* Makefile.in (GTFILES): Include except.h before except.c
+
 2008-09-11  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-out.c (lto_static_init):  Allocate enough space in

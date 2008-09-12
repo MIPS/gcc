@@ -35,6 +35,8 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-inline.h"
 #include "gimple.h"
 #include "toplev.h"
+#include "libfuncs.h"
+#include "except.h"
 
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);
@@ -988,17 +990,35 @@ lto_build_c_type_nodes (void)
   pid_type_node = integer_type_node;
 }
 
+
+/* Initialize EH support.  */
+
+static void
+lto_init_eh (void)
+{
+  /* GIMPLE supports exceptions.  */
+  flag_exceptions = 1;
+  eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
+					     ? "__gcc_personality_sj0"
+					     : "__gcc_personality_v0");
+  default_init_unwind_resume_libfunc ();
+}
+
+
 /* Perform LTO-specific initialization.  */
 
 static bool
 lto_init (void)
 {
+  /* FIXME lto, collect2 is calling lto1 with -flto.  This is useless,
+     we don't need to emit LTO again from lto1.  */
+  flag_generate_lto = 0;
+
   /* Initialize libcpp line maps for gcc_assert to work.  */
   linemap_add (line_table, LC_RENAME, 0, NULL, 0);
 
   /* Create the basic integer types.  */
-  build_common_tree_nodes (flag_signed_char, 
-			   /*signed_sizetype=*/false);
+  build_common_tree_nodes (flag_signed_char, /*signed_sizetype=*/false);
 
   /* Tell the middle end what type to use for the size of objects.  */
   if (strcmp (SIZE_TYPE, "unsigned int") == 0)
@@ -1036,6 +1056,8 @@ lto_init (void)
   /* Initialize LTO-specific data structures.  */
   lto_global_var_decls = VEC_alloc (tree, gc, 256);
   in_lto_p = true;
+
+  lto_init_eh ();
 
   return true;
 }

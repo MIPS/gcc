@@ -270,7 +270,7 @@ enum LTO_tags {
   LTO_bb0 = 1,
   LTO_bb1,
 
-  /* Variant 1 is used to set region to no zero value.  */
+  /* Variant 1 is used to set region to a nonzero value.  */
   LTO_set_eh0,
   LTO_set_eh1,
 
@@ -476,28 +476,21 @@ enum LTO_tags {
 
   LTO_eh_table,
 
-/* Each of these requires 4 variants.  1 and 3 are have_inner and 2
-   and 3 are may_contain_throw.  */
+  /* There are 2 variants for each EH region type.  Variant 0 is for
+     may_contain_throw == false, variant 1 is for may_contain_throw ==
+     true.  */
   LTO_eh_table_cleanup0,
   LTO_eh_table_cleanup1,
-  LTO_eh_table_cleanup2,
-  LTO_eh_table_cleanup3,
   LTO_eh_table_try0,
   LTO_eh_table_try1,
-  LTO_eh_table_try2,
-  LTO_eh_table_try3,
   LTO_eh_table_catch0,
   LTO_eh_table_catch1,
-  LTO_eh_table_catch2,
-  LTO_eh_table_catch3,
   LTO_eh_table_allowed0,
   LTO_eh_table_allowed1,
-  LTO_eh_table_allowed2,
-  LTO_eh_table_allowed3,
   LTO_eh_table_must_not_throw0,
   LTO_eh_table_must_not_throw1,
-  LTO_eh_table_must_not_throw2,
-  LTO_eh_table_must_not_throw3,
+  LTO_eh_table_throw0,
+  LTO_eh_table_throw1,
 
 /* Base info, e.g., for C++ */
   LTO_tree_binfo,

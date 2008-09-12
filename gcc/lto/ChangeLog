@@ -1,3 +1,12 @@
+2008-09-11  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c: Include except.h and libfuncs.h.
+	(lto_init_eh): New.
+	(lto_init): Call it.
+	Set flag_generate_lto to 0.
+	* Make-lang.in (lto-lang.o): Add dependency on except.h
+	and libfuncs.h.
+
 2008-09-09  Bill Maddox  <maddox@google.com>
 
 	* lto-lang.c: Include header file expr.h.

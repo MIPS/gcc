@@ -50,12 +50,16 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tags.h"
 #include "lto-section-in.h"
 #include "lto-tree-in.h"
-#include <ctype.h>
 #include "cpplib.h"
+
+void input_tree (tree *slot, struct lto_input_block *, struct data_in *);
+static tree input_type_tree (struct data_in *, struct lto_input_block *);
+static tree input_tree_operand (struct lto_input_block *,
+                                struct data_in *,
+                                struct function *, enum LTO_tags);
 
 
 /* Vector of tree-pointer locations for backpatching.  */
-
 typedef tree * tree_ptr;
 DEF_VEC_P (tree_ptr);
 DEF_VEC_ALLOC_P (tree_ptr, heap);
@@ -1617,15 +1621,178 @@ input_local_vars (struct lto_input_block *ib, struct data_in *data_in,
 }
 
 
-/* Read the exception table.  */
+/* Read and return one region record from IB.  */
+
+static eh_region
+input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
+		 struct function *fn, int region_number)
+{
+  enum LTO_tags tag;
+  eh_region r;
+
+  r = GGC_CNEW (struct eh_region);
+  r->region_number = region_number;
+
+  /* Read the region header.  */
+  tag = input_record_start (ib);
+
+  r->region_number = lto_input_sleb128 (ib);
+  gcc_assert (r->region_number == region_number);
+
+  /* Read all the region pointers as region numbers.  We'll fix up
+     the pointers once the whole array has been read.  */
+  r->outer = (eh_region) lto_input_uleb128 (ib);
+  r->inner = (eh_region) lto_input_uleb128 (ib);
+  r->next_peer = (eh_region) lto_input_uleb128 (ib);
+  if (input_record_start (ib))
+    r->tree_label = input_expr_operand (ib, data_in, fn, LTO_label_decl);
+
+  if (tag == LTO_eh_table_cleanup1
+      || tag == LTO_eh_table_try1
+      || tag == LTO_eh_table_catch1
+      || tag == LTO_eh_table_allowed1
+      || tag == LTO_eh_table_must_not_throw1
+      || tag == LTO_eh_table_throw1)
+    r->may_contain_throw = 1;
+
+  switch (tag)
+    {
+      case LTO_eh_table_cleanup0:
+      case LTO_eh_table_cleanup1:
+	r->type = ERT_CLEANUP;
+	r->u.cleanup.prev_try = (eh_region) lto_input_uleb128 (ib);
+	break;
+
+      case LTO_eh_table_try0:
+      case LTO_eh_table_try1:
+	r->type = ERT_TRY;
+	r->u.eh_try.eh_catch = (eh_region) lto_input_uleb128 (ib);
+	r->u.eh_try.last_catch = (eh_region) lto_input_uleb128 (ib);
+	break;
+
+      case LTO_eh_table_catch0:
+      case LTO_eh_table_catch1:
+	r->type = ERT_CATCH;
+	r->u.eh_catch.next_catch = (eh_region) lto_input_uleb128 (ib);
+	r->u.eh_catch.prev_catch = (eh_region) lto_input_uleb128 (ib);
+	if (input_record_start (ib))
+	  r->u.eh_catch.type_list = input_tree_operand (ib, data_in, fn,
+							LTO_tree_list);
+	if (input_record_start (ib))
+	  r->u.eh_catch.filter_list = input_tree_operand (ib, data_in, fn,
+							  LTO_tree_list);
+	break;
+
+      case LTO_eh_table_allowed0:
+      case LTO_eh_table_allowed1:
+	r->type = ERT_ALLOWED_EXCEPTIONS;
+	if (input_record_start (ib))
+	  r->u.allowed.type_list = input_tree_operand (ib, data_in, fn,
+						       LTO_tree_list);
+	r->u.allowed.filter = lto_input_uleb128 (ib);
+	break;
+
+      case LTO_eh_table_must_not_throw0:
+      case LTO_eh_table_must_not_throw1:
+	r->type = ERT_MUST_NOT_THROW;
+	break;
+
+      case LTO_eh_table_throw0:
+      case LTO_eh_table_throw1:
+	r->type = ERT_THROW;
+	r->u.eh_throw.type = input_type_ref (data_in, ib);
+	break;
+
+      default:
+	gcc_unreachable ();
+    }
+
+  LTO_DEBUG_UNDENT ();
+
+  return r;
+}
+
+
+/* After reading the EH regions, pointers to peer and children regions
+   are region numbers.  This converts all these region numbers into
+   real pointers into the rematerialized regions for FN.  */
 
 static void
-input_eh_regions (struct lto_input_block *ib, 
-		  struct function *fn ATTRIBUTE_UNUSED, 
-		  struct data_in *data_in ATTRIBUTE_UNUSED)
+fixup_eh_region_pointers (struct function *fn, unsigned root_region,
+			  unsigned last_region)
 {
-  /* Not ready to read exception records yet.  */
-  lto_input_uleb128 (ib);
+  unsigned i;
+  VEC(eh_region,gc) *array = fn->eh->region_array;
+
+#define fixup_region(r) (r) = VEC_index (eh_region, array, (HOST_WIDE_INT) (r))
+
+  fn->eh->region_tree = VEC_index (eh_region, array, root_region);
+
+  for (i = 1; i <= last_region; i++)
+    {
+      eh_region r = VEC_index (eh_region, array, i);
+      fixup_region (r->outer);
+      fixup_region (r->inner);
+      fixup_region (r->next_peer);
+
+      if (r->type == ERT_CLEANUP)
+	{
+	  fixup_region (r->u.cleanup.prev_try);
+	}
+      else if (r->type == ERT_TRY)
+	{
+	  fixup_region (r->u.eh_try.eh_catch);
+	  fixup_region (r->u.eh_try.last_catch);
+	}
+      else if (r->type == ERT_CATCH)
+	{
+	  fixup_region (r->u.eh_catch.next_catch);
+	  fixup_region (r->u.eh_catch.prev_catch);
+	}
+    }
+
+#undef fixup_region
+}
+
+
+
+/* Read the exception table for FN from IB using the data descriptors
+   in DATA_IN.  */
+
+static void
+input_eh_regions (struct lto_input_block *ib, struct data_in *data_in,
+		  struct function *fn)
+{
+  HOST_WIDE_INT i, last_region, root_region;
+  enum LTO_tags tag;
+  
+  tag = input_record_start (ib);
+  if (tag == LTO_eh_table)
+    {
+      gcc_assert (fn->eh);
+
+      last_region = lto_input_sleb128 (ib);
+      VEC_safe_grow (eh_region, gc, fn->eh->region_array, last_region + 1);
+      fn->eh->last_region_number = last_region;
+      VEC_replace (eh_region, fn->eh->region_array, 0, NULL);
+
+      root_region = lto_input_sleb128 (ib);
+
+      /* Fill in the EH region array.  */
+      for (i = 1; i <= last_region; i++)
+	{
+	  eh_region r = input_eh_region (ib, data_in, fn, i);
+	  VEC_replace (eh_region, fn->eh->region_array, i, r);
+	}
+
+      /* Reconstruct the EH region tree by fixing up the peer/children
+	 pointers.  */
+      fixup_eh_region_pointers (fn, root_region, last_region);
+
+      LTO_DEBUG_UNDENT ();
+
+      input_record_start (ib);
+    }
 }
 
 
@@ -1908,6 +2075,7 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   unsigned int index;
   basic_block bb;
   gimple_stmt_iterator bsi;
+  HOST_WIDE_INT curr_eh_region;
 
   LTO_DEBUG_TOKEN ("bbindex");
   index = lto_input_uleb128 (ib);
@@ -1920,6 +2088,7 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
       return;
     }
 
+  curr_eh_region = -1;
   bsi = gsi_start_bb (bb);
   LTO_DEBUG_INDENT_TOKEN ("stmt");
   tag = input_record_start (ib);
@@ -1929,10 +2098,26 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
       find_referenced_vars_in (stmt);
       gimple_set_block (stmt, DECL_INITIAL (fn->decl));
       gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
+
+      tag = input_record_start (ib);
+      if (tag == LTO_set_eh1 || tag == LTO_set_eh0)
+	{
+	  HOST_WIDE_INT region = 0;
+
+	  if (tag == LTO_set_eh1)
+	    region = lto_input_sleb128 (ib);
+
+	  if (region != curr_eh_region)
+	    curr_eh_region = region;
+
+	  LTO_DEBUG_UNDENT ();
+	}
+
+      if (curr_eh_region >= 0)
+	add_stmt_to_eh_region (stmt, curr_eh_region);
+
       LTO_DEBUG_INDENT_TOKEN ("stmt");
       tag = input_record_start (ib);
-
-      /* FIXME lto, add code to handle EH regions.  */
     }
 
   LTO_DEBUG_INDENT_TOKEN ("phi");  
@@ -1968,7 +2153,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   gimple_register_cfg_hooks ();
   gcc_assert (tag == LTO_function);
 
-  input_eh_regions (ib, fn, data_in);
+  input_eh_regions (ib, data_in, fn);
 
   LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
   tag = input_record_start (ib);
@@ -2413,14 +2598,6 @@ lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
 }
 
 /* Read types and globals.  */
-
-void input_tree (tree *slot, struct lto_input_block *, struct data_in *);
-
-static tree input_type_tree (struct data_in *, struct lto_input_block *);
-
-static tree input_tree_operand (struct lto_input_block *,
-                                struct data_in *,
-                                struct function *, enum LTO_tags);
 
 /* Push NODE as the next sequential entry in the globals index vector
    obtained from DATA_IN.  If NEED_FIXUPS is true, we prepare for
@@ -2943,6 +3120,9 @@ input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   return decl;
 }
+
+
+/* Read and return a LABEL_DECL from IB using descriptors in DATA_IN.  */
 
 static tree
 input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
