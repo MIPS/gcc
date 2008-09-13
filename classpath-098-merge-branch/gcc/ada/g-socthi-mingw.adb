@@ -341,7 +341,7 @@ package body GNAT.Sockets.Thin is
       if EFS /= No_Fd_Set_Access then
          declare
             EFSC    : constant Fd_Set_Access := New_Socket_Set (EFS);
-            Flag    : constant C.int := SOSC.MSG_PEEK + Constants.MSG_OOB;
+            Flag    : constant C.int := SOSC.MSG_PEEK + SOSC.MSG_OOB;
             Buffer  : Character;
             Length  : C.int;
             Fromlen : aliased C.int;
@@ -488,6 +488,7 @@ package body GNAT.Sockets.Thin is
      (Errno : Integer) return C.Strings.chars_ptr
    is
       use GNAT.Sockets.SOSC;
+
    begin
       case Errno is
          when EINTR =>           return Error_Messages (N_EINTR);

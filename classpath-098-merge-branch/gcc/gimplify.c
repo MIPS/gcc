@@ -216,6 +216,7 @@ pop_gimplify_context (gimple body)
 
   gcc_assert (c && (c->bind_expr_stack == NULL
 		    || VEC_empty (gimple, c->bind_expr_stack)));
+  VEC_free (gimple, heap, c->bind_expr_stack);
   gimplify_ctxp = c->prev_context;
 
   for (t = c->temps; t ; t = TREE_CHAIN (t))
@@ -1447,7 +1448,11 @@ gimplify_decl_expr (tree *stmt_p, gimple_seq *seq_p)
     {
       tree init = DECL_INITIAL (decl);
 
-      if (TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
+      if (TREE_CODE (DECL_SIZE_UNIT (decl)) != INTEGER_CST
+	  || (!TREE_STATIC (decl)
+	      && flag_stack_check == GENERIC_STACK_CHECK
+	      && compare_tree_int (DECL_SIZE_UNIT (decl),
+				   STACK_CHECK_MAX_VAR_SIZE) > 0))
 	gimplify_vla_decl (decl, seq_p);
 
       if (init && init != error_mark_node)
@@ -1842,17 +1847,13 @@ gimplify_conversion (tree *expr_p)
   /* Attempt to avoid NOP_EXPR by producing reference to a subtype.
      For example this fold (subclass *)&A into &A->subclass avoiding
      a need for statement.  */
-  if (TREE_CODE (*expr_p) == NOP_EXPR
+  if (CONVERT_EXPR_P (*expr_p)
       && POINTER_TYPE_P (TREE_TYPE (*expr_p))
       && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (*expr_p, 0)))
-      && (tem = maybe_fold_offset_to_reference
+      && (tem = maybe_fold_offset_to_address
 		  (TREE_OPERAND (*expr_p, 0),
-		   integer_zero_node, TREE_TYPE (TREE_TYPE (*expr_p)))))
-    {
-      tree ptr_type = build_pointer_type (TREE_TYPE (tem));
-      if (useless_type_conversion_p (TREE_TYPE (*expr_p), ptr_type))
-        *expr_p = build_fold_addr_expr_with_type (tem, ptr_type);
-    }
+		   integer_zero_node, TREE_TYPE (*expr_p))) != NULL_TREE)
+    *expr_p = tem;
 
   /* If we still have a conversion at the toplevel,
      then canonicalize some constructs.  */
@@ -1871,6 +1872,12 @@ gimplify_conversion (tree *expr_p)
       else if (TREE_CODE (sub) == ADDR_EXPR)
 	canonicalize_addr_expr (expr_p);
     }
+
+  /* If we have a conversion to a non-register type force the
+     use of a VIEW_CONVERT_EXPR instead.  */
+  if (!is_gimple_reg_type (TREE_TYPE (*expr_p)))
+    *expr_p = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (*expr_p),
+			   TREE_OPERAND (*expr_p, 0));
 
   return GS_OK;
 }
@@ -3595,7 +3602,8 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	if (num_type_elements < 0 && int_size_in_bytes (type) >= 0)
 	  cleared = true;
 	/* If there are "lots" of zeros, then block clear the object first.  */
-	else if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
+	else if (num_type_elements - num_nonzero_elements
+		 > CLEAR_RATIO (optimize_function_for_speed_p (cfun))
 		 && num_nonzero_elements < num_type_elements/4)
 	  cleared = true;
 	/* ??? This bit ought not be needed.  For any element not present
@@ -3913,7 +3921,7 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 	/* If we're assigning from a constant constructor, move the
 	   constructor expression to the RHS of the MODIFY_EXPR.  */
 	if (DECL_INITIAL (*from_p)
-	    && TYPE_READONLY (TREE_TYPE (*from_p))
+	    && TREE_READONLY (*from_p)
 	    && !TREE_THIS_VOLATILE (*from_p)
 	    && TREE_CODE (DECL_INITIAL (*from_p)) == CONSTRUCTOR)
 	  {
@@ -4554,20 +4562,31 @@ gimplify_addr_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       /* Mark the RHS addressable.  */
       ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, post_p,
 			   is_gimple_addressable, fb_either);
-      if (ret != GS_ERROR)
-	{
-	  op0 = TREE_OPERAND (expr, 0);
+      if (ret == GS_ERROR)
+	break;
 
-	  /* For various reasons, the gimplification of the expression
-	     may have made a new INDIRECT_REF.  */
-	  if (TREE_CODE (op0) == INDIRECT_REF)
-	    goto do_indirect_ref;
+      /* We cannot rely on making the RHS addressable if it is
+	 a temporary created by gimplification.  In this case create a
+	 new temporary that is initialized by a copy (which will
+	 become a store after we mark it addressable).
+	 This mostly happens if the frontend passed us something that
+	 it could not mark addressable yet, like a fortran
+	 pass-by-reference parameter (int) floatvar.  */
+      if (is_gimple_formal_tmp_var (TREE_OPERAND (expr, 0)))
+	TREE_OPERAND (expr, 0)
+	  = get_initialized_tmp_var (TREE_OPERAND (expr, 0), pre_p, post_p);
 
-	  /* Make sure TREE_CONSTANT and TREE_SIDE_EFFECTS are set properly.  */
-	  recompute_tree_invariant_for_addr_expr (expr);
+      op0 = TREE_OPERAND (expr, 0);
 
-	  mark_addressable (TREE_OPERAND (expr, 0));
-	}
+      /* For various reasons, the gimplification of the expression
+	 may have made a new INDIRECT_REF.  */
+      if (TREE_CODE (op0) == INDIRECT_REF)
+	goto do_indirect_ref;
+
+      /* Make sure TREE_CONSTANT and TREE_SIDE_EFFECTS are set properly.  */
+      recompute_tree_invariant_for_addr_expr (expr);
+
+      mark_addressable (TREE_OPERAND (expr, 0));
       break;
     }
 
@@ -4761,6 +4780,8 @@ gimplify_asm_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	  mark_addressable (TREE_VALUE (link));
 	  if (tret == GS_ERROR)
 	    {
+	      if (EXPR_HAS_LOCATION (TREE_VALUE (link)))
+	        input_location = EXPR_LOCATION (TREE_VALUE (link));
 	      error ("memory input %d is not directly addressable", i);
 	      ret = tret;
 	    }
@@ -6735,30 +6756,24 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	     The second is gimple immediate saving a need for extra statement.
 	   */
 	  if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
-	      && (tmp = maybe_fold_offset_to_reference
+	      && (tmp = maybe_fold_offset_to_address
 			 (TREE_OPERAND (*expr_p, 0), TREE_OPERAND (*expr_p, 1),
-		   	  TREE_TYPE (TREE_TYPE (*expr_p)))))
-	     {
-	       tree ptr_type = build_pointer_type (TREE_TYPE (tmp));
-	       if (useless_type_conversion_p (TREE_TYPE (*expr_p), ptr_type))
-		 {
-                   *expr_p = build_fold_addr_expr_with_type (tmp, ptr_type);
-		   break;
-		 }
-	     }
+		   	  TREE_TYPE (*expr_p))))
+	    {
+	      *expr_p = tmp;
+	      break;
+	    }
 	  /* Convert (void *)&a + 4 into (void *)&a[1].  */
 	  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) == NOP_EXPR
 	      && TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
 	      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p,
 									0),0)))
-	      && (tmp = maybe_fold_offset_to_reference
+	      && (tmp = maybe_fold_offset_to_address
 			 (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0),
 			  TREE_OPERAND (*expr_p, 1),
-		   	  TREE_TYPE (TREE_TYPE
-				  (TREE_OPERAND (TREE_OPERAND (*expr_p, 0),
-						 0))))))
+		   	  TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p, 0),
+						   0)))))
 	     {
-               tmp = build_fold_addr_expr (tmp);
                *expr_p = fold_convert (TREE_TYPE (*expr_p), tmp);
 	       break;
 	     }
@@ -7198,6 +7213,10 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
   struct gimplify_ctx gctx;
 
   timevar_push (TV_TREE_GIMPLIFY);
+
+  /* Initialize for optimize_insn_for_s{ize,peed}_p possibly called during
+     gimplification.  */
+  default_rtl_profile ();
 
   gcc_assert (gimplify_ctxp == NULL);
   push_gimplify_context (&gctx);
