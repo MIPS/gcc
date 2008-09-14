@@ -292,6 +292,7 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAR = @JAR@
 JAVA = @JAVA@
 JAVAC = @JAVAC@
+JAVAC_IS_GCJ = @JAVAC_IS_GCJ@
 JAVAC_MEM_OPT = @JAVAC_MEM_OPT@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAY = @JAY@
@@ -417,9 +418,10 @@ uudecode = @uudecode@
 vm_classes = @vm_classes@
 GLIBJ_BOOTCLASSPATH = '$(top_builddir)/lib/glibj.zip'
 GLIBJ_CLASSPATH = asm
+@GCJ_JAVAC_FALSE@JCOMPILER = $(JAVAC) $(JAVACFLAGS) -source 1.5 -target 1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH)
 
 # Setup the compiler to use the GNU Classpath library we just built.
-JCOMPILER = $(JAVAC) $(JAVACFLAGS) -source 1.5 -target 1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH)
+@GCJ_JAVAC_TRUE@JCOMPILER = $(JAVAC) $(JAVACFLAGS) -fsource=1.5 -ftarget=1.5 --encoding=UTF-8 --bootclasspath=$(GLIBJ_BOOTCLASSPATH) --classpath=$(GLIBJ_CLASSPATH)
 @CREATE_GJDOC_FALSE@USE_JAVAC_FLAGS = -classpath $(CLASSPATH):$(srcdir):. $(JAVAC_FLAGS)
 @CREATE_GJDOC_TRUE@USE_JAVAC_FLAGS = -classpath $(CLASSPATH):$(srcdir):$(ANTLR_JAR):generated:. $(JAVAC_FLAGS)
 @CREATE_WRAPPERS_FALSE@bin_SCRIPTS = gappletviewer gjarsigner gkeytool \
@@ -641,6 +643,7 @@ gjdoc_resources = $(gnu_classpath_tools_gjdoc_jar_CSS) $(gnu_classpath_tools_gjd
 
 @CREATE_GJDOC_FALSE@GJDOC_EX = -path '*gnu/classpath/tools/gjdoc' -prune -o \
 @CREATE_GJDOC_FALSE@	-path '*gnu/classpath/tools/doclets' -prune -o \
+@CREATE_GJDOC_FALSE@	-path '*gnu/classpath/tools/taglets' -prune -o \
 @CREATE_GJDOC_FALSE@	-path '*com/sun/javadoc' -prune -o \
 @CREATE_GJDOC_FALSE@	-path '*com/sun/tools/doclets' -prune -o \
 @CREATE_GJDOC_FALSE@	-path '*com/sun/tools/javadoc' -prune -o
