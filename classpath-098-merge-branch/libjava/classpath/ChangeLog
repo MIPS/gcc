@@ -1,15 +1,380 @@
+2008-09-13  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* examples/Makefile.am,
+	* lib/Makefile.am:
+	Add GCJ rules.
+	* m4/ac_prog_javac.m4:
+	Check whether JAVAC is gcj.
+	* m4/ac_prog_javac_works.m4:
+	Add GCJ rules.
+	* m4/acinclude.m4:
+	Don't bother checking for -J
+	if using GCJ.
+	* tools/Makefile.am:
+	Add GCJ rules.
+
+2008-02-07  Ian Rogers  <ian.rogers@manchester.ac.uk>
+
+	* java/util/zip/ZipEntry.java:
+	Use byte fields instead of integer fields,
+	store the time as well as the DOS time and
+	don't retain a global Calendar instance.
+	(setDOSTime(int)): Set KNOWN_DOSTIME instead
+	of KNOWN_TIME, and unset KNOWN_TIME.
+	(getDOSTime()): Compute DOS time from UNIX time
+	only when needed.
+	(clone()): Provide cloning via the ZipEntry constructor
+	where possible.
+	(setTime(long)): Don't compute DOS time at this point.
+	(getCalendar()): Removed.
+	
+2008-09-09  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* tools/gnu/classpath/tools/getopt/Parser.java:
+	(setHeader(String)): Make synchronized.
+	(setFooter(String)): Likewise.
+	* tools/gnu/classpath/tools/rmic/SourceGiopRmicCompiler.java,
+	(reset()): Make synchronized.
+	(name(Class)): Likewise.
+	
+2008-09-04  Robert Schuster  <robertschuster@fsfe.org>
+
+	* gnu/java/nio/charset/ByteDecodeLoopHelper:
+	(arrayDecodeLoop): Added new break label, escape to that label.
+	* gnu/java/nio/charset/ByteEncodeLoopHelper:
+	(arrayDecodeLoop): Added new break label, escape to that label.
+
+2008-09-04  Robert Schuster  <robertschuster@fsfe.org>
+
+	* java/text/DecimalFormat.java:
+	(scanFix): Use 'i + 1' when looking at following character.
+	(scanNegativePattern): Dito.
+
+2008-09-02  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* tools/gnu/classpath/tools/javah/ClassWrapper.java:
+	(makeVtable()): Populate methodNameMap.
+	(printMethods(CniPrintStream)): Always use pre-populated
+	methodNameMap for bridge targets.
+
+2008-09-01  Mario Torre  <neugens@aicas.com>
+
+	* gnu/java/awt/peer/x/XImage.java (XImageProducer): remove @Override
+	annotation to allow compilation on javac < 1.6 and ecj < 3.4.
+
+2008-09-01  Mario Torre  <neugens@aicas.com>
+
+	* gnu/java/awt/peer/x/XGraphicsDevice.java (getDisplay): fix to support
+	new Escher API.
+	* gnu/java/awt/peer/x/XImage.java (getSource): method implemented.
+	* gnu/java/awt/peer/x/XImage.java (XImageProducer): implement ImageProducer
+	for getSource.
+	 
+2008-09-01  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* gnu/java/util/regex/BacktrackStack.java,
+	* gnu/java/util/regex/CharIndexed.java,
+	* gnu/java/util/regex/CharIndexedCharArray.java,
+	* gnu/java/util/regex/CharIndexedCharSequence.java,
+	* gnu/java/util/regex/CharIndexedInputStream.java,
+	* gnu/java/util/regex/CharIndexedString.java,
+	* gnu/java/util/regex/CharIndexedStringBuffer.java,
+	* gnu/java/util/regex/RE.java,
+	* gnu/java/util/regex/REException.java,
+	* gnu/java/util/regex/REFilterInputStream.java,
+	* gnu/java/util/regex/REMatch.java,
+	* gnu/java/util/regex/REMatchEnumeration.java,
+	* gnu/java/util/regex/RESyntax.java,
+	* gnu/java/util/regex/REToken.java,
+	* gnu/java/util/regex/RETokenAny.java,
+	* gnu/java/util/regex/RETokenBackRef.java,
+	* gnu/java/util/regex/RETokenChar.java,
+	* gnu/java/util/regex/RETokenEnd.java,
+	* gnu/java/util/regex/RETokenEndOfPreviousMatch.java,
+	* gnu/java/util/regex/RETokenEndSub.java,
+	* gnu/java/util/regex/RETokenIndependent.java,
+	* gnu/java/util/regex/RETokenLookAhead.java,
+	* gnu/java/util/regex/RETokenLookBehind.java,
+	* gnu/java/util/regex/RETokenNamedProperty.java,
+	* gnu/java/util/regex/RETokenOneOf.java,
+	* gnu/java/util/regex/RETokenPOSIX.java,
+	* gnu/java/util/regex/RETokenRange.java,
+	* gnu/java/util/regex/RETokenRepeated.java,
+	* gnu/java/util/regex/RETokenStart.java,
+	* gnu/java/util/regex/RETokenWordBoundary.java,
+	* gnu/java/util/regex/UncheckedRE.java:
+	Fix indentation.
+
+2008-09-01  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* gnu/java/util/regex/RETokenStart.java:
+	(getMaximumLength()): Add Override annotation.
+	(matchThis(CharIndexed, REMatch)): Likewise.
+	(returnsFixedLengthMatches()): Renamed from
+	returnsFixedLengthmatches and added Override
+	annotation.
+	(findFixedLengthMatches(CharIndexed,REMatch,int)):
+	Add Override annotation.
+	(dump(CPStringBuilder)): Likewise.
+	* gnu/javax/print/ipp/IppRequest.java:
+	(RequestWriter.writeOperationAttributes(AttributeSet)):
+	Throw exception, don't just create and drop it.
+	* javax/management/MBeanServerPermission.java:
+	(MBeanServerPermissionCollection.add(Permission)): Compare
+	against individual Strings not the entire array, and
+	store the result of replace.
+	* javax/swing/text/html/StyleSheet.java:
+	(setBaseFontSize(size)): Store result of trim().
+
+2008-09-01  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* javax/tools/FileObject.java:
+	(openReader(boolean)): Document new parameter.
+	
+2008-03-27  Michael Franz  <mvfranz@gmail.com>
+
+	PR classpath/35690:
+	* javax/tools/FileObject.java:
+	(toUri()): Fix case from toURI.
+	(openReader(boolean)): Add missing boolean argument.
+	
+2008-08-26  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/35487:
+	* gnu/javax/management/Server.java:
+	(beans): Change to ConcurrentHashMap.
+	(defaultDomain): Make final.
+	(outer): Likewise.
+	(LazyListenersHolder): Added to wrap
+	listeners, also now a ConcurrentHashMap,
+	providing lazy initialisation safely.
+	(sequenceNumber): Documented.
+	(getBean(ObjectName)): Remove redundant cast.
+	(addNotificationListener(ObjectName,NotificationListener,
+	NotificationFilter,Object)): Remove map initialisation
+	and use holder.
+	(getObjectInstance(ObjectName)): Remove redundant cast.
+	(registerMBean(Object,ObjectName)): Add bean atomically.
+	(removeNotificationListener(ObjectName,NotificationListener)):
+	Simplified.
+	(removeNotificationListener(ObjectName,NotificationListener,
+	NotificationFilter,Object)): Likewise.
+	(notify(ObjectName,String)): Documented.
+	
+2008-08-26  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* gnu/javax/management/Server.java:
+	Genericised.
+
+2008-08-26  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* gnu/javax/management/Translator.java:
+	Genericised.
+
+2008-08-26  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* javax/management/DefaultLoaderRepository.java,
+	* javax/management/JMX.java,
+	* javax/management/MBeanAttributeInfo.java,
+	* javax/management/MBeanConstructorInfo.java,
+	* javax/management/MBeanOperationInfo.java,
+	* javax/management/MBeanServerDelegate.java:
+	Fix warnings due to generics.
+
+2008-08-25  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* javax/management/MBeanPermission.java,
+	* javax/management/MBeanServerDelegate.java,
+	* javax/management/MBeanServerFactory.java,
+	* javax/management/MBeanServerInvocationHandler.java,
+	* javax/management/MBeanServerPermission.java:
+	Fix warnings due to use of non-generic collections.
+
+2008-08-25  Mario Torre  <neugens@aicas.com>
+
+	* gnu/javax/rmi/CORBA/RmiUtilities.java (readValue): check if sender is
+	null to avoid NPE.
+	
+2008-08-22  Mario Torre  <neugens@aicas.com>
+ 
+	* gnu/CORBA/OrbFunctional.java (set_parameters): Fix
+	NullPointerException checking when param is null. 
+
+2008-08-23  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* java/util/regex/Matcher.java:
+	(reset()): Reset append position so
+	we don't try and append to the end of
+	the old input.
+	
+2008-08-22  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/32028:
+	* m4/acinclude.m4:
+	Also allow versions of GJDoc from 0.8* on, as
+	CVS is 0.8.0-pre.
+	
+2008-08-21  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/32028:
+	* m4/acinclude.m4:
+	(CLASSPATH_WITH_GJDOC): Ensure version 0.7.9 is
+	being used.
+	
 2008-08-20  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
 	* tools/Makefile.am:
 	Add taglets subdirectory to list of excluded
 	paths when GJDoc is not compiled.
+	
+2008-08-19  David P Grove  <groved@us.ibm.com>
 
+	* scripts/check_jni_methods.sh.in:
+	Fix build issue on AIX by splitting generation
+	of method list.
+	
 2008-08-18  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
 	* native/jni/gstreamer-peer/gst_native_pipeline.c:
 	(get_free_space(int)): Use #else not #elif when
 	there is no condition.
 
+2008-08-17  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/31895:
+	* java/text/DecimalFormat.java:
+	(setCurrency(Currency)): Update prefixes and
+	suffixes when currency changes.
+	* java/text/DecimalFormatSymbols.java:
+	(DecimalFormatSymbols(Locale)): Set locale earlier
+	so it can be used by setCurrency(Currency).
+	(setCurrency(Currency)): Set the symbol correctly using
+	the locale of the instance.
+	* java/util/Currency.java:
+	Throw error instead of just printing a message.
+
+2008-08-17  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* javax/activation/ActivationDataFlavor.java:
+	Suppress warnings from public API.
+	(mimeType): Made final.
+	(representationClass): Added generic type and
+	made final.
+	(normalizeMimeTypeParameter(String,String)):
+	Use CPStringBuilder.
+	* javax/activation/CommandInfo.java:
+	(verb): Made final.
+	(className): Made final.
+	* javax/activation/DataHandler.java:
+	(dataSource): Made final.
+	* javax/activation/FileDataSource.java:
+	(file): Made final.
+	* javax/activation/MailcapCommandMap.java:
+	Use generics on collections and CPStringBuilder
+	instead of StringBuffer.
+	* javax/activation/MimeType.java:
+	(toString()): Use CPStringBuilder.
+	(getBaseType()): Likewise.
+	* javax/activation/MimeTypeParameterList.java:
+	Use generics on collections and CPStringBuilder
+	instead of StringBuffer.
+	* javax/activation/MimeTypeParseException.java:
+	(MimeTypeParseException(String,String)): Use
+	CPStringBuilder.
+	* javax/activation/MimetypesFileTypeMap.java:
+	Use generics on collections and CPStringBuilder
+	instead of StringBuffer.	
+	* javax/activation/URLDataSource.java:
+	(url): Made final.
+
+2008-08-17  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* gnu/javax/activation/viewers/ImageViewer.java,
+	* gnu/javax/activation/viewers/TextEditor.java,
+	* gnu/javax/activation/viewers/TextViewer.java,
+	* javax/activation/ActivationDataFlavor.java,
+	* javax/activation/CommandInfo.java,
+	* javax/activation/CommandMap.java,
+	* javax/activation/CommandObject.java,
+	* javax/activation/DataContentHandler.java,
+	* javax/activation/DataContentHandlerFactory.java,
+	* javax/activation/DataHandler.java,
+	* javax/activation/DataHandlerDataSource.java,
+	* javax/activation/DataSource.java,
+	* javax/activation/DataSourceDataContentHandler.java,
+	* javax/activation/FileDataSource.java,
+	* javax/activation/FileTypeMap.java,
+	* javax/activation/MailcapCommandMap.java,
+	* javax/activation/MimeType.java,
+	* javax/activation/MimeTypeParameterList.java,
+	* javax/activation/MimeTypeParseException.java,
+	* javax/activation/MimetypesFileTypeMap.java,
+	* javax/activation/ObjectDataContentHandler.java,
+	* javax/activation/URLDataSource.java,
+	* javax/activation/UnsupportedDataTypeException.java,
+	* javax/activation/package.html,
+	* resource/META-INF/mailcap.default,
+	* resource/META-INF/mimetypes.default:
+	Import GNU JAF CVS as of 17/08/2008.
+
+2006-04-25  Archit Shah  <ashah@redhat.com>
+
+	* javax/activation/MimeTypeParameterList.java:
+	Insert ';' separator before parameter list.
+
+2005-06-29  Xavier Poinsard  <xpoinsard@openpricer.com>
+
+	* javax/activation/ObjectDataContentHandler.java:
+	Fixed typo.
+
+2005-05-28  Chris Burdess  <dog@bluezoo.org>
+
+	* javax/activation/CommandMap.java, 
+	* javax/activation/MailcapCommandMap.java:
+	Updated to JAF 1.1.
+
+2004-06-09  Chris Burdess  <dog@bluezoo.org>
+
+	* javax/activation/MailcapCommandMap.java:
+	Fixed bug whereby x-java prefix was not
+	attempted.
+
+2008-08-17  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* AUTHORS: Added Laszlo.
+
+2008-04-20  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/30436:
+	* java/util/Scanner.java:
+	Fix package to be java.util and correct
+	indentation.
+
+2007-07-25  Laszlo Andras Hernadi  <e0327023@student.tuwien.ac.at>
+
+	PR classpath/30436:
+	* java/util/Scanner.java:
+	Initial implementation.
+
+2008-08-17  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* java/util/regex/Matcher.java:
+	(toMatchResult()): Implemented.
+	
+2008-08-13  Joshua Sumali  <jsumali@redhat.com>
+
+	* doc/Makefile.am (gjdoc.pod): Generate gjdoc pod from cp-tools.texinfo
+	instead of invoke.texi. Remove invoke.texi from EXTRA_DIST.
+	* doc/invoke.texi: Removed and merged into ...
+	* doc/cp-tools.texinfo: Here
+
+2008-08-12  Robert Schuster  <robertschuster@fsfe.org>
+
+	* native/jni/java-net/local.c
+	(local_bind): Removed fprintf call, fixed access outside
+	of array bounds.
+
+>>>>>>> .merge-right.r140359
 2008-07-15  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* m4/acinclude.m4 (CLASSPATH_COND_IF): New macro.

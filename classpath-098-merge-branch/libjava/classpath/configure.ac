@@ -997,9 +997,10 @@ if test "x${TOOLSDIR}" != x; then
   if test "x${COMPILE_WRAPPERS}" = xno; then
     AC_PROG_JAVA
   fi
-  if test "x${COMPILE_GJDOC}" = xyes; then
-    AC_PROG_ANTLR(2,7,1)
-  fi
+fi
+
+if test "x${COMPILE_GJDOC}" = xyes; then
+  AC_PROG_ANTLR(2,7,1)
 fi
 
 # Check for javac if we need to build either the class library,

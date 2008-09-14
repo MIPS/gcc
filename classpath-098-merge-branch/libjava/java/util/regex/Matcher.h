@@ -61,6 +61,7 @@ public:
   ::java::util::regex::Matcher * useTransparentBounds(jboolean);
   jboolean hasAnchoringBounds();
   ::java::util::regex::Matcher * useAnchoringBounds(jboolean);
+  ::java::util::regex::MatchResult * toMatchResult();
 private:
   ::java::util::regex::Pattern * __attribute__((aligned(__alignof__( ::java::lang::Object)))) pattern__;
   ::java::lang::CharSequence * input;

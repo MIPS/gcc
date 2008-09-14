@@ -2130,6 +2130,20 @@ gnu/java/util/regex.list: $(gnu_java_util_regex_source_files)
 -include gnu/java/util/regex.deps
 
 
+gnu_javax_activation_viewers_source_files = \
+classpath/gnu/javax/activation/viewers/ImageViewer.java \
+classpath/gnu/javax/activation/viewers/TextEditor.java \
+classpath/gnu/javax/activation/viewers/TextViewer.java
+
+gnu_javax_activation_viewers_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_activation_viewers_source_files)))
+
+gnu/javax/activation/viewers.list: $(gnu_javax_activation_viewers_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo $(srcdir)/classpath/lib/gnu/javax/activation/viewers/*.class > gnu/javax/activation/viewers.list
+
+-include gnu/javax/activation/viewers.deps
+
+
 gnu_javax_crypto_source_files = \
 classpath/gnu/javax/crypto/RSACipherImpl.java
 
@@ -5528,6 +5542,7 @@ classpath/external/jsr166/java/util/Queue.java \
 classpath/java/util/Random.java \
 classpath/java/util/RandomAccess.java \
 classpath/java/util/ResourceBundle.java \
+classpath/java/util/Scanner.java \
 classpath/java/util/ServiceConfigurationError.java \
 classpath/java/util/ServiceLoader.java \
 classpath/java/util/Set.java \
@@ -5817,6 +5832,37 @@ javax/accessibility.list: $(javax_accessibility_source_files)
 	echo $(srcdir)/classpath/lib/javax/accessibility/*.class > javax/accessibility.list
 
 -include javax/accessibility.deps
+
+
+javax_activation_source_files = \
+classpath/javax/activation/ActivationDataFlavor.java \
+classpath/javax/activation/CommandInfo.java \
+classpath/javax/activation/CommandMap.java \
+classpath/javax/activation/CommandObject.java \
+classpath/javax/activation/DataContentHandler.java \
+classpath/javax/activation/DataContentHandlerFactory.java \
+classpath/javax/activation/DataHandler.java \
+classpath/javax/activation/DataHandlerDataSource.java \
+classpath/javax/activation/DataSource.java \
+classpath/javax/activation/DataSourceDataContentHandler.java \
+classpath/javax/activation/FileDataSource.java \
+classpath/javax/activation/FileTypeMap.java \
+classpath/javax/activation/MailcapCommandMap.java \
+classpath/javax/activation/MimeType.java \
+classpath/javax/activation/MimeTypeParameterList.java \
+classpath/javax/activation/MimeTypeParseException.java \
+classpath/javax/activation/MimetypesFileTypeMap.java \
+classpath/javax/activation/ObjectDataContentHandler.java \
+classpath/javax/activation/URLDataSource.java \
+classpath/javax/activation/UnsupportedDataTypeException.java
+
+javax_activation_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_activation_source_files)))
+
+javax/activation.list: $(javax_activation_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo $(srcdir)/classpath/lib/javax/activation/*.class > javax/activation.list
+
+-include javax/activation.deps
 
 
 javax_activity_source_files = \
@@ -8658,6 +8704,7 @@ all_packages_source_files = \
   gnu/java/util/jar.list \
   gnu/java/util/prefs.list \
   gnu/java/util/regex.list \
+  gnu/javax/activation/viewers.list \
   gnu/javax/crypto.list \
   gnu/javax/crypto/assembly.list \
   gnu/javax/crypto/cipher.list \
@@ -8776,6 +8823,7 @@ all_packages_source_files = \
   java/util/spi.list \
   java/util/zip.list \
   javax/accessibility.list \
+  javax/activation.list \
   javax/activity.list \
   javax/crypto.list \
   javax/crypto/interfaces.list \
@@ -8909,6 +8957,7 @@ ordinary_header_files = \
   $(gnu_java_util_jar_header_files) \
   $(gnu_java_util_prefs_header_files) \
   $(gnu_java_util_regex_header_files) \
+  $(gnu_javax_activation_viewers_header_files) \
   $(gnu_javax_crypto_header_files) \
   $(gnu_javax_crypto_assembly_header_files) \
   $(gnu_javax_crypto_cipher_header_files) \
@@ -9022,6 +9071,7 @@ ordinary_header_files = \
   $(java_util_spi_header_files) \
   $(java_util_zip_header_files) \
   $(javax_accessibility_header_files) \
+  $(javax_activation_header_files) \
   $(javax_activity_header_files) \
   $(javax_crypto_header_files) \
   $(javax_crypto_interfaces_header_files) \

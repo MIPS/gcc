@@ -157,6 +157,8 @@ FGREP = @FGREP@
 FIND = @FIND@
 FREETYPE2_CFLAGS = @FREETYPE2_CFLAGS@
 FREETYPE2_LIBS = @FREETYPE2_LIBS@
+GCJ_JAVAC_FALSE = @GCJ_JAVAC_FALSE@
+GCJ_JAVAC_TRUE = @GCJ_JAVAC_TRUE@
 GCONF_CFLAGS = @GCONF_CFLAGS@
 GCONF_LIBS = @GCONF_LIBS@
 GDK_CFLAGS = @GDK_CFLAGS@
@@ -192,6 +194,7 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAR = @JAR@
 JAVA = @JAVA@
 JAVAC = @JAVAC@
+JAVAC_IS_GCJ = @JAVAC_IS_GCJ@
 JAVAC_MEM_OPT = @JAVAC_MEM_OPT@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAVA_MAINTAINER_MODE_FALSE = @JAVA_MAINTAINER_MODE_FALSE@
@@ -266,6 +269,7 @@ X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
 X_PRE_LIBS = @X_PRE_LIBS@
 ZIP = @ZIP@
+ac_ct_ANTLR = @ac_ct_ANTLR@
 ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -323,9 +327,10 @@ uudecode = @uudecode@
 vm_classes = @vm_classes@
 JAVA_DEPEND = java.dep
 compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:$(top_srcdir)/external/jsr166:.:$(PATH_TO_GLIBJ_ZIP):$(PATH_TO_ESCHER)
+@GCJ_JAVAC_FALSE@JCOMPILER = $(JAVAC) $(JAVACFLAGS) $(JAVAC_MEM_OPT) -source 1.5 -target 1.5 -bootclasspath '' -classpath $(compile_classpath) -d . @classes
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
-JCOMPILER = $(JAVAC) -g -w --encoding=UTF-8 -bootclasspath '' --classpath $(compile_classpath) -d $(srcdir) @classes
+@GCJ_JAVAC_TRUE@JCOMPILER = $(JAVAC) $(JAVACFLAGS) -fsource=1.5 -ftarget=1.5 --bootclasspath='' --classpath=$(compile_classpath) -d $(srcdir) @classes
 @CREATE_COLLECTIONS_TRUE@COLLECTIONS = collections.jar
 @CREATE_COLLECTIONS_TRUE@@WITH_JAR_FALSE@CREATE_COLLECTIONS_JAR = $(ZIP) -r -D $@ $(COLLECTIONS_PREFIX) > /dev/null
 @CREATE_COLLECTIONS_TRUE@@WITH_JAR_TRUE@CREATE_COLLECTIONS_JAR = $(JAR) cf $@ $(COLLECTIONS_PREFIX)

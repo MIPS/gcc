@@ -2,17 +2,18 @@
 
 ## GCJ LOCAL: use srcdir to find core classes.
 GLIBJ_BOOTCLASSPATH='$(top_srcdir)/lib'
-GLIBJ_CLASSPATH=.:$(srcdir)/asm
+GLIBJ_CLASSPATH=.:$(srcdir)/asm$(ANTLR_CLASSPATH)
 ## END GCJ LOCAL
 
-# Setup the compiler to use the GNU Classpath library we just build
-## GCJ LOCAL: don't pass $(JAVACFLAGS) -source 1.5 -target 1.5
-JCOMPILER = $(JAVAC) -g -w --encoding=UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH)
+# Setup the compiler to use the GNU Classpath library we just built.
+if GCJ_JAVAC
+JCOMPILER = $(JAVAC) $(JAVACFLAGS) -fsource=1.5 -ftarget=1.5 --encoding=UTF-8 --bootclasspath=$(GLIBJ_BOOTCLASSPATH) --classpath=$(GLIBJ_CLASSPATH)
+else
+JCOMPILER = $(JAVAC) $(JAVACFLAGS) -source 1.5 -target 1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH)
+endif
 
 if CREATE_GJDOC
-USE_JAVAC_FLAGS = -classpath $(CLASSPATH):$(srcdir):$(ANTLR_JAR):generated:. $(JAVAC_FLAGS)
-else
-USE_JAVAC_FLAGS = -classpath $(CLASSPATH):$(srcdir):. $(JAVAC_FLAGS)
+ANTLR_CLASSPATH = :$(ANTLR_JAR)
 endif
 
 if CREATE_WRAPPERS
@@ -342,7 +343,7 @@ endif
 ## Compile ASM separately as it is latin-1 encoded.
 	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
 	  $$AC -g -w -d $(srcdir)/asm @asm.lst
-	$(JCOMPILER) -g -w -d $(srcdir)/classes @classes.lst @vm-tools.lst
+	$(JCOMPILER) $(USE_JAVAC_FLAGS) -g -d $(srcdir)/classes @classes.lst @vm-tools.lst
 ## Copy over tools resource files.
 	@list=`cd $(srcdir)/resource && find gnu/classpath/tools com/sun/tools/javac \
 	       sun/rmi/rmic $(GJDOC_EX) -name \*.properties -print -o -name \*.jav -print`; \

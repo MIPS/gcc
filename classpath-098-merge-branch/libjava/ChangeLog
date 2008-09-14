@@ -1,3 +1,15 @@
+2008-09-14  Matthias Klose  <doko@ubuntu.com>
+
+	Import GNU Classpath (libgcj-import-20080914).
+
+	* Regenerate class and header files.
+	* Regenerate auto* files.
+	* configure.ac: Don't pass --disable-gjdoc to classpath.
+	* sources.am: Regenerated.
+	* HACKING: Mention to build gjdoc in maintainer builds.
+	* gnu/classpath/Configuration.java: Update classpath version.
+	* gcj/javaprims.h: Update.
+
 2008-09-08  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
 	* Makefile.am: Replace natStringBuffer.cc

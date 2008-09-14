@@ -1,6 +1,6 @@
 SUBDIRS = api
 
-EXTRA_DIST = README.jaxp texi2pod.pl invoke.texi $(man_MANS)
+EXTRA_DIST = README.jaxp texi2pod.pl $(man_MANS)
 
 ## GCJ LOCAL: we don't want to install all of Classpath's info files.
 ## info_TEXINFOS = cp-hacking.texinfo cp-vmintegration.texinfo cp-tools.texinfo
@@ -85,7 +85,7 @@ gserialver.pod: $(srcdir)/cp-tools.texinfo
 gtnameserv.pod: $(srcdir)/cp-tools.texinfo
 	-$(TEXI2POD) -D gtnameserv < $< > $@
 
-gjdoc.pod: $(srcdir)/invoke.texi
+gjdoc.pod: $(srcdir)/cp-tools.texinfo
 	-$(TEXI2POD) -D gjdoc < $< > $@
 
 # GCJ LOCAL CHANGE

@@ -38,7 +38,7 @@ public: // actually package-private
   RETokenStart(jint, ::java::lang::String *, jboolean);
   virtual jint getMaximumLength();
   virtual ::gnu::java::util::regex::REMatch * matchThis(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
-  virtual jboolean returnsFixedLengthmatches();
+  virtual jboolean returnsFixedLengthMatches();
   virtual jint findFixedLengthMatches(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *, jint);
   virtual void dump(::gnu::java::lang::CPStringBuilder *);
 private:

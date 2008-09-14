@@ -177,6 +177,8 @@ FGREP = @FGREP@
 FIND = @FIND@
 FREETYPE2_CFLAGS = @FREETYPE2_CFLAGS@
 FREETYPE2_LIBS = @FREETYPE2_LIBS@
+GCJ_JAVAC_FALSE = @GCJ_JAVAC_FALSE@
+GCJ_JAVAC_TRUE = @GCJ_JAVAC_TRUE@
 GCONF_CFLAGS = @GCONF_CFLAGS@
 GCONF_LIBS = @GCONF_LIBS@
 GDK_CFLAGS = @GDK_CFLAGS@
@@ -212,6 +214,7 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAR = @JAR@
 JAVA = @JAVA@
 JAVAC = @JAVAC@
+JAVAC_IS_GCJ = @JAVAC_IS_GCJ@
 JAVAC_MEM_OPT = @JAVAC_MEM_OPT@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAVA_MAINTAINER_MODE_FALSE = @JAVA_MAINTAINER_MODE_FALSE@
@@ -286,6 +289,7 @@ X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
 X_PRE_LIBS = @X_PRE_LIBS@
 ZIP = @ZIP@
+ac_ct_ANTLR = @ac_ct_ANTLR@
 ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -342,7 +346,7 @@ toolexeclibdir = @toolexeclibdir@
 uudecode = @uudecode@
 vm_classes = @vm_classes@
 SUBDIRS = api
-EXTRA_DIST = README.jaxp texi2pod.pl invoke.texi $(man_MANS)
+EXTRA_DIST = README.jaxp texi2pod.pl $(man_MANS)
 TEXINFO_TEX = ../../gcc/doc/include/texinfo.tex
 info_TEXINFOS = cp-tools.texinfo
 man_MANS = $(TOOLS_MANFILES)
@@ -940,7 +944,7 @@ gserialver.pod: $(srcdir)/cp-tools.texinfo
 gtnameserv.pod: $(srcdir)/cp-tools.texinfo
 	-$(TEXI2POD) -D gtnameserv < $< > $@
 
-gjdoc.pod: $(srcdir)/invoke.texi
+gjdoc.pod: $(srcdir)/cp-tools.texinfo
 	-$(TEXI2POD) -D gjdoc < $< > $@
 
 all-local: $(STAMP_GENINSRC) 

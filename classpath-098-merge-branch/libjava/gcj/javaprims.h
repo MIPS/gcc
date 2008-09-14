@@ -520,6 +520,7 @@ extern "Java"
       class ResourceBundle;
       class ResourceBundle$1;
       class ResourceBundle$BundleKey;
+      class Scanner;
       class ServiceConfigurationError;
       class ServiceLoader;
       class ServiceLoader$1;
@@ -851,6 +852,7 @@ extern "Java"
       }
     }
   }
+  // end of output of the `classes.pl' script.
 }
   
 typedef struct java::lang::Object* jobject;

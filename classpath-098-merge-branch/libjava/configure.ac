@@ -429,8 +429,6 @@ ac_configure_args="$ac_configure_args --disable-regen-headers"
 ac_configure_args="$ac_configure_args --disable-Werror"
 dnl --with-gcj=$GCJ
 dnl --with-javah=$GCJH
-dnl FIXME: make gjdoc configurable
-ac_configure_args="$ac_configure_args --disable-gjdoc"
 dnl gtk-cairo -- just export here...
 dnl --enable-regen-headers?
 
