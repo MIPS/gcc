@@ -262,10 +262,10 @@ type_after_usual_arithmetic_conversions (tree t1, tree t2)
   /* FIXME: Attributes.  */
   gcc_assert (ARITHMETIC_TYPE_P (t1)
 	      || TREE_CODE (t1) == VECTOR_TYPE
-	      || TREE_CODE (t1) == ENUMERAL_TYPE);
+	      || UNSCOPED_ENUM_P (t1));
   gcc_assert (ARITHMETIC_TYPE_P (t2)
 	      || TREE_CODE (t2) == VECTOR_TYPE
-	      || TREE_CODE (t2) == ENUMERAL_TYPE);
+	      || UNSCOPED_ENUM_P (t2));
 
   /* In what follows, we slightly generalize the rules given in [expr] so
      as to deal with `long long' and `complex'.  First, merge the
@@ -512,7 +512,7 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       tree result_type;
 
       if (TYPE_PTRFN_P (t2) && (complain & tf_error))
-	pedwarn (OPT_pedantic, "ISO C++ forbids %s "
+	pedwarn (input_location, OPT_pedantic, "ISO C++ forbids %s "
 		 "between pointer of type %<void *%> and pointer-to-function",
 		 location);
       result_type
@@ -764,9 +764,9 @@ common_type (tree t1, tree t2)
   code1 = TREE_CODE (t1);
   code2 = TREE_CODE (t2);
 
-  if ((ARITHMETIC_TYPE_P (t1) || code1 == ENUMERAL_TYPE
+  if ((ARITHMETIC_TYPE_P (t1) || UNSCOPED_ENUM_P (t1)
        || code1 == VECTOR_TYPE)
-      && (ARITHMETIC_TYPE_P (t2) || code2 == ENUMERAL_TYPE
+      && (ARITHMETIC_TYPE_P (t2) || UNSCOPED_ENUM_P (t2)
 	  || code2 == VECTOR_TYPE))
     return type_after_usual_arithmetic_conversions (t1, t2);
 
@@ -1280,7 +1280,7 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
   if (TREE_CODE (type) == METHOD_TYPE)
     {
       if (complain)
-	pedwarn (pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
+	pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
 		 "invalid application of %qs to a member function", 
 		 operator_name_info[(int) op].name);
       value = size_one_node;
@@ -1666,7 +1666,7 @@ default_conversion (tree exp)
   /* Perform the integral promotions first so that bitfield
      expressions (which may promote to "int", even if the bitfield is
      declared "unsigned") are promoted correctly.  */
-  if (INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (exp)))
+  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (exp)))
     exp = perform_integral_promotions (exp);
   /* Perform the other conversions.  */
   exp = decay_conversion (exp);
@@ -2405,7 +2405,8 @@ build_x_indirect_ref (tree expr, const char *errorstring,
 
 /* Helper function called from c-common.  */
 tree
-build_indirect_ref (tree ptr, const char *errorstring)
+build_indirect_ref (tree ptr, const char *errorstring, 
+		    location_t loc __attribute__ ((__unused__)))
 {
   return cp_build_indirect_ref (ptr, errorstring, tf_warning_or_error);
 }
@@ -2505,14 +2506,18 @@ cp_build_indirect_ref (tree ptr, const char *errorstring,
 
    If INDEX is of some user-defined type, it must be converted to
    integer type.  Otherwise, to make a compatible PLUS_EXPR, it
-   will inherit the type of the array, which will be some pointer type.  */
+   will inherit the type of the array, which will be some pointer type.
+   
+   LOC is the location to use in building the array reference.  */
 
 tree
-build_array_ref (tree array, tree idx)
+build_array_ref (tree array, tree idx, location_t loc)
 {
+  tree ret;
+
   if (idx == 0)
     {
-      error ("subscript missing in array reference");
+      error_at (loc, "subscript missing in array reference");
       return error_mark_node;
     }
 
@@ -2526,17 +2531,21 @@ build_array_ref (tree array, tree idx)
     {
     case COMPOUND_EXPR:
       {
-	tree value = build_array_ref (TREE_OPERAND (array, 1), idx);
-	return build2 (COMPOUND_EXPR, TREE_TYPE (value),
-		       TREE_OPERAND (array, 0), value);
+	tree value = build_array_ref (TREE_OPERAND (array, 1), idx, loc);
+	ret = build2 (COMPOUND_EXPR, TREE_TYPE (value),
+		      TREE_OPERAND (array, 0), value);
+	SET_EXPR_LOCATION (ret, loc);
+	return ret;
       }
 
     case COND_EXPR:
-      return build_conditional_expr
-	(TREE_OPERAND (array, 0),
-	 build_array_ref (TREE_OPERAND (array, 1), idx),
-	 build_array_ref (TREE_OPERAND (array, 2), idx),
-         tf_warning_or_error);
+      ret = build_conditional_expr
+	      (TREE_OPERAND (array, 0),
+	      build_array_ref (TREE_OPERAND (array, 1), idx, loc),
+	      build_array_ref (TREE_OPERAND (array, 2), idx, loc),
+	      tf_warning_or_error);
+      SET_EXPR_LOCATION (ret, loc);
+      return ret;
 
     default:
       break;
@@ -2548,9 +2557,9 @@ build_array_ref (tree array, tree idx)
 
       warn_array_subscript_with_type_char (idx);
 
-      if (!INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (idx)))
+      if (!INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (idx)))
 	{
-	  error ("array subscript is not an integer");
+	  error_at (loc, "array subscript is not an integer");
 	  return error_mark_node;
 	}
 
@@ -2587,7 +2596,8 @@ build_array_ref (tree array, tree idx)
 	}
 
       if (!lvalue_p (array))
-	pedwarn (OPT_pedantic, "ISO C++ forbids subscripting non-lvalue array");
+	pedwarn (loc, OPT_pedantic, 
+	         "ISO C++ forbids subscripting non-lvalue array");
 
       /* Note in C++ it is valid to subscript a `register' array, since
 	 it is valid to take the address of something with that
@@ -2598,7 +2608,8 @@ build_array_ref (tree array, tree idx)
 	  while (TREE_CODE (foo) == COMPONENT_REF)
 	    foo = TREE_OPERAND (foo, 0);
 	  if (TREE_CODE (foo) == VAR_DECL && DECL_REGISTER (foo))
-	    warning (OPT_Wextra, "subscripting array declared %<register%>");
+	    warning_at (loc, OPT_Wextra,
+			"subscripting array declared %<register%>");
 	}
 
       type = TREE_TYPE (TREE_TYPE (array));
@@ -2611,7 +2622,9 @@ build_array_ref (tree array, tree idx)
 	|= (CP_TYPE_VOLATILE_P (type) | TREE_SIDE_EFFECTS (array));
       TREE_THIS_VOLATILE (rval)
 	|= (CP_TYPE_VOLATILE_P (type) | TREE_THIS_VOLATILE (array));
-      return require_complete_type (fold_if_not_in_template (rval));
+      ret = require_complete_type (fold_if_not_in_template (rval));
+      SET_EXPR_LOCATION (ret, loc);
+      return ret;
     }
 
   {
@@ -2631,21 +2644,23 @@ build_array_ref (tree array, tree idx)
 
     if (TREE_CODE (TREE_TYPE (ar)) != POINTER_TYPE)
       {
-	error ("subscripted value is neither array nor pointer");
+	error_at (loc, "subscripted value is neither array nor pointer");
 	return error_mark_node;
       }
     if (TREE_CODE (TREE_TYPE (ind)) != INTEGER_TYPE)
       {
-	error ("array subscript is not an integer");
+	error_at (loc, "array subscript is not an integer");
 	return error_mark_node;
       }
 
     warn_array_subscript_with_type_char (idx);
 
-    return cp_build_indirect_ref (cp_build_binary_op (PLUS_EXPR, ar, ind,
-						   tf_warning_or_error),
-                                  "array indexing",
-                                  tf_warning_or_error);
+    ret = cp_build_indirect_ref (cp_build_binary_op (PLUS_EXPR, ar, ind,
+						     tf_warning_or_error),
+                                 "array indexing",
+                                 tf_warning_or_error);
+    protected_set_expr_location (ret, loc);
+    return ret;
   }
 }
 
@@ -2813,7 +2828,7 @@ cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
 
       /* Convert anything with function type to a pointer-to-function.  */
       if (DECL_MAIN_P (function) && (complain & tf_error))
-	pedwarn (OPT_pedantic, 
+	pedwarn (input_location, OPT_pedantic, 
 		 "ISO C++ forbids calling %<::main%> from within program");
 
       function = build_addr_func (function);
@@ -4009,7 +4024,7 @@ build_x_unary_op (enum tree_code code, tree xarg, tsubst_flags_t complain)
               error ("invalid use of %qE to form a pointer-to-member-function",
                      xarg);
               if (TREE_CODE (xarg) != OFFSET_REF)
-                inform ("  a qualified-id is required");
+                inform (input_location, "  a qualified-id is required");
 	      return error_mark_node;
 	    }
 	  else
@@ -5260,7 +5275,7 @@ convert_member_func_to_ptr (tree type, tree expr)
 	      || TREE_CODE (intype) == METHOD_TYPE);
 
   if (pedantic || warn_pmf2ptr)
-    pedwarn (pedantic ? OPT_pedantic : OPT_Wpmf_conversions,
+    pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpmf_conversions,
 	     "converting from %qT to %qT", intype, type);
 
   if (TREE_CODE (intype) == METHOD_TYPE)
@@ -7103,7 +7118,7 @@ comp_ptr_ttypes_const (tree to, tree from)
 int
 cp_type_quals (const_tree type)
 {
-  /* This CONST_CAST is okay because strip_array_types returns it's
+  /* This CONST_CAST is okay because strip_array_types returns its
      argument unmodified and we assign it to a const_tree.  */
   type = strip_array_types (CONST_CAST_TREE(type));
   if (type == error_mark_node)
@@ -7117,7 +7132,7 @@ cp_type_quals (const_tree type)
 bool
 cp_type_readonly (const_tree type)
 {
-  /* This CONST_CAST is okay because strip_array_types returns it's
+  /* This CONST_CAST is okay because strip_array_types returns its
      argument unmodified and we assign it to a const_tree.  */
   type = strip_array_types (CONST_CAST_TREE(type));
   return TYPE_READONLY (type);
@@ -7128,7 +7143,7 @@ cp_type_readonly (const_tree type)
 bool
 cp_has_mutable_p (const_tree type)
 {
-  /* This CONST_CAST is okay because strip_array_types returns it's
+  /* This CONST_CAST is okay because strip_array_types returns its
      argument unmodified and we assign it to a const_tree.  */
   type = strip_array_types (CONST_CAST_TREE(type));
 
@@ -7164,7 +7179,7 @@ cp_apply_type_quals_to_decl (int type_quals, tree decl)
       if (pedantic)
 	{
 	  tree bad_type = build_qualified_type (type, type_quals);
-	  pedwarn (OPT_pedantic, 
+	  pedwarn (input_location, OPT_pedantic, 
 		   "ignoring %qV qualifiers added to function type %qT",
 		   bad_type, type);
 	}

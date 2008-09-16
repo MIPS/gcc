@@ -1,3 +1,10 @@
+2008-09-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	Mainline merge @140208.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-09-16  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (reset_type_lang_specific): Re-implement

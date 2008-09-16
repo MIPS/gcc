@@ -173,6 +173,8 @@ struct cgraph_node_hook_list *first_cgraph_node_removal_hook;
 struct cgraph_2edge_hook_list *first_cgraph_edge_duplicated_hook;
 /* List of hooks triggered when a node is duplicated.  */
 struct cgraph_2node_hook_list *first_cgraph_node_duplicated_hook;
+/* List of hooks triggered when an function is inserted.  */
+struct cgraph_node_hook_list *first_cgraph_function_insertion_hook;
 
 
 /* Register HOOK to be called with DATA on each removed edge.  */
@@ -248,6 +250,46 @@ static void
 cgraph_call_node_removal_hooks (struct cgraph_node *node)
 {
   struct cgraph_node_hook_list *entry = first_cgraph_node_removal_hook;
+  while (entry)
+  {
+    entry->hook (node, entry->data);
+    entry = entry->next;
+  }
+}
+
+/* Register HOOK to be called with DATA on each removed node.  */
+struct cgraph_node_hook_list *
+cgraph_add_function_insertion_hook (cgraph_node_hook hook, void *data)
+{
+  struct cgraph_node_hook_list *entry;
+  struct cgraph_node_hook_list **ptr = &first_cgraph_function_insertion_hook;
+
+  entry = (struct cgraph_node_hook_list *) xmalloc (sizeof (*entry));
+  entry->hook = hook;
+  entry->data = data;
+  entry->next = NULL;
+  while (*ptr)
+    ptr = &(*ptr)->next;
+  *ptr = entry;
+  return entry;
+}
+
+/* Remove ENTRY from the list of hooks called on removing nodes.  */
+void
+cgraph_remove_function_insertion_hook (struct cgraph_node_hook_list *entry)
+{
+  struct cgraph_node_hook_list **ptr = &first_cgraph_function_insertion_hook;
+
+  while (*ptr != entry)
+    ptr = &(*ptr)->next;
+  *ptr = entry->next;
+}
+
+/* Call all node removal hooks.  */
+void
+cgraph_call_function_insertion_hooks (struct cgraph_node *node)
+{
+  struct cgraph_node_hook_list *entry = first_cgraph_function_insertion_hook;
   while (entry)
   {
     entry->hook (node, entry->data);
@@ -411,7 +453,21 @@ cgraph_node (tree decl)
       node->origin->nested = node;
       node->master_clone = node;
     }
+  if (assembler_name_hash)
+    {
+      void **aslot;
+      tree name = DECL_ASSEMBLER_NAME (decl);
 
+      aslot = htab_find_slot_with_hash (assembler_name_hash, name,
+					decl_assembler_name_hash (name),
+					INSERT);
+      /* We can have multiple declarations with same assembler name. For C++
+	 it is __builtin_strlen and strlen, for instance.  Do we need to
+	 record them all?  Original implementation marked just first one
+	 so lets hope for the best.  */
+      if (*aslot == NULL)
+	*aslot = node;
+    }
   return node;
 }
 
@@ -516,7 +572,7 @@ cgraph_edge (struct cgraph_node *node, gimple call_stmt)
   if (node->call_site_hash)
     return (struct cgraph_edge *)
       htab_find_with_hash (node->call_site_hash, call_stmt,
-			   htab_hash_pointer (call_stmt));
+      	                   htab_hash_pointer (call_stmt));
 
   /* This loop may turn out to be performance problem.  In such case adding
      hashtables into call nodes with very many edges is probably best
@@ -595,7 +651,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
       gcc_assert (is_gimple_call (call_stmt));
     }
 
-  if (!gimple_body (callee->decl))
+  if (!callee->analyzed)
     edge->inline_failed = CIF_BODY_NOT_AVAILABLE;
   else if (callee->local.redefined_extern_inline)
     edge->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
@@ -822,6 +878,7 @@ cgraph_remove_node (struct cgraph_node *node)
 {
   void **slot;
   bool kill_body = false;
+  struct cgraph_node *n;
 
   cgraph_call_node_removal_hooks (node);
   cgraph_node_remove_callers (node);
@@ -830,8 +887,9 @@ cgraph_remove_node (struct cgraph_node *node)
   /* Incremental inlining access removed nodes stored in the postorder list.
      */
   node->needed = node->reachable = false;
-  while (node->nested)
-    cgraph_remove_node (node->nested);
+  for (n = node->nested; n; n = n->next_nested)
+    n->origin = NULL;
+  node->nested = NULL;
   if (node->origin)
     {
       struct cgraph_node **node2 = &node->origin->nested;
@@ -1022,7 +1080,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " needed");
   else if (node->reachable)
     fprintf (f, " reachable");
-  if (gimple_body (node->decl))
+  if (gimple_has_body_p (node->decl))
     fprintf (f, " body");
   if (node->output)
     fprintf (f, " output");
@@ -1215,7 +1273,12 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq,
   new_node->master_clone = n->master_clone;
   new_node->count = count;
   if (n->count)
-    count_scale = new_node->count * REG_BR_PROB_BASE / n->count;
+    {
+      if (new_node->count > n->count)
+        count_scale = REG_BR_PROB_BASE;
+      else
+        count_scale = new_node->count * REG_BR_PROB_BASE / n->count;
+    }
   else
     count_scale = 0;
   if (update_original)

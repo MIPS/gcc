@@ -50,6 +50,7 @@ enum processor_type {
   PROCESSOR_LOONGSON_2E,
   PROCESSOR_LOONGSON_2F,
   PROCESSOR_M4K,
+  PROCESSOR_OCTEON,
   PROCESSOR_R3900,
   PROCESSOR_R6000,
   PROCESSOR_R4000,
@@ -253,6 +254,7 @@ enum mips_code_readable_setting {
 #define TARGET_MIPS5500             (mips_arch == PROCESSOR_R5500)
 #define TARGET_MIPS7000             (mips_arch == PROCESSOR_R7000)
 #define TARGET_MIPS9000             (mips_arch == PROCESSOR_R9000)
+#define TARGET_OCTEON		    (mips_arch == PROCESSOR_OCTEON)
 #define TARGET_SB1                  (mips_arch == PROCESSOR_SB1		\
 				     || mips_arch == PROCESSOR_SB1A)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
@@ -529,6 +531,10 @@ enum mips_code_readable_setting {
       if (TARGET_LOONGSON_VECTORS)					\
         builtin_define ("__mips_loongson_vector_rev");                  \
 									\
+      /* Historical Octeon macro.  */					\
+      if (TARGET_OCTEON)						\
+	builtin_define ("__OCTEON__");					\
+									\
       /* Macros dependent on the C dialect.  */				\
       if (preprocessing_asm_p ())					\
 	{								\
@@ -557,6 +563,9 @@ enum mips_code_readable_setting {
 									\
       if (mips_abi == ABI_EABI)						\
 	builtin_define ("__mips_eabi");					\
+									\
+      if (TARGET_CACHE_BUILTIN)						\
+	builtin_define ("__GCC_HAVE_BUILTIN_MIPS_CACHE");		\
     }									\
   while (0)
 
@@ -693,7 +702,7 @@ enum mips_code_readable_setting {
      %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
        |march=34k*|march=74k*: -mips32r2} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000: -mips64} \
-     %{march=mips64r2: -mips64r2} \
+     %{march=mips64r2|march=octeon: -mips64r2} \
      %{!march=*: -" MULTILIB_ISA_DEFAULT "}}"
 
 /* A spec that infers a -mhard-float or -msoft-float setting from an
@@ -703,7 +712,7 @@ enum mips_code_readable_setting {
 #define MIPS_ARCH_FLOAT_SPEC \
   "%{mhard-float|msoft-float|march=mips*:; \
      march=vr41*|march=m4k|march=4k*|march=24kc|march=24kec \
-     |march=34kc|march=74kc|march=5kc: -msoft-float; \
+     |march=34kc|march=74kc|march=5kc|march=octeon: -msoft-float; \
      march=*: -mhard-float}"
 
 /* A spec condition that matches 32-bit options.  It only works if
@@ -771,6 +780,9 @@ enum mips_code_readable_setting {
 				  || ISA_MIPS64				\
 				  || ISA_MIPS64R2)			\
 				 && !TARGET_MIPS16)
+
+/* ISA has a three-operand multiplication instruction.  */
+#define ISA_HAS_DMUL3		(TARGET_64BIT && TARGET_OCTEON)
 
 /* ISA has the floating-point conditional move instructions introduced
    in mips4.  */
@@ -996,6 +1008,27 @@ enum mips_code_readable_setting {
   (target_flags_explicit & MASK_LLSC	\
    ? TARGET_LLSC && !TARGET_MIPS16	\
    : ISA_HAS_LL_SC)
+
+/* ISA includes the bbit* instructions.  */
+#define ISA_HAS_BBIT		TARGET_OCTEON
+
+/* ISA includes the cins instruction.  */
+#define ISA_HAS_CINS		TARGET_OCTEON
+
+/* ISA includes the exts instruction.  */
+#define ISA_HAS_EXTS		TARGET_OCTEON
+
+/* ISA includes the seq and sne instructions.  */
+#define ISA_HAS_SEQ_SNE		TARGET_OCTEON
+
+/* ISA includes the pop instruction.  */
+#define ISA_HAS_POP		TARGET_OCTEON
+
+/* The CACHE instruction is available in non-MIPS16 code.  */
+#define TARGET_CACHE_BUILTIN (mips_isa >= 3)
+
+/* The CACHE instruction is available.  */
+#define ISA_HAS_CACHE (TARGET_CACHE_BUILTIN && !TARGET_MIPS16)
 
 /* Add -G xx support.  */
 
@@ -1767,6 +1800,7 @@ enum reg_class
   ST_REGS,			/* status registers (fp status) */
   DSP_ACC_REGS,			/* DSP accumulator registers */
   ACC_REGS,			/* Hi/Lo and DSP accumulator registers */
+  FRAME_REGS,			/* $arg and $frame */
   ALL_REGS,			/* all registers */
   LIM_REG_CLASSES		/* max value + 1 */
 };
@@ -1808,6 +1842,7 @@ enum reg_class
   "ST_REGS",								\
   "DSP_ACC_REGS",							\
   "ACC_REGS",								\
+  "FRAME_REGS",								\
   "ALL_REGS"								\
 }
 
@@ -1850,7 +1885,8 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x000007f8, 0x00000000, 0x00000000, 0x00000000 },	/* status registers */	\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x003f0000 },	/* dsp accumulator registers */	\
   { 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x00000000, 0x003f0000 },	/* hi/lo and dsp accumulator registers */	\
-  { 0xffffffff, 0xffffffff, 0xffff07ff, 0xffffffff, 0xffffffff, 0x0fffffff }	/* all registers */	\
+  { 0x00000000, 0x00000000, 0x00006000, 0x00000000, 0x00000000, 0x00000000 },	/* frame registers */	\
+  { 0xffffffff, 0xffffffff, 0xffff67ff, 0xffffffff, 0xffffffff, 0x0fffffff }	/* all registers */	\
 }
 
 
@@ -2542,7 +2578,7 @@ typedef struct mips_args {
 /* A C expression for the cost of a branch instruction.  A value of
    1 is the default; other values are interpreted relative to that.  */
 
-#define BRANCH_COST mips_branch_cost
+#define BRANCH_COST(speed_p, predictable_p) mips_branch_cost
 #define LOGICAL_OP_NON_SHORT_CIRCUIT 0
 
 /* If defined, modifies the length assigned to instruction INSN as a
@@ -2925,7 +2961,7 @@ while (0)
    we'll have to generate a load/store pair for each, halve the
    value of MIPS_CALL_RATIO to take that into account.  */
 
-#define MOVE_RATIO					\
+#define MOVE_RATIO(speed)				\
   (HAVE_movmemsi					\
    ? MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX		\
    : MIPS_CALL_RATIO / 2)
@@ -2946,20 +2982,20 @@ while (0)
 	  ? (SIZE) < UNITS_PER_WORD				\
 	  : (SIZE) <= MIPS_MAX_MOVE_BYTES_STRAIGHT))		\
    : (move_by_pieces_ninsns (SIZE, ALIGN, MOVE_MAX_PIECES + 1)	\
-      < (unsigned int) MOVE_RATIO))
+      < (unsigned int) MOVE_RATIO (false)))
 
 /* For CLEAR_RATIO, when optimizing for size, give a better estimate
    of the length of a memset call, but use the default otherwise.  */
 
-#define CLEAR_RATIO \
-  (optimize_size ? MIPS_CALL_RATIO : 15)
+#define CLEAR_RATIO(speed)\
+  ((speed) ? 15 : MIPS_CALL_RATIO)
 
 /* This is similar to CLEAR_RATIO, but for a non-zero constant, so when
    optimizing for size adjust the ratio to account for the overhead of
    loading the constant and replicating it across the word.  */
 
-#define SET_RATIO \
-  (optimize_size ? MIPS_CALL_RATIO - 2 : 15)
+#define SET_RATIO(speed) \
+  ((speed) ? 15 : MIPS_CALL_RATIO - 2)
 
 /* STORE_BY_PIECES_P can be used when copying a constant string, but
    in that case each word takes 3 insns (lui, ori, sw), or more in

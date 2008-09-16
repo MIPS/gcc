@@ -567,6 +567,7 @@ init_optimization_passes (void)
 	}
       NEXT_PASS (pass_release_ssa_names);
       NEXT_PASS (pass_rebuild_cgraph_edges);
+      NEXT_PASS (pass_inline_parameters);
     }
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
@@ -592,10 +593,12 @@ init_optimization_passes (void)
       struct opt_pass **p = &pass_all_optimizations.pass.sub;
       /* Initial scalar cleanups before alias computation.
 	 They ensure memory accesses are not indirect wherever possible.  */
+      NEXT_PASS (pass_strip_predict_hints);
       NEXT_PASS (pass_update_address_taken);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
+      NEXT_PASS (pass_forwprop);
       /* Ideally the function call conditional
 	 dead code elimination phase can be delayed
 	 till later where potentially more opportunities
@@ -612,20 +615,11 @@ init_optimization_passes (void)
       NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_fre);
-      NEXT_PASS (pass_dce);
-      NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_cselim);
-      NEXT_PASS (pass_dominator);
-      /* The only const/copy propagation opportunities left after
-	 DOM should be due to degenerate PHI nodes.  So rather than
-	 run the full propagators, run a specialized pass which
-	 only examines PHIs to discover const/copy propagation
-	 opportunities.  */
-      NEXT_PASS (pass_phi_only_cprop);
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_recursion);
@@ -647,7 +641,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_object_sizes);
-      NEXT_PASS (pass_store_ccp);
+      NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_fold_builtins);
       NEXT_PASS (pass_cse_sincos);
@@ -669,6 +663,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_check_data_deps);
 	  NEXT_PASS (pass_loop_distribution);
 	  NEXT_PASS (pass_linear_transform);
+	  NEXT_PASS (pass_graphite_transforms);
 	  NEXT_PASS (pass_iv_canon);
 	  NEXT_PASS (pass_if_conversion);
 	  NEXT_PASS (pass_vectorize);
@@ -782,6 +777,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_subregs_of_mode_init);
       NEXT_PASS (pass_local_alloc);
       NEXT_PASS (pass_global_alloc);
+      NEXT_PASS (pass_ira);
       NEXT_PASS (pass_subregs_of_mode_finish);
       NEXT_PASS (pass_postreload);
 	{
