@@ -1,3 +1,11 @@
+2008-09-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* ira-color.c (finish_cost_update): Free update_cost_queue_elems
+	rather than update_cost_queue.
+
 2008-09-13  Vladimir Makarov <vmakarov@redhat.com>
 
 	PR middle-end/37448
