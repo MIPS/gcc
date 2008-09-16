@@ -1,3 +1,8 @@
+2008-09-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_const_decl): Pass decl to
+	global_vector_enter.
+
 2008-09-12  Diego Novillo  <dnovillo@google.com>
 
 	* lto-tags.h (enum LTO_tags): Add LTO_gimple_predict

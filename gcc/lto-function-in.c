@@ -2796,7 +2796,7 @@ input_const_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, NULL, false);
+  global_vector_enter (data_in, decl, false);
 
   input_tree (&decl->decl_minimal.name, ib, data_in);
   input_tree (&decl->decl_minimal.context, ib, data_in);
