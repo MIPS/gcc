@@ -1,3 +1,10 @@
+2008-09-16  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (reset_type_lang_specific): Re-implement
+	skipping of unwanted fields in TYPE_FIELDS and
+	TYPE_METHODS to avoid corrupting tree chains in
+	other types that share these lists.
+
 2008-09-16  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_const_decl): Pass decl to

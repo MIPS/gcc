@@ -3842,18 +3842,25 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 
   /* Remove members that are not actually FIELD_DECLs
      from the field list of a record.  These occur in C++.  */
-  
   if (TREE_CODE (type) == RECORD_TYPE)
     {
-      tree prev = NULL_TREE;
-      tree member = TYPE_FIELDS (type);
+      tree prev, member;
 
-      TYPE_FIELDS (type) = NULL_TREE;
+      /* Note that TYPE_FIELDS can be shared across distinct
+	 TREE_TYPEs.  Therefore, if the first field of TYPE_FIELDS is
+	 to be removed, we cannot set its TREE_CHAIN to NULL.
+	 Otherwise, we would not be able to find all the other fields
+	 in the other instances of this TREE_TYPE.
+	 
+	 This was causing an ICE in testsuite/g++.dg/lto/20080915.C.
+
+	 FIXME lto, long term we should probably convert TYPE_FIELDS
+	 and TYPE_METHODS to a proper container like TREE_LIST or a
+	 VEC (though this would increase memory utilization).  */
+      prev = NULL_TREE;
+      member = TYPE_FIELDS (type);
       while (member)
 	{
-	  tree next = TREE_CHAIN (member);
-
-	  TREE_CHAIN (member) = NULL_TREE;
 	  if (TREE_CODE (member) == FIELD_DECL)
 	    {
 	      if (prev)
@@ -3862,20 +3869,22 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 		TYPE_FIELDS (type) = member;
 	      prev = member;
 	    }
-	  member = next;
+
+	  member = TREE_CHAIN (member);
 	}
 
-      /* Remove similar junk from the method list.  */
+      if (prev)
+	TREE_CHAIN (prev) = NULL_TREE;
+      else
+	TYPE_FIELDS (type) = NULL_TREE;
 
+      /* Likewise for TYPE_METHODS.  Remove any members that are not
+	 FUNCTION_DECLs.  FIXME lto, see similar note above for
+	 TYPE_FIELDS.  */
       prev = NULL_TREE;
       member = TYPE_METHODS (type);
-
-      TYPE_METHODS (type) = NULL_TREE;
       while (member)
 	{
-	  tree next = TREE_CHAIN (member);
-
-	  TREE_CHAIN (member) = NULL_TREE;
 	  if (TREE_CODE (member) == FUNCTION_DECL)
 	    {
 	      if (prev)
@@ -3884,8 +3893,14 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 		TYPE_METHODS (type) = member;
 	      prev = member;
 	    }
-	  member = next;
+
+	  member = TREE_CHAIN (member);
 	}
+
+      if (prev)
+	TREE_CHAIN (prev) = NULL_TREE;
+      else
+	TYPE_METHODS (type) = NULL_TREE;
     }
 
   if (TREE_CODE (type) == INTEGER_TYPE)
