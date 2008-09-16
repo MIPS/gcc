@@ -1,5 +1,10 @@
 2008-09-16  Rafael Avila de Espindola  <espindola@google.com>
 
+	* gcc.dg/lto/20080916.C: move to g++.dg.
+	* g++.dg/lto/20080916.C: moved from g++.dg.
+
+2008-09-16  Rafael Avila de Espindola  <espindola@google.com>
+
 	* gcc.dg/lto/20080916.C: New.
 
 2008-09-12  Simon Baldwin  <simonb@google.com>
