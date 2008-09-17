@@ -878,10 +878,9 @@ decode_options (unsigned int argc, const char **argv)
       flag_section_anchors = 0;
     }
 
-#ifdef IRA_COVER_CLASSES
   /* Use IRA if it is implemented for the target.  */
-  flag_ira = 1;
-#endif
+  if (targetm.ira_cover_classes)
+    flag_ira = 1;
 
   /* Originally we just set the variables if a particular optimization level,
      but with the advent of being able to change the optimization level for a
@@ -1124,13 +1123,11 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks = 1;
     }
 
-#ifndef IRA_COVER_CLASSES
-  if (flag_ira)
+  if (flag_ira && !targetm.ira_cover_classes)
     {
-      inform ("-fira does not work on this architecture");
+      inform (input_location, "-fira does not work on this architecture");
       flag_ira = 0;
     }
-#endif
 
   /* Save the current optimization options if this is the first call.  */
   if (first_time_p)
