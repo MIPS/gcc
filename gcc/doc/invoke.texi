@@ -6518,8 +6518,8 @@ compilation unit, not for the single source file itself.
 This option is not supported for Fortran programs.
 
 @item -fwpa
-@opindex fwap
-This option runs the link-time optimizer in the whole-program-analysis (WAP)
+@opindex fwpa
+This option runs the link-time optimizer in the whole-program-analysis (WPA)
 mode, which reads in summary information from all inputs and performs
 a whole-program analysis based on summary information only.  It generate
 objects files for subsequent runs of the link-time optimizer where

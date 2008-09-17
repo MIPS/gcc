@@ -1,3 +1,7 @@
+2008-09-17  Ollie Wild  <aaw@google.com>
+
+	* doc/invoke.text (fwpa): Fix obvious typos.
+
 2008-09-17  Paolo Bonzini  <bonzini@gnu.org>
 	    Rafael Avila de Espindola  <espindola@google.com>
 
