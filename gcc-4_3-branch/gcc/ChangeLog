@@ -1,3 +1,67 @@
+2008-09-12  Anatoly Sokolov  <aesok@post.ru>
+
+	PR target/37466
+	* config/avr/avr.md (movsi_lreg_const peephole2): Add match_dup for
+	scratch register after 'set' pattern.
+
+2008-09-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* emit-rtl.c (set_reg_attrs_from_value): Fix invalid alignment
+	information passed to mark_reg_pointer.
+	* explow.c (force_reg): Likewise.
+
+2008-09-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (spu_override_options): Default to -mno-safe-hints
+	when building for the celledp architecture.
+
+2008-09-09  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
+	Improved branch hints, safe hints, and scheduling for Cell SPU.
+
+	* haifa-sched.c (sched_emit_insn) : Define.
+	* sched-int.h (sched_emit_insn) : Add prototype.
+	* doc/invoke.texi (-mdual-nops, -mhint-max-nops,
+	-mhint-max-distance -msafe-hints) : Document.
+	* config/spu/spu.c (spu_flag_var_tracking): New.
+	(TARGET_SCHED_INIT_GLOBAL, TARGET_SCHED_INIT,
+	TARGET_SCHED_REORDER, TARGET_SCHED_REORDER2,
+	TARGET_ASM_FILE_START): Define.
+	(TARGET_SCHED_ADJUST_PRIORITY): Remove.
+	(STOP_HINT_P, HINTED_P, SCHED_ON_EVEN_P): Define.
+	(spu_emit_branch_hint): Add blocks argument.
+	(insert_branch_hints, insert_nops): Remove.
+	(pad_bb, insert_hbrp_for_ilb_runout, insert_hbrp, in_spu_reorg,
+	uses_ls_unit, spu_sched_init_global, spu_sched_init,
+	spu_sched_reorder, asm_file_start): New functions.
+	(clock_var, spu_sched_length, pipe0_clock,
+	pipe1_clock, prev_clock_var, prev_priority,
+	spu_ls_first, prev_ls_clock): New static variables.
+	* config/spu/spu.h (TARGET_DEFAULT): Add MASK_SAFE_HINTS.
+	* config/spu.md (iprefetch): Add operand, make it clobber MEM.
+	(nopn_nv): Add a non-volatile version of nop.
+	* config/spu/spu.opt (-mdual-nops, -mhint-max-nops,
+	-mhint-max-distance, -msafe-hints): New options.
+
+2008-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/37408
+	* function.c (assign_parm_find_stack_rtl): Set correct MEM_SIZE
+	if parm is promoted.
+
+2008-09-08  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_split_lock_test_and_set): Move
+	memory barrier to below the test-and-set.
+	(alpha_split_lock_test_and_set_12): Likewise.
+
+2008-09-07  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36630
+	* tree-vect-transform.c (vect_update_ivs_after_vectorizer):
+	Call STRIP_NOPS before calling evolution_part_in_loop_num.
+
 2008-09-04  Ian Lance Taylor  <iant@google.com>
 
 	* varasm.c (narrowing_initializer_constant_valid_p): New
