@@ -1,3 +1,88 @@
+2008-09-17  Tom Tromey  <tromey@redhat.com>
+
+	* cfgrtl.c (pass_free_cfg): Use TV_NONE.
+	* tree-vectorizer.c (pass_ipa_increase_alignment): Use TV_NONE.
+	* tree-vect-generic.c (pass_lower_vector): Use TV_NONE.
+	(pass_lower_vector_ssa): Likewise.
+	* tree-tailcall.c (pass_tail_recursion): Use TV_NONE.
+	(pass_tail_calls): Likewise.
+	* tree-stdarg.c (pass_stdarg): Use TV_NONE.
+	* tree-ssanames.c (pass_release_ssa_names): Use TV_NONE.
+	* tree-ssa-math-opts.c (pass_cse_reciprocals): Use TV_NONE.
+	(pass_cse_sincos): Likewise.
+	(pass_convert_to_rsqrt): Likewise.
+	* tree-ssa-dse.c (pass_simple_dse): Use TV_NONE.
+	* tree-ssa-ccp.c (pass_fold_builtins): Use TV_NONE.
+	* tree-ssa.c (pass_early_warn_uninitialized): Use TV_NONE.
+	(pass_late_warn_uninitialized): Likewise.
+	(pass_update_address_taken): Likewise.
+	* tree-ssa-alias.c (pass_reset_cc_flags): Use TV_NONE.
+	(pass_build_alias): Likewise.
+	* tree-optimize.c (pass_all_optimizations): Use TV_NONE.
+	(pass_early_local_passes): Likewise.
+	(pass_all_early_optimizations): Likewise.
+	(pass_cleanup_cfg): Likewise.
+	(pass_cleanup_cfg_post_optimizing): Likewise.
+	(pass_free_datastructures): Likewise.
+	(pass_free_cfg_annotations): Likewise.
+	(pass_init_datastructures): Likewise.
+	* tree-object-size.c (pass_object_sizes): Use TV_NONE.
+	* tree-nrv.c (pass_return_slot): Use TV_NONE.
+	* tree-nomudflap.c (pass_mudflap_1): Use TV_NONE.
+	(pass_mudflap_2): Likewise.
+	* tree-mudflap.c (pass_mudflap_1): Use TV_NONE.
+	(pass_mudflap_2): Likewise.
+	* tree-into-ssa.c (pass_build_ssa): Use TV_NONE.
+	* tree-if-conv.c (pass_if_conversion): Use TV_NONE.
+	* tree-complex.c (pass_lower_complex): Use TV_NONE.
+	(pass_lower_complex_O0): Likewise.
+	* tree-cfg.c (pass_remove_useless_stmts): Use TV_NONE.
+	(pass_warn_function_return): Likewise.
+	(pass_warn_function_noreturn): Likewise.
+	* stack-ptr-mod.c (pass_stack_ptr_mod): Use TV_NONE.
+	* regclass.c (pass_regclass_init): Use TV_NONE.
+	(pass_subregs_of_mode_init): Likewise.
+	(pass_subregs_of_mode_finish): Likewise.
+	* recog.c (pass_split_all_insns): Use TV_NONE.
+	(pass_split_after_reload): Likewise.
+	(pass_split_before_regstack): Likewise.
+	(pass_split_before_sched2): Likewise.
+	(pass_split_for_shorten_branches): Likewise.
+	* omp-low.c (pass_expand_omp): Use TV_NONE.
+	(pass_lower_omp): Likewise.
+	* matrix-reorg.c (pass_ipa_matrix_reorg): Use TV_NONE.
+	* jump.c (pass_cleanup_barriers): Use TV_NONE.
+	* ira.c (pass_ira): Use TV_NONE.
+	* integrate.c (pass_initial_value_sets): Use TV_NONE.
+	* init-regs.c (pass_initialize_regs): Use TV_NONE.
+	* gimple-low.c (pass_lower_cf): Use TV_NONE.
+	(pass_mark_used_blocks): Likewise.
+	* function.c (pass_instantiate_virtual_regs): Use TV_NONE.
+	(pass_init_function): Likewise.
+	(pass_leaf_regs): Likewise.
+	(pass_match_asm_constraints): Likewise.
+	* final.c (pass_compute_alignments): Use TV_NONE.
+	* except.c (pass_set_nothrow_function_flags): Use TV_NONE.
+	(pass_convert_to_eh_region_ranges): Likewise.
+	* emit-rtl.c (pass_unshare_all_rtl): Use TV_NONE.
+	* combine-stack-adj.c (pass_stack_adjustments): Use TV_NONE.
+	* cgraphbuild.c (pass_build_cgraph_edges): Use TV_NONE.
+	(pass_rebuild_cgraph_edges): Likewise.
+	* cfglayout.c (pass_into_cfg_layout_mode): Use TV_NONE.
+	(pass_outof_cfg_layout_mode): Likewise.
+	* bt-load.c (pass_branch_target_load_optimize1): Use TV_NONE.
+	(pass_branch_target_load_optimize2): Likewise.
+	* passes.c (pass_postreload): Use TV_NONE.
+	(execute_one_ipa_transform_pass): Unconditionally push and pop
+	timevar.
+	(execute_one_pass): Likewise.
+	* df-core.c (pass_df_initialize_opt): Use TV_NONE.
+	(pass_df_finish): Likewise.
+	(pass_df_initialize_no_opt): Likewise.
+	* timevar.c (timevar_print): Ignore TV_NONE.
+	(timevar_push_1): Likewise.
+	* timevar.def (TV_NONE): New timevar.
+
 2008-09-04  Ian Lance Taylor  <iant@google.com>
 
 	* varasm.c (narrowing_initializer_constant_valid_p): New

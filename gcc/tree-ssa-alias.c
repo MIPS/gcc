@@ -3776,7 +3776,7 @@ struct gimple_opt_pass pass_reset_cc_flags =
   NULL,			 /* sub */
   NULL,			 /* next */
   0,			 /* static_pass_number */
-  0,			 /* tv_id */
+  TV_NONE,		 /* tv_id */
   PROP_referenced_vars |PROP_cfg, /* properties_required */
   0,			 /* properties_provided */
   0,			 /* properties_destroyed */
@@ -3798,7 +3798,7 @@ struct gimple_opt_pass pass_build_alias =
   NULL,                     /* sub */
   NULL,                     /* next */
   0,                        /* static_pass_number */
-  0,                        /* tv_id */
+  TV_NONE,                  /* tv_id */
   PROP_cfg | PROP_ssa,      /* properties_required */
   PROP_alias,               /* properties_provided */
   0,                        /* properties_destroyed */
