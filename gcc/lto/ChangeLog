@@ -1,3 +1,14 @@
+2008-09-17  Paolo Bonzini  <bonzini@gnu.org>
+	    Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-lang.c (COMPOUND_LITERAL_EXPR_DECL_STMT,
+	COMPOUND_LITERAL_EXPR_DECL): Remove.
+	(emit_local_var): Remove.
+	(lto_expand_expr): Remove.
+	(lto_staticp): Remove.
+	(LANG_HOOKS_EXPAND_EXPR): Remove.
+	(LANG_HOOKS_STATICP): Remove.
+
 2008-09-11  Diego Novillo  <dnovillo@google.com>
 
 	* lto-lang.c: Include except.h and libfuncs.h.

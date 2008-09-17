@@ -1,3 +1,9 @@
+2008-09-17  Paolo Bonzini  <bonzini@gnu.org>
+	    Rafael Avila de Espindola  <espindola@google.com>
+
+	* Make-lang.in (CXX_TREE_H): Remove c-common.def.
+	* cp-objcp-common.h (LANG_HOOKS_EXPAND_EXPR): Remove.
+
 2008-09-10 Rafael Espindola  <espindola@google.com>
 
 	* class.c (build_vtbl_ref_1): Don't call assemble_external.

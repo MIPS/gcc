@@ -310,10 +310,6 @@ struct lang_hooks
      Returns -1 if the language does nothing special for it.  */
   alias_set_type (*get_alias_set) (tree);
 
-  /* Called by expand_expr for language-specific tree codes.
-     Fourth argument is actually an enum expand_modifier.  */
-  rtx (*expand_expr) (tree, rtx, enum machine_mode, int, rtx *);
-
   /* Function to finish handling an incomplete decl at the end of
      compilation.  Default hook is does nothing.  */
   void (*finish_incomplete_decl) (tree);

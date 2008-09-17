@@ -793,7 +793,7 @@ FIXED_VALUE_H = fixed-value.h $(MACHMODE_H) double-int.h
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
 BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
-TREE_H = tree.h all-tree.def tree.def c-common.def $(lang_tree_files) \
+TREE_H = tree.h all-tree.def tree.def $(lang_tree_files) \
           $(MACHMODE_H) tree-check.h $(BUILTINS_DEF) \
           $(INPUT_H) statistics.h vec.h treestruct.def $(HASHTAB_H) \
           double-int.h alias.h $(SYMTAB_H) options.h
@@ -1443,7 +1443,6 @@ s-alltree: Makefile
 	rm -f tmp-all-tree.def
 	echo '#include "tree.def"' > tmp-all-tree.def
 	echo 'END_OF_BASE_TREE_CODES' >> tmp-all-tree.def
-	echo '#include "c-common.def"' >> tmp-all-tree.def
 	ltf="$(lang_tree_files)"; for f in $$ltf; do \
 	  echo "#include \"$$f\""; \
 	done | sed 's|$(srcdir)/||' >> tmp-all-tree.def
@@ -1838,7 +1837,7 @@ c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) $(DIAGNOSTIC_H) \
     $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-c.h \
-    c-objc-common.h $(C_PRAGMA_H) c-common.def $(TREE_INLINE_H)
+    c-objc-common.h $(C_PRAGMA_H) $(TREE_INLINE_H)
 stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
     $(C_COMMON_H)
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \

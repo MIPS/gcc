@@ -2174,7 +2174,10 @@ staticp (tree arg)
 	  && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST)
 	return staticp (TREE_OPERAND (arg, 0));
       else
-	return false;
+	return NULL;
+
+    case COMPOUND_LITERAL_EXPR:
+      return TREE_STATIC (COMPOUND_LITERAL_EXPR_DECL (arg)) ? arg : NULL;
 
     default:
       if ((unsigned int) TREE_CODE (arg)

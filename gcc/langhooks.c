@@ -217,17 +217,6 @@ lhd_get_alias_set (tree ARG_UNUSED (t))
   return -1;
 }
 
-/* This is the default expand_expr function.  */
-
-rtx
-lhd_expand_expr (tree ARG_UNUSED (t), rtx ARG_UNUSED (r),
-		 enum machine_mode ARG_UNUSED (mm),
-		 int ARG_UNUSED (em),
-		 rtx * ARG_UNUSED (a))
-{
-  gcc_unreachable ();
-}
-
 /* This is the default decl_printable_name function.  */
 
 const char *
