@@ -1,3 +1,12 @@
+2008-09-18  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (flags_length_for_code): Change size to
+	NUM_TREE_CODES.
+	* lto-function-out.c (expr_to_tag): Change size to
+	NUM_TREE_CODES.
+	(lto_static_init): Change the size of lto_flags_needed_for and
+	lto_types_needed_for to NUM_TREE_CODES.
+
 2008-09-17  Ollie Wild  <aaw@google.com>
 
 	* doc/invoke.text (fwpa): Fix obvious typos.

@@ -66,12 +66,7 @@ static void output_record_start (struct output_block *, tree, tree,
    eh_region for an instruction is only emitted if it different from
    the last instruction.  */
 static int last_eh_region_seen;
-/* FIXME lto: The size of this array should be NUM_TREE_CODES,
-   but that accounts only for the base tree codes.  We are currently
-   serializing certain FE-specific nodes, such as COMPOUND_LITERAL_EXPR.
-   Here, we generously allow for all tree codes.  This has the unpleasant
-   property of leaving many undefined entries in the array.  */
-static unsigned int expr_to_tag[MAX_TREE_CODES];
+static unsigned int expr_to_tag[NUM_TREE_CODES];
 static unsigned int stmt_to_tag[LAST_AND_UNUSED_GIMPLE_CODE];
 
 /* Returns nonzero if P1 and P2 are equal.  */
@@ -2040,13 +2035,7 @@ lto_static_init (void)
 
   initialized = true;
 
-/* FIXME lto: The size of this array should be NUM_TREE_CODES,
-   but that accounts only for the base tree codes.  We are currently
-   serializing certain FE-specific nodes, such as COMPOUND_LITERAL_EXPR.
-   Here, we generously allow for all tree codes.  This has the unpleasant
-   property of leaving many undefined entries in the array.  */
-
-  lto_flags_needed_for = sbitmap_alloc (MAX_TREE_CODES);
+  lto_flags_needed_for = sbitmap_alloc (NUM_TREE_CODES);
   sbitmap_ones (lto_flags_needed_for);
   RESET_BIT (lto_flags_needed_for, FIELD_DECL);
   RESET_BIT (lto_flags_needed_for, FUNCTION_DECL);
@@ -2060,13 +2049,7 @@ lto_static_init (void)
   RESET_BIT (lto_flags_needed_for, TRANSLATION_UNIT_DECL);
   RESET_BIT (lto_flags_needed_for, NAMESPACE_DECL);
 
-/* FIXME lto: The size of this array should be NUM_TREE_CODES,
-   but that accounts only for the base tree codes.  We are currently
-   serializing certain FE-specific nodes, such as COMPOUND_LITERAL_EXPR.
-   Here, we generously allow for all tree codes.  This has the unpleasant
-   property of leaving many undefined entries in the array.  */
-
-  lto_types_needed_for = sbitmap_alloc (MAX_TREE_CODES);
+  lto_types_needed_for = sbitmap_alloc (NUM_TREE_CODES);
 
   /* Global declarations and types will handle the
      type field by other means, so lto_types_needed_for
