@@ -1391,7 +1391,7 @@ gate_reference (void)
 	  && !(errorcount || sorrycount));
 }
 
-struct ipa_opt_pass pass_ipa_reference =
+struct ipa_opt_pass_d pass_ipa_reference =
 {
  {
   IPA_PASS,

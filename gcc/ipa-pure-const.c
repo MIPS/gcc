@@ -878,7 +878,7 @@ gate_pure_const (void)
 	  && !(errorcount || sorrycount));
 }
 
-struct ipa_opt_pass pass_ipa_pure_const =
+struct ipa_opt_pass_d pass_ipa_pure_const =
 {
  {
   IPA_PASS,

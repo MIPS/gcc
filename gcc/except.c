@@ -3194,7 +3194,7 @@ add_call_site (rtx landing_pad, int action)
 {
   call_site_record record;
   
-  record = GGC_NEW (struct call_site_record);
+  record = GGC_NEW (struct call_site_record_d);
   record->landing_pad = landing_pad;
   record->action = action;
 

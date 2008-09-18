@@ -1365,7 +1365,7 @@ cgraph_gate_cp (void)
   return flag_ipa_cp;
 }
 
-struct ipa_opt_pass pass_ipa_cp = 
+struct ipa_opt_pass_d pass_ipa_cp = 
 {
  {
   IPA_PASS,

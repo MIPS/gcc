@@ -1,5 +1,14 @@
 2008-09-17  Tom Tromey  <tromey@redhat.com>
 
+	* ipa-reference.c (pass_ipa_reference): Fix struct tag.
+	* ipa-pure-const.c (pass_ipa_pure_const): Fix struct tag.
+	* ipa-cp.c (pass_ipa_cp): Fix struct tag.
+	* except.c (add_call_site): Fix struct tag.
+	* tree-pass.h (pass_ipa_cp, pass_ipa_reference,
+	pass_ipa_pure_const): Fix struct tag.
+
+2008-09-17  Tom Tromey  <tromey@redhat.com>
+
 	* cfgrtl.c (pass_free_cfg): Use TV_NONE.
 	* tree-vectorizer.c (pass_ipa_increase_alignment): Use TV_NONE.
 	* tree-vect-generic.c (pass_lower_vector): Use TV_NONE.
