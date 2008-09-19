@@ -1,5 +1,11 @@
 2008-09-19  Tom Tromey  <tromey@redhat.com>
 
+	* tree-flow.h (struct ptr_info_def) <escape_mask>: Now unsigned
+	int.
+	(struct var_ann_d) <escape_mask>: Likewise.
+
+2008-09-19  Tom Tromey  <tromey@redhat.com>
+
 	* tree.c (tree_range_check_failed): Use 'int' to iterate.
 	(omp_clause_range_check_failed): Likewise.
 	(build_common_builtin_nodes): Likewise.
