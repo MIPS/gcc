@@ -91,6 +91,6 @@ lto/lto.o: lto/lto.c $(CONFIG_H) $(CGRAPH_H) coretypes.h \
 	pointer-set.h vec.h $(BITMAP_H) $(IPA_PROP_H)
 lto/lto-elf.o: lto/lto-elf.c $(CONFIG_H) coretypes.h $(SYSTEM_H) \
 	toplev.h $(LTO_H) $(TM_H)
-lto/lto-symtab.o: lto/lto-symtab.c $(CONFIG_H) coretypes.h \
+lto/lto-symtab.o: lto/lto-symtab.c lto-tree-in.h $(CONFIG_H) coretypes.h \
 	$(SYSTEM_H) toplev.h $(LTO_H) lto/lto-tree.h $(GGC_H) $(LAMBDA_H) \
 	$(GIMPLE_H)

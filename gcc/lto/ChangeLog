@@ -1,3 +1,10 @@
+2008-09-19  Rafael Espindola  <espindola@google.com>
+
+	* lto-symtab.c: Include lto-tree-in.h.
+	* lto-tree.h (lto_symtab_merge_var, lto_symtab_merge_fn): Remove.
+	* lto.h (lto_symtab_merge_var, lto_symtab_merge_fn): Remove
+	* Make-lang.in (lto/lto-symtab.o): Add lto-tree-in.h.
+
 2008-09-17  Paolo Bonzini  <bonzini@gnu.org>
 	    Rafael Avila de Espindola  <espindola@google.com>
 

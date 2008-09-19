@@ -27,6 +27,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto.h"
 #include "gimple.h"
 #include "lto-tree.h"
+#include "lto-tree-in.h"
 #include "ggc.h"	/* lambda.h needs this */
 #include "lambda.h"	/* gcd */
 
