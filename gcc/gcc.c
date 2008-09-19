@@ -232,12 +232,21 @@ static int combine_flag = 0;
 
 static int use_pipes;
 
-/* Nonzero means we are running in lto-single mode, and each object file
-   resulting from a compilation should be immediately recompiled using
-   the LTO back end.  This makes it easy to exercise the LTO by adding
-   a single switch to existing makefiles.  */
+/* LTO state.  The LTO options are related and not all combination are
+   meaningful.  Treat each LTO option as a state and only use the last
+   specified option.  The option may be modified before the driver passes
+   it to sub-processes.  */
 
-static int lto_single;
+typedef enum {
+  LTO_OPTION_NONE = 0,
+  LTO_OPTION_LTO,
+  LTO_OPTION_LTO_SINGLE,
+  LTO_OPTION_WPA,
+  LTO_OPTION_LTRANS,
+  LTO_N_OPTIONS
+} gcc_lto_option_t;
+
+gcc_lto_option_t current_lto_option = LTO_OPTION_NONE;
 
 /* The compiler version.  */
 
@@ -383,7 +392,7 @@ static const char *replace_outfile_spec_function (int, const char **);
 static const char *version_compare_spec_function (int, const char **);
 static const char *include_spec_function (int, const char **);
 static const char *print_asm_header_spec_function (int, const char **);
-static const char *lto_single_spec_function (int, const char **);
+static const char *lto_option_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -748,7 +757,8 @@ proper position among the other output files.  */
 #ifndef LINK_COMMAND_SPEC
 #define LINK_COMMAND_SPEC "\
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
-    %(linker) %{flto} %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
+    %(linker) %(link_lto_options) %l " LINK_PIE_SPEC \
+   "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
     %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)} %(mflib)\
@@ -846,8 +856,7 @@ static const char *cpp_options =
 static const char *cpp_debug_options = "%{d*}";
 
 /* NB: This is shared amongst all front-ends.  */
-/* FIXME lto: -O2 is needed as a temporary workaround.  Remove.  */
-static const char *cc1_options =
+static const char *cc1_non_lto_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
  %{c|S:%{o*:-auxbase-strip %*}%{!o*:-auxbase %b}}%{!c:%{!S:-auxbase %b}}\
@@ -859,19 +868,34 @@ static const char *cc1_options =
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
  %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
- %{coverage:-fprofile-arcs -ftest-coverage}\
- %{flto:-O2} %{?lto-single():-O2} %{?lto-single():-flto}";
+ %{coverage:-fprofile-arcs -ftest-coverage} ";
+
+/* NB: This is shared amongst all front-ends except lto1.  */
+/* FIXME lto: -O2 is needed as a temporary workaround.  Remove.  */
+static const char *cc1_options =
+"%(cc1_non_lto_options)\
+ %{!?lto-option(none): -O2 -flto} ";
+
+static const char *lto1_options =
+"%(cc1_non_lto_options) -O2\
+ %{?lto-option(wpa): -fwpa}\
+ %{?lto-option(ltrans): -fltrans} ";
+
+static const char *link_lto_options =
+"%{?lto-option(lto): -flto} %{?lto-option(wpa): -flto} ";
 
 /* Do we need to preserve any assembler options here?
    Note that we are going to ignore the object code, as
    we are only interested in the .lto_info sections.  */
 static const char *invoke_lto_single =
 #ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
-"%{?lto-single(): -o %|.lto.s |\n as %(asm_options) %|.lto.s -o %g.lto.o \n\
- lto1 %(cc1_options) %g.lto.o }";
+"%{?lto-option(lto-single): -o %|.lto.s |\n\
+ as %(asm_options) %|.lto.s -o %g.lto.o \n\
+ lto1 %(lto1_options) %g.lto.o }";
 #else
-"%{?lto-single(): -o %|.lto.s |\n as %(asm_options) %m.lto.s -o %g.lto.o \n\
- lto1 %(cc1_options) %g.lto.o }";
+"%{?lto-option(lto-single): -o %|.lto.s |\n\
+ as %(asm_options) %m.lto.s -o %g.lto.o \n\
+ lto1 %(lto1_options) %g.lto.o }";
 #endif
 
 static const char *asm_options =
@@ -1626,15 +1650,18 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("trad_capable_cpp",		&trad_capable_cpp),
   INIT_STATIC_SPEC ("cc1",			&cc1_spec),
   INIT_STATIC_SPEC ("cc1_options",		&cc1_options),
+  INIT_STATIC_SPEC ("cc1_non_lto_options",	&cc1_non_lto_options),
   INIT_STATIC_SPEC ("cc1plus",			&cc1plus_spec),
   INIT_STATIC_SPEC ("link_gcc_c_sequence",	&link_gcc_c_sequence_spec),
   INIT_STATIC_SPEC ("link_ssp",			&link_ssp_spec),
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
+  INIT_STATIC_SPEC ("lto1_options",		&lto1_options),
   INIT_STATIC_SPEC ("mfwrap",			&mfwrap_spec),
   INIT_STATIC_SPEC ("mflib",			&mflib_spec),
   INIT_STATIC_SPEC ("link_gomp",		&link_gomp_spec),
+  INIT_STATIC_SPEC ("link_lto_options",		&link_lto_options),
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
   INIT_STATIC_SPEC ("switches_need_spaces",	&switches_need_spaces),
@@ -1685,7 +1712,7 @@ static const struct spec_function static_spec_functions[] =
   { "version-compare",		version_compare_spec_function },
   { "include",			include_spec_function },
   { "print-asm-header",		print_asm_header_spec_function },
-  { "lto-single",		lto_single_spec_function },
+  { "lto-option",		lto_option_spec_function },
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -3864,8 +3891,14 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  n_switches++;
 	  n_switches++;
         }
+      else if (strcmp (argv[i], "-flto") == 0)
+	current_lto_option = LTO_OPTION_LTO;
       else if (strcmp (argv[i], "-flto-single") == 0)
-	lto_single = 1;
+	current_lto_option = LTO_OPTION_LTO_SINGLE;
+      else if (strcmp (argv[i], "-fwpa") == 0)
+	current_lto_option = LTO_OPTION_WPA;
+      else if (strcmp (argv[i], "-fltrans") == 0)
+	current_lto_option = LTO_OPTION_LTRANS;
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -4241,7 +4274,13 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (strcmp (argv[i], "-time") == 0)
 	;
+      else if (strcmp (argv[i], "-flto") == 0)
+	;
       else if (strcmp (argv[i], "-flto-single") == 0)
+	;
+      else if (strcmp (argv[i], "-fwpa") == 0)
+	;
+      else if (strcmp (argv[i], "-fltrans") == 0)
 	;
       else if (strcmp (argv[i], "-###") == 0)
 	;
@@ -8188,15 +8227,22 @@ print_asm_header_spec_function (int arg ATTRIBUTE_UNUSED,
   return NULL;
 }
 
-/* ?lto-single() spec predicate.  Return true, i.e., a non-empty string,
-   if the -flto-single switch was given to 'gcc'.  */
+/* ?lto-option(<option>) spec predicate.  Return true, i.e.,
+   a non-empty string, if <option> is the last LTO option specified. */
 
 static const char *
-lto_single_spec_function (int argc,
-                          const char **argv ATTRIBUTE_UNUSED)
+lto_option_spec_function (int argc, const char **argv)
 {
-  if (argc != 0)
+  static const char *names[] = { "none", "lto", "lto-single", "wpa", "ltrans" };
+  int i;
+
+  if (argc != 1)
     abort ();
 
-  return ((lto_single) ? "lto-single" : NULL);
+  for (i = 0; i < LTO_N_OPTIONS; i++)
+    if (!strcmp (names[i], argv[0]))
+      return ((int) current_lto_option == i) ? argv[0] : NULL;
+
+  gcc_unreachable ();
+  return NULL;
 }

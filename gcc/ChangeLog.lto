@@ -1,3 +1,32 @@
+2008-09-19  Doug Kwan  <dougkwan@google.com>
+
+	* gcc.c (gcc_lto_option_t): New type.
+	(current_lto_option): New variable.
+	(lto_single_spec_function): Remove and is replaced by ..
+	(lto_option_spec_function): New function.
+ 	(LINK_COMMAND_SPEC): Use link_lto_option spec instead of just
+	passing the -flto flag.
+	(cc1_options): Separate non-LTO related parts into ..
+	(cc1_non_lto_options): Non-LTO related options shared by all FEs.
+	(lto1_options): New spec for lto FE.
+	(link_lto_options): New spec for handling LTO flags in linker.
+	(invoke_lto_single): Re-format to fit in 80 column.  Replace
+	lto-single with lto-option.
+	(static_specs): Add cc1_non_lto_options, lto1_options and
+	link_lto_options.
+	(static_spec_function): Replace lto-single with lto-option.
+	(process_command): Handle -flto, -flto-single, -fwpa and -fltran
+	by setting current_lto_option and not passing it to subprocess
+	unconditionally..
+	* ipa-inline.c (cgraph_decide_inlining): Do not remove hook if
+	LTO is running in WPA mode.
+	* opts.c (common_handle_option): Handle -flto, -fltrans and -fwpa.
+	* common.opt: (flto): Reject negative.
+	(fltrans): New option.
+	(fwpa): Reject negative. Update description.
+	* doc/invoke.text (fwpa): Update.
+	(fltrans): New flag.
+
 2008-09-18  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (flags_length_for_code): Change size to

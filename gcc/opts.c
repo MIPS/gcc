@@ -1755,6 +1755,26 @@ common_handle_option (size_t scode, const char *arg, int value,
       set_fast_math_flags (value);
       break;
 
+    case OPT_flto:
+      /* -flto must not be given when -fltrans is given and not overriden. */
+      if (flag_ltrans)
+	error ("Cannot specify -flto when -fltrans is effective.");
+      break;
+
+    case OPT_fltrans:
+      if (lang_mask & CL_LTO)
+	{
+	  /* -fltrans implies -fno-lto and -fno-wpa. */
+	  flag_generate_lto = 0;
+	  flag_wpa = 0;
+	}
+      else
+	{
+	  flag_ltrans = 0; 
+	  return 0;
+	}
+      break;
+ 
     case OPT_funsafe_math_optimizations:
       set_unsafe_math_optimizations_flags (value);
       break;
@@ -2024,6 +2044,20 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_funroll_loops:
       flag_unroll_loops_set = true;
+      break;
+
+    case OPT_fwpa:
+      if (lang_mask & CL_LTO)
+	{
+	  /* -fwpa implies -flto and -fno-ltrans. */
+	  flag_generate_lto = 1;
+	  flag_ltrans = 0;
+	}
+	else
+	  {
+	    flag_wpa = 0;
+	    return 0;
+	  }
       break;
 
     case OPT_g:

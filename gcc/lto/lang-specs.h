@@ -23,5 +23,5 @@ Boston, MA 02110-1301, USA.  */
   
   {".lto",  "@lto",
    /*cpp_spec=*/NULL, /*combinable=*/1, /*needs_preprocessing=*/0},
-  {"@lto", "lto1 %(cc1_options) %i %{!fsyntax-only:%(invoke_as)}", 
+  {"@lto", "lto1 %(lto1_options) %i %{!fsyntax-only:%(invoke_as)}", 
    /*cpp_spec=*/NULL, /*combinable=*/1, /*needs_preprocessing=*/0},

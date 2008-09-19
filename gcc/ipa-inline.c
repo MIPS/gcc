@@ -1079,7 +1079,9 @@ cgraph_decide_inlining (void)
   int i;
   int initial_insns = 0;
 
-  cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
+  /* FIXME lto.  We need to re-think about how the passes get invoked. */
+  if (!flag_wpa)
+    cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
 
   max_count = 0;
   for (node = cgraph_nodes; node; node = node->next)

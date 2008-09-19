@@ -338,7 +338,7 @@ Objective-C and Objective-C++ Dialects}.
 -fira-coalesce -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
--floop-block -floop-interchange -floop-strip-mine @gol
+-floop-block -floop-interchange -floop-strip-mine -fltrans @gol
 -fmerge-all-constants -fmerge-constants -fmodulo-sched @gol
 -fmodulo-sched-allow-regmoves -fmove-loop-invariants -fmudflap @gol
 -fmudflapir -fmudflapth -fno-branch-count-reg -fno-default-inline @gol
@@ -6521,12 +6521,20 @@ This option is not supported for Fortran programs.
 @opindex fwpa
 This option runs the link-time optimizer in the whole-program-analysis (WPA)
 mode, which reads in summary information from all inputs and performs
-a whole-program analysis based on summary information only.  It generate
-objects files for subsequent runs of the link-time optimizer where
+a whole-program analysis based on summary information only.  It generates
+object files for subsequent runs of the link-time optimizer where
 individual object files are optimized using both summary information from
 the WPA mode and the actual function bodies.
 
-Disable by default.
+Disabled by default.  This options is only supported by the LTO frontend.
+
+@item -fltrans
+@opindex fltrans
+This option runs the link-time optimizer in the local-transformation (LTRANS)
+mode, which reads in output from a previous run of the LTO in WPA mode.
+In the LTRANS mode, LTO optimizes an object and produces the final assembly.
+
+Disabled by default.  This options is only supported by the LTO frontend.
 
 @item -fcprop-registers
 @opindex fcprop-registers

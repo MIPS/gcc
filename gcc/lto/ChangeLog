@@ -1,3 +1,8 @@
+2008-09-19  Doug Kwan  <dougkwan@google.com>
+
+	lto.c (lto_main): Remove unsued wrapper code.
+	lang-specs.h (@lto): Use lto1_options instead of cc1_options.
+
 2008-09-19  Rafael Espindola  <espindola@google.com>
 
 	* lto-symtab.c: Include lto-tree-in.h.
