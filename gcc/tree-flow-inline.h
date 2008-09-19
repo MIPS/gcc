@@ -101,6 +101,14 @@ gimple_nonlocal_all (const struct function *fun)
   return fun->gimple_df->nonlocal_all;
 }
 
+/* Artificial variable used for the virtual operand FUD chain.  */
+static inline tree
+gimple_vop (const struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->vop;
+}
+
 /* Initialize the hashtable iterator HTI to point to hashtable TABLE */
 
 static inline void *

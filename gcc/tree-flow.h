@@ -151,6 +151,9 @@ struct gimple_df GTY(())
   /* Array of all SSA_NAMEs used in the function.  */
   VEC(tree,gc) *ssa_names;
 
+  /* Artificial variable used for the virtual operand FUD chain.  */
+  tree vop;
+
   /* Artificial variable used to model the effects of function calls.  */
   tree global_var;
 

@@ -1097,8 +1097,24 @@ append_use (tree *use_p)
 static inline void
 append_vdef (tree var)
 {
-  tree sym;
+  tree vop = gimple_vop (cfun);
+  var_ann_t ann;
 
+  if (TREE_CODE (var) == VAR_DECL
+      || TREE_CODE (var) == PARM_DECL
+      || TREE_CODE (var) == RESULT_DECL)
+    bitmap_set_bit (build_stores, DECL_UID (var));
+
+  if (!vop)
+    return;
+  ann = var_ann (vop);
+  if (ann->in_vdef_list)
+    return;
+  ann->in_vdef_list = true;
+  VEC_safe_push (tree, heap, build_vdefs, vop);
+  /* ???  Necessary?  */
+  bitmap_set_bit (build_stores, DECL_UID (vop));
+#if 0
   if (TREE_CODE (var) != SSA_NAME)
     {
       tree mpt;
@@ -1122,6 +1138,7 @@ append_vdef (tree var)
 
   VEC_safe_push (tree, heap, build_vdefs, var);
   bitmap_set_bit (build_stores, DECL_UID (sym));
+#endif
 }
 
 
@@ -1130,6 +1147,27 @@ append_vdef (tree var)
 static inline void
 append_vuse (tree var)
 {
+  tree vop = gimple_vop (cfun);
+  var_ann_t ann;
+
+  if (TREE_CODE (var) == VAR_DECL
+      || TREE_CODE (var) == PARM_DECL
+      || TREE_CODE (var) == RESULT_DECL)
+    bitmap_set_bit (build_loads, DECL_UID (var));
+
+  if (!vop)
+    return;
+  ann = var_ann (vop);
+  if (ann->in_vuse_list)
+    return;
+  if (!ann->in_vdef_list)
+    {
+      ann->in_vuse_list = true;
+      VEC_safe_push (tree, heap, build_vuses, vop);
+    }
+  /* ???  Necessary?  */
+  bitmap_set_bit (build_loads, DECL_UID (vop));
+#if 0
   tree sym;
 
   if (TREE_CODE (var) != SSA_NAME)
@@ -1162,6 +1200,7 @@ append_vuse (tree var)
 
   VEC_safe_push (tree, heap, build_vuses, var);
   bitmap_set_bit (build_loads, DECL_UID (sym));
+#endif
 }
 
 

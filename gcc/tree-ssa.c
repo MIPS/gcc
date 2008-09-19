@@ -271,6 +271,12 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       return true;
     }
 
+  if (is_virtual && SSA_NAME_VAR (ssa_name) != gimple_vop (cfun))
+    {
+      error ("virtual SSA name for non-VOP decl");
+      return true;
+    }
+
   if (!is_virtual && !is_gimple_reg (ssa_name))
     {
       error ("found a real definition for a non-register");

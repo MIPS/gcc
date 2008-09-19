@@ -1,0 +1,12 @@
+2008-09-19  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (struct gimple_df): New member vop.
+	* tree-flow-inline.h (gimple_vop): New function.
+	* tree-ssa-alias.c (create_vop_var): New function.
+	(compute_may_aliases): Call it.
+	* tree-ssa-operands.c (append_vdef): Always append
+	the single gimple vop.
+	(append_vuse): Likewise.
+	* tree-ssa.c (verify_ssa_name): Verify all VOPs are
+	based on the single gimple vop.
+
