@@ -1,5 +1,9 @@
 2008-09-19  Tom Tromey  <tromey@redhat.com>
 
+	* gimple.h (gimple_cond_code): Cast result to tree_code.
+
+2008-09-19  Tom Tromey  <tromey@redhat.com>
+
 	* tree-flow.h (struct ptr_info_def) <escape_mask>: Now unsigned
 	int.
 	(struct var_ann_d) <escape_mask>: Likewise.
