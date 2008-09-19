@@ -1130,7 +1130,7 @@ gimple_range_check_failed (const_gimple gs, const char *file, int line,
 {
   char *buffer;
   unsigned length = 0;
-  enum gimple_code c;
+  int c;
 
   for (c = c1; c <= c2; ++c)
     length += 4 + strlen (gimple_code_name[c]);

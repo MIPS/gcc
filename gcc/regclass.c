@@ -2646,7 +2646,7 @@ cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
 			     unsigned int regno)
 {
   struct subregs_of_mode_node dummy, *node;
-  enum machine_mode to;
+  int to;
   unsigned char mask;
   unsigned int i;
 
@@ -2675,7 +2675,7 @@ invalid_mode_change_p (unsigned int regno,
 		       enum machine_mode from)
 {
   struct subregs_of_mode_node dummy, *node;
-  enum machine_mode to;
+  int to;
   unsigned char mask;
 
   gcc_assert (subregs_of_mode);

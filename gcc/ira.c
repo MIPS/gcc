@@ -497,7 +497,7 @@ static void
 setup_class_subset_and_memory_move_costs (void)
 {
   int cl, cl2;
-  enum machine_mode mode;
+  int mode;
   HARD_REG_SET temp_hard_regset2;
 
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
@@ -724,7 +724,7 @@ static void
 setup_cover_and_important_classes (void)
 {
   int i, j;
-  enum reg_class cl;
+  int cl;
   static enum reg_class classes[] = IRA_COVER_CLASSES;
   HARD_REG_SET temp_hard_regset2;
 
@@ -776,8 +776,8 @@ enum reg_class ira_class_translate[N_REG_CLASSES];
 static void
 setup_class_translate (void)
 {
-  enum reg_class cl, cover_class, best_class, *cl_ptr;
-  enum machine_mode mode;
+  int cl, mode;
+  enum reg_class cover_class, best_class, *cl_ptr;
   int i, cost, min_cost, best_cost;
 
   for (cl = 0; cl < N_REG_CLASSES; cl++)
@@ -1000,7 +1000,7 @@ static void
 setup_reg_class_nregs (void)
 {
   int m;
-  enum reg_class cl;
+  int cl;
 
   ira_max_nregs = -1;
   for (cl = 0; cl < N_REG_CLASSES; cl++)
@@ -1093,7 +1093,7 @@ HARD_REG_SET ira_one_hard_reg_set;
 void
 ira_init_once (void)
 {
-  enum machine_mode mode;
+  int mode;
 
   CLEAR_HARD_REG_SET (ira_zero_hard_reg_set);
   SET_HARD_REG_SET (ira_one_hard_reg_set);
@@ -1111,7 +1111,7 @@ ira_init_once (void)
 static void
 free_register_move_costs (void)
 {
-  enum machine_mode mode;
+  int mode;
 
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
     {

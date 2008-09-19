@@ -1,3 +1,21 @@
+2008-09-19  Tom Tromey  <tromey@redhat.com>
+
+	* tree.c (tree_range_check_failed): Use 'int' to iterate.
+	(omp_clause_range_check_failed): Likewise.
+	(build_common_builtin_nodes): Likewise.
+	* sel-sched.c (init_hard_regs_data): Use 'int' to iterate.
+	* regclass.c (cannot_change_mode_set_regs): Use 'int' to iterate.
+	(invalid_mode_change_p): Likewise.
+	* passes.c (finish_optimization_passes): Use 'int' to iterate.
+	* ira.c (setup_class_subset_and_memory_move_costs): Use 'int' to
+	iterate.
+	(setup_cover_and_important_classes): Likewise.
+	(setup_class_translate): Likewise.
+	(setup_reg_class_nregs): Likewise.
+	(ira_init_once): Likewise.
+	(free_register_move_costs): Likewise.
+	* gimple.c (gimple_range_check_failed): Use 'int' to iterate.
+
 2008-09-17  Tom Tromey  <tromey@redhat.com>
 
 	* ipa-reference.c (pass_ipa_reference): Fix struct tag.
