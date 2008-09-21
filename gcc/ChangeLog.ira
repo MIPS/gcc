@@ -1,7 +1,16 @@
+2008-09-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/37598
+	* ira-lives.c (mark_reg_live, mark_reg_dead): Revert revision
+	140504.
+	(mark_ref_live, mark_ref_dead): Likewise.
+	(def_conflicts_with_inputs_p): Likewise.
+	(mark_early_clobbers): Likewise.
+	(process_bb_node_lives): Likewise..
+
 2008-09-19  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR middle-end/37535
-
 	* ira-lives.c (mark_reg_live, mark_reg_dead): New functions.
 	(mark_ref_live, mark_ref_dead): Use them.
 	(def_conflicts_with_inputs_p): Remove.
