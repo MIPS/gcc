@@ -1,9 +1,9 @@
-/* plugin-api.h -- External plugin API for gold.  */
+/* plugin-api.h -- External linker plugin API.  */
 
 /* Copyright 2008 Free Software Foundation, Inc.
    Written by Cary Coutant <ccoutant@google.com>.
 
-   This file is part of gold.
+   This file is part of binutils.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -23,8 +23,11 @@
 /* This file defines the interface for writing a linker plugin, which is
    described at < http://gcc.gnu.org/wiki/whopr/driver >.  */
 
-#ifndef GOLD_PLUGIN_API_H
-#define GOLD_PLUGIN_API_H
+#ifndef PLUGIN_API_H
+#define PLUGIN_API_H
+
+#include <stdint.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -33,8 +36,10 @@ extern "C"
 
 /* Status code returned by most API routines.  */
 
-enum ld_plugin_status {
+enum ld_plugin_status
+{
   LDPS_OK = 0,
+  LDPS_NO_SYMS,         // Attempt to get symbols that haven't been added.
   LDPS_ERR,
   /* Additional Error codes TBD.  */
 };
@@ -126,13 +131,13 @@ enum ld_plugin_status
 
 typedef
 enum ld_plugin_status
-(*ld_plugin_all_symbols_read_handler) ();
+(*ld_plugin_all_symbols_read_handler) (void);
 
 /* The plugin library's cleanup handler.  */
 
 typedef
 enum ld_plugin_status
-(*ld_plugin_cleanup_handler) ();
+(*ld_plugin_cleanup_handler) (void);
 
 /* The linker's interface for registering the "claim file" handler.  */
 
@@ -157,14 +162,14 @@ enum ld_plugin_status
 
 typedef
 enum ld_plugin_status
-(*ld_plugin_add_symbols) (const void *handle, int nsyms,
+(*ld_plugin_add_symbols) (void *handle, int nsyms,
                           const struct ld_plugin_symbol *syms);
 
 /* The linker's interface for retrieving symbol resolution information.  */
 
 typedef
 enum ld_plugin_status
-(*ld_plugin_get_symbols) (void *handle, int nsyms,
+(*ld_plugin_get_symbols) (const void *handle, int nsyms,
                           struct ld_plugin_symbol *syms);
 
 /* The linker's interface for adding a compiled input file.  */
@@ -234,4 +239,4 @@ enum ld_plugin_status
 };
 #endif
 
-#endif /* !defined(GOLD_PLUGIN_API_H) */
+#endif /* !defined(PLUGIN_API_H) */

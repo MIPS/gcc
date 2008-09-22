@@ -53,7 +53,7 @@ static unsigned int num_file_handles;
 /* Write NSYMS symbols from file HANDLE in SYMS. */
 
 static enum ld_plugin_status
-get_symbols (void *handle, int nsyms, struct ld_plugin_symbol *syms)
+get_symbols (const void *handle, int nsyms, struct ld_plugin_symbol *syms)
 {
   unsigned i;
   struct file_handle *h = (struct file_handle *) handle;
@@ -96,7 +96,7 @@ register_cleanup (ld_plugin_cleanup_handler handler)
 /* For a file identified by HANDLE, add NSYMS symbols from SYMS. */
 
 static enum ld_plugin_status
-add_symbols (const void *handle, int nsyms,
+add_symbols (void *handle, int nsyms,
 	     const struct ld_plugin_symbol *syms)
 {
   int i;

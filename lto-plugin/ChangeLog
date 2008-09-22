@@ -1,5 +1,10 @@
 2008-09-22 Rafael Espindola  <espindola@google.com>
 
+	* lto-symtab.c (get_symbols, add_symbols): Update signature.
+	* plugin-api.h: Copy from binutils' cvs.
+
+2008-09-22 Rafael Espindola  <espindola@google.com>
+
 	* common.h (lto_kind_str, lto_visibility_str, lto_resolution_str):
 	Make extern
 
