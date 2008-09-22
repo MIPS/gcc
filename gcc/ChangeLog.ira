@@ -1,3 +1,8 @@
+2008-09-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ira-lives.c (mark_ref_live): Revert revision 140533.
+	(process_bb_node_lives): Likewise.
+
 2008-09-21  Richard Sandiford <rsandifo@nildram.co.uk>
 
 	PR rtl-optimization/37535

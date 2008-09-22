@@ -212,10 +212,9 @@ clear_allocno_live (ira_allocno_t a)
 /* Mark the register referenced by use or def REF as live
    Store a 1 in hard_regs_live or allocnos_live for this register or
    the corresponding allocno, record how many consecutive hardware
-   registers it actually needs.  Return true if at least some of
-   the register was dead before the call.  */
+   registers it actually needs.  */
 
-static bool
+static void
 mark_ref_live (struct df_ref *ref)
 {
   rtx reg;
@@ -234,25 +233,21 @@ mark_ref_live (struct df_ref *ref)
       if (a != NULL)
 	{
 	  if (sparseset_bit_p (allocnos_live, ALLOCNO_NUM (a)))
-	    return false;
+	    return;
 	  set_allocno_live (a);
 	}
       make_regno_born (regno);
-      return true;
     }
   else if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
       int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
       enum reg_class cover_class;
-      bool some_dead_p;
 
-      some_dead_p = false;
       while (regno < last)
 	{
 	  if (! TEST_HARD_REG_BIT (hard_regs_live, regno)
 	      && ! TEST_HARD_REG_BIT (eliminable_regset, regno))
 	    {
-	      some_dead_p = true;
 	      cover_class = ira_class_translate[REGNO_REG_CLASS (regno)];
 	      if (cover_class != NO_REGS)
 		{
@@ -271,9 +266,7 @@ mark_ref_live (struct df_ref *ref)
 	    }
 	  regno++;
 	}
-      return some_dead_p;
     }
-  return false;
 }
 
 /* Return true if the definition described by DEF conflicts with the
@@ -646,7 +639,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
       FOR_BB_INSNS_REVERSE (bb, insn)
 	{
 	  struct df_ref **def_rec, **use_rec;
-	  bool call_p, some_clobbered_p;
+	  bool call_p;
 	  
 	  if (! INSN_P (insn))
 	    continue;
@@ -742,26 +735,17 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 
 	  /* If any defined values conflict with the inputs, mark those
 	     defined values as live.  */
-	  some_clobbered_p = false;
 	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	    if (def_conflicts_with_inputs_p (*def_rec))
-	      if (mark_ref_live (*def_rec))
-		some_clobbered_p = true;
+	      mark_ref_live (*def_rec);
 
 	  process_single_reg_class_operands (true, freq);
 	  
 	  /* See which of the defined values we marked as live are dead
 	     before the instruction.  */
-	  if (some_clobbered_p)
-	    {
-	      for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-		if (def_conflicts_with_inputs_p (*def_rec))
-		  mark_ref_dead (*def_rec);
-	      
-	      /* Mark each used value as live again.  */
-	      for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
-		mark_ref_live (*use_rec);
-	    }
+	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	    if (def_conflicts_with_inputs_p (*def_rec))
+	      mark_ref_dead (*def_rec);
 
 	  curr_point++;
 	}
