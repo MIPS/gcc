@@ -25043,7 +25043,7 @@ echo "$as_me: error: bad value ${enableval} for --enable-examples" >&2;}
 else
   EXAMPLESDIR="examples"
 fi;
-  if test "x${use_zip}" = xno && test "x${install_class_files}" = xno; then
+  if test "x${build_class_files}" = xno; then
     EXAMPLESDIR=""
   fi
 
@@ -25061,7 +25061,7 @@ echo "$as_me: error: bad value ${enableval} for --enable-tools" >&2;}
 else
   TOOLSDIR="tools"
 fi;
-  if test "x${use_zip}" = xno && test "x${install_class_files}" = xno; then
+  if test "x${build_class_files}" = xno; then
     TOOLSDIR=""
   fi
 
