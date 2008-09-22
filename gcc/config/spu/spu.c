@@ -1063,7 +1063,7 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 	  emit_move_insn (else_reg, else_ref);
 	  emit_insn (gen_clgt_si (expect_cmp, spu_expect_op1, const0_rtx));
 	  emit_insn (gen_selb (hint_target, then_reg, else_reg, expect_cmp));
-	  emit_insn (gen_hbr (plus_constant (branch_ref, -4), hint_target));
+	  emit_insn (gen_hbr (branch_ref, hint_target));
 
 	  LABEL_NUSES (branch_label)++;
 	  LABEL_PRESERVE_P (branch_label) = 1;
@@ -2271,17 +2271,9 @@ spu_emit_branch_hint (rtx before, rtx branch, rtx target,
       branch_label = gen_label_rtx ();
       LABEL_NUSES (branch_label)++;
       LABEL_PRESERVE_P (branch_label) = 1;
-      /* We place the label after the branch because pad_nops or
-	 insert_hbrp might insert an insn before the branch.  Also, we
-	 force a new basic block after a call because a label at block
-	 boundaries will not get moved by schedule_insns */
-      insn = emit_label_after (branch_label, branch);
-      branch_label =
-	plus_constant (gen_rtx_LABEL_REF (VOIDmode, branch_label), -4);
-      if (CALL_P (branch))
-	SET_BIT (blocks, BLOCK_FOR_INSN (branch)->index);
-      else
-	delete_insn (insn);
+      insn = emit_label_before (branch_label, branch);
+      branch_label = gen_rtx_LABEL_REF (VOIDmode, branch_label);
+      SET_BIT (blocks, BLOCK_FOR_INSN (branch)->index);
 
       hint = emit_insn_before (gen_hbr (branch_label, target), before);
       recog_memoized (hint);
@@ -2791,13 +2783,31 @@ spu_machine_dependent_reorg (void)
 
   pad_bb ();
 
-  /* __builtin_expect with a non-constant second argument generates
-     patterns which contain labels that need to be relocated.  These
-     are generated in spu_emit_branch_or_set. */
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (JUMP_P (insn) && (INSN_CODE (insn) == CODE_FOR_expect_then
-	                  || INSN_CODE (insn) == CODE_FOR_expect_else))
+    if (NONJUMP_INSN_P (insn) && INSN_CODE (insn) == CODE_FOR_hbr)
       {
+	/* Adjust the LABEL_REF in a hint when we have inserted a nop
+	   between its branch label and the branch .  We don't move the
+	   label because GCC expects it at the beginning of the block. */
+	rtx unspec = SET_SRC (XVECEXP (PATTERN (insn), 0, 0));
+	rtx label_ref = XVECEXP (unspec, 0, 0);
+	rtx label = XEXP (label_ref, 0);
+	rtx branch;
+	int offset = 0;
+	for (branch = NEXT_INSN (label);
+	     !JUMP_P (branch) && !CALL_P (branch);
+	     branch = NEXT_INSN (branch))
+	  if (NONJUMP_INSN_P (branch))
+	    offset += get_attr_length (branch);
+	if (offset > 0)
+	  XVECEXP (unspec, 0, 0) = plus_constant (label_ref, offset);
+      }
+    else if (JUMP_P (insn) && (INSN_CODE (insn) == CODE_FOR_expect_then
+			       || INSN_CODE (insn) == CODE_FOR_expect_else))
+      {
+	/* __builtin_expect with a non-constant second argument
+	   generates patterns which contain labels that need to be
+	   relocated.  These are generated in spu_emit_branch_or_set. */
 	rtx set0 = XVECEXP (PATTERN (insn), 0, 0);
 	rtx use1 = XVECEXP (PATTERN (insn), 0, 1);
 	rtx use2 = XVECEXP (PATTERN (insn), 0, 2);
@@ -2809,7 +2819,7 @@ spu_machine_dependent_reorg (void)
 	if (GET_CODE (label0) == PC)
 	  label0 = XEXP (XEXP (set0, 1), 2);
 	remove_insn (label1);
-	add_insn_after (label1, insn, 0);
+	add_insn_before (label1, insn, 0);
 	if (GET_CODE (XEXP (XEXP (set0, 1), 0)) == NE)
 	  {
 	    remove_insn (label2);

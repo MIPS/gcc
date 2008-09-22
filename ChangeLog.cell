@@ -1,3 +1,11 @@
+2008-09-22  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
+	Use a better method to adjust hint labels on branches.
+
+	* gcc/config/spu/spu.c (spu_emit_branch_or_set,
+	spu_emit_branch_hint, spu_machine_dependent_reorg): Emit hint
+	labels before branch and adjust offset after adding nops.
+
 2008-09-10  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
 
 	Support dynamic hints via __builtin_expect with a non-constant
