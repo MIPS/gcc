@@ -1,3 +1,8 @@
+2008-09-22 Rafael Espindola  <espindola@google.com>
+
+	* common.h (lto_kind_str, lto_visibility_str, lto_resolution_str):
+	Make extern
+
 2008-09-10 Rafael Espindola  <espindola@google.com>
 
 	* lto-plugin.c (onload): add missing break statements and asserts.
