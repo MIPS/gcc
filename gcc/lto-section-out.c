@@ -1110,6 +1110,9 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
       uint64_t size;
       const char *comdat;
 
+      if (!TREE_PUBLIC (t))
+	continue;
+
       if (TREE_CODE (t) == VAR_DECL
 	  || TREE_CODE (t) == FUNCTION_DECL)
 	name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t));

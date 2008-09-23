@@ -1,3 +1,7 @@
+2008-09-23 Rafael Espindola  <espindola@google.com>
+
+	* lto-section-out.c (write_symbol_vec): Skip non TREE_PUBLIC nodes.
+
 2008-09-22  Doug Kwan  <dougkwan@google.com>
 
 	* cgraphbuild.c (reset_inline_failed): New function.
