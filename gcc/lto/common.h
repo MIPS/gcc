@@ -1,4 +1,4 @@
-/* LTO plugin for gold.
+/* Common code for the plugin and lto1.
    Copyright (C) 2008 Free Software Foundation, Inc.
    Contributed by Rafael Avila de Espindola (espindola@google.com).
 

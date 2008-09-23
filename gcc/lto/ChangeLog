@@ -1,5 +1,10 @@
 2008-09-23 Rafael Espindola  <espindola@google.com>
 
+	* common.c: Update description.
+	* common.h: Update description.
+
+2008-09-23 Rafael Espindola  <espindola@google.com>
+
 	* common.c: Moved from lto-plugin.
 	* common.h: Moved from lto-plugin.
 
