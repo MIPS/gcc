@@ -48,7 +48,7 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #endif
 
 #include "plugin-api.h"
-#include "common.h"
+#include "../gcc/lto/common.h"
 
 /* The part of the symbol table the plugin has to keep track of. Note that we
    must keep SYMS until all_symbols_read is called to give the linker time to

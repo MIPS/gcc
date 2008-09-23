@@ -199,12 +199,12 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 AM_CPPFLAGS = -I$(top_srcdir)/../include
 AM_CFLAGS = -Wall -Werror
-ltosymtab_SOURCES = lto-symtab.c common.c
+ltosymtab_SOURCES = lto-symtab.c $(top_srcdir)/../gcc/lto/common.c
 ltosymtab_LDADD = -ldl -lelf
 #hack to use common.c in both targets
 ltosymtab_CFLAGS = $(AM_CFLAGS)
 lib_LTLIBRARIES = liblto_plugin.la
-liblto_plugin_la_SOURCES = lto-plugin.c common.c
+liblto_plugin_la_SOURCES = lto-plugin.c $(top_srcdir)/../gcc/lto/common.c
 liblto_plugin_la_LIBADD = -lelf
 all: all-am
 
@@ -336,6 +336,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
 
+common.lo: $(top_srcdir)/../gcc/lto/common.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT common.lo -MD -MP -MF "$(DEPDIR)/common.Tpo" -c -o common.lo `test -f '$(top_srcdir)/../gcc/lto/common.c' || echo '$(srcdir)/'`$(top_srcdir)/../gcc/lto/common.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/common.Tpo" "$(DEPDIR)/common.Plo"; else rm -f "$(DEPDIR)/common.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/../gcc/lto/common.c' object='common.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o common.lo `test -f '$(top_srcdir)/../gcc/lto/common.c' || echo '$(srcdir)/'`$(top_srcdir)/../gcc/lto/common.c
+
 ltosymtab-lto-symtab.o: lto-symtab.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -MT ltosymtab-lto-symtab.o -MD -MP -MF "$(DEPDIR)/ltosymtab-lto-symtab.Tpo" -c -o ltosymtab-lto-symtab.o `test -f 'lto-symtab.c' || echo '$(srcdir)/'`lto-symtab.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/ltosymtab-lto-symtab.Tpo" "$(DEPDIR)/ltosymtab-lto-symtab.Po"; else rm -f "$(DEPDIR)/ltosymtab-lto-symtab.Tpo"; exit 1; fi
@@ -350,19 +357,19 @@ ltosymtab-lto-symtab.obj: lto-symtab.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -c -o ltosymtab-lto-symtab.obj `if test -f 'lto-symtab.c'; then $(CYGPATH_W) 'lto-symtab.c'; else $(CYGPATH_W) '$(srcdir)/lto-symtab.c'; fi`
 
-ltosymtab-common.o: common.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -MT ltosymtab-common.o -MD -MP -MF "$(DEPDIR)/ltosymtab-common.Tpo" -c -o ltosymtab-common.o `test -f 'common.c' || echo '$(srcdir)/'`common.c; \
+ltosymtab-common.o: $(top_srcdir)/../gcc/lto/common.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -MT ltosymtab-common.o -MD -MP -MF "$(DEPDIR)/ltosymtab-common.Tpo" -c -o ltosymtab-common.o `test -f '$(top_srcdir)/../gcc/lto/common.c' || echo '$(srcdir)/'`$(top_srcdir)/../gcc/lto/common.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/ltosymtab-common.Tpo" "$(DEPDIR)/ltosymtab-common.Po"; else rm -f "$(DEPDIR)/ltosymtab-common.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='common.c' object='ltosymtab-common.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/../gcc/lto/common.c' object='ltosymtab-common.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -c -o ltosymtab-common.o `test -f 'common.c' || echo '$(srcdir)/'`common.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -c -o ltosymtab-common.o `test -f '$(top_srcdir)/../gcc/lto/common.c' || echo '$(srcdir)/'`$(top_srcdir)/../gcc/lto/common.c
 
-ltosymtab-common.obj: common.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -MT ltosymtab-common.obj -MD -MP -MF "$(DEPDIR)/ltosymtab-common.Tpo" -c -o ltosymtab-common.obj `if test -f 'common.c'; then $(CYGPATH_W) 'common.c'; else $(CYGPATH_W) '$(srcdir)/common.c'; fi`; \
+ltosymtab-common.obj: $(top_srcdir)/../gcc/lto/common.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -MT ltosymtab-common.obj -MD -MP -MF "$(DEPDIR)/ltosymtab-common.Tpo" -c -o ltosymtab-common.obj `if test -f '$(top_srcdir)/../gcc/lto/common.c'; then $(CYGPATH_W) '$(top_srcdir)/../gcc/lto/common.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/../gcc/lto/common.c'; fi`; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/ltosymtab-common.Tpo" "$(DEPDIR)/ltosymtab-common.Po"; else rm -f "$(DEPDIR)/ltosymtab-common.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='common.c' object='ltosymtab-common.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/../gcc/lto/common.c' object='ltosymtab-common.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -c -o ltosymtab-common.obj `if test -f 'common.c'; then $(CYGPATH_W) 'common.c'; else $(CYGPATH_W) '$(srcdir)/common.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ltosymtab_CFLAGS) $(CFLAGS) -c -o ltosymtab-common.obj `if test -f '$(top_srcdir)/../gcc/lto/common.c'; then $(CYGPATH_W) '$(top_srcdir)/../gcc/lto/common.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/../gcc/lto/common.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
