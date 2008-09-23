@@ -1,3 +1,7 @@
+2008-09-23  Rafael Espindola  <espindola@google.com>
+
+        * plugin-api.h: Moved to include.
+
 2008-09-23 Rafael Espindola  <espindola@google.com>
 
 	* lto-plugin.c (all_symbols_read_handler): Print resolution in a new

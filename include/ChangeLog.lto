@@ -1,3 +1,7 @@
+2008-09-23  Rafael Espindola  <espindola@google.com>
+
+	* plugin-api.h: Moved from lto-plugin.
+
 2008-08-21  Rafael Espindola  <espindola@google.com>
 
 	* lto-symtab.h: New.
