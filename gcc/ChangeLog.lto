@@ -1,3 +1,11 @@
+2008-09-23  Diego Novillo  <dnovillo@google.com>
+
+	* lto-cgraph.c (lto_cgraph_encoder_encode): Change return
+	type to void.
+	Fix 64-bit issues with REF's type.
+	(lto_cgraph_encoder_lookup): Change return type to
+	HOST_WIDE_INT.  Update all users.
+
 2008-09-23 Rafael Espindola  <espindola@google.com>
 
 	* lto-section-out.c (write_symbol_vec): Skip non TREE_PUBLIC nodes.
@@ -10,14 +18,14 @@
 	(cgraph_clone_input_node): New.
 	(struct cgraph_node_set_hash_access_def, cgraph_node_set_hash_access):
 	Remove types.
- 	(hash_cgraph_node_set_element): Adjust to use cgraph_node_set_element.
+	(hash_cgraph_node_set_element): Adjust to use cgraph_node_set_element.
 	type instead of cgraph_node_set_hash_access.
- 	(eq_cgraph_node_set_element): Ditto.
+	(eq_cgraph_node_set_element): Ditto.
 	(cgraph_node_set_add): Ditto.
 	(cgraph_node_set_remove): Ditto.
- 	(cgraph_node_set_find): Ditto.
+	(cgraph_node_set_find): Ditto.
 	* cgraph.h (struct cgraph_node_set_element_def): Add new field NODE.
- 	(cgraph_clone_edge): Add new parameter for STMT_UID in prototype.
+	(cgraph_clone_edge): Add new parameter for STMT_UID in prototype.
 	(cgraph_clone_input_node, reset_inline_failed): New prototypes.
 	* lto-function-out.c (output_function_decl): Fake DECL attributes
 	if it is foreced to be static inline.
@@ -34,11 +42,11 @@
 	lto_cgraph_encoder_size): New functions.
 	(output_edge): Add new parameter ENCODER.  Output references to both
 	caller and callee of an edge. Also output INLINE_FAILED.
- 	(output_node): Remove parameter BOUNDARY_P.  Add new parameters
+	(output_node): Remove parameter BOUNDARY_P.  Add new parameters
 	ENCODER and SET.  Handle boundary nodes and clones specially.
 	Output global node states in WPA mode.  Do not output edges.
 	(output_cgraph_verify_node):  Handle clones.
- 	(output_cgraph):  Changle algorithm.  Output all nodes first then
+	(output_cgraph):  Changle algorithm.  Output all nodes first then
 	followed by all edges.  Use an lto_cgraph_encoder to handle node
 	pointers.  Remove code to compute set of boundary nodes.
 	(input_node): New function.
