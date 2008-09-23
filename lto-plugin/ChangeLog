@@ -1,3 +1,9 @@
+2008-09-23 Rafael Espindola  <espindola@google.com>
+
+	* lto-plugin.c (plugin_file_info): Add temp.
+	(cleanup_handler): Only delete temporary files.
+	(claim_file_handler): Initialize lto_file.temp.
+
 2008-09-23  Rafael Espindola  <espindola@google.com>
 
         * plugin-api.h: Moved to include.

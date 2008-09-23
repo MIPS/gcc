@@ -70,6 +70,7 @@ struct plugin_file_info
   void *handle;
   Elf *elf;
   struct plugin_symtab symtab;
+  unsigned char temp;
 };
 
 
@@ -298,8 +299,11 @@ cleanup_handler (void)
   for (i = 0; i < num_claimed_files; i++)
     {
       struct plugin_file_info *info = &claimed_files[i];
-      t = unlink (info->name);
-      assert (t == 0);
+      if (info->temp)
+	{
+	  t = unlink (info->name);
+	  assert (t == 0);
+	}
     }
   t = rmdir (temp_obj_dir_name);
   assert (t == 0);
@@ -351,12 +355,14 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
       lto_file.name = objname;
       lto_file.fd = fd;
       lto_file.handle = file->handle;
+      lto_file.temp = 1;
     }
   else
     {
       lto_file.name = strdup (file->name);
       lto_file.fd = file->fd;
       lto_file.handle = file->handle;
+      lto_file.temp = 0;
     }
   lto_file.elf = elf_begin (lto_file.fd, ELF_C_READ, NULL);
   elf = lto_file.elf;
