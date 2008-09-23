@@ -652,9 +652,12 @@ verify_cgraph_node (struct cgraph_node *node)
       error_found = true;
     }
 
+  /* We cannot do the following check in WPA mode as the function body
+     is not available in memory.  */
   if (node->analyzed
       && !TREE_ASM_WRITTEN (node->decl)
-      && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to))
+      && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to)
+      && !flag_wpa)
     {
       if (this_cfun->cfg)
 	{
@@ -1477,7 +1480,8 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
       also cloned.  */
    for (e = old_version->callees;e; e=e->next_callee)
      {
-       new_e = cgraph_clone_edge (e, new_version, e->call_stmt, 0, e->frequency,
+       new_e = cgraph_clone_edge (e, new_version, e->call_stmt,
+				  e->lto_stmt_uid, 0, e->frequency,
 				  e->loop_nest, true);
        new_e->count = e->count;
      }

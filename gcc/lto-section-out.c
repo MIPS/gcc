@@ -59,6 +59,56 @@ static VEC(lto_out_decl_state_ptr, heap) *decl_state_stack;
 
 static VEC(lto_out_decl_state_ptr, heap) *function_decl_states;
 
+/* Bitmap indexed by DECL_UID to indicate if a function needs to be
+   forced static inline. */
+static bitmap forced_static_inline;
+
+static bitmap_obstack lto_section_out_obstack;
+
+/* Initialize states for determining which function decls to be ouput
+   as static inline, regardless of the decls' own attributes.  */
+
+void
+lto_new_static_inline_states (void)
+{
+  bitmap_obstack_initialize (&lto_section_out_obstack);
+  forced_static_inline = BITMAP_ALLOC (&lto_section_out_obstack);
+}
+
+/* Releasing resources use for states to determine which function decls
+   to be ouput as static inline */
+
+void
+lto_delete_static_inline_states (void)
+{
+  BITMAP_FREE (forced_static_inline);
+  forced_static_inline = NULL;
+  bitmap_obstack_release (&lto_section_out_obstack);
+}
+
+/* Force FN_DECL to be output as static inline.  */
+
+void
+lto_force_function_static_inline (tree fn_decl)
+{
+  bitmap_set_bit (forced_static_inline, DECL_UID (fn_decl));
+}
+
+/* Like lto_force_function_static_inline above but for multiple decls.
+   DECL is a bitmap indexed by DECL_UID. */
+ 
+void
+lto_force_functions_static_inline (bitmap decls)
+{
+  bitmap_ior_into (forced_static_inline, decls);
+}
+
+bool
+lto_forced_static_inline_p (tree fn_decl)
+{
+  return bitmap_bit_p (forced_static_inline, DECL_UID (fn_decl));
+}
+
 /* Add FLAG onto the end of BASE.  */
  
 void
@@ -1179,11 +1229,13 @@ produce_symtab (htab_t hash)
   lto_begin_section (section_name);
   free(section_name);
 
+  bitmap_obstack_initialize (NULL);
   seen = BITMAP_ALLOC (NULL);
   write_symbols_of_kind (LTO_DECL_STREAM_FN_DECL, hash, seen);
   write_symbols_of_kind (LTO_DECL_STREAM_VAR_DECL, hash, seen);
 
   BITMAP_FREE (seen);
+  bitmap_obstack_release (NULL);
   lto_end_section ();
 }
 

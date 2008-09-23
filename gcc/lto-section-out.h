@@ -212,4 +212,10 @@ bool gate_lto_out (void);
 void preload_common_node (tree, htab_t, VEC(tree, heap) **, unsigned *);
 bool get_ref_idx_for (tree, htab_t, VEC(tree, heap) **, unsigned *);
 
+void lto_new_static_inline_states (void);
+void lto_delete_static_inline_states (void);
+void lto_force_function_static_inline (tree fn_decl);
+void lto_force_functions_static_inline (bitmap decls);
+bool lto_forced_static_inline_p (tree fn_decl);
+
 #endif  /* GCC_LTO_SECTION_OUT_H  */

@@ -2141,6 +2141,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   gimple *stmts;
   struct cgraph_edge *cedge; 
   basic_block bb;
+  struct cgraph_node *master_clone, *node;
 
   DECL_INITIAL (fn_decl) = DECL_SAVED_TREE (fn_decl) = make_node (BLOCK);
   BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
@@ -2206,15 +2207,20 @@ input_function (tree fn_decl, struct data_in *data_in,
   fprintf (stderr, "%s\n", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn_decl)));
 #endif
 
-  cedge = cgraph_node (fn_decl)->callees;
-  while (cedge)
-    {
-      cedge->call_stmt = stmts[cedge->lto_stmt_uid];
+  /* We need to go through all the clones to fix up call-stmts in
+     edges.  */
+  node = cgraph_node (fn_decl);
+  master_clone = node->master_clone ? node->master_clone : node;
+
+  for (node = master_clone; node; node = node->next_clone)
+    for (cedge = node->callees; cedge; cedge = cedge->next_callee)
+      {
+	cedge->call_stmt = stmts[cedge->lto_stmt_uid];
 #ifdef LOCAL_TRACE
-      fprintf (stderr, "fixing up call %d\n", cedge->lto_stmt_uid);
+	fprintf (stderr, "fixing up call %d\n", cedge->lto_stmt_uid);
 #endif
-      cedge = cedge->next_callee;
-    }
+      }
+
 #ifdef LOCAL_TRACE
   fprintf (stderr, "\n");
 #endif

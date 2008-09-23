@@ -353,6 +353,7 @@ DEF_VEC_ALLOC_P(cgraph_node_set,heap);
 
 struct cgraph_node_set_element_def GTY(())
 {
+  struct cgraph_node *node;
   HOST_WIDE_INT index;
 };
 
@@ -388,10 +389,11 @@ struct cgraph_global_info *cgraph_global_info (tree);
 struct cgraph_rtl_info *cgraph_rtl_info (tree);
 const char * cgraph_node_name (struct cgraph_node *);
 struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *,
-					struct cgraph_node *,
-					gimple, gcov_type, int, int, bool);
+					struct cgraph_node *, gimple,
+					unsigned, gcov_type, int, int, bool);
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *, gcov_type, int,
 					int, bool);
+struct cgraph_node * cgraph_clone_input_node (struct cgraph_node *);
 
 void cgraph_redirect_edge_callee (struct cgraph_edge *, struct cgraph_node *);
 
@@ -519,6 +521,7 @@ void cgraph_remove_node_duplication_hook (struct cgraph_2node_hook_list *);
 
 /* In cgraphbuild.c  */
 unsigned int rebuild_cgraph_edges (void);
+void reset_inline_failed (struct cgraph_node *);
 int compute_call_stmt_bb_frequency (basic_block bb);
 
 /* In ipa.c  */

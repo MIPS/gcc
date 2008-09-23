@@ -46,6 +46,9 @@ Boston, MA 02110-1301, USA.  */
 
 static bitmap_obstack lto_bitmap_obstack;
 
+DEF_VEC_P(bitmap);
+DEF_VEC_ALLOC_P(bitmap,heap);
+
 /* Read the constructors and inits.  */
 
 static void
@@ -84,8 +87,12 @@ lto_materialize_function (struct cgraph_node *node)
       DECL_EXTERNAL (decl) = 0;
 
       allocate_struct_function (decl, false);
-      if (!flag_wpa)
-         lto_input_function_body (file_data, decl, data);
+
+      if (flag_wpa)
+	lto_mark_function_body_in_file (decl);
+      else
+        lto_input_function_body (file_data, decl, data);
+
       fn = DECL_STRUCT_FUNCTION (decl);
       lto_free_section_data (file_data, LTO_section_function_body, name,
 			     data, len);
@@ -472,57 +479,63 @@ lto_1_to_1_map (void)
   pointer_map_destroy (pmap);
 }
 
-/* Compute the transitive closure of inlining of SET based on the
-   information in the call-graph.  Insert the inlinees into SET.  */
+/* Add inlined clone NODE and its master clone to SET, if NODE itself has
+   inlined callee, recursively add the callees.  */
 
 static void
+lto_add_inline_clones (cgraph_node_set set, struct cgraph_node *node,
+		       bitmap original_nodes, bitmap inlined_decls)
+{
+   struct cgraph_node *master_clone, *callee;
+   struct cgraph_edge *edge;
+
+   /* NODE must be an inlined clone.  Add both its master clone and node
+      itself to SET and mark the decls as inlined.  */
+   if (!bitmap_bit_p (original_nodes, node->uid))
+     {
+	master_clone = cgraph_master_clone (node, false);
+	gcc_assert (master_clone != NULL && master_clone != node);
+	cgraph_node_set_add (set, master_clone);
+	cgraph_node_set_add (set, node);
+	bitmap_set_bit (inlined_decls, DECL_UID (node->decl));
+     }
+   
+   /* Check to see if NODE has any inlined callee.  */
+   for (edge = node->callees; edge != NULL; edge = edge->next_callee)
+     {
+	callee = edge->callee;
+	if (callee->global.inlined_to != NULL)
+	    lto_add_inline_clones (set, callee, original_nodes,
+				   inlined_decls);
+     }
+}
+
+/* Compute the transitive closure of inlining of SET based on the
+   information in the call-graph.  Returns a bitmap of decls indexed
+   by UID.  */
+
+static bitmap
 lto_add_all_inlinees (cgraph_node_set set)
 {
   cgraph_node_set_iterator csi;
-  struct cgraph_node *node, *callee;
-  size_t i, orig_size = cgraph_node_set_size (set);
-  VEC(cgraph_node_ptr,heap) *queue =
-    VEC_alloc(cgraph_node_ptr,heap, orig_size);
-  struct cgraph_edge *edge;
-  bitmap queued_p = BITMAP_ALLOC (&lto_bitmap_obstack);
+  struct cgraph_node *node;
+  bitmap original_nodes = BITMAP_ALLOC (&lto_bitmap_obstack);
+  bitmap inlined_decls = BITMAP_ALLOC (&lto_bitmap_obstack);
 
-  /* Perform a breadth-first-search to find the transitive closure
-     of inlinees. */
+  /* We are going to iterate SET will adding to it, mark all original
+     nodes so that we only add node inlined to original nodes.  */
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+    bitmap_set_bit (original_nodes, csi_node (csi)->uid);
 
-  /* Nodes in SET are root of BFS.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-      bitmap_set_bit (queued_p, node->uid);
-      VEC_quick_push (cgraph_node_ptr, queue, node);
+      if (bitmap_bit_p (original_nodes, node->uid))
+	lto_add_inline_clones (set, node, original_nodes, inlined_decls);
     }
 
-  i = 0;
-  while (i < VEC_length (cgraph_node_ptr, queue))
-    {
-      node = VEC_index (cgraph_node_ptr, queue, i);
-      for (edge = node->callees; edge != NULL; edge = edge->next_callee)
-	if (edge->inline_failed == CIF_OK)
-	  {
-	    callee = edge->callee;
-	    if (!bitmap_bit_p (queued_p, callee->uid))
-	      {
-		bitmap_set_bit (queued_p, callee->uid);
-		VEC_safe_push (cgraph_node_ptr, heap, queue, callee);
-	      }
-	  }
-      i++;
-    }
-
-  /* Add found inlinees to set.  We can skip entries [0..orig_size)
-     in queue as these are already in set. */
-  for (i = orig_size; i < VEC_length (cgraph_node_ptr, queue); i++)
-    {
-      node = VEC_index (cgraph_node_ptr, queue, i);
-      cgraph_node_set_add (set, node);
-    }
-
-  BITMAP_FREE (queued_p);
+  BITMAP_FREE (original_nodes);
+  return inlined_decls;
 }
 
 static lto_file *current_lto_file;
@@ -536,6 +549,15 @@ lto_wpa_write_files (void)
   char temp_filename[100];
   lto_file *file;
   cgraph_node_set set;
+  bitmap decls;
+  VEC(bitmap,heap) *inlined_decls = NULL;
+
+  /* Include all inlined function. */
+  for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
+    {
+      decls = lto_add_all_inlinees (set);
+      VEC_safe_push (bitmap, heap, inlined_decls, decls);
+    }
 
   for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
     {
@@ -547,15 +569,22 @@ lto_wpa_write_files (void)
         fatal_error ("lto_elf_file_open() failed");
 
       lto_set_current_out_file (file);
+      lto_new_static_inline_states ();
 
-      /* Include all inlined function. */
-      lto_add_all_inlinees (set);
+      decls = VEC_index (bitmap, inlined_decls, i);
+      lto_force_functions_static_inline (decls);
 
       ipa_write_summaries_of_cgraph_node_set (set);
+      lto_delete_static_inline_states ();
       
       lto_set_current_out_file (NULL);
       lto_elf_file_close (file);
+
     } 
+
+  for (i = 0; VEC_iterate (bitmap, inlined_decls, i, decls); i++)
+    BITMAP_FREE (decls);
+  VEC_free (bitmap, heap, inlined_decls);
 }
 
 void
@@ -659,17 +688,15 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       cgraph_function_flags_ready = true;
       bitmap_obstack_initialize (NULL);
       ipa_register_cgraph_hooks ();
+
+      /* Reset inlining informationi before running IPA inliner.  */
       for (node = cgraph_nodes; node; node = node->next)
-	{
-	  struct cgraph_edge *e;
-	
-	  for (e = node->callees; e != NULL; e = e->next_callee)
-	    e->inline_failed = CIF_OK;
-	}
+	reset_inline_failed (node);
 
       /* FIXME lto. We should not call this function directly. */
       pass_ipa_inline.pass.execute ();
 
+      verify_cgraph ();
       bitmap_obstack_release (NULL);
     }
 

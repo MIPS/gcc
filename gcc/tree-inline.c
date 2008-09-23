@@ -1393,8 +1393,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		edge = cgraph_edge (id->src_node, orig_stmt);
 		if (edge)
 		  cgraph_clone_edge (edge, id->dst_node, stmt,
-					   REG_BR_PROB_BASE, 1,
-					   edge->frequency, true);
+				     gimple_uid (stmt), REG_BR_PROB_BASE, 1,
+				     edge->frequency, true);
 		break;
 
 	      case CB_CGE_MOVE_CLONES:

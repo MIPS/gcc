@@ -50,7 +50,29 @@ Boston, MA 02110-1301, USA.  */
 #include "output.h"
 #include "lto-section-in.h"
 #include "lto-section-out.h"
+#include "pointer-set.h"
 #include <ctype.h>
+
+/* Call-Graph Streamer.
+
+ Originally, the call graph streamer did not handle clone nodes created
+ during the IPA-inlining.  The clones complicate things because:
+
+ 1. We must write also the master clones.
+ 2. We must write the master clones before writing the non-master clones
+    because non-master clones points to the master clone so they cannot
+    exist before the master does.
+    
+ The streaming algorithms are now changed before of the two constraints.
+
+ For streaming out, we first write out all nodes in the call-cgraph node
+ set without the edges.  We take care so that master clones are written
+ first.  Then we write out all edges, using the UID of nodes as references.
+
+ For streaming in, we first read in all nodes and then the edges.  We
+ keep a mapping of the ordering numbers to the nodes read.  The mapping
+ is used to decode references to ndoes in the stream.
+ */
 
 enum LTO_cgraph_tags
 {
@@ -62,27 +84,122 @@ enum LTO_cgraph_tags
   LTO_cgraph_last_tag
 };
 
+struct lto_cgraph_encoder_def
+{
+  struct pointer_map_t *map;		/* Map nodes to reference number. */
+  VEC(cgraph_node_ptr,heap) *nodes;	/* Map reference number to node. */
+};
+typedef struct lto_cgraph_encoder_def *lto_cgraph_encoder_t;
+
+#define LCC_NOT_FOUND	(-1)
+
+/* Create a new encoder.  */
+
+static lto_cgraph_encoder_t
+lto_cgraph_encoder_new (void)
+{
+  lto_cgraph_encoder_t encoder = XNEW (struct lto_cgraph_encoder_def);
+  encoder->map = pointer_map_create ();
+  encoder->nodes = NULL;
+  return encoder;
+}
+
+/* Delete ENCODER and its components.  */
+
+static void
+lto_cgraph_encoder_delete (lto_cgraph_encoder_t encoder)
+{
+   VEC_free (cgraph_node_ptr, heap, encoder->nodes);
+   pointer_map_destroy (encoder->map);
+   free (encoder);
+}
+
+/* Return the existing reference number of NODE in ENCODER or assign one
+   if NODE has not been seen.  */
+
+static int
+lto_cgraph_encoder_encode (lto_cgraph_encoder_t encoder,
+			   struct cgraph_node *node)
+{
+  void **slot = pointer_map_contains (encoder->map, node);
+  int ref;
+
+  if (slot)
+    return (int) *slot;
+  else
+    {
+      ref = VEC_length (cgraph_node_ptr, encoder->nodes);
+      slot = pointer_map_insert (encoder->map, node);
+      *slot = (void*) ref;
+      VEC_safe_push (cgraph_node_ptr, heap, encoder->nodes, node);
+      return ref;
+    }
+}
+
+/* Look up NODE in encoder.  Return NODE's reference if it has been encoded
+   or LCC_NOT_FOUND if it is not there.  */
+
+static int
+lto_cgraph_encoder_lookup (lto_cgraph_encoder_t encoder,
+			   struct cgraph_node *node)
+{
+  void **slot = pointer_map_contains (encoder->map, node);
+
+  return (slot ? (int) *slot : LCC_NOT_FOUND);
+}
+
+/* Return the cgraph node corresponding to REF using ENCODER. */
+
+static struct cgraph_node *
+lto_cgraph_encoder_deref (lto_cgraph_encoder_t encoder, int ref)
+{
+  if (ref == LCC_NOT_FOUND)
+    return NULL;
+
+  return VEC_index (cgraph_node_ptr, encoder->nodes, ref); 
+}
+
+/* Return number of encoded nodes in ENCODER.  */
+
+static int
+lto_cgraph_encoder_size (lto_cgraph_encoder_t encoder)
+{
+  return VEC_length (cgraph_node_ptr, encoder->nodes);
+}
+
 #ifdef LTO_STREAM_DEBUGGING
 static const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag] = 
 {"", "avail", "overwrite", "unavail", "edge"};
 #endif
 
 
-/* Output the cgraph EDGE to OB.  */
+/* Output the cgraph EDGE to OB using ENCODER.  */
 
 static void
-output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge)
+output_edge (struct lto_simple_output_block *ob,
+	     struct cgraph_edge *edge, lto_cgraph_encoder_t encoder)
 {
   unsigned int uid;
+  int ref;
 
   lto_output_uleb128_stream (ob->main_stream, LTO_cgraph_edge);
   LTO_DEBUG_INDENT (LTO_cgraph_edge);
-  lto_output_fn_decl_index (ob->decl_state, ob->main_stream, edge->callee->decl);
-  LTO_DEBUG_FN_NAME (edge->callee->decl);
+
+  LTO_DEBUG_TOKEN ("caller");
+  ref = lto_cgraph_encoder_lookup (encoder, edge->caller);
+  gcc_assert (ref != LCC_NOT_FOUND); 
+  lto_output_sleb128_stream (ob->main_stream, ref);
+
+  LTO_DEBUG_TOKEN ("callee");
+  ref = lto_cgraph_encoder_lookup (encoder, edge->callee);
+  gcc_assert (ref != LCC_NOT_FOUND); 
+  lto_output_sleb128_stream (ob->main_stream, ref);
 
   LTO_DEBUG_TOKEN ("stmt");
   uid = flag_wpa ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt);
   lto_output_uleb128_stream (ob->main_stream, uid);
+  LTO_DEBUG_TOKEN ("inline_failed");
+  lto_output_uleb128_stream (ob->main_stream, edge->inline_failed);
   LTO_DEBUG_TOKEN ("count");
   lto_output_uleb128_stream (ob->main_stream, edge->count);
   LTO_DEBUG_TOKEN ("frequency");
@@ -97,15 +214,18 @@ output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge)
 
 /* Output the cgraph NODE to OB.  If BOUNDARY_P is true, NODE is a boundary
    of a cgraph_node_set and we pretend NODE just have a decl and no callees.
-   */
+   WRITTEN_NODES are nodes written so far.  */
 
 static void
 output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
-	     bool boundary_p)
+	     lto_cgraph_encoder_t encoder, cgraph_node_set set)
 {
   unsigned int tag;
   unsigned HOST_WIDEST_INT flags = 0;
-  struct cgraph_edge *callees = node->callees;
+  struct cgraph_node *master_clone = node->master_clone;
+  unsigned needed, local, externally_visible, inlinable;
+  bool boundary_p = !cgraph_node_in_set_p (node, set);
+  bool clone_p = node->master_clone && node != node->master_clone;
 
   switch (cgraph_function_body_availability (node))
     {
@@ -127,18 +247,67 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
     }
  
   if (boundary_p)
-    tag = LTO_cgraph_unavail_node;
+    {
+      gcc_assert (!clone_p);
+      tag = LTO_cgraph_unavail_node;
+    }
 
   lto_output_uleb128_stream (ob->main_stream, tag);
   LTO_DEBUG_INDENT (tag);
 
-  lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
-  LTO_DEBUG_FN_NAME (node->decl);
-  lto_set_flag (&flags, node->needed);
-  lto_set_flag (&flags, node->local.local);
-  lto_set_flag (&flags, node->local.externally_visible);
+  needed = node->needed;
+  local = node->local.local;
+  externally_visible = node->local.externally_visible;
+  inlinable = node->local.inlinable;
+
+  /* In the WPA mode, we only output part of the call-graph.  Also, we
+     fake cgraph node attributes.  There are two cases that we care.
+
+     Boundary nodes: There are nodes that are not part of SET but are
+     called from within SET.  We artificially make them look like externally
+     visible nodes with no function body. 
+
+     Cherry-pikced nodes:  These are nodes we pull from other translational
+     units into SET during IPA-inlining.  We make them as local static
+     nodes and suppress the output of the master clone.  */
+
+  if (boundary_p)
+    {
+      needed = 0;
+      local = 0;
+      externally_visible = 1;
+      inlinable = 0;
+    }
+  else if (lto_forced_static_inline_p (node->decl))
+    {
+      needed = 0;
+      local = 1;
+      externally_visible = 0;
+      inlinable = 1;
+    }
+
+  LTO_DEBUG_TOKEN ("clone_p");
+  lto_output_uleb128_stream (ob->main_stream, clone_p);
+
+  if (clone_p)
+    {
+      int ref = lto_cgraph_encoder_lookup (encoder, master_clone);      
+
+      LTO_DEBUG_TOKEN ("master");
+      gcc_assert (ref != LCC_NOT_FOUND);
+      lto_output_sleb128_stream (ob->main_stream, ref);
+    }
+  else
+    { 
+      lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
+      LTO_DEBUG_FN_NAME (node->decl);
+    }
+
+  lto_set_flag (&flags, needed);
+  lto_set_flag (&flags, local);
+  lto_set_flag (&flags, externally_visible);
   lto_set_flag (&flags, node->local.finalized);
-  lto_set_flag (&flags, node->local.inlinable);
+  lto_set_flag (&flags, inlinable);
   lto_set_flag (&flags, node->local.disregard_inline_limits);
   lto_set_flag (&flags, node->local.redefined_extern_inline);
   lto_set_flag (&flags, node->local.for_functions_valid);
@@ -157,18 +326,41 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 				 node->local.inline_summary.self_insns);
     }
 
+  /* For WPA write also additional inlining information. */
+  if (flag_wpa)
+    {
+      int ref;
+
+      LTO_DEBUG_TOKEN ("estimated_stack_size");
+      lto_output_sleb128_stream (ob->main_stream, 
+				 node->global.estimated_stack_size);
+      LTO_DEBUG_TOKEN ("stack_frame_offset");
+      lto_output_sleb128_stream (ob->main_stream, 
+				 node->global.stack_frame_offset);
+      LTO_DEBUG_TOKEN ("inlined_to");
+      if (node->global.inlined_to)
+	{
+	  ref = lto_cgraph_encoder_lookup (encoder, node->global.inlined_to);
+	  gcc_assert (ref != LCC_NOT_FOUND);
+	}
+      else
+	ref = LCC_NOT_FOUND;
+      lto_output_sleb128_stream (ob->main_stream, ref); 
+
+      LTO_DEBUG_TOKEN ("insns");
+      lto_output_sleb128_stream (ob->main_stream, node->global.insns);
+      LTO_DEBUG_TOKEN ("estimated_growth");
+      lto_output_sleb128_stream (ob->main_stream,
+				 node->global.estimated_growth);
+      LTO_DEBUG_TOKEN ("inlined");
+      lto_output_uleb128_stream (ob->main_stream, node->global.inlined);
+    }
+  
   LTO_DEBUG_UNDENT();
 
 #ifdef LTO_STREAM_DEBUGGING
   gcc_assert (lto_debug_context.indent == 0);
 #endif
-
-  if (!boundary_p)
-    while (callees)
-      {
-	output_edge (ob, callees);
-	callees = callees->next_callee;
-      }
 
 #ifdef LTO_STREAM_DEBUGGING
   gcc_assert (lto_debug_context.indent == 0);
@@ -181,8 +373,9 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
    master_clone nodes or nodes that have no function bodies.  */
 
 static void
-output_cgraph_verify_node (struct cgraph_node *node)
+output_cgraph_verify_node (cgraph_node_set set, struct cgraph_node *node)
 {
+  struct cgraph_node *master_clone;
   switch (cgraph_function_body_availability (node))
     {
     case AVAIL_UNSET:
@@ -196,9 +389,11 @@ output_cgraph_verify_node (struct cgraph_node *node)
     case AVAIL_OVERWRITABLE:
     case AVAIL_AVAILABLE:
     case AVAIL_LOCAL:
-      if  (node != cgraph_master_clone (node, false))
+      master_clone = cgraph_master_clone (node, false);
+      if  (node != master_clone
+	   && !cgraph_node_in_set_p (master_clone, set))
 	{
-	  fprintf (stderr, "found clone\n.");
+	  fprintf (stderr, "found clone with no master\n.");
 	  gcc_assert (0);
 	}
       break;
@@ -206,58 +401,72 @@ output_cgraph_verify_node (struct cgraph_node *node)
 }
 #endif
 
-/* Output the cgraph.  */
+/* Output the part of the cgraph in SET.  This is a little tricky now as we
+   need to handle clones as well.  To simplify things we first write the nodes
+   and then the edges.  This make the streamed data a bit larger.  */
 
 static void
 output_cgraph (cgraph_node_set set)
 {
-  struct cgraph_node *node;
+  struct cgraph_node *node, *master_clone;
   struct lto_simple_output_block *ob 
     = lto_create_simple_output_block (LTO_section_cgraph);
-  int i = 0;
   cgraph_node_set_iterator csi;
-  cgraph_node_set boundary;
-  struct cgraph_edge *callee;
+  struct cgraph_edge *edge;
+  lto_cgraph_encoder_t encoder = lto_cgraph_encoder_new ();
+  int i, n_nodes;
 
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.tag_names = LTO_cgraph_tag_names;
   lto_debug_context.stream_name = "cgraph";
 #endif
 
-  /* Compute the boundary nodes. There are nodes not in SET but
-     directly reachable from there. */
-  boundary = cgraph_node_set_new ();
+  /* Go over all the nodes in SET and assign references.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-      for (callee = node->callees; callee; callee = callee->next_callee)
-	if (!cgraph_node_in_set_p (callee->callee, set))
-	    cgraph_node_set_add (boundary, callee->callee);
+      /* Make sure master clone appears before other clones.  */
+      master_clone = node->master_clone;
+      if (master_clone != NULL && master_clone != node) 
+	{
+	  gcc_assert (cgraph_node_in_set_p (master_clone, set));
+	  lto_cgraph_encoder_encode (encoder, master_clone);
+	}
+	lto_cgraph_encoder_encode (encoder, node);
     }
 
+  /* Go over all the nodes again to include callees that are not in SET.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-#ifdef ENABLE_CHECKING
-      output_cgraph_verify_node (node);
-#endif
-      output_node (ob, node, false /* boundary_p */);
-      i++;
+      for (edge = node->callees; edge; edge = edge->next_callee)
+	lto_cgraph_encoder_encode (encoder, edge->callee);
     }
 
-  for (csi = csi_start (boundary); !csi_end_p (csi); csi_next (&csi))
+  /* Write out the nodes */
+  n_nodes = lto_cgraph_encoder_size (encoder);
+  for (i = 0; i < n_nodes; i++)
+    {
+      node = lto_cgraph_encoder_deref (encoder, i);
+#ifdef ENABLE_CHECKING
+      output_cgraph_verify_node (set, node);
+#endif
+      output_node (ob, node, encoder, set);
+    }
+
+  /* Go over the nodes in SET again to write edges.  */
+  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-#ifdef ENABLE_CHECKING
-      output_cgraph_verify_node (node);
-#endif
-      output_node (ob, node, true /* boundary_p */);
+      for (edge = node->callees; edge; edge = edge->next_callee)
+	output_edge (ob, edge, encoder);
     }
 
   lto_output_uleb128_stream (ob->main_stream, 0);
 
   /* Create a section to hold the pickled output the cgraph.  */
   lto_destroy_simple_output_block (ob);
+  lto_cgraph_encoder_delete (encoder);
 }
 
 
@@ -298,6 +507,168 @@ input_overwrite_node (struct lto_file_decl_data* file_data,
     cgraph_mark_needed_node (node);
 }
 
+/* Read a node from input_block IB.  TAG is the node's tag just read. 
+   Return the node read or overwriten.  NODES points to a vector of nodes
+   read so far.  */
+ 
+static struct cgraph_node *
+input_node (struct lto_file_decl_data* file_data,
+	    struct lto_input_block *ib,
+	    enum LTO_cgraph_tags tag,
+	    VEC(cgraph_node_ptr, heap) *nodes)
+{
+  tree fn_decl;
+  struct cgraph_node *node, *master_clone;
+  unsigned int flags;
+  int stack_size = 0;
+  int self_insns = 0;
+  unsigned decl_index;
+  bool clone_p;
+  bool overwrite_p = false;
+  int estimated_stack_size = 0;
+  int stack_frame_offset = 0;
+  int ref = LCC_NOT_FOUND;
+  int insns = 0;
+  int estimated_growth = 0;
+  bool inlined = false;
+	  
+  LTO_DEBUG_TOKEN ("clone_p");
+  clone_p = lto_input_uleb128 (ib);
+
+  if (clone_p)
+    {
+      LTO_DEBUG_TOKEN ("master");
+      master_clone = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
+      gcc_assert (master_clone);
+      node = cgraph_clone_input_node (master_clone);
+    }
+  else
+    {
+      decl_index = lto_input_uleb128 (ib);
+      fn_decl = lto_file_decl_data_get_fn_decl (file_data, decl_index);
+      LTO_DEBUG_FN_NAME (fn_decl);
+      node = cgraph_node (fn_decl);
+    }
+
+  LTO_DEBUG_TOKEN ("flags");
+  flags = lto_input_uleb128 (ib);
+  
+  if (tag == LTO_cgraph_avail_node)
+    {
+      LTO_DEBUG_TOKEN ("stack_size");
+      stack_size = lto_input_sleb128 (ib);
+      LTO_DEBUG_TOKEN ("self_insns");
+      self_insns = lto_input_sleb128 (ib);
+    }
+	  
+  /* Read additional global data for LTRANS. */
+  if (flag_ltrans)
+    {
+      LTO_DEBUG_TOKEN ("estimated_stack_size");
+      estimated_stack_size = lto_input_sleb128 (ib);
+      LTO_DEBUG_TOKEN ("stack_frame_offset");
+      stack_frame_offset = lto_input_sleb128 (ib);
+      LTO_DEBUG_TOKEN ("inlined_to");
+      ref = lto_input_sleb128 (ib);
+
+      LTO_DEBUG_TOKEN ("insns");
+      insns = lto_input_sleb128 (ib);
+      LTO_DEBUG_TOKEN ("estimated_growth");
+      estimated_growth = lto_input_sleb128 (ib);
+      LTO_DEBUG_TOKEN ("inlined");
+      inlined = lto_input_uleb128 (ib);
+    }
+
+  switch (tag)
+    {
+    case LTO_cgraph_avail_node:
+      /* We cannot have two avail functions that are the same.  */
+      gcc_assert (((enum LTO_cgraph_tags)(node->aux))
+		  != LTO_cgraph_avail_node);
+      overwrite_p = true;
+      break;
+	      
+    case LTO_cgraph_unavail_node:
+      /* We only overwrite the node if this is a brand new node.  */
+      if (!node->aux)
+	overwrite_p = true;
+      break;
+      
+    case LTO_cgraph_overwritable_node:
+      /* FIXME lto: This code is written to take the last
+	 overwrittable version.  I do not speak linker but if the
+	 linker supposed to take the first one, then we need to
+	 change the test.  */
+      if (((enum LTO_cgraph_tags)(node->aux)) != LTO_cgraph_avail_node)
+	overwrite_p = true;
+      break;
+      
+    default:
+      gcc_unreachable ();
+    }
+
+  if (overwrite_p)
+    {
+      input_overwrite_node (file_data, node, tag, flags, stack_size,
+			    self_insns);
+      if (flag_ltrans)
+	{
+	  node->global.estimated_stack_size = estimated_stack_size;
+	  node->global.stack_frame_offset = stack_frame_offset;
+	  node->global.insns = insns;
+	  if (ref != LCC_NOT_FOUND)
+	    node->global.inlined_to = VEC_index (cgraph_node_ptr, nodes, ref);
+	  else
+	    node->global.inlined_to = NULL;
+	  node->global.estimated_growth = estimated_growth;
+	  node->global.inlined = inlined;
+	}
+    }
+
+  return node;
+}
+
+/* Read an edge from IB.  NODES points to a vector of previously read
+   nodes for decoding caller and callee of the edge to be read.  */
+
+static void
+input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
+{
+  struct cgraph_node *caller, *callee;
+  struct cgraph_edge *edge;
+  unsigned int stmt_id;
+  unsigned int count;
+  unsigned int freq;
+  unsigned int nest;
+  unsigned int call_stmt_cannot_inline_p;
+  cgraph_inline_failed_t inline_failed;
+
+  LTO_DEBUG_TOKEN ("caller");
+  caller = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
+  gcc_assert (caller);
+
+  LTO_DEBUG_TOKEN ("callee");
+  callee = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
+  gcc_assert (callee);
+	  
+  LTO_DEBUG_TOKEN ("stmt");
+  stmt_id = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("inline_failed");
+  inline_failed = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("count");
+  count = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("frequency");
+  freq = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("loop_next");
+  nest = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("call_stmt_cannot_inline_p");
+  call_stmt_cannot_inline_p = lto_input_uleb128 (ib);
+	  
+  edge = cgraph_create_edge (caller, callee, NULL, count, freq, nest);
+  edge->lto_stmt_uid = stmt_id;
+  edge->call_stmt_cannot_inline_p = call_stmt_cannot_inline_p;
+  edge->inline_failed = inline_failed;
+}
 
 /* Input a cgraph from IB using the info in FILE_DATA.  */
 
@@ -306,7 +677,8 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 		struct lto_input_block *ib)
 {
   enum LTO_cgraph_tags tag;
-  struct cgraph_node *last_caller = NULL;
+  VEC(cgraph_node_ptr, heap) *nodes = NULL;
+  struct cgraph_node *node;
 
   tag = lto_input_uleb128 (ib);
   while (tag)
@@ -314,99 +686,18 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
       LTO_DEBUG_INDENT (tag);
 
       if (tag == LTO_cgraph_edge)
-	{
-	  tree callee_decl;
-	  struct cgraph_node *callee;
-	  struct cgraph_edge *edge;
-	  unsigned int stmt_id;
-	  unsigned int count;
-	  unsigned int freq;
-	  unsigned int nest;
-	  unsigned int call_stmt_cannot_inline_p;
-	  unsigned int decl_idx = lto_input_uleb128 (ib);
-
-	  callee_decl = lto_file_decl_data_get_fn_decl (file_data, decl_idx);
-	  LTO_DEBUG_FN_NAME (callee_decl);
-	  callee = cgraph_node (callee_decl);
-	  
-	  LTO_DEBUG_TOKEN ("stmt");
-	  stmt_id = lto_input_uleb128 (ib);
-	  LTO_DEBUG_TOKEN ("count");
-	  count = lto_input_uleb128 (ib);
-	  LTO_DEBUG_TOKEN ("frequency");
-	  freq = lto_input_uleb128 (ib);
-	  LTO_DEBUG_TOKEN ("loop_next");
-	  nest = lto_input_uleb128 (ib);
-	  LTO_DEBUG_TOKEN ("call_stmt_cannot_inline_p");
-	  call_stmt_cannot_inline_p = lto_input_uleb128 (ib);
-	  
-	  edge = cgraph_create_edge (last_caller, callee, NULL, count,
-				     freq, nest);
-	  edge->lto_stmt_uid = stmt_id;
-	  edge->call_stmt_cannot_inline_p = call_stmt_cannot_inline_p;
-	}
+	  input_edge (ib, nodes);
       else 
 	{
-	  tree fn_decl;
-	  struct cgraph_node *node;
-	  unsigned int flags;
-	  int stack_size = 0;
-	  int self_insns = 0;
-	  unsigned decl_index = lto_input_uleb128 (ib);
-	  
-	  fn_decl = lto_file_decl_data_get_fn_decl (file_data, decl_index);
-	  LTO_DEBUG_FN_NAME (fn_decl);
-	  LTO_DEBUG_TOKEN ("flags");
-	  flags = lto_input_uleb128 (ib);
-	  
-	  if (tag == LTO_cgraph_avail_node)
-	    {
-	      LTO_DEBUG_TOKEN ("stack_size");
-	      stack_size = lto_input_sleb128 (ib);
-	      LTO_DEBUG_TOKEN ("self_insns");
-	      self_insns = lto_input_sleb128 (ib);
-	    }
-	  
-	  node = cgraph_node (fn_decl);
-	  
-	  switch (tag)
-	    {
-	    case LTO_cgraph_avail_node:
-	      /* We cannot have two avail functions that are the same.  */
-	      gcc_assert (((enum LTO_cgraph_tags)(node->aux))
-			  != LTO_cgraph_avail_node);
-	      input_overwrite_node (file_data, node, tag, 
-				    flags, stack_size, self_insns);
-	      break;
-	      
-	    case LTO_cgraph_unavail_node:
-	      /* We only overwrite the node if this is a brand new node.  */
-	      if (!node->aux)
-		input_overwrite_node (file_data, node, tag, 
-				      flags, stack_size, self_insns);
-	      break;
-	      
-	    case LTO_cgraph_overwritable_node:
-	      /* FIXME!!!!  This code is written to take the last
-		 overwrittable version.  I do not speak linker but if the
-		 linker supposed to take the first one, then we need to
-		 change the test.  */
-	      if (((enum LTO_cgraph_tags)(node->aux)) != LTO_cgraph_avail_node)
-		input_overwrite_node (file_data, node, tag, 
-				      flags, stack_size, self_insns);
-	      break;
-	      
-	    default:
-	      gcc_unreachable ();
-	    }
-	  
-	  /* Set this up so that we can handle the edges which follow and
-	     only have the callee in them.  */
-	  last_caller = node;
+	  node = input_node (file_data, ib, tag, nodes);
+	  VEC_safe_push (cgraph_node_ptr, heap, nodes, node);
 	}
+
       LTO_DEBUG_UNDENT();
       tag = lto_input_uleb128 (ib);
     }
+
+  VEC_free (cgraph_node_ptr, heap, nodes);
 }
 
 

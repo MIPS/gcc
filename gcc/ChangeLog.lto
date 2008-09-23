@@ -1,3 +1,75 @@
+2008-09-22  Doug Kwan  <dougkwan@google.com>
+
+	* cgraphbuild.c (reset_inline_failed): New function.
+	* cgraph.c (cgraph_clone_edge): Take an additional parameter STMT_UID.
+	(cgraph_clone_node): Adjust call to cgraph_clone_edge.
+	(cgraph_clone_input_node): New.
+	(struct cgraph_node_set_hash_access_def, cgraph_node_set_hash_access):
+	Remove types.
+ 	(hash_cgraph_node_set_element): Adjust to use cgraph_node_set_element.
+	type instead of cgraph_node_set_hash_access.
+ 	(eq_cgraph_node_set_element): Ditto.
+	(cgraph_node_set_add): Ditto.
+	(cgraph_node_set_remove): Ditto.
+ 	(cgraph_node_set_find): Ditto.
+	* cgraph.h (struct cgraph_node_set_element_def): Add new field NODE.
+ 	(cgraph_clone_edge): Add new parameter for STMT_UID in prototype.
+	(cgraph_clone_input_node, reset_inline_failed): New prototypes.
+	* lto-function-out.c (output_function_decl): Fake DECL attributes
+	if it is foreced to be static inline.
+	* lto-function-in.c (input_function): Go over all clones during
+	call-stmt fix-up.
+	* cgraphunit.c (verify_cgraph_node): Do not check for CFG if
+	running in WPA mode.
+	(cgraph_copy_node_for_versioning): Adjust call to cgraph_clone_edge.
+	* lto-cgraph.c (struct lto_cgraph_encoder_def): New type.
+	(struct lto_cgraph_node_ref): Ditto.
+	(lto_cgraph_encoder_new, lto_cgraph_encoder_delete_ref,
+	lto_cgraph_encoder_delete, lto_cgraph_encoder_encode,
+	lto_cgraph_encoder_lookup, lto_cgraph_encoder_deref,
+	lto_cgraph_encoder_size): New functions.
+	(output_edge): Add new parameter ENCODER.  Output references to both
+	caller and callee of an edge. Also output INLINE_FAILED.
+ 	(output_node): Remove parameter BOUNDARY_P.  Add new parameters
+	ENCODER and SET.  Handle boundary nodes and clones specially.
+	Output global node states in WPA mode.  Do not output edges.
+	(output_cgraph_verify_node):  Handle clones.
+ 	(output_cgraph):  Changle algorithm.  Output all nodes first then
+	followed by all edges.  Use an lto_cgraph_encoder to handle node
+	pointers.  Remove code to compute set of boundary nodes.
+	(input_node): New function.
+	(input_edge): New function.
+	(input_cgraph_1): Factor out node and edge code input code into
+	seperate functions.
+	* ipa-inline.c (cgraph_clone_inlined_nodes): Format to fit in 80
+	columns.
+	(cgraph_decide_recursive_inlining): Ditto.
+	(cgraph_decide_inlining): Check for LTRANS mode.
+	(inline_generate_summary): Ditto.
+	* lto-section-in.c (bitmap.h): New include.
+	(lto_section_out_obstack; function_body_in_file_p): New vars.
+ 	(lto_create_simple_input_block): Return NULL if successful instead of
+	SEGV fault.
+	(lto_mark_function_body_in_file): New.
+	(lto_function_body_in_file_p): Ditto.
+	* lto-section-in.h (lto_mark_function_body_in_file): New prototype.
+	(lto_function_body_in_file_p): Ditto.
+	* tree-inline.c (copy_bb): Adjust call to cgraph_clone_edge.
+	* Makefile.in (lto-cgraph.o): Add pointer-set.h to dependencies.
+	* passes.c (do_per_function): Do not free dominance information if
+	running in WPA mode.
+	(ipa_write_summaries): Provide valid static inline states.
+	* lto-section-out.c (forced_static_inline, lto_section_out_obstack):
+	New vars.
+	(lto_new_static_inline_states, lto_delete_static_inline_states,
+	lto_force_function_static_inline, lto_force_functions_static_inline,
+	lto_forced_static_inline_p): New functions.
+	(produce_symtab): Set up and tear down obstack.
+	* lto-section-out.h (lto_new_static_inline_states,
+	lto_delete_state_inline_states, lto_force_function_static_inline,
+	lto_force_functions_static_inline, lto_forced_static_inline_p): New
+	prototypes.
+
 2008-09-19  Doug Kwan  <dougkwan@google.com>
 
 	* gcc.c (gcc_lto_option_t): New type.

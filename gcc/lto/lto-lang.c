@@ -947,9 +947,8 @@ lto_init_eh (void)
 static bool
 lto_init (void)
 {
-  /* FIXME lto, collect2 is calling lto1 with -flto.  This is useless,
-     we don't need to emit LTO again from lto1.  */
-  flag_generate_lto = 0;
+  /* We need to generate LTO if running in WPA mode.  */
+  flag_generate_lto = flag_wpa;
 
   /* Initialize libcpp line maps for gcc_assert to work.  */
   linemap_add (line_table, LC_RENAME, 0, NULL, 0);

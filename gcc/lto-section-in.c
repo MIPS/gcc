@@ -49,7 +49,10 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section.h"
 #include "lto-section-in.h"
 #include "cpplib.h"
+#include "bitmap.h"
 
+static bitmap_obstack lto_section_out_obstack;
+static bitmap function_body_in_file_p;
 
 /* Return 0 or 1 based on the last bit of FLAGS and right shift FLAGS
    by 1.  */
@@ -280,7 +283,7 @@ lto_free_section_data (struct lto_file_decl_data *file_data,
 /* Load a section of type SECTION_TYPE from FILE_DATA, parse the
    header and then return an input block pointing to the section.  The
    raw pointer to the section is returned in DATAR and LEN.  These are
-   used to free the section.  */
+   used to free the section.  Return NULL if the section is not present.  */
 
 struct lto_input_block *
 lto_create_simple_input_block (struct lto_file_decl_data *file_data, 
@@ -290,11 +293,21 @@ lto_create_simple_input_block (struct lto_file_decl_data *file_data,
   const char *data = lto_get_section_data (file_data, section_type, NULL, len);
   const struct lto_simple_header * header 
     = (const struct lto_simple_header *) data;
-  struct lto_input_block* ib_main = XNEW (struct lto_input_block);
+
+  struct lto_input_block* ib_main;
   int32_t main_offset = sizeof (struct lto_simple_header); 
 #ifdef LTO_STREAM_DEBUGGING
-  int32_t debug_main_offset = main_offset + header->main_size;
-  struct lto_input_block *debug_main = XNEW (struct lto_input_block);
+  int32_t debug_main_offset;
+  struct lto_input_block *debug_main;
+#endif
+
+  if (!data)
+    return NULL;
+
+  ib_main = XNEW (struct lto_input_block);
+#ifdef LTO_STREAM_DEBUGGING
+  debug_main_offset = main_offset + header->main_size;
+  debug_main = XNEW (struct lto_input_block);
 #endif
 
   *datar = data;
@@ -495,6 +508,27 @@ lto_get_function_in_decl_state (struct lto_file_decl_data *file_data,
   return slot? ((struct lto_in_decl_state*) *slot) : NULL;
 }
 
+/* Mark FN_DECL as a function whose body is in an LTO IR file.  */
+
+void lto_mark_function_body_in_file (tree fn_decl)
+{
+  if (!function_body_in_file_p)
+    {
+      bitmap_obstack_initialize (&lto_section_out_obstack);
+      function_body_in_file_p = BITMAP_ALLOC (&lto_section_out_obstack);
+    }
+  bitmap_set_bit (function_body_in_file_p, DECL_UID (fn_decl));
+}
+
+/* Return true if FN_DECL has been marked as a function whose body is 
+   in an LTO IR file.  */
+bool lto_function_body_in_file_p (tree fn_decl)
+{
+  if (function_body_in_file_p)
+    return bitmap_bit_p (function_body_in_file_p, DECL_UID (fn_decl));
+  else
+    return false; 
+}
 /*****************************************************************************/
 /* Stream debugging support code.                                            */
 /*****************************************************************************/

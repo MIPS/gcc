@@ -1,3 +1,16 @@
+2008-09-22  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c	(VEC(bitmap,heap)): Declare.
+	(lto_materialize_function): Handle WAP mode specially.
+	(lto_add_inline_clones): New.
+	(lto_add_all_inlinees): Changle algorithm and to use bitmaps.  Also
+	return a bitmap of inlined decls.
+	(lto_wpa_write_files): Handle all DECLs brought in by inlining.
+	(lto_main): Call reset_inline_failed to reset inlining states.
+    	Check call-graph after WPA inlining.
+	* lto-lang.c (lto_init): Do not clear flag_generate_lto
+	unconditionally.
+
 2008-09-19  Doug Kwan  <dougkwan@google.com>
 
 	lto.c (lto_main): Remove unsued wrapper code.

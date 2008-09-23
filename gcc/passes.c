@@ -855,8 +855,11 @@ do_per_function (void (*callback) (void *data), void *data)
 	    push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	    current_function_decl = node->decl;
 	    callback (data);
-	    free_dominance_info (CDI_DOMINATORS);
-	    free_dominance_info (CDI_POST_DOMINATORS);
+	    if (!flag_wpa)
+	      {
+	        free_dominance_info (CDI_DOMINATORS);
+	        free_dominance_info (CDI_POST_DOMINATORS);
+	      }
 	    current_function_decl = NULL;
 	    pop_cfun ();
 	    ggc_collect ();
@@ -1381,10 +1384,12 @@ ipa_write_summaries (void)
  
   if (flag_generate_lto && !(errorcount || sorrycount))
     {
+      lto_new_static_inline_states ();
       set = cgraph_node_set_new ();
       for (node = cgraph_nodes; node; node = node->next)
 	cgraph_node_set_add (set, node);
       ipa_write_summaries_1 (all_ipa_passes, set);
+      lto_delete_static_inline_states ();
       ggc_free (set);
     }
 }

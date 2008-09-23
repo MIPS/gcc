@@ -1221,8 +1221,8 @@ cgraph_function_possibly_inlined_p (tree decl)
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
 cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
-		   gimple call_stmt, gcov_type count_scale, int freq_scale,
-		   int loop_nest, bool update_original)
+		   gimple call_stmt, unsigned stmt_uid, gcov_type count_scale,
+		   int freq_scale, int loop_nest, bool update_original)
 {
   struct cgraph_edge *new_edge;
   gcov_type count = e->count * count_scale / REG_BR_PROB_BASE;
@@ -1235,6 +1235,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
 
   new_edge->inline_failed = e->inline_failed;
   new_edge->indirect_call = e->indirect_call;
+  new_edge->lto_stmt_uid = stmt_uid;
   if (update_original)
     {
       e->count -= new_edge->count;
@@ -1289,8 +1290,8 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq,
     }
 
   for (e = n->callees;e; e=e->next_callee)
-    cgraph_clone_edge (e, new_node, e->call_stmt, count_scale, freq, loop_nest,
-		       update_original);
+    cgraph_clone_edge (e, new_node, e->call_stmt, e->lto_stmt_uid,
+		       count_scale, freq, loop_nest, update_original);
 
   new_node->next_clone = n->next_clone;
   new_node->prev_clone = n;
@@ -1301,6 +1302,38 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq,
   cgraph_call_node_duplication_hooks (n, new_node);
   return new_node;
 }
+
+/* Create node representing clone of N during when reading the call-graph
+   from an LTO stream.  This is simpler than cgraph_clone_node.  Additional
+   information in the cloned node will be filled in later. */
+
+struct cgraph_node *
+cgraph_clone_input_node (struct cgraph_node *n)
+{
+  struct cgraph_node *new_node = cgraph_create_node ();
+
+  new_node->decl = n->decl;
+  new_node->origin = n->origin;
+  if (new_node->origin)
+    {
+      new_node->next_nested = new_node->origin->nested;
+      new_node->origin->nested = new_node;
+    }
+  new_node->analyzed = n->analyzed;
+  new_node->local = n->local;
+  new_node->global = n->global;
+  new_node->rtl = n->rtl;
+  new_node->master_clone = n->master_clone;
+
+  new_node->next_clone = n->next_clone;
+  new_node->prev_clone = n;
+  n->next_clone = new_node;
+  if (new_node->next_clone)
+    new_node->next_clone->prev_clone = new_node;
+
+  return new_node;
+}
+
 
 /* Return true if N is an master_clone, (see cgraph_master_clone).  */
 
@@ -1460,22 +1493,13 @@ cgraph_add_new_function (tree fndecl, bool lowered)
  * appear in multiple sets.  Call-graph sets are garbage-collected.
  */
 
-/* Structure to pass a node into the hash table functions.  We need
-   to pass the set also becasue the hash table contains indices only
-   and we need to look at the set's node vector for the nodes.  */
-
-typedef const struct cgraph_node_set_hash_access_def {
-  cgraph_node_ptr node;
-  cgraph_node_set set; 
-} *cgraph_node_set_hash_access;
-
 /* Hash a cgraph node set element.  */
 
 static hashval_t
 hash_cgraph_node_set_element (const void *p)
 {
-  cgraph_node_set_hash_access access = (cgraph_node_set_hash_access) p;
-  return htab_hash_pointer (access->node);
+  const_cgraph_node_set_element element = (const_cgraph_node_set_element) p;
+  return htab_hash_pointer (element->node);
 }
 
 /* Compare two cgraph node set elements.  */
@@ -1483,11 +1507,10 @@ hash_cgraph_node_set_element (const void *p)
 static int
 eq_cgraph_node_set_element (const void *p1, const void *p2)
 {
-  const_cgraph_node_set_element entry = (const_cgraph_node_set_element) p1;
-  cgraph_node_set_hash_access access = (cgraph_node_set_hash_access) p2;
+  const_cgraph_node_set_element e1 = (const_cgraph_node_set_element) p1;
+  const_cgraph_node_set_element e2 = (const_cgraph_node_set_element) p2;
 
-  return (VEC_index (cgraph_node_ptr, access->set->nodes, entry->index)
-	  == access->node);
+  return e1->node == e2->node;
 }
 
 /* Create a new cgraph node set.  */
@@ -1513,18 +1536,18 @@ cgraph_node_set_add (cgraph_node_set set, struct cgraph_node *node)
 {
   void **slot;
   cgraph_node_set_element element;
-  struct cgraph_node_set_hash_access_def access;
+  struct cgraph_node_set_element_def dummy;
 
-  access.set = set;
-  access.node = node;
-  slot = htab_find_slot (set->hashtab, &access, INSERT);
+  dummy.node = node;
+  slot = htab_find_slot (set->hashtab, &dummy, INSERT);
 
   if (*slot != HTAB_EMPTY_ENTRY)
     {
 #ifdef ENABLE_CHECKING
       element = (cgraph_node_set_element) *slot;
-      gcc_assert (VEC_index (cgraph_node_ptr, set->nodes, element->index)
-		  == node);
+      gcc_assert (node == element->node
+		  && (VEC_index (cgraph_node_ptr, set->nodes, element->index)
+		      == node));
 #endif
       return;
     }
@@ -1532,6 +1555,7 @@ cgraph_node_set_add (cgraph_node_set set, struct cgraph_node *node)
   /* Insert node into hash table. */
   element =
     (cgraph_node_set_element) GGC_NEW (struct cgraph_node_set_element_def);
+  element->node = node;
   element->index = VEC_length (cgraph_node_ptr, set->nodes);
   *slot = element;
 
@@ -1547,11 +1571,10 @@ cgraph_node_set_remove (cgraph_node_set set, struct cgraph_node *node)
   void **slot, **last_slot;
   cgraph_node_set_element element, last_element;
   struct cgraph_node *last_node;
-  struct cgraph_node_set_hash_access_def access;
+  struct cgraph_node_set_element_def dummy;
 
-  access.set = set;
-  access.node = node;
-  slot = htab_find_slot (set->hashtab, &access, NO_INSERT);
+  dummy.node = node;
+  slot = htab_find_slot (set->hashtab, &dummy, NO_INSERT);
   if (slot == NULL)
     return;
 
@@ -1566,8 +1589,8 @@ cgraph_node_set_remove (cgraph_node_set set, struct cgraph_node *node)
   last_node = VEC_pop (cgraph_node_ptr, set->nodes);
   if (last_node != node)
     {
-      access.node = last_node;
-      last_slot = htab_find_slot (set->hashtab, &access, NO_INSERT);
+      dummy.node = last_node;
+      last_slot = htab_find_slot (set->hashtab, &dummy, NO_INSERT);
       last_element = (cgraph_node_set_element) *last_slot;
       gcc_assert (last_element);
 
@@ -1589,13 +1612,12 @@ cgraph_node_set_iterator
 cgraph_node_set_find (cgraph_node_set set, struct cgraph_node *node)
 {
   void **slot;
-  struct cgraph_node_set_hash_access_def access;
+  struct cgraph_node_set_element_def dummy;
   cgraph_node_set_element element;
   cgraph_node_set_iterator csi;
 
-  access.set = set;
-  access.node = node;
-  slot = htab_find_slot (set->hashtab, &access, NO_INSERT);
+  dummy.node = node;
+  slot = htab_find_slot (set->hashtab, &dummy, NO_INSERT);
   if (slot == NULL)
     csi.index = (unsigned) ~0;
   else

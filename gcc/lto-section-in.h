@@ -216,4 +216,7 @@ extern struct lto_in_decl_state *
 extern void lto_debug_in_fun (struct lto_debug_context *, char);
 #endif
 
+extern void lto_mark_function_body_in_file (tree);
+extern bool lto_function_body_in_file_p (tree);
+
 #endif  /* GCC_LTO_SECTION_IN_H  */
