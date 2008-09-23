@@ -260,23 +260,27 @@ all_symbols_read_handler (void)
   unsigned int i;
   /* FIXME: This should be a temporary file. */
   FILE *f = fopen ("resolution", "w");
+
+  fprintf (f, "%d\n", num_claimed_files);
+
   for (i = 0; i < num_claimed_files; i++)
     {
       struct plugin_file_info *info = &claimed_files[i];
       struct plugin_symtab *symtab = &info->symtab;
       struct ld_plugin_symbol *syms = calloc (symtab->nsyms,
 					      sizeof (struct ld_plugin_symbol));
-
       unsigned j;
+
       assert (syms);
       get_symbols (info->handle, symtab->nsyms, syms);
+
+      fprintf (f, "%s %d\n", info->name, info->symtab.nsyms);
 
       for (j = 0; j < info->symtab.nsyms; j++)
 	{
 	  uint32_t slot = symtab->slots[j];
 	  unsigned int resolution = syms[j].resolution;
-	  fprintf(f, "%s\n%d %s\n",
-		  info->name, slot, lto_resolution_str[resolution]);
+	  fprintf (f, "%d %s\n", slot, lto_resolution_str[resolution]);
 	}
       free (syms);
     }

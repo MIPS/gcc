@@ -1,3 +1,8 @@
+2008-09-23 Rafael Espindola  <espindola@google.com>
+
+	* lto-plugin.c (all_symbols_read_handler): Print resolution in a new
+	format.
+
 2008-09-22 Rafael Espindola  <espindola@google.com>
 
 	* plugin-api.h: Copy from binutils' cvs.
