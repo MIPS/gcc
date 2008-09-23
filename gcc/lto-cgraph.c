@@ -125,7 +125,7 @@ lto_cgraph_encoder_encode (lto_cgraph_encoder_t encoder,
 
   if (!slot)
     {
-      HOST_WIDE_INT ref = VEC_length (cgraph_node_ptr, encoder->nodes);
+      intptr_t ref = VEC_length (cgraph_node_ptr, encoder->nodes);
       slot = pointer_map_insert (encoder->map, node);
       *slot = (void *) ref;
       VEC_safe_push (cgraph_node_ptr, heap, encoder->nodes, node);
@@ -135,13 +135,13 @@ lto_cgraph_encoder_encode (lto_cgraph_encoder_t encoder,
 /* Look up NODE in encoder.  Return NODE's reference if it has been encoded
    or LCC_NOT_FOUND if it is not there.  */
 
-static HOST_WIDE_INT
+static intptr_t
 lto_cgraph_encoder_lookup (lto_cgraph_encoder_t encoder,
 			   struct cgraph_node *node)
 {
   void **slot = pointer_map_contains (encoder->map, node);
 
-  return (slot ? (HOST_WIDE_INT) *slot : LCC_NOT_FOUND);
+  return (slot ? (intptr_t) *slot : LCC_NOT_FOUND);
 }
 
 /* Return the cgraph node corresponding to REF using ENCODER. */
@@ -176,7 +176,7 @@ output_edge (struct lto_simple_output_block *ob,
 	     struct cgraph_edge *edge, lto_cgraph_encoder_t encoder)
 {
   unsigned int uid;
-  HOST_WIDE_INT ref;
+  intptr_t ref;
 
   lto_output_uleb128_stream (ob->main_stream, LTO_cgraph_edge);
   LTO_DEBUG_INDENT (LTO_cgraph_edge);
@@ -287,7 +287,7 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 
   if (clone_p)
     {
-      HOST_WIDE_INT ref = lto_cgraph_encoder_lookup (encoder, master_clone);
+      intptr_t ref = lto_cgraph_encoder_lookup (encoder, master_clone);
       LTO_DEBUG_TOKEN ("master");
       gcc_assert (ref != LCC_NOT_FOUND);
       lto_output_sleb128_stream (ob->main_stream, ref);
@@ -324,7 +324,7 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   /* For WPA write also additional inlining information. */
   if (flag_wpa)
     {
-      HOST_WIDE_INT ref;
+      intptr_t ref;
 
       LTO_DEBUG_TOKEN ("estimated_stack_size");
       lto_output_sleb128_stream (ob->main_stream, 
