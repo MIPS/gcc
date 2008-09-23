@@ -16,19 +16,21 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
-const char *lto_kind_str[] __attribute__ ((visibility ("hidden"))) =
+#include "common.h"
+
+const char *lto_kind_str[5] __attribute__ ((visibility ("hidden"))) =
 {
   "DEF", "WEAKDEF", "UNDEF",
   "WEAKUNDEF", "COMMON"
 };
 
-const char *lto_visibility_str[] __attribute__ ((visibility ("hidden"))) =
+const char *lto_visibility_str[4] __attribute__ ((visibility ("hidden"))) =
 {
   "DEFAULT", "PROTECTED",
  "INTERNAL", "HIDDEN"
 };
 
-const char *lto_resolution_str[] __attribute__ ((visibility ("hidden"))) =
+const char *lto_resolution_str[9] __attribute__ ((visibility ("hidden"))) =
 {
   "UNKNOWN",
   "UNDEF",
