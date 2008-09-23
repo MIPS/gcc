@@ -310,6 +310,7 @@ AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_TYPES([long long], [AC_CHECK_SIZEOF(long long)])
 AC_CHECK_TYPES([__int64], [AC_CHECK_SIZEOF(__int64)])
+AC_CHECK_TYPE(intptr_t, long)
 
 # ---------------------
 # Warnings and checking
