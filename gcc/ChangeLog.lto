@@ -1,3 +1,8 @@
+2008-09-23  Rafael Espindola  <espindola@google.com>
+
+	* lto-section-out.c (write_symbol_vec): Don't write RESULT_DECL to the
+	symbol table.
+
 2008-09-23  Diego Novillo  <dnovillo@google.com>
 
 	* lto-cgraph.c (lto_cgraph_encoder_encode): Change REF
