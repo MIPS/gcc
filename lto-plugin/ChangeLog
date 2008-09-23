@@ -1,5 +1,15 @@
 2008-09-23 Rafael Espindola  <espindola@google.com>
 
+	* Makefile.am (ltosymtab_SOURCES, liblto_plugin_la_SOURCES):
+	Update the location of common.c.
+	* Makefile.in: Regenerate.
+	* common.c: Moved to gcc/lto.
+	* common.h: Moved to gcc/lto.
+	* lto-plugin.c: Update the location of common.h.
+	* lto-symtab.c: Update the location of common.h.
+
+2008-09-23 Rafael Espindola  <espindola@google.com>
+
 	* common.c: Include common.h.
 	(lto_kind_str, lto_visibility_str, lto_resolution_str): Use explicit
 	sizes.
