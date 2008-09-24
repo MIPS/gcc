@@ -3017,10 +3017,6 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 
     if (debug_expr)
       SET_DECL_DEBUG_EXPR (decl, debug_expr);
-
-    /* FIXME lto: We can't backpatch these correctly,
-       but we shouldn't be seeing them anyway. */
-    gcc_assert (!debug_expr);
   }
 
   /* FIXME lto: Adapted from DWARF reader. Probably needs more thought.
@@ -3037,9 +3033,9 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 	  /* FIXME lto:  We normally pre-mangle names before we serialize them
 	     out.  Here, in lto1, we do not know the language, and thus cannot
 	     do the mangling again. Instead, we just append a suffix to the
-	     mangled name.  The resulting name, however, is not a properly-formed
-	     mangled name, and will confuse any attempt to unmangle it.  */
-
+	     mangled name.  The resulting name, however, is not a
+	     properly-formed mangled name, and will confuse any attempt to
+	     unmangle it.  */
 	  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 	  char *label;
       

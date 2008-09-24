@@ -1,5 +1,10 @@
 2008-09-24  Diego Novillo  <dnovillo@google.com>
 
+	* lto-function-in.c (input_var_decl): Do not abort if
+	DEBUG_EXPR is set.
+
+2008-09-24  Diego Novillo  <dnovillo@google.com>
+
 	* collect2.c (enum lto_mode_d): Remove final comma.
 	(lto_mode): Change type to enum lto_mode_d.
 
