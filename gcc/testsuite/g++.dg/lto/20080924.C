@@ -1,5 +1,5 @@
 // { dg-do assemble }
-// { dg-options "-flto-single" }
+// { dg-options "-flto-single -fno-strict-aliasing" }
 
 namespace ns
 {

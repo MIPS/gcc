@@ -1,3 +1,8 @@
+2008-09-24  Simon Baldwin  <simonb@google.com>
+
+	* tree.c (reset_lang_specific): Rename to reset_decl_lang_specific,
+	add call to reset_lang_specifics langhook.
+
 2008-09-23  Diego Novillo  <dnovillo@google.com>
 
 	* configure.ac: Add type check for intptr_t.

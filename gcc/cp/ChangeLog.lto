@@ -1,3 +1,11 @@
+2008-09-24  Simon Baldwin  <simonb@google.com>
+
+	* tree.h (mangle_decl_is_template_id): New mangler function.
+	* mangle.c (mangle_decl_is_template_id): New function, exposes
+	decl_is_template_id for langhooks.
+	* tree.c (cp_reset_lang_specifics): Reset context information for
+	types generated from templates.
+
 2008-09-17  Paolo Bonzini  <bonzini@gnu.org>
 	    Rafael Avila de Espindola  <espindola@google.com>
 

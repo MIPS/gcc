@@ -1,8 +1,3 @@
-2008-09-24  Simon Baldwin  <simonb@google.com>
-
-	* tree.c (reset_lang_specific): Rename to reset_decl_lang_specific,
-	add call to reset_lang_specifics langhook.
-
 2008-09-10  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/37353
