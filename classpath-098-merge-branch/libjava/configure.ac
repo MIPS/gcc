@@ -77,6 +77,34 @@ AC_ARG_ENABLE(gconf-peer,
     [gconf_enabled=no]
 )
 
+AC_ARG_ENABLE([gjdoc],
+              [AS_HELP_STRING(--disable-gjdoc,compile GJDoc (disabled by --disable-gjdoc) [default=yes])],
+              [case "${enableval}" in
+                yes) COMPILE_GJDOC=yes ;;
+                no) COMPILE_GJDOC=no ;;
+                *) COMPILE_GJDOC=yes ;;
+              esac],
+              [COMPILE_GJDOC=yes])
+AM_CONDITIONAL(CREATE_GJDOC, test "x${COMPILE_GJDOC}" = xyes)
+
+AC_ARG_WITH([antlr-jar],
+            [AS_HELP_STRING([--with-antlr-jar=file],[Use ANTLR from the specified jar file])],
+            [
+             ANTLR_JAR=$withval
+            ],
+            [
+             ANTLR_JAR="$ANTLR_JAR"
+            ])
+
+if test "x${COMPILE_GJDOC}" = xyes; then
+    case "${ANTLR_JAR}" in
+      yes) AC_MSG_ERROR([missing path to antlr jar file]);;
+      no) ;;
+      *) test -f "${ANTLR_JAR}" || AC_MSG_ERROR([antlr jar file not found: $ANTLR_JAR])
+    esac
+fi
+AC_SUBST(ANTLR_JAR)
+
 AC_ARG_ENABLE(java-maintainer-mode,
 	AS_HELP_STRING([--enable-java-maintainer-mode],
 	[allow rebuilding of .class and .h files]))

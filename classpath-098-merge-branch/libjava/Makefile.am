@@ -82,6 +82,9 @@ if NATIVE
 bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool \
 	gappletviewer gjarsigner gkeytool gjar gcjh gjavah gnative2ascii \
 	gorbd grmid gserialver gtnameserv gc-analyze
+if CREATE_GJDOC
+bin_PROGRAMS += gjdoc
+endif
 
 ## It is convenient to actually build and install the default database
 ## when gcj-dbtool is available.
@@ -1012,6 +1015,16 @@ grmiregistry_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 grmiregistry_LDADD = -L$(here)/.libs libgcj-tools.la
 grmiregistry_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gjdoc_SOURCES =
+gjdoc_LDFLAGS = --main=gnu.classpath.tools.gjdoc.Main \
+	-Djava.class.path=$(ANTLR_JAR) \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS) $(extra_ldflags)
+gjdoc_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gjdoc_LDADD = -L$(here)/.libs libgcj-tools.la
+gjdoc_DEPENDENCIES = libgcj-tools.la
 
 ## ################################################################
 if INTERPRETER
