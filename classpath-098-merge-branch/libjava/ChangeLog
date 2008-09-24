@@ -1,5 +1,10 @@
 2008-09-24  Matthias Klose  <doko@ubuntu.com>
 
+	* configure.ac: Search for antlr.jar, if not configured.
+	* configure: Regenerate.
+
+2008-09-24  Matthias Klose  <doko@ubuntu.com>
+
 	* Makefile.am: Build a gjdoc binary, if enabled.
 	* configure.ac: Add options --disable-gjdoc, --with-antlr-jar=file.
 	* Makefile.in, */Makefile.in, configure: Regenerate.

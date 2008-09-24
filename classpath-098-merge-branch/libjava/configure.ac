@@ -93,15 +93,27 @@ AC_ARG_WITH([antlr-jar],
              ANTLR_JAR=$withval
             ],
             [
-             ANTLR_JAR="$ANTLR_JAR"
+             ANTLR_JAR=
             ])
 
 if test "x${COMPILE_GJDOC}" = xyes; then
-    case "${ANTLR_JAR}" in
-      yes) AC_MSG_ERROR([missing path to antlr jar file]);;
-      no) ;;
-      *) test -f "${ANTLR_JAR}" || AC_MSG_ERROR([antlr jar file not found: $ANTLR_JAR])
-    esac
+    AC_MSG_CHECKING([for antlr.jar])
+    if test "x$ANTLR_JAR" = x; then
+	for antlr_lib_home in `ls -d /usr/local/share/antlr* 2> /dev/null` \
+	    /usr/share/antlr/lib /usr/share/java /usr/lib;
+	do
+	    if test -f "$antlr_lib_home/antlr.jar"; then
+	      # FIXME: version check for antlr needed without using a VM
+	      ANTLR_JAR="$antlr_lib_home/antlr.jar"
+	      break
+	    fi
+	done
+    fi
+    if test -f "${ANTLR_JAR}"; then
+	AC_MSG_RESULT($ANTLR_JAR)
+    else
+	AC_MSG_ERROR([antlr jar file not found: $ANTLR_JAR])
+    fi
 fi
 AC_SUBST(ANTLR_JAR)
 
