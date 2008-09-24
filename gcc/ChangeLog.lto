@@ -1,3 +1,8 @@
+2008-09-24  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (reset_type_lang_specific): Clear cached values
+	for types replaced with unsigned_char_type_node.
+
 2008-09-24  Doug Kwan  <dougkwan@google.com>
 
 	* lto-function-out.c (output_gimple_stmt): Handle gimple code

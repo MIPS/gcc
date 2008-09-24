@@ -1,4 +1,8 @@
 2008-09-24  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/20080924.c: New.
+
+2008-09-24  Diego Novillo  <dnovillo@google.com>
 	    Simon Baldwin  <simonb@google.com>
 
 	* gcc.dg/lto/lto.exp: Replace DEFAULT_CFLAGS with
