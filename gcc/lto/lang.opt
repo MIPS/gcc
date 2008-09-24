@@ -23,3 +23,9 @@
 
 Language
 LTO
+
+resolution
+LTO Separate
+The resolution file
+
+; This comment is to ensure we retain the blank line above.

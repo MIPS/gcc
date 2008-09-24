@@ -2812,6 +2812,33 @@ input_const_decl (struct lto_input_block *ib, struct data_in *data_in)
   return decl;
 }
 
+/* Return the resolution for the DECL with index INDEX from DATA_IN. */
+static enum ld_plugin_symbol_resolution
+get_resolution (struct data_in *data_in, unsigned index)
+{
+  if (data_in->globals_resolution)
+    {
+      ld_plugin_symbol_resolution_t ret;
+      gcc_assert (index < VEC_length (ld_plugin_symbol_resolution_t,
+				      data_in->globals_resolution));
+      ret = VEC_index (ld_plugin_symbol_resolution_t,
+		       data_in->globals_resolution,
+		       index);
+      gcc_assert (ret != LDPR_UNKNOWN);
+      return ret;
+    }
+  else
+    {
+      /* Fake symbol resolution in the case no resolution file was provided. */
+      tree t = VEC_index (tree, data_in->globals_index, index);
+      gcc_assert (TREE_PUBLIC (t));
+      if (DECL_EXTERNAL (t))
+	return LDPR_RESOLVED_IR;
+      else
+	return LDPR_PREVAILING_DEF;
+    }
+}
+
 static tree
 input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
@@ -2898,12 +2925,15 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   /* If the function has already been declared, merge the
      declarations.  */
-  {
-    tree merged = lto_symtab_merge_fn (decl);
-    /* If merge fails, use the original declaraction.  */
-    if (merged != error_mark_node)
-      decl = merged;
-  }
+  if (TREE_PUBLIC (decl))
+    {
+      enum ld_plugin_symbol_resolution resolution =
+	get_resolution (data_in, index);
+      tree merged = lto_symtab_merge_var (decl, resolution);
+      /* If merge fails, use the original declaraction.  */
+      if (merged != error_mark_node)
+	decl = merged;
+    }
 
   global_vector_fixup (data_in, index, decl);
 
@@ -3007,12 +3037,15 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 
       /* If this variable has already been declared, merge the
          declarations.  */
-      {
-        tree merged = lto_symtab_merge_var (decl);
-        /* If merge fails, use the original declaraction.  */
-        if (merged != error_mark_node)
-          decl = merged;
-      }
+      if (TREE_PUBLIC (decl))
+	{
+	  enum ld_plugin_symbol_resolution resolution =
+	    get_resolution (data_in, index);
+	  tree merged = lto_symtab_merge_var (decl, resolution);
+	  /* If merge fails, use the original declaraction.  */
+	  if (merged != error_mark_node)
+	    decl = merged;
+	}
     }
 
   global_vector_fixup (data_in, index, decl);

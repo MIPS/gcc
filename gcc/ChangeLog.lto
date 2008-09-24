@@ -1,3 +1,12 @@
+2008-09-24 Rafael Espindola  <espindola@google.com>
+
+	* lto-function-in.c (get_resolution): New.
+	(input_function_decl): Pass resolution to lto_symtab_merge_var and
+	lto_symtab_merge_fn.
+	* lto-tree-in.h: Include plugin-api.h.
+	(data_in): Add globals_resolution and globals_resolution_size.
+	(lto_symtab_merge_var, lto_symtab_merge_fn): Add a resolution argument.
+
 2008-09-24  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c: Include tree-pass.h.

@@ -44,6 +44,9 @@ typedef struct lto_file_struct
 }
 lto_file;
 
+/* lto-lang.c */
+
+extern const char *resolution_file_name;
 
 /* lto.c */
  

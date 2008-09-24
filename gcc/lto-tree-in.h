@@ -22,9 +22,12 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_LTO_TREE_IN_H
 
 #include "lto-section-in.h"
-
+#include "plugin-api.h"
 
 /* lto-function-in.c */
+typedef enum ld_plugin_symbol_resolution ld_plugin_symbol_resolution_t;
+DEF_VEC_I(ld_plugin_symbol_resolution_t);
+DEF_VEC_ALLOC_I(ld_plugin_symbol_resolution_t, heap);
 
 struct data_in
 {
@@ -65,6 +68,9 @@ struct data_in
      it is pushed onto this vector.  Subsequent references
      to the variable or type specify the vector index.  */
   VEC(tree,heap) *globals_index;
+
+  /* Maps each reference number to the resolution done by the linker. */
+  VEC(ld_plugin_symbol_resolution_t,heap) *globals_resolution;
 };
 
 /* Used in lto/lto.c */
@@ -94,8 +100,8 @@ lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
 
 /* lto-symtab.c */
 
-/* The NEW_VAR (a VAR_DECL) has just been read.  If there is an
-   existing variable with the same name, merge the declaration for
+/* The NEW_VAR (a VAR_DECL) has just been read with resolution RESOLUTION. If
+   there is an existing variable with the same name, merge the declaration for
    NEW_VAR with the previous declaration and return the previous
    declaration.  In this case, NEW_VAR must no longer be used by the
    caller.  All other entities referenced from NEW_VAR (including, in
@@ -104,10 +110,12 @@ lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
    between the declarations), an error message is issued, and
    error_mark_node is returned.  If there is no previous declaration,
    NEW_VAR is returned.  */
-extern tree lto_symtab_merge_var (tree new_var);
+extern tree lto_symtab_merge_var (tree new_var,
+                                  enum ld_plugin_symbol_resolution resolution);
 
 /* Like lto_symtab_merge_var, but for functions.  */
-extern tree lto_symtab_merge_fn (tree new_fn);
+extern tree lto_symtab_merge_fn (tree new_fn,
+                                 enum ld_plugin_symbol_resolution resolution);
 
 
 #endif  /* GCC_LTO_TREE_IN_H  */

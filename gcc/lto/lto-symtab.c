@@ -251,7 +251,9 @@ lto_least_common_multiple (unsigned a, unsigned b)
 
 /* Common helper function for merging variable and function declarations.  */
 static tree 
-lto_symtab_merge_decl (tree new_decl) 
+lto_symtab_merge_decl (tree new_decl,
+		       enum ld_plugin_symbol_resolution resolution
+		       ATTRIBUTE_UNUSED)
 { 
   tree old_decl;
   tree name;
@@ -543,13 +545,13 @@ lto_symtab_merge_decl (tree new_decl)
 }
 
 tree 
-lto_symtab_merge_var (tree new_var) 
+lto_symtab_merge_var (tree new_var, enum ld_plugin_symbol_resolution resolution)
 {
-  return lto_symtab_merge_decl (new_var);
+  return lto_symtab_merge_decl (new_var, resolution);
 }
  
 tree
-lto_symtab_merge_fn (tree new_fn)
+lto_symtab_merge_fn (tree new_fn, enum ld_plugin_symbol_resolution resolution)
 {
-  return lto_symtab_merge_decl (new_fn);
+  return lto_symtab_merge_decl (new_fn, resolution);
 }

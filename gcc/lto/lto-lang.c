@@ -637,15 +637,19 @@ lto_init_options (unsigned int argc ATTRIBUTE_UNUSED,
    argument or a binary value indicating whether the positive or negative form
    of the option was supplied.  */
 
+const char *resolution_file_name;
 static int
-lto_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED, int value ATTRIBUTE_UNUSED)
+lto_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
 {
   enum opt_code code = (enum opt_code) scode;
   int result;
 
   switch (code)
     {
-    /* For now, this is a placeholder.  We'll populate it later.  */
+    case OPT_resolution:
+      resolution_file_name = arg;
+      result = 1;
+      break;
 
     default:
       result = 0;

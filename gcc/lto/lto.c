@@ -43,6 +43,7 @@ Boston, MA 02110-1301, USA.  */
 #include "bitmap.h"
 #include "pointer-set.h"
 #include "ipa-prop.h"
+#include "common.h"
 
 static bitmap_obstack lto_bitmap_obstack;
 
@@ -203,7 +204,8 @@ lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
 }
 
 static void
-lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
+lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
+		VEC(ld_plugin_symbol_resolution_t,heap) *resolutions)
 {
   const struct lto_decl_header * header 
       = (const struct lto_decl_header *) data;
@@ -235,6 +237,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
   data_in.strings            = (const char *) data + string_offset;
   data_in.strings_len        = header->string_size;
   data_in.globals_index	     = NULL;
+  data_in.globals_resolution = resolutions;
 
   /* FIXME: This doesn't belong here.
      Need initialization not done in lto_static_init ().  */
@@ -294,6 +297,68 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
   /* The globals index vector is needed only while reading.  */
 
   VEC_free (tree, heap, data_in.globals_index);
+  VEC_free (ld_plugin_symbol_resolution_t, heap, data_in.globals_resolution);
+}
+
+/* Read resolution for file named FILE_NAME. The resolution is read from
+   RESOLUTION. An array with the symbol resolution is returned. The array
+   size is written to SIZE. */
+
+static VEC(ld_plugin_symbol_resolution_t,heap) *
+lto_resolution_read (FILE *resolution, const char *file_name)
+{
+  /* We require that objects in the resolution file are in the same
+     order as the lto1 command line. */
+  unsigned int name_len;
+  char *obj_name;
+  unsigned int num_symbols;
+  unsigned int i;
+  VEC(ld_plugin_symbol_resolution_t,heap) *ret;
+  unsigned max_index = 0;
+
+  if (!resolution)
+    return NULL;
+
+  name_len = strlen (file_name);
+  obj_name = XNEWVEC (char, name_len + 1);
+  fscanf (resolution, " ");   /* Read white space. */
+
+  fread (obj_name, sizeof (char), name_len, resolution);
+  obj_name[name_len] = '\0';
+  gcc_assert (strcmp(obj_name, file_name) == 0);
+  free (obj_name);
+
+  fscanf (resolution, "%u", &num_symbols);
+
+  for (i = 0; i < num_symbols; i++)
+    {
+      unsigned index;
+      char r_str[27];
+      enum ld_plugin_symbol_resolution r;
+      unsigned int j;
+      unsigned int lto_resolution_str_len =
+	sizeof (lto_resolution_str) / sizeof (char *);
+
+      fscanf (resolution, "%u %26s", &index, r_str);
+      if (index > max_index)
+	max_index = index;
+
+      for (j = 0; j < lto_resolution_str_len; j++)
+	{
+	  if (strcmp (lto_resolution_str[j], r_str) == 0)
+	    {
+	      r = j;
+	      break;
+	    }
+	}
+      gcc_assert (j < lto_resolution_str_len);
+
+      VEC_safe_grow_cleared (ld_plugin_symbol_resolution_t, heap, ret,
+			     index + 1);
+      VEC_replace (ld_plugin_symbol_resolution_t, ret, index, r);
+    }
+
+  return ret;
 }
 
 /* Generate a TREE representation for all types and external decls
@@ -309,13 +374,16 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
    the .o file to load the functions and ipa information.   */
 
 static struct lto_file_decl_data*
-lto_file_read (lto_file *file)
+lto_file_read (lto_file *file, FILE *resolution_file)
 {
   struct lto_file_decl_data* file_data;
   const char *data;
   size_t len;
   htab_t section_hash_table;
   htab_t renaming_hash_table;
+
+  VEC(ld_plugin_symbol_resolution_t,heap) *resolutions =
+    lto_resolution_read (resolution_file, file->filename);
 
   file_data = XNEW (struct lto_file_decl_data);
 
@@ -329,7 +397,7 @@ lto_file_read (lto_file *file)
   file_data->renaming_hash_table = renaming_hash_table;
   
   data = lto_get_section_data (file_data, LTO_section_decls, NULL, &len);
-  lto_read_decls (file_data, data);
+  lto_read_decls (file_data, data, resolutions);
   lto_free_section_data (file_data, LTO_section_decls, NULL, data, len);
 
   return file_data;
@@ -597,6 +665,9 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   struct lto_file_decl_data** all_file_decl_data 
     = XNEWVEC (struct lto_file_decl_data*, num_in_fnames + 1);
   struct lto_file_decl_data* file_data = NULL;
+  FILE *resolution = NULL;
+  unsigned num_objects;
+  int t;
 
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data,
@@ -604,13 +675,25 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 
   bitmap_obstack_initialize (&lto_bitmap_obstack);
 
+  /* Read the resolution file. */
+  if (resolution_file_name)
+    {
+      resolution = fopen (resolution_file_name, "r");
+      gcc_assert (resolution != NULL);
+      t = fscanf (resolution, "%u", &num_objects);
+      gcc_assert (t == 1);
+
+      /* True, since the plugin splits the archives. */
+      gcc_assert (num_objects == num_in_fnames);
+    }
+
   /* Read all of the object files specified on the command line.  */
   for (i = 0; i < num_in_fnames; ++i)
     {
       current_lto_file = lto_elf_file_open (in_fnames[i], /*writable=*/false);
       if (!current_lto_file)
 	break;
-      file_data = lto_file_read (current_lto_file);
+      file_data = lto_file_read (current_lto_file, resolution);
       if (!file_data)
 	break;
 
@@ -619,6 +702,9 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       lto_elf_file_close (current_lto_file);
       current_lto_file = NULL;
     }
+
+  if (resolution_file_name)
+    fclose (resolution);
 
   all_file_decl_data [j] = NULL;
 

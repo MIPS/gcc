@@ -1,3 +1,24 @@
+2008-09-24 Rafael Espindola  <espindola@google.com>
+
+	* Make-lang.in (LTO_OBJS): Add lto/common.o.
+	(lto/lto.o): Depend on lto/common.h.
+	(lto/common.o): New.
+	* lang.opt (resolution): New.
+	* lto-lang.c (resolution_file_name): New.
+	(lto_handle_option): Handle OPT_resolution.
+	* lto-symtab.c (lto_symtab_merge_decl): Add a resolution argument.
+	(lto_symtab_merge_var,lto_symtab_merge_fn): Add a resolution argument.
+	pass it to lto_symtab_merge_decl.
+	* lto.c: Include common.h.
+	(lto_read_decls): Add resolutions and resolutions_size arguments.
+	Initialize data_in.globals_resolution and
+	data_in.globals_resolution_size.
+	(index_and_symbol_resolution): New.
+	(lto_resolution_read): New.
+	(lto_file_read): Add argument resolution_file.
+	Read resolution.
+	* lto.h (resolution_file_name): New.
+
 2008-09-23 Rafael Espindola  <espindola@google.com>
 
 	* common.c: Update description.
