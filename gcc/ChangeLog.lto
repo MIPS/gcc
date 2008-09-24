@@ -1,5 +1,10 @@
 2008-09-24  Diego Novillo  <dnovillo@google.com>
 
+	* collect2.c (enum lto_mode_d): Remove final comma.
+	(lto_mode): Change type to enum lto_mode_d.
+
+2008-09-24  Diego Novillo  <dnovillo@google.com>
+
 	* tree.c (reset_type_lang_specific): Clear cached values
 	for types replaced with unsigned_char_type_node.
 

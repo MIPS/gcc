@@ -179,13 +179,13 @@ static int aix64_flag;			/* true if -b64 */
 static int aixrtl_flag;			/* true if -brtl */
 #endif
 
-enum {
+enum lto_mode_d {
   LTO_MODE_NONE,			/* Not doing LTO. */
   LTO_MODE_LTO,				/* Normal LTO. */
-  LTO_MODE_WPA,				/* WHOPR. */
+  LTO_MODE_WPA				/* WHOPR. */
 };
 
-static int lto_mode = LTO_MODE_NONE;	/* current LTO mode. */
+static enum lto_mode_d lto_mode = LTO_MODE_NONE; /* current LTO mode. */
 
 int debug;				/* true if -debug */
 
