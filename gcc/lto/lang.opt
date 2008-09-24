@@ -24,6 +24,10 @@
 Language
 LTO
 
+fltrans-driver=
+LTO Joined Var(ltrans_driver)
+Specify an executable for performing local transformations on WPA output.
+
 resolution
 LTO Separate
 The resolution file

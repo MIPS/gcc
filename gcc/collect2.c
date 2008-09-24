@@ -178,7 +178,14 @@ static int export_flag;                 /* true if -bE */
 static int aix64_flag;			/* true if -b64 */
 static int aixrtl_flag;			/* true if -brtl */
 #endif
-static bool lto_flag;			/* true if -flto */
+
+enum {
+  LTO_MODE_NONE,			/* Not doing LTO. */
+  LTO_MODE_LTO,				/* Normal LTO. */
+  LTO_MODE_WPA,				/* WHOPR. */
+};
+
+static int lto_mode = LTO_MODE_NONE;	/* current LTO mode. */
 
 int debug;				/* true if -debug */
 
@@ -893,7 +900,7 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
 
       /* Increment the argument count by the number of initial
 	 arguments added below.  */
-      num_lto_c_args += 8;
+      num_lto_c_args += 9;
 
       lto_c_argv = (char **) xcalloc (sizeof (char *), num_lto_c_args);
       lto_c_ptr = (const char **) lto_c_argv;
@@ -907,6 +914,8 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
       *lto_c_ptr++ = "-O2";
       *lto_c_ptr++ = "-o";
       *lto_c_ptr++ = lto_o_file;
+      if (lto_mode == LTO_MODE_WPA)
+	*lto_c_ptr++ = "-fwpa";
 
       /* Add inherited GCC options to the LTO back end command line.
          Filter out some obviously inappropriate options that will
@@ -914,8 +923,8 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
          all of the remaining options on to LTO, and let it complain
          about any it doesn't like. Note that we invoke LTO via the
          `gcc' driver, so the usual option processing takes place.
-         Except for `-flto', we should only filter options that are
-         meaningful to `ld', lest an option go silently unclaimed.  */
+         Except for `-flto' and `-fwpa', we should only filter options that
+	 are meaningful to `ld', lest an option go silently unclaimed.  */
 
       cp = opts;
 
@@ -923,8 +932,8 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
         {
           const char *s = extract_string (&cp);
 
-          if (strcmp (s, "-flto") == 0)
-            /* We've handled the `-flto' option, don't pass it on.  */
+          if (strcmp (s, "-flto") == 0 || strcmp (s, "-fwpa") == 0)
+            /* We've handled this LTO option, don't pass it on.  */
             ;
           else if (strcmp (s, "-o") == 0)
             {
@@ -1113,7 +1122,7 @@ main (int argc, char **argv)
 
   /* Parse command line early for instances of -debug.  This allows
      the debug flag to be set before functions like find_a_file()
-     are called. We also look for the -flto flag, though it is not
+     are called. We also look for the -flto or -fwpa flag, though it is not
      necessary to do so at this early stage. */
   {
     int i;
@@ -1123,7 +1132,9 @@ main (int argc, char **argv)
 	if (! strcmp (argv[i], "-debug"))
 	  debug = 1;
         else if (! strcmp (argv[i], "-flto"))
-          lto_flag = true;
+          lto_mode = LTO_MODE_LTO;
+        else if (! strcmp (argv[i], "-fwpa"))
+          lto_mode = LTO_MODE_WPA;
       }
     vflag = debug;
   }
@@ -1372,9 +1383,9 @@ main (int argc, char **argv)
 	      break;
 
             case 'f':
-              if (strcmp (arg, "-flto") == 0)
+              if (strcmp (arg, "-flto") == 0 || strcmp (arg, "-fwpa") == 0)
               {
-                /* Do not pass -flto to the linker. */
+                /* Do not pass LTO flag to the linker. */
                 ld1--;
                 ld2--;
               }
@@ -1623,7 +1634,7 @@ main (int argc, char **argv)
       if (export_file != 0 && export_file[0])
 	maybe_unlink (export_file);
 #endif
-      if (lto_flag)
+      if (lto_mode)
         maybe_run_lto_and_relink (ld1_argv, object_lst, object, false);
 
       maybe_unlink (c_file);
@@ -1666,7 +1677,7 @@ main (int argc, char **argv)
       do_tlink (ld1_argv, object_lst);
 #endif
 
-      if (lto_flag)
+      if (lto_mode)
         maybe_run_lto_and_relink (ld1_argv, object_lst, object, false);
 
       /* Strip now if it was requested on the command line.  */
@@ -1762,11 +1773,11 @@ main (int argc, char **argv)
   /* On AIX we must call tlink because of possible templates resolution.  */
   do_tlink (ld2_argv, object_lst);
 
-  if (lto_flag)
+  if (lto_mode)
     maybe_run_lto_and_relink (ld2_argv, object_lst, object, false);
 #else
   /* Otherwise, simply call ld because tlink is already done.  */
-  if (lto_flag)
+  if (lto_mode)
     maybe_run_lto_and_relink (ld2_argv, object_lst, object, true);
   else
     fork_execute ("ld", ld2_argv);

@@ -1,0 +1,67 @@
+#!/bin/sh
+
+# Copyright (C) 2008 Free Software Foundation, Inc.
+
+#This file is part of GCC.
+
+#GCC is free software; you can redistribute it and/or modify it under
+#the terms of the GNU General Public License as published by the Free
+#Software Foundation; either version 2, or (at your option) any later
+#version.
+
+#GCC is distributed in the hope that it will be useful, but WITHOUT
+#ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with GCC; see the file COPYING.  If not, write to the Free
+#Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+#02110-1301, USA.
+
+
+# This is the default ltrans_driver for LTO.  It takes a list of files
+# output during WPA mode and expects the CC and CFLAGS environment variables
+# to be set.  It generates a temporary Makefile, and uses it to convert .o
+# files to .ltrans.o files.  Other environment variables (e.g. MAKE and
+# MAKEFLAGS) can be used to control the behavior of make.
+
+
+# Create a temporary directory $tmp in $TMPDIR (default /tmp).
+# Use mktemp if possible; otherwise fall back on mkdir,
+# with $RANDOM to make collisions less likely.
+: ${TMPDIR=/tmp}
+{
+  tmp=`
+    (umask 077 && mktemp -d "$TMPDIR/ltrans_driverXXXXXX") 2>/dev/null
+  ` &&
+  test -n "$tmp" && test -d "$tmp"
+} || {
+  tmp=$TMPDIR/ltrans_driver$$-$RANDOM
+  (umask 077 && mkdir "$tmp")
+} || exit $?
+
+# Remove the temporary directory on exit or if a SIGTERM or SIGINT is received.
+trap 'rm -rf $tmp' TERM INT EXIT
+
+# Create a temporary Makefile.
+makefile=$tmp/Makefile
+touch $makefile
+
+echo "LTRANS_FLAGS = -xlto -fltrans" >> $makefile
+
+inputlist="$@"
+outputlist=
+for input in $inputlist
+do
+  output=`basename $input .o`.ltrans.o
+  outputlist="$outputlist $output"
+
+  echo "$output: $input" >> $makefile
+  echo "	\$(CC) \$(CFLAGS) \$(LTRANS_FLAGS) -o $output $input" >> $makefile
+  echo >> $makefile
+done
+
+echo "all: $outputlist" >> $makefile
+
+${MAKE-make} -f $makefile all

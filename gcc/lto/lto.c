@@ -19,7 +19,6 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include <sys/mman.h>
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -44,6 +43,11 @@ Boston, MA 02110-1301, USA.  */
 #include "pointer-set.h"
 #include "ipa-prop.h"
 #include "common.h"
+
+/* This needs to be included after config.h.  Otherwise, _GNU_SOURCE will not
+   be defined in time to set __USE_GNU in the system headers, and strsignal
+   will not be declared.  */
+#include <sys/mman.h>
 
 static bitmap_obstack lto_bitmap_obstack;
 
@@ -608,13 +612,14 @@ lto_add_all_inlinees (cgraph_node_set set)
 
 static lto_file *current_lto_file;
 
-/* Write all output files in WPA modes. */
+/* Write all output files in WPA mode.  Returns a NULL-terminated array of
+   output file names.  */
 
-static void
+static char **
 lto_wpa_write_files (void)
 {
+  char **output_files;
   unsigned i;
-  char temp_filename[100];
   lto_file *file;
   cgraph_node_set set;
   bitmap decls;
@@ -627,9 +632,25 @@ lto_wpa_write_files (void)
       VEC_safe_push (bitmap, heap, inlined_decls, decls);
     }
 
+  output_files = XNEWVEC (char *, VEC_length (cgraph_node_set,
+					      lto_cgraph_node_sets) + 1);
+
   for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
     {
-      sprintf (temp_filename, "bogus%d.lto.o", i);
+      size_t needed = 16;
+      size_t len = needed;
+      char * temp_filename = XNEWVEC (char, len);
+
+      do {
+	if (needed > len)
+	  {
+	    len = needed;
+	    temp_filename = XRESIZEVEC (char, temp_filename, len);
+	  }
+	needed = snprintf (temp_filename, len, "bogus%d.lto.o", i);
+      } while (needed >= len);
+
+      output_files[i] = temp_filename;
       fprintf (stderr, "output to %s\n", temp_filename);
 
       file = lto_elf_file_open (temp_filename, /*writable=*/true);
@@ -650,9 +671,94 @@ lto_wpa_write_files (void)
 
     } 
 
+  output_files[i] = NULL;
+
   for (i = 0; VEC_iterate (bitmap, inlined_decls, i, decls); i++)
     BITMAP_FREE (decls);
   VEC_free (bitmap, heap, inlined_decls);
+
+  return output_files;
+}
+
+
+/* Perform local transformations (LTRANS) on the files in the NULL-terminated
+   FILES array.  These should have been written previously by
+   lto_wpa_write_files ().  Transformations are performed via the
+   ltrans_driver executable, which is passed a list of filenames via the
+   command line.  The CC and CFLAGS environment variables are set to
+   appropriate values before it is executed.  */
+
+static void
+lto_execute_ltrans (char *const *files)
+{
+  struct pex_obj *pex;
+  const char *env_val;
+  struct obstack env_obstack;
+  char **argv;
+  const char **argv_ptr;
+  const char *errmsg;
+  size_t i;
+  int err;
+  int status;
+
+  /* Set the CC environment variable.  */
+  env_val = getenv ("COLLECT_GCC");
+  if (!env_val)
+    fatal_error ("environment variable COLLECT_GCC must be set");
+
+  obstack_init (&env_obstack);
+  obstack_grow (&env_obstack, "CC=", sizeof ("CC=") - 1);
+  obstack_grow (&env_obstack, env_val, strlen (env_val) + 1);
+  putenv (XOBFINISH (&env_obstack, char *));
+
+  /* Set the CFLAGS environment variable.  */
+  env_val = getenv ("COLLECT_GCC_OPTIONS");
+  if (!env_val)
+    fatal_error ("environment variable COLLECT_GCC_OPTIONS must be set");
+
+  obstack_init (&env_obstack);
+  obstack_grow (&env_obstack, "CFLAGS=", sizeof ("CFLAGS=") - 1);
+  obstack_grow (&env_obstack, env_val, strlen (env_val) + 1);
+  putenv (XOBFINISH (&env_obstack, char *));
+
+  pex = pex_init (0, "lto1", NULL);
+  if (pex == NULL)
+    fatal_error ("pex_init failed: %s", xstrerror (errno));
+
+  /* Initalize the arguments for the LTRANS driver.  */
+  for (i = 0; files[i]; ++i);
+  argv = XNEWVEC (char *, i + 2);
+
+  argv_ptr = (const char **)argv;
+  *argv_ptr++ = ltrans_driver;
+  for (i = 0; files[i]; ++i)
+    *argv_ptr++ = files[i];
+  *argv_ptr++ = NULL;
+
+  /* Execute the LTRANS driver.  */
+  errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0], argv, NULL, NULL,
+		    &err);
+  if (errmsg)
+    {
+      fatal_error ("%s: %s", errmsg, xstrerror (err));
+    }
+
+  if (!pex_get_status (pex, 1, &status))
+    fatal_error ("can't get program status: %s", xstrerror (errno));
+  pex_free (pex);
+
+  if (status)
+    {
+      if (WIFSIGNALED (status))
+	{
+	  int sig = WTERMSIG (status);
+	  fatal_error ("%s terminated with signal %d [%s]%s",
+		       argv[0], sig, strsignal (sig),
+		       WCOREDUMP (status) ? ", core dumped" : "");
+	}
+      else
+	fatal_error ("%s terminated with status %d", argv[0], status);
+    }
 }
 
 void
@@ -788,7 +894,15 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 
   if (flag_wpa)
     {
-      lto_wpa_write_files ();
+      char **output_files;
+      size_t i;
+
+      output_files = lto_wpa_write_files ();
+      lto_execute_ltrans (output_files);
+
+      for (i = 0; output_files[i]; ++i)
+	XDELETEVEC (output_files[i]);
+      XDELETEVEC (output_files);
     }
 
   bitmap_obstack_release (&lto_bitmap_obstack);

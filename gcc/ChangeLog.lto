@@ -1,3 +1,14 @@
+2008-09-24  Doug Kwan  <dougkwan@google.com>
+	    Ollie Wild  <aaw@google.com>
+
+	* collect2.c (LTO_MODE_NONE, LTO_MODE_LTO, LTO_MODE_WPA): New enums.
+	(lto_mode): New variable.
+	(maybe_run_lto_and_relink): Handle the -fwpa option.
+	(main): Handle the -fwpa option.
+	* gcc.c (link_lto_options): Replace -flto with -fwpa.
+	* doc/invoke.texi (fwpa): Add reference to -fltrans-driver.
+	(fltrans-driver): New option.
+
 2008-09-24 Rafael Espindola  <espindola@google.com>
 
 	* lto-function-in.c (get_resolution): New.

@@ -882,7 +882,7 @@ static const char *lto1_options =
  %{?lto-option(ltrans): -fltrans} ";
 
 static const char *link_lto_options =
-"%{?lto-option(lto): -flto} %{?lto-option(wpa): -flto} ";
+"%{?lto-option(lto): -flto} %{?lto-option(wpa): -fwpa} ";
 
 /* Do we need to preserve any assembler options here?
    Note that we are going to ignore the object code, as

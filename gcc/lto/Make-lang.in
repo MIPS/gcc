@@ -31,6 +31,9 @@ LTO_OBJS = lto/lto-lang.o lto/lto.o lto/lto-elf.o \
 LTO_H = lto/lto.h lto-header.h $(LTO_SECTION_IN_H) $(LTO_SECTION_OUT_H) \
 	$(HASHTAB_H) $(TREE_H)
 
+LTRANS_DRIVER_INSTALL_NAME := $(shell echo ltrans-driver|\
+				      sed '$(program_transform_name)')
+
 ########################################################################
 # Rules
 ########################################################################
@@ -42,7 +45,9 @@ lto.all.cross: $(LTO_EXE)
 lto.start.encap: $(LTO_EXE)
 lto.rest.encap:
 lto.tags:
-lto.install-common:
+lto.install-common: lto/ltrans-driver
+	$(INSTALL_SCRIPT) $(srcdir)/lto/ltrans-driver \
+	  $(DESTDIR)$(libexecsubdir)/$(LTRANS_DRIVER_INSTALL_NAME)
 lto.install-man:
 lto.install-info:
 lto.dvi:
