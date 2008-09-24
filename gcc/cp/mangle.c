@@ -2926,6 +2926,15 @@ mangle_ref_init_variable (const tree variable)
   write_name (variable, /*ignore_local_scope=*/0);
   return finish_mangling_get_identifier (/*warn=*/false);
 }
+
+/* Return true if decl is templated, along with the associated template info
+   node.  TEMPLATE_INFO may be null.  */
+
+int
+mangle_decl_is_template_id (const tree decl, tree* const template_info)
+{
+  return decl_is_template_id (decl, template_info);
+}
 
 
 /* Foreign language type mangling section.  */

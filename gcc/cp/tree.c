@@ -2812,6 +2812,14 @@ cp_reset_lang_specifics (tree t)
 	  argtypes = TREE_CHAIN (argtypes);
 	}
     }
+  else if (TREE_CODE (t) == TYPE_DECL)
+    {
+      tree template_info;
+
+      /* Remove context information held in templated decls.  */
+      if (mangle_decl_is_template_id (t, &template_info))
+        DECL_CONTEXT (TREE_PURPOSE (template_info)) = NULL_TREE;
+    }
 }
 
 

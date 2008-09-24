@@ -4003,9 +4003,11 @@ set_asm_name (void **slot, void *unused ATTRIBUTE_UNUSED)
 /* Helper function of free_lang_specifics. */
 
 static int
-reset_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
+reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 {
   tree decl = *(tree*)slot;
+  lang_hooks.reset_lang_specifics (decl);
+
   if (TREE_CODE (decl) == PARM_DECL
       || TREE_CODE (decl) == FIELD_DECL)
     {
@@ -4068,7 +4070,7 @@ free_lang_specifics (void)
      will fail after we strip DECL_CONTEXT from declaration nodes.  */
   htab_traverse (decl_for_uid_map, set_asm_name, NULL);
 
-  htab_traverse (decl_for_uid_map, reset_lang_specific, NULL);
+  htab_traverse (decl_for_uid_map, reset_decl_lang_specific, NULL);
   htab_traverse (uid2type_map, reset_type_lang_specific, NULL);
 
   /* FIXME lto.  This is a hack.  ptrdiff_type_node is only created
