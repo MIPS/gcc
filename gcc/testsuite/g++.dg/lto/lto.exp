@@ -20,16 +20,16 @@
 load_lib g++-dg.exp
 
 # If a testcase doesn't have special options, use these.
-global DEFAULT_CXXFLAGS
-if ![info exists DEFAULT_CXXFLAGS] then {
-    set DEFAULT_CXXFLAGS " -O2 -flto-single -pedantic-errors"
+global DEFAULT_LTOFLAGS
+if ![info exists DEFAULT_LTOFLAGS] then {
+    set DEFAULT_LTOFLAGS " -O2 -flto-single -pedantic-errors"
 }
 
 # Initialize `dg'.
 dg-init
 
 # Main loop.
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.C]] "" $DEFAULT_CXXFLAGS
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.C]] "" $DEFAULT_LTOFLAGS
 
 # All done.
 dg-finish

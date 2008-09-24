@@ -20,9 +20,9 @@
 load_lib gcc-dg.exp
 
 # If a testcase doesn't have special options, use these.
-global DEFAULT_CFLAGS
-if ![info exists DEFAULT_CFLAGS] then {
-    set DEFAULT_CFLAGS " -O2 -flto-single -pedantic-errors"
+global DEFAULT_LTOFLAGS
+if ![info exists DEFAULT_LTOFLAGS] then {
+    set DEFAULT_LTOFLAGS " -O2 -flto-single -pedantic-errors"
 }
 
 # Initialize `dg'.
@@ -30,7 +30,7 @@ dg-init
 
 # Main loop.
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.\[cS\]]] \
-	"" $DEFAULT_CFLAGS
+	"" $DEFAULT_LTOFLAGS
 
 # All done.
 dg-finish

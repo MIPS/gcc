@@ -1,3 +1,14 @@
+2008-09-24  Diego Novillo  <dnovillo@google.com>
+	    Simon Baldwin  <simonb@google.com>
+
+	* gcc.dg/lto/lto.exp: Replace DEFAULT_CFLAGS with
+	DEFAULT_LTOFLAGS.
+	* gcc.dg/lto/20080917.c: New.
+	* g++.dg/dg.exp: Prune tests under lto.
+	* g++.dg/lto/lto.exp: Replace DEFAULT_CXXFLAGS with
+	DEFAULT_LTOFLAGS
+	* g++.dg/lto/20080917.C: New.
+
 2008-09-16  Simon Baldwin  <simonb@google.com>
 
 	* g++.dg/lto/20080915.C: New test.

@@ -2202,20 +2202,6 @@ output_function (struct cgraph_node* node)
      statement numbers.  */
   renumber_gimple_stmt_uids ();
 
-#ifdef LOCAL_TRACE
-  fprintf (stderr, "%s\n", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (function)));
-  FOR_ALL_BB_FN (bb, fn)
-    {
-      block_stmt_iterator bsi;
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  tree stmt = bsi_stmt (bsi);
-	  fprintf (stderr, "%d = ", gimple_stmt_uid (stmt));
-	  print_generic_stmt (stderr, stmt, 0);
-	}
-    }
-#endif
-
   /* Output the code for the function.  */
   FOR_ALL_BB_FN (bb, fn)
     output_bb (ob, bb, fn);
@@ -2367,11 +2353,6 @@ lto_output (cgraph_node_set set)
 
   bitmap_obstack_initialize (NULL);
   lto_static_init_local ();
-
-  /* Remove some front-end specific garbage from the tree.
-     We don't yet have a middle-end type system, so front-end
-     specific types leak into the middle-end.  */
-  free_lang_specifics ();
 
   /* Process only the functions with bodies and only process the master
      ones of them.  */
@@ -2814,7 +2795,7 @@ output_type_decl (struct output_block *ob, tree decl)
   /* Must output name before type.  */
   output_tree (ob, decl->decl_minimal.name);
 
-  /* Should be cleared by free_lang_specifics.  */
+  /* Should be cleared by pass_ipa_free_lang_specifics.  */
   gcc_assert (decl->decl_minimal.context == NULL_TREE);
 
   output_tree (ob, decl->decl_with_vis.assembler_name);
@@ -2831,7 +2812,7 @@ output_type_decl (struct output_block *ob, tree decl)
   output_tree (ob, decl->decl_common.size);
   output_tree (ob, decl->decl_common.size_unit);
 
-  /* We expect free_lang_specifics to clear the INITIAL field.  */
+  /* We expect pass_ipa_free_lang_specifics to clear the INITIAL field.  */
   gcc_assert (decl->decl_common.initial == NULL_TREE);
 
   /* lang_specific */
@@ -3041,7 +3022,7 @@ output_type (struct output_block *ob, tree type, enum LTO_tags tag)
   LTO_DEBUG_TOKEN ("binfo");
   output_tree (ob, type->type.binfo);
 
-  /* Should be cleared by free_lang_specifics.  */
+  /* Should be cleared by pass_ipa_free_lang_specifics.  */
   gcc_assert (type->type.context == NULL_TREE);
 
   LTO_DEBUG_TOKEN ("canonical");

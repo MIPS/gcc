@@ -441,6 +441,18 @@ complain_wrong_lang (const char *text, const struct cl_option *option,
 {
   char *ok_langs, *bad_lang;
 
+  /* FIXME lto.  The LTO front end is special and by default it
+     inherits all the options from the first front end that was used.
+     Not all the original front end options make sense in LTO.
+     
+     A real solution would be to filter this in collect2, but collect2
+     does not have access to all the option attributes to know what to
+     filter.
+
+     For now, silently accept inherited flags and do nothing about it.  */
+  if (lang_mask & CL_LTO)
+    return;
+
   ok_langs = write_langs (option->flags);
   bad_lang = write_langs (lang_mask);
 

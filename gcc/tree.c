@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "pointer-set.h"
 #include "fixed-value.h"
+#include "tree-pass.h"
 
 /* Tree code classes.  */
 
@@ -3870,7 +3871,7 @@ build_type_attribute_variant (tree ttype, tree attribute)
 static int
 reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 {
-  tree type = *(tree*)slot;
+  tree type = *(tree *) slot;
   lang_hooks.reset_lang_specifics (type);
 
   if (TREE_CODE (type) == ARRAY_TYPE
@@ -3976,6 +3977,16 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
      FIXME lto: This will break debug info generation.  */
   TYPE_CONTEXT (type) = NULL_TREE;
 
+  /* If -funsigned-char is used, force all the expressions using
+     char_type_node to use unsigned_char_type_node.  */
+  if (flag_signed_char == 0)
+    {
+      if (type == char_type_node)
+	memcpy (type, unsigned_char_type_node, tree_size (type));
+      else if (TYPE_MAIN_VARIANT (type) == char_type_node)
+	TYPE_MAIN_VARIANT (type) = unsigned_char_type_node;
+    }
+
   return 1;
 }
 
@@ -4005,11 +4016,11 @@ set_asm_name (void **slot, void *unused ATTRIBUTE_UNUSED)
 static int
 reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 {
-  tree decl = *(tree*)slot;
+  tree decl = *(tree *) slot;
+
   lang_hooks.reset_lang_specifics (decl);
 
-  if (TREE_CODE (decl) == PARM_DECL
-      || TREE_CODE (decl) == FIELD_DECL)
+  if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == FIELD_DECL)
     {
       tree unit_size = DECL_SIZE_UNIT (decl);
       tree size = DECL_SIZE (decl);
@@ -4020,7 +4031,7 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	  DECL_SIZE (decl) = NULL_TREE;
 	}
     }
-  if (TREE_CODE (decl) == VAR_DECL)
+  else if (TREE_CODE (decl) == VAR_DECL)
     {
       tree expr = DECL_DEBUG_EXPR (decl);
       if (expr
@@ -4028,7 +4039,7 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	  && !TREE_STATIC (expr) && !DECL_EXTERNAL (expr))
 	SET_DECL_DEBUG_EXPR (decl, NULL_TREE);
     }
-  if (TREE_CODE (decl) == TYPE_DECL)
+  else if (TREE_CODE (decl) == TYPE_DECL)
     {
       /* FIXME lto:
 	 DECL_INITIAL should not be defined here, but it is
@@ -4063,7 +4074,7 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 
 /* Free resources that are used by FE but are not needed once they are done. */
 
-void
+static unsigned
 free_lang_specifics (void)
 {
   /* Set assembler names now, as callbacks from the back-end
@@ -4081,7 +4092,41 @@ free_lang_specifics (void)
   /* FIXME lto.  This is a hack.  fileptr_type_node may be set to
      a variant copy of ptr_type_node for front-end purposes.  */
   fileptr_type_node = ptr_type_node;
+
+  return 0;
 }
+
+
+/* Gate function for free_lang_specifics.  FIXME lto.  This should be
+   unconditional and not depend on whether we're producing LTO
+   information and it should be done very early on.  This currently
+   breaks libstdc++ builds, though.  */
+
+static bool
+gate_free_lang_specifics (void)
+{
+  return flag_generate_lto;
+}
+
+
+struct simple_ipa_opt_pass pass_ipa_free_lang_specifics = 
+{
+ {
+  SIMPLE_IPA_PASS,
+  NULL,					/* name */
+  gate_free_lang_specifics,		/* gate */
+  free_lang_specifics,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,	                                /* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+ }
+};
 
 /* Return nonzero if IDENT is a valid name for attribute ATTR,
    or zero if not.

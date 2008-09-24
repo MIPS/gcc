@@ -902,7 +902,7 @@ lto_get_common_nodes (void)
      distinction should only be relevant to the front-end, so we always
      use the C definition here in lto1.
 
-     These should be assured in free_lang_specifics.  */
+     These should be assured in pass_ipa_free_lang_specifics.  */
 
   gcc_assert (fileptr_type_node == ptr_type_node);
   gcc_assert (TYPE_MAIN_VARIANT (fileptr_type_node) == ptr_type_node);

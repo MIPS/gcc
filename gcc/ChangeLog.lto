@@ -1,3 +1,29 @@
+2008-09-24  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c: Include tree-pass.h.
+	(reset_type_lang_specific): If flag_signed_char is false,
+	make char_type_node a clone of unsigned_char_type_node
+	and fix TYPE_MAIN_VARIANTs of types that have
+	char_type_node as their main variant.
+	(reset_decl_lang_specific): Tidy.
+	(free_lang_specifics): Make private.
+	Change return type.  Update all users.
+	(gate_free_lang_specifics): New.
+	(pass_ipa_free_lang_specifics): New.
+	* tree.h (free_lang_specifics): Remove.
+	* tree-pass.h (pass_ipa_free_lang_specifics): Declare.
+	* lto-function-out.c (output_function): Remove stale
+	debugging code.
+	(lto_output): Do not call free_lang_specifics.
+	* opts.c (complain_wrong_lang): Do not complain if
+	running lto1.
+	* tree-ssa-pre.c (create_expression_by_pieces): Add
+	asserts for NEW_SETS (block) and AVAIL_OUT (block).
+	* Makefile.in (tree.o): Depend on tree-pass.h
+	* passes.c (init_optimization_passes): Schedule
+	pass_ipa_free_lang_specifics.
+	* lto-section-out.c (lto_get_common_nodes): Tidy comment.
+
 2008-09-24  Simon Baldwin  <simonb@google.com>
 
 	* tree.c (reset_lang_specific): Rename to reset_decl_lang_specific,

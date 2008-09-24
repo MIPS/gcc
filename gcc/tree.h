@@ -4690,7 +4690,6 @@ function_args_iter_next (function_args_iterator *i)
 
 
 /* In tree.c */
-extern void free_lang_specifics (void);
 extern unsigned crc32_string (unsigned, const char *);
 extern void clean_symbol_name (char *);
 extern tree get_file_function_name (const char *);

@@ -391,6 +391,7 @@ extern struct gimple_opt_pass pass_build_cgraph_edges;
 extern struct gimple_opt_pass pass_reset_cc_flags;
 
 /* IPA Passes */
+extern struct simple_ipa_opt_pass pass_ipa_free_lang_specifics;
 extern struct simple_ipa_opt_pass pass_ipa_function_and_variable_visibility;
 extern struct simple_ipa_opt_pass pass_ipa_early_inline;
 
