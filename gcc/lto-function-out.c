@@ -1841,6 +1841,13 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
 	}
       break;
 
+    case GIMPLE_CHANGE_DYNAMIC_TYPE:
+      /* The first operand of GIMPLE_CHANGE_DYNAMIC_TYPE is a type.
+	 So have to handle it specially.  */
+      output_type_ref (ob, gimple_cdt_new_type (stmt));
+      output_expr_operand (ob, gimple_cdt_location (stmt));
+      break;
+
     default:
       gcc_unreachable ();
     }

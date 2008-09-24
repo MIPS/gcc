@@ -1981,6 +1981,8 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     code = GIMPLE_ASSIGN;
   else if (tag == LTO_gimple_call)
     code = GIMPLE_CALL;
+  else if (tag == LTO_gimple_change_dynamic_type)
+    code = GIMPLE_CHANGE_DYNAMIC_TYPE;
   else if (tag == LTO_gimple_cond)
     code = GIMPLE_COND;
   else if (tag == LTO_gimple_goto)
@@ -2017,16 +2019,35 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
       stmt->gimple_asm.string = TREE_STRING_POINTER (str);
     }
 
-  for (i = 0; i < num_ops; i++)
+  /* GIMPLE_CHANGE_DYNAMIC_TYPE is special.  The first operand is a
+     type.  So handle it specially.  We assume both operands are
+     never NULL. */
+  if (code == GIMPLE_CHANGE_DYNAMIC_TYPE)
     {
-      enum LTO_tags tag = input_record_start (ib);
-      if (tag)
+      tree new_type, location;
+      enum LTO_tags tag;
+
+      new_type = input_type_ref (data_in, ib);
+      gimple_cdt_set_new_type (stmt, new_type);
+
+      tag = input_record_start (ib);
+      gcc_assert (tag);
+      location = input_expr_operand (ib, data_in, fn, tag);
+      gimple_cdt_set_location (stmt, location);
+    }
+  else
+    {
+      for (i = 0; i < num_ops; i++)
 	{
-	  /* FIXME lto.  We shouldn't be writing NULL operands.  Use
-	     alternate tags to identify tuple variants (e.g.,
-	     GIMPLE_CALLs without a return value).  */
-	  tree op = input_expr_operand (ib, data_in, fn, tag);
-	  gimple_set_op (stmt, i, op);
+	  enum LTO_tags tag = input_record_start (ib);
+	  if (tag)
+	    {
+	      /* FIXME lto.  We shouldn't be writing NULL operands.  Use
+		 alternate tags to identify tuple variants (e.g.,
+		 GIMPLE_CALLs without a return value).  */
+	      tree op = input_expr_operand (ib, data_in, fn, tag);
+	      gimple_set_op (stmt, i, op);
+	    }
 	}
     }
 

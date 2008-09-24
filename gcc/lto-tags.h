@@ -279,6 +279,7 @@ enum LTO_tags {
   LTO_gimple_asm,
   LTO_gimple_assign,
   LTO_gimple_call,
+  LTO_gimple_change_dynamic_type,
   LTO_gimple_cond,
   LTO_gimple_goto,
   LTO_gimple_label,

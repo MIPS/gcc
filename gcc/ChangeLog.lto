@@ -1,4 +1,15 @@
 2008-09-24  Doug Kwan  <dougkwan@google.com>
+
+	* lto-function-out.c (output_gimple_stmt): Handle gimple code
+	GIMPLE_CHANGE_DYNAMIC_TYPE.
+	* lto-function-in.c (input_gimple_stmt): Handle new tag
+	LTO_gimple_change_dynamic_type.  Handle gimple code
+	GIMPLE_CHANGE_DYNAMIC_TYPE specially.
+	* lto-tree-tags.def (LTO_gimple_change_dynamic_type): New tag name.
+	Map tag to GIMPLE_CHANGE_DYNAMIC_TYPE.
+	* lto-tags.h (enum LTO_tags): New enum LTO_gimple_change_dynamic_type.
+
+2008-09-24  Doug Kwan  <dougkwan@google.com>
 	    Ollie Wild  <aaw@google.com>
 
 	* collect2.c (LTO_MODE_NONE, LTO_MODE_LTO, LTO_MODE_WPA): New enums.
