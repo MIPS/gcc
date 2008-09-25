@@ -1,3 +1,8 @@
+2008-09-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (coalesce_spill_slots): Fix typo in comparison with
+	ira_reg_equiv_len.
+
 2008-09-22  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR middle-end/37535

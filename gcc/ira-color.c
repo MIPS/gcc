@@ -2394,7 +2394,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
 	{
 	  a = spilled_coalesced_allocnos[j];
 	  if (ALLOCNO_FIRST_COALESCED_ALLOCNO (a) == a
-	      && (ALLOCNO_REGNO (a) > ira_reg_equiv_len
+	      && (ALLOCNO_REGNO (a) >= ira_reg_equiv_len
 		  || (! ira_reg_equiv_invariant_p[ALLOCNO_REGNO (a)]
 		      && ira_reg_equiv_const[ALLOCNO_REGNO (a)] == NULL_RTX))
 	      && ! coalesced_allocnos_live_at_points_p (allocno,
