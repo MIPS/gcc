@@ -339,7 +339,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine -fltrans -fltrans-driver @gol
--fmerge-all-constants -fmerge-constants -fmodulo-sched @gol
+-fltrans-output-list -fmerge-all-constants -fmerge-constants -fmodulo-sched @gol
 -fmodulo-sched-allow-regmoves -fmove-loop-invariants -fmudflap @gol
 -fmudflapir -fmudflapth -fno-branch-count-reg -fno-default-inline @gol
 -fno-defer-pop -fno-function-cse -fno-guess-branch-probability @gol
@@ -6548,6 +6548,13 @@ initiate WPA.  For each input file suffixed with .o, the driver must generate a
 corresponding output file ending in .ltrans.o.
 
 Default value points to the ltrans_driver script installed alongside lto1.
+
+@item -fltrans-output-list=@var{file}
+@opindex fltrans-output-list
+This option specifies a file to which the names of LTRANS output files are
+written.  This option is only meaningful in conjunction with @option{-fwpa}.
+
+Disabled by default.
 
 @item -fcprop-registers
 @opindex fcprop-registers

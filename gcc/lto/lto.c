@@ -700,6 +700,7 @@ lto_execute_ltrans (char *const *files)
   size_t i;
   int err;
   int status;
+  FILE *ltrans_output_list_stream = NULL;
 
   /* Set the CC environment variable.  */
   env_val = getenv ("COLLECT_GCC");
@@ -729,11 +730,36 @@ lto_execute_ltrans (char *const *files)
   for (i = 0; files[i]; ++i);
   argv = XNEWVEC (char *, i + 2);
 
+  /* Open the LTRANS output list.  */
+  if (ltrans_output_list)
+    {
+      ltrans_output_list_stream = fopen (ltrans_output_list, "w");
+      if (ltrans_output_list_stream == NULL)
+	error ("opening LTRANS output list %s: %m", ltrans_output_list);
+    }
+
   argv_ptr = (const char **)argv;
   *argv_ptr++ = ltrans_driver;
   for (i = 0; files[i]; ++i)
-    *argv_ptr++ = files[i];
+    {
+      *argv_ptr++ = files[i];
+
+      /* Replace the .o suffix with a .ltrans.o suffix and write the resulting
+	 name to the LTRANS output list.  */
+      if (ltrans_output_list_stream)
+	{
+	  size_t len = strlen (files[i]) - 2;
+
+	  if (fwrite (files[i], 1, len, ltrans_output_list_stream) < len
+	      || fwrite (".ltrans.o\n", 1, 10, ltrans_output_list_stream) < 10)
+	    error ("writing to LTRANS output list %s: %m", ltrans_output_list);
+	}
+    }
   *argv_ptr++ = NULL;
+
+  /* Close the LTRANS output list.  */
+  if (ltrans_output_list_stream && fclose (ltrans_output_list_stream))
+    error ("closing LTRANS output list %s: %m", ltrans_output_list);
 
   /* Execute the LTRANS driver.  */
   errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0], argv, NULL, NULL,

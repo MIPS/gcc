@@ -28,6 +28,10 @@ fltrans-driver=
 LTO Joined Var(ltrans_driver)
 Specify an executable for performing local transformations on WPA output.
 
+fltrans-output-list=
+LTO Joined Var(ltrans_output_list)
+Specify a file to which a list of files output by LTRANS is written.
+
 resolution
 LTO Separate
 The resolution file
