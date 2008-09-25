@@ -177,6 +177,7 @@ output_edge (struct lto_simple_output_block *ob,
 {
   unsigned int uid;
   intptr_t ref;
+  unsigned HOST_WIDEST_INT flags = 0;
 
   lto_output_uleb128_stream (ob->main_stream, LTO_cgraph_edge);
   LTO_DEBUG_INDENT (LTO_cgraph_edge);
@@ -202,8 +203,10 @@ output_edge (struct lto_simple_output_block *ob,
   lto_output_uleb128_stream (ob->main_stream, edge->frequency);
   LTO_DEBUG_TOKEN ("loop_next");
   lto_output_uleb128_stream (ob->main_stream, edge->loop_nest);
-  LTO_DEBUG_TOKEN ("call_stmt_cannot_inline_p");
-  lto_output_uleb128_stream (ob->main_stream, edge->call_stmt_cannot_inline_p);
+  LTO_DEBUG_TOKEN ("flags");
+  lto_set_flag (&flags, edge->indirect_call);
+  lto_set_flag (&flags, edge->call_stmt_cannot_inline_p);
+  lto_output_uleb128_stream (ob->main_stream, flags);
   LTO_DEBUG_UNDENT();
 }
 
@@ -486,7 +489,7 @@ input_overwrite_node (struct lto_file_decl_data* file_data,
   node->local.lto_file_data = file_data;
 
   /* This list must be in the reverse order that they are set in
-     lto-section-out.c:outout_node.  */
+     output_node.  */
   node->local.vtable_method = lto_get_flag (&flags);
   node->local.for_functions_valid = lto_get_flag (&flags);
   node->local.redefined_extern_inline = lto_get_flag (&flags);
@@ -635,8 +638,8 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   unsigned int count;
   unsigned int freq;
   unsigned int nest;
-  unsigned int call_stmt_cannot_inline_p;
   cgraph_inline_failed_t inline_failed;
+  unsigned HOST_WIDEST_INT flags;
 
   LTO_DEBUG_TOKEN ("caller");
   caller = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
@@ -656,13 +659,17 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   freq = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("loop_next");
   nest = lto_input_uleb128 (ib);
-  LTO_DEBUG_TOKEN ("call_stmt_cannot_inline_p");
-  call_stmt_cannot_inline_p = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("flags");
+  flags = lto_input_uleb128 (ib);
 	  
   edge = cgraph_create_edge (caller, callee, NULL, count, freq, nest);
   edge->lto_stmt_uid = stmt_id;
-  edge->call_stmt_cannot_inline_p = call_stmt_cannot_inline_p;
   edge->inline_failed = inline_failed;
+
+  /* This list must be in the reverse order that they are set in
+     output_edge.  */
+  edge->call_stmt_cannot_inline_p = lto_get_flag (&flags);
+  edge->indirect_call = lto_get_flag (&flags);
 }
 
 /* Input a cgraph from IB using the info in FILE_DATA.  */

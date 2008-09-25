@@ -1,3 +1,9 @@
+2008-09-24  Doug Kwan  <dougkwan@google.com>
+
+	* lto-cgraph.c (output_edge): Output indirect_call flag.
+	(input_overwrite_node): Correct a comment.
+	(input_edge): Read indirect_call flag.
+
 2008-09-24  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-in.c (input_var_decl): Do not abort if
