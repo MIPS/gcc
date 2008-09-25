@@ -985,6 +985,10 @@ void
 ipa_propagate_indirect_call_infos (struct cgraph_edge *cs,
 				   VEC (cgraph_edge_p, heap) **new_edges)
 {
+  /* FIXME lto: We do not stream out indirect call information.  */
+  if (flag_wpa)
+    return;
+
   propagate_info_to_inlined_callees (cs, cs->callee, new_edges);
 }
 

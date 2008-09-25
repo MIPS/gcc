@@ -1,3 +1,9 @@
+2008-09-25  Doug Kwan  <dougkwan@google.com>
+	    Ollie Wild  <aaw@google.com>
+
+	* ipa-prop.c (ipa_propagate_indirect_call_infos): Skip if flag_wpa is
+	set.
+
 2008-09-24  Doug Kwan  <dougkwan@google.com>
 
 	* lto-cgraph.c (output_edge): Output indirect_call flag.
