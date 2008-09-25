@@ -317,7 +317,7 @@ lto_resolution_read (FILE *resolution, const char *file_name)
   char *obj_name;
   unsigned int num_symbols;
   unsigned int i;
-  VEC(ld_plugin_symbol_resolution_t,heap) *ret;
+  VEC(ld_plugin_symbol_resolution_t,heap) *ret = NULL;
   unsigned max_index = 0;
 
   if (!resolution)
