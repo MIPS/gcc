@@ -1,3 +1,61 @@
+2008-09-25  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* classpath/configure,
+	* classpath/configure.ac:
+	Resynchronise with Classpath's configure.
+	* classpath/examples/Makefile.in:
+	Add equivalent support for building as in
+	tools/Makefile.in.
+	* classpath/java/nio/Buffer.java,
+	* classpath/java/nio/ByteBuffer.java,
+	* classpath/java/nio/ByteBufferImpl.java,
+	* classpath/java/nio/CharBuffer.java,
+	* classpath/java/nio/CharBufferImpl.java,
+	* classpath/java/nio/CharSequenceBuffer.java,
+	* classpath/java/nio/CharViewBufferImpl.java,
+	* classpath/java/nio/DirectByteBufferImpl.java,
+	* classpath/java/nio/DoubleBuffer.java,
+	* classpath/java/nio/DoubleBufferImpl.java,
+	* classpath/java/nio/DoubleViewBufferImpl.java,
+	* classpath/java/nio/FloatBuffer.java,
+	* classpath/java/nio/FloatBufferImpl.java,
+	* classpath/java/nio/FloatViewBufferImpl.java,
+	* classpath/java/nio/IntBuffer.java,
+	* classpath/java/nio/IntBufferImpl.java,
+	* classpath/java/nio/IntViewBufferImpl.java,
+	* classpath/java/nio/LongBuffer.java,
+	* classpath/java/nio/LongBufferImpl.java,
+	* classpath/java/nio/LongViewBufferImpl.java,
+	* classpath/java/nio/MappedByteBuffer.java,
+	* classpath/java/nio/MappedByteBufferImpl.java,
+	* classpath/java/nio/ShortBuffer.java,
+	* classpath/java/nio/ShortBufferImpl.java,
+	* classpath/java/nio/ShortViewBufferImpl.java:
+	Replace use of gnu.classpath.Pointer with gnu.gcj.RawData,
+	and fix some formatting issues.
+	* classpath/tools/gnu/classpath/tools/gjdoc/expr/JavaLexer.java,
+	* classpath/tools/gnu/classpath/tools/gjdoc/expr/JavaLexer.smap,
+	* classpath/tools/gnu/classpath/tools/gjdoc/expr/JavaRecognizer.java,
+	* classpath/tools/gnu/classpath/tools/gjdoc/expr/JavaRecognizer.smap,
+	* classpath/tools/gnu/classpath/tools/gjdoc/expr/JavaTokenTypes.java,
+	* classpath/tools/gnu/classpath/tools/gjdoc/expr/JavaTokenTypes.txt:
+	Regenerated (later version of antlr).
+	* java/nio/Buffer.h: Regenerated.
+	* java/nio/Buffer.java: Ported changes from Classpath.
+	* java/nio/ByteBuffer.h,
+	* java/nio/CharBuffer.h: Regenerated.
+	* java/nio/DirectByteBufferImpl.java: Ported changes from
+	Classpath.
+	* java/nio/DoubleBuffer.h,
+	* java/nio/FloatBuffer.h,
+	* java/nio/IntBuffer.h,
+	* java/nio/LongBuffer.h,
+	* java/nio/MappedByteBuffer.h,
+	* java/nio/MappedByteBufferImpl.h: Regenerated.
+	* java/nio/MappedByteBufferImpl.java: Ported changes from
+	Classpath.
+	* java/nio/ShortBuffer.h: Regenerated.
+
 2008-09-24  Matthias Klose  <doko@ubuntu.com>
 
 	* configure.ac: Search for antlr.jar, if not configured.
