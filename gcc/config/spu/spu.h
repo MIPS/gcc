@@ -50,7 +50,8 @@ extern GTY(()) int spu_tune;
 
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_ERROR_RELOC | MASK_SAFE_DMA | MASK_BRANCH_HINTS)
+#define TARGET_DEFAULT (MASK_ERROR_RELOC | MASK_SAFE_DMA | MASK_BRANCH_HINTS \
+			| MASK_SAFE_HINTS)
 #endif
 
 
@@ -438,7 +439,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define SLOW_BYTE_ACCESS 0
 
-#define MOVE_RATIO 32
+#define MOVE_RATIO(speed) 32
 
 #define NO_FUNCTION_CSE
 

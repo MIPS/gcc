@@ -1246,8 +1246,7 @@ do {						\
 /* Likewise in an expr_list for a REG_LABEL_OPERAND or
    REG_LABEL_TARGET note.  */
 #define LABEL_REF_NONLOCAL_P(RTX)					\
-  (RTL_FLAG_CHECK3("LABEL_REF_NONLOCAL_P", (RTX), LABEL_REF,		\
-		   REG_LABEL_OPERAND, REG_LABEL_TARGET)->volatil)
+  (RTL_FLAG_CHECK1("LABEL_REF_NONLOCAL_P", (RTX), LABEL_REF)->volatil)
 
 /* 1 if RTX is a code_label that should always be considered to be needed.  */
 #define LABEL_PRESERVE_P(RTX)						\
@@ -2358,6 +2357,7 @@ extern const struct rtl_hooks general_rtl_hooks;
 #define gen_lowpart rtl_hooks.gen_lowpart
 
 extern void insn_locators_alloc (void);
+extern void insn_locators_free (void);
 extern void insn_locators_finalize (void);
 extern void set_curr_insn_source_location (location_t);
 extern void set_curr_insn_block (tree);

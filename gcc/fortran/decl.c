@@ -4639,8 +4639,7 @@ gfc_match_entry (void)
      created symbols attached to the current namespace.  */
   if (get_proc_name (name, &entry,
 		     gfc_current_ns->parent != NULL
-		     && module_procedure
-		     && gfc_current_ns->proc_name->attr.function))
+		     && module_procedure))
     return MATCH_ERROR;
 
   proc = gfc_current_block ();
@@ -6361,7 +6360,7 @@ gfc_get_type_attr_spec (symbol_attribute *attr, char *name)
       if (gfc_add_access (attr, ACCESS_PUBLIC, NULL, NULL) == FAILURE)
 	return MATCH_ERROR;
     }
-  else if (gfc_match(" , bind ( c )") == MATCH_YES)
+  else if (gfc_match (" , bind ( c )") == MATCH_YES)
     {
       /* If the type is defined to be bind(c) it then needs to make
 	 sure that all fields are interoperable.  This will
@@ -6371,6 +6370,15 @@ gfc_get_type_attr_spec (symbol_attribute *attr, char *name)
 	return MATCH_ERROR;
 
       /* TODO: attr conflicts need to be checked, probably in symbol.c.  */
+    }
+  else if (gfc_match (" , abstract") == MATCH_YES)
+    {
+      if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: ABSTRACT type at %C")
+	    == FAILURE)
+	return MATCH_ERROR;
+
+      if (gfc_add_abstract (attr, &gfc_current_locus) == FAILURE)
+	return MATCH_ERROR;
     }
   else if (name && gfc_match(" , extends ( %n )", name) == MATCH_YES)
     {
@@ -6479,11 +6487,9 @@ gfc_match_derived_decl (void)
   if (attr.is_bind_c != 0)
     sym->attr.is_bind_c = attr.is_bind_c;
 
-
   /* Construct the f2k_derived namespace if it is not yet there.  */
   if (!sym->f2k_derived)
     sym->f2k_derived = gfc_get_namespace (NULL, 0);
-
   
   if (extended && !sym->components)
     {
@@ -6506,6 +6512,9 @@ gfc_match_derived_decl (void)
       st = gfc_new_symtree (&extended->f2k_derived->sym_root, sym->name);
       st->n.sym = sym;
     }
+
+  /* Take over the ABSTRACT attribute.  */
+  sym->attr.abstract = attr.abstract;
 
   gfc_new_block = sym;
 
@@ -6897,8 +6906,7 @@ match_procedure_in_type (void)
   /* TODO: Really implement PROCEDURE(interface).  */
   if (gfc_match (" (") == MATCH_YES)
     {
-      gfc_error ("Procedure with interface only allowed in abstract types at"
-		 " %C");
+      gfc_error ("PROCEDURE(interface) at %C is not yet implemented");
       return MATCH_ERROR;
     }
 

@@ -1244,6 +1244,8 @@ typedef struct gfc_namespace
   int set_flag[GFC_LETTERS];
   /* Keeps track of the implicit types associated with the letters.  */
   gfc_typespec default_type[GFC_LETTERS];
+  /* Store the positions of IMPLICIT statements.  */
+  locus implicit_loc[GFC_LETTERS];
 
   /* If this is a namespace of a procedure, this points to the procedure.  */
   struct gfc_symbol *proc_name;
@@ -1593,7 +1595,6 @@ typedef struct gfc_expr
     {
       gfc_actual_arglist* actual;
       gfc_typebound_proc* tbp;
-      gfc_symbol* derived;
       const char* name;
     }
     compcall;
@@ -1968,6 +1969,7 @@ typedef struct
   int warn_intrinsics_std;
   int warn_character_truncation;
   int warn_array_temp;
+  int warn_align_commons;
   int max_errors;
 
   int flag_all_intrinsics;
@@ -2005,6 +2007,7 @@ typedef struct
   int flag_init_logical;
   int flag_init_character;
   char flag_init_character_value;
+  int flag_align_commons;
 
   int fpe;
 
@@ -2261,6 +2264,7 @@ gfc_try gfc_add_function (symbol_attribute *, const char *, locus *);
 gfc_try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
 gfc_try gfc_add_volatile (symbol_attribute *, const char *, locus *);
 gfc_try gfc_add_proc (symbol_attribute *attr, const char *name, locus *where);
+gfc_try gfc_add_abstract (symbol_attribute* attr, locus* where);
 
 gfc_try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
 gfc_try gfc_add_is_bind_c (symbol_attribute *, const char *, locus *, int);
@@ -2513,8 +2517,7 @@ gfc_try gfc_add_interface (gfc_symbol *);
 gfc_interface *gfc_current_interface_head (void);
 void gfc_set_current_interface_head (gfc_interface *);
 gfc_symtree* gfc_find_sym_in_symtree (gfc_symbol*);
-int gfc_compare_actual_formal (gfc_actual_arglist**, gfc_formal_arglist*,
-      			       int, int, locus*);
+bool gfc_arglist_matches_symbol (gfc_actual_arglist**, gfc_symbol*);
 
 /* io.c */
 extern gfc_st_label format_asterisk;

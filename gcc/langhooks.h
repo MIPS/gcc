@@ -294,10 +294,6 @@ struct lang_hooks
      Fourth argument is actually an enum expand_modifier.  */
   rtx (*expand_expr) (tree, rtx, enum machine_mode, int, rtx *);
 
-  /* Called by expand_expr to generate the definition of a decl.  Returns
-     1 if handled, 0 otherwise.  */
-  int (*expand_decl) (tree);
-
   /* Function to finish handling an incomplete decl at the end of
      compilation.  Default hook is does nothing.  */
   void (*finish_incomplete_decl) (tree);
@@ -357,9 +353,6 @@ struct lang_hooks
      This routine should only return 1 if it is sure.  It should not be used
      in contexts where erroneously returning 0 causes problems.  */
   int (*types_compatible_p) (tree x, tree y);
-
-  /* Given a CALL_EXPR, return a function decl that is its target.  */
-  tree (*lang_get_callee_fndecl) (const_tree);
 
   /* Called by report_error_function to print out function name.  */
   void (*print_error_function) (struct diagnostic_context *, const char *,

@@ -6027,8 +6027,10 @@ build_enumerator (struct c_enum_contents *the_enum, tree name, tree value,
 	     "ISO C restricts enumerator values to range of %<int%>");
 
   /* Set basis for default for next value.  */
-  the_enum->enum_next_value = build_binary_op (PLUS_EXPR, value,
-					       integer_one_node, 0);
+  the_enum->enum_next_value
+    = build_binary_op
+         (EXPR_HAS_LOCATION (value) ? EXPR_LOCATION (value) : input_location,
+	 PLUS_EXPR, value, integer_one_node, 0);
   the_enum->enum_overflow = tree_int_cst_lt (the_enum->enum_next_value, value);
 
   /* Now create a declaration for the enum value name.  */
@@ -6976,15 +6978,6 @@ stmt_tree
 current_stmt_tree (void)
 {
   return &c_stmt_tree;
-}
-
-/* Nonzero if TYPE is an anonymous union or struct type.  Always 0 in
-   C.  */
-
-int
-anon_aggr_type_p (const_tree ARG_UNUSED (node))
-{
-  return 0;
 }
 
 /* Return the global value of T as a symbol.  */

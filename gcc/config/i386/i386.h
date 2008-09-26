@@ -640,7 +640,7 @@ enum target_cpu_default
 #define WORDS_BIG_ENDIAN 0
 
 /* Width of a word, in units (bytes).  */
-#define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
+#define UNITS_PER_WORD		(TARGET_64BIT ? 8 : 4)
 #ifdef IN_LIBGCC2
 #define MIN_UNITS_PER_WORD	(TARGET_64BIT ? 8 : 4)
 #else
@@ -651,8 +651,8 @@ enum target_cpu_default
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY	(TARGET_64BIT && DEFAULT_ABI == MS_ABI ? 128 \
-							       : BITS_PER_WORD)
+#define STACK_BOUNDARY \
+ (TARGET_64BIT && DEFAULT_ABI == MS_ABI ? 128 : BITS_PER_WORD)
 
 /* Stack boundary of the main function guaranteed by OS.  */
 #define MAIN_STACK_BOUNDARY (TARGET_64BIT ? 128 : 32)
@@ -1533,7 +1533,8 @@ enum reg_class
    which.  */
 #define REG_PARM_STACK_SPACE(FNDECL) ix86_reg_parm_stack_space (FNDECL)
 
-#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) (ix86_function_type_abi (FNTYPE) == MS_ABI ? 1 : 0)
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) \
+  (ix86_function_type_abi (FNTYPE) == MS_ABI)
 
 /* Value is the number of bytes of arguments automatically
    popped when returning from a subroutine call.
@@ -1555,14 +1556,12 @@ enum reg_class
 #define RETURN_POPS_ARGS(FUNDECL, FUNTYPE, SIZE) \
   ix86_return_pops_args ((FUNDECL), (FUNTYPE), (SIZE))
 
-#define FUNCTION_VALUE_REGNO_P(N) \
-  ix86_function_value_regno_p (N)
+#define FUNCTION_VALUE_REGNO_P(N) ix86_function_value_regno_p (N)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 
-#define LIBCALL_VALUE(MODE) \
-  ix86_libcall_value (MODE)
+#define LIBCALL_VALUE(MODE) ix86_libcall_value (MODE)
 
 /* Define the size of the result block used for communication between
    untyped_call and untyped_return.  The block contains a DImode value
@@ -1871,13 +1870,15 @@ do {									\
 #define X64_SSE_REGPARM_MAX 4
 #define X86_32_SSE_REGPARM_MAX (TARGET_SSE ? 3 : 0)
 
-#define REGPARM_MAX (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_REGPARM_MAX \
-							 : X86_64_REGPARM_MAX) \
-				  : X86_32_REGPARM_MAX)
+#define REGPARM_MAX							\
+  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_REGPARM_MAX		\
+		   : X86_64_REGPARM_MAX)				\
+   : X86_32_REGPARM_MAX)
 
-#define SSE_REGPARM_MAX (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_SSE_REGPARM_MAX \
-							     : X86_64_SSE_REGPARM_MAX) \
-				      : X86_32_SSE_REGPARM_MAX)
+#define SSE_REGPARM_MAX							\
+  (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_SSE_REGPARM_MAX		\
+		   : X86_64_SSE_REGPARM_MAX)				\
+   : X86_32_SSE_REGPARM_MAX)
 
 #define MMX_REGPARM_MAX (TARGET_64BIT ? 0 : (TARGET_MMX ? 3 : 0))
 
@@ -1906,12 +1907,12 @@ do {									\
 
    If you don't define this, a reasonable default is used.  */
 
-#define MOVE_RATIO (optimize_size ? 3 : ix86_cost->move_ratio)
+#define MOVE_RATIO(speed) ((speed) ? ix86_cost->move_ratio : 3)
 
 /* If a clear memory operation would take CLEAR_RATIO or more simple
    move-instruction sequences, we will do a clrmem or libcall instead.  */
 
-#define CLEAR_RATIO (optimize_size ? 2 : MIN (6, ix86_cost->move_ratio))
+#define CLEAR_RATIO(speed) ((speed) ? MIN (6, ix86_cost->move_ratio) : 2)
 
 /* Define if shifts truncate the shift count
    which implies one can omit a sign-extension or zero-extension
@@ -2390,7 +2391,8 @@ struct machine_function GTY(())
 {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
-  int save_varrargs_registers;
+  int varargs_gpr_size;
+  int varargs_fpr_size;
   int accesses_prev_frame;
   int optimize_mode_switching[MAX_386_ENTITIES];
   int needs_cld;
@@ -2416,7 +2418,8 @@ struct machine_function GTY(())
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
-#define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
+#define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
+#define ix86_varargs_fpr_size (cfun->machine->varargs_fpr_size)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
 #define ix86_current_function_needs_cld (cfun->machine->needs_cld)
 #define ix86_tls_descriptor_calls_expanded_in_cfun \
@@ -2454,10 +2457,10 @@ struct machine_function GTY(())
 #undef TARG_COND_BRANCH_COST
 #define TARG_COND_BRANCH_COST           ix86_cost->branch_cost
 
-/* Enum through the target specific extra va_list types. Please, do not
-   iterate the base va_list type name.  */
+/* Enum through the target specific extra va_list types.
+   Please, do not iterate the base va_list type name.  */
 #define TARGET_ENUM_VA_LIST(IDX, PNAME, PTYPE) \
-  (!TARGET_64BIT ? 0 : ix86_enum_va_list (IDX, PNAME, PTYPE))
+  (TARGET_64BIT ? ix86_enum_va_list (IDX, PNAME, PTYPE) : 0)
 
 /* Cost of any scalar operation, excluding load and store.  */
 #undef TARG_SCALAR_STMT_COST

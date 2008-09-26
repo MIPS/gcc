@@ -157,11 +157,6 @@ extern rtx bb_note (basic_block);
 
 extern void reemit_notes (rtx);
 
-/* Functions in sched-vis.c.  */
-extern void print_insn (char *, const_rtx, int);
-extern void print_pattern (char *, const_rtx, int);
-extern void print_value (char *, const_rtx, int);
-
 /* Functions in haifa-sched.c.  */
 extern int haifa_classify_insn (const_rtx);
 
@@ -683,9 +678,6 @@ struct _haifa_insn_data
   /* A priority for each insn.  */
   int priority;
 
-  /* Number of instructions referring to this insn.  */
-  int ref_count;
-
   /* The minimum clock tick at which the insn becomes ready.  This is
      used to note timing constraints for the insns in the pending list.  */
   int tick;
@@ -1152,6 +1144,7 @@ extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
 extern rtx bb_note (basic_block);
 extern void concat_note_lists (rtx, rtx *);
+extern rtx sched_emit_insn (rtx);
 
 
 /* Types and functions in sched-rgn.c.  */
@@ -1367,5 +1360,11 @@ extern void sd_delete_dep (sd_iterator_def);
 extern void sd_debug_lists (rtx, sd_list_types_def);
 
 #endif /* INSN_SCHEDULING */
+
+/* Functions in sched-vis.c.  These must be outside INSN_SCHEDULING as 
+   sched-vis.c is compiled always.  */
+extern void print_insn (char *, const_rtx, int);
+extern void print_pattern (char *, const_rtx, int);
+extern void print_value (char *, const_rtx, int);
 
 #endif /* GCC_SCHED_INT_H */

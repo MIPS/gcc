@@ -646,10 +646,12 @@ insn_cost (rtx insn)
 
 /* Compute cost of dependence LINK.
    This is the number of cycles between instruction issue and
-   instruction results.  */
+   instruction results.
+   ??? We also use this function to call recog_memoized on all insns.  */
 int
 dep_cost_1 (dep_t link, dw_t dw)
 {
+  rtx insn = DEP_PRO (link);
   rtx used = DEP_CON (link);
   int cost;
 
@@ -657,10 +659,12 @@ dep_cost_1 (dep_t link, dw_t dw)
      This allows the computation of a function's result and parameter
      values to overlap the return and call.  */
   if (recog_memoized (used) < 0)
-    cost = 0;
+    {
+      cost = 0;
+      recog_memoized (insn);
+    }
   else
     {
-      rtx insn = DEP_PRO (link);
       enum reg_note dep_type = DEP_TYPE (link);
 
       cost = insn_cost (insn);
@@ -1210,7 +1214,7 @@ advance_one_cycle (void)
 {
   advance_state (curr_state);
   if (sched_verbose >= 6)
-    fprintf (sched_dump, "\n;;\tAdvanced a state.\n");
+    fprintf (sched_dump, ";;\tAdvanced a state.\n");
 }
 
 /* Clock at which the previous instruction was issued.  */
@@ -2071,7 +2075,14 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
   /* Init max_points.  */
   max_points = 0;
   more_issue = issue_rate - cycle_issued_insns;
-  gcc_assert (more_issue >= 0);
+
+  /* ??? We used to assert here that we never issue more insns than issue_rate.
+     However, some targets (e.g. MIPS/SB1) claim lower issue rate than can be
+     achieved to get better performance.  Until these targets are fixed to use
+     scheduler hooks to manipulate insns priority instead, the assert should 
+     be disabled.  
+
+     gcc_assert (more_issue >= 0);  */
 
   for (i = 0; i < n_ready; i++)
     if (!ready_try [i])
@@ -2305,8 +2316,14 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
 	  {
 	    insn = ready_element (ready, i);
 
+#ifdef ENABLE_CHECKING
+	    /* If this insn is recognizable we should have already
+	       recognized it earlier.
+	       ??? Not very clear where this is supposed to be done.
+	       See dep_cost_1.  */
 	    gcc_assert (INSN_CODE (insn) >= 0
 			|| recog_memoized (insn) < 0);
+#endif
 
 	    ready_try [i]
 	      = (/* INSN_CODE check can be omitted here as it is also done later
@@ -2319,9 +2336,10 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
 
       if (max_issue (ready, 1, curr_state, &index) == 0)
 	{
-	  if (sched_verbose >= 4)
-	    fprintf (sched_dump, ";;\t\tChosen none\n");
 	  *insn_ptr = ready_remove_first (ready);
+	  if (sched_verbose >= 4)
+	    fprintf (sched_dump, ";;\t\tChosen insn (but can't issue) : %s \n", 
+                     (*current_sched_info->print_insn) (*insn_ptr, 0));
 	  return 0;
 	}
       else
@@ -4977,6 +4995,17 @@ basic_block
 sched_create_empty_bb_1 (basic_block after)
 {
   return create_empty_bb (after);
+}
+
+/* Insert PAT as an INSN into the schedule and update the necessary data
+   structures to account for it. */
+rtx
+sched_emit_insn (rtx pat)
+{
+  rtx insn = emit_insn_after (pat, last_scheduled_insn);
+  last_scheduled_insn = insn;
+  haifa_init_insn (insn);
+  return insn;
 }
 
 #endif /* INSN_SCHEDULING */

@@ -137,6 +137,9 @@ dwarf2out_do_cfi_asm (void)
 {
   int enc;
 
+#ifdef MIPS_DEBUGGING_INFO
+  return false;
+#endif
   if (!flag_dwarf2_cfi_asm || !dwarf2out_do_frame ())
     return false;
   if (!eh_personality_libfunc)
@@ -11931,10 +11934,14 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 static void
 tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
 {
-  tree init = DECL_INITIAL (decl);
+  tree init;
   tree type = TREE_TYPE (decl);
   rtx rtl;
 
+  if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != CONST_DECL)
+    return;
+
+  init = DECL_INITIAL (decl);
   if (TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl) && init)
     /* OK */;
   else

@@ -3577,6 +3577,16 @@ set_expr_locus (tree node, source_location *loc)
   else
     EXPR_CHECK (node)->exp.locus = *loc;
 }
+
+/* Like SET_EXPR_LOCATION, but make sure the tree can have a location.
+
+   LOC is the location to use in tree T.  */
+
+void protected_set_expr_location (tree t, location_t loc)
+{
+  if (t && CAN_HAVE_LOCATION_P (t))
+    SET_EXPR_LOCATION (t, loc);
+}
 
 /* Return a declaration like DDECL except that its DECL_ATTRIBUTES
    is ATTRIBUTE.  */
@@ -5915,7 +5925,12 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip)
       TYPE_ARG_TYPES (new_type) = new_reversed;
     }
   else
-    new_type = build_function_type (TREE_TYPE (orig_type), new_reversed);
+    {
+      new_type
+        = build_distinct_type_copy (build_function_type (TREE_TYPE (orig_type),
+							 new_reversed));
+      TYPE_CONTEXT (new_type) = TYPE_CONTEXT (orig_type);
+    }
 
   /* This is a new type, not a copy of an old type.  Need to reassociate
      variants.  We can handle everything except the main variant lazily.  */
@@ -5949,7 +5964,12 @@ build_function_decl_skip_args (tree orig_decl, bitmap args_to_skip)
   new_type = TREE_TYPE (orig_decl);
   if (prototype_p (new_type))
     new_type = build_function_type_skip_args (new_type, args_to_skip);
-  TREE_TYPE (orig_decl) = new_type;
+  TREE_TYPE (new_decl) = new_type;
+
+  /* For declarations setting DECL_VINDEX (i.e. methods)
+     we expect first argument to be THIS pointer.   */
+  if (bitmap_bit_p (args_to_skip, 0))
+    DECL_VINDEX (new_decl) = NULL_TREE;
   return new_decl;
 }
 
@@ -6750,9 +6770,8 @@ get_callee_fndecl (const_tree call)
       && TREE_CODE (TREE_OPERAND (addr, 0)) == FUNCTION_DECL)
     return TREE_OPERAND (addr, 0);
 
-  /* We couldn't figure out what was being called.  Maybe the front
-     end has some idea.  */
-  return lang_hooks.lang_get_callee_fndecl (call);
+  /* We couldn't figure out what was being called.  */
+  return NULL_TREE;
 }
 
 /* Print debugging information about tree nodes generated during the compile,

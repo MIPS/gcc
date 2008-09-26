@@ -148,7 +148,9 @@ maybe_hot_count_p (gcov_type count)
 bool
 maybe_hot_bb_p (const_basic_block bb)
 {
-  return maybe_hot_count_p (bb->count) && maybe_hot_frequency_p (bb->frequency);
+  if (profile_status == PROFILE_READ)
+    return maybe_hot_count_p (bb->count);
+  return maybe_hot_frequency_p (bb->frequency);
 }
 
 /* Return true if the call can be hot.  */
@@ -178,7 +180,9 @@ cgraph_maybe_hot_edge_p (struct cgraph_edge *edge)
 bool
 maybe_hot_edge_p (edge e)
 {
-  return maybe_hot_count_p (e->count) && maybe_hot_frequency_p (EDGE_FREQUENCY (e));
+  if (profile_status == PROFILE_READ)
+    return maybe_hot_count_p (e->count);
+  return maybe_hot_frequency_p (EDGE_FREQUENCY (e));
 }
 
 /* Return true in case BB is probably never executed.  */
@@ -199,7 +203,8 @@ bool
 optimize_function_for_size_p (struct function *fun)
 {
   return (optimize_size
-	  || fun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED);
+	  || (fun && (fun->function_frequency
+		      == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)));
 }
 
 /* Return true when current function should always be optimized for speed.  */
@@ -2009,7 +2014,7 @@ estimate_bb_frequencies (void)
   basic_block bb;
   sreal freq_max;
 
-  if (!flag_branch_probabilities || !counts_to_freqs ())
+  if (cfun->function_frequency != PROFILE_READ || !counts_to_freqs ())
     {
       static int real_values_initialized = 0;
 
@@ -2175,7 +2180,7 @@ struct gimple_opt_pass pass_strip_predict_hints =
 {
  {
   GIMPLE_PASS,
-  "",					/* name */
+  NULL,					/* name */
   NULL,					/* gate */
   strip_predict_hints,			/* execute */
   NULL,					/* sub */

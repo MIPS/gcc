@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "tm-constrs.h"
 #include "params.h"
+#include "cselib.h"
 
 static int x86_builtin_vectorization_cost (bool);
 static rtx legitimize_dllimport_symbol (rtx, bool);
@@ -1630,9 +1631,6 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
 rtx ix86_compare_op0 = NULL_RTX;
 rtx ix86_compare_op1 = NULL_RTX;
 rtx ix86_compare_emitted = NULL_RTX;
-
-/* Size of the register save area.  */
-#define X86_64_VARARGS_SIZE (X86_64_REGPARM_MAX * UNITS_PER_WORD + X86_64_SSE_REGPARM_MAX * 16)
 
 /* Define the structure for the machine field in struct function.  */
 
@@ -4102,6 +4100,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 
   /* Dllimport'd functions are also called indirectly.  */
   if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
+      && !TARGET_64BIT
       && decl && DECL_DLLIMPORT_P (decl)
       && ix86_function_regparm (TREE_TYPE (decl), NULL) >= 3)
     return false;
@@ -6312,14 +6311,24 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
   int i;
   int regparm = ix86_regparm;
 
-  if((cum ? cum->call_abi : ix86_cfun_abi ()) != DEFAULT_ABI)
+  if (cum->call_abi != DEFAULT_ABI)
     regparm = DEFAULT_ABI != SYSV_ABI ? X86_64_REGPARM_MAX : X64_REGPARM_MAX;
 
-  if (! cfun->va_list_gpr_size && ! cfun->va_list_fpr_size)
-    return;
+  /* GPR size of varargs save area.  */
+  if (cfun->va_list_gpr_size)
+    ix86_varargs_gpr_size = X86_64_REGPARM_MAX * UNITS_PER_WORD;
+  else
+    ix86_varargs_gpr_size = 0;
 
-  /* Indicate to allocate space on the stack for varargs save area.  */
-  ix86_save_varrargs_registers = 1;
+  /* FPR size of varargs save area.  We don't need it if we don't pass
+     anything in SSE registers.  */
+  if (cum->sse_nregs && cfun->va_list_fpr_size)
+    ix86_varargs_fpr_size = X86_64_SSE_REGPARM_MAX * 16;
+  else
+    ix86_varargs_fpr_size = 0;
+
+  if (! ix86_varargs_gpr_size && ! ix86_varargs_fpr_size)
+    return;
 
   save_area = frame_pointer_rtx;
   set = get_varargs_alias_set ();
@@ -6337,7 +6346,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 					x86_64_int_parameter_registers[i]));
     }
 
-  if (cum->sse_nregs && cfun->va_list_fpr_size)
+  if (ix86_varargs_fpr_size)
     {
       /* Now emit code to save SSE registers.  The AX parameter contains number
 	 of SSE parameter registers used to call this function.  We use
@@ -6382,7 +6391,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
       tmp_reg = gen_reg_rtx (Pmode);
       emit_insn (gen_rtx_SET (VOIDmode, tmp_reg,
 			      plus_constant (save_area,
-					     8 * X86_64_REGPARM_MAX + 127)));
+					     ix86_varargs_gpr_size + 127)));
       mem = gen_rtx_MEM (BLKmode, plus_constant (tmp_reg, -127));
       MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
@@ -6438,7 +6447,7 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (stdarg_p (fntype))
     function_arg_advance (&next_cum, mode, type, 1);
 
-  if ((cum ? cum->call_abi : DEFAULT_ABI) == MS_ABI)
+  if (cum->call_abi == MS_ABI)
     setup_incoming_varargs_ms_64 (&next_cum);
   else
     setup_incoming_varargs_64 (&next_cum);
@@ -6501,7 +6510,7 @@ ix86_va_start (tree valist, rtx nextarg)
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
-  if (cfun->va_list_fpr_size)
+  if (TARGET_SSE && cfun->va_list_fpr_size)
     {
       type = TREE_TYPE (fpr);
       t = build2 (MODIFY_EXPR, type, fpr,
@@ -6520,12 +6529,15 @@ ix86_va_start (tree valist, rtx nextarg)
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  if (cfun->va_list_gpr_size || cfun->va_list_fpr_size)
+  if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
     {
       /* Find the register save area.
 	 Prologue of the function save it right above stack frame.  */
       type = TREE_TYPE (sav);
       t = make_tree (type, frame_pointer_rtx);
+      if (!ix86_varargs_gpr_size)
+	t = build2 (POINTER_PLUS_EXPR, type, t,
+		    size_int (-8 * X86_64_REGPARM_MAX));
       t = build2 (MODIFY_EXPR, type, sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7500,13 +7512,8 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   offset += frame->nregs * UNITS_PER_WORD;
 
   /* Va-arg area */
-  if (ix86_save_varrargs_registers)
-    {
-      offset += X86_64_VARARGS_SIZE;
-      frame->va_arg_size = X86_64_VARARGS_SIZE;
-    }
-  else
-    frame->va_arg_size = 0;
+  frame->va_arg_size = ix86_varargs_gpr_size + ix86_varargs_fpr_size;
+  offset += frame->va_arg_size;
 
   /* Align start of frame for local function.  */
   frame->padding1 = ((offset + stack_alignment_needed - 1)
@@ -9960,6 +9967,20 @@ i386_output_dwarf_dtprel (FILE *file, int size, rtx x)
    }
 }
 
+/* Return true if X is a representation of the PIC register.  This copes
+   with calls from ix86_find_base_term, where the register might have
+   been replaced by a cselib value.  */
+
+static bool
+ix86_pic_register_p (rtx x)
+{
+  if (GET_CODE (x) == VALUE)
+    return (pic_offset_table_rtx
+	    && rtx_equal_for_cselib_p (x, pic_offset_table_rtx));
+  else
+    return REG_P (x) && REGNO (x) == PIC_OFFSET_TABLE_REGNUM;
+}
+
 /* In the name of slightly smaller debug output, and to cater to
    general assembler lossage, recognize PIC+GOTOFF and turn it back
    into a direct symbol reference.
@@ -9998,19 +10019,16 @@ ix86_delegitimize_address (rtx orig_x)
       || GET_CODE (XEXP (x, 1)) != CONST)
     return orig_x;
 
-  if (REG_P (XEXP (x, 0))
-      && REGNO (XEXP (x, 0)) == PIC_OFFSET_TABLE_REGNUM)
+  if (ix86_pic_register_p (XEXP (x, 0)))
     /* %ebx + GOT/GOTOFF */
     ;
   else if (GET_CODE (XEXP (x, 0)) == PLUS)
     {
       /* %ebx + %reg * scale + GOT/GOTOFF */
       reg_addend = XEXP (x, 0);
-      if (REG_P (XEXP (reg_addend, 0))
-	  && REGNO (XEXP (reg_addend, 0)) == PIC_OFFSET_TABLE_REGNUM)
+      if (ix86_pic_register_p (XEXP (reg_addend, 0)))
 	reg_addend = XEXP (reg_addend, 1);
-      else if (REG_P (XEXP (reg_addend, 1))
-	       && REGNO (XEXP (reg_addend, 1)) == PIC_OFFSET_TABLE_REGNUM)
+      else if (ix86_pic_register_p (XEXP (reg_addend, 1)))
 	reg_addend = XEXP (reg_addend, 0);
       else
 	return orig_x;
@@ -10043,7 +10061,7 @@ ix86_delegitimize_address (rtx orig_x)
     return orig_x;
 
   if (const_addend)
-    result = gen_rtx_PLUS (Pmode, result, const_addend);
+    result = gen_rtx_CONST (Pmode, gen_rtx_PLUS (Pmode, result, const_addend));
   if (reg_addend)
     result = gen_rtx_PLUS (Pmode, reg_addend, result);
   return result;
@@ -10071,22 +10089,10 @@ ix86_find_base_term (rtx x)
 	  || XINT (term, 1) != UNSPEC_GOTPCREL)
 	return x;
 
-      term = XVECEXP (term, 0, 0);
-
-      if (GET_CODE (term) != SYMBOL_REF
-	  && GET_CODE (term) != LABEL_REF)
-	return x;
-
-      return term;
+      return XVECEXP (term, 0, 0);
     }
 
-  term = ix86_delegitimize_address (x);
-
-  if (GET_CODE (term) != SYMBOL_REF
-      && GET_CODE (term) != LABEL_REF)
-    return x;
-
-  return term;
+  return ix86_delegitimize_address (x);
 }
 
 static void
@@ -16989,6 +16995,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
 	    int *dynamic_check)
 {
   const struct stringop_algs * algs;
+  bool optimize_for_speed;
   /* Algorithms using the rep prefix want at least edi and ecx;
      additionally, memset wants eax and memcpy wants esi.  Don't
      consider such algorithms if the user has appropriated those
@@ -17003,7 +17010,16 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
 			       && alg != rep_prefix_8_byte))
   const struct processor_costs *cost;
   
-  cost = optimize_insn_for_size_p () ? &ix86_size_cost : ix86_cost;
+  /* Even if the string operation call is cold, we still might spend a lot
+     of time processing large blocks.  */
+  if (optimize_function_for_size_p (cfun)
+      || (optimize_insn_for_size_p ()
+          && expected_size != -1 && expected_size < 256))
+    optimize_for_speed = false;
+  else
+    optimize_for_speed = true;
+
+  cost = optimize_for_speed ? ix86_cost : &ix86_size_cost;
 
   *dynamic_check = -1;
   if (memset)
@@ -17013,7 +17029,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
   if (stringop_alg != no_stringop && ALG_USABLE_P (stringop_alg))
     return stringop_alg;
   /* rep; movq or rep; movl is the smallest variant.  */
-  else if (optimize_insn_for_size_p ())
+  else if (!optimize_for_speed)
     {
       if (!count || (count & 3))
 	return rep_prefix_usable ? rep_prefix_1_byte : loop_1_byte;
@@ -17207,6 +17223,7 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
   int desired_align = 0;
   enum stringop_alg alg;
   int dynamic_check;
+  bool need_zero_guard = false;
 
   if (CONST_INT_P (align_exp))
     align = INTVAL (align_exp);
@@ -17245,9 +17262,11 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
     case no_stringop:
       gcc_unreachable ();
     case loop:
+      need_zero_guard = true;
       size_needed = GET_MODE_SIZE (Pmode);
       break;
     case unrolled_loop:
+      need_zero_guard = true;
       size_needed = GET_MODE_SIZE (Pmode) * (TARGET_64BIT ? 4 : 2);
       break;
     case rep_prefix_8_byte:
@@ -17257,7 +17276,10 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
       size_needed = 4;
       break;
     case rep_prefix_1_byte:
+      size_needed = 1;
+      break;
     case loop_1_byte:
+      need_zero_guard = true;
       size_needed = 1;
       break;
     }
@@ -17335,6 +17357,19 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
       dst = change_address (dst, BLKmode, destreg);
       expand_movmem_prologue (dst, src, destreg, srcreg, count_exp, align,
 			      desired_align);
+      if (need_zero_guard && !count)
+	{
+	  /* It is possible that we copied enough so the main loop will not
+	     execute.  */
+	  emit_cmp_and_jump_insns (count_exp,
+				   GEN_INT (size_needed),
+				   LTU, 0, counter_mode (count_exp), 1, label);
+	  if (expected_size == -1
+	      || expected_size < (desired_align - align) / 2 + size_needed)
+	    predict_jump (REG_BR_PROB_BASE * 20 / 100);
+	  else
+	    predict_jump (REG_BR_PROB_BASE * 60 / 100);
+	}
     }
   if (label && size_needed == 1)
     {
@@ -17535,6 +17570,7 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
   rtx promoted_val = NULL;
   bool force_loopy_epilogue = false;
   int dynamic_check;
+  bool need_zero_guard = false;
 
   if (CONST_INT_P (align_exp))
     align = INTVAL (align_exp);
@@ -17572,9 +17608,11 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
     case no_stringop:
       gcc_unreachable ();
     case loop:
+      need_zero_guard = true;
       size_needed = GET_MODE_SIZE (Pmode);
       break;
     case unrolled_loop:
+      need_zero_guard = true;
       size_needed = GET_MODE_SIZE (Pmode) * 4;
       break;
     case rep_prefix_8_byte:
@@ -17584,7 +17622,10 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
       size_needed = 4;
       break;
     case rep_prefix_1_byte:
+      size_needed = 1;
+      break;
     case loop_1_byte:
+      need_zero_guard = true;
       size_needed = 1;
       break;
     }
@@ -17660,6 +17701,19 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
       dst = change_address (dst, BLKmode, destreg);
       expand_setmem_prologue (dst, destreg, promoted_val, count_exp, align,
 			      desired_align);
+      if (need_zero_guard && !count)
+	{
+	  /* It is possible that we copied enough so the main loop will not
+	     execute.  */
+	  emit_cmp_and_jump_insns (count_exp,
+				   GEN_INT (size_needed),
+				   LTU, 0, counter_mode (count_exp), 1, label);
+	  if (expected_size == -1
+	      || expected_size < (desired_align - align) / 2 + size_needed)
+	    predict_jump (REG_BR_PROB_BASE * 20 / 100);
+	  else
+	    predict_jump (REG_BR_PROB_BASE * 60 / 100);
+	}
     }
   if (label && size_needed == 1)
     {
@@ -26871,7 +26925,7 @@ static void
 ix86_expand_vector_init_interleave (enum machine_mode mode,
 				    rtx target, rtx *ops, int n)
 {
-  enum machine_mode first_imode, second_imode, third_imode;
+  enum machine_mode first_imode, second_imode, third_imode, inner_mode;
   int i, j;
   rtx op0, op1;
   rtx (*gen_load_even) (rtx, rtx, rtx);
@@ -26884,6 +26938,7 @@ ix86_expand_vector_init_interleave (enum machine_mode mode,
       gen_load_even = gen_vec_setv8hi;
       gen_interleave_first_low = gen_vec_interleave_lowv4si;
       gen_interleave_second_low = gen_vec_interleave_lowv2di;
+      inner_mode = HImode;
       first_imode = V4SImode;
       second_imode = V2DImode;
       third_imode = VOIDmode;
@@ -26892,6 +26947,7 @@ ix86_expand_vector_init_interleave (enum machine_mode mode,
       gen_load_even = gen_vec_setv16qi;
       gen_interleave_first_low = gen_vec_interleave_lowv8hi;
       gen_interleave_second_low = gen_vec_interleave_lowv4si;
+      inner_mode = QImode;
       first_imode = V8HImode;
       second_imode = V4SImode;
       third_imode = V2DImode;
@@ -26920,7 +26976,9 @@ ix86_expand_vector_init_interleave (enum machine_mode mode,
       emit_move_insn (op0, gen_lowpart (mode, op1));
       
       /* Load even elements into the second positon.  */
-      emit_insn ((*gen_load_even) (op0, ops [i + i + 1],
+      emit_insn ((*gen_load_even) (op0,
+				   force_reg (inner_mode,
+					      ops [i + i + 1]),
 				   const1_rtx));
 
       /* Cast vector to FIRST_IMODE vector.  */
@@ -27036,6 +27094,11 @@ half:
 
     case V8HImode:
       if (!TARGET_SSE2)
+	break;
+
+      /* Don't use ix86_expand_vector_init_interleave if we can't
+	 move from GPR to SSE register directly.  */ 
+      if (!TARGET_INTER_UNIT_MOVES)
 	break;
 
       n = GET_MODE_NUNITS (mode);

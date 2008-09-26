@@ -408,7 +408,7 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS ia64_rtx_costs
 #undef TARGET_ADDRESS_COST
-#define TARGET_ADDRESS_COST hook_int_rtx_0
+#define TARGET_ADDRESS_COST hook_int_rtx_bool_0
 
 #undef TARGET_UNSPEC_MAY_TRAP_P
 #define TARGET_UNSPEC_MAY_TRAP_P ia64_unspec_may_trap_p
@@ -5233,6 +5233,9 @@ ia64_override_options (void)
       TARGET_INLINE_SQRT = INL_MAX_THR;
     }
 
+  ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
+  flag_schedule_insns_after_reload = 0;
+
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
@@ -6853,6 +6856,8 @@ ia64_set_sched_flags (spec_info_t spec_info)
 	    mask |= BE_IN_CONTROL;
 	}
 
+      spec_info->mask = mask;
+
       if (mask)
 	{
 	  *flags |= USE_DEPS_LIST | DO_SPECULATION;
@@ -6860,7 +6865,6 @@ ia64_set_sched_flags (spec_info_t spec_info)
 	  if (mask & BE_IN_SPEC)
 	    *flags |= NEW_BBS;
 	  
-	  spec_info->mask = mask;
 	  spec_info->flags = 0;
       
 	  if ((mask & DATA_SPEC) && mflag_sched_prefer_non_data_spec_insns)
@@ -9921,13 +9925,6 @@ void
 ia64_optimization_options (int level ATTRIBUTE_UNUSED,
                            int size ATTRIBUTE_UNUSED)
 {
-  /* Disable the second machine independent scheduling pass and use one for the
-     IA-64.  This needs to be here instead of in OVERRIDE_OPTIONS because this
-     is done whenever the optimization is changed via #pragma GCC optimize or
-     attribute((optimize(...))).  */
-  ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
-  flag_schedule_insns_after_reload = 0;
-
   /* Let the scheduler form additional regions.  */
   set_param_value ("max-sched-extend-regions-iters", 2);
 

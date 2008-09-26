@@ -161,7 +161,8 @@ gfc_conv_missing_dummy (gfc_se * se, gfc_expr * arg, gfc_typespec ts, int kind)
       tmp = fold_convert (tmp, build_fold_indirect_ref (se->expr));
     
       /* Test for a NULL value.  */
-      tmp = build3 (COND_EXPR, TREE_TYPE (tmp), present, tmp, integer_one_node);
+      tmp = build3 (COND_EXPR, TREE_TYPE (tmp), present, tmp,
+		    fold_convert (TREE_TYPE (tmp), integer_one_node));
       tmp = gfc_evaluate_now (tmp, &se->pre);
       se->expr = build_fold_addr_expr (tmp);
     }
@@ -240,17 +241,102 @@ gfc_get_expr_charlen (gfc_expr *e)
   return length;
 }
 
-  
+
+/* For each character array constructor subexpression without a ts.cl->length,
+   replace it by its first element (if there aren't any elements, the length
+   should already be set to zero).  */
+
+static void
+flatten_array_ctors_without_strlen (gfc_expr* e)
+{
+  gfc_actual_arglist* arg;
+  gfc_constructor* c;
+
+  if (!e)
+    return;
+
+  switch (e->expr_type)
+    {
+
+    case EXPR_OP:
+      flatten_array_ctors_without_strlen (e->value.op.op1); 
+      flatten_array_ctors_without_strlen (e->value.op.op2); 
+      break;
+
+    case EXPR_COMPCALL:
+      /* TODO: Implement as with EXPR_FUNCTION when needed.  */
+      gcc_unreachable ();
+
+    case EXPR_FUNCTION:
+      for (arg = e->value.function.actual; arg; arg = arg->next)
+	flatten_array_ctors_without_strlen (arg->expr);
+      break;
+
+    case EXPR_ARRAY:
+
+      /* We've found what we're looking for.  */
+      if (e->ts.type == BT_CHARACTER && !e->ts.cl->length)
+	{
+	  gfc_expr* new_expr;
+	  gcc_assert (e->value.constructor);
+
+	  new_expr = e->value.constructor->expr;
+	  e->value.constructor->expr = NULL;
+
+	  flatten_array_ctors_without_strlen (new_expr);
+	  gfc_replace_expr (e, new_expr);
+	  break;
+	}
+
+      /* Otherwise, fall through to handle constructor elements.  */
+    case EXPR_STRUCTURE:
+      for (c = e->value.constructor; c; c = c->next)
+	flatten_array_ctors_without_strlen (c->expr);
+      break;
+
+    default:
+      break;
+
+    }
+}
+
 
 /* Generate code to initialize a string length variable. Returns the
-   value.  */
+   value.  For array constructors, cl->length might be NULL and in this case,
+   the first element of the constructor is needed.  expr is the original
+   expression so we can access it but can be NULL if this is not needed.  */
 
 void
-gfc_conv_string_length (gfc_charlen * cl, stmtblock_t * pblock)
+gfc_conv_string_length (gfc_charlen * cl, gfc_expr * expr, stmtblock_t * pblock)
 {
   gfc_se se;
 
   gfc_init_se (&se, NULL);
+
+  /* If cl->length is NULL, use gfc_conv_expr to obtain the string length but
+     "flatten" array constructors by taking their first element; all elements
+     should be the same length or a cl->length should be present.  */
+  if (!cl->length)
+    {
+      gfc_expr* expr_flat;
+      gcc_assert (expr);
+
+      expr_flat = gfc_copy_expr (expr);
+      flatten_array_ctors_without_strlen (expr_flat);
+      gfc_resolve_expr (expr_flat);
+
+      gfc_conv_expr (&se, expr_flat);
+      gfc_add_block_to_block (pblock, &se.pre);
+      cl->backend_decl = convert (gfc_charlen_type_node, se.string_length);
+
+      gfc_free_expr (expr_flat);
+      return;
+    }
+
+  /* Convert cl->length.  */
+
+  gcc_assert (cl->length);
+
   gfc_conv_expr_type (&se, cl->length, gfc_charlen_type_node);
   se.expr = fold_build2 (MAX_EXPR, gfc_charlen_type_node, se.expr,
 			 build_int_cst (gfc_charlen_type_node, 0));
@@ -1617,6 +1703,7 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
   /* Create a new symbol to represent the actual argument.  */
   new_sym = gfc_new_symbol (sym->name, NULL);
   new_sym->ts = sym->ts;
+  new_sym->as = gfc_copy_array_spec (sym->as);
   new_sym->attr.referenced = 1;
   new_sym->attr.dimension = sym->attr.dimension;
   new_sym->attr.pointer = sym->attr.pointer;
@@ -1797,8 +1884,9 @@ gfc_apply_interface_mapping_to_ref (gfc_interface_mapping * mapping,
 
 
 /* Convert intrinsic function calls into result expressions.  */
+
 static bool
-gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping * mapping)
+gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping *mapping)
 {
   gfc_symbol *sym;
   gfc_expr *new_expr;
@@ -1812,7 +1900,7 @@ gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping * mapping)
   else
     arg2 = NULL;
 
-  sym  = arg1->symtree->n.sym;
+  sym = arg1->symtree->n.sym;
 
   if (sym->attr.dummy)
     return false;
@@ -1849,6 +1937,13 @@ gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping * mapping)
       for (; d < dup; d++)
 	{
 	  gfc_expr *tmp;
+
+	  if (!sym->as->upper[d] || !sym->as->lower[d])
+	    {
+	      gfc_free_expr (new_expr);
+	      return false;
+	    }
+
 	  tmp = gfc_add (gfc_copy_expr (sym->as->upper[d]), gfc_int_expr (1));
 	  tmp = gfc_subtract (tmp, gfc_copy_expr (sym->as->lower[d]));
 	  if (new_expr)
@@ -1874,9 +1969,15 @@ gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping * mapping)
 	gcc_unreachable ();
 
       if (expr->value.function.isym->id == GFC_ISYM_LBOUND)
-	new_expr = gfc_copy_expr (sym->as->lower[d]);
+	{
+	  if (sym->as->lower[d])
+	    new_expr = gfc_copy_expr (sym->as->lower[d]);
+	}
       else
-	new_expr = gfc_copy_expr (sym->as->upper[d]);
+	{
+	  if (sym->as->upper[d])
+	    new_expr = gfc_copy_expr (sym->as->upper[d]);
+	}
       break;
 
     default:
@@ -2076,7 +2177,7 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr,
 
   /* Build an ss for the temporary.  */
   if (expr->ts.type == BT_CHARACTER && !expr->ts.cl->backend_decl)
-    gfc_conv_string_length (expr->ts.cl, &parmse->pre);
+    gfc_conv_string_length (expr->ts.cl, expr, &parmse->pre);
 
   base_type = gfc_typenode_for_spec (&expr->ts);
   if (GFC_ARRAY_TYPE_P (base_type)

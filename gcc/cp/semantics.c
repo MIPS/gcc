@@ -429,16 +429,6 @@ add_decl_expr (tree decl)
   add_stmt (r);
 }
 
-/* Nonzero if TYPE is an anonymous union or struct type.  We have to use a
-   flag for this because "A union for which objects or pointers are
-   declared is not an anonymous union" [class.union].  */
-
-int
-anon_aggr_type_p (const_tree node)
-{
-  return ANON_AGGR_TYPE_P (node);
-}
-
 /* Finish a scope.  */
 
 tree
@@ -2115,6 +2105,9 @@ finish_unary_op_expr (enum tree_code code, tree expr)
 tree
 finish_compound_literal (tree type, tree compound_literal)
 {
+  if (type == error_mark_node)
+    return error_mark_node;
+
   if (!TYPE_OBJ_P (type))
     {
       error ("compound literal of non-object type %qT", type);
@@ -2172,7 +2165,7 @@ finish_fname (tree id)
 {
   tree decl;
 
-  decl = fname_decl (C_RID_CODE (id), id);
+  decl = fname_decl (input_location, C_RID_CODE (id), id);
   if (processing_template_decl)
     decl = DECL_NAME (decl);
   return decl;
@@ -4114,7 +4107,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 					 tf_warning_or_error));
   *pre_body = pop_stmt_list (*pre_body);
 
-  cond = cp_build_binary_op (TREE_CODE (cond), decl, diff,
+  cond = cp_build_binary_op (elocus,
+			     TREE_CODE (cond), decl, diff,
 			     tf_warning_or_error);
   incr = build_modify_expr (decl, PLUS_EXPR, incr);
 
@@ -4297,8 +4291,12 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 	}
 
       if (!processing_template_decl)
-	init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
-      init = cp_build_modify_expr (decl, NOP_EXPR, init, tf_warning_or_error);
+	{
+	  init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
+	  init = cp_build_modify_expr (decl, NOP_EXPR, init, tf_warning_or_error);
+	}
+      else
+	init = build2 (MODIFY_EXPR, void_type_node, decl, init);
       if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
 	{
 	  int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;

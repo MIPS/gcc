@@ -1089,6 +1089,8 @@ legitimate_address_p (enum machine_mode mode, rtx x, int strict)
 		 true_regnum (XEXP (x, 0)));
       debug_rtx (x);
     }
+  if (!strict && GET_CODE (x) == SUBREG)
+	x = SUBREG_REG (x);
   if (REG_P (x) && (strict ? REG_OK_FOR_BASE_STRICT_P (x)
                     : REG_OK_FOR_BASE_NOSTRICT_P (x)))
     r = POINTER_REGS;
@@ -1103,6 +1105,7 @@ legitimate_address_p (enum machine_mode mode, rtx x, int strict)
       if (fit)
 	{
 	  if (! strict
+	      || REGNO (XEXP (x,0)) == REG_X
 	      || REGNO (XEXP (x,0)) == REG_Y
 	      || REGNO (XEXP (x,0)) == REG_Z)
 	    r = BASE_POINTER_REGS;
@@ -5683,7 +5686,7 @@ avr_reorg (void)
 	      rtx t = XEXP (src,0);
 
 	      PUT_CODE (t, swap_condition (GET_CODE (t)));
-	      SET_SRC (pattern) = gen_rtx_NEG (GET_MODE (SET_SRC (pattern)),
+	      SET_SRC (pattern) = gen_rtx_COMPARE (GET_MODE (SET_SRC (pattern)), const0_rtx,
 					       SET_SRC (pattern));
 	      INSN_CODE (next) = -1;
 	      INSN_CODE (insn) = -1;
