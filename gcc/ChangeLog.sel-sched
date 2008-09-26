@@ -1,4 +1,7 @@
 2008-09-26  Alexander Monakov  <amonakov@ispras.ru>
+	* config/ia64/ia64.c (get_mode_no_for_insn): Fix thinko.
+
+2008-09-26  Alexander Monakov  <amonakov@ispras.ru>
 	Bring back ia64 changes to the branch by undoing 2008-08-31 revertion
 	commit.
 

@@ -7302,7 +7302,7 @@ get_mode_no_for_insn (rtx insn)
       if (!reload_completed)
 	{
 	  /* Do not speculate into regs like ar.lc.  */
-	  if (!REG_P (reg) || AR_REGNO_P (reg))
+	  if (!REG_P (reg) || AR_REGNO_P (REGNO (reg)))
 	    return -1;
 
 	  if (!MEM_P (mem))
