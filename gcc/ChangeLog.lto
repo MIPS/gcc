@@ -1,3 +1,9 @@
+2008-09-26 Rafael Espindola  <espindola@google.com>
+
+	* lto-function-in.c (vec_tree_ptr, lto_fixups): New.
+	(global_vector_fixup, input_tree): Use lto_fixups instead of
+	DECL_LANG_SPECIFIC.
+
 2008-09-25  Ollie Wild  <aaw@google.com>
 
 	* doc/invoke.texi (fltrans-output-list): Document new option.

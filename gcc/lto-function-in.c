@@ -64,6 +64,12 @@ typedef tree * tree_ptr;
 DEF_VEC_P (tree_ptr);
 DEF_VEC_ALLOC_P (tree_ptr, heap);
 
+typedef VEC(tree_ptr, heap) * vec_tree_ptr;
+DEF_VEC_P (vec_tree_ptr);
+DEF_VEC_ALLOC_P (vec_tree_ptr, heap);
+
+static VEC (vec_tree_ptr, heap) *lto_fixups;
+
 static enum tree_code tag_to_expr[LTO_tree_last_tag];
 
 /* The number of flags that are defined for each tree code.  */
@@ -2715,7 +2721,11 @@ global_vector_fixup (struct data_in *data_in, unsigned index, tree node)
       gcc_assert (DECL_P (old_node));
       gcc_assert (TREE_VISITED (old_node));
 
-      fixups = (VEC(tree_ptr, heap) *) DECL_LANG_SPECIFIC (old_node);
+      if (index < VEC_length (vec_tree_ptr, lto_fixups))
+	fixups = VEC_index (vec_tree_ptr, lto_fixups, index);
+      else
+	fixups = NULL;
+
       if (fixups)
 	{
 	  unsigned ix;
@@ -2730,7 +2740,7 @@ global_vector_fixup (struct data_in *data_in, unsigned index, tree node)
 	    }
 
 	  VEC_free (tree_ptr, heap, fixups);
-	  DECL_LANG_SPECIFIC (old_node) = (struct lang_decl *) NULL;
+	  VEC_replace (vec_tree_ptr, lto_fixups, index, NULL);
 	}
 
       TREE_VISITED (old_node) = false;
@@ -4034,28 +4044,30 @@ input_tree (tree *slot, struct lto_input_block *ib, struct data_in *data_in)
 	 by another in global_vector_fixup, and references to it must
 	 be backpatched.  Add the address of the slot that we just
 	 read into a vector of locations to backpatch associated with
-	 this object.  The vector of locations to backpatch is stored
-	 in the otherwise unused DECL_LANG_SPECIFIC slot.  */
+	 this object.  */
       if (TREE_VISITED (result))
 	{
 	  VEC(tree_ptr, heap) *fixups;
 
-	  /* At present, only declaration nodes are backpatched,
-	     and the use of the DECL_LANG_SPECIFIC slot relies on this.  */
+	  /* At present, only declaration nodes are backpatched. */
 	  gcc_assert (DECL_P (result));
 
-	  fixups = (VEC(tree_ptr, heap) *) DECL_LANG_SPECIFIC (result);
+	  if(index >= VEC_length (vec_tree_ptr, lto_fixups))
+	    VEC_safe_grow_cleared (vec_tree_ptr, heap, lto_fixups, index + 1);
+
+	  fixups = VEC_index (vec_tree_ptr, lto_fixups, index);
+
 	  if (!fixups)
 	    {
 	      /* FIXME lto: It likely makes sense to preallocate a
 		 small number of vector elements greater than one.  */
 	      fixups = VEC_alloc (tree_ptr, heap, 1);
-	      DECL_LANG_SPECIFIC (result) = (struct lang_decl *) fixups;
+	      VEC_replace (vec_tree_ptr, lto_fixups, index, fixups);
 	    }
 
 	  VEC_safe_push (tree_ptr, heap, fixups, slot);
 	  /* Handle the case that the vector was resized.  */
-	  DECL_LANG_SPECIFIC (result) = (struct lang_decl *) fixups;
+	  VEC_replace (vec_tree_ptr, lto_fixups, index, fixups);
 	}
     }
   else
