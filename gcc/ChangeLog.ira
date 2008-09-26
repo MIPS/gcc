@@ -1,3 +1,7 @@
+2008-09-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* doc/rtx.texi (clobber): Change how RA deals with clobbers.
+
 2008-09-24  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-color.c (coalesce_spill_slots): Fix typo in comparison with
