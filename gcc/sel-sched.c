@@ -1817,7 +1817,7 @@ create_speculation_check (expr_t c_expr, ds_t check_ds, insn_t orig_insn)
 
   /* Create a recovery block if target is going to emit branchy check, or if
      ORIG_INSN was speculative already.  */
-  if (targetm.sched.needs_block_p (EXPR_INSN_RTX (c_expr))
+  if (targetm.sched.needs_block_p (check_ds)
       || EXPR_SPEC_DONE_DS (INSN_EXPR (orig_insn)) != 0)
     {
       recovery_block = sel_create_recovery_block (orig_insn);
@@ -6476,9 +6476,10 @@ setup_current_loop_nest (int rgn)
 static void
 purge_empty_blocks (void)
 {
-  int i ;
+  /* Do not attempt to delete preheader.  */
+  int i = sel_is_loop_preheader_p (BASIC_BLOCK (BB_TO_BLOCK (0))) ? 1 : 0;
 
-  for (i = 1; i < current_nr_blocks; )
+  while (i < current_nr_blocks)
     {
       basic_block b = BASIC_BLOCK (BB_TO_BLOCK (i));
 
