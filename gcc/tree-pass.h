@@ -408,6 +408,7 @@ extern struct ipa_opt_pass pass_ipa_pure_const;
 extern struct simple_ipa_opt_pass pass_ipa_type_escape;
 extern struct simple_ipa_opt_pass pass_ipa_pta;
 extern struct simple_ipa_opt_pass pass_ipa_struct_reorg;
+extern struct ipa_opt_pass pass_ipa_lto_wpa_fixup;
 extern struct ipa_opt_pass pass_ipa_lto_finish_out;
 
 extern struct gimple_opt_pass pass_all_optimizations;

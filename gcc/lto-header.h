@@ -44,7 +44,8 @@ enum lto_section_type
   LTO_section_cgraph,
   LTO_section_ipa_pure_const,
   LTO_section_ipa_reference,
-  LTO_section_symtab
+  LTO_section_symtab,
+  LTO_section_wpa_fixup
 };
 
 struct lto_header
@@ -77,6 +78,10 @@ typedef enum {
 
 /* In lto-section-out.c.  */
 char *lto_get_section_name (enum lto_section_type, const char *);
+
+/* In lto-wpa-fixup.c  */
+void lto_mark_nothrow_fndecl (tree);
+void lto_fixup_nothrow_decls (void);
 
 /* Define this symbol if you want to debug an lto stream.  This causes
    a set of redundant streams to be written into the .o files that can

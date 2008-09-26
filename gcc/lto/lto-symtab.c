@@ -530,6 +530,11 @@ lto_symtab_merge_decl (tree new_decl,
       LTO_IDENTIFIER_RESOLUTION (name) = resolution;
       VEC_safe_push (tree, gc, lto_global_var_decls, new_decl);
       return new_decl;
+      if (TREE_NOTHROW (old_decl) != TREE_NOTHROW (new_decl))
+	{
+	  TREE_NOTHROW (old_decl) = 1;
+	  lto_mark_nothrow_fndecl (old_decl);
+	};
     }
 
   /* The linker may ask us to combine two incompatible symbols. */

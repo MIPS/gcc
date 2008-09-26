@@ -1,3 +1,10 @@
+2008-09-26  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (lto_main): Call lto_fixup_nothrow_decls to fix up function
+	bodies affected by exception attribute merging of DECLs.
+	* lto-symtab.c (lto_symtab_merge_decl): Handle exception attribute
+	merging. 
+
 2008-09-25  Rafael Espindola  <espindola@google.com>
 
 	* Make-lang.in (PLUGIN_API_H, LTO_TREE_H): New.

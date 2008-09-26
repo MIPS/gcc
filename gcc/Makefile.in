@@ -1149,6 +1149,7 @@ OBJS-common = \
 	lto-section-in.o \
 	lto-section-out.o \
 	lto-stream-debug.o \
+	lto-wpa-fixup.o \
 	mcf.o \
 	mode-switching.o \
 	modulo-sched.o \
@@ -2088,6 +2089,10 @@ lto-section-out.o : lto-section-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
    except.h debug.h $(TIMEVAR_H) lto-header.h $(LTO_SECTION_OUT_H) output.h \
    dwarf2asm.h dwarf2out.h  $(BITMAP_H)
+lto-wpa-fixup.o: lto-wpa-fixup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
+   $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) tree-pass.h \
+   $(CGRAPH_H) $(FUNCTION_H) $(DIAGNOSTIC_H) vec.h $(BITMAP_H) $(TIMEVAR_H) \
+   $(LTO_SECTION_IN_H) $(LTO_SECTION_OUT_H)
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(TOPLEV_H) $(TREE_INLINE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) \
    langhooks.h $(TARGET_H) $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) $(DIAGNOSTIC_H) \

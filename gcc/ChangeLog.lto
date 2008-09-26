@@ -1,3 +1,16 @@
+2008-09-26  Doug Kwan  <dougkwan@google.com>
+
+	* tree-pass.h (pass_ipa_lto_wpa_fixup): New pass.
+	* lto-header.h (enum lto_section_type): Add LTO_section_wpa_fixup.
+	(lto_mark_nothrow_fndecl): New prototype.
+	(lto_fixup_nothrow_decls): Ditto.
+	* lto-wpa-fixup.c: New file.
+	* Makefile.in (OBJS-common): Add lto-wpa-fixup.o
+	(lto-wpa-fixup.o): New rule.
+	* passes.c (init_optimization_passes): Add pass_ipa_lto_wpa_fixup.
+	* lto-section-out.c (lto_get_section_name): Handle new enum
+	LTO_section_wpa_fixup.
+
 2008-09-26 Rafael Espindola  <espindola@google.com>
 
 	* lto-function-in.c (vec_tree_ptr, lto_fixups): New.

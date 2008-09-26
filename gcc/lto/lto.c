@@ -892,6 +892,9 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
                               /*top_level=*/1,
                               /*at_end=*/0);
 
+  /* Fix up any calls to DECLs that have become not exception throwing.  */
+  lto_fixup_nothrow_decls ();
+
   /* Let the middle end know that we have read and merged all of the
      input files.  */ 
   /*cgraph_finalize_compilation_unit ();*/
