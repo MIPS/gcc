@@ -1,3 +1,15 @@
+2008-09-25  Rafael Espindola  <espindola@google.com>
+
+	* Make-lang.in (PLUGIN_API_H, LTO_TREE_H): New.
+	(lto/lto-lang.o, lto/lto.o, lto/lto-symtab.o) Use LTO_TREE_H.
+	* lto-symtab.c (lto_symtab_compatible): New.
+	(lto_symtab_overwrite_decl): New.
+	(lto_symtab_merge_decl): Refactor to use the above functions
+	and the resolution from lang_identifier.
+	* lto-tree.h: Include plugin-api.h.
+	(lang_identifier): Add resolution.
+	(LTO_IDENTIFIER_RESOLUTION): New.
+
 2008-09-25  Ollie Wild  <aaw@google.com>
 
 	* lang.opt (fltrans-output-list=): New option.

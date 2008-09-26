@@ -249,54 +249,14 @@ lto_least_common_multiple (unsigned a, unsigned b)
   return (a * b) / gcd (a, b);
 }
 
-/* Common helper function for merging variable and function declarations.  */
-static tree 
-lto_symtab_merge_decl (tree new_decl,
-		       enum ld_plugin_symbol_resolution resolution
-		       ATTRIBUTE_UNUSED)
-{ 
-  tree old_decl;
-  tree name;
+/* Check if OLD_DECL and NEW_DECL are compatible. */
+
+static bool
+lto_symtab_compatible (tree old_decl, tree new_decl)
+{
   tree merged_type = NULL_TREE;
   tree merged_result = NULL_TREE;
 
-  gcc_assert (TREE_CODE (new_decl) == VAR_DECL
-	      || TREE_CODE (new_decl) == FUNCTION_DECL);
-
-  /* Variables with internal linkage do not need to be merged.
-     Note that we do not add these variables to lto_global_var_decls,
-     as they have already been processed by rest_of_decl_compilation
-     just after they were internalized by input_var_decl.  */
-  if (!TREE_PUBLIC (new_decl))
-    return new_decl;
-
-  /* Check that declarations reaching this function do not have
-     properties inconsistent with having external linkage.  If any of
-     these asertions fail, then the object file reader has failed to
-     detect these cases and issue appropriate error messages.  */
-  /* FIXME lto: The assertion below may fail incorrectly on a static
-     class member.  The problem seems to be the (documented) fact
-     that DECL_NONLOCAL may be set for class instance variables as
-     well as for variables referenced from inner functions.  */
-  /*gcc_assert (!DECL_NONLOCAL (new_decl));*/
-  if (TREE_CODE (new_decl) == VAR_DECL)
-    {
-      gcc_assert (TREE_STATIC (new_decl));
-      gcc_assert (!DECL_REGISTER (new_decl));
-      gcc_assert (!(DECL_EXTERNAL (new_decl) && DECL_INITIAL (new_decl)));
-    }
-  /* Retrieve the previous declaration.  */
-  name = DECL_ASSEMBLER_NAME (new_decl);
-  old_decl = LTO_IDENTIFIER_DECL (name);
-  /* If there was no previous declaration, then there is nothing to
-     merge.  */
-  if (!old_decl)
-    {
-      LTO_IDENTIFIER_DECL (name) = new_decl;
-      VEC_safe_push (tree, gc, lto_global_var_decls, new_decl);
-      return new_decl;
-    }
-  /* Check for inconsistencies.  */
   if (TREE_CODE (old_decl) != TREE_CODE (new_decl))
     {
       switch (TREE_CODE (new_decl))
@@ -304,11 +264,11 @@ lto_symtab_merge_decl (tree new_decl,
 	case VAR_DECL:
 	  gcc_assert (TREE_CODE (old_decl) == FUNCTION_DECL);
 	  error ("function %qD redeclared as variable", old_decl);
-	  return error_mark_node;
+	  return false;
 	case FUNCTION_DECL:
 	  gcc_assert (TREE_CODE (old_decl) == VAR_DECL);
 	  error ("variable %qD redeclared as function", old_decl);
-	  return error_mark_node;
+	  return false;
 	default:
 	  gcc_unreachable ();
 	}
@@ -387,14 +347,14 @@ lto_symtab_merge_decl (tree new_decl,
 	{
 	  error ("type of %qD does not match original declaration",
 		 new_decl);
-	  return error_mark_node;
+	  return false;
 	}
     }
   if (DECL_UNSIGNED (old_decl) != DECL_UNSIGNED (new_decl))
     {
       error ("signedness of %qD does not match original declaration",
 	     new_decl);
-      return error_mark_node;
+      return false;
     }
   if (!tree_int_cst_equal (DECL_SIZE (old_decl),
 			   DECL_SIZE (new_decl))
@@ -414,7 +374,7 @@ lto_symtab_merge_decl (tree new_decl,
 	{
 	  error ("size of %qD does not match original declaration", 
 		 new_decl);
-	  return error_mark_node;
+	  return false;
 	}
     }
   /* Report an error if user-specified alignments do not match.  */
@@ -423,7 +383,7 @@ lto_symtab_merge_decl (tree new_decl,
     {
       error ("alignment of %qD does not match original declaration",
 	     new_decl);
-      return error_mark_node;
+      return false;
     }
   if (DECL_MODE (old_decl) != DECL_MODE (new_decl))
     {
@@ -440,7 +400,7 @@ lto_symtab_merge_decl (tree new_decl,
 	{
 	  error ("machine mode of %qD does not match original declaration",
 		 new_decl);
-	  return error_mark_node;
+	  return false;
 	}
     }
   if (!lto_compatible_attributes_p (old_decl,
@@ -449,7 +409,7 @@ lto_symtab_merge_decl (tree new_decl,
     {
       error ("attributes applied to %qD are incompatible with original "
 	     "declaration", new_decl);
-      return error_mark_node;
+      return false;
     }
   /* FIXME: DWARF doesn't include a "weak" attribute, so where is that
      info supposed to come from?  */
@@ -465,7 +425,7 @@ lto_symtab_merge_decl (tree new_decl,
       && !DECL_IS_BUILTIN (new_decl))
     {
       error ("%qD has already been defined", new_decl);
-      return error_mark_node;
+      return false;
     }
   /* We do not require matches for:
 
@@ -484,62 +444,130 @@ lto_symtab_merge_decl (tree new_decl,
        object file.  
        
      Therefore, at this point we have decided to merge the declarations.  */
-  TREE_SIDE_EFFECTS (old_decl) |= TREE_SIDE_EFFECTS (new_decl);
-  TREE_CONSTANT (old_decl) |= TREE_CONSTANT (new_decl);
-  TREE_ADDRESSABLE (old_decl) |= TREE_ADDRESSABLE (new_decl);
-  TREE_THIS_VOLATILE (old_decl) |= TREE_THIS_VOLATILE (new_decl);
-  TREE_READONLY (old_decl) |= TREE_READONLY (new_decl);
-  DECL_EXTERNAL (old_decl) &= DECL_EXTERNAL (new_decl);
+  return true;
+}
 
-  /* Adjust the alignment to the smallest common alignment.  */
-  if (DECL_ALIGN (old_decl) != DECL_ALIGN (new_decl))
-    DECL_ALIGN (old_decl) = lto_least_common_multiple (DECL_ALIGN (old_decl),
-						       DECL_ALIGN (new_decl));
-  /* If either alignment is user-specified, regard the merged alignment as such.  */
-  DECL_USER_ALIGN (old_decl) |= DECL_USER_ALIGN (new_decl);
+/* Overwrite DEST with SRC. */
 
-  DECL_WEAK (old_decl) &= DECL_WEAK (new_decl);
-  DECL_PRESERVE_P (old_decl) |= DECL_PRESERVE_P (new_decl);
-  if (merged_type)
+static void
+lto_symtab_overwrite_decl (tree dest, tree src)
+{
+  TREE_SIDE_EFFECTS (dest) = TREE_SIDE_EFFECTS (src);
+  TREE_CONSTANT (dest) = TREE_CONSTANT (src);
+  TREE_ADDRESSABLE (dest) = TREE_ADDRESSABLE (src);
+  TREE_THIS_VOLATILE (dest) = TREE_THIS_VOLATILE (src);
+  TREE_READONLY (dest) = TREE_READONLY (src);
+  DECL_EXTERNAL (dest) = DECL_EXTERNAL (src);
+
+  DECL_ALIGN (dest) = DECL_ALIGN (src);
+
+  DECL_USER_ALIGN (dest) = DECL_USER_ALIGN (src);
+
+  DECL_WEAK (dest) = DECL_WEAK (src);
+
+  DECL_PRESERVE_P (dest) = DECL_PRESERVE_P (src);
+
+  TREE_TYPE (dest) = TREE_TYPE (src);
+  DECL_MODE (dest) = DECL_MODE (src);
+
+  if (TREE_CODE (src) == FUNCTION_DECL)
     {
-      TREE_TYPE (old_decl) = merged_type;
-      DECL_MODE (old_decl) = TYPE_MODE (merged_type);
-      if (merged_result)
-	{
-	  DECL_RESULT (old_decl) = merged_result;
-	  DECL_CONTEXT (DECL_RESULT (old_decl)) = old_decl;
-	}
+      DECL_RESULT (dest) = DECL_RESULT (src);
+      if (DECL_RESULT (dest))
+	DECL_CONTEXT (DECL_RESULT (dest)) = dest;
+      TREE_STATIC (dest) = TREE_STATIC (src);
+      DECL_DECLARED_INLINE_P (dest) = DECL_DECLARED_INLINE_P (src);
     }
+
+  if (TREE_CODE (src) == VAR_DECL)
+    {
+      DECL_INITIAL (dest) = DECL_INITIAL (src);
+      DECL_SIZE (dest) = DECL_SIZE (src);
+      DECL_SIZE_UNIT (dest) = DECL_SIZE_UNIT (src);
+    }
+}
+
+/* Common helper function for merging variable and function declarations.
+   NEW_DECL is the newly found decl. RESOLUTION is the decl's resolution
+   provided by the linker. */
+
+static tree
+lto_symtab_merge_decl (tree new_decl,
+		       enum ld_plugin_symbol_resolution resolution)
+{
+  tree old_decl;
+  tree name;
+  ld_plugin_symbol_resolution_t old_resolution;
+
+  gcc_assert (TREE_CODE (new_decl) == VAR_DECL
+	      || TREE_CODE (new_decl) == FUNCTION_DECL);
+
+  gcc_assert (TREE_PUBLIC (new_decl));
+
+  /* Check that declarations reaching this function do not have
+     properties inconsistent with having external linkage.  If any of
+     these asertions fail, then the object file reader has failed to
+     detect these cases and issue appropriate error messages.  */
+  /* FIXME lto: The assertion below may fail incorrectly on a static
+     class member.  The problem seems to be the (documented) fact
+     that DECL_NONLOCAL may be set for class instance variables as
+     well as for variables referenced from inner functions.  */
+  /*gcc_assert (!DECL_NONLOCAL (new_decl));*/
   if (TREE_CODE (new_decl) == VAR_DECL)
     {
-      if (DECL_INITIAL (new_decl))
-	{
-	  gcc_assert (!DECL_INITIAL (old_decl));
-	  DECL_INITIAL (old_decl) = DECL_INITIAL (new_decl);
-	}
-      if (!DECL_SIZE (old_decl))
-	{
-	  DECL_SIZE (old_decl) = DECL_SIZE (new_decl);
-	  DECL_SIZE_UNIT (old_decl) = DECL_SIZE_UNIT (new_decl);
-	}
+      gcc_assert (TREE_STATIC (new_decl));
+      gcc_assert (!DECL_REGISTER (new_decl));
+      gcc_assert (!(DECL_EXTERNAL (new_decl) && DECL_INITIAL (new_decl)));
     }
-  if (TREE_CODE (new_decl) == FUNCTION_DECL)
+  /* Retrieve the previous declaration.  */
+  name = DECL_ASSEMBLER_NAME (new_decl);
+  old_decl = LTO_IDENTIFIER_DECL (name);
+  /* If there was no previous declaration, then there is nothing to
+     merge.  */
+  if (!old_decl)
     {
-      TREE_STATIC (old_decl) |= TREE_STATIC (new_decl);
-      DECL_DECLARED_INLINE_P (old_decl) &= DECL_DECLARED_INLINE_P (new_decl);
-      if (!DECL_RESULT (old_decl) && DECL_RESULT (new_decl))
-	{
-	  DECL_RESULT (old_decl) = DECL_RESULT (new_decl);
-	  DECL_CONTEXT (DECL_RESULT (old_decl)) = old_decl;
-	}
+      LTO_IDENTIFIER_DECL (name) = new_decl;
+      LTO_IDENTIFIER_RESOLUTION (name) = resolution;
+      VEC_safe_push (tree, gc, lto_global_var_decls, new_decl);
+      return new_decl;
     }
 
-  /* We cannot free NEW_DECL just yet, as we still have a reference
-     to it in the globals vector and possibly other places that need
-     to be backpatched.  Function global_vector_fixup is responsible
-     for performing the backpatching, and then freeing the previous
-     node that it replaced, which will be the node discarded here by
-     the merge.  */
+  /* The linker may ask us to combine two incompatible symbols. */
+  if (!lto_symtab_compatible (old_decl, new_decl))
+    return error_mark_node;
+
+  old_resolution = LTO_IDENTIFIER_RESOLUTION (name);
+
+  gcc_assert (resolution != LDPR_UNKNOWN
+	      && resolution != LDPR_UNDEF
+	      && old_resolution != LDPR_UNKNOWN
+	      && old_resolution != LDPR_UNDEF);
+
+  if (resolution == LDPR_PREVAILING_DEF
+      || resolution == LDPR_PREVAILING_DEF_IRONLY)
+    {
+      gcc_assert (old_resolution == LDPR_PREEMPTED_IR
+		  || old_resolution ==  LDPR_RESOLVED_IR);
+      lto_symtab_overwrite_decl (old_decl, new_decl);
+      LTO_IDENTIFIER_RESOLUTION (name) = resolution;
+      return old_decl;
+    }
+
+  if (resolution == LDPR_PREEMPTED_REG
+      || resolution == LDPR_RESOLVED_EXEC
+      || resolution == LDPR_RESOLVED_DYN)
+    gcc_assert (old_resolution == LDPR_PREEMPTED_REG
+		|| old_resolution == LDPR_RESOLVED_EXEC
+		|| old_resolution == LDPR_RESOLVED_DYN);
+
+  if (resolution == LDPR_PREEMPTED_IR
+      || resolution == LDPR_RESOLVED_IR)
+    gcc_assert (old_resolution == LDPR_PREVAILING_DEF
+		|| old_resolution == LDPR_PREVAILING_DEF_IRONLY
+		|| old_resolution == LDPR_PREEMPTED_IR
+		|| old_resolution == LDPR_RESOLVED_IR);
+
+  lto_symtab_overwrite_decl (new_decl, old_decl);
 
   return old_decl;
 }
