@@ -165,18 +165,20 @@ output_wpa_fixup (cgraph_node_set set)
 
   /* Accumulate the DECLs to be written out.  Since we do not want
      duplicates, we need to use a bitmap and a vector to save the
-     DECLs we want.  */
+     DECLs we want.  Note that we need to check if lto_nothrow_fndecls
+     is NULL.  This happens when no DECL has been marked.  */
   seen_decls = bitmap_alloc ();
-  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
-    {
-      fndecl = csi_node (csi)->decl;
-      if (!bitmap_bit_p (seen_decls, (DECL_UID (fndecl))))
-	{
-	  bitmap_set_bit (seen_decls, (DECL_UID (fndecl)));
-	  if (bitmap_bit_p (lto_nothrow_fndecls, DECL_UID (fndecl)))
-	    VEC_safe_push (tree, heap, decls, fndecl);
-	}
-    }
+  if (lto_nothrow_fndecls)
+    for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+      {
+	fndecl = csi_node (csi)->decl;
+	if (!bitmap_bit_p (seen_decls, (DECL_UID (fndecl))))
+	  {
+	    bitmap_set_bit (seen_decls, (DECL_UID (fndecl)));
+	    if (bitmap_bit_p (lto_nothrow_fndecls, DECL_UID (fndecl)))
+	      VEC_safe_push (tree, heap, decls, fndecl);
+	  }
+      }
 
   /* Write out number of DECLs, followed by the DECLs.  */
   count = VEC_length (tree, decls); 

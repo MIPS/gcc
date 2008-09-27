@@ -1,5 +1,10 @@
 2008-09-26  Doug Kwan  <dougkwan@google.com>
 
+	* lto-wpa-fixup.c (output_wpa_fixup): Check for NULL
+	lto_nothrow_fndecls.
+
+2008-09-26  Doug Kwan  <dougkwan@google.com>
+
 	* tree-pass.h (pass_ipa_lto_wpa_fixup): New pass.
 	* lto-header.h (enum lto_section_type): Add LTO_section_wpa_fixup.
 	(lto_mark_nothrow_fndecl): New prototype.
