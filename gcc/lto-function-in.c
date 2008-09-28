@@ -302,7 +302,6 @@ input_type_ref_1 (struct data_in *data_in, struct lto_input_block *ib)
 static tree
 input_type_ref (struct data_in *data_in, struct lto_input_block *ib)
 {
-  LTO_DEBUG_TOKEN ("type_ref");
   return input_type_ref_1 (data_in, ib);
 }
 
@@ -1676,10 +1675,15 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
 	r->u.eh_catch.next_catch = (eh_region) lto_input_uleb128 (ib);
 	r->u.eh_catch.prev_catch = (eh_region) lto_input_uleb128 (ib);
 	if (input_record_start (ib))
-	  r->u.eh_catch.type_list = input_tree_operand (ib, data_in, fn,
-							LTO_tree_list);
+	  {
+	    tree list = input_expr_operand (ib, data_in, fn, LTO_tree_list);
+	    r->u.eh_catch.type_list = list;
+	    for (; list; list = TREE_CHAIN (list))
+	      add_type_for_runtime (TREE_VALUE (list));
+	  }
+
 	if (input_record_start (ib))
-	  r->u.eh_catch.filter_list = input_tree_operand (ib, data_in, fn,
+	  r->u.eh_catch.filter_list = input_expr_operand (ib, data_in, fn,
 							  LTO_tree_list);
 	break;
 
@@ -1687,8 +1691,12 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
       case LTO_eh_table_allowed1:
 	r->type = ERT_ALLOWED_EXCEPTIONS;
 	if (input_record_start (ib))
-	  r->u.allowed.type_list = input_tree_operand (ib, data_in, fn,
-						       LTO_tree_list);
+	  {
+	    tree list = input_expr_operand (ib, data_in, fn, LTO_tree_list);
+	    r->u.allowed.type_list = list;
+	    for (; list ; list = TREE_CHAIN (list))
+	      add_type_for_runtime (TREE_VALUE (list));
+	  }
 	r->u.allowed.filter = lto_input_uleb128 (ib);
 	break;
 

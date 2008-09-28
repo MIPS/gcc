@@ -1,3 +1,7 @@
+2008-09-28  Simon Baldwin  <dnovillo@google.com>
+
+	* g++.dg/lto/20080926.C: New.
+
 2008-09-24  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/20080924.c: New.

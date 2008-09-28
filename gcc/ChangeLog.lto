@@ -1,3 +1,22 @@
+2008-09-28  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_type_ref): Do not call
+	LTO_DEBUG_TOKEN.
+	(output_type_list): Remove.  Update all callers.
+	(get_eh_types_for_runtime): New.
+	(output_eh_region): Call it.
+	(output_expr_operand): Call output_type_ref when EXPR is
+	a type.
+	* lto-function-in.c (input_type_ref): Do not call
+	LTO_DEBUG_TOKEN.
+	(input_eh_region): Call add_type_for_runtime after
+	reading type lists.
+	Call input_expr_operand to read type lists.
+	* except.c (add_type_for_runtime): Declare extern.
+	(lookup_type_for_runtime): Likewise.
+	* lto/lto-lang.c (lto_eh_runtime_type): New.
+	(lto_init_eh): Set lang_eh_runtime_type to lto_eh_runtime_type.
+
 2008-09-26  Doug Kwan  <dougkwan@google.com>
 
 	* lto-wpa-fixup.c (output_wpa_fixup): Check for NULL

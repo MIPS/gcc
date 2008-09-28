@@ -626,7 +626,6 @@ output_type_ref_1 (struct output_block *ob, tree node)
 static void
 output_type_ref (struct output_block *ob, tree node)
 {
-  LTO_DEBUG_TOKEN ("type_ref");
   output_type_ref_1 (ob, node);
 }
 
@@ -712,31 +711,33 @@ output_record_start (struct output_block *ob, tree expr,
 }
 
 
-/* Output a LIST of TYPE_DECLS.  */
+/* Translate all the types in LIST with the corresponding runtime
+   types.  */
 
-static void
-output_type_list (struct output_block *ob, tree list)
+static tree
+get_eh_types_for_runtime (tree list)
 {
-  tree tl;
-  int count = 0;
-  if (list)
-    {
-      gcc_assert (TREE_CODE (list) == TREE_LIST);
-      for (tl = list; tl; tl = TREE_CHAIN (tl))
-	if (TREE_VALUE (tl) != NULL_TREE)
-	  count++;
+  tree head, prev;
 
-      output_uleb128 (ob, count);
-      for (tl = list; tl; tl = TREE_CHAIN (tl))
-	if (TREE_VALUE (tl) != NULL_TREE)
-	  output_type_ref (ob, TREE_VALUE (tl));
+  if (list == NULL_TREE)
+    return NULL_TREE;
+
+  head = build_tree_list (0, lookup_type_for_runtime (TREE_VALUE (list)));
+  prev = head;
+  list = TREE_CHAIN (list);
+  while (list)
+    {
+      tree n = build_tree_list (0, lookup_type_for_runtime (TREE_VALUE (list)));
+      TREE_CHAIN (prev) = n;
+      prev = TREE_CHAIN (prev);
+      list = TREE_CHAIN (list);
     }
-  else
-    output_zero (ob);
+
+  return head;
 }
 
 
-/* Output the header of EH region R to OB.  */
+/* Output EH region R to OB.  */
 
 static void
 output_eh_region (struct output_block *ob, eh_region r)
@@ -807,22 +808,44 @@ output_eh_region (struct output_block *ob, eh_region r)
     }
   else if (r->type == ERT_CATCH)
     {
+      tree list;
       eh_region next_catch = r->u.eh_catch.next_catch;
       eh_region prev_catch = r->u.eh_catch.prev_catch;
+
       if (next_catch)
 	output_uleb128 (ob, next_catch->region_number);
       else
 	output_zero (ob);
+
       if (prev_catch)
 	output_uleb128 (ob, prev_catch->region_number);
       else
 	output_zero (ob);
-      output_type_list (ob, r->u.eh_catch.type_list);
-      output_type_list (ob, r->u.eh_catch.filter_list);
+
+      /* FIXME lto: output_expr_operand should handle NULL operands
+	 by calling output_zero.  */
+      list = r->u.eh_catch.type_list;
+      if (list)
+	{
+	  list = get_eh_types_for_runtime (list);
+	  output_expr_operand (ob, list);
+	}
+      else
+	output_zero (ob);
+
+      list = r->u.eh_catch.filter_list;
+      if (list)
+	output_expr_operand (ob, list);
+      else
+	output_zero (ob);
     }
   else if (r->type == ERT_ALLOWED_EXCEPTIONS)
     {
-      output_type_list (ob, r->u.allowed.type_list);
+      tree list = get_eh_types_for_runtime (r->u.allowed.type_list);
+      if (list)
+	output_expr_operand (ob, list);
+      else
+	output_zero (ob);
       output_uleb128 (ob, r->u.allowed.filter);
     }
   else if (r->type == ERT_THROW)
@@ -906,7 +929,11 @@ output_expr_operand (struct output_block *ob, tree expr)
   klass = TREE_CODE_CLASS (code);
   tag = expr_to_tag [code];
 
-  gcc_assert (klass != tcc_type);
+  if (klass == tcc_type)
+    {
+      output_type_ref (ob, expr);
+      return;
+    }
 
   switch (code)
     {

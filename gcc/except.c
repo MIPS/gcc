@@ -123,8 +123,6 @@ struct call_site_record GTY(())
 
 static int t2r_eq (const void *, const void *);
 static hashval_t t2r_hash (const void *);
-static void add_type_for_runtime (tree);
-static tree lookup_type_for_runtime (tree);
 
 static void remove_unreachable_regions (rtx);
 
@@ -1001,7 +999,7 @@ t2r_hash (const void *pentry)
   return TREE_HASH (TREE_PURPOSE (entry));
 }
 
-static void
+void
 add_type_for_runtime (tree type)
 {
   tree *slot;
@@ -1015,7 +1013,7 @@ add_type_for_runtime (tree type)
     }
 }
 
-static tree
+tree
 lookup_type_for_runtime (tree type)
 {
   tree *slot;
