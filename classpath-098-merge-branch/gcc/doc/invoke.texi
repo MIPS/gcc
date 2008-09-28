@@ -228,7 +228,8 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{-fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  -Warray-bounds @gol
--Wno-attributes -Wc++-compat -Wc++0x-compat -Wcast-align  -Wcast-qual  @gol
+-Wno-attributes -Wno-builtin-macro-redefined @gol
+-Wc++-compat -Wc++0x-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment @gol
 -Wconversion  -Wcoverage-mismatch  -Wno-deprecated  @gol
 -Wno-deprecated-declarations -Wdisabled-optimization  @gol
@@ -307,7 +308,8 @@ Objective-C and Objective-C++ Dialects}.
 -ftest-coverage  -ftime-report -fvar-tracking @gol
 -g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
--fno-merge-debug-strings -fdebug-prefix-map=@var{old}=@var{new} @gol
+-fno-merge-debug-strings -fno-dwarf2-cfi-asm @gol
+-fdebug-prefix-map=@var{old}=@var{new} @gol
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
 -femit-struct-debug-detailed@r{[}=@var{spec-list}@r{]} @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -323,8 +325,8 @@ Objective-C and Objective-C++ Dialects}.
 -falign-labels[=@var{n}] -falign-loops[=@var{n}] -fassociative-math @gol
 -fauto-inc-dec -fbranch-probabilities -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive -fcaller-saves @gol
--fcheck-data-deps -fcprop-registers -fcrossjumping -fcse-follow-jumps @gol
--fcse-skip-blocks -fcx-fortran-rules -fcx-limited-range @gol
+-fcheck-data-deps -fconserve-stack -fcprop-registers -fcrossjumping @gol
+-fcse-follow-jumps -fcse-skip-blocks -fcx-fortran-rules -fcx-limited-range @gol
 -fdata-sections -fdce -fdce @gol
 -fdelayed-branch -fdelete-null-pointer-checks -fdse -fdse @gol
 -fearly-inlining -fexpensive-optimizations -ffast-math @gol
@@ -740,7 +742,8 @@ See RS/6000 and PowerPC Options.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
--mhard-float  -msoft-float -mlong-double-64 -mlong-double-128 @gol
+-mhard-float  -msoft-float  -mhard-dfp -mno-hard-dfp @gol
+-mlong-double-64 -mlong-double-128 @gol
 -mbackchain  -mno-backchain -mpacked-stack  -mno-packed-stack @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
@@ -1522,7 +1525,7 @@ known not to modify global memory.
 With the @option{-fno-builtin-@var{function}} option
 only the built-in function @var{function} is
 disabled.  @var{function} must not begin with @samp{__builtin_}.  If a
-function is named this is not built-in in this version of GCC, this
+function is named that is not built-in in this version of GCC, this
 option is ignored.  There is no corresponding
 @option{-fbuiltin-@var{function}} option; if you wish to enable
 built-in functions selectively when using @option{-fno-builtin} or
@@ -3729,6 +3732,13 @@ unrecognized attributes, function attributes applied to variables,
 etc.  This will not stop errors for incorrect use of supported
 attributes.
 
+@item -Wno-builtin-macro-redefined
+@opindex Wno-builtin-macro-redefined
+@opindex Wbuiltin-macro-redefined
+Do not warn if certain built-in macros are redefined.  This suppresses
+warnings for redefinition of @code{__TIMESTAMP__}, @code{__TIME__},
+@code{__DATE__}, @code{__FILE__}, and @code{__BASE_FILE__}.
+
 @item -Wstrict-prototypes @r{(C and Objective-C only)}
 @opindex Wstrict-prototypes
 @opindex Wno-strict-prototypes
@@ -4344,6 +4354,12 @@ on by default.
 @opindex fdebug-prefix-map
 When compiling files in directory @file{@var{old}}, record debugging
 information describing them as in @file{@var{new}} instead.
+
+@item -fno-dwarf2-cfi-asm
+@opindex fdwarf2-cfi-asm
+@opindex fno-dwarf2-cfi-asm
+Emit DWARF 2 unwind info as compiler generated @code{.eh_frame} section
+instead of using GAS @code{.cfi_*} directives.
 
 @cindex @command{prof}
 @item -p
@@ -5081,7 +5097,7 @@ Don't forget the trailing @samp{/}.
 @opindex print-sysroot
 Print the target sysroot directory that will be used during
 compilation.  This is the target sysroot specified either at configure
-time or or using the @option{--sysroot} option, possibly with an extra
+time or using the @option{--sysroot} option, possibly with an extra
 suffix that depends on compilation options.  If no target sysroot is
 specified, the option prints nothing.
 
@@ -5870,6 +5886,13 @@ This option is always enabled by default on certain machines, usually
 those which have no call-preserved registers to use instead.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -fconserve-stack
+@opindex fconserve-stack
+Attempt to minimize stack usage.  The compiler will attempt to use less
+stack space, even if that makes the program slower.  This option
+implies setting the @option{large-stack-frame} parameter to 100
+and the @option{large-stack-frame-growth} parameter to 400.
 
 @item -ftree-reassoc
 @opindex ftree-reassoc
@@ -7084,7 +7107,7 @@ The default value is 90.
 
 @item large-function-insns
 The limit specifying really large functions.  For functions larger than this
-limit after inlining inlining is constrained by
+limit after inlining, inlining is constrained by
 @option{--param large-function-growth}.  This parameter is useful primarily
 to avoid extreme compilation time caused by non-linear algorithms used by the
 backend.
@@ -10931,7 +10954,7 @@ the system libraries and startup modules.
 
 Set 80387 floating-point precision to 32, 64 or 80 bits.  When @option{-mpc32}
 is specified, the significands of results of floating-point operations are
-rounded to 24 bits (single precision); @option{-mpc64} rounds the the
+rounded to 24 bits (single precision); @option{-mpc64} rounds the
 significands of results of floating-point operations to 53 bits (double
 precision) and @option{-mpc80} rounds the significands of results of
 floating-point operations to 64 bits (extended double precision), which is
@@ -14035,6 +14058,17 @@ functions in @file{libgcc.a} will be used to perform floating-point
 operations.  When @option{-mhard-float} is specified, the compiler
 generates IEEE floating-point instructions.  This is the default.
 
+@item -mhard-dfp
+@itemx -mno-hard-dfp
+@opindex mhard-dfp
+@opindex mno-hard-dfp
+Use (do not use) the hardware decimal-floating-point instructions for
+decimal-floating-point operations.  When @option{-mno-hard-dfp} is
+specified, functions in @file{libgcc.a} will be used to perform
+decimal-floating-point operations.  When @option{-mhard-dfp} is
+specified, the compiler generates decimal-floating-point hardware
+instructions.  This is the default for @option{-march=z9-ec} or higher.
+
 @item -mlong-double-64
 @itemx -mlong-double-128
 @opindex mlong-double-64
@@ -14145,7 +14179,8 @@ The default is to not print debug information.
 @opindex march
 Generate code that will run on @var{cpu-type}, which is the name of a system
 representing a certain processor type.  Possible values for
-@var{cpu-type} are @samp{g5}, @samp{g6}, @samp{z900}, and @samp{z990}.
+@var{cpu-type} are @samp{g5}, @samp{g6}, @samp{z900}, @samp{z990},
+@samp{z9-109}, @samp{z9-ec} and @samp{z10}.
 When generating code using the instructions available on z/Architecture,
 the default is @option{-march=z900}.  Otherwise, the default is
 @option{-march=g5}.

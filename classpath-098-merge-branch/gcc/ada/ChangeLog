@@ -1,3 +1,91 @@
+2008-09-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (gnat_to_gnu_entity) <object>: Cap the alignment promotion
+	to that of ptr_mode instead of word_mode.
+
+2008-09-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/5911
+	* gcc-interface/Makefile.in (SPARC/Solaris): Add multilib support.
+
+2008-09-25  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/37641
+	* adaint.c (__gnat_set_non_writable): Use FILE_WRITE_EA
+	instead of deprecated FILE_WRITE_PROPERTIES.
+
+2008-09-22  Olivier Hainque  <hainque@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Even when they
+	are never assigned, volatile entities are not constant for code
+	generation purposes.
+
+2008-09-21  Laurent Guerby  <laurent@guerby.net>
+
+        PR ada/5911
+	* gcc-interface/Makefile.in: Add multilib handling for x86_64
+	and sparc.
+	* system-linux-sparcv9.ads: New file.
+	
+2008-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* exp_dbug.ads: Document new convention for the XVZ variable.
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Array_Type>: Generate
+	debug info if necessary for the type padding the component type.
+	<E_Array_Subtype>: Likewise.
+	(maybe_pad_type): Emit the XVZ variable in units.
+	* gcc-interface/trans.c (Loop_Statement_to_gnu): Fix formatting nits.
+	(Subprogram_Body_to_gnu): Set the source line of the subprogram's node
+	on statements generated to initialize the parameter attributes cache.
+	Set the source line of the end label of the body on the special return
+	statement built for a procedure with copy-in copy-out parameters.
+
+2008-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/37585
+	* gcc-interface/utils.c (create_subprog_decl): Disable inlining for
+	inlined external functions if they contain a nested function not
+	declared inline.
+
+2008-09-18  Jan Hubicka  <jh@suse.cz>
+
+	* gcc-interface/utils.c (create_subprog_decl): Use DECL_DECLARED_INLINE_P.
+	(end_subprog_body): Do not set DECL_INLINE.
+
+2008-09-17  Pascal Rigaux  <pixel@mandriva.com>
+
+	PR ada/21327
+	* gnat_ugn.texi: Use proper format in direntry.
+
+2008-09-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (gigi): Declare the name of the compilation
+	unit as the first global name.
+
+2008-09-14  Jan Hubicka  <jh@suse.cz>
+
+	* gcc-interface/Make-lang.in (gnat1): Add CFLAGS.
+
+2008-09-14  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* a-crbtgk.adb, a-direct.ads, a-tasatt.adb, ali.ads,
+	bindgen.adb, checks.adb, einfo.ads, exp_aggr.adb, exp_ch11.adb,
+	exp_ch3.adb, exp_ch4.adb, exp_ch6.adb, exp_ch7.adb, exp_ch9.adb,
+	exp_dbug.ads, exp_disp.adb, exp_dist.adb, exp_pakd.adb,
+	exp_util.adb, g-alveop.ads, g-comlin.adb, g-comlin.ads,
+	g-diopit.adb, g-socket.ads, gcc-interface/decl.c,
+	gcc-interface/gigi.h, gcc-interface/trans.c,
+	lib-load.adb, lib-xref.ads, make.adb, mlib-prj.adb, nlists.ads,
+	opt.ads, par-ch10.adb, par-ch5.adb, par.adb, s-os_lib.ads,
+	s-oscons-tmplt.c, s-parint.ads, s-regpat.ads, s-shasto.ads,
+	s-stausa.ads, s-taprop-vms.adb, sem.adb, sem_ch10.adb,
+	sem_ch11.adb, sem_ch12.adb, sem_ch13.adb, sem_ch3.adb,
+	sem_ch3.ads, sem_ch4.adb, sem_ch6.adb, sem_ch7.adb, sem_ch8.adb,
+	sem_elim.adb, sem_prag.adb, sem_util.adb, sem_util.ads,
+	sem_warn.adb, sinfo.ads, styleg.adb, vms_data.ads: Fix typos in
+	comments.
+	* gnathtml.pl: Fix typos.
+
 2008-09-10  Joel Sherrill <joel.sherrill@oarcorp.com>
 
 	* gcc-interface/Makefile.in: Switch RTEMS to s-interr-hwint.adb.
