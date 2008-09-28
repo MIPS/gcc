@@ -1,3 +1,12 @@
+2008-09-28  Matthias Klose  <doko@ubuntu.com>
+
+	* PR libgcj/37636. Revert:
+	2008-02-20  Matthias Klose  <doko@ubuntu.com>
+
+	* tools/Makefile.am ($(TOOLS_ZIP)): Revert part of previous change,
+	Do copy resource files in JAVA_MAINTAINER_MODE only.
+	* tools/Makefile.in: Regenerate.
+
 2008-09-14  Matthias Klose  <doko@ubuntu.com>
 
 	* m4/ac_prog_javac_works.m4, m4/ac_prog_javac.m4, m4/acinclude.m4:

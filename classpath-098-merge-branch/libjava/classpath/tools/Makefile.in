@@ -1334,20 +1334,13 @@ $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
 @JAVA_MAINTAINER_MODE_TRUE@	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
 @JAVA_MAINTAINER_MODE_TRUE@	  $$AC -g -w -d $(srcdir)/asm @asm.lst
 @JAVA_MAINTAINER_MODE_TRUE@	$(JCOMPILER) $(USE_JAVAC_FLAGS) -g -d $(srcdir)/classes @classes.lst @vm-tools.lst
-@JAVA_MAINTAINER_MODE_TRUE@	@list=`cd $(srcdir)/resource && find gnu/classpath/tools com/sun/tools/javac \
-@JAVA_MAINTAINER_MODE_TRUE@	       sun/rmi/rmic $(GJDOC_EX) -name \*.properties -print -o -name \*.jav -print`; \
-@JAVA_MAINTAINER_MODE_TRUE@	for p in $$list; do \
-@JAVA_MAINTAINER_MODE_TRUE@	  dirname=classes/`dirname $$p`; \
-@JAVA_MAINTAINER_MODE_TRUE@	  if ! test -d "$$dirname"; then @mkdir_p@ "$$dirname"; fi; \
-@JAVA_MAINTAINER_MODE_TRUE@	  echo "  cp $(srcdir)/resource/$$p classes/$$p"; \
-@JAVA_MAINTAINER_MODE_TRUE@	  cp $(srcdir)/resource/$$p classes/$$p; \
-@JAVA_MAINTAINER_MODE_TRUE@	done
-	@list=`cd $(srcdir) && find gnu/classpath/tools -name \*.jav -print`; \
+	@list=`cd $(srcdir)/resource && find gnu/classpath/tools com/sun/tools/javac \
+	       sun/rmi/rmic $(GJDOC_EX) -name \*.properties -print -o -name \*.jav -print`; \
 	for p in $$list; do \
 	  dirname=classes/`dirname $$p`; \
-	  if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
-	  echo "  cp $(srcdir)/$$p classes/$$p"; \
-	  cp $(srcdir)/$$p classes/$$p; \
+	  if ! test -d "$$dirname"; then @mkdir_p@ "$$dirname"; fi; \
+	  echo "  cp $(srcdir)/resource/$$p classes/$$p"; \
+	  cp $(srcdir)/resource/$$p classes/$$p; \
 	done
 	cp -pR $(srcdir)/asm .
 	cp -pR $(srcdir)/classes .

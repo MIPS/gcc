@@ -344,6 +344,8 @@ endif
 	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
 	  $$AC -g -w -d $(srcdir)/asm @asm.lst
 	$(JCOMPILER) $(USE_JAVAC_FLAGS) -g -d $(srcdir)/classes @classes.lst @vm-tools.lst
+endif
+## END GCJ LOCAL
 ## Copy over tools resource files.
 	@list=`cd $(srcdir)/resource && find gnu/classpath/tools com/sun/tools/javac \
 	       sun/rmi/rmic $(GJDOC_EX) -name \*.properties -print -o -name \*.jav -print`; \
@@ -353,18 +355,8 @@ endif
 	  echo "  cp $(srcdir)/resource/$$p classes/$$p"; \
 	  cp $(srcdir)/resource/$$p classes/$$p; \
 	done
-endif
-## Copy over rmic template files.
-	@list=`cd $(srcdir) && find gnu/classpath/tools -name \*.jav -print`; \
-	for p in $$list; do \
-	  dirname=classes/`dirname $$p`; \
-	  if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
-	  echo "  cp $(srcdir)/$$p classes/$$p"; \
-	  cp $(srcdir)/$$p classes/$$p; \
-	done
 	cp -pR $(srcdir)/asm .
 	cp -pR $(srcdir)/classes .
-## END GCJ LOCAL
 if CREATE_GJDOC
 ## Copy over gjdoc resource files.
 	for res in $(gjdoc_resources); do \
