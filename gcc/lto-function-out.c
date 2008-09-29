@@ -1858,6 +1858,7 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
     case GIMPLE_GOTO:
     case GIMPLE_PREDICT:
     case GIMPLE_RESX:
+    case GIMPLE_CHANGE_DYNAMIC_TYPE:
       for (i = 0; i < gimple_num_ops (stmt); i++)
 	{
 	  tree op = gimple_op (stmt, i);
@@ -1866,13 +1867,6 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
 	  else
 	    output_zero (ob);
 	}
-      break;
-
-    case GIMPLE_CHANGE_DYNAMIC_TYPE:
-      /* The first operand of GIMPLE_CHANGE_DYNAMIC_TYPE is a type.
-	 So have to handle it specially.  */
-      output_type_ref (ob, gimple_cdt_new_type (stmt));
-      output_expr_operand (ob, gimple_cdt_location (stmt));
       break;
 
     default:

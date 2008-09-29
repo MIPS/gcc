@@ -1,3 +1,10 @@
+2008-09-29  Doug Kwan  <dougkwan@google.com>
+
+	* lto-function-out.c (output_gimple_stmt): Remove special
+	case code for GIMPLE_CHANGE_DYNAMIC_TYPE.  Use the general
+	code to handle this gimple code.
+	* lto-function-in.c (input_gimple_stmt): Ditto.
+
 2008-09-28  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_type_ref): Do not call
