@@ -160,7 +160,7 @@ public class Thread implements Runnable
   /** Thread local storage. Package accessible for use by
     * InheritableThreadLocal.
     */
-  WeakIdentityHashMap locals;
+  ThreadLocalMap locals;
 
   /** The uncaught exception handler.  */
   UncaughtExceptionHandler exceptionHandler;
@@ -1019,13 +1019,13 @@ public class Thread implements Runnable
   /**
    * Returns the map used by ThreadLocal to store the thread local values.
    */
-  static Map getThreadLocals()
+  static ThreadLocalMap getThreadLocals()
   {
     Thread thread = currentThread();
-    Map locals = thread.locals;
+    ThreadLocalMap locals = thread.locals;
     if (locals == null)
       {
-        locals = thread.locals = new WeakIdentityHashMap();
+        locals = thread.locals = new ThreadLocalMap();
       }
     return locals;
   }

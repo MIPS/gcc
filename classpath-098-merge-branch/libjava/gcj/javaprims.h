@@ -240,6 +240,8 @@ extern "Java"
       class ThreadDeath;
       class ThreadGroup;
       class ThreadLocal;
+      class ThreadLocalMap;
+      class ThreadLocalMap$Entry;
       class Throwable;
       class Throwable$StaticData;
       class TypeNotPresentException;

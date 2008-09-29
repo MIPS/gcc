@@ -1,15 +1,15 @@
 2008-09-14  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
-        * examples/Makefile.am:
+	* examples/Makefile.am:
         Check lib directly as well as glibj.zip
         for boot classes.
-        * m4/acinclude.m4:
+	* m4/acinclude.m4:
         Only require the class files to be built
         to allow the tools and examples to be built,
         not the installation of glibj.zip.
-        * tools/Makefile.am:
-        Check lib directly as well as glibj.zip
-        for boot classes.
+	* tools/Makefile.am:
+	Check lib directly as well as glibj.zip
+	for boot classes.
 
 2008-09-13  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
@@ -25,6 +25,16 @@
 	if using GCJ.
 	* tools/Makefile.am:
 	Add GCJ rules.
+
+2007-08-23  Daniel Frampton  <zyridium@zyridium.net>
+
+	* AUTHORS: Added.
+	* java/lang/InheritableThreadLocal.java,
+	* java/lang/Thread.java,
+	* java/lang/ThreadLocal.java:
+	Modified to use java.lang.ThreadLocalMap.
+	* java/lang/ThreadLocalMap.java:
+	New cheaper ThreadLocal-specific WeakHashMap.
 
 2008-02-07  Ian Rogers  <ian.rogers@manchester.ac.uk>
 
