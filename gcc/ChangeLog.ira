@@ -1,3 +1,10 @@
+2008-09-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-09-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.h (IRA_COVER_CLASSES): Define.
+
 2008-09-26  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/rtx.texi (clobber): Change how RA deals with clobbers.
