@@ -54,7 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "pointer-set.h"
 
-static tree grokparms (cp_parameter_declarator *, tree *);
+static tree grokparms (tree parmlist, tree *);
 static const char *redeclaration_error_message (tree, tree);
 
 static int decl_jump_unsafe (tree);
@@ -66,7 +66,7 @@ static tree grok_reference_init (tree, tree, tree, tree *);
 static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 			 int, int, tree);
 static void record_unknown_type (tree, const char *);
-static tree builtin_function_1 (tree, tree);
+static tree builtin_function_1 (tree, tree, bool);
 static tree build_library_fn_1 (tree, enum tree_code, tree);
 static int member_function_or_else (tree, tree, enum overload_flags);
 static void bad_specifiers (tree, const char *, int, int, int, int,
@@ -227,17 +227,16 @@ struct named_label_entry GTY(())
    function, two inside the body of a function in a local class, etc.)  */
 int function_depth;
 
+/* To avoid unwanted recursion, finish_function defers all mark_used calls
+   encountered during its execution until it finishes.  */
+bool defer_mark_used_calls;
+VEC(tree, gc) *deferred_mark_used_calls;
+
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
    deprecated items.  */
-
-enum deprecated_states {
-  DEPRECATED_NORMAL,
-  DEPRECATED_SUPPRESS
-};
-
-static enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
+enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
 
 
 /* A TREE_LIST of VAR_DECLs.  The TREE_PURPOSE is a RECORD_TYPE or
@@ -1460,7 +1459,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       const char *errmsg = redeclaration_error_message (newdecl, olddecl);
       if (errmsg)
 	{
-	  error (errmsg, newdecl);
+	  error_at (DECL_SOURCE_LOCATION (newdecl), errmsg, newdecl);
 	  if (DECL_NAME (olddecl) != NULL_TREE)
 	    error ((DECL_INITIAL (olddecl) && namespace_bindings_p ())
 			 ? "%q+#D previously defined here"
@@ -1763,6 +1762,20 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       /* Merge deprecatedness.  */
       if (TREE_DEPRECATED (newdecl))
 	TREE_DEPRECATED (olddecl) = 1;
+
+      /* Preserve function specific target and optimization options */
+      if (TREE_CODE (newdecl) == FUNCTION_DECL)
+	{
+	  if (DECL_FUNCTION_SPECIFIC_TARGET (olddecl)
+	      && !DECL_FUNCTION_SPECIFIC_TARGET (newdecl))
+	    DECL_FUNCTION_SPECIFIC_TARGET (newdecl)
+	      = DECL_FUNCTION_SPECIFIC_TARGET (olddecl);
+
+	  if (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (olddecl)
+	      && !DECL_FUNCTION_SPECIFIC_OPTIMIZATION (newdecl))
+	    DECL_FUNCTION_SPECIFIC_OPTIMIZATION (newdecl)
+	      = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (olddecl);
+	}
 
       /* Merge the initialization information.  */
       if (DECL_INITIAL (newdecl) == NULL_TREE
@@ -3497,7 +3510,7 @@ cp_make_fname_decl (tree id, int type_dep)
 }
 
 static tree
-builtin_function_1 (tree decl, tree context)
+builtin_function_1 (tree decl, tree context, bool is_global)
 {
   tree          id = DECL_NAME (decl);
   const char *name = IDENTIFIER_POINTER (id);
@@ -3518,7 +3531,10 @@ builtin_function_1 (tree decl, tree context)
 
   DECL_CONTEXT (decl) = context;
 
-  pushdecl (decl);
+  if (is_global)
+    pushdecl_top_level (decl);
+  else
+    pushdecl (decl);
 
   /* A function in the user's namespace should have an explicit
      declaration before it is used.  Mark the built-in function as
@@ -3551,11 +3567,36 @@ cxx_builtin_function (tree decl)
     {
       tree decl2 = copy_node(decl);
       push_namespace (std_identifier);
-      builtin_function_1 (decl2, std_node);
+      builtin_function_1 (decl2, std_node, false);
       pop_namespace ();
     }
 
-  return builtin_function_1 (decl, NULL_TREE);
+  return builtin_function_1 (decl, NULL_TREE, false);
+}
+
+/* Like cxx_builtin_function, but guarantee the function is added to the global
+   scope.  This is to allow function specific options to add new machine
+   dependent builtins when the target ISA changes via attribute((target(...)))
+   which saves space on program startup if the program does not use non-generic
+   ISAs.  */
+
+tree
+cxx_builtin_function_ext_scope (tree decl)
+{
+
+  tree          id = DECL_NAME (decl);
+  const char *name = IDENTIFIER_POINTER (id);
+  /* All builtins that don't begin with an '_' should additionally
+     go in the 'std' namespace.  */
+  if (name[0] != '_')
+    {
+      tree decl2 = copy_node(decl);
+      push_namespace (std_identifier);
+      builtin_function_1 (decl2, std_node, true);
+      pop_namespace ();
+    }
+
+  return builtin_function_1 (decl, NULL_TREE, true);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library
@@ -3927,14 +3968,14 @@ groktypename (cp_decl_specifier_seq *type_specifiers,
    grokfield.)  The DECL corresponding to the DECLARATOR is returned.
    If an error occurs, the error_mark_node is returned instead.
    
-   DECLSPECS are the decl-specifiers for the declaration.  INITIALIZED is 1
-   if an explicit initializer is present, or 2 for an explicitly defaulted
-   function, or 3 for an explicitly deleted function, but 0 if this is a
-   variable implicitly initialized via a default constructor.  ATTRIBUTES
-   and PREFIX_ATTRIBUTES are GNU attributes associated with this
-   declaration.  *PUSHED_SCOPE_P is set to the scope entered in this
-   function, if any; if set, the caller is responsible for calling
-   pop_scope.  */
+   DECLSPECS are the decl-specifiers for the declaration.  INITIALIZED is
+   SD_INITIALIZED if an explicit initializer is present, or SD_DEFAULTED
+   for an explicitly defaulted function, or SD_DELETED for an explicitly
+   deleted function, but 0 (SD_UNINITIALIZED) if this is a variable
+   implicitly initialized via a default constructor.  ATTRIBUTES and
+   PREFIX_ATTRIBUTES are GNU attributes associated with this declaration.
+   *PUSHED_SCOPE_P is set to the scope entered in this function, if any; if
+   set, the caller is responsible for calling pop_scope.  */
 
 tree
 start_decl (const cp_declarator *declarator,
@@ -3992,7 +4033,7 @@ start_decl (const cp_declarator *declarator,
 	return error_mark_node;
 
       case FUNCTION_DECL:
-	if (initialized == 3)
+	if (initialized == SD_DELETED)
 	  /* We'll handle the rest of the semantics later, but we need to
 	     set this now so it's visible to duplicate_decls.  */
 	  DECL_DELETED_FN (decl) = 1;
@@ -4203,6 +4244,8 @@ start_decl_1 (tree decl, bool initialized)
 	 arrays which might be completed by the initialization.  */
       if (complete_p)
 	;			/* A complete type is ok.  */
+      else if (type_uses_auto (type))
+	; 			/* An auto type is ok.  */
       else if (TREE_CODE (type) != ARRAY_TYPE)
 	{
 	  error ("variable %q#D has initializer but incomplete type", decl);
@@ -4217,8 +4260,11 @@ start_decl_1 (tree decl, bool initialized)
     }
   else if (aggregate_definition_p && !complete_p)
     {
-      error ("aggregate %q#D has incomplete type and cannot be defined",
-	     decl);
+      if (type_uses_auto (type))
+	error ("declaration of %q#D has no initializer", decl);
+      else
+	error ("aggregate %q#D has incomplete type and cannot be defined",
+	       decl);
       /* Change the type so that assemble_variable will give
 	 DECL an rtl we can live with: (mem (const_int 0)).  */
       type = TREE_TYPE (decl) = error_mark_node;
@@ -4771,6 +4817,9 @@ static tree
 reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
 {
   tree init = d->cur->value;
+
+  if (error_operand_p (init))
+    return error_mark_node;
 
   /* A non-aggregate type is always initialized with a single
      initializer.  */
@@ -5403,6 +5452,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
   int was_readonly = 0;
   bool var_definition_p = false;
   int saved_processing_template_decl;
+  tree auto_node;
 
   if (decl == error_mark_node)
     return;
@@ -5437,6 +5487,14 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       && (DECL_INITIAL (decl) || init))
     DECL_INITIALIZED_IN_CLASS_P (decl) = 1;
 
+  auto_node = type_uses_auto (type);
+  if (auto_node && !type_dependent_expression_p (init))
+    {
+      type = TREE_TYPE (decl) = do_auto_deduction (type, init, auto_node);
+      if (type == error_mark_node)
+	return;
+    }
+
   if (processing_template_decl)
     {
       bool type_dependent_p;
@@ -5453,7 +5511,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  DECL_INITIAL (decl) = NULL_TREE;
 	}
 
-      if (init && init_const_expr_p)
+      if (init && init_const_expr_p && TREE_CODE (decl) == VAR_DECL)
 	{
 	  DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
 	  if (DECL_INTEGRAL_CONSTANT_VAR_P (decl))
@@ -6439,7 +6497,8 @@ grokfndecl (tree ctype,
 	    bool funcdef_flag,
 	    int template_count,
 	    tree in_namespace,
-	    tree* attrlist)
+	    tree* attrlist,
+	    location_t location)
 {
   tree decl;
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
@@ -6449,6 +6508,12 @@ grokfndecl (tree ctype,
     type = build_exception_variant (type, raises);
 
   decl = build_lang_decl (FUNCTION_DECL, declarator, type);
+
+  /* If we have an explicit location, use it, otherwise use whatever
+     build_lang_decl used (probably input_location).  */
+  if (location != UNKNOWN_LOCATION)
+    DECL_SOURCE_LOCATION (decl) = location;
+
   if (TREE_CODE (type) == METHOD_TYPE)
     {
       tree parm;
@@ -7158,7 +7223,8 @@ compute_array_index_type (tree name, tree size)
 	 cp_build_binary_op will be appropriately folded.  */
       saved_processing_template_decl = processing_template_decl;
       processing_template_decl = 0;
-      itype = cp_build_binary_op (MINUS_EXPR,
+      itype = cp_build_binary_op (input_location,
+				  MINUS_EXPR,
 				  cp_convert (ssizetype, size),
 				  cp_convert (ssizetype, integer_one_node),
 				  tf_warning_or_error);
@@ -8161,6 +8227,12 @@ grokdeclarator (const cp_declarator *declarator,
 	    /* Pick up the exception specifications.  */
 	    raises = declarator->u.function.exception_specification;
 
+	    /* Handle a late-specified return type.  */
+	    type = splice_late_return_type
+	      (type, declarator->u.function.late_return_type);
+	    if (type == error_mark_node)
+	      return error_mark_node;
+
 	    /* Say it's a definition only for the CALL_EXPR
 	       closest to the identifier.  */
 	    funcdecl_p = inner_declarator && inner_declarator->kind == cdk_id;
@@ -8954,7 +9026,8 @@ grokdeclarator (const cp_declarator *declarator,
 			       virtualp, flags, memfn_quals, raises,
 			       friendp ? -1 : 0, friendp, publicp, inlinep,
 			       sfk,
-			       funcdef_flag, template_count, in_namespace, attrlist);
+			       funcdef_flag, template_count, in_namespace,
+			       attrlist, declarator->id_loc);
 	    if (decl == NULL_TREE)
 	      return error_mark_node;
 #if 0
@@ -8996,7 +9069,8 @@ grokdeclarator (const cp_declarator *declarator,
 			       virtualp, flags, memfn_quals, raises,
 			       friendp ? -1 : 0, friendp, 1, 0, sfk,
 			       funcdef_flag, template_count, in_namespace,
-			       attrlist);
+			       attrlist,
+			       declarator->id_loc);
 	    if (decl == NULL_TREE)
 	      return error_mark_node;
 	  }
@@ -9191,7 +9265,8 @@ grokdeclarator (const cp_declarator *declarator,
 			   virtualp, flags, memfn_quals, raises,
 			   1, friendp,
 			   publicp, inlinep, sfk, funcdef_flag,
-			   template_count, in_namespace, attrlist);
+			   template_count, in_namespace, attrlist,
+			   declarator->id_loc);
 	if (decl == NULL_TREE)
 	  return error_mark_node;
 
@@ -9424,6 +9499,32 @@ check_default_argument (tree decl, tree arg)
   return arg;
 }
 
+/* Returns a deprecated type used within TYPE, or NULL_TREE if none.  */
+
+static tree
+type_is_deprecated (tree type)
+{
+  enum tree_code code;
+  if (TREE_DEPRECATED (type))
+    return type;
+  if (TYPE_NAME (type)
+      && TREE_DEPRECATED (TYPE_NAME (type)))
+    return type;
+
+  code = TREE_CODE (type);
+
+  if (code == POINTER_TYPE || code == REFERENCE_TYPE
+      || code == OFFSET_TYPE || code == FUNCTION_TYPE
+      || code == METHOD_TYPE || code == ARRAY_TYPE)
+    return type_is_deprecated (TREE_TYPE (type));
+
+  if (TYPE_PTRMEMFUNC_P (type))
+    return type_is_deprecated
+      (TREE_TYPE (TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (type))));
+
+  return NULL_TREE;
+}
+
 /* Decode the list of parameter types for a function type.
    Given the list of things declared inside the parens,
    return a list of types.
@@ -9434,41 +9535,31 @@ check_default_argument (tree decl, tree arg)
    *PARMS is set to the chain of PARM_DECLs created.  */
 
 static tree
-grokparms (cp_parameter_declarator *first_parm, tree *parms)
+grokparms (tree parmlist, tree *parms)
 {
   tree result = NULL_TREE;
   tree decls = NULL_TREE;
-  int ellipsis = !first_parm || first_parm->ellipsis_p;
-  cp_parameter_declarator *parm;
+  tree parm;
   int any_error = 0;
-  struct pointer_set_t *unique_decls = pointer_set_create ();
 
-  for (parm = first_parm; parm != NULL; parm = parm->next)
+  for (parm = parmlist; parm != NULL_TREE; parm = TREE_CHAIN (parm))
     {
       tree type = NULL_TREE;
-      tree init = parm->default_argument;
-      tree attrs;
-      tree decl;
+      tree init = TREE_PURPOSE (parm);
+      tree decl = TREE_VALUE (parm);
 
-      if (parm == no_parameters)
+      if (parm == void_list_node)
 	break;
 
-      attrs = parm->decl_specifiers.attributes;
-      parm->decl_specifiers.attributes = NULL_TREE;
-      decl = grokdeclarator (parm->declarator, &parm->decl_specifiers,
-			     PARM, init != NULL_TREE, &attrs);
       if (! decl || TREE_TYPE (decl) == error_mark_node)
 	continue;
-
-      if (attrs)
-	cplus_decl_attributes (&decl, attrs, 0);
 
       type = TREE_TYPE (decl);
       if (VOID_TYPE_P (type))
 	{
 	  if (same_type_p (type, void_type_node)
 	      && DECL_SELF_REFERENCE_P (type)
-	      && !DECL_NAME (decl) && !result && !parm->next && !ellipsis)
+	      && !DECL_NAME (decl) && !result && TREE_CHAIN (parm) == void_list_node)
 	    /* this is a parmlist of `(void)', which is ok.  */
 	    break;
 	  cxx_incomplete_type_error (decl, type);
@@ -9491,6 +9582,13 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
 
       if (type != error_mark_node)
 	{
+	  if (deprecated_state != DEPRECATED_SUPPRESS)
+	    {
+	      tree deptype = type_is_deprecated (type);
+	      if (deptype)
+		warn_deprecated_use (deptype);
+	    }
+
 	  /* Top-level qualifiers on the parameters are
 	     ignored for function types.  */
 	  type = cp_build_qualified_type (type, 0);
@@ -9533,16 +9631,9 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
 
       if (TREE_CODE (decl) == PARM_DECL
           && FUNCTION_PARAMETER_PACK_P (decl)
-          && parm->next)
+          && TREE_CHAIN (parm)
+          && TREE_CHAIN (parm) != void_list_node)
         error ("parameter packs must be at the end of the parameter list");
-
-      if (DECL_NAME (decl))
-        {
-          if (pointer_set_contains (unique_decls, DECL_NAME (decl)))
-            error ("multiple parameters named %qE", DECL_NAME (decl));
-          else
-            pointer_set_insert (unique_decls, DECL_NAME (decl));
-        }
 
       TREE_CHAIN (decl) = decls;
       decls = decl;
@@ -9550,11 +9641,10 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
     }
   decls = nreverse (decls);
   result = nreverse (result);
-  if (!ellipsis)
+  if (parm)
     result = chainon (result, void_list_node);
   *parms = decls;
 
-  pointer_set_destroy (unique_decls);
   return result;
 }
 
@@ -10712,13 +10802,20 @@ xref_basetypes (tree ref, tree base_list)
 
 
 /* Begin compiling the definition of an enumeration type.
-   NAME is its name.
+   NAME is its name, 
+
+   UNDERLYING_TYPE is the type that will be used as the storage for
+   the enumeration type. This should be NULL_TREE if no storage type
+   was specified.
+
+   SCOPED_ENUM_P is true if this is a scoped enumeration type.
+
    Returns the type object, as yet incomplete.
    Also records info about it so that build_enumerator
    may be used to declare the individual values as they are read.  */
 
 tree
-start_enum (tree name)
+start_enum (tree name, tree underlying_type, bool scoped_enum_p)
 {
   tree enumtype;
 
@@ -10750,6 +10847,39 @@ start_enum (tree name)
       enumtype = pushtag (name, enumtype, /*tag_scope=*/ts_current);
     }
 
+  if (scoped_enum_p)
+    {
+      SET_SCOPED_ENUM_P (enumtype, 1);
+      begin_scope (sk_scoped_enum, enumtype);
+
+      /* [C++0x dcl.enum]p5: 
+
+          If not explicitly specified, the underlying type of a scoped
+          enumeration type is int.  */
+      if (!underlying_type)
+        underlying_type = integer_type_node;
+    }
+
+  if (underlying_type)
+    {
+      if (CP_INTEGRAL_TYPE_P (underlying_type))
+        {
+          TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (underlying_type);
+          TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (underlying_type);
+          TYPE_SIZE (enumtype) = TYPE_SIZE (underlying_type);
+          TYPE_SIZE_UNIT (enumtype) = TYPE_SIZE_UNIT (underlying_type);
+          TYPE_MODE (enumtype) = TYPE_MODE (underlying_type);
+          TYPE_PRECISION (enumtype) = TYPE_PRECISION (underlying_type);
+          TYPE_ALIGN (enumtype) = TYPE_ALIGN (underlying_type);
+          TYPE_USER_ALIGN (enumtype) = TYPE_USER_ALIGN (underlying_type);
+          TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (underlying_type);
+          ENUM_UNDERLYING_TYPE (enumtype) = underlying_type;
+        }
+      else
+        error ("underlying type %<%T%> of %<%T%> must be an integral type", 
+               underlying_type, enumtype);
+    }
+
   return enumtype;
 }
 
@@ -10762,9 +10892,9 @@ finish_enum (tree enumtype)
 {
   tree values;
   tree decl;
-  tree value;
   tree minnode;
   tree maxnode;
+  tree value;
   tree t;
   bool unsignedp;
   bool use_short_enum;
@@ -10773,6 +10903,8 @@ finish_enum (tree enumtype)
   int precision;
   integer_type_kind itk;
   tree underlying_type = NULL_TREE;
+  bool fixed_underlying_type_p 
+    = ENUM_UNDERLYING_TYPE (enumtype) != NULL_TREE;
 
   /* We built up the VALUES in reverse order.  */
   TYPE_VALUES (enumtype) = nreverse (TYPE_VALUES (enumtype));
@@ -10798,34 +10930,34 @@ finish_enum (tree enumtype)
       minnode = maxnode = NULL_TREE;
 
       for (values = TYPE_VALUES (enumtype);
-	   values;
-	   values = TREE_CHAIN (values))
-	{
-	  decl = TREE_VALUE (values);
+           values;
+           values = TREE_CHAIN (values))
+        {
+          decl = TREE_VALUE (values);
 
-	  /* [dcl.enum]: Following the closing brace of an enum-specifier,
-	     each enumerator has the type of its enumeration.  Prior to the
-	     closing brace, the type of each enumerator is the type of its
-	     initializing value.  */
-	  TREE_TYPE (decl) = enumtype;
+          /* [dcl.enum]: Following the closing brace of an enum-specifier,
+             each enumerator has the type of its enumeration.  Prior to the
+             closing brace, the type of each enumerator is the type of its
+             initializing value.  */
+          TREE_TYPE (decl) = enumtype;
 
-	  /* Update the minimum and maximum values, if appropriate.  */
-	  value = DECL_INITIAL (decl);
-	  if (value == error_mark_node)
-	    value = integer_zero_node;
-	  /* Figure out what the minimum and maximum values of the
-	     enumerators are.  */
-	  if (!minnode)
-	    minnode = maxnode = value;
-	  else if (tree_int_cst_lt (maxnode, value))
-	    maxnode = value;
-	  else if (tree_int_cst_lt (value, minnode))
-	    minnode = value;
-	}
+          /* Update the minimum and maximum values, if appropriate.  */
+          value = DECL_INITIAL (decl);
+          if (value == error_mark_node)
+            value = integer_zero_node;
+          /* Figure out what the minimum and maximum values of the
+             enumerators are.  */
+          if (!minnode)
+            minnode = maxnode = value;
+          else if (tree_int_cst_lt (maxnode, value))
+            maxnode = value;
+          else if (tree_int_cst_lt (value, minnode))
+            minnode = value;
+        }
     }
   else
     /* [dcl.enum]
-
+       
        If the enumerator-list is empty, the underlying type is as if
        the enumeration had a single enumerator with value 0.  */
     minnode = maxnode = integer_zero_node;
@@ -10839,46 +10971,70 @@ finish_enum (tree enumtype)
   highprec = min_precision (maxnode, unsignedp);
   precision = MAX (lowprec, highprec);
 
-  /* Determine the underlying type of the enumeration.
-
-       [dcl.enum]
-
-       The underlying type of an enumeration is an integral type that
-       can represent all the enumerator values defined in the
-       enumeration.  It is implementation-defined which integral type is
-       used as the underlying type for an enumeration except that the
-       underlying type shall not be larger than int unless the value of
-       an enumerator cannot fit in an int or unsigned int.
-
-     We use "int" or an "unsigned int" as the underlying type, even if
-     a smaller integral type would work, unless the user has
-     explicitly requested that we use the smallest possible type.  The
-     user can request that for all enumerations with a command line
-     flag, or for just one enumeration with an attribute.  */
-
-  use_short_enum = flag_short_enums
-    || lookup_attribute ("packed", TYPE_ATTRIBUTES (enumtype));
-
-  for (itk = (use_short_enum ? itk_char : itk_int);
-       itk != itk_none;
-       itk++)
+  if (!fixed_underlying_type_p)
     {
-      underlying_type = integer_types[itk];
-      if (TYPE_PRECISION (underlying_type) >= precision
-	  && TYPE_UNSIGNED (underlying_type) == unsignedp)
-	break;
-    }
-  if (itk == itk_none)
-    {
-      /* DR 377
+      /* Determine the underlying type of the enumeration.
 
-	 IF no integral type can represent all the enumerator values, the
-	 enumeration is ill-formed.  */
-      error ("no integral type can represent all of the enumerator values "
-	     "for %qT", enumtype);
-      precision = TYPE_PRECISION (long_long_integer_type_node);
-      underlying_type = integer_types[itk_unsigned_long_long];
+         [dcl.enum]
+
+         The underlying type of an enumeration is an integral type that
+         can represent all the enumerator values defined in the
+         enumeration.  It is implementation-defined which integral type is
+         used as the underlying type for an enumeration except that the
+         underlying type shall not be larger than int unless the value of
+         an enumerator cannot fit in an int or unsigned int.
+
+         We use "int" or an "unsigned int" as the underlying type, even if
+         a smaller integral type would work, unless the user has
+         explicitly requested that we use the smallest possible type.  The
+         user can request that for all enumerations with a command line
+         flag, or for just one enumeration with an attribute.  */
+
+      use_short_enum = flag_short_enums
+        || lookup_attribute ("packed", TYPE_ATTRIBUTES (enumtype));
+
+      for (itk = (use_short_enum ? itk_char : itk_int);
+           itk != itk_none;
+           itk++)
+        {
+          underlying_type = integer_types[itk];
+          if (TYPE_PRECISION (underlying_type) >= precision
+              && TYPE_UNSIGNED (underlying_type) == unsignedp)
+            break;
+        }
+      if (itk == itk_none)
+        {
+          /* DR 377
+
+             IF no integral type can represent all the enumerator values, the
+             enumeration is ill-formed.  */
+          error ("no integral type can represent all of the enumerator values "
+                 "for %qT", enumtype);
+          precision = TYPE_PRECISION (long_long_integer_type_node);
+          underlying_type = integer_types[itk_unsigned_long_long];
+        }
+
+      /* [dcl.enum]
+
+         The value of sizeof() applied to an enumeration type, an object
+         of an enumeration type, or an enumerator, is the value of sizeof()
+         applied to the underlying type.  */
+      TYPE_SIZE (enumtype) = TYPE_SIZE (underlying_type);
+      TYPE_SIZE_UNIT (enumtype) = TYPE_SIZE_UNIT (underlying_type);
+      TYPE_MODE (enumtype) = TYPE_MODE (underlying_type);
+      TYPE_ALIGN (enumtype) = TYPE_ALIGN (underlying_type);
+      TYPE_USER_ALIGN (enumtype) = TYPE_USER_ALIGN (underlying_type);
+      TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (underlying_type);
+
+      /* Set the underlying type of the enumeration type to the
+         computed enumeration type, restricted to the enumerator
+         values. */
+      ENUM_UNDERLYING_TYPE (enumtype) = copy_node (underlying_type);
+      set_min_and_max_values_for_integral_type 
+        (ENUM_UNDERLYING_TYPE (enumtype), precision, unsignedp);
     }
+  else
+    underlying_type = ENUM_UNDERLYING_TYPE (enumtype);
 
   /* Compute the minimum and maximum values for the type.
 
@@ -10889,28 +11045,16 @@ finish_enum (tree enumtype)
      underlying type in the range bmin to bmax, where bmin and bmax are,
      respectively, the smallest and largest values of the smallest bit-
      field that can store emin and emax.  */
-
+  
   /* The middle-end currently assumes that types with TYPE_PRECISION
      narrower than their underlying type are suitably zero or sign
      extended to fill their mode.  g++ doesn't make these guarantees.
      Until the middle-end can represent such paradoxical types, we
      set the TYPE_PRECISION to the width of the underlying type.  */
   TYPE_PRECISION (enumtype) = TYPE_PRECISION (underlying_type);
-
+  
   set_min_and_max_values_for_integral_type (enumtype, precision, unsignedp);
-
-  /* [dcl.enum]
-
-     The value of sizeof() applied to an enumeration type, an object
-     of an enumeration type, or an enumerator, is the value of sizeof()
-     applied to the underlying type.  */
-  TYPE_SIZE (enumtype) = TYPE_SIZE (underlying_type);
-  TYPE_SIZE_UNIT (enumtype) = TYPE_SIZE_UNIT (underlying_type);
-  TYPE_MODE (enumtype) = TYPE_MODE (underlying_type);
-  TYPE_ALIGN (enumtype) = TYPE_ALIGN (underlying_type);
-  TYPE_USER_ALIGN (enumtype) = TYPE_USER_ALIGN (underlying_type);
-  TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (underlying_type);
-
+  
   /* Convert each of the enumerators to the type of the underlying
      type of the enumeration.  */
   for (values = TYPE_VALUES (enumtype); values; values = TREE_CHAIN (values))
@@ -10920,9 +11064,14 @@ finish_enum (tree enumtype)
       decl = TREE_VALUE (values);
       saved_location = input_location;
       input_location = DECL_SOURCE_LOCATION (decl);
-      value = perform_implicit_conversion (underlying_type,
-					   DECL_INITIAL (decl),
-					   tf_warning_or_error);
+      if (fixed_underlying_type_p)
+        /* If the enumeration type has a fixed underlying type, we
+           already checked all of the enumerator values.  */
+        value = DECL_INITIAL (decl);
+      else
+        value = perform_implicit_conversion (underlying_type,
+                                             DECL_INITIAL (decl),
+                                             tf_warning_or_error);
       input_location = saved_location;
 
       /* Do not clobber shared ints.  */
@@ -10930,7 +11079,6 @@ finish_enum (tree enumtype)
 
       TREE_TYPE (value) = enumtype;
       DECL_INITIAL (decl) = value;
-      TREE_VALUE (values) = value;
     }
 
   /* Fix up all variant types of this enum type.  */
@@ -10946,7 +11094,12 @@ finish_enum (tree enumtype)
       TYPE_ALIGN (t) = TYPE_ALIGN (enumtype);
       TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (enumtype);
       TYPE_UNSIGNED (t) = TYPE_UNSIGNED (enumtype);
+      ENUM_UNDERLYING_TYPE (t) = ENUM_UNDERLYING_TYPE (enumtype);
     }
+
+  /* Finish up the scope of a scoped enumeration.  */
+  if (SCOPED_ENUM_P (enumtype))
+    finish_scope ();
 
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (enumtype, namespace_bindings_p ());
@@ -11001,21 +11154,26 @@ build_enumerator (tree name, tree value, tree enumtype)
 	      tree prev_value;
 	      bool overflowed;
 
-	      /* The next value is the previous value plus one.  We can
-		 safely assume that the previous value is an INTEGER_CST.
+	      /* The next value is the previous value plus one.
 		 add_double doesn't know the type of the target expression,
 		 so we must check with int_fits_type_p as well.  */
 	      prev_value = DECL_INITIAL (TREE_VALUE (TYPE_VALUES (enumtype)));
-	      overflowed = add_double (TREE_INT_CST_LOW (prev_value),
-				       TREE_INT_CST_HIGH (prev_value),
-				       1, 0, &lo, &hi);
-	      value = build_int_cst_wide (TREE_TYPE (prev_value), lo, hi);
-	      overflowed |= !int_fits_type_p (value, TREE_TYPE (prev_value));
-
-	      if (overflowed)
+	      if (error_operand_p (prev_value))
+		value = error_mark_node;
+	      else
 		{
-		  error ("overflow in enumeration values at %qD", name);
-		  value = error_mark_node;
+		  overflowed = add_double (TREE_INT_CST_LOW (prev_value),
+					   TREE_INT_CST_HIGH (prev_value),
+					   1, 0, &lo, &hi);
+		  value = build_int_cst_wide (TREE_TYPE (prev_value), lo, hi);
+		  overflowed
+		    |= !int_fits_type_p (value, TREE_TYPE (prev_value));
+
+		  if (overflowed)
+		    {
+		      error ("overflow in enumeration values at %qD", name);
+		      value = error_mark_node;
+		    }
 		}
 	    }
 	  else
@@ -11024,24 +11182,44 @@ build_enumerator (tree name, tree value, tree enumtype)
 
       /* Remove no-op casts from the value.  */
       STRIP_TYPE_NOPS (value);
+
+      /* If the underlying type of the enum is fixed, check whether
+         the enumerator values fits in the underlying type.  If it
+         does not fit, the program is ill-formed [C++0x dcl.enum].  */
+      if (ENUM_UNDERLYING_TYPE (enumtype)
+          && value
+          && TREE_CODE (value) == INTEGER_CST
+          && !int_fits_type_p (value, ENUM_UNDERLYING_TYPE (enumtype)))
+        {
+          error ("enumerator value %E is too large for underlying type %<%T%>",
+                 value, ENUM_UNDERLYING_TYPE (enumtype));
+
+          /* Silently convert the value so that we can continue.  */
+          value = perform_implicit_conversion (ENUM_UNDERLYING_TYPE (enumtype),
+                                               value, tf_none);
+        }
     }
 
   /* C++ associates enums with global, function, or class declarations.  */
   context = current_scope ();
 
   /* Build the actual enumeration constant.  Note that the enumeration
-    constants have the type of their initializers until the
-    enumeration is complete:
+     constants have the underlying type of the enum (if it is fixed)
+     or the type of their initializer (if the underlying type of the
+     enum is not fixed):
 
-      [ dcl.enum ]
+      [ C++0x dcl.enum ]
 
-      Following the closing brace of an enum-specifier, each enumer-
-      ator has the type of its enumeration.  Prior to the closing
-      brace, the type of each enumerator is the type of its
-      initializing value.
+        If the underlying type is fixed, the type of each enumerator
+        prior to the closing brace is the underlying type; if the
+        initializing value of an enumerator cannot be represented by
+        the underlying type, the program is ill-formed. If the
+        underlying type is not fixed, the type of each enumerator is
+        the type of its initializing value.
 
-    In finish_enum we will reset the type.  Of course, if we're
-    processing a template, there may be no value.  */
+    If the underlying type is not fixed, it will be computed by
+    finish_enum and we will reset the type of this enumerator.  Of
+    course, if we're processing a template, there may be no value.  */
   type = value ? TREE_TYPE (value) : NULL_TREE;
 
   if (context && context == current_class_type)
@@ -11068,6 +11246,26 @@ build_enumerator (tree name, tree value, tree enumtype)
 
   /* Add this enumeration constant to the list for this type.  */
   TYPE_VALUES (enumtype) = tree_cons (name, decl, TYPE_VALUES (enumtype));
+}
+
+/* Look for an enumerator with the given NAME within the enumeration
+   type ENUMTYPE.  This routine is used primarily for qualified name
+   lookup into an enumerator in C++0x, e.g.,
+
+     enum class Color { Red, Green, Blue };
+
+     Color color = Color::Red;
+
+   Returns the value corresponding to the enumerator, or
+   NULL_TREE if no such enumerator was found.  */
+tree
+lookup_enumerator (tree enumtype, tree name)
+{
+  tree e;
+  gcc_assert (enumtype && TREE_CODE (enumtype) == ENUMERAL_TYPE);
+
+  e = purpose_member (name, TYPE_VALUES (enumtype));
+  return e? TREE_VALUE (e) : NULL_TREE;
 }
 
 
@@ -11863,6 +12061,9 @@ finish_function (int flags)
   if (fndecl == NULL_TREE)
     return error_mark_node;
 
+  gcc_assert (!defer_mark_used_calls);
+  defer_mark_used_calls = true;
+
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fndecl)
       && DECL_VIRTUAL_P (fndecl)
       && !processing_template_decl)
@@ -12062,6 +12263,17 @@ finish_function (int flags)
        cxx_pop_function_context and then reset via pop_function_context.  */
     current_function_decl = NULL_TREE;
 
+  defer_mark_used_calls = false;
+  if (deferred_mark_used_calls)
+    {
+      unsigned int i;
+      tree decl;
+
+      for (i = 0; VEC_iterate (tree, deferred_mark_used_calls, i, decl); i++)
+	mark_used (decl);
+      VEC_free (tree, gc, deferred_mark_used_calls);
+    }
+
   return fndecl;
 }
 
@@ -12121,6 +12333,7 @@ start_method (cp_decl_specifier_seq *declspecs,
   check_template_shadow (fndecl);
 
   DECL_DECLARED_INLINE_P (fndecl) = 1;
+  DECL_NO_INLINE_WARNING_P (fndecl) = 1;
 
   /* We process method specializations in finish_struct_1.  */
   if (processing_template_decl && !DECL_TEMPLATE_SPECIALIZATION (fndecl))

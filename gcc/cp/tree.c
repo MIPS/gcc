@@ -877,6 +877,17 @@ cp_build_qualified_type_real (tree type,
       && TYPE_LANG_SPECIFIC (result) == TYPE_LANG_SPECIFIC (type))
     TYPE_LANG_SPECIFIC (result) = NULL;
 
+  /* We may also have ended up building a new copy of the canonical
+     type of a pointer-to-method type, which could have the same
+     sharing problem described above.  */
+  if (TYPE_CANONICAL (result) != TYPE_CANONICAL (type)
+      && TREE_CODE (type) == POINTER_TYPE
+      && TREE_CODE (TREE_TYPE (type)) == METHOD_TYPE
+      && (TYPE_LANG_SPECIFIC (TYPE_CANONICAL (result)) 
+          == TYPE_LANG_SPECIFIC (TYPE_CANONICAL (type))))
+    TYPE_LANG_SPECIFIC (TYPE_CANONICAL (result)) = NULL;
+      
+
   return result;
 }
 
@@ -1450,7 +1461,7 @@ array_type_nelts_top (tree type)
 {
   return fold_build2 (PLUS_EXPR, sizetype,
 		      array_type_nelts (type),
-		      integer_one_node);
+		      size_one_node);
 }
 
 /* Return, as an INTEGER_CST node, the number of elements for TYPE
@@ -2088,7 +2099,7 @@ is_dummy_object (const_tree ob)
 int
 pod_type_p (const_tree t)
 {
-  /* This CONST_CAST is okay because strip_array_types returns it's
+  /* This CONST_CAST is okay because strip_array_types returns its
      argument unmodified and we assign it to a const_tree.  */
   t = strip_array_types (CONST_CAST_TREE(t));
 
@@ -2127,7 +2138,7 @@ class_tmpl_impl_spec_p (const_tree t)
 int
 zero_init_p (const_tree t)
 {
-  /* This CONST_CAST is okay because strip_array_types returns it's
+  /* This CONST_CAST is okay because strip_array_types returns its
      argument unmodified and we assign it to a const_tree.  */
   t = strip_array_types (CONST_CAST_TREE(t));
 

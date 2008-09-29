@@ -2843,6 +2843,31 @@ c_builtin_function (tree decl)
 
   return decl;
 }
+
+tree
+c_builtin_function_ext_scope (tree decl)
+{
+  tree type = TREE_TYPE (decl);
+  tree   id = DECL_NAME (decl);
+
+  const char *name = IDENTIFIER_POINTER (id);
+  C_DECL_BUILTIN_PROTOTYPE (decl) = (TYPE_ARG_TYPES (type) != 0);
+
+  /* Should never be called on a symbol with a preexisting meaning.  */
+  gcc_assert (!I_SYMBOL_BINDING (id));
+
+  bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false);
+
+  /* Builtins in the implementation namespace are made visible without
+     needing to be explicitly declared.  See push_file_scope.  */
+  if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+    {
+      TREE_CHAIN (decl) = visible_builtins;
+      visible_builtins = decl;
+    }
+
+  return decl;
+}
 
 /* Called when a declaration is seen that contains no names to declare.
    If its type is a reference to a structure, union or enum inherited
@@ -5363,12 +5388,15 @@ start_struct (enum tree_code code, tree name)
    WIDTH is non-NULL for bit-fields only, and is an INTEGER_CST node.
    DECL_ATTRS is as for grokdeclarator.
 
+   LOC is the location of the structure component.
+
    This is done during the parsing of the struct declaration.
    The FIELD_DECL nodes are chained together and the lot of them
    are ultimately passed to `build_struct' to make the RECORD_TYPE node.  */
 
 tree
-grokfield (struct c_declarator *declarator, struct c_declspecs *declspecs,
+grokfield (location_t loc,
+	   struct c_declarator *declarator, struct c_declspecs *declspecs,
 	   tree width, tree *decl_attrs)
 {
   tree value;
@@ -5414,10 +5442,10 @@ grokfield (struct c_declarator *declarator, struct c_declspecs *declspecs,
 	}
       if (!ok)
 	{
-	  pedwarn (input_location, 0, "declaration does not declare anything");
+	  pedwarn (loc, 0, "declaration does not declare anything");
 	  return NULL_TREE;
 	}
-      pedwarn (input_location, OPT_pedantic, "ISO C doesn%'t support unnamed structs/unions");
+      pedwarn (loc, OPT_pedantic, "ISO C doesn%'t support unnamed structs/unions");
     }
 
   value = grokdeclarator (declarator, declspecs, FIELD, false,
@@ -5999,8 +6027,10 @@ build_enumerator (struct c_enum_contents *the_enum, tree name, tree value,
 	     "ISO C restricts enumerator values to range of %<int%>");
 
   /* Set basis for default for next value.  */
-  the_enum->enum_next_value = build_binary_op (PLUS_EXPR, value,
-					       integer_one_node, 0);
+  the_enum->enum_next_value
+    = build_binary_op
+         (EXPR_HAS_LOCATION (value) ? EXPR_LOCATION (value) : input_location,
+	 PLUS_EXPR, value, integer_one_node, 0);
   the_enum->enum_overflow = tree_int_cst_lt (the_enum->enum_next_value, value);
 
   /* Now create a declaration for the enum value name.  */
@@ -6793,13 +6823,19 @@ check_for_loop_decls (void)
   tree one_decl = NULL_TREE;
   int n_decls = 0;
 
-
   if (!flag_isoc99)
     {
+      static bool hint = true;
       /* If we get here, declarations have been used in a for loop without
 	 the C99 for loop scope.  This doesn't make much sense, so don't
 	 allow it.  */
-      error ("%<for%> loop initial declaration used outside C99 mode");
+      error ("%<for%> loop initial declarations are only allowed in C99 mode");
+      if (hint)
+	{
+	  inform (input_location, 
+		  "use option -std=c99 or -std=gnu99 to compile your code");
+	  hint = false;
+	}
       return NULL_TREE;
     }
   /* C99 subclause 6.8.5 paragraph 3:
@@ -6942,15 +6978,6 @@ stmt_tree
 current_stmt_tree (void)
 {
   return &c_stmt_tree;
-}
-
-/* Nonzero if TYPE is an anonymous union or struct type.  Always 0 in
-   C.  */
-
-int
-anon_aggr_type_p (const_tree ARG_UNUSED (node))
-{
-  return 0;
 }
 
 /* Return the global value of T as a symbol.  */

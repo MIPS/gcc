@@ -1,3 +1,10 @@
+2008-09-28  Antoniu Pop  <antoniu.pop@gmail.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	* Merge from mainline (r139387:140737).
+	* Makefile.in: Regenerated.
+	* testsuite/Makefile.in: Regenerated.
+
 2008-04-22  Antoniu Pop  <antoniu.pop@gmail.com>
          Sebastian Pop  <sebastian.pop@amd.com>
 

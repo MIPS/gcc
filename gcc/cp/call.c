@@ -771,7 +771,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
       conv = build_conv (ck_std, to, conv);
       conv->bad_p = true;
     }
-  else if (tcode == ENUMERAL_TYPE && fcode == INTEGER_TYPE)
+  else if (UNSCOPED_ENUM_P (to) && fcode == INTEGER_TYPE)
     {
       /* For backwards brain damage compatibility, allow interconversion of
 	 enums and integers with a pedwarn.  */
@@ -896,10 +896,11 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
     {
       /* [conv.bool]
 
-	  An rvalue of arithmetic, enumeration, pointer, or pointer to
-	  member type can be converted to an rvalue of type bool.  */
+	  An rvalue of arithmetic, unscoped enumeration, pointer, or
+	  pointer to member type can be converted to an rvalue of type
+	  bool.  */
       if (ARITHMETIC_TYPE_P (from)
-	  || fcode == ENUMERAL_TYPE
+	  || UNSCOPED_ENUM_P (from)
 	  || fcode == POINTER_TYPE
 	  || TYPE_PTR_TO_MEMBER_P (from))
 	{
@@ -919,7 +920,8 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
   /* As an extension, allow conversion to complex type.  */
   else if (ARITHMETIC_TYPE_P (to))
     {
-      if (! (INTEGRAL_CODE_P (fcode) || fcode == REAL_TYPE))
+      if (! (INTEGRAL_CODE_P (fcode) || fcode == REAL_TYPE)
+          || SCOPED_ENUM_P (from))
 	return NULL;
       conv = build_conv (ck_std, to, conv);
 
@@ -3702,9 +3704,9 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3,
        type; the usual arithmetic conversions are performed to bring
        them to a common type, and the result is of that type.  */
   else if ((ARITHMETIC_TYPE_P (arg2_type)
-	    || TREE_CODE (arg2_type) == ENUMERAL_TYPE)
+	    || UNSCOPED_ENUM_P (arg2_type))
 	   && (ARITHMETIC_TYPE_P (arg3_type)
-	       || TREE_CODE (arg3_type) == ENUMERAL_TYPE))
+	       || UNSCOPED_ENUM_P (arg3_type)))
     {
       /* In this case, there is always a common type.  */
       result_type = type_after_usual_arithmetic_conversions (arg2_type,
@@ -4197,7 +4199,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
     case BIT_AND_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
-      return cp_build_binary_op (code, arg1, arg2, complain);
+      return cp_build_binary_op (input_location, code, arg1, arg2, complain);
 
     case UNARY_PLUS_EXPR:
     case NEGATE_EXPR:
@@ -4212,7 +4214,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
       return cp_build_unary_op (code, arg1, candidates != 0, complain);
 
     case ARRAY_REF:
-      return build_array_ref (arg1, arg2);
+      return build_array_ref (arg1, arg2, input_location);
 
     case COND_EXPR:
       return build_conditional_expr (arg1, arg2, arg3, complain);
@@ -4791,7 +4793,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   if (convs->check_narrowing)
     check_narrowing (totype, expr);
 
-  if (issue_conversion_warnings)
+  if (issue_conversion_warnings && (complain & tf_warning))
     expr = convert_and_check (totype, expr);
   else
     expr = convert (totype, expr);
@@ -5116,6 +5118,10 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       for (w = cand->warnings; w; w = w->next)
 	joust (cand, w->loser, 1);
     }
+
+  /* Make =delete work with SFINAE.  */
+  if (DECL_DELETED_FN (fn) && !(complain & tf_error))
+    return error_mark_node;
 
   if (DECL_FUNCTION_MEMBER_P (fn))
     {

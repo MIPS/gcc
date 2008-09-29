@@ -571,7 +571,7 @@ static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
 static tree handle_alloc_size_attribute (tree *, tree, tree, int, bool *);
-static tree handle_option_attribute (tree *, tree, tree, int, bool *);
+static tree handle_target_attribute (tree *, tree, tree, int, bool *);
 static tree handle_optimize_attribute (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
@@ -856,8 +856,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_error_attribute },
   { "error",		      1, 1, true,  false, false,
 			      handle_error_attribute },
-  { "option",                 1, -1, true, false, false,
-			      handle_option_attribute },
+  { "target",                 1, -1, true, false, false,
+			      handle_target_attribute },
   { "optimize",               1, -1, true, false, false,
 			      handle_optimize_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
@@ -983,37 +983,16 @@ fname_as_string (int pretty_p)
   return namep;
 }
 
-/* Expand DECL if it declares an entity not handled by the
-   common code.  */
-
-int
-c_expand_decl (tree decl)
-{
-  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
-    {
-      /* Let the back-end know about this variable.  */
-      if (!anon_aggr_type_p (TREE_TYPE (decl)))
-	emit_local_var (decl);
-      else
-	expand_anon_union_decl (decl, NULL_TREE,
-				DECL_ANON_UNION_ELEMS (decl));
-    }
-  else
-    return 0;
-
-  return 1;
-}
-
-
 /* Return the VAR_DECL for a const char array naming the current
    function. If the VAR_DECL has not yet been created, create it
    now. RID indicates how it should be formatted and IDENTIFIER_NODE
    ID is its name (unfortunately C and C++ hold the RID values of
    keywords in different places, so we can't derive RID from ID in
-   this language independent code.  */
+   this language independent code. LOC is the location of the
+   function.  */
 
 tree
-fname_decl (unsigned int rid, tree id)
+fname_decl (location_t loc, unsigned int rid, tree id)
 {
   unsigned ix;
   tree decl = NULL_TREE;
@@ -1044,7 +1023,7 @@ fname_decl (unsigned int rid, tree id)
       input_location = saved_location;
     }
   if (!ix && !current_function_decl)
-    pedwarn (input_location, 0, "%qD is not defined outside of function scope", decl);
+    pedwarn (loc, 0, "%qD is not defined outside of function scope", decl);
 
   return decl;
 }
@@ -1568,7 +1547,7 @@ conversion_warning (tree type, tree expr)
   for (i = 0; i < expr_num_operands; i++)
     {
       tree op = TREE_OPERAND (expr, i);
-      if (DECL_P (op) && DECL_ARTIFICIAL (op))
+      if (op && DECL_P (op) && DECL_ARTIFICIAL (op))
 	return;
     }
 
@@ -2188,6 +2167,13 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
 	add_tlist (pno_sp, t->cache_after_sp, NULL_TREE, 1);
 	return;
       }
+
+    case ADDR_EXPR:
+      x = TREE_OPERAND (x, 0);
+      if (DECL_P (x))
+	return;
+      writer = 0;
+      goto restart;
 
     default:
       /* For other expressions, simply recurse on their operands.
@@ -2864,10 +2850,12 @@ min_precision (tree value, int unsignedp)
 }
 
 /* Print an error message for invalid operands to arith operation
-   CODE with TYPE0 for operand 0, and TYPE1 for operand 1.  */
+   CODE with TYPE0 for operand 0, and TYPE1 for operand 1.
+   LOCATION is the location of the message.  */
 
 void
-binary_op_error (enum tree_code code, tree type0, tree type1)
+binary_op_error (location_t location, enum tree_code code,
+		 tree type0, tree type1)
 {
   const char *opname;
 
@@ -2918,8 +2906,9 @@ binary_op_error (enum tree_code code, tree type0, tree type1)
     default:
       gcc_unreachable ();
     }
-  error ("invalid operands to binary %s (have %qT and %qT)", opname,
-	 type0, type1);
+  error_at (location,
+	    "invalid operands to binary %s (have %qT and %qT)", opname,
+	    type0, type1);
 }
 
 /* Subroutine of build_binary_op, used for comparison operations.
@@ -3335,7 +3324,8 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
       /* Convert both subexpression types to the type of intop,
 	 because weird cases involving pointer arithmetic
 	 can result in a sum or difference with different type args.  */
-      ptrop = build_binary_op (subcode, ptrop,
+      ptrop = build_binary_op (EXPR_LOCATION (TREE_OPERAND (intop, 1)),
+			       subcode, ptrop,
 			       convert (int_type, TREE_OPERAND (intop, 1)), 1);
       intop = convert (int_type, TREE_OPERAND (intop, 0));
     }
@@ -3351,7 +3341,8 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      Do this multiplication as signed, then convert to the appropriate
      type for the pointer operation.  */
   intop = convert (sizetype,
-		   build_binary_op (MULT_EXPR, intop,
+		   build_binary_op (EXPR_LOCATION (intop),
+				    MULT_EXPR, intop,
 				    convert (TREE_TYPE (intop), size_exp), 1));
 
   /* Create the sum or difference.  */
@@ -3382,6 +3373,8 @@ decl_with_nonnull_addr_p (const_tree expr)
    have been validated to be of suitable type; otherwise, a bad
    diagnostic may result.
 
+   The EXPR is located at LOCATION.
+
    This preparation consists of taking the ordinary
    representation of an expression expr and producing a valid tree
    boolean expression describing whether expr is nonzero.  We could
@@ -3391,7 +3384,7 @@ decl_with_nonnull_addr_p (const_tree expr)
    The resulting type should always be `truthvalue_type_node'.  */
 
 tree
-c_common_truthvalue_conversion (tree expr)
+c_common_truthvalue_conversion (location_t location, tree expr)
 {
   switch (TREE_CODE (expr))
     {
@@ -3412,14 +3405,17 @@ c_common_truthvalue_conversion (tree expr)
       if (TREE_TYPE (expr) == truthvalue_type_node)
 	return expr;
       return build2 (TREE_CODE (expr), truthvalue_type_node,
-		 c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)),
-		 c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)));
+		 c_common_truthvalue_conversion (location, 
+						 TREE_OPERAND (expr, 0)),
+		 c_common_truthvalue_conversion (location,
+						 TREE_OPERAND (expr, 1)));
 
     case TRUTH_NOT_EXPR:
       if (TREE_TYPE (expr) == truthvalue_type_node)
 	return expr;
       return build1 (TREE_CODE (expr), truthvalue_type_node,
-		 c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)));
+		 c_common_truthvalue_conversion (location,
+						 TREE_OPERAND (expr, 0)));
 
     case ERROR_MARK:
       return expr;
@@ -3449,9 +3445,10 @@ c_common_truthvalue_conversion (tree expr)
 	if (decl_with_nonnull_addr_p (inner))
 	  {
 	    /* Common Ada/Pascal programmer's mistake.  */
-	    warning (OPT_Waddress,
-		     "the address of %qD will always evaluate as %<true%>",
-		     inner);
+	    warning_at (location,
+			OPT_Waddress,
+			"the address of %qD will always evaluate as %<true%>",
+			inner);
 	    return truthvalue_true_node;
 	  }
 
@@ -3471,17 +3468,20 @@ c_common_truthvalue_conversion (tree expr)
       }
 
     case COMPLEX_EXPR:
-      return build_binary_op ((TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1))
+      return build_binary_op (EXPR_LOCATION (expr),
+			      (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1))
 			       ? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
-		c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)),
-		c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+		c_common_truthvalue_conversion (location,
+						TREE_OPERAND (expr, 0)),
+		c_common_truthvalue_conversion (location,
+						TREE_OPERAND (expr, 1)),
 			      0);
 
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
-      return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
+      return c_common_truthvalue_conversion (location, TREE_OPERAND (expr, 0));
 
     case LROTATE_EXPR:
     case RROTATE_EXPR:
@@ -3490,16 +3490,20 @@ c_common_truthvalue_conversion (tree expr)
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
 	return build2 (COMPOUND_EXPR, truthvalue_type_node,
 		       TREE_OPERAND (expr, 1),
-		       c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)));
+		       c_common_truthvalue_conversion 
+		        (location, TREE_OPERAND (expr, 0)));
       else
-	return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
+	return c_common_truthvalue_conversion (location,
+					       TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       return fold_build3 (COND_EXPR, truthvalue_type_node,
 		TREE_OPERAND (expr, 0),
-		c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)),
-		c_common_truthvalue_conversion (TREE_OPERAND (expr, 2)));
+		c_common_truthvalue_conversion (location,
+						TREE_OPERAND (expr, 1)),
+		c_common_truthvalue_conversion (location,
+						TREE_OPERAND (expr, 2)));
 
     CASE_CONVERT:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
@@ -3510,7 +3514,8 @@ c_common_truthvalue_conversion (tree expr)
       /* If this is widening the argument, we can ignore it.  */
       if (TYPE_PRECISION (TREE_TYPE (expr))
 	  >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
-	return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
+	return c_common_truthvalue_conversion (location,
+					       TREE_OPERAND (expr, 0));
       break;
 
     case MODIFY_EXPR:
@@ -3531,10 +3536,13 @@ c_common_truthvalue_conversion (tree expr)
     {
       tree t = save_expr (expr);
       return (build_binary_op
-	      ((TREE_SIDE_EFFECTS (expr)
+	      (EXPR_LOCATION (expr),
+	       (TREE_SIDE_EFFECTS (expr)
 		? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
-	c_common_truthvalue_conversion (build_unary_op (REALPART_EXPR, t, 0)),
-	c_common_truthvalue_conversion (build_unary_op (IMAGPART_EXPR, t, 0)),
+	c_common_truthvalue_conversion (location,
+					build_unary_op (REALPART_EXPR, t, 0)),
+	c_common_truthvalue_conversion (location,
+					build_unary_op (IMAGPART_EXPR, t, 0)),
 	       0));
     }
 
@@ -3543,10 +3551,12 @@ c_common_truthvalue_conversion (tree expr)
       tree fixed_zero_node = build_fixed (TREE_TYPE (expr),
 					  FCONST0 (TYPE_MODE
 						   (TREE_TYPE (expr))));
-      return build_binary_op (NE_EXPR, expr, fixed_zero_node, 1);
+      return build_binary_op (EXPR_LOCATION (expr),
+			      NE_EXPR, expr, fixed_zero_node, 1);
     }
 
-  return build_binary_op (NE_EXPR, expr, integer_zero_node, 1);
+  return build_binary_op (EXPR_LOCATION (expr),
+			  NE_EXPR, expr, integer_zero_node, 1);
 }
 
 static void def_builtin_1  (enum built_in_function fncode,
@@ -4928,6 +4938,8 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
   for (chain = TYPE_VALUES (type); chain; chain = TREE_CHAIN (chain))
     {
       tree value = TREE_VALUE (chain);
+      if (TREE_CODE (value) == CONST_DECL)
+        value = DECL_INITIAL (value);
       node = splay_tree_lookup (cases, (splay_tree_key) value);
       if (node)
 	{
@@ -4994,10 +5006,12 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 }
 
 /* Finish an expression taking the address of LABEL (an
-   IDENTIFIER_NODE).  Returns an expression for the address.  */
+   IDENTIFIER_NODE).  Returns an expression for the address.
+
+   LOC is the location for the expression returned.  */
 
 tree
-finish_label_address_expr (tree label)
+finish_label_address_expr (tree label, location_t loc)
 {
   tree result;
 
@@ -5016,6 +5030,7 @@ finish_label_address_expr (tree label)
       /* The current function in not necessarily uninlinable.
 	 Computed gotos are incompatible with inlining, but the value
 	 here could be used only in a diagnostic, for example.  */
+      protected_set_expr_location (result, loc);
     }
 
   return result;
@@ -5251,34 +5266,8 @@ handle_hot_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		   name, "cold");
 	  *no_add_attrs = true;
 	}
-      else
-	{
-	  tree old_opts = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node);
-
-	  /* If we are not at -O3, but are optimizing, turn on -O3
-	     optimizations just for this one function.  */
-	  if (((optimize > 0 && optimize < 3) || optimize_size)
-	      && targetm.target_option.hot_attribute_sets_optimization
-	      && (!old_opts || old_opts == optimization_default_node))
-	    {
-	      /* Create the hot optimization node if needed.  */
-	      if (!optimization_hot_node)
-		{
-		  struct cl_optimization current_options;
-		  static const char *os_argv[] = { NULL, "-O3", NULL };
-
-		  cl_optimization_save (&current_options);
-		  decode_options (2, os_argv);
-		  optimization_hot_node = build_optimization_node ();
-		  cl_optimization_restore (&current_options);
-		}
-
-	      DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node)
-		= optimization_hot_node;
-	    }
-	  /* Most of the rest of the hot processing is done later with
-	     lookup_attribute.  */
-	}
+      /* Most of the rest of the hot processing is done later with
+	 lookup_attribute.  */
     }
   else
     {
@@ -5303,34 +5292,8 @@ handle_cold_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		   name, "hot");
 	  *no_add_attrs = true;
 	}
-      else
-	{
-	  tree old_opts = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node);
-
-	  /* If we are optimizing, but not optimizing for space, turn on -Os
-	     optimizations just for this one function.  */
-	  if (optimize && !optimize_size
-	      && targetm.target_option.cold_attribute_sets_optimization
-	      && (!old_opts || old_opts == optimization_default_node))
-	    {
-	      /* Create the cold optimization node if needed.  */
-	      if (!optimization_cold_node)
-		{
-		  struct cl_optimization current_options;
-		  static const char *os_argv[] = { NULL, "-Os", NULL };
-
-		  cl_optimization_save (&current_options);
-		  decode_options (2, os_argv);
-		  optimization_cold_node = build_optimization_node ();
-		  cl_optimization_restore (&current_options);
-		}
-
-	      DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node)
-		= optimization_cold_node;
-	    }
-	  /* Most of the rest of the cold processing is done later with
-	     lookup_attribute.  */
-	}
+      /* Most of the rest of the cold processing is done later with
+	 lookup_attribute.  */
     }
   else
     {
@@ -6168,7 +6131,9 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   /* We must ignore the attribute when it is associated with
      local-scoped decls, since attribute alias is ignored and many
      such symbols do not even have a DECL_WEAK field.  */
-  if (decl_function_context (*node) || current_function_decl)
+  if (decl_function_context (*node)
+      || current_function_decl
+      || (TREE_CODE (*node) != VAR_DECL && TREE_CODE (*node) != FUNCTION_DECL))
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
@@ -7029,25 +6994,16 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
   return NULL_TREE;
 }
 
-/* For handling "option" attribute. arguments as in
-   struct attribute_spec.handler.  */
+/* Handle a "target" attribute.  */
 
 static tree
-handle_option_attribute (tree *node, tree name, tree args, int flags,
+handle_target_attribute (tree *node, tree name, tree args, int flags,
 			 bool *no_add_attrs)
 {
   /* Ensure we have a function type.  */
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
-      *no_add_attrs = true;
-    }
-  else if (targetm.target_option.valid_attribute_p
-	   == default_target_option_valid_attribute_p)
-    {
-      warning (OPT_Wattributes,
-	       "%qE attribute is not supported on this machine",
-	       name);
       *no_add_attrs = true;
     }
   else if (! targetm.target_option.valid_attribute_p (*node, name, args,
@@ -7683,6 +7639,7 @@ fold_offsetof_1 (tree expr, tree stop_ref)
       return error_mark_node;
 
     case CALL_EXPR:
+    case TARGET_EXPR:
       error ("cannot apply %<offsetof%> when %<operator[]%> is overloaded");
       return error_mark_node;
 
@@ -8268,13 +8225,16 @@ warn_for_div_by_zero (tree divisor)
    between signed and unsigned quantities that may fail. Do the
    checking based on the original operand trees ORIG_OP0 and ORIG_OP1,
    so that casts will be considered, but default promotions won't
-   be. 
+   be.
+
+   LOCATION is the location of the comparison operator.
 
    The arguments of this function map directly to local variables
    of build_binary_op.  */
 
 void 
-warn_for_sign_compare (tree orig_op0, tree orig_op1, 
+warn_for_sign_compare (location_t location,
+		       tree orig_op0, tree orig_op1, 
 		       tree op0, tree op1, 
 		       tree result_type, enum tree_code resultcode)
 {
@@ -8289,8 +8249,9 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
       && TYPE_MAIN_VARIANT (TREE_TYPE (orig_op0))
       != TYPE_MAIN_VARIANT (TREE_TYPE (orig_op1)))
     {
-      warning (OPT_Wsign_compare, "comparison between types %qT and %qT",
-               TREE_TYPE (orig_op0), TREE_TYPE (orig_op1));
+      warning_at (location,
+		  OPT_Wsign_compare, "comparison between types %qT and %qT",
+		  TREE_TYPE (orig_op0), TREE_TYPE (orig_op1));
     }
 
   /* Do not warn if the comparison is being done in a signed type,
@@ -8336,8 +8297,9 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
                                    c_common_signed_type (result_type)))
         /* OK */;
       else 
-        warning (OPT_Wsign_compare, 
-                 "comparison between signed and unsigned integer expressions");
+        warning_at (location,
+		    OPT_Wsign_compare, 
+		    "comparison between signed and unsigned integer expressions");
     }
   
   /* Warn if two unsigned values are being compared in a size larger
@@ -8390,8 +8352,8 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
 		    warning (OPT_Wsign_compare, 
 			     "promoted ~unsigned is always non-zero");
 		  else
-		    warning (OPT_Wsign_compare, 
-			     "comparison of promoted ~unsigned with constant");
+		    warning_at (location, OPT_Wsign_compare, 
+				"comparison of promoted ~unsigned with constant");
 		}
             }
         }
@@ -8400,7 +8362,7 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
                    < TYPE_PRECISION (result_type))
                && (TYPE_PRECISION (TREE_TYPE (op1))
                    < TYPE_PRECISION (result_type)))
-        warning (OPT_Wsign_compare, 
+        warning_at (location, OPT_Wsign_compare,
                  "comparison of promoted ~unsigned with unsigned");
     }
 }

@@ -94,17 +94,14 @@ typedef struct funct_state_d * funct_state;
 
 /* Array, indexed by cgraph node uid, of function states.  */
 
-static funct_state *funct_state_vec;
+DEF_VEC_P (funct_state);
+DEF_VEC_ALLOC_P (funct_state, heap);
+static VEC (funct_state, heap) *funct_state_vec;
 
-
-/* Init the function state.  */
-
-static void 
-init_state (void)
-{
-  funct_state_vec = XCNEWVEC (funct_state, cgraph_max_uid);
-}
-
+/* Holders of ipa cgraph hooks: */
+static struct cgraph_node_hook_list *function_insertion_hook_holder;
+static struct cgraph_2node_hook_list *node_duplication_hook_holder;
+static struct cgraph_node_hook_list *node_removal_hook_holder;
 
 /* Init the function state.  */
 
@@ -120,7 +117,10 @@ finish_state (void)
 static inline funct_state
 get_function_state (struct cgraph_node *node)
 {
-  return funct_state_vec[node->uid];
+  if (!funct_state_vec
+      || VEC_length (funct_state, funct_state_vec) <= (unsigned int)node->uid)
+    return NULL;
+  return VEC_index (funct_state, funct_state_vec, node->uid);
 }
 
 /* Set the function state S for NODE.  */
@@ -128,7 +128,10 @@ get_function_state (struct cgraph_node *node)
 static inline void
 set_function_state (struct cgraph_node *node, funct_state s)
 {
-  funct_state_vec[node->uid] = s;
+  if (!funct_state_vec
+      || VEC_length (funct_state, funct_state_vec) <= (unsigned int)node->uid)
+     VEC_safe_grow_cleared (funct_state, heap, funct_state_vec, node->uid + 1);
+  VEC_replace (funct_state, funct_state_vec, node->uid, s);
 }
 
 /* Check to see if the use (or definition when CHECKING_WRITE is true)
@@ -583,6 +586,9 @@ analyze_function (struct cgraph_node *fn)
   tree decl = fn->decl;
   funct_state l = XCNEW (struct funct_state_d);
 
+ if (cgraph_function_body_availability (fn) <= AVAIL_OVERWRITABLE)
+   return;
+
   set_function_state (fn, l);
 
   l->pure_const_state = IPA_CONST;
@@ -677,6 +683,49 @@ end:
     }
 }
 
+/* Called when new function is inserted to callgraph late.  */
+static void
+add_new_function (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+{
+ if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)
+   return;
+  /* There are some shared nodes, in particular the initializers on
+     static declarations.  We do not need to scan them more than once
+     since all we would be interested in are the addressof
+     operations.  */
+  visited_nodes = pointer_set_create ();
+  analyze_function (node);
+  pointer_set_destroy (visited_nodes);
+  visited_nodes = NULL;
+}
+
+/* Called when new clone is inserted to callgraph late.  */
+
+static void
+duplicate_node_data (struct cgraph_node *src, struct cgraph_node *dst,
+	 	     void *data ATTRIBUTE_UNUSED)
+{
+  if (get_function_state (src))
+    {
+      funct_state l = XNEW (struct funct_state_d);
+      gcc_assert (!get_function_state (dst));
+      memcpy (l, get_function_state (src), sizeof (*l));
+      set_function_state (dst, l);
+    }
+}
+
+/* Called when new clone is inserted to callgraph late.  */
+
+static void
+remove_node_data (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+{
+  if (get_function_state (node))
+    {
+      free (get_function_state (node));
+      set_function_state (node, NULL);
+    }
+}
+
 
 /* Analyze each function in the cgraph to see if it is locally PURE or
    CONST.  */
@@ -686,7 +735,12 @@ generate_summary (void)
 {
   struct cgraph_node *node;
 
-  init_state ();
+  node_removal_hook_holder =
+      cgraph_add_node_removal_hook (&remove_node_data, NULL);
+  node_duplication_hook_holder =
+      cgraph_add_node_duplication_hook (&duplicate_node_data, NULL);
+  function_insertion_hook_holder =
+      cgraph_add_function_insertion_hook (&add_new_function, NULL);
   /* There are some shared nodes, in particular the initializers on
      static declarations.  We do not need to scan them more than once
      since all we would be interested in are the addressof
@@ -695,14 +749,12 @@ generate_summary (void)
 
   /* Process all of the functions. 
 
-     We do not want to process any of the clones so we check that this
-     is a master clone.  However, we do NOT process any
-     AVAIL_OVERWRITABLE functions (these are never clones) we cannot
+     We do NOT process any AVAIL_OVERWRITABLE functions, we cannot
      guarantee that what we learn about the one we see will be true
      for the one that overrides it.
   */
   for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && cgraph_is_master_clone (node))
+    if (cgraph_function_body_availability (node) > AVAIL_OVERWRITABLE)
       analyze_function (node);
 
   pointer_set_destroy (visited_nodes);
@@ -725,6 +777,9 @@ propagate (void)
   int i;
   struct ipa_dfs_info * w_info;
 
+  cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
+  cgraph_remove_node_duplication_hook (node_duplication_hook_holder);
+  cgraph_remove_node_removal_hook (node_removal_hook_holder);
   order_pos = ipa_utils_reduced_inorder (order, true, false);
   if (dump_file)
     {
@@ -768,12 +823,8 @@ propagate (void)
 	      for (e = w->callees; e; e = e->next_callee) 
 		{
 		  struct cgraph_node *y = e->callee;
-		  /* Only look at the master nodes and skip external nodes.  */
-		  y = cgraph_master_clone (y);
 
-		  if (w == y)
-		    looping = true;
-		  if (y)
+		  if (cgraph_function_body_availability (y) > AVAIL_OVERWRITABLE)
 		    {
 		      funct_state y_l = get_function_state (y);
 		      if (pure_const_state < y_l->pure_const_state)
@@ -841,11 +892,12 @@ propagate (void)
 	  free (node->aux);
 	  node->aux = NULL;
 	}
-      if (node->analyzed && cgraph_is_master_clone (node))
+      if (cgraph_function_body_availability (node) > AVAIL_OVERWRITABLE)
 	free (get_function_state (node));
     }
   
   free (order);
+  VEC_free (funct_state, heap, funct_state_vec);
   finish_state ();
   return 0;
 }
@@ -853,7 +905,7 @@ propagate (void)
 static bool
 gate_pure_const (void)
 {
-  return (flag_ipa_pure_const 
+  return (flag_ipa_pure_const
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !(errorcount || sorrycount));
 }

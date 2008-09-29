@@ -1967,13 +1967,16 @@ build_component_ref (tree datum, tree component)
 
 /* Given an expression PTR for a pointer, return an expression
    for the value pointed to.
-   ERRORSTRING is the name of the operator to appear in error messages.  */
+   ERRORSTRING is the name of the operator to appear in error messages.
+
+   LOC is the location to use for the generated tree.  */
 
 tree
-build_indirect_ref (tree ptr, const char *errorstring)
+build_indirect_ref (tree ptr, const char *errorstring, location_t loc)
 {
   tree pointer = default_conversion (ptr);
   tree type = TREE_TYPE (pointer);
+  tree ref;
 
   if (TREE_CODE (type) == POINTER_TYPE)
     {
@@ -1992,11 +1995,14 @@ build_indirect_ref (tree ptr, const char *errorstring)
       if (TREE_CODE (pointer) == ADDR_EXPR
 	  && (TREE_TYPE (TREE_OPERAND (pointer, 0))
 	      == TREE_TYPE (type)))
-	return TREE_OPERAND (pointer, 0);
+	{
+	  ref = TREE_OPERAND (pointer, 0);
+	  protected_set_expr_location (ref, loc);
+	  return ref;
+	}
       else
 	{
 	  tree t = TREE_TYPE (type);
-	  tree ref;
 
 	  ref = build1 (INDIRECT_REF, t, pointer);
 
@@ -2019,6 +2025,7 @@ build_indirect_ref (tree ptr, const char *errorstring)
 	  TREE_SIDE_EFFECTS (ref)
 	    = TYPE_VOLATILE (t) || TREE_SIDE_EFFECTS (pointer);
 	  TREE_THIS_VOLATILE (ref) = TYPE_VOLATILE (t);
+	  protected_set_expr_location (ref, loc);
 	  return ref;
 	}
     }
@@ -2034,11 +2041,14 @@ build_indirect_ref (tree ptr, const char *errorstring)
    If A is a variable or a member, we generate a primitive ARRAY_REF.
    This avoids forcing the array out of registers, and can work on
    arrays that are not lvalues (for example, members of structures returned
-   by functions).  */
+   by functions).
+
+   LOC is the location to use for the returned expression.  */
 
 tree
-build_array_ref (tree array, tree index)
+build_array_ref (tree array, tree index, location_t loc)
 {
+  tree ret;
   bool swapped = false;
   if (TREE_TYPE (array) == error_mark_node
       || TREE_TYPE (index) == error_mark_node)
@@ -2051,7 +2061,7 @@ build_array_ref (tree array, tree index)
       if (TREE_CODE (TREE_TYPE (index)) != ARRAY_TYPE
 	  && TREE_CODE (TREE_TYPE (index)) != POINTER_TYPE)
 	{
-	  error ("subscripted value is neither array nor pointer");
+	  error_at (loc, "subscripted value is neither array nor pointer");
 	  return error_mark_node;
 	}
       temp = array;
@@ -2062,13 +2072,13 @@ build_array_ref (tree array, tree index)
 
   if (!INTEGRAL_TYPE_P (TREE_TYPE (index)))
     {
-      error ("array subscript is not an integer");
+      error_at (loc, "array subscript is not an integer");
       return error_mark_node;
     }
 
   if (TREE_CODE (TREE_TYPE (TREE_TYPE (array))) == FUNCTION_TYPE)
     {
-      error ("subscripted value is pointer to function");
+      error_at (loc, "subscripted value is pointer to function");
       return error_mark_node;
     }
 
@@ -2115,10 +2125,10 @@ build_array_ref (tree array, tree index)
 	  while (TREE_CODE (foo) == COMPONENT_REF)
 	    foo = TREE_OPERAND (foo, 0);
 	  if (TREE_CODE (foo) == VAR_DECL && C_DECL_REGISTER (foo))
-	    pedwarn (input_location, OPT_pedantic, 
+	    pedwarn (loc, OPT_pedantic, 
 		     "ISO C forbids subscripting %<register%> array");
 	  else if (!flag_isoc99 && !lvalue_p (foo))
-	    pedwarn (input_location, OPT_pedantic, 
+	    pedwarn (loc, OPT_pedantic, 
 		     "ISO C90 forbids subscripting non-lvalue array");
 	}
 
@@ -2139,7 +2149,9 @@ build_array_ref (tree array, tree index)
 	       in an inline function.
 	       Hope it doesn't break something else.  */
 	    | TREE_THIS_VOLATILE (array));
-      return require_complete_type (fold (rval));
+      ret = require_complete_type (fold (rval));
+      protected_set_expr_location (ret, loc);
+      return ret;
     }
   else
     {
@@ -2151,8 +2163,9 @@ build_array_ref (tree array, tree index)
       gcc_assert (TREE_CODE (TREE_TYPE (ar)) == POINTER_TYPE);
       gcc_assert (TREE_CODE (TREE_TYPE (TREE_TYPE (ar))) != FUNCTION_TYPE);
 
-      return build_indirect_ref (build_binary_op (PLUS_EXPR, ar, index, 0),
-				 "array indexing");
+      return build_indirect_ref
+	(build_binary_op (loc, PLUS_EXPR, ar, index, 0),
+	 "array indexing", loc);
     }
 }
 
@@ -2724,16 +2737,20 @@ convert_arguments (int nargs, tree *argarray,
 /* This is the entry point used by the parser to build unary operators
    in the input.  CODE, a tree_code, specifies the unary operator, and
    ARG is the operand.  For unary plus, the C parser currently uses
-   CONVERT_EXPR for code.  */
+   CONVERT_EXPR for code.
+
+   LOC is the location to use for the tree generated.
+*/
 
 struct c_expr
-parser_build_unary_op (enum tree_code code, struct c_expr arg)
+parser_build_unary_op (enum tree_code code, struct c_expr arg, location_t loc)
 {
   struct c_expr result;
 
   result.original_code = ERROR_MARK;
   result.value = build_unary_op (code, arg.value, 0);
-  
+  protected_set_expr_location (result.value, loc);
+
   if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
     overflow_warning (result.value);
 
@@ -2744,22 +2761,28 @@ parser_build_unary_op (enum tree_code code, struct c_expr arg)
    in the input.  CODE, a tree_code, specifies the binary operator, and
    ARG1 and ARG2 are the operands.  In addition to constructing the
    expression, we check for operands that were written with other binary
-   operators in a way that is likely to confuse the user.  */
+   operators in a way that is likely to confuse the user.
+
+   LOCATION is the location of the binary operator.  */
 
 struct c_expr
-parser_build_binary_op (enum tree_code code, struct c_expr arg1,
-			struct c_expr arg2)
+parser_build_binary_op (location_t location, enum tree_code code,
+			struct c_expr arg1, struct c_expr arg2)
 {
   struct c_expr result;
 
   enum tree_code code1 = arg1.original_code;
   enum tree_code code2 = arg2.original_code;
 
-  result.value = build_binary_op (code, arg1.value, arg2.value, 1);
+  result.value = build_binary_op (location, code,
+				  arg1.value, arg2.value, 1);
   result.original_code = code;
 
   if (TREE_CODE (result.value) == ERROR_MARK)
     return result;
+
+  if (location != UNKNOWN_LOCATION)
+    protected_set_expr_location (result.value, location);
 
   /* Check for cases such as x+y<<z which users are likely
      to misinterpret.  */
@@ -2857,7 +2880,8 @@ pointer_diff (tree op0, tree op1)
      Do not do default conversions on the minus operator
      in case restype is a short type.  */
 
-  op0 = build_binary_op (MINUS_EXPR, convert (restype, op0),
+  op0 = build_binary_op (input_location,
+			 MINUS_EXPR, convert (restype, op0),
 			 convert (restype, op1), 0);
   /* This generates an error if op1 is pointer to incomplete type.  */
   if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (TREE_TYPE (orig_op1))))
@@ -2990,7 +3014,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  error ("wrong type argument to unary exclamation mark");
 	  return error_mark_node;
 	}
-      arg = c_objc_common_truthvalue_conversion (arg);
+      arg = c_objc_common_truthvalue_conversion (input_location, arg);
       return invert_truthvalue (arg);
 
     case REALPART_EXPR:
@@ -3151,7 +3175,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  tree op0 = TREE_OPERAND (arg, 0);
 	  if (!c_mark_addressable (op0))
 	    return error_mark_node;
-	  return build_binary_op (PLUS_EXPR,
+	  return build_binary_op (EXPR_LOCATION (xarg), PLUS_EXPR,
 				  (TREE_CODE (TREE_TYPE (op0)) == ARRAY_TYPE
 				   ? array_to_pointer_conversion (op0)
 				   : op0),
@@ -3843,7 +3867,8 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (modifycode != NOP_EXPR)
     {
       lhs = stabilize_reference (lhs);
-      newrhs = build_binary_op (modifycode, lhs, rhs, 1);
+      newrhs = build_binary_op (EXPR_LOCATION (lhs),
+				modifycode, lhs, rhs, 1);
     }
 
   /* Give an error for storing in something that is 'const'.  */
@@ -3952,28 +3977,31 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   /* This macro is used to emit diagnostics to ensure that all format
      strings are complete sentences, visible to gettext and checked at
      compile time.  */
-#define WARN_FOR_ASSIGNMENT(LOCATION, AR, AS, IN, RE)	\
-  do {						\
-    switch (errtype)				\
-      {						\
-      case ic_argpass:				\
-	pedwarn (LOCATION, 0, AR, parmnum, rname);	\
-	break;					\
-      case ic_argpass_nonproto:			\
-	warning (0, AR, parmnum, rname);	\
-	break;					\
-      case ic_assign:				\
-	pedwarn (LOCATION, 0, AS);			\
-	break;					\
-      case ic_init:				\
-	pedwarn (LOCATION, 0, IN);			\
-	break;					\
-      case ic_return:				\
-	pedwarn (LOCATION, 0, RE);			\
-	break;					\
-      default:					\
-	gcc_unreachable ();			\
-      }						\
+#define WARN_FOR_ASSIGNMENT(LOCATION, OPT, AR, AS, IN, RE)               \
+  do {                                                                   \
+    switch (errtype)                                                     \
+      {                                                                  \
+      case ic_argpass:                                                   \
+        if (pedwarn (LOCATION, OPT, AR, parmnum, rname))                 \
+          inform (fundecl ? DECL_SOURCE_LOCATION (fundecl) : LOCATION,   \
+                  "expected %qT but argument is of type %qT",            \
+                  type, rhstype);                                        \
+        break;                                                           \
+      case ic_argpass_nonproto:                                          \
+        warning (OPT, AR, parmnum, rname);                               \
+        break;                                                           \
+      case ic_assign:                                                    \
+        pedwarn (LOCATION, OPT, AS);                                     \
+        break;                                                           \
+      case ic_init:                                                      \
+        pedwarn (LOCATION, OPT, IN);                                     \
+        break;                                                           \
+      case ic_return:                                                    \
+        pedwarn (LOCATION, OPT, RE);                                     \
+        break;                                                           \
+      default:                                                           \
+        gcc_unreachable ();                                              \
+      }                                                                  \
   } while (0)
 
   STRIP_TYPE_NOPS (rhs);
@@ -4151,7 +4179,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		     function where an ordinary one is wanted, but not
 		     vice-versa.  */
 		  if (TYPE_QUALS (ttl) & ~TYPE_QUALS (ttr))
-		    WARN_FOR_ASSIGNMENT (input_location,
+		    WARN_FOR_ASSIGNMENT (input_location, 0,
 					 G_("passing argument %d of %qE "
 					    "makes qualified function "
 					    "pointer from unqualified"),
@@ -4165,7 +4193,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 					    "pointer from unqualified"));
 		}
 	      else if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
-		WARN_FOR_ASSIGNMENT (input_location,
+		WARN_FOR_ASSIGNMENT (input_location, 0,
 				     G_("passing argument %d of %qE discards "
 					"qualifiers from pointer target type"),
 				     G_("assignment discards qualifiers "
@@ -4265,7 +4293,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		  (VOID_TYPE_P (ttr)
 		   && !null_pointer_constant_p (rhs)
 		   && TREE_CODE (ttl) == FUNCTION_TYPE)))
-	    WARN_FOR_ASSIGNMENT (input_location,
+	    WARN_FOR_ASSIGNMENT (input_location, OPT_pedantic,
 				 G_("ISO C forbids passing argument %d of "
 				    "%qE between function pointer "
 				    "and %<void *%>"),
@@ -4286,7 +4314,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		     qualifier are acceptable if the 'volatile' has been added
 		     in by the Objective-C EH machinery.  */
 		  if (!objc_type_quals_match (ttl, ttr))
-		    WARN_FOR_ASSIGNMENT (input_location,
+		    WARN_FOR_ASSIGNMENT (input_location, 0,
 					 G_("passing argument %d of %qE discards "
 					    "qualifiers from pointer target type"),
 					 G_("assignment discards qualifiers "
@@ -4303,7 +4331,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		;
 	      /* If there is a mismatch, do warn.  */
 	      else if (warn_pointer_sign)
-		WARN_FOR_ASSIGNMENT (input_location,
+		WARN_FOR_ASSIGNMENT (input_location, OPT_Wpointer_sign,
 				     G_("pointer targets in passing argument "
 					"%d of %qE differ in signedness"),
 				     G_("pointer targets in assignment "
@@ -4321,7 +4349,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		 it is okay to use a const or volatile function
 		 where an ordinary one is wanted, but not vice-versa.  */
 	      if (TYPE_QUALS (ttl) & ~TYPE_QUALS (ttr))
-		WARN_FOR_ASSIGNMENT (input_location,
+		WARN_FOR_ASSIGNMENT (input_location, 0,
 				     G_("passing argument %d of %qE makes "
 					"qualified function pointer "
 					"from unqualified"),
@@ -4336,7 +4364,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       else
 	/* Avoid warning about the volatile ObjC EH puts on decls.  */
 	if (!objc_ok)
-	  WARN_FOR_ASSIGNMENT (input_location,
+	  WARN_FOR_ASSIGNMENT (input_location, 0,
 			       G_("passing argument %d of %qE from "
 				  "incompatible pointer type"),
 			       G_("assignment from incompatible pointer type"),
@@ -4359,7 +4387,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	 or one that results from arithmetic, even including
 	 a cast to integer type.  */
       if (!null_pointer_constant_p (rhs))
-	WARN_FOR_ASSIGNMENT (input_location,
+	WARN_FOR_ASSIGNMENT (input_location, 0,
 			     G_("passing argument %d of %qE makes "
 				"pointer from integer without a cast"),
 			     G_("assignment makes pointer from integer "
@@ -4373,7 +4401,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
     }
   else if (codel == INTEGER_TYPE && coder == POINTER_TYPE)
     {
-      WARN_FOR_ASSIGNMENT (input_location,
+      WARN_FOR_ASSIGNMENT (input_location, 0,
 			   G_("passing argument %d of %qE makes integer "
 			      "from pointer without a cast"),
 			   G_("assignment makes integer from pointer "
@@ -7895,6 +7923,7 @@ push_cleanup (tree ARG_UNUSED (decl), tree cleanup, bool eh_only)
 
 /* Build a binary-operation expression without default conversions.
    CODE is the kind of expression to build.
+   LOCATION is the operator's location.
    This function differs from `build' in several ways:
    the data type of the result is computed and recorded in it,
    warnings are generated if arg data types are invalid,
@@ -7909,8 +7938,8 @@ push_cleanup (tree ARG_UNUSED (decl), tree cleanup, bool eh_only)
    the arithmetic is to be done.  */
 
 tree
-build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
-		 int convert_p)
+build_binary_op (location_t location, enum tree_code code,
+		 tree orig_op0, tree orig_op1, int convert_p)
 {
   tree type0, type1;
   enum tree_code code0, code1;
@@ -7962,6 +7991,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   /* True means types are compatible as far as ObjC is concerned.  */
   bool objc_ok;
 
+  if (location == UNKNOWN_LOCATION)
+    location = input_location;
+
   if (convert_p)
     {
       op0 = default_conversion (orig_op0);
@@ -7994,7 +8026,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   if ((invalid_op_diag
        = targetm.invalid_binary_op (code, type0, type1)))
     {
-      error (invalid_op_diag);
+      error_at (location, invalid_op_diag);
       return error_mark_node;
     }
 
@@ -8112,8 +8144,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	     but that does not mean the operands should be
 	     converted to ints!  */
 	  result_type = integer_type_node;
-	  op0 = c_common_truthvalue_conversion (op0);
-	  op1 = c_common_truthvalue_conversion (op1);
+	  op0 = c_common_truthvalue_conversion (location, op0);
+	  op1 = c_common_truthvalue_conversion (location, op1);
 	  converted = 1;
 	}
       break;
@@ -8178,8 +8210,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case EQ_EXPR:
     case NE_EXPR:
       if (FLOAT_TYPE_P (type0) || FLOAT_TYPE_P (type1))
-	warning (OPT_Wfloat_equal,
-		 "comparing floating point with == or != is unsafe");
+	warning_at (location,
+		    OPT_Wfloat_equal,
+		    "comparing floating point with == or != is unsafe");
       /* Result of comparison is always int,
 	 but don't convert the args to int!  */
       build_type = integer_type_node;
@@ -8203,20 +8236,20 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		 whose value is 0 but which isn't a valid null ptr const.  */
 	      if (pedantic && !null_pointer_constant_p (orig_op0)
 		  && TREE_CODE (tt1) == FUNCTION_TYPE)
-		pedwarn (input_location, OPT_pedantic, "ISO C forbids "
+		pedwarn (location, OPT_pedantic, "ISO C forbids "
 			 "comparison of %<void *%> with function pointer");
 	    }
 	  else if (VOID_TYPE_P (tt1))
 	    {
 	      if (pedantic && !null_pointer_constant_p (orig_op1)
 		  && TREE_CODE (tt0) == FUNCTION_TYPE)
-		pedwarn (input_location, OPT_pedantic, "ISO C forbids "
+		pedwarn (location, OPT_pedantic, "ISO C forbids "
 			 "comparison of %<void *%> with function pointer");
 	    }
 	  else
 	    /* Avoid warning about the volatile ObjC EH puts on decls.  */
 	    if (!objc_ok)
-	      pedwarn (input_location, 0,
+	      pedwarn (location, 0,
 		       "comparison of distinct pointer types lacks a cast");
 
 	  if (result_type == NULL_TREE)
@@ -8226,27 +8259,29 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	{
 	  if (TREE_CODE (op0) == ADDR_EXPR
 	      && decl_with_nonnull_addr_p (TREE_OPERAND (op0, 0)))
-	    warning (OPT_Waddress, "the address of %qD will never be NULL",
-		     TREE_OPERAND (op0, 0));
+	    warning_at (location,
+			OPT_Waddress, "the address of %qD will never be NULL",
+			TREE_OPERAND (op0, 0));
 	  result_type = type0;
 	}
       else if (code1 == POINTER_TYPE && null_pointer_constant_p (orig_op0))
 	{
 	  if (TREE_CODE (op1) == ADDR_EXPR
 	      && decl_with_nonnull_addr_p (TREE_OPERAND (op1, 0)))
-	    warning (OPT_Waddress, "the address of %qD will never be NULL",
-		     TREE_OPERAND (op1, 0));
+	    warning_at (location,
+			OPT_Waddress, "the address of %qD will never be NULL",
+			TREE_OPERAND (op1, 0));
 	  result_type = type1;
 	}
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  result_type = type0;
-	  pedwarn (input_location, 0, "comparison between pointer and integer");
+	  pedwarn (location, 0, "comparison between pointer and integer");
 	}
       else if (code0 == INTEGER_TYPE && code1 == POINTER_TYPE)
 	{
 	  result_type = type1;
-	  pedwarn (input_location, 0, "comparison between pointer and integer");
+	  pedwarn (location, 0, "comparison between pointer and integer");
 	}
       break;
 
@@ -8267,16 +8302,16 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      result_type = common_pointer_type (type0, type1);
 	      if (!COMPLETE_TYPE_P (TREE_TYPE (type0))
 		  != !COMPLETE_TYPE_P (TREE_TYPE (type1)))
-		pedwarn (input_location, 0,
+		pedwarn (location, 0,
 			 "comparison of complete and incomplete pointers");
 	      else if (TREE_CODE (TREE_TYPE (type0)) == FUNCTION_TYPE)
-		pedwarn (input_location, OPT_pedantic, "ISO C forbids "
+		pedwarn (location, OPT_pedantic, "ISO C forbids "
 			 "ordered comparisons of pointers to functions");
 	    }
 	  else
 	    {
 	      result_type = ptr_type_node;
-	      pedwarn (input_location, 0,
+	      pedwarn (location, 0,
 		       "comparison of distinct pointer types lacks a cast");
 	    }
 	}
@@ -8284,27 +8319,27 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	{
 	  result_type = type0;
 	  if (pedantic)
-	    pedwarn (input_location, OPT_pedantic, 
+	    pedwarn (location, OPT_pedantic, 
 		     "ordered comparison of pointer with integer zero");
 	  else if (extra_warnings)
-	    warning (OPT_Wextra,
+	    warning_at (location, OPT_Wextra,
 		     "ordered comparison of pointer with integer zero");
 	}
       else if (code1 == POINTER_TYPE && null_pointer_constant_p (orig_op0))
 	{
 	  result_type = type1;
-	  pedwarn (input_location, OPT_pedantic, 
+	  pedwarn (location, OPT_pedantic, 
 		   "ordered comparison of pointer with integer zero");
 	}
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  result_type = type0;
-	  pedwarn (input_location, 0, "comparison between pointer and integer");
+	  pedwarn (location, 0, "comparison between pointer and integer");
 	}
       else if (code0 == INTEGER_TYPE && code1 == POINTER_TYPE)
 	{
 	  result_type = type1;
-	  pedwarn (input_location, 0, "comparison between pointer and integer");
+	  pedwarn (location, 0, "comparison between pointer and integer");
 	}
       break;
 
@@ -8320,7 +8355,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  || !same_scalar_type_ignoring_signedness (TREE_TYPE (type0),
 						    TREE_TYPE (type1))))
     {
-      binary_op_error (code, type0, type1);
+      binary_op_error (location, code, type0, type1);
       return error_mark_node;
     }
 
@@ -8410,7 +8445,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
 	  if (warn_sign_compare && !skip_evaluation)
             {
-              warn_for_sign_compare (orig_op0, orig_op1, op0, op1, 
+              warn_for_sign_compare (location, orig_op0, orig_op1, op0, op1, 
                                      result_type, resultcode);
 	    }
 	}
@@ -8424,7 +8459,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
   if (!result_type)
     {
-      binary_op_error (code, TREE_TYPE (op0), TREE_TYPE (op1));
+      binary_op_error (location, code, TREE_TYPE (op0), TREE_TYPE (op1));
       return error_mark_node;
     }
 
@@ -8460,23 +8495,23 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
 
 /* Convert EXPR to be a truth-value, validating its type for this
-   purpose.  */
+   purpose.  LOCATION is the source location for the expression.  */
 
 tree
-c_objc_common_truthvalue_conversion (tree expr)
+c_objc_common_truthvalue_conversion (location_t location, tree expr)
 {
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case ARRAY_TYPE:
-      error ("used array that cannot be converted to pointer where scalar is required");
+      error_at (location, "used array that cannot be converted to pointer where scalar is required");
       return error_mark_node;
 
     case RECORD_TYPE:
-      error ("used struct type value where scalar is required");
+      error_at (location, "used struct type value where scalar is required");
       return error_mark_node;
 
     case UNION_TYPE:
-      error ("used union type value where scalar is required");
+      error_at (location, "used union type value where scalar is required");
       return error_mark_node;
 
     case FUNCTION_TYPE:
@@ -8488,7 +8523,7 @@ c_objc_common_truthvalue_conversion (tree expr)
 
   /* ??? Should we also give an error for void and vectors rather than
      leaving those to give errors later?  */
-  return c_common_truthvalue_conversion (expr);
+  return c_common_truthvalue_conversion (location, expr);
 }
 
 
