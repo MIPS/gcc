@@ -1,6 +1,11 @@
 2008-09-28  Antoniu Pop  <antoniu.pop@gmail.com>
 	    Sebastian Pop  <sebastian.pop@amd.com>
 
+	* Revert changes from 2008-09-04 and 2008-08-28 (r139392:139978).
+
+2008-09-28  Antoniu Pop  <antoniu.pop@gmail.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
 	* Merge from mainline (r139387:140737).
 
 2008-09-04  Antoniu Pop  <antoniu.pop@gmail.com>
@@ -33,7 +38,7 @@
 	output clauses.
 
 2008-04-22  Antoniu Pop  <antoniu.pop@gmail.com>
-        Sebastian Pop <sebastian.pop@amd.com>
+	    Sebastian Pop <sebastian.pop@amd.com>
 
 	* builtin-types.def (BT_FN_BOOL_PTR, BT_FN_VOID_PTR_PTR_SIZE,
 	BT_FN_PTR_SIZE_SIZE_SIZE): New types.     

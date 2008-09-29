@@ -6726,10 +6726,6 @@ c_parser_omp_clause_name (c_parser *parser)
 	  if (!strcmp ("firstprivate", p))
 	    result = PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
 	  break;
-	case 'i':
-	  if (!strcmp ("input", p))
-	    result = PRAGMA_OMP_CLAUSE_INPUT;
-	  break;
 	case 'l':
 	  if (!strcmp ("lastprivate", p))
 	    result = PRAGMA_OMP_CLAUSE_LASTPRIVATE;
@@ -6743,8 +6739,6 @@ c_parser_omp_clause_name (c_parser *parser)
 	case 'o':
 	  if (!strcmp ("ordered", p))
 	    result = PRAGMA_OMP_CLAUSE_ORDERED;
-	  else if (!strcmp ("output", p))
-	    result = PRAGMA_OMP_CLAUSE_OUTPUT;
 	  break;
 	case 'p':
 	  if (!strcmp ("private", p))
@@ -6993,15 +6987,6 @@ c_parser_omp_clause_if (c_parser *parser, tree list)
   return list;
 }
 
-/* Stream OpenMP extension:
-   input */
-
-static tree
-c_parser_omp_clause_input (c_parser *parser ATTRIBUTE_UNUSED, tree list)
-{
-  return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_INPUT, list);
-}
-
 /* OpenMP 2.5:
    lastprivate ( variable-list ) */
 
@@ -7079,15 +7064,6 @@ c_parser_omp_clause_ordered (c_parser *parser ATTRIBUTE_UNUSED, tree list)
   c = build_omp_clause (OMP_CLAUSE_ORDERED);
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
-}
-
-/* Stream OpenMP extension:
-   output */
-
-static tree
-c_parser_omp_clause_output (c_parser *parser ATTRIBUTE_UNUSED, tree list)
-{
-  return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_OUTPUT, list);
 }
 
 /* OpenMP 2.5:
@@ -7328,10 +7304,6 @@ c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
 	  clauses = c_parser_omp_clause_if (parser, clauses);
 	  c_name = "if";
 	  break;
-	case PRAGMA_OMP_CLAUSE_INPUT:
-	  clauses = c_parser_omp_clause_input (parser, clauses);
-	  c_name = "input";
-	  break;
 	case PRAGMA_OMP_CLAUSE_LASTPRIVATE:
 	  clauses = c_parser_omp_clause_lastprivate (parser, clauses);
 	  c_name = "lastprivate";
@@ -7347,10 +7319,6 @@ c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
 	case PRAGMA_OMP_CLAUSE_ORDERED:
 	  clauses = c_parser_omp_clause_ordered (parser, clauses);
 	  c_name = "ordered";
-	  break;
-	case PRAGMA_OMP_CLAUSE_OUTPUT:
-	  clauses = c_parser_omp_clause_output (parser, clauses);
-	  c_name = "output";
 	  break;
 	case PRAGMA_OMP_CLAUSE_PRIVATE:
 	  clauses = c_parser_omp_clause_private (parser, clauses);
@@ -8097,9 +8065,7 @@ c_parser_omp_single (c_parser *parser)
 	| (1u << PRAGMA_OMP_CLAUSE_DEFAULT)		\
 	| (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
 	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
-	| (1u << PRAGMA_OMP_CLAUSE_SHARED)              \
-	| (1u << PRAGMA_OMP_CLAUSE_INPUT)               \
-	| (1u << PRAGMA_OMP_CLAUSE_OUTPUT))
+	| (1u << PRAGMA_OMP_CLAUSE_SHARED))
 
 static tree
 c_parser_omp_task (c_parser *parser)

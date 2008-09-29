@@ -70,10 +70,7 @@ typedef enum pragma_omp_clause {
   PRAGMA_OMP_CLAUSE_REDUCTION,
   PRAGMA_OMP_CLAUSE_SCHEDULE,
   PRAGMA_OMP_CLAUSE_SHARED,
-  PRAGMA_OMP_CLAUSE_UNTIED,
-
-  PRAGMA_OMP_CLAUSE_INPUT,
-  PRAGMA_OMP_CLAUSE_OUTPUT
+  PRAGMA_OMP_CLAUSE_UNTIED
 } pragma_omp_clause;
 
 extern struct cpp_reader* parse_in;

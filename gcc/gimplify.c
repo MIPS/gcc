@@ -5536,8 +5536,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COPYPRIVATE:
-	case OMP_CLAUSE_INPUT: /* StreamOMP-FIXME:  */
-	case OMP_CLAUSE_OUTPUT:/* StreamOMP-FIXME:  */
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (decl == error_mark_node || TREE_TYPE (decl) == error_mark_node)
 	    {
@@ -5705,8 +5703,6 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COPYPRIVATE:
-	case OMP_CLAUSE_INPUT:    /* StreamOMP-FIXME:  */
-	case OMP_CLAUSE_OUTPUT:   /* StreamOMP-FIXME:  */
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:

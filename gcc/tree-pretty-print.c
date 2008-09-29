@@ -271,12 +271,6 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 
   switch (OMP_CLAUSE_CODE (clause))
     {
-    case OMP_CLAUSE_INPUT:
-      name = "input";
-      goto print_remap;
-    case OMP_CLAUSE_OUTPUT:
-      name = "output";
-      goto print_remap;
     case OMP_CLAUSE_PRIVATE:
       name = "private";
       goto print_remap;

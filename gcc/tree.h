@@ -302,12 +302,6 @@ enum omp_clause_code
   /* OpenMP clause: copyprivate (variable_list).  */
   OMP_CLAUSE_COPYPRIVATE,
 
-  /* Stream OpenMP clause: input (variable_list).  */
-  OMP_CLAUSE_INPUT,
-
-  /* Stream OpenMP clause: output (variable_list).  */
-  OMP_CLAUSE_OUTPUT,
-
   /* OpenMP clause: if (scalar-expression).  */
   OMP_CLAUSE_IF,
 
@@ -1744,7 +1738,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_DECL(NODE)      					\
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_PRIVATE,	\
-	                                      OMP_CLAUSE_OUTPUT), 0)
+	                                      OMP_CLAUSE_COPYPRIVATE), 0)
 
 /* True on an OMP_SECTION statement that was the last lexical member.
    This status is meaningful in the implementation of lastprivate.  */
