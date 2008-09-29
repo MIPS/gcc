@@ -1,6 +1,18 @@
 2008-09-29  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
+	2008-09-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-lives.c (mark_reg_live, mark_reg_dead): Reverted.
+	(mark_ref_live, mark_ref_dead): Likewise.
+	(def_conflicts_with_inputs_p): Likewise.
+	(mark_early_clobbers): Likewise.
+	(process_bb_node_lives): Likewise.
+	* doc/rtx.texi (clobber): Likewise.
+
+2008-09-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
 	2008-09-29  Hans-Peter Nilsson  <hp@axis.com>
 
 	* config/cris/cris.h (IRA_COVER_CLASSES): Define.
