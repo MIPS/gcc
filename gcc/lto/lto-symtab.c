@@ -411,22 +411,7 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	     "declaration", new_decl);
       return false;
     }
-  /* FIXME: DWARF doesn't include a "weak" attribute, so where is that
-     info supposed to come from?  */
-  if (!DECL_EXTERNAL (old_decl) && !DECL_EXTERNAL (new_decl)
-      && !DECL_WEAK (old_decl) && !DECL_WEAK (new_decl)
-      && !(TREE_CODE (new_decl) == FUNCTION_DECL
-	   && DECL_DECLARED_INLINE_P (old_decl)
-	   && DECL_DECLARED_INLINE_P (new_decl))
-      /* If we have gotten this far, then we are redeclaring a builtin
-         function and we have found the new declaration consistent with
-         the old.  Don't complain.  */
-      && !DECL_IS_BUILTIN (old_decl)
-      && !DECL_IS_BUILTIN (new_decl))
-    {
-      error ("%qD has already been defined", new_decl);
-      return false;
-    }
+
   /* We do not require matches for:
 
      - DECL_NAME
@@ -452,6 +437,8 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 static void
 lto_symtab_overwrite_decl (tree dest, tree src)
 {
+  LTO_DECL_RESOLUTION (dest) = LTO_DECL_RESOLUTION (src);
+
   TREE_SIDE_EFFECTS (dest) = TREE_SIDE_EFFECTS (src);
   TREE_CONSTANT (dest) = TREE_CONSTANT (src);
   TREE_ADDRESSABLE (dest) = TREE_ADDRESSABLE (src);
@@ -519,6 +506,12 @@ lto_symtab_merge_decl (tree new_decl,
       gcc_assert (!DECL_REGISTER (new_decl));
       gcc_assert (!(DECL_EXTERNAL (new_decl) && DECL_INITIAL (new_decl)));
     }
+
+  /* Remember the resolution of this symbol. */
+  gcc_assert (!DECL_LANG_SPECIFIC (new_decl));
+  DECL_LANG_SPECIFIC (new_decl) = GGC_NEW (struct lang_decl);
+  LTO_DECL_RESOLUTION (new_decl) = resolution;
+
   /* Retrieve the previous declaration.  */
   name = DECL_ASSEMBLER_NAME (new_decl);
   old_decl = LTO_IDENTIFIER_DECL (name);
@@ -527,7 +520,6 @@ lto_symtab_merge_decl (tree new_decl,
   if (!old_decl)
     {
       LTO_IDENTIFIER_DECL (name) = new_decl;
-      LTO_IDENTIFIER_RESOLUTION (name) = resolution;
       VEC_safe_push (tree, gc, lto_global_var_decls, new_decl);
       return new_decl;
       if (TREE_NOTHROW (old_decl) != TREE_NOTHROW (new_decl))
@@ -541,8 +533,7 @@ lto_symtab_merge_decl (tree new_decl,
   if (!lto_symtab_compatible (old_decl, new_decl))
     return error_mark_node;
 
-  old_resolution = LTO_IDENTIFIER_RESOLUTION (name);
-
+  old_resolution = LTO_DECL_RESOLUTION (old_decl);
   gcc_assert (resolution != LDPR_UNKNOWN
 	      && resolution != LDPR_UNDEF
 	      && old_resolution != LDPR_UNKNOWN
@@ -551,10 +542,15 @@ lto_symtab_merge_decl (tree new_decl,
   if (resolution == LDPR_PREVAILING_DEF
       || resolution == LDPR_PREVAILING_DEF_IRONLY)
     {
+      if (old_resolution == LDPR_PREVAILING_DEF
+	  || old_resolution == LDPR_PREVAILING_DEF_IRONLY)
+	{
+	  error ("%qD has already been defined", new_decl);
+	  return error_mark_node;
+	}
       gcc_assert (old_resolution == LDPR_PREEMPTED_IR
 		  || old_resolution ==  LDPR_RESOLVED_IR);
       lto_symtab_overwrite_decl (old_decl, new_decl);
-      LTO_IDENTIFIER_RESOLUTION (name) = resolution;
       return old_decl;
     }
 
@@ -571,8 +567,6 @@ lto_symtab_merge_decl (tree new_decl,
 		|| old_resolution == LDPR_PREVAILING_DEF_IRONLY
 		|| old_resolution == LDPR_PREEMPTED_IR
 		|| old_resolution == LDPR_RESOLVED_IR);
-
-  lto_symtab_overwrite_decl (new_decl, old_decl);
 
   return old_decl;
 }

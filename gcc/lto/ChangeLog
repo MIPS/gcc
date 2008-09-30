@@ -1,5 +1,16 @@
 2008-09-30 Rafael Espindola  <espindola@google.com>
 
+	* lto-symtab.c (lto_symtab_compatible): Remove the check for already
+	defined symbols.
+	(lto_symtab_overwrite_decl): Copy LTO_DECL_RESOLUTION.
+	(lto_symtab_merge_decl): Store symbol resolution in LTO_DECL_RESOLUTION.
+	Check for already defined symbols.
+	* lto-tree.h (lang_decl): Remove dummy and add resolution fields.
+	(LTO_IDENTIFIER_RESOLUTION): Remove.
+	(LTO_DECL_RESOLUTION): New.
+
+2008-09-30 Rafael Espindola  <espindola@google.com>
+
 	* lto.c (lto_read_decls): Use new input_tree signature.
 
 2008-09-26  Doug Kwan  <dougkwan@google.com>

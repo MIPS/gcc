@@ -34,7 +34,7 @@ struct lang_identifier GTY(())
 
 struct lang_decl GTY(())
 {
-  int dummy;  /* Added because ggc does not like empty structs.  */
+  enum ld_plugin_symbol_resolution resolution;
 };
 
 struct lang_type GTY(())
@@ -70,8 +70,8 @@ union lang_tree_node GTY(
 #define LTO_IDENTIFIER_DECL(NODE)		\
   (LANG_IDENTIFIER_CAST (NODE)->decl)
 
-#define LTO_IDENTIFIER_RESOLUTION(NODE)                \
-  (LANG_IDENTIFIER_CAST (NODE)->resolution)
+#define LTO_DECL_RESOLUTION(NODE)                \
+  (DECL_LANG_SPECIFIC (NODE)->resolution)
 
 /* Vector to keep track of external variables we've seen so far.  */
 extern GTY(()) VEC(tree,gc) *lto_global_var_decls;
