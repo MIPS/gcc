@@ -1,5 +1,11 @@
 2008-09-30 Rafael Espindola  <espindola@google.com>
 
+	* lto-function-in.c (get_resolution): Assert the decl is not
+	DECL_ABSTRACT.
+	(input_function_decl): Don't merge DECL_ABSTRACT function decls.
+
+2008-09-30 Rafael Espindola  <espindola@google.com>
+
 	* lto-function-in.c (vec_tree_ptr, lto_fixups): Remove.
 	(global_vector_enter): Remove the need_fixups argument.
 	(global_vector_fixup): Just update globals_index and free the old node.

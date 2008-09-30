@@ -2780,6 +2780,8 @@ get_resolution (struct data_in *data_in, unsigned index)
       /* Fake symbol resolution in the case no resolution file was provided. */
       tree t = VEC_index (tree, data_in->globals_index, index);
       gcc_assert (TREE_PUBLIC (t));
+      /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+      gcc_assert (!DECL_ABSTRACT (t));
       if (DECL_EXTERNAL (t))
 	return LDPR_RESOLVED_IR;
       else
@@ -2873,11 +2875,12 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   /* If the function has already been declared, merge the
      declarations.  */
-  if (TREE_PUBLIC (decl))
+  /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+  if (TREE_PUBLIC (decl) && !DECL_ABSTRACT (decl))
     {
       enum ld_plugin_symbol_resolution resolution =
 	get_resolution (data_in, index);
-      tree merged = lto_symtab_merge_var (decl, resolution);
+      tree merged = lto_symtab_merge_fn (decl, resolution);
       /* If merge fails, use the original declaraction.  */
       if (merged != error_mark_node)
 	decl = merged;
