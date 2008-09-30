@@ -75,7 +75,7 @@ struct data_in
 
 /* Used in lto/lto.c */
 extern void lto_static_init_local (void);
-extern void input_tree (tree *, struct lto_input_block *, struct data_in *);
+extern tree input_tree (struct lto_input_block *, struct data_in *);
 
 /* FN is a FUNCTION_DECL.  DATA is the LTO data written out during
    ordinary compilation, encoding the body of FN.  FILE_DATA are the

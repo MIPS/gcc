@@ -1,5 +1,14 @@
 2008-09-30 Rafael Espindola  <espindola@google.com>
 
+	* lto-function-in.c (input_tree): Remove slot argument. Return a tree.
+	(input_field_decl, input_function_decl, input_var_decl, input_parm_decl,
+	input_result_decl, input_type_decl, input_label_decl,
+	input_namespace_decl, input_translation_unit_decl, input_binfo,
+	input_type, input_tree_operand): Use new input_tree signature.
+	* lto-tree-in.h (input_tree): Update signature.
+
+2008-09-30 Rafael Espindola  <espindola@google.com>
+
 	* lto-function-in.c (get_resolution): Assert the decl is not
 	DECL_ABSTRACT.
 	(input_function_decl): Don't merge DECL_ABSTRACT function decls.

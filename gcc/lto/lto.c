@@ -261,9 +261,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   /* FIXME: We should be a bit more graceful regarding truncated files. */
   while (ib_main.p < ib_main.len)
     {
-      tree dummy;
-
-      input_tree (&dummy, &ib_main, &data_in);
+      input_tree (&ib_main, &data_in);
       gcc_assert (ib_main.p <= ib_main.len);
     }
 
