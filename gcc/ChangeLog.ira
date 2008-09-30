@@ -1,3 +1,7 @@
+2008-09-29  Jan Hubicka  <jh@suse.cz>
+
+	* ira-emit.c (change_regs): Return false when replacing reg by itself.
+
 2008-09-29  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR middle-end/37535
