@@ -1,3 +1,11 @@
+2008-09-30  Doug Kwan  <dougkwan@google.com>
+
+	* lto-symtab.c (lto_symbol_overwrite_decl): Check for change in
+	exception attribute and remember decl for fix-up.
+	(lto_symtab_merge_decl): Remove incorrect code do to a previous
+	merge error.  Check for change in exception attribute and
+	remember decl for fix-up.
+
 2008-09-30 Rafael Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_tree): Remove slot argument. Return a tree.

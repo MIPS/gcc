@@ -464,6 +464,16 @@ lto_symtab_overwrite_decl (tree dest, tree src)
 	DECL_CONTEXT (DECL_RESULT (dest)) = dest;
       TREE_STATIC (dest) = TREE_STATIC (src);
       DECL_DECLARED_INLINE_P (dest) = DECL_DECLARED_INLINE_P (src);
+
+      /* Remember this to fix up EH region later.  */
+      if (TREE_NOTHROW (dest) != TREE_NOTHROW (src))
+	{
+	  TREE_NOTHROW (dest) = TREE_NOTHROW (src);
+	  if (TREE_NOTHROW (dest))
+	    lto_mark_nothrow_fndecl (dest);
+	  else
+	    error ("%qD change to exception throwing", dest);
+	};
     }
 
   if (TREE_CODE (src) == VAR_DECL)
@@ -522,11 +532,6 @@ lto_symtab_merge_decl (tree new_decl,
       LTO_IDENTIFIER_DECL (name) = new_decl;
       VEC_safe_push (tree, gc, lto_global_var_decls, new_decl);
       return new_decl;
-      if (TREE_NOTHROW (old_decl) != TREE_NOTHROW (new_decl))
-	{
-	  TREE_NOTHROW (old_decl) = 1;
-	  lto_mark_nothrow_fndecl (old_decl);
-	};
     }
 
   /* The linker may ask us to combine two incompatible symbols. */
@@ -552,6 +557,18 @@ lto_symtab_merge_decl (tree new_decl,
 		  || old_resolution ==  LDPR_RESOLVED_IR);
       lto_symtab_overwrite_decl (old_decl, new_decl);
       return old_decl;
+    }
+
+  if (TREE_CODE (new_decl) == FUNCTION_DECL
+      && TREE_NOTHROW (new_decl) != TREE_NOTHROW (old_decl))
+    {
+      /* Since we return old_decl as the canonical DECL, GIMPLE call
+	 statements originally associated with new_decl will now be
+	 associated with old_decl.  Hence we mark be old_decl for fix-up.  */
+      if (TREE_NOTHROW (old_decl))
+	lto_mark_nothrow_fndecl (old_decl);
+      else
+	error ("%qD change to exception throwing", new_decl);
     }
 
   if (resolution == LDPR_PREEMPTED_REG
