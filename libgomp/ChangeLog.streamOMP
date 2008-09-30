@@ -1,3 +1,13 @@
+2008-09-30  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* config/linux/stream.c: Removed.  Code moved to libgomp/stream.c
+	* config/linux/stream.h: Removed.  Code moved to libgomp/stream.h
+	* config/posix/stream.c: Removed.  Code moved to libgomp/stream.c
+	* config/posix/stream.h: Removed.  Code moved to libgomp/stream.h
+
+	* stream.c: New.  Replaces the posix and linux specific versions.
+	* stream.h: New.  Replaces the posix and linux specific versions.
+
 2008-09-28  Antoniu Pop  <antoniu.pop@gmail.com>
 	    Sebastian Pop  <sebastian.pop@amd.com>
 
@@ -8,17 +18,17 @@
 2008-04-22  Antoniu Pop  <antoniu.pop@gmail.com>
          Sebastian Pop  <sebastian.pop@amd.com>
 
-     * config/linux/stream.c: New.
-     * config/linux/stream.h: New.
-     * config/posix/stream.c: New.
-     * config/posix/stream.h: New.
+	* config/linux/stream.c: New.
+	* config/linux/stream.h: New.
+	* config/posix/stream.c: New.
+	* config/posix/stream.h: New.
 
-     * libgomp.h: Include stream.h.
-     * libgomp_g.h (GOMP_stream_create, GOMP_stream_push,
-     GOMP_stream_head, GOMP_stream_pop, GOMP_stream_eos_p,
-     GOMP_stream_set_eos, GOMP_stream_destroy, GOMP_stream_align_push,
-     GOMP_stream_align_pop): Declared.
-     * libgomp.map: Export GOMP_*.
+	* libgomp.h: Include stream.h.
+	* libgomp_g.h (GOMP_stream_create, GOMP_stream_push,
+	GOMP_stream_head, GOMP_stream_pop, GOMP_stream_eos_p,
+	GOMP_stream_set_eos, GOMP_stream_destroy, GOMP_stream_align_push,
+	GOMP_stream_align_pop): Declared.
+	* libgomp.map: Export GOMP_*.
 
-     * Makefile.am: Added stream.c to libgomp_la_SOURCES.
-     * Makefile.in: Regenerate.
+	* Makefile.am: Added stream.c to libgomp_la_SOURCES.
+	* Makefile.in: Regenerate.

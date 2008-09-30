@@ -1,5 +1,5 @@
 /* Copyright (C) 2005 Free Software Foundation, Inc.
-   Contributed by Antoniu Pop <antoniu.pop@gmail.com> 
+   Contributed by Antoniu Pop <apop@cri.ensmp.fr>
    and Sebastian Pop <sebastian.pop@amd.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -26,21 +26,12 @@
    any other reasons why the executable file might be covered by the GNU
    General Public License.  */
 
-/* This is the default implementation of a stream communication
+/* This is a Linux specific implementation of a stream communication
    mechanism for libgomp.  This type is private to the library.  This
-   implementation is based entirely on the POSIX library.  */
+   implementation relies on the futex syscall.  */
 
 #ifndef GOMP_STREAM_H
 #define GOMP_STREAM_H 1
-
-/* This structure associates a POSIX condition variable to a buffer
-   index.  We will use the condition to wait and avoid spin-waiting or
-   sched-yielding.  */
-typedef struct buffer_index
-{
-  size_t index;
-  pthread_cond_t cond;
-} buffer_index __attribute__((aligned (64)));
 
 /* This structure represents a stream between tasks.  Special care
    needs to be taken to ensure proper cache behaviour.  We need to
@@ -95,16 +86,23 @@ typedef struct gomp_stream
   /* Offset in bytes of the sliding writing window.  Writing window is
      of size LOCAL_BUFFER_SIZE bytes.  Read/Written by producer, Read
      by consumer.  */
-  buffer_index write_buffer_index;
+  int write_buffer_index __attribute__((aligned (64)));
 
   /* Offset in bytes of the sliding reading window.  Read window is of
      size LOCAL_BUFFER_SIZE bytes.  Read/Written by consumer, Read by
      producer.  */
-  buffer_index read_buffer_index;
+  int read_buffer_index __attribute__((aligned (64)));
 
-  /* Lock required for waiting on the conditions associated with the
-     two buffer indexes.  */
-  pthread_mutex_t buffer_index_mutex __attribute__((aligned (64)));
+  /* Semaphore for write_buffer_index.  The producer posts it to
+     signal the consumer that additional data is available in the
+     stream.  Initial value is 0 as no data is in the stream.  */
+  gomp_sem_t write_buffer_index_sem;
+
+  /* Semaphore for read_buffer_index.  The consumer posts it to signal
+     the producer that additional free space is available in the
+     stream.  Initial value is the maximum of sliding windows as the
+     whole steram data buffer is empty.  */
+  gomp_sem_t read_buffer_index_sem;
 
 } *gomp_stream;
 

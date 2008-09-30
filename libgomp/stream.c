@@ -33,7 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "wait.h"
+#include "sem.h"
 #include "libgomp.h"
 
 /* Returns a new stream of COUNT * WINDOW_SIZE elements.  Each element
@@ -51,14 +51,16 @@ GOMP_stream_create (size_t size, size_t count, size_t window_size)
 
   s = (gomp_stream) gomp_malloc (sizeof (struct gomp_stream));
 
-  s->eos_p = false;
-  s->read_buffer_index = 0;
-  s->write_buffer_index = 0;
-  s->write_index = 0;
-  s->read_index = 0;
+  s->capacity = count * window_size;
   s->size_elt = size;
   s->size_local_buffer = window_size;
-  s->capacity = count * s->size_local_buffer;
+  s->eos_p = false;
+  s->write_index = 0;
+  s->read_index = 0;
+  s->write_buffer_index = 0;
+  s->read_buffer_index = 0;
+  gomp_sem_init (&s->write_buffer_index_sem, 0);
+  gomp_sem_init (&s->read_buffer_index_sem, count);
   s->buffer = (char *) gomp_malloc (s->capacity);
 
   return s;
@@ -76,14 +78,8 @@ slide_read_window (gomp_stream s)
 {
   size_t next = next_window (s, s->read_buffer_index);
 
-  if (next_window(s, s->write_buffer_index) == s->read_buffer_index)
-    {
-      s->read_buffer_index = next;
-      futex_wake ((int *) &s->read_buffer_index, 1);
-    }
-  else
-    s->read_buffer_index = next;
-
+  s->read_buffer_index = next;
+  gomp_sem_post (&s->read_buffer_index_sem);
   s->read_index = next;
 }
 
@@ -92,20 +88,9 @@ slide_write_window (gomp_stream s)
 {
   size_t next = next_window (s, s->write_buffer_index);
 
-  while (s->read_buffer_index == next)
-    {
-      futex_wake ((int *) &s->write_buffer_index, 1);
-      futex_wait ((int *) &s->read_buffer_index, next);
-    }
-
-  if (s->read_buffer_index == s->write_buffer_index)
-    {
-      s->write_buffer_index = next;
-      futex_wake ((int *) &s->write_buffer_index, 1);
-    }
-  else
-    s->write_buffer_index = next;
-
+  gomp_sem_wait (&s->read_buffer_index_sem);
+  s->write_buffer_index = next;
+  gomp_sem_post (&s->write_buffer_index_sem);
   s->write_index = next;
 }
 
@@ -150,25 +135,13 @@ gomp_stream_pop (gomp_stream s)
     s->read_index += s->size_elt;
 }
 
-/* Wait until the producer has slided the write window in stream S.  */
-
-static inline void
-wait_used_space (gomp_stream s)
-{
-  while (s->write_buffer_index == s->read_buffer_index)
-    {
-      futex_wake ((int *) &s->read_buffer_index, 1);
-      futex_wait ((int *) &s->write_buffer_index, s->read_buffer_index);
-    }
-}
-
 /* Returns the first element of the stream S.  Don't remove the
    element: for that, a call to gomp_stream_pop is needed.  */
 
 void *
 GOMP_stream_head (void *s)
 {
-  wait_used_space ((gomp_stream) s);
+  gomp_sem_wait (&((gomp_stream) s)->write_buffer_index_sem);
   return ((gomp_stream) s)->buffer + ((gomp_stream) s)->read_index;
 }
 
@@ -202,6 +175,8 @@ GOMP_stream_destroy (void *s)
   /* No need to synchronize here: the consumer that detects when eos
      is set, and based on that it decides to destroy the stream.  */
 
+  gomp_sem_destroy (&((gomp_stream) s)->write_buffer_index_sem);
+  gomp_sem_destroy (&((gomp_stream) s)->read_buffer_index_sem);
   free (((gomp_stream) s)->buffer);
   free ((gomp_stream) s);
 }
@@ -245,3 +220,4 @@ GOMP_stream_pop (void *s)
 {
   gomp_stream_pop ((gomp_stream) s);
 }
+
