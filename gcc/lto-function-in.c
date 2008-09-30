@@ -64,12 +64,6 @@ typedef tree * tree_ptr;
 DEF_VEC_P (tree_ptr);
 DEF_VEC_ALLOC_P (tree_ptr, heap);
 
-typedef VEC(tree_ptr, heap) * vec_tree_ptr;
-DEF_VEC_P (vec_tree_ptr);
-DEF_VEC_ALLOC_P (vec_tree_ptr, heap);
-
-static VEC (vec_tree_ptr, heap) *lto_fixups;
-
 static enum tree_code tag_to_expr[LTO_tree_last_tag];
 
 /* The number of flags that are defined for each tree code.  */
@@ -2626,7 +2620,7 @@ lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
    might be reachable.  */
 
 static unsigned
-global_vector_enter (struct data_in *data_in, tree node, bool need_fixups)
+global_vector_enter (struct data_in *data_in, tree node)
 {
   unsigned index = VEC_length (tree, data_in->globals_index);
 
@@ -2645,43 +2639,11 @@ global_vector_enter (struct data_in *data_in, tree node, bool need_fixups)
   LTO_DEBUG_TOKEN ("]");
 #endif
 
-  /* In some cases, we may need to replace a node with another
-     after it has been entered in the global vector and references
-     to it have been resolved.  Such references must be adjusted
-     to refer to the replacement object.  Any such replacement
-     must occur immediately after the object is constructed,
-     e.g., as in declaration merging, so that only references
-     resolved while the object is under construction may require
-     adjustment.  While a node that may require replacement is under
-     construction, the TREE_VISITED flag is set, signalling that
-     references that resolve to the node must be tracked for later
-     backpatching.  */
-  if (node)
-    {
-      /* At present, only references to declarations
-	 may be backpatched, and the code relies upon this.  */
-      gcc_assert (!need_fixups || DECL_P (node));
-      /* Make sure that TREE_VISITED is initially clear, as expected.  */
-      gcc_assert (!TREE_VISITED (node));
-      
-      TREE_VISITED (node) = need_fixups;
-    }
-
   return index;
 }
 
-/* After reading a declaration, we may merge it with an existing
-   declaration, in which case all references to the declaration
-   we just read should point to the merged result.  For future
-   references, it suffices to replace the entry for this object
-   in the globals index vector with the merged declaration.  If
-   references were resolved while the object was being read,
-   however, they must be backpatched.  Both of these cases are
-   handled here.  */
-
 /* Replace the entry at position INDEX in the globals index vector
-   obtained from DATA_IN with NODE.  If any references were resolved
-   to the previous entry, they are backpatched to refer to NODE.  */
+   obtained from DATA_IN with NODE. */
 
 static void
 global_vector_fixup (struct data_in *data_in, unsigned index, tree node)
@@ -2701,46 +2663,12 @@ global_vector_fixup (struct data_in *data_in, unsigned index, tree node)
 
   VEC_replace (tree, data_in->globals_index, index, node);
 
-  /* Backpatch locations where we have stored references to
-     the old GLOBALS_INDEX entry for INDEX, now replaced by NODE.  */ 
-  if (old_node)
+  if (old_node && old_node != node)
     {
-      VEC(tree_ptr, heap) *fixups;
-
-      gcc_assert (DECL_P (old_node));
-      gcc_assert (TREE_VISITED (old_node));
-
-      if (index < VEC_length (vec_tree_ptr, lto_fixups))
-	fixups = VEC_index (vec_tree_ptr, lto_fixups, index);
-      else
-	fixups = NULL;
-
-      if (fixups)
-	{
-	  unsigned ix;
-	  tree_ptr elt;
-
-	  for (ix = 0; VEC_iterate(tree_ptr, fixups, ix, elt); ix++)
-	    {
-#ifdef LTO_GLOBAL_VECTOR_TRACE
-	      fprintf (stderr, " %p", (void *) elt);
-#endif
-	      *elt = node;
-	    }
-
-	  VEC_free (tree_ptr, heap, fixups);
-	  VEC_replace (vec_tree_ptr, lto_fixups, index, NULL);
-	}
-
-      TREE_VISITED (old_node) = false;
-
       /* Note that we cannot do the ggc_free when we merge the declaration,
 	 but must wait until we have finished using it above. */
-      if (old_node != node)
-	{
-	  remove_decl_from_map (old_node);
-	  ggc_free (old_node);
-	}
+      remove_decl_from_map (old_node);
+      ggc_free (old_node);
     }
 
 #ifdef LTO_GLOBAL_VECTOR_TRACE
@@ -2758,7 +2686,7 @@ input_field_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl, false);
+  global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
   LTO_DEBUG_TOKEN ("name");
@@ -2817,7 +2745,7 @@ input_const_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl, false);
+  global_vector_enter (data_in, decl);
 
   input_tree (&decl->decl_minimal.name, ib, data_in);
   input_tree (&decl->decl_minimal.context, ib, data_in);
@@ -2871,7 +2799,7 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  index = global_vector_enter (data_in, decl, true);
+  index = global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
   input_tree (&decl->decl_minimal.name, ib, data_in);
@@ -2978,7 +2906,7 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
      we must reserve the slot in the globals vector here,
      because the writer allocates the indices before writing
      out the type, etc.  */
-  index = global_vector_enter (data_in, decl, true);
+  index = global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
   input_tree (&decl->decl_minimal.name, ib, data_in);
@@ -3084,7 +3012,7 @@ input_parm_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl, false);
+  global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
   input_tree (&decl->decl_minimal.name, ib, data_in);
@@ -3124,7 +3052,7 @@ input_result_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl, false);
+  global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
   input_tree (&decl->decl_minimal.name, ib, data_in);
@@ -3161,7 +3089,7 @@ input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl, false);
+  global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
   /* Must output name before type.  */
@@ -3210,7 +3138,7 @@ input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl, false);
+  global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
   input_tree (&decl->decl_minimal.name, ib, data_in);
@@ -3246,7 +3174,7 @@ input_namespace_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl, false);
+  global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
   input_tree (&decl->decl_minimal.name, ib, data_in);
@@ -3289,7 +3217,7 @@ input_translation_unit_decl (struct lto_input_block *ib, struct data_in *data_in
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl, false);
+  global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
   input_tree (&decl->decl_minimal.name, ib, data_in);
@@ -3334,7 +3262,7 @@ input_binfo (struct lto_input_block *ib, struct data_in *data_in)
   gcc_assert (!input_line_info (ib, data_in, flags));
   process_tree_flags (binfo, flags);
 
-  global_vector_enter (data_in, binfo, false);
+  global_vector_enter (data_in, binfo);
 
   input_tree (&binfo->common.type, ib, data_in);
 
@@ -3379,7 +3307,7 @@ input_type (struct lto_input_block *ib, struct data_in *data_in, enum tree_code 
   /* Clear this flag, since we didn't stream the values cache. */
   TYPE_CACHED_VALUES_P (type) = 0;
 
-  global_vector_enter (data_in, type, false);
+  global_vector_enter (data_in, type);
     
   LTO_DEBUG_TOKEN ("type");
   input_tree (&type->common.type, ib, data_in);
@@ -3493,12 +3421,6 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 	 its fields.  */
 #endif
       LTO_DEBUG_UNDENT();
-
-      /* If we read a node reference from the stream with input_tree_operand,
-	 we cannot backpatch it if we subsequently decide to replace it, e.g.,
-	 as a result of declaration merging.  We thus abort if the reference
-	 is to a backpatchable node currently under construction.  */
-      gcc_assert (!TREE_VISITED (result));
 
       return result;
     }
@@ -4028,36 +3950,6 @@ input_tree (tree *slot, struct lto_input_block *ib, struct data_in *data_in)
       LTO_DEBUG_UNDENT();
 
       *slot = result;
-
-      /* If the TREE_VISITED flag is set, the node may be replaced
-	 by another in global_vector_fixup, and references to it must
-	 be backpatched.  Add the address of the slot that we just
-	 read into a vector of locations to backpatch associated with
-	 this object.  */
-      if (TREE_VISITED (result))
-	{
-	  VEC(tree_ptr, heap) *fixups;
-
-	  /* At present, only declaration nodes are backpatched. */
-	  gcc_assert (DECL_P (result));
-
-	  if(index >= VEC_length (vec_tree_ptr, lto_fixups))
-	    VEC_safe_grow_cleared (vec_tree_ptr, heap, lto_fixups, index + 1);
-
-	  fixups = VEC_index (vec_tree_ptr, lto_fixups, index);
-
-	  if (!fixups)
-	    {
-	      /* FIXME lto: It likely makes sense to preallocate a
-		 small number of vector elements greater than one.  */
-	      fixups = VEC_alloc (tree_ptr, heap, 1);
-	      VEC_replace (vec_tree_ptr, lto_fixups, index, fixups);
-	    }
-
-	  VEC_safe_push (tree_ptr, heap, fixups, slot);
-	  /* Handle the case that the vector was resized.  */
-	  VEC_replace (vec_tree_ptr, lto_fixups, index, fixups);
-	}
     }
   else
     *slot = input_tree_operand (ib, data_in, NULL, tag);

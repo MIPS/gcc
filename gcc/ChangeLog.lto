@@ -1,3 +1,17 @@
+2008-09-30 Rafael Espindola  <espindola@google.com>
+
+	* lto-function-in.c (vec_tree_ptr, lto_fixups): Remove.
+	(global_vector_enter): Remove the need_fixups argument.
+	(global_vector_fixup): Just update globals_index and free the old node.
+	Do nothing else.
+	(input_field_decl, input_const_decl, input_function_decl,
+	input_var_decl, input_parm_decl, input_result_decl,
+	input_type_decl, input_label_decl, input_namespace_decl,
+	input_translation_unit_decl, input_binfo, input_type): Update call to
+	global_vector_enter.
+	(input_tree_operand): Don't assert on TREE_VISITED.
+	(input_tree): Don't assert on TREE_VISITED.
+
 2008-09-29  Doug Kwan  <dougkwan@google.com>
 
 	* lto-function-out.c (output_gimple_stmt): Remove special
