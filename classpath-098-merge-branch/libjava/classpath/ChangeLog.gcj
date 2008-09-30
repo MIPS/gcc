@@ -1,3 +1,7 @@
+2008-09-30  Matthias Klose  <doko@ubuntu.com>
+
+	* m4/ac_prog_antlr.m4: Check for cantlr binary as well.
+
 2008-09-29  Matthias Klose  <doko@ubuntu.com>
 
 	* m4/ac_prog_antlr.m4: Check for antlr binary as well.
