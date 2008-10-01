@@ -1,3 +1,9 @@
+2008-09-30  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* omp-builtins.def (BUILT_IN_GOMP_SEM_CREATE,
+	BUILT_IN_GOMP_SEM_INIT, BUILT_IN_GOMP_SEM_DESTROY,
+	BUILT_IN_GOMP_SEM_POST, BUILT_IN_GOMP_SEM_WAIT): New builtins.
+
 2008-09-28  Antoniu Pop  <antoniu.pop@gmail.com>
 	    Sebastian Pop  <sebastian.pop@amd.com>
 

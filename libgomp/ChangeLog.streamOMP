@@ -1,5 +1,11 @@
 2008-09-30  Antoniu Pop  <antoniu.pop@gmail.com>
 
+	* libgomp_g.h (GOMP_sem_create, GOMP_sem_init, GOMP_sem_destroy,
+	GOMP_sem_post, GOMP_sem_wait): Declared.	
+	* libgomp.map: Export GOMP_sem_*.
+
+2008-09-30  Antoniu Pop  <antoniu.pop@gmail.com>
+
 	* config/linux/stream.c: Removed.  Code moved to libgomp/stream.c
 	* config/linux/stream.h: Removed.  Code moved to libgomp/stream.h
 	* config/posix/stream.c: Removed.  Code moved to libgomp/stream.c

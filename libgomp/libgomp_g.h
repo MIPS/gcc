@@ -192,5 +192,10 @@ extern void GOMP_stream_set_eos (void *);
 extern void GOMP_stream_destroy (void *);
 extern void GOMP_stream_align_push (void *, void *, size_t);
 extern void GOMP_stream_align_pop (void *, size_t);
+extern void *GOMP_sem_create (void);
+extern void GOMP_sem_init (void *, size_t);
+extern void GOMP_sem_destroy (void *);
+extern void GOMP_sem_post (void *);
+extern void GOMP_sem_wait (void *);
 
 #endif /* LIBGOMP_G_H */

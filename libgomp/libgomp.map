@@ -176,4 +176,9 @@ GOMP_2.0 {
  	GOMP_stream_destroy;
  	GOMP_stream_align_push;
  	GOMP_stream_align_pop;
+	GOMP_sem_create;
+	GOMP_sem_init;
+	GOMP_sem_destroy;
+	GOMP_sem_post;
+	GOMP_sem_wait;
 } GOMP_1.0;

@@ -221,3 +221,35 @@ GOMP_stream_pop (void *s)
   gomp_stream_pop ((gomp_stream) s);
 }
 
+/* Wrappers for semaphore interface.  */
+
+void *
+GOMP_sem_create (void)
+{
+  return gomp_malloc (sizeof (gomp_sem_t));
+}
+
+void
+GOMP_sem_init (void *sem, size_t val)
+{
+  gomp_sem_init ((gomp_sem_t *) sem, val);
+}
+
+void
+GOMP_sem_destroy (void *sem)
+{
+  gomp_sem_destroy ((gomp_sem_t *) sem);
+  free (sem);
+}
+
+void
+GOMP_sem_post (void *sem)
+{
+  gomp_sem_post ((gomp_sem_t *) sem);
+}
+
+void
+GOMP_sem_wait (void *sem)
+{
+  gomp_sem_wait ((gomp_sem_t *) sem);
+}
