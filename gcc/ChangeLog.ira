@@ -1,3 +1,10 @@
+2008-09-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-09-29  Jeff Law <law@redhat.com>
+
+	* reload1.c (alter_reg): Add missing curly braces.
+
 2008-09-29  Jan Hubicka  <jh@suse.cz>
 
 	* ira-emit.c (change_regs): Return false when replacing reg by itself.
