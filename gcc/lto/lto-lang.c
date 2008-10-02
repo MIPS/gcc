@@ -709,6 +709,16 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   write_symbols = NO_DEBUG;
   debug_info_level = DINFO_LEVEL_NONE;
 
+  /* -fltrans and -fwpa are mutually exclusive.  Check for that here.  */
+  if (flag_wpa && flag_ltrans)
+    error ("-fwpa and -fltrans are mutually exclusive.");
+
+  if (flag_ltrans)
+    flag_generate_lto = 0;
+
+  if (flag_wpa)
+    flag_generate_lto = 1;
+
   /* Initialize the compiler back end.  */
   return false;
 }

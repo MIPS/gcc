@@ -1,3 +1,11 @@
+2008-10-02  Ollie Wild  <aaw@google.com>
+
+	* lang.opt (fltrans): Moved from common.opt.  Remove RejectNegative
+	and Init.
+	(fwpa): Moved from common.opt.  Remove RejectNegative and Init.
+	* lto-lang.c (lto_post_options): Add validation and fixups for
+	-fltrans and -fwpa.
+
 2008-10-02 Rafael Espindola  <espindola@google.com>
 
 	* lto-symtab.c (lto_symtab_merge_var, lto_symtab_merge_fn,

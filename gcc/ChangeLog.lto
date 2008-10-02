@@ -1,3 +1,11 @@
+2008-10-02  Ollie Wild  <aaw@google.com>
+
+	* c.opt (flto): Moved from common.opt.  Remove RejectNegative.
+	* common.opt (flto): Moved to c.opt.
+	(fltrans): Moved to lto/lang.opt.
+	(fwpa): Moved to lto/lang.opt.
+	* opts.c (common_handle_option): Remove -fltrans and -fwpa validation.
+
 2008-10-02 Rafael Espindola  <espindola@google.com>
 
 	* lto-function-in.c (global_vector_fixup): Removed node argument.
