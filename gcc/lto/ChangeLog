@@ -1,3 +1,9 @@
+2008-10-02 Rafael Espindola  <espindola@google.com>
+
+	* lto-symtab.c (lto_symtab_merge_var, lto_symtab_merge_fn,
+	lto_symtab_merge_decl): Return void.
+	(lto_symtab_prevailing_decl): New.
+
 2008-09-30 Rafael Espindola  <espindola@google.com>
 
 	* lto-symtab.c (lto_symtab_compatible): Remove the check for already

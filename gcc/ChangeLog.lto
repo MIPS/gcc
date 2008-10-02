@@ -1,3 +1,11 @@
+2008-10-02 Rafael Espindola  <espindola@google.com>
+
+	* lto-function-in.c (global_vector_fixup): Removed node argument.
+	Use lto_symtab_prevailing_decl. Update all uses.
+	* lto-tree-in.h (lto_symtab_merge_var, lto_symtab_merge_fn): Return
+	void. Update all uses.
+	(lto_symtab_prevailing_decl): New.
+
 2008-09-30  Doug Kwan  <dougkwan@google.com>
 
 	* lto-symtab.c (lto_symbol_overwrite_decl): Check for change in

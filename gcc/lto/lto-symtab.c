@@ -488,7 +488,7 @@ lto_symtab_overwrite_decl (tree dest, tree src)
    NEW_DECL is the newly found decl. RESOLUTION is the decl's resolution
    provided by the linker. */
 
-static tree
+static void
 lto_symtab_merge_decl (tree new_decl,
 		       enum ld_plugin_symbol_resolution resolution)
 {
@@ -531,12 +531,12 @@ lto_symtab_merge_decl (tree new_decl,
     {
       LTO_IDENTIFIER_DECL (name) = new_decl;
       VEC_safe_push (tree, gc, lto_global_var_decls, new_decl);
-      return new_decl;
+      return;
     }
 
   /* The linker may ask us to combine two incompatible symbols. */
   if (!lto_symtab_compatible (old_decl, new_decl))
-    return error_mark_node;
+    return;
 
   old_resolution = LTO_DECL_RESOLUTION (old_decl);
   gcc_assert (resolution != LDPR_UNKNOWN
@@ -551,12 +551,12 @@ lto_symtab_merge_decl (tree new_decl,
 	  || old_resolution == LDPR_PREVAILING_DEF_IRONLY)
 	{
 	  error ("%qD has already been defined", new_decl);
-	  return error_mark_node;
+	  return;
 	}
       gcc_assert (old_resolution == LDPR_PREEMPTED_IR
 		  || old_resolution ==  LDPR_RESOLVED_IR);
       lto_symtab_overwrite_decl (old_decl, new_decl);
-      return old_decl;
+      return;
     }
 
   if (TREE_CODE (new_decl) == FUNCTION_DECL
@@ -585,17 +585,31 @@ lto_symtab_merge_decl (tree new_decl,
 		|| old_resolution == LDPR_PREEMPTED_IR
 		|| old_resolution == LDPR_RESOLVED_IR);
 
-  return old_decl;
+  return;
 }
 
-tree 
+/* Merge the VAR_DECL NEW_VAR with resolution RESOLUTION with any previous
+   declaration with the same name. */
+
+void
 lto_symtab_merge_var (tree new_var, enum ld_plugin_symbol_resolution resolution)
 {
-  return lto_symtab_merge_decl (new_var, resolution);
+  lto_symtab_merge_decl (new_var, resolution);
 }
- 
-tree
+
+/* Merge the FUNCTION_DECL NEW_FN with resolution RESOLUTION with any previous
+   declaration with the same name. */
+
+void
 lto_symtab_merge_fn (tree new_fn, enum ld_plugin_symbol_resolution resolution)
 {
-  return lto_symtab_merge_decl (new_fn, resolution);
+  lto_symtab_merge_decl (new_fn, resolution);
+}
+
+/* Given the decl DECL, return the prevailing decl with the same name. */
+
+tree
+lto_symtab_prevailing_decl (tree decl)
+{
+  return LTO_IDENTIFIER_DECL (DECL_ASSEMBLER_NAME (decl));
 }

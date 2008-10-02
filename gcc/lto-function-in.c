@@ -2643,15 +2643,18 @@ global_vector_enter (struct data_in *data_in, tree node)
 }
 
 /* Replace the entry at position INDEX in the globals index vector
-   obtained from DATA_IN with NODE. */
+   obtained from DATA_IN with the prevailing decl. */
 
-static void
-global_vector_fixup (struct data_in *data_in, unsigned index, tree node)
+static tree
+global_vector_fixup (struct data_in *data_in, unsigned index)
 {
+  tree node;
   tree old_node;
-
   gcc_assert (index < VEC_length (tree, data_in->globals_index));
   old_node = VEC_index (tree, data_in->globals_index, index);
+  gcc_assert (old_node);
+
+  node = lto_symtab_prevailing_decl (old_node);
   
 #ifdef LTO_GLOBAL_VECTOR_TRACE
   fprintf (stderr, "FIXUP %u: %p [", index, (void *) old_node);
@@ -2674,6 +2677,8 @@ global_vector_fixup (struct data_in *data_in, unsigned index, tree node)
 #ifdef LTO_GLOBAL_VECTOR_TRACE
   fprintf (stderr, "\n");
 #endif
+
+  return node;
 }
 
 static tree
@@ -2880,13 +2885,9 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
     {
       enum ld_plugin_symbol_resolution resolution =
 	get_resolution (data_in, index);
-      tree merged = lto_symtab_merge_fn (decl, resolution);
-      /* If merge fails, use the original declaraction.  */
-      if (merged != error_mark_node)
-	decl = merged;
+      lto_symtab_merge_fn (decl, resolution);
+      decl = global_vector_fixup (data_in, index);
     }
-
-  global_vector_fixup (data_in, index, decl);
 
   LTO_DEBUG_TOKEN ("end_function_decl");
   return decl;
@@ -2988,14 +2989,10 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 	{
 	  enum ld_plugin_symbol_resolution resolution =
 	    get_resolution (data_in, index);
-	  tree merged = lto_symtab_merge_var (decl, resolution);
-	  /* If merge fails, use the original declaraction.  */
-	  if (merged != error_mark_node)
-	    decl = merged;
+	  lto_symtab_merge_var (decl, resolution);
+	  decl = global_vector_fixup (data_in, index);
 	}
     }
-
-  global_vector_fixup (data_in, index, decl);
   
   /* Read initial value expression last, after the global_vector_fixup.  */
   decl->decl_common.initial = input_tree (ib, data_in);

@@ -110,12 +110,13 @@ lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
    between the declarations), an error message is issued, and
    error_mark_node is returned.  If there is no previous declaration,
    NEW_VAR is returned.  */
-extern tree lto_symtab_merge_var (tree new_var,
+extern void lto_symtab_merge_var (tree new_var,
                                   enum ld_plugin_symbol_resolution resolution);
 
 /* Like lto_symtab_merge_var, but for functions.  */
-extern tree lto_symtab_merge_fn (tree new_fn,
+extern void lto_symtab_merge_fn (tree new_fn,
                                  enum ld_plugin_symbol_resolution resolution);
 
+extern tree lto_symtab_prevailing_decl (tree decl);
 
 #endif  /* GCC_LTO_TREE_IN_H  */
