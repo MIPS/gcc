@@ -6351,14 +6351,36 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_seq_add_seq (&new_body, par_body);
   gimple_seq_add_seq (&new_body, par_olist);
   new_body = maybe_catch_exception (new_body);
+
+  /* Generate copy out for lastprivate clauses before returning from
+     task region.  */
+  if (gimple_code (stmt) == GIMPLE_OMP_TASK)
+    {
+      gimple_seq tmp = NULL;
+      gimple_stmt_iterator gsi;
+
+      lower_lastprivate_clauses (gimple_omp_task_clauses (stmt), NULL, &tmp, ctx);
+      gsi = gsi_last (new_body);
+      gimple_seq_add_stmt (&tmp, gsi_stmt (gsi));
+      gsi_remove (&gsi, false);
+      gimple_seq_add_seq (&new_body, tmp);
+    }
   gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
   gimple_omp_set_body (stmt, new_body);
-
   bind = gimple_build_bind (NULL, NULL, gimple_bind_block (par_bind));
   gimple_bind_add_stmt (bind, stmt);
+
   if (ilist || olist)
     {
       gimple_seq_add_stmt (&ilist, bind);
+      if (gimple_code (stmt) == GIMPLE_OMP_TASK
+	  && find_omp_clause (clauses, OMP_CLAUSE_LASTPRIVATE))
+	{
+	  gimple_stmt_iterator gsi = *gsi_p;
+	  gsi_next (&gsi);
+	  gimple_seq_add_stmt (&ilist, gsi_stmt (gsi));
+	  gsi_remove (&gsi, false);
+	}
       gimple_seq_add_seq (&ilist, olist);
       bind = gimple_build_bind (NULL, ilist, NULL);
     }

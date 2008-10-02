@@ -1,3 +1,15 @@
+2008-10-01  Antoniu Pop  <antoniu.pop@gmail.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	* c-parser.c (c_parser_omp_single): Handle OMP_CLAUSE_LASTPRIVATE
+	for tasks.
+	* gimplify.c (gimplify_omp_task): Introduce synchronization 
+	for tasks with OMP_CLAUSE_LASTPRIVATE clauses.
+	* omp-low.c (lower_omp_taskreg): Generate the copy in and
+        out of the task for OMP_CLAUSE_LASTPRIVATE variables.
+	* testsuite/gcc.dg/gomp/stream-1.c: New.
+	* testsuite/gcc.dg/gomp/stream-2.c: New.
+
 2008-09-30  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* omp-builtins.def (BUILT_IN_GOMP_SEM_CREATE,

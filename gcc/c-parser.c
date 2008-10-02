@@ -8065,6 +8065,7 @@ c_parser_omp_single (c_parser *parser)
 	| (1u << PRAGMA_OMP_CLAUSE_DEFAULT)		\
 	| (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
 	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
+	| (1u << PRAGMA_OMP_CLAUSE_LASTPRIVATE)		\
 	| (1u << PRAGMA_OMP_CLAUSE_SHARED))
 
 static tree
