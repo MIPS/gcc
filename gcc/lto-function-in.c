@@ -2642,45 +2642,6 @@ global_vector_enter (struct data_in *data_in, tree node)
   return index;
 }
 
-/* Replace the entry at position INDEX in the globals index vector
-   obtained from DATA_IN with the prevailing decl. */
-
-static tree
-global_vector_fixup (struct data_in *data_in, unsigned index)
-{
-  tree node;
-  tree old_node;
-  gcc_assert (index < VEC_length (tree, data_in->globals_index));
-  old_node = VEC_index (tree, data_in->globals_index, index);
-  gcc_assert (old_node);
-
-  node = lto_symtab_prevailing_decl (old_node);
-  
-#ifdef LTO_GLOBAL_VECTOR_TRACE
-  fprintf (stderr, "FIXUP %u: %p [", index, (void *) old_node);
-  print_generic_expr (stderr, old_node, 0);
-  fprintf (stderr, "] -> %p [", (void *) node);
-  print_generic_expr (stderr, node, 0);
-  fprintf (stderr, "]");
-#endif
-
-  VEC_replace (tree, data_in->globals_index, index, node);
-
-  if (old_node && old_node != node)
-    {
-      /* Note that we cannot do the ggc_free when we merge the declaration,
-	 but must wait until we have finished using it above. */
-      remove_decl_from_map (old_node);
-      ggc_free (old_node);
-    }
-
-#ifdef LTO_GLOBAL_VECTOR_TRACE
-  fprintf (stderr, "\n");
-#endif
-
-  return node;
-}
-
 static tree
 input_field_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
@@ -2886,7 +2847,6 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
       enum ld_plugin_symbol_resolution resolution =
 	get_resolution (data_in, index);
       lto_symtab_merge_fn (decl, resolution);
-      decl = global_vector_fixup (data_in, index);
     }
 
   LTO_DEBUG_TOKEN ("end_function_decl");
@@ -2990,11 +2950,9 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 	  enum ld_plugin_symbol_resolution resolution =
 	    get_resolution (data_in, index);
 	  lto_symtab_merge_var (decl, resolution);
-	  decl = global_vector_fixup (data_in, index);
 	}
     }
-  
-  /* Read initial value expression last, after the global_vector_fixup.  */
+
   decl->decl_common.initial = input_tree (ib, data_in);
 
   LTO_DEBUG_TOKEN ("end_var_decl");

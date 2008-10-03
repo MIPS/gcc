@@ -1,3 +1,15 @@
+2008-10-03 Rafael Espindola  <espindola@google.com>
+
+	* lto-symtab.c (lto_symtab_overwrite_decl): Remove. Remove all calls.
+	(lto_symtab_merge_decl): Update  LTO_IDENTIFIER_DECL the reflect the
+	prevailing definition. Don't mark TREE_NOTHROW differences.
+	* lto.c (lto_fixup_tree): New.
+	(lto_fixup_state): New.
+	(lto_fixup_state_aux): New.
+	(free_decl): New.
+	(lto_fixup_decls): New.
+	(lto_main): Call lto_fixup_decls.
+
 2008-10-02  Ollie Wild  <aaw@google.com>
 
 	* lang.opt (fltrans): Moved from common.opt.  Remove RejectNegative

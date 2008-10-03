@@ -1,3 +1,7 @@
+2008-10-03 Rafael Espindola  <espindola@google.com>
+
+	* lto-function-in.c (global_vector_fixup) Remove. Remove all calls.
+
 2008-10-02  Ollie Wild  <aaw@google.com>
 
 	* c.opt (flto): Moved from common.opt.  Remove RejectNegative.

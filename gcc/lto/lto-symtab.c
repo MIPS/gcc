@@ -432,58 +432,6 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
   return true;
 }
 
-/* Overwrite DEST with SRC. */
-
-static void
-lto_symtab_overwrite_decl (tree dest, tree src)
-{
-  LTO_DECL_RESOLUTION (dest) = LTO_DECL_RESOLUTION (src);
-
-  TREE_SIDE_EFFECTS (dest) = TREE_SIDE_EFFECTS (src);
-  TREE_CONSTANT (dest) = TREE_CONSTANT (src);
-  TREE_ADDRESSABLE (dest) = TREE_ADDRESSABLE (src);
-  TREE_THIS_VOLATILE (dest) = TREE_THIS_VOLATILE (src);
-  TREE_READONLY (dest) = TREE_READONLY (src);
-  DECL_EXTERNAL (dest) = DECL_EXTERNAL (src);
-
-  DECL_ALIGN (dest) = DECL_ALIGN (src);
-
-  DECL_USER_ALIGN (dest) = DECL_USER_ALIGN (src);
-
-  DECL_WEAK (dest) = DECL_WEAK (src);
-
-  DECL_PRESERVE_P (dest) = DECL_PRESERVE_P (src);
-
-  TREE_TYPE (dest) = TREE_TYPE (src);
-  DECL_MODE (dest) = DECL_MODE (src);
-
-  if (TREE_CODE (src) == FUNCTION_DECL)
-    {
-      DECL_RESULT (dest) = DECL_RESULT (src);
-      if (DECL_RESULT (dest))
-	DECL_CONTEXT (DECL_RESULT (dest)) = dest;
-      TREE_STATIC (dest) = TREE_STATIC (src);
-      DECL_DECLARED_INLINE_P (dest) = DECL_DECLARED_INLINE_P (src);
-
-      /* Remember this to fix up EH region later.  */
-      if (TREE_NOTHROW (dest) != TREE_NOTHROW (src))
-	{
-	  TREE_NOTHROW (dest) = TREE_NOTHROW (src);
-	  if (TREE_NOTHROW (dest))
-	    lto_mark_nothrow_fndecl (dest);
-	  else
-	    error ("%qD change to exception throwing", dest);
-	};
-    }
-
-  if (TREE_CODE (src) == VAR_DECL)
-    {
-      DECL_INITIAL (dest) = DECL_INITIAL (src);
-      DECL_SIZE (dest) = DECL_SIZE (src);
-      DECL_SIZE_UNIT (dest) = DECL_SIZE_UNIT (src);
-    }
-}
-
 /* Common helper function for merging variable and function declarations.
    NEW_DECL is the newly found decl. RESOLUTION is the decl's resolution
    provided by the linker. */
@@ -555,20 +503,8 @@ lto_symtab_merge_decl (tree new_decl,
 	}
       gcc_assert (old_resolution == LDPR_PREEMPTED_IR
 		  || old_resolution ==  LDPR_RESOLVED_IR);
-      lto_symtab_overwrite_decl (old_decl, new_decl);
+      LTO_IDENTIFIER_DECL (name) = new_decl;
       return;
-    }
-
-  if (TREE_CODE (new_decl) == FUNCTION_DECL
-      && TREE_NOTHROW (new_decl) != TREE_NOTHROW (old_decl))
-    {
-      /* Since we return old_decl as the canonical DECL, GIMPLE call
-	 statements originally associated with new_decl will now be
-	 associated with old_decl.  Hence we mark be old_decl for fix-up.  */
-      if (TREE_NOTHROW (old_decl))
-	lto_mark_nothrow_fndecl (old_decl);
-      else
-	error ("%qD change to exception throwing", new_decl);
     }
 
   if (resolution == LDPR_PREEMPTED_REG

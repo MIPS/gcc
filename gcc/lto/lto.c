@@ -785,6 +785,170 @@ lto_execute_ltrans (char *const *files)
     }
 }
 
+/* A walk_tree callback used by lto_fixup_state. TP is the pointer to the
+   current tree. WALK_SUBTREES indicates if the subtrees will be walked.
+   DATA is ignored. */
+
+static tree
+lto_fixup_tree (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+  tree prevailing;
+
+  *walk_subtrees = 1;
+
+  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != FUNCTION_DECL)
+    return NULL;
+
+  if (!TREE_PUBLIC (t))
+    return NULL;
+
+    /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+  if (TREE_CODE (t) == FUNCTION_DECL && DECL_ABSTRACT (t))
+    return NULL;
+
+  prevailing = lto_symtab_prevailing_decl (t);
+  gcc_assert (prevailing);
+
+  *tp = prevailing;
+  *walk_subtrees = 0;
+  return NULL;
+}
+
+/* Helper function of lto_fixup_decls. Walks the var and fn streams in STATE,
+   replaces var and function decls with the corresponding prevailing def and
+   records the old decl in FREE_LIST. */
+
+static void
+lto_fixup_state (struct lto_in_decl_state *state,
+		 struct pointer_set_t *free_list)
+{
+  unsigned i;
+  struct lto_tree_ref_table vars = state->streams[LTO_DECL_STREAM_VAR_DECL];
+  struct lto_tree_ref_table fns = state->streams[LTO_DECL_STREAM_FN_DECL];
+
+  for (i = 0; i < fns.size; i++)
+    {
+      tree decl = fns.trees[i];
+      tree prevailing;
+
+      gcc_assert (decl);
+      gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
+
+      /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+      if (!TREE_PUBLIC (decl) || DECL_ABSTRACT (decl))
+	continue;
+
+      prevailing = lto_symtab_prevailing_decl (decl);
+      gcc_assert (prevailing);
+
+      if (TREE_NOTHROW (prevailing) != TREE_NOTHROW (decl))
+	{
+	  if (TREE_NOTHROW (prevailing))
+	    lto_mark_nothrow_fndecl (prevailing);
+	  else
+	    error ("%qD change to exception throwing", prevailing);
+	}
+
+      if (decl != prevailing)
+	pointer_set_insert (free_list, decl);
+
+      fns.trees[i] = prevailing;
+    }
+
+  for (i = 0; i < vars.size; i++)
+    {
+      tree decl = vars.trees[i];
+      tree prevailing;
+      tree initial;
+
+      gcc_assert (decl);
+
+      if (TREE_CODE (decl) == RESULT_DECL)
+	continue;
+
+      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+
+      if (!TREE_PUBLIC (decl))
+	continue;
+
+      prevailing = lto_symtab_prevailing_decl (decl);
+      gcc_assert (prevailing);
+
+      initial = DECL_INITIAL (decl);
+
+      if (initial && decl == prevailing)
+	{
+	  walk_tree (&initial, lto_fixup_tree, NULL, NULL);
+	  DECL_INITIAL (decl) = initial;
+	}
+
+      if (decl != prevailing)
+	pointer_set_insert (free_list, decl);
+
+      vars.trees[i] = prevailing;
+    }
+}
+
+/* A callback of htab_traverse. Just extract a state from SLOT and the
+   free_list from aux and calls lto_fixup_state. */
+
+static int
+lto_fixup_state_aux (void **slot, void *aux)
+{
+  struct lto_in_decl_state *state = (struct lto_in_decl_state *) *slot;
+  struct pointer_set_t *free_list = (struct pointer_set_t *) aux;
+  lto_fixup_state (state, free_list);
+  return 1;
+}
+
+/* A callback to pointer_set_traverse. Frees the tree pointed by p. Removes
+   from it from the UID -> DECL mapping. */
+
+static bool
+free_decl (const void *p, void *data ATTRIBUTE_UNUSED)
+{
+  const_tree ct = (const_tree) p;
+  tree t = CONST_CAST_TREE (ct);
+
+  remove_decl_from_map (t);
+  ggc_free (t);
+  return true;
+}
+
+/* Fix the decls from all FILES. Replaces each decl with the corresponding
+   prevailing one. */
+
+static void
+lto_fixup_decls (struct lto_file_decl_data** files)
+{
+  unsigned int i;
+  tree decl;
+  struct pointer_set_t *free_list = pointer_set_create ();
+
+  for (i = 0; files[i]; i++)
+    {
+      struct lto_file_decl_data *file = files[i];
+      struct lto_in_decl_state *state = file->global_decl_state;
+      lto_fixup_state (state, free_list);
+
+      htab_traverse (file->function_decl_states, lto_fixup_state_aux,
+		     free_list);
+    }
+
+  for (i = 0; VEC_iterate (tree, lto_global_var_decls, i, decl); i++)
+    {
+      tree prevailing = lto_symtab_prevailing_decl (decl);
+      if (prevailing != decl) {
+	pointer_set_insert (free_list, decl);
+	VEC_replace (tree, lto_global_var_decls, i, prevailing);
+      }
+    }
+
+  pointer_set_traverse (free_list, free_decl, NULL);
+  pointer_set_destroy (free_list);
+}
+
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
 {
@@ -837,6 +1001,8 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
     fclose (resolution);
 
   all_file_decl_data [j] = NULL;
+
+  lto_fixup_decls (all_file_decl_data);
 
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data,
