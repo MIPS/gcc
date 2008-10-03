@@ -1,5 +1,9 @@
 2008-10-03 Rafael Espindola  <espindola@google.com>
 
+	* lto.c (lto_fixup_tree, lto_fixup_state): Fix the FIXME.
+
+2008-10-03 Rafael Espindola  <espindola@google.com>
+
 	* lto-symtab.c (lto_symtab_overwrite_decl): Remove. Remove all calls.
 	(lto_symtab_merge_decl): Update  LTO_IDENTIFIER_DECL the reflect the
 	prevailing definition. Don't mark TREE_NOTHROW differences.
