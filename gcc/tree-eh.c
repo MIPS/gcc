@@ -360,6 +360,18 @@ struct leh_state
   struct leh_tf_state *tf;
 };
 
+/* See 'goto_queue' in struct leh_tf_state.  */
+struct goto_queue_node
+{
+  treemple stmt;
+  gimple_seq repl_stmt;
+  gimple cont_stmt;
+  int index;
+  /* this is used when index >= 0 to indicate that stmt is a label(as
+     opposed to a goto stmt) */
+  int is_label;
+};
+
 struct leh_tf_state
 {
   /* Pointer to the GIMPLE_TRY_FINALLY node under discussion.  The
@@ -386,15 +398,7 @@ struct leh_tf_state
      REPL_STMT is the sequence used to replace the goto/return statement.
      CONT_STMT is used to store the statement that allows the return/goto to
      jump to the original destination. */
-  struct goto_queue_node {
-    treemple stmt;
-    gimple_seq repl_stmt;
-    gimple cont_stmt;
-    int index;
-    /* this is used when index >= 0 to indicate that stmt is a label(as
-       opposed to a goto stmt) */
-    int is_label;
-  } *goto_queue;
+  struct goto_queue_node *goto_queue;
   size_t goto_queue_size;
   size_t goto_queue_active;
 

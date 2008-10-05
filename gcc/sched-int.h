@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file contains definitions used
    internally in the scheduler.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2001, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -425,6 +425,25 @@ enum reg_pending_barrier_mode
   TRUE_BARRIER
 };
 
+/* See 'reg_last' in struct deps.  */
+struct deps_reg
+{
+  rtx uses;
+  rtx sets;
+  rtx clobbers;
+  int uses_length;
+  int clobbers_length;
+};
+
+/* Used to keep post-call pseudo/hard reg movements together with
+   the call.  */
+enum post_call_value
+{
+  not_post_call,
+  post_call,
+  post_call_initial
+};
+
 /* Describe state of dependencies used during sched_analyze phase.  */
 struct deps
 {
@@ -488,7 +507,7 @@ struct deps
 
   /* Used to keep post-call pseudo/hard reg movements together with
      the call.  */
-  enum { not_post_call, post_call, post_call_initial } in_post_call_group_p;
+  enum post_call_value in_post_call_group_p;
 
   /* The maximum register number for the following arrays.  Before reload
      this is max_reg_num; after reload it is FIRST_PSEUDO_REGISTER.  */
@@ -498,14 +517,7 @@ struct deps
      N within the current basic block; or zero, if there is no
      such insn.  Needed for new registers which may be introduced
      by splitting insns.  */
-  struct deps_reg
-    {
-      rtx uses;
-      rtx sets;
-      rtx clobbers;
-      int uses_length;
-      int clobbers_length;
-    } *reg_last;
+  struct deps_reg *reg_last;
 
   /* Element N is set for each register that has any nonzero element
      in reg_last[N].{uses,sets,clobbers}.  */

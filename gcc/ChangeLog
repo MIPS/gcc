@@ -1,5 +1,29 @@
 2008-10-05  Tom Tromey  <tromey@redhat.com>
 
+	* cgraph.h (struct inline_summary): Move to top level.
+	(cgraph_local_info): Update.
+	* target.h (struct asm_out): Move to top level.
+	(struct asm_int_op): Likewise.
+	(struct sched): Likewise.
+	(struct vectorize): Likewise.
+	(struct calls): Likewise.
+	(struct c): Likewise.
+	(struct cxx): Likewise.
+	(struct emutls): Likewise.
+	(struct target_option_hooks): Likewise.
+	(struct gcc_target): Update.
+	* matrix-reorg.c (struct free_info): Move to top level.
+	(struct matrix_info): Update.
+	* tree-eh.c (struct goto_queue_node): Move to top level.
+	(struct leh_tf_state): Update.
+	* sched-int.h (struct deps_reg): Move to top level.
+	(enum post_call_value): Likewise.  Give name.
+	(struct deps): Update.
+	* cse.c (struct branch_path): Move to top level.
+	(struct cse_basic_block_data): Update.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
 	* sdbout.c (sdb_debug_hooks): Initialize.
 	* ggc-page.c (ggc_pch_write_object): Initialize emptyBytes.
 

@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -517,6 +517,12 @@ static struct table_elt *free_element_chain;
 static int constant_pool_entries_cost;
 static int constant_pool_entries_regcost;
 
+struct branch_path
+{
+  /* The basic block for this path entry.  */
+  basic_block bb;
+};
+
 /* This data describes a block that will be processed by
    cse_extended_basic_block.  */
 
@@ -527,11 +533,7 @@ struct cse_basic_block_data
   /* Size of current branch path, if any.  */
   int path_size;
   /* Current path, indicating which basic_blocks will be processed.  */
-  struct branch_path
-    {
-      /* The basic block for this path entry.  */
-      basic_block bb;
-    } *path;
+  struct branch_path *path;
 };
 
 

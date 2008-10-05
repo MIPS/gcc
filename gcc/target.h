@@ -91,389 +91,596 @@ struct _dep;
 /* This is defined in ddg.h .  */
 struct ddg;
 
+/* See 'aligned_op' in struct asm_out.  */
+struct asm_int_op
+{
+  const char *hi;
+  const char *si;
+  const char *di;
+  const char *ti;
+};
+
+/* Functions that output assembler for the target.  */
+struct asm_out
+{
+  /* Opening and closing parentheses for asm expression grouping.  */
+  const char *open_paren, *close_paren;
+
+  /* Assembler instructions for creating various kinds of integer object.  */
+  const char *byte_op;
+  struct asm_int_op aligned_op, unaligned_op;
+
+  /* Try to output the assembler code for an integer object whose
+     value is given by X.  SIZE is the size of the object in bytes and
+     ALIGNED_P indicates whether it is aligned.  Return true if
+     successful.  Only handles cases for which BYTE_OP, ALIGNED_OP
+     and UNALIGNED_OP are NULL.  */
+  bool (* integer) (rtx x, unsigned int size, int aligned_p);
+
+  /* Output code that will globalize a label.  */
+  void (* globalize_label) (FILE *, const char *);
+
+  /* Output code that will globalize a declaration.  */
+  void (* globalize_decl_name) (FILE *, tree);
+
+  /* Output code that will emit a label for unwind info, if this
+     target requires such labels.  Second argument is the decl the
+     unwind info is associated with, third is a boolean: true if
+     this is for exception handling, fourth is a boolean: true if
+     this is only a placeholder for an omitted FDE.  */
+  void (* unwind_label) (FILE *, tree, int, int);
+
+  /* Output code that will emit a label to divide up the exception
+     table.  */
+  void (* except_table_label) (FILE *);
+
+  /* Emit any directives required to unwind this instruction.  */
+  void (* unwind_emit) (FILE *, rtx);
+
+  /* Output an internal label.  */
+  void (* internal_label) (FILE *, const char *, unsigned long);
+
+  /* Emit a ttype table reference to a typeinfo object.  */
+  bool (* ttype) (rtx);
+
+  /* Emit an assembler directive to set visibility for the symbol
+     associated with the tree decl.  */
+  void (* visibility) (tree, int);
+
+  /* Output the assembler code for entry to a function.  */
+  void (* function_prologue) (FILE *, HOST_WIDE_INT);
+
+  /* Output the assembler code for end of prologue.  */
+  void (* function_end_prologue) (FILE *);
+
+  /* Output the assembler code for start of epilogue.  */
+  void (* function_begin_epilogue) (FILE *);
+
+  /* Output the assembler code for function exit.  */
+  void (* function_epilogue) (FILE *, HOST_WIDE_INT);
+
+  /* Initialize target-specific sections.  */
+  void (* init_sections) (void);
+
+  /* Tell assembler to change to section NAME with attributes FLAGS.
+     If DECL is non-NULL, it is the VAR_DECL or FUNCTION_DECL with
+     which this section is associated.  */
+  void (* named_section) (const char *name, unsigned int flags, tree decl);
+
+  /* Return a mask describing how relocations should be treated when
+     selecting sections.  Bit 1 should be set if global relocations
+     should be placed in a read-write section; bit 0 should be set if
+     local relocations should be placed in a read-write section.  */
+  int (*reloc_rw_mask) (void);
+
+  /* Return a section for EXP.  It may be a DECL or a constant.  RELOC
+     is nonzero if runtime relocations must be applied; bit 1 will be
+     set if the runtime relocations require non-local name resolution.
+     ALIGN is the required alignment of the data.  */
+  section *(* select_section) (tree, int, unsigned HOST_WIDE_INT);
+
+  /* Return a section for X.  MODE is X's mode and ALIGN is its
+     alignment in bits.  */
+  section *(* select_rtx_section) (enum machine_mode, rtx,
+				   unsigned HOST_WIDE_INT);
+
+  /* Select a unique section name for DECL.  RELOC is the same as
+     for SELECT_SECTION.  */
+  void (* unique_section) (tree, int);
+
+  /* Return the readonly data section associated with function DECL.  */
+  section *(* function_rodata_section) (tree);
+
+  /* Output a constructor for a symbol with a given priority.  */
+  void (* constructor) (rtx, int);
+
+  /* Output a destructor for a symbol with a given priority.  */
+  void (* destructor) (rtx, int);
+
+  /* Output the assembler code for a thunk function.  THUNK_DECL is the
+     declaration for the thunk function itself, FUNCTION is the decl for
+     the target function.  DELTA is an immediate constant offset to be
+     added to THIS.  If VCALL_OFFSET is nonzero, the word at
+     *(*this + vcall_offset) should be added to THIS.  */
+  void (* output_mi_thunk) (FILE *file, tree thunk_decl,
+			    HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
+			    tree function_decl);
+
+  /* Determine whether output_mi_thunk would succeed.  */
+  /* ??? Ideally, this hook would not exist, and success or failure
+     would be returned from output_mi_thunk directly.  But there's
+     too much undo-able setup involved in invoking output_mi_thunk.
+     Could be fixed by making output_mi_thunk emit rtl instead of
+     text to the output file.  */
+  bool (* can_output_mi_thunk) (const_tree thunk_decl, HOST_WIDE_INT delta,
+				HOST_WIDE_INT vcall_offset,
+				const_tree function_decl);
+
+  /* Output any boilerplate text needed at the beginning of a
+     translation unit.  */
+  void (*file_start) (void);
+
+  /* Output any boilerplate text needed at the end of a
+     translation unit.  */
+  void (*file_end) (void);
+
+  /* Output an assembler pseudo-op to declare a library function name
+     external.  */
+  void (*external_libcall) (rtx);
+
+  /* Output an assembler directive to mark decl live. This instructs
+     linker to not dead code strip this symbol.  */
+  void (*mark_decl_preserved) (const char *);
+
+  /* Output a record of the command line switches that have been passed.  */
+  print_switch_fn_type record_gcc_switches;
+  /* The name of the section that the example ELF implementation of
+     record_gcc_switches will use to store the information.  Target
+     specific versions of record_gcc_switches may or may not use
+     this information.  */
+  const char * record_gcc_switches_section;
+
+  /* Output the definition of a section anchor.  */
+  void (*output_anchor) (rtx);
+
+  /* Output a DTP-relative reference to a TLS symbol.  */
+  void (*output_dwarf_dtprel) (FILE *file, int size, rtx x);
+};
+
+/* Functions relating to instruction scheduling.  */
+struct sched
+{
+  /* Given the current cost, COST, of an insn, INSN, calculate and
+     return a new cost based on its relationship to DEP_INSN through
+     the dependence LINK.  The default is to make no adjustment.  */
+  int (* adjust_cost) (rtx insn, rtx link, rtx dep_insn, int cost);
+
+  /* Adjust the priority of an insn as you see fit.  Returns the new
+     priority.  */
+  int (* adjust_priority) (rtx, int);
+
+  /* Function which returns the maximum number of insns that can be
+     scheduled in the same machine cycle.  This must be constant
+     over an entire compilation.  The default is 1.  */
+  int (* issue_rate) (void);
+
+  /* Calculate how much this insn affects how many more insns we
+     can emit this cycle.  Default is they all cost the same.  */
+  int (* variable_issue) (FILE *, int, rtx, int);
+
+  /* Initialize machine-dependent scheduling code.  */
+  void (* md_init) (FILE *, int, int);
+
+  /* Finalize machine-dependent scheduling code.  */
+  void (* md_finish) (FILE *, int);
+
+  /* Initialize machine-dependent function wide scheduling code.  */
+  void (* md_init_global) (FILE *, int, int);
+
+  /* Finalize machine-dependent function wide scheduling code.  */
+  void (* md_finish_global) (FILE *, int);
+
+  /* Reorder insns in a machine-dependent fashion, in two different
+     places.  Default does nothing.  */
+  int (* reorder) (FILE *, int, rtx *, int *, int);
+  int (* reorder2) (FILE *, int, rtx *, int *, int);
+
+  /* The following member value is a pointer to a function called
+     after evaluation forward dependencies of insns in chain given
+     by two parameter values (head and tail correspondingly).  */
+  void (* dependencies_evaluation_hook) (rtx, rtx);
+
+  /* The values of the following four members are pointers to
+     functions used to simplify the automaton descriptions.
+     dfa_pre_cycle_insn and dfa_post_cycle_insn give functions
+     returning insns which are used to change the pipeline hazard
+     recognizer state when the new simulated processor cycle
+     correspondingly starts and finishes.  The function defined by
+     init_dfa_pre_cycle_insn and init_dfa_post_cycle_insn are used
+     to initialize the corresponding insns.  The default values of
+     the members result in not changing the automaton state when
+     the new simulated processor cycle correspondingly starts and
+     finishes.  */
+  void (* init_dfa_pre_cycle_insn) (void);
+  rtx (* dfa_pre_cycle_insn) (void);
+  void (* init_dfa_post_cycle_insn) (void);
+  rtx (* dfa_post_cycle_insn) (void);
+
+  /* The values of the following two members are pointers to
+     functions used to simplify the automaton descriptions.
+     dfa_pre_advance_cycle and dfa_post_advance_cycle are getting called
+     immediately before and after cycle is advanced.  */
+  void (* dfa_pre_advance_cycle) (void);
+  void (* dfa_post_advance_cycle) (void);
+
+  /* The following member value is a pointer to a function returning value
+     which defines how many insns in queue `ready' will we try for
+     multi-pass scheduling.  If the member value is nonzero and the
+     function returns positive value, the DFA based scheduler will make
+     multi-pass scheduling for the first cycle.  In other words, we will
+     try to choose ready insn which permits to start maximum number of
+     insns on the same cycle.  */
+  int (* first_cycle_multipass_dfa_lookahead) (void);
+
+  /* The following member value is pointer to a function controlling
+     what insns from the ready insn queue will be considered for the
+     multipass insn scheduling.  If the hook returns zero for insn
+     passed as the parameter, the insn will be not chosen to be
+     issued.  */
+  int (* first_cycle_multipass_dfa_lookahead_guard) (rtx);
+
+  /* The following member value is pointer to a function called by
+     the insn scheduler before issuing insn passed as the third
+     parameter on given cycle.  If the hook returns nonzero, the
+     insn is not issued on given processors cycle.  Instead of that,
+     the processor cycle is advanced.  If the value passed through
+     the last parameter is zero, the insn ready queue is not sorted
+     on the new cycle start as usually.  The first parameter passes
+     file for debugging output.  The second one passes the scheduler
+     verbose level of the debugging output.  The forth and the fifth
+     parameter values are correspondingly processor cycle on which
+     the previous insn has been issued and the current processor
+     cycle.  */
+  int (* dfa_new_cycle) (FILE *, int, rtx, int, int, int *);
+
+  /* The following member value is a pointer to a function called by the
+     insn scheduler.  It should return true if there exists a dependence
+     which is considered costly by the target, between the insn
+     DEP_PRO (&_DEP), and the insn DEP_CON (&_DEP).  The first parameter is
+     the dep that represents the dependence between the two insns.  The
+     second argument is the cost of the dependence as estimated by
+     the scheduler.  The last argument is the distance in cycles
+     between the already scheduled insn (first parameter) and the
+     second insn (second parameter).  */
+  bool (* is_costly_dependence) (struct _dep *_dep, int, int);
+
+  /* Given the current cost, COST, of an insn, INSN, calculate and
+     return a new cost based on its relationship to DEP_INSN through the
+     dependence of type DEP_TYPE.  The default is to make no adjustment.  */
+  int (* adjust_cost_2) (rtx insn, int, rtx dep_insn, int cost, int dw);
+
+  /* The following member value is a pointer to a function called
+     by the insn scheduler. This hook is called to notify the backend
+     that new instructions were emitted.  */
+  void (* h_i_d_extended) (void);
+
+  /* Next 5 functions are for multi-point scheduling.  */
+
+  /* Allocate memory for scheduler context.  */
+  void *(* alloc_sched_context) (void);
+
+  /* Fills the context from the local machine scheduler context.  */
+  void (* init_sched_context) (void *, bool);
+
+  /* Sets local machine scheduler context to a saved value.  */
+  void (* set_sched_context) (void *);
+
+  /* Clears a scheduler context so it becomes like after init.  */
+  void (* clear_sched_context) (void *);
+
+  /* Frees the scheduler context.  */
+  void (* free_sched_context) (void *);
+
+  /* The following member value is a pointer to a function called
+     by the insn scheduler.
+     The first parameter is an instruction, the second parameter is the type
+     of the requested speculation, and the third parameter is a pointer to the
+     speculative pattern of the corresponding type (set if return value == 1).
+     It should return
+     -1, if there is no pattern, that will satisfy the requested speculation
+     type,
+     0, if current pattern satisfies the requested speculation type,
+     1, if pattern of the instruction should be changed to the newly
+     generated one.  */
+  int (* speculate_insn) (rtx, int, rtx *);
+
+  /* The following member value is a pointer to a function called
+     by the insn scheduler.  It should return true if the check instruction
+     passed as the parameter needs a recovery block.  */
+  bool (* needs_block_p) (const_rtx);
+
+  /* The following member value is a pointer to a function called
+     by the insn scheduler.  It should return a pattern for the check
+     instruction.
+     The first parameter is a speculative instruction, the second parameter
+     is the label of the corresponding recovery block (or null, if it is a
+     simple check).  If the mutation of the check is requested (e.g. from
+     ld.c to chk.a), the third parameter is true - in this case the first
+     parameter is the previous check.  */
+  rtx (* gen_spec_check) (rtx, rtx, bool);
+
+  /* The following member value is a pointer to a function controlling
+     what insns from the ready insn queue will be considered for the
+     multipass insn scheduling.  If the hook returns zero for the insn
+     passed as the parameter, the insn will not be chosen to be
+     issued.  This hook is used to discard speculative instructions,
+     that stand at the first position of the ready list.  */
+  bool (* first_cycle_multipass_dfa_lookahead_guard_spec) (const_rtx);
+
+  /* The following member value is a pointer to a function that provides
+     information about the speculation capabilities of the target.
+     The parameter is a pointer to spec_info variable.  */
+  void (* set_sched_flags) (struct spec_info_def *);
+
+  /* Return speculation types of the instruction passed as the parameter.  */
+  int (* get_insn_spec_ds) (rtx);
+
+  /* Return speculation types that are checked for the instruction passed as
+     the parameter.  */
+  int (* get_insn_checked_ds) (rtx);
+
+  /* Return bool if rtx scanning should just skip current layer and
+     advance to the inner rtxes.  */
+  bool (* skip_rtx_p) (const_rtx);
+
+  /* The following member value is a pointer to a function that provides
+     information about the target resource-based lower bound which is
+     used by the swing modulo scheduler.  The parameter is a pointer
+     to ddg variable.  */
+  int (* sms_res_mii) (struct ddg *);
+};
+
+/* Functions relating to vectorization.  */
+struct vectorize
+{
+  /* The following member value is a pointer to a function called
+     by the vectorizer, and return the decl of the target builtin
+     function.  */
+  tree (* builtin_mask_for_load) (void);
+
+  /* Returns a code for builtin that realizes vectorized version of
+     function, or NULL_TREE if not available.  */
+  tree (* builtin_vectorized_function) (unsigned, tree, tree);
+
+  /* Returns a code for builtin that realizes vectorized version of
+     conversion, or NULL_TREE if not available.  */
+  tree (* builtin_conversion) (unsigned, tree);
+
+  /* Target builtin that implements vector widening multiplication.
+     builtin_mul_widen_eve computes the element-by-element products 
+     for the even elements, and builtin_mul_widen_odd computes the
+     element-by-element products for the odd elements.  */
+  tree (* builtin_mul_widen_even) (tree);
+  tree (* builtin_mul_widen_odd) (tree);
+
+  /* Returns the cost to be added to the overheads involved with
+     executing the vectorized version of a loop.  */
+  int (*builtin_vectorization_cost) (bool);
+
+  /* Return true if vector alignment is reachable (by peeling N
+     iterations) for the given type.  */
+  bool (* vector_alignment_reachable) (const_tree, bool);
+
+  /* Target builtin that implements vector permute.  */
+  tree (* builtin_vec_perm) (tree, tree*);
+};
+
+/* Functions relating to calls - argument passing, returns, etc.  */
+struct calls
+{
+  bool (*promote_function_args) (const_tree fntype);
+  bool (*promote_function_return) (const_tree fntype);
+  bool (*promote_prototypes) (const_tree fntype);
+  rtx (*struct_value_rtx) (tree fndecl, int incoming);
+  bool (*return_in_memory) (const_tree type, const_tree fndecl);
+  bool (*return_in_msb) (const_tree type);
+
+  /* Return true if a parameter must be passed by reference.  TYPE may
+     be null if this is a libcall.  CA may be null if this query is
+     from __builtin_va_arg.  */
+  bool (*pass_by_reference) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			     const_tree type, bool named_arg);
+
+  rtx (*expand_builtin_saveregs) (void);
+  /* Returns pretend_argument_size.  */
+  void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+				  tree type, int *pretend_arg_size,
+				  int second_time);
+  bool (*strict_argument_naming) (CUMULATIVE_ARGS *ca);
+  /* Returns true if we should use
+     targetm.calls.setup_incoming_varargs() and/or
+     targetm.calls.strict_argument_naming().  */
+  bool (*pretend_outgoing_varargs_named) (CUMULATIVE_ARGS *ca);
+
+  /* Given a complex type T, return true if a parameter of type T
+     should be passed as two scalars.  */
+  bool (* split_complex_arg) (const_tree type);
+
+  /* Return true if type T, mode MODE, may not be passed in registers,
+     but must be passed on the stack.  */
+  /* ??? This predicate should be applied strictly after pass-by-reference.
+     Need audit to verify that this is the case.  */
+  bool (* must_pass_in_stack) (enum machine_mode mode, const_tree t);
+
+  /* Return true if type TYPE, mode MODE, which is passed by reference,
+     should have the object copy generated by the callee rather than
+     the caller.  It is never called for TYPE requiring constructors.  */
+  bool (* callee_copies) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			  const_tree type, bool named);
+
+  /* Return zero for arguments passed entirely on the stack or entirely
+     in registers.  If passed in both, return the number of bytes passed
+     in registers; the balance is therefore passed on the stack.  */
+  int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			     tree type, bool named);
+
+  /* Return the diagnostic message string if function without a prototype
+     is not allowed for this 'val' argument; NULL otherwise. */
+  const char *(*invalid_arg_for_unprototyped_fn) (const_tree typelist,
+						  const_tree funcdecl,
+						  const_tree val);
+
+  /* Return an rtx for the return value location of the function
+     specified by FN_DECL_OR_TYPE with a return type of RET_TYPE.  */
+  rtx (*function_value) (const_tree ret_type, const_tree fn_decl_or_type,
+			 bool outgoing);
+
+  /* Return an rtx for the argument pointer incoming to the
+     current function.  */
+  rtx (*internal_arg_pointer) (void);
+
+  /* Update the current function stack boundary if needed.  */
+  void (*update_stack_boundary) (void);
+
+  /* Handle stack alignment and return an rtx for Dynamic Realign
+     Argument Pointer if necessary.  */
+  rtx (*get_drap_rtx) (void);
+
+  /* Return true if all function parameters should be spilled to the
+     stack.  */
+  bool (*allocate_stack_slots_for_args) (void);
+    
+};
+
+/* Functions specific to the C family of frontends.  */
+struct c
+{
+  /* Return machine mode for non-standard suffix
+     or VOIDmode if non-standard suffixes are unsupported.  */
+  enum machine_mode (*mode_for_suffix) (char);
+};
+
+/* Functions specific to the C++ frontend.  */
+struct cxx
+{
+  /* Return the integer type used for guard variables.  */
+  tree (*guard_type) (void);
+  /* Return true if only the low bit of the guard should be tested.  */
+  bool (*guard_mask_bit) (void);
+  /* Returns the size of the array cookie for an array of type.  */
+  tree (*get_cookie_size) (tree);
+  /* Returns true if the element size should be stored in the
+     array cookie.  */
+  bool (*cookie_has_size) (void);
+  /* Allows backends to perform additional processing when
+     deciding if a class should be exported or imported.  */
+  int (*import_export_class) (tree, int);
+  /* Returns true if constructors and destructors return "this".  */
+  bool (*cdtor_returns_this) (void);
+  /* Returns true if the key method for a class can be an inline
+     function, so long as it is not declared inline in the class
+     itself.  Returning true is the behavior required by the Itanium
+     C++ ABI.  */
+  bool (*key_method_may_be_inline) (void);
+  /* DECL is a virtual table, virtual table table, typeinfo object,
+     or other similar implicit class data object that will be
+     emitted with external linkage in this translation unit.  No ELF
+     visibility has been explicitly specified.  If the target needs
+     to specify a visibility other than that of the containing class,
+     use this hook to set DECL_VISIBILITY and
+     DECL_VISIBILITY_SPECIFIED.  */
+  void (*determine_class_data_visibility) (tree decl);
+  /* Returns true (the default) if virtual tables and other
+     similar implicit class data objects are always COMDAT if they
+     have external linkage.  If this hook returns false, then
+     class data for classes whose virtual table will be emitted in
+     only one translation unit will not be COMDAT.  */
+  bool (*class_data_always_comdat) (void);
+  /* Returns true (the default) if the RTTI for the basic types,
+     which is always defined in the C++ runtime, should be COMDAT;
+     false if it should not be COMDAT.  */
+  bool (*library_rtti_comdat) (void);
+  /* Returns true if __aeabi_atexit should be used to register static
+     destructors.  */
+  bool (*use_aeabi_atexit) (void);
+  /* Returns true if target may use atexit in the same manner as
+     __cxa_atexit  to register static destructors.  */
+  bool (*use_atexit_for_cxa_atexit) (void);
+  /* TYPE is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that
+     has just been defined.  Use this hook to make adjustments to the
+     class  (eg, tweak visibility or perform any other required
+     target modifications).  */
+  void (*adjust_class_at_definition) (tree type);
+};
+
+/* Functions and data for emulated TLS support.  */
+struct emutls
+{
+  /* Name of the address and common functions.  */
+  const char *get_address;
+  const char *register_common;
+
+  /* Prefixes for proxy variable and template.  */
+  const char *var_section;
+  const char *tmpl_section;
+
+  /* Prefixes for proxy variable and template.  */
+  const char *var_prefix;
+  const char *tmpl_prefix;
+    
+  /* Function to generate field definitions of the proxy variable.  */
+  tree (*var_fields) (tree, tree *);
+
+  /* Function to initialize a proxy variable.  */
+  tree (*var_init) (tree, tree, tree);
+
+  /* Whether we are allowed to alter the usual alignment of the
+     proxy variable.  */
+  bool var_align_fixed;
+
+  /* Whether we can emit debug information for TLS vars.  */
+  bool debug_form_tls_address;
+};
+
+struct target_option_hooks
+{
+  /* Function to validate the attribute((option(...))) strings or NULL.  If
+     the option is validated, it is assumed that DECL_FUNCTION_SPECIFIC will
+     be filled in in the function decl node.  */
+  bool (*valid_attribute_p) (tree, tree, tree, int);
+
+  /* Function to save any extra target state in the target options
+     structure.  */
+  void (*save) (struct cl_target_option *);
+
+  /* Function to restore any extra target state from the target options
+     structure.  */
+  void (*restore) (struct cl_target_option *);
+
+  /* Function to print any extra target state from the target options
+     structure.  */
+  void (*print) (FILE *, int, struct cl_target_option *);
+
+  /* Function to parse arguments to be validated for #pragma option, and to
+     change the state if the options are valid.  If the first argument is
+     NULL, the second argument specifies the default options to use.  Return
+     true if the options are valid, and set the current state.  */
+  bool (*pragma_parse) (tree, tree);
+
+  /* Function to determine if one function can inline another function.  */
+  bool (*can_inline_p) (tree, tree);
+};
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
-  struct asm_out
-  {
-    /* Opening and closing parentheses for asm expression grouping.  */
-    const char *open_paren, *close_paren;
-
-    /* Assembler instructions for creating various kinds of integer object.  */
-    const char *byte_op;
-    struct asm_int_op
-    {
-      const char *hi;
-      const char *si;
-      const char *di;
-      const char *ti;
-    } aligned_op, unaligned_op;
-
-    /* Try to output the assembler code for an integer object whose
-       value is given by X.  SIZE is the size of the object in bytes and
-       ALIGNED_P indicates whether it is aligned.  Return true if
-       successful.  Only handles cases for which BYTE_OP, ALIGNED_OP
-       and UNALIGNED_OP are NULL.  */
-    bool (* integer) (rtx x, unsigned int size, int aligned_p);
-
-    /* Output code that will globalize a label.  */
-    void (* globalize_label) (FILE *, const char *);
-
-    /* Output code that will globalize a declaration.  */
-    void (* globalize_decl_name) (FILE *, tree);
-
-    /* Output code that will emit a label for unwind info, if this
-       target requires such labels.  Second argument is the decl the
-       unwind info is associated with, third is a boolean: true if
-       this is for exception handling, fourth is a boolean: true if
-       this is only a placeholder for an omitted FDE.  */
-    void (* unwind_label) (FILE *, tree, int, int);
-
-    /* Output code that will emit a label to divide up the exception
-       table.  */
-    void (* except_table_label) (FILE *);
-
-    /* Emit any directives required to unwind this instruction.  */
-    void (* unwind_emit) (FILE *, rtx);
-
-    /* Output an internal label.  */
-    void (* internal_label) (FILE *, const char *, unsigned long);
-
-    /* Emit a ttype table reference to a typeinfo object.  */
-    bool (* ttype) (rtx);
-
-    /* Emit an assembler directive to set visibility for the symbol
-       associated with the tree decl.  */
-    void (* visibility) (tree, int);
-
-    /* Output the assembler code for entry to a function.  */
-    void (* function_prologue) (FILE *, HOST_WIDE_INT);
-
-    /* Output the assembler code for end of prologue.  */
-    void (* function_end_prologue) (FILE *);
-
-    /* Output the assembler code for start of epilogue.  */
-    void (* function_begin_epilogue) (FILE *);
-
-    /* Output the assembler code for function exit.  */
-    void (* function_epilogue) (FILE *, HOST_WIDE_INT);
-
-    /* Initialize target-specific sections.  */
-    void (* init_sections) (void);
-
-    /* Tell assembler to change to section NAME with attributes FLAGS.
-       If DECL is non-NULL, it is the VAR_DECL or FUNCTION_DECL with
-       which this section is associated.  */
-    void (* named_section) (const char *name, unsigned int flags, tree decl);
-
-    /* Return a mask describing how relocations should be treated when
-       selecting sections.  Bit 1 should be set if global relocations
-       should be placed in a read-write section; bit 0 should be set if
-       local relocations should be placed in a read-write section.  */
-    int (*reloc_rw_mask) (void);
-
-    /* Return a section for EXP.  It may be a DECL or a constant.  RELOC
-       is nonzero if runtime relocations must be applied; bit 1 will be
-       set if the runtime relocations require non-local name resolution.
-       ALIGN is the required alignment of the data.  */
-    section *(* select_section) (tree, int, unsigned HOST_WIDE_INT);
-
-    /* Return a section for X.  MODE is X's mode and ALIGN is its
-       alignment in bits.  */
-    section *(* select_rtx_section) (enum machine_mode, rtx,
-				     unsigned HOST_WIDE_INT);
-
-    /* Select a unique section name for DECL.  RELOC is the same as
-       for SELECT_SECTION.  */
-    void (* unique_section) (tree, int);
-
-    /* Return the readonly data section associated with function DECL.  */
-    section *(* function_rodata_section) (tree);
-
-    /* Output a constructor for a symbol with a given priority.  */
-    void (* constructor) (rtx, int);
-
-    /* Output a destructor for a symbol with a given priority.  */
-    void (* destructor) (rtx, int);
-
-    /* Output the assembler code for a thunk function.  THUNK_DECL is the
-       declaration for the thunk function itself, FUNCTION is the decl for
-       the target function.  DELTA is an immediate constant offset to be
-       added to THIS.  If VCALL_OFFSET is nonzero, the word at
-       *(*this + vcall_offset) should be added to THIS.  */
-    void (* output_mi_thunk) (FILE *file, tree thunk_decl,
-			      HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
-			      tree function_decl);
-
-    /* Determine whether output_mi_thunk would succeed.  */
-    /* ??? Ideally, this hook would not exist, and success or failure
-       would be returned from output_mi_thunk directly.  But there's
-       too much undo-able setup involved in invoking output_mi_thunk.
-       Could be fixed by making output_mi_thunk emit rtl instead of
-       text to the output file.  */
-    bool (* can_output_mi_thunk) (const_tree thunk_decl, HOST_WIDE_INT delta,
-				  HOST_WIDE_INT vcall_offset,
-				  const_tree function_decl);
-
-    /* Output any boilerplate text needed at the beginning of a
-       translation unit.  */
-    void (*file_start) (void);
-
-    /* Output any boilerplate text needed at the end of a
-       translation unit.  */
-    void (*file_end) (void);
-
-    /* Output an assembler pseudo-op to declare a library function name
-       external.  */
-    void (*external_libcall) (rtx);
-
-    /* Output an assembler directive to mark decl live. This instructs
-	linker to not dead code strip this symbol.  */
-    void (*mark_decl_preserved) (const char *);
-
-    /* Output a record of the command line switches that have been passed.  */
-    print_switch_fn_type record_gcc_switches;
-    /* The name of the section that the example ELF implementation of
-       record_gcc_switches will use to store the information.  Target
-       specific versions of record_gcc_switches may or may not use
-       this information.  */
-    const char * record_gcc_switches_section;
-
-    /* Output the definition of a section anchor.  */
-    void (*output_anchor) (rtx);
-
-    /* Output a DTP-relative reference to a TLS symbol.  */
-    void (*output_dwarf_dtprel) (FILE *file, int size, rtx x);
-
-  } asm_out;
+  struct asm_out asm_out;
 
   /* Functions relating to instruction scheduling.  */
-  struct sched
-  {
-    /* Given the current cost, COST, of an insn, INSN, calculate and
-       return a new cost based on its relationship to DEP_INSN through
-       the dependence LINK.  The default is to make no adjustment.  */
-    int (* adjust_cost) (rtx insn, rtx link, rtx dep_insn, int cost);
-
-    /* Adjust the priority of an insn as you see fit.  Returns the new
-       priority.  */
-    int (* adjust_priority) (rtx, int);
-
-    /* Function which returns the maximum number of insns that can be
-       scheduled in the same machine cycle.  This must be constant
-       over an entire compilation.  The default is 1.  */
-    int (* issue_rate) (void);
-
-    /* Calculate how much this insn affects how many more insns we
-       can emit this cycle.  Default is they all cost the same.  */
-    int (* variable_issue) (FILE *, int, rtx, int);
-
-    /* Initialize machine-dependent scheduling code.  */
-    void (* md_init) (FILE *, int, int);
-
-    /* Finalize machine-dependent scheduling code.  */
-    void (* md_finish) (FILE *, int);
-
-    /* Initialize machine-dependent function wide scheduling code.  */
-    void (* md_init_global) (FILE *, int, int);
-
-    /* Finalize machine-dependent function wide scheduling code.  */
-    void (* md_finish_global) (FILE *, int);
-
-    /* Reorder insns in a machine-dependent fashion, in two different
-       places.  Default does nothing.  */
-    int (* reorder) (FILE *, int, rtx *, int *, int);
-    int (* reorder2) (FILE *, int, rtx *, int *, int);
-
-    /* The following member value is a pointer to a function called
-       after evaluation forward dependencies of insns in chain given
-       by two parameter values (head and tail correspondingly).  */
-    void (* dependencies_evaluation_hook) (rtx, rtx);
-
-    /* The values of the following four members are pointers to
-       functions used to simplify the automaton descriptions.
-       dfa_pre_cycle_insn and dfa_post_cycle_insn give functions
-       returning insns which are used to change the pipeline hazard
-       recognizer state when the new simulated processor cycle
-       correspondingly starts and finishes.  The function defined by
-       init_dfa_pre_cycle_insn and init_dfa_post_cycle_insn are used
-       to initialize the corresponding insns.  The default values of
-       the members result in not changing the automaton state when
-       the new simulated processor cycle correspondingly starts and
-       finishes.  */
-    void (* init_dfa_pre_cycle_insn) (void);
-    rtx (* dfa_pre_cycle_insn) (void);
-    void (* init_dfa_post_cycle_insn) (void);
-    rtx (* dfa_post_cycle_insn) (void);
-
-    /* The values of the following two members are pointers to
-       functions used to simplify the automaton descriptions.
-       dfa_pre_advance_cycle and dfa_post_advance_cycle are getting called
-       immediately before and after cycle is advanced.  */
-    void (* dfa_pre_advance_cycle) (void);
-    void (* dfa_post_advance_cycle) (void);
-
-    /* The following member value is a pointer to a function returning value
-       which defines how many insns in queue `ready' will we try for
-       multi-pass scheduling.  If the member value is nonzero and the
-       function returns positive value, the DFA based scheduler will make
-       multi-pass scheduling for the first cycle.  In other words, we will
-       try to choose ready insn which permits to start maximum number of
-       insns on the same cycle.  */
-    int (* first_cycle_multipass_dfa_lookahead) (void);
-
-    /* The following member value is pointer to a function controlling
-       what insns from the ready insn queue will be considered for the
-       multipass insn scheduling.  If the hook returns zero for insn
-       passed as the parameter, the insn will be not chosen to be
-       issued.  */
-    int (* first_cycle_multipass_dfa_lookahead_guard) (rtx);
-
-    /* The following member value is pointer to a function called by
-       the insn scheduler before issuing insn passed as the third
-       parameter on given cycle.  If the hook returns nonzero, the
-       insn is not issued on given processors cycle.  Instead of that,
-       the processor cycle is advanced.  If the value passed through
-       the last parameter is zero, the insn ready queue is not sorted
-       on the new cycle start as usually.  The first parameter passes
-       file for debugging output.  The second one passes the scheduler
-       verbose level of the debugging output.  The forth and the fifth
-       parameter values are correspondingly processor cycle on which
-       the previous insn has been issued and the current processor
-       cycle.  */
-    int (* dfa_new_cycle) (FILE *, int, rtx, int, int, int *);
-
-    /* The following member value is a pointer to a function called by the
-       insn scheduler.  It should return true if there exists a dependence
-       which is considered costly by the target, between the insn
-       DEP_PRO (&_DEP), and the insn DEP_CON (&_DEP).  The first parameter is
-       the dep that represents the dependence between the two insns.  The
-       second argument is the cost of the dependence as estimated by
-       the scheduler.  The last argument is the distance in cycles
-       between the already scheduled insn (first parameter) and the
-       second insn (second parameter).  */
-    bool (* is_costly_dependence) (struct _dep *_dep, int, int);
-
-    /* Given the current cost, COST, of an insn, INSN, calculate and
-       return a new cost based on its relationship to DEP_INSN through the
-       dependence of type DEP_TYPE.  The default is to make no adjustment.  */
-    int (* adjust_cost_2) (rtx insn, int, rtx dep_insn, int cost, int dw);
-
-    /* The following member value is a pointer to a function called
-       by the insn scheduler. This hook is called to notify the backend
-       that new instructions were emitted.  */
-    void (* h_i_d_extended) (void);
-
-    /* Next 5 functions are for multi-point scheduling.  */
-
-    /* Allocate memory for scheduler context.  */
-    void *(* alloc_sched_context) (void);
-
-    /* Fills the context from the local machine scheduler context.  */
-    void (* init_sched_context) (void *, bool);
-
-    /* Sets local machine scheduler context to a saved value.  */
-    void (* set_sched_context) (void *);
-
-    /* Clears a scheduler context so it becomes like after init.  */
-    void (* clear_sched_context) (void *);
-
-    /* Frees the scheduler context.  */
-    void (* free_sched_context) (void *);
-
-    /* The following member value is a pointer to a function called
-       by the insn scheduler.
-       The first parameter is an instruction, the second parameter is the type
-       of the requested speculation, and the third parameter is a pointer to the
-       speculative pattern of the corresponding type (set if return value == 1).
-       It should return
-       -1, if there is no pattern, that will satisfy the requested speculation
-       type,
-       0, if current pattern satisfies the requested speculation type,
-       1, if pattern of the instruction should be changed to the newly
-       generated one.  */
-    int (* speculate_insn) (rtx, int, rtx *);
-
-    /* The following member value is a pointer to a function called
-       by the insn scheduler.  It should return true if the check instruction
-       passed as the parameter needs a recovery block.  */
-    bool (* needs_block_p) (const_rtx);
-
-    /* The following member value is a pointer to a function called
-       by the insn scheduler.  It should return a pattern for the check
-       instruction.
-       The first parameter is a speculative instruction, the second parameter
-       is the label of the corresponding recovery block (or null, if it is a
-       simple check).  If the mutation of the check is requested (e.g. from
-       ld.c to chk.a), the third parameter is true - in this case the first
-       parameter is the previous check.  */
-    rtx (* gen_spec_check) (rtx, rtx, bool);
-
-    /* The following member value is a pointer to a function controlling
-       what insns from the ready insn queue will be considered for the
-       multipass insn scheduling.  If the hook returns zero for the insn
-       passed as the parameter, the insn will not be chosen to be
-       issued.  This hook is used to discard speculative instructions,
-       that stand at the first position of the ready list.  */
-    bool (* first_cycle_multipass_dfa_lookahead_guard_spec) (const_rtx);
-
-    /* The following member value is a pointer to a function that provides
-       information about the speculation capabilities of the target.
-       The parameter is a pointer to spec_info variable.  */
-    void (* set_sched_flags) (struct spec_info_def *);
-
-    /* Return speculation types of the instruction passed as the parameter.  */
-    int (* get_insn_spec_ds) (rtx);
-
-    /* Return speculation types that are checked for the instruction passed as
-       the parameter.  */
-    int (* get_insn_checked_ds) (rtx);
-
-    /* Return bool if rtx scanning should just skip current layer and
-       advance to the inner rtxes.  */
-    bool (* skip_rtx_p) (const_rtx);
-
-    /* The following member value is a pointer to a function that provides
-       information about the target resource-based lower bound which is
-       used by the swing modulo scheduler.  The parameter is a pointer
-       to ddg variable.  */
-    int (* sms_res_mii) (struct ddg *);
-  } sched;
+  struct sched sched;
 
   /* Functions relating to vectorization.  */
-  struct vectorize
-  {
-    /* The following member value is a pointer to a function called
-       by the vectorizer, and return the decl of the target builtin
-       function.  */
-    tree (* builtin_mask_for_load) (void);
-
-    /* Returns a code for builtin that realizes vectorized version of
-       function, or NULL_TREE if not available.  */
-    tree (* builtin_vectorized_function) (unsigned, tree, tree);
-
-    /* Returns a code for builtin that realizes vectorized version of
-       conversion, or NULL_TREE if not available.  */
-    tree (* builtin_conversion) (unsigned, tree);
-
-    /* Target builtin that implements vector widening multiplication.
-       builtin_mul_widen_eve computes the element-by-element products 
-       for the even elements, and builtin_mul_widen_odd computes the
-       element-by-element products for the odd elements.  */
-    tree (* builtin_mul_widen_even) (tree);
-    tree (* builtin_mul_widen_odd) (tree);
-
-    /* Returns the cost to be added to the overheads involved with
-       executing the vectorized version of a loop.  */
-    int (*builtin_vectorization_cost) (bool);
-
-    /* Return true if vector alignment is reachable (by peeling N
-       iterations) for the given type.  */
-    bool (* vector_alignment_reachable) (const_tree, bool);
-
-    /* Target builtin that implements vector permute.  */
-    tree (* builtin_vec_perm) (tree, tree*);
-} vectorize;
+  struct vectorize vectorize;
 
   /* The initial value of target_flags.  */
   int default_target_flags;
@@ -812,80 +1019,7 @@ struct gcc_target
   bool (* valid_dllimport_attribute_p) (const_tree decl);
 
   /* Functions relating to calls - argument passing, returns, etc.  */
-  struct calls {
-    bool (*promote_function_args) (const_tree fntype);
-    bool (*promote_function_return) (const_tree fntype);
-    bool (*promote_prototypes) (const_tree fntype);
-    rtx (*struct_value_rtx) (tree fndecl, int incoming);
-    bool (*return_in_memory) (const_tree type, const_tree fndecl);
-    bool (*return_in_msb) (const_tree type);
-
-    /* Return true if a parameter must be passed by reference.  TYPE may
-       be null if this is a libcall.  CA may be null if this query is
-       from __builtin_va_arg.  */
-    bool (*pass_by_reference) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
-			       const_tree type, bool named_arg);
-
-    rtx (*expand_builtin_saveregs) (void);
-    /* Returns pretend_argument_size.  */
-    void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
-				    tree type, int *pretend_arg_size,
-				    int second_time);
-    bool (*strict_argument_naming) (CUMULATIVE_ARGS *ca);
-    /* Returns true if we should use
-       targetm.calls.setup_incoming_varargs() and/or
-       targetm.calls.strict_argument_naming().  */
-    bool (*pretend_outgoing_varargs_named) (CUMULATIVE_ARGS *ca);
-
-    /* Given a complex type T, return true if a parameter of type T
-       should be passed as two scalars.  */
-    bool (* split_complex_arg) (const_tree type);
-
-    /* Return true if type T, mode MODE, may not be passed in registers,
-       but must be passed on the stack.  */
-    /* ??? This predicate should be applied strictly after pass-by-reference.
-       Need audit to verify that this is the case.  */
-    bool (* must_pass_in_stack) (enum machine_mode mode, const_tree t);
-
-    /* Return true if type TYPE, mode MODE, which is passed by reference,
-       should have the object copy generated by the callee rather than
-       the caller.  It is never called for TYPE requiring constructors.  */
-    bool (* callee_copies) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
-			    const_tree type, bool named);
-
-    /* Return zero for arguments passed entirely on the stack or entirely
-       in registers.  If passed in both, return the number of bytes passed
-       in registers; the balance is therefore passed on the stack.  */
-    int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
-			       tree type, bool named);
-
-    /* Return the diagnostic message string if function without a prototype
-       is not allowed for this 'val' argument; NULL otherwise. */
-    const char *(*invalid_arg_for_unprototyped_fn) (const_tree typelist,
-					     	    const_tree funcdecl,
-						    const_tree val);
-
-    /* Return an rtx for the return value location of the function
-       specified by FN_DECL_OR_TYPE with a return type of RET_TYPE.  */
-    rtx (*function_value) (const_tree ret_type, const_tree fn_decl_or_type,
-			   bool outgoing);
-
-    /* Return an rtx for the argument pointer incoming to the
-       current function.  */
-    rtx (*internal_arg_pointer) (void);
-
-    /* Update the current function stack boundary if needed.  */
-    void (*update_stack_boundary) (void);
-
-    /* Handle stack alignment and return an rtx for Dynamic Realign
-       Argument Pointer if necessary.  */
-    rtx (*get_drap_rtx) (void);
-
-    /* Return true if all function parameters should be spilled to the
-       stack.  */
-    bool (*allocate_stack_slots_for_args) (void);
-    
-  } calls;
+  struct calls calls;
 
   /* Return the diagnostic message string if conversion from FROMTYPE
      to TOTYPE is not allowed, NULL otherwise.  */
@@ -918,119 +1052,15 @@ struct gcc_target
   bool (* hard_regno_scratch_ok) (unsigned int regno);
 
   /* Functions specific to the C family of frontends.  */
-  struct c {
-    /* Return machine mode for non-standard suffix
-       or VOIDmode if non-standard suffixes are unsupported.  */
-    enum machine_mode (*mode_for_suffix) (char);
-  } c;
+  struct c c;
 
   /* Functions specific to the C++ frontend.  */
-  struct cxx {
-    /* Return the integer type used for guard variables.  */
-    tree (*guard_type) (void);
-    /* Return true if only the low bit of the guard should be tested.  */
-    bool (*guard_mask_bit) (void);
-    /* Returns the size of the array cookie for an array of type.  */
-    tree (*get_cookie_size) (tree);
-    /* Returns true if the element size should be stored in the
-       array cookie.  */
-    bool (*cookie_has_size) (void);
-    /* Allows backends to perform additional processing when
-       deciding if a class should be exported or imported.  */
-    int (*import_export_class) (tree, int);
-    /* Returns true if constructors and destructors return "this".  */
-    bool (*cdtor_returns_this) (void);
-    /* Returns true if the key method for a class can be an inline
-       function, so long as it is not declared inline in the class
-       itself.  Returning true is the behavior required by the Itanium
-       C++ ABI.  */
-    bool (*key_method_may_be_inline) (void);
-    /* DECL is a virtual table, virtual table table, typeinfo object,
-       or other similar implicit class data object that will be
-       emitted with external linkage in this translation unit.  No ELF
-       visibility has been explicitly specified.  If the target needs
-       to specify a visibility other than that of the containing class,
-       use this hook to set DECL_VISIBILITY and
-       DECL_VISIBILITY_SPECIFIED.  */
-    void (*determine_class_data_visibility) (tree decl);
-    /* Returns true (the default) if virtual tables and other
-       similar implicit class data objects are always COMDAT if they
-       have external linkage.  If this hook returns false, then
-       class data for classes whose virtual table will be emitted in
-       only one translation unit will not be COMDAT.  */
-    bool (*class_data_always_comdat) (void);
-    /* Returns true (the default) if the RTTI for the basic types,
-       which is always defined in the C++ runtime, should be COMDAT;
-       false if it should not be COMDAT.  */
-    bool (*library_rtti_comdat) (void);
-    /* Returns true if __aeabi_atexit should be used to register static
-       destructors.  */
-    bool (*use_aeabi_atexit) (void);
-    /* Returns true if target may use atexit in the same manner as
-    __cxa_atexit  to register static destructors.  */
-    bool (*use_atexit_for_cxa_atexit) (void);
-    /* TYPE is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that
-       has just been defined.  Use this hook to make adjustments to the
-       class  (eg, tweak visibility or perform any other required
-       target modifications).  */
-    void (*adjust_class_at_definition) (tree type);
-  } cxx;
+  struct cxx cxx;
 
   /* Functions and data for emulated TLS support.  */
-  struct emutls {
-    /* Name of the address and common functions.  */
-    const char *get_address;
-    const char *register_common;
+  struct emutls emutls;
 
-    /* Prefixes for proxy variable and template.  */
-    const char *var_section;
-    const char *tmpl_section;
-
-    /* Prefixes for proxy variable and template.  */
-    const char *var_prefix;
-    const char *tmpl_prefix;
-    
-    /* Function to generate field definitions of the proxy variable.  */
-    tree (*var_fields) (tree, tree *);
-
-    /* Function to initialize a proxy variable.  */
-    tree (*var_init) (tree, tree, tree);
-
-    /* Whether we are allowed to alter the usual alignment of the
-       proxy variable.  */
-    bool var_align_fixed;
-
-    /* Whether we can emit debug information for TLS vars.  */
-    bool debug_form_tls_address;
-  } emutls;  
-
-  struct target_option_hooks {
-    /* Function to validate the attribute((option(...))) strings or NULL.  If
-       the option is validated, it is assumed that DECL_FUNCTION_SPECIFIC will
-       be filled in in the function decl node.  */
-    bool (*valid_attribute_p) (tree, tree, tree, int);
-
-    /* Function to save any extra target state in the target options
-       structure.  */
-    void (*save) (struct cl_target_option *);
-
-    /* Function to restore any extra target state from the target options
-       structure.  */
-    void (*restore) (struct cl_target_option *);
-
-    /* Function to print any extra target state from the target options
-       structure.  */
-    void (*print) (FILE *, int, struct cl_target_option *);
-
-    /* Function to parse arguments to be validated for #pragma option, and to
-       change the state if the options are valid.  If the first argument is
-       NULL, the second argument specifies the default options to use.  Return
-       true if the options are valid, and set the current state.  */
-    bool (*pragma_parse) (tree, tree);
-
-    /* Function to determine if one function can inline another function.  */
-    bool (*can_inline_p) (tree, tree);
-  } target_option;
+  struct target_option_hooks target_option;
 
   /* For targets that need to mark extra registers as live on entry to
      the function, they should define this target hook and set their
