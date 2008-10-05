@@ -1,5 +1,9 @@
 2008-10-05  Tom Tromey  <tromey@redhat.com>
 
+	* fold-const.c (fold_unary): Rename 'and' to 'and_expr'.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
 	* sel-sched.c (move_op_hooks, fur_hooks): Mark forward
 	declarations 'extern'.
 	* regstat.c (regstat_n_sets_and_refs): Remove duplicate.
