@@ -1,5 +1,10 @@
 2008-10-05  Tom Tromey  <tromey@redhat.com>
 
+	* bitmap.c (bitmap_obstack_alloc_stat): Remove extra cast.
+	(bitmap_obstack_free): Likewise.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
 	* dominance.c (iterate_fix_dominators): Cast argument to
 	BITMAP_FREE.
 	* bitmap.c (bitmap_obstack_alloc_stat): Add cast.
