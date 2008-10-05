@@ -1,3 +1,8 @@
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
+	* sdbout.c (sdb_debug_hooks): Initialize.
+	* ggc-page.c (ggc_pch_write_object): Initialize emptyBytes.
+
 2008-09-19  Tom Tromey  <tromey@redhat.com>
 
 	* gimple.h (gimple_cond_code): Cast result to tree_code.
