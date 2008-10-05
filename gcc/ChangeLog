@@ -1,5 +1,12 @@
 2008-10-05  Tom Tromey  <tromey@redhat.com>
 
+	* sel-sched.c (move_op_hooks, fur_hooks): Mark forward
+	declarations 'extern'.
+	* regstat.c (regstat_n_sets_and_refs): Remove duplicate.
+	* haifa-sched.c (sched_scan_info): Remove duplicate.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
 	* cgraph.h (struct inline_summary): Move to top level.
 	(cgraph_local_info): Update.
 	* target.h (struct asm_out): Move to top level.

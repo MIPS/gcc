@@ -4703,8 +4703,6 @@ check_cfg (rtx head, rtx tail)
 
 #endif /* ENABLE_CHECKING */
 
-const struct sched_scan_info_def *sched_scan_info;
-
 /* Extend per basic block data structures.  */
 static void
 extend_bb (void)
