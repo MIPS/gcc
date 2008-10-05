@@ -1,5 +1,12 @@
 2008-10-05  Tom Tromey  <tromey@redhat.com>
 
+	* dominance.c (iterate_fix_dominators): Cast argument to
+	BITMAP_FREE.
+	* bitmap.c (bitmap_obstack_alloc_stat): Add cast.
+	(bitmap_obstack_free): Likewise.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
 	* fold-const.c (fold_unary): Rename 'and' to 'and_expr'.
 
 2008-10-05  Tom Tromey  <tromey@redhat.com>
