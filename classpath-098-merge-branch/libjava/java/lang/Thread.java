@@ -431,6 +431,12 @@ public class Thread implements Runnable
         this.threadId = nextThreadId++;
       }
 
+    // Always create the ThreadLocalMap when creating a thread; the
+    // previous code did this lazily when getThreadLocals was called,
+    // but this is a divergence from Classpath's implementation of
+    // ThreadLocal.
+    this.locals = new ThreadLocalMap();
+
     if (current != null)
       {
 	group.checkAccess();
@@ -1023,10 +1029,7 @@ public class Thread implements Runnable
   {
     Thread thread = currentThread();
     ThreadLocalMap locals = thread.locals;
-    if (locals == null)
-      {
-        locals = thread.locals = new ThreadLocalMap();
-      }
+
     return locals;
   }
 

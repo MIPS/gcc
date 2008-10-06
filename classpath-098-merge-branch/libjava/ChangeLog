@@ -1,3 +1,9 @@
+2008-10-06  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/Thread.java (Thread): Always create the ThreadLocalMap
+	when creating a thread.
+	(getThreadLocals) Don't lazily create the ThreadLocalMap.
+
 2008-09-28  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
 	* classpath/java/lang/ThreadLocalMap.java,
