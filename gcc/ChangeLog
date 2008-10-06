@@ -1,3 +1,7 @@
+2008-10-06  Tom Tromey  <tromey@redhat.com>
+
+	* errors.h (progname): Wrap in 'extern "C"'.
+
 2008-10-05  Tom Tromey  <tromey@redhat.com>
 
 	* bitmap.c (bitmap_obstack_alloc_stat): Remove extra cast.

@@ -1,5 +1,5 @@
 /* Basic error reporting routines.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2007
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -40,6 +40,13 @@ extern void internal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_PRIN
 extern const char *trim_filename (const char *);
 
 extern int have_error;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern const char *progname;
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! GCC_ERRORS_H */
