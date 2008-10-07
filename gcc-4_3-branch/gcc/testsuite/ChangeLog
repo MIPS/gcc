@@ -1,3 +1,129 @@
+2008-10-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-10-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/37731
+	* gcc.dg/torture/pr37731-1.c: New.
+	* gcc.dg/torture/pr37731-2.c: Likewise.
+
+2008-10-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization4.adb: New test.
+	* gnat.dg/loop_optimization4_pkg.ad[sb]: New helper.
+
+2008-10-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/unchecked_convert2.adb: New test.
+
+2008-10-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/37706
+	* gfortran.dg/module_equivalence_4.f90: New test.
+
+2008-09-30  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/37555
+	* g++.dg/parse/error32.C: New test.
+
+2008-09-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/conv_decimal.adb: New test.
+
+2008-09-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37580
+	* gfortran.dg/pointer_assign_5.f90: New test.
+	* gfortran.dg/pointer_assign_6.f90: New test.
+
+2008-09-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37504
+	* gfortran.dg/protected_7.f90: New test.
+
+2008-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/37645
+	* gcc.dg/pr37645.c: New test.
+
+2008-09-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37626
+	* gfortran.dg/allocatable_function_4.f90: New test.
+
+2008-09-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35945
+	* gfortran.dg/host_assoc_types_2.f90: New test.
+
+	PR fortran/36700
+	* gfortran.dg/host_assoc_call_2.f90: New test.
+
+2008-09-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/37583
+	* gfortran.dg/entry_18.f90: New test.
+
+2008-09-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pragma-init-fini.c: Use dg-warning in lieu of dg-error.
+	* gcc.dg/pragma-align-2.c: Likewise.
+	* gcc.dg/format/cmn-err-1.c: Likewise.
+
+2008-09-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/37274
+	* gfortran.dg/used_types_22.f90: New test.
+	* gfortran.dg/used_types_23.f90: New test.
+
+	PR fortran/36374
+	* gfortran.dg/generic_17.f90: New test.
+	* gfortran.dg/ambiguous_specific_2.f90: New test.
+	* gfortran.dg/generic_actual_arg.f90: Add test for case that is
+	not ambiguous.
+
+	PR fortran/36454
+	* gfortran.dg/access_spec_3.f90: New test.
+
+2008-09-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37236
+	* gfortran.fortran-torture/compile/pr37236.f: New testcase.
+
+2008-09-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36343
+	* gcc.c-torture/execute/pr36343.c: New testcase.
+
+2008-09-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-09-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/37544
+	* gcc.dg/pr37544.c: New test.
+
+2008-09-18  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline:
+	2008-04-08  Janis Johnson  <janis187@us.ibm.com>
+
+	PR target/35620
+	* gcc.dg/dfp/pr35620.c: New test.
+	* gcc.dg/dfp/func-pointer.c: New test.
+	* gcc.dg/dfp/func-deref.c: New test.
+
+	Backport from mainline:
+	2008-04-03  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/35712
+	* gcc.dg/dfp/constants-zero.c: New test.
+
+2008-09-13  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/35770
+	* gfortran.dg/implicit_12.f90: New test.
+
 2008-09-11  Daniel Kraft  <d@domob.eu>
 
 	PR fortran/36214
