@@ -1,5 +1,10 @@
 2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgrtl.c (rtl_merge_blocks): Drop notes before debug insns at
+	the end of the first block.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
 	* fortran/trans-types.c (gfc_get_nodesc_array_type): Don't
 	vary types depending on debug info.
 

@@ -564,10 +564,14 @@ rtl_merge_blocks (basic_block a, basic_block b)
 {
   rtx b_head = BB_HEAD (b), b_end = BB_END (b), a_end = BB_END (a);
   rtx del_first = NULL_RTX, del_last = NULL_RTX;
+  rtx b_debug_start = b_end, b_debug_end = b_end;
   int b_empty = 0;
 
   if (dump_file)
     fprintf (dump_file, "merging block %d into block %d\n", b->index, a->index);
+
+  while (DEBUG_INSN_P (b_end))
+    b_end = PREV_INSN (b_debug_start = b_end);
 
   /* If there was a CODE_LABEL beginning B, delete it.  */
   if (LABEL_P (b_head))
@@ -638,9 +642,21 @@ rtl_merge_blocks (basic_block a, basic_block b)
   /* Reassociate the insns of B with A.  */
   if (!b_empty)
     {
-      update_bb_for_insn_chain (a_end, b_end, a);
+      update_bb_for_insn_chain (a_end, b_debug_end, a);
 
-      a_end = b_end;
+      a_end = b_debug_end;
+    }
+  else if (b_end != b_debug_end)
+    {
+      /* Move any deleted labels and other notes between the end of A
+	 and the debug insns that make up B after the debug insns,
+	 bringing the debug insns into A while keeping the notes after
+	 the end of A.  */
+      if (NEXT_INSN (a_end) != b_debug_start)
+	reorder_insns_nobb (NEXT_INSN (a_end), PREV_INSN (b_debug_start),
+			    b_debug_end);
+      update_bb_for_insn_chain (b_debug_start, b_debug_end, a);
+      a_end = b_debug_end;
     }
 
   df_bb_delete (b->index);
