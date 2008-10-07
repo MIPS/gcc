@@ -910,8 +910,6 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
       *lto_c_ptr++ = "-x";
       *lto_c_ptr++ = "lto";
       *lto_c_ptr++ = "-c";
-      /* FIXME lto.  Temporary workaround.  Remove before merging.  */
-      *lto_c_ptr++ = "-O2";
       *lto_c_ptr++ = "-o";
       *lto_c_ptr++ = lto_o_file;
       if (lto_mode == LTO_MODE_WPA)

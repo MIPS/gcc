@@ -1,3 +1,14 @@
+2008-10-06  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.c (cc1_options, lto1_options): Remove -O2 from
+	-flto.
+	* passes.c (ipa_read_summaries_1): Use the gating
+	function to decide if a pass should be executed.
+	* lto-section-out.c (gate_lto_out): Return true if
+	in_lto_p is set.
+	* collect2.c (maybe_run_lto_and_relink): Do not force
+	-O2.
+
 2008-10-03 Rafael Espindola  <espindola@google.com>
 
 	* lto-function-in.c (global_vector_fixup) Remove. Remove all calls.

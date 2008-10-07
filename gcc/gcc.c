@@ -871,13 +871,12 @@ static const char *cc1_non_lto_options =
  %{coverage:-fprofile-arcs -ftest-coverage} ";
 
 /* NB: This is shared amongst all front-ends except lto1.  */
-/* FIXME lto: -O2 is needed as a temporary workaround.  Remove.  */
 static const char *cc1_options =
 "%(cc1_non_lto_options)\
- %{!?lto-option(none): -O2 -flto} ";
+ %{!?lto-option(none): -flto} ";
 
 static const char *lto1_options =
-"%(cc1_non_lto_options) -O2\
+"%(cc1_non_lto_options)\
  %{?lto-option(wpa): -fwpa}\
  %{?lto-option(ltrans): -fltrans} ";
 

@@ -22,7 +22,7 @@ load_lib gcc-dg.exp
 # If a testcase doesn't have special options, use these.
 global DEFAULT_LTOFLAGS
 if ![info exists DEFAULT_LTOFLAGS] then {
-    set DEFAULT_LTOFLAGS " -O2 -flto-single -pedantic-errors"
+    set DEFAULT_LTOFLAGS "-flto-single -pedantic-errors"
 }
 
 # Initialize `dg'.

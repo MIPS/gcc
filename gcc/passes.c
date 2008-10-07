@@ -1405,6 +1405,7 @@ ipa_write_summaries_of_cgraph_node_set (cgraph_node_set set)
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
    are local passes.  */
+
 static void
 ipa_read_summaries_1 (struct opt_pass *pass)
 {
@@ -1414,10 +1415,13 @@ ipa_read_summaries_1 (struct opt_pass *pass)
       gcc_assert (!current_function_decl);
       gcc_assert (!cfun);
       gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
-      if (pass->type == IPA_PASS && ipa_pass->read_summary)
-	ipa_pass->read_summary ();
-      if (pass->sub && pass->sub->type != GIMPLE_PASS)
-	ipa_read_summaries_1 (pass->sub);
+      if (pass->gate == NULL || pass->gate ())
+	{
+	  if (pass->type == IPA_PASS && ipa_pass->read_summary)
+	    ipa_pass->read_summary ();
+	  if (pass->sub && pass->sub->type != GIMPLE_PASS)
+	    ipa_read_summaries_1 (pass->sub);
+	}
       pass = pass->next;
     }
   while (pass);

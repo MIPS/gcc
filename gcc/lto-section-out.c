@@ -1355,7 +1355,7 @@ produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED)
 bool
 gate_lto_out (void)
 {
-  return (flag_generate_lto
+  return ((flag_generate_lto || in_lto_p)
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !(errorcount || sorrycount));
 }
