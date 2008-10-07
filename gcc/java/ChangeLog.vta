@@ -1,3 +1,8 @@
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Make-lang.in (GCJ): Renamed to...
+	(XGCJ): ... this.
+
 2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
 
 	* expr.c (build_jni_stub): Use the computed jni func type for
