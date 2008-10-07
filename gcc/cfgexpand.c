@@ -2986,7 +2986,7 @@ gimple_expand_cfg (void)
   rtl_profile_for_bb (ENTRY_BLOCK_PTR);
 
   insn_locators_alloc ();
-  if (!DECL_BUILT_IN (current_function_decl))
+  if (!DECL_IS_BUILTIN (current_function_decl))
     set_curr_insn_source_location (DECL_SOURCE_LOCATION (current_function_decl));
   set_curr_insn_block (DECL_INITIAL (current_function_decl));
   prologue_locator = curr_insn_locator ();

@@ -1,5 +1,10 @@
 2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgexpand.c (gimple_expand_cfg): Discard the source location
+	only for builtins that are not overridden.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgexpand.c (expand_debug_expr): Expand COMPLEX_CST into CONCAT.
 
 2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
