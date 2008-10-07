@@ -918,7 +918,7 @@ rank_for_schedule (const void *x, const void *y)
 
   last = last_scheduled_insn;
 
-  if (DEBUG_INSN_P (last))
+  if (DEBUG_INSN_P (last) && last != current_sched_info->prev_head)
     do
       last = PREV_INSN (last);
     while ((DEBUG_INSN_P (last) || !INSN_P (last))
@@ -926,7 +926,7 @@ rank_for_schedule (const void *x, const void *y)
 
   /* Compare insns based on their relation to the last scheduled
      non-debug insn.  */
-  if (INSN_P (last))
+  if (INSN_P (last) && !DEBUG_INSN_P (last))
     {
       dep_t dep1;
       dep_t dep2;
@@ -1308,7 +1308,8 @@ schedule_insn (rtx insn)
      be aligned.  */
   if (issue_rate > 1
       && GET_CODE (PATTERN (insn)) != USE
-      && GET_CODE (PATTERN (insn)) != CLOBBER)
+      && GET_CODE (PATTERN (insn)) != CLOBBER
+      && !DEBUG_INSN_P (insn))
     {
       if (reload_completed)
 	PUT_MODE (insn, clock_var > last_clock_var ? TImode : VOIDmode);
@@ -1385,7 +1386,7 @@ get_ebb_head_tail (basic_block beg, basic_block end, rtx *headp, rtx *tailp)
     beg_head = NEXT_INSN (beg_head);
 
   while (beg_head != beg_tail)
-    if (NOTE_P (beg_head))
+    if (NOTE_P (beg_head) || BOUNDARY_DEBUG_INSN_P (beg_head))
       beg_head = NEXT_INSN (beg_head);
     else
       break;
@@ -1398,7 +1399,7 @@ get_ebb_head_tail (basic_block beg, basic_block end, rtx *headp, rtx *tailp)
     end_head = NEXT_INSN (end_head);
 
   while (end_head != end_tail)
-    if (NOTE_P (end_tail))
+    if (NOTE_P (end_tail) || BOUNDARY_DEBUG_INSN_P (end_tail))
       end_tail = PREV_INSN (end_tail);
     else
       break;
@@ -1413,7 +1414,8 @@ no_real_insns_p (const_rtx head, const_rtx tail)
 {
   while (head != NEXT_INSN (tail))
     {
-      if (!NOTE_P (head) && !LABEL_P (head))
+      if (!NOTE_P (head) && !LABEL_P (head)
+	  && !BOUNDARY_DEBUG_INSN_P (head))
 	return 0;
       head = NEXT_INSN (head);
     }
@@ -2243,7 +2245,8 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
   /* We start inserting insns after PREV_HEAD.  */
   last_scheduled_insn = prev_head;
 
-  gcc_assert (NOTE_P (last_scheduled_insn)
+  gcc_assert ((NOTE_P (last_scheduled_insn)
+	       || BOUNDARY_DEBUG_INSN_P (last_scheduled_insn))
 	      && BLOCK_FOR_INSN (last_scheduled_insn) == *target_bb);
 
   /* Initialize INSN_QUEUE.  Q_SIZE is the total number of insns in the
@@ -2772,8 +2775,8 @@ set_priorities (rtx head, rtx tail)
 	current_sched_info->sched_max_insns_priority;
   rtx prev_head;
 
-  if (head == tail && (! INSN_P (head)))
-    return 0;
+  if (head == tail && (! INSN_P (head) || BOUNDARY_DEBUG_INSN_P (head)))
+    gcc_unreachable ();
 
   n_insn = 0;
 
@@ -4567,6 +4570,19 @@ has_edge_p (VEC(edge,gc) *el, int type)
   return 0;
 }
 
+/* Search back, starting at INSN, for an insn that is not a
+   NOTE_INSN_VAR_LOCATION.  Don't search beyond HEAD, and return it if
+   no such insn can be found.  */
+static inline rtx
+prev_non_location_insn (rtx insn, rtx head)
+{
+  while (insn != head && NOTE_P (insn)
+	 && NOTE_KIND (insn) == NOTE_INSN_VAR_LOCATION)
+    insn = PREV_INSN (insn);
+
+  return insn;
+}
+
 /* Check few properties of CFG between HEAD and TAIL.
    If HEAD (TAIL) is NULL check from the beginning (till the end) of the
    instruction stream.  */
@@ -4626,8 +4642,9 @@ check_cfg (rtx head, rtx tail)
 	    {
 	      if (control_flow_insn_p (head))
 		{
-		  gcc_assert (BB_END (bb) == head);
-		  
+		  gcc_assert (prev_non_location_insn (BB_END (bb), head)
+			      == head);
+
 		  if (any_uncondjump_p (head))
 		    gcc_assert (EDGE_COUNT (bb->succs) == 1
 				&& BARRIER_P (NEXT_INSN (head)));
@@ -4643,11 +4660,12 @@ check_cfg (rtx head, rtx tail)
 	      if (BB_END (bb) == head)
 		{
 		  if (EDGE_COUNT (bb->succs) > 1)
-		    gcc_assert (control_flow_insn_p (head)
+		    gcc_assert (control_flow_insn_p (prev_non_location_insn
+						     (head, BB_HEAD (bb)))
 				|| has_edge_p (bb->succs, EDGE_COMPLEX));
 		  bb = 0;
 		}
-			      
+
 	      head = NEXT_INSN (head);
 	    }
 	}

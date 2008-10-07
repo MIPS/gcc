@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
@@ -620,6 +620,9 @@ sd_init_insn (rtx insn)
   INSN_FORW_DEPS (insn) = create_deps_list ();
   INSN_RESOLVED_FORW_DEPS (insn) = create_deps_list ();
 
+  if (DEBUG_INSN_P (insn))
+    DEBUG_INSN_SCHED_P (insn) = TRUE;
+
   /* ??? It would be nice to allocate dependency caches here.  */
 }
 
@@ -628,6 +631,12 @@ void
 sd_finish_insn (rtx insn)
 {
   /* ??? It would be nice to deallocate dependency caches here.  */
+
+  if (DEBUG_INSN_P (insn))
+    {
+      gcc_assert (DEBUG_INSN_SCHED_P (insn));
+      DEBUG_INSN_SCHED_P (insn) = FALSE;
+    }
 
   free_deps_list (INSN_HARD_BACK_DEPS (insn));
   INSN_HARD_BACK_DEPS (insn) = NULL;
@@ -2280,6 +2289,8 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
   if (! reload_completed && !LABEL_P (head))
     {
       insn = prev_nonnote_insn (head);
+      while (insn && DEBUG_INSN_P (insn))
+	insn = prev_nonnote_insn (insn);
       if (insn && CALL_P (insn))
 	deps->in_post_call_group_p = post_call_initial;
     }

@@ -6178,7 +6178,7 @@ emit_insn_group_barriers (FILE *dump)
 	  init_insn_group_barriers ();
 	  last_label = 0;
 	}
-      else if (INSN_P (insn))
+      else if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	{
 	  insns_since_last_label = 1;
 
@@ -6226,7 +6226,7 @@ emit_all_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 
 	  init_insn_group_barriers ();
 	}
-      else if (INSN_P (insn))
+      else if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	{
 	  if (recog_memoized (insn) == CODE_FOR_insn_group_barrier)
 	    init_insn_group_barriers ();
@@ -8365,7 +8365,7 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 	  need_barrier_p = 0;
 	  prev_insn = NULL_RTX;
 	}
-      else if (INSN_P (insn))
+      else if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	{
 	  if (recog_memoized (insn) == CODE_FOR_insn_group_barrier)
 	    {
@@ -8375,21 +8375,6 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 	    }
 	  else if (need_barrier_p || group_barrier_needed (insn))
 	    {
-	      if (DEBUG_INSN_P (insn))
-		{
-		  rtx next = NEXT_INSN (insn);
-
-		  while (next != current_sched_info->next_tail
-			 && DEBUG_INSN_P (next))
-		    next = NEXT_INSN (next);
-
-		  /* If everything after the barrier-needing insn is
-		     debug insns, we wouldn't emit the barrier if they
-		     weren't there.  */
-		  if (next == current_sched_info->next_tail)
-		    continue;
-		}
-
 	      if (TARGET_EARLY_STOP_BITS)
 		{
 		  rtx last;

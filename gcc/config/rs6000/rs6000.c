@@ -19314,7 +19314,7 @@ get_next_active_insn (rtx insn, rtx tail)
 
       if (CALL_P (insn)
 	  || JUMP_P (insn)
-	  || (NONJUMP_INSN_P (insn)
+	  || (NONJUMP_INSN_P (insn) && !DEBUG_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) != USE
 	      && GET_CODE (PATTERN (insn)) != CLOBBER
 	      && INSN_CODE (insn) != CODE_FOR_stack_tie))

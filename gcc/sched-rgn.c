@@ -2046,7 +2046,7 @@ init_ready_list (void)
 	src_head = head;
 
 	for (insn = src_head; insn != src_next_tail; insn = NEXT_INSN (insn))
-	  if (INSN_P (insn))
+	  if (INSN_P (insn) && !BOUNDARY_DEBUG_INSN_P (insn))
 	    try_ready (insn);
       }
 }
@@ -2572,6 +2572,9 @@ free_block_dependencies (int bb)
 
   get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
 
+  if (no_real_insns_p (head, tail))
+    return;
+
   sched_free_deps (head, tail, true);
 }
 
@@ -2749,6 +2752,9 @@ schedule_region (int rgn)
       
       gcc_assert (EBB_FIRST_BB (bb) == EBB_LAST_BB (bb));
       get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
+
+      if (no_real_insns_p (head, tail))
+	continue;
 
       rgn_n_insns += set_priorities (head, tail);
     }

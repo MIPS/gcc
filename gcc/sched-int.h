@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file contains definitions used
    internally in the scheduler.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2001, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -576,6 +576,18 @@ extern struct haifa_insn_data *h_i_d;
    semantics of the program.  */
 #define IS_SPECULATION_BRANCHY_CHECK_P(INSN) \
   (RECOVERY_BLOCK (INSN) != NULL && RECOVERY_BLOCK (INSN) != EXIT_BLOCK_PTR)
+
+/* The unchanging bit tracks whether a debug insn is to be handled
+   like an insn (i.e., schedule it) or like a note (e.g., it is next
+   to a basic block boundary.  */
+#define DEBUG_INSN_SCHED_P(insn) \
+  (RTL_FLAG_CHECK1("DEBUG_INSN_SCHED_P", (insn), DEBUG_INSN)->unchanging)
+
+/* Convenience predicates.  */
+#define SCHEDULE_DEBUG_INSN_P(insn) \
+  (DEBUG_INSN_P (insn) && DEBUG_INSN_SCHED_P (insn))
+#define BOUNDARY_DEBUG_INSN_P(insn) \
+  (DEBUG_INSN_P (insn) && !DEBUG_INSN_SCHED_P (insn))
 
 /* Dep status (aka ds_t) of the link encapsulates information, that is needed
    for speculative scheduling.  Namely, it is 4 integers in the range
