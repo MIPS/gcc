@@ -2017,9 +2017,16 @@ expand_debug_expr (tree exp)
     case INTEGER_CST:
     case REAL_CST:
     case FIXED_CST:
-    case COMPLEX_CST:
       op0 = expand_expr (exp, NULL_RTX, mode, EXPAND_INITIALIZER);
       return op0;
+
+    case COMPLEX_CST:
+      gcc_assert (COMPLEX_MODE_P (mode));
+      op0 = expand_debug_expr (TREE_REALPART (exp));
+      op0 = wrap_constant (GET_MODE_INNER (mode), op0);
+      op1 = expand_debug_expr (TREE_IMAGPART (exp));
+      op1 = wrap_constant (GET_MODE_INNER (mode), op1);
+      return gen_rtx_CONCAT (mode, op0, op1);
 
     case VAR_DECL:
     case PARM_DECL:
