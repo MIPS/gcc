@@ -1,3 +1,16 @@
+2008-10-07 Rafael Espindola  <espindola@google.com>
+
+	* cgraph.h (LTO_cgraph_tags, LCC_NOT_FOUND): Moved from lto-cgraph.c.
+	(LTO_cgraph_tag_names): declare.
+	* langhooks-def.h (lhd_input_cgraph, LANG_HOOKS_INPUT_CGRAPH): New.
+	(LANG_HOOKS_LTO): Add LANG_HOOKS_INPUT_CGRAPH.
+	* langhooks.c (lhd_input_cgraph): New.
+	* langhooks.h (lang_hooks_for_lto): Add input_cgraph.
+	* lto-cgraph.c (LTO_cgraph_tags, LCC_NOT_FOUND, input_overwrite_node,
+	input_node, input_edge, input_cgraph_1): Remove.
+	(LTO_cgraph_tag_names): Make in non-statitc.
+	(input_cgraph): Just call lang_hooks.lto.input_cgraph.
+
 2008-10-06  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.c (cc1_options, lto1_options): Remove -O2 from

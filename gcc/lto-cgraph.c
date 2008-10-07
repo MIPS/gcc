@@ -74,24 +74,12 @@ Boston, MA 02110-1301, USA.  */
  is used to decode references to ndoes in the stream.
  */
 
-enum LTO_cgraph_tags
-{
-  /* Must leave 0 for the stopper.  */
-  LTO_cgraph_avail_node = 1,
-  LTO_cgraph_overwritable_node,
-  LTO_cgraph_unavail_node,
-  LTO_cgraph_edge,
-  LTO_cgraph_last_tag
-};
-
 struct lto_cgraph_encoder_def
 {
   struct pointer_map_t *map;		/* Map nodes to reference number. */
   VEC(cgraph_node_ptr,heap) *nodes;	/* Map reference number to node. */
 };
 typedef struct lto_cgraph_encoder_def *lto_cgraph_encoder_t;
-
-#define LCC_NOT_FOUND	(-1)
 
 /* Create a new encoder.  */
 
@@ -164,7 +152,7 @@ lto_cgraph_encoder_size (lto_cgraph_encoder_t encoder)
 }
 
 #ifdef LTO_STREAM_DEBUGGING
-static const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag] = 
+const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag] = 
 {"", "avail", "overwrite", "unavail", "edge"};
 #endif
 
@@ -468,279 +456,13 @@ output_cgraph (cgraph_node_set set)
 }
 
 
-/* Overwrite the information in NODE based on FILE_DATA, TAG, FLAGS,
-   STACK_SIZE and SELF_INSNS.  This is called either to initialize
-   NODE or to replace the values in it, for instance becasue the first
-   time we saw it, the function body was not available but now it
-   is.  */
-
-static void
-input_overwrite_node (struct lto_file_decl_data* file_data,
-		      struct cgraph_node *node,
-		      enum LTO_cgraph_tags tag,
-		      unsigned HOST_WIDEST_INT flags,
-		      unsigned int stack_size,
-		      unsigned int self_insns)
-{
-  node->aux = (void *)tag;
-  node->local.inline_summary.estimated_self_stack_size = stack_size;
-  node->local.inline_summary.self_insns = self_insns;
-  node->global.insns = self_insns;
-  node->local.lto_file_data = file_data;
-
-  /* This list must be in the reverse order that they are set in
-     output_node.  */
-  node->local.vtable_method = lto_get_flag (&flags);
-  node->local.for_functions_valid = lto_get_flag (&flags);
-  node->local.redefined_extern_inline = lto_get_flag (&flags);
-  node->local.disregard_inline_limits = lto_get_flag (&flags);
-  node->local.inlinable = lto_get_flag (&flags);
-  node->local.finalized = lto_get_flag (&flags);
-  node->local.externally_visible = lto_get_flag (&flags);
-  node->local.local = lto_get_flag (&flags);
-  node->needed = lto_get_flag (&flags);
-  node->analyzed = node->local.finalized;
-  node->lowered = node->local.finalized;
-  if (cgraph_decide_is_function_needed (node))
-    cgraph_mark_needed_node (node);
-}
-
-/* Read a node from input_block IB.  TAG is the node's tag just read. 
-   Return the node read or overwriten.  NODES points to a vector of nodes
-   read so far.  */
- 
-static struct cgraph_node *
-input_node (struct lto_file_decl_data* file_data,
-	    struct lto_input_block *ib,
-	    enum LTO_cgraph_tags tag,
-	    VEC(cgraph_node_ptr, heap) *nodes)
-{
-  tree fn_decl;
-  struct cgraph_node *node, *master_clone;
-  unsigned int flags;
-  int stack_size = 0;
-  int self_insns = 0;
-  unsigned decl_index;
-  bool clone_p;
-  bool overwrite_p = false;
-  int estimated_stack_size = 0;
-  int stack_frame_offset = 0;
-  int ref = LCC_NOT_FOUND;
-  int insns = 0;
-  int estimated_growth = 0;
-  bool inlined = false;
-	  
-  LTO_DEBUG_TOKEN ("clone_p");
-  clone_p = lto_input_uleb128 (ib);
-
-  if (clone_p)
-    {
-      LTO_DEBUG_TOKEN ("master");
-      master_clone = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
-      gcc_assert (master_clone);
-      node = cgraph_clone_input_node (master_clone);
-    }
-  else
-    {
-      decl_index = lto_input_uleb128 (ib);
-      fn_decl = lto_file_decl_data_get_fn_decl (file_data, decl_index);
-      LTO_DEBUG_FN_NAME (fn_decl);
-      node = cgraph_node (fn_decl);
-    }
-
-  LTO_DEBUG_TOKEN ("flags");
-  flags = lto_input_uleb128 (ib);
-  
-  if (tag == LTO_cgraph_avail_node)
-    {
-      LTO_DEBUG_TOKEN ("stack_size");
-      stack_size = lto_input_sleb128 (ib);
-      LTO_DEBUG_TOKEN ("self_insns");
-      self_insns = lto_input_sleb128 (ib);
-    }
-	  
-  /* Read additional global data for LTRANS. */
-  if (flag_ltrans)
-    {
-      LTO_DEBUG_TOKEN ("estimated_stack_size");
-      estimated_stack_size = lto_input_sleb128 (ib);
-      LTO_DEBUG_TOKEN ("stack_frame_offset");
-      stack_frame_offset = lto_input_sleb128 (ib);
-      LTO_DEBUG_TOKEN ("inlined_to");
-      ref = lto_input_sleb128 (ib);
-
-      LTO_DEBUG_TOKEN ("insns");
-      insns = lto_input_sleb128 (ib);
-      LTO_DEBUG_TOKEN ("estimated_growth");
-      estimated_growth = lto_input_sleb128 (ib);
-      LTO_DEBUG_TOKEN ("inlined");
-      inlined = lto_input_uleb128 (ib);
-    }
-
-  switch (tag)
-    {
-    case LTO_cgraph_avail_node:
-      /* We cannot have two avail functions that are the same.  */
-      gcc_assert (((enum LTO_cgraph_tags)(node->aux))
-		  != LTO_cgraph_avail_node);
-      overwrite_p = true;
-      break;
-	      
-    case LTO_cgraph_unavail_node:
-      /* We only overwrite the node if this is a brand new node.  */
-      if (!node->aux)
-	overwrite_p = true;
-      break;
-      
-    case LTO_cgraph_overwritable_node:
-      /* FIXME lto: This code is written to take the last
-	 overwrittable version.  I do not speak linker but if the
-	 linker supposed to take the first one, then we need to
-	 change the test.  */
-      if (((enum LTO_cgraph_tags)(node->aux)) != LTO_cgraph_avail_node)
-	overwrite_p = true;
-      break;
-      
-    default:
-      gcc_unreachable ();
-    }
-
-  if (overwrite_p)
-    {
-      input_overwrite_node (file_data, node, tag, flags, stack_size,
-			    self_insns);
-      if (flag_ltrans)
-	{
-	  node->global.estimated_stack_size = estimated_stack_size;
-	  node->global.stack_frame_offset = stack_frame_offset;
-	  node->global.insns = insns;
-	  if (ref != LCC_NOT_FOUND)
-	    node->global.inlined_to = VEC_index (cgraph_node_ptr, nodes, ref);
-	  else
-	    node->global.inlined_to = NULL;
-	  node->global.estimated_growth = estimated_growth;
-	  node->global.inlined = inlined;
-	}
-    }
-
-  return node;
-}
-
-/* Read an edge from IB.  NODES points to a vector of previously read
-   nodes for decoding caller and callee of the edge to be read.  */
-
-static void
-input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
-{
-  struct cgraph_node *caller, *callee;
-  struct cgraph_edge *edge;
-  unsigned int stmt_id;
-  unsigned int count;
-  unsigned int freq;
-  unsigned int nest;
-  cgraph_inline_failed_t inline_failed;
-  unsigned HOST_WIDEST_INT flags;
-
-  LTO_DEBUG_TOKEN ("caller");
-  caller = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
-  gcc_assert (caller);
-
-  LTO_DEBUG_TOKEN ("callee");
-  callee = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
-  gcc_assert (callee);
-	  
-  LTO_DEBUG_TOKEN ("stmt");
-  stmt_id = lto_input_uleb128 (ib);
-  LTO_DEBUG_TOKEN ("inline_failed");
-  inline_failed = lto_input_uleb128 (ib);
-  LTO_DEBUG_TOKEN ("count");
-  count = lto_input_uleb128 (ib);
-  LTO_DEBUG_TOKEN ("frequency");
-  freq = lto_input_uleb128 (ib);
-  LTO_DEBUG_TOKEN ("loop_next");
-  nest = lto_input_uleb128 (ib);
-  LTO_DEBUG_TOKEN ("flags");
-  flags = lto_input_uleb128 (ib);
-	  
-  edge = cgraph_create_edge (caller, callee, NULL, count, freq, nest);
-  edge->lto_stmt_uid = stmt_id;
-  edge->inline_failed = inline_failed;
-
-  /* This list must be in the reverse order that they are set in
-     output_edge.  */
-  edge->call_stmt_cannot_inline_p = lto_get_flag (&flags);
-  edge->indirect_call = lto_get_flag (&flags);
-}
-
-/* Input a cgraph from IB using the info in FILE_DATA.  */
-
-static void
-input_cgraph_1 (struct lto_file_decl_data* file_data,
-		struct lto_input_block *ib)
-{
-  enum LTO_cgraph_tags tag;
-  VEC(cgraph_node_ptr, heap) *nodes = NULL;
-  struct cgraph_node *node;
-
-  tag = lto_input_uleb128 (ib);
-  while (tag)
-    {
-      LTO_DEBUG_INDENT (tag);
-
-      if (tag == LTO_cgraph_edge)
-	  input_edge (ib, nodes);
-      else 
-	{
-	  node = input_node (file_data, ib, tag, nodes);
-	  VEC_safe_push (cgraph_node_ptr, heap, nodes, node);
-	}
-
-      LTO_DEBUG_UNDENT();
-      tag = lto_input_uleb128 (ib);
-    }
-
-  VEC_free (cgraph_node_ptr, heap, nodes);
-}
-
-
 /* Input and merge the cgraph from each of the .o files passed to
    lto1.  */
 
 static void
 input_cgraph (void)
 {
-  struct lto_file_decl_data ** file_data_vec 
-    = lto_get_file_decl_data ();
-  struct lto_file_decl_data * file_data;
-  unsigned int j = 0;
-  struct cgraph_node *node;
-
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.tag_names = LTO_cgraph_tag_names;
-  lto_debug_context.stream_name = "cgraph";
-#endif
-
-  while ((file_data = file_data_vec[j++]))
-    {
-      const char *data;
-      size_t len;
-      struct lto_input_block *ib
-	= lto_create_simple_input_block (file_data, 
-					 LTO_section_cgraph, 
-					 &data, &len);
-      input_cgraph_1 (file_data, ib);
-      lto_destroy_simple_input_block (file_data, 
-				      LTO_section_cgraph, 
-				      ib, data, len);
-    } 
-
-  /* Clear out the aux field that was used to store enough state to
-     tell which nodes should be overwritten.  */
-  for (node = cgraph_nodes; node; node = node->next)
-    {
-      gcc_assert (node->local.lto_file_data);
-      node->aux = NULL;
-    }
+  lang_hooks.lto.input_cgraph ();
 }
 
 

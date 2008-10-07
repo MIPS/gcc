@@ -647,3 +647,9 @@ lhd_end_section (void)
       saved_section = NULL;
     }
 }
+
+void
+lhd_input_cgraph (void)
+{
+  gcc_unreachable ();
+}

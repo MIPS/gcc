@@ -1,3 +1,10 @@
+2008-10-06 Rafael Espindola  <espindola@google.com>
+
+	* lto-lang.c: Include cgraph.h.
+	(input_overwrite_node, input_node, input_edge, input_cgraph_1,
+	input_cgraph): Moved from lto-cgraph.c.
+	(LANG_HOOKS_INPUT_CGRAPH): New.
+
 2008-10-03 Rafael Espindola  <espindola@google.com>
 
 	* lto.c (lto_fixup_tree, lto_fixup_state): Fix the FIXME.

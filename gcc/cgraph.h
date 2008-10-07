@@ -599,4 +599,20 @@ unsigned int compute_inline_parameters (struct cgraph_node *);
 /* Create a new static variable of type TYPE.  */
 tree add_new_static_var (tree type);
 
+/* lto-cgraph.c */
+
+enum LTO_cgraph_tags
+{
+  /* Must leave 0 for the stopper.  */
+  LTO_cgraph_avail_node = 1,
+  LTO_cgraph_overwritable_node,
+  LTO_cgraph_unavail_node,
+  LTO_cgraph_edge,
+  LTO_cgraph_last_tag
+};
+
+extern const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag];
+
+#define LCC_NOT_FOUND	(-1)
+
 #endif  /* GCC_CGRAPH_H  */
