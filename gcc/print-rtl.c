@@ -208,7 +208,9 @@ print_rtx (const_rtx in_rtx)
 	  if (GET_CODE (in_rtx) == EXPR_LIST
 	      || GET_CODE (in_rtx) == INSN_LIST)
 	    fprintf (outfile, ":%s",
-		     GET_REG_NOTE_NAME (GET_MODE (in_rtx)));
+		     (int)GET_MODE (in_rtx) >= REG_NOTE_MAX
+		     ? GET_MODE_NAME (GET_MODE (in_rtx))
+		     : GET_REG_NOTE_NAME (GET_MODE (in_rtx)));
 
 	  /* For other rtl, print the mode if it's not VOID.  */
 	  else if (GET_MODE (in_rtx) != VOIDmode)

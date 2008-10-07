@@ -1,5 +1,10 @@
 2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
 
+	* print_rtl (print_rtx): Don't assume modes in EXPR_LISTs and
+	INSN_LISTs must refer to REG_NOTEs.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
 	* haifa-sched.c (rank_for_schedule): Don't scan back for non-debug
 	insn past prev_head.
 	(schedule_insn): Don't mark debug insns as first in cycle.
