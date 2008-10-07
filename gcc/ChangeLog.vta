@@ -1,5 +1,12 @@
 2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
 
+	* config/ia64/ia64.c (ia64_dwarf2out_def_steady_cfa): Take frame
+	parameter.  Always emit deleted label.
+	(process_set, process_for_unwind_directive): Pass it frame, even
+	when it wouldn't have been called.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgrtl.c (rtl_merge_blocks): Drop notes before debug insns at
 	the end of the first block.
 
