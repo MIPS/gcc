@@ -1,5 +1,10 @@
 2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
 
+	* fortran/trans-types.c (gfc_get_nodesc_array_type): Don't
+	vary types depending on debug info.
+
+2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgexpand.c (gimple_expand_cfg): Discard the source location
 	only for builtins that are not overridden.
 
