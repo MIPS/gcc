@@ -1,3 +1,12 @@
+2008-10-08 Rafael Espindola  <espindola@google.com>
+
+	* lto-symtab.c (lto_symtab_set_resolution): New.
+	(lto_symtab_merge_decl): Use lto_symtab_set_resolution and
+	lto_symtab_get_resolution.
+	(lto_symtab_prevailing_decl): Return decl for non public decls.
+	(lto_symtab_get_resolution): New.
+	* lto.c (lto_fixup_tree, lto_fixup_state): Remove unecessary checks.
+
 2008-10-06 Rafael Espindola  <espindola@google.com>
 
 	* lto-lang.c: Include cgraph.h.

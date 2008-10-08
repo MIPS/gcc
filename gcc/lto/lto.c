@@ -800,18 +800,13 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != FUNCTION_DECL)
     return NULL;
 
-  if (!TREE_PUBLIC (t))
-    return NULL;
-
-    /* FIXME lto. There should be no DECL_ABSTRACT in the middle end. */
-  if (TREE_CODE (t) == FUNCTION_DECL && DECL_ABSTRACT (t))
-    return NULL;
-
   prevailing = lto_symtab_prevailing_decl (t);
-  gcc_assert (prevailing);
 
-  *tp = prevailing;
-  *walk_subtrees = 0;
+  if (prevailing != t)
+    {
+      *tp = prevailing;
+      *walk_subtrees = 0;
+    }
   return NULL;
 }
 
@@ -835,12 +830,7 @@ lto_fixup_state (struct lto_in_decl_state *state,
       gcc_assert (decl);
       gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
 
-      /* FIXME lto. There should be no DECL_ABSTRACT in the middle end. */
-      if (!TREE_PUBLIC (decl) || DECL_ABSTRACT (decl))
-	continue;
-
       prevailing = lto_symtab_prevailing_decl (decl);
-      gcc_assert (prevailing);
 
       if (TREE_NOTHROW (prevailing) != TREE_NOTHROW (decl))
 	{
@@ -869,11 +859,7 @@ lto_fixup_state (struct lto_in_decl_state *state,
 
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
 
-      if (!TREE_PUBLIC (decl))
-	continue;
-
       prevailing = lto_symtab_prevailing_decl (decl);
-      gcc_assert (prevailing);
 
       initial = DECL_INITIAL (decl);
 

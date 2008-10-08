@@ -432,6 +432,21 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
   return true;
 }
 
+/* Marks decl DECL as having resolution RESOLUTION. */
+
+static void
+lto_symtab_set_resolution (tree decl, ld_plugin_symbol_resolution_t resolution)
+{
+  gcc_assert (decl);
+
+  gcc_assert (TREE_PUBLIC (decl));
+  gcc_assert (TREE_CODE (decl) != FUNCTION_DECL || !DECL_ABSTRACT (decl));
+
+  gcc_assert (!DECL_LANG_SPECIFIC (decl));
+  DECL_LANG_SPECIFIC (decl) = GGC_NEW (struct lang_decl);
+  LTO_DECL_RESOLUTION (decl) = resolution;
+}
+
 /* Common helper function for merging variable and function declarations.
    NEW_DECL is the newly found decl. RESOLUTION is the decl's resolution
    provided by the linker. */
@@ -466,9 +481,7 @@ lto_symtab_merge_decl (tree new_decl,
     }
 
   /* Remember the resolution of this symbol. */
-  gcc_assert (!DECL_LANG_SPECIFIC (new_decl));
-  DECL_LANG_SPECIFIC (new_decl) = GGC_NEW (struct lang_decl);
-  LTO_DECL_RESOLUTION (new_decl) = resolution;
+  lto_symtab_set_resolution (new_decl, resolution);
 
   /* Retrieve the previous declaration.  */
   name = DECL_ASSEMBLER_NAME (new_decl);
@@ -486,7 +499,7 @@ lto_symtab_merge_decl (tree new_decl,
   if (!lto_symtab_compatible (old_decl, new_decl))
     return;
 
-  old_resolution = LTO_DECL_RESOLUTION (old_decl);
+  old_resolution = lto_symtab_get_resolution (old_decl);
   gcc_assert (resolution != LDPR_UNKNOWN
 	      && resolution != LDPR_UNDEF
 	      && old_resolution != LDPR_UNKNOWN
@@ -547,5 +560,34 @@ lto_symtab_merge_fn (tree new_fn, enum ld_plugin_symbol_resolution resolution)
 tree
 lto_symtab_prevailing_decl (tree decl)
 {
-  return LTO_IDENTIFIER_DECL (DECL_ASSEMBLER_NAME (decl));
+  tree ret;
+  gcc_assert (decl);
+
+  if (!TREE_PUBLIC (decl))
+    return decl;
+
+  /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
+    return decl;
+
+  ret = LTO_IDENTIFIER_DECL (DECL_ASSEMBLER_NAME (decl));
+  gcc_assert (ret);
+  return ret;
+}
+
+/* Return the resolution of DECL. */
+
+enum ld_plugin_symbol_resolution
+lto_symtab_get_resolution (tree decl)
+{
+  gcc_assert (decl);
+
+  if (!TREE_PUBLIC (decl))
+    return LDPR_PREVAILING_DEF_IRONLY;
+
+  /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+ if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
+    return LDPR_PREVAILING_DEF_IRONLY;
+
+ return LTO_DECL_RESOLUTION (decl);
 }

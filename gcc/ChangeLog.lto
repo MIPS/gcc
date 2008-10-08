@@ -1,3 +1,7 @@
+2008-10-08 Rafael Espindola  <espindola@google.com>
+
+	* lto-tree-in.h (lto_symtab_get_resolution): New.
+
 2008-10-07 Rafael Espindola  <espindola@google.com>
 
 	* cgraph.h (LTO_cgraph_tags, LCC_NOT_FOUND): Moved from lto-cgraph.c.
