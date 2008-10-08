@@ -4234,8 +4234,12 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 	}
 
       if (!processing_template_decl)
-	init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
-      init = build_modify_expr (decl, NOP_EXPR, init);
+	{
+	  init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
+	  init = build_modify_expr (decl, NOP_EXPR, init);
+	}
+      else
+	init = build2 (MODIFY_EXPR, void_type_node, decl, init);
       if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
 	{
 	  int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;
