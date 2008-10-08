@@ -522,8 +522,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
         __shared_ptr(_Tp1* __p)
 	: _M_ptr(__p), _M_refcount(__p, _Sp_deleter<_Tp1>())
         {
-	  __glibcxx_function_requires(_ConvertibleConcept<_Tp1*, _Tp*>)
-	  // __glibcxx_function_requires(_CompleteConcept<_Tp1*>)
 	  __enable_shared_from_this_helper(_M_refcount, __p, __p);
 	}
 
@@ -543,8 +541,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
         __shared_ptr(_Tp1* __p, _Deleter __d)
 	: _M_ptr(__p), _M_refcount(__p, __d)
         {
-	  __glibcxx_function_requires(_ConvertibleConcept<_Tp1*, _Tp*>)
-	  // TODO requires _Deleter CopyConstructible and __d(__p) well-formed
 	  __enable_shared_from_this_helper(_M_refcount, __p, __p);
 	}
       
@@ -560,7 +556,7 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
       template<typename _Tp1>
         __shared_ptr(const __shared_ptr<_Tp1, _Lp>& __r)
 	: _M_ptr(__r._M_ptr), _M_refcount(__r._M_refcount) // never throws
-        { __glibcxx_function_requires(_ConvertibleConcept<_Tp1*, _Tp*>) }
+        { }
 
       /** @brief  Constructs a %__shared_ptr that shares ownership with @a __r
        *          and stores a copy of the pointer stored in @a __r.
@@ -574,7 +570,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
         __shared_ptr(const __weak_ptr<_Tp1, _Lp>& __r)
 	: _M_refcount(__r._M_refcount) // may throw
         {
-	  __glibcxx_function_requires(_ConvertibleConcept<_Tp1*, _Tp*>)
 	  // It is now safe to copy __r._M_ptr, as _M_refcount(__r._M_refcount)
 	  // did not throw.
 	  _M_ptr = __r._M_ptr;
@@ -782,7 +777,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
     get_deleter(const __shared_ptr<_Tp, _Lp>& __p)
     { return static_cast<_Del*>(__p._M_get_deleter(typeid(_Del))); }
 
-
   template<typename _Tp, _Lock_policy _Lp>
     class __weak_ptr
     {
@@ -813,14 +807,13 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
         __weak_ptr(const __weak_ptr<_Tp1, _Lp>& __r)
 	: _M_refcount(__r._M_refcount) // never throws
         {
-	  __glibcxx_function_requires(_ConvertibleConcept<_Tp1*, _Tp*>)
 	  _M_ptr = __r.lock().get();
 	}
 
       template<typename _Tp1>
         __weak_ptr(const __shared_ptr<_Tp1, _Lp>& __r)
 	: _M_ptr(__r._M_ptr), _M_refcount(__r._M_refcount) // never throws
-        { __glibcxx_function_requires(_ConvertibleConcept<_Tp1*, _Tp*>) }
+        {  }
 
       template<typename _Tp1>
         __weak_ptr&
@@ -1042,7 +1035,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
     shared_ptr<_Tp>
     dynamic_pointer_cast(const shared_ptr<_Tp1>& __r)
     { return shared_ptr<_Tp>(__r, __dynamic_cast_tag()); }
-
 
   // The actual TR1 weak_ptr, with forwarding constructors and
   // assignment operators.

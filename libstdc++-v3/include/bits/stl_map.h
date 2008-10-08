@@ -62,7 +62,7 @@
 #define _MAP_H 1
 
 #include <bits/functexcept.h>
-#include <bits/concept_check.h>
+#include <bits/concepts.h>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
@@ -98,15 +98,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       typedef _Compare                                      key_compare;
       typedef _Alloc                                        allocator_type;
 
-    private:
-      // concept requirements
-      typedef typename _Alloc::value_type                   _Alloc_value_type;
-      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
-      __glibcxx_class_requires4(_Compare, bool, _Key, _Key,
-				_BinaryFunctionConcept)
-      __glibcxx_class_requires2(value_type, _Alloc_value_type, _SameTypeConcept)
-
-    public:
       class value_compare
       : public std::binary_function<value_type, value_type, bool>
       {
@@ -340,9 +331,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       mapped_type&
       operator[](const key_type& __k)
       {
-	// concept requirements
-	__glibcxx_function_requires(_DefaultConstructibleConcept<mapped_type>)
-
 	iterator __i = lower_bound(__k);
 	// __i->first is greater than or equivalent to __k.
 	if (__i == end() || key_comp()(__k, (*__i).first))
@@ -735,5 +723,13 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     { __x.swap(__y); }
 
 _GLIBCXX_END_NESTED_NAMESPACE
+
+#ifndef _GLIBCXX_NO_CONCEPTS
+namespace std 
+{
+  template<typename _Key, typename _Tp, typename _Compare, typename _Alloc>
+  concept_map Container<_GLIBCXX_STD::map<_Key, _Tp, _Compare, _Alloc> > {}
+}
+#endif
 
 #endif /* _MAP_H */

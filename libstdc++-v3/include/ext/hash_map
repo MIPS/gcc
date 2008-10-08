@@ -63,7 +63,6 @@
 
 #include <bits/c++config.h>
 #include <ext/hashtable.h>
-#include <bits/concept_check.h>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(__gnu_cxx, _GLIBCXX_EXT)
 
@@ -297,12 +296,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(__gnu_cxx, _GLIBCXX_EXT)
 	   class _Alloc = allocator<_Tp> >
     class hash_multimap
     {
-      // concept requirements
-      __glibcxx_class_requires(_Key, _SGIAssignableConcept)
-      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
-      __glibcxx_class_requires3(_HashFn, size_t, _Key, _UnaryFunctionConcept)
-      __glibcxx_class_requires3(_EqualKey, _Key, _Key, _BinaryPredicateConcept)
-	
     private:
       typedef hashtable<pair<const _Key, _Tp>, _Key, _HashFn,
 			_Select1st<pair<const _Key, _Tp> >, _EqualKey, _Alloc>

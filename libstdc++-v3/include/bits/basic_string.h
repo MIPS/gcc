@@ -45,6 +45,7 @@
 
 #include <ext/atomicity.h>
 #include <debug/debug.h>
+#include <bits/concepts.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -2464,6 +2465,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     getline(basic_istream<wchar_t>& __in, basic_string<wchar_t>& __str,
 	    wchar_t __delim);
 #endif  
+
+#ifndef _GLIBCXX_NO_CONCEPTS
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    concept_map EqualityComparable<basic_string<_CharT, _Traits, _Alloc> > { };
+#endif
 
 _GLIBCXX_END_NAMESPACE
 

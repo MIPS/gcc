@@ -62,6 +62,8 @@
 #ifndef _BVECTOR_H
 #define _BVECTOR_H 1
 
+#include <bits/concepts.h>
+
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
   typedef unsigned long _Bit_type;
@@ -106,6 +108,13 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     flip()
     { *_M_p ^= _M_mask; }
   };
+
+  inline void swap(_Bit_reference b1, _Bit_reference b2)
+  {
+    bool tmp = b1;
+    b1 = b2;
+    b2 = tmp;
+  }
 
   struct _Bit_iterator_base
   : public std::iterator<std::random_access_iterator_tag, bool>
@@ -188,7 +197,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
   struct _Bit_iterator : public _Bit_iterator_base
   {
     typedef _Bit_reference  reference;
-    typedef _Bit_reference* pointer;
+    typedef bool*           pointer;
     typedef _Bit_iterator   iterator;
 
     _Bit_iterator() : _Bit_iterator_base(0, 0) { }
@@ -199,6 +208,10 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     reference
     operator*() const
     { return reference(_M_p, 1UL << _M_offset); }
+
+    pointer
+    operator->() const
+    { return 0; }
 
     iterator&
     operator++()
@@ -285,6 +298,10 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     const_reference
     operator*() const
     { return _Bit_reference(_M_p, 1UL << _M_offset); }
+
+    pointer
+    operator->() const
+    { return 0; }
 
     const_iterator&
     operator++()
@@ -428,6 +445,13 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     };
 
 _GLIBCXX_END_NESTED_NAMESPACE
+
+namespace std 
+{
+  concept_map RandomAccessIterator<_GLIBCXX_STD::_Bit_const_iterator> { };
+
+  concept_map RandomAccessIterator<_GLIBCXX_STD::_Bit_iterator> { };
+} 
 
 // Declare a partial specialization of vector<T, Alloc>.
 #include <bits/stl_vector.h>
@@ -906,9 +930,12 @@ template<typename _Alloc>
 	return;
       if (capacity() - size() >= __n)
 	{
-	  std::copy_backward(__position, end(),
-			     this->_M_impl._M_finish + difference_type(__n));
-	  std::fill(__position, __position + difference_type(__n), __x);
+	  for (iterator __i = end(),
+			__j = this->_M_impl._M_finish + difference_type(__n);
+	       __i != __position; ) {
+	    *--__j = *--__i;
+	  }
+	  std::fill_n(__position, difference_type(__n), __x);
 	  this->_M_impl._M_finish += difference_type(__n);
 	}
       else
@@ -917,7 +944,11 @@ template<typename _Alloc>
 	  _Bit_type * __q = this->_M_allocate(__len);
 	  iterator __i = _M_copy_aligned(begin(), __position,
 					 iterator(__q, 0));
+#ifdef _GLIBCXX_NO_CONCEPTS
 	  std::fill(__i, __i + difference_type(__n), __x);
+#else
+          __fill_bvector(__i, __i + difference_type(__n), __x);
+#endif
 	  this->_M_impl._M_finish = std::copy(__position, end(),
 					      __i + difference_type(__n));
 	  this->_M_deallocate();
@@ -950,9 +981,20 @@ template<typename _Alloc>
 	    size_type __n = std::distance(__first, __last);
 	    if (capacity() - size() >= __n)
 	      {
+#ifdef _GLIBCXX_NO_CONCEPTS
 		std::copy_backward(__position, end(),
 				   this->_M_impl._M_finish
 				   + difference_type(__n));
+#else
+                {
+                  iterator __end = end();
+                  iterator __result 
+                    = this->_M_impl._M_finish + difference_type(__n);
+                  for (size_type __source_len = __end - __position;
+                       __source_len > 0; --__source_len)
+                    *--__result = *--__end;
+                }
+#endif
 		std::copy(__first, __last, __position);
 		this->_M_impl._M_finish += difference_type(__n);
 	      }
@@ -979,8 +1021,18 @@ template<typename _Alloc>
     {
       if (this->_M_impl._M_finish._M_p != this->_M_impl._M_end_of_storage)
 	{
+#ifdef _GLIBCXX_NO_CONCEPTS
 	  std::copy_backward(__position, this->_M_impl._M_finish, 
 			     this->_M_impl._M_finish + 1);
+#else
+          {
+            iterator __end = this->_M_impl._M_finish;
+            iterator __result = this->_M_impl._M_finish + 1;
+            for (size_type __source_len = __end - __position;
+                 __source_len > 0; --__source_len)
+              *--__result = *--__end;
+          }
+#endif
 	  *__position = __x;
 	  ++this->_M_impl._M_finish;
 	}

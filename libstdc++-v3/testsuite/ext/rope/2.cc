@@ -33,7 +33,27 @@ test01()
   crope r3 = r2.substr(10000, 3); 
   crope r4 = r2.substr(10000, 10000); 
 
+#ifdef _GLIBCXX_NO_CONCEPTS
   reverse(r2.mutable_begin(), r2.mutable_end());
+#else
+  // DPG TBD: Can't use reverse() here because rope iterators don't
+  // actually meet the ForwardIterator requirements (the same problems
+  // that crop up with vector<bool>::iterators). So, write our own
+  // reverse().
+  {
+    crope::iterator first = r2.mutable_begin(), last = r2.mutable_end();
+    if (first != last)
+      {
+        --last;
+        while (first < last)
+          {
+            std::iter_swap(first, last);
+            ++first;
+            --last;
+          }
+      }
+  }
+#endif
   VERIFY( r2[10000] == 'c' );
 
   crope r5('a');

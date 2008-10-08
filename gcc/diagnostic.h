@@ -57,6 +57,17 @@ typedef void (*diagnostic_starter_fn) (diagnostic_context *,
 				       diagnostic_info *);
 typedef diagnostic_starter_fn diagnostic_finalizer_fn;
 
+/* This data structure stores the counts of each kind of diagnostic
+   message. */
+struct diagnostic_saved_count
+{
+  /* The number of times we have issued diagnostics.  */
+  int count[DK_LAST_DIAGNOSTIC_KIND];
+
+  /* The next set of counts in the stack. */
+  struct diagnostic_saved_count* next;
+};
+
 /* This data structure bundles altogether any information relevant to
    the context of a diagnostic message.  */
 struct diagnostic_context
@@ -65,7 +76,7 @@ struct diagnostic_context
   pretty_printer *printer;
 
   /* The number of times we have issued diagnostics.  */
-  int diagnostic_count[DK_LAST_DIAGNOSTIC_KIND];
+  struct diagnostic_saved_count* diagnostic_counts;
 
   /* True if we should display the "warnings are being tread as error"
      message, usually displayed once per compiler run.  */
@@ -166,7 +177,11 @@ struct diagnostic_context
 extern diagnostic_context *global_dc;
 
 /* The total count of a KIND of diagnostics emitted so far.  */
-#define diagnostic_kind_count(DC, DK) (DC)->diagnostic_count[(int) (DK)]
+#define diagnostic_kind_count(DC, DK) \
+  (DC)->diagnostic_counts->count[(int) (DK)]
+
+/* Whether diagnostics are suppressed. */
+#define diagnostic_suppressed(DC) ((DC)->diagnostic_counts->next)
 
 /* The number of errors that have been issued so far.  Ideally, these
    would take a diagnostic_context as an argument.  */
@@ -203,6 +218,9 @@ extern void diagnostic_set_info_translated (diagnostic_info *, const char *,
      ATTRIBUTE_GCC_DIAG(2,0);
 #endif
 extern char *diagnostic_build_prefix (diagnostic_info *);
+
+extern void diagnostic_push_suppress (diagnostic_context *);
+extern bool diagnostic_pop_suppress (diagnostic_context *);
 
 /* Pure text formatting support functions.  */
 extern char *file_name_as_prefix (const char *);

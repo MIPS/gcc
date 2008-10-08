@@ -61,6 +61,8 @@
 #ifndef _STL_RAW_STORAGE_ITERATOR_H
 #define _STL_RAW_STORAGE_ITERATOR_H 1
 
+#include <bits/concepts.h>
+
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
@@ -104,6 +106,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	return __tmp;
       }
     };
+
+  template <class _ForwardIterator, class _Tp>
+  concept_map BasicOutputIterator<raw_storage_iterator<_ForwardIterator, _Tp> >
+  { 
+    typedef raw_storage_iterator<_ForwardIterator, _Tp>& reference;
+    typedef _Tp value_type;
+  };
 
 _GLIBCXX_END_NAMESPACE
 

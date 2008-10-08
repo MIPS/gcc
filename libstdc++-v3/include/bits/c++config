@@ -161,6 +161,8 @@ namespace std
 { 
   namespace __cxx200x { }
   using namespace __cxx200x __attribute__ ((strong)); 
+
+  namespace tr1 = __cxx200x;
 }
 # define _GLIBCXX_TR1 __cxx200x
 #else

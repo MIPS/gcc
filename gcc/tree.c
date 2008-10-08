@@ -5352,8 +5352,8 @@ build_pointer_type (tree to_type)
 /* Same as build_pointer_type_for_mode, but for REFERENCE_TYPE.  */
 
 tree
-build_reference_type_for_mode (tree to_type, enum machine_mode mode,
-			       bool can_alias_all)
+build_rval_reference_type_for_mode (tree to_type, enum machine_mode mode,
+                                    bool can_alias_all, bool rval)
 {
   tree t;
 
@@ -5372,7 +5372,8 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
   /* First, if we already have a type for pointers to TO_TYPE and it's
      the proper mode, use it.  */
   for (t = TYPE_REFERENCE_TO (to_type); t; t = TYPE_NEXT_REF_TO (t))
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all
+        && TYPE_REF_IS_RVALUE(t) == rval)
       return t;
 
   t = make_node (REFERENCE_TYPE);
@@ -5380,6 +5381,7 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
   TREE_TYPE (t) = to_type;
   TYPE_MODE (t) = mode;
   TYPE_REF_CAN_ALIAS_ALL (t) = can_alias_all;
+  TYPE_REF_IS_RVALUE(t) = rval;
   TYPE_NEXT_REF_TO (t) = TYPE_REFERENCE_TO (to_type);
   TYPE_REFERENCE_TO (to_type) = t;
 
@@ -5387,17 +5389,33 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
     SET_TYPE_STRUCTURAL_EQUALITY (t);
   else if (TYPE_CANONICAL (to_type) != to_type)
     TYPE_CANONICAL (t) 
-      = build_reference_type_for_mode (TYPE_CANONICAL (to_type),
-				       mode, can_alias_all);
+      = build_rval_reference_type_for_mode (TYPE_CANONICAL (to_type),
+					    mode, can_alias_all, rval);
 
   layout_type (t);
 
   return t;
 }
 
+tree
+build_reference_type_for_mode (tree to_type, enum machine_mode mode,
+                                    bool can_alias_all)
+{
+  return build_rval_reference_type_for_mode (to_type, mode,
+                                             can_alias_all,
+                                             false);
+}
 
 /* Build the node for the type of references-to-TO_TYPE by default
    in ptr_mode.  */
+
+tree
+build_rval_reference_type (tree to_type, bool rval)
+{
+  return build_rval_reference_type_for_mode (to_type, ptr_mode, false, rval);
+}
+
+/* Build the node for lvalue references. */
 
 tree
 build_reference_type (tree to_type)

@@ -40,6 +40,7 @@
 
 #include <streambuf>
 #include <debug/debug.h>
+#include <bits/concepts.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
      
@@ -48,7 +49,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _CharT, typename _Traits>
     class istreambuf_iterator
     : public iterator<input_iterator_tag, _CharT, typename _Traits::off_type,
-		      _CharT*, _CharT&>
+		      _CharT*, _CharT>
     {
     public:
       // Types:
@@ -198,6 +199,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	       const istreambuf_iterator<_CharT, _Traits>& __b)
     { return !__a.equal(__b); }
 
+#ifndef _GLIBCXX_NO_CONCEPTS
+  template<typename _CharT, typename _Traits>
+  concept_map InputIterator<istreambuf_iterator<_CharT, _Traits> > { };
+#endif 
+
+
   /// Provides output iterator semantics for streambufs.
   template<typename _CharT, typename _Traits>
     class ostreambuf_iterator
@@ -272,6 +279,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	return *this;
       }
     };
+
+#ifndef _GLIBCXX_NO_CONCEPTS
+  template<typename _CharT, typename _Traits>
+  concept_map BasicOutputIterator<ostreambuf_iterator<_CharT, _Traits> > 
+  {
+    typedef _CharT value_type;
+    typedef ptrdiff_t difference_type;
+    typedef ostreambuf_iterator<_CharT, _Traits>& reference;
+    typedef _CharT* pointer;
+
+    typedef ostreambuf_iterator<_CharT, _Traits>& postincrement_result;
+  };
+#endif 
 
   // Overloads for streambuf iterators.
   template<typename _CharT>

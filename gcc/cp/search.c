@@ -209,6 +209,8 @@ lookup_base (tree t, tree base, base_access access, base_kind *kind_ptr)
     }
   else
     {
+      t = type_archetype (t);
+
       t = complete_type (TYPE_MAIN_VARIANT (t));
       t_binfo = TYPE_BINFO (t);
     }
@@ -1189,6 +1191,7 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
 {
   tree rval, rval_binfo = NULL_TREE;
   tree type = NULL_TREE, basetype_path = NULL_TREE;
+  tree model_args = NULL_TREE;
   struct lookup_field_info lfi;
 
   /* rval_binfo is the binfo associated with the found member, note,
@@ -1209,13 +1212,45 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
     }
   else
     {
+      if (!IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)) 
+          && opaque_type_p (xbasetype))
+        {
+          /* We have an opaque type. First look in the where clause to
+             see if there is an associated type name. */
+          tree decl = lookup_associated_type_in_where_clause (xbasetype, name);
+          
+          if (decl)
+            /* We found an associated type; we're done. */
+            return decl;
+
+          /* We did not find an associated type in the where clause,
+             so perform the lookup on the archetype. */
+          xbasetype = type_archetype (xbasetype);
+        }
+
       if (!IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)))
 	return NULL_TREE;
+
       type = xbasetype;
       xbasetype = NULL_TREE;
     }
 
-  type = complete_type (type);
+  if (CLASSTYPE_USE_CONCEPT (type) && uses_template_parms (type)
+      && !(CLASSTYPE_MODEL_P (type) && currently_open_class (type)))
+    {
+      tree template = most_general_template (CLASSTYPE_TI_TEMPLATE (type));
+      model_args = CLASSTYPE_TI_ARGS (type);
+      gcc_assert (TREE_CODE (template) == TEMPLATE_DECL);
+      type = TREE_TYPE (template);
+    }
+  else
+    /* This odd construct is needed because the completion of a
+       template class type can generate an archetype, which will then
+       be completed.  DPG TBD: this should actually go away, if we
+       always built the archetype at the same time as the dependent
+       type.  */
+    type = type_archetype (complete_type (type_archetype (type)));
+
   if (!basetype_path)
     basetype_path = TYPE_BINFO (type);
 
@@ -1249,6 +1284,13 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
       else
 	protect = 0;
     }
+
+  /* If we found something in a concept, we need to map it to the
+     appropriate model. This one-step mapping only works because
+     concept refinements don't actually act as base classes and are
+     never searched (everything is in the concept itself). */
+  if (rval && model_args)
+    rval = build_decl_for_model (type, model_args, rval);
 
   /* [class.access]
 
@@ -1287,6 +1329,7 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
     rval = build_baselink (rval_binfo, basetype_path, rval,
 			   (IDENTIFIER_TYPENAME_P (name)
 			   ? TREE_TYPE (name): NULL_TREE));
+
   return rval;
 }
 
@@ -2429,7 +2472,11 @@ lookup_conversions (tree type)
   tree list = NULL_TREE;
 
   complete_type (type);
-  if (!TYPE_BINFO (type))
+
+  if (uses_template_parms (type) && !dependent_type_p (type))
+    type = type_archetype (type);
+
+  if (!COMPLETE_TYPE_P (type) || !TYPE_BINFO (type))
     return NULL_TREE;
 
   lookup_conversions_r (TYPE_BINFO (type), 0, 0,

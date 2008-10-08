@@ -131,7 +131,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
 	      __eql, std::_Select1st<std::pair<const _Key, _Tp> >(), __a)
       { }
 
-
       template<typename _InputIterator>
         __unordered_multimap(_InputIterator __f, _InputIterator __l, 
 			     typename _Base::size_type __n = 0,

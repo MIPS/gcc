@@ -34,13 +34,13 @@ using namespace __gnu_test;
 
 int main()
 {
-  typedef std::vector<int, tracker_allocator<int> > Container;
+  typedef std::vector<int, tracker_allocator<int> > XContainer;
   const int arr10[10] = { 2, 4, 1, 7, 3, 8, 10, 5, 9, 6 };
   bool ok = true;
 
   tracker_allocator_counter::reset();
   {
-    Container c;
+    XContainer c;
     ok = check_construct_destroy("empty container", 0, 0) && ok;
   }
   ok = check_construct_destroy("empty container", 0, 0) && ok;
@@ -48,13 +48,13 @@ int main()
 
   tracker_allocator_counter::reset();
   {
-    Container c(arr10, arr10 + 10);
+    XContainer c(arr10, arr10 + 10);
     ok = check_construct_destroy("Construct from range", 10, 0) && ok;
   }
   ok = check_construct_destroy("Construct from range", 10, 10) && ok;
 
   {
-    Container c(arr10, arr10 + 10);
+    XContainer c(arr10, arr10 + 10);
     c.reserve(100);
     tracker_allocator_counter::reset();
     c.insert(c.begin(), arr10[0]);
@@ -63,7 +63,7 @@ int main()
   ok = check_construct_destroy("Insert element", 1, 11) && ok;
 
   {
-    Container c(arr10, arr10 + 10);
+    XContainer c(arr10, arr10 + 10);
     c.reserve(100);
     tracker_allocator_counter::reset();
     c.insert(c.begin() + 5, arr10, arr10+3);
@@ -72,7 +72,7 @@ int main()
   ok = check_construct_destroy("Insert short range", 3, 13) && ok;
 
   {
-    Container c(arr10, arr10 + 10);
+    XContainer c(arr10, arr10 + 10);
     c.reserve(100);
     tracker_allocator_counter::reset();
     c.insert(c.begin() + 7, arr10, arr10+10);

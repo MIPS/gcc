@@ -509,6 +509,13 @@ do_friend (tree ctype, tree declarator, tree decl,
       if (funcdef_flag)
 	SET_DECL_FRIEND_CONTEXT (decl, current_class_type);
 
+      if (processing_template_decl
+          && TREE_VALUE (current_where_clause)
+          && (TREE_VALUE (current_where_clause)
+              != CLASSTYPE_WHERE_CLAUSE (current_class_type)))
+        error ("friend function %D cannot have a requirements clause",
+               decl);
+
       if (! DECL_USE_TEMPLATE (decl))
 	{
 	  /* We must check whether the decl refers to template

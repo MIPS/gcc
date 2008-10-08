@@ -60,10 +60,10 @@ template<typename T>
     }
   };
 
-template<typename Container>
+template<typename _Container>
   void Check_Container()
   {
-    Container* pic = new Container;
+    _Container* pic = new _Container;
     int x = 230;
     
     while (x--)

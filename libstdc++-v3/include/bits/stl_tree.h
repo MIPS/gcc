@@ -68,6 +68,7 @@
 #include <bits/allocator.h>
 #include <bits/stl_function.h>
 #include <bits/cpp_type_traits.h>
+#include <bits/concepts.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -303,6 +304,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     operator!=(const _Rb_tree_iterator<_Val>& __x,
                const _Rb_tree_const_iterator<_Val>& __y)
     { return __x._M_node != __y._M_node; }
+
+#ifndef _GLIBCXX_NO_CONCEPTS
+  template<typename _Val>
+  concept_map BidirectionalIterator<_Rb_tree_iterator<_Val> > { };
+
+  template<typename _Val>
+  concept_map BidirectionalIterator<_Rb_tree_const_iterator<_Val> > { };
+#endif
 
   void
   _Rb_tree_insert_and_rebalance(const bool __insert_left,

@@ -1,3 +1,4 @@
+// { dg-options "-std=c++98" }
 template <class T >
 struct S
 {

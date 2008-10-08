@@ -61,6 +61,9 @@
 #ifndef _PAIR_H
 #define _PAIR_H 1
 
+#include <bits/concepts.h>
+#include <bits/iterator_concepts.h>
+
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
   /// pair holds two objects of arbitrary type.
@@ -143,6 +146,30 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     inline pair<_T1, _T2>
     make_pair(_T1 __x, _T2 __y)
     { return pair<_T1, _T2>(__x, __y); }
+
+#ifndef _GLIBCXX_NO_CONCEPTS
+  /**
+   * This concept map enables iteration over all values defined by a
+   * pair of iterators.
+   */
+  template<InputIterator Iter >        
+  concept_map Range<pair<Iter, Iter> > { 
+    typedef Iter iterator;            
+    Iter begin(pair<Iter, Iter>& p) { return p.first; }
+    Iter end(pair<Iter, Iter>& p)   { return p.second; }
+  }
+  
+  /**
+   * This concept map enables iteration over all values defined by a
+   * pair of iterators.
+   */
+  template<InputIterator Iter >                    
+  concept_map Range<const pair<Iter, Iter> > {
+    typedef Iter iterator;                        
+    Iter begin(const pair<Iter, Iter>& p) { return p.first; }
+    Iter end(const pair<Iter, Iter>& p)   { return p.second; }
+  }
+#endif
 
 _GLIBCXX_END_NAMESPACE
 

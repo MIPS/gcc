@@ -53,7 +53,7 @@
 #include <bits/allocator.h>
 #include <bits/stl_construct.h>
 #include <bits/stl_uninitialized.h>
-#include <bits/concept_check.h>
+#include <bits/concepts.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -294,9 +294,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   template <class _Tp, class _Alloc = allocator<_Tp> >
     class slist : private _Slist_base<_Tp,_Alloc>
     {
-      // concept requirements
-      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
-	
     private:
       typedef _Slist_base<_Tp,_Alloc> _Base;
 
@@ -1075,6 +1072,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       operator++(int)
       { return *this; }
     };
+
+template <class _Tp>
+concept_map ForwardIterator<__gnu_cxx::_Slist_iterator<_Tp, _Tp&, _Tp*> > {};
+
+template <class _Tp>
+concept_map ForwardIterator<__gnu_cxx::_Slist_iterator<_Tp, const _Tp&, const _Tp*> > {};
 
 _GLIBCXX_END_NAMESPACE
 

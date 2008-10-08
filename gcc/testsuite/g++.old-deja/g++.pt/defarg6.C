@@ -1,5 +1,5 @@
 // { dg-do assemble  }
-
+// { dg-options "-std=c++98" }
 template <class T>
 struct C {
   template <class U>

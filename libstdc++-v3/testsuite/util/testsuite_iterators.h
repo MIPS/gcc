@@ -241,10 +241,12 @@ namespace __gnu_test
       return *this;
     }
 
-    void
+    input_iterator_wrapper
     operator++(int)
     {
+      input_iterator_wrapper tmp(*this);
       ++*this;
+      return tmp;
     }
   };
 
@@ -542,4 +544,17 @@ namespace __gnu_test
     { return it(bounds.last); }
    };
 }
+
+#ifndef _GLIBCXX_NO_CONCEPTS
+namespace std {
+  template<typename T>
+  concept_map BasicOutputIterator<__gnu_test::output_iterator_wrapper<T> > {
+    typedef T value_type;
+    typedef T* pointer;
+    typedef __gnu_test::WritableObject<T> reference;
+    typedef ptrdiff_t difference_type;
+  };
+}
+#endif
+
 #endif

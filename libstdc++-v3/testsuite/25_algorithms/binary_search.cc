@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <testsuite_hooks.h>
+#include <bits/concepts.h>
 
 bool test __attribute__((unused)) = true;
 

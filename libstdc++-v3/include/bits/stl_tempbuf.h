@@ -76,9 +76,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _ForwardIterator, typename _Tp>
     class _Temporary_buffer
     {
-      // concept requirements
-      __glibcxx_class_requires(_ForwardIterator, _ForwardIteratorConcept)
-
     public:
       typedef _Tp         value_type;
       typedef value_type* pointer;

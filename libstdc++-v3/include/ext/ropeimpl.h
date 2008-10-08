@@ -296,7 +296,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   template <class _CharT, class _Alloc>
     void
     _Rope_iterator<_CharT, _Alloc>::
-    _M_check()
+    _M_check() const
     {
       if (_M_root_rope->_M_tree_ptr != this->_M_root)
 	{

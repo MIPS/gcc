@@ -61,7 +61,7 @@
 #ifndef _MULTISET_H
 #define _MULTISET_H 1
 
-#include <bits/concept_check.h>
+#include <bits/concepts.h>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
@@ -89,13 +89,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 	    class _Alloc = std::allocator<_Key> >
     class multiset
     {
-      // concept requirements
-      typedef typename _Alloc::value_type                   _Alloc_value_type;
-      __glibcxx_class_requires(_Key, _SGIAssignableConcept)
-      __glibcxx_class_requires4(_Compare, bool, _Key, _Key,
-				_BinaryFunctionConcept)
-      __glibcxx_class_requires2(_Key, _Alloc_value_type, _SameTypeConcept)	
-
     public:
       // typedefs:
       typedef _Key     key_type;
@@ -561,5 +554,13 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     { __x.swap(__y); }
 
 _GLIBCXX_END_NESTED_NAMESPACE
+
+#ifndef _GLIBCXX_NO_CONCEPTS
+namespace std 
+{
+  template<typename _Key, typename _Compare, typename _Alloc>
+  concept_map Container<_GLIBCXX_STD::multiset<_Key, _Compare, _Alloc> > {}
+}
+#endif
 
 #endif /* _MULTISET_H */

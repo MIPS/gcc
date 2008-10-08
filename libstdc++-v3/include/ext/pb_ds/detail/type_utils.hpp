@@ -57,23 +57,23 @@ namespace pb_ds
 {
   namespace detail
   {
-    using std::tr1::is_same;
-    using std::tr1::is_const;
-    using std::tr1::is_pointer;
-    using std::tr1::is_reference;
-    using std::tr1::is_fundamental;
-    using std::tr1::is_member_object_pointer;
-    using std::tr1::is_member_pointer;
-    using std::tr1::is_base_of;
-    using std::tr1::remove_const;
-    using std::tr1::remove_reference;
+    using std::_GLIBCXX_TR1::is_same;
+    using std::_GLIBCXX_TR1::is_const;
+    using std::_GLIBCXX_TR1::is_pointer;
+    using std::_GLIBCXX_TR1::is_reference;
+    using std::_GLIBCXX_TR1::is_fundamental;
+    using std::_GLIBCXX_TR1::is_member_object_pointer;
+    using std::_GLIBCXX_TR1::is_member_pointer;
+    using std::_GLIBCXX_TR1::is_base_of;
+    using std::_GLIBCXX_TR1::remove_const;
+    using std::_GLIBCXX_TR1::remove_reference;
 
     // Need integral_const<bool, true> <-> integral_const<int, 1>, so
     // because of this use the following typedefs instead of importing
-    // std::tr1's.
-    using std::tr1::integral_constant;
-    typedef std::tr1::integral_constant<int, 1> true_type;
-    typedef std::tr1::integral_constant<int, 0> false_type;
+    // std::_GLIBCXX_TR1's.
+    using std::_GLIBCXX_TR1::integral_constant;
+    typedef std::_GLIBCXX_TR1::integral_constant<int, 1> true_type;
+    typedef std::_GLIBCXX_TR1::integral_constant<int, 0> false_type;
 
     using __gnu_cxx::__conditional_type;
     using __gnu_cxx::__numeric_traits;
@@ -136,10 +136,6 @@ namespace pb_ds
 	};
     };
 
-    // Use C++0x's static_assert if possible.
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-#define PB_DS_STATIC_ASSERT(UNIQUE, E)  static_assert(E, #UNIQUE)
-#else
     template<bool>
     struct __static_assert;
 
@@ -158,8 +154,6 @@ namespace pb_ds
 
 #define PB_DS_STATIC_ASSERT(UNIQUE, E)  \
     typedef pb_ds::detail::__static_assert_dumclass<sizeof(pb_ds::detail::__static_assert<bool(E)>)> UNIQUE##__static_assert_type
-
-#endif
 
     template<typename Type>
     struct type_to_type

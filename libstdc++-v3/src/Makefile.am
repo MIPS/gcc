@@ -153,7 +153,6 @@ sources = \
 	strstream.cc \
 	tree.cc \
 	allocator-inst.cc \
-	concept-inst.cc \
 	fstream-inst.cc \
 	ext-inst.cc \
 	ios-inst.cc \
@@ -194,14 +193,6 @@ strstream.lo: strstream.cc
 	$(LTCXXCOMPILE) -I$(GLIBCXX_INCLUDE_DIR)/backward -Wno-deprecated -c $<
 strstream.o: strstream.cc
 	$(CXXCOMPILE) -I$(GLIBCXX_INCLUDE_DIR)/backward -Wno-deprecated -c $<
-
-# Use special rules for the concept-checking instantiations so that all
-# the generated template functions are also instantiated.  Force the checks
-# to be on so that the instantiations are actually seen.
-concept-inst.lo: concept-inst.cc
-	$(LTCXXCOMPILE) -D_GLIBCXX_CONCEPT_CHECKS -fimplicit-templates -c $<
-concept-inst.o: concept-inst.cc
-	$(CXXCOMPILE) -D_GLIBCXX_CONCEPT_CHECKS -fimplicit-templates -c $<
 
 if GLIBCXX_LDBL_COMPAT
 # Use special rules for compatibility-ldbl.cc compilation, as we need to

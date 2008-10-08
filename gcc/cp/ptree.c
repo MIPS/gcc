@@ -59,6 +59,16 @@ cxx_print_decl (FILE *file, tree node, int indent)
 	     (void *) DECL_TEMPLATE_INFO (node));
 }
 
+static const char *concept_kind_names[] = {
+  "not-a-concept",
+  "concept",
+  "auto-concept",
+  "concept-map",
+  "implicit-concept-map",
+  "synthesized-concept-map",
+  "no-concept-map"
+};
+
 void
 cxx_print_type (FILE *file, tree node, int indent)
 {
@@ -131,6 +141,9 @@ cxx_print_type (FILE *file, tree node, int indent)
 	fprintf (file, " no-binfo");
 
       fprintf (file, " use_template=%d", CLASSTYPE_USE_TEMPLATE (node));
+      if (CLASSTYPE_USE_CONCEPT (node))
+	fprintf (file, " use_concept=%s", 
+		 concept_kind_names[CLASSTYPE_USE_CONCEPT (node)]);
       if (CLASSTYPE_INTERFACE_ONLY (node))
 	fprintf (file, " interface-only");
       if (CLASSTYPE_INTERFACE_UNKNOWN (node))
@@ -183,6 +196,40 @@ cxx_print_xnode (FILE *file, tree node, int indent)
       fprintf (file, "index %d level %d orig_level %d",
 	       TEMPLATE_PARM_IDX (node), TEMPLATE_PARM_LEVEL (node),
 	       TEMPLATE_PARM_ORIG_LEVEL (node));
+      break;
+    case REQUIREMENT:
+      switch (WHERE_REQ_KIND (node))
+	{
+	case REQ_NOT_CONCEPT:
+	  fprintf (file, "not requirement");
+	  /* Fall through.  */
+
+	case REQ_CONCEPT:
+	  print_node (file, "concept map", WHERE_REQ_MODEL (node), indent + 4);
+	  break;
+
+	case REQ_SAME_TYPE:
+	  fprintf (file, "same-type requirement");
+	  print_node (file, "first type", WHERE_REQ_FIRST_TYPE (node),
+		      indent + 4);
+	  print_node (file, "second type", WHERE_REQ_SECOND_TYPE (node),
+		      indent + 4);
+	  break;
+
+	case REQ_DERIVED_FROM:
+	  fprintf (file, "derived-from requirement");
+	  print_node (file, "derived", WHERE_REQ_DERIVED (node),
+		      indent + 4);
+	  print_node (file, "base", WHERE_REQ_BASE (node),
+		      indent + 4);
+	  break;
+
+	case REQ_ICE:
+	  fprintf (file, "constant expression requirement");
+	  print_node (file, "expr", WHERE_REQ_CONSTANT_EXPRESSION (node),
+		      indent + 4);
+	  break;
+	}
       break;
     default:
       break;

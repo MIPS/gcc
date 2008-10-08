@@ -218,15 +218,19 @@ static const struct resword reswords[] =
   { "__volatile__",	RID_VOLATILE,	0 },
   { "asm",		RID_ASM,	D_ASM },
   { "auto",		RID_AUTO,	0 },
+  { "axiom",            RID_AXIOM,      D_CXX0X },
   { "bool",		RID_BOOL,	0 },
   { "break",		RID_BREAK,	0 },
   { "case",		RID_CASE,	0 },
   { "catch",		RID_CATCH,	0 },
   { "char",		RID_CHAR,	0 },
   { "class",		RID_CLASS,	0 },
+  { "concept",          RID_CONCEPT,    D_CXX0X },
+  { "concept_map",      RID_CONCEPT_MAP,D_CXX0X },
   { "const",		RID_CONST,	0 },
   { "const_cast",	RID_CONSTCAST,	0 },
   { "continue",		RID_CONTINUE,	0 },
+  { "decltype",         RID_DECLTYPE,   D_CXX0X },
   { "default",		RID_DEFAULT,	0 },
   { "delete",		RID_DELETE,	0 },
   { "do",		RID_DO,		0 },
@@ -245,6 +249,7 @@ static const struct resword reswords[] =
   { "if",		RID_IF,		0 },
   { "inline",		RID_INLINE,	0 },
   { "int",		RID_INT,	0 },
+  { "late_check",	RID_LATE_CHECK,	D_CXX0X },
   { "long",		RID_LONG,	0 },
   { "mutable",		RID_MUTABLE,	0 },
   { "namespace",	RID_NAMESPACE,	0 },
@@ -255,6 +260,7 @@ static const struct resword reswords[] =
   { "public",		RID_PUBLIC,	0 },
   { "register",		RID_REGISTER,	0 },
   { "reinterpret_cast",	RID_REINTCAST,	0 },
+  { "requires",         RID_REQUIRES,   D_CXX0X },
   { "return",		RID_RETURN,	0 },
   { "short",		RID_SHORT,	0 },
   { "signed",		RID_SIGNED,	0 },
@@ -631,6 +637,14 @@ unqualified_fn_lookup_error (tree name)
 {
   if (processing_template_decl)
     {
+      /* Inside a constrained template, the inability to find an
+         unqualified function is a hard error.. */
+      if (template_processing_nondependent_p ())
+        {
+          error ("no function named %qD", name);
+          return error_mark_node;
+        }
+
       /* In a template, it is invalid to write "f()" or "f(3)" if no
 	 declaration of "f" is available.  Historically, G++ and most
 	 other compilers accepted that usage since they deferred all name
@@ -644,7 +658,7 @@ unqualified_fn_lookup_error (tree name)
       pedwarn ("there are no arguments to %qD that depend on a template "
 	       "parameter, so a declaration of %qD must be available",
 	       name, name);
-
+     
       if (!flag_permissive)
 	{
 	  static bool hint;

@@ -51,6 +51,7 @@ Boston, MA 02110-1301, USA.  */
 #include "c-pragma.h"
 #include "tree-dump.h"
 #include "intl.h"
+#include "diagnostic.h"
 
 extern cpp_reader *parse_in;
 
@@ -271,7 +272,8 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags)
       DECL_NAME (function) = fn_name;
     }
 
-  DECL_CONTEXT (function) = ctype;
+  if (!DECL_CONTEXT (function))
+    DECL_CONTEXT (function) = ctype;
 
   if (flags == DTOR_FLAG)
     DECL_DESTRUCTOR_P (function) = 1;
@@ -1145,7 +1147,11 @@ coerce_new_type (tree type)
   int e = 0;
   tree args = TYPE_ARG_TYPES (type);
 
-  gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
+  gcc_assert (TREE_CODE (type) == FUNCTION_TYPE
+              || TREE_CODE (type) == METHOD_TYPE);
+
+  if (TREE_CODE (type) == METHOD_TYPE)
+    args = TREE_CHAIN (args);
 
   if (!same_type_p (TREE_TYPE (type), ptr_type_node))
     {
@@ -1183,7 +1189,11 @@ coerce_delete_type (tree type)
   int e = 0;
   tree args = TYPE_ARG_TYPES (type);
 
-  gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
+  gcc_assert (TREE_CODE (type) == FUNCTION_TYPE
+              || TREE_CODE (type) == METHOD_TYPE);
+
+  if (TREE_CODE (type) == METHOD_TYPE)
+    args = TREE_CHAIN (args);
 
   if (!same_type_p (TREE_TYPE (type), void_type_node))
     {
@@ -3434,6 +3444,13 @@ void
 mark_used (tree decl)
 {
   HOST_WIDE_INT saved_processing_template_decl = 0;
+
+  /* If we have seen any errors but are suppressing them, don't mark
+     anything used. */
+  if (diagnostic_suppressed (global_dc)
+      && diagnostic_kind_count (global_dc, DK_ERROR) > 0)
+    return;
+
 
   /* If DECL is a BASELINK for a single function, then treat it just
      like the DECL for the function.  Otherwise, if the BASELINK is

@@ -71,6 +71,8 @@
 #ifndef _STL_RELOPS_H
 #define _STL_RELOPS_H 1
 
+#include <bits/concepts.h>
+
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
   namespace rel_ops
@@ -87,7 +89,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
      *
      *  This function uses @c == to determine its result.
      */
-    template <class _Tp>
+    template <_GLIBCXX_REQ_PARM(EqualityComparable, _Tp)>
       inline bool
       operator!=(const _Tp& __x, const _Tp& __y)
       { return !(__x == __y); }
@@ -100,7 +102,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
      *
      *  This function uses @c < to determine its result.
      */
-    template <class _Tp>
+    template <_GLIBCXX_REQ_PARM(LessThanComparable, _Tp)>
       inline bool
       operator>(const _Tp& __x, const _Tp& __y)
       { return __y < __x; }
@@ -113,7 +115,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
      *
      *  This function uses @c < to determine its result.
      */
-    template <class _Tp>
+    template <_GLIBCXX_REQ_PARM(LessThanComparable, _Tp)>
       inline bool
       operator<=(const _Tp& __x, const _Tp& __y)
       { return !(__y < __x); }
@@ -126,7 +128,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
      *
      *  This function uses @c < to determine its result.
      */
-    template <class _Tp>
+    template <_GLIBCXX_REQ_PARM(LessThanComparable, _Tp)>
       inline bool
       operator>=(const _Tp& __x, const _Tp& __y)
       { return !(__x < __y); }

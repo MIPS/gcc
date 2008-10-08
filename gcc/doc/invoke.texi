@@ -195,7 +195,7 @@ in the following sections.
 -Weffc++  -Wno-deprecated  -Wstrict-null-sentinel @gol
 -Wno-non-template-friend  -Wold-style-cast @gol
 -Woverloaded-virtual  -Wno-pmf-conversions @gol
--Wsign-promo}
+-Wsign-promo -Wsignature-shadow}
 
 @item Objective-C and Objective-C++ Language Options
 @xref{Objective-C and Objective-C++ Dialect Options,,Options Controlling
@@ -2102,6 +2102,37 @@ main ()
 
 In this example, G++ will synthesize a default @samp{A& operator =
 (const A&);}, while cfront will use the user-defined @samp{operator =}.
+
+@item -Wsignature-shadow @r{(C++0x only)}
+@opindex Wsignature-shadow
+Warn when a using declaration in a function body shadows a name that
+would otherwise resolve to a signature in the requires clause.  This
+particular warning is intended to help migrate existing, unconstrained
+templates to constrained templates. For example, the following code,
+which may have been obtained by adding the @samp{requires} clause to an
+existing template, may not behave as expected:
+
+@smallexample
+template<typename T>
+requires std::Swappable<T> && std::CopyConstructible<T> && std::Assignable<T>
+void do_swap(T& x, T& y) 
+@{
+  using std::swap;
+  swap(x, y); // always calls std::swap
+@}
+@end smallexample
+
+The behavior of the above constrained template is very different from
+the behavior of the equivalent unconstrained template (e.g., if the
+@samp{requires} clause is removed). In an unconstrained template,
+@samp{swap} will be found through argument-dependent lookup or will use
+@samp{std::swap}, whichever is better. In the constrained template, the
+using declaration for @samp{std::swap} hides the @samp{swap} routine
+from the @samp{Swappable} concept, and therefore will never use any
+user-customized @samp{swap} functions. When the
+@option{-Wsignature-shadow} option is provided, GCC will warn about
+these cases.
+
 @end table
 
 @node Objective-C and Objective-C++ Dialect Options

@@ -53,13 +53,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       enc_filebuf(state_type& __state)
       : std::basic_filebuf<_CharT, encoding_char_traits<_CharT> >()
       { this->_M_state_beg = __state; }
-
-    private:
-      // concept requirements:
-      // Set state type to something useful.
-      // Something more than copyconstructible is needed here, so
-      // require default and copy constructible + assignment operator.
-      __glibcxx_class_requires(state_type, _SGIAssignableConcept)
     };
 
 _GLIBCXX_END_NAMESPACE

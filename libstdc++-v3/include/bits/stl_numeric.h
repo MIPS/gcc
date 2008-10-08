@@ -62,8 +62,9 @@
 #ifndef _STL_NUMERIC_H
 #define _STL_NUMERIC_H 1
 
-#include <bits/concept_check.h>
 #include <debug/debug.h>
+#include <bits/concepts.h>
+#include <bits/iterator_concepts.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -78,16 +79,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  init  Starting value to add other values to.
    *  @return  The final sum.
    */
-  template<typename _InputIterator, typename _Tp>
+  template<InputIterator _Iter, CopyConstructible _Tp>
+    requires HasPlus<_Tp, _Iter::reference>
+          && HasAssign<_Tp, HasPlus<_Tp, _Iter::reference>::result_type>
     _Tp
-    accumulate(_InputIterator __first, _InputIterator __last, _Tp __init)
+    accumulate(_Iter __first, _Iter __last, _Tp __init)
     {
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcxx_requires_valid_range(__first, __last);
 
       for (; __first != __last; ++__first)
-	__init = __init + *__first;
+        __init = __init + *__first;
+      // TODO: should move-construct here, but ConceptGCC gives an error
       return __init;
     }
 
@@ -104,17 +106,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  binary_op  Function object to accumulate with.
    *  @return  The final sum.
    */
-  template<typename _InputIterator, typename _Tp, typename _BinaryOperation>
+  template<InputIterator _Iter, CopyConstructible _Tp, 
+           Callable2<auto, const _Tp&, _Iter::reference> _BinaryOperation>
+    requires HasAssign<_Tp, _BinaryOperation::result_type> 
+          && CopyConstructible<_BinaryOperation>
     _Tp
-    accumulate(_InputIterator __first, _InputIterator __last, _Tp __init,
-	       _BinaryOperation __binary_op)
+    accumulate(_Iter __first, _Iter __last, _Tp __init,
+               _BinaryOperation __binary_op)
     {
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
       __glibcxx_requires_valid_range(__first, __last);
 
       for (; __first != __last; ++__first)
-	__init = __binary_op(__init, *__first);
+        __init = __binary_op(__init, *__first);
+      // TODO: should move-construct here, but ConceptGCC gives an error
       return __init;
     }
 
@@ -132,18 +136,29 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  init  Starting value to add other values to.
    *  @return  The final inner product.
    */
-  template<typename _InputIterator1, typename _InputIterator2, typename _Tp>
+  template<InputIterator _Iter1, InputIterator _Iter2, 
+           CopyConstructible _Tp>
+    requires HasMultiply<_Iter1::reference, _Iter2::reference>
+          && HasPlus<
+               _Tp,
+               HasMultiply<_Iter1::reference, _Iter2::reference>::result_type
+             >
+          && HasAssign<
+               _Tp, 
+               HasPlus<
+                 _Tp,
+                 HasMultiply<_Iter1::reference, _Iter2::reference>::result_type
+               >::result_type
+             > 
     _Tp
-    inner_product(_InputIterator1 __first1, _InputIterator1 __last1,
-		  _InputIterator2 __first2, _Tp __init)
+    inner_product(_Iter1 __first1, _Iter1 __last1,
+                  _Iter2 __first2, _Tp __init)
     {
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_requires_valid_range(__first1, __last1);
 
       for (; __first1 != __last1; ++__first1, ++__first2)
-	__init = __init + (*__first1 * *__first2);
+        __init = __init + (*__first1 * *__first2);
+      // TODO: should move-construct here, but ConceptGCC gives an error
       return __init;
     }
 
@@ -163,21 +178,25 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  binary_op2  Function object to apply to pairs of input values.
    *  @return  The final inner product.
    */
-  template<typename _InputIterator1, typename _InputIterator2, typename _Tp,
-	    typename _BinaryOperation1, typename _BinaryOperation2>
+  template<InputIterator _Iter1, InputIterator _Iter2, 
+           CopyConstructible _Tp, typename _BinaryOperation1,
+           Callable2<_Iter1::reference, _Iter2::reference> _BinaryOperation2>
+    requires Callable2<_BinaryOperation1, 
+                       const _Tp&, _BinaryOperation2::result_type> 
+          && HasAssign<_Tp, _BinaryOperation1::result_type>
+          && CopyConstructible<_BinaryOperation1>
+          && CopyConstructible<_BinaryOperation2>
     _Tp
-    inner_product(_InputIterator1 __first1, _InputIterator1 __last1,
-		  _InputIterator2 __first2, _Tp __init,
-		  _BinaryOperation1 __binary_op1,
-		  _BinaryOperation2 __binary_op2)
+    inner_product(_Iter1 __first1, _Iter1 __last1,
+                  _Iter2 __first2, _Tp __init,
+                  _BinaryOperation1 __binary_op1,
+                  _BinaryOperation2 __binary_op2)
     {
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_requires_valid_range(__first1, __last1);
 
       for (; __first1 != __last1; ++__first1, ++__first2)
-	__init = __binary_op1(__init, __binary_op2(*__first1, *__first2));
+        __init = __binary_op1(__init, __binary_op2(*__first1, *__first2));
+      // TODO: should move-construct here, but ConceptGCC gives an error
       return __init;
     }
 
@@ -195,28 +214,30 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  result  Output to write sums to.
    *  @return  Iterator pointing just beyond the values written to result.
    */
-  template<typename _InputIterator, typename _OutputIterator>
-    _OutputIterator
-    partial_sum(_InputIterator __first, _InputIterator __last,
-		_OutputIterator __result)
+  template<InputIterator _InIter, 
+           OutputIterator<auto, const _InIter::value_type&> _OutIter>
+    requires HasPlus<_InIter::value_type, _InIter::reference>
+          && HasAssign<_InIter::value_type, 
+                       HasPlus<_InIter::value_type, 
+                               _InIter::reference>::result_type>
+          && HasConstructor1<_InIter::value_type, _InIter::reference>
+    _OutIter
+    partial_sum(_InIter __first, _InIter __last,
+                _OutIter __result)
     {
-      typedef typename iterator_traits<_InputIterator>::value_type _ValueType;
+      typedef _InIter::value_type _ValueType;
 
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
-      __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-				                         _ValueType>)
       __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last)
-	return __result;
-      _ValueType __value = *__first;
+        return __result;
+      _ValueType __value(*__first);
       *__result = __value;
       while (++__first != __last)
-	{
-	  __value = __value + *__first;
-	  *++__result = __value;
-	}
+        {
+          __value = __value + *__first;
+          *++__result = __value;
+        }
       return ++__result;
     }
 
@@ -234,29 +255,31 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  result  Output to write sums to.
    *  @return  Iterator pointing just beyond the values written to result.
    */
-  template<typename _InputIterator, typename _OutputIterator,
-	   typename _BinaryOperation>
-    _OutputIterator
-    partial_sum(_InputIterator __first, _InputIterator __last,
-		_OutputIterator __result, _BinaryOperation __binary_op)
+  template<InputIterator _InIter, 
+           OutputIterator<auto, const _InIter::value_type&> _OutIter, 
+           Callable2<auto, 
+                     const _InIter::value_type&, 
+                     _InIter::reference> _BinaryOperation>
+    requires HasAssign<_InIter::value_type, _BinaryOperation::result_type>
+          && HasConstructor1<_InIter::value_type, _InIter::reference>
+          && CopyConstructible<_BinaryOperation>
+    _OutIter
+    partial_sum(_InIter __first, _InIter __last,
+                _OutIter __result, _BinaryOperation __binary_op)
     {
-      typedef typename iterator_traits<_InputIterator>::value_type _ValueType;
+      typedef _InIter::value_type _ValueType;
 
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
-      __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-				                         _ValueType>)
       __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last)
-	return __result;
-      _ValueType __value = *__first;
+        return __result;
+      _ValueType __value(*__first);
       *__result = __value;
       while (++__first != __last)
-	{
-	  __value = __binary_op(__value, *__first);
-	  *++__result = __value;
-	}
+        {
+          __value = __binary_op(__value, *__first);
+          *++__result = __value;
+        }
       return ++__result;
     }
 
@@ -271,29 +294,33 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  result  Output to write sums to.
    *  @return  Iterator pointing just beyond the values written to result.
    */
-  template<typename _InputIterator, typename _OutputIterator>
-    _OutputIterator
-    adjacent_difference(_InputIterator __first,
-			_InputIterator __last, _OutputIterator __result)
+  template<InputIterator _InIter, 
+           OutputIterator<auto, const _InIter::value_type&> _OutIter>
+    requires HasMinus<_InIter::value_type, _InIter::value_type>
+          && HasConstructor1<_InIter::value_type, _InIter::reference>
+          && OutputIterator<_OutIter, 
+                            HasMinus<
+                              _InIter::value_type, 
+                              _InIter::value_type>::result_type>
+          && MoveAssignable<_InIter::value_type>
+    _OutIter
+    adjacent_difference(_InIter __first,
+                        _InIter __last, _OutIter __result)
     {
-      typedef typename iterator_traits<_InputIterator>::value_type _ValueType;
+      typedef _InIter::value_type _ValueType;
 
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
-      __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-				                         _ValueType>)
       __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last)
-	return __result;
-      _ValueType __value = *__first;
+        return __result;
+      _ValueType __value(*__first);
       *__result = __value;
       while (++__first != __last)
-	{
-	  _ValueType __tmp = *__first;
-	  *++__result = __tmp - __value;
-	  __value = __tmp;
-	}
+        {
+          _ValueType __tmp(*__first);
+          *++__result = __tmp - __value;
+          __value = static_cast<_InIter::value_type&&>(__tmp);
+        }
       return ++__result;
     }
 
@@ -309,30 +336,32 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @param  result  Output to write sums to.
    *  @return  Iterator pointing just beyond the values written to result.
    */
-  template<typename _InputIterator, typename _OutputIterator,
-	   typename _BinaryOperation>
-    _OutputIterator
-    adjacent_difference(_InputIterator __first, _InputIterator __last,
-			_OutputIterator __result, _BinaryOperation __binary_op)
+  template<InputIterator _InIter, 
+           OutputIterator<auto, const _InIter::value_type&> _OutIter,
+           Callable2<auto, const _InIter::value_type&, 
+                     const _InIter::value_type&> _BinaryOperation>
+    requires HasConstructor1<_InIter::value_type, _InIter::reference>
+          && OutputIterator<_OutIter, _BinaryOperation::result_type>
+          && MoveAssignable<_InIter::value_type>
+          && CopyConstructible<_BinaryOperation>
+    _OutIter
+    adjacent_difference(_InIter __first, _InIter __last,
+                        _OutIter __result, _BinaryOperation __binary_op)
     {
-      typedef typename iterator_traits<_InputIterator>::value_type _ValueType;
+      typedef _InIter::value_type _ValueType;
 
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
-      __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-				                         _ValueType>)
       __glibcxx_requires_valid_range(__first, __last);
 
       if (__first == __last)
-	return __result;
-      _ValueType __value = *__first;
+        return __result;
+      _ValueType __value(*__first);
       *__result = __value;
       while (++__first != __last)
-	{
-	  _ValueType __tmp = *__first;
-	  *++__result = __binary_op(__tmp, __value);
-	  __value = __tmp;
-	}
+        {
+          _ValueType __tmp(*__first);
+          *++__result = __binary_op(__tmp, __value);
+          __value = static_cast<_InIter::value_type&&>(__tmp);
+        }
       return ++__result;
     }
 

@@ -32,7 +32,7 @@ void test01()
   // Check for required base class.
   typedef istreambuf_iterator<char> test_iterator;
   typedef char_traits<char>::off_type off_type;
-  typedef iterator<input_iterator_tag, char, off_type, char*, char&> base_iterator;
+  typedef iterator<input_iterator_tag, char, off_type, char*, char> base_iterator;
 
   istringstream isstream("this tag");
   test_iterator  r_it(isstream);

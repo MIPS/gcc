@@ -64,7 +64,6 @@
 
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/functexcept.h>
-#include <bits/concept_check.h>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
@@ -158,11 +157,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
   template<typename _Tp, typename _Alloc = std::allocator<_Tp> >
     class vector : protected _Vector_base<_Tp, _Alloc>
     {
-      // Concept requirements.
-      typedef typename _Alloc::value_type                _Alloc_value_type;
-      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
-      __glibcxx_class_requires2(_Tp, _Alloc_value_type, _SameTypeConcept)
-      
       typedef _Vector_base<_Tp, _Alloc>			 _Base;
       typedef vector<_Tp, _Alloc>			 vector_type;
       typedef typename _Base::_Tp_alloc_type		 _Tp_alloc_type;
@@ -988,5 +982,12 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     { __x.swap(__y); }
 
 _GLIBCXX_END_NESTED_NAMESPACE
+
+#ifndef _GLIBCXX_NO_CONCEPTS
+namespace std {
+  template<typename _Tp, typename _Alloc>
+  concept_map Container<_GLIBCXX_STD::vector<_Tp, _Alloc> > { }
+}
+#endif
 
 #endif /* _VECTOR_H */

@@ -368,7 +368,11 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
     case RECORD_TYPE:
     case UNION_TYPE:
     case ENUMERAL_TYPE:
-      if (!decl)
+      if (!decl 
+          && TREE_CODE (type) == RECORD_TYPE
+          && CLASSTYPE_MODEL_P (type))
+        (*p_msg) ("invalid use of undefined %q#T", type);
+      else if (!decl)
 	p_msg ("invalid use of incomplete type %q#T", type);
       if (!TYPE_TEMPLATE_INFO (type))
 	p_msg ("forward declaration of %q+#T", type);
@@ -1292,6 +1296,9 @@ build_functional_cast (tree exp, tree parms)
   /* This is either a call to a constructor,
      or a C cast in C++'s `functional' notation.  */
   tree type;
+  tree orig_type;
+  tree orig_parms = parms;
+  tree result = NULL_TREE;
 
   if (exp == error_mark_node || parms == error_mark_node)
     return error_mark_node;
@@ -1301,12 +1308,23 @@ build_functional_cast (tree exp, tree parms)
   else
     type = exp;
 
-  if (processing_template_decl)
+  orig_type = type;
+
+  if (processing_template_decl) 
     {
-      tree t = build_min (CAST_EXPR, type, parms);
-      /* We don't know if it will or will not have side effects.  */
-      TREE_SIDE_EFFECTS (t) = 1;
-      return t;
+      if (dependent_type_p (type) || any_type_dependent_arguments_p (parms))
+        {
+          tree t = build_min (CAST_EXPR, type, parms);
+          /* We don't know if it will or will not have side effects.  */
+          TREE_SIDE_EFFECTS (t) = 1;
+          return t;
+        }
+
+      /* Extract the archetype */
+      if (uses_template_parms (type))
+        type = type_archetype (type);
+
+      parms = build_non_dependent_args (orig_parms);
     }
 
   if (! IS_AGGR_TYPE (type))
@@ -1319,20 +1337,23 @@ build_functional_cast (tree exp, tree parms)
       return build_c_cast (type, parms);
     }
 
-  /* Prepare to evaluate as a call to a constructor.  If this expression
-     is actually used, for example,
+  if (!result)
+    {
+      /* Prepare to evaluate as a call to a constructor.  If this expression
+         is actually used, for example,
 
-     return X (arg1, arg2, ...);
+         return X (arg1, arg2, ...);
 
-     then the slot being initialized will be filled in.  */
+         then the slot being initialized will be filled in.  */
+      
+      if (!complete_type_or_else (type, NULL_TREE))
+        return error_mark_node;
+      if (abstract_virtuals_error (NULL_TREE, type))
+        return error_mark_node;
 
-  if (!complete_type_or_else (type, NULL_TREE))
-    return error_mark_node;
-  if (abstract_virtuals_error (NULL_TREE, type))
-    return error_mark_node;
-
-  if (parms && TREE_CHAIN (parms) == NULL_TREE)
-    return build_c_cast (type, TREE_VALUE (parms));
+      if (parms && TREE_CHAIN (parms) == NULL_TREE)
+        result = build_c_cast (type, TREE_VALUE (parms));
+    }
 
   /* We need to zero-initialize POD types.  */
   if (parms == NULL_TREE 
@@ -1340,16 +1361,39 @@ build_functional_cast (tree exp, tree parms)
       && TYPE_HAS_DEFAULT_CONSTRUCTOR (type))
     {
       exp = build_constructor (type, NULL);
-      return get_target_expr (exp);
+      result = get_target_expr (exp);
     }
 
-  exp = build_special_member_call (NULL_TREE, complete_ctor_identifier, parms,
-				   type, LOOKUP_NORMAL);
+  if (!result)
+    {
+      exp = build_special_member_call (NULL_TREE, complete_ctor_identifier, 
+                                       parms, type, LOOKUP_NORMAL);
 
-  if (exp == error_mark_node)
-    return error_mark_node;
+      if (exp == error_mark_node)
+        return error_mark_node;
 
-  return build_cplus_new (type, exp);
+      result = build_cplus_new (type, exp);
+    }
+
+  if (processing_template_decl && result && result != error_mark_node)
+    {
+      tree t;
+
+      /* If we're building an archetype, replace the type with the
+         underlying representative so that instantiation is performed
+         properly.
+
+         DPG TBD: Do we have do a more complete substitution here? */
+      if (TREE_CODE (orig_type) == RECORD_TYPE
+          && CLASSTYPE_IS_ARCHETYPE (orig_type))
+        orig_type = type_representative (orig_type);
+
+      t = build_min (CAST_EXPR, orig_type, orig_parms);
+      TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (result);
+      return t;
+    }
+
+  return result;
 }
 
 

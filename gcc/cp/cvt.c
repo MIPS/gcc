@@ -624,11 +624,16 @@ tree
 ocp_convert (tree type, tree expr, int convtype, int flags)
 {
   tree e = expr;
-  enum tree_code code = TREE_CODE (type);
+  enum tree_code code;
+  tree orig_type = type;
   const char *invalid_conv_diag;
 
   if (error_operand_p (e) || type == error_mark_node)
     return error_mark_node;
+
+  /* Pull out the archetype of this type, if we should use it instead. */
+  type = type_archetype (type);
+  code = TREE_CODE (type);
 
   complete_type (type);
   complete_type (TREE_TYPE (expr));
@@ -648,7 +653,10 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	 constructors.  So don't force a temporary.  */
       && TYPE_HAS_CONSTRUCTOR (type))
     /* We need a new temporary; don't take this shortcut.  */;
-  else if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (e)))
+  else if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (e))
+           || (type != orig_type
+               && same_type_p (TYPE_MAIN_VARIANT (type), 
+                               TYPE_MAIN_VARIANT (TREE_TYPE (e)))))
     {
       if (same_type_p (type, TREE_TYPE (e)))
 	/* The call to fold will not always remove the NOP_EXPR as
@@ -763,6 +771,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
       tree dtype = TREE_TYPE (e);
       tree ctor = NULL_TREE;
 
+      /* Dig out the archetype of DTYPE. */
+      dtype = type_archetype (dtype);
       dtype = TYPE_MAIN_VARIANT (dtype);
 
       /* Conversion between aggregate types.  New C++ semantics allow

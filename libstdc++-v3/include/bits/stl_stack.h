@@ -62,7 +62,6 @@
 #ifndef _STACK_H
 #define _STACK_H 1
 
-#include <bits/concept_check.h>
 #include <debug/debug.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
@@ -97,12 +96,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _Tp, typename _Sequence = deque<_Tp> >
     class stack
     {
-      // concept requirements
-      typedef typename _Sequence::value_type _Sequence_value_type;
-      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
-      __glibcxx_class_requires(_Sequence, _BackInsertionSequenceConcept)
-      __glibcxx_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
-
       template<typename _Tp1, typename _Seq1>
         friend bool
         operator==(const stack<_Tp1, _Seq1>&, const stack<_Tp1, _Seq1>&);

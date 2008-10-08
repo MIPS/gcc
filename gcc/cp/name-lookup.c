@@ -522,6 +522,20 @@ supplement_binding (cxx_binding *binding, tree decl)
       region to refer only to the namespace to which it already
       refers.  */
     ok = false;
+  else if (binding->scope->kind == sk_class
+           && CLASSTYPE_USE_CONCEPT (binding->scope->this_entity))
+    {
+      /* Requirements in concepts can look like they're being
+         redeclared because a previous "declaration" actually came
+         from a refinement, but we don't track that very well. be
+         redeclared any number of times. DPG TBD: This is actually a
+         hack to deal with the fact that we don't properly handle
+         lookups in refinements of a concept. */
+      if (binding->type)
+        binding->type = decl;
+      if (binding->value)
+        binding->value = decl;
+    }
   else
     {
       error ("declaration of %q#D", decl);
@@ -779,7 +793,7 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	  SET_DECL_LANGUAGE (x, lang_c);
 	}
 
-      if (DECL_NON_THUNK_FUNCTION_P (x) && ! DECL_FUNCTION_MEMBER_P (x))
+      if (DECL_NON_THUNK_FUNCTION_P (x)  && (! DECL_FUNCTION_MEMBER_P (x)))
 	{
 	  t = push_overloaded_decl (x, PUSH_LOCAL, is_friend);
 	  if (t != x)
@@ -814,7 +828,11 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 		      doing is making a TYPE_DECL for the purposes of
 		      inlining.  */
 		   && (!TYPE_NAME (type)
-		       || TYPE_NAME (type) != DECL_ABSTRACT_ORIGIN (x)))
+		       || TYPE_NAME (type) != DECL_ABSTRACT_ORIGIN (x))
+                   /* Nor do we want to change the name of a TYPENAME_TYPE. */
+                   && (TREE_CODE (type) != TYPENAME_TYPE)
+                   /* Nor do we want to change the name of an ASSOCIATED_TYPE. */
+                   && (TREE_CODE (type) != ASSOCIATED_TYPE))
 	    {
 	      DECL_ORIGINAL_TYPE (x) = type;
 	      type = build_variant_type_copy (type);
@@ -2183,6 +2201,41 @@ do_nonmember_using_decl (tree scope, tree name, tree oldval, tree oldtype,
 	    }
 	  OVL_USED (*newval) = 1;
 	}
+
+      if (processing_template_decl
+          && template_processing_nondependent_p ()
+          && warn_signature_shadow)
+        {
+          /* Search inside the requires claus to see if this using
+             declaration is going to shadow something in the where
+             clause. This represents a change in behavior from C++03's
+             unconstrained templates (where using declarations are
+             used to represent customization points) to C++0x's
+             constrained templates (where signatures in concepts are
+             used to represent customization points.  */
+          cxx_scope* inner_scope = current_binding_level;
+          while (inner_scope)
+            {
+              if (inner_scope->kind == sk_template_parms 
+                  && inner_scope->this_entity)
+                {
+                  /* See if there are any signatures with this name in
+                     the requires clause.  */
+                  tree signatures 
+                    = lookup_function_in_where_clause 
+                        (inner_scope->this_entity, name);
+          
+                  if (signatures)
+                    warning (OPT_Wsignature_shadow, 
+                             "using declaration %<%D::%E%> shadows an operation in the requires clause", 
+                             scope, name);
+
+                  break;
+                }
+
+              inner_scope = inner_scope->level_chain;
+            }
+        }
     }
   else
     {
@@ -2610,6 +2663,42 @@ get_class_binding (tree name, cxx_scope *scope)
     }
   else
     binding = NULL;
+
+  return binding;
+}
+	
+/* Return the BINDING (if any) for NAME in SCOPE, which is a template
+   parameter scope with a where clause.  If the value returned
+   is non-NULL, and the PREVIOUS field is not set, callers must set
+   the PREVIOUS field explicitly.  */
+
+static cxx_binding *
+get_requirement_binding (tree name, cxx_scope *scope)
+{	
+  tree value_binding = NULL_TREE;
+  cxx_binding * binding = NULL;
+
+  value_binding = lookup_function_in_where_clause (scope->this_entity, name);
+
+  /* Completely ignore type bindings. */
+  if (value_binding
+      && TREE_CODE (value_binding) == TYPE_DECL)
+    value_binding = NULL_TREE;
+
+  /* Build the actual binding. */
+  if (value_binding)
+    {
+      binding = cxx_binding_make (value_binding, NULL_TREE);
+      binding->scope = scope;
+      INHERITED_VALUE_BINDING_P (binding) = 0;
+      LOCAL_BINDING_P (binding) = 1;
+
+      /* Put the decl's we've found on the list of things declared by
+         the current binding level.  */
+      if (TREE_CODE (value_binding) == OVERLOAD)
+        value_binding = build_tree_list (NULL_TREE, value_binding);
+      add_decl_to_level (value_binding, scope);
+    }
 
   return binding;
 }
@@ -3874,6 +3963,7 @@ outer_binding (tree name,
   cxx_binding *outer;
   cxx_scope *scope;
   cxx_scope *outer_scope;
+  cxx_scope *orig_scope;
 
   if (binding)
     {
@@ -3886,6 +3976,7 @@ outer_binding (tree name,
       outer = IDENTIFIER_BINDING (name);
     }
   outer_scope = outer ? outer->scope : NULL;
+  orig_scope = scope;
 
   /* Because we create class bindings lazily, we might be missing a
      class binding for NAME.  If there are any class binding levels
@@ -3914,6 +4005,35 @@ outer_binding (tree name,
 	  }
 	scope = scope->level_chain;
       }
+
+  scope = orig_scope;
+
+  /* Bindings for names introduced by where clauses are also found
+     lazily. */
+  while (scope && scope != outer_scope)
+    {
+      if (scope->kind == sk_template_parms && scope->this_entity
+	  && template_processing_nondependent_p ())
+        {
+          cxx_binding *req_binding;
+          
+          req_binding = get_requirement_binding (name, scope);
+          if (req_binding)
+            {
+              /* Thread this new where-clause binding onto the
+                 IDENTIFIER_BINDING list so that future lookups
+                 find it quickly.  */
+              req_binding->previous = outer;
+              if (binding)
+                binding->previous = req_binding;
+              else
+                IDENTIFIER_BINDING (name) = req_binding;
+              return req_binding;
+            }
+        }
+      
+      scope = scope->level_chain;
+    }
 
   return outer;
 }
@@ -4559,6 +4679,8 @@ arg_assoc_type (struct arg_lookup *k, tree type)
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       return false;
     case TYPENAME_TYPE:
+      return false;
+    case ASSOCIATED_TYPE:
       return false;
     case LANG_TYPE:
       gcc_assert (type == unknown_type_node);

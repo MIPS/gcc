@@ -62,7 +62,6 @@
 #ifndef _QUEUE_H
 #define _QUEUE_H 1
 
-#include <bits/concept_check.h>
 #include <debug/debug.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
@@ -94,13 +93,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _Tp, typename _Sequence = deque<_Tp> >
     class queue
     {
-      // concept requirements
-      typedef typename _Sequence::value_type _Sequence_value_type;
-      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
-      __glibcxx_class_requires(_Sequence, _FrontInsertionSequenceConcept)
-      __glibcxx_class_requires(_Sequence, _BackInsertionSequenceConcept)
-      __glibcxx_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
-
       template<typename _Tp1, typename _Seq1>
         friend bool
         operator==(const queue<_Tp1, _Seq1>&, const queue<_Tp1, _Seq1>&);
@@ -321,15 +313,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	   typename _Compare  = less<typename _Sequence::value_type> >
     class priority_queue
     {
-      // concept requirements
-      typedef typename _Sequence::value_type _Sequence_value_type;
-      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
-      __glibcxx_class_requires(_Sequence, _SequenceConcept)
-      __glibcxx_class_requires(_Sequence, _RandomAccessContainerConcept)
-      __glibcxx_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
-      __glibcxx_class_requires4(_Compare, bool, _Tp, _Tp,
-				_BinaryFunctionConcept)
-
     public:
       typedef typename _Sequence::value_type                value_type;
       typedef typename _Sequence::reference                 reference;

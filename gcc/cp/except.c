@@ -366,7 +366,7 @@ initialize_handler_parm (tree decl, tree exp)
      reference.  */
   init_type = TREE_TYPE (decl);
   if (!POINTER_TYPE_P (init_type))
-    init_type = build_reference_type (init_type);
+    init_type = cp_build_reference_type (init_type, /*rvalue_ref=*/false);
 
   choose_personality_routine (decl_is_java_type (init_type, 0)
 			      ? lang_java : lang_cplusplus);
@@ -709,12 +709,25 @@ build_throw (tree exp)
       /* And initialize the exception object.  */
       if (CLASS_TYPE_P (temp_type))
 	{
+          int flags = LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING;
+
+          /* In C++0x, a throw can sometimes be treated as an rvalue to
+             enable move construction.  */
+          if (flag_cpp0x
+              /* Must be a local, automatic variable.  */
+              && TREE_CODE (exp) == VAR_DECL
+              && DECL_CONTEXT (exp) == current_function_decl
+              && ! TREE_STATIC (exp)
+              /* The variable much not have the `volatile' qualifier.  */
+              && !(cp_type_quals (TREE_TYPE (exp)) & TYPE_QUAL_VOLATILE))
+            flags = flags | LOOKUP_PREFER_RVALUE;
+
 	  /* Call the copy constructor.  */
 	  exp = (build_special_member_call
 		 (object, complete_ctor_identifier,
 		  build_tree_list (NULL_TREE, exp),
 		  TREE_TYPE (object),
-		  LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING));
+		  flags));
 	  if (exp == error_mark_node)
 	    {
 	      error ("  in thrown expression");

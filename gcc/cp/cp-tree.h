@@ -56,6 +56,7 @@ struct diagnostic_context;
       OMP_FOR_GIMPLIFYING_P (in OMP_FOR)
       BASELINK_QUALIFIED_P (in BASELINK)
       TARGET_EXPR_IMPLICIT_P (in TARGET_EXPR)
+      WHERE_REQ_IMPLICIT (in REQUIREMENT)
       TEMPLATE_PARM_PARAMETER_PACK (in TEMPLATE_PARM_INDEX)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
@@ -66,16 +67,19 @@ struct diagnostic_context;
       DECL_INITIALIZED_P (in VAR_DECL)
       TYPENAME_IS_CLASS_P (in TYPENAME_TYPE)
       STMT_IS_FULL_EXPR_P (in _STMT)
+      WHERE_REQ_FROM_HEADER (in REQUIREMENT)
    2: IDENTIFIER_OPNAME_P (in IDENTIFIER_NODE)
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
       STATEMENT_LIST_TRY_BLOCK (in STATEMENT_LIST)
+      WHERE_REQ_FROM_NESTED (in REQUIREMENT)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
       IDENTIFIER_CTOR_OR_DTOR_P (in IDENTIFIER_NODE)
       BIND_EXPR_BODY_BLOCK (in BIND_EXPR)
       DECL_NON_TRIVIALLY_INITIALIZED_P (in VAR_DECL)
+      WHERE_REQ_FROM_REFINEMENT (in REQUIREMENT)
    4: TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
 	  or FIELD_DECL).
       IDENTIFIER_TYPENAME_P (in IDENTIFIER_NODE)
@@ -107,6 +111,7 @@ struct diagnostic_context;
       FUNCTION_PARAMETER_PACK_P (in PARM_DECL)
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
+      LATE_CHECKED_TEMPLATE_P (in a TEMPLATE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
       DECL_VAR_MARKED_P (in a VAR_DECL)
@@ -478,6 +483,82 @@ struct tree_argument_pack_select GTY (())
   int index;
 };
 
+/* Enumeration that describes the various kinds of requirements in a
+   where clause. Used in tree_requirement.  */
+enum requirement_kind_enum 
+{
+  REQ_CONCEPT = 0,
+  REQ_NOT_CONCEPT,
+  REQ_SAME_TYPE,
+  REQ_DERIVED_FROM,
+  REQ_ICE
+};
+
+/* Flags used when dealing with the walk_requirements function, used
+   to state which kinds of requirements will be visited (when used as
+   the FLAGS argument to walk_requirements) or what kind of
+   requirement is being passed to the visitor function.  Note that
+   several of these flags may be OR'd together.  */
+enum requirement_visit_flags_enum 
+{
+  REQ_VISIT_NORMAL = 0,     /* A normal requirement.  */
+  REQ_VISIT_IMPLICIT = 1,   /* An implicitly-generated requirement.  */
+  REQ_VISIT_REFINEMENT = 2, /* A refinement of a requirement.  */
+  REQ_VISIT_ASSOCIATED = 4, /* An associated requirement.  */
+  REQ_VISIT_ALL = 7         /* Visit all requirements.  */
+};
+
+/* The type of callback function for walking the requirements clause.  */
+typedef tree (*walk_requirements_fn)(tree, void *);
+
+/* A same-type requirement, spelled std::SameType<T, U> within a where
+   clause, indicating that the two types are exactly the same. Both
+   FIRST and SECOND are _TYPE nodes.  */
+struct same_type_requirement GTY (())
+{
+  tree first;
+  tree second;
+};
+
+/* A derived-from requirement, spelled std::DerivedFrom<Derived, Base>
+   within a requirements clause, indicating that Derived is publicly
+   derived from Base.  Both DERIVED and BASE are _TYPE nodes.  */
+struct derived_from_requirement GTY (())
+{
+  tree derived;
+  tree base;
+};
+
+/* A single requirement in a where clause.  This is the structure
+   associated with the REQUIREMENT tree code.  */
+struct tree_requirement GTY (())
+{
+  struct tree_common common;
+
+  ENUM_BITFIELD (requirement_kind_enum) kind : 3;
+
+  union requirement_u 
+  {
+    /* A concept requirement, e.g., EqualityComparable<T, U>.  This
+       value will be a RECORD_TYPE referring to a concept, that is
+       bound to specific template arguments.  */
+    tree GTY((tag ("REQ_CONCEPT"))) concept_req;
+    /* A concept "not" requirement, e.g., !EqualityComparable<T, U>.
+       This value is the same as for CONCEPT_REQ.  */
+    tree GTY((tag ("REQ_NOT_CONCEPT"))) not_concept_req;
+    /* A same-type requirement, spelled std::SameType<T, U> in the source.  */
+    struct same_type_requirement GTY((tag ("REQ_SAME_TYPE"))) same_type;
+    /* A same-type requirement, spelled std::SameType<T, U> in the source.  */
+    struct derived_from_requirement GTY((tag ("REQ_DERIVED_FROM"))) derived_from;
+    /* An integral constant expression requirement, spelled
+       std::True<X> in the source.  We process integral constant
+       expressions separately so that we can produce better
+       diagnostics. These requirements could also be handled as normal
+       concept requirements.  */
+    tree GTY((tag ("REQ_ICE"))) expr;
+  } GTY((desc ("%1.kind"))) u;
+};
+
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,
@@ -491,6 +572,7 @@ enum cp_tree_node_structure_enum {
   TS_CP_DEFAULT_ARG,
   TS_CP_STATIC_ASSERT,
   TS_CP_ARGUMENT_PACK_SELECT,
+  TS_CP_REQUIREMENT,
   LAST_TS_CP_ENUM
 };
 
@@ -511,6 +593,7 @@ union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
     static_assertion;
   struct tree_argument_pack_select GTY ((tag ("TS_CP_ARGUMENT_PACK_SELECT")))
     argument_pack_select;
+  struct tree_requirement GTY ((tag ("TS_CP_REQUIREMENT"))) requirement;
 };
 
 
@@ -543,6 +626,7 @@ enum cp_tree_index
     CPTI_ABORT_FNDECL,
     CPTI_GLOBAL_DELETE_FNDECL,
     CPTI_AGGR_TAG,
+    CPTI_AXIOM_TYPE,
 
     CPTI_CTOR_IDENTIFIER,
     CPTI_COMPLETE_CTOR_IDENTIFIER,
@@ -607,6 +691,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
 #define global_delete_fndecl		cp_global_trees[CPTI_GLOBAL_DELETE_FNDECL]
 #define current_aggr			cp_global_trees[CPTI_AGGR_TAG]
+#define axiom_type_node                 cp_global_trees[CPTI_AXIOM_TYPE]
 
 /* We cache these tree nodes so as to call get_identifier less
    frequently.  */
@@ -697,12 +782,14 @@ struct saved_scope GTY(())
   VEC(tree,gc) *lang_base;
   tree lang_name;
   tree template_parms;
+  tree where_clause;
   struct cp_binding_level *x_previous_class_level;
   tree x_saved_tree;
 
   int x_processing_template_decl;
   int x_processing_specialization;
   BOOL_BITFIELD x_processing_explicit_instantiation : 1;
+  BOOL_BITFIELD x_late_checked_template : 1;
   BOOL_BITFIELD need_pop_function_context : 1;
   BOOL_BITFIELD skip_evaluation : 1;
 
@@ -750,10 +837,11 @@ struct saved_scope GTY(())
    stored in the TREE_VALUE.  */
 
 #define current_template_parms scope_chain->template_parms
-
+#define current_where_clause scope_chain->where_clause
 #define processing_template_decl scope_chain->x_processing_template_decl
 #define processing_specialization scope_chain->x_processing_specialization
 #define processing_explicit_instantiation scope_chain->x_processing_explicit_instantiation
+#define late_checked_template scope_chain->x_late_checked_template
 
 /* The cached class binding level, from the most recently exited
    class, or NULL if none.  */
@@ -923,7 +1011,9 @@ enum languages { lang_c, lang_cplusplus, lang_java };
   (TREE_CODE (T) == TEMPLATE_TYPE_PARM			\
    || TREE_CODE (T) == TYPENAME_TYPE			\
    || TREE_CODE (T) == TYPEOF_TYPE			\
+   || TREE_CODE (T) == ASSOCIATED_TYPE			\
    || TREE_CODE (T) == BOUND_TEMPLATE_TEMPLATE_PARM	\
+   || TREE_CODE (T) == DECLTYPE_TYPE			\
    || TYPE_LANG_FLAG_5 (T))
 
 /* Set IS_AGGR_TYPE for T to VAL.  T must be a class, struct, or
@@ -941,7 +1031,9 @@ enum languages { lang_c, lang_cplusplus, lang_java };
   ((T) == RECORD_TYPE || (T) == UNION_TYPE)
 #define TAGGED_TYPE_P(T) \
   (CLASS_TYPE_P (T) || TREE_CODE (T) == ENUMERAL_TYPE)
-#define IS_OVERLOAD_TYPE(T) TAGGED_TYPE_P (T)
+#define IS_OVERLOAD_TYPE(T)					\
+  (TAGGED_TYPE_P (T) || TREE_CODE (T) == ASSOCIATED_TYPE	\
+   || uses_template_parms (T))
 
 /* True if this a "Java" type, defined in 'extern "Java"'.  */
 #define TYPE_FOR_JAVA(NODE) TYPE_LANG_FLAG_3 (NODE)
@@ -1036,6 +1128,38 @@ struct lang_type_header GTY(())
   BOOL_BITFIELD spare : 1;
 };
 
+/* Indicates what kind of concept or concept map this RECORD_TYPE is.
+   The order of these enumerators does matter: ck_not_a_concept must
+   be 0, and the various concept maps must retain their order for
+   CLASSTYPE_CONCEPT_P to work.  */
+enum concept_kind {
+  /* This type is not a concept or a concept map.  */
+  ck_not_a_concept = 0,
+  
+  /* This type is a normal (explicit) concept.  */
+  ck_concept,
+  
+  /* This type is an auto (implicit) concept.  */
+  ck_auto_concept,
+  
+  /* This type is a concept map.  */
+  ck_concept_map,
+  
+  /* This type is a concept map that was implicitly generated, e.g.,
+     for a refinement.  */
+  ck_implicit_concept_map,
+   
+  /* This type is a concept map that was synthesized based on a
+     requirement in a requires clause.  It is a stand-in for the real
+     concept map, which will be available at instantiation time.  */
+  ck_synthesized_concept_map,
+
+  /* This type signifies that no concept map of this type exists. It
+     is used mainly to cache the result of has_model, when no
+     concept map can be found.  */
+  ck_no_concept_map
+};
+
 /* This structure provides additional information above and beyond
    what is provide in the ordinary tree_type.  In the past, we used it
    for the types of class types, template parameters types, typename
@@ -1093,6 +1217,8 @@ struct lang_type_class GTY(())
   unsigned has_complex_init_ref : 1;
   unsigned has_complex_assign_ref : 1;
   unsigned non_aggregate : 1;
+  ENUM_BITFIELD(concept_kind) use_concept : 3;
+  unsigned is_archetype : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1101,7 +1227,7 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 12;
+  unsigned dummy : 8;
 
   tree primary_base;
   VEC(tree_pair_s,gc) *vcall_indices;
@@ -1121,6 +1247,14 @@ struct lang_type_class GTY(())
      as a list of adopted protocols or a pointer to a corresponding
      @interface.  See objc/objc-act.h for details.  */
   tree objc_info;
+  /* In a RECORD_TYPE for a template, the where clause containing the
+     requirements that the instantiator must fulfill. This is a chain
+     of REQUIREMENT nodes.  */
+  tree where_clause;
+  /* A list of all of the refinements of a model-id. */
+  tree all_refinements;
+  /* A list of all of the associated requirements of a model-id. */
+  tree all_associated_reqs;
 };
 
 struct lang_type_ptrmem GTY(())
@@ -1624,6 +1758,12 @@ struct lang_decl GTY(())
 	   chained here.  This pointer thunks to return pointer thunks
 	   will be chained on the return pointer thunk.  */
 	tree context;
+                                  
+        /* The where clause that applies to a function template. */
+        tree where_clause;
+
+	/* The candidate set associated with this forwarding function.  */
+	tree saved_candidate_set;
 
 	union lang_decl_u5
 	{
@@ -1707,6 +1847,10 @@ struct lang_decl GTY(())
 /* Nonzero if NODE (a FUNCTION_DECL) is a copy constructor.  */
 #define DECL_COPY_CONSTRUCTOR_P(NODE) \
   (DECL_CONSTRUCTOR_P (NODE) && copy_fn_p (NODE) > 0)
+
+/* Nonzero if NODE (a FUNCTION_DECL) is a move constructor.  */
+#define DECL_MOVE_CONSTRUCTOR_P(NODE) \
+  (DECL_CONSTRUCTOR_P (NODE) && move_fn_p (NODE))
 
 /* Nonzero if NODE is a destructor.  */
 #define DECL_DESTRUCTOR_P(NODE)				\
@@ -1802,6 +1946,10 @@ struct lang_decl GTY(())
 /* Set the overloaded operator code for NODE to CODE.  */
 #define SET_OVERLOADED_OPERATOR_CODE(NODE, CODE) \
   (DECL_LANG_SPECIFIC (NODE)->u.f.operator_code = (CODE))
+
+/* Get the overloaded operator code for NODE. */
+#define GET_OVERLOADED_OPERATOR_CODE(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->u.f.operator_code)
 
 /* If NODE is an overloaded operator, then this returns the TREE_CODE
    associated with the overloaded operator.
@@ -2528,6 +2676,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define TYPENAME_IS_CLASS_P(NODE) \
   (TREE_LANG_FLAG_1 (TYPENAME_TYPE_CHECK (NODE)))
 
+/* The IDENTIFIER_NODE that names an associated type. */
+#define ASSOCIATED_TYPE_NAME(NODE) \
+  (DECL_NAME (TYPE_NAME (ASSOCIATED_TYPE_CHECK (NODE))))
+
 /* Nonzero in INTEGER_CST means that this int is negative by dint of
    using a twos-complement negated operand.  */
 #define TREE_NEGATED_INT(NODE) TREE_LANG_FLAG_0 (INTEGER_CST_CHECK (NODE))
@@ -2834,6 +2986,15 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* The expression in question for a TYPEOF_TYPE.  */
 #define TYPEOF_TYPE_EXPR(NODE) (TYPEOF_TYPE_CHECK (NODE))->type.values
+
+/* The expression in question for a DECLTYPE_TYPE.  */
+#define DECLTYPE_TYPE_EXPR(NODE) (DECLTYPE_TYPE_CHECK (NODE))->type.values
+
+/* Whether the DECLTYPE_TYPE_EXPR of NODE was originally parsed as an
+   id-expression or a member-access expression. When false, it was
+   parsed as a full expression.  */
+#define DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P(NODE) \
+  (DECLTYPE_TYPE_CHECK (NODE))->type.string_flag
 
 /* Nonzero for VAR_DECL and FUNCTION_DECL node means that `extern' was
    specified in its declaration.  This can also be set for an
@@ -3291,6 +3452,129 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define TARGET_EXPR_IMPLICIT_P(NODE) \
   TREE_LANG_FLAG_0 (TARGET_EXPR_CHECK (NODE))
 
+/* Indicates whether or not (and how) this class is a concept or
+   related to concepts.  The result is an enum concept_kind.  */
+#define CLASSTYPE_USE_CONCEPT(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->use_concept)
+/* Determine if a class type is really a concept. */
+#define CLASSTYPE_CONCEPT_P(NODE)			\
+  (CLASSTYPE_USE_CONCEPT (NODE) >= ck_concept		\
+   && CLASSTYPE_USE_CONCEPT (NODE) <= ck_auto_concept)
+#define CLASSTYPE_STRUCTURAL_CONCEPT_P(NODE) \
+  (CLASSTYPE_USE_CONCEPT (NODE) == ck_auto_concept)
+/* Determine if a class type is a model. */
+#define CLASSTYPE_MODEL_P(NODE)						\
+  (CLASSTYPE_USE_CONCEPT (NODE) >= ck_concept_map			\
+   && CLASSTYPE_USE_CONCEPT (NODE) <= ck_synthesized_concept_map)
+/* Determine if a class type is not a model (e.g., because we have already 
+   checked for a model but found none). */
+#define CLASSTYPE_NOT_MODEL_P(NODE) \
+  (CLASSTYPE_USE_CONCEPT (NODE) == ck_no_concept_map)
+/* Determine if a class type is a model generated via refinement. */
+#define CLASSTYPE_REFINED_MODEL_P(NODE) \
+  (CLASSTYPE_USE_CONCEPT (NODE) == ck_implicit_concept_map)
+/* Determines whether the given node is a concept.  */
+#define CONCEPT_P(NODE) \
+  (TREE_CODE (NODE) == RECORD_TYPE && CLASSTYPE_CONCEPT_P (NODE))
+/* Determines whether the given node is a concept or concept map.  */
+#define CONCEPT_OR_CONCEPT_MAP_P(NODE) \
+  (TREE_CODE (NODE) == RECORD_TYPE && CLASSTYPE_USE_CONCEPT (NODE))
+/* Access the where clause of a RECORD_TYPE. */
+#define CLASSTYPE_WHERE_CLAUSE(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->where_clause)
+/* Access the cached list of refinements of a model-id, if known. */
+#define CLASSTYPE_ALL_REFINEMENTS(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->all_refinements)
+/* Access the cached list of associated requirements of a model-id, if
+   known. */
+#define CLASSTYPE_ALL_ASSOCIATED_REQS(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->all_associated_reqs)
+/* Access the where clause of a FUNCTION_DECL. */
+#define FUNCTION_WHERE_CLAUSE(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->u.f.where_clause)
+/* Access the saved candidate set of a FUNCTION_DECL.  Used only in
+   the implicitly-defined associated functions in a concept map.  */
+#define FUNCTION_SAVED_CANDIDATE_SET(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->u.f.saved_candidate_set)
+/* Determine if the given decl is a concept requirement. */
+#define DECL_CONCEPT_REQUIREMENT_P(NODE) \
+  (DECL_CONTEXT (NODE)                                  \
+   && TREE_CODE (DECL_CONTEXT (NODE)) == RECORD_TYPE    \
+     && CLASSTYPE_USE_CONCEPT (NODE))
+/* Determines if the given type is an archetype. */
+#define CLASSTYPE_IS_ARCHETYPE(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->is_archetype)
+
+/* The kind of requirement we're dealing with. This is a value of type
+   enum requirement_kind_enum.  */
+#define WHERE_REQ_KIND(NODE)                                    \
+  (((struct tree_requirement *)REQUIREMENT_CHECK (NODE))->kind)
+/* Is the where requirement a model requirement? */
+#define WHERE_REQ_MODEL_P(NODE) \
+  (WHERE_REQ_KIND (NODE) == REQ_CONCEPT)
+/* Is the where requirement a requirement that a model not exist? */
+#define WHERE_REQ_NOT_MODEL_P(NODE) \
+  (WHERE_REQ_KIND (NODE) == REQ_NOT_CONCEPT)
+/* Is the where requirement a same-type requirement? */
+#define WHERE_REQ_SAME_TYPE_P(NODE) \
+  (WHERE_REQ_KIND (NODE) == REQ_SAME_TYPE)
+/* Is the where requirement a derived-from requirement? */
+#define WHERE_REQ_DERIVED_FROM_P(NODE) \
+  (WHERE_REQ_KIND (NODE) == REQ_DERIVED_FROM)
+/* Is the where requirement an integral constant expression requirement? */
+#define WHERE_REQ_CONSTANT_EXPRESSION_P(NODE) \
+  (WHERE_REQ_KIND (NODE) == REQ_ICE)
+/* Determine if this requirement was implicit, i.e., not listed
+   explicitly but deduced from a declaration. */
+#define WHERE_REQ_IMPLICIT(NODE) \
+  (TREE_LANG_FLAG_0 (REQUIREMENT_CHECK (NODE)))
+/* Determine if this requirement came from the template header, e.g.,
+   "InputIterator Iter". */
+#define WHERE_REQ_FROM_HEADER(NODE) \
+  (TREE_LANG_FLAG_1 (REQUIREMENT_CHECK (NODE)))
+/* Determine if this requirement was generated by expanding the nested
+   requirements in another requirement. For instance, if
+   InputIterator<Iter> is a requirement, then
+   SignedIntegral<InputIterator<Iter>::difference_type> will show up
+   as a requirement that has WHERE_REQ_FROM_NESTED true. */
+#define WHERE_REQ_FROM_NESTED(NODE) \
+  (TREE_LANG_FLAG_2 (REQUIREMENT_CHECK (NODE)))
+/* Determine if this requirement was artificially generated from a
+   refinement relationship for a given model-id, i.e., given concept B
+   that refines concept A, if B<T> is specified in the where clause
+   then A<T> will also be present but will be marked as build from
+   refinement. */
+#define WHERE_REQ_FROM_REFINEMENT(NODE) \
+  (TREE_LANG_FLAG_3 (REQUIREMENT_CHECK (NODE)))
+/* Determine if this requirement was artificial, i.e., not listed
+   explicitly but is part of the "expanded" form of a where clause. */
+#define WHERE_REQ_ARTIFICIAL(NODE) \
+  (WHERE_REQ_FROM_NESTED (NODE) || WHERE_REQ_FROM_REFINEMENT (NODE))
+/* Access the model in a model or negative model requirement */
+#define WHERE_REQ_MODEL(NODE) \
+  (((struct tree_requirement *)REQUIREMENT_CHECK (NODE))->u.concept_req)
+/* Access the first type in a same-type requirement. */
+#define WHERE_REQ_FIRST_TYPE(NODE) \
+  (((struct tree_requirement *)REQUIREMENT_CHECK (NODE))->u.same_type.first)
+/* Access the second type in a same-type requirement. */
+#define WHERE_REQ_SECOND_TYPE(NODE) \
+  (((struct tree_requirement *)REQUIREMENT_CHECK (NODE))->u.same_type.second)
+/* Access the first type in a same-type requirement. */
+#define WHERE_REQ_DERIVED(NODE) \
+  (((struct tree_requirement *)REQUIREMENT_CHECK (NODE))->u.derived_from.derived)
+/* Access the second type in a same-type requirement. */
+#define WHERE_REQ_BASE(NODE) \
+  (((struct tree_requirement *)REQUIREMENT_CHECK (NODE))->u.derived_from.base)
+/* Access the constant expression in an integral constant expression
+   requirement. */
+#define WHERE_REQ_CONSTANT_EXPRESSION(NODE) \
+  (((struct tree_requirement *)REQUIREMENT_CHECK (NODE))->u.expr)
+/* Retrieve the next requirement in the sequence of requirements.  */
+#define WHERE_REQ_CHAIN(NODE) TREE_CHAIN (REQUIREMENT_CHECK (NODE))
+/* Flag that indicates whether the given template is late-checked or not. */
+#define LATE_CHECKED_TEMPLATE_P(NODE) \
+  DECL_LANG_FLAG_2 (TREE_CHECK (NODE, TEMPLATE_DECL))
+
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types {
   none_type = 0, /* Not a tag type.  */
@@ -3298,7 +3582,8 @@ enum tag_types {
   class_type,    /* "class" types.  */
   union_type,    /* "union" types.  */
   enum_type,     /* "enum" types.  */
-  typename_type  /* "typename" types.  */
+  typename_type, /* "typename" types.  */
+  concept_type   /* "concept" "types". */
 };
 
 /* The various kinds of lvalues we distinguish.  */
@@ -3396,6 +3681,10 @@ typedef enum tsubst_flags_t {
 				   conversion might be permissible,
 				   not actually performing the
 				   conversion.  */
+  tf_archetypes = 1 << 7,       /* We are substituting archetypes for
+                                   template parameters, e.g., for
+                                   "instantiation" within a
+                                   template. */
   /* Convenient substitution flags combinations.  */
   tf_warning_or_error = tf_warning | tf_error
 } tsubst_flags_t;
@@ -3465,6 +3754,8 @@ typedef enum unification_kind_t {
   (((tinst_level_t) TINST_LEVEL_CHECK (NODE))->locus)
 #define TINST_IN_SYSTEM_HEADER_P(NODE) \
   (((tinst_level_t) TINST_LEVEL_CHECK (NODE))->in_system_header_p)
+
+extern int unchecked_section_of_constrained_template;
 
 /* in class.c */
 
@@ -3620,6 +3911,11 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    (Normally, these entities are registered in the symbol table, but
    not found by lookup.)  */
 #define LOOKUP_HIDDEN (LOOKUP_CONSTRUCTOR_CALLABLE << 1)
+/* Prefer that the lvalue be treated as an rvalue.  */
+#define LOOKUP_PREFER_RVALUE (LOOKUP_HIDDEN << 1)
+/* Request a complete candidate set along with the result of calling an
+   operator.  */
+#define LOOKUP_RETURN_CANDIDATE_SET (LOOKUP_PREFER_RVALUE << 1)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
@@ -3709,6 +4005,11 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define TEMPLATE_PARM_PARAMETER_PACK(NODE) \
   (TREE_LANG_FLAG_0 (TEMPLATE_PARM_INDEX_CHECK (NODE)))
 
+/* Determine if the type is a an opaque template type parameter. */
+#define TYPE_OPAQUE_TEMPLATE_PARM_P(NODE) \
+  (TREE_CODE (NODE) == TEMPLATE_TYPE_PARM \
+   && TYPE_DEPENDENT_P_VALID (NODE)       \
+   && !TYPE_DEPENDENT_P (NODE))
 /* These macros are for accessing the fields of TEMPLATE_TYPE_PARM,
    TEMPLATE_TEMPLATE_PARM and BOUND_TEMPLATE_TEMPLATE_PARM nodes.  */
 #define TEMPLATE_TYPE_PARM_INDEX(NODE)					 \
@@ -3946,6 +4247,8 @@ struct cp_declarator {
       cp_cv_quals qualifiers;
       /* For cdk_ptrmem, the class type containing the member.  */
       tree class_type;
+      /* For cdk_reference, is this rvalue reference */
+      bool rvalue_ref;
     } pointer;
   } u;
 };
@@ -3966,12 +4269,13 @@ extern bool null_ptr_cst_p			(tree);
 extern bool sufficient_parms_p			(tree);
 extern tree type_decays_to			(tree);
 extern tree build_user_type_conversion		(tree, tree, int);
-extern tree build_new_function_call		(tree, tree, bool);
+extern tree build_new_function_call		(tree, tree, bool, int);
 extern tree build_operator_new_call		(tree, tree, tree *, tree *,
 						 tree *);
 extern tree build_new_method_call		(tree, tree, tree, tree, int,
 						 tree *);
 extern tree build_special_member_call		(tree, tree, tree, tree, int);
+extern tree build_call_over_candidate_set       (tree, tree);
 extern tree build_new_op			(enum tree_code, int, tree, tree, tree, bool *);
 extern tree build_op_delete_call		(enum tree_code, tree, tree, bool, tree, tree);
 extern bool can_convert				(tree, tree);
@@ -4047,6 +4351,37 @@ extern void check_for_override			(tree, tree);
 extern void push_class_stack			(void);
 extern void pop_class_stack			(void);
 
+/* in concept.c */
+extern tree build_concept_requirement           (tree, bool);
+extern tree build_same_type_requirement         (tree, tree);
+extern tree build_derived_from_requirement      (tree, tree);
+extern tree build_ice_requirement               (tree);
+extern tree build_associated_type               (tree, tree, tree);
+extern tree walk_requirements                   (tree, int, 
+                                                 walk_requirements_fn,
+                                                 void *);
+extern tree lookup_function_in_where_clause     (tree, tree);
+extern tree lookup_associated_type_in_where_clause (tree, tree);
+extern tree xref_concept                        (tree, bool);
+extern tree begin_concept_definition            (tree);
+extern tree finish_concept_definition           (tree);
+extern tree xref_superiors                      (tree, tree);
+extern tree begin_model_definition              (tree);
+extern tree finish_model_definition             (tree, bool);
+extern bool define_model_operations             (tree, tree);
+extern tree build_decl_for_model                (tree, tree, tree);
+extern bool has_model                           (tree, bool, int);
+extern bool dfs_walk_superiors                  (tree, 
+                                                 bool (*)(tree, void*), 
+                                                 void*);
+extern bool refinement_of_p                     (tree, tree);
+extern tree common_refinements                  (tree, tree);
+extern tree maybe_build_archetype               (tree);
+extern tree define_archetype                    (tree);
+extern tree synthesize_concept_map              (tree);
+extern tree define_synthesized_concept_map      (tree);
+extern bool propagate_constraints               (tree);
+
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree);
 extern tree convert_from_reference		(tree);
@@ -4109,6 +4444,7 @@ extern tree build_ptrmem_type			(tree, tree);
 /* the grokdeclarator prototype is in decl.h */
 extern tree build_this_parm			(tree, cp_cv_quals);
 extern int copy_fn_p				(tree);
+extern bool move_fn_p                           (tree);
 extern tree get_scope_of_declarator		(const cp_declarator *);
 extern void grok_special_member_properties	(tree);
 extern int grok_ctor_properties			(tree, tree);
@@ -4235,6 +4571,7 @@ extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, bool);
 extern tree expand_member_init			(tree);
 extern void emit_mem_initializers		(tree);
 extern tree build_aggr_init			(tree, tree, int);
+extern tree build_default_init                  (tree, tree);
 extern int is_aggr_type				(tree, int);
 extern tree get_type_value			(tree);
 extern tree build_zero_init			(tree, tree, bool);
@@ -4287,6 +4624,7 @@ extern bool maybe_clone_body			(tree);
 /* in pt.c */
 extern void check_template_shadow		(tree);
 extern tree get_innermost_template_args		(tree, int);
+extern tree get_class_bindings                  (tree, tree, tree, tree);
 extern void maybe_begin_member_template_processing (tree);
 extern void maybe_end_member_template_processing (void);
 extern tree finish_member_template_decl		(tree);
@@ -4303,16 +4641,27 @@ extern void end_template_decl			(void);
 extern bool check_default_tmpl_args             (tree, tree, int, int, int);
 extern tree push_template_decl			(tree);
 extern tree push_template_decl_real		(tree, bool);
-extern bool redeclare_class_template		(tree, tree);
-extern tree lookup_template_class		(tree, tree, tree, tree,
-						 int, tsubst_flags_t);
-extern tree lookup_template_function		(tree, tree);
+extern bool redeclare_class_template            (tree, tree);
+extern tree lookup_template_class_real		(tree, tree, tree, tree, 
+                                                 tree, int, tsubst_flags_t);
+extern tree lookup_template_class		(tree, tree, tree, tree, 
+                                                 int, tsubst_flags_t);
+extern tree lookup_template_function            (tree, tree);
 extern int uses_template_parms			(tree);
 extern int uses_template_parms_level		(tree, int);
 extern tree instantiate_class_template		(tree);
 extern tree instantiate_template		(tree, tree, tsubst_flags_t);
 extern int fn_type_unification			(tree, tree, tree, tree,
 						 tree, unification_kind_t, int);
+extern tree tsubst                              (tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_expr                         (tree, tree, tsubst_flags_t, tree, bool);
+extern tree finish_where_clause                 (tree);
+extern bool where_clause_satisfied_p            (tree, tree, tree, bool);
+extern bool same_where_clause_p                 (tree, tree);
+extern int more_restrictive_where_clause        (tree, tree);
+extern void process_requirement                 (tree, bool);
+extern void reintroduce_requirements            (tree, bool);
+extern bool requirement_in_where_clause_p       (tree, tree);
 extern void mark_decl_instantiated		(tree, int);
 extern int more_specialized_fn			(tree, tree, int);
 extern void do_decl_instantiation		(tree, tree);
@@ -4329,12 +4678,13 @@ extern int is_specialization_of			(tree, tree);
 extern bool is_specialization_of_friend		(tree, tree);
 extern int comp_template_args			(tree, tree);
 extern tree maybe_process_partial_specialization (tree);
-extern tree most_specialized_instantiation	(tree);
-extern void print_candidates			(tree);
-extern void instantiate_pending_templates	(int);
-extern tree tsubst_default_argument		(tree, tree, tree);
-extern tree tsubst_copy_and_build		(tree, tree, tsubst_flags_t,
-						 tree, bool, bool);
+extern tree most_specialized_instantiation      (tree);
+extern tree most_specialized_class              (tree, tree);
+extern void print_candidates                    (tree);
+extern void instantiate_pending_templates       (int);
+extern tree tsubst_default_argument             (tree, tree, tree);
+extern tree tsubst_copy_and_build               (tree, tree, tsubst_flags_t, 
+                                                 tree, bool, bool);
 extern tree most_general_template		(tree);
 extern tree get_mostly_instantiated_function_type (tree);
 extern int problematic_instantiation_changed	(void);
@@ -4347,15 +4697,22 @@ extern bool any_dependent_template_arguments_p  (tree);
 extern bool dependent_template_p		(tree);
 extern bool dependent_template_id_p		(tree, tree);
 extern bool type_dependent_expression_p		(tree);
+extern bool would_be_type_dependent_expression_p (tree);
 extern bool any_type_dependent_arguments_p      (tree);
-extern bool value_dependent_expression_p	(tree);
-extern tree resolve_typename_type		(tree, bool);
-extern tree template_for_substitution		(tree);
-extern tree build_non_dependent_expr		(tree);
-extern tree build_non_dependent_args		(tree);
-extern bool reregister_specialization		(tree, tree, tree);
-extern tree fold_non_dependent_expr		(tree);
+extern bool any_would_be_type_dependent_arguments_p (tree);
+extern bool value_dependent_expression_p        (tree);
+extern bool opaque_type_p                       (tree);
+extern bool opaque_parameter_type_p             (tree);
+extern bool template_processing_nondependent_p  (void);
+extern tree resolve_typename_type               (tree, bool);
+extern tree template_for_substitution           (tree);
+extern tree build_non_dependent_expr            (tree);
+extern tree build_non_dependent_args            (tree);
+extern bool reregister_specialization           (tree, tree, tree);
+extern tree fold_non_dependent_expr             (tree);
+extern void register_local_specialization       (tree, tree);
 extern bool explicit_class_specialization_p     (tree);
+extern tree template_args_as_archetypes         (tree);
 
 /* in repo.c */
 extern void init_repo				(void);
@@ -4463,6 +4820,9 @@ extern void finish_for_init_stmt		(tree);
 extern void finish_for_cond			(tree, tree);
 extern void finish_for_expr			(tree, tree);
 extern void finish_for_stmt			(tree);
+extern tree begin_foreach_stmt                  (cp_decl_specifier_seq *,
+						 cp_declarator *,
+						 tree);
 extern tree finish_break_stmt			(void);
 extern tree finish_continue_stmt		(void);
 extern tree begin_switch_stmt			(void);
@@ -4501,7 +4861,7 @@ extern tree begin_stmt_expr			(void);
 extern tree finish_stmt_expr_expr		(tree, tree);
 extern tree finish_stmt_expr			(tree, bool);
 extern tree perform_koenig_lookup		(tree, tree);
-extern tree finish_call_expr			(tree, tree, bool, bool);
+extern tree finish_call_expr			(tree, tree, bool, bool, int);
 extern tree finish_increment_expr		(tree, enum tree_code);
 extern tree finish_this_expr			(void);
 extern tree finish_pseudo_destructor_expr       (tree, tree, tree);
@@ -4557,6 +4917,7 @@ extern bool cxx_omp_privatize_by_reference	(tree);
 extern tree baselink_for_fns                    (tree);
 extern void finish_static_assert                (tree, tree, location_t,
                                                  bool);
+extern tree finish_decltype_type                (tree, bool);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
@@ -4620,6 +4981,7 @@ extern int count_trees				(tree);
 extern int char_type_p				(tree);
 extern void verify_stmt_tree			(tree);
 extern linkage_kind decl_linkage		(tree);
+extern tree cp_build_reference_type             (tree, bool);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 			      void*, struct pointer_set_t*);
 extern int cp_cannot_inline_tree_fn		(tree*);
@@ -4657,9 +5019,11 @@ extern tree build_x_indirect_ref		(tree, const char *);
 extern tree build_indirect_ref			(tree, const char *);
 extern tree build_array_ref			(tree, tree);
 extern tree get_member_function_from_ptrfunc	(tree *, tree);
+extern tree cp_build_function_call              (tree, tree, int);
 extern tree build_x_binary_op			(enum tree_code, tree,
 						 enum tree_code, tree,
-						 enum tree_code, bool *);
+						 enum tree_code, bool *,
+                                                 int);
 extern tree build_x_unary_op			(enum tree_code, tree);
 extern tree unary_complex_lvalue		(enum tree_code, tree);
 extern tree build_x_conditional_expr		(tree, tree, tree);
@@ -4670,7 +5034,8 @@ extern tree build_static_cast			(tree, tree);
 extern tree build_reinterpret_cast		(tree, tree);
 extern tree build_const_cast			(tree, tree);
 extern tree build_c_cast			(tree, tree);
-extern tree build_x_modify_expr			(tree, enum tree_code, tree);
+extern tree build_x_modify_expr			(tree, enum tree_code, tree,
+                                                 int);
 extern tree build_modify_expr			(tree, enum tree_code, tree);
 extern tree convert_for_initialization		(tree, tree, tree, int,
 						 const char *, tree, int);
@@ -4702,6 +5067,15 @@ extern tree convert_member_func_to_ptr		(tree, tree);
 extern tree convert_ptrmem			(tree, tree, bool, bool);
 extern int lvalue_or_else			(tree, enum lvalue_use);
 extern int lvalue_p				(tree);
+extern bool have_type_equivalence_classes       (void);
+extern void push_type_equivalence_classes       (bool);
+extern void pop_type_equivalence_classes        (void);
+extern tree type_representative                 (tree);
+extern tree type_archetype                      (tree);
+extern void set_type_parent                     (tree, tree);
+extern void set_type_archetype                  (tree, tree);
+extern tree union_types                         (tree, tree);
+extern void note_deduced_model                  (tree);
 
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);

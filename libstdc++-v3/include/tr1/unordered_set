@@ -129,7 +129,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
 	      std::_Identity<_Value>(), __a)
       { }
 
-
       template<typename _InputIterator>
         __unordered_multiset(_InputIterator __f, _InputIterator __l, 
 			     typename _Base::size_type __n = 0,

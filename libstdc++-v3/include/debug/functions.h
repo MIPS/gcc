@@ -36,9 +36,10 @@
 #define _GLIBCXX_DEBUG_FUNCTIONS_H 1
 
 #include <bits/c++config.h>
-#include <cstddef>                       // for ptrdiff_t
+#include <cstddef>                        // for ptrdiff_t
 #include <bits/stl_iterator_base_types.h> // for iterator_traits, categories
 #include <bits/cpp_type_traits.h>         // for __is_integer
+#include <bits/iterator_concepts.h>       // for iterator concepts
 
 namespace __gnu_debug
 {
@@ -188,23 +189,29 @@ namespace __gnu_debug
 
   // Can't check if an input iterator sequence is sorted, because we
   // can't step through the sequence.
-  template<typename _InputIterator>
-    inline bool
-    __check_sorted_aux(const _InputIterator&, const _InputIterator&,
-                       std::input_iterator_tag)
+  template<std::InputIterator _Iter>
+    inline bool 
+    __check_sorted(_Iter, _Iter) 
     { return true; }
 
-  // Can verify if a forward iterator sequence is in fact sorted using
-  // std::__is_sorted
-  template<typename _ForwardIterator>
+
+  // Can verify if a forward iterator sequence is in fact sorted if we
+  // have a '<' operator. FIXME: For algorithms like merge and
+  // set_union, we need to also check whether this iterator's value
+  // type is the same as the other iterator's value type.
+  template<std::ForwardIterator _Iter>
+    requires std::HasLess<_Iter::value_type, _Iter::value_type>
     inline bool
-    __check_sorted_aux(_ForwardIterator __first, _ForwardIterator __last,
-                       std::forward_iterator_tag)
+    __check_sorted(_Iter __first, _Iter __last)
     {
       if (__first == __last)
         return true;
 
-      _ForwardIterator __next = __first;
+      // Check that we have a strict weak ordering
+      _GLIBCXX_DEBUG_ASSERT(!(*__first < *__first));
+
+      // Check sortedness
+      _Iter __next = __first;
       for (++__next; __next != __last; __first = __next, ++__next) {
         if (*__next < *__first)
           return false;
@@ -215,50 +222,34 @@ namespace __gnu_debug
 
   // Can't check if an input iterator sequence is sorted, because we can't step
   // through the sequence.
-  template<typename _InputIterator, typename _Predicate>
+  template<std::InputIterator _Iter, std::CopyConstructible _Compare>
     inline bool
-    __check_sorted_aux(const _InputIterator&, const _InputIterator&,
-                       _Predicate, std::input_iterator_tag)
+    __check_sorted(_Iter, _Iter, _Compare)
     { return true; }
 
-  // Can verify if a forward iterator sequence is in fact sorted using
-  // std::__is_sorted
-  template<typename _ForwardIterator, typename _Predicate>
+  // Can verify if a forward iterator sequence is in fact sorted if we
+  // have a suitable predicate. FIXME: For algorithms like merge and
+  // set_union, we need to also check whether this iterator's value
+  // type is the same as the other iterator's value type.
+  template<std::ForwardIterator _Iter, std::CopyConstructible _Compare>
+    requires std::BinaryPredicate<_Compare, _Iter::value_type, _Iter::value_type>
     inline bool
-    __check_sorted_aux(_ForwardIterator __first, _ForwardIterator __last,
-                       _Predicate __pred, std::forward_iterator_tag)
+    __check_sorted(_Iter __first, _Iter __last, _Compare __pred)
     {
       if (__first == __last)
         return true;
 
-      _ForwardIterator __next = __first;
+      // Check that we have a strict weak ordering
+      _GLIBCXX_DEBUG_ASSERT(!__pred(*__first, *__first));
+
+      // Check sortedness
+      _Iter __next = __first;
       for (++__next; __next != __last; __first = __next, ++__next) {
         if (__pred(*__next, *__first))
           return false;
       }
 
       return true;
-    }
-
-  // Determine if a sequence is sorted.
-  template<typename _InputIterator>
-    inline bool
-    __check_sorted(const _InputIterator& __first, const _InputIterator& __last)
-    {
-      typedef typename std::iterator_traits<_InputIterator>::iterator_category
-        _Category;
-      return __check_sorted_aux(__first, __last, _Category());
-    }
-
-  template<typename _InputIterator, typename _Predicate>
-    inline bool
-    __check_sorted(const _InputIterator& __first, const _InputIterator& __last,
-                   _Predicate __pred)
-    {
-      typedef typename std::iterator_traits<_InputIterator>::iterator_category
-        _Category;
-      return __check_sorted_aux(__first, __last, __pred,
-					     _Category());
     }
 
   // _GLIBCXX_RESOLVE_LIB_DEFECTS

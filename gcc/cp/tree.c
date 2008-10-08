@@ -64,8 +64,26 @@ lvalue_p_1 (tree ref,
   cp_lvalue_kind op1_lvalue_kind = clk_none;
   cp_lvalue_kind op2_lvalue_kind = clk_none;
 
+  /* Expressions of reference type are sometimes wrapped in
+     INDIRECT_REFs */
+  if (TREE_CODE (ref) == INDIRECT_REF
+      && TREE_CODE (TREE_TYPE (TREE_OPERAND (ref, 0)))
+         == REFERENCE_TYPE)
+    return lvalue_p_1(TREE_OPERAND (ref, 0),
+                      treat_class_rvalues_as_lvalues);
+
   if (TREE_CODE (TREE_TYPE (ref)) == REFERENCE_TYPE)
-    return clk_ordinary;
+    {
+      /* unnamed rvalue references are rvalues */
+      if (TYPE_REF_IS_RVALUE (TREE_TYPE (ref))
+	  && TREE_CODE (ref) != PARM_DECL
+	  && TREE_CODE (ref) != VAR_DECL
+	  && TREE_CODE (ref) != COMPONENT_REF)
+	return clk_none;
+
+      /* lvalue references and named rvalue refences are lvalues */
+      return clk_ordinary;
+    }
 
   if (ref == current_class_ptr)
     return clk_none;
@@ -1538,6 +1556,66 @@ build_min_non_dep (enum tree_code code, tree non_dep, ...)
 
   gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
 
+  if (TREE_CODE (non_dep) == CALL_EXPR)
+    {
+      tree fn = get_callee_fndecl (non_dep);
+      tree context = NULL_TREE;
+
+      /* get_callee_fndecl tends to ignore the obvious... */
+      if (!fn && TREE_CODE (CALL_EXPR_FN (non_dep)) == FUNCTION_DECL)
+        fn = CALL_EXPR_FN (non_dep);
+
+      if (fn)
+        context = DECL_CONTEXT (fn);
+      
+      if (context
+          && CLASS_TYPE_P (context)
+          && CLASSTYPE_USE_CONCEPT (context)
+          && TREE_CODE (fn) == FUNCTION_DECL
+          && !DECL_CONSTRUCTOR_P (fn)
+          && !DECL_DESTRUCTOR_P (fn)
+          && !DECL_ASSIGNMENT_OPERATOR_P (fn))
+        {
+          /* The operation resolved to a call to an operation within a
+             model, so the resulting expression expression we build is
+             going to be a call to that operation. */
+          tree args = NULL_TREE;
+
+          va_start (p, non_dep);
+          length = TREE_CODE_LENGTH (code);
+          for (i = 0; i < length; i++)
+            {
+              tree x = va_arg (p, tree);
+              
+              /* We do not need the middle operand of a MODOP_EXPR. */
+              if (code == MODOP_EXPR && i == 1)
+                continue;
+              
+              /* If we hit a NULL_TREE argument, we're done. */
+              if (x == NULL_TREE)
+                break;
+              
+              args = tree_cons (NULL_TREE, x, args);
+            }
+          
+          if ((code == POSTINCREMENT_EXPR || code == POSTDECREMENT_EXPR)
+              && i < length)
+            args = tree_cons (NULL_TREE, integer_zero_node, args);
+          
+          args = nreverse (args);
+          va_end (p);
+
+          t = build_call_list (type_representative (TREE_TYPE (non_dep)),
+                               build_min_nt (SCOPE_REF, 
+                                             type_representative (context), 
+                                             DECL_NAME (fn)),
+                               args);
+          TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (non_dep);
+              
+          return t;
+        }
+    }
+
   va_start (p, non_dep);
 
   t = make_node (code);
@@ -1568,8 +1646,38 @@ tree
 build_min_non_dep_call_list (tree non_dep, tree fn, tree arglist)
 {
   tree t = build_nt_call_list (fn, arglist);
+  tree actual_fn;
+
   TREE_TYPE (t) = TREE_TYPE (non_dep);
   TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (non_dep);
+  
+  /* Try to dig out the actual FUNCTION_DECL we're calling.  */
+  actual_fn = get_callee_fndecl (t);
+  if (!actual_fn && TREE_CODE (fn) == FUNCTION_DECL)
+    actual_fn = fn;
+  
+  if (actual_fn)
+    {
+      tree context = DECL_CONTEXT (fn);
+
+      /* If this is a call into a concept or concept map, then rewrite
+         the target of the call to look up the function in the
+         appropriate concept map at instantiation time.  */
+      if (context
+          && CLASS_TYPE_P (context)
+          && CLASSTYPE_USE_CONCEPT (context)
+          && TREE_CODE (actual_fn) == FUNCTION_DECL
+          && !DECL_CONSTRUCTOR_P (actual_fn)
+          && !DECL_DESTRUCTOR_P (actual_fn)
+          && !DECL_ASSIGNMENT_OPERATOR_P (actual_fn))
+        {
+          TREE_OPERAND (t, 0) = build_min_nt (SCOPE_REF, 
+                                              type_representative (context),
+                                              DECL_NAME (actual_fn));
+          TREE_TYPE (t) = type_representative (t);
+        }
+    }
+
   return t;
 }
 
@@ -1887,7 +1995,7 @@ error_type (tree arg)
   else if (TREE_CODE (type) == ERROR_MARK)
     ;
   else if (real_lvalue_p (arg))
-    type = build_reference_type (lvalue_type (arg));
+    type = cp_build_reference_type (lvalue_type (arg), /*rvalue_ref=*/false);
   else if (IS_AGGR_TYPE (type))
     type = lvalue_type (arg);
 
@@ -2195,6 +2303,20 @@ cp_build_type_attribute_variant (tree type, tree attributes)
   return new_type;
 }
 
+/* Build a REFERENCE_TYPE that points to TYPE. This is the equivalent
+   of build_reference_type, but it handles type representatives
+   properly. */
+tree
+cp_build_reference_type (tree type, bool rvalue_ref)
+{
+  type = type_representative (type);
+  if (TREE_CODE (type) == REFERENCE_TYPE)
+    return type;
+  else
+    return build_rval_reference_type (type, rvalue_ref);
+}
+
+
 /* Apply FUNC to all language-specific sub-trees of TP in a pre-order
    traversal.  Called from walk_tree.  */
 
@@ -2225,6 +2347,7 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
     case TEMPLATE_PARM_INDEX:
     case TEMPLATE_TYPE_PARM:
     case TYPENAME_TYPE:
+    case ASSOCIATED_TYPE:
     case TYPEOF_TYPE:
       /* None of these have subtrees other than those already walked
 	 above.  */
@@ -2261,6 +2384,14 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
 	WALK_SUBTREE (TYPE_PTRMEMFUNC_FN_TYPE (*tp));
       break;
 
+    case DECLTYPE_TYPE:
+       WALK_SUBTREE (DECLTYPE_TYPE_EXPR (*tp));
+       *walk_subtrees_p = 0;
+       break;
+ 
+    case FUNCTION_DECL:
+      break;
+
     case TYPE_ARGUMENT_PACK:
     case NONTYPE_ARGUMENT_PACK:
       {
@@ -2291,6 +2422,31 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
 	  WALK_SUBTREE (TREE_OPERAND (*tp, i));
       }
       *walk_subtrees_p = 0;
+      break;
+
+    case REQUIREMENT:
+      switch (WHERE_REQ_KIND (*tp))
+	{
+	case REQ_CONCEPT:
+	case REQ_NOT_CONCEPT:
+	  WALK_SUBTREE (WHERE_REQ_MODEL (*tp));
+	  break;
+
+	case REQ_SAME_TYPE:
+	  WALK_SUBTREE (WHERE_REQ_FIRST_TYPE (*tp));
+	  WALK_SUBTREE (WHERE_REQ_SECOND_TYPE (*tp));
+	  break;
+
+	case REQ_DERIVED_FROM:
+	  WALK_SUBTREE (WHERE_REQ_DERIVED (*tp));
+	  WALK_SUBTREE (WHERE_REQ_BASE (*tp));
+	  break;
+
+	case REQ_ICE:
+	  WALK_SUBTREE (WHERE_REQ_CONSTANT_EXPRESSION (*tp));
+	  break;
+	}
+      WALK_SUBTREE (WHERE_REQ_CHAIN (*tp));
       break;
 
     default:

@@ -1615,12 +1615,19 @@ write_type (tree type)
 	  write_nested_name (TYPE_STUB_DECL (type));
 	  break;
 
+        case ASSOCIATED_TYPE:
+          /* We handle ASSOCIATED_TYPEs like ordinary nested names.  */
+          write_nested_name (TYPE_NAME (type));
+          break;
+
 	case POINTER_TYPE:
 	  write_char ('P');
 	  write_type (TREE_TYPE (type));
 	  break;
 
 	case REFERENCE_TYPE:
+	  if TYPE_REF_IS_RVALUE(type)
+	    write_string("U6rvalue");
 	  write_char ('R');
 	  write_type (TREE_TYPE (type));
 	  break;
@@ -1648,6 +1655,17 @@ write_type (tree type)
         case TYPE_PACK_EXPANSION:
           write_string ("U10__variadic");
           write_type (PACK_EXPANSION_PATTERN (type));
+          break;
+
+        case DECLTYPE_TYPE:
+          write_string ("U10__decltype");
+          if (DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (type))
+            write_string ("I");
+          else
+            write_string ("E");
+          /* We cannot just output the DECLTYPE_TYPE_EXPR as we would
+             like to, because not all expressions can be mangled. So,
+             don't output anything.  */
           break;
 
 	default:
@@ -2018,7 +2036,8 @@ write_expression (tree expr)
      is converted (via qualification conversions) to another
      type.  */
   while (TREE_CODE (expr) == NOP_EXPR
-	 || TREE_CODE (expr) == NON_LVALUE_EXPR)
+	 || TREE_CODE (expr) == NON_LVALUE_EXPR
+         || TREE_CODE (expr) == NON_DEPENDENT_EXPR)
     {
       expr = TREE_OPERAND (expr, 0);
       code = TREE_CODE (expr);

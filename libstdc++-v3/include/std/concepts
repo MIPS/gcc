@@ -1,0 +1,58 @@
+// Concept definitions -*- C++ -*- .
+
+// Copyright (C) 2005, 2006, 2007, 2008  Free Software Foundation, Inc.
+// Authors: Douglas Gregor and Andrew Lumsdaine
+//
+
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
+/* IURTC PROVIDES THE INTELLECTUAL PROPERTY "AS IS" AND MAKES NO
+REPRESENTATIONS AND EXTENDS NO WARRANTIES OF ANY KIND, EITHER EXPRESS
+OR IMPLIED. THERE ARE NO EXPRESS OR IMPLIED WARRANTIES OF
+MERCHANTABILITY OR FITNESS OF THE INTELLECTUAL PROPERTY OR LICENSED
+PRODUCTS DERIVED FROM OR INCLUDING IT FOR A PARTICULAR PURPOSE, OR
+THAT THE USE OF THE INTELLECTUAL PROPERTY OR ANY LICENSED PRODUCT WILL
+NOT INFRINGE ANY PATENT, COPYRIGHT, TRADEMARK OR OTHER RIGHTS, OR ANY
+OTHER EXPRESS OR IMPLIED WARRANTIES. IURTC MAKES NO REPRESENTATION OR
+WARRANTY WITH RESPECT TO THE PERFORMANCE OF THE INTELLECTUAL PROPERTY
+OR ANY LICENSED PRODUCT, INCLUDING THEIR SAFETY, EFFECTIVENESS, OR
+COMMERCIAL VIABILITY. IURTC WILL NOT BE LIABLE TO [LICENSEE], OR ITS
+SUCCESSORS, ASSIGNS, CONTRACTORS, OR SUBLICENSEES, OR ANY THIRD PARTY
+REGARDING ANY CLAIM ARISING FROM OR RELATING TO [LICENSEE]'S USE OF
+THE INTELLECTUAL PROPERTY, ANY LICENSED PRODUCT, OR FROM THE
+MANUFACTURE, USE, IMPORTATION OR SALE OF LICENSED PRODUCTS, OR FOR ANY
+CLAIM FOR LOSS OF PROFITS, LOSS OR INTERRUPTION OF BUSINESS, OR FOR
+INDIRECT, SPECIAL, EXEMPLARY, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF
+ANY KIND. */
+
+#ifndef _GLIBCXX_CONCEPTS
+#define _GLIBCXX_CONCEPTS 1
+
+#pragma GCC system_header
+
+#include <bits/concepts.h>
+
+#endif /* _GLIBCXX_CONCEPTS */

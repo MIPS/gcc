@@ -420,7 +420,10 @@ c_cpp_builtins (cpp_reader *pfile)
       if (warn_deprecated)
 	cpp_define (pfile, "__DEPRECATED");
       if (flag_cpp0x)
-        cpp_define (pfile, "__GXX_EXPERIMENTAL_CXX0X__");
+        {
+          cpp_define (pfile, "__GXX_EXPERIMENTAL_CXX0X__");
+          cpp_define (pfile, "__GXX_CONCEPTS__");
+        }
     }
   /* Note that we define this for C as well, so that we know if
      __attribute__((cleanup)) will interface with EH.  */

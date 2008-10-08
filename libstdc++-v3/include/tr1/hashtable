@@ -59,6 +59,7 @@
 #include <bits/allocator.h>
 #include <bits/functexcept.h>
 #include <tr1/type_traits>	// For true_type and false_type
+#include <bits/concepts.h>
 #include <tr1/hashtable_policy.h>
 
 namespace std
@@ -1196,7 +1197,13 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
     }
 
 _GLIBCXX_END_NAMESPACE
-} // namespace std::tr1
+}
+
+namespace std 
+{
+  template <typename Value, bool is_const, bool cache>
+  concept_map ForwardIterator<__cxx200x::__detail::_Hashtable_iterator<Value, is_const, cache> > {};
+}
 
 #endif // _TR1_HASHTABLE
 

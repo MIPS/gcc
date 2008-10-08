@@ -3,9 +3,9 @@
 
 template<int> struct A {};
 
-template<typename> struct B : A <sizeof(=)> {}; /* { dg-error "parse error in template argument list" } */
+template<typename> struct B : A <sizeof(=)> {}; /* { dg-error "invalid" } */
 
-template<typename> struct C : A <sizeof(=)> {}; /* { dg-error "parse error in template argument list" } */
+template<typename> struct C : A <sizeof(=)> {}; /* { dg-error "invalid" } */
 
 int a;
 

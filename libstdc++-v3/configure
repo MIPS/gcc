@@ -875,7 +875,6 @@ Optional Features:
                           [default=yes]
   --enable-c99            turns on ISO/IEC 9899:1999 support
                           [default=yes]
-  --enable-concept-checks use Boost-derived template checks [default=no]
   --enable-libstdcxx-debug-flags=FLAGS
                           pass compiler FLAGS when building debug library
                           [default="-g3 -O0"]
@@ -1381,7 +1380,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:9:0
+libtool_VERSION=7:0:0
 
 
 # Find the rest of the source tree framework.
@@ -8008,30 +8007,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 echo $ECHO_N "checking for fully enabled ISO C99 support... $ECHO_C" >&6
   echo "$as_me:$LINENO: result: $enable_c99" >&5
 echo "${ECHO_T}$enable_c99" >&6
-
-
-   # Check whether --enable-concept-checks or --disable-concept-checks was given.
-if test "${enable_concept_checks+set}" = set; then
-  enableval="$enable_concept_checks"
-
-      case "$enableval" in
-       yes|no) ;;
-       *) { { echo "$as_me:$LINENO: error: Argument to enable/disable concept-checks must be yes or no" >&5
-echo "$as_me: error: Argument to enable/disable concept-checks must be yes or no" >&2;}
-   { (exit 1); exit 1; }; } ;;
-      esac
-
-else
-  enable_concept_checks=no
-fi;
-
-  if test $enable_concept_checks = yes; then
-
-cat >>confdefs.h <<\_ACEOF
-#define _GLIBCXX_CONCEPT_CHECKS 1
-_ACEOF
-
-  fi
 
 
    # Check whether --enable-libstdcxx-debug-flags or --disable-libstdcxx-debug-flags was given.

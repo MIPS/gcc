@@ -12,7 +12,7 @@ protected:
 };
 
 template<class T>
-ArrayG<T>::ArrayG():
+ArrayG<T>::ArrayG(): // { dg-error "uninitialized member" }
 array(new T[INITIAL])
 { }
 

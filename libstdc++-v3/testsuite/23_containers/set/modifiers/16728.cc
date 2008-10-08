@@ -64,11 +64,11 @@ template<typename TestType>
     inline operator TestType() const { return this->first; }
   };
 
-template<typename Container>
+template<typename _Container>
   void
   do_loop()
   {
-    Container obj;
+    _Container obj;
     int test_iterations = 0;
     value_type<test_type> test_value;
     while (test_iterations < iterations)
@@ -79,11 +79,11 @@ template<typename Container>
       }
   }
 
-template<typename Container>
+template<typename _Container>
   void
-  test_container(Container, bool run_threaded = false)
+  test_container(_Container, bool run_threaded = false)
   {
-    do_loop<Container>();
+    do_loop<_Container>();
     std::ostringstream comment;
     if (run_threaded)
       comment << "4-way threaded iterations: " << iterations*4 << '\t';

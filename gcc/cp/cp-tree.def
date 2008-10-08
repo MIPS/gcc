@@ -344,7 +344,18 @@ DEFTREECODE (STMT_EXPR, "stmt_expr", tcc_expression, 1)
    is applied.  */
 DEFTREECODE (UNARY_PLUS_EXPR, "unary_plus_expr", tcc_unary, 1)
 
-/** C++0x extensions. */
+/* C++0x extensions.  */
+
+/* An associated type. TYPE_CONTEXT is the concept in which the
+   associated type resides, TYPE_NAME is the TYPE_DECL that declares
+   this associated type, and TREE_TYPE contains the default type for
+   this associated type (which may be NULL_TREE, if there is no
+   default). Note that only concepts will contain ASSOCIATED_TYPE
+   nodes; concept maps will have TYPE_DECL nodes with the same names
+   as their corresponding ASSOCIATED_TYPE nodes. Of course, in a
+   concept map template, the TYPE_DECL might refer to another
+   ASSOCIATED_TYPE.  */
+DEFTREECODE (ASSOCIATED_TYPE, "associated_type", tcc_type, 0)
 
 /* A static assertion.  This is a C++0x extension.
    STATIC_ASSERT_CONDITION contains the condition that is being
@@ -421,6 +432,17 @@ DEFTREECODE (EXPR_PACK_EXPANSION, "expr_pack_expansion", tcc_expression, 1)
    pack that will be returned by this ARGUMENT_PACK_SELECT node. The
    index is a machine integer.  */
 DEFTREECODE (ARGUMENT_PACK_SELECT, "argument_pack_select", tcc_exceptional, 0)
+
+/* The declared type of an expression.  This is a C++0x extension.
+   DECLTYPE_TYPE_EXPR is the expression whose type we are computing.
+   DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P states whether the
+   expression was parsed as an id-expression or a member access
+   expression. When false, it was parsed as a full expression.  */
+DEFTREECODE (DECLTYPE_TYPE, "decltype_type", tcc_type, 0)
+
+/* A requirement placed on one or more template parameters via a where
+   clause.  */
+DEFTREECODE (REQUIREMENT, "requirement", tcc_exceptional, 0)
 
 /*
 Local variables:

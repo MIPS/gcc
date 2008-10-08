@@ -62,7 +62,7 @@
 #ifndef _LIST_H
 #define _LIST_H 1
 
-#include <bits/concept_check.h>
+#include <bits/concepts.h>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
@@ -272,7 +272,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
                const _List_const_iterator<_Val>& __y)
     { return __x._M_node != __y._M_node; }
 
-
   /**
    *  @if maint
    *  See bits/stl_deque.h's _Deque_base for an explanation.
@@ -406,11 +405,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
   template<typename _Tp, typename _Alloc = std::allocator<_Tp> >
     class list : protected _List_base<_Tp, _Alloc>
     {
-      // concept requirements
-      typedef typename _Alloc::value_type                _Alloc_value_type;
-      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
-      __glibcxx_class_requires2(_Tp, _Alloc_value_type, _SameTypeConcept)
-
       typedef _List_base<_Tp, _Alloc>                    _Base;
       typedef typename _Base::_Tp_alloc_type		 _Tp_alloc_type;
 
@@ -1257,6 +1251,18 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     { __x.swap(__y); }
 
 _GLIBCXX_END_NESTED_NAMESPACE
+
+namespace std
+{
+  template<typename _Tp>
+  concept_map BidirectionalIterator<_GLIBCXX_STD::_List_iterator<_Tp> > { };
+
+  template<typename _Tp>
+  concept_map BidirectionalIterator<_GLIBCXX_STD::_List_const_iterator<_Tp> > { };
+
+  template<typename _Tp, typename _Alloc>
+  concept_map Container<_GLIBCXX_STD::list<_Tp, _Alloc> > {}
+}
 
 #endif /* _LIST_H */
 

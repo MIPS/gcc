@@ -901,6 +901,180 @@ finish_for_stmt (tree for_stmt)
   finish_stmt ();
 }
 
+/* Begin a C++0x foreach statement. Returns the corresponding
+   FOR_STMT.
+
+   TYPE_SPECIFIERS are the specifiers for the variable that will be
+   used to refer to the value in each iteration, and
+
+   DECLARATOR is its declarator.
+
+   CONTAINER_EXPR is an expression that yields the container over
+   which we'll iterate.
+
+   This routine does all of the work of synthesizing the underlying
+   "for" loop that will implement the for-each loop, including storing
+   a temporary (as needed) for the container expression and creating
+   the iteration commands for the first/last iterators.  */
+tree
+begin_foreach_stmt (cp_decl_specifier_seq * type_specifiers,
+		    cp_declarator * declarator, 
+		    tree container_expr)
+{
+  tree for_stmt;
+  tree container_type;
+  /* Variables used to access the concept map.  */
+  tree std;
+  tree range;
+  tree model_args;
+  tree range_map;
+  /* Variables used to help synthesize the underlying FOR loop.  */
+  tree container_var;
+  tree controller;
+  tree iterator_type;
+  tree begin_func, end_func;
+  tree first_iter, last_iter;
+  tree value_decl;
+  tree pushed_scope;
+
+  /* Begin the underlying FOR_STMT.  */
+  for_stmt = begin_for_stmt ();
+
+  /* Find the std::For concept.  */
+  std = namespace_binding (std_identifier, global_namespace);
+  range = lookup_qualified_name (std, get_identifier("Range"),
+                                 /*is_type_p=*/true, /*complain=*/false);
+  if (!range || range == error_mark_node)
+    {
+      error ("to use the for-each loop, you need to include the header <iterator>");
+      return error_mark_node;
+    }
+
+  /* Find For<C>, where C is the type of the container.  */
+  container_type = non_reference (finish_typeof (container_expr));
+  model_args = make_tree_vec (1);
+  TREE_VEC_ELT (model_args, 0) = container_type;
+  range_map = lookup_template_class (range, model_args,
+                                     /*in_decl=*/NULL_TREE,
+                                     /*context=*/NULL_TREE,
+                                     /*entering_scope=*/0,
+                                     /*complain=*/tf_none);
+
+  if (!type_dependent_expression_p (container_expr)
+      && !has_model (range_map, /*complain=*/false, /*structural=*/1))
+    {
+      /* We don't know how to iterate through a container of type C.  */
+      error ("cannot iterate over container of type %<%T%>", 
+	     TREE_VEC_ELT (model_args, 0));
+      inform ("you need to write a concept map %<%T%>", range_map);
+
+      return error_mark_node;
+    }
+
+  /* Create a temporary variable to store the evaluated container.  */
+  container_var 
+    = create_temporary_var (cp_build_reference_type (container_type,
+                                                     /*rvalue_ref=*/true));
+  maybe_push_cleanup_level (cp_build_reference_type (container_type,
+                                                     /*rvalue_ref=*/true));
+  DECL_INITIAL (container_var) = error_mark_node;
+  controller = build3 (BIND_EXPR, void_type_node, container_var, 
+		       NULL_TREE, NULL_TREE);
+  TREE_SIDE_EFFECTS (controller) = 1;
+  finish_expr_stmt (controller);
+  DECL_ARTIFICIAL (container_var) = 0;
+  cp_finish_decl (container_var, container_expr, 
+		  /*init_const_expr_p=*/false,
+		  /*asmspec_tree=*/NULL_TREE, 
+		  /*flags=*/0);
+
+  /* Determine the types of the iterators for this container.  */
+  iterator_type = lookup_qualified_name (range_map, 
+					 get_identifier ("iterator"),
+					 /*is_type_p=*/true,
+					 /*complain=*/true);
+  if (TREE_CODE (iterator_type) == TYPE_DECL)
+    iterator_type = TREE_TYPE (iterator_type);
+  maybe_push_cleanup_level (iterator_type);
+
+  /* Create a temporary variable for the "first" iterator.  */
+  first_iter = create_temporary_var (iterator_type);
+  
+  /* Find For<C>::begin and initialize FIRST_ITER with a call to
+     For<C>::begin(container).  */
+  begin_func = lookup_qualified_name (range_map,
+				      get_identifier ("begin"),
+				      /*is_type_p=*/false,
+				      /*complain=*/true);
+  DECL_INITIAL (first_iter) = error_mark_node;
+  cp_finish_decl (first_iter,
+		  finish_call_expr (begin_func,
+				    build_tree_list (NULL_TREE, 
+						     container_var),
+				    /*disallow_virtual=*/true,
+				    /*koenig_p=*/false,
+                                    /*extra_flags=*/0),
+		  /*init_const_expr_p=*/false,
+		  /*asmspec_tree=*/NULL_TREE, /*flags=*/0);
+
+  /* Create a temporary variable for the "first" iterator.  */
+  last_iter = create_temporary_var (iterator_type);
+
+  /* Find For<C>::end and initialize LAST_ITER with a call to
+     For<C>::end(container).  */
+  end_func = lookup_qualified_name (range_map,
+				    get_identifier ("end"),
+				    /*is_type_p=*/false,
+				    /*complain=*/true);
+  DECL_INITIAL (last_iter) = error_mark_node;
+  cp_finish_decl (last_iter,
+		  finish_call_expr (end_func,
+				    build_tree_list (NULL_TREE, 
+						     container_var),
+				    /*disallow_virtual=*/true,
+				    /*koenig_p=*/false,
+                                    /*extra_flags=*/0),
+		  /*init_const_expr_p=*/false,
+		  /*asmspec_tree=*/NULL_TREE, /*flags=*/0);
+
+  /* We have now completed the work of the initialization statement
+     for the underlying for loop.  */
+  finish_for_init_stmt (for_stmt);
+ 
+  /* The for-each loop terminates when first == last. Translate this
+     into a condition for the underlying for loop.  */
+  finish_for_cond (build_x_binary_op (NE_EXPR,
+				      first_iter, TREE_CODE (first_iter),
+                                      last_iter, TREE_CODE (last_iter),
+				      /*overloaded_p=*/0,
+                                      /*extra_flags=*/0),
+		   for_stmt);
+
+  /* The for-each loop increments the "first" iterator after each pass
+     through the loop.  */
+  finish_for_expr (build_x_unary_op (PREINCREMENT_EXPR, first_iter),
+		   for_stmt);
+
+  /* In the body of the loop, we introduce a variable that the user
+     refers to to access the current value in the sequence.  Note that
+     this variable *must* be in the body, because it will be
+     re-initialized at the beginning of each iteration.  */
+  value_decl = start_decl (declarator, type_specifiers, /*initialized=*/1,
+			   /*attributes=*/NULL_TREE,
+			   /*prefix_attributes=*/NULL_TREE,
+			   &pushed_scope);
+  cp_finish_decl (value_decl, 
+		  build_x_indirect_ref (first_iter, "unary *"),
+		  /*init_const_expr_p=*/false,
+		  /*asmspec_tree=*/NULL_TREE, /*flags=*/0);
+
+  if (pushed_scope)
+    /* Get back to the previous scope.  */
+    pop_scope (pushed_scope);
+
+  return for_stmt;
+}
+
 /* Finish a break-statement.  */
 
 tree
@@ -1370,6 +1544,13 @@ finish_eh_cleanup (tree cleanup)
 void
 finish_mem_initializers (tree mem_inits)
 {
+  tree init, orig_mem_inits = NULL_TREE;
+
+  /* Save the original initializers. */
+  for (init = mem_inits; init; init = TREE_CHAIN (init))
+    orig_mem_inits = tree_cons (TREE_PURPOSE (init), TREE_VALUE (init),
+                                orig_mem_inits);
+
   /* Reorder the MEM_INITS so that they are in the order they appeared
      in the source program.  */
   mem_inits = nreverse (mem_inits);
@@ -1388,11 +1569,12 @@ finish_mem_initializers (tree mem_inits)
           if (TREE_CODE (TREE_PURPOSE (mem)) != TYPE_PACK_EXPANSION)
             check_for_bare_parameter_packs (TREE_VALUE (mem));
         }
-
-      add_stmt (build_min_nt (CTOR_INITIALIZER, mem_inits));
     }
-  else
-    emit_mem_initializers (mem_inits);
+
+  emit_mem_initializers (mem_inits);
+
+  if (processing_template_decl)
+    add_stmt (build_min_nt (CTOR_INITIALIZER, mem_inits));
 }
 
 /* Finish a parenthesized expression EXPR.  */
@@ -1562,7 +1744,9 @@ check_accessibility_of_qualified_id (tree decl,
       /* It is possible for qualifying type to be a TEMPLATE_TYPE_PARM
 	 or similar in a default argument value.  */
       && CLASS_TYPE_P (qualifying_type)
-      && !dependent_type_p (qualifying_type))
+      && !dependent_type_p (qualifying_type)
+      && !(TREE_CODE (qualifying_type) == RECORD_TYPE
+           && CLASSTYPE_USE_CONCEPT (qualifying_type)))
     perform_or_defer_access_check (TYPE_BINFO (qualifying_type), decl,
 				   decl);
 }
@@ -1801,11 +1985,13 @@ perform_koenig_lookup (tree fn, tree args)
    Returns code for the call.  */
 
 tree
-finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
+finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
+                  int extra_flags)
 {
   tree result;
   tree orig_fn;
   tree orig_args;
+  tree candidate_set = NULL_TREE;
 
   if (fn == error_mark_node || args == error_mark_node)
     return error_mark_node;
@@ -1868,12 +2054,22 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
       else
 	{
 	  tree representative_fn;
+          tree context;
 
 	  representative_fn = BASELINK_FUNCTIONS (fn);
 	  if (TREE_CODE (representative_fn) == TEMPLATE_ID_EXPR)
 	    representative_fn = TREE_OPERAND (representative_fn, 0);
 	  representative_fn = get_first_fn (representative_fn);
-	  object = build_dummy_object (DECL_CONTEXT (representative_fn));
+
+          context = DECL_CONTEXT (representative_fn);
+
+          /* When the representative is an archetype, we should move
+             back to the representative type. */
+          if (TREE_CODE (context) == RECORD_TYPE 
+              && CLASSTYPE_IS_ARCHETYPE (context))
+            context = type_representative (context);
+
+	  object = build_dummy_object (context);
 	}
 
       if (processing_template_decl)
@@ -1885,7 +2081,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 
       result = build_new_method_call (object, fn, args, NULL_TREE,
 				      (disallow_virtual
-				       ? LOOKUP_NONVIRTUAL : 0),
+				       ? LOOKUP_NONVIRTUAL|extra_flags 
+                                       : extra_flags),
 				      /*fn_p=*/NULL);
     }
   else if (is_overloaded_fn (fn))
@@ -1898,7 +2095,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 
       if (!result)
 	/* A call to a namespace-scope function.  */
-	result = build_new_function_call (fn, args, koenig_p);
+	result = build_new_function_call (fn, args, koenig_p, extra_flags);
     }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
@@ -1911,21 +2108,95 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 		       TREE_OPERAND (fn, 0));
       TREE_SIDE_EFFECTS (result) = 1;
     }
-  else if (CLASS_TYPE_P (TREE_TYPE (fn)))
+  else if (CLASS_TYPE_P (TREE_TYPE (fn)) 
+           || (uses_template_parms (TREE_TYPE (fn))
+	       && !(TREE_CODE (TREE_TYPE (fn)) == POINTER_TYPE
+		    && TREE_CODE (TREE_TYPE (TREE_TYPE (fn))) == FUNCTION_TYPE)))
     /* If the "function" is really an object of class type, it might
        have an overloaded `operator ()'.  */
-    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE,
-			   /*overloaded_p=*/NULL);
+    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL|extra_flags, fn, args, 
+                           NULL_TREE, /*overloaded_p=*/NULL);
 
   if (!result)
     /* A call where the function is unknown.  */
-    result = build_function_call (fn, args);
+    result = cp_build_function_call (fn, args, extra_flags);
+
+  if (result && TREE_CODE (result) == TREE_LIST)
+    {
+      candidate_set = TREE_PURPOSE (result);
+      result = TREE_VALUE (result);
+    }
 
   if (processing_template_decl)
     {
+      /* If the call is made through a BASELINK for which the type is
+         an archetype or a concept map, turn that into a
+         SCOPE_REF. This is duplicated from build_new_method_call. */
+      if (BASELINK_P (orig_fn)
+          && (CLASSTYPE_IS_ARCHETYPE (BINFO_TYPE (BASELINK_BINFO (orig_fn)))
+              || CLASSTYPE_USE_CONCEPT (BINFO_TYPE (BASELINK_BINFO (orig_fn)))
+              || (template_processing_nondependent_p ()
+                  && uses_template_parms (BINFO_TYPE (BASELINK_BINFO (orig_fn))))))
+        {
+          tree fn = get_first_fn (BASELINK_FUNCTIONS (orig_fn));
+          tree class_type = type_representative (DECL_CONTEXT (fn));
+          orig_fn = build_nt (SCOPE_REF, class_type, DECL_NAME (fn));
+        }
+
+      if (result != error_mark_node
+          && (TREE_CODE (result) == CALL_EXPR
+              || (TREE_CODE (result) == INDIRECT_REF
+                  && TREE_CODE (TREE_OPERAND (result, 0)) == CALL_EXPR)))
+        {
+          /* Get the CALL_EXPR itself.  */
+          tree expr = result;
+          if (TREE_CODE (result) == INDIRECT_REF)
+            expr = TREE_OPERAND (result, 0);
+
+          fn = CALL_EXPR_FN (expr);
+          /* If we instantiated a template to resolve the call, back
+             up and use that template.  */
+          if (TREE_CODE (fn) == FUNCTION_DECL
+              && DECL_TEMPLATE_INFO (fn)
+              && (uses_template_parms (fn) 
+                  || (args && uses_template_parms (args)))
+              && (!DECL_CONTEXT (fn)
+                  || TREE_CODE (DECL_CONTEXT (fn)) != RECORD_TYPE
+                  || !CLASSTYPE_USE_CONCEPT (DECL_CONTEXT (fn))))
+            {
+              tree actual_fn = DECL_TI_TEMPLATE (CALL_EXPR_FN (expr));
+              koenig_p = 0;
+              
+              if (TREE_CODE (orig_fn) == TEMPLATE_ID_EXPR)
+                orig_fn = build2 (TEMPLATE_ID_EXPR, 
+                                  TREE_TYPE (actual_fn),
+                                  actual_fn,
+                                  TREE_OPERAND (orig_fn, 1));
+              else
+                orig_fn = actual_fn;
+            }
+
+          /* If we called an associated function, make sure we call
+             into the same associated function at instantiation
+             time.  */
+          if (TREE_CODE (fn) == FUNCTION_DECL
+              && DECL_CONTEXT (fn)
+              && TREE_CODE (DECL_CONTEXT (fn)) == RECORD_TYPE
+              && CLASSTYPE_USE_CONCEPT (DECL_CONTEXT (fn))
+              && uses_template_parms (DECL_CONTEXT (fn)))
+            {
+              tree the_concept_map = type_representative (DECL_CONTEXT (fn));
+              orig_fn = build_nt (SCOPE_REF, the_concept_map, DECL_NAME (fn));
+            }
+        }
+
       result = build_call_list (TREE_TYPE (result), orig_fn, orig_args);
       KOENIG_LOOKUP_P (result) = koenig_p;
     }
+
+  if (candidate_set)
+    result = tree_cons (candidate_set, result, NULL_TREE);
+
   return result;
 }
 
@@ -2062,12 +2333,31 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 
   /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
   compound_literal = build_constructor (NULL_TREE, initializer_list);
+
+  /* Determine if any part of the compound literal is type-dependent. */
   if (processing_template_decl)
     {
-      TREE_TYPE (compound_literal) = type;
-      /* Mark the expression as a compound literal.  */
-      TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
-      return compound_literal;
+      constructor_elt *ce;
+      int idx;
+      bool dependent_p = dependent_type_p (type);
+      
+      /* Determine if any argument is type-dependent.  */
+      for (idx = 0; 
+           VEC_iterate (constructor_elt, initializer_list, idx, ce)
+             && !dependent_p; 
+           idx++)
+        {
+          if (type_dependent_expression_p (ce->value))
+            dependent_p = true;
+        }
+
+      if (dependent_p)
+        {
+          TREE_TYPE (compound_literal) = type;
+          /* Mark the expression as a compound literal.  */
+          TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
+          return compound_literal;
+        }
     }
 
   /* Create a temporary variable to represent the compound literal.  */
@@ -2106,7 +2396,8 @@ finish_fname (tree id)
 
   decl = fname_decl (C_RID_CODE (id), id);
   if (processing_template_decl)
-    decl = DECL_NAME (decl);
+    decl = build1 (NON_DEPENDENT_EXPR, TREE_TYPE (TREE_TYPE (decl)),
+                   DECL_NAME (decl));
   return decl;
 }
 
@@ -2188,7 +2479,7 @@ begin_class_definition (tree t, tree attributes)
   if (t == error_mark_node)
     return error_mark_node;
 
-  if (processing_template_parmlist)
+  if (processing_template_parmlist && !CLASSTYPE_IS_ARCHETYPE (t))
     {
       error ("definition of %q#T inside template parameter list", t);
       return error_mark_node;
@@ -2282,6 +2573,147 @@ finish_member_declaration (tree decl)
 
   /* Mark the DECL as a member of the current class.  */
   DECL_CONTEXT (decl) = current_class_type;
+
+  /* Concepts and models are much more limited that other class
+     types. */
+  if (CLASSTYPE_USE_CONCEPT (current_class_type))
+    {
+      const char* entity = 0;
+      const char* kind = CLASSTYPE_CONCEPT_P (current_class_type)? "concept" 
+                                                                 : "model";
+      bool unsupported_p = false;
+
+      switch (TREE_CODE (decl)) {
+      case FUNCTION_DECL:
+      case TYPE_DECL:
+        /* Okay. */
+        break;
+
+      case FIELD_DECL:
+        entity = "data member ";
+        break;
+        
+      case VAR_DECL:
+        entity = "static data member ";
+        break;
+        
+      case CONST_DECL:
+        entity = "enumerator ";
+        break;
+
+      case TEMPLATE_DECL:
+        if (TREE_CODE (TREE_TYPE (decl)) == FUNCTION_TYPE
+            || TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE)
+          {
+            entity = "pseudo-signature ";
+            unsupported_p = true;
+          }
+        else
+          entity = "";
+        break;
+        
+      default:
+        entity = "";
+        break;
+      }
+
+      if (entity)
+        {
+          error ("%J%s%D is not permitted in a %s", decl, entity, decl, kind);
+
+          if (unsupported_p)
+            inform("this feature is currently unsupported, but will be in"
+                   " a future version");
+          return;
+        }
+    }
+
+  /* If we have a member function, function template, or signature, we
+     may need to clone the where clause and/or propagate constraints
+     from the declaration. */
+  if ((TREE_CODE (decl) == FUNCTION_DECL || DECL_FUNCTION_TEMPLATE_P (decl))
+      && current_where_clause)
+    {
+      if (CLASSTYPE_CONCEPT_P (current_class_type))
+        {
+          /* Propagate the constraints that have been introduced into the
+             concept via this signature. */
+          propagate_constraints (TREE_TYPE (decl));
+        }
+      else if (TREE_VALUE (current_where_clause) 
+               == CLASSTYPE_WHERE_CLAUSE (current_class_type))
+        {
+          /* This member function has the same where clause as the
+             class in which it resides. Clone that where clause and
+             attach it to DECL.*/
+          tree req = TREE_VALUE (current_where_clause);
+          current_where_clause = tree_cons (NULL_TREE, NULL_TREE, 
+                                            current_where_clause);
+          while (req)
+            {
+              tree new_req = make_node (REQUIREMENT);
+              WHERE_REQ_KIND (new_req) = WHERE_REQ_KIND (req);
+              WHERE_REQ_CHAIN (new_req) = NULL_TREE;
+
+              switch (WHERE_REQ_KIND (req)) 
+                {
+                case REQ_CONCEPT:
+                case REQ_NOT_CONCEPT:
+                  WHERE_REQ_MODEL (new_req) = WHERE_REQ_MODEL (req);
+                  break;
+
+                case REQ_SAME_TYPE:
+                  WHERE_REQ_FIRST_TYPE (new_req) = WHERE_REQ_FIRST_TYPE (req);
+                  WHERE_REQ_SECOND_TYPE (new_req) = WHERE_REQ_SECOND_TYPE (req);
+                  break;
+
+		case REQ_DERIVED_FROM:
+		  WHERE_REQ_DERIVED (new_req) = WHERE_REQ_DERIVED (req);
+		  WHERE_REQ_BASE (new_req) = WHERE_REQ_BASE (req);
+		  break;
+
+                case REQ_ICE:
+                  WHERE_REQ_CONSTANT_EXPRESSION (new_req)
+                    = WHERE_REQ_CONSTANT_EXPRESSION (req);
+                  break;
+                }
+
+              WHERE_REQ_IMPLICIT (new_req) = WHERE_REQ_IMPLICIT (req);
+              WHERE_REQ_FROM_HEADER (new_req) = WHERE_REQ_FROM_HEADER (req);
+              WHERE_REQ_FROM_NESTED (new_req) = WHERE_REQ_FROM_NESTED (req);
+              WHERE_REQ_FROM_REFINEMENT (new_req) 
+                = WHERE_REQ_FROM_REFINEMENT (req);
+
+              process_requirement (new_req, /*expand=*/false);
+
+              req = TREE_CHAIN (req);
+            }
+
+          /* Finish up the where clause */
+          if (TREE_VALUE (current_where_clause)
+              && propagate_constraints (TREE_TYPE (decl)))
+            finish_where_clause (TREE_VALUE (current_where_clause));
+
+          /* Attach the where clause to the declaration. */
+          FUNCTION_WHERE_CLAUSE (decl) = TREE_VALUE (current_where_clause);
+
+          /* Remove the where clause from the stack. */
+          current_where_clause = TREE_CHAIN (current_where_clause);
+        } 
+      else
+        {
+          /* Finish up the where clause */
+          if (TREE_VALUE (current_where_clause)
+              && propagate_constraints (TREE_TYPE (decl)))
+            finish_where_clause (TREE_VALUE (current_where_clause));
+          
+          /* Attach the where clause to the declaration. */
+          FUNCTION_WHERE_CLAUSE (decl) = TREE_VALUE (current_where_clause);
+
+          /* Remove the where clause from the stack. */
+          current_where_clause = TREE_CHAIN (current_where_clause);
+        }
+    }
 
   /* [dcl.link]
 
@@ -2930,6 +3362,7 @@ finish_typeof (tree expr)
     {
       type = make_aggr_type (TYPEOF_TYPE);
       TYPEOF_TYPE_EXPR (type) = expr;
+      SET_TYPE_STRUCTURAL_EQUALITY (type);
 
       return type;
     }
@@ -3916,7 +4349,7 @@ void
 finish_omp_barrier (void)
 {
   tree fn = built_in_decls[BUILT_IN_GOMP_BARRIER];
-  tree stmt = finish_call_expr (fn, NULL, false, false);
+  tree stmt = finish_call_expr (fn, NULL, false, false, /*extra_flags=*/0);
   finish_expr_stmt (stmt);
 }
 
@@ -3924,7 +4357,7 @@ void
 finish_omp_flush (void)
 {
   tree fn = built_in_decls[BUILT_IN_SYNCHRONIZE];
-  tree stmt = finish_call_expr (fn, NULL, false, false);
+  tree stmt = finish_call_expr (fn, NULL, false, false, /*extra_flags=*/0);
   finish_expr_stmt (stmt);
 }
 
@@ -4005,6 +4438,174 @@ finish_static_assert (tree condition, tree message, location_t location,
         error ("non-constant condition for static assertion");
       input_location = saved_loc;
     }
+}
+
+/* Implements the C++0x decltype keyword. Returns the type of EXPR,
+   suitable for use as a type-specifier.
+
+   ID_EXPRESSION_OR_MEMBER_ACCESS_P is true when EXPR was parsed as an
+   id-expression or a class member access, FALSE when it was parsed as
+   a full expression.  */
+tree
+finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
+{
+  tree orig_expr = expr;
+  tree type;
+
+  if (type_dependent_expression_p (expr))
+    {
+      type = make_aggr_type (DECLTYPE_TYPE);
+      DECLTYPE_TYPE_EXPR (type) = expr;
+      DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (type)
+        = id_expression_or_member_access_p;
+      SET_TYPE_STRUCTURAL_EQUALITY (type);
+
+      return type;
+    }
+
+  /* The type denoted by decltype(e) is defined as follows:  */
+
+  if (id_expression_or_member_access_p)
+    {
+      /* If e is an id-expression or a class member access (5.2.5
+         [expr.ref]), decltype(e) is defined as the type of the entity
+         named by e. If there is no such entity, or e names a set of
+         overloaded functions, the program is ill-formed.  */
+      if (TREE_CODE (expr) == IDENTIFIER_NODE)
+        expr = lookup_name (expr);
+
+      if (TREE_CODE (expr) == INDIRECT_REF)
+        /* This can happen when the expression is, e.g., "a.b". Just
+           look at the underlying operand.  */
+        expr = TREE_OPERAND (expr, 0);
+
+      if (TREE_CODE (expr) == OFFSET_REF
+          || TREE_CODE (expr) == MEMBER_REF)
+        /* We're only interested in the field itself. If it is a
+           BASELINK, we will need to see through it in the next
+           step.  */
+        expr = TREE_OPERAND (expr, 1);
+
+      if (TREE_CODE (expr) == BASELINK)
+        /* See through BASELINK nodes to the underlying functions.  */
+        expr = BASELINK_FUNCTIONS (expr);
+
+      if (TREE_CODE (expr) == OVERLOAD)
+        {
+          if (OVL_CHAIN (expr))
+            {
+              error ("%qE refers to a set of overloaded functions", orig_expr);
+              return error_mark_node;
+            }
+          else
+            /* An overload set containing only one function: just look
+               at that function.  */
+            expr = OVL_FUNCTION (expr);
+        }
+
+      switch (TREE_CODE (expr))
+        {
+        case FIELD_DECL:
+          if (DECL_C_BIT_FIELD (expr))
+            {
+              type = DECL_BIT_FIELD_TYPE (expr);
+              break;
+            }
+          /* Fall through for fields that aren't bitfields.  */
+
+        case FUNCTION_DECL:
+        case VAR_DECL:
+        case CONST_DECL:
+        case PARM_DECL:
+        case RESULT_DECL:
+          type = TREE_TYPE (expr);
+          break;
+
+        case ERROR_MARK:
+          type = error_mark_node;
+          break;
+
+        case COMPONENT_REF:
+          type = is_bitfield_expr_with_lowered_type (expr);
+          if (!type)
+            type = TREE_TYPE (TREE_OPERAND (expr, 1));
+          break;
+
+        case BIT_FIELD_REF:
+          sorry ("bit-field accesses in a decltype expression");
+          return error_mark_node;
+
+        case INTEGER_CST:
+          /* We can get here when the id-expression refers to an
+             enumerator.  */
+          type = TREE_TYPE (expr);
+          break;
+
+        default:
+          if (TYPE_P (expr) || DECL_P (expr))
+            error ("argument to decltype must be an expression");
+          else
+            sorry ("unhandled decltype expression kind: %s",
+                   tree_code_name[(int) TREE_CODE (expr)]);
+          return error_mark_node;
+        }
+    }
+  else
+    {
+      if (TREE_CODE (expr) == INDIRECT_REF 
+          && REFERENCE_REF_P (expr)
+          && TREE_CODE (TREE_OPERAND (expr, 0)) == CALL_EXPR)
+        /* If the INDIRECT_REF is only there to convert from the
+           reference type of a CALL_EXPR to a value, strip away from
+           INDIRECT_REF.  */
+        expr = TREE_OPERAND (expr, 0);
+
+      if (TREE_CODE (expr) == CALL_EXPR
+          && get_callee_fndecl (expr))
+        /* If e is a function call (5.2.2 [expr.call]) or an
+           invocation of an overloaded operator (parentheses around e
+           are ignored), decltype(e) is defined as the return type of
+           that function.  */
+        type = TREE_TYPE (TREE_TYPE (get_callee_fndecl (expr)));
+      else if ((type = is_bitfield_expr_with_lowered_type (expr)))
+        {
+          /* Bitfields are special, because their type encodes the
+             number of bits they store.  If the expression referenced a
+             bitfield, TYPE now has the declared type of that
+             bitfield.  */
+          type = cp_build_qualified_type (type, 
+                                          cp_type_quals (TREE_TYPE (expr)));
+
+          if (real_lvalue_p (expr))
+            type = build_reference_type (type);
+        }
+      else
+        {
+          /* Otherwise, where T is the type of e, if e is an lvalue,
+             decltype(e) is defined as T&, otherwise decltype(e) is
+             defined as T.  */
+          type = TREE_TYPE (expr);
+          if (expr == current_class_ptr)
+            /* If the expression is just "this", we want the
+               cv-unqualified pointer for the "this" type.  */
+            type = TYPE_MAIN_VARIANT (type);
+          else if (real_lvalue_p (expr))
+            {
+              if (TREE_CODE (type) != REFERENCE_TYPE)
+                type = build_reference_type (type);
+            }
+          else
+            type = non_reference (type);
+        }
+    }
+
+  if (!type || type == unknown_type_node)
+    {
+      error ("type of %qE is unknown", expr);
+      return error_mark_node;
+    }
+
+  return type;
 }
 
 #include "gt-cp-semantics.h"

@@ -66,24 +66,103 @@
 #define _ITERATOR_BASE_FUNCS_H 1
 
 #pragma GCC system_header
-#include <bits/concept_check.h>
+#include <bits/concepts.h>
+#include <bits/iterator_concepts.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
+#ifndef _GLIBCXX_NO_CONCEPTS
+  /**
+   *  @brief A generalization of pointer arithmetic.
+   *  @param  first  An input iterator.
+   *  @param  last  An input iterator.
+   *  @return  The distance between them.
+   *
+   *  Returns @c n such that first + n == last.  This requires that @p last
+   *  must be reachable from @p first.  Note that @c n may be negative.
+   *
+   *  For random access iterators, this uses their @c + and @c - operations
+   *  and are constant time.  For other %iterator classes they are linear time.
+  */
+  template<InputIterator _Iter>
+    inline _Iter::difference_type
+    distance(_Iter __first, _Iter __last)
+    {
+      _Iter::difference_type __n = 0;
+      while (__first != __last)
+        {
+          ++__first;
+          ++__n;
+        }
+      return __n;
+    }
+
+  /**
+   * \overload
+   */
+  template<RandomAccessIterator _Iter>
+    inline _Iter::difference_type
+    distance(_Iter __first, _Iter __last)
+    {
+      return __last - __first;
+    }
+
+  /**
+   *  @brief A generalization of pointer arithmetic.
+   *  @param  i  An input iterator.
+   *  @param  n  The "delta" by which to change @p i.
+   *  @return  Nothing.
+   *
+   *  This increments @p i by @p n.  For bidirectional and random access
+   *  iterators, @p n may be negative, in which case @p i is decremented.
+   *
+   *  For random access iterators, this uses their @c + and @c - operations
+   *  and are constant time.  For other %iterator classes they are linear time.
+  */
+  template<InputIterator _Iter>
+    inline void
+    advance(_Iter& __i, _Iter::difference_type __n)
+    {
+      while (__n--)
+        ++__i;
+    }
+
+  /**
+   * \overload
+   */
+  template<BidirectionalIterator _Iter>
+    inline void
+    advance(_Iter& __i, _Iter::difference_type __n)
+    {
+      if (__n > _Iter::difference_type(0))
+        while (__n--)
+          ++__i;
+      else
+        while (__n++)
+          --__i;
+    }
+
+  /**
+   * \overload
+   */
+  template<RandomAccessIterator _Iter>
+    inline void
+    advance(_Iter& __i, _Iter::difference_type __n)
+    {
+      __i += __n;
+    }
+#else
   template<typename _InputIterator>
     inline typename iterator_traits<_InputIterator>::difference_type
     __distance(_InputIterator __first, _InputIterator __last,
                input_iterator_tag)
     {
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
-
       typename iterator_traits<_InputIterator>::difference_type __n = 0;
       while (__first != __last)
-	{
-	  ++__first;
-	  ++__n;
-	}
+        {
+          ++__first;
+          ++__n;
+        }
       return __n;
     }
 
@@ -92,9 +171,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __distance(_RandomAccessIterator __first, _RandomAccessIterator __last,
                random_access_iterator_tag)
     {
-      // concept requirements
-      __glibcxx_function_requires(_RandomAccessIteratorConcept<
-				  _RandomAccessIterator>)
       return __last - __first;
     }
 
@@ -116,17 +192,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // concept requirements -- taken care of in __distance
       return std::__distance(__first, __last,
-			     std::__iterator_category(__first));
+                             std::__iterator_category(__first));
     }
 
   template<typename _InputIterator, typename _Distance>
     inline void
     __advance(_InputIterator& __i, _Distance __n, input_iterator_tag)
     {
-      // concept requirements
-      __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
       while (__n--)
-	++__i;
+        ++__i;
     }
 
   template<typename _BidirectionalIterator, typename _Distance>
@@ -134,15 +208,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __advance(_BidirectionalIterator& __i, _Distance __n,
 	      bidirectional_iterator_tag)
     {
-      // concept requirements
-      __glibcxx_function_requires(_BidirectionalIteratorConcept<
-				  _BidirectionalIterator>)
       if (__n > 0)
         while (__n--)
-	  ++__i;
+          ++__i;
       else
         while (__n++)
-	  --__i;
+          --__i;
     }
 
   template<typename _RandomAccessIterator, typename _Distance>
@@ -150,9 +221,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __advance(_RandomAccessIterator& __i, _Distance __n,
               random_access_iterator_tag)
     {
-      // concept requirements
-      __glibcxx_function_requires(_RandomAccessIteratorConcept<
-				  _RandomAccessIterator>)
       __i += __n;
     }
 
@@ -176,6 +244,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typename iterator_traits<_InputIterator>::difference_type __d = __n;
       std::__advance(__i, __d, std::__iterator_category(__i));
     }
+#endif
 
 _GLIBCXX_END_NAMESPACE
 

@@ -44,7 +44,6 @@
 #include <tr1/type_traits>
 #include <tr1/cmath>
 #include <ext/type_traits.h>
-#include <bits/concept_check.h>
 #include <debug/debug.h>
 
 namespace std
@@ -168,11 +167,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
   template<typename _Engine, typename _Dist>
     class variate_generator
     {
-      // Concept requirements.
-      __glibcxx_class_requires(_Engine, _CopyConstructibleConcept)
-      //  __glibcxx_class_requires(_Engine, _EngineConcept)
-      //  __glibcxx_class_requires(_Dist, _EngineConcept)
-
     public:
       typedef _Engine                                engine_type;
       typedef __detail::_Adaptor<_Engine, _Dist>     engine_value_type;
@@ -296,9 +290,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
   template<class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
     class linear_congruential
     {
-      __glibcxx_class_requires(_UIntType, _UnsignedIntegerConcept)
-      //  __glibcpp_class_requires(__a < __m && __c < __m)
-
     public:
       /** The type of the generated random value. */
       typedef _UIntType result_type;
@@ -490,8 +481,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
 	   _UIntType __c, int __l>
     class mersenne_twister
     {
-      __glibcxx_class_requires(_UIntType, _UnsignedIntegerConcept)
-
     public:
       // types
       typedef _UIntType result_type;
@@ -667,8 +656,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
   template<typename _IntType, _IntType __m, int __s, int __r>
     class subtract_with_carry
     {
-      __glibcxx_class_requires(_IntType, _IntegerConcept)
-
     public:
       /** The type of the generated random value. */
       typedef _IntType result_type;
@@ -1032,9 +1019,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
   template<class _UniformRandomNumberGenerator, int __p, int __r>
     class discard_block
     {
-      // __glibcxx_class_requires(typename base_type::result_type,
-      //                          ArithmeticTypeConcept)
-
     public:
       /** The type of the underlying generator engine. */
       typedef _UniformRandomNumberGenerator   base_type;
@@ -1238,11 +1222,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
 	   class _UniformRandomNumberGenerator2, int __s2>
     class xor_combine
     {
-      // __glibcxx_class_requires(typename _UniformRandomNumberGenerator1::
-      //                          result_type, ArithmeticTypeConcept)
-      // __glibcxx_class_requires(typename _UniformRandomNumberGenerator2::
-      //                          result_type, ArithmeticTypeConcept)
-
     public:
       /** The type of the the first underlying generator engine. */
       typedef _UniformRandomNumberGenerator1   base1_type;
@@ -1514,8 +1493,6 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
   template<typename _IntType = int>
     class uniform_int
     {
-      __glibcxx_class_requires(_IntType, _IntegerConcept)
- 
     public:
       /** The type of the parameters of the distribution. */
       typedef _IntType input_type;

@@ -1039,6 +1039,12 @@ add_method (tree type, tree method, tree using_decl)
 		return false;
 	      if (DECL_CONTEXT (fn) == DECL_CONTEXT (method))
 		error ("repeated using declaration %q+D", using_decl);
+              else if (TREE_CODE (DECL_CONTEXT (fn)) == RECORD_TYPE
+                       && CLASSTYPE_USE_CONCEPT (DECL_CONTEXT (fn)))
+                /* Ignore duplicates when instantiating models. */
+                /* DPG TBD: This isn't the right way to go about
+                   things. */
+                return false;
 	      else
 		error ("using declaration %q+D conflicts with a previous using declaration",
 		       using_decl);
@@ -2512,6 +2518,11 @@ add_implicitly_declared_members (tree t,
 				 int cant_have_const_cctor,
 				 int cant_have_const_assignment)
 {
+  bool is_basic_archetype = 
+    CLASSTYPE_IS_ARCHETYPE (t) 
+    && (!CLASSTYPE_USE_TEMPLATE (t)
+	|| CLASSTYPE_USE_CONCEPT (TREE_TYPE (CLASSTYPE_TI_TEMPLATE (t))));
+    
   /* Destructor.  */
   if (!CLASSTYPE_DESTRUCTORS (t))
     {
@@ -2561,7 +2572,7 @@ add_implicitly_declared_members (tree t,
     }
 
   /* Default constructor.  */
-  if (! TYPE_HAS_CONSTRUCTOR (t))
+  if (! TYPE_HAS_CONSTRUCTOR (t) && ! is_basic_archetype)
     {
       TYPE_HAS_DEFAULT_CONSTRUCTOR (t) = 1;
       CLASSTYPE_LAZY_DEFAULT_CTOR (t) = 1;
@@ -5008,35 +5019,35 @@ finish_struct_1 (tree t)
     /* We use the base type for trivial assignments, and hence it
        needs a mode.  */
     compute_record_mode (CLASSTYPE_AS_BASE (t));
-
+  
   virtuals = modify_all_vtables (t, nreverse (virtuals));
-
+  
   /* If necessary, create the primary vtable for this class.  */
   if (virtuals || TYPE_CONTAINS_VPTR_P (t))
     {
       /* We must enter these virtuals into the table.  */
       if (!CLASSTYPE_HAS_PRIMARY_BASE_P (t))
-	build_primary_vtable (NULL_TREE, t);
+        build_primary_vtable (NULL_TREE, t);
       else if (! BINFO_NEW_VTABLE_MARKED (TYPE_BINFO (t)))
-	/* Here we know enough to change the type of our virtual
-	   function table, but we will wait until later this function.  */
-	build_primary_vtable (CLASSTYPE_PRIMARY_BINFO (t), t);
+        /* Here we know enough to change the type of our virtual
+           function table, but we will wait until later this function.  */
+        build_primary_vtable (CLASSTYPE_PRIMARY_BINFO (t), t);
     }
-
+  
   if (TYPE_CONTAINS_VPTR_P (t))
     {
       int vindex;
       tree fn;
-
+      
       if (BINFO_VTABLE (TYPE_BINFO (t)))
-	gcc_assert (DECL_VIRTUAL_P (BINFO_VTABLE (TYPE_BINFO (t))));
+        gcc_assert (DECL_VIRTUAL_P (BINFO_VTABLE (TYPE_BINFO (t))));
       if (!CLASSTYPE_HAS_PRIMARY_BASE_P (t))
-	gcc_assert (BINFO_VIRTUALS (TYPE_BINFO (t)) == NULL_TREE);
-
+        gcc_assert (BINFO_VIRTUALS (TYPE_BINFO (t)) == NULL_TREE);
+      
       /* Add entries for virtual functions introduced by this class.  */
       BINFO_VIRTUALS (TYPE_BINFO (t))
-	= chainon (BINFO_VIRTUALS (TYPE_BINFO (t)), virtuals);
-
+        = chainon (BINFO_VIRTUALS (TYPE_BINFO (t)), virtuals);
+      
       /* Set DECL_VINDEX for all functions declared in this class.  */
       for (vindex = 0, fn = BINFO_VIRTUALS (TYPE_BINFO (t));
 	   fn;
@@ -5057,7 +5068,7 @@ finish_struct_1 (tree t)
     }
 
   finish_struct_bits (t);
-
+      
   /* Complete the rtl for any static member objects of the type we're
      working on.  */
   for (x = TYPE_FIELDS (t); x; x = TREE_CHAIN (x))
@@ -5133,7 +5144,8 @@ finish_struct_1 (tree t)
   dump_class_hierarchy (t);
 
   /* Finish debugging output for this type.  */
-  rest_of_type_compilation (t, ! LOCAL_CLASS_P (t));
+  if (!CLASSTYPE_IS_ARCHETYPE (t))
+    rest_of_type_compilation (t, ! LOCAL_CLASS_P (t));
 }
 
 /* When T was built up, the member declarations were added in reverse
@@ -5753,7 +5765,7 @@ resolve_address_of_overloaded_function (tree target_type,
     {
       /* This is OK, too.  This comes from a conversion to reference
 	 type.  */
-      target_type = build_reference_type (target_type);
+      target_type = cp_build_reference_type (target_type, /*rvalue_ref=*/false);
       is_reference = 1;
     }
   else

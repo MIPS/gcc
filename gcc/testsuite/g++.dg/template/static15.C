@@ -59,12 +59,12 @@ template<int dummy>
   };
 
 template<bool b>
-  struct static_assert;
+  struct static_assert_;
 
 template<>
-  struct static_assert<true> { };
+  struct static_assert_<true> { };
 
 int main()
 {
-  static_assert< X<0>::n_primes == 256 >();
+  static_assert_< X<0>::n_primes == 256 >();
 }

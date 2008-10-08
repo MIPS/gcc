@@ -63,7 +63,6 @@
 
 #include <bits/c++config.h>
 #include <ext/hashtable.h>
-#include <bits/concept_check.h>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(__gnu_cxx, _GLIBCXX_EXT)
 
@@ -82,11 +81,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(__gnu_cxx, _GLIBCXX_EXT)
 	   class _Alloc = allocator<_Value> >
     class hash_set
     {
-      // concept requirements
-      __glibcxx_class_requires(_Value, _SGIAssignableConcept)
-      __glibcxx_class_requires3(_HashFcn, size_t, _Value, _UnaryFunctionConcept)
-      __glibcxx_class_requires3(_EqualKey, _Value, _Value, _BinaryPredicateConcept)
-
     private:
       typedef hashtable<_Value, _Value, _HashFcn, _Identity<_Value>,
 			_EqualKey, _Alloc> _Ht;
@@ -287,11 +281,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(__gnu_cxx, _GLIBCXX_EXT)
 	   class _Alloc = allocator<_Value> >
     class hash_multiset
     {
-      // concept requirements
-      __glibcxx_class_requires(_Value, _SGIAssignableConcept)
-      __glibcxx_class_requires3(_HashFcn, size_t, _Value, _UnaryFunctionConcept)
-      __glibcxx_class_requires3(_EqualKey, _Value, _Value, _BinaryPredicateConcept)
-
     private:
       typedef hashtable<_Value, _Value, _HashFcn, _Identity<_Value>,
 			_EqualKey, _Alloc> _Ht;

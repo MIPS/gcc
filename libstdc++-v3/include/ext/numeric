@@ -63,7 +63,6 @@
 
 #pragma GCC system_header
 
-#include <bits/concept_check.h>
 #include <numeric>
 
 #include <ext/functional> // For identity_element
@@ -136,11 +135,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     void
     iota(_ForwardIter __first, _ForwardIter __last, _Tp __value)
     {
-      // concept requirements
-      __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
-      __glibcxx_function_requires(_ConvertibleConcept<_Tp,
-	    typename std::iterator_traits<_ForwardIter>::value_type>)
-
       while (__first != __last)
 	*__first++ = __value++;
     }

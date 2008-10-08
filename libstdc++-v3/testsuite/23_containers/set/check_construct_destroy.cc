@@ -36,14 +36,14 @@ using namespace __gnu_test;
 
 int main()
 {
-  typedef std::set<int, std::less<int>, tracker_allocator<int> > Container;
+  typedef std::set<int, std::less<int>, tracker_allocator<int> > XContainer;
   const int arr10[10]  = { 2, 4, 1, 7, 3, 8, 10, 5, 9, 6 };
   const int arr10a[10] = { 31, 23, 82, 46, 13, 17, 30, 71, 22, 51 };
   bool ok = true;
 
   tracker_allocator_counter::reset();
   {
-    Container c;
+    XContainer c;
     ok = check_construct_destroy("empty container", 0, 0) && ok;
   }
   ok = check_construct_destroy("empty container", 0, 0) && ok;
@@ -51,13 +51,13 @@ int main()
 
   tracker_allocator_counter::reset();
   {
-    Container c(arr10, arr10 + 10);
+    XContainer c(arr10, arr10 + 10);
     ok = check_construct_destroy("Construct from range", 10, 0) && ok;
   }
   ok = check_construct_destroy("Construct from range", 10, 10) && ok;
 
   {
-    Container c(arr10, arr10 + 10);
+    XContainer c(arr10, arr10 + 10);
     tracker_allocator_counter::reset();
     c.insert(arr10a[0]);
     ok = check_construct_destroy("Insert element", 1, 0) && ok;
@@ -65,7 +65,7 @@ int main()
   ok = check_construct_destroy("Insert element", 1, 11) && ok;
 
   {
-    Container c(arr10, arr10 + 10);
+    XContainer c(arr10, arr10 + 10);
     tracker_allocator_counter::reset();
     c.insert(arr10a, arr10a+3);
     ok = check_construct_destroy("Insert short range", 3, 0) && ok;
@@ -73,7 +73,7 @@ int main()
   ok = check_construct_destroy("Insert short range", 3, 13) && ok;
 
   {
-    Container c(arr10, arr10 + 10);
+    XContainer c(arr10, arr10 + 10);
     tracker_allocator_counter::reset();
     c.insert(arr10a, arr10a+10);
     ok = check_construct_destroy("Insert long range", 10, 0) && ok;

@@ -12,8 +12,7 @@ void foo ()
 #pragma omp for
   for (int l = 0; l < 10; ); // { dg-error "missing increment expression" }
 #pragma omp for
-  for (int m = 0; m < 10; m *= 3); // Error here is emitted only during
-				   // instantiation
+  for (int m = 0; m < 10; m *= 3); // { dg-error "invalid increment expression" }
 #pragma omp for
   for (T n = 0; ; n++); // { dg-error "missing controlling predicate" }
 #pragma omp for

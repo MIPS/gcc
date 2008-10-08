@@ -152,24 +152,29 @@ dump_template_argument (tree arg, int flags)
 static void
 dump_template_argument_list (tree args, int flags)
 {
-  int n = TREE_VEC_LENGTH (args);
-  int need_comma = 0;
-  int i;
-
-  for (i = 0; i< n; ++i)
+  if (TREE_CODE (args) == ERROR_MARK)
+    pp_identifier (cxx_pp, "<error>");
+  else 
     {
-      tree arg = TREE_VEC_ELT (args, i);
+      int n = TREE_VEC_LENGTH (args);
+      int need_comma = 0;
+      int i;
+      
+      for (i = 0; i< n; ++i)
+        {
+          tree arg = TREE_VEC_ELT (args, i);
 
-      /* Only print a comma if we know there is an argument coming. In
-         the case of an empty template argument pack, no actual
-         argument will be printed.  */
-      if (need_comma
-          && (!ARGUMENT_PACK_P (arg)
-              || TREE_VEC_LENGTH (ARGUMENT_PACK_ARGS (arg)) > 0))
-	pp_separate_with_comma (cxx_pp);
+          /* Only print a comma if we know there is an argument coming. In
+             the case of an empty template argument pack, no actual
+             argument will be printed.  */
+          if (need_comma
+              && (!ARGUMENT_PACK_P (arg)
+                  || TREE_VEC_LENGTH (ARGUMENT_PACK_ARGS (arg)) > 0))
+            pp_separate_with_comma (cxx_pp);
 
-      dump_template_argument (arg, flags);
-      need_comma = 1;
+          dump_template_argument (arg, flags);
+          need_comma = 1;
+        }
     }
 }
 
@@ -367,11 +372,13 @@ dump_type (tree t, int flags)
       break;
     }
     case TYPENAME_TYPE:
+    case ASSOCIATED_TYPE:
       pp_cxx_cv_qualifier_seq (cxx_pp, t);
-      pp_cxx_identifier (cxx_pp,
-			 TYPENAME_IS_ENUM_P (t) ? "enum"
-			 : TYPENAME_IS_CLASS_P (t) ? "class"
-			 : "typename");
+      if (TREE_CODE (t) != ASSOCIATED_TYPE)
+        pp_cxx_identifier (cxx_pp,
+                           TYPENAME_IS_ENUM_P (t) ? "enum"
+                           : TYPENAME_IS_CLASS_P (t) ? "class"
+                           : "typename");
       dump_typename (t, flags);
       break;
 
@@ -393,6 +400,14 @@ dump_type (tree t, int flags)
     case TYPE_PACK_EXPANSION:
       dump_type (PACK_EXPANSION_PATTERN (t), flags);
       pp_cxx_identifier (cxx_pp, "...");
+      break;
+
+    case DECLTYPE_TYPE:
+      pp_cxx_identifier (cxx_pp, "decltype");
+      pp_cxx_whitespace (cxx_pp);
+      pp_cxx_left_paren (cxx_pp);
+      dump_expr (DECLTYPE_TYPE_EXPR (t), flags & ~TFF_EXPR_IN_PARENS);
+      pp_cxx_right_paren (cxx_pp);
       break;
 
     default:
@@ -418,7 +433,10 @@ dump_typename (tree t, int flags)
   else
     dump_type (ctx, flags & ~TFF_CLASS_KEY_OR_ENUM);
   pp_cxx_colon_colon (cxx_pp);
-  dump_decl (TYPENAME_TYPE_FULLNAME (t), flags);
+  if (TREE_CODE (t) == TYPENAME_TYPE)
+    dump_decl (TYPENAME_TYPE_FULLNAME (t), flags);
+  else
+    dump_decl (ASSOCIATED_TYPE_NAME (t), flags);
 }
 
 /* Return the name of the supplied aggregate, or enumeral type.  */
@@ -432,6 +450,10 @@ class_key_or_enum_as_string (tree t)
     return "union";
   else if (TYPE_LANG_SPECIFIC (t) && CLASSTYPE_DECLARED_CLASS (t))
     return "class";
+  else if (TREE_CODE (t) == RECORD_TYPE && CLASSTYPE_MODEL_P (t))
+    return "concept_map";
+  else if (TREE_CODE (t) == RECORD_TYPE && CLASSTYPE_USE_CONCEPT (t))
+    return "concept";
   else
     return "struct";
 }
@@ -529,7 +551,15 @@ dump_type_prefix (tree t, int flags)
 	    pp_cxx_whitespace (cxx_pp);
 	    pp_cxx_left_paren (cxx_pp);
 	  }
-	pp_character (cxx_pp, "&*"[TREE_CODE (t) == POINTER_TYPE]);
+	if (TREE_CODE (t) == POINTER_TYPE)
+	  pp_character(cxx_pp, '*');
+	else if (TREE_CODE (t) == REFERENCE_TYPE)
+	{
+	  if (TYPE_REF_IS_RVALUE (t))
+	    pp_string (cxx_pp, "&&");
+	  else
+	    pp_character (cxx_pp, '&');
+	}
 	pp_base (cxx_pp)->padding = pp_before;
 	pp_cxx_cv_qualifier_seq (cxx_pp, t);
       }
@@ -587,9 +617,11 @@ dump_type_prefix (tree t, int flags)
     case UNKNOWN_TYPE:
     case VOID_TYPE:
     case TYPENAME_TYPE:
+    case ASSOCIATED_TYPE:
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case DECLTYPE_TYPE:
       dump_type (t, flags);
       pp_base (cxx_pp)->padding = pp_before;
       break;
@@ -683,9 +715,11 @@ dump_type_suffix (tree t, int flags)
     case UNKNOWN_TYPE:
     case VOID_TYPE:
     case TYPENAME_TYPE:
+    case ASSOCIATED_TYPE:
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case DECLTYPE_TYPE:
       break;
 
     default:

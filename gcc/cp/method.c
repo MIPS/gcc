@@ -1041,7 +1041,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       data.quals = 0;
       if (kind == sfk_assignment_operator)
 	{
-	  return_type = build_reference_type (type);
+	  return_type = cp_build_reference_type (type, /*rvalue_ref=*/false);
 	  name = ansi_assopname (NOP_EXPR);
 	  data.name = name;
 	}
@@ -1055,7 +1055,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 	}
       else
 	rhs_parm_type = type;
-      rhs_parm_type = build_reference_type (rhs_parm_type);
+      rhs_parm_type = cp_build_reference_type (rhs_parm_type, /*rvalue_ref=*/false);
       parameter_types = tree_cons (NULL_TREE, rhs_parm_type, parameter_types);
       raises = synthesize_exception_spec (type, &locate_copy, &data);
       break;
@@ -1101,12 +1101,115 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   DECL_NOT_REALLY_EXTERN (fn) = 1;
   DECL_DECLARED_INLINE_P (fn) = 1;
   DECL_INLINE (fn) = 1;
+
+  /* If we are generating an implicit copy constructor, copy
+     assignment operator, or destructor for an archetype, the
+     generated declaration should be inaccessible.  */
+  if ((kind == sfk_destructor
+       || kind == sfk_copy_constructor
+       || kind == sfk_assignment_operator)
+      && CLASSTYPE_IS_ARCHETYPE (type) 
+      && (!CLASSTYPE_USE_TEMPLATE (type)
+          || CLASSTYPE_USE_CONCEPT (TREE_TYPE (CLASSTYPE_TI_TEMPLATE (type)))))
+    {
+      TREE_PRIVATE (fn) = 1;
+      TREE_PROTECTED (fn) = 1;
+    }
   gcc_assert (!TREE_USED (fn));
 
   /* Restore PROCESSING_TEMPLATE_DECL.  */
   processing_template_decl = saved_processing_template_decl;
 
   return fn;
+}
+
+/* Determine if implicit construction of the assignment operator will
+   compile properly. DECL_OR_BASE is either a FIELD_DECL or a BINFO
+   node. CONST_P is true when we're considering assingment from a
+   const reference (otherwise, we're considering assignment from a
+   non-const reference). */
+static bool
+implicit_assignment_is_valid (tree decl_or_base, bool const_p)
+{
+  tree type;
+  bool field_p = false;
+  bool mutable_p = false;
+
+  if (TREE_CODE (decl_or_base) == FIELD_DECL)
+    {
+      type = TREE_TYPE (decl_or_base);
+      field_p = true;
+      mutable_p = DECL_MUTABLE_P (decl_or_base);
+    }
+  else
+    type = BINFO_TYPE (decl_or_base);
+  
+
+  /* Assignments are not valid if there is an error somewhere. */
+  if (!type || type == error_mark_node)
+    return false;
+
+  /* Assignments are not valid if there is a const-qualified member. */
+  if (cp_type_quals (type) & TYPE_QUAL_CONST)
+    return false;
+
+  if (CLASS_TYPE_P (type) && COMPLETE_TYPE_P (type)
+      && !TYPE_HAS_TRIVIAL_ASSIGN_REF (type))
+    {
+      /* Lookup the assignment operator and make sure it is
+         accessible. */
+
+      /* These two variables are 3-state variables determining what
+         kind of assignment operators we saw. They are essentially
+         used to fake operative overloading. The three states are:
+
+           -1: Declared but inaccessible
+            0: Not declared
+            1: Declared and accessible */
+      int ref_assign = 0 ,const_ref_assign = 0; 
+
+      tree fns = lookup_fnfields (type, 
+                                  ansi_assopname (NOP_EXPR),
+                                  /*protect=*/0);
+      if (!fns || fns == error_mark_node)
+        return false;
+
+      /* We don't care about the baselink. */
+      if (BASELINK_P (fns))
+        fns = BASELINK_FUNCTIONS (fns);
+      
+      for (; fns; fns = OVL_NEXT (fns)) 
+        {
+          tree fn = OVL_CURRENT (fns);
+          tree parmtype = 
+            TREE_VALUE (TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (fn))));
+          if (TREE_CODE (fn) == FUNCTION_DECL
+              && TREE_CODE (parmtype) == REFERENCE_TYPE
+              && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (parmtype)),
+                              type))
+            {
+              /* TBD: We should also take friendship into account. */
+              bool accessible_p = (!TREE_PRIVATE (fn) 
+                                   && (field_p || !TREE_PROTECTED (fn)));
+
+              /* Determine whether it takes a const TYPE& or a
+                 TYPE&. */
+              if (cp_type_quals (TREE_TYPE (parmtype)) & TYPE_QUAL_CONST)
+                const_ref_assign = accessible_p? 1 : -1;
+              else 
+                ref_assign = accessible_p? 1 : -1;
+            }
+        }
+
+      /* Determine which operator will have be used, if any, and
+         whether it is accessible. */
+      if (const_p && !mutable_p)
+        return const_ref_assign > 0;
+      else
+        return ref_assign > 0 || (ref_assign == 0 && const_ref_assign > 0);
+    }
+
+  return true;
 }
 
 /* Add an implicit declaration to TYPE for the kind of function
@@ -1169,6 +1272,37 @@ lazily_declare_fn (special_function_kind sfk, tree type)
 	CLASSTYPE_LAZY_DESTRUCTOR (type) = 0;
       /* Create appropriate clones.  */
       clone_function_decl (fn, /*update_method_vec=*/true);
+    }
+
+  /* If we have declared an assignment operator for a complete type,
+     verify that the assignment operator will compile properly. If it
+     will not compile properly, mark it "private" and non-inlined, so
+     it cannot be used and will not be generated. */
+  if (sfk == sfk_assignment_operator
+      && COMPLETE_TYPE_P (type))
+    {
+      tree binfo, base_binfo;
+      int i;
+      tree field;
+      bool valid_p = true;
+
+      /* Check for any bases that do not have valid assignment
+         operators. */
+      for (binfo = TYPE_BINFO (type), i = 0;
+	   BINFO_BASE_ITERATE (binfo, i, base_binfo) && valid_p; i++)
+        if (!implicit_assignment_is_valid (binfo, /*const_p=*/const_p))
+          valid_p = false;
+
+      /* Check for any fields that do not have valid assignment
+         operators. */
+      for (field = TYPE_FIELDS (type); field && valid_p; 
+           field = TREE_CHAIN (field))
+        if (TREE_CODE (field) == FIELD_DECL &&
+            !implicit_assignment_is_valid (field, /*const_p=*/const_p))
+          valid_p = false;
+      
+      if (!valid_p)
+        TREE_PRIVATE (fn) = 1;
     }
 
   return fn;

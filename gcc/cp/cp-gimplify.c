@@ -733,7 +733,8 @@ cp_genericize (tree fndecl)
   if (TREE_ADDRESSABLE (TREE_TYPE (DECL_RESULT (fndecl))))
     {
       t = DECL_RESULT (fndecl);
-      TREE_TYPE (t) = build_reference_type (TREE_TYPE (t));
+      TREE_TYPE (t) = cp_build_reference_type (TREE_TYPE (t), 
+                                               /*rvalue_ref=*/false);
       DECL_BY_REFERENCE (t) = 1;
       TREE_ADDRESSABLE (t) = 0;
       relayout_decl (t);

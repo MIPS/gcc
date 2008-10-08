@@ -38,7 +38,7 @@ void test01()
   // assign
   test_base io1;
   test_base io2;
-  io1 = io2;
+  io1 = io2; // { dg-error "within this context" }
 }
 // { dg-error "synthesized" "" { target *-*-* } 41 } 
 // { dg-error "within this context" "" { target *-*-* } 34 } 

@@ -12,7 +12,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:9:0
+libtool_VERSION=7:0:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -104,7 +104,6 @@ GLIBCXX_ENABLE_CHEADERS($c_model)  dnl c_model from configure.host
 GLIBCXX_ENABLE_LONG_LONG([yes])
 GLIBCXX_ENABLE_WCHAR_T([yes])
 GLIBCXX_ENABLE_C99([yes])
-GLIBCXX_ENABLE_CONCEPT_CHECKS([no])
 GLIBCXX_ENABLE_DEBUG_FLAGS(["-g3 -O0"])
 GLIBCXX_ENABLE_DEBUG([no])
 GLIBCXX_ENABLE_CXX_FLAGS

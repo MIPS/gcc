@@ -33,6 +33,7 @@ std_headers = \
 	${std_srcdir}/bitset \
 	${std_srcdir}/c++0x_warning.h \
 	${std_srcdir}/complex \
+	${std_srcdir}/concepts \
 	${std_srcdir}/deque \
 	${std_srcdir}/fstream \
 	${std_srcdir}/functional \
@@ -74,10 +75,9 @@ bits_headers = \
 	${bits_srcdir}/basic_ios.tcc \
 	${bits_srcdir}/basic_string.h \
 	${bits_srcdir}/basic_string.tcc \
-	${bits_srcdir}/boost_concept_check.h \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
-	${bits_srcdir}/concept_check.h \
+        ${bits_srcdir}/concepts.h \
 	${bits_srcdir}/cpp_type_traits.h \
 	${bits_srcdir}/deque.tcc \
 	${bits_srcdir}/fstream.tcc \
@@ -87,6 +87,7 @@ bits_headers = \
 	${bits_srcdir}/indirect_array.h \
 	${bits_srcdir}/ios_base.h \
 	${bits_srcdir}/istream.tcc \
+	${bits_srcdir}/iterator_concepts.h \
 	${bits_srcdir}/list.tcc \
 	${bits_srcdir}/locale_classes.h \
 	${bits_srcdir}/locale_facets.h \

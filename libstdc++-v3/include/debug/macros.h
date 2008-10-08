@@ -154,7 +154,6 @@ _GLIBCXX_DEBUG_ASSERT(_First == _Last || !_Pred(*_First, *_First))
 // Verify that the iterator range [_First, _Last) is sorted
 #define __glibcxx_check_sorted(_First,_Last)				\
 __glibcxx_check_valid_range(_First,_Last);				\
-__glibcxx_check_strict_weak_ordering(_First,_Last);			\
 _GLIBCXX_DEBUG_VERIFY(__gnu_debug::__check_sorted(_First, _Last),	\
 		      _M_message(__gnu_debug::__msg_unsorted)	        \
                       ._M_iterator(_First, #_First)			\
@@ -164,7 +163,6 @@ _GLIBCXX_DEBUG_VERIFY(__gnu_debug::__check_sorted(_First, _Last),	\
     predicate _Pred. */
 #define __glibcxx_check_sorted_pred(_First,_Last,_Pred)			\
 __glibcxx_check_valid_range(_First,_Last);				\
-__glibcxx_check_strict_weak_ordering_pred(_First,_Last,_Pred);	        \
 _GLIBCXX_DEBUG_VERIFY(__gnu_debug::__check_sorted(_First, _Last, _Pred), \
 		      _M_message(__gnu_debug::__msg_unsorted_pred)      \
                       ._M_iterator(_First, #_First)			\

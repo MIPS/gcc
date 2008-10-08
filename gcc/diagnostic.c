@@ -100,7 +100,10 @@ diagnostic_initialize (diagnostic_context *context)
   /* By default, we emit prefixes once per message.  */
   context->printer->wrapping.rule = DIAGNOSTICS_SHOW_PREFIX_ONCE;
 
-  memset (context->diagnostic_count, 0, sizeof context->diagnostic_count);
+  context->diagnostic_counts = xmalloc (sizeof (struct diagnostic_saved_count));
+  context->diagnostic_counts->next = NULL;
+  memset (context->diagnostic_counts->count, 0, 
+          sizeof (context->diagnostic_counts->count));
   context->issue_warnings_are_errors_message = true;
   context->warning_as_error_requested = false;
   memset (context->classify_diagnostic, DK_UNSPECIFIED,
@@ -210,7 +213,7 @@ diagnostic_count_diagnostic (diagnostic_context *context,
       break;
     }
 
-  return true;
+  return !diagnostic_suppressed (context);
 }
 
 /* Take any action which is expected to happen after the diagnostic
@@ -426,6 +429,38 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 
   context->lock--;
 }
+
+/* Suppresses printing of non-fatal warning and error messages. The
+   diagnostic counts are reset to zero. They will be restored when
+   diagnostic_pop_suppress (context) is executed. Only the most recent
+   diagnostic_push_suppress for a given context is considered
+   "active". */
+void 
+diagnostic_push_suppress (diagnostic_context *context)
+{
+  struct diagnostic_saved_count *old_counts = context->diagnostic_counts;
+  context->diagnostic_counts = xmalloc (sizeof (struct diagnostic_saved_count));
+  context->diagnostic_counts->next = old_counts;
+  memset (context->diagnostic_counts->count, 0, 
+          sizeof (context->diagnostic_counts->count));
+}
+
+/* Reverses the effects of diagnostic_push_suppress (context),
+   enabling the display of diagnostics if there are no outstanding
+   diagnostic_push_suppress (context) operations. Returns true if any
+   errors were reported while the diagnostic_push_suppress was active,
+   false otherwise. */
+bool 
+diagnostic_pop_suppress (diagnostic_context *context)
+{
+  bool had_errors = diagnostic_kind_count (context, DK_ERROR) > 0;
+  struct diagnostic_saved_count *current = context->diagnostic_counts;
+  context->diagnostic_counts = current->next;
+  free (current);
+  return had_errors;
+}
+
+
 
 /* Given a partial pathname as input, return another pathname that
    shares no directory elements with the pathname of __FILE__.  This

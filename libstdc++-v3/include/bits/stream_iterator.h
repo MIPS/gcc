@@ -38,6 +38,7 @@
 #pragma GCC system_header
 
 #include <debug/debug.h>
+#include <bits/concepts.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -136,6 +137,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	       const istream_iterator<_Tp, _CharT, _Traits, _Dist>& __y)
     { return !__x._M_equal(__y); }
 
+#ifndef _GLIBCXX_NO_CONCEPTS
+  template<typename _Tp, typename _CharT, typename _Traits>
+  concept_map InputIterator<istream_iterator<_Tp, _CharT, _Traits> > { };
+#endif 
+
   /**
    *  @brief  Provides output iterator semantics for streams.
    *
@@ -212,5 +218,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     };
 
 _GLIBCXX_END_NAMESPACE
+
+#ifndef _GLIBCXX_NO_CONCEPTS
+namespace std {
+  // DPG TBD: This seems wrong...
+  template<typename _Tp, typename _CharT, typename _Traits>
+  concept_map BasicOutputIterator<ostream_iterator<_Tp, _CharT, _Traits> > 
+  {
+    typedef _Tp value_type;
+    typedef ostream_iterator<_Tp, _CharT, _Traits>& reference;
+    typedef ptrdiff_t difference_type;
+    typedef _Tp* pointer;
+
+    typedef ostream_iterator<_Tp, _CharT, _Traits>& postincrement_result;
+  };
+} // namespace std
+#endif
 
 #endif

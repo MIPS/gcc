@@ -972,7 +972,12 @@ decls_match (tree newdecl, tree olddecl)
 #endif
 	  else
 	    types_match = compparms (p1, p2);
-	}
+
+          if (types_match)
+            types_match = 
+              same_where_clause_p (FUNCTION_WHERE_CLAUSE (newdecl),
+                                   FUNCTION_WHERE_CLAUSE (olddecl));
+        }
       else
 	types_match = 0;
     }
@@ -1351,6 +1356,11 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 				 TYPE_ARG_TYPES (TREE_TYPE (DECL_TEMPLATE_RESULT (newdecl))))
 		   && comp_template_parms (DECL_TEMPLATE_PARMS (newdecl),
 					   DECL_TEMPLATE_PARMS (olddecl))
+                   /* Template functions can be disambiguated by the
+                      where clause.  DPG TBD: Do we require an
+                      ordering here? */
+                   && same_where_clause_p (FUNCTION_WHERE_CLAUSE (DECL_TEMPLATE_RESULT (olddecl)),
+                                           FUNCTION_WHERE_CLAUSE (DECL_TEMPLATE_RESULT (newdecl)))
 		   /* Template functions can be disambiguated by
 		      return type.  */
 		   && same_type_p (TREE_TYPE (TREE_TYPE (newdecl)),
@@ -2851,7 +2861,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
   /* When the CONTEXT is a dependent type,  NAME could refer to a
      dependent base class of CONTEXT.  So we cannot peek inside it,
      even if CONTEXT is a currently open scope.  */
-  if (dependent_type_p (context))
+  if (dependent_type_p (context) && !CONCEPT_OR_CONCEPT_MAP_P (context))
     return build_typename_type (context, name, fullname, tag_type);
 
   if (!IS_AGGR_TYPE (context))
@@ -2889,7 +2899,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
       return error_mark_node;
     }
   
-  if (complain & tf_error)
+  if ((complain & tf_error) && !CONCEPT_OR_CONCEPT_MAP_P (context))
     perform_or_defer_access_check (TYPE_BINFO (context), t, t);
 
   if (want_template)
@@ -3180,6 +3190,12 @@ cxx_init_decl_processing (void)
   java_double_type_node = record_builtin_java_type ("__java_double", -64);
   java_char_type_node = record_builtin_java_type ("__java_char", -16);
   java_boolean_type_node = record_builtin_java_type ("__java_boolean", -1);
+
+  axiom_type_node = make_aggr_type (RECORD_TYPE);
+  TYPE_NAME (axiom_type_node)
+    = create_implicit_typedef (get_identifier("axiom"), axiom_type_node);
+  TYPE_STUB_DECL (axiom_type_node) = TYPE_NAME (axiom_type_node);
+  axiom_type_node = build_reference_type (axiom_type_node);
 
   integer_two_node = build_int_cst (NULL_TREE, 2);
   integer_three_node = build_int_cst (NULL_TREE, 3);
@@ -4717,13 +4733,16 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
      type.  */
   TREE_TYPE (decl) = type = complete_type (TREE_TYPE (decl));
 
+  /* For initialization, we want to look at the archetype. */
+  type = type_archetype (type);
+
   if (type == error_mark_node)
     /* We will have already complained.  */
     return NULL_TREE;
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      tree element_type = TREE_TYPE (type);
+      tree element_type = type_archetype (TREE_TYPE (type));
 
       /* The array type itself need not be complete, because the
 	 initializer may tell us how many elements are in the array.
@@ -4795,6 +4814,8 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
       type = TREE_TYPE (decl);
       if (type == error_mark_node)
 	return NULL_TREE;
+
+      type = type_archetype (type);
 
       if (TYPE_HAS_CONSTRUCTOR (type) || TYPE_NEEDS_CONSTRUCTING (type))
 	{
@@ -5051,10 +5072,11 @@ initialize_artificial_var (tree decl, tree init)
    if the (init) syntax was used.  */
 
 void
-cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
+cp_finish_decl (tree decl, tree orig_init, bool init_const_expr_p, 
 		tree asmspec_tree, int flags)
 {
   tree type;
+  tree init = orig_init;
   tree cleanup;
   const char *asmspec = NULL;
   int was_readonly = 0;
@@ -5094,13 +5116,13 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       && (DECL_INITIAL (decl) || init))
     DECL_INITIALIZED_IN_CLASS_P (decl) = 1;
 
-  if (processing_template_decl)
+  if (processing_template_decl && !opaque_type_p (type))
     {
       bool type_dependent_p;
 
       /* Add this declaration to the statement-tree.  */
       if (at_function_scope_p ())
-	add_decl_expr (decl);
+        add_decl_expr (decl);
 
       type_dependent_p = dependent_type_p (type);
 
@@ -5155,8 +5177,11 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  && !COMPLETE_TYPE_P (TREE_TYPE (decl)))
 	TYPE_DECL_SUPPRESS_DEBUG (decl) = 1;
 
-      rest_of_decl_compilation (decl, DECL_CONTEXT (decl) == NULL_TREE,
-				at_eof);
+      if (!opaque_type_p (TREE_TYPE (decl))
+	  && (TREE_CODE (TREE_TYPE (decl)) != RECORD_TYPE
+	      || !CLASSTYPE_IS_ARCHETYPE (TREE_TYPE (decl))))
+	rest_of_decl_compilation (decl, DECL_CONTEXT (decl) == NULL_TREE,
+				  at_eof);
       goto finish_end;
     }
 
@@ -5272,6 +5297,17 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
      reference temp is added before the DECL_EXPR for the reference itself.  */
   if (at_function_scope_p ())
     add_decl_expr (decl);
+
+  if (processing_template_decl)
+    {
+      type = TREE_TYPE (decl);
+      if (CLASS_TYPE_P (type) && CLASSTYPE_IS_ARCHETYPE (type))
+        TREE_TYPE (decl) = type_representative (type);
+      DECL_INITIAL (decl) = orig_init;
+      if (TREE_CODE (decl) == VAR_DECL)
+        DECL_INITIALIZED_P (decl) = 0;
+      goto finish_end;
+    }
 
   /* Let the middle end know about variables and functions -- but not
      static data members in uninstantiated class templates.  */
@@ -5965,6 +6001,58 @@ grokfndecl (tree ctype,
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
   tree t;
 
+  /* Within a concept or concept map, all parameters are passed by
+     reference. Update the types of non-reference parameters to const&
+     parameters. */
+  if (ctype 
+      && TREE_CODE (ctype) == RECORD_TYPE
+      && TREE_CODE (type) == FUNCTION_TYPE
+      && CLASSTYPE_USE_CONCEPT (ctype))
+    {
+      tree argtypes = TYPE_ARG_TYPES (type);
+      tree argtypes_out = NULL_TREE;
+      tree argtype;
+      tree parm;
+      bool postfix_operator_p = 
+        (declarator == ansi_opname (POSTINCREMENT_EXPR)
+         || declarator == ansi_opname (POSTDECREMENT_EXPR))
+        && list_length (TYPE_ARG_TYPES (type)) == 3;
+
+      /* Update the argument types. */
+      for (argtype = argtypes; argtype && argtype != void_list_node; 
+           argtype = TREE_CHAIN (argtype))
+        {
+          tree type = TREE_VALUE (argtype);
+          if (TREE_CODE (TREE_VALUE (argtype)) != REFERENCE_TYPE
+              && (!postfix_operator_p || argtype == argtypes))
+            {
+              type = cp_build_qualified_type (type, TYPE_QUAL_CONST);
+              type = cp_build_reference_type (type, /*rvalue_ref=*/false);
+            }
+
+          argtypes_out = tree_cons (NULL_TREE, type, argtypes_out);
+        }
+
+      argtypes_out = nreverse (argtypes_out);
+      if (argtype == void_list_node)
+        argtypes_out = chainon (argtypes_out, void_list_node);
+      
+      type = build_function_type (TREE_TYPE (type), argtypes_out);
+
+      /* Update the parameter types */
+      for (parm = parms; parm; parm = TREE_CHAIN (parm))
+        {
+          tree type = TREE_TYPE (parm);
+          if (TREE_CODE (type) != REFERENCE_TYPE
+              && (!postfix_operator_p || parm == parms))
+            {
+              type = cp_build_qualified_type (type, TYPE_QUAL_CONST);
+              type = cp_build_reference_type (type, /*rvalue_ref=*/false);
+              TREE_TYPE (parm) = type;
+            }
+        }
+    }
+
   if (raises)
     type = build_exception_variant (type, raises);
 
@@ -6083,7 +6171,11 @@ grokfndecl (tree ctype,
 
   if (ctype)
     {
-      DECL_CONTEXT (decl) = ctype;
+      /* The context of a pseudo-signature is the concept or model itself. */
+      if (current_class_type  && CLASSTYPE_USE_CONCEPT (current_class_type))
+        DECL_CONTEXT (decl) = current_class_type;
+      else
+        DECL_CONTEXT (decl) = ctype;
       if (funcdef_flag)
 	check_class_member_definition_namespace (decl);
     }
@@ -6214,7 +6306,8 @@ grokfndecl (tree ctype,
 
   if (ctype != NULL_TREE
       && (! TYPE_FOR_JAVA (ctype) || check_java_method (decl))
-      && check)
+      && check
+      && (!current_class_type || !CLASSTYPE_CONCEPT_P (current_class_type)))
     {
       tree old_decl;
 
@@ -6262,6 +6355,38 @@ grokfndecl (tree ctype,
 	    }
 	  return old_decl;
 	}
+    }
+
+  /* Concepts and models require that operators be defined as "free"
+     functions inside the body, not as members of a particular
+     type. */
+  if (DECL_OVERLOADED_OPERATOR_P (decl)
+      && TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE
+      && current_class_type
+      && CLASSTYPE_USE_CONCEPT (current_class_type)
+      && !NEW_DELETE_OPNAME_P (DECL_NAME (decl))
+      && !DECL_ASSIGNMENT_OPERATOR_P (decl))
+    {
+      tree type = TREE_TYPE (decl);
+      tree old_context = DECL_CONTEXT (decl);
+      tree obj_type, new_arg_types, new_type, new_decl;
+      const char* kind = CLASSTYPE_CONCEPT_P (current_class_type)? "concept" : "model";
+
+      DECL_CONTEXT (decl) = TYPE_METHOD_BASETYPE (type);
+      error ("member operator %<%D%> not allowed in a %s", decl, kind);
+      DECL_CONTEXT (decl) = old_context;
+
+      /* Make the implicit object parameter explicit in the argument
+         type list. */
+      new_arg_types = TYPE_ARG_TYPES (type);
+      obj_type = TREE_TYPE (TREE_VALUE (new_arg_types));
+      new_arg_types = tree_cons(NULL_TREE, 
+                                build_reference_type (obj_type),
+                                TREE_CHAIN (new_arg_types));
+      new_type = build_function_type (TREE_TYPE (type), new_arg_types);
+      new_decl = build_lang_decl (FUNCTION_DECL, declarator, new_type);
+
+      inform ("write as a non-member %<%D%>", new_decl);
     }
 
   if (DECL_CONSTRUCTOR_P (decl) && !grok_ctor_properties (ctype, decl))
@@ -6601,6 +6726,9 @@ compute_array_index_type (tree name, tree size)
 
   /* It might be a const variable or enumeration constant.  */
   size = integral_constant_value (size);
+
+  if (processing_template_decl)
+    size = fold (size);
 
   /* Normally, the array-bound will be a constant.  */
   if (TREE_CODE (size) == INTEGER_CST)
@@ -7065,6 +7193,13 @@ grokdeclarator (const cp_declarator *declarator,
 			       ctype, current_class_type);
 			return error_mark_node;
 		      }
+
+                    /* Constructor pseudo-signatures are not recognized as
+                       constructors. Mark these as constructors now. */
+                    if (current_class_type 
+                        && CLASSTYPE_USE_CONCEPT (current_class_type)
+                        && constructor_name_p (decl, qualifying_scope))
+                      sfk = sfk_constructor;
 		  }
 		else if (TREE_CODE (qualifying_scope) == NAMESPACE_DECL)
 		  in_namespace = qualifying_scope;
@@ -7240,7 +7375,6 @@ grokdeclarator (const cp_declarator *declarator,
     decl_attr = DECL_ATTRIBUTES (typedef_decl);
 #endif
   typedef_type = type;
-
 
   if (sfk != sfk_conversion)
     ctor_return_type = ctype;
@@ -7764,15 +7898,16 @@ grokdeclarator (const cp_declarator *declarator,
 	case cdk_pointer:
 	case cdk_reference:
 	case cdk_ptrmem:
-	  /* Filter out pointers-to-references and references-to-references.
+	  /* Filter out pointers-to-references.
 	     We can get these if a TYPE_DECL is used.  */
 
 	  if (TREE_CODE (type) == REFERENCE_TYPE)
 	    {
-	      error (declarator->kind == cdk_reference
-		     ? "cannot declare reference to %q#T"
-		     : "cannot declare pointer to %q#T", type);
-	      type = TREE_TYPE (type);
+	      if (declarator->kind != cdk_reference)
+		{
+		  error ("cannot declare pointer to %q#T", type);
+		  type = TREE_TYPE (type);
+		}
 	    }
 	  else if (VOID_TYPE_P (type))
 	    {
@@ -7799,7 +7934,26 @@ grokdeclarator (const cp_declarator *declarator,
 	  if (declarator->kind == cdk_reference)
 	    {
 	      if (!VOID_TYPE_P (type))
-		type = build_reference_type (type);
+		type = build_rval_reference_type
+		       ((TREE_CODE (type) == REFERENCE_TYPE
+			 ? TREE_TYPE (type) : type),
+			(declarator->u.pointer.rvalue_ref
+			 && (TREE_CODE(type) != REFERENCE_TYPE
+			     || TYPE_REF_IS_RVALUE (type))));
+
+	      /* Disallow direct reference to reference declarations,
+		 Reference to reference declarations are only allowed
+		 indirectly through typedefs or template type arguments.
+		 Example:
+
+		   void foo(int & &);      // invalid ref-to-ref decl
+
+		   typedef int & int_ref;
+		   void foo(int_ref &);    // valid ref-to-ref decl
+	      */
+	      if (inner_declarator && inner_declarator->kind == cdk_reference)
+		error ("cannot declare reference to %q#T, which is not "
+		       "a typedef or a template type argument", type);
 	    }
 	  else if (TREE_CODE (type) == METHOD_TYPE)
 	    type = build_ptrmemfunc_type (build_pointer_type (type));
@@ -7923,7 +8077,8 @@ grokdeclarator (const cp_declarator *declarator,
 	  tree sname = declarator->u.id.unqualified_name;
 
 	  if (current_class_type
-	      && (!friendp || funcdef_flag))
+	      && (!friendp || funcdef_flag)
+              && !CLASSTYPE_USE_CONCEPT (current_class_type))
 	    {
 	      error (funcdef_flag
 		     ? "cannot define member function %<%T::%s%> within %<%T%>"
@@ -7933,10 +8088,21 @@ grokdeclarator (const cp_declarator *declarator,
 	    }
 
 	  if (TREE_CODE (sname) == IDENTIFIER_NODE
-	      && NEW_DELETE_OPNAME_P (sname))
-	    /* Overloaded operator new and operator delete
-	       are always static functions.  */
+	      && NEW_DELETE_OPNAME_P (sname)
+              && (!current_class_type 
+                  || !CLASSTYPE_USE_CONCEPT (current_class_type)))
+	    /* Overloaded operator new and operator delete are always
+	       static functions. However, operator new and operator
+	       delete pseudo-signatures are stored as members.  */
 	    ;
+	  else if (current_class_type == NULL_TREE 
+                   || friendp
+                   || CLASSTYPE_USE_CONCEPT (current_class_type))
+	    type = (build_method_type_directly 
+                    (cp_build_qualified_type (ctype, 
+                                              memfn_quals & ~TYPE_QUAL_RESTRICT),
+                     TREE_TYPE (type),
+                     TYPE_ARG_TYPES (type)));
 	  else
 	    type = build_memfn_type (type, ctype, memfn_quals);
 	}
@@ -8334,7 +8500,22 @@ grokdeclarator (const cp_declarator *declarator,
 	    int publicp = 0;
 	    tree function_context;
 
-	    if (friendp == 0)
+            if (current_class_type 
+                && CLASSTYPE_USE_CONCEPT (current_class_type))
+              {
+                if (friendp)
+                  error ("cannot declare friend function %qD in %qT", 
+                         unqualified_id, current_class_type);
+                if (staticp)
+                  error ("cannot declare static function %qD in %qT", 
+                         unqualified_id, current_class_type);
+                if (virtualp)
+                  error ("cannot declare virtual function %qD in %qT", 
+                         unqualified_id, current_class_type);
+
+                staticp = 2;
+              }
+	    else if (friendp == 0)
 	      {
 		if (ctype == NULL_TREE)
 		  ctype = current_class_type;
@@ -8458,7 +8639,8 @@ grokdeclarator (const cp_declarator *declarator,
 	  }
 	else if (!staticp && !dependent_type_p (type)
 		 && !COMPLETE_TYPE_P (complete_type (type))
-		 && (TREE_CODE (type) != ARRAY_TYPE || initialized == 0))
+		 && (TREE_CODE (type) != ARRAY_TYPE || initialized == 0)
+                 && type_archetype (type) == type)
 	  {
 	    if (unqualified_id)
 	      error ("field %qD has incomplete type", unqualified_id);
@@ -8746,7 +8928,7 @@ require_complete_types_for_parms (tree parms)
 {
   for (; parms; parms = TREE_CHAIN (parms))
     {
-      if (dependent_type_p (TREE_TYPE (parms)))
+      if (uses_template_parms (TREE_TYPE (parms)))
 	continue;
       if (!VOID_TYPE_P (TREE_TYPE (parms))
 	  && complete_type_or_else (TREE_TYPE (parms), parms))
@@ -9034,13 +9216,15 @@ copy_fn_p (tree d)
   if (arg_type == error_mark_node)
     return 0;
 
-  if (TYPE_MAIN_VARIANT (arg_type) == DECL_CONTEXT (d))
+  if (same_type_p (TYPE_MAIN_VARIANT (arg_type), DECL_CONTEXT (d)))
     {
       /* Pass by value copy assignment operator.  */
       result = -1;
     }
   else if (TREE_CODE (arg_type) == REFERENCE_TYPE
-	   && TYPE_MAIN_VARIANT (TREE_TYPE (arg_type)) == DECL_CONTEXT (d))
+	   && !TYPE_REF_IS_RVALUE(arg_type)
+	   && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (arg_type)), 
+                           DECL_CONTEXT (d)))
     {
       if (CP_TYPE_CONST_P (TREE_TYPE (arg_type)))
 	result = 2;
@@ -9053,6 +9237,53 @@ copy_fn_p (tree d)
   if (args && args != void_list_node && !TREE_PURPOSE (args))
     /* There are more non-optional args.  */
     return 0;
+
+  return result;
+}
+
+/* D is a constructor or overloaded `operator='.
+
+   Let T be the class in which D is declared. Then, this function
+   returns true when D is a move constructor or move assignment
+   operator, false otherwise.  */
+
+bool
+move_fn_p (tree d)
+{
+  tree args;
+  tree arg_type;
+  bool result = false;
+
+  gcc_assert (DECL_FUNCTION_MEMBER_P (d));
+
+  if (TREE_CODE (d) == TEMPLATE_DECL
+      || (DECL_TEMPLATE_INFO (d)
+	  && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (d))))
+    /* Instantiations of template member functions are never copy
+       functions.  Note that member functions of templated classes are
+       represented as template functions internally, and we must
+       accept those as copy functions.  */
+    return 0;
+
+  args = FUNCTION_FIRST_USER_PARMTYPE (d);
+  if (!args)
+    return 0;
+
+  arg_type = TREE_VALUE (args);
+  if (arg_type == error_mark_node)
+    return 0;
+
+  if (TREE_CODE (arg_type) == REFERENCE_TYPE
+      && TYPE_REF_IS_RVALUE (arg_type)
+      && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (arg_type)), 
+                      DECL_CONTEXT (d)))
+    result = true;
+
+  args = TREE_CHAIN (args);
+
+  if (args && args != void_list_node && !TREE_PURPOSE (args))
+    /* There are more non-optional args.  */
+    return false;
 
   return result;
 }
@@ -9275,7 +9506,10 @@ grok_op_properties (tree decl, bool complain)
       /* An operator function must either be a non-static member function
 	 or have at least one parameter of a class, a reference to a class,
 	 an enumeration, or a reference to an enumeration.  13.4.0.6 */
-      if (! methodp || DECL_STATIC_FUNCTION_P (decl))
+      if ((! methodp || DECL_STATIC_FUNCTION_P (decl))
+          && (!DECL_CONTEXT (decl)
+              || !(TREE_CODE (DECL_CONTEXT (decl)) == RECORD_TYPE
+                   && CLASSTYPE_USE_CONCEPT (DECL_CONTEXT (decl)))))
 	{
 	  if (operator_code == TYPE_EXPR
 	      || operator_code == CALL_EXPR
@@ -9545,6 +9779,8 @@ tag_name (enum tag_types code)
       return "enum";
     case typename_type:
       return "typename";
+    case concept_type:
+      return "concept";
     default:
       gcc_unreachable ();
     }
@@ -9704,8 +9940,9 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
     return NULL_TREE;
 }
 
-/* Get the struct, enum or union (TAG_CODE says which) with tag NAME.
-   Define the tag as a forward-reference if it is not defined.
+/* Get the struct, enum, union or concept (TAG_CODE says which) with
+   tag NAME.  Define the tag as a forward-reference if it is not
+   defined.
 
    If a declaration is given, process it here, and report an error if
    multiple declarations are not identical.
@@ -9735,6 +9972,7 @@ xref_tag (enum tag_types tag_code, tree name,
     {
     case record_type:
     case class_type:
+    case concept_type:
       code = RECORD_TYPE;
       break;
     case union_type:
@@ -9995,8 +10233,13 @@ xref_basetypes (tree ref, tree base_list)
 	TYPE_FOR_JAVA (ref) = 1;
 
       base_binfo = NULL_TREE;
-      if (CLASS_TYPE_P (basetype) && !dependent_type_p (basetype))
+      if (CLASS_TYPE_P (basetype) 
+          && !dependent_type_p (basetype)
+	  && !CLASSTYPE_USE_CONCEPT (basetype))
 	{
+          if (uses_template_parms (basetype))
+            basetype = type_archetype (basetype);
+
 	  base_binfo = TYPE_BINFO (basetype);
 	  /* The original basetype could have been a typedef'd type.  */
 	  basetype = BINFO_TYPE (base_binfo);
@@ -10114,6 +10357,9 @@ start_enum (tree name)
       enumtype = pushtag (name, enumtype, /*tag_scope=*/ts_current);
     }
 
+  /* enums cannot be declared in a concept or model */
+  if (current_class_type && CLASSTYPE_USE_CONCEPT (current_class_type))
+    error("%q#T cannot be declared in %qT", enumtype, current_class_type);
   return enumtype;
 }
 
@@ -10441,14 +10687,15 @@ static void
 check_function_type (tree decl, tree current_function_parms)
 {
   tree fntype = TREE_TYPE (decl);
-  tree return_type = complete_type (TREE_TYPE (fntype));
+  tree return_type = type_archetype (complete_type (TREE_TYPE (fntype)));
 
   /* In a function definition, arg types must be complete.  */
   require_complete_types_for_parms (current_function_parms);
 
   if (dependent_type_p (return_type))
     return;
-  if (!COMPLETE_OR_VOID_TYPE_P (return_type))
+  if (!COMPLETE_OR_VOID_TYPE_P (return_type)
+      && !uses_template_parms (return_type))
     {
       tree args = TYPE_ARG_TYPES (fntype);
 
@@ -10550,7 +10797,11 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   /* Set up current_class_type, and enter the scope of the class, if
      appropriate.  */
-  if (ctype)
+  if (DECL_CONTEXT (decl1) 
+      && TYPE_P (DECL_CONTEXT (decl1))
+      && CLASSTYPE_USE_CONCEPT (DECL_CONTEXT (decl1)))
+    push_nested_class (DECL_CONTEXT (decl1));
+  else if (ctype)
     push_nested_class (ctype);
   else if (DECL_STATIC_FUNCTION_P (decl1))
     push_nested_class (DECL_CONTEXT (decl1));
@@ -10585,8 +10836,23 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      by push_nested_class.)  */
   if (processing_template_decl)
     {
+      tree newdecl1;
+
       /* FIXME: Handle error_mark_node more gracefully.  */
-      tree newdecl1 = push_template_decl (decl1);
+
+      if (current_where_clause && !FUNCTION_WHERE_CLAUSE (decl1)) 
+        {
+          /* Propagate constraints and re-finish the where clause, as
+             needed. */
+          if (TREE_VALUE (current_where_clause)
+              && propagate_constraints (fntype))
+            finish_where_clause (TREE_VALUE (current_where_clause));
+
+          /* Attach the where clause, if any. */
+          FUNCTION_WHERE_CLAUSE (decl1) = TREE_VALUE (current_where_clause);
+        }
+
+      newdecl1 = push_template_decl (decl1);
       if (newdecl1 != error_mark_node)
 	decl1 = newdecl1;
     }
@@ -11345,6 +11611,7 @@ finish_function (int flags)
   /* Complain if there's just no return statement.  */
   if (warn_return_type
       && TREE_CODE (TREE_TYPE (fntype)) != VOID_TYPE
+      && TREE_TYPE (fntype) != axiom_type_node
       && !dependent_type_p (TREE_TYPE (fntype))
       && !current_function_returns_value && !current_function_returns_null
       /* Don't complain if we abort or throw.  */
@@ -11739,6 +12006,7 @@ cp_tree_node_structure (union lang_tree_node * t)
     case BASELINK:		return TS_CP_BASELINK;
     case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;
     case ARGUMENT_PACK_SELECT:  return TS_CP_ARGUMENT_PACK_SELECT;
+    case REQUIREMENT:           return TS_CP_REQUIREMENT;
     default:			return TS_CP_GENERIC;
     }
 }

@@ -23,10 +23,10 @@
 #include <algorithm>
 #include <functional>
 
-struct Integral { operator int() const; };
+struct IntegralX { operator int() const; };
 
 namespace std
 {
-  template int* search_n (int*, int*, Integral, const int&);
-  template int* search_n (int*, int*, Integral, const int&, greater<int>);
+  template int* search_n (int*, int*, IntegralX, const int&);
+  template int* search_n (int*, int*, IntegralX, const int&, greater<int>);
 }

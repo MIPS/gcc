@@ -51,7 +51,6 @@ static tree initializing_context (tree);
 static void expand_cleanup_for_base (tree, tree);
 static tree get_temp_regvar (tree, tree);
 static tree dfs_initialize_vtbl_ptrs (tree, void *);
-static tree build_default_init (tree, tree);
 static tree build_dtor_call (tree, special_function_kind, int);
 static tree build_field_list (tree, tree, int *);
 static tree build_vtbl_address (tree);
@@ -276,7 +275,7 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
    returns NULL_TREE; the caller is responsible for arranging for the
    constructors to be called.  */
 
-static tree
+tree
 build_default_init (tree type, tree nelts)
 {
   /* [dcl.init]:
@@ -315,6 +314,35 @@ build_default_init (tree type, tree nelts)
   return build_zero_init (type, nelts, /*static_storage_p=*/false);
 }
 
+/* Initialize current class with INIT, a TREE_LIST of
+   arguments for a target constructor. If TREE_LIST is void_type_node,
+   an empty initializer list was given.  */
+
+static void
+perform_target_ctor (tree init)
+{
+  tree decl = current_class_ref;
+  tree type = current_class_type;
+
+  if (init == void_type_node)
+    init = NULL_TREE;
+
+  if (dependent_type_p (type) || any_type_dependent_arguments_p (init))
+    /* If any of the types involved are dependent, do nothing; we'll
+       handle this during template instantiation.  */
+    return;
+
+  finish_expr_stmt (build_aggr_init (decl, init, 0));
+
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+    {
+      tree expr = build_delete (type, decl, sfk_complete_destructor,
+			   LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR, 0);
+      if (expr != error_mark_node)
+	finish_eh_cleanup (expr);
+    }
+}
+
 /* Initialize MEMBER, a FIELD_DECL, with INIT, a TREE_LIST of
    arguments.  If TREE_LIST is void_type_node, an empty initializer
    list was given; if NULL_TREE no initializer was given.  */
@@ -323,19 +351,29 @@ static void
 perform_member_init (tree member, tree init)
 {
   tree decl;
-  tree type = TREE_TYPE (member);
+  tree type = complete_type (TREE_TYPE (member));
   bool explicit;
 
   explicit = (init != NULL_TREE);
 
   /* Effective C++ rule 12 requires that all data members be
      initialized.  */
+
   if (warn_ecpp && !explicit && TREE_CODE (type) != ARRAY_TYPE)
     warning (OPT_Weffc__, "%J%qD should be initialized in the member initialization "
 	     "list", current_function_decl, member);
 
   if (init == void_type_node)
     init = NULL_TREE;
+
+  /* Determine if the initialization is dependent. If so, we can't
+     check anything here. */
+  if (dependent_type_p (type)
+      || (init && any_type_dependent_arguments_p (init)))
+    return;
+
+  /* Retrieve the archetype.  */
+  type = type_archetype (type);
 
   /* Get an lvalue for the data member.  */
   decl = build_class_member_access_expr (current_class_ref, member,
@@ -352,7 +390,8 @@ perform_member_init (tree member, tree init)
       if (init)
 	{
 	  init = build2 (INIT_EXPR, type, decl, TREE_VALUE (init));
-	  finish_expr_stmt (init);
+          if (!processing_template_decl)
+            finish_expr_stmt (init);
 	}
     }
   else if (TYPE_NEEDS_CONSTRUCTING (type))
@@ -364,12 +403,18 @@ perform_member_init (tree member, tree init)
 	  && TREE_CODE (TREE_TYPE (TREE_VALUE (init))) == ARRAY_TYPE)
 	{
 	  /* Initialization of one array from another.  */
-	  finish_expr_stmt (build_vec_init (decl, NULL_TREE, TREE_VALUE (init),
-					    /*explicit_default_init_p=*/false,
-					    /* from_array=*/1));
+          tree stmt = build_vec_init (decl, NULL_TREE, TREE_VALUE (init),
+                                      /*explicit_default_init_p=*/false,
+                                      /* from_array=*/1);
+          if (!processing_template_decl)
+            finish_expr_stmt (stmt);
 	}
       else
-	finish_expr_stmt (build_aggr_init (decl, init, 0));
+        {
+          tree stmt = build_aggr_init (decl, init, 0);
+          if (!processing_template_decl)
+            finish_expr_stmt (stmt);
+        }
     }
   else
     {
@@ -397,7 +442,11 @@ perform_member_init (tree member, tree init)
 	init = build_x_compound_expr_from_list (init, "member initializer");
 
       if (init)
-	finish_expr_stmt (build_modify_expr (decl, INIT_EXPR, init));
+        {
+          tree stmt = build_modify_expr (decl, INIT_EXPR, init);
+          if (!processing_template_decl)
+            finish_expr_stmt (stmt);
+        }
     }
 
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
@@ -410,7 +459,7 @@ perform_member_init (tree member, tree init)
       expr = build_delete (type, expr, sfk_complete_destructor,
 			   LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR, 0);
 
-      if (expr != error_mark_node)
+      if (expr != error_mark_node && !processing_template_decl)
 	finish_eh_cleanup (expr);
     }
 }
@@ -528,7 +577,7 @@ sort_mem_initializers (tree t, tree mem_inits)
       /* Issue a warning if the explicit initializer order does not
 	 match that which will actually occur.
 	 ??? Are all these on the correct lines?  */
-      if (warn_reorder && !subobject_init)
+      if (warn_reorder && !processing_template_decl && !subobject_init)
 	{
 	  if (TREE_CODE (TREE_PURPOSE (next_subobject)) == FIELD_DECL)
 	    warning (OPT_Wreorder, "%q+D will be initialized after",
@@ -547,8 +596,14 @@ sort_mem_initializers (tree t, tree mem_inits)
       if (!subobject_init)
 	{
 	  subobject_init = sorted_inits;
-	  while (TREE_PURPOSE (subobject_init) != subobject)
+	  while (subobject_init && TREE_PURPOSE (subobject_init) != subobject)
 	    subobject_init = TREE_CHAIN (subobject_init);
+
+          if (!subobject_init && processing_template_decl)
+            /* Okay, we failed to find the subobject, but they
+               probably means we have dependent bases somewhere. We'll
+               detect any problems at instantiation. */
+            continue;
 	}
 
       /* It is invalid to initialize the same subobject more than
@@ -669,6 +724,16 @@ emit_mem_initializers (tree mem_inits)
   if (!COMPLETE_TYPE_P (current_class_type))
     return;
 
+  if (flag_cpp0x
+      && mem_inits
+      && TYPE_P (TREE_PURPOSE (mem_inits))
+      && same_type_p (TREE_PURPOSE (mem_inits), current_class_type))
+    {
+	gcc_assert (TREE_CHAIN (mem_inits) == NULL_TREE);
+	perform_target_ctor (TREE_VALUE (mem_inits));
+	return;
+    }
+
   /* Sort the mem-initializers into the order in which the
      initializations should be performed.  */
   mem_inits = sort_mem_initializers (current_class_type, mem_inits);
@@ -697,28 +762,32 @@ emit_mem_initializers (tree mem_inits)
       if (arguments == void_type_node)
 	arguments = NULL_TREE;
 
-      /* Initialize the base.  */
-      if (BINFO_VIRTUAL_P (subobject))
-	construct_virtual_base (subobject, arguments);
-      else
-	{
-	  tree base_addr;
-
-	  base_addr = build_base_path (PLUS_EXPR, current_class_ptr,
-				       subobject, 1);
-	  expand_aggr_init_1 (subobject, NULL_TREE,
-			      build_indirect_ref (base_addr, NULL),
-			      arguments,
-			      LOOKUP_NORMAL);
-	  expand_cleanup_for_base (subobject, NULL_TREE);
-	}
+      if (!processing_template_decl) 
+        {
+          /* Initialize the base.  */
+          if (BINFO_VIRTUAL_P (subobject))
+            construct_virtual_base (subobject, arguments);
+          else
+            {
+              tree base_addr;
+              
+              base_addr = build_base_path (PLUS_EXPR, current_class_ptr,
+                                           subobject, 1);
+              expand_aggr_init_1 (subobject, NULL_TREE,
+                                  build_indirect_ref (base_addr, NULL),
+                                  arguments,
+                                  LOOKUP_NORMAL);
+              expand_cleanup_for_base (subobject, NULL_TREE);
+            }
+        }
 
       mem_inits = TREE_CHAIN (mem_inits);
     }
   in_base_initializer = 0;
 
-  /* Initialize the vptrs.  */
-  initialize_vtbl_ptrs (current_class_ptr);
+  if (!processing_template_decl)
+    /* Initialize the vptrs.  */
+    initialize_vtbl_ptrs (current_class_ptr);
 
   /* Initialize the data members.  */
   while (mem_inits)
@@ -979,11 +1048,18 @@ expand_member_init (tree name)
     }
   else if (TYPE_P (name))
     {
+      if (flag_cpp0x && same_type_p (name, current_class_type))
+	return name;
       basetype = TYPE_MAIN_VARIANT (name);
       name = TYPE_NAME (name);
     }
   else if (TREE_CODE (name) == TYPE_DECL)
-    basetype = TYPE_MAIN_VARIANT (TREE_TYPE (name));
+    {
+      if (flag_cpp0x
+	  && same_type_p (TREE_TYPE (name), current_class_type))
+	return TREE_TYPE (name);
+      basetype = TYPE_MAIN_VARIANT (TREE_TYPE (name));
+    }
   else
     basetype = NULL_TREE;
 
@@ -1130,6 +1206,8 @@ build_aggr_init (tree exp, tree init, int flags)
 	TREE_TYPE (init) = itype;
       return stmt_expr;
     }
+
+  type = type_archetype (type);
 
   if (TREE_CODE (exp) == VAR_DECL || TREE_CODE (exp) == PARM_DECL)
     /* Just know that we've seen something for this node.  */

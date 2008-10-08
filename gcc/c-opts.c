@@ -398,7 +398,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warn_return_type = value;
       warn_sequence_point = value;	/* Was C only.  */
       if (c_dialect_cxx ())
-	warn_sign_compare = value;
+        warn_sign_compare = value;
       warn_switch = value;
       warn_strict_aliasing = value;
       warn_address = value;
@@ -427,6 +427,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
           warn_cxx0x_compat = value;
           if (value > 0)
             warn_write_strings = true;
+          warn_signature_shadow = value;
 	}
 
       cpp_opts->warn_trigraphs = value;
@@ -562,7 +563,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       if (!c_dialect_cxx ())
 	set_std_c89 (false, true);
       else
-	set_std_cxx98 (true);
+	set_std_cxx0x (true);
       break;
 
     case OPT_d:
@@ -1586,6 +1587,7 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
+  flag_cpp0x = 0;
 }
 
 /* Set the C++ 0x working draft "standard" (without GNU extensions if ISO).  */

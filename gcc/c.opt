@@ -398,6 +398,10 @@ Wsign-promo
 C++ ObjC++ Var(warn_sign_promo) Warning
 Warn when overload promotes from unsigned to signed
 
+Wsignature-shadow
+C++ ObjC++ Var(warn_signature_shadow)
+Warn about using declarations that shadow concept signatures in the requires clause.
+
 Wstrict-null-sentinel
 C++ ObjC++ Warning
 Warn about uncasted NULL used as sentinel
@@ -601,6 +605,10 @@ C++ ObjC++
 flax-vector-conversions
 C ObjC C++ ObjC++
 Allow implicit conversions between vectors with differing numbers of subparts and/or differing element types.
+
+flimit-concept-conversions
+C++ ObjC++ Var(flag_limit_concept_conversions) Init(0)
+Limit the kinds of conversions in implicitly-generated functions in concept maps.
 
 fms-extensions
 C ObjC C++ ObjC++

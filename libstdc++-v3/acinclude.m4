@@ -1564,23 +1564,6 @@ AC_DEFUN([GLIBCXX_ENABLE_ALLOCATOR], [
 
 
 dnl
-dnl Check for whether the Boost-derived checks should be turned on.
-dnl
-dnl --enable-concept-checks turns them on.
-dnl --disable-concept-checks leaves them off.
-dnl  +  Usage:  GLIBCXX_ENABLE_CONCEPT_CHECKS[(DEFAULT)]
-dnl       Where DEFAULT is either `yes' or `no'.
-dnl
-AC_DEFUN([GLIBCXX_ENABLE_CONCEPT_CHECKS], [
-  GLIBCXX_ENABLE(concept-checks,$1,,[use Boost-derived template checks])
-  if test $enable_concept_checks = yes; then
-    AC_DEFINE(_GLIBCXX_CONCEPT_CHECKS, 1,
-              [Define to use concept checking code from the boost libraries.])
-  fi
-])
-
-
-dnl
 dnl Check for which I/O library to use:  stdio, or something specific.
 dnl
 dnl Default is stdio.
