@@ -1,3 +1,37 @@
+2008-10-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-10-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/37731
+	* expmed.c (expand_mult): Properly check DImode constant in
+	CONST_DOUBLE.
+
+2008-09-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/conv_decimal.adb: New test.
+
+2008-09-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-09-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/37544
+	* gcc.dg/pr37544.c: New test.
+
+2008-08-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37101
+	* gcc.target/i386/pr37101.c: New test.
+
+2008-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/35432
+	* gcc.c-torture/compile/pr35432.c: New file.
+
 2008-05-29  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc.dg/nested-func-6.c: New test.
@@ -302,7 +336,7 @@
 	PR testsuite/30459
 	g++.dg/eh/ia64-2.C: Require weak support.
 
-2008-01-02  Volker Reichelt  <reichelt@netcologne.de>
+2008-01-02  Volker Reichelt  <v.reichelt@netcologne.de>
 
 	Backport:
 	2007-10-31  Paolo Carlini  <pcarlini@suse.de>
@@ -1394,7 +1428,7 @@
 	PR libfortran/31001
 	* gfortran.dg/zero_sized_3.f90: New test.
 
-2007-03-08  Volker Reichelt  <reichelt@netcologne.de>
+2007-03-08  Volker Reichelt  <v.reichelt@netcologne.de>
 
 	PR c++/30852
 	* g++.dg/ext/offsetof1.C: Add cases with volatile.
