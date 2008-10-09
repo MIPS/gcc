@@ -5269,7 +5269,7 @@ ia64_override_options (void)
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
 
-  if (optimize >= 2
+  if (optimize >= 3
       && ! sel_sched_switch_set)
     {
       flag_selective_scheduling2 = 1;
@@ -6150,15 +6150,6 @@ group_barrier_needed (rtx insn)
 	 asm.  */
       if (! need_barrier)
 	need_barrier = rws_access_regno (REG_VOLATILE, flags, 0);
-
-      if (mflag_stop_bit_before_check)
-        {
-          /* Force a barrier before a speculative check.  This is used to allow
-             more instructions to move through the check and to minimize
-             delaying of other instructions in case this checks stalls.  */
-          if (ia64_spec_check_p (insn))
-            need_barrier = 1;
-        }
 
       break;
 
@@ -7216,10 +7207,8 @@ ia64_set_sched_flags (spec_info_t spec_info)
     {
       int mask = 0;
 
-      if ((!sel_sched_p ()
-	   && ((mflag_sched_br_data_spec && !reload_completed && optimize > 0)
-	       || (mflag_sched_ar_data_spec && reload_completed)))
-	  || (sel_sched_p () && mflag_sel_sched_data_spec))
+      if ((mflag_sched_br_data_spec && !reload_completed && optimize > 0)
+          || (mflag_sched_ar_data_spec && reload_completed))
 	{
 	  mask |= BEGIN_DATA;
 
@@ -7229,10 +7218,9 @@ ia64_set_sched_flags (spec_info_t spec_info)
 	    mask |= BE_IN_DATA;
 	}
       
-      if ((!sel_sched_p () && mflag_sched_control_spec)
-	  || (sel_sched_p ()
-	      && reload_completed
-	      && mflag_sel_sched_control_spec))
+      if (mflag_sched_control_spec
+          && (!sel_sched_p ()
+	      && reload_completed))
 	{
 	  mask |= BEGIN_CONTROL;
 	  
@@ -9190,7 +9178,10 @@ ia64_reorg (void)
 
       if (flag_selective_scheduling2
 	  && !maybe_skip_selective_scheduling ())
+        {
+          mflag_sched_control_spec = 1;
 	  run_selective_scheduling ();
+        }
       else
 	schedule_ebbs ();
 

@@ -343,6 +343,8 @@ init_ttree (void)
   tree_contains_struct[CONST_DECL][TS_CONST_DECL] = 1;
   tree_contains_struct[TYPE_DECL][TS_TYPE_DECL] = 1;
   tree_contains_struct[FUNCTION_DECL][TS_FUNCTION_DECL] = 1;
+  tree_contains_struct[IMPORTED_DECL][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[IMPORTED_DECL][TS_DECL_COMMON] = 1;
 
   lang_hooks.init_ts ();
 }
@@ -2491,6 +2493,11 @@ contains_placeholder_p (const_tree exp)
 	  return (CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 0))
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 1))
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 2)));
+
+	case SAVE_EXPR:
+	  /* The save_expr function never wraps anything containing
+	     a PLACEHOLDER_EXPR. */
+	  return 0;
 
 	default:
 	  break;

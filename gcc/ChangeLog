@@ -1,3 +1,582 @@
+2008-10-06  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/mips.md (mulsi3_mul3, muldi3_mul3): Merge these ...
+	(mul<mode>3_mul3): ... into this new template.
+
+2008-10-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimplify.c (gimplify_arg): Add location argument.  Use it.
+	(gimplify_call_expr): Pass location to gimplify_arg.
+	(gimplify_modify_expr_to_memcpy): Same.
+	(gimplify_modify_expr_to_memset): Same.
+
+2008-10-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Update calls to build_unary_op and build_indirect_ref for location
+	changes.
+
+2008-10-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	build_modify_expr.
+	* c-decl.c (finish_decl): Pass input_location to build_unary_op.
+	* c-typeck.c (array_to_pointer_conversion): Pass location to
+	build_unary_op.
+	(function_to_pointer_conversion): Use error_at and warning_at.
+	(build_indirect_ref): Same.
+	(build_array_ref): Pass location to build_binary_op.
+	(parser_build_unary_op): Do not set location after calling
+	build_unary_op.
+	(build_unary_op): Add location argument.  Use it throughout.  Set
+	EXPR_LOCATION before returning new tree.
+	(build_modify_expr): Same.
+	(build_binary_op): Use location throughout.  Set EXPR_LOCATION before
+	returning node.
+	* c-omp.c (c_finish_omp_atomic): Pass location to build_unary_op,
+	build_indirect_ref, build_modify_expr.
+	(c_finish_omp_for): Same.  Use error_at instead of error.
+	* c-common.c (c_common_truthvalue_conversion): Pass location to
+	build_unary_op.
+	(warn_for_div_by_zero): Add location argument.
+	* c-common.h: Add argument to build_modify_expr, build_indirect_ref,
+	build_unary_op, warn_for_div_by_zero.
+	* c-parser.c (c_parser_typeof_specifier): Use
+	protected_set_expr_location.
+	(c_parser_statement_after_labels): Same.
+	(c_parser_condition): Same.
+	(c_parser_expr_no_commas): Pass correct location to build_modify_expr.
+	(c_parser_conditional_expression): Use protected_set_expr_location.
+	(c_parser_unary_expression): Pass location to build_indirect_ref.
+	(c_parser_postfix_expression_after_primary): Pass location to
+	build_indirect_ref, build_unary_op.
+	(c_parser_omp_for_loop): Set the increment expression's EXPR_LOCATION.
+
+2008-10-06  Joshua Kinard  <kumba@gentoo.org>
+
+	* doc/invoke.texi: List r1x000 family under the -march MIPS option.
+	* config/mips/mips.h (PROCESSOR_R10000): New processor_type.
+	* config/mips/mips.c (mips_cpu_info_table): Add r10000, r12000,
+	r14000 and r16000.
+	(mips_rtx_cost_data): Add a PROCESSOR_R10000 entry.
+	(mips_issue_rate): Handle PROCESSOR_R10000.
+	* config/mips/mips.md (cpu): Add r10000.
+	Include r10000.md.
+	* config/mips/10000.md: New file.
+
+2008-10-06  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_find_base_term): Declare.
+	* config/rs6000/rs6000.h (FIND_BASE_TERM): New macro.
+	* config/rs6000/rs6000.c (rs6000_find_base_term): New function.
+
+2008-10-06  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/darwin-protos.h (machopic_function_base_name): Delete.
+	(machopic_function_base_sym): Likewise.
+	(machopic_gen_offset): Declare.
+	* config/darwin.h (MACHOPIC_FUNCTION_BASE_NAME): New macro.
+	(ASM_OUTPUT_LABELREF): Use it instead of a hard-coded string constant.
+	* config/darwin.c (machopic_function_base_name): Delete.
+	(machopic_function_base_sym): Likewise.
+	(gen_pic_offset): Rename to...
+	(machopic_gen_offset): ...this and remove the pic_base argument.
+	Instead use MACHO_DYNAMIC_NO_PIC_P to decide whether a PIC offset
+	is needed.  Create an UNSPEC_MACHOPIC_OFFSET if so, and set
+	crtl->uses_pic_offset_table.
+	(machopic_indirect_data_reference): Use new machopic_gen_offset
+	interface.
+	(machopic_legitimize_pic_address): Likewise.
+	(machopic_operand_p): Check for UNSPEC_MACHOPIC_OFFSET.
+
+	* config/i386/darwin.h (GOT_SYMBOL_NAME): Use
+	MACHOPIC_FUNCTION_BASE_NAME instead of machopic_function_base_name.
+	* config/i386/i386.c (output_set_got): Likewise.
+	(darwin_local_data_pic): Check for an UNSPEC_MACHOPIC_OFFSET
+	instead of a MINUS.
+	(legitimate_pic_operand_p): Handle UNSPEC_MACHOPIC_OFFSET.
+	(legitimate_address_p): Likewise.
+	(output_pic_addr_const): Likewise.
+	(output_addr_const_extra): Likewise.
+	(ix86_delegitimize_address): Expect darwin_local_data_pic to
+	match an UNSPEC rather than a MINUS.
+	* config/i386/i386.md (UNSPEC_MACHOPIC_OFFSET): Define.
+	(builtin_setjmp_receiver): Use machopic_gen_offset.
+	* config/i386/predicates.md (pic_symbolic_operand): Handle
+	UNSPEC_MACHOPIC_OFFSET.
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address):
+	Use machopic_gen_offset and machopic_operand_p.
+	(rs6000_output_addr_const_extra): Handle UNSPEC_MACHOPIC_OFFSET.
+	(rs6000_emit_prologue): Use MACHOPIC_FUNCTION_BASE_NAME.
+	* config/rs6000/rs6000.md (UNSPEC_MACHOPIC_OFFSET): Define.
+	(builtin_setjmp_receiver): Use MACHOPIC_FUNCTION_BASE_NAME.
+	Set crtl->uses_pic_offset_table.
+
+2008-10-06  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_output_addr_const_extra):
+	Declare.
+	* config/rs6000/rs6000.h (OUTPUT_ADDR_CONST_EXTRA): New macro.
+	* config/rs6000/rs6000.md (UNSPEC_TOCREL): New constant.
+	* config/rs6000/rs6000.c (constant_pool_expr_1): Delete.
+	(constant_pool_expr_p): Use split_const and check the base.
+	(toc_relative_expr_p): Likewise, checking for an UNSPEC_TOCREL
+	instead of a MINUS.
+	(legitimate_constant_pool_address_p): Check toc_relative_p
+	instead of constant_pool_expr_p.
+	(print_operand_address): Always use output_addr_const for
+	constant pool addresses.
+	(rs6000_output_addr_const_extra): New function.
+	(create_TOC_reference): Create an UNSPEC_TOCREL instead of
+	a MINUS.
+
+2008-10-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/37535
+
+	* ira-lives.c (mark_reg_live, mark_reg_dead): New functions.
+	(mark_ref_live, mark_ref_dead): Use them.
+	(def_conflicts_with_inputs_p): Remove.
+	(mark_early_clobbers): New function.
+	(process_bb_node_lives): Call preprocess_constraints and
+	mark_early_clobbers.
+
+	* doc/rtx.texi (clobber): Change how RA deals with clobbers.
+
+2008-10-06  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/mingw32.h (REAL_LIBGCC_SPEC): Add thread cleanup
+	lib with -mthread switch.
+
+2008-10-05  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/37410
+	* dwarf2out.c (dwarf2out_imported_module_or_decl): Split this
+	function in two, making it call a new and reusable
+	dwarf2out_imported_module_or_decl() that takes the containing
+	BLOCK of the declaration in argument.
+	(dwarf2out_imported_module_or_decl_real): New function.
+	(decls_for_scope, gen_decl_die, dwarf2out_decl): Take
+	IMPORTED_DECL in account.
+	* tree.def: Added IMPORTED_DECL node type.
+	* tree.h: Added accessors for IMPORTED_DECL nodes.
+	* tree.c (init_ttree): Initialise IMPORTED_DECL node type.
+
+2008-10-05  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/gimple.texi: Fix some typos, wrap some long lines,
+	fix some broken wraps with continuations.
+	* tree-ssa-reassoc.c: Fix comment typos.
+
+2000-10-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/37603
+	* pa.c (legitimize_pic_address): Force function labels to memory in
+	word mode.
+
+2008-10-04  Anton Blanchard  <anton@samba.org>
+
+	* config/rs6000/rs6000.c (rs6000_emit_sync): Use gen_lwsync().
+	(rs6000_split_atomic_op): Same.
+	(rs6000_split_compare_and_swap): Same.
+	(rs6000_split_compare_and_swapqhi): Same.
+
+2008-10-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_reference_op_eq): Use types_compatible_p
+	instead of pointer equality.
+	(vn_nary_op_eq): Likewise.
+
+2008-10-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/rs6000.md (fseldfsf4): Add TARGET_SINGLE_FLOAT 
+	condition.
+	(fselsfdf4): Make condition on "TARGET_HARD_FLOAT && TARGET_FPRS &&
+	TARGET_DOUBLE_FLOAT && TARGET_SINGLE_FLOAT".
+
+2008-10-03  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/winnt.c (i386_pe_strip_name_encoding_full):
+	Revert previous change.
+
+2008-10-03  Tom Tromey  <tromey@redhat.com>
+
+	* stringpool.c (ggc_alloc_string): Terminate string.
+
+2008-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_function_tree): For -finstrument-functions
+	use gimple_bind_{,set_}block instead of gimple_{,set_}block.
+	* gimple.h (gimple_bind_set_block): Allow second argument to be NULL.
+
+	PR debug/37726
+	* gimplify.c (declare_vars): Use gimple_bind_block instead of
+	gimple_block.
+
+2008-10-03  Pascal Obry  <obry@adacore.com>
+
+	* gcov.c (create_file_names): Properly handle UNIX and DOS
+	directory separators.
+	(make_gcov_file_name): Likewise + convert the ':' DOS drive
+	separator to '~' to ensure clean filenames on Windows.
+
+2008-10-02  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/winnt.c (i386_pe_strip_name_encoding_full):
+	Add a null terminator to the stripped name.
+
+2008-10-02  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (USE_FP_FOR_ARG_P): Revert
+	TARGET_DOUBLE_FLOAT, TARGET_SINGLE_FLOAT.
+	(function_arg_advance): Condition on TARGET_DOUBLE_FLOAT,
+	TARGET_SINGLE_FLOAT.
+	Revert SCALAR_FLOAT_MODE_P condition.
+	(function_arg): Condition on TARGET_DOUBLE_FLOAT,
+	TARGET_SINGLE_FLOAT.
+	(rs6000_function_value): Revert TARGET_DOUBLE_FLOAT,
+	TARGET_SINGLE_FLOAT.
+
+2008-10-02  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* builtins.c (fold_builtin_pow): Check for 0 ** NEGATIVE.
+
+2008-10-02  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37713
+	* tree-ssa.c (useless_type_conversion_p_1): For COMPLEX_TYPE
+	and VECTOR_TYPE recurse with useless_type_conversion_p which
+	properly handles void pointer conversion.
+
+2008-10-02  Danny Smith  <dannysmith@users.sourceforge.net>  
+
+	PR target/37528
+	* config/i386/mingw32.h (LIBGCC_SPEC) : Replace with ..
+	(REAL_LIBGCC_SPEC): New.  Always include -lgcc.
+
+2008-10-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Handle ALTIVEC_BUILTIN_VEC_SPLATS, ALTIVEC_BUILTIN_VEC_PROMOTE,
+	ALTIVEC_BUILTIN_VEC_EXTRACT, and ALTIVEC_BUILTIN_VEC_INSERT specially,
+	they translate to non builtins.
+	* config/rs6000/rs6000.c (altivec_init_builtins): Add new variable
+	opaque_ftype_opaque.  Define builtins __builtin_vec_splats,
+	__builtin_vec_promote, __builtin_vec_extract, and
+	__builtin_vec_insert.
+	* config/rs6000/rs6000.h (enum rs6000_builtins): Add
+	ALTIVEC_BUILTIN_VEC_EXTRACT, ALTIVEC_BUILTIN_VEC_PROMOTE,
+	ALTIVEC_BUILTIN_VEC_INSERT, and ALTIVEC_BUILTIN_VEC_SPLATS.
+	* config/rs6000/altivec.h (vec_extract): Define
+	(vec_insert): Define.
+	(vec_splats): Define.
+	(vec_promote): Define.
+
+2008-10-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+            Yukishige Shibata  <shibata@rd.scei.sony.co.jp>
+            Trevor Smigiel  <Trevor_Smigiel@playstation.sony.com>
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add Cell
+	Altivec intrinsics.
+	* config/rs6000/rs6000.c (altivec_expand_lv_builtin): Delete
+	prototype.  Add new parameter, blk.
+	Use BLKmode for the MEM if blk is true.
+	(altivec_expand_builtin): Handle ALTIVEC_BUILTIN_STVLX,
+	ALTIVEC_BUILTIN_STVLXL, ALTIVEC_BUILTIN_STVRX, and
+	ALTIVEC_BUILTIN_STVRXL.
+	Update usage of altivec_expand_lv_builtin.
+	Handle ALTIVEC_BUILTIN_LVLX, ALTIVEC_BUILTIN_LVLXL,
+	ALTIVEC_BUILTIN_LVRX, and ALTIVEC_BUILTIN_LVRXL.
+	(altivec_init_builtins): If compiling for the Cell, also define the
+	cell VMX builtins.
+	* config/rs6000/rs6000.h (rs6000_builtins): Define
+	ALTIVEC_BUILTIN_LVLX, ALTIVEC_BUILTIN_LVLXL, ALTIVEC_BUILTIN_LVRX,
+	ALTIVEC_BUILTIN_LVRXL, ALTIVEC_BUILTIN_STVLX, ALTIVEC_BUILTIN_STVLXL,
+	ALTIVEC_BUILTIN_STVRX, ALTIVEC_BUILTIN_STVRXL,
+	ALTIVEC_BUILTIN_VEC_LVLX, ALTIVEC_BUILTIN_VEC_LVLXL,
+	ALTIVEC_BUILTIN_VEC_LVRX, ALTIVEC_BUILTIN_VEC_LVRXL,
+	ALTIVEC_BUILTIN_VEC_STVLX, ALTIVEC_BUILTIN_VEC_STVLXL,
+	ALTIVEC_BUILTIN_VEC_STVRX, and ALTIVEC_BUILTIN_VEC_STVRXL.
+	* config/rs6000/altivec.md (define_constants): Define UNSPEC_LVLX,
+	UNSPEC_LVLXL, UNSPEC_LVRX, UNSPEC_LVRXL, UNSPEC_STVLX, UNSPEC_STVLXL,
+	UNSPEC_STVRX, and UNSPEC_STVRXL.
+	(altivec_lvlx): New pattern.
+	(altivec_lvlxl): New pattern.
+	(altivec_lvrx): New pattern.
+	(altivec_lvrxl): New pattern.
+	(altivec_stvlx): New pattern.
+	(altivec_stvlxl): New pattern.
+	(altivec_stvrx): New pattern.
+	(altivec_stvrxl): New pattern.
+	* config/rs6000/altivec.h (vec_lvlx): Define if PPU is defined.
+	(vec_lvlxl): Likewise.
+	(vec_lvrx): Define if PPU is defined.
+	(vec_lvrxl): Likewise.
+	(vec_stvlx): Define if PPU is defined.
+	(vec_stvlxl): Likewise.
+	(vec_stvrx): Define if PPU is defined.
+	(vec_stvrxl): Likewise.
+
+2008-10-01  Geert Bosch  <bosch@adacore.com>
+
+	* tree.c (contains_placeholder_p): Return 0 for a SAVE_EXPR.
+
+2008-10-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37617
+	* tree-ssa-pre.c (create_expression_by_pieces): During FRE
+	do not add to the NEW_SETS.
+
+2008-10-01  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37285
+	* tree-vrp.c (execute_vrp): If we optimized away the default
+	case make sure to promote the label that got in place of it
+	to a default case label.
+
+2008-10-01  Richard Henderson  <rth@redhat.com>
+
+	PR tree-opt/35737
+	* tree-complex.c (set_component_ssa_name): Don't optimize
+	is_gimple_min_invariant values with ssa_names in abnormal phis.
+
+2008-09-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/37662
+	* tree-ssa-ccp.c (fold_gimple_assign): Invert the operands of a
+	commutative binary operation if they are in the wrong order and
+	fold_build2 produces non-GIMPLE.
+
+2008-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/37662
+	PR tree-optimization/37663
+	* tree-vrp.c (simplify_truth_ops_using_ranges): Don't call
+	get_value_range with non-SSA_NAME.  Don't assert operands have been
+	folded, instead just bail out.
+
+2008-09-30  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/rs6000.md (fnmadds combiner): Revert typo.
+
+2008-09-30  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37491
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Properly
+	build restrict-qualified pointers.
+	(vectorizable_store): Move alias check later.
+	(vectorizable_load): Likewise.
+
+2008-09-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* c-common.c (empty_if_body_warning): Remove.
+	* c-common.h (empty_if_body_warning): Remove.
+	* c-parser.c (c_parser_if_body, c_parser_else_body): Implement
+	here the -Wempty-body warning for `if' and `else' statements.
+	* c-typeck.c (c_finish_if_stmt): Do not call empty_body_warning.
+
+2008-09-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.opt: Add msse2avx.
+
+	* config/i386/linux.h (ASM_SPEC): New.  Support -msse2avx.
+	* config/i386/linux64.h (ASM_SPEC): Likewise.
+
+	* doc/invoke.texi: Document -msse2avx.
+
+2008-09-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dwarf2out.c (constant_size): Use HOST_WIDE_INT in parameter type.
+
+2008-09-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* ifcvt.c (noce_emit_store_flag): If using condition from original
+	jump, reverse it if if_info->cond was reversed.
+
+2008-09-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Force op0 to
+	non-constant memory if it cannot be forced to constant memory.
+	Overhaul surrounding code and factor out common condition.
+
+2008-09-29  Jeff Law <law@redhat.com>
+
+	* reload1.c (alter_reg): Add missing curly braces.
+
+2008-09-29  Michael J. Eager  <eager@eagercon.com>
+
+	* config/rs6000/predicates.md (easy_fp_constant): Single FP consts
+	are easy.
+	* config/rs6000/rs6000.c (rs6000_override_options): Move
+	rs6000_init_hard_regno_mode_ok after all options changed.
+	Set rs6000_single_float, rs6000_double_float if TARGET_HARD_FLOAT.
+	(rs6000_handle_option): Process -msingle-float, -mdouble-float,
+	-msimple-fpu flags.  Add warning messages if single FP not configured.
+	(rs6000_file_start): Output gnu_attribute for single-float.
+	(legitimate_lo_sum_address_p): Condition on TARGET_DOUBLE_FLOAT.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_emit_move): Condition on TARGET_DOUBLE_FLOAT,
+	TARGET_SINGLE_FLOAT.
+	(function_arg_advance): Likewise (partial conversion).
+	(setup_incoming_varargs): Condition on TARGET_DOUBLE_FLOAT.
+	(rs6000_gimplify_va_arg): Condition on TARGET_DOUBLE_FLOAT,
+	TARGET_SINGLE_FLOAT.
+	(rs6000_split_multireg_move): Condition on TARGET_DOUBLE_FLOAT.
+	(rs6000_emit_prologue): Likewise.
+	(rs6000_function_value): Condition on TARGET_DOUBLE_FLOAT,
+	TARGET_SINGLE_FLOAT.
+	(rs6000_libcall_value): Likewise.
+	* config/rs6000/rs6000.h (TARGET_SINGLE_FLOAT): New default to 1.
+	(TARGET_DOUBLE_FLOAT): New default to 1
+	(TARGET_SIMPLE_FPU): New default to 0
+	(TARGET_SINGLE_FPU): New default to 0
+	(TARGET_SINGLE_FLOAT_MODE): New.
+	(TARGET_DOUBLE_FLOAT_MODE): New.
+	* config/rs6000/singlefp.h: New; redefine TARGET_SINGLE_FLOAT,
+	TARGET_DOUBLE_FLOAT, TARGET_SIMPLE_FPU, TARGET_SINGLE_FPU,
+	UNITS_PER_FP_WORD
+	* config/rs6000/rs6000.md (define_mode_iterator): Condition on
+	TARGET_DOUBLE_FLOAT, TARGET_SINGLE_FLOAT.
+	(extendsfdf2, extendsfdf2_fpr, truncdfsf2, truncdfsf2_fpr,
+	copysigndf3,fseldfsf4, negdf2, negdf2_fpr, absdf2, absdf2_fpr,
+	nabsdf2_fpr, adddf3, adddf3_fpr, subdf3, subdf3_fpr, muldf3,
+	muldf3_fpr, divdf3, divdf3_fpr, sqrtdf2, smaxdf3, smindf3,
+	movdfcc, *fseldfdf4, floatsidf2, *floatsidf2_internal,
+	floatunssidf2, *floatunssidf2_internal, fix_truncdfsi2,
+	*fix_truncdfsi2_internal, fix_truncdfsi2_internal_gfxopt,
+	fix_truncdfsi2_mfpgpr, fctiwz, btruncdf2, ceildf2, floordf2,
+	rounddf2, floatdidf2, floatsidf_ppc64_mfpgpr, floatsidf_ppc64,
+	floatunssidf_ppc64, fix_truncdfdi2, movdf_hardfloat32,
+	movdf_hardfloat64_mfpgpr, movdf_hardfloat64, extenddftf2_fprs,
+	extenddftf2_internal, trunctfdf2_internal2, fix_trunc_helper,
+	abstf2_internal, movdf_update1, movdf_update2, cmpdf_internal1,
+	cmptf_internal1, *cmptf_internal2): Condition on
+	TARGET_DOUBLE_FLOAT.
+	(aux_truncdfsf2, negsf2, *negsf2, abssf2, *abssf2, addsf3, subsf3,
+	mulsf3, divsf3, sqrtsf2, copysignsf3, smaxsf3, sminsf3, movsfcc,
+	*fselsfsf4, fixuns_truncsfsi2, fix_truncsfsi2, floatunssisf2,
+	btruncsf2, ceilsf2, floorsf2, roundsf2, floatdisf2_internal1,
+	floatdisf2_internal2, *movsf_hardfloat, trunctfsf2_fprs,
+	*movsf_update1, *movsf_update2, *cmpsf_internal1): Condition on
+	TARGET_SINGLE_FLOAT.
+	(divsf3, sqrtsf2, divdf3, divdf3_fpr): Condition on TARGET_SIMPLE_FPU.
+	* config/rs6000/rs6000.opt (-msingle-float): New.
+	(-mdouble-float): New.
+	(-msimple-fpu): New.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Add
+	-msingle-float, -mdouble-float, -msimple-fpu options.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Set
+	_SOFT_DOUBLE for -msingle-float.
+	* config.gcc: New config for target=powerpc-xilinx-eabi.
+
+2008-09-29  Tobias Grosser  <grosser@fim.uni-passau.de>
+
+	* graphite.c (dot_all_scops_1): Remove unused checks. SCoPs always
+	have exit and entry.
+	(new_scop): Take entry and exit edge to define new SCoP.
+	(sd_region_p): New structure used during SCoP detection.
+	(move_scops): Delete.
+	(move_sd_regions): New.
+	(scopdet_info): Change the definition from edges back to basic_blocks.
+	(scopdet_edge_info):  Work on basic_blocks and rename to
+	scopdet_basic_block_info.
+	(split_difficult_bb): At the moment removed. We should later
+	add it at another place.
+	(build_scops_1): Work on basic_blocks.
+	(bb_in_sd_region): New.
+	(find_single_entry_edge): New.
+	(find_single_exit_edge): New.
+	(create_single_entry_edge): New.
+	(sd_region_without_exit): New.
+	(create_single_exit_edge): New.
+	(unmark_exit_edges): New.
+	(mark_exit_edges): New.
+	(create_sese_edges): New.
+	(build_graphite_scops): New.
+	(build_scops): Make SCoPs SESE.
+	(limit_scops): Use the new functions.
+
+2008-09-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.h (IRA_COVER_CLASSES): Define.
+
+2008-09-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR target/37640
+	* config/rs6000/rs6000.c (rs6000_expand_compare_and_swapqhi): Force
+	address to a register before taking the lower part.
+
+2008-09-28  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.h (OVERRIDE_OPTIONS): Unset flag_dwarf2_cfi_asm
+	for SHmedia.
+
+2008-09-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+	    Kaushal Kantawala  <kaushal_kantawala@playstation.sony.com>
+
+	PR tree-opt/36891
+	* tree-ssa-loop-im.c (rewrite_reciprocal): Set DECL_GIMPLE_REG_P on
+	the newly created variable.
+	Create a VECTOR_CST of all 1s for vector types.
+
+2008-09-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/36575
+	* fold-const.c (div_and_round_double) <ROUND_DIV_EXPR>: Fix typo.
+
+2008-09-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expmed.c (store_fixed_bit_field): Always use convert_to_mode in
+	order to convert between modes.
+	(extract_bit_field_1): Test TRULY_NOOP_TRUNCATION on the right mode.
+
+2008-09-27  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_gimplify_va_arg_expr): Use VIEW_CONVERT_EXPR
+	if needed.
+
+2008-09-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Revert:
+	2008-09-25  Vladimir Makarov  <vmakarov@redhat.com>
+	* ira-lives.c:...
+	* doc/rtl.texi:...
+
+2008-09-26  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/mips.h (ISA_HAS_DMUL3, ISA_HAS_BADDU, ISA_HAS_BBIT,
+	ISA_HAS_CINS, ISA_HAS_EXTS, ISA_HAS_SEQ_SNE, ISA_HAS_POP): Change
+	them to yield false with MIPS16.
+
+2008-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/37275
+	* dwarf2out.c (tls_mem_loc_descriptor): New function.
+	(mem_loc_descriptor): Use it for MEM.  For PLUS fail if second
+	mem_loc_descriptor failed.  Accept UNSPEC.
+	(loc_descriptor): Use tls_mem_loc_descriptor for MEM.  For PARALLEL
+	fail if one of the loc_descriptor calls for pieces failed.
+	(loc_descriptor_from_tree_1): Handle even DECL_EXTERNAL __thread vars,
+	as long as they bind locally.  For COMPONENT_REF, ARRAY_REF etc. fail
+	if loc_descriptor_from_tree_1 on offset failed.
+
+	PR middle-end/37576
+	* opts.c (common_handle_option): Don't call print_specific_help with
+	CL_SAVE as first argument.
+
+2008-09-26  Peter O'Gorman  <pogma@thewrittenword.com>
+	    Steve Ellcey  <sje@cup.hp.com>
+
+	* configure: Regenerate for new libtool.
+	* aclocal.m4: Ditto.
+
+2008-09-26  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_allocate_stack): Use correct
+	alias set on MEM when saving stack pointer.
+	* config/rs6000/rs6000.md (allocate_stack): Likewise
+
 2008-09-26  Dorit Nuzman  <dorit@il.ibm.com>
 
 	PR tree-optimization/37574
@@ -486,11 +1065,12 @@
 	(xtensa_legitimize_address): Handle TLS symbols.
 	(xtensa_tls_referenced_p_1): New.
 	(xtensa_tls_referenced_p): New.
-	(xtensa_output_addr_const_extra): Handle UNSPEC_TPOFF and UNSPEC_DTPOFF.
+	(xtensa_output_addr_const_extra): Handle UNSPEC_TPOFF and
+	UNSPEC_DTPOFF.
 	(XTENSA_BUILTIN_THREAD_POINTER): New.
 	(XTENSA_BUILTIN_SET_THREAD_POINTER): New.
-	(xtensa_init_builtins): Set NOTHROW and READONLY for umulsidi3 builtin.
-	Add declarations for __builtin_thread_pointer and
+	(xtensa_init_builtins): Set NOTHROW and READONLY for umulsidi3
+	builtin.  Add declarations for __builtin_thread_pointer and
 	__builtin_set_thread_pointer.
 	(xtensa_fold_builtin): Recognize new builtins.
 	(xtensa_expand_builtin): Expand new builtins.
@@ -541,10 +1121,11 @@
 	(get_reference_vars_info): ... this one, use cgraph uids.
 	(get_local_reference_vars_info, get_global_reference_vars_info):
 	Use cgraph instead of decl.
-	(ipa_reference_get_read_local, ipa_reference_get_written_local): Remove.
+	(ipa_reference_get_read_local, ipa_reference_get_written_local):
+	Remove.
 	(ipa_reference_get_read_global, ipa_reference_get_not_read_global
-	ipa_reference_get_written_global, ipa_reference_get_not_written_global): Use
-	cgraph argument.
+	ipa_reference_get_written_global,
+	ipa_reference_get_not_written_global): Use cgraph argument.
 	(check_call): Simplify avail check.
 	(scan_stmt_for_static_refs): Update.
 	(propagate_bits): Update.
@@ -564,8 +1145,8 @@
 	(ipa_reference_get_read_local, ipa_reference_get_written_local):
 	Remove.
 	(ipa_reference_get_read_global, ipa_reference_get_written_global,
-	ipa_reference_get_not_read_global, ipa_reference_get_not_written_global):
-	Update prototype.
+	ipa_reference_get_not_read_global,
+	ipa_reference_get_not_written_global): Update prototype.
 	* ipa-pure-const.c (funct_state_vec): Turn into VECtor.
 	(init_state): Remove.
 	(node_duplication_hook_holder, node_removal_hook_holder): New.
@@ -574,14 +1155,15 @@
 	(add_new_function): Likewise.
 	(duplicate_node_data, remove_node_data): New.
 	(generate_summary): Register hooks; do not care about clones.
-	(propafate): Do not care about clones; recursive functions are not looping.
+	(propafate): Do not care about clones; recursive functions are
+	not looping.
 	* ipa-utils.c (searchc, ipa_utils_reduced_inorder): Do not skip clones.
 	* ipa-prop.c (edge_removal_hook_holder, node_removal_hook_holder,
 	* edge_duplication_hook_holder, node_duplication_hook_holder): Make
 	static.
 	* tree-flow.h (function_ann_d): Remove reference_vars_info.
-	* tree-ssa-opreands.c (add_call_clobber_ops, add_call_read_ops): Update call of
-	ipa-reference accesors.
+	* tree-ssa-opreands.c (add_call_clobber_ops, add_call_read_ops):
+	Update call of ipa-reference accesors.
 
 2008-09-18  Simon Baldwin  <simonb@google.com>
 
@@ -1305,12 +1887,12 @@
 2008-09-10  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/37385
-	* tree-vect-transform.c (vect_create_data_ref_ptr): Add a new argument,
-	and use it as a vector type if not NULL.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Add a new
+	argument, and use it as a vector type if not NULL.
 	(vectorizable_store): Call vect_create_data_ref_ptr with the type of
 	vectorized rhs.
-	(vect_setup_realignment): Call vect_create_data_ref_ptr with additional
-	argument.
+	(vect_setup_realignment): Call vect_create_data_ref_ptr with
+	additional argument.
 	(vectorizable_load): Likewise.
 
 2008-09-10  Jakub Jelinek  <jakub@redhat.com>
@@ -1359,8 +1941,8 @@
 	(update_call_notes_after_inlining): Likewise.  Push new indirect edge
 	to *new_edges instead of new_edges.  Reread IPA_EDGE_REF after
 	ipa_check_create_edge_args.
-	* ipa-inline.c (cgraph_decide_recursive_inlining): Change last argument
-	to pointer to vector pointer.
+	* ipa-inline.c (cgraph_decide_recursive_inlining): Change last
+	argument to pointer to vector pointer.
 	(cgraph_decide_inlining_of_small_function): Adjust
 	cgraph_decide_recursive_inlining and ipa_propagate_indirect_call_infos
 	calls.

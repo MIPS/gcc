@@ -358,18 +358,6 @@ mark_early_clobbers (rtx insn, bool live_p)
   int def;
   struct df_ref **def_rec;
   bool set_p = false;
-  bool asm_p = asm_noperands (PATTERN (insn)) >= 0;
-
-  if (asm_p)
-    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-      if (DF_REF_FLAGS_IS_SET (*def_rec, DF_REF_MUST_CLOBBER))
-	{
-	  if (live_p)
-	    mark_ref_live (*def_rec);
-	  else
-	    mark_ref_dead (*def_rec);
-	  set_p = true;
-	}
 
   for (def = 0; def < recog_data.n_operands; def++)
     {
@@ -394,6 +382,27 @@ mark_early_clobbers (rtx insn, bool live_p)
 	mark_reg_dead (dreg);
       set_p = true;
     }
+
+  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+    if (DF_REF_FLAGS_IS_SET (*def_rec, DF_REF_MUST_CLOBBER))
+      {
+	rtx dreg = DF_REF_REG (*def_rec);
+	
+	if (GET_CODE (dreg) == SUBREG)
+	  dreg = SUBREG_REG (dreg);
+	if (! REG_P (dreg) || REGNO (dreg) >= FIRST_PSEUDO_REGISTER)
+	  continue;
+
+	/* Hard register clobbers are believed to be early clobber
+	   because there is no way to say that non-operand hard
+	   register clobbers are not early ones.  */ 
+	if (live_p)
+	  mark_ref_live (*def_rec);
+	else
+	  mark_ref_dead (*def_rec);
+	set_p = true;
+      }
+
   return set_p;
 }
 
@@ -794,7 +803,15 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  process_single_reg_class_operands (true, freq);
 	  
 	  if (set_p)
-	    mark_early_clobbers (insn, false);
+	    {
+	      mark_early_clobbers (insn, false);
+
+	      /* Mark each used value as live again.  For example, a
+		 hard register can be in clobber and in an insn
+		 input.  */
+	      for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
+		mark_ref_live (*use_rec);
+	    }
 
 	  curr_point++;
 	}

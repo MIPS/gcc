@@ -1,3 +1,13 @@
+2008-10-09  Andrey Belevantsev  <abel@ispras.ru>
+
+	Merge with trunk rev. 140935.
+
+	* config/ia64/ia64.opt (msel-sched-data-spec, msel-sched-control-spec,
+	mstop-bit-before-check): Remove.
+	(ia64_set_sched_flags): When determining supported speculation types,
+	use only msched-* flags.
+	(ia64_reorg): Enable control speculation for selective scheduling.
+
 2008-09-26  Alexander Monakov  <amonakov@ispras.ru>
 	* config/ia64/ia64.c (get_mode_no_for_insn): Fix thinko.
 

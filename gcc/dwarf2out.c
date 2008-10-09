@@ -4489,6 +4489,8 @@ static bool dwarf2out_ignore_block (const_tree);
 static void dwarf2out_global_decl (tree);
 static void dwarf2out_type_decl (tree, int);
 static void dwarf2out_imported_module_or_decl (tree, tree, tree, bool);
+static void dwarf2out_imported_module_or_decl_1 (tree, tree, tree,
+						 dw_die_ref);
 static void dwarf2out_abstract_function (tree);
 static void dwarf2out_var_location (rtx);
 static void dwarf2out_begin_function (tree);
@@ -4990,7 +4992,7 @@ static void record_comdat_symbol_number (dw_die_ref, htab_t, unsigned);
 static void add_sibling_attributes (dw_die_ref);
 static void build_abbrev_table (dw_die_ref);
 static void output_location_lists (dw_die_ref);
-static int constant_size (long unsigned);
+static int constant_size (unsigned HOST_WIDE_INT);
 static unsigned long size_of_die (dw_die_ref);
 static void calc_die_sizes (dw_die_ref);
 static void mark_dies (dw_die_ref);
@@ -7507,7 +7509,7 @@ build_abbrev_table (dw_die_ref die)
 /* Return the power-of-two number of bytes necessary to represent VALUE.  */
 
 static int
-constant_size (long unsigned int value)
+constant_size (unsigned HOST_WIDE_INT value)
 {
   int log;
 
@@ -9890,6 +9892,48 @@ concatn_mem_loc_descriptor (rtx concatn, enum machine_mode mode,
   return cc_loc_result;
 }
 
+/* Try to handle TLS MEMs, for which mem_loc_descriptor on XEXP (mem, 0)
+   failed.  */
+
+static dw_loc_descr_ref
+tls_mem_loc_descriptor (rtx mem)
+{
+  tree base;
+  dw_loc_descr_ref loc_result, loc_result2;
+
+  if (MEM_EXPR (mem) == NULL_TREE || MEM_OFFSET (mem) == NULL_RTX)
+    return NULL;
+
+  base = get_base_address (MEM_EXPR (mem));
+  if (base == NULL
+      || TREE_CODE (base) != VAR_DECL
+      || !DECL_THREAD_LOCAL_P (base))
+    return NULL;
+
+  loc_result = loc_descriptor_from_tree_1 (MEM_EXPR (mem), 2);
+  if (loc_result == NULL)
+    return NULL;
+
+  if (INTVAL (MEM_OFFSET (mem)))
+    {
+      if (INTVAL (MEM_OFFSET (mem)) >= 0)
+	add_loc_descr (&loc_result,
+		       new_loc_descr (DW_OP_plus_uconst,
+				      INTVAL (MEM_OFFSET (mem)), 0));
+      else
+	{
+	  loc_result2 = mem_loc_descriptor (MEM_OFFSET (mem), GET_MODE (mem),
+					    VAR_INIT_STATUS_INITIALIZED);
+	  if (loc_result2 == 0)
+	    return NULL;
+	  add_loc_descr (&loc_result, loc_result2);
+	  add_loc_descr (&loc_result, new_loc_descr (DW_OP_plus, 0, 0));
+	}
+    }
+
+  return loc_result;
+}
+
 /* The following routine converts the RTL for a variable or parameter
    (resident in memory) into an equivalent Dwarf representation of a
    mechanism for getting the address of that same variable onto the top of a
@@ -9963,6 +10007,8 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
     case MEM:
       mem_loc_result = mem_loc_descriptor (XEXP (rtl, 0), GET_MODE (rtl),
 					   VAR_INIT_STATUS_INITIALIZED);
+      if (mem_loc_result == NULL)
+	mem_loc_result = tls_mem_loc_descriptor (rtl);
       if (mem_loc_result != 0)
 	add_loc_descr (&mem_loc_result, new_loc_descr (DW_OP_deref, 0, 0));
       break;
@@ -10045,9 +10091,12 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 					  INTVAL (XEXP (rtl, 1)), 0));
 	  else
 	    {
-	      add_loc_descr (&mem_loc_result,
-			     mem_loc_descriptor (XEXP (rtl, 1), mode,
-						 VAR_INIT_STATUS_INITIALIZED));
+	      dw_loc_descr_ref mem_loc_result2
+		= mem_loc_descriptor (XEXP (rtl, 1), mode,
+				      VAR_INIT_STATUS_INITIALIZED);
+	      if (mem_loc_result2 == 0)
+		break;
+	      add_loc_descr (&mem_loc_result, mem_loc_result2);
 	      add_loc_descr (&mem_loc_result,
 			     new_loc_descr (DW_OP_plus, 0, 0));
 	    }
@@ -10095,6 +10144,12 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
     case CONCATN:
       mem_loc_result = concatn_mem_loc_descriptor (rtl, mode,
 						   VAR_INIT_STATUS_INITIALIZED);
+      break;
+
+    case UNSPEC:
+      /* If delegitimize_address couldn't do anything with the UNSPEC, we
+	 can't express it in the debug info.  This can happen e.g. with some
+	 TLS UNSPECs.  */
       break;
 
     default:
@@ -10193,6 +10248,8 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
     case MEM:
       loc_result = mem_loc_descriptor (XEXP (rtl, 0), GET_MODE (rtl),
 				       initialized);
+      if (loc_result == NULL)
+	loc_result = tls_mem_loc_descriptor (rtl);
       break;
 
     case CONCAT:
@@ -10225,6 +10282,8 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
 	/* Create the first one, so we have something to add to.  */
 	loc_result = loc_descriptor (XEXP (RTVEC_ELT (par_elems, 0), 0),
 				     initialized);
+	if (loc_result == NULL)
+	  return NULL;
 	mode = GET_MODE (XEXP (RTVEC_ELT (par_elems, 0), 0));
 	add_loc_descr_op_piece (&loc_result, GET_MODE_SIZE (mode));
 	for (i = 1; i < num_elem; i++)
@@ -10233,6 +10292,8 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
 
 	    temp = loc_descriptor (XEXP (RTVEC_ELT (par_elems, i), 0),
 				   initialized);
+	    if (temp == NULL)
+	      return NULL;
 	    add_loc_descr (&loc_result, temp);
 	    mode = GET_MODE (XEXP (RTVEC_ELT (par_elems, i), 0));
 	    add_loc_descr_op_piece (&loc_result, GET_MODE_SIZE (mode));
@@ -10311,7 +10372,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	       /* The way DW_OP_GNU_push_tls_address is specified, we
 	     	  can only look up addresses of objects in the current
 	     	  module.  */
-	      if (DECL_EXTERNAL (loc))
+	      if (DECL_EXTERNAL (loc) && !targetm.binds_local_p (loc))
 		return 0;
 	      first_op = INTERNAL_DW_OP_tls_addr;
 	      second_op = DW_OP_GNU_push_tls_address;
@@ -10433,7 +10494,10 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	if (offset != NULL_TREE)
 	  {
 	    /* Variable offset.  */
-	    add_loc_descr (&ret, loc_descriptor_from_tree_1 (offset, 0));
+	    ret1 = loc_descriptor_from_tree_1 (offset, 0);
+	    if (ret1 == 0)
+	      return 0;
+	    add_loc_descr (&ret, ret1);
 	    add_loc_descr (&ret, new_loc_descr (DW_OP_plus, 0, 0));
 	  }
 
@@ -14856,6 +14920,9 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
 	  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl)
 	      && !(is_fortran () && TREE_PUBLIC (decl)))
 	    ;
+	  else if (TREE_CODE (decl) == IMPORTED_DECL)
+	    dwarf2out_imported_module_or_decl_1 (decl, DECL_NAME (decl),
+						 stmt, context_die);
 	  else
 	    gen_decl_die (decl, context_die);
 	}
@@ -15247,6 +15314,7 @@ gen_decl_die (tree decl, dw_die_ref context_die)
       break;
 
     case NAMESPACE_DECL:
+    case IMPORTED_DECL:
       gen_namespace_die (decl);
       break;
 
@@ -15281,6 +15349,92 @@ dwarf2out_type_decl (tree decl, int local)
 }
 
 /* Output debug information for imported module or decl DECL.
+   NAME is non-NULL name in the lexical block if the decl has been renamed.
+   LEXICAL_BLOCK is the lexical block (which TREE_CODE is a BLOCK)
+   that DECL belongs to.
+   LEXICAL_BLOCK_DIE is the DIE of LEXICAL_BLOCK.  */
+static void
+dwarf2out_imported_module_or_decl_1 (tree decl,
+				     tree name,
+				     tree lexical_block,
+				     dw_die_ref lexical_block_die)
+{
+  expanded_location xloc;
+  dw_die_ref imported_die = NULL;
+  dw_die_ref at_import_die;
+
+  if (TREE_CODE (decl) == TYPE_DECL || TREE_CODE (decl) == CONST_DECL)
+    {
+      if (is_base_type (TREE_TYPE (decl)))
+	at_import_die = base_type_die (TREE_TYPE (decl));
+      else
+	at_import_die = force_type_die (TREE_TYPE (decl));
+      /* For namespace N { typedef void T; } using N::T; base_type_die
+	 returns NULL, but DW_TAG_imported_declaration requires
+	 the DW_AT_import tag.  Force creation of DW_TAG_typedef.  */
+      if (!at_import_die)
+	{
+	  gcc_assert (TREE_CODE (decl) == TYPE_DECL);
+	  gen_typedef_die (decl, get_context_die (DECL_CONTEXT (decl)));
+	  at_import_die = lookup_type_die (TREE_TYPE (decl));
+	  gcc_assert (at_import_die);
+	}
+    }
+  else if (TREE_CODE (decl) == IMPORTED_DECL)
+    {
+      tree imported_ns_decl;
+      /* IMPORTED_DECL nodes that are not imported namespace are just not
+         supported yet.  */
+      gcc_assert (DECL_INITIAL (decl)
+		  && TREE_CODE (DECL_INITIAL (decl)) == NAMESPACE_DECL);
+      imported_ns_decl = DECL_INITIAL (decl);
+      at_import_die = lookup_decl_die (imported_ns_decl);
+      if (!at_import_die)
+	at_import_die = force_decl_die (imported_ns_decl);
+      gcc_assert (at_import_die);
+    }
+  else
+    {
+      at_import_die = lookup_decl_die (decl);
+      if (!at_import_die)
+	{
+	  /* If we're trying to avoid duplicate debug info, we may not have
+	     emitted the member decl for this field.  Emit it now.  */
+	  if (TREE_CODE (decl) == FIELD_DECL)
+	    {
+	      tree type = DECL_CONTEXT (decl);
+
+	      if (TYPE_CONTEXT (type)
+		  && TYPE_P (TYPE_CONTEXT (type))
+		  && !should_emit_struct_debug (TYPE_CONTEXT (type),
+						DINFO_USAGE_DIR_USE))
+		return;
+	      gen_type_die_for_member (type, decl,
+				       get_context_die (TYPE_CONTEXT (type)));
+	    }
+	  at_import_die = force_decl_die (decl);
+	}
+    }
+
+  if (TREE_CODE (decl) == NAMESPACE_DECL)
+    imported_die = new_die (DW_TAG_imported_module,
+			    lexical_block_die,
+			    lexical_block);
+  else
+    imported_die = new_die (DW_TAG_imported_declaration,
+			    lexical_block_die,
+			    lexical_block);
+
+  xloc = expand_location (input_location);
+  add_AT_file (imported_die, DW_AT_decl_file, lookup_filename (xloc.file));
+  add_AT_unsigned (imported_die, DW_AT_decl_line, xloc.line);
+  if (name)
+    add_AT_string (imported_die, DW_AT_name,
+		   IDENTIFIER_POINTER (name));
+  add_AT_die_ref (imported_die, DW_AT_import, at_import_die);
+}
+
+/* Output debug information for imported module or decl DECL.
    NAME is non-NULL name in context if the decl has been renamed.
    CHILD is true if decl is one of the renamed decls as part of
    importing whole module.  */
@@ -15289,9 +15443,8 @@ static void
 dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
 				   bool child)
 {
-  dw_die_ref imported_die, at_import_die;
+  /* dw_die_ref at_import_die;  */
   dw_die_ref scope_die;
-  expanded_location xloc;
 
   if (debug_info_level <= DINFO_LEVEL_TERSE)
     return;
@@ -15318,59 +15471,9 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
       scope_die = scope_die->die_child;
     }
 
-  /* For TYPE_DECL or CONST_DECL, lookup TREE_TYPE.  */
-  if (TREE_CODE (decl) == TYPE_DECL || TREE_CODE (decl) == CONST_DECL)
-    {
-      if (is_base_type (TREE_TYPE (decl)))
-	at_import_die = base_type_die (TREE_TYPE (decl));
-      else
-	at_import_die = force_type_die (TREE_TYPE (decl));
-      /* For namespace N { typedef void T; } using N::T; base_type_die
-	 returns NULL, but DW_TAG_imported_declaration requires
-	 the DW_AT_import tag.  Force creation of DW_TAG_typedef.  */
-      if (!at_import_die)
-	{
-	  gcc_assert (TREE_CODE (decl) == TYPE_DECL);
-	  gen_typedef_die (decl, get_context_die (DECL_CONTEXT (decl)));
-	  at_import_die = lookup_type_die (TREE_TYPE (decl));
-	  gcc_assert (at_import_die);
-	}
-    }
-  else
-    {
-      at_import_die = lookup_decl_die (decl);
-      if (!at_import_die)
-	{
-	  /* If we're trying to avoid duplicate debug info, we may not have
-	     emitted the member decl for this field.  Emit it now.  */
-	  if (TREE_CODE (decl) == FIELD_DECL)
-	    {
-	      tree type = DECL_CONTEXT (decl);
-
-	      if (TYPE_CONTEXT (type)
-		  && TYPE_P (TYPE_CONTEXT (type))
-		  && !should_emit_struct_debug (TYPE_CONTEXT (type),
-						DINFO_USAGE_DIR_USE))
-		return;
-	      gen_type_die_for_member (type, decl,
-				       get_context_die (TYPE_CONTEXT (type)));
-	    }
-	  at_import_die = force_decl_die (decl);
-	}
-    }
-
   /* OK, now we have DIEs for decl as well as scope. Emit imported die.  */
-  if (TREE_CODE (decl) == NAMESPACE_DECL)
-    imported_die = new_die (DW_TAG_imported_module, scope_die, context);
-  else
-    imported_die = new_die (DW_TAG_imported_declaration, scope_die, context);
+  dwarf2out_imported_module_or_decl_1 (decl, name, context, scope_die);
 
-  xloc = expand_location (input_location);
-  add_AT_file (imported_die, DW_AT_decl_file, lookup_filename (xloc.file));
-  add_AT_unsigned (imported_die, DW_AT_decl_line, xloc.line);
-  if (name)
-    add_AT_string (imported_die, DW_AT_name, IDENTIFIER_POINTER (name));
-  add_AT_die_ref (imported_die, DW_AT_import, at_import_die);
 }
 
 /* Write the debugging output for DECL.  */
@@ -15457,6 +15560,7 @@ dwarf2out_decl (tree decl)
       break;
 
     case NAMESPACE_DECL:
+    case IMPORTED_DECL:
       if (debug_info_level <= DINFO_LEVEL_TERSE)
 	return;
       if (lookup_decl_die (decl) != NULL)

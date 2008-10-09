@@ -156,20 +156,8 @@ msched-max-memory-insns-hard-limit
 Target Report Var(mflag_sched_mem_insns_hard_limit) Init(0)
 Disallow more than `msched-max-memory-insns' in instruction group. Otherwise, limit is `soft' (prefer non-memory operations when limit is reached)
 
-msel-sched-data-spec
-Target Report Var(mflag_sel_sched_data_spec) Init(1)
-Perform data speculation in selective scheduling
-
-msel-sched-control-spec
-Target Report Var(mflag_sel_sched_control_spec) Init(1)
-Perform control speculation in selective scheduling
-
 msel-sched-dont-check-control-spec
 Target Report Var(mflag_sel_sched_dont_check_control_spec) Init(0)
 Don't generate checks for control speculation in selective scheduling
-
-mstop-bit-before-check
-Target Report Var(mflag_stop_bit_before_check) Init(0)
-Force a barrier before a speculative check
 
 ; This comment is to ensure we retain the blank line above.
