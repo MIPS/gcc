@@ -2,7 +2,7 @@
 
 ## GCJ LOCAL: use srcdir to find core classes.
 GLIBJ_BOOTCLASSPATH='$(top_srcdir)/lib'
-GLIBJ_CLASSPATH=.:$(srcdir)/asm$(ANTLR_CLASSPATH)
+GLIBJ_CLASSPATH=.:$(srcdir)/asm:$(ANTLR_CLASSPATH)
 ## END GCJ LOCAL
 
 # Setup the compiler to use the GNU Classpath library we just built.
@@ -13,7 +13,12 @@ JCOMPILER = $(JAVAC) $(JAVACFLAGS) -source 1.5 -target 1.5 -encoding UTF-8 -boot
 endif
 
 if CREATE_GJDOC
-ANTLR_CLASSPATH = :$(ANTLR_JAR)
+if CREATE_GJDOC_PARSER
+gjdoc_gendir = ${top_builddir}/tools/generated
+else
+gjdoc_gendir = ${top_srcdir}/tools/generated
+endif
+ANTLR_CLASSPATH = $(ANTLR_JAR):$(gjdoc_gendir)
 endif
 
 if CREATE_WRAPPERS
@@ -335,10 +340,12 @@ $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
 	cat classes.lst asm.lst vm-tools.lst > all-classes.lst
 if JAVA_MAINTAINER_MODE
 if CREATE_GJDOC
+if CREATE_GJDOC_PARSER
 ## Generate antlr sources.
 	@mkdir_p@ $(srcdir)/gnu/classpath/tools/gjdoc/expr
 	$(ANTLR) -o $(srcdir)/gnu/classpath/tools/gjdoc/expr \
 	  $(srcdir)/gnu/classpath/tools/gjdoc/expr/java-expression.g
+endif
 endif
 ## Compile ASM separately as it is latin-1 encoded.
 	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
@@ -387,7 +394,10 @@ endif
 
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
-	rm -rf $(TOOLS_ZIP) classes classes.lst asm asm.lst all-classes.lst generated
+	rm -rf $(TOOLS_ZIP) classes classes.lst asm asm.lst all-classes.lst
+if CREATE_GJDOC_PARSER
+	rm -rf $(gjdoc_gendir)
+endif
 
 # FIXME: remove this when GNU Classpath includes a bootstrap VM.
 installcheck-binSCRIPTS:
