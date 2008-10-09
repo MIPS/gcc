@@ -785,106 +785,143 @@ lto_execute_ltrans (char *const *files)
     }
 }
 
+typedef struct {
+  struct pointer_set_t *free_list;
+  struct pointer_set_t *seen;
+} lto_fixup_data_t;
+
 /* A walk_tree callback used by lto_fixup_state. TP is the pointer to the
    current tree. WALK_SUBTREES indicates if the subtrees will be walked.
-   DATA is ignored. */
+   DATA is a pointer set to record visited nodes. */
 
 static tree
-lto_fixup_tree (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
+  lto_fixup_data_t *fixup_data = (lto_fixup_data_t *) data;
   tree prevailing;
+
+  if (pointer_set_contains (fixup_data->seen, t))
+    return NULL;
 
   *walk_subtrees = 1;
 
-  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != FUNCTION_DECL)
-    return NULL;
-
-  prevailing = lto_symtab_prevailing_decl (t);
-
-  if (prevailing != t)
+  if (TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == FUNCTION_DECL)
     {
-      *tp = prevailing;
-      *walk_subtrees = 0;
+      prevailing = lto_symtab_prevailing_decl (t);
+
+      if (t != prevailing)
+	{
+	  if (TREE_CODE (t) == FUNCTION_DECL
+	      && TREE_NOTHROW (prevailing) != TREE_NOTHROW (t))
+	    {
+	      if (TREE_NOTHROW (prevailing))
+		lto_mark_nothrow_fndecl (prevailing);
+	      else
+		error ("%qD change to exception throwing", prevailing);
+	    }
+
+	  pointer_set_insert (fixup_data->free_list, t);
+
+	   /* Also replace t with prevailing defintion.  We don't want to
+	      insert the other defintion in the seen set as we want to
+	      replace all instances of it.  */
+	  *tp = prevailing;
+	  t = prevailing;
+	}
+    }
+
+  pointer_set_insert (fixup_data->seen, t);
+
+  /* walk_tree does not visit all reachable nodes that need to be fixed up.
+     Hence we do special processing here for those kind of nodes. */
+  switch (TREE_CODE (t))
+    {
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      walk_tree (&TREE_TYPE (t), lto_fixup_tree, data, NULL);
+      walk_tree (&TYPE_FIELDS (t), lto_fixup_tree, data, NULL);
+      walk_tree (&TYPE_BINFO (t), lto_fixup_tree, data, NULL);
+      break;
+    case TREE_BINFO:
+      {
+	tree base;
+	unsigned i;
+
+	walk_tree (&TREE_TYPE (t), lto_fixup_tree, data, NULL);
+	walk_tree (&BINFO_OFFSET (t), lto_fixup_tree, data, NULL);
+	walk_tree (&BINFO_VTABLE (t), lto_fixup_tree, data, NULL);
+	walk_tree (&BINFO_VIRTUALS (t), lto_fixup_tree, data, NULL);
+	walk_tree (&BINFO_VPTR_FIELD (t), lto_fixup_tree, data, NULL);
+	walk_tree (&BINFO_SUBVTT_INDEX (t), lto_fixup_tree, data, NULL);
+	walk_tree (&BINFO_VPTR_INDEX (t), lto_fixup_tree, data, NULL);
+	walk_tree (&BINFO_INHERITANCE_CHAIN (t), lto_fixup_tree, data, NULL);
+	for (i = 0; BINFO_BASE_ITERATE (t, i, base); i++)
+	  {
+	    tree old_base = base;
+	    walk_tree (&base, lto_fixup_tree, data, NULL);
+	    if (base != old_base)
+	      VEC_replace (tree, BINFO_BASE_BINFOS (t), i, base);
+	  }
+      }
+      break;
+    case VAR_DECL:
+      walk_tree (&DECL_INITIAL (t), lto_fixup_tree, data, NULL);
+      break;	
+    default:
+      ;
     }
   return NULL;
 }
 
 /* Helper function of lto_fixup_decls. Walks the var and fn streams in STATE,
    replaces var and function decls with the corresponding prevailing def and
-   records the old decl in FREE_LIST. */
+   records the old decl in the free-list in DATA. We also record visted nodes
+   in the seen-set in DATA to avoid multiple visit for nodes that need not
+   to be replaced.  */
 
 static void
-lto_fixup_state (struct lto_in_decl_state *state,
-		 struct pointer_set_t *free_list)
+lto_fixup_state (struct lto_in_decl_state *state, lto_fixup_data_t *data)
 {
   unsigned i;
-  struct lto_tree_ref_table vars = state->streams[LTO_DECL_STREAM_VAR_DECL];
-  struct lto_tree_ref_table fns = state->streams[LTO_DECL_STREAM_FN_DECL];
+  struct lto_tree_ref_table *vars = &state->streams[LTO_DECL_STREAM_VAR_DECL];
+  struct lto_tree_ref_table *fns = &state->streams[LTO_DECL_STREAM_FN_DECL];
+  struct lto_tree_ref_table *types = &state->streams[LTO_DECL_STREAM_TYPE];
 
-  for (i = 0; i < fns.size; i++)
+  /* We have to fix up types as well. Vtables reference function decls.  */
+  for (i = 0; i < types->size; i++)
     {
-      tree decl = fns.trees[i];
-      tree prevailing;
-
-      gcc_assert (decl);
-      gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
-
-      prevailing = lto_symtab_prevailing_decl (decl);
-
-      if (TREE_NOTHROW (prevailing) != TREE_NOTHROW (decl))
-	{
-	  if (TREE_NOTHROW (prevailing))
-	    lto_mark_nothrow_fndecl (prevailing);
-	  else
-	    error ("%qD change to exception throwing", prevailing);
-	}
-
-      if (decl != prevailing)
-	pointer_set_insert (free_list, decl);
-
-      fns.trees[i] = prevailing;
+      walk_tree (types->trees + i, lto_fixup_tree, data, NULL);
     }
 
-  for (i = 0; i < vars.size; i++)
+  for (i = 0; i < fns->size; i++)
     {
-      tree decl = vars.trees[i];
-      tree prevailing;
-      tree initial;
-
+      tree decl = fns->trees[i];
       gcc_assert (decl);
+      gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
+      walk_tree (fns->trees + i, lto_fixup_tree, data, NULL);
+    }
 
+  for (i = 0; i < vars->size; i++)
+    {
+      tree decl = vars->trees[i];
+      gcc_assert (decl);
       if (TREE_CODE (decl) == RESULT_DECL)
 	continue;
-
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
-
-      prevailing = lto_symtab_prevailing_decl (decl);
-
-      initial = DECL_INITIAL (decl);
-
-      if (initial && decl == prevailing)
-	{
-	  walk_tree (&initial, lto_fixup_tree, NULL, NULL);
-	  DECL_INITIAL (decl) = initial;
-	}
-
-      if (decl != prevailing)
-	pointer_set_insert (free_list, decl);
-
-      vars.trees[i] = prevailing;
+      walk_tree (vars->trees + i, lto_fixup_tree, data, NULL);
     }
 }
 
 /* A callback of htab_traverse. Just extract a state from SLOT and the
-   free_list from aux and calls lto_fixup_state. */
+   lto_fixup_data_t object from AUX and calls lto_fixup_state. */
 
 static int
 lto_fixup_state_aux (void **slot, void *aux)
 {
   struct lto_in_decl_state *state = (struct lto_in_decl_state *) *slot;
-  struct pointer_set_t *free_list = (struct pointer_set_t *) aux;
-  lto_fixup_state (state, free_list);
+  lto_fixup_state (state, (lto_fixup_data_t *) aux);
   return 1;
 }
 
@@ -911,28 +948,31 @@ lto_fixup_decls (struct lto_file_decl_data** files)
   unsigned int i;
   tree decl;
   struct pointer_set_t *free_list = pointer_set_create ();
+  struct pointer_set_t *seen = pointer_set_create ();
+  lto_fixup_data_t data;
 
+  data.free_list = free_list;
+  data.seen = seen;
   for (i = 0; files[i]; i++)
     {
       struct lto_file_decl_data *file = files[i];
       struct lto_in_decl_state *state = file->global_decl_state;
-      lto_fixup_state (state, free_list);
+      lto_fixup_state (state, &data);
 
-      htab_traverse (file->function_decl_states, lto_fixup_state_aux,
-		     free_list);
+      htab_traverse (file->function_decl_states, lto_fixup_state_aux, &data);
     }
 
   for (i = 0; VEC_iterate (tree, lto_global_var_decls, i, decl); i++)
     {
-      tree prevailing = lto_symtab_prevailing_decl (decl);
-      if (prevailing != decl) {
-	pointer_set_insert (free_list, decl);
-	VEC_replace (tree, lto_global_var_decls, i, prevailing);
-      }
+      tree saved_decl = decl;
+      walk_tree (&decl, lto_fixup_tree, &data, NULL);
+      if (decl != saved_decl)
+	VEC_replace (tree, lto_global_var_decls, i, decl);
     }
 
   pointer_set_traverse (free_list, free_decl, NULL);
   pointer_set_destroy (free_list);
+  pointer_set_destroy (seen);
 }
 
 void

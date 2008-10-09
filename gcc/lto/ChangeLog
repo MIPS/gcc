@@ -1,3 +1,18 @@
+2008-10-08  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (lto_fixup_tree): Remove ATTRIBUTE_UNUSED from DATA.
+	Handle new tree codes RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE
+	and TREE_BINFO.  Also move code handling FUNCTION_DECL and VAR_DECL
+	from lto_fixup_state to here.
+	(lto_fixup_state): Take an lto_fixup_data_t object DATA instead of
+	just a free-list.  Fix up types also.  Move decl merging code to
+	lto_fixup_tree.
+ 	(lto_fixup_state_aux): Change AUX to point to an lto_fixup_data_t
+	object.
+	(lto_fixup_decls): Use another pointer set to avoid multiple
+	walking of nodes except for DECLs to be replaced.  Pass an
+	lto_fixup_data_t object to tree-walker.
+
 2008-10-08 Rafael Espindola  <espindola@google.com>
 
 	* lto-symtab.c (lto_symtab_set_resolution): New.
