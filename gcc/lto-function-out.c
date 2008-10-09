@@ -3157,6 +3157,9 @@ output_tree (struct output_block *ob, tree expr)
   void **slot;
   struct lto_decl_slot d_slot;
 
+  if (flag_signed_char == 0 && expr == char_type_node)
+    expr = unsigned_char_type_node;
+
   if (expr == NULL_TREE)
     {
       output_zero (ob);
