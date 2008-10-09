@@ -1,3 +1,8 @@
+2008-10-09  Doug Kwan  <dougkwan@google.com>
+
+	* gimple-low.c (gimple_try_catch_may_fallthru): Check for empty
+	clean-up GIMPLE sequence.
+
 2008-10-08 Rafael Espindola  <espindola@google.com>
 
 	* lto-tree-in.h (lto_symtab_get_resolution): New.
