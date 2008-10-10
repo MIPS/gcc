@@ -1,5 +1,9 @@
 2008-10-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* doc/install.texi (STAGE1_TFLAGS, BUILD_CONFIG): Document.
+
+2008-10-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* c-gimplify.c (c_genericize): Don't pass NULL to printf %s.
 	Enclose multi-line ternary expression in parentheses.
 

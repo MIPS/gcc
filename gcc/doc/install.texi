@@ -1834,7 +1834,7 @@ bootstrapped, you can use @code{CFLAGS_FOR_TARGET} to modify their
 compilation flags, as for non-bootstrapped target libraries.
 Again, if the native compiler miscompiles the stage1 compiler, you may
 need to work around this by avoiding non-working parts of the stage1
-compiler.  Use @code{STAGE1_LIBCFLAGS} to this end.
+compiler.  Use @code{STAGE1_TFLAGS} to this end.
 
 If you used the flag @option{--enable-languages=@dots{}} to restrict
 the compilers to be built, only those you've actually enabled will be
@@ -1858,6 +1858,50 @@ the one you are building on: for example, you could build a
 @code{powerpc64-unknown-linux-gnu} host.  In this case, pass
 @option{--enable-bootstrap} to the configure script.
 
+@code{BUILD_CONFIG} can be used to bring in additional customization to
+the build.  It can be set to a whitespace-separated list of names.  For
+each such @code{NAME}, top-level @file{config/@code{NAME}.mk} will be
+included by the top-level @file{Makefile}, bringing in any settings it
+contains.  Some examples are:
+
+@table @asis
+@item @samp{bootstrap-O1}
+Removes any @option{-O}-started option from @code{BOOT_CFLAGS}, and adds
+@option{-O1} to it.  @samp{BUILD_CONFIG=bootstrap-O1} is equivalent to
+@samp{BOOT_CFLAGS='-g -O1'}.
+
+@item @samp{bootstrap-O3}
+Analogous to @code{bootstrap-O1}.
+
+@item @samp{bootstrap-debug}
+Builds stage2 without debug information, and uses
+@file{contrib/compare-debug} to compare object files.  If
+@code{BOOT_CFLAGS} is overridden so as to not enable debug information,
+stage2 will have it, and stage3 won't.
+
+@item @samp{bootstrap-debug-lib}
+Toggles debug information generation in stage2, like
+@file{bootstrap-debug}, and enables internal comparison
+(@option{-fcompare-debug}) with and without debug information in stage3,
+and internal comparison with and without variable tracking at
+assignments (VTA) on stage4.  As for libraries, it toggles debug
+information generation for libraries on stage1, enables internal
+comparison with and without VTA on stage2, internal comparison with and
+without debug information in stage3 (all libraries, unlike previous
+stages that only build libgcc), and internal comparison with and without
+VTA on stage4.
+
+@item @samp{bootstrap-debug-ckovw}
+Arranges for error messages to be issued if the compiler built on any
+stage is run without the option @option{-fcompare-debug}.  This is
+useful to verify the full coverage of the @code{bootstrap-debug-lib}
+option.
+
+@item @samp{bootstrap-time}
+Arranges for the run time of each program started by the GCC driver,
+built in any stage, to be logged to @file{time.log}, in the top level of
+the build tree.
+@end table
 
 @section Building a cross compiler
 
