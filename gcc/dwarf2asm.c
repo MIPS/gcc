@@ -63,6 +63,34 @@ dw2_assemble_integer (int size, rtx x)
 }
 
 
+/* Output a value of a given size in target byte order.  */
+
+void
+dw2_asm_output_data_raw (int size, unsigned HOST_WIDE_INT value)
+{
+  unsigned char bytes[8];
+  int i;
+
+  for (i = 0; i < 8; ++i)
+    {
+      bytes[i] = value & 0xff;
+      value >>= 8;
+    }
+
+  if (BYTES_BIG_ENDIAN)
+    {
+      for (i = size - 1; i > 0; --i)
+	fprintf (asm_out_file, "0x%x,", bytes[i]);
+      fprintf (asm_out_file, "0x%x", bytes[0]);
+    }
+  else
+    {
+      for (i = 0; i < size - 1; ++i)
+	fprintf (asm_out_file, "0x%x,", bytes[i]);
+      fprintf (asm_out_file, "0x%x", bytes[i]);
+    }
+}
+
 /* Output an immediate constant in a given SIZE in bytes.  */
 
 void
@@ -506,6 +534,26 @@ eh_data_format_name (int format)
 #endif
 }
 
+/* Output an unsigned LEB128 quantity, but only the byte values.  */
+
+void
+dw2_asm_output_data_uleb128_raw (unsigned HOST_WIDE_INT value)
+{
+  while (1)
+    {
+      int byte = (value & 0x7f);
+      value >>= 7;
+      if (value != 0)
+	/* More bytes to follow.  */
+	byte |= 0x80;
+
+      fprintf (asm_out_file, "0x%x", byte);
+      if (value == 0)
+	break;
+      fputc (',', asm_out_file);
+    }
+}
+
 /* Output an unsigned LEB128 quantity.  */
 
 void
@@ -565,6 +613,29 @@ dw2_asm_output_data_uleb128 (unsigned HOST_WIDE_INT value,
   fputc ('\n', asm_out_file);
 
   va_end (ap);
+}
+
+/* Output an signed LEB128 quantity, but only the byte values.  */
+
+void
+dw2_asm_output_data_sleb128_raw (HOST_WIDE_INT value)
+{
+  int byte, more;
+
+  while (1)
+    {
+      byte = (value & 0x7f);
+      value >>= 7;
+      more = !((value == 0 && (byte & 0x40) == 0)
+		|| (value == -1 && (byte & 0x40) != 0));
+      if (more)
+	byte |= 0x80;
+
+      fprintf (asm_out_file, "0x%x", byte);
+      if (!more)
+	break;
+      fputc (',', asm_out_file);
+    }
 }
 
 /* Output a signed LEB128 quantity.  */
@@ -690,7 +761,6 @@ dw2_asm_output_delta_sleb128 (const char *lab1 ATTRIBUTE_UNUSED,
 }
 #endif /* 0 */
 
-static rtx dw2_force_const_mem (rtx, bool);
 static int dw2_output_indirect_constant_1 (splay_tree_node, void *);
 
 static GTY((param1_is (char *), param2_is (tree))) splay_tree indirect_pool;
@@ -734,11 +804,11 @@ splay_tree_compare_strings (splay_tree_key k1, splay_tree_key k2)
    "near" the function in any interesting sense.  IS_PUBLIC controls whether
    the symbol can be shared across the entire application (or DSO).  */
 
-static rtx
+rtx
 dw2_force_const_mem (rtx x, bool is_public)
 {
   splay_tree_node node;
-  const char *str;
+  const char *key;
   tree decl_id;
 
   if (! indirect_pool)
@@ -748,13 +818,14 @@ dw2_force_const_mem (rtx x, bool is_public)
 
   gcc_assert (GET_CODE (x) == SYMBOL_REF);
 
-  str = targetm.strip_name_encoding (XSTR (x, 0));
-  node = splay_tree_lookup (indirect_pool, (splay_tree_key) str);
+  key = XSTR (x, 0);
+  node = splay_tree_lookup (indirect_pool, (splay_tree_key) key);
   if (node)
     decl_id = (tree) node->value;
   else
     {
       tree id;
+      const char *str = targetm.strip_name_encoding (key);
 
       if (is_public && USE_LINKONCE_INDIRECT)
 	{
@@ -779,7 +850,7 @@ dw2_force_const_mem (rtx x, bool is_public)
       if (id)
 	TREE_SYMBOL_REFERENCED (id) = 1;
 
-      splay_tree_insert (indirect_pool, (splay_tree_key) str,
+      splay_tree_insert (indirect_pool, (splay_tree_key) key,
 			 (splay_tree_value) decl_id);
     }
 
@@ -814,6 +885,7 @@ dw2_output_indirect_constant_1 (splay_tree_node node,
     TREE_STATIC (decl) = 1;
 
   sym_ref = gen_rtx_SYMBOL_REF (Pmode, sym);
+  sym = targetm.strip_name_encoding (sym);
   if (TREE_PUBLIC (decl) && USE_LINKONCE_INDIRECT)
     fprintf (asm_out_file, "\t.hidden %sDW.ref.%s\n", user_label_prefix, sym);
   assemble_variable (decl, 1, 1, 1);

@@ -794,35 +794,29 @@ gen_lowpart_SUBREG (enum machine_mode mode, rtx reg)
 			 subreg_lowpart_offset (mode, inmode));
 }
 
-/* gen_rtvec (n, [rt1, ..., rtn])
-**
-**	    This routine creates an rtvec and stores within it the
-**	pointers to rtx's which are its arguments.
-*/
 
-/*VARARGS1*/
+/* Create an rtvec and stores within it the RTXen passed in the arguments.  */
+
 rtvec
 gen_rtvec (int n, ...)
 {
-  int i, save_n;
-  rtx *vector;
+  int i;
+  rtvec rt_val;
   va_list p;
 
   va_start (p, n);
 
+  /* Don't allocate an empty rtvec...  */
   if (n == 0)
-    return NULL_RTVEC;		/* Don't allocate an empty rtvec...	*/
+    return NULL_RTVEC;
 
-  vector = XALLOCAVEC (rtx, n);
+  rt_val = rtvec_alloc (n);
 
   for (i = 0; i < n; i++)
-    vector[i] = va_arg (p, rtx);
+    rt_val->elem[i] = va_arg (p, rtx);
 
-  /* The definition of VA_* in K&R C causes `n' to go out of scope.  */
-  save_n = n;
   va_end (p);
-
-  return gen_rtvec_v (save_n, vector);
+  return rt_val;
 }
 
 rtvec
@@ -831,10 +825,11 @@ gen_rtvec_v (int n, rtx *argp)
   int i;
   rtvec rt_val;
 
+  /* Don't allocate an empty rtvec...  */
   if (n == 0)
-    return NULL_RTVEC;		/* Don't allocate an empty rtvec...	*/
+    return NULL_RTVEC;
 
-  rt_val = rtvec_alloc (n);	/* Allocate an rtvec...			*/
+  rt_val = rtvec_alloc (n);
 
   for (i = 0; i < n; i++)
     rt_val->elem[i] = *argp++;
@@ -865,8 +860,17 @@ rtx
 gen_reg_rtx (enum machine_mode mode)
 {
   rtx val;
+  unsigned int align = GET_MODE_ALIGNMENT (mode);
 
   gcc_assert (can_create_pseudo_p ());
+
+  /* If a virtual register with bigger mode alignment is generated,
+     increase stack alignment estimation because it might be spilled
+     to stack later.  */
+  if (SUPPORTS_STACK_ALIGNMENT 
+      && crtl->stack_alignment_estimated < align
+      && !crtl->stack_realign_processed)
+    crtl->stack_alignment_estimated = align;
 
   if (generating_concat_p
       && (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
@@ -976,7 +980,7 @@ set_reg_attrs_from_value (rtx reg, rtx x)
 	REG_ATTRS (reg)
 	  = get_reg_attrs (MEM_EXPR (x), INTVAL (MEM_OFFSET (x)) + offset);
       if (MEM_POINTER (x))
-	mark_reg_pointer (reg, MEM_ALIGN (x));
+	mark_reg_pointer (reg, 0);
     }
   else if (REG_P (x))
     {
@@ -1561,6 +1565,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
   if (! TYPE_P (t))
     {
       tree base;
+      bool align_computed = false;
 
       if (TREE_THIS_VOLATILE (t))
 	MEM_VOLATILE_P (ref) = 1;
@@ -1617,6 +1622,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 		  && host_integerp (DECL_SIZE_UNIT (t), 1)
 		  ? GEN_INT (tree_low_cst (DECL_SIZE_UNIT (t), 1)) : 0);
 	  align = DECL_ALIGN (t);
+	  align_computed = true;
 	}
 
       /* If this is a constant, we know the alignment.  */
@@ -1626,6 +1632,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 #ifdef CONSTANT_ALIGNMENT
 	  align = CONSTANT_ALIGNMENT (t, align);
 #endif
+	  align_computed = true;
 	}
 
       /* If this is a field reference and not a bit-field, record it.  */
@@ -1685,6 +1692,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 		  align = DECL_ALIGN (t2);
 		  if (aoff && (unsigned HOST_WIDE_INT) aoff < align)
 	            align = aoff;
+		  align_computed = true;
 		  offset = GEN_INT (ioff);
 		  apply_bitpos = bitpos;
 		}
@@ -1717,6 +1725,13 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	{
 	  expr = t;
 	  offset = NULL;
+	}
+
+      if (!align_computed && !INDIRECT_REF_P (t))
+	{
+	  unsigned int obj_align
+	    = get_object_alignment (t, align, BIGGEST_ALIGNMENT);
+	  align = MAX (align, obj_align);
 	}
     }
 
@@ -4096,6 +4111,7 @@ emit_insn_after_1 (rtx first, rtx after, basic_block bb)
 
   if (after == last_insn)
     last_insn = last;
+
   return last;
 }
 

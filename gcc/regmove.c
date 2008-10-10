@@ -1120,7 +1120,8 @@ regmove_optimize (rtx f, int nregs)
 
   for (pass = 0; pass <= 2; pass++)
     {
-      if (! flag_regmove && pass >= flag_expensive_optimizations)
+      /* We need fewer optimizations for IRA.  */
+      if ((! flag_regmove || flag_ira) && pass >= flag_expensive_optimizations)
 	goto done;
 
       if (dump_file)
@@ -1168,7 +1169,9 @@ regmove_optimize (rtx f, int nregs)
 		    }
 		}
 	    }
-	  if (! flag_regmove)
+
+	  /* All optimizations important for IRA have been done.  */
+	  if (! flag_regmove || flag_ira)
 	    continue;
 
 	  if (! find_matches (insn, &match))

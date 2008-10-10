@@ -72,6 +72,12 @@
 #define ASM_CPU_POWER6_SPEC "-mpower4 -maltivec"
 #endif
 
+#ifdef HAVE_AS_VSX
+#define ASM_CPU_POWER7_SPEC "-mpower7"
+#else
+#define ASM_CPU_POWER7_SPEC "-mpower4 -maltivec"
+#endif
+
 /* Common ASM definitions used by ASM_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
 #define ASM_CPU_SPEC \
@@ -92,6 +98,7 @@
 %{mcpu=power5+: %(asm_cpu_power5)} \
 %{mcpu=power6: %(asm_cpu_power6) -maltivec} \
 %{mcpu=power6x: %(asm_cpu_power6) -maltivec} \
+%{mcpu=power7: %(asm_cpu_power7)} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -160,6 +167,7 @@
   { "cc1_cpu",			CC1_CPU_SPEC },				\
   { "asm_cpu_power5",		ASM_CPU_POWER5_SPEC },			\
   { "asm_cpu_power6",		ASM_CPU_POWER6_SPEC },			\
+  { "asm_cpu_power7",		ASM_CPU_POWER7_SPEC },			\
   SUBTARGET_EXTRA_SPECS
 
 /* -mcpu=native handling only makes sense with compiler running on
@@ -289,6 +297,14 @@ enum processor_type
    PROCESSOR_POWER6,
    PROCESSOR_CELL
 };
+
+/* FPU operations supported. 
+   Each use of TARGET_SINGLE_FLOAT or TARGET_DOUBLE_FLOAT must 
+   also test TARGET_HARD_FLOAT.  */
+#define TARGET_SINGLE_FLOAT 1
+#define TARGET_DOUBLE_FLOAT 1
+#define TARGET_SINGLE_FPU   0
+#define TARGET_SIMPLE_FPU   0
 
 extern enum processor_type rs6000_cpu;
 
@@ -644,12 +660,15 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 /* Define this macro to be the value 1 if unaligned accesses have a cost
    many times greater than aligned accesses, for example if they are
    emulated in a trap handler.  */
+/* Altivec vector memory instructions simply ignore the low bits; SPE
+   vector memory instructions trap on unaligned accesses.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
 	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
 	|| (MODE) == DImode)						\
-       && (ALIGN) < 32))
+       && (ALIGN) < 32)							\
+   || (VECTOR_MODE_P ((MODE)) && (ALIGN) < GET_MODE_BITSIZE ((MODE))))
 
 /* Standard register usage.  */
 
@@ -956,7 +975,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    Set this to 3 on the RS/6000 since that is roughly the average cost of an
    unscheduled conditional branch.  */
 
-#define BRANCH_COST 3
+#define BRANCH_COST(speed_p, predictable_p) 3
 
 /* Override BRANCH_COST heuristic which empirically produces worse
    performance for removing short circuiting from the logical ops.  */
@@ -1115,6 +1134,22 @@ enum reg_class
   { 0xffffffff, 0x00000000, 0x0000efff, 0x00020000 }, /* NON_FLOAT_REGS */   \
   { 0x00000000, 0x00000000, 0x00001000, 0x00000000 }, /* XER_REGS */	     \
   { 0xffffffff, 0xffffffff, 0xffffffff, 0x0003ffff }  /* ALL_REGS */	     \
+}
+
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, SPECIAL_REGS, FLOAT_REGS, ALTIVEC_REGS,			     \
+  /*VRSAVE_REGS,*/ VSCR_REGS, SPE_ACC_REGS, SPEFSCR_REGS,		     \
+  /* MQ_REGS, LINK_REGS, CTR_REGS, */					     \
+  CR_REGS, XER_REGS, LIM_REG_CLASSES					     \
 }
 
 /* The same information, inverted:
@@ -1821,6 +1856,8 @@ do {								\
   if (rs6000_mode_dependent_address (ADDR))			\
     goto LABEL;							\
 } while (0)
+
+#define FIND_BASE_TERM rs6000_find_base_term
 
 /* The register number of the register used to address a table of
    static data addresses in memory.  In some cases this register is
@@ -2317,6 +2354,12 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
+#define OUTPUT_ADDR_CONST_EXTRA(STREAM, X, FAIL)		\
+  do								\
+    if (!rs6000_output_addr_const_extra (STREAM, X))		\
+      goto FAIL;						\
+  while (0)
+
 /* uncomment for disabling the corresponding default options */
 /* #define  MACHINE_no_sched_interblock */
 /* #define  MACHINE_no_sched_speculative */
@@ -2508,10 +2551,18 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_LVXL,
   ALTIVEC_BUILTIN_LVX,
   ALTIVEC_BUILTIN_STVX,
+  ALTIVEC_BUILTIN_LVLX,
+  ALTIVEC_BUILTIN_LVLXL,
+  ALTIVEC_BUILTIN_LVRX,
+  ALTIVEC_BUILTIN_LVRXL,
   ALTIVEC_BUILTIN_STVEBX,
   ALTIVEC_BUILTIN_STVEHX,
   ALTIVEC_BUILTIN_STVEWX,
   ALTIVEC_BUILTIN_STVXL,
+  ALTIVEC_BUILTIN_STVLX,
+  ALTIVEC_BUILTIN_STVLXL,
+  ALTIVEC_BUILTIN_STVRX,
+  ALTIVEC_BUILTIN_STVRXL,
   ALTIVEC_BUILTIN_VCMPBFP_P,
   ALTIVEC_BUILTIN_VCMPEQFP_P,
   ALTIVEC_BUILTIN_VCMPEQUB_P,
@@ -2560,6 +2611,7 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_AND,
   ALTIVEC_BUILTIN_VEC_ANDC,
   ALTIVEC_BUILTIN_VEC_AVG,
+  ALTIVEC_BUILTIN_VEC_EXTRACT,
   ALTIVEC_BUILTIN_VEC_CEIL,
   ALTIVEC_BUILTIN_VEC_CMPB,
   ALTIVEC_BUILTIN_VEC_CMPEQ,
@@ -2586,6 +2638,10 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_LVEBX,
   ALTIVEC_BUILTIN_VEC_LVEHX,
   ALTIVEC_BUILTIN_VEC_LVEWX,
+  ALTIVEC_BUILTIN_VEC_LVLX,
+  ALTIVEC_BUILTIN_VEC_LVLXL,
+  ALTIVEC_BUILTIN_VEC_LVRX,
+  ALTIVEC_BUILTIN_VEC_LVRXL,
   ALTIVEC_BUILTIN_VEC_LVSL,
   ALTIVEC_BUILTIN_VEC_LVSR,
   ALTIVEC_BUILTIN_VEC_MADD,
@@ -2645,6 +2701,10 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_STVEBX,
   ALTIVEC_BUILTIN_VEC_STVEHX,
   ALTIVEC_BUILTIN_VEC_STVEWX,
+  ALTIVEC_BUILTIN_VEC_STVLX,
+  ALTIVEC_BUILTIN_VEC_STVLXL,
+  ALTIVEC_BUILTIN_VEC_STVRX,
+  ALTIVEC_BUILTIN_VEC_STVRXL,
   ALTIVEC_BUILTIN_VEC_SUB,
   ALTIVEC_BUILTIN_VEC_SUBC,
   ALTIVEC_BUILTIN_VEC_SUBS,
@@ -2761,7 +2821,10 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_VUPKLSH,
   ALTIVEC_BUILTIN_VEC_XOR,
   ALTIVEC_BUILTIN_VEC_STEP,
-  ALTIVEC_BUILTIN_OVERLOADED_LAST = ALTIVEC_BUILTIN_VEC_STEP,
+  ALTIVEC_BUILTIN_VEC_PROMOTE,
+  ALTIVEC_BUILTIN_VEC_INSERT,
+  ALTIVEC_BUILTIN_VEC_SPLATS,
+  ALTIVEC_BUILTIN_OVERLOADED_LAST = ALTIVEC_BUILTIN_VEC_SPLATS,
 
   /* SPE builtins.  */
   SPE_BUILTIN_EVADDW,

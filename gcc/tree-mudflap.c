@@ -773,6 +773,13 @@ mf_xform_derefs_1 (gimple_stmt_iterator *iter, tree *tp,
 		base = TREE_OPERAND (var, 0);
                 break;
               }
+            else if (TREE_CODE (var) == VIEW_CONVERT_EXPR)
+	      {
+		var = TREE_OPERAND (var, 0);
+		if (CONSTANT_CLASS_P (var)
+		    && TREE_CODE (var) != STRING_CST)
+		  return;
+	      }
             else 
               {
                 gcc_assert (TREE_CODE (var) == VAR_DECL 
@@ -897,7 +904,7 @@ mf_xform_derefs (void)
   basic_block bb, next;
   gimple_stmt_iterator i;
   int saved_last_basic_block = last_basic_block;
-  enum gimple_rhs_class class;
+  enum gimple_rhs_class grhs_class;
 
   bb = ENTRY_BLOCK_PTR ->next_bb;
   do
@@ -915,8 +922,8 @@ mf_xform_derefs (void)
 		  		 gimple_location (s), integer_one_node);
 	      mf_xform_derefs_1 (&i, gimple_assign_rhs1_ptr (s),
 		  		 gimple_location (s), integer_zero_node);
-	      class = get_gimple_rhs_class (gimple_assign_rhs_code (s));
-	      if (class == GIMPLE_BINARY_RHS)
+	      grhs_class = get_gimple_rhs_class (gimple_assign_rhs_code (s));
+	      if (grhs_class == GIMPLE_BINARY_RHS)
 		mf_xform_derefs_1 (&i, gimple_assign_rhs2_ptr (s),
 				   gimple_location (s), integer_zero_node);
               break;

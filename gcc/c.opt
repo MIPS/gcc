@@ -131,6 +131,10 @@ Wbad-function-cast
 C ObjC Var(warn_bad_function_cast) Warning
 Warn about casting functions to incompatible types
 
+Wbuiltin-macro-redefined
+C ObjC C++ ObjC++ Warning
+Warn when a built-in preprocessor macro is undefined or redefined
+
 Wc++-compat
 C ObjC Var(warn_cxx_compat) Warning
 Warn about C constructs that are not in the common subset of C and C++
@@ -281,7 +285,7 @@ C ObjC C++ ObjC++ Var(warn_long_long) Init(1) Warning
 Do not warn about using \"long long\" when -pedantic
 
 Wmain
-C ObjC C++ ObjC++ Warning
+C ObjC C++ ObjC++ Var(warn_main) Init(-1) Warning
 Warn about suspicious declarations of \"main\"
 
 Wmissing-braces

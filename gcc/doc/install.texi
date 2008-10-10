@@ -70,8 +70,9 @@
 
 @c Part 2 Summary Description and Copyright
 @copying
-Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
+1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+2008 Free Software Foundation, Inc.
 @sp 1
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -1075,6 +1076,12 @@ not provide them.
 On MIPS targets, make @option{-mno-llsc} the default when no
 @option{-mllsc} option is passed.
 
+@item --with-mips-plt
+On MIPS targets, make use of copy relocations and PLTs.
+These features are extensions to the traditional
+SVR4-based MIPS ABIs and require support from GNU binutils
+and the runtime C library.
+
 @item --enable-__cxa_atexit
 Define if you want to use __cxa_atexit, rather than atexit, to
 register C++ destructors for local statics and global objects.
@@ -1574,6 +1581,13 @@ If @option{--disable-libgcj-bc} is specified, libgcj is built without
 these options.  This allows the compile-time linker to resolve
 dependencies when statically linking to libgcj.  However it makes it
 impossible to override the affected portions of libgcj at run-time.
+
+@item --enable-reduced-reflection
+Build most of libgcj with @option{-freduced-reflection}.  This reduces
+the size of libgcj at the expense of not being able to do accurate
+reflection on the classes it contains.  This option is safe if you
+know that code using libgcj will never use reflection on the standard
+runtime classes in libgcj (including using serialization, RMI or CORBA).
 
 @item --with-ecos
 Enable runtime eCos target support.
@@ -2459,7 +2473,7 @@ AIX:
 @uref{http://www.bullfreeware.com,,Bull's Freeware and Shareware Archive for AIX};
 
 @item
-@uref{http://pware.hvcc.edu,,Hudson Valley Community College Open Source Softeware for IBM System p};
+@uref{http://pware.hvcc.edu,,Hudson Valley Community College Open Source Software for IBM System p};
 
 @item
 @uref{http://www.perzl.org/aix,,AIX 5L and 6 Open Source Packages}.
@@ -2668,9 +2682,9 @@ information are.
 @item
 @uref{#x86-64-x-x,,x86_64-*-*, amd64-*-*}
 @item
-@uref{#xtensa-x-elf,,xtensa-*-elf}
+@uref{#xtensa-x-elf,,xtensa*-*-elf}
 @item
-@uref{#xtensa-x-linux,,xtensa-*-linux*}
+@uref{#xtensa-x-linux,,xtensa*-*-linux*}
 @item
 @uref{#windows,,Microsoft Windows}
 @item
@@ -3164,8 +3178,8 @@ with the @option{--with-ld=@dots{}} option.  This overrides the standard
 search for ld.  The two linkers supported on this target require different
 commands.  The default linker is determined during configuration.  As a
 result, it's not possible to switch linkers in the middle of a GCC build.
-This has been been reported to sometimes occur in unified builds of
-binutils and GCC@.
+This has been reported to sometimes occur in unified builds of binutils
+and GCC@.
 
 GCC 3.0 through 3.2 require binutils 2.11 or above.  GCC 3.3 through
 GCC 4.0 require binutils 2.14 or later.
@@ -4079,7 +4093,7 @@ both 64-bit x86-64 and 32-bit x86 code (via the @option{-m32} switch).
 @html
 <hr />
 @end html
-@heading @anchor{xtensa-x-elf}xtensa-*-elf
+@heading @anchor{xtensa-x-elf}xtensa*-*-elf
 
 This target is intended for embedded Xtensa systems using the
 @samp{newlib} C library.  It uses ELF but does not support shared
@@ -4097,14 +4111,14 @@ which you can use to replace the default header file.
 @html
 <hr />
 @end html
-@heading @anchor{xtensa-x-linux}xtensa-*-linux*
+@heading @anchor{xtensa-x-linux}xtensa*-*-linux*
 
 This target is for Xtensa systems running GNU/Linux.  It supports ELF
 shared objects and the GNU C library (glibc).  It also generates
 position-independent code (PIC) regardless of whether the
 @option{-fpic} or @option{-fPIC} options are used.  In other
 respects, this target is the same as the
-@uref{#xtensa-*-elf,,@samp{xtensa-*-elf}} target.
+@uref{#xtensa*-*-elf,,@samp{xtensa*-*-elf}} target.
 
 @html
 <hr />

@@ -50,20 +50,20 @@ tree
 gimple_assign_rhs_to_tree (gimple stmt)
 {
   tree t;
-  enum gimple_rhs_class class;
+  enum gimple_rhs_class grhs_class;
     
-  class = get_gimple_rhs_class (gimple_expr_code (stmt));
+  grhs_class = get_gimple_rhs_class (gimple_expr_code (stmt));
 
-  if (class == GIMPLE_BINARY_RHS)
+  if (grhs_class == GIMPLE_BINARY_RHS)
     t = build2 (gimple_assign_rhs_code (stmt),
 		TREE_TYPE (gimple_assign_lhs (stmt)),
 		gimple_assign_rhs1 (stmt),
 		gimple_assign_rhs2 (stmt));
-  else if (class == GIMPLE_UNARY_RHS)
+  else if (grhs_class == GIMPLE_UNARY_RHS)
     t = build1 (gimple_assign_rhs_code (stmt),
 		TREE_TYPE (gimple_assign_lhs (stmt)),
 		gimple_assign_rhs1 (stmt));
-  else if (class == GIMPLE_SINGLE_RHS)
+  else if (grhs_class == GIMPLE_SINGLE_RHS)
     t = gimple_assign_rhs1 (stmt);
   else
     gcc_unreachable ();
@@ -216,16 +216,8 @@ gimple_to_tree (gimple stmt)
         
 	t = build_vl_exp (CALL_EXPR, gimple_call_num_args (stmt) + 3);
 
-        fn = gimple_call_fn (stmt);
-        if (TREE_CODE (fn) == FUNCTION_DECL)
-          CALL_EXPR_FN (t) = build1 (ADDR_EXPR,
-                                     build_pointer_type (TREE_TYPE (fn)),
-                                     fn);
-        else
-          CALL_EXPR_FN (t) = fn;
-        
+        CALL_EXPR_FN (t) = gimple_call_fn (stmt);
         TREE_TYPE (t) = gimple_call_return_type (stmt);
-
 	CALL_EXPR_STATIC_CHAIN (t) = gimple_call_chain (stmt);
 
 	for (i = 0; i < gimple_call_num_args (stmt); i++)
@@ -253,7 +245,9 @@ gimple_to_tree (gimple stmt)
 
         /* Record the original call statement, as it may be used
            to retrieve profile information during expansion.  */
-	if (TREE_CODE (fn) == FUNCTION_DECL && DECL_BUILT_IN (fn))
+
+	if ((fn = gimple_call_fndecl (stmt)) != NULL_TREE
+	    && DECL_BUILT_IN (fn))
 	  {
 	    ann = get_tree_common_ann (t);
 	    ann->stmt = stmt;
@@ -368,15 +362,11 @@ release_stmt_tree (gimple stmt, tree stmt_tree)
     case GIMPLE_CALL:
       if (gimple_call_lhs (stmt))
 	{
-	  if (TREE_CODE (gimple_call_fn (stmt)) == FUNCTION_DECL)
-	    ggc_free (CALL_EXPR_FN (TREE_OPERAND (stmt_tree, 1)));
 	  ann = tree_common_ann (TREE_OPERAND (stmt_tree, 1));
 	  if (ann)
 	    ggc_free (ann);
 	  ggc_free (TREE_OPERAND (stmt_tree, 1));
 	}
-      else if (TREE_CODE (gimple_call_fn (stmt)) == FUNCTION_DECL)
-	ggc_free (CALL_EXPR_FN (stmt_tree));
       break;
     default:
       break;
@@ -499,10 +489,25 @@ get_decl_align_unit (tree decl)
 
   align = DECL_ALIGN (decl);
   align = LOCAL_ALIGNMENT (TREE_TYPE (decl), align);
-  if (align > PREFERRED_STACK_BOUNDARY)
-    align = PREFERRED_STACK_BOUNDARY;
+
+  if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
+    align = MAX_SUPPORTED_STACK_ALIGNMENT;
+
+  if (SUPPORTS_STACK_ALIGNMENT)
+    {
+      if (crtl->stack_alignment_estimated < align)
+	{
+	  gcc_assert(!crtl->stack_realign_processed);
+          crtl->stack_alignment_estimated = align;
+	}
+    }
+
+  /* stack_alignment_needed > PREFERRED_STACK_BOUNDARY is permitted.
+     So here we only make sure stack_alignment_needed >= align.  */
   if (crtl->stack_alignment_needed < align)
     crtl->stack_alignment_needed = align;
+  if (crtl->max_used_stack_slot_alignment < crtl->stack_alignment_needed)
+    crtl->max_used_stack_slot_alignment = crtl->stack_alignment_needed;
 
   return align / BITS_PER_UNIT;
 }
@@ -1059,6 +1064,31 @@ defer_stack_allocation (tree var, bool toplevel)
 static HOST_WIDE_INT
 expand_one_var (tree var, bool toplevel, bool really_expand)
 {
+  if (SUPPORTS_STACK_ALIGNMENT
+      && TREE_TYPE (var) != error_mark_node
+      && TREE_CODE (var) == VAR_DECL)
+    {
+      unsigned int align;
+
+      /* Because we don't know if VAR will be in register or on stack,
+	 we conservatively assume it will be on stack even if VAR is
+	 eventually put into register after RA pass.  For non-automatic
+	 variables, which won't be on stack, we collect alignment of
+	 type and ignore user specified alignment.  */
+      if (TREE_STATIC (var) || DECL_EXTERNAL (var))
+	align = TYPE_ALIGN (TREE_TYPE (var));
+      else
+	align = DECL_ALIGN (var);
+
+      if (crtl->stack_alignment_estimated < align)
+        {
+          /* stack_alignment_estimated shouldn't change after stack
+             realign decision made */
+          gcc_assert(!crtl->stack_realign_processed);
+	  crtl->stack_alignment_estimated = align;
+	}
+    }
+
   if (TREE_CODE (var) != VAR_DECL)
     ;
   else if (DECL_EXTERNAL (var))
@@ -1410,7 +1440,7 @@ estimated_stack_frame_size (void)
 static void
 expand_used_vars (void)
 {
-  tree t, outer_block = DECL_INITIAL (current_function_decl);
+  tree t, next, outer_block = DECL_INITIAL (current_function_decl);
 
   /* Compute the phase of the stack frame for this function.  */
   {
@@ -1423,10 +1453,14 @@ expand_used_vars (void)
 
   /* At this point all variables on the local_decls with TREE_USED
      set are not associated with any block scope.  Lay them out.  */
-  for (t = cfun->local_decls; t; t = TREE_CHAIN (t))
+  t = cfun->local_decls;
+  cfun->local_decls = NULL_TREE;
+  for (; t; t = next)
     {
       tree var = TREE_VALUE (t);
       bool expand_now = false;
+
+      next = TREE_CHAIN (t);
 
       /* We didn't set a block for static or extern because it's hard
 	 to tell the difference between a global variable (re)declared
@@ -1454,9 +1488,25 @@ expand_used_vars (void)
       TREE_USED (var) = 1;
 
       if (expand_now)
-	expand_one_var (var, true, true);
+	{
+	  expand_one_var (var, true, true);
+	  if (DECL_ARTIFICIAL (var) && !DECL_IGNORED_P (var))
+	    {
+	      rtx rtl = DECL_RTL_IF_SET (var);
+
+	      /* Keep artificial non-ignored vars in cfun->local_decls
+		 chain until instantiate_decls.  */
+	      if (rtl && (MEM_P (rtl) || GET_CODE (rtl) == CONCAT))
+		{
+		  TREE_CHAIN (t) = cfun->local_decls;
+		  cfun->local_decls = t;
+		  continue;
+		}
+	    }
+	}
+
+      ggc_free (t);
     }
-  cfun->local_decls = NULL_TREE;
 
   /* At this point, all variables within the block tree with TREE_USED
      set are actually used by the optimized function.  Lay them out.  */
@@ -1617,7 +1667,12 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
       if (true_edge->goto_locus)
-  	set_curr_insn_source_location (true_edge->goto_locus);
+	{
+	  set_curr_insn_source_location (true_edge->goto_locus);
+	  set_curr_insn_block (true_edge->goto_block);
+	  true_edge->goto_locus = curr_insn_locator ();
+	}
+      true_edge->goto_block = NULL;
       false_edge->flags |= EDGE_FALLTHRU;
       ggc_free (pred);
       return NULL;
@@ -1628,7 +1683,12 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
       if (false_edge->goto_locus)
-  	set_curr_insn_source_location (false_edge->goto_locus);
+	{
+	  set_curr_insn_source_location (false_edge->goto_locus);
+	  set_curr_insn_block (false_edge->goto_block);
+	  false_edge->goto_locus = curr_insn_locator ();
+	}
+      false_edge->goto_block = NULL;
       true_edge->flags |= EDGE_FALLTHRU;
       ggc_free (pred);
       return NULL;
@@ -1637,6 +1697,13 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   jumpif (pred, label_rtx_for_bb (true_edge->dest));
   add_reg_br_prob_note (last, true_edge->probability);
   last = get_last_insn ();
+  if (false_edge->goto_locus)
+    {
+      set_curr_insn_source_location (false_edge->goto_locus);
+      set_curr_insn_block (false_edge->goto_block);
+      false_edge->goto_locus = curr_insn_locator ();
+    }
+  false_edge->goto_block = NULL;
   emit_jump (label_rtx_for_bb (false_edge->dest));
 
   BB_END (bb) = last;
@@ -1659,8 +1726,13 @@ expand_gimple_cond (basic_block bb, gimple stmt)
 
   maybe_dump_rtl_for_gimple_stmt (stmt, last2);
 
-  if (false_edge->goto_locus)
-    set_curr_insn_source_location (false_edge->goto_locus);
+  if (true_edge->goto_locus)
+    {
+      set_curr_insn_source_location (true_edge->goto_locus);
+      set_curr_insn_block (true_edge->goto_block);
+      true_edge->goto_locus = curr_insn_locator ();
+    }
+  true_edge->goto_block = NULL;
 
   ggc_free (pred);
   return new_bb;
@@ -2739,19 +2811,21 @@ expand_gimple_basic_block (basic_block bb)
 	}
     }
 
-  /* Expand implicit goto.  */
+  /* Expand implicit goto and convert goto_locus.  */
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
-      if (e->flags & EDGE_FALLTHRU)
-	break;
-    }
-
-  if (e && e->dest != bb->next_bb)
-    {
-      emit_jump (label_rtx_for_bb (e->dest));
-      if (e->goto_locus)
-        set_curr_insn_source_location (e->goto_locus);
-      e->flags &= ~EDGE_FALLTHRU;
+      if (e->goto_locus && e->goto_block)
+	{
+	  set_curr_insn_source_location (e->goto_locus);
+	  set_curr_insn_block (e->goto_block);
+	  e->goto_locus = curr_insn_locator ();
+	}
+      e->goto_block = NULL;
+      if ((e->flags & EDGE_FALLTHRU) && e->dest != bb->next_bb)
+	{
+	  emit_jump (label_rtx_for_bb (e->dest));
+	  e->flags &= ~EDGE_FALLTHRU;
+	}
     }
 
   do_pending_stack_adjust ();
@@ -2963,6 +3037,77 @@ discover_nonconstant_array_refs (void)
       }
 }
 
+/* This function sets crtl->args.internal_arg_pointer to a virtual
+   register if DRAP is needed.  Local register allocator will replace
+   virtual_incoming_args_rtx with the virtual register.  */
+
+static void
+expand_stack_alignment (void)
+{
+  rtx drap_rtx;
+  unsigned int preferred_stack_boundary, incoming_stack_boundary;
+
+  if (! SUPPORTS_STACK_ALIGNMENT)
+    return;
+  
+  if (cfun->calls_alloca
+      || cfun->has_nonlocal_label
+      || crtl->has_nonlocal_goto)
+    crtl->need_drap = true;
+
+  gcc_assert (crtl->stack_alignment_needed
+	      <= crtl->stack_alignment_estimated);
+
+  /* Update stack boundary if needed.  */
+  if (targetm.calls.update_stack_boundary)
+    targetm.calls.update_stack_boundary (); 
+
+  /* Update crtl->stack_alignment_estimated and use it later to align
+     stack.  We check PREFERRED_STACK_BOUNDARY if there may be non-call
+     exceptions since callgraph doesn't collect incoming stack alignment
+     in this case.  */
+  if (flag_non_call_exceptions
+      && PREFERRED_STACK_BOUNDARY > crtl->preferred_stack_boundary)
+    preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+  else
+    preferred_stack_boundary = crtl->preferred_stack_boundary;
+  if (preferred_stack_boundary > crtl->stack_alignment_estimated)
+    crtl->stack_alignment_estimated = preferred_stack_boundary;
+  if (preferred_stack_boundary > crtl->stack_alignment_needed)
+    crtl->stack_alignment_needed = preferred_stack_boundary;
+
+  /* The incoming stack frame has to be aligned at least at
+     parm_stack_boundary.  */
+  if (crtl->parm_stack_boundary > INCOMING_STACK_BOUNDARY)
+    incoming_stack_boundary = crtl->parm_stack_boundary;
+  else
+    incoming_stack_boundary = INCOMING_STACK_BOUNDARY;
+
+  crtl->stack_realign_needed
+    = incoming_stack_boundary < crtl->stack_alignment_estimated;
+  crtl->stack_realign_tried = crtl->stack_realign_needed;
+
+  crtl->stack_realign_processed = true;
+
+  /* Target has to redefine TARGET_GET_DRAP_RTX to support stack
+     alignment.  */
+  gcc_assert (targetm.calls.get_drap_rtx != NULL);
+  drap_rtx = targetm.calls.get_drap_rtx (); 
+
+  /* stack_realign_drap and drap_rtx must match.  */
+  gcc_assert ((stack_realign_drap != 0) == (drap_rtx != NULL));
+
+  /* Do nothing if NULL is returned, which means DRAP is not needed.  */
+  if (NULL != drap_rtx)
+    {
+      crtl->args.internal_arg_pointer = drap_rtx;
+
+      /* Call fixup_tail_calls to clean up REG_EQUIV note if DRAP is
+         needed. */
+      fixup_tail_calls ();
+    }
+}
+
 /* Translate the intermediate representation contained in the CFG
    from GIMPLE trees to RTL.
 
@@ -2987,7 +3132,14 @@ gimple_expand_cfg (void)
 
   insn_locators_alloc ();
   if (!DECL_IS_BUILTIN (current_function_decl))
-    set_curr_insn_source_location (DECL_SOURCE_LOCATION (current_function_decl));
+    {
+      /* Eventually, all FEs should explicitly set function_start_locus.  */
+      if (cfun->function_start_locus == UNKNOWN_LOCATION)
+       set_curr_insn_source_location
+         (DECL_SOURCE_LOCATION (current_function_decl));
+      else
+       set_curr_insn_source_location (cfun->function_start_locus);
+    }
   set_curr_insn_block (DECL_INITIAL (current_function_decl));
   prologue_locator = curr_insn_locator ();
 
@@ -3001,6 +3153,8 @@ gimple_expand_cfg (void)
 
   targetm.expand_to_rtl_hook ();
   crtl->stack_alignment_needed = STACK_BOUNDARY;
+  crtl->max_used_stack_slot_alignment = STACK_BOUNDARY;
+  crtl->stack_alignment_estimated = STACK_BOUNDARY;
   crtl->preferred_stack_boundary = STACK_BOUNDARY;
   cfun->cfg->max_jumptable_ents = 0;
 
@@ -3077,6 +3231,9 @@ gimple_expand_cfg (void)
   sbitmap_free (blocks);
 
   compact_blocks ();
+
+  expand_stack_alignment ();
+
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif

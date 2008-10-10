@@ -187,6 +187,7 @@ sources = \
 	mutex.cc \
 	condition_variable.cc \
 	chrono.cc \
+	thread.cc \
 	${host_sources} \
 	${host_sources_extra} 
 
@@ -196,10 +197,14 @@ vpath % $(top_srcdir)
 libstdc___la_SOURCES = $(sources)
 
 libstdc___la_LIBADD = \
+	$(GLIBCXX_LIBS) \
 	$(top_builddir)/libmath/libmath.la \
 	$(top_builddir)/libsupc++/libsupc++convenience.la
 
-libstdc___la_DEPENDENCIES = ${version_dep} $(libstdc___la_LIBADD)
+libstdc___la_DEPENDENCIES = \
+	${version_dep} \
+	$(top_builddir)/libmath/libmath.la \
+	$(top_builddir)/libsupc++/libsupc++convenience.la
 
 libstdc___la_LDFLAGS = \
 	-version-info $(libtool_VERSION) ${version_arg} -lm 
@@ -286,6 +291,11 @@ wstring-inst.o: wstring-inst.cc
 chrono.lo: chrono.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 chrono.o: chrono.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+thread.lo: thread.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+thread.o: thread.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 if GLIBCXX_LDBL_COMPAT

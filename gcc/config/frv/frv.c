@@ -366,7 +366,7 @@ static void frv_setup_incoming_varargs		(CUMULATIVE_ARGS *,
 						 tree, int *, int);
 static rtx frv_expand_builtin_saveregs		(void);
 static void frv_expand_builtin_va_start		(tree, rtx);
-static bool frv_rtx_costs			(rtx, int, int, int*);
+static bool frv_rtx_costs			(rtx, int, int, int*, bool);
 static void frv_asm_out_constructor		(rtx, int);
 static void frv_asm_out_destructor		(rtx, int);
 static bool frv_function_symbol_referenced_p	(rtx);
@@ -381,6 +381,9 @@ static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
 static void frv_output_dwarf_dtprel		(FILE *, int, rtx)
   ATTRIBUTE_UNUSED;
+static bool frv_secondary_reload                (bool, rtx, enum reg_class,
+						 enum machine_mode,
+						 secondary_reload_info *);
 
 /* Allow us to easily change the default for -malloc-cc.  */
 #ifndef DEFAULT_NO_ALLOC_CC
@@ -461,6 +464,9 @@ static void frv_output_dwarf_dtprel		(FILE *, int, rtx)
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL frv_output_dwarf_dtprel
 #endif
+
+#undef  TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD frv_secondary_reload
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -651,83 +657,83 @@ frv_override_options (void)
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     {
-      enum reg_class class;
+      enum reg_class rclass;
 
       if (GPR_P (regno))
 	{
 	  int gpr_reg = regno - GPR_FIRST;
 
 	  if (gpr_reg == GR8_REG)
-	    class = GR8_REGS;
+	    rclass = GR8_REGS;
 
 	  else if (gpr_reg == GR9_REG)
-	    class = GR9_REGS;
+	    rclass = GR9_REGS;
 
 	  else if (gpr_reg == GR14_REG)
-	    class = FDPIC_FPTR_REGS;
+	    rclass = FDPIC_FPTR_REGS;
 
 	  else if (gpr_reg == FDPIC_REGNO)
-	    class = FDPIC_REGS;
+	    rclass = FDPIC_REGS;
 
 	  else if ((gpr_reg & 3) == 0)
-	    class = QUAD_REGS;
+	    rclass = QUAD_REGS;
 
 	  else if ((gpr_reg & 1) == 0)
-	    class = EVEN_REGS;
+	    rclass = EVEN_REGS;
 
 	  else
-	    class = GPR_REGS;
+	    rclass = GPR_REGS;
 	}
 
       else if (FPR_P (regno))
 	{
 	  int fpr_reg = regno - GPR_FIRST;
 	  if ((fpr_reg & 3) == 0)
-	    class = QUAD_FPR_REGS;
+	    rclass = QUAD_FPR_REGS;
 
 	  else if ((fpr_reg & 1) == 0)
-	    class = FEVEN_REGS;
+	    rclass = FEVEN_REGS;
 
 	  else
-	    class = FPR_REGS;
+	    rclass = FPR_REGS;
 	}
 
       else if (regno == LR_REGNO)
-	class = LR_REG;
+	rclass = LR_REG;
 
       else if (regno == LCR_REGNO)
-	class = LCR_REG;
+	rclass = LCR_REG;
 
       else if (ICC_P (regno))
-	class = ICC_REGS;
+	rclass = ICC_REGS;
 
       else if (FCC_P (regno))
-	class = FCC_REGS;
+	rclass = FCC_REGS;
 
       else if (ICR_P (regno))
-	class = ICR_REGS;
+	rclass = ICR_REGS;
 
       else if (FCR_P (regno))
-	class = FCR_REGS;
+	rclass = FCR_REGS;
 
       else if (ACC_P (regno))
 	{
 	  int r = regno - ACC_FIRST;
 	  if ((r & 3) == 0)
-	    class = QUAD_ACC_REGS;
+	    rclass = QUAD_ACC_REGS;
 	  else if ((r & 1) == 0)
-	    class = EVEN_ACC_REGS;
+	    rclass = EVEN_ACC_REGS;
 	  else
-	    class = ACC_REGS;
+	    rclass = ACC_REGS;
 	}
 
       else if (ACCG_P (regno))
-	class = ACCG_REGS;
+	rclass = ACCG_REGS;
 
       else
-	class = NO_REGS;
+	rclass = NO_REGS;
 
-      regno_reg_class[regno] = class;
+      regno_reg_class[regno] = rclass;
     }
 
   /* Check for small data option */
@@ -1539,14 +1545,14 @@ frv_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 static rtx
 frv_alloc_temp_reg (
      frv_tmp_reg_t *info,	/* which registers are available */
-     enum reg_class class,	/* register class desired */
+     enum reg_class rclass,	/* register class desired */
      enum machine_mode mode,	/* mode to allocate register with */
      int mark_as_used,		/* register not available after allocation */
      int no_abort)		/* return NULL instead of aborting */
 {
-  int regno = info->next_reg[ (int)class ];
+  int regno = info->next_reg[ (int)rclass ];
   int orig_regno = regno;
-  HARD_REG_SET *reg_in_class = &reg_class_contents[ (int)class ];
+  HARD_REG_SET *reg_in_class = &reg_class_contents[ (int)rclass ];
   int i, nr;
 
   for (;;)
@@ -1565,7 +1571,7 @@ frv_alloc_temp_reg (
     }
 
   nr = HARD_REGNO_NREGS (regno, mode);
-  info->next_reg[ (int)class ] = regno + nr;
+  info->next_reg[ (int)rclass ] = regno + nr;
 
   if (mark_as_used)
     for (i = 0; i < nr; i++)
@@ -2777,7 +2783,7 @@ frv_print_operand (FILE * file, rtx x, int code)
   HOST_WIDE_INT value;
   int offset;
 
-  if (code != 0 && !isalpha (code))
+  if (code != 0 && !ISALPHA (code))
     value = 0;
 
   else if (GET_CODE (x) == CONST_INT)
@@ -6300,11 +6306,11 @@ frv_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
    You should define these macros to indicate to the reload phase that it may
    need to allocate at least one register for a reload in addition to the
    register to contain the data.  Specifically, if copying X to a register
-   CLASS in MODE requires an intermediate register, you should define
+   RCLASS in MODE requires an intermediate register, you should define
    `SECONDARY_INPUT_RELOAD_CLASS' to return the largest register class all of
    whose registers can be used as intermediate registers or scratch registers.
 
-   If copying a register CLASS in MODE to X requires an intermediate or scratch
+   If copying a register RCLASS in MODE to X requires an intermediate or scratch
    register, `SECONDARY_OUTPUT_RELOAD_CLASS' should be defined to return the
    largest register class required.  If the requirements for input and output
    reloads are the same, the macro `SECONDARY_RELOAD_CLASS' should be used
@@ -6312,7 +6318,7 @@ frv_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
 
    The values returned by these macros are often `GENERAL_REGS'.  Return
    `NO_REGS' if no spare register is needed; i.e., if X can be directly copied
-   to or from a register of CLASS in MODE without requiring a scratch register.
+   to or from a register of RCLASS in MODE without requiring a scratch register.
    Do not define this macro if it would always return `NO_REGS'.
 
    If a scratch register is required (either with or without an intermediate
@@ -6323,7 +6329,7 @@ frv_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
 
    Define constraints for the reload register and scratch register that contain
    a single register class.  If the original reload register (whose class is
-   CLASS) can meet the constraint given in the pattern, the value returned by
+   RCLASS) can meet the constraint given in the pattern, the value returned by
    these macros is used for the class of the scratch register.  Otherwise, two
    additional reload registers are required.  Their classes are obtained from
    the constraints in the insn pattern.
@@ -6341,14 +6347,13 @@ frv_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
    This case often occurs between floating-point and general registers.  */
 
 enum reg_class
-frv_secondary_reload_class (enum reg_class class,
+frv_secondary_reload_class (enum reg_class rclass,
                             enum machine_mode mode ATTRIBUTE_UNUSED,
-                            rtx x,
-                            int in_p ATTRIBUTE_UNUSED)
+                            rtx x)
 {
   enum reg_class ret;
 
-  switch (class)
+  switch (rclass)
     {
     default:
       ret = NO_REGS;
@@ -6391,7 +6396,7 @@ frv_secondary_reload_class (enum reg_class class,
       ret = GPR_REGS;
       break;
 
-      /* The accumulators need fpr registers */
+      /* The accumulators need fpr registers.  */
     case ACC_REGS:
     case EVEN_ACC_REGS:
     case QUAD_ACC_REGS:
@@ -6403,12 +6408,48 @@ frv_secondary_reload_class (enum reg_class class,
   return ret;
 }
 
+/* This hook exists to catch the case where secondary_reload_class() is
+   called from init_reg_autoinc() in regclass.c - before the reload optabs
+   have been initialised.  */
+   
+static bool
+frv_secondary_reload (bool in_p, rtx x, enum reg_class reload_class,
+		      enum machine_mode reload_mode,
+		      secondary_reload_info * sri)
+{
+  enum reg_class rclass = NO_REGS;
+
+  if (sri->prev_sri && sri->prev_sri->t_icode != CODE_FOR_nothing)
+    {
+      sri->icode = sri->prev_sri->t_icode;
+      return NO_REGS;
+    }
+
+  rclass = frv_secondary_reload_class (reload_class, reload_mode, x);
+
+  if (rclass != NO_REGS)
+    {
+      enum insn_code icode = (in_p ? reload_in_optab[(int) reload_mode]
+			      : reload_out_optab[(int) reload_mode]);
+      if (icode == 0)
+	{
+	  /* This happens when then the reload_[in|out]_optabs have
+	     not been initialised.  */
+	  sri->t_icode = CODE_FOR_nothing;
+	  return rclass;
+	}
+    }
+
+  /* Fall back to the default secondary reload handler.  */
+  return default_secondary_reload (in_p, x, reload_class, reload_mode, sri);
+
+}
 
 /* A C expression whose value is nonzero if pseudos that have been assigned to
-   registers of class CLASS would likely be spilled because registers of CLASS
+   registers of class RCLASS would likely be spilled because registers of RCLASS
    are needed for spill registers.
 
-   The default value of this macro returns 1 if CLASS has exactly one register
+   The default value of this macro returns 1 if RCLASS has exactly one register
    and zero otherwise.  On most machines, this default should be used.  Only
    define this macro to some other expression if pseudo allocated by
    `local-alloc.c' end up in memory because their hard registers were needed
@@ -6420,9 +6461,9 @@ frv_secondary_reload_class (enum reg_class class,
    register allocation.  */
 
 int
-frv_class_likely_spilled_p (enum reg_class class)
+frv_class_likely_spilled_p (enum reg_class rclass)
 {
-  switch (class)
+  switch (rclass)
     {
     default:
       break;
@@ -6686,11 +6727,11 @@ frv_hard_regno_nregs (int regno, enum machine_mode mode)
 
 
 /* A C expression for the maximum number of consecutive registers of
-   class CLASS needed to hold a value of mode MODE.
+   class RCLASS needed to hold a value of mode MODE.
 
    This is closely related to the macro `HARD_REGNO_NREGS'.  In fact, the value
-   of the macro `CLASS_MAX_NREGS (CLASS, MODE)' should be the maximum value of
-   `HARD_REGNO_NREGS (REGNO, MODE)' for all REGNO values in the class CLASS.
+   of the macro `CLASS_MAX_NREGS (RCLASS, MODE)' should be the maximum value of
+   `HARD_REGNO_NREGS (REGNO, MODE)' for all REGNO values in the class RCLASS.
 
    This macro helps control the handling of multiple-word values in
    the reload pass.
@@ -6698,9 +6739,9 @@ frv_hard_regno_nregs (int regno, enum machine_mode mode)
    This declaration is required.  */
 
 int
-frv_class_max_nregs (enum reg_class class, enum machine_mode mode)
+frv_class_max_nregs (enum reg_class rclass, enum machine_mode mode)
 {
-  if (class == ACCG_REGS)
+  if (rclass == ACCG_REGS)
     /* An N-byte value requires N accumulator guards.  */
     return GET_MODE_SIZE (mode);
   else
@@ -9471,7 +9512,8 @@ static bool
 frv_rtx_costs (rtx x,
                int code ATTRIBUTE_UNUSED,
                int outer_code ATTRIBUTE_UNUSED,
-               int *total)
+               int *total,
+	       bool speed ATTRIBUTE_UNUSED)
 {
   if (outer_code == MEM)
     {

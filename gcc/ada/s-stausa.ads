@@ -107,7 +107,7 @@ package System.Stack_Usage is
    --       appear as used in the final measure.
 
    --     Strategy: As the user passes the value of the bottom of stack to
-   --       the instrumentation to deal with the bottom offset error, and as as
+   --       the instrumentation to deal with the bottom offset error, and as
    --       the instrumentation procedure knows where the pattern filling start
    --       on the stack, the difference between the two values is the minimum
    --       stack usage that the method can measure. If, when the results are
@@ -304,10 +304,6 @@ private
       Result_Id : Positive;
       --  Id of the result. If less than value given to gnatbind -u corresponds
       --  to the location in the result array of result for the current task.
-
-      Stack_Used_When_Filling : Natural := 0;
-      --  Amount of stack that was already used when actually filling the
-      --  memory, and therefore not analyzed.
    end record;
 
    Environment_Task_Analyzer : Stack_Analyzer;

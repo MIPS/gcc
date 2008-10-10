@@ -286,6 +286,8 @@ static inline gimple
 gimple_build_call_1 (tree fn, unsigned nargs)
 {
   gimple s = gimple_build_with_ops (GIMPLE_CALL, 0, nargs + 3);
+  if (TREE_CODE (fn) == FUNCTION_DECL)
+    fn = build_fold_addr_expr (fn);
   gimple_set_op (s, 1, fn);
   return s;
 }
@@ -371,22 +373,22 @@ void
 extract_ops_from_tree (tree expr, enum tree_code *subcode_p, tree *op1_p,
 		       tree *op2_p)
 {
-  enum gimple_rhs_class class;
+  enum gimple_rhs_class grhs_class;
 
   *subcode_p = TREE_CODE (expr);
-  class = get_gimple_rhs_class (*subcode_p);
+  grhs_class = get_gimple_rhs_class (*subcode_p);
 
-  if (class == GIMPLE_BINARY_RHS)
+  if (grhs_class == GIMPLE_BINARY_RHS)
     {
       *op1_p = TREE_OPERAND (expr, 0);
       *op2_p = TREE_OPERAND (expr, 1);
     }
-  else if (class == GIMPLE_UNARY_RHS)
+  else if (grhs_class == GIMPLE_UNARY_RHS)
     {
       *op1_p = TREE_OPERAND (expr, 0);
       *op2_p = NULL_TREE;
     }
-  else if (class == GIMPLE_SINGLE_RHS)
+  else if (grhs_class == GIMPLE_SINGLE_RHS)
     {
       *op1_p = expr;
       *op2_p = NULL_TREE;
@@ -1106,7 +1108,7 @@ gimple_build_predict (enum br_predictor predictor, enum prediction outcome)
 {
   gimple p = gimple_alloc (GIMPLE_PREDICT, 0);
   /* Ensure all the predictors fit into the lower bits of the subcode.  */
-  gcc_assert (END_PREDICTORS <= GF_PREDICT_TAKEN);
+  gcc_assert ((int) END_PREDICTORS <= GF_PREDICT_TAKEN);
   gimple_predict_set_predictor (p, predictor);
   gimple_predict_set_outcome (p, outcome);
   return p;
@@ -1299,16 +1301,16 @@ gimple_seq
 gimple_seq_copy (gimple_seq src)
 {
   gimple_stmt_iterator gsi;
-  gimple_seq new = gimple_seq_alloc ();
+  gimple_seq new_seq = gimple_seq_alloc ();
   gimple stmt;
 
   for (gsi = gsi_start (src); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       stmt = gimple_copy (gsi_stmt (gsi));
-      gimple_seq_add_stmt (&new, stmt);
+      gimple_seq_add_stmt (&new_seq, stmt);
     }
 
-  return new;
+  return new_seq;
 }
 
 
@@ -1837,6 +1839,14 @@ gimple_body (tree fndecl)
   return fn ? fn->gimple_body : NULL;
 }
 
+/* Return true when FNDECL has Gimple body either in unlowered
+   or CFG form.  */
+bool
+gimple_has_body_p (tree fndecl)
+{
+  struct function *fn = DECL_STRUCT_FUNCTION (fndecl);
+  return (gimple_body (fndecl) || (fn && fn->cfg));
+}
 
 /* Detect flags from a GIMPLE_CALL.  This is just like
    call_expr_flags, but for gimple tuples.  */
@@ -1920,8 +1930,7 @@ bool
 gimple_assign_unary_nop_p (gimple gs)
 {
   return (gimple_code (gs) == GIMPLE_ASSIGN
-          && (gimple_assign_rhs_code (gs) == NOP_EXPR
-              || gimple_assign_rhs_code (gs) == CONVERT_EXPR
+          && (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (gs))
               || gimple_assign_rhs_code (gs) == NON_LVALUE_EXPR)
           && gimple_assign_rhs1 (gs) != error_mark_node
           && (TYPE_MODE (TREE_TYPE (gimple_assign_lhs (gs)))
@@ -2080,7 +2089,7 @@ gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
 tree
 gimple_get_lhs (const_gimple stmt)
 {
-  enum tree_code code = gimple_code (stmt);
+  enum gimple_code code = gimple_code (stmt);
 
   if (code == GIMPLE_ASSIGN)
     return gimple_assign_lhs (stmt);
@@ -2097,7 +2106,7 @@ gimple_get_lhs (const_gimple stmt)
 void
 gimple_set_lhs (gimple stmt, tree lhs)
 {
-  enum tree_code code = gimple_code (stmt);
+  enum gimple_code code = gimple_code (stmt);
 
   if (code == GIMPLE_ASSIGN)
     gimple_assign_set_lhs (stmt, lhs);
@@ -2757,17 +2766,12 @@ is_gimple_address (const_tree t)
     }
 }
 
-/* Return true if T is a gimple invariant address.  */
+/* Strip out all handled components that produce invariant
+   offsets.  */
 
-bool
-is_gimple_invariant_address (const_tree t)
+static const_tree
+strip_invariant_refs (const_tree op)
 {
-  tree op;
-
-  if (TREE_CODE (t) != ADDR_EXPR)
-    return false;
-
-  op = TREE_OPERAND (t, 0);
   while (handled_component_p (op))
     {
       switch (TREE_CODE (op))
@@ -2777,12 +2781,12 @@ is_gimple_invariant_address (const_tree t)
 	  if (!is_gimple_constant (TREE_OPERAND (op, 1))
 	      || TREE_OPERAND (op, 2) != NULL_TREE
 	      || TREE_OPERAND (op, 3) != NULL_TREE)
-	    return false;
+	    return NULL;
 	  break;
 
 	case COMPONENT_REF:
 	  if (TREE_OPERAND (op, 2) != NULL_TREE)
-	    return false;
+	    return NULL;
 	  break;
 
 	default:;
@@ -2790,7 +2794,38 @@ is_gimple_invariant_address (const_tree t)
       op = TREE_OPERAND (op, 0);
     }
 
-  return CONSTANT_CLASS_P (op) || decl_address_invariant_p (op);
+  return op;
+}
+
+/* Return true if T is a gimple invariant address.  */
+
+bool
+is_gimple_invariant_address (const_tree t)
+{
+  const_tree op;
+
+  if (TREE_CODE (t) != ADDR_EXPR)
+    return false;
+
+  op = strip_invariant_refs (TREE_OPERAND (t, 0));
+
+  return op && (CONSTANT_CLASS_P (op) || decl_address_invariant_p (op));
+}
+
+/* Return true if T is a gimple invariant address at IPA level
+   (so addresses of variables on stack are not allowed).  */
+
+bool
+is_gimple_ip_invariant_address (const_tree t)
+{
+  const_tree op;
+
+  if (TREE_CODE (t) != ADDR_EXPR)
+    return false;
+
+  op = strip_invariant_refs (TREE_OPERAND (t, 0));
+
+  return op && (CONSTANT_CLASS_P (op) || decl_address_ip_invariant_p (op));
 }
 
 /* Return true if T is a GIMPLE minimal invariant.  It's a restricted
@@ -2801,6 +2836,18 @@ is_gimple_min_invariant (const_tree t)
 {
   if (TREE_CODE (t) == ADDR_EXPR)
     return is_gimple_invariant_address (t);
+
+  return is_gimple_constant (t);
+}
+
+/* Return true if T is a GIMPLE interprocedural invariant.  It's a restricted
+   form of gimple minimal invariant.  */
+
+bool
+is_gimple_ip_invariant (const_tree t)
+{
+  if (TREE_CODE (t) == ADDR_EXPR)
+    return is_gimple_ip_invariant_address (t);
 
   return is_gimple_constant (t);
 }
@@ -3167,6 +3214,41 @@ canonicalize_cond_expr_cond (tree t)
     return t;
 
   return NULL_TREE;
+}
+
+/* Build a GIMPLE_CALL identical to STMT but skipping the arguments in
+   the positions marked by the set ARGS_TO_SKIP.  */
+
+gimple
+gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
+{
+  int i;
+  tree fn = gimple_call_fn (stmt);
+  int nargs = gimple_call_num_args (stmt);
+  VEC(tree, heap) *vargs = VEC_alloc (tree, heap, nargs);
+  gimple new_stmt;
+
+  for (i = 0; i < nargs; i++)
+    if (!bitmap_bit_p (args_to_skip, i))
+      VEC_quick_push (tree, vargs, gimple_call_arg (stmt, i));
+
+  new_stmt = gimple_build_call_vec (fn, vargs);
+  VEC_free (tree, heap, vargs);
+  if (gimple_call_lhs (stmt))
+    gimple_call_set_lhs (new_stmt, gimple_call_lhs (stmt));
+
+  gimple_set_block (new_stmt, gimple_block (stmt));
+  if (gimple_has_location (stmt))
+    gimple_set_location (new_stmt, gimple_location (stmt));
+
+  /* Carry all the flags to the new GIMPLE_CALL.  */
+  gimple_call_set_chain (new_stmt, gimple_call_chain (stmt));
+  gimple_call_set_tail (new_stmt, gimple_call_tail_p (stmt));
+  gimple_call_set_cannot_inline (new_stmt, gimple_call_cannot_inline_p (stmt));
+  gimple_call_set_return_slot_opt (new_stmt, gimple_call_return_slot_opt_p (stmt));
+  gimple_call_set_from_thunk (new_stmt, gimple_call_from_thunk_p (stmt));
+  gimple_call_set_va_arg_pack (new_stmt, gimple_call_va_arg_pack_p (stmt));
+  return new_stmt;
 }
 
 #include "gt-gimple.h"

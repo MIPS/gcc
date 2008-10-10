@@ -246,7 +246,7 @@ package Sem_Util is
    --  families constrained by discriminants.
 
    function Denotes_Variable (N : Node_Id) return Boolean;
-   --  Returns True if node N denotes a single variable without parentheses.
+   --  Returns True if node N denotes a single variable without parentheses
 
    function Depends_On_Discriminant (N : Node_Id) return Boolean;
    --  Returns True if N denotes a discriminant or if N is a range, a subtype
@@ -457,7 +457,7 @@ package Sem_Util is
    --  Given an entity for an exception, package, subprogram or generic unit,
    --  returns the ultimately renamed entity if this is a renaming. If this is
    --  not a renamed entity, returns its argument. It is an error to call this
-   --  with any any other kind of entity.
+   --  with any other kind of entity.
 
    function Get_Subprogram_Entity (Nod : Node_Id) return Entity_Id;
    --  Nod is either a procedure call statement, or a function call, or
@@ -725,6 +725,10 @@ package Sem_Util is
    --  array with all static constraints whose component type is potentially
    --  persistent. A private type is potentially persistent if the full type
    --  is potentially persistent.
+
+   function Is_Protected_Self_Reference (N : Node_Id) return Boolean;
+   --  Return True if node N denotes a protected type name which represents
+   --  the current instance of a protected object according to RM 9.4(21/2).
 
    function Is_RCI_Pkg_Spec_Or_Body (Cunit : Node_Id) return Boolean;
    --  Return True if a compilation unit is the specification or the

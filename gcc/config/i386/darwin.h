@@ -75,6 +75,9 @@ along with GCC; see the file COPYING3.  If not see
 #undef STACK_BOUNDARY
 #define STACK_BOUNDARY 128
 
+#undef MAIN_STACK_BOUNDARY
+#define MAIN_STACK_BOUNDARY 128
+
 /* Since we'll never want a stack boundary less aligned than 128 bits
    we need the extra work here otherwise bits of gcc get very grumpy
    when we ask for lower alignment.  We could just reject values less
@@ -173,7 +176,7 @@ extern void darwin_x86_file_end (void);
 #define TARGET_DYNAMIC_NO_PIC	  (target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
 
 #undef GOT_SYMBOL_NAME
-#define GOT_SYMBOL_NAME (machopic_function_base_name ())
+#define GOT_SYMBOL_NAME MACHOPIC_FUNCTION_BASE_NAME
 
 /* Define the syntax of pseudo-ops, labels and comments.  */
 

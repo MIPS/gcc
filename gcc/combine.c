@@ -297,6 +297,7 @@ static rtx added_links_insn;
 
 /* Basic block in which we are performing combines.  */
 static basic_block this_basic_block;
+static bool optimize_this_for_speed_p;
 
 
 /* Length of the currently allocated uid_insn_cost array.  */
@@ -793,10 +794,10 @@ combine_validate_cost (rtx i1, rtx i2, rtx i3, rtx newpat, rtx newi2pat,
     }
 
   /* Calculate the replacement insn_rtx_costs.  */
-  new_i3_cost = insn_rtx_cost (newpat);
+  new_i3_cost = insn_rtx_cost (newpat, optimize_this_for_speed_p);
   if (newi2pat)
     {
-      new_i2_cost = insn_rtx_cost (newi2pat);
+      new_i2_cost = insn_rtx_cost (newi2pat, optimize_this_for_speed_p);
       new_cost = (new_i2_cost > 0 && new_i3_cost > 0)
 		 ? new_i2_cost + new_i3_cost : 0;
     }
@@ -811,7 +812,7 @@ combine_validate_cost (rtx i1, rtx i2, rtx i3, rtx newpat, rtx newi2pat,
       int old_other_cost, new_other_cost;
 
       old_other_cost = INSN_COST (undobuf.other_insn);
-      new_other_cost = insn_rtx_cost (newotherpat);
+      new_other_cost = insn_rtx_cost (newotherpat, optimize_this_for_speed_p);
       if (old_other_cost > 0 && new_other_cost > 0)
 	{
 	  old_cost += old_other_cost;
@@ -1068,6 +1069,7 @@ combine_instructions (rtx f, unsigned int nregs)
   create_log_links ();
   FOR_EACH_BB (this_basic_block)
     {
+      optimize_this_for_speed_p = optimize_bb_for_speed_p (this_basic_block);
       last_call_luid = 0;
       mem_last_set = -1;
       label_tick++;
@@ -1090,7 +1092,8 @@ combine_instructions (rtx f, unsigned int nregs)
 
 	    /* Record the current insn_rtx_cost of this instruction.  */
 	    if (NONJUMP_INSN_P (insn))
-	      INSN_COST (insn) = insn_rtx_cost (PATTERN (insn));
+	      INSN_COST (insn) = insn_rtx_cost (PATTERN (insn),
+	      					optimize_this_for_speed_p);
 	    if (dump_file)
 	      fprintf(dump_file, "insn_cost %d: %d\n",
 		    INSN_UID (insn), INSN_COST (insn));
@@ -1112,6 +1115,7 @@ combine_instructions (rtx f, unsigned int nregs)
       last_call_luid = 0;
       mem_last_set = -1;
       label_tick++;
+      rtl_profile_for_bb (this_basic_block);
       for (insn = BB_HEAD (this_basic_block);
 	   insn != NEXT_INSN (BB_END (this_basic_block));
 	   insn = next ? next : NEXT_INSN (insn))
@@ -1268,6 +1272,7 @@ combine_instructions (rtx f, unsigned int nregs)
 	}
     }
 
+  default_rtl_profile ();
   clear_log_links ();
   clear_bb_flags ();
   new_direct_jump_p |= purge_all_dead_edges ();
@@ -6294,9 +6299,11 @@ expand_compound_operation (rtx x)
       rtx temp2 = expand_compound_operation (temp);
 
       /* Make sure this is a profitable operation.  */
-      if (rtx_cost (x, SET) > rtx_cost (temp2, SET))
+      if (rtx_cost (x, SET, optimize_this_for_speed_p)
+          > rtx_cost (temp2, SET, optimize_this_for_speed_p))
        return temp2;
-      else if (rtx_cost (x, SET) > rtx_cost (temp, SET))
+      else if (rtx_cost (x, SET, optimize_this_for_speed_p)
+               > rtx_cost (temp, SET, optimize_this_for_speed_p))
        return temp;
       else
        return x;
@@ -6721,7 +6728,8 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 
 	  /* Prefer ZERO_EXTENSION, since it gives more information to
 	     backends.  */
-	  if (rtx_cost (temp, SET) <= rtx_cost (temp1, SET))
+	  if (rtx_cost (temp, SET, optimize_this_for_speed_p)
+	      <= rtx_cost (temp1, SET, optimize_this_for_speed_p))
 	    return temp;
 	  return temp1;
 	}
@@ -6915,7 +6923,8 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 
 	  /* Prefer ZERO_EXTENSION, since it gives more information to
 	     backends.  */
-	  if (rtx_cost (temp1, SET) < rtx_cost (temp, SET))
+	  if (rtx_cost (temp1, SET, optimize_this_for_speed_p)
+	      < rtx_cost (temp, SET, optimize_this_for_speed_p))
 	    temp = temp1;
 	}
       pos_rtx = temp;
@@ -7014,7 +7023,7 @@ make_compound_operation (rtx x, enum rtx_code in_code)
   int mode_width = GET_MODE_BITSIZE (mode);
   rtx rhs, lhs;
   enum rtx_code next_code;
-  int i;
+  int i, j;
   rtx new_rtx = 0;
   rtx tem;
   const char *fmt;
@@ -7255,6 +7264,12 @@ make_compound_operation (rtx x, enum rtx_code in_code)
 	new_rtx = make_compound_operation (XEXP (x, i), next_code);
 	SUBST (XEXP (x, i), new_rtx);
       }
+    else if (fmt[i] == 'E')
+      for (j = 0; j < XVECLEN (x, i); j++)
+	{
+	  new_rtx = make_compound_operation (XVECEXP (x, i, j), next_code);
+	  SUBST (XVECEXP (x, i, j), new_rtx);
+	}
 
   /* If this is a commutative operation, the changes to the operands
      may have made it noncanonical.  */
@@ -7564,7 +7579,8 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
 
 	      y = simplify_gen_binary (AND, GET_MODE (x),
 				       XEXP (x, 0), GEN_INT (cval));
-	      if (rtx_cost (y, SET) < rtx_cost (x, SET))
+	      if (rtx_cost (y, SET, optimize_this_for_speed_p)
+	          < rtx_cost (x, SET, optimize_this_for_speed_p))
 		x = y;
 	    }
 
@@ -8708,7 +8724,8 @@ distribute_and_simplify_rtx (rtx x, int n)
   tmp = apply_distributive_law (simplify_gen_binary (inner_code, mode,
 						     new_op0, new_op1));
   if (GET_CODE (tmp) != outer_code
-      && rtx_cost (tmp, SET) < rtx_cost (x, SET))
+      && rtx_cost (tmp, SET, optimize_this_for_speed_p)
+         < rtx_cost (x, SET, optimize_this_for_speed_p))
     return tmp;
 
   return NULL_RTX;
@@ -11368,7 +11385,7 @@ count_rtxs (rtx x)
 {
   enum rtx_code code = GET_CODE (x);
   const char *fmt;
-  int i, ret = 1;
+  int i, j, ret = 1;
 
   if (GET_RTX_CLASS (code) == '2'
       || GET_RTX_CLASS (code) == 'c')
@@ -11398,6 +11415,9 @@ count_rtxs (rtx x)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     if (fmt[i] == 'e')
       ret += count_rtxs (XEXP (x, i));
+    else if (fmt[i] == 'E')
+      for (j = 0; j < XVECLEN (x, i); j++)
+	ret += count_rtxs (XVECEXP (x, i, j));
 
   return ret;
 }
@@ -11411,7 +11431,7 @@ update_table_tick (rtx x)
 {
   enum rtx_code code = GET_CODE (x);
   const char *fmt = GET_RTX_FORMAT (code);
-  int i;
+  int i, j;
 
   if (code == REG)
     {
@@ -11429,8 +11449,6 @@ update_table_tick (rtx x)
     }
 
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    /* Note that we can't have an "E" in values stored; see
-       get_last_value_validate.  */
     if (fmt[i] == 'e')
       {
 	/* Check for identical subexpressions.  If x contains
@@ -11467,6 +11485,9 @@ update_table_tick (rtx x)
 
 	update_table_tick (XEXP (x, i));
       }
+    else if (fmt[i] == 'E')
+      for (j = 0; j < XVECLEN (x, i); j++)
+	update_table_tick (XVECEXP (x, i, j));
 }
 
 /* Record that REG is set to VALUE in insn INSN.  If VALUE is zero, we
@@ -11874,7 +11895,7 @@ get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
   rtx x = *loc;
   const char *fmt = GET_RTX_FORMAT (GET_CODE (x));
   int len = GET_RTX_LENGTH (GET_CODE (x));
-  int i;
+  int i, j;
 
   if (REG_P (x))
     {
@@ -11952,9 +11973,11 @@ get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
 				       replace) == 0)
 	    return 0;
 	}
-      /* Don't bother with these.  They shouldn't occur anyway.  */
       else if (fmt[i] == 'E')
-	return 0;
+	for (j = 0; j < XVECLEN (x, i); j++)
+	  if (get_last_value_validate (&XVECEXP (x, i, j),
+				       insn, tick, replace) == 0)
+	    return 0;
     }
 
   /* If we haven't found a reason for it to be invalid, it is valid.  */
