@@ -1057,12 +1057,6 @@ decode_options (unsigned int argc, const char **argv)
 	flag_shlib = 1;
     }
 
-  /* FIXME lto: With -flto, debug information will be incomplete or
-     inaccurate, or worse, may be sufficiently corrupt as to crash the
-     debug info writer.  */
-  if (flag_generate_lto && debug_info_level != DINFO_LEVEL_NONE)
-    inform (input_location, "-g is presently unsupported with -flto");
-
   /* Set flag_no_inline before the post_options () hook.  The C front
      ends use it to determine tree inlining defaults.  FIXME: such
      code should be lang-independent when all front ends use tree

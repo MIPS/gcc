@@ -19,7 +19,7 @@
 load_lib gcc-dg.exp
 load_lib target-supports.exp
 
-set DEFAULT_MATCFLAGS "-O3 -fipa-matrix-reorg -fdump-ipa-matrix-reorg -fwhole-program -combine"
+set DEFAULT_MATCFLAGS "-O3 -flto -fipa-matrix-reorg -fdump-ipa-matrix-reorg -fwhole-program -combine"
 
 # Initialize `dg'.
 dg-init

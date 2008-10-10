@@ -1,3 +1,22 @@
+2008-10-10  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.target/i386/i386.exp: Add -flto by default.
+	* gcc.target/i386/math-torture/math-torture.exp: Likewise.
+	* gcc.dg/matrix/matrix.exp: Likewise.
+	* gcc.dg/struct/struct-reorg.exp: Likewise.
+	* gcc.dg/debug/debug.exp: Likewise.
+	* gcc.dg/vect/costmodel/ppc/ppc-costmodel-vect.exp: Likewise.
+	* gcc.dg/vect/costmodel/spu/spu-costmodel-vect.exp: Likewise.
+	* gcc.dg/vect/costmodel/i386/i386-costmodel-vect.exp: Likewise.
+	* gcc.dg/vect/costmodel/x86_64/x86_64-costmodel-vect.exp: Likewise.
+	* gcc.dg/vect/vect.exp: Likewise.
+	* gcc.misc-tests/dectest.exp: Likewise.
+	* g++.dg/debug/debug.exp: Likewise.
+	* g++.dg/vect/vect.exp: Likewise.
+	* g++.dg/pch/pch.exp: Likewise.
+	* lib/c-torture.exp: Likewise.
+	* lib/gcc-dg.exp: Likewise.
+
 2008-10-09  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/20080924.c: Add -O2.

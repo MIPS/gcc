@@ -20,7 +20,7 @@
 load_lib gcc-dg.exp
 load_lib target-supports.exp
 
-set STRUCT_REORG_CFLAGS "-O3 -fipa-struct-reorg -fdump-ipa-all -fwhole-program -combine -fipa-type-escape"
+set STRUCT_REORG_CFLAGS "-O3 -flto -fipa-struct-reorg -fdump-ipa-all -fwhole-program -combine -fipa-type-escape"
 
 # Initialize `dg'.
 dg-init

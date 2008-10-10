@@ -1,0 +1,3 @@
+2008-10-10  Diego Novillo  <dnovillo@google.com>
+
+	* scripts/testsuite_flags.in: Add -flto by default.

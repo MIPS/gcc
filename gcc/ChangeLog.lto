@@ -1,3 +1,8 @@
+2008-10-10  Diego Novillo  <dnovillo@google.com>
+
+	* opts.c (decode_options): Remove error message about -g
+	-flto.
+
 2008-10-10  Doug Kwan  <dougkwan@google.com>
 
 	* toplev.c (announce_function): Use DECL_ASSEMBLER_NAME

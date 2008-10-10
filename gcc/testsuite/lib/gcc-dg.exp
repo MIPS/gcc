@@ -43,14 +43,14 @@ if [info exists TORTURE_OPTIONS] {
     # items below, even though -O3 is also specified, because some ports may
     # choose to disable inlining functions by default, even when optimizing.
     set DG_TORTURE_OPTIONS [list \
-	{ -O0 } \
-	{ -O1 } \
+	{ -O0 -flto } \
+	{ -O1 -flto } \
 	{ -O2 -flto } \
-	{ -O3 -fomit-frame-pointer } \
-	{ -O3 -fomit-frame-pointer -funroll-loops } \
-	{ -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions } \
+	{ -O3 -flto -fomit-frame-pointer } \
+	{ -O3 -flto -fomit-frame-pointer -funroll-loops } \
+	{ -O3 -flto -fomit-frame-pointer -funroll-all-loops -finline-functions } \
 	{ -O3 -g } \
-	{ -Os } ]
+	{ -Os -flto } ]
 }
 
 global GCC_UNDER_TEST

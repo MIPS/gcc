@@ -6,28 +6,28 @@ if { ![istarget i?86*-*-*] && ![istarget x86_64-*-*] } then {
 }
 
 set MATH_TORTURE_OPTIONS [list \
-        { -O0 } \
-        { -O0 -mfpmath=387 } \
-        { -O0 -msse -mno-sse2 -mfpmath=sse } \
-        { -O0 -msse -msse2 -mfpmath=sse } \
-        { -O0 -msse -mno-sse2 -mfpmath=sse,387 } \
-        { -O0 -msse -msse2 -mfpmath=sse,387 } \
-        { -O0 -mfpmath=387 -ffast-math } \
-        { -O0 -msse -mno-sse2 -mfpmath=sse -ffast-math } \
-        { -O0 -msse -msse2 -mfpmath=sse -ffast-math } \
-        { -O0 -msse -mno-sse2 -mfpmath=sse,387 -ffast-math } \
-        { -O0 -msse -msse2 -mfpmath=sse,387 -ffast-math } \
-        { -O2 } \
-        { -O2 -mfpmath=387 } \
-        { -O2 -msse -mno-sse2 -mfpmath=sse } \
-        { -O2 -msse -msse2 -mfpmath=sse } \
-        { -O2 -msse -mno-sse2 -mfpmath=sse,387 } \
-        { -O2 -msse -msse2 -mfpmath=sse,387 } \
-        { -O2 -mfpmath=387 -ffast-math } \
-        { -O2 -msse -mno-sse2 -mfpmath=sse -ffast-math } \
-        { -O2 -msse -msse2 -mfpmath=sse -ffast-math } \
-        { -O2 -msse -mno-sse2 -mfpmath=sse,387 -ffast-math } \
-        { -O2 -msse -msse2 -mfpmath=sse,387 -ffast-math } \
+        { -O0 -flto } \
+        { -O0 -flto -mfpmath=387 } \
+        { -O0 -flto -msse -mno-sse2 -mfpmath=sse } \
+        { -O0 -flto -msse -msse2 -mfpmath=sse } \
+        { -O0 -flto -msse -mno-sse2 -mfpmath=sse,387 } \
+        { -O0 -flto -msse -msse2 -mfpmath=sse,387 } \
+        { -O0 -flto -mfpmath=387 -ffast-math } \
+        { -O0 -flto -msse -mno-sse2 -mfpmath=sse -ffast-math } \
+        { -O0 -flto -msse -msse2 -mfpmath=sse -ffast-math } \
+        { -O0 -flto -msse -mno-sse2 -mfpmath=sse,387 -ffast-math } \
+        { -O0 -flto -msse -msse2 -mfpmath=sse,387 -ffast-math } \
+        { -O2 -flto } \
+        { -O2 -flto -mfpmath=387 } \
+        { -O2 -flto -msse -mno-sse2 -mfpmath=sse } \
+        { -O2 -flto -msse -msse2 -mfpmath=sse } \
+        { -O2 -flto -msse -mno-sse2 -mfpmath=sse,387 } \
+        { -O2 -flto -msse -msse2 -mfpmath=sse,387 } \
+        { -O2 -flto -mfpmath=387 -ffast-math } \
+        { -O2 -flto -msse -mno-sse2 -mfpmath=sse -ffast-math } \
+        { -O2 -flto -msse -msse2 -mfpmath=sse -ffast-math } \
+        { -O2 -flto -msse -mno-sse2 -mfpmath=sse,387 -ffast-math } \
+        { -O2 -flto -msse -msse2 -mfpmath=sse,387 -ffast-math } \
 ]
 
 load_lib gcc-dg.exp
