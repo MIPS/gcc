@@ -424,10 +424,7 @@ announce_function (tree decl)
 {
   if (!quiet_flag)
     {
-      if (rtl_dump_and_exit)
-	fprintf (stderr, "%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
-      else
-	fprintf (stderr, " %s", lang_hooks.decl_printable_name (decl, 2));
+      fprintf (stderr, "%s ", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
       fflush (stderr);
       pp_needs_newline (global_dc->printer) = true;
       diagnostic_set_last_function (global_dc, (diagnostic_info *) NULL);

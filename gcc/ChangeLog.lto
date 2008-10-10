@@ -1,3 +1,8 @@
+2008-10-10  Doug Kwan  <dougkwan@google.com>
+
+	* toplev.c (announce_function): Use DECL_ASSEMBLER_NAME
+	instead of DECL_NAME and lang_hooks.decl_printable_name.
+
 2008-10-09  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_tree): If EXPR is
