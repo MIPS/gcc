@@ -1,3 +1,10 @@
+2008-10-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/multi.m4: Save CXX, GFORTRAN and GCJ in config.status.
+	* libjava/configure.ac (libgcjdir): Quoting only for use in sed
+	command.  Quote backslashes too.
+	* libjava/configure: Rebuilt.
+
 2008-10-07  Alexandre Oliva  <aoliva@redhat.com>
 
 	* Makefile.def (flags_to_pass): Remove redundant and incomplete

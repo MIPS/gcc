@@ -353,12 +353,15 @@ else
   fi
 fi
 libgcjdir=`${PWDCMD-pwd}`
-case $libgcjdir in
-*,*) libgcjdir=`echo "$libgcjdir" | sed 's:,:\\,:g'`;;
-esac
 case $GCJ in
 *" -B"*)
-  GCJ=`echo "$GCJ" | sed "s, -B, -B$libgcjdir/&,"`
+  # Just in case there is a comma in the build dir, quote it for the
+  # sed command below.
+  case $libgcjdir in
+  *[[,\\]]*) qlibgcjdir=`echo "$libgcjdir" | sed 's:[[,\\]]:\\&:g'`;;
+  *) qlibgcjdir=$libgcjdir;;
+  esac
+  GCJ=`echo "$GCJ" | sed "s, -B, -B$qlibgcjdir/&,"`
   ;;
 *)
   GCJ=$GCJ" -B$libgcjdir/"
