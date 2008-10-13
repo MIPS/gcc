@@ -5275,6 +5275,12 @@ ia64_override_options (void)
       flag_selective_scheduling2 = 1;
       flag_sel_sched_pipelining = 1;
     }
+  if (mflag_sched_control_spec == 2)
+    {
+      /* Control speculation is on by default for the selective scheduler,
+         but not for the Haifa scheduler.  */
+      mflag_sched_control_spec = flag_selective_scheduling2 ? 1 : 0;
+    }
   if (flag_sel_sched_pipelining && flag_auto_inc_dec)
     {
       /* FIXME: remove this when we'd implement breaking autoinsns as
@@ -7220,7 +7226,7 @@ ia64_set_sched_flags (spec_info_t spec_info)
       
       if (mflag_sched_control_spec
           && (!sel_sched_p ()
-	      && reload_completed))
+	      || reload_completed))
 	{
 	  mask |= BEGIN_CONTROL;
 	  
@@ -9178,10 +9184,7 @@ ia64_reorg (void)
 
       if (flag_selective_scheduling2
 	  && !maybe_skip_selective_scheduling ())
-        {
-          mflag_sched_control_spec = 1;
-	  run_selective_scheduling ();
-        }
+        run_selective_scheduling ();
       else
 	schedule_ebbs ();
 

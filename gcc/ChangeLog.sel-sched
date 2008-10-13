@@ -1,3 +1,10 @@
+2008-10-13  Andrey Belevantsev  <abel@ispras.ru>
+
+	* config/ia64/ia64.opt (mflag_sched_control_spec): Initialize to 2.
+	* config/ia64/ia64.c (ia64_set_sched_flags): Fix thinko.
+	(ia64_reorg): Do not set mflag_sched_control_spec to 1 here...
+	(ia64_override_options): ... but process it here instead.
+
 2008-10-09  Andrey Belevantsev  <abel@ispras.ru>
 
 	Merge with trunk rev. 140935.
