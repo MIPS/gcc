@@ -1,3 +1,8 @@
+2008-10-14  Diego Novillo  <dnovillo@google.com>
+
+	* Make-lang.in (LTRANS_DRIVER_INSTALL_NAME): Disable transformation
+	of program name.
+
 2008-10-13  Ollie Wild  <aaw@google.com>
 
 	* lang-spec.h (@lto): Replace lto1_options with cc1_options.
