@@ -7046,7 +7046,10 @@ ia64_set_sched_context (void *_sc)
 static void
 ia64_clear_sched_context (void *_sc)
 {
-  free (((ia64_sched_context_t) _sc)->prev_cycle_state);
+  ia64_sched_context_t sc = (ia64_sched_context_t) _sc;
+  
+  free (sc->prev_cycle_state);
+  sc->prev_cycle_state = NULL;
 }
 
 /* Frees the _SC scheduling context.  */

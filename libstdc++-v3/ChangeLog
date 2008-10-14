@@ -1,3 +1,68 @@
+2008-10-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/20_util/reference_wrapper/24803.cc: Avoid uninitialized
+	warnings.
+
+2008-10-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/system_error (native_category): Remove.
+	(posix_category): Add.
+	(error_code::error_code(_ErrorCodeEnum, typename enable_if<>:type*):
+	Fix _M_cat initialization.
+	(error_code::operator=(_ErrorCodeEnum)): Assign _M_cat too.
+	(error_condition::_M_cat, error_condtion::operator=
+	(_ErrorConditionEnum)): Implement resolution of DR 804.
+	(error_condition::error_condition(_ErrorConditionEnum, typename
+	enable_if<>:type*): Fix.
+	(error_condition::clear, error_condition::assign): Implement.
+	(operator==, operator!=): Fix uglification of parameters.
+	(make_error_code, make_error_condition): Define in namespace
+	posix_error.
+	(operator<<(basic_ostream<>&, const error_code&)): Define here.
+	* include/std/ostream (operator<<(basic_ostream<>&,
+	const error_code&)): Do not define here.
+	* testsuite/19_diagnostics/error_condition/cons/1.cc: New.	
+	* testsuite/19_diagnostics/error_condition/operators/bool.cc: Likewise.
+	* testsuite/19_diagnostics/error_condition/operators/bool_neg.cc:
+	Likewise.
+	* testsuite/19_diagnostics/error_condition/operators/equal.cc:
+	Likewise.
+	* testsuite/19_diagnostics/error_condition/operators/not_equal.cc:
+	Likewise.
+	* testsuite/19_diagnostics/error_code/cons/1.cc: Tweak.
+	* testsuite/19_diagnostics/error_category/cons/copy_neg.cc: Adjust
+	dg-error line numbers.
+	* testsuite/30_threads/unique_lock/locking/2.cc: Tweak.
+
+	* testsuite/util/testsuite_error.h: Minor tweaks.
+	* testsuite/util/testsuite_hooks.cc: Avoid uninitialized warning.
+
+2008-10-10  Chris Fairles  <cfairles@gcc.gnu.org>
+  
+	* testsuite/20_util/duration/cons/1.cc: Remove invalid check of 
+	uninitialized duration.
+        
+2008-10-08  Bob Walters  <bob.s.walters@gmail.com>
+
+	* include/bits/stl_vector.h (_Vector_base<>::_Vector_impl::_M_start,
+	_M_finish, _M_end_of_storage, _Vector_base<>::_M_allocate,
+	_M_deallocate): Use _Tp_alloc_type::pointer.
+
+2008-10-07  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/37761
+	* testsuite/abi/demangle/abi_examples/20.cc: Adjust expected spacing.
+	* testsuite/abi/demangle/abi_text/02.cc: Likewise.
+	* testsuite/abi/demangle/regression/cw-16.cc: Likewise.
+
+2008-10-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/stl_iterator.h (operator-(const reverse_iterator<>&,
+	const reverse_iterator<>&), operator-(const __normal_iterator<>&,
+	const __normal_iterator<>&), operator-(const move_iterator<>&,
+	const move_iterator<>&)): Use the auto -> return type syntax,
+	implement DR 685.
+
 2008-10-06  Jason Merrill  <jason@redhat.com>
 
 	* config/abi/pre/gnu.ver: Update char16/32_t manglings.

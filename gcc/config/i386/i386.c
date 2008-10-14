@@ -1229,9 +1229,6 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   /* X86_TUNE_ZERO_EXTEND_WITH_AND */
   m_486 | m_PENT,
 
-  /* X86_TUNE_USE_BIT_TEST */
-  m_386,
-
   /* X86_TUNE_UNROLL_STRLEN */
   m_486 | m_PENT | m_PPRO | m_AMD_MULTIPLE | m_K6 | m_CORE2 | m_GENERIC,
 
@@ -1436,6 +1433,10 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
      operand that cannot be represented using a modRM byte.  The XOR
      replacement is long decoded, so this split helps here as well.  */
   m_K6,
+
+  /* X86_TUNE_USE_VECTOR_FP_CONVERTS: Prefer vector packed SSE conversion
+     from FP to FP. */
+  m_AMDFAM10 | m_GENERIC,
 
   /* X86_TUNE_USE_VECTOR_CONVERTS: Prefer vector packed SSE conversion
      from integer to FP. */
@@ -1693,6 +1694,9 @@ enum tls_dialect ix86_tls_dialect = TLS_DIALECT_GNU;
 enum fpmath_unit ix86_fpmath;
 
 /* Which cpu are we scheduling for.  */
+enum attr_cpu ix86_schedule;
+
+/* Which cpu are we optimizing for.  */
 enum processor_type ix86_tune;
 
 /* Which instruction set architecture to use.  */
@@ -2490,93 +2494,89 @@ override_options (bool main_args_p)
     {
       const char *const name;		/* processor name or nickname.  */
       const enum processor_type processor;
+      const enum attr_cpu schedule;
       const unsigned /*enum pta_flags*/ flags;
     }
   const processor_alias_table[] =
     {
-      {"i386", PROCESSOR_I386, 0},
-      {"i486", PROCESSOR_I486, 0},
-      {"i586", PROCESSOR_PENTIUM, 0},
-      {"pentium", PROCESSOR_PENTIUM, 0},
-      {"pentium-mmx", PROCESSOR_PENTIUM, PTA_MMX},
-      {"winchip-c6", PROCESSOR_I486, PTA_MMX},
-      {"winchip2", PROCESSOR_I486, PTA_MMX | PTA_3DNOW},
-      {"c3", PROCESSOR_I486, PTA_MMX | PTA_3DNOW},
-      {"c3-2", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE},
-      {"i686", PROCESSOR_PENTIUMPRO, 0},
-      {"pentiumpro", PROCESSOR_PENTIUMPRO, 0},
-      {"pentium2", PROCESSOR_PENTIUMPRO, PTA_MMX},
-      {"pentium3", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE},
-      {"pentium3m", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE},
-      {"pentium-m", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE | PTA_SSE2},
-      {"pentium4", PROCESSOR_PENTIUM4, PTA_MMX |PTA_SSE | PTA_SSE2},
-      {"pentium4m", PROCESSOR_PENTIUM4, PTA_MMX | PTA_SSE | PTA_SSE2},
-      {"prescott", PROCESSOR_NOCONA, PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3},
-      {"nocona", PROCESSOR_NOCONA, (PTA_64BIT
-				    | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
-				    | PTA_CX16 | PTA_NO_SAHF)},
-      {"core2", PROCESSOR_CORE2, (PTA_64BIT
-				  | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
-				  | PTA_SSSE3
-				  | PTA_CX16)},
-      {"geode", PROCESSOR_GEODE, (PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				  |PTA_PREFETCH_SSE)},
-      {"k6", PROCESSOR_K6, PTA_MMX},
-      {"k6-2", PROCESSOR_K6, PTA_MMX | PTA_3DNOW},
-      {"k6-3", PROCESSOR_K6, PTA_MMX | PTA_3DNOW},
-      {"athlon", PROCESSOR_ATHLON, (PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				    | PTA_PREFETCH_SSE)},
-      {"athlon-tbird", PROCESSOR_ATHLON, (PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-					  | PTA_PREFETCH_SSE)},
-      {"athlon-4", PROCESSOR_ATHLON, (PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				      | PTA_SSE)},
-      {"athlon-xp", PROCESSOR_ATHLON, (PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				       | PTA_SSE)},
-      {"athlon-mp", PROCESSOR_ATHLON, (PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				       | PTA_SSE)},
-      {"x86-64", PROCESSOR_K8, (PTA_64BIT
-				| PTA_MMX | PTA_SSE | PTA_SSE2
-				| PTA_NO_SAHF)},
-      {"k8", PROCESSOR_K8, (PTA_64BIT
-			    | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-			    | PTA_SSE | PTA_SSE2
-			    | PTA_NO_SAHF)},
-      {"k8-sse3", PROCESSOR_K8, (PTA_64BIT
-				 | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				 | PTA_SSE | PTA_SSE2 | PTA_SSE3
-				 | PTA_NO_SAHF)},
-      {"opteron", PROCESSOR_K8, (PTA_64BIT
-				 | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				 | PTA_SSE | PTA_SSE2
-				 | PTA_NO_SAHF)},
-      {"opteron-sse3", PROCESSOR_K8, (PTA_64BIT
-				      | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				      | PTA_SSE | PTA_SSE2 | PTA_SSE3
-				      | PTA_NO_SAHF)},
-      {"athlon64", PROCESSOR_K8, (PTA_64BIT
-				  | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				  | PTA_SSE | PTA_SSE2
-				  | PTA_NO_SAHF)},
-      {"athlon64-sse3", PROCESSOR_K8, (PTA_64BIT
-				       | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				       | PTA_SSE | PTA_SSE2 | PTA_SSE3
-				       | PTA_NO_SAHF)},
-      {"athlon-fx", PROCESSOR_K8, (PTA_64BIT
-				   | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-				   | PTA_SSE | PTA_SSE2
-				   | PTA_NO_SAHF)},
-      {"amdfam10", PROCESSOR_AMDFAM10, (PTA_64BIT
-					| PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-					| PTA_SSE | PTA_SSE2 | PTA_SSE3
-					| PTA_SSE4A
-					| PTA_CX16 | PTA_ABM)},
-      {"barcelona", PROCESSOR_AMDFAM10, (PTA_64BIT
-					 | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A
-					 | PTA_SSE | PTA_SSE2 | PTA_SSE3
-					 | PTA_SSE4A
-					 | PTA_CX16 | PTA_ABM)},
-      {"generic32", PROCESSOR_GENERIC32, 0 /* flags are only used for -march switch.  */ },
-      {"generic64", PROCESSOR_GENERIC64, PTA_64BIT /* flags are only used for -march switch.  */ },
+      {"i386", PROCESSOR_I386, CPU_NONE, 0},
+      {"i486", PROCESSOR_I486, CPU_NONE, 0},
+      {"i586", PROCESSOR_PENTIUM, CPU_PENTIUM, 0},
+      {"pentium", PROCESSOR_PENTIUM, CPU_PENTIUM, 0},
+      {"pentium-mmx", PROCESSOR_PENTIUM, CPU_PENTIUM, PTA_MMX},
+      {"winchip-c6", PROCESSOR_I486, CPU_NONE, PTA_MMX},
+      {"winchip2", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW},
+      {"c3", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW},
+      {"c3-2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, PTA_MMX | PTA_SSE},
+      {"i686", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, 0},
+      {"pentiumpro", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, 0},
+      {"pentium2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, PTA_MMX},
+      {"pentium3", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO,
+	PTA_MMX | PTA_SSE},
+      {"pentium3m", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO,
+	PTA_MMX | PTA_SSE},
+      {"pentium-m", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO,
+	PTA_MMX | PTA_SSE | PTA_SSE2},
+      {"pentium4", PROCESSOR_PENTIUM4, CPU_NONE,
+	PTA_MMX |PTA_SSE | PTA_SSE2},
+      {"pentium4m", PROCESSOR_PENTIUM4, CPU_NONE,
+	PTA_MMX | PTA_SSE | PTA_SSE2},
+      {"prescott", PROCESSOR_NOCONA, CPU_NONE,
+	PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3},
+      {"nocona", PROCESSOR_NOCONA, CPU_NONE,
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_CX16 | PTA_NO_SAHF},
+      {"core2", PROCESSOR_CORE2, CPU_CORE2,
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_SSSE3 | PTA_CX16},
+      {"geode", PROCESSOR_GEODE, CPU_GEODE,
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A |PTA_PREFETCH_SSE},
+      {"k6", PROCESSOR_K6, CPU_K6, PTA_MMX},
+      {"k6-2", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW},
+      {"k6-3", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW},
+      {"athlon", PROCESSOR_ATHLON, CPU_ATHLON,
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE},
+      {"athlon-tbird", PROCESSOR_ATHLON, CPU_ATHLON,
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE},
+      {"athlon-4", PROCESSOR_ATHLON, CPU_ATHLON,
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE},
+      {"athlon-xp", PROCESSOR_ATHLON, CPU_ATHLON,
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE},
+      {"athlon-mp", PROCESSOR_ATHLON, CPU_ATHLON,
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE},
+      {"x86-64", PROCESSOR_K8, CPU_K8,
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_NO_SAHF},
+      {"k8", PROCESSOR_K8, CPU_K8,
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
+	| PTA_SSE2 | PTA_NO_SAHF},
+      {"k8-sse3", PROCESSOR_K8, CPU_K8,
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
+	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
+      {"opteron", PROCESSOR_K8, CPU_K8,
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
+	| PTA_SSE2 | PTA_NO_SAHF},
+      {"opteron-sse3", PROCESSOR_K8, CPU_K8,
+        PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
+	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
+      {"athlon64", PROCESSOR_K8, CPU_K8,
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
+	| PTA_SSE2 | PTA_NO_SAHF},
+      {"athlon64-sse3", PROCESSOR_K8, CPU_K8,
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
+	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
+      {"athlon-fx", PROCESSOR_K8, CPU_K8,
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
+	| PTA_SSE2 | PTA_NO_SAHF},
+      {"amdfam10", PROCESSOR_AMDFAM10, CPU_AMDFAM10,
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
+	| PTA_SSE2 | PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM},
+      {"barcelona", PROCESSOR_AMDFAM10, PROCESSOR_AMDFAM10,
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
+	| PTA_SSE2 | PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM},
+      {"generic32", PROCESSOR_GENERIC32, CPU_PENTIUMPRO,
+	0 /* flags are only used for -march switch.  */ },
+      {"generic64", PROCESSOR_GENERIC64, CPU_GENERIC64,
+	PTA_64BIT /* flags are only used for -march switch.  */ },
     };
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
@@ -2766,6 +2766,7 @@ override_options (bool main_args_p)
   for (i = 0; i < pta_size; i++)
     if (! strcmp (ix86_arch_string, processor_alias_table[i].name))
       {
+	ix86_schedule = processor_alias_table[i].schedule;
 	ix86_arch = processor_alias_table[i].processor;
 	/* Default cpu tuning to the architecture.  */
 	ix86_tune = ix86_arch;
@@ -2848,6 +2849,7 @@ override_options (bool main_args_p)
   for (i = 0; i < pta_size; i++)
     if (! strcmp (ix86_tune_string, processor_alias_table[i].name))
       {
+	ix86_schedule = processor_alias_table[i].schedule;
 	ix86_tune = processor_alias_table[i].processor;
 	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
 	  {
@@ -2858,6 +2860,7 @@ override_options (bool main_args_p)
 		  if (! strcmp (ix86_tune_string,
 				processor_alias_table[i].name))
 		    break;
+		ix86_schedule = processor_alias_table[i].schedule;
 		ix86_tune = processor_alias_table[i].processor;
 	      }
 	    else
@@ -3276,11 +3279,13 @@ static void
 ix86_function_specific_save (struct cl_target_option *ptr)
 {
   gcc_assert (IN_RANGE (ix86_arch, 0, 255));
+  gcc_assert (IN_RANGE (ix86_schedule, 0, 255));
   gcc_assert (IN_RANGE (ix86_tune, 0, 255));
   gcc_assert (IN_RANGE (ix86_fpmath, 0, 255));
   gcc_assert (IN_RANGE (ix86_branch_cost, 0, 255));
 
   ptr->arch = ix86_arch;
+  ptr->schedule = ix86_schedule;
   ptr->tune = ix86_tune;
   ptr->fpmath = ix86_fpmath;
   ptr->branch_cost = ix86_branch_cost;
@@ -3301,6 +3306,7 @@ ix86_function_specific_restore (struct cl_target_option *ptr)
   int i;
 
   ix86_arch = ptr->arch;
+  ix86_schedule = ptr->schedule;
   ix86_tune = ptr->tune;
   ix86_fpmath = ptr->fpmath;
   ix86_branch_cost = ptr->branch_cost;

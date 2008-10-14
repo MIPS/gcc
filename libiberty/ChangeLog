@@ -1,3 +1,13 @@
+2008-10-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* xstrdup.c: Include <sys/types.h> after "config.h"
+ 
+2008-10-07  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* configure.ac: Call AC_SYS_LARGEFILE.
+	* config.in: Regenerated.
+	* configure: Likewise.
+
 2008-10-06  Jason Merrill  <jason@redhat.com>
 
 	* cp-demangle.c (struct d_print_info): Add pack_index.
