@@ -34,8 +34,10 @@ if [info exists TORTURE_OPTIONS] {
     # choose to disable inlining functions by default, even when optimizing.
     set C_TORTURE_OPTIONS [list \
 	{ -O0 -flto } \
+	{ -O0 -fwhopr } \
 	{ -O1 -flto } \
 	{ -O2 -flto } \
+	{ -O2 -fwhopr } \
 	{ -O3 -flto -fomit-frame-pointer } \
 	{ -O3 -flto -fomit-frame-pointer -funroll-loops } \
 	{ -O3 -flto -fomit-frame-pointer -funroll-all-loops -finline-functions } \

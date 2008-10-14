@@ -1,3 +1,9 @@
+2008-10-13  Ollie Wild  <aaw@google.com>
+
+	* lang-spec.h (@lto): Replace lto1_options with cc1_options.
+	* lto.c (lto_execute_ltrans): Add "-fno-wpa -fltrans -xlto" to CFLAGS.
+	* ltrans-driver (LTRANS_FLAGS): Remove.
+
 2008-10-08  Doug Kwan  <dougkwan@google.com>
 
 	* lto.c (lto_fixup_tree): Remove ATTRIBUTE_UNUSED from DATA.

@@ -286,6 +286,9 @@ enum ira_algorithm flag_ira_algorithm = IRA_ALGORITHM_MIXED;
 
 unsigned int flag_ira_verbose = 5;
 
+/* By default, we don't generate sections for link-time optimization.  */
+int flag_generate_lto;
+
 /* Nonzero means change certain warnings into errors.
    Usually these are warnings about failure to conform to some standard.  */
 

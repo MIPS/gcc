@@ -225,6 +225,10 @@ extern enum ira_algorithm flag_ira_algorithm;
 
 extern unsigned int flag_ira_verbose;
 
+/* Nonzero means to serialize gimplified function bodies for use in link-time
+   optimization.  */
+extern int flag_generate_lto;
+
 
 /* Other basic status info about current function.  */
 

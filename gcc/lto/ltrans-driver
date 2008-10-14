@@ -48,8 +48,6 @@ trap 'rm -rf $tmp' TERM INT EXIT
 makefile=$tmp/Makefile
 touch $makefile
 
-echo "LTRANS_FLAGS = -xlto -fltrans" >> $makefile
-
 inputlist="$@"
 outputlist=
 for input in $inputlist
@@ -58,7 +56,7 @@ do
   outputlist="$outputlist $output"
 
   echo "$output: $input" >> $makefile
-  echo "	\$(CC) \$(CFLAGS) \$(LTRANS_FLAGS) -o $output $input" >> $makefile
+  echo "	\$(CC) \$(CFLAGS) -o $output $input" >> $makefile
   echo >> $makefile
 done
 

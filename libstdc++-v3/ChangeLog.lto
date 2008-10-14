@@ -1,3 +1,7 @@
+2008-10-14  Diego Novillo  <dnovillo@google.com>
+
+	* scripts/testsuite_flags.in: Replace -flto with -fwhopr.
+
 2008-10-10  Diego Novillo  <dnovillo@google.com>
 
 	* scripts/testsuite_flags.in: Add -flto by default.

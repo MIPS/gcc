@@ -691,6 +691,7 @@ lto_execute_ltrans (char *const *files)
 {
   struct pex_obj *pex;
   const char *env_val;
+  const char *extra_cflags = " -fno-wpa -fltrans -xlto";
   struct obstack env_obstack;
   char **argv;
   const char **argv_ptr;
@@ -717,7 +718,8 @@ lto_execute_ltrans (char *const *files)
 
   obstack_init (&env_obstack);
   obstack_grow (&env_obstack, "CFLAGS=", sizeof ("CFLAGS=") - 1);
-  obstack_grow (&env_obstack, env_val, strlen (env_val) + 1);
+  obstack_grow (&env_obstack, env_val, strlen (env_val));
+  obstack_grow (&env_obstack, extra_cflags, strlen (extra_cflags) + 1);
   putenv (XOBFINISH (&env_obstack, char *));
 
   pex = pex_init (0, "lto1", NULL);

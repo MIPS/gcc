@@ -625,7 +625,7 @@ C ObjC C++ ObjC++
 Allow implicit conversions between vectors with differing numbers of subparts and/or differing element types.
 
 flto
-C C++ Var(flag_generate_lto)
+C C++ Var(flag_lto)
 Enable link-time optimization.
 
 fms-extensions
@@ -796,6 +796,10 @@ Implement vtables using thunks
 fweak
 C++ ObjC++
 Emit common-like symbols as weak symbols
+
+fwhopr
+C C++ Var(flag_whopr)
+Enable partitioned link-time optimization.
 
 fwide-exec-charset=
 C ObjC C++ ObjC++ Joined RejectNegative

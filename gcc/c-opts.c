@@ -1013,6 +1013,14 @@ c_common_post_options (const char **pfilename)
   C_COMMON_OVERRIDE_OPTIONS;
 #endif
 
+  /* Reconcile -flto and -fwhopr.  Set additional flags as appropriate and
+     check option consistency.  */
+  if (flag_lto && flag_whopr)
+    error ("-flto and -fwhopr are mutually exclusive");
+
+  if (flag_lto || flag_whopr)
+    flag_generate_lto = 1;
+
   /* By default we use C99 inline semantics in GNU99 or C99 mode.  C99
      inline semantics are not supported in GNU89 or C89 mode.  */
   if (flag_gnu89_inline == -1)

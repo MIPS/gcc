@@ -1,3 +1,35 @@
+2008-10-13  Ollie Wild  <aaw@google.com>
+
+	* c.opt (flto): Switch variable name to flag_lto.
+	(fwhopr): New option.
+	* collect2.c (enum lto_mode_d): Rename LTO_MODE_WPA to LTO_MODE_WHOPR.
+	(lto_o_file): Remove.
+	(lto_o_files): New variable.
+	(collect_exit): Replace lto_o_file with lto_o_files.
+	(handler): Replace lto_o_file with lto_o_files.
+	(maybe_run_lto_and_relink): Add support for -fwhopr.
+	(main): Replace -fwpa with -fwhopr.
+	(maybe_unlink_list): New function.
+	* gcc.c (gcc_lto_option_t): Remove.
+	(lto_single): New variable.
+	(LINK_COMMAND_SPEC): Add flto and fwhopr.  Remove link_lto_options.
+	(cc1_non_lto_options): Rename as cc1_options.
+	(cc1_options): Remove.
+	(lto1_options): Remove.
+	(link_lto_options): Remove.
+	(invoke_lto_single): Replace lto-option with lto-single.  Add -flto.
+	Replace lto1_options with cc1_options.
+	(static_specs): Remove cc1_non_lto_options, lto1_options, and
+	link_lto_options.
+	(static_spec_functions): Replace lto-option with lto-single.
+	(process_command): Set lto_single.  Remove cases for -flto, -fwpa, and
+	-fltrans.
+	(lto_option_spec_function): Remove.
+	(lto_single_spec_function): New function.
+	* c-opts.c (c_common_post_options): Add -flto/-fwhopr validation.
+	* flags.h (flag_generate_lto): New variable declaration.
+	* toplev.c (flag_generate_lto): New variable definition.
+
 2008-10-10  Diego Novillo  <dnovillo@google.com>
 
 	* opts.c (decode_options): Remove error message about -g

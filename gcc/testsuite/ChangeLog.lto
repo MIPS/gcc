@@ -1,3 +1,9 @@
+2008-10-13  Ollie Wild  <aaw@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* lib/c-torture.exp: Add "-O2 -fwhopr" and "-O0 -fwhopr".
+	* lib/gcc-dg.exp: Likewise.
+
 2008-10-10  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.target/i386/i386.exp: Add -flto by default.
