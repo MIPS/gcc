@@ -475,7 +475,6 @@ lto_symtab_merge_decl (tree new_decl,
   /*gcc_assert (!DECL_NONLOCAL (new_decl));*/
   if (TREE_CODE (new_decl) == VAR_DECL)
     {
-      gcc_assert (TREE_STATIC (new_decl));
       gcc_assert (!DECL_REGISTER (new_decl));
       gcc_assert (!(DECL_EXTERNAL (new_decl) && DECL_INITIAL (new_decl)));
     }
@@ -486,6 +485,7 @@ lto_symtab_merge_decl (tree new_decl,
   /* Retrieve the previous declaration.  */
   name = DECL_ASSEMBLER_NAME (new_decl);
   old_decl = LTO_IDENTIFIER_DECL (name);
+
   /* If there was no previous declaration, then there is nothing to
      merge.  */
   if (!old_decl)
@@ -566,7 +566,7 @@ lto_symtab_prevailing_decl (tree decl)
   if (!TREE_PUBLIC (decl))
     return decl;
 
-  /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+  /* FIXME lto. There should be no DECL_ABSTRACT in the middle end. */
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
     return decl;
 

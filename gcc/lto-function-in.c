@@ -2932,25 +2932,17 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
       
 	  ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
 	  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
-
-          rest_of_decl_compilation (decl,
-                                    /*top_level=*/1,
-                                    /*at_end=*/0);
+          rest_of_decl_compilation (decl, 1, 0);
         }
+    }
 
-      /* FIXME lto: The DWARF reader always sets DECL_STATIC for a
-	 global, and lto_symtab_merge will assert if it is not set.
-         We should likely not set it, and fix lto_symtab_merge.  */
-      TREE_STATIC (decl) = 1;
-
-      /* If this variable has already been declared, merge the
-         declarations.  */
-      if (TREE_PUBLIC (decl))
-	{
-	  enum ld_plugin_symbol_resolution resolution =
-	    get_resolution (data_in, index);
-	  lto_symtab_merge_var (decl, resolution);
-	}
+  /* If this variable has already been declared, merge the
+     declarations.  */
+  if (TREE_PUBLIC (decl))
+    {
+      enum ld_plugin_symbol_resolution resolution;
+      resolution = get_resolution (data_in, index);
+      lto_symtab_merge_var (decl, resolution);
     }
 
   decl->decl_common.initial = input_tree (ib, data_in);

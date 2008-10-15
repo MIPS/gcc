@@ -1899,28 +1899,23 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 	 with a zero.  */
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
+	  int region;
 	  gimple stmt = gsi_stmt (bsi);
 
 	  output_gimple_stmt (ob, stmt);
 	
-	  /* We only need to set the region number of a statement that
-	     could throw if the region number is different from the
-	     last region number we set.  */
-	  if (stmt_could_throw_p (stmt))
+	  /* Emit the EH region holding STMT.  If the EH region is the
+	     same as the previous statement, emit a 0 for brevity.  */
+	  region = lookup_stmt_eh_region_fn (fn, stmt);
+	  if (region != last_eh_region_seen)
 	    {
-	      int region = lookup_stmt_eh_region_fn (fn, stmt);
-	      if (region != last_eh_region_seen)
-		{
-		  output_record_start (ob, NULL, NULL,
-				       LTO_set_eh0 + (region ? 1 : 0));
-		  if (region)
-		    output_sleb128 (ob, region);
-		
-		  last_eh_region_seen = region;
-		  LTO_DEBUG_UNDENT ();
-		}
-	      else
-		output_zero (ob);
+	      output_record_start (ob, NULL, NULL,
+				   LTO_set_eh0 + (region ? 1 : 0));
+	      if (region)
+		output_sleb128 (ob, region);
+
+	      last_eh_region_seen = region;
+	      LTO_DEBUG_UNDENT ();
 	    }
 	  else
 	    output_zero (ob);

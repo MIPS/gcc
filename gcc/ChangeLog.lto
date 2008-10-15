@@ -1,3 +1,11 @@
+2008-10-14  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_bb): Fix generation of EH
+	region numbers when transitioning outside a region.
+	* lto-function-in.c (input_var_decl): Do not force
+	TREE_STATIC on global symbols.
+	Handle TREE_PUBLIC decls even if they have a context.
+
 2008-10-13  Ollie Wild  <aaw@google.com>
 
 	* c.opt (flto): Switch variable name to flag_lto.

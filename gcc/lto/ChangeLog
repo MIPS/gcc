@@ -1,3 +1,8 @@
+2008-10-15  Diego Novillo  <dnovillo@google.com>
+
+	* lto-symtab.c (lto_symtab_merge_decl): Do not force
+	TREE_STATIC on global symbols.
+
 2008-10-14  Ollie Wild  <aaw@google.com>
 
 	* Make-lang.in (LTRANS_DRIVER_INSTALL_NAME): Remove.
@@ -29,7 +34,7 @@
 	(lto_fixup_state): Take an lto_fixup_data_t object DATA instead of
 	just a free-list.  Fix up types also.  Move decl merging code to
 	lto_fixup_tree.
- 	(lto_fixup_state_aux): Change AUX to point to an lto_fixup_data_t
+	(lto_fixup_state_aux): Change AUX to point to an lto_fixup_data_t
 	object.
 	(lto_fixup_decls): Use another pointer set to avoid multiple
 	walking of nodes except for DECLs to be replaced.  Pass an
