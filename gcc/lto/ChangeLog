@@ -1,5 +1,11 @@
 2008-10-15  Diego Novillo  <dnovillo@google.com>
 
+	* lto.c (lto_wpa_write_files): Reformat do-while loop.
+	Do not print TEMP_FILENAME
+	* ltrans-driver: Call make with -s.
+
+2008-10-15  Diego Novillo  <dnovillo@google.com>
+
 	* lto-symtab.c (lto_symtab_merge_decl): Do not force
 	TREE_STATIC on global symbols.
 

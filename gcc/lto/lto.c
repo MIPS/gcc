@@ -639,17 +639,18 @@ lto_wpa_write_files (void)
       size_t len = needed;
       char * temp_filename = XNEWVEC (char, len);
 
-      do {
-	if (needed > len)
-	  {
-	    len = needed;
-	    temp_filename = XRESIZEVEC (char, temp_filename, len);
-	  }
-	needed = snprintf (temp_filename, len, "bogus%d.lto.o", i);
-      } while (needed >= len);
+      do 
+	{
+	  if (needed > len)
+	    {
+	      len = needed;
+	      temp_filename = XRESIZEVEC (char, temp_filename, len);
+	    }
+	  needed = snprintf (temp_filename, len, "bogus%d.lto.o", i);
+	}
+      while (needed >= len);
 
       output_files[i] = temp_filename;
-      fprintf (stderr, "output to %s\n", temp_filename);
 
       file = lto_elf_file_open (temp_filename, /*writable=*/true);
       if (!file)

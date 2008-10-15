@@ -62,4 +62,4 @@ done
 
 echo "all: $outputlist" >> $makefile
 
-${MAKE-make} -f $makefile all
+${MAKE-make} -s -f $makefile all
