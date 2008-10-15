@@ -77,16 +77,6 @@ AC_ARG_ENABLE(gconf-peer,
     [gconf_enabled=no]
 )
 
-AC_ARG_ENABLE([gjdoc],
-              [AS_HELP_STRING(--disable-gjdoc,compile GJDoc (disabled by --disable-gjdoc) [default=yes])],
-              [case "${enableval}" in
-                yes) COMPILE_GJDOC=yes ;;
-                no) COMPILE_GJDOC=no ;;
-                *) COMPILE_GJDOC=yes ;;
-              esac],
-              [COMPILE_GJDOC=yes])
-AM_CONDITIONAL(CREATE_GJDOC, test "x${COMPILE_GJDOC}" = xyes)
-
 AC_ARG_WITH([antlr-jar],
             [AS_HELP_STRING([--with-antlr-jar=file],[Use ANTLR from the specified jar file])],
             [
@@ -96,19 +86,23 @@ AC_ARG_WITH([antlr-jar],
              ANTLR_JAR=
             ])
 
-if test "x${COMPILE_GJDOC}" = xyes; then
-    AC_MSG_CHECKING([for antlr.jar])
+AC_MSG_CHECKING([for antlr.jar])
+if test "x$ANTLR_JAR" = x; then
+    for antlr_lib_home in `ls -d /usr/local/share/antlr* 2> /dev/null` \
+	/usr/share/antlr/lib /usr/share/java /usr/lib;
+    do
+	if test -f "$antlr_lib_home/antlr.jar"; then
+	    # FIXME: version check for antlr needed without using a VM
+	    ANTLR_JAR="$antlr_lib_home/antlr.jar"
+	    break
+	fi
+    done
     if test "x$ANTLR_JAR" = x; then
-	for antlr_lib_home in `ls -d /usr/local/share/antlr* 2> /dev/null` \
-	    /usr/share/antlr/lib /usr/share/java /usr/lib;
-	do
-	    if test -f "$antlr_lib_home/antlr.jar"; then
-	      # FIXME: version check for antlr needed without using a VM
-	      ANTLR_JAR="$antlr_lib_home/antlr.jar"
-	      break
-	    fi
-	done
+	AC_MSG_RESULT([not found])
+    else
+	AC_MSG_RESULT($ANTLR_JAR)
     fi
+else
     if test -f "${ANTLR_JAR}"; then
 	AC_MSG_RESULT($ANTLR_JAR)
     else
@@ -116,6 +110,29 @@ if test "x${COMPILE_GJDOC}" = xyes; then
     fi
 fi
 AC_SUBST(ANTLR_JAR)
+
+AC_ARG_ENABLE([gjdoc],
+              [AS_HELP_STRING(--disable-gjdoc,compile GJDoc (disabled by --disable-gjdoc) [default=yes])],
+              [case "${enableval}" in
+                yes) BUILD_GJDOC=yes ;;
+                no) BUILD_GJDOC=no ;;
+                *) BUILD_GJDOC=yes ;;
+              esac],
+              [BUILD_GJDOC=maybe])
+
+AC_MSG_CHECKING([wether to build gjdoc])
+if test "x$BUILD_GJDOC" = xmaybe; then
+    if test -f "${ANTLR_JAR}"; then
+	BUILD_GJDOC=yes
+	AC_MSG_RESULT(yes)
+    else
+	BUILD_GJDOC=no
+	AC_MSG_RESULT([no, antlr.jar not found])
+    fi
+else
+    AC_MSG_RESULT($BUILD_GJDOC)
+fi
+AM_CONDITIONAL(CREATE_GJDOC, test "x${BUILD_GJDOC}" = xyes)
 
 AC_ARG_ENABLE(java-maintainer-mode,
 	AS_HELP_STRING([--enable-java-maintainer-mode],
@@ -463,6 +480,9 @@ else
   else
     ac_configure_args="$ac_configure_args --with-escher=$with_escher"
   fi
+fi
+if test "x$BUILD_GJDOC" = xno; then
+  ac_configure_args="$ac_configure_args --disable-gjdoc"
 fi
 # -Werror causes unavoidable problems in code using alsa.
 ac_configure_args="$ac_configure_args --disable-regen-headers"
