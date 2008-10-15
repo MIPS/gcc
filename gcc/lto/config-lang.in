@@ -20,7 +20,7 @@
 #Boston, MA 02110-1301, USA.
 
 language="lto"
-compilers="lto1\$(exeext)"
+compilers="lto1\$(exeext) ltrans-driver\$(exeext)"
 stagestuff="lto1\$(exeext)"
 
 target_libs="lto-plugin"
