@@ -1,3 +1,10 @@
+2008-10-15  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* gimplify.c (gimplify_omp_task): Reverted previous changes.  Code
+	is moved to omp-low.c.	
+	* omp-low.c (lower_omp_taskreg): Handle lastprivate clauses for
+	OMP_TASKs.  Generate semaphore synchronization.
+	
 2008-10-01  Antoniu Pop  <antoniu.pop@gmail.com>
 	    Sebastian Pop  <sebastian.pop@amd.com>
 

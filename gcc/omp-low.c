@@ -6347,24 +6347,92 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  		   gimple_build_assign (ctx->receiver_decl, t));
     }
 
+
+  /* Handle the lastprivate clauses for OMP_TASKs.  */
+  if (gimple_code (stmt) == GIMPLE_OMP_TASK)
+    {
+      gimple_seq tmp = NULL;
+	  
+      /* Generate copy out for lastprivate clauses before returning
+	 from task region.  */
+      lower_lastprivate_clauses (gimple_omp_task_clauses (stmt), NULL, &tmp, ctx);
+      gimple_seq_add_seq (&par_olist, tmp);
+      
+      /* If we have copy-out variables, we need synchronization before
+	 reading anything from olist.  */
+      if (olist)
+	{
+	  gimple_seq nolist = NULL;
+	  gimple sem_create_stmt, sem_init_stmt, sem_post_stmt, sem_wait_stmt;
+	  gimple sem_destroy_stmt;
+	  tree sem, sem_init_val, temp;
+
+	  /* Generate creation and initialisation of a semaphore.  */
+	  sem_create_stmt
+	    = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_CREATE], 0);
+	  sem = create_tmp_var (ptr_type_node, ".omp_task_lastprivate_sem");
+	  gimple_call_set_lhs (sem_create_stmt, sem);
+
+	  gimple_seq_add_stmt (&ilist, sem_create_stmt);
+	  
+	  sem_init_val = build_int_cst (unsigned_type_node, 0);
+	  sem_init_stmt
+	    = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_INIT], 
+				 2, sem, sem_init_val);
+	  
+	  gimple_seq_add_stmt (&ilist, sem_init_stmt);
+
+	  /* Generate semaphore post call after the writes.  */
+	  sem_post_stmt
+	    = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_POST],
+				 1, sem);
+	  gimple_seq_add_stmt (&par_olist, sem_post_stmt);
+
+	  /* Generate semaphore wait call before the reads.  */
+	  sem_wait_stmt
+	    = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_WAIT],
+				 1, sem);
+	  gimple_seq_add_stmt (&nolist, sem_wait_stmt);
+
+	  /* Generate semaphore destroy call.  */
+	  sem_destroy_stmt
+	    = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_DESTROY],
+				 1, sem);
+	  gimple_seq_add_stmt (&nolist, sem_destroy_stmt);
+	  gimple_seq_add_seq (&nolist, olist);
+	  olist = nolist;
+
+	  /* Add field in the OMP_DATA record for semaphore pointer */
+	  install_var_field (sem, false, 3, ctx);
+	  install_var_local (sem, ctx);
+	  fixup_remapped_decl (sem, ctx, false);
+	  /* Need to reset the TYPE_SIZE because layout_type will not
+	     re-compute the type and decl layouts otherwise.  */
+	  TYPE_SIZE (ctx->record_type) = NULL_TREE;
+	  layout_type (ctx->record_type);
+	  fixup_child_record_type (ctx);
+	  temp = fold_convert (long_integer_type_node,
+			       TYPE_SIZE_UNIT (ctx->record_type));
+	  gimple_omp_task_set_arg_size (stmt, temp);
+	  temp = build_int_cst (long_integer_type_node,
+				TYPE_ALIGN_UNIT (ctx->record_type));
+	  gimple_omp_task_set_arg_align (stmt, temp);
+
+	  /* Generate the copy statements to and from the OMP_DATA. */
+	  gimple_seq_add_stmt 
+	    (&ilist,
+	     gimple_build_assign (build_sender_ref (sem, ctx), sem));
+	  gimple_seq_add_stmt 
+	    (&par_ilist, 
+	     gimple_build_assign (sem, build_outer_var_ref (sem, ctx)));
+	}
+    }
+
   gimple_seq_add_seq (&new_body, par_ilist);
   gimple_seq_add_seq (&new_body, par_body);
   gimple_seq_add_seq (&new_body, par_olist);
   new_body = maybe_catch_exception (new_body);
 
-  /* Generate copy out for lastprivate clauses before returning from
-     task region.  */
-  if (gimple_code (stmt) == GIMPLE_OMP_TASK)
-    {
-      gimple_seq tmp = NULL;
-      gimple_stmt_iterator gsi;
-
-      lower_lastprivate_clauses (gimple_omp_task_clauses (stmt), NULL, &tmp, ctx);
-      gsi = gsi_last (new_body);
-      gimple_seq_add_stmt (&tmp, gsi_stmt (gsi));
-      gsi_remove (&gsi, false);
-      gimple_seq_add_seq (&new_body, tmp);
-    }
   gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
   gimple_omp_set_body (stmt, new_body);
   bind = gimple_build_bind (NULL, NULL, gimple_bind_block (par_bind));
@@ -6373,14 +6441,6 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (ilist || olist)
     {
       gimple_seq_add_stmt (&ilist, bind);
-      if (gimple_code (stmt) == GIMPLE_OMP_TASK
-	  && find_omp_clause (clauses, OMP_CLAUSE_LASTPRIVATE))
-	{
-	  gimple_stmt_iterator gsi = *gsi_p;
-	  gsi_next (&gsi);
-	  gimple_seq_add_stmt (&ilist, gsi_stmt (gsi));
-	  gsi_remove (&gsi, false);
-	}
       gimple_seq_add_seq (&ilist, olist);
       bind = gimple_build_bind (NULL, ilist, NULL);
     }

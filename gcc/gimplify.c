@@ -5778,70 +5778,13 @@ gimplify_omp_task (tree *expr_p, gimple_seq *pre_p)
   tree expr = *expr_p;
   gimple g;
   gimple_seq body = NULL;
-  gimple_seq wait_sync = NULL;
-  gimple_seq post_sync = NULL;
   struct gimplify_ctx gctx;
 
   gimplify_scan_omp_clauses (&OMP_TASK_CLAUSES (expr), pre_p, ORT_TASK);
 
-  /* If the task has a LASTPRIVATE clause, it needs synchronization.  */
-  if (find_omp_clause (OMP_TASK_CLAUSES (expr), OMP_CLAUSE_LASTPRIVATE))
-    {
-      gimple sem_create_stmt, sem_init_stmt, sem_post_stmt;
-      gimple sem_wait_stmt, sem_destroy_stmt;
-      tree sem, sem_init_val;
-
-      /* Generate creation and initialisation of a semaphore.  */
-      sem_create_stmt
-	= gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_CREATE], 0);
-      sem = create_tmp_var_raw (ptr_type_node, ".omp_task_lastprivate_sem");
-
-      {
-	tree clause = build_omp_clause (OMP_CLAUSE_FIRSTPRIVATE);
-	OMP_CLAUSE_DECL (clause) = sem;
-	OMP_CLAUSE_CHAIN (clause) = OMP_TASK_CLAUSES (expr);
-	OMP_TASK_CLAUSES (expr) = clause;
-	lang_hooks.decls.omp_finish_clause (clause);
-      }
-
-      gimple_add_tmp_var (sem);
-      gimple_call_set_lhs (sem_create_stmt, sem);
-
-      gimple_seq_add_stmt (pre_p, sem_create_stmt);
-	  
-      sem_init_val = build_int_cst (unsigned_type_node, 0);
-      sem_init_stmt
-	= gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_INIT], 
-			     2, sem, sem_init_val);
-	  
-      gimple_seq_add_stmt (pre_p, sem_init_stmt);
-
-      /* Generate semaphore post call after the writes.  */
-      sem_post_stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_POST],
-					 1, sem);
-      gimple_seq_add_stmt (&post_sync, sem_post_stmt);
-
-
-      /* Generate semaphore wait call before the reads.  */
-      sem_wait_stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_WAIT],
-					 1, sem);
-      gimple_seq_add_stmt (&wait_sync, sem_wait_stmt);
-
-      /* Generate semaphore destroy call.  */
-      sem_destroy_stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_DESTROY],
-					    1, sem);
-      gimple_seq_add_stmt (&wait_sync, sem_destroy_stmt);
-    }
-
   push_gimplify_context (&gctx);
 
   g = gimplify_and_return_first (OMP_TASK_BODY (expr), &body);
-  if (post_sync)
-    {
-      gimple_seq seq = gimple_bind_body (gsi_stmt (gsi_start (body)));
-      gimplify_seq_add_seq (&seq, post_sync);
-    }
-
   if (gimple_code (g) == GIMPLE_BIND)
     pop_gimplify_context (g);
   else
@@ -5854,7 +5797,6 @@ gimplify_omp_task (tree *expr_p, gimple_seq *pre_p)
 			     NULL_TREE, NULL_TREE,
 			     NULL_TREE, NULL_TREE, NULL_TREE);
   gimplify_seq_add_stmt (pre_p, g);
-  gimplify_seq_add_seq (pre_p, wait_sync);
   *expr_p = NULL_TREE;
 }
 
