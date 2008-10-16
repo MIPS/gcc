@@ -1,3 +1,8 @@
+2008-10-16  Simon Baldwin  <simonb@google.com>
+
+	* langhooks.c: (lhd_print_error_function): Avoid accessing
+	TREE_CODE(block) where block is NULL.
+
 2008-10-14  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_bb): Fix generation of EH
