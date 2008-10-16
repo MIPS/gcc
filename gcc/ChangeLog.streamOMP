@@ -1,3 +1,9 @@
+2008-10-16  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* cp/parser.c (OMP_TASK_CLAUSE_MASK): Added
+	PRAGMA_OMP_CLAUSE_LASTPRIVATE to allow for lastprivate clauses on
+	tasks.
+	
 2008-10-15  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* gimplify.c (gimplify_omp_task): Reverted previous changes.  Code

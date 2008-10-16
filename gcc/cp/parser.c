@@ -21643,6 +21643,7 @@ cp_parser_omp_single (cp_parser *parser, cp_token *pragma_tok)
 	| (1u << PRAGMA_OMP_CLAUSE_DEFAULT)		\
 	| (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
 	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
+	| (1u << PRAGMA_OMP_CLAUSE_LASTPRIVATE)		\
 	| (1u << PRAGMA_OMP_CLAUSE_SHARED))
 
 static tree
