@@ -111,10 +111,12 @@ dg-init
 
 global O1_VECTCFLAGS
 set O1_VECTCFLAGS $DEFAULT_VECTCFLAGS
-lappend O1_VECTCFLAGS "-O1 -flto"
+lappend O1_VECTCFLAGS "-O1"
+lappend O1_VECTCFLAGS "-flto"
 lappend O1_VECTCFLAGS "-fdump-tree-vect-details"
 
-lappend DEFAULT_VECTCFLAGS "-O2 -flto"
+lappend DEFAULT_VECTCFLAGS "-O2"
+lappend DEFAULT_VECTCFLAGS "-flto"
 
 # Tests that should be run without generating dump info
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/nodump-*.\[cS\]]]  \
@@ -238,13 +240,15 @@ dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-tree-pre-*.\[cS\]]]  \
 
 # With -Os
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
-lappend DEFAULT_VECTCFLAGS "-Os -flto"
+lappend DEFAULT_VECTCFLAGS "-Os"
+lappend DEFAULT_VECTCFLAGS "-flto"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/Os-vect-*.\[cS\]]]  \
         "" $DEFAULT_VECTCFLAGS
 
 # With -O3
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
-lappend DEFAULT_VECTCFLAGS "-O3 -flto"
+lappend DEFAULT_VECTCFLAGS "-O3"
+lappend DEFAULT_VECTCFLAGS "-flto"
 if  [istarget "spu-*-*"] {
   lappend DEFAULT_VECTCFLAGS "-funroll-loops"
 }

@@ -20,7 +20,7 @@
 #
 # Contributed by Ben Elliston <bje@au.ibm.com>.
 
-set DEC_TORTURE_OPTIONS [list {} -O1 "-O2 -flto" -O3 -Os -msoft-float]
+set DEC_TORTURE_OPTIONS [list {} -O1 {-O2 -flto} -O3 -Os -msoft-float]
 
 proc target-specific-flags {} {
   set result "-frounding-math "
