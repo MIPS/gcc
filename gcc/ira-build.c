@@ -2102,7 +2102,7 @@ void
 ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 {
   int i, j, num;
-  bool propagate_p, stop_p, keep_p;
+  bool stop_p, keep_p;
   int hard_regs_num;
   bool new_pseudos_p, merged_p, mem_dest_p;
   unsigned int n;
@@ -2136,7 +2136,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
   /* Fix final allocno attributes.  */
   for (i = max_regno_before_emit - 1; i >= FIRST_PSEUDO_REGISTER; i--)
     {
-      mem_dest_p = propagate_p = false;
+      mem_dest_p = false;
       for (a = ira_regno_allocno_map[i];
 	   a != NULL;
 	   a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
@@ -2187,7 +2187,6 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	      continue;
 	    }
 	  new_pseudos_p = true;
-	  propagate_p = true;
 	  first = ALLOCNO_MEM_OPTIMIZED_DEST (a) == NULL ? NULL : a;
 	  stop_p = false;
 	  for (;;)
