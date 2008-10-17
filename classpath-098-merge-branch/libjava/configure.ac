@@ -1730,7 +1730,7 @@ AC_ARG_ENABLE([aot-compile-rpm],
   esac],
   [AOT_RPM_ENABLED=no]
 )
-AM_CONDITIONAL(INSTALL_AOT_RPM, test "x${AOT_RPM_ENABLED}" == xyes)
+AM_CONDITIONAL(INSTALL_AOT_RPM, test "x${AOT_RPM_ENABLED}" = xyes)
 
 AC_ARG_ENABLE([java-home],
   [AS_HELP_STRING([--enable-java-home],
@@ -1742,10 +1742,10 @@ AC_ARG_ENABLE([java-home],
   esac],
   [JAVA_HOME_ENABLED=no]
 )
-AM_CONDITIONAL(CREATE_JAVA_HOME, test "x${JAVA_HOME_ENABLED}" == xyes)
+AM_CONDITIONAL(CREATE_JAVA_HOME, test "x${JAVA_HOME_ENABLED}" = xyes)
 
 # Only do these checks if java-home above is enabled.
-if test "x${JAVA_HOME_ENABLED}" == xyes
+if test "x${JAVA_HOME_ENABLED}" = xyes
 then
 
   AC_ARG_WITH([gcc-suffix],

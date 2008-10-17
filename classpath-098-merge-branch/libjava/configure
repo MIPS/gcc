@@ -28068,7 +28068,7 @@ else
 fi;
 
 
-if test "x${AOT_RPM_ENABLED}" == xyes; then
+if test "x${AOT_RPM_ENABLED}" = xyes; then
   INSTALL_AOT_RPM_TRUE=
   INSTALL_AOT_RPM_FALSE='#'
 else
@@ -28093,7 +28093,7 @@ else
 fi;
 
 
-if test "x${JAVA_HOME_ENABLED}" == xyes; then
+if test "x${JAVA_HOME_ENABLED}" = xyes; then
   CREATE_JAVA_HOME_TRUE=
   CREATE_JAVA_HOME_FALSE='#'
 else
@@ -28103,7 +28103,7 @@ fi
 
 
 # Only do these checks if java-home above is enabled.
-if test "x${JAVA_HOME_ENABLED}" == xyes
+if test "x${JAVA_HOME_ENABLED}" = xyes
 then
 
 
