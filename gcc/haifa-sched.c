@@ -646,10 +646,12 @@ insn_cost (rtx insn)
 
 /* Compute cost of dependence LINK.
    This is the number of cycles between instruction issue and
-   instruction results.  */
+   instruction results.
+   ??? We also use this function to call recog_memoized on all insns.  */
 int
 dep_cost_1 (dep_t link, dw_t dw)
 {
+  rtx insn = DEP_PRO (link);
   rtx used = DEP_CON (link);
   int cost;
 
@@ -657,10 +659,12 @@ dep_cost_1 (dep_t link, dw_t dw)
      This allows the computation of a function's result and parameter
      values to overlap the return and call.  */
   if (recog_memoized (used) < 0)
-    cost = 0;
+    {
+      cost = 0;
+      recog_memoized (insn);
+    }
   else
     {
-      rtx insn = DEP_PRO (link);
       enum reg_note dep_type = DEP_TYPE (link);
 
       cost = insn_cost (insn);
@@ -2312,8 +2316,14 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
 	  {
 	    insn = ready_element (ready, i);
 
+#ifdef ENABLE_CHECKING
+	    /* If this insn is recognizable we should have already
+	       recognized it earlier.
+	       ??? Not very clear where this is supposed to be done.
+	       See dep_cost_1.  */
 	    gcc_assert (INSN_CODE (insn) >= 0
 			|| recog_memoized (insn) < 0);
+#endif
 
 	    ready_try [i]
 	      = (/* INSN_CODE check can be omitted here as it is also done later
@@ -3939,7 +3949,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
   todo_spec &= SPECULATIVE;
 
   /* Create recovery block.  */
-  if (mutate_p || targetm.sched.needs_block_p (insn))
+  if (mutate_p || targetm.sched.needs_block_p (todo_spec))
     {
       rec = sched_create_recovery_block (NULL);
       label = BB_HEAD (rec);
@@ -3951,7 +3961,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
     }
 
   /* Emit CHECK.  */
-  check = targetm.sched.gen_spec_check (insn, label, mutate_p);
+  check = targetm.sched.gen_spec_check (insn, label, todo_spec);
 
   if (rec != EXIT_BLOCK_PTR)
     {

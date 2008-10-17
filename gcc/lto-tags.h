@@ -359,6 +359,7 @@ enum LTO_tags {
   LTO_goto_expr,
   LTO_gt_expr,
   LTO_imagpart_expr,
+  LTO_imported_decl,
   LTO_identifier_node,
   LTO_indirect_ref,
   LTO_integer_cst,

@@ -2625,7 +2625,7 @@ output_field_decl (struct output_block *ob, tree decl)
 static void
 output_function_decl (struct output_block *ob, tree decl)
 {
-  bool saved_static, saved_inline, saved_external, saved_public;
+  bool saved_static, saved_external, saved_public;
 
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_function_decl);
@@ -2636,17 +2636,14 @@ output_function_decl (struct output_block *ob, tree decl)
   if (lto_forced_static_inline_p (decl))
     {
       saved_static = TREE_STATIC (decl);
-      saved_inline = DECL_INLINE (decl);
       saved_external = DECL_EXTERNAL (decl);
       saved_public = TREE_PUBLIC (decl);
       TREE_STATIC (decl) = true;
-      DECL_INLINE (decl) = true;
       DECL_EXTERNAL (decl) = false;
       TREE_PUBLIC (decl) = false;
       output_tree_flags (ob, 0, decl, true);
       TREE_STATIC (decl) = saved_static;
       DECL_EXTERNAL (decl) = saved_external;
-      DECL_INLINE (decl) = saved_inline;
       TREE_PUBLIC (decl) = saved_public;
     }
   else
@@ -2926,6 +2923,22 @@ output_namespace_decl (struct output_block *ob, tree decl)
   /* omit chain */
   LTO_DEBUG_TOKEN ("end_namespace_decl");
 }
+
+
+/* Emit IMPORTED_DECL DECL to output block OB.  */
+
+static void
+output_imported_decl (struct output_block *ob, tree decl)
+{
+  output_global_record_start (ob, NULL, NULL, LTO_imported_decl);
+  output_tree_flags (ob, 0, decl, true);
+  global_vector_debug (ob);
+  output_tree (ob, IMPORTED_DECL_ASSOCIATED_DECL (decl));
+  output_tree (ob, DECL_NAME (decl));
+  gcc_assert (TREE_TYPE (decl) == void_type_node);
+  LTO_DEBUG_TOKEN ("end_imported_decl");
+}
+
 
 static void
 output_translation_unit_decl (struct output_block *ob, tree decl)
@@ -3366,6 +3379,10 @@ output_tree (struct output_block *ob, tree expr)
 
     case FUNCTION_DECL:
       output_function_decl (ob, expr);
+      break;
+
+    case IMPORTED_DECL:
+      output_imported_decl (ob, expr);
       break;
 
     case VAR_DECL:

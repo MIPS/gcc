@@ -1,3 +1,8 @@
+2008-10-17  Diego Novillo  <dnovillo@google.com>
+
+	* ltrans-driver: Divert output from make to a temporary file.
+	Show it if the call to make failed.
+
 2008-10-15  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c (lto_wpa_write_files): Reformat do-while loop.

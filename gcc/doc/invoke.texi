@@ -228,7 +228,8 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{-fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  -Warray-bounds @gol
--Wno-attributes -Wc++-compat -Wc++0x-compat -Wcast-align  -Wcast-qual  @gol
+-Wno-attributes -Wno-builtin-macro-redefined @gol
+-Wc++-compat -Wc++0x-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment @gol
 -Wconversion  -Wcoverage-mismatch  -Wno-deprecated  @gol
 -Wno-deprecated-declarations -Wdisabled-optimization  @gol
@@ -249,7 +250,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wmissing-noreturn  -Wno-mudflap @gol
 -Wno-multichar  -Wnonnull  -Wno-overflow @gol
 -Woverlength-strings  -Wpacked  -Wpadded @gol
--Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
+-Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
+-Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
 -Wsign-compare  -Wsign-conversion  -Wstack-protector @gol
@@ -307,7 +309,8 @@ Objective-C and Objective-C++ Dialects}.
 -ftest-coverage  -ftime-report -fvar-tracking @gol
 -g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
--fno-merge-debug-strings -fdebug-prefix-map=@var{old}=@var{new} @gol
+-fno-merge-debug-strings -fno-dwarf2-cfi-asm @gol
+-fdebug-prefix-map=@var{old}=@var{new} @gol
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
 -femit-struct-debug-detailed@r{[}=@var{spec-list}@r{]} @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -323,8 +326,8 @@ Objective-C and Objective-C++ Dialects}.
 -falign-labels[=@var{n}] -falign-loops[=@var{n}] -fassociative-math @gol
 -fauto-inc-dec -fbranch-probabilities -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive -fcaller-saves @gol
--fcheck-data-deps -fcprop-registers -fcrossjumping -fcse-follow-jumps @gol
--fcse-skip-blocks -fcx-fortran-rules -fcx-limited-range @gol
+-fcheck-data-deps -fconserve-stack -fcprop-registers -fcrossjumping @gol
+-fcse-follow-jumps -fcse-skip-blocks -fcx-fortran-rules -fcx-limited-range @gol
 -fdata-sections -fdce -fdce @gol
 -fdelayed-branch -fdelete-null-pointer-checks -fdse -fdse @gol
 -fearly-inlining -fexpensive-optimizations -ffast-math @gol
@@ -579,7 +582,7 @@ Objective-C and Objective-C++ Dialects}.
 -momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} @gol
 -m32  -m64 -mlarge-data-threshold=@var{num} @gol
--mfused-madd -mno-fused-madd}
+-mfused-madd -mno-fused-madd -msse2avx}
 
 @emph{IA-64 Options}
 @gccoptlist{-mbig-endian  -mlittle-endian  -mgnu-as  -mgnu-ld  -mno-pic @gol
@@ -647,6 +650,7 @@ Objective-C and Objective-C++ Dialects}.
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
 -msingle-float  -mdouble-float  -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
+-mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
 -mips3d  -mno-mips3d  -mmt  -mno-mt  -mllsc  -mno-llsc @gol
@@ -713,6 +717,7 @@ See RS/6000 and PowerPC Options.
 -m64  -m32  -mxl-compat  -mno-xl-compat  -mpe @gol
 -malign-power  -malign-natural @gol
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple @gol
+-msingle-float -mdouble-float -msimple-fpu @gol
 -mstring  -mno-string  -mupdate  -mno-update @gol
 -mfused-madd  -mno-fused-madd  -mbit-align  -mno-bit-align @gol
 -mstrict-align  -mno-strict-align  -mrelocatable @gol
@@ -730,6 +735,7 @@ See RS/6000 and PowerPC Options.
 -mspe -mno-spe @gol
 -mspe=yes  -mspe=no @gol
 -mpaired @gol
+-mgen-cell-microcode -mwarn-cell-microcode @gol
 -mvrsave -mno-vrsave @gol
 -mmulhw -mno-mulhw @gol
 -mdlmzb -mno-dlmzb @gol
@@ -740,7 +746,8 @@ See RS/6000 and PowerPC Options.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
--mhard-float  -msoft-float -mlong-double-64 -mlong-double-128 @gol
+-mhard-float  -msoft-float  -mhard-dfp -mno-hard-dfp @gol
+-mlong-double-64 -mlong-double-128 @gol
 -mbackchain  -mno-backchain -mpacked-stack  -mno-packed-stack @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
@@ -1522,7 +1529,7 @@ known not to modify global memory.
 With the @option{-fno-builtin-@var{function}} option
 only the built-in function @var{function} is
 disabled.  @var{function} must not begin with @samp{__builtin_}.  If a
-function is named this is not built-in in this version of GCC, this
+function is named that is not built-in in this version of GCC, this
 option is ignored.  There is no corresponding
 @option{-fbuiltin-@var{function}} option; if you wish to enable
 built-in functions selectively when using @option{-fno-builtin} or
@@ -3567,6 +3574,14 @@ assume anything on the bounds of the loop indices.  With
 @option{-funsafe-loop-optimizations} warn if the compiler made
 such assumptions.
 
+@item -Wno-pedantic-ms-format
+@opindex Wno-pedantic-ms-format
+@opindex Wpedantic-ms-format
+Disables the warnings about non-ISO @code{printf} / @code{scanf} format
+width specifiers @code{I32}, @code{I64}, and @code{I} used on Windows targets
+depending on the MS runtime, when you are using the options @option{-Wformat}
+and @option{-pedantic} without gnu-extensions.
+
 @item -Wpointer-arith
 @opindex Wpointer-arith
 @opindex Wno-pointer-arith
@@ -3728,6 +3743,13 @@ Do not warn if an unexpected @code{__attribute__} is used, such as
 unrecognized attributes, function attributes applied to variables,
 etc.  This will not stop errors for incorrect use of supported
 attributes.
+
+@item -Wno-builtin-macro-redefined
+@opindex Wno-builtin-macro-redefined
+@opindex Wbuiltin-macro-redefined
+Do not warn if certain built-in macros are redefined.  This suppresses
+warnings for redefinition of @code{__TIMESTAMP__}, @code{__TIME__},
+@code{__DATE__}, @code{__FILE__}, and @code{__BASE_FILE__}.
 
 @item -Wstrict-prototypes @r{(C and Objective-C only)}
 @opindex Wstrict-prototypes
@@ -4344,6 +4366,12 @@ on by default.
 @opindex fdebug-prefix-map
 When compiling files in directory @file{@var{old}}, record debugging
 information describing them as in @file{@var{new}} instead.
+
+@item -fno-dwarf2-cfi-asm
+@opindex fdwarf2-cfi-asm
+@opindex fno-dwarf2-cfi-asm
+Emit DWARF 2 unwind info as compiler generated @code{.eh_frame} section
+instead of using GAS @code{.cfi_*} directives.
 
 @cindex @command{prof}
 @item -p
@@ -5081,7 +5109,7 @@ Don't forget the trailing @samp{/}.
 @opindex print-sysroot
 Print the target sysroot directory that will be used during
 compilation.  This is the target sysroot specified either at configure
-time or or using the @option{--sysroot} option, possibly with an extra
+time or using the @option{--sysroot} option, possibly with an extra
 suffix that depends on compilation options.  If no target sysroot is
 specified, the option prints nothing.
 
@@ -5871,6 +5899,13 @@ those which have no call-preserved registers to use instead.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
+@item -fconserve-stack
+@opindex fconserve-stack
+Attempt to minimize stack usage.  The compiler will attempt to use less
+stack space, even if that makes the program slower.  This option
+implies setting the @option{large-stack-frame} parameter to 100
+and the @option{large-stack-frame-growth} parameter to 400.
+
 @item -ftree-reassoc
 @opindex ftree-reassoc
 Perform reassociation on trees.  This flag is enabled by default
@@ -6056,7 +6091,7 @@ ENDDO
 loop strip mining will transform the loop as if the user had written:
 @smallexample
 DO II = 1, N, 4
-  DO I = II, min (II + 4, N)
+  DO I = II, min (II + 3, N)
     A(I) = A(I) + C
   ENDDO
 ENDDO
@@ -6079,8 +6114,8 @@ loop blocking will transform the loop as if the user had written:
 @smallexample
 DO II = 1, N, 64
   DO JJ = 1, M, 64
-    DO I = II, min (II + 64, N)
-      DO J = JJ, min (JJ + 64, M)
+    DO I = II, min (II + 63, N)
+      DO J = JJ, min (JJ + 63, M)
         A(J, I) = B(I) + C(J)
       ENDDO
     ENDDO
@@ -7123,7 +7158,7 @@ The default value is 90.
 
 @item large-function-insns
 The limit specifying really large functions.  For functions larger than this
-limit after inlining inlining is constrained by
+limit after inlining, inlining is constrained by
 @option{--param large-function-growth}.  This parameter is useful primarily
 to avoid extreme compilation time caused by non-linear algorithms used by the
 backend.
@@ -10970,7 +11005,7 @@ the system libraries and startup modules.
 
 Set 80387 floating-point precision to 32, 64 or 80 bits.  When @option{-mpc32}
 is specified, the significands of results of floating-point operations are
-rounded to 24 bits (single precision); @option{-mpc64} rounds the the
+rounded to 24 bits (single precision); @option{-mpc64} rounds the
 significands of results of floating-point operations to 53 bits (double
 precision) and @option{-mpc80} rounds the significands of results of
 floating-point operations to 64 bits (extended double precision), which is
@@ -11228,6 +11263,12 @@ Enable automatic generation of fused floating point multiply-add instructions
 if the ISA supports such instructions.  The -mfused-madd option is on by
 default.  The fused multiply-add instructions have a different
 rounding behavior compared to executing a multiply followed by an add.
+
+@item -msse2avx
+@itemx -mno-sse2avx
+@opindex msse2avx
+Specify that the assembler should encode SSE instructions with VEX
+prefix.  The option @option{-mavx} turns this on by default.
 @end table
 
 These @samp{-m} switches are supported in addition to the above
@@ -12240,6 +12281,7 @@ The processor names are:
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
 @samp{r4600}, @samp{r4650}, @samp{r6000}, @samp{r8000},
 @samp{rm7000}, @samp{rm9000},
+@samp{r10000}, @samp{r12000}, @samp{r14000}, @samp{r16000},
 @samp{sb1},
 @samp{sr71000},
 @samp{vr4100}, @samp{vr4111}, @samp{vr4120}, @samp{vr4130}, @samp{vr4300},
@@ -13435,7 +13477,8 @@ following options:
 
 @gccoptlist{-maltivec  -mfprnd  -mhard-float  -mmfcrf  -mmultiple @gol
 -mnew-mnemonics  -mpopcntb  -mpower  -mpower2  -mpowerpc64 @gol
--mpowerpc-gpopt  -mpowerpc-gfxopt  -mstring  -mmulhw  -mdlmzb  -mmfpgpr}
+-mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
+-msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr}
 
 The particular options set for any particular CPU will vary between
 compiler versions, depending on what setting seems to produce optimal
@@ -13486,6 +13529,15 @@ enhancements.
 @opindex mvrsave
 @opindex mno-vrsave
 Generate VRSAVE instructions when generating AltiVec code.
+
+@item -mgen-cell-microcode
+@opindex mgen-cell-microcode
+Generate Cell microcode instructions
+
+@item -mwarn-cell-microcode
+@opindex mwarn-cell-microcode
+Warning when a Cell microcode instruction is going to emitted.  An example
+of a Cell microcode instruction is a variable shift.
 
 @item -msecure-plt
 @opindex msecure-plt
@@ -13651,6 +13703,28 @@ is not supported.
 Generate code that does not use (uses) the floating-point register set.
 Software floating point emulation is provided if you use the
 @option{-msoft-float} option, and pass the option to GCC when linking.
+
+@item -msingle-float
+@itemx -mdouble-float
+@opindex msingle-float
+@opindex mdouble-float
+Generate code for single or double-precision floating point operations. 
+@option{-mdouble-float} implies @option{-msingle-float}. 
+
+@item -msimple-fpu
+@opindex msimple-fpu
+Do not generate sqrt and div instructions for hardware floating point unit.
+
+@item -mfpu
+@opindex mfpu
+Specify type of floating point unit.  Valid values are @var{sp_lite} 
+(equivalent to -msingle-float -msimple-fpu), @var{dp_lite} (equivalent
+to -mdouble-float -msimple-fpu), @var{sp_full} (equivalent to -msingle-float),
+and @var{dp_full} (equivalent to -mdouble-float).
+
+@item -mxilinx-fpu
+@opindex mxilinx-fpu
+Perform optimizations for floating point unit on Xilinx PPC 405/440.
 
 @item -mmultiple
 @itemx -mno-multiple
@@ -14074,6 +14148,17 @@ functions in @file{libgcc.a} will be used to perform floating-point
 operations.  When @option{-mhard-float} is specified, the compiler
 generates IEEE floating-point instructions.  This is the default.
 
+@item -mhard-dfp
+@itemx -mno-hard-dfp
+@opindex mhard-dfp
+@opindex mno-hard-dfp
+Use (do not use) the hardware decimal-floating-point instructions for
+decimal-floating-point operations.  When @option{-mno-hard-dfp} is
+specified, functions in @file{libgcc.a} will be used to perform
+decimal-floating-point operations.  When @option{-mhard-dfp} is
+specified, the compiler generates decimal-floating-point hardware
+instructions.  This is the default for @option{-march=z9-ec} or higher.
+
 @item -mlong-double-64
 @itemx -mlong-double-128
 @opindex mlong-double-64
@@ -14184,7 +14269,8 @@ The default is to not print debug information.
 @opindex march
 Generate code that will run on @var{cpu-type}, which is the name of a system
 representing a certain processor type.  Possible values for
-@var{cpu-type} are @samp{g5}, @samp{g6}, @samp{z900}, and @samp{z990}.
+@var{cpu-type} are @samp{g5}, @samp{g6}, @samp{z900}, @samp{z990},
+@samp{z9-109}, @samp{z9-ec} and @samp{z10}.
 When generating code using the instructions available on z/Architecture,
 the default is @option{-march=z900}.  Otherwise, the default is
 @option{-march=g5}.

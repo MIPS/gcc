@@ -527,7 +527,7 @@ bool
 sched_insns_conditions_mutex_p (const_rtx insn1, const_rtx insn2)
 {
   rtx cond1, cond2;
-  bool rev1, rev2;
+  bool rev1 = false, rev2 = false;
 
   /* df doesn't handle conditional lifetimes entirely correctly;
      calls mess up the conditional lifetimes.  */
@@ -2008,10 +2008,7 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
-      /* Ignore constants.  Note that we must handle CONST_DOUBLE here
-         because it may have a cc0_rtx in its CONST_DOUBLE_CHAIN field, but
-         this does not mean that this insn is using cc0.  */
-
+      /* Ignore constants.  */
       if (cslr_p && sched_deps_info->finish_rhs)
 	sched_deps_info->finish_rhs ();
 

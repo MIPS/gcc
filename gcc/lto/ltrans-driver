@@ -62,4 +62,7 @@ done
 
 echo "all: $outputlist" >> $makefile
 
-${MAKE-make} -s -f $makefile all
+${MAKE-make} -f $makefile all > $tmp/make.log 2>&1
+if [ $? -ne 0 ] ; then
+  cat $tmp/make.log
+fi

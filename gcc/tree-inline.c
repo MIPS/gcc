@@ -129,7 +129,7 @@ static void unsave_expr_1 (tree);
 static tree unsave_r (tree *, int *, void *);
 static void declare_inline_vars (tree, tree);
 static void remap_save_expr (tree *, void *, int *);
-static void add_lexical_block (tree current_block, tree new_block);
+static void prepend_lexical_block (tree current_block, tree new_block);
 static tree copy_decl_to_var (tree, copy_body_data *);
 static tree copy_result_decl_to_var (tree, copy_body_data *);
 static tree copy_decl_maybe_to_var (tree, copy_body_data *);
@@ -512,7 +512,10 @@ remap_blocks (tree block, copy_body_data *id)
   remap_block (&new_tree, id);
   gcc_assert (new_tree != block);
   for (t = BLOCK_SUBBLOCKS (block); t ; t = BLOCK_CHAIN (t))
-    add_lexical_block (new_tree, remap_blocks (t, id));
+    prepend_lexical_block (new_tree, remap_blocks (t, id));
+  /* Blocks are in arbitrary order, but make things slightly prettier and do
+     not swap order when producing a copy.  */
+  BLOCK_SUBBLOCKS (new_tree) = blocks_nreverse (BLOCK_SUBBLOCKS (new_tree));
   return new_tree;
 }
 
@@ -1026,6 +1029,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   gimple copy = NULL;
   struct walk_stmt_info wi;
   tree new_block;
+  bool skip_first = false;
 
   /* Begin by recognizing trees that we'll completely rewrite for the
      inlining context.  Our output for these trees is completely
@@ -1047,7 +1051,11 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	 already been set (e.g. a recent "foo (&result_decl, ...)");
 	 just toss the entire GIMPLE_RETURN.  */
       if (retval && TREE_CODE (retval) != RESULT_DECL)
-	copy = gimple_build_assign (id->retvar, retval);
+        {
+	  copy = gimple_build_assign (id->retvar, retval);
+	  /* id->retvar is already substituted.  Skip it on later remapping.  */
+	  skip_first = true;
+	}
       else
 	return gimple_build_nop ();
     }
@@ -1213,7 +1221,10 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   /* Remap all the operands in COPY.  */
   memset (&wi, 0, sizeof (wi));
   wi.info = id;
-  walk_gimple_op (copy, remap_gimple_op_r, &wi); 
+  if (skip_first)
+    walk_tree (gimple_op_ptr (copy, 1), remap_gimple_op_r, &wi, NULL);
+  else
+    walk_gimple_op (copy, remap_gimple_op_r, &wi); 
 
   /* We have to handle EH region remapping of GIMPLE_RESX specially because
      the region number is not an operand.  */
@@ -1907,6 +1918,22 @@ insert_init_stmt (basic_block bb, gimple init_stmt)
     {
       gimple_stmt_iterator si = gsi_last_bb (bb);
 
+      /* We can end up with init statements that store to a non-register
+         from a rhs with a conversion.  Handle that here by forcing the
+	 rhs into a temporary.  gimple_regimplify_operands is not
+	 prepared to do this for us.  */
+      if (!is_gimple_reg (gimple_assign_lhs (init_stmt))
+	  && is_gimple_reg_type (TREE_TYPE (gimple_assign_lhs (init_stmt)))
+	  && gimple_assign_rhs_class (init_stmt) == GIMPLE_UNARY_RHS)
+	{
+	  tree rhs = build1 (gimple_assign_rhs_code (init_stmt),
+			     gimple_expr_type (init_stmt),
+			     gimple_assign_rhs1 (init_stmt));
+	  rhs = force_gimple_operand_gsi (&si, rhs, true, NULL_TREE, false,
+					  GSI_NEW_STMT);
+	  gimple_assign_set_rhs_code (init_stmt, TREE_CODE (rhs));
+	  gimple_assign_set_rhs1 (init_stmt, rhs);
+	}
       gsi_insert_after (&si, init_stmt, GSI_NEW_STMT);
       gimple_regimplify_operands (init_stmt, &si);
       mark_symbols_for_renaming (init_stmt);
@@ -2567,6 +2594,7 @@ inlinable_function_p (tree fn)
   /* We only warn for functions declared `inline' by the user.  */
   do_warning = (warn_inline
 		&& DECL_DECLARED_INLINE_P (fn)
+		&& !DECL_NO_INLINE_WARNING_P (fn)
 		&& !DECL_IN_SYSTEM_HEADER (fn));
 
   always_inline = lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn));
@@ -3016,16 +3044,10 @@ count_insns_seq (gimple_seq seq, eni_weights *weights)
 /* Install new lexical TREE_BLOCK underneath 'current_block'.  */
 
 static void
-add_lexical_block (tree current_block, tree new_block)
+prepend_lexical_block (tree current_block, tree new_block)
 {
-  tree *blk_p;
-
-  /* Walk to the last sub-block.  */
-  for (blk_p = &BLOCK_SUBBLOCKS (current_block);
-       *blk_p;
-       blk_p = &BLOCK_CHAIN (*blk_p))
-    ;
-  *blk_p = new_block;
+  BLOCK_CHAIN (new_block) = BLOCK_SUBBLOCKS (current_block);
+  BLOCK_SUBBLOCKS (current_block) = new_block;
   BLOCK_SUPERCONTEXT (new_block) = current_block;
 }
 
@@ -3207,7 +3229,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   id->block = make_node (BLOCK);
   BLOCK_ABSTRACT_ORIGIN (id->block) = fn;
   BLOCK_SOURCE_LOCATION (id->block) = input_location;
-  add_lexical_block (gimple_block (stmt), id->block);
+  prepend_lexical_block (gimple_block (stmt), id->block);
 
   /* Local declarations will be replaced by their equivalents in this
      map.  */
@@ -3233,7 +3255,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   initialize_inlined_parameters (id, stmt, fn, bb);
 
   if (DECL_INITIAL (fn))
-    add_lexical_block (id->block, remap_blocks (DECL_INITIAL (fn), id));
+    prepend_lexical_block (id->block, remap_blocks (DECL_INITIAL (fn), id));
 
   /* Return statements in the function body will be replaced by jumps
      to the RET_LABEL.  */

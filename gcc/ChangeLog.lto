@@ -1,3 +1,21 @@
+2008-10-17  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-in.c (input_imported_decl): New.
+	(input_tree_operand): Handle IMPORTED_DECL.
+	* lto-function-out.c (output_function_decl): Remove handling
+	of DECL_INLINE.
+	(output_imported_decl): New.
+	(output_tree): Handle IMPORTED_DECL.
+	* lto-tags.h (enum LTO_tags): Add LTO_imported_decl.
+	* lto-tree-flags.def: Handle IMPORTED_DECL.
+
+2008-10-16  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @141167.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-10-16  Simon Baldwin  <simonb@google.com>
 
 	* langhooks.c: (lhd_print_error_function): Avoid accessing

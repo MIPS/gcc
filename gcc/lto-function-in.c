@@ -3157,6 +3157,28 @@ input_namespace_decl (struct lto_input_block *ib, struct data_in *data_in)
   return decl;
 }
 
+
+/* Read an IMPORTED_DECL node from IB using descriptors in DATA_IN.  */
+
+static tree
+input_imported_decl (struct lto_input_block *ib, struct data_in *data_in)
+{
+  tree decl = make_node (IMPORTED_DECL);
+
+  lto_flags_type flags = input_tree_flags (ib, IMPORTED_DECL, true);
+  if (input_line_info (ib, data_in, flags))
+    set_line_info (data_in, decl);
+  process_tree_flags (decl, flags);
+
+  global_vector_enter (data_in, decl);
+
+  IMPORTED_DECL_ASSOCIATED_DECL (decl) = input_tree (ib, data_in);
+  DECL_NAME (decl) = input_tree (ib, data_in);
+  TREE_TYPE (decl) = void_type_node;
+  LTO_DEBUG_TOKEN ("end_imported_decl");
+
+  return decl;
+}
 static tree
 input_translation_unit_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
@@ -3545,6 +3567,10 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case FUNCTION_DECL:
       result = input_function_decl (ib, data_in);
+      break;
+
+    case IMPORTED_DECL:
+      result = input_imported_decl (ib, data_in);
       break;
 
     case VAR_DECL:

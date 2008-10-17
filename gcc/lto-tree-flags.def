@@ -378,7 +378,6 @@
       ADD_FUN_FLAG (pure_flag)
       ADD_FUN_FLAG (declared_inline_flag)
       ADD_FUN_FLAG (regdecl_flag)
-      ADD_FUN_FLAG (inline_flag)
       ADD_FUN_FLAG (no_instrument_function_entry_exit)
       ADD_FUN_FLAG (no_limit_stack)
       ADD_FUN_FLAG(disregard_inline_limits)
@@ -406,6 +405,9 @@
       
     START_EXPR_CASE (IMAGPART_EXPR)
     END_EXPR_CASE (IMAGPART_EXPR)
+
+    START_EXPR_CASE (IMPORTED_DECL)
+    END_EXPR_CASE (IMPORTED_DECL)
       
     START_EXPR_CASE (INDIRECT_REF)
     END_EXPR_CASE (INDIRECT_REF)

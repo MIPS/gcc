@@ -882,10 +882,9 @@ decode_options (unsigned int argc, const char **argv)
 	}
     }
   
-#ifdef IRA_COVER_CLASSES
   /* Use IRA if it is implemented for the target.  */
-  flag_ira = 1;
-#endif
+  if (targetm.ira_cover_classes)
+    flag_ira = 1;
 
   /* -O1 optimizations.  */
   opt1 = (optimize >= 1);
@@ -1114,13 +1113,11 @@ decode_options (unsigned int argc, const char **argv)
   if (!flag_sel_sched_pipelining)
     flag_sel_sched_pipelining_outer_loops = 0;
 
-#ifndef IRA_COVER_CLASSES
-  if (flag_ira)
+  if (flag_ira && !targetm.ira_cover_classes)
     {
       inform (input_location, "-fira does not work on this architecture");
       flag_ira = 0;
     }
-#endif
 
   /* Save the current optimization options if this is the first call.  */
   if (first_time_p)
@@ -1129,6 +1126,14 @@ decode_options (unsigned int argc, const char **argv)
       optimization_current_node = optimization_default_node;
       first_time_p = false;
     }
+  if (flag_conserve_stack)
+    {
+      if (!PARAM_SET_P (PARAM_LARGE_STACK_FRAME))
+        PARAM_VALUE (PARAM_LARGE_STACK_FRAME) = 100;
+      if (!PARAM_SET_P (PARAM_STACK_FRAME_GROWTH))
+        PARAM_VALUE (PARAM_STACK_FRAME_GROWTH) = 40;
+    }
+
 }
 
 #define LEFT_COLUMN	27
@@ -1517,8 +1522,6 @@ common_handle_option (size_t scode, const char *arg, int value,
 	      { "warnings", CL_WARNING },
 	      { "undocumented", CL_UNDOCUMENTED },
 	      { "params", CL_PARAMS },
-	      { "joined", CL_JOINED },
-	      { "separate", CL_SEPARATE },
 	      { "common", CL_COMMON },
 	      { NULL, 0 }
 	    };

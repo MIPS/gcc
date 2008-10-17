@@ -1398,6 +1398,7 @@ free_subscripts (VEC (subscript_p, heap) *subscripts)
     {
       free_conflict_function (s->conflicting_iterations_in_a);
       free_conflict_function (s->conflicting_iterations_in_b);
+      free (s);
     }
   VEC_free (subscript_p, heap, subscripts);
 }
@@ -3310,13 +3311,14 @@ bool
 stmt_simple_memref_p (struct loop *loop, gimple stmt, tree op)
 {
   data_reference_p dr;
+  bool res = true;
 
   dr = create_data_ref (loop, op, stmt, true);
   if (!access_functions_are_affine_or_constant_p (dr, loop))
-    return false;
+    res = false;
 
   free_data_ref (dr);
-  return true;
+  return res;
 }
 
 /* Initializes an equation for an OMEGA problem using the information
