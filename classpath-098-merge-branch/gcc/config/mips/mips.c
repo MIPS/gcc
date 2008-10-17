@@ -607,6 +607,10 @@ static const struct mips_cpu_info mips_cpu_info_table[] = {
 
   /* MIPS IV processors. */
   { "r8000", PROCESSOR_R8000, 4, 0 },
+  { "r10000", PROCESSOR_R10000, 4, 0 },
+  { "r12000", PROCESSOR_R10000, 4, 0 },
+  { "r14000", PROCESSOR_R10000, 4, 0 },
+  { "r16000", PROCESSOR_R10000, 4, 0 },
   { "vr5000", PROCESSOR_R5000, 4, 0 },
   { "vr5400", PROCESSOR_R5400, 4, 0 },
   { "vr5500", PROCESSOR_R5500, 4, PTF_AVOID_BRANCHLIKELY },
@@ -1012,6 +1016,19 @@ static const struct mips_rtx_cost_data mips_rtx_cost_data[PROCESSOR_MAX] = {
     COSTS_N_INSNS (8),            /* int_mult_di */
     COSTS_N_INSNS (69),           /* int_div_si */
     COSTS_N_INSNS (69),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
+  { /* R1x000 */
+    COSTS_N_INSNS (2),            /* fp_add */
+    COSTS_N_INSNS (2),            /* fp_mult_sf */
+    COSTS_N_INSNS (2),            /* fp_mult_df */
+    COSTS_N_INSNS (12),           /* fp_div_sf */
+    COSTS_N_INSNS (19),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (9),            /* int_mult_di */
+    COSTS_N_INSNS (34),           /* int_div_si */
+    COSTS_N_INSNS (66),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   },
@@ -9680,10 +9697,6 @@ mips_register_move_cost (enum machine_mode mode,
 {
   if (TARGET_MIPS16)
     {
-      /* ??? We cannot move general registers into HI and LO because
-	 MIPS16 has no MTHI and MTLO instructions.  Make the cost of
-	 moves in the opposite direction just as high, which stops the
-	 register allocators from using HI and LO for pseudos.  */
       if (reg_class_subset_p (from, GENERAL_REGS)
 	  && reg_class_subset_p (to, GENERAL_REGS))
 	{
@@ -9700,7 +9713,9 @@ mips_register_move_cost (enum machine_mode mode,
 	return 2;
       if (reg_class_subset_p (to, FP_REGS))
 	return 4;
-      if (reg_class_subset_p (to, ALL_COP_AND_GR_REGS))
+      if (reg_class_subset_p (to, COP0_REGS)
+	  || reg_class_subset_p (to, COP2_REGS)
+	  || reg_class_subset_p (to, COP3_REGS))
 	return 5;
       if (reg_class_subset_p (to, ACC_REGS))
 	return 6;
@@ -9712,7 +9727,9 @@ mips_register_move_cost (enum machine_mode mode,
       if (reg_class_subset_p (from, ST_REGS))
 	/* LUI followed by MOVF.  */
 	return 4;
-      if (reg_class_subset_p (from, ALL_COP_AND_GR_REGS))
+      if (reg_class_subset_p (from, COP0_REGS)
+	  || reg_class_subset_p (from, COP2_REGS)
+	  || reg_class_subset_p (from, COP3_REGS))
 	return 5;
       if (reg_class_subset_p (from, ACC_REGS))
 	return 6;
@@ -9728,6 +9745,25 @@ mips_register_move_cost (enum machine_mode mode,
     }
 
   return 12;
+}
+
+/* Implement TARGET_IRA_COVER_CLASSES.  */
+
+static const enum reg_class *
+mips_ira_cover_classes (void)
+{
+  static const enum reg_class acc_classes[] = {
+    GR_AND_ACC_REGS, FP_REGS, COP0_REGS, COP2_REGS, COP3_REGS,
+    ST_REGS, LIM_REG_CLASSES
+  };
+  static const enum reg_class no_acc_classes[] = {
+    GR_REGS, FP_REGS, COP0_REGS, COP2_REGS, COP3_REGS,
+    ST_REGS, LIM_REG_CLASSES
+  };
+
+  /* Don't allow the register allocators to use LO and HI in MIPS16 mode,
+     which has no MTLO or MTHI instructions.  */
+  return TARGET_MIPS16 ? no_acc_classes : acc_classes;
 }
 
 /* Return the register class required for a secondary register when
@@ -9752,10 +9788,6 @@ mips_secondary_reload_class (enum reg_class rclass,
     {
       /* In MIPS16 mode, every move must involve a member of M16_REGS.  */
       if (!reg_class_subset_p (rclass, M16_REGS) && !M16_REG_P (regno))
-	return M16_REGS;
-
-      /* We can't really copy to HI or LO at all in MIPS16 mode.  */
-      if (in_p ? reg_classes_intersect_p (rclass, ACC_REGS) : ACC_REG_P (regno))
 	return M16_REGS;
 
       return NO_REGS;
@@ -10369,7 +10401,10 @@ mips_issue_rate (void)
 	 but in reality only a maximum of 3 insns can be issued as
 	 floating-point loads and stores also require a slot in the
 	 AGEN pipe.  */
-     return 4;
+    case PROCESSOR_R10000:
+      /* All R10K Processors are quad-issue (being the first MIPS
+         processors to support this feature). */
+      return 4;
 
     case PROCESSOR_20KC:
     case PROCESSOR_R4130:
@@ -12085,7 +12120,7 @@ static rtx
 r10k_simplify_address (rtx x, rtx insn)
 {
   rtx newx, op0, op1, set, def_insn, note;
-  struct df_ref *use, *def;
+  df_ref use, def;
   struct df_link *defs;
 
   newx = NULL_RTX;
@@ -14182,6 +14217,9 @@ mips_order_regs_for_local_alloc (void)
 #endif
 #undef TARGET_DWARF_REGISTER_SPAN
 #define TARGET_DWARF_REGISTER_SPAN mips_dwarf_register_span
+
+#undef TARGET_IRA_COVER_CLASSES
+#define TARGET_IRA_COVER_CLASSES mips_ira_cover_classes
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

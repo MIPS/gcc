@@ -1,3 +1,96 @@
+2008-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37819
+	* cp-gimplify.c (cp_genericize_r): Only fold_convert COND_EXPR
+	arguments if they don't already have COND_EXPR's type.
+
+2008-10-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/37650
+	* pt.c (push_template_decl_real): Check that current_template_parms
+	is not null.
+	(process_partial_specialization): Assert current_template_parms not
+	null.
+
+2008-10-13  Doug Evans  <dje@google.com>
+
+	* cp-tree.h (DECL_MAIN_P): Fix parentheses around expression.
+
+2008-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37146
+	* cp-gimplify.c (cp_genericize_r): Fix up bitfield operands of
+	COND_EXPR.
+
+2008-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37568
+	* semantics.c (finalize_nrv_r): Clear DECL_INITIAL instead of
+	setting it to error_mark_node.
+
+2008-10-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* decl.c (start_cleanup_fn): Declare as inline.
+
+2008-10-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37376, other mangling issues
+	* mangle.c (write_type): Update TYPE_PACK_EXPANSION mangling.
+	(write_member_name): Break out from...
+	(write_expression): ...here.  Handle dependent COMPONENT_REF.
+	(write_template_arg): Wrap an argument pack in 'I'/'E'.
+	(write_builtin_type): Update char16/32_t mangling.
+	(write_nested_name, write_prefix): Don't forget template args
+	for typename types.
+	* operators.def: Add ARROW_EXPR, update COMPONENT_REF and 
+	EXPR_PACK_EXPANSION.
+
+2008-10-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* typeck.c (build_x_indirect_ref): Add location argument.
+	(cp_build_binary_op): Pass location to warn_for_div_by_zero.
+	(cp_build_unary_op): Add location argument.
+	(cp_build_modify_expr): Same.
+	* class.c (build_base_path): Pass location to build_indirect_ref.
+	* semantics.c (handle_omp_for_class_iterator): Pass elocus to
+	build_modify_expr.
+
+2008-10-05  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/37410
+	* cp-gimplify.c (cp_gimplify_expr): For each USING_STMT
+	make sure an IMPORTED_DECL node is added to the BLOCK_VARS list
+	of the innermost containing BLOCK.
+
+2008-10-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/37719
+	* error.c (dump_function_decl): Save the exceptions in case of
+	error about incompatible specifications in a specialization.
+
+2008-10-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree.c (lvalue_p_1): COMPOUND_LITERAL_EXPR is also an lvalue.
+
+2008-09-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/37683
+	* parser.c (cp_parser_selection_statement): Fix uninitialized
+	variable.
+
+2008-09-30  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/37555
+	PR c++/37556
+	* decl.c (grokdeclarator): Set the type for typedefs to a
+	nested-name-specifier to error_mark_node.
+
+2008-09-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* parser.c (cp_parser_selection_statement): Implement here the
+	-Wempty-body warning for `if' and `else' statements.
+	* semantics.c (finish_if_stmt): Do not call empty_body_warning.
+
 2008-09-25  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/37649

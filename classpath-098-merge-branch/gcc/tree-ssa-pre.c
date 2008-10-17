@@ -1745,9 +1745,8 @@ phi_translate_set (bitmap_set_t dest, bitmap_set_t set, basic_block pred,
       pre_expr translated;
       translated = phi_translate (expr, set, NULL, pred, phiblock);
 
-      /* Don't add constants or empty translations to the cache, since
-	 we won't look them up that way, or use the result, anyway.  */
-      if (translated && !value_id_constant_p (get_expr_value_id (translated)))
+      /* Don't add empty translations to the cache  */
+      if (translated)
 	phi_trans_add (expr, translated, pred);
 
       if (translated != NULL)
@@ -2885,7 +2884,8 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 	      VN_INFO (forcedname)->value_id = get_next_value_id ();
 	      nameexpr = get_or_alloc_expr_for_name (forcedname);
 	      add_to_value (VN_INFO (forcedname)->value_id, nameexpr);
-	      bitmap_value_replace_in_set (NEW_SETS (block), nameexpr);
+	      if (!in_fre)
+		bitmap_value_replace_in_set (NEW_SETS (block), nameexpr);
 	      bitmap_value_replace_in_set (AVAIL_OUT (block), nameexpr);
 	    }
 	  mark_symbols_for_renaming (stmt);

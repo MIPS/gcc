@@ -60,6 +60,14 @@ along with GCC; see the file COPYING3.  If not see
 
 static VEC (scop_p, heap) *current_scops;
 
+/* Converts a GMP constant V to a tree and returns it.  */
+
+static tree
+gmp_cst_to_tree (Value v)
+{
+  return build_int_cst (integer_type_node, value_get_si (v));
+}
+
 /* Debug the list of old induction variables for this SCOP.  */
 
 void
@@ -95,24 +103,62 @@ debug_loop_vec (graphite_bb_p gb)
   fprintf (stderr, "\n");
 }
 
+/* Returns true if stack ENTRY is a constant.  */
+
+static bool
+iv_stack_entry_is_constant (iv_stack_entry *entry)
+{
+  return entry->kind == iv_stack_entry_const;
+}
+
+/* Returns true if stack ENTRY is an induction variable.  */
+
+static bool
+iv_stack_entry_is_iv (iv_stack_entry *entry)
+{
+  return entry->kind == iv_stack_entry_iv;
+}
+
 /* Push (IV, NAME) on STACK.  */
 
 static void 
-loop_iv_stack_push (loop_iv_stack stack, tree iv, const char *name)
+loop_iv_stack_push_iv (loop_iv_stack stack, tree iv, const char *name)
 {
+  iv_stack_entry *entry = XNEW (iv_stack_entry);
   name_tree named_iv = XNEW (struct name_tree);
 
   named_iv->t = iv;
   named_iv->name = name;
-  VEC_safe_push (name_tree, heap, *stack, named_iv);
+
+  entry->kind = iv_stack_entry_iv;
+  entry->data.iv = named_iv;
+
+  VEC_safe_push (iv_stack_entry_p, heap, *stack, entry);
 }
 
-/* Pops an element out of STACK.  */
+/* Inserts a CONSTANT in STACK at INDEX.  */
+
+static void
+loop_iv_stack_insert_constant (loop_iv_stack stack, int index,
+			       tree constant)
+{
+  iv_stack_entry *entry = XNEW (iv_stack_entry);
+  
+  entry->kind = iv_stack_entry_const;
+  entry->data.constant = constant;
+
+  VEC_safe_insert (iv_stack_entry_p, heap, *stack, index, entry);
+}
+
+/* Pops and frees an element out of STACK.  */
 
 static void
 loop_iv_stack_pop (loop_iv_stack stack)
 {
-  VEC_pop (name_tree, *stack);
+  iv_stack_entry_p entry = VEC_pop (iv_stack_entry_p, *stack);
+
+  free (entry->data.iv);
+  free (entry);
 }
 
 /* Get the IV at INDEX in STACK.  */
@@ -120,9 +166,14 @@ loop_iv_stack_pop (loop_iv_stack stack)
 static tree
 loop_iv_stack_get_iv (loop_iv_stack stack, int index)
 {
-  name_tree named_iv = VEC_index (name_tree, *stack, index);
+  iv_stack_entry_p entry = VEC_index (iv_stack_entry_p, *stack, index);
 
-  return named_iv->t;
+  tree result = NULL;
+
+  if (entry->kind != iv_stack_entry_const)
+    result = entry->data.iv->t;
+
+  return result;
 }
 
 /* Get the IV from its NAME in STACK.  */
@@ -131,11 +182,14 @@ static tree
 loop_iv_stack_get_iv_from_name (loop_iv_stack stack, const char* name)
 {
   int i;
-  name_tree iv;
+  iv_stack_entry_p entry;
 
-  for (i = 0; VEC_iterate (name_tree, *stack, i, iv); i++)
-    if (!strcmp (name, iv->name))
-      return iv->t;
+  for (i = 0; VEC_iterate (iv_stack_entry_p, *stack, i, entry); i++)
+    {
+      name_tree iv = entry->data.iv;
+      if (!strcmp (name, iv->name))
+	return iv->t;
+    }
 
   return NULL;
 }
@@ -143,25 +197,100 @@ loop_iv_stack_get_iv_from_name (loop_iv_stack stack, const char* name)
 /* Prints on stderr the contents of STACK.  */
 
 void
-loop_iv_stack_debug (loop_iv_stack stack)
+debug_loop_iv_stack (loop_iv_stack stack)
 {
   int i;
-  name_tree iv;
+  iv_stack_entry_p entry;
   bool first = true;
 
   fprintf (stderr, "(");
 
-  for (i = 0; VEC_iterate (name_tree, *stack, i, iv); i++)
+  for (i = 0; VEC_iterate (iv_stack_entry_p, *stack, i, entry); i++)
     {
       if (first) 
 	first = false;
       else
 	fprintf (stderr, " ");
-      fprintf (stderr, "%s:", iv->name);
-      print_generic_expr (stderr, iv->t, 0);
+
+      if (iv_stack_entry_is_iv (entry))
+	{
+	  name_tree iv = entry->data.iv;
+	  fprintf (stderr, "%s:", iv->name);
+	  print_generic_expr (stderr, iv->t, 0);
+	}
+      else 
+	{
+	  tree constant = entry->data.constant;
+	  print_generic_expr (stderr, constant, 0);
+	  fprintf (stderr, ":");
+	  print_generic_expr (stderr, constant, 0);
+	}
     }
 
   fprintf (stderr, ")\n");
+}
+
+/* Frees STACK.  */
+
+static void
+free_loop_iv_stack (loop_iv_stack stack)
+{
+  int i;
+  iv_stack_entry_p entry;
+
+  for (i = 0; VEC_iterate (iv_stack_entry_p, *stack, i, entry); i++)
+    {
+      free (entry->data.iv);
+      free (entry);
+    }
+
+  VEC_free (iv_stack_entry_p, heap, *stack);
+}
+
+/* Inserts constants derived from the USER_STMT argument list into the
+   STACK.  This is needed to map old ivs to constants when loops have
+   been eliminated.  */
+
+static void 
+loop_iv_stack_patch_for_consts (loop_iv_stack stack,
+				struct clast_user_stmt *user_stmt)
+{
+  struct clast_stmt *t;
+  int index = 0;
+  for (t = user_stmt->substitutions; t; t = t->next) 
+    {
+      struct clast_term *term = (struct clast_term*) 
+	((struct clast_assignment *)t)->RHS;
+
+      /* FIXME: What should be done with expr_bin, expr_red?  */
+      if (((struct clast_assignment *)t)->RHS->type == expr_term
+	  && !term->var)
+	{
+	  tree value = gmp_cst_to_tree (term->val);
+	  loop_iv_stack_insert_constant (stack, index, value);
+	}
+      index = index + 1;
+    }
+}
+
+/* Removes all constants in the iv STACK.  */
+
+static void
+loop_iv_stack_remove_constants (loop_iv_stack stack)
+{
+  int i;
+  iv_stack_entry *entry;
+  
+  for (i = 0; VEC_iterate (iv_stack_entry_p, *stack, i, entry);)
+    {
+      if (iv_stack_entry_is_constant (entry))
+	{
+	  free (VEC_index (iv_stack_entry_p, *stack, i));
+	  VEC_ordered_remove (iv_stack_entry_p, *stack, i);
+	}
+      else
+	i++;
+    }
 }
 
 /* In SCOP, get the induction variable from NAME.  OLD is the original
@@ -566,8 +695,8 @@ dot_all_scops_1 (FILE *file)
       /* Select color for SCoP.  */
       for (i = 0; VEC_iterate (scop_p, current_scops, i, scop); i++)
 	if (bb_in_scop_p (bb, scop)
-	    || (SESE_EXIT (SCOP_REGION (scop)) && SCOP_EXIT (scop) == bb)
-	    || (SESE_ENTRY (SCOP_REGION (scop)) && SCOP_ENTRY (scop) == bb))
+	    || (SCOP_EXIT (scop) == bb)
+	    || (SCOP_ENTRY (scop) == bb))
 	  {
 	    switch (i % 17)
 	      {
@@ -631,16 +760,12 @@ dot_all_scops_1 (FILE *file)
 	    if (!bb_in_scop_p (bb, scop))
 	      fprintf (file, " ("); 
 
-	    if (SESE_ENTRY (SCOP_REGION (scop))
-		&& SESE_EXIT (SCOP_REGION (scop))
-		&& bb == SCOP_ENTRY (scop)
+	    if (bb == SCOP_ENTRY (scop)
 		&& bb == SCOP_EXIT (scop))
 	      fprintf (file, " %d*# ", bb->index);
-	    else if (SESE_ENTRY (SCOP_REGION (scop))
-		     && bb == SCOP_ENTRY (scop))
+	    else if (bb == SCOP_ENTRY (scop))
 	      fprintf (file, " %d* ", bb->index);
-	    else if (SESE_EXIT (SCOP_REGION (scop))
-		     && bb == SCOP_EXIT (scop))
+	    else if (bb == SCOP_EXIT (scop))
 	      fprintf (file, " %d# ", bb->index);
 	    else
 	      fprintf (file, " %d ", bb->index);
@@ -649,7 +774,6 @@ dot_all_scops_1 (FILE *file)
 	      fprintf (file, ")");
 
 	    fprintf (file, "</TD></TR>\n");
-
 	    part_of_scop  = true;
 	  }
 
@@ -731,7 +855,7 @@ block_before_scop (scop_p scop)
 static bool
 loop_affine_expr (basic_block scop_entry, struct loop *loop, tree expr)
 {
-  int n = scop_entry->loop_father->num;
+  int n = loop->num;
   tree scev = analyze_scalar_evolution (loop, expr);
 
   scev = instantiate_scev (scop_entry, loop, scev);
@@ -913,13 +1037,15 @@ free_graphite_bb (struct graphite_bb *gbb)
 /* Creates a new scop starting with ENTRY.  */
 
 static scop_p
-new_scop (edge entry)
+new_scop (edge entry, edge exit)
 {
   scop_p scop = XNEW (struct scop);
 
+  gcc_assert (entry && exit);
+
   SCOP_REGION (scop) = XNEW (struct sese);
   SESE_ENTRY (SCOP_REGION (scop)) = entry;
-  SESE_EXIT (SCOP_REGION (scop)) = NULL;
+  SESE_EXIT (SCOP_REGION (scop)) = exit;
   SCOP_BBS (scop) = VEC_alloc (graphite_bb_p, heap, 3);
   SCOP_OLDIVS (scop) = VEC_alloc (name_tree, heap, 3);
   SCOP_BBS_B (scop) = BITMAP_ALLOC (NULL);
@@ -942,6 +1068,7 @@ free_scop (scop_p scop)
   int i;
   name_tree p;
   struct graphite_bb *gb;
+  name_tree iv;
 
   for (i = 0; VEC_iterate (graphite_bb_p, SCOP_BBS (scop), i, gb); i++)
     free_graphite_bb (gb);
@@ -950,6 +1077,9 @@ free_scop (scop_p scop)
   BITMAP_FREE (SCOP_BBS_B (scop));
   BITMAP_FREE (SCOP_LOOPS (scop));
   VEC_free (loop_p, heap, SCOP_LOOP_NEST (scop));
+
+  for (i = 0; VEC_iterate (name_tree, SCOP_OLDIVS (scop), i, iv); i++)
+    free (iv);
   VEC_free (name_tree, heap, SCOP_OLDIVS (scop));
   
   for (i = 0; VEC_iterate (name_tree, SCOP_PARAMS (scop), i, p); i++)
@@ -1012,28 +1142,66 @@ get_bb_type (basic_block bb, struct loop *last_loop)
   dom = get_dominated_by (CDI_DOMINATORS, bb);
   nb_dom = VEC_length (basic_block, dom);
   VEC_free (basic_block, heap, dom);
+
   if (nb_dom == 0)
     return GBB_LAST;
 
   nb_suc = VEC_length (edge, bb->succs);
+
   if (nb_dom == 1 && nb_suc == 1)
     return GBB_SIMPLE;
 
   return GBB_COND_HEADER;
 }
 
+/* A SCoP detection region, defined using bbs as borders. 
+   All control flow touching this region, comes in passing basic_block ENTRY and
+   leaves passing basic_block EXIT.  By using bbs instead of edges for the
+   borders we are able to represent also regions that do not have a single
+   entry or exit edge.
+   But as they have a single entry basic_block and a single exit basic_block, we
+   are able to generate for every sd_region a single entry and exit edge.
+
+   1   2
+    \ /
+     3	<- entry
+     |
+     4
+    / \			This region contains: {3, 4, 5, 6, 7, 8}
+   5   6
+   |   |
+   7   8
+    \ /
+     9	<- exit  */
+
+
+typedef struct sd_region_p
+{
+  /* The entry bb dominates all bbs in the sd_region.  It is part of the
+     region.  */
+  basic_block entry;
+
+  /* The exit bb postdominates all bbs in the sd_region, but is not 
+     part of the region.  */
+  basic_block exit;
+} sd_region;
+
+DEF_VEC_O(sd_region);
+DEF_VEC_ALLOC_O(sd_region, heap);
+
+
 /* Moves the scops from SOURCE to TARGET and clean up SOURCE.  */
 
 static void
-move_scops (VEC (scop_p, heap) **source, VEC (scop_p, heap) **target)
+move_sd_regions (VEC (sd_region, heap) **source, VEC (sd_region, heap) **target)
 {
-  scop_p s;
+  sd_region *s;
   int i;
 
-  for (i = 0; VEC_iterate (scop_p, *source, i, s); i++)
-    VEC_safe_push (scop_p, heap, *target, s);
+  for (i = 0; VEC_iterate (sd_region, *source, i, s); i++)
+    VEC_safe_push (sd_region, heap, *target, s);
   
-  VEC_free (scop_p, heap, *source);
+  VEC_free (sd_region, heap, *source);
 }
 
 /* Store information needed by scopdet_* functions.  */
@@ -1041,10 +1209,10 @@ move_scops (VEC (scop_p, heap) **source, VEC (scop_p, heap) **target)
 struct scopdet_info
 {
   /* Where the last open scop would stop if the current BB is harmful.  */
-  edge last;
+  basic_block last;
 
   /* Where the next scop would start if the current BB is harmful.  */
-  edge next;
+  basic_block next;
 
   /* The bb or one of its children contains open loop exits.  That means
      loop exit nodes that are not surrounded by a loop dominated by bb.  */ 
@@ -1054,30 +1222,24 @@ struct scopdet_info
   bool difficult;
 };
 
-static struct scopdet_info build_scops_1 (edge, VEC (scop_p, heap) **,
+
+static struct scopdet_info build_scops_1 (basic_block, VEC (sd_region, heap) **,
                                           loop_p);
 
-/* Checks, if a bb can be added to a SCoP.  */
+/* Calculates BB infos. If bb is difficult we add valid SCoPs dominated by BB
+   to SCOPS.  TYPE is the gbb_type of BB.  */
 
 static struct scopdet_info 
-scopdet_edge_info (edge ee,
-		   VEC (scop_p, heap) **scops, gbb_type type, gimple *stmt)
-	       
+scopdet_basic_block_info (basic_block bb, VEC (sd_region, heap) **scops,
+			  gbb_type type)
 {
-  basic_block bb = ee->dest;
   struct loop *loop = bb->loop_father;
   struct scopdet_info result;
-  basic_block scop_entry;
+  gimple stmt;
 
-  if (VEC_length (scop_p, *scops) != 0)
-    scop_entry = block_before_scop (VEC_last (scop_p, *scops));
-  else if (loop->header)
-    scop_entry = loop->header;
-  else
-    scop_entry = ENTRY_BLOCK_PTR;
-
-  *stmt = harmful_stmt_in_bb (scop_entry, bb);
-  result.difficult = (*stmt != NULL);
+  /* XXX: ENTRY_BLOCK_PTR could be optimized in later steps.  */
+  stmt = harmful_stmt_in_bb (ENTRY_BLOCK_PTR, bb);
+  result.difficult = (stmt != NULL);
   result.last = NULL;
 
   switch (type)
@@ -1085,44 +1247,42 @@ scopdet_edge_info (edge ee,
     case GBB_LAST:
       result.next = NULL;
       result.exits = false;
-      result.last = ee;
+      result.last = bb;
       break;
 
     case GBB_SIMPLE:
-      result.next = single_succ_edge (bb);
+      result.next = single_succ (bb);
       result.exits = false;
-      result.last = ee;
+      result.last = bb;
       break;
 
     case GBB_LOOP_SING_EXIT_HEADER:
       {
-        VEC (scop_p, heap) *tmp_scops = VEC_alloc (scop_p, heap, 3);
+        VEC (sd_region, heap) *tmp_scops = VEC_alloc (sd_region, heap,3);
         struct scopdet_info sinfo;
 
-        sinfo = build_scops_1 (ee, &tmp_scops, loop);
-
-        result.last = single_exit (bb->loop_father);
-
-	if (single_succ_p (result.last->dest)
-	    && get_bb_type (result.last->dest, loop) == GBB_SIMPLE)
-	  result.next = single_succ_edge (result.last->dest);
-	else
-	  result.next = split_block (result.last->dest, NULL);
+        sinfo = build_scops_1 (bb, &tmp_scops, loop);
+	
+        result.last = single_exit (bb->loop_father)->src;
+        result.next = single_exit (bb->loop_father)->dest;
 
         /* If we do not dominate result.next, remove it.  It's either
            the EXIT_BLOCK_PTR, or another bb dominates it and will
            call the scop detection for this bb.  */
-        if (!dominated_by_p (CDI_DOMINATORS, result.next->dest, bb))
-          result.next = NULL;
+        if (!dominated_by_p (CDI_DOMINATORS, result.next, bb))
+	  result.next = NULL;
+
+	if (result.last->loop_father != loop)
+	  result.next = NULL;
 
         if (TREE_CODE (number_of_latch_executions (loop))
             == SCEV_NOT_KNOWN)
           result.difficult = true;
 
         if (sinfo.difficult)
-          move_scops (&tmp_scops, scops);
+          move_sd_regions (&tmp_scops, scops);
         else 
-          free_scops (tmp_scops);
+          VEC_free (sd_region, heap, tmp_scops);
 
         result.exits = false;
         result.difficult |= sinfo.difficult;
@@ -1131,37 +1291,36 @@ scopdet_edge_info (edge ee,
 
     case GBB_LOOP_MULT_EXIT_HEADER:
       {
-        /* XXX: Handle loop nests with the same header.  */
         /* XXX: For now we just do not join loops with multiple exits. If the 
            exits lead to the same bb it may be possible to join the loop.  */
-        VEC (scop_p, heap) *tmp_scops = VEC_alloc (scop_p, heap, 3);
+        VEC (sd_region, heap) *tmp_scops = VEC_alloc (sd_region, heap, 3);
         VEC (edge, heap) *exits = get_loop_exit_edges (loop);
         edge e;
         int i;
-        build_scops_1 (ee, &tmp_scops, loop);
+        build_scops_1 (bb, &tmp_scops, loop);
 
+	/* XXX: Use 'e->src' ot better 'bb'?  */
         for (i = 0; VEC_iterate (edge, exits, i, e); i++)
           if (dominated_by_p (CDI_DOMINATORS, e->dest, e->src)
-              && e->dest->loop_father == loop_outer (loop))
-            build_scops_1 (e, &tmp_scops, e->dest->loop_father);
+              && e->src->loop_father == loop)
+            build_scops_1 (e->dest, &tmp_scops, e->dest->loop_father);
 
         result.next = NULL; 
         result.last = NULL;
         result.difficult = true;
         result.exits = false;
-        move_scops (&tmp_scops, scops);
+        move_sd_regions (&tmp_scops, scops);
         VEC_free (edge, heap, exits);
         break;
       }
     case GBB_COND_HEADER:
       {
-	VEC (scop_p, heap) *tmp_scops = VEC_alloc (scop_p, heap, 3);
+	VEC (sd_region, heap) *tmp_scops = VEC_alloc (sd_region, heap, 3);
 	struct scopdet_info sinfo;
 	VEC (basic_block, heap) *dominated;
 	int i;
 	basic_block dom_bb;
 	basic_block last_bb = NULL;
-	edge last_e = NULL;
 	edge e;
 	result.exits = false;
  
@@ -1197,7 +1356,6 @@ scopdet_edge_info (edge ee,
 		if (!last_bb)
 		  {
 		    last_bb = e->dest;
-		    last_e = e;
 		  }
 
 		if (e->dest != last_bb)
@@ -1212,7 +1370,7 @@ scopdet_edge_info (edge ee,
 		continue;
 	      }
 
-	    sinfo = build_scops_1 (e, &tmp_scops, loop);
+	    sinfo = build_scops_1 (e->dest, &tmp_scops, loop);
 
 	    result.exits |= sinfo.exits;
 	    result.last = sinfo.last;
@@ -1221,15 +1379,12 @@ scopdet_edge_info (edge ee,
 	    /* Checks, if all branches end at the same point. 
 	       If that is true, the condition stays joinable.
 	       Have a look at the example above.  */
-	    if (sinfo.last && single_succ_p (sinfo.last->dest))
+	    if (sinfo.last && single_succ_p (sinfo.last))
 	      {
-		basic_block next_tmp = single_succ (sinfo.last->dest);
+		basic_block next_tmp = single_succ (sinfo.last);
                   
 		if (!last_bb)
-		  {
 		    last_bb = next_tmp;
-		    last_e = single_succ_edge (sinfo.last->dest);
-		  }
 
 		if (next_tmp != last_bb)
 		  result.difficult = true;
@@ -1244,11 +1399,11 @@ scopdet_edge_info (edge ee,
 	    /* Only return a next pointer if we dominate this pointer.
 	       Otherwise it will be handled by the bb dominating it.  */ 
 	    if (dominated_by_p (CDI_DOMINATORS, last_bb, bb) && last_bb != bb)
-	      result.next = last_e;
+	      result.next = last_bb;
 	    else
 	      result.next = NULL; 
 
-	    move_scops (&tmp_scops, scops);
+	    VEC_free (sd_region, heap, tmp_scops);
 	    break;
 	  }
 
@@ -1268,15 +1423,10 @@ scopdet_edge_info (edge ee,
 	    if (single_pred_p (dom_bb) && single_pred (dom_bb) == bb)
 	      continue;
 
-	    if (single_pred_p (dom_bb))
-	      e = single_pred_edge (dom_bb);
-	    else
-	      e = split_block (dom_bb, NULL);
-
 	    if (loop_depth (loop) > loop_depth (dom_bb->loop_father))
-	      sinfo = build_scops_1 (e, &tmp_scops, loop_outer (loop));
+	      sinfo = build_scops_1 (dom_bb, &tmp_scops, loop_outer (loop));
 	    else
-	      sinfo = build_scops_1 (e, &tmp_scops, loop);
+	      sinfo = build_scops_1 (dom_bb, &tmp_scops, loop);
                                            
                                      
 	    result.exits |= sinfo.exits; 
@@ -1287,7 +1437,7 @@ scopdet_edge_info (edge ee,
 	VEC_free (basic_block, heap, dominated);
 
 	result.next = NULL; 
-	move_scops (&tmp_scops, scops);
+	move_sd_regions (&tmp_scops, scops);
 
 	break;
       }
@@ -1299,61 +1449,14 @@ scopdet_edge_info (edge ee,
   return result;
 }
 
-/* Split EXIT before STMT when STMT is non NULL.  */
-
-static edge
-split_difficult_bb (basic_block exit, edge *last, gimple stmt)
-{
-  if (stmt && VEC_length (edge, exit->preds) == 1)
-    {
-      edge e;
-
-      if (stmt == gsi_stmt (gsi_after_labels (exit)))
-	stmt = NULL;
-      else
-	{
-	  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
-	  gsi_prev (&gsi);
-	  stmt = gsi_stmt (gsi);
-	}
-
-      e = split_block (exit, stmt);
-      set_immediate_dominator (CDI_DOMINATORS, e->dest, e->src);
-      set_immediate_dominator (CDI_POST_DOMINATORS, e->src, e->dest);
-      exit = e->dest;
-
-      if (last)
-	*last = e;
-
-      return e;
-    }
-
-  return NULL;
-}
-
-/* End SCOP with edge EXIT.  */
-
-static void
-end_scop (scop_p scop, edge exit, bool split_entry)
-{
-  if (split_entry 
-      && !single_pred_p (SCOP_ENTRY (scop))
-      && exit->dest->loop_father == SCOP_ENTRY (scop)->loop_father)
-    SESE_ENTRY (SCOP_REGION (scop)) = split_block (SCOP_ENTRY (scop), NULL);
-
-  SESE_EXIT (SCOP_REGION (scop)) = exit;
-}
-
 /* Creates the SCoPs and writes entry and exit points for every SCoP.  */
 
 static struct scopdet_info 
-build_scops_1 (edge start, VEC (scop_p, heap) **scops, loop_p loop)
+build_scops_1 (basic_block current, VEC (sd_region, heap) **scops, loop_p loop)
 {
-  edge current = start;
 
   bool in_scop = false;
-  scop_p open_scop = NULL;
-  gimple stmt;
+  sd_region open_scop;
   struct scopdet_info sinfo;
 
   /* Initialize result.  */ 
@@ -1362,30 +1465,26 @@ build_scops_1 (edge start, VEC (scop_p, heap) **scops, loop_p loop)
   result.difficult = false;
   result.next = NULL;
   result.last = NULL;
+  open_scop.entry = NULL;
 
   /* Loop over the dominance tree.  If we meet a difficult bb, close
      the current SCoP.  Loop and condition header start a new layer,
      and can only be added if all bbs in deeper layers are simple.  */
   while (current != NULL)
     {
-      sinfo = scopdet_edge_info (current, scops,
-				 get_bb_type (current->dest, loop), &stmt);
+      sinfo = scopdet_basic_block_info (current, scops, get_bb_type (current,
+								     loop));
 
       if (!in_scop && !(sinfo.exits || sinfo.difficult))
         {
-	  open_scop = new_scop (current);
-
-          VEC_safe_push (scop_p, heap, *scops, open_scop); 
+	  open_scop.entry = current;
+	  open_scop.exit = NULL;
           in_scop = true;
         }
       else if (in_scop && (sinfo.exits || sinfo.difficult))
         {
-	  edge exit = split_difficult_bb (current->dest, &sinfo.last, stmt);
-
-	  if (!exit)
-	    exit = current;
-
-	  end_scop (open_scop, exit, sinfo.difficult);
+	  open_scop.exit = current;
+          VEC_safe_push (sd_region, heap, *scops, &open_scop); 
           in_scop = false;
         }
 
@@ -1395,47 +1494,320 @@ build_scops_1 (edge start, VEC (scop_p, heap) **scops, loop_p loop)
       current = sinfo.next;
     }
 
-  /* Finish the SCOP, if it is left open.  The exit is the bb, that
-     postdominates sinfo.last.  If no such bb exists, we use info.last
-     or delete the scop.  */
+  /* Try to close open_scop, if we are still in an open SCoP.  */
   if (in_scop)
     {
       int i;
       edge e;
 
-      for (i = 0; VEC_iterate (edge, sinfo.last->dest->succs, i, e); i++)
-        if (dominated_by_p (CDI_POST_DOMINATORS, sinfo.last->dest, e->dest))
-          {
-	    edge exit = split_difficult_bb (e->dest, &sinfo.last, stmt);
+	for (i = 0; VEC_iterate (edge, sinfo.last->succs, i, e); i++)
+	  if (dominated_by_p (CDI_POST_DOMINATORS, sinfo.last, e->dest))
+            open_scop.exit = e->dest;
 
-	    if (exit)
-	      end_scop (open_scop, exit, sinfo.difficult);
-	    else
-	      end_scop (open_scop, e, sinfo.difficult);
+        if (!open_scop.exit && open_scop.entry != sinfo.last)
+	  open_scop.exit = sinfo.last;
 
-	    goto done;
-	  }
-
-      if (SCOP_ENTRY (open_scop) != sinfo.last->dest)
-	{
-	  edge exit = split_difficult_bb (sinfo.last->dest, NULL, stmt);
-
-	  if (exit)
-	    end_scop (open_scop, exit, sinfo.difficult);
-	  else
-	    end_scop (open_scop, sinfo.last, sinfo.difficult);
-	}
-      else
-	{
-	  VEC_pop (scop_p, *scops);
-	  free_scop (open_scop);
-        }
+	if (open_scop.exit)
+	  VEC_safe_push (sd_region, heap, *scops, &open_scop);
+      
     }
 
- done:
   result.last = sinfo.last;
-
   return result;
+}
+
+/* Checks if a bb is contained in REGION.  */
+
+static bool
+bb_in_sd_region (basic_block bb, sd_region *region)
+{
+  return dominated_by_p (CDI_DOMINATORS, bb, region->entry)
+	 && !(dominated_by_p (CDI_DOMINATORS, bb, region->exit)
+	      && !dominated_by_p (CDI_DOMINATORS, region->entry,
+				  region->exit));
+}
+
+/* Returns the single entry edge of REGION, if it does not exits NULL.  */
+
+static edge
+find_single_entry_edge (sd_region *region)
+{
+  edge e;
+  edge_iterator ei;
+  edge entry = NULL;
+
+  FOR_EACH_EDGE (e, ei, region->entry->preds)
+    if (!bb_in_sd_region (e->src, region))
+      {
+	if (entry)
+	  {
+	    entry = NULL;
+	    break;
+	  }
+
+	else
+	  entry = e;
+      }
+
+  return entry;
+}
+
+/* Returns the single exit edge of REGION, if it does not exits NULL.  */
+
+static edge
+find_single_exit_edge (sd_region *region)
+{
+  edge e;
+  edge_iterator ei;
+  edge exit = NULL;
+
+  FOR_EACH_EDGE (e, ei, region->exit->preds)
+    if (bb_in_sd_region (e->src, region))
+      {
+	if (exit)
+	  {
+	    exit = NULL;
+	    break;
+	  }
+
+	else
+	  exit = e;
+      }
+
+  return exit;
+}
+
+/* Create a single entry edge for REGION.  */
+
+static void
+create_single_entry_edge (sd_region *region)
+{
+  if (find_single_entry_edge (region))
+    return;
+
+  /* There are multiple predecessors for bb_3 
+
+  |  1  2
+  |  | /
+  |  |/
+  |  3	<- entry
+  |  |\
+  |  | |
+  |  4 ^
+  |  | |
+  |  |/
+  |  5
+
+  There are two edges (1->3, 2->3), that point from outside into the region,
+  and another one (5->3), a loop latch, lead to bb_3.
+
+  We split bb_3.
+  
+  |  1  2
+  |  | /
+  |  |/
+  |3.0
+  |  |\     (3.0 -> 3.1) = single entry edge
+  |3.1 |  	<- entry
+  |  | |
+  |  | |
+  |  4 ^ 
+  |  | |
+  |  |/
+  |  5
+
+  If the loop is part of the SCoP, we have to redirect the loop latches.
+
+  |  1  2
+  |  | /
+  |  |/
+  |3.0
+  |  |      (3.0 -> 3.1) = entry edge
+  |3.1  	<- entry
+  |  |\
+  |  | |
+  |  4 ^
+  |  | |
+  |  |/
+  |  5  */
+
+  if (region->entry->loop_father->header != region->entry
+      || dominated_by_p (CDI_DOMINATORS,
+			 loop_latch_edge (region->entry->loop_father)->src,
+			 region->exit))
+    {
+      edge forwarder = split_block_after_labels (region->entry);
+      region->entry = forwarder->dest;
+    }
+  else
+    /* This case is never executed, as the loop headers seem always to have a
+       single edge pointing from outside into the loop.  */
+    gcc_unreachable ();
+      
+#ifdef ENABLE_CHECKING
+  gcc_assert (find_single_entry_edge (region));
+#endif
+}
+
+/* Check if the sd_region, mentioned in EDGE, has no exit bb.  */
+
+static bool
+sd_region_without_exit (edge e)
+{
+  sd_region *r = (sd_region *) e->aux;
+
+  if (r)
+    return r->exit == NULL;
+  else
+    return false;
+}
+
+/* Create a single exit edge for REGION.  */
+
+static void
+create_single_exit_edge (sd_region *region)
+{
+  edge e;
+  edge_iterator ei;
+  edge forwarder = NULL;
+  basic_block exit;
+  
+  if (find_single_exit_edge (region))
+    return;
+
+  /* We create a forwarder bb (5) for all edges leaving this region
+     (3->5, 4->5).  All other edges leading to the same bb, are moved
+     to a new bb (6).  If these edges where part of another region (2->5)
+     we update the region->exit pointer, of this region.
+
+     To identify which edge belongs to which region we depend on the e->aux
+     pointer in every edge.  It points to the region of the edge or to NULL,
+     if the edge is not part of any region.
+
+     1 2 3 4   	1->5 no region, 		2->5 region->exit = 5,
+      \| |/    	3->5 region->exit = NULL, 	4->5 region->exit = NULL
+        5	<- exit
+
+     changes to
+
+     1 2 3 4   	1->6 no region, 			2->6 region->exit = 6,
+     | | \/	3->5 no region,				4->5 no region, 
+     | |  5
+      \| /	5->6 region->exit = 6
+	6 
+
+     Now there is only a single exit edge (5->6).  */
+  exit = region->exit;
+  region->exit = NULL;
+  forwarder = make_forwarder_block (exit, &sd_region_without_exit, NULL);
+  
+  /* Unmark the edges, that are no longer exit edges.  */
+  FOR_EACH_EDGE (e, ei, forwarder->src->preds)
+    if (e->aux)
+      e->aux = NULL;
+
+  /* Mark the new exit edge.  */ 
+  single_succ_edge (forwarder->src)->aux = region;
+
+  /* Update the exit bb of all regions, where exit edges lead to
+     forwarder->dest.  */
+  FOR_EACH_EDGE (e, ei, forwarder->dest->preds)
+    if (e->aux)
+      ((sd_region *) e->aux)->exit = forwarder->dest;
+
+#ifdef ENABLE_CHECKING
+  gcc_assert (find_single_exit_edge (region));
+#endif
+}
+
+/* Unmark the exit edges of all REGIONS.  
+   See comment in "create_single_exit_edge". */
+
+static void
+unmark_exit_edges (VEC (sd_region, heap) *regions)
+{
+  int i;
+  sd_region *s;
+  edge e;
+  edge_iterator ei;
+
+  for (i = 0; VEC_iterate (sd_region, regions, i, s); i++)
+    FOR_EACH_EDGE (e, ei, s->exit->preds)
+      e->aux = NULL;
+}
+
+
+/* Mark the exit edges of all REGIONS.  
+   See comment in "create_single_exit_edge". */
+
+static void
+mark_exit_edges (VEC (sd_region, heap) *regions)
+{
+  int i;
+  sd_region *s;
+  edge e;
+  edge_iterator ei;
+
+  for (i = 0; VEC_iterate (sd_region, regions, i, s); i++)
+    FOR_EACH_EDGE (e, ei, s->exit->preds)
+      if (bb_in_sd_region (e->src, s))
+	e->aux = s;
+}
+
+
+/* Create for all scop regions a single entry and a single exit edge.  */
+
+static void
+create_sese_edges (VEC (sd_region, heap) *regions)
+{
+  int i;
+  sd_region *s;
+
+
+  for (i = 0; VEC_iterate (sd_region, regions, i, s); i++)
+    create_single_entry_edge (s);
+
+  mark_exit_edges (regions);
+
+  for (i = 0; VEC_iterate (sd_region, regions, i, s); i++)
+    create_single_exit_edge (s);
+
+  unmark_exit_edges (regions);
+
+#ifdef ENABLE_CHECKING
+  verify_loop_structure ();
+  verify_dominators (CDI_DOMINATORS);
+  verify_ssa (false);
+#endif
+}
+
+/* Create graphite SCoPs from an array of scop detection regions.  */
+
+static void
+build_graphite_scops (VEC (sd_region, heap) *scop_regions)
+{
+  int i;
+  sd_region *s;
+
+  for (i = 0; VEC_iterate (sd_region, scop_regions, i, s); i++)
+    {
+      edge entry = find_single_entry_edge (s); 
+      edge exit = find_single_exit_edge (s);
+      scop_p scop = new_scop (entry, exit);
+      VEC_safe_push (scop_p, heap, current_scops, scop);
+
+      /* Are there overlapping SCoPs?  */
+#ifdef ENABLE_CHECKING
+	{
+	  int j;
+	  sd_region *s2;
+
+	  for (j = 0; VEC_iterate (sd_region, scop_regions, j, s2); j++)
+	    if (s != s2)
+	      gcc_assert (!bb_in_sd_region (s->entry, s2));
+	}
+#endif
+    }
 }
 
 /* Find static control parts.  */
@@ -1444,7 +1816,12 @@ static void
 build_scops (void)
 {
   struct loop *loop = current_loops->tree_root;
-  build_scops_1 (single_succ_edge (ENTRY_BLOCK_PTR), &current_scops, loop);
+  VEC (sd_region, heap) *tmp_scops = VEC_alloc (sd_region, heap, 3);
+
+  build_scops_1 (single_succ (ENTRY_BLOCK_PTR), &tmp_scops, loop);
+  create_sese_edges (tmp_scops);
+  build_graphite_scops (tmp_scops);
+  VEC_free (sd_region, heap, tmp_scops);
 }
 
 /* Gather the basic blocks belonging to the SCOP.  */
@@ -2190,7 +2567,7 @@ build_loop_iteration_domains (scop_p scop, struct loop *loop,
         value_assign (cstr->p[i][j], outer_cstr->p[i][j]);
 
       /* Leave an empty column in CSTR for the current loop, and then
-        copy the parameter columns.  */
+	 copy the parameter columns.  */
       for (j = loop_col; j < outer_cstr->NbColumns; j++)
         value_assign (cstr->p[i][j + 1], outer_cstr->p[i][j]);
     }
@@ -2618,10 +2995,10 @@ build_scop_iteration_domain (scop_p scop)
            -first column: eq/ineq boolean
            -last column: a constant
            -scop_nb_params columns for the parameters used in the scop.  */
-       outer_cstr = cloog_matrix_alloc (0, scop_nb_params (scop) + 2);
-       build_loop_iteration_domains (scop, loop, outer_cstr, 0);
-       cloog_matrix_free (outer_cstr);
-     }
+	outer_cstr = cloog_matrix_alloc (0, scop_nb_params (scop) + 2);
+	build_loop_iteration_domains (scop, loop, outer_cstr, 0);
+	cloog_matrix_free (outer_cstr);
+      }
 
   return (i != 0);
 }
@@ -2743,14 +3120,6 @@ build_scop_data_accesses (scop_p scop)
 	  gcc_assert (res);
 	}
     }
-}
-
-/* Converts a GMP constant value to a tree and returns it.  */
-
-static tree
-gmp_cst_to_tree (Value v)
-{
-  return build_int_cst (integer_type_node, value_get_si (v));
 }
 
 /* Returns the tree variable from the name NAME that was given in
@@ -3007,7 +3376,7 @@ graphite_create_new_loop (scop_p scop, edge entry_edge,
 				    &iv_before, outer ? outer
 				    : entry_edge->src->loop_father);
 
-  loop_iv_stack_push (ivstack, iv_before, stmt->iterator);
+  loop_iv_stack_push_iv (ivstack, iv_before, stmt->iterator);
 
   return loop;
 }
@@ -3104,9 +3473,10 @@ expand_scalar_variables_expr (tree type, tree op0, enum tree_code code,
 			      tree op1, graphite_bb_p gbb, scop_p scop, 
 			      loop_p old_loop_father, loop_iv_stack ivstack)
 {
-  if (TREE_CODE_CLASS (code) == tcc_constant
-      && code == INTEGER_CST)
-      return op0;
+  if ((TREE_CODE_CLASS (code) == tcc_constant
+       && code == INTEGER_CST)
+      || TREE_CODE_CLASS (code) == tcc_reference)
+    return op0;
 
   if (TREE_CODE_CLASS (code) == tcc_unary)
     {
@@ -3353,8 +3723,11 @@ translate_clast (scop_p scop, struct loop *context_loop,
       mark_virtual_ops_in_bb (bb);
       next_e = make_edge (bb,
 			  context_loop ? context_loop->latch : EXIT_BLOCK_PTR,
-			  EDGE_FALLTHRU);;
+			  EDGE_FALLTHRU);
+      loop_iv_stack_patch_for_consts (ivstack,
+				      (struct clast_user_stmt *) stmt);
       graphite_rename_ivs (gbb, scop, old_loop_father, ivstack);
+      loop_iv_stack_remove_constants (ivstack);
       return translate_clast (scop, context_loop, stmt->next, next_e, ivstack);
     }
 
@@ -3398,6 +3771,22 @@ translate_clast (scop_p scop, struct loop *context_loop,
     }
 
   gcc_unreachable ();
+}
+
+/* Free the SCATTERING domain list.  */
+
+static void
+free_scattering (CloogDomainList *scattering)
+{
+  while (scattering)
+    {
+      CloogDomain *dom = cloog_domain (scattering);
+      CloogDomainList *next = cloog_next_domain (scattering);
+
+      cloog_domain_free (dom);
+      free (scattering);
+      scattering = next;
+    }
 }
 
 /* Build cloog program for SCoP.  */
@@ -3482,6 +3871,7 @@ build_cloog_prog (scop_p scop)
 
   /* Apply scattering.  */
   cloog_program_scatter (prog, scattering);
+  free_scattering (scattering);
 
   /* Iterators corresponding to scalar dimensions have to be extracted.  */
   cloog_names_scalarize (cloog_program_names (prog), nbs,
@@ -3563,7 +3953,6 @@ debug_clast_stmt (struct clast_stmt *stmt)
 static struct clast_stmt *
 find_transform (scop_p scop)
 {
-  CloogProgram *prog;
   struct clast_stmt *stmt;
   CloogOptions *options = set_cloog_options ();
 
@@ -3577,14 +3966,14 @@ find_transform (scop_p scop)
       fprintf (dump_file, "]\n");
     }
 
-  prog = cloog_program_generate (SCOP_PROG (scop), options);
-  stmt = cloog_clast_create (prog, options);
+  SCOP_PROG (scop) = cloog_program_generate (SCOP_PROG (scop), options);
+  stmt = cloog_clast_create (SCOP_PROG (scop), options);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Cloog Output[\n");
       pprint (dump_file, stmt, 0, options);
-      cloog_program_dump_cloog (dump_file, prog);
+      cloog_program_dump_cloog (dump_file, SCOP_PROG (scop));
       fprintf (dump_file, "]\n");
     }
 
@@ -3721,6 +4110,8 @@ patch_phis_for_virtual_defs (void)
       gsi = gsi_for_stmt (phi);
       remove_phi_node (&gsi, false);
     }
+
+  VEC_free (gimple, heap, virtual_phis);
 }
 
 /* Mark the original loops of SCOP for removal, replacing their header
@@ -3889,9 +4280,10 @@ gloog (scop_p scop, struct clast_stmt *stmt)
 {
   edge new_scop_exit_edge = NULL;
   basic_block scop_exit = SCOP_EXIT (scop);
-  VEC (tree, heap)* phi_args = 
+  VEC (tree, heap) *phi_args =
     collect_scop_exit_phi_args (SESE_EXIT (SCOP_REGION (scop)));
-  VEC (name_tree, heap) *ivstack = VEC_alloc (name_tree, heap, 10);
+  VEC (iv_stack_entry_p, heap) *ivstack = 
+    VEC_alloc (iv_stack_entry_p, heap, 10);
   edge construction_edge = SESE_ENTRY (SCOP_REGION (scop));
   basic_block old_scop_exit_idom = get_immediate_dominator (CDI_DOMINATORS,
 							    scop_exit);
@@ -3902,10 +4294,13 @@ gloog (scop_p scop, struct clast_stmt *stmt)
       return;
     }
 
+  redirect_edge_succ_nodup (construction_edge, EXIT_BLOCK_PTR);
   new_scop_exit_edge = translate_clast (scop, 
 					construction_edge->src->loop_father,
 					stmt, construction_edge, &ivstack);
+  free_loop_iv_stack (&ivstack);
   redirect_edge_succ (new_scop_exit_edge, scop_exit);
+
   if (!old_scop_exit_idom
       || !dominated_by_p (CDI_DOMINATORS, SCOP_ENTRY (scop),
 			  old_scop_exit_idom)
@@ -3919,10 +4314,10 @@ gloog (scop_p scop, struct clast_stmt *stmt)
   if (new_scop_exit_edge->dest == EXIT_BLOCK_PTR)
     new_scop_exit_edge->flags = 0;
  
-  find_unreachable_blocks ();
   delete_unreachable_blocks ();
   patch_phis_for_virtual_defs ();
   patch_scop_exit_phi_args (new_scop_exit_edge, phi_args);
+  VEC_free (tree, heap, phi_args);
   mark_old_loops (scop);
   remove_dead_loops ();
   rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa); 
@@ -4174,7 +4569,6 @@ static void
 get_lower_bound (CloogMatrix *domain, int loop, Value lower_bound_result)
 {
   int lower_bound_row = get_lower_bound_row (domain, loop);
-  value_init (lower_bound_result);
   value_assign (lower_bound_result,
 		domain->p[lower_bound_row][const_column_index(domain)]);
 }
@@ -4185,7 +4579,6 @@ static void
 get_upper_bound (CloogMatrix *domain, int loop, Value upper_bound_result)
 {
   int upper_bound_row = get_upper_bound_row (domain, loop);
-  value_init (upper_bound_result);
   value_assign (upper_bound_result,
 		domain->p[upper_bound_row][const_column_index(domain)]);
 }
@@ -4208,7 +4601,6 @@ graphite_trans_bb_strip_mine (graphite_bb_p gb, int loop_depth, int stride)
   Value old_lower_bound;
   Value old_upper_bound;
 
-
   gcc_assert (loop_depth <= gbb_nb_loops (gb) - 1);
 
   VEC_safe_insert (loop_p, heap, GBB_LOOPS (gb), loop_depth, NULL);
@@ -4228,13 +4620,9 @@ graphite_trans_bb_strip_mine (graphite_bb_p gb, int loop_depth, int stride)
   for (row = 0; row < domain->NbRows; row++)
     for (col = 0; col < domain->NbColumns; col++)
       if (col <= loop_depth)
-        {
-          value_assign (new_domain->p[row][col], domain->p[row][col]);
-        }
+	value_assign (new_domain->p[row][col], domain->p[row][col]);
       else
-        {
-          value_assign (new_domain->p[row][col + 1], domain->p[row][col]);
-        }
+	value_assign (new_domain->p[row][col + 1], domain->p[row][col]);
 
 
   /*
@@ -4253,7 +4641,8 @@ graphite_trans_bb_strip_mine (graphite_bb_p gb, int loop_depth, int stride)
   row = domain->NbRows;
 
   /* Add outer loop.  */
-
+  value_init (old_lower_bound);
+  value_init (old_upper_bound);
   get_lower_bound (new_domain, col_loop_old, old_lower_bound);
   get_upper_bound (new_domain, col_loop_old, old_upper_bound);
 
@@ -4262,6 +4651,7 @@ graphite_trans_bb_strip_mine (graphite_bb_p gb, int loop_depth, int stride)
   value_set_si (new_domain->p[row][col_loop_strip], 1);
   value_assign (new_domain->p[row][const_column_index (new_domain)],
 		old_lower_bound);
+  value_clear (old_lower_bound);
   row++;
 
 
@@ -4282,12 +4672,10 @@ graphite_trans_bb_strip_mine (graphite_bb_p gb, int loop_depth, int stride)
     Value strip_size_value;
 
     value_init (new_upper_bound);
-
     value_init (strip_size_value);
     value_set_si (strip_size_value, (int) stride);
 
-  
-    value_pdivision(new_upper_bound,old_upper_bound,strip_size_value);
+    value_pdivision (new_upper_bound, old_upper_bound, strip_size_value);
     value_add_int (new_upper_bound, new_upper_bound, 1);
 
     /* Set Upper Bound */
@@ -4295,6 +4683,10 @@ graphite_trans_bb_strip_mine (graphite_bb_p gb, int loop_depth, int stride)
     value_set_si (new_domain->p[row][col_loop_strip], -1);
     value_assign (new_domain->p[row][const_column_index (new_domain)],
 		  new_upper_bound);
+
+    value_clear (strip_size_value);
+    value_clear (old_upper_bound);
+    value_clear (new_upper_bound);
     row++;
   }
   /*
@@ -4525,13 +4917,19 @@ graphite_trans_loop_block (VEC (graphite_bb_p, heap) *bbs, int loops)
   /* TODO: - Calculate the stride size automatically.  */
   int stride_size = 64;
 
+  /* It makes no sense to block a single loop.  */
+  for (i = 0; VEC_iterate (graphite_bb_p, bbs, i, gb); i++)
+    if (gbb_nb_loops (gb) < 2)
+      return false;
+
   for (i = 0; VEC_iterate (graphite_bb_p, bbs, i, gb); i++)
     transform_done |= graphite_trans_bb_block (gb, stride_size, loops);
 
   return transform_done;
 }
 
-/* Loop block all basic blocks of SCOP.  */
+/* Loop block all basic blocks of SCOP.  Return false when the
+   transform is not performed.  */
 
 static bool
 graphite_trans_scop_block (scop_p scop)
@@ -4548,10 +4946,10 @@ graphite_trans_scop_block (scop_p scop)
   lambda_vector last_schedule = lambda_vector_new (max_schedule);
 
   if (VEC_length (graphite_bb_p, SCOP_BBS (scop)) == 0)
-    return transform_done;
+    return false;
 
   /* Get the data of the first bb.  */
-  gb = VEC_index (graphite_bb_p, SCOP_BBS (scop), 0); 
+  gb = VEC_index (graphite_bb_p, SCOP_BBS (scop), 0);
   last_nb_loops = gbb_nb_loops (gb);
   lambda_vector_copy (GBB_STATIC_SCHEDULE (gb), last_schedule,
                       last_nb_loops + 1);
@@ -4702,13 +5100,14 @@ graphite_apply_transformations (scop_p scop)
    This is necessary as scalar evolution and parameter detection need a
    outermost loop to initialize parameters correctly.  
   
-   TODO: FIX scalar evolution and parameter detection to allow mor flexible
+   TODO: FIX scalar evolution and parameter detection to allow more flexible
          SCoP frontiers.  */
 
 static void
 limit_scops (void)
 {
-  VEC (scop_p, heap) *new_scops = VEC_alloc (scop_p, heap, 3);
+  VEC (sd_region, heap) *tmp_scops = VEC_alloc (sd_region, heap, 3);
+
   int i;
   scop_p scop;
 
@@ -4722,14 +5121,19 @@ limit_scops (void)
       for (j = 0; VEC_iterate (loop_p, SCOP_LOOP_NEST (scop), j, loop); j++) 
         if (!loop_in_scop_p (loop_outer (loop), scop))
           {
-	    scop_p n_scop = new_scop (loop_preheader_edge (loop));
-	    end_scop (n_scop, single_exit (loop), false);
-	    VEC_safe_push (scop_p, heap, new_scops, n_scop);
+	    sd_region open_scop;
+	    open_scop.entry = loop_preheader_edge (loop)->dest;
+	    open_scop.exit = single_exit (loop)->dest;
+	    VEC_safe_push (sd_region, heap, tmp_scops, &open_scop);
 	  }
     }
 
   free_scops (current_scops);
-  current_scops = new_scops;
+  current_scops = VEC_alloc (scop_p, heap, 3);
+
+  create_sese_edges (tmp_scops);
+  build_graphite_scops (tmp_scops);
+  VEC_free (sd_region, heap, tmp_scops);
 }
 
 /* Perform a set of linear transforms on the loops of the current

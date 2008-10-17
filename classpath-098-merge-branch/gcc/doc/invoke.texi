@@ -250,7 +250,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wmissing-noreturn  -Wno-mudflap @gol
 -Wno-multichar  -Wnonnull  -Wno-overflow @gol
 -Woverlength-strings  -Wpacked  -Wpadded @gol
--Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
+-Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
+-Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
 -Wsign-compare  -Wsign-conversion  -Wstack-protector @gol
@@ -581,7 +582,7 @@ Objective-C and Objective-C++ Dialects}.
 -momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} @gol
 -m32  -m64 -mlarge-data-threshold=@var{num} @gol
--mfused-madd -mno-fused-madd}
+-mfused-madd -mno-fused-madd -msse2avx}
 
 @emph{IA-64 Options}
 @gccoptlist{-mbig-endian  -mlittle-endian  -mgnu-as  -mgnu-ld  -mno-pic @gol
@@ -649,6 +650,7 @@ Objective-C and Objective-C++ Dialects}.
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
 -msingle-float  -mdouble-float  -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
+-mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
 -mips3d  -mno-mips3d  -mmt  -mno-mt  -mllsc  -mno-llsc @gol
@@ -715,6 +717,7 @@ See RS/6000 and PowerPC Options.
 -m64  -m32  -mxl-compat  -mno-xl-compat  -mpe @gol
 -malign-power  -malign-natural @gol
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple @gol
+-msingle-float -mdouble-float -msimple-fpu @gol
 -mstring  -mno-string  -mupdate  -mno-update @gol
 -mfused-madd  -mno-fused-madd  -mbit-align  -mno-bit-align @gol
 -mstrict-align  -mno-strict-align  -mrelocatable @gol
@@ -732,6 +735,7 @@ See RS/6000 and PowerPC Options.
 -mspe -mno-spe @gol
 -mspe=yes  -mspe=no @gol
 -mpaired @gol
+-mgen-cell-microcode -mwarn-cell-microcode @gol
 -mvrsave -mno-vrsave @gol
 -mmulhw -mno-mulhw @gol
 -mdlmzb -mno-dlmzb @gol
@@ -3570,6 +3574,14 @@ assume anything on the bounds of the loop indices.  With
 @option{-funsafe-loop-optimizations} warn if the compiler made
 such assumptions.
 
+@item -Wno-pedantic-ms-format
+@opindex Wno-pedantic-ms-format
+@opindex Wpedantic-ms-format
+Disables the warnings about non-ISO @code{printf} / @code{scanf} format
+width specifiers @code{I32}, @code{I64}, and @code{I} used on Windows targets
+depending on the MS runtime, when you are using the options @option{-Wformat}
+and @option{-pedantic} without gnu-extensions.
+
 @item -Wpointer-arith
 @opindex Wpointer-arith
 @opindex Wno-pointer-arith
@@ -6079,7 +6091,7 @@ ENDDO
 loop strip mining will transform the loop as if the user had written:
 @smallexample
 DO II = 1, N, 4
-  DO I = II, min (II + 4, N)
+  DO I = II, min (II + 3, N)
     A(I) = A(I) + C
   ENDDO
 ENDDO
@@ -6102,8 +6114,8 @@ loop blocking will transform the loop as if the user had written:
 @smallexample
 DO II = 1, N, 64
   DO JJ = 1, M, 64
-    DO I = II, min (II + 64, N)
-      DO J = JJ, min (JJ + 64, M)
+    DO I = II, min (II + 63, N)
+      DO J = JJ, min (JJ + 63, M)
         A(J, I) = B(I) + C(J)
       ENDDO
     ENDDO
@@ -11212,6 +11224,12 @@ Enable automatic generation of fused floating point multiply-add instructions
 if the ISA supports such instructions.  The -mfused-madd option is on by
 default.  The fused multiply-add instructions have a different
 rounding behavior compared to executing a multiply followed by an add.
+
+@item -msse2avx
+@itemx -mno-sse2avx
+@opindex msse2avx
+Specify that the assembler should encode SSE instructions with VEX
+prefix.  The option @option{-mavx} turns this on by default.
 @end table
 
 These @samp{-m} switches are supported in addition to the above
@@ -12224,6 +12242,7 @@ The processor names are:
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
 @samp{r4600}, @samp{r4650}, @samp{r6000}, @samp{r8000},
 @samp{rm7000}, @samp{rm9000},
+@samp{r10000}, @samp{r12000}, @samp{r14000}, @samp{r16000},
 @samp{sb1},
 @samp{sr71000},
 @samp{vr4100}, @samp{vr4111}, @samp{vr4120}, @samp{vr4130}, @samp{vr4300},
@@ -13419,7 +13438,8 @@ following options:
 
 @gccoptlist{-maltivec  -mfprnd  -mhard-float  -mmfcrf  -mmultiple @gol
 -mnew-mnemonics  -mpopcntb  -mpower  -mpower2  -mpowerpc64 @gol
--mpowerpc-gpopt  -mpowerpc-gfxopt  -mstring  -mmulhw  -mdlmzb  -mmfpgpr}
+-mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
+-msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr}
 
 The particular options set for any particular CPU will vary between
 compiler versions, depending on what setting seems to produce optimal
@@ -13470,6 +13490,15 @@ enhancements.
 @opindex mvrsave
 @opindex mno-vrsave
 Generate VRSAVE instructions when generating AltiVec code.
+
+@item -mgen-cell-microcode
+@opindex mgen-cell-microcode
+Generate Cell microcode instructions
+
+@item -mwarn-cell-microcode
+@opindex mwarn-cell-microcode
+Warning when a Cell microcode instruction is going to emitted.  An example
+of a Cell microcode instruction is a variable shift.
 
 @item -msecure-plt
 @opindex msecure-plt
@@ -13635,6 +13664,28 @@ is not supported.
 Generate code that does not use (uses) the floating-point register set.
 Software floating point emulation is provided if you use the
 @option{-msoft-float} option, and pass the option to GCC when linking.
+
+@item -msingle-float
+@itemx -mdouble-float
+@opindex msingle-float
+@opindex mdouble-float
+Generate code for single or double-precision floating point operations. 
+@option{-mdouble-float} implies @option{-msingle-float}. 
+
+@item -msimple-fpu
+@opindex msimple-fpu
+Do not generate sqrt and div instructions for hardware floating point unit.
+
+@item -mfpu
+@opindex mfpu
+Specify type of floating point unit.  Valid values are @var{sp_lite} 
+(equivalent to -msingle-float -msimple-fpu), @var{dp_lite} (equivalent
+to -mdouble-float -msimple-fpu), @var{sp_full} (equivalent to -msingle-float),
+and @var{dp_full} (equivalent to -mdouble-float).
+
+@item -mxilinx-fpu
+@opindex mxilinx-fpu
+Perform optimizations for floating point unit on Xilinx PPC 405/440.
 
 @item -mmultiple
 @itemx -mno-multiple

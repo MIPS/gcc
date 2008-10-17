@@ -1125,9 +1125,14 @@ useless_type_conversion_p_1 (tree outer_type, tree inner_type)
     {
       /* Don't lose casts between pointers to volatile and non-volatile
 	 qualified types.  Doing so would result in changing the semantics
-	 of later accesses.  */
-      if ((TYPE_VOLATILE (TREE_TYPE (outer_type))
-	   != TYPE_VOLATILE (TREE_TYPE (inner_type)))
+	 of later accesses.  For function types the volatile qualifier
+	 is used to indicate noreturn functions.  */
+      if (TREE_CODE (TREE_TYPE (outer_type)) != FUNCTION_TYPE
+	  && TREE_CODE (TREE_TYPE (outer_type)) != METHOD_TYPE
+	  && TREE_CODE (TREE_TYPE (inner_type)) != FUNCTION_TYPE
+	  && TREE_CODE (TREE_TYPE (inner_type)) != METHOD_TYPE
+	  && (TYPE_VOLATILE (TREE_TYPE (outer_type))
+	      != TYPE_VOLATILE (TREE_TYPE (inner_type)))
 	  && TYPE_VOLATILE (TREE_TYPE (outer_type)))
 	return false;
 
@@ -1159,15 +1164,15 @@ useless_type_conversion_p_1 (tree outer_type, tree inner_type)
   /* Recurse for complex types.  */
   else if (TREE_CODE (inner_type) == COMPLEX_TYPE
 	   && TREE_CODE (outer_type) == COMPLEX_TYPE)
-    return useless_type_conversion_p_1 (TREE_TYPE (outer_type),
-				        TREE_TYPE (inner_type));
+    return useless_type_conversion_p (TREE_TYPE (outer_type),
+				      TREE_TYPE (inner_type));
 
   /* Recurse for vector types with the same number of subparts.  */
   else if (TREE_CODE (inner_type) == VECTOR_TYPE
 	   && TREE_CODE (outer_type) == VECTOR_TYPE
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
-    return useless_type_conversion_p_1 (TREE_TYPE (outer_type),
-				        TREE_TYPE (inner_type));
+    return useless_type_conversion_p (TREE_TYPE (outer_type),
+				      TREE_TYPE (inner_type));
 
   /* For aggregates we may need to fall back to structural equality
      checks.  */

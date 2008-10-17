@@ -1352,10 +1352,18 @@ resolve_elemental_actual (gfc_expr *expr, gfc_code *c)
       else
 	return SUCCESS;
     }
-  else if (c && c->ext.actual != NULL && c->symtree->n.sym->attr.elemental)
+  else if (c && c->ext.actual != NULL)
     {
       arg0 = c->ext.actual;
-      esym = c->symtree->n.sym;
+      
+      if (c->resolved_sym)
+	esym = c->resolved_sym;
+      else
+	esym = c->symtree->n.sym;
+      gcc_assert (esym);
+
+      if (!esym->attr.elemental)
+	return SUCCESS;
     }
   else
     return SUCCESS;
@@ -4366,6 +4374,8 @@ fixup_charlen (gfc_expr *e)
 static gfc_actual_arglist*
 update_arglist_pass (gfc_actual_arglist* lst, gfc_expr* po, unsigned argpos)
 {
+  gcc_assert (argpos > 0);
+
   if (argpos == 1)
     {
       gfc_actual_arglist* result;
@@ -4416,6 +4426,9 @@ update_compcall_arglist (gfc_expr* e)
   gfc_typebound_proc* tbp;
 
   tbp = e->value.compcall.tbp;
+
+  if (tbp->error)
+    return FAILURE;
 
   po = extract_compcall_passed_object (e);
   if (!po)
@@ -4497,6 +4510,10 @@ resolve_typebound_generic_call (gfc_expr* e)
 	  bool matches;
 
 	  gcc_assert (g->specific);
+
+	  if (g->specific->error)
+	    continue;
+
 	  target = g->specific->u.specific->n.sym;
 
 	  /* Get the right arglist by handling PASS/NOPASS.  */
@@ -4508,6 +4525,8 @@ resolve_typebound_generic_call (gfc_expr* e)
 	      if (!po)
 		return FAILURE;
 
+	      gcc_assert (g->specific->pass_arg_num > 0);
+	      gcc_assert (!g->specific->error);
 	      args = update_arglist_pass (args, po, g->specific->pass_arg_num);
 	    }
 	  resolve_actual_arglist (args, target->attr.proc,
@@ -7514,6 +7533,10 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 	}
     }
 
+  /* Ensure that any initializer is simplified.  */
+  if (sym->value)
+    gfc_simplify_expr (sym->value, 1);
+
   /* Reject illegal initializers.  */
   if (!sym->mark && sym->value)
     {
@@ -8448,10 +8471,12 @@ resolve_typebound_procedure (gfc_symtree* stree)
       goto error;
     }
 
+  stree->typebound->error = 0;
   return;
 
 error:
   resolve_bindings_result = FAILURE;
+  stree->typebound->error = 1;
 }
 
 static gfc_try

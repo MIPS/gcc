@@ -242,15 +242,10 @@ next_char (st_parameter_dt *dtp)
     {
       if (length == 0)
 	{
-	  if (dtp->u.p.advance_status == ADVANCE_NO)
-	    {
-	      if (dtp->u.p.current_unit->endfile == AT_ENDFILE)
-		longjmp (*dtp->u.p.eof_jump, 1);
-	      dtp->u.p.current_unit->endfile = AT_ENDFILE;
-	      c = '\n';
-	    }
-	  else
+	  if (dtp->u.p.current_unit->endfile == AT_ENDFILE)
 	    longjmp (*dtp->u.p.eof_jump, 1);
+	  dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	  c = '\n';
 	}
     }
 done:
@@ -1913,6 +1908,13 @@ finish_list_read (st_parameter_dt *dtp)
       c = next_char (dtp);
     }
   while (c != '\n');
+
+  if (dtp->u.p.current_unit->endfile != NO_ENDFILE)
+    {
+      generate_error (&dtp->common, LIBERROR_END, NULL);
+      dtp->u.p.current_unit->endfile = AFTER_ENDFILE;
+      dtp->u.p.current_unit->current_record = 0;
+    }
 }
 
 /*			NAMELIST INPUT
@@ -2839,6 +2841,9 @@ get_name:
       goto nml_err_ret;
     }
 
+  if (first_nl != NULL && first_nl->var_rank > 0)
+    nl = first_nl;
+  
   if (nml_read_obj (dtp, nl, 0, pprev_nl, nml_err_msg, nml_err_msg_size,
 		    clow, chigh) == FAILURE)
     goto nml_err_ret;

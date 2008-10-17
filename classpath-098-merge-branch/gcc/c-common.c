@@ -1291,31 +1291,6 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
   return false;
 }
 
-/* Print a warning about if (); or if () .. else; constructs
-   via the special empty statement node that we create.  INNER_THEN
-   and INNER_ELSE are the statement lists of the if and the else
-   block.  */
-
-void
-empty_if_body_warning (tree inner_then, tree inner_else)
-{
-  if (TREE_CODE (inner_then) == STATEMENT_LIST
-      && STATEMENT_LIST_TAIL (inner_then))
-    inner_then = STATEMENT_LIST_TAIL (inner_then)->stmt;
-
-  if (inner_else && TREE_CODE (inner_else) == STATEMENT_LIST
-      && STATEMENT_LIST_TAIL (inner_else))
-    inner_else = STATEMENT_LIST_TAIL (inner_else)->stmt;
-
-  if (IS_EMPTY_STMT (inner_then) && !inner_else)
-    warning (OPT_Wempty_body, "%Hsuggest braces around empty body "
-             "in an %<if%> statement", EXPR_LOCUS (inner_then));
-
-  else if (inner_else && IS_EMPTY_STMT (inner_else))
-    warning (OPT_Wempty_body, "%Hsuggest braces around empty body "
-             "in an %<else%> statement", EXPR_LOCUS (inner_else));
-}
-
 /* Warn for unlikely, improbable, or stupid DECL declarations
    of `main'.  */
 
@@ -3436,7 +3411,7 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	     : truthvalue_false_node;
 
     case FUNCTION_DECL:
-      expr = build_unary_op (ADDR_EXPR, expr, 0);
+      expr = build_unary_op (location, ADDR_EXPR, expr, 0);
       /* Fall through.  */
 
     case ADDR_EXPR:
@@ -3539,10 +3514,12 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	      (EXPR_LOCATION (expr),
 	       (TREE_SIDE_EFFECTS (expr)
 		? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
-	c_common_truthvalue_conversion (location,
-					build_unary_op (REALPART_EXPR, t, 0)),
-	c_common_truthvalue_conversion (location,
-					build_unary_op (IMAGPART_EXPR, t, 0)),
+	c_common_truthvalue_conversion
+	       (location,
+		build_unary_op (location, REALPART_EXPR, t, 0)),
+	c_common_truthvalue_conversion
+	       (location,
+		build_unary_op (location, IMAGPART_EXPR, t, 0)),
 	       0));
     }
 
@@ -8207,10 +8184,11 @@ warn_for_unused_label (tree label)
 struct gcc_targetcm targetcm = TARGETCM_INITIALIZER;
 #endif
 
-/* Warn for division by zero according to the value of DIVISOR.  */
+/* Warn for division by zero according to the value of DIVISOR.  LOC
+   is the location of the division operator.  */
 
 void
-warn_for_div_by_zero (tree divisor)
+warn_for_div_by_zero (location_t loc, tree divisor)
 {
   /* If DIVISOR is zero, and has integral or fixed-point type, issue a warning
      about division by zero.  Do not issue a warning if DIVISOR has a
@@ -8218,7 +8196,7 @@ warn_for_div_by_zero (tree divisor)
      generating a NaN.  */
   if (skip_evaluation == 0
       && (integer_zerop (divisor) || fixed_zerop (divisor)))
-    warning (OPT_Wdiv_by_zero, "division by zero");
+    warning_at (loc, OPT_Wdiv_by_zero, "division by zero");
 }
 
 /* Subroutine of build_binary_op. Give warnings for comparisons

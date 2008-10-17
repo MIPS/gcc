@@ -835,7 +835,7 @@ div_and_round_double (enum tree_code code, int uns,
 	if (hden < 0)
 	  neg_double (lden, hden, &labs_den, &habs_den);
 
-	/* If (2 * abs (lrem) >= abs (lden)) */
+	/* If (2 * abs (lrem) >= abs (lden)), adjust the quotient.  */
 	mul_double ((HOST_WIDE_INT) 2, (HOST_WIDE_INT) 0,
 		    labs_rem, habs_rem, &ltwice, &htwice);
 
@@ -843,7 +843,7 @@ div_and_round_double (enum tree_code code, int uns,
 	     < (unsigned HOST_WIDE_INT) htwice)
 	    || (((unsigned HOST_WIDE_INT) habs_den
 		 == (unsigned HOST_WIDE_INT) htwice)
-		&& (labs_den < ltwice)))
+		&& (labs_den <= ltwice)))
 	  {
 	    if (*hquo < 0)
 	      /* quo = quo - 1;  */
@@ -12447,7 +12447,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	unsigned int width = TYPE_PRECISION (arg1_type);
 
 	if (TREE_CODE (arg1) == INTEGER_CST
-	    && !TREE_OVERFLOW (arg1)
 	    && width <= 2 * HOST_BITS_PER_WIDE_INT
 	    && (INTEGRAL_TYPE_P (arg1_type) || POINTER_TYPE_P (arg1_type)))
 	  {
