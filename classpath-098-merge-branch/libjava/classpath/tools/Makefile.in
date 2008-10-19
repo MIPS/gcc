@@ -221,6 +221,8 @@ CREATE_DSSI_LIBRARIES_TRUE = @CREATE_DSSI_LIBRARIES_TRUE@
 CREATE_GCONF_PEER_LIBRARIES_FALSE = @CREATE_GCONF_PEER_LIBRARIES_FALSE@
 CREATE_GCONF_PEER_LIBRARIES_TRUE = @CREATE_GCONF_PEER_LIBRARIES_TRUE@
 CREATE_GJDOC_FALSE = @CREATE_GJDOC_FALSE@
+CREATE_GJDOC_PARSER_FALSE = @CREATE_GJDOC_PARSER_FALSE@
+CREATE_GJDOC_PARSER_TRUE = @CREATE_GJDOC_PARSER_TRUE@
 CREATE_GJDOC_TRUE = @CREATE_GJDOC_TRUE@
 CREATE_GMPBI_LIBRARY_FALSE = @CREATE_GMPBI_LIBRARY_FALSE@
 CREATE_GMPBI_LIBRARY_TRUE = @CREATE_GMPBI_LIBRARY_TRUE@
@@ -446,12 +448,14 @@ toolexeclibdir = @toolexeclibdir@
 uudecode = @uudecode@
 vm_classes = @vm_classes@
 GLIBJ_BOOTCLASSPATH = '$(top_srcdir)/lib'
-GLIBJ_CLASSPATH = .:$(srcdir)/asm$(ANTLR_CLASSPATH)
+GLIBJ_CLASSPATH = .:$(srcdir)/asm:$(ANTLR_CLASSPATH)
 @GCJ_JAVAC_FALSE@JCOMPILER = $(JAVAC) $(JAVACFLAGS) -source 1.5 -target 1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH)
 
 # Setup the compiler to use the GNU Classpath library we just built.
 @GCJ_JAVAC_TRUE@JCOMPILER = $(JAVAC) $(JAVACFLAGS) -fsource=1.5 -ftarget=1.5 --encoding=UTF-8 --bootclasspath=$(GLIBJ_BOOTCLASSPATH) --classpath=$(GLIBJ_CLASSPATH)
-@CREATE_GJDOC_TRUE@ANTLR_CLASSPATH = :$(ANTLR_JAR)
+@CREATE_GJDOC_PARSER_FALSE@@CREATE_GJDOC_TRUE@gjdoc_gendir = ${top_srcdir}/tools/generated
+@CREATE_GJDOC_PARSER_TRUE@@CREATE_GJDOC_TRUE@gjdoc_gendir = ${top_builddir}/tools/generated
+@CREATE_GJDOC_TRUE@ANTLR_CLASSPATH = $(ANTLR_JAR):$(gjdoc_gendir)
 @CREATE_WRAPPERS_TRUE@bin_SCRIPTS = 
 @CREATE_WRAPPERS_TRUE@AM_CPPFLAGS = -Wall \
 @CREATE_WRAPPERS_TRUE@	-I$(top_srcdir)/include \
@@ -1328,9 +1332,9 @@ $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
 	    echo -n > vm-tools.lst; \
 	fi
 	cat classes.lst asm.lst vm-tools.lst > all-classes.lst
-@CREATE_GJDOC_TRUE@@JAVA_MAINTAINER_MODE_TRUE@	@mkdir_p@ $(srcdir)/gnu/classpath/tools/gjdoc/expr
-@CREATE_GJDOC_TRUE@@JAVA_MAINTAINER_MODE_TRUE@	$(ANTLR) -o $(srcdir)/gnu/classpath/tools/gjdoc/expr \
-@CREATE_GJDOC_TRUE@@JAVA_MAINTAINER_MODE_TRUE@	  $(srcdir)/gnu/classpath/tools/gjdoc/expr/java-expression.g
+@CREATE_GJDOC_PARSER_TRUE@@CREATE_GJDOC_TRUE@@JAVA_MAINTAINER_MODE_TRUE@	@mkdir_p@ $(srcdir)/gnu/classpath/tools/gjdoc/expr
+@CREATE_GJDOC_PARSER_TRUE@@CREATE_GJDOC_TRUE@@JAVA_MAINTAINER_MODE_TRUE@	$(ANTLR) -o $(srcdir)/gnu/classpath/tools/gjdoc/expr \
+@CREATE_GJDOC_PARSER_TRUE@@CREATE_GJDOC_TRUE@@JAVA_MAINTAINER_MODE_TRUE@	  $(srcdir)/gnu/classpath/tools/gjdoc/expr/java-expression.g
 @JAVA_MAINTAINER_MODE_TRUE@	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
 @JAVA_MAINTAINER_MODE_TRUE@	  $$AC -g -w -d $(srcdir)/asm @asm.lst
 @JAVA_MAINTAINER_MODE_TRUE@	$(JCOMPILER) $(USE_JAVAC_FLAGS) -g -d $(srcdir)/classes @classes.lst @vm-tools.lst
@@ -1361,7 +1365,8 @@ $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
 
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
-	rm -rf $(TOOLS_ZIP) classes classes.lst asm asm.lst all-classes.lst generated
+	rm -rf $(TOOLS_ZIP) classes classes.lst asm asm.lst all-classes.lst
+@CREATE_GJDOC_PARSER_TRUE@	rm -rf $(gjdoc_gendir)
 
 # FIXME: remove this when GNU Classpath includes a bootstrap VM.
 installcheck-binSCRIPTS:

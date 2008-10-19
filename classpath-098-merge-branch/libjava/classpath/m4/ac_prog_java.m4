@@ -12,6 +12,10 @@ else
         test "x$JAVA" = x && AC_CHECK_PROGS(JAVA, cacao$EXEEXT jamvm$EXEEXT kaffe$EXEEXT gij$EXEEXT java$EXEEXT, $JAVAPREFIX)
 fi
 test "x$JAVA" = x && AC_MSG_ERROR([no acceptable Java virtual machine found in \$PATH])
+dnl GCJ LOCAL
+if test "$enable_java_maintainer_mode" = yes; then
 AC_PROG_JAVA_WORKS
+fi
+dnl END GCJ LOCAL
 AC_PROVIDE([$0])dnl
 ])
