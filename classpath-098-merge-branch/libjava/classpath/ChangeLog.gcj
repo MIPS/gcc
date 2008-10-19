@@ -1,5 +1,11 @@
 2008-10-19  Matthias Klose  <doko@ubuntu.com>
 
+	* m4/ac_prog_java.m4: Revert previous change.
+	* m4/ac_prog_javac.m4: Apply it here.
+	* configure: Regenerate.
+
+2008-10-19  Matthias Klose  <doko@ubuntu.com>
+
 	* m4/ac_prog_javac.m4: Don't check for working java, if not configured
 	with --enable-java-maintainer-mode.
 	* configure: Regenerate.

@@ -52,6 +52,10 @@ if $JAVAC --version | grep gcj > /dev/null; then
 fi])
 AC_SUBST(JAVAC_IS_GCJ, $ac_cv_prog_javac_is_gcj)
 AM_CONDITIONAL(GCJ_JAVAC, test x"${JAVAC_IS_GCJ}" = xyes)
+dnl GCJ LOCAL
+if test "$enable_java_maintainer_mode" = yes; then
 AC_PROG_JAVAC_WORKS
+fi
+dnl END GCJ LOCAL
 AC_PROVIDE([$0])dnl
 ])

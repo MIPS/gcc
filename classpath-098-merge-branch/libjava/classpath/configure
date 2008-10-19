@@ -29074,7 +29074,6 @@ fi
 test "x$JAVA" = x && { { echo "$as_me:$LINENO: error: no acceptable Java virtual machine found in \$PATH" >&5
 echo "$as_me: error: no acceptable Java virtual machine found in \$PATH" >&2;}
    { (exit 1); exit 1; }; }
-if test "$enable_java_maintainer_mode" = yes; then
 
 # Extract the first word of "uudecode$EXEEXT", so it can be a program name with args.
 set dummy uudecode$EXEEXT; ac_word=$2
@@ -29132,7 +29131,7 @@ EOF
 if uudecode$EXEEXT Test.uue; then
         ac_cv_prog_uudecode_base64=yes
 else
-        echo "configure: 29135: uudecode had trouble decoding base 64 file 'Test.uue'" >&5
+        echo "configure: 29134: uudecode had trouble decoding base 64 file 'Test.uue'" >&5
         echo "configure: failed file was:" >&5
         cat Test.uue >&5
         ac_cv_prog_uudecode_base64=no
@@ -29268,6 +29267,7 @@ else
   GCJ_JAVAC_FALSE=
 fi
 
+if test "$enable_java_maintainer_mode" = yes; then
 
 echo "$as_me:$LINENO: checking if $JAVAC works" >&5
 echo $ECHO_N "checking if $JAVAC works... $ECHO_C" >&6
@@ -29313,6 +29313,7 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_prog_javac_works" >&5
 echo "${ECHO_T}$ac_cv_prog_javac_works" >&6
 
+fi
 
         fi
 fi
@@ -29326,7 +29327,7 @@ JAVA_TEST=Test.java
 CLASS_TEST=Test.class
 TEST=Test
 cat << \EOF > $JAVA_TEST
-/* [#]line 29329 "configure" */
+/* [#]line 29330 "configure" */
 public class Test {
 public static void main (String args[]) {
         System.exit (0);
@@ -29369,7 +29370,6 @@ echo "$as_me:$LINENO: result: $ac_cv_prog_java_works" >&5
 echo "${ECHO_T}$ac_cv_prog_java_works" >&6
 
 
-fi
 
   fi
   if test "x${COMPILE_GJDOC}" = xyes; then
@@ -29461,7 +29461,6 @@ fi
 test "x$JAVA" = x && { { echo "$as_me:$LINENO: error: no acceptable Java virtual machine found in \$PATH" >&5
 echo "$as_me: error: no acceptable Java virtual machine found in \$PATH" >&2;}
    { (exit 1); exit 1; }; }
-if test "$enable_java_maintainer_mode" = yes; then
 
 # Extract the first word of "uudecode$EXEEXT", so it can be a program name with args.
 set dummy uudecode$EXEEXT; ac_word=$2
@@ -29519,7 +29518,7 @@ EOF
 if uudecode$EXEEXT Test.uue; then
         ac_cv_prog_uudecode_base64=yes
 else
-        echo "configure: 29522: uudecode had trouble decoding base 64 file 'Test.uue'" >&5
+        echo "configure: 29521: uudecode had trouble decoding base 64 file 'Test.uue'" >&5
         echo "configure: failed file was:" >&5
         cat Test.uue >&5
         ac_cv_prog_uudecode_base64=no
@@ -29655,6 +29654,7 @@ else
   GCJ_JAVAC_FALSE=
 fi
 
+if test "$enable_java_maintainer_mode" = yes; then
 
 echo "$as_me:$LINENO: checking if $JAVAC works" >&5
 echo $ECHO_N "checking if $JAVAC works... $ECHO_C" >&6
@@ -29700,6 +29700,7 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_prog_javac_works" >&5
 echo "${ECHO_T}$ac_cv_prog_javac_works" >&6
 
+fi
 
         fi
 fi
@@ -29713,7 +29714,7 @@ JAVA_TEST=Test.java
 CLASS_TEST=Test.class
 TEST=Test
 cat << \EOF > $JAVA_TEST
-/* [#]line 29716 "configure" */
+/* [#]line 29717 "configure" */
 public class Test {
 public static void main (String args[]) {
         System.exit (0);
@@ -29756,7 +29757,6 @@ echo "$as_me:$LINENO: result: $ac_cv_prog_java_works" >&5
 echo "${ECHO_T}$ac_cv_prog_java_works" >&6
 
 
-fi
 
 
   echo "$as_me:$LINENO: checking for the ANTLR parser generator JAR file" >&5
@@ -30028,6 +30028,7 @@ else
   GCJ_JAVAC_FALSE=
 fi
 
+if test "$enable_java_maintainer_mode" = yes; then
 
 echo "$as_me:$LINENO: checking if $JAVAC works" >&5
 echo $ECHO_N "checking if $JAVAC works... $ECHO_C" >&6
@@ -30038,7 +30039,7 @@ else
 JAVA_TEST=Object.java
 CLASS_TEST=Object.class
 cat << \EOF > $JAVA_TEST
-/* #line 30041 "configure" */
+/* #line 30042 "configure" */
 package java.lang;
 
 public class Object
@@ -30073,12 +30074,13 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_prog_javac_works" >&5
 echo "${ECHO_T}$ac_cv_prog_javac_works" >&6
 
+fi
 
 
   JAVA_TEST=Test.java
   CLASS_TEST=Test.class
   cat << \EOF > $JAVA_TEST
-  /* #line 30081 "configure" */
+  /* #line 30083 "configure" */
   public class Test
   {
     public static void main(String args)
