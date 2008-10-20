@@ -1,3 +1,9 @@
+2008-10-20  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.ac: Don't check for working java, if not configured
+        with --enable-java-maintainer-mode.
+	* configure: Regenerate.
+
 2008-10-19  Matthias Klose  <doko@ubuntu.com>
 
 	* m4/ac_prog_java.m4: Revert previous change.
@@ -6,7 +12,7 @@
 
 2008-10-19  Matthias Klose  <doko@ubuntu.com>
 
-	* m4/ac_prog_javac.m4: Don't check for working java, if not configured
+	* m4/ac_prog_javac.m4: Don't check for working javac, if not configured
 	with --enable-java-maintainer-mode.
 	* configure: Regenerate.
 	* Makefile.in, */Makefile.in: Regenerate.

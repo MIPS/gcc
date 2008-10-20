@@ -28984,7 +28984,7 @@ fi
 
 
 if test "x${TOOLSDIR}" != x; then
-  if test "x${COMPILE_WRAPPERS}" = xno; then
+    if test "x${COMPILE_WRAPPERS}" = xno && test "x${enable_java_maintainer_mode}" = xyes; then
 
 
 if test "x$JAVAPREFIX" = x; then
@@ -29373,6 +29373,7 @@ echo "${ECHO_T}$ac_cv_prog_java_works" >&6
 
   fi
   if test "x${COMPILE_GJDOC}" = xyes; then
+    if test "$enable_java_maintainer_mode" = yes; then
 
 if test "x$JAVAPREFIX" = x; then
         test "x$JAVA" = x && for ac_prog in cacao$EXEEXT jamvm$EXEEXT kaffe$EXEEXT gij$EXEEXT java$EXEEXT
@@ -29518,7 +29519,7 @@ EOF
 if uudecode$EXEEXT Test.uue; then
         ac_cv_prog_uudecode_base64=yes
 else
-        echo "configure: 29521: uudecode had trouble decoding base 64 file 'Test.uue'" >&5
+        echo "configure: 29522: uudecode had trouble decoding base 64 file 'Test.uue'" >&5
         echo "configure: failed file was:" >&5
         cat Test.uue >&5
         ac_cv_prog_uudecode_base64=no
@@ -29665,7 +29666,7 @@ else
 JAVA_TEST=Object.java
 CLASS_TEST=Object.class
 cat << \EOF > $JAVA_TEST
-/* #line 29668 "configure" */
+/* #line 29669 "configure" */
 package java.lang;
 
 public class Object
@@ -29714,7 +29715,7 @@ JAVA_TEST=Test.java
 CLASS_TEST=Test.class
 TEST=Test
 cat << \EOF > $JAVA_TEST
-/* [#]line 29717 "configure" */
+/* [#]line 29718 "configure" */
 public class Test {
 public static void main (String args[]) {
         System.exit (0);
@@ -29758,6 +29759,7 @@ echo "${ECHO_T}$ac_cv_prog_java_works" >&6
 
 
 
+    fi
 
   echo "$as_me:$LINENO: checking for the ANTLR parser generator JAR file" >&5
 echo $ECHO_N "checking for the ANTLR parser generator JAR file... $ECHO_C" >&6
@@ -30039,7 +30041,7 @@ else
 JAVA_TEST=Object.java
 CLASS_TEST=Object.class
 cat << \EOF > $JAVA_TEST
-/* #line 30042 "configure" */
+/* #line 30044 "configure" */
 package java.lang;
 
 public class Object
@@ -30080,7 +30082,7 @@ fi
   JAVA_TEST=Test.java
   CLASS_TEST=Test.class
   cat << \EOF > $JAVA_TEST
-  /* #line 30083 "configure" */
+  /* #line 30085 "configure" */
   public class Test
   {
     public static void main(String args)
