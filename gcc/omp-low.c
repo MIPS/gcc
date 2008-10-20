@@ -44,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "optabs.h"
 #include "cfgloop.h"
-
+#include "cgraph.h"
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two 
    phases.  The first phase scans the function looking for OMP statements
@@ -6273,6 +6273,79 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
   current_function_decl = ctx->cb.src_fn;
 }
 
+
+/* Compute a hash function for ELT.  */
+
+static hashval_t
+hash_omp_tgraph_var_info (const void *elt)
+{
+  return htab_hash_pointer (((const struct omp_tgraph_var_info *) elt)->var);
+}
+
+/* Compares elements E1 and E2.  */
+
+static int
+eq_omp_tgraph_var_info (const void *e1, const void *e2)
+{
+  const struct omp_tgraph_var_info *elt1 = (const struct omp_tgraph_var_info *) e1;
+  const struct omp_tgraph_var_info *elt2 = (const struct omp_tgraph_var_info *) e2;
+
+  return elt1->var == elt2->var;
+}
+
+
+/* For any FIRSTPRIVATE clause, the task must be registered as a
+   consumer on the respective variable.  Conversely all LASTPRIVATE
+   clauses will translate into producer tasks.  */
+
+static void
+register_omp_task (gimple task_stmt, tree clauses, omp_context *ctx)
+{
+  if (!ctx->cb.src_node->tgraph_vars_hash)
+    ctx->cb.src_node->tgraph_vars_hash 
+      = htab_create_ggc (10, hash_omp_tgraph_var_info,
+			 eq_omp_tgraph_var_info, NULL);
+
+
+  for (; clauses; clauses = OMP_CLAUSE_CHAIN (clauses))
+    {
+      if (OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_LASTPRIVATE
+	  || OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_FIRSTPRIVATE)
+	{
+	  struct omp_tgraph_var_info **slot, tmp;
+	  bool producer = (OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_LASTPRIVATE);
+	  tree decl = OMP_CLAUSE_DECL (clauses);
+	  struct omp_task_list *tl;
+
+	  tmp.var = decl;
+	  slot = (struct omp_tgraph_var_info **)
+	    htab_find_slot (ctx->cb.src_node->tgraph_vars_hash, &tmp, INSERT);
+	  if (!*slot)
+	    {
+	      *slot = GGC_CNEW (struct omp_tgraph_var_info);
+	      (*slot)->var = decl;
+	    }
+
+	  /* At this point, there should be no duplicate FIRSTPRIVATE
+	     or LASTPRIVATE clause on the same task.  */
+	  tl = producer ? (*slot)->producer : (*slot)->consumer;
+	  for (; tl && tl->task != task_stmt; tl = tl->next);
+	  gcc_assert (!tl);
+
+	  tl = GGC_CNEW (struct omp_task_list);
+	  tl->task = task_stmt;
+	  tl->next = producer ? (*slot)->producer : (*slot)->consumer;
+	  if (tl->next)
+	    {
+	      if (producer)
+		(*slot)->producer = tl;
+	      else
+		(*slot)->consumer = tl;
+	    }
+	}
+    }
+}
+
 /* Lower the OpenMP parallel or task directive in the current statement
    in GSI_P.  CTX holds context information for the directive.  */
 
@@ -6347,17 +6420,20 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  		   gimple_build_assign (ctx->receiver_decl, t));
     }
 
-
-  /* Handle the lastprivate clauses for OMP_TASKs.  */
+  /* Store task information and handle lastprivate clauses for
+     OMP_TASKs.  */
   if (gimple_code (stmt) == GIMPLE_OMP_TASK)
     {
       gimple_seq tmp = NULL;
-	  
+
+      register_omp_task (stmt, clauses, ctx);
+
       /* Generate copy out for lastprivate clauses before returning
 	 from task region.  */
-      lower_lastprivate_clauses (gimple_omp_task_clauses (stmt), NULL, &tmp, ctx);
+      lower_lastprivate_clauses (gimple_omp_taskreg_clauses (stmt), 
+				 NULL, &tmp, ctx);
       gimple_seq_add_seq (&par_olist, tmp);
-      
+
       /* If we have copy-out variables, we need synchronization before
 	 reading anything from olist.  */
       if (olist)

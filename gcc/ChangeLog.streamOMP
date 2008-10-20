@@ -1,3 +1,14 @@
+2008-10-20  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* omp-low.c (register_omp_task, eq_omp_tgraph_var_info,
+	hash_omp_tgraph_var_info): New.
+	(lower_omp_taskreg): Added call to register_omp_task.  The
+	objective is to register OMP task information at the cgraph_node
+	level whenever FIRSTPRIVATE or LASTPRIVATE clauses are present.
+	
+	* cgraph.h (omp_task_list, omp_tgraph_var_info): New.
+	(cgraph_node): Added new field tgraph_vars_hash.
+	
 2008-10-16  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* cp/parser.c (OMP_TASK_CLAUSE_MASK): Added

@@ -122,6 +122,25 @@ struct cgraph_rtl_info GTY(())
    unsigned int preferred_incoming_stack_boundary;
 };
 
+/* Linked list of OMP tasks.  */
+
+struct omp_task_list GTY((chain_next ("%h.next")))
+{
+  gimple task;
+  struct omp_task_list *next;
+};
+
+/* For a variable VAR, stores all the PRODUCER and CONSUMER tasks.  A
+producer is a task that has a LASTPRIVATE (VAR) clause and a consumer
+a FIRSTPRIVATE (VAR) clause.  */
+
+struct omp_tgraph_var_info GTY(())
+{
+  tree var;
+  struct omp_task_list *producer;
+  struct omp_task_list *consumer;
+};
+
 /* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
 
@@ -183,6 +202,11 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
      into clone before compiling so the function in original form can be
      inlined later.  This pointer points to the clone.  */
   tree inline_decl;
+
+  /* Store information about any OpenMP tasks created within this
+     function.  This information will be used to optimize the
+     communication of such tasks using streams.  */
+  htab_t GTY((param_is (struct omp_tgraph_var_info))) tgraph_vars_hash;
 
   /* unique id for profiling. pid is not suitable because of different
      number of cfg nodes with -fprofile-generate and -fprofile-use */
