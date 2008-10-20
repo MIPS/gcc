@@ -419,7 +419,6 @@
 	(local_bind): Removed fprintf call, fixed access outside
 	of array bounds.
 
->>>>>>> .merge-right.r140359
 2008-07-15  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* m4/acinclude.m4 (CLASSPATH_COND_IF): New macro.
