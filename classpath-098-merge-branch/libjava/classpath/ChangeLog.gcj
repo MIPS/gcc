@@ -1,5 +1,10 @@
 2008-10-20  Matthias Klose  <doko@ubuntu.com>
 
+	* configure.ac: Fix path name in check for generated gjdoc parser files.
+	* configure: Regenerate.
+
+2008-10-20  Matthias Klose  <doko@ubuntu.com>
+
 	* configure.ac: Don't check for working java, if not configured
         with --enable-java-maintainer-mode.
 	* configure: Regenerate.

@@ -387,7 +387,7 @@ AC_ARG_ENABLE([regen-gjdoc-parser],
                 no) REGENERATE_GJDOC_PARSER=no ;;
                 *) REGENERATE_GJDOC_PARSER=yes ;;
               esac],
-              [if test -e ${srcdir}/tools/generated/gnu/classpath/tools/gjdoc/expr/JavaLexer.java; then
+              [if test -e ${srcdir}/tools/gnu/classpath/tools/gjdoc/expr/JavaLexer.java; then
 			REGENERATE_GJDOC_PARSER=no ;
 		   else
 			REGENERATE_GJDOC_PARSER=yes ;

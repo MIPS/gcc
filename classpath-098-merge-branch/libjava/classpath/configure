@@ -4920,7 +4920,7 @@ if test "${enable_regen_gjdoc_parser+set}" = set; then
                 *) REGENERATE_GJDOC_PARSER=yes ;;
               esac
 else
-  if test -e ${srcdir}/tools/generated/gnu/classpath/tools/gjdoc/expr/JavaLexer.java; then
+  if test -e ${srcdir}/tools/gnu/classpath/tools/gjdoc/expr/JavaLexer.java; then
 			REGENERATE_GJDOC_PARSER=no ;
 		   else
 			REGENERATE_GJDOC_PARSER=yes ;
