@@ -61,8 +61,7 @@ lto_debug_wide_internal (struct lto_debug_context *context,
 /* Write TAG to CONTEXT and increment indent.  */
 
 void 
-lto_debug_indent (struct lto_debug_context *context, 
-		  int tag)
+lto_debug_indent (struct lto_debug_context *context, int tag)
 {
   int i;
   const char *tag_name = context->tag_names[tag];

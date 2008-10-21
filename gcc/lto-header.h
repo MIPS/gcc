@@ -32,9 +32,9 @@
 #define LTO_major_version 1
 #define LTO_minor_version 0
 
-/* This is all of the section types that are in the .o file.  This
-   list will grow as the number of ipa passes grows since each ipa
-   pass will need it's own section type to store it's summary
+/* These are all the LTO section types that are in an object file.  This
+   list will grow as the number of IPA passes grows since each IPA
+   pass will need its own section type to store its summary
    information.  */
 enum lto_section_type
 {
@@ -65,7 +65,7 @@ struct lto_simple_header
   int32_t compressed_size;
 };
 
-/* This are indices to the type and decl streams. */
+/* Indices to the various function, type and symbol streams. */
 typedef enum {
   LTO_DECL_STREAM_TYPE = 0,		/* Must be first. */
   LTO_DECL_STREAM_FIELD_DECL,

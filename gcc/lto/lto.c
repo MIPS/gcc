@@ -61,9 +61,11 @@ lto_materialize_constructors_and_inits (struct lto_file_decl_data * file_data)
 {
   size_t len;
   const char *data = lto_get_section_data (file_data, 
-					   LTO_section_static_initializer, NULL, &len);
+					   LTO_section_static_initializer,
+					   NULL, &len);
   lto_input_constructors_and_inits (file_data, data);
-  lto_free_section_data (file_data, LTO_section_static_initializer, NULL, data, len);
+  lto_free_section_data (file_data, LTO_section_static_initializer, NULL,
+			 data, len);
 }
 
 /* Read the function body for the function associated with NODE if possible.  */
@@ -211,15 +213,13 @@ static void
 lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 		VEC(ld_plugin_symbol_resolution_t,heap) *resolutions)
 {
-  const struct lto_decl_header * header 
-      = (const struct lto_decl_header *) data;
+  const struct lto_decl_header *header = (const struct lto_decl_header *) data;
   const int32_t decl_offset = sizeof (struct lto_decl_header);
   const int32_t main_offset = decl_offset + header->decl_state_size;
   const int32_t string_offset = main_offset + header->main_size;
 #ifdef LTO_STREAM_DEBUGGING
   int32_t debug_main_offset;
 #endif
-
   struct lto_input_block ib_main;
   struct lto_input_block debug_main;
   struct data_in data_in;
@@ -231,9 +231,11 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   debug_main_offset = string_offset + header->string_size;
 #endif
   
-  LTO_INIT_INPUT_BLOCK (ib_main, (const char*) data + main_offset, 0, header->main_size);
+  LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
+			header->main_size);
 #ifdef LTO_STREAM_DEBUGGING
-  LTO_INIT_INPUT_BLOCK (debug_main, (const char*) data + debug_main_offset, 0, header->debug_main_size);
+  LTO_INIT_INPUT_BLOCK (debug_main, (const char *) data + debug_main_offset, 0,
+			header->debug_main_size);
 #endif
 
   memset (&data_in, 0, sizeof (struct data_in));
@@ -267,9 +269,9 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 
   /* Read in lto_in_decl_state objects. */
 
-  data_ptr = (const uint32_t*) ((const char*) data + decl_offset); 
+  data_ptr = (const uint32_t *) ((const char*) data + decl_offset); 
   data_end =
-     (const uint32_t*) ((const char*) data_ptr + header->decl_state_size);
+     (const uint32_t *) ((const char*) data_ptr + header->decl_state_size);
   num_decl_states = *data_ptr++;
   
   gcc_assert (num_decl_states > 0);
@@ -278,9 +280,9 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 				     decl_data->global_decl_state);
 
   /* Read in per-function decl states and enter them in hash table.  */
-
   decl_data->function_decl_states =
     htab_create (37, lto_hash_in_decl_state, lto_eq_in_decl_state, free);
+
   for (i = 1; i < num_decl_states; i++)
     {
       struct lto_in_decl_state *state = lto_new_in_decl_state ();
@@ -375,29 +377,22 @@ lto_resolution_read (FILE *resolution, const char *file_name)
    and process the .o index into the cgraph nodes so that it can open
    the .o file to load the functions and ipa information.   */
 
-static struct lto_file_decl_data*
+static struct lto_file_decl_data *
 lto_file_read (lto_file *file, FILE *resolution_file)
 {
-  struct lto_file_decl_data* file_data;
+  struct lto_file_decl_data *file_data;
   const char *data;
   size_t len;
-  htab_t section_hash_table;
-  htab_t renaming_hash_table;
+  VEC(ld_plugin_symbol_resolution_t,heap) *resolutions;
+  
+  resolutions = lto_resolution_read (resolution_file, file->filename);
 
-  VEC(ld_plugin_symbol_resolution_t,heap) *resolutions =
-    lto_resolution_read (resolution_file, file->filename);
-
-  file_data = XNEW (struct lto_file_decl_data);
-
+  file_data = XCNEW (struct lto_file_decl_data);
   file_data->file_name = file->filename;
   file_data->fd = -1;
+  file_data->section_hash_table = lto_elf_build_section_table (file);
+  file_data->renaming_hash_table = lto_create_renaming_table ();
 
-  section_hash_table = lto_elf_build_section_table (file);
-  file_data->section_hash_table = section_hash_table;
-
-  renaming_hash_table = lto_create_renaming_table ();
-  file_data->renaming_hash_table = renaming_hash_table;
-  
   data = lto_get_section_data (file_data, LTO_section_decls, NULL, &len);
   lto_read_decls (file_data, data, resolutions);
   lto_free_section_data (file_data, LTO_section_decls, NULL, data, len);
@@ -458,7 +453,7 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
 
 
 /* Get the section data from FILE_DATA of SECTION_TYPE with NAME.
-   NAME will be null unless the section type is for a function
+   NAME will be NULL unless the section type is for a function
    body.  */
 
 static const char *
@@ -474,7 +469,7 @@ get_section_data (struct lto_file_decl_data *file_data,
   char *data = NULL;
 
   s_slot.name = section_name;
-  f_slot = (struct lto_section_slot *)htab_find (section_hash_table, &s_slot);
+  f_slot = (struct lto_section_slot *) htab_find (section_hash_table, &s_slot);
   if (f_slot)
     {
       data = lto_read_section_data (file_data, f_slot->start, f_slot->len);
@@ -946,7 +941,7 @@ free_decl (const void *p, void *data ATTRIBUTE_UNUSED)
    prevailing one. */
 
 static void
-lto_fixup_decls (struct lto_file_decl_data** files)
+lto_fixup_decls (struct lto_file_decl_data **files)
 {
   unsigned int i;
   tree decl;
@@ -1020,7 +1015,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       if (!file_data)
 	break;
 
-      all_file_decl_data [j++] = file_data;
+      all_file_decl_data[j++] = file_data;
 
       lto_elf_file_close (current_lto_file);
       current_lto_file = NULL;
@@ -1029,7 +1024,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   if (resolution_file_name)
     fclose (resolution);
 
-  all_file_decl_data [j] = NULL;
+  all_file_decl_data[j] = NULL;
 
   lto_fixup_decls (all_file_decl_data);
 

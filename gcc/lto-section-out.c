@@ -1223,7 +1223,7 @@ produce_symtab (htab_t hash)
   bitmap seen;
 
   lto_begin_section (section_name);
-  free(section_name);
+  free (section_name);
 
   bitmap_obstack_initialize (NULL);
   seen = BITMAP_ALLOC (NULL);

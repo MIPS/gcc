@@ -76,11 +76,12 @@ extern void lto_elf_end_section (void);
 extern lto_file *lto_set_current_out_file (lto_file *file);
 extern lto_file *lto_get_current_out_file (void);
 
-/* Hash table entry to hold the start offset and length of an lto
+/* Hash table entry to hold the start offset and length of an LTO
    section in a .o file.  */
 
-struct lto_section_slot {
-  const char * name;
+struct lto_section_slot
+{
+  const char *name;
   intptr_t start;
   size_t len;
 };

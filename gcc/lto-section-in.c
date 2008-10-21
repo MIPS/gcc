@@ -246,14 +246,14 @@ lto_get_file_decl_data (void)
   return file_decl_data;
 }
 
-/* Return a char pointer to the start of a data stream for an lto pass
+/* Return a char pointer to the start of a data stream for an LTO pass
    or function.  FILE_DATA indicates where to obtain the data.
    SECTION_TYPE is the type of information to be obtained.  NAME is
    the name of the function and is only used when finding a function
    body; otherwise it is NULL.  LEN is the size of the data
    returned.  */
 
-const char* 
+const char *
 lto_get_section_data (struct lto_file_decl_data *file_data, 
 		      enum lto_section_type section_type,
 		      const char *name, 

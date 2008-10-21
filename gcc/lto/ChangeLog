@@ -1,3 +1,8 @@
+2008-10-21  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c: Tidy some formatting.
+	* lto.h: Likewise.
+
 2008-10-21  Simon Baldwin  <simonb@google.com>
 
 	* lto-symtab.c: (lto_same_type_p): Types cannot be equal if one of

@@ -1,5 +1,13 @@
 2008-10-21  Diego Novillo  <dnovillo@google.com>
 
+	* lto-function-in.c (lto_input_function_body): Tidy some formatting.
+	* lto-header.h: Likewise.
+	* lto-section-in.c: Likewise.
+	* lto-stream-debug.c: Likewise.
+	* lto-section-out.c: Likewise.
+
+2008-10-21  Diego Novillo  <dnovillo@google.com>
+
 	* lto-section-in.c (lto_debug_in_fun): Guard against empty
 	stream debug sections.
 

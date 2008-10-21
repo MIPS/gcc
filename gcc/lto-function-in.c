@@ -2603,7 +2603,7 @@ lto_input_function_body (struct lto_file_decl_data *file_data,
 /* Read in VAR_DECL using DATA.  File_data are the global decls and types.  */
 
 void 
-lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
+lto_input_constructors_and_inits (struct lto_file_decl_data *file_data,
 				  const char *data)
 {
   lto_read_body (file_data, NULL, data, LTO_section_static_initializer);
