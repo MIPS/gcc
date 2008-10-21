@@ -44,6 +44,10 @@ lto_same_type_p (tree type_1, tree type_2)
   if (type_1 == type_2)
     return true;
 
+  /* Check that we have two types to compare.  */
+  if (type_1 == NULL_TREE || type_2 == NULL_TREE)
+    return false;
+
   /* Can't be the same type if the types don't have the same code.  */
   code = TREE_CODE (type_1);
   if (code != TREE_CODE (type_2))

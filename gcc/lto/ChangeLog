@@ -1,3 +1,8 @@
+2008-10-21  Simon Baldwin  <simonb@google.com>
+
+	* lto-symtab.c: (lto_same_type_p): Types cannot be equal if one of
+	them is NULL (but not the other).
+
 2008-10-17  Diego Novillo  <dnovillo@google.com>
 
 	* ltrans-driver: Divert output from make to a temporary file.
