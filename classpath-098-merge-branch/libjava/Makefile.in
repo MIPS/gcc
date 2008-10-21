@@ -4327,6 +4327,7 @@ java/lang/Thread.java \
 classpath/java/lang/ThreadDeath.java \
 classpath/java/lang/ThreadGroup.java \
 java/lang/ThreadLocal.java \
+classpath/java/lang/ThreadLocalMap.java \
 classpath/java/lang/Throwable.java \
 classpath/java/lang/TypeNotPresentException.java \
 classpath/java/lang/UnknownError.java \

@@ -1,4 +1,4 @@
-// $ANTLR 2.7.7 (20080802): "java-expression.g" -> "JavaLexer.java"$
+// $ANTLR 2.7.7 (20080530): "java-expression.g" -> "JavaLexer.java"$
  
    package gnu.classpath.tools.gjdoc.expr; 
 
@@ -43,21 +43,21 @@ public JavaLexer(LexerSharedInputState state) {
 	setCaseSensitive(true);
 	literals = new Hashtable();
 	literals.put(new ANTLRHashString("String", this), new Integer(55));
+	literals.put(new ANTLRHashString("final", this), new Integer(39));
+	literals.put(new ANTLRHashString("false", this), new Integer(84));
 	literals.put(new ANTLRHashString("true", this), new Integer(83));
 	literals.put(new ANTLRHashString("void", this), new Integer(46));
+	literals.put(new ANTLRHashString("float", this), new Integer(52));
 	literals.put(new ANTLRHashString("boolean", this), new Integer(47));
-	literals.put(new ANTLRHashString("abstract", this), new Integer(40));
-	literals.put(new ANTLRHashString("short", this), new Integer(50));
 	literals.put(new ANTLRHashString("long", this), new Integer(53));
 	literals.put(new ANTLRHashString("null", this), new Integer(85));
+	literals.put(new ANTLRHashString("short", this), new Integer(50));
 	literals.put(new ANTLRHashString("char", this), new Integer(49));
-	literals.put(new ANTLRHashString("float", this), new Integer(52));
+	literals.put(new ANTLRHashString("abstract", this), new Integer(40));
 	literals.put(new ANTLRHashString("byte", this), new Integer(48));
-	literals.put(new ANTLRHashString("double", this), new Integer(54));
 	literals.put(new ANTLRHashString("int", this), new Integer(51));
+	literals.put(new ANTLRHashString("double", this), new Integer(54));
 	literals.put(new ANTLRHashString("strictfp", this), new Integer(41));
-	literals.put(new ANTLRHashString("false", this), new Integer(84));
-	literals.put(new ANTLRHashString("final", this), new Integer(39));
 }
 
 public Token nextToken() throws TokenStreamException {

@@ -1,4 +1,4 @@
-// $ANTLR 2.7.7 (20080802): "java-expression.g" -> "JavaRecognizer.java"$
+// $ANTLR 2.7.7 (20080530): "java-expression.g" -> "JavaRecognizer.java"$
  
    package gnu.classpath.tools.gjdoc.expr; 
 

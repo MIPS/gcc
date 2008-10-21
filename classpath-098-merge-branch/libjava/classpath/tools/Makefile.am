@@ -13,11 +13,13 @@ JCOMPILER = $(JAVAC) $(JAVACFLAGS) -source 1.5 -target 1.5 -encoding UTF-8 -boot
 endif
 
 if CREATE_GJDOC
-if CREATE_GJDOC_PARSER
-gjdoc_gendir = ${top_builddir}/tools/generated
-else
+## GCJ LOCAL: always put source files in srcdir
+## if CREATE_GJDOC_PARSER
+## gjdoc_gendir = ${top_builddir}/tools/generated
+## else
 gjdoc_gendir = ${top_srcdir}/tools/generated
-endif
+## endif
+## END GCJ LOCAL
 ANTLR_CLASSPATH = $(ANTLR_JAR):$(gjdoc_gendir)
 endif
 
@@ -342,8 +344,8 @@ if JAVA_MAINTAINER_MODE
 if CREATE_GJDOC
 if CREATE_GJDOC_PARSER
 ## Generate antlr sources.
-	@mkdir_p@ $(srcdir)/gnu/classpath/tools/gjdoc/expr
-	$(ANTLR) -o $(srcdir)/gnu/classpath/tools/gjdoc/expr \
+	@mkdir_p@ $(gjdoc_gendir)/gnu/classpath/tools/gjdoc/expr
+	$(ANTLR) -o $(gjdoc_gendir)/gnu/classpath/tools/gjdoc/expr \
 	  $(srcdir)/gnu/classpath/tools/gjdoc/expr/java-expression.g
 endif
 endif

@@ -4920,7 +4920,7 @@ if test "${enable_regen_gjdoc_parser+set}" = set; then
                 *) REGENERATE_GJDOC_PARSER=yes ;;
               esac
 else
-  if test -e ${srcdir}/tools/gnu/classpath/tools/gjdoc/expr/JavaLexer.java; then
+  if test -e ${srcdir}/tools/generated/gnu/classpath/tools/gjdoc/expr/JavaLexer.java; then
 			REGENERATE_GJDOC_PARSER=no ;
 		   else
 			REGENERATE_GJDOC_PARSER=yes ;
@@ -28984,7 +28984,7 @@ fi
 
 
 if test "x${TOOLSDIR}" != x; then
-    if test "x${COMPILE_WRAPPERS}" = xno && test "x${enable_java_maintainer_mode}" = xyes; then
+  if test "x${COMPILE_WRAPPERS}" = xno && test "x${enable_java_maintainer_mode}" = xyes; then
 
 
 if test "x$JAVAPREFIX" = x; then
@@ -29373,7 +29373,28 @@ echo "${ECHO_T}$ac_cv_prog_java_works" >&6
 
   fi
   if test "x${COMPILE_GJDOC}" = xyes; then
-    if test "$enable_java_maintainer_mode" = yes; then
+
+  echo "$as_me:$LINENO: checking for the ANTLR parser generator JAR file" >&5
+echo $ECHO_N "checking for the ANTLR parser generator JAR file... $ECHO_C" >&6
+  if test -z "$ANTLR_JAR"; then
+    for antlr_lib_home in `ls -d /usr/local/share/antlr* 2> /dev/null` \
+	/usr/share/antlr/lib /usr/share/java /usr/lib;
+	do
+	    if test -f "$antlr_lib_home/antlr.jar"; then
+	      ANTLR_JAR="$antlr_lib_home/antlr.jar"
+	      break
+	    fi
+     done
+  fi
+  test -f $ANTLR_JAR || { { echo "$as_me:$LINENO: error: specified ANTLR jar file $ANTLR_JAR not found." >&5
+echo "$as_me: error: specified ANTLR jar file $ANTLR_JAR not found." >&2;}
+   { (exit 1); exit 1; }; } \
+        && echo "$as_me:$LINENO: result: $ANTLR_JAR" >&5
+echo "${ECHO_T}$ANTLR_JAR" >&6
+
+
+    if test "x${REGENERATE_GJDOC_PARSER}" = xyes; then
+      if test "x${enable_java_maintainer_mode}" = xyes; then
 
 if test "x$JAVAPREFIX" = x; then
         test "x$JAVA" = x && for ac_prog in cacao$EXEEXT jamvm$EXEEXT kaffe$EXEEXT gij$EXEEXT java$EXEEXT
@@ -29519,7 +29540,7 @@ EOF
 if uudecode$EXEEXT Test.uue; then
         ac_cv_prog_uudecode_base64=yes
 else
-        echo "configure: 29522: uudecode had trouble decoding base 64 file 'Test.uue'" >&5
+        echo "configure: 29543: uudecode had trouble decoding base 64 file 'Test.uue'" >&5
         echo "configure: failed file was:" >&5
         cat Test.uue >&5
         ac_cv_prog_uudecode_base64=no
@@ -29666,7 +29687,7 @@ else
 JAVA_TEST=Object.java
 CLASS_TEST=Object.class
 cat << \EOF > $JAVA_TEST
-/* #line 29669 "configure" */
+/* #line 29690 "configure" */
 package java.lang;
 
 public class Object
@@ -29715,7 +29736,7 @@ JAVA_TEST=Test.java
 CLASS_TEST=Test.class
 TEST=Test
 cat << \EOF > $JAVA_TEST
-/* [#]line 29718 "configure" */
+/* [#]line 29739 "configure" */
 public class Test {
 public static void main (String args[]) {
         System.exit (0);
@@ -29759,28 +29780,6 @@ echo "${ECHO_T}$ac_cv_prog_java_works" >&6
 
 
 
-    fi
-
-  echo "$as_me:$LINENO: checking for the ANTLR parser generator JAR file" >&5
-echo $ECHO_N "checking for the ANTLR parser generator JAR file... $ECHO_C" >&6
-  if test -z "$ANTLR_JAR"; then
-    for antlr_lib_home in `ls -d /usr/local/share/antlr* 2> /dev/null` \
-	/usr/share/antlr/lib /usr/share/java /usr/lib;
-	do
-	    if test -f "$antlr_lib_home/antlr.jar"; then
-	      ANTLR_JAR="$antlr_lib_home/antlr.jar"
-	      break
-	    fi
-     done
-  fi
-  test -f $ANTLR_JAR || { { echo "$as_me:$LINENO: error: specified ANTLR jar file $ANTLR_JAR not found." >&5
-echo "$as_me: error: specified ANTLR jar file $ANTLR_JAR not found." >&2;}
-   { (exit 1); exit 1; }; } \
-        && echo "$as_me:$LINENO: result: $ANTLR_JAR" >&5
-echo "${ECHO_T}$ANTLR_JAR" >&6
-
-
-    if test "x${REGENERATE_GJDOC_PARSER}" = xyes; then
 
     if test -n "$ac_tool_prefix"; then
   for ac_prog in cantlr runantlr antlr
@@ -29886,23 +29885,17 @@ echo $ECHO_N "checking for antlr 2.7.1 or better... $ECHO_C" >&6
     antlr_version_major=`echo $antlr_version_str | sed "$antlr_version_regex\\1/"`
     antlr_version_minor=`echo $antlr_version_str | sed "$antlr_version_regex\\2/"`
     antlr_version_micro=`echo $antlr_version_str | sed "$antlr_version_regex\\3/"`
-    (test $antlr_version_major -gt 2 ||
+    (test $antlr_version_major -gt 2 || \
     (test $antlr_version_major -eq 2 && \
      test $antlr_version_minor -gt 7) || \
     (test $antlr_version_major -eq 2 && \
      test $antlr_version_minor -eq 7 && \
-     test $antlr_version_micro -ge 1)) && \
-    (test -z $ANTLR_JAR || \
-     (test $antlr_version_major -gt $antlr_use_major ||
-      (test $antlr_version_major -eq $antlr_use_major && \
-       test $antlr_version_minor -gt $antlr_use_minor) || \
-      (test $antlr_version_major -eq $antlr_use_major && \
-       test $antlr_version_minor -eq $antlr_use_minor && \
-       test $antlr_version_micro -ge $antlr_use_micro)))
-    fi
-  echo "$as_me:$LINENO: result: $antlr_use_major.$antlr_use_minor.$antlr_use_micro" >&5
-echo "${ECHO_T}$antlr_use_major.$antlr_use_minor.$antlr_use_micro" >&6
+     test $antlr_version_micro -ge 1))
+  fi
+  echo "$as_me:$LINENO: result: $antlr_version_major.$antlr_version_minor.$antlr_version_micro" >&5
+echo "${ECHO_T}$antlr_version_major.$antlr_version_minor.$antlr_version_micro" >&6
 
+      fi
     fi
   fi
 fi
@@ -30041,7 +30034,7 @@ else
 JAVA_TEST=Object.java
 CLASS_TEST=Object.class
 cat << \EOF > $JAVA_TEST
-/* #line 30044 "configure" */
+/* #line 30037 "configure" */
 package java.lang;
 
 public class Object
@@ -30082,7 +30075,7 @@ fi
   JAVA_TEST=Test.java
   CLASS_TEST=Test.class
   cat << \EOF > $JAVA_TEST
-  /* #line 30085 "configure" */
+  /* #line 30078 "configure" */
   public class Test
   {
     public static void main(String args)

@@ -387,7 +387,7 @@ AC_ARG_ENABLE([regen-gjdoc-parser],
                 no) REGENERATE_GJDOC_PARSER=no ;;
                 *) REGENERATE_GJDOC_PARSER=yes ;;
               esac],
-              [if test -e ${srcdir}/tools/gnu/classpath/tools/gjdoc/expr/JavaLexer.java; then
+              [if test -e ${srcdir}/tools/generated/gnu/classpath/tools/gjdoc/expr/JavaLexer.java; then
 			REGENERATE_GJDOC_PARSER=no ;
 		   else
 			REGENERATE_GJDOC_PARSER=yes ;
@@ -1015,18 +1015,18 @@ AM_CONDITIONAL(USE_PREBUILT_GLIBJ_ZIP, test x$use_glibj_zip = xtrue)
 AC_SUBST(PATH_TO_GLIBJ_ZIP)
 
 if test "x${TOOLSDIR}" != x; then
-  dnl GCJ LOCAL
   if test "x${COMPILE_WRAPPERS}" = xno && test "x${enable_java_maintainer_mode}" = xyes; then
     AC_PROG_JAVA
   fi
   if test "x${COMPILE_GJDOC}" = xyes; then
-    if test "$enable_java_maintainer_mode" = yes; then
-      AC_PROG_JAVA
-    fi
-    dnl END GCJ LOCAL
     AC_LIB_ANTLR
     if test "x${REGENERATE_GJDOC_PARSER}" = xyes; then
+dnl GCJ LOCAL
+      if test "x${enable_java_maintainer_mode}" = xyes; then
+        AC_PROG_JAVA
 	AC_PROG_ANTLR(2,7,1)
+      fi
+dnl END GCJ LOCAL
     fi
   fi
 fi

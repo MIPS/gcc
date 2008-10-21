@@ -1,4 +1,4 @@
-// $ANTLR 2.7.7 (20080802): "java-expression.g" -> "JavaLexer.java"$
+// $ANTLR 2.7.7 (20080530): "java-expression.g" -> "JavaLexer.java"$
  
    package gnu.classpath.tools.gjdoc.expr; 
 
