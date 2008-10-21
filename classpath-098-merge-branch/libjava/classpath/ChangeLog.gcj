@@ -1,3 +1,8 @@
+2008-10-21  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/Makefile.am (MAINTAINERCLEANFILES): Add gjdoc.1.
+	* doc/Makefile.in: Regenerate.
+
 2008-10-20  Matthias Klose  <doko@ubuntu.com>
 
 	* configure.ac: Fix path name in check for generated gjdoc parser files.

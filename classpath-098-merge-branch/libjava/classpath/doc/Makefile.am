@@ -126,6 +126,7 @@ MAINTAINERCLEANFILES = \
 		$(srcdir)/gjar.1 \
 		$(srcdir)/gjarsigner.1 \
 		$(srcdir)/gjavah.1 \
+		$(srcdir)/gjdoc.1 \
 		$(srcdir)/gkeytool.1 \
 		$(srcdir)/gnative2ascii.1 \
 		$(srcdir)/gorbd.1 \
