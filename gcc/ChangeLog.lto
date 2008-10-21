@@ -1,3 +1,8 @@
+2008-10-21  Diego Novillo  <dnovillo@google.com>
+
+	* lto-section-in.c (lto_debug_in_fun): Guard against empty
+	stream debug sections.
+
 2008-10-21 Rafael Espindola  <espindola@google.com>
 
 	* cgraphunit.c (ipa_passes): Use execute_regular_ipa_pass_list.

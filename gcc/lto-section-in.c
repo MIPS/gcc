@@ -604,6 +604,13 @@ lto_debug_in_fun (struct lto_debug_context *context, char c)
   char b;
 
   stream = (struct lto_input_block *) context->current_data;
+
+  /* If the writer and reader were compiled with different settings
+     for LTO_STREAM_DEBUGGING, the debugging STREAM may not have any
+     data in it.  Do nothing in that case.  */
+  if (stream->len == 0 || stream->len == (unsigned) -1)
+    return;
+
   b = lto_input_1_unsigned (stream);
 
   if (b != c)
