@@ -522,7 +522,8 @@ extern struct gimple_opt_pass pass_update_address_taken;
 extern struct gimple_opt_pass pass_convert_switch;
 
 /* The root of the compilation pass tree, once constructed.  */
-extern struct opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;
+extern struct opt_pass *all_passes, *all_small_ipa_passes, *all_lowering_passes,
+                       *all_regular_ipa_passes;
 
 /* Current optimization pass.  */
 extern struct opt_pass *current_pass;

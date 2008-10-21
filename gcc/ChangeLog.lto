@@ -1,3 +1,15 @@
+2008-10-21 Rafael Espindola  <espindola@google.com>
+
+	* cgraphunit.c (ipa_passes): call execute_ipa_pass_list on
+	all_regular_ipa_passes.
+	* passes.c (all_regular_ipa_passes): New.
+	(all_ipa_passes): Rename to all_small_ipa_passes.
+	(init_optimization_passes): Init all_regular_ipa_passes.
+	(ipa_write_summaries,ipa_read_summaries,
+	ipa_write_summaries_of_cgraph_node_set): Use all_regular_ipa_passes.
+	* tree-pass.h (all_regular_ipa_passes): New.
+	(all_ipa_passes): Rename to all_small_ipa_passes.
+
 2008-10-17  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-in.c (input_imported_decl): New.

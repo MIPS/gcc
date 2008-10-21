@@ -333,7 +333,8 @@ struct rtl_opt_pass pass_postreload =
 
 
 /* The root of the compilation pass tree, once constructed.  */
-struct opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;
+struct opt_pass *all_passes, *all_small_ipa_passes, *all_lowering_passes,
+  *all_regular_ipa_passes;
 
 /* A map from static pass id to optimization pass.  */
 struct opt_pass **passes_by_id;
@@ -492,7 +493,7 @@ next_pass_1 (struct opt_pass **list, struct opt_pass *pass)
    If we are optimizing, cgraph_optimize is then invoked:
 
    cgraph_optimize ()
-       ipa_passes () 			-> all_ipa_passes
+       ipa_passes () 			-> all_small_ipa_passes
        cgraph_expand_all_functions ()
            for each node N in the cgraph
 	       cgraph_expand_function (N)
@@ -526,7 +527,7 @@ init_optimization_passes (void)
   *p = NULL;
 
   /* Interprocedural optimization passes.  */
-  p = &all_ipa_passes;
+  p = &all_small_ipa_passes;
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
   NEXT_PASS (pass_ipa_early_inline);
     {
@@ -572,8 +573,10 @@ init_optimization_passes (void)
     }
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
+  *p = NULL;
+
+  p = &all_regular_ipa_passes;
   NEXT_PASS (pass_ipa_cp);
-  /* All regular IPA_PASSes need to be clumped together.  */
   NEXT_PASS (pass_ipa_lto_gimple_out);
   NEXT_PASS (pass_ipa_lto_cgraph);
   NEXT_PASS (pass_ipa_inline);
@@ -584,7 +587,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_struct_reorg);
   NEXT_PASS (pass_ipa_lto_wpa_fixup);
   NEXT_PASS (pass_ipa_lto_finish_out);  /* This must be the last IPA_PASS.  */
-  
   *p = NULL;
 
   /* These passes are run after IPA passes on every function that is being
@@ -831,7 +833,10 @@ init_optimization_passes (void)
   /* Register the passes with the tree dump code.  */
   register_dump_files (all_lowering_passes, PROP_gimple_any);
   all_lowering_passes->todo_flags_start |= TODO_set_props;
-  register_dump_files (all_ipa_passes, 
+  register_dump_files (all_small_ipa_passes, 
+		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
+		       | PROP_cfg);
+  register_dump_files (all_regular_ipa_passes, 
 		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
 		       | PROP_cfg);
   register_dump_files (all_passes, 
@@ -1390,7 +1395,7 @@ ipa_write_summaries (void)
       set = cgraph_node_set_new ();
       for (node = cgraph_nodes; node; node = node->next)
 	cgraph_node_set_add (set, node);
-      ipa_write_summaries_1 (all_ipa_passes, set);
+      ipa_write_summaries_1 (all_regular_ipa_passes, set);
       lto_delete_static_inline_states ();
       ggc_free (set);
     }
@@ -1400,7 +1405,7 @@ void
 ipa_write_summaries_of_cgraph_node_set (cgraph_node_set set)
 {
   if (flag_generate_lto && !(errorcount || sorrycount))
-    ipa_write_summaries_1 (all_ipa_passes, set);
+    ipa_write_summaries_1 (all_regular_ipa_passes, set);
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
@@ -1430,7 +1435,7 @@ ipa_read_summaries_1 (struct opt_pass *pass)
 void
 ipa_read_summaries (void)
 {
-  ipa_read_summaries_1 (all_ipa_passes);
+  ipa_read_summaries_1 (all_regular_ipa_passes);
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
