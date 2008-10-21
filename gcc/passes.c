@@ -1443,23 +1443,11 @@ ipa_read_summaries (void)
 void
 execute_ipa_pass_list (struct opt_pass *pass)
 {
-  bool summaries_generated = false;
   do
     {
       gcc_assert (!current_function_decl);
       gcc_assert (!cfun);
       gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
-      if (pass->type == IPA_PASS && (!pass->gate || pass->gate ()))
-	{
-	  if (!summaries_generated)
-	    {
-	      if (!quiet_flag && !cfun)
-		fprintf (stderr, " <summary generate>");
-	      execute_ipa_summary_passes ((struct ipa_opt_pass *) pass);
-              ipa_write_summaries ();
-	    }
-	  summaries_generated = true;
-	}
       if (execute_one_pass (pass) && pass->sub)
 	{
 	  if (pass->sub->type == GIMPLE_PASS)
@@ -1471,11 +1459,24 @@ execute_ipa_pass_list (struct opt_pass *pass)
 	  else
 	    gcc_unreachable ();
 	}
-      if (!current_function_decl)
-	cgraph_process_new_functions ();
+      gcc_assert (!current_function_decl);
+      cgraph_process_new_functions ();
       pass = pass->next;
     }
   while (pass);
+}
+
+/* Same as execute_pass_list but assume that subpasses of IPA passes
+   are local passes.  */
+void
+execute_regular_ipa_pass_list (struct opt_pass *pass)
+{
+  if (!quiet_flag && !cfun)
+    fprintf (stderr, " <summary generate>");
+  execute_ipa_summary_passes ((struct ipa_opt_pass *) pass);
+  ipa_write_summaries ();
+
+  execute_ipa_pass_list (pass);
 }
 
 extern void debug_properties (unsigned int);

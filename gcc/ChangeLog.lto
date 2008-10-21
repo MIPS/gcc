@@ -1,5 +1,12 @@
 2008-10-21 Rafael Espindola  <espindola@google.com>
 
+	* cgraphunit.c (ipa_passes): Use execute_regular_ipa_pass_list.
+	* passes.c (execute_ipa_pass_list): Don't run
+	execute_ipa_summary_passes.
+	(execute_regular_ipa_pass_list): New.
+
+2008-10-21 Rafael Espindola  <espindola@google.com>
+
 	* cgraphunit.c (ipa_passes): call execute_ipa_pass_list on
 	all_regular_ipa_passes.
 	* passes.c (all_regular_ipa_passes): New.
