@@ -532,6 +532,8 @@ extern struct opt_pass * get_pass_for_id (int);
 extern void execute_pass_list (struct opt_pass *);
 extern void execute_ipa_pass_list (struct opt_pass *);
 extern void execute_regular_ipa_pass_list (struct opt_pass *);
+extern void execute_all_ipa_transforms (void);
+
 extern void print_current_pass (FILE *);
 extern void debug_pass (void);
 extern void ipa_write_summaries (void);

@@ -1,5 +1,13 @@
 2008-10-22 Rafael Espindola  <espindola@google.com>
 
+	* passes.c (execute_all_ipa_transforms): New.
+	(execute_one_pass): Don't call execute_one_ipa_transform_pass.
+	* tree-optimize.c (tree_rest_of_compilation): Call
+	execute_all_ipa_transforms.
+	* tree-pass.h (execute_all_ipa_transforms): New.
+
+2008-10-22 Rafael Espindola  <espindola@google.com>
+
 	* tree.c (reset_decl_lang_specific): Clear DECL_CONTEXT of inline
 	functions.
 

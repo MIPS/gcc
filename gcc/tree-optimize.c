@@ -414,6 +414,10 @@ tree_rest_of_compilation (tree fndecl)
   gimple_register_cfg_hooks ();
 
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
+
+
+  execute_all_ipa_transforms ();
+
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
   

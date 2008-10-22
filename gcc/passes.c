@@ -1233,6 +1233,29 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
   current_pass = NULL;
 }
 
+/* For the current function, execute all ipa transforms. */
+
+void
+execute_all_ipa_transforms (void)
+{
+  if (cfun && cfun->ipa_transforms_to_apply)
+    {
+      unsigned int i;
+      struct cgraph_node *node = cgraph_node (current_function_decl);
+
+      for (i = 0; i < VEC_length (ipa_opt_pass, cfun->ipa_transforms_to_apply);
+	   i++)
+	execute_one_ipa_transform_pass (node,
+					VEC_index (ipa_opt_pass,
+						   cfun->ipa_transforms_to_apply,
+						   i));
+      VEC_free (ipa_opt_pass, heap, cfun->ipa_transforms_to_apply);
+      cfun->ipa_transforms_to_apply = NULL;
+    }
+}
+
+/* Execute PASS. */
+
 static bool
 execute_one_pass (struct opt_pass *pass)
 {
@@ -1245,21 +1268,6 @@ execute_one_pass (struct opt_pass *pass)
     gcc_assert (!cfun && !current_function_decl);
   else
     gcc_assert (cfun && current_function_decl);
-
-  if (cfun && cfun->ipa_transforms_to_apply)
-    {
-      unsigned int i;
-      struct cgraph_node *node = cgraph_node (current_function_decl);
-
-      for (i = 0; i < VEC_length (ipa_opt_pass, cfun->ipa_transforms_to_apply);
-	   i++)
-	execute_one_ipa_transform_pass (node,
-				        VEC_index (ipa_opt_pass,
-						   cfun->ipa_transforms_to_apply,
-						   i));
-      VEC_free (ipa_opt_pass, heap, cfun->ipa_transforms_to_apply);
-      cfun->ipa_transforms_to_apply = NULL;
-    }
 
   current_pass = pass;
 
