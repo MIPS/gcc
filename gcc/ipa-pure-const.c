@@ -105,15 +105,6 @@ static struct cgraph_node_hook_list *function_insertion_hook_holder;
 static struct cgraph_2node_hook_list *node_duplication_hook_holder;
 static struct cgraph_node_hook_list *node_removal_hook_holder;
 
-/* Init the function state.  */
-
-static void
-finish_state (void)
-{
-  free (funct_state_vec);
-}
-
-
 /* Return the function state from NODE.  */
 
 static inline funct_state
@@ -990,7 +981,6 @@ propagate (void)
   
   free (order);
   VEC_free (funct_state, heap, funct_state_vec);
-  finish_state ();
   return 0;
 }
 
