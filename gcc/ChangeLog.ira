@@ -1,3 +1,14 @@
+2008-10-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-10-21  Richard Henderson  <rth@redhat.com>
+
+	PR 37815
+	* emit-rtl.c (get_spill_slot_decl): Export.
+	* emit-rtl.h (get_spill_slot_decl): Declare.
+	* var-tracking.c (vt_add_function_parameters): Relax assertion
+	on the contents of MEM_EXPR in a PARM_DECL to include a spill slot.
+
 2008-10-16  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* config/mips/mips.h (reg_class): Remove HI_AND_GR_REGS,
