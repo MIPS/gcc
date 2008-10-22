@@ -1,5 +1,10 @@
 2008-10-22 Rafael Espindola  <espindola@google.com>
 
+	* tree.c (reset_decl_lang_specific): Clear DECL_CONTEXT of inline
+	functions.
+
+2008-10-22 Rafael Espindola  <espindola@google.com>
+
 	* Make-lang.in (lto/lto-lang.o): Update dependencies.
 	* lto-lang.c: Include lto/common.h and lto-tree-in.h.
 	(input_overwrite_node): Don't call cgraph_mark_needed_node.

@@ -4044,6 +4044,12 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	  DECL_SIZE (decl) = NULL_TREE;
 	}
     }
+  else if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      tree context = DECL_CONTEXT (decl);
+      if (context && TREE_CODE (context) == FUNCTION_DECL)
+	DECL_CONTEXT (decl) = NULL_TREE;
+    }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       tree expr = DECL_DEBUG_EXPR (decl);
