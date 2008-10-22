@@ -1,5 +1,10 @@
 2008-10-22 Rafael Espindola  <espindola@google.com>
 
+	* ipa-struct-reorg.c (create_new_alloc_sites): Properly insert the
+	newly created statements.
+
+2008-10-22 Rafael Espindola  <espindola@google.com>
+
 	* ipa-pure-const.c (finish_state): Remove.
 
 2008-10-21  Diego Novillo  <dnovillo@google.com>
