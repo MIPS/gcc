@@ -1,3 +1,11 @@
+2008-10-22  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (lto_fixup_tree): Check for NOTHROW conflict only if
+	exceptions flag is given.
+	* lto-lang.c: (lto_init_options) Set default exceptions flag.
+	(lto_init_eh): Remove exceptions flag initialization.
+	(lto_init): Only call lto_init_eh if exceptions flag is set. 
+
 2008-10-21  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c: Tidy some formatting.

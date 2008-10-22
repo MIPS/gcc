@@ -666,6 +666,9 @@ lto_init_options (unsigned int argc ATTRIBUTE_UNUSED,
      decisions about what to output.  */
   flag_unit_at_a_time = 1;
 
+  /* Enable exceptions by default.  */
+  flag_exceptions = 1;
+
   return CL_LTO;
 }
 
@@ -994,8 +997,6 @@ lto_eh_runtime_type (tree t)
 static void
 lto_init_eh (void)
 {
-  /* GIMPLE supports exceptions.  */
-  flag_exceptions = 1;
   eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
 					     ? "__gcc_personality_sj0"
 					     : "__gcc_personality_v0");
@@ -1055,7 +1056,8 @@ lto_init (void)
   lto_global_var_decls = VEC_alloc (tree, gc, 256);
   in_lto_p = true;
 
-  lto_init_eh ();
+  if (flag_exceptions)
+    lto_init_eh ();
 
   return true;
 }

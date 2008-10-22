@@ -811,6 +811,7 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
       if (t != prevailing)
 	{
 	  if (TREE_CODE (t) == FUNCTION_DECL
+	      && flag_exceptions
 	      && TREE_NOTHROW (prevailing) != TREE_NOTHROW (t))
 	    {
 	      if (TREE_NOTHROW (prevailing))
