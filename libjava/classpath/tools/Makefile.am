@@ -1,19 +1,22 @@
 ## Input file for automake to generate the Makefile.in used by configure
 
-GLIBJ_BOOTCLASSPATH='$(top_builddir)/lib/glibj.zip'
-GLIBJ_CLASSPATH=asm
+if CREATE_GJDOC
+if CREATE_GJDOC_PARSER
+gjdoc_gendir = ${top_builddir}/tools/generated
+else
+gjdoc_gendir = ${top_srcdir}/tools/generated
+endif
+ANTLR_CLASSPATH = $(ANTLR_JAR):$(gjdoc_gendir)
+endif
+
+GLIBJ_BOOTCLASSPATH='$(top_builddir)/lib/glibj.zip:$(top_builddir)/lib'
+GLIBJ_CLASSPATH=asm:$(ANTLR_CLASSPATH)
 
 # Setup the compiler to use the GNU Classpath library we just built.
 if GCJ_JAVAC
 JCOMPILER = $(JAVAC) $(JAVACFLAGS) -fsource=1.5 -ftarget=1.5 --encoding=UTF-8 --bootclasspath=$(GLIBJ_BOOTCLASSPATH) --classpath=$(GLIBJ_CLASSPATH)
 else
 JCOMPILER = $(JAVAC) $(JAVACFLAGS) -source 1.5 -target 1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH)
-endif
-
-if CREATE_GJDOC
-USE_JAVAC_FLAGS = -classpath $(CLASSPATH):$(srcdir):$(ANTLR_JAR):generated:. $(JAVAC_FLAGS)
-else
-USE_JAVAC_FLAGS = -classpath $(CLASSPATH):$(srcdir):. $(JAVAC_FLAGS)
 endif
 
 if CREATE_WRAPPERS
@@ -308,13 +311,15 @@ dist-hook:
 # immediately.  And copy the template files we use to the classes dir
 # so they get also included.
 $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
-	@rm -rf classes asm generated
+	@rm -rf classes asm
 	@mkdir_p@ classes asm 
 if CREATE_GJDOC
+if CREATE_GJDOC_PARSER
 ## Generate antlr sources.
-	@mkdir_p@ generated/gnu/classpath/tools/gjdoc/expr
-	$(ANTLR) -o generated/gnu/classpath/tools/gjdoc/expr \
+	@mkdir_p@ $(gjdoc_gendir)/gnu/classpath/tools/gjdoc/expr
+	$(ANTLR) -o $(gjdoc_gendir)/gnu/classpath/tools/gjdoc/expr/ \
 	  $(srcdir)/gnu/classpath/tools/gjdoc/expr/java-expression.g
+endif
 endif
 ## Compile ASM separately as it is latin-1 encoded.
 	find $(srcdir)/external/asm -name '*.java' -print > asm.lst
@@ -329,7 +334,7 @@ endif
 	     $(srcdir)/sun/rmi/rmic \
 	     $(GJDOC_EX) \
 	     -name '*.java' -print > classes.lst
-	$(JCOMPILER) $(USE_JAVAC_FLAGS) -g -d classes @classes.lst
+	$(JCOMPILER) -g -d classes @classes.lst
 	cat classes.lst asm.lst > all-classes.lst
 ## Copy over tools resource files.
 	@list=`cd $(srcdir)/resource && find gnu/classpath/tools com/sun/tools/javac \
@@ -370,7 +375,10 @@ endif
 
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
-	rm -rf $(TOOLS_ZIP) classes classes.lst asm asm.lst all-classes.lst generated
+	rm -rf $(TOOLS_ZIP) classes classes.lst asm asm.lst all-classes.lst
+if CREATE_GJDOC_PARSER
+	rm -rf $(gjdoc_gendir)
+endif
 
 # FIXME: remove this when GNU Classpath includes a bootstrap VM.
 installcheck-binSCRIPTS:

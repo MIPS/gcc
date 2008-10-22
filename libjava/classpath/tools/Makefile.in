@@ -360,6 +360,7 @@ abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
+ac_ct_ANTLR = @ac_ct_ANTLR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_F77 = @ac_ct_F77@
@@ -416,14 +417,15 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 uudecode = @uudecode@
 vm_classes = @vm_classes@
-GLIBJ_BOOTCLASSPATH = '$(top_builddir)/lib/glibj.zip'
-GLIBJ_CLASSPATH = asm
+@CREATE_GJDOC_PARSER_FALSE@@CREATE_GJDOC_TRUE@gjdoc_gendir = ${top_srcdir}/tools/generated
+@CREATE_GJDOC_PARSER_TRUE@@CREATE_GJDOC_TRUE@gjdoc_gendir = ${top_builddir}/tools/generated
+@CREATE_GJDOC_TRUE@ANTLR_CLASSPATH = $(ANTLR_JAR):$(gjdoc_gendir)
+GLIBJ_BOOTCLASSPATH = '$(top_builddir)/lib/glibj.zip:$(top_builddir)/lib'
+GLIBJ_CLASSPATH = asm:$(ANTLR_CLASSPATH)
 @GCJ_JAVAC_FALSE@JCOMPILER = $(JAVAC) $(JAVACFLAGS) -source 1.5 -target 1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH)
 
 # Setup the compiler to use the GNU Classpath library we just built.
 @GCJ_JAVAC_TRUE@JCOMPILER = $(JAVAC) $(JAVACFLAGS) -fsource=1.5 -ftarget=1.5 --encoding=UTF-8 --bootclasspath=$(GLIBJ_BOOTCLASSPATH) --classpath=$(GLIBJ_CLASSPATH)
-@CREATE_GJDOC_FALSE@USE_JAVAC_FLAGS = -classpath $(CLASSPATH):$(srcdir):. $(JAVAC_FLAGS)
-@CREATE_GJDOC_TRUE@USE_JAVAC_FLAGS = -classpath $(CLASSPATH):$(srcdir):$(ANTLR_JAR):generated:. $(JAVAC_FLAGS)
 @CREATE_WRAPPERS_FALSE@bin_SCRIPTS = gappletviewer gjarsigner gkeytool \
 @CREATE_WRAPPERS_FALSE@	gjar gnative2ascii gserialver gjavah \
 @CREATE_WRAPPERS_FALSE@	grmiregistry gtnameserv gorbd grmid \
@@ -1304,11 +1306,11 @@ dist-hook:
 # immediately.  And copy the template files we use to the classes dir
 # so they get also included.
 $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
-	@rm -rf classes asm generated
+	@rm -rf classes asm
 	@mkdir_p@ classes asm 
-@CREATE_GJDOC_TRUE@	@mkdir_p@ generated/gnu/classpath/tools/gjdoc/expr
-@CREATE_GJDOC_TRUE@	$(ANTLR) -o generated/gnu/classpath/tools/gjdoc/expr \
-@CREATE_GJDOC_TRUE@	  $(srcdir)/gnu/classpath/tools/gjdoc/expr/java-expression.g
+@CREATE_GJDOC_PARSER_TRUE@@CREATE_GJDOC_TRUE@	@mkdir_p@ $(gjdoc_gendir)/gnu/classpath/tools/gjdoc/expr
+@CREATE_GJDOC_PARSER_TRUE@@CREATE_GJDOC_TRUE@	$(ANTLR) -o $(gjdoc_gendir)/gnu/classpath/tools/gjdoc/expr/ \
+@CREATE_GJDOC_PARSER_TRUE@@CREATE_GJDOC_TRUE@	  $(srcdir)/gnu/classpath/tools/gjdoc/expr/java-expression.g
 	find $(srcdir)/external/asm -name '*.java' -print > asm.lst
 	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
 	  $$AC -g -d asm @asm.lst
@@ -1321,7 +1323,7 @@ $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
 	     $(srcdir)/sun/rmi/rmic \
 	     $(GJDOC_EX) \
 	     -name '*.java' -print > classes.lst
-	$(JCOMPILER) $(USE_JAVAC_FLAGS) -g -d classes @classes.lst
+	$(JCOMPILER) -g -d classes @classes.lst
 	cat classes.lst asm.lst > all-classes.lst
 	@list=`cd $(srcdir)/resource && find gnu/classpath/tools com/sun/tools/javac \
 	       sun/rmi/rmic $(GJDOC_EX) -name \*.properties -print -o -name \*.jav -print`; \
@@ -1348,7 +1350,8 @@ $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
 
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
-	rm -rf $(TOOLS_ZIP) classes classes.lst asm asm.lst all-classes.lst generated
+	rm -rf $(TOOLS_ZIP) classes classes.lst asm asm.lst all-classes.lst
+@CREATE_GJDOC_PARSER_TRUE@	rm -rf $(gjdoc_gendir)
 
 # FIXME: remove this when GNU Classpath includes a bootstrap VM.
 installcheck-binSCRIPTS:
