@@ -38,6 +38,8 @@ Boston, MA 02110-1301, USA.  */
 #include "libfuncs.h"
 #include "except.h"
 #include "cgraph.h"
+#include "lto/common.h"
+#include "lto-tree-in.h"
 
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);
@@ -1099,8 +1101,6 @@ input_overwrite_node (struct lto_file_decl_data* file_data,
   node->needed = lto_get_flag (&flags);
   node->analyzed = node->local.finalized;
   node->lowered = node->local.finalized;
-  if (cgraph_decide_is_function_needed (node))
-    cgraph_mark_needed_node (node);
 }
 
 /* Read a node from input_block IB.  TAG is the node's tag just read. 
@@ -1120,14 +1120,13 @@ input_node (struct lto_file_decl_data* file_data,
   int self_insns = 0;
   unsigned decl_index;
   bool clone_p;
-  bool overwrite_p = false;
   int estimated_stack_size = 0;
   int stack_frame_offset = 0;
   int ref = LCC_NOT_FOUND;
   int insns = 0;
   int estimated_growth = 0;
   bool inlined = false;
-	  
+
   LTO_DEBUG_TOKEN ("clone_p");
   clone_p = lto_input_uleb128 (ib);
 
@@ -1175,50 +1174,21 @@ input_node (struct lto_file_decl_data* file_data,
       inlined = lto_input_uleb128 (ib);
     }
 
-  switch (tag)
-    {
-    case LTO_cgraph_avail_node:
-      /* We cannot have two avail functions that are the same.  */
-      gcc_assert (((enum LTO_cgraph_tags)(node->aux))
-		  != LTO_cgraph_avail_node);
-      overwrite_p = true;
-      break;
-	      
-    case LTO_cgraph_unavail_node:
-      /* We only overwrite the node if this is a brand new node.  */
-      if (!node->aux)
-	overwrite_p = true;
-      break;
-      
-    case LTO_cgraph_overwritable_node:
-      /* FIXME lto: This code is written to take the last
-	 overwrittable version.  I do not speak linker but if the
-	 linker supposed to take the first one, then we need to
-	 change the test.  */
-      if (((enum LTO_cgraph_tags)(node->aux)) != LTO_cgraph_avail_node)
-	overwrite_p = true;
-      break;
-      
-    default:
-      gcc_unreachable ();
-    }
+  gcc_assert (!node->aux);
 
-  if (overwrite_p)
+  input_overwrite_node (file_data, node, tag, flags, stack_size,
+			self_insns);
+  if (flag_ltrans)
     {
-      input_overwrite_node (file_data, node, tag, flags, stack_size,
-			    self_insns);
-      if (flag_ltrans)
-	{
-	  node->global.estimated_stack_size = estimated_stack_size;
-	  node->global.stack_frame_offset = stack_frame_offset;
-	  node->global.insns = insns;
-	  if (ref != LCC_NOT_FOUND)
-	    node->global.inlined_to = VEC_index (cgraph_node_ptr, nodes, ref);
-	  else
-	    node->global.inlined_to = NULL;
-	  node->global.estimated_growth = estimated_growth;
-	  node->global.inlined = inlined;
-	}
+      node->global.estimated_stack_size = estimated_stack_size;
+      node->global.stack_frame_offset = stack_frame_offset;
+      node->global.insns = insns;
+      if (ref != LCC_NOT_FOUND)
+	node->global.inlined_to = VEC_index (cgraph_node_ptr, nodes, ref);
+      else
+	node->global.inlined_to = NULL;
+      node->global.estimated_growth = estimated_growth;
+      node->global.inlined = inlined;
     }
 
   return node;
@@ -1238,15 +1208,29 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   unsigned int nest;
   cgraph_inline_failed_t inline_failed;
   unsigned HOST_WIDEST_INT flags;
+  tree prevailing;
+  enum ld_plugin_symbol_resolution caller_resolution;
 
   LTO_DEBUG_TOKEN ("caller");
   caller = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
   gcc_assert (caller);
+  gcc_assert (caller->decl);
 
   LTO_DEBUG_TOKEN ("callee");
   callee = VEC_index (cgraph_node_ptr, nodes, lto_input_sleb128 (ib));
   gcc_assert (callee);
-	  
+  gcc_assert (callee->decl);
+
+  caller_resolution = lto_symtab_get_resolution (caller->decl);
+
+  /* FIXME lto: The following assert would currently fail for  extern inline
+     functions. */
+
+/*   gcc_assert (caller_resolution == LDPR_PREVAILING_DEF */
+/* 	      || caller_resolution == LDPR_PREVAILING_DEF_IRONLY */
+/* 	      || caller_resolution == LDPR_PREEMPTED_REG */
+/* 	      || caller_resolution == LDPR_PREEMPTED_IR); */
+
   LTO_DEBUG_TOKEN ("stmt");
   stmt_id = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("inline_failed");
@@ -1259,7 +1243,35 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   nest = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("flags");
   flags = lto_input_uleb128 (ib);
-	  
+
+  /* If the caller was preempted, don't create the edge. */
+  if (caller_resolution == LDPR_PREEMPTED_REG
+      || caller_resolution == LDPR_PREEMPTED_IR)
+      return;
+
+  /* Make sure the callee is the prevailing decl. */
+  prevailing = lto_symtab_prevailing_decl (callee->decl);
+
+  /* FIXME lto: remove this once extern inline in handled in lgen. */
+  if (caller_resolution != LDPR_PREVAILING_DEF
+      && caller_resolution != LDPR_PREVAILING_DEF_IRONLY
+      && caller_resolution != LDPR_PREEMPTED_REG
+      && caller_resolution != LDPR_PREEMPTED_IR)
+    {
+      /* If we have a extern inline, make sure it is the prevailing. */
+      gcc_assert (prevailing == callee->decl);
+    }
+
+  if (prevailing != callee->decl)
+    {
+      /* We cannot replace a clone! */
+      gcc_assert (callee == cgraph_node (callee->decl));
+
+
+      callee = cgraph_node (prevailing);
+      gcc_assert (callee);
+    }
+
   edge = cgraph_create_edge (caller, callee, NULL, count, freq, nest);
   edge->lto_stmt_uid = stmt_id;
   edge->inline_failed = inline_failed;
@@ -1278,7 +1290,9 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 {
   enum LTO_cgraph_tags tag;
   VEC(cgraph_node_ptr, heap) *nodes = NULL;
+  VEC(cgraph_node_ptr, heap) *del_list = NULL;
   struct cgraph_node *node;
+  unsigned i;
 
   tag = lto_input_uleb128 (ib);
   while (tag)
@@ -1290,6 +1304,8 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
       else 
 	{
 	  node = input_node (file_data, ib, tag, nodes);
+	  gcc_assert (node);
+	  gcc_assert (node->decl);
 	  VEC_safe_push (cgraph_node_ptr, heap, nodes, node);
 	}
 
@@ -1297,7 +1313,23 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
       tag = lto_input_uleb128 (ib);
     }
 
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      tree prevailing = lto_symtab_prevailing_decl (node->decl);
+
+      if (prevailing != node->decl)
+	VEC_safe_push (cgraph_node_ptr, heap, del_list, node);
+    }
+
+   for (i = 0; VEC_iterate (cgraph_node_ptr, del_list, i, node); i++)
+     cgraph_remove_node (node);
+
+   for (node = cgraph_nodes; node; node = node->next)
+     if (cgraph_decide_is_function_needed (node))
+       cgraph_mark_needed_node (node);
+
   VEC_free (cgraph_node_ptr, heap, nodes);
+  VEC_free (cgraph_node_ptr, heap, del_list);
 }
 
 /* Input and merge the cgraph from each of the .o files passed to

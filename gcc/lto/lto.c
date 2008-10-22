@@ -1026,11 +1026,13 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 
   all_file_decl_data[j] = NULL;
 
-  lto_fixup_decls (all_file_decl_data);
-
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data,
 		    free_section_data);
+
+  ipa_read_summaries ();
+
+  lto_fixup_decls (all_file_decl_data);
 
   /* FIXME!!! This loop needs to be changed to use the pass manager to
      call the ipa passes directly.  */
@@ -1040,8 +1042,6 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 
       lto_materialize_constructors_and_inits (file_data);
     }
-
-  ipa_read_summaries ();
 
   if (flag_wpa)
     lto_1_to_1_map ();

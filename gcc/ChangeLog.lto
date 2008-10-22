@@ -1,5 +1,17 @@
 2008-10-22 Rafael Espindola  <espindola@google.com>
 
+	* Make-lang.in (lto/lto-lang.o): Update dependencies.
+	* lto-lang.c: Include lto/common.h and lto-tree-in.h.
+	(input_overwrite_node): Don't call cgraph_mark_needed_node.
+	(input_node): Just read the node. Don't update it to reflect that
+	another node for the same decl might have been read.
+	(input_edge): Don't create an edge if the caller has been preempted.
+	Make sure the callee is the prevailing decl.
+	(input_cgraph_1): Remove nodes corresponding to preempted decls.
+	* lto.c (lto_main): Read the cgraph before calling lto_fixup_decls.
+
+2008-10-22 Rafael Espindola  <espindola@google.com>
+
 	* ipa-struct-reorg.c (create_new_alloc_sites): Properly insert the
 	newly created statements.
 
