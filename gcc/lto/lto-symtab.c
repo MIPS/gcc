@@ -35,6 +35,7 @@ Boston, MA 02110-1301, USA.  */
 VEC(tree,gc) *lto_global_var_decls;
 
 /* Returns true iff TYPE_1 and TYPE_2 are the same type.  */
+
 static bool
 lto_same_type_p (tree type_1, tree type_2)
 {
@@ -575,7 +576,7 @@ lto_symtab_prevailing_decl (tree decl)
     return decl;
 
   ret = LTO_IDENTIFIER_DECL (DECL_ASSEMBLER_NAME (decl));
-  gcc_assert (ret);
+
   return ret;
 }
 

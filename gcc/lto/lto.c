@@ -366,12 +366,7 @@ lto_resolution_read (FILE *resolution, const char *file_name)
 }
 
 /* Generate a TREE representation for all types and external decls
-   entities in FILE.  If an entity in FILE has already been read (from
-   another object file), merge the two entities.  Returns the
-   file_data from the last context.
-
-   FIXME, this is a bug that will go away with Maddox's streaming
-   merge since there will no longer be contexts.
+   entities in FILE.  
 
    Read all of the globals out of the file.  Then read the cgraph
    and process the .o index into the cgraph nodes so that it can open
