@@ -1,3 +1,9 @@
+2008-10-23  Simon Baldwin  <simonb@google.com>
+
+	* lto-lang.c (input_node): Save the node reference, rather than the
+	node pointer, in node->inlined_to.
+	(input_cgraph_1): Convert node references into node pointers.
+
 2008-10-22  Diego Novillo  <dnovillo@google.com>
 	    Rafael Espindola  <espindola@google.com>
 

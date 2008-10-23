@@ -1185,10 +1185,10 @@ input_node (struct lto_file_decl_data* file_data,
       node->global.estimated_stack_size = estimated_stack_size;
       node->global.stack_frame_offset = stack_frame_offset;
       node->global.insns = insns;
-      if (ref != LCC_NOT_FOUND)
-	node->global.inlined_to = VEC_index (cgraph_node_ptr, nodes, ref);
-      else
-	node->global.inlined_to = NULL;
+
+      /* Store a reference for now, and fix up later to be a pointer.  */
+      node->global.inlined_to = (cgraph_node_ptr) ref;
+
       node->global.estimated_growth = estimated_growth;
       node->global.inlined = inlined;
     }
@@ -1302,7 +1302,7 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
       LTO_DEBUG_INDENT (tag);
 
       if (tag == LTO_cgraph_edge)
-	  input_edge (ib, nodes);
+        input_edge (ib, nodes);
       else 
 	{
 	  node = input_node (file_data, ib, tag, nodes);
@@ -1313,6 +1313,20 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 
       LTO_DEBUG_UNDENT();
       tag = lto_input_uleb128 (ib);
+    }
+
+  if (flag_ltrans)
+    {
+      for (node = cgraph_nodes; node; node = node->next)
+        {
+          const int ref = (int) node->global.inlined_to;
+
+          /* Fixup inlined_to from reference to pointer.  */
+          if (ref != LCC_NOT_FOUND)
+            node->global.inlined_to = VEC_index (cgraph_node_ptr, nodes, ref);
+          else
+            node->global.inlined_to = NULL;
+        }
     }
 
   for (node = cgraph_nodes; node; node = node->next)
