@@ -4,9 +4,6 @@
 	* lto-function-in.c (get_resolution): Handle weak
 	definitions.
 	(input_function_decl): Tidy.
-	* lto/lto.c (lto_resolution_read): Tidy.
-	* lto/lto-symtab.c (lto_symtab_prevailing_decl): Do not
-	abort if RET is NULL.
 
 2008-10-22 Rafael Espindola  <espindola@google.com>
 
