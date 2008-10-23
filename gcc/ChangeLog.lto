@@ -1,3 +1,12 @@
+2008-10-23 Rafael Espindola  <espindola@google.com>
+
+	* ipa-pure-const.c (node_duplication_hook_holder,
+	node_removal_hook_holder): Remove.
+	(get_function_state, set_function_state): Use DECL_UID.
+	(duplicate_node_data, remove_node_data): Remove.
+	(generate_summary): Don't use the removed functions. Iterate over
+	funct_state_vec and free the states.
+
 2008-10-22  Diego Novillo  <dnovillo@google.com>
 	    Rafael Espindola  <espindola@google.com>
 
