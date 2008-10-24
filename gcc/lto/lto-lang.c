@@ -1187,7 +1187,7 @@ input_node (struct lto_file_decl_data* file_data,
       node->global.insns = insns;
 
       /* Store a reference for now, and fix up later to be a pointer.  */
-      node->global.inlined_to = (cgraph_node_ptr) ref;
+      node->global.inlined_to = (cgraph_node_ptr) (intptr_t) ref;
 
       node->global.estimated_growth = estimated_growth;
       node->global.inlined = inlined;
@@ -1319,7 +1319,7 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
     {
       for (node = cgraph_nodes; node; node = node->next)
         {
-          const int ref = (int) node->global.inlined_to;
+          const int ref = (int) (intptr_t) node->global.inlined_to;
 
           /* Fixup inlined_to from reference to pointer.  */
           if (ref != LCC_NOT_FOUND)
