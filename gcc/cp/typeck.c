@@ -7391,3 +7391,13 @@ lvalue_or_else (const_tree ref, enum lvalue_use use, tsubst_flags_t complain)
 
   return win;
 }
+
+/* Dummy version of c_fully_fold for use in code shared by C and C++.
+   Return EXPR and ignore the other arguments.  */
+
+tree
+c_fully_fold (tree expr, bool in_init ATTRIBUTE_UNUSED,
+	      bool *maybe_const ATTRIBUTE_UNUSED)
+{
+  return expr;
+}

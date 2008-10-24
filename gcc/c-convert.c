@@ -86,6 +86,8 @@ convert (tree type, tree expr)
   if (type == TREE_TYPE (expr))
     return expr;
 
+  STRIP_TYPE_NOPS (e);
+
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (expr)))
     return fold_convert (type, expr);
   if (TREE_CODE (TREE_TYPE (expr)) == ERROR_MARK)

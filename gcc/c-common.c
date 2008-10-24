@@ -3331,6 +3331,27 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
   return ret;
 }
 
+/* Wrap a SAVE_EXPR around EXPR, if appropriate.  Like save_expr, but
+   for C folds the inside expression and wraps a C_MAYBE_CONST_EXPR
+   around the SAVE_EXPR if needed so that c_fully_fold does not need
+   to look inside SAVE_EXPRs.  */
+
+tree
+c_save_expr (tree expr)
+{
+  bool maybe_const = true;
+  if (c_dialect_cxx ())
+    return save_expr (expr);
+  expr = c_fully_fold (expr, false, &maybe_const);
+  expr = save_expr (expr);
+  if (!maybe_const)
+    {
+      expr = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (expr), NULL, expr);
+      C_MAYBE_CONST_EXPR_NON_CONST (expr) = 1;
+    }
+  return expr;
+}
+
 /* Return whether EXPR is a declaration whose address can never be
    NULL.  */
 
@@ -3473,12 +3494,23 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
-      return fold_build3 (COND_EXPR, truthvalue_type_node,
-		TREE_OPERAND (expr, 0),
-		c_common_truthvalue_conversion (location,
-						TREE_OPERAND (expr, 1)),
-		c_common_truthvalue_conversion (location,
-						TREE_OPERAND (expr, 2)));
+      if (c_dialect_cxx ())
+	return fold_build3 (COND_EXPR, truthvalue_type_node,
+			    TREE_OPERAND (expr, 0),
+			    c_common_truthvalue_conversion (location,
+							    TREE_OPERAND (expr,
+									  1)),
+			    c_common_truthvalue_conversion (location,
+							    TREE_OPERAND (expr,
+									  2)));
+      else
+	/* Folding will happen later for C.  */
+	return build3 (COND_EXPR, truthvalue_type_node,
+		       TREE_OPERAND (expr, 0),
+		       c_common_truthvalue_conversion (location,
+						       TREE_OPERAND (expr, 1)),
+		       c_common_truthvalue_conversion (location,
+						       TREE_OPERAND (expr, 2)));
 
     CASE_CONVERT:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
@@ -3509,7 +3541,7 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 
   if (TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE)
     {
-      tree t = save_expr (expr);
+      tree t = c_save_expr (expr);
       return (build_binary_op
 	      (EXPR_LOCATION (expr),
 	       (TREE_SIDE_EFFECTS (expr)
