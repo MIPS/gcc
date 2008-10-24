@@ -1,5 +1,10 @@
 2008-10-24 Rafael Espindola  <espindola@google.com>
 
+	* lto-function-in.c (get_resolution): Return LDPR_PREEMPTED_IR for
+	non prevailing weak symbols.
+
+2008-10-24 Rafael Espindola  <espindola@google.com>
+
 	* lto-lang.c (input_cgraph_1): Iterate over nodes, not cgraph_nodes.
 
 2008-10-24 Rafael Espindola  <espindola@google.com>

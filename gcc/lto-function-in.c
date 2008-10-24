@@ -2761,7 +2761,7 @@ get_resolution (struct data_in *data_in, unsigned index)
 	  if (prevailing_decl == t || prevailing_decl == NULL_TREE)
 	    return LDPR_PREVAILING_DEF;
 	  else
-	    return LDPR_RESOLVED_IR;
+	    return LDPR_PREEMPTED_IR;
 	}
       else
 	{
