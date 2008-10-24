@@ -1292,7 +1292,6 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 {
   enum LTO_cgraph_tags tag;
   VEC(cgraph_node_ptr, heap) *nodes = NULL;
-  VEC(cgraph_node_ptr, heap) *del_list = NULL;
   struct cgraph_node *node;
   unsigned i;
 
@@ -1317,7 +1316,7 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 
   if (flag_ltrans)
     {
-      for (node = cgraph_nodes; node; node = node->next)
+      for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)
         {
           const int ref = (int) (intptr_t) node->global.inlined_to;
 
@@ -1329,23 +1328,22 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
         }
     }
 
-  for (node = cgraph_nodes; node; node = node->next)
+  for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)
     {
       tree prevailing = lto_symtab_prevailing_decl (node->decl);
 
       if (prevailing != node->decl)
-	VEC_safe_push (cgraph_node_ptr, heap, del_list, node);
+	{
+	  cgraph_remove_node (node);
+	  VEC_replace (cgraph_node_ptr, nodes, i, NULL);
+	}
     }
 
-   for (i = 0; VEC_iterate (cgraph_node_ptr, del_list, i, node); i++)
-     cgraph_remove_node (node);
-
-   for (node = cgraph_nodes; node; node = node->next)
-     if (cgraph_decide_is_function_needed (node))
-       cgraph_mark_needed_node (node);
+  for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)
+    if (node && cgraph_decide_is_function_needed (node))
+      cgraph_mark_needed_node (node);
 
   VEC_free (cgraph_node_ptr, heap, nodes);
-  VEC_free (cgraph_node_ptr, heap, del_list);
 }
 
 /* Input and merge the cgraph from each of the .o files passed to
