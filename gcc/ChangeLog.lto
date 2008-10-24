@@ -1,3 +1,8 @@
+2008-10-24  Cary Coutant  <ccoutant@google.com>
+
+	* lto-section-out.c (lto_record_common_node): For array types,
+	record the underlying type.
+
 2008-10-23 Rafael Espindola  <espindola@google.com>
 
 	* ipa-pure-const.c (node_duplication_hook_holder,

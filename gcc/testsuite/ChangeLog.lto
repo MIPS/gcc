@@ -1,3 +1,7 @@
+2008-10-24  Cary Coutant  <ccoutant@google.com>
+
+	* gcc.dg/lto/20081024.c: New test.
+
 2008-10-16  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/debug/debug.exp: Fix -flto options

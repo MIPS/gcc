@@ -877,6 +877,10 @@ lto_record_common_node (tree node, VEC(tree, heap) **common_nodes,
 	  lto_record_common_node (TYPE_MAIN_VARIANT (node), common_nodes,
 				  seen_nodes);
 	}
+      if (TREE_CODE (node) == ARRAY_TYPE)
+        {
+          lto_record_common_node (TREE_TYPE (node), common_nodes, seen_nodes);
+        }
     }
 }
 
