@@ -1405,15 +1405,13 @@ setup_allocno_cover_class_and_costs (void)
       mode = ALLOCNO_MODE (a);
       cover_class = ira_class_translate[allocno_pref[i]];
       ira_assert (allocno_pref[i] == NO_REGS || cover_class != NO_REGS);
-      ALLOCNO_MEMORY_COST (a) = ALLOCNO_UPDATED_MEMORY_COST (a)
-	= COSTS_OF_ALLOCNO (allocno_costs, i)->mem_cost;
+      ALLOCNO_MEMORY_COST (a) = COSTS_OF_ALLOCNO (allocno_costs, i)->mem_cost;
       ira_set_allocno_cover_class (a, cover_class);
       if (cover_class == NO_REGS)
 	continue;
       ALLOCNO_AVAILABLE_REGS_NUM (a) = ira_available_class_regs[cover_class];
-      ALLOCNO_COVER_CLASS_COST (a)
-	= (COSTS_OF_ALLOCNO (allocno_costs, i)
-	   ->cost[cost_class_nums[allocno_pref[i]]]);
+      ALLOCNO_COVER_CLASS_COST (a) = (COSTS_OF_ALLOCNO (allocno_costs, i)
+				      ->cost[cost_class_nums[allocno_pref[i]]]);
       if (optimize && ALLOCNO_COVER_CLASS (a) != allocno_pref[i])
 	{
 	  n = ira_class_hard_regs_num[cover_class];
