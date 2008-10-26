@@ -1,5 +1,12 @@
 2008-10-25  Vladimir Makarov  <vmakarov@redhat.com>
 
+	PR middle-end/37884
+	* ira-build.c (copy_live_ranges_to_removed_store_destinations):
+	Rename to copy_info_to_removed_store_destinations.  Propagate
+	conflict hard regs and register stack attribute.
+
+2008-10-25  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* ira-int.h (ira_allocno): Add member updated_cover_class_cost.
 	(ALLOCNO_UPDATED_COVER_CLASS_COST): New.
 	(ira_fast_allocation): Remove the prototype.
