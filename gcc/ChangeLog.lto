@@ -1,3 +1,8 @@
+2008-10-28  Doug Kwan  <dougkwan@google.com>
+
+	* gcc.c (invoke_as): Do not invoke assembler if -fwpa is given
+	in command line.
+
 2008-10-24  Cary Coutant  <ccoutant@google.com>
 
 	* lto-section-out.c (lto_record_common_node): For array types,

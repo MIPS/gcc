@@ -886,9 +886,9 @@ static const char *asm_options =
 
 static const char *invoke_as =
 #ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
-"%{!S:-o %|.s |\n as %(asm_options) %|.s %A }";
+"%{!fwpa:%{!S:-o %|.s |\n as %(asm_options) %|.s %A }}";
 #else
-"%{!S:-o %|.s |\n as %(asm_options) %m.s %A }";
+"%{!fwpa:%{!S:-o %|.s |\n as %(asm_options) %m.s %A }}";
 #endif
 
 /* Some compilers have limits on line lengths, and the multilib_select
