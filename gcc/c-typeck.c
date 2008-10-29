@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
    diagnostic messages in convert_for_assignment.  */
 enum impl_conv {
   ic_argpass,
-  ic_argpass_nonproto,
   ic_assign,
   ic_init,
   ic_return
@@ -3114,9 +3113,9 @@ parser_build_unary_op (enum tree_code code, struct c_expr arg, location_t loc)
 {
   struct c_expr result;
 
-  result.original_code = ERROR_MARK;
   result.value = build_unary_op (loc, code, arg.value, 0);
-
+  result.original_code = code;
+  
   if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
     overflow_warning (result.value);
 
@@ -3153,7 +3152,7 @@ parser_build_binary_op (location_t location, enum tree_code code,
   /* Check for cases such as x+y<<z which users are likely
      to misinterpret.  */
   if (warn_parentheses)
-    warn_about_parentheses (code, code1, code2);
+    warn_about_parentheses (code, code1, arg1.value, code2, arg2.value);
 
   if (TREE_CODE_CLASS (code1) != tcc_comparison)
     warn_logical_operator (code, arg1.value, arg2.value);
@@ -4485,7 +4484,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   tree rname = NULL_TREE;
   bool objc_ok = false;
 
-  if (errtype == ic_argpass || errtype == ic_argpass_nonproto)
+  if (errtype == ic_argpass)
     {
       tree selector;
       /* Change pointer to function to the function itself for
@@ -4517,9 +4516,6 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		  ? DECL_SOURCE_LOCATION (fundecl) : LOCATION,           \
                   "expected %qT but argument is of type %qT",            \
                   type, rhstype);                                        \
-        break;                                                           \
-      case ic_argpass_nonproto:                                          \
-        warning (OPT, AR, parmnum, rname);                               \
         break;                                                           \
       case ic_assign:                                                    \
         pedwarn (LOCATION, OPT, AS);                                     \
@@ -4633,7 +4629,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   /* Conversion to a transparent union from its member types.
      This applies only to function arguments.  */
   if (codel == UNION_TYPE && TYPE_TRANSPARENT_UNION (type)
-      && (errtype == ic_argpass || errtype == ic_argpass_nonproto))
+      && errtype == ic_argpass)
     {
       tree memb, marginal_memb = NULL_TREE;
 
@@ -4777,7 +4773,6 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	  switch (errtype)
 	  {
 	  case ic_argpass:
-	  case ic_argpass_nonproto:
 	    warning (OPT_Wmissing_format_attribute,
 		     "argument %d of %qE might be "
 		     "a candidate for a format attribute",
@@ -4943,9 +4938,6 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   switch (errtype)
     {
     case ic_argpass:
-    case ic_argpass_nonproto:
-      /* ??? This should not be an error when inlining calls to
-	 unprototyped functions.  */
       error ("incompatible type for argument %d of %qE", parmnum, rname);
       inform ((fundecl && !DECL_IS_BUILTIN (fundecl))
 	      ? DECL_SOURCE_LOCATION (fundecl) : input_location,
