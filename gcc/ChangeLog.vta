@@ -1,3 +1,9 @@
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (tree_function_versioning): Fix merge fallout.
+	* haifa-sched.c (schedule_block): Likewise.
+	* ipa-reference.c (scan_stmt_for_static_refs): Likewise.
+
 2008-10-10  Alexandre Oliva  <aoliva@redhat.com>
 
 	* doc/install.texi (STAGE1_TFLAGS, BUILD_CONFIG): Document.

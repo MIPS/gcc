@@ -4335,7 +4335,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 	      }
 	    gcc_assert (TREE_CODE (replace_info->old_tree) == PARM_DECL);
 	    init = setup_one_parameter (&id, replace_info->old_tree,
-	    			        replace_info->new_tree, id.src_fn,
+	    			        replace_info->new_tree,
 				        NULL,
 				        &vars);
 	    if (init)

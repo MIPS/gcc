@@ -2616,7 +2616,8 @@ schedule_block (basic_block *target_bb)
 	      gcc_assert (DEBUG_INSN_P (insn));
 	      (*current_sched_info->begin_schedule_ready) (insn,
 							   last_scheduled_insn);
-	      move_insn (insn);
+	      move_insn (insn, last_scheduled_insn,
+			 current_sched_info->next_tail);
 	      last_scheduled_insn = insn;
 	      advance = schedule_insn (insn);
 	      gcc_assert (advance == 0);
@@ -2865,7 +2866,8 @@ schedule_block (basic_block *target_bb)
 		  gcc_assert (DEBUG_INSN_P (insn));
 		  (*current_sched_info->begin_schedule_ready)
 		    (insn, last_scheduled_insn);
-		  move_insn (insn);
+		  move_insn (insn, last_scheduled_insn,
+			     current_sched_info->next_tail);
 		  advance = schedule_insn (insn);
 		  last_scheduled_insn = insn;
 		  gcc_assert (advance == 0);

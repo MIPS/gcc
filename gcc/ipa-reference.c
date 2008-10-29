@@ -430,6 +430,9 @@ scan_stmt_for_static_refs (gimple_stmt_iterator *gsip,
   unsigned int i;
   bitmap_iterator bi;
 
+  if (IS_DEBUG_STMT (stmt))
+    return NULL;
+
   if (fn)
     local = get_reference_vars_info (fn)->local;
 
@@ -456,10 +459,6 @@ scan_stmt_for_static_refs (gimple_stmt_iterator *gsip,
     /* We used to check nonlocal labels here and set them as potentially modifying
        everything.  This is not needed, since we can get to nonlocal label only
        from callee and thus we will get info propagated.  */
-
-    case GIMPLE_DEBUG:
-      *handled_ops_p = true;
-      break;
 
     default:
       break;
