@@ -2166,7 +2166,7 @@ reg_subword_p (rtx x, rtx reg)
 static rtx
 cleanup_auto_inc_dec (rtx src, bool after, enum machine_mode mem_mode)
 {
-  rtx x = src, new, old;
+  rtx x = src, n, o;
   const RTX_CODE code = GET_CODE (x);
   int i;
   const char *fmt;
@@ -2207,13 +2207,13 @@ cleanup_auto_inc_dec (rtx src, bool after, enum machine_mode mem_mode)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     if (fmt[i] == 'e')
       {
-	old = XEXP (x, i);
-	new = cleanup_auto_inc_dec (old, after, mem_mode);
-	if (old != new)
+	o = XEXP (x, i);
+	n = cleanup_auto_inc_dec (o, after, mem_mode);
+	if (o != n)
 	  {
 	    if (x == src)
 	      x = shallow_copy_rtx (x);
-	    XEXP (x, i) = new;
+	    XEXP (x, i) = n;
 	  }
       }
     else if (fmt[i] == 'E')
@@ -2221,13 +2221,13 @@ cleanup_auto_inc_dec (rtx src, bool after, enum machine_mode mem_mode)
 	int j;
 	for (j = 0; j < XVECLEN (x, i); j++)
 	  {
-	    old = XVECEXP (x, i, j);
-	    new = cleanup_auto_inc_dec (old, after, mem_mode);
-	    if (old != new)
+	    o = XVECEXP (x, i, j);
+	    n = cleanup_auto_inc_dec (o, after, mem_mode);
+	    if (o != n)
 	      {
 		if (x == src)
 		  x = shallow_copy_rtx (x);
-		XVECEXP (x, i, j) = new;
+		XVECEXP (x, i, j) = n;
 	      }
 	  }
       }
