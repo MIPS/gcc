@@ -27,14 +27,11 @@ Boston, MA 02110-1301, USA.  */
 struct lang_identifier GTY(())
 {
   struct tree_identifier base;
-  /* LTO_IDENTIFIER_DECL */
-  tree decl;
-  enum ld_plugin_symbol_resolution resolution;
 };
 
 struct lang_decl GTY(())
 {
-  enum ld_plugin_symbol_resolution resolution;
+  int dummy;  /* Added because ggc does not like empty structs.  */
 };
 
 struct lang_type GTY(())
@@ -58,20 +55,6 @@ union lang_tree_node GTY(
   union tree_node GTY ((tag ("TS_LTO_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;
 };
-
-/* Return NODE (an IDENTIFIER_NODE) as a pointer to a
-   "lang_identifier".  */
-#define LANG_IDENTIFIER_CAST(NODE) \
-  ((struct lang_identifier*)IDENTIFIER_NODE_CHECK (NODE))
-
-/* Return the VAR_DECL or FUNCTION_DECL with external linkage whose
-   DECL_ASSEMBLER_NAME is NODE, or NULL_TREE if there is no such
-   declaration.  */ 
-#define LTO_IDENTIFIER_DECL(NODE)		\
-  (LANG_IDENTIFIER_CAST (NODE)->decl)
-
-#define LTO_DECL_RESOLUTION(NODE)                \
-  (DECL_LANG_SPECIFIC (NODE)->resolution)
 
 /* Vector to keep track of external variables we've seen so far.  */
 extern GTY(()) VEC(tree,gc) *lto_global_var_decls;

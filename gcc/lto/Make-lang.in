@@ -27,7 +27,7 @@
 LTO_EXE = lto1$(exeext)
 # The LTO-specific object files inclued in $(LTO_EXE).
 LTO_OBJS = lto/lto-lang.o lto/lto.o lto/lto-elf.o \
-	lto/lto-symtab.o lto/common.o attribs.o
+	lto/common.o attribs.o
 LTO_H = lto/lto.h lto-header.h $(LTO_SECTION_IN_H) $(LTO_SECTION_OUT_H) \
 	$(HASHTAB_H) $(TREE_H)
 
@@ -100,7 +100,4 @@ lto/lto.o: lto/lto.c $(CONFIG_H) $(CGRAPH_H) coretypes.h \
 	pointer-set.h vec.h $(BITMAP_H) $(IPA_PROP_H) lto/common.h
 lto/lto-elf.o: lto/lto-elf.c $(CONFIG_H) coretypes.h $(SYSTEM_H) \
 	toplev.h $(LTO_H) $(TM_H)
-lto/lto-symtab.o: lto/lto-symtab.c lto-tree-in.h $(CONFIG_H) coretypes.h \
-	$(SYSTEM_H) toplev.h $(LTO_H) $(LTO_TREE_H) $(GGC_H) $(LAMBDA_H) \
-	$(GIMPLE_H)
 lto/common.o: lto/common.h

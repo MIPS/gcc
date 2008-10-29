@@ -227,18 +227,15 @@ extern tree lhd_make_node (enum tree_code);
 extern void lhd_begin_section (const char *);
 extern void lhd_append_data (const void *, size_t, void *);
 extern void lhd_end_section (void);
-extern void lhd_input_cgraph (void);
 
 #define LANG_HOOKS_BEGIN_SECTION lhd_begin_section
 #define LANG_HOOKS_APPEND_DATA lhd_append_data
 #define LANG_HOOKS_END_SECTION lhd_end_section
-#define LANG_HOOKS_INPUT_CGRAPH lhd_input_cgraph
 
 #define LANG_HOOKS_LTO { \
   LANG_HOOKS_BEGIN_SECTION, \
   LANG_HOOKS_APPEND_DATA, \
-  LANG_HOOKS_END_SECTION,                   \
-  LANG_HOOKS_INPUT_CGRAPH \
+  LANG_HOOKS_END_SECTION \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */

@@ -929,6 +929,7 @@ free_decl (const void *p, void *data ATTRIBUTE_UNUSED)
   tree t = CONST_CAST_TREE (ct);
 
   remove_decl_from_map (t);
+  lto_symtab_clear_resolution (t);
   ggc_free (t);
   return true;
 }

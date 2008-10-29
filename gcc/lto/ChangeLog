@@ -1,3 +1,19 @@
+2008-10-29  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (free_decl): Call lto_symtab_clear_resolution when freeing
+	DECL.
+	* Make-lang.in (LTO_OBJS): Remove lto/lto-symtab.o
+	(lto/lto-symtab.o): Remove rule.
+	* lto-tree.h (struct lang_identifier): Remove LTO specific fields.
+	(struct lang_decl): Remove RESOLUTION and add DUMMY in struct.
+	(LANG_IDENTIFIER_CAST, LTO_IDENTIFIER_DECL, LTO_DECL_RESOLUTION):
+	Remove macros.
+	lto-symtab.c (File): Move up one level.
+	lto-lang.c (cgraph.h): Remove include.
+	(input_overwrite_node, input_node, input_edge, input_cgraph_1,
+	input_cgraph): Move to lto-cgraph.c in gcc directory above.
+	(LANG_HOOKS_INPUT_CGRAPH): Remove use of macro.
+
 2008-10-24 Rafael Espindola  <espindola@google.com>
 
 	* lto-function-in.c (get_resolution): Return LDPR_PREEMPTED_IR for

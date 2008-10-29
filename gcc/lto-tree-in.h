@@ -119,5 +119,6 @@ extern void lto_symtab_merge_fn (tree new_fn,
 
 extern tree lto_symtab_prevailing_decl (tree decl);
 extern enum ld_plugin_symbol_resolution lto_symtab_get_resolution (tree decl);
+extern void lto_symtab_clear_resolution (tree decl);
 
 #endif  /* GCC_LTO_TREE_IN_H  */

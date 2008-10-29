@@ -235,9 +235,6 @@ struct lang_hooks_for_lto
 
   /* End the previously begun LTO section.  */
   void (*end_section) (void);
-
-  /* Read cgraph. */
-  void (*input_cgraph) (void);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */

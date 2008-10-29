@@ -1,3 +1,22 @@
+2008-10-29  Doug Kwan  <dougkwan@google.com>
+
+	* lto-symtab.c (New file): Move from up from lto sub-directory.
+	* lto-cgraph.c (lto-tree-in.h): New include
+	(input_overwrite_node, input_node, input_edge, input_cgraph_1,
+	input_cgraph): Move from back from lto/lto-lang.c to here.
+	* lto-tree-in.h (lto_symtab_clear_resolution): New prototype.
+	* langhooks.c (lhd_input_cgraph): Remove.
+	* langhooks.h (struct lang_hooks_for_lto): Remove INPUT_CRAPH hooks.
+	* Makefile.in (PLUGIN_API_H, LTO_TREE_IN_H): New vars.
+	(OBJS-common): Include lto-symtab.o
+	(lto-cgraph.o): Add LTO_TREE_IN_H in dependency.
+	(lto-function-in.o): Ditto.
+	(lto-symtab.o): New rule.
+	(GTFILES): Add lto-symtab.c
+	* langhooks-def.h (lhd_input_cgraph): Remove prototype.
+	(LANG_HOOKS_INPUT_GRAPH): Remove macro.
+	(LANG_HOOKS_LTO): Remove LANG_HOOKS_INPUT_CGRAPH from initializer.
+
 2008-10-28  Doug Kwan  <dougkwan@google.com>
 
 	* gcc.c (invoke_as): Do not invoke assembler if -fwpa is given

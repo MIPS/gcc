@@ -24,15 +24,123 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "toplev.h"
 #include "tree.h"
-#include "lto.h"
 #include "gimple.h"
-#include "lto-tree.h"
 #include "lto-tree-in.h"
 #include "ggc.h"	/* lambda.h needs this */
 #include "lambda.h"	/* gcd */
+#include "hashtab.h"
 
 /* Vector to keep track of external variables we've seen so far.  */
 VEC(tree,gc) *lto_global_var_decls;
+
+/* Base type for resolution map. It maps NODE to resolution.  */
+
+struct lto_symtab_base_def GTY(())
+{
+  /* Key is either an IDENTIFIER or a DECL.  */
+  tree node;
+};
+typedef struct lto_symtab_base_def *lto_symtab_base_t;
+
+struct lto_symtab_identifier_def GTY (())
+{
+  struct lto_symtab_base_def base;
+  tree decl;
+};
+typedef struct lto_symtab_identifier_def *lto_symtab_identifier_t;
+
+struct lto_symtab_decl_def GTY (())
+{
+  struct lto_symtab_base_def base;
+  enum ld_plugin_symbol_resolution resolution;
+};
+typedef struct lto_symtab_decl_def *lto_symtab_decl_t;
+
+/* A poor man's symbol table. This hashes identifier to prevailing DECL
+   if there is one. */
+
+static GTY ((if_marked ("lto_symtab_identifier_marked_p"),
+	     param_is (struct lto_symtab_identifier_def)))
+  htab_t lto_symtab_identifiers;
+
+static GTY ((if_marked ("lto_symtab_decl_marked_p"),
+	     param_is (struct lto_symtab_decl_def)))
+  htab_t lto_symtab_decls;
+
+/* Return the hash value of an lto_symtab_base_t object pointed to by P.  */
+
+static hashval_t
+lto_symtab_base_hash (const void *p)
+{
+  const struct lto_symtab_base_def *base =
+    (const struct lto_symtab_base_def*) p;
+  return htab_hash_pointer (base->node);
+}
+
+/* Return non-zero if P1 and P2 points to lto_symtab_base_def structs
+   corresponding to the same tree node.  */
+
+static int
+lto_symtab_base_eq (const void *p1, const void *p2)
+{
+  const struct lto_symtab_base_def *base1 =
+     (const struct lto_symtab_base_def *) p1;
+  const struct lto_symtab_base_def *base2 =
+     (const struct lto_symtab_base_def *) p2;
+  return (base1->node == base2->node);
+}
+
+/* Returns non-zero if P points to an lto_symtab_base_def struct that needs
+   to be marked for GC.  */ 
+
+static int
+lto_symtab_base_marked_p (const void *p)
+{
+  const struct lto_symtab_base_def *base =
+     (const struct lto_symtab_base_def *) p;
+
+  /* Keep this only if the key node is marked.  */
+  return ggc_marked_p (base->node);
+}
+
+/* Returns non-zero if P points to an lto_symtab_identifier_def struct that
+   needs to be marked for GC.  */ 
+
+static int
+lto_symtab_identifier_marked_p (const void *p)
+{
+  return lto_symtab_base_marked_p (p);
+}
+
+/* Returns non-zero if P points to an lto_symtab_decl_def struct that needs
+   to be marked for GC.  */ 
+
+static int
+lto_symtab_decl_marked_p (const void *p)
+{
+  return lto_symtab_base_marked_p (p);
+}
+
+#define lto_symtab_identifier_eq	lto_symtab_base_eq
+#define lto_symtab_identifier_hash	lto_symtab_base_hash
+#define lto_symtab_decl_eq		lto_symtab_base_eq
+#define lto_symtab_decl_hash		lto_symtab_base_hash
+
+/* Lazily initialize resolution hash tables.  */
+
+static void
+lto_symtab_maybe_init_hash_tables (void)
+{
+  if (!lto_symtab_identifiers)
+    {
+      lto_symtab_identifiers =
+	htab_create_ggc (1021, lto_symtab_identifier_hash,
+			 lto_symtab_identifier_eq, ggc_free);
+      lto_symtab_decls =
+	htab_create_ggc (1021, lto_symtab_decl_hash,
+			 lto_symtab_decl_eq, ggc_free);
+    }
+}
 
 /* Returns true iff TYPE_1 and TYPE_2 are the same type.  */
 
@@ -246,14 +354,6 @@ lto_compatible_attributes_p (tree decl ATTRIBUTE_UNUSED,
 #endif
 }
 
-/* Compute the least common multiple of A and B.  */
-
-static inline unsigned
-lto_least_common_multiple (unsigned a, unsigned b)
-{
-  return (a * b) / gcd (a, b);
-}
-
 /* Check if OLD_DECL and NEW_DECL are compatible. */
 
 static bool
@@ -440,16 +540,75 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 /* Marks decl DECL as having resolution RESOLUTION. */
 
 static void
-lto_symtab_set_resolution (tree decl, ld_plugin_symbol_resolution_t resolution)
+lto_symtab_set_resolution (tree decl,
+			   ld_plugin_symbol_resolution_t resolution)
 {
+  lto_symtab_decl_t new_entry;
+  void **slot;
+
   gcc_assert (decl);
 
   gcc_assert (TREE_PUBLIC (decl));
   gcc_assert (TREE_CODE (decl) != FUNCTION_DECL || !DECL_ABSTRACT (decl));
 
-  gcc_assert (!DECL_LANG_SPECIFIC (decl));
-  DECL_LANG_SPECIFIC (decl) = GGC_NEW (struct lang_decl);
-  LTO_DECL_RESOLUTION (decl) = resolution;
+  new_entry = GGC_CNEW (struct lto_symtab_decl_def);
+  new_entry->base.node = decl;
+  new_entry->resolution = resolution;
+  
+  lto_symtab_maybe_init_hash_tables ();
+  slot = htab_find_slot (lto_symtab_decls, new_entry, INSERT);
+  gcc_assert (!*slot);
+  *slot = new_entry;
+}
+
+/* Get the lto_symtab_identifier_def struct associated with ID
+   if there is one.  If there is none and INSERT_P is true, create
+   a new one.  */
+
+static lto_symtab_identifier_t
+lto_symtab_get_identifier (tree id, bool insert_p)
+{
+  struct lto_symtab_identifier_def temp;
+  lto_symtab_identifier_t symtab_id;
+  void **slot;
+
+  lto_symtab_maybe_init_hash_tables ();
+  temp.base.node = id;
+  slot = htab_find_slot (lto_symtab_identifiers, &temp,
+			 insert_p ? INSERT : NO_INSERT);
+  if (insert_p)
+    {
+      if (*slot)
+	return (lto_symtab_identifier_t) *slot;
+      else
+	{
+	  symtab_id = GGC_CNEW (struct lto_symtab_identifier_def);
+	  symtab_id->base.node = id;
+	  *slot = symtab_id;
+	  return symtab_id;
+	}
+    }
+  else
+    return slot ? (lto_symtab_identifier_t) *slot : NULL;
+}
+
+/* Return the DECL associated with an IDENTIFIER ID or return NULL_TREE
+   if there is none.  */
+
+static tree
+lto_symtab_get_identifier_decl (tree id)
+{
+  lto_symtab_identifier_t symtab_id = lto_symtab_get_identifier (id, false);
+  return symtab_id ? symtab_id->decl : NULL_TREE;
+}
+
+/* SET the associated DECL of an IDENTIFIER ID to be DECL.  */
+
+static void
+lto_symtab_set_identifier_decl (tree id, tree decl)
+{
+  lto_symtab_identifier_t symtab_id = lto_symtab_get_identifier (id, true);
+  symtab_id->decl = decl;
 }
 
 /* Common helper function for merging variable and function declarations.
@@ -489,13 +648,13 @@ lto_symtab_merge_decl (tree new_decl,
 
   /* Retrieve the previous declaration.  */
   name = DECL_ASSEMBLER_NAME (new_decl);
-  old_decl = LTO_IDENTIFIER_DECL (name);
+  old_decl = lto_symtab_get_identifier_decl (name);
 
   /* If there was no previous declaration, then there is nothing to
      merge.  */
   if (!old_decl)
     {
-      LTO_IDENTIFIER_DECL (name) = new_decl;
+      lto_symtab_set_identifier_decl (name, new_decl);
       VEC_safe_push (tree, gc, lto_global_var_decls, new_decl);
       return;
     }
@@ -521,7 +680,7 @@ lto_symtab_merge_decl (tree new_decl,
 	}
       gcc_assert (old_resolution == LDPR_PREEMPTED_IR
 		  || old_resolution ==  LDPR_RESOLVED_IR);
-      LTO_IDENTIFIER_DECL (name) = new_decl;
+      lto_symtab_set_identifier_decl (name, new_decl);
       return;
     }
 
@@ -575,7 +734,7 @@ lto_symtab_prevailing_decl (tree decl)
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
     return decl;
 
-  ret = LTO_IDENTIFIER_DECL (DECL_ASSEMBLER_NAME (decl));
+  ret = lto_symtab_get_identifier_decl (DECL_ASSEMBLER_NAME (decl));
 
   return ret;
 }
@@ -585,6 +744,9 @@ lto_symtab_prevailing_decl (tree decl)
 enum ld_plugin_symbol_resolution
 lto_symtab_get_resolution (tree decl)
 {
+  struct lto_symtab_decl_def temp, *symtab_decl;
+  void **slot;
+ 
   gcc_assert (decl);
 
   if (!TREE_PUBLIC (decl))
@@ -594,5 +756,32 @@ lto_symtab_get_resolution (tree decl)
  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
     return LDPR_PREVAILING_DEF_IRONLY;
 
- return LTO_DECL_RESOLUTION (decl);
+ lto_symtab_maybe_init_hash_tables ();
+ temp.base.node = decl;
+ slot = htab_find_slot (lto_symtab_decls, &temp, NO_INSERT);
+ gcc_assert (slot && *slot);
+ symtab_decl = (struct lto_symtab_decl_def*) *slot;
+ return symtab_decl->resolution;
 }
+
+/* Remove any storage used to store resolution of DECL.  */
+
+void
+lto_symtab_clear_resolution (tree decl)
+{
+  struct lto_symtab_decl_def temp;
+  gcc_assert (decl);
+
+  if (!TREE_PUBLIC (decl))
+    return;
+
+  /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+ if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
+    return;
+
+ lto_symtab_maybe_init_hash_tables ();
+ temp.base.node = decl;
+ htab_remove_elt (lto_symtab_decls, &temp);
+}
+
+#include "gt-lto-symtab.h"

@@ -388,6 +388,9 @@ FIBHEAP_H   = $(srcdir)/../include/fibheap.h
 PARTITION_H = $(srcdir)/../include/partition.h
 MD5_H	    = $(srcdir)/../include/md5.h
 
+# Linker plugin API header
+PLUGIN_API_H = $(srcdir)/../include/plugin-api.h
+
 # Default native SYSTEM_HEADER_DIR, to be overridden by targets.
 NATIVE_SYSTEM_HEADER_DIR = /usr/include
 # Default cross SYSTEM_HEADER_DIR, to be overridden by targets.
@@ -871,6 +874,7 @@ LTO_TAGS_H = lto-tags.h tree.h sbitmap.h lto-header.h
 LTO_SECTION_H = lto-section.h lto-header.h
 LTO_SECTION_IN_H = lto-section-in.h lto-header.h
 LTO_SECTION_OUT_H = lto-section-in.h lto-section.h
+LTO_TREE_IN_H = lto-tree-in.h $(LTO_SECTION_IN_H) $(PLUGIN_API_H)
 TREE_VECTORIZER_H = tree-vectorizer.h $(TREE_DATA_REF_H)
 IPA_PROP_H = ipa-prop.h $(TREE_H) vec.h $(CGRAPH_H)
 GSTAB_H = gstab.h stab.def
@@ -1149,6 +1153,7 @@ OBJS-common = \
 	lto-section-in.o \
 	lto-section-out.o \
 	lto-stream-debug.o \
+	lto-symtab.o \
 	lto-wpa-fixup.o \
 	mcf.o \
 	mode-switching.o \
@@ -2064,12 +2069,13 @@ lto-cgraph.o: lto-cgraph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
    except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) $(LTO_SECTION_IN_H) \
-   $(LTO_SECTION_OUT_H) output.h dwarf2asm.h dwarf2out.h pointer-set.h
+   $(LTO_SECTION_OUT_H) output.h dwarf2asm.h dwarf2out.h pointer-set.h \
+   $(LTO_TREE_IN_H)
 lto-function-in.o: lto-function-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TOPLEV_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h $(VARRAY_H) \
    $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h tree-pass.h \
    tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) except.h \
-   debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def \
+   debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def $(LTO_TREE_IN_H) \
    lto-tree-tags.def $(LTO_SECTION_IN_H)  output.h dwarf2asm.h dwarf2out.h
 lto-function-out.o : lto-function-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
@@ -2089,6 +2095,9 @@ lto-section-out.o : lto-section-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
    except.h debug.h $(TIMEVAR_H) lto-header.h $(LTO_SECTION_OUT_H) output.h \
    dwarf2asm.h dwarf2out.h  $(BITMAP_H)
+lto-symtab.o: lto-symtab.c $(LTO_TREE_IN_H) $(CONFIG_H) coretypes.h \
+   $(SYSTEM_H) toplev.h $(LTO_TREE_H) $(GGC_H) $(LAMBDA_H) \
+   $(GIMPLE_H) $(HASHTAB_H) $(LTO_TREE_IN_H) gt-lto-symtab.h
 lto-wpa-fixup.o: lto-wpa-fixup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
    $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) tree-pass.h \
    $(CGRAPH_H) $(FUNCTION_H) $(DIAGNOSTIC_H) vec.h $(BITMAP_H) $(TIMEVAR_H) \
@@ -3375,6 +3384,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-phinodes.c \
   $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
   $(srcdir)/tree-ssa-structalias.c \
+  $(srcdir)/lto-symtab.c \
   @all_gtfiles@
 
 # Compute the list of GT header files from the corresponding C sources,
