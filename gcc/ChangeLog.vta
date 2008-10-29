@@ -1,5 +1,12 @@
 2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree.c (iterative_hash_pointer): Delete.
+	(iterative_hash_expr): Short-circuit handling of NULL pointer.
+	Hash UIDs and versions of SSA names.  Don't special-case built-in
+	function declarations.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
 	* c-parser.c (c_parser_binary_expression): Initialize binary_loc.
 	* ebitmap.h (ebitmap_iter_init): Initialize all fields.
 	* ipa-struct-reorg.c (gen_struct_type): Replace known-true
