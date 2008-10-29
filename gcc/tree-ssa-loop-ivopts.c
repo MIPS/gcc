@@ -5181,7 +5181,7 @@ idx_remove_ssa_names (tree base, tree *idx,
   if (TREE_CODE (*idx) == SSA_NAME)
     *idx = SSA_NAME_VAR (*idx);
 
-  if (TREE_CODE (base) == ARRAY_REF)
+  if (TREE_CODE (base) == ARRAY_REF || TREE_CODE (base) == ARRAY_RANGE_REF)
     {
       op = &TREE_OPERAND (base, 2);
       if (*op

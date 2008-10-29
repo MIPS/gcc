@@ -1,5 +1,10 @@
 2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-ssa-loop-ivopts.c (idx_remove_ssa_names): Handle
+	ARRAY_RANGE_REFs like ARRAY_REFs.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
 	* ira-build.c (create_bb_allocnos): Disregard debug insns.
 	* ira-conflicts.c (add_copies): Likewise.
 	* ira-costs.c (scan_one_insn, process_bb_node_for_hard_reg_moves):
