@@ -971,7 +971,7 @@ scan_one_insn (rtx insn)
   rtx set, note;
   int i, k;
 
-  if (!INSN_P (insn))
+  if (!INSN_P (insn) || DEBUG_INSN_P (insn))
     return insn;
 
   pat_code = GET_CODE (PATTERN (insn));
@@ -1338,7 +1338,7 @@ process_bb_node_for_hard_reg_moves (ira_loop_tree_node_t loop_tree_node)
     freq = 1;
   FOR_BB_INSNS (bb, insn)
     {
-      if (! INSN_P (insn))
+      if (! INSN_P (insn) || DEBUG_INSN_P (insn))
 	continue;
       set = single_set (insn);
       if (set == NULL_RTX)

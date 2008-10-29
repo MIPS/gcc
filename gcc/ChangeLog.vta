@@ -1,5 +1,13 @@
 2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
 
+	* ira-build.c (create_bb_allocnos): Disregard debug insns.
+	* ira-conflicts.c (add_copies): Likewise.
+	* ira-costs.c (scan_one_insn, process_bb_node_for_hard_reg_moves):
+	Likewise.
+	* ira-lives.c (process_bb_node_lives): Likewise.
+
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-inline.c (tree_function_versioning): Fix merge fallout.
 	* haifa-sched.c (schedule_block): Likewise.
 	* ipa-reference.c (scan_stmt_for_static_refs): Likewise.
