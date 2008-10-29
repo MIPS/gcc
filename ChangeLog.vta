@@ -1,3 +1,8 @@
+2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/bootstrap-debug-lib.mk (STAGE1_TFLAGS, STAGE3_TFLAGS):
+	Don't use -gtoggle for crtstuff and target libs.
+
 2008-10-10  Alexandre Oliva  <aoliva@redhat.com>
 
 	* config/multi.m4: Save CXX, GFORTRAN and GCJ in config.status.
