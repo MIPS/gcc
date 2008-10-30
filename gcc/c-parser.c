@@ -5738,7 +5738,8 @@ c_parser_expr_list (c_parser *parser, bool convert_p, bool fold_p)
       expr = c_parser_expr_no_commas (parser, NULL);
       if (convert_p)
 	expr = default_function_array_conversion (expr);
-      expr.value = c_fully_fold (expr.value, false, NULL);
+      if (fold_p)
+	expr.value = c_fully_fold (expr.value, false, NULL);
       cur = TREE_CHAIN (cur) = build_tree_list (NULL_TREE, expr.value);
     }
   return ret;

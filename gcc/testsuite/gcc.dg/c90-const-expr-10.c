@@ -20,3 +20,9 @@ h (void)
 {
   g ((__SIZE_TYPE__)(void *)0); /* { dg-error "without a cast" } */
 }
+void g2 (int, void *); /* { dg-message "but argument is of type" } */
+void
+h2 (void)
+{
+  g2 (0, (__SIZE_TYPE__)(void *)0); /* { dg-error "without a cast" } */
+}
