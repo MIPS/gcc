@@ -936,7 +936,7 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
 
 	  /* Save intermediate WPA files in lto1 if debug.  */
 	  if (debug)
-	    putenv ("WPA_SAVE_LTRANS=1");
+	    putenv (xstrdup ("WPA_SAVE_LTRANS=1"));
 	}
       else
 	fatal ("invalid LTO mode");

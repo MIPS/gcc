@@ -1,3 +1,8 @@
+2008-10-30  Diego Novillo  <dnovillo@google.com>
+
+	* collect2.c (maybe_run_lto_and_relink): Fix call to
+	putenv.
+
 2008-10-30  Simon Baldwin  <simonb@google.com>
 
 	* collect2.c (maybe_run_lto_and_relink): Set environment variable
