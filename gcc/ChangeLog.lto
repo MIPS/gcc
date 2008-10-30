@@ -1,3 +1,8 @@
+2008-10-30  Simon Baldwin  <simonb@google.com>
+
+	* collect2.c (maybe_run_lto_and_relink): Set environment variable
+	WPA_SAVE_LTRANS=1 if debug.
+
 2008-10-29  Doug Kwan  <dougkwan@google.com>
 
 	* lto-symtab.c (New file): Move from up from lto sub-directory.
