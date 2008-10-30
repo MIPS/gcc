@@ -933,6 +933,10 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
 	  strcpy (tmp, ltrans_output_file);
 
 	  *lto_c_ptr++ = "-fwpa";
+
+	  /* Save intermediate WPA files in lto1 if debug.  */
+	  if (debug)
+	    putenv ("WPA_SAVE_LTRANS=1");
 	}
       else
 	fatal ("invalid LTO mode");

@@ -80,6 +80,7 @@ static const char usrtmp[] =
 { DIR_SEPARATOR, 'u', 's', 'r', DIR_SEPARATOR, 't', 'm', 'p', 0 };
 static const char vartmp[] =
 { DIR_SEPARATOR, 'v', 'a', 'r', DIR_SEPARATOR, 't', 'm', 'p', 0 };
+static const char cwd[] = { '.', DIR_SEPARATOR, 0 };
 
 static char *memoized_tmpdir;
 
@@ -133,22 +134,15 @@ choose_tmpdir (void)
   return tmpdir;
 }
 
-/*
-
-@deftypefn Replacement char* make_temp_file (const char *@var{suffix})
-
-Return a temporary file name (as a string) or @code{NULL} if unable to
-create one.  @var{suffix} is a suffix to append to the file name.  The
-string is @code{malloc}ed, and the temporary file has been created.
-
-@end deftypefn
-
-*/
+/* Common function to create temporary files.
+   Returns a temporary file name (as a string) or NULL if unable to
+   create one.  SUFFIX is a suffix to append to the file name, and BASE
+   is a prefix.  The return string is allocated, and the temporary file
+   created before returning.  */
 
 char *
-make_temp_file (const char *suffix)
+make_temp_file_common (const char *suffix, const char *base)
 {
-  const char *base = choose_tmpdir ();
   char *temp_filename;
   int base_len, suffix_len;
   int fd;
@@ -178,4 +172,42 @@ make_temp_file (const char *suffix)
   if (close (fd))
     abort ();
   return temp_filename;
+}
+
+/*
+
+@deftypefn Replacement char* make_temp_file (const char *@var{suffix})
+
+Return a temporary file name (as a string) or @code{NULL} if unable to
+create one.  @var{suffix} is a suffix to append to the file name.  The
+string is @code{malloc}ed, and the temporary file has been created.  The
+temporary file is created in an appropriate temporary directory.
+
+@end deftypefn
+
+*/
+
+char *
+make_temp_file (const char *suffix)
+{
+  return make_temp_file_common (suffix, choose_tmpdir ());
+}
+
+/*
+
+@deftypefn Supplemental char* make_cwd_temp_file (const char *@var{suffix})
+
+Return a temporary file name (as a string) or @code{NULL} if unable to
+create one.  @var{suffix} is a suffix to append to the file name.  The
+string is @code{malloc}ed, and the temporary file has been created.  The
+temporary file is created in the current working directory.
+
+@end deftypefn
+
+*/
+
+char *
+make_cwd_temp_file (const char *suffix)
+{
+  return make_temp_file_common (suffix, cwd);
 }

@@ -26,6 +26,7 @@ Boston, MA 02110-1301, USA.  */
 #include "toplev.h"
 #include "tree.h"
 #include "tm.h"
+#include "libiberty.h"
 #include "cgraph.h"
 #include "ggc.h"
 #include "tree-ssa-operands.h"
@@ -625,20 +626,7 @@ lto_wpa_write_files (void)
 
   for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
     {
-      size_t needed = 16;
-      size_t len = needed;
-      char * temp_filename = XNEWVEC (char, len);
-
-      do 
-	{
-	  if (needed > len)
-	    {
-	      len = needed;
-	      temp_filename = XRESIZEVEC (char, temp_filename, len);
-	    }
-	  needed = snprintf (temp_filename, len, "bogus%d.lto.o", i);
-	}
-      while (needed >= len);
+      char *temp_filename = make_cwd_temp_file (".lto.o");
 
       output_files[i] = temp_filename;
 
@@ -970,6 +958,20 @@ lto_fixup_decls (struct lto_file_decl_data **files)
   pointer_set_destroy (seen);
 }
 
+/* Unlink a temporary LTRANS file unless requested otherwise.  */
+
+static void
+lto_maybe_unlink (const char *file)
+{
+  if (!getenv ("WPA_SAVE_LTRANS"))
+    {
+      if (unlink_if_ordinary (file))
+        error ("deleting LTRANS file %s: %m", file);
+    }
+  else
+    fprintf (stderr, "[Leaving LTRANS %s]\n", file);
+}
+
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
 {
@@ -1115,7 +1117,10 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       lto_execute_ltrans (output_files);
 
       for (i = 0; output_files[i]; ++i)
-	XDELETEVEC (output_files[i]);
+        {
+	  lto_maybe_unlink (output_files[i]);
+	  free (output_files[i]);
+        }
       XDELETEVEC (output_files);
     }
 

@@ -1,3 +1,12 @@
+2008-10-30  Simon Baldwin  <simonb@google.com>
+
+	* lto.c (lto_wpa_write_files): Create intermediate files with
+	make_cwd_temp_file().
+	(lto_maybe_unlink): New.  Delete intermediate WPA files unless
+	WPA_SAVE_LTRANS is set.
+	(lto_main): Call lto_maybe_unlink() for intermediate WPA files.
+	* ltrans-driver: Do not strip directory from output files.
+
 2008-10-29  Doug Kwan  <dougkwan@google.com>
 
 	* lto.c (free_decl): Call lto_symtab_clear_resolution when freeing

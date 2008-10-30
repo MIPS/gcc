@@ -52,7 +52,7 @@ inputlist="$@"
 outputlist=
 for input in $inputlist
 do
-  output=`basename $input .o`.ltrans.o
+  output=`dirname $input`/`basename $input .o`.ltrans.o
   outputlist="$outputlist $output"
 
   echo "$output: $input" >> $makefile

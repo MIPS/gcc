@@ -1,3 +1,7 @@
+2008-10-30  Simon Baldwin  <simonb@google.com>
+
+	* libiberty.h (make_cwd_temp_file): New declaration.
+
 2008-10-06  Jason Merrill  <jason@redhat.com>
 
 	* demangle.h (enum demangle_component_type): Add
