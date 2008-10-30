@@ -1,3 +1,8 @@
+2008-10-30  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (lto_read_decls): Declare debug_main only if
+	LTO_STREAM_DEBUGGING is enabled.
+
 2008-10-30  Simon Baldwin  <simonb@google.com>
 
 	* lto.c (lto_wpa_write_files): Create intermediate files with

@@ -220,9 +220,9 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   const int32_t string_offset = main_offset + header->main_size;
 #ifdef LTO_STREAM_DEBUGGING
   int32_t debug_main_offset;
+  struct lto_input_block debug_main;
 #endif
   struct lto_input_block ib_main;
-  struct lto_input_block debug_main;
   struct data_in data_in;
   unsigned int i;
   const uint32_t *data_ptr, *data_end;
