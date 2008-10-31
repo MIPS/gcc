@@ -537,7 +537,7 @@ input_node (struct lto_file_decl_data* file_data,
   LTO_DEBUG_TOKEN ("flags");
   flags = lto_input_uleb128 (ib);
   
-  if (tag == LTO_cgraph_avail_node)
+  if (tag != LTO_cgraph_unavail_node)
     {
       LTO_DEBUG_TOKEN ("stack_size");
       stack_size = lto_input_sleb128 (ib);

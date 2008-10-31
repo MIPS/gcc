@@ -1,3 +1,8 @@
+2008-10-31  Doug Kwan  <dougkwan@google.com>
+
+	* lto-cgraph.c (input_nodE): Fix test so that output_node and
+	input_node handle optional fields under the same condition.
+
 2008-10-30  Doug Kwan  <dougkwan@google.com>
 
 	* lto-symtab.c (lto_same_type_p): Handle the case in which both
