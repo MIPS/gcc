@@ -1,3 +1,10 @@
+2008-10-30  Doug Kwan  <dougkwan@google.com>
+
+	* lto-symtab.c (lto_same_type_p): Handle the case in which both
+	array types have NULL TYPE_DOMAIN.
+	* lto-function-out.c (copy_function): Copy tree vectors in decl
+	states verbatim.
+
 2008-10-30  Diego Novillo  <dnovillo@google.com>
 
 	* collect2.c (maybe_run_lto_and_relink): Fix call to

@@ -204,8 +204,10 @@ lto_same_type_p (tree type_1, tree type_2)
 	{
 	  tree index_1 = TYPE_DOMAIN (type_1);
 	  tree index_2 = TYPE_DOMAIN (type_2);
+	  /* For an incomplete external array, the type domain can be
+ 	     NULL_TREE.  Check this condition also.  */
 	  if (!index_1 || !index_2)
-	    return false;
+	    return (!index_1 && !index_2);
 	  else
 	    {
 	      tree min_1 = TYPE_MIN_VALUE (index_1);

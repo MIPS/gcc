@@ -2353,10 +2353,14 @@ copy_function (struct cgraph_node *node)
       size_t n = in_state->streams[i].size;
       tree *trees = in_state->streams[i].trees;
       struct lto_tree_ref_encoder *encoder = &(out_state->streams[i]);
-      unsigned int dummy = 0;
 
+      /* The out state must have the same indices and the in state.
+	 So just copy the vector.  All the encoders in the in state
+	 must be empty where we reach here. */
+      gcc_assert (lto_tree_ref_encoder_size (encoder) == 0);
       for (j = 0; j < n; j++)
-	lto_output_decl_index (NULL, encoder, trees[j], &dummy);
+	VEC_safe_push (tree, heap, encoder->trees, trees[j]);
+      encoder->next_index = n;
     }
   
   lto_free_section_data (file_data, LTO_section_function_body, name,
