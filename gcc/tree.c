@@ -3932,29 +3932,7 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
       else
 	TYPE_FIELDS (type) = NULL_TREE;
 
-      /* Likewise for TYPE_METHODS.  Remove any members that are not
-	 FUNCTION_DECLs.  FIXME lto, see similar note above for
-	 TYPE_FIELDS.  */
-      prev = NULL_TREE;
-      member = TYPE_METHODS (type);
-      while (member)
-	{
-	  if (TREE_CODE (member) == FUNCTION_DECL)
-	    {
-	      if (prev)
-		TREE_CHAIN (prev) = member;
-	      else
-		TYPE_METHODS (type) = member;
-	      prev = member;
-	    }
-
-	  member = TREE_CHAIN (member);
-	}
-
-      if (prev)
-	TREE_CHAIN (prev) = NULL_TREE;
-      else
-	TYPE_METHODS (type) = NULL_TREE;
+      TYPE_METHODS (type)  = NULL_TREE;
     }
 
   if (TREE_CODE (type) == INTEGER_TYPE)

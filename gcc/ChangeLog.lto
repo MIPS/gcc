@@ -1,3 +1,8 @@
+2008-11-04 Rafael Espindola  <espindola@google.com>
+
+	* tree.c (reset_type_lang_specific): Set TYPE_METHODS of RECORD_TYPE to
+	NULL_TREE.
+
 2008-10-31  Doug Kwan  <dougkwan@google.com>
 
 	* lto-cgraph.c (input_nodE): Fix test so that output_node and
