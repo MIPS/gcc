@@ -1,3 +1,7 @@
+2008-10-30  Simon Baldwin  <simonb@google.com>
+
+	* libiberty.h (make_cwd_temp_file): New declaration.
+
 2008-09-23  Rafael Espindola  <espindola@google.com>
 
 	* plugin-api.h: Moved from lto-plugin.
