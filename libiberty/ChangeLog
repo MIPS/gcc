@@ -1,10 +1,3 @@
-2008-10-30  Simon Baldwin  <simonb@google.com>
-
-	* make-temp-file.c (make_temp_file_common): Split out from original
-	make_temp_file() function.
-	* (make_temp_file): Call make_temp_file_common() with tmp dir.
-	* (make_cwd_temp_file): New.  Call make_temp_file_common() with "./".
-
 2008-10-15  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR bootstrap/37137
