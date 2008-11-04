@@ -1,0 +1,5 @@
+2008-11-04  Joseph Myers  <joseph@codesourcery.com>
+
+	PR rtl-optimization/323
+	* options.c (gfc_post_options): Set flag_excess_precision_cmdline.
+

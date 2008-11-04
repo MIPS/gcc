@@ -227,6 +227,10 @@ gfc_post_options (const char **pfilename)
   char *source_path;
   int i;
 
+  /* Excess precision other than "fast" requires front-end
+     support.  */
+  flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+
   /* Issue an error if -fwhole-program was used.  */
   if (flag_whole_program)
     gfc_fatal_error ("Option -fwhole-program is not supported for Fortran");

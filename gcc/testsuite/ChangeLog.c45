@@ -1,3 +1,13 @@
+2008-11-04  Joseph Myers  <joseph@codesourcery.com>
+
+	PR rtl-optimization/323
+	* gcc.target/i386/excess-precision-1.c,
+	gcc.target/i386/excess-precision-2.c,
+	gcc.target/i386/excess-precision-3.c,
+	gcc.target/i386/excess-precision-4.c,
+	gcc.target/i386/excess-precision-5.c,
+	gcc.target/i386/excess-precision-6.c: New tests.
+
 2008-10-30  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.dg/c90-const-expr-10.c, gcc.dg/c99-const-expr-10.c: Add more

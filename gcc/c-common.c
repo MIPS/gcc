@@ -1783,6 +1783,21 @@ tree
 convert_and_check (tree type, tree expr)
 {
   tree result;
+  tree expr_for_warning;
+
+  /* Convert from a value with possible excess precision rather than
+     via the semantic type, but do not warn about values not fitting
+     exactly in the semantic type.  */
+  if (TREE_CODE (expr) == EXCESS_PRECISION_EXPR)
+    {
+      tree orig_type = TREE_TYPE (expr);
+      expr = TREE_OPERAND (expr, 0);
+      expr_for_warning = convert (orig_type, expr);
+      if (orig_type == type)
+	return expr_for_warning;
+    }
+  else
+    expr_for_warning = expr;
 
   if (TREE_TYPE (expr) == type)
     return expr;
@@ -1790,7 +1805,7 @@ convert_and_check (tree type, tree expr)
   result = convert (type, expr);
 
   if (!skip_evaluation && !TREE_OVERFLOW_P (expr) && result != error_mark_node)
-    warnings_for_convert_and_check (type, expr, result);
+    warnings_for_convert_and_check (type, expr_for_warning, result);
 
   return result;
 }
@@ -3476,6 +3491,7 @@ c_common_truthvalue_conversion (location_t location, tree expr)
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
+    case EXCESS_PRECISION_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
       return c_common_truthvalue_conversion (location, TREE_OPERAND (expr, 0));
 

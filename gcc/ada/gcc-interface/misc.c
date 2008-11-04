@@ -337,6 +337,10 @@ gnat_init_options (unsigned int argc, const char **argv)
 bool
 gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 {
+  /* Excess precision other than "fast" requires front-end
+     support.  */
+  flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+
   /* ??? The warning machinery is outsmarted by Ada.  */
   warn_unused_parameter = 0;
 
