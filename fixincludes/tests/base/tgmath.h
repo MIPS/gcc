@@ -10,5 +10,5 @@
 
 
 #if defined( GLIBC_TGMATH_CHECK )
-# define __floating_type(type) (__builtin_classify_type ((type) 0) == 8 || __builtin_classify_type ((type) 0) == 9)
+# define __floating_type(type) (__builtin_classify_type ((type) 0) == 8 || (__builtin_classify_type ((type) 0) == 9 && __builtin_classify_type (__real__ ((type) 0)) == 8))
 #endif  /* GLIBC_TGMATH_CHECK */
