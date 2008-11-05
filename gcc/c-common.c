@@ -2770,34 +2770,6 @@ c_register_builtin_type (tree type, const char* name)
 
   registered_builtin_types = tree_cons (0, type, registered_builtin_types);
 }
-
-
-/* Return the minimum number of bits needed to represent VALUE in a
-   signed or unsigned type, UNSIGNEDP says which.  */
-
-unsigned int
-min_precision (tree value, int unsignedp)
-{
-  int log;
-
-  /* If the value is negative, compute its negative minus 1.  The latter
-     adjustment is because the absolute value of the largest negative value
-     is one larger than the largest positive value.  This is equivalent to
-     a bit-wise negation, so use that operation instead.  */
-
-  if (tree_int_cst_sgn (value) < 0)
-    value = fold_build1 (BIT_NOT_EXPR, TREE_TYPE (value), value);
-
-  /* Return the number of bits needed, taking into account the fact
-     that we need one more bit for a signed than unsigned type.  */
-
-  if (integer_zerop (value))
-    log = 0;
-  else
-    log = tree_floor_log2 (value);
-
-  return log + 1 + !unsignedp;
-}
 
 /* Print an error message for invalid operands to arith operation
    CODE with TYPE0 for operand 0, and TYPE1 for operand 1.
@@ -8014,94 +7986,132 @@ warn_array_subscript_with_type_char (tree index)
 /* Implement -Wparentheses for the unexpected C precedence rules, to
    cover cases like x + y << z which readers are likely to
    misinterpret.  We have seen an expression in which CODE is a binary
-   operator used to combine expressions headed by CODE_LEFT and
-   CODE_RIGHT.  CODE_LEFT and CODE_RIGHT may be ERROR_MARK, which
-   means that that side of the expression was not formed using a
-   binary operator, or it was enclosed in parentheses.  */
+   operator used to combine expressions ARG_LEFT and ARG_RIGHT, which
+   before folding had CODE_LEFT and CODE_RIGHT.  CODE_LEFT and
+   CODE_RIGHT may be ERROR_MARK, which means that that side of the
+   expression was not formed using a binary or unary operator, or it
+   was enclosed in parentheses.  */
 
 void
-warn_about_parentheses (enum tree_code code, enum tree_code code_left,
-			enum tree_code code_right)
+warn_about_parentheses (enum tree_code code,
+			enum tree_code code_left, tree ARG_UNUSED (arg_left),
+			enum tree_code code_right, tree arg_right)
 {
   if (!warn_parentheses)
     return;
 
-  if (code == LSHIFT_EXPR || code == RSHIFT_EXPR)
-    {
-      if (code_left == PLUS_EXPR || code_left == MINUS_EXPR
-	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
-	warning (OPT_Wparentheses,
-		 "suggest parentheses around + or - inside shift");
-    }
+  /* This macro tests that the expression ARG with original tree code
+     CODE appears to be a boolean expression. or the result of folding a
+     boolean expression.  */
+#define APPEARS_TO_BE_BOOLEAN_EXPR_P(CODE, ARG)                             \
+	(truth_value_p (TREE_CODE (ARG))                                    \
+	 || TREE_CODE (TREE_TYPE (ARG)) == BOOLEAN_TYPE                     \
+	 /* Folding may create 0 or 1 integers from other expressions.  */  \
+	 || ((CODE) != INTEGER_CST                                          \
+	     && (integer_onep (ARG) || integer_zerop (ARG))))
 
-  if (code == TRUTH_ORIF_EXPR)
+  switch (code) 
     {
-      if (code_left == TRUTH_ANDIF_EXPR
-	  || code_right == TRUTH_ANDIF_EXPR)
+    case LSHIFT_EXPR:
+      if (code_left == PLUS_EXPR || code_right == PLUS_EXPR)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around && within ||");
-    }
+		 "suggest parentheses around %<+%> inside %<<<%>");
+      else if (code_left == MINUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<-%> inside %<<<%>");
+      return;
 
-  if (code == BIT_IOR_EXPR)
-    {
+    case RSHIFT_EXPR:
+      if (code_left == PLUS_EXPR || code_right == PLUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<+%> inside %<>>%>");
+      else if (code_left == MINUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<-%> inside %<>>%>");
+      return;
+
+    case TRUTH_ORIF_EXPR:
+      if (code_left == TRUTH_ANDIF_EXPR || code_right == TRUTH_ANDIF_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<&&%> within %<||%>");
+      return;
+
+    case BIT_IOR_EXPR:
       if (code_left == BIT_AND_EXPR || code_left == BIT_XOR_EXPR
 	  || code_left == PLUS_EXPR || code_left == MINUS_EXPR
 	  || code_right == BIT_AND_EXPR || code_right == BIT_XOR_EXPR
 	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around arithmetic in operand of |");
+		 "suggest parentheses around arithmetic in operand of %<|%>");
       /* Check cases like x|y==z */
-      if (TREE_CODE_CLASS (code_left) == tcc_comparison
-	  || TREE_CODE_CLASS (code_right) == tcc_comparison)
+      else if (TREE_CODE_CLASS (code_left) == tcc_comparison
+	       || TREE_CODE_CLASS (code_right) == tcc_comparison)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around comparison in operand of |");
-    }
+		 "suggest parentheses around comparison in operand of %<|%>");
+      /* Check cases like !x | y */
+      else if (code_left == TRUTH_NOT_EXPR
+	       && !APPEARS_TO_BE_BOOLEAN_EXPR_P (code_right, arg_right))
+	warning (OPT_Wparentheses, "suggest parentheses around operand of"
+		 "%<!%> or change %<|%> to %<||%> or %<!%> to %<~%>");
+      return;
 
-  if (code == BIT_XOR_EXPR)
-    {
+    case BIT_XOR_EXPR:
       if (code_left == BIT_AND_EXPR
 	  || code_left == PLUS_EXPR || code_left == MINUS_EXPR
 	  || code_right == BIT_AND_EXPR
 	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around arithmetic in operand of ^");
+		 "suggest parentheses around arithmetic in operand of %<^%>");
       /* Check cases like x^y==z */
-      if (TREE_CODE_CLASS (code_left) == tcc_comparison
-	  || TREE_CODE_CLASS (code_right) == tcc_comparison)
+      else if (TREE_CODE_CLASS (code_left) == tcc_comparison
+	       || TREE_CODE_CLASS (code_right) == tcc_comparison)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around comparison in operand of ^");
-    }
+		 "suggest parentheses around comparison in operand of %<^%>");
+      return;
 
-  if (code == BIT_AND_EXPR)
-    {
-      if (code_left == PLUS_EXPR || code_left == MINUS_EXPR
-	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
+    case BIT_AND_EXPR:
+      if (code_left == PLUS_EXPR || code_right == PLUS_EXPR)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around + or - in operand of &");
+		 "suggest parentheses around %<+%> in operand of %<&%>");
+      else if (code_left == MINUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<-%> in operand of %<&%>");
       /* Check cases like x&y==z */
-      if (TREE_CODE_CLASS (code_left) == tcc_comparison
-	  || TREE_CODE_CLASS (code_right) == tcc_comparison)
+      else if (TREE_CODE_CLASS (code_left) == tcc_comparison
+	       || TREE_CODE_CLASS (code_right) == tcc_comparison)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around comparison in operand of &");
-    }
+		 "suggest parentheses around comparison in operand of %<&%>");
+      /* Check cases like !x & y */
+      else if (code_left == TRUTH_NOT_EXPR
+	       && !APPEARS_TO_BE_BOOLEAN_EXPR_P (code_right, arg_right))
+	warning (OPT_Wparentheses, "suggest parentheses around operand of"
+		 "%<!%> or change %<&%> to %<&&%> or %<!%> to %<~%>");
+      return;
 
-  if (code == EQ_EXPR || code == NE_EXPR)
-    {
+    case EQ_EXPR:
       if (TREE_CODE_CLASS (code_left) == tcc_comparison
           || TREE_CODE_CLASS (code_right) == tcc_comparison)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around comparison in operand of %s",
-                 code == EQ_EXPR ? "==" : "!=");
-    }
-  else if (TREE_CODE_CLASS (code) == tcc_comparison)
-    {
-      if ((TREE_CODE_CLASS (code_left) == tcc_comparison
-	   && code_left != NE_EXPR && code_left != EQ_EXPR)
-	  || (TREE_CODE_CLASS (code_right) == tcc_comparison
-	      && code_right != NE_EXPR && code_right != EQ_EXPR))
-	warning (OPT_Wparentheses, "comparisons like X<=Y<=Z do not "
+		 "suggest parentheses around comparison in operand of %<==%>");
+      return;
+    case NE_EXPR:
+      if (TREE_CODE_CLASS (code_left) == tcc_comparison
+          || TREE_CODE_CLASS (code_right) == tcc_comparison)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around comparison in operand of %<!=%>");
+      return;
+
+    default:
+      if (TREE_CODE_CLASS (code) == tcc_comparison
+	   && ((TREE_CODE_CLASS (code_left) == tcc_comparison
+		&& code_left != NE_EXPR && code_left != EQ_EXPR)
+	       || (TREE_CODE_CLASS (code_right) == tcc_comparison
+		   && code_right != NE_EXPR && code_right != EQ_EXPR)))
+	warning (OPT_Wparentheses, "comparisons like %<X<=Y<=Z%> do not "
 		 "have their mathematical meaning");
+      return;
     }
+#undef NOT_A_BOOLEAN_EXPR_P
 }
 
 /* If LABEL (a LABEL_DECL) has not been used, issue a warning.  */

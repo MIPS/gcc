@@ -2642,6 +2642,9 @@ rs6000_file_start (void)
 	       (TARGET_ALTIVEC_ABI ? 2
 		: TARGET_SPE_ABI ? 3
 		: 1));
+      fprintf (file, "\t.gnu_attribute 12, %d\n",
+	       aix_struct_return ? 2 : 1);
+
     }
 #endif
 
@@ -18097,7 +18100,6 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 {
   char buf[256];
   const char *name = buf;
-  const char *real_name;
   rtx base = x;
   HOST_WIDE_INT offset = 0;
 
@@ -18371,12 +18373,12 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
       gcc_unreachable ();
     }
 
-  real_name = (*targetm.strip_name_encoding) (name);
   if (TARGET_MINIMAL_TOC)
     fputs (TARGET_32BIT ? "\t.long " : DOUBLE_INT_ASM_OP, file);
   else
     {
-      fprintf (file, "\t.tc %s", real_name);
+      fputs ("\t.tc ", file);
+      RS6000_OUTPUT_BASENAME (file, name);
 
       if (offset < 0)
 	fprintf (file, ".N" HOST_WIDE_INT_PRINT_UNSIGNED, - offset);

@@ -864,6 +864,33 @@ loop_affine_expr (basic_block scop_entry, struct loop *loop, tree expr)
 	  || evolution_function_is_affine_multivariate_p (scev, n));
 }
 
+/* Return false if the tree_code of the operand OP or any of its operands
+   is component_ref.  */
+
+static bool
+exclude_component_ref (tree op) 
+{
+  int i;
+  int len;
+
+  if (op)
+    {
+      if (TREE_CODE (op) == COMPONENT_REF)
+	return false;
+      else
+	{
+	  len = TREE_OPERAND_LENGTH (op);	  
+	  for (i = 0; i < len; ++i)
+	    {
+	      if (!exclude_component_ref (TREE_OPERAND (op, i)))
+		return false;
+	    }
+	}
+    }
+
+  return true;
+}
+
 /* Return true if the operand OP is simple.  */
 
 static bool
@@ -879,7 +906,7 @@ is_simple_operand (loop_p loop, gimple stmt, tree op)
 	  && !stmt_simple_memref_p (loop, stmt, op)))
     return false;
 
-  return true;
+  return exclude_component_ref (op);
 }
 
 /* Return true only when STMT is simple enough for being handled by
@@ -5068,17 +5095,13 @@ graphite_apply_transformations (scop_p scop)
   if (flag_loop_block)
     transform_done = graphite_trans_scop_block (scop);
 
-#if 0 && ENABLE_CHECKING
-  /* When the compiler is configured with ENABLE_CHECKING, always
-     generate code, even if we did not apply any transformation.  This
-     provides better code coverage of the backend code generator.
-
-     This also allows to check the performance for an identity
-     transform: GIMPLE -> GRAPHITE -> GIMPLE; and the output of CLooG
-     is never an identity: if CLooG optimizations are not disabled,
-     the CLooG output is always optimized in control flow.  */
-  transform_done = true;
-#endif
+  /* Generate code even if we did not apply any real transformation.
+     This also allows to check the performance for the identity
+     transformation: GIMPLE -> GRAPHITE -> GIMPLE
+     Keep in mind that CLooG optimizes in control, so the loop structure
+     may change, even if we only use -fgraphite-identity.  */ 
+  if (flag_graphite_identity)
+    transform_done = true;
 
   return transform_done;
 }

@@ -745,7 +745,6 @@ extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwis
 extern tree shorten_compare (tree *, tree *, tree *, enum tree_code *);
 
 extern tree pointer_int_sum (enum tree_code, tree, tree);
-extern unsigned int min_precision (tree, int);
 
 /* Add qualifiers to a type, in the fashion for C.  */
 extern tree c_build_qualified_type (tree, int);
@@ -900,8 +899,9 @@ extern int complete_array_type (tree *, tree, bool);
 extern tree builtin_type_for_size (int, bool);
 
 extern void warn_array_subscript_with_type_char (tree);
-extern void warn_about_parentheses (enum tree_code, enum tree_code,
-				    enum tree_code);
+extern void warn_about_parentheses (enum tree_code,
+				    enum tree_code, tree,
+				    enum tree_code, tree);
 extern void warn_for_unused_label (tree label);
 extern void warn_for_div_by_zero (location_t, tree divisor);
 extern void warn_for_sign_compare (location_t,

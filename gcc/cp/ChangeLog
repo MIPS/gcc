@@ -1,3 +1,66 @@
+2008-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37967
+	* decl.c (grokdeclarator): Diagnose auto function decl without
+	late return type and late return type function decl where type
+	is not auto.
+
+	PR c++/37965
+	* decl.c (cp_finish_decl): Diagnose type_uses_auto type with
+	no initializer.
+
+2008-10-29  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 11492
+	* class.c (check_bitfield_decl): Rename min_precision to
+	tree_int_cst_min_precision.
+	* decl.c (finish_enum): Likewise.
+
+2008-10-29  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/26997
+	* parser.c (cp_parser_token_starts_cast_expression): New.
+	(cp_parser_cast_expression): Peek the next token to decide whether
+	this could be a parenthesized constructor or is definitely an
+	actual cast.
+
+2008-10-24  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/7543
+	* typeck.c (build_x_binary_op): Update call to
+	warn_about_parentheses.
+	* parser.c (cp_parser_binary_expression): Add note about passing
+	the correct code for unary expressions.
+
+2008-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (check-c++-subtargets): New alias for
+	check-g++-subtargets.
+	(lang_checks_parallelized): Add check-g++.
+	(check_g++_parallelize): New variable.
+
+2008-10-21  Richard Guenther  <rguenther@suse.de>
+
+	* semantics.c (simplify_aggr_init_exprs_r): Remove.
+	(expand_or_defer_fn): Do not walk the function body to
+	simplify aggr_init_exprs.
+
+2008-10-20  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/37004
+	* typeck.c (cp_common_type): New. The same as
+	type_after_usual_arithmetic_conversions but without promotions.
+	(type_after_usual_arithmetic_conversions): Do the promotions and
+	call cp_common_type.
+	(common_type): Make it behave like the C version of this
+	function. Do not handle pointer types.
+	(common_pointer_type): Move handling of pointer types from
+	common_type to here.
+	(cp_build_binary_op): Use common_pointer_type instead of
+	common_type in call to pointer_diff.
+	Use cp_common_type instead of common_type.
+	* cp-tree.h (common_pointer_type): Declare.
+
 2008-10-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/37819
