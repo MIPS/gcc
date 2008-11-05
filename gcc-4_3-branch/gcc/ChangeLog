@@ -1,3 +1,69 @@
+2008-11-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-sra.c (bitfield_overlaps_p): Fix oversight.
+
+2008-11-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/37939
+	* config/cris/cris.c (cris_rtx_costs) <MULT>: Return 0 for an ADDI
+	operand.
+
+2008-11-01  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2008-10-24  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR rtl-optimization/37769
+	* regmove.c (optimize_reg_copy_2): Update REG_INC note if needed.
+
+2008-10-31  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/37909
+	Backport from mainline:
+	* config/sh/sh.c (untangle_mova): Return -1 when NEW_MOVA has
+	no address.
+
+2008-10-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	* config/sh/t-sh: Use $(MULTILIB_CFLAGS) when compiling to
+	unwind-dw2-Os-4-200.o.
+
+2008-10-22  Chao-ying Fu  <fu@mips.com>
+
+	* config/mips/mips.opt (msmartmips): Accept -mno-smartmips.
+
+2008-10-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/37882
+	* fold-const.c (build_range_type): For 1 .. signed_max
+	range call build_nonstandard_inter_type if signed_type_for
+	returned a type with bigger precision.
+
+2008-10-22  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias-warnings.c (skip_this_pointer): Skip pointers
+	for which we merged aliases of SMTs into their points-to sets.
+	* real.c (vax_f_format): Add missing initializer.
+
+2008-10-19  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (may_alias_p): Remove bogus shortcut.
+
+2008-10-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	PR tree-optimization/37102
+	* tree-outof-ssa.c (remove_gimple_phi_args): Remove all the PHI args  
+	from a node. Check to see if another PHI is dead.
+	(eliminate_useless_phis): Rename from eliminate_virtual_phis and remove
+	real PHIs which have no uses.
+	(rewrite_out_of_ssa): Call eliminate_useless_phis.
+
+2008-10-08  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c/35437
+	* expr.c (count_type_elements): Handle ERROR_MARK.
+
 2008-10-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
