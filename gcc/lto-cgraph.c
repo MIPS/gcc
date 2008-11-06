@@ -214,6 +214,7 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   unsigned needed, local, externally_visible, inlinable;
   bool boundary_p = !cgraph_node_in_set_p (node, set);
   bool clone_p = node->master_clone && node != node->master_clone;
+  intptr_t ref;
 
   switch (cgraph_function_body_availability (node))
     {
@@ -313,36 +314,30 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 				 node->local.inline_summary.self_insns);
     }
 
-  /* For WPA write also additional inlining information. */
-  if (flag_wpa)
+  LTO_DEBUG_TOKEN ("estimated_stack_size");
+  lto_output_sleb128_stream (ob->main_stream,
+			     node->global.estimated_stack_size);
+  LTO_DEBUG_TOKEN ("stack_frame_offset");
+  lto_output_sleb128_stream (ob->main_stream,
+			     node->global.stack_frame_offset);
+  LTO_DEBUG_TOKEN ("inlined_to");
+  if (node->global.inlined_to)
     {
-      intptr_t ref;
-
-      LTO_DEBUG_TOKEN ("estimated_stack_size");
-      lto_output_sleb128_stream (ob->main_stream, 
-				 node->global.estimated_stack_size);
-      LTO_DEBUG_TOKEN ("stack_frame_offset");
-      lto_output_sleb128_stream (ob->main_stream, 
-				 node->global.stack_frame_offset);
-      LTO_DEBUG_TOKEN ("inlined_to");
-      if (node->global.inlined_to)
-	{
-	  ref = lto_cgraph_encoder_lookup (encoder, node->global.inlined_to);
-	  gcc_assert (ref != LCC_NOT_FOUND);
-	}
-      else
-	ref = LCC_NOT_FOUND;
-      lto_output_sleb128_stream (ob->main_stream, ref); 
-
-      LTO_DEBUG_TOKEN ("insns");
-      lto_output_sleb128_stream (ob->main_stream, node->global.insns);
-      LTO_DEBUG_TOKEN ("estimated_growth");
-      lto_output_sleb128_stream (ob->main_stream,
-				 node->global.estimated_growth);
-      LTO_DEBUG_TOKEN ("inlined");
-      lto_output_uleb128_stream (ob->main_stream, node->global.inlined);
+      ref = lto_cgraph_encoder_lookup (encoder, node->global.inlined_to);
+      gcc_assert (ref != LCC_NOT_FOUND);
     }
-  
+  else
+    ref = LCC_NOT_FOUND;
+  lto_output_sleb128_stream (ob->main_stream, ref);
+
+  LTO_DEBUG_TOKEN ("insns");
+  lto_output_sleb128_stream (ob->main_stream, node->global.insns);
+  LTO_DEBUG_TOKEN ("estimated_growth");
+  lto_output_sleb128_stream (ob->main_stream,
+			     node->global.estimated_growth);
+  LTO_DEBUG_TOKEN ("inlined");
+  lto_output_uleb128_stream (ob->main_stream, node->global.inlined);
+
   LTO_DEBUG_UNDENT();
 
 #ifdef LTO_STREAM_DEBUGGING
@@ -544,41 +539,35 @@ input_node (struct lto_file_decl_data* file_data,
       LTO_DEBUG_TOKEN ("self_insns");
       self_insns = lto_input_sleb128 (ib);
     }
-	  
-  /* Read additional global data for LTRANS. */
-  if (flag_ltrans)
-    {
-      LTO_DEBUG_TOKEN ("estimated_stack_size");
-      estimated_stack_size = lto_input_sleb128 (ib);
-      LTO_DEBUG_TOKEN ("stack_frame_offset");
-      stack_frame_offset = lto_input_sleb128 (ib);
-      LTO_DEBUG_TOKEN ("inlined_to");
-      ref = lto_input_sleb128 (ib);
 
-      LTO_DEBUG_TOKEN ("insns");
-      insns = lto_input_sleb128 (ib);
-      LTO_DEBUG_TOKEN ("estimated_growth");
-      estimated_growth = lto_input_sleb128 (ib);
-      LTO_DEBUG_TOKEN ("inlined");
-      inlined = lto_input_uleb128 (ib);
-    }
+  LTO_DEBUG_TOKEN ("estimated_stack_size");
+  estimated_stack_size = lto_input_sleb128 (ib);
+  LTO_DEBUG_TOKEN ("stack_frame_offset");
+  stack_frame_offset = lto_input_sleb128 (ib);
+  LTO_DEBUG_TOKEN ("inlined_to");
+  ref = lto_input_sleb128 (ib);
+
+  LTO_DEBUG_TOKEN ("insns");
+  insns = lto_input_sleb128 (ib);
+  LTO_DEBUG_TOKEN ("estimated_growth");
+  estimated_growth = lto_input_sleb128 (ib);
+  LTO_DEBUG_TOKEN ("inlined");
+  inlined = lto_input_uleb128 (ib);
 
   gcc_assert (!node->aux);
 
   input_overwrite_node (file_data, node, tag, flags, stack_size,
 			self_insns);
-  if (flag_ltrans)
-    {
-      node->global.estimated_stack_size = estimated_stack_size;
-      node->global.stack_frame_offset = stack_frame_offset;
-      node->global.insns = insns;
 
-      /* Store a reference for now, and fix up later to be a pointer.  */
-      node->global.inlined_to = (cgraph_node_ptr) (intptr_t) ref;
+  node->global.estimated_stack_size = estimated_stack_size;
+  node->global.stack_frame_offset = stack_frame_offset;
+  node->global.insns = insns;
 
-      node->global.estimated_growth = estimated_growth;
-      node->global.inlined = inlined;
-    }
+  /* Store a reference for now, and fix up later to be a pointer.  */
+  node->global.inlined_to = (cgraph_node_ptr) (intptr_t) ref;
+
+  node->global.estimated_growth = estimated_growth;
+  node->global.inlined = inlined;
 
   return node;
 }
@@ -701,18 +690,15 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
       tag = lto_input_uleb128 (ib);
     }
 
-  if (flag_ltrans)
+  for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)
     {
-      for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)
-        {
-          const int ref = (int) (intptr_t) node->global.inlined_to;
+      const int ref = (int) (intptr_t) node->global.inlined_to;
 
-          /* Fixup inlined_to from reference to pointer.  */
-          if (ref != LCC_NOT_FOUND)
-            node->global.inlined_to = VEC_index (cgraph_node_ptr, nodes, ref);
-          else
-            node->global.inlined_to = NULL;
-        }
+      /* Fixup inlined_to from reference to pointer.  */
+      if (ref != LCC_NOT_FOUND)
+	node->global.inlined_to = VEC_index (cgraph_node_ptr, nodes, ref);
+      else
+	node->global.inlined_to = NULL;
     }
 
   for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)

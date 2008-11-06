@@ -1,5 +1,11 @@
 2008-11-06  Rafael Espindola  <espindola@google.com>
 
+	* lto-cgraph.c (output_node): Make some code unconditional.
+	(input_node): Make some code unconditional.
+	(input_cgraph_1): Make some code unconditional.
+
+2008-11-06  Rafael Espindola  <espindola@google.com>
+
 	* cgraphunit.c (ipa_passes): Don't use execute_regular_ipa_pass_list.
 	* ipa-pure-const.c (write_summary): Assert that fs is not NULL.
 	* passes.c (all_lto_gen_passes): New.
