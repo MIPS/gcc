@@ -1,3 +1,18 @@
+2008-11-06  Rafael Espindola  <espindola@google.com>
+
+	* cgraphunit.c (ipa_passes): Don't use execute_regular_ipa_pass_list.
+	* ipa-pure-const.c (write_summary): Assert that fs is not NULL.
+	* passes.c (all_lto_gen_passes): New.
+	(init_optimization_passes): Initialize all_lto_gen_passes.
+	(execute_ipa_summary_passes): Make non-static.
+	(ipa_write_summaries_1): Update to use ipa_write_summaries_2. Remove PASS
+	argument. Update all uses.
+	(ipa_write_summaries_2): New.
+	(execute_regular_ipa_pass_list): Remove.
+	* tree-pass.h (all_lto_gen_passes): New.
+	(execute_regular_ipa_pass_list): Remove.
+	(execute_ipa_summary_passes): New.
+
 2008-11-05  Rafael Espindola  <espindola@google.com>
 
 	Mainline merge @141575.

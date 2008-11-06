@@ -1248,7 +1248,14 @@ ipa_passes (void)
   gimple_register_cfg_hooks ();
   bitmap_obstack_initialize (NULL);
   execute_ipa_pass_list (all_small_ipa_passes);
-  execute_regular_ipa_pass_list (all_regular_ipa_passes);
+
+  execute_ipa_summary_passes ((struct ipa_opt_pass *) all_regular_ipa_passes);
+  execute_ipa_summary_passes ((struct ipa_opt_pass *) all_lto_gen_passes);
+
+  ipa_write_summaries ();
+
+  execute_ipa_pass_list (all_regular_ipa_passes);
+
   bitmap_obstack_release (NULL);
 }
 

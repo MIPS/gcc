@@ -764,7 +764,8 @@ write_summary (cgraph_node_set set)
 	{
 	  unsigned HOST_WIDEST_INT flags = 0;
 	  funct_state fs = get_function_state (node);
-	
+	  gcc_assert (fs);
+
 	  lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
 				    node->decl);
 	

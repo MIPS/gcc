@@ -523,7 +523,7 @@ extern struct gimple_opt_pass pass_convert_switch;
 
 /* The root of the compilation pass tree, once constructed.  */
 extern struct opt_pass *all_passes, *all_small_ipa_passes, *all_lowering_passes,
-                       *all_regular_ipa_passes;
+                       *all_regular_ipa_passes, *all_lto_gen_passes;
 
 /* Current optimization pass.  */
 extern struct opt_pass *current_pass;
@@ -531,7 +531,7 @@ extern struct opt_pass *current_pass;
 extern struct opt_pass * get_pass_for_id (int);
 extern void execute_pass_list (struct opt_pass *);
 extern void execute_ipa_pass_list (struct opt_pass *);
-extern void execute_regular_ipa_pass_list (struct opt_pass *);
+extern void execute_ipa_summary_passes (struct ipa_opt_pass *);
 extern void execute_all_ipa_transforms (void);
 
 extern void print_current_pass (FILE *);

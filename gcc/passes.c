@@ -334,7 +334,7 @@ struct rtl_opt_pass pass_postreload =
 
 /* The root of the compilation pass tree, once constructed.  */
 struct opt_pass *all_passes, *all_small_ipa_passes, *all_lowering_passes,
-  *all_regular_ipa_passes;
+  *all_regular_ipa_passes, *all_lto_gen_passes;
 
 /* A map from static pass id to optimization pass.  */
 struct opt_pass **passes_by_id;
@@ -577,14 +577,17 @@ init_optimization_passes (void)
 
   p = &all_regular_ipa_passes;
   NEXT_PASS (pass_ipa_cp);
-  NEXT_PASS (pass_ipa_lto_gimple_out);
-  NEXT_PASS (pass_ipa_lto_cgraph);
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_pure_const); 
   NEXT_PASS (pass_ipa_reference);
   NEXT_PASS (pass_ipa_type_escape);
   NEXT_PASS (pass_ipa_pta);
   NEXT_PASS (pass_ipa_struct_reorg);
+  *p = NULL;
+
+  p = &all_lto_gen_passes;
+  NEXT_PASS (pass_ipa_lto_gimple_out);
+  NEXT_PASS (pass_ipa_lto_cgraph);
   NEXT_PASS (pass_ipa_lto_wpa_fixup);
   NEXT_PASS (pass_ipa_lto_finish_out);  /* This must be the last IPA_PASS.  */
   *p = NULL;
@@ -837,6 +840,9 @@ init_optimization_passes (void)
 		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
 		       | PROP_cfg);
   register_dump_files (all_regular_ipa_passes, 
+		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
+		       | PROP_cfg);
+  register_dump_files (all_lto_gen_passes, 
 		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
 		       | PROP_cfg);
   register_dump_files (all_passes, 
@@ -1171,7 +1177,7 @@ add_ipa_transform_pass (void *data)
 
 /* Execute summary generation for all of the passes in IPA_PASS.  */
 
-static void
+void
 execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 {
   while (ipa_pass)
@@ -1363,11 +1369,9 @@ execute_pass_list (struct opt_pass *pass)
    those node in SET. */
 
 static void
-ipa_write_summaries_1 (struct opt_pass *pass, cgraph_node_set set)
+ipa_write_summaries_2 (struct opt_pass *pass, cgraph_node_set set,
+		       struct lto_out_decl_state *state)
 {
-  struct lto_out_decl_state *state = lto_new_out_decl_state ();
-
-  lto_push_out_decl_state (state);
   do
     {
       struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *)pass;
@@ -1379,10 +1383,24 @@ ipa_write_summaries_1 (struct opt_pass *pass, cgraph_node_set set)
 	  && (!pass->gate || pass->gate ()))
 	ipa_pass->write_summary (set);
       if (pass->sub && pass->sub->type != GIMPLE_PASS)
-	ipa_write_summaries_1 (pass->sub, set);
+	ipa_write_summaries_2 (pass->sub, set, state);
       pass = pass->next;
     }
   while (pass);
+}
+
+/* Helper function of ipa_write_summaries. Creates and destroys the decl state
+   and calls ipa_write_summaries_2 for all passes that have summaries. SET is
+   the set of nodes to be written. */
+
+static void
+ipa_write_summaries_1 (cgraph_node_set set)
+{
+  struct lto_out_decl_state *state = lto_new_out_decl_state ();
+  lto_push_out_decl_state (state);
+
+  ipa_write_summaries_2 (all_regular_ipa_passes, set, state);
+  ipa_write_summaries_2 (all_lto_gen_passes, set, state);
 
   gcc_assert (lto_get_out_decl_state () == state);
   lto_pop_out_decl_state ();
@@ -1404,7 +1422,7 @@ ipa_write_summaries (void)
       set = cgraph_node_set_new ();
       for (node = cgraph_nodes; node; node = node->next)
 	cgraph_node_set_add (set, node);
-      ipa_write_summaries_1 (all_regular_ipa_passes, set);
+      ipa_write_summaries_1 (set);
       lto_delete_static_inline_states ();
       ggc_free (set);
     }
@@ -1414,7 +1432,7 @@ void
 ipa_write_summaries_of_cgraph_node_set (cgraph_node_set set)
 {
   if (flag_generate_lto && !(errorcount || sorrycount))
-    ipa_write_summaries_1 (all_regular_ipa_passes, set);
+    ipa_write_summaries_1 (set);
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
@@ -1445,6 +1463,7 @@ void
 ipa_read_summaries (void)
 {
   ipa_read_summaries_1 (all_regular_ipa_passes);
+  ipa_read_summaries_1 (all_lto_gen_passes);
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
@@ -1473,19 +1492,6 @@ execute_ipa_pass_list (struct opt_pass *pass)
       pass = pass->next;
     }
   while (pass);
-}
-
-/* Same as execute_pass_list but assume that subpasses of IPA passes
-   are local passes.  */
-void
-execute_regular_ipa_pass_list (struct opt_pass *pass)
-{
-  if (!quiet_flag && !cfun)
-    fprintf (stderr, " <summary generate>");
-  execute_ipa_summary_passes ((struct ipa_opt_pass *) pass);
-  ipa_write_summaries ();
-
-  execute_ipa_pass_list (pass);
 }
 
 extern void debug_properties (unsigned int);
