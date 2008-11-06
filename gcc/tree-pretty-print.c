@@ -574,7 +574,12 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case REFERENCE_TYPE:
       str = (TREE_CODE (node) == POINTER_TYPE ? "*" : "&");
 
-      if (TREE_CODE (TREE_TYPE (node)) == FUNCTION_TYPE)
+      if (TREE_TYPE (node) == NULL)
+        {
+	  pp_string (buffer, str);
+          pp_string (buffer, "<null type>");
+        }
+      else if (TREE_CODE (TREE_TYPE (node)) == FUNCTION_TYPE)
         {
 	  tree fnode = TREE_TYPE (node);
 
@@ -615,7 +620,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case METHOD_TYPE:
-      dump_decl_name (buffer, TYPE_NAME (TYPE_METHOD_BASETYPE (node)), flags);
+      if (TYPE_METHOD_BASETYPE (node))
+        dump_decl_name (buffer, TYPE_NAME (TYPE_METHOD_BASETYPE (node)), flags);
+      else
+        pp_string (buffer, "<null method basetype>");
       pp_string (buffer, "::");
       break;
 

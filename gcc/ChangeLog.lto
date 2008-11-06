@@ -1,3 +1,8 @@
+2008-11-06  Cary Coutant  <ccoutant@google.com>
+
+	* tree-pretty-print.c (dump_generic_node): Guard against NULL
+	TREE_TYPE and TYPE_METHOD_BASETYPE.
+
 2008-11-06  Rafael Espindola  <espindola@google.com>
 
 	* lto-cgraph.c (output_node): Make some code unconditional.
