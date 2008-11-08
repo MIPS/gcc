@@ -1,3 +1,32 @@
+2008-11-07  Diego Novillo  <dnovillo@google.com>
+
+	* lib/lto.exp: New.
+	* gcc.dg/lto/lto.exp: Use multi-file support from lib/lto.exp.
+	* g++.dg/lto/lto.exp: Use multi-file support from lib/lto.exp
+	* g++.dg/lto/README: New.
+	* gcc.dg/lto/README: New.
+	* g++.dg/lto/20080709_0.C: Rename from 20080709.C.
+	* g++.dg/lto/20080829_0.C: Rename from 20080829.C.
+	* g++.dg/lto/20080904_0.C: Rename from 20080904.C.
+	* g++.dg/lto/20080907_0.C: Rename from 20080907.C.
+	* g++.dg/lto/20080908-1_0.C: Rename from 20080908-1.C
+	* g++.dg/lto/20080908-2_0.C: Rename from 20080908-2.C.
+	* g++.dg/lto/20080908-3_0.C: Rename from 20080908-3.C.
+	* g++.dg/lto/20080909-1_0.C: Rename from 20080909-1.C.
+	* g++.dg/lto/20080910-1_0.C: Rename from 20080910-1.C.
+	* g++.dg/lto/20080912-1_0.C: Rename from 20080912-1.C.
+	* g++.dg/lto/20080912_0.C: Rename from 20080912.C.
+	* g++.dg/lto/20080915_0.C: Rename from 20080915.C.
+	* g++.dg/lto/20080916_0.C: Rename from 20080916.C.
+	* g++.dg/lto/20080917_0.C: Rename from 20080917.C.
+	* g++.dg/lto/20080924_0.C: Rename from 20080924.C.
+	* g++.dg/lto/20080926_0.C: Rename from 20080926.C.
+	* g++.dg/lto/20081008_0.C: Rename from 20081008.C.
+	* gcc.dg/lto/20080908_0.c: Rename from 20080908.c.
+	* gcc.dg/lto/20080917_0.c: Rename from 20080917.c.
+	* gcc.dg/lto/20080924_0.c: Rename from 20080924.c.
+	* gcc.dg/lto/20081024_0.c: Rename from 20081024.c.
+
 2008-10-24  Cary Coutant  <ccoutant@google.com>
 
 	* gcc.dg/lto/20081024.c: New test.

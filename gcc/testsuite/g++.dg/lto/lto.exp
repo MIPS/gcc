@@ -1,35 +1,52 @@
-#   Copyright (C) 1997,2002,2003, 2007 Free Software Foundation, Inc.
+# Copyright (C) 2002, 2004, 2007 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with GCC; see the file COPYING3.  If not see
 # <http://www.gnu.org/licenses/>.
+#
+# Contributed by Diego Novillo <dnovillo@google.com>
 
-# GCC testsuite that uses the `dg.exp' driver.
 
-# Load support procs.
-load_lib g++-dg.exp
+# Test link-time optimization across multiple files.
+#
+# Programs are broken into multiple files.  Each one is compiled
+# separately with LTO information.  The final executable is generated
+# by collecting all the generated object files using regular LTO or WHOPR.
 
-# If a testcase doesn't have special options, use these.
-global DEFAULT_LTOFLAGS
-if ![info exists DEFAULT_LTOFLAGS] then {
-    set DEFAULT_LTOFLAGS "-flto-single -pedantic-errors"
+if $tracelevel then {
+    strace $tracelevel
 }
 
-# Initialize `dg'.
-dg-init
+# Load procedures from common libraries. 
+load_lib standard.exp
+load_lib g++.exp
+load_lib target-libpath.exp
+
+# Load the language-independent compabibility support procedures.
+load_lib lto.exp
+
+g++_init
+
+# Define an identifier for use with this suite to avoid name conflicts
+# with other lto tests running at the same time.
+set sid "cp_lto"
 
 # Main loop.
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.C]] "" $DEFAULT_LTOFLAGS
+foreach src [lsort [find $srcdir/$subdir *_0.C]] {
+    # If we're only testing specific files and this isn't one of them, skip it.
+    if ![runtest_file_p $runtests $src] then {
+	continue
+    }
 
-# All done.
-dg-finish
+    lto-execute $src $sid
+}

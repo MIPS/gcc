@@ -1,7 +1,4 @@
-/* { dg-do assemble } */
-/* FIXME lto.  We should use 'dg-do compile', but -S and -flto-single
-   confuse cc1 because the flags specify two different output files.  */
-
+/* { dg-do compile } */
 void foo(void) {
  char *bar;
  int baz;

@@ -1,6 +1,4 @@
-// FIXME lto.  We should really use 'compile' instead of 'assemble', but
-// -S confuses cc1plus.
-// { dg-do assemble }
+// { dg-do compile }
 
 /* The replacement of cos+sin with __builtin_cexpi done by
    pass_cse_sincos was using a builtin for which we had no attributes.

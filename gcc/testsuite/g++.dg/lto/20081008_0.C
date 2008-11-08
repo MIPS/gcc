@@ -1,4 +1,4 @@
-// { dg-do assemble }
+// { dg-do compile }
 // { dg-options "-flto-single" }
 
 struct Foo

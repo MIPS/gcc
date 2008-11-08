@@ -1,4 +1,4 @@
-// { dg-do assemble }
+// { dg-do compile }
 // { dg-options "-O2 -flto-single -funsigned-char" }
 int
 foo (char *s, int flag)
