@@ -1,3 +1,10 @@
+2008-11-08  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/448
+	* inclhack.def (newlib_stdint_1, newlib_stdint_2): New fixes.
+	* fixincl.x: Regenerate.
+	* tests/base/stdint.h: Update.
+
 2008-11-04  Joseph Myers  <joseph@codesourcery.com>
 
 	* inclhack.def (glibc_tgmath): Update fix in line with current

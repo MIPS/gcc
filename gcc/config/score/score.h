@@ -216,6 +216,8 @@
 /* Default definitions for size_t and ptrdiff_t.  */
 #define SIZE_TYPE                       "unsigned int"
 
+#define UINTPTR_TYPE			"long unsigned int"
+
 /* Register Usage
 
    S+core have:

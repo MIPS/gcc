@@ -152,8 +152,7 @@ enum c_tree_index
     CTI_CHAR16_TYPE,
     CTI_CHAR32_TYPE,
     CTI_WCHAR_TYPE,
-    CTI_SIGNED_WCHAR_TYPE,
-    CTI_UNSIGNED_WCHAR_TYPE,
+    CTI_UNDERLYING_WCHAR_TYPE,
     CTI_WINT_TYPE,
     CTI_SIGNED_SIZE_TYPE, /* For format checking only.  */
     CTI_UNSIGNED_PTRDIFF_TYPE, /* For format checking only.  */
@@ -161,6 +160,36 @@ enum c_tree_index
     CTI_UINTMAX_TYPE,
     CTI_WIDEST_INT_LIT_TYPE,
     CTI_WIDEST_UINT_LIT_TYPE,
+
+    /* Types for <stdint.h>, that may not be defined on all
+       targets.  */
+    CTI_SIG_ATOMIC_TYPE,
+    CTI_INT8_TYPE,
+    CTI_INT16_TYPE,
+    CTI_INT32_TYPE,
+    CTI_INT64_TYPE,
+    CTI_UINT8_TYPE,
+    CTI_UINT16_TYPE,
+    CTI_UINT32_TYPE,
+    CTI_UINT64_TYPE,
+    CTI_INT_LEAST8_TYPE,
+    CTI_INT_LEAST16_TYPE,
+    CTI_INT_LEAST32_TYPE,
+    CTI_INT_LEAST64_TYPE,
+    CTI_UINT_LEAST8_TYPE,
+    CTI_UINT_LEAST16_TYPE,
+    CTI_UINT_LEAST32_TYPE,
+    CTI_UINT_LEAST64_TYPE,
+    CTI_INT_FAST8_TYPE,
+    CTI_INT_FAST16_TYPE,
+    CTI_INT_FAST32_TYPE,
+    CTI_INT_FAST64_TYPE,
+    CTI_UINT_FAST8_TYPE,
+    CTI_UINT_FAST16_TYPE,
+    CTI_UINT_FAST32_TYPE,
+    CTI_UINT_FAST64_TYPE,
+    CTI_INTPTR_TYPE,
+    CTI_UINTPTR_TYPE,
 
     CTI_CHAR_ARRAY_TYPE,
     CTI_CHAR16_ARRAY_TYPE,
@@ -238,8 +267,7 @@ extern const unsigned int num_c_common_reswords;
 #define char16_type_node		c_global_trees[CTI_CHAR16_TYPE]
 #define char32_type_node		c_global_trees[CTI_CHAR32_TYPE]
 #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]
-#define signed_wchar_type_node		c_global_trees[CTI_SIGNED_WCHAR_TYPE]
-#define unsigned_wchar_type_node	c_global_trees[CTI_UNSIGNED_WCHAR_TYPE]
+#define underlying_wchar_type_node	c_global_trees[CTI_UNDERLYING_WCHAR_TYPE]
 #define wint_type_node			c_global_trees[CTI_WINT_TYPE]
 #define signed_size_type_node		c_global_trees[CTI_SIGNED_SIZE_TYPE]
 #define unsigned_ptrdiff_type_node	c_global_trees[CTI_UNSIGNED_PTRDIFF_TYPE]
@@ -247,6 +275,34 @@ extern const unsigned int num_c_common_reswords;
 #define uintmax_type_node		c_global_trees[CTI_UINTMAX_TYPE]
 #define widest_integer_literal_type_node c_global_trees[CTI_WIDEST_INT_LIT_TYPE]
 #define widest_unsigned_literal_type_node c_global_trees[CTI_WIDEST_UINT_LIT_TYPE]
+
+#define sig_atomic_type_node		c_global_trees[CTI_SIG_ATOMIC_TYPE]
+#define int8_type_node			c_global_trees[CTI_INT8_TYPE]
+#define int16_type_node			c_global_trees[CTI_INT16_TYPE]
+#define int32_type_node			c_global_trees[CTI_INT32_TYPE]
+#define int64_type_node			c_global_trees[CTI_INT64_TYPE]
+#define uint8_type_node			c_global_trees[CTI_UINT8_TYPE]
+#define uint16_type_node		c_global_trees[CTI_UINT16_TYPE]
+#define c_uint32_type_node		c_global_trees[CTI_UINT32_TYPE]
+#define c_uint64_type_node		c_global_trees[CTI_UINT64_TYPE]
+#define int_least8_type_node		c_global_trees[CTI_INT_LEAST8_TYPE]
+#define int_least16_type_node		c_global_trees[CTI_INT_LEAST16_TYPE]
+#define int_least32_type_node		c_global_trees[CTI_INT_LEAST32_TYPE]
+#define int_least64_type_node		c_global_trees[CTI_INT_LEAST64_TYPE]
+#define uint_least8_type_node		c_global_trees[CTI_UINT_LEAST8_TYPE]
+#define uint_least16_type_node		c_global_trees[CTI_UINT_LEAST16_TYPE]
+#define uint_least32_type_node		c_global_trees[CTI_UINT_LEAST32_TYPE]
+#define uint_least64_type_node		c_global_trees[CTI_UINT_LEAST64_TYPE]
+#define int_fast8_type_node		c_global_trees[CTI_INT_FAST8_TYPE]
+#define int_fast16_type_node		c_global_trees[CTI_INT_FAST16_TYPE]
+#define int_fast32_type_node		c_global_trees[CTI_INT_FAST32_TYPE]
+#define int_fast64_type_node		c_global_trees[CTI_INT_FAST64_TYPE]
+#define uint_fast8_type_node		c_global_trees[CTI_UINT_FAST8_TYPE]
+#define uint_fast16_type_node		c_global_trees[CTI_UINT_FAST16_TYPE]
+#define uint_fast32_type_node		c_global_trees[CTI_UINT_FAST32_TYPE]
+#define uint_fast64_type_node		c_global_trees[CTI_UINT_FAST64_TYPE]
+#define intptr_type_node		c_global_trees[CTI_INTPTR_TYPE]
+#define uintptr_type_node		c_global_trees[CTI_UINTPTR_TYPE]
 
 #define truthvalue_type_node		c_global_trees[CTI_TRUTHVALUE_TYPE]
 #define truthvalue_true_node		c_global_trees[CTI_TRUTHVALUE_TRUE]

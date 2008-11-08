@@ -142,6 +142,8 @@ extern GTY(()) int spu_tune;
 
 #define DEFAULT_SIGNED_CHAR 0
 
+#define STDINT_LONG32 0
+
 
 /* Register Basics */
 
