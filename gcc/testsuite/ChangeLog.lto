@@ -1,5 +1,14 @@
 2008-11-07  Diego Novillo  <dnovillo@google.com>
 
+	* lib/lto.exp: Fix copyright years.
+	(lto-get-options-main): Support dg-do link.
+	* g++.dg/lto/20081022.h: New.
+	* g++.dg/lto/20081022_0.C: New.
+	* g++.dg/lto/20081023_0.C: New.
+	* g++.dg/lto/20081022_1.C: New.
+
+2008-11-07  Diego Novillo  <dnovillo@google.com>
+
 	* lib/lto.exp: New.
 	* gcc.dg/lto/lto.exp: Use multi-file support from lib/lto.exp.
 	* g++.dg/lto/lto.exp: Use multi-file support from lib/lto.exp
