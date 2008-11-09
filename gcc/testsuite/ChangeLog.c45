@@ -1,3 +1,10 @@
+2008-11-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c-torture/compile/20081108-1.c,
+	gcc.c-torture/compile/20081108-2.c,
+	gcc.c-torture/compile/20081108-3.c, gcc.dg/compare10.c: New tests.
+	* gcc.dg/c99-const-expr-7.c: Add another test.
+
 2008-11-08  Joseph Myers  <joseph@codesourcery.com>
 
 	PR c/448

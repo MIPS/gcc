@@ -54,6 +54,13 @@ enum impl_conv {
   ic_return
 };
 
+/* Whether we are building a boolean conversion inside
+   convert_for_assignment, or some other late binary operation.  If
+   build_binary_op is called (from code shared with C++) in this case,
+   then the operands have already been folded and the result will not
+   be folded again, so C_MAYBE_CONST_EXPR should not be generated.  */
+bool in_late_binary_op;
+
 /* The level of nesting inside "__alignof__".  */
 int in_alignof;
 
@@ -485,14 +492,23 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 
 /* EXPR may appear in an unevaluated part of an integer constant
    expression, but not in an evaluated part.  Wrap it in a
-   C_MAYBE_CONST_EXPR.  */
+   C_MAYBE_CONST_EXPR, or mark it with TREE_OVERFLOW if it is just an
+   INTEGER_CST and we cannot create a C_MAYBE_CONST_EXPR.  */
 
 static tree
 note_integer_operands (tree expr)
 {
   tree ret;
-  ret = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (expr), NULL_TREE, expr);
-  C_MAYBE_CONST_EXPR_INT_OPERANDS (ret) = 1;
+  if (TREE_CODE (expr) == INTEGER_CST && in_late_binary_op)
+    {
+      ret = copy_node (expr);
+      TREE_OVERFLOW (ret) = 1;
+    }
+  else
+    {
+      ret = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (expr), NULL_TREE, expr);
+      C_MAYBE_CONST_EXPR_INT_OPERANDS (ret) = 1;
+    }
   return ret;
 }
 
@@ -2761,6 +2777,8 @@ build_function_call (tree function, tree params)
      expressions, like those used for ObjC messenger dispatches.  */
   function = objc_rewrite_function_call (function, params);
 
+  function = c_fully_fold (function, false, NULL);
+
   fntype = TREE_TYPE (function);
 
   if (TREE_CODE (fntype) == ERROR_MARK)
@@ -3987,7 +4005,7 @@ build_conditional_expr (tree ifexp, bool ifexp_bcp, tree op1, tree op2)
 	 and later code won't know it used to be different.
 	 Do this check on the original types, so that explicit casts
 	 will be considered, but default promotions won't.  */
-      if (warn_sign_compare && !skip_evaluation)
+      if (!skip_evaluation)
 	{
 	  int unsigned_op1 = TYPE_UNSIGNED (TREE_TYPE (orig_op1));
 	  int unsigned_op2 = TYPE_UNSIGNED (TREE_TYPE (orig_op2));
@@ -4001,16 +4019,47 @@ build_conditional_expr (tree ifexp, bool ifexp_bcp, tree op1, tree op2)
 		 all the values of the unsigned type.  */
 	      if (!TYPE_UNSIGNED (result_type))
 		/* OK */;
-	      /* Do not warn if the signed quantity is an unsuffixed
-		 integer literal (or some static constant expression
-		 involving such literals) and it is non-negative.  */
-	      else if ((unsigned_op2
-			&& tree_expr_nonnegative_warnv_p (op1, &ovf))
-		       || (unsigned_op1
-			   && tree_expr_nonnegative_warnv_p (op2, &ovf)))
-		/* OK */;
 	      else
-		warning (OPT_Wsign_compare, "signed and unsigned type in conditional expression");
+		{
+		  bool op1_maybe_const = true;
+		  bool op2_maybe_const = true;
+
+		  /* Do not warn if the signed quantity is an
+		     unsuffixed integer literal (or some static
+		     constant expression involving such literals) and
+		     it is non-negative.  This warning requires the
+		     operands to be folded for best results, so do
+		     that folding in this case even without
+		     warn_sign_compare to avoid warning options
+		     possibly affecting code generation.  */
+		  op1 = c_fully_fold (op1, require_constant_value,
+				      &op1_maybe_const);
+		  op2 = c_fully_fold (op2, require_constant_value,
+				      &op2_maybe_const);
+
+		  if (warn_sign_compare)
+		    {
+		      if ((unsigned_op2
+			   && tree_expr_nonnegative_warnv_p (op1, &ovf))
+			  || (unsigned_op1
+			      && tree_expr_nonnegative_warnv_p (op2, &ovf)))
+			/* OK */;
+		      else
+			warning (OPT_Wsign_compare, "signed and unsigned type in conditional expression");
+		    }
+		  if (!op1_maybe_const || TREE_CODE (op1) != INTEGER_CST)
+		    {
+		      op1 = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (op1),
+				    NULL, op1);
+		      C_MAYBE_CONST_EXPR_NON_CONST (op1) = !op1_maybe_const;
+		    }
+		  if (!op2_maybe_const || TREE_CODE (op2) != INTEGER_CST)
+		    {
+		      op2 = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (op2),
+				    NULL, op2);
+		      C_MAYBE_CONST_EXPR_NON_CONST (op2) = !op2_maybe_const;
+		    }
+		}
 	    }
 	}
     }
@@ -4752,7 +4801,16 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	       || coder == FIXED_POINT_TYPE
 	       || coder == ENUMERAL_TYPE || coder == COMPLEX_TYPE
 	       || coder == BOOLEAN_TYPE))
-    return convert_and_check (type, orig_rhs);
+    {
+      tree ret;
+      bool save = in_late_binary_op;
+      if (codel == BOOLEAN_TYPE)
+	in_late_binary_op = true;
+      ret = convert_and_check (type, orig_rhs);
+      if (codel == BOOLEAN_TYPE)
+	in_late_binary_op = save;
+      return ret;
+    }
 
   /* Aggregates in different TUs might need conversion.  */
   if ((codel == RECORD_TYPE || codel == UNION_TYPE)
@@ -5067,7 +5125,14 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       return convert (type, rhs);
     }
   else if (codel == BOOLEAN_TYPE && coder == POINTER_TYPE)
-    return convert (type, rhs);
+    {
+      tree ret;
+      bool save = in_late_binary_op;
+      in_late_binary_op = true;
+      ret = convert (type, rhs);
+      in_late_binary_op = save;
+      return ret;
+    }
 
   switch (errtype)
     {
@@ -9315,10 +9380,54 @@ build_binary_op (location_t location, enum tree_code code,
 	  converted = 1;
 	  resultcode = xresultcode;
 
-	  if (warn_sign_compare && !skip_evaluation)
-            {
-              warn_for_sign_compare (location, orig_op0, orig_op1, op0, op1, 
-                                     result_type, resultcode);
+	  if (!skip_evaluation)
+	    {
+	      bool op0_maybe_const = true;
+	      bool op1_maybe_const = true;
+	      tree orig_op0_folded, orig_op1_folded;
+
+	      if (in_late_binary_op)
+		{
+		  orig_op0_folded = orig_op0;
+		  orig_op1_folded = orig_op1;
+		}
+	      else
+		{
+		  /* Fold for the sake of possible warnings, as in
+		     build_conditional_expr.  This requires the
+		     "original" values to be folded, not just op0 and
+		     op1.  */
+		  op0 = c_fully_fold (op0, require_constant_value,
+				      &op0_maybe_const);
+		  op1 = c_fully_fold (op1, require_constant_value,
+				      &op1_maybe_const);
+		  orig_op0_folded = c_fully_fold (orig_op0,
+						  require_constant_value,
+						  NULL);
+		  orig_op1_folded = c_fully_fold (orig_op1,
+						  require_constant_value,
+						  NULL);
+		}
+
+	      if (warn_sign_compare)
+		warn_for_sign_compare (location, orig_op0_folded,
+				       orig_op1_folded, op0, op1,
+				       result_type, resultcode);
+	      if (!in_late_binary_op)
+		{
+		  if (!op0_maybe_const || TREE_CODE (op0) != INTEGER_CST)
+		    {
+		      op0 = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (op0),
+				    NULL, op0);
+		      C_MAYBE_CONST_EXPR_NON_CONST (op0) = !op0_maybe_const;
+		    }
+		  if (!op1_maybe_const || TREE_CODE (op1) != INTEGER_CST)
+		    {
+		      op1 = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (op1),
+				    NULL, op1);
+		      C_MAYBE_CONST_EXPR_NON_CONST (op1) = !op1_maybe_const;
+		    }
+		}
 	    }
 	}
     }
@@ -9374,7 +9483,8 @@ build_binary_op (location_t location, enum tree_code code,
     ret = (int_operands
 	   ? note_integer_operands (ret)
 	   : build1 (NOP_EXPR, TREE_TYPE (ret), ret));
-  else if (TREE_CODE (ret) != INTEGER_CST && int_operands)
+  else if (TREE_CODE (ret) != INTEGER_CST && int_operands
+	   && !in_late_binary_op)
     ret = note_integer_operands (ret);
   if (real_result_type)
     ret = build1 (EXCESS_PRECISION_EXPR, real_result_type, ret);

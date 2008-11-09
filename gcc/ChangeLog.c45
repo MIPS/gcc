@@ -1,3 +1,18 @@
+2008-11-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-tree.h (in_late_binary_op): Declare.
+	* c-typeck.c (in_late_binary_op): New.
+	(note_integer_operands): Create overflowed INTEGER_CST if possible
+	and in_late_binary_op.
+	(build_function_call): Fold the function designator.
+	(build_conditional_expr): Fold operands before possibly doing
+	-Wsign-compare warnings.
+	(convert_for_assignment): Set in_late_binary_op for conversions to
+	boolean.
+	(build_binary_op): Fold operands for -Wsign-compare warnings
+	unless in_late_binary_op.  Avoid creating C_MAYBE_CONST_EXPR if
+	in_late_binary_op.
+
 2008-11-08  Joseph Myers  <joseph@codesourcery.com>
 
 	PR c/448

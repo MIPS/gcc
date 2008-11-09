@@ -38,3 +38,6 @@ int j[1] = { DBL_MAX }; /* { dg-warning "overflow in implicit constant conversio
 
 int array[2] = { [0 * (INT_MAX + 1)] = 0 }; /* { dg-warning "integer overflow in expression" } */
 /* { dg-error "overflow in constant expression" "constant" { target *-*-* } 39 } */
+
+_Bool k = INT_MAX + 1; /* { dg-warning "integer overflow in expression" } */
+/* { dg-error "overflow in constant expression" "constant" { target *-*-* } 42 } */
