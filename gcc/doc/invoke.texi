@@ -6650,7 +6650,8 @@ assignments).  This option is enabled by default for C if a strict
 conformance option such as @option{-std=c99} is used.
 
 @opindex mfpmath
-This option has no effect for languages other than C, or if
+@option{-fexcess-precision=standard} is not implemented for languages
+other than C, and has no effect if
 @option{-funsafe-math-optimizations} or @option{-ffast-math} is
 specified.  On the x86, it also has no effect if @option{-mfpmath=sse}
 or @option{-mfpmath=sse+387} is specified; in the former case, IEEE

@@ -1,5 +1,10 @@
 2008-11-09  Joseph Myers  <joseph@codesourcery.com>
 
+	* doc/invoke.texi (-fexcess-precision=): Update documentation for
+	non-C languages.
+
+2008-11-09  Joseph Myers  <joseph@codesourcery.com>
+
 	* c-opts.c (c_common_post_options): Give an error for
 	-fexcess-precision=standard for C++.
 
