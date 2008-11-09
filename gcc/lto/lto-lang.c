@@ -35,8 +35,6 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-inline.h"
 #include "gimple.h"
 #include "toplev.h"
-#include "libfuncs.h"
-#include "except.h"
 #include "lto/common.h"
 #include "lto-tree-in.h"
 
@@ -665,8 +663,6 @@ lto_init_options (unsigned int argc ATTRIBUTE_UNUSED,
      decisions about what to output.  */
   flag_unit_at_a_time = 1;
 
-  /* Enable exceptions by default.  */
-  flag_exceptions = 1;
 
   return CL_LTO;
 }
@@ -980,30 +976,6 @@ lto_build_c_type_nodes (void)
 }
 
 
-/* Return the runtime type for type T.  For LTO, we assume that each
-   front end has generated the appropriate runtime types (see
-   output_eh_region), so there is nothing for us to do here.  */
-
-static tree
-lto_eh_runtime_type (tree t)
-{
-  return t;
-}
-
-
-/* Initialize EH support.  */
-
-static void
-lto_init_eh (void)
-{
-  eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
-					     ? "__gcc_personality_sj0"
-					     : "__gcc_personality_v0");
-  default_init_unwind_resume_libfunc ();
-  lang_eh_runtime_type = lto_eh_runtime_type;
-}
-
-
 /* Perform LTO-specific initialization.  */
 
 static bool
@@ -1054,9 +1026,6 @@ lto_init (void)
   /* Initialize LTO-specific data structures.  */
   lto_global_var_decls = VEC_alloc (tree, gc, 256);
   in_lto_p = true;
-
-  if (flag_exceptions)
-    lto_init_eh ();
 
   return true;
 }

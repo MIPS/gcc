@@ -146,6 +146,9 @@ proc lto-link-and-maybe-run { testname objlist dest optall optfile optstr } {
 # SRC is the full pathname of the primary source file.
 proc lto-get-options-main { src } {
     global compile_type
+    global dg-extra-ld-options
+
+    set dg-extra-ld-options ""
 
     # dg-options sets a variable called dg-extra-tool-flags.
     set dg-extra-tool-flags ""
@@ -156,14 +159,14 @@ proc lto-get-options-main { src } {
     # dg-require-* sets dg-do-what.
     upvar dg-do-what dg-do-what 
 
-    verbose "getting options for $src"
     set tmp [dg-get-options $src]
+    verbose "getting options for $src: $tmp"
     foreach op $tmp {
 	set cmd [lindex $op 0]
 	verbose "cmd is $cmd"
 	if { ![string compare "dg-options" $cmd] \
 	     || [string match "dg-skip-if" $cmd] \
-	     || [string match "dg-require-*" $cmd]  } {
+	     || [string match "dg-require-*" $cmd] } {
 	    set status [catch "$op" errmsg]
 	    if { $status != 0 } {
 		perror "src: $errmsg for \"$op\"\n"
@@ -184,6 +187,9 @@ proc lto-get-options-main { src } {
 	    } else {
 		warning "lto.exp does not support dg-do $dgdo"
 	    }
+	} elseif { ![string compare "dg-extra-ld-options" $cmd] } {
+	    set dg-extra-ld-options [lindex $op 2]
+	    verbose "dg-extra-ld-options for main is ${dg-extra-ld-options}"
 	} else {
 	    # Ignore unrecognized dg- commands, but warn about them.
 	    warning "lto.exp does not support $cmd"
@@ -192,6 +198,7 @@ proc lto-get-options-main { src } {
 
     # Return flags to use for compiling the primary source file and for
     # linking.
+    verbose "dg-extra-tool-flags for main is ${dg-extra-tool-flags}"
     return ${dg-extra-tool-flags}
 }
 
@@ -250,6 +257,7 @@ proc lto-execute { src1 sid } {
     global compiler_conditional_xfail_data
     global dg-do-what-default
     global compile_type
+    global dg-extra-ld-options
 
     # Get extra flags for this test from the primary source file, and
     # process other dg-* options that this suite supports.  Warn about
@@ -362,7 +370,7 @@ proc lto-execute { src1 sid } {
 	     || ![string compare "link" $compile_type] } {
 	    lto-link-and-maybe-run \
 		    "[lindex $obj_list 0]-[lindex $obj_list end]" \
-		    $obj_list $execname $option $extra_flags(0) $option
+		    $obj_list $execname $option ${dg-extra-ld-options} $option
 	}
 
 	# Clean up object files.

@@ -1,3 +1,18 @@
+2008-11-09  Diego Novillo  <dnovillo@google.com>
+
+	* lto/lto.c (lto_fixup_tree): Change error message locus
+	information to include location of mismatching
+	declaration.
+	Use TREE_NO_WARNING to avoid repeated messages.
+	(lto_main): If lto_fixup_decls emitted any errors, exit.
+	* lto/lto-lang.c: Don't include libfuncs.h and except.h
+	(lto_init_options): Don't enable exceptions by default.
+	(lto_eh_runtime_type): Move to lto-function-in.c
+	(lto_init_eh): Likewise.
+	(lto_init): Don't call lto_init_eh.
+	* lto/Make-lang.in (lto-lang.o): Remove dependency on
+	libfuncs.h and except.h.
+
 2008-10-30  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c (lto_read_decls): Declare debug_main only if

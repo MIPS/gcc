@@ -42,6 +42,7 @@ Boston, MA 02110-1301, USA.  */
 #include "function.h"
 #include "ggc.h"
 #include "diagnostic.h"
+#include "libfuncs.h"
 #include "except.h"
 #include "debug.h"
 #include "vec.h"
@@ -1757,6 +1758,41 @@ fixup_eh_region_pointers (struct function *fn, unsigned root_region,
 }
 
 
+/* Return the runtime type for type T.  For LTO, we assume that each
+   front end has generated the appropriate runtime types (see
+   output_eh_region), so there is nothing for us to do here.  */
+
+static tree
+lto_eh_runtime_type (tree t)
+{
+  return t;
+}
+
+
+/* Initialize EH support.  */
+
+static void
+lto_init_eh (void)
+{
+  /* Contrary to most other FEs, we only initialize EH support when at
+     least one of the files in the set contains exception regions in
+     it.  Since this happens much later than the call to init_eh in
+     lang_dependent_init, we have to set flag_exceptions and call
+     init_eh again to initialize the EH tables.  */
+  flag_exceptions = 1;
+  init_eh ();
+
+  /* FIXME lto.  Use g++'s personality for now, but this should be
+     derived from either the input files or some global flag.  It's
+     not clear yet what should happen when languages other than C or
+     C++ are in the mix.  */
+  eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
+					     ? "__gxx_personality_sj0"
+					     : "__gxx_personality_v0");
+  default_init_unwind_resume_libfunc ();
+  lang_eh_runtime_type = lto_eh_runtime_type;
+}
+
 
 /* Read the exception table for FN from IB using the data descriptors
    in DATA_IN.  */
@@ -1771,6 +1807,17 @@ input_eh_regions (struct lto_input_block *ib, struct data_in *data_in,
   tag = input_record_start (ib);
   if (tag == LTO_eh_table)
     {
+      static bool eh_initialized_p = false;
+
+      /* If the file contains EH regions, then it was compiled with
+	 -fexceptions.  In that case, initialize the backend EH
+	 machinery.  */
+      if (!eh_initialized_p)
+	{
+	  lto_init_eh ();
+	  eh_initialized_p = true;
+	}
+
       gcc_assert (fn->eh);
 
       last_region = lto_input_sleb128 (ib);

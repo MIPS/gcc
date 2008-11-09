@@ -25,6 +25,7 @@ Boston, MA 02110-1301, USA.  */
 #include "opts.h"
 #include "toplev.h"
 #include "tree.h"
+#include "diagnostic.h"
 #include "tm.h"
 #include "libiberty.h"
 #include "cgraph.h"
@@ -794,13 +795,30 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
       if (t != prevailing)
 	{
 	  if (TREE_CODE (t) == FUNCTION_DECL
-	      && flag_exceptions
 	      && TREE_NOTHROW (prevailing) != TREE_NOTHROW (t))
 	    {
+	      /* If the prevailing definition does not throw but the
+		 declaration (T) was considered throwing, then we
+		 simply add PREVAILING to the list of throwing
+		 functions.  However, if the opposite is true, then
+		 the call to PREVAILING was generated assuming that
+		 the function didn't throw, which means that CFG
+		 cleanup may have removed surrounding try/catch
+		 regions.  In that case, emit an error.
+
+		 Note that we currently accept these cases even when
+		 they occur within a single file.  It's certainly a
+		 user error, but we silently allow the compiler to
+		 remove surrounding try/catch regions.  Perhaps we
+		 could demote this to a warning instead.  */
 	      if (TREE_NOTHROW (prevailing))
 		lto_mark_nothrow_fndecl (prevailing);
-	      else
-		error ("%qD change to exception throwing", prevailing);
+	      else if (!TREE_NO_WARNING (prevailing))
+		{
+		  error ("%J%qD declared as nothrow, but it really throws", t,
+			 prevailing);
+		  TREE_NO_WARNING (prevailing) = 1;
+		}
 	    }
 
 	  pointer_set_insert (fixup_data->free_list, t);
@@ -826,6 +844,7 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
       walk_tree (&TYPE_FIELDS (t), lto_fixup_tree, data, NULL);
       walk_tree (&TYPE_BINFO (t), lto_fixup_tree, data, NULL);
       break;
+
     case TREE_BINFO:
       {
 	tree base;
@@ -848,11 +867,13 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
 	  }
       }
       break;
+
     case VAR_DECL:
       walk_tree (&DECL_INITIAL (t), lto_fixup_tree, data, NULL);
       break;	
+
     default:
-      ;
+      break;
     }
   return NULL;
 }
@@ -1033,7 +1054,12 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 
   lto_fixup_decls (all_file_decl_data);
 
-  /* FIXME!!! This loop needs to be changed to use the pass manager to
+  /* Skip over the rest if any errors were found.  FIXME lto, this
+     should be reorganized to use the pass manager.  */
+  if (errorcount)
+    goto out;
+
+  /* FIXME lto. This loop needs to be changed to use the pass manager to
      call the ipa passes directly.  */
   for (i = 0; i < j; i++)
     {
@@ -1124,6 +1150,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       XDELETEVEC (output_files);
     }
 
+out:
   bitmap_obstack_release (&lto_bitmap_obstack);
 }
 

@@ -1,3 +1,14 @@
+2008-11-09  Diego Novillo  <dnovillo@google.com>
+
+	* g++.dg/lto/20081109-1_0.C: New.
+	* g++.dg/lto/20081109_0.C: New.
+	* g++.dg/lto/20081109_1.C: New.
+	* lib/lto.exp (lto-get-options-main): Add support for
+	adding extra flags to the link stage with
+	dg-extra-ld-options.
+	(lto-execute): Use dg-extra-ld-options when calling
+	lto-link-and-maybe-run.
+
 2008-11-07  Diego Novillo  <dnovillo@google.com>
 
 	* lib/lto.exp: Fix copyright years.

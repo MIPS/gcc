@@ -1,3 +1,14 @@
+2008-11-09  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-in.c: Include libfuncs.h.
+	(lto_eh_runtime_type): Move from lto/lto-lang.c
+	(lto_init_eh): Likewise.
+	Set flag_exceptions and call init_eh.
+	(input_eh_regions): Call lto_init_eh once if an EH table
+	is found.
+	* Makefile.in (lto-function-in.o): Add dependency on
+	libfuncs.h.
+
 2008-11-06  Cary Coutant  <ccoutant@google.com>
 
 	* tree-pretty-print.c (dump_generic_node): Guard against NULL
