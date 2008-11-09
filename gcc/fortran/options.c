@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cpp.h"
 #include "toplev.h"
+#include "tm.h"
 
 gfc_option_t gfc_option;
 
@@ -230,7 +231,8 @@ gfc_post_options (const char **pfilename)
 
   /* Excess precision other than "fast" requires front-end
      support.  */
-  if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
+  if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
+      && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
     sorry ("-fexcess-precision=standard for Fortran");
   flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
 

@@ -1,6 +1,12 @@
 2008-11-09  Joseph Myers  <joseph@codesourcery.com>
 
 	* lang.c (java_post_options): Give an error for
+	-fexcess-precision=standard only for processors where the
+	option is significant.
+
+2008-11-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* lang.c (java_post_options): Give an error for
 	-fexcess-precision=standard.
 
 2008-11-04  Joseph Myers  <joseph@codesourcery.com>
