@@ -1,5 +1,10 @@
 2008-11-09  Joseph Myers  <joseph@codesourcery.com>
 
+	* c-opts.c (c_common_post_options): Give an error for
+	-fexcess-precision=standard for C++.
+
+2008-11-09  Joseph Myers  <joseph@codesourcery.com>
+
 	* c-tree.h (in_late_binary_op): Declare.
 	* c-typeck.c (in_late_binary_op): New.
 	(note_integer_operands): Create overflowed INTEGER_CST if possible

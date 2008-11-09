@@ -1020,7 +1020,11 @@ c_common_post_options (const char **pfilename)
   /* Excess precision other than "fast" requires front-end
      support.  */
   if (c_dialect_cxx ())
-    flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+    {
+      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
+	sorry ("-fexcess-precision=standard for C++");
+      flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+    }
   else if (flag_excess_precision_cmdline == EXCESS_PRECISION_DEFAULT)
     flag_excess_precision_cmdline = (flag_iso
 				     ? EXCESS_PRECISION_STANDARD
