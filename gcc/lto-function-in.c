@@ -1782,6 +1782,14 @@ lto_init_eh (void)
   flag_exceptions = 1;
   init_eh ();
 
+  /* Initialize dwarf2 tables.  Since dwarf2out_do_frame() returns
+     true only when exceptions are enabled, this initialization is
+     never done during lang_dependent_init.  */
+#if defined DWARF2_DEBUGGING_INFO || defined DWARF2_UNWIND_INFO
+  if (dwarf2out_do_frame ())
+    dwarf2out_frame_init ();
+#endif
+
   /* FIXME lto.  Use g++'s personality for now, but this should be
      derived from either the input files or some global flag.  It's
      not clear yet what should happen when languages other than C or

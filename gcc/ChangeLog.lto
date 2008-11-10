@@ -1,3 +1,8 @@
+2008-11-10  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-in.c (lto_init_eh): Call
+	dwarf2out_frame_init, if needed.
+
 2008-11-09  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-in.c: Include libfuncs.h.
