@@ -1,3 +1,7 @@
+2008-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ira-lives.c (process_bb_node_lives): Deal with EH_RETURN_DATA_REGNO.
+
 2008-11-10  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/37397
