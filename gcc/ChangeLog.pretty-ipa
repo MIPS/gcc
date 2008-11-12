@@ -1,0 +1,10 @@
+2008-11-12  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-pure-const.c (check_decl): Do not handle used attribute
+	on local objects specially; readonly reads are safe.
+	(look_for_address_of): Remove.
+	(check_rhs_var, check_lhs_var): Remove tree_could_trap check.
+
+2008-11-12  Jan Hubicka  <jh@suse.cz>
+
+	Created the branch.

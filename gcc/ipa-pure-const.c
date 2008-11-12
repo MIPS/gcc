@@ -141,15 +141,6 @@ static inline void
 check_decl (funct_state local, 
 	    tree t, bool checking_write)
 {
-  /* If the variable has the "used" attribute, treat it as if it had a
-     been touched by the devil.  */
-  if (lookup_attribute ("used", DECL_ATTRIBUTES (t)))
-    {
-      local->pure_const_state = IPA_NEITHER;
-      local->looping = false;
-      return;
-    }
-
   /* Do not want to do anything with volatile except mark any
      function that uses one to be not const or pure.  */
   if (TREE_THIS_VOLATILE (t)) 
@@ -163,6 +154,15 @@ check_decl (funct_state local,
   if (!TREE_STATIC (t) && !DECL_EXTERNAL (t))
     return;
 
+  /* If the variable has the "used" attribute, treat it as if it had a
+     been touched by the devil.  */
+  if (lookup_attribute ("used", DECL_ATTRIBUTES (t)))
+    {
+      local->pure_const_state = IPA_NEITHER;
+      local->looping = false;
+      return;
+    }
+
   /* Since we have dealt with the locals and params cases above, if we
      are CHECKING_WRITE, this cannot be a pure or constant
      function.  */
@@ -175,14 +175,8 @@ check_decl (funct_state local,
 
   if (DECL_EXTERNAL (t) || TREE_PUBLIC (t))
     {
-      /* If the front end set the variable to be READONLY and
-	 constant, we can allow this variable in pure or const
-	 functions but the scope is too large for our analysis to set
-	 these bits ourselves.  */
-      
-      if (TREE_READONLY (t)
-	  && DECL_INITIAL (t)
-	  && is_gimple_min_invariant (DECL_INITIAL (t)))
+      /* Readonly reads are safe.  */
+      if (TREE_READONLY (t) && !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (t)))
 	; /* Read of a constant, do not change the function state.  */
       else 
 	{
@@ -265,26 +259,6 @@ check_tree (funct_state local, tree t, bool checking_write)
     check_operand (local, t, checking_write);
 }
 
-/* Scan tree T to see if there are any addresses taken in within T.  */
-
-static void 
-look_for_address_of (funct_state local, tree t)
-{
-  if (TREE_CODE (t) == ADDR_EXPR)
-    {
-      tree x = get_base_var (t);
-      if (TREE_CODE (x) == VAR_DECL) 
-	{
-	  check_decl (local, x, false);
-	  
-	  /* Taking the address of something appears to be reasonable
-	     in PURE code.  Not allowed in const.  */
-	  if (local->pure_const_state == IPA_CONST)
-	    local->pure_const_state = IPA_PURE;
-	}
-    }
-}
-
 /* Check to see if T is a read or address of operation on a var we are
    interested in analyzing.  LOCAL is passed in to get access to its
    bit vectors.  */
@@ -292,13 +266,6 @@ look_for_address_of (funct_state local, tree t)
 static void
 check_rhs_var (funct_state local, tree t)
 {
-  look_for_address_of (local, t);
-
-  /* Memcmp and strlen can both trap and they are declared pure.  */
-  if (tree_could_trap_p (t)
-      && local->pure_const_state == IPA_CONST)
-    local->pure_const_state = IPA_PURE;
-
   check_tree(local, t, false);
 }
 
@@ -308,12 +275,6 @@ check_rhs_var (funct_state local, tree t)
 static void
 check_lhs_var (funct_state local, tree t)
 {
-  /* Memcmp and strlen can both trap and they are declared pure.
-     Which seems to imply that we can apply the same rule here.  */
-  if (tree_could_trap_p (t)
-      && local->pure_const_state == IPA_CONST)
-    local->pure_const_state = IPA_PURE;
-    
   check_tree(local, t, true);
 }
 
