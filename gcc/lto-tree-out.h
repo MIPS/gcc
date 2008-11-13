@@ -110,6 +110,7 @@ struct output_block
 
 struct output_block *create_output_block (enum lto_section_type);
 void destroy_output_block (struct output_block *);
+extern void output_constructors_and_inits (struct cgraph_node_set_def *);
 extern void output_tree (struct output_block *, tree);
 
 #endif  /* GCC_LTO_TREE_OUT_H  */

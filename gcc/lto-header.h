@@ -76,9 +76,6 @@ typedef enum {
   LTO_N_DECL_STREAMS
 } lto_decl_stream_e_t;
 
-/* In lto-section-out.c.  */
-char *lto_get_section_name (enum lto_section_type, const char *);
-
 /* In lto-wpa-fixup.c  */
 void lto_mark_nothrow_fndecl (tree);
 void lto_fixup_nothrow_decls (void);

@@ -340,6 +340,7 @@ struct cgraph_node_set_def GTY(())
 {
   htab_t GTY((param_is (struct cgraph_node_set_element_def))) hashtab;
   VEC(cgraph_node_ptr, gc) *nodes;
+  PTR GTY ((skip)) aux;
 };
 
 typedef struct cgraph_node_set_def *cgraph_node_set;

@@ -1,3 +1,10 @@
+2008-11-12  Doug Kwan  <dougkwan@google.com>
+
+	* gcc.dg/lto/20081111_0.c: New.
+	* gcc.dg/lto/20081111_0.c: New.
+	* gcc.dg/lto/20081112_1.c: New.
+	* gcc.dg/lto/20081112_1.c: New.
+
 2008-11-09  Diego Novillo  <dnovillo@google.com>
 
 	* g++.dg/lto/20081109-2_0.C: New.

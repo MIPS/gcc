@@ -97,7 +97,7 @@ lto/lto.o: lto/lto.c $(CONFIG_H) $(CGRAPH_H) coretypes.h \
 	$(LTO_TREE_H) dwarf2out.h tree-ssa-operands.h gt-lto-lto.h \
 	lto-section.h $(LTO_SECTION_IN_H) tree-pass.h $(LTO_SECTION_OUT_H) \
 	pointer-set.h vec.h $(BITMAP_H) $(IPA_PROP_H) lto/common.h \
-	diagnostic.h
+	diagnostic.h lto-utils.h
 lto/lto-elf.o: lto/lto-elf.c $(CONFIG_H) coretypes.h $(SYSTEM_H) \
 	toplev.h $(LTO_H) $(TM_H)
 lto/common.o: lto/common.h

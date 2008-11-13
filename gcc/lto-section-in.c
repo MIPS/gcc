@@ -48,11 +48,8 @@ Boston, MA 02110-1301, USA.  */
 #include "output.h"
 #include "lto-section.h"
 #include "lto-section-in.h"
+#include "lto-utils.h"
 #include "cpplib.h"
-#include "bitmap.h"
-
-static bitmap_obstack lto_section_out_obstack;
-static bitmap function_body_in_file_p;
 
 /* Return 0 or 1 based on the last bit of FLAGS and right shift FLAGS
    by 1.  */
@@ -508,27 +505,6 @@ lto_get_function_in_decl_state (struct lto_file_decl_data *file_data,
   return slot? ((struct lto_in_decl_state*) *slot) : NULL;
 }
 
-/* Mark FN_DECL as a function whose body is in an LTO IR file.  */
-
-void lto_mark_function_body_in_file (tree fn_decl)
-{
-  if (!function_body_in_file_p)
-    {
-      bitmap_obstack_initialize (&lto_section_out_obstack);
-      function_body_in_file_p = BITMAP_ALLOC (&lto_section_out_obstack);
-    }
-  bitmap_set_bit (function_body_in_file_p, DECL_UID (fn_decl));
-}
-
-/* Return true if FN_DECL has been marked as a function whose body is 
-   in an LTO IR file.  */
-bool lto_function_body_in_file_p (tree fn_decl)
-{
-  if (function_body_in_file_p)
-    return bitmap_bit_p (function_body_in_file_p, DECL_UID (fn_decl));
-  else
-    return false; 
-}
 /*****************************************************************************/
 /* Stream debugging support code.                                            */
 /*****************************************************************************/

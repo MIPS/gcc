@@ -1,3 +1,15 @@
+2008-11-12  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (lto_bitmap_obstack): Remove var.
+	(lto_materialize_function): Do nothing instead of marking function
+	body in file if flag_wpa is true.
+	(lto_add_all_inlinees): Use bitmap functions in lto-utils.c.
+	(lto_scan_statics_in_cgraph_node): New function.
+	(lto_promote_cross_file_statics): Same.
+	(lto_wpa_write_files): Call lto_promote_cross_file_statics.
+	Use bitmap functions in lto-utils.c.  Remove unsued label OUT.
+	* Make-lang.in (lto/lto.o): Add lto-utils.h to dependency list.
+
 2008-11-09  Diego Novillo  <dnovillo@google.com>
 
 	* lto/lto.c (lto_fixup_tree): Change error message locus

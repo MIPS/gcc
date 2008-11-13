@@ -37,6 +37,7 @@ Boston, MA 02110-1301, USA.  */
 #include "timevar.h"
 #include "lto-section-in.h"
 #include "lto-section-out.h"
+#include "lto-utils.h"
 #include "tree-flow.h"
 
 /* LTO fix-up.
@@ -47,27 +48,10 @@ Boston, MA 02110-1301, USA.  */
    LTRANS to fix up the function bodies accordingly.
  */
 
-static bitmap_obstack wpa_fixup_obstack;
-static bool wpa_fixup_obstack_initialized;
-
 /* The vectors records function DECLs having multiple copies with different
    exception throwing attributes.  We do not mark a DECL if all copies of it
    have the same exception throwing attribute. */
 static bitmap lto_nothrow_fndecls;
-
-/* Helper to allocate a bitmap from heap.  Initializes the local obstack
-   if necessary.  */
-
-static bitmap
-bitmap_alloc (void)
-{
-  if (!wpa_fixup_obstack_initialized)
-    {
-      bitmap_obstack_initialize (&wpa_fixup_obstack);
-      wpa_fixup_obstack_initialized = true;
-    }
-  return BITMAP_ALLOC (&wpa_fixup_obstack);
-}
 
 /* We need to fix up GIMPLE bodies due to changes in exception setting.
    Consider this example:
@@ -142,7 +126,7 @@ lto_mark_nothrow_fndecl (tree fndecl)
 {
   gcc_assert (TREE_CODE (fndecl) == FUNCTION_DECL);
   if (!lto_nothrow_fndecls)
-    lto_nothrow_fndecls = bitmap_alloc ();
+    lto_nothrow_fndecls = lto_bitmap_alloc ();
     
   bitmap_set_bit (lto_nothrow_fndecls, DECL_UID (fndecl));
 }
@@ -167,7 +151,7 @@ output_wpa_fixup (cgraph_node_set set)
      duplicates, we need to use a bitmap and a vector to save the
      DECLs we want.  Note that we need to check if lto_nothrow_fndecls
      is NULL.  This happens when no DECL has been marked.  */
-  seen_decls = bitmap_alloc ();
+  seen_decls = lto_bitmap_alloc ();
   if (lto_nothrow_fndecls)
     for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
       {
@@ -192,7 +176,7 @@ output_wpa_fixup (cgraph_node_set set)
   /* Release resources.  */
   lto_destroy_simple_output_block (ob);
   VEC_free(tree, heap, decls);
-  BITMAP_FREE (seen_decls);
+  lto_bitmap_free (seen_decls);
 }
 
 /* Read in WPA fix-up information from one file. FILE_DATA points to

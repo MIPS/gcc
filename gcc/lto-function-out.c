@@ -50,6 +50,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-in.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
+#include "lto-utils.h"
 
 sbitmap lto_flags_needed_for;
 sbitmap lto_types_needed_for;
@@ -1608,7 +1609,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
   tree t;
   int i = 0;
   struct lto_output_stream *tmp_stream = ob->main_stream;
-  bitmap local_statics = BITMAP_ALLOC (NULL);
+  bitmap local_statics = lto_bitmap_alloc ();
 
   ob->main_stream = ob->local_decl_stream;
 
@@ -1655,7 +1656,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
 
   /* End of statics.  */
   output_zero (ob);
-  BITMAP_FREE (local_statics);
+  lto_bitmap_free (local_statics);
 
   /* The easiest way to get all of this stuff generated is to play
      pointer games with the streams and reuse the code for putting out
@@ -2258,14 +2259,136 @@ output_function (struct cgraph_node* node)
   pop_cfun ();
 }
 
-
-/* Output constructor for static or external vars.  */
+/* Output initializer of VAR in output block OB.  */
 
 static void
-output_constructors_and_inits (void)
+output_var_init (struct output_block *ob, tree var)
 {
-  struct output_block *ob = create_output_block (LTO_section_static_initializer);
+  lto_var_flags_t flags;
+
+  output_expr_operand (ob, var);
+  LTO_DEBUG_TOKEN ("init");
+  if (DECL_INITIAL (var))
+    output_expr_operand (ob, DECL_INITIAL (var));
+  else
+    output_zero (ob);
+
+  LTO_DEBUG_TOKEN ("flags");
+  if (flag_wpa)
+    {
+      flags = lto_get_var_flags (var);
+
+      /* Make sure we only output a global from one LTRANS file. */
+      if (TREE_PUBLIC (var)
+	  || (flags & LTO_VAR_FLAG_FORCE_GLOBAL))
+	{
+	  if (flags & LTO_VAR_FLAG_DEFINED)
+	    flags |= LTO_VAR_FLAG_SUPPRESS_OUTPUT;
+	  else
+	    flags |= LTO_VAR_FLAG_DEFINED;
+	  lto_set_var_flags (var, flags);
+	}
+
+      output_uleb128 (ob, flags);
+    }
+  else
+    output_zero (ob);
+}
+
+/* Output all global vars reachable from STATE to output block OB.
+   SEEN is a bitmap indexed by DECL_UID of vars to avoid multiple
+   outputs in the same file.  */
+
+static void
+output_inits_in_decl_state (struct output_block *ob,
+			    struct lto_out_decl_state *state,
+			    bitmap seen)
+{
+  struct lto_tree_ref_encoder *encoder =
+    &state->streams[LTO_DECL_STREAM_VAR_DECL];
+  unsigned num_vars, i;
+
+  num_vars = lto_tree_ref_encoder_size (encoder);
+  for (i = 0; i < num_vars; i++)
+    {
+      tree var = lto_tree_ref_encoder_get_tree (encoder, i);
+      tree context = DECL_CONTEXT (var);
+      if (TREE_STATIC (var)
+	  && (!context || TREE_CODE (context) != FUNCTION_DECL)
+	  && !bitmap_bit_p (seen, DECL_UID (var)))
+	{
+	  bitmap_set_bit (seen, DECL_UID (var));
+	  output_var_init (ob, var);
+	}
+    }
+}
+
+/* Output used constructors for static or external vars to OB.  */
+
+static void
+output_used_constructors_and_inits (struct output_block *ob)
+{
+  bitmap seen;
+  struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
+  struct lto_out_decl_state *fn_out_state;
+  unsigned i, num_fns;
+
+  /* Go through all out-state to find out variable used. */
+  seen = lto_bitmap_alloc ();
+  num_fns = VEC_length (lto_out_decl_state_ptr, lto_function_decl_states);
+  output_inits_in_decl_state (ob, out_state, seen);
+  for (i = 0; i < num_fns; i++)
+    {
+      fn_out_state =
+	VEC_index (lto_out_decl_state_ptr, lto_function_decl_states, i);
+      output_inits_in_decl_state (ob, fn_out_state, seen);
+    }
+  lto_bitmap_free (seen);
+}
+
+/* Output constructors and inits of all vars in varpool that have not been
+   output so far.  This is done typically in the last LTRANS input.  */
+
+static void
+output_remaining_constructors_and_inits (struct output_block *ob)
+{
   struct varpool_node *vnode;
+
+  FOR_EACH_STATIC_VARIABLE (vnode)
+    {
+      tree var = vnode->decl;
+      tree context = DECL_CONTEXT (var);
+      if (TREE_STATIC (var)
+	  && (!context || TREE_CODE (context) != FUNCTION_DECL)
+	  && !(lto_get_var_flags (var) & LTO_VAR_FLAG_DEFINED))
+	output_var_init (ob, var);
+    }
+}
+
+/* Output constructors and inits of all vars in varpool to output block OB.  */
+
+static void
+output_all_constructors_and_inits (struct output_block *ob)
+{
+  struct varpool_node *vnode;
+
+  FOR_EACH_STATIC_VARIABLE (vnode)
+    {
+      tree var = vnode->decl;
+      tree context = DECL_CONTEXT (var);
+      if (!context || TREE_CODE (context) != FUNCTION_DECL)
+	output_var_init (ob, var);
+    }
+}
+
+/* Output constructors and inits of all vars.  SET is the current
+   cgraph node set being output.  */
+
+void
+output_constructors_and_inits (cgraph_node_set set)
+{
+  struct output_block *ob =
+    create_output_block (LTO_section_static_initializer);
   unsigned i;
   alias_pair *p;
 
@@ -2277,23 +2400,20 @@ output_constructors_and_inits (void)
   /* Make string 0 be a NULL string.  */
   lto_output_1_stream (ob->string_stream, 0);
 
-  /* Process the global static vars that have initializers or
-     constructors.  */
-  FOR_EACH_STATIC_VARIABLE (vnode)
+  /* Output inits and constructors of variables.  */
+  if (flag_wpa)
     {
-      tree var = vnode->decl;
-      tree context = DECL_CONTEXT (var);
-      if (!context || TREE_CODE (context) != FUNCTION_DECL)
-	{
-	  output_expr_operand (ob, var);
-	  
-	  LTO_DEBUG_TOKEN ("init");
-	  if (DECL_INITIAL (var))
-	    output_expr_operand (ob, DECL_INITIAL (var));
-	  else
-	    output_zero (ob);
-	}
+      /* In WPA mode, only output the inits and constructors of reachable
+         variables from functions in the cgrah node set being output.  */
+      output_used_constructors_and_inits (ob);
+
+      /* Output all remaining vars into last LTRANS file.  */
+      if (set->aux)
+	output_remaining_constructors_and_inits (ob);
     }
+  else
+    output_all_constructors_and_inits (ob);
+
   /* The terminator for the constructor.  */
   output_zero (ob);
 
@@ -2378,7 +2498,6 @@ lto_output (cgraph_node_set set)
   struct lto_out_decl_state *decl_state;
   cgraph_node_set_iterator csi;
 
-  bitmap_obstack_initialize (NULL);
   lto_static_init_local ();
 
   /* Process only the functions with bodies and only process the master
@@ -2399,9 +2518,6 @@ lto_output (cgraph_node_set set)
 	  lto_record_function_out_decl_state (node->decl, decl_state);
 	}
     }
-
-  output_constructors_and_inits ();
-  bitmap_obstack_release (NULL);
 }
 
 struct ipa_opt_pass pass_ipa_lto_gimple_out =
@@ -2697,7 +2813,20 @@ output_var_decl (struct output_block *ob, tree decl)
   /* tag and flags */
   /* Assume static or external variable.  */
   output_global_record_start (ob, NULL, NULL, LTO_var_decl1);
-  output_tree_flags (ob, 0, decl, true);
+  if (flag_wpa
+      && (lto_get_var_flags (decl) & LTO_VAR_FLAG_FORCE_GLOBAL))
+    {
+      /* This variable is a file-scope static that is now shared by
+	 multiple translation units owing to IPA-inlining.  We promote
+	 it to a global.  */
+
+      gcc_assert (TREE_STATIC (decl) && !TREE_PUBLIC (decl));
+      TREE_PUBLIC (decl) = true;
+      output_tree_flags (ob, 0, decl, true);
+      TREE_PUBLIC (decl) = false;
+    }
+  else
+    output_tree_flags (ob, 0, decl, true);
 
   global_vector_debug (ob);
 

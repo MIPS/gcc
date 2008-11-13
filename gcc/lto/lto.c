@@ -40,6 +40,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-out.h"
 #include "lto-tree-in.h"
 #include "lto-tags.h"
+#include "lto-utils.h"
 #include "vec.h"
 #include "bitmap.h"
 #include "pointer-set.h"
@@ -50,8 +51,6 @@ Boston, MA 02110-1301, USA.  */
    be defined in time to set __USE_GNU in the system headers, and strsignal
    will not be declared.  */
 #include <sys/mman.h>
-
-static bitmap_obstack lto_bitmap_obstack;
 
 DEF_VEC_P(bitmap);
 DEF_VEC_ALLOC_P(bitmap,heap);
@@ -97,9 +96,7 @@ lto_materialize_function (struct cgraph_node *node)
 
       allocate_struct_function (decl, false);
 
-      if (flag_wpa)
-	lto_mark_function_body_in_file (decl);
-      else
+      if (!flag_wpa)
         lto_input_function_body (file_data, decl, data);
 
       fn = DECL_STRUCT_FUNCTION (decl);
@@ -581,8 +578,8 @@ lto_add_all_inlinees (cgraph_node_set set)
 {
   cgraph_node_set_iterator csi;
   struct cgraph_node *node;
-  bitmap original_nodes = BITMAP_ALLOC (&lto_bitmap_obstack);
-  bitmap inlined_decls = BITMAP_ALLOC (&lto_bitmap_obstack);
+  bitmap original_nodes = lto_bitmap_alloc ();
+  bitmap inlined_decls = lto_bitmap_alloc();
 
   /* We are going to iterate SET will adding to it, mark all original
      nodes so that we only add node inlined to original nodes.  */
@@ -596,8 +593,116 @@ lto_add_all_inlinees (cgraph_node_set set)
 	lto_add_inline_clones (set, node, original_nodes, inlined_decls);
     }
 
-  BITMAP_FREE (original_nodes);
+  lto_bitmap_free (original_nodes);
   return inlined_decls;
+}
+
+/* Owing to inlining, we may need to promote a file-scope variable
+   to a global variable.  Consider this case:
+
+   a.c:
+   static int var;
+
+   void
+   foo (void)
+   {
+     var++;
+   }
+
+   b.c:
+
+   extern void foo (void);
+
+   void
+   bar (void)
+   {
+     foo ();
+   }
+
+   If WPA inlines FOO inside BAR, then the static variable VAR needs to
+   be promoted to global because BAR and VAR may be in different LTRANS
+   files. */
+
+/* Promote file-scope variable reachable from NODE if necessary to global.
+   GLOBAL_VARS is a bitmap of file-scope variables output so far in all
+   LTRANS files.  SEEN_FUNCS is a bitmap of seen functions in the current
+   LTRANS file, and SEEN_VARS is a bitmap of seen file-scope variable
+   in the current LTRANS file.  All bitmaps are indexed by DECL_UID.  */
+
+static void
+lto_scan_statics_in_cgraph_node (struct cgraph_node *node,
+				 bitmap global_vars,
+				 bitmap seen_funcs,
+				 bitmap seen_vars)
+{
+  struct lto_in_decl_state *state;
+  tree var;
+  struct lto_tree_ref_table *var_table;
+  unsigned i;
+  lto_var_flags_t flags;
+  
+  /* Return if node has no function body.   */
+  if (!node->analyzed)
+    return;
+
+  /* We use a bitmap to avoid repeated scanning.  */
+  if (bitmap_bit_p (seen_funcs, DECL_UID (node->decl)))
+    return;
+  bitmap_set_bit (seen_funcs, DECL_UID (node->decl));
+
+  state = lto_get_function_in_decl_state (node->local.lto_file_data,
+					  node->decl);
+  var_table = &state->streams[LTO_DECL_STREAM_VAR_DECL];
+  for (i = 0; i < var_table->size; i++)
+    {
+      var = var_table->trees[i];
+      if (TREE_STATIC (var)
+	  && !TREE_PUBLIC (var)
+	  && !bitmap_bit_p (seen_vars, DECL_UID (var)))
+	{
+	  bitmap_set_bit (seen_vars, DECL_UID (var));
+	  if (bitmap_bit_p (global_vars, DECL_UID (var)))
+	    {
+	      /* This static var is seen in another file, we need to
+		 promote it to be a global.  */
+	      flags = lto_get_var_flags (var);
+	      lto_set_var_flags (var, flags | LTO_VAR_FLAG_FORCE_GLOBAL);
+	    }
+	  else
+	    { 
+	      /* This is the first time we see this static var.  */
+	      bitmap_set_bit (global_vars, DECL_UID (var));
+	    } 
+	}
+    }
+}
+
+/* Find out all static variables that need to be promoted to global because
+   of cross file sharing.  This function must be run in the WPA mode after
+   all inlinees are added.  */
+
+static void
+lto_promote_cross_file_statics (void)
+{
+  unsigned i;
+  cgraph_node_set set;
+  cgraph_node_set_iterator csi;
+  bitmap global_vars, seen_vars, seen_funcs;
+  
+  global_vars = lto_bitmap_alloc ();
+  for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
+    {
+      /* We use SEEN_VARS and SEEN_FUNCS to avoid redundant computation
+	 within the same file.  */ 
+      seen_vars = lto_bitmap_alloc ();
+      seen_funcs = lto_bitmap_alloc ();
+      for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+	lto_scan_statics_in_cgraph_node (csi_node (csi), global_vars,
+					 seen_funcs, seen_vars);
+      lto_bitmap_free (seen_vars);
+      lto_bitmap_free (seen_funcs);
+    }
+  lto_bitmap_free (global_vars);
 }
 
 static lto_file *current_lto_file;
@@ -609,7 +714,7 @@ static char **
 lto_wpa_write_files (void)
 {
   char **output_files;
-  unsigned i;
+  unsigned i, n_sets;
   lto_file *file;
   cgraph_node_set set;
   bitmap decls;
@@ -622,10 +727,15 @@ lto_wpa_write_files (void)
       VEC_safe_push (bitmap, heap, inlined_decls, decls);
     }
 
+  /* After adding all inlinees, find out statics that need to be promoted
+     to globals because of cross-file inlining.  */
+  lto_promote_cross_file_statics ();
+
   output_files = XNEWVEC (char *, VEC_length (cgraph_node_set,
 					      lto_cgraph_node_sets) + 1);
 
-  for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
+  n_sets = VEC_length (cgraph_node_set, lto_cgraph_node_sets);
+  for (i = 0; i < n_sets; i++)
     {
       char *temp_filename = make_cwd_temp_file (".lto.o");
 
@@ -641,6 +751,9 @@ lto_wpa_write_files (void)
       decls = VEC_index (bitmap, inlined_decls, i);
       lto_force_functions_static_inline (decls);
 
+      /* Set AUX to 1 in the last LTRANS file.  */
+      set = VEC_index (cgraph_node_set, lto_cgraph_node_sets, i);
+      set->aux = (void*) ((intptr_t) (i == (n_sets - 1)));
       ipa_write_summaries_of_cgraph_node_set (set);
       lto_delete_static_inline_states ();
       
@@ -652,7 +765,7 @@ lto_wpa_write_files (void)
   output_files[i] = NULL;
 
   for (i = 0; VEC_iterate (bitmap, inlined_decls, i, decls); i++)
-    BITMAP_FREE (decls);
+    lto_bitmap_free (decls);
   VEC_free (bitmap, heap, inlined_decls);
 
   return output_files;
@@ -1011,8 +1124,6 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   lto_set_in_hooks (all_file_decl_data, get_section_data,
 		    free_section_data);
 
-  bitmap_obstack_initialize (&lto_bitmap_obstack);
-
   /* Read the resolution file. */
   if (resolution_file_name)
     {
@@ -1057,7 +1168,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   /* Skip over the rest if any errors were found.  FIXME lto, this
      should be reorganized to use the pass manager.  */
   if (errorcount)
-    goto out;
+    return;
 
   /* FIXME lto. This loop needs to be changed to use the pass manager to
      call the ipa passes directly.  */
@@ -1149,9 +1260,6 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
         }
       XDELETEVEC (output_files);
     }
-
-out:
-  bitmap_obstack_release (&lto_bitmap_obstack);
 }
 
 #include "gt-lto-lto.h"

@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "stdint.h"
 #include "lto-symtab.h"
+#include "lto-utils.h"
 #include "bitmap.h"
 
 static VEC(lto_out_decl_state_ptr, heap) *decl_state_stack;
@@ -57,13 +58,12 @@ static VEC(lto_out_decl_state_ptr, heap) *decl_state_stack;
 /* List of out decl states used by functions.  We use this to
    generate the decl directory later. */
 
-static VEC(lto_out_decl_state_ptr, heap) *function_decl_states;
+VEC(lto_out_decl_state_ptr, heap) *lto_function_decl_states;
 
 /* Bitmap indexed by DECL_UID to indicate if a function needs to be
    forced static inline. */
-static bitmap forced_static_inline;
 
-static bitmap_obstack lto_section_out_obstack;
+static bitmap forced_static_inline;
 
 /* Initialize states for determining which function decls to be ouput
    as static inline, regardless of the decls' own attributes.  */
@@ -71,8 +71,7 @@ static bitmap_obstack lto_section_out_obstack;
 void
 lto_new_static_inline_states (void)
 {
-  bitmap_obstack_initialize (&lto_section_out_obstack);
-  forced_static_inline = BITMAP_ALLOC (&lto_section_out_obstack);
+  forced_static_inline = lto_bitmap_alloc ();
 }
 
 /* Releasing resources use for states to determine which function decls
@@ -81,9 +80,8 @@ lto_new_static_inline_states (void)
 void
 lto_delete_static_inline_states (void)
 {
-  BITMAP_FREE (forced_static_inline);
+  lto_bitmap_free (forced_static_inline);
   forced_static_inline = NULL;
-  bitmap_obstack_release (&lto_section_out_obstack);
 }
 
 /* Force FN_DECL to be output as static inline.  */
@@ -208,47 +206,6 @@ lto_eq_global_slot_node (const void *p1, const void *p2)
 
   return ds1->t == ds2->t;
 }
-
-
-/* Get a section name for a particular type or name.  The NAME field
-   is only used if SECTION_TYPE is LTO_section_function_body or
-   lto_static_initializer.  For all others it is ignored.  The callee
-   of this function is responcible to free the returned name.  */
-
-char *
-lto_get_section_name (enum lto_section_type section_type, const char *name)
-{
-  switch (section_type)
-    {
-    case LTO_section_function_body:
-      return concat (LTO_SECTION_NAME_PREFIX, name, NULL);
-
-    case LTO_section_static_initializer:
-      return concat (LTO_SECTION_NAME_PREFIX, ".statics", NULL);
-
-    case LTO_section_symtab:
-      return concat (LTO_SECTION_NAME_PREFIX, ".symtab", NULL);
-
-    case LTO_section_decls:
-      return concat (LTO_SECTION_NAME_PREFIX, ".decls", NULL);
-
-    case LTO_section_cgraph:
-      return concat (LTO_SECTION_NAME_PREFIX, ".cgraph", NULL);
-
-    case LTO_section_ipa_pure_const:
-      return concat (LTO_SECTION_NAME_PREFIX, ".pureconst", NULL);
-
-    case LTO_section_ipa_reference:
-      return concat (LTO_SECTION_NAME_PREFIX, ".reference", NULL);
-
-    case LTO_section_wpa_fixup:
-      return concat (LTO_SECTION_NAME_PREFIX, ".wpa_fixup", NULL);
-
-    default:
-      gcc_unreachable ();
-    }
-}
-
 
 /*****************************************************************************
    Output routines shared by all of the serialization passes.
@@ -789,7 +746,8 @@ lto_record_function_out_decl_state (tree fn_decl,
 	state->streams[i].tree_hash_table = NULL;
       }
   state->fn_decl = fn_decl;
-  VEC_safe_push (lto_out_decl_state_ptr, heap, function_decl_states, state);
+  VEC_safe_push (lto_out_decl_state_ptr, heap, lto_function_decl_states,
+		 state);
 }
 
 /* Return a reference index for tree node T from hash table H.  If
@@ -1200,7 +1158,8 @@ write_symbols_of_kind (lto_decl_stream_e_t kind, htab_t hash, bitmap seen)
 {
   struct lto_out_decl_state *out_state;
   struct lto_output_stream stream;
-  unsigned num_fns = VEC_length (lto_out_decl_state_ptr, function_decl_states);
+  unsigned num_fns =
+    VEC_length (lto_out_decl_state_ptr, lto_function_decl_states);
   unsigned idx;
 
   memset (&stream, 0, sizeof (stream));
@@ -1210,7 +1169,7 @@ write_symbols_of_kind (lto_decl_stream_e_t kind, htab_t hash, bitmap seen)
   for (idx = 0; idx < num_fns; idx++)
     {
       out_state =
-	VEC_index (lto_out_decl_state_ptr, function_decl_states, idx);
+	VEC_index (lto_out_decl_state_ptr, lto_function_decl_states, idx);
       write_symbol_vec (hash, &stream, out_state->streams[kind].trees, seen);
     }
 
@@ -1229,13 +1188,11 @@ produce_symtab (htab_t hash)
   lto_begin_section (section_name);
   free (section_name);
 
-  bitmap_obstack_initialize (NULL);
-  seen = BITMAP_ALLOC (NULL);
+  seen = lto_bitmap_alloc ();
   write_symbols_of_kind (LTO_DECL_STREAM_FN_DECL, hash, seen);
   write_symbols_of_kind (LTO_DECL_STREAM_VAR_DECL, hash, seen);
+  lto_bitmap_free (seen);
 
-  BITMAP_FREE (seen);
-  bitmap_obstack_release (NULL);
   lto_end_section ();
 }
 
@@ -1246,7 +1203,7 @@ produce_symtab (htab_t hash)
    recover these on other side.  */
 
 static void
-produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED)
+produce_asm_for_decls (cgraph_node_set set)
 {
   struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
   struct lto_out_decl_state *fn_out_state;
@@ -1261,6 +1218,10 @@ produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED)
   ob->global = true;
   ob->main_hash_table = htab_create (37, lto_hash_global_slot_node,
 				     lto_eq_global_slot_node, free);
+
+  /* Write out constructors and init.  We defer doing this until now so that
+     we can write out only what is needed.  */
+  output_constructors_and_inits (set);
 
   /* Assign reference indices for predefined trees.  These need not be
      serialized.  */
@@ -1277,12 +1238,12 @@ produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED)
 
   /* Write the global var decls.  */
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
-  num_fns = VEC_length (lto_out_decl_state_ptr, function_decl_states);
+  num_fns = VEC_length (lto_out_decl_state_ptr, lto_function_decl_states);
   lto_output_decl_state_streams (ob, out_state);
   for (idx = 0; idx < num_fns; idx++)
     {
       fn_out_state =
-	VEC_index (lto_out_decl_state_ptr, function_decl_states, idx);
+	VEC_index (lto_out_decl_state_ptr, lto_function_decl_states, idx);
       lto_output_decl_state_streams (ob, fn_out_state);
     }
 
@@ -1300,7 +1261,7 @@ produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED)
   for (idx = 0; idx < num_fns; idx++)
     {
       fn_out_state =
-	VEC_index (lto_out_decl_state_ptr, function_decl_states, idx);
+	VEC_index (lto_out_decl_state_ptr, lto_function_decl_states, idx);
       decl_state_size += lto_out_decl_state_written_size (fn_out_state);
     }
   header.decl_state_size = decl_state_size;
@@ -1328,7 +1289,7 @@ produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED)
   for (idx = 0; idx < num_fns; idx++)
     {
       fn_out_state =
-	VEC_index (lto_out_decl_state_ptr, function_decl_states, idx);
+	VEC_index (lto_out_decl_state_ptr, lto_function_decl_states, idx);
       lto_output_decl_state_refs (ob, decl_state_stream, fn_out_state);
     }
   lto_write_stream (decl_state_stream);
@@ -1346,8 +1307,8 @@ produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED)
   /* Write the symbol table. */
   produce_symtab (ob->main_hash_table);
 
-  VEC_free (lto_out_decl_state_ptr, heap, function_decl_states);
-  function_decl_states = NULL;
+  VEC_free (lto_out_decl_state_ptr, heap, lto_function_decl_states);
+  lto_function_decl_states = NULL;
 
   /* Deallocate memory and clean up.  */
   destroy_output_block (ob);

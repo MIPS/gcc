@@ -103,6 +103,12 @@ typedef struct lto_out_decl_state *lto_out_decl_state_ptr;
 DEF_VEC_P(lto_out_decl_state_ptr);
 DEF_VEC_ALLOC_P(lto_out_decl_state_ptr, heap);
 
+/* Holds all the out decl states of functions output so far in the
+   current output file.  */
+
+extern VEC(lto_out_decl_state_ptr, heap) *lto_function_decl_states;
+
+
 /* A simple output block.  This can be used for simple ipa passes that
    do not need more than one stream.  */
 struct lto_simple_output_block

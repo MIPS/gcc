@@ -51,6 +51,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tags.h"
 #include "lto-section-in.h"
 #include "lto-tree-in.h"
+#include "lto-utils.h"
 #include "cpplib.h"
 
 tree input_tree (struct lto_input_block *, struct data_in *);
@@ -2303,6 +2304,7 @@ input_constructors_or_inits (struct data_in *data_in,
 			     struct lto_input_block *ib)
 {
   enum LTO_tags tag;
+  lto_var_flags_t flags;
 
   clear_line_info (data_in);
   tag = input_record_start (ib);
@@ -2314,6 +2316,10 @@ input_constructors_or_inits (struct data_in *data_in,
       tag = input_record_start (ib);
       if (tag)
 	DECL_INITIAL (var) = input_expr_operand (ib, data_in, NULL, tag);
+      LTO_DEBUG_TOKEN ("flags");
+      flags = lto_input_uleb128 (ib);
+      if (flags)
+	lto_set_var_flags (var, lto_get_var_flags (var) | flags);
       tag = input_record_start (ib);
     }
 

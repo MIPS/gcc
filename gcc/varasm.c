@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfglayout.h"
 #include "basic-block.h"
 #include "tree-iterator.h"
+#include "lto-utils.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -2092,6 +2093,15 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   /* Do nothing for global register variables.  */
   if (DECL_RTL_SET_P (decl) && REG_P (DECL_RTL (decl)))
+    {
+      TREE_ASM_WRITTEN (decl) = 1;
+      return;
+    }
+
+  /* Do nothing if we are running in LTRANS mode and we are told to
+     suppress output.  */
+  if (flag_ltrans
+      && (lto_get_var_flags (decl) & LTO_VAR_FLAG_SUPPRESS_OUTPUT))
     {
       TREE_ASM_WRITTEN (decl) = 1;
       return;

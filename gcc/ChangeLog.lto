@@ -1,3 +1,54 @@
+2008-11-12  Doug Kwan  <dougkwan@google.com>
+
+	* cgraph.h (struct cgraph_node_set_element_def): Add AUX field.
+	* lto-function-out.c (lto-utils.h): Include.
+ 	(output_local_vars): New bitmap functions in lto-utils.c.
+	(output_var_int, output_inits_in_decl_state,
+	output_used_constructors_and_inits,
+	output_remaining_constructors_and_inits,
+	output_all_constructors_and_inits): New functions.
+	(output_constructors_and_inits): Handle WPA mode specially.
+	(lto_output): Do not output constructs and intis here.
+	(output_var_decl): Promote file-scope static to global if necessary.
+	* lto-function-in.c (lto-utils.h): Include.
+	(input_constructors_or_inits): Read LTO var flags.
+	* lto-header.h (lto_get_section_name): Remove prototype.
+	* lto-section-in.c (lto-utils.h): Include.
+	(bitmap.h): Remove include.
+	(lto_section_out_obstack, function_body_in_file_p): Remove.
+	(lto_mark_function_body_in_file, lto_function_body_in_file_p): Remove.
+	* lto-section-in.h (lto_mark_function_body_in_file,
+	lto_function_body_in_file_p): Remove prototype.
+	* lto-wpa-fixup.c (lto-utils): Include.
+	(wpa_fixup_obstack, wpa_fixup_obstack_initialized): Remove vars.
+	(bitmap_alloc): Remove function.
+	(lto_mark_nothrow_fndecl, output_wpa_fixup): Use bitmap functions
+	in lto-utils.c instead.
+	* lto-tree-out.h (output_constructor_and_inits): New prototype.
+	* varasm.c (assemble_variable): Suppress output of variable in
+	LTRANS mode if LTO_VAR_FLAG_SUPPRESS_OUTPUT is set for the var.
+	* Makefile.in (OBJS-common): Add lto-utils.o
+	(lto-function-in.o, lto-function-out.o, lto-section-in.o,
+	lto-section-out.o, lto-wpa-fixup.o, varasm.o): Add lto-utils.h
+	to dependencies.
+	* lto-utils.c (File): New.
+	* lto-utils.h (File): Same.
+	* lto-section-out.c (lto-utils.h): Include.
+	(function_decl_state): Renamed var to LTO_FUCNTION_DECL_STATES and
+	make it global.
+	(lto_section_out_obstack): Remove var.
+	(lto_new_static_inline_states, lto_delete_static_inline_states,
+	 produce_symtab):
+	Use bitmap functions in lto-utils.c.
+	(lto_get_section_name): Move to lto-utils.c.
+	(record_function_out_decl_state, write_sysmbols_of_kind): Adjust for
+	renaming of function_decl_states.
+	(produce_asm_for_decls): Remove ATTRIBUTE_UNUSED annotation for SET.
+	Call output_constructors_and_inits. Adjust for renaming of
+	function_decl_states.
+	* lto-section-out.h (lto_function_decl_states): New extern variable.
+	declaration.
+
 2008-11-10  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-in.c (lto_init_eh): Call
