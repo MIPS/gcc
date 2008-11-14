@@ -1,0 +1,5 @@
+2008-11-12  Jan Hubicka  <jh@suse.cz>
+	* gcc.dg/attr-noinline.c: Avoid pure-const optimization.
+	* gcc.dg/pr33826.c: Update dump files.
+	* gcc.dg/ipa/ipa-3.c: Avoid pure-const optimization.
+	* gcc.dg/ipa/ipa-5.c: Avoid pure-const optimization.

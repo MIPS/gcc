@@ -308,6 +308,7 @@ extern struct gimple_opt_pass pass_build_cfg;
 extern struct gimple_opt_pass pass_tree_profile;
 extern struct gimple_opt_pass pass_early_tree_profile;
 extern struct gimple_opt_pass pass_cleanup_cfg;
+extern struct gimple_opt_pass pass_fixup_cfg;
 extern struct gimple_opt_pass pass_referenced_vars;
 extern struct gimple_opt_pass pass_sra;
 extern struct gimple_opt_pass pass_sra_early;
@@ -388,6 +389,7 @@ extern struct gimple_opt_pass pass_reassoc;
 extern struct gimple_opt_pass pass_rebuild_cgraph_edges;
 extern struct gimple_opt_pass pass_build_cgraph_edges;
 extern struct gimple_opt_pass pass_reset_cc_flags;
+extern struct gimple_opt_pass pass_local_pure_const;
 
 /* IPA Passes */
 extern struct ipa_opt_pass pass_ipa_inline;

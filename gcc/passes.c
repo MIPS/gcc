@@ -536,6 +536,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_early_local_passes);
     {
       struct opt_pass **p = &pass_early_local_passes.pass.sub;
+      NEXT_PASS (pass_fixup_cfg);
       NEXT_PASS (pass_tree_profile);
       NEXT_PASS (pass_cleanup_cfg);
       NEXT_PASS (pass_init_datastructures);
@@ -562,6 +563,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_tail_recursion);
 	  NEXT_PASS (pass_convert_switch);
           NEXT_PASS (pass_profile);
+          NEXT_PASS (pass_local_pure_const);
 	}
       NEXT_PASS (pass_release_ssa_names);
       NEXT_PASS (pass_rebuild_cgraph_edges);
@@ -701,6 +703,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_tail_calls);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_uncprop);
+      NEXT_PASS (pass_local_pure_const);
     }
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);

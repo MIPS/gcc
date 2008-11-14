@@ -292,8 +292,6 @@ execute_fixup_cfg (void)
   gimple_stmt_iterator gsi;
   int todo = gimple_in_ssa_p (cfun) ? TODO_verify_ssa : 0;
 
-  cfun->after_inlining = true;
-
   if (cfun->eh)
     FOR_EACH_BB (bb)
       {
@@ -312,11 +310,12 @@ execute_fixup_cfg (void)
 		if (gimple_in_ssa_p (cfun))
 		  {
 		    todo |= TODO_update_ssa | TODO_cleanup_cfg;
+                    mark_symbols_for_renaming (stmt);
 	            update_stmt (stmt);
 		  }
 	      }
 
-	    if (!stmt_could_throw_p (stmt) && lookup_stmt_eh_region (stmt))
+	    if (!stmt_could_throw_p (stmt) && lookup_stmt_eh_region (stmt) != -2)
 	      remove_stmt_from_eh_region (stmt);
 	  }
 
@@ -330,6 +329,26 @@ execute_fixup_cfg (void)
 
   return todo;
 }
+
+struct gimple_opt_pass pass_fixup_cfg =
+{
+ {
+  GIMPLE_PASS,
+  NULL,					/* name */
+  NULL,					/* gate */
+  execute_fixup_cfg,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+ }
+};
+
 
 /* Do the actions required to initialize internal data structures used
    in tree-ssa optimization passes.  */
