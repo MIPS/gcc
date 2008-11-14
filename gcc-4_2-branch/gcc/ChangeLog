@@ -1,3 +1,49 @@
+2008-11-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-06-06  Uros Bizjak <ubizjak@gmail.com>
+
+	PR rtl-optimization/36438
+	* cse.c (fold_rtx) [ASHIFT, LSHIFTRT, ASHIFTRT]: Break out early
+	for vector shifts with constant scalar shift operands.
+
+2008-11-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38007
+	* c-common.c (c_common_signed_or_unsigned_type): Remove C++
+	special casing.
+
+2008-11-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-11-10  Ralph Loader  <suckfish@ihug.co.nz>
+
+	PR middle-end/37807
+	PR middle-end/37809
+	* combine.c (force_to_mode): Do not process vector types.
+
+	* rtlanal.c (nonzero_bits1): Do not process vector types.
+	(num_sign_bit_copies1): Likewise.
+
+2008-11-06  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR bootstrap/33100
+	* config.gcc (i[34567]86-*-solaris2*): Include i386/t-crtstuff
+	only with GNU ld.
+
+2008-10-31  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/37909
+	Backport from mainline:
+	* config/sh/sh.c (untangle_mova): Return -1 when NEW_MOVA has
+	no address.
+
+2008-10-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	* config/sh/t-sh: Use $(MULTILIB_CFLAGS) when compiling to
+	unwind-dw2-Os-4-200.o.
+
 2008-10-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
