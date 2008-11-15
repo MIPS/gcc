@@ -424,7 +424,7 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
  	         cgraph_node_name (node));
       return false;
     }
-  if (node->local.inline_summary.self_insns < n_calls)
+  if (node->local.inline_summary.self_size < n_calls)
     {
       if (dump_file)
         fprintf (dump_file, "Considering %s for cloning; code would shrink.\n",
@@ -1082,7 +1082,7 @@ ipcp_estimate_growth (struct cgraph_node *node)
      call site.  Precise cost is dificult to get, as our size metric counts
      constants and moves as free.  Generally we are looking for cases that
      small function is called very many times.  */
-  growth = node->local.inline_summary.self_insns
+  growth = node->local.inline_summary.self_size
   	   - removable_args * redirectable_node_callers;
   if (growth < 0)
     return 0;
@@ -1122,7 +1122,7 @@ ipcp_estimate_cloning_cost (struct cgraph_node *node)
     cost /= freq_sum * 1000 / REG_BR_PROB_BASE + 1;
   if (dump_file)
     fprintf (dump_file, "Cost of versioning %s is %i, (size: %i, freq: %i)\n",
-             cgraph_node_name (node), cost, node->local.inline_summary.self_insns,
+             cgraph_node_name (node), cost, node->local.inline_summary.self_size,
 	     freq_sum);
   return cost + 1;
 }
@@ -1163,8 +1163,8 @@ ipcp_insert_stage (void)
   tree parm_tree;
   struct ipa_replace_map *replace_param;
   fibheap_t heap;
-  long overall_insns = 0, new_insns = 0;
-  long max_new_insns;
+  long overall_size = 0, new_size = 0;
+  long max_new_size;
 
   ipa_check_create_node_params ();
   ipa_check_create_edge_args ();
@@ -1178,13 +1178,13 @@ ipcp_insert_stage (void)
       {
 	if (node->count > max_count)
 	  max_count = node->count;
-	overall_insns += node->local.inline_summary.self_insns;
+	overall_size += node->local.inline_summary.self_size;
       }
 
-  max_new_insns = overall_insns;
-  if (max_new_insns < PARAM_VALUE (PARAM_LARGE_UNIT_INSNS))
-    max_new_insns = PARAM_VALUE (PARAM_LARGE_UNIT_INSNS);
-  max_new_insns = max_new_insns * PARAM_VALUE (PARAM_IPCP_UNIT_GROWTH) / 100 + 1;
+  max_new_size = overall_size;
+  if (max_new_size < PARAM_VALUE (PARAM_LARGE_UNIT_INSNS))
+    max_new_size = PARAM_VALUE (PARAM_LARGE_UNIT_INSNS);
+  max_new_size = max_new_size * PARAM_VALUE (PARAM_IPCP_UNIT_GROWTH) / 100 + 1;
 
   /* First collect all functions we proved to have constant arguments to heap.  */
   heap = fibheap_new ();
@@ -1218,7 +1218,7 @@ ipcp_insert_stage (void)
 
       growth = ipcp_estimate_growth (node);
 
-      if (new_insns + growth > max_new_insns)
+      if (new_size + growth > max_new_size)
 	break;
       if (growth
 	  && optimize_function_for_size_p (DECL_STRUCT_FUNCTION (node->decl)))
@@ -1228,7 +1228,7 @@ ipcp_insert_stage (void)
 	  continue;
 	}
 
-      new_insns += growth;
+      new_size += growth;
 
       /* Look if original function becomes dead after clonning.  */
       for (cs = node->callers; cs != NULL; cs = cs->next_caller)
@@ -1286,7 +1286,7 @@ ipcp_insert_stage (void)
 	continue;
       if (dump_file)
 	fprintf (dump_file, "versioned function %s with growth %i, overall %i\n",
-		 cgraph_node_name (node), (int)growth, (int)new_insns);
+		 cgraph_node_name (node), (int)growth, (int)new_size);
       ipcp_init_cloned_node (node, node1);
 
       /* We've possibly introduced direct calls.  */

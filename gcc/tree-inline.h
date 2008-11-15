@@ -125,11 +125,10 @@ typedef struct eni_weights_d
 
   /* Cost for omp construct.  */
   unsigned omp_cost;
+
+  /* Cost of non-trivial operations is based on time rather than size.  */
+  bool time_based;
 } eni_weights;
-
-/* Weights that estimate_num_insns uses for heuristics in inlining.  */
-
-extern eni_weights eni_inlining_weights;
 
 /* Weights that estimate_num_insns uses to estimate the size of the
    produced code.  */

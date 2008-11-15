@@ -165,6 +165,8 @@ cgraph_maybe_hot_edge_p (struct cgraph_edge *edge)
   if (lookup_attribute ("cold", DECL_ATTRIBUTES (edge->callee->decl))
       || lookup_attribute ("cold", DECL_ATTRIBUTES (edge->caller->decl)))
     return false;
+  if (optimize_size)
+    return false;
   if (lookup_attribute ("hot", DECL_ATTRIBUTES (edge->caller->decl)))
     return true;
   if (flag_guess_branch_prob

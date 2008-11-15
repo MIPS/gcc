@@ -7194,14 +7194,12 @@ given call expression.  This parameter limits inlining only to call expression
 whose probability exceeds given threshold (in percents).  The default value is
 10.
 
-@item inline-call-cost
-Specify cost of call instruction relative to simple arithmetics operations
-(having cost of 1).  Increasing this cost disqualifies inlining of non-leaf
-functions and at the same time increases size of leaf function that is believed to
-reduce function size by being inlined.  In effect it increases amount of
-inlining for code having large abstraction penalty (many functions that just
-pass the arguments to other functions) and decrease inlining for code with low
-abstraction penalty.  The default value is 12.
+@item early-inlining-insns
+Specify size of function early inliner can inline.  Early inliner is not aware
+of overall program growth and allowing it to inline large functions will lead
+to program size explossion.  However because it is interleaved by early local
+optimizations it is a lot more effective on removing abstraction penalty from
+simple wrapper functions than the main inliner is.  The default value is 12.
 
 @item min-vect-loop-bound
 The minimum number of iterations under which a loop will not get vectorized

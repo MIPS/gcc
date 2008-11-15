@@ -90,23 +90,6 @@ along with GCC; see the file COPYING3.  If not see
 
    See the CALL_EXPR handling case in copy_tree_body_r ().  */
 
-/* To Do:
-
-   o In order to make inlining-on-trees work, we pessimized
-     function-local static constants.  In particular, they are now
-     always output, even when not addressed.  Fix this by treating
-     function-local static constants just like global static
-     constants; the back-end already knows not to output them if they
-     are not needed.
-
-   o Provide heuristics to clamp inlining of recursive template
-     calls?  */
-
-
-/* Weights that estimate_num_insns uses for heuristics in inlining.  */
-
-eni_weights eni_inlining_weights;
-
 /* Weights that estimate_num_insns uses to estimate the size of the
    produced code.  */
 
@@ -2806,6 +2789,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
   unsigned cost, i;
   enum gimple_code code = gimple_code (stmt);
   tree lhs;
+  tree rhs;
 
   switch (code)
     {
@@ -2834,6 +2818,10 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       else
 	cost = estimate_move_cost (TREE_TYPE (lhs));
 
+      rhs = gimple_assign_rhs1 (stmt);
+      if (!is_gimple_reg (rhs) && !is_gimple_min_invariant (rhs))
+	cost += estimate_move_cost (TREE_TYPE (rhs));
+
       cost += estimate_operator_cost (gimple_assign_rhs_code (stmt), weights);
       break;
 
@@ -2847,7 +2835,10 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 
 	 TODO: once the switch expansion logic is sufficiently separated, we can
 	 do better job on estimating cost of the switch.  */
-      cost = gimple_switch_num_labels (stmt) * 2;
+      if (weights->time_based)
+        cost = floor_log2 (gimple_switch_num_labels (stmt)) * 2;
+      else
+        cost = gimple_switch_num_labels (stmt) * 2;
       break;
 
     case GIMPLE_CALL:
@@ -2870,8 +2861,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	    case BUILT_IN_CONSTANT_P:
 	      return 0;
 	    case BUILT_IN_EXPECT:
-	      cost = 0;
-	      break;
+	      return 0;
 
 	    /* Prefetch instruction is not expensive.  */
 	    case BUILT_IN_PREFETCH:
@@ -2885,6 +2875,8 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	if (decl)
 	  funtype = TREE_TYPE (decl);
 
+	if (!VOID_TYPE_P (TREE_TYPE (funtype)))
+	  cost += estimate_move_cost (TREE_TYPE (funtype));
 	/* Our cost must be kept in sync with
 	   cgraph_estimate_size_after_inlining that does use function
 	   declaration to figure out the arguments.  */
@@ -3001,15 +2993,11 @@ estimate_num_insns_fn (tree fndecl, eni_weights *weights)
 void
 init_inline_once (void)
 {
-  eni_inlining_weights.call_cost = PARAM_VALUE (PARAM_INLINE_CALL_COST);
-  eni_inlining_weights.target_builtin_call_cost = 1;
-  eni_inlining_weights.div_mod_cost = 10;
-  eni_inlining_weights.omp_cost = 40;
-
   eni_size_weights.call_cost = 1;
   eni_size_weights.target_builtin_call_cost = 1;
   eni_size_weights.div_mod_cost = 1;
   eni_size_weights.omp_cost = 40;
+  eni_size_weights.time_based = false;
 
   /* Estimating time for call is difficult, since we have no idea what the
      called function does.  In the current uses of eni_time_weights,
@@ -3019,6 +3007,7 @@ init_inline_once (void)
   eni_time_weights.target_builtin_call_cost = 10;
   eni_time_weights.div_mod_cost = 10;
   eni_time_weights.omp_cost = 40;
+  eni_time_weights.time_based = true;
 }
 
 /* Estimate the number of instructions in a gimple_seq. */

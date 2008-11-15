@@ -8,6 +8,7 @@ static inline __attribute__((always_inline)) void xfer_secondary_pool(void)
 extract_entropy();
 add_entropy_words();
 }
+__attribute__ ((noinline))
 void extract_entropy(void)
 {
 xfer_secondary_pool();

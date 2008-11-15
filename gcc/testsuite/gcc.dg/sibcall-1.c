@@ -37,6 +37,7 @@ recurser_void (int n)
 
 void *trackpoint;
 
+__attribute__ ((noinline))
 void
 track (int n)
 {

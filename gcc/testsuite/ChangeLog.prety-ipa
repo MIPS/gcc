@@ -1,4 +1,13 @@
 2008-11-12  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/ipa/ipa-4.c: Add -fno-early-inlining.
+	* gcc.dg/sibcall-1.c: Add noinline.
+	* gcc.target/i386/align-main-2.c: Add noinline.
+	* gcc.target/i386/align-main-1.c: Add noinline.
+	* gcc.c-torture/compile/pr22379.c: Add noinline.
+
+2008-11-12  Jan Hubicka  <jh@suse.cz>
+
 	* gcc.dg/attr-noinline.c: Avoid pure-const optimization.
 	* gcc.dg/pr33826.c: Update dump files.
 	* gcc.dg/ipa/ipa-3.c: Avoid pure-const optimization.

@@ -1,5 +1,51 @@
 2008-11-12  Jan Hubicka  <jh@suse.cz>
 
+	* doc/invoke.texi (inline-call-cost): Remove.
+	(early-inlining-insns): Update.
+	* cgraphbuild.c (compute_call_stmt_bb_frequency): Add function argument;
+	behave sanely without profile info computed.
+	(build_cgraph_edges, rebuild_cgraph_edges): Update.
+	* cgraph.c (dump_cgraph_node): Update dumps.
+	* cgraph.h (cgraph_local_info): Remove self_insns;
+	add self_size, size_inlining_benefit, self_time, time_inlining_benefit.
+	(cgraph_global_info): Add time, size field; remove insns field.
+	(compute_call_stmt_bb_frequency): Update prototype.
+	* ipa-cp.c (ipcp_cloning_candidate_p): Use size instead of insns.
+	(ipcp_estimate_growth): Likewise.
+	(ipcp_estimate_cloning_cost): Likewise.
+	(ipcp_insert_stage): Likewise.
+	* ipa-inline.c (MAX_TIME): Add.
+	(overall_insns): Remove.
+	(overall_size): New static var.
+	(cgraph_estimate_time_after_inlining): New function.
+	(cgraph_estimate_size_after_inlining): Rewrite to size metrics.
+	(cgraph_clone_inlined_nodes): Use size instead of insns.
+	(cgraph_mark_inline_edge): Update size and time instead of insns.
+	(cgraph_estimate_growth): Use size instead of isnsn.
+	(cgraph_check_inline_limits): Use size instead of insns.
+	(cgraph_edge_badness): Compute badness based on self time and size.
+	(cgraph_decide_recursive_inlining): Use time and size.
+	(cgraph_decide_inlining_of_small_function): Bookkeep time and size.
+	(cgraph_decide_inlining): Likewise.
+	(cgraph_decide_inlining_incrementally): Likewise; handle
+	PARAM_EARLY_INLINING_INSNS.
+	(likely_eliminated_by_inlining_p): New predicate.
+	(estimate_function_body_sizes): New function.
+	(compute_inline_parameters): Update.
+	(pass_inline_param): Add it a name parameter.
+	(cgraph_maybe_hot_edge_p): Return false when optimizing size.
+	* ipa-prop.c (ipa_note_param_call): Use compute_call_stmt_bb_frequency.
+	* tree-inline.c (eni_inlining_weights): Remove.
+	(estimate_num_insns): Recognize loads and stores; be more sane on switch
+	statement times; builtin_expect is always free; estimate return value cost.
+	(init_inline_once): Kill inlining weights.
+	* tree-inline.h (eni_inlining_weights): Remove.
+	(eni_weights): Add time_based flag.
+	* parms.def (PARAM_INLINE_CALL_COST): Remove.
+	(PARAM_EARLY_INLINING_INSNS): Add.
+
+2008-11-12  Jan Hubicka  <jh@suse.cz>
+
 	* tree-pass.h (pass_fixup_cfg, pass_local_pure_const): Declare.
 	* ipa-pure-const.c (funct_state_d): Add can throw field; make
 	state_set_in_source enum

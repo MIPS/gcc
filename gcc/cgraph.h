@@ -56,9 +56,14 @@ struct cgraph_local_info GTY(())
   struct inline_summary {
     /* Estimated stack frame consumption by the function.  */
     HOST_WIDE_INT estimated_self_stack_size;
-
-    /* Size of the function before inlining.  */
-    int self_insns;
+    /* Size of the function body.  */
+    int self_size;
+    /* How many instructions are likely going to disappear after inlining.  */
+    int size_inlining_benefit;
+    /* Estimated time spent executing the function body.  */
+    int self_time;
+    /* How much time is going to be saved by inlining.  */
+    int time_inlining_benefit;
   } inline_summary;
 
   /* Set when function function is visible in current compilation unit only
@@ -105,7 +110,8 @@ struct cgraph_global_info GTY(())
   struct cgraph_node *inlined_to;
 
   /* Estimated size of the function after inlining.  */
-  int insns;
+  int time;
+  int size;
 
   /* Estimated growth after inlining.  INT_MIN if not computed.  */
   int estimated_growth;
@@ -384,7 +390,7 @@ void cgraph_remove_node_duplication_hook (struct cgraph_2node_hook_list *);
 
 /* In cgraphbuild.c  */
 unsigned int rebuild_cgraph_edges (void);
-int compute_call_stmt_bb_frequency (basic_block bb);
+int compute_call_stmt_bb_frequency (tree, basic_block bb);
 
 /* In ipa.c  */
 bool cgraph_remove_unreachable_nodes (bool, FILE *);
