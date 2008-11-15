@@ -1,8 +1,18 @@
+2008-11-15  Diego Novillo  <dnovillo@google.com>
+
+	* lto-symtab.c (lto_symtab_compatible): Tidy formatting.
+	(lto_symtab_set_resolution): Likewise.
+	(lto_symtab_get_resolution): Likewise.
+	* lto-function-in.c (get_resolution): Likewise.
+	* lto-cgraph.c (input_overwrite_node): Likewise.
+	(input_node): Likewise.
+	(input_cgraph): Likewise.
+
 2008-11-12  Doug Kwan  <dougkwan@google.com>
 
 	* cgraph.h (struct cgraph_node_set_element_def): Add AUX field.
 	* lto-function-out.c (lto-utils.h): Include.
- 	(output_local_vars): New bitmap functions in lto-utils.c.
+	(output_local_vars): New bitmap functions in lto-utils.c.
 	(output_var_int, output_inits_in_decl_state,
 	output_used_constructors_and_inits,
 	output_remaining_constructors_and_inits,

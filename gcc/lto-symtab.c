@@ -372,14 +372,17 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	  gcc_assert (TREE_CODE (old_decl) == FUNCTION_DECL);
 	  error ("function %qD redeclared as variable", old_decl);
 	  return false;
+
 	case FUNCTION_DECL:
 	  gcc_assert (TREE_CODE (old_decl) == VAR_DECL);
 	  error ("variable %qD redeclared as function", old_decl);
 	  return false;
+
 	default:
 	  gcc_unreachable ();
 	}
     }
+
   if (!lto_same_type_p (TREE_TYPE (old_decl), TREE_TYPE (new_decl)))
     {
       /* Allow an array type with unspecified bounds to
@@ -393,8 +396,11 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	{
 	  if (DECL_IS_BUILTIN (old_decl) || DECL_IS_BUILTIN (new_decl))
 	    {
-	      tree candidate = match_builtin_function_types (TREE_TYPE (new_decl),
-							     TREE_TYPE (old_decl));
+	      tree candidate;
+	      
+	      candidate = match_builtin_function_types (TREE_TYPE (new_decl),
+							TREE_TYPE (old_decl));
+
 	      /* We don't really have source location information at this
 		 point, so the above matching was a bit of a gamble.  */
 	      if (candidate)
@@ -457,12 +463,14 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	  return false;
 	}
     }
+
   if (DECL_UNSIGNED (old_decl) != DECL_UNSIGNED (new_decl))
     {
       error ("signedness of %qD does not match original declaration",
 	     new_decl);
       return false;
     }
+
   if (!tree_int_cst_equal (DECL_SIZE (old_decl),
 			   DECL_SIZE (new_decl))
       || !tree_int_cst_equal (DECL_SIZE_UNIT (old_decl),
@@ -484,6 +492,7 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	  return false;
 	}
     }
+
   /* Report an error if user-specified alignments do not match.  */
   if ((DECL_USER_ALIGN (old_decl) && DECL_USER_ALIGN (new_decl))
       && DECL_ALIGN (old_decl) != DECL_ALIGN (new_decl))
@@ -492,6 +501,7 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	     new_decl);
       return false;
     }
+
   if (DECL_MODE (old_decl) != DECL_MODE (new_decl))
     {
       /* We can arrive here when we are merging 'extern char foo[]' and
@@ -510,6 +520,7 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	  return false;
 	}
     }
+
   if (!lto_compatible_attributes_p (old_decl,
 				    DECL_ATTRIBUTES (old_decl),
 				    DECL_ATTRIBUTES (new_decl)))
@@ -539,11 +550,11 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
   return true;
 }
 
+
 /* Marks decl DECL as having resolution RESOLUTION. */
 
 static void
-lto_symtab_set_resolution (tree decl,
-			   ld_plugin_symbol_resolution_t resolution)
+lto_symtab_set_resolution (tree decl, ld_plugin_symbol_resolution_t resolution)
 {
   lto_symtab_decl_t new_entry;
   void **slot;
@@ -703,6 +714,7 @@ lto_symtab_merge_decl (tree new_decl,
   return;
 }
 
+
 /* Merge the VAR_DECL NEW_VAR with resolution RESOLUTION with any previous
    declaration with the same name. */
 
@@ -754,9 +766,9 @@ lto_symtab_get_resolution (tree decl)
   if (!TREE_PUBLIC (decl))
     return LDPR_PREVAILING_DEF_IRONLY;
 
-  /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+  /* FIXME lto: There should be no DECL_ABSTRACT in the middle end. */
  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
-    return LDPR_PREVAILING_DEF_IRONLY;
+   return LDPR_PREVAILING_DEF_IRONLY;
 
  lto_symtab_maybe_init_hash_tables ();
  temp.base.node = decl;

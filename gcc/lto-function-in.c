@@ -2787,7 +2787,9 @@ input_const_decl (struct lto_input_block *ib, struct data_in *data_in)
   return decl;
 }
 
+
 /* Return the resolution for the DECL with index INDEX from DATA_IN. */
+
 static enum ld_plugin_symbol_resolution
 get_resolution (struct data_in *data_in, unsigned index)
 {
@@ -2804,12 +2806,12 @@ get_resolution (struct data_in *data_in, unsigned index)
     }
   else
     {
-      /* Fake symbol resolution in the case no resolution file was provided. */
+      /* Fake symbol resolution if no resolution file was provided.  */
       tree t = VEC_index (tree, data_in->globals_index, index);
 
       gcc_assert (TREE_PUBLIC (t));
 
-      /* LTO FIXME: There should be no DECL_ABSTRACT in the middle end. */
+      /* FIXME lto: There should be no DECL_ABSTRACT in the middle end.  */
       gcc_assert (!DECL_ABSTRACT (t));
 
       /* If T is a weak definition, we select the first one we see to

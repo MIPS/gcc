@@ -459,7 +459,7 @@ output_cgraph (cgraph_node_set set)
    is.  */
 
 static void
-input_overwrite_node (struct lto_file_decl_data* file_data,
+input_overwrite_node (struct lto_file_decl_data *file_data,
 		      struct cgraph_node *node,
 		      enum LTO_cgraph_tags tag,
 		      unsigned HOST_WIDEST_INT flags,
@@ -556,8 +556,7 @@ input_node (struct lto_file_decl_data* file_data,
 
   gcc_assert (!node->aux);
 
-  input_overwrite_node (file_data, node, tag, flags, stack_size,
-			self_insns);
+  input_overwrite_node (file_data, node, tag, flags, stack_size, self_insns);
 
   node->global.estimated_stack_size = estimated_stack_size;
   node->global.stack_frame_offset = stack_frame_offset;
@@ -725,9 +724,8 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
 static void
 input_cgraph (void)
 {
-  struct lto_file_decl_data ** file_data_vec 
-    = lto_get_file_decl_data ();
-  struct lto_file_decl_data * file_data;
+  struct lto_file_decl_data **file_data_vec = lto_get_file_decl_data ();
+  struct lto_file_decl_data *file_data;
   unsigned int j = 0;
   struct cgraph_node *node;
 
@@ -740,13 +738,12 @@ input_cgraph (void)
     {
       const char *data;
       size_t len;
-      struct lto_input_block *ib
-	= lto_create_simple_input_block (file_data, 
-					 LTO_section_cgraph, 
+      struct lto_input_block *ib;
+
+      ib = lto_create_simple_input_block (file_data, LTO_section_cgraph, 
 					 &data, &len);
       input_cgraph_1 (file_data, ib);
-      lto_destroy_simple_input_block (file_data, 
-				      LTO_section_cgraph, 
+      lto_destroy_simple_input_block (file_data, LTO_section_cgraph, 
 				      ib, data, len);
     } 
 
