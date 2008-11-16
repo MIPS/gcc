@@ -1432,6 +1432,11 @@ cgraph_function_body_availability (struct cgraph_node *node)
     avail = AVAIL_LOCAL;
   else if (!node->local.externally_visible)
     avail = AVAIL_AVAILABLE;
+  /* Inline functions are safe to be analyzed even if their sybol can
+     be overwritten at runtime.  It is not meaningful to enfore any sane
+     behaviour on replacing inline function by different body.  */
+  else if (DECL_DECLARED_INLINE_P (node->decl))
+    avail = AVAIL_AVAILABLE;
 
   /* If the function can be overwritten, return OVERWRITABLE.  Take
      care at least of two notable extensions - the COMDAT functions

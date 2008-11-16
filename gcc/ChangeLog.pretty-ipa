@@ -1,5 +1,10 @@
 2008-11-12  Jan Hubicka  <jh@suse.cz>
 
+	* cgraph.c (cgraph_function_body_availability): Inline functions are
+	always available.
+
+2008-11-12  Jan Hubicka  <jh@suse.cz>
+
 	* doc/invoke.texi (inline-call-cost): Remove.
 	(early-inlining-insns): Update.
 	* cgraphbuild.c (compute_call_stmt_bb_frequency): Add function argument;
