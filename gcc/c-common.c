@@ -2852,7 +2852,7 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
 
 #define TYPE_OK(node)							    \
   (TYPE_MODE (type) == TYPE_MODE (node)					    \
-   && (c_dialect_cxx () || TYPE_PRECISION (type) == TYPE_PRECISION (node)))
+   && TYPE_PRECISION (type) == TYPE_PRECISION (node))
   if (TYPE_OK (signed_char_type_node))
     return unsignedp ? unsigned_char_type_node : signed_char_type_node;
   if (TYPE_OK (integer_type_node))
@@ -2882,10 +2882,7 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
     return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
 #undef TYPE_OK
 
-  if (c_dialect_cxx ())
-    return type;
-  else
-    return build_nonstandard_integer_type (TYPE_PRECISION (type), unsignedp);
+  return build_nonstandard_integer_type (TYPE_PRECISION (type), unsignedp);
 }
 
 /* Build a bit-field integer type for the given WIDTH and UNSIGNEDP.  */
@@ -2927,34 +2924,6 @@ c_register_builtin_type (tree type, const char* name)
   pushdecl (decl);
 
   registered_builtin_types = tree_cons (0, type, registered_builtin_types);
-}
-
-
-/* Return the minimum number of bits needed to represent VALUE in a
-   signed or unsigned type, UNSIGNEDP says which.  */
-
-unsigned int
-min_precision (tree value, int unsignedp)
-{
-  int log;
-
-  /* If the value is negative, compute its negative minus 1.  The latter
-     adjustment is because the absolute value of the largest negative value
-     is one larger than the largest positive value.  This is equivalent to
-     a bit-wise negation, so use that operation instead.  */
-
-  if (tree_int_cst_sgn (value) < 0)
-    value = fold_build1 (BIT_NOT_EXPR, TREE_TYPE (value), value);
-
-  /* Return the number of bits needed, taking into account the fact
-     that we need one more bit for a signed than unsigned type.  */
-
-  if (integer_zerop (value))
-    log = 0;
-  else
-    log = tree_floor_log2 (value);
-
-  return log + 1 + !unsignedp;
 }
 
 /* Print an error message for invalid operands to arith operation
@@ -7305,6 +7274,7 @@ parse_optimize_options (tree args, bool attr_p)
   bool ret = true;
   unsigned opt_argc;
   unsigned i;
+  int saved_flag_strict_aliasing;
   const char **opt_argv;
   tree ap;
 
@@ -7395,8 +7365,13 @@ parse_optimize_options (tree args, bool attr_p)
   for (i = 1; i < opt_argc; i++)
     opt_argv[i] = VEC_index (const_char_p, optimize_args, i);
 
+  saved_flag_strict_aliasing = flag_strict_aliasing;
+
   /* Now parse the options.  */
   decode_options (opt_argc, opt_argv);
+
+  /* Don't allow changing -fstrict-aliasing.  */
+  flag_strict_aliasing = saved_flag_strict_aliasing;
 
   VEC_truncate (const_char_p, optimize_args, 0);
   return ret;
@@ -8439,7 +8414,7 @@ warn_about_parentheses (enum tree_code code,
       /* Check cases like !x | y */
       else if (code_left == TRUTH_NOT_EXPR
 	       && !APPEARS_TO_BE_BOOLEAN_EXPR_P (code_right, arg_right))
-	warning (OPT_Wparentheses, "suggest parentheses around operand of"
+	warning (OPT_Wparentheses, "suggest parentheses around operand of "
 		 "%<!%> or change %<|%> to %<||%> or %<!%> to %<~%>");
       return;
 
@@ -8472,7 +8447,7 @@ warn_about_parentheses (enum tree_code code,
       /* Check cases like !x & y */
       else if (code_left == TRUTH_NOT_EXPR
 	       && !APPEARS_TO_BE_BOOLEAN_EXPR_P (code_right, arg_right))
-	warning (OPT_Wparentheses, "suggest parentheses around operand of"
+	warning (OPT_Wparentheses, "suggest parentheses around operand of "
 		 "%<!%> or change %<&%> to %<&&%> or %<!%> to %<~%>");
       return;
 
@@ -8561,7 +8536,7 @@ warn_for_sign_compare (location_t location,
       && TREE_CODE (TREE_TYPE (orig_op0)) == ENUMERAL_TYPE
       && TREE_CODE (TREE_TYPE (orig_op1)) == ENUMERAL_TYPE
       && TYPE_MAIN_VARIANT (TREE_TYPE (orig_op0))
-      != TYPE_MAIN_VARIANT (TREE_TYPE (orig_op1)))
+	 != TYPE_MAIN_VARIANT (TREE_TYPE (orig_op1)))
     {
       warning_at (location,
 		  OPT_Wsign_compare, "comparison between types %qT and %qT",
@@ -8578,9 +8553,9 @@ warn_for_sign_compare (location_t location,
     /* OK */;
   else
     {
-      tree sop, uop;
+      tree sop, uop, base_type;
       bool ovf;
-      
+
       if (op0_signed)
         sop = orig_op0, uop = orig_op1;
       else 
@@ -8588,6 +8563,8 @@ warn_for_sign_compare (location_t location,
 
       STRIP_TYPE_NOPS (sop); 
       STRIP_TYPE_NOPS (uop);
+      base_type = (TREE_CODE (result_type) == COMPLEX_TYPE
+		   ? TREE_TYPE (result_type) : result_type);
 
       /* Do not warn if the signed quantity is an unsuffixed integer
          literal (or some static constant expression involving such
@@ -8600,7 +8577,7 @@ warn_for_sign_compare (location_t location,
          in the result if the result were signed.  */
       else if (TREE_CODE (uop) == INTEGER_CST
                && (resultcode == EQ_EXPR || resultcode == NE_EXPR)
-               && int_fits_type_p (uop, c_common_signed_type (result_type)))
+	       && int_fits_type_p (uop, c_common_signed_type (base_type)))
         /* OK */;
       /* In C, do not warn if the unsigned quantity is an enumeration
          constant and its maximum value would fit in the result if the
@@ -8608,7 +8585,7 @@ warn_for_sign_compare (location_t location,
       else if (!c_dialect_cxx() && TREE_CODE (uop) == INTEGER_CST
                && TREE_CODE (TREE_TYPE (uop)) == ENUMERAL_TYPE
                && int_fits_type_p (TYPE_MAX_VALUE (TREE_TYPE (uop)),
-                                   c_common_signed_type (result_type)))
+				   c_common_signed_type (base_type)))
         /* OK */;
       else 
         warning_at (location,

@@ -1711,6 +1711,15 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
   new_sym->attr.flavor = sym->attr.flavor;
   new_sym->attr.function = sym->attr.function;
 
+  /* Ensure that the interface is available and that
+     descriptors are passed for array actual arguments.  */
+  if (sym->attr.flavor == FL_PROCEDURE)
+    {
+      copy_formal_args (new_sym, expr->symtree->n.sym);
+      new_sym->attr.always_explicit
+	    = expr->symtree->n.sym->attr.always_explicit;
+    }
+
   /* Create a fake symtree for it.  */
   root = NULL;
   new_symtree = gfc_new_symtree (&root, sym->name);
@@ -2716,7 +2725,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      && parmse.string_length == NULL_TREE
 	      && e->ts.type == BT_PROCEDURE
 	      && e->symtree->n.sym->ts.type == BT_CHARACTER
-	      && e->symtree->n.sym->ts.cl->length != NULL)
+	      && e->symtree->n.sym->ts.cl->length != NULL
+	      && e->symtree->n.sym->ts.cl->length->expr_type == EXPR_CONSTANT)
 	    {
 	      gfc_conv_const_charlen (e->symtree->n.sym->ts.cl);
 	      parmse.string_length = e->symtree->n.sym->ts.cl->backend_decl;
@@ -2862,8 +2872,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	     mustn't be deallocated.  */
 	  callee_alloc = sym->attr.allocatable || sym->attr.pointer;
 	  gfc_trans_create_temp_array (&se->pre, &se->post, se->loop, info, tmp,
-				       false, !sym->attr.pointer, callee_alloc,
-				       &se->ss->expr->where);
+				       NULL_TREE, false, !sym->attr.pointer,
+				       callee_alloc, &se->ss->expr->where);
 
 	  /* Pass the temporary as the first argument.  */
 	  tmp = info->descriptor;
@@ -4383,7 +4393,7 @@ gfc_trans_zero_assign (gfc_expr * expr)
 /* Helper for gfc_trans_array_copy and gfc_trans_array_constructor_copy
    that constructs the call to __builtin_memcpy.  */
 
-static tree
+tree
 gfc_build_memcpy_call (tree dst, tree src, tree len)
 {
   tree tmp;

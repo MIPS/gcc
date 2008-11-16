@@ -4930,7 +4930,8 @@ classify_argument (enum machine_mode mode, const_tree type,
 	    /* The partial classes are now full classes.  */
 	    if (subclasses[0] == X86_64_SSESF_CLASS && bytes != 4)
 	      subclasses[0] = X86_64_SSE_CLASS;
-	    if (subclasses[0] == X86_64_INTEGERSI_CLASS && bytes != 4)
+	    if (subclasses[0] == X86_64_INTEGERSI_CLASS
+		&& !((bit_offset % 64) == 0 && bytes == 4))
 	      subclasses[0] = X86_64_INTEGER_CLASS;
 
 	    for (i = 0; i < words; i++)
@@ -6578,8 +6579,9 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   f_ovf = TREE_CHAIN (f_fpr);
   f_sav = TREE_CHAIN (f_ovf);
 
+  gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr),
+		build_va_arg_indirect_ref (valist), f_gpr, NULL_TREE);
   valist = build_va_arg_indirect_ref (valist);
-  gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
   fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
   ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
   sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);

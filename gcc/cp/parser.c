@@ -7427,48 +7427,6 @@ cp_parser_condition (cp_parser* parser)
   return cp_parser_expression (parser, /*cast_p=*/false);
 }
 
-/* We check for a ) immediately followed by ; with no whitespacing
-   between.  This is used to issue a warning for:
-
-     while (...);
-
-   and:
-
-     for (...);
-
-   as the semicolon is probably extraneous.
-
-   On parse errors, the next token might not be a ), so do nothing in
-   that case. */
-
-static void
-check_empty_body (cp_parser* parser, const char* type)
-{
-  cp_token *token;
-  cp_token *close_paren;
-  expanded_location close_loc;
-  expanded_location semi_loc;
-  
-  close_paren = cp_lexer_peek_token (parser->lexer);
-  if (close_paren->type != CPP_CLOSE_PAREN)
-    return;
-
-  close_loc = expand_location (close_paren->location);
-  token = cp_lexer_peek_nth_token (parser->lexer, 2);
-
-  if (token->type != CPP_SEMICOLON
-      || (token->flags & PREV_WHITE))
-    return;
-
-  semi_loc =  expand_location (token->location);
-  if (close_loc.line == semi_loc.line
-      && close_loc.column+1 == semi_loc.column)
-    warning (OPT_Wempty_body,
-	     "suggest a space before %<;%> or explicit braces around empty "
-	     "body in %<%s%> statement",
-	     type);
-}
-
 /* Parse an iteration-statement.
 
    iteration-statement:
@@ -7511,7 +7469,6 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Parse the condition.  */
 	condition = cp_parser_condition (parser);
 	finish_while_stmt_cond (condition, statement);
-	check_empty_body (parser, "while");
 	/* Look for the `)'.  */
 	cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 	/* Parse the dependent statement.  */
@@ -7573,7 +7530,6 @@ cp_parser_iteration_statement (cp_parser* parser)
 	if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
 	  expression = cp_parser_expression (parser, /*cast_p=*/false);
 	finish_for_expr (expression, statement);
-	check_empty_body (parser, "for");
 	/* Look for the `)'.  */
 	cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
@@ -8179,7 +8135,8 @@ cp_parser_simple_declaration (cp_parser* parser,
      (After "int (" we might be looking at a functional cast.)  */
   if (decl_specifiers.any_specifiers_p
       && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_PAREN)
-      && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_BRACE))
+      && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_BRACE)
+      && !cp_parser_error_occurred (parser))
     cp_parser_commit_to_tentative_parse (parser);
 
   /* Keep going until we hit the `;' at the end of the simple
@@ -11780,6 +11737,7 @@ cp_parser_enum_specifier (cp_parser* parser)
   tree type;
   tree attributes;
   bool scoped_enum_p = false;
+  bool has_underlying_type = false;
   tree underlying_type = NULL_TREE;
 
   /* Parse tentatively so that we can back up if we don't find a
@@ -11805,7 +11763,7 @@ cp_parser_enum_specifier (cp_parser* parser)
 
       scoped_enum_p = true;
     }
-      
+
   attributes = cp_parser_attributes_opt (parser);
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
@@ -11818,18 +11776,22 @@ cp_parser_enum_specifier (cp_parser* parser)
     {
       cp_decl_specifier_seq type_specifiers;
 
+      /* At this point this is surely not elaborated type specifier.  */
+      if (!cp_parser_parse_definitely (parser))
+	return NULL_TREE;
+
       if (cxx_dialect == cxx98)
         maybe_warn_cpp0x ("scoped enums");
 
       /* Consume the `:'.  */
       cp_lexer_consume_token (parser->lexer);
 
+      has_underlying_type = true;
+
       /* Parse the type-specifier-seq.  */
       cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
                                     &type_specifiers);
-      if (type_specifiers.type == error_mark_node)
-        return error_mark_node;
-     
+
       /* If that didn't work, stop.  */
       if (type_specifiers.type != error_mark_node)
         {
@@ -11838,15 +11800,17 @@ cp_parser_enum_specifier (cp_parser* parser)
           if (underlying_type == error_mark_node)
             underlying_type = NULL_TREE;
         }
-      else
-        cp_parser_error (parser, "expected underlying type of enumeration");
     }
 
   /* Look for the `{' but don't consume it yet.  */
   if (!cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
-    cp_parser_simulate_error (parser);
+    {
+      cp_parser_error (parser, "expected %<{%>");
+      if (has_underlying_type)
+	return NULL_TREE;
+    }
 
-  if (!cp_parser_parse_definitely (parser))
+  if (!has_underlying_type && !cp_parser_parse_definitely (parser))
     return NULL_TREE;
 
   /* Issue an error message if type-definitions are forbidden here.  */

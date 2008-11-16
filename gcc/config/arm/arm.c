@@ -1037,6 +1037,7 @@ arm_override_options (void)
 {
   unsigned i;
   enum processor_type target_arch_cpu = arm_none;
+  enum processor_type selected_cpu = arm_none;
 
   /* Set up the flags based on the cpu/architecture selected by the user.  */
   for (i = ARRAY_SIZE (arm_select); i--;)
@@ -1069,6 +1070,9 @@ arm_override_options (void)
 		if (i == ARM_OPT_SET_ARCH)
 		  target_arch_cpu = sel->core;
 
+		if (i == ARM_OPT_SET_CPU)
+		  selected_cpu = (enum processor_type) (sel - ptr->processors);
+		  
 		if (i != ARM_OPT_SET_TUNE)
 		  {
 		    /* If we have been given an architecture and a processor
@@ -1099,21 +1103,20 @@ arm_override_options (void)
     {
       const struct processors * sel;
       unsigned int        sought;
-      enum processor_type cpu;
 
-      cpu = TARGET_CPU_DEFAULT;
-      if (cpu == arm_none)
+      selected_cpu = TARGET_CPU_DEFAULT;
+      if (selected_cpu == arm_none)
 	{
 #ifdef SUBTARGET_CPU_DEFAULT
 	  /* Use the subtarget default CPU if none was specified by
 	     configure.  */
-	  cpu = SUBTARGET_CPU_DEFAULT;
+	  selected_cpu = SUBTARGET_CPU_DEFAULT;
 #endif
 	  /* Default to ARM6.  */
-	  if (cpu == arm_none)
-	    cpu = arm6;
+	  if (selected_cpu == arm_none)
+	    selected_cpu = arm6;
 	}
-      sel = &all_cores[cpu];
+      sel = &all_cores[selected_cpu];
 
       insn_flags = sel->flags;
 
@@ -1503,6 +1506,15 @@ arm_override_options (void)
 	error ("unable to use '%s' for PIC register", arm_pic_register_string);
       else
 	arm_pic_register = pic_register;
+    }
+
+  /* Enable -mfix-cortex-m3-ldrd by default for Cortex-M3 cores.  */
+  if (fix_cm3_ldrd == 2)
+    {
+      if (selected_cpu == cortexm3)
+	fix_cm3_ldrd = 1;
+      else
+	fix_cm3_ldrd = 0;
     }
 
   /* ??? We might want scheduling for thumb2.  */
@@ -3659,8 +3671,7 @@ static GTY(()) int pic_labelno;
 void
 arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 {
-  rtx l1, labelno, pic_tmp, pic_tmp2, pic_rtx, pic_reg;
-  rtx global_offset_table;
+  rtx l1, labelno, pic_tmp, pic_rtx, pic_reg;
 
   if (crtl->uses_pic_offset_table == 0 || TARGET_SINGLE_PIC_BASE)
     return;
@@ -3688,20 +3699,11 @@ arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
       l1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, labelno), UNSPEC_PIC_LABEL);
       l1 = gen_rtx_CONST (VOIDmode, l1);
 
-      global_offset_table
-	= gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
       /* On the ARM the PC register contains 'dot + 8' at the time of the
 	 addition, on the Thumb it is 'dot + 4'.  */
-      pic_tmp = plus_constant (l1, TARGET_ARM ? 8 : 4);
-      if (GOT_PCREL)
-	{
-	  pic_tmp2 = gen_rtx_PLUS (Pmode, global_offset_table, pc_rtx);
-	  pic_tmp2 = gen_rtx_CONST (VOIDmode, pic_tmp2);
-	}
-      else
-	pic_tmp2 = gen_rtx_CONST (VOIDmode, global_offset_table);
-
-      pic_rtx = gen_rtx_MINUS (Pmode, pic_tmp2, pic_tmp);
+      pic_rtx = plus_constant (l1, TARGET_ARM ? 8 : 4);
+      pic_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, pic_rtx),
+				UNSPEC_GOTSYM_OFF);
       pic_rtx = gen_rtx_CONST (Pmode, pic_rtx);
 
       if (TARGET_ARM)
@@ -9988,7 +9990,8 @@ output_move_double (rtx *operands)
       switch (GET_CODE (XEXP (operands[1], 0)))
 	{
 	case REG:
-	  if (TARGET_LDRD)
+	  if (TARGET_LDRD
+	      && !(fix_cm3_ldrd && reg0 == REGNO(XEXP (operands[1], 0))))
 	    output_asm_insn ("ldr%(d%)\t%0, [%m1]", operands);
 	  else
 	    output_asm_insn ("ldm%(ia%)\t%m1, %M0", operands);
@@ -10020,6 +10023,10 @@ output_move_double (rtx *operands)
 
 	case PRE_MODIFY:
 	case POST_MODIFY:
+	  /* Autoicrement addressing modes should never have overlapping
+	     base and destination registers, and overlapping index registers
+	     are already prohibited, so this doesn't need to worry about
+	     fix_cm3_ldrd.  */
 	  otherops[0] = operands[0];
 	  otherops[1] = XEXP (XEXP (XEXP (operands[1], 0), 1), 0);
 	  otherops[2] = XEXP (XEXP (XEXP (operands[1], 0), 1), 1);
@@ -10072,11 +10079,15 @@ output_move_double (rtx *operands)
 	  /* We might be able to use ldrd %0, %1 here.  However the range is
 	     different to ldr/adr, and it is broken on some ARMv7-M
 	     implementations.  */
-	  output_asm_insn ("adr%?\t%0, %1", operands);
+	  /* Use the second register of the pair to avoid problematic
+	     overlap.  */
+	  otherops[1] = operands[1];
+	  output_asm_insn ("adr%?\t%0, %1", otherops);
+	  operands[1] = otherops[0];
 	  if (TARGET_LDRD)
-	    output_asm_insn ("ldr%(d%)\t%0, [%0]", operands);
+	    output_asm_insn ("ldr%(d%)\t%0, [%1]", operands);
 	  else
-	    output_asm_insn ("ldm%(ia%)\t%0, %M0", operands);
+	    output_asm_insn ("ldm%(ia%)\t%1, %M0", operands);
 	  break;
 
 	  /* ??? This needs checking for thumb2.  */
@@ -10109,30 +10120,37 @@ output_move_double (rtx *operands)
 			  return "";
 			}
 		    }
+		  otherops[0] = gen_rtx_REG(SImode, REGNO(operands[0]) + 1);
+		  operands[1] = otherops[0];
 		  if (TARGET_LDRD
 		      && (GET_CODE (otherops[2]) == REG
 			  || (GET_CODE (otherops[2]) == CONST_INT
 			      && INTVAL (otherops[2]) > -256
 			      && INTVAL (otherops[2]) < 256)))
 		    {
-		      if (reg_overlap_mentioned_p (otherops[0],
+		      if (reg_overlap_mentioned_p (operands[0],
 						   otherops[2]))
 			{
+			  rtx tmp;
 			  /* Swap base and index registers over to
 			     avoid a conflict.  */
-			  otherops[1] = XEXP (XEXP (operands[1], 0), 1);
-			  otherops[2] = XEXP (XEXP (operands[1], 0), 0);
+			  tmp = otherops[1];
+			  otherops[1] = otherops[2];
+			  otherops[2] = tmp;
 			}
 		      /* If both registers conflict, it will usually
 			 have been fixed by a splitter.  */
-		      if (reg_overlap_mentioned_p (otherops[0], otherops[2]))
+		      if (reg_overlap_mentioned_p (operands[0], otherops[2])
+			  || (fix_cm3_ldrd && reg0 == REGNO (otherops[1])))
 			{
-			  output_asm_insn ("add%?\t%1, %1, %2", otherops);
-			  output_asm_insn ("ldr%(d%)\t%0, [%1]",
-					   otherops);
+			  output_asm_insn ("add%?\t%0, %1, %2", otherops);
+			  output_asm_insn ("ldr%(d%)\t%0, [%1]", operands);
 			}
 		      else
-			output_asm_insn ("ldr%(d%)\t%0, [%1, %2]", otherops);
+			{
+			  otherops[0] = operands[0];
+			  output_asm_insn ("ldr%(d%)\t%0, [%1, %2]", otherops);
+			}
 		      return "";
 		    }
 
@@ -10150,9 +10168,9 @@ output_move_double (rtx *operands)
 		output_asm_insn ("sub%?\t%0, %1, %2", otherops);
 
 	      if (TARGET_LDRD)
-		return "ldr%(d%)\t%0, [%0]";
+		return "ldr%(d%)\t%0, [%1]";
 
-	      return "ldm%(ia%)\t%0, %M0";
+	      return "ldm%(ia%)\t%1, %M0";
 	    }
 	  else
 	    {
@@ -18994,6 +19012,16 @@ arm_output_addr_const_extra (FILE *fp, rtx x)
       ASM_GENERATE_INTERNAL_LABEL (label, "LPIC", labelno);
       assemble_name_raw (fp, label);
 
+      return TRUE;
+    }
+  else if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_GOTSYM_OFF)
+    {
+      assemble_name (fp, "_GLOBAL_OFFSET_TABLE_");
+      if (GOT_PCREL)
+	fputs ("+.", fp);
+      fputs ("-(", fp);
+      output_addr_const (fp, XVECEXP (x, 0, 0));
+      fputc (')', fp);
       return TRUE;
     }
   else if (GET_CODE (x) == CONST_VECTOR)

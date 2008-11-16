@@ -214,6 +214,8 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega8515",   ARCH_AVR4, "__AVR_ATmega8515__" },
   { "atmega8535",   ARCH_AVR4, "__AVR_ATmega8535__" },
   { "atmega8hva",   ARCH_AVR4, "__AVR_ATmega8HVA__" },
+  { "atmega4hvd",   ARCH_AVR4, "__AVR_ATmega4HVD__" },
+  { "atmega8hvd",   ARCH_AVR4, "__AVR_ATmega8HVD__" },
   { "at90pwm1",     ARCH_AVR4, "__AVR_AT90PWM1__" },
   { "at90pwm2",     ARCH_AVR4, "__AVR_AT90PWM2__" },
   { "at90pwm2b",    ARCH_AVR4, "__AVR_AT90PWM2B__" },
@@ -254,13 +256,19 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega649",    ARCH_AVR5, "__AVR_ATmega649__" },
   { "atmega6490",   ARCH_AVR5, "__AVR_ATmega6490__" },
   { "atmega16hva",  ARCH_AVR5, "__AVR_ATmega16HVA__" },
+  { "atmega16hvb",  ARCH_AVR5, "__AVR_ATmega16HVB__" },
+  { "atmega32hvb",  ARCH_AVR5, "__AVR_ATmega32HVB__" },
   { "at90can32",    ARCH_AVR5, "__AVR_AT90CAN32__" },
   { "at90can64",    ARCH_AVR5, "__AVR_AT90CAN64__" },
   { "at90pwm216",   ARCH_AVR5, "__AVR_AT90PWM216__" },
   { "at90pwm316",   ARCH_AVR5, "__AVR_AT90PWM316__" },
-  { "atmega32m1",   ARCH_AVR5, "__AVR_ATmega32M1__" },
   { "atmega32c1",   ARCH_AVR5, "__AVR_ATmega32C1__" },
+  { "atmega64c1",   ARCH_AVR5, "__AVR_ATmega64C1__" },
+  { "atmega32m1",   ARCH_AVR5, "__AVR_ATmega32M1__" },
+  { "atmega64m1",   ARCH_AVR5, "__AVR_ATmega64M1__" },
+  { "atmega16u4",   ARCH_AVR5, "__AVR_ATmega16U4__" },
   { "atmega32u4",   ARCH_AVR5, "__AVR_ATmega32U4__" },
+  { "atmega32u6",   ARCH_AVR5, "__AVR_ATmega32U6__" },
   { "at90usb646",   ARCH_AVR5, "__AVR_AT90USB646__" },
   { "at90usb647",   ARCH_AVR5, "__AVR_AT90USB647__" },
   { "at94k",        ARCH_AVR5, "__AVR_AT94K__" },
@@ -5192,6 +5200,41 @@ avr_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total,
       *total += avr_operand_rtx_cost (XEXP (x, 0), mode, code, speed);
       *total += avr_operand_rtx_cost (XEXP (x, 1), mode, code, speed);
       return true;
+
+    case ROTATE:
+      switch (mode)
+	{
+	case QImode:
+	  if (CONST_INT_P (XEXP (x, 1)) && INTVAL (XEXP (x, 1)) == 4)
+	    *total = COSTS_N_INSNS (1);
+
+	  break;
+
+	case HImode:
+	  if (CONST_INT_P (XEXP (x, 1)) && INTVAL (XEXP (x, 1)) == 8)
+	    *total = COSTS_N_INSNS (3);
+
+	  break;
+
+	case SImode:
+	  if (CONST_INT_P (XEXP (x, 1)))
+	    switch (INTVAL (XEXP (x, 1)))
+	      {
+	      case 8:
+	      case 24:
+		*total = COSTS_N_INSNS (5);
+		break;
+	      case 16:
+		*total = COSTS_N_INSNS (AVR_HAVE_MOVW ? 4 : 6);
+		break;
+	      }
+	  break;
+
+	default:
+	  return false;
+	}
+      *total += avr_operand_rtx_cost (XEXP (x, 0), mode, code, speed);
+      return true;    
 
     case ASHIFT:
       switch (mode)

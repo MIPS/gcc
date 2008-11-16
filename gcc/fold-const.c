@@ -7315,6 +7315,37 @@ native_encode_vector (const_tree expr, unsigned char *ptr, int len)
 }
 
 
+/* Subroutine of native_encode_expr.  Encode the STRING_CST
+   specified by EXPR into the buffer PTR of length LEN bytes.
+   Return the number of bytes placed in the buffer, or zero
+   upon failure.  */
+
+static int
+native_encode_string (const_tree expr, unsigned char *ptr, int len)
+{
+  tree type = TREE_TYPE (expr);
+  HOST_WIDE_INT total_bytes;
+
+  if (TREE_CODE (type) != ARRAY_TYPE
+      || TREE_CODE (TREE_TYPE (type)) != INTEGER_TYPE
+      || GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (type))) != BITS_PER_UNIT
+      || !host_integerp (TYPE_SIZE_UNIT (type), 0))
+    return 0;
+  total_bytes = tree_low_cst (TYPE_SIZE_UNIT (type), 0);
+  if (total_bytes > len)
+    return 0;
+  if (TREE_STRING_LENGTH (expr) < total_bytes)
+    {
+      memcpy (ptr, TREE_STRING_POINTER (expr), TREE_STRING_LENGTH (expr));
+      memset (ptr + TREE_STRING_LENGTH (expr), 0,
+	      total_bytes - TREE_STRING_LENGTH (expr));
+    }
+  else
+    memcpy (ptr, TREE_STRING_POINTER (expr), total_bytes);
+  return total_bytes;
+}
+
+
 /* Subroutine of fold_view_convert_expr.  Encode the INTEGER_CST,
    REAL_CST, COMPLEX_CST or VECTOR_CST specified by EXPR into the
    buffer PTR of length LEN bytes.  Return the number of bytes
@@ -7336,6 +7367,9 @@ native_encode_expr (const_tree expr, unsigned char *ptr, int len)
 
     case VECTOR_CST:
       return native_encode_vector (expr, ptr, len);
+
+    case STRING_CST:
+      return native_encode_string (expr, ptr, len);
 
     default:
       return 0;
@@ -14016,15 +14050,38 @@ tree_binary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
       /* zero_extend(x) * zero_extend(y) is non-negative if x and y are
 	 both unsigned and their total bits is shorter than the result.  */
       if (TREE_CODE (type) == INTEGER_TYPE
-	  && TREE_CODE (op0) == NOP_EXPR
-	  && TREE_CODE (op1) == NOP_EXPR)
+	  && (TREE_CODE (op0) == NOP_EXPR || TREE_CODE (op0) == INTEGER_CST)
+	  && (TREE_CODE (op1) == NOP_EXPR || TREE_CODE (op1) == INTEGER_CST))
 	{
-	  tree inner1 = TREE_TYPE (TREE_OPERAND (op0, 0));
-	  tree inner2 = TREE_TYPE (TREE_OPERAND (op1, 0));
-	  if (TREE_CODE (inner1) == INTEGER_TYPE && TYPE_UNSIGNED (inner1)
-	      && TREE_CODE (inner2) == INTEGER_TYPE && TYPE_UNSIGNED (inner2))
-	    return TYPE_PRECISION (inner1) + TYPE_PRECISION (inner2)
-		   < TYPE_PRECISION (type);
+	  tree inner0 = (TREE_CODE (op0) == NOP_EXPR) 
+	    ? TREE_TYPE (TREE_OPERAND (op0, 0))
+	    : TREE_TYPE (op0);
+	  tree inner1 = (TREE_CODE (op1) == NOP_EXPR) 
+	    ? TREE_TYPE (TREE_OPERAND (op1, 0))
+	    : TREE_TYPE (op1);
+
+	  bool unsigned0 = TYPE_UNSIGNED (inner0);
+	  bool unsigned1 = TYPE_UNSIGNED (inner1);
+
+	  if (TREE_CODE (op0) == INTEGER_CST)
+	    unsigned0 = unsigned0 || tree_int_cst_sgn (op0) >= 0;
+
+	  if (TREE_CODE (op1) == INTEGER_CST)
+	    unsigned1 = unsigned1 || tree_int_cst_sgn (op1) >= 0;
+
+	  if (TREE_CODE (inner0) == INTEGER_TYPE && unsigned0
+	      && TREE_CODE (inner1) == INTEGER_TYPE && unsigned1)
+	    {
+	      unsigned int precision0 = (TREE_CODE (op0) == INTEGER_CST)
+		? tree_int_cst_min_precision (op0, /*unsignedp=*/true)
+		: TYPE_PRECISION (inner0);
+
+	      unsigned int precision1 = (TREE_CODE (op1) == INTEGER_CST)
+		? tree_int_cst_min_precision (op1, /*unsignedp=*/true)
+		: TYPE_PRECISION (inner1);
+
+	      return precision0 + precision1 < TYPE_PRECISION (type);
+	    }
 	}
       return false;
 
