@@ -978,7 +978,6 @@ cgraph_remove_node (struct cgraph_node *node)
       if (node->next_clone)
       {
 	struct cgraph_node *new_node = node->next_clone;
-	struct cgraph_node *n;
 
 	*slot = new_node;
 	node->next_clone->prev_clone = NULL;
