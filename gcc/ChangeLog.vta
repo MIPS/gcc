@@ -1,5 +1,9 @@
 2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
 
+	* local-alloc.c (update_equiv_regs): Revert now-redundant df rescan.
+
+2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
+
 	* loop-invariant.c (find_invariants_bb): Ignore debug insns.
 
 2008-11-17  Alexandre Oliva  <aoliva@redhat.com>

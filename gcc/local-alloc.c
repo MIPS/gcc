@@ -1254,8 +1254,6 @@ update_equiv_regs (void)
 		      new_insn = emit_insn_before (PATTERN (equiv_insn), insn);
 		      REG_NOTES (new_insn) = REG_NOTES (equiv_insn);
 		      REG_NOTES (equiv_insn) = 0;
-		      /* Rescan it to process the notes.  */
-		      df_insn_rescan (new_insn);
 
 		      /* Make sure this insn is recognized before
 			 reload begins, otherwise
