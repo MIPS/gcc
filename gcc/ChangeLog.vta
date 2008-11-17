@@ -1,5 +1,10 @@
 2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-ssa-live.c (remove_unused_scope_block_p): Keep variables
+	that have value exprs.
+
+2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
+
 	* local-alloc.c (update_equiv_regs): Revert now-redundant df rescan.
 
 2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
