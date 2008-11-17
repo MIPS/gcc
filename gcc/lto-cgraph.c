@@ -585,7 +585,8 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
   unsigned int nest;
   cgraph_inline_failed_t inline_failed;
   unsigned HOST_WIDEST_INT flags;
-  tree prevailing;
+  tree prevailing_callee;
+  tree prevailing_caller;
   enum ld_plugin_symbol_resolution caller_resolution;
 
   LTO_DEBUG_TOKEN ("caller");
@@ -626,8 +627,11 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
       || caller_resolution == LDPR_PREEMPTED_IR)
       return;
 
-  /* Make sure the callee is the prevailing decl. */
-  prevailing = lto_symtab_prevailing_decl (callee->decl);
+
+  prevailing_callee = lto_symtab_prevailing_decl (callee->decl);
+
+  /* Make sure the caller is the prevailing decl. */
+  prevailing_caller = lto_symtab_prevailing_decl (caller->decl);
 
   /* FIXME lto: remove this once extern inline in handled in lgen. */
   if (caller_resolution != LDPR_PREVAILING_DEF
@@ -636,16 +640,16 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
       && caller_resolution != LDPR_PREEMPTED_IR)
     {
       /* If we have a extern inline, make sure it is the prevailing. */
-      gcc_assert (prevailing == callee->decl);
+      gcc_assert (prevailing_caller == caller->decl);
     }
 
-  if (prevailing != callee->decl)
+  if (prevailing_callee != callee->decl)
     {
       /* We cannot replace a clone! */
       gcc_assert (callee == cgraph_node (callee->decl));
 
 
-      callee = cgraph_node (prevailing);
+      callee = cgraph_node (prevailing_callee);
       gcc_assert (callee);
     }
 
