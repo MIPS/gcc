@@ -1,5 +1,9 @@
 2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
 
+	* loop-invariant.c (find_invariants_bb): Ignore debug insns.
+
+2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
+
 	* reload1.c (emit_input_reload_insns): Don't let debug insns get
 	in the way of optimizing away a SET in the previous non-debug insn
 	to satisfy an input reload.
