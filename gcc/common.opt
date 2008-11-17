@@ -259,6 +259,10 @@ Common Separate
 fabi-version=
 Common Joined UInteger Var(flag_abi_version) Init(2)
 
+faggressive-cmov
+Common Report Var(flag_aggressive_cmov) Init(0)
+Perform aggressive speculative branch elimination using cmov instructions
+
 falign-functions
 Common Report Var(align_functions,0)
 Align the start of functions

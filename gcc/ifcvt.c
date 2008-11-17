@@ -73,6 +73,10 @@
 
 #define NULL_BLOCK	((basic_block) NULL)
 
+/* boolean to indicate that aggressive cmov branch elimination
+   should be tried. */
+static int aggressive_cmov;
+
 /* # of IF-THEN or IF-THEN-ELSE blocks we looked at  */
 static int num_possible_if_blocks;
 
@@ -104,6 +108,8 @@ static int noce_find_if_block (basic_block, edge, edge, int);
 static int cond_exec_find_if_block (ce_if_block_t *);
 static int find_if_case_1 (basic_block, edge, edge);
 static int find_if_case_2 (basic_block, edge, edge);
+static int block_modifies_live_reg (basic_block, basic_block);
+static int find_andif_orif_block (ce_if_block_t *);
 static int find_memory (rtx *, void *);
 static int dead_or_predicable (basic_block, basic_block, basic_block,
 			       basic_block, int);
@@ -1484,6 +1490,522 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
   return FALSE;
 }
 
+/* Determine if there are instructions within a basic block that
+   will prevent the block from being eliminated by conditional 
+   move transformation. */ 
+
+static int
+safe_to_transform_p (basic_block blk)
+{
+  rtx insn, set;
+
+  if (!blk)
+    return TRUE;
+
+  for (insn = BB_HEAD (blk); insn; insn = NEXT_INSN (insn))
+    {
+      if (active_insn_p (insn))
+	switch (GET_CODE (insn))
+	  {
+
+	  case JUMP_INSN:
+	    break;
+
+	  case INSN:
+	    if ((set = single_set (insn)))
+	      {
+		if (GET_CODE ((SET_DEST (set))) == MEM)
+		  return FALSE;
+		if (!noce_operand_ok (SET_SRC (set)))
+		  return FALSE;
+		break;
+	      }
+	    /* fallthrough */
+
+	  default:
+	    /* Anything else, e.g., calls returns, cannot be handled. */
+	    return FALSE;
+	  }
+      if (insn == BB_END (blk))
+	break;
+    }
+
+  return TRUE;
+}
+
+/* Determine if it is cost effective to proceed with aggressive cmov
+   transformation. */
+
+static int
+cost_effective_p (int fallthru_cost, int taken_cost, rtx jump_insn)
+{
+  rtx note;
+  int prob;			/* conditional branch probability */
+  int predicted_cost;
+  int cmov_cost = taken_cost + fallthru_cost;
+
+  /* Factor in BRANCH costs.  There will usually be a jump instruction
+     at the bottom of the fallthru block.  The cost of this jump could
+     depend upon architecture specific features, such as hardware 
+     branch predicition or insertion of branch hint instructions. 
+     If FALLTHRU_BRANCH_COST is undefined, we assume the branch is
+     correctly predicted without additional cost. */
+
+#ifdef FALLTHRU_BRANCH_COST
+  fallthru_cost += FALLTHRU_BRANCH_COST;
+#endif
+
+  taken_cost += BRANCH_COST;	/* always mispredicted */
+
+  if ((note = find_reg_note (jump_insn, REG_BR_PROB, 0)))
+    {
+      prob = INTVAL (XEXP (note, 0));
+      predicted_cost =
+	(prob * taken_cost +
+	 (REG_BR_PROB_BASE - prob) * fallthru_cost) / REG_BR_PROB_BASE;
+    }
+  else
+    {
+      predicted_cost = taken_cost + fallthru_cost;
+    }
+
+  return (cmov_cost > predicted_cost) ? FALSE : TRUE;
+}
+
+/* Throughout the rtx X, replace many registers according to REG_MAP.
+   REG_MAP[R] is the replacement for register R, or 0 for don't replace.
+   NREGS is the length of REG_MAP; regs >= NREGS are not mapped.
+
+   If X is a SET that modifies register R and R is in EXPOSED_SET, then
+   replace register R with a new pseudo and update REG_MAP[R].
+
+   Also check for cases that we don't handle, e.g., stores and
+   instructions with side effects. */
+
+static int remap_regs_status;
+static void
+validate_remap_regs_1 (rtx * loc, rtx * reg_map, rtx * reg_map_orig,
+		       unsigned int nregs, rtx insn, regset exposed_set)
+{
+  enum rtx_code code;
+  int i, regno;
+  const char *fmt;
+  rtx x = *loc;
+
+  if (!x || remap_regs_status < 0)
+    return;
+
+  code = GET_CODE (x);
+  switch (code)
+    {
+    case SCRATCH:
+    case PC:
+    case CC0:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case CONST:
+    case SYMBOL_REF:
+    case LABEL_REF:
+      return;
+
+    case REG:
+      /* Verify that the register has an entry before trying to access it.  */
+      regno = REGNO (x);
+      if (REGNO (x) < nregs && reg_map[regno] != 0)
+	validate_change (insn, loc, reg_map[regno], 1);
+      return;
+
+    case SET:
+      validate_remap_regs_1 (&SET_SRC (x), reg_map, reg_map_orig, nregs, insn,
+			     exposed_set);
+
+      loc = &SET_DEST (x);
+      x = SET_DEST (x);
+      if (GET_CODE (x) == SUBREG)
+	{
+	  loc = &SUBREG_REG (x);
+	  x = SUBREG_REG (x);
+	}
+      if (GET_CODE (x) == MEM || GET_CODE (x) == STRICT_LOW_PART)
+	{
+	  remap_regs_status = -1;
+	  return;
+	}
+      if (GET_CODE (x) == REG)
+	{
+	  regno = REGNO (x);
+	  if (REGNO_REG_SET_P (exposed_set, regno))
+	    {
+	      /* Ensure there is a conditional move instruction
+	         for registers of this mode. */
+	      if (!can_conditionally_move_p (GET_MODE (x)))
+		{
+		  remap_regs_status = -2;
+		  return;
+		}
+	      reg_map_orig[regno] = x;
+	      reg_map[regno] = gen_reg_rtx (GET_MODE (x));
+	      ORIGINAL_REGNO (reg_map[regno]) = regno;
+	      validate_change (insn, loc, reg_map[regno], 1);
+	    }
+	}
+      else
+	validate_remap_regs_1 (loc, reg_map, reg_map_orig, nregs, insn,
+			       exposed_set);
+      return;
+
+    case CLOBBER:
+      if (GET_CODE (x) == SUBREG)
+	{
+	  loc = &SUBREG_REG (x);
+	  x = SUBREG_REG (x);
+	}
+      if (GET_CODE (x) == REG && REGNO_REG_SET_P (exposed_set, REGNO (x)))
+	abort ();
+      break;
+
+    default:
+      break;
+    }
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	validate_remap_regs_1 (&XEXP (x, i), reg_map, reg_map_orig, nregs,
+			       insn, exposed_set);
+      else if (fmt[i] == 'E')
+	{
+	  int j;
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    validate_remap_regs_1 (&XVECEXP (x, i, j), reg_map, reg_map_orig,
+				   nregs, insn, exposed_set);
+	}
+    }
+}
+
+static int
+validate_remap_regs (rtx * reg_map, rtx * reg_map_orig, unsigned int nregs,
+		     rtx insn, regset exposed_set)
+{
+  /* REG_NOTES needs to be first because it has no SETs. */
+  remap_regs_status = 0;
+  validate_remap_regs_1 (&REG_NOTES (insn), reg_map, reg_map_orig, nregs,
+			 insn, exposed_set);
+  validate_remap_regs_1 (&PATTERN (insn), reg_map, reg_map_orig, nregs, insn,
+			 exposed_set);
+  return remap_regs_status;
+}
+
+
+/* For all instructions in TGT remap registers such that any
+   modification of a register in EXPOSED_SET is instead replaced with a
+   pseudo register and any corresponding references are also updated.
+   The register being replaced is saved in REG_MAP_ORIG and the new
+   pseudo register is stored in REG_MAP.  */
+static int
+remap_instructions (basic_block tgt, rtx * reg_map, rtx * reg_map_orig,
+		    int nregs, regset exposed_set)
+{
+  rtx insn, next_insn, bb_end;
+  int status;
+
+  next_insn = BB_HEAD (tgt);
+  bb_end = BB_END (tgt);
+  do
+    {
+      insn = next_insn;
+      next_insn = NEXT_INSN (insn);
+
+      if (GET_CODE (insn) == JUMP_INSN)
+	break;
+
+      if (GET_CODE (insn) == CALL_INSN)
+	return -3;
+
+      /* Don't move labels and notes. */
+      if (GET_CODE (insn) != INSN)
+	continue;
+
+      if (!noce_operand_ok (PATTERN (insn)))
+	return -4;
+
+      status =
+	validate_remap_regs (reg_map, reg_map_orig, nregs, insn, exposed_set);
+      if (status < 0)
+	return status;
+    }
+  while (insn != bb_end);
+  return 0;
+}
+
+/* Move instructions from TGT to the end of HDR (before the jump).  
+   HDR is the test block and TGT is either the target block or fallthru
+   block of an if statement. */
+static int
+hoist_instructions (basic_block hdr, basic_block tgt)
+{
+  rtx insn, next_insn, bb_end;
+  rtx jump_insn = BB_END (hdr);
+  int n_insns = 0;
+
+  next_insn = BB_HEAD (tgt);
+  bb_end = BB_END (tgt);
+  do
+    {
+      insn = next_insn;
+      next_insn = NEXT_INSN (insn);
+
+      if (GET_CODE (insn) == JUMP_INSN)
+	break;
+
+      /* Don't move labels and notes. */
+      if (GET_CODE (insn) != INSN)
+	continue;
+
+      remove_insn (insn);
+      NEXT_INSN (insn) = 0;
+      PREV_INSN (insn) = 0;
+      emit_insn_before (insn, jump_insn);
+      n_insns++;
+
+    }
+  while (insn != bb_end);
+  return n_insns;
+}
+
+/* Every REG in X should be marked in EXPOSED_SET.  */
+static void
+mark_regs_in_rtx (rtx x, regset exposed_set)
+{
+  int i, code;
+  const char *fmt;
+
+  if (!x)
+    return;
+
+  code = GET_CODE (x);
+  if (code == REG)
+    {
+      SET_REGNO_REG_SET (exposed_set, REGNO (x));
+      return;
+    }
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	mark_regs_in_rtx (XEXP (x, i), exposed_set);
+      else if (fmt[i] == 'E')
+	{
+	  int j;
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    mark_regs_in_rtx (XVECEXP (x, i, j), exposed_set);
+	}
+    }
+}
+
+/* If *PX is a REG and the corresponding entry is set in REG_MAP_ORIG 
+   we need to make a copy of the register and change *PX.  */
+static void
+copy_regs_in_rtx (rtx * px, rtx * reg_map_orig, int nregs)
+{
+  rtx x = *px;
+  int i, code;
+  const char *fmt;
+
+  if (!x)
+    return;
+
+  code = GET_CODE (x);
+  if (code == REG)
+    {
+      if (REGNO (x) < (unsigned) nregs && reg_map_orig[REGNO (x)])
+	{
+	  rtx nr = gen_reg_rtx (GET_MODE (x));
+	  emit_move_insn (nr, x);
+	  /* We don't check if this replacement is valid because we are
+	     working on a copy. */
+	  *px = nr;
+	}
+      return;
+    }
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	copy_regs_in_rtx (&XEXP (x, i), reg_map_orig, nregs);
+      else if (fmt[i] == 'E')
+	{
+	  int j;
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    copy_regs_in_rtx (&XVECEXP (x, i, j), reg_map_orig, nregs);
+	}
+    }
+}
+
+
+/* Try to merge blocks and eliminate a conditional branch by converting 
+   instructions in the blocks following the branch to conditional move 
+   instructions.  This routine differs from noce_try_cmove() and 
+   noce_try_cmove_arith() in that situations are handled involving 
+   assignment to multiple variables and assignment to temporary variables 
+   used within either the branch fallthru or branch taken block. */
+
+static int
+noce_try_cmove_aggressive (struct noce_if_info *if_info)
+{
+#if HAVE_conditional_move
+  basic_block hdr = if_info->test_bb;
+  basic_block fallthru = if_info->then_bb;
+  basic_block taken = if_info->else_bb;
+  int fallthru_cost = 0, taken_cost = 0;
+  rtx *reg_map_fallthru = 0, *reg_map_taken = 0, *reg_map_orig = 0, seq;
+  regset exposed_set;
+  int i, nregs, status, n_insns = 0, n_cmovs = 0;
+
+  /* Ensure the condition in the branch at the end of the header block 
+     is conformable to transformation. */
+
+  if (!onlyjump_p (if_info->jump))
+    return FALSE;
+
+  if (!if_info->cond || (GET_MODE (XEXP (if_info->cond, 0)) == BLKmode))
+    return FALSE;
+
+  fallthru_cost = fallthru ? count_bb_insns (fallthru) : 0;
+  taken_cost = taken ? count_bb_insns (taken) : 0;
+
+  /* Determine if it is cost effective to proceed. */
+
+  if (!cost_effective_p (fallthru_cost, taken_cost, if_info->jump))
+    return FALSE;
+
+  /* Determine which register we need to replace with pseudos. */
+  exposed_set = ALLOC_REG_SET (&reg_obstack);
+  COPY_REG_SET (exposed_set, DF_LR_OUT (if_info->test_bb));
+  mark_regs_in_rtx (if_info->cond, exposed_set);
+  if (fallthru)
+    IOR_REG_SET (exposed_set, DF_LR_OUT (fallthru));
+  if (taken)
+    IOR_REG_SET (exposed_set, DF_LR_OUT (taken));
+
+  nregs = max_reg_num ();
+
+  /* Change all register references so that there will be no conflicts 
+     when moving the fallthru and taken blocks to the test block. */
+  status = 0;
+  reg_map_orig = xcalloc (nregs, sizeof (rtx));
+  if (fallthru)
+    {
+      reg_map_fallthru = xcalloc (nregs, sizeof (rtx));
+      status =
+	remap_instructions (fallthru, reg_map_fallthru, reg_map_orig, nregs,
+			    exposed_set);
+    }
+  if (status >= 0 && taken)
+    {
+      reg_map_taken = xcalloc (nregs, sizeof (rtx));
+      status =
+	remap_instructions (taken, reg_map_taken, reg_map_orig, nregs,
+			    exposed_set);
+    }
+
+  if (status >= 0)
+    {
+      rtx cond;
+      /* Move taken and fallthru instructions to the test block. */
+      if (taken)
+	n_insns += hoist_instructions (hdr, taken);
+      if (fallthru)
+	n_insns += hoist_instructions (hdr, fallthru);
+
+      /* Create the conditional moves.   */
+      start_sequence ();
+
+      /* When registers used in info.cond are modified in the fallthru
+         or taken blocks we must make a copy to use for the conditional
+         moves.  Don't modify the original condition because we could
+         still fail after this point. */
+      cond = copy_rtx (if_info->cond);
+      copy_regs_in_rtx (&cond, reg_map_orig, nregs);
+
+      for (i = 0; i < nregs; i++)
+	{
+	  enum machine_mode mode;
+	  rtx a, b, target;
+	  int code;
+	  if (reg_map_orig[i])
+	    {
+	      target = reg_map_orig[i];
+	      mode = GET_MODE (target);
+	      a = target;
+	      b = target;
+	      if (taken && reg_map_taken[i])
+		a = reg_map_taken[i];
+	      if (fallthru && reg_map_fallthru[i])
+		b = reg_map_fallthru[i];
+	      if (a == b)
+		abort ();
+	      code = GET_CODE (cond);
+	      if (!emit_conditional_move (target, code,
+					  XEXP (cond, 0),
+					  XEXP (cond, 1),
+					  VOIDmode,
+					  a, b,
+					  mode,
+					  (code == LTU || code == GEU
+					   || code == LEU || code == GTU)))
+		{
+		  status = -6;
+		  break;
+		}
+
+	      n_cmovs++;
+	    }
+	}
+      seq = get_insns ();
+      end_sequence ();
+
+      if (status >= 0)
+	{
+	  emit_insn_before_setloc (seq, if_info->jump,
+				   INSN_LOCATOR (if_info->jump));
+
+	  if (dump_file)
+	    fprintf (dump_file,
+		     "%d insn%s hoisted out of if statement and %d cmov insn%s generated.\n",
+		     n_insns, (n_insns == 1) ? " was" : "s were", n_cmovs,
+		     (n_cmovs == 1) ? " was" : "s were");
+	  if (n_cmovs > 0)
+	    {
+	      cond_exec_changed_p = TRUE;
+	      num_updated_if_blocks++;
+	    }
+
+	}
+    }
+
+  if (status < 0)
+    cancel_changes (0);
+  else if (!apply_change_group ())
+    status = -5;
+
+
+  CLEAR_REG_SET (exposed_set);
+  free (reg_map_orig);
+  if (reg_map_fallthru)
+    free (reg_map_fallthru);
+  if (reg_map_taken)
+    free (reg_map_taken);
+  return status >= 0 && n_cmovs > 0;
+#else
+  return FALSE;
+#endif
+}
+
 /* For most cases, the simplified condition we found is the best
    choice, but this is not the case for the min/max/abs transforms.
    For these we wish to know that it is A or B in the condition.  */
@@ -2141,6 +2663,188 @@ noce_mem_write_may_trap_or_fault_p (const_rtx mem)
       }
 
   return false;
+}
+
+/* Given a simple IF-ANDIF-THEN block, attempt to convert it
+   without using conditional execution.  Return TRUE if we were
+   successful at converting the block.  */
+
+static int
+noce_process_andif_orif_block (ce_if_block_t * ce_info, int andif)
+{
+  basic_block test_bb = ce_info->test_bb;	/* Basic block test is in */
+  basic_block then_bb = ce_info->then_bb;	/* Basic block for THEN block */
+  basic_block else_bb = ce_info->else_bb;	/* Basic block for ELSE block */
+  /* We've found a pattern of the form
+
+     (1) if (a && b) ...
+     (2) if (a || b) ...
+
+     Convert it to
+
+     (1) if ((a) & (b)) ...
+     (2) if ((a) | (b)) ...
+
+   */
+
+  edge e;
+  rtx test_earliest, then_earliest;
+  rtx jump, cond;
+  rtx then_jump, then_cond;
+  rtx note, then_note, set;
+  enum machine_mode mode;
+  HOST_WIDE_INT prob, then_prob;
+
+  /* If the conditional jump is more than just a conditional jump,
+     then we can not do if-conversion on this block.  */
+  jump = BB_END (test_bb);
+  then_jump = BB_END (then_bb);
+  if (!onlyjump_p (jump) || !onlyjump_p (then_jump))
+    return FALSE;
+
+  /* Check that we don't modify anything that is
+     live at the beginning of the ELSE block. */
+
+  /* The THEN block should be small enough to merge. */
+  if (count_bb_insns (then_bb) > BRANCH_COST)
+    return FALSE;
+
+  if (block_modifies_live_reg (then_bb, else_bb))
+    return FALSE;
+  if (!safe_to_transform_p (then_bb))
+    return FALSE;
+
+  /* Get the mode of jump's condition. The cond return by get_condition
+     might have mode VOIDmode. */
+  if (!any_condjump_p (jump) || !(set = pc_set (jump)))
+    return FALSE;
+
+  mode = GET_MODE (XEXP (SET_SRC (set), 0));
+  if (mode == VOIDmode)
+    return FALSE;
+
+  /* FIXME: This may be too conservative. valid_at_insn_p can be false? */
+  /* If this is not a standard conditional jump, we can't parse it.  */
+  cond = get_condition (jump, &test_earliest, 0, true);
+  if (!cond || !test_earliest)
+    return FALSE;
+
+  then_cond = get_condition (then_jump, &then_earliest, 0, true);
+  if (!then_cond || !then_earliest)
+    return FALSE;
+
+  /* We must be comparing objects whose modes imply the size.  */
+  if (GET_MODE (XEXP (cond, 0)) == BLKmode
+      || GET_MODE (XEXP (then_cond, 0)) == BLKmode)
+    return FALSE;
+
+  /* Only merge if both branches are more likely to go to the common
+     destination.  When that happens bb reordering can't arrange for
+     both of the branches to fall-thru to the more likely case.  By
+     merging the two branches we exchange the cost of a mispredicted
+     branch for the additional tests.
+     This is the most important test because it limits the optimization
+     to cases it is most likely to be a win.  But it ignores the cases
+     where this optimization on it's own is not a win but in combination
+     with some other if conversions it would be. */
+  note = find_reg_note (jump, REG_BR_PROB, NULL_RTX);
+  then_note = find_reg_note (then_jump, REG_BR_PROB, NULL_RTX);
+  prob = note ? INTVAL (XEXP (note, 0)) : REG_BR_PROB_BASE / 2;
+  then_prob = then_note ? INTVAL (XEXP (then_note, 0)) : REG_BR_PROB_BASE / 2;
+  if (prob < REG_BR_PROB_BASE / 2
+      || (andif ? then_prob < REG_BR_PROB_BASE / 2 : then_prob >
+	  REG_BR_PROB_BASE / 2))
+    return FALSE;
+
+
+  {
+    enum rtx_code code;
+    rtx seq_a, seq_b, seq_t;
+    rtx a, b, t;
+    rtx new_jump;
+
+    start_sequence ();
+    a = gen_reg_rtx (mode);
+    code = GET_CODE (cond);
+    a = emit_store_flag (a, code, XEXP (cond, 0), XEXP (cond, 1), VOIDmode,
+			 (code == LTU || code == LEU || code == GEU
+			  || code == GTU), 0);
+    seq_a = get_insns ();
+    end_sequence ();
+
+    if (!a)
+      return FALSE;
+
+    start_sequence ();
+    b = gen_reg_rtx (mode);
+    code = GET_CODE (then_cond);
+    b =
+      emit_store_flag (b, code, XEXP (then_cond, 0), XEXP (then_cond, 1),
+		       VOIDmode, (code == LTU || code == LEU || code == GEU
+				  || code == GTU), 0);
+    seq_b = get_insns ();
+    end_sequence ();
+
+    if (!b)
+      return FALSE;
+
+    emit_insn_before (seq_a, test_earliest);
+    emit_insn_before (seq_b, then_earliest);
+
+    start_sequence ();
+    t = gen_reg_rtx (mode);
+    if (andif)
+      emit_insn (gen_rtx_SET (VOIDmode, t, gen_rtx_IOR (mode, a, b)));
+    else
+      emit_insn (gen_rtx_SET
+		 (VOIDmode, t, gen_rtx_AND (mode, gen_rtx_NOT (mode, a), b)));
+    emit_cmp_and_jump_insns (t, const0_rtx, NE, 0, mode, 0,
+			     JUMP_LABEL (then_jump));
+    seq_t = get_insns ();
+    new_jump = get_last_insn ();
+    end_sequence ();
+
+    emit_insn_before (seq_t, then_jump);
+
+    if (GET_CODE (new_jump) != JUMP_INSN)
+      abort ();
+    JUMP_LABEL (new_jump) = JUMP_LABEL (then_jump);
+    LABEL_NUSES (JUMP_LABEL (new_jump)) += 1;
+
+    /* Compute the new branch probability. */
+    then_prob = ((REG_BR_PROB_BASE - prob) * then_prob) / REG_BR_PROB_BASE;
+    if (andif)
+      then_prob += prob;
+
+    REG_NOTES (new_jump) = gen_rtx_EXPR_LIST (REG_BR_PROB,
+					      GEN_INT (then_prob),
+					      REG_NOTES (new_jump));
+
+    /* We have previously tested that then_bb has exactly two
+       successors. */
+    gcc_assert (EDGE_COUNT (then_bb->succs) == 2);
+    e = EDGE_SUCC (then_bb, 0);
+    if (e->flags & EDGE_FALLTHRU)
+      {
+	e->probability = REG_BR_PROB_BASE - then_prob;
+	EDGE_SUCC (then_bb, 1)->probability = then_prob;
+      }
+    else
+      {
+	e->probability = then_prob;
+	EDGE_SUCC (then_bb, 1)->probability = REG_BR_PROB_BASE - then_prob;
+      }
+
+    delete_insn (jump);
+    delete_insn (then_jump);
+
+    /* Merge the blocks!  */
+    ce_info->else_bb = 0;
+    ce_info->join_bb = 0;
+    merge_if_block (ce_info);
+  }
+
+  return TRUE;
 }
 
 /* Return whether we can use store speculation for MEM.  TOP_BB is the
@@ -2833,6 +3537,9 @@ noce_find_if_block (basic_block test_bb,
       && cond_move_process_if_block (&if_info))
     return TRUE;
 
+  if (aggressive_cmov && noce_try_cmove_aggressive (&if_info))
+    return TRUE;
+
   return FALSE;
 }
 
@@ -2914,7 +3621,8 @@ merge_if_block (struct ce_if_block * ce_info)
 			&& CALL_P (last)
 			&& SIBLING_CALL_P (last))
 		    || ((EDGE_SUCC (combo_bb, 0)->flags & EDGE_EH)
-			&& can_throw_internal (last)));
+			&& can_throw_internal (last))
+		    || aggressive_cmov);
     }
 
   /* The JOIN block may have had quite a number of other predecessors too.
@@ -3005,7 +3713,11 @@ find_if_header (basic_block test_bb, int pass)
   IFCVT_INIT_EXTRA_FIELDS (&ce_info);
 #endif
 
-  if (! reload_completed
+  if (flag_aggressive_cmov
+      && !reload_completed && find_andif_orif_block (&ce_info))
+    goto success;
+
+  if (!reload_completed
       && noce_find_if_block (test_bb, then_edge, else_edge, pass))
     goto success;
 
@@ -3103,6 +3815,77 @@ block_jumps_and_fallthru_p (basic_block cur_bb, basic_block target_bb)
     }
 
   return n_insns;
+}
+
+/* Determine if a given basic block heads a simple IF-ANDIF-THEN or
+   IF-ORIF-THEN block.  If so, we'll try to convert the insns to not
+   require the branch.  Return TRUE if we were successful at converting
+   the the block.  */
+
+static int
+find_andif_orif_block (ce_if_block_t * ce_info)
+{
+  basic_block test_bb = ce_info->test_bb;
+  basic_block then_bb = ce_info->then_bb;
+  basic_block else_bb = ce_info->else_bb;
+  edge then_then_edge;
+  edge then_else_edge;
+
+  /* The THEN block of an IF-ANDIF-THEN/IF-ORIF-THEN combo must have
+   * exactly one predecessor.  */
+  if (!single_pred_p (then_bb))
+    return FALSE;
+
+  /* The THEN block of an IF-THEN combo must have exactly two
+   * successors.  */
+  if (EDGE_COUNT (then_bb->succs) != 2)
+    return FALSE;
+
+  then_then_edge = EDGE_SUCC (then_bb, 0);
+  then_else_edge = EDGE_SUCC (then_bb, 1);
+
+  /* Neither edge should be abnormal.  */
+  if ((then_then_edge->flags & EDGE_COMPLEX)
+      || (then_else_edge->flags & EDGE_COMPLEX))
+    return FALSE;
+
+  /* The THEN edge is canonically the one that falls through.  */
+  if (then_then_edge->flags & EDGE_FALLTHRU)
+    ;
+  else if (then_else_edge->flags & EDGE_FALLTHRU)
+    {
+      edge e = then_else_edge;
+      then_else_edge = then_then_edge;
+      then_then_edge = e;
+    }
+  else
+    /* Otherwise this must be a multiway branch of some sort.  */
+    return FALSE;
+
+  /* One of then's successors must point to ELSE. */
+  if (then_then_edge->dest == else_bb)
+    {
+      if (dump_file)
+	fprintf (dump_file,
+		 "\nIF-ORIF-THEN block found, start %d, then %d, else %d, then-then %d\n",
+		 test_bb->index, then_bb->index, else_bb->index,
+		 then_then_edge->dest->index);
+      num_possible_if_blocks++;
+      return noce_process_andif_orif_block (ce_info, 0);
+    }
+  else if (then_else_edge->dest == else_bb)
+    {
+      if (dump_file)
+	fprintf (dump_file,
+		 "\nIF-ANDIF-THEN block found, start %d, then %d, else %d, then-then %d\n",
+		 test_bb->index, then_bb->index, else_bb->index,
+		 then_then_edge->dest->index);
+      num_possible_if_blocks++;
+      return noce_process_andif_orif_block (ce_info, 1);
+    }
+  else
+    return FALSE;
+
 }
 
 /* Determine if a given basic block heads a simple IF-THEN or IF-THEN-ELSE
@@ -3735,6 +4518,52 @@ find_memory (rtx *px, void *data ATTRIBUTE_UNUSED)
   return MEM_P (*px);
 }
 
+/* Return TRUE if insns in MERGE_BB modified registers that are live at
+   the start of ELSE_BB */
+static int
+block_modifies_live_reg (basic_block merge_bb, basic_block else_bb)
+{
+  bitmap merge_set, tmp;
+  unsigned fail = 0;
+  rtx insn;
+
+  /* Collect: MERGE_SET = set of registers set in MERGE_BB */
+
+  merge_set = BITMAP_ALLOC (&reg_obstack);
+  tmp = BITMAP_ALLOC (&reg_obstack);
+
+  /* ??? bb->local_set is only valid during calculate_global_regs_live,
+     so we must recompute usage for MERGE_BB.  Not so bad, I suppose, 
+     since we've already asserted that MERGE_BB is small.  */
+  FOR_BB_INSNS (merge_bb, insn)
+    {
+      if (INSN_P (insn))
+        {
+	  unsigned int uid = INSN_UID (insn);
+	  struct df_ref **def_rec;
+	  for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	    {
+	      struct df_ref *def = *def_rec;
+	      bitmap_set_bit (merge_set, DF_REF_REGNO (def));
+	    }
+        }
+    }
+
+  /* We can perform the transformation if
+     MERGE_SET & df_get_live_in (else_bb)
+     is empty.  */
+
+  bitmap_and (tmp, df_get_live_in (else_bb), merge_set);
+  fail = bitmap_count_bits (tmp) != 0;
+
+  FREE_REG_SET (tmp);
+  FREE_REG_SET (merge_set);
+
+  if (fail)
+    return TRUE;
+  return FALSE;
+}
+
 /* Used by the code above to perform the actual rtl transformations.
    Return TRUE if successful.
 
@@ -4036,6 +4865,8 @@ if_convert (void)
 {
   basic_block bb;
   int pass;
+  int block_num, nblocks;
+  int *worklist;
 
   if (optimize == 1)
     {
@@ -4057,6 +4888,9 @@ if_convert (void)
 
   df_set_flags (DF_LR_RUN_DCE);
 
+  aggressive_cmov = (flag_aggressive_cmov
+		     && !(HAVE_conditional_execution && reload_completed));
+
   /* Go through each of the basic blocks looking for things to convert.  If we
      have conditional execution, we make multiple passes to allow us to handle
      IF-THEN{-ELSE} blocks within other IF-THEN{-ELSE} blocks.  */
@@ -4074,18 +4908,44 @@ if_convert (void)
 	fprintf (dump_file, "\n\n========== Pass %d ==========\n", pass);
 #endif
 
-      FOR_EACH_BB (bb)
+      if (aggressive_cmov)
 	{
-          basic_block new_bb;
-          while (!df_get_bb_dirty (bb) 
-                 && (new_bb = find_if_header (bb, pass)) != NULL)
-            bb = new_bb;
+	  /* For aggressive conditional move, walk the basic blocks in
+	     post order rather than just normal order.  */
+	  worklist =
+	    (int *) xmalloc ((n_basic_blocks - NUM_FIXED_BLOCKS) *
+			     sizeof (int));
+	  post_order_compute (worklist, false, false);
+	  for (block_num = 0, nblocks = n_basic_blocks - NUM_FIXED_BLOCKS;
+	       block_num < nblocks; block_num++)
+	    {
+	      basic_block new_bb;
+	      bb = BASIC_BLOCK (worklist[block_num]);
+	      while (!df_get_bb_dirty (bb)
+		     && (new_bb = find_if_header (bb, pass)) != NULL)
+		bb = new_bb;
+	    }
+	  free (worklist);
+	}
+      else
+	{
+	  FOR_EACH_BB (bb)
+	    {
+	      basic_block new_bb;
+	      while (!df_get_bb_dirty (bb)
+		     && (new_bb = find_if_header (bb, pass)) != NULL)
+		bb = new_bb;
+	    }
 	}
 
 #ifdef IFCVT_MULTIPLE_DUMPS
       if (dump_file && cond_exec_changed_p)
 	print_rtl_with_bb (dump_file, get_insns ());
 #endif
+      if (aggressive_cmov && cond_exec_changed_p)
+	{
+	  cleanup_cfg (CLEANUP_NO_INSN_DEL);
+	}
     }
   while (cond_exec_changed_p);
 

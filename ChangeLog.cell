@@ -1,3 +1,19 @@
+2008-11-17  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
+	Add aggressive conditional move optimizations.
+
+	* gcc/ifcvt.c (aggressive_cmov, block_modifies_live_reg,
+	find_andif_orif_block): Declare. 
+	(safe_to_transform_p, cost_effective_p, validate_remap_regs_1,
+	validate_remap_regs, remap_instructions, hoist_instructions,
+	mark_regs_in_rtx, copy_regs_in_rtx, noce_try_cmove_aggressive,
+	noce_process_andif_orif_block, find_andif_orif_block,
+	block_modifies_live_reg): Define.
+	(noce_find_if_block): Call noce_try_cmove_aggressive.
+	(find_if_header): Call find_andif_orif_block.
+	(if_convert): Proccess blocks in post order.
+	* gcc/common.opt (-faggressive-cmov): New option.
+
 2008-09-22  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
 
 	Use a better method to adjust hint labels on branches.
