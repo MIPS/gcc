@@ -110,13 +110,34 @@ enum ld_plugin_symbol_visibility
 enum ld_plugin_symbol_resolution
 {
   LDPR_UNKNOWN = 0,
+
+  /* Symbol is still undefined at this point.  */
   LDPR_UNDEF,
+
+  /* This is the prevailing definition of the symbol, with references from
+     regular object code.  */
   LDPR_PREVAILING_DEF,
+
+  /* This is the prevailing definition of the symbol, with no
+     references from regular objects.  It is only referenced from IR
+     code.  */
   LDPR_PREVAILING_DEF_IRONLY,
+
+  /* This definition was pre-empted by a definition in a regular
+     object file.  */
   LDPR_PREEMPTED_REG,
+
+  /* This definition was pre-empted by a definition in another IR file.  */
   LDPR_PREEMPTED_IR,
+
+  /* This symbol was resolved by a definition in another IR file.  */
   LDPR_RESOLVED_IR,
+
+  /* This symbol was resolved by a definition in a regular object
+     linked into the main executable.  */
   LDPR_RESOLVED_EXEC,
+
+  /* This symbol was resolved by a definition in a shared object.  */
   LDPR_RESOLVED_DYN
 };
 

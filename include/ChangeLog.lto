@@ -1,3 +1,8 @@
+2008-11-18  Diego Novillo  <dnovillo@google.com>
+
+	* plugin-api.h (enum ld_plugin_symbol_resolution):
+	Document each value.
+
 2008-10-30  Simon Baldwin  <simonb@google.com>
 
 	* libiberty.h (make_cwd_temp_file): New declaration.
