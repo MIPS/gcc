@@ -1,3 +1,27 @@
+2008-11-18  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
+	Allow non-literal arguments for spu_convtf, spu_convtu and
+	spu_convts intrinsics.
+
+	* gcc/config/spu/spu-protos.h (exp2_immediate_p, spu_gen_exp2):
+	Declare. 
+	* gcc/config/spu/predicates.md (spu_inv_exp2_operand,
+	spu_exp2_operand): Define.
+	* gcc/config/spu/spu-builtins.def (SPU_CONVTS, SPU_CONVTU,
+	SPU_CONVTF_0, SPU_CONVTF_1):  Change argument type.
+	* gcc/config/spu/spu-builtins.md (spu_csflt, spu_cuflt,
+	spu_cflts, spu_cfltu): Handle non-immediate in operand 2.
+	* gcc/config/spu/spu.c (print_operand):  New codes u and v.
+	(exp2_immediate_p, spu_gen_exp2): Define. 
+	* gcc/config/spu/spu.md (i2f, I2F):  New mode_attr.
+	(floatsisf2, floatv4sisf2, fix_truncsisf2, fix_truncv4sisf2,
+	floatunssisf2, floatunsv4sisf2, fixuns_truncsisf2,
+	fixuns_truncv4sisf2): Redefine using mode macros.
+	(float<mode><i2f>2_mul, float<mode><i2f>2_div,
+	fix_trunc<mode><f2i>2_mul, floatuns<mode><i2f>2_mul,
+	floatuns<mode><i2f>2_div, fixuns_trunc<mode><f2i>2_mul): Define
+	* gcc/config/spu/constraints.md (u, v): New constraints.
+	
 2008-11-17  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
 
 	Add aggressive conditional move optimizations.
