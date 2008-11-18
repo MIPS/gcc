@@ -549,11 +549,16 @@ init_optimization_passes (void)
       NEXT_PASS (pass_reset_cc_flags);
       NEXT_PASS (pass_build_ssa);
       NEXT_PASS (pass_early_warn_uninitialized);
+      /* Note that it is not strictly necessary to schedule an early
+	 inline pass here.  However, some test cases (e.g.,
+	 g++.dg/other/p334435.C g++.dg/other/i386-1.C) expect extern
+	 inline functions to be inlined even at -O0.  This does not
+	 happen during the first early inline pass.  */
+      NEXT_PASS (pass_rebuild_cgraph_edges);
+      NEXT_PASS (pass_early_inline);
       NEXT_PASS (pass_all_early_optimizations);
 	{
 	  struct opt_pass **p = &pass_all_early_optimizations.pass.sub;
-	  NEXT_PASS (pass_rebuild_cgraph_edges);
-	  NEXT_PASS (pass_early_inline);
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);

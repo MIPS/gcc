@@ -1,4 +1,3 @@
-/* { dg-options "{-fwhopr -O3}" } */
 extern void exit (int);
 extern void abort (void);
 

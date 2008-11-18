@@ -1,4 +1,3 @@
-/* { dg-options "-fwhopr" } */
 extern int mumble;
 extern void abort (void);
 extern void exit (int);

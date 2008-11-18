@@ -291,6 +291,8 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       LTO_DEBUG_FN_NAME (node->decl);
     }
 
+  lto_set_flag (&flags, node->lowered);
+  lto_set_flag (&flags, node->analyzed);
   lto_set_flag (&flags, needed);
   lto_set_flag (&flags, local);
   lto_set_flag (&flags, externally_visible);
@@ -483,8 +485,8 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->local.externally_visible = lto_get_flag (&flags);
   node->local.local = lto_get_flag (&flags);
   node->needed = lto_get_flag (&flags);
-  node->analyzed = node->local.finalized;
-  node->lowered = node->local.finalized;
+  node->analyzed = lto_get_flag (&flags);
+  node->lowered = lto_get_flag (&flags);
 }
 
 /* Read a node from input_block IB.  TAG is the node's tag just read. 

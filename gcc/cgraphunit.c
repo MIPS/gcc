@@ -1249,6 +1249,10 @@ ipa_passes (void)
   bitmap_obstack_initialize (NULL);
   execute_ipa_pass_list (all_small_ipa_passes);
 
+  /* This pass removes bodies of extern inline functions that we never
+     inlined.  */
+  cgraph_remove_unreachable_nodes (false, dump_file);
+
   execute_ipa_summary_passes ((struct ipa_opt_pass *) all_regular_ipa_passes);
   execute_ipa_summary_passes ((struct ipa_opt_pass *) all_lto_gen_passes);
 
@@ -1294,9 +1298,6 @@ cgraph_optimize (void)
   if (errorcount == 0 && sorrycount == 0)
     ipa_passes ();
 
-  /* This pass remove bodies of extern inline functions we never inlined.
-     Do this later so other IPA passes see what is really going on.  */
-  cgraph_remove_unreachable_nodes (false, dump_file);
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
     {

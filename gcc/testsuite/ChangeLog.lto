@@ -1,3 +1,13 @@
+2008-11-18  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/20081115_0.c: New.
+	* gcc.dg/lto/20081115_1.c: New.
+	* gcc.dg/lto/20081115_2.c: New.
+	* gcc.dg/lto/20080924_0.c: Brace dg-options properly.
+	* gcc.dg/lto/20080917_0.c: Likewise.
+	* gcc.dg/lto/20081111_0.c: Likewise.
+	* gcc.dg/lto/20081112_0.c: Likewise.
+
 2008-11-12  Doug Kwan  <dougkwan@google.com>
 
 	* gcc.dg/lto/20081111_0.c: New.

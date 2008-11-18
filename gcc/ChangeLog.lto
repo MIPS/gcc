@@ -1,3 +1,19 @@
+2008-11-18  Rafael Espindola  <espindola@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* cgraphunit.c (ipa_passes): Move from... 
+	(cgraph_optimize): ... here.
+	* lto-cgraph.c (output_node): Write out node->lowered
+	and node->analyzed.
+	(input_overwrite_node): Read in node->lowered and
+	node->analyzed.
+	* ipa.c (cgraph_remove_unreachable_nodes): Clear
+	node->local.disregard_inline_limits when removing a
+	node.
+	* passes.c (init_optimization_passes): Schedule
+	pass_rebuild_cgraph_edges and pass_early_inline outside
+	of pass_all_early_optimizations.  Document reason.
+
 2008-11-17  Rafael Espindola  <espindola@google.com>
 
 	* lto-cgraph.c (input_edge): Rename PREVAILING with
