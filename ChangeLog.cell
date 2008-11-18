@@ -1,5 +1,19 @@
 2008-11-18  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
 
+	Change constraint u to w to avoid conflict with a patch I have
+	not contributed yet.
+
+	* gcc/config/spu/spu-builtins.md (spu_csflt, spu_cuflt,
+	spu_cflts, spu_cfltu): Change unspec code to 0 to avoid
+	warnings.
+	* gcc/config/spu/spu.c (print_operand):  Change code u to w.
+	* gcc/config/spu/constraints.md (u): Change constraint u to w.
+	* gcc/config/spu/spu.md (float<mode><i2f>2_mul,
+	fix_trunc<mode><f2i>2_mul, floatuns<mode><i2f>2_mul,
+	fixuns_trunc<mode><f2i>2_mul): Change u to w.
+
+2008-11-18  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
 	Allow non-literal arguments for spu_convtf, spu_convtu and
 	spu_convts intrinsics.
 

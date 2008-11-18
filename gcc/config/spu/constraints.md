@@ -168,12 +168,12 @@
 
 ;; Floating-point constant constraints.
 
-(define_constraint "u"
-  "Floating point power of 2 with exponent in [-126..0]"
-  (and (match_code "const_double,const_vector")
-       (match_test "exp2_immediate_p (op, VOIDmode, -126, 0)")))
-
 (define_constraint "v"
   "Floating point power of 2 with exponent in [0..127]"
   (and (match_code "const_double,const_vector")
        (match_test "exp2_immediate_p (op, VOIDmode, 0, 127)")))
+
+(define_constraint "w"
+  "Floating point power of 2 with exponent in [-126..0]"
+  (and (match_code "const_double,const_vector")
+       (match_test "exp2_immediate_p (op, VOIDmode, -126, 0)")))

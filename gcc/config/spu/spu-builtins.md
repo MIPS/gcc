@@ -522,7 +522,7 @@
 (define_expand "spu_csflt"
   [(set (match_operand:V4SF 0 "spu_reg_operand")
 	(unspec:V4SF [(match_operand:V4SI 1 "spu_reg_operand")
-		      (match_operand:SI 2 "spu_nonmem_operand")] -1 ))]
+		      (match_operand:SI 2 "spu_nonmem_operand")] 0 ))]
   ""
 {
   if (GET_CODE (operands[2]) != CONST_INT)
@@ -548,7 +548,7 @@
 (define_expand "spu_cflts"
   [(set (match_operand:V4SI 0 "spu_reg_operand")
 	(unspec:V4SI [(match_operand:V4SF 1 "spu_reg_operand")
-                      (match_operand:SI 2 "spu_nonmem_operand")] -1 ))]
+                      (match_operand:SI 2 "spu_nonmem_operand")] 0 ))]
   ""
 {
   rtx exp2 = spu_gen_exp2 (V4SFmode, operands[2]);
@@ -566,7 +566,7 @@
 (define_expand "spu_cuflt"
   [(set (match_operand:V4SF 0 "spu_reg_operand" "=r")
 	(unspec:V4SF [(match_operand:V4SI 1 "spu_reg_operand")
-		      (match_operand:SI 2 "spu_nonmem_operand")] -1 ))]
+		      (match_operand:SI 2 "spu_nonmem_operand")] 0 ))]
   ""
 {
   if (GET_CODE (operands[2]) != CONST_INT)
@@ -592,7 +592,7 @@
 (define_expand "spu_cfltu"
   [(set (match_operand:V4SI 0 "spu_reg_operand")
 	(unspec:V4SI [(match_operand:V4SF 1 "spu_reg_operand")
-		      (match_operand:SI 2 "spu_nonmem_operand")] -1 ))]
+		      (match_operand:SI 2 "spu_nonmem_operand")] 0 ))]
   ""
 {
   rtx exp2 = spu_gen_exp2 (V4SFmode, operands[2]);

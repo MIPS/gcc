@@ -616,9 +616,9 @@
 (define_insn "float<mode><i2f>2_mul"
   [(set (match_operand:<I2F> 0 "spu_reg_operand" "=r")
 	(mult:<I2F> (float:<I2F> (match_operand:VSI 1 "spu_reg_operand" "r"))
-		    (match_operand:<I2F> 2 "spu_inv_exp2_operand" "u")))]
+		    (match_operand:<I2F> 2 "spu_inv_exp2_operand" "w")))]
   ""
-  "csflt\t%0,%1,%u2"
+  "csflt\t%0,%1,%w2"
   [(set_attr "type" "fp7")])
 
 (define_insn "float<mode><i2f>2_div"
@@ -641,9 +641,9 @@
 (define_insn "floatuns<mode><i2f>2_mul"
   [(set (match_operand:<I2F> 0 "spu_reg_operand" "=r")
 	(mult:<I2F> (unsigned_float:<I2F> (match_operand:VSI 1 "spu_reg_operand" "r"))
-		    (match_operand:<I2F> 2 "spu_inv_exp2_operand" "u")))]
+		    (match_operand:<I2F> 2 "spu_inv_exp2_operand" "w")))]
   ""
-  "cuflt\t%0,%1,%u2"
+  "cuflt\t%0,%1,%w2"
   [(set_attr "type" "fp7")])
 
 (define_insn "floatuns<mode><i2f>2_div"

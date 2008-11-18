@@ -1590,11 +1590,11 @@ print_operand (FILE * file, rtx x, int code)
       output_addr_const (file, GEN_INT (val));
       return;
 
-    case 'u':
     case 'v':
+    case 'w':
       constant_to_array (mode, x, arr);
       val = (((arr[0] << 1) + (arr[1] >> 7)) & 0xff) - 127;
-      output_addr_const (file, GEN_INT (code == 'u' ? -val : val));
+      output_addr_const (file, GEN_INT (code == 'w' ? -val : val));
       return;
 
     case 0:
@@ -1609,7 +1609,7 @@ print_operand (FILE * file, rtx x, int code)
       return;
 
       /* unused letters
-	              o qr    w yz
+	              o qr  u   yz
 	AB            OPQR  UVWXYZ */
     default:
       output_operand_lossage ("invalid %%xn code");
