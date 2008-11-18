@@ -78,6 +78,9 @@ extern void set_struct_debug_option (const char *value);
    debugging information.  */
 extern bool use_gnu_debug_info_extensions;
 
+/* Nonzero means use DWARF-4 extensions to the DWARF debugging format.  */
+extern bool use_dwarf4_extensions;
+
 /* Enumerate visibility settings.  This is deliberately ordered from most
    to least visibility.  */
 #ifndef SYMBOL_VISIBILITY_DEFINED

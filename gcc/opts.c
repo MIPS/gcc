@@ -331,6 +331,9 @@ should_emit_struct_debug (tree type, enum debug_info_usage usage)
    write_symbols is set to DBX_DEBUG, XCOFF_DEBUG, or DWARF_DEBUG.  */
 bool use_gnu_debug_info_extensions;
 
+/* Nonzero means use DWARF-4 extensions to the DWARF debugging format.  */
+bool use_dwarf4_extensions = 0;
+
 /* The default visibility for all symbols (unless overridden) */
 enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
 
@@ -2028,6 +2031,11 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_gdwarf_2:
       set_debug_level (DWARF2_DEBUG, false, arg);
+      break;
+
+    case OPT_gdwarf_4:
+      set_debug_level (DWARF2_DEBUG, false, arg);
+      use_dwarf4_extensions = true;
       break;
 
     case OPT_ggdb:

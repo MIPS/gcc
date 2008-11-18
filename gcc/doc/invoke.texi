@@ -4246,6 +4246,14 @@ option, GCC uses features of DWARF version 3 when they are useful;
 version 3 is upward compatible with version 2, but may still cause
 problems for older debuggers.
 
+@item -gdwarf-4
+@opindex gdwarf-4
+Produce debugging information in DWARF version 4 format (if that is
+supported).  With this option, GCC uses features of DWARF version 4
+when they are useful, including the placement of most type information
+in separate comdat sections.  The DWARF version 4 format is still a
+draft specification, and this option is currently experimental.
+
 @item -gvms
 @opindex gvms
 Produce debugging information in VMS debug format (if that is

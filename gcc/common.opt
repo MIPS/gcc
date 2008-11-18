@@ -1377,8 +1377,12 @@ Common JoinedOrMissing Negative(gdwarf-2)
 Generate debug information in COFF format
 
 gdwarf-2
-Common JoinedOrMissing Negative(gstabs)
+Common JoinedOrMissing Negative(gdwarf-4)
 Generate debug information in DWARF v2 format
+
+gdwarf-4
+Common JoinedOrMissing Negative(gstabs)
+Generate debug information in DWARF v4 format (experimental)
 
 ggdb
 Common JoinedOrMissing

@@ -1,7 +1,7 @@
 /* Declarations and definitions of codes relating to the DWARF2 and
    DWARF3 symbolic debugging information formats.
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
    Written by Gary Funck (gary@intrepid.com) The Ada Joint Program
    Office (AJPO), Florida State University and Silicon Graphics Inc.
@@ -188,6 +188,8 @@ enum dwarf_tag
     DW_TAG_imported_unit = 0x3d,
     DW_TAG_condition = 0x3f,
     DW_TAG_shared_type = 0x40,
+    /* DWARF 4.  */
+    DW_TAG_type_unit = 0x41,
     /* SGI/MIPS Extensions.  */
     DW_TAG_MIPS_loop = 0x4081,
     /* HP extensions.  See: ftp://ftp.hp.com/pub/lang/tools/WDB/wdb-4.0.tar.gz .  */
@@ -237,7 +239,12 @@ enum dwarf_form
     DW_FORM_ref4 = 0x13,
     DW_FORM_ref8 = 0x14,
     DW_FORM_ref_udata = 0x15,
-    DW_FORM_indirect = 0x16
+    DW_FORM_indirect = 0x16,
+    /* DWARF 4.  */
+    DW_FORM_sec_offset = 0x17,
+    DW_FORM_exprloc = 0x18,
+    DW_FORM_flag_present = 0x19,
+    DW_FORM_sig8 = 0x20
   };
 
 /* Attribute names and codes.  */
@@ -335,6 +342,8 @@ enum dwarf_attribute
     DW_AT_elemental     = 0x66,
     DW_AT_pure          = 0x67,
     DW_AT_recursive     = 0x68,
+    /* DWARF 4 values.  */
+    DW_AT_signature     = 0x69,
     /* SGI/MIPS extensions.  */
     DW_AT_MIPS_fde = 0x2001,
     DW_AT_MIPS_loop_begin = 0x2002,
@@ -370,6 +379,7 @@ enum dwarf_attribute
     DW_AT_body_begin = 0x2105,
     DW_AT_body_end   = 0x2106,
     DW_AT_GNU_vector = 0x2107,
+    DW_AT_GNU_odr_signature = 0x210f,
     /* VMS extensions.  */
     DW_AT_VMS_rtnbeg_pd_address = 0x2201,
     /* UPC extension.  */
