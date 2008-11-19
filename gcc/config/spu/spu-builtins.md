@@ -525,6 +525,12 @@
 		      (match_operand:SI 2 "spu_nonmem_operand")] 0 ))]
   ""
 {
+  if (GET_CODE (operands[2]) == CONST_INT
+      && (INTVAL (operands[2]) < 0 || INTVAL (operands[2]) > 127))
+    {
+      error ("spu_convtf expects an integer literal in the range [0, 127].");
+      operands[2] = force_reg (SImode, operands[2]);
+    }
   if (GET_CODE (operands[2]) != CONST_INT)
     {
       rtx exp2;
@@ -551,7 +557,14 @@
                       (match_operand:SI 2 "spu_nonmem_operand")] 0 ))]
   ""
 {
-  rtx exp2 = spu_gen_exp2 (V4SFmode, operands[2]);
+  rtx exp2;
+  if (GET_CODE (operands[2]) == CONST_INT
+      && (INTVAL (operands[2]) < 0 || INTVAL (operands[2]) > 127))
+    {
+      error ("spu_convts expects an integer literal in the range [0, 127].");
+      operands[2] = force_reg (SImode, operands[2]);
+    }
+  exp2 = spu_gen_exp2 (V4SFmode, operands[2]);
   if (GET_CODE (operands[2]) != CONST_INT)
     {
       rtx mul = gen_reg_rtx (V4SFmode);
@@ -569,6 +582,12 @@
 		      (match_operand:SI 2 "spu_nonmem_operand")] 0 ))]
   ""
 {
+  if (GET_CODE (operands[2]) == CONST_INT
+      && (INTVAL (operands[2]) < 0 || INTVAL (operands[2]) > 127))
+    {
+      error ("spu_convtf expects an integer literal in the range [0, 127].");
+      operands[2] = force_reg (SImode, operands[2]);
+    }
   if (GET_CODE (operands[2]) != CONST_INT)
     {
       rtx exp2;
@@ -595,7 +614,14 @@
 		      (match_operand:SI 2 "spu_nonmem_operand")] 0 ))]
   ""
 {
-  rtx exp2 = spu_gen_exp2 (V4SFmode, operands[2]);
+  rtx exp2;
+  if (GET_CODE (operands[2]) == CONST_INT
+      && (INTVAL (operands[2]) < 0 || INTVAL (operands[2]) > 127))
+    {
+      error ("spu_convtu expects an integer literal in the range [0, 127].");
+      operands[2] = force_reg (SImode, operands[2]);
+    }
+  exp2 = spu_gen_exp2 (V4SFmode, operands[2]);
   if (GET_CODE (operands[2]) != CONST_INT)
     {
       rtx mul = gen_reg_rtx (V4SFmode);
