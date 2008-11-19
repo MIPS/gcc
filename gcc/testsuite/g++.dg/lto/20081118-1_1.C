@@ -1,5 +1,6 @@
 class C {
  public:
+  C();
   virtual ~C();
   virtual void foo();
 };
