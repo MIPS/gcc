@@ -1,5 +1,11 @@
 2008-11-19  Rafael Espindola  <espindola@google.com>
 
+	Files missing from 141997.
+	* g++.dg/lto/20081118-1_0.C (new)
+	* g++.dg/lto/20081118-1_1.C (new)
+
+2008-11-18  Rafael Espindola  <espindola@google.com>
+
 	* gcc.dg/lto/20081118_0.C (new)
 	* gcc.dg/lto/20081118_1.C (new)
 
