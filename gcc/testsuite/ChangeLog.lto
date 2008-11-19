@@ -1,3 +1,8 @@
+2008-11-19  Rafael Espindola  <espindola@google.com>
+
+	* gcc.dg/lto/20081118_0.C (new)
+	* gcc.dg/lto/20081118_1.C (new)
+
 2008-11-18  Doug Kwan  <dougkwan@google.com>
 
 	* gcc.dg/lto/20081118_0.c: New.

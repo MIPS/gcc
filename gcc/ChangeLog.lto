@@ -1,3 +1,19 @@
+2008-11-19  Rafael Espindola  <espindola@google.com>
+
+	* lto-cgraph.c (input_edge): Initialize callee->local.lto_file_data if
+	we have a new node.
+	* lto-symtab.c (lto_symtab_decl_def): Add file_data field.
+	(lto_symtab_set_resolution_and_file_data): Renamed from
+	lto_symtab_set_resolution. Record the file_data.
+	(lto_symtab_merge_decl, lto_symtab_merge_fn): Add file_data argument.
+	Update all uses.
+	(lto_symtab_get_symtab_def): New.
+	(lto_symtab_get_resolution): Use lto_symtab_get_symtab_def.
+	(lto_symtab_get_file_data): New.
+	* lto-tree-in.h (lto_symtab_merge_fn): Add file_data argument.
+	Update all uses.
+	(lto_symtab_get_file_data): New.
+
 2008-11-18  Doug Kwan  <dougkwan@google.com>
 
 	* lto.c (LTO_FIXUP_SUBTREE): New macro.

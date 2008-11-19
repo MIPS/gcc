@@ -647,12 +647,23 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes)
 
   if (prevailing_callee != callee->decl)
     {
+      struct lto_file_decl_data *file_data;
+
       /* We cannot replace a clone! */
       gcc_assert (callee == cgraph_node (callee->decl));
 
 
       callee = cgraph_node (prevailing_callee);
       gcc_assert (callee);
+
+      /* If LGEN (cc1 or cc1plus) had nothing to do with the node,
+	 it might not have created it. In this case, we just created a new
+	 node in the above call to cgraph_node. Mark the file it came from. */
+      file_data = lto_symtab_get_file_data (prevailing_callee);
+      if (callee->local.lto_file_data)
+	gcc_assert (callee->local.lto_file_data == file_data);
+      else
+	callee->local.lto_file_data = file_data;
     }
 
   edge = cgraph_create_edge (caller, callee, NULL, count, freq, nest);

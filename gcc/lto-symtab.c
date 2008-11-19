@@ -53,6 +53,7 @@ struct lto_symtab_decl_def GTY (())
 {
   struct lto_symtab_base_def base;
   enum ld_plugin_symbol_resolution resolution;
+  struct lto_file_decl_data * GTY((skip (""))) file_data;
 };
 typedef struct lto_symtab_decl_def *lto_symtab_decl_t;
 
@@ -554,7 +555,10 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 /* Marks decl DECL as having resolution RESOLUTION. */
 
 static void
-lto_symtab_set_resolution (tree decl, ld_plugin_symbol_resolution_t resolution)
+lto_symtab_set_resolution_and_file_data (tree decl,
+					 ld_plugin_symbol_resolution_t
+					 resolution,
+					 struct lto_file_decl_data *file_data)
 {
   lto_symtab_decl_t new_entry;
   void **slot;
@@ -567,6 +571,7 @@ lto_symtab_set_resolution (tree decl, ld_plugin_symbol_resolution_t resolution)
   new_entry = GGC_CNEW (struct lto_symtab_decl_def);
   new_entry->base.node = decl;
   new_entry->resolution = resolution;
+  new_entry->file_data = file_data;
   
   lto_symtab_maybe_init_hash_tables ();
   slot = htab_find_slot (lto_symtab_decls, new_entry, INSERT);
@@ -630,7 +635,8 @@ lto_symtab_set_identifier_decl (tree id, tree decl)
 
 static void
 lto_symtab_merge_decl (tree new_decl,
-		       enum ld_plugin_symbol_resolution resolution)
+		       enum ld_plugin_symbol_resolution resolution,
+		       struct lto_file_decl_data *file_data)
 {
   tree old_decl;
   tree name;
@@ -657,7 +663,7 @@ lto_symtab_merge_decl (tree new_decl,
     }
 
   /* Remember the resolution of this symbol. */
-  lto_symtab_set_resolution (new_decl, resolution);
+  lto_symtab_set_resolution_and_file_data (new_decl, resolution, file_data);
 
   /* Retrieve the previous declaration.  */
   name = DECL_ASSEMBLER_NAME (new_decl);
@@ -721,16 +727,17 @@ lto_symtab_merge_decl (tree new_decl,
 void
 lto_symtab_merge_var (tree new_var, enum ld_plugin_symbol_resolution resolution)
 {
-  lto_symtab_merge_decl (new_var, resolution);
+  lto_symtab_merge_decl (new_var, resolution, NULL);
 }
 
 /* Merge the FUNCTION_DECL NEW_FN with resolution RESOLUTION with any previous
    declaration with the same name. */
 
 void
-lto_symtab_merge_fn (tree new_fn, enum ld_plugin_symbol_resolution resolution)
+lto_symtab_merge_fn (tree new_fn, enum ld_plugin_symbol_resolution resolution,
+		     struct lto_file_decl_data *file_data)
 {
-  lto_symtab_merge_decl (new_fn, resolution);
+  lto_symtab_merge_decl (new_fn, resolution, file_data);
 }
 
 /* Given the decl DECL, return the prevailing decl with the same name. */
@@ -753,29 +760,47 @@ lto_symtab_prevailing_decl (tree decl)
   return ret;
 }
 
+/* Return the hash table entry of DECL. */
+
+static struct lto_symtab_decl_def *
+lto_symtab_get_symtab_def (tree decl)
+{
+  struct lto_symtab_decl_def temp, *symtab_decl;
+  void **slot;
+
+  gcc_assert (decl);
+
+  lto_symtab_maybe_init_hash_tables ();
+  temp.base.node = decl;
+  slot = htab_find_slot (lto_symtab_decls, &temp, NO_INSERT);
+  gcc_assert (slot && *slot);
+  symtab_decl = (struct lto_symtab_decl_def*) *slot;
+  return symtab_decl;
+}
+
 /* Return the resolution of DECL. */
 
 enum ld_plugin_symbol_resolution
 lto_symtab_get_resolution (tree decl)
 {
-  struct lto_symtab_decl_def temp, *symtab_decl;
-  void **slot;
- 
   gcc_assert (decl);
 
   if (!TREE_PUBLIC (decl))
     return LDPR_PREVAILING_DEF_IRONLY;
 
   /* FIXME lto: There should be no DECL_ABSTRACT in the middle end. */
- if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
-   return LDPR_PREVAILING_DEF_IRONLY;
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
+    return LDPR_PREVAILING_DEF_IRONLY;
 
- lto_symtab_maybe_init_hash_tables ();
- temp.base.node = decl;
- slot = htab_find_slot (lto_symtab_decls, &temp, NO_INSERT);
- gcc_assert (slot && *slot);
- symtab_decl = (struct lto_symtab_decl_def*) *slot;
- return symtab_decl->resolution;
+  return lto_symtab_get_symtab_def (decl)->resolution;
+}
+
+/* Return the file of DECL. */
+
+struct lto_file_decl_data *
+lto_symtab_get_file_data (tree decl)
+{
+  return lto_symtab_get_symtab_def (decl)->file_data;
 }
 
 /* Remove any storage used to store resolution of DECL.  */

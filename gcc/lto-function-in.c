@@ -2930,7 +2930,7 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
     {
       enum ld_plugin_symbol_resolution resolution;
       resolution = get_resolution (data_in, index);
-      lto_symtab_merge_fn (decl, resolution);
+      lto_symtab_merge_fn (decl, resolution, data_in->file_data);
     }
 
   LTO_DEBUG_TOKEN ("end_function_decl");
