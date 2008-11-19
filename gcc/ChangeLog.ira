@@ -1,3 +1,8 @@
+2008-11-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ira-color.c (pseudos_have_intersected_live_ranges_p): Define
+	only if ENABLE_IRA_CHECKING is defined.
+
 2008-11-18  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/invoke.texi (ira-max-loops-num): Change semantics.
