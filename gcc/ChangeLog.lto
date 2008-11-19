@@ -1,3 +1,13 @@
+2008-11-18  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (LTO_FIXUP_SUBTREE): New macro.
+	(no_fixup_p, lto_fixup_common, lto_fixup_decl_minimal,
+	lto_fixup_decl_common, lto_fixup_decl_with_vis,
+	lto_fixup_decl_non_common, lto_fixup_field_decl, lto_fixup_type,
+	lto_fixup_binfo): New functions.
+ 	(lto_fixup_tree): Handle missing cases in walk_tree.
+	(lto_fixup_state): Go through all trees in all streams.
+
 2008-11-18  Rafael Espindola  <espindola@google.com>
 	    Diego Novillo  <dnovillo@google.com>
 

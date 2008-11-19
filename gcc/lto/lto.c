@@ -885,6 +885,159 @@ typedef struct {
   struct pointer_set_t *seen;
 } lto_fixup_data_t;
 
+#define LTO_FIXUP_SUBTREE(t) \
+  do \
+    walk_tree (&(t), lto_fixup_tree, data, NULL); \
+  while (0)
+
+static tree lto_fixup_tree (tree *, int *, void *);
+
+/* Return true if T does not need to be fixed up recursively.  */
+
+static inline bool
+no_fixup_p (tree t)
+{
+  return (t == NULL
+	  || CONSTANT_CLASS_P (t)
+	  || TREE_CODE (t) == IDENTIFIER_NODE);
+}
+
+/* Fix up fields of a tree_common T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_common (tree t, void *data)
+{
+  LTO_FIXUP_SUBTREE (TREE_TYPE (t));
+  /* This is not very efficient because we cannot do tail-recursion with
+     a long chain of trees. */
+  LTO_FIXUP_SUBTREE (TREE_CHAIN (t));
+}
+
+/* Fix up fields of a decl_minimal T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_decl_minimal (tree t, void *data)
+{
+  lto_fixup_common (t, data);
+  LTO_FIXUP_SUBTREE (DECL_NAME (t));
+  LTO_FIXUP_SUBTREE (DECL_CONTEXT (t));
+}
+
+/* Fix up fields of a decl_common T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_decl_common (tree t, void *data)
+{
+  lto_fixup_decl_minimal (t, data);
+  gcc_assert (no_fixup_p (DECL_SIZE (t)));
+  gcc_assert (no_fixup_p (DECL_SIZE_UNIT (t)));
+  LTO_FIXUP_SUBTREE (DECL_INITIAL (t));
+  LTO_FIXUP_SUBTREE (DECL_ATTRIBUTES (t));
+  LTO_FIXUP_SUBTREE (DECL_ABSTRACT_ORIGIN (t));
+}
+
+/* Fix up fields of a decl_with_vis T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_decl_with_vis (tree t, void *data)
+{
+  lto_fixup_decl_common (t, data);
+
+  /* Accessor macro has side-effects, use field-name here. */
+  LTO_FIXUP_SUBTREE (t->decl_with_vis.assembler_name);
+
+  gcc_assert (no_fixup_p (DECL_SECTION_NAME (t)));
+}
+
+/* Fix up fields of a decl_non_common T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_decl_non_common (tree t, void *data)
+{
+  lto_fixup_decl_with_vis (t, data);
+  LTO_FIXUP_SUBTREE (DECL_ARGUMENT_FLD (t));
+  LTO_FIXUP_SUBTREE (DECL_RESULT_FLD (t));
+  LTO_FIXUP_SUBTREE (DECL_VINDEX (t));
+
+  /* SAVED_TREE should not cleared by now.  Also no accessor for base type. */
+  gcc_assert (no_fixup_p (t->decl_non_common.saved_tree));
+}
+
+/* Fix up fields of a field_decl T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_field_decl (tree t, void *data)
+{
+  lto_fixup_decl_common (t, data);
+  gcc_assert (no_fixup_p (DECL_FIELD_OFFSET (t)));
+  LTO_FIXUP_SUBTREE (DECL_BIT_FIELD_TYPE (t));
+  LTO_FIXUP_SUBTREE (DECL_QUALIFIER (t));
+  gcc_assert (no_fixup_p (DECL_FIELD_BIT_OFFSET (t)));
+  LTO_FIXUP_SUBTREE (DECL_FCONTEXT (t));
+}
+
+/* Fix up fields of a type T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_type (tree t, void *data)
+{
+  lto_fixup_common (t, data);
+  LTO_FIXUP_SUBTREE (TYPE_CACHED_VALUES (t));
+  gcc_assert (no_fixup_p (TYPE_SIZE (t)));
+  gcc_assert (no_fixup_p (TYPE_SIZE_UNIT (t)));
+  LTO_FIXUP_SUBTREE (TYPE_ATTRIBUTES (t));
+  LTO_FIXUP_SUBTREE (TYPE_POINTER_TO (t));
+  LTO_FIXUP_SUBTREE (TYPE_REFERENCE_TO (t));
+  LTO_FIXUP_SUBTREE (TYPE_NAME (t));
+
+  /* Accessors are for derived node types only. */
+  LTO_FIXUP_SUBTREE (t->type.minval);
+  LTO_FIXUP_SUBTREE (t->type.maxval);
+
+  LTO_FIXUP_SUBTREE (TYPE_NEXT_VARIANT (t));
+  LTO_FIXUP_SUBTREE (TYPE_MAIN_VARIANT (t));
+
+  /* Accessor is for derived node types only. */
+  LTO_FIXUP_SUBTREE (t->type.binfo);
+
+  LTO_FIXUP_SUBTREE (TYPE_CONTEXT (t));
+  LTO_FIXUP_SUBTREE (TYPE_CANONICAL (t));
+}
+
+/* Fix up fields of a BINFO T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_binfo (tree t, void *data)
+{
+  unsigned HOST_WIDE_INT i, n;
+  tree base, saved_base;
+
+  lto_fixup_common (t, data);
+  gcc_assert (no_fixup_p (BINFO_OFFSET (t)));
+  LTO_FIXUP_SUBTREE (BINFO_VTABLE (t));
+  LTO_FIXUP_SUBTREE (BINFO_VIRTUALS (t));
+  LTO_FIXUP_SUBTREE (BINFO_VPTR_FIELD (t));
+  n = VEC_length (tree, BINFO_BASE_ACCESSES (t));
+  for (i = 0; i < n; i++)
+    {
+      saved_base = base = BINFO_BASE_ACCESS (t, i);
+      LTO_FIXUP_SUBTREE (base);
+      if (base != saved_base)
+	VEC_replace (tree, BINFO_BASE_ACCESSES (t), i, base);
+    }
+  LTO_FIXUP_SUBTREE (BINFO_INHERITANCE_CHAIN (t));
+  LTO_FIXUP_SUBTREE (BINFO_SUBVTT_INDEX (t));
+  LTO_FIXUP_SUBTREE (BINFO_VPTR_INDEX (t));
+  n = BINFO_N_BASE_BINFOS (t);
+  for (i = 0; i < n; i++)
+    {
+      saved_base = base = BINFO_BASE_BINFO (t, i);
+      LTO_FIXUP_SUBTREE (base);
+      if (base != saved_base)
+	VEC_replace (tree, BINFO_BASE_BINFOS (t), i, base);
+    }
+}
+
 /* A walk_tree callback used by lto_fixup_state. TP is the pointer to the
    current tree. WALK_SUBTREES indicates if the subtrees will be walked.
    DATA is a pointer set to record visited nodes. */
@@ -892,14 +1045,14 @@ typedef struct {
 static tree
 lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
 {
-  tree t = *tp;
+  tree t;
   lto_fixup_data_t *fixup_data = (lto_fixup_data_t *) data;
   tree prevailing;
 
+  t = *tp;
+  *walk_subtrees = 0;
   if (pointer_set_contains (fixup_data->seen, t))
     return NULL;
-
-  *walk_subtrees = 1;
 
   if (TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == FUNCTION_DECL)
     {
@@ -950,44 +1103,47 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
      Hence we do special processing here for those kind of nodes. */
   switch (TREE_CODE (t))
     {
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      walk_tree (&TREE_TYPE (t), lto_fixup_tree, data, NULL);
-      walk_tree (&TYPE_FIELDS (t), lto_fixup_tree, data, NULL);
-      walk_tree (&TYPE_BINFO (t), lto_fixup_tree, data, NULL);
+    case FIELD_DECL:
+      lto_fixup_field_decl (t, data);
       break;
 
-    case TREE_BINFO:
-      {
-	tree base;
-	unsigned i;
-
-	walk_tree (&TREE_TYPE (t), lto_fixup_tree, data, NULL);
-	walk_tree (&BINFO_OFFSET (t), lto_fixup_tree, data, NULL);
-	walk_tree (&BINFO_VTABLE (t), lto_fixup_tree, data, NULL);
-	walk_tree (&BINFO_VIRTUALS (t), lto_fixup_tree, data, NULL);
-	walk_tree (&BINFO_VPTR_FIELD (t), lto_fixup_tree, data, NULL);
-	walk_tree (&BINFO_SUBVTT_INDEX (t), lto_fixup_tree, data, NULL);
-	walk_tree (&BINFO_VPTR_INDEX (t), lto_fixup_tree, data, NULL);
-	walk_tree (&BINFO_INHERITANCE_CHAIN (t), lto_fixup_tree, data, NULL);
-	for (i = 0; BINFO_BASE_ITERATE (t, i, base); i++)
-	  {
-	    tree old_base = base;
-	    walk_tree (&base, lto_fixup_tree, data, NULL);
-	    if (base != old_base)
-	      VEC_replace (tree, BINFO_BASE_BINFOS (t), i, base);
-	  }
-      }
+    case LABEL_DECL:
+    case CONST_DECL:
+    case PARM_DECL:
+    case RESULT_DECL:
+      lto_fixup_decl_common (t, data);
       break;
 
     case VAR_DECL:
-      walk_tree (&DECL_INITIAL (t), lto_fixup_tree, data, NULL);
+      lto_fixup_decl_with_vis (t, data);
       break;	
 
-    default:
+    case TYPE_DECL:
+    case FUNCTION_DECL:
+      lto_fixup_decl_non_common (t, data);
       break;
+
+    case TREE_BINFO:
+      lto_fixup_binfo (t, data);
+      break;
+
+    default:
+      if (TYPE_P (t))
+	lto_fixup_type (t, data);
+      else if (EXPR_P (t))
+	{
+	  /* walk_tree only handles TREE_OPERANDs. Do the rest here.  */
+	  lto_fixup_common (t, data);
+	  LTO_FIXUP_SUBTREE (t->exp.block);
+	  *walk_subtrees = 1;
+	}
+      else
+	{
+	  /* Let walk_tree handle sub-trees.  */
+	  *walk_subtrees = 1;
+	}
     }
+
   return NULL;
 }
 
@@ -1000,33 +1156,17 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
 static void
 lto_fixup_state (struct lto_in_decl_state *state, lto_fixup_data_t *data)
 {
-  unsigned i;
-  struct lto_tree_ref_table *vars = &state->streams[LTO_DECL_STREAM_VAR_DECL];
-  struct lto_tree_ref_table *fns = &state->streams[LTO_DECL_STREAM_FN_DECL];
-  struct lto_tree_ref_table *types = &state->streams[LTO_DECL_STREAM_TYPE];
+  unsigned i, si;
+  struct lto_tree_ref_table *table;
 
-  /* We have to fix up types as well. Vtables reference function decls.  */
-  for (i = 0; i < types->size; i++)
+  /* Although we only want to replace FUNCTION_DECLs and VAR_DECLs,
+     we still need to walk from all DECLs to find the reachable
+     FUNCTION_DECLs and VAR_DECLs.  */
+  for (si = 0; si < LTO_N_DECL_STREAMS; si++)
     {
-      walk_tree (types->trees + i, lto_fixup_tree, data, NULL);
-    }
-
-  for (i = 0; i < fns->size; i++)
-    {
-      tree decl = fns->trees[i];
-      gcc_assert (decl);
-      gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
-      walk_tree (fns->trees + i, lto_fixup_tree, data, NULL);
-    }
-
-  for (i = 0; i < vars->size; i++)
-    {
-      tree decl = vars->trees[i];
-      gcc_assert (decl);
-      if (TREE_CODE (decl) == RESULT_DECL)
-	continue;
-      gcc_assert (TREE_CODE (decl) == VAR_DECL);
-      walk_tree (vars->trees + i, lto_fixup_tree, data, NULL);
+      table = &state->streams[si];
+      for (i = 0; i < table->size; i++)
+	walk_tree (table->trees + i, lto_fixup_tree, data, NULL);
     }
 }
 
