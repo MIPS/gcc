@@ -137,18 +137,22 @@ create_loop_tree_nodes (bool loops_p)
 		skip_p = true;
 		break;
 	      }
+	  if (!skip_p)
+	    {
+	      edges = get_loop_exit_edges (loop);
+	      for (j = 0; VEC_iterate (edge, edges, j, e); j++)
+		if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
+		  {
+		    skip_p = true;
+		    break;
+		  }
+	      VEC_free (edge, heap, edges);
+	    }
 	  if (skip_p)
-	    continue;
-	  edges = get_loop_exit_edges (loop);
-	  for (j = 0; VEC_iterate (edge, edges, j, e); j++)
-	    if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
-	      {
-		skip_p = true;
-		break;
-	      }
-	  VEC_free (edge, heap, edges);
-	  if (skip_p)
-	    continue;
+	    {
+	      ira_loop_nodes[i].parent = NULL;
+	      continue;
+	    }
 	}
       ira_loop_nodes[i].regno_allocno_map
 	= (ira_allocno_t *) ira_allocate (sizeof (ira_allocno_t) * max_regno);
