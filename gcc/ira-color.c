@@ -104,6 +104,7 @@ allocnos_have_intersected_live_ranges_p (ira_allocno_t a1, ira_allocno_t a2)
 }
 
 #ifdef ENABLE_IRA_CHECKING
+
 /* Return TRUE if live ranges of pseudo-registers REGNO1 and REGNO2
    intersect.  This should be used when there is only one region.
    Currently this is used during reload.  */
@@ -121,6 +122,7 @@ pseudos_have_intersected_live_ranges_p (int regno1, int regno2)
     return false;
   return allocnos_have_intersected_live_ranges_p (a1, a2);
 }
+
 #endif
 
 

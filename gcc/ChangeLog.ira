@@ -1,5 +1,10 @@
 2008-11-20  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* ira-color.c (pseudos_have_intersected_live_ranges_p): Add
+	new lines to match trunk.
+
+2008-11-20  H.J. Lu  <hongjiu.lu@intel.com>
+
 	Backport from mainline:
 	2008-11-19  Vladimir Makarov  <vmakarov@redhat.com>
 
