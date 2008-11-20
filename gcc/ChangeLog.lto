@@ -1,3 +1,9 @@
+2008-11-19  Doug Kwan  <dougkwan@google.com>
+
+	* lto-symtab.c (external_aggregate_decl_p): New.
+	(lto_symtab_compatible): Handle external aggregate declarations
+	specially.
+
 2008-11-19  Rafael Espindola  <espindola@google.com>
 
 	* lto-cgraph.c (input_edge): Initialize callee->local.lto_file_data if

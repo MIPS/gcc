@@ -357,6 +357,17 @@ lto_compatible_attributes_p (tree decl ATTRIBUTE_UNUSED,
 #endif
 }
 
+/* Helper for lto_symtab_compatible. Return TRUE if DECL is an external
+   variable declaration of an aggregate type. */
+
+static bool
+external_aggregate_decl_p (tree decl)
+{
+  return (TREE_CODE (decl) == VAR_DECL
+	  && DECL_EXTERNAL (decl)
+	  && AGGREGATE_TYPE_P (TREE_TYPE (decl)));
+}
+
 /* Check if OLD_DECL and NEW_DECL are compatible. */
 
 static bool
@@ -477,16 +488,28 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
       || !tree_int_cst_equal (DECL_SIZE_UNIT (old_decl),
 			      DECL_SIZE_UNIT (new_decl)))
     {
-      /* Permit cases where we are declaring arrays and at least one of
-	 the decls is external and one of the decls has a size whereas
-	 the other one does not.  */
-      if (!((DECL_EXTERNAL (old_decl) || DECL_EXTERNAL (new_decl))
-	    && ((DECL_SIZE (old_decl) == NULL_TREE
-		 && DECL_SIZE (new_decl) != NULL_TREE)
-		|| (DECL_SIZE (new_decl) == NULL_TREE
-		    && DECL_SIZE (old_decl) != NULL_TREE))
-	    && TREE_CODE (TREE_TYPE (old_decl)) == ARRAY_TYPE
-	    && TREE_CODE (TREE_TYPE (new_decl)) == ARRAY_TYPE))
+      /* Permit cases where we are declaring aggregates and at least one
+	 of the decls is external and one of the decls has a size whereas
+	 the other one does not.  This is perfectly legal in C:
+
+         struct s;
+	 extern struct s x;
+
+	 void*
+	 f (void)
+	 {
+	   return &x;
+	 }
+
+	 There is no way a compiler can tell the size of x.  So we cannot
+	 assume that external aggreates have complete types.  */
+
+      if (!((TREE_CODE (TREE_TYPE (old_decl))
+	     == TREE_CODE (TREE_TYPE (new_decl)))
+	    && ((external_aggregate_decl_p (old_decl)
+		 && DECL_SIZE (old_decl) == NULL_TREE)
+		|| (external_aggregate_decl_p (new_decl)
+		    && DECL_SIZE (new_decl) == NULL_TREE))))
 	{
 	  error ("size of %qD does not match original declaration", 
 		 new_decl);
@@ -508,11 +531,17 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
       /* We can arrive here when we are merging 'extern char foo[]' and
 	 'char foo[SMALLNUM]'; the former is probably BLKmode and the
 	 latter is not.  In such a case, we should have merged the types
-	 already; detect it and don't complain.  */
-      if (TREE_CODE (old_decl) == VAR_DECL
-	  && TREE_CODE (TREE_TYPE (old_decl)) == ARRAY_TYPE
-	  && TREE_CODE (TREE_TYPE (new_decl)) == ARRAY_TYPE
-	  && merged_type)
+	 already; detect it and don't complain.  We also need to handle
+	 external aggregate declaration specially.  */
+      if ((TREE_CODE (TREE_TYPE (old_decl))
+	   == TREE_CODE (TREE_TYPE (new_decl)))
+	  && (((TREE_CODE (TREE_TYPE (old_decl)) != ARRAY_TYPE)
+	       && ((external_aggregate_decl_p (old_decl)
+		    && DECL_MODE (old_decl) == VOIDmode)
+		   || (external_aggregate_decl_p (new_decl)
+		       && DECL_MODE (new_decl) == VOIDmode)))
+	      || ((TREE_CODE (TREE_TYPE (old_decl)) == ARRAY_TYPE)
+		  && merged_type)))
 	;
       else
 	{
