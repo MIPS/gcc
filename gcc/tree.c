@@ -5348,7 +5348,7 @@ iterative_hash_expr (const_tree t, hashval_t val)
 	 __builtin__ form.  Otherwise nodes that compare equal
 	 according to operand_equal_p might get different
 	 hash codes.  */
-      if (DECL_BUILT_IN (t))
+      if (DECL_BUILT_IN (t) && built_in_decls[DECL_FUNCTION_CODE (t)])
 	{
 	  t = built_in_decls[DECL_FUNCTION_CODE (t)];
 	  code = TREE_CODE (t);

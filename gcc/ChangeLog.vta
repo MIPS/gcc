@@ -1,5 +1,9 @@
 2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree.c (iterative_hash_expr): Don't take a NULL built in decl.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgrtl.c (purge_dead_edges): Skip debug insns at the end, along
 	with notes among them.
 
