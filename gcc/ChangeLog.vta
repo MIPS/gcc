@@ -1,5 +1,24 @@
 2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-inline.h (struct copy_body_data): Add debug_map.
+	* tree-inline.c (insert_debug_decl_map): New.
+	(copy_debug_stmt): Look up debug_map for VAR in debug stmts
+	(self_inlining_addr_expr): Restored.
+	(insert_init_debug_bind): New.
+	(insert_init_stmt): Don't look in debug stmts, generate them.
+	(setup_one_parameter): Restore optimizations to replace SSA names
+	and VARs with their values, but preserving the generation of debug
+	annotations.
+	(initialize_inlined_parameters): Pass fn down.
+	(expand_call_inline, unsave_expr_now): Maintain debug_map.
+	(copy_gimple_seq_and_replace_locals): Likewise.
+	(tree_function_versioning): Likewise.  Create BB unconditionally.
+	(build_duplicate_type): Maintain debug_map.
+	* tree-cfgcleanup.c (remove_forwarder_block): Copy debug stmts
+	along with labels.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
 	* dwarf2out.c (debug_str_hash_forced): New.
 	(add_string): New, split out of...
 	(add_AT_string): ... this.

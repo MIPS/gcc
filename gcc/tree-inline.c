@@ -149,6 +149,27 @@ insert_decl_map (copy_body_data *id, tree key, tree value)
     *pointer_map_insert (id->decl_map, value) = value;
 }
 
+/* Insert a tree->tree mapping for ID.  This is only used for
+   variables.  */
+
+static void
+insert_debug_decl_map (copy_body_data *id, tree key, tree value)
+{
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return;
+
+  if (!var_debug_value_for_decl (key))
+    return;
+
+  gcc_assert (TREE_CODE (key) == PARM_DECL);
+  gcc_assert (TREE_CODE (value) == VAR_DECL);
+
+  if (!id->debug_map)
+    id->debug_map = pointer_map_create ();
+
+  *pointer_map_insert (id->debug_map, key) = value;
+}
+
 /* Construct new SSA name for old NAME. ID is the inline context.  */
 
 static tree
@@ -1916,7 +1937,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
 static void
 copy_debug_stmt (gimple stmt, copy_body_data *id)
 {
-  tree t;
+  tree t, *n;
   struct walk_stmt_info wi;
 
   /* Remap all the operands in COPY.  */
@@ -1926,10 +1947,17 @@ copy_debug_stmt (gimple stmt, copy_body_data *id)
   processing_debug_stmt = 1;
 
   t = VAR_DEBUG_VALUE_VAR (stmt);
-  walk_tree (&t, remap_gimple_op_r, &wi, NULL);
-  VAR_DEBUG_VALUE_SET_VAR (stmt, t);
 
-  gcc_assert (processing_debug_stmt == 1);
+  if (TREE_CODE (t) == PARM_DECL && id->debug_map
+      && (n = (tree *) pointer_map_contains (id->debug_map, t)))
+    {
+      gcc_assert (TREE_CODE (*n) == VAR_DECL);
+      t = *n;
+    }
+  else
+    walk_tree (&t, remap_gimple_op_r, &wi, NULL);
+
+  VAR_DEBUG_VALUE_SET_VAR (stmt, t);
 
   if (VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
     walk_tree (&VAR_DEBUG_VALUE_VALUE (stmt), remap_gimple_op_r, &wi, NULL);
@@ -1977,6 +2005,59 @@ copy_body (copy_body_data *id, gcov_type count, int frequency,
   return body;
 }
 
+/* Return true if VALUE is an ADDR_EXPR of an automatic variable
+   defined in function FN, or of a data member thereof.  */
+
+static bool
+self_inlining_addr_expr (tree value, tree fn)
+{
+  tree var;
+
+  if (TREE_CODE (value) != ADDR_EXPR)
+    return false;
+
+  var = get_base_address (TREE_OPERAND (value, 0));
+
+  return var && auto_var_in_fn_p (var, fn);
+}
+
+/* Append to BB a debug annotation that binds VAR to VALUE, inheriting
+   lexical block and line number information from base_stmt, if given,
+   or from the last stmt of the block otherwise.  */
+
+static gimple
+insert_init_debug_bind (basic_block bb, tree var, tree value,
+			gimple base_stmt)
+{
+  gimple note;
+  gimple_stmt_iterator gsi;
+
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return NULL;
+
+  if (!var_debug_value_for_decl (var))
+    return NULL;
+
+  if (bb)
+    {
+      gsi = gsi_last_bb (bb);
+      if (!base_stmt && !gsi_end_p (gsi))
+	base_stmt = gsi_stmt (gsi);
+    }
+
+  note = gimple_build_debug_bind (var, value, base_stmt);
+
+  if (bb)
+    {
+      if (!gsi_end_p (gsi))
+	gsi_insert_after (&gsi, note, GSI_SAME_STMT);
+      else
+	gsi_insert_before (&gsi, note, GSI_SAME_STMT);
+    }
+
+  return note;
+}
+
 static void
 insert_init_stmt (basic_block bb, gimple init_stmt)
 {
@@ -1990,7 +2071,8 @@ insert_init_stmt (basic_block bb, gimple init_stmt)
          from a rhs with a conversion.  Handle that here by forcing the
 	 rhs into a temporary.  gimple_regimplify_operands is not
 	 prepared to do this for us.  */
-      if (!is_gimple_reg (gimple_assign_lhs (init_stmt))
+      if (!IS_DEBUG_STMT (init_stmt)
+	  && !is_gimple_reg (gimple_assign_lhs (init_stmt))
 	  && is_gimple_reg_type (TREE_TYPE (gimple_assign_lhs (init_stmt)))
 	  && gimple_assign_rhs_class (init_stmt) == GIMPLE_UNARY_RHS)
 	{
@@ -2006,7 +2088,7 @@ insert_init_stmt (basic_block bb, gimple init_stmt)
       gimple_regimplify_operands (init_stmt, &si);
       mark_symbols_for_renaming (init_stmt);
 
-      if (MAY_HAVE_DEBUG_STMTS)
+      if (!IS_DEBUG_STMT (init_stmt) && MAY_HAVE_DEBUG_STMTS)
 	{
 	  tree var, def = gimple_assign_lhs (init_stmt);
 
@@ -2015,12 +2097,7 @@ insert_init_stmt (basic_block bb, gimple init_stmt)
 	  else
 	    var = def;
 
-	  if (var_debug_value_for_decl (var))
-	    {
-	      gimple note = gimple_build_debug_bind (var, def, init_stmt);
-	      gimple_stmt_iterator dsi = gsi_last_bb (bb);
-	      gsi_insert_after (&dsi, note, GSI_SAME_STMT);
-	    }
+	  insert_init_debug_bind (bb, var, def, init_stmt);
 	}
     }
 }
@@ -2029,7 +2106,7 @@ insert_init_stmt (basic_block bb, gimple init_stmt)
    at the end of BB.  When BB is NULL, we return init statement to be
    output later.  */
 static gimple
-setup_one_parameter (copy_body_data *id, tree p, tree value,
+setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 		     basic_block bb, tree *vars)
 {
   gimple init_stmt = NULL;
@@ -2056,16 +2133,13 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
      here since the type of this decl must be visible to the calling
      function.  */
   var = copy_decl_to_var (p, id);
+
+  /* We're actually using the newly-created var.  */
   if (gimple_in_ssa_p (cfun) && TREE_CODE (var) == VAR_DECL)
     {
       get_var_ann (var);
       add_referenced_var (var);
     }
-
-  /* Register the VAR_DECL as the equivalent for the PARM_DECL;
-     that way, when the PARM_DECL is encountered, it will be
-     automatically replaced by the VAR_DECL.  */
-  insert_decl_map (id, p, var);
 
   /* Declare this new variable.  */
   TREE_CHAIN (var) = *vars;
@@ -2073,6 +2147,40 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
 
   /* Make gimplifier happy about this variable.  */
   DECL_SEEN_IN_BIND_EXPR_P (var) = 1;
+
+  /* If the parameter is never assigned to, has no SSA_NAMEs created,
+     we would not need to create a new variable here at all, if it
+     weren't for debug info.  Still, we can just use the argument
+     value.  */
+  if (TREE_READONLY (p)
+      && !TREE_ADDRESSABLE (p)
+      && value && !TREE_SIDE_EFFECTS (value)
+      && !def)
+    {
+      /* We may produce non-gimple trees by adding NOPs or introduce
+	 invalid sharing when operand is not really constant.
+	 It is not big deal to prohibit constant propagation here as
+	 we will constant propagate in DOM1 pass anyway.  */
+      if (is_gimple_min_invariant (value)
+	  && useless_type_conversion_p (TREE_TYPE (p),
+						 TREE_TYPE (value))
+	  /* We have to be very careful about ADDR_EXPR.  Make sure
+	     the base variable isn't a local variable of the inlined
+	     function, e.g., when doing recursive inlining, direct or
+	     mutually-recursive or whatever, which is why we don't
+	     just test whether fn == current_function_decl.  */
+	  && ! self_inlining_addr_expr (value, fn))
+	{
+	  insert_decl_map (id, p, value);
+	  insert_debug_decl_map (id, p, var);
+	  return insert_init_debug_bind (bb, var, value, NULL);
+	}
+    }
+
+  /* Register the VAR_DECL as the equivalent for the PARM_DECL;
+     that way, when the PARM_DECL is encountered, it will be
+     automatically replaced by the VAR_DECL.  */
+  insert_decl_map (id, p, var);
 
   /* Even if P was TREE_READONLY, the new VAR should not be.
      In the original code, we would have constructed a
@@ -2086,12 +2194,27 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
   if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (p)))
     TREE_READONLY (var) = 0;
 
+  /* If there is no setup required and we are in SSA, take the easy route
+     replacing all SSA names representing the function parameter by the
+     SSA name passed to function.
+
+     We need to construct map for the variable anyway as it might be used
+     in different SSA names when parameter is set in function.   */
+  if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
+      && (TREE_CODE (rhs) == SSA_NAME
+	  || is_gimple_min_invariant (rhs))
+      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
+    {
+      insert_decl_map (id, def, rhs);
+      return insert_init_debug_bind (bb, var, rhs, NULL);
+    }
+
   /* If the value of argument is never used, don't care about initializing
      it.  */
   if (gimple_in_ssa_p (cfun) && !def && is_gimple_reg (p))
     {
       gcc_assert (!value || !TREE_SIDE_EFFECTS (value));
-      return NULL;
+      return insert_init_debug_bind (bb, var, rhs, NULL);
     }
 
   /* Initialize this VAR_DECL from the equivalent argument.  Convert
@@ -2101,7 +2224,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
       if (rhs == error_mark_node)
 	{
 	  insert_decl_map (id, p, var);
-	  return NULL;
+	  return insert_init_debug_bind (bb, var, rhs, NULL);
 	}
 
       STRIP_USELESS_TYPE_CONVERSION (rhs);
@@ -2146,7 +2269,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
     {
       tree val;
       val = i < gimple_call_num_args (stmt) ? gimple_call_arg (stmt, i) : NULL;
-      setup_one_parameter (id, p, val, bb, &vars);
+      setup_one_parameter (id, p, val, fn, bb, &vars);
     }
 
   /* Initialize the static chain.  */
@@ -2157,7 +2280,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
       /* No static chain?  Seems like a bug in tree-nested.c.  */
       gcc_assert (static_chain);
 
-      setup_one_parameter (id, p, static_chain, bb, &vars);
+      setup_one_parameter (id, p, static_chain, fn, bb, &vars);
     }
 
   declare_inline_vars (id->block, vars);
@@ -3108,7 +3231,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 {
   tree retvar, use_retvar;
   tree fn;
-  struct pointer_map_t *st;
+  struct pointer_map_t *st, *dst;
   tree return_slot;
   tree modify_dest;
   location_t saved_location;
@@ -3270,6 +3393,8 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
      map.  */
   st = id->decl_map;
   id->decl_map = pointer_map_create ();
+  dst = id->debug_map;
+  id->debug_map = NULL;
 
   /* Record the function we are about to inline.  */
   id->src_fn = fn;
@@ -3363,6 +3488,11 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
     }
 
   /* Clean up.  */
+  if (id->debug_map)
+    {
+      pointer_map_destroy (id->debug_map);
+      id->debug_map = dst;
+    }
   pointer_map_destroy (id->decl_map);
   id->decl_map = st;
 
@@ -3826,6 +3956,7 @@ unsave_expr_now (tree expr)
   id.src_fn = current_function_decl;
   id.dst_fn = current_function_decl;
   id.decl_map = pointer_map_create ();
+  id.debug_map = NULL;
 
   id.copy_decl = copy_decl_no_change;
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;
@@ -3841,6 +3972,8 @@ unsave_expr_now (tree expr)
 
   /* Clean up.  */
   pointer_map_destroy (id.decl_map);
+  if (id.debug_map)
+    pointer_map_destroy (id.debug_map);
 
   return expr;
 }
@@ -3972,6 +4105,7 @@ copy_gimple_seq_and_replace_locals (gimple_seq seq)
   id.src_fn = current_function_decl;
   id.dst_fn = current_function_decl;
   id.decl_map = pointer_map_create ();
+  id.debug_map = NULL;
 
   id.copy_decl = copy_decl_no_change;
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;
@@ -3996,6 +4130,8 @@ copy_gimple_seq_and_replace_locals (gimple_seq seq)
 
   /* Clean up.  */
   pointer_map_destroy (id.decl_map);
+  if (id.debug_map)
+    pointer_map_destroy (id.debug_map);
 
   return copy;
 }
@@ -4245,7 +4381,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
   tree p;
   unsigned i;
   struct ipa_replace_map *replace_info;
-  basic_block old_entry_block;
+  basic_block old_entry_block, bb;
   VEC (gimple, heap) *init_stmts = VEC_alloc (gimple, heap, 10);
 
   tree t_step;
@@ -4278,6 +4414,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
     VARRAY_GENERIC_PTR_INIT (id.debug_stmts, 8, "debug_stmt");
   
   id.decl_map = pointer_map_create ();
+  id.debug_map = NULL;
   id.src_fn = old_decl;
   id.dst_fn = new_decl;
   id.src_node = old_version_node;
@@ -4342,7 +4479,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 	      }
 	    gcc_assert (TREE_CODE (replace_info->old_tree) == PARM_DECL);
 	    init = setup_one_parameter (&id, replace_info->old_tree,
-	    			        replace_info->new_tree,
+	    			        replace_info->new_tree, id.src_fn,
 				        NULL,
 				        &vars);
 	    if (init)
@@ -4378,15 +4515,17 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
   /* Renumber the lexical scoping (non-code) blocks consecutively.  */
   number_blocks (new_decl);
 
-  if (VEC_length (gimple, init_stmts))
-    {
-      basic_block bb = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
-      while (VEC_length (gimple, init_stmts))
-	insert_init_stmt (bb, VEC_pop (gimple, init_stmts));
-    }
+  /* We want to create the BB unconditionally, so that the addition of
+     debug stmts doesn't affect BB count, which may in the end cause
+     codegen differences.  */
+  bb = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
+  while (VEC_length (gimple, init_stmts))
+    insert_init_stmt (bb, VEC_pop (gimple, init_stmts));
 
   /* Clean up.  */
   pointer_map_destroy (id.decl_map);
+  if (id.debug_map)
+    pointer_map_destroy (id.debug_map);
   if (!update_clones)
     {
       fold_marked_statements (0, id.statements_to_fold);
@@ -4429,11 +4568,14 @@ build_duplicate_type (tree type)
   id.dst_fn = current_function_decl;
   id.src_cfun = cfun;
   id.decl_map = pointer_map_create ();
+  id.debug_map = NULL;
   id.copy_decl = copy_decl_no_change;
 
   type = remap_type_1 (type, &id);
 
   pointer_map_destroy (id.decl_map);
+  if (id.debug_map)
+    pointer_map_destroy (id.debug_map);
 
   TYPE_CANONICAL (type) = type;
 

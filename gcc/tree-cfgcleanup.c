@@ -1,5 +1,5 @@
 /* CFG cleanup for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -439,9 +439,10 @@ remove_forwarder_block (basic_block bb)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
 	  label = gsi_stmt (gsi);
-	  gcc_assert (gimple_code (label) == GIMPLE_LABEL);
+	  gcc_assert (gimple_code (label) == GIMPLE_LABEL
+		      || IS_DEBUG_STMT (label));
 	  gsi_remove (&gsi, false);
-	  gsi_insert_before (&gsi_to, label, GSI_CONTINUE_LINKING);
+	  gsi_insert_before (&gsi_to, label, GSI_SAME_STMT);
 	}
     }
 
