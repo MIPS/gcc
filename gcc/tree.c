@@ -3933,6 +3933,7 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	TYPE_FIELDS (type) = NULL_TREE;
 
       TYPE_METHODS (type)  = NULL_TREE;
+      TYPE_BINFO (type)  = NULL_TREE;
     }
 
   if (TREE_CODE (type) == INTEGER_TYPE)

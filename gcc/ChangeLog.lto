@@ -1,3 +1,9 @@
+2008-11-20  Rafael Espindola  <espindola@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (reset_type_lang_specific): Set TYPE_BINFO to
+	NULL.
+
 2008-11-19  Doug Kwan  <dougkwan@google.com>
 
 	* lto-symtab.c (external_aggregate_decl_p): New.

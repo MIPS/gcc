@@ -1,3 +1,8 @@
+2008-11-20  Rafael Espindola  <espindola@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* cp-lang.c (LANG_HOOKS_FOLD_OBJ_TYPE_REF): Undefine.
+
 2008-09-24  Simon Baldwin  <simonb@google.com>
 
 	* tree.h (mangle_decl_is_template_id): New mangler function.

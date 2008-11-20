@@ -1,3 +1,11 @@
+2008-11-20  Rafael Espindola  <espindola@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* g++.dg/lto/20081119_0.C: New.
+	* g++.dg/lto/20081119_1.C: New.
+	* g++.dg/opt/devirt1.C: Do not scan for the devirtualized
+	call.
+
 2008-11-19  Doug Kwan  <dougkwan@google.com>
 
 	* g++.dg/lto/20081119-1.h: New.
