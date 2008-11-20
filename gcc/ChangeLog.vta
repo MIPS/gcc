@@ -1,3 +1,8 @@
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (remap_gimple_stmt): Don't demand lexical blocks
+	for debug stmts to have been remapped before, remap them.
+
 2008-11-17  Alexandre Oliva  <aoliva@redhat.com>
 
 	* tree-ssa-live.c (remove_unused_scope_block_p): Keep variables

@@ -1233,8 +1233,15 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
     {
       tree *n;
       n = (tree *) pointer_map_contains (id->decl_map, gimple_block (copy));
-      gcc_assert (n);
-      new_block = *n;
+      if (n)
+	new_block = *n;
+      else
+	{
+	  tree nb = gimple_block (copy);
+	  gcc_assert (IS_DEBUG_BIND (copy));
+	  remap_block (&nb, id);
+	  new_block = nb;
+	}
     }
 
   gimple_set_block (copy, new_block);
