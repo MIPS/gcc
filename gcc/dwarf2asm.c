@@ -832,7 +832,8 @@ dw2_force_const_mem (rtx x, bool is_public)
 
 	  sprintf (ref_name, "DW.ref.%s", str);
 	  id = get_identifier (ref_name);
-	  decl = build_decl (VAR_DECL, id, ptr_type_node);
+	  decl = build_decl (input_location,
+			     VAR_DECL, id, ptr_type_node);
 	  DECL_ARTIFICIAL (decl) = 1;
 	  DECL_IGNORED_P (decl) = 1;
 	  TREE_PUBLIC (decl) = 1;
@@ -846,7 +847,8 @@ dw2_force_const_mem (rtx x, bool is_public)
 	  ASM_GENERATE_INTERNAL_LABEL (label, "LDFCM", dw2_const_labelno);
 	  ++dw2_const_labelno;
 	  id = get_identifier (label);
-	  decl = build_decl (VAR_DECL, id, ptr_type_node);
+	  decl = build_decl (input_location,
+			     VAR_DECL, id, ptr_type_node);
 	  DECL_ARTIFICIAL (decl) = 1;
 	  DECL_IGNORED_P (decl) = 1;
 	  TREE_STATIC (decl) = 1;

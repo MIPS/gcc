@@ -3227,7 +3227,8 @@ create_tag_raw (enum tree_code code, tree type, const char *prefix)
 {
   tree tmp_var;
 
-  tmp_var = build_decl (code, create_tmp_var_name (prefix), type);
+  tmp_var = build_decl (UNKNOWN_LOCATION,
+			code, create_tmp_var_name (prefix), type);
 
   /* Memory tags are always writable and non-static.  */
   TREE_READONLY (tmp_var) = 0;
@@ -3362,7 +3363,8 @@ get_smt_for (tree ptr, struct alias_info *ai)
 static void
 create_global_var (void)
 {
-  tree global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
+  tree global_var = build_decl (UNKNOWN_LOCATION,
+				VAR_DECL, get_identifier (".GLOBAL_VAR"),
                                 void_type_node);
   DECL_ARTIFICIAL (global_var) = 1;
   TREE_READONLY (global_var) = 0;

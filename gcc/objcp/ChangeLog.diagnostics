@@ -1,0 +1,4 @@
+2008-11-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	* objcp-decl.c (objcp_start_struct): Add argument.
+	(objcp_finish_struct): Same.

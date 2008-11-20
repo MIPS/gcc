@@ -682,7 +682,7 @@ extern const struct attribute_spec c_common_format_attribute_table[];
    TYPE_DEP indicates whether it depends on type of the function or not
    (i.e. __PRETTY_FUNCTION__).  */
 
-extern tree (*make_fname_decl) (tree, int);
+extern tree (*make_fname_decl) (location_t, tree, int);
 
 extern tree identifier_global_value (tree);
 extern void record_builtin_type (enum rid, const char *, tree);
@@ -807,7 +807,7 @@ extern void finish_file	(void);
   (DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE)) = 0)
 
 extern void emit_local_var (tree);
-extern tree do_case (tree, tree);
+extern tree do_case (location_t, tree, tree);
 extern tree build_stmt (enum tree_code, ...);
 extern tree build_case_label (tree, tree, tree);
 
@@ -835,13 +835,13 @@ extern tree boolean_increment (enum tree_code, tree);
 
 extern int case_compare (splay_tree_key, splay_tree_key);
 
-extern tree c_add_case_label (splay_tree, tree, tree, tree, tree);
+extern tree c_add_case_label (location_t, splay_tree, tree, tree, tree, tree);
 
 extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
 
-extern tree build_function_call (tree, tree);
+extern tree build_function_call (location_t, tree, tree);
 
-extern tree resolve_overloaded_builtin (tree, tree);
+extern tree resolve_overloaded_builtin (location_t, tree, tree);
 
 extern tree finish_label_address_expr (tree, location_t);
 

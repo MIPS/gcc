@@ -3960,9 +3960,9 @@ extern tree build_one_cst (tree);
 extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
-extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+extern tree build_decl_stat (location_t, enum tree_code, tree, tree MEM_STAT_DECL);
 extern tree build_fn_decl (const char *, tree);
-#define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
+#define build_decl(l,c,t,q) build_decl_stat (l,c,t,q MEM_STAT_INFO)
 extern tree build_block (tree, tree, tree, tree);
 extern tree build_empty_stmt (void);
 extern tree build_omp_clause (enum omp_clause_code);
@@ -4683,7 +4683,7 @@ extern int operand_equal_for_phi_arg_p (const_tree, const_tree);
 extern tree call_expr_arg (tree, int);
 extern tree *call_expr_argp (tree, int);
 extern tree call_expr_arglist (tree);
-extern tree create_artificial_label (void);
+extern tree create_artificial_label (location_t);
 extern const char *get_name (tree);
 extern bool stdarg_p (tree);
 extern bool prototype_p (tree);

@@ -7011,7 +7011,7 @@ cp_parser_label_for_labeled_statement (cp_parser* parser)
 	  expr_hi = NULL_TREE;
 
 	if (parser->in_switch_statement_p)
-	  finish_case_label (expr, expr_hi);
+	  finish_case_label (token->location, expr, expr_hi);
 	else
 	  error ("%Hcase label %qE not within a switch statement",
 		 &token->location, expr);
@@ -7023,7 +7023,7 @@ cp_parser_label_for_labeled_statement (cp_parser* parser)
       cp_lexer_consume_token (parser->lexer);
 
       if (parser->in_switch_statement_p)
-	finish_case_label (NULL_TREE, NULL_TREE);
+	finish_case_label (token->location, NULL_TREE, NULL_TREE);
       else
 	error ("%Hcase label not within a switch statement", &token->location);
       break;
@@ -15672,7 +15672,8 @@ cp_parser_member_declaration (cp_parser* parser)
 		 know it is an anonymous aggregate.  */
 	      fixup_anonymous_aggr (type);
 	      /* And make the corresponding data member.  */
-	      decl = build_decl (FIELD_DECL, NULL_TREE, type);
+	      decl = build_decl (decl_spec_token_start->location,
+				 FIELD_DECL, NULL_TREE, type);
 	      /* Add it to the class.  */
 	      finish_member_declaration (decl);
 	    }

@@ -2186,7 +2186,7 @@ build_external_ref (tree id, int fun, location_t loc)
     ref = decl;
   else if (fun)
     /* Implicit function declaration.  */
-    ref = implicitly_declare (id);
+    ref = implicitly_declare (loc, id);
   else if (decl == error_mark_node)
     /* Don't complain about something that's already been
        complained about.  */
@@ -2348,12 +2348,13 @@ c_expr_sizeof_type (struct c_type_name *t)
 }
 
 /* Build a function call to function FUNCTION with parameters PARAMS.
+   The function call is at LOC.
    PARAMS is a list--a chain of TREE_LIST nodes--in which the
    TREE_VALUE of each node is a parameter-expression.
    FUNCTION's data type may be a function type or a pointer-to-function.  */
 
 tree
-build_function_call (tree function, tree params)
+build_function_call (location_t loc, tree function, tree params)
 {
   tree fntype, fundecl = 0;
   tree name = NULL_TREE, result;
@@ -2372,7 +2373,7 @@ build_function_call (tree function, tree params)
 	 resolve_overloaded_builtin and targetm.resolve_overloaded_builtin
 	 handle all the type checking.  The result is a complete expression
 	 that implements this function call.  */
-      tem = resolve_overloaded_builtin (function, params);
+      tem = resolve_overloaded_builtin (loc, function, params);
       if (tem)
 	return tem;
 
@@ -2394,7 +2395,7 @@ build_function_call (tree function, tree params)
   if (!(TREE_CODE (fntype) == POINTER_TYPE
 	&& TREE_CODE (TREE_TYPE (fntype)) == FUNCTION_TYPE))
     {
-      error ("called object %qE is not a function", function);
+      error_at (loc, "called object %qE is not a function", function);
       return error_mark_node;
     }
 
@@ -2415,16 +2416,16 @@ build_function_call (tree function, tree params)
       && !comptypes (fntype, TREE_TYPE (tem)))
     {
       tree return_type = TREE_TYPE (fntype);
-      tree trap = build_function_call (built_in_decls[BUILT_IN_TRAP],
+      tree trap = build_function_call (loc, built_in_decls[BUILT_IN_TRAP],
 				       NULL_TREE);
 
       /* This situation leads to run-time undefined behavior.  We can't,
 	 therefore, simply error unless we can prove that all possible
 	 executions of the program must execute the code.  */
-      if (warning (0, "function called through a non-compatible type"))
+      if (warning_at (loc, 0, "function called through a non-compatible type"))
 	/* We can, however, treat "undefined" any way we please.
 	   Call abort to encourage the user to fix the program.  */
-	inform (input_location, "if this code is reached, the program will abort");
+	inform (loc, "if this code is reached, the program will abort");
 
       if (VOID_TYPE_P (return_type))
 	return trap;
@@ -2433,7 +2434,7 @@ build_function_call (tree function, tree params)
 	  tree rhs;
 
 	  if (AGGREGATE_TYPE_P (return_type))
-	    rhs = build_compound_literal (return_type,
+	    rhs = build_compound_literal (loc, return_type,
 					  build_constructor (return_type, 0));
 	  else
 	    rhs = fold_convert (return_type, integer_zero_node);
@@ -7346,17 +7347,17 @@ c_start_case (tree exp)
   return add_stmt (cs->switch_expr);
 }
 
-/* Process a case label.  */
+/* Process a case label at location LOC.  */
 
 tree
-do_case (tree low_value, tree high_value)
+do_case (location_t loc, tree low_value, tree high_value)
 {
   tree label = NULL_TREE;
 
   if (c_switch_stack && !c_switch_stack->blocked_stmt_expr
       && !c_switch_stack->blocked_vm)
     {
-      label = c_add_case_label (c_switch_stack->cases,
+      label = c_add_case_label (loc, c_switch_stack->cases,
 				SWITCH_COND (c_switch_stack->switch_expr),
 				c_switch_stack->orig_type,
 				low_value, high_value);
@@ -7366,25 +7367,26 @@ do_case (tree low_value, tree high_value)
   else if (c_switch_stack && c_switch_stack->blocked_stmt_expr)
     {
       if (low_value)
-	error ("case label in statement expression not containing "
-	       "enclosing switch statement");
+	error_at (loc, "case label in statement expression not containing "
+		  "enclosing switch statement");
       else
-	error ("%<default%> label in statement expression not containing "
-	       "enclosing switch statement");
+	error_at (loc, "%<default%> label in statement expression not containing "
+		  "enclosing switch statement");
     }
   else if (c_switch_stack && c_switch_stack->blocked_vm)
     {
       if (low_value)
-	error ("case label in scope of identifier with variably modified "
-	       "type not containing enclosing switch statement");
+	error_at (loc, "case label in scope of identifier with variably "
+		  "modified type not containing enclosing switch statement");
       else
-	error ("%<default%> label in scope of identifier with variably "
-	       "modified type not containing enclosing switch statement");
+	error_at (loc, "%<default%> label in scope of identifier with "
+		  "variably modified type not containing enclosing switch "
+		  "statement");
     }
   else if (low_value)
-    error ("case label not within a switch statement");
+    error_at (loc, "case label not within a switch statement");
   else
-    error ("%<default%> label not within a switch statement");
+    error_at (loc, "%<default%> label not within a switch statement");
 
   return label;
 }
@@ -7545,7 +7547,7 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 }
 
 tree
-c_finish_bc_stmt (tree *label_p, bool is_break)
+c_finish_bc_stmt (location_t loc, tree *label_p, bool is_break)
 {
   bool skip;
   tree label = *label_p;
@@ -7562,7 +7564,7 @@ c_finish_bc_stmt (tree *label_p, bool is_break)
   if (!label)
     {
       if (!skip)
-	*label_p = label = create_artificial_label ();
+	*label_p = label = create_artificial_label (loc);
     }
   else if (TREE_CODE (label) == LABEL_DECL)
     ;
@@ -7570,14 +7572,14 @@ c_finish_bc_stmt (tree *label_p, bool is_break)
     {
     case 0:
       if (is_break)
-	error ("break statement not within loop or switch");
+	error_at (loc, "break statement not within loop or switch");
       else
-	error ("continue statement not within a loop");
+	error_at (loc, "continue statement not within a loop");
       return NULL_TREE;
 
     case 1:
       gcc_assert (is_break);
-      error ("break statement used with OpenMP for loop");
+      error_at (loc, "break statement used with OpenMP for loop");
       return NULL_TREE;
 
     default:

@@ -482,7 +482,8 @@ build_one_array (gimple swtch, int num, tree arr_index_type, gimple phi,
   ctor = build_constructor (array_type, info.constructors[num]);
   TREE_CONSTANT (ctor) = true;
 
-  decl = build_decl (VAR_DECL, NULL_TREE, array_type);
+  decl = build_decl (gimple_location (swtch),
+		     VAR_DECL, NULL_TREE, array_type);
   TREE_STATIC (decl) = 1;
   DECL_INITIAL (decl) = ctor;
 
@@ -633,9 +634,9 @@ fix_phi_nodes (edge e1f, edge e2f, basic_block bbf)
 static void
 gen_inbound_check (gimple swtch)
 {
-  tree label_decl1 = create_artificial_label ();
-  tree label_decl2 = create_artificial_label ();
-  tree label_decl3 = create_artificial_label ();
+  tree label_decl1 = create_artificial_label (UNKNOWN_LOCATION);
+  tree label_decl2 = create_artificial_label (UNKNOWN_LOCATION);
+  tree label_decl3 = create_artificial_label (UNKNOWN_LOCATION);
   gimple label1, label2, label3;
 
   tree utype;

@@ -50,7 +50,7 @@ static tree bc_label[2];
 static tree
 begin_bc_block (enum bc_t bc)
 {
-  tree label = create_artificial_label ();
+  tree label = create_artificial_label (input_location);
   TREE_CHAIN (label) = bc_label[bc];
   bc_label[bc] = label;
   return label;
@@ -226,7 +226,7 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 	 back through the main gimplifier to lower it.  Given that we
 	 have to gimplify the loop body NOW so that we can resolve
 	 break/continue stmts, seems easier to just expand to gotos.  */
-      top = gimple_build_label (create_artificial_label ());
+      top = gimple_build_label (create_artificial_label (stmt_locus));
 
       /* If we have an exit condition, then we build an IF with gotos either
 	 out of the loop, or to the top of it.  If there's no exit condition,
@@ -247,7 +247,8 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 	    {
 	      if (incr)
 		{
-		  entry = gimple_build_label (create_artificial_label ());
+		  entry = gimple_build_label 
+		    (create_artificial_label (stmt_locus));
 		  stmt = gimple_build_goto (gimple_label_label (entry));
 		}
 	      else
@@ -948,7 +949,7 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 	  append_to_statement_list (t, &ret);
 	}
 
-      lab = create_artificial_label ();
+      lab = create_artificial_label (input_location);
       t = build1 (LABEL_EXPR, void_type_node, lab);
       append_to_statement_list (t, &ret);
 

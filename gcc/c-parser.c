@@ -1605,23 +1605,23 @@ c_parser_enum_specifier (c_parser *parser)
   struct c_typespec ret;
   tree attrs;
   tree ident = NULL_TREE;
-  location_t ident_loc;
+  location_t enum_loc;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_ENUM));
   c_parser_consume_token (parser);
   attrs = c_parser_attributes (parser);
+  enum_loc = c_parser_peek_token (parser)->location;
   /* Set the location in case we create a decl now.  */
   c_parser_set_source_position_from_token (c_parser_peek_token (parser));
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
       ident = c_parser_peek_token (parser)->value;
-      ident_loc = c_parser_peek_token (parser)->location;
       c_parser_consume_token (parser);
     }
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
     {
       /* Parse an enum definition.  */
       struct c_enum_contents the_enum;
-      tree type = start_enum (&the_enum, ident);
+      tree type = start_enum (enum_loc, &the_enum, ident);
       tree postfix_attrs;
       /* We chain the enumerators in reverse order, then put them in
 	 forward order at the end.  */
@@ -1657,8 +1657,8 @@ c_parser_enum_specifier (c_parser *parser)
 	    }
 	  else
 	    enum_value = NULL_TREE;
-	  enum_decl = build_enumerator (&the_enum, enum_id, enum_value, 
-					value_loc);
+	  enum_decl = build_enumerator (value_loc,
+	      				&the_enum, enum_id, enum_value);
 	  TREE_CHAIN (enum_decl) = values;
 	  values = enum_decl;
 	  seen_comma = false;
@@ -1696,13 +1696,13 @@ c_parser_enum_specifier (c_parser *parser)
       ret.kind = ctsk_tagref;
       return ret;
     }
-  ret = parser_xref_tag (ENUMERAL_TYPE, ident);
+  ret = parser_xref_tag (enum_loc, ENUMERAL_TYPE, ident);
   /* In ISO C, enumerated types can be referred to only if already
      defined.  */
   if (pedantic && !COMPLETE_TYPE_P (ret.spec))
     {
       gcc_assert (ident);
-      pedwarn (ident_loc, OPT_pedantic,
+      pedwarn (enum_loc, OPT_pedantic,
 	       "ISO C forbids forward references to %<enum%> types");
     }
   return ret;
@@ -1754,6 +1754,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
   tree attrs;
   tree ident = NULL_TREE;
   enum tree_code code;
+  location_t loc;
   switch (c_parser_peek_token (parser)->keyword)
     {
     case RID_STRUCT:
@@ -1767,8 +1768,11 @@ c_parser_struct_or_union_specifier (c_parser *parser)
     }
   c_parser_consume_token (parser);
   attrs = c_parser_attributes (parser);
+
   /* Set the location in case we create a decl now.  */
   c_parser_set_source_position_from_token (c_parser_peek_token (parser));
+  loc = c_parser_peek_token (parser)->location;
+
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
       ident = c_parser_peek_token (parser)->value;
@@ -1778,7 +1782,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
     {
       /* Parse a struct or union definition.  Start the scope of the
 	 tag before parsing components.  */
-      tree type = start_struct (code, ident);
+      tree type = start_struct (loc, code, ident);
       tree postfix_attrs;
       /* We chain the components in reverse order, then put them in
 	 forward order at the end.  Each struct-declaration may
@@ -1867,7 +1871,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
 	    }
 	}
       postfix_attrs = c_parser_attributes (parser);
-      ret.spec = finish_struct (type, nreverse (contents),
+      ret.spec = finish_struct (loc, type, nreverse (contents),
 				chainon (attrs, postfix_attrs));
       ret.kind = ctsk_tagdef;
       return ret;
@@ -1879,7 +1883,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
       ret.kind = ctsk_tagref;
       return ret;
     }
-  ret = parser_xref_tag (code, ident);
+  ret = parser_xref_tag (loc, code, ident);
   return ret;
 }
 
@@ -3497,14 +3501,14 @@ c_parser_label (c_parser *parser)
       if (c_parser_next_token_is (parser, CPP_COLON))
 	{
 	  c_parser_consume_token (parser);
-	  label = do_case (exp1, NULL_TREE);
+	  label = do_case (loc1, exp1, NULL_TREE);
 	}
       else if (c_parser_next_token_is (parser, CPP_ELLIPSIS))
 	{
 	  c_parser_consume_token (parser);
 	  exp2 = c_parser_expr_no_commas (parser, NULL).value;
 	  if (c_parser_require (parser, CPP_COLON, "expected %<:%>"))
-	    label = do_case (exp1, exp2);
+	    label = do_case (loc1, exp1, exp2);
 	}
       else
 	c_parser_error (parser, "expected %<:%> or %<...%>");
@@ -3513,7 +3517,7 @@ c_parser_label (c_parser *parser)
     {
       c_parser_consume_token (parser);
       if (c_parser_require (parser, CPP_COLON, "expected %<:%>"))
-	label = do_case (NULL_TREE, NULL_TREE);
+	label = do_case (loc1, NULL_TREE, NULL_TREE);
     }
   else
     {
@@ -3707,11 +3711,11 @@ c_parser_statement_after_labels (c_parser *parser)
 	  goto expect_semicolon;
 	case RID_CONTINUE:
 	  c_parser_consume_token (parser);
-	  stmt = c_finish_bc_stmt (&c_cont_label, false);
+	  stmt = c_finish_bc_stmt (loc, &c_cont_label, false);
 	  goto expect_semicolon;
 	case RID_BREAK:
 	  c_parser_consume_token (parser);
-	  stmt = c_finish_bc_stmt (&c_break_label, true);
+	  stmt = c_finish_bc_stmt (loc, &c_break_label, true);
 	  goto expect_semicolon;
 	case RID_RETURN:
 	  c_parser_consume_token (parser);
@@ -5521,7 +5525,7 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
 
   if (!flag_isoc99)
     pedwarn (start_loc, OPT_pedantic, "ISO C90 forbids compound literals");
-  expr.value = build_compound_literal (type, init.value);
+  expr.value = build_compound_literal (start_loc, type, init.value);
   expr.original_code = ERROR_MARK;
   return c_parser_postfix_expression_after_primary (parser, expr);
 }
@@ -5558,7 +5562,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	    exprlist = c_parser_expr_list (parser, true);
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
-	  expr.value = build_function_call (expr.value, exprlist);
+	  expr.value = build_function_call (loc, expr.value, exprlist);
 	  expr.original_code = ERROR_MARK;
           if (warn_disallowed_functions)
             warn_if_disallowed_function_p (expr.value);

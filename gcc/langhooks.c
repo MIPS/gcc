@@ -540,7 +540,7 @@ add_builtin_function_common (const char *name,
 			     tree (*hook) (tree))
 {
   tree   id = get_identifier (name);
-  tree decl = build_decl (FUNCTION_DECL, id, type);
+  tree decl = build_decl (UNKNOWN_LOCATION, FUNCTION_DECL, id, type);
 
   TREE_PUBLIC (decl)         = 1;
   DECL_EXTERNAL (decl)       = 1;

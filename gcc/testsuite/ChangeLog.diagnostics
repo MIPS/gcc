@@ -1,0 +1,10 @@
+2008-11-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/old-style-prom-3.c: Check for error on the correct line.
+	* gcc.dg/enum-compat-1.c: Same.
+	* gcc.dg/dremf-type-compat-2.c: Same.
+	* gcc.dg/old-style-prom-2.c: Same.
+	* gcc.dg/pr15698-1.c: Same.
+	* gcc.dg/pr20368-1.c: Same.
+	* gcc.dg/dremf-type-compat-3.c: Same.
+	* gcc.dg/builtins-30.c: Same.  Test for columns.

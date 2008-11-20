@@ -1,0 +1,20 @@
+2008-11-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	* typeck.c (build_function_call): Add location argument.
+	* init.c: Add location argument to all build_decl calls.
+	* class.c: Same.
+	* method.c: Same.
+	* rtti.c: Same.
+	* tree.c: Same.
+	* pt.c: Same.
+	* semantics.c: Same.
+	* lex.c: Same.
+	* decl2.c: Same.
+	* cp-gimplify.c: Same.
+	* decl.c: Same.
+	(cp_make_fname_decl): Add location argument.  Pass location ot
+	build_decl.
+	(finish_case_label): Same.
+	* cp-tree.h (finish_case_label): Add location argument.
+	* parser.c (cp_parser_label_for_labeled_statement): Pass location to
+	finish_case_label.

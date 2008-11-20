@@ -852,7 +852,8 @@ add_field_for_reduction (void **slot, void *data)
   struct reduction_info *const red = (struct reduction_info *) *slot;
   tree const type = (tree) data;
   tree var = SSA_NAME_VAR (gimple_assign_lhs (red->reduc_stmt));
-  tree field = build_decl (FIELD_DECL, DECL_NAME (var), TREE_TYPE (var));
+  tree field = build_decl (gimple_location (red->reduc_stmt),
+			   FIELD_DECL, DECL_NAME (var), TREE_TYPE (var));
 
   insert_field_into_struct (type, field);
 
@@ -871,7 +872,8 @@ add_field_for_name (void **slot, void *data)
   tree type = (tree) data;
   tree name = ssa_name (elt->version);
   tree var = SSA_NAME_VAR (name);
-  tree field = build_decl (FIELD_DECL, DECL_NAME (var), TREE_TYPE (var));
+  tree field = build_decl (DECL_SOURCE_LOCATION (var),
+			   FIELD_DECL, DECL_NAME (var), TREE_TYPE (var));
 
   insert_field_into_struct (type, field);
   elt->field = field;
@@ -1204,7 +1206,8 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
     {
       /* Create the type for the structure to store the ssa names to.  */
       type = lang_hooks.types.make_type (RECORD_TYPE);
-      type_name = build_decl (TYPE_DECL, create_tmp_var_name (".paral_data"),
+      type_name = build_decl (input_location,
+			      TYPE_DECL, create_tmp_var_name (".paral_data"),
 			      type);
       TYPE_NAME (type) = type_name;
 
@@ -1284,7 +1287,8 @@ create_loop_fn (void)
   name = get_identifier (tname);
   type = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
 
-  decl = build_decl (FUNCTION_DECL, name, type);
+  decl = build_decl (input_location,
+		     FUNCTION_DECL, name, type);
   if (!parallelized_functions)
     parallelized_functions = BITMAP_GGC_ALLOC ();
   bitmap_set_bit (parallelized_functions, DECL_UID (decl));
@@ -1299,12 +1303,14 @@ create_loop_fn (void)
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = make_node (BLOCK);
 
-  t = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
+  t = build_decl (input_location,
+		  RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (t) = 1;
   DECL_IGNORED_P (t) = 1;
   DECL_RESULT (decl) = t;
 
-  t = build_decl (PARM_DECL, get_identifier (".paral_data_param"),
+  t = build_decl (input_location,
+		  PARM_DECL, get_identifier (".paral_data_param"),
 		  ptr_type_node);
   DECL_ARTIFICIAL (t) = 1;
   DECL_ARG_TYPE (t) = ptr_type_node;

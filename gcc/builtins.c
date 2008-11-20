@@ -5921,7 +5921,8 @@ expand_builtin_fork_or_exec (tree fn, tree exp, rtx target, int ignore)
       gcc_unreachable ();
     }
 
-  decl = build_decl (FUNCTION_DECL, id, TREE_TYPE (fn));
+  decl = build_decl (DECL_SOURCE_LOCATION (fn),
+		     FUNCTION_DECL, id, TREE_TYPE (fn));
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;

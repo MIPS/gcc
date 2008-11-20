@@ -4047,7 +4047,8 @@ copy_decl_to_var (tree decl, copy_body_data *id)
 
   type = TREE_TYPE (decl);
 
-  copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
+  copy = build_decl (DECL_SOURCE_LOCATION (id->dst_fn),
+		     VAR_DECL, DECL_NAME (decl), type);
   TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
   TREE_READONLY (copy) = TREE_READONLY (decl);
   TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
@@ -4072,7 +4073,8 @@ copy_result_decl_to_var (tree decl, copy_body_data *id)
   if (DECL_BY_REFERENCE (decl))
     type = TREE_TYPE (type);
 
-  copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
+  copy = build_decl (DECL_SOURCE_LOCATION (id->dst_fn),
+		     VAR_DECL, DECL_NAME (decl), type);
   TREE_READONLY (copy) = TREE_READONLY (decl);
   TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
   if (!DECL_BY_REFERENCE (decl))

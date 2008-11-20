@@ -23,8 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_OBJCP_DECL_H
 #define GCC_OBJCP_DECL_H
 
-extern tree objcp_start_struct (enum tree_code, tree);
-extern tree objcp_finish_struct (tree, tree, tree);
+extern tree objcp_start_struct (location_t, enum tree_code, tree);
+extern tree objcp_finish_struct (location_t, tree, tree, tree);
 extern void objcp_finish_function (void);
 extern tree objcp_build_function_call (tree, tree);
 extern tree objcp_xref_tag (enum tree_code, tree);
@@ -37,10 +37,10 @@ extern tree objcp_end_compound_stmt (tree, int);
    invoke the original C++ functions if needed).  */
 #ifdef OBJCP_REMAP_FUNCTIONS
 
-#define start_struct(code, name) \
-	objcp_start_struct (code, name)
-#define finish_struct(t, fieldlist, attributes) \
-	objcp_finish_struct (t, fieldlist, attributes)
+#define start_struct(loc, code, name) \
+	objcp_start_struct (loc, code, name)
+#define finish_struct(loc, t, fieldlist, attributes) \
+	objcp_finish_struct (loc, t, fieldlist, attributes)
 #define finish_function() \
 	objcp_finish_function ()
 #define xref_tag(code, name) \

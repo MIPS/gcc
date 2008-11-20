@@ -1,0 +1,47 @@
+2008-11-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	* dwarf2asm.c, targhooks.c, optabs.c, tree.c, tree.h, target.h,
+	builtins.c, omp-low.c, cgraphunit.c, tree-call-cdce.c,
+	tree-ssa-alias.c, gimple-low.c, c-tree.h, expr.c, tree-parloops.c,
+	c-decl.c, tree-eh.c, langhooks.c, function.c, stor-layout.c,
+	c-typeck.c, gimplify.c, c-pragma.c, expmed.c, except.c, coverage.c,
+	emit-rtl.c, cfgexpand.c, tree-mudflap.c, varasm.c, tree-nested.c,
+	rtl.h, tree-inline.c, tree-profile.c, c-common.c, c-common.h,
+	tree-switch-conversion.c, tree-cfg.c, ipa-struct-reorg.c, c-parser.c,
+	config/i386/i386.c, stmt.c:
+
+	Add location argument to the following function definitions and/or
+	function calls: build_decl, objcp_start_struct, objcp_finish_struct,
+	start_struct, finish_struct, PUSH_FIELD, create_artificial_label,
+	cp_make_fname_decl, pushtag, implicitly_declare, c_make_fname_decl,
+	build_compound_literal, parser_xref_tag, resolve_overloaded_builtin,
+	do_case, c_finish_bc_stmt, build_compound_literal,
+	build_function_call.
+
+	* c-decl.c (build_compound_literal): Add location argument.
+	Make all diagnostic calls use location.
+	(start_struct): Same.
+	(finish_struct): Same.
+	(start_enum): Same.
+	(build_enumerator): Same.
+	(start_function): Same.
+	(grokdeclarator): Make all diagnostic calls use location.
+	(store_parm_decls_oldstyle): Same.
+	* c-typeck.c (build_function_call): Add location argument.
+	Make all diagnostic calls use location.
+	(do_case): Same.
+	(c_finish_bc_stmt): Same.
+	* tree-nested.c (get_trampoline_type): Add argument.
+	Pass location to build_decl.
+	(lookup_tramp_for_decl): Pass location to get_trampoline_type.
+	* rtl.h (RTL_LOCATION): New.
+	* c-common.c (c_add_case_label): Add location argument.
+	Make all diagnostic calls use location.
+	* c-common.h: Add location argument to make_fname_decl, do_case,
+	c_add_case_label, build_function_call, resolve_overloaded_builtin.
+	* c-parser.c (c_parser_enum_specifier): Rename ident_loc to enum_loc.
+	Set it appropriately for every case.  Pass enum_loc to start_enum
+	call.  Pass value_loc first to build_enumerator.  Pass enum_loc to
+	parser_xref_tag.
+	(c_parser_struct_or_union_specifier): Save location.  Use it for
+	start_struct, finish_struct, and parser_xref_tag.

@@ -2820,7 +2820,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 
 /* Used by the C-common bits.  */
 tree
-build_function_call (tree function, tree params)
+build_function_call (location_t loc ATTRIBUTE_UNUSED, 
+		     tree function, tree params)
 {
   return cp_build_function_call (function, params, tf_warning_or_error);
 }

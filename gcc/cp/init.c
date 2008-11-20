@@ -2494,7 +2494,8 @@ build_java_class_ref (tree type)
   class_decl = IDENTIFIER_GLOBAL_VALUE (name);
   if (class_decl == NULL_TREE)
     {
-      class_decl = build_decl (VAR_DECL, name, TREE_TYPE (jclass_node));
+      class_decl = build_decl (input_location,
+			       VAR_DECL, name, TREE_TYPE (jclass_node));
       TREE_STATIC (class_decl) = 1;
       DECL_EXTERNAL (class_decl) = 1;
       TREE_PUBLIC (class_decl) = 1;
@@ -2648,11 +2649,11 @@ create_temporary_var (tree type)
 {
   tree decl;
 
-  decl = build_decl (VAR_DECL, NULL_TREE, type);
+  decl = build_decl (input_location,
+		     VAR_DECL, NULL_TREE, type);
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
-  DECL_SOURCE_LOCATION (decl) = input_location;
   DECL_CONTEXT (decl) = current_function_decl;
 
   return decl;

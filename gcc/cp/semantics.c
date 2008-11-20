@@ -1946,7 +1946,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
       if (TREE_CODE (fn) == FUNCTION_DECL
 	  && (DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL
 	      || DECL_BUILT_IN_CLASS (fn) == BUILT_IN_MD))
-	result = resolve_overloaded_builtin (fn, args);
+	result = resolve_overloaded_builtin (input_location, fn, args);
 
       if (!result)
 	/* A call to a namespace-scope function.  */
@@ -2207,7 +2207,8 @@ finish_template_type_parm (tree aggr, tree identifier)
 tree
 finish_template_template_parm (tree aggr, tree identifier)
 {
-  tree decl = build_decl (TYPE_DECL, identifier, NULL_TREE);
+  tree decl = build_decl (input_location,
+			  TYPE_DECL, identifier, NULL_TREE);
   tree tmpl = build_lang_decl (TEMPLATE_DECL, identifier, NULL_TREE);
   DECL_TEMPLATE_PARMS (tmpl) = current_template_parms;
   DECL_TEMPLATE_RESULT (tmpl) = decl;

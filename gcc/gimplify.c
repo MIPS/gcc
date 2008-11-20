@@ -518,7 +518,8 @@ create_tmp_var_raw (tree type, const char *prefix)
   new_type = build_type_variant (type, 0, 0);
   TYPE_ATTRIBUTES (new_type) = TYPE_ATTRIBUTES (type);
 
-  tmp_var = build_decl (VAR_DECL, prefix ? create_tmp_var_name (prefix) : NULL,
+  tmp_var = build_decl (input_location,
+			VAR_DECL, prefix ? create_tmp_var_name (prefix) : NULL,
 			type);
 
   /* The variable was declared by the compiler.  */
@@ -1490,7 +1491,7 @@ static enum gimplify_status
 gimplify_loop_expr (tree *expr_p, gimple_seq *pre_p)
 {
   tree saved_label = gimplify_ctxp->exit_label;
-  tree start_label = create_artificial_label ();
+  tree start_label = create_artificial_label (UNKNOWN_LOCATION);
 
   gimplify_seq_add_stmt (pre_p, gimple_build_label (start_label));
 
@@ -1637,7 +1638,8 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
 	  /* If the switch has no default label, add one, so that we jump
 	     around the switch body.  */
 	  default_case = build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
-	                         NULL_TREE, create_artificial_label ());
+	                         NULL_TREE,
+				 create_artificial_label (UNKNOWN_LOCATION));
 	  new_default = gimple_build_label (CASE_LABEL (default_case));
 	  gimplify_seq_add_stmt (&switch_body_seq, new_default);
 	}
@@ -1690,7 +1692,7 @@ build_and_jump (tree *label_p)
 
   if (*label_p == NULL_TREE)
     {
-      tree label = create_artificial_label ();
+      tree label = create_artificial_label (UNKNOWN_LOCATION);
       *label_p = label;
     }
 
@@ -2996,7 +2998,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
       have_then_clause_p = true;
     }
   else
-    label_true = create_artificial_label ();
+    label_true = create_artificial_label (UNKNOWN_LOCATION);
   if (TREE_OPERAND (expr, 2) != NULL
       && TREE_CODE (TREE_OPERAND (expr, 2)) == GOTO_EXPR
       && TREE_CODE (GOTO_DESTINATION (TREE_OPERAND (expr, 2))) == LABEL_DECL
@@ -3014,7 +3016,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
       have_else_clause_p = true;
     }
   else
-    label_false = create_artificial_label ();
+    label_false = create_artificial_label (UNKNOWN_LOCATION);
 
   gimple_cond_get_ops_from_tree (COND_EXPR_COND (expr), &pred_code, &arm1,
 				 &arm2);
@@ -3045,7 +3047,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 	      && gimple_seq_may_fallthru (seq))
 	    {
 	      gimple g;
-	      label_cont = create_artificial_label ();
+	      label_cont = create_artificial_label (UNKNOWN_LOCATION);
 
 	      g = gimple_build_goto (label_cont);
 
@@ -3326,9 +3328,9 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
   tree loop_entry_label, loop_exit_label, fall_thru_label;
   tree var, var_type, cref, tmp;
 
-  loop_entry_label = create_artificial_label ();
-  loop_exit_label = create_artificial_label ();
-  fall_thru_label = create_artificial_label ();
+  loop_entry_label = create_artificial_label (UNKNOWN_LOCATION);
+  loop_exit_label = create_artificial_label (UNKNOWN_LOCATION);
+  fall_thru_label = create_artificial_label (UNKNOWN_LOCATION);
 
   /* Create and initialize the index variable.  */
   var_type = TREE_TYPE (upper);

@@ -554,7 +554,7 @@ struct gcc_target
      *before* regular type checking, and so allows the target to implement
      a crude form of function overloading.  The result is a complete
      expression that implements the operation.  */
-  tree (*resolve_overloaded_builtin) (tree decl, tree params);
+  tree (*resolve_overloaded_builtin) (unsigned int /*location_t*/, tree decl, tree params);
 
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);

@@ -4709,7 +4709,7 @@ extern tree finish_continue_stmt		(void);
 extern tree begin_switch_stmt			(void);
 extern void finish_switch_cond			(tree, tree);
 extern void finish_switch_stmt			(tree);
-extern tree finish_case_label			(tree, tree);
+extern tree finish_case_label			(location_t, tree, tree);
 extern tree finish_goto_stmt			(tree);
 extern tree begin_try_block			(void);
 extern void finish_try_block			(tree);

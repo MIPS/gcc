@@ -3976,7 +3976,8 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
     {
       tree tmp = se->expr;
       STRIP_TYPE_NOPS (tmp);
-      var = build_decl (CONST_DECL, NULL, TREE_TYPE (tmp));
+      var = build_decl (input_location,
+			CONST_DECL, NULL, TREE_TYPE (tmp));
       DECL_INITIAL (var) = tmp;
       TREE_STATIC (var) = 1;
       pushdecl (var);

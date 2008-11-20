@@ -692,7 +692,8 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
     }
   argtypes = gfc_chainon_list (argtypes, void_type_node);
   type = build_function_type (gfc_typenode_for_spec (ts), argtypes);
-  fndecl = build_decl (FUNCTION_DECL, get_identifier (name), type);
+  fndecl = build_decl (input_location,
+		       FUNCTION_DECL, get_identifier (name), type);
 
   /* Mark the decl as external.  */
   DECL_EXTERNAL (fndecl) = 1;

@@ -132,7 +132,8 @@ build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals)
 tree
 cp_build_parm_decl (tree name, tree type)
 {
-  tree parm = build_decl (PARM_DECL, name, type);
+  tree parm = build_decl (input_location,
+			  PARM_DECL, name, type);
   /* DECL_ARG_TYPE is only used by the back end and the back end never
      sees templates.  */
   if (!processing_template_decl)
@@ -1282,7 +1283,8 @@ build_anon_union_vars (tree type, tree object)
 	{
 	  tree base;
 
-	  decl = build_decl (VAR_DECL, DECL_NAME (field), TREE_TYPE (field));
+	  decl = build_decl (input_location,
+			     VAR_DECL, DECL_NAME (field), TREE_TYPE (field));
 	  DECL_ANON_UNION_VAR_P (decl) = 1;
 
 	  base = get_base_address (object);
@@ -2471,7 +2473,8 @@ get_guard (tree decl)
       /* We use a type that is big enough to contain a mutex as well
 	 as an integer counter.  */
       guard_type = targetm.cxx.guard_type ();
-      guard = build_decl (VAR_DECL, sname, guard_type);
+      guard = build_decl (DECL_SOURCE_LOCATION (decl),
+			  VAR_DECL, sname, guard_type);
 
       /* The guard should have the same linkage as what it guards.  */
       TREE_PUBLIC (guard) = TREE_PUBLIC (decl);
