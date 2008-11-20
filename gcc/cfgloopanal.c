@@ -173,7 +173,7 @@ num_loop_insns (const struct loop *loop)
   for (i = 0; i < loop->num_nodes; i++)
     {
       bb = bbs[i];
-
+      ninsns++;
       FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	  ninsns++;
