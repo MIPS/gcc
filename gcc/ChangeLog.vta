@@ -1,5 +1,18 @@
 2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
 
+	* dwarf2out.c (debug_str_hash_forced): New.
+	(add_string): New, split out of...
+	(add_AT_string): ... this.
+	(gen_label_for_idirect_string): New, split out of...
+	(AT_string_form): ... this.
+	(get_debug_string_label): New.
+	(mem_loc_descriptor): Handle CONST_STRINGs.
+	(output_indirect_string): Output if there are label and references.
+	(prune_indirect_string): New.
+	(prune_unused_types): Preserve forced indirect strings.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-parloops.c (eliminate_local_variables_stmt): Replace
 	elements in the value portion of debug stmts.
 	(separate_decls_in_region_debug_bind): New.

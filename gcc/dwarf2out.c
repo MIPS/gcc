@@ -382,6 +382,10 @@ struct indirect_string_node GTY(())
 
 static GTY ((param_is (struct indirect_string_node))) htab_t debug_str_hash;
 
+/* True if the compilation unit has location entries that reference
+   debug strings.  */
+static GTY(()) bool debug_str_hash_forced = false;
+
 static GTY(()) int dw2_string_counter;
 static GTY(()) unsigned long dwarf2out_cfi_label_num;
 
@@ -5926,12 +5930,11 @@ debug_str_eq (const void *x1, const void *x2)
 		 (const char *)x2) == 0;
 }
 
-/* Add a string attribute value to a DIE.  */
+/* Add STR to the indirect string hash table.  */
 
-static inline void
-add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
+static inline struct indirect_string_node *
+add_string (const char *str)
 {
-  dw_attr_node attr;
   struct indirect_string_node *node;
   void **slot;
 
@@ -5951,12 +5954,55 @@ add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
   else
     node = (struct indirect_string_node *) *slot;
 
+  return node;
+}
+
+/* Add a string attribute value to a DIE.  */
+
+static inline void
+add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
+{
+  dw_attr_node attr;
+  struct indirect_string_node *node = add_string (str);
+
   node->refcount++;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_str;
   attr.dw_attr_val.v.val_str = node;
   add_dwarf_attr (die, &attr);
+}
+
+/* Create a label for an indirect string node, ensuring it is going to
+   be output, unless its reference count goes down to zero.  */
+
+static inline void
+gen_label_for_indirect_string (struct indirect_string_node *node)
+{
+  char label[32];
+
+  if (node->label)
+    return;
+
+  ASM_GENERATE_INTERNAL_LABEL (label, "LASF", dw2_string_counter);
+  ++dw2_string_counter;
+  node->label = xstrdup (label);
+}
+
+/* Create a SYMBOL_REF rtx whose value is the initial address of a
+   debug string STR.  */
+
+static inline rtx
+get_debug_string_label (const char *str)
+{
+  struct indirect_string_node *node = add_string (str);
+
+  debug_str_hash_forced = true;
+  node->refcount++;
+
+  gen_label_for_indirect_string (node);
+
+  return gen_rtx_SYMBOL_REF (Pmode, node->label);
 }
 
 static inline const char *
@@ -5974,7 +6020,6 @@ AT_string_form (dw_attr_ref a)
 {
   struct indirect_string_node *node;
   unsigned int len;
-  char label[32];
 
   gcc_assert (a && AT_class (a) == dw_val_class_str);
 
@@ -5996,9 +6041,7 @@ AT_string_form (dw_attr_ref a)
       && (len - DWARF_OFFSET_SIZE) * node->refcount <= len)
     return node->form = DW_FORM_string;
 
-  ASM_GENERATE_INTERNAL_LABEL (label, "LASF", dw2_string_counter);
-  ++dw2_string_counter;
-  node->label = xstrdup (label);
+  gen_label_for_indirect_string (node);
 
   return node->form = DW_FORM_strp;
 }
@@ -10080,6 +10123,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	  break;
 	}
 
+    symref:
       mem_loc_result = new_loc_descr (DW_OP_addr, 0, 0);
       mem_loc_result->dw_loc_oprnd1.val_class = dw_val_class_addr;
       mem_loc_result->dw_loc_oprnd1.v.val_addr = rtl;
@@ -10187,6 +10231,10 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	 can't express it in the debug info.  This can happen e.g. with some
 	 TLS UNSPECs.  */
       break;
+
+    case CONST_STRING:
+      rtl = get_debug_string_label (XSTR (rtl, 0));
+      goto symref;
 
     default:
       gcc_unreachable ();
@@ -16178,14 +16226,14 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 }
 
 /* A helper function for dwarf2out_finish called through
-   ht_forall.  Emit one queued .debug_str string.  */
+   htab_traverse.  Emit one queued .debug_str string.  */
 
 static int
 output_indirect_string (void **h, void *v ATTRIBUTE_UNUSED)
 {
   struct indirect_string_node *node = (struct indirect_string_node *) *h;
 
-  if (node->form == DW_FORM_strp)
+  if (node->label && node->refcount)
     {
       switch_to_section (debug_str_section);
       ASM_OUTPUT_LABEL (asm_out_file, node->label);
@@ -16408,6 +16456,20 @@ prune_unused_types_prune (dw_die_ref die)
   } while (c != die->die_child);
 }
 
+/* A helper function for dwarf2out_finish called through
+   htab_traverse.  Clear .debug_str strings that we haven't already
+   decided to emit.  */
+
+static int
+prune_indirect_string (void **h, void *v ATTRIBUTE_UNUSED)
+{
+  struct indirect_string_node *node = (struct indirect_string_node *) *h;
+
+  if (!node->label || !node->refcount)
+    htab_clear_slot (debug_str_hash, h);
+
+  return 1;
+}
 
 /* Remove dies representing declarations that we never use.  */
 
@@ -16438,7 +16500,9 @@ prune_unused_types (void)
     prune_unused_types_mark (arange_table[i], 1);
 
   /* Get rid of nodes that aren't marked; and update the string counts.  */
-  if (debug_str_hash)
+  if (debug_str_hash && debug_str_hash_forced)
+    htab_traverse (debug_str_hash, prune_indirect_string, NULL);
+  else if (debug_str_hash)
     htab_empty (debug_str_hash);
   prune_unused_types_prune (comp_unit_die);
   for (node = limbo_die_list; node; node = node->next)
