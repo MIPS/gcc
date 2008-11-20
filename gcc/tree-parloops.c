@@ -658,7 +658,11 @@ eliminate_local_variables_stmt (edge entry, gimple stmt,
   dta.decl_address = decl_address;
   dta.changed = false;
 
-  walk_gimple_op (stmt, eliminate_local_variables_1, &dta.info);
+  if (IS_DEBUG_BIND (stmt))
+    walk_tree (gimple_debug_bind_get_value_ptr (stmt),
+	       eliminate_local_variables_1, &dta.info, NULL);
+  else
+    walk_gimple_op (stmt, eliminate_local_variables_1, &dta.info);
 
   if (dta.changed)
     update_stmt (stmt);
@@ -840,6 +844,53 @@ separate_decls_in_region_stmt (edge entry, edge exit, gimple stmt,
 					  copy_name_p);
     SET_USE (use, copy);
   }
+}
+
+/* Finds the ssa names used in STMT that are defined outside the
+   region between ENTRY and EXIT and replaces such ssa names with
+   their duplicates.  The duplicates are stored to NAME_COPIES.  Base
+   decls of all ssa names used in STMT (including those defined in
+   LOOP) are replaced with the new temporary variables; the
+   replacement decls are stored in DECL_COPIES.  */
+
+static bool
+separate_decls_in_region_debug_bind (gimple stmt,
+				     htab_t name_copies, htab_t decl_copies)
+{
+  use_operand_p use;
+  ssa_op_iter oi;
+  tree var, name;
+  struct int_tree_map ielt;
+  struct name_to_copy_elt elt;
+  void **slot, **dslot;
+
+  var = gimple_debug_bind_get_var (stmt);
+  gcc_assert (DECL_P (var) && SSA_VAR_P (var));
+  ielt.uid = DECL_UID (var);
+  dslot = htab_find_slot_with_hash (decl_copies, &ielt, ielt.uid, NO_INSERT);
+  if (!dslot)
+    return true;
+  gimple_debug_bind_set_var (stmt, ((struct int_tree_map *) *dslot)->to);
+
+  FOR_EACH_PHI_OR_STMT_USE (use, stmt, oi, SSA_OP_USE)
+  {
+    name = USE_FROM_PTR (use);
+    if (TREE_CODE (name) != SSA_NAME)
+      continue;
+
+    elt.version = SSA_NAME_VERSION (name);
+    slot = htab_find_slot_with_hash (name_copies, &elt, elt.version, NO_INSERT);
+    if (!slot)
+      {
+	gimple_debug_bind_set_value (stmt, VAR_DEBUG_VALUE_NOVALUE);
+	update_stmt (stmt);
+	break;
+      }
+
+    SET_USE (use, ((struct name_to_copy_elt *) *slot)->new_name);
+  }
+
+  return false;
 }
 
 /* Callback for htab_traverse.  Adds a field corresponding to the reduction
@@ -1173,6 +1224,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
   basic_block bb;
   basic_block entry_bb = bb1;
   basic_block exit_bb = exit->dest;
+  bool has_debug_stmt = false;
 
   entry = single_succ_edge (entry_bb);
   gather_blocks_in_sese_region (entry_bb, exit_bb, &body);
@@ -1186,10 +1238,42 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 					   name_copies, decl_copies);
 
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	    separate_decls_in_region_stmt (entry, exit, gsi_stmt (gsi),
-					   name_copies, decl_copies);
+	    {
+	      gimple stmt = gsi_stmt (gsi);
+
+	      if (IS_DEBUG_STMT (stmt))
+		has_debug_stmt = true;
+	      else
+		separate_decls_in_region_stmt (entry, exit, stmt,
+					       name_copies, decl_copies);
+	    }
 	}
     }
+
+  if (has_debug_stmt)
+    for (i = 0; VEC_iterate (basic_block, body, i, bb); i++)
+      if (bb != entry_bb && bb != exit_bb) 
+	{
+	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
+	    {
+	      gimple stmt = gsi_stmt (gsi);
+
+	      if (IS_DEBUG_BIND (stmt))
+		{
+		  if (separate_decls_in_region_debug_bind (stmt,
+							   name_copies,
+							   decl_copies))
+		    {
+		      gsi_remove (&gsi, true);
+		      continue;
+		    }
+		}
+	      else
+		gcc_assert (!IS_DEBUG_STMT (stmt));
+
+	      gsi_next (&gsi);
+	    }
+	}
 
   VEC_free (basic_block, heap, body);
 
