@@ -2151,6 +2151,11 @@ purge_dead_edges (basic_block bb)
   bool found;
   edge_iterator ei;
 
+  if (DEBUG_INSN_P (insn) && insn != BB_HEAD (bb))
+    do
+      insn = PREV_INSN (insn);
+    while ((DEBUG_INSN_P (insn) || NOTE_P (insn)) && insn != BB_HEAD (bb));
+
   /* If this instruction cannot trap, remove REG_EH_REGION notes.  */
   if (NONJUMP_INSN_P (insn)
       && (note = find_reg_note (insn, REG_EH_REGION, NULL)))
@@ -2171,10 +2176,10 @@ purge_dead_edges (basic_block bb)
 	 latter can appear when nonlocal gotos are used.  */
       if (e->flags & EDGE_EH)
 	{
-	  if (can_throw_internal (BB_END (bb))
+	  if (can_throw_internal (insn)
 	      /* If this is a call edge, verify that this is a call insn.  */
 	      && (! (e->flags & EDGE_ABNORMAL_CALL)
-		  || CALL_P (BB_END (bb))))
+		  || CALL_P (insn)))
 	    {
 	      ei_next (&ei);
 	      continue;
@@ -2182,7 +2187,7 @@ purge_dead_edges (basic_block bb)
 	}
       else if (e->flags & EDGE_ABNORMAL_CALL)
 	{
-	  if (CALL_P (BB_END (bb))
+	  if (CALL_P (insn)
 	      && (! (note = find_reg_note (insn, REG_EH_REGION, NULL))
 		  || INTVAL (XEXP (note, 0)) >= 0))
 	    {
