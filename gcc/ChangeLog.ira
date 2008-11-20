@@ -1,3 +1,9 @@
+2008-11-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ira-build.c (create_loop_tree_nodes): Revert the last change.
+	(mark_loops_for_removal): Check the regno_allocno_map field
+	before removing a loop node.
+
 2008-11-19  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* ira-build.c (create_loop_tree_nodes): Always initialize the

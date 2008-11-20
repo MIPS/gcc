@@ -137,22 +137,18 @@ create_loop_tree_nodes (bool loops_p)
 		skip_p = true;
 		break;
 	      }
-	  if (!skip_p)
-	    {
-	      edges = get_loop_exit_edges (loop);
-	      for (j = 0; VEC_iterate (edge, edges, j, e); j++)
-		if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
-		  {
-		    skip_p = true;
-		    break;
-		  }
-	      VEC_free (edge, heap, edges);
-	    }
 	  if (skip_p)
-	    {
-	      ira_loop_nodes[i].parent = NULL;
-	      continue;
-	    }
+	    continue;
+	  edges = get_loop_exit_edges (loop);
+	  for (j = 0; VEC_iterate (edge, edges, j, e); j++)
+	    if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
+	      {
+		skip_p = true;
+		break;
+	      }
+	  VEC_free (edge, heap, edges);
+	  if (skip_p)
+	    continue;
 	}
       ira_loop_nodes[i].regno_allocno_map
 	= (ira_allocno_t *) ira_allocate (sizeof (ira_allocno_t) * max_regno);
@@ -1724,18 +1720,19 @@ mark_loops_for_removal (void)
 					     * VEC_length (loop_p,
 							   ira_loops.larray));
   for (n = i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
-    {
-      if (ira_loop_nodes[i].parent == NULL)
-	{
-	  /* Don't remove the root.  */
-	  ira_loop_nodes[i].to_remove_p = false;
-	  continue;
-	}
-      sorted_loops[n++] = &ira_loop_nodes[i];
-      ira_loop_nodes[i].to_remove_p
-	= (low_pressure_loop_node_p (ira_loop_nodes[i].parent)
-	   && low_pressure_loop_node_p (&ira_loop_nodes[i]));
-    }
+    if (ira_loop_nodes[i].regno_allocno_map != NULL)
+      {
+	if (ira_loop_nodes[i].parent == NULL)
+	  {
+	    /* Don't remove the root.  */
+	    ira_loop_nodes[i].to_remove_p = false;
+	    continue;
+	  }
+	sorted_loops[n++] = &ira_loop_nodes[i];
+	ira_loop_nodes[i].to_remove_p
+	  = (low_pressure_loop_node_p (ira_loop_nodes[i].parent)
+	     && low_pressure_loop_node_p (&ira_loop_nodes[i]));
+      }
   qsort (sorted_loops, n, sizeof (ira_loop_tree_node_t), loop_compare_func);
   for (i = 0; n - i + 1 > IRA_MAX_LOOPS_NUM; i++)
     {
