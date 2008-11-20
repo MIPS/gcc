@@ -1,5 +1,10 @@
 2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
 
+	* gcse.c (cprop_insn): Don't count changes to debug insns as
+	changes.
+
+2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-inline.h (struct copy_body_data): Add debug_map.
 	* tree-inline.c (insert_debug_decl_map): New.
 	(copy_debug_stmt): Look up debug_map for VAR in debug stmts

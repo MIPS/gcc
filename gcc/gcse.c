@@ -3024,6 +3024,9 @@ cprop_insn (rtx insn, int alter_jumps)
 	}
     }
 
+  if (changed && DEBUG_INSN_P (insn))
+    return 0;
+
   return changed;
 }
 
