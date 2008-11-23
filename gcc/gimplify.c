@@ -565,7 +565,7 @@ create_tmp_var (tree type, const char *prefix)
 static inline tree
 create_tmp_from_val (tree val)
 {
-  return create_tmp_var (TYPE_MAIN_VARIANT (TREE_TYPE (val)), get_name (val));
+  return create_tmp_var (TREE_TYPE (val), get_name (val));
 }
 
 /* Create a temporary to hold the value of VAL.  If IS_FORMAL, try to reuse
@@ -772,7 +772,7 @@ declare_vars (tree vars, gimple scope, bool debug_info)
 
       temps = nreverse (last);
 
-      block = gimple_block (scope);
+      block = gimple_bind_block (scope);
       gcc_assert (!block || TREE_CODE (block) == BLOCK);
       if (!block || !debug_info)
 	{
@@ -2238,10 +2238,11 @@ maybe_with_size_expr (tree *expr_p)
 
 
 /* Helper for gimplify_call_expr.  Gimplify a single argument *ARG_P
-   Store any side-effects in PRE_P.  */
+   Store any side-effects in PRE_P.  CALL_LOCATION is the location of
+   the CALL_EXPR.  */
 
 static enum gimplify_status
-gimplify_arg (tree *arg_p, gimple_seq *pre_p)
+gimplify_arg (tree *arg_p, gimple_seq *pre_p, location_t call_location)
 {
   bool (*test) (tree);
   fallback_t fb;
@@ -2258,6 +2259,10 @@ gimplify_arg (tree *arg_p, gimple_seq *pre_p)
 
   /* If this is a variable sized type, we must remember the size.  */
   maybe_with_size_expr (arg_p);
+
+  /* Make sure arguments have the same location as the function call
+     itself.  */
+  protected_set_expr_location (*arg_p, call_location);
 
   /* There is a sequence point before a function call.  Side effects in
      the argument list must occur before the actual call. So, when
@@ -2347,56 +2352,18 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   else if (POINTER_TYPE_P (TREE_TYPE (CALL_EXPR_FN (*expr_p))))
     parms = TYPE_ARG_TYPES (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (*expr_p))));
 
-  /* Verify if the type of the argument matches that of the function
-     declaration.  If we cannot verify this or there is a mismatch,
-     mark the call expression so it doesn't get inlined later.  */
   if (fndecl && DECL_ARGUMENTS (fndecl))
-    {
-      for (i = 0, p = DECL_ARGUMENTS (fndecl);
-	   i < nargs;
-	   i++, p = TREE_CHAIN (p))
-	{
-	  /* We cannot distinguish a varargs function from the case
-	     of excess parameters, still deferring the inlining decision
-	     to the callee is possible.  */
-	  if (!p)
-	    break;
-	  if (p == error_mark_node
-	      || CALL_EXPR_ARG (*expr_p, i) == error_mark_node
-	      || !fold_convertible_p (DECL_ARG_TYPE (p),
-				      CALL_EXPR_ARG (*expr_p, i)))
-	    {
-	      CALL_CANNOT_INLINE_P (*expr_p) = 1;
-	      break;
-	    }
-	}
-    }
+    p = DECL_ARGUMENTS (fndecl);
   else if (parms)
-    {
-      for (i = 0, p = parms; i < nargs; i++, p = TREE_CHAIN (p))
-	{
-	  /* If this is a varargs function defer inlining decision
-	     to callee.  */
-	  if (!p)
-	    break;
-	  if (TREE_VALUE (p) == error_mark_node
-	      || CALL_EXPR_ARG (*expr_p, i) == error_mark_node
-	      || TREE_CODE (TREE_VALUE (p)) == VOID_TYPE
-	      || !fold_convertible_p (TREE_VALUE (p),
-				      CALL_EXPR_ARG (*expr_p, i)))
-	    {
-	      CALL_CANNOT_INLINE_P (*expr_p) = 1;
-	      break;
-	    }
-	}
-    }
+    p = parms;
   else
     {
       if (nargs != 0)
 	CALL_CANNOT_INLINE_P (*expr_p) = 1;
-      i = 0;
       p = NULL_TREE;
     }
+  for (i = 0; i < nargs && p; i++, p = TREE_CHAIN (p))
+    ;
 
   /* If the last argument is __builtin_va_arg_pack () and it is not
      passed as a named argument, decrease the number of CALL_EXPR
@@ -2448,7 +2415,8 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
              be the plain PARM_DECL.  */
           if ((i != 1) || !builtin_va_start_p)
             {
-              t = gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p);
+              t = gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p,
+				EXPR_LOCATION (*expr_p));
 
               if (t == GS_ERROR)
                 ret = GS_ERROR;
@@ -3095,10 +3063,10 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
   from = TREE_OPERAND (*expr_p, 1);
 
   from_ptr = build_fold_addr_expr (from);
-  gimplify_arg (&from_ptr, seq_p);
+  gimplify_arg (&from_ptr, seq_p, EXPR_LOCATION (*expr_p));
 
   to_ptr = build_fold_addr_expr (to);
-  gimplify_arg (&to_ptr, seq_p);
+  gimplify_arg (&to_ptr, seq_p, EXPR_LOCATION (*expr_p));
 
   t = implicit_built_in_decls[BUILT_IN_MEMCPY];
 
@@ -3145,7 +3113,7 @@ gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value,
   to = TREE_OPERAND (*expr_p, 0);
 
   to_ptr = build_fold_addr_expr (to);
-  gimplify_arg (&to_ptr, seq_p);
+  gimplify_arg (&to_ptr, seq_p, EXPR_LOCATION (*expr_p));
   t = implicit_built_in_decls[BUILT_IN_MEMSET];
 
   gs = gimple_build_call (t, 3, to_ptr, integer_zero_node, size);
@@ -7366,10 +7334,10 @@ gimplify_function_tree (tree fndecl)
       x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_ENTER];
       gimplify_seq_add_stmt (&body, gimple_build_call (x, 0));
       gimplify_seq_add_stmt (&body, tf);
-      new_bind = gimple_build_bind (NULL, body, gimple_block (bind));
+      new_bind = gimple_build_bind (NULL, body, gimple_bind_block (bind));
       /* Clear the block for BIND, since it is no longer directly inside
          the function, but within a try block.  */
-      gimple_set_block (bind, NULL);
+      gimple_bind_set_block (bind, NULL);
 
       /* Replace the current function body with the body
          wrapped in the try/finally TF.  */
@@ -7560,6 +7528,10 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
       break;
     }
 
+  if (gimple_referenced_vars (cfun))
+    for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
+      add_referenced_var (t);
+
   if (!gimple_seq_empty_p (pre))
     {
       if (gimple_in_ssa_p (cfun))
@@ -7573,10 +7545,6 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
     }
   if (post_stmt)
     gsi_insert_after (gsi_p, post_stmt, GSI_NEW_STMT);
-
-  if (gimple_referenced_vars (cfun))
-    for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
-      add_referenced_var (t);
 
   pop_gimplify_context (NULL);
 }

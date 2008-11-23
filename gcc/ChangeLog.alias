@@ -1,3 +1,7 @@
+2008-11-23  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r142135.
+
 2008-09-19  Richard Guenther  <rguenther@suse.de>
 
 	* tree-flow.h (struct gimple_df): New member vop.

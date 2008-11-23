@@ -1001,7 +1001,7 @@ expand_cleanup_for_base (tree binfo, tree flag)
                                     tf_warning_or_error);
   if (flag)
     expr = fold_build3 (COND_EXPR, void_type_node,
-			c_common_truthvalue_conversion (flag),
+			c_common_truthvalue_conversion (input_location, flag),
 			expr, integer_zero_node);
 
   finish_eh_cleanup (expr);
@@ -1659,6 +1659,15 @@ constant_value_1 (tree decl, bool integral_p)
 	}
       if (init == error_mark_node)
 	return decl;
+      /* Initializers in templates are generally expanded during
+	 instantiation, so before that for const int i(2)
+	 INIT is a TREE_LIST with the actual initializer as
+	 TREE_VALUE.  */
+      if (processing_template_decl
+	  && init
+	  && TREE_CODE (init) == TREE_LIST
+	  && TREE_CHAIN (init) == NULL_TREE)
+	init = TREE_VALUE (init);
       if (!init
 	  || !TREE_TYPE (init)
 	  || (integral_p
@@ -1877,7 +1886,8 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
   for (elt_type = type;
        TREE_CODE (elt_type) == ARRAY_TYPE;
        elt_type = TREE_TYPE (elt_type))
-    nelts = cp_build_binary_op (MULT_EXPR, nelts,
+    nelts = cp_build_binary_op (input_location,
+				MULT_EXPR, nelts,
 				array_type_nelts_top (elt_type),
 				complain);
 
@@ -2177,7 +2187,8 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
             }
 	  init_expr
 	    = build_vec_init (init_expr,
-			      cp_build_binary_op (MINUS_EXPR, outer_nelts,
+			      cp_build_binary_op (input_location,
+						  MINUS_EXPR, outer_nelts,
 						  integer_one_node,
 						  complain),
 			      init,
@@ -2312,7 +2323,8 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
     {
       if (check_new)
 	{
-	  tree ifexp = cp_build_binary_op (NE_EXPR, alloc_node,
+	  tree ifexp = cp_build_binary_op (input_location,
+					   NE_EXPR, alloc_node,
 					   integer_zero_node,
 					   complain);
 	  rval = build_conditional_expr (ifexp, rval, alloc_node, 
@@ -2579,7 +2591,8 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 	  cookie_size = targetm.cxx.get_cookie_size (type);
 	  base_tbd
 	    = cp_convert (ptype,
-			  cp_build_binary_op (MINUS_EXPR,
+			  cp_build_binary_op (input_location,
+					      MINUS_EXPR,
 					      cp_convert (string_type_node,
 							  base),
 					      cookie_size,
@@ -2933,13 +2946,15 @@ build_vec_init (tree base, tree maxindex, tree init,
       && from_array != 2)
     {
       tree e;
-      tree m = cp_build_binary_op (MINUS_EXPR, maxindex, iterator,
+      tree m = cp_build_binary_op (input_location,
+				   MINUS_EXPR, maxindex, iterator,
 				   complain);
 
       /* Flatten multi-dimensional array since build_vec_delete only
 	 expects one-dimensional array.  */
       if (TREE_CODE (type) == ARRAY_TYPE)
-	m = cp_build_binary_op (MULT_EXPR, m,
+	m = cp_build_binary_op (input_location,
+				MULT_EXPR, m,
 				array_type_nelts_total (type),
 				complain);
 
@@ -3167,7 +3182,8 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	ifexp = integer_one_node;
       else
 	/* Handle deleting a null pointer.  */
-	ifexp = fold (cp_build_binary_op (NE_EXPR, addr, integer_zero_node,
+	ifexp = fold (cp_build_binary_op (input_location,
+					  NE_EXPR, addr, integer_zero_node,
 					  tf_warning_or_error));
 
       if (ifexp != integer_one_node)

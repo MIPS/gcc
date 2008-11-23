@@ -714,8 +714,6 @@ enum reg_class ira_important_classes[N_REG_CLASSES];
    classes.  */
 int ira_important_class_nums[N_REG_CLASSES];
 
-#ifdef IRA_COVER_CLASSES
-
 /* Check IRA_COVER_CLASSES and sets the four global variables defined
    above.  */
 static void
@@ -723,9 +721,10 @@ setup_cover_and_important_classes (void)
 {
   int i, j;
   enum reg_class cl;
-  static enum reg_class classes[] = IRA_COVER_CLASSES;
+  const enum reg_class *classes;
   HARD_REG_SET temp_hard_regset2;
 
+  classes = targetm.ira_cover_classes ();
   ira_reg_class_cover_size = 0;
   for (i = 0; (cl = classes[i]) != LIM_REG_CLASSES; i++)
     {
@@ -761,14 +760,11 @@ setup_cover_and_important_classes (void)
 	  }
     }
 }
-#endif
 
 /* Map of all register classes to corresponding cover class containing
    the given class.  If given class is not a subset of a cover class,
    we translate it into the cheapest cover class.  */
 enum reg_class ira_class_translate[N_REG_CLASSES];
-
-#ifdef IRA_COVER_CLASSES
 
 /* Set up array IRA_CLASS_TRANSLATE.  */
 static void
@@ -837,7 +833,6 @@ setup_class_translate (void)
       ira_class_translate[cl] = best_class;
     }
 }
-#endif
 
 /* The biggest important reg_class inside of intersection of the two
    reg_classes (that is calculated taking only hard registers
@@ -855,8 +850,6 @@ enum reg_class ira_reg_class_intersect[N_REG_CLASSES][N_REG_CLASSES];
    account.  In other words, the value is the corresponding
    reg_class_subunion value.  */
 enum reg_class ira_reg_class_union[N_REG_CLASSES][N_REG_CLASSES];
-
-#ifdef IRA_COVER_CLASSES
 
 /* Set up IRA_REG_CLASS_INTERSECT and IRA_REG_CLASS_UNION.  */
 static void
@@ -943,8 +936,6 @@ setup_reg_class_intersect_union (void)
     }
 }
 
-#endif
-
 /* Output all cover classes and the translation map into file F.  */
 static void
 print_class_cover (FILE *f)
@@ -975,11 +966,42 @@ static void
 find_reg_class_closure (void)
 {
   setup_reg_subclasses ();
-#ifdef IRA_COVER_CLASSES
-  setup_cover_and_important_classes ();
-  setup_class_translate ();
-  setup_reg_class_intersect_union ();
-#endif
+  if (targetm.ira_cover_classes)
+    {
+      setup_cover_and_important_classes ();
+      setup_class_translate ();
+      setup_reg_class_intersect_union ();
+    }
+}
+
+
+
+/* Map: hard register number -> cover class it belongs to.  If the
+   corresponding class is NO_REGS, the hard register is not available
+   for allocation.  */
+enum reg_class ira_hard_regno_cover_class[FIRST_PSEUDO_REGISTER];
+
+/* Set up the array above.  */
+static void
+setup_hard_regno_cover_class (void)
+{
+  int i, j;
+  enum reg_class cl;
+
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    {
+      ira_hard_regno_cover_class[i] = NO_REGS;
+      for (j = 0; j < ira_reg_class_cover_size; j++)
+	{
+	  cl = ira_reg_class_cover[j];
+	  if (ira_class_hard_reg_index[cl][i] >= 0)
+	    {
+	      ira_hard_regno_cover_class[i] = cl;
+	      break;
+	    }
+	}
+	    
+    }
 }
 
 
@@ -1126,6 +1148,7 @@ ira_init (void)
   setup_alloc_regs (flag_omit_frame_pointer != 0);
   setup_class_subset_and_memory_move_costs ();
   find_reg_class_closure ();
+  setup_hard_regno_cover_class ();
   setup_reg_class_nregs ();
   setup_prohibited_class_mode_regs ();
   ira_init_costs ();
@@ -1224,12 +1247,12 @@ compute_regs_asm_clobbered (char *regs_asm_clobbered)
       rtx insn;
       FOR_BB_INSNS_REVERSE (bb, insn)
 	{
-	  struct df_ref **def_rec;
+	  df_ref *def_rec;
 
 	  if (insn_contains_asm (insn))
 	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	      {
-		struct df_ref *def = *def_rec;
+		df_ref def = *def_rec;
 		unsigned int dregno = DF_REF_REGNO (def);
 		if (dregno < FIRST_PSEUDO_REGISTER)
 		  {
@@ -1672,6 +1695,23 @@ expand_reg_info (int old_size)
     }
 }
 
+/* Return TRUE if there is too high register pressure in the function.
+   It is used to decide when stack slot sharing is worth to do.  */
+static bool
+too_high_register_pressure_p (void)
+{
+  int i;
+  enum reg_class cover_class;
+  
+  for (i = 0; i < ira_reg_class_cover_size; i++)
+    {
+      cover_class = ira_reg_class_cover[i];
+      if (ira_loop_tree_root->reg_pressure[cover_class] > 10000)
+	return true;
+    }
+  return false;
+}
+
 
 
 /* All natural loops.  */
@@ -1686,6 +1726,7 @@ ira (FILE *f)
   int max_regno_before_ira, ira_max_point_before_emit;
   int rebuild_p;
   int saved_flag_ira_algorithm;
+  int saved_flag_ira_share_spill_slots;
   basic_block bb;
 
   timevar_push (TV_IRA);
@@ -1769,10 +1810,14 @@ ira (FILE *f)
   loops_p = ira_build (optimize
 		       && (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
 			   || flag_ira_algorithm == IRA_ALGORITHM_MIXED));
-  if (optimize)
-    ira_color ();
-  else
-    ira_fast_allocation ();
+
+  saved_flag_ira_share_spill_slots = flag_ira_share_spill_slots;
+  if (too_high_register_pressure_p ())
+    /* It is just wasting compiler's time to pack spilled pseudos into
+       stack slots in this case -- prohibit it.  */ 
+    flag_ira_share_spill_slots = FALSE;
+
+  ira_color ();
       
   ira_max_point_before_emit = ira_max_point;
       
@@ -1882,6 +1927,8 @@ ira (FILE *f)
     fprintf (ira_dump_file, "+++Overall after reload %d\n", ira_overall_cost);
   ira_destroy ();
   
+  flag_ira_share_spill_slots = saved_flag_ira_share_spill_slots;
+
   flow_loops_free (&ira_loops);
   free_dominance_info (CDI_DOMINATORS);
   FOR_ALL_BB (bb)

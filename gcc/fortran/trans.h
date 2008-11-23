@@ -340,7 +340,7 @@ tree gfc_conv_string_tmp (gfc_se *, tree, tree);
 /* Get the string length variable belonging to an expression.  */
 tree gfc_get_expr_charlen (gfc_expr *);
 /* Initialize a string length variable.  */
-void gfc_conv_string_length (gfc_charlen *, stmtblock_t *);
+void gfc_conv_string_length (gfc_charlen *, gfc_expr *, stmtblock_t *);
 /* Ensure type sizes can be gimplified.  */
 void gfc_trans_vla_type_sizes (gfc_symbol *, stmtblock_t *);
 
@@ -463,6 +463,9 @@ tree gfc_call_free (tree);
 
 /* Allocate memory after performing a few checks.  */
 tree gfc_call_malloc (stmtblock_t *, tree, tree);
+
+/* Build a memcpy call.  */
+tree gfc_build_memcpy_call (tree, tree, tree);
 
 /* Allocate memory for arrays, with optional status variable.  */
 tree gfc_allocate_array_with_status (stmtblock_t*, tree, tree, tree, gfc_expr*);

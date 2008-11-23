@@ -548,6 +548,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	bool const_flag
 	  = ((kind == E_Constant || kind == E_Variable)
 	     && Is_True_Constant (gnat_entity)
+	     && !Treat_As_Volatile (gnat_entity)
 	     && (((Nkind (Declaration_Node (gnat_entity))
 		   == N_Object_Declaration)
 		  && Present (Expression (Declaration_Node (gnat_entity))))
@@ -733,10 +734,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    && TREE_CODE (TYPE_SIZE (gnu_type)) == INTEGER_CST)
 	  {
 	    /* No point in jumping through all the hoops needed in order
-	       to support BIGGEST_ALIGNMENT if we don't really have to.  */
+	       to support BIGGEST_ALIGNMENT if we don't really have to.
+	       So we cap to the smallest alignment that corresponds to
+	       a known efficient memory access pattern of the target.  */
 	    unsigned int align_cap = Is_Atomic (gnat_entity)
 				     ? BIGGEST_ALIGNMENT
-				     : get_mode_alignment (word_mode);
+				     : get_mode_alignment (ptr_mode);
 
 	    if (!host_integerp (TYPE_SIZE (gnu_type), 1)
 		|| compare_tree_int (TYPE_SIZE (gnu_type), align_cap) >= 0)
@@ -824,22 +827,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  gnu_type = maybe_pad_type (gnu_type, gnu_size, align, gnat_entity,
 				     "PAD", false, definition,
 				     gnu_size ? true : false);
-
-	/* Make a volatile version of this object's type if we are to make
-	   the object volatile.  We also interpret 13.3(19) conservatively
-	   and disallow any optimizations for an object covered by it.  */
-	if ((Treat_As_Volatile (gnat_entity)
-	     || (Is_Exported (gnat_entity)
-		 /* Exclude exported constants created by the compiler,
-		    which should boil down to static dispatch tables and
-		    make it possible to put them in read-only memory.  */
-		 && (Comes_From_Source (gnat_entity) || !const_flag))
-	     || Is_Imported (gnat_entity)
-	     || Present (Address_Clause (gnat_entity)))
-	    && !TYPE_VOLATILE (gnu_type))
-	  gnu_type = build_qualified_type (gnu_type,
-					   (TYPE_QUALS (gnu_type)
-					    | TYPE_QUAL_VOLATILE));
 
 	/* If this is a renaming, avoid as much as possible to create a new
 	   object.  However, in several cases, creating it is required.
@@ -988,22 +975,38 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      }
 	  }
 
-	/* If this is an aliased object whose nominal subtype is unconstrained,
-	   the object is a record that contains both the template and
-	   the object.  If there is an initializer, it will have already
-	   been converted to the right type, but we need to create the
-	   template if there is no initializer.  */
-	else if (definition
-		 && TREE_CODE (gnu_type) == RECORD_TYPE
-		 && (TYPE_CONTAINS_TEMPLATE_P (gnu_type)
-		     /* Beware that padding might have been introduced
-			via maybe_pad_type above.  */
-		     || (TYPE_IS_PADDING_P (gnu_type)
-			 && TREE_CODE (TREE_TYPE (TYPE_FIELDS (gnu_type)))
-			    == RECORD_TYPE
-			 && TYPE_CONTAINS_TEMPLATE_P
-			    (TREE_TYPE (TYPE_FIELDS (gnu_type)))))
-		 && !gnu_expr)
+	/* Make a volatile version of this object's type if we are to make
+	   the object volatile.  We also interpret 13.3(19) conservatively
+	   and disallow any optimizations for an object covered by it.  */
+	if ((Treat_As_Volatile (gnat_entity)
+	     || (Is_Exported (gnat_entity)
+		 /* Exclude exported constants created by the compiler,
+		    which should boil down to static dispatch tables and
+		    make it possible to put them in read-only memory.  */
+		 && (Comes_From_Source (gnat_entity) || !const_flag))
+	     || Is_Imported (gnat_entity)
+	     || Present (Address_Clause (gnat_entity)))
+	    && !TYPE_VOLATILE (gnu_type))
+	  gnu_type = build_qualified_type (gnu_type,
+					   (TYPE_QUALS (gnu_type)
+					    | TYPE_QUAL_VOLATILE));
+
+	/* If we are defining an aliased object whose nominal subtype is
+	   unconstrained, the object is a record that contains both the
+	   template and the object.  If there is an initializer, it will
+	   have already been converted to the right type, but we need to
+	   create the template if there is no initializer.  */
+	if (definition
+	    && !gnu_expr
+	    && TREE_CODE (gnu_type) == RECORD_TYPE
+	    && (TYPE_CONTAINS_TEMPLATE_P (gnu_type)
+	        /* Beware that padding might have been introduced
+		   via maybe_pad_type above.  */
+		|| (TYPE_IS_PADDING_P (gnu_type)
+		    && TREE_CODE (TREE_TYPE (TYPE_FIELDS (gnu_type)))
+		       == RECORD_TYPE
+		    && TYPE_CONTAINS_TEMPLATE_P
+		       (TREE_TYPE (TYPE_FIELDS (gnu_type))))))
 	  {
 	    tree template_field
 	      = TYPE_IS_PADDING_P (gnu_type)
@@ -1278,12 +1281,15 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	/* If this is constant initialized to a static constant and the
 	   object has an aggregate type, force it to be statically
-	   allocated. */
-	if (const_flag && gnu_expr && TREE_CONSTANT (gnu_expr)
+	   allocated.  This will avoid an initialization copy.  */
+	if (!static_p && const_flag
+	    && gnu_expr && TREE_CONSTANT (gnu_expr)
+	    && AGGREGATE_TYPE_P (gnu_type)
 	    && host_integerp (TYPE_SIZE_UNIT (gnu_type), 1)
-	    && (AGGREGATE_TYPE_P (gnu_type)
-		&& !(TREE_CODE (gnu_type) == RECORD_TYPE
-		     && TYPE_IS_PADDING_P (gnu_type))))
+	    && !(TREE_CODE (gnu_type) == RECORD_TYPE
+		 && TYPE_IS_PADDING_P (gnu_type)
+		 && !host_integerp (TYPE_SIZE_UNIT
+				    (TREE_TYPE (TYPE_FIELDS (gnu_type))), 1)))
 	  static_p = true;
 
 	gnu_decl = create_var_decl (gnu_entity_id, gnu_ext_name, gnu_type,
@@ -1315,6 +1321,24 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 					       get_block_jmpbuf_decl ())),
 			      gnat_entity);
 
+	/* If we are defining an Out parameter and we're not optimizing,
+	   create a fake PARM_DECL for debugging purposes and make it
+	   point to the VAR_DECL.  Suppress debug info for the latter
+	   but make sure it will still live on the stack so it can be
+	   accessed from within the debugger through the PARM_DECL.  */
+	if (kind == E_Out_Parameter && definition && !optimize)
+	  {
+	    tree param = create_param_decl (gnu_entity_id, gnu_type, false);
+	    gnat_pushdecl (param, gnat_entity);
+	    SET_DECL_VALUE_EXPR (param, gnu_decl);
+	    DECL_HAS_VALUE_EXPR_P (param) = 1;
+	    if (debug_info_p)
+	      debug_info_p = false;
+	    else
+	      DECL_IGNORED_P (param) = 1;
+	    TREE_ADDRESSABLE (gnu_decl) = 1;
+	  }
+
 	/* If this is a public constant or we're not optimizing and we're not
 	   making a VAR_DECL for it, make one just for export or debugger use.
 	   Likewise if the address is taken or if either the object or type is
@@ -1325,7 +1349,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    && (definition || Sloc (gnat_entity) > Standard_Location)
 	    && ((Is_Public (gnat_entity)
 		 && !Present (Address_Clause (gnat_entity)))
-		|| optimize == 0
+		|| !optimize
 		|| Address_Taken (gnat_entity)
 		|| Is_Aliased (gnat_entity)
 		|| Is_Aliased (Etype (gnat_entity))))
@@ -1340,7 +1364,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	    /* As debugging information will be generated for the variable,
 	       do not generate information for the constant.  */
-	    DECL_IGNORED_P (gnu_decl) = true;
+	    DECL_IGNORED_P (gnu_decl) = 1;
 	  }
 
 	/* If this is declared in a block that contains a block with an
@@ -1955,8 +1979,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       never be declared otherwise.  This is necessary to ensure
 	       that its subtrees are properly marked.  */
 	    if (tem != orig_tem)
-	      create_type_decl (TYPE_NAME (tem), tem, NULL, true, false,
-				gnat_entity);
+	      create_type_decl (TYPE_NAME (tem), tem, NULL, true,
+				debug_info_p, gnat_entity);
 	  }
 
 	if (Has_Volatile_Components (gnat_entity))
@@ -2324,7 +2348,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		     to ensure that its subtrees are properly marked.  */
 		  if (gnu_type != orig_gnu_type)
 		    create_type_decl (TYPE_NAME (gnu_type), gnu_type, NULL,
-				      true, false, gnat_entity);
+				      true, debug_info_p, gnat_entity);
 		}
 
 	      if (Has_Volatile_Components (Base_Type (gnat_entity)))
@@ -3718,7 +3742,19 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	bool public_flag = Is_Public (gnat_entity) || imported_p;
 	bool extern_flag
 	  = (Is_Public (gnat_entity) && !definition) || imported_p;
-	bool pure_flag = Is_Pure (gnat_entity);
+
+       /* The semantics of "pure" in Ada essentially matches that of "const"
+          in the back-end.  In particular, both properties are orthogonal to
+          the "nothrow" property if the EH circuitry is explicit in the
+          internal representation of the back-end.  If we are to completely
+          hide the EH circuitry from it, we need to declare that calls to pure
+          Ada subprograms that can throw have side effects since they can
+          trigger an "abnormal" transfer of control flow; thus they can be
+          neither "const" nor "pure" in the back-end sense.  */
+	bool const_flag
+	  = (Exception_Mechanism == Back_End_Exceptions
+	     && Is_Pure (gnat_entity));
+
 	bool volatile_flag = No_Return (gnat_entity);
 	bool returns_by_ref = false;
 	bool returns_unconstrained = false;
@@ -3951,12 +3987,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 		/* If a parameter is a pointer, this function may modify
 		   memory through it and thus shouldn't be considered
-		   a pure function.  Also, the memory may be modified
+		   a const function.  Also, the memory may be modified
 		   between two calls, so they can't be CSE'ed.  The latter
 		   case also handles by-ref parameters.  */
 		if (POINTER_TYPE_P (gnu_param_type)
 		    || TYPE_FAT_POINTER_P (gnu_param_type))
-		  pure_flag = false;
+		  const_flag = false;
 	      }
 
 	    if (copy_in_copy_out)
@@ -4033,21 +4069,16 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				   returns_by_ref, returns_by_target_ptr);
 
 	/* A subprogram (something that doesn't return anything) shouldn't
-	   be considered Pure since there would be no reason for such a
+	   be considered const since there would be no reason for such a
 	   subprogram.  Note that procedures with Out (or In Out) parameters
 	   have already been converted into a function with a return type. */
 	if (TREE_CODE (gnu_return_type) == VOID_TYPE)
-	  pure_flag = false;
-
-	/* The semantics of "pure" in Ada used to essentially match that of
-	   "const" in the middle-end.  In particular, both properties were
-	   orthogonal to the "nothrow" property.  This is not true in the
-	   middle-end any more and we have no choice but to ignore the hint
-	   at this stage.  */
+	  const_flag = false;
 
 	gnu_type
 	  = build_qualified_type (gnu_type,
 				  TYPE_QUALS (gnu_type)
+				  | (TYPE_QUAL_CONST * const_flag)
 				  | (TYPE_QUAL_VOLATILE * volatile_flag));
 
 	Sloc_to_locus (Sloc (gnat_entity), &input_location);
@@ -4056,8 +4087,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  gnu_stub_type
 	    = build_qualified_type (gnu_stub_type,
 				    TYPE_QUALS (gnu_stub_type)
-				    | (Exception_Mechanism == Back_End_Exceptions
-				       ? TYPE_QUAL_CONST * pure_flag : 0)
+				    | (TYPE_QUAL_CONST * const_flag)
 				    | (TYPE_QUAL_VOLATILE * volatile_flag));
 
 	/* If we have a builtin decl for that function, check the signatures
@@ -5867,8 +5897,8 @@ maybe_pad_type (tree type, tree size, unsigned int align,
 
       if (size && TREE_CODE (size) != INTEGER_CST && definition)
 	create_var_decl (concat_id_with_name (name, "XVZ"), NULL_TREE,
-			 bitsizetype, TYPE_SIZE (record), false, false, false,
-			 false, NULL, gnat_entity);
+			 sizetype, TYPE_SIZE_UNIT (record), false, false,
+			 false, false, NULL, gnat_entity);
     }
 
   rest_of_record_type_compilation (record);
@@ -7154,7 +7184,7 @@ static tree
 make_type_from_size (tree type, tree size_tree, bool for_biased)
 {
   unsigned HOST_WIDE_INT size;
-  bool biased_p, boolean_p;
+  bool biased_p;
   tree new_type;
 
   /* If size indicates an error, just return TYPE to avoid propagating
@@ -7172,19 +7202,10 @@ make_type_from_size (tree type, tree size_tree, bool for_biased)
       biased_p = (TREE_CODE (type) == INTEGER_TYPE
 		  && TYPE_BIASED_REPRESENTATION_P (type));
 
-      boolean_p = (TREE_CODE (type) == BOOLEAN_TYPE
-		   || (TREE_CODE (type) == INTEGER_TYPE
-		       && TREE_TYPE (type)
-		       && TREE_CODE (TREE_TYPE (type)) == BOOLEAN_TYPE));
-
-      if (boolean_p)
-	size = round_up_to_align (size, BITS_PER_UNIT);
-
       /* Only do something if the type is not a packed array type and
 	 doesn't already have the proper size.  */
       if (TYPE_PACKED_ARRAY_TYPE_P (type)
-	  || (biased_p == for_biased && TYPE_PRECISION (type) == size)
-	  || (boolean_p && compare_tree_int (TYPE_SIZE (type), size) == 0))
+	  || (TYPE_PRECISION (type) == size && biased_p == for_biased))
 	break;
 
       biased_p |= for_biased;
@@ -7194,18 +7215,21 @@ make_type_from_size (tree type, tree size_tree, bool for_biased)
 	new_type = make_unsigned_type (size);
       else
 	new_type = make_signed_type (size);
-      if (boolean_p)
-	TYPE_PRECISION (new_type) = 1;
       TREE_TYPE (new_type) = TREE_TYPE (type) ? TREE_TYPE (type) : type;
       TYPE_MIN_VALUE (new_type)
 	= convert (TREE_TYPE (new_type), TYPE_MIN_VALUE (type));
       TYPE_MAX_VALUE (new_type)
 	= convert (TREE_TYPE (new_type), TYPE_MAX_VALUE (type));
+      /* Propagate the name to avoid creating a fake subrange type.  */
+      if (TYPE_NAME (type))
+	{
+	  if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL)
+	    TYPE_NAME (new_type) = DECL_NAME (TYPE_NAME (type));
+	  else
+	    TYPE_NAME (new_type) = TYPE_NAME (type);
+	}
       TYPE_BIASED_REPRESENTATION_P (new_type) = biased_p;
-      if (boolean_p)
-	TYPE_RM_SIZE_NUM (new_type) = bitsize_int (1);
-      else
-	TYPE_RM_SIZE_NUM (new_type) = bitsize_int (size);
+      TYPE_RM_SIZE_NUM (new_type) = bitsize_int (size);
       return new_type;
 
     case RECORD_TYPE:

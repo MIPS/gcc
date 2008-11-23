@@ -74,7 +74,7 @@
 #endif
 
 /* For efficient float-to-int rounding, it is necessary to know whether
-   floating-point arithmetic on may use wider intermediate results.
+   floating-point arithmetic may use wider intermediate results.
    When FP_ARITH_MAY_WIDEN is not defined, be conservative and only assume
    floating-point arithmetic does not widen if double precision is emulated. */
 
@@ -801,12 +801,12 @@ Pragma_to_gnu (Node_Id gnat_node)
 		     (First (Pragma_Argument_Associations (gnat_node)))))
 	{
 	case Name_Time:  case Name_Space:
-	  if (optimize == 0)
+	  if (!optimize)
 	    post_error ("insufficient -O value?", gnat_node);
 	  break;
 
 	case Name_Off:
-	  if (optimize != 0)
+	  if (optimize)
 	    post_error ("must specify -O0?", gnat_node);
 	  break;
 
@@ -1287,7 +1287,10 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 		   much rarer cases, for extremely large arrays we expect
 		   never to encounter in practice.  In addition, the former
 		   computation required the use of potentially constraining
-		   signed arithmetic while the latter doesn't.  */
+		   signed arithmetic while the latter doesn't. Note that the
+		   comparison must be done in the original index base type,
+		   otherwise the conversion of either bound to gnu_compute_type
+		   may overflow.  */
 		
 		tree gnu_compute_type = get_base_type (gnu_result_type);
 
@@ -1301,7 +1304,9 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 		gnu_result
 		  = build3
 		    (COND_EXPR, gnu_compute_type,
-		     build_binary_op (LT_EXPR, gnu_compute_type, hb, lb),
+		     build_binary_op (LT_EXPR, get_base_type (index_type),
+				      TYPE_MAX_VALUE (index_type),
+				      TYPE_MIN_VALUE (index_type)),
 		     convert (gnu_compute_type, integer_zero_node),
 		     build_binary_op
 		     (PLUS_EXPR, gnu_compute_type,
@@ -1689,30 +1694,48 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
   push_stack (&gnu_loop_label_stack, NULL_TREE,
 	      LOOP_STMT_LABEL (gnu_loop_stmt));
 
-  /* Set the condition that under which the loop should continue.
-     For "LOOP .... END LOOP;" the condition is always true.  */
+  /* Set the condition under which the loop must keep going.
+     For the case "LOOP .... END LOOP;" the condition is always true.  */
   if (No (gnat_iter_scheme))
     ;
-  /* The case "WHILE condition LOOP ..... END LOOP;" */
+
+  /* For the case "WHILE condition LOOP ..... END LOOP;" it's immediate.  */
   else if (Present (Condition (gnat_iter_scheme)))
     LOOP_STMT_TOP_COND (gnu_loop_stmt)
       = gnat_to_gnu (Condition (gnat_iter_scheme));
+
+  /* Otherwise we have an iteration scheme and the condition is given by
+     the bounds of the subtype of the iteration variable.  */
   else
     {
-      /* We have an iteration scheme.  */
       Node_Id gnat_loop_spec = Loop_Parameter_Specification (gnat_iter_scheme);
       Entity_Id gnat_loop_var = Defining_Entity (gnat_loop_spec);
       Entity_Id gnat_type = Etype (gnat_loop_var);
       tree gnu_type = get_unpadded_type (gnat_type);
       tree gnu_low = TYPE_MIN_VALUE (gnu_type);
       tree gnu_high = TYPE_MAX_VALUE (gnu_type);
-      bool reversep = Reverse_Present (gnat_loop_spec);
-      tree gnu_first = reversep ? gnu_high : gnu_low;
-      tree gnu_last = reversep ? gnu_low : gnu_high;
-      enum tree_code end_code = reversep ? GE_EXPR : LE_EXPR;
+      tree gnu_first, gnu_last, gnu_limit;
+      enum tree_code update_code, end_code;
       tree gnu_base_type = get_base_type (gnu_type);
-      tree gnu_limit = (reversep ? TYPE_MIN_VALUE (gnu_base_type)
-			: TYPE_MAX_VALUE (gnu_base_type));
+
+      /* We must disable modulo reduction for the loop variable, if any,
+	 in order for the loop comparison to be effective.  */
+      if (Reverse_Present (gnat_loop_spec))
+	{
+	  gnu_first = gnu_high;
+	  gnu_last = gnu_low;
+	  update_code = MINUS_NOMOD_EXPR;
+	  end_code = GE_EXPR;
+	  gnu_limit = TYPE_MIN_VALUE (gnu_base_type);
+	}
+      else
+	{
+	  gnu_first = gnu_low;
+	  gnu_last = gnu_high;
+	  update_code = PLUS_NOMOD_EXPR;
+	  end_code = LE_EXPR;
+	  gnu_limit = TYPE_MAX_VALUE (gnu_base_type);
+	}
 
       /* We know the loop variable will not overflow if GNU_LAST is a constant
 	 and is not equal to GNU_LIMIT.  If it might overflow, we have to move
@@ -1745,7 +1768,7 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
       gnu_loop_var = convert (get_base_type (gnu_type), gnu_loop_var);
 
       /* Set either the top or bottom exit condition as appropriate depending
-	 on whether or not we know an overflow cannot occur. */
+	 on whether or not we know an overflow cannot occur.  */
       if (gnu_cond_expr)
 	LOOP_STMT_BOT_COND (gnu_loop_stmt)
 	  = build_binary_op (NE_EXPR, integer_type_node,
@@ -1756,19 +1779,20 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
 			     gnu_loop_var, gnu_last);
 
       LOOP_STMT_UPDATE (gnu_loop_stmt)
-	= build_binary_op (reversep ? PREDECREMENT_EXPR
-			   : PREINCREMENT_EXPR,
-			   TREE_TYPE (gnu_loop_var),
+	= build_binary_op (MODIFY_EXPR, NULL_TREE,
 			   gnu_loop_var,
-			   convert (TREE_TYPE (gnu_loop_var),
-				    integer_one_node));
+			   build_binary_op (update_code,
+					    TREE_TYPE (gnu_loop_var),
+					    gnu_loop_var,
+					    convert (TREE_TYPE (gnu_loop_var),
+						     integer_one_node)));
       set_expr_location_from_node (LOOP_STMT_UPDATE (gnu_loop_stmt),
-			  gnat_iter_scheme);
+				   gnat_iter_scheme);
     }
 
   /* If the loop was named, have the name point to this loop.  In this case,
      the association is not a ..._DECL node, but the end label from this
-     LOOP_STMT. */
+     LOOP_STMT.  */
   if (Present (Identifier (gnat_node)))
     save_gnu_tree (Entity (Identifier (gnat_node)),
 		   LOOP_STMT_LABEL (gnu_loop_stmt), true);
@@ -1788,7 +1812,7 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
     }
 
   /* If we have an outer COND_EXPR, that's our result and this loop is its
-     "true" statement.  Otherwise, the result is the LOOP_STMT. */
+     "true" statement.  Otherwise, the result is the LOOP_STMT.  */
   if (gnu_cond_expr)
     {
       COND_EXPR_THEN (gnu_cond_expr) = gnu_loop_stmt;
@@ -1981,11 +2005,11 @@ Subprogram_Body_to_gnu (Node_Id gnat_node)
       for (i = 0; VEC_iterate (parm_attr, cache, i, pa); i++)
 	{
 	  if (pa->first)
-	    add_stmt (pa->first);
+	    add_stmt_with_node (pa->first, gnat_node);
 	  if (pa->last)
-	    add_stmt (pa->last);
+	    add_stmt_with_node (pa->last, gnat_node);
 	  if (pa->length)
-	    add_stmt (pa->length);
+	    add_stmt_with_node (pa->length, gnat_node);
 	}
 
       add_stmt (gnu_result);
@@ -2017,7 +2041,7 @@ Subprogram_Body_to_gnu (Node_Id gnat_node)
 
       add_stmt_with_node
 	(build_return_expr (DECL_RESULT (gnu_subprog_decl), gnu_retval),
-	 gnat_node);
+	 End_Label (Handled_Statement_Sequence (gnat_node)));
       gnat_poplevel ();
       gnu_result = end_stmt_group ();
     }
@@ -3560,32 +3584,40 @@ gnat_to_gnu (Node_Id gnat_node)
 	    /* Get the permitted bounds.  */
 	    tree gnu_base_index_type
 	      = TYPE_INDEX_TYPE (TYPE_DOMAIN (gnu_type));
-	    tree gnu_base_min_expr = TYPE_MIN_VALUE (gnu_base_index_type);
-	    tree gnu_base_max_expr = TYPE_MAX_VALUE (gnu_base_index_type);
+	    tree gnu_base_min_expr = SUBSTITUTE_PLACEHOLDER_IN_EXPR
+	      (TYPE_MIN_VALUE (gnu_base_index_type), gnu_result);
+	    tree gnu_base_max_expr = SUBSTITUTE_PLACEHOLDER_IN_EXPR
+	      (TYPE_MAX_VALUE (gnu_base_index_type), gnu_result);
 	    tree gnu_expr_l, gnu_expr_h, gnu_expr_type;
 
-	    /* Check to see that the minimum slice value is in range.  */
-	    gnu_expr_l = emit_index_check (gnu_result,
-					   gnu_min_expr,
-					   gnu_base_min_expr,
-					   gnu_base_max_expr);
-
-	    /* Check to see that the maximum slice value is in range.  */
-	    gnu_expr_h = emit_index_check (gnu_result,
-					   gnu_max_expr,
-					   gnu_base_min_expr,
-					   gnu_base_max_expr);
+	   gnu_min_expr = protect_multiple_eval (gnu_min_expr);
+	   gnu_max_expr = protect_multiple_eval (gnu_max_expr);
 
 	    /* Derive a good type to convert everything to.  */
-	    gnu_expr_type = get_base_type (TREE_TYPE (gnu_expr_l));
+	    gnu_expr_type = get_base_type (TREE_TYPE (gnu_index_type));
 
-	    /* Build a compound expression that does the range checks and
-	       returns the low bound.  */
-	    gnu_expr = build_binary_op (COMPOUND_EXPR, gnu_expr_type,
-					convert (gnu_expr_type, gnu_expr_h),
-					convert (gnu_expr_type, gnu_expr_l));
+	    /* Test whether the minimum slice value is too small.  */
+	    gnu_expr_l = build_binary_op (LT_EXPR, integer_type_node,
+					  convert (gnu_expr_type,
+						   gnu_min_expr),
+					  convert (gnu_expr_type,
+						   gnu_base_min_expr));
 
-	   /* Build a conditional expression that does the range check and
+	    /* Test whether the maximum slice value is too large.  */
+	    gnu_expr_h = build_binary_op (GT_EXPR, integer_type_node,
+					  convert (gnu_expr_type,
+						   gnu_max_expr),
+					  convert (gnu_expr_type,
+						   gnu_base_max_expr));
+
+	    /* Build a slice index check that returns the low bound,
+               assuming the slice is not empty.  */
+	    gnu_expr = emit_check
+	      (build_binary_op (TRUTH_ORIF_EXPR, integer_type_node,
+				gnu_expr_l, gnu_expr_h),
+	       gnu_min_expr, CE_Index_Check_Failed);
+
+	   /* Build a conditional expression that does the index checks and
 	      returns the low bound if the slice is not empty (max >= min),
 	      and returns the naked low bound otherwise (max < min), unless
 	      it is non-constant and the high bound is; this prevents VRP
@@ -4148,12 +4180,33 @@ gnat_to_gnu (Node_Id gnat_node)
 	  gnu_rhs
 	    = maybe_unconstrained_array (gnat_to_gnu (Expression (gnat_node)));
 
-	  /* If range check is needed, emit code to generate it */
+	  /* If range check is needed, emit code to generate it.  */
 	  if (Do_Range_Check (Expression (gnat_node)))
 	    gnu_rhs = emit_range_check (gnu_rhs, Etype (Name (gnat_node)));
 
 	  gnu_result
 	    = build_binary_op (MODIFY_EXPR, NULL_TREE, gnu_lhs, gnu_rhs);
+
+	  /* If the type being assigned is an array type and the two sides
+	     are not completely disjoint, play safe and use memmove.  */
+	  if (TREE_CODE (gnu_result) == MODIFY_EXPR
+	      && Is_Array_Type (Etype (Name (gnat_node)))
+	      && !(Forwards_OK (gnat_node) && Backwards_OK (gnat_node)))
+	    {
+	      tree to, from, size, to_ptr, from_ptr, t;
+
+	      to = TREE_OPERAND (gnu_result, 0);
+	      from = TREE_OPERAND (gnu_result, 1);
+
+	      size = TYPE_SIZE_UNIT (TREE_TYPE (from));
+	      size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (size, from);
+
+	      to_ptr = build_fold_addr_expr (to);
+	      from_ptr = build_fold_addr_expr (from);
+
+	      t = implicit_built_in_decls[BUILT_IN_MEMMOVE];
+	      gnu_result = build_call_expr (t, 3, to_ptr, from_ptr, size);
+	   }
 	}
       break;
 
@@ -5929,16 +5982,14 @@ process_decls (List_Id gnat_decls, List_Id gnat_decls2,
 }
 
 /* Make a unary operation of kind CODE using build_unary_op, but guard
-   the operation by an overflow check. CODE can be one of NEGATE_EXPR
-   or ABS_EXPR.  GNU_TYPE is the type desired for the result.
-   Usually the operation is to be performed in that type.  */
+   the operation by an overflow check.  CODE can be one of NEGATE_EXPR
+   or ABS_EXPR.  GNU_TYPE is the type desired for the result.  Usually
+   the operation is to be performed in that type.  */
 
 static tree
-build_unary_op_trapv (enum tree_code code,
-		      tree gnu_type,
-		      tree operand)
+build_unary_op_trapv (enum tree_code code, tree gnu_type, tree operand)
 {
-  gcc_assert ((code == NEGATE_EXPR) || (code == ABS_EXPR));
+  gcc_assert (code == NEGATE_EXPR || code == ABS_EXPR);
 
   operand = protect_multiple_eval (operand);
 
@@ -5948,15 +5999,13 @@ build_unary_op_trapv (enum tree_code code,
 		     CE_Overflow_Check_Failed);
 }
 
-/* Make a binary operation of kind CODE using build_binary_op, but
-   guard the operation by an overflow check. CODE can be one of
-   PLUS_EXPR, MINUS_EXPR or MULT_EXPR.  GNU_TYPE is the type desired
-   for the result.  Usually the operation is to be performed in that type.  */
+/* Make a binary operation of kind CODE using build_binary_op, but guard
+   the operation by an overflow check.  CODE can be one of PLUS_EXPR,
+   MINUS_EXPR or MULT_EXPR.  GNU_TYPE is the type desired for the result.
+   Usually the operation is to be performed in that type.  */
 
 static tree
-build_binary_op_trapv (enum tree_code code,
-		       tree gnu_type,
-		       tree left,
+build_binary_op_trapv (enum tree_code code, tree gnu_type, tree left,
 		       tree right)
 {
   tree lhs = protect_multiple_eval (left);
@@ -5966,80 +6015,117 @@ build_binary_op_trapv (enum tree_code code,
   tree gnu_expr;
   tree tmp1, tmp2;
   tree zero = convert (gnu_type, integer_zero_node);
-  tree rhs_ge_zero;
+  tree rhs_lt_zero;
   tree check_pos;
   tree check_neg;
-
+  tree check;
   int precision = TYPE_PRECISION (gnu_type);
 
-  /* Prefer a constant rhs to simplify checks */
+  gcc_assert (!(precision & (precision - 1))); /* ensure power of 2 */
 
-  if (TREE_CONSTANT (lhs) && !TREE_CONSTANT (rhs)
-      && commutative_tree_code (code))
+  /* Prefer a constant or known-positive rhs to simplify checks.  */
+  if (!TREE_CONSTANT (rhs)
+      && commutative_tree_code (code)
+      && (TREE_CONSTANT (lhs) || (!tree_expr_nonnegative_p (rhs)
+				  && tree_expr_nonnegative_p (lhs))))
     {
       tree tmp = lhs;
       lhs = rhs;
       rhs = tmp;
-   }
+    }
 
-  /* In the case the right-hand size is still not constant, try to
-     use an exact operation in a wider type. */
+  rhs_lt_zero = tree_expr_nonnegative_p (rhs)
+		? integer_zero_node
+		: build_binary_op (LT_EXPR, integer_type_node, rhs, zero);
+
+  /* ??? Should use more efficient check for operand_equal_p (lhs, rhs, 0) */
+
+  /* Try a few strategies that may be cheaper than the general
+     code at the end of the function, if the rhs is not known.
+     The strategies are:
+       - Call library function for 64-bit multiplication (complex)
+       - Widen, if input arguments are sufficiently small
+       - Determine overflow using wrapped result for addition/subtraction.  */
 
   if (!TREE_CONSTANT (rhs))
     {
-      int needed_precision = code == MULT_EXPR ? 2 * precision : precision + 1;
+      /* Even for add/subtract double size to get another base type.  */
+      int needed_precision = precision * 2;
 
       if (code == MULT_EXPR && precision == 64)
-	{
-	  return build_call_2_expr (mulv64_decl, lhs, rhs);
+	{ 
+	  tree int_64 = gnat_type_for_size (64, 0);
+
+	  return convert (gnu_type, build_call_2_expr (mulv64_decl,
+						       convert (int_64, lhs),
+						       convert (int_64, rhs)));
 	}
-      else if (needed_precision <= LONG_LONG_TYPE_SIZE)
+
+      else if (needed_precision <= BITS_PER_WORD
+	       || (code == MULT_EXPR 
+		   && needed_precision <= LONG_LONG_TYPE_SIZE))
 	{
-	  tree calc_type = gnat_type_for_size (needed_precision, 0);
-	  tree result;
-	  tree check;
+	  tree wide_type = gnat_type_for_size (needed_precision, 0);
 
-	  result = build_binary_op (code, calc_type,
-				    convert (calc_type, lhs),
-				    convert (calc_type, rhs));
+	  tree wide_result = build_binary_op (code, wide_type,
+					      convert (wide_type, lhs),
+					      convert (wide_type, rhs));
 
-	  check = build_binary_op
+	  tree check = build_binary_op
 	    (TRUTH_ORIF_EXPR, integer_type_node,
-	     build_binary_op (LT_EXPR, integer_type_node, result,
-			      convert (calc_type, type_min)),
-	     build_binary_op (GT_EXPR, integer_type_node, result,
-			      convert (calc_type, type_max)));
+	     build_binary_op (LT_EXPR, integer_type_node, wide_result,
+			      convert (wide_type, type_min)),
+	     build_binary_op (GT_EXPR, integer_type_node, wide_result,
+			      convert (wide_type, type_max)));
 
-	  result = convert (gnu_type, result);
+	  tree result = convert (gnu_type, wide_result);
 
 	  return emit_check (check, result, CE_Overflow_Check_Failed);
 	}
-    }
 
-  gnu_expr = build_binary_op (code, gnu_type, lhs, rhs);
-  rhs_ge_zero = build_binary_op (GE_EXPR, integer_type_node, rhs, zero);
+      else if (code == PLUS_EXPR || code == MINUS_EXPR)
+	{
+	  tree unsigned_type = gnat_type_for_size (precision, 1);
+	  tree wrapped_expr = convert
+	    (gnu_type, build_binary_op (code, unsigned_type,
+					convert (unsigned_type, lhs),
+					convert (unsigned_type, rhs)));
+
+	  tree result = convert
+	    (gnu_type, build_binary_op (code, gnu_type, lhs, rhs));
+
+	  /* Overflow when (rhs < 0) ^ (wrapped_expr < lhs)), for addition
+	     or when (rhs < 0) ^ (wrapped_expr > lhs) for subtraction.  */
+	  tree check = build_binary_op
+	    (TRUTH_XOR_EXPR, integer_type_node, rhs_lt_zero,
+	     build_binary_op (code == PLUS_EXPR ? LT_EXPR : GT_EXPR,
+			      integer_type_node, wrapped_expr, lhs));
+
+	  return emit_check (check, result, CE_Overflow_Check_Failed);
+	}
+   }
 
   switch (code)
     {
     case PLUS_EXPR:
-      /* When rhs >= 0, overflow when lhs > type_max - rhs */
+      /* When rhs >= 0, overflow when lhs > type_max - rhs.  */
       check_pos = build_binary_op (GT_EXPR, integer_type_node, lhs,
 				   build_binary_op (MINUS_EXPR, gnu_type,
 						    type_max, rhs)),
 
-      /* When rhs < 0, overflow when lhs < type_min - rhs */
+      /* When rhs < 0, overflow when lhs < type_min - rhs.  */
       check_neg = build_binary_op (LT_EXPR, integer_type_node, lhs,
 				   build_binary_op (MINUS_EXPR, gnu_type,
 						    type_min, rhs));
       break;
 
     case MINUS_EXPR:
-      /* When rhs >= 0, overflow when lhs < type_min + rhs */
+      /* When rhs >= 0, overflow when lhs < type_min + rhs.  */
       check_pos = build_binary_op (LT_EXPR, integer_type_node, lhs,
 				   build_binary_op (PLUS_EXPR, gnu_type,
 						    type_min, rhs)),
 
-      /* When rhs < 0, overflow when lhs > type_max + rhs */
+      /* When rhs < 0, overflow when lhs > type_max + rhs.  */
       check_neg = build_binary_op (GT_EXPR, integer_type_node, lhs,
 				   build_binary_op (PLUS_EXPR, gnu_type,
 						    type_max, rhs));
@@ -6047,6 +6133,7 @@ build_binary_op_trapv (enum tree_code code,
 
     case MULT_EXPR:
       /* The check here is designed to be efficient if the rhs is constant,
+         but it will work for any rhs by using integer division.
          Four different check expressions determine wether X * C overflows,
 	 depending on C.
 	   C ==  0  =>  false
@@ -6076,14 +6163,22 @@ build_binary_op_trapv (enum tree_code code,
       gcc_unreachable();
     }
 
-  return emit_check (fold_build3 (COND_EXPR, integer_type_node, rhs_ge_zero,
-				  check_pos, check_neg),
-		     gnu_expr, CE_Overflow_Check_Failed);
+  gnu_expr = build_binary_op (code, gnu_type, lhs, rhs);
+
+  /* If we can fold the expression to a constant, just return it.
+     The caller will deal with overflow, no need to generate a check.  */
+  if (TREE_CONSTANT (gnu_expr))
+    return gnu_expr;
+
+  check = fold_build3 (COND_EXPR, integer_type_node,
+		       rhs_lt_zero,  check_neg, check_pos);
+
+  return emit_check (check, gnu_expr, CE_Overflow_Check_Failed);
 }
 
-/* Emit code for a range check. GNU_EXPR is the expression to be checked,
+/* Emit code for a range check.  GNU_EXPR is the expression to be checked,
    GNAT_RANGE_TYPE the gnat type or subtype containing the bounds against
-   which we have to check. */
+   which we have to check.  */
 
 static tree
 emit_range_check (tree gnu_expr, Entity_Id gnat_range_type)
@@ -6183,32 +6278,20 @@ emit_index_check (tree gnu_array_object,
 static tree
 emit_check (tree gnu_cond, tree gnu_expr, int reason)
 {
-  tree gnu_call;
-  tree gnu_result;
+  tree gnu_call = build_call_raise (reason, Empty, N_Raise_Constraint_Error);
+  tree gnu_result
+    = fold_build3 (COND_EXPR, TREE_TYPE (gnu_expr), gnu_cond,
+		   build2 (COMPOUND_EXPR, TREE_TYPE (gnu_expr), gnu_call,
+			   convert (TREE_TYPE (gnu_expr), integer_zero_node)),
+		   gnu_expr);
 
-  gnu_call = build_call_raise (reason, Empty, N_Raise_Constraint_Error);
-
-  /* Use an outer COMPOUND_EXPR to make sure that GNU_EXPR will get evaluated
-     in front of the comparison in case it ends up being a SAVE_EXPR.  Put the
-     whole thing inside its own SAVE_EXPR so the inner SAVE_EXPR doesn't leak
-     out.  */
-  gnu_result = fold_build3 (COND_EXPR, TREE_TYPE (gnu_expr), gnu_cond,
-			    build2 (COMPOUND_EXPR, TREE_TYPE (gnu_expr),
-				    gnu_call, gnu_expr),
-			    gnu_expr);
-
-  /* If GNU_EXPR has side effects, make the outer COMPOUND_EXPR and
-     protect it.  Otherwise, show GNU_RESULT has no side effects: we
-     don't need to evaluate it just for the check.  */
-  if (TREE_SIDE_EFFECTS (gnu_expr))
-    gnu_result
-      = build2 (COMPOUND_EXPR, TREE_TYPE (gnu_expr), gnu_expr, gnu_result);
-  else
-    TREE_SIDE_EFFECTS (gnu_result) = 0;
+  /* GNU_RESULT has side effects if and only if GNU_EXPR has:
+     we don't need to evaluate it just for the check.  */
+  TREE_SIDE_EFFECTS (gnu_result) = TREE_SIDE_EFFECTS (gnu_expr);
 
   /* ??? Unfortunately, if we don't put a SAVE_EXPR around this whole thing,
-     we will repeatedly do the test.  It would be nice if GCC was able
-     to optimize this and only do it once.  */
+     we will repeatedly do the test and, at compile time, we will repeatedly
+     visit it during unsharing, which leads to an exponential explosion.  */
   return save_expr (gnu_result);
 }
 

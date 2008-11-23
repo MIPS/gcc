@@ -3349,6 +3349,40 @@ output_asm_label (rtx x)
   assemble_name (asm_out_file, buf);
 }
 
+/* Helper rtx-iteration-function for mark_symbol_refs_as_used and
+   output_operand.  Marks SYMBOL_REFs as referenced through use of
+   assemble_external.  */
+
+static int
+mark_symbol_ref_as_used (rtx *xp, void *dummy ATTRIBUTE_UNUSED)
+{
+  rtx x = *xp;
+
+  /* If we have a used symbol, we may have to emit assembly
+     annotations corresponding to whether the symbol is external, weak
+     or has non-default visibility.  */
+  if (GET_CODE (x) == SYMBOL_REF)
+    {
+      tree t;
+
+      t = SYMBOL_REF_DECL (x);
+      if (t)
+	assemble_external (t);
+
+      return -1;
+    }
+
+  return 0;
+}
+
+/* Marks SYMBOL_REFs in x as referenced through use of assemble_external.  */
+
+void
+mark_symbol_refs_as_used (rtx x)
+{
+  for_each_rtx (&x, mark_symbol_ref_as_used, NULL);
+}
+
 /* Print operand X using machine-dependent assembler syntax.
    The macro PRINT_OPERAND is defined just to control this function.
    CODE is a non-digit that preceded the operand-number in the % spec,
@@ -3369,14 +3403,11 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
   gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
 
   PRINT_OPERAND (asm_out_file, x, code);
-  if (x && MEM_P (x) && GET_CODE (XEXP (x, 0)) == SYMBOL_REF)
-    {
-      tree t;
-      x = XEXP (x, 0);
-      t = SYMBOL_REF_DECL (x);
-      if (t)
-	assemble_external (t);
-    }
+
+  if (x == NULL_RTX)
+    return;
+
+  for_each_rtx (&x, mark_symbol_ref_as_used, NULL);
 }
 
 /* Print a memory reference operand for address X
@@ -4165,6 +4196,10 @@ rest_of_handle_final (void)
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (current_function_decl);
   timevar_pop (TV_SYMOUT);
+
+  /* Release the blocks that are linked to DECL_INITIAL() to free the memory.  */
+  DECL_INITIAL (current_function_decl) = error_mark_node;
+
   if (DECL_STATIC_CONSTRUCTOR (current_function_decl)
       && targetm.have_ctors_dtors)
     targetm.asm_out.constructor (XEXP (DECL_RTL (current_function_decl), 0),

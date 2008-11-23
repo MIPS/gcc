@@ -107,10 +107,10 @@ static gfc_dt *current_dt;
 typedef enum
 {
   FMT_NONE, FMT_UNKNOWN, FMT_SIGNED_INT, FMT_ZERO, FMT_POSINT, FMT_PERIOD,
-  FMT_COMMA, FMT_COLON, FMT_SLASH, FMT_DOLLAR, FMT_POS, FMT_LPAREN,
+  FMT_COMMA, FMT_COLON, FMT_SLASH, FMT_DOLLAR, FMT_LPAREN,
   FMT_RPAREN, FMT_X, FMT_SIGN, FMT_BLANK, FMT_CHAR, FMT_P, FMT_IBOZ, FMT_F,
   FMT_E, FMT_EXT, FMT_G, FMT_L, FMT_A, FMT_D, FMT_H, FMT_END, FMT_ERROR, FMT_DC,
-  FMT_DP
+  FMT_DP, FMT_T, FMT_TR, FMT_TL
 }
 format_token;
 
@@ -314,10 +314,18 @@ format_lex (void)
 
     case 'T':
       c = next_char_not_space (&error);
-      if (c != 'L' && c != 'R')
-	unget_char ();
-
-      token = FMT_POS;
+      switch (c)
+	{
+	case 'L':
+	  token = FMT_TL;
+	  break;
+	case 'R':
+	  token = FMT_TR;
+	  break;
+	default:
+	  token = FMT_T;
+	  unget_char ();
+	}
       break;
 
     case '(':
@@ -596,7 +604,9 @@ format_item_1:
 
       goto finished;
 
-    case FMT_POS:
+    case FMT_T:
+    case FMT_TL:
+    case FMT_TR:
     case FMT_IBOZ:
     case FMT_F:
     case FMT_E:
@@ -646,7 +656,17 @@ data_desc:
 
       goto optional_comma;
 
-    case FMT_POS:
+    case FMT_T:
+    case FMT_TL:
+    case FMT_TR:
+      t = format_lex ();
+      if (t != FMT_POSINT)
+	{
+	  error = _("Positive width required with T descriptor");
+	  goto syntax;
+	}
+      break;
+
     case FMT_L:
       t = format_lex ();
       if (t == FMT_ERROR)
@@ -2973,7 +2993,7 @@ if (condition) \
     {
       static const char * asynchronous[] = { "YES", "NO", NULL };
 
-      if (dt->asynchronous->expr_type != EXPR_CONSTANT)
+      if (gfc_reduce_init_expr (dt->asynchronous) != SUCCESS)
 	{
 	  gfc_error ("ASYNCHRONOUS= specifier at %L must be an initialization "
 		     "expression", &dt->asynchronous->where);
@@ -3520,9 +3540,11 @@ gfc_free_inquire (gfc_inquire *inquire)
   gfc_free_expr (inquire->convert);
   gfc_free_expr (inquire->strm_pos);
   gfc_free_expr (inquire->asynchronous);
+  gfc_free_expr (inquire->decimal);
   gfc_free_expr (inquire->pending);
   gfc_free_expr (inquire->id);
   gfc_free_expr (inquire->sign);
+  gfc_free_expr (inquire->size);
   gfc_free_expr (inquire->round);
   gfc_free (inquire);
 }
@@ -3564,7 +3586,7 @@ match_inquire_element (gfc_inquire *inquire)
   RETM m = match_vtag (&tag_s_async, &inquire->asynchronous);
   RETM m = match_vtag (&tag_s_delim, &inquire->delim);
   RETM m = match_vtag (&tag_s_decimal, &inquire->decimal);
-  RETM m = match_vtag (&tag_s_blank, &inquire->blank);
+  RETM m = match_vtag (&tag_size, &inquire->size);
   RETM m = match_vtag (&tag_s_encoding, &inquire->encoding);
   RETM m = match_vtag (&tag_s_round, &inquire->round);
   RETM m = match_vtag (&tag_s_sign, &inquire->sign);
@@ -3741,6 +3763,7 @@ gfc_resolve_inquire (gfc_inquire *inquire)
   RESOLVE_TAG (&tag_s_sign, inquire->sign);
   RESOLVE_TAG (&tag_s_round, inquire->round);
   RESOLVE_TAG (&tag_pending, inquire->pending);
+  RESOLVE_TAG (&tag_size, inquire->size);
   RESOLVE_TAG (&tag_id, inquire->id);
 
   if (gfc_reference_st_label (inquire->err, ST_LABEL_TARGET) == FAILURE)

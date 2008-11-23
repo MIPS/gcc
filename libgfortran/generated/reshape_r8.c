@@ -121,6 +121,34 @@ reshape_r8 (gfc_array_r8 * const restrict ret,
 
   if (unlikely (compile_options.bounds_check))
     {
+      index_type ret_extent, source_extent;
+
+      rs = 1;
+      for (n = 0; n < rdim; n++)
+	{
+	  rs *= shape_data[n];
+	  ret_extent = ret->dim[n].ubound + 1 - ret->dim[n].lbound;
+	  if (ret_extent != shape_data[n])
+	    runtime_error("Incorrect extent in return value of RESHAPE"
+			  " intrinsic in dimension %ld: is %ld,"
+			  " should be %ld", (long int) n+1,
+			  (long int) ret_extent, (long int) shape_data[n]);
+	}
+
+      source_extent = 1;
+      sdim = GFC_DESCRIPTOR_RANK (source);
+      for (n = 0; n < sdim; n++)
+	{
+	  index_type se;
+	  se = source->dim[n].ubound + 1 - source->dim[0].lbound;
+	  source_extent *= se > 0 ? se : 0;
+	}
+
+      if (rs < source_extent || (rs > source_extent && !pad))
+	runtime_error("Incorrect size in SOURCE argument to RESHAPE"
+		      " intrinsic: is %ld, should be %ld",
+		      (long int) source_extent, (long int) rs);
+
       if (order)
 	{
 	  int seen[GFC_MAX_DIMENSIONS];
@@ -241,16 +269,16 @@ reshape_r8 (gfc_array_r8 * const restrict ret,
 
   if (sempty)
     {
-      /* Switch immediately to the pad array.  */
+      /* Pretend we are using the pad array the first time around, too.  */
       src = pptr;
-      sptr = NULL;
+      sptr = pptr;
       sdim = pdim;
       for (dim = 0; dim < pdim; dim++)
 	{
 	  scount[dim] = pcount[dim];
 	  sextent[dim] = pextent[dim];
 	  sstride[dim] = pstride[dim];
-	  sstride0 = sstride[0] * sizeof (GFC_REAL_8);
+	  sstride0 = pstride[0];
 	}
     }
 

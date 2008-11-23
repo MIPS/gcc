@@ -1,3 +1,251 @@
+2008-11-22  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libgfortran.h (__mingw_snprintf): Declare with gnu_printf
+	format attribute.
+
+
+2008-11-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/38225
+	* intrinsics/reshape_generic.c (reshape_internal):
+	Use all dimensions of source for bounds checking.
+	* m4/reshape.m4:  Likewise.
+	* generated/reshape_c10.c Regenerated.
+	* generated/reshape_c16.c Regenerated.
+	* generated/reshape_c4.c Regenerated.
+	* generated/reshape_c8.c Regenerated.
+	* generated/reshape_i16.c Regenerated.
+	* generated/reshape_i4.c Regenerated.
+	* generated/reshape_i8.c Regenerated.
+	* generated/reshape_r10.c Regenerated.
+	* generated/reshape_r16.c Regenerated.
+	* generated/reshape_r4.c Regenerated.
+	* generated/reshape_r8.c Regenerated.
+
+2008-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libfortran/37839
+	* io/io.h (IOPARM_INQUIRE_HAS_ROUND, IOPARM_INQUIRE_HAS_SIGN,
+	IOPARM_INQUIRE_HAS_PENDING): Adjust values.
+	(st_parameter_inquire): Reorder and fix types of round, sign and
+	pending fields.
+	(st_parameter_43, st_parameter_44): Removed.
+	(st_parameter_dt): Put back struct definition directly to u.p
+	declaration.  Change type of u.p.size_used from gfc_offset to
+	GFC_IO_INT.  Decrease back size of u.pad to 16 pointers and
+	32 ints.  Put id, pos, asynchronous, blank, decimal, delim,
+	pad, round and sign fields after the union.
+	* io/inquire.c (inquire_via_unit, inquire_via_filename): Only read
+	flags2 if it is defined.
+	* io/transfer.c (read_sf, read_block_form, write_block): Cast
+	additions to size_used to GFC_IO_INT instead of gfc_offset.
+	(data_transfer_init): Clear whole u.p struct.  Adjust
+	for moving id, pos, asynchronous, blank, decimal, delim, pad,
+	round and sign fields from u.p directly into st_parameter_dt.
+	(finalize_transfer): Don't cast size_used to GFC_IO_INT.
+	* io/file_pos.c (st_endfile): Clear whole u.p struct.
+
+2008-11-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/37472
+	* io/write_float.def (output_float_FMT_G_): Adjust conversion of
+	G format specification to F format.
+
+2008-11-18  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/38135
+	* m4/reshape.m4:  Correct bounds checking when PAD is present.
+	Treat PAD as if it were SOURCE when SOURCE is empty.
+	* intrinsics/reshape_generic.c:  Likewise.
+	* generated/reshape_c10.c Regenerated.
+	* generated/reshape_c16.c Regenerated.
+	* generated/reshape_c4.c Regenerated.
+	* generated/reshape_c8.c Regenerated.
+	* generated/reshape_i16.c Regenerated.
+	* generated/reshape_i4.c Regenerated.
+	* generated/reshape_i8.c Regenerated.
+	* generated/reshape_r10.c Regenerated.
+	* generated/reshape_r16.c Regenerated.
+	* generated/reshape_r4.c Regenerated.
+	* generated/reshape_r8.c Regenerated.
+
+2008-11-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/38097
+	* io/read.c (read_f): Initialize exponent. Fix comment. Set loop
+	conditions for BZ/BN.
+	* io/unit.c (get_internal_unit): Initialize flags.blank.
+	* io/transfer.c (data_transfer_init): Fix whitespace.
+
+2008-11-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/37294
+	* io/write.c (namelist_write_newline): Use array loop specification to
+	advance to next internal array unit record. (namelist_write): Adjust to
+	accomodate the internal array unit behavior.
+
+2008-11-01  Dennis Wassel  <dennis.wassel@gmail.com>
+
+	PR fortran/37159
+	* intrinsics/random.c: Added comment to adapt check.c, should
+	kiss_size change.
+	Few cosmetic changes to existing comments.
+
+2008-10-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/37707
+	* io/list_read.c (read_character): Remove code to look ahead in namelist
+	reads to descriminate non-delimited strings from namelist objects.
+	* io/write.c (namelist_write): Delimit character strings with quote or
+	apostrophe, defaulting to quote.
+
+2008-10-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34670
+	* intrinsics/transpose_generic.c:  Implement bounds checking.
+	* m4/transpose.m4:  Likewise.
+	* generated/transpose_c8.c: Regenerated.
+	* generated/transpose_c16.c: Regenerated.
+	* generated/transpose_r10.c: Regenerated.
+	* generated/transpose_i8.c: Regenerated.
+	* generated/transpose_c10.c: Regenerated.
+	* generated/transpose_r4.c: Regenerated.
+	* generated/transpose_c4.c: Regenerated.
+	* generated/transpose_i16.c: Regenerated.
+	* generated/transpose_i4.c: Regenerated.
+	* generated/transpose_r8.c: Regenerated.
+	* generated/transpose_r16.c: Regenerated.
+
+2008-10-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org
+
+	PR libfortran/37834
+	* io/write_float.def (output_float): Emit '0.' for special case of
+	format specifier 'f0.0' and value of zero. Likewise emit '0' for 'f1.0'.
+
+2008-10-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org
+
+	PR libfortran/37863
+	* io/write_float.def (WRITE_FLOAT): Round to 1.0 correctly.
+	* io/io.h (st_parameter_44): Fix id type declaration.
+
+2008-10-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* io/file_pos.c (unformatted_backspace): Normal case is
+	GFC_CONVERT_NATIVE.
+	* io/transfer.c (read_sf):  Mark paths leading to generate_error()
+	as unlikely.
+	(readl_block_form):  Likewise.
+	(read_block_direct):  Likewise.
+	(write_block):  Likewise.
+	(write_buf):  Likewise.
+	(us_read):  Likewise.  Normal case is GFC_CONVERT_NATIVE.
+	(next_record_w_unf):  Mark paths leading to generate_error()
+	as unlikely.
+
+2008-10-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34670
+	* generated/spread_r4.c: Regenerated.
+
+2008-10-15  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34670
+	* intrinsics/reshape_generic.c:  Add bounds checking.
+	* m4/reshape.m4:  Likewise.
+        * generated/reshape_c10.c: Regenerated.
+        * generated/reshape_c16.c: Regenerated.
+        * generated/reshape_c4.c: Regenerated.
+        * generated/reshape_c8.c: Regenerated.
+        * generated/reshape_i16.c: Regenerated.
+        * generated/reshape_i4.c: Regenerated.
+        * generated/reshape_i8.c: Regenerated.
+        * generated/reshape_r10.c: Regenerated.
+        * generated/reshape_r16.c: Regenerated.
+        * generated/reshape_r4.c: Regenerated.
+        * generated/reshape_r8.c: Regenerated.
+        * generated/spread_r4.c: Regenerated.
+
+2008-10-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org
+
+	PR libfortran/37083
+	* io/list_read.c (next_char): Simplify EOF tests and set endfile flag.
+	(finish_list_read): Add EOF check.
+
+2008-10-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/37753
+	* io/transfer.c (unformatted_read):  CONVERT_NATIVE
+	is the usual case.  Check for kind==1 for non-byte-reversing
+	operation.
+	(unformatted_write):  Likewise.
+
+2008-10-08  Jerry DeLisle  <jvdelisle@gcc.gnu.org
+
+	PR libfortran/37707
+	* io/list_read.c (nml_get_obj_data): If the first namelist object rank
+	is greater than zero, call nml_object_read with the first object rather
+	than the sub-object.
+
+2008-09-26  Peter O'Gorman  <pogma@thewrittenword.com>
+            Steve Ellcey  <sje@cup.hp.com>
+
+	* configure: Regenerate for new libtool.
+	* Makefile.in: Ditto.
+
+2008-09-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org
+
+	PR libfortran/37498
+	* list_read.c (eat_separator): Revert previous patch and move
+	delim_status, decimal_status, and pad_status to gfc_unit.
+	(parse_real): Ditto. (read_real): Ditto.
+	* read.c (read_a): Likewise. (read_a_char4): Likewise.
+	(read_f): Likewise.
+	* inquire.c (inquire_via_unit): Add missing check for
+	IOPARM_INQUIRE_HAS_FLAGS2. (inquire_via_filename): Likewise.
+	* io.h (unit_sign_s): Move delim_status, decimal_status, and pad_status
+	to gfc_unit.
+	* transfer.c (read_sf): Ditto. (read_block_form): Ditto.
+	(formatted_transfer_scalar): Ditto. (data_transfer_init): Ditto.
+	* write.c (write_default_char4): Ditto. (write_utf8_char4): Ditto.
+	(write_character): Ditto. (write_real_g0): Ditto.
+	(list_formatted_write_scalar): Ditto. (nml_write_obj): Ditto.
+	(namelist_write): Ditto.
+	* write_float.def (calculate_sign): Ditto. (output_float): Ditto.
+
+2008-09-24  Tobias Burnus  <burnus@net-b.de>
+
+	* runtime/compile_options.c (init_compile_options):
+	Sync flags with front end.
+
+2008-09-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org
+
+	PR libfortran/37498
+	* file_pos (st_endfile): Clear memory only for libfortran 4.3 private
+	area.
+	* list_read.c (eat_separator): Only access F2003 I/O parameters if
+	IOPARM_DT_HAS_F2003 bit is set. (parse_real): Ditto.
+	(read_real): Ditto.
+	* read.c (read_a): Likewise. (read_a_char4): Likewise though not
+	strictly necessary. (read_f): Likewise.
+	* io.h (unit_sign_s): New enumerator to allow duplication of
+	st_parameter structures. (IOPARM_DT_HAS_F2003): New mask bit.
+	(st_parameter_43): New structure copied from 4.3 version of 
+	st_paramater_dt private section. (st_parameter_44): New structure with
+	F2003 items added. (st_parameter_dt): Modified to create union of new
+	and old structures to allow correct memory setting for 4.3 ABI
+	compatibility. Bumped the pad size.
+	* transfer.c (read_sf): Do not use F2003 I/O memory areas unless
+	IOPARM_DT_HAS_F2003 bit has been set. (read_block_form): Ditto.
+	(formatted_transfer_scalar): Ditto. (data_transfer_init): Ditto and
+	add comment, fix formatting.
+	* write.c (write_default_char4): Likewise though not strictly necessary.
+	(write_utf8_char4): Ditto. (write_character): Ditto.
+	(write_real_g0): Ditto. (list_formatted_write_scalar): Ditto.
+	(nml_write_obj): Ditto. (namelist_write): Ditto.
+	* write_float.def (calculate_sign): Eliminate warning by including all
+	cases in switch. (output_float): Output only decimal point of F2003 flag
+	is not set.
+
 2008-09-10  Tobias Burnus  <burnus@net-b.de>
 	    H. J. Lu  <hongjiu.lu@intel.com>
 
