@@ -242,7 +242,6 @@ static void setup_pointers_and_addressables (struct alias_info *);
 static void update_alias_info (struct alias_info *);
 static void create_global_var (void);
 static void maybe_create_global_var (void);
-static void create_vop_var (void);
 static void set_pt_anything (tree);
 
 void debug_mp_info (VEC(mem_sym_stats_t,heap) *);
@@ -1749,9 +1748,6 @@ compute_may_aliases (void)
   
   memset (&alias_stats, 0, sizeof (alias_stats));
 
-  if (!gimple_vop (cfun))
-    create_vop_var ();
-
   /* Initialize aliasing information.  */
   ai = init_alias_info ();
 
@@ -3085,7 +3081,14 @@ may_alias_p (tree ptr, alias_set_type mem_alias_set,
 bool
 may_point_to_global_var (tree ptr)
 {
-  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+  struct ptr_info_def *pi;
+
+  /* If we end up with a pointer constant here that may point
+     to global memory.  */
+  if (TREE_CODE (ptr) != SSA_NAME)
+    return true;
+
+  pi = SSA_NAME_PTR_INFO (ptr);
 
   /* If we do not have points-to information for this variable,
      we have to punt.  */
@@ -3382,31 +3385,6 @@ create_global_var (void)
   add_referenced_var (global_var);
   mark_sym_for_renaming (global_var);
   cfun->gimple_df->global_var = global_var;
-}
-
-
-/* Create the VOP variable, an artificial global variable to act as a
-   representative of all of the virtual operands FUD chain.  */
-
-static void
-create_vop_var (void)
-{
-  tree global_var = build_decl (VAR_DECL, get_identifier (".MEM"),
-                                void_type_node);
-  DECL_ARTIFICIAL (global_var) = 1;
-  TREE_READONLY (global_var) = 0;
-  DECL_EXTERNAL (global_var) = 1;
-  TREE_STATIC (global_var) = 1;
-  TREE_USED (global_var) = 1;
-  DECL_CONTEXT (global_var) = NULL_TREE;
-  TREE_THIS_VOLATILE (global_var) = 0;
-  TREE_ADDRESSABLE (global_var) = 0;
-
-  create_var_ann (global_var);
-  mark_call_clobbered (global_var, ESCAPE_UNKNOWN);
-  add_referenced_var (global_var);
-  mark_sym_for_renaming (global_var);
-  cfun->gimple_df->vop = global_var;
 }
 
 

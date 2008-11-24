@@ -355,6 +355,31 @@ add_vop_to_freelist (voptype_p ptr)
   gimple_ssa_operands (cfun)->vop_free_buckets[bucket] = ptr;
 }
  
+/* Create the VOP variable, an artificial global variable to act as a
+   representative of all of the virtual operands FUD chain.  */
+
+static void
+create_vop_var (void)
+{
+  tree global_var;
+
+  gcc_assert (cfun->gimple_df->vop == NULL_TREE);
+
+  global_var = build_decl (VAR_DECL, get_identifier (".MEM"),
+			   void_type_node);
+  DECL_ARTIFICIAL (global_var) = 1;
+  TREE_READONLY (global_var) = 0;
+  DECL_EXTERNAL (global_var) = 1;
+  TREE_STATIC (global_var) = 1;
+  TREE_USED (global_var) = 1;
+  DECL_CONTEXT (global_var) = NULL_TREE;
+  TREE_THIS_VOLATILE (global_var) = 0;
+  TREE_ADDRESSABLE (global_var) = 0;
+
+  create_var_ann (global_var);
+  add_referenced_var (global_var);
+  cfun->gimple_df->vop = global_var;
+}
 
 /* These are the sizes of the operand memory  buffer which gets allocated each 
    time more operands space is required.  The final value is the amount that is
@@ -390,6 +415,7 @@ init_ssa_operands (void)
   memset (&clobber_stats, 0, sizeof (clobber_stats));
   init_vop_buckets ();
   gimple_ssa_operands (cfun)->ssa_operand_mem_size = OP_SIZE_INIT;
+  create_vop_var ();
 }
 
 
@@ -441,6 +467,8 @@ fini_ssa_operands (void)
 
   if (!n_initialized)
     bitmap_obstack_release (&operands_bitmap_obstack);
+
+  cfun->gimple_df->vop = NULL_TREE;
 
   if (dump_file && (dump_flags & TDF_STATS))
     {
@@ -788,16 +816,6 @@ finalize_ssa_vdefs (gimple stmt)
   /* Set the symbols referenced by STMT.  */
   gimple_set_stored_syms (stmt, build_stores, &operands_bitmap_obstack);
 
-  /* If aliases have not been computed, do not instantiate a virtual
-     operator on STMT.  Initially, we only compute the SSA form on
-     GIMPLE registers.  The virtual SSA form is only computed after
-     alias analysis, so virtual operators will remain unrenamed and
-     the verifier will complain.  However, alias analysis needs to
-     access symbol load/store information, so we need to compute
-     those.  */
-  if (!gimple_aliases_computed_p (cfun))
-    return;
-
   new_list.next = NULL;
   last = &new_list;
 
@@ -836,13 +854,17 @@ finalize_ssa_vdefs (gimple stmt)
 	{
 	  /* This is a new operand.  */
 	  last = add_vdef_op (stmt, op, 1, last);
+	  mark_sym_for_renaming (gimple_vop (cfun));
 	  new_i++;
 	}
     }
 
   /* If there is anything remaining in BUILD_VDEFS, simply emit it.  */
   for ( ; new_i < VEC_length (tree, build_vdefs); new_i++)
-    last = add_vdef_op (stmt, VEC_index (tree, build_vdefs, new_i), 1, last);
+    {
+      last = add_vdef_op (stmt, VEC_index (tree, build_vdefs, new_i), 1, last);
+      mark_sym_for_renaming (gimple_vop (cfun));
+    }
 
   /* If there is anything in the old list, free it.  */
   if (old_ops)
@@ -853,6 +875,7 @@ finalize_ssa_vdefs (gimple stmt)
 	  delink_imm_use (VDEF_OP_PTR (ptr, 0));
 	  add_vop_to_freelist (ptr);
 	}
+      mark_sym_for_renaming (gimple_vop (cfun));
     }
 
   /* Now set STMT's operands.  */
@@ -882,16 +905,6 @@ finalize_ssa_vuse_ops (gimple stmt)
 
   /* Set the symbols referenced by STMT.  */
   gimple_set_loaded_syms (stmt, build_loads, &operands_bitmap_obstack);
-
-  /* If aliases have not been computed, do not instantiate a virtual
-     operator on STMT.  Initially, we only compute the SSA form on
-     GIMPLE registers.  The virtual SSA form is only computed after
-     alias analysis, so virtual operators will remain unrenamed and
-     the verifier will complain.  However, alias analysis needs to
-     access symbol load/store information, so we need to compute
-     those.  */
-  if (!gimple_aliases_computed_p (cfun))
-    return;
 
   /* STMT should have at most one VUSE operator.  */
   old_ops = gimple_vuse_ops (stmt);
@@ -955,6 +968,7 @@ finalize_ssa_vuse_ops (gimple stmt)
 
       gimple_set_vuse_ops (stmt, last);
       VEC_free (tree, heap, new_ops);
+      mark_sym_for_renaming (gimple_vop (cfun));
     }
 
 #ifdef ENABLE_CHECKING
@@ -1095,68 +1109,27 @@ append_use (tree *use_p)
 /* Add VAR to the set of variables that require a VDEF operator.  */
 
 static inline void
-append_vdef (tree var)
+append_vdef (void)
 {
   tree vop = gimple_vop (cfun);
   var_ann_t ann;
 
-  if (TREE_CODE (var) == VAR_DECL
-      || TREE_CODE (var) == PARM_DECL
-      || TREE_CODE (var) == RESULT_DECL)
-    bitmap_set_bit (build_stores, DECL_UID (var));
-
-  if (!vop)
-    return;
   ann = var_ann (vop);
   if (ann->in_vdef_list)
     return;
   ann->in_vdef_list = true;
   VEC_safe_push (tree, heap, build_vdefs, vop);
-  /* ???  Necessary?  */
-  bitmap_set_bit (build_stores, DECL_UID (vop));
-#if 0
-  if (TREE_CODE (var) != SSA_NAME)
-    {
-      tree mpt;
-      var_ann_t ann;
-
-      /* If VAR belongs to a memory partition, use it instead of VAR.  */
-      mpt = memory_partition (var);
-      if (mpt)
-	var = mpt;
-
-      /* Don't allow duplicate entries.  */
-      ann = get_var_ann (var);
-      if (ann->in_vdef_list)
-        return;
-
-      ann->in_vdef_list = true;
-      sym = var;
-    }
-  else
-    sym = SSA_NAME_VAR (var);
-
-  VEC_safe_push (tree, heap, build_vdefs, var);
-  bitmap_set_bit (build_stores, DECL_UID (sym));
-#endif
 }
 
 
 /* Add VAR to the set of variables that require a VUSE operator.  */
 
 static inline void
-append_vuse (tree var)
+append_vuse (void)
 {
   tree vop = gimple_vop (cfun);
   var_ann_t ann;
 
-  if (TREE_CODE (var) == VAR_DECL
-      || TREE_CODE (var) == PARM_DECL
-      || TREE_CODE (var) == RESULT_DECL)
-    bitmap_set_bit (build_loads, DECL_UID (var));
-
-  if (!vop)
-    return;
   ann = var_ann (vop);
   if (ann->in_vuse_list)
     return;
@@ -1165,183 +1138,6 @@ append_vuse (tree var)
       ann->in_vuse_list = true;
       VEC_safe_push (tree, heap, build_vuses, vop);
     }
-  /* ???  Necessary?  */
-  bitmap_set_bit (build_loads, DECL_UID (vop));
-#if 0
-  tree sym;
-
-  if (TREE_CODE (var) != SSA_NAME)
-    {
-      tree mpt;
-      var_ann_t ann;
-
-      /* If VAR belongs to a memory partition, use it instead of VAR.  */
-      mpt = memory_partition (var);
-      if (mpt)
-	var = mpt;
-
-      /* Don't allow duplicate entries.  */
-      ann = get_var_ann (var);
-      if (ann->in_vuse_list)
-	return;
-      else if (ann->in_vdef_list)
-       {
-         /* We don't want a vuse if we already have a vdef, but we must
-            still put this in build_loads.  */
-         bitmap_set_bit (build_loads, DECL_UID (var));
-         return;
-       }
-
-      ann->in_vuse_list = true;
-      sym = var;
-    }
-  else
-    sym = SSA_NAME_VAR (var);
-
-  VEC_safe_push (tree, heap, build_vuses, var);
-  bitmap_set_bit (build_loads, DECL_UID (sym));
-#endif
-}
-
-
-/* REF is a tree that contains the entire pointer dereference
-   expression, if available, or NULL otherwise.  ALIAS is the variable
-   we are asking if REF can access.  OFFSET and SIZE come from the
-   memory access expression that generated this virtual operand.
-
-   XXX: We should handle the NO_ALIAS attributes here.  */
-
-static bool
-access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
-			   HOST_WIDE_INT size)
-{
-  bool offsetgtz = offset > 0;
-  unsigned HOST_WIDE_INT uoffset = (unsigned HOST_WIDE_INT) offset;
-  tree base = ref ? get_base_address (ref) : NULL;
-
-  /* If ALIAS is .GLOBAL_VAR then the memory reference REF must be
-     using a call-clobbered memory tag.  By definition, call-clobbered
-     memory tags can always touch .GLOBAL_VAR.  */
-  if (alias == gimple_global_var (cfun))
-    return true;
-
-  /* If ref is a TARGET_MEM_REF, just return true, as we can't really
-     disambiguate them right now.  */
-  if (ref && TREE_CODE (ref) == TARGET_MEM_REF)
-    return true;
-  
-  /* Without strict aliasing, it is impossible for a component access
-     through a pointer to touch a random variable, unless that
-     variable *is* a structure or a pointer.
-
-     That is, given p->c, and some random global variable b,
-     there is no legal way that p->c could be an access to b.
-     
-     Without strict aliasing on, we consider it legal to do something
-     like:
-
-     struct foos { int l; };
-     int foo;
-     static struct foos *getfoo(void);
-     int main (void)
-     {
-       struct foos *f = getfoo();
-       f->l = 1;
-       foo = 2;
-       if (f->l == 1)
-         abort();
-       exit(0);
-     }
-     static struct foos *getfoo(void)     
-     { return (struct foos *)&foo; }
-     
-     (taken from 20000623-1.c)
-
-     The docs also say/imply that access through union pointers
-     is legal (but *not* if you take the address of the union member,
-     i.e. the inverse), such that you can do
-
-     typedef union {
-       int d;
-     } U;
-
-     int rv;
-     void breakme()
-     {
-       U *rv0;
-       U *pretmp = (U*)&rv;
-       rv0 = pretmp;
-       rv0->d = 42;    
-     }
-     To implement this, we just punt on accesses through union
-     pointers entirely.
-
-     Another case we have to allow is accessing a variable
-     through an array access at offset zero.  This happens from
-     code generated by the fortran frontend like
-
-     char[1:1] & my_char_ref;
-     char my_char;
-     my_char_ref_1 = (char[1:1] &) &my_char;
-     D.874_2 = (*my_char_ref_1)[1]{lb: 1 sz: 1};
-  */
-  if (ref 
-      && flag_strict_aliasing
-      && TREE_CODE (ref) != INDIRECT_REF
-      && !MTAG_P (alias)
-      && base
-      && (TREE_CODE (base) != INDIRECT_REF
-	  || TREE_CODE (TREE_TYPE (base)) != UNION_TYPE)
-      && (TREE_CODE (base) != INDIRECT_REF
-	  || TREE_CODE (ref) != ARRAY_REF
-	  || offset != 0
-	  || (DECL_SIZE (alias)
-	      && TREE_CODE (DECL_SIZE (alias)) == INTEGER_CST
-	      && size != -1
-	      && (unsigned HOST_WIDE_INT)size
-	      != TREE_INT_CST_LOW (DECL_SIZE (alias))))
-      && !AGGREGATE_TYPE_P (TREE_TYPE (alias))
-      && TREE_CODE (TREE_TYPE (alias)) != COMPLEX_TYPE
-      && !var_ann (alias)->is_heapvar
-      /* When the struct has may_alias attached to it, we need not to
-	 return true.  */
-      && get_alias_set (base))
-    {
-#ifdef ACCESS_DEBUGGING
-      fprintf (stderr, "Access to ");
-      print_generic_expr (stderr, ref, 0);
-      fprintf (stderr, " may not touch ");
-      print_generic_expr (stderr, alias, 0);
-      fprintf (stderr, " in function %s\n", get_name (current_function_decl));
-#endif
-      return false;
-    }
-
-  /* If the offset of the access is greater than the size of one of
-     the possible aliases, it can't be touching that alias, because it
-     would be past the end of the structure.  */
-  else if (ref
-	   && flag_strict_aliasing
-	   && TREE_CODE (ref) != INDIRECT_REF
-	   && !MTAG_P (alias)
-	   && !var_ann (alias)->is_heapvar
-	   && !POINTER_TYPE_P (TREE_TYPE (alias))
-	   && offsetgtz
-	   && DECL_SIZE (alias)
-	   && TREE_CODE (DECL_SIZE (alias)) == INTEGER_CST
-	   && uoffset >= TREE_INT_CST_LOW (DECL_SIZE (alias)))
-    {
-#ifdef ACCESS_DEBUGGING
-      fprintf (stderr, "Access to ");
-      print_generic_expr (stderr, ref, 0);
-      fprintf (stderr, " may not touch ");
-      print_generic_expr (stderr, alias, 0);
-      fprintf (stderr, " in function %s\n", get_name (current_function_decl));
-#endif
-      return false;
-    }	   
-
-  return true;
 }
 
 /* Add VAR to the virtual operands for STMT.  FLAGS is as in
@@ -1352,35 +1148,10 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
    affected statement is a call site.  */
 
 static void
-add_virtual_operand (tree var, gimple stmt, int flags,
-		     tree full_ref, HOST_WIDE_INT offset,
-		     HOST_WIDE_INT size, bool is_call_site)
+add_virtual_operand (gimple stmt, int flags)
 {
-  bitmap aliases = NULL;
-  tree sym;
-  var_ann_t v_ann;
-  
-  sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
-  v_ann = var_ann (sym);
-  
   /* Mark the statement as having memory operands.  */
   gimple_set_references_memory (stmt, true);
-
-  /* If the variable cannot be modified and this is a VDEF change
-     it into a VUSE.  This happens when read-only variables are marked
-     call-clobbered and/or aliased to writable variables.  So we only
-     check that this only happens on non-specific stores.
-
-     Note that if this is a specific store, i.e. associated with a
-     MODIFY_EXPR, then we can't suppress the VDEF, lest we run
-     into validation problems.
-
-     This can happen when programs cast away const, leaving us with a
-     store to read-only memory.  If the statement is actually executed
-     at runtime, then the program is ill formed.  If the statement is
-     not executed then all is well.  At the very least, we cannot ICE.  */
-  if ((flags & opf_implicit) && unmodifiable_var_p (var))
-    flags &= ~opf_def;
   
   /* The variable is not a GIMPLE register.  Add it (or its aliases) to
      virtual operands, unless the caller has specifically requested
@@ -1388,84 +1159,11 @@ add_virtual_operand (tree var, gimple stmt, int flags,
      ADDR_EXPR expression).  */
   if (flags & opf_no_vops)
     return;
-  
-  if (MTAG_P (var))
-    aliases = MTAG_ALIASES (var);
 
-  if (aliases == NULL)
-    {
-      if (!gimple_aliases_computed_p (cfun) && (flags & opf_def))
-	gimple_set_has_volatile_ops (stmt, true);
-
-      /* The variable is not aliased or it is an alias tag.  */
-      if (flags & opf_def)
-	append_vdef (var);
-      else
-	append_vuse (var);
-    }
+  if (flags & opf_def)
+    append_vdef ();
   else
-    {
-      bitmap_iterator bi;
-      unsigned int i;
-      bool none_added = true;
-      
-      /* The variable is aliased.  Add its aliases to the virtual
-	 operands.  */
-      gcc_assert (!bitmap_empty_p (aliases));
-
-      EXECUTE_IF_SET_IN_BITMAP (aliases, 0, i, bi)
-	{
-	  tree al = referenced_var (i);
-
-	  /* Call-clobbered tags may have non-call-clobbered
-	     symbols in their alias sets.  Ignore them if we are
-	     adding VOPs for a call site.  */
-	  if (is_call_site && !is_call_clobbered (al))
-	    continue;
-
-	  /* If we do not know the full reference tree or if the access is
-	     unspecified [0, -1], we cannot prune it.  Otherwise try doing
-	     so using access_can_touch_variable.  */
-	  if (full_ref
-	      && !access_can_touch_variable (full_ref, al, offset, size))
-	    continue;
-
-	  if (flags & opf_def)
-	    append_vdef (al);
-	  else
-	    append_vuse (al);
-	  none_added = false;
-	}
-
-      if (flags & opf_def)
-	{
-	  /* If the variable is also an alias tag, add a virtual
-	     operand for it, otherwise we will miss representing
-	     references to the members of the variable's alias set.	     
-	     This fixes the bug in gcc.c-torture/execute/20020503-1.c.
-	     
-	     It is also necessary to add bare defs on clobbers for
-	     SMT's, so that bare SMT uses caused by pruning all the
-	     aliases will link up properly with calls.   In order to
-	     keep the number of these bare defs we add down to the
-	     minimum necessary, we keep track of which SMT's were used
-	     alone in statement vdefs or VUSEs.  */
-	  if (none_added
-	      || (TREE_CODE (var) == SYMBOL_MEMORY_TAG
-		  && is_call_site))
-	    append_vdef (var);
-	}
-      else
-	{
-	  /* Even if no aliases have been added, we still need to
-	     establish def-use and use-def chains, lest
-	     transformations think that this is not a memory
-	     reference.  For an example of this scenario, see
-	     testsuite/g++.dg/opt/cleanup1.C.  */
-	  if (none_added)
-	    append_vuse (var);
-	}
-    }
+    append_vuse ();
 }
 
 
@@ -1499,108 +1197,18 @@ add_stmt_operand (tree *var_p, gimple stmt, int flags)
 	append_use (var_p);
     }
   else
-    add_virtual_operand (var, stmt, flags, NULL_TREE, 0, -1, false);
-}
-
-/* Subroutine of get_indirect_ref_operands.  ADDR is the address
-   that is dereferenced, the meaning of the rest of the arguments
-   is the same as in get_indirect_ref_operands.  */
-
-static void
-get_addr_dereference_operands (gimple stmt, tree *addr, int flags,
-			       tree full_ref, HOST_WIDE_INT offset,
-			       HOST_WIDE_INT size, bool recurse_on_base)
-{
-  tree ptr = *addr;
-
-  /* Mark the statement as having memory operands.  */
-  gimple_set_references_memory (stmt, true);
-
-  if (SSA_VAR_P (ptr))
     {
-      struct ptr_info_def *pi = NULL;
-
-      /* If PTR has flow-sensitive points-to information, use it.  */
-      if (TREE_CODE (ptr) == SSA_NAME
-	  && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
-	  && pi->name_mem_tag)
+      if (TREE_CODE (var) == VAR_DECL
+	  || TREE_CODE (var) == PARM_DECL
+	  || TREE_CODE (var) == RESULT_DECL)
 	{
-	  /* PTR has its own memory tag.  Use it.  */
-	  add_virtual_operand (pi->name_mem_tag, stmt, flags,
-			       full_ref, offset, size, false);
+	  if (flags & opf_def)
+	    bitmap_set_bit (build_stores, DECL_UID (var));
+	  bitmap_set_bit (build_loads, DECL_UID (var));
 	}
-      else
-	{
-	  /* If PTR is not an SSA_NAME or it doesn't have a name
-	     tag, use its symbol memory tag.  */
-	  var_ann_t v_ann;
-
-	  /* If we are emitting debugging dumps, display a warning if
-	     PTR is an SSA_NAME with no flow-sensitive alias
-	     information.  That means that we may need to compute
-	     aliasing again or that a propagation pass forgot to
-	     update the alias information on the pointers.  */
-	  if (dump_file
-	      && TREE_CODE (ptr) == SSA_NAME
-	      && (pi == NULL
-		  || (pi->name_mem_tag == NULL_TREE
-		      && !pi->pt_anything))
-	      && gimple_aliases_computed_p (cfun))
-	    {
-	      fprintf (dump_file,
-		  "NOTE: no flow-sensitive alias info for ");
-	      print_generic_expr (dump_file, ptr, dump_flags);
-	      fprintf (dump_file, " in ");
-	      print_gimple_stmt (dump_file, stmt, 0, 0);
-	    }
-
-	  if (TREE_CODE (ptr) == SSA_NAME)
-	    ptr = SSA_NAME_VAR (ptr);
-	  v_ann = var_ann (ptr);
-
-	  /* If we don't know what this pointer points to then we have
-	     to make sure to not prune virtual operands based on offset
-	     and size.  */
-	  if (v_ann->symbol_mem_tag)
-	    {
-	      add_virtual_operand (v_ann->symbol_mem_tag, stmt, flags,
-				   full_ref, 0, -1, false);
-	      /* Make sure we add the SMT itself.  */
-	      if (!(flags & opf_no_vops))
-		{
-		  if (flags & opf_def)
-		    append_vdef (v_ann->symbol_mem_tag);
-		  else
-		    append_vuse (v_ann->symbol_mem_tag);
-		}
-	    }
-
-	  /* Aliasing information is missing; mark statement as
-	     volatile so we won't optimize it out too actively.  */
-          else if (!gimple_aliases_computed_p (cfun)
-                   && (flags & opf_def))
-	    gimple_set_has_volatile_ops (stmt, true);
-	}
+      add_virtual_operand (stmt, flags);
     }
-  else if (TREE_CODE (ptr) == INTEGER_CST)
-    {
-      /* If a constant is used as a pointer, we can't generate a real
-	 operand for it but we mark the statement volatile to prevent
-	 optimizations from messing things up.  */
-      gimple_set_has_volatile_ops (stmt, true);
-      return;
-    }
-  else
-    {
-      /* Ok, this isn't even is_gimple_min_invariant.  Something's broke.  */
-      gcc_unreachable ();
-    }
-
-  /* If requested, add a USE operand for the base pointer.  */
-  if (recurse_on_base)
-    get_expr_operands (stmt, addr, opf_use);
 }
-
 
 /* A subroutine of get_expr_operands to handle INDIRECT_REF,
    ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.  
@@ -1613,16 +1221,12 @@ get_addr_dereference_operands (gimple stmt, tree *addr, int flags,
    FULL_REF contains the full pointer dereference expression, if we
       have it, or NULL otherwise.
 
-   OFFSET and SIZE are the location of the access inside the
-      dereferenced pointer, if known.
-
    RECURSE_ON_BASE should be set to true if we want to continue
       calling get_expr_operands on the base pointer, and false if
       something else will do it for us.  */
 
 static void
-get_indirect_ref_operands (gimple stmt, tree expr, int flags, tree full_ref,
-			   HOST_WIDE_INT offset, HOST_WIDE_INT size,
+get_indirect_ref_operands (gimple stmt, tree expr, int flags,
 			   bool recurse_on_base)
 {
   tree *pptr = &TREE_OPERAND (expr, 0);
@@ -1630,8 +1234,15 @@ get_indirect_ref_operands (gimple stmt, tree expr, int flags, tree full_ref,
   if (TREE_THIS_VOLATILE (expr))
     gimple_set_has_volatile_ops (stmt, true);
 
-  get_addr_dereference_operands (stmt, pptr, flags, full_ref, offset, size,
-				 recurse_on_base);
+  /* Mark the statement as having memory operands.  */
+  gimple_set_references_memory (stmt, true);
+
+  /* Add the VOP.  */
+  add_virtual_operand (stmt, flags);
+
+  /* If requested, add a USE operand for the base pointer.  */
+  if (recurse_on_base)
+    get_expr_operands (stmt, pptr, opf_use);
 }
 
 
@@ -1640,8 +1251,6 @@ get_indirect_ref_operands (gimple stmt, tree expr, int flags, tree full_ref,
 static void
 get_tmr_operands (gimple stmt, tree expr, int flags)
 {
-  tree tag;
-
   /* Mark the statement as having memory operands.  */
   gimple_set_references_memory (stmt, true);
 
@@ -1652,154 +1261,7 @@ get_tmr_operands (gimple stmt, tree expr, int flags)
   if (TMR_SYMBOL (expr))
     gimple_add_to_addresses_taken (stmt, TMR_SYMBOL (expr));
 
-  tag = TMR_TAG (expr);
-  if (!tag)
-    {
-      /* Something weird, so ensure that we will be careful.  */
-      gimple_set_has_volatile_ops (stmt, true);
-      return;
-    }
-  if (!MTAG_P (tag))
-    {
-      get_expr_operands (stmt, &tag, flags);
-      return;
-    }
-
-  add_virtual_operand (tag, stmt, flags, expr, 0, -1, false);
-}
-
-
-/* Add clobbering definitions for .GLOBAL_VAR or for each of the call
-   clobbered variables in the function.  */
-
-static void
-add_call_clobber_ops (gimple stmt, tree callee ATTRIBUTE_UNUSED)
-{
-  unsigned u;
-  bitmap_iterator bi;
-  bitmap not_read_b, not_written_b;
-
-  gcc_assert (!(gimple_call_flags (stmt) & (ECF_PURE | ECF_CONST)));
-
-  /* If we created .GLOBAL_VAR earlier, just use it.  */
-  if (gimple_global_var (cfun))
-    {
-      tree var = gimple_global_var (cfun);
-      add_virtual_operand (var, stmt, opf_def, NULL, 0, -1, true);
-      return;
-    }
-
-  /* Get info for local and module level statics.  There is a bit
-     set for each static if the call being processed does not read
-     or write that variable.  */
-  not_read_b = callee ? ipa_reference_get_not_read_global (cgraph_node (callee)) : NULL; 
-  not_written_b = callee ? ipa_reference_get_not_written_global (cgraph_node (callee)) : NULL;
-
-  /* Add a VDEF operand for every call clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, u, bi)
-    {
-      tree var = referenced_var_lookup (u);
-      tree real_var = var;
-      bool not_read;
-      bool not_written;
-
-      not_read = not_read_b
-	         ? bitmap_bit_p (not_read_b, DECL_UID (real_var))
-	         : false;
-
-      not_written = not_written_b
-	            ? bitmap_bit_p (not_written_b, DECL_UID (real_var))
-		    : false;
-      gcc_assert (!unmodifiable_var_p (var));
-      
-      clobber_stats.clobbered_vars++;
-
-      /* See if this variable is really clobbered by this function.  */
-
-      if (not_written)
-	{
-	  clobber_stats.static_write_clobbers_avoided++;
-	  if (!not_read)
-	    add_virtual_operand (var, stmt, opf_use, NULL, 0, -1, true);
-	  else
-	    clobber_stats.static_read_clobbers_avoided++;
-	}
-      else
-	add_virtual_operand (var, stmt, opf_def, NULL, 0, -1, true);
-    }
-}
-
-
-/* Add VUSE operands for .GLOBAL_VAR or all call clobbered variables in the
-   function.  */
-
-static void
-add_call_read_ops (gimple stmt, tree callee ATTRIBUTE_UNUSED)
-{
-  unsigned u;
-  bitmap_iterator bi;
-  bitmap not_read_b;
-
-  /* Const functions do not reference memory.  */
-  if (gimple_call_flags (stmt) & ECF_CONST)
-    return;
-
-  not_read_b = callee ? ipa_reference_get_not_read_global (cgraph_node (callee)) : NULL;
-
-  /* For pure functions we compute non-escaped uses separately.  */
-  if (gimple_call_flags (stmt) & ECF_PURE)
-    EXECUTE_IF_SET_IN_BITMAP (gimple_call_used_vars (cfun), 0, u, bi)
-      {
-	tree var = referenced_var_lookup (u);
-	tree real_var = var;
-	bool not_read;
-
-	if (unmodifiable_var_p (var))
-	  continue;
-
-	not_read = not_read_b
-	    ? bitmap_bit_p (not_read_b, DECL_UID (real_var))
-	    : false;
-
-	clobber_stats.readonly_clobbers++;
-
-	/* See if this variable is really used by this function.  */
-	if (!not_read)
-	  add_virtual_operand (var, stmt, opf_use, NULL, 0, -1, true);
-	else
-	  clobber_stats.static_readonly_clobbers_avoided++;
-      }
-
-  /* Add a VUSE for .GLOBAL_VAR if it has been created.  See
-     add_referenced_var for the heuristic used to decide whether to
-     create .GLOBAL_VAR.  */
-  if (gimple_global_var (cfun))
-    {
-      tree var = gimple_global_var (cfun);
-      add_virtual_operand (var, stmt, opf_use, NULL, 0, -1, true);
-      return;
-    }
-
-  /* Add a VUSE for each call-clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, u, bi)
-    {
-      tree var = referenced_var (u);
-      tree real_var = var;
-      bool not_read;
-      
-      clobber_stats.readonly_clobbers++;
-
-      not_read = not_read_b ? bitmap_bit_p (not_read_b, DECL_UID (real_var))
-	                    : false;
-      
-      if (not_read)
-	{
-	  clobber_stats.static_readonly_clobbers_avoided++;
-	  continue;
-	}
-            
-      add_virtual_operand (var, stmt, opf_use, NULL, 0, -1, true);
-    }
+  add_virtual_operand (stmt, flags);
 }
 
 
@@ -1807,7 +1269,7 @@ add_call_read_ops (gimple stmt, tree callee ATTRIBUTE_UNUSED)
    escape, add them to the VDEF/VUSE lists for it.  */
 
 static void
-maybe_add_call_clobbered_vops (gimple stmt)
+maybe_add_call_vops (gimple stmt)
 {
   int call_flags = gimple_call_flags (stmt);
 
@@ -1817,15 +1279,15 @@ maybe_add_call_clobbered_vops (gimple stmt)
   /* If aliases have been computed already, add VDEF or VUSE
      operands for all the symbols that have been found to be
      call-clobbered.  */
-  if (gimple_aliases_computed_p (cfun) && !(call_flags & ECF_NOVOPS))
+  if (!(call_flags & ECF_NOVOPS))
     {
       /* A 'pure' or a 'const' function never call-clobbers anything. 
 	 A 'noreturn' function might, but since we don't return anyway 
 	 there is no point in recording that.  */ 
       if (!(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
-	add_call_clobber_ops (stmt, gimple_call_fndecl (stmt));
+	add_virtual_operand (stmt, opf_def);
       else if (!(call_flags & ECF_CONST))
-	add_call_read_ops (stmt, gimple_call_fndecl (stmt));
+	add_virtual_operand (stmt, opf_use);
     }
 }
 
@@ -1974,7 +1436,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 
     case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
-      get_indirect_ref_operands (stmt, expr, flags, expr, 0, -1, true);
+      get_indirect_ref_operands (stmt, expr, flags, true);
       return;
 
     case TARGET_MEM_REF:
@@ -1996,8 +1458,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
 	if (TREE_CODE (ref) == INDIRECT_REF)
 	  {
-	    get_indirect_ref_operands (stmt, ref, flags, expr, offset,
-		                       maxsize, false);
+	    get_indirect_ref_operands (stmt, ref, flags, false);
 	    flags |= opf_no_vops;
 	  }
 
@@ -2133,7 +1594,7 @@ parse_ssa_operands (gimple stmt)
 
       /* Add call-clobbered operands, if needed.  */
       if (code == GIMPLE_CALL)
-	maybe_add_call_clobbered_vops (stmt);
+	maybe_add_call_vops (stmt);
     }
 }
 
@@ -2342,7 +1803,7 @@ create_ssa_artificial_load_stmt (gimple new_stmt, gimple old_stmt,
   /* For each VDEF on the original statement, we want to create a
      VUSE of the VDEF result operand on the new statement.  */
   FOR_EACH_SSA_TREE_OPERAND (op, old_stmt, iter, SSA_OP_VDEF)
-    append_vuse (op);
+    append_vuse ();
 
   finalize_ssa_stmt_operands (new_stmt);
 

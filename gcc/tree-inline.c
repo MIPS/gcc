@@ -3395,6 +3395,9 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 
   id->block = NULL_TREE;
   successfully_inlined = TRUE;
+  /* ???  This should not be necessary if we update stmts correctly.  */
+  if (gimple_in_ssa_p (cfun))
+    mark_sym_for_renaming (gimple_vop (cfun));
 
  egress:
   input_location = saved_location;

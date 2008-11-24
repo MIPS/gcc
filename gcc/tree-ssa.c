@@ -1680,7 +1680,6 @@ execute_update_addresses_taken (void)
   basic_block bb;
   bitmap addresses_taken = BITMAP_ALLOC (NULL);
   bitmap not_reg_needs = BITMAP_ALLOC (NULL);
-  bitmap vars_updated = BITMAP_ALLOC (NULL);
   bool update_vops = false;
 
   /* Collect into ADDRESSES_TAKEN all variables whose address is taken within
@@ -1743,7 +1742,6 @@ execute_update_addresses_taken (void)
 	  if (is_gimple_reg (var))
 	    mark_sym_for_renaming (var);
 	  update_vops = true;
-	  bitmap_set_bit (vars_updated, DECL_UID (var));
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "No longer having address taken ");
@@ -1759,7 +1757,6 @@ execute_update_addresses_taken (void)
 	  DECL_GIMPLE_REG_P (var) = 1;
 	  mark_sym_for_renaming (var);
 	  update_vops = true;
-	  bitmap_set_bit (vars_updated, DECL_UID (var));
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "Decl is now a gimple register ");
@@ -1777,15 +1774,11 @@ execute_update_addresses_taken (void)
 	{
 	  gimple stmt = gsi_stmt (gsi);
 
-	  if ((gimple_loaded_syms (stmt)
-	       && bitmap_intersect_p (gimple_loaded_syms (stmt), vars_updated))
-	      || (gimple_stored_syms (stmt)
-		  && bitmap_intersect_p (gimple_stored_syms (stmt), vars_updated)))
+	  if (gimple_references_memory_p (stmt))
 	    update_stmt (stmt);
 	}
   BITMAP_FREE (not_reg_needs);
   BITMAP_FREE (addresses_taken);
-  BITMAP_FREE (vars_updated);
   return 0;
 }
 

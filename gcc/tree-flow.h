@@ -193,6 +193,9 @@ struct gimple_df GTY(())
   /* True if the code is in ssa form.  */
   unsigned int in_ssa_p : 1;
 
+  /* True if the VOP needs to be renamed.  */
+  unsigned int vop_needs_renaming : 1;
+
   struct ssa_operands ssa_operands;
 
   /* Memory reference statistics collected during alias analysis.

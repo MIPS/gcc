@@ -585,6 +585,13 @@ set_livein_block (tree var, basic_block bb)
 static inline bool
 symbol_marked_for_renaming (tree sym)
 {
+  if (sym == gimple_vop (cfun)
+      && cfun->gimple_df->vop_needs_renaming)
+    return true;
+
+  if (!syms_to_rename)
+    return false;
+
   return bitmap_bit_p (syms_to_rename, DECL_UID (sym));
 }
 
@@ -595,6 +602,8 @@ static inline bool
 is_old_name (tree name)
 {
   unsigned ver = SSA_NAME_VERSION (name);
+  if (!new_ssa_names)
+    return false;
   return ver < new_ssa_names->n_bits && TEST_BIT (old_ssa_names, ver);
 }
 
@@ -605,6 +614,8 @@ static inline bool
 is_new_name (tree name)
 {
   unsigned ver = SSA_NAME_VERSION (name);
+  if (!new_ssa_names)
+    return false;
   return ver < new_ssa_names->n_bits && TEST_BIT (new_ssa_names, ver);
 }
 
@@ -2293,6 +2304,7 @@ struct gimple_opt_pass pass_build_ssa =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func
+    | TODO_update_ssa_only_virtuals
     | TODO_verify_ssa
     | TODO_remove_unused_locals		/* todo_flags_finish */
  }
@@ -2609,6 +2621,11 @@ dump_update_ssa (FILE *file)
       fprintf (file, "\n\nSymbols to be put in SSA form\n\n");
       dump_decl_set (file, syms_to_rename);
     }
+  if (cfun->gimple_df->vop_needs_renaming)
+    {
+      print_generic_expr (file, gimple_vop (cfun), 0);
+      fprintf (file, "\n");
+    }
 
   if (names_to_release && !bitmap_empty_p (names_to_release))
     {
@@ -2666,6 +2683,8 @@ delete_update_ssa (void)
 {
   unsigned i;
   bitmap_iterator bi;
+
+  cfun->gimple_df->vop_needs_renaming = false;
 
   sbitmap_free (old_ssa_names);
   old_ssa_names = NULL;
@@ -2765,6 +2784,12 @@ register_new_name_mapping (tree new_Tree ATTRIBUTE_UNUSED, tree old ATTRIBUTE_UN
 void
 mark_sym_for_renaming (tree sym)
 {
+  if (sym == gimple_vop (cfun))
+    {
+      cfun->gimple_df->vop_needs_renaming = true;
+      return;
+    }
+
   if (need_to_initialize_update_ssa_p)
     init_update_ssa ();
 
@@ -2803,7 +2828,10 @@ mark_set_for_renaming (bitmap set)
 bool
 need_ssa_update_p (void)
 {
-  return syms_to_rename || old_ssa_names || new_ssa_names;
+  return ((cfun
+	   && cfun->gimple_df
+	   && cfun->gimple_df->vop_needs_renaming)
+	  || syms_to_rename || old_ssa_names || new_ssa_names);
 }
 
 /* Return true if SSA name mappings have been registered for SSA updating.  */
@@ -2850,7 +2878,8 @@ ssa_names_to_replace (void)
 void
 release_ssa_name_after_update_ssa (tree name)
 {
-  gcc_assert (!need_to_initialize_update_ssa_p);
+  gcc_assert (!need_to_initialize_update_ssa_p
+	      || cfun->gimple_df->vop_needs_renaming);
 
   if (names_to_release == NULL)
     names_to_release = BITMAP_ALLOC (NULL);
@@ -3115,6 +3144,12 @@ update_ssa (unsigned update_flags)
 
   timevar_push (TV_TREE_SSA_INCREMENTAL);
 
+  if (need_to_initialize_update_ssa_p)
+    {
+      gcc_assert (cfun->gimple_df->vop_needs_renaming);
+      init_update_ssa ();
+    }
+
   blocks_with_phis_to_rewrite = BITMAP_ALLOC (NULL);
   if (!phis_to_rewrite)
     phis_to_rewrite = VEC_alloc (gimple_vec, heap, last_basic_block);
@@ -3166,6 +3201,12 @@ update_ssa (unsigned update_flags)
   /* If there are symbols to rename, identify those symbols that are
      GIMPLE registers into the set REGS_TO_RENAME and those that are
      memory symbols into the set MEM_SYMS_TO_RENAME.  */
+  if (cfun->gimple_df->vop_needs_renaming)
+    {
+      bitmap_set_bit (syms_to_rename, DECL_UID (gimple_vop (cfun)));
+      cfun->gimple_df->vop_needs_renaming = false;
+      need_to_update_vops_p = true;
+    }
   if (!bitmap_empty_p (syms_to_rename))
     {
       unsigned i;

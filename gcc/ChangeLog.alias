@@ -1,3 +1,50 @@
+2008-11-24  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (struct gimple_df): Add vop_needs_renaming flag.
+	* tree-into-ssa.c (symbol_marked_for_renaming): Adjust for
+	vop_needs_renaming flag.
+	(is_old_name): Likewise.
+	(is_new_name): Likewise.
+	(pass_build_ssa): Run TODO_update_ssa_only_virtuals.
+	(dump_update_ssa): Dump vop_needs_renaming.
+	(delete_update_ssa): Clear delete_update_ssa.
+	(mark_sym_for_renaming): Adjust for vop_needs_renaming flag.
+	(need_ssa_update_p): Likewise.
+	(release_ssa_name_after_update_ssa): Likewise.
+	(update_ssa): Likewise.
+	* ipa-cp.c (ipcp_update_callgraph): Update SSA form.
+	* tree-ssa-alias.c (create_vop_var): Remove.
+	(compute_may_aliases): Do not call it here.
+	(may_point_to_global_var): Handle pointer constants.
+	* tree-inline.c (expand_call_inline): Mark the VOP for renaming.
+	* gimple.h (gimple_loaded_syms): Note that we should fix this
+	interface.
+	* tree-ssa-operands.c (create_vop_var): Move here.
+	(init_ssa_operands): Call it.
+	(fini_ssa_operands): Clear gimple_df->vop.
+	(finalize_ssa_vdefs): Mark the VOP for renaming on changes.
+	(finalize_ssa_vuse_ops): Likewise.
+	(append_vdef): Simplify.
+	(append_vuse): Likewise.
+	(access_can_touch_variable): Remove.
+	(add_virtual_operand): Simplify.
+	(get_addr_dereference_operands): Remove.
+	(get_indirect_ref_operands): Simplify.
+	(get_tmr_operands): Likewise.
+	(add_call_clobber_ops): Remove.
+	(add_call_read_ops): Likewise.
+	(maybe_add_call_clobbered_vops): Rename to ...
+	(maybe_add_call_vops): ... this.  Inline remanents of the
+	removed functions.
+	(get_expr_operands): Simplify.
+	(create_ssa_artificial_load_stmt): Likewise.
+	* tree-call-cdce.c (tree_call_cdce): Rename the VOP.
+	* tree-cfg.c (mark_virtual_ops_in_region): Remove.
+	(move_sese_region_to_fn): Do not call it.
+	* omp-low.c (expand_omp_taskreg): Update SSA form.
+	* tree-ssa.c (execute_update_addresses_taken): Update for
+	single VOP.
+
 2008-11-23  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r142135.
