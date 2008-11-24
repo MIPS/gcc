@@ -1,3 +1,14 @@
+2008-11-24  Doug Kwan  <dougkwan@google.com>
+
+	* lto-function-out.c (output_var_init): Remove code to avoid
+	multiple variable definitions in LTRANS files.
+	(output_var_decl): Add code to avoid multiple variable definitions
+	in LTRANS files.
+	* lto-function-in.c (input_constructors_or_inits): Remove code to
+	avoid multiple variable definitions in LTRANS files.
+ 	(input_var_decl): Add code to avoid multiple variable definitions
+	in LTRANS files.
+
 2008-11-24  Rafael Espindola  <espindola@google.com>
 
 	* ltrans-driver: Unset MAKEFLAGS, MAKEINFO and MAKELEVEL.

@@ -2304,7 +2304,6 @@ input_constructors_or_inits (struct data_in *data_in,
 			     struct lto_input_block *ib)
 {
   enum LTO_tags tag;
-  lto_var_flags_t flags;
 
   clear_line_info (data_in);
   tag = input_record_start (ib);
@@ -2316,10 +2315,6 @@ input_constructors_or_inits (struct data_in *data_in,
       tag = input_record_start (ib);
       if (tag)
 	DECL_INITIAL (var) = input_expr_operand (ib, data_in, NULL, tag);
-      LTO_DEBUG_TOKEN ("flags");
-      flags = lto_input_uleb128 (ib);
-      if (flags)
-	lto_set_var_flags (var, lto_get_var_flags (var) | flags);
       tag = input_record_start (ib);
     }
 
@@ -2941,6 +2936,7 @@ static tree
 input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
   unsigned index;
+  lto_var_flags_t var_flags;
 
   tree decl = make_node (VAR_DECL);
 
@@ -2948,6 +2944,12 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
   if (input_line_info (ib, data_in, flags))
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
+
+  /* Additional LTO var flags. */
+  LTO_DEBUG_TOKEN ("var_flags");
+  var_flags = lto_input_uleb128 (ib);
+  if (var_flags)
+    lto_set_var_flags (decl, var_flags);
 
   /* Even though we cannot actually generate a reference
      to this node until we have done the lto_symtab_merge_var,

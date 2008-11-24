@@ -2264,33 +2264,10 @@ output_function (struct cgraph_node* node)
 static void
 output_var_init (struct output_block *ob, tree var)
 {
-  lto_var_flags_t flags;
-
   output_expr_operand (ob, var);
   LTO_DEBUG_TOKEN ("init");
   if (DECL_INITIAL (var))
     output_expr_operand (ob, DECL_INITIAL (var));
-  else
-    output_zero (ob);
-
-  LTO_DEBUG_TOKEN ("flags");
-  if (flag_wpa)
-    {
-      flags = lto_get_var_flags (var);
-
-      /* Make sure we only output a global from one LTRANS file. */
-      if (TREE_PUBLIC (var)
-	  || (flags & LTO_VAR_FLAG_FORCE_GLOBAL))
-	{
-	  if (flags & LTO_VAR_FLAG_DEFINED)
-	    flags |= LTO_VAR_FLAG_SUPPRESS_OUTPUT;
-	  else
-	    flags |= LTO_VAR_FLAG_DEFINED;
-	  lto_set_var_flags (var, flags);
-	}
-
-      output_uleb128 (ob, flags);
-    }
   else
     output_zero (ob);
 }
@@ -2827,6 +2804,28 @@ output_var_decl (struct output_block *ob, tree decl)
     }
   else
     output_tree_flags (ob, 0, decl, true);
+
+  /* Additional LTO var flags. */
+  LTO_DEBUG_TOKEN ("var_flags");
+  if (flag_wpa)
+    {
+      lto_var_flags_t flags = lto_get_var_flags (decl);
+
+      /* Make sure we only output a global from one LTRANS file. */
+      if (TREE_PUBLIC (decl)
+	  || (flags & LTO_VAR_FLAG_FORCE_GLOBAL))
+	{
+	  if (flags & LTO_VAR_FLAG_DEFINED)
+	    flags |= LTO_VAR_FLAG_SUPPRESS_OUTPUT;
+	  else
+	    flags |= LTO_VAR_FLAG_DEFINED;
+	  lto_set_var_flags (decl, flags);
+	}
+
+      output_uleb128 (ob, flags);
+    }
+  else
+    output_zero (ob);
 
   global_vector_debug (ob);
 
