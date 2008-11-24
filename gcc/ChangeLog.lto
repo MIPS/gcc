@@ -1,3 +1,7 @@
+2008-11-24  Rafael Espindola  <espindola@google.com>
+
+	* ltrans-driver: Unset MAKEFLAGS, MAKEINFO and MAKELEVEL.
+
 2008-11-20  Rafael Espindola  <espindola@google.com>
 	    Diego Novillo  <dnovillo@google.com>
 

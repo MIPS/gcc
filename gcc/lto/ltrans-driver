@@ -23,8 +23,7 @@
 # This is the default ltrans_driver for LTO.  It takes a list of files
 # output during WPA mode and expects the CC and CFLAGS environment variables
 # to be set.  It generates a temporary Makefile, and uses it to convert .o
-# files to .ltrans.o files.  Other environment variables (e.g. MAKE and
-# MAKEFLAGS) can be used to control the behavior of make.
+# files to .ltrans.o files.
 
 
 # Create a temporary directory $tmp in $TMPDIR (default /tmp).
@@ -47,6 +46,12 @@ trap 'rm -rf $tmp' TERM INT EXIT
 # Create a temporary Makefile.
 makefile=$tmp/Makefile
 touch $makefile
+
+# We have to clear these to avoid problems with this make invocations getting
+# confused with variables set by (for example) "make -j 2 check".
+unset MAKEFLAGS
+unset MAKEINFO
+unset MAKELEVEL
 
 inputlist="$@"
 outputlist=
