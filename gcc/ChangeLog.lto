@@ -1,3 +1,7 @@
+2008-11-25  Simon Baldwin  <simonb@google.com>
+
+	* toplev.c (default_tree_printer): Add handling for %E format.
+
 2008-11-24  Doug Kwan  <dougkwan@google.com>
 
 	* lto-function-out.c (output_var_init): Remove code to avoid
