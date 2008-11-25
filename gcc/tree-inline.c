@@ -155,6 +155,9 @@ insert_decl_map (copy_body_data *id, tree key, tree value)
 static void
 insert_debug_decl_map (copy_body_data *id, tree key, tree value)
 {
+  if (!gimple_in_ssa_p (id->src_cfun))
+    return;
+
   if (!MAY_HAVE_DEBUG_STMTS)
     return;
 
@@ -2026,11 +2029,15 @@ self_inlining_addr_expr (tree value, tree fn)
    or from the last stmt of the block otherwise.  */
 
 static gimple
-insert_init_debug_bind (basic_block bb, tree var, tree value,
+insert_init_debug_bind (copy_body_data *id,
+			basic_block bb, tree var, tree value,
 			gimple base_stmt)
 {
   gimple note;
   gimple_stmt_iterator gsi;
+
+  if (!gimple_in_ssa_p (id->src_cfun))
+    return NULL;
 
   if (!MAY_HAVE_DEBUG_STMTS)
     return NULL;
@@ -2055,11 +2062,13 @@ insert_init_debug_bind (basic_block bb, tree var, tree value,
 	gsi_insert_before (&gsi, note, GSI_SAME_STMT);
     }
 
+  mark_symbols_for_renaming (note);
+
   return note;
 }
 
 static void
-insert_init_stmt (basic_block bb, gimple init_stmt)
+insert_init_stmt (copy_body_data *id, basic_block bb, gimple init_stmt)
 {
   /* If VAR represents a zero-sized variable, it's possible that the
      assignment statement may result in no gimple statements.  */
@@ -2097,7 +2106,7 @@ insert_init_stmt (basic_block bb, gimple init_stmt)
 	  else
 	    var = def;
 
-	  insert_init_debug_bind (bb, var, def, init_stmt);
+	  insert_init_debug_bind (id, bb, var, def, init_stmt);
 	}
     }
 }
@@ -2173,7 +2182,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	{
 	  insert_decl_map (id, p, value);
 	  insert_debug_decl_map (id, p, var);
-	  return insert_init_debug_bind (bb, var, value, NULL);
+	  return insert_init_debug_bind (id, bb, var, value, NULL);
 	}
     }
 
@@ -2206,7 +2215,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
     {
       insert_decl_map (id, def, rhs);
-      return insert_init_debug_bind (bb, var, rhs, NULL);
+      return insert_init_debug_bind (id, bb, var, rhs, NULL);
     }
 
   /* If the value of argument is never used, don't care about initializing
@@ -2214,7 +2223,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
   if (gimple_in_ssa_p (cfun) && !def && is_gimple_reg (p))
     {
       gcc_assert (!value || !TREE_SIDE_EFFECTS (value));
-      return insert_init_debug_bind (bb, var, rhs, NULL);
+      return insert_init_debug_bind (id, bb, var, rhs, NULL);
     }
 
   /* Initialize this VAR_DECL from the equivalent argument.  Convert
@@ -2224,7 +2233,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       if (rhs == error_mark_node)
 	{
 	  insert_decl_map (id, p, var);
-	  return insert_init_debug_bind (bb, var, rhs, NULL);
+	  return insert_init_debug_bind (id, bb, var, rhs, NULL);
 	}
 
       STRIP_USELESS_TYPE_CONVERSION (rhs);
@@ -2242,7 +2251,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
         init_stmt = gimple_build_assign (var, rhs);
 
       if (bb && init_stmt)
-        insert_init_stmt (bb, init_stmt);
+        insert_init_stmt (id, bb, init_stmt);
     }
   return init_stmt;
 }
@@ -4520,7 +4529,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
      codegen differences.  */
   bb = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
   while (VEC_length (gimple, init_stmts))
-    insert_init_stmt (bb, VEC_pop (gimple, init_stmts));
+    insert_init_stmt (&id, bb, VEC_pop (gimple, init_stmts));
 
   /* Clean up.  */
   pointer_map_destroy (id.decl_map);

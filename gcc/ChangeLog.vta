@@ -1,3 +1,11 @@
+2008-11-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (insert_debug_decl_map): Not during early non-SSA
+	inlining.
+	(insert_init_debug_bind): Likewise.  Add id argument, adjust all
+	callers.  Mark symbols for renaming.
+	(insert_init_stmt): Add id argument, adjust all callers.
+
 2008-11-20  Alexandre Oliva  <aoliva@redhat.com>
 
 	* gcse.c (cprop_insn): Don't count changes to debug insns as
