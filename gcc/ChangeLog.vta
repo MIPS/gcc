@@ -1,5 +1,15 @@
 2008-11-25  Alexandre Oliva  <aoliva@redhat.com>
 
+	* fortran/trans-decl.c (gfc_build_qualified_array): Don't skip
+	generation of range types.
+	* fortran/trans.h (struct lang_type): Add base_decls.
+	(GFC_TYPE_ARRAY_BASE_DECL): New.
+	* fortran/trans-types.c (gfc_get_array_type_bounds): Initialize
+	base decls proactively and excessively.
+	(gfc_get_array_descr_info): Use existing base decls if available.
+
+2008-11-25  Alexandre Oliva  <aoliva@redhat.com>
+
 	* dwarf2out.c (move_linkage_attr): New.
 	(dwarf2out_finish): Add MIPS_linkage_name attribute to the correct
 	die, at the right place.
