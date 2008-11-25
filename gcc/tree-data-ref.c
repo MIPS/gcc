@@ -1244,13 +1244,16 @@ dr_may_alias_p (const struct data_reference *a, const struct data_reference *b)
   if (disjoint_objects_p (DR_BASE_OBJECT (a), DR_BASE_OBJECT (b)))
     return false;
 
+  /* Query the alias oracle.  */
+  if (!refs_may_alias_p (DR_REF (a), DR_REF (b)))
+    return false;
+
   if (!addr_a || !addr_b)
     return true;
 
-  /* If the references are based on different static objects, they cannot alias
-     (PTA should be able to disambiguate such accesses, but often it fails to,
-     since currently we cannot distinguish between pointer and offset in pointer
-     arithmetics).  */
+  /* If the references are based on different static objects, they cannot
+     alias (PTA should be able to disambiguate such accesses, but often
+     it fails to).  */
   if (TREE_CODE (addr_a) == ADDR_EXPR
       && TREE_CODE (addr_b) == ADDR_EXPR)
     return TREE_OPERAND (addr_a, 0) == TREE_OPERAND (addr_b, 0);

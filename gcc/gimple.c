@@ -1901,7 +1901,7 @@ gimple_set_bb (gimple stmt, basic_block bb)
 	  LABEL_DECL_UID (t) = uid = cfun->cfg->last_label_uid++;
 	  if (old_len <= (unsigned) uid)
 	    {
-	      unsigned new_len = 3 * uid / 2;
+	      unsigned new_len = 3 * uid / 2 + 1;
 
 	      VEC_safe_grow_cleared (basic_block, gc, label_to_block_map,
 				     new_len);

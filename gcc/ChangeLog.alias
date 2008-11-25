@@ -1,3 +1,21 @@
+2008-11-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-data-ref.c (dr_may_alias_p): Use the alias-oracle.
+
+	* tree-tailcall.c (tree_optimize_tail_calls_1): Also split the
+	edge from the entry block if we have degenerate PHI nodes in
+	the first basic block.
+
+	* gimple.c (gimple_set_bb): Fix off-by-one error.
+	* tree-cfg.c (move_block_to_fn): Likewise.
+
+	PR tree-optimization/37869
+	* tree-ssa-structalias.c (struct variable_info): Add
+	is_nonpointer_var flag.
+	(new_var_info): Clear it.
+	(perform_var_substitution): Set it.
+	(find_what_p_points_to): Use it.
+
 2008-11-24  Richard Guenther  <rguenther@suse.de>
 
 	* tree-flow.h (struct gimple_df): Add vop_needs_renaming flag.

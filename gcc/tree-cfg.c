@@ -5706,7 +5706,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  old_len = VEC_length (basic_block, cfg->x_label_to_block_map);
 	  if (old_len <= (unsigned) uid)
 	    {
-	      new_len = 3 * uid / 2;
+	      new_len = 3 * uid / 2 + 1;
 	      VEC_safe_grow_cleared (basic_block, gc,
 				     cfg->x_label_to_block_map, new_len);
 	    }

@@ -230,6 +230,9 @@ struct variable_info
      variable.  This is used for C++ placement new.  */
   unsigned int no_tbaa_pruning : 1;
 
+  /* If found to be a non-pointer variable.  */
+  unsigned int is_nonpointer_var : 1;
+
   /* Variable id this was collapsed to due to type unsafety.  Zero if
      this variable was not collapsed.  This should be unused completely
      after build_succ_graph, or something is broken.  */
@@ -377,6 +380,7 @@ new_var_info (tree t, unsigned int id, const char *name)
   ret->is_special_var = false;
   ret->is_unknown_size_var = false;
   ret->is_full_var = false;
+  ret->is_nonpointer_var = false;
   var = t;
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
@@ -2175,6 +2179,7 @@ perform_var_substitution (constraint_graph_t graph)
 		     "%s is a non-pointer variable, eliminating edges.\n",
 		     get_varinfo (node)->name);
 	  stats.nonpointer_vars++;
+	  get_varinfo (i)->is_nonpointer_var = true;
 	  clear_edges_for_node (graph, node);
 	}
     }
@@ -4750,6 +4755,11 @@ find_what_p_points_to (tree p)
   if (vi)
     {
       if (vi->is_artificial_var)
+	return false;
+
+      /* ???  Some real variables get eliminated as non-pointers.
+	 Workaround this.  See PR37869.  */
+      if (vi->is_nonpointer_var)
 	return false;
 
       /* See if this is a field or a structure.  */
