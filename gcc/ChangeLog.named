@@ -1,3 +1,14 @@
+2008-11-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-decl.c (diagnose_mismatched_decls): Report on mis-matched
+	named address spaces.
+	(grokdeclarator): Clear named address from qualifiers before
+	checking on whether to warn about ISO C forbidding qualified
+	function types.
+
+	* config/spu/spu.c (spu_addr_space_name): Return "generic" for the
+	generic address space.
+
 2008-11-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/spu/spu.md (to_ea): Use convert_move to convert input

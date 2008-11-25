@@ -1246,8 +1246,23 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	}
       else
 	{
-	  if (TYPE_QUALS (newtype) != TYPE_QUALS (oldtype))
-	    error ("conflicting type qualifiers for %q+D", newdecl);
+	  int new_quals = TYPE_QUALS (newtype);
+	  int old_quals = TYPE_QUALS (oldtype);
+
+	  if (new_quals != old_quals)
+	    {
+	      addr_space_t new_addr = DECODE_QUAL_ADDR_SPACE (new_quals);
+	      addr_space_t old_addr = DECODE_QUAL_ADDR_SPACE (old_quals);
+	      if (new_addr != old_addr)
+		error ("conflicting named address spaces (%s vs %s) for %q+D",
+		       targetm.addr_space.name (new_addr),
+		       targetm.addr_space.name (old_addr),
+		       newdecl);
+
+	      if (CLEAR_QUAL_ADDR_SPACE (new_quals)
+		  != CLEAR_QUAL_ADDR_SPACE (old_quals))
+		error ("conflicting type qualifiers for %q+D", newdecl);
+	    }
 	  else
 	    error ("conflicting types for %q+D", newdecl);
 	  diagnose_arglist_conflict (newdecl, olddecl, newtype, oldtype);
@@ -4605,7 +4620,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	       for the pointer.  */
 
 	    if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
-		&& type_quals)
+		&& CLEAR_QUAL_ADDR_SPACE (type_quals))
 	      pedwarn (input_location, OPT_pedantic,
 		       "ISO C forbids qualified function types");
 	    if (type_quals)
@@ -4818,7 +4833,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 	else if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {
-	    if (type_quals)
+	    if (CLEAR_QUAL_ADDR_SPACE (type_quals))
 	      pedwarn (input_location, OPT_pedantic,
 		       "ISO C forbids qualified function types");
 	    if (type_quals)
@@ -4907,7 +4922,8 @@ grokdeclarator (const struct c_declarator *declarator,
 	DECL_SOURCE_LOCATION (decl) = declarator->id_loc;
 	decl = build_decl_attribute_variant (decl, decl_attr);
 
-	if (pedantic && type_quals && !DECL_IN_SYSTEM_HEADER (decl))
+	if (pedantic && CLEAR_QUAL_ADDR_SPACE (type_quals)
+	    && !DECL_IN_SYSTEM_HEADER (decl))
 	  pedwarn (input_location, OPT_pedantic,
 		   "ISO C forbids qualified function types");
 

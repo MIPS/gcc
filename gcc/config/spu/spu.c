@@ -6609,7 +6609,7 @@ spu_addr_space_name (addr_space_t addrspace)
   switch (addrspace)
     {
     case ADDR_SPACE_GENERIC:
-      return "";
+      return "generic";
 
     case ADDR_SPACE_EA:
       return "__ea";
