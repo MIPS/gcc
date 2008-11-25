@@ -1,5 +1,11 @@
 2008-11-25  Alexandre Oliva  <aoliva@redhat.com>
 
+	* dwarf2out.c (move_linkage_attr): New.
+	(dwarf2out_finish): Add MIPS_linkage_name attribute to the correct
+	die, at the right place.
+
+2008-11-25  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-inline.c (insert_debug_decl_map): Not during early non-SSA
 	inlining.
 	(insert_init_debug_bind): Likewise.  Add id argument, adjust all

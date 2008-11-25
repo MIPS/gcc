@@ -16529,6 +16529,38 @@ file_table_relative_p (void ** slot, void *param)
   return 1;
 }
 
+/* Move a DW_AT_MIPS_linkage_name attribute just added to dw_die_ref
+   to the location it would have been added, should we know its
+   DECL_ASSEMBLER_NAME when we added other attributes.  This will
+   probably improve compactness of debug info, removing equivalent
+   abbrevs, and hide any differences caused by deferring the
+   computation of the assembler name, triggered by e.g. PCH.  */
+
+static inline void
+move_linkage_attr (dw_die_ref die)
+{
+  unsigned ix = VEC_length (dw_attr_node, die->die_attr);
+  dw_attr_node linkage = *VEC_last (dw_attr_node, die->die_attr);
+  dw_attr_ref prev;
+
+  gcc_assert (linkage.dw_attr == DW_AT_MIPS_linkage_name);
+
+  while (--ix)
+    {
+      prev = VEC_index (dw_attr_node, die->die_attr, ix - 1);
+
+      if (prev->dw_attr == DW_AT_decl_line || prev->dw_attr == DW_AT_name)
+	{
+	  VEC_replace (dw_attr_node, die->die_attr, ix, &linkage);
+	  return;
+	}
+      else
+	VEC_replace (dw_attr_node, die->die_attr, ix, prev);
+    }
+
+  gcc_unreachable ();
+}
+
 /* Output stuff that dwarf requires at the end of every file,
    and generate the DWARF-2 debugging info.  */
 
@@ -16612,8 +16644,11 @@ dwarf2out_finish (const char *filename)
     {
       tree decl = node->created_for;
       if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
-	add_AT_string (die, DW_AT_MIPS_linkage_name,
-		       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+	{
+	  add_AT_string (node->die, DW_AT_MIPS_linkage_name,
+			 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+	  move_linkage_attr (node->die);
+	}
     }
 
   deferred_asm_name = NULL;
