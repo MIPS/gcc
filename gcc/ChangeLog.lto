@@ -1,3 +1,7 @@
+2008-11-25  Rafael Espindola  <espindola@google.com>
+
+	* ipa-cp.c (ipcp_insert_stage): Skip inlined nodes.
+
 2008-11-25  Simon Baldwin  <simonb@google.com>
 
 	* toplev.c (default_tree_printer): Add handling for %E format.

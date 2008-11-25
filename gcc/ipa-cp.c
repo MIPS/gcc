@@ -1192,7 +1192,9 @@ ipcp_insert_stage (void)
     {
       struct ipa_node_params *info;
       /* Propagation of the constant is forbidden in certain conditions.  */
-      if (!node->analyzed || !ipcp_node_modifiable_p (node))
+      if (!node->analyzed
+	  || !ipcp_node_modifiable_p (node)
+	  || node->global.inlined_to)
 	  continue;
       info = IPA_NODE_REF (node);
       if (ipa_is_called_with_var_arguments (info))
@@ -1274,6 +1276,7 @@ ipcp_insert_stage (void)
       for (cs = node->callers; cs != NULL; cs = cs->next_caller)
 	VEC_quick_push (cgraph_edge_p, redirect_callers, cs);
 
+      gcc_assert (!node->global.inlined_to);
       /* Redirecting all the callers of the node to the
          new versioned node.  */
       node1 =
