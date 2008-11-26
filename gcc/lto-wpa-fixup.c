@@ -45,8 +45,7 @@ Boston, MA 02110-1301, USA.  */
    In WPA mode, LTO cannot access function bodies.  Some modifications in
    IR require additional updates in function bodies,  which are not possible
    in WPA mode.  So we write out information about these modifications for
-   LTRANS to fix up the function bodies accordingly.
- */
+   LTRANS to fix up the function bodies accordingly.  */
 
 /* The vectors records function DECLs having multiple copies with different
    exception throwing attributes.  We do not mark a DECL if all copies of it
@@ -80,7 +79,7 @@ static bitmap lto_nothrow_fndecls;
    
    When main.cc is compiled, gcc only sees the constructor declaration, so
    the constructor and hence the call to it are marked as exception throwing.
-   When a.cc is compiled, body of the constructor is available and is
+   When a.cc is compiled, the body of the constructor is available and is
    obviously not exception throwing. Thus DECL of a::a in a.o has the NOTHROW
    attribute.  When LTO runs, two DECLs of a::a with different exception
    attributes are merged.  We want the merged DECL to be not exception
@@ -155,12 +154,34 @@ output_wpa_fixup (cgraph_node_set set)
   if (lto_nothrow_fndecls)
     for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
       {
-	fndecl = csi_node (csi)->decl;
-	if (!bitmap_bit_p (seen_decls, (DECL_UID (fndecl))))
+	struct cgraph_edge *e;
+	struct cgraph_node *n;
+	
+	n = csi_node (csi);
+	fndecl = n->decl;
+
+	/* Check if the N's function is in the set of nothrow functions.  */
+	if (!bitmap_bit_p (seen_decls, DECL_UID (fndecl)))
 	  {
 	    bitmap_set_bit (seen_decls, (DECL_UID (fndecl)));
 	    if (bitmap_bit_p (lto_nothrow_fndecls, DECL_UID (fndecl)))
 	      VEC_safe_push (tree, heap, decls, fndecl);
+	  }
+
+	/* Now check the callees and also add them if they are nothrow.  This
+	   is needed because node N may end up in a different partition than
+	   its callees.  In which case, when the file holding N is compiled,
+	   the calls it makes to nothrow functions will not be fixed up,
+	   causing verification issues.  */
+	for (e = n->callees; e; e = e->next_callee)
+	  {
+	    fndecl = e->callee->decl;
+	    if (!bitmap_bit_p (seen_decls, DECL_UID (fndecl)))
+	      {
+		bitmap_set_bit (seen_decls, (DECL_UID (fndecl)));
+		if (bitmap_bit_p (lto_nothrow_fndecls, DECL_UID (fndecl)))
+		  VEC_safe_push (tree, heap, decls, fndecl);
+	      }
 	  }
       }
 
@@ -232,7 +253,7 @@ input_wpa_fixup (void)
 static bool
 gate_wpa_fixup (void)
 {
-  return flag_wpa && gate_lto_out ();
+  return (flag_wpa || flag_ltrans) && gate_lto_out ();
 }
 
 struct ipa_opt_pass pass_ipa_lto_wpa_fixup =

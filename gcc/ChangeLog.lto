@@ -1,3 +1,9 @@
+2008-11-26  Diego Novillo  <dnovillo@google.com>
+
+	* lto-wpa-fixup.c (output_wpa_fixup): Also check the
+	callees of a node to see if they are nothrow functions.
+	(gate_wpa_fixup): Return true if flag_ltrans is set.
+
 2008-11-26  Simon Baldwin  <simonb@google.com>
 
 	* lto-function-out.c (output_local_var_decl): If set, add assembler
@@ -21,7 +27,7 @@
 	in LTRANS files.
 	* lto-function-in.c (input_constructors_or_inits): Remove code to
 	avoid multiple variable definitions in LTRANS files.
- 	(input_var_decl): Add code to avoid multiple variable definitions
+	(input_var_decl): Add code to avoid multiple variable definitions
 	in LTRANS files.
 
 2008-11-24  Rafael Espindola  <espindola@google.com>
