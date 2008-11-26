@@ -1,3 +1,7 @@
+2008-11-26  Doug Kwan  <dougkwan@google.com>
+
+	* tree.c (cp_reset_lang_specifics): Fix up FUNCTION_DECLs as needed.
+
 2008-11-20  Rafael Espindola  <espindola@google.com>
 	    Diego Novillo  <dnovillo@google.com>
 
