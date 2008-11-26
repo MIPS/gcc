@@ -1,5 +1,10 @@
 2008-11-26  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-structalias.c (intra_create_variable_infos): Make
+	a constraint for the static chain parameter.
+
+2008-11-26  Richard Guenther  <rguenther@suse.de>
+
 	* gimple.c (is_gimple_reg): Do not handle memory tags.
 	* ipa-cp.c (ipcp_update_callgraph): Fix typo.
 	* passes.c (init_optimization_passes): Schedule
