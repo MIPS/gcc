@@ -1308,6 +1308,16 @@ output_local_var_decl (struct output_block *ob, int index)
       output_string (ob, ob->main_stream, 
 		     IDENTIFIER_POINTER (name), 
 		     IDENTIFIER_LENGTH (name));
+
+      if (DECL_ASSEMBLER_NAME_SET_P (decl))
+        {
+	  tree assembler_name = DECL_ASSEMBLER_NAME (decl);
+	  output_string (ob, ob->main_stream, 
+			 IDENTIFIER_POINTER (assembler_name), 
+			 IDENTIFIER_LENGTH (assembler_name));
+        }
+      else
+	output_zero (ob);
     }
   else
     output_zero (ob);

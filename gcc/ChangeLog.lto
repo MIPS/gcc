@@ -1,3 +1,10 @@
+2008-11-26  Simon Baldwin  <simonb@google.com>
+
+	* lto-function-out.c (output_local_var_decl): If set, add assembler
+	name to output stream.
+	* lto-function-in.c (input_local_var_decl): Retrieve any assembler
+	name from output stream, and if present set in result decl.
+
 2008-11-25  Rafael Espindola  <espindola@google.com>
 
 	* ipa-cp.c (ipcp_insert_stage): Skip inlined nodes.

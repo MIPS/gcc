@@ -1223,7 +1223,8 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
   unsigned int variant;
   bool is_var;
   unsigned int name_index;
-  tree name;
+  tree name = NULL_TREE;
+  tree assembler_name = NULL_TREE;
   tree type;
   lto_flags_type flags;
   tree result;
@@ -1238,9 +1239,14 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
       unsigned int len;
       const char *s = input_string_internal (data_in, name_index, &len);
       name = get_identifier_with_length (s, len);
+
+      name_index = lto_input_uleb128 (ib);
+      if (name_index)
+	{
+	  s = input_string_internal (data_in, name_index, &len);
+	  assembler_name = get_identifier_with_length (s, len);
+	}
     }
-  else 
-    name = NULL_TREE;
   
   type = input_type_ref (data_in, ib);
   gcc_assert (type);
@@ -1249,6 +1255,9 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
     result = build_decl (VAR_DECL, name, type);
   else
     result = build_decl (PARM_DECL, name, type);
+
+  if (assembler_name != NULL_TREE)
+    SET_DECL_ASSEMBLER_NAME (result, assembler_name);
 
   data_in->local_decls[i] = result;
   
