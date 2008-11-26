@@ -230,9 +230,6 @@ struct variable_info
      variable.  This is used for C++ placement new.  */
   unsigned int no_tbaa_pruning : 1;
 
-  /* If found to be a non-pointer variable.  */
-  unsigned int is_nonpointer_var : 1;
-
   /* Variable id this was collapsed to due to type unsafety.  Zero if
      this variable was not collapsed.  This should be unused completely
      after build_succ_graph, or something is broken.  */
@@ -380,7 +377,6 @@ new_var_info (tree t, unsigned int id, const char *name)
   ret->is_special_var = false;
   ret->is_unknown_size_var = false;
   ret->is_full_var = false;
-  ret->is_nonpointer_var = false;
   var = t;
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
@@ -509,16 +505,6 @@ struct constraint_graph
   /* Bitmap of nodes where the bit is set if the node is address
      taken.  Used for variable substitution.  */
   bitmap address_taken;
-
-  /* True if points_to bitmap for this node is stored in the hash
-     table.  */
-  sbitmap pt_used;
-
-  /* Number of incoming edges remaining to be processed by pointer
-     equivalence.
-     Used for variable substitution.  */
-  unsigned int *number_incoming;
-
 
   /* Vector of complex constraints for each graph node.  Complex
      constraints are those involving dereferences or offsets that are
@@ -1105,11 +1091,8 @@ build_pred_graph (void)
   graph->points_to = XCNEWVEC (bitmap, graph->size);
   graph->eq_rep = XNEWVEC (int, graph->size);
   graph->direct_nodes = sbitmap_alloc (graph->size);
-  graph->pt_used = sbitmap_alloc (graph->size);
   graph->address_taken = BITMAP_ALLOC (&predbitmap_obstack);
-  graph->number_incoming = XCNEWVEC (unsigned int, graph->size);
   sbitmap_zero (graph->direct_nodes);
-  sbitmap_zero (graph->pt_used);
 
   for (j = 0; j < FIRST_REF_NODE; j++)
     {
@@ -2012,11 +1995,6 @@ condense_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 	      bitmap_ior_into (graph->points_to[n],
 			       graph->points_to[w]);
 	    }
-	  EXECUTE_IF_IN_NONNULL_BITMAP (graph->preds[n], 0, i, bi)
-	    {
-	      unsigned int rep = si->node_mapping[i];
-	      graph->number_incoming[rep]++;
-	    }
 	}
       SET_BIT (si->deleted, n);
     }
@@ -2045,21 +2023,10 @@ label_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 
       /* Skip unused edges  */
       if (w == n || graph->pointer_label[w] == 0)
-	{
-	  graph->number_incoming[w]--;
-	  continue;
-	}
+	continue;
+
       if (graph->points_to[w])
 	bitmap_ior_into(graph->points_to[n], graph->points_to[w]);
-
-      /* If all incoming edges to w have been processed and
-	 graph->points_to[w] was not stored in the hash table, we can
-	 free it.  */
-      graph->number_incoming[w]--;
-      if (!graph->number_incoming[w] && !TEST_BIT (graph->pt_used, w))
-	{
-	  BITMAP_FREE (graph->points_to[w]);
-	}
     }
   /* Indirect nodes get fresh variables.  */
   if (!TEST_BIT (graph->direct_nodes, n))
@@ -2071,7 +2038,6 @@ label_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 					       graph->points_to[n]);
       if (!label)
 	{
-	  SET_BIT (graph->pt_used, n);
 	  label = pointer_equiv_class++;
 	  equiv_class_add (pointer_equiv_class_table,
 			   label, graph->points_to[n]);
@@ -2179,7 +2145,6 @@ perform_var_substitution (constraint_graph_t graph)
 		     "%s is a non-pointer variable, eliminating edges.\n",
 		     get_varinfo (node)->name);
 	  stats.nonpointer_vars++;
-	  get_varinfo (i)->is_nonpointer_var = true;
 	  clear_edges_for_node (graph, node);
 	}
     }
@@ -2198,10 +2163,8 @@ free_var_substitution_info (struct scc_info *si)
   free (graph->loc_label);
   free (graph->pointed_by);
   free (graph->points_to);
-  free (graph->number_incoming);
   free (graph->eq_rep);
   sbitmap_free (graph->direct_nodes);
-  sbitmap_free (graph->pt_used);
   htab_delete (pointer_equiv_class_table);
   htab_delete (location_equiv_class_table);
   bitmap_obstack_release (&iteration_obstack);
@@ -4755,11 +4718,6 @@ find_what_p_points_to (tree p)
   if (vi)
     {
       if (vi->is_artificial_var)
-	return false;
-
-      /* ???  Some real variables get eliminated as non-pointers.
-	 Workaround this.  See PR37869.  */
-      if (vi->is_nonpointer_var)
 	return false;
 
       /* See if this is a field or a structure.  */

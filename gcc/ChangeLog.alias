@@ -1,5 +1,16 @@
 2008-11-26  Richard Guenther  <rguenther@suse.de>
 
+	Revert
+	* tree-ssa-structalias.c (struct variable_info): Add
+	is_nonpointer_var flag.
+	(new_var_info): Clear it.
+	(perform_var_substitution): Set it.
+	(find_what_p_points_to): Use it.
+
+	Merge from trunk r142215.
+
+2008-11-26  Richard Guenther  <rguenther@suse.de>
+
 	PR tree-optimization/38180
 	* tree-ssa-ccp.c (get_default_value): Simplify.
 	(likely_value): Likewise.
