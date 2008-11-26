@@ -80,6 +80,7 @@ static ld_plugin_add_symbols add_symbols;
 static ld_plugin_register_all_symbols_read register_all_symbols_read;
 static ld_plugin_get_symbols get_symbols;
 static ld_plugin_register_cleanup register_cleanup;
+static ld_plugin_add_input_file add_input_file;
 
 static struct plugin_file_info *claimed_files = NULL;
 static unsigned int num_claimed_files = 0;
@@ -153,6 +154,8 @@ get_section (Elf *elf, const char *name)
   Elf_Scn *section = 0;
   GElf_Ehdr header;
   GElf_Ehdr *t = gelf_getehdr (elf, &header);
+  if (t == NULL)
+    return NULL;
   assert (t == &header);
 
   while ((section = elf_nextscn(elf, section)) != 0)
@@ -250,14 +253,11 @@ free_2 (void)
   temp_obj_dir_name = NULL;
 }
 
-/* Called by the linker once all symbols have been read. Writes the
-   relocations to disk. */
+/*  Writes the relocations to disk. */
 
-static enum ld_plugin_status
-all_symbols_read_handler (void)
+static void
+write_resolution(void)
 {
-  free_1 ();
-
   unsigned int i;
   /* FIXME: This should be a temporary file. */
   FILE *f = fopen ("resolution", "w");
@@ -286,6 +286,25 @@ all_symbols_read_handler (void)
       free (syms);
     }
   fclose (f);
+}
+
+/* Called by the linker once all symbols have been read. */
+
+static enum ld_plugin_status
+all_symbols_read_handler (void)
+{
+  unsigned i;
+  free_1 ();
+
+  write_resolution ();
+
+  for (i = 0; i < num_claimed_files; i++)
+    {
+      struct plugin_file_info *info = &claimed_files[i];
+
+      /* FIXME: actually run wpa :-) */
+      add_input_file (info->name);
+    }
   return LDPS_OK;
 }
 
@@ -296,6 +315,7 @@ cleanup_handler (void)
 {
   int t;
   unsigned i;
+
   for (i = 0; i < num_claimed_files; i++)
     {
       struct plugin_file_info *info = &claimed_files[i];
@@ -394,7 +414,7 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
  err:
   if (file->offset != 0)
     {
-      int t = unlink (file->name);
+      int t = unlink (lto_file.name);
       assert (t == 0);
     }
   return LDPS_OK;
@@ -431,6 +451,9 @@ onload (struct ld_plugin_tv *tv)
 	  break;
 	case LDPT_REGISTER_CLEANUP_HOOK:
 	  register_cleanup = p->tv_u.tv_register_cleanup;
+	  break;
+	case LDPT_ADD_INPUT_FILE:
+	  add_input_file = p->tv_u.tv_add_input_file;
 	  break;
 	default:
 	  break;

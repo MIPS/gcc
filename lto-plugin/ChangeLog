@@ -1,3 +1,12 @@
+2008-11-26  Rafael Espindola  <espindola@google.com>
+
+	* lto-plugin.c (add_input_file): New.
+	(get_section): Return NULL if get_section fails.
+	(write_resolution): New.
+	(all_symbols_read_handler): Call add_input_file.
+	(claim_file_handler): Unlink the correct file.
+	(onload): Record add_input_file.
+
 2008-09-23 Rafael Espindola  <espindola@google.com>
 
 	* Makefile.am (ltosymtab_SOURCES, liblto_plugin_la_SOURCES):
