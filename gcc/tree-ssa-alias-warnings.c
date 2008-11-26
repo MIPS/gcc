@@ -475,22 +475,20 @@ build_reference_table (void)
 
       pi = SSA_NAME_PTR_INFO (ptr);
 
-      if (!SSA_NAME_IN_FREE_LIST (ptr) && pi && pi->name_mem_tag)
+      if (!SSA_NAME_IN_FREE_LIST (ptr)
+	  && pi && pi->pt_vars)
 	{
+	  unsigned ix;
+	  bitmap_iterator bi;
+
 	  /* Add pointer to the interesting dereference list.  */
 	  add_key (ref_table->ptrs, ptr, references_pool);
 
 	  /* Add all aliased names to the interesting reference list.  */
-	  if (pi->pt_vars)
+	  EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, ix, bi)
 	    {
-	      unsigned ix;
-	      bitmap_iterator bi;
-
-	      EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, ix, bi)
-		{
-		  tree alias = referenced_var (ix);
-		  add_key (ref_table->objs, alias, references_pool);
-		}
+	      tree alias = referenced_var (ix);
+	      add_key (ref_table->objs, alias, references_pool);
 	    }
 	}
     }
@@ -670,7 +668,7 @@ ffan_walker (tree *t,
              int *go_below ATTRIBUTE_UNUSED,
              void *data ATTRIBUTE_UNUSED)
 {
-  if (DECL_P (*t) && !MTAG_P (*t) && DECL_ARTIFICIAL (*t))
+  if (DECL_P (*t) && DECL_ARTIFICIAL (*t))
     return *t;
   else
     return NULL_TREE;
@@ -990,7 +988,7 @@ detect_strict_aliasing_named (void)
 
       pi = SSA_NAME_PTR_INFO (ptr);
 
-      if (!SSA_NAME_IN_FREE_LIST (ptr) && pi && pi->name_mem_tag)
+      if (!SSA_NAME_IN_FREE_LIST (ptr) && pi && pi->pt_vars)
 	dsa_named_for (ptr);
     }
 }

@@ -131,7 +131,6 @@ struct ssa_operands GTY(()) {
    struct def_optype_d * GTY ((skip (""))) free_defs;
    struct use_optype_d * GTY ((skip (""))) free_uses;
    struct voptype_d * GTY ((skip (""))) vop_free_buckets[NUM_VOP_FREE_BUCKETS];
-   VEC(tree,heap) * GTY ((skip (""))) mpt_table;
 };
 
 /* This represents the operand cache for a stmt.  */

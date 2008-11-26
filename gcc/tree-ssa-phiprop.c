@@ -229,8 +229,7 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
   ssa_op_iter i;
   bool phi_inserted;
 
-  if (MTAG_P (SSA_NAME_VAR (ptr))
-      || !POINTER_TYPE_P (TREE_TYPE (ptr))
+  if (!POINTER_TYPE_P (TREE_TYPE (ptr))
       || !is_gimple_reg_type (TREE_TYPE (TREE_TYPE (ptr))))
     return false;
 

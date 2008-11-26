@@ -297,12 +297,6 @@ dump_variable (FILE *file, tree var)
   fprintf (file, ", ");
   print_generic_expr (file, TREE_TYPE (var), dump_flags);
 
-  if (ann && ann->symbol_mem_tag)
-    {
-      fprintf (file, ", symbol memory tag: ");
-      print_generic_expr (file, ann->symbol_mem_tag, dump_flags);
-    }
-
   if (TREE_ADDRESSABLE (var))
     fprintf (file, ", is addressable");
   
@@ -311,8 +305,6 @@ dump_variable (FILE *file, tree var)
 
   if (TREE_THIS_VOLATILE (var))
     fprintf (file, ", is volatile");
-
-  dump_mem_sym_stats_for_var (file, var);
 
   if (is_call_clobbered (var))
     {
@@ -355,27 +347,6 @@ dump_variable (FILE *file, tree var)
     {
       fprintf (file, ", default def: ");
       print_generic_expr (file, gimple_default_def (cfun, var), dump_flags);
-    }
-
-  if (MTAG_P (var) && may_aliases (var))
-    {
-      fprintf (file, ", may aliases: ");
-      dump_may_aliases_for (file, var);
-    }
-
-  if (!is_gimple_reg (var))
-    {
-      if (memory_partition (var))
-	{
-	  fprintf (file, ", belongs to partition: ");
-	  print_generic_expr (file, memory_partition (var), dump_flags);
-	}
-
-      if (TREE_CODE (var) == MEMORY_PARTITION_TAG)
-	{
-	  fprintf (file, ", partition symbols: ");
-	  dump_decl_set (file, MPT_SYMBOLS (var));
-	}
     }
 
   fprintf (file, "\n");
@@ -650,12 +621,14 @@ add_referenced_var (tree var)
   /* Insert VAR into the referenced_vars has table if it isn't present.  */
   if (referenced_var_check_and_insert (var))
     {
-      /* This is the first time we found this variable, annotate it with
-	 attributes that are intrinsic to the variable.  */
-      
-      /* Tag's don't have DECL_INITIAL.  */
-      if (MTAG_P (var))
-	return;
+      /* If this is a new global or addressable variable conservatively
+         initialize its call-clobber state.  */
+      if (is_global_var (var))
+	mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
+      else if (TREE_ADDRESSABLE (var))
+	mark_call_clobbered (var, ESCAPE_UNKNOWN);
+      else
+	clear_call_clobbered (var);
 
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
@@ -682,20 +655,12 @@ remove_referenced_var (tree var)
 
   clear_call_clobbered (var);
   bitmap_clear_bit (gimple_call_used_vars (cfun), uid);
-  if ((v_ann = var_ann (var)))
+  /* Preserve var_anns of globals.  */
+  if (!is_global_var (var)
+      && (v_ann = var_ann (var)))
     {
-      /* Preserve var_anns of globals, but clear their alias info.  */
-      if (MTAG_P (var)
-	  || (!TREE_STATIC (var) && !DECL_EXTERNAL (var)))
-	{
-	  ggc_free (v_ann);
-	  var->base.ann = NULL;
-	}
-      else
-	{
-	  v_ann->mpt = NULL_TREE;
-	  v_ann->symbol_mem_tag = NULL_TREE;
-	}
+      ggc_free (v_ann);
+      var->base.ann = NULL;
     }
   gcc_assert (DECL_P (var));
   in.uid = uid;

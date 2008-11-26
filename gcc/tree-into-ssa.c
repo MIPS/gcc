@@ -2796,11 +2796,7 @@ mark_sym_for_renaming (tree sym)
   bitmap_set_bit (syms_to_rename, DECL_UID (sym));
 
   if (!is_gimple_reg (sym))
-    {
-      need_to_update_vops_p = true;
-      if (memory_partition (sym))
-	bitmap_set_bit (syms_to_rename, DECL_UID (memory_partition (sym)));
-    }
+    need_to_update_vops_p = true;
 }
 
 
@@ -3217,16 +3213,6 @@ update_ssa (unsigned update_flags)
 	  tree sym = referenced_var (i);
 	  if (is_gimple_reg (sym))
 	    bitmap_set_bit (regs_to_rename, i);
-	  else
-	    {
-	      /* Memory partitioning information may have been
-		 computed after the symbol was marked for renaming,
-		 if SYM is inside a partition also mark the partition
-		 for renaming.  */
-	      tree mpt = memory_partition (sym);
-	      if (mpt)
-		bitmap_set_bit (syms_to_rename, DECL_UID (mpt));
-	    }
 	}
 
       /* Memory symbols are those not in REGS_TO_RENAME.  */

@@ -3645,6 +3645,8 @@ find_func_aliases (gimple origt)
   struct constraint_expr *c;
   enum escape_type stmt_escape_type;
 
+  /* ???  Initialize pi->is_dereferenced here.  */
+
   /* Now build constraints expressions.  */
   if (gimple_code (t) == GIMPLE_PHI)
     {
@@ -3899,12 +3901,6 @@ find_func_aliases (gimple origt)
 	}
     }
 
-  /* After promoting variables and computing aliasing we will
-     need to re-scan most statements.  FIXME: Try to minimize the
-     number of statements re-scanned.  It's not really necessary to
-     re-scan *all* statements.  */
-  if (!in_ipa_mode)
-    gimple_set_modified (origt, true);
   VEC_free (ce_s, heap, rhsc);
   VEC_free (ce_s, heap, lhsc);
 }
@@ -4042,7 +4038,7 @@ var_can_have_subvars (const_tree v)
     return false;
 
   /* Non decls or memory tags can never have subvars.  */
-  if (!DECL_P (v) || MTAG_P (v))
+  if (!DECL_P (v))
     return false;
 
   /* Aggregates without overlapping fields can have subvars.  */
@@ -4642,7 +4638,8 @@ shared_bitmap_add (bitmap pt_vars)
    the from set.  */
 
 static void
-set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
+set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
+		   struct ptr_info_def *pi,
 		   bool no_tbaa_pruning)
 {
   unsigned int i;
@@ -4663,23 +4660,26 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 	  || TREE_CODE (vi->decl) == PARM_DECL
 	  || TREE_CODE (vi->decl) == RESULT_DECL)
 	{
-	  /* Just add VI->DECL to the alias set.
-	     Don't type prune artificial vars or points-to sets
+	  /* Don't type prune artificial vars or points-to sets
 	     for pointers that have not been dereferenced or with
 	     type-based pruning disabled.  */
-	  if (vi->is_artificial_var
-	      || !is_derefed
-	      || no_tbaa_pruning)
-	    bitmap_set_bit (into, DECL_UID (vi->decl));
-	  else
+	  if (!vi->is_artificial_var
+	      && pi->is_dereferenced
+	      && !no_tbaa_pruning)
 	    {
 	      alias_set_type var_alias_set, mem_alias_set;
 	      var_alias_set = get_alias_set (vi->decl);
 	      mem_alias_set = get_alias_set (TREE_TYPE (TREE_TYPE (ptr)));
-	      if (may_alias_p (SSA_NAME_VAR (ptr), mem_alias_set,
-			       vi->decl, var_alias_set, true))
-	        bitmap_set_bit (into, DECL_UID (vi->decl));
+	      if (!may_alias_p (SSA_NAME_VAR (ptr), mem_alias_set,
+				vi->decl, var_alias_set, true))
+		continue;
 	    }
+
+	  /* Add the decl to the points-to set.  Note that the points-to
+	     set contains global variables.  */
+	  bitmap_set_bit (into, DECL_UID (vi->decl));
+	  if (is_global_var (vi->decl))
+	    pi->pt_global_mem = true;
 	}
     }
 }
@@ -4737,9 +4737,6 @@ find_what_p_points_to (tree p)
 	  bitmap finished_solution;
 	  bitmap result;
 
-	  if (!pi->memory_tag_needed)
-	    return false;
-
 	  /* This variable may have been collapsed, let's get the real
 	     variable.  */
 	  vi = get_varinfo (find (vi->id));
@@ -4784,7 +4781,7 @@ find_what_p_points_to (tree p)
 	  stats.points_to_sets_created++;
 
 	  set_uids_in_ptset (p, finished_solution, vi->solution,
-			     pi->is_dereferenced,
+			     pi,
 			     vi->no_tbaa_pruning);
 	  result = shared_bitmap_lookup (finished_solution);
 
@@ -5617,7 +5614,8 @@ init_alias_heapvars (void)
 void
 delete_alias_heapvars (void)
 {
-  htab_delete (heapvar_for_stmt);
+  if (heapvar_for_stmt)
+    htab_delete (heapvar_for_stmt);
   heapvar_for_stmt = NULL;
 }
 

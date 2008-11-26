@@ -408,7 +408,6 @@ init_ssa_operands (void)
     }
 
   gcc_assert (gimple_ssa_operands (cfun)->operand_memory == NULL);
-  gcc_assert (gimple_ssa_operands (cfun)->mpt_table == NULL);
   gimple_ssa_operands (cfun)->operand_memory_index
      = gimple_ssa_operands (cfun)->ssa_operand_mem_size;
   gimple_ssa_operands (cfun)->ops_active = true;
@@ -425,8 +424,6 @@ void
 fini_ssa_operands (void)
 {
   struct ssa_operand_memory_d *ptr;
-  unsigned ix;
-  tree mpt;
 
   if (!--n_initialized)
     {
@@ -452,16 +449,6 @@ fini_ssa_operands (void)
 	= gimple_ssa_operands (cfun)->operand_memory->next;
       ggc_free (ptr);
     }
-
-  for (ix = 0;
-       VEC_iterate (tree, gimple_ssa_operands (cfun)->mpt_table, ix, mpt);
-       ix++)
-    {
-      if (mpt)
-	BITMAP_FREE (MPT_SYMBOLS (mpt));
-    }
-
-  VEC_free (tree, heap, gimple_ssa_operands (cfun)->mpt_table);
 
   gimple_ssa_operands (cfun)->ops_active = false;
 
@@ -1419,8 +1406,6 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       return;
 
     case SSA_NAME:
-    case SYMBOL_MEMORY_TAG:
-    case NAME_MEMORY_TAG:
      add_stmt_operand (expr_p, stmt, flags);
      return;
 

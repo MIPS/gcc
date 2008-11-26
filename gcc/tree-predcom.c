@@ -2423,31 +2423,6 @@ try_combine_chains (VEC (chain_p, heap) **chains)
     }
 }
 
-/* Sets alias information based on data reference DR for REF,
-   if necessary.  */
-
-static void
-set_alias_info (tree ref, struct data_reference *dr)
-{
-  tree var;
-  tree tag = DR_SYMBOL_TAG (dr);
-
-  gcc_assert (tag != NULL_TREE);
-
-  ref = get_base_address (ref);
-  if (!ref || !INDIRECT_REF_P (ref))
-    return;
-
-  var = SSA_NAME_VAR (TREE_OPERAND (ref, 0));
-  if (var_ann (var)->symbol_mem_tag)
-    return;
-
-  if (!MTAG_P (tag))
-    new_type_alias (var, tag, ref);
-  else
-    var_ann (var)->symbol_mem_tag = tag;
-}
-
 /* Prepare initializers for CHAIN in LOOP.  Returns false if this is
    impossible because one of these initializers may trap, true otherwise.  */
 
@@ -2497,7 +2472,6 @@ prepare_initializers_chain (struct loop *loop, chain_p chain)
 	  mark_virtual_ops_for_renaming_list (stmts);
 	  gsi_insert_seq_on_edge_immediate (entry, stmts);
 	}
-      set_alias_info (init, dr);
 
       VEC_replace (tree, chain->inits, i, init);
     }

@@ -1024,7 +1024,6 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   tree vect_ptr_type;
   tree vect_ptr;
-  tree tag;
   tree new_temp;
   gimple vec_stmt;
   gimple_seq new_stmt_list = NULL;
@@ -1091,19 +1090,6 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
     }
 
   add_referenced_var (vect_ptr);
-
-  /** (2) Add aliasing information to the new vector-pointer:
-          (The points-to info (DR_PTR_INFO) may be defined later.)  **/
-  
-  tag = DR_SYMBOL_TAG (dr);
-  gcc_assert (tag);
-
-  /* If tag is a variable (and NOT_A_TAG) than a new symbol memory
-     tag must be created with tag added to its may alias list.  */
-  if (!MTAG_P (tag))
-    new_type_alias (vect_ptr, tag, DR_REF (dr));
-  else
-    set_symbol_mem_tag (vect_ptr, tag);
 
   /** Note: If the dataref is in an inner-loop nested in LOOP, and we are
       vectorizing LOOP (i.e. outer-loop vectorization), we need to create two

@@ -600,6 +600,7 @@ init_optimization_passes (void)
 	 calls, it is better to do the transformation
 	 here where memory SSA is not built yet.  */
       NEXT_PASS (pass_call_cdce);
+      NEXT_PASS (pass_update_address_taken);
       /* pass_build_alias is a dummy pass that ensures that we
 	 execute TODO_rebuild_alias at this point.  Re-building
 	 alias information also rewrites no longer addressed

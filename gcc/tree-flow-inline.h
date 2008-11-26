@@ -35,14 +35,6 @@ gimple_in_ssa_p (const struct function *fun)
   return fun && fun->gimple_df && fun->gimple_df->in_ssa_p;
 }
 
-/* 'true' after aliases have been computed (see compute_may_aliases).  */
-static inline bool
-gimple_aliases_computed_p (const struct function *fun)
-{
-  gcc_assert (fun && fun->gimple_df);
-  return fun->gimple_df->aliases_computed_p;
-}
-
 /* Addressable variables in the function.  If bit I is set, then
    REFERENCED_VARS (I) has had its address taken.  Note that
    CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
@@ -82,14 +74,6 @@ gimple_referenced_vars (const struct function *fun)
   if (!fun->gimple_df)
     return NULL;
   return fun->gimple_df->referenced_vars;
-}
-
-/* Artificial variable used to model the effects of function calls.  */
-static inline tree
-gimple_global_var (const struct function *fun)
-{
-  gcc_assert (fun && fun->gimple_df);
-  return fun->gimple_df->global_var;
 }
 
 /* Artificial variable used to model the effects of nonlocal
@@ -269,14 +253,6 @@ static inline enum tree_ann_type
 ann_type (tree_ann_t ann)
 {
   return ann->common.type;
-}
-
-/* Return the may_aliases bitmap for variable VAR, or NULL if it has
-   no may aliases.  */
-static inline bitmap
-may_aliases (const_tree var)
-{
-  return MTAG_ALIASES (var);
 }
 
 /* Return the line number for EXPR, or return -1 if we have no line
@@ -605,10 +581,7 @@ set_is_used (tree var)
 static inline bool
 is_global_var (const_tree t)
 {
-  if (MTAG_P (t))
-    return MTAG_GLOBAL (t);
-  else
-    return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+  return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
 
 /* PHI nodes should contain only ssa_names and invariants.  A test
@@ -640,64 +613,29 @@ loop_containing_stmt (gimple stmt)
 }
 
 
-/* Return the memory partition tag associated with symbol SYM.  */
-
-static inline tree
-memory_partition (tree sym)
-{
-  tree tag;
-
-  /* MPTs belong to their own partition.  */
-  if (TREE_CODE (sym) == MEMORY_PARTITION_TAG)
-    return sym;
-
-  gcc_assert (!is_gimple_reg (sym));
-  /* Autoparallelization moves statements from the original function (which has
-     aliases computed) to the new one (which does not).  When rebuilding
-     operands for the statement in the new function, we do not want to
-     record the memory partition tags of the original function.  */
-  if (!gimple_aliases_computed_p (cfun))
-    return NULL_TREE;
-  tag = get_var_ann (sym)->mpt;
-
-#if defined ENABLE_CHECKING
-  if (tag)
-    gcc_assert (TREE_CODE (tag) == MEMORY_PARTITION_TAG);
-#endif
-
-  return tag;
-}
-
-/* Return true if NAME is a memory factoring SSA name (i.e., an SSA
-   name for a memory partition.  */
-
+/* Return true if VAR is clobbered by function calls.  */
 static inline bool
-factoring_name_p (const_tree name)
+is_call_clobbered (const_tree var)
 {
-  return TREE_CODE (SSA_NAME_VAR (name)) == MEMORY_PARTITION_TAG;
+  return (is_global_var (var)
+	  || bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)));
 }
 
 /* Return true if VAR is used by function calls.  */
 static inline bool
 is_call_used (const_tree var)
 {
-  return (var_ann (var)->call_clobbered
+  return (is_call_clobbered (var)
 	  || bitmap_bit_p (gimple_call_used_vars (cfun), DECL_UID (var)));
-}
-
-/* Return true if VAR is clobbered by function calls.  */
-static inline bool
-is_call_clobbered (const_tree var)
-{
-  return var_ann (var)->call_clobbered;
 }
 
 /* Mark variable VAR as being clobbered by function calls.  */
 static inline void
 mark_call_clobbered (tree var, unsigned int escape_type)
 {
+  if (is_global_var (var))
+    return;
   var_ann (var)->escape_mask |= escape_type;
-  var_ann (var)->call_clobbered = true;
   bitmap_set_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
@@ -705,11 +643,9 @@ mark_call_clobbered (tree var, unsigned int escape_type)
 static inline void
 clear_call_clobbered (tree var)
 {
-  var_ann_t ann = var_ann (var);
-  ann->escape_mask = 0;
-  if (MTAG_P (var))
-    MTAG_GLOBAL (var) = 0;
-  var_ann (var)->call_clobbered = false;
+  if (is_global_var (var))
+    return;
+  var_ann (var)->escape_mask = 0;
   bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
@@ -1363,9 +1299,6 @@ unmodifiable_var_p (const_tree var)
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
 
-  if (MTAG_P (var))
-    return false;
-
   return TREE_READONLY (var) && (TREE_STATIC (var) || DECL_EXTERNAL (var));
 }
 
@@ -1422,47 +1355,11 @@ ranges_overlap_p (unsigned HOST_WIDE_INT pos1,
   return false;
 }
 
-/* Return the memory tag associated with symbol SYM.  */
-
-static inline tree
-symbol_mem_tag (tree sym)
-{
-  tree tag = get_var_ann (sym)->symbol_mem_tag;
-
-#if defined ENABLE_CHECKING
-  if (tag)
-    gcc_assert (TREE_CODE (tag) == SYMBOL_MEMORY_TAG);
-#endif
-
-  return tag;
-}
-
-
-/* Set the memory tag associated with symbol SYM.  */
-
-static inline void
-set_symbol_mem_tag (tree sym, tree tag)
-{
-#if defined ENABLE_CHECKING
-  if (tag)
-    gcc_assert (TREE_CODE (tag) == SYMBOL_MEMORY_TAG);
-#endif
-
-  get_var_ann (sym)->symbol_mem_tag = tag;
-}
-
 /* Accessor to tree-ssa-operands.c caches.  */
 static inline struct ssa_operands *
 gimple_ssa_operands (const struct function *fun)
 {
   return &fun->gimple_df->ssa_operands;
-}
-
-/* Map describing reference statistics for function FN.  */
-static inline struct mem_ref_stats_d *
-gimple_mem_ref_stats (const struct function *fn)
-{
-  return &fn->gimple_df->mem_ref_stats;
 }
 
 /* Given an edge_var_map V, return the PHI arg definition.  */

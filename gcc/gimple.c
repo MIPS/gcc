@@ -2889,9 +2889,6 @@ is_gimple_reg (tree t)
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
 
-  if (MTAG_P (t))
-    return false;
-
   if (!is_gimple_variable (t))
     return false;
 

@@ -26,7 +26,6 @@ typedef struct constraint *constraint_t;
 
 /* In tree-ssa-alias.c.  */
 enum escape_type is_escape_site (gimple);
-void update_mem_sym_stats_from_stmt (tree, gimple, long, long);
 
 /* In tree-ssa-structalias.c.  */
 extern void compute_points_to_sets (void);

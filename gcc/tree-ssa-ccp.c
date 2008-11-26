@@ -273,8 +273,7 @@ tree
 get_symbol_constant_value (tree sym)
 {
   if (TREE_STATIC (sym)
-      && TREE_READONLY (sym)
-      && !MTAG_P (sym))
+      && TREE_READONLY (sym))
     {
       tree val = DECL_INITIAL (sym);
       if (val)

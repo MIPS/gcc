@@ -1056,11 +1056,10 @@ sra_walk_function (const struct sra_walk_fns *fns)
 	ni = si;
 	gsi_next (&ni);
 
-	/* If the statement has no virtual operands, then it doesn't
+	/* If the statement does not reference memory, then it doesn't
 	   make any structure references that we care about.  */
-	if (gimple_aliases_computed_p (cfun)
-	    && ZERO_SSA_OPERANDS (stmt, (SSA_OP_VIRTUAL_DEFS | SSA_OP_VUSE)))
-	      continue;
+	if (!gimple_references_memory_p (stmt))
+	  continue;
 
 	switch (gimple_code (stmt))
 	  {

@@ -3563,16 +3563,6 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
           return false;
         }
 
-      if (!DR_SYMBOL_TAG (dr))
-        {
-          if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-            {
-              fprintf (vect_dump, "not vectorized: no memory tag for ");
-              print_generic_expr (vect_dump, DR_REF (dr), TDF_SLIM);
-            }
-          return false;
-        }
-
       base = unshare_expr (DR_BASE_ADDRESS (dr));
       offset = unshare_expr (DR_OFFSET (dr));
       init = unshare_expr (DR_INIT (dr));
