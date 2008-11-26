@@ -5572,7 +5572,7 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
 tree
 build_pointer_type (tree to_type)
 {
-  addr_space_t addr_space = TYPE_ADDR_SPACE (strip_array_types (to_type));
+  addr_space_t addr_space = TYPE_ADDR_SPACE (to_type);
   enum machine_mode mode = targetm.addr_space.pointer_mode (addr_space);
   return build_pointer_type_for_mode (to_type, mode, false);
 }
@@ -5781,6 +5781,7 @@ build_array_type (tree elt_type, tree index_type)
   t = make_node (ARRAY_TYPE);
   TREE_TYPE (t) = elt_type;
   TYPE_DOMAIN (t) = index_type;
+  TYPE_ADDR_SPACE (t) = TYPE_ADDR_SPACE (elt_type);
   
   if (index_type == 0)
     {

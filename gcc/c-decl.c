@@ -3294,7 +3294,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 
   if (TREE_CODE (decl) == VAR_DECL
       && TREE_TYPE (decl) != error_mark_node
-      && (addrspace = TYPE_ADDR_SPACE (strip_array_types (TREE_TYPE (decl))))
+      && (addrspace = TYPE_ADDR_SPACE (TREE_TYPE (decl)))
       && (declspecs->storage_class == csc_static
 	  || (declspecs->storage_class == csc_none
 	      && !current_function_scope)
@@ -4480,7 +4480,14 @@ grokdeclarator (const struct c_declarator *declarator,
 	       it, but here we want to make sure we don't ever
 	       modify the shared type, so we gcc_assert (itype)
 	       below.  */
-	      type = build_array_type (type, itype);
+	      {
+		addr_space_t as = DECODE_QUAL_ADDR_SPACE (type_quals);
+		if (as && as != TYPE_ADDR_SPACE (type))
+		  type = build_qualified_type (type,
+					       ENCODE_QUAL_ADDR_SPACE (as));
+
+		type = build_array_type (type, itype);
+	      }
 
 	    if (type != error_mark_node)
 	      {

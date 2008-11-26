@@ -721,6 +721,24 @@ default_addr_space_name (addr_space_t addrspace ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 }
 
+/* The default hook for determining whether you can convert from one address
+   space to another.  */
+
+bool
+default_addr_space_can_convert_p (addr_space_t to_addr, addr_space_t from_addr)
+{
+  return to_addr == from_addr;
+}
+
+/* The default hook for determining whether convert from one address space to
+   another is a NOP.  */
+
+bool
+default_addr_space_nop_convert_p (addr_space_t to_addr, addr_space_t from_addr)
+{
+  return to_addr == from_addr;
+}
+
 /* The default hook for TARGET_ADDR_SPACE_CONVERT. This hook should never be
    called for targets with only a generic address space.  */
 

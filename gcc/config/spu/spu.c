@@ -222,6 +222,14 @@ static unsigned char spu_addr_space_number (const_tree);
 #undef TARGET_ADDR_SPACE_NUMBER
 #define TARGET_ADDR_SPACE_NUMBER spu_addr_space_number
 
+static bool spu_addr_space_can_convert_p (addr_space_t, addr_space_t);
+#undef TARGET_ADDR_SPACE_CAN_CONVERT_P
+#define TARGET_ADDR_SPACE_CAN_CONVERT_P spu_addr_space_can_convert_p
+
+static bool spu_addr_space_nop_convert_p (addr_space_t, addr_space_t);
+#undef TARGET_ADDR_SPACE_NOP_CONVERT_P
+#define TARGET_ADDR_SPACE_NOP_CONVERT_P spu_addr_space_nop_convert_p
+
 static rtx spu_addr_space_convert (rtx, enum machine_mode, addr_space_t,
 				   addr_space_t);
 #undef TARGET_ADDR_SPACE_CONVERT
@@ -3481,7 +3489,7 @@ ea_symbol_ref (rtx *px, void *data ATTRIBUTE_UNUSED)
   return (GET_CODE (x) == SYMBOL_REF
  	  && (decl = SYMBOL_REF_DECL (x)) != 0
  	  && TREE_CODE (decl) == VAR_DECL
- 	  && TYPE_ADDR_SPACE (strip_array_types (TREE_TYPE (decl))));
+ 	  && TYPE_ADDR_SPACE (TREE_TYPE (decl)));
 }
 
 /* We accept:
@@ -6618,6 +6626,28 @@ spu_addr_space_name (addr_space_t addrspace)
   gcc_unreachable ();
 }
 
+/* Determine if you can convert one address to another.  */
+
+static bool
+spu_addr_space_can_convert_p (addr_space_t from,
+			      addr_space_t to)
+{
+  gcc_assert (from == ADDR_SPACE_GENERIC || from == ADDR_SPACE_EA);
+  gcc_assert (to == ADDR_SPACE_GENERIC || to == ADDR_SPACE_EA);
+  return true;
+}
+
+/* Determine if converting one address to another is a NOP.  */
+
+static bool
+spu_addr_space_nop_convert_p (addr_space_t from,
+			      addr_space_t to)
+{
+  gcc_assert (from == ADDR_SPACE_GENERIC || from == ADDR_SPACE_EA);
+  gcc_assert (to == ADDR_SPACE_GENERIC || to == ADDR_SPACE_EA);
+  return (to == from);
+}
+
 /* Convert from one address space to another.  */
 static rtx
 spu_addr_space_convert (rtx op,
@@ -6626,6 +6656,9 @@ spu_addr_space_convert (rtx op,
 			addr_space_t to)
 {
   rtx reg;
+
+  gcc_assert (from == ADDR_SPACE_GENERIC || from == ADDR_SPACE_EA);
+  gcc_assert (to == ADDR_SPACE_GENERIC || to == ADDR_SPACE_EA);
 
   if (to == from)
     return op;

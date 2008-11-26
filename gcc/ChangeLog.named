@@ -1,3 +1,64 @@
+2008-11-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* targhooks.h (default_addr_space_can_convert_p): New
+	declaration.
+	(default_addr_space_nop_convert_p): Ditto.
+
+	* targhooks.c (default_addr_space_can_convert_p): New default
+	target hook for named address spaces.
+	(default_addr_space_nop_convert_p): Ditto.
+
+	* tree.c (build_pointer_type): Remove strip_array_types call.
+	(build_array_type): Set the address space in the ARRAY_TYPE node.
+
+	* tree.h (TYPE_QUALS): Remote strip_array_types call.
+
+	* target.h (struct addr_space): Add target hooks for determining
+	if you can convert from a pointer in one named address to another
+	named address, and if the conversion is a NOP.
+
+	* c-objc-common (c_initialize_diagnostics): Delete
+	strip_array_types call from TYPE_ADDR_SPACE macro.
+
+	* dwarf2out.c (modified_type_die): Delete strip_array_types call
+	from TYPE_ADDR_SPACE macro.
+
+	* emit-rtl.c (set__mem_attributes_minus_bitpos): Delete
+	strip_array_types call from TYPE_ADDR_SPACE macro.
+
+	* c-decl.c (start_decl): Delete strip_array_types call from
+	TYPE_ADDR_SPACE macro.
+	(grokdeclarator): If an array is in a named address space, use a
+	qualified type that marks the address space.
+
+	* print-tree.c (print_node_brief): Print non-zero address spaces.
+	(print_node): Ditto.
+
+	* target-def.h (TARGET_ADDR_SPACE_CAN_CONVERT_P): New target hook.
+	(TARGET_ADDR_SPACE_NOP_CONVERT_P): Ditto.
+	(TARGET_ADDR_SPACE_HOOKS): Add new hooks.
+
+	* c-parser.c (c_parser_postfix_expression_after_paren_): Delete
+	strip_array_types call from TYPE_ADDR_SPACE macro.
+
+	* config/spu/spu.c (spu_addr_space_can_convert_p): New target hook
+	for named address space support.
+	(spu_addr_space_nop_convert_p): Ditto.
+	(ea_symbol_ref): Delete strip_array_types call from
+	TYPE_ADDR_SPACE macro.
+
+	* convert (convert_to_pointer): Check if the backend allows
+	converting a pointer from one named address to another named
+	address, and if it does allow the conversion, whether the
+	conversion is a NOP or real conversion.  Rewrite conversion of
+	integer to pointer for named address spaces.
+	(convert_to_integer): Rewrite named address space conversion code
+	to adhere to GNU coding standards.
+
+	* doc/tm.texi (TARGET_ADDR_SPACE_CAN_CONVERT_P): Document new
+	hook.
+	(TARGET_ADDR_SPACE_NOP_CONVERT_P): Ditto.
+
 2008-11-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* c-decl.c (diagnose_mismatched_decls): Report on mis-matched
