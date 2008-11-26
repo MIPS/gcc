@@ -1,3 +1,16 @@
+2008-11-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38180
+	* tree-ssa-ccp.c (get_default_value): Simplify.
+	(likely_value): Likewise.
+	(surely_varying_stmt_p): Properly handle VOP case.
+	(ccp_initialize): Likewise.
+	(ccp_fold): Handle propagating through *&.
+	(fold_const_aggregate_ref): Also handle decls.
+
+	testsuite/
+	* gcc.dg/tree-ssa/ssa-ccp-24.c: New testcase.
+
 2008-11-25  Richard Guenther  <rguenther@suse.de>
 
 	* tree-data-ref.c (dr_may_alias_p): Use the alias-oracle.
