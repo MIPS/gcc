@@ -753,6 +753,7 @@ extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool ssa_undefined_value_p (tree);
+unsigned int execute_update_addresses_taken (void);
 
 
 /* In tree-into-ssa.c  */

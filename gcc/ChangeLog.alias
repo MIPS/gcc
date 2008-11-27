@@ -1,3 +1,15 @@
+2008-11-27  Richard Guenther  <rguenther@suse.de>
+
+	* passes.c (init_optimization_passes): Remove pass_update_address_taken
+	before initial PTA pass again.
+	(execute_function_todo): For TODO_rebuild_alias run
+	update_address_taken before compute_may_aliases.
+	* tree-flow.h (execute_update_addresses_taken): Declare.
+	* tree-ssa.c (execute_update_addresses_taken): Export.  Update SSA
+	manually.
+	(pass_update_address_taken): Remove TODO_update_ssa, add
+	TODO_dump_func.
+
 2008-11-26  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-structalias.c (intra_create_variable_infos): Make

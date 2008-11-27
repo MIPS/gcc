@@ -1469,7 +1469,7 @@ struct gimple_opt_pass pass_late_warn_uninitialized =
 
 /* Compute TREE_ADDRESSABLE and DECL_GIMPLE_REG_P for local variables.  */
 
-static unsigned int
+unsigned int
 execute_update_addresses_taken (void)
 {
   tree var;
@@ -1572,14 +1572,19 @@ execute_update_addresses_taken (void)
   /* Operand caches needs to be recomputed for operands referencing the updated
      variables.  */
   if (update_vops)
-    FOR_EACH_BB (bb)
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	{
-	  gimple stmt = gsi_stmt (gsi);
+    {
+      FOR_EACH_BB (bb)
+	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	    {
+	      gimple stmt = gsi_stmt (gsi);
 
-	  if (gimple_references_memory_p (stmt))
-	    update_stmt (stmt);
-	}
+	      if (gimple_references_memory_p (stmt))
+		update_stmt (stmt);
+	    }
+
+      /* Update SSA form here, we are called as non-pass as well.  */
+      update_ssa (TODO_update_ssa);
+    }
 
   BITMAP_FREE (not_reg_needs);
 
@@ -1601,6 +1606,6 @@ struct gimple_opt_pass pass_update_address_taken =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa                       /* todo_flags_finish */
+  TODO_dump_func			/* todo_flags_finish */
  }
 };
