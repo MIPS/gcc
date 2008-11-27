@@ -1,3 +1,8 @@
+2008-11-26  Cary Coutant  <ccoutant@google.com>
+
+	* collect2.c (is_elf): New function.
+	(scan_prog_file): Require LTO object to be in ELF format.
+
 2008-11-26  Diego Novillo  <dnovillo@google.com>
 
 	* lto-wpa-fixup.c (output_wpa_fixup): Also check the

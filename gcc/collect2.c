@@ -308,6 +308,9 @@ static void write_c_file_stat (FILE *, const char *);
 #ifndef LD_INIT_SWITCH
 static void write_c_file_glob (FILE *, const char *);
 #endif
+#ifdef OBJECT_FORMAT_NONE
+static bool is_elf (const char *);
+#endif
 static void scan_prog_file (const char *, enum pass);
 #ifdef SCAN_LIBRARIES
 static void scan_libraries (const char *);
@@ -2455,6 +2458,25 @@ write_aix_file (FILE *stream, struct id *list)
 
 #ifdef OBJECT_FORMAT_NONE
 
+/* Check to make sure the file is an ELF file.  LTO objects must
+   be in the ELF format for now.  */
+
+static bool
+is_elf (const char *prog_name)
+{
+  FILE *f;
+  char buf[4];
+  static char magic[4] = { 0x7f, 'E', 'L', 'F' };
+
+  f = fopen (prog_name, "r");
+  if (f == NULL)
+    return false;
+  if (fread (buf, sizeof(buf), 1, f) != 1)
+    buf[0] = 0;
+  fclose (f);
+  return memcmp (buf, magic, sizeof(magic)) == 0;
+}
+
 /* Generic version to scan the name list of the loaded program for
    the symbols g++ uses for static constructors and destructors.
 
@@ -2482,6 +2504,12 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
   int found_lto = 0;
 
   if (which_pass == PASS_SECOND)
+    return;
+
+  /* LTO objects must be in ELF format.  This check prevents
+     us from accepting an archive containing LTO objects, which
+     gcc cannnot currently handle.  */
+  if (which_pass == PASS_LTOINFO && !is_elf (prog_name))
     return;
 
   /* If we do not have an `nm', complain.  */
