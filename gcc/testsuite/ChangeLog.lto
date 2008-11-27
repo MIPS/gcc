@@ -1,3 +1,18 @@
+2008-11-27  Diego Novillo  <dnovillo@google.com>
+
+	* lib/lto.exp (lto_init): New.
+	Initialize LTO_OPTIONS if not set.
+	(lto-execute): Set dg-do-what-default to run.
+	If the first file does not define dg-options, set
+	option_list to LTO_OPTIONS.
+	* gcc.dg/lto/lto.exp: Call lto_init.
+	* g++.dg/lto/lto.exp: Likewise.
+	* gcc.dg/lto/20081125_0.c: Remove dg-options and dg-do
+	commands.
+	* g++.dg/lto/20080917_0.C: Brace dg-options.
+	* g++.dg/lto/20080924_0.C: Likewise.
+	* g++.dg/lto/20080926_0.C: Likewise.
+
 2008-11-27  Simon Baldwin  <simonb@google.com>
 
 	* g++.dg/lto/20081127_0.C: New.
