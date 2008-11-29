@@ -1,3 +1,7 @@
+2008-11-29  Diego Novillo  <dnovillo@google.com>
+
+	* lib/lto.exp: Do not set dg-do-what-default.
+
 2008-11-27  Diego Novillo  <dnovillo@google.com>
 
 	* lib/lto.exp (lto_init): New.

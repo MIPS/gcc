@@ -1,3 +1,18 @@
+2008-11-29  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c: Include timevar.h.
+	(lto_materialize_function): Tidy.  Add comments.
+	(lto_wpa_write_files): Tidy.
+	(lto_execute_ltrans): Tidy.
+	(lto_main): Add local variable LTO_TIMER.  Initialize it
+	to one of TV_WHOPR_WPA, TV_WHOPR_LTRANS or TV_LTO.
+	Start and stop the timer.
+	Tidy comments.
+	* Make-lang.in (lto.o): Add dependency on timevar.h.
+	* ltrans-driver: React to -v and -save-temps.
+	Use simple heuristic to determine how much parallelism to
+	use when executing make.
+
 2008-11-12  Doug Kwan  <dougkwan@google.com>
 
 	* lto.c (lto_bitmap_obstack): Remove var.

@@ -266,7 +266,7 @@ struct ipa_opt_pass pass_ipa_lto_wpa_fixup =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  TV_IPA_LTO_OUT,		        /* tv_id */
+  TV_WHOPR_WPA_FIXUP,		        /* tv_id */
   0,	                                /* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

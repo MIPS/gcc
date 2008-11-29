@@ -1,3 +1,22 @@
+2008-11-29  Diego Novillo  <dnovillo@google.com>
+
+	* timevar.def (TV_IPA_LTO_GIMPLE_IO): Rename from
+	TV_IPA_LTO_OUT.  Update all users.
+	(TV_IPA_LTO_DECL_IO): New.
+	(TV_IPA_LTO_CGRAPH_IO): New.
+	(TV_LTO): New.
+	(TV_WHOPR_WPA): New.
+	(TV_WHOPR_LTRANS): New.
+	(TV_WHOPR_WPA_FIXUP): New.
+	* lto-cgraph.c (pass_ipa_lto_cgraph): Use TV_IPA_LTO_CGRAPH_IO.
+	* lto-wpa-fixup.c (pass_ipa_lto_wpa_fixup): Use TV_WHOPR_WPA_FIXUP.
+	* passes.c (execute_ipa_summary_passes): Start and stop
+	pass timers, if they are defined.
+	(ipa_write_summaries_2): Likewise.
+	(ipa_write_summaries_1): Likewise.
+	* lto-section-out.c (pass_ipa_lto_finish_out): Replace
+	timer TV_IPA_LTO_OUT with TV_IPA_LTO_DECL_IO.
+
 2008-11-26  Cary Coutant  <ccoutant@google.com>
 
 	* collect2.c (is_elf): New function.

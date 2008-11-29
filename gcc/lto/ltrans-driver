@@ -25,6 +25,16 @@
 # to be set.  It generates a temporary Makefile, and uses it to convert .o
 # files to .ltrans.o files.
 
+# See if CFLAGS includes -v or -save-temps to react accordingly.
+verbose=0
+save_temps=0
+for f in $CFLAGS ; do
+  if [ "$f" = "'-v'" ] ; then
+    verbose=1
+  elif [ "$f" = "'-save-temps'" ] ; then
+    save_temps=1
+  fi
+done
 
 # Create a temporary directory $tmp in $TMPDIR (default /tmp).
 # Use mktemp if possible; otherwise fall back on mkdir,
@@ -40,14 +50,17 @@
   (umask 077 && mkdir "$tmp")
 } || exit $?
 
-# Remove the temporary directory on exit or if a SIGTERM or SIGINT is received.
-trap 'rm -rf $tmp' TERM INT EXIT
+# Remove the temporary directory on exit or if a SIGTERM or SIGINT is
+# received.
+if [ $save_temps -eq 0 ] ; then
+  trap 'rm -rf $tmp' TERM INT EXIT
+fi
 
 # Create a temporary Makefile.
 makefile=$tmp/Makefile
 touch $makefile
 
-# We have to clear these to avoid problems with this make invocations getting
+# We have to clear these to avoid problems with this make invocation getting
 # confused with variables set by (for example) "make -j 2 check".
 unset MAKEFLAGS
 unset MAKEINFO
@@ -67,7 +80,26 @@ done
 
 echo "all: $outputlist" >> $makefile
 
-${MAKE-make} -f $makefile all > $tmp/make.log 2>&1
-if [ $? -ne 0 ] ; then
-  cat $tmp/make.log
+quiet="--quiet"
+if [ $verbose -eq 1 ] ; then
+  quiet=""
+  set -x
 fi
+
+# Use some simple heuristics to determine how much parallelism to use
+# when invoking make.  Note that this probably only works reliably on
+# Linux.  Also, the load may spike right after the calculation, so
+# it's not foolproof.
+awk=/usr/bin/awk
+uptime=/usr/bin/uptime
+getconf=/usr/bin/getconf
+par=1
+if [ -x $awk -a -x $uptime -a -x $getconf ] ; then
+  loadavg=$($uptime | $awk '{ l = $(NF - 2); print int (strtonum (l)); }')
+  nprocs=$($getconf _NPROCESSORS_ONLN)
+  if [ $loadavg -lt $nprocs ] ; then
+    par=$[($nprocs - $loadavg) * 2]
+  fi
+fi
+${MAKE-make} $quiet -f $makefile -j $par all
+exit $?

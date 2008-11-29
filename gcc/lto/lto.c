@@ -46,6 +46,7 @@ Boston, MA 02110-1301, USA.  */
 #include "pointer-set.h"
 #include "ipa-prop.h"
 #include "common.h"
+#include "timevar.h"
 
 /* This needs to be included after config.h.  Otherwise, _GNU_SOURCE will not
    be defined in time to set __USE_GNU in the system headers, and strsignal
@@ -96,6 +97,8 @@ lto_materialize_function (struct cgraph_node *node)
 
       allocate_struct_function (decl, false);
 
+      /* Load the function body only if not operating in WPA mode.  In
+	 WPA mode, the body of the function is not needed.  */
       if (!flag_wpa)
         lto_input_function_body (file_data, decl, data);
 
@@ -105,9 +108,7 @@ lto_materialize_function (struct cgraph_node *node)
 
       /* Look for initializers of constant variables and private
 	 statics.  */
-      for (step = fn->local_decls;
-	   step;
-	   step = TREE_CHAIN (step))
+      for (step = fn->local_decls; step; step = TREE_CHAIN (step))
 	{
 	  tree decl = TREE_VALUE (step);
 	  if (TREE_CODE (decl) == VAR_DECL
@@ -120,9 +121,7 @@ lto_materialize_function (struct cgraph_node *node)
     DECL_EXTERNAL (decl) = 1;
 
   /* Let the middle end know about the function.  */
-  rest_of_decl_compilation (decl,
-                            /*top_level=*/1,
-                            /*at_end=*/0);
+  rest_of_decl_compilation (decl, 1, 0);
   if (cgraph_node (decl)->needed)
     cgraph_mark_reachable_node (cgraph_node (decl));
 }
@@ -720,7 +719,7 @@ lto_wpa_write_files (void)
   bitmap decls;
   VEC(bitmap,heap) *inlined_decls = NULL;
 
-  /* Include all inlined function. */
+  /* Include all inlined functions.  */
   for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
     {
       decls = lto_add_all_inlinees (set);
@@ -741,7 +740,7 @@ lto_wpa_write_files (void)
 
       output_files[i] = temp_filename;
 
-      file = lto_elf_file_open (temp_filename, /*writable=*/true);
+      file = lto_elf_file_open (temp_filename, true);
       if (!file)
         fatal_error ("lto_elf_file_open() failed");
 
@@ -858,12 +857,11 @@ lto_execute_ltrans (char *const *files)
   errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0], argv, NULL, NULL,
 		    &err);
   if (errmsg)
-    {
-      fatal_error ("%s: %s", errmsg, xstrerror (err));
-    }
+    fatal_error ("%s: %s", errmsg, xstrerror (err));
 
   if (!pex_get_status (pex, 1, &status))
     fatal_error ("can't get program status: %s", xstrerror (errno));
+
   pex_free (pex);
 
   if (status)
@@ -879,6 +877,7 @@ lto_execute_ltrans (char *const *files)
 	fatal_error ("%s terminated with status %d", argv[0], status);
     }
 }
+
 
 typedef struct {
   struct pointer_set_t *free_list;
@@ -1259,6 +1258,15 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   FILE *resolution = NULL;
   unsigned num_objects;
   int t;
+  timevar_id_t lto_timer;
+
+  /* Start the appropriate timer depending on the mode that we are
+     operating in.  */
+  lto_timer = (flag_wpa) ? TV_WHOPR_WPA
+	      : (flag_ltrans) ? TV_WHOPR_LTRANS
+	      : TV_LTO;
+
+  timevar_push (lto_timer);
 
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data,
@@ -1308,7 +1316,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   /* Skip over the rest if any errors were found.  FIXME lto, this
      should be reorganized to use the pass manager.  */
   if (errorcount)
-    return;
+    goto finish;
 
   /* FIXME lto. This loop needs to be changed to use the pass manager to
      call the ipa passes directly.  */
@@ -1325,9 +1333,10 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   /* Now that we have input the cgraph, we need to clear all of the aux
      nodes and read the functions if we are not running in WPA mode.  
 
-     FIXME!!!!! This loop obviously leaves a lot to be desired:
-     1) it loads all of the functions at once.  
-     2) it closes and reopens the files over and over again. 
+     FIXME lto.  When not operating in WPA mode, this loop will:
+
+     1) Load all of the functions at once.  
+     2) Close and reopen the files over and over again. 
 
      It would obviously be better for the cgraph code to look to load
      a batch of functions and sort those functions by the file they
@@ -1337,31 +1346,20 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
      small part of what will be a complex set of management
      issues.  */
   for (node = cgraph_nodes; node; node = node->next)
-    {
-      /* FIXME!!!  There really needs to be some check to see if the
-	 function is really not external here.  Currently the only
-	 check is to see if the section was defined in the file_data
-	 index.  There is of course the value in the node->aux field
-	 that is nulled out in the previous line, but we should really
-	 be able to look at the cgraph info at the is point and make
-	 the proper determination.   Honza will fix this.  */
-      lto_materialize_function (node);
-    }
+    lto_materialize_function (node);
+
   current_function_decl = NULL;
   set_cfun (NULL);
 
   /* Inform the middle end about the global variables we have seen.  */
   for (i = 0; VEC_iterate (tree, lto_global_var_decls, i, decl); i++)
-    rest_of_decl_compilation (decl,
-                              /*top_level=*/1,
-                              /*at_end=*/0);
+    rest_of_decl_compilation (decl, 1, 0);
 
   /* Fix up any calls to DECLs that have become not exception throwing.  */
   lto_fixup_nothrow_decls ();
 
   /* Let the middle end know that we have read and merged all of the
      input files.  */ 
-  /*cgraph_finalize_compilation_unit ();*/
   if (!flag_wpa)
     cgraph_optimize ();
   else
@@ -1400,6 +1398,10 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
         }
       XDELETEVEC (output_files);
     }
+
+finish:
+  /* Stop the LTO timer.  */
+  timevar_pop (lto_timer);
 }
 
 #include "gt-lto-lto.h"

@@ -270,7 +270,6 @@ proc lto-execute { src1 sid } {
     # unsupported flags.
     verbose "lto-execute: $src1" 1
     set compile_type "run"
-    set dg-do-what-default run
     set dg-do-what [list ${dg-do-what-default} "" P]
     set extra_flags(0) [lto-get-options-main $src1]
     set compile_xfail(0) "" 
@@ -283,7 +282,6 @@ proc lto-execute { src1 sid } {
     } else {
 	set option_list $LTO_OPTIONS
     }
-
 
     # Check whether this test is supported for this target.
     if { [lindex ${dg-do-what} 1 ] == "N" } {

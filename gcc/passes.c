@@ -1195,7 +1195,17 @@ execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 	  && ipa_pass->generate_summary)
 	{
 	  pass_init_dump_file (pass);
+
+	  /* If a timevar is present, start it.  */
+	  if (pass->tv_id)
+	    timevar_push (pass->tv_id);
+
 	  ipa_pass->generate_summary ();
+
+	  /* Stop timevar.  */
+	  if (pass->tv_id)
+	    timevar_pop (pass->tv_id);
+
 	  pass_fini_dump_file (pass);
 	}
       ipa_pass = (struct ipa_opt_pass *)ipa_pass->pass.next;
@@ -1377,7 +1387,7 @@ static void
 ipa_write_summaries_2 (struct opt_pass *pass, cgraph_node_set set,
 		       struct lto_out_decl_state *state)
 {
-  do
+  while (pass)
     {
       struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *)pass;
       gcc_assert (!current_function_decl);
@@ -1386,17 +1396,28 @@ ipa_write_summaries_2 (struct opt_pass *pass, cgraph_node_set set,
       if (pass->type == IPA_PASS
 	  && ipa_pass->write_summary
 	  && (!pass->gate || pass->gate ()))
-	ipa_pass->write_summary (set);
+	{
+	  /* If a timevar is present, start it.  */
+	  if (pass->tv_id)
+	    timevar_push (pass->tv_id);
+
+	  ipa_pass->write_summary (set);
+
+	  /* If a timevar is present, start it.  */
+	  if (pass->tv_id)
+	    timevar_pop (pass->tv_id);
+	}
+
       if (pass->sub && pass->sub->type != GIMPLE_PASS)
 	ipa_write_summaries_2 (pass->sub, set, state);
+
       pass = pass->next;
     }
-  while (pass);
 }
 
-/* Helper function of ipa_write_summaries. Creates and destroys the decl state
-   and calls ipa_write_summaries_2 for all passes that have summaries. SET is
-   the set of nodes to be written. */
+/* Helper function of ipa_write_summaries. Creates and destroys the
+   decl state and calls ipa_write_summaries_2 for all passes that have
+   summaries.  SET is the set of nodes to be written.  */
 
 static void
 ipa_write_summaries_1 (cgraph_node_set set)
@@ -1412,8 +1433,7 @@ ipa_write_summaries_1 (cgraph_node_set set)
   lto_delete_out_decl_state (state);
 }
 
-/* Write out summaries of all cgraph nodes in SET.  If SET is NULL, write out
-   all summaries of all nodes. */
+/* Write out summaries for all the nodes in the callgraph.  */
 
 void
 ipa_write_summaries (void)
@@ -1433,6 +1453,10 @@ ipa_write_summaries (void)
     }
 }
 
+
+/* Write all the summaries for the cgraph nodes in SET.  If SET is
+   NULL, write out all summaries of all nodes. */
+
 void
 ipa_write_summaries_of_cgraph_node_set (cgraph_node_set set)
 {
@@ -1446,23 +1470,38 @@ ipa_write_summaries_of_cgraph_node_set (cgraph_node_set set)
 static void
 ipa_read_summaries_1 (struct opt_pass *pass)
 {
-  do
+  while (pass)
     {
-      struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *)pass;
+      struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *) pass;
+
       gcc_assert (!current_function_decl);
       gcc_assert (!cfun);
       gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
+
       if (pass->gate == NULL || pass->gate ())
 	{
 	  if (pass->type == IPA_PASS && ipa_pass->read_summary)
-	    ipa_pass->read_summary ();
+	    {
+	      /* If a timevar is present, start it.  */
+	      if (pass->tv_id)
+		timevar_push (pass->tv_id);
+
+	      ipa_pass->read_summary ();
+
+	      /* Stop timevar.  */
+	      if (pass->tv_id)
+		timevar_pop (pass->tv_id);
+	    }
+
 	  if (pass->sub && pass->sub->type != GIMPLE_PASS)
 	    ipa_read_summaries_1 (pass->sub);
 	}
       pass = pass->next;
     }
-  while (pass);
 }
+
+
+/* Read all the summaries for all_regular_ipa_passes and all_lto_gen_passes.  */
 
 void
 ipa_read_summaries (void)
