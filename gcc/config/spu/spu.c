@@ -6634,6 +6634,12 @@ spu_addr_space_can_convert_p (addr_space_t from,
 {
   gcc_assert (from == ADDR_SPACE_GENERIC || from == ADDR_SPACE_EA);
   gcc_assert (to == ADDR_SPACE_GENERIC || to == ADDR_SPACE_EA);
+
+  if (TARGET_NO_EA_LOCAL_CONVERSION
+      && from == ADDR_SPACE_EA
+      && to == ADDR_SPACE_GENERIC)
+    return false;
+
   return true;
 }
 

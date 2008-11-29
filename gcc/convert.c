@@ -518,7 +518,7 @@ convert_to_integer (tree type, tree expr)
 
  	/* Convert to an unsigned integer of the correct width first,
  	   and from there widen/truncate to the required type.  */
-	as = TYPE_ADDR_SPACE (intype);
+	as = TYPE_ADDR_SPACE (TREE_TYPE (intype));
 	if (!as)
 	  pointer_size = POINTER_SIZE;
 

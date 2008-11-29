@@ -3301,9 +3301,9 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 	  || (declspecs->storage_class == csc_extern
 	      && initialized)))
     {
-      /* FIXME: do not use __ea.  */
       if (!targetm.have_named_sections)
-	error ("%<__ea%> definitions not supported for %qD", decl);
+	error ("%<%s%> definitions not supported for %qD",
+	       targetm.addr_space.name (addrspace), decl);
       DECL_SECTION_NAME (decl) = targetm.addr_space.section_name (addrspace);
     }
 

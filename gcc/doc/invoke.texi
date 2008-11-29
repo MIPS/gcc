@@ -800,6 +800,7 @@ See RS/6000 and PowerPC Options.
 -mfixed-range=@var{register-range} @gol
 -mea32 -mea64 @gol
 -mcache-size=@var{cache-size} @gol
+-mlocal-ea-conversion -mno-local-ea-conversion @gol
 -matomic-updates -mno-atomic-updates}
 
 @emph{System V Options}
@@ -15008,6 +15009,14 @@ either 32 or 64 bits wide. The default is 32 bits.  The @code{__ea}
 address space qualifier specifies that variables reside in the PPU
 address space.  As this is an ABI changing option, all object code in an
 executable must be compiled with the same option.
+
+@item -mlocal-ea-conversion
+@itemx -mno-local-ea-conversion
+@opindex mlocal-ea-conversion
+@opindex mno-local-ea-conversion
+
+Allow/disallow pointers to the @code{__ea} address space to be
+converted local pointers.
 
 @item -mcache-size=@var{cache-size}
 @opindex mcache-size

@@ -2210,6 +2210,12 @@ struct tree_block GTY(())
    | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)		\
    | (ENCODE_QUAL_ADDR_SPACE (TYPE_ADDR_SPACE (NODE))))
 
+/* The same as TYPE_QUALS without the address space qualifications.  */
+#define TYPE_QUALS_NO_ADDR_SPACE(NODE)				\
+  ((TYPE_READONLY (NODE) * TYPE_QUAL_CONST)			\
+   | (TYPE_VOLATILE (NODE) * TYPE_QUAL_VOLATILE)		\
+   | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT))
+
 /* These flags are available for each language front end to use internally.  */
 #define TYPE_LANG_FLAG_0(NODE) (TYPE_CHECK (NODE)->type.lang_flag_0)
 #define TYPE_LANG_FLAG_1(NODE) (TYPE_CHECK (NODE)->type.lang_flag_1)

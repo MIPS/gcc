@@ -8143,16 +8143,20 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       /* Handle casts of pointers to/from address space qualified
 	 pointers.  */
       subexp0 = TREE_OPERAND (exp, 0);
-      if (POINTER_TYPE_P (type)
-	  && POINTER_TYPE_P (TREE_TYPE (subexp0))
-	  && (TYPE_ADDR_SPACE (TREE_TYPE (type))
-	      != TYPE_ADDR_SPACE (TREE_TYPE (subexp0))))
+      if (POINTER_TYPE_P (type) && POINTER_TYPE_P (TREE_TYPE (subexp0)))
 	{
-	  op0 = expand_expr (subexp0, NULL_RTX, VOIDmode, modifier);
-	  return targetm.addr_space.convert (op0,
-					     TYPE_MODE (type),
-					     TYPE_ADDR_SPACE (TREE_TYPE (subexp0)),
-					     TYPE_ADDR_SPACE (TREE_TYPE (type)));
+	  tree subexp0_type = TREE_TYPE (subexp0);
+	  addr_space_t as_to = TYPE_ADDR_SPACE (TREE_TYPE (type));
+	  addr_space_t as_from = TYPE_ADDR_SPACE (TREE_TYPE (subexp0_type));
+
+	  if (as_to != as_from)
+	    {
+	      op0 = expand_expr (subexp0, NULL_RTX, VOIDmode, modifier);
+	      return targetm.addr_space.convert (op0,
+						 TYPE_MODE (type),
+						 as_from,
+						 as_to);
+	    }
 	}
 
       if (mode == TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0))))

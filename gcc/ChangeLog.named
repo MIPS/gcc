@@ -1,3 +1,35 @@
+2008-11-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* tree.h (TYPE_QUALS_NO_ADDR_SPACE): New macro, like TYPE_QUALS,
+	without the address space qualifiers.
+
+	* expr.c (expand_expr_real_1): Add check in converting one pointer
+	to another whether you can convert between different named address
+	spaces.
+
+	* c-decl.c (null_pointer_constant_p): Use TYPE_QUALS_NO_ADDR_SPACE
+	instead of TYPE_QUALS.
+	(composite_type): Ditto.
+	(c_common_type): Ditto.
+	(build_c_cast): Ditto.
+	(convert_for_assignment): Ditto.
+	(build_c_cast): Add error message if it is not possible to convert
+	from one pointer to another.
+
+	* convert.c (convert_to_integer): When converting pointers to
+	integer, use the address space the pointer points to and not the
+	pointer itself.
+	
+	* config/spu/spu.opt (-mno-local-ea-conversion): New switch to
+	disallow converting __ea pointers to local pointers.
+	(-mlocal-ea-conversion): New switch for the default case.
+
+	* config/spu/spu.md (to_ea): Revert previous code.
+	(from_ea): Ditto.
+
+	* doc/invoke.texi (-mlocal-ea-conversion): Document.
+	(-mno-local-ea-conversion): Ditto.
+
 2008-11-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* targhooks.h (default_addr_space_can_convert_p): New
