@@ -6927,10 +6927,11 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
     tmode = TYPE_MODE (TREE_TYPE (exp));
 
   addrmode = Pmode;
-  if (OTHER_ADDR_SPACE_POINTER_TYPE_P (TREE_TYPE (exp)))
+  if (POINTER_TYPE_P (TREE_TYPE (exp)))
     {
-      addr_space_t addr_space = TYPE_ADDR_SPACE (TREE_TYPE (exp));
-      addrmode = targetm.addr_space.pointer_mode (addr_space);
+      addr_space_t addr_space = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
+      if (addr_space)
+	addrmode = targetm.addr_space.pointer_mode (addr_space);
     }
 
   /* We can get called with some Weird Things if the user does silliness

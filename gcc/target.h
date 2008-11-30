@@ -665,7 +665,7 @@ struct gcc_target
   /* Support for named address spaces.  */
   struct addr_space {
     /* MODE to use for a pointer into another address space.  */
-    enum machine_mode (* pointer_mode) (int);
+    enum machine_mode (* pointer_mode) (addr_space_t);
 
     /* Function to map an address space to a descriptive string.  */
     const char * (* name) (addr_space_t);
@@ -680,6 +680,10 @@ struct gcc_target
     /* True if converting a pointer of one address space to another is just a
        NOP.  */
     bool (* nop_convert_p) (addr_space_t, addr_space_t);
+
+    /* Return the named address space to use between pointers to different
+       named address spaces.  */
+    addr_space_t (* common_pointer) (addr_space_t, addr_space_t);
 
     /* Function to convert an rtl expression from one address space to
        another.  */

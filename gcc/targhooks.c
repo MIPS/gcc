@@ -739,6 +739,18 @@ default_addr_space_nop_convert_p (addr_space_t to_addr, addr_space_t from_addr)
   return to_addr == from_addr;
 }
 
+/* The default hook for determining whether there is a common pointer format to
+   use when two pointers are used together.  */
+
+addr_space_t
+default_addr_space_common_pointer (addr_space_t addr1, addr_space_t addr2)
+{
+  if (addr1 == addr2)
+    return addr1;
+
+  gcc_unreachable ();
+}
+
 /* The default hook for TARGET_ADDR_SPACE_CONVERT. This hook should never be
    called for targets with only a generic address space.  */
 

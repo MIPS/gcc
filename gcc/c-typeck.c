@@ -532,6 +532,8 @@ common_pointer_type (tree t1, tree t2)
   tree pointed_to_2, mv2;
   tree target;
   unsigned target_quals;
+  addr_space_t as1, as2, as_common;
+  int quals1, quals2;
 
   /* Save time if the two types are the same.  */
 
@@ -563,10 +565,24 @@ common_pointer_type (tree t1, tree t2)
   /* For function types do not merge const qualifiers, but drop them
      if used inconsistently.  The middle-end uses these to mark const
      and noreturn functions.  */
+  quals1 = TYPE_QUALS_NO_ADDR_SPACE (pointed_to_1);
+  quals2 = TYPE_QUALS_NO_ADDR_SPACE (pointed_to_2);
+
   if (TREE_CODE (pointed_to_1) == FUNCTION_TYPE)
-    target_quals = TYPE_QUALS (pointed_to_1) & TYPE_QUALS (pointed_to_2);
+    target_quals = (quals1 & quals2);
   else
-    target_quals = TYPE_QUALS (pointed_to_1) | TYPE_QUALS (pointed_to_2);
+    target_quals = (quals1 | quals2);
+
+  /* Determine the address space to use if the pointers point to different
+     named address spaces.  */
+  as1 = TYPE_ADDR_SPACE (pointed_to_1);
+  as2 = TYPE_ADDR_SPACE (pointed_to_2);
+  as_common = ((as1 == as2)
+	       ? as1
+	       : targetm.addr_space.common_pointer (as1, as2));
+
+  target_quals |= ENCODE_QUAL_ADDR_SPACE (as_common);
+
   t1 = build_pointer_type (c_build_qualified_type (target, target_quals));
   return build_type_attribute_variant (t1, attributes);
 }
@@ -8288,6 +8304,8 @@ build_binary_op (location_t location, enum tree_code code,
 	{
 	  tree tt0 = TREE_TYPE (type0);
 	  tree tt1 = TREE_TYPE (type1);
+	  addr_space_t as;
+
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
 	     and both must be object or both incomplete.  */
@@ -8305,9 +8323,10 @@ build_binary_op (location_t location, enum tree_code code,
 	      /* If this operand is a pointer into another address
 		 space, make the result of the comparison such a
 		 pointer also.  */
-	      if (OTHER_ADDR_SPACE_POINTER_TYPE_P (type0))
+	      if (POINTER_TYPE_P (type0)
+		  && (as = TYPE_ADDR_SPACE (TREE_TYPE (type0))))
 		{
-		  int qual = ENCODE_QUAL_ADDR_SPACE (TYPE_ADDR_SPACE (TREE_TYPE (type0)));
+		  int qual = ENCODE_QUAL_ADDR_SPACE (as);
 		  result_type = build_pointer_type
 		    (build_qualified_type (void_type_node, qual));
 		}
@@ -8322,9 +8341,10 @@ build_binary_op (location_t location, enum tree_code code,
 	      /* If this operand is a pointer into another address
 		 space, make the result of the comparison such a
 		 pointer also.  */
-	      if (OTHER_ADDR_SPACE_POINTER_TYPE_P (type1))
+	      if (POINTER_TYPE_P (type1)
+		  && (as = TYPE_ADDR_SPACE (TREE_TYPE (type1))))
 		{
-		  int qual = ENCODE_QUAL_ADDR_SPACE (TYPE_ADDR_SPACE (TREE_TYPE (type1)));
+		  int qual = ENCODE_QUAL_ADDR_SPACE (as);
 		  result_type = build_pointer_type
 		    (build_qualified_type (void_type_node, qual));
 		}

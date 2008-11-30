@@ -477,6 +477,10 @@
 #define TARGET_ADDR_SPACE_NOP_CONVERT_P default_addr_space_nop_convert_p
 #endif
 
+#ifndef TARGET_ADDR_SPACE_COMMON_POINTER
+#define TARGET_ADDR_SPACE_COMMON_POINTER default_addr_space_common_pointer
+#endif
+
 #ifndef TARGET_ADDR_SPACE_CONVERT
 #define TARGET_ADDR_SPACE_CONVERT default_addr_space_convert
 #endif
@@ -496,6 +500,7 @@
     TARGET_ADDR_SPACE_NUMBER,			\
     TARGET_ADDR_SPACE_CAN_CONVERT_P,		\
     TARGET_ADDR_SPACE_NOP_CONVERT_P,		\
+    TARGET_ADDR_SPACE_COMMON_POINTER,		\
     TARGET_ADDR_SPACE_CONVERT,			\
     TARGET_ADDR_SPACE_VALID_P,			\
     TARGET_ADDR_SPACE_SECTION_NAME,		\
