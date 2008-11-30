@@ -7508,6 +7508,8 @@ do_input_reload (struct insn_chain *chain, struct reload *rl, int j)
       && MEM_P (rl->in)
       && MEM_P (rl->in_reg)
       && reload_spill_index[j] >= 0
+      && (rl->reg_rtx == 0
+	  || REGNO (rl->reg_rtx) == (unsigned int) reload_spill_index[j])
       && TEST_HARD_REG_BIT (reg_reloaded_valid, reload_spill_index[j]))
     rl->in = regno_reg_rtx[reg_reloaded_contents[reload_spill_index[j]]];
 

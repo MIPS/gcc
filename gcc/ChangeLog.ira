@@ -1,3 +1,9 @@
+2008-11-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/38272
+	* reload1.c (do_input_reload): Don't use a spill for memory if it
+	is different from the register to be reloaded into.
+
 2008-11-28  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/tm.texi (TARGET_IRA_COVER_CLASSES): Modify description.
