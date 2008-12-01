@@ -6336,6 +6336,7 @@ main (int argc, char **argv)
   const char *p;
   struct user_specs *uptr;
   char **old_argv = argv;
+  char *lto_wrapper;
 
   /* Initialize here, not in definition.  The IRIX 6 O32 cc sometimes chokes
      on ?: in file-scope variable initializations.  */
@@ -6430,14 +6431,6 @@ main (int argc, char **argv)
     obstack_1grow (&multilib_obstack, 0);
     multilib_defaults = XOBFINISH (&multilib_obstack, const char *);
   }
-
-  /* Set up to remember the pathname of gcc and any options
-     needed for collect.  We use argv[0] instead of programname because
-     we need the complete pathname.  */
-  obstack_init (&collect_obstack);
-  obstack_grow (&collect_obstack, "COLLECT_GCC=", sizeof ("COLLECT_GCC=") - 1);
-  obstack_grow (&collect_obstack, argv[0], strlen (argv[0]) + 1);
-  xputenv (XOBFINISH (&collect_obstack, char *));
 
 #ifdef INIT_ENVIRONMENT
   /* Set up any other necessary machine specific environment variables.  */
@@ -6614,6 +6607,28 @@ main (int argc, char **argv)
   /* Now that we have the switches and the specs, set
      the subdirectory based on the options.  */
   set_multilib_dir ();
+
+  /* Set up to remember the pathname of gcc and any options
+     needed for collect.  We use argv[0] instead of programname because
+     we need the complete pathname.  */
+  obstack_init (&collect_obstack);
+  obstack_grow (&collect_obstack, "COLLECT_GCC=", sizeof ("COLLECT_GCC=") - 1);
+  obstack_grow (&collect_obstack, argv[0], strlen (argv[0]) + 1);
+  xputenv (XOBFINISH (&collect_obstack, char *));
+
+  /* Set up to remember the pathname of the lto wrapper. */
+
+  lto_wrapper = find_a_file (&exec_prefixes, "lto-wrapper", X_OK, false);
+  if (lto_wrapper)
+    {
+      obstack_init (&collect_obstack);
+      obstack_grow (&collect_obstack, "COLLECT_LTO_WRAPPER=",
+		    sizeof ("COLLECT_LTO_WRAPPER=") - 1);
+      obstack_grow (&collect_obstack, lto_wrapper, strlen (lto_wrapper) + 1);
+      xputenv (XOBFINISH (&collect_obstack, char *));
+      free (lto_wrapper);
+      lto_wrapper = NULL;
+    }
 
   /* Warn about any switches that no pass was interested in.  */
 

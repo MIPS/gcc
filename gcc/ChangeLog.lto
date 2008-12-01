@@ -1,3 +1,16 @@
+2008-12-01  Rafael Avila de Espindola  <espindola@google.com>
+
+	* Makefile.in (MOSTLYCLEANFILES, native): Add lto-wrapper$(exeext)
+	(lto-wrapper$(exeext)): New.
+	(lto-wrapper.o): New.
+	* collect2.c (maybe_run_lto_and_relink): Execute lto-wrapper.
+	(collect_execute): Add flags argument. Pass flags to pex_run. Update
+	all callers.
+	* collect2.h (collect_execute): Add flags argument.
+	* gcc.c (main): Set the COLLECT_LTO_WRAPPER environment variable.
+	* lto-wrapper.c: New.
+	* tlink.c (tlink_execute): Update call to collect_execute.
+
 2008-11-29  Diego Novillo  <dnovillo@google.com>
 
 	* timevar.def (TV_IPA_LTO_GIMPLE_IO): Rename from

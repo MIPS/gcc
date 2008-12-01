@@ -878,7 +878,12 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
       const char **p, **q, **r;
       const char **lto_o_ptr;
       struct lto_object *list;
-      char *ltrans_output_file = NULL;
+      char *lto_wrapper = getenv ("COLLECT_LTO_WRAPPER");
+      struct pex_obj *pex;
+      const char *prog = "lto-wrapper";
+
+      if (!lto_wrapper)
+	fatal ("COLLECT_LTO_WRAPPER must be set.");
 
       /* There is at least one object file containing LTO info,
          so we need to run the LTO back end and relink.  */
@@ -907,51 +912,8 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
       lto_c_argv = (char **) xcalloc (sizeof (char *), num_lto_c_args);
       lto_c_ptr = (const char **) lto_c_argv;
 
+      *lto_c_ptr++ = lto_wrapper;
       *lto_c_ptr++ = c_file_name;
-      *lto_c_ptr++ = "-combine";
-      *lto_c_ptr++ = "-x";
-      *lto_c_ptr++ = "lto";
-      *lto_c_ptr++ = "-c";
-      if (lto_mode == LTO_MODE_LTO)
-	{
-	  lto_o_files = XNEWVEC (char *, 2);
-	  lto_o_files[0] = make_temp_file (".lto.o");
-	  lto_o_files[1] = NULL;
-
-	  *lto_c_ptr++ = "-o";
-	  *lto_c_ptr++ = lto_o_files[0];
-	}
-      else if (lto_mode == LTO_MODE_WHOPR)
-	{
-	  const char *list_option = "-fltrans-output-list=";
-	  size_t list_option_len = strlen (list_option);
-	  char *tmp;
-
-	  ltrans_output_file = make_temp_file(".ltrans.out");
-	  tmp = XNEWVEC (char,
-			 strlen (ltrans_output_file) + list_option_len + 1);
-	  *lto_c_ptr++ = tmp;
-	  strcpy (tmp, list_option);
-	  tmp += list_option_len;
-	  strcpy (tmp, ltrans_output_file);
-
-	  *lto_c_ptr++ = "-fwpa";
-
-	  /* Save intermediate WPA files in lto1 if debug.  */
-	  if (debug)
-	    putenv (xstrdup ("WPA_SAVE_LTRANS=1"));
-	}
-      else
-	fatal ("invalid LTO mode");
-
-      /* Add inherited GCC options to the LTO back end command line.
-         Filter out some obviously inappropriate options that will
-         conflict with  the options that we force above.  We pass
-         all of the remaining options on to LTO, and let it complain
-         about any it doesn't like. Note that we invoke LTO via the
-         `gcc' driver, so the usual option processing takes place.
-         Except for `-flto' and `-fwhopr', we should only filter options that
-	 are meaningful to `ld', lest an option go silently unclaimed.  */
 
       cp = opts;
 
@@ -959,73 +921,55 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
         {
           const char *s = extract_string (&cp);
 
-          if (strcmp (s, "-flto") == 0 || strcmp (s, "-fwhopr") == 0)
-            /* We've handled this LTO option, don't pass it on.  */
-            ;
-          else if (strcmp (s, "-o") == 0)
-            {
-              /* Drop `-o' and its filename argument.  We will use a
-                 temporary file for the LTO output.  The `-o' option
-                 will be interpreted by the linker.  */
-              if (cp && *cp)
-                s = extract_string (&cp);
-            }
-          else
-            /* Pass the option or argument to LTO.  */
-            *lto_c_ptr++ = xstrdup (s);
+	  /* Pass the option or argument to the wrapper.  */
+	  *lto_c_ptr++ = xstrdup (s);
         }
       obstack_free (&temporary_obstack, temporary_firstobj);
 
-      /* Add LTO objects to the LTO command line.  */
+      /* Add LTO objects to the wrapper command line.  */
       for (list = lto_objects.first; list; list = list->next)
 	*lto_c_ptr++ = list->name;
 
       *lto_c_ptr = NULL;
 
       /* Run the LTO back end.  */
-      fork_execute ("gcc", lto_c_argv);
+      pex = collect_execute (prog, lto_c_argv, NULL, NULL, PEX_SEARCH);
+      {
+	int c;
+	FILE *stream;
+	size_t i, num_files;
+	char *start, *end;
 
-      /* Read in the list of output file names.  */
-      if (lto_mode == LTO_MODE_WHOPR)
-	{
-	  int c;
-	  FILE *stream;
-	  size_t i, num_files;
-	  char *start, *end;
+	stream = pex_read_output (pex, 0);
+	gcc_assert (stream);
 
-	  stream = fopen (ltrans_output_file, "r");
-	  if (!stream)
-	    fatal_perror ("fopen: %s", ltrans_output_file);
+	num_files = 0;
+	while ((c = getc (stream)) != EOF)
+	  {
+	    obstack_1grow (&temporary_obstack, c);
+	    if (c == '\n')
+	      ++num_files;
+	  }
 
-	  num_files = 0;
-	  while ((c = getc (stream)) != EOF)
-	    {
-	      obstack_1grow (&temporary_obstack, c);
-	      if (c == '\n')
-		++num_files;
-	    }
+	lto_o_files = XNEWVEC (char *, num_files + 1);
+	lto_o_files[num_files] = NULL;
+	start = XOBFINISH (&temporary_obstack, char *);
+	for (i = 0; i < num_files; ++i)
+	  {
+	    end = start;
+	    while (*end != '\n')
+	      ++end;
+	    *end = '\0';
 
-	  if (fclose (stream))
-	    fatal_perror ("fclose: %s", ltrans_output_file);
+	    lto_o_files[i] = xstrdup (start);
 
-	  lto_o_files = XNEWVEC (char *, num_files + 1);
-	  lto_o_files[num_files] = NULL;
+	    start = end + 1;
+	  }
 
-	  start = XOBFINISH (&temporary_obstack, char *);
-	  for (i = 0; i < num_files; ++i)
-	    {
-	      end = start;
-	      while (*end != '\n')
-		++end;
-	      *end = '\0';
-
-	      lto_o_files[i] = xstrdup (start);
-
-	      start = end + 1;
-	    }
-
-	  obstack_free (&temporary_obstack, temporary_firstobj);
-	}
+	obstack_free (&temporary_obstack, temporary_firstobj);
+      }
+      do_wait (prog, pex);
+      pex = NULL;
 
       /* After running the LTO back end, we will relink, substituting
 	 the LTO output for the object files that we submitted to the
@@ -1077,9 +1021,6 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
          optimized by the LTO with the temporary file generated by the LTO.  */
       fork_execute ("ld", lto_ld_argv);
 
-      /* Clean up the temporary file.  */
-      if (ltrans_output_file)
-	maybe_unlink (ltrans_output_file);
       maybe_unlink_list (lto_o_files);
     }
   else if (force)
@@ -1923,7 +1864,7 @@ do_wait (const char *prog, struct pex_obj *pex)
 
 struct pex_obj *
 collect_execute (const char *prog, char **argv, const char *outname,
-		 const char *errname)
+		 const char *errname, int flags)
 {
   struct pex_obj *pex;
   const char *errmsg;
@@ -1999,7 +1940,7 @@ collect_execute (const char *prog, char **argv, const char *outname,
   if (pex == NULL)
     fatal_perror ("pex_init failed");
 
-  errmsg = pex_run (pex, PEX_LAST | PEX_SEARCH, argv[0], argv, outname,
+  errmsg = pex_run (pex, flags, argv[0], argv, outname,
 		    errname, &err);
   if (errmsg != NULL)
     {
@@ -2023,7 +1964,7 @@ fork_execute (const char *prog, char **argv)
 {
   struct pex_obj *pex;
 
-  pex = collect_execute (prog, argv, NULL, NULL);
+  pex = collect_execute (prog, argv, NULL, NULL, PEX_LAST | PEX_SEARCH);
   do_wait (prog, pex);
 }
 

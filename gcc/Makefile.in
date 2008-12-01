@@ -1367,7 +1367,7 @@ MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) cc1*-dummy$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
- $(SPECS) collect2$(exeext) \
+ $(SPECS) collect2$(exeext) lto-wrapper$(exeext) \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
  *.[0-9][0-9].* *.[si] *-checksum.c libbackend.a libgcc.mk
 
@@ -1619,7 +1619,7 @@ rest.encap: $(STMP_FIXPROTO) lang.rest.encap
 # This is what is made with the host's compiler
 # whether making a cross compiler or not.
 native: config.status auto-host.h build-@POSUB@ $(LANGUAGES) \
-	$(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(COLLECT2)
+	$(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(COLLECT2) lto-wrapper$(exeext)
 
 # Define the names for selecting languages in LANGUAGES.
 c: cc1$(exeext)
@@ -1909,6 +1909,12 @@ collect2.o : collect2.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) intl.h \
 
 tlink.o: tlink.c $(DEMANGLE_H) $(HASHTAB_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
     $(OBSTACK_H) collect2.h intl.h
+
+lto-wrapper$(exeext): lto-wrapper.o $(LIBIBERTY)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o T$@ lto-wrapper.o $(LIBIBERTY)
+	mv -f T$@ $@
+
+lto-wrapper.o: lto-wrapper.c $(CONFIG_H) $(SYSTEM_H)
 
 # A file used by all variants of C.
 
