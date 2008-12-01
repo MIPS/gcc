@@ -4164,7 +4164,9 @@ reload_as_needed (int live_known)
       rtx prev = 0;
       rtx insn = chain->insn;
       rtx old_next = NEXT_INSN (insn);
+#ifdef AUTO_INC_DEC
       rtx old_prev = PREV_INSN (insn);
+#endif
 
       /* If we pass a label, copy the offsets from the label information
 	 into the current offsets of each elimination.  */

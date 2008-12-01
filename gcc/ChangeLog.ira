@@ -1,3 +1,8 @@
+2008-12-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* reload1.c (reload_as_needed): Declare old_prev only if
+	AUTO_INC_DEC is defined.
+
 2008-12-01  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/37514
