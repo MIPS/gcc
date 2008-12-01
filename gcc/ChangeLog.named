@@ -1,5 +1,8 @@
 2008-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* emit-rtl.h (set_mem_addr_space): Correct prototype to use
+	addr_space_t, not unsigned char.
+
 	* tree.h (int_or_pointer_precision): Add declaration.
 
 	* tree.c (int_or_pointer_precision): New function to return the
