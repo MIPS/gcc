@@ -1419,46 +1419,13 @@ The default definition of this macro is true if @var{mode} is
 a floating-point mode and the target format is IEEE@.
 @end defmac
 
-@defmac DENORM_OPERANDS_ARE_ZERO (@var{mode})
-If defined, this macro should be true for @var{mode} if a denormalized
-number should be converted to zero before constant folding an operation.
-
-The default definition of this macro is false for all modes.
-@end defmac
-
-@defmac DENORM_RESULTS_ARE_ZERO (@var{mode})
-If defined, this macro should be true for @var{mode} if the results of
-a constant folded operation is a denormalized number which should be
-converted to zero.
-
-The default definition of this macro is false for all modes.
-@end defmac
-
-@defmac ZERO_RESULTS_ARE_POSITVE (@var{mode})
-If defined, this macro should be true for @var{mode} if the results of a
-constant folded operation is negative zero and should be converted to
-positive zero.
-
-The default definition of this macro is false for all modes.
-@end defmac
- 
-@defmac REAL_CONVERT_AS_IEEE (@var{to_mode}, @var{from_mode})
-If defined, this macro should be true for @var{to_mode} and
-@var{from_mode} if a conversion between the two modes should be done as
-if the target format for the modes were IEEE.
-
-The default definition of this macro is false for all modes.
-@end defmac
-
-@defmac ROUND_TOWARDS_ZERO (@var{mode})
-If defined, this macro should be true for @var{mode} if the rounding
-mode should be round towards zero.  A true value for @var{mode} has the
-following effects:
+@defmac ROUND_TOWARDS_ZERO
+If defined, this macro should be true if the prevailing rounding
+mode is towards zero.  A true value has the following effects:
 
 @itemize @bullet
 @item
-@code{MODE_HAS_SIGN_DEPENDENT_ROUNDING} will be false for
-@var{mode}.
+@code{MODE_HAS_SIGN_DEPENDENT_ROUNDING} will be false for all modes.
 
 @item
 @file{libgcc.a}'s floating-point emulator will round towards zero

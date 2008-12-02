@@ -147,6 +147,9 @@ struct real_format
      or -1 for a complex encoding.  */
   int signbit_rw;
 
+  /* Default rounding mode for operations on this format.  */
+  bool round_towards_zero;
+
   /* Properties of the format.  */
   bool has_nans;
   bool has_inf;
@@ -154,7 +157,6 @@ struct real_format
   bool has_signed_zero;
   bool qnan_msb_set;
   bool canonical_nan_lsbs_set;
-  bool round_towards_zero;
 };
 
 
@@ -185,16 +187,8 @@ extern const struct real_format *
 extern bool real_arithmetic (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
 			     const REAL_VALUE_TYPE *);
 
-/* Binary or unary arithmetic on tree_code when folding.  */
-extern bool real_arithmetic_fold (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
-				  const REAL_VALUE_TYPE *, enum machine_mode);
-
 /* Compare reals by tree_code.  */
 extern bool real_compare (int, const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
-
-/* Compare reals by tree_code when folding  */
-extern bool real_compare_fold (int, const REAL_VALUE_TYPE *,
-			       const REAL_VALUE_TYPE *, enum machine_mode);
 
 /* Determine whether a floating-point value X is infinite.  */
 extern bool real_isinf (const REAL_VALUE_TYPE *);
@@ -218,16 +212,17 @@ extern bool real_identical (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
 extern void real_convert (REAL_VALUE_TYPE *, enum machine_mode,
 			  const REAL_VALUE_TYPE *);
 
-/* Extend or truncate to a new mode when folding.  */
-extern void real_convert_fold (REAL_VALUE_TYPE *, enum machine_mode,
-			       const REAL_VALUE_TYPE *, enum machine_mode);
-
 /* Return true if truncating to NEW is exact.  */
 extern bool exact_real_truncate (enum machine_mode, const REAL_VALUE_TYPE *);
 
 /* Render R as a decimal floating point constant.  */
 extern void real_to_decimal (char *, const REAL_VALUE_TYPE *, size_t,
 			     size_t, int);
+
+/* Render R as a decimal floating point constant, rounded so as to be
+   parsed back to the same value when interpreted in mode MODE.  */
+extern void real_to_decimal_for_mode (char *, const REAL_VALUE_TYPE *, size_t,
+				      size_t, int, enum machine_mode);
 
 /* Render R as a hexadecimal floating point constant.  */
 extern void real_to_hexadecimal (char *, const REAL_VALUE_TYPE *,
@@ -272,6 +267,7 @@ extern unsigned int real_hash (const REAL_VALUE_TYPE *);
 extern const struct real_format ieee_single_format;
 extern const struct real_format mips_single_format;
 extern const struct real_format motorola_single_format;
+extern const struct real_format spu_single_format;
 extern const struct real_format ieee_double_format;
 extern const struct real_format mips_double_format;
 extern const struct real_format motorola_double_format;
@@ -286,7 +282,6 @@ extern const struct real_format mips_quad_format;
 extern const struct real_format vax_f_format;
 extern const struct real_format vax_d_format;
 extern const struct real_format vax_g_format;
-extern const struct real_format spu_extended_format;
 extern const struct real_format real_internal_format;
 extern const struct real_format decimal_single_format;
 extern const struct real_format decimal_double_format;

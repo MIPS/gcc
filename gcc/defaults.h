@@ -666,23 +666,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #ifndef ROUND_TOWARDS_ZERO
-#define ROUND_TOWARDS_ZERO(MODE) 0
-#endif
-
-#ifndef DENORM_OPERANDS_ARE_ZERO
-#define DENORM_OPERANDS_ARE_ZERO(MODE) 0
-#endif
-
-#ifndef DENORM_RESULTS_ARE_ZERO
-#define DENORM_RESULTS_ARE_ZERO(MODE) 0
-#endif
-
-#ifndef ZERO_RESULTS_ARE_POSITIVE
-#define ZERO_RESULTS_ARE_POSITIVE(MODE) 0
-#endif
-
-#ifndef REAL_CONVERT_AS_IEEE
-#define REAL_CONVERT_AS_IEEE(TO_MODE,FROM_MODE) 0
+#define ROUND_TOWARDS_ZERO 0
 #endif
 
 #ifndef MODE_HAS_NANS
@@ -708,7 +692,7 @@ along with GCC; see the file COPYING3.  If not see
 #define MODE_HAS_SIGN_DEPENDENT_ROUNDING(MODE)			\
   (FLOAT_MODE_P (MODE)						\
    && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
-   && !ROUND_TOWARDS_ZERO (MODE))
+   && !ROUND_TOWARDS_ZERO)
 #endif
 
 #ifndef FLOAT_LIB_COMPARE_RETURNS_BOOL

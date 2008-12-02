@@ -4709,7 +4709,7 @@ coerce_template_template_parms (tree parm_parms,
 	       D<int, C> d;
 
 	     i.e. the parameter list of TT depends on earlier parameters.  */
-	  if (!dependent_type_p (TREE_TYPE (arg))
+	  if (!uses_template_parms (TREE_TYPE (arg))
 	      && !same_type_p
 		    (tsubst (TREE_TYPE (parm), outer_args, complain, in_decl),
 			     TREE_TYPE (arg)))
@@ -5504,6 +5504,7 @@ lookup_template_class (tree d1,
       d1 = DECL_NAME (template);
     }
   else if (TREE_CODE (d1) == TEMPLATE_DECL
+           && DECL_TEMPLATE_RESULT (d1)
 	   && TREE_CODE (DECL_TEMPLATE_RESULT (d1)) == TYPE_DECL)
     {
       template = d1;

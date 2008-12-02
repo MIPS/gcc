@@ -5143,7 +5143,7 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
 					    /*typename_keyword_p=*/false,
 					    /*check_dependency_p=*/true,
 					    /*type_p=*/false,
-					    /*is_declaration=*/true)
+					    /*is_declaration=*/false)
        != NULL_TREE);
   /* Now, if we saw a nested-name-specifier, we might be doing the
      second production.  */
@@ -11221,7 +11221,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
              caught elsewhere in parsing.  Those that are pointless arrive
              here.  */
 
-          if (cp_parser_declares_only_class_p (parser)
+          if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
               && !is_friend && !processing_explicit_instantiation)
             warning (0, "declaration %qD does not declare anything", decl);
 

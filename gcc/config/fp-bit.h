@@ -175,7 +175,6 @@ typedef unsigned int UTItype __attribute__ ((mode (TI)));
 	typedef UDItype halffractype;
 	typedef USItype qrtrfractype;
 #define qrtrfractype qrtrfractype
-#define TFO_mode TFmode
 	typedef TFtype FLO_type;
 	typedef TItype intfrac;
 #elif defined FLOAT
@@ -196,7 +195,6 @@ typedef unsigned int UTItype __attribute__ ((mode (TI)));
 #	define __fpcmp_parts __fpcmp_parts_f
 	typedef USItype fractype;
 	typedef UHItype halffractype;
-#define TFO_mode SFmode
 	typedef SFtype FLO_type;
 	typedef SItype intfrac;
 
@@ -220,7 +218,6 @@ typedef unsigned int UTItype __attribute__ ((mode (TI)));
 #	define __fpcmp_parts __fpcmp_parts_d
 	typedef UDItype fractype;
 	typedef USItype halffractype;
-#define TFO_mode DFmode
 	typedef DFtype FLO_type;
 	typedef DItype intfrac;
 #endif /* FLOAT */

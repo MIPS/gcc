@@ -1334,8 +1334,6 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	  d = real_value_truncate (mode, d);
 	  break;
 	case FLOAT_EXTEND:
-	  if (REAL_CONVERT_AS_IEEE (mode, GET_MODE (op)))
-	    real_convert_fold (&d, mode, &d, GET_MODE (op));
 	  /* All this does is change the mode.  */
 	  break;
 	case FIX:
@@ -1795,7 +1793,6 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	 0 - 0 is -0.  */
       if (!(HONOR_SIGNED_ZEROS (mode)
 	    && HONOR_SIGN_DEPENDENT_ROUNDING (mode))
-	  && !HONOR_NONIEEE_DENORMS (mode)
 	  && trueop1 == CONST0_RTX (mode))
 	return op0;
 
@@ -1964,8 +1961,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
       break;
 
     case MULT:
-      if (trueop1 == constm1_rtx
-	  && !HONOR_NONIEEE_DENORMS (mode))
+      if (trueop1 == constm1_rtx)
 	return simplify_gen_unary (NEG, mode, op0, mode);
 
       /* Maybe simplify x * 0 to 0.  The reduction is not valid if
@@ -1974,7 +1970,6 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	 number by 0 will give -0, not 0.  */
       if (!HONOR_NANS (mode)
 	  && !HONOR_SIGNED_ZEROS (mode)
-	  && !HONOR_NONIEEE_DENORMS (mode)
 	  && trueop1 == CONST0_RTX (mode)
 	  && ! side_effects_p (op0))
 	return op1;
@@ -1982,7 +1977,6 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
       /* In IEEE floating point, x*1 is not equivalent to x for
 	 signalling NaNs.  */
       if (!HONOR_SNANS (mode)
-	  && !HONOR_NONIEEE_DENORMS (mode)
 	  && trueop1 == CONST1_RTX (mode))
 	return op0;
 
@@ -2019,7 +2013,6 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	    return simplify_gen_binary (PLUS, mode, op0, copy_rtx (op0));
 
 	  if (!HONOR_SNANS (mode)
-	      && !HONOR_NONIEEE_DENORMS (mode)
 	      && REAL_VALUES_EQUAL (d, dconstm1))
 	    return simplify_gen_unary (NEG, mode, op0, mode);
 	}
@@ -2472,7 +2465,6 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	    return op0;
 	  /* x/1.0 is x.  */
 	  if (trueop1 == CONST1_RTX (mode)
-	      && !HONOR_NONIEEE_DENORMS (mode)
 	      && !HONOR_SNANS (mode))
 	    return op0;
 
@@ -2484,7 +2476,6 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 
 	      /* x/-1.0 is -x.  */
 	      if (REAL_VALUES_EQUAL (d, dconstm1)
-		  && !HONOR_NONIEEE_DENORMS (mode)
 		  && !HONOR_SNANS (mode))
 		return simplify_gen_unary (NEG, mode, op0, mode);
 
@@ -3055,8 +3046,8 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 	    /* Inf * 0 = NaN plus exception.  */
 	    return 0;
 
-	  inexact = real_arithmetic_fold (&value, rtx_to_tree_code (code),
-					  &f0, &f1, mode);
+	  inexact = real_arithmetic (&value, rtx_to_tree_code (code),
+				     &f0, &f1);
 	  real_convert (&result, mode, &value);
 
 	  /* Don't constant fold this floating point operation if
@@ -4153,12 +4144,10 @@ simplify_const_relational_operation (enum rtx_code code,
 	  default:
 	    return 0;
 	  }
-      if (real_compare_fold (EQ_EXPR, &d0, &d1, GET_MODE (trueop0)))
-	return comparison_result (code, CMP_EQ);
-      else if (real_compare_fold (LT_EXPR, &d0, &d1, GET_MODE (trueop0)))
-	return comparison_result (code, CMP_LT);
-      else
-	return comparison_result (code, CMP_GT);
+
+      return comparison_result (code,
+				(REAL_VALUES_EQUAL (d0, d1) ? CMP_EQ :
+				 REAL_VALUES_LESS (d0, d1) ? CMP_LT : CMP_GT));
     }
 
   /* Otherwise, see if the operands are both integers.  */

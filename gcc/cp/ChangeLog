@@ -1,8 +1,100 @@
+2008-11-19  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/37142
+	* pt.c (coerce_template_template_parm): Use the more robust
+	uses_template_parms instead of dependent_type_p.
+
+2008-11-19  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/35405
+	* pt.c (lookup_template_class): Check pointers before dereferencing
+	  Them.
+	* error.c (dump_template_decl): Likewise.
+
+2008-11-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37563
+	* parser.c (cp_parser_pseudo_destructor_name): A pseudo-destructor
+	name is not a declaration.
+
+2008-11-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38030
+	* semantics.c (finish_call_expr): Don't repeat arg-dep lookup
+	for a non-dependent call.
+
+2008-11-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37932
+	* typeck2.c (process_init_constructor_record): Update bitfield
+	handling.
+	
+2008-11-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38007
+	* typeck.c (cp_build_modify_expr): Update bitfield handling.
+
+2008-09-30  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/37555
+	* decl.c (grokdeclarator): Set the type for typedefs to a
+	nested-name-specifier to error_mark_node.
+
+2008-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37389
+	* decl.c (build_enumerator): Handle previous value's DECL_INITIAL
+	being error_operand_p.
+
+2008-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37348
+	* decl.c (cp_finish_decl): Only set
+	DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P if decl is VAR_DECL.
+
+2008-08-27  Release Manager
+
+	* GCC 4.3.2 released.
+
+2008-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37156
+	* error.c (cp_print_error_function): Deal with recursive BLOCK trees.
+
+2008-08-07  Simon Baldwin  <simonb@google.com>
+
+	Backport from mainline:
+	2008-08-04  Simon Baldwin  <simonb@google.com>
+
+	PR c++/36999
+	* parser.c (cp_parser_elaborated_type_specifier): Warn only when
+	the declaration's id is followed by a semicolon.
+
+2008-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36405
+	* rtti.c (get_tinfo_decl_dynamic, get_typeid): Call
+	complete_type_or_else even for UNKNOWN_TYPE to get diagnostics.
+
+2008-07-30  Dodji Seketeli  <dseketel@redhat.com>
+
+	PR c++/36767
+	* decl2.c (fix_temporary_vars_context_r): New function.
+	 (one_static_initialization_or_destruction): Make sure temporary
+	 variables part of the initialiser have their DECL_CONTEXT()
+	 properly set.
+
+2008-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36852
+	* tree.c (cplus_array_hash, build_cplus_array_type_1): Hash on
+	TYPE_UID instead of pointers.
+
 2008-07-18  Dodji Seketeli  <dseketel@redhat.com>
 
 	PR c++/36407
-	* gcc/cp/call.c (convert_like_real): Don't take the error code path
-	  when a rvalue or base conversion has the bad_p field set.
+	* call.c (convert_like_real): Don't take the error code path
+	when a rvalue or base conversion has the bad_p field set.
 
 2008-07-07  Simon Martin  <simartin@users.sourceforge.net>
 
@@ -1871,7 +1963,7 @@
 
 2007-09-05  Jan Hubicka  <jh@suse.cz>
 
-	* cp/sematics.c (expand_body): Remove unnecesary import_export_decl
+	* sematics.c (expand_body): Remove unnecesary import_export_decl
 	call, DECL_EXTERNAL checks and current_function_decl saving.
 
 2007-09-05  Paolo Carlini  <pcarlini@suse.de>
@@ -2298,7 +2390,7 @@
 
 	* cp-objcp-common.c (cxx_get_alias_set): Change return type to
 	alias_set_type.
-	* cp/cp-tree.h (cxx_get_alias_set): Update declaration.
+	* cp-tree.h (cxx_get_alias_set): Update declaration.
 
 2007-08-10  Ollie Wild  <aaw@google.com>
 
@@ -2971,7 +3063,7 @@
 
 2007-05-11  Silvius Rus  <rus@google.com>
 
-	* cp/typeck.c (build_indirect_ref): Add call to
+	* typeck.c (build_indirect_ref): Add call to
 	strict_aliasing_warning.
 	(build_reinterpret_cast_1): Condition call to
 	strict_aliasing_warning. 
@@ -3061,7 +3153,7 @@
 
 2007-04-23  Jan Hubicka  <jh@suse.cz>
 
-	* cp/decl2.c (finish_objects): Do not call target constructor/destructor
+	* decl2.c (finish_objects): Do not call target constructor/destructor
 	bits dirrectly.
 
 2007-04-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
@@ -3083,7 +3175,7 @@
 2007-04-16  Seongbae Park <seongbae.park@gmail.com>
 
 	PR c++/29365
-	* cp/decl2.c (constrain_class_visibility):
+	* decl2.c (constrain_class_visibility):
 	Do not warn about the use of anonymous namespace in the main input file.
 
 2007-04-15  Mark Mitchell  <mark@codesourcery.com>
@@ -3102,7 +3194,7 @@
 
 2007-04-11  Jan Hubicka  <jh@suse.cz>
 
-	* cp/class.c (convert_to_base_statically): Fold produced tree; verify
+	* class.c (convert_to_base_statically): Fold produced tree; verify
 	that we are not processing template_decl.
 
 2007-04-09  Mark Mitchell  <mark@codesourcery.com>
@@ -3357,7 +3449,7 @@
 
 2007-03-14  Dirk Mueller  <dmueller@suse.de>
 
-	* cp/semantics.c (c_finish_if_stmt): Call empty_if_body_warning.
+	* semantics.c (c_finish_if_stmt): Call empty_if_body_warning.
 	(finish_do_body): Warn about empty body in do/while statement.
 
 2007-03-14  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
@@ -3372,7 +3464,7 @@
 	
 2007-03-13  Alexandre Oliva  <aoliva@redhat.com>
 
-	* cp/repo.c (init_repo): Initialize random_seed saved options.
+	* repo.c (init_repo): Initialize random_seed saved options.
 	(finish_repo): Adjust.
 
 2007-03-13  Mark Mitchell  <mark@codesourcery.com>
@@ -3626,9 +3718,9 @@
 
 2007-03-09  Dirk Mueller  <dmueller@suse.de>
 
-	* cp/call.c (build_new_op): Call warn_logical_operator.
+	* call.c (build_new_op): Call warn_logical_operator.
 
-2007-03-08  Volker Reichelt  <reichelt@netcologne.de>
+2007-03-08  Volker Reichelt  <v.reichelt@netcologne.de>
 
 	PR c++/30852
 	* semantics.c (finish_offsetof): Handle COMPOUND_EXPR.
@@ -3642,7 +3734,7 @@
 	* decl.c (grokdeclarator): Disable warnings for anonymous
 	bitfields.
 
-2007-03-05  Volker Reichelt  <reichelt@netcologne.de>
+2007-03-05  Volker Reichelt  <v.reichelt@netcologne.de>
 
 	* typeck2.c (readonly_error): Always emit a hard error.
 	Remove last argument.

@@ -301,10 +301,6 @@ extern bool flag_instrument_functions_exclude_p (tree fndecl);
 #define HONOR_SIGN_DEPENDENT_ROUNDING(MODE) \
   (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && flag_rounding_math)
 
-/* True when the given mode fully supports denormalized numbers. */
-#define HONOR_NONIEEE_DENORMS(MODE) \
-  (!DENORM_OPERANDS_ARE_ZERO (MODE) && !DENORM_RESULTS_ARE_ZERO (MODE))
-
 /* True if overflow wraps around for the given integral type.  That
    is, TYPE_MAX + 1 == TYPE_MIN.  */
 #define TYPE_OVERFLOW_WRAPS(TYPE) \

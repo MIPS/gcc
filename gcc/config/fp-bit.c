@@ -42,7 +42,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tconfig.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "insn-modes.h"
 #include "config/fp-bit.h"
 
 /* The following macros can be defined to change the behavior of this file:
@@ -302,7 +301,7 @@ pack_d ( fp_number_type *  src)
       else
 	{
 	  exp = src->normal_exp + EXPBIAS;
-	  if (!ROUND_TOWARDS_ZERO (TFO_mode))
+	  if (!ROUND_TOWARDS_ZERO)
 	    {
 	      /* IF the gard bits are the all zero, but the first, then we're
 		 half way between two numbers, choose the one which makes the
@@ -916,7 +915,7 @@ _fpmul_parts ( fp_number_type *  a,
       low <<= 1;
     }
 
-  if (!ROUND_TOWARDS_ZERO (TFO_mode) && (high & GARDMASK) == GARDMSB)
+  if (!ROUND_TOWARDS_ZERO && (high & GARDMASK) == GARDMSB)
     {
       if (high & (1 << NGARDS))
 	{
@@ -1036,7 +1035,7 @@ _fpdiv_parts (fp_number_type * a,
 	numerator *= 2;
       }
 
-    if (!ROUND_TOWARDS_ZERO (TFO_mode) && (quotient & GARDMASK) == GARDMSB)
+    if (!ROUND_TOWARDS_ZERO && (quotient & GARDMASK) == GARDMSB)
       {
 	if (quotient & (1 << NGARDS))
 	  {
