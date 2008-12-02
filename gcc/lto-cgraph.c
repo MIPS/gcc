@@ -157,16 +157,35 @@ const char * LTO_cgraph_tag_names[LTO_cgraph_last_tag] =
 {"", "avail", "overwrite", "unavail", "edge"};
 #endif
 
+/* Redirect inlined NODE to its master clone if it is not in SET. 
+   Return NODE itself if it is in SET or it is not inlined.  */
+
+static struct cgraph_node *
+maybe_redirect_inlined_node (struct cgraph_node *node, cgraph_node_set set)
+{
+  struct cgraph_node *master_clone;
+
+  if (!cgraph_node_in_set_p (node, set) && node->global.inlined_to != NULL)
+    {
+      master_clone = node->master_clone;
+      gcc_assert (master_clone && master_clone != node);
+      return master_clone;
+    }
+  else
+    return node;
+}
 
 /* Output the cgraph EDGE to OB using ENCODER.  */
 
 static void
 output_edge (struct lto_simple_output_block *ob,
-	     struct cgraph_edge *edge, lto_cgraph_encoder_t encoder)
+	     struct cgraph_edge *edge, lto_cgraph_encoder_t encoder,
+	     cgraph_node_set set)
 {
   unsigned int uid;
   intptr_t ref;
   unsigned HOST_WIDEST_INT flags = 0;
+  struct cgraph_node *callee;
 
   lto_output_uleb128_stream (ob->main_stream, LTO_cgraph_edge);
   LTO_DEBUG_INDENT (LTO_cgraph_edge);
@@ -177,15 +196,23 @@ output_edge (struct lto_simple_output_block *ob,
   lto_output_sleb128_stream (ob->main_stream, ref);
 
   LTO_DEBUG_TOKEN ("callee");
-  ref = lto_cgraph_encoder_lookup (encoder, edge->callee);
+  callee = maybe_redirect_inlined_node (edge->callee, set);
+  ref = lto_cgraph_encoder_lookup (encoder, callee);
   gcc_assert (ref != LCC_NOT_FOUND); 
   lto_output_sleb128_stream (ob->main_stream, ref);
 
   LTO_DEBUG_TOKEN ("stmt");
   uid = flag_wpa ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt);
   lto_output_uleb128_stream (ob->main_stream, uid);
+
+  /* If we have redirected an inlined callee outside SET to its master
+     clone, mark edge as not inlined.  */
   LTO_DEBUG_TOKEN ("inline_failed");
-  lto_output_uleb128_stream (ob->main_stream, edge->inline_failed);
+  if (callee != edge->callee)
+    lto_output_uleb128_stream (ob->main_stream, CIF_UNSPECIFIED);
+  else
+    lto_output_uleb128_stream (ob->main_stream, edge->inline_failed);
+
   LTO_DEBUG_TOKEN ("count");
   lto_output_uleb128_stream (ob->main_stream, edge->count);
   LTO_DEBUG_TOKEN ("frequency");
@@ -392,7 +419,7 @@ output_cgraph_verify_node (cgraph_node_set set, struct cgraph_node *node)
 static void
 output_cgraph (cgraph_node_set set)
 {
-  struct cgraph_node *node, *master_clone;
+  struct cgraph_node *node, *callee, *master_clone;
   struct lto_simple_output_block *ob 
     = lto_create_simple_output_block (LTO_section_cgraph);
   cgraph_node_set_iterator csi;
@@ -419,12 +446,17 @@ output_cgraph (cgraph_node_set set)
 	lto_cgraph_encoder_encode (encoder, node);
     }
 
-  /* Go over all the nodes again to include callees that are not in SET.  */
+  /* Go over all the nodes again to include callees that are not in SET.
+     For inlined callee that are not in the set, redirect the edge to 
+     its master clone.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
       for (edge = node->callees; edge; edge = edge->next_callee)
-	lto_cgraph_encoder_encode (encoder, edge->callee);
+	{
+	  callee = maybe_redirect_inlined_node (edge->callee, set);
+	  lto_cgraph_encoder_encode (encoder, callee);
+	}
     }
 
   /* Write out the nodes */
@@ -443,7 +475,7 @@ output_cgraph (cgraph_node_set set)
     {
       node = csi_node (csi);
       for (edge = node->callees; edge; edge = edge->next_callee)
-	output_edge (ob, edge, encoder);
+	output_edge (ob, edge, encoder, set);
     }
 
   lto_output_uleb128_stream (ob->main_stream, 0);
