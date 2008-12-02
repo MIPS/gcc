@@ -1,5 +1,9 @@
 2008-12-02  Rafael Avila de Espindola  <espindola@google.com>
 
+	* collect2 (main): Set lto_mode to LTO_MODE_NONE if -plugin is given.
+
+2008-12-02  Rafael Avila de Espindola  <espindola@google.com>
+
 	* lto-plugin.c: Include sys/types.h and sys/wait.h
 	(output_files, num_output_files, lto_wrapper_argv,
 	lto_wrapper_num_args): New.

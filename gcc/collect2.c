@@ -1142,15 +1142,21 @@ main (int argc, char **argv)
      necessary to do so at this early stage. */
   {
     int i;
+    bool use_plugin = false;
 
     for (i = 1; argv[i] != NULL; i ++)
       {
 	if (! strcmp (argv[i], "-debug"))
 	  debug = 1;
-        else if (! strcmp (argv[i], "-flto"))
+        else if (! strcmp (argv[i], "-flto") && ! use_plugin)
           lto_mode = LTO_MODE_LTO;
-        else if (! strcmp (argv[i], "-fwhopr"))
+        else if (! strcmp (argv[i], "-fwhopr") && ! use_plugin)
           lto_mode = LTO_MODE_WHOPR;
+        else if (! strcmp (argv[i], "-plugin"))
+	  {
+	    use_plugin = true;
+	    lto_mode = LTO_MODE_NONE;
+	  }
       }
     vflag = debug;
   }
