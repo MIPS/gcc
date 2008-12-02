@@ -2821,20 +2821,26 @@ cp_reset_lang_specifics (tree t)
       if (mangle_decl_is_template_id (t, &template_info))
         DECL_CONTEXT (TREE_PURPOSE (template_info)) = NULL_TREE;
     }
-  /* Fix up DECLs for inlines and implicitly instantiated functions.  */
+  /* Fix up DECLs for inlines and implicitly instantiated functions.
+     We trust the C++ FE that we skip any DECLs with DECL_INTERFACE_KNOWN
+     set.  */
   else if (TREE_CODE (t) == FUNCTION_DECL
-	   && !(DECL_BUILT_IN (t) || DECL_IS_BUILTIN (t))
+	   && !gimple_body (t)
+	   && !DECL_EXTERNAL (t)
+	   && TREE_PUBLIC (t)
 	   && !DECL_INTERFACE_KNOWN (t))
     {
-      /* When we reach here,  we should have read the EOF and expanded all
-         needed functions.  */
-      gcc_assert (at_eof && !gimple_body (t)); 
+      /* This should only happen for inlines or implicit instanitations
+	 which are not emitted.  When we reach here,  we should have read
+	 the EOF and expanded all needed functions.  */
+      gcc_assert ((DECL_DECLARED_INLINE_P (t)
+		   || DECL_IMPLICIT_INSTANTIATION (t))
+		  && at_eof);
 
       /* If T is used in this translation unit at all,  the definition
- 	 must exist somewhere else since we have decided to not emit it
+	 must exist somewhere else since we have decided to not emit it
 	 in this TU.  So make it an external reference.  */
       DECL_EXTERNAL (t) = 1;
-      TREE_PUBLIC (t) = 1;
       TREE_STATIC (t) = 0;
     }
 }
