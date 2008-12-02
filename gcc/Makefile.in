@@ -4204,7 +4204,7 @@ maintainer-clean:
 # broken is small.
 install: install-common $(INSTALL_HEADERS) \
     install-cpp install-man install-info install-@POSUB@ \
-    install-driver
+    install-driver install-lto-wrapper
 
 # Handle cpp installation.
 install-cpp: installdirs cpp$(exeext)
@@ -4479,6 +4479,10 @@ install-collect2: collect2 installdirs
 # Install the driver program as $(libsubdir)/gcc for collect2.
 	$(INSTALL_PROGRAM) xgcc$(exeext) $(DESTDIR)$(libexecsubdir)/gcc$(exeext)
 
+# Install lto-wrapper.
+install-lto-wrapper: lto-wrapper$(exeext)
+	$(INSTALL_PROGRAM) lto-wrapper$(exeext) $(DESTDIR)$(libexecsubdir)/lto-wrapper$(exeext)
+	
 # Cancel installation by deleting the installed files.
 uninstall: lang.uninstall
 	-rm -rf $(DESTDIR)$(libsubdir)
