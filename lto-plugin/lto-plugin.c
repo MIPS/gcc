@@ -539,31 +539,10 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
 static void
 process_option (const char *option)
 {
-  unsigned i;
-  char *p;
-  char **lto_arg_ptr;
-
-  assert (strncmp ("lto=", option, 4) == 0);
-  p = strdup (option + 4);
-
-  lto_wrapper_num_args = 1;
-  for (i = 0; p[i] != '\0'; i++)
-    if (p[i] == ' ')
-      lto_wrapper_num_args++;
-
-  lto_wrapper_argv = (char **) calloc (sizeof (char *), lto_wrapper_num_args);
-  lto_arg_ptr = (char **) lto_wrapper_argv;
-
-  *lto_arg_ptr++ = p;
-  for (i = 0; p[i] != '\0'; i++)
-    {
-      if (p[i] == ' ')
-       {
-         p[i] = '\0';
-         i++;
-         *lto_arg_ptr++ = &p[i];
-       }
-    }
+  lto_wrapper_num_args += 1;
+  lto_wrapper_argv = (char **) realloc (lto_wrapper_argv,
+					lto_wrapper_num_args * sizeof (char *));
+  lto_wrapper_argv[lto_wrapper_num_args - 1] = strdup(option);
 }
 
 /* Called by gold after loading the plugin. TV is the transfer vector. */
