@@ -1,3 +1,14 @@
+2008-12-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* stor-layout.c (layout_type): Initialize TYPE_PRECISION for
+	OFFSET_TYPE.
+
+	* tree.c (signed_or_unsigned_type_for): Add support for pointers
+	to named address spaces.
+	(int_or_pointer_precision): Add asserts to make sure
+	TYPE_PRECISION is correct for POINTER_TYPE, OFFSET_TYPE, and
+	REFERENCE_TYPE.
+
 2008-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* emit-rtl.h (set_mem_addr_space): Correct prototype to use
