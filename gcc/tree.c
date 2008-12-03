@@ -8334,7 +8334,19 @@ signed_or_unsigned_type_for (int unsignedp, tree type)
 {
   tree t = type;
   if (POINTER_TYPE_P (type))
-    t = size_type_node;
+    {
+      /* If the pointer points to the normal address space, use the
+	 size_type_node.  Otherwise use an appropriate size for the pointer
+	 based on the named address space it points to.  */
+      if (!TYPE_ADDR_SPACE (TREE_TYPE (t)))
+	t = size_type_node;
+
+      else
+	{
+	  int prec = int_or_pointer_precision (t);
+	  return lang_hooks.types.type_for_size (prec, unsignedp);
+	}
+    }
 
   if (!INTEGRAL_TYPE_P (t) || TYPE_UNSIGNED (t) == unsignedp)
     return t;
@@ -9232,9 +9244,14 @@ int_or_pointer_precision (const_tree type)
 	prec = POINTER_SIZE;
       else
 	prec = GET_MODE_BITSIZE (targetm.addr_space.pointer_mode (as));
+
+      gcc_assert (prec == TYPE_PRECISION (type));
     }
   else if (TREE_CODE (type) == OFFSET_TYPE)
-    prec = POINTER_SIZE;
+    {
+      prec = POINTER_SIZE;
+      gcc_assert (prec == POINTER_SIZE);
+    }
   else
     prec = TYPE_PRECISION (type);
 
