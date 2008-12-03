@@ -1,3 +1,9 @@
+2008-12-03  Diego Novillo  <dnovillo@google.com>
+
+	* lto-wrapper.c: Tidy comments/formatting.
+	Include libiberty.h.
+	(main): Call expandargv before processing arguments.
+
 2008-12-03  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-plugin.c (process_option): The argument is now a single option,

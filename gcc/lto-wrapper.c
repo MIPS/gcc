@@ -22,21 +22,25 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* This program is passed a gcc, a list of gcc arguments and a list of
-   object files containing IL. It scans the argument list to check if we are
-   in whopr mode or not modifies the arguments and needed and prints a list of
-   outputted files on stdout.
+   object files containing IL. It scans the argument list to check if
+   we are in whopr mode or not modifies the arguments and needed and
+   prints a list of output files on stdout.
 
    Example:
-   lto-wrapper gcc/xgcc -B gcc a.o b.o -o test -flto
-   this will print something like
-   /tmp/ccwbQ8B2.lto.o
-   If -fwhopr is used instead, more then one file might be produced
-   ./ccXj2DTk.lto.ltrans.o
-   ./ccCJuXGv.lto.ltrans. */
 
+   $ lto-wrapper gcc/xgcc -B gcc a.o b.o -o test -flto
+
+   The above will print something like
+   /tmp/ccwbQ8B2.lto.o
+
+   If -fwhopr is used instead, more than one file might be produced
+   ./ccXj2DTk.lto.ltrans.o
+   ./ccCJuXGv.lto.ltrans.o
+*/
 
 #include "config.h"
 #include "system.h"
+#include "libiberty.h"
 
 int debug;				/* true if -debug */
 
@@ -172,7 +176,7 @@ fork_execute (char **argv)
 /* Execute gcc. ARGC is the number of arguments. ARGV contains the arguments. */
 
 static void
-run_gcc(unsigned argc, char *argv[])
+run_gcc (unsigned argc, char *argv[])
 {
   unsigned i;
   unsigned new_argc = argc;
@@ -304,12 +308,22 @@ process_args (int argc, char *argv[], char *gcc_argv[])
   return j;
 }
 
+
+/* Entry point.  */
+
 int
 main (int argc, char *argv[])
 {
-  char **gcc_argv = (char **) xcalloc(sizeof (char*), argc);
-  int gcc_argc = process_args (argc, argv, gcc_argv);
+  char **gcc_argv;
+  int gcc_argc;
+
+  /* We may be called with all the arguments stored in some file and
+     passed with @file.  Expand them into argv before processing.  */
+  expandargv (&argc, &argv);
+  gcc_argv = (char **) xcalloc (sizeof (char *), argc);
+  gcc_argc = process_args (argc, argv, gcc_argv);
   run_gcc (gcc_argc, gcc_argv);
   free (gcc_argv);
+
   return 0;
 }
