@@ -1,3 +1,25 @@
+2008-12-02  Doug Kwan  <dougkwan@google.com>
+
+	* lto-function-out.c (output_remaining_constructors_and_inits):
+	Use lto_get_decl_flags and LTO_DECL_FLAG_DEFINED instead of
+	lto_get_var_flags and LTO_VAR_FLAG_DEFINED respectively.
+	(output_function_decl): Add code to write out LTO DECL flags.
+	(output_var_decl): Use lto_get_decl_flags instead of
+	lto_get_var_flags.  Use LTO_DECL_FLAG_* instead of LTO_VAR_FLAG_*.
+	* lto-function-in.c (input_function_decl): Add code to read LTO
+	DECL flags and force a static DECL to be global if necessary.
+ 	(input_var_decl): Use lto_get_decl_flags and LTO_DECL_FLAG_FORCE_GLOBAL
+	instead of lto_get_var_flags and LTO_VAR_FLAG_FORCE_GLOBAL
+	respectively.  Add code to force a static DECL to global if necessary.
+	* varasm.c (assemble_variable): Use lto_get_decl_flags instead of
+	lto_get_var_flags.
+	* lto-utils.c (File): Replace all uses of lto_var_flags_t with
+	lto_decl_flags_t.
+	(lto_get_decl_flags): Renamed from lto_get_var_flags.
+	(lto_set_decl_flags): Renamed from lto_set_var_flags.
+	* lto-utils.h (File): Replace all lto_var_flags_* and LTO_VAR_FLAG_*
+	with corresponding lto_decl_flags_* and LTO_DECL_FLAG_* respectively.
+
 2008-12-02  Diego Novillo  <dnovillo@google.com>
 
 	* Makefile.in (install-lto-wrapper): New.

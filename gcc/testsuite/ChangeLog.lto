@@ -1,4 +1,11 @@
 2008-12-02  Doug Kwan  <dougkwan@google.com>
+
+	* gcc.dg/lto/20081202-1_0.c: New.
+	* gcc.dg/lto/20081202-1_1.c: New.
+	* gcc.dg/lto/20081202-2_0.c: New.
+	* gcc.dg/lto/20081202-2_1.c: New.
+
+2008-12-02  Doug Kwan  <dougkwan@google.com>
 	
 	* gcc.dg/lto/20081201-1_0.c: New.
 	* gcc.dg/lto/20081201-1_1.c: New.

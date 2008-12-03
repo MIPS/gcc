@@ -40,9 +40,9 @@ static bool lto_obstack_initialized;
 /* We use this vector to keep extra DECL flags used by various parts of LTO.
    Vector is indexed by DECL_UID.  */
 
-DEF_VEC_I(lto_var_flags_t);
-DEF_VEC_ALLOC_I(lto_var_flags_t,heap);
-static VEC(lto_var_flags_t,heap) *lto_var_flags;
+DEF_VEC_I(lto_decl_flags_t);
+DEF_VEC_ALLOC_I(lto_decl_flags_t,heap);
+static VEC(lto_decl_flags_t,heap) *lto_decl_flags;
 
 /* Allocate a bitmap from heap.  Initializes the LTO obstack if necessary.  */
 
@@ -67,24 +67,24 @@ lto_bitmap_free (bitmap b)
 
 /* Get the var-flags of VAR.  */
 
-lto_var_flags_t
-lto_get_var_flags (tree var)
+lto_decl_flags_t
+lto_get_decl_flags (tree var)
 {
   unsigned idx = DECL_UID (var);
-  if (!lto_var_flags || VEC_length (lto_var_flags_t, lto_var_flags) <= idx)
+  if (!lto_decl_flags || VEC_length (lto_decl_flags_t, lto_decl_flags) <= idx)
     return 0;
-  return VEC_index (lto_var_flags_t, lto_var_flags, idx);
+  return VEC_index (lto_decl_flags_t, lto_decl_flags, idx);
 }
 
 /* Set the var-flags of VAR to FLAGS.  */
 
 void
-lto_set_var_flags (tree var, lto_var_flags_t flags)
+lto_set_decl_flags (tree var, lto_decl_flags_t flags)
 {
   unsigned idx = DECL_UID (var);
-  if (!lto_var_flags || VEC_length (lto_var_flags_t, lto_var_flags) <= idx)
-    VEC_safe_grow_cleared (lto_var_flags_t, heap, lto_var_flags, idx + 1);
-  VEC_replace (lto_var_flags_t, lto_var_flags, idx, flags);
+  if (!lto_decl_flags || VEC_length (lto_decl_flags_t, lto_decl_flags) <= idx)
+    VEC_safe_grow_cleared (lto_decl_flags_t, heap, lto_decl_flags, idx + 1);
+  VEC_replace (lto_decl_flags_t, lto_decl_flags, idx, flags);
 }
 
 /* Get a section name for a particular type or name.  The NAME field

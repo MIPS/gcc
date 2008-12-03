@@ -622,23 +622,58 @@ lto_add_all_inlinees (cgraph_node_set set)
    be promoted to global because BAR and VAR may be in different LTRANS
    files. */
 
-/* Promote file-scope variable reachable from NODE if necessary to global.
-   GLOBAL_VARS is a bitmap of file-scope variables output so far in all
+/* Helper of lto_scan_statics_in_cgraph_node below.  Scan TABLE for
+   static decls that may be used in more than one LTRANS file.
+   GLOBAL_DECLS is a bitmap of file-scope decls output so far in all
+   LTRANS files.  and SEEN_DECLS is a bitmap of seen file-scope variable
+   in the current LTRANS file.  All bitmaps are indexed by DECL_UID.  */
+
+static void
+lto_scan_statics_in_ref_table (struct lto_tree_ref_table *table,
+			       bitmap global_decls,
+			       bitmap seen_decls)
+{
+  tree decl;
+  unsigned i;
+  lto_decl_flags_t flags;
+
+  for (i = 0; i < table->size; i++)
+    {
+      decl = table->trees[i];
+      if (TREE_STATIC (decl)
+	  && !TREE_PUBLIC (decl)
+	  && !bitmap_bit_p (seen_decls, DECL_UID (decl)))
+	{
+	  bitmap_set_bit (seen_decls, DECL_UID (decl));
+	  if (bitmap_bit_p (global_decls, DECL_UID (decl)))
+	    {
+	      /* This static decl is seen in another file, we need to
+		 promote it to be a global.  */
+	      flags = lto_get_decl_flags (decl);
+	      lto_set_decl_flags (decl, flags | LTO_DECL_FLAG_FORCE_GLOBAL);
+	    }
+	  else
+	    { 
+	      /* This is the first time we see this static decl.  */
+	      bitmap_set_bit (global_decls, DECL_UID (decl));
+	    } 
+	}
+    }
+}
+
+/* Promote file-scope decl reachable from NODE if necessary to global.
+   GLOBAL_DECLS is a bitmap of file-scope decls output so far in all
    LTRANS files.  SEEN_FUNCS is a bitmap of seen functions in the current
-   LTRANS file, and SEEN_VARS is a bitmap of seen file-scope variable
+   LTRANS file, and SEEN_DECLS is a bitmap of seen file-scope decls
    in the current LTRANS file.  All bitmaps are indexed by DECL_UID.  */
 
 static void
 lto_scan_statics_in_cgraph_node (struct cgraph_node *node,
-				 bitmap global_vars,
+				 bitmap global_decls,
 				 bitmap seen_funcs,
-				 bitmap seen_vars)
+				 bitmap seen_decls)
 {
   struct lto_in_decl_state *state;
-  tree var;
-  struct lto_tree_ref_table *var_table;
-  unsigned i;
-  lto_var_flags_t flags;
   
   /* Return if node has no function body.   */
   if (!node->analyzed)
@@ -651,32 +686,13 @@ lto_scan_statics_in_cgraph_node (struct cgraph_node *node,
 
   state = lto_get_function_in_decl_state (node->local.lto_file_data,
 					  node->decl);
-  var_table = &state->streams[LTO_DECL_STREAM_VAR_DECL];
-  for (i = 0; i < var_table->size; i++)
-    {
-      var = var_table->trees[i];
-      if (TREE_STATIC (var)
-	  && !TREE_PUBLIC (var)
-	  && !bitmap_bit_p (seen_vars, DECL_UID (var)))
-	{
-	  bitmap_set_bit (seen_vars, DECL_UID (var));
-	  if (bitmap_bit_p (global_vars, DECL_UID (var)))
-	    {
-	      /* This static var is seen in another file, we need to
-		 promote it to be a global.  */
-	      flags = lto_get_var_flags (var);
-	      lto_set_var_flags (var, flags | LTO_VAR_FLAG_FORCE_GLOBAL);
-	    }
-	  else
-	    { 
-	      /* This is the first time we see this static var.  */
-	      bitmap_set_bit (global_vars, DECL_UID (var));
-	    } 
-	}
-    }
+  lto_scan_statics_in_ref_table (&state->streams[LTO_DECL_STREAM_VAR_DECL],
+				 global_decls, seen_decls);
+  lto_scan_statics_in_ref_table (&state->streams[LTO_DECL_STREAM_FN_DECL],
+				 global_decls, seen_decls);
 }
 
-/* Find out all static variables that need to be promoted to global because
+/* Find out all static decls that need to be promoted to global because
    of cross file sharing.  This function must be run in the WPA mode after
    all inlinees are added.  */
 
@@ -686,22 +702,22 @@ lto_promote_cross_file_statics (void)
   unsigned i;
   cgraph_node_set set;
   cgraph_node_set_iterator csi;
-  bitmap global_vars, seen_vars, seen_funcs;
+  bitmap global_decls, seen_decls, seen_funcs;
   
-  global_vars = lto_bitmap_alloc ();
+  global_decls = lto_bitmap_alloc ();
   for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
     {
-      /* We use SEEN_VARS and SEEN_FUNCS to avoid redundant computation
+      /* We use SEEN_DECLS and SEEN_FUNCS to avoid redundant computation
 	 within the same file.  */ 
-      seen_vars = lto_bitmap_alloc ();
+      seen_decls = lto_bitmap_alloc ();
       seen_funcs = lto_bitmap_alloc ();
       for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
-	lto_scan_statics_in_cgraph_node (csi_node (csi), global_vars,
-					 seen_funcs, seen_vars);
-      lto_bitmap_free (seen_vars);
+	lto_scan_statics_in_cgraph_node (csi_node (csi), global_decls,
+					 seen_funcs, seen_decls);
+      lto_bitmap_free (seen_decls);
       lto_bitmap_free (seen_funcs);
     }
-  lto_bitmap_free (global_vars);
+  lto_bitmap_free (global_decls);
 }
 
 static lto_file *current_lto_file;

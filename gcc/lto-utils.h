@@ -25,15 +25,15 @@
 
 bitmap lto_bitmap_alloc (void);
 
-#define LTO_VAR_FLAG_DEFINED		(1<<0)
-#define LTO_VAR_FLAG_SUPPRESS_OUTPUT	(1<<1)
-#define LTO_VAR_FLAG_FORCE_GLOBAL	(1<<2)
+#define LTO_DECL_FLAG_DEFINED		(1<<0)
+#define LTO_DECL_FLAG_SUPPRESS_OUTPUT	(1<<1)
+#define LTO_DECL_FLAG_FORCE_GLOBAL	(1<<2)
 
-typedef unsigned char	lto_var_flags_t;
+typedef unsigned char	lto_decl_flags_t;
 
 void lto_bitmap_free (bitmap);
-lto_var_flags_t lto_get_var_flags (tree);
-void lto_set_var_flags (tree, lto_var_flags_t);
+lto_decl_flags_t lto_get_decl_flags (tree);
+void lto_set_decl_flags (tree, lto_decl_flags_t);
 char* lto_get_section_name (int, const char *);
 
 #endif /* !GCC_LTO_UTILS_H */
