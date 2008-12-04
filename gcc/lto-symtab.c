@@ -163,10 +163,6 @@ lto_same_type_p (tree type_1, tree type_2)
   if (code != TREE_CODE (type_2))
     return false;
 
-  /* Can't be the same type if they have different CV qualifiers.  */
-  if (TYPE_QUALS (type_1) != TYPE_QUALS (type_2))
-    return false;
-
   /* "If GNU attributes are present, types which could be the same be it not
      for their GNU attributes may in fact be different due to the use of GNU
      attributes."  Hmmm.  Punt on this for now and assume they're different
@@ -316,23 +312,44 @@ lto_same_type_p (tree type_1, tree type_2)
     }
 }
 
+/* Transfer TYPE_2 qualifiers to TYPE_1 so that TYPE_1's qualifiers are
+   conservatively correct with respect to optimization done before the
+   merge.  */
+
+static void
+lto_merge_qualifiers (tree type_1, tree type_2)
+{
+  if (TYPE_VOLATILE (type_2))
+    TYPE_VOLATILE (type_1) = TYPE_VOLATILE (type_2);
+  if (! TYPE_READONLY (type_2))
+    TYPE_READONLY (type_1) = TYPE_READONLY (type_2);
+  if (! TYPE_RESTRICT (type_2))
+    TYPE_RESTRICT (type_1) = TYPE_RESTRICT (type_2);
+}
+
 /* If TYPE_1 and TYPE_2 can be merged to form a common type, do it.
    Specifically, if they are both array types that have the same element
    type and one of them is a complete array type and the other isn't,
    return the complete array type.  Otherwise return NULL_TREE. */
+
 static tree
 lto_merge_types (tree type_1, tree type_2)
 {
   if (TREE_CODE (type_1) == ARRAY_TYPE
       && (TREE_CODE (type_2) == ARRAY_TYPE)
-      && (TYPE_QUALS (type_1) == TYPE_QUALS (type_2))
-      && !TYPE_ATTRIBUTES (type_1) && ! TYPE_ATTRIBUTES (type_2)
+      && ! TYPE_ATTRIBUTES (type_1) && ! TYPE_ATTRIBUTES (type_2)
       && (lto_same_type_p (TREE_TYPE (type_1), TREE_TYPE (type_2))))
     {
       if (COMPLETE_TYPE_P (type_1) && !COMPLETE_TYPE_P (type_2))
-	return type_1;
+        {
+	  lto_merge_qualifiers (type_1, type_2);
+	  return type_1;
+	}
       else if (COMPLETE_TYPE_P (type_2) && !COMPLETE_TYPE_P (type_1))
-	return type_2;
+        {
+	  lto_merge_qualifiers (type_2, type_1);
+	  return type_2;
+	}
       else
 	return NULL_TREE;
     }

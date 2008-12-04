@@ -1,3 +1,11 @@
+2008-12-04  Simon Baldwin  <simonb@google.com>
+
+	* lto-symtab.c (lto_merge_qualifiers): New function, merges type
+	qualifiers in a conservative manner.
+	* (lto_same_type_p): Remove qualifier equality check.
+	* (lto_merge_types): Remove qualifier equality check, call
+	lto_merge_qualifiers() to merge qualifiers on the return type.
+
 2008-12-03  Diego Novillo  <dnovillo@google.com>
 
 	* lto-wrapper.c: Tidy comments/formatting.
