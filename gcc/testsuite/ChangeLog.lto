@@ -1,3 +1,8 @@
+2008-12-04  Diego Novillo  <dnovillo@google.com>
+
+	* g++.dg/lto/20081203_0.C: New.
+	* g++.dg/lto/20081203_1.C: New.
+
 2008-12-04  Simon Baldwin  <simonb@google.com>
 
 	* gcc.dg/lto/20081204-1_0.c: New.

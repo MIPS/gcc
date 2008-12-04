@@ -1,8 +1,13 @@
+2008-12-03  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (lto_fixup_tree): Do not emit an error when
+	PREVAILING throw but T doesn't.
+
 2008-12-02  Doug Kwan  <dougkwan@google.com>
 
 	* lto.c (lto_scan_statics_in_ref_table): New function factored out
 	from code in ...
- 	(lto_scan_statics_in_cgraph_node): Handle both file-scope static
+	(lto_scan_statics_in_cgraph_node): Handle both file-scope static
 	variables and functions.
 	(lto_promote_cross_file_statics): Rename bitmaps to SEEN_DECLS
 	and GLOBAL_DECLS from SEEN_VARS and GLOBAL_VARS.

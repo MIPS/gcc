@@ -1085,21 +1085,16 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
 		 the call to PREVAILING was generated assuming that
 		 the function didn't throw, which means that CFG
 		 cleanup may have removed surrounding try/catch
-		 regions.  In that case, emit an error.
+		 regions.
 
 		 Note that we currently accept these cases even when
 		 they occur within a single file.  It's certainly a
 		 user error, but we silently allow the compiler to
 		 remove surrounding try/catch regions.  Perhaps we
-		 could demote this to a warning instead.  */
+		 could emit a warning here, instead of silently
+		 accepting the conflicting declaration.  */
 	      if (TREE_NOTHROW (prevailing))
 		lto_mark_nothrow_fndecl (prevailing);
-	      else if (!TREE_NO_WARNING (prevailing))
-		{
-		  error ("%J%qD declared as nothrow, but it really throws", t,
-			 prevailing);
-		  TREE_NO_WARNING (prevailing) = 1;
-		}
 	    }
 
 	  pointer_set_insert (fixup_data->free_list, t);
