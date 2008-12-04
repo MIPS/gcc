@@ -392,8 +392,13 @@ all_symbols_read_handler (void)
 {
   unsigned i;
   unsigned num_lto_args = num_claimed_files + lto_wrapper_num_args + 1;
-  char **lto_argv = (char **) calloc (sizeof (char *), num_lto_args);
-  const char **lto_arg_ptr = (const char **) lto_argv;
+  char **lto_argv;
+  const char **lto_arg_ptr;
+  if (num_claimed_files == 0)
+    return LDPS_OK;
+
+  lto_argv = (char **) calloc (sizeof (char *), num_lto_args);
+  lto_arg_ptr = (const char **) lto_argv;
   assert (lto_wrapper_argv);
 
   free_1 ();

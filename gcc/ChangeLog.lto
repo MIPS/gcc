@@ -1,3 +1,8 @@
+2008-12-04  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-plugin.c (all_symbols_read_handler): Do nothing if
+	num_claimed_files is 0.
+
 2008-12-04  Simon Baldwin  <simonb@google.com>
 
 	* lto-symtab.c (lto_symtab_merge_decl): Remove assertion that
