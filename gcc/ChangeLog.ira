@@ -1,5 +1,14 @@
 2008-12-04  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* ira-emit.c (ira_emit): Fix insn codes before reload.
+
+	* reload1.c (choose_reload_regs): Handle MODE_PARTIAL_INT.
+
+	* config/m32c/m32c.h (REG_CLASS_CONTENTS): Add R02A.
+	(reg_class): Add R02A_REGS.
+
+2008-12-04  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* ira-conflicts.c (ira_build_conflicts): Also check
 	temp_hard_reg_set.
 
