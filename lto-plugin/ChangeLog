@@ -1,3 +1,21 @@
+2008-12-03  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-plugin.c (process_option): The argument is now a single option,
+	not a space separated list.
+
+2008-12-02  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-plugin.c: Include sys/types.h and sys/wait.h
+	(output_files, num_output_files, lto_wrapper_argv,
+	lto_wrapper_num_args): New.
+	(free_2): Free output_files.
+	(write_resolution): Disable.
+	(add_output_files): New.
+	(exec_lto_wrapper): New.
+	(all_symbols_read_handler): Run lto-wrapper.
+	(claim_file_handler): Free lto_file.name and call elf_end.
+	(process_option): New.
+
 2008-11-26  Rafael Espindola  <espindola@google.com>
 
 	* lto-plugin.c (add_input_file): New.
