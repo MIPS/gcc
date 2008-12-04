@@ -1,5 +1,10 @@
 2008-12-04  Simon Baldwin  <simonb@google.com>
 
+	* lto-symtab.c (lto_symtab_merge_decl): Remove assertion that
+	tests for non-local register variables.
+
+2008-12-04  Simon Baldwin  <simonb@google.com>
+
 	* lto-symtab.c (lto_merge_qualifiers): New function, merges type
 	qualifiers in a conservative manner.
 	* (lto_same_type_p): Remove qualifier equality check.

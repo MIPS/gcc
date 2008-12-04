@@ -703,10 +703,7 @@ lto_symtab_merge_decl (tree new_decl,
      well as for variables referenced from inner functions.  */
   /*gcc_assert (!DECL_NONLOCAL (new_decl));*/
   if (TREE_CODE (new_decl) == VAR_DECL)
-    {
-      gcc_assert (!DECL_REGISTER (new_decl));
-      gcc_assert (!(DECL_EXTERNAL (new_decl) && DECL_INITIAL (new_decl)));
-    }
+    gcc_assert (!(DECL_EXTERNAL (new_decl) && DECL_INITIAL (new_decl)));
 
   /* Remember the resolution of this symbol. */
   lto_symtab_set_resolution_and_file_data (new_decl, resolution, file_data);
