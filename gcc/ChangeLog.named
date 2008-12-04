@@ -1,5 +1,9 @@
 2008-12-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* tree-ssa-loop-ivopts.c (generic_type_for): Undo named address
+	space support change in favor of doing it in the
+	signed_or_unsigned_type_for function.
+
 	* stor-layout.c (layout_type): Initialize TYPE_PRECISION for
 	OFFSET_TYPE.
 
