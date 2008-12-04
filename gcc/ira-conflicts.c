@@ -788,8 +788,12 @@ ira_build_conflicts (void)
 	  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
 			    temp_hard_reg_set);
 	  if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
-	    IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
-			      no_caller_save_reg_set);
+	    {
+	      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
+				no_caller_save_reg_set);
+	      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
+				temp_hard_reg_set);
+	    }
 	}
     }
   if (optimize && internal_flag_ira_verbose > 2 && ira_dump_file != NULL)

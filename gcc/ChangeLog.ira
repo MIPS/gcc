@@ -1,3 +1,8 @@
+2008-12-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-conflicts.c (ira_build_conflicts): Also check
+	temp_hard_reg_set.
+
 2008-12-01  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* reload1.c (reload_as_needed): Declare old_prev only if
