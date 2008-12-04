@@ -9228,17 +9228,19 @@ build_target_option_node (void)
   return t;
 }
 
-/* Return the size in bits of an integer or pointer type.  */
+/* Return the size in bits of an integer or pointer type.  TYPE_PRECISION
+   contains the bits, but in the past it was not set in some cases and there
+   was special purpose code that checked for POINTER_TYPE_P or OFFSET_TYPE, so
+   check that it is consitant when assertion checking is used.  */
 
 unsigned int
 int_or_pointer_precision (const_tree type)
 {
+#if ENABLE_ASSERT_CHECKING
   unsigned int prec;
 
   if (POINTER_TYPE_P (type))
     {
-      /* Pointer types don't always use TYPE_PRECISION, and with the named
-	 address support, pointers can be different sizes.  */
       addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
       if (!as)
 	prec = POINTER_SIZE;
@@ -9253,9 +9255,16 @@ int_or_pointer_precision (const_tree type)
       gcc_assert (prec == POINTER_SIZE);
     }
   else
-    prec = TYPE_PRECISION (type);
+    {
+      prec = TYPE_PRECISION (type);
+      gcc_assert (prec != 0);
+    }
 
   return prec;
+
+#else
+  return TYPE_PRECISION (type);
+#endif
 }
 
 #include "gt-tree.h"
