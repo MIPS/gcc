@@ -6886,17 +6886,26 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
 		       enum expand_modifier modifier)
 {
   enum machine_mode rmode;
+  enum machine_mode addrmode;
   rtx result;
 
   /* Target mode of VOIDmode says "whatever's natural".  */
   if (tmode == VOIDmode)
     tmode = TYPE_MODE (TREE_TYPE (exp));
 
+  addrmode = Pmode;
+  if (POINTER_TYPE_P (TREE_TYPE (exp)))
+    {
+      addr_space_t addr_space = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
+      if (addr_space)
+	addrmode = targetm.addr_space.pointer_mode (addr_space);
+    }
+
   /* We can get called with some Weird Things if the user does silliness
      like "(short) &a".  In that case, convert_memory_address won't do
      the right thing, so ignore the given target mode.  */
-  if (tmode != Pmode && tmode != ptr_mode)
-    tmode = Pmode;
+  if (tmode != addrmode && tmode != ptr_mode)
+    tmode = addrmode;
 
   result = expand_expr_addr_expr_1 (TREE_OPERAND (exp, 0), target,
 				    tmode, modifier);
@@ -8106,6 +8115,25 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	  /* Return the entire union.  */
 	  return target;
+	}
+
+      /* Handle casts of pointers to/from address space qualified
+	 pointers.  */
+      subexp0 = TREE_OPERAND (exp, 0);
+      if (POINTER_TYPE_P (type) && POINTER_TYPE_P (TREE_TYPE (subexp0)))
+	{
+	  tree subexp0_type = TREE_TYPE (subexp0);
+	  addr_space_t as_to = TYPE_ADDR_SPACE (TREE_TYPE (type));
+	  addr_space_t as_from = TYPE_ADDR_SPACE (TREE_TYPE (subexp0_type));
+
+	  if (as_to != as_from)
+	    {
+	      op0 = expand_expr (subexp0, NULL_RTX, VOIDmode, modifier);
+	      return targetm.addr_space.convert (op0,
+						 TYPE_MODE (type),
+						 as_from,
+						 as_to);
+	    }
 	}
 
       if (mode == TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0))))

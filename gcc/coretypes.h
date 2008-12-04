@@ -51,6 +51,9 @@ typedef const union tree_node *const_tree;
 union section;
 typedef union section section;
 
+/* Address space number for named address space support.  */
+typedef unsigned char addr_space_t;
+
 /* The major intermediate representations of GCC.  */
 enum ir_type {
   IR_GIMPLE,

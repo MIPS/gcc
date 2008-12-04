@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "langhooks.h"
 #include "md5.h"
+#include "target.h"
 
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
@@ -2399,7 +2400,9 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
   if (TREE_TYPE (arg1) == type)
     return arg1;
 
-  if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type))
+  if (POINTER_TYPE_P (type) && TYPE_ADDR_SPACE (TREE_TYPE (type)))
+    return NULL_TREE;
+  else if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type))
     {
       if (TREE_CODE (arg1) == INTEGER_CST)
 	return fold_convert_const_int_from_int (type, arg1);

@@ -767,7 +767,11 @@ See RS/6000 and PowerPC Options.
 -msafe-dma -munsafe-dma @gol
 -mbranch-hints @gol
 -msmall-mem -mlarge-mem -mstdmain @gol
--mfixed-range=@var{register-range}}
+-mfixed-range=@var{register-range} @gol
+-mea32 -mea64 @gol
+-mcache-size=@var{cache-size} @gol
+-mlocal-ea-conversion -mno-local-ea-conversion @gol
+-matomic-updates -mno-atomic-updates}
 
 @emph{System V Options}
 @gccoptlist{-Qy  -Qn  -YP,@var{paths}  -Ym,@var{dir}}
@@ -14441,6 +14445,44 @@ A fixed register is one that the register allocator can not use.  This is
 useful when compiling kernel code.  A register range is specified as
 two registers separated by a dash.  Multiple register ranges can be
 specified separated by a comma.
+
+@item -mea32
+@itemx -mea64
+@opindex mea32
+@opindex mea64
+
+Compile code assuming that pointers to the @code{__ea} address space are
+either 32 or 64 bits wide. The default is 32 bits.  The @code{__ea}
+address space qualifier specifies that variables reside in the PPU
+address space.  As this is an ABI changing option, all object code in an
+executable must be compiled with the same option.
+
+@item -mlocal-ea-conversion
+@itemx -mno-local-ea-conversion
+@opindex mlocal-ea-conversion
+@opindex mno-local-ea-conversion
+
+Allow/disallow pointers to the @code{__ea} address space to be
+converted local pointers.
+
+@item -mcache-size=@var{cache-size}
+@opindex mcache-size
+
+This option controls the version of libgcc that the compiler links to an
+executable and selects a software-managed cache for accessing variables
+in the PPU address space with a particular cache size.  Possible options
+for @var{cache-size} are @samp{8}, @samp{16}, @samp{32}, @samp{64} and
+@samp{128}.  The default cache size is 64KB.
+
+@item -matomic-updates
+@itemx -mno-atomic-updates
+@opindex matomic-updates
+@opindex mno-atomic-updates
+
+This option controls the version of libgcc that the compiler links to an
+executable and selects whether atomic updates to the software-managed
+cache of PPU-side variables are used.  The default behavior is to use
+atomic updates.
 
 @item -mdual-nops
 @itemx -mdual-nops=@var{n}

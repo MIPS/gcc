@@ -627,6 +627,40 @@ struct gcc_target
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
 
+  /* Support for named address spaces.  */
+  struct addr_space {
+    /* MODE to use for a pointer into another address space.  */
+    enum machine_mode (* pointer_mode) (addr_space_t);
+
+    /* Function to map an address space to a descriptive string.  */
+    const char * (* name) (addr_space_t);
+
+    /* Function to map an address space to a small number.  */
+    addr_space_t (* number) (const_tree);
+
+    /* True if it is legal to convert a pointer of one address space to
+       another.  */
+    bool (* can_convert_p) (addr_space_t, addr_space_t);
+
+    /* True if converting a pointer of one address space to another is just a
+       NOP.  */
+    bool (* nop_convert_p) (addr_space_t, addr_space_t);
+
+    /* Return the named address space to use between pointers to different
+       named address spaces.  */
+    addr_space_t (* common_pointer) (addr_space_t, addr_space_t);
+
+    /* Function to convert an rtl expression from one address space to
+       another.  */
+    rtx (* convert) (rtx, enum machine_mode, addr_space_t, addr_space_t);
+
+    /* True if an identifier that is a valid address space.  */
+    bool (* valid_p) (const_tree);
+
+    /* Section name to use for a named address space.  */
+    tree (* section_name) (addr_space_t);
+  } addr_space;
+
   /* True if MODE is valid for the target.  By "valid", we mean able to
      be manipulated in non-trivial ways.  In particular, this means all
      the arithmetic is supported.  */

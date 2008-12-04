@@ -1,0 +1,16 @@
+2008-12-01  Ben Elliston  <bje@au.ibm.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/spu/ea/cache-common.h: New file.
+	* gcc.target/spu/ea/errors2.c: Ditto.
+	* gcc.target/spu/ea/ea.exp: Ditto.
+	* gcc.target/spu/ea/cppdefine32.c: Ditto.
+	* gcc.target/spu/ea/cppdefine64.c: Ditto.
+	* gcc.target/spu/ea/cache32.c: Ditto.
+	* gcc.target/spu/ea/compile.c: Ditto.
+	* gcc.target/spu/ea/test-sizes.c: Ditto.
+	* gcc.target/spu/ea/cast1.c: Ditto.
+	* gcc.target/spu/ea/errors.c: Ditto.
+	* gcc.target/spu/ea/options1.c: Ditto.
+	* gcc.target/spu/ea/cache64.c: Ditto.
+

@@ -2222,6 +2222,9 @@ struct tree_block GTY(())
    the term.  */
 #define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->type.restrict_flag)
 
+/* If nonzero, this type is in the extended address space.  */
+#define TYPE_ADDR_SPACE(NODE) (TYPE_CHECK (NODE)->type.address_space)
+
 /* There is a TYPE_QUAL value for each type qualifier.  They can be
    combined by bitwise-or to form the complete set of qualifiers for a
    type.  */
@@ -2231,8 +2234,21 @@ struct tree_block GTY(())
 #define TYPE_QUAL_VOLATILE 0x2
 #define TYPE_QUAL_RESTRICT 0x4
 
+/* Encode/decode the named memory support as part of the qualifier.  If more
+   than 8 qualifiers are added, these macros need to be adjusted.  */
+#define ENCODE_QUAL_ADDR_SPACE(NUM) ((NUM & 0xFF) << 8)
+#define DECODE_QUAL_ADDR_SPACE(X) (((X) >> 8) & 0xFF)
+#define CLEAR_QUAL_ADDR_SPACE(X) ((X) & ~0xFF00)
+
 /* The set of type qualifiers for this type.  */
 #define TYPE_QUALS(NODE)					\
+  ((TYPE_READONLY (NODE) * TYPE_QUAL_CONST)			\
+   | (TYPE_VOLATILE (NODE) * TYPE_QUAL_VOLATILE)		\
+   | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)		\
+   | (ENCODE_QUAL_ADDR_SPACE (TYPE_ADDR_SPACE (NODE))))
+
+/* The same as TYPE_QUALS without the address space qualifications.  */
+#define TYPE_QUALS_NO_ADDR_SPACE(NODE)				\
   ((TYPE_READONLY (NODE) * TYPE_QUAL_CONST)			\
    | (TYPE_VOLATILE (NODE) * TYPE_QUAL_VOLATILE)		\
    | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT))
@@ -2326,7 +2342,10 @@ struct tree_type GTY(())
   unsigned lang_flag_6 : 1;
   unsigned user_align : 1;
 
+  addr_space_t address_space;
   unsigned int align;
+  alias_set_type alias_set;
+
   tree pointer_to;
   tree reference_to;
   union tree_type_symtab {
@@ -2343,7 +2362,6 @@ struct tree_type GTY(())
   tree binfo;
   tree context;
   tree canonical;
-  alias_set_type alias_set;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_type *lang_specific;
 };
@@ -4719,6 +4737,7 @@ extern bool stdarg_p (tree);
 extern bool prototype_p (tree);
 extern int function_args_count (tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
+extern unsigned int int_or_pointer_precision (const_tree);
 
 /* In stmt.c */
 

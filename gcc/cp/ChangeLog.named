@@ -1,0 +1,5 @@
+2008-12-01  Ben Elliston  <bje@au.ibm.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* typeck.c (cp_type_quals): Convert argument to const_tree.
+

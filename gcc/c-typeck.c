@@ -121,7 +121,8 @@ null_pointer_constant_p (const_tree expr)
 	  && (INTEGRAL_TYPE_P (type)
 	      || (TREE_CODE (type) == POINTER_TYPE
 		  && VOID_TYPE_P (TREE_TYPE (type))
-		  && TYPE_QUALS (TREE_TYPE (type)) == TYPE_UNQUALIFIED)));
+		  && (TYPE_QUALS_NO_ADDR_SPACE (TREE_TYPE (type))
+		      == TYPE_UNQUALIFIED))));
 }
 /* This is a cache to hold if two types are compatible or not.  */
 
@@ -329,7 +330,8 @@ composite_type (tree t1, tree t2)
 	bool d1_zero, d2_zero;
 
 	/* We should not have any type quals on arrays at all.  */
-	gcc_assert (!TYPE_QUALS (t1) && !TYPE_QUALS (t2));
+	gcc_assert (!TYPE_QUALS_NO_ADDR_SPACE (t1)
+		    && !TYPE_QUALS_NO_ADDR_SPACE (t2));
 
 	d1_zero = d1 == 0 || !TYPE_MAX_VALUE (d1);
 	d2_zero = d2 == 0 || !TYPE_MAX_VALUE (d2);
@@ -531,6 +533,8 @@ common_pointer_type (tree t1, tree t2)
   tree pointed_to_2, mv2;
   tree target;
   unsigned target_quals;
+  addr_space_t as1, as2, as_common;
+  int quals1, quals2;
 
   /* Save time if the two types are the same.  */
 
@@ -562,10 +566,24 @@ common_pointer_type (tree t1, tree t2)
   /* For function types do not merge const qualifiers, but drop them
      if used inconsistently.  The middle-end uses these to mark const
      and noreturn functions.  */
+  quals1 = TYPE_QUALS_NO_ADDR_SPACE (pointed_to_1);
+  quals2 = TYPE_QUALS_NO_ADDR_SPACE (pointed_to_2);
+
   if (TREE_CODE (pointed_to_1) == FUNCTION_TYPE)
-    target_quals = TYPE_QUALS (pointed_to_1) & TYPE_QUALS (pointed_to_2);
+    target_quals = (quals1 & quals2);
   else
-    target_quals = TYPE_QUALS (pointed_to_1) | TYPE_QUALS (pointed_to_2);
+    target_quals = (quals1 | quals2);
+
+  /* Determine the address space to use if the pointers point to different
+     named address spaces.  */
+  as1 = TYPE_ADDR_SPACE (pointed_to_1);
+  as2 = TYPE_ADDR_SPACE (pointed_to_2);
+  as_common = ((as1 == as2)
+	       ? as1
+	       : targetm.addr_space.common_pointer (as1, as2));
+
+  target_quals |= ENCODE_QUAL_ADDR_SPACE (as_common);
+
   t1 = build_pointer_type (c_build_qualified_type (target, target_quals));
   return build_type_attribute_variant (t1, attributes);
 }
@@ -590,10 +608,10 @@ c_common_type (tree t1, tree t2)
   if (t2 == error_mark_node)
     return t1;
 
-  if (TYPE_QUALS (t1) != TYPE_UNQUALIFIED)
+  if (TYPE_QUALS_NO_ADDR_SPACE (t1) != TYPE_UNQUALIFIED)
     t1 = TYPE_MAIN_VARIANT (t1);
 
-  if (TYPE_QUALS (t2) != TYPE_UNQUALIFIED)
+  if (TYPE_QUALS_NO_ADDR_SPACE (t2) != TYPE_UNQUALIFIED)
     t2 = TYPE_MAIN_VARIANT (t2);
 
   if (TYPE_ATTRIBUTES (t1) != NULL_TREE)
@@ -917,7 +935,7 @@ comptypes_internal (const_tree type1, const_tree type2)
 
   /* Qualifiers must match. C99 6.7.3p9 */
 
-  if (TYPE_QUALS (t1) != TYPE_QUALS (t2))
+  if (TYPE_QUALS (CONST_CAST_TREE (t1)) != TYPE_QUALS (CONST_CAST_TREE (t2)))
     return 0;
 
   /* Allow for two different type nodes which have essentially the same
@@ -3683,9 +3701,11 @@ build_c_cast (tree type, tree expr)
 		 are added, not when they're taken away.  */
 	      if (TREE_CODE (in_otype) == FUNCTION_TYPE
 		  && TREE_CODE (in_type) == FUNCTION_TYPE)
-		added |= (TYPE_QUALS (in_type) & ~TYPE_QUALS (in_otype));
+		added |= (TYPE_QUALS_NO_ADDR_SPACE (in_type)
+			  & ~TYPE_QUALS_NO_ADDR_SPACE (in_otype));
 	      else
-		discarded |= (TYPE_QUALS (in_otype) & ~TYPE_QUALS (in_type));
+		discarded |= (TYPE_QUALS_NO_ADDR_SPACE (in_otype)
+			      & ~TYPE_QUALS_NO_ADDR_SPACE (in_type));
 	    }
 	  while (TREE_CODE (in_type) == POINTER_TYPE
 		 && TREE_CODE (in_otype) == POINTER_TYPE);
@@ -3697,6 +3717,25 @@ build_c_cast (tree type, tree expr)
 	    /* There are qualifiers present in IN_OTYPE that are not
 	       present in IN_TYPE.  */
 	    warning (OPT_Wcast_qual, "cast discards qualifiers from pointer target type");
+	}
+
+      /* Determine whether a pointer to one named address space can be
+	 converted to a pointer to another named address. */
+      if (TREE_CODE (type) == POINTER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE)
+	{
+	  addr_space_t as_to = TYPE_ADDR_SPACE (TREE_TYPE (type));
+	  addr_space_t as_from = TYPE_ADDR_SPACE (TREE_TYPE (otype));
+
+	  if (as_to != as_from
+	      && !targetm.addr_space.can_convert_p (as_from, as_to))
+	    {
+	      error ("cast to pointer to address space %s from pointer "
+		     "to address space %s",
+		     targetm.addr_space.name (as_to),
+		     targetm.addr_space.name (as_from));
+	      return error_mark_node;
+	    }
 	}
 
       /* Warn about possible alignment problems.  */
@@ -4146,7 +4185,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		     certain things, it is okay to use a const or volatile
 		     function where an ordinary one is wanted, but not
 		     vice-versa.  */
-		  if (TYPE_QUALS (ttl) & ~TYPE_QUALS (ttr))
+		  if (TYPE_QUALS_NO_ADDR_SPACE (ttl)
+		      & ~TYPE_QUALS_NO_ADDR_SPACE (ttr))
 		    WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE "
 					    "makes qualified function "
 					    "pointer from unqualified"),
@@ -4159,7 +4199,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 					 G_("return makes qualified function "
 					    "pointer from unqualified"));
 		}
-	      else if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
+	      else if (TYPE_QUALS_NO_ADDR_SPACE (ttr)
+		       & ~TYPE_QUALS_NO_ADDR_SPACE (ttl))
 		WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE discards "
 					"qualifiers from pointer target type"),
 				     G_("assignment discards qualifiers "
@@ -4275,7 +4316,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	  else if (TREE_CODE (ttr) != FUNCTION_TYPE
 		   && TREE_CODE (ttl) != FUNCTION_TYPE)
 	    {
-	      if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
+	      if (TYPE_QUALS_NO_ADDR_SPACE (ttr)
+		  & ~TYPE_QUALS_NO_ADDR_SPACE (ttl))
 		{
 		  /* Types differing only by the presence of the 'volatile'
 		     qualifier are acceptable if the 'volatile' has been added
@@ -4313,7 +4355,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		 that say the function will not do certain things,
 		 it is okay to use a const or volatile function
 		 where an ordinary one is wanted, but not vice-versa.  */
-	      if (TYPE_QUALS (ttl) & ~TYPE_QUALS (ttr))
+	      if (TYPE_QUALS_NO_ADDR_SPACE (ttl)
+		  & ~TYPE_QUALS_NO_ADDR_SPACE (ttr))
 		WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE makes "
 					"qualified function pointer "
 					"from unqualified"),
@@ -8153,6 +8196,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	{
 	  tree tt0 = TREE_TYPE (type0);
 	  tree tt1 = TREE_TYPE (type1);
+	  addr_space_t as;
+
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
 	     and both must be object or both incomplete.  */
@@ -8166,6 +8211,17 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		  && TREE_CODE (tt1) == FUNCTION_TYPE)
 		pedwarn ("ISO C forbids comparison of %<void *%>"
 			 " with function pointer");
+ 
+ 	      /* If this operand is a pointer into another address
+ 		 space, make the result of the comparison such a
+ 		 pointer also.  */
+ 	      if (POINTER_TYPE_P (type0)
+ 		  && (as = TYPE_ADDR_SPACE (TREE_TYPE (type0))))
+ 		{
+ 		  int qual = ENCODE_QUAL_ADDR_SPACE (as);
+ 		  result_type = build_pointer_type
+ 		    (build_qualified_type (void_type_node, qual));
+ 		}
 	    }
 	  else if (VOID_TYPE_P (tt1))
 	    {
@@ -8173,6 +8229,17 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		  && TREE_CODE (tt0) == FUNCTION_TYPE)
 		pedwarn ("ISO C forbids comparison of %<void *%>"
 			 " with function pointer");
+ 
+ 	      /* If this operand is a pointer into another address
+ 		 space, make the result of the comparison such a
+ 		 pointer also.  */
+ 	      if (POINTER_TYPE_P (type1)
+ 		  && (as = TYPE_ADDR_SPACE (TREE_TYPE (type1))))
+ 		{
+ 		  int qual = ENCODE_QUAL_ADDR_SPACE (as);
+ 		  result_type = build_pointer_type
+ 		    (build_qualified_type (void_type_node, qual));
+ 		}
 	    }
 	  else
 	    /* Avoid warning about the volatile ObjC EH puts on decls.  */
