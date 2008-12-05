@@ -1,5 +1,9 @@
 2008-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* c-common.h (ADDR_SPACE_KEYWORD): Set the disable flags to
+	D_CONLY|D_EXT so that the source ell_integral.tcc in libstdc++
+	which has a __ea identifier builds.
+
 	* targhooks.c (default_addr_space_number): Delete, target hook is
 	no longer used.
 	* targhooks.h (default_addr_space_number): Ditto.

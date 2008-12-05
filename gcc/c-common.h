@@ -253,7 +253,7 @@ struct c_common_resword
 
 /* Macro for backends to define named address keywords.  */
 #define ADDR_SPACE_KEYWORD(STRING, VALUE) \
-  { STRING, RID_FIRST_ADDR_SPACE + (VALUE), D_EXT }
+  { STRING, RID_FIRST_ADDR_SPACE + (VALUE), D_CONLY | D_EXT }
 
 /* The reserved keyword table.  */
 extern const struct c_common_resword c_common_reswords[];
