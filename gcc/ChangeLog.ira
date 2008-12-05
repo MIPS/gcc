@@ -1,3 +1,10 @@
+2008-12-05  Ian Lance Taylor  <iant@google.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/38272
+	* reload1.c (do_input_reload): Don't use a register spill for
+	memory.
+
 2008-12-04  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-emit.c (ira_emit): Fix insn codes before reload.
