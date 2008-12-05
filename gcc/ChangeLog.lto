@@ -1,3 +1,15 @@
+2008-12-04  Doug Kwan  <dougkwan@google.com>
+
+	* lto-function-out.c (output_remaining_constructors_and_inits):
+	Only output externally visible vars.
+	(output_function_decl): Remove code to output LTO DECL flags.
+	(output_var_decl): Remove code to fixup up globalized statics.
+	Also, no need to check for LTO_DECL_FLAG_FORCE_GLOBAL.
+	* lto-function-in.c (input_function_decl): Remove code to read
+	LTO DECL flags.
+	(input_var_decl): Remove code to fix up globalized statics.
+	* lto-utils.h (LTO_DECL_FLAG_FORCE_GLOBAL): Remove flag.
+
 2008-12-04  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-plugin.c (all_symbols_read_handler): Do nothing if

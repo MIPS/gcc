@@ -2847,7 +2847,6 @@ static tree
 input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
   unsigned index;
-  lto_decl_flags_t decl_flags;
 
   tree decl = make_node (FUNCTION_DECL);
 
@@ -2855,16 +2854,6 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
   if (input_line_info (ib, data_in, flags))
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
-
-  /* Additional LTO decl flags. */
-  LTO_DEBUG_TOKEN ("lto_decl_flags");
-  decl_flags = lto_input_uleb128 (ib);
-  if (decl_flags)
-    {
-      lto_set_decl_flags (decl, decl_flags);
-      if (decl_flags & LTO_DECL_FLAG_FORCE_GLOBAL)
-	TREE_PUBLIC (decl) = 1;
-    }
 
   index = global_vector_enter (data_in, decl);
 
@@ -2969,11 +2958,7 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
   LTO_DEBUG_TOKEN ("lto_decl_flags");
   decl_flags = lto_input_uleb128 (ib);
   if (decl_flags)
-    {
-      lto_set_decl_flags (decl, decl_flags);
-      if (decl_flags & LTO_DECL_FLAG_FORCE_GLOBAL)
-	TREE_PUBLIC (decl) = 1;
-    }
+    lto_set_decl_flags (decl, decl_flags);
 
   /* Even though we cannot actually generate a reference
      to this node until we have done the lto_symtab_merge_var,

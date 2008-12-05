@@ -1,3 +1,17 @@
+2008-12-04  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (globalize_context_t): New type to store states in
+	globalization of cross-file statics.
+	(globalize_cross_file_statics): New.
+	(lto_scan_statics_in_ref_table): Walk tree to look for reachable
+	static decls that need to be fixed up.
+ 	(lto_scan_statics_in_cgraph_node): Change call interface to use
+	a globalize_context_t CONTEXT for all states used.
+	(lto_scan_statics_in_remaining_global_vars): New.
+ 	(lto_promote_cross_file_statics): Use new call interface of
+	LTO_SCAN_STATICS_IN_CGRAPH_NODE.  Handle remaining externally
+	visible vars in the last set.
+ 
 2008-12-03  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c (lto_fixup_tree): Do not emit an error when

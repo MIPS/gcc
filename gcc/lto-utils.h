@@ -27,7 +27,6 @@ bitmap lto_bitmap_alloc (void);
 
 #define LTO_DECL_FLAG_DEFINED		(1<<0)
 #define LTO_DECL_FLAG_SUPPRESS_OUTPUT	(1<<1)
-#define LTO_DECL_FLAG_FORCE_GLOBAL	(1<<2)
 
 typedef unsigned char	lto_decl_flags_t;
 

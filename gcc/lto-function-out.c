@@ -2345,7 +2345,7 @@ output_remaining_constructors_and_inits (struct output_block *ob)
     {
       tree var = vnode->decl;
       tree context = DECL_CONTEXT (var);
-      if (TREE_STATIC (var)
+      if (TREE_STATIC (var) && TREE_PUBLIC (var)
 	  && (!context || TREE_CODE (context) != FUNCTION_DECL)
 	  && !(lto_get_decl_flags (var) & LTO_DECL_FLAG_DEFINED))
 	output_var_init (ob, var);
@@ -2756,13 +2756,6 @@ output_function_decl (struct output_block *ob, tree decl)
   else
     output_tree_flags (ob, 0, decl, true);
 
-  /* Additional LTO decl flags. */
-  LTO_DEBUG_TOKEN ("lto_decl_flags");
-  if (flag_wpa)
-    output_uleb128 (ob, lto_get_decl_flags (decl));
-  else
-    output_zero (ob);
-
   global_vector_debug (ob);
 
   /* uid and locus are handled specially */
@@ -2807,20 +2800,7 @@ output_var_decl (struct output_block *ob, tree decl)
   /* tag and flags */
   /* Assume static or external variable.  */
   output_global_record_start (ob, NULL, NULL, LTO_var_decl1);
-  if (flag_wpa
-      && (lto_get_decl_flags (decl) & LTO_DECL_FLAG_FORCE_GLOBAL))
-    {
-      /* This variable is a file-scope static that is now shared by
-	 multiple translation units owing to IPA-inlining.  We promote
-	 it to a global.  */
-
-      gcc_assert (TREE_STATIC (decl) && !TREE_PUBLIC (decl));
-      TREE_PUBLIC (decl) = true;
-      output_tree_flags (ob, 0, decl, true);
-      TREE_PUBLIC (decl) = false;
-    }
-  else
-    output_tree_flags (ob, 0, decl, true);
+  output_tree_flags (ob, 0, decl, true);
 
   /* Additional LTO decl flags. */
   LTO_DEBUG_TOKEN ("lto_decl_flags");
@@ -2829,8 +2809,7 @@ output_var_decl (struct output_block *ob, tree decl)
       lto_decl_flags_t flags = lto_get_decl_flags (decl);
 
       /* Make sure we only output a global from one LTRANS file. */
-      if (TREE_PUBLIC (decl)
-	  || (flags & LTO_DECL_FLAG_FORCE_GLOBAL))
+      if (TREE_PUBLIC (decl))
 	{
 	  if (flags & LTO_DECL_FLAG_DEFINED)
 	    flags |= LTO_DECL_FLAG_SUPPRESS_OUTPUT;
