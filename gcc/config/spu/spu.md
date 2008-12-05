@@ -1267,7 +1267,7 @@
    (use (match_operand:<F2I> 2 "spu_reg_operand" "r"))]
   ""
   "#"
-  ""
+  "split0_completed"
   [(set (match_dup:<F2I> 3)
 	(and:<F2I> (match_dup:<F2I> 4)
 		   (match_dup:<F2I> 2)))]

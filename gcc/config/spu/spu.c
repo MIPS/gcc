@@ -4687,7 +4687,10 @@ spu_split_load (rtx * ops)
 
   rot = 0;
   rot_amt = 0;
-  if (GET_CODE (addr) == PLUS)
+
+  if (MEM_ALIGN (ops[1]) >= 128)
+    /* Address is already aligned; simply perform a TImode load.  */;
+  else if (GET_CODE (addr) == PLUS)
     {
       /* 8 cases:
          aligned reg   + aligned reg     => lqx
@@ -4797,6 +4800,14 @@ spu_split_load (rtx * ops)
       rot = x;
       rot_amt = 0;
     }
+
+  /* If the source is properly aligned, we don't need to split this insn into
+     a TImode load plus a _spu_convert.  However, we want to perform the split
+     anyway when optimizing to make the MEMs look the same as those used for
+     stores so they are more easily merged.  When *not* optimizing, that will
+     not happen anyway, so we prefer to avoid generating the _spu_convert.  */
+  if (!rot && !rot_amt && !optimize)
+    return 0;
 
   load = gen_reg_rtx (TImode);
 

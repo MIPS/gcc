@@ -1,3 +1,14 @@
+2008-12-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc/config/spu/spu.h (ADDRESSES_NEVER_TRAP): Define.
+	* gcc/rtlanal.c (rtx_addr_can_trap_p_1): Respect ADDRESSES_NEVER_TRAP.
+	* gcc/doc/tm.texi (ADDRESSES_NEVER_TRAP): Document.
+
+	* gcc/config/spu/spu.c (spu_split_load): Trust MEM_ALIGN.  When not
+	optimizing, do not split load unless necessary.
+
+	* gcc/config/spu/spu.md ("_abs<mode>2"): Do not split in split0 pass.
+
 2008-11-18  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
 
 	Change constraint u to w to avoid conflict with a patch I have

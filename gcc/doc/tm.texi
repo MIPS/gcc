@@ -10418,3 +10418,8 @@ instructions, and the optimizations right after this pass (e.g., CSE and
 combine) are be able to optimize the split instructions.
 @end defmac
 
+@defmac ADDRESSES_NEVER_TRAP
+Define this macro if memory accesses will never cause a trap.
+This is the case for example on the Cell SPU processor.
+@end defmac
+ 

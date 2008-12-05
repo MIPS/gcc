@@ -654,3 +654,5 @@ extern GTY(()) rtx spu_expect_op1;
 
 #define SPLIT_BEFORE_CSE2 1
 
+#define ADDRESSES_NEVER_TRAP 1
+
