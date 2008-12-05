@@ -1,5 +1,11 @@
 2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
 
+	* ifcvt.c (noce_process_if_block): Check for modifications to the
+	insn src after the insn, rather than after the one that follows
+	it.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
 	* coverage.c (coverage_begin_output): Don't overwrite .gcno file
 	during -fcompare-debug-second compilation.
 
