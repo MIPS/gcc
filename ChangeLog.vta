@@ -1,3 +1,9 @@
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/37033
+	* libcpp/pch.c (cpp_valid_state): Improve message for poisoned
+	symbols.  Allow for differences in __GCC_HAVE_DWARF2_CFI_ASM.
+
 2008-10-29  Alexandre Oliva  <aoliva@redhat.com>
 
 	* config/bootstrap-debug-lib.mk (STAGE1_TFLAGS, STAGE3_TFLAGS):
