@@ -114,6 +114,30 @@ enum rid
   RID_AT_INTERFACE,
   RID_AT_IMPLEMENTATION,
 
+  /* Named address support, mapping the keyword to a particular named address
+     number.  Named address space 0 is reserved for the generic address.  If
+     there are more than 254 named addresses, the addr_space_t type will need
+     to be grown from an unsigned char to unsigned short.  */
+  RID_ADDR_SPACE_0,		/* generic address */
+  RID_ADDR_SPACE_1,
+  RID_ADDR_SPACE_2,
+  RID_ADDR_SPACE_3,
+  RID_ADDR_SPACE_4,
+  RID_ADDR_SPACE_5,
+  RID_ADDR_SPACE_6,
+  RID_ADDR_SPACE_7,
+  RID_ADDR_SPACE_8,
+  RID_ADDR_SPACE_9,
+  RID_ADDR_SPACE_10,
+  RID_ADDR_SPACE_11,
+  RID_ADDR_SPACE_12,
+  RID_ADDR_SPACE_13,
+  RID_ADDR_SPACE_14,
+  RID_ADDR_SPACE_15,
+
+  RID_FIRST_ADDR_SPACE = RID_ADDR_SPACE_0,
+  RID_LAST_ADDR_SPACE = RID_ADDR_SPACE_15,
+
   RID_MAX,
 
   RID_FIRST_MODIFIER = RID_STATIC,

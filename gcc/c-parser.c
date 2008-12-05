@@ -74,6 +74,10 @@ struct resword
 #define D_EXT89	0x04	/* GCC extension incorporated in C99 */
 #define D_OBJC	0x08	/* Objective C only */
 
+/* Macro for backends to define named address keywords.  */
+#define ADDR_SPACE_KEYWORD(STRING, VALUE) \
+  { STRING, RID_FIRST_ADDR_SPACE + (VALUE), D_EXT }
+
 static const struct resword reswords[] =
 {
   { "_Bool",		RID_BOOL,	0 },
@@ -181,6 +185,11 @@ static const struct resword reswords[] =
   { "inout",		RID_INOUT,		D_OBJC },
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
+
+#ifdef TARGET_ADDR_SPACE_KEYWORDS
+  /* Any address space keywords recognized by the target.  */
+  TARGET_ADDR_SPACE_KEYWORDS,
+#endif
 };
 #define N_reswords (sizeof reswords / sizeof (struct resword))
 
@@ -195,6 +204,10 @@ c_parse_init (void)
   tree id;
   int mask = (flag_isoc99 ? 0 : D_C89)
 	      | (flag_no_asm ? (flag_isoc99 ? D_EXT : D_EXT|D_EXT89) : 0);
+
+  /* Make sure RID_MAX hasn't grown past the 8 bits used to hold the keyword in
+     the c_token structure.  */
+  gcc_assert (RID_MAX <= 255);
 
   if (!c_dialect_objc ())
      mask |= D_OBJC;
@@ -332,7 +345,14 @@ c_lex_one_token (c_parser *parser, c_token *token)
 	  {
 	    enum rid rid_code = C_RID_CODE (token->value);
 
-	    if (c_dialect_objc ())
+	    if (rid_code >= RID_FIRST_ADDR_SPACE
+		&& rid_code <= RID_LAST_ADDR_SPACE)
+	      {
+		token->id_kind = C_ID_ADDRSPACE;
+		token->keyword = rid_code;
+		break;
+	      }
+	    else if (c_dialect_objc ())
 	      {
 		if (!OBJC_IS_AT_KEYWORD (rid_code)
 		    && (!OBJC_IS_PQ_KEYWORD (rid_code)
@@ -363,11 +383,6 @@ c_lex_one_token (c_parser *parser, c_token *token)
 		token->id_kind = C_ID_TYPENAME;
 		break;
 	      }
-	  }
-	else if (targetm.addr_space.valid_p (token->value))
-	  {
-	    token->id_kind = C_ID_ADDRSPACE;
-	    break;
 	  }
 	else if (c_dialect_objc ())
 	  {
@@ -1565,7 +1580,9 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 
 	  if (kind == C_ID_ADDRSPACE)
 	    {
-	      declspecs_add_addrspace (specs, c_parser_peek_token (parser)->value);
+	      addr_space_t as
+		= c_parser_peek_token (parser)->keyword - RID_FIRST_ADDR_SPACE;
+	      declspecs_add_addrspace (specs, as);
 	      c_parser_consume_token (parser);
 	      attrs_ok = true;
 	      continue;

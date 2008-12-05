@@ -7276,9 +7276,8 @@ build_null_declspecs (void)
    SPECS, returning SPECS.  */
 
 struct c_declspecs *
-declspecs_add_addrspace (struct c_declspecs *specs, tree addrspace)
+declspecs_add_addrspace (struct c_declspecs *specs, addr_space_t as)
 {
-  addr_space_t as = targetm.addr_space.number (addrspace);
   specs->non_sc_seen_p = true;
   specs->declspecs_seen_p = true;
 

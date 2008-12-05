@@ -645,3 +645,10 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 extern GTY(()) rtx spu_compare_op0;
 extern GTY(()) rtx spu_compare_op1;
 
+/* Address spaces */
+#define ADDR_SPACE_GENERIC	0
+#define ADDR_SPACE_EA		1
+#define ADDR_SPACE_BAD		255
+
+/* Named address space keywords.  */
+#define TARGET_ADDR_SPACE_KEYWORDS  ADDR_SPACE_KEYWORD("__ea", ADDR_SPACE_EA)
