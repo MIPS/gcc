@@ -1,5 +1,15 @@
 2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
 
+	* rtl-factoring.c (struct hash_bucket_def): Add linked list of
+	candidates.
+	(struct hash_elem_def): Add pointer to successor.
+	(collect_pattern_seqs): Iterate over linked lists.  Halve the
+	number of examined pairs.
+	(htab_eq_elem): Compare insn rather than hash.
+	(fill_hash_bucket): Maintain linked list.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
 	PR target/37033
 	* dwarf2out.c (saved_do_cfi_asm): New.
 	(dwarf2out_do_frame): Take it into account.
