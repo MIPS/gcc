@@ -9665,6 +9665,11 @@ Define this to return whether converting a pointer which points to the
 conversion needs to be done.
 @end deftypefn
 
+@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_SUBSET_P (addr_space_t @var{superset}, addr_space_t @var{subset})
+Define this to return the @var{subset} named address space is
+contained within the @var{superset} named address space.
+@end deftypefn
+
 @deftypefn {Target Hook} {rtx} TARGET_ADDR_SPACE_CONVERT (rtx @var{op}, enum machine_mode @var{mode}, addr_space_t @var{from}, addr_space_t @var{to})
 Define this to convert the pointer expression represented by the RTL
 @var{op} that points to the named address space @var{from} to a new

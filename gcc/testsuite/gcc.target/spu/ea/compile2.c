@@ -1,8 +1,7 @@
-/* Invalid conversions of __ea pointers to local pointers.  */
 /* { dg-do compile } */
-/* { dg-options "-O2 -std=gnu99 -pedantic-errors -mno-ea-to-generic-conversion" } */
+/* { dg-options "-O2 -std=gnu99 -pedantic-errors -mea-to-generic-conversion" } */
 
-/* This is the same code as compile2.c but it should generate errors.  If you
+/* This is the same code as errors2.c but it should compile cleanly.  If you
    modify this file, you should modify errors2.c as well.  */
 #ifndef TYPE
 #define TYPE void
@@ -33,7 +32,7 @@ void ea_to_ea_arg (void)
 
 void ea_to_lm_arg (void)
 {
-  arg_lm (LM_CAST (ea_ptr));	/* { dg-error "cast to generic address space pointer from __ea address space pointer" } */
+  arg_lm (LM_CAST (ea_ptr));
 }
 
 void lm_to_ea_arg (void)
@@ -53,7 +52,7 @@ ea_ptr_t ea_to_ea_ret (void)
 
 lm_ptr_t ea_to_lm_ret (void)
 {
-  return LM_CAST (ea_ptr);	/* { dg-error "cast to generic address space pointer from __ea address space pointer" } */
+  return LM_CAST (ea_ptr);
 }
 
 ea_ptr_t lm_to_ea_ret (void)
@@ -73,7 +72,7 @@ void ea_to_ea_store (ea_ptr_t ptr)
 
 void ea_to_lm_store (ea_ptr_t ptr)
 {
-  lm_ptr = LM_CAST (ptr);	/* { dg-error "cast to generic address space pointer from __ea address space pointer" } */
+  lm_ptr = LM_CAST (ptr);
 }
 
 void lm_to_ea_store (lm_ptr_t ptr)
