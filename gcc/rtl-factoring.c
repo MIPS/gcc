@@ -132,7 +132,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Predicate yielding nonzero iff X is an abstractable insn.  Non-jump insns are
    abstractable.  */
-#define ABSTRACTABLE_INSN_P(X) (INSN_P (X) && !JUMP_P (X))
+#define ABSTRACTABLE_INSN_P(X) (INSN_P (X) && !DEBUG_INSN_P (X) && !JUMP_P (X))
 
 /* First parameter of the htab_create function call.  */
 #define HASH_INIT 1023
@@ -295,7 +295,7 @@ prev_insn_in_block (rtx insn)
   while (insn != BB_HEAD (bb))
     {
       insn = PREV_INSN (insn);
-      if (INSN_P (insn))
+      if (INSN_P (insn) && !DEBUG_INSN_P (insn))
         return insn;
     }
   return NULL_RTX;
@@ -481,7 +481,7 @@ collect_pattern_seqs (void)
     for (insn = BB_END (bb); ; insn = prev)
       {
 	prev = PREV_INSN (insn);
-	if (INSN_P (insn))
+	if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	  {
 	    int reg;
 	    for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
@@ -519,7 +519,8 @@ collect_pattern_seqs (void)
 
     for (insn = BB_HEAD (bb); insn != next_tail; insn = NEXT_INSN (insn))
       {
-	if (INSN_P (insn) && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
+	if (INSN_P (insn) && !DEBUG_INSN_P (insn)
+	    && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
 	  bitmap_set_bit (&dont_collect, INSN_UID (insn));
       }
   }
@@ -596,7 +597,7 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
       rtx prev = PREV_INSN (x);
       df_simulate_one_insn (bb, x, &live);
 
-      if (INSN_P (x))
+      if (INSN_P (x) && !DEBUG_INSN_P (x))
         {
           renumbered_reg_set_to_hard_reg_set (&hlive, &live);
           AND_COMPL_HARD_REG_SET (*regs, hlive);

@@ -1,5 +1,11 @@
 2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
 
+	* rtl-factoring.c (ABSTRACTABLE_INSN_P): Skip debug insns.
+	(prev_insn_in_block, collect_pattern_seqs): Likewise.
+	(clear_regs_live_in_seq): Likewise.
+
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
 	* rtl-factoring.c (struct hash_bucket_def): Add linked list of
 	candidates.
 	(struct hash_elem_def): Add pointer to successor.
