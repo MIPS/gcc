@@ -82,6 +82,7 @@ static struct spu_builtin_range spu_builtin_range[] = {
 /* Address spaces */
 #define ADDR_SPACE_GENERIC	0
 #define ADDR_SPACE_EA		1
+#define ADDR_SPACE_BAD		255
 
 
 /*  Target specific attribute specifications.  */
@@ -229,10 +230,10 @@ static bool spu_addr_space_nop_convert_p (addr_space_t, addr_space_t);
 #undef TARGET_ADDR_SPACE_NOP_CONVERT_P
 #define TARGET_ADDR_SPACE_NOP_CONVERT_P spu_addr_space_nop_convert_p
 
-static addr_space_t spu_addr_space_common_pointer (addr_space_t,
-						   addr_space_t);
-#undef TARGET_ADDR_SPACE_COMMON_POINTER
-#define TARGET_ADDR_SPACE_COMMON_POINTER spu_addr_space_common_pointer
+static bool spu_addr_space_subset_p (addr_space_t, addr_space_t,
+				     addr_space_t *);
+#undef TARGET_ADDR_SPACE_SUBSET_P
+#define TARGET_ADDR_SPACE_SUBSET_P spu_addr_space_subset_p
 
 static rtx spu_addr_space_convert (rtx, enum machine_mode, addr_space_t,
 				   addr_space_t);
@@ -6559,14 +6560,8 @@ spu_libgcc_shift_count_mode (void)
 static const char *
 spu_addr_space_name (addr_space_t addrspace)
 {
-  switch (addrspace)
-    {
-    case ADDR_SPACE_GENERIC:
-      return "generic";
-
-    case ADDR_SPACE_EA:
-      return "__ea";
-    }
+  if (addrspace == ADDR_SPACE_EA)
+    return "__ea";
 
   gcc_unreachable ();
 }
@@ -6574,13 +6569,12 @@ spu_addr_space_name (addr_space_t addrspace)
 /* Determine if you can convert one address to another.  */
 
 static bool
-spu_addr_space_can_convert_p (addr_space_t from,
-			      addr_space_t to)
+spu_addr_space_can_convert_p (addr_space_t from, addr_space_t to)
 {
   gcc_assert (from == ADDR_SPACE_GENERIC || from == ADDR_SPACE_EA);
   gcc_assert (to == ADDR_SPACE_GENERIC || to == ADDR_SPACE_EA);
 
-  if (TARGET_NO_LOCAL_EA_CONVERSION
+  if (TARGET_NO_EA_TO_GENERIC_CONVERSION
       && from == ADDR_SPACE_EA
       && to == ADDR_SPACE_GENERIC)
     return false;
@@ -6591,25 +6585,44 @@ spu_addr_space_can_convert_p (addr_space_t from,
 /* Determine if converting one address to another is a NOP.  */
 
 static bool
-spu_addr_space_nop_convert_p (addr_space_t from,
-			      addr_space_t to)
+spu_addr_space_nop_convert_p (addr_space_t from, addr_space_t to)
 {
   gcc_assert (from == ADDR_SPACE_GENERIC || from == ADDR_SPACE_EA);
   gcc_assert (to == ADDR_SPACE_GENERIC || to == ADDR_SPACE_EA);
   return (to == from);
 }
 
-/* Determine what named address space pointer to use between pointers to two
-   different address spaces.  */
+/* Determine if one named address space is a subset of another.  */
 
-static addr_space_t
-spu_addr_space_common_pointer (addr_space_t as1,
-			       addr_space_t as2)
+static bool
+spu_addr_space_subset_p (addr_space_t as1,
+			 addr_space_t as2,
+			 addr_space_t *common_as)
 {
   gcc_assert (as1 == ADDR_SPACE_GENERIC || as1 == ADDR_SPACE_EA);
   gcc_assert (as2 == ADDR_SPACE_GENERIC || as2 == ADDR_SPACE_EA);
 
-  return (as1 == as2) ? as1 : ADDR_SPACE_EA;
+  if (as1 == as2)
+    {
+      *common_as = as1;
+      return true;
+    }
+
+  /* If we have -mno-address-space-conversion, treat __ea and generic as not
+     being subsets but instead as disjoint address spaces.  This will require
+     the user to explicitly convert between the different address spaces,
+     instead of relying on the compiler to do it automatically.  */
+  else if (TARGET_NO_ADDRESS_SPACE_CONVERSION)
+    {
+      *common_as = ADDR_SPACE_BAD;
+      return false;
+    }
+
+  else
+    {
+      *common_as = ADDR_SPACE_EA;
+      return true;
+    }
 }
 
 /* Convert from one address space to another.  */

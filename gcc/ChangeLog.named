@@ -1,3 +1,79 @@
+2008-12-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/tm.texi (TARGET_ADDR_SPACE_SUBSET_P): Document new hook to
+	determine if one named address is a subset of another.
+
+	* doc/invoke.texi (-mno-ea-to-generic-conversion): Rename from
+	-mno-local-ea-conversion.
+	(-mea-to-generic-conversion): Rename from
+	-mealocal-ea-conversion.
+	(-mno-address-space-conversion): New switch to
+	prevent automatic conversions of pointers to different named
+	addresses from happening automatically.
+	(-maddress-space-conversion): New default switch.
+
+	* targhooks.c (default_addr_space_common_pointer): Delete target
+	hook, no longer used.
+	(default_addr_space_subset_p): New default target hook to
+	determine if one named address is a subset of another.
+
+	* targhooks.h (default_addr_space_common_pointer): Delete.
+	(default_addr_space_subset_p): New declaration.
+
+	* target.h (struct addr_space): Add subset_p target hook, drop
+	common_pointer target hook.
+
+	* c-objc-common (c_types_compatible_p): Drop named address support
+	that is no longer needed.
+
+	* c-decl.c (diagnose_mismatched_decls): Add error for mismatched
+	named address spaces.
+	(start_decl): Don't give an error if the target doesn't have named
+	addresses, just don't set the section name.
+	(grokdeclarator): Improve named address space mismatch error
+	message.
+	(declspecs_add_addrspace): Cache address space, rather than call
+	target hook twice.
+
+	* c-typechk.c (qualify_type): Check for named addresses.
+	(common_pointer_type): Use subset_p target hook instead of the old
+	common_pointer hook.
+	(c_common_type): Go back to using TYPE_QUALS instead of
+	TYPE_QUALS_NO_ADDR_SPACE to get main type.
+	(comp_target_types): Add support for checking whether two pointer
+	types point to compatible address spaces.
+	(build_conditional_expr): Ditto.
+	(build_c_cast): Improve named address space type mismatch error.
+	(convert_for_assignment): Add support for checking whether
+	pointers are to compatible named addresses.
+
+	* target-def.h (TARGET_ADDR_SPACE_COMMON_POINTER): Delete.
+	(TARGET_ADDR_SPACE_SUBSET_P): New target hook.
+	(TARGET_ADDR_SPACE_HOOKS): Update target hooks.
+
+	* config/spu/spu.opt (-mno-ea-to-generic-conversion): Rename from
+	-mno-local-ea-conversion.
+	(-mea-to-generic-conversion): Rename from
+	-mealocal-ea-conversion.
+	(-mno-address-space-conversion): New switch to
+	prevent automatic conversions of pointers to different named
+	addresses from happening automatically.
+	(-maddress-space-conversion): New default switch.
+
+	* config/spu/spu.c (ADDR_SPACE_BAD): New address space to return
+	in error conditions.
+	(TARGET_ADDR_SPACE_COMMON_POINTER): Delete.
+	(spu_addr_space_common_pointer): Ditto.
+	(TARGET_ADDR_SPACE_SUBSET_P): New target hook.
+	(spu_addr_space_subset_p): New function to determine if one named
+	address is a subset of another.
+	(spu_addr_space_can_convert_p): Change -mno-local-ea-conversion to
+	-mno-ea-to-generic-conversion.
+	(spu_addr_space_nop_convert_p): Whitespace changes.
+
+	* convert.c (convert_to_pointer): Improve the named address space
+	mismatch error message.
+
 2008-12-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.c (int_or_pointer_precision): Simplify if assertion
