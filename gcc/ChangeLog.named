@@ -1,10 +1,5 @@
 2008-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	PR c/38416
-	* c-parser.c (struct c_token): Make pragma_kind 8 bits.
-
-2008-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
 	* doc/tm.texi (TARGET_ADDR_SPACE_KEYWORDS): Document new method of
 	adding named address space keywords.
 	(TARGET_ADDR_SPACE_NUMBER): Delete, target hook removed.
