@@ -1,3 +1,42 @@
+2008-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR c/38416
+	* c-parser.c (struct c_token): Make pragma_kind 8 bits.
+
+2008-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/37248
+	* fold-const.c (make_bit_field_ref): Change bitpos and bitsize
+	arguments to HOST_WIDE_INT.  If type has different signedness
+	than unsignedp or different precision from bitsize, create
+	the right type for BIT_FIELD_REF and cast to type.
+	(fold_truthop): Change first_bit and end_bit to HOST_WIDE_INT.
+
+	Revert:
+	2008-03-05  Richard Guenther  <rguenther@suse.de>
+	PR c++/35336
+	* fold-const.c (fold_truthop): Remove code generating
+	BIT_FIELD_REFs of structure bases.
+	(fold_binary): Likewise.
+	(make_bit_field_ref): Remove.
+	(optimize_bit_field_compare): Remove.
+	(all_ones_mask_p): Remove.
+
+2008-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-sra.c (sra_explode_bitfield_assignment): Always
+	call unsigned_type_for, if the precision is higher than
+	needed, call build_nonstandard_integer_type.
+
+	PR debug/38367
+	* function.c (assign_parm_find_stack_rtl): If promoted_mode
+	is wider than DECL_MODE, adjust MEM_OFFSET (stack_parm) for
+	big endian.
+
+	PR middle-end/38338
+	* builtins.c (expand_builtin_apply_args): Put before parm_birth_insn
+	only if internal_arg_pointer is a non-virtual pseudo.
+
 2008-12-05  Joseph Myers  <joseph@codesourcery.com>
 
 	* config/rs6000/rs6000.md (move_from_CR_gt_bit): Enable for
