@@ -382,6 +382,7 @@ static const char *include_spec_function (int, const char **);
 static const char *print_asm_header_spec_function (int, const char **);
 static const char *compare_debug_dump_opt_spec_function (int, const char **);
 static const char *compare_debug_self_opt_spec_function (int, const char **);
+static const char *compare_debug_auxbase_opt_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -836,7 +837,8 @@ static const char *cpp_debug_options = "%{d*}";
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
- %{c|S:%{o*:-auxbase-strip %*}%{!o*:-auxbase %b}}%{!c:%{!S:-auxbase %b}}\
+ %{fcompare-debug-second:%:compare-debug-auxbase-opt(%b)} \
+ %{!fcompare-debug-second:%{c|S:%{o*:-auxbase-strip %*}%{!o*:-auxbase %b}}}%{!c:%{!S:-auxbase %b}} \
  %{g*} %{O*} %{W*&pedantic*} %{w} %{std*&ansi&trigraphs}\
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
@@ -1660,6 +1662,7 @@ static const struct spec_function static_spec_functions[] =
   { "print-asm-header",		print_asm_header_spec_function },
   { "compare-debug-dump-opt",	compare_debug_dump_opt_spec_function },
   { "compare-debug-self-opt",	compare_debug_self_opt_spec_function },
+  { "compare-debug-auxbase-opt", compare_debug_auxbase_opt_spec_function },
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -8385,8 +8388,9 @@ print_asm_header_spec_function (int arg ATTRIBUTE_UNUSED,
   return NULL;
 }
 
-/* %:compare-debug spec function.  Save the last argument, expected to
-   be the last -fdump-final-insns option, or generate a temporary.  */
+/* %:compare-debug-dump-opt spec function.  Save the last argument,
+   expected to be the last -fdump-final-insns option, or generate a
+   temporary.  */
 
 static const char *
 compare_debug_dump_opt_spec_function (int arg,
@@ -8434,23 +8438,74 @@ compare_debug_dump_opt_spec_function (int arg,
   return ret;
 }
 
-/* %:compare-debug spec function.  Save the name of the compare debug
-    file.  */
+static const char *debug_auxbase_opt;
+
+/* %:compare-debug-self-opt spec function.  Expands to the options
+    that are to be passed in the second compilation of
+    compare-debug.  */
 
 static const char *
 compare_debug_self_opt_spec_function (int arg,
 				      const char **argv ATTRIBUTE_UNUSED)
 {
   if (arg != 0)
-    fatal ("too many arguments to %%:compare-debug-opt");
+    fatal ("too many arguments to %%:compare-debug-self-opt");
 
   if (compare_debug >= 0)
     return NULL;
 
-  if (compare_debug > 0)
-    return compare_debug_opt;
+  do_spec_2 ("%{c|S:%{o*:%*}}");
+  do_spec_1 (" ", 0, NULL);
 
-  return concat ("%<o* %<MD %<MMD %<MF* %<MG %<MP %<MQ* %<MT* \
+  if (argbuf_index > 0)
+    debug_auxbase_opt = concat ("-auxbase-strip ",
+				argbuf[argbuf_index - 1],
+				NULL);
+  else
+    debug_auxbase_opt = NULL;
+
+  return concat ("\
+%<o %<MD %<MMD %<MF* %<MG %<MP %<MQ* %<MT* \
 %<fdump-final-insns=* -w -S -o %j \
-%{!fcompare-debug-second:-fcompare-debug-second} ", compare_debug_opt, NULL);
+%{!fcompare-debug-second:-fcompare-debug-second} \
+", compare_debug_opt, NULL);
+}
+
+/* %:compare-debug-auxbase-opt spec function.  Expands to the auxbase
+    options that are to be passed in the second compilation of
+    compare-debug.  It expects, as an argument, the basename of the
+    current input file name, with the .gk suffix appended to it.  */
+
+static const char *
+compare_debug_auxbase_opt_spec_function (int arg,
+					 const char **argv)
+{
+  char *name;
+  int len;
+
+  if (arg == 0)
+    fatal ("too few arguments to %%:compare-debug-auxbase-opt");
+
+  if (arg != 1)
+    fatal ("too many arguments to %%:compare-debug-auxbase-opt");
+
+  if (compare_debug >= 0)
+    return NULL;
+
+  len = strlen (argv[0]);
+  if (len < 3 || strcmp (argv[0] + len - 3, ".gk") != 0)
+    fatal ("argument to %%:compare-debug-auxbase-opt does not end in .gk");
+
+  if (debug_auxbase_opt)
+    return debug_auxbase_opt;
+
+#define OPT "-auxbase "
+
+  len -= 3;
+  name = (char*) xmalloc (sizeof (OPT) + len);
+  memcpy (name, OPT, sizeof (OPT) - 1);
+  memcpy (name + sizeof (OPT) - 1, argv[0], len);
+  name[sizeof (OPT) - 1 + len] = '\0';
+
+  return name;
 }

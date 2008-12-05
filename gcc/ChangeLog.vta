@@ -1,3 +1,14 @@
+2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c (compare_debug_auxbase_opt_spec_function): New.
+	(static_spec_functions): Add it.
+	(cc1_options): Use it instead of normal auxbase computation for
+	the second compare-debug compilation.
+	(compare_debug_dump_opt_spec_function): Adjust comment.
+	(debug_auxbase_opt): New.
+	(compare_debug_self_opt_spec_function): Adjust comment and
+	warning.  Save auxbase.
+
 2008-11-25  Alexandre Oliva  <aoliva@redhat.com>
 
 	* fortran/trans-decl.c (gfc_build_qualified_array): Don't skip
