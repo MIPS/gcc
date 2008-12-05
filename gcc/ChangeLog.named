@@ -1,5 +1,9 @@
 2008-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* targhooks.c (default_addr_space_number): Delete, target hook is
+	no longer used.
+	* targhooks.h (default_addr_space_number): Ditto.
+
 	* doc/tm.texi (TARGET_ADDR_SPACE_KEYWORDS): Document new method of
 	adding named address space keywords.
 	(TARGET_ADDR_SPACE_NUMBER): Delete, target hook removed.
