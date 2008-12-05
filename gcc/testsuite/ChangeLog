@@ -1,4 +1,58 @@
+2008-12-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.target/powerpc/20081204-1.c: New test.
+
+2008-12-05  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/38406
+	* gcc.dg/Wstrict-aliasing-converted-assigned.c: Restrict PTA
+	alias warning to lp64 targets.
+
+2008-12-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/union-5.c: Run only on x86 and x86-64.
+
+2008-12-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/38285
+	gfortran.dg/fmt_f_an_p.f: New test.
+
+2008-12-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/union-5.c: New test.
+
+2008-12-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37906
+	* g++.dg/cpp0x/defaulted6.C: New test.
+
+2008-12-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36509
+	* gcc.dg/Wstrict-aliasing-float-ptr-int-obj.c: Adjust, remove XFAIL.
+	* gcc.dg/Wstrict-aliasing-converted-assigned.c: Adjust.
+	* g++.dg/warn/Wstrict-aliasing-float-ref-int-obj.C: Likewise.
+
+2008-12-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/union-4.c: New test.
+
+2008-12-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.old-deja/g++.eh/badalloc1.C: Add the missing "}".
+
+2008-12-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* g++.old-deja/g++.eh/badalloc1.C: Reinstate XFAIL for Darwin 3-7.
+
+2008-12-03  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	* g++.old-deja/g++.eh/badalloc1.C: Omit XFAIL on obsolete Darwin.
+
 2008-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38232
+	* g++.dg/init/value5.C: New test.
 
 	PR c++/38256
 	* g++.dg/cpp0x/auto11.C: New test.
