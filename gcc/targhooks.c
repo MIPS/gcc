@@ -772,15 +772,6 @@ default_addr_space_convert (rtx op ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
-/* The default hook for TARGET_ADDR_SPACE_NUMBER.  This hook should
-   never be called for targets with only a generic address space.  */
-
-addr_space_t
-default_addr_space_number (const_tree ident ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
 /* The default hook for returning the section name to be used for static and
    global items in a named address space.  This hook should never be called for
    targets with only a generic address space.  */
