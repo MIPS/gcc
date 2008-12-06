@@ -3277,7 +3277,8 @@ build_java_method_aliases (void)
     {
       tree fndecl = node->decl;
 
-      if (TREE_ASM_WRITTEN (fndecl)
+      if (node->local.externally_visible
+          && TREE_ASM_WRITTEN (fndecl)
 	  && DECL_CONTEXT (fndecl)
 	  && TYPE_P (DECL_CONTEXT (fndecl))
 	  && TYPE_FOR_JAVA (DECL_CONTEXT (fndecl))
