@@ -6363,6 +6363,7 @@ choose_reload_regs (struct insn_chain *chain)
 		  int nr = hard_regno_nregs[regno][rld[r].mode];
 		  int k;
 		  rld[r].reg_rtx = equiv;
+		  reload_spill_index[r] = regno;
 		  reload_inherited[r] = 1;
 
 		  /* If reg_reloaded_valid is not set for this register,
@@ -7531,6 +7532,16 @@ do_input_reload (struct insn_chain *chain, struct reload *rl, int j)
       && ! rtx_equal_p (reg_rtx, old)
       && reg_rtx != 0)
     emit_input_reload_insns (chain, rld + j, old, j);
+
+  /* When inheriting a wider reload, we have a MEM in rl->in,
+     e.g. inheriting a SImode output reload for
+     (mem:HI (plus:SI (reg:SI 14 fp) (const_int 10)))  */
+  if (optimize && reload_inherited[j] && rl->in
+      && MEM_P (rl->in)
+      && MEM_P (rl->in_reg)
+      && reload_spill_index[j] >= 0
+      && TEST_HARD_REG_BIT (reg_reloaded_valid, reload_spill_index[j]))
+    rl->in = regno_reg_rtx[reg_reloaded_contents[reload_spill_index[j]]];
 
   /* If we are reloading a register that was recently stored in with an
      output-reload, see if we can prove there was
