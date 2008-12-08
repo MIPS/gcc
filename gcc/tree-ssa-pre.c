@@ -1218,48 +1218,24 @@ do_unary:
   return e;
 }
 
-/* Translate the vuses in the VUSES vector backwards through phi nodes
-   in PHIBLOCK, so that they have the value they would have in
-   BLOCK. */
+/* Translate the VUSE backwards through phi nodes in PHIBLOCK, so that
+   it has the value it would have in BLOCK.  */
 
-static VEC(tree, gc) *
-translate_vuses_through_block (VEC (tree, gc) *vuses,
-			       basic_block phiblock,
-			       basic_block block)
+static tree
+translate_vuse_through_block (tree vuse,
+			      basic_block phiblock,
+			      basic_block block)
 {
-  tree oldvuse;
-  VEC(tree, gc) *result = NULL;
-  int i;
-
-  for (i = 0; VEC_iterate (tree, vuses, i, oldvuse); i++)
+  gimple phi = SSA_NAME_DEF_STMT (vuse);
+  if (gimple_code (phi) == GIMPLE_PHI
+      && gimple_bb (phi) == phiblock)
     {
-      gimple phi = SSA_NAME_DEF_STMT (oldvuse);
-      if (gimple_code (phi) == GIMPLE_PHI
-	  && gimple_bb (phi) == phiblock)
-	{
-	  edge e = find_edge (block, gimple_bb (phi));
-	  if (e)
-	    {
-	      tree def = PHI_ARG_DEF (phi, e->dest_idx);
-	      if (def != oldvuse)
-		{
-		  if (!result)
-		    result = VEC_copy (tree, gc, vuses);
-		  VEC_replace (tree, result, i, def);
-		}
-	    }
-	}
+      edge e = find_edge (block, gimple_bb (phi));
+      if (e)
+	return PHI_ARG_DEF (phi, e->dest_idx);
     }
 
-  /* We avoid creating a new copy of the vuses unless something
-     actually changed, so result can be NULL.  */
-  if (result)
-    {
-      sort_vuses (result);
-      return result;
-    }
-  return vuses;
-
+  return vuse;
 }
 
 /* Like find_leader, but checks for the value existing in SET1 *or*
@@ -1531,8 +1507,8 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
       {
 	vn_reference_t ref = PRE_EXPR_REFERENCE (expr);
 	VEC (vn_reference_op_s, heap) *operands = ref->operands;
-	VEC (tree, gc) *vuses = ref->vuses;
-	VEC (tree, gc) *newvuses = vuses;
+	tree vuse = ref->vuse;
+	tree newvuse = vuse;
 	VEC (vn_reference_op_s, heap) *newoperands = NULL;
 	bool changed = false;
 	unsigned int i;
@@ -1623,15 +1599,16 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 	    return NULL;
 	  }
 
-	newvuses = translate_vuses_through_block (vuses, phiblock, pred);
-	changed |= newvuses != vuses;
+	if (vuse)
+	  newvuse = translate_vuse_through_block (vuse, phiblock, pred);
+	changed |= newvuse != vuse;
 
 	if (changed)
 	  {
 	    unsigned int new_val_id;
 	    pre_expr constant;
 
-	    tree result = vn_reference_lookup_pieces (newvuses,
+	    tree result = vn_reference_lookup_pieces (newvuse,
 						      newoperands,
 						      &newref, true);
 	    if (newref)
@@ -1662,7 +1639,7 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 		new_val_id = get_next_value_id ();
 		VEC_safe_grow_cleared (bitmap_set_t, heap, value_expressions,
 				       get_max_value_id() + 1);
-		newref = vn_reference_insert_pieces (newvuses,
+		newref = vn_reference_insert_pieces (newvuse,
 						     newoperands,
 						     result, new_val_id);
 		newoperands = NULL;
@@ -1834,22 +1811,17 @@ bitmap_find_leader (bitmap_set_t set, unsigned int val, gimple stmt)
 static bool
 value_dies_in_block_x (pre_expr expr, basic_block block)
 {
-  int i;
-  tree vuse;
-  VEC (tree, gc) *vuses = PRE_EXPR_REFERENCE (expr)->vuses;
+  tree vuse = PRE_EXPR_REFERENCE (expr)->vuse;
 
-  /* Conservatively, a value dies if it's vuses are defined in this
+  /* Conservatively, a value dies if it's vuse is defined in this
      block, unless they come from phi nodes (which are merge operations,
      rather than stores.  */
-  for (i = 0; VEC_iterate (tree, vuses, i, vuse); i++)
+  if (vuse)
     {
       gimple def = SSA_NAME_DEF_STMT (vuse);
-
-      if (gimple_bb (def) != block)
-	continue;
-      if (gimple_code (def) == GIMPLE_PHI)
-	continue;
-      return true;
+      if (gimple_bb (def) == block
+	  && gimple_code (def) != GIMPLE_PHI)
+	return true;
     }
   return false;
 }
@@ -1913,7 +1885,7 @@ vro_valid_in_sets (bitmap_set_t set1, bitmap_set_t set2,
    ONLY SET2 CAN BE NULL.
    This means that we have a leader for each part of the expression
    (if it consists of values), or the expression is an SSA_NAME.
-   For loads/calls, we also see if the vuses are killed in this block.
+   For loads/calls, we also see if the vuse is killed in this block.
 */
 
 static bool
@@ -3674,7 +3646,7 @@ compute_avail (void)
 		  continue;
 
 		copy_reference_ops_from_call (stmt, &ops);
-		vn_reference_lookup_pieces (shared_vuses_from_stmt (stmt),
+		vn_reference_lookup_pieces (gimple_vuse (stmt),
 					    ops, &ref, false);
 		VEC_free (vn_reference_op_s, heap, ops);
 		if (!ref)
@@ -3749,7 +3721,7 @@ compute_avail (void)
 		      vn_reference_op_t vro;
 
 		      vn_reference_lookup (gimple_assign_rhs1 (stmt),
-					   shared_vuses_from_stmt (stmt),
+					   gimple_vuse (stmt),
 					   false, &ref);
 		      if (!ref)
 			continue;

@@ -1060,37 +1060,15 @@ refs_may_alias_p (tree ref1, tree ref2)
 }
 
 /* Given a stmt STMT that references memory, return the single stmt
-   that is reached by following the VUSE -> VDEF link.  Returns
-   NULL_TREE, if there is no single stmt that defines all VUSEs of
-   STMT.
-   Note that for a stmt with a single virtual operand this may return
-   a PHI node as well.  Note that if all VUSEs are default definitions
-   this function will return an empty statement.  */
+   that is reached by following the VUSE -> VDEF link.
+   Note that this may return a PHI node as well.
+   Note that if the VUSE is a default definition this function will
+   return an empty statement.  */
 
 gimple
 get_single_def_stmt (gimple stmt)
 {
-  gimple def_stmt = NULL;
-  tree use;
-  ssa_op_iter iter;
-
-  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_VIRTUAL_USES)
-    {
-      gimple tmp = SSA_NAME_DEF_STMT (use);
-
-      /* ???  This is too simplistic for multiple virtual operands
-	 reaching different PHI nodes of the same basic blocks or for
-	 reaching all default definitions.  */
-      if (def_stmt
-	  && def_stmt != tmp
-	  && !(gimple_nop_p (def_stmt)
-	       && gimple_nop_p (tmp)))
-	return NULL;
-
-      def_stmt = tmp;
-    }
-
-  return def_stmt;
+  return SSA_NAME_DEF_STMT (gimple_vuse (stmt));
 }
 
 /* Given a PHI node of virtual operands, tries to eliminate cyclic
@@ -1130,8 +1108,6 @@ get_single_def_stmt_from_phi (tree ref, gimple phi)
 	  if (!is_gimple_assign (def_stmt)
 	      || refs_may_alias_p (ref, gimple_assign_lhs (def_stmt)))
 	    return NULL;
-	  /* ???  This will only work, reaching the PHI node again if
-	     there is a single virtual operand on def_stmt.  */
 	  def_stmt = get_single_def_stmt (def_stmt);
 	  if (!def_stmt)
 	    return NULL;
@@ -1150,23 +1126,10 @@ get_single_def_stmt_from_phi (tree ref, gimple phi)
 gimple
 get_single_def_stmt_with_phi (tree ref, gimple stmt)
 {
-  switch (NUM_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_USES))
-    {
-    case 0:
-      gcc_unreachable ();
+  gimple def_stmt = SSA_NAME_DEF_STMT (gimple_vuse (stmt));
 
-    case 1:
-      {
-	gimple def_stmt = SSA_NAME_DEF_STMT (SINGLE_SSA_TREE_OPERAND
-					     (stmt, SSA_OP_VIRTUAL_USES));
-	/* We can handle lookups over PHI nodes only for a single
-	   virtual operand.  */
-	if (gimple_code (def_stmt) == GIMPLE_PHI)
-	  return get_single_def_stmt_from_phi (ref, def_stmt);
-	return def_stmt;
-      }
+  if (gimple_code (def_stmt) == GIMPLE_PHI)
+    return get_single_def_stmt_from_phi (ref, def_stmt);
 
-    default:
-      return get_single_def_stmt (stmt);
-    }
+  return def_stmt;
 }

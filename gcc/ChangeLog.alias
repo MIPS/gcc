@@ -1,3 +1,43 @@
+2008-12-08  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.h (gimple_vuse): New function.
+	(gimple_vdef): Likewise.
+	* tree-ssa-sccvn.c (SSA_VAL): Check for NULL.
+	(vn_constant_eq): Bail out if hashes are different.
+	(vn_reference_compute_hash): Simplify.
+	(vn_reference_eq): Likewise.
+	(vuses_to_vec, copy_vuses_from_stmt, vdefs_to_vec,
+	copy_vdefs_from_stmt, shared_lookup_vops, shared_vuses_from_stmt,
+	valueize_vuses): Remove.
+	(get_def_ref_stmt_vuses): Simplify.  Rename to ...
+	(get_def_ref_stmt_vuse): ... this.
+	(vn_reference_lookup_pieces): Simplify.
+	(vn_reference_lookup): Likewise.
+	(vn_reference_insert): Likewise.
+	(vn_reference_insert_pieces): Likewise.
+	(vn_nary_op_eq): Bail out if hashes are different.
+	(vn_phi_eq): Likewise.
+	(set_ssa_val_to): Do not use SSA_VAL as lvalue.
+	(visit_reference_op_call): Simplify.
+	(visit_reference_op_load): Likewise.
+	(visit_reference_op_store): Likewise.
+	(init_scc_vn): Remove shared_lookup_vuses initialization.
+	(free_scc_vn): Remove shared_lookup_vuses freeing.
+	(run_scc_vn): Do not use SSA_VAL as lvalue.
+	(sort_vuses, sort_vuses_heap): Remove.
+	* tree-ssa-sccvn.h (struct vn_reference_s): Replace vuses
+	vector with single vuse pointer.
+	(vn_reference_lookup_pieces, vn_reference_lookup,
+	vn_reference_insert, vn_reference_insert_pieces): Adjust prototypes.
+	(shared_vuses_from_stmt): Remove.
+	* tree-dfa.c (get_single_def_stmt): Simplify.
+	(get_single_def_stmt_with_phi): Likewise.
+	* tree-ssa-pre.c (translate_vuses_through_block): Simplify.  Rename to
+	(translate_vuse_through_block): ... this.
+	(phi_translate_1): Simplify.
+	(value_dies_in_block_x): Likewise.
+	(compute_avail): Simplify.
+
 2008-11-27  Richard Guenther  <rguenther@suse.de>
 
 	* passes.c (init_optimization_passes): Remove pass_update_address_taken

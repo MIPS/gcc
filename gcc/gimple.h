@@ -1359,6 +1359,32 @@ gimple_set_vdef_ops (gimple g, struct voptype_d *ops)
 }
 
 
+/* Return the single VUSE operand of the statement G.  */
+
+static inline tree
+gimple_vuse (const_gimple g)
+{
+  struct voptype_d *ops = gimple_vuse_ops (g);
+  if (!ops)
+    /* The VMAYUSE is in the vdef ops list.  */
+    ops = gimple_vdef_ops (g);
+  if (!ops)
+    return NULL_TREE;
+  return VUSE_OP (ops, 0);
+}
+
+/* Return the single VDEF operand of the statement G.  */
+
+static inline tree
+gimple_vdef (const_gimple g)
+{
+  struct voptype_d *ops = gimple_vdef_ops (g);
+  if (!ops)
+    return NULL_TREE;
+  return VDEF_RESULT (ops);
+}
+
+
 /* Return the set of symbols loaded by statement G.  Each element of the
    set is the DECL_UID of the corresponding symbol.  */
 
