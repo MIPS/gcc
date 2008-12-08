@@ -239,6 +239,8 @@ static int use_pipes;
 
 static int lto_single;
 
+static int use_linker_plugin;
+
 /* The compiler version.  */
 
 static const char *compiler_version;
@@ -384,6 +386,7 @@ static const char *version_compare_spec_function (int, const char **);
 static const char *include_spec_function (int, const char **);
 static const char *print_asm_header_spec_function (int, const char **);
 static const char *lto_single_spec_function (int, const char **);
+static const char *use_linker_plugin_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -748,7 +751,15 @@ proper position among the other output files.  */
 #ifndef LINK_COMMAND_SPEC
 #define LINK_COMMAND_SPEC "\
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
-    %(linker) %{flto} %{fwhopr} %l " LINK_PIE_SPEC \
+    %(linker) \
+    %{?use-linker-plugin(): \
+    -plugin %(linker_plugin_file) \
+    -plugin-opt=%(lto_wrapper) \
+    -plugin-opt=%(lto_gcc) \
+    %{flto:-plugin-opt=-flto} \
+    %{fwhopr:-plugin-opt=-fwhopr} \
+    } \
+    %{flto} %{fwhopr} %l " LINK_PIE_SPEC \
    "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
@@ -797,6 +808,9 @@ static const char *endfile_spec = ENDFILE_SPEC;
 static const char *startfile_spec = STARTFILE_SPEC;
 static const char *switches_need_spaces = SWITCHES_NEED_SPACES;
 static const char *linker_name_spec = LINKER_NAME;
+static const char *linker_plugin_file_spec = "";
+static const char *lto_wrapper_spec = "";
+static const char *lto_gcc_spec = "";
 static const char *link_command_spec = LINK_COMMAND_SPEC;
 static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
@@ -1648,6 +1662,9 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("multilib_exclusions",	&multilib_exclusions),
   INIT_STATIC_SPEC ("multilib_options",		&multilib_options),
   INIT_STATIC_SPEC ("linker",			&linker_name_spec),
+  INIT_STATIC_SPEC ("linker_plugin_file",	&linker_plugin_file_spec),
+  INIT_STATIC_SPEC ("lto_wrapper",		&lto_wrapper_spec),
+  INIT_STATIC_SPEC ("lto_gcc",			&lto_gcc_spec),
   INIT_STATIC_SPEC ("link_libgcc",		&link_libgcc_spec),
   INIT_STATIC_SPEC ("md_exec_prefix",		&md_exec_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
@@ -1687,6 +1704,7 @@ static const struct spec_function static_spec_functions[] =
   { "include",			include_spec_function },
   { "print-asm-header",		print_asm_header_spec_function },
   { "lto-single",		lto_single_spec_function },
+  { "use-linker-plugin",	use_linker_plugin_spec_function },
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -3867,6 +3885,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
         }
       else if (strcmp (argv[i], "-flto-single") == 0)
 	lto_single = 1;
+      else if (strcmp (argv[i], "-use-linker-plugin") == 0)
+	use_linker_plugin = 1;
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -4243,6 +4263,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strcmp (argv[i], "-time") == 0)
 	;
       else if (strcmp (argv[i], "-flto-single") == 0)
+	;
+      else if (strcmp (argv[i], "-use-linker-plugin") == 0)
 	;
       else if (strcmp (argv[i], "-###") == 0)
 	;
@@ -6336,7 +6358,6 @@ main (int argc, char **argv)
   const char *p;
   struct user_specs *uptr;
   char **old_argv = argv;
-  char *lto_wrapper;
 
   /* Initialize here, not in definition.  The IRIX 6 O32 cc sometimes chokes
      on ?: in file-scope variable initializations.  */
@@ -6618,16 +6639,15 @@ main (int argc, char **argv)
 
   /* Set up to remember the pathname of the lto wrapper. */
 
-  lto_wrapper = find_a_file (&exec_prefixes, "lto-wrapper", X_OK, false);
-  if (lto_wrapper)
+  lto_wrapper_spec = find_a_file (&exec_prefixes, "lto-wrapper", X_OK, false);
+  if (lto_wrapper_spec)
     {
       obstack_init (&collect_obstack);
       obstack_grow (&collect_obstack, "COLLECT_LTO_WRAPPER=",
 		    sizeof ("COLLECT_LTO_WRAPPER=") - 1);
-      obstack_grow (&collect_obstack, lto_wrapper, strlen (lto_wrapper) + 1);
+      obstack_grow (&collect_obstack, lto_wrapper_spec,
+		    strlen (lto_wrapper_spec) + 1);
       xputenv (XOBFINISH (&collect_obstack, char *));
-      free (lto_wrapper);
-      lto_wrapper = NULL;
     }
 
   /* Warn about any switches that no pass was interested in.  */
@@ -6984,6 +7004,17 @@ main (int argc, char **argv)
 	  if (s == NULL)
 	    linker_name_spec = "ld";
 	}
+
+      if (use_linker_plugin)
+	{
+	  linker_plugin_file_spec = find_a_file (&exec_prefixes,
+						 "liblto_plugin.so", X_OK,
+						 false);
+	  if (!linker_plugin_file_spec)
+	    fatal ("-use-linker-plugin, but liblto_plugin.so not found.");
+	}
+      lto_gcc_spec = argv[0];
+
       /* Rebuild the COMPILER_PATH and LIBRARY_PATH environment variables
 	 for collect.  */
       putenv_from_prefixes (&exec_prefixes, "COMPILER_PATH", false);
@@ -8215,4 +8246,17 @@ lto_single_spec_function (int argc,
     abort ();
 
   return ((lto_single) ? "lto-single" : NULL);
+}
+
+/* ?use-linker-plugin() spec predicate.  Return true, i.e., a non-empty string,
+   if the -use-linker-plugin switch was given to 'gcc'.  */
+
+static const char *
+use_linker_plugin_spec_function (int argc,
+                          const char **argv ATTRIBUTE_UNUSED)
+{
+  if (argc != 0)
+    abort ();
+
+  return ((use_linker_plugin) ? "use-plugin" : NULL);
 }

@@ -1,3 +1,18 @@
+2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc.c (use_linker_plugin): New.
+	(use_linker_plugin_spec_function): New.
+	(LINK_COMMAND_SPEC): Pass plugin options to the linker.
+	(linker_plugin_file_spec): New.
+	(lto_wrapper_spec): New.
+	(lto_gcc_spec): New.
+	(static_specs): Add linker_plugin_file, lto_wrapper and lto_gcc.
+	(static_spec_functions): Add use-linker-plugin.
+	(process_command): Handle -use-linker-plugin.
+	(main): Use lto_wrapper_spec instead of lto_wrapper. Set
+	linker_plugin_file_spec and lto_gcc_spec.
+	(use_linker_plugin_spec_function): New.
+
 2008-12-04  Doug Kwan  <dougkwan@google.com>
 
 	* lto-function-out.c (output_remaining_constructors_and_inits):
