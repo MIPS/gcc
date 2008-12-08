@@ -93,6 +93,8 @@ static unsigned int num_output_files = 0;
 static char **lto_wrapper_argv;
 static int lto_wrapper_num_args;
 
+static int debug;
+
 /* Parse an entry of the IL symbol table. The data to be parsed is pointed
    by P and the result is written in ENTRY. The slot number is stored in SLOT.
    Returns the address of the next entry. */
@@ -347,7 +349,17 @@ exec_lto_wrapper (char *const argv[])
   int pid;
   int pipe_read;
   int pipe_write;
-  int t = pipe (pipefd);
+  int t;
+
+  if (debug)
+    {
+      int i;
+      for (i = 0; argv[i]; i++)
+	fprintf (stderr, "%s ", argv[i]);
+      fprintf (stderr, "\n");
+
+    }
+  t = pipe (pipefd);
   assert (t == 0);
   pipe_read = pipefd[0];
   pipe_write = pipefd[1];
@@ -539,15 +551,21 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
   return LDPS_OK;
 }
 
-/* Parse the lto=... OPTION. */
+/* Parse the plugin options. */
 
 static void
 process_option (const char *option)
 {
-  lto_wrapper_num_args += 1;
-  lto_wrapper_argv = (char **) realloc (lto_wrapper_argv,
-					lto_wrapper_num_args * sizeof (char *));
-  lto_wrapper_argv[lto_wrapper_num_args - 1] = strdup(option);
+  if (strcmp (option, "-debug") == 0)
+    debug = 1;
+  else
+    {
+      int size;
+      lto_wrapper_num_args += 1;
+      size = lto_wrapper_num_args * sizeof (char *);
+      lto_wrapper_argv = (char **) realloc (lto_wrapper_argv, size);
+      lto_wrapper_argv[lto_wrapper_num_args - 1] = strdup(option);
+    }
 }
 
 /* Called by gold after loading the plugin. TV is the transfer vector. */
