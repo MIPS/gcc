@@ -1,5 +1,10 @@
 2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
 
+	* lto-plugin.c: Include stdbool.h.
+	(debug, nop): Declare as bool.
+
+2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
+
 	* lto-plugin.c (nop): New.
 	(use_original_files): New.
 	(all_symbols_read_handler): Call use_original_files if nop is true.

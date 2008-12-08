@@ -44,6 +44,7 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <stdbool.h>
 
 #ifdef HAVE_GELF_H
 # include <gelf.h>
@@ -99,8 +100,8 @@ static unsigned int num_output_files = 0;
 static char **lto_wrapper_argv;
 static int lto_wrapper_num_args;
 
-static int debug;
-static int nop;
+static bool debug;
+static bool nop;
 
 /* Parse an entry of the IL symbol table. The data to be parsed is pointed
    by P and the result is written in ENTRY. The slot number is stored in SLOT.
