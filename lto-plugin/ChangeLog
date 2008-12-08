@@ -1,3 +1,16 @@
+2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-plugin.c (nop): New.
+	(use_original_files): New.
+	(all_symbols_read_handler): Call use_original_files if nop is true.
+	(process_option): Parse the -nop option.
+
+2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-plugin.c (debug): New.
+	(exec_lto_wrapper): Print argv if debug is true.
+	(process_option): Process the -debug command line option.
+
 2008-12-03  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-plugin.c (process_option): The argument is now a single option,

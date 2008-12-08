@@ -25,6 +25,12 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
    machine code for the necessary symbols.
 
    More information at http://gcc.gnu.org/wiki/whopr/driver.
+
+   This plugin should be passed the lto-wrapper options and will forward them.
+   It also has 2 options of its own:
+   -debug: Print the command line used to run lto-wrapper.
+   -nop: Instead of running lto-wrapper, pass the original to the plugin. This
+   only works if the input files are hybrid.
 */
 
 #include <assert.h>
@@ -94,6 +100,7 @@ static char **lto_wrapper_argv;
 static int lto_wrapper_num_args;
 
 static int debug;
+static int nop;
 
 /* Parse an entry of the IL symbol table. The data to be parsed is pointed
    by P and the result is written in ENTRY. The slot number is stored in SLOT.
@@ -396,6 +403,19 @@ exec_lto_wrapper (char *const argv[])
     }
 }
 
+/* Pass the original files back to the linker. */
+
+static void
+use_original_files (void)
+{
+  unsigned i;
+  for (i = 0; i < num_claimed_files; i++)
+    {
+      struct plugin_file_info *info = &claimed_files[i];
+      add_input_file (info->name);
+    }
+}
+
 
 /* Called by the linker once all symbols have been read. */
 
@@ -409,11 +429,17 @@ all_symbols_read_handler (void)
   if (num_claimed_files == 0)
     return LDPS_OK;
 
+  free_1 ();
+
+  if (nop)
+    {
+      use_original_files ();
+      return LDPS_OK;
+    }
+
   lto_argv = (char **) calloc (sizeof (char *), num_lto_args);
   lto_arg_ptr = (const char **) lto_argv;
   assert (lto_wrapper_argv);
-
-  free_1 ();
 
   write_resolution ();
 
@@ -558,6 +584,8 @@ process_option (const char *option)
 {
   if (strcmp (option, "-debug") == 0)
     debug = 1;
+  else if (strcmp (option, "-nop") == 0)
+    nop = 1;
   else
     {
       int size;

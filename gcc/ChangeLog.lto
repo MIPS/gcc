@@ -1,11 +1,5 @@
 2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
 
-	* lto-plugin.c (debug): New.
-	(exec_lto_wrapper): Print argv if debug is true.
-	(process_option): Process the -debug command line option.
-
-2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
-
 	* gcc.c (use_linker_plugin): New.
 	(use_linker_plugin_spec_function): New.
 	(LINK_COMMAND_SPEC): Pass plugin options to the linker.
