@@ -2827,10 +2827,16 @@ get_resolution (struct data_in *data_in, unsigned index)
 	 be the prevailing definition.  */
       if (DECL_WEAK (t))
 	{
+	  tree prevailing_decl;
+	  if (DECL_EXTERNAL (t))
+	    return LDPR_RESOLVED_IR;
+
 	  /* If this is the first time we see T, it won't have a
 	     prevailing definition yet.  */
-	  tree prevailing_decl = lto_symtab_prevailing_decl (t);
-	  if (prevailing_decl == t || prevailing_decl == NULL_TREE)
+	  prevailing_decl = lto_symtab_prevailing_decl (t);
+	  if (prevailing_decl == t
+	      || prevailing_decl == NULL_TREE
+	      || DECL_EXTERNAL (prevailing_decl))
 	    return LDPR_PREVAILING_DEF;
 	  else
 	    return LDPR_PREEMPTED_IR;
