@@ -1,5 +1,9 @@
 2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
 
+	* gcc.c (LINK_COMMAND_SPEC): pass -O*, -w and -f* to the plugin.
+
+2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
+
 	* gcc.c (use_linker_plugin): New.
 	(use_linker_plugin_spec_function): New.
 	(LINK_COMMAND_SPEC): Pass plugin options to the linker.

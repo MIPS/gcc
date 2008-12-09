@@ -756,8 +756,9 @@ proper position among the other output files.  */
     -plugin %(linker_plugin_file) \
     -plugin-opt=%(lto_wrapper) \
     -plugin-opt=%(lto_gcc) \
-    %{flto:-plugin-opt=-flto} \
-    %{fwhopr:-plugin-opt=-fwhopr} \
+    %{O*:-plugin-opt=-O%*} \
+    %{w:-plugin-opt=-w} \
+    %{f*:-plugin-opt=-f%*} \
     } \
     %{flto} %{fwhopr} %l " LINK_PIE_SPEC \
    "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
