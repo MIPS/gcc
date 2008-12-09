@@ -1,5 +1,5 @@
 /* { dg-do link } */
-/* { dg-options "{-fwhopr -shared}" } */
+/* { dg-options "{-fwhopr -fPIC -shared}" } */
 
 /* Tests for the absence during linking of:
    lto1: error: type of '_ZTVN10__cxxabiv120__si_class_type_infoE' does

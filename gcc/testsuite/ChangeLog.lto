@@ -1,3 +1,9 @@
+2008-12-09  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite/gcc.dg/lto/20081204-1_0.c: Add -fPIC.
+	* testsuite/gcc.dg/lto/20081204-2_0.c: Likewise.
+	* testsuite/g++.dg/lto/20081204-1_0.C: Likewise.
+
 2008-12-09  Doug Kwan  <dougkwan@google.com>
 
 	* g++.dg/lto/20081209_0.C: New.
