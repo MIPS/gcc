@@ -108,16 +108,15 @@ int
 compute_call_stmt_bb_frequency (tree decl, basic_block bb)
 {
   int entry_freq = ENTRY_BLOCK_PTR->frequency;
-  int freq;
+  int freq = bb->frequency;
 
   if (profile_status_for_function (DECL_STRUCT_FUNCTION (decl)) == PROFILE_ABSENT)
     return CGRAPH_FREQ_BASE;
 
   if (!entry_freq)
-    entry_freq = 1;
+    entry_freq = 1, freq++;
 
-  freq = (!bb->frequency && !entry_freq ? CGRAPH_FREQ_BASE
-	      : bb->frequency * CGRAPH_FREQ_BASE / entry_freq);
+  freq = freq * CGRAPH_FREQ_BASE / entry_freq;
   if (freq > CGRAPH_FREQ_MAX)
     freq = CGRAPH_FREQ_MAX;
 
