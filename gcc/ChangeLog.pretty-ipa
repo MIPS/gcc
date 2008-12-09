@@ -1,3 +1,4 @@
+
 2008-12-6  Jan Hubicka  <jh@suse.cz>
 
 	* cp/decl2.c (build_java_method_aliases): Ignore everything that is
