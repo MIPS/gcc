@@ -1078,6 +1078,8 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
       if (!TREE_PUBLIC (t))
 	continue;
 
+      gcc_assert (!DECL_ABSTRACT (t));
+
       if (TREE_CODE (t) == RESULT_DECL)
 	continue;
 

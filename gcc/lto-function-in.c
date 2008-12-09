@@ -1229,6 +1229,7 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
   lto_flags_type flags;
   tree result;
   tree context;
+  enum LTO_tags context_tag;
 
   variant = tag & 0xF;
   is_var = ((tag & 0xFFF0) == LTO_local_var_decl_body0);
@@ -1295,8 +1296,12 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
     set_line_info (data_in, result);
 
   LTO_DEBUG_TOKEN ("context");
-  context = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-  if (TYPE_P (context))
+  context_tag = input_record_start (ib);
+  if (context_tag)
+    context = input_expr_operand (ib, data_in, fn, context_tag);
+  else
+    context = NULL_TREE;
+  if (context && TYPE_P (context))
     DECL_CONTEXT (result) = TYPE_NAME (context);
   else
     DECL_CONTEXT (result) = context;

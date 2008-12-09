@@ -1,3 +1,12 @@
+2008-12-09  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_local_var_decl): Handle the case DECL_CONTEXT
+	is NULL.
+	* lto-section-out.c (write_symbol_vec): Assert that we don't see a
+	DECL_ABSTRACT.
+	* tree.c (reset_decl_lang_specific): Clean DECL_CONTEXT of VAR_DECLs
+	and PARM_DECLs if the context is an abstract function.
+
 2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
 
 	* gcc.c (LINK_COMMAND_SPEC): pass -O*, -w and -f* to the plugin.

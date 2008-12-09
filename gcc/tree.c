@@ -4012,6 +4012,18 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 
   lang_hooks.reset_lang_specifics (decl);
 
+
+ if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == VAR_DECL)
+   {
+     tree context = DECL_CONTEXT (decl);
+     if (context)
+       {
+	 enum tree_code code = TREE_CODE (context);
+	 if (code == FUNCTION_DECL && DECL_ABSTRACT (context))
+	   DECL_CONTEXT (decl) = NULL_TREE;
+       }
+   }
+
   if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == FIELD_DECL)
     {
       tree unit_size = DECL_SIZE_UNIT (decl);
