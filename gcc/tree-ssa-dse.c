@@ -461,9 +461,12 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	     *p = *u; *p = *v; where p might be v, then USE_STMT
 	     acts as a use as well as definition, so store in STMT
 	     is not dead.  */
-	  if (gimple_loaded_syms (use_stmt)
-	      && bitmap_intersect_p (gimple_loaded_syms (use_stmt),
-				     gimple_stored_syms (use_stmt)))
+	  if (!is_gimple_reg (gimple_assign_rhs1 (use_stmt))
+	      && !is_gimple_min_invariant (gimple_assign_rhs1 (use_stmt))
+	      /* ???  Should {} be invariant?  */
+	      && !gimple_assign_rhs_code (use_stmt) != CONSTRUCTOR
+	      && refs_may_alias_p (gimple_assign_lhs (use_stmt),
+				   gimple_assign_rhs1 (use_stmt)))
 	    {
               record_voperand_set (dse_gd->stores, &bd->stores, 
 				   gimple_uid (stmt));
