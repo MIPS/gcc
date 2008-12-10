@@ -1,3 +1,12 @@
+2008-12-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-typeck.c (c_fully_fold, c_fully_fold_internal,
+	decl_constant_value_for_optimization): Move to c-common.c.
+	* c-common.c (c_fully_fold, c_fully_fold_internal,
+	decl_constant_value_for_optimization): Move from c-typeck.c.  Call
+	gcc_unreachable for C++.
+	* c-common.h (decl_constant_value_for_optimization): Declare.
+
 2008-11-09  Joseph Myers  <joseph@codesourcery.com>
 
 	* c-opts.c (c_common_post_options): Give an error for
