@@ -1,3 +1,9 @@
+2008-12-10  Diego Novillo  <dnovillo@google.com>
+
+	* lto-symtab.c (lto_symtab_compatible): Add locus
+	information to error messages.
+	(lto_symtab_merge_decl): Likewise.
+
 2008-12-09  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (get_resolution): Fix handling of weak decls.
