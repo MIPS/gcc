@@ -1,5 +1,10 @@
 2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* testsuite/gcc.misc-tests/options.exp (check_for_options): Match
+	as-new too.
+
+2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-stdarg.c (check_all_va_list_escapes): Ignore debug stmts.
 
 2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
