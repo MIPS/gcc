@@ -1,3 +1,7 @@
+2008-12-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/bconstp-3.c, gcc.dg/bconstp-4.c: New tests.
+
 2008-11-09  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.c-torture/compile/20081108-1.c,
