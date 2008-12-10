@@ -140,7 +140,7 @@ static vn_tables_t current_info;
 
 static int *rpo_numbers;
 
-#define SSA_VAL(x) (x ? VN_INFO ((x))->valnum : NULL_TREE)
+#define SSA_VAL(x) (VN_INFO ((x))->valnum)
 
 /* This represents the top of the VN lattice, which is the universal
    value.  */
@@ -793,31 +793,6 @@ valueize_refs (VEC (vn_reference_op_s, heap) *orig)
   return orig;
 }
 
-/* Return the single reference statement defining all virtual uses
-   in VUSES or NULL_TREE, if there are multiple defining statements.
-   Take into account only definitions that alias REF if following
-   back-edges.  */
-
-static gimple
-get_def_ref_stmt_vuse (tree ref, tree vuse)
-{
-  gimple def_stmt;
-
-  gcc_assert (vuse != NULL_TREE);
-
-  def_stmt = SSA_NAME_DEF_STMT (vuse);
-  if (gimple_code (def_stmt) == GIMPLE_PHI)
-    def_stmt = get_single_def_stmt_from_phi (ref, def_stmt);
-
-  /* Now see if the definition aliases ref, and loop until it does.  */
-  while (def_stmt
-	 && is_gimple_assign (def_stmt)
-	 && !refs_may_alias_p (ref, gimple_get_lhs (def_stmt)))
-    def_stmt = get_single_def_stmt_with_phi (ref, def_stmt);
-
-  return def_stmt;
-}
-
 /* Lookup a SCCVN reference operation VR in the current hash table.
    Returns the resulting value number if it exists in the hash table,
    NULL_TREE otherwise.  VNRESULT will be filled in with the actual
@@ -845,6 +820,32 @@ vn_reference_lookup_1 (vn_reference_t vr, vn_reference_t *vnresult)
   return NULL_TREE;
 }
 
+/* Callback for walk_non_aliased_vuses.  Adjusts the vn_reference_t VR_
+   with the current VUSE and performs the expression lookup.  */
+
+static void *
+vn_reference_lookup_2 (tree op ATTRIBUTE_UNUSED, tree vuse, void *vr_)
+{
+  vn_reference_t vr = (vn_reference_t)vr_;
+  void **slot;
+  hashval_t hash;
+
+  /* Fixup vuse and hash.  */
+  vr->hashcode = vr->hashcode - iterative_hash_expr (vr->vuse, 0);
+  vr->vuse = SSA_VAL (vuse);
+  vr->hashcode = vr->hashcode + iterative_hash_expr (vr->vuse, 0);
+
+  hash = vr->hashcode;
+  slot = htab_find_slot_with_hash (current_info->references, vr,
+				   hash, NO_INSERT);
+  if (!slot && current_info == optimistic_info)
+    slot = htab_find_slot_with_hash (valid_info->references, vr,
+				     hash, NO_INSERT);
+  if (slot)
+    return *slot;
+  
+  return NULL;
+}
 
 /* Lookup a reference operation by it's parts, in the current hash table.
    Returns the resulting value number if it exists in the hash table,
@@ -858,32 +859,34 @@ vn_reference_lookup_pieces (tree vuse,
 {
   struct vn_reference_s vr1;
   tree result;
+
   if (vnresult)
     *vnresult = NULL;
   
-  vr1.vuse = SSA_VAL (vuse);
+  vr1.vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
   vr1.operands = valueize_refs (operands);
   vr1.hashcode = vn_reference_compute_hash (&vr1);
   result = vn_reference_lookup_1 (&vr1, vnresult);
 
-  /* If there is a single defining statement for all virtual uses, we can
-     use that, following virtual use-def chains.  */
   if (!result
       && maywalk
       && vr1.vuse)
     {
+      vn_reference_t wvnresult;
       tree ref = get_ref_from_reference_ops (operands);
-      gimple def_stmt;
-      if (ref
-	  && (def_stmt = get_def_ref_stmt_vuse (ref, vr1.vuse))
-	  && is_gimple_assign (def_stmt))
+      if (!ref)
+	return NULL_TREE;
+      wvnresult =
+	(vn_reference_t)walk_non_aliased_vuses (ref, vr1.vuse,
+						vn_reference_lookup_2, &vr1);
+      if (wvnresult)
 	{
-	  /* We are now at an aliasing definition for the vuse we want to
-	     look up.  Re-do the lookup with the vdef for this stmt.  */
-	  vr1.vuse = SSA_VAL (gimple_vdef (def_stmt));
-	  vr1.hashcode = vn_reference_compute_hash (&vr1);
-	  result = vn_reference_lookup_1 (&vr1, vnresult);
+	  if (vnresult)
+	    *vnresult = wvnresult;
+	  return wvnresult->result;
 	}
+
+      return NULL_TREE;
     }
 
   return result;
@@ -900,32 +903,32 @@ vn_reference_lookup (tree op, tree vuse, bool maywalk,
 		     vn_reference_t *vnresult)
 {
   struct vn_reference_s vr1;
-  tree result;
-  gimple def_stmt;
+
   if (vnresult)
     *vnresult = NULL;
 
-  vr1.vuse = SSA_VAL (vuse);
+  vr1.vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
   vr1.operands = valueize_refs (shared_reference_ops_from_ref (op));
   vr1.hashcode = vn_reference_compute_hash (&vr1);
-  result = vn_reference_lookup_1 (&vr1, vnresult);
 
-  /* If there is a single defining statement for all virtual uses, we can
-     use that, following virtual use-def chains.  */
-  if (!result
-      && maywalk
-      && vr1.vuse
-      && (def_stmt = get_def_ref_stmt_vuse (op, vr1.vuse))
-      && is_gimple_assign (def_stmt))
+  if (maywalk
+      && vr1.vuse)
     {
-      /* We are now at an aliasing definition for the vuse we want to
-	 look up.  Re-do the lookup with the vdef for this stmt.  */
-      vr1.vuse = SSA_VAL (gimple_vdef (def_stmt));
-      vr1.hashcode = vn_reference_compute_hash (&vr1);
-      result = vn_reference_lookup_1 (&vr1, vnresult);
+      vn_reference_t wvnresult;
+      wvnresult =
+	(vn_reference_t)walk_non_aliased_vuses (op, vr1.vuse,
+						vn_reference_lookup_2, &vr1);
+      if (wvnresult)
+	{
+	  if (vnresult)
+	    *vnresult = wvnresult;
+	  return wvnresult->result;
+	}
+
+      return NULL_TREE;
     }
 
-  return result;
+  return vn_reference_lookup_1 (&vr1, vnresult);
 }
 
 
@@ -943,7 +946,7 @@ vn_reference_insert (tree op, tree result, tree vuse)
     vr1->value_id = VN_INFO (result)->value_id;
   else
     vr1->value_id = get_or_alloc_constant_value_id (result);
-  vr1->vuse = SSA_VAL (vuse);
+  vr1->vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
   vr1->operands = valueize_refs (create_reference_ops_from_ref (op));
   vr1->hashcode = vn_reference_compute_hash (vr1);
   vr1->result = TREE_CODE (result) == SSA_NAME ? SSA_VAL (result) : result;
@@ -981,8 +984,8 @@ vn_reference_insert_pieces (tree vuse,
   vn_reference_t vr1;
 
   vr1 = (vn_reference_t) pool_alloc (current_info->references_pool);
-  vr1->value_id =  value_id;
-  vr1->vuse = SSA_VAL (vuse);
+  vr1->value_id = value_id;
+  vr1->vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
   vr1->operands = valueize_refs (operands);
   vr1->hashcode = vn_reference_compute_hash (vr1);
   if (result && TREE_CODE (result) == SSA_NAME)
@@ -1575,8 +1578,9 @@ visit_reference_op_call (tree lhs, gimple stmt)
   bool changed = false;
   struct vn_reference_s vr1;
   tree result;
+  tree vuse = gimple_vuse (stmt);
 
-  vr1.vuse = SSA_VAL (gimple_vuse (stmt));
+  vr1.vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
   vr1.operands = valueize_refs (shared_reference_ops_from_call (stmt));
   vr1.hashcode = vn_reference_compute_hash (&vr1);
   result = vn_reference_lookup_1 (&vr1, NULL);
@@ -1593,7 +1597,7 @@ visit_reference_op_call (tree lhs, gimple stmt)
       vn_reference_t vr2;
       changed = set_ssa_val_to (lhs, lhs);
       vr2 = (vn_reference_t) pool_alloc (current_info->references_pool);
-      vr2->vuse = SSA_VAL (gimple_vuse (stmt));
+      vr2->vuse = vr1.vuse;
       vr2->operands = valueize_refs (create_reference_ops_from_call (stmt));
       vr2->hashcode = vr1.hashcode;
       vr2->result = lhs;

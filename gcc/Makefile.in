@@ -870,7 +870,8 @@ CPP_INTERNAL_H = $(srcdir)/../libcpp/internal.h $(CPP_ID_DATA_H)
 TREE_DUMP_H = tree-dump.h $(SPLAY_TREE_H) tree-pass.h
 TREE_FLOW_H = tree-flow.h tree-flow-inline.h tree-ssa-operands.h \
 		$(BITMAP_H) $(BASIC_BLOCK_H) hard-reg-set.h $(GIMPLE_H) \
-		$(HASHTAB_H) $(CGRAPH_H) $(IPA_REFERENCE_H)
+		$(HASHTAB_H) $(CGRAPH_H) $(IPA_REFERENCE_H) \
+		tree-ssa-alias.h
 TREE_SSA_LIVE_H = tree-ssa-live.h $(PARTITION_H) vecprim.h
 PRETTY_PRINT_H = pretty-print.h $(INPUT_H) $(OBSTACK_H)
 DIAGNOSTIC_H = diagnostic.h diagnostic.def $(PRETTY_PRINT_H) options.h

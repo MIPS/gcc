@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "pointer-set.h"
 #include "alloc-pool.h"
+#include "tree-ssa-alias.h"
 
 /* Broad overview of how aliasing works:
    
@@ -1107,3 +1108,132 @@ struct gimple_opt_pass pass_build_alias =
   TODO_rebuild_alias | TODO_dump_func  /* todo_flags_finish */
  }
 };
+
+
+
+/* If the call in statement CALL may clobber the memory reference REF
+   return true, otherwise return false.  */
+
+static bool
+call_may_clobber_ref_p (gimple call, tree ref)
+{
+  tree base;
+
+  /* If the call is pure or const it cannot clobber anything.  */
+  if (gimple_call_flags (call)
+      & (ECF_PURE|ECF_CONST|ECF_LOOPING_CONST_OR_PURE|ECF_NOVOPS))
+    return false;
+
+  base = get_base_address (ref);
+  if (SSA_VAR_P (base))
+    return is_call_clobbered (base);
+
+  return true;
+}
+
+/* If the statement STMT may clobber the memory reference REF return true,
+   otherwise return false.  */
+
+static bool
+stmt_may_clobber_ref_p (gimple stmt, tree ref)
+{
+  if (is_gimple_call (stmt))
+    {
+      tree lhs = gimple_call_lhs (stmt);
+      if (lhs
+	  && !is_gimple_reg (lhs)
+	  && refs_may_alias_p (ref, lhs))
+	return true;
+
+      return call_may_clobber_ref_p (stmt, ref);
+    }
+  else if (is_gimple_assign (stmt))
+    return refs_may_alias_p (ref, gimple_assign_lhs (stmt));
+  else if (gimple_code (stmt) == GIMPLE_ASM)
+    return true;
+
+  return false;
+}
+
+/* For a phi-node PHI for the virtual operand get the argument that
+   represents the single incoming edge into a loop if REF is invariant
+   in that loop.  */
+
+static tree
+get_single_incoming_phi_arg_for_maybe_loop_invariant_ref (gimple phi, tree ref)
+{
+  tree def_arg = NULL_TREE;
+  unsigned i;
+
+  for (i = 0; i < gimple_phi_num_args (phi); ++i)
+    {
+      tree arg = PHI_ARG_DEF (phi, i);
+      gimple def_stmt;
+
+      if (!(gimple_phi_arg_edge (phi, i)->flags & EDGE_DFS_BACK))
+	{
+	  /* Multiple non-back edges?  Do not try to handle this.  */
+	  if (def_arg)
+	    return NULL_TREE;
+	  def_arg = arg;
+	  continue;
+	}
+
+      /* Follow the definitions back to the original PHI node.  Bail
+	 out once a definition is found that may clobber REF.  */
+      def_stmt = SSA_NAME_DEF_STMT (arg);
+      do
+	{
+	  if (gimple_code (def_stmt) == GIMPLE_PHI
+	      || gimple_nop_p (def_stmt)
+	      || stmt_may_clobber_ref_p (def_stmt, ref))
+	    return NULL;
+	  def_stmt = SSA_NAME_DEF_STMT (gimple_vuse (def_stmt));
+	}
+      while (def_stmt != phi);
+    }
+
+  return def_arg;
+}
+
+/* Based on the memory reference REF and its virtual use VUSE call
+   WALKER for each virtual use that is equivalent to VUSE, including VUSE
+   itself.  That is, for each virtual use for which its defining statement
+   does not clobber REF.
+
+   WALKER is called with REF, the current virtual use and DATA.  If
+   WALKER returns non-NULL the walk stops and its result is returned.
+   At the end of a non-successful walk NULL is returned.
+
+   TODO: Cache the vector of equivalent vuses per ref, vuse pair.  */
+
+void *
+walk_non_aliased_vuses (tree ref, tree vuse,
+			void *(*walker)(tree, tree, void *), void *data)
+{
+  do
+    {
+      gimple def_stmt;
+      void *res;
+
+      res = (*walker) (ref, vuse, data);
+      if (res)
+	return res;
+
+      def_stmt = SSA_NAME_DEF_STMT (vuse);
+      if (gimple_nop_p (def_stmt))
+	return NULL;
+      else if (gimple_code (def_stmt) == GIMPLE_PHI)
+	vuse = get_single_incoming_phi_arg_for_maybe_loop_invariant_ref
+	         (def_stmt, ref);
+      else
+	{
+	  if (stmt_may_clobber_ref_p (def_stmt, ref))
+	    return NULL;
+	  vuse = gimple_vuse (def_stmt);
+	}
+    }
+  while (vuse);
+
+  return NULL;
+}

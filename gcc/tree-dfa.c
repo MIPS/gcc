@@ -975,6 +975,18 @@ refs_may_alias_p (tree ref1, tree ref2)
       return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
     }
 
+  /* If one reference is based on a pointer and one is based on a local
+     variable that does not have its address taken, they cannot alias.  */
+  if ((SSA_VAR_P (base1)
+       && !TREE_ADDRESSABLE (base1)
+       && !is_global_var (base1)
+       && INDIRECT_REF_P (base2))
+      || (SSA_VAR_P (base2)
+	  && !TREE_ADDRESSABLE (base2)
+	  && !is_global_var (base2)
+	  && INDIRECT_REF_P (base1)))
+    return false;
+
   /* If one base is a ref-all pointer or a TARGET_MEM_REF weird things
      are allowed.  */
   strict_aliasing_applies = (flag_strict_aliasing
@@ -1062,77 +1074,3 @@ refs_may_alias_p (tree ref1, tree ref2)
   return true;
 }
 
-/* Given a stmt STMT that references memory, return the single stmt
-   that is reached by following the VUSE -> VDEF link.
-   Note that this may return a PHI node as well.
-   Note that if the VUSE is a default definition this function will
-   return an empty statement.  */
-
-gimple
-get_single_def_stmt (gimple stmt)
-{
-  return SSA_NAME_DEF_STMT (gimple_vuse (stmt));
-}
-
-/* Given a PHI node of virtual operands, tries to eliminate cyclic
-   reached definitions if they do not alias REF and returns the
-   defining statement of the single virtual operand that flows in
-   from a non-backedge.  Returns NULL_TREE if such statement within
-   the above conditions cannot be found.  */
-
-gimple
-get_single_def_stmt_from_phi (tree ref, gimple phi)
-{
-  tree def_arg = NULL_TREE;
-  unsigned i;
-
-  /* Find the single PHI argument that is not flowing in from a
-     back edge and verify that the loop-carried definitions do
-     not alias the reference we look for.  */
-  for (i = 0; i < gimple_phi_num_args (phi); ++i)
-    {
-      tree arg = PHI_ARG_DEF (phi, i);
-      gimple def_stmt;
-
-      if (!(gimple_phi_arg_edge (phi, i)->flags & EDGE_DFS_BACK))
-	{
-	  /* Multiple non-back edges?  Do not try to handle this.  */
-	  if (def_arg)
-	    return NULL;
-	  def_arg = arg;
-	  continue;
-	}
-
-      /* Follow the definitions back to the original PHI node.  Bail
-	 out once a definition is found that may alias REF.  */
-      def_stmt = SSA_NAME_DEF_STMT (arg);
-      do
-	{
-	  if (!is_gimple_assign (def_stmt)
-	      || refs_may_alias_p (ref, gimple_assign_lhs (def_stmt)))
-	    return NULL;
-	  def_stmt = get_single_def_stmt (def_stmt);
-	  if (!def_stmt)
-	    return NULL;
-	}
-      while (def_stmt != phi);
-    }
-
-  return SSA_NAME_DEF_STMT (def_arg);
-}
-
-/* Return the single reference statement defining all virtual uses
-   on STMT or NULL_TREE, if there are multiple defining statements.
-   Take into account only definitions that alias REF if following
-   back-edges when looking through a loop PHI node.  */
-
-gimple
-get_single_def_stmt_with_phi (tree ref, gimple stmt)
-{
-  gimple def_stmt = SSA_NAME_DEF_STMT (gimple_vuse (stmt));
-
-  if (gimple_code (def_stmt) == GIMPLE_PHI)
-    return get_single_def_stmt_from_phi (ref, def_stmt);
-
-  return def_stmt;
-}

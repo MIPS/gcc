@@ -1,5 +1,36 @@
 2008-12-10  Richard Guenther  <rguenther@suse.de>
 
+	PR tree-optimization/38207
+	* tree-flow.h: Include tree-ssa-alias.h.
+	(get_single_def_stmt, get_single_def_stmt_from_phi,
+	get_single_def_stmt_with_phi): Remove.
+	(refs_may_alias_p): Move ...
+	* tree-ssa-alias.h: ... here.  New file.
+	* tree-dfa.c (refs_may_alias_p): Handle non-aliased locals.
+	(get_single_def_stmt, get_single_def_stmt_from_phi,
+	get_single_def_stmt_with_phi): Remove.
+	* tree-ssa-alias.c: Include tree-ssa-alias.h.
+	(call_may_clobber_ref_p): New function.
+	(stmt_may_clobber_ref_p): Likewise.
+	(get_single_incoming_phi_arg_for_maybe_loop_invariant_ref): Likewise.
+	(walk_non_aliased_vuses): Likewise.
+	* Makefile.in (TREE_FLOW_H): Add tree-ssa-alias.h.
+	* tree-ssa-sccvn.c (SSA_VAL): Revert handling NULL arguments.
+	(get_def_ref_stmt_vuse): Remove.
+	(vn_reference_lookup_2): New function.
+	(vn_reference_lookup_pieces): Use walk_non_aliased_vuses for
+	walking equivalent vuses.
+	(vn_reference_lookup): Likewise.
+
+	testsuite/
+	* gcc.dg/tree-ssa/ssa-fre-18.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-fre-19.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-lim-3.c: Run at -O to disable PRE.
+	* gcc.dg/tree-ssa/ssa-pre-23.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-pre-24.c: Likewise.
+
+2008-12-10  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-operands.c (get_asm_expr_operands): Add proper
 	virtual operands for memory clobbers.
 	* tree-dfa.c (refs_may_alias_p): Disable TBAA disambiguation
