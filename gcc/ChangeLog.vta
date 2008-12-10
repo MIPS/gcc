@@ -1,5 +1,9 @@
 2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-stdarg.c (check_all_va_list_escapes): Ignore debug stmts.
+
+2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* modulo-sched.c (const_iteration_count): Ignore debug insns.
 	(res_MII, loop_single_full_bb_p, sms_schedule): Likewise.
 	(sms_schedule_by_order, ps_has_conflicts): Likewise.

@@ -496,6 +496,9 @@ check_all_va_list_escapes (struct stdarg_info *si)
 	  tree use;
 	  ssa_op_iter iter;
 
+	  if (IS_DEBUG_STMT (stmt))
+	    continue;
+
 	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_USES)
 	    {
 	      if (! bitmap_bit_p (si->va_list_escape_vars,
