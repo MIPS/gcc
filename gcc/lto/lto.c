@@ -553,9 +553,12 @@ lto_add_inline_clones (cgraph_node_set set, struct cgraph_node *node,
      {
 	master_clone = cgraph_master_clone (node, false);
 	gcc_assert (master_clone != NULL && master_clone != node);
-	cgraph_node_set_add (set, master_clone);
+	if (!cgraph_node_in_set_p (master_clone, set))
+	  {
+	    cgraph_node_set_add (set, master_clone);
+	    bitmap_set_bit (inlined_decls, DECL_UID (node->decl));
+	  }
 	cgraph_node_set_add (set, node);
-	bitmap_set_bit (inlined_decls, DECL_UID (node->decl));
      }
    
    /* Check to see if NODE has any inlined callee.  */
