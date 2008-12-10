@@ -975,10 +975,13 @@ refs_may_alias_p (tree ref1, tree ref2)
       return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
     }
 
-  /* If one base is a ref-all pointer weird things are allowed.  */
+  /* If one base is a ref-all pointer or a TARGET_MEM_REF weird things
+     are allowed.  */
   strict_aliasing_applies = (flag_strict_aliasing
+			     && TREE_CODE (base1) != TARGET_MEM_REF
 			     && (!INDIRECT_REF_P (base1)
 				 || get_alias_set (base1) != 0)
+			     && TREE_CODE (base2) != TARGET_MEM_REF
 			     && (!INDIRECT_REF_P (base2)
 				 || get_alias_set (base2) != 0));
 

@@ -1,5 +1,12 @@
 2008-12-10  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-operands.c (get_asm_expr_operands): Add proper
+	virtual operands for memory clobbers.
+	* tree-dfa.c (refs_may_alias_p): Disable TBAA disambiguation
+	if one reference is a TARGET_MEM_REF.
+
+2008-12-10  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-dse.c (dse_optimize_stmt): Fix typo in last change.
 
 2008-12-09  Richard Guenther  <rguenther@suse.de>

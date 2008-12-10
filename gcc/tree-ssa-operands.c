@@ -1342,23 +1342,7 @@ get_asm_expr_operands (gimple stmt)
       tree link = gimple_asm_clobber_op (stmt, i);
       if (strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory") == 0)
 	{
-	  unsigned i;
-	  bitmap_iterator bi;
-
-	  /* Mark the statement as having memory operands.  */
-	  gimple_set_references_memory (stmt, true);
-
-	  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
-	    {
-	      tree var = referenced_var (i);
-	      add_stmt_operand (&var, stmt, opf_def | opf_implicit);
-	    }
-
-	  EXECUTE_IF_SET_IN_BITMAP (gimple_addressable_vars (cfun), 0, i, bi)
-	    {
-	      tree var = referenced_var (i);
-	      add_stmt_operand (&var, stmt, opf_def | opf_implicit);
-	    }
+	  add_virtual_operand (stmt, opf_def);
 	  break;
 	}
     }
