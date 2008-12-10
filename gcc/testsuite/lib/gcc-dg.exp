@@ -1,4 +1,4 @@
-#   Copyright (C) 1997, 1999, 2000, 2003, 2004, 2005, 2006, 2007
+#   Copyright (C) 1997, 1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008
 #   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -433,11 +433,15 @@ proc cleanup-dump { suffix } {
     # The name might include a list of options; extract the file name.
     set src [file tail [lindex $testcase 0]]
     remove-build-file "[file tail $src].$suffix"
+    # -fcompare-debug dumps
+    remove-build-file "[file tail $src].gk.$suffix"
 
     # Clean up dump files for additional source files.
     if [info exists additional_sources] {
 	foreach srcfile $additional_sources {
 	    remove-build-file "[file tail $srcfile].$suffix"
+	    # -fcompare-debug dumps
+	    remove-build-file "[file tail $srcfile].gk.$suffix"
 	}
     }
 }
@@ -452,7 +456,7 @@ proc cleanup-saved-temps { args } {
     set suffixes {}
 
     # add the to-be-kept suffixes
-    foreach suffix {".ii" ".i" ".s"} {
+    foreach suffix {".ii" ".i" ".s" ".gkd"} {
 	if {[lsearch $args $suffix] < 0} {
 	    lappend suffixes $suffix
 	}
@@ -464,6 +468,8 @@ proc cleanup-saved-temps { args } {
     upvar 2 name testcase
     foreach suffix $suffixes {
 	remove-build-file "[file rootname [file tail $testcase]]$suffix"
+	# -fcompare-debug dumps
+	remove-build-file "[file rootname [file tail $testcase]].gk$suffix"
     }
 
     # Clean up saved temp files for additional source files.
@@ -471,6 +477,8 @@ proc cleanup-saved-temps { args } {
 	foreach srcfile $additional_sources {
 	    foreach suffix $suffixes {
 		remove-build-file "[file rootname [file tail $srcfile]]$suffix"
+		# -fcompare-debug dumps
+		remove-build-file "[file rootname [file tail $srcfile]].gk$suffix"
 	    }
 	}
     }
