@@ -599,10 +599,10 @@ gnat_printable_name (tree decl, int verbosity)
   if (verbosity == 2)
     {
       Set_Identifier_Casing (ada_name, (char *) DECL_SOURCE_FILE (decl));
-      ada_name = Name_Buffer;
+      return ggc_strdup (Name_Buffer);
     }
-
-  return (const char *) ada_name;
+  else
+    return ada_name;
 }
 
 /* Do nothing (return the tree node passed).  */

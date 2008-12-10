@@ -877,18 +877,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       result = get_label_decl (data_in, ib);
       break;
 
-    case COND_EXPR:
-      {
-	tree op0;
-	tree op1;
-	tree op2;
-	op0 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-	op1 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-	op2 = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-	result = build3 (code, type, op0, op1, op2);
-      }
-      break;
-      
     case COMPONENT_REF:
       {
 	tree op0;
@@ -3738,18 +3726,6 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       }
       break;
 
-    case COND_EXPR:
-	{
-	  tree op0;
-	  tree op1;
-	  tree op2;
-	  op0 = input_tree_operand (ib, data_in, fn, input_record_start (ib));
-	  op1 = input_tree_operand (ib, data_in, fn, input_record_start (ib));
-	  op2 = input_tree_operand (ib, data_in, fn, input_record_start (ib));
-	  result = build3 (code, type, op0, op1, op2);
-	}
-      break;
-      
     case COMPONENT_REF:
       {
 	tree op0;

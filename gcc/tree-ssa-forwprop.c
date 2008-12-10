@@ -334,10 +334,10 @@ rhs_to_tree (tree type, gimple stmt)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
   if (get_gimple_rhs_class (code) == GIMPLE_BINARY_RHS)
-    return fold_convert (type, build2 (code, type, gimple_assign_rhs1 (stmt),
-                         gimple_assign_rhs2 (stmt)));
+    return fold_build2 (code, type, gimple_assign_rhs1 (stmt),
+			gimple_assign_rhs2 (stmt));
   else if (get_gimple_rhs_class (code) == GIMPLE_UNARY_RHS)
-    return fold_convert (type, build1 (code, type, gimple_assign_rhs1 (stmt)));
+    return build1 (code, type, gimple_assign_rhs1 (stmt));
   else if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
     return gimple_assign_rhs1 (stmt);
   else
@@ -616,19 +616,27 @@ forward_propagate_addr_into_variable_array_index (tree offset,
   tree unit_size = TYPE_SIZE_UNIT (array_type);
   gimple offset_def, use_stmt = gsi_stmt (*use_stmt_gsi);
 
-  /* Try to find an expression for a proper index.  This is either
-     a multiplication expression by the element size or just the
-     ssa name we came along in case the element size is one.  */
+  /* Get the offset's defining statement.  */
+  offset_def = SSA_NAME_DEF_STMT (offset);
+
+  /* Try to find an expression for a proper index.  This is either a
+     multiplication expression by the element size or just the ssa name we came
+     along in case the element size is one. In that case, however, we do not
+     allow multiplications because they can be computing index to a higher
+     level dimension (PR 37861). */
   if (unit_size && integer_onep (unit_size))
-    index = offset;
+    {
+      if (is_gimple_assign (offset_def)
+	  && gimple_assign_rhs_code (offset_def) == MULT_EXPR)
+	return false;
+
+      index = offset;
+    }
   else
     {
-      /* Get the offset's defining statement.  */
-      offset_def = SSA_NAME_DEF_STMT (offset);
-
       /* The statement which defines OFFSET before type conversion
          must be a simple GIMPLE_ASSIGN.  */
-      if (gimple_code (offset_def) != GIMPLE_ASSIGN)
+      if (!is_gimple_assign (offset_def))
 	return false;
 
       /* The RHS of the statement which defines OFFSET must be a
@@ -722,12 +730,10 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
   if (TREE_CODE (lhs) == INDIRECT_REF
       && TREE_OPERAND (lhs, 0) == name
-      && useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (lhs, 0)),
-				    TREE_TYPE (def_rhs))
-      /* ???  This looks redundant, but is required for bogus types
-	 that can sometimes occur.  */
-      && useless_type_conversion_p (TREE_TYPE (lhs),
-				    TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
+      && may_propagate_address_into_dereference (def_rhs, lhs)
+      && (lhsp != gimple_assign_lhs_ptr (use_stmt)
+	  || useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (def_rhs, 0)),
+					TREE_TYPE (rhs))))
     {
       *lhsp = unshare_expr (TREE_OPERAND (def_rhs, 0));
       fold_stmt_inplace (use_stmt);
@@ -750,12 +756,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
   if (TREE_CODE (rhs) == INDIRECT_REF
       && TREE_OPERAND (rhs, 0) == name
-      && useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (rhs, 0)),
-				    TREE_TYPE (def_rhs))
-      /* ???  This looks redundant, but is required for bogus types
-	 that can sometimes occur.  */
-      && useless_type_conversion_p (TREE_TYPE (rhs),
-				    TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
+      && may_propagate_address_into_dereference (def_rhs, rhs))
     {
       *rhsp = unshare_expr (TREE_OPERAND (def_rhs, 0));
       fold_stmt_inplace (use_stmt);

@@ -329,7 +329,8 @@ go_through_subreg (rtx x, int *offset)
    registers.  When nothing is changed, the function returns
    FALSE.  */
 static bool
-process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
+process_regs_for_copy (rtx reg1, rtx reg2, bool constraint_p,
+		       rtx insn, int freq)
 {
   int allocno_preferenced_hard_regno, cost, index, offset1, offset2;
   bool only_regs_p;
@@ -363,7 +364,8 @@ process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
     {
       cp = ira_add_allocno_copy (ira_curr_regno_allocno_map[REGNO (reg1)],
 				 ira_curr_regno_allocno_map[REGNO (reg2)],
-				 freq, insn, ira_curr_loop_tree_node);
+				 freq, constraint_p, insn,
+				 ira_curr_loop_tree_node);
       bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num); 
       return true;
     }
@@ -426,7 +428,7 @@ process_reg_shuffles (rtx reg, int op_num, int freq)
 	  || recog_data.operand_type[i] != OP_OUT)
 	continue;
       
-      process_regs_for_copy (reg, another_reg, NULL_RTX, freq);
+      process_regs_for_copy (reg, another_reg, false, NULL_RTX, freq);
     }
 }
 
@@ -451,7 +453,7 @@ add_insn_allocno_copies (rtx insn)
 			REG_P (SET_SRC (set))
 			? SET_SRC (set)
 			: SUBREG_REG (SET_SRC (set))) != NULL_RTX)
-    process_regs_for_copy (SET_DEST (set), SET_SRC (set), insn, freq);
+    process_regs_for_copy (SET_DEST (set), SET_SRC (set), false, insn, freq);
   else
     {
       extract_insn (insn);
@@ -470,7 +472,8 @@ add_insn_allocno_copies (rtx insn)
 	      for (j = 0, commut_p = false; j < 2; j++, commut_p = true)
 		if ((dup = get_dup (i, commut_p)) != NULL_RTX
 		    && REG_SUBREG_P (dup)
-		    && process_regs_for_copy (operand, dup, NULL_RTX, freq))
+		    && process_regs_for_copy (operand, dup, true,
+					      NULL_RTX, freq))
 		  bound_p = true;
 	      if (bound_p)
 		continue;
@@ -524,55 +527,9 @@ propagate_copies (void)
 	parent_a2 = parent->regno_allocno_map[ALLOCNO_REGNO (a2)];
       ira_assert (parent_a1 != NULL && parent_a2 != NULL);
       if (! CONFLICT_ALLOCNO_P (parent_a1, parent_a2))
-	ira_add_allocno_copy (parent_a1, parent_a1, cp->freq,
-			      cp->insn, cp->loop_tree_node);
+	ira_add_allocno_copy (parent_a1, parent_a2, cp->freq,
+			      cp->constraint_p, cp->insn, cp->loop_tree_node);
     }
-}
-
-/* Return TRUE if live ranges of allocnos A1 and A2 intersect.  It is
-   used to find a conflict for new allocnos or allocnos with the
-   different cover classes.  */
-bool
-ira_allocno_live_ranges_intersect_p (ira_allocno_t a1, ira_allocno_t a2)
-{
-  allocno_live_range_t r1, r2;
-
-  if (a1 == a2)
-    return false;
-  if (ALLOCNO_REG (a1) != NULL && ALLOCNO_REG (a2) != NULL
-      && (ORIGINAL_REGNO (ALLOCNO_REG (a1))
-	  == ORIGINAL_REGNO (ALLOCNO_REG (a2))))
-    return false;
-  /* Remember the ranges are always kept ordered.  */
-  for (r1 = ALLOCNO_LIVE_RANGES (a1), r2 = ALLOCNO_LIVE_RANGES (a2);
-       r1 != NULL && r2 != NULL;)
-    {
-      if (r1->start > r2->finish)
-	r1 = r1->next;
-      else if (r2->start > r1->finish)
-	r2 = r2->next;
-      else
-	return true;
-    }
-  return false;
-}
-
-/* Return TRUE if live ranges of pseudo-registers REGNO1 and REGNO2
-   intersect.  This should be used when there is only one region.
-   Currently this is used during reload.  */
-bool
-ira_pseudo_live_ranges_intersect_p (int regno1, int regno2)
-{
-  ira_allocno_t a1, a2;
-
-  ira_assert (regno1 >= FIRST_PSEUDO_REGISTER
-	      && regno2 >= FIRST_PSEUDO_REGISTER);
-  /* Reg info caclulated by dataflow infrastructure can be different
-     from one calculated by regclass.  */
-  if ((a1 = ira_loop_tree_root->regno_allocno_map[regno1]) == NULL
-      || (a2 = ira_loop_tree_root->regno_allocno_map[regno2]) == NULL)
-    return false;
-  return ira_allocno_live_ranges_intersect_p (a1, a2);
 }
 
 /* Array used to collect all conflict allocnos for given allocno.  */

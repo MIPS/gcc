@@ -25,11 +25,16 @@ endif
 
 if CREATE_WRAPPERS
 bin_SCRIPTS =
-bin_PROGRAMS = gappletviewer gjarsigner gkeytool \
+bin_programs = gappletviewer gjarsigner gkeytool \
 	gjar gnative2ascii gserialver gjavah grmiregistry \
 	gtnameserv gorbd grmid grmic
 if CREATE_GJDOC
-bin_PROGRAMS += gjdoc
+bin_programs += gjdoc
+endif
+if INSTALL_BINARIES
+bin_PROGRAMS = $(bin_programs)
+else
+noinst_PROGRAMS = $(bin_programs)
 endif
 
 AM_CPPFLAGS = -Wall \
@@ -380,11 +385,11 @@ if CREATE_GJDOC
 endif
 
 if WITH_JAR
-CREATE_TOOLS_ZIP=$(JAR) cf ../$(TOOLS_ZIP) .
-UPDATE_TOOLS_ZIP=$(JAR) uf ../$(TOOLS_ZIP) .
+CREATE_TOOLS_ZIP=$(JAR) cf ../$(TOOLS_ZIP) `find . -name .svn -prune -o -type f -print`
+UPDATE_TOOLS_ZIP=$(JAR) uf ../$(TOOLS_ZIP) `find . -name .svn -prune -o -type f -print`
 else
-CREATE_TOOLS_ZIP=$(ZIP) -r ../$(TOOLS_ZIP) .
-UPDATE_TOOLS_ZIP=$(ZIP) -u -r ../$(TOOLS_ZIP) .
+CREATE_TOOLS_ZIP=$(ZIP) -r ../$(TOOLS_ZIP) `find . -name .svn -prune -o -type f -print`
+UPDATE_TOOLS_ZIP=$(ZIP) -u -r ../$(TOOLS_ZIP) `find . -name .svn -prune -o -type f -print`
 endif
 
 ## First add classpath tools stuff.

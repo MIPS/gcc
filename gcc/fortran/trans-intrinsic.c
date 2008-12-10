@@ -2209,7 +2209,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
     tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 		       gfc_index_one_node, loop.from[0]);
   else
-    tmp = build_int_cst (gfc_array_index_type, 1);
+    tmp = gfc_index_one_node;
   
   gfc_add_modify (&block, offset, tmp);
 
@@ -3397,10 +3397,6 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
 			  gfc_array_index_type);
       gfc_add_block_to_block (&se->pre, &argse.pre);
 
-      /* Build the call to size1.  */
-      fncall1 = build_call_expr (gfor_fndecl_size1, 2,
-				 arg1, argse.expr);
-
       /* Unusually, for an intrinsic, size does not exclude
 	 an optional arg2, so we must test for it.  */  
       if (actual->expr->expr_type == EXPR_VARIABLE
@@ -3408,6 +3404,10 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
 	    && actual->expr->symtree->n.sym->attr.optional)
 	{
 	  tree tmp;
+	  /* Build the call to size1.  */
+	  fncall1 = build_call_expr (gfor_fndecl_size1, 2,
+				     arg1, argse.expr);
+
 	  gfc_init_se (&argse, NULL);
 	  argse.want_pointer = 1;
 	  argse.data_not_needed = 1;
@@ -3420,10 +3420,34 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
 				  tmp, fncall1, fncall0);
 	}
       else
-	se->expr = fncall1;
+	{
+	  se->expr = NULL_TREE;
+	  argse.expr = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+				    argse.expr, gfc_index_one_node);
+	}
+    }
+  else if (expr->value.function.actual->expr->rank == 1)
+    {
+      argse.expr = gfc_index_zero_node;
+      se->expr = NULL_TREE;
     }
   else
     se->expr = fncall0;
+
+  if (se->expr == NULL_TREE)
+    {
+      tree ubound, lbound;
+
+      arg1 = build_fold_indirect_ref (arg1);
+      ubound = gfc_conv_descriptor_ubound (arg1, argse.expr);
+      lbound = gfc_conv_descriptor_lbound (arg1, argse.expr);
+      se->expr = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+			      ubound, lbound);
+      se->expr = fold_build2 (PLUS_EXPR, gfc_array_index_type, se->expr,
+			      gfc_index_one_node);
+      se->expr = fold_build2 (MAX_EXPR, gfc_array_index_type, se->expr,
+			      gfc_index_zero_node);
+    }
 
   type = gfc_typenode_for_spec (&expr->ts);
   se->expr = convert (type, se->expr);
@@ -3707,6 +3731,14 @@ gfc_conv_intrinsic_array_transfer (gfc_se * se, gfc_expr * expr)
       mold_type = gfc_get_element_type (TREE_TYPE (argse.expr));
     }
 
+  if (strcmp (expr->value.function.name, "__transfer_in_transfer") == 0)
+    {
+      /* If this TRANSFER is nested in another TRANSFER, use a type
+	 that preserves all bits.  */
+      if (arg->expr->ts.type == BT_LOGICAL)
+	mold_type = gfc_get_int_type (arg->expr->ts.kind);
+    }
+
   if (arg->expr->ts.type == BT_CHARACTER)
     {
       tmp = size_of_string_in_bytes (arg->expr->ts.kind, argse.string_length);
@@ -3835,6 +3867,13 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
 
   arg = arg->next;
   type = gfc_typenode_for_spec (&expr->ts);
+  if (strcmp (expr->value.function.name, "__transfer_in_transfer") == 0)
+    {
+      /* If this TRANSFER is nested in another TRANSFER, use a type
+	 that preserves all bits.  */
+      if (expr->ts.type == BT_LOGICAL)
+	type = gfc_get_int_type (expr->ts.kind);
+    }
 
   if (expr->ts.type == BT_CHARACTER)
     {
@@ -4750,20 +4789,30 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       break;
 
     case GFC_ISYM_TRANSFER:
-      if (se->ss)
+      if (se->ss && se->ss->useflags)
 	{
-	  if (se->ss->useflags)
-	    {
-	      /* Access the previously obtained result.  */
-	      gfc_conv_tmp_array_ref (se);
-	      gfc_advance_se_ss_chain (se);
-	      break;
-	    }
-	  else
-	    gfc_conv_intrinsic_array_transfer (se, expr);
+	  /* Access the previously obtained result.  */
+	  gfc_conv_tmp_array_ref (se);
+	  gfc_advance_se_ss_chain (se);
 	}
       else
-	gfc_conv_intrinsic_transfer (se, expr);
+	{
+	  /* Ensure double transfer through LOGICAL preserves all
+	     the needed bits.  */
+	  gfc_expr *source = expr->value.function.actual->expr;
+	  if (source->expr_type == EXPR_FUNCTION
+	      && source->value.function.esym == NULL
+	      && source->value.function.isym != NULL
+	      && source->value.function.isym->id == GFC_ISYM_TRANSFER
+	      && source->ts.type == BT_LOGICAL
+	      && expr->ts.type != source->ts.type)
+	    source->value.function.name = "__transfer_in_transfer";
+
+	  if (se->ss)
+	    gfc_conv_intrinsic_array_transfer (se, expr);
+	  else
+	    gfc_conv_intrinsic_transfer (se, expr);
+	}
       break;
 
     case GFC_ISYM_TTYNAM:
