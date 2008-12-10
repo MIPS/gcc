@@ -1,5 +1,11 @@
 2008-12-10  Richard Guenther  <rguenther@suse.de>
 
+	PR tree-optimization/38458
+	* tree-ssa-copy.c (copy_prop_visit_phi_node): For the first
+	argument use the arguments copy-of value.
+
+2008-12-10  Richard Guenther  <rguenther@suse.de>
+
 	PR tree-optimization/38207
 	* tree-flow.h: Include tree-ssa-alias.h.
 	(get_single_def_stmt, get_single_def_stmt_from_phi,
