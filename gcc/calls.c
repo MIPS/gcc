@@ -132,11 +132,11 @@ static void store_unaligned_arguments_into_pseudos (struct arg_data *, int);
 static int finalize_must_preallocate (int, int, struct arg_data *,
 				      struct args_size *);
 static void precompute_arguments (int, struct arg_data *);
-static int compute_argument_block_size (int, struct args_size *, tree, int);
+static int compute_argument_block_size (int, struct args_size *, tree, tree, int);
 static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int,
 					     tree, tree,
-					     tree, CUMULATIVE_ARGS *, int,
+					     tree, tree, CUMULATIVE_ARGS *, int,
 					     rtx *, int *, int *, int *,
 					     bool *, bool);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
@@ -938,7 +938,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 struct args_size *args_size,
 				 int n_named_args ATTRIBUTE_UNUSED,
 				 tree exp, tree struct_value_addr_value,
-				 tree fndecl,
+				 tree fndecl, tree fntype,
 				 CUMULATIVE_ARGS *args_so_far,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
@@ -1119,7 +1119,9 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       mode = TYPE_MODE (type);
       unsignedp = TYPE_UNSIGNED (type);
 
-      if (targetm.calls.promote_function_args (fndecl ? TREE_TYPE (fndecl) : 0))
+      if (targetm.calls.promote_function_args (fndecl
+					       ? TREE_TYPE (fndecl)
+					       : fntype))
 	mode = promote_mode (type, mode, &unsignedp, 1);
 
       args[i].unsignedp = unsignedp;
@@ -1205,6 +1207,7 @@ static int
 compute_argument_block_size (int reg_parm_stack_space,
 			     struct args_size *args_size,
 			     tree fndecl ATTRIBUTE_UNUSED,
+			     tree fntype ATTRIBUTE_UNUSED,
 			     int preferred_stack_boundary ATTRIBUTE_UNUSED)
 {
   int unadjusted_args_size = args_size->constant;
@@ -1242,7 +1245,7 @@ compute_argument_block_size (int reg_parm_stack_space,
 
 	  /* The area corresponding to register parameters is not to count in
 	     the size of the block we need.  So make the adjustment.  */
-	  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+	  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 	    args_size->var
 	      = size_binop (MINUS_EXPR, args_size->var,
 			    ssize_int (reg_parm_stack_space));
@@ -1263,7 +1266,7 @@ compute_argument_block_size (int reg_parm_stack_space,
       args_size->constant = MAX (args_size->constant,
 				 reg_parm_stack_space);
 
-      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 	args_size->constant -= reg_parm_stack_space;
     }
   return unadjusted_args_size;
@@ -2077,17 +2080,17 @@ expand_call (tree exp, rtx target, int ignore)
     }
 
 #ifdef REG_PARM_STACK_SPACE
-  reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
+  reg_parm_stack_space = REG_PARM_STACK_SPACE (!fndecl ? fntype : fndecl);
 #endif
 
-  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl)))
+  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl)))
       && reg_parm_stack_space > 0 && PUSH_ARGS)
     must_preallocate = 1;
 
   /* Set up a place to return a structure.  */
 
   /* Cater to broken compilers.  */
-  if (aggregate_value_p (exp, fndecl))
+  if (aggregate_value_p (exp, (!fndecl ? fntype : fndecl)))
     {
       /* This call returns a big structure.  */
       flags &= ~(ECF_CONST | ECF_PURE | ECF_LOOPING_CONST_OR_PURE);
@@ -2244,7 +2247,7 @@ expand_call (tree exp, rtx target, int ignore)
      arguments into ARGS_SIZE, etc.  */
   initialize_argument_information (num_actuals, args, &args_size,
 				   n_named_args, exp,
-				   structure_value_addr_value, fndecl,
+				   structure_value_addr_value, fndecl, fntype,
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
 				   &must_preallocate, &flags,
@@ -2404,7 +2407,7 @@ expand_call (tree exp, rtx target, int ignore)
       unadjusted_args_size
 	= compute_argument_block_size (reg_parm_stack_space,
 				       &adjusted_args_size,
-				       fndecl,
+				       fndecl, fntype,
 				       (pass == 0 ? 0
 					: preferred_stack_boundary));
 
@@ -2480,7 +2483,7 @@ expand_call (tree exp, rtx target, int ignore)
 		  /* Since we will be writing into the entire argument area,
 		     the map must be allocated for its entire size, not just
 		     the part that is the responsibility of the caller.  */
-		  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+		  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 		    needed += reg_parm_stack_space;
 
 #ifdef ARGS_GROW_DOWNWARD
@@ -2579,7 +2582,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    {
 	      rtx push_size
 		= GEN_INT (adjusted_args_size.constant
-			   + (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL
+			   + (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype
 			   					      : TREE_TYPE (fndecl))) ? 0
 			      : reg_parm_stack_space));
 	      if (old_stack_level == 0)
@@ -2750,7 +2753,7 @@ expand_call (tree exp, rtx target, int ignore)
       /* If register arguments require space on the stack and stack space
 	 was not preallocated, allocate stack space here for arguments
 	 passed in registers.  */
-      if (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl)))
+      if (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl)))
           && !ACCUMULATE_OUTGOING_ARGS
 	  && must_preallocate == 0 && reg_parm_stack_space > 0)
 	anti_adjust_stack (GEN_INT (reg_parm_stack_space));
@@ -3230,6 +3233,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   /* Todo, choose the correct decl type of orgfun. Sadly this information
      isn't present here, so we default to native calling abi here.  */
   tree fndecl ATTRIBUTE_UNUSED = NULL_TREE; /* library calls default to host calling abi ? */
+  tree fntype ATTRIBUTE_UNUSED = NULL_TREE; /* library calls default to host calling abi ? */
   int inc;
   int count;
   rtx argblock = 0;
@@ -3487,7 +3491,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   args_size.constant = MAX (args_size.constant,
 			    reg_parm_stack_space);
 
-  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
     args_size.constant -= reg_parm_stack_space;
 
   if (args_size.constant > crtl->outgoing_args_size)
@@ -3512,7 +3516,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       /* Since we will be writing into the entire argument area, the
 	 map must be allocated for its entire size, not just the part that
 	 is the responsibility of the caller.  */
-      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 	needed += reg_parm_stack_space;
 
 #ifdef ARGS_GROW_DOWNWARD

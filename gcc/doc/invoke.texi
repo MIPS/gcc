@@ -257,7 +257,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wsign-compare  -Wsign-conversion  -Wstack-protector @gol
 -Wstrict-aliasing -Wstrict-aliasing=n @gol
 -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
--Wswitch  -Wswitch-default  -Wswitch-enum @gol
+-Wswitch  -Wswitch-default  -Wswitch-enum -Wsync-nand @gol
 -Wsystem-headers  -Wtrigraphs  -Wtype-limits  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wno-pragmas -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
@@ -336,10 +336,10 @@ Objective-C and Objective-C++ Dialects}.
 -fgcse -fgcse-after-reload -fgcse-las -fgcse-lm @gol
 -fgcse-sm -fif-conversion -fif-conversion2 -findirect-inlining @gol
 -finline-functions -finline-functions-called-once -finline-limit=@var{n} @gol
--finline-small-functions -fipa-cp -fipa-cp-clone -fipa-marix-reorg -fipa-pta @gol 
+-finline-small-functions -fipa-cp -fipa-cp-clone -fipa-matrix-reorg -fipa-pta @gol 
 -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fira -fira-algorithm=@var{algorithm} @gol
--fira-coalesce -fno-ira-share-save-slots @gol
+-fira-region=@var{region} -fira-coalesce -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine @gol
@@ -469,7 +469,8 @@ Objective-C and Objective-C++ Dialects}.
 -mno-id-shared-library  -mshared-library-id=@var{n} @gol
 -mleaf-id-shared-library  -mno-leaf-id-shared-library @gol
 -msep-data  -mno-sep-data  -mlong-calls  -mno-long-calls @gol
--mfast-fp -minline-plt -mmulticore  -mcorea  -mcoreb  -msdram}
+-mfast-fp -minline-plt -mmulticore  -mcorea  -mcoreb  -msdram @gol
+-micplb}
 
 @emph{CRIS Options}
 @gccoptlist{-mcpu=@var{cpu}  -march=@var{cpu}  -mtune=@var{cpu} @gol
@@ -3128,6 +3129,12 @@ and lacks a @code{case} for one or more of the named codes of that
 enumeration.  @code{case} labels outside the enumeration range also
 provoke warnings when this option is used.
 
+@item -Wsync-nand
+@opindex Wsync-nand
+@opindex Wno-sync-nand
+Warn when @code{__sync_fetch_and_nand} and @code{__sync_nand_and_fetch}
+built-in functions are used.  These functions changed semantics in GCC 4.4.
+
 @item -Wtrigraphs
 @opindex Wtrigraphs
 @opindex Wno-trigraphs
@@ -5722,17 +5729,25 @@ allocation.  It is a default if @acronym{IRA} has been ported for the
 target.
 
 @item -fira-algorithm=@var{algorithm}
-Use specified algorithm for the integrated register allocator.  The
-@var{algorithm} argument should be one of @code{regional}, @code{CB},
-or @code{mixed}.  The second algorithm specifies Chaitin-Briggs
-coloring, the first one specifies regional coloring based on
-Chaitin-Briggs coloring, and the third one which is the default
-specifies a mix of Chaitin-Briggs and regional algorithms where loops
-with small register pressure are ignored.  The first algorithm can
-give best result for machines with small size and irregular register
-set, the second one is faster and generates decent code and the
-smallest size code, and the mixed algorithm usually give the best
-results in most cases and for most architectures.
+Use specified coloring algorithm for the integrated register
+allocator.  The @var{algorithm} argument should be @code{priority} or
+@code{CB}.  The first algorithm specifies Chow's priority coloring,
+the second one specifies Chaitin-Briggs coloring.  The second
+algorithm can be unimplemented for some architectures.  If it is
+implemented, it is the default because Chaitin-Briggs coloring as a
+rule generates a better code.
+
+@item -fira-region=@var{region}
+Use specified regions for the integrated register allocator.  The
+@var{region} argument should be one of @code{all}, @code{mixed}, or
+@code{one}.  The first value means using all loops as register
+allocation regions, the second value which is the default means using
+all loops except for loops with small register pressure as the
+regions, and third one means using all function as a single region.
+The first value can give best result for machines with small size and
+irregular register set, the third one results in faster and generates
+decent code and the smallest size code, and the default value usually
+give the best results in most cases and for most architectures.
 
 @item -fira-coalesce
 @opindex fira-coalesce
@@ -7624,10 +7639,10 @@ be disabled.  The default maximum SCC size is 10000.
 
 @item ira-max-loops-num
 IRA uses a regional register allocation by default.  If a function
-contains loops more than number given by the parameter, non-regional
-register allocator will be used even when option
-@option{-fira-algorithm} is given.  The default value of the parameter
-is 20.
+contains loops more than number given by the parameter, only at most
+given number of the most frequently executed loops will form regions
+for the regional register allocation.  The default value of the
+parameter is 100.
 
 @end table
 @end table
@@ -9333,6 +9348,12 @@ Build standalone application for SDRAM. Proper start files and
 link scripts will be used to put the application into SDRAM.
 Loader should initialize SDRAM before loading the application
 into SDRAM. This option defines @code{__BFIN_SDRAM}.
+
+@item -micplb
+@opindex micplb
+Assume that ICPLBs are enabled at runtime.  This has an effect on certain
+anomaly workarounds.  For Linux targets, the default is to assume ICPLBs
+are enabled; for standalone applications the default is off.
 @end table
 
 @node CRIS Options
@@ -11314,7 +11335,7 @@ This model has to be used for Linux kernel code.
 @item -mcmodel=medium
 @opindex mcmodel=medium
 Generate code for the medium model: The program is linked in the lower 2
-GB of the address space and symbols with small size as well.  Symbols
+GB of the address space.  Small symbols are also placed there.  Symbols
 with sizes larger than @option{-mlarge-data-threshold} are put into
 large data or bss sections and can be located above 2GB.  Programs can
 be statically or dynamically linked.

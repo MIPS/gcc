@@ -98,6 +98,10 @@ struct ira_loop_tree_node
   /* All the following members are defined only for nodes representing
      loops.  */
 
+  /* True if the loop was marked for removal from the register
+     allocation.  */
+  bool to_remove_p;
+
   /* Allocnos in the loop corresponding to their regnos.  If it is
      NULL the loop does not form a separate register allocation region
      (e.g. because it has abnormal enter/exit edges and we can not put
@@ -106,6 +110,11 @@ struct ira_loop_tree_node
      the edges).  Caps are not in the map (remember we can have more
      one cap with the same regno in a region).  */
   ira_allocno_t *regno_allocno_map;
+
+  /* True if there is an entry to given loop not from its parent (or
+     grandparent) basic block.  For example, it is possible for two
+     adjacent loops inside another loop.  */
+  bool entered_from_non_parent_p;
 
   /* Maximal register pressure inside loop for given register class
      (defined only for the cover classes).  */
@@ -810,6 +819,16 @@ extern enum reg_class ira_class_translate[N_REG_CLASSES];
    taking all hard-registers including fixed ones into account.  */
 extern enum reg_class ira_reg_class_intersect[N_REG_CLASSES][N_REG_CLASSES];
 
+/* True if the two classes (that is calculated taking only hard
+   registers available for allocation into account) are
+   intersected.  */
+extern bool ira_reg_classes_intersect_p[N_REG_CLASSES][N_REG_CLASSES];
+
+/* Classes with end marker LIM_REG_CLASSES which are intersected with
+   given class (the first index).  That includes given class itself.
+   This is calculated taking only hard registers available for
+   allocation into account.  */
+extern enum reg_class ira_reg_class_super_classes[N_REG_CLASSES][N_REG_CLASSES];
 /* The biggest important class inside of union of the two classes
    (that is calculated taking only hard registers available for
    allocation into account).  If the both classes contain no hard
@@ -862,7 +881,14 @@ extern void ira_add_allocno_conflict (ira_allocno_t, ira_allocno_t);
 extern void ira_print_expanded_allocno (ira_allocno_t);
 extern allocno_live_range_t ira_create_allocno_live_range
 	                    (ira_allocno_t, int, int, allocno_live_range_t);
+extern allocno_live_range_t ira_copy_allocno_live_range_list
+                            (allocno_live_range_t);
+extern allocno_live_range_t ira_merge_allocno_live_ranges
+                            (allocno_live_range_t, allocno_live_range_t);
+extern bool ira_allocno_live_ranges_intersect_p (allocno_live_range_t,
+						 allocno_live_range_t);
 extern void ira_finish_allocno_live_range (allocno_live_range_t);
+extern void ira_finish_allocno_live_range_list (allocno_live_range_t);
 extern void ira_free_allocno_updated_costs (ira_allocno_t);
 extern ira_copy_t ira_create_copy (ira_allocno_t, ira_allocno_t,
 				   int, bool, rtx, ira_loop_tree_node_t);
@@ -898,8 +924,6 @@ extern void ira_compress_allocno_live_ranges (void);
 extern void ira_finish_allocno_live_ranges (void);
 
 /* ira-conflicts.c */
-extern bool ira_allocno_live_ranges_intersect_p (ira_allocno_t, ira_allocno_t);
-extern bool ira_pseudo_live_ranges_intersect_p (int, int);
 extern void ira_debug_conflicts (bool);
 extern void ira_build_conflicts (void);
 
