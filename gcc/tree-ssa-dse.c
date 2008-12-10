@@ -464,7 +464,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	  if (!is_gimple_reg (gimple_assign_rhs1 (use_stmt))
 	      && !is_gimple_min_invariant (gimple_assign_rhs1 (use_stmt))
 	      /* ???  Should {} be invariant?  */
-	      && !gimple_assign_rhs_code (use_stmt) != CONSTRUCTOR
+	      && gimple_assign_rhs_code (use_stmt) != CONSTRUCTOR
 	      && refs_may_alias_p (gimple_assign_lhs (use_stmt),
 				   gimple_assign_rhs1 (use_stmt)))
 	    {
