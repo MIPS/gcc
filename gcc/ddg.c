@@ -1,5 +1,5 @@
 /* DDG - Data Dependence Graph implementation.
-   Copyright (C) 2004, 2005, 2006, 2007
+   Copyright (C) 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -166,6 +166,9 @@ create_ddg_dep_from_intra_loop_link (ddg_ptr g, ddg_node_ptr src_node,
   else if (DEP_TYPE (link) == REG_DEP_OUTPUT)
     t = OUTPUT_DEP;
 
+  gcc_assert (!DEBUG_INSN_P (dest_node->insn) || t == ANTI_DEP);
+  gcc_assert (!DEBUG_INSN_P (src_node->insn) || DEBUG_INSN_P (dest_node->insn));
+
   /* We currently choose not to create certain anti-deps edges and
      compensate for that by generating reg-moves based on the life-range
      analysis.  The anti-deps that will be deleted are the ones which
@@ -208,6 +211,9 @@ create_ddg_dep_no_link (ddg_ptr g, ddg_node_ptr from, ddg_node_ptr to,
   int l;
   enum reg_note dep_kind;
   struct _dep _dep, *dep = &_dep;
+
+  gcc_assert (!DEBUG_INSN_P (to->insn) || d_t == ANTI_DEP);
+  gcc_assert (!DEBUG_INSN_P (from->insn) || DEBUG_INSN_P (to->insn));
 
   if (d_t == ANTI_DEP)
     dep_kind = REG_DEP_ANTI;
@@ -280,7 +286,7 @@ add_cross_iteration_register_deps (ddg_ptr g, struct df_ref *last_def)
 	  create_ddg_dep_no_link (g, last_def_node, use_node, TRUE_DEP,
 				  REG_DEP, 1);
 	}
-      else
+      else if (!DEBUG_INSN_P (use_insn))
 	{
 	  /* Add anti deps from last_def's uses in the current iteration
 	     to the first def in the next iteration.  We do not add ANTI
@@ -413,6 +419,8 @@ build_intra_loop_deps (ddg_ptr g)
 	  for (j = 0; j <= i; j++)
 	    {
 	      ddg_node_ptr j_node = &g->nodes[j];
+	      if (DEBUG_INSN_P (j_node->insn))
+		continue;
 	      if (mem_access_insn_p (j_node->insn))
  		/* Don't bother calculating inter-loop dep if an intra-loop dep
 		   already exists.  */
@@ -454,10 +462,15 @@ create_ddg (basic_block bb, int closing_branch_deps)
       if (! INSN_P (insn) || GET_CODE (PATTERN (insn)) == USE)
 	continue;
 
-      if (mem_read_insn_p (insn))
-	g->num_loads++;
-      if (mem_write_insn_p (insn))
-	g->num_stores++;
+      if (DEBUG_INSN_P (insn))
+	g->num_debug++;
+      else
+	{
+	  if (mem_read_insn_p (insn))
+	    g->num_loads++;
+	  if (mem_write_insn_p (insn))
+	    g->num_stores++;
+	}
       num_nodes++;
     }
 

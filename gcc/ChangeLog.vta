@@ -1,5 +1,18 @@
 2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	* modulo-sched.c (const_iteration_count): Ignore debug insns.
+	(res_MII, loop_single_full_bb_p, sms_schedule): Likewise.
+	(sms_schedule_by_order, ps_has_conflicts): Likewise.
+	* ddg.c (create_ddg_dep_from_intra_loop_link): Check no non-debug
+	insn's deps on debug insns.
+	(create_ddg_dep_no_link): Likewise.
+	(add_cross_iteration_register_deps): Ignore debug insns.
+	(create_ddg): Count debug insns.
+	* ddg.h (struct ddg): Add num_debug.  Reorder fields for better
+	packing on LP64 hosts.
+
+2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* testsuite/lib/gcc-dg.exp (cleanup-dump, cleanup-saved-temps):
 	Remove -fcompare-debug temp files as well.
 
