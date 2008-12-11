@@ -80,9 +80,7 @@ done
 
 echo "all: $outputlist" >> $makefile
 
-quiet="--quiet"
 if [ $verbose -eq 1 ] ; then
-  quiet=""
   set -x
 fi
 
@@ -101,5 +99,5 @@ if [ -x $awk -a -x $uptime -a -x $getconf ] ; then
     par=$[($nprocs - $loadavg) * 2]
   fi
 fi
-${MAKE-make} $quiet -f $makefile -j $par all
+${MAKE-make} -s -f $makefile -j $par all
 exit $?
