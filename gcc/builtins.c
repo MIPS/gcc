@@ -1434,9 +1434,15 @@ expand_builtin_apply_args (void)
     /* Put the insns after the NOTE that starts the function.
        If this is inside a start_sequence, make the outer-level insn
        chain current, so the code is placed at the start of the
-       function.  */
+       function.  If internal_arg_pointer is a non-virtual pseudo,
+       it needs to be placed after the function that initializes
+       that pseudo.  */
     push_topmost_sequence ();
-    emit_insn_before (seq, parm_birth_insn);
+    if (REG_P (crtl->args.internal_arg_pointer)
+	&& REGNO (crtl->args.internal_arg_pointer) > LAST_VIRTUAL_REGISTER)
+      emit_insn_before (seq, parm_birth_insn);
+    else
+      emit_insn_before (seq, NEXT_INSN (entry_of_function ()));
     pop_topmost_sequence ();
     return temp;
   }
@@ -3406,7 +3412,7 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
    stpcpy.  */
 
 static rtx
-expand_builtin_mempcpy(tree exp, rtx target, enum machine_mode mode)
+expand_builtin_mempcpy (tree exp, rtx target, enum machine_mode mode)
 {
   if (!validate_arglist (exp,
  			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
@@ -3433,15 +3439,18 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len, tree type,
 			     rtx target, enum machine_mode mode, int endp)
 {
     /* If return value is ignored, transform mempcpy into memcpy.  */
-  if (target == const0_rtx)
+  if (target == const0_rtx && implicit_built_in_decls[BUILT_IN_MEMCPY])
     {
       tree fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+      tree result = build_call_expr (fn, 3, dest, src, len);
 
-      if (!fn)
-	return NULL_RTX;
-
-      return expand_expr (build_call_expr (fn, 3, dest, src, len),
-			  target, mode, EXPAND_NORMAL);
+      while (TREE_CODE (result) == COMPOUND_EXPR)
+	{
+	  expand_expr (TREE_OPERAND (result, 0), const0_rtx, VOIDmode,
+		       EXPAND_NORMAL);
+	  result = TREE_OPERAND (result, 1);
+	}
+      return expand_expr (result, target, mode, EXPAND_NORMAL);
     }
   else
     {
@@ -3707,14 +3716,19 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
   src = CALL_EXPR_ARG (exp, 1);
 
   /* If return value is ignored, transform stpcpy into strcpy.  */
-  if (target == const0_rtx)
+  if (target == const0_rtx && implicit_built_in_decls[BUILT_IN_STRCPY])
     {
       tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
-      if (!fn)
-	return NULL_RTX;
+      tree result = build_call_expr (fn, 2, dst, src);
 
-      return expand_expr (build_call_expr (fn, 2, dst, src),
-  			  target, mode, EXPAND_NORMAL);
+      STRIP_NOPS (result);
+      while (TREE_CODE (result) == COMPOUND_EXPR)
+	{
+	  expand_expr (TREE_OPERAND (result, 0), const0_rtx, VOIDmode,
+		       EXPAND_NORMAL);
+	  result = TREE_OPERAND (result, 1);
+	}
+      return expand_expr (result, target, mode, EXPAND_NORMAL);
     }
   else
     {
@@ -7667,8 +7681,13 @@ fold_builtin_sqrt (tree arg, tree type)
 	  tree arg0 = CALL_EXPR_ARG (arg, 0);
 	  tree tree_root;
 	  /* The inner root was either sqrt or cbrt.  */
-	  REAL_VALUE_TYPE dconstroot =
-	    BUILTIN_SQRT_P (fcode) ? dconsthalf : dconst_third ();
+	  /* This was a conditional expression but it triggered a bug
+	     in the Solaris 8 compiler.  */
+	  REAL_VALUE_TYPE dconstroot;
+	  if (BUILTIN_SQRT_P (fcode))
+	    dconstroot = dconsthalf;
+	  else
+	    dconstroot = dconst_third ();
 
 	  /* Adjust for the outer root.  */
 	  SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
@@ -8985,6 +9004,7 @@ fold_builtin_memory_op (tree dest, tree src, tree len, tree type, bool ignore, i
     len = fold_build2 (MINUS_EXPR, TREE_TYPE (len), len,
 		       ssize_int (1));
 
+  len = fold_convert (sizetype, len);
   dest = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dest), dest, len);
   dest = fold_convert (type, dest);
   if (expr)
@@ -10463,6 +10483,17 @@ fold_builtin_2 (tree fndecl, tree arg0, tree arg1, bool ignore)
     case BUILT_IN_STRCPY:
       return fold_builtin_strcpy (fndecl, arg0, arg1, NULL_TREE);
 
+    case BUILT_IN_STPCPY:
+      if (ignore)
+	{
+	  tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
+	  if (!fn)
+	    break;
+
+	  return build_call_expr (fn, 2, arg0, arg1);
+	}
+      break;
+
     case BUILT_IN_STRCMP:
       return fold_builtin_strcmp (arg0, arg1);
 
@@ -10766,6 +10797,22 @@ fold_builtin_varargs (tree fndecl, tree exp, bool ignore ATTRIBUTE_UNUSED)
   return NULL_TREE;
 }
 
+/* Return true if FNDECL shouldn't be folded right now.
+   If a built-in function has an inline attribute always_inline
+   wrapper, defer folding it after always_inline functions have
+   been inlined, otherwise e.g. -D_FORTIFY_SOURCE checking
+   might not be performed.  */
+
+static bool
+avoid_folding_inline_builtin (tree fndecl)
+{
+  return (DECL_DECLARED_INLINE_P (fndecl)
+	  && DECL_DISREGARD_INLINE_LIMITS (fndecl)
+	  && cfun
+	  && !cfun->always_inline_functions_inlined
+	  && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fndecl)));
+}
+
 /* A wrapper function for builtin folding that prevents warnings for
    "statement without effect" and the like, caused by removing the
    call node earlier than the warning is generated.  */
@@ -10797,6 +10844,9 @@ fold_call_expr (tree exp, bool ignore)
 	      && DECL_FUNCTION_CODE (fndecl2) == BUILT_IN_VA_ARG_PACK)
 	    return NULL_TREE;
 	}
+
+      if (avoid_folding_inline_builtin (fndecl))
+	return NULL_TREE;
 
       /* FIXME: Don't use a list in this interface.  */
       if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
@@ -10900,6 +10950,8 @@ fold_builtin_call_array (tree type,
 		&& DECL_FUNCTION_CODE (fndecl2) == BUILT_IN_VA_ARG_PACK)
 	      return build_call_array (type, fn, n, argarray);
 	  }
+	if (avoid_folding_inline_builtin (fndecl))
+	  return build_call_array (type, fn, n, argarray);
         if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
           {
             tree arglist = NULL_TREE;
@@ -10908,6 +10960,7 @@ fold_builtin_call_array (tree type,
             ret = targetm.fold_builtin (fndecl, arglist, false);
             if (ret)
               return ret;
+	    return build_call_array (type, fn, n, argarray);
           }
         else if (n <= MAX_ARGS_TO_FOLD_BUILTIN)
           {
@@ -13616,6 +13669,8 @@ fold_call_stmt (gimple stmt, bool ignore)
     {
       int nargs = gimple_call_num_args (stmt);
 
+      if (avoid_folding_inline_builtin (fndecl))
+	return NULL_TREE;
       /* FIXME: Don't use a list in this interface.  */
       if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
         {

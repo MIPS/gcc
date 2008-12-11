@@ -656,13 +656,8 @@ static bool
 is_gimple_mem_or_call_rhs (tree t)
 {
   /* If we're dealing with a renamable type, either source or dest must be
-     a renamed variable.  Also force a temporary if the type doesn't need
-     to be stored in memory, since it's cheap and prevents erroneous
-     tailcalls (PR 17526).  */
-  if (is_gimple_reg_type (TREE_TYPE (t))
-      || (TYPE_MODE (TREE_TYPE (t)) != BLKmode
-	  && (TREE_CODE (t) != CALL_EXPR
-              || ! aggregate_value_p (t, t))))
+     a renamed variable.  */
+  if (is_gimple_reg_type (TREE_TYPE (t)))
     return is_gimple_val (t);
   else
     return is_gimple_formal_tmp_or_call_rhs (t);
@@ -3587,8 +3582,13 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	   be dropped to memory, and then memcpy'd out.  Don't do this
 	   for sparse arrays, though, as it's more efficient to follow
 	   the standard CONSTRUCTOR behavior of memset followed by
-	   individual element initialization.  */
-	if (valid_const_initializer && !cleared)
+	   individual element initialization.  Also don't do this for small
+	   all-zero initializers (which aren't big enough to merit
+	   clearing), and don't try to make bitwise copies of
+	   TREE_ADDRESSABLE types.  */
+	if (valid_const_initializer
+	    && !(cleared || num_nonzero_elements == 0)
+	    && !TREE_ADDRESSABLE (type))
 	  {
 	    HOST_WIDE_INT size = int_size_in_bytes (type);
 	    unsigned int align;
@@ -6946,7 +6946,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != ASM_EXPR
 		  && code != BIND_EXPR
 		  && code != CATCH_EXPR
-		  && code != COND_EXPR
+		  && (code != COND_EXPR || gimplify_ctxp->allow_rhs_cond_expr)
 		  && code != EH_FILTER_EXPR
 		  && code != GOTO_EXPR
 		  && code != LABEL_EXPR

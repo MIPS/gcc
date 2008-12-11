@@ -3974,8 +3974,7 @@ match_result (gfc_symbol *function, gfc_symbol **result)
   if (gfc_get_symbol (name, NULL, &r))
     return MATCH_ERROR;
 
-  if (gfc_add_flavor (&r->attr, FL_VARIABLE, r->name, NULL) == FAILURE
-      || gfc_add_result (&r->attr, r->name, NULL) == FAILURE)
+  if (gfc_add_result (&r->attr, r->name, NULL) == FAILURE)
     return MATCH_ERROR;
 
   *result = r;
@@ -4094,6 +4093,7 @@ match_procedure_decl (void)
   /* Get the type spec. for the procedure interface.  */
   old_loc = gfc_current_locus;
   m = gfc_match_type_spec (&current_ts, 0);
+  gfc_gobble_whitespace ();
   if (m == MATCH_YES || (m == MATCH_NO && gfc_peek_ascii_char () == ')'))
     goto got_ts;
 

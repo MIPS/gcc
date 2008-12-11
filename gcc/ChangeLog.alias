@@ -1,3 +1,7 @@
+2008-12-11  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r142671.
+
 2008-12-10  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/38458

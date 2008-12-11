@@ -1766,7 +1766,9 @@ aggregate_value_p (const_tree exp, const_tree fntype)
       {
       case CALL_EXPR:
 	fndecl = get_callee_fndecl (fntype);
-	fntype = fndecl ? TREE_TYPE (fndecl) : 0;
+	fntype = (fndecl
+		  ? TREE_TYPE (fndecl)
+		  : TREE_TYPE (CALL_EXPR_FN (fntype)));
 	break;
       case FUNCTION_DECL:
 	fndecl = fntype;
@@ -2336,7 +2338,17 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
      while promoted mode's size is needed.  */
   if (data->promoted_mode != BLKmode
       && data->promoted_mode != DECL_MODE (parm))
-    set_mem_size (stack_parm, GEN_INT (GET_MODE_SIZE (data->promoted_mode)));
+    {
+      set_mem_size (stack_parm, GEN_INT (GET_MODE_SIZE (data->promoted_mode)));
+      if (MEM_EXPR (stack_parm) && MEM_OFFSET (stack_parm))
+	{
+	  int offset = subreg_lowpart_offset (DECL_MODE (parm),
+					      data->promoted_mode);
+	  if (offset)
+	    set_mem_offset (stack_parm,
+			    plus_constant (MEM_OFFSET (stack_parm), -offset));
+	}
+    }
 
   boundary = data->locate.boundary;
   align = BITS_PER_UNIT;
@@ -3977,6 +3989,8 @@ allocate_struct_function (tree fndecl, bool abstract_p)
   OVERRIDE_ABI_FORMAT (fndecl);
 #endif
 
+  invoke_set_current_function_hook (fndecl);
+
   if (fndecl != NULL_TREE)
     {
       DECL_STRUCT_FUNCTION (fndecl) = cfun;
@@ -4002,8 +4016,6 @@ allocate_struct_function (tree fndecl, bool abstract_p)
       cfun->va_list_gpr_size = VA_LIST_MAX_GPR_SIZE;
       cfun->va_list_fpr_size = VA_LIST_MAX_FPR_SIZE;
     }
-
-  invoke_set_current_function_hook (fndecl);
 }
 
 /* This is like allocate_struct_function, but pushes a new cfun for FNDECL

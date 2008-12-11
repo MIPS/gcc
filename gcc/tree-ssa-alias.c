@@ -397,9 +397,6 @@ compute_may_aliases (void)
 	dump_referenced_vars (dump_file);
     }
 
-  /* Report strict aliasing violations.  */
-  strict_aliasing_warning_backend ();
-
   /* Deallocate memory used by aliasing data structures.  */
   delete_points_to_sets ();
 

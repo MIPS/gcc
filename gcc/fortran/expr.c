@@ -1028,6 +1028,14 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
   mpz_init_set_ui (span, 1);
   for (i = 0; i < ar->dimen; i++)
     {
+      if (gfc_reduce_init_expr (ar->as->lower[i]) == FAILURE
+	  || gfc_reduce_init_expr (ar->as->upper[i]) == FAILURE)
+	{
+	  t = FAILURE;
+	  cons = NULL;
+	  goto depart;
+	}
+
       e = gfc_copy_expr (ar->start[i]);
       if (e->expr_type != EXPR_CONSTANT)
 	{
@@ -1035,14 +1043,15 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
 	  goto depart;
 	}
 
+      gcc_assert (ar->as->upper[i]->expr_type == EXPR_CONSTANT
+		  && ar->as->lower[i]->expr_type == EXPR_CONSTANT);
+
       /* Check the bounds.  */
       if ((ar->as->upper[i]
-	   && ar->as->upper[i]->expr_type == EXPR_CONSTANT
 	   && mpz_cmp (e->value.integer,
 		       ar->as->upper[i]->value.integer) > 0)
-	  || (ar->as->lower[i]->expr_type == EXPR_CONSTANT
-	      && mpz_cmp (e->value.integer,
-			  ar->as->lower[i]->value.integer) < 0))
+	  || (mpz_cmp (e->value.integer,
+		       ar->as->lower[i]->value.integer) < 0))
 	{
 	  gfc_error ("Index in dimension %d is out of bounds "
 		     "at %L", i + 1, &ar->c_where[i]);
@@ -3112,9 +3121,37 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
   if (rvalue->expr_type == EXPR_NULL && rvalue->ts.type == BT_UNKNOWN)
     return SUCCESS;
 
-  /* TODO checks on rvalue for a procedure pointer assignment.  */
+  /* Checks on rvalue for procedure pointer assignments.  */
   if (lvalue->symtree->n.sym->attr.proc_pointer)
-    return SUCCESS;
+    {
+      attr = gfc_expr_attr (rvalue);
+      if (!((rvalue->expr_type == EXPR_NULL)
+	    || (rvalue->expr_type == EXPR_FUNCTION && attr.proc_pointer)
+	    || (rvalue->expr_type == EXPR_VARIABLE
+		&& attr.flavor == FL_PROCEDURE)))
+	{
+	  gfc_error ("Invalid procedure pointer assignment at %L",
+		     &rvalue->where);
+	  return FAILURE;
+	}
+      if (attr.abstract)
+	{
+	  gfc_error ("Abstract interface '%s' is invalid "
+		     "in procedure pointer assignment at %L",
+		     rvalue->symtree->name, &rvalue->where);
+	}
+      /* TODO. See PR 38290.
+      if (rvalue->expr_type == EXPR_VARIABLE
+	  && lvalue->symtree->n.sym->attr.if_source != IFSRC_UNKNOWN
+	  && !gfc_compare_interfaces (lvalue->symtree->n.sym,
+				      rvalue->symtree->n.sym, 0))
+	{
+	  gfc_error ("Interfaces don't match "
+		     "in procedure pointer assignment at %L", &rvalue->where);
+	  return FAILURE;
+	}*/
+      return SUCCESS;
+    }
 
   if (!gfc_compare_types (&lvalue->ts, &rvalue->ts))
     {
