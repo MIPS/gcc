@@ -185,6 +185,8 @@ extern void GOMP_single_copy_end (void *);
 /* stream.c */
 extern void *GOMP_stream_create (size_t, size_t, size_t);
 extern void GOMP_stream_push (void *, void *);
+extern void GOMP_stream_commit (void *);
+extern void *GOMP_stream_tail (void *);
 extern void *GOMP_stream_head (void *);
 extern void GOMP_stream_pop (void *);
 extern bool GOMP_stream_eos_p (void *);

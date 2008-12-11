@@ -1,3 +1,8 @@
+2008-12-11  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* omp-builtins.def (BUILT_IN_GOMP_STREAM_TAIL,
+	BUILT_IN_GOMP_STREAM_COMMIT): New builtins.
+
 2008-10-20  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* omp-low.c (register_omp_task, eq_omp_tgraph_var_info,

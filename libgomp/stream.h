@@ -62,6 +62,10 @@ typedef struct gomp_stream
   /* End of stream: true when producer has finished inserting elements.  */
   bool eos_p;
 
+  /* Read ready: true after the reader has acquired the first read
+     window.  */
+  bool read_ready_p;
+
   /* Producer private group.  The following fields are only touched by
      the producer (read and written).  They should be on a separate
      cache line, which will ensure that the line stays in the Modified
@@ -86,12 +90,12 @@ typedef struct gomp_stream
   /* Offset in bytes of the sliding writing window.  Writing window is
      of size LOCAL_BUFFER_SIZE bytes.  Read/Written by producer, Read
      by consumer.  */
-  int write_buffer_index __attribute__((aligned (64)));
+  size_t write_buffer_index __attribute__((aligned (64)));
 
   /* Offset in bytes of the sliding reading window.  Read window is of
      size LOCAL_BUFFER_SIZE bytes.  Read/Written by consumer, Read by
      producer.  */
-  int read_buffer_index __attribute__((aligned (64)));
+  size_t read_buffer_index __attribute__((aligned (64)));
 
   /* Semaphore for write_buffer_index.  The producer posts it to
      signal the consumer that additional data is available in the

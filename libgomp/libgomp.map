@@ -169,6 +169,8 @@ GOMP_2.0 {
 	GOMP_loop_ull_static_start;
 	GOMP_stream_create;
 	GOMP_stream_push;
+	GOMP_stream_commit;
+	GOMP_stream_tail;
 	GOMP_stream_head;
 	GOMP_stream_pop;
  	GOMP_stream_eos_p;
