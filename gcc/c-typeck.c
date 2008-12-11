@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
    diagnostic messages in convert_for_assignment.  */
 enum impl_conv {
   ic_argpass,
-  ic_argpass_nonproto,
   ic_assign,
   ic_init,
   ic_return
@@ -2748,9 +2747,9 @@ parser_build_unary_op (enum tree_code code, struct c_expr arg, location_t loc)
 {
   struct c_expr result;
 
-  result.original_code = ERROR_MARK;
   result.value = build_unary_op (loc, code, arg.value, 0);
-
+  result.original_code = code;
+  
   if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
     overflow_warning (result.value);
 
@@ -2787,7 +2786,7 @@ parser_build_binary_op (location_t location, enum tree_code code,
   /* Check for cases such as x+y<<z which users are likely
      to misinterpret.  */
   if (warn_parentheses)
-    warn_about_parentheses (code, code1, code2);
+    warn_about_parentheses (code, code1, arg1.value, code2, arg2.value);
 
   if (TREE_CODE_CLASS (code1) != tcc_comparison)
     warn_logical_operator (code, arg1.value, arg2.value);
@@ -3038,7 +3037,7 @@ build_unary_op (location_t location,
       else if (TREE_CODE (TREE_TYPE (arg)) == COMPLEX_TYPE)
 	ret = fold_build1 (IMAGPART_EXPR, TREE_TYPE (TREE_TYPE (arg)), arg);
       else
-	ret = convert (TREE_TYPE (arg), integer_zero_node);
+	ret = omit_one_operand (TREE_TYPE (arg), integer_zero_node, arg);
       goto return_build_unary_op;
 
     case PREINCREMENT_EXPR:
@@ -3081,9 +3080,7 @@ build_unary_op (location_t location,
 
       {
 	tree inc;
-	tree result_type = TREE_TYPE (arg);
 
-	arg = get_unwidened (arg, 0);
 	argtype = TREE_TYPE (arg);
 
 	/* Compute the increment.  */
@@ -3092,7 +3089,7 @@ build_unary_op (location_t location,
 	  {
 	    /* If pointer target is an undefined struct,
 	       we just cannot know how to do the arithmetic.  */
-	    if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (result_type)))
+	    if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (argtype)))
 	      {
 		if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
 		  error_at (location,
@@ -3101,8 +3098,8 @@ build_unary_op (location_t location,
 		  error_at (location,
 			    "decrement of pointer to unknown structure");
 	      }
-	    else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE
-		     || TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
+	    else if (TREE_CODE (TREE_TYPE (argtype)) == FUNCTION_TYPE
+		     || TREE_CODE (TREE_TYPE (argtype)) == VOID_TYPE)
 	      {
 		if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
 		  pedwarn (location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
@@ -3112,10 +3109,10 @@ build_unary_op (location_t location,
 			   "wrong type argument to decrement");
 	      }
 
-	    inc = c_size_in_bytes (TREE_TYPE (result_type));
+	    inc = c_size_in_bytes (TREE_TYPE (argtype));
 	    inc = fold_convert (sizetype, inc);
 	  }
-	else if (FRACT_MODE_P (TYPE_MODE (result_type)))
+	else if (FRACT_MODE_P (TYPE_MODE (argtype)))
 	  {
 	    /* For signed fract types, we invert ++ to -- or
 	       -- to ++, and change inc from 1 to -1, because
@@ -3162,7 +3159,6 @@ build_unary_op (location_t location,
 	else
 	  val = build2 (code, TREE_TYPE (arg), arg, inc);
 	TREE_SIDE_EFFECTS (val) = 1;
-	val = convert (result_type, val);
 	if (TREE_CODE (val) != code)
 	  TREE_NO_WARNING (val) = 1;
 	ret = val;
@@ -3984,7 +3980,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   tree rname = NULL_TREE;
   bool objc_ok = false;
 
-  if (errtype == ic_argpass || errtype == ic_argpass_nonproto)
+  if (errtype == ic_argpass)
     {
       tree selector;
       /* Change pointer to function to the function itself for
@@ -4012,12 +4008,10 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       {                                                                  \
       case ic_argpass:                                                   \
         if (pedwarn (LOCATION, OPT, AR, parmnum, rname))                 \
-          inform (fundecl ? DECL_SOURCE_LOCATION (fundecl) : LOCATION,   \
+          inform ((fundecl && !DECL_IS_BUILTIN (fundecl))                \
+		  ? DECL_SOURCE_LOCATION (fundecl) : LOCATION,           \
                   "expected %qT but argument is of type %qT",            \
                   type, rhstype);                                        \
-        break;                                                           \
-      case ic_argpass_nonproto:                                          \
-        warning (OPT, AR, parmnum, rname);                               \
         break;                                                           \
       case ic_assign:                                                    \
         pedwarn (LOCATION, OPT, AS);                                     \
@@ -4137,7 +4131,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   /* Conversion to a transparent union from its member types.
      This applies only to function arguments.  */
   if (codel == UNION_TYPE && TYPE_TRANSPARENT_UNION (type)
-      && (errtype == ic_argpass || errtype == ic_argpass_nonproto))
+      && errtype == ic_argpass)
     {
       tree memb, marginal_memb = NULL_TREE;
 
@@ -4281,7 +4275,6 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	  switch (errtype)
 	  {
 	  case ic_argpass:
-	  case ic_argpass_nonproto:
 	    warning (OPT_Wmissing_format_attribute,
 		     "argument %d of %qE might be "
 		     "a candidate for a format attribute",
@@ -4447,19 +4440,22 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   switch (errtype)
     {
     case ic_argpass:
-    case ic_argpass_nonproto:
-      /* ??? This should not be an error when inlining calls to
-	 unprototyped functions.  */
       error ("incompatible type for argument %d of %qE", parmnum, rname);
+      inform ((fundecl && !DECL_IS_BUILTIN (fundecl))
+	      ? DECL_SOURCE_LOCATION (fundecl) : input_location,
+	      "expected %qT but argument is of type %qT", type, rhstype);
       break;
     case ic_assign:
-      error ("incompatible types in assignment");
+      error ("incompatible types when assigning to type %qT from type %qT",
+	     type, rhstype);
       break;
     case ic_init:
-      error ("incompatible types in initialization");
+      error ("incompatible types when initializing type %qT using type %qT",
+	     type, rhstype);
       break;
     case ic_return:
-      error ("incompatible types in return");
+      error ("incompatible types when returning type %qT but %qT was expected",
+	     rhstype, type);
       break;
     default:
       gcc_unreachable ();

@@ -1146,6 +1146,35 @@ namelist_write_newline (st_parameter_dt *dtp)
 #else
       write_character (dtp, "\n", 1, 1);
 #endif
+      return;
+    }
+
+  if (is_array_io (dtp))
+    {
+      gfc_offset record;
+      int finished, length;
+
+      length = (int) dtp->u.p.current_unit->bytes_left;
+	      
+      /* Now that the current record has been padded out,
+	 determine where the next record in the array is. */
+      record = next_array_record (dtp, dtp->u.p.current_unit->ls,
+				  &finished);
+      if (finished)
+	dtp->u.p.current_unit->endfile = AT_ENDFILE;
+      else
+	{
+	  /* Now seek to this record */
+	  record = record * dtp->u.p.current_unit->recl;
+
+	  if (sseek (dtp->u.p.current_unit->s, record) == FAILURE)
+	    {
+	      generate_error (&dtp->common, LIBERROR_INTERNAL_UNIT, NULL);
+	      return;
+	    }
+
+	  dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
+	}
     }
   else
     write_character (dtp, " ", 1, 1);
@@ -1442,20 +1471,8 @@ namelist_write (st_parameter_dt *dtp)
 
   /* Set the delimiter for namelist output.  */
   tmp_delim = dtp->u.p.current_unit->delim_status;
-  switch (tmp_delim)
-    {
-    case (DELIM_QUOTE):
-      dtp->u.p.nml_delim = '"';
-      break;
 
-    case (DELIM_APOSTROPHE):
-      dtp->u.p.nml_delim = '\'';
-      break;
-
-    default:
-      dtp->u.p.nml_delim = '\0';
-      break;
-    }
+  dtp->u.p.nml_delim = tmp_delim == DELIM_APOSTROPHE ? '\'' : '"';
 
   /* Temporarily disable namelist delimters.  */
   dtp->u.p.current_unit->delim_status = DELIM_NONE;
@@ -1479,8 +1496,8 @@ namelist_write (st_parameter_dt *dtp)
 	}
     }
 
-  write_character (dtp, "  /", 1, 3);
   namelist_write_newline (dtp);
+  write_character (dtp, " /", 1, 2);
   /* Restore the original delimiter.  */
   dtp->u.p.current_unit->delim_status = tmp_delim;
 }

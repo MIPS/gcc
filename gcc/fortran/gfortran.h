@@ -1157,7 +1157,7 @@ typedef struct gfc_entry_list
   int id;
   /* The LABEL_EXPR marking this entry point.  */
   tree label;
-  /* The nest item in the list.  */
+  /* The next item in the list.  */
   struct gfc_entry_list *next;
 }
 gfc_entry_list;
@@ -1285,7 +1285,7 @@ typedef struct gfc_namespace
      this namespace.  */
   struct gfc_data *data;
 
-  gfc_charlen *cl_list;
+  gfc_charlen *cl_list, *old_cl_list;
 
   int save_all, seen_save, seen_implicit_none;
 
@@ -1886,6 +1886,7 @@ typedef struct gfc_code
      symbol for the interface definition.
   const char *sub_name;  */
   gfc_symbol *resolved_sym;
+  gfc_intrinsic_sym *resolved_isym;
 
   union
   {
@@ -1991,6 +1992,7 @@ typedef struct
   int flag_second_underscore;
   int flag_implicit_none;
   int flag_max_stack_var_size;
+  int flag_max_array_constructor;
   int flag_range_check;
   int flag_pack_derived;
   int flag_repack_arrays;
@@ -2091,7 +2093,7 @@ bool gfc_in_match_data (void);
 void gfc_scanner_done_1 (void);
 void gfc_scanner_init_1 (void);
 
-void gfc_add_include_path (const char *, bool);
+void gfc_add_include_path (const char *, bool, bool);
 void gfc_add_intrinsic_modules_path (const char *);
 void gfc_release_include_path (void);
 FILE *gfc_open_included_file (const char *, bool, bool);
@@ -2213,7 +2215,6 @@ arith gfc_check_integer_range (mpz_t p, int kind);
 bool gfc_check_character_range (gfc_char_t, int);
 
 /* trans-types.c */
-gfc_try gfc_validate_c_kind (gfc_typespec *);
 gfc_try gfc_check_any_c_kind (gfc_typespec *);
 int gfc_validate_kind (bt, int, bool);
 extern int gfc_index_integer_kind;
@@ -2317,7 +2318,7 @@ gfc_symbol *gfc_new_symbol (const char *, gfc_namespace *);
 int gfc_find_symbol (const char *, gfc_namespace *, int, gfc_symbol **);
 int gfc_find_sym_tree (const char *, gfc_namespace *, int, gfc_symtree **);
 int gfc_get_symbol (const char *, gfc_namespace *, gfc_symbol **);
-gfc_try verify_c_interop (gfc_typespec *, const char *name, locus *where);
+gfc_try verify_c_interop (gfc_typespec *);
 gfc_try verify_c_interop_param (gfc_symbol *);
 gfc_try verify_bind_c_sym (gfc_symbol *, gfc_typespec *, int, gfc_common_head *);
 gfc_try verify_bind_c_derived_type (gfc_symbol *);
@@ -2333,6 +2334,7 @@ int gfc_symbols_could_alias (gfc_symbol *, gfc_symbol *);
 void gfc_undo_symbols (void);
 void gfc_commit_symbols (void);
 void gfc_commit_symbol (gfc_symbol *);
+void gfc_free_charlen (gfc_charlen *, gfc_charlen *);
 void gfc_free_namespace (gfc_namespace *);
 
 void gfc_symbol_init_2 (void);
@@ -2448,8 +2450,8 @@ bool gfc_traverse_expr (gfc_expr *, gfc_symbol *,
 			bool (*)(gfc_expr *, gfc_symbol *, int*),
 			int);
 void gfc_expr_set_symbols_referenced (gfc_expr *);
-
 gfc_try gfc_expr_check_typed (gfc_expr*, gfc_namespace*, bool);
+void gfc_expr_replace_symbols (gfc_expr *, gfc_symbol *);
 
 /* st.c */
 extern gfc_code new_st;

@@ -1,5 +1,17 @@
 2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
 
+	Merged with trunk@142635
+	* df-scan.c (df_mwhreg): New typedef.  Adjust all users of...
+	(safe_alloca_vec, safe_grow_vec): Adjust for df_ref and
+	df_mwhreg.
+	(df_uses_record): Pass cl to df_ref_record.
+	* local-alloc.c (adjust_debug_insns_equivs): Adjust for df_ref
+	change.
+	* regstat.c (regstat_init_n_sets_and_refs): Likewise.
+	* reload1.c (reload): Likewise.
+
+2008-12-10  Alexandre Oliva  <aoliva@redhat.com>
+
 	* testsuite/gcc.misc-tests/options.exp (check_for_options): Match
 	as-new too.
 

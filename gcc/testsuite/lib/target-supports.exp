@@ -1,4 +1,4 @@
-#   Copyright (C) 1999, 2001, 2003, 2004, 2005, 2006, 2007
+#   Copyright (C) 1999, 2001, 2003, 2004, 2005, 2006, 2007, 2008
 #    Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -1390,6 +1390,25 @@ proc check_effective_target_powerpc_altivec_ok { } {
     }
 }
 
+# Return 1 if this is a PowerPC target supporting -mcpu=cell.
+
+proc check_effective_target_powerpc_ppu_ok { } {
+    if [check_effective_target_powerpc_altivec_ok] {
+	return [check_no_compiler_messages cell_asm_available object {
+	    int main (void) {
+#ifdef __MACH__
+		asm volatile ("lvlx v0,v0,v0");
+#else
+		asm volatile ("lvlx 0,0,0");
+#endif
+		return 0;
+	    }
+	}]
+    } else {
+	return 0
+    }
+}
+
 # Return 1 if this is a PowerPC target that supports SPU.
 
 proc check_effective_target_powerpc_spu { } {
@@ -2636,4 +2655,13 @@ proc check_effective_target_pow10 { } {
 	return 0;
 	}
     } "-lm" ]
+}
+
+# Return 1 if current options generate DFP instructions, 0 otherwise.
+
+proc check_effective_target_hard_dfp {} {
+    return [check_no_messages_and_pattern hard_dfp "!adddd3" assembly {
+	_Decimal64 x, y, z;
+	void foo (void) { z = x + y; }
+    }]
 }

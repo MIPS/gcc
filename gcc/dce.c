@@ -219,10 +219,10 @@ mark_nonreg_stores (rtx body, rtx insn, bool fast)
 static void
 delete_corresponding_reg_eq_notes (rtx insn)
 {
-  struct df_ref **def_rec;
+  df_ref *def_rec;
   for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
     {
-      struct df_ref *def = *def_rec;
+      df_ref def = *def_rec;
       unsigned int regno = DF_REF_REGNO (def);
       /* This loop is a little tricky.  We cannot just go down the
 	 chain because it is being modified by the actions in the
@@ -230,7 +230,7 @@ delete_corresponding_reg_eq_notes (rtx insn)
 	 anyway.  */
       while (DF_REG_EQ_USE_CHAIN (regno))
 	{
-	  struct df_ref *eq_use = DF_REG_EQ_USE_CHAIN (regno);
+	  df_ref eq_use = DF_REG_EQ_USE_CHAIN (regno);
 	  rtx noted_insn = DF_REF_INSN (eq_use);
 	  rtx note = find_reg_note (noted_insn, REG_EQUAL, NULL_RTX);
 	  if (!note)
@@ -331,7 +331,7 @@ mark_artificial_uses (void)
 {
   basic_block bb;
   struct df_link *defs;
-  struct df_ref **use_rec;
+  df_ref *use_rec;
 
   FOR_ALL_BB (bb)
     {
@@ -350,14 +350,14 @@ static void
 mark_reg_dependencies (rtx insn)
 {
   struct df_link *defs;
-  struct df_ref **use_rec;
+  df_ref *use_rec;
 
   if (DEBUG_INSN_P (insn))
     return;
 
   for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
     {
-      struct df_ref *use = *use_rec;
+      df_ref use = *use_rec;
       if (dump_file)
 	{
 	  fprintf (dump_file, "Processing use of ");
@@ -484,7 +484,7 @@ byte_dce_process_block (basic_block bb, bool redo_out, bitmap au)
   bitmap local_live = BITMAP_ALLOC (&dce_tmp_bitmap_obstack);
   rtx insn;
   bool block_changed;
-  struct df_ref **def_rec;
+  df_ref *def_rec;
 
   if (redo_out)
     {
@@ -515,7 +515,7 @@ byte_dce_process_block (basic_block bb, bool redo_out, bitmap au)
 	/* The insn is needed if there is someone who uses the output.  */
 	for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	  {
-	    struct df_ref *def = *def_rec;
+	    df_ref def = *def_rec;
 	    unsigned int last;
 	    unsigned int dregno = DF_REF_REGNO (def);
 	    unsigned int start = df_byte_lr_get_regno_start (dregno);
@@ -588,7 +588,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au)
   bitmap local_live = BITMAP_ALLOC (&dce_tmp_bitmap_obstack);
   rtx insn;
   bool block_changed;
-  struct df_ref **def_rec;
+  df_ref *def_rec;
 
   if (redo_out)
     {

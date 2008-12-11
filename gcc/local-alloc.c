@@ -795,7 +795,7 @@ memref_used_between_p (rtx memref, rtx start, rtx end)
 static void
 adjust_debug_insns_equivs (unsigned regno)
 {
-  struct df_ref *use;
+  df_ref use;
   rtx eqv = NULL;
 
   gcc_assert (num_changes_pending () == 0);
@@ -1349,7 +1349,7 @@ block_alloc (basic_block b)
   int insn_count = 0;
   int max_uid = get_max_uid ();
   int *qty_order;
-  struct df_ref ** def_rec;
+  df_ref *def_rec;
 
   /* Count the instructions in the basic block.  */
 

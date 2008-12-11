@@ -3292,14 +3292,19 @@ process_partial_specialization (tree decl)
   tree maintmpl = CLASSTYPE_TI_TEMPLATE (type);
   tree specargs = CLASSTYPE_TI_ARGS (type);
   tree inner_args = INNERMOST_TEMPLATE_ARGS (specargs);
-  tree inner_parms = INNERMOST_TEMPLATE_PARMS (current_template_parms);
   tree main_inner_parms = DECL_INNERMOST_TEMPLATE_PARMS (maintmpl);
+  tree inner_parms;
   int nargs = TREE_VEC_LENGTH (inner_args);
-  int ntparms = TREE_VEC_LENGTH (inner_parms);
+  int ntparms;
   int  i;
   int did_error_intro = 0;
   struct template_parm_data tpd;
   struct template_parm_data tpd2;
+
+  gcc_assert (current_template_parms);
+
+  inner_parms = INNERMOST_TEMPLATE_PARMS (current_template_parms);
+  ntparms = TREE_VEC_LENGTH (inner_parms);
 
   /* We check that each of the template parameters given in the
      partial specialization is used in the argument list to the
@@ -3749,8 +3754,8 @@ push_template_decl_real (tree decl, bool is_friend)
      [temp.mem].  */
   bool member_template_p = false;
 
-  if (decl == error_mark_node)
-    return decl;
+  if (decl == error_mark_node || !current_template_parms)
+    return error_mark_node;
 
   /* See if this is a partial specialization.  */
   is_partial = (DECL_IMPLICIT_TYPEDEF_P (decl)
@@ -4683,7 +4688,7 @@ coerce_template_template_parm (tree parm,
 	   D<int, C> d;
 
 	 i.e. the parameter list of TT depends on earlier parameters.  */
-      if (!dependent_type_p (TREE_TYPE (arg))
+      if (!uses_template_parms (TREE_TYPE (arg))
 	  && !same_type_p
 	        (tsubst (TREE_TYPE (parm), outer_args, complain, in_decl),
 		 TREE_TYPE (arg)))
@@ -5580,6 +5585,7 @@ lookup_template_class (tree d1,
       d1 = DECL_NAME (templ);
     }
   else if (TREE_CODE (d1) == TEMPLATE_DECL
+           && DECL_TEMPLATE_RESULT (d1)
 	   && TREE_CODE (DECL_TEMPLATE_RESULT (d1)) == TYPE_DECL)
     {
       templ = d1;
@@ -10318,12 +10324,25 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
 #define RECUR(NODE)				\
   tsubst_expr ((NODE), args, complain, in_decl,	\
 	       integral_constant_expression_p)
-  tree decl, init, cond, incr;
+  tree decl, init, cond, incr, auto_node;
 
   init = TREE_VEC_ELT (OMP_FOR_INIT (t), i);
   gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
   decl = RECUR (TREE_OPERAND (init, 0));
   init = TREE_OPERAND (init, 1);
+  auto_node = type_uses_auto (TREE_TYPE (decl));
+  if (auto_node && init)
+    {
+      tree init_expr = init;
+      tree orig_type;
+      if (TREE_CODE (init_expr) == DECL_EXPR)
+	init_expr = DECL_INITIAL (DECL_EXPR_DECL (init_expr));
+      orig_type = TREE_TYPE (init_expr);
+      TREE_TYPE (init_expr) = RECUR (TREE_TYPE (init_expr));
+      TREE_TYPE (decl)
+	= do_auto_deduction (TREE_TYPE (decl), init_expr, auto_node);
+      TREE_TYPE (init_expr) = orig_type;
+    }
   gcc_assert (!type_dependent_expression_p (decl));
 
   if (!CLASS_TYPE_P (TREE_TYPE (decl)))
@@ -10554,8 +10573,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 			     pack expansion where the parameter packs
 			     used in that expansion were of length
 			     zero.  */
-			  init = build_default_init (TREE_TYPE (decl),
-                                                     NULL_TREE);
+			  init = build_value_init (TREE_TYPE (decl));
 			else
 			  init = t;
 		      }
@@ -11594,6 +11612,7 @@ tsubst_copy_and_build (tree t,
           }
 
 	r = build_constructor (init_list_type_node, n);
+	CONSTRUCTOR_IS_DIRECT_INIT (r) = CONSTRUCTOR_IS_DIRECT_INIT (t);
 
 	if (TREE_HAS_CONSTRUCTOR (t))
 	  return finish_compound_literal (type, r);
@@ -15221,7 +15240,8 @@ instantiate_decl (tree d, int defer_ok,
       input_location = saved_loc;
 
       if (at_eof && !pattern_defined
-	  && DECL_EXPLICIT_INSTANTIATION (d))
+	  && DECL_EXPLICIT_INSTANTIATION (d)
+	  && DECL_NOT_REALLY_EXTERN (d))
 	/* [temp.explicit]
 
 	   The definition of a non-exported function template, a

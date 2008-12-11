@@ -94,13 +94,13 @@ bitmap df_invalidated_by_call = NULL;
 
 struct df_collection_rec
 {
-  struct df_ref ** def_vec;
+  df_ref * def_vec;
   unsigned int next_def;
   unsigned int alloc_def;
-  struct df_ref ** use_vec;
+  df_ref * use_vec;
   unsigned int next_use;
   unsigned int alloc_use;
-  struct df_ref ** eq_use_vec;
+  df_ref * eq_use_vec;
   unsigned int next_eq_use;
   unsigned int alloc_eq_use;
   struct df_mw_hardreg **mw_vec;
@@ -119,7 +119,7 @@ struct df_collection_rec
    container_rec*, and FLD is either def, use, eq_use or mw.  */
 
 #define safe_alloca_vec(ptr, fld, type)					\
-  ((ptr)->fld##_vec = ((struct df_##type **)				\
+  ((ptr)->fld##_vec = ((df_##type *)					\
 		       alloca (sizeof (*(ptr)->fld##_vec)		\
 			       * ((ptr)->alloc_##fld = vec_SIZE_##fld))))
 
@@ -131,7 +131,7 @@ struct df_collection_rec
   (*(((ptr)->next_##fld < (ptr)->alloc_##fld				\
       ? 0								\
       : (ptr)->next_##fld <= vec_SIZE_##fld				\
-      ? ((ptr)->fld##_vec = ((struct df_##type **)			\
+      ? ((ptr)->fld##_vec = ((df_##type *)				\
 			     memcpy (xmalloc				\
 				     (sizeof (*(ptr)->fld##_vec)	\
 				      * ((ptr)->alloc_##fld		\
@@ -139,7 +139,7 @@ struct df_collection_rec
 				     (ptr)->fld##_vec,			\
 				     sizeof (*(ptr)->fld##_vec)		\
 				     * (ptr)->next_##fld)))		\
-      : ((ptr)->fld##_vec = ((struct df_##type **)			\
+      : ((ptr)->fld##_vec = ((df_##type *)				\
 			     xrealloc ((ptr)->fld##_vec,		\
 				       (sizeof (*(ptr)->fld##_vec)	\
 					* (((ptr)->alloc_##fld		\
@@ -155,12 +155,17 @@ struct df_collection_rec
    (ptr)->next_##fld = (ptr)->alloc_##fld = 0,				\
    (ptr)->fld##_vec = 0)
 
+/* This alias enables us to use mwhreg for the type in the macros
+   above.  */
+typedef struct df_mw_hardreg *df_mwhreg;
 
 
-static struct df_ref * df_null_ref_rec[1];
+
+
+static df_ref df_null_ref_rec[1];
 static struct df_mw_hardreg * df_null_mw_rec[1];
 
-static void df_ref_record (struct df_collection_rec *,
+static void df_ref_record (enum df_ref_class, struct df_collection_rec *,
 			   rtx, rtx *, 
 			   basic_block, struct df_insn_info *,
 			   enum df_ref_type, enum df_ref_flags,
@@ -171,16 +176,17 @@ static void df_def_record_1 (struct df_collection_rec *, rtx,
 static void df_defs_record (struct df_collection_rec *, rtx,
 			    basic_block, struct df_insn_info *,
 			    enum df_ref_flags);
-static void df_uses_record (struct df_collection_rec *,
+static void df_uses_record (enum df_ref_class, struct df_collection_rec *,
 			    rtx *, enum df_ref_type,
 			    basic_block, struct df_insn_info *,
 			    enum df_ref_flags, 
 			    int, int, enum machine_mode);
 
-static struct df_ref *df_ref_create_structure (struct df_collection_rec *, rtx, rtx *, 
-					       basic_block, struct df_insn_info *,
-					       enum df_ref_type, enum df_ref_flags,
-					       int, int, enum machine_mode);
+static df_ref df_ref_create_structure (enum df_ref_class, 
+				       struct df_collection_rec *, rtx, rtx *, 
+				       basic_block, struct df_insn_info *,
+				       enum df_ref_type, enum df_ref_flags,
+				       int, int, enum machine_mode);
 
 static void df_insn_refs_collect (struct df_collection_rec*, 
 				  basic_block, struct df_insn_info *); 
@@ -194,8 +200,8 @@ static void df_record_exit_block_uses (bitmap);
 static void df_get_exit_block_use_set (bitmap);
 static void df_get_entry_block_def_set (bitmap);
 static void df_grow_ref_info (struct df_ref_info *, unsigned int);
-static void df_ref_chain_delete_du_chain (struct df_ref **);
-static void df_ref_chain_delete (struct df_ref **);
+static void df_ref_chain_delete_du_chain (df_ref *);
+static void df_ref_chain_delete (df_ref *);
 
 static void df_refs_add_to_chains (struct df_collection_rec *, 
 				   basic_block, rtx);
@@ -203,7 +209,7 @@ static void df_refs_add_to_chains (struct df_collection_rec *,
 static bool df_insn_refs_verify (struct df_collection_rec *, basic_block, rtx, bool);
 static void df_entry_block_defs_collect (struct df_collection_rec *, bitmap);
 static void df_exit_block_uses_collect (struct df_collection_rec *, bitmap);
-static void df_install_ref (struct df_ref *, struct df_reg_info *, 
+static void df_install_ref (df_ref, struct df_reg_info *, 
 			    struct df_ref_info *, bool);
 
 static int df_ref_compare (const void *, const void *);
@@ -231,7 +237,9 @@ static bool regs_ever_live[FIRST_PSEUDO_REGISTER];
 /* Problem data for the scanning dataflow function.  */
 struct df_scan_problem_data
 {
-  alloc_pool ref_pool;
+  alloc_pool ref_base_pool;
+  alloc_pool ref_artificial_pool;
+  alloc_pool ref_regular_pool;
   alloc_pool ref_extract_pool;
   alloc_pool insn_pool;
   alloc_pool reg_pool;
@@ -317,7 +325,9 @@ df_scan_free_internal (void)
   BITMAP_FREE (df->insns_to_notes_rescan);
 
   free_alloc_pool (df_scan->block_pool);
-  free_alloc_pool (problem_data->ref_pool);
+  free_alloc_pool (problem_data->ref_base_pool);
+  free_alloc_pool (problem_data->ref_artificial_pool);
+  free_alloc_pool (problem_data->ref_regular_pool);
   free_alloc_pool (problem_data->ref_extract_pool);
   free_alloc_pool (problem_data->insn_pool);
   free_alloc_pool (problem_data->reg_pool);
@@ -397,20 +407,26 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   df_scan->problem_data = problem_data;
   df_scan->computed = true;
 
-  problem_data->ref_pool 
-    = create_alloc_pool ("df_scan_ref pool", 
-			 sizeof (struct df_ref), block_size);
+  problem_data->ref_base_pool 
+    = create_alloc_pool ("df_scan ref base", 
+			 sizeof (struct df_base_ref), block_size);
+  problem_data->ref_artificial_pool 
+    = create_alloc_pool ("df_scan ref artificial", 
+			 sizeof (struct df_artificial_ref), block_size);
+  problem_data->ref_regular_pool 
+    = create_alloc_pool ("df_scan ref regular", 
+			 sizeof (struct df_regular_ref), block_size);
   problem_data->ref_extract_pool 
-    = create_alloc_pool ("df_scan_ref extract pool", 
-			 sizeof (struct df_ref_extract), block_size);
+    = create_alloc_pool ("df_scan ref extract", 
+			 sizeof (struct df_extract_ref), block_size);
   problem_data->insn_pool 
-    = create_alloc_pool ("df_scan_insn pool", 
+    = create_alloc_pool ("df_scan insn", 
 			 sizeof (struct df_insn_info), block_size);
   problem_data->reg_pool 
-    = create_alloc_pool ("df_scan_reg pool", 
+    = create_alloc_pool ("df_scan reg", 
 			 sizeof (struct df_reg_info), block_size);
   problem_data->mw_reg_pool 
-    = create_alloc_pool ("df_scan_mw_reg pool", 
+    = create_alloc_pool ("df_scan mw_reg", 
 			 sizeof (struct df_mw_hardreg), block_size);
 
   bitmap_obstack_initialize (&problem_data->reg_bitmaps);
@@ -469,6 +485,13 @@ static void
 df_scan_start_dump (FILE *file ATTRIBUTE_UNUSED)
 {
   int i;
+  int dcount = 0;
+  int ucount = 0;
+  int ecount = 0;
+  int icount = 0;
+  int ccount = 0;
+  basic_block bb;
+  rtx insn;
 
   fprintf (file, ";;  invalidated by call \t");
   df_print_regset (file, df_invalidated_by_call);
@@ -486,8 +509,46 @@ df_scan_start_dump (FILE *file ATTRIBUTE_UNUSED)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (df_regs_ever_live_p (i))
       fprintf (file, " %d[%s]", i, reg_names[i]);
+  fprintf (file, "\n;;  ref usage \t");
+  
+  for (i = 0; i < (int)df->regs_inited; i++)
+    if (DF_REG_DEF_COUNT (i) || DF_REG_USE_COUNT (i) || DF_REG_EQ_USE_COUNT (i))
+      {
+	const char * sep = "";
 
-  fprintf (file, "\n");
+	fprintf (file, "r%d={", i);
+	if (DF_REG_DEF_COUNT (i))
+	  {
+	    fprintf (file, "%dd", DF_REG_DEF_COUNT (i));
+	    sep = ",";
+	    dcount += DF_REG_DEF_COUNT (i);
+	  }
+	if (DF_REG_USE_COUNT (i))
+	  {
+	    fprintf (file, "%s%du", sep, DF_REG_USE_COUNT (i));
+	    sep = ",";
+	    ucount += DF_REG_USE_COUNT (i);
+	  }
+	if (DF_REG_EQ_USE_COUNT (i))
+	  {
+	    fprintf (file, "%s%dd", sep, DF_REG_EQ_USE_COUNT (i));
+	    ecount += DF_REG_EQ_USE_COUNT (i);
+	  }
+	fprintf (file, "} ");
+      }
+
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      if (INSN_P (insn))
+	{
+	  if (CALL_P (insn))
+	    ccount++;
+	  else
+	    icount++;
+	}
+
+  fprintf (file, "\n;;    total ref usage %d{%dd,%du,%de} in %d{%d regular + %d call} insns.\n", 
+	   dcount + ucount + ecount, dcount, ucount, ecount, icount + ccount, icount, ccount);
 }
 
 /* Dump the bb_info for a given basic block. */
@@ -618,9 +679,9 @@ df_grow_ref_info (struct df_ref_info *ref_info, unsigned int new_size)
 {
   if (ref_info->refs_size < new_size)
     {
-      ref_info->refs = XRESIZEVEC (struct df_ref *, ref_info->refs, new_size);
+      ref_info->refs = XRESIZEVEC (df_ref, ref_info->refs, new_size);
       memset (ref_info->refs + ref_info->refs_size, 0,
-	      (new_size - ref_info->refs_size) *sizeof (struct df_ref *));
+	      (new_size - ref_info->refs_size) *sizeof (df_ref));
       ref_info->refs_size = new_size;
     }
 }
@@ -711,30 +772,38 @@ df_scan_blocks (void)
    fields if they were constants.  Otherwise they should be -1 if
    those flags were set.  */
 
-struct df_ref *
+df_ref 
 df_ref_create (rtx reg, rtx *loc, rtx insn, 
 	       basic_block bb,
 	       enum df_ref_type ref_type, 
 	       enum df_ref_flags ref_flags,
 	       int width, int offset, enum machine_mode mode)
 {
-  struct df_ref *ref;
+  df_ref ref;
   struct df_reg_info **reg_info;
   struct df_ref_info *ref_info;
-  struct df_ref **ref_rec;
-  struct df_ref ***ref_rec_ptr;
+  df_ref *ref_rec;
+  df_ref **ref_rec_ptr;
   unsigned int count = 0;
   bool add_to_table;
+  enum df_ref_class cl;
 
   df_grow_reg_info ();
 
   /* You cannot hack artificial refs.  */
   gcc_assert (insn);
-  ref = df_ref_create_structure (NULL, reg, loc, bb, DF_INSN_INFO_GET (insn),
+
+  if (width != -1 || offset != -1)
+    cl = DF_REF_EXTRACT;
+  else if (loc)
+    cl = DF_REF_REGULAR;
+  else
+    cl = DF_REF_BASE;
+  ref = df_ref_create_structure (cl, NULL, reg, loc, bb, DF_INSN_INFO_GET (insn),
                                  ref_type, ref_flags, 
 				 width, offset, mode);
 
-  if (DF_REF_TYPE (ref) == DF_REF_REG_DEF)
+  if (DF_REF_REG_DEF_P (ref))
     {
       reg_info = df->def_regs;
       ref_info = &df->def_info;
@@ -795,15 +864,15 @@ df_ref_create (rtx reg, rtx *loc, rtx insn,
   ref_rec = *ref_rec_ptr;
   if (count)
     {
-      ref_rec = XRESIZEVEC (struct df_ref *, ref_rec, count+2);
+      ref_rec = XRESIZEVEC (df_ref, ref_rec, count+2);
       *ref_rec_ptr = ref_rec;
       ref_rec[count] = ref;
       ref_rec[count+1] = NULL;
-      qsort (ref_rec, count + 1, sizeof (struct df_ref *), df_ref_compare);
+      qsort (ref_rec, count + 1, sizeof (df_ref), df_ref_compare);
     }
   else
     {
-      struct df_ref **ref_rec = XNEWVEC (struct df_ref*, 2);
+      df_ref *ref_rec = XNEWVEC (df_ref, 2);
       ref_rec[0] = ref;
       ref_rec[1] = NULL;
       *ref_rec_ptr = ref_rec;
@@ -831,15 +900,29 @@ df_ref_create (rtx reg, rtx *loc, rtx insn,
 ----------------------------------------------------------------------------*/
 
 static void
-df_free_ref (struct df_ref *ref)
+df_free_ref (df_ref ref)
 {
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) df_scan->problem_data;
 
-  if (DF_REF_FLAGS_IS_SET (ref, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
-    pool_free (problem_data->ref_extract_pool, (struct df_ref_extract *)ref);
-  else
-    pool_free (problem_data->ref_pool, ref);
+  switch (DF_REF_CLASS (ref))
+    {
+    case DF_REF_BASE:
+      pool_free (problem_data->ref_base_pool, ref);
+      break;
+
+    case DF_REF_ARTIFICIAL:
+      pool_free (problem_data->ref_artificial_pool, ref);
+      break;
+
+    case DF_REF_REGULAR:
+      pool_free (problem_data->ref_regular_pool, ref);
+      break;
+
+    case DF_REF_EXTRACT:
+      pool_free (problem_data->ref_extract_pool, ref);
+      break;
+    }
 }
 
 
@@ -847,17 +930,18 @@ df_free_ref (struct df_ref *ref)
    Also delete the def-use or use-def chain if it exists.  */
 
 static void
-df_reg_chain_unlink (struct df_ref *ref) 
+df_reg_chain_unlink (df_ref ref) 
 {
-  struct df_ref *next = DF_REF_NEXT_REG (ref);  
-  struct df_ref *prev = DF_REF_PREV_REG (ref);
+  df_ref next = DF_REF_NEXT_REG (ref);  
+  df_ref prev = DF_REF_PREV_REG (ref);
   int id = DF_REF_ID (ref);
   struct df_reg_info *reg_info;
-  struct df_ref **refs = NULL;
+  df_ref *refs = NULL;
 
-  if (DF_REF_TYPE (ref) == DF_REF_REG_DEF)
+  if (DF_REF_REG_DEF_P (ref))
     {
-      reg_info = DF_REG_DEF_GET (DF_REF_REGNO (ref));
+      int regno = DF_REF_REGNO (ref);
+      reg_info = DF_REG_DEF_GET (regno);
       refs = df->def_info.refs;
     }
   else 
@@ -887,7 +971,7 @@ df_reg_chain_unlink (struct df_ref *ref)
     {
       if (df->analyze_subset)
 	{
-	  if (bitmap_bit_p (df->blocks_to_analyze, DF_REF_BB (ref)->index))
+	  if (bitmap_bit_p (df->blocks_to_analyze, DF_REF_BBNO (ref)))
 	    refs[id] = NULL;
 	}
       else
@@ -928,9 +1012,9 @@ df_reg_chain_unlink (struct df_ref *ref)
 /* Remove REF from VEC.  */
 
 static void
-df_ref_compress_rec (struct df_ref ***vec_ptr, struct df_ref *ref)
+df_ref_compress_rec (df_ref **vec_ptr, df_ref ref)
 {
-  struct df_ref **vec = *vec_ptr;
+  df_ref *vec = *vec_ptr;
 
   if (vec[1])
     {
@@ -954,7 +1038,7 @@ df_ref_compress_rec (struct df_ref ***vec_ptr, struct df_ref *ref)
 /* Unlink REF from all def-use/use-def chains, etc.  */
 
 void
-df_ref_remove (struct df_ref *ref)
+df_ref_remove (df_ref ref)
 {
 #if 0
   if (dump_file)
@@ -969,7 +1053,7 @@ df_ref_remove (struct df_ref *ref)
       if (DF_REF_IS_ARTIFICIAL (ref))
 	{
 	  struct df_scan_bb_info *bb_info 
-	    = df_scan_get_bb_info (DF_REF_BB (ref)->index);
+	    = df_scan_get_bb_info (DF_REF_BBNO (ref));
 	  df_ref_compress_rec (&bb_info->artificial_defs, ref);
 	}
       else
@@ -984,7 +1068,7 @@ df_ref_remove (struct df_ref *ref)
       if (DF_REF_IS_ARTIFICIAL (ref))
 	{
 	  struct df_scan_bb_info *bb_info 
-	    = df_scan_get_bb_info (DF_REF_BB (ref)->index);
+	    = df_scan_get_bb_info (DF_REF_BBNO (ref));
 	  df_ref_compress_rec (&bb_info->artificial_uses, ref);
 	}
       else 
@@ -1033,11 +1117,11 @@ df_insn_create_insn_record (rtx insn)
 /* Delete all du chain (DF_REF_CHAIN()) of all refs in the ref chain.  */
 
 static void
-df_ref_chain_delete_du_chain (struct df_ref **ref_rec)
+df_ref_chain_delete_du_chain (df_ref *ref_rec)
 {
   while (*ref_rec)
     {
-      struct df_ref *ref = *ref_rec;
+      df_ref ref = *ref_rec;
       /* CHAIN is allocated by DF_CHAIN. So make sure to 
          pass df_scan instance for the problem.  */
       if (DF_REF_CHAIN (ref))
@@ -1050,9 +1134,9 @@ df_ref_chain_delete_du_chain (struct df_ref **ref_rec)
 /* Delete all refs in the ref chain.  */
 
 static void
-df_ref_chain_delete (struct df_ref **ref_rec)
+df_ref_chain_delete (df_ref *ref_rec)
 {
-  struct df_ref **start = ref_rec;
+  df_ref *start = ref_rec;
   while (*ref_rec)
     {
       df_reg_chain_unlink (*ref_rec);
@@ -1166,7 +1250,7 @@ df_free_collection_rec (struct df_collection_rec *collection_rec)
 {
   struct df_scan_problem_data *problem_data 
     = (struct df_scan_problem_data *) df_scan->problem_data;
-  struct df_ref **ref;
+  df_ref *ref;
   struct df_mw_hardreg **mw;
 
   if (collection_rec->def_vec)
@@ -1239,7 +1323,7 @@ df_insn_rescan (rtx insn)
   safe_alloca_vec (&collection_rec, def, ref);
   safe_alloca_vec (&collection_rec, use, ref);
   safe_alloca_vec (&collection_rec, eq_use, ref);
-  safe_alloca_vec (&collection_rec, mw, mw_hardreg);
+  safe_alloca_vec (&collection_rec, mw, mwhreg);
 
   if (insn_info)
     {
@@ -1528,7 +1612,7 @@ df_reorganize_refs_by_reg_by_reg (struct df_ref_info *ref_info,
       ref_info->begin[regno] = offset;
       if (include_defs)
 	{
-	  struct df_ref *ref = DF_REG_DEF_CHAIN (regno);
+	  df_ref ref = DF_REG_DEF_CHAIN (regno);
 	  while (ref) 
 	    {
 	      ref_info->refs[offset] = ref;
@@ -1540,7 +1624,7 @@ df_reorganize_refs_by_reg_by_reg (struct df_ref_info *ref_info,
 	}
       if (include_uses)
 	{
-	  struct df_ref *ref = DF_REG_USE_CHAIN (regno);
+	  df_ref ref = DF_REG_USE_CHAIN (regno);
 	  while (ref) 
 	    {
 	      ref_info->refs[offset] = ref;
@@ -1552,7 +1636,7 @@ df_reorganize_refs_by_reg_by_reg (struct df_ref_info *ref_info,
 	}
       if (include_eq_uses)
 	{
-	  struct df_ref *ref = DF_REG_EQ_USE_CHAIN (regno);
+	  df_ref ref = DF_REG_EQ_USE_CHAIN (regno);
 	  while (ref) 
 	    {
 	      ref_info->refs[offset] = ref;
@@ -1601,7 +1685,7 @@ df_reorganize_refs_by_reg_by_insn (struct df_ref_info *ref_info,
     {
       basic_block bb = BASIC_BLOCK (bb_index);
       rtx insn;
-      struct df_ref **ref_rec;
+      df_ref *ref_rec;
 
       if (include_defs)
 	for (ref_rec = df_get_artificial_defs (bb_index); *ref_rec; ref_rec++)
@@ -1655,12 +1739,12 @@ df_reorganize_refs_by_reg_by_insn (struct df_ref_info *ref_info,
     {
       basic_block bb = BASIC_BLOCK (bb_index);
       rtx insn;
-      struct df_ref **ref_rec;
+      df_ref *ref_rec;
 
       if (include_defs)
 	for (ref_rec = df_get_artificial_defs (bb_index); *ref_rec; ref_rec++)
 	  {
-	    struct df_ref *ref = *ref_rec;
+	    df_ref ref = *ref_rec;
 	    unsigned int regno = DF_REF_REGNO (ref);
 	    if (regno >= start)
 	      {
@@ -1673,7 +1757,7 @@ df_reorganize_refs_by_reg_by_insn (struct df_ref_info *ref_info,
       if (include_uses)
 	for (ref_rec = df_get_artificial_uses (bb_index); *ref_rec; ref_rec++)
 	  {
-	    struct df_ref *ref = *ref_rec;
+	    df_ref ref = *ref_rec;
 	    unsigned int regno = DF_REF_REGNO (ref);
 	    if (regno >= start)
 	      {
@@ -1693,7 +1777,7 @@ df_reorganize_refs_by_reg_by_insn (struct df_ref_info *ref_info,
 	      if (include_defs)
 		for (ref_rec = DF_INSN_UID_DEFS (uid); *ref_rec; ref_rec++)
 		  {
-		    struct df_ref *ref = *ref_rec;
+		    df_ref ref = *ref_rec;
 		    unsigned int regno = DF_REF_REGNO (ref);
 		    if (regno >= start)
 		      {
@@ -1706,7 +1790,7 @@ df_reorganize_refs_by_reg_by_insn (struct df_ref_info *ref_info,
 	      if (include_uses)
 		for (ref_rec = DF_INSN_UID_USES (uid); *ref_rec; ref_rec++)
 		  {
-		    struct df_ref *ref = *ref_rec;
+		    df_ref ref = *ref_rec;
 		    unsigned int regno = DF_REF_REGNO (ref);
 		    if (regno >= start)
 		      {
@@ -1719,7 +1803,7 @@ df_reorganize_refs_by_reg_by_insn (struct df_ref_info *ref_info,
 	      if (include_eq_uses)
 		for (ref_rec = DF_INSN_UID_EQ_USES (uid); *ref_rec; ref_rec++)
 		  {
-		    struct df_ref *ref = *ref_rec;
+		    df_ref ref = *ref_rec;
 		    unsigned int regno = DF_REF_REGNO (ref);
 		    if (regno >= start)
 		      {
@@ -1762,11 +1846,11 @@ df_reorganize_refs_by_reg (struct df_ref_info *ref_info,
 static unsigned int 
 df_add_refs_to_table (unsigned int offset, 
 		      struct df_ref_info *ref_info, 
-		      struct df_ref **ref_vec)
+		      df_ref *ref_vec)
 {
   while (*ref_vec)
     {
-      struct df_ref *ref = *ref_vec;
+      df_ref ref = *ref_vec;
       if ((!(df->changeable_flags & DF_NO_HARD_REGS))
 	  || (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER))
 	{
@@ -1934,25 +2018,6 @@ df_maybe_reorganize_def_refs (enum df_ref_order order)
 }
 
 
-/* Change the BB of all refs in the ref chain from OLD_BB to NEW_BB.
-   Assumes that all refs in the chain have the same BB.  */
-
-static void
-df_ref_chain_change_bb (struct df_ref **ref_rec, 
-                        basic_block old_bb,
-                        basic_block new_bb)
-{
-  while (*ref_rec)
-    {
-      struct df_ref *ref = *ref_rec;
-
-      gcc_assert (DF_REF_BB (ref) == old_bb);
-      DF_REF_BB (ref) = new_bb;
-      ref_rec++;
-    }
-}
-
-
 /* Change all of the basic block references in INSN to use the insn's
    current basic block.  This function is called from routines that move 
    instructions from one block to another.  */  
@@ -1987,10 +2052,6 @@ df_insn_change_bb (rtx insn, basic_block new_bb)
   if (!INSN_P (insn))
     return;
 
-  df_ref_chain_change_bb (insn_info->defs, old_bb, new_bb);
-  df_ref_chain_change_bb (insn_info->uses, old_bb, new_bb);
-  df_ref_chain_change_bb (insn_info->eq_uses, old_bb, new_bb);
-
   df_set_bb_dirty (new_bb);
   if (old_bb)
     {
@@ -2008,18 +2069,22 @@ df_insn_change_bb (rtx insn, basic_block new_bb)
 /* Helper function for df_ref_change_reg_with_loc.  */
 
 static void
-df_ref_change_reg_with_loc_1 (struct df_reg_info *old_df, struct df_reg_info *new_df,
+df_ref_change_reg_with_loc_1 (struct df_reg_info *old_df, 
+			      struct df_reg_info *new_df,
 			      int new_regno, rtx loc)
 {
-  struct df_ref *the_ref = old_df->reg_chain;
+  df_ref the_ref = old_df->reg_chain;
 
   while (the_ref)
     {
-      if (DF_REF_LOC(the_ref) && (*DF_REF_LOC(the_ref) == loc))
+      if ((!DF_REF_IS_ARTIFICIAL (the_ref))
+	  && (DF_REF_LOC (the_ref))
+	  && (*DF_REF_LOC (the_ref) == loc))
 	{
-	  struct df_ref *next_ref = the_ref->next_reg;
-	  struct df_ref *prev_ref = the_ref->prev_reg;
-	  struct df_ref **ref_vec, **ref_vec_t;
+	  df_ref next_ref = DF_REF_NEXT_REG (the_ref);
+	  df_ref prev_ref = DF_REF_PREV_REG (the_ref);
+	  df_ref *ref_vec, *ref_vec_t;
+	  struct df_insn_info *insn_info = DF_REF_INSN_INFO (the_ref);
 	  unsigned int count = 0;
 
 	  DF_REF_REGNO (the_ref) = new_regno;
@@ -2027,64 +2092,56 @@ df_ref_change_reg_with_loc_1 (struct df_reg_info *old_df, struct df_reg_info *ne
 
 	  /* Pull the_ref out of the old regno chain.  */
 	  if (prev_ref)
-	    prev_ref->next_reg = next_ref;
+	    DF_REF_NEXT_REG (prev_ref) = next_ref;
 	  else
 	    old_df->reg_chain = next_ref;
 	  if (next_ref)
-	    next_ref->prev_reg = prev_ref;
+	    DF_REF_PREV_REG (next_ref) = prev_ref;
 	  old_df->n_refs--;
 
 	  /* Put the ref into the new regno chain.  */
-	  the_ref->prev_reg = NULL;
-	  the_ref->next_reg = new_df->reg_chain;
+	  DF_REF_PREV_REG (the_ref) = NULL;
+	  DF_REF_NEXT_REG (the_ref) = new_df->reg_chain;
 	  if (new_df->reg_chain)
-	    new_df->reg_chain->prev_reg = the_ref;
+	    DF_REF_PREV_REG (new_df->reg_chain) = the_ref;
 	  new_df->reg_chain = the_ref;
 	  new_df->n_refs++;
-	  df_set_bb_dirty (DF_REF_BB (the_ref));
+	  if (DF_REF_BB (the_ref))
+	    df_set_bb_dirty (DF_REF_BB (the_ref));
 
-	  /* Need to resort the record that the ref was in because the
-	     regno is a sorting key.  First, find the right record.  */
-	  if (DF_REF_IS_ARTIFICIAL (the_ref))
-	    {
-	      unsigned int bb_index = DF_REF_BB (the_ref)->index;
-	      if (DF_REF_REG_DEF_P (the_ref))
-		ref_vec = df_get_artificial_defs (bb_index);
-	      else
-		ref_vec = df_get_artificial_uses (bb_index);
-	    }
+	  /* Need to sort the record again that the ref was in because
+	     the regno is a sorting key.  First, find the right
+	     record.  */
+	  if (DF_REF_FLAGS (the_ref) & DF_REF_IN_NOTE)
+	    ref_vec = insn_info->eq_uses;
 	  else
-	    {
-	      struct df_insn_info *insn_info = DF_REF_INSN_INFO (the_ref);
-	      if (DF_REF_FLAGS (the_ref) & DF_REF_IN_NOTE)
-		ref_vec = insn_info->eq_uses;
-	      else
-		ref_vec = insn_info->uses;
-	      if (dump_file)
-		fprintf (dump_file, "changing reg in insn %d\n", 
-			 INSN_UID (DF_REF_INSN (the_ref))); 
-	    }
+	    ref_vec = insn_info->uses;
+	  if (dump_file)
+	    fprintf (dump_file, "changing reg in insn %d\n", 
+		     DF_REF_INSN_UID (the_ref)); 
+      
 	  ref_vec_t = ref_vec;
-
+	  
 	  /* Find the length.  */
 	  while (*ref_vec_t)
 	    {
 	      count++;
 	      ref_vec_t++;
 	    }
-	  qsort (ref_vec, count, sizeof (struct df_ref *), df_ref_compare);
+	  qsort (ref_vec, count, sizeof (df_ref ), df_ref_compare);
 
 	  the_ref = next_ref;
 	}
       else
-	the_ref = the_ref->next_reg;
+	the_ref = DF_REF_NEXT_REG (the_ref);
     }
 }
 
 
 /* Change the regno of all refs that contained LOC from OLD_REGNO to
-   NEW_REGNO.  Refs that do not match LOC are not changed.  This call
-   is to support the SET_REGNO macro. */
+   NEW_REGNO.  Refs that do not match LOC are not changed which means
+   that artificial refs are not changed since they have no loc.  This
+   call is to support the SET_REGNO macro. */
 
 void
 df_ref_change_reg_with_loc (int old_regno, int new_regno, rtx loc)
@@ -2208,8 +2265,9 @@ df_notes_rescan (rtx insn)
       unsigned int num_deleted;
 
       memset (&collection_rec, 0, sizeof (struct df_collection_rec));
+
       safe_alloca_vec (&collection_rec, eq_use, ref);
-      safe_alloca_vec (&collection_rec, mw, mw_hardreg);
+      safe_alloca_vec (&collection_rec, mw, mwhreg);
 
       num_deleted = df_mw_hardreg_chain_delete_eq_uses (insn_info);
       df_ref_chain_delete (insn_info->eq_uses);
@@ -2223,7 +2281,7 @@ df_notes_rescan (rtx insn)
 	    {
 	    case REG_EQUIV:
 	    case REG_EQUAL:
-	      df_uses_record (&collection_rec,
+	      df_uses_record (DF_REF_REGULAR, &collection_rec,
 			      &XEXP (note, 0), DF_REF_REG_USE,
 			      bb, insn_info, DF_REF_IN_NOTE, -1, -1, 0);
 	    default:
@@ -2294,30 +2352,44 @@ df_notes_rescan (rtx insn)
    It ignores DF_REF_MARKER.  */
 
 static bool
-df_ref_equal_p (struct df_ref *ref1, struct df_ref *ref2)
+df_ref_equal_p (df_ref ref1, df_ref ref2)
 {
   if (!ref2)
     return false;
+  
+  if (ref1 == ref2)
+    return true;
 
-  /* The two flag tests here are only to make sure we do not look at
-     the offset and width if they are not there.  The flags are
-     compared in the next set of tests.  */
-  if ((DF_REF_FLAGS_IS_SET (ref1, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
-      && (DF_REF_FLAGS_IS_SET (ref2, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
-      && ((DF_REF_EXTRACT_OFFSET (ref1) != DF_REF_EXTRACT_OFFSET (ref2))
-	  || (DF_REF_EXTRACT_WIDTH (ref1) != DF_REF_EXTRACT_WIDTH (ref2))
-	  || (DF_REF_EXTRACT_MODE (ref1) != DF_REF_EXTRACT_MODE (ref2))))
+  if (DF_REF_CLASS (ref1) != DF_REF_CLASS (ref2)
+      || DF_REF_REGNO (ref1) != DF_REF_REGNO (ref2)
+      || DF_REF_REG (ref1) != DF_REF_REG (ref2)
+      || DF_REF_TYPE (ref1) != DF_REF_TYPE (ref2)
+      || ((DF_REF_FLAGS (ref1) & ~(DF_REF_REG_MARKER + DF_REF_MW_HARDREG)) 
+	  != (DF_REF_FLAGS (ref2) & ~(DF_REF_REG_MARKER + DF_REF_MW_HARDREG)))
+      || DF_REF_BB (ref1) != DF_REF_BB (ref2)
+      || DF_REF_INSN_INFO (ref1) != DF_REF_INSN_INFO (ref2))
     return false;
+  
+  switch (DF_REF_CLASS (ref1))
+    {
+    case DF_REF_ARTIFICIAL:
+    case DF_REF_BASE:
+      return true;
 
-  return (ref1 == ref2) ||
-    (DF_REF_REG (ref1) == DF_REF_REG (ref2)
-     && DF_REF_REGNO (ref1) == DF_REF_REGNO (ref2)
-     && DF_REF_LOC (ref1) == DF_REF_LOC (ref2)
-     && DF_REF_INSN_INFO (ref1) == DF_REF_INSN_INFO (ref2)
-     && DF_REF_TYPE (ref1) == DF_REF_TYPE (ref2)
-     && ((DF_REF_FLAGS (ref1) & ~(DF_REF_REG_MARKER + DF_REF_MW_HARDREG)) 
-	 == (DF_REF_FLAGS (ref2) & ~(DF_REF_REG_MARKER + DF_REF_MW_HARDREG)))
-     && DF_REF_BB (ref1) == DF_REF_BB (ref2));
+    case DF_REF_EXTRACT:
+      if ((DF_REF_EXTRACT_OFFSET (ref1) != DF_REF_EXTRACT_OFFSET (ref2))
+	  || (DF_REF_EXTRACT_WIDTH (ref1) != DF_REF_EXTRACT_WIDTH (ref2))
+	  || (DF_REF_EXTRACT_MODE (ref1) != DF_REF_EXTRACT_MODE (ref2)))
+	return false;
+      /* fallthru.  */
+
+    case DF_REF_REGULAR:
+      return DF_REF_LOC (ref1) == DF_REF_LOC (ref2);
+
+    default:
+      gcc_unreachable ();
+    }
+  return false;
 }
 
 
@@ -2328,11 +2400,14 @@ df_ref_equal_p (struct df_ref *ref1, struct df_ref *ref2)
 static int
 df_ref_compare (const void *r1, const void *r2)
 {
-  const struct df_ref *const ref1 = *(const struct df_ref *const*)r1;
-  const struct df_ref *const ref2 = *(const struct df_ref *const*)r2;
+  const df_ref ref1 = *(const df_ref *)r1;
+  const df_ref ref2 = *(const df_ref *)r2;
 
   if (ref1 == ref2)
     return 0;
+
+  if (DF_REF_CLASS (ref1) != DF_REF_CLASS (ref2))
+    return (int)DF_REF_CLASS (ref1) - (int)DF_REF_CLASS (ref2);
 
   if (DF_REF_REGNO (ref1) != DF_REF_REGNO (ref2))
     return (int)DF_REF_REGNO (ref1) - (int)DF_REF_REGNO (ref2);
@@ -2340,8 +2415,12 @@ df_ref_compare (const void *r1, const void *r2)
   if (DF_REF_TYPE (ref1) != DF_REF_TYPE (ref2))
     return (int)DF_REF_TYPE (ref1) - (int)DF_REF_TYPE (ref2);
 
-  if ((DF_REF_REG (ref1) != DF_REF_REG (ref2))
-      || (DF_REF_LOC (ref1) != DF_REF_LOC (ref2)))
+  if (DF_REF_REG (ref1) != DF_REF_REG (ref2))
+    return (int)DF_REF_ORDER (ref1) - (int)DF_REF_ORDER (ref2);
+
+  /* Cannot look at the LOC field on artificial refs.  */
+  if (DF_REF_CLASS (ref1) != DF_REF_ARTIFICIAL
+      && DF_REF_LOC (ref1) != DF_REF_LOC (ref2))
     return (int)DF_REF_ORDER (ref1) - (int)DF_REF_ORDER (ref2);
 
   if (DF_REF_FLAGS (ref1) != DF_REF_FLAGS (ref2))
@@ -2358,24 +2437,24 @@ df_ref_compare (const void *r1, const void *r2)
 	return 1;
     }
 
-  /* The flags are the same at this point so it is safe to only look
+  /* The classes are the same at this point so it is safe to only look
      at ref1.  */
-  if (DF_REF_FLAGS_IS_SET (ref1, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
+  if (DF_REF_CLASS (ref1) == DF_REF_EXTRACT)
     {
-      if (DF_REF_EXTRACT_OFFSET_CONST (ref1) != DF_REF_EXTRACT_OFFSET_CONST (ref2))
-	return DF_REF_EXTRACT_OFFSET_CONST (ref1) - DF_REF_EXTRACT_OFFSET_CONST (ref2);
-      if (DF_REF_EXTRACT_WIDTH_CONST (ref1) != DF_REF_EXTRACT_WIDTH_CONST (ref2))
-	return DF_REF_EXTRACT_WIDTH_CONST (ref1) - DF_REF_EXTRACT_WIDTH_CONST (ref2);
-      if (DF_REF_EXTRACT_MODE_CONST (ref1) != DF_REF_EXTRACT_MODE_CONST (ref2))
-	return DF_REF_EXTRACT_MODE_CONST (ref1) - DF_REF_EXTRACT_MODE_CONST (ref2);
+      if (DF_REF_EXTRACT_OFFSET (ref1) != DF_REF_EXTRACT_OFFSET (ref2))
+	return DF_REF_EXTRACT_OFFSET (ref1) - DF_REF_EXTRACT_OFFSET (ref2);
+      if (DF_REF_EXTRACT_WIDTH (ref1) != DF_REF_EXTRACT_WIDTH (ref2))
+	return DF_REF_EXTRACT_WIDTH (ref1) - DF_REF_EXTRACT_WIDTH (ref2);
+      if (DF_REF_EXTRACT_MODE (ref1) != DF_REF_EXTRACT_MODE (ref2))
+	return DF_REF_EXTRACT_MODE (ref1) - DF_REF_EXTRACT_MODE (ref2);
     }
   return 0;
 }
 
 static void
-df_swap_refs (struct df_ref **ref_vec, int i, int j)
+df_swap_refs (df_ref *ref_vec, int i, int j)
 {
-  struct df_ref *tmp = ref_vec[i];
+  df_ref tmp = ref_vec[i];
   ref_vec[i] = ref_vec[j];
   ref_vec[j] = tmp;
 }
@@ -2383,7 +2462,7 @@ df_swap_refs (struct df_ref **ref_vec, int i, int j)
 /* Sort and compress a set of refs.  */
 
 static unsigned int
-df_sort_and_compress_refs (struct df_ref **ref_vec, unsigned int count)
+df_sort_and_compress_refs (df_ref *ref_vec, unsigned int count)
 {
   unsigned int i;
   unsigned int dist = 0;
@@ -2411,7 +2490,7 @@ df_sort_and_compress_refs (struct df_ref **ref_vec, unsigned int count)
          of DF_REF_COMPARE.  */
       if (i == count - 1)
         return count;
-      qsort (ref_vec, count, sizeof (struct df_ref *), df_ref_compare);
+      qsort (ref_vec, count, sizeof (df_ref), df_ref_compare);
     }
 
   for (i=0; i<count-dist; i++)
@@ -2551,14 +2630,14 @@ df_canonize_collection_rec (struct df_collection_rec *collection_rec)
 /* Add the new df_ref to appropriate reg_info/ref_info chains.  */
 
 static void
-df_install_ref (struct df_ref *this_ref, 
+df_install_ref (df_ref this_ref, 
 		struct df_reg_info *reg_info, 
 		struct df_ref_info *ref_info,
 		bool add_to_table)
 {
   unsigned int regno = DF_REF_REGNO (this_ref);
   /* Add the ref to the reg_{def,use,eq_use} chain.  */
-  struct df_ref *head = reg_info->reg_chain;
+  df_ref head = reg_info->reg_chain;
 
   reg_info->reg_chain = this_ref;
   reg_info->n_refs++;
@@ -2600,9 +2679,9 @@ df_install_ref (struct df_ref *this_ref,
    eq_uses) and installs the entire group into the insn.  It also adds
    each of these refs into the appropriate chains.  */
 
-static struct df_ref **
+static df_ref *
 df_install_refs (basic_block bb,
-		 struct df_ref **old_vec, unsigned int count, 
+		 df_ref *old_vec, unsigned int count, 
 		 struct df_reg_info **reg_info, 
 		 struct df_ref_info *ref_info,
 		 bool is_notes)
@@ -2610,7 +2689,7 @@ df_install_refs (basic_block bb,
   if (count)
     {
       unsigned int i;
-      struct df_ref **new_vec = XNEWVEC (struct df_ref*, count + 1);
+      df_ref *new_vec = XNEWVEC (df_ref, count + 1);
       bool add_to_table;
 
       switch (ref_info->ref_order)
@@ -2638,7 +2717,7 @@ df_install_refs (basic_block bb,
 
       for (i = 0; i < count; i++)
 	{
-	  struct df_ref *this_ref = old_vec[i];
+	  df_ref this_ref = old_vec[i];
 	  new_vec[i] = this_ref;
 	  df_install_ref (this_ref, reg_info[DF_REF_REGNO (this_ref)], 
 			  ref_info, add_to_table);
@@ -2746,37 +2825,57 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
    if they were constants.  Otherwise they should be -1 if those flags
    were set.  */
 
-static struct df_ref *
-df_ref_create_structure (struct df_collection_rec *collection_rec,
+static df_ref 
+df_ref_create_structure (enum df_ref_class cl, 
+			 struct df_collection_rec *collection_rec,
 			 rtx reg, rtx *loc, 
 			 basic_block bb, struct df_insn_info *info,
 			 enum df_ref_type ref_type, 
 			 enum df_ref_flags ref_flags,
 			 int width, int offset, enum machine_mode mode)
 {
-  struct df_ref *this_ref;
+  df_ref this_ref = NULL;
   int regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) df_scan->problem_data;
 
-  if (ref_flags & (DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
+  switch (cl)
     {
-      this_ref = (struct df_ref *) pool_alloc (problem_data->ref_extract_pool);
+    case DF_REF_BASE:
+      this_ref = (df_ref) pool_alloc (problem_data->ref_base_pool);
+      gcc_assert (loc == NULL);
+      break;
+
+    case DF_REF_ARTIFICIAL:
+      this_ref = (df_ref) pool_alloc (problem_data->ref_artificial_pool);
+      this_ref->artificial_ref.bb = bb;
+      gcc_assert (loc == NULL);
+      break;
+
+    case DF_REF_REGULAR:
+      this_ref = (df_ref) pool_alloc (problem_data->ref_regular_pool);
+      this_ref->regular_ref.loc = loc;
+      gcc_assert (loc);
+      break;
+
+    case DF_REF_EXTRACT:
+      this_ref = (df_ref) pool_alloc (problem_data->ref_extract_pool);
       DF_REF_EXTRACT_WIDTH (this_ref) = width;
       DF_REF_EXTRACT_OFFSET (this_ref) = offset;
       DF_REF_EXTRACT_MODE (this_ref) = mode;
+      this_ref->regular_ref.loc = loc;
+      gcc_assert (loc);
+      break;
     }
-  else
-    this_ref = (struct df_ref *) pool_alloc (problem_data->ref_pool);
+
+  DF_REF_CLASS (this_ref) = cl;
   DF_REF_ID (this_ref) = -1;
   DF_REF_REG (this_ref) = reg;
   DF_REF_REGNO (this_ref) =  regno;
-  DF_REF_LOC (this_ref) = loc;
+  DF_REF_TYPE (this_ref) = ref_type;
   DF_REF_INSN_INFO (this_ref) = info;
   DF_REF_CHAIN (this_ref) = NULL;
-  DF_REF_TYPE (this_ref) = ref_type;
   DF_REF_FLAGS (this_ref) = ref_flags;
-  DF_REF_BB (this_ref) = bb;
   DF_REF_NEXT_REG (this_ref) = NULL;
   DF_REF_PREV_REG (this_ref) = NULL;
   DF_REF_ORDER (this_ref) = df->ref_order++;
@@ -2790,7 +2889,7 @@ df_ref_create_structure (struct df_collection_rec *collection_rec,
   if ((regno < FIRST_PSEUDO_REGISTER) 
       && (!DF_REF_IS_ARTIFICIAL (this_ref)))
     {
-      if (DF_REF_TYPE (this_ref) == DF_REF_REG_DEF)
+      if (DF_REF_REG_DEF_P (this_ref))
 	{
 	  if (!DF_REF_FLAGS_IS_SET (this_ref, DF_REF_MAY_CLOBBER))
 	    DF_REF_FLAGS_SET (this_ref, DF_HARD_REG_LIVE);
@@ -2803,7 +2902,7 @@ df_ref_create_structure (struct df_collection_rec *collection_rec,
 
   if (collection_rec)
     {
-      if (DF_REF_TYPE (this_ref) == DF_REF_REG_DEF)
+      if (DF_REF_REG_DEF_P (this_ref))
 	safe_grow_vec (collection_rec, def, ref) = this_ref;
       else if (DF_REF_FLAGS (this_ref) & DF_REF_IN_NOTE)
 	safe_grow_vec (collection_rec, eq_use, ref) = this_ref;
@@ -2825,7 +2924,8 @@ df_ref_create_structure (struct df_collection_rec *collection_rec,
 
 
 static void
-df_ref_record (struct df_collection_rec *collection_rec,
+df_ref_record (enum df_ref_class cl, 
+	       struct df_collection_rec *collection_rec,
                rtx reg, rtx *loc, 
 	       basic_block bb, struct df_insn_info *insn_info,
 	       enum df_ref_type ref_type, 
@@ -2844,7 +2944,7 @@ df_ref_record (struct df_collection_rec *collection_rec,
         = (struct df_scan_problem_data *) df_scan->problem_data;
       unsigned int i;
       unsigned int endregno;
-      struct df_ref *ref;
+      df_ref ref;
 
       if (GET_CODE (reg) == SUBREG)
 	{
@@ -2873,12 +2973,12 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	  hardreg->start_regno = regno;
 	  hardreg->end_regno = endregno - 1;
 	  hardreg->mw_order = df->ref_order++;
-	  safe_grow_vec (collection_rec, mw, mw_hardreg) = hardreg;
+	  safe_grow_vec (collection_rec, mw, mwhreg) = hardreg;
 	}
 
       for (i = regno; i < endregno; i++)
 	{
-	  ref = df_ref_create_structure (collection_rec, regno_reg_rtx[i], loc, 
+	  ref = df_ref_create_structure (cl, collection_rec, regno_reg_rtx[i], loc, 
 					 bb, insn_info, ref_type, ref_flags, 
 					 width, offset, mode);
 
@@ -2887,9 +2987,8 @@ df_ref_record (struct df_collection_rec *collection_rec,
     }
   else
     {
-      struct df_ref *ref;
-      ref = df_ref_create_structure (collection_rec, reg, loc, bb, insn_info, 
-                                     ref_type, ref_flags, width, offset, mode);
+      df_ref_create_structure (cl, collection_rec, reg, loc, bb, insn_info, 
+			       ref_type, ref_flags, width, offset, mode);
     }
 }
 
@@ -2926,6 +3025,7 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
   int offset = -1;
   int width = -1;
   enum machine_mode mode = 0;
+  enum df_ref_class cl = DF_REF_REGULAR;
 
  /* We may recursively call ourselves on EXPR_LIST when dealing with PARALLEL
      construct.  */
@@ -2971,6 +3071,7 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
 	  width = INTVAL (XEXP (dst, 1));
 	  offset = INTVAL (XEXP (dst, 2));
 	  mode = GET_MODE (dst);
+	  cl = DF_REF_EXTRACT;
 	}
 
       loc = &XEXP (dst, 0);
@@ -2980,14 +3081,14 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
   /* At this point if we do not have a reg or a subreg, just return.  */
   if (REG_P (dst))
     {
-      df_ref_record (collection_rec, 
+      df_ref_record (cl, collection_rec, 
 		     dst, loc, bb, insn_info, DF_REF_REG_DEF, flags, 
 		     width, offset, mode);
 
       /* We want to keep sp alive everywhere - by making all
 	 writes to sp also use of sp. */
       if (REGNO (dst) == STACK_POINTER_REGNUM)
-	df_ref_record (collection_rec,
+	df_ref_record (DF_REF_BASE, collection_rec,
 		       dst, NULL, bb, insn_info, DF_REF_REG_USE, flags, 
 		       width, offset, mode);
     }
@@ -2998,7 +3099,7 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
 
       flags |= DF_REF_SUBREG;
 
-      df_ref_record (collection_rec, 
+      df_ref_record (cl, collection_rec, 
 		     dst, loc, bb, insn_info, DF_REF_REG_DEF, flags, 
 		     width, offset, mode);
     }
@@ -3045,7 +3146,7 @@ df_defs_record (struct df_collection_rec *collection_rec,
    those flags were set.  */
 
 static void
-df_uses_record (struct df_collection_rec *collection_rec,
+df_uses_record (enum df_ref_class cl, struct df_collection_rec *collection_rec,
                 rtx *loc, enum df_ref_type ref_type,
 		basic_block bb, struct df_insn_info *insn_info,
 		enum df_ref_flags flags,
@@ -3078,7 +3179,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
       /* If we are clobbering a MEM, mark any registers inside the address
 	 as being used.  */
       if (MEM_P (XEXP (x, 0)))
-	df_uses_record (collection_rec,
+	df_uses_record (cl, collection_rec,
 			&XEXP (XEXP (x, 0), 0),
 			DF_REF_REG_MEM_STORE,
 		        bb, insn_info,
@@ -3088,7 +3189,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
       return;
 
     case MEM:
-      df_uses_record (collection_rec,
+      df_uses_record (cl, collection_rec,
 		      &XEXP (x, 0), DF_REF_REG_MEM_LOAD, 
 		      bb, insn_info, flags & DF_REF_IN_NOTE, 
 		      width, offset, mode);
@@ -3101,14 +3202,14 @@ df_uses_record (struct df_collection_rec *collection_rec,
       if (!REG_P (SUBREG_REG (x)))
 	{
 	  loc = &SUBREG_REG (x);
-	  df_uses_record (collection_rec, loc, ref_type, bb, insn_info, flags, 
+	  df_uses_record (cl, collection_rec, loc, ref_type, bb, insn_info, flags, 
 			  width, offset, mode);
 	  return;
 	}
       /* ... Fall through ...  */
 
     case REG:
-      df_ref_record (collection_rec, 
+      df_ref_record (cl, collection_rec, 
 		     x, loc, bb, insn_info,
 		     ref_type, flags, 
 		     width, offset, mode);
@@ -3132,7 +3233,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	    else
 	      flags |= DF_REF_SIGN_EXTRACT;
 
-	    df_uses_record (collection_rec,
+	    df_uses_record (DF_REF_EXTRACT, collection_rec,
 			    &XEXP (x, 0), ref_type, bb, insn_info, flags, 
 			    width, offset, mode);
 	    return;
@@ -3144,7 +3245,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
       {
 	rtx dst = SET_DEST (x);
 	gcc_assert (!(flags & DF_REF_IN_NOTE));
-	df_uses_record (collection_rec,
+	df_uses_record (cl, collection_rec,
 			&SET_SRC (x), DF_REF_REG_USE, bb, insn_info, flags, 
 			width, offset, mode);
 
@@ -3153,7 +3254,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	    case SUBREG:
 	      if (df_read_modify_subreg_p (dst))
 		{
-		  df_uses_record (collection_rec, &SUBREG_REG (dst), 
+		  df_uses_record (cl, collection_rec, &SUBREG_REG (dst), 
 				  DF_REF_REG_USE, bb, insn_info, 
 				  flags | DF_REF_READ_WRITE | DF_REF_SUBREG, 
 				  width, offset, mode);
@@ -3167,7 +3268,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	    case CC0:
 		break;
 	    case MEM:
-	      df_uses_record (collection_rec, &XEXP (dst, 0),
+	      df_uses_record (cl, collection_rec, &XEXP (dst, 0),
 			      DF_REF_REG_MEM_STORE, bb, insn_info, flags, 
 			      width, offset, mode);
 	      break;
@@ -3177,7 +3278,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 		/* A strict_low_part uses the whole REG and not just the
 		 SUBREG.  */
 		dst = XEXP (dst, 0);
-		df_uses_record (collection_rec, 
+		df_uses_record (cl, collection_rec, 
 				(GET_CODE (dst) == SUBREG) ? &SUBREG_REG (dst) : temp, 
 				DF_REF_REG_USE, bb, insn_info,
 				DF_REF_READ_WRITE | DF_REF_STRICT_LOW_PART, 
@@ -3192,21 +3293,25 @@ df_uses_record (struct df_collection_rec *collection_rec,
 		    width = INTVAL (XEXP (dst, 1));
 		    offset = INTVAL (XEXP (dst, 2));
 		    mode = GET_MODE (dst);
-		  }
-		else 
-		  {
-		    df_uses_record (collection_rec, &XEXP (dst, 1), 
-				    DF_REF_REG_USE, bb, insn_info, flags, 
-				    width, offset, mode);
-		    df_uses_record (collection_rec, &XEXP (dst, 2), 
-				    DF_REF_REG_USE, bb, insn_info, flags, 
-				    width, offset, mode);
-		  }
-
-		df_uses_record (collection_rec, &XEXP (dst, 0), 
+		    df_uses_record (DF_REF_EXTRACT, collection_rec, &XEXP (dst, 0), 
 				DF_REF_REG_USE, bb, insn_info, 
 				DF_REF_READ_WRITE | DF_REF_ZERO_EXTRACT, 
 				width, offset, mode);
+		  }
+		else 
+		  {
+		    df_uses_record (cl, collection_rec, &XEXP (dst, 1), 
+				    DF_REF_REG_USE, bb, insn_info, flags, 
+				    width, offset, mode);
+		    df_uses_record (cl, collection_rec, &XEXP (dst, 2), 
+				    DF_REF_REG_USE, bb, insn_info, flags, 
+				    width, offset, mode);
+		    df_uses_record (cl, collection_rec, &XEXP (dst, 0), 
+				    DF_REF_REG_USE, bb, insn_info, 
+				    DF_REF_READ_WRITE | DF_REF_ZERO_EXTRACT, 
+				    width, offset, mode);
+		  }
+
 	      }
 	      break;
 
@@ -3255,7 +3360,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	    int j;
 
 	    for (j = 0; j < ASM_OPERANDS_INPUT_LENGTH (x); j++)
-	      df_uses_record (collection_rec, &ASM_OPERANDS_INPUT (x, j),
+	      df_uses_record (cl, collection_rec, &ASM_OPERANDS_INPUT (x, j),
 			      DF_REF_REG_USE, bb, insn_info, flags, 
 			      width, offset, mode);
 	    return;
@@ -3264,7 +3369,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
       }
 
     case VAR_LOCATION:
-      df_uses_record (collection_rec,
+      df_uses_record (cl, collection_rec,
 		      &PAT_VAR_LOCATION_LOC (x),
 		      DF_REF_REG_USE, bb, insn_info,
 		      flags, width, offset, mode);
@@ -3278,7 +3383,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
     case POST_MODIFY:
       gcc_assert (!DEBUG_INSN_P (insn_info->insn));
       /* Catch the def of the register being modified.  */
-      df_ref_record (collection_rec, XEXP (x, 0), &XEXP (x, 0),
+      df_ref_record (cl, collection_rec, XEXP (x, 0), &XEXP (x, 0),
 		     bb, insn_info, 
 		     DF_REF_REG_DEF,
                      flags | DF_REF_READ_WRITE | DF_REF_PRE_POST_MODIFY, 
@@ -3305,7 +3410,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 		loc = &XEXP (x, 0);
 		goto retry;
 	      }
-	    df_uses_record (collection_rec, &XEXP (x, i), ref_type, 
+	    df_uses_record (cl, collection_rec, &XEXP (x, i), ref_type, 
 			    bb, insn_info, flags, 
 			    width, offset, mode);
 	  }
@@ -3313,7 +3418,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	  {
 	    int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
-	      df_uses_record (collection_rec,
+	      df_uses_record (cl, collection_rec,
 			      &XVECEXP (x, i, j), ref_type, 
 			      bb, insn_info, flags, 
 			      width, offset, mode);
@@ -3333,13 +3438,13 @@ df_get_conditional_uses (struct df_collection_rec *collection_rec)
   unsigned int i;
   for (i = 0; i < collection_rec->next_def; i++)
     {
-      struct df_ref *ref = collection_rec->def_vec[i];
+      df_ref ref = collection_rec->def_vec[i];
       if (DF_REF_FLAGS_IS_SET (ref, DF_REF_CONDITIONAL))
         {
 	  int width = -1;
 	  int offset = -1;
 	  enum machine_mode mode = 0;
-          struct df_ref *use;
+          df_ref use;
 
 	  if (DF_REF_FLAGS_IS_SET (ref, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
 	    {
@@ -3348,7 +3453,7 @@ df_get_conditional_uses (struct df_collection_rec *collection_rec)
 	      mode = DF_REF_EXTRACT_MODE (ref);
 	    }
 
-          use = df_ref_create_structure (collection_rec, DF_REF_REG (ref),
+          use = df_ref_create_structure (DF_REF_CLASS (ref), collection_rec, DF_REF_REG (ref),
 					 DF_REF_LOC (ref), DF_REF_BB (ref),
 					 DF_REF_INSN_INFO (ref), DF_REF_REG_USE,
 					 DF_REF_FLAGS (ref) & ~DF_REF_CONDITIONAL,
@@ -3379,7 +3484,7 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
      depending on which def is seen first.  */
   for (i=0; i<collection_rec->next_def; i++)
     {
-      struct df_ref *def = collection_rec->def_vec[i];
+      df_ref def = collection_rec->def_vec[i];
       bitmap_set_bit (defs_generated, DF_REF_REGNO (def));
     }
 
@@ -3389,7 +3494,7 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
        note = XEXP (note, 1))
     {
       if (GET_CODE (XEXP (note, 0)) == USE)
-        df_uses_record (collection_rec, &XEXP (XEXP (note, 0), 0),
+        df_uses_record (DF_REF_REGULAR, collection_rec, &XEXP (XEXP (note, 0), 0),
 			DF_REF_REG_USE, bb, insn_info, flags, -1, -1, 0);
       else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
 	{
@@ -3401,13 +3506,13 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
 				insn_info, flags);
 	    }
 	  else
-	    df_uses_record (collection_rec, &XEXP (note, 0),
+	    df_uses_record (DF_REF_REGULAR, collection_rec, &XEXP (note, 0),
 		            DF_REF_REG_USE, bb, insn_info, flags, -1, -1, 0);
 	}
     }
 
   /* The stack ptr is used (honorarily) by a CALL insn.  */
-  df_ref_record (collection_rec, regno_reg_rtx[STACK_POINTER_REGNUM],
+  df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[STACK_POINTER_REGNUM],
 		 NULL, bb, insn_info, DF_REF_REG_USE,
 		 DF_REF_CALL_STACK_USAGE | flags, 
 		 -1, -1, 0);
@@ -3417,9 +3522,9 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (global_regs[i])
       {
-	df_ref_record (collection_rec, regno_reg_rtx[i],
+	df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
 		       NULL, bb, insn_info, DF_REF_REG_USE, flags, -1, -1, 0);
-	df_ref_record (collection_rec, regno_reg_rtx[i],
+	df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
 		       NULL, bb, insn_info, DF_REF_REG_DEF, flags, -1, -1, 0);
       }
 
@@ -3432,7 +3537,7 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
 	      || !bitmap_bit_p (df->exit_block_uses, ui)
 	      || refers_to_regno_p (ui, ui+1, 
 				    crtl->return_rtx, NULL)))
-        df_ref_record (collection_rec, regno_reg_rtx[ui], 
+        df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[ui], 
 		       NULL, bb, insn_info, DF_REF_REG_DEF,
 		       DF_REF_MAY_CLOBBER | flags, 
 		       -1, -1, 0);
@@ -3471,18 +3576,18 @@ df_insn_refs_collect (struct df_collection_rec* collection_rec,
         {
         case REG_EQUIV:
         case REG_EQUAL:
-          df_uses_record (collection_rec,
+          df_uses_record (DF_REF_REGULAR, collection_rec,
                           &XEXP (note, 0), DF_REF_REG_USE,
                           bb, insn_info, DF_REF_IN_NOTE, -1, -1, 0);
           break;
         case REG_NON_LOCAL_GOTO:
           /* The frame ptr is used by a non-local goto.  */
-          df_ref_record (collection_rec,
+          df_ref_record (DF_REF_BASE, collection_rec,
                          regno_reg_rtx[FRAME_POINTER_REGNUM],
                          NULL, bb, insn_info,
                          DF_REF_REG_USE, 0, -1, -1, 0);
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-          df_ref_record (collection_rec,
+          df_ref_record (DF_REF_BASE, collection_rec,
                          regno_reg_rtx[HARD_FRAME_POINTER_REGNUM],
                          NULL, bb, insn_info,
                          DF_REF_REG_USE, 0, -1, -1, 0);
@@ -3498,7 +3603,7 @@ df_insn_refs_collect (struct df_collection_rec* collection_rec,
 		      (is_cond_exec) ? DF_REF_CONDITIONAL : 0);
 
   /* Record the register uses.  */
-  df_uses_record (collection_rec,
+  df_uses_record (DF_REF_REGULAR, collection_rec,
 		  &PATTERN (insn_info->insn), DF_REF_REG_USE, bb, insn_info, 0, 
 		  -1, -1, 0);
 
@@ -3582,39 +3687,16 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
 	  unsigned regno = EH_RETURN_DATA_REGNO (i);
 	  if (regno == INVALID_REGNUM)
 	    break;
-	  df_ref_record (collection_rec, regno_reg_rtx[regno], NULL,
+	  df_ref_record (DF_REF_ARTIFICIAL, collection_rec, regno_reg_rtx[regno], NULL,
 			 bb, NULL, DF_REF_REG_DEF, DF_REF_AT_TOP, -1, -1, 0);
 	}
-    }
-#endif
-
-
-#ifdef EH_USES
-  if (bb_has_eh_pred (bb))
-    {
-      unsigned int i;
-      /* This code is putting in an artificial ref for the use at the
-	 TOP of the block that receives the exception.  It is too
-	 cumbersome to actually put the ref on the edge.  We could
-	 either model this at the top of the receiver block or the
-	 bottom of the sender block.
-
-         The bottom of the sender block is problematic because not all
-         out-edges of a block are eh-edges.  However, it is true
-         that all edges into a block are either eh-edges or none of
-         them are eh-edges.  Thus, we can model this at the top of the
-         eh-receiver for all of the edges at once. */
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (EH_USES (i))
-	  df_ref_record (collection_rec, regno_reg_rtx[i], NULL,
-			 bb, NULL, DF_REF_REG_USE, DF_REF_AT_TOP, -1, -1, 0);
     }
 #endif
 
   /* Add the hard_frame_pointer if this block is the target of a
      non-local goto.  */
   if (bb->flags & BB_NON_LOCAL_GOTO_TARGET)
-    df_ref_record (collection_rec, hard_frame_pointer_rtx, NULL,
+    df_ref_record (DF_REF_ARTIFICIAL, collection_rec, hard_frame_pointer_rtx, NULL,
 		   bb, NULL, DF_REF_REG_DEF, DF_REF_AT_TOP, -1, -1, 0);
  
   /* Add the artificial uses.  */
@@ -3628,7 +3710,7 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
 
       EXECUTE_IF_SET_IN_BITMAP (au, 0, regno, bi)
 	{
-	  df_ref_record (collection_rec, regno_reg_rtx[regno], NULL,
+	  df_ref_record (DF_REF_ARTIFICIAL, collection_rec, regno_reg_rtx[regno], NULL,
 			 bb, NULL, DF_REF_REG_USE, 0, -1, -1, 0);
 	}
     }
@@ -3654,7 +3736,7 @@ df_bb_refs_record (int bb_index, bool scan_insns)
   safe_alloca_vec (&collection_rec, def, ref);
   safe_alloca_vec (&collection_rec, use, ref);
   safe_alloca_vec (&collection_rec, eq_use, ref);
-  safe_alloca_vec (&collection_rec, mw, mw_hardreg);
+  safe_alloca_vec (&collection_rec, mw, mwhreg);
 
   bb_info = df_scan_get_bb_info (bb_index);
 
@@ -3706,6 +3788,10 @@ df_bb_refs_record (int bb_index, bool scan_insns)
 static void
 df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
 {
+#ifdef EH_USES
+  unsigned int i;
+#endif
+
   bitmap_clear (regular_block_artificial_uses);
 
   if (reload_completed)
@@ -3741,6 +3827,20 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
     }
   /* The all-important stack pointer must always be live.  */
   bitmap_set_bit (regular_block_artificial_uses, STACK_POINTER_REGNUM);
+
+#ifdef EH_USES
+  /* EH_USES registers are used:
+     1) at all insns that might throw (calls or with -fnon-call-exceptions
+	trapping insns)
+     2) in all EH edges
+     3) to support backtraces and/or debugging, anywhere between their
+	initialization and where they the saved registers are restored
+	from them, including the cases where we don't reach the epilogue
+	(noreturn call or infinite loop).  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (EH_USES (i))
+      bitmap_set_bit (regular_block_artificial_uses, i);
+#endif
 }
 
 
@@ -3865,16 +3965,6 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
   /* These registers are live everywhere.  */
   if (!reload_completed)
     {
-#ifdef EH_USES
-      /* The ia-64, the only machine that uses this, does not define these 
-	 until after reload.  */
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (EH_USES (i))
-	  {
-	    bitmap_set_bit (entry_block_defs, i);
-	  }
-#endif
-      
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
@@ -3927,7 +4017,7 @@ df_entry_block_defs_collect (struct df_collection_rec *collection_rec,
 
   EXECUTE_IF_SET_IN_BITMAP (entry_block_defs, 0, i, bi)
     {
-      df_ref_record (collection_rec, regno_reg_rtx[i], NULL, 
+      df_ref_record (DF_REF_ARTIFICIAL, collection_rec, regno_reg_rtx[i], NULL, 
 		     ENTRY_BLOCK_PTR, NULL, DF_REF_REG_DEF, 0, -1, -1, 0);
     }
 
@@ -4090,7 +4180,7 @@ df_exit_block_uses_collect (struct df_collection_rec *collection_rec, bitmap exi
   bitmap_iterator bi;
 
   EXECUTE_IF_SET_IN_BITMAP (exit_block_uses, 0, i, bi)
-    df_ref_record (collection_rec, regno_reg_rtx[i], NULL,
+    df_ref_record (DF_REF_ARTIFICIAL, collection_rec, regno_reg_rtx[i], NULL,
 		   EXIT_BLOCK_PTR, NULL, DF_REF_REG_USE, 0, -1, -1, 0);
 
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
@@ -4100,7 +4190,7 @@ df_exit_block_uses_collect (struct df_collection_rec *collection_rec, bitmap exi
       && !bitmap_bit_p (exit_block_uses, ARG_POINTER_REGNUM)
       && bb_has_eh_pred (EXIT_BLOCK_PTR)
       && fixed_regs[ARG_POINTER_REGNUM])
-    df_ref_record (collection_rec, regno_reg_rtx[ARG_POINTER_REGNUM], NULL,
+    df_ref_record (DF_REF_ARTIFICIAL, collection_rec, regno_reg_rtx[ARG_POINTER_REGNUM], NULL,
 		   EXIT_BLOCK_PTR, NULL, DF_REF_REG_USE, 0, -1, -1, 0);
 #endif
 
@@ -4325,11 +4415,11 @@ df_compute_regs_ever_live (bool reset)
 are in the correct chain.  */ 
 
 static unsigned int
-df_reg_chain_mark (struct df_ref *refs, unsigned int regno, 
+df_reg_chain_mark (df_ref refs, unsigned int regno, 
 		   bool is_def, bool is_eq_use)
 {
   unsigned int count = 0;
-  struct df_ref *ref;
+  df_ref ref;
   for (ref = refs; ref; ref = DF_REF_NEXT_REG (ref))
     {
       gcc_assert (!DF_REF_IS_REG_MARKED (ref));
@@ -4342,17 +4432,17 @@ df_reg_chain_mark (struct df_ref *refs, unsigned int regno,
       /* Check to make sure the ref is in the correct chain.  */
       gcc_assert (DF_REF_REGNO (ref) == regno);
       if (is_def)
-	gcc_assert (DF_REF_TYPE(ref) == DF_REF_REG_DEF);
+	gcc_assert (DF_REF_REG_DEF_P (ref));
       else
-	gcc_assert (DF_REF_TYPE(ref) != DF_REF_REG_DEF);
+	gcc_assert (!DF_REF_REG_DEF_P (ref));
 
       if (is_eq_use)
 	gcc_assert ((DF_REF_FLAGS (ref) & DF_REF_IN_NOTE));
       else
 	gcc_assert ((DF_REF_FLAGS (ref) & DF_REF_IN_NOTE) == 0);
 
-      if (ref->next_reg)
-	gcc_assert (ref->next_reg->prev_reg == ref);
+      if (DF_REF_NEXT_REG (ref))
+	gcc_assert (DF_REF_PREV_REG (DF_REF_NEXT_REG (ref)) == ref);
       count++;
       DF_REF_REG_MARK (ref);
     }
@@ -4363,9 +4453,9 @@ df_reg_chain_mark (struct df_ref *refs, unsigned int regno,
 /* Verify that all of the registers in the chain are unmarked.  */ 
 
 static void
-df_reg_chain_verify_unmarked (struct df_ref *refs)
+df_reg_chain_verify_unmarked (df_ref refs)
 {
-  struct df_ref *ref;
+  df_ref ref;
   for (ref = refs; ref; ref = DF_REF_NEXT_REG (ref))
     gcc_assert (!DF_REF_IS_REG_MARKED (ref));
 }
@@ -4374,7 +4464,7 @@ df_reg_chain_verify_unmarked (struct df_ref *refs)
 /* Verify that NEW_REC and OLD_REC have exactly the same members. */
 
 static bool
-df_refs_verify (struct df_ref **new_rec, struct df_ref **old_rec,
+df_refs_verify (df_ref *new_rec, df_ref *old_rec,
 		bool abort_if_fail)
 {
   while ((*new_rec) && (*old_rec))
@@ -4495,11 +4585,11 @@ df_bb_verify (basic_block bb)
   safe_alloca_vec (&collection_rec, def, ref);
   safe_alloca_vec (&collection_rec, use, ref);
   safe_alloca_vec (&collection_rec, eq_use, ref);
-  safe_alloca_vec (&collection_rec, mw, mw_hardreg);
+  safe_alloca_vec (&collection_rec, mw, mwhreg);
 
   gcc_assert (bb_info);
 
-  /* Scan the block an insn at a time from beginning to end.  */
+  /* Scan the block, one insn at a time, from beginning to end.  */
   FOR_BB_INSNS_REVERSE (bb, insn)
     {
       if (!INSN_P (insn))

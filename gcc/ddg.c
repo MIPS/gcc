@@ -186,13 +186,13 @@ create_ddg_dep_from_intra_loop_link (ddg_ptr g, ddg_node_ptr src_node,
       if (set && REG_P (SET_DEST (set)))
         {
           int regno = REGNO (SET_DEST (set));
-          struct df_ref *first_def;
+          df_ref first_def;
           struct df_rd_bb_info *bb_info = DF_RD_BB_INFO (g->bb);
 
           first_def = df_bb_regno_first_def_find (g->bb, regno);
           gcc_assert (first_def);
 
-          if (bitmap_bit_p (bb_info->gen, first_def->id))
+          if (bitmap_bit_p (bb_info->gen, DF_REF_ID (first_def)))
             return;
         }
     }
@@ -245,7 +245,7 @@ create_ddg_dep_no_link (ddg_ptr g, ddg_node_ptr from, ddg_node_ptr to,
    and anti-dependences from its uses in the current iteration to the
    first definition in the next iteration.  */
 static void
-add_cross_iteration_register_deps (ddg_ptr g, struct df_ref *last_def)
+add_cross_iteration_register_deps (ddg_ptr g, df_ref last_def)
 {
   int regno = DF_REF_REGNO (last_def);
   struct df_link *r_use;
@@ -256,14 +256,14 @@ add_cross_iteration_register_deps (ddg_ptr g, struct df_ref *last_def)
 #ifdef ENABLE_CHECKING
   struct df_rd_bb_info *bb_info = DF_RD_BB_INFO (g->bb);
 #endif
-  struct df_ref *first_def = df_bb_regno_first_def_find (g->bb, regno);
+  df_ref first_def = df_bb_regno_first_def_find (g->bb, regno);
 
   gcc_assert (last_def_node);
   gcc_assert (first_def);
 
 #ifdef ENABLE_CHECKING
-  if (last_def->id != first_def->id)
-    gcc_assert (!bitmap_bit_p (bb_info->gen, first_def->id));
+  if (DF_REF_ID (last_def) != DF_REF_ID (first_def))
+    gcc_assert (!bitmap_bit_p (bb_info->gen, DF_REF_ID (first_def)));
 #endif
 
   /* Create inter-loop true dependences and anti dependences.  */
@@ -299,7 +299,7 @@ add_cross_iteration_register_deps (ddg_ptr g, struct df_ref *last_def)
 
 	  gcc_assert (first_def_node);
 
-          if (last_def->id != first_def->id
+          if (DF_REF_ID (last_def) != DF_REF_ID (first_def)
               || !flag_modulo_sched_allow_regmoves)
             create_ddg_dep_no_link (g, use_node, first_def_node, ANTI_DEP,
                                     REG_DEP, 1);
@@ -317,7 +317,7 @@ add_cross_iteration_register_deps (ddg_ptr g, struct df_ref *last_def)
     {
       ddg_node_ptr dest_node;
 
-      if (last_def->id == first_def->id)
+      if (DF_REF_ID (last_def) == DF_REF_ID (first_def))
 	return;
 
       dest_node = get_node_of_insn (g, DF_REF_INSN (first_def));
@@ -339,7 +339,7 @@ build_inter_loop_deps (ddg_ptr g)
   /* Find inter-loop register output, true and anti deps.  */
   EXECUTE_IF_SET_IN_BITMAP (rd_bb_info->gen, 0, rd_num, bi)
   {
-    struct df_ref *rd = DF_DEFS_GET (rd_num);
+    df_ref rd = DF_DEFS_GET (rd_num);
 
     add_cross_iteration_register_deps (g, rd);
   }

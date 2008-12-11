@@ -1229,6 +1229,18 @@ follow_ssa_edge_in_rhs (struct loop *loop, gimple stmt,
     case GIMPLE_SINGLE_RHS:
       return follow_ssa_edge_expr (loop, stmt, gimple_assign_rhs1 (stmt),
 				   halting_phi, evolution_of_loop, limit);
+    case GIMPLE_UNARY_RHS:
+      if (code == NOP_EXPR)
+	{
+	  /* This assignment is under the form "a_1 = (cast) rhs.  */
+	  t_bool res
+	    = follow_ssa_edge_expr (loop, stmt, gimple_assign_rhs1 (stmt),
+				    halting_phi, evolution_of_loop, limit);
+	  *evolution_of_loop = chrec_convert (type, *evolution_of_loop, stmt);
+	  return res;
+	}
+      /* FALLTHRU */
+
     default:
       return t_false;
     }
@@ -2213,7 +2225,9 @@ instantiate_scev_1 (basic_block instantiate_below,
       break;
     }
 
-  gcc_assert (!VL_EXP_CLASS_P (chrec));
+  if (VL_EXP_CLASS_P (chrec))
+    return chrec_dont_know;
+
   switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
     {
     case 3:

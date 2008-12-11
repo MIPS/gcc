@@ -746,6 +746,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 		    {
 	              *tp = build1 (INDIRECT_REF, type, new_tree);
 		      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+		      TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
 		    }
 		}
 	      *walk_subtrees = 0;
@@ -2483,13 +2484,7 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
 bool
 tree_inlinable_function_p (tree fn)
 {
-  bool ret = inlinable_function_p (fn);
-
-  if (getenv ("TUPLES_INLINE"))
-    fprintf (stderr, "Function %s is %sinlinable\n", get_name (fn),
-	     ret ? "" : "not ");
-
-  return ret;
+  return inlinable_function_p (fn);
 }
 
 static const char *inline_forbidden_reason;
