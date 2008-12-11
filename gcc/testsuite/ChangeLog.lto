@@ -1,3 +1,7 @@
+2008-12-11  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/20081210-1_0.c: Fix for 64bit hosts.
+
 2008-12-10  Doug Kwan  <dougkwan@google.com>
 
 	* gcc.dg/lto/20081210-1_0.c: New test.
