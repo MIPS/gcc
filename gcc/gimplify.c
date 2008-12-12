@@ -2326,13 +2326,13 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	  if (call_expr_nargs (*expr_p) < 2)
 	    {
 	      error ("too few arguments to function %<va_start%>");
-	      *expr_p = build_empty_stmt ();
+	      *expr_p = build_empty_stmt (EXPR_LOCATION (*expr_p));
 	      return GS_OK;
 	    }
 	  
 	  if (fold_builtin_next_arg (*expr_p, true))
 	    {
-	      *expr_p = build_empty_stmt ();
+	      *expr_p = build_empty_stmt (EXPR_LOCATION (*expr_p));
 	      return GS_OK;
 	    }
 	}

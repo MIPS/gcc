@@ -896,7 +896,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	      STRIP_TYPE_NOPS (value);
 	      if (TREE_CONSTANT (value) || TREE_READONLY (value))
 		{
-		  *tp = build_empty_stmt ();
+		  *tp = build_empty_stmt (input_location);
 		  return copy_tree_body_r (tp, walk_subtrees, data);
 		}
 	    }

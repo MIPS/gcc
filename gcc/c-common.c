@@ -3339,8 +3339,9 @@ c_common_truthvalue_conversion (location_t location, tree expr)
     case ORDERED_EXPR: case UNORDERED_EXPR:
       if (TREE_TYPE (expr) == truthvalue_type_node)
 	return expr;
-      return build2 (TREE_CODE (expr), truthvalue_type_node,
+      expr = build2 (TREE_CODE (expr), truthvalue_type_node,
 		     TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
+      goto ret;
 
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
@@ -3349,18 +3350,20 @@ c_common_truthvalue_conversion (location_t location, tree expr)
     case TRUTH_XOR_EXPR:
       if (TREE_TYPE (expr) == truthvalue_type_node)
 	return expr;
-      return build2 (TREE_CODE (expr), truthvalue_type_node,
-		 c_common_truthvalue_conversion (location, 
-						 TREE_OPERAND (expr, 0)),
-		 c_common_truthvalue_conversion (location,
-						 TREE_OPERAND (expr, 1)));
+      expr = build2 (TREE_CODE (expr), truthvalue_type_node,
+		     c_common_truthvalue_conversion (location, 
+						     TREE_OPERAND (expr, 0)),
+		     c_common_truthvalue_conversion (location,
+						     TREE_OPERAND (expr, 1)));
+      goto ret;
 
     case TRUTH_NOT_EXPR:
       if (TREE_TYPE (expr) == truthvalue_type_node)
 	return expr;
-      return build1 (TREE_CODE (expr), truthvalue_type_node,
-		 c_common_truthvalue_conversion (location,
-						 TREE_OPERAND (expr, 0)));
+      expr = build1 (TREE_CODE (expr), truthvalue_type_node,
+		     c_common_truthvalue_conversion (location,
+						     TREE_OPERAND (expr, 0)));
+      goto ret;
 
     case ERROR_MARK:
       return expr;
@@ -3406,8 +3409,11 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	  }
 
 	if (TREE_SIDE_EFFECTS (inner))
-	  return build2 (COMPOUND_EXPR, truthvalue_type_node,
-			 inner, truthvalue_true_node);
+	  {
+	    expr = build2 (COMPOUND_EXPR, truthvalue_type_node,
+			   inner, truthvalue_true_node);
+	    goto ret;
+	  }
 	else
 	  return truthvalue_true_node;
       }
@@ -3433,22 +3439,27 @@ c_common_truthvalue_conversion (location_t location, tree expr)
       /* These don't change whether an object is zero or nonzero, but
 	 we can't ignore them if their second arg has side-effects.  */
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
-	return build2 (COMPOUND_EXPR, truthvalue_type_node,
-		       TREE_OPERAND (expr, 1),
-		       c_common_truthvalue_conversion 
-		        (location, TREE_OPERAND (expr, 0)));
+	{
+	  expr = build2 (COMPOUND_EXPR, truthvalue_type_node,
+			 TREE_OPERAND (expr, 1),
+			 c_common_truthvalue_conversion 
+			 (location, TREE_OPERAND (expr, 0)));
+	  goto ret;
+	}
       else
 	return c_common_truthvalue_conversion (location,
 					       TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
-      return fold_build3 (COND_EXPR, truthvalue_type_node,
-		TREE_OPERAND (expr, 0),
-		c_common_truthvalue_conversion (location,
-						TREE_OPERAND (expr, 1)),
-		c_common_truthvalue_conversion (location,
-						TREE_OPERAND (expr, 2)));
+      expr = fold_build3
+	(COND_EXPR, truthvalue_type_node,
+	 TREE_OPERAND (expr, 0),
+	 c_common_truthvalue_conversion (location,
+					 TREE_OPERAND (expr, 1)),
+	 c_common_truthvalue_conversion (location,
+					 TREE_OPERAND (expr, 2)));
+      goto ret;
 
     CASE_CONVERT:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
@@ -3498,12 +3509,14 @@ c_common_truthvalue_conversion (location_t location, tree expr)
       tree fixed_zero_node = build_fixed (TREE_TYPE (expr),
 					  FCONST0 (TYPE_MODE
 						   (TREE_TYPE (expr))));
-      return build_binary_op (EXPR_LOCATION (expr),
-			      NE_EXPR, expr, fixed_zero_node, 1);
+      return build_binary_op (location, NE_EXPR, expr, fixed_zero_node, 1);
     }
+  else
+    return build_binary_op (location, NE_EXPR, expr, integer_zero_node, 1);
 
-  return build_binary_op (EXPR_LOCATION (expr),
-			  NE_EXPR, expr, integer_zero_node, 1);
+    ret:
+  protected_set_expr_location (expr, location);
+  return expr;
 }
 
 static void def_builtin_1  (enum built_in_function fncode,
@@ -3744,13 +3757,15 @@ c_common_get_alias_set (tree t)
   return -1;
 }
 
-/* Compute the value of 'sizeof (TYPE)' or '__alignof__ (TYPE)', where the
-   second parameter indicates which OPERATOR is being applied.  The COMPLAIN
-   flag controls whether we should diagnose possibly ill-formed
-   constructs or not.  */
+/* Compute the value of 'sizeof (TYPE)' or '__alignof__ (TYPE)', where
+   the second parameter indicates which OPERATOR is being applied.
+   The COMPLAIN flag controls whether we should diagnose possibly
+   ill-formed constructs or not.  LOC is the location of the SIZEOF or
+   TYPEOF operator.  */
 
 tree
-c_sizeof_or_alignof_type (tree type, bool is_sizeof, int complain)
+c_sizeof_or_alignof_type (location_t loc,
+			  tree type, bool is_sizeof, int complain)
 {
   const char *op_name;
   tree value = NULL;
@@ -3763,7 +3778,7 @@ c_sizeof_or_alignof_type (tree type, bool is_sizeof, int complain)
       if (is_sizeof)
 	{
 	  if (complain && (pedantic || warn_pointer_arith))
-	    pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
+	    pedwarn (loc, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
 		     "invalid application of %<sizeof%> to a function type");
           else if (!complain)
             return error_mark_node;
@@ -3776,7 +3791,7 @@ c_sizeof_or_alignof_type (tree type, bool is_sizeof, int complain)
     {
       if (type_code == VOID_TYPE
 	  && complain && (pedantic || warn_pointer_arith))
-	pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
+	pedwarn (loc, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
 		 "invalid application of %qs to a void type", op_name);
       else if (!complain)
         return error_mark_node;
@@ -3785,8 +3800,8 @@ c_sizeof_or_alignof_type (tree type, bool is_sizeof, int complain)
   else if (!COMPLETE_TYPE_P (type))
     {
       if (complain)
-	error ("invalid application of %qs to incomplete type %qT ",
-	       op_name, type);
+	error_at (loc, "invalid application of %qs to incomplete type %qT ",
+		  op_name, type);
       value = size_zero_node;
     }
   else
@@ -3813,10 +3828,11 @@ c_sizeof_or_alignof_type (tree type, bool is_sizeof, int complain)
 /* Implement the __alignof keyword: Return the minimum required
    alignment of EXPR, measured in bytes.  For VAR_DECLs,
    FUNCTION_DECLs and FIELD_DECLs return DECL_ALIGN (which can be set
-   from an "aligned" __attribute__ specification).  */
+   from an "aligned" __attribute__ specification).  LOC is the
+   location of the ALIGNOF operator.  */
 
 tree
-c_alignof_expr (tree expr)
+c_alignof_expr (location_t loc, tree expr)
 {
   tree t;
 
@@ -3826,7 +3842,7 @@ c_alignof_expr (tree expr)
   else if (TREE_CODE (expr) == COMPONENT_REF
 	   && DECL_C_BIT_FIELD (TREE_OPERAND (expr, 1)))
     {
-      error ("%<__alignof%> applied to a bit-field");
+      error_at (loc, "%<__alignof%> applied to a bit-field");
       t = size_one_node;
     }
   else if (TREE_CODE (expr) == COMPONENT_REF
@@ -3849,10 +3865,10 @@ c_alignof_expr (tree expr)
 	  if (thisalign > bestalign)
 	    best = t, bestalign = thisalign;
 	}
-      return c_alignof (TREE_TYPE (TREE_TYPE (best)));
+      return c_alignof (loc, TREE_TYPE (TREE_TYPE (best)));
     }
   else
-    return c_alignof (TREE_TYPE (expr));
+    return c_alignof (loc, TREE_TYPE (expr));
 
   return fold_convert (size_type_node, t);
 }
@@ -4441,9 +4457,11 @@ set_compound_literal_name (tree decl)
 }
 
 tree
-build_va_arg (tree expr, tree type)
+build_va_arg (location_t loc, tree expr, tree type)
 {
-  return build1 (VA_ARG_EXPR, type, expr);
+  expr = build1 (VA_ARG_EXPR, type, expr);
+  SET_EXPR_LOCATION (expr, loc);
+  return expr;
 }
 
 
@@ -4769,7 +4787,7 @@ c_add_case_label (location_t loc, splay_tree cases, tree cond, tree orig_type,
     }
 
   /* Add a CASE_LABEL to the statement-tree.  */
-  case_label = add_stmt (build_case_label (low_value, high_value, label));
+  case_label = add_stmt (build_case_label (loc, low_value, high_value, label));
   /* Register this case label in the splay tree.  */
   splay_tree_insert (cases,
 		     (splay_tree_key) low_value,
@@ -4784,7 +4802,7 @@ c_add_case_label (location_t loc, splay_tree cases, tree cond, tree orig_type,
   if (!cases->root)
     {
       tree t = create_artificial_label (loc);
-      add_stmt (build_stmt (LABEL_EXPR, t));
+      add_stmt (build_stmt (loc, LABEL_EXPR, t));
     }
   return error_mark_node;
 }

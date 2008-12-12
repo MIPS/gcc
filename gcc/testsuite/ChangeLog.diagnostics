@@ -1,3 +1,9 @@
+2008-12-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/gomp/pr27415.c: Move firstprivate diagnostics to correct
+	line.
+	* gcc.dg/label-decl-2.c: Move label diagnostic to correct line.
+
 2008-11-19  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gcc.dg/old-style-prom-3.c: Check for error on the correct line.

@@ -1576,7 +1576,7 @@ struct tree_constructor GTY(())
 
 /* True if a tree is an expression or statement that can have a
    location.  */
-#define CAN_HAVE_LOCATION_P(NODE) (EXPR_P (NODE))
+#define CAN_HAVE_LOCATION_P(NODE) ((NODE) && EXPR_P (NODE))
 
 extern void protected_set_expr_location (tree, location_t);
 
@@ -3964,7 +3964,7 @@ extern tree build_decl_stat (location_t, enum tree_code, tree, tree MEM_STAT_DEC
 extern tree build_fn_decl (const char *, tree);
 #define build_decl(l,c,t,q) build_decl_stat (l,c,t,q MEM_STAT_INFO)
 extern tree build_block (tree, tree, tree, tree);
-extern tree build_empty_stmt (void);
+extern tree build_empty_stmt (location_t);
 extern tree build_omp_clause (enum omp_clause_code);
 
 extern tree build_vl_exp_stat (enum tree_code, int MEM_STAT_DECL);

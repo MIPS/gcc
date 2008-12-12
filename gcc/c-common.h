@@ -716,8 +716,8 @@ extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
 extern bool decl_with_nonnull_addr_p (const_tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
 extern void c_apply_type_quals_to_decl (int, tree);
-extern tree c_sizeof_or_alignof_type (tree, bool, int);
-extern tree c_alignof_expr (tree);
+extern tree c_sizeof_or_alignof_type (location_t, tree, bool, int);
+extern tree c_alignof_expr (location_t, tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
 extern void binary_op_error (location_t, enum tree_code, tree, tree);
@@ -734,8 +734,8 @@ extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
 extern bool same_scalar_type_ignoring_signedness (tree, tree);
 
-#define c_sizeof(T)  c_sizeof_or_alignof_type (T, true, 1)
-#define c_alignof(T) c_sizeof_or_alignof_type (T, false, 1)
+#define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, 1)
+#define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, 1)
 
 /* Subroutine of build_binary_op, used for certain operations.  */
 extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwise);
@@ -760,7 +760,7 @@ extern void disable_builtin_function (const char *);
 
 extern void set_compound_literal_name (tree decl);
 
-extern tree build_va_arg (tree, tree);
+extern tree build_va_arg (location_t, tree, tree);
 
 extern unsigned int c_common_init_options (unsigned int, const char **);
 extern bool c_common_post_options (const char **);
@@ -808,8 +808,8 @@ extern void finish_file	(void);
 
 extern void emit_local_var (tree);
 extern tree do_case (location_t, tree, tree);
-extern tree build_stmt (enum tree_code, ...);
-extern tree build_case_label (tree, tree, tree);
+extern tree build_stmt (location_t, enum tree_code, ...);
+extern tree build_case_label (location_t, tree, tree, tree);
 
 /* These functions must be defined by each front-end which implements
    a variant of the C language.  They are used in c-common.c.  */
@@ -925,7 +925,7 @@ extern void warn_for_sign_compare (location_t,
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
 extern int c_gimplify_expr (tree *, gimple_seq *, gimple_seq *);
-extern tree c_build_bind_expr (tree, tree);
+extern tree c_build_bind_expr (location_t, tree, tree);
 
 /* In c-pch.c  */
 extern void pch_init (void);
@@ -969,7 +969,7 @@ extern void objc_declare_class (tree);
 extern void objc_declare_protocols (tree);
 extern tree objc_build_message_expr (tree);
 extern tree objc_finish_message_expr (tree, tree, tree);
-extern tree objc_build_selector_expr (tree);
+extern tree objc_build_selector_expr (location_t, tree);
 extern tree objc_build_protocol_expr (tree);
 extern tree objc_build_encode_expr (tree);
 extern tree objc_build_string_object (tree);
@@ -993,7 +993,7 @@ extern void objc_start_method_definition (tree);
 extern void objc_finish_method_definition (tree);
 extern void objc_add_instance_variable (tree);
 extern tree objc_build_keyword_decl (tree, tree, tree);
-extern tree objc_build_throw_stmt (tree);
+extern tree objc_build_throw_stmt (location_t, tree);
 extern void objc_begin_try_stmt (location_t, tree);
 extern tree objc_finish_try_stmt (void);
 extern void objc_begin_catch_clause (tree);
@@ -1017,13 +1017,13 @@ extern void pp_dir_change (cpp_reader *, const char *);
 extern bool check_missing_format_attribute (tree, tree);
 
 /* In c-omp.c  */
-extern tree c_finish_omp_master (tree);
-extern tree c_finish_omp_critical (tree, tree);
-extern tree c_finish_omp_ordered (tree);
-extern void c_finish_omp_barrier (void);
-extern tree c_finish_omp_atomic (enum tree_code, tree, tree);
-extern void c_finish_omp_flush (void);
-extern void c_finish_omp_taskwait (void);
+extern tree c_finish_omp_master (location_t, tree);
+extern tree c_finish_omp_critical (location_t, tree, tree);
+extern tree c_finish_omp_ordered (location_t, tree);
+extern void c_finish_omp_barrier (location_t);
+extern tree c_finish_omp_atomic (location_t, enum tree_code, tree, tree);
+extern void c_finish_omp_flush (location_t);
+extern void c_finish_omp_taskwait (location_t);
 extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
 extern void c_split_parallel_clauses (tree, tree *, tree *);
 extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);

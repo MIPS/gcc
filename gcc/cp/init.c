@@ -1770,13 +1770,14 @@ avoid_placement_new_aliasing (tree t, tree placement)
   if (TREE_CODE (TREE_TYPE (t)) == POINTER_TYPE
       && placement != NULL_TREE
       && TREE_CODE (TREE_TYPE (placement)) == POINTER_TYPE)
-    type_change = build_stmt (CHANGE_DYNAMIC_TYPE_EXPR,
+    type_change = build_stmt (input_location,
+			      CHANGE_DYNAMIC_TYPE_EXPR,
 			      TREE_TYPE (t),
 			      placement);
   else
     {
       /* Build a memory clobber.  */
-      type_change = build_stmt (ASM_EXPR,
+      type_change = build_stmt (input_location, ASM_EXPR,
 				build_string (0, ""),
 				NULL_TREE,
 				NULL_TREE,
@@ -2561,15 +2562,17 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 			 fold_convert (ptype, base)));
   tmp = fold_build1 (NEGATE_EXPR, sizetype, size_exp);
   body = build_compound_expr
-    (body, cp_build_modify_expr (tbase, NOP_EXPR,
+    (input_location, 
+     body, cp_build_modify_expr (tbase, NOP_EXPR,
 				 build2 (POINTER_PLUS_EXPR, ptype, tbase, tmp),
 				 tf_warning_or_error));
   body = build_compound_expr
-    (body, build_delete (ptype, tbase, sfk_complete_destructor,
+    (input_location,
+     body, build_delete (ptype, tbase, sfk_complete_destructor,
 			 LOOKUP_NORMAL|LOOKUP_DESTRUCTOR, 1));
 
   loop = build1 (LOOP_EXPR, void_type_node, body);
-  loop = build_compound_expr (tbase_init, loop);
+  loop = build_compound_expr (input_location, tbase_init, loop);
 
  no_destructor:
   /* If the delete flag is one, or anything else with the low bit set,
@@ -2616,7 +2619,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   else if (!body)
     body = deallocate_expr;
   else
-    body = build_compound_expr (body, deallocate_expr);
+    body = build_compound_expr (input_location, body, deallocate_expr);
 
   if (!body)
     body = integer_zero_node;

@@ -3798,7 +3798,7 @@ force_evaluation_order (tree node)
 tree
 build_java_empty_stmt (void)
 {
-  tree t = build_empty_stmt ();
+  tree t = build_empty_stmt (input_location);
   return t;
 }
 

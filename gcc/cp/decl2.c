@@ -355,7 +355,7 @@ grok_array_decl (tree array_expr, tree index_exp)
       if (array_expr == error_mark_node || index_exp == error_mark_node)
 	error ("ambiguous conversion for array subscript");
 
-      expr = build_array_ref (array_expr, index_exp, input_location);
+      expr = build_array_ref (input_location, array_expr, index_exp);
     }
   if (processing_template_decl && expr != error_mark_node)
     return build_min_non_dep (ARRAY_REF, expr, orig_array_expr, orig_index_exp,

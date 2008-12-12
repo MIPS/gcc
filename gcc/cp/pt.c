@@ -9824,7 +9824,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  r = non_reference (TREE_TYPE (t));
 	  r = tsubst (r, args, complain, in_decl);
 	  r = build_pointer_type (r);
-	  r = build_c_cast (r, null_node);
+	  r = build_c_cast (input_location, r, null_node);
 	  return cp_build_indirect_ref (r, NULL, tf_warning_or_error);
 	}
       

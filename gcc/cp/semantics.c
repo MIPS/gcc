@@ -421,7 +421,7 @@ maybe_cleanup_point_expr_void (tree expr)
 void
 add_decl_expr (tree decl)
 {
-  tree r = build_stmt (DECL_EXPR, decl);
+  tree r = build_stmt (input_location, DECL_EXPR, decl);
   if (DECL_INITIAL (decl)
       || (DECL_SIZE (decl) && TREE_SIDE_EFFECTS (DECL_SIZE (decl))))
     r = maybe_cleanup_point_expr_void (r);
@@ -442,7 +442,7 @@ do_poplevel (tree stmt_list)
 
   if (!processing_template_decl)
     {
-      stmt_list = c_build_bind_expr (block, stmt_list);
+      stmt_list = c_build_bind_expr (input_location, block, stmt_list);
       /* ??? See c_end_compound_stmt re statement expressions.  */
     }
 
@@ -467,7 +467,7 @@ do_pushlevel (scope_kind sk)
 void
 push_cleanup (tree decl, tree cleanup, bool eh_only)
 {
-  tree stmt = build_stmt (CLEANUP_STMT, NULL, cleanup, decl);
+  tree stmt = build_stmt (input_location, CLEANUP_STMT, NULL, cleanup, decl);
   CLEANUP_EH_ONLY (stmt) = eh_only;
   add_stmt (stmt);
   CLEANUP_BODY (stmt) = push_stmt_list ();
@@ -557,7 +557,7 @@ finish_goto_stmt (tree destination)
 
   check_goto (destination);
 
-  return add_stmt (build_stmt (GOTO_EXPR, destination));
+  return add_stmt (build_stmt (input_location, GOTO_EXPR, destination));
 }
 
 /* COND is the condition-expression for an if, while, etc.,
@@ -620,7 +620,7 @@ finish_expr_stmt (tree expr)
       if (TREE_CODE (expr) != CLEANUP_POINT_EXPR)
 	{
 	  if (TREE_CODE (expr) != EXPR_STMT)
-	    expr = build_stmt (EXPR_STMT, expr);
+	    expr = build_stmt (input_location, EXPR_STMT, expr);
 	  expr = maybe_cleanup_point_expr_void (expr);
 	}
 
@@ -641,7 +641,7 @@ begin_if_stmt (void)
 {
   tree r, scope;
   scope = do_pushlevel (sk_block);
-  r = build_stmt (IF_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
+  r = build_stmt (input_location, IF_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
   TREE_CHAIN (r) = scope;
   begin_cond (&IF_COND (r));
   return r;
@@ -703,7 +703,7 @@ tree
 begin_while_stmt (void)
 {
   tree r;
-  r = build_stmt (WHILE_STMT, NULL_TREE, NULL_TREE);
+  r = build_stmt (input_location, WHILE_STMT, NULL_TREE, NULL_TREE);
   add_stmt (r);
   WHILE_BODY (r) = do_pushlevel (sk_block);
   begin_cond (&WHILE_COND (r));
@@ -735,7 +735,7 @@ finish_while_stmt (tree while_stmt)
 tree
 begin_do_stmt (void)
 {
-  tree r = build_stmt (DO_STMT, NULL_TREE, NULL_TREE);
+  tree r = build_stmt (input_location, DO_STMT, NULL_TREE, NULL_TREE);
   add_stmt (r);
   DO_BODY (r) = push_stmt_list ();
   return r;
@@ -797,7 +797,7 @@ finish_return_stmt (tree expr)
 	}
     }
 
-  r = build_stmt (RETURN_EXPR, expr);
+  r = build_stmt (input_location, RETURN_EXPR, expr);
   TREE_NO_WARNING (r) |= no_warning;
   r = maybe_cleanup_point_expr_void (r);
   r = add_stmt (r);
@@ -813,7 +813,7 @@ begin_for_stmt (void)
 {
   tree r;
 
-  r = build_stmt (FOR_STMT, NULL_TREE, NULL_TREE,
+  r = build_stmt (input_location, FOR_STMT, NULL_TREE, NULL_TREE,
 		  NULL_TREE, NULL_TREE);
 
   if (flag_new_for_scope > 0)
@@ -904,7 +904,7 @@ finish_for_stmt (tree for_stmt)
 tree
 finish_break_stmt (void)
 {
-  return add_stmt (build_stmt (BREAK_STMT));
+  return add_stmt (build_stmt (input_location, BREAK_STMT));
 }
 
 /* Finish a continue-statement.  */
@@ -912,7 +912,7 @@ finish_break_stmt (void)
 tree
 finish_continue_stmt (void)
 {
-  return add_stmt (build_stmt (CONTINUE_STMT));
+  return add_stmt (build_stmt (input_location, CONTINUE_STMT));
 }
 
 /* Begin a switch-statement.  Returns a new SWITCH_STMT if
@@ -923,7 +923,7 @@ begin_switch_stmt (void)
 {
   tree r, scope;
 
-  r = build_stmt (SWITCH_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
+  r = build_stmt (input_location, SWITCH_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
 
   scope = do_pushlevel (sk_block);
   TREE_CHAIN (r) = scope;
@@ -1007,7 +1007,7 @@ finish_switch_stmt (tree switch_stmt)
 tree
 begin_try_block (void)
 {
-  tree r = build_stmt (TRY_BLOCK, NULL_TREE, NULL_TREE);
+  tree r = build_stmt (input_location, TRY_BLOCK, NULL_TREE, NULL_TREE);
   add_stmt (r);
   TRY_STMTS (r) = push_stmt_list ();
   return r;
@@ -1097,7 +1097,7 @@ begin_handler (void)
 {
   tree r;
 
-  r = build_stmt (HANDLER, NULL_TREE, NULL_TREE);
+  r = build_stmt (input_location, HANDLER, NULL_TREE, NULL_TREE);
   add_stmt (r);
 
   /* Create a binding level for the eh_info and the exception object
@@ -1317,7 +1317,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	}
     }
 
-  r = build_stmt (ASM_EXPR, string,
+  r = build_stmt (input_location, ASM_EXPR, string,
 		  output_operands, input_operands,
 		  clobbers);
   ASM_VOLATILE_P (r) = volatile_p || noutputs == 0;
@@ -1335,7 +1335,7 @@ finish_label_stmt (tree name)
   if (decl  == error_mark_node)
     return error_mark_node;
 
-  return add_stmt (build_stmt (LABEL_EXPR, decl));
+  return add_stmt (build_stmt (input_location, LABEL_EXPR, decl));
 }
 
 /* Finish a series of declarations for local labels.  G++ allows users
@@ -1688,7 +1688,7 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 
       if (processing_template_decl)
 	{
-	  expr = build_stmt (EXPR_STMT, expr);
+	  expr = build_stmt (input_location, EXPR_STMT, expr);
 	  expr = add_stmt (expr);
 	  /* Mark the last statement so that we can recognize it as such at
 	     template-instantiation time.  */
@@ -3282,7 +3282,7 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
 	init = build2 (INIT_EXPR, void_type_node, dp->result,
 		       DECL_INITIAL (dp->var));
       else
-	init = build_empty_stmt ();
+	init = build_empty_stmt (*EXPR_LOCUS (*tp));
       DECL_INITIAL (dp->var) = NULL_TREE;
       SET_EXPR_LOCUS (init, EXPR_LOCUS (*tp));
       *tp = init;
@@ -4345,7 +4345,7 @@ finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
     }
   if (!dependent_p)
     {
-      stmt = c_finish_omp_atomic (code, lhs, rhs);
+      stmt = c_finish_omp_atomic (input_location, code, lhs, rhs);
       if (stmt == error_mark_node)
 	return;
     }

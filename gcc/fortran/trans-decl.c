@@ -2791,7 +2791,7 @@ gfc_init_default_dt (gfc_symbol * sym, tree body)
     {
       present = gfc_conv_expr_present (sym);
       tmp = build3 (COND_EXPR, TREE_TYPE (tmp), present,
-		    tmp, build_empty_stmt ());
+		    tmp, build_empty_stmt (input_location));
     }
   gfc_add_expr_to_block (&fnblock, tmp);
   gfc_free_expr (e);
@@ -3999,7 +3999,7 @@ gfc_generate_constructors (void)
   for (; gfc_static_ctors; gfc_static_ctors = TREE_CHAIN (gfc_static_ctors))
     {
       tmp = build_call_expr (TREE_VALUE (gfc_static_ctors), 0);
-      DECL_SAVED_TREE (fndecl) = build_stmt (EXPR_STMT, tmp);
+      DECL_SAVED_TREE (fndecl) = build_stmt (input_location, EXPR_STMT, tmp);
     }
 
   decl = getdecls ();

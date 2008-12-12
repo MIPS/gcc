@@ -1,3 +1,9 @@
+2008-12-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* java-gimplify.c (java_gimplify_block): New argument to
+	build_empty_stmt.
+	* expr.c (force_evaluation_order): Same.
+
 2008-11-19  Aldy Hernandez  <aldyh@redhat.com>
 
 	* typeck.c: Add location to build_decl or PUSH_FIELD calls.

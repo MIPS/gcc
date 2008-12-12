@@ -169,9 +169,9 @@ gimplify_if_stmt (tree *stmt_p)
   else_ = ELSE_CLAUSE (stmt);
 
   if (!then_)
-    then_ = build_empty_stmt ();
+    then_ = build_empty_stmt (locus);
   if (!else_)
-    else_ = build_empty_stmt ();
+    else_ = build_empty_stmt (locus);
 
   if (integer_nonzerop (cond) && !TREE_SIDE_EFFECTS (else_))
     stmt = then_;
@@ -335,7 +335,7 @@ gimplify_switch_stmt (tree *stmt_p, gimple_seq *pre_p)
 
   body = SWITCH_STMT_BODY (stmt);
   if (!body)
-    body = build_empty_stmt ();
+    body = build_empty_stmt (stmt_locus);
 
   t = build3 (SWITCH_EXPR, SWITCH_STMT_TYPE (stmt),
 	      SWITCH_STMT_COND (stmt), body, NULL_TREE);

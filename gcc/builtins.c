@@ -4926,6 +4926,8 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
   tree valist = TREE_OPERAND (*expr_p, 0);
   tree type = TREE_TYPE (*expr_p);
   tree t;
+  location_t loc = EXPR_HAS_LOCATION (*expr_p) ? EXPR_LOCATION (*expr_p) :
+    UNKNOWN_LOCATION;
 
   /* Verify that valist is of the proper type.  */
   have_va_type = TREE_TYPE (valist);
@@ -4935,7 +4937,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
   if (have_va_type == NULL_TREE)
     {
-      error ("first argument to %<va_arg%> not of type %<va_list%>");
+      error_at (loc, "first argument to %<va_arg%> not of type %<va_list%>");
       return GS_ERROR;
     }
 
@@ -4950,19 +4952,20 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       /* Unfortunately, this is merely undefined, rather than a constraint
 	 violation, so we cannot make this an error.  If this call is never
 	 executed, the program is still strictly conforming.  */
-      warned = warning (0, "%qT is promoted to %qT when passed through %<...%>",
-			type, promoted_type);
+      warned = warning_at (loc, 0,
+	  		   "%qT is promoted to %qT when passed through %<...%>",
+			   type, promoted_type);
       if (!gave_help && warned)
 	{
 	  gave_help = true;
-	  inform (input_location, "(so you should pass %qT not %qT to %<va_arg%>)",
-		   promoted_type, type);
+	  inform (loc, "(so you should pass %qT not %qT to %<va_arg%>)",
+		  promoted_type, type);
 	}
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
       if (warned)
-	inform (input_location, "if this code is reached, the program will abort");
+	inform (loc, "if this code is reached, the program will abort");
       t = build_call_expr (implicit_built_in_decls[BUILT_IN_TRAP], 0);
       gimplify_and_add (t, pre_p);
 
@@ -5988,6 +5991,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 {
   rtx val, mem;
   enum machine_mode old_mode;
+  location_t loc = EXPR_LOCATION (exp);
 
   if (code == NOT && warn_sync_nand)
     {
@@ -6008,8 +6012,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 	    break;
 
 	  fndecl = implicit_built_in_decls[BUILT_IN_FETCH_AND_NAND_N];
-	  inform (input_location,
-		  "%qD changed semantics in GCC 4.4", fndecl);
+	  inform (loc, "%qD changed semantics in GCC 4.4", fndecl);
 	  warned_f_a_n = true;
 	  break;
 
@@ -6023,8 +6026,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 	    break;
 
 	  fndecl = implicit_built_in_decls[BUILT_IN_NAND_AND_FETCH_N];
-	  inform (input_location,
-		  "%qD changed semantics in GCC 4.4", fndecl);
+	  inform (loc, "%qD changed semantics in GCC 4.4", fndecl);
 	  warned_n_a_f = true;
 	  break;
 

@@ -49,7 +49,7 @@ extern tree objcp_end_compound_stmt (tree, int);
 	objcp_comptypes (type1, type2)
 #define c_begin_compound_stmt(flags) \
 	objcp_begin_compound_stmt (flags)
-#define c_end_compound_stmt(stmt, flags) \
+#define c_end_compound_stmt(loc, stmt, flags)	\
 	objcp_end_compound_stmt (stmt, flags)
 
 #undef OBJC_TYPE_NAME

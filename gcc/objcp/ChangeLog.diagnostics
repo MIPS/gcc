@@ -1,3 +1,7 @@
+2008-12-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* objcp-decl.h (c_end_compound_stmt): New argument.
+
 2008-11-19  Aldy Hernandez  <aldyh@redhat.com>
 
 	* objcp-decl.c (objcp_start_struct): Add argument.

@@ -745,7 +745,7 @@ poplevel (int keep, int reverse, int functionbody)
 	 have pushed a statement list level.  Pop that, create a new
 	 BIND_EXPR for the block, and insert it into the stream.  */
       stmt = pop_stmt_list (current_binding_level->statement_list);
-      stmt = c_build_bind_expr (block, stmt);
+      stmt = c_build_bind_expr (input_location, block, stmt);
       add_stmt (stmt);
     }
 
@@ -2796,7 +2796,7 @@ finish_case_label (location_t loc, tree low_value, tree high_value)
       /* For templates, just add the case label; we'll do semantic
 	 analysis at instantiation-time.  */
       label = build_decl (loc, LABEL_DECL, NULL_TREE, NULL_TREE);
-      return add_stmt (build_case_label (low_value, high_value, label));
+      return add_stmt (build_case_label (loc, low_value, high_value, label));
     }
 
   /* Find the condition on which this switch statement depends.  */
@@ -11917,13 +11917,13 @@ finish_constructor_body (void)
       && (! TYPE_FOR_JAVA (current_class_type)))
     {
       /* Any return from a constructor will end up here.  */
-      add_stmt (build_stmt (LABEL_EXPR, cdtor_label));
+      add_stmt (build_stmt (input_location, LABEL_EXPR, cdtor_label));
 
       val = DECL_ARGUMENTS (current_function_decl);
       val = build2 (MODIFY_EXPR, TREE_TYPE (val),
 		    DECL_RESULT (current_function_decl), val);
       /* Return the address of the object.  */
-      exprstmt = build_stmt (RETURN_EXPR, val);
+      exprstmt = build_stmt (input_location, RETURN_EXPR, val);
       add_stmt (exprstmt);
     }
 }
@@ -11965,7 +11965,7 @@ finish_destructor_body (void)
 
   /* Any return from a destructor will end up here; that way all base
      and member cleanups will be run when the function returns.  */
-  add_stmt (build_stmt (LABEL_EXPR, cdtor_label));
+  add_stmt (build_stmt (input_location, LABEL_EXPR, cdtor_label));
 
   /* In a virtual destructor, we must call delete.  */
   if (DECL_VIRTUAL_P (current_function_decl))
@@ -12003,7 +12003,7 @@ finish_destructor_body (void)
       val = build2 (MODIFY_EXPR, TREE_TYPE (val),
 		    DECL_RESULT (current_function_decl), val);
       /* Return the address of the object.  */
-      exprstmt = build_stmt (RETURN_EXPR, val);
+      exprstmt = build_stmt (input_location, RETURN_EXPR, val);
       add_stmt (exprstmt);
     }
 }
@@ -12586,7 +12586,7 @@ cxx_maybe_build_cleanup (tree decl)
       call = build_delete (TREE_TYPE (addr), addr,
 			   sfk_complete_destructor, flags, 0);
       if (cleanup)
-	cleanup = build_compound_expr (cleanup, call);
+	cleanup = build_compound_expr (input_location, cleanup, call);
       else
 	cleanup = call;
     }

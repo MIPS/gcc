@@ -546,7 +546,8 @@ c_finish_incomplete_decl (tree decl)
 	  && !DECL_EXTERNAL (decl)
 	  && TYPE_DOMAIN (type) == 0)
 	{
-	  warning (0, "array %q+D assumed to have one element", decl);
+	  warning_at (DECL_SOURCE_LOCATION (decl),
+		      0, "array %q+D assumed to have one element", decl);
 
 	  complete_array_type (&TREE_TYPE (decl), NULL_TREE, true);
 
@@ -2445,7 +2446,7 @@ implicitly_declare (location_t loc, tree functionid)
    in an appropriate scope, which will suppress further errors for the
    same identifier.  The error message should be given location LOC.  */
 void
-undeclared_variable (tree id, location_t loc)
+undeclared_variable (location_t loc, tree id)
 {
   static bool already = false;
   struct c_scope *scope;
@@ -2477,7 +2478,7 @@ undeclared_variable (tree id, location_t loc)
    LABEL_DECL with all the proper frills.  */
 
 static tree
-make_label (tree name, location_t location)
+make_label (location_t location, tree name)
 {
   tree label = build_decl (location, LABEL_DECL, name, void_type_node);
 
@@ -2519,7 +2520,7 @@ lookup_label (tree name)
     }
 
   /* No label binding for that identifier; make one.  */
-  label = make_label (name, input_location);
+  label = make_label (input_location, name);
 
   /* Ordinary labels go in the current function scope.  */
   bind (name, label, current_function_scope,
@@ -2548,7 +2549,7 @@ declare_label (tree name)
       return b->decl;
     }
 
-  label = make_label (name, input_location);
+  label = make_label (input_location, name);
   C_DECLARED_LABEL_FLAG (label) = 1;
 
   /* Declared labels go in the current scope.  */
@@ -2596,7 +2597,7 @@ define_label (location_t location, tree name)
   else
     {
       /* No label binding for that identifier; make one.  */
-      label = make_label (name, location);
+      label = make_label (location, name);
 
       /* Ordinary labels go in the current function scope.  */
       bind (name, label, current_function_scope,
@@ -3596,7 +3597,8 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		  add_stmt (bind);
 		  BIND_EXPR_BODY (bind) = push_stmt_list ();
 		}
-	      add_stmt (build_stmt (DECL_EXPR, decl));
+	      add_stmt (build_stmt (DECL_SOURCE_LOCATION (decl),
+				    DECL_EXPR, decl));
 	    }
 	}
 
@@ -3621,7 +3623,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     {
       if (!DECL_FILE_SCOPE_P (decl)
 	  && variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
-	add_stmt (build_stmt (DECL_EXPR, decl));
+	add_stmt (build_stmt (DECL_SOURCE_LOCATION (decl), DECL_EXPR, decl));
 
       rest_of_decl_compilation (decl, DECL_FILE_SCOPE_P (decl), 0);
     }
@@ -3753,7 +3755,7 @@ build_compound_literal (location_t loc, tree type, tree init)
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
     return error_mark_node;
 
-  stmt = build_stmt (DECL_EXPR, decl);
+  stmt = build_stmt (DECL_SOURCE_LOCATION (decl), DECL_EXPR, decl);
   complit = build1 (COMPOUND_LITERAL_EXPR, type, stmt);
   TREE_SIDE_EFFECTS (complit) = 1;
 
@@ -5784,7 +5786,8 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes)
      parsing parameters, then arrange for the size of a variable sized type
      to be bound now.  */
   if (cur_stmt_list && variably_modified_type_p (t, NULL_TREE))
-    add_stmt (build_stmt (DECL_EXPR, build_decl (loc, TYPE_DECL, NULL, t)));
+    add_stmt (build_stmt (loc,
+			  DECL_EXPR, build_decl (loc, TYPE_DECL, NULL, t)));
 
   return t;
 }
@@ -6780,14 +6783,13 @@ finish_function (void)
       && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (fndecl)))
       == integer_type_node && flag_isoc99)
     {
-      tree stmt = c_finish_return (integer_zero_node);
       /* Hack.  We don't want the middle-end to warn that this return
 	 is unreachable, so we mark its location as special.  Using
 	 UNKNOWN_LOCATION has the problem that it gets clobbered in
 	 annotate_one_with_locus.  A cleaner solution might be to
 	 ensure ! should_carry_locus_p (stmt), but that needs a flag.
       */
-      SET_EXPR_LOCATION (stmt, BUILTINS_LOCATION);
+      c_finish_return (BUILTINS_LOCATION, integer_zero_node);
     }
 
   /* Tie off the statement tree for this function.  */
@@ -6868,10 +6870,11 @@ finish_function (void)
 }
 
 /* Check the declarations given in a for-loop for satisfying the C99
-   constraints.  If exactly one such decl is found, return it.  */
+   constraints.  If exactly one such decl is found, return it.  LOC is
+   the location of the opening parenthesis of the for loop.  */
 
 tree
-check_for_loop_decls (void)
+check_for_loop_decls (location_t loc)
 {
   struct c_binding *b;
   tree one_decl = NULL_TREE;
@@ -6883,10 +6886,11 @@ check_for_loop_decls (void)
       /* If we get here, declarations have been used in a for loop without
 	 the C99 for loop scope.  This doesn't make much sense, so don't
 	 allow it.  */
-      error ("%<for%> loop initial declarations are only allowed in C99 mode");
+      error_at (loc, "%<for%> loop initial declarations "
+		"are only allowed in C99 mode");
       if (hint)
 	{
-	  inform (input_location, 
+	  inform (loc,
 		  "use option -std=c99 or -std=gnu99 to compile your code");
 	  hint = false;
 	}
@@ -6917,29 +6921,36 @@ check_for_loop_decls (void)
       switch (TREE_CODE (decl))
 	{
 	case VAR_DECL:
-	  if (TREE_STATIC (decl))
-	    error ("declaration of static variable %q+D in %<for%> loop "
-		   "initial declaration", decl);
-	  else if (DECL_EXTERNAL (decl))
-	    error ("declaration of %<extern%> variable %q+D in %<for%> loop "
-		   "initial declaration", decl);
+	  {
+	    location_t decl_loc = DECL_SOURCE_LOCATION (decl);
+	    if (TREE_STATIC (decl))
+	      error_at (decl_loc,
+			"declaration of static variable %qD in %<for%> loop "
+			"initial declaration", decl);
+	    else if (DECL_EXTERNAL (decl))
+	      error_at (decl_loc,
+			"declaration of %<extern%> variable %qD in %<for%> loop "
+			"initial declaration", decl);
+	  }
 	  break;
 
 	case RECORD_TYPE:
-	  error ("%<struct %E%> declared in %<for%> loop initial declaration",
-		 id);
+	  error_at (loc,
+		    "%<struct %E%> declared in %<for%> loop initial "
+		    "declaration", id);
 	  break;
 	case UNION_TYPE:
-	  error ("%<union %E%> declared in %<for%> loop initial declaration",
-		 id);
+	  error_at (loc,
+		    "%<union %E%> declared in %<for%> loop initial declaration",
+		    id);
 	  break;
 	case ENUMERAL_TYPE:
-	  error ("%<enum %E%> declared in %<for%> loop initial declaration",
-		 id);
+	  error_at (loc, "%<enum %E%> declared in %<for%> loop "
+		    "initial declaration", id);
 	  break;
 	default:
-	  error ("declaration of non-variable %q+D in %<for%> loop "
-		 "initial declaration", decl);
+	  error_at (loc, "declaration of non-variable "
+		    "%qD in %<for%> loop initial declaration", decl);
 	}
 
       n_decls++;

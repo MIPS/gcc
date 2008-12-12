@@ -145,7 +145,7 @@ static void finish_objc (void);
 /* Code generation.  */
 
 static tree objc_build_constructor (tree, tree);
-static tree build_objc_method_call (int, tree, tree, tree, tree);
+static tree build_objc_method_call (location_t, int, tree, tree, tree, tree);
 static tree get_proto_encoding (tree);
 static tree lookup_interface (tree);
 static tree objc_add_static_instance (tree, tree);
@@ -1256,7 +1256,7 @@ objc_build_component_ref (tree datum, tree component)
   return finish_class_member_access_expr (datum, component, false,
                                           tf_warning_or_error);
 #else
-  return build_component_ref (datum, component);
+  return build_component_ref (input_location, datum, component);
 #endif
 }
 
@@ -2368,7 +2368,7 @@ build_module_initializer_routine (void)
 	     (NULL_TREE,
 	      build_unary_op (input_location, ADDR_EXPR,
 			      UOBJC_MODULES_decl, 0))));
-  add_stmt (c_end_compound_stmt (body, true));
+  add_stmt (c_end_compound_stmt (input_location, body, true));
 
   TREE_PUBLIC (current_function_decl) = 0;
 
@@ -2401,7 +2401,7 @@ objc_static_init_needed_p (void)
 tree
 objc_generate_static_init_call (tree ctors ATTRIBUTE_UNUSED)
 {
-  add_stmt (build_stmt (EXPR_STMT,
+  add_stmt (build_stmt (input_location, EXPR_STMT,
 			build_function_call (input_location,
 					     GNU_INIT_decl, NULL_TREE)));
 
@@ -2632,10 +2632,11 @@ get_proto_encoding (tree proto)
 }
 
 /* sel_ref_chain is a list whose "value" fields will be instances of
-   identifier_node that represent the selector.  */
+   identifier_node that represent the selector.  LOC is the location of
+   the @selector.  */
 
 static tree
-build_typed_selector_reference (tree ident, tree prototype)
+build_typed_selector_reference (location_t loc, tree ident, tree prototype)
 {
   tree *chain = &sel_ref_chain;
   tree expr;
@@ -2653,16 +2654,15 @@ build_typed_selector_reference (tree ident, tree prototype)
   *chain = tree_cons (prototype, ident, NULL_TREE);
 
  return_at_index:
-  expr = build_unary_op (input_location, ADDR_EXPR,
-			 build_array_ref (UOBJC_SELECTOR_TABLE_decl,
-					  build_int_cst (NULL_TREE, index),
-					  input_location),
+  expr = build_unary_op (loc, ADDR_EXPR,
+			 build_array_ref (loc, UOBJC_SELECTOR_TABLE_decl,
+					  build_int_cst (NULL_TREE, index)),
 			 1);
   return convert (objc_selector_type, expr);
 }
 
 static tree
-build_selector_reference (tree ident)
+build_selector_reference (location_t loc, tree ident)
 {
   tree *chain = &sel_ref_chain;
   tree expr;
@@ -2673,9 +2673,8 @@ build_selector_reference (tree ident)
       if (TREE_VALUE (*chain) == ident)
 	return (flag_next_runtime
 		? TREE_PURPOSE (*chain)
-		: build_array_ref (UOBJC_SELECTOR_TABLE_decl,
-				   build_int_cst (NULL_TREE, index),
-				   input_location));
+		: build_array_ref (loc, UOBJC_SELECTOR_TABLE_decl,
+				   build_int_cst (NULL_TREE, index)));
 
       index++;
       chain = &TREE_CHAIN (*chain);
@@ -2687,9 +2686,8 @@ build_selector_reference (tree ident)
 
   return (flag_next_runtime
 	  ? expr
-	  : build_array_ref (UOBJC_SELECTOR_TABLE_decl,
-			     build_int_cst (NULL_TREE, index),
-			     input_location));
+	  : build_array_ref (loc, UOBJC_SELECTOR_TABLE_decl,
+			     build_int_cst (NULL_TREE, index)));
 }
 
 static GTY(()) int class_reference_idx;
@@ -3075,11 +3073,11 @@ objc_substitute_decl (tree expr, tree oldexpr, tree newexpr)
 				    newexpr),
 	      DECL_NAME (TREE_OPERAND (expr, 1)));
     case ARRAY_REF:
-      return build_array_ref (objc_substitute_decl (TREE_OPERAND (expr, 0),
+      return build_array_ref (input_location,
+			      objc_substitute_decl (TREE_OPERAND (expr, 0),
 						    oldexpr,
 						    newexpr),
-			      TREE_OPERAND (expr, 1),
-			      input_location);
+			      TREE_OPERAND (expr, 1));
     case INDIRECT_REF:
       return build_indirect_ref (input_location,
 				 objc_substitute_decl (TREE_OPERAND (expr, 0),
@@ -3740,7 +3738,7 @@ next_sjlj_build_try_catch_finally (void)
   if (cur_try_context->catch_list)
     {
       tree caught_decl = objc_build_exc_ptr ();
-      catch_seq = build_stmt (BIND_EXPR, caught_decl, NULL, NULL);
+      catch_seq = build_stmt (input_location, BIND_EXPR, caught_decl, NULL, NULL);
       TREE_SIDE_EFFECTS (catch_seq) = 1;
 
       t = next_sjlj_build_exc_extract (caught_decl);
@@ -3764,7 +3762,7 @@ next_sjlj_build_try_catch_finally (void)
 
   /* Build the complete FINALLY statement list.  */
   t = next_sjlj_build_try_exit ();
-  t = build_stmt (COND_EXPR,
+  t = build_stmt (input_location, COND_EXPR,
 		  c_common_truthvalue_conversion 
 		    (input_location, rethrow_decl),
 		  NULL, t);
@@ -3777,7 +3775,7 @@ next_sjlj_build_try_catch_finally (void)
   t = tree_cons (NULL, rethrow_decl, NULL);
   t = build_function_call (input_location,
 			   objc_exception_throw_decl, t);
-  t = build_stmt (COND_EXPR,
+  t = build_stmt (input_location, COND_EXPR,
 		  c_common_truthvalue_conversion (input_location, 
 						  rethrow_decl),
 		  t, NULL);
@@ -3863,7 +3861,7 @@ objc_begin_catch_clause (tree decl)
 
   /* Record the data for the catch in the try context so that we can
      finalize it later.  */
-  t = build_stmt (CATCH_EXPR, type, compound);
+  t = build_stmt (input_location, CATCH_EXPR, type, compound);
   cur_try_context->current_catch = t;
 
   /* Initialize the decl from the EXC_PTR_EXPR we get from the runtime.  */
@@ -3883,7 +3881,7 @@ objc_finish_catch_clause (void)
   cur_try_context->current_catch = NULL;
   cur_try_context->end_catch_locus = input_location;
 
-  CATCH_BODY (c) = c_end_compound_stmt (CATCH_BODY (c), 1);
+  CATCH_BODY (c) = c_end_compound_stmt (input_location, CATCH_BODY (c), 1);
   append_to_statement_list (c, &cur_try_context->catch_list);
 }
 
@@ -3925,12 +3923,12 @@ objc_finish_try_stmt (void)
       stmt = c->try_body;
       if (c->catch_list)
 	{
-          stmt = build_stmt (TRY_CATCH_EXPR, stmt, c->catch_list);
+          stmt = build_stmt (input_location, TRY_CATCH_EXPR, stmt, c->catch_list);
 	  SET_EXPR_LOCATION (stmt, cur_try_context->try_locus);
 	}
       if (c->finally_body)
 	{
-	  stmt = build_stmt (TRY_FINALLY_EXPR, stmt, c->finally_body);
+	  stmt = build_stmt (input_location, TRY_FINALLY_EXPR, stmt, c->finally_body);
 	  SET_EXPR_LOCATION (stmt, cur_try_context->try_locus);
 	}
     }
@@ -3942,7 +3940,7 @@ objc_finish_try_stmt (void)
 }
 
 tree
-objc_build_throw_stmt (tree throw_expr)
+objc_build_throw_stmt (location_t loc, tree throw_expr)
 {
   tree args;
 
@@ -3955,7 +3953,7 @@ objc_build_throw_stmt (tree throw_expr)
       if (cur_try_context == NULL
           || cur_try_context->current_catch == NULL)
 	{
-	  error ("%<@throw%> (rethrow) used outside of a @catch block");
+	  error_at (loc, "%<@throw%> (rethrow) used outside of a @catch block");
 	  return NULL_TREE;
 	}
 
@@ -3967,7 +3965,7 @@ objc_build_throw_stmt (tree throw_expr)
   /* A throw is just a call to the runtime throw function with the
      object as a parameter.  */
   args = tree_cons (NULL, throw_expr, NULL);
-  return add_stmt (build_function_call (input_location,
+  return add_stmt (build_function_call (loc,
 					objc_exception_throw_decl, args));
 }
 
@@ -5817,13 +5815,14 @@ generate_shared_structures (int cls_flags)
   if (my_super_id)
     {
       super_expr = add_objc_string (my_super_id, class_names);
-      super_expr = build_c_cast (cast_type, super_expr); /* cast! */
+      super_expr = build_c_cast (input_location,
+				 cast_type, super_expr); /* cast! */
     }
   else
     super_expr = build_int_cst (NULL_TREE, 0);
 
   root_expr = add_objc_string (my_root_id, class_names);
-  root_expr = build_c_cast (cast_type, root_expr); /* cast! */
+  root_expr = build_c_cast (input_location, cast_type, root_expr); /* cast! */
 
   if (CLASS_PROTOCOL_LIST (implementation_template))
     {
@@ -6244,6 +6243,7 @@ tree
 objc_build_message_expr (tree mess)
 {
   tree receiver = TREE_PURPOSE (mess);
+  location_t loc;
   tree sel_name;
 #ifdef OBJCPLUS
   tree args = TREE_PURPOSE (TREE_VALUE (mess));
@@ -6254,6 +6254,11 @@ objc_build_message_expr (tree mess)
 
   if (TREE_CODE (receiver) == ERROR_MARK)
     return error_mark_node;
+
+  if (CAN_HAVE_LOCATION_P (receiver))
+    loc = EXPR_LOCATION (receiver);
+  else
+    loc = input_location;
 
   /* Obtain the full selector name.  */
   if (TREE_CODE (args) == IDENTIFIER_NODE)
@@ -6372,8 +6377,10 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	{
 	  if (!CLASS_SUPER_NAME (implementation_template))
 	    {
-	      error ("no super class declared in @interface for %qs",
-		     IDENTIFIER_POINTER (CLASS_NAME (implementation_template)));
+	      error_at (input_location,
+			"no super class declared in @interface for %qs",
+			IDENTIFIER_POINTER (CLASS_NAME
+					    (implementation_template)));
 	      return error_mark_node;
 	    }
 	  rtype = lookup_interface (CLASS_SUPER_NAME (implementation_template));
@@ -6410,9 +6417,10 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 		= lookup_method_in_protocol_list (rprotos, sel_name, 0);
 
 	      if (method_prototype)
-		warning (0, "found %<-%s%> instead of %<+%s%> in protocol(s)",
-			 IDENTIFIER_POINTER (sel_name),
-			 IDENTIFIER_POINTER (sel_name));
+		warning_at (input_location, 0,
+			    "found %<-%s%> instead of %<+%s%> in protocol(s)",
+			    IDENTIFIER_POINTER (sel_name),
+			    IDENTIFIER_POINTER (sel_name));
 	    }
 	}
     }
@@ -6469,8 +6477,8 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	}
       else
 	{
-	  warning (0, "invalid receiver type %qs",
-		   gen_type_name (orig_rtype));
+	  warning_at (input_location, 0, "invalid receiver type %qs",
+		      gen_type_name (orig_rtype));
 	  /* After issuing the "invalid receiver" warning, perform method
 	     lookup as if we were messaging 'id'.  */
 	  rtype = rprotos = NULL_TREE;
@@ -6484,9 +6492,9 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
   if (!method_prototype)
     {
       if (rprotos)
-	warning (0, "%<%c%s%> not found in protocol(s)",
-		 (class_tree ? '+' : '-'),
-		 IDENTIFIER_POINTER (sel_name));
+	warning_at (input_location, 0, "%<%c%s%> not found in protocol(s)",
+		    (class_tree ? '+' : '-'),
+		    IDENTIFIER_POINTER (sel_name));
 
       if (!rtype)
 	method_prototype
@@ -6498,23 +6506,26 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
       static bool warn_missing_methods = false;
 
       if (rtype)
-	warning (0, "%qs may not respond to %<%c%s%>",
-		 IDENTIFIER_POINTER (OBJC_TYPE_NAME (rtype)),
-		 (class_tree ? '+' : '-'),
-		 IDENTIFIER_POINTER (sel_name));
+	warning_at (input_location, 0, "%qs may not respond to %<%c%s%>",
+		    IDENTIFIER_POINTER (OBJC_TYPE_NAME (rtype)),
+		    (class_tree ? '+' : '-'),
+		    IDENTIFIER_POINTER (sel_name));
       /* If we are messaging an 'id' or 'Class' object and made it here,
 	 then we have failed to find _any_ instance or class method,
 	 respectively.  */
       else
-	warning (0, "no %<%c%s%> method found",
-		 (class_tree ? '+' : '-'),
-		 IDENTIFIER_POINTER (sel_name));
+	warning_at (input_location, 0, "no %<%c%s%> method found",
+		    (class_tree ? '+' : '-'),
+		    IDENTIFIER_POINTER (sel_name));
 
       if (!warn_missing_methods)
 	{
-	  warning (0, "(Messages without a matching method signature");
-	  warning (0, "will be assumed to return %<id%> and accept");
-	  warning (0, "%<...%> as arguments.)");
+	  warning_at (input_location, 
+		      0, "(Messages without a matching method signature");
+	  warning_at (input_location, 
+		      0, "will be assumed to return %<id%> and accept");
+	  warning_at (input_location, 
+		      0, "%<...%> as arguments.)");
 	  warn_missing_methods = true;
 	}
     }
@@ -6526,11 +6537,12 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
      These are the object itself and the selector.  */
 
   if (flag_typed_selectors)
-    selector = build_typed_selector_reference (sel_name, method_prototype);
+    selector = build_typed_selector_reference (input_location,
+					       sel_name, method_prototype);
   else
-    selector = build_selector_reference (sel_name);
+    selector = build_selector_reference (input_location, sel_name);
 
-  retval = build_objc_method_call (super, method_prototype,
+  retval = build_objc_method_call (input_location, super, method_prototype,
 				   receiver,
 				   selector, method_params);
 
@@ -6543,11 +6555,12 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
    looking up the method on object LOOKUP_OBJECT (often same as OBJECT),
    assuming the method has prototype METHOD_PROTOTYPE.
    (That is an INSTANCE_METHOD_DECL or CLASS_METHOD_DECL.)
+   LOC is the location of the expression to build.
    Use METHOD_PARAMS as list of args to pass to the method.
    If SUPER_FLAG is nonzero, we look up the superclass's method.  */
 
 static tree
-build_objc_method_call (int super_flag, tree method_prototype,
+build_objc_method_call (location_t loc, int super_flag, tree method_prototype,
 			tree lookup_object, tree selector,
 			tree method_params)
 {
@@ -6574,7 +6587,7 @@ build_objc_method_call (int super_flag, tree method_prototype,
 	(method_prototype, METHOD_REF, super_flag)));
   tree method, t;
 
-  lookup_object = build_c_cast (rcv_p, lookup_object);
+  lookup_object = build_c_cast (loc, rcv_p, lookup_object);
 
   /* Use SAVE_EXPR to avoid evaluating the receiver twice.  */
   lookup_object = save_expr (lookup_object);
@@ -6610,7 +6623,7 @@ build_objc_method_call (int super_flag, tree method_prototype,
 
       t = tree_cons (NULL_TREE, selector, NULL_TREE);
       t = tree_cons (NULL_TREE, lookup_object, t);
-      method = build_function_call (input_location,
+      method = build_function_call (loc,
 				    sender, t);
 
       /* Pass the object to the method.  */
@@ -6622,7 +6635,7 @@ build_objc_method_call (int super_flag, tree method_prototype,
   /* ??? Selector is not at this point something we can use inside
      the compiler itself.  Set it to garbage for the nonce.  */
   t = build3 (OBJ_TYPE_REF, sender_cast, method, lookup_object, size_zero_node);
-  return build_function_call (input_location,
+  return build_function_call (loc,
 			      t, method_params);
 }
 
@@ -6714,9 +6727,10 @@ objc_build_protocol_expr (tree protoname)
 
 /* This function is called by the parser when a @selector() expression
    is found, in order to compile it.  It is only called by the parser
-   and only to compile a @selector().  */
+   and only to compile a @selector().  LOC is the location of the
+   @selector.  */
 tree
-objc_build_selector_expr (tree selnamelist)
+objc_build_selector_expr (location_t loc, tree selnamelist)
 {
   tree selname;
 
@@ -6750,15 +6764,16 @@ objc_build_selector_expr (tree selnamelist)
       /* If still not found, print out a warning.  */
       if (!hsh)
 	{
-	  warning (0, "undeclared selector %qs", IDENTIFIER_POINTER (selname));
+	  warning_at (loc, 0,
+	      	      "undeclared selector %qs", IDENTIFIER_POINTER (selname));
 	}
     }
 
 
   if (flag_typed_selectors)
-    return build_typed_selector_reference (selname, 0);
+    return build_typed_selector_reference (loc, selname, 0);
   else
-    return build_selector_reference (selname);
+    return build_selector_reference (loc, selname);
 }
 
 tree
@@ -8829,7 +8844,8 @@ get_super_receiver (void)
 		super_class
 		  = build_indirect_ref
 		      (input_location,
-		       build_c_cast (build_pointer_type (objc_class_type),
+		       build_c_cast (input_location,
+				     build_pointer_type (objc_class_type),
 				     super_class), "unary *");
 	    }
 	  else
@@ -8851,15 +8867,18 @@ get_super_receiver (void)
 
 	  super_expr
 	    = build_modify_expr (input_location, super_expr, NOP_EXPR,
-				 build_c_cast (TREE_TYPE (super_expr),
+				 build_c_cast (input_location, 
+					       TREE_TYPE (super_expr),
 					       super_class));
 	}
 
-      super_expr_list = build_compound_expr (super_expr_list, super_expr);
+      super_expr_list = build_compound_expr (input_location, 
+					     super_expr_list, super_expr);
 
       super_expr = build_unary_op (input_location, 
 				   ADDR_EXPR, UOBJC_SUPER_decl, 0);
-      super_expr_list = build_compound_expr (super_expr_list, super_expr);
+      super_expr_list = build_compound_expr (input_location,
+					     super_expr_list, super_expr);
 
       return super_expr_list;
     }

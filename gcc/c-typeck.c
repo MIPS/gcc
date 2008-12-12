@@ -1889,11 +1889,12 @@ lookup_field (tree decl, tree component)
   return tree_cons (NULL_TREE, field, NULL_TREE);
 }
 
-/* Make an expression to refer to the COMPONENT field of
-   structure or union value DATUM.  COMPONENT is an IDENTIFIER_NODE.  */
+/* Make an expression to refer to the COMPONENT field of structure or
+   union value DATUM.  COMPONENT is an IDENTIFIER_NODE.  LOC is the
+   location of the COMPONENT_REF.  */
 
 tree
-build_component_ref (tree datum, tree component)
+build_component_ref (location_t loc, tree datum, tree component)
 {
   tree type = TREE_TYPE (datum);
   enum tree_code code = TREE_CODE (type);
@@ -1917,7 +1918,7 @@ build_component_ref (tree datum, tree component)
 
       if (!field)
 	{
-	  error ("%qT has no member named %qE", type, component);
+	  error_at (loc, "%qT has no member named %qE", type, component);
 	  return error_mark_node;
 	}
 
@@ -1941,6 +1942,7 @@ build_component_ref (tree datum, tree component)
 
 	  ref = build3 (COMPONENT_REF, subtype, datum, subdatum,
 			NULL_TREE);
+	  SET_EXPR_LOCATION (ref, loc);
 	  if (TREE_READONLY (datum) || TREE_READONLY (subdatum))
 	    TREE_READONLY (ref) = 1;
 	  if (TREE_THIS_VOLATILE (datum) || TREE_THIS_VOLATILE (subdatum))
@@ -1958,8 +1960,9 @@ build_component_ref (tree datum, tree component)
       return ref;
     }
   else if (code != ERROR_MARK)
-    error ("request for member %qE in something not a structure or union",
-	   component);
+    error_at (loc,
+	      "request for member %qE in something not a structure or union",
+	      component);
 
   return error_mark_node;
 }
@@ -2046,7 +2049,7 @@ build_indirect_ref (location_t loc, tree ptr, const char *errorstring)
    LOC is the location to use for the returned expression.  */
 
 tree
-build_array_ref (tree array, tree index, location_t loc)
+build_array_ref (location_t loc, tree array, tree index)
 {
   tree ret;
   bool swapped = false;
@@ -2173,7 +2176,7 @@ build_array_ref (tree array, tree index, location_t loc)
    whether this will be used for a function call.  LOC is the source
    location of the identifier.  */
 tree
-build_external_ref (tree id, int fun, location_t loc)
+build_external_ref (location_t loc, tree id, int fun)
 {
   tree ref;
   tree decl = lookup_name (id);
@@ -2193,7 +2196,7 @@ build_external_ref (tree id, int fun, location_t loc)
     return error_mark_node;
   else
     {
-      undeclared_variable (id, loc);
+      undeclared_variable (loc, id);
       return error_mark_node;
     }
 
@@ -2308,7 +2311,7 @@ pop_maybe_used (bool used)
 /* Return the result of sizeof applied to EXPR.  */
 
 struct c_expr
-c_expr_sizeof_expr (struct c_expr expr)
+c_expr_sizeof_expr (location_t loc, struct c_expr expr)
 {
   struct c_expr ret;
   if (expr.value == error_mark_node)
@@ -2319,12 +2322,13 @@ c_expr_sizeof_expr (struct c_expr expr)
     }
   else
     {
-      ret.value = c_sizeof (TREE_TYPE (expr.value));
+      ret.value = c_sizeof (loc, TREE_TYPE (expr.value));
       ret.original_code = ERROR_MARK;
       if (c_vla_type_p (TREE_TYPE (expr.value)))
 	{
 	  /* sizeof is evaluated when given a vla (C99 6.5.3.4p2).  */
 	  ret.value = build2 (COMPOUND_EXPR, TREE_TYPE (ret.value), expr.value, ret.value);
+	  SET_EXPR_LOCATION (ret.value, loc);
 	}
       pop_maybe_used (C_TYPE_VARIABLE_SIZE (TREE_TYPE (expr.value)));
     }
@@ -2332,15 +2336,16 @@ c_expr_sizeof_expr (struct c_expr expr)
 }
 
 /* Return the result of sizeof applied to T, a structure for the type
-   name passed to sizeof (rather than the type itself).  */
+   name passed to sizeof (rather than the type itself).  LOC is the
+   location of the original expression.  */
 
 struct c_expr
-c_expr_sizeof_type (struct c_type_name *t)
+c_expr_sizeof_type (location_t loc, struct c_type_name *t)
 {
   tree type;
   struct c_expr ret;
   type = groktypename (t);
-  ret.value = c_sizeof (type);
+  ret.value = c_sizeof (loc, type);
   ret.original_code = ERROR_MARK;
   pop_maybe_used (type != error_mark_node
 		  ? C_TYPE_VARIABLE_SIZE (type) : false);
@@ -2744,7 +2749,7 @@ convert_arguments (int nargs, tree *argarray,
 */
 
 struct c_expr
-parser_build_unary_op (enum tree_code code, struct c_expr arg, location_t loc)
+parser_build_unary_op (location_t loc, enum tree_code code, struct c_expr arg)
 {
   struct c_expr result;
 
@@ -3409,10 +3414,11 @@ c_mark_addressable (tree exp)
     }
 }
 
-/* Build and return a conditional expression IFEXP ? OP1 : OP2.  */
+/* Build and return a conditional expression IFEXP ? OP1 : OP2.  Set
+   the location of the expression to LOC.  */
 
 tree
-build_conditional_expr (tree ifexp, tree op1, tree op2)
+build_conditional_expr (location_t loc, tree ifexp, tree op1, tree op2)
 {
   tree type1;
   tree type2;
@@ -3442,7 +3448,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
      In C99 they will be pointers by now.  */
   if (code1 == ARRAY_TYPE || code2 == ARRAY_TYPE)
     {
-      error ("non-lvalue array in conditional expression");
+      error_at (loc, "non-lvalue array in conditional expression");
       return error_mark_node;
     }
 
@@ -3490,14 +3496,14 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 			   && tree_expr_nonnegative_warnv_p (op2, &ovf)))
 		/* OK */;
 	      else
-		warning (OPT_Wsign_compare, "signed and unsigned type in conditional expression");
+		warning_at (loc, OPT_Wsign_compare, "signed and unsigned type in conditional expression");
 	    }
 	}
     }
   else if (code1 == VOID_TYPE || code2 == VOID_TYPE)
     {
       if (code1 != VOID_TYPE || code2 != VOID_TYPE)
-	pedwarn (input_location, OPT_pedantic, 
+	pedwarn (loc, OPT_pedantic, 
 		 "ISO C forbids conditional expr with only one void side");
       result_type = void_type_node;
     }
@@ -3512,7 +3518,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
       else if (VOID_TYPE_P (TREE_TYPE (type1)))
 	{
 	  if (TREE_CODE (TREE_TYPE (type2)) == FUNCTION_TYPE)
-	    pedwarn (input_location, OPT_pedantic, 
+	    pedwarn (loc, OPT_pedantic, 
 		     "ISO C forbids conditional expr between "
 		     "%<void *%> and function pointer");
 	  result_type = build_pointer_type (qualify_type (TREE_TYPE (type1),
@@ -3521,7 +3527,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
       else if (VOID_TYPE_P (TREE_TYPE (type2)))
 	{
 	  if (TREE_CODE (TREE_TYPE (type1)) == FUNCTION_TYPE)
-	    pedwarn (input_location, OPT_pedantic, 
+	    pedwarn (loc, OPT_pedantic, 
 		     "ISO C forbids conditional expr between "
 		     "%<void *%> and function pointer");
 	  result_type = build_pointer_type (qualify_type (TREE_TYPE (type2),
@@ -3529,7 +3535,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 	}
       else
 	{
-	  pedwarn (input_location, 0, 
+	  pedwarn (loc, 0, 
 		   "pointer type mismatch in conditional expression");
 	  result_type = build_pointer_type (void_type_node);
 	}
@@ -3537,7 +3543,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   else if (code1 == POINTER_TYPE && code2 == INTEGER_TYPE)
     {
       if (!null_pointer_constant_p (orig_op2))
-	pedwarn (input_location, 0, 
+	pedwarn (loc, 0, 
 		 "pointer/integer type mismatch in conditional expression");
       else
 	{
@@ -3548,7 +3554,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   else if (code2 == POINTER_TYPE && code1 == INTEGER_TYPE)
     {
       if (!null_pointer_constant_p (orig_op1))
-	pedwarn (input_location, 0, 
+	pedwarn (loc, 0, 
 		 "pointer/integer type mismatch in conditional expression");
       else
 	{
@@ -3563,7 +3569,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 	result_type = void_type_node;
       else
 	{
-	  error ("type mismatch in conditional expression");
+	  error_at (loc, "type mismatch in conditional expression");
 	  return error_mark_node;
 	}
     }
@@ -3579,14 +3585,18 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   if (result_type != TREE_TYPE (op2))
     op2 = convert_and_check (result_type, op2);
 
-  return fold_build3 (COND_EXPR, result_type, ifexp, op1, op2);
+  op1 = fold_build3 (COND_EXPR, result_type, ifexp, op1, op2);
+  protected_set_expr_location (op1, loc);
+  return op1;
 }
 
 /* Return a compound expression that performs two expressions and
-   returns the value of the second of them.  */
+   returns the value of the second of them.
+
+   LOC is the location of the COMPOUND_EXPR.  */
 
 tree
-build_compound_expr (tree expr1, tree expr2)
+build_compound_expr (location_t loc, tree expr1, tree expr2)
 {
   if (!TREE_SIDE_EFFECTS (expr1))
     {
@@ -3603,8 +3613,8 @@ build_compound_expr (tree expr1, tree expr2)
 		   && CONVERT_EXPR_P (TREE_OPERAND (expr1, 1)))
 	    ; /* (void) a, (void) b, c */
 	  else
-	    warning (OPT_Wunused_value, 
-		     "left-hand operand of comma expression has no effect");
+	    warning_at (loc, OPT_Wunused_value, 
+			"left-hand operand of comma expression has no effect");
 	}
     }
 
@@ -3613,18 +3623,22 @@ build_compound_expr (tree expr1, tree expr2)
      `foo() + bar(), baz()' the result of the `+' operator is not used,
      so we should issue a warning.  */
   else if (warn_unused_value)
-    warn_if_unused_value (expr1, input_location);
+    warn_if_unused_value (expr1, loc);
 
   if (expr2 == error_mark_node)
     return error_mark_node;
 
-  return build2 (COMPOUND_EXPR, TREE_TYPE (expr2), expr1, expr2);
+  expr1 = build2 (COMPOUND_EXPR, TREE_TYPE (expr2), expr1, expr2);
+  SET_EXPR_LOCATION (expr1, loc);
+  return expr1;
 }
 
-/* Build an expression representing a cast to type TYPE of expression EXPR.  */
+/* Build an expression representing a cast to type TYPE of expression
+   EXPR.  LOC is the location of the cast-- typically the open paren
+   of the cast.  */
 
 tree
-build_c_cast (tree type, tree expr)
+build_c_cast (location_t loc, tree type, tree expr)
 {
   tree value = expr;
 
@@ -3641,13 +3655,13 @@ build_c_cast (tree type, tree expr)
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      error ("cast specifies array type");
+      error_at (loc, "cast specifies array type");
       return error_mark_node;
     }
 
   if (TREE_CODE (type) == FUNCTION_TYPE)
     {
-      error ("cast specifies function type");
+      error_at (loc, "cast specifies function type");
       return error_mark_node;
     }
 
@@ -3662,7 +3676,7 @@ build_c_cast (tree type, tree expr)
     {
       if (TREE_CODE (type) == RECORD_TYPE
 	  || TREE_CODE (type) == UNION_TYPE)
-	pedwarn (input_location, OPT_pedantic, 
+	pedwarn (loc, OPT_pedantic, 
 		 "ISO C forbids casting nonscalar to the same type");
     }
   else if (TREE_CODE (type) == UNION_TYPE)
@@ -3679,15 +3693,14 @@ build_c_cast (tree type, tree expr)
 	{
 	  tree t;
 
-	  pedwarn (input_location, OPT_pedantic,
-		   "ISO C forbids casts to union type");
+	  pedwarn (loc, OPT_pedantic, "ISO C forbids casts to union type");
 	  t = digest_init (type,
 			   build_constructor_single (type, field, value),
 			   true, 0);
 	  TREE_CONSTANT (t) = TREE_CONSTANT (value);
 	  return t;
 	}
-      error ("cast to union type from type not present in union");
+      error_at (loc, "cast to union type from type not present in union");
       return error_mark_node;
     }
   else
@@ -3695,7 +3708,11 @@ build_c_cast (tree type, tree expr)
       tree otype, ovalue;
 
       if (type == void_type_node)
-	return build1 (CONVERT_EXPR, type, value);
+	{
+	  tree t = build1 (CONVERT_EXPR, type, value);
+	  SET_EXPR_LOCATION (t, loc);
+	  return t;
+	}
 
       otype = TREE_TYPE (value);
 
@@ -3733,12 +3750,14 @@ build_c_cast (tree type, tree expr)
 		 && TREE_CODE (in_otype) == POINTER_TYPE);
 
 	  if (added)
-	    warning (OPT_Wcast_qual, "cast adds new qualifiers to function type");
+	    warning_at (loc, OPT_Wcast_qual,
+			"cast adds new qualifiers to function type");
 
 	  if (discarded)
 	    /* There are qualifiers present in IN_OTYPE that are not
 	       present in IN_TYPE.  */
-	    warning (OPT_Wcast_qual, "cast discards qualifiers from pointer target type");
+	    warning_at (loc, OPT_Wcast_qual,
+			"cast discards qualifiers from pointer target type");
 	}
 
       /* Warn about possible alignment problems.  */
@@ -3753,8 +3772,8 @@ build_c_cast (tree type, tree expr)
 		|| TREE_CODE (TREE_TYPE (otype)) == RECORD_TYPE)
 	       && TYPE_MODE (TREE_TYPE (otype)) == VOIDmode)
 	  && TYPE_ALIGN (TREE_TYPE (type)) > TYPE_ALIGN (TREE_TYPE (otype)))
-	warning (OPT_Wcast_align,
-		 "cast increases required alignment of target type");
+	warning_at (loc, OPT_Wcast_align,
+		    "cast increases required alignment of target type");
 
       if (TREE_CODE (type) == INTEGER_TYPE
 	  && TREE_CODE (otype) == POINTER_TYPE
@@ -3764,21 +3783,23 @@ build_c_cast (tree type, tree expr)
          of cases such as SIG_*, warn about converting constant
          pointers to integers. In some cases it may cause unwanted
          sign extension, and a warning is appropriate.  */
-	warning (OPT_Wpointer_to_int_cast,
-		 "cast from pointer to integer of different size");
+	warning_at (loc, OPT_Wpointer_to_int_cast,
+		    "cast from pointer to integer of different size");
 
       if (TREE_CODE (value) == CALL_EXPR
 	  && TREE_CODE (type) != TREE_CODE (otype))
-	warning (OPT_Wbad_function_cast, "cast from function call of type %qT "
-		 "to non-matching type %qT", otype, type);
+	warning_at (loc, OPT_Wbad_function_cast,
+		    "cast from function call of type %qT "
+		    "to non-matching type %qT", otype, type);
 
       if (TREE_CODE (type) == POINTER_TYPE
 	  && TREE_CODE (otype) == INTEGER_TYPE
 	  && TYPE_PRECISION (type) != TYPE_PRECISION (otype)
 	  /* Don't warn about converting any constant.  */
 	  && !TREE_CONSTANT (value))
-	warning (OPT_Wint_to_pointer_cast, "cast to pointer from integer "
-		 "of different size");
+	warning_at (loc,
+		    OPT_Wint_to_pointer_cast, "cast to pointer from integer "
+		    "of different size");
 
       if (warn_strict_aliasing <= 2)
         strict_aliasing_warning (otype, type, expr);
@@ -3791,7 +3812,7 @@ build_c_cast (tree type, tree expr)
 	  && TREE_CODE (otype) == POINTER_TYPE
 	  && TREE_CODE (TREE_TYPE (otype)) == FUNCTION_TYPE
 	  && TREE_CODE (TREE_TYPE (type)) != FUNCTION_TYPE)
-	pedwarn (input_location, OPT_pedantic, "ISO C forbids "
+	pedwarn (loc, OPT_pedantic, "ISO C forbids "
 		 "conversion of function pointer to object pointer type");
 
       if (pedantic
@@ -3800,7 +3821,7 @@ build_c_cast (tree type, tree expr)
 	  && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
 	  && TREE_CODE (TREE_TYPE (otype)) != FUNCTION_TYPE
 	  && !null_pointer_constant_p (value))
-	pedwarn (input_location, OPT_pedantic, "ISO C forbids "
+	pedwarn (loc, OPT_pedantic, "ISO C forbids "
 		 "conversion of object pointer to function pointer type");
 
       ovalue = value;
@@ -3830,12 +3851,16 @@ build_c_cast (tree type, tree expr)
   if (value == expr)
     value = non_lvalue (value);
 
+  if (CAN_HAVE_LOCATION_P (value))
+    SET_EXPR_LOCATION (value, loc);
   return value;
 }
 
-/* Interpret a cast of expression EXPR to type TYPE.  */
+/* Interpret a cast of expression EXPR to type TYPE.  LOC is the
+   location of the open paren of the cast, or the position of the cast
+   expr.  */
 tree
-c_cast_expr (struct c_type_name *type_name, tree expr)
+c_cast_expr (location_t loc, struct c_type_name *type_name, tree expr)
 {
   tree type;
   int saved_wsp = warn_strict_prototypes;
@@ -3847,7 +3872,7 @@ c_cast_expr (struct c_type_name *type_name, tree expr)
   type = groktypename (type_name);
   warn_strict_prototypes = saved_wsp;
 
-  return build_c_cast (type, expr);
+  return build_c_cast (loc, type, expr);
 }
 
 /* Build an assignment expression of lvalue LHS from value RHS.
@@ -6996,8 +7021,8 @@ build_asm_stmt (tree cv_qualifier, tree args)
    string in the asm expression -- asm("blah") and asm("blah" : )
    are subtly different.  We use a ASM_EXPR node to represent this.  */
 tree
-build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
-		bool simple)
+build_asm_expr (location_t loc, tree string, tree outputs, tree inputs,
+		tree clobbers, bool simple)
 {
   tree tail;
   tree args;
@@ -7081,7 +7106,7 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
       TREE_VALUE (tail) = input;
     }
 
-  args = build_stmt (ASM_EXPR, string, outputs, inputs, clobbers);
+  args = build_stmt (loc, ASM_EXPR, string, outputs, inputs, clobbers);
 
   /* asm statements without outputs, including simple ones, are treated
      as volatile.  */
@@ -7150,16 +7175,18 @@ c_finish_goto_ptr (tree expr)
 }
 
 /* Generate a C `return' statement.  RETVAL is the expression for what
-   to return, or a null pointer for `return;' with no value.  */
+   to return, or a null pointer for `return;' with no value.  LOC is
+   the location of the return statement.  */
 
 tree
-c_finish_return (tree retval)
+c_finish_return (location_t loc, tree retval)
 {
   tree valtype = TREE_TYPE (TREE_TYPE (current_function_decl)), ret_stmt;
   bool no_warning = false;
 
   if (TREE_THIS_VOLATILE (current_function_decl))
-    warning (0, "function declared %<noreturn%> has a %<return%> statement");
+    warning_at (loc, 0,
+		"function declared %<noreturn%> has a %<return%> statement");
 
   if (!retval)
     {
@@ -7167,7 +7194,7 @@ c_finish_return (tree retval)
       if ((warn_return_type || flag_isoc99)
 	  && valtype != 0 && TREE_CODE (valtype) != VOID_TYPE)
 	{
-	  pedwarn_c99 (input_location, flag_isoc99 ? 0 : OPT_Wreturn_type, 
+	  pedwarn_c99 (loc, flag_isoc99 ? 0 : OPT_Wreturn_type, 
 		       "%<return%> with no value, in "
 		       "function returning non-void");
 	  no_warning = true;
@@ -7177,10 +7204,10 @@ c_finish_return (tree retval)
     {
       current_function_returns_null = 1;
       if (TREE_CODE (TREE_TYPE (retval)) != VOID_TYPE)
-	pedwarn (input_location, 0, 
+	pedwarn (loc, 0, 
 		 "%<return%> with a value, in function returning void");
       else 
-	pedwarn (input_location, OPT_pedantic, "ISO C forbids "
+	pedwarn (loc, OPT_pedantic, "ISO C forbids "
 		 "%<return%> with expression, in function returning void");
     }
   else
@@ -7237,7 +7264,8 @@ c_finish_return (tree retval)
 		  && !DECL_EXTERNAL (inner)
 		  && !TREE_STATIC (inner)
 		  && DECL_CONTEXT (inner) == current_function_decl)
-		warning (0, "function returns address of local variable");
+		warning_at (loc,
+			    0, "function returns address of local variable");
 	      break;
 
 	    default:
@@ -7248,12 +7276,13 @@ c_finish_return (tree retval)
 	}
 
       retval = build2 (MODIFY_EXPR, TREE_TYPE (res), res, t);
+      SET_EXPR_LOCATION (retval, loc);
 
       if (warn_sequence_point)
 	verify_sequence_points (retval);
     }
 
-  ret_stmt = build_stmt (RETURN_EXPR, retval);
+  ret_stmt = build_stmt (loc, RETURN_EXPR, retval);
   TREE_NO_WARNING (ret_stmt) |= no_warning;
   return add_stmt (ret_stmt);
 }
@@ -7618,6 +7647,9 @@ emit_side_effect_warnings (tree expr)
 tree
 c_process_expr_stmt (tree expr)
 {
+  location_t loc = CAN_HAVE_LOCATION_P (expr) ? EXPR_LOCATION (expr)
+    : input_location;
+
   if (!expr)
     return NULL_TREE;
 
@@ -7627,7 +7659,7 @@ c_process_expr_stmt (tree expr)
   if (TREE_TYPE (expr) != error_mark_node
       && !COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (expr))
       && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
-    error ("expression statement has incomplete type");
+    error_at (loc, "expression statement has incomplete type");
 
   /* If we're not processing a statement expression, warn about unused values.
      Warnings for statement expressions will be emitted later, once we figure
@@ -7639,10 +7671,10 @@ c_process_expr_stmt (tree expr)
   /* If the expression is not of a type to which we cannot assign a line
      number, wrap the thing in a no-op NOP_EXPR.  */
   if (DECL_P (expr) || CONSTANT_CLASS_P (expr))
-    expr = build1 (NOP_EXPR, TREE_TYPE (expr), expr);
-
-  if (CAN_HAVE_LOCATION_P (expr))
-    SET_EXPR_LOCATION (expr, input_location);
+    {
+      expr = build1 (NOP_EXPR, TREE_TYPE (expr), expr);
+      SET_EXPR_LOCATION (expr, loc);
+    }
 
   return expr;
 }
@@ -7696,14 +7728,17 @@ c_begin_stmt_expr (void)
   return ret;
 }
 
+/* LOC is the location of the compound statement to which this body
+   belongs.  */
+
 tree
-c_finish_stmt_expr (tree body)
+c_finish_stmt_expr (location_t loc, tree body)
 {
   tree last, type, tmp, val;
   tree *last_p;
   struct c_label_list *dlist, *glist, *glist_prev = NULL;
 
-  body = c_end_compound_stmt (body, true);
+  body = c_end_compound_stmt (loc, body, true);
   if (c_switch_stack)
     {
       gcc_assert (c_switch_stack->blocked_stmt_expr != 0);
@@ -7806,7 +7841,11 @@ c_finish_stmt_expr (tree body)
   *last_p = build2 (MODIFY_EXPR, void_type_node, tmp, val);
   SET_EXPR_LOCUS (*last_p, EXPR_LOCUS (last));
 
-  return build4 (TARGET_EXPR, type, tmp, body, NULL_TREE, NULL_TREE);
+  {
+    tree t = build4 (TARGET_EXPR, type, tmp, body, NULL_TREE, NULL_TREE);
+    SET_EXPR_LOCATION (t, loc);
+    return t;
+  }
 }
 
 /* Begin the scope of an identifier of variably modified type, scope
@@ -7895,8 +7934,12 @@ c_begin_compound_stmt (bool do_scope)
   return stmt;
 }
 
+/* End a compound statement.  STMT is the statement.  LOC is the
+   location of the compound statement-- this is usually the location
+   of the opening brace.  */
+
 tree
-c_end_compound_stmt (tree stmt, bool do_scope)
+c_end_compound_stmt (location_t loc, tree stmt, bool do_scope)
 {
   tree block = NULL;
 
@@ -7908,7 +7951,7 @@ c_end_compound_stmt (tree stmt, bool do_scope)
     }
 
   stmt = pop_stmt_list (stmt);
-  stmt = c_build_bind_expr (block, stmt);
+  stmt = c_build_bind_expr (loc, block, stmt);
 
   /* If this compound statement is nested immediately inside a statement
      expression, then force a BIND_EXPR to be created.  Otherwise we'll
@@ -7921,6 +7964,7 @@ c_end_compound_stmt (tree stmt, bool do_scope)
     {
       stmt = build3 (BIND_EXPR, void_type_node, NULL, stmt, NULL);
       TREE_SIDE_EFFECTS (stmt) = 1;
+      SET_EXPR_LOCATION (stmt, loc);
     }
 
   return stmt;
@@ -7931,14 +7975,14 @@ c_end_compound_stmt (tree stmt, bool do_scope)
    meant to apply to normal control flow transfer.  */
 
 void
-push_cleanup (tree ARG_UNUSED (decl), tree cleanup, bool eh_only)
+push_cleanup (tree decl, tree cleanup, bool eh_only)
 {
   enum tree_code code;
   tree stmt, list;
   bool stmt_expr;
 
   code = eh_only ? TRY_CATCH_EXPR : TRY_FINALLY_EXPR;
-  stmt = build_stmt (code, NULL, cleanup);
+  stmt = build_stmt (DECL_SOURCE_LOCATION (decl), code, NULL, cleanup);
   add_stmt (stmt);
   stmt_expr = STATEMENT_LIST_STMT_EXPR (cur_stmt_list);
   list = push_stmt_list ();
@@ -8601,19 +8645,21 @@ c_begin_omp_parallel (void)
   return block;
 }
 
-/* Generate OMP_PARALLEL, with CLAUSES and BLOCK as its compound statement.  */
+/* Generate OMP_PARALLEL, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OMP_PARALLEL.  */
 
 tree
-c_finish_omp_parallel (tree clauses, tree block)
+c_finish_omp_parallel (location_t loc, tree clauses, tree block)
 {
   tree stmt;
 
-  block = c_end_compound_stmt (block, true);
+  block = c_end_compound_stmt (loc, block, true);
 
   stmt = make_node (OMP_PARALLEL);
   TREE_TYPE (stmt) = void_type_node;
   OMP_PARALLEL_CLAUSES (stmt) = clauses;
   OMP_PARALLEL_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
 
   return add_stmt (stmt);
 }
@@ -8631,19 +8677,21 @@ c_begin_omp_task (void)
   return block;
 }
 
-/* Generate OMP_TASK, with CLAUSES and BLOCK as its compound statement.  */
+/* Generate OMP_TASK, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the #pragma.  */
 
 tree
-c_finish_omp_task (tree clauses, tree block)
+c_finish_omp_task (location_t loc, tree clauses, tree block)
 {
   tree stmt;
 
-  block = c_end_compound_stmt (block, true);
+  block = c_end_compound_stmt (loc, block, true);
 
   stmt = make_node (OMP_TASK);
   TREE_TYPE (stmt) = void_type_node;
   OMP_TASK_CLAUSES (stmt) = clauses;
   OMP_TASK_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
 
   return add_stmt (stmt);
 }

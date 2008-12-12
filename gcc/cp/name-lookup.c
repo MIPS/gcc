@@ -3478,7 +3478,7 @@ do_using_directive (tree name_space)
   gcc_assert (TREE_CODE (name_space) == NAMESPACE_DECL);
 
   if (building_stmt_tree ())
-    add_stmt (build_stmt (USING_STMT, name_space));
+    add_stmt (build_stmt (input_location, USING_STMT, name_space));
   name_space = ORIGINAL_NAMESPACE (name_space);
 
   if (!toplevel_bindings_p ())

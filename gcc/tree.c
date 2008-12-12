@@ -2324,6 +2324,7 @@ save_expr (tree expr)
     return t;
 
   t = build1 (SAVE_EXPR, TREE_TYPE (expr), t);
+  SET_EXPR_LOCATION (t, EXPR_LOCATION (expr));
 
   /* This expression might be placed ahead of a jump to ensure that the
      value was computed on both sides of the jump.  So make sure it isn't
@@ -7988,12 +7989,14 @@ initializer_zerop (const_tree init)
     }
 }
 
-/* Build an empty statement.  */
+/* Build an empty statement at location LOC.  */
 
 tree
-build_empty_stmt (void)
+build_empty_stmt (location_t loc)
 {
-  return build1 (NOP_EXPR, void_type_node, size_zero_node);
+  tree t = build1 (NOP_EXPR, void_type_node, size_zero_node);
+  SET_EXPR_LOCATION (t, loc);
+  return t;
 }
 
 

@@ -4916,7 +4916,7 @@ extern tree build_x_indirect_ref		(tree, const char *,
                                                  tsubst_flags_t);
 extern tree cp_build_indirect_ref		(tree, const char *,
                                                  tsubst_flags_t);
-extern tree build_array_ref			(tree, tree, location_t);
+extern tree build_array_ref			(location_t, tree, tree);
 extern tree get_member_function_from_ptrfunc	(tree *, tree);
 extern tree cp_build_function_call              (tree, tree, tsubst_flags_t);
 extern tree build_x_binary_op			(enum tree_code, tree,
@@ -4932,12 +4932,12 @@ extern tree build_x_conditional_expr		(tree, tree, tree,
                                                  tsubst_flags_t);
 extern tree build_x_compound_expr_from_list	(tree, const char *);
 extern tree build_x_compound_expr		(tree, tree, tsubst_flags_t);
-extern tree build_compound_expr                 (tree, tree);
+extern tree build_compound_expr                 (location_t, tree, tree);
 extern tree cp_build_compound_expr		(tree, tree, tsubst_flags_t);
 extern tree build_static_cast			(tree, tree, tsubst_flags_t);
 extern tree build_reinterpret_cast		(tree, tree, tsubst_flags_t);
 extern tree build_const_cast			(tree, tree, tsubst_flags_t);
-extern tree build_c_cast			(tree, tree);
+extern tree build_c_cast			(location_t, tree, tree);
 extern tree cp_build_c_cast			(tree, tree, tsubst_flags_t);
 extern tree build_x_modify_expr			(tree, enum tree_code, tree,
 						 tsubst_flags_t);

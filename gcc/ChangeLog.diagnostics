@@ -1,3 +1,114 @@
+2008-12-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-tree.h (check_for_loop_decls, undeclared_variable,
+	build_component_ref, build_array_ref, build_external_ref,
+	c_expr_sizeof_expr, c_expr_sizeof_type, parser_build_unary_op,
+	build_conditional_expr, build_compound_expr, c_cast_expr,
+	build_c_cast, build_asm_expr, c_end_compound_stmt, c_finish_stmt_expr,
+	c_finish_return, c_finish_omp_parallel, c_finish_omp_task): New
+	argument.
+	* c-semantics.c (build_stmt): Same.
+	(build_case_label): Same.
+	* c-decl.c (c_finish_incomplete_decl): Pass location on down.
+	(undeclared_variable): New argument.
+	(make_label): Same.
+	(lookup_label): Pass location on down.
+	(define_label): Same.
+	(finish_decl): Same.
+	(build_compound_literal): Same.
+	(finish_struct): Same.
+	(finish_function): Do not set location here.
+	(check_for_loop_decls): New argument.
+	* tree.c (save_expr): Set location.
+	(build_empty_stmt): New argument.
+	* tree.h (build_empty_stmt): New argument to build_empty_stmt.
+	(CAN_HAVE_LOCATION_P): Make sure we have a non empty node.
+	* builtins.c (gimplify_va_arg_expr): Use locations.
+	(expand_builtin_sync_operation): Same.
+	* c-typeck.c (build_component_ref): New argument.
+	(build_array_ref): Same.
+	(build_external_ref): Same.
+	(c_expr_sizeof_expr): Same.
+	(c_expr_sizeof_type): Same.
+	(parser_build_unary_op): Same.
+	(build_conditional_expr): Same.
+	(build_compound_expr): Pass location on down.
+	(build_compound_expr): New argument.
+	(build_c_cast): Same.
+	(c_cast_expr): Same.
+	(build_asm_expr): Same.
+	(c_finish_return): Same.
+	(c_process_expr_stmt): Pass location on down.
+	(c_finish_stmt_expr): New argument.
+	(push_clenaup): Same.
+	(c_finish_omp_parallel): Same.
+	(c_finish_omp_task): Same.
+	* gimplify.c (gimplify_call_expr): Pass location on down.
+	* c-omp.c (c_finish_omp_master): New argument.
+	(c_finish_omp_critical): Same.
+	(c_finish_omp_ordered): Same.
+	(c_finish_omp_barrier): Same.
+	(-c_finish_omp_taskwait): Same.
+	(c_finish_omp_atomic): Same.
+	(c_finish_omp_flush): Same.
+	* tree-inline.c (copy_tree_body_r): Pass location on down.
+	* c-gimplify.c (c_build_bind_expr): New argument.
+	* c-common.c (c_common_truthvalue_conversion): Pass location on down.
+	(c_sizeof_or_alignof_type): New argument.
+	(c_alignof_expr): Same.
+	(build_va_arg): Same.
+	(c_add_case_label): Same.
+	* c-common.h (c_sizeof_or_alignof_type, c_alignof_expr,
+	c_sizeof, c_alignof, build_va_arg, build_stmt, build_case_label,
+	c_build_bind_expr, objc_build_selector_expr, objc_build_throw_stmt,
+	c_finish_omp_master, c_finish_omp_critical, c_finish_omp_ordered,
+	c_finish_omp_barrier, c_finish_omp_atomic, c_finish_omp_flush,
+	c_finish_omp_taskwait, c_finish_omp_for, c_split_parallel_clauses):
+	New argument.
+	* stub-objc.c (objc_build_selector_expr): Same.
+	(objc_build_throw_stmt): Same.
+	* c-parser.c (c_parser_declaration_or_fndef): Pass location on down.
+	(c_parser_initelt): Same.
+	(c_parser_compound_statement): Same.
+	(c_parser_compound_statement_nostart): Same.
+	(c_parser_label): Same.
+	(c_parser_statement_after_labels): Same.
+	(c_parser_if_body): Same.
+	(c_parser_else_body): Same.
+	(c_parser_if_statement): Same.
+	(c_parser_switch_statement): Same.
+	(c_parser_while_statement): Same.
+	(c_parser_do_statement): Same.
+	(c_parser_for_statement): Same.
+	(c_parser_asm_statement): Same.
+	(c_parser_conditional_expression): Same.
+	(c_parser_binary_expression): Same.
+	(c_parser_cast_expression): Same.
+	(c_parser_unary_expression): Same.
+	(c_parser_sizeof_expression): Same.
+	(c_parser_alignof_expression): Same.
+	(c_parser_postfix_expression): Same.
+	(c_parser_expression): Same.
+	(c_parser_objc_receiver): Same.
+	(c_parser_omp_variable_list): Same.
+	(c_parser_omp_structured_block): Same.
+	(c_parser_omp_atomic): New argument.
+	(c_parser_omp_barrier): Same.
+	(c_parser_omp_critical): Same.
+	(c_parser_omp_flush): Pass location on down.
+	(c_parser_omp_for_loop): New argument.
+	(c_parser_omp_for): Same.
+	(c_parser_omp_master): Same.
+	(c_parser_omp_ordered): Same.
+	(c_parser_omp_sections_scope): Same.
+	(c_parser_omp_sections): Same.
+	(c_parser_omp_parallel): Same.
+	(c_parser_omp_single): Same.
+	(c_parser_omp_task): Same.
+	(c_parser_omp_taskwait): Pass location on down.
+	(c_parser_omp_construct): Same.
+	(c_parser_omp_threadprivate): Same.
+
 2008-11-19  Aldy Hernandez  <aldyh@redhat.com>
 
 	* dwarf2asm.c, targhooks.c, optabs.c, tree.c, tree.h, target.h,

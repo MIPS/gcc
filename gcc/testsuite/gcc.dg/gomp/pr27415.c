@@ -15,8 +15,8 @@ void
 test2 (void)
 {
   int i = 0;
-#pragma omp parallel for firstprivate (i)
-  for (i = 0; i < 10; i++)			/* { dg-error "should not be firstprivate" } */
+#pragma omp parallel for firstprivate (i)	/* { dg-error "should not be firstprivate" } */
+  for (i = 0; i < 10; i++)
     ;
 }
 

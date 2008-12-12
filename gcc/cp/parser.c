@@ -6071,7 +6071,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p)
 	    return error_mark_node;
 
 	  /* Perform the cast.  */
-	  expr = build_c_cast (type, expr);
+	  expr = build_c_cast (input_location, type, expr);
 	  return expr;
 	}
       else 
@@ -7222,7 +7222,7 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p)
 	    if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
 	      {
 	        location_t loc = cp_lexer_peek_token (parser->lexer)->location;
-		add_stmt (build_empty_stmt ());
+		add_stmt (build_empty_stmt (loc));
 		cp_lexer_consume_token (parser->lexer);
 	        if (!cp_lexer_next_token_is_keyword (parser->lexer, RID_ELSE))
 		  warning_at (loc, OPT_Wempty_body, "suggest braces around "
@@ -7245,10 +7245,12 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p)
 		/* Parse the else-clause.  */
 	        if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
 	          {
-		    warning_at (cp_lexer_peek_token (parser->lexer)->location,
+		    location_t loc;
+		    loc = cp_lexer_peek_token (parser->lexer)->location;
+		    warning_at (loc,
 				OPT_Wempty_body, "suggest braces around "
 			        "empty body in an %<else%> statement");
-		    add_stmt (build_empty_stmt ());
+		    add_stmt (build_empty_stmt (loc));
 		    cp_lexer_consume_token (parser->lexer);
 		  }
 		else
@@ -7756,8 +7758,9 @@ cp_parser_implicitly_scoped_statement (cp_parser* parser, bool *if_p)
   /* Mark if () ; with a special NOP_EXPR.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
     {
+      location_t loc = cp_lexer_peek_token (parser->lexer)->location;
       cp_lexer_consume_token (parser->lexer);
-      statement = add_stmt (build_empty_stmt ());
+      statement = add_stmt (build_empty_stmt (loc));
     }
   /* if a compound is opened, we simply parse the statement directly.  */
   else if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
@@ -19199,6 +19202,7 @@ cp_parser_objc_selector_expression (cp_parser* parser)
   tree sel_seq = NULL_TREE;
   bool maybe_unary_selector_p = true;
   cp_token *token;
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
 
   cp_lexer_consume_token (parser->lexer);  /* Eat '@selector'.  */
   cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
@@ -19250,7 +19254,7 @@ cp_parser_objc_selector_expression (cp_parser* parser)
  finish_selector:
   cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
-  return objc_build_selector_expr (sel_seq);
+  return objc_build_selector_expr (loc, sel_seq);
 }
 
 /* Parse a list of identifiers.
@@ -20023,6 +20027,7 @@ cp_parser_objc_synchronized_statement (cp_parser *parser) {
 static tree
 cp_parser_objc_throw_statement (cp_parser *parser) {
   tree expr = NULL_TREE;
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
 
   cp_parser_require_keyword (parser, RID_AT_THROW, "%<@throw%>");
 
@@ -20031,7 +20036,7 @@ cp_parser_objc_throw_statement (cp_parser *parser) {
 
   cp_parser_consume_semicolon_at_end_of_statement (parser);
 
-  return objc_build_throw_stmt (expr);
+  return objc_build_throw_stmt (loc, expr);
 }
 
 /* Parse an Objective-C statement.  */
@@ -20877,7 +20882,7 @@ cp_parser_omp_critical (cp_parser *parser, cp_token *pragma_tok)
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
   stmt = cp_parser_omp_structured_block (parser);
-  return c_finish_omp_critical (stmt, name);
+  return c_finish_omp_critical (input_location, stmt, name);
 }
 
 /* OpenMP 2.5:
@@ -21456,7 +21461,8 @@ static tree
 cp_parser_omp_master (cp_parser *parser, cp_token *pragma_tok)
 {
   cp_parser_require_pragma_eol (parser, pragma_tok);
-  return c_finish_omp_master (cp_parser_omp_structured_block (parser));
+  return c_finish_omp_master (input_location,
+			      cp_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 2.5:
@@ -21466,8 +21472,9 @@ cp_parser_omp_master (cp_parser *parser, cp_token *pragma_tok)
 static tree
 cp_parser_omp_ordered (cp_parser *parser, cp_token *pragma_tok)
 {
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
   cp_parser_require_pragma_eol (parser, pragma_tok);
-  return c_finish_omp_ordered (cp_parser_omp_structured_block (parser));
+  return c_finish_omp_ordered (loc, cp_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 2.5:
