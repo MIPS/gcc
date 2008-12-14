@@ -1,5 +1,11 @@
 2008-12-14  Doug Kwan  <dougkwan@google.com>
 
+	* g++.dg/lto/20081211-1.h: New.
+	* g++.dg/lto/20081211-1_0.C: New.
+	* g++.dg/lto/20081211-1_1.C: New.
+
+2008-12-14  Doug Kwan  <dougkwan@google.com>
+
 	* gcc.dg/lto/20081212-1_0.c: New.
 	* lib/lto.exp (lto-get-options-main): Handle dg-final.
 	(lto-execute): Execute any final code in test.

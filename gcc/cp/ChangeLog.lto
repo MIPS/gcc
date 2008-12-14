@@ -1,3 +1,9 @@
+2008-12-14  Doug Kwan  <dougkwan@google.com>
+
+	* tree.c (cp_fix_function_decl_p): New.
+	(cp_reset_lang_specifics): Move the logic for determining what
+	FUNCTION_DECLs to fix to (cp_fix_function_decl_p).
+
 2008-12-01  Doug Kwan  <dougkwan@google.com>
 
 	* tree.c (cp_reset_lang_specifics): Only fix up FUNCTION_DECLs

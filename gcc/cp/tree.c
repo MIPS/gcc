@@ -2797,6 +2797,26 @@ cast_valid_in_integral_constant_expression_p (tree type)
 	  || type == error_mark_node);
 }
 
+/* Return true if we need to fix linkage information of DECL.  */
+
+static bool
+cp_fix_function_decl_p (tree decl)
+{
+  /* Skip if DECL is not externally visible.  */
+  if (!TREE_PUBLIC (decl))
+    return false;
+
+  /* We need to fix DECL if it a appears to be exported but with no
+     function body.  Thunks do not have CFGs and we may need to
+     handle them specially later.   */
+  if (!gimple_has_body_p (decl)
+      && !DECL_THUNK_P (decl)
+      && !DECL_EXTERNAL (decl))
+    return true;
+
+  return false;
+}
+
 /* Clean the C++ specific parts of the tree T. */
 
 void
@@ -2821,22 +2841,9 @@ cp_reset_lang_specifics (tree t)
       if (mangle_decl_is_template_id (t, &template_info))
         DECL_CONTEXT (TREE_PURPOSE (template_info)) = NULL_TREE;
     }
-  /* Fix up DECLs for inlines and implicitly instantiated functions.
-     We trust the C++ FE that we skip any DECLs with DECL_INTERFACE_KNOWN
-     set.  */
   else if (TREE_CODE (t) == FUNCTION_DECL
-	   && !gimple_body (t)
-	   && !DECL_EXTERNAL (t)
-	   && TREE_PUBLIC (t)
-	   && !DECL_INTERFACE_KNOWN (t))
+	   && cp_fix_function_decl_p (t))
     {
-      /* This should only happen for inlines or implicit instanitations
-	 which are not emitted.  When we reach here,  we should have read
-	 the EOF and expanded all needed functions.  */
-      gcc_assert ((DECL_DECLARED_INLINE_P (t)
-		   || DECL_IMPLICIT_INSTANTIATION (t))
-		  && at_eof);
-
       /* If T is used in this translation unit at all,  the definition
 	 must exist somewhere else since we have decided to not emit it
 	 in this TU.  So make it an external reference.  */
