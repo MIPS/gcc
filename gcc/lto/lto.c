@@ -513,6 +513,16 @@ lto_1_to_1_map (void)
   void **slot;
 
   lto_cgraph_node_sets = VEC_alloc (cgraph_node_set, gc, 1);
+
+  /* If the cgraph is empty, create one cgraph node set so that there is still
+     an output file for any variables that need to be exported in a DSO.  */
+  if (!cgraph_nodes)
+    {
+      set = cgraph_node_set_new ();
+      VEC_safe_push (cgraph_node_set, gc, lto_cgraph_node_sets, set);
+      return;
+    }
+
   pmap = pointer_map_create ();
 
   for (node = cgraph_nodes; node; node = node->next)

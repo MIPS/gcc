@@ -1,3 +1,10 @@
+2008-12-14  Doug Kwan  <dougkwan@google.com>
+
+	* gcc.dg/lto/20081212-1_0.c: New.
+	* lib/lto.exp (lto-get-options-main): Handle dg-final.
+	(lto-execute): Execute any final code in test.
+	(scan-symbol): New.
+
 2008-12-11  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/20081210-1_0.c: Fix for 64bit hosts.

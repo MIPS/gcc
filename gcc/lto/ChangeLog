@@ -1,3 +1,8 @@
+2008-12-14  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (lto_1_to_1_map): Create a cgraph node set for any global
+	variables if there is no function.
+
 2008-12-10  Simon Baldwin  <simonb@google.com>
 
 	* ltrans-driver: Always run make in silent mode, to avoid make's

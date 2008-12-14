@@ -163,6 +163,8 @@ proc lto-get-options-main { src } {
 
     # dg-require-* sets dg-do-what.
     upvar dg-do-what dg-do-what 
+    upvar dg-final-code dg-final-code
+    set dg-final-code ""
 
     set tmp [dg-get-options $src]
     verbose "getting options for $src: $tmp"
@@ -195,6 +197,12 @@ proc lto-get-options-main { src } {
 	} elseif { ![string compare "dg-extra-ld-options" $cmd] } {
 	    set dg-extra-ld-options [lindex $op 2]
 	    verbose "dg-extra-ld-options for main is ${dg-extra-ld-options}"
+	} elseif { ![string compare "dg-final" $cmd] } {
+	    if { [llength $op] > 3 } {
+		error "[lindex $op 0]: too many arguments"
+	    } else {
+		append dg-final-code "[lindex $op 2]\n"
+	    }
 	} else {
 	    # Ignore unrecognized dg- commands, but warn about them.
 	    warning "lto.exp does not support $cmd"
@@ -264,6 +272,7 @@ proc lto-execute { src1 sid } {
     global compile_type
     global dg-extra-ld-options
     global LTO_OPTIONS
+    global dg-final-code
 
     # Get extra flags for this test from the primary source file, and
     # process other dg-* options that this suite supports.  Warn about
@@ -381,6 +390,27 @@ proc lto-execute { src1 sid } {
 		    $obj_list $execname $option ${dg-extra-ld-options} $option
 	}
 
+
+	# Are there any further tests to perform?
+	# Note that if the program has special run-time requirements, running
+	# of the program can be delayed until here.  Ditto for other situations.
+	# It would be a bit cumbersome though.
+
+	if ![string match ${dg-final-code} ""] {
+	    regsub -all "\\\\(\[{}\])" ${dg-final-code} "\\1" dg-final-code
+	    # Note that the use of `args' here makes this a varargs proc.
+	    proc dg-final-proc { args } ${dg-final-code}
+	    verbose "Running dg-final tests." 3
+	    verbose "dg-final-proc:\n[info body dg-final-proc]" 4
+	    if [catch "dg-final-proc $src1" errmsg] {
+		perror "$name: error executing dg-final: $errmsg"
+		# ??? The call to unresolved here is necessary to clear
+		# `errcnt'.  What we really need is a proc like perror that
+		# doesn't set errcnt.  It should also set exit_status to 1.
+		unresolved "$name: error executing dg-final: $errmsg"
+	    }
+	}
+
 	# Clean up object files.
 	set files [glob -nocomplain ${sid}_*.o]
 	if { $files != "" } {
@@ -390,5 +420,51 @@ proc lto-execute { src1 sid } {
 		}
 	    }
 	}
+    }
+}
+
+# Utility for scanning a symbol in the final executable, invoked via dg-final.
+# Call pass if pattern is present, otherwise fail.
+#
+# Argument 0 is the regexp to match.
+# Argument 1 handles expected failures and the like
+proc scan-symbol { args } {
+    global nm
+    global base_dir
+    upvar 2 execname execname
+
+    if { [llength $args] >= 2 } {
+	switch [dg-process-target [lindex $args 1]] {
+	    "S" { }
+	    "N" { return }
+	    "F" { setup_xfail "*-*-*" }
+	    "P" { }
+	}
+    }
+
+    # Find nm like we find g++ in g++.exp.
+    if ![info exists nm]  {
+	set nm [findfile $base_dir/../../../binutils/nm \
+		$base_dir/../../../binutils/nm \
+	        [findfile $base_dir/../../nm $base_dir/../../nm \
+		      [findfile $base_dir/nm $base_dir/nm \
+		       [transform nm]]]]
+	verbose -log "nm is $nm"
+    }
+
+    set output_file $execname
+    if { $output_file == "" } {
+	fail "scan-symbol $args: dump file does not exist"
+	return
+    }
+
+    set fd [open "| $nm $output_file" r]
+    set text [read $fd]
+    close $fd
+
+    if [regexp -- [lindex $args 0] $text] {
+	pass "scan-symbol $args"
+    } else {
+	fail "scan-symbol $args"
     }
 }
