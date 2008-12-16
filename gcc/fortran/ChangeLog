@@ -1,3 +1,37 @@
+2008-12-15  Mikael Morin  <mikael.morin@tele2.fr>
+
+	PR fortran/38487
+	* dependency.c (gfc_is_data_pointer): New function.
+	(gfc_check_argument_var_dependency): Disable the warning
+	in the pointer case.
+	(gfc_check_dependency): Use gfc_is_data_pointer.
+
+2008-12-15  Mikael Morin  <mikael.morin@tele2.fr>
+
+	PR fortran/38113
+	* error.c (show_locus): Start counting columns at 0.
+	* primary.c (match_actual_arg): Eat spaces
+	before copying the current locus.
+	(match_variable): Copy the locus before matching.
+
+2008-12-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35937
+	* trans-expr.c (gfc_finish_interface_mapping): Fold convert the
+	character length to gfc_charlen_type_node.
+
+2008-12-12  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/36355
+	* check.c (gfc_check_matmul): Fixed error message for invalid
+	types to correctly identify the offending argument, added check
+	for mismatching types.
+
+2008-12-11  Richard Guenther  <rguenther@suse.de>
+
+	* Make-lang.in (install-finclude-dir): Use correct mode argument
+	for mkinstalldirs.
+
 2008-12-09  Daniel Franke  <franke.daniel@gmail.com>
 
 	PR fortran/36376
