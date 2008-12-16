@@ -1,5 +1,11 @@
 2008-12-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* doc/tm.texi (TARGET_ADDR_SPACE_MINUS_TYPE): Document new hook.
+	(TARGET_ADDR_SPACE_MEMORY_ADDRESS_P): Ditto.
+	(TARGET_ADDR_SPACE_STRICT_MEMORY_ADDRESS_P): Ditto.
+	(TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS): Ditto.
+	(TARGET_ADDR_SPACE_STATIC_INIT_OK_P): Ditto.
+
 	* targhooks.c (default_valid_pointer_mode): Move here from
 	varasm.c.
 	(default_addr_space_pointer_mode): Ditto.
