@@ -2574,7 +2574,7 @@ emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) $(FUNCTION_H) $(REGS_H) insn-config.h $(RECOG_H) \
    $(GGC_H) $(EXPR_H) hard-reg-set.h $(BITMAP_H) $(TOPLEV_H) $(BASIC_BLOCK_H) \
    $(HASHTAB_H) $(TM_P_H) debug.h langhooks.h tree-pass.h gt-emit-rtl.h \
-   $(REAL_H) $(DF_H)
+   $(REAL_H) $(DF_H) $(TARGET_H)
 real.o : real.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(TOPLEV_H) $(TM_P_H) $(REAL_H) dfp.h
 dfp.o : dfp.c dfp.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)	$(TREE_H) \

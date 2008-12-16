@@ -1,3 +1,114 @@
+2008-12-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* targhooks.c (default_valid_pointer_mode): Move here from
+	varasm.c.
+	(default_addr_space_pointer_mode): Ditto.
+	(default_addr_space_minus_type): New hook to return the type used
+	for the difference of two pointers.
+	(default_addr_space_memory_address_p): New hook for the named
+	address space version of memory_address_p.
+	(default_addr_space_strict_memory_address_p): New hook for the
+	named address space version of strict_memory_address_p.
+	(default_addr_space_legitimize_address): New hook for the named
+	address space version of LEGITIMIZE_ADDRESS.
+	(default_addr_space_static_init_ok_p): New hook to determine if an
+	initialization can take place in another named address space.
+
+	* targhooks.h (default_valid_pointer_mode): Add declaration.
+	(default_addr_space_pointer_mode): Ditto.
+	(default_addr_space_minus_type): Ditto.
+	(default_addr_space_memory_address_p): Ditto.
+	(default_addr_space_strict_memory_address_p): Ditto.
+	(default_addr_space_legitimize_address): Ditto.
+	(default_addr_space_static_init_ok_p): Ditto.
+
+	* target.h (struct addr_space): Add minus_type, memory_address_p,
+	strict_memory_address_p, legitimize_address, and static_init_ok_p
+	hooks.
+
+	* auto-inc-dec.c (try_merge): Use GET_MODE instead of Pmode for
+	the mode of newly created RTL.
+
+	* expr.c (emit_move_insn): Add named address support.
+	(expand_expr_real_1): Ditto.
+
+	* expr.h (memory_address_addr_space): Add declaration.
+	(memory_address): Define in terms of memory_address_addr_space
+	with the generic address space.
+
+	* recog.c (memory_address_addr_space_p): New function, like
+	memory_address_p, except it takes an named address space
+	identifier.
+
+	* recog.h (memory_address_addr_space_p): Add declaration.
+	(strict_memory_address_addr_space_p): Ditto.
+
+	* c-typeck.c (parser_build_binary_op): Use the address space
+	minus_type hook to determine what type is used for subtraction of
+	two pointers to named address spaces.
+	(convert_for_assignment): Shorten a line to under 80 characters.
+
+	* emit-rtl.c (toplevel): Include target.h.
+	(change_address_1): Add named address space parameter.  Switch
+	validation to be named address space aware.
+	(change_address_addr_space): Like change_address, but take the
+	address space to change the address to.
+	(change_address): Call change_address_addr_space with generic
+	address space argument.
+	(adjust_address_1): Add support for named address spaces.
+	(offset_address): Ditto.
+	(replace_equiv_address): Add address space argument.
+	(replace_equiv_address_nv): Ditto.
+
+	* explow.c (break_out_memory_refs): Use GET_MODE of the address
+	instead of assuming all pointers are Pmode.
+	(memory_address_addr_space): Rename from memory_address, add named
+	address space argument.  Use named address space legitimize hook
+	instead of LEGITIMIZE_ADDRESS for memory addresse spaces other
+	than the generic address space.
+	(validize_mem): Add named address space support.
+
+	* varasm.c (make_decl_rtl): Reformat code somewhat.
+	(default_valid_pointer_mode): Move to targhooks.c.
+	(default_addr_space_pointer): Ditto.
+
+	* target-def.h (TARGET_ADDR_SPACE_MINUS_HOOK): New named address
+	space hook.
+	(TARGET_ADDR_SPACE_MEMORY_ADDRESS_P): Ditto.
+	(TARGET_ADDR_SPACE_STRICT_MEMORY_ADDRESS_P): Ditto.
+	(TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS): Ditto.
+	(TARGET_ADDR_SPACE_STATIC_INIT_OK_P): Ditto.
+	(TARGET_ADDR_SPACE_HOOKS): Add new hooks.
+
+	* Makefile.in (emit-rtl.o): Add $(TARGET_H) dependencies.
+
+	* config/spu/spu-protos.h (spu_legitimate_address): Add named
+	address space argument.
+	(spu_legitimize_address): New hook.
+
+	* config/spu/spu.c (EAmode): Move earlier in the file.
+	(spu_addr_space_pointer_mode): Rename from spu_ea_pointer_mode for
+	consistancy.  Simplify code somewhat.
+	(TARGET_ADDR_SPACE_POINTER_MODE): Use spu_addr_space_pointer_mode.
+	(spu_addr_space_minus_type): New named address space hook.
+	(spu_addr_space_memory_address_p): Ditto.
+	(spu_addr_space_strict_memory_address_p): Ditto.
+	(spu_addr_space_legitimize_address): Ditto.
+	(spu_addr_space_static_init_ok_p): Ditto.
+	(TARGET_ADDR_SPACE_MINUS_TYPE): Ditto.
+	(TARGET_ADDR_SPACE_STRICT_MEMORY_ADDRESS_P): Ditto.
+	(TARGET_ADDR_SPACE_LEGITIMIZE_ADDRESS): Ditto.
+	(TARGET_ADDR_SPACE_STATIC_INIT_OK_P): Ditto.
+	(spu_legitimate_address): Add named address space argument.
+	(spu_legitimize_address): Ditto.
+	(expand_ea_mem): Use change_address_addr_space instead of
+	change_address.
+	(spu_valid_move): Add assert for being inside function context.
+
+	* config/spu/spu.h (GO_IF_LEGITIMATE_ADDRESS): Add default named
+	address space argument.
+	(LEGITIMIZE_ADDRESS): Ditto.
+
 2008-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* c-common.h (ADDR_SPACE_KEYWORD): Set the disable flags to

@@ -1,3 +1,27 @@
+2008-12-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/spu/ea/compile3.c: Add static initializations.
+	* gcc.target/spu/ea/errors3.c: Ditto.
+	
+	* gcc.target/spu/ea/compile4.c: New file to make sure __ea
+	structure references work.
+
+	* gcc.target/spu/ea/execute1.c: New file to make sure various
+	static initializations work for -mea32.
+	* gcc.target/spu/ea/execute2.c: Ditto.
+	* gcc.target/spu/ea/execute3.c: Ditto.
+	* gcc.target/spu/ea/execute4.c: Ditto.
+	* gcc.target/spu/ea/execute5.c: Ditto.
+	* gcc.target/spu/ea/execute6.c: Ditto.
+
+	* gcc.target/spu/ea/execute1-m64.c: New file to make sure various
+	static initializations work for -mea64.
+	* gcc.target/spu/ea/execute2-m64.c: Ditto.
+	* gcc.target/spu/ea/execute3-m64.c: Ditto.
+	* gcc.target/spu/ea/execute4-m64.c: Ditto.
+	* gcc.target/spu/ea/execute5-m64.c: Ditto.
+	* gcc.target/spu/ea/execute6-m64.c: Ditto.
+	
 2008-12-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/spu/ea/errors2.c: Add comment saying this is the same
