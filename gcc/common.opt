@@ -221,6 +221,10 @@ Wthread-reentrant-lock
 Common Var(warn_thread_reentrant_lock) Init(1) Warning
 Warn about a lock being acquired recursively
 
+Wthread-unsupported-lock-name
+Common Var(warn_unsupported_lock_name) Init(0) Warning
+Warn about uses of unsupported lock names in attributes
+
 Wtype-limits
 Common Var(warn_type_limits) Init(-1) Warning
 Warn if a comparison is always true or always false due to the limited range of the data type

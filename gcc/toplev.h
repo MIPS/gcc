@@ -126,6 +126,9 @@ extern bool exit_after_options;
 
 extern bool user_defined_section_attribute;
 
+/* True if the parser is currently parsing a lock attribute.  */
+extern bool parsing_lock_attribute;
+
 /* See toplev.c.  */
 extern int flag_crossjumping;
 extern int flag_if_conversion;

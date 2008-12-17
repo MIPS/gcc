@@ -5922,7 +5922,10 @@ build_new_method_call (tree instance, tree fns, tree args,
 	  if (TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE
 	      && is_dummy_object (instance_ptr))
 	    {
-	      if (complain & tf_error)
+              /* If the call appears in the argument list of a lock
+                 annotation attribute, don't emit an error. Just return
+                 the error_mark_node.  */
+	      if ((complain & tf_error) && !parsing_lock_attribute)
 		error ("cannot call member function %qD without object",
 		       fn);
 	      call = error_mark_node;

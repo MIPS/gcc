@@ -517,32 +517,6 @@ const struct fname_var_t fname_vars[] =
   {NULL, 0, 0},
 };
 
-/* When parsing thread safety attributes inside a class definition, instead
-   of trying to bind an identifier argument to its decl tree right away,
-   we delay the binding (by adding the attribute arguments to the following
-   three lists) until after the definition of the class is finished
-   parsing. The reason for this delayed binding is because the declaration
-   of the identifier could appear later lexically in the class definition.
-   For example, in the following code, if we try to bind identifier "mu"
-   when we parse the attribute, we will not be able to find its DECL tree.
-   We have to wait until the whole class specification is parsed.
-
-     class Foo {
-       private:
-         int a  __attribute__ ((guarded_by(mu)));
-         Mutex mu;
-     };
-
-   "unprocessed_acq_after_args" and "unprocessed_acq_before_args" are used
-   for the arguments in "acquired_after" and "acquired_before" attributes,
-   respectively, while "unbound_attribute_args" is used for the identifier
-   arguments in other attributes. We distinguish arguments in "acquired_after"
-   and "acquired_before" from others because they need to be processed
-   specially (i.e. to populate the acquired_after map).  */
-tree unbound_attribute_args = NULL_TREE;
-tree unprocessed_acq_after_args = NULL_TREE;
-tree unprocessed_acq_before_args = NULL_TREE;
-
 static tree check_case_value (tree);
 static bool check_case_bounds (tree, tree, tree *, tree *);
 
@@ -7262,11 +7236,56 @@ handle_lockable_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
-/* A helper function that returns a lock decl tree if LOCK is an
-   identifier and can be bound to a decl tree. Otherwise, returns LOCK
-   itself. If LOCK is an identifier which cannot be bound at this time,
-   ADD_UNBOUND_LOCK_TO_MAP controls whether to insert the LOCK to the
-   unbound_lock_map.  */
+/* Return true if the LOCK tree is supported. Here are the supported lock
+   trees:
+   - var/param/field decl
+   - field access, direct or indirect, e.g. foo.mu, bar->lock
+   - array access with constant index, e.g. mutex[3], foo.mu[2] 
+   - address-taken, e.g. &mu
+
+   If the LOCK is an error_mark_node, which means we encountered an error
+   earlier when parsing the lock name/expression, then simply return false.  */
+
+static bool
+supported_lock_expression (tree lock)
+{
+  if (lock == error_mark_node)
+    return false;
+
+  switch (TREE_CODE (lock))
+    {
+      case VAR_DECL:
+      case PARM_DECL:
+      case FIELD_DECL:
+        return true;
+      case ADDR_EXPR:
+      case INDIRECT_REF:
+        return supported_lock_expression (TREE_OPERAND (lock, 0));
+      case COMPONENT_REF:
+        if (supported_lock_expression (TREE_OPERAND (lock, 0))
+            && supported_lock_expression (TREE_OPERAND (lock, 1)))
+          return true;
+        else
+          return false;
+      case ARRAY_REF:
+        if (supported_lock_expression (TREE_OPERAND (lock, 0))
+            && TREE_CODE (TREE_OPERAND (lock, 1)) == INTEGER_CST)
+          return true;
+        else
+          return false;
+      default:
+        return false;
+    }
+}
+
+/* A helper function that returns
+   - a lock decl tree if LOCK is an identifier and can be bound
+     to a decl tree,
+   - LOCK if LOCK is an identifier which cannot be bound at this time,
+     (ADD_UNBOUND_LOCK_TO_MAP controls whether to insert the LOCK to the
+     unbound_lock_map),
+   - LOCK if LOCK is a supported expression tree,
+   - NULL_TREE otherwise.  */
 
 static tree
 get_lock_decl (tree lock, bool add_unbound_lock_to_map)
@@ -7296,6 +7315,8 @@ get_lock_decl (tree lock, bool add_unbound_lock_to_map)
           lockable_decl = lock;
         }
     }
+  else if (!supported_lock_expression (lock))
+    lockable_decl = NULL_TREE;
 
   return lockable_decl;
 }
@@ -7317,29 +7338,30 @@ handle_guarded_by_attribute (tree *node, tree name, tree args,
       return NULL_TREE;
     }
 
-  /* If thread safety analysis is enabled, convert the attr arg from an
-     identifier to a decl tree.  */
   if (warn_thread_safety)
     {
-      /* If the decl node is a class member, delay the binding until
-         after the class specification is parsed as its attribute
-         arguments could reference another class member declared later.
-         Note that checking if the decl is a FIELD_DECL does not work for
-         static data members as they are actually VAR_DECLs. (And checking
-         its DECL_CONTEXT doesn't work either as the decl's DECL_CONTEXT
-         is not set at this point.) But it's fine if we are not able to bind
-         the lock identifier here because the late binding mechanism in
-         thread-safety analysis will most likely bind the identifier to
-         its correct decl tree later. (See the uses of unbound_lock_map in
-         tree-threadsafe-analyze.c.)  */
-      if (TREE_CODE (decl) == FIELD_DECL)
+      /* get_lock_decl will check if ARGS is a supported lock expression
+         and return a decl tree for an identifier node if possible.
+         If it returns NULL, which means the lock expression is not supported,
+         we will downgrade the "guarded_by" and "pt_guarded_by" to "guarded"
+         and "pt_guarded".  */
+      tree lock = get_lock_decl (TREE_VALUE (args), true);
+      if (!lock)
         {
-          tree new_list_node = build_tree_list (NULL_TREE, args);
-          TREE_CHAIN (new_list_node) = unbound_attribute_args;
-          unbound_attribute_args = new_list_node;
+          const char *new_name;
+          if (is_attribute_p ("guarded_by", name))
+            new_name = "guarded";
+          else
+            new_name = "point_to_guarded";
+
+          if (warn_unsupported_lock_name)
+            warning (OPT_Wattributes, "%qE attribute downgraded to '%s'"
+                     " due to the unsupported lock argument", name, new_name);
+          *no_add_attrs = true;
+          return build_tree_list (get_identifier (new_name), NULL_TREE);
         }
       else
-        TREE_VALUE (args) = get_lock_decl (TREE_VALUE (args), true);
+        TREE_VALUE (args) = lock;
     }
 
   return NULL_TREE;
@@ -7454,14 +7476,17 @@ populate_acquired_after_map (tree decl, tree args, bool is_acquired_after_attr)
           /* Grab the decl tree of the argument if it is an identifier.  */
           tree lock_decl = get_lock_decl (TREE_VALUE (args), false);
 
-          /* If the lock argument is not declared, skip it.  */
-          if (TREE_CODE (lock_decl) == IDENTIFIER_NODE)
+          if (!lock_decl)
             {
-              args = TREE_CHAIN (args);
-              continue;
+              if (warn_unsupported_lock_name)
+                warning (OPT_Wattributes, "Unsupported argument of"
+                         " 'acquired_after' attribute ignored");
             }
-
-          pointer_set_insert (acquired_after_set, lock_decl);
+          /* If the lock argument is not declared (so the lock_decl is
+             still an identifier, don't add it to the acquired-after set
+             and skip it.  */
+          else if (TREE_CODE (lock_decl) != IDENTIFIER_NODE)
+            pointer_set_insert (acquired_after_set, lock_decl);
 
           args = TREE_CHAIN (args);
         }
@@ -7477,6 +7502,15 @@ populate_acquired_after_map (tree decl, tree args, bool is_acquired_after_attr)
         {
           /* Grab the decl tree of the argument if it is an identifier.  */
           tree lock_decl = get_lock_decl (TREE_VALUE (args), false);
+
+          if (!lock_decl)
+            {
+              if (warn_unsupported_lock_name)
+                warning (OPT_Wattributes, "Unsupported argument of"
+                         " 'acquired_before' attribute ignored");
+              args = TREE_CHAIN (args);
+              continue;
+            }
 
           /* If the lock argument is not declared, skip it.  */
           if (TREE_CODE (lock_decl) == IDENTIFIER_NODE)
@@ -7541,31 +7575,12 @@ handle_acquired_order_attribute (tree *node, tree name, tree args,
   if (!warn_thread_safety)
     return NULL_TREE;
 
-  if (name == maybe_get_identifier ("acquired_after"))
+  if (is_attribute_p ("acquired_after", name))
     is_acquired_after_attr = true;
   else
     {
-      gcc_assert (name == maybe_get_identifier ("acquired_before"));
+      gcc_assert (is_attribute_p ("acquired_before", name));
       is_acquired_after_attr = false;
-    }
-
-  /* If the decl node is a class member, delay the binding until
-     after the class specification is parsed as the attribute
-     arguments could reference another class member declared later.  */
-  if (TREE_CODE (decl) == FIELD_DECL)
-    {
-      tree new_list_node = build_tree_list (decl, args);
-      if (is_acquired_after_attr)
-        {
-          TREE_CHAIN (new_list_node) = unprocessed_acq_after_args;
-          unprocessed_acq_after_args = new_list_node;
-        }
-      else
-        {
-          TREE_CHAIN (new_list_node) = unprocessed_acq_before_args;
-          unprocessed_acq_before_args = new_list_node;
-        }
-      return NULL_TREE;
     }
 
   /* The decl could be a duplicate. If so, we need to call lookup_name to
@@ -7618,6 +7633,9 @@ check_lock_unlock_attr_args (tree *node, tree name, tree args,
 {
   int lock_pos;
   int num_parms = 0;
+  tree curr_arg;
+  tree prev_arg = NULL_TREE;
+  bool error_mark_added = false;
 
   if (args == NULL_TREE)
     {
@@ -7650,23 +7668,20 @@ check_lock_unlock_attr_args (tree *node, tree name, tree args,
         return NULL_TREE;
     }
 
+  curr_arg = args;
+
   /* Iterate through the attribute's argument list.  */
   do
     {
-      if (TREE_CODE (TREE_VALUE (args)) == INTEGER_CST)
+      if (TREE_CODE (TREE_VALUE (curr_arg)) == INTEGER_CST)
         {
           /* Check whether the lock argument position is out of bound.  */
-          lock_pos = TREE_INT_CST_LOW (TREE_VALUE (args));
+          lock_pos = TREE_INT_CST_LOW (TREE_VALUE (curr_arg));
 
           /* We lazily compute the number of fdecl arguments when we see
              an integer argument of the attribute for the first time.  */
           if (num_parms == 0)
-            {
-              tree parm;
-              for (parm = DECL_ARGUMENTS (*node); parm;
-                   parm = TREE_CHAIN (parm))
-                ++num_parms;
-            }
+            num_parms = type_num_arguments (TREE_TYPE (*node));
           if (lock_pos > num_parms || lock_pos < 1)
             {
               error ("Parameter position (%i) specified in %qE attribute is"
@@ -7675,14 +7690,15 @@ check_lock_unlock_attr_args (tree *node, tree name, tree args,
               return NULL_TREE;
             }
         }
-      else if (is_lock_formal_parameter(*node, TREE_VALUE (args), &lock_pos))
+      else if (is_lock_formal_parameter(*node, TREE_VALUE (curr_arg),
+                                        &lock_pos))
         {
           /* While the public documentation for lock/unlock attributes allow
              users to use formal parameters to specify locks, internally we
              convert the identifier nodes (for the formal parameters) to
              integers that represent the parameter positions.  */
           if (warn_thread_safety)
-            TREE_VALUE (args) = build_int_cst(NULL_TREE, lock_pos);
+            TREE_VALUE (curr_arg) = build_int_cst(NULL_TREE, lock_pos);
         }
       else
         {
@@ -7699,32 +7715,54 @@ check_lock_unlock_attr_args (tree *node, tree name, tree args,
               *no_add_attrs = true;
               return NULL_TREE;
             }
-          /* If thread safety analysis is enabled, convert the attr arg
-             from an identifier to a decl tree.  */
+
           if (warn_thread_safety)
             {
-              /* If the decl node is a class member, delay the binding until
-                 after the class specification is parsed as the attribute
-                 arguments could reference another class member declared
-                 later. Note that checking if the decl type is a METHOD_TYPE
-                 is not sufficient to determine if it is a class member as
-                 the type of a static member function is a FUNCTION_TYPE.  */
-              tree decl_context = DECL_CONTEXT (*node);
-              if (decl_context
-                  && (TREE_CODE (decl_context) == RECORD_TYPE
-                      || TREE_CODE (decl_context) == UNION_TYPE))
+              /* get_lock_decl will check if curr_arg is a supported lock
+                 expression and return a decl tree for an identifier node
+                 if possible. If it returns NULL, which means the lock
+                 expression is not supported, the lock is ignored. But we
+                 will add an error_mark_node in the argument list, which
+                 serves as either a universal lock or an any lock (depending
+                 on the attributes).  */
+              tree lock = get_lock_decl (TREE_VALUE (curr_arg), true);
+              if (!lock)
                 {
-                  tree new_list_node = build_tree_list (NULL_TREE, args);
-                  TREE_CHAIN (new_list_node) = unbound_attribute_args;
-                  unbound_attribute_args = new_list_node;
+                  if (warn_unsupported_lock_name)
+                    warning (OPT_Wattributes, "Unsupported argument of"
+                             " %qE attribute ignored", name);
+                  if (prev_arg && error_mark_added)
+                    {
+                      /* If an error_mark_node is already in the argument
+                         list, simply ignore this unsupported lock.  */
+                      TREE_CHAIN (prev_arg) = TREE_CHAIN (curr_arg);
+                      curr_arg = TREE_CHAIN(curr_arg);
+                      continue;
+                    }
+                  else
+                    {
+                      /* The first time we see an unsupported lock, add
+                         an error_mark_node to the argument list.  */
+                      TREE_VALUE (curr_arg) = error_mark_node;
+                      error_mark_added = true;
+                    }
                 }
               else
-                TREE_VALUE (args) = get_lock_decl(TREE_VALUE (args), true);
+                TREE_VALUE (curr_arg) = lock;
             }
         }
-      args = TREE_CHAIN(args);
+
+      prev_arg = curr_arg;
+      curr_arg = TREE_CHAIN(curr_arg);
     }
-  while (args != NULL_TREE);
+  while (curr_arg != NULL_TREE);
+
+  /* If the locks_excluded attribute contains only the error_mark_node in
+     its argument list, don't bother to apply the attribute to the decl.  */
+  if (TREE_VALUE (args) == error_mark_node
+      && TREE_CHAIN (args) == NULL_TREE
+      && is_attribute_p ("locks_excluded", name))
+    *no_add_attrs = true;
 
   return NULL_TREE;
 }
@@ -7749,9 +7787,11 @@ handle_lock_attribute (tree *node, tree name, tree args,
     }
 
   lockable_type = DECL_CONTEXT (*node);
+  if (lockable_type && !TYPE_P (lockable_type))
+    lockable_type = NULL_TREE;
 
-  if (name == maybe_get_identifier ("exclusive_trylock")
-      || name == maybe_get_identifier ("shared_trylock"))
+  if (is_attribute_p ("exclusive_trylock", name)
+      || is_attribute_p ("shared_trylock", name))
     is_trylock = true;
   else
     is_trylock = false;
@@ -7802,6 +7842,8 @@ handle_unlock_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     }
 
   lockable_type = DECL_CONTEXT (*node);
+  if (lockable_type && !TYPE_P (lockable_type))
+    lockable_type = NULL_TREE;
 
   if (lockable_type
       && (lookup_attribute ("lockable", TYPE_ATTRIBUTES (lockable_type))
@@ -7869,27 +7911,22 @@ handle_lock_returned_attribute (tree *node, tree name, tree args,
       return NULL_TREE;
     }
 
-  /* If thread safety analysis is enabled, convert the attr arg from an
-     identifier to a decl tree.  */
   if (warn_thread_safety)
     {
-      /* If the decl node is a class member, delay the binding until
-         after the class specification is parsed as the attribute
-         arguments could reference another class member declared later.
-         Note that checking if the decl type is a METHOD_TYPE is not
-         sufficient to determine if it is a class member as the type of
-         a static member function is a FUNCTION_TYPE.  */
-      tree decl_context = DECL_CONTEXT (*node);
-      if (decl_context
-          && (TREE_CODE (decl_context) == RECORD_TYPE
-              || TREE_CODE (decl_context) == UNION_TYPE))
+      /* get_lock_decl will check if ARGS is a supported lock expression
+         and return a decl tree for an identifier node if possible.
+         If it returns NULL, which means the lock expression is not supported,
+         the attribute is ignored.  */
+      tree lock = get_lock_decl (TREE_VALUE (args), true);
+      if (!lock)
         {
-          tree new_list_node = build_tree_list (NULL_TREE, args);
-          TREE_CHAIN (new_list_node) = unbound_attribute_args;
-          unbound_attribute_args = new_list_node;
+          if (warn_unsupported_lock_name)
+            warning (OPT_Wattributes, "%qE attribute ignored due to the"
+                     " unsupported argument", name);
+          *no_add_attrs = true;
         }
       else
-        TREE_VALUE (args) = get_lock_decl(TREE_VALUE (args), true);
+        TREE_VALUE (args) = lock;
     }
 
   return NULL_TREE;
@@ -7911,66 +7948,6 @@ handle_no_thread_safety_analysis_attribute (tree *node, tree name,
     }
 
   return NULL_TREE;
-}
-
-/* This function is invoked after a class definition is finished parsing
-   to try to bind to their decl trees the identifier arguments recorded in
-   the unbound_attribute_args, unprocessed_acq_after_args, and
-   unprocessed_acq_before_args lists, and also populate the acquired_after
-   map.
-
-   When parsing thread safety attributes inside a class definition, instead
-   of trying to bind an identifier argument to its decl tree right away,
-   we add the arguments to the lists and delay the binding until the whole
-   class is parsed so that the identifiers that reference other class members
-   declared later can be bound to their decl trees correctly.  */
-
-void
-process_unbound_attribute_args (void)
-{
-  tree list_node;
-
-  /* If thread safety analysis is not enabled, don't bother process these
-     attributes arguments.  */
-  if (!warn_thread_safety)
-    return;
-
-  for (list_node = unbound_attribute_args; list_node;
-       list_node = TREE_CHAIN (list_node))
-    {
-      tree args = TREE_VALUE (list_node);
-      gcc_assert (args);
-      do
-        {
-          /* Convert the attr arg to a decl tree if it is an identifier.  */
-          TREE_VALUE (args) = get_lock_decl (TREE_VALUE (args), true);
-          args = TREE_CHAIN(args);
-        }
-      while (args != NULL_TREE);
-    }
-
-  for (list_node = unprocessed_acq_after_args; list_node;
-       list_node = TREE_CHAIN (list_node))
-    {
-      tree decl = TREE_PURPOSE (list_node);
-      tree args = TREE_VALUE (list_node);
-      gcc_assert (decl && args);
-      populate_acquired_after_map (decl, args, true);
-    }
-
-  for (list_node = unprocessed_acq_before_args; list_node;
-       list_node = TREE_CHAIN (list_node))
-    {
-      tree decl = TREE_PURPOSE (list_node);
-      tree args = TREE_VALUE (list_node);
-      gcc_assert (decl && args);
-      populate_acquired_after_map (decl, args, false);
-    }
-
-  /* The tree list nodes should be garbage collected.  */
-  unbound_attribute_args = NULL_TREE;
-  unprocessed_acq_after_args = NULL_TREE;
-  unprocessed_acq_before_args = NULL_TREE;
 }
 
 /* Check for valid arguments being passed to a function.

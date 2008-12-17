@@ -1531,6 +1531,15 @@ typedef struct cp_parser GTY(())
      defined is complete.  */
   tree unparsed_functions_queues;
 
+  /* A list of attributes whose arguments are not yet parsed. The
+     TREE_VALUE of each list node contains a delayed attribute.
+     The argument of the attribute (i.e. TREE_VALUE of the attribute)
+     is a special tree list node, where the TREE_PURPOSE is error_mark_node
+     and the TREE_VALUE points to the cached tokens of the arguments.
+     This list is processed once the outermost class being defined is
+     complete.  */
+  tree unparsed_attribute_args_queue;
+
   /* The number of classes whose definitions are currently in
      progress.  */
   unsigned num_classes_being_defined;
@@ -1859,9 +1868,9 @@ static tree cp_parser_asm_operand_list
 static tree cp_parser_asm_clobber_list
   (cp_parser *);
 static tree cp_parser_attributes_opt
-  (cp_parser *);
+  (cp_parser *, bool);
 static tree cp_parser_attribute_list
-  (cp_parser *);
+  (cp_parser *, bool);
 static bool cp_parser_extension_opt
   (cp_parser *, int *);
 static void cp_parser_label_declaration
@@ -1936,10 +1945,14 @@ static tree cp_parser_enclosed_template_argument_list
   (cp_parser *);
 static void cp_parser_save_default_args
   (cp_parser *, tree);
+static tree cp_parser_save_attribute_arg_list
+  (cp_parser *);
 static void cp_parser_late_parsing_for_member
   (cp_parser *, tree);
 static void cp_parser_late_parsing_default_args
   (cp_parser *, tree);
+static void cp_parser_late_parsing_attribute_arg_lists
+  (cp_parser *);
 static tree cp_parser_sizeof_operand
   (cp_parser *, enum rid);
 static tree cp_parser_trait_expr
@@ -2104,6 +2117,12 @@ cp_parser_name_lookup_error (cp_parser* parser,
 			     const char* desired,
 			     location_t location)
 {
+  /* Suppress the error message if we are parsing a lock attribute. We would
+     like the lock attributes to reference (and tolerate) names not in scope
+     so that they provide better code documentation capability.  */
+  if (parsing_lock_attribute)
+    return;
+
   /* If name lookup completely failed, tell the user that NAME was not
      declared.  */
   if (decl == error_mark_node)
@@ -2824,6 +2843,9 @@ cp_parser_new (void)
 
   /* The unparsed function queue is empty.  */
   parser->unparsed_functions_queues = build_tree_list (NULL_TREE, NULL_TREE);
+
+  /* The unparsed attribute arguments queue is empty.  */
+  parser->unparsed_attribute_args_queue = NULL_TREE;
 
   /* There are no classes being defined.  */
   parser->num_classes_being_defined = 0;
@@ -5128,17 +5150,38 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
       {
 	tree expr;
 
-	/* At the beginning of attribute lists, check to see if the
-	   next token is an identifier.  */
-	if (is_attribute_list
-	    && cp_lexer_peek_token (parser->lexer)->type == CPP_NAME)
-	  {
-	    cp_token *token;
+        /* At the beginning of attribute lists, check to see if the
+           next token is an identifier. If so, leave it as an identifier
+           without trying to look up the name. We need to make sure
+           it is a name followed by either a comma or a closing paren.
+           Otherwise, we would mistakenly treat 'foo' in 'foo->bar' as an
+           identifier and cause a parsing error. Note that if it is desirable
+           to bind the identifier (to its decl tree or something else) at
+           parsing, the identifier argument should be enclosed in parentheses,
+           as shown in the following example (taken from the test case
+           g++.dg/ext/tmplattr2.C).
 
-	    /* Consume the identifier.  */
-	    token = cp_lexer_consume_token (parser->lexer);
-	    /* Save the identifier.  */
-	    identifier = token->u.value;
+             template <unsigned Len, unsigned Align>
+             struct aligned_storage
+             {
+               typedef char type[Len] __attribute__((aligned((Align))));
+             };
+
+           In order for the 'Align' argument in attribute 'aligned' to be
+           bound to a TEMPLATE_PARM_INDEX, 'Align' needs to be enclosed in
+           parentheses.  */
+	if (is_attribute_list
+            && cp_lexer_peek_token (parser->lexer)->type == CPP_NAME
+            && ((cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_COMMA)
+                || (cp_lexer_peek_nth_token (parser->lexer, 2)->type
+                    == CPP_CLOSE_PAREN)))
+	  {
+            cp_token *token;
+ 
+ 	    /* Consume the identifier.  */
+ 	    token = cp_lexer_consume_token (parser->lexer);
+ 	    /* Save the identifier.  */
+ 	    identifier = token->u.value;
             /* When processing an attribute argument list, we used to set
                is_attribute_list to false after finishing processing the
                first argument so that the rest of the list was treated as
@@ -5190,7 +5233,13 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 	    else
 	      expr = cp_parser_assignment_expression (parser, cast_p);
 
-	    if (fold_expr_p)
+            /* If EXPR is an attribute arg and a decl/param/field decl,
+               there is nothing to be folded.  */
+	    if (fold_expr_p
+                && (!is_attribute_list
+                    || (TREE_CODE (expr) != VAR_DECL
+                        && TREE_CODE (expr) != PARM_DECL
+                        && TREE_CODE (expr) != FIELD_DECL)))
 	      expr = fold_non_dependent_expr (expr);
 
             /* If we have an ellipsis, then this is an expression
@@ -7294,7 +7343,7 @@ cp_parser_condition (cp_parser* parser)
 					 /*parenthesized_p=*/NULL,
 					 /*member_p=*/false);
       /* Parse the attributes.  */
-      attributes = cp_parser_attributes_opt (parser);
+      attributes = cp_parser_attributes_opt (parser, /*member_p=*/false);
       /* Parse the asm-specification.  */
       asm_specification = cp_parser_asm_specification_opt (parser);
       /* If the next token is not an `=' or '{', then we might still be
@@ -8288,7 +8337,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	  /* Parse the attributes.  */
 	  decl_specs->attributes
 	    = chainon (decl_specs->attributes,
-		       cp_parser_attributes_opt (parser));
+		       cp_parser_attributes_opt (parser, /*member_p=*/false));
 	  continue;
 	}
       /* Assume we will find a decl-specifier keyword.  */
@@ -8930,7 +8979,7 @@ cp_parser_conversion_type_id (cp_parser* parser)
   tree type_specified;
 
   /* Parse the attributes.  */
-  attributes = cp_parser_attributes_opt (parser);
+  attributes = cp_parser_attributes_opt (parser, /*member_p=*/false);
   /* Parse the type-specifiers.  */
   cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
 				&type_specifiers);
@@ -11405,7 +11454,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
           cp_lexer_consume_token (parser->lexer);
         }
       /* Parse the attributes.  */
-      attributes = cp_parser_attributes_opt (parser);
+      attributes = cp_parser_attributes_opt (parser, /*member_p=*/false);
     }
   /* Or, it might be `typename'.  */
   else if (cp_lexer_next_token_is_keyword (parser->lexer,
@@ -11426,7 +11475,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
       if (tag_type == none_type)
 	return error_mark_node;
       /* Parse the attributes.  */
-      attributes = cp_parser_attributes_opt (parser);
+      attributes = cp_parser_attributes_opt (parser, /*member_p=*/false);
     }
 
   /* Look for the `::' operator.  */
@@ -11741,7 +11790,7 @@ cp_parser_enum_specifier (cp_parser* parser)
       scoped_enum_p = true;
     }
       
-  attributes = cp_parser_attributes_opt (parser);
+  attributes = cp_parser_attributes_opt (parser, /*member_p=*/false);
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     identifier = cp_parser_identifier (parser);
@@ -11813,7 +11862,8 @@ cp_parser_enum_specifier (cp_parser* parser)
      apply them if appropriate.  */
   if (cp_parser_allow_gnu_extensions_p (parser))
     {
-      tree trailing_attr = cp_parser_attributes_opt (parser);
+      tree trailing_attr = cp_parser_attributes_opt (parser,
+                                                     /*member_p=*/false);
       cplus_decl_attributes (&type,
 			     trailing_attr,
 			     (int) ATTR_FLAG_TYPE_IN_PLACE);
@@ -12000,7 +12050,7 @@ cp_parser_namespace_definition (cp_parser* parser)
     identifier = NULL_TREE;
 
   /* Parse any specified attributes.  */
-  attribs = cp_parser_attributes_opt (parser);
+  attribs = cp_parser_attributes_opt (parser, /*member_p=*/false);
 
   /* Look for the `{' to start the namespace.  */
   cp_parser_require (parser, CPP_OPEN_BRACE, "%<{%>");
@@ -12278,7 +12328,7 @@ cp_parser_using_directive (cp_parser* parser)
   /* Get the namespace being used.  */
   namespace_decl = cp_parser_namespace_name (parser);
   /* And any specified attributes.  */
-  attribs = cp_parser_attributes_opt (parser);
+  attribs = cp_parser_attributes_opt (parser, /*member_p=*/false);
   /* Update the symbol table.  */
   parse_using_directive (namespace_decl, attribs);
   /* Look for the final `;'.  */
@@ -12558,7 +12608,7 @@ cp_parser_init_declarator (cp_parser* parser,
       asm_specification = cp_parser_asm_specification_opt (parser);
       /* And attributes.  */
       attributes_start_token = cp_lexer_peek_token (parser->lexer);
-      attributes = cp_parser_attributes_opt (parser);
+      attributes = cp_parser_attributes_opt (parser, member_p);
     }
   else
     {
@@ -12590,21 +12640,27 @@ cp_parser_init_declarator (cp_parser* parser,
 		   "on a function-definition",
 		   &asm_spec_start_token->location);
 	  if (attributes)
-	    error ("%Hattributes are not allowed on a function-definition",
-		   &attributes_start_token->location);
+            {
+              /* We allow lock attributes to be applied to function
+                 definitions.  */
+              attributes = extract_lock_attributes (attributes);
+              if (!attributes)
+                error ("%Hattributes are not allowed on a function-definition",
+                       &attributes_start_token->location);
+            }
 	  /* This is a function-definition.  */
 	  *function_definition_p = true;
 
 	  /* Parse the function definition.  */
 	  if (member_p)
-	    decl = cp_parser_save_member_function_body (parser,
-							decl_specifiers,
-							declarator,
-							prefix_attributes);
+	    decl = (cp_parser_save_member_function_body (
+                        parser, decl_specifiers, declarator,
+                        chainon (attributes, prefix_attributes)));
 	  else
 	    decl
 	      = (cp_parser_function_definition_from_specifiers_and_declarator
-		 (parser, decl_specifiers, prefix_attributes, declarator));
+		 (parser, decl_specifiers,
+                  chainon (attributes, prefix_attributes), declarator));
 
 	  return decl;
 	}
@@ -12756,7 +12812,7 @@ cp_parser_init_declarator (cp_parser* parser,
      attributes -- but ignores them.  */
   if (cp_parser_allow_gnu_extensions_p (parser)
       && initialization_kind == CPP_OPEN_PAREN)
-    if (cp_parser_attributes_opt (parser))
+    if (cp_parser_attributes_opt (parser, member_p))
       warning (OPT_Wattributes,
 	       "attributes after parenthesized initializer ignored");
 
@@ -12864,7 +12920,7 @@ cp_parser_declarator (cp_parser* parser,
     *ctor_dtor_or_conv_p = 0;
 
   if (cp_parser_allow_gnu_extensions_p (parser))
-    attributes = cp_parser_attributes_opt (parser);
+    attributes = cp_parser_attributes_opt (parser, member_p);
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -13683,7 +13739,7 @@ cp_parser_type_specifier_seq (cp_parser* parser,
 	{
 	  type_specifier_seq->attributes =
 	    chainon (type_specifier_seq->attributes,
-		     cp_parser_attributes_opt (parser));
+		     cp_parser_attributes_opt (parser, /*member_p=*/false));
 	  continue;
 	}
 
@@ -14041,7 +14097,7 @@ cp_parser_parameter_declaration (cp_parser *parser,
       /* After the declarator, allow more attributes.  */
       decl_specifiers.attributes
 	= chainon (decl_specifiers.attributes,
-		   cp_parser_attributes_opt (parser));
+		   cp_parser_attributes_opt (parser, /*member_p=*/false));
     }
 
   /* If the next token is an ellipsis, and we have not seen a
@@ -14832,11 +14888,7 @@ cp_parser_class_specifier (cp_parser* parser)
   has_trailing_semicolon = (token->type == CPP_SEMICOLON);
   /* Look for trailing attributes to apply to this class.  */
   if (cp_parser_allow_gnu_extensions_p (parser))
-    attributes = cp_parser_attributes_opt (parser);
-  /* Process the thread safety attributes that were not processed when they
-     were parsed if thread safety analysis is enabled.  */
-  if (warn_thread_safety)
-    process_unbound_attribute_args();
+    attributes = cp_parser_attributes_opt (parser, /*member_p=*/false);
   if (type != error_mark_node)
     type = finish_struct (type, attributes);
   if (nested_name_specifier_p)
@@ -14867,6 +14919,11 @@ cp_parser_class_specifier (cp_parser* parser)
       tree fn;
       tree class_type = NULL_TREE;
       tree pushed_scope = NULL_TREE;
+
+      /* Process the thread safety attributes that were not processed when they
+         were parsed if thread safety analysis is enabled.  */
+      if (warn_thread_safety)
+        cp_parser_late_parsing_attribute_arg_lists (parser);
 
       /* In a first pass, parse default arguments to the functions.
 	 Then, in a second pass, parse the bodies of the functions.
@@ -14988,7 +15045,7 @@ cp_parser_class_head (cp_parser* parser,
     return error_mark_node;
 
   /* Parse the attributes.  */
-  attributes = cp_parser_attributes_opt (parser);
+  attributes = cp_parser_attributes_opt (parser, /*member_p=*/false);
 
   /* If the next token is `::', that is invalid -- but sometimes
      people do try to write:
@@ -15654,7 +15711,7 @@ cp_parser_member_declaration (cp_parser* parser)
 						 NULL);
 
 	      /* Look for attributes that apply to the bitfield.  */
-	      attributes = cp_parser_attributes_opt (parser);
+	      attributes = cp_parser_attributes_opt (parser, /*member_p=*/true);
 	      /* Remember which attributes are prefix attributes and
 		 which are not.  */
 	      first_attribute = attributes;
@@ -15710,7 +15767,7 @@ cp_parser_member_declaration (cp_parser* parser)
 	      /* Look for an asm-specification.  */
 	      asm_specification = cp_parser_asm_specification_opt (parser);
 	      /* Look for attributes that apply to the declaration.  */
-	      attributes = cp_parser_attributes_opt (parser);
+	      attributes = cp_parser_attributes_opt (parser, /*member_p=*/true);
 	      /* Remember which attributes are prefix attributes and
 		 which are not.  */
 	      first_attribute = attributes;
@@ -16545,7 +16602,7 @@ cp_parser_asm_clobber_list (cp_parser* parser)
    The return value is as for cp_parser_attribute_list.  */
 
 static tree
-cp_parser_attributes_opt (cp_parser* parser)
+cp_parser_attributes_opt (cp_parser* parser, bool member_p)
 {
   tree attributes = NULL_TREE;
 
@@ -16570,7 +16627,7 @@ cp_parser_attributes_opt (cp_parser* parser)
       token = cp_lexer_peek_token (parser->lexer);
       if (token->type != CPP_CLOSE_PAREN)
 	/* Parse the attribute-list.  */
-	attribute_list = cp_parser_attribute_list (parser);
+	attribute_list = cp_parser_attribute_list (parser, member_p);
       else
 	/* If the next token is a `)', then there is no attribute
 	   list.  */
@@ -16585,6 +16642,33 @@ cp_parser_attributes_opt (cp_parser* parser)
     }
 
   return attributes;
+}
+
+/* Save the tokens that make up the argument list of an attribute applied to
+   a class member.  */
+
+static tree
+cp_parser_save_attribute_arg_list (cp_parser* parser)
+{
+  cp_token *first;
+  cp_token *last;
+  cp_token_cache *cache;
+  tree new_list_node;
+
+  /* Skip the tokens that make up the argument list.  */
+  gcc_assert (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN));
+  first = parser->lexer->next_token;
+  cp_parser_cache_group (parser, CPP_CLOSE_PAREN, /*depth=*/0);
+  last = parser->lexer->next_token;
+
+  /* Save away the argument list tokens; we will process them when the
+     class is complete.  */
+  cache = cp_token_cache_new (first, last);
+
+  /* Create and return a special tree list node with error_mark_node as
+     the TREE_PURPOSE and the saved token cache as the TREE_VALUE.  */
+  new_list_node = build_tree_list (error_mark_node, (tree) cache);
+  return new_list_node;
 }
 
 /* Parse an attribute-list.
@@ -16605,7 +16689,7 @@ cp_parser_attributes_opt (cp_parser* parser)
    the arguments, if any.  */
 
 static tree
-cp_parser_attribute_list (cp_parser* parser)
+cp_parser_attribute_list (cp_parser* parser, bool member_p)
 {
   tree attribute_list = NULL_TREE;
   bool save_translate_strings_p = parser->translate_strings_p;
@@ -16638,12 +16722,32 @@ cp_parser_attribute_list (cp_parser* parser)
 	  /* If it's an `(', then parse the attribute arguments.  */
 	  if (token->type == CPP_OPEN_PAREN)
 	    {
-	      arguments = cp_parser_parenthesized_expression_list
-			  (parser, true, /*cast_p=*/false,
-                           /*allow_expansion_p=*/false,
-			   /*non_constant_p=*/NULL);
-	      /* Save the arguments away.  */
-	      TREE_VALUE (attribute) = arguments;
+              /* If this is a lock annotation attribute that takes arguments,
+                 set a flag so that we can make the parser tolerant of lock
+                 names not in scope or unsupported.  */
+              if (is_lock_attribute_with_args (identifier))
+                parsing_lock_attribute = true;
+
+              if (member_p && parsing_lock_attribute)
+                {
+                  /* If the attribute is applied to a class member, save the
+                     tokens of the argument list and delay the parsing until 
+                     after the class is finished parsing.  */
+                  tree new_list_node;
+                  arguments = cp_parser_save_attribute_arg_list (parser);
+                  new_list_node = build_tree_list (NULL_TREE, attribute);
+                  TREE_CHAIN (new_list_node) =
+                      parser->unparsed_attribute_args_queue;
+                  parser->unparsed_attribute_args_queue = new_list_node;
+                }
+              else
+                arguments = cp_parser_parenthesized_expression_list
+                             (parser, true, /*cast_p=*/false,
+                              /*allow_expansion_p=*/false,
+                              /*non_constant_p=*/NULL);
+
+              /* Save the arguments away.  */
+              TREE_VALUE (attribute) = arguments;
 	    }
 
 	  if (arguments != error_mark_node)
@@ -16653,6 +16757,7 @@ cp_parser_attribute_list (cp_parser* parser)
 	      attribute_list = attribute;
 	    }
 
+          parsing_lock_attribute = false;
 	  token = cp_lexer_peek_token (parser->lexer);
 	}
       /* Now, look for more attributes.  If the next token isn't a
@@ -16667,6 +16772,96 @@ cp_parser_attribute_list (cp_parser* parser)
 
   /* We built up the list in reverse order.  */
   return nreverse (attribute_list);
+}
+
+/* Parse the attribute arguments that have not yet been parsed. This
+   function is called after the class is finished parsing as the
+   arguments of lock attributes could reference other class members.
+   For example, in the following code, if we try to bind identifier "mu"
+   when we parse the attribute, we will not be able to find its DECL tree.
+   We have to wait until the whole class specification is parsed.
+
+     class Foo {
+       private:
+         int a  __attribute__ ((guarded_by(mu)));
+         Mutex mu;
+     };  */
+
+static void
+cp_parser_late_parsing_attribute_arg_lists (cp_parser* parser)
+{
+  tree list_node;
+
+  parsing_lock_attribute = true;
+
+  for (list_node = nreverse (parser->unparsed_attribute_args_queue); list_node;
+       list_node = TREE_CHAIN (list_node))
+    {
+      tree attr = TREE_VALUE (list_node);
+      tree arguments = NULL_TREE;
+      tree artificial_node = TREE_VALUE (attr);
+      tree decl = TREE_PURPOSE (artificial_node);
+      cp_token_cache *tokens = (cp_token_cache *) TREE_VALUE (artificial_node);
+      tree ctype;
+
+      gcc_assert (tokens);
+      gcc_assert (decl && decl != error_mark_node);
+
+      /* Push the tokens of the attribute arguments onto the lexer stack.  */
+      cp_parser_push_lexer_for_tokens (parser, tokens);
+
+      /* Set up current_class_type, and enter the scope of the class.  */
+      ctype = DECL_CONTEXT (decl);
+      gcc_assert (ctype && TREE_CODE (ctype) == RECORD_TYPE);
+      push_nested_class (ctype);
+
+      /* Parse the saved tokens.  */
+      arguments = cp_parser_parenthesized_expression_list
+                   (parser, true, /*cast_p=*/false,
+                    /*allow_expansion_p=*/false,
+                    /*non_constant_p=*/NULL);
+      /* Save the arguments away.  */
+      TREE_VALUE (attr) = arguments;
+
+      /* Cut the TREE_CHAIN link of the attribute. Otherwise
+         cplus_decl_attributes will try to handle the next attribute
+         which might not have been parsed yet.  */
+      TREE_CHAIN (attr) = NULL_TREE;
+
+      /* Apply the attributes to the decl.  */
+      cplus_decl_attributes (&decl, attr, 0);
+
+      /* If decl has clones (when it is a ctor or a dtor), we need to
+         modify the clones' attributes as well.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL
+          && (DECL_CONSTRUCTOR_P (decl) || DECL_DESTRUCTOR_P (decl)))
+        {
+          tree clone;
+          for (clone = TREE_CHAIN (decl); clone; clone = TREE_CHAIN (clone))
+            {
+              if (DECL_CLONED_FUNCTION (clone) == decl)
+                DECL_ATTRIBUTES (clone) = DECL_ATTRIBUTES (decl);
+            }
+        }
+
+      pop_nested_class ();
+
+      cp_parser_pop_lexer (parser);
+
+      /* Reset the PURPOSE and VALUE of the artificial tree list node that
+         holds the decl and the token cache. It is especially important to
+         null out the pointer to the token cache because, without doing so,
+         the garbage collector will complain about unrecognized tree node
+         when the artificial node is GC'ed.  */
+      TREE_PURPOSE (artificial_node) = NULL_TREE;
+      TREE_VALUE (artificial_node) = NULL_TREE;
+    }
+
+  parsing_lock_attribute = false;
+
+  /* Reset the unparsed_attribute_args_queue. The tree list nodes
+     should be garbage collected.  */
+  parser->unparsed_attribute_args_queue = NULL_TREE;
 }
 
 /* Parse an optional `__extension__' keyword.  Returns TRUE if it is
@@ -19652,7 +19847,7 @@ cp_parser_objc_class_ivars (cp_parser* parser)
 	    }
 
 	  /* Look for attributes that apply to the ivar.  */
-	  attributes = cp_parser_attributes_opt (parser);
+	  attributes = cp_parser_attributes_opt (parser, /*member_p=*/false);
 	  /* Remember which attributes are prefix attributes and
 	     which are not.  */
 	  first_attribute = attributes;
@@ -21030,7 +21225,8 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 						 /*ctor_dtor_or_conv_p=*/NULL,
 						 /*parenthesized_p=*/NULL,
 						 /*member_p=*/false);
-	      attributes = cp_parser_attributes_opt (parser);
+	      attributes = cp_parser_attributes_opt (parser,
+                                                     /*member_p=*/false);
 	      asm_specification = cp_parser_asm_specification_opt (parser);
 
 	      if (declarator == cp_error_declarator) 

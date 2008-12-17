@@ -673,13 +673,6 @@ extern int skip_evaluation;
 #define C_TYPE_OBJECT_OR_INCOMPLETE_P(type) \
   (!C_TYPE_FUNCTION_P (type))
 
-/* This function is invoked after a class definition is finished parsing
-   to try to bind to their decl trees the identifier arguments recorded in
-   the unbound_attribute_args, unprocessed_acq_after_args, and
-   unprocessed_acq_before_args lists, and also populate the acquired_after
-   map. */
-extern void process_unbound_attribute_args (void);
-
 /* Attribute table common to the C front ends.  */
 extern const struct attribute_spec c_common_attribute_table[];
 extern const struct attribute_spec c_common_format_attribute_table[];

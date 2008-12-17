@@ -1,3 +1,117 @@
+2008-12-17  Le-Chun Wu  <lcwu@google.com>
+
+	* attribs.c (decl_attributes): Handle fake attribute argument list
+	nodes for delay parsing and lock attributes with unsupported arguments.
+	(is_lock_attribute_with_args): New function.
+	(is_lock_attribute_p): Likewise.
+	(extract_lock_attributes): Likewise.
+	* tree.h (is_lock_attribute_with_args): Declaration for new function.
+	(extract_lock_attributes): Likewise.
+	* toplev.c (parsing_lock_attribute): New global variable.
+	* toplev.h (parsing_lock_attribute): Declaration for new global
+	variable.
+	* cp/call.c (build_new_method_call): Suppress errors for calls in lock
+	attributes.
+	* cp/pt.c (pending_attribute): New struct for pending lock attribute
+	whose instantiation is deferred.
+	(pending_lock_attributes): New static variable pointing to pending
+	lock attributes.
+	(find_parameter_packs_r): Skip walking the subtrees if the tree list
+	node is created for delay parsing.
+	(apply_late_template_attributes): Defer instantiation of lock
+	attributes.
+	(pa_reverse): New function.
+	(instantiate_class_template): Instantiate the deferred lock attributes
+	and apply them to the corresponding declarations.
+	(tsubst_copy): Suppress errors for lock attributes.
+	* cp/semantics.c (finish_non_static_data_member): Suppress errors for
+	and allow uses of non-static class members in lock attributes.
+	* cp/lex.c (unqualified_name_lookup_error): Suppress errors for lock
+	attributes.
+	* cp/decl2.c (is_late_template_attribute): Handle delay parsing of lock
+	attribute arguments.
+	* cp/parser.c (cp_parser): New field.
+	(cp_parser_name_lookup_error): Suppress errors for lock attributes.
+	(cp_parser_new): Initialize unparsed_attribute_args_queue to NULL_TREE.
+	(cp_parser_parenthesized_expression_list): Fix a problem in parsing
+	identifier arguments and skip folding for decl arguments.
+	(cp_parser_condition): Add a new argument to cp_parser_attributes_opt.
+	(cp_parser_decl_specifier_seq): Likewise.
+	(cp_parser_conversion_type_id): Likewise.
+	(cp_parser_elaborated_type_specifier): Likewise.
+	(cp_parser_elaborated_type_specifier): Likewise.
+	(cp_parser_enum_specifier): Likewise.
+	(cp_parser_namespace_definition): Likewise.
+	(cp_parser_using_directive): Likewise.
+	(cp_parser_init_declarator): Allow lock attributes on function
+	definitions. Also add a new argument to cp_parser_attributes_opt.
+	(cp_parser_declarator): Add a new argument to cp_parser_attributes_opt.
+	(cp_parser_type_specifier_seq): Likewise.
+	(cp_parser_parameter_declaration): Likewise.
+	(cp_parser_class_specifier): Late parse the lock attribute arguments
+	only after finish the outermost class. Also add a new argument to
+	cp_parser_attributes_opt.
+	(cp_parser_class_head): Add a new argument to cp_parser_attributes_opt.
+	(cp_parser_member_declaration): Likewise.
+	(cp_parser_attributes_opt): Add a new parameter 'member_p' and call
+	cp_parser_attribute_list with it.
+	(cp_parser_save_attribute_arg_list): New function.
+	(cp_parser_attribute_list): Add a new parameter 'member_p'. Also delay
+	parsing of lock attribute arguments by saving the tokens.
+	(cp_parser_late_parsing_attribute_arg_lists): New function.
+	(cp_parser_objc_class_ivars): Add a new argument to
+	cp_parser_attributes_opt.
+	(cp_parser_omp_for_loop): Add a new argument to
+	cp_parser_attributes_opt.
+	* c-decl.c (undeclared_variable): Suppress errors for lock attributes.
+	* common.opt: Add a new flag 'Wthread-unsupported-lock-name'.
+	* c-common.c (supported_lock_expression): New function.
+	(get_lock_decl): Handle unsupported lock expressions.
+	(handle_guarded_by_attribute): Handle unsupported lock expressions and
+	downgrade the attributes.
+	(populate_acquired_after_map): Likewise.
+	(handle_acquired_order_attribute): Remove delay binding code.
+	(check_lock_unlock_attr_args): Use type_num_arguments for the number of
+	function parameters. And handle unsupported lock arguments.
+	(handle_lock_attribute): Set lockable_type to NULL if the decl_context
+	is not a type.
+	(handle_unlock_attribute): Likewise.
+	(handle_lock_returned_attribute): Handle unsupported lock expressions.
+	* c-common.h: Remove declaration of process_unbound_attribute_args.
+	* tree-threadsafe-analyze.c (gimple_call_tab): New static variable.
+	(call_gs_hash): New function.
+	(call_gs_eq): Likewise.
+	(build_fully_qualified_lock): Add a new argument to get_canonical_expr.
+	Call get_canonical_expr instead of building a component_ref directly.
+	(get_canonical_expr): Add a new parameter 'base_obj' for a field decl.
+	Handle lockable objects wrapped in smart pointers and gimple call
+	statements. Handle array_ref with non-constant indices.
+	(leftmost_operand_is_field_decl): New function.
+	(lock_set_contains): Handle universal lock (i.e. error_mark_node).
+	(check_lock_required): Add a new argument to get_canonical_expr and
+	lock_set_contains. Use fully-qualified lock names. Handle unsupported
+	lock expressions.
+	(add_lock_to_lockset): New function.
+	(handle_lock_primitive_attrs): Handle universal lock. Add a new
+	argument to get_canonical_expr. Check if the decl_context of the
+	function is a type.
+	(handle_unlock_primitive_attr): Add a new argument to
+	get_canonical_expr. Use lock_set_contains instead of
+	pointer_set_contains.
+	(process_function_attrs): Handle universal lock. Add a new argument to
+	get_canonical_expr and lock_set_contains.
+	(process_guarded_by_attrs): Refactor the code by calling
+	check_lock_required.
+	(analyze_expr): Fix a bug in handling indirect references. Handle
+	universal lock.
+	(warn_unreleased_locks): Handle universal lock.
+	(analyze_stmt_r): Fix a bug in handling indirect references.
+	(execute_threadsafe_analyze): Handle the case where exit block may not
+	be reachable from the entry.
+	* c-parser.c (c_parser_declaration_or_fndef): Allow lock attributes on
+	function definitions. Add support for suppressing errors for lock
+	attributes.
+
 2008-09-04  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* config/mips/mips.h (ISA_HAS_SEQ_SNE): New macro.
@@ -9888,7 +10002,7 @@
 	* c-common.c: Include tree-threadsafe-analyze.h and define new thread
 	safety attributes.
 	(unbound_attribute_args): New variable for delaying process of thread
-        safety attributes in class definition.
+	safety attributes in class definition.
 	(unprocessed_acq_after_args): Likewise.
 	(unprocessed_acq_before_args): Likewise.
 	(handle_lockable_attribute): New attribute handler.

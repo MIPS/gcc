@@ -217,6 +217,10 @@ static struct pointer_map_t *lock_locus_map;
    get_canonical_expr()).  */
 static htab_t lock_expr_tab;
 
+/* Each entry is a gimple call statement. Calls to the same function with
+   symbolically identical arguments will hash to the same entry.  */
+static htab_t gimple_call_tab;
+
 /* Each entry maps a trylock call expr to its trylock_info.  */
 static struct pointer_map_t *trylock_info_map;
 
@@ -233,7 +237,7 @@ static pretty_printer pp_buf;
 static void analyze_expr (tree, tree, bool, struct pointer_set_t *,
                           struct pointer_set_t *, const location_t *,
                           enum access_mode);
-static tree get_canonical_expr (tree lock, bool is_temp_expr);
+static tree get_canonical_expr (tree lock, tree base_obj, bool is_temp_expr);
 
 
 /* This function hashes an expr tree to a hash value by doing the following:
@@ -274,7 +278,8 @@ lock_expr_hash (const void *exp)
 
 /* Given two lock expressions/trees, determine whether they are equal.
    This is basically a wrapper around operand_equal_p so please see its
-   comments for how two expression trees are considered equal.  */
+   comments for how two expression trees are considered equal
+   (in fold-const.c).  */
 
 static int
 lock_expr_eq (const void *exp1, const void* exp2)
@@ -283,6 +288,72 @@ lock_expr_eq (const void *exp1, const void* exp2)
   const_tree expr2 = (const_tree) exp2;
 
   return operand_equal_p (expr1, expr2, OEP_PURE_SAME);
+}
+
+/* This function hashes a gimple call statement to a hash value.
+   Calls to the same function would be hashed to the same value.  */
+
+static hashval_t
+call_gs_hash (const void *call)
+{
+  const_gimple call_gs = (const_gimple) call;
+  tree fdecl = gimple_call_fndecl (call_gs);
+  if (fdecl)
+    return htab_hash_pointer (fdecl);
+  else
+    {
+      tree fn_ptr = gimple_call_fn (call_gs);
+      return lock_expr_hash (get_canonical_expr (fn_ptr, NULL_TREE, true));
+    }
+}
+
+/* Given two gimple call statements, determine whether they are equal.
+   Two calls are consider equal if they call the same function with the
+   same arguments (which is determined using operand_equal_p). This is
+   a helper function used by gimple_call_tab hash table.  */
+
+static int
+call_gs_eq (const void *call1, const void* call2)
+{
+  const_gimple call_gs1 = (const_gimple) call1;
+  const_gimple call_gs2 = (const_gimple) call2;
+  tree fdecl1 = gimple_call_fndecl (call_gs1);
+  tree fdecl2 = gimple_call_fndecl (call_gs2);
+  unsigned i, num_args1, num_args2;
+
+  if (call_gs1 == call_gs2)
+    return 1;
+
+  if (fdecl1 != fdecl2)
+    return 0;
+
+  if (!fdecl1)
+    {
+      tree fn_ptr1 = get_canonical_expr (gimple_call_fn (call_gs1),
+                                         NULL_TREE, true);
+      tree fn_ptr2 = get_canonical_expr (gimple_call_fn (call_gs2),
+                                         NULL_TREE, true);
+      if (!operand_equal_p (fn_ptr1, fn_ptr2, OEP_PURE_SAME))
+        return 0;
+    }
+
+  num_args1 = gimple_call_num_args (call_gs1);
+  num_args2 = gimple_call_num_args (call_gs2);
+
+  if (num_args1 != num_args2)
+    return 0;
+
+  for (i = 0; i < num_args1; ++i)
+    {
+      tree arg1 = get_canonical_expr (gimple_call_arg (call_gs1, i),
+                                      NULL_TREE, true);
+      tree arg2 = get_canonical_expr (gimple_call_arg (call_gs2, i),
+                                      NULL_TREE, true);
+      if (!operand_equal_p (arg1, arg2, OEP_PURE_SAME))
+        return 0;
+    }
+
+  return 1;
 }
 
 /* This is a helper function passed in (as a parameter) to the
@@ -582,7 +653,8 @@ static tree
 build_fully_qualified_lock (tree lock_field, tree base)
 {
   tree lock;
-  tree canon_base = get_canonical_expr (base, true /* is_temp_expr */);
+  tree canon_base = get_canonical_expr (base, NULL_TREE,
+                                        true /* is_temp_expr */);
 
   /* When the base is a pointer, i.e. b1->MyLock() (or MyLock(base)
      internally), we need to create a new base that is INDIRECT_REF so that
@@ -599,8 +671,7 @@ build_fully_qualified_lock (tree lock_field, tree base)
   else
     canon_base = TREE_OPERAND (canon_base, 0);
 
-  lock = build3 (COMPONENT_REF, TREE_TYPE (lock_field), canon_base,
-                 lock_field, NULL_TREE);
+  lock = get_canonical_expr (lock_field, canon_base, false /* is_temp_expr */);
 
   return lock;
 }
@@ -629,7 +700,7 @@ build_fully_qualified_lock (tree lock_field, tree base)
    location, they will not map to the same canonical expr.  */
 
 static tree
-get_canonical_expr (tree lock, bool is_temp_expr)
+get_canonical_expr (tree lock, tree base_obj, bool is_temp_expr)
 {
   hashval_t hash;
   tree canon_lock;
@@ -638,7 +709,6 @@ get_canonical_expr (tree lock, bool is_temp_expr)
   switch (TREE_CODE (lock))
     {
       case VAR_DECL:
-      case FIELD_DECL:
       case PARM_DECL:
         {
           /* If the lock is a compiler-generated temp variable that
@@ -650,6 +720,19 @@ get_canonical_expr (tree lock, bool is_temp_expr)
             {
               lock = DECL_DEBUG_EXPR (lock);
               gcc_assert (DECL_P (lock));
+            }
+          return lock;
+        }
+      case FIELD_DECL:
+        {
+          /* If the LOCK is a field decl and BASE_OBJ is not NULL, build a
+             component_ref expression for the canonical lock.  */
+          if (base_obj)
+            {
+              tree full_lock = build3 (COMPONENT_REF, TREE_TYPE (lock),
+                                       base_obj, lock, NULL_TREE);
+              lock = get_canonical_expr (full_lock, NULL_TREE,
+                                         true /* is_temp_expr */);
             }
           return lock;
         }
@@ -673,13 +756,15 @@ get_canonical_expr (tree lock, bool is_temp_expr)
                   && (get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt))
                       == GIMPLE_SINGLE_RHS))
                 return get_canonical_expr (gimple_assign_rhs1 (def_stmt),
+                                           base_obj,
                                            is_temp_expr);
               else if (is_gimple_call (def_stmt))
                 {
+                  tree fdecl = gimple_call_fndecl (def_stmt);
                   tree real_lock = get_lock_returned_by_call (def_stmt);
                   if (real_lock)
                     {
-                      tree fdecl = gimple_call_fndecl (def_stmt);
+                      gcc_assert (fdecl);
                       if (TREE_CODE (TREE_TYPE (fdecl)) == METHOD_TYPE)
                         {
                           tree base = gimple_call_arg (def_stmt, 0);
@@ -689,9 +774,54 @@ get_canonical_expr (tree lock, bool is_temp_expr)
                         lock = real_lock;
                       break;
                     }
+                  /* We deal with a lockable object wrapped in a smart pointer
+                     here. For example, given the following code
+
+                       auto_ptr<Mutex> mu;
+                       mu->Lock();
+
+                     We would like to ignore the "operator->" and simply
+                     return mu. We also treat the "get" method of a smart
+                     pointer the same as operator->.  */
+                  else if (fdecl
+                           && ((DECL_NAME (fdecl)
+                                == maybe_get_identifier ("operator->"))
+                               || (DECL_NAME (fdecl)
+                                   == maybe_get_identifier ("get")))
+                           && POINTER_TYPE_P (TREE_TYPE (lock))
+                           && lookup_attribute ("lockable", TYPE_ATTRIBUTES (
+                                                TREE_TYPE (TREE_TYPE (lock)))))
+                    {
+                      tree arg = gimple_call_arg (def_stmt, 0);
+                      tree canon_arg = get_canonical_expr (
+                          arg, base_obj, false /* is_temp_expr */);
+                      if (TREE_CODE (canon_arg) == ADDR_EXPR)
+                        lock = TREE_OPERAND (canon_arg, 0);
+                      break;
+                    }
+
+                  /* For a gimple call statement not annotated with
+                     "lock_returned" attr, try to get the canonical lhs of
+                     the statement.  */
+                  hash = call_gs_hash (def_stmt);
+                  if (hash)
+                    {
+                      gimple canon_call = (gimple) htab_find_with_hash (
+                          gimple_call_tab, def_stmt, hash);
+                      if (!canon_call)
+                        {
+                          slot = htab_find_slot_with_hash (gimple_call_tab,
+                                                           def_stmt, hash,
+                                                           INSERT);
+                          *slot = def_stmt;
+                          canon_call = def_stmt;
+                        }
+                      lock = gimple_call_lhs (canon_call);
+                      break;
+                    }
                 }
             }
-          return get_canonical_expr (vdecl, is_temp_expr);
+          return get_canonical_expr (vdecl, base_obj, is_temp_expr);
         }
       case ADDR_EXPR:
         {
@@ -701,8 +831,10 @@ get_canonical_expr (tree lock, bool is_temp_expr)
              or Lock(&mu) internally), we don't need the address-taken
              operator (&).  */
           if (lookup_attribute("lockable", TYPE_ATTRIBUTES (TREE_TYPE (base))))
-            return get_canonical_expr (base, false /* is_temp_expr */);
-          canon_base = get_canonical_expr (base, true /* is_temp_expr */);
+            return get_canonical_expr (base, base_obj,
+                                       false /* is_temp_expr */);
+          canon_base = get_canonical_expr (base, NULL_TREE,
+                                           true /* is_temp_expr */);
           if (base != canon_base)
             lock = build1 (ADDR_EXPR, TREE_TYPE (lock), canon_base);
           break;
@@ -715,29 +847,36 @@ get_canonical_expr (tree lock, bool is_temp_expr)
           tree component = TREE_OPERAND (lock, 1);
           tree canon_base;
           if (is_base_object_this_pointer (base))
-            return get_canonical_expr (component, is_temp_expr);
+            return get_canonical_expr (component, NULL_TREE, is_temp_expr);
 
-          canon_base = get_canonical_expr (base, true /* is_temp_expr */);
+          canon_base = get_canonical_expr (base, base_obj,
+                                           true /* is_temp_expr */);
           if (base != canon_base)
             lock = build3 (COMPONENT_REF, TREE_TYPE (component),
-                                 canon_base, component, NULL_TREE);
+                           canon_base, component, NULL_TREE);
           break;
         }
       case ARRAY_REF:
         {
           tree array = TREE_OPERAND (lock, 0);
-          tree canon_array = get_canonical_expr (array,
+          tree canon_array = get_canonical_expr (array, base_obj,
                                                  true /* is_temp_expr */);
-          if (array != canon_array)
-            lock = build4(ARRAY_REF, TREE_TYPE (lock), canon_array,
-                          TREE_OPERAND (lock, 1), TREE_OPERAND (lock, 2),
-                          TREE_OPERAND (lock, 3));
+          tree index = TREE_OPERAND (lock, 1);
+          tree canon_index = (TREE_CODE (index) == INTEGER_CST
+                              ? index
+                              : get_canonical_expr (index, NULL_TREE,
+                                                    true /* is_temp_expr */));
+          if (array != canon_array || index != canon_index)
+            lock = build4 (ARRAY_REF, TREE_TYPE (lock), canon_array,
+                           canon_index, TREE_OPERAND (lock, 2),
+                           TREE_OPERAND (lock, 3));
           break;
         }
       case INDIRECT_REF:
         {
           tree base = TREE_OPERAND (lock, 0);
-          tree canon_base = get_canonical_expr (base, true /* is_temp_expr */);
+          tree canon_base = get_canonical_expr (base, base_obj,
+                                                true /* is_temp_expr */);
           if (base != canon_base)
             lock = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (canon_base)),
                            canon_base);
@@ -793,31 +932,59 @@ dump_expr_tree (tree lock, char *out_buf)
   return out_buf;
 }
 
-/* Check whether the given lock, LOCK, is a member of LOCK_SET.
-   This is more complicated than just calling pointer_set_contains with LOCK
-   and LOCKSET because we need to get the canonical form of the lock.
-   If true, returns the lock contained in the set.  */
+/* A helper function that checks (recursively) if the left-most operand of
+   EXPR is a field decl, and if so, returns true. For example, if EXPR is
+   'a.b->c[2]', it will check if 'a' is a field decl.  */
+
+static bool
+leftmost_operand_is_field_decl (tree expr)
+{
+  while (1)
+    {
+      if (TREE_CODE (expr) == FIELD_DECL)
+        return true;
+      else if (EXPR_P (expr))
+        {
+          expr = TREE_OPERAND (expr, 0);
+          continue;
+        }
+      else
+        return false;
+    }
+}
+
+/* Check whether the given LOCK is a member of LOCK_SET and return the lock
+   contained in the set if so. This check is more complicated than just
+   calling pointer_set_contains with LOCK and LOCKSET because we need to
+   get the canonical form of the lock. Also the LOCK_SET may contain the
+   universal lock (i.e. error_mark_node). IGNORE_UNIVERSAL_LOCK indicates
+   whether to ignore it. In order to be conservative (not to emit false
+   positives), we don't want to ignore the universal lock when checking for
+   locks required, but should ignore it when checking for locks excluded.  */
 
 static tree
 lock_set_contains (const struct pointer_set_t *lock_set, tree lock,
-                   tree base_obj)
+                   tree base_obj, bool ignore_universal_lock)
 {
+  /* If the universal lock is in the LOCK_SET and it is not to be ignored,
+     just assume the LOCK is in the LOCK_SET and returns it.  */
+  if (!ignore_universal_lock
+      && pointer_set_contains (lock_set, error_mark_node))
+    return lock;
+  
   /* Maybe the lock is already in canonical form. Try it first.  */
   if (pointer_set_contains (lock_set, lock))
     return lock;
 
-  if ((TREE_CODE (lock) == FIELD_DECL) && (base_obj != NULL_TREE))
+  if (leftmost_operand_is_field_decl (lock) && (base_obj != NULL_TREE))
     {
-      tree full_lock = build3 (COMPONENT_REF, TREE_TYPE (lock), base_obj, lock,
-                               NULL_TREE);
       /* Get the canonical lock tree */
-      tree canonical_lock = get_canonical_expr (full_lock,
+      tree canonical_lock = get_canonical_expr (lock, base_obj,
                                                 true /* is_temp_expr */);
       tree result = (pointer_set_contains (lock_set, canonical_lock)
                      ? canonical_lock : NULL_TREE);
       /* Since we know full_lock is not going to be used any more, we might
          as well free it even though it's not necessary.  */
-      ggc_free (full_lock);
       return result;
     }
   else if (TREE_CODE (lock) == IDENTIFIER_NODE)
@@ -883,7 +1050,7 @@ check_lock_required (tree lock, tree decl, tree base_obj, bool is_indirect_ref,
          is a class field, the base_obj is good.  */
       if (base_obj)
         {
-          tree canon_base = get_canonical_expr (base_obj,
+          tree canon_base = get_canonical_expr (base_obj, NULL_TREE,
                                                 true /* is_temp_expr */);
           if (TREE_CODE (canon_base) != ADDR_EXPR)
             {
@@ -904,31 +1071,75 @@ check_lock_required (tree lock, tree decl, tree base_obj, bool is_indirect_ref,
         msg = G_("Writing to variable");
     }
 
-  if (!DECL_P (lock))
-    lock = get_canonical_expr (lock, false /* is_temp_expr */);
-
-  if (!lock_set_contains(excl_locks, lock, base_obj))
+  /* We want to use fully-qualified expressions (i.e. including base_obj
+     if any) for DECL when emitting warning messages.  */
+  if (base_obj)
     {
-      if (!lock_set_contains(shared_locks, lock, base_obj))
+      if (TREE_CODE (decl) != FUNCTION_DECL)
+        {
+          tree full_decl = build3 (COMPONENT_REF, TREE_TYPE (decl),
+                                   base_obj, decl, NULL_TREE);
+          decl = get_canonical_expr (full_decl, NULL_TREE,
+                                     true /* is_temp_expr */);
+        }
+    }
+
+  if (!lock)
+    {
+      /* If LOCK is NULL, either the attribute is a "guarded" attribute that
+         doesn't specify a particular lock, or the lock name/expression
+         is not supported. Just check whether there is any live lock at this
+         point.  */
+      if (pointer_set_cardinality (excl_locks) == 0)
+        {
+          if (pointer_set_cardinality (shared_locks) == 0)
+            {
+              if (is_indirect_ref)
+                warning (OPT_Wthread_safety,
+                         G_("%HAccess to memory location pointed to by"
+                            " variable %s requires a lock"),
+                         locus, dump_expr_tree (decl, dname));
+              else
+                warning (OPT_Wthread_safety, G_("%H%s %s requires a lock"),
+                         locus, msg, dump_expr_tree (decl, dname));
+            }
+          else
+            {
+              if (mode == TSA_WRITE)
+                {
+                  if (is_indirect_ref)
+                    warning (OPT_Wthread_safety,
+                             G_("%HWriting to memory location pointed to by"
+                                " variable %s requires an exclusive lock"),
+                             locus, dump_expr_tree (decl, dname));
+                  else
+                    warning (OPT_Wthread_safety,
+                             G_("%H%s %s requires an exclusive lock"),
+                             locus, msg, dump_expr_tree (decl, dname));
+                }
+            }
+        }
+      return;
+    }
+
+  if (!DECL_P (lock))
+    lock = get_canonical_expr (lock, NULL_TREE, false /* is_temp_expr */);
+
+  if (!lock_set_contains(excl_locks, lock, base_obj, false))
+    {
+      if (!lock_set_contains(shared_locks, lock, base_obj, false))
         {
           /* We want to use fully-qualified expressions (i.e. including
-             base_obj if any) for DECL and LOCK when emitting warning
+             base_obj if any) for LOCK when emitting warning
              messages.  */
           if (base_obj)
             {
-              if (TREE_CODE (decl) != FUNCTION_DECL)
-                {
-                  tree full_decl = build3 (COMPONENT_REF, TREE_TYPE (decl),
-                                           base_obj, decl, NULL_TREE);
-                  decl = get_canonical_expr (full_decl,
-                                             true /* is_temp_expr */);
-                }
               if (TREE_CODE (lock) == FIELD_DECL)
                 {
                   tree full_lock = build3 (COMPONENT_REF, TREE_TYPE (lock),
                                            base_obj, lock, NULL_TREE);
                   /* Get the canonical lock tree */
-                  lock = get_canonical_expr (full_lock,
+                  lock = get_canonical_expr (full_lock, NULL_TREE,
                                              true /* is_temp_expr */);
                 }
             }
@@ -950,21 +1161,14 @@ check_lock_required (tree lock, tree decl, tree base_obj, bool is_indirect_ref,
               if (base_obj)
                 {
                   /* We want to use fully-qualified expressions (i.e.
-                     including base_obj if any) for DECL and LOCK when
+                     including base_obj if any) for LOCK when
                      emitting warning messages.  */
-                  if (TREE_CODE (decl) != FUNCTION_DECL)
-                    {
-                      tree full_decl = build3 (COMPONENT_REF, TREE_TYPE (decl),
-                                               base_obj, decl, NULL_TREE);
-                      decl = get_canonical_expr (full_decl,
-                                                 true /* is_temp_expr */);
-                    }
                   if (TREE_CODE (lock) == FIELD_DECL)
                     {
                       tree full_lock = build3 (COMPONENT_REF, TREE_TYPE (lock),
                                                base_obj, lock, NULL_TREE);
                       /* Get the canonical lock tree */
-                      lock = get_canonical_expr (full_lock,
+                      lock = get_canonical_expr (full_lock, NULL_TREE,
                                                  true /* is_temp_expr */);
                     }
                 }
@@ -1266,6 +1470,51 @@ get_actual_argument_from_position (gimple call, tree pos_arg)
   return gimple_call_arg (call, lock_pos - 1);
 }
 
+/* A helper function that adds the LOCKABLE, acquired by CALL, to the
+   corresponding lock sets (LIVE_EXCL_LOCKS or LIVE_SHARED_LOCKS) depending
+   on the boolean parameter IS_EXCLUSIVE_LOCK. If the CALL is a trylock call,
+   create a trylock_info data structure which will be used later.  */
+
+static void
+add_lock_to_lockset (gimple call, tree lockable,
+                     bool is_exclusive_lock, bool is_trylock,
+                     struct pointer_set_t *live_excl_locks,
+                     struct pointer_set_t *live_shared_locks)
+{
+  void **entry;
+
+  if (!is_trylock)
+    {
+      /* Insert the lock to either exclusive or shared live lock set.  */
+      if (is_exclusive_lock)
+        pointer_set_insert(live_excl_locks, lockable);
+      else
+        pointer_set_insert(live_shared_locks, lockable);
+    }
+  else
+    {
+      /* If the primitive is a trylock, create a trylock_info structure and
+         insert it to trylock_info_map, which will be used later when we
+         analyze the if-statement whose condition is fed by the trylock.  */
+      struct trylock_info *tryinfo;
+      entry = pointer_map_insert (trylock_info_map, call);
+      if (!(*entry))
+        {
+          tryinfo = XNEW (struct trylock_info);
+          tryinfo->is_exclusive = is_exclusive_lock;
+          tryinfo->locks = pointer_set_create();
+          *entry = tryinfo;
+        }
+      else
+        {
+          tryinfo = (struct trylock_info *)*entry;
+          gcc_assert (tryinfo->locks
+                      && tryinfo->is_exclusive == is_exclusive_lock);
+        }
+      pointer_set_insert (tryinfo->locks, lockable);
+    }
+}
+
 /* This function handles function calls that acquire or try to acquire
    locks (i.e. the functions annotated with exclusive_lock, shared_lock,
    exclusive_trylock, or shared_trylock attribute). Besides adding to the
@@ -1314,6 +1563,15 @@ handle_lock_primitive_attrs (gimple call, tree arg, tree base_obj,
      BASE_OBJ is the lock.  */
   if (!arg)
     arg = base_obj;
+  else if (arg == error_mark_node)
+    {
+      /* If the arg is the universal lock (represented as the error_mark_node),
+         we don't need to do all the checks mentioned in the comments above.
+         Just add it to the lock set and return.  */
+      add_lock_to_lockset (call, arg, is_exclusive_lock, is_trylock,
+                           live_excl_locks, live_shared_locks);
+      return;
+    }
   /* When ARG is an integer that specifies the position of the
      call's argument corresponding to the lock, we need to grab
      the corresponding actual parameter of the call.  */
@@ -1324,7 +1582,7 @@ handle_lock_primitive_attrs (gimple call, tree arg, tree base_obj,
 
   gcc_assert (arg);
 
-  lockable = get_canonical_expr (arg, false /* is_temp_expr */);
+  lockable = get_canonical_expr (arg, NULL_TREE, false /* is_temp_expr */);
 
   /* If there are unbound locks when the thread safety attributes were parsed,
      we should try to bind them now if we see any lock declaration that
@@ -1342,6 +1600,8 @@ handle_lock_primitive_attrs (gimple call, tree arg, tree base_obj,
 
   gcc_assert (fdecl);
   lockable_type = DECL_CONTEXT (fdecl);
+  if (lockable_type && !TYPE_P (lockable_type))
+    lockable_type = NULL_TREE;
 
   /* Check if the lock primitive is actually a constructor of a scoped lock.
      If so, insert to scopedlock_to_lock_map the scoped lock object along
@@ -1399,36 +1659,8 @@ handle_lock_primitive_attrs (gimple call, tree arg, tree base_obj,
     *entry = XNEW (location_t);
   *((location_t *) *entry) = *locus;
 
-  if (!is_trylock)
-    {
-      /* Insert the lock to either exclusive or shared live lock set.  */
-      if (is_exclusive_lock)
-        pointer_set_insert(live_excl_locks, lockable);
-      else
-        pointer_set_insert(live_shared_locks, lockable);
-    }
-  else
-    {
-      /* If the primitive is a trylock, create a trylock_info structure and
-         insert it to trylock_info_map, which will be used later when we
-         analyze the if-statement whose condition is fed by the trylock.  */
-      struct trylock_info *tryinfo;
-      entry = pointer_map_insert (trylock_info_map, call);
-      if (!(*entry))
-        {
-          tryinfo = XNEW (struct trylock_info);
-          tryinfo->is_exclusive = is_exclusive_lock;
-          tryinfo->locks = pointer_set_create();
-          *entry = tryinfo;
-        }
-      else
-        {
-          tryinfo = (struct trylock_info *)*entry;
-          gcc_assert (tryinfo->locks
-                      && tryinfo->is_exclusive == is_exclusive_lock);
-        }
-      pointer_set_insert (tryinfo->locks, lockable);
-    }
+  add_lock_to_lockset (call, lockable, is_exclusive_lock, is_trylock,
+                       live_excl_locks, live_shared_locks);
 }
 
 /* This function handles function calls that release locks (i.e. the
@@ -1446,6 +1678,7 @@ handle_unlock_primitive_attr (gimple call, tree arg, tree base_obj,
 {
   char lname[LOCK_NAME_LEN];
   tree lockable = NULL_TREE;
+  tree lock_contained;
 
   /* Check if the unlock attribute specifies a lock or the position of the
      primitive's argument corresponding to the lock.  */
@@ -1458,7 +1691,8 @@ handle_unlock_primitive_attr (gimple call, tree arg, tree base_obj,
       else
         lockable = arg;
       gcc_assert (lockable);
-      lockable = get_canonical_expr (lockable, false /* is_temp_expr */);
+      lockable = get_canonical_expr (lockable, NULL_TREE,
+                                     false /* is_temp_expr */);
     }
   else
     {
@@ -1483,15 +1717,18 @@ handle_unlock_primitive_attr (gimple call, tree arg, tree base_obj,
       /* If the function is not a destructor of a scoped_lock, base_obj
          is the lock.  */
       if (!lockable)
-        lockable = get_canonical_expr (base_obj, false /* is_temp_expr */);
+        lockable = get_canonical_expr (base_obj, NULL_TREE,
+                                       false /* is_temp_expr */);
     }
 
   /* Remove the lock from the live lock set and, if it is not currently held,
      warn about the issue.  */
-  if (pointer_set_contains(live_excl_locks, lockable))
-    pointer_set_delete(live_excl_locks, lockable);
-  else if (pointer_set_contains(live_shared_locks, lockable))
-    pointer_set_delete(live_shared_locks, lockable);
+  if ((lock_contained = lock_set_contains(live_excl_locks, lockable, NULL_TREE,
+                                          false)) != NULL_TREE)
+    pointer_set_delete(live_excl_locks, lock_contained);
+  else if ((lock_contained = lock_set_contains(live_shared_locks, lockable,
+                                               NULL_TREE, false)) != NULL_TREE)
+    pointer_set_delete(live_shared_locks, lock_contained);
   else if (warn_thread_mismatched_lock_acq_rel)
     warning (OPT_Wthread_safety,
              G_("%HTry to unlock %s that was not acquired"),
@@ -1623,9 +1860,23 @@ process_function_attrs (gimple call, tree fdecl,
              handle each of the locks individually.  */
           tree arg;
           for (arg = TREE_VALUE (attr); arg; arg = TREE_CHAIN (arg))
-            handle_unlock_primitive_attr (call, TREE_VALUE (arg), base_obj,
-                                          live_excl_locks, live_shared_locks,
-                                          locus);
+            {
+              /* If the unlock arg is an error_mark_node, which means an
+                 unsupported lock name/expression was encountered during
+                 parsing, the conservative approach to take is not to check
+                 the lock acquire/release mismatch issue in the current
+                 function by setting the flag to 0. Note that the flag will
+                 be restored to its original value after finishing analyzing
+                 the current function.  */
+              if (TREE_VALUE (arg) == error_mark_node)
+                {
+                  warn_thread_mismatched_lock_acq_rel = 0;
+                  continue;
+                }
+              handle_unlock_primitive_attr (call, TREE_VALUE (arg), base_obj,
+                                            live_excl_locks, live_shared_locks,
+                                            locus);
+            }
         }
       else
         /* If the attribute does not have any argument, the lock to be
@@ -1649,7 +1900,13 @@ process_function_attrs (gimple call, tree fdecl,
             {
               lock = TREE_VALUE (arg);
               gcc_assert (lock);
-              if (TREE_CODE (lock) == INTEGER_CST)
+              /* If lock is the error_mark_node, just set it to NULL_TREE
+                 so that check_lock_required will reduce the level of checking
+                 (i.e. only checks whether there is any live lock at this
+                 point.  */
+              if (lock == error_mark_node)
+                lock = NULL_TREE;
+              else if (TREE_CODE (lock) == INTEGER_CST)
                 lock = get_actual_argument_from_position (call, lock);
               check_lock_required (lock, fdecl, base_obj,
                                    false /* is_indirect_ref */,
@@ -1665,7 +1922,13 @@ process_function_attrs (gimple call, tree fdecl,
             {
               lock = TREE_VALUE (arg);
               gcc_assert (lock);
-              if (TREE_CODE (lock) == INTEGER_CST)
+              /* If lock is the error_mark_node, just set it to NULL_TREE
+                 so that check_lock_required will reduce the level of checking
+                 (i.e. only checks whether there is any live lock at this
+                 point.  */
+              if (lock == error_mark_node)
+                lock = NULL_TREE;
+              else if (TREE_CODE (lock) == INTEGER_CST)
                 lock = get_actual_argument_from_position (call, lock);
               check_lock_required (lock, fdecl, base_obj,
                                    false /* is_indirect_ref */,
@@ -1685,7 +1948,7 @@ process_function_attrs (gimple call, tree fdecl,
              we need to remove the address-taken operation.  */
           if (base_obj)
             {
-              tree canon_base = get_canonical_expr (base_obj,
+              tree canon_base = get_canonical_expr (base_obj, NULL_TREE,
                                                     true /* is_temp_expr */);
               if (TREE_CODE (canon_base) != ADDR_EXPR)
                 {
@@ -1703,16 +1966,21 @@ process_function_attrs (gimple call, tree fdecl,
               tree lock_contained;
               lock = TREE_VALUE (arg);
               gcc_assert (lock);
+              /* If lock is the error_mark_node, just ignore it.  */
+              if (lock == error_mark_node)
+                continue;
               if (TREE_CODE (lock) == INTEGER_CST)
                 lock = get_actual_argument_from_position (call, lock);
-              lock = get_canonical_expr (lock, false /* is_temp_expr */);
+              lock = get_canonical_expr (lock, NULL_TREE,
+                                         false /* is_temp_expr */);
               gcc_assert (lock);
               /* Check if the excluded lock is in the live lock sets when the
                  function is called. If so, issue a warning.  */
-              if ((lock_contained = lock_set_contains(live_excl_locks,
-                                                      lock, base_obj))
-                  || (lock_contained = lock_set_contains(live_shared_locks,
-                                                         lock, base_obj)))
+              if ((lock_contained = lock_set_contains (live_excl_locks,
+                                                       lock, base_obj, true))
+                  || (lock_contained = lock_set_contains (live_shared_locks,
+                                                          lock, base_obj,
+                                                          true)))
                 {
                   void **entry = pointer_map_contains (lock_locus_map,
                                                        lock_contained);
@@ -1745,6 +2013,7 @@ process_guarded_by_attrs (tree vdecl, tree base_obj, bool is_indirect_ref,
                           const location_t *locus, enum access_mode mode)
 {
   tree attr;
+  tree lockable = NULL_TREE;
   /* A flag indicating whether the attribute is {point_to_}guarded_by with
      a lock specified or simply {point_to_}guarded.  */
   bool lock_specified = true;
@@ -1790,49 +2059,13 @@ process_guarded_by_attrs (tree vdecl, tree base_obj, bool is_indirect_ref,
 
   if (lock_specified)
     {
-      tree lockable;
       gcc_assert (TREE_VALUE (attr));
       lockable = TREE_VALUE (TREE_VALUE (attr));
       gcc_assert (lockable);
-      check_lock_required (lockable, vdecl, base_obj, is_indirect_ref,
-                           excl_locks, shared_locks, locus, mode);
     }
-  else
-    {
-      /* If this is a "guarded" attribute that doesn't specify a particular
-         lock, just check whether there is any live lock at this point.  */
-      if (pointer_set_cardinality (excl_locks) == 0)
-        {
-          if (pointer_set_cardinality (shared_locks) == 0)
-            {
-              if (is_indirect_ref)
-                warning (OPT_Wthread_safety,
-                         G_("%HAccess to memory location pointed to by"
-                            " variable %qE requires a lock"),
-                         locus, DECL_NAME (vdecl));
-              else
-                warning (OPT_Wthread_safety,
-                         G_("%HAccess to variable %qE requires a lock"),
-                         locus, DECL_NAME (vdecl));
-            }
-          else
-            {
-              if (mode == TSA_WRITE)
-                {
-                  if (is_indirect_ref)
-                    warning (OPT_Wthread_safety,
-                             G_("%HWriting to memory location pointed to by"
-                                " variable %qE requires an exclusive lock"),
-                             locus, DECL_NAME (vdecl));
-                  else
-                    warning (OPT_Wthread_safety,
-                             G_("%HWriting to variable %qE requires an"
-                                " exclusive lock"),
-                             locus, DECL_NAME (vdecl));
-                }
-            }
-        }
-    }
+
+  check_lock_required (lockable, vdecl, base_obj, is_indirect_ref,
+                       excl_locks, shared_locks, locus, mode);
 }
 
 /* This routine is called when we see an indirect reference in our
@@ -2027,7 +2260,18 @@ analyze_expr (tree expr, tree base_obj,  bool is_indirect_ref,
   if (TREE_CODE (expr) == SSA_NAME)
     {
       vdecl = SSA_NAME_VAR (expr);
-      if (!DECL_NAME (vdecl))
+      /* If VDECL is a nameless temp variable and we are analyzing an indirect
+         reference, we will need to grab and analyze the RHS of its SSA def
+         because the RHS is the actual pointer that gets dereferenced.
+         For example, in the following snippet of gimple IR, when we first
+         analyzed S1, we only saw a direct access to foo.a_. Later, when
+         analyzing the RHS of S2 (i.e. *D1803_1), which is an indirect
+         reference, we need to look at foo.a_ again because what's really
+         being referenced is *foo.a_.
+
+         S1:  D.1803_1 = foo.a_;
+         S2:  res.1_4 = *D.1803_1;  */
+      if (!DECL_NAME (vdecl) && is_indirect_ref)
         {
           gimple def_stmt = SSA_NAME_DEF_STMT (expr);
           if (is_gimple_assign (def_stmt)
@@ -2383,9 +2627,10 @@ warn_locally_unreleased_locks (const void *lock, void *reported)
 
   reported_unreleased_locks = (struct pointer_set_t *) reported;
 
-  /* If this unreleased lock has be reported, don't emit a warning message
-     for it again.  */
-  if (!pointer_set_contains (reported_unreleased_locks, lock))
+  /* If this unreleased lock has been reported or is a universal lock (i.e.
+     error_mark_node), don't emit a warning message for it again.  */
+  if (lock != error_mark_node
+      && !pointer_set_contains (reported_unreleased_locks, lock))
     {
       entry = pointer_map_contains (lock_locus_map, lock);
       if (entry)
@@ -2423,8 +2668,10 @@ warn_unreleased_locks (const void *lock, void *locks_at_entry)
 {
   /* If the unreleased lock was actually acquired before calling the current
      function, we don't emit a warning for it as the lock is not expected to
-     be released in the current function anyway.  */
-  if (!pointer_set_contains ((struct pointer_set_t *) locks_at_entry, lock))
+     be released in the current function anyway.  Also if the lock is a
+     universal lock (i.e. error_mark_node), don't emit a warning either.  */
+  if (lock != error_mark_node
+      && !pointer_set_contains ((struct pointer_set_t *) locks_at_entry, lock))
     {
       char lname[LOCK_NAME_LEN];
       void **entry = pointer_map_contains (lock_locus_map, lock);
@@ -2481,29 +2728,7 @@ analyze_stmt_r (gimple_stmt_iterator *gsi, bool *handled_ops,
   struct bb_threadsafe_info *current_bb_info =
       (struct bb_threadsafe_info *) wi->info;
 
-  if (is_gimple_assign (stmt))
-    {
-      /* If the statement is an SSA definition of a nameless temp variable
-         and it has a single RHS, we will not analyze its operands because
-         the RHS of the statement will be analyzed later when we see the use
-         of the temp variable. For example, in the following snippet of
-         gimple IR, we would skip S1 but come back to analyze foo.a_ when
-         we see the use of D.1803_1 in S2. This way we can avoid emitting
-         duplicate warning messages.
-
-         S1:  D.1803_1 = foo.a_;
-         S2:  res.1_4 = *D.1803_1;  */
-      enum tree_code subcode = gimple_assign_rhs_code (stmt);
-      tree lhs = gimple_get_lhs (stmt);
-      if (get_gimple_rhs_class (subcode) == GIMPLE_SINGLE_RHS
-          && TREE_CODE (lhs) == SSA_NAME)
-        {
-          tree vdecl = SSA_NAME_VAR (lhs);
-          if (!DECL_NAME (vdecl))
-            *handled_ops = true;
-        }
-    }
-  else if (is_gimple_call (stmt))
+  if (is_gimple_call (stmt))
     {
       handle_call_gs (stmt, current_bb_info);
       /* The arguments of the call is already analyzed in handle_call_gs.
@@ -2578,6 +2803,7 @@ execute_threadsafe_analyze (void)
   tree attr;
   basic_block *worklist;
   int i;
+  int old_mismatched_lock_acq_rel = warn_thread_mismatched_lock_acq_rel;
 
   /* Skip the compiler-generated functions.  */
   if (DECL_ARTIFICIAL (current_function_decl))
@@ -2619,6 +2845,7 @@ execute_threadsafe_analyze (void)
   lock_locus_map = pointer_map_create ();
   trylock_info_map = pointer_map_create ();
   lock_expr_tab = htab_create (10, lock_expr_hash, lock_expr_eq, NULL);
+  gimple_call_tab = htab_create (10, call_gs_hash, call_gs_eq, NULL);
 
   /* Initialize the pretty printer buffer for warning emitting.  */
   pp_construct (&pp_buf, /* prefix */ NULL, /* line-width */ 0);
@@ -2821,15 +3048,24 @@ execute_threadsafe_analyze (void)
 
   /* If there are still live locks at the end of the function that are held
      at the entry of the function (i.e. not in the function's locks_required
-     sets), emit warning messages for them.  */
+     sets), emit warning messages for them.
+     Note that the exit block may not be reachable from the entry (e.g. when
+     there are abort() or exit() calls that collectively dominate the exit
+     block). We need to check whether its liveout_exclusive_locks and 
+     liveout_shared_locks are empty before trying to traverse them.
+     TODO: Besides the exit block, we also need to check the basic blocks
+     that don't have any successors as they are practically "exit" blocks
+     as well.  */
   if (warn_thread_mismatched_lock_acq_rel)
     {
-      pointer_set_traverse(
-          threadsafe_info[EXIT_BLOCK_PTR->index].liveout_exclusive_locks,
-          warn_unreleased_locks, live_excl_locks_at_entry);
-      pointer_set_traverse(
-          threadsafe_info[EXIT_BLOCK_PTR->index].liveout_shared_locks,
-          warn_unreleased_locks, live_shared_locks_at_entry);
+      if (threadsafe_info[EXIT_BLOCK_PTR->index].liveout_exclusive_locks)
+        pointer_set_traverse(
+            threadsafe_info[EXIT_BLOCK_PTR->index].liveout_exclusive_locks,
+            warn_unreleased_locks, live_excl_locks_at_entry);
+      if (threadsafe_info[EXIT_BLOCK_PTR->index].liveout_shared_locks)
+        pointer_set_traverse(
+            threadsafe_info[EXIT_BLOCK_PTR->index].liveout_shared_locks,
+            warn_unreleased_locks, live_shared_locks_at_entry);
     }
 
   /* Free the allocated data structures.  */
@@ -2856,6 +3092,15 @@ execute_threadsafe_analyze (void)
   pointer_map_traverse (trylock_info_map, delete_trylock_info, NULL);
   pointer_map_destroy (trylock_info_map);
   htab_delete (lock_expr_tab);
+  htab_delete (gimple_call_tab);
+
+  /* The flag that controls the warning of mismatched lock acquire/release
+     could be turned off when we see an unlock primitive with an unsupported
+     lock name/expression (see process_function_attrs). We need to restore
+     the original value of the flag after we finish analyzing the current
+     function.  */
+  if (old_mismatched_lock_acq_rel != warn_thread_mismatched_lock_acq_rel)
+    warn_thread_mismatched_lock_acq_rel = old_mismatched_lock_acq_rel;
 
   return 0;
 }

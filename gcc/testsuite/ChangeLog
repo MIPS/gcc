@@ -1,3 +1,28 @@
+2008-12-17  Le-Chun Wu  <lcwu@google.com>
+
+	* gcc.dg/thread_annot_common_c.h: New test header file for C.
+	* gcc.dg/thread_annot_lock-23.c: New test in C.
+	* gcc.dg/thread_annot_lock-24.c: Likewise.
+	* gcc.dg/thread_annot_lock-25.c: Likewise.
+	* gcc.dg/thread_annot_lock-26.c: Likewise.
+	* gcc.dg/thread_annot_lock-27.c: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-23.C: New test in C++.
+	* g++.dg/thread-ann/thread_annot_lock-24.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-25.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-26.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-27.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-28.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-29.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-30.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-31.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-32.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-33.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-34.C: Likewise.
+	* g++.dg/thread-ann/thread_annot_lock-1.C: Change expected warning
+	messages.
+	* g++.dg/thread-ann/thread_annot_lock-3.C: Change to not use function
+	calls in the lock attributes.
+
 2008-09-04  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* gcc.target/mips/seq-1.c: New test.

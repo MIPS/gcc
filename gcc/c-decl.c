@@ -2459,19 +2459,28 @@ undeclared_variable (tree id, location_t loc)
 
   if (current_function_decl == 0)
     {
-      error ("%H%qE undeclared here (not in a function)", &loc, id);
+      /* Suppress the error message and return an error_mark_node if we are
+         parsing a lock attribute. We would like the lock attributes to
+         reference (and tolerate) names not in scope so that they provide
+         better code documentation capability.  */
+      if (!parsing_lock_attribute)
+        error ("%H%qE undeclared here (not in a function)", &loc, id);
       scope = current_scope;
     }
   else
     {
-      error ("%H%qE undeclared (first use in this function)", &loc, id);
+      if (!parsing_lock_attribute)
+        {
+          error ("%H%qE undeclared (first use in this function)", &loc, id);
 
-      if (!already)
-	{
-	  error ("%H(Each undeclared identifier is reported only once", &loc);
-	  error ("%Hfor each function it appears in.)", &loc);
-	  already = true;
-	}
+          if (!already)
+            {
+              error ("%H(Each undeclared identifier is reported only once",
+                     &loc);
+              error ("%Hfor each function it appears in.)", &loc);
+              already = true;
+            }
+        }
 
       /* If we are parsing old-style parameter decls, current_function_decl
 	 will be nonnull but current_function_scope will be null.  */

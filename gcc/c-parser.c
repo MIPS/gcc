@@ -1146,6 +1146,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok, bool empty_ok,
   tree all_prefix_attrs;
   bool diagnosed_no_specs = false;
   location_t here = c_parser_peek_token (parser)->location;
+  bool orig_fndef_ok = fndef_ok;
 
   specs = build_null_declspecs ();
   c_parser_declspecs (parser, specs, true, true, start_attr_ok);
@@ -1258,9 +1259,18 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok, bool empty_ok,
 	    }
 	  else
 	    {
-	      c_parser_error (parser, "expected %<,%> or %<;%>");
-	      c_parser_skip_to_end_of_block_or_statement (parser);
-	      return;
+              /* Allow the lock attributes to be applied to function
+                 definitions.  */
+              if (c_parser_next_token_is_not (parser, CPP_OPEN_BRACE)
+                  || !orig_fndef_ok
+                  || !postfix_attrs
+                  || ((postfix_attrs = extract_lock_attributes (postfix_attrs))
+                      == NULL_TREE))
+                {
+                  c_parser_error (parser, "expected %<,%> or %<;%>");
+                  c_parser_skip_to_end_of_block_or_statement (parser);
+                  return;
+                }
 	    }
 	}
       else if (!fndef_ok)
@@ -2841,11 +2851,17 @@ c_parser_attributes (c_parser *parser)
 	      continue;
 	    }
 	  c_parser_consume_token (parser);
+          /* If this is a lock annotation attribute that takes arguments,
+             set a flag so that we can make the parser tolerant of lock names
+             not in scope or unsupported.  */
+          if (is_lock_attribute_with_args (attr_name))
+            parsing_lock_attribute = true;
 	  /* Parse the attribute contents. */
           if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
             attr_args = NULL_TREE;
           else
             attr_args = c_parser_attr_arg_list (parser);
+          parsing_lock_attribute = false;
 	  attr = build_tree_list (attr_name, attr_args);
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 	    c_parser_consume_token (parser);

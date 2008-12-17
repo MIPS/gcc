@@ -55,7 +55,7 @@ void func1(void)
   gp = &gx; // { dg-warning "Writing to variable 'gp' requires lock 'mu3'" }
 
   if (gx > 3) { // { dg-warning "Reading variable 'gx' requires lock 'mu1'" }
-    la = gx + gw; // { dg-warning "Access to variable 'gw' requires a lock" }
+    la = gx + gw; // { dg-warning "Reading variable 'gw' requires a lock" }
   }
   else {
     *p = foo.decrementB(gy); // { dg-warning "Reading variable 'gy' requires lock 'mu2'" }

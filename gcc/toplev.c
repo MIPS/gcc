@@ -324,6 +324,9 @@ enum stack_check_type flag_stack_check = NO_STACK_CHECK;
 
 bool user_defined_section_attribute = false;
 
+/* True if the parser is currently parsing a lock attribute.  */
+bool parsing_lock_attribute = false;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power

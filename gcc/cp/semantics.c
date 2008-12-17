@@ -1449,7 +1449,20 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	  && DECL_STATIC_FUNCTION_P (current_function_decl))
 	error ("invalid use of member %q+D in static member function", decl);
       else
-	error ("invalid use of non-static data member %q+D", decl);
+        {
+          /* Suppress the error message and return the decl node if we are
+             parsing a lock attribute. We would like the users to be able to
+             reference other members of the class in the lock attributes as
+             shown in the following example:
+
+             class Bar {
+               Foo *foo;
+               int data __attribute__((guarded_by(foo->lock)));
+             };  */
+          if (parsing_lock_attribute)
+            return decl;
+          error ("invalid use of non-static data member %q+D", decl);
+        }
       error ("from this location");
 
       return error_mark_node;
