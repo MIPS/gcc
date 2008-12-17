@@ -419,7 +419,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
   a = nreverse (t);
   DECL_ARGUMENTS (thunk_fndecl) = a;
 
-  if (this_adjusting
+  if (0	/* FIXME lto.  This is a hack to avoid asm thunks.  Remove.  */
+      && this_adjusting
       && targetm.asm_out.can_output_mi_thunk (thunk_fndecl, fixed_offset,
 					      virtual_value, alias))
     {

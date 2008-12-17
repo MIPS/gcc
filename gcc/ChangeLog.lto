@@ -1,3 +1,12 @@
+2008-12-17  Diego Novillo  <dnovillo@google.com>
+
+	* cgraphunit.c (cgraph_expand_function): Move call to
+	lang_hooks.callgraph.emit_associated_thunks to
+	cgraph_emit_thunks.
+	(cgraph_emit_thunks): New.
+	(cgraph_optimize): Call it.
+	Only emit thunks on locally defined nodes.
+
 2008-12-17  Rafael Avila de Espindola  <espindola@google.com>
 
 	* c-decl.c (c_maybe_initialize_eh): Init eh_personality_decl

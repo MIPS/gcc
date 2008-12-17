@@ -1,3 +1,8 @@
+2008-12-17  Diego Novillo  <dnovillo@google.com>
+
+	* cp/method.c (use_thunk): Disable generation of asm
+	thunks.  Add FIXME note.
+
 2008-12-17  Rafael Avila de Espindola  <espindola@google.com>
 
 	* except.c (init_exception_processing, choose_personality_routine):

@@ -1062,8 +1062,6 @@ cgraph_expand_function (struct cgraph_node *node)
   gcc_assert (node->lowered);
 
   /* Generate RTL for the body of DECL.  */
-  if (lang_hooks.callgraph.emit_associated_thunks)
-    lang_hooks.callgraph.emit_associated_thunks (decl);
   tree_rest_of_compilation (decl);
 
   /* Make sure that BE didn't give up on compiling.  */
@@ -1272,6 +1270,23 @@ ipa_passes (void)
   bitmap_obstack_release (NULL);
 }
 
+
+/* Emit thunks for every node in the cgraph.  */
+
+static void
+cgraph_emit_thunks (void)
+{
+  struct cgraph_node *n;
+
+  for (n = cgraph_nodes; n; n = n->next)
+    {
+      /* Only emit thunks on functions defined in this TU.  */
+      if (!DECL_EXTERNAL (n->decl))
+	lang_hooks.callgraph.emit_associated_thunks (n->decl);
+    }
+}
+
+
 /* Perform simple optimizations based on callgraph.  */
 
 void
@@ -1283,6 +1298,18 @@ cgraph_optimize (void)
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
+
+  /* Emit thunks, if needed.  */
+  if (lang_hooks.callgraph.emit_associated_thunks)
+    {
+      cgraph_emit_thunks ();
+
+      /* FIXME lto.  Thunk emission may produce errors for thunks that
+	 need varargs (since asm thunks have been disabled).  This
+	 shouldn't be needed after thunks are properly lowered.  */
+      if (errorcount || sorrycount)
+	return;
+    }
 
   /* Call functions declared with the "constructor" or "destructor"
      attribute.  */
