@@ -142,7 +142,12 @@ dwarf2out_do_cfi_asm (void)
 #endif
   if (!flag_dwarf2_cfi_asm || !dwarf2out_do_frame ())
     return false;
-  if (!eh_personality_libfunc)
+
+  /* FIXME lto: current_function_decl is not set when this function is called,
+     so we cannot find the personality of the current function. For now we
+     use the global eh_personality_decl, but this is probably wrong for the
+     case of a program with decls with different personality functions. */
+  if (!eh_personality_decl)
     return true;
   if (!HAVE_GAS_CFI_PERSONALITY_DIRECTIVE)
     return false;
@@ -2816,7 +2821,8 @@ output_call_frame_info (int for_eh)
   int per_encoding = DW_EH_PE_absptr;
   int lsda_encoding = DW_EH_PE_absptr;
   int return_reg;
-
+  rtx personality;
+  
   /* Don't emit a CIE if there won't be any FDEs.  */
   if (fde_table_in_use == 0)
     return;
@@ -2900,6 +2906,8 @@ output_call_frame_info (int for_eh)
 
   augmentation[0] = 0;
   augmentation_size = 0;
+
+  personality = get_personality_function (current_function_decl);
   if (for_eh)
     {
       char *p;
@@ -2919,11 +2927,11 @@ output_call_frame_info (int for_eh)
       lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
 
       p = augmentation + 1;
-      if (eh_personality_libfunc)
+      if (personality)
 	{
 	  *p++ = 'P';
 	  augmentation_size += 1 + size_of_encoded_value (per_encoding);
-	  assemble_external_libcall (eh_personality_libfunc);
+	  assemble_external_libcall (personality);
 	}
       if (any_lsda_needed)
 	{
@@ -2942,7 +2950,7 @@ output_call_frame_info (int for_eh)
 	}
 
       /* Ug.  Some platforms can't do unaligned dynamic relocations at all.  */
-      if (eh_personality_libfunc && per_encoding == DW_EH_PE_aligned)
+      if (personality && per_encoding == DW_EH_PE_aligned)
 	{
 	  int offset = (  4		/* Length */
 			+ 4		/* CIE Id */
@@ -2977,12 +2985,12 @@ output_call_frame_info (int for_eh)
   if (augmentation[0])
     {
       dw2_asm_output_data_uleb128 (augmentation_size, "Augmentation size");
-      if (eh_personality_libfunc)
+      if (personality)
 	{
 	  dw2_asm_output_data (1, per_encoding, "Personality (%s)",
 			       eh_data_format_name (per_encoding));
 	  dw2_asm_output_encoded_addr_rtx (per_encoding,
-					   eh_personality_libfunc,
+					   personality,
 					   true, NULL);
 	}
 
@@ -3246,13 +3254,14 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
     {
       int enc;
       rtx ref;
+      rtx personality = get_personality_function (current_function_decl);
 
       fprintf (asm_out_file, "\t.cfi_startproc\n");
 
-      if (eh_personality_libfunc)
+      if (personality)
 	{
 	  enc = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1); 
-	  ref = eh_personality_libfunc;
+	  ref = personality;
 
 	  /* ??? The GAS support isn't entirely consistent.  We have to
 	     handle indirect support ourselves, but PC-relative is done

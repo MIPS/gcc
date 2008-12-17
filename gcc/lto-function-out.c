@@ -2789,6 +2789,20 @@ output_function_decl (struct output_block *ob, tree decl)
 
   /* omit initial -- should be written with body */
 
+  if (decl->function_decl.personality)
+    {
+      /* FIXME lto: We have to output the index since the symbol table
+	 is composed of all decls we emit a index for. Since this might
+	 be the only place we see this decl, we also to write it to disk. */
+      gcc_assert (TREE_CODE (decl->function_decl.personality) == FUNCTION_DECL);
+      output_uleb128 (ob, 1);
+      output_tree (ob, decl->function_decl.personality);
+      lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
+				decl->function_decl.personality);
+    }
+  else
+    output_uleb128 (ob, 0);
+
   output_uleb128 (ob, decl->function_decl.function_code);
   output_uleb128 (ob, decl->function_decl.built_in_class);
   LTO_DEBUG_TOKEN ("end_function_decl");

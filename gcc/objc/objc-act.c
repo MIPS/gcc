@@ -3473,10 +3473,11 @@ objc_init_exceptions (void)
   else
     {
       c_eh_initialized_p = true;
-      eh_personality_libfunc
-	= init_one_libfunc (USING_SJLJ_EXCEPTIONS
-			    ? "__gnu_objc_personality_sj0"
-			    : "__gnu_objc_personality_v0");
+      eh_personality_decl
+	= build_personality_function (USING_SJLJ_EXCEPTIONS
+				      ? "__gnu_objc_personality_sj0"
+				      : "__gnu_objc_personality_v0");
+
       default_init_unwind_resume_libfunc ();
       using_eh_for_cleanups ();
       lang_eh_runtime_type = objc_eh_runtime_type;

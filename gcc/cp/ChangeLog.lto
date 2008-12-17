@@ -1,3 +1,8 @@
+2008-12-17  Rafael Avila de Espindola  <espindola@google.com>
+
+	* except.c (init_exception_processing, choose_personality_routine):
+	Init eh_personality_decl instead of eh_personality_libfunc.
+
 2008-12-14  Doug Kwan  <dougkwan@google.com>
 
 	* tree.c (cp_fix_function_decl_p): New.

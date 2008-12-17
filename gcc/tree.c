@@ -721,6 +721,11 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	    {
 	      DECL_ALIGN (t) = FUNCTION_BOUNDARY;
 	      DECL_MODE (t) = FUNCTION_MODE;
+
+	      /* FIXME lto: This is a transitional hack. It would be better for each FE
+		 to set this and remove the global variable completely. Another option
+		 is to use a new langhook. */
+	      DECL_FUNCTION_PERSONALITY (t) = eh_personality_decl;
 	    }
 	  else
 	    DECL_ALIGN (t) = 1;

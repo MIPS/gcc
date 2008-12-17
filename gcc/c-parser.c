@@ -8233,6 +8233,9 @@ c_parse_file (void)
   the_parser = GGC_NEW (c_parser);
   *the_parser = tparser;
 
+  /* Initialize EH, if we've been told to do so.  */
+  c_maybe_initialize_eh ();
+
   c_parser_translation_unit (the_parser);
   the_parser = NULL;
 }

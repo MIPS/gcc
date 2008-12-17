@@ -1,0 +1,4 @@
+2008-12-17  Rafael Avila de Espindola  <espindola@google.com>
+
+	* objc-act.c (objc_init_exceptions): Init eh_personality_decl
+	instead of eh_personality_libfunc.

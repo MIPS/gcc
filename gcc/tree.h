@@ -2623,6 +2623,9 @@ struct tree_memory_partition_tag GTY(())
 #define DECL_DEBUG_EXPR_IS_FROM(NODE) \
   (DECL_COMMON_CHECK (NODE)->decl_common.debug_expr_is_from)
 
+#define DECL_FUNCTION_PERSONALITY(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.personality)
+
 /* Nonzero for a given ..._DECL node means that the name of this node should
    be ignored for symbolic debug purposes.  */
 #define DECL_IGNORED_P(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.ignored_flag)
@@ -3323,6 +3326,9 @@ struct tree_function_decl GTY(())
   struct tree_decl_non_common common;
 
   struct function *f;
+
+  /* The personality function. Used for stack unwinding. */
+  tree personality;
 
   /* Function specific options that are used by this function.  */
   tree function_specific_target;	/* target options */
@@ -4639,6 +4645,9 @@ extern int pedantic_lvalues;
 /* Points to the FUNCTION_DECL of the function whose body we are reading.  */
 
 extern GTY(()) tree current_function_decl;
+
+/* The eh personally function that this FE wants to use. */
+extern GTY(()) tree eh_personality_decl;
 
 /* Nonzero means a FUNC_BEGIN label was emitted.  */
 extern GTY(()) const char * current_function_func_begin_label;

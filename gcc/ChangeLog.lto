@@ -1,3 +1,29 @@
+2008-12-17  Rafael Avila de Espindola  <espindola@google.com>
+
+	* c-decl.c (c_maybe_initialize_eh): Init eh_personality_decl
+	instead of eh_personality_libfunc.
+	(finish_decl): Don't call c_maybe_initialize_eh.
+	* c-parser.c (c_parse_file): Call c_maybe_initialize_eh.
+	* dwarf2out.c (dwarf2out_do_cfi_asm): Use eh_personality_decl. Add a
+	FIXME.
+	(output_call_frame_info, dwarf2out_begin_prologue): Use personality
+	from current_function_decl.
+	* except.c (sjlj_emit_function_enter, output_function_exception_table):
+	Use personality from current_function_decl.
+	* expr.h (build_personality_function, get_personality_function): New.
+	* libfuncs.h (libfunc_index): Remove LTI_eh_personality.
+	(eh_personality_libfunc): Remove.
+	* lto-function-in.c (lto_init_eh): Don't set eh_personality_libfunc.
+	(input_function_decl): Read decl->function_decl.personality.
+	* lto-function-out.c (output_function_decl): Write
+	decl->function_decl.personality.
+	* optabs.c (init_one_libfunc): Call build_personality_function.
+	* toplev.c (eh_personality_decl): New.
+	* tree.c (make_node_stat):  Set DECL_FUNCTION_PERSONALITY.
+	* tree.h (DECL_FUNCTION_PERSONALITY): New.
+	(tree_function_decl): Add personality.
+	(eh_personality_decl): New.
+
 2008-12-10  Diego Novillo  <dnovillo@google.com>
 
 	* lto-symtab.c (lto_symtab_compatible): Add locus

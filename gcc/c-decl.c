@@ -3310,10 +3310,11 @@ c_maybe_initialize_eh (void)
     return;
 
   c_eh_initialized_p = true;
-  eh_personality_libfunc
-    = init_one_libfunc (USING_SJLJ_EXCEPTIONS
-			? "__gcc_personality_sj0"
-			: "__gcc_personality_v0");
+  eh_personality_decl
+    = build_personality_function (USING_SJLJ_EXCEPTIONS
+				  ? "__gcc_personality_sj0"
+				  : "__gcc_personality_v0");
+
   default_init_unwind_resume_libfunc ();
   using_eh_for_cleanups ();
 }
@@ -3608,9 +3609,6 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  /* Don't warn about decl unused; the cleanup uses it.  */
 	  TREE_USED (decl) = 1;
 	  TREE_USED (cleanup_decl) = 1;
-
-	  /* Initialize EH, if we've been told to do so.  */
-	  c_maybe_initialize_eh ();
 
 	  push_cleanup (decl, cleanup, false);
 	}

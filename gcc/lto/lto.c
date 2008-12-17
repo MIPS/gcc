@@ -1074,6 +1074,15 @@ lto_fixup_decl_non_common (tree t, void *data)
   gcc_assert (no_fixup_p (t->decl_non_common.saved_tree));
 }
 
+/* Fix up fields of a decl_non_common T.  DATA points to fix-up states.  */
+
+static void
+lto_fixup_function (tree t, void *data)
+{
+  lto_fixup_decl_non_common (t, data);
+  LTO_FIXUP_SUBTREE (DECL_FUNCTION_PERSONALITY (t));
+}
+
 /* Fix up fields of a field_decl T.  DATA points to fix-up states.  */
 
 static void
@@ -1225,8 +1234,11 @@ lto_fixup_tree (tree *tp, int *walk_subtrees, void *data)
       break;	
 
     case TYPE_DECL:
-    case FUNCTION_DECL:
       lto_fixup_decl_non_common (t, data);
+      break;
+
+    case FUNCTION_DECL:
+      lto_fixup_function (t, data);
       break;
 
     case TREE_BINFO:

@@ -1793,13 +1793,6 @@ lto_init_eh (void)
     dwarf2out_frame_init ();
 #endif
 
-  /* FIXME lto.  Use g++'s personality for now, but this should be
-     derived from either the input files or some global flag.  It's
-     not clear yet what should happen when languages other than C or
-     C++ are in the mix.  */
-  eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
-					     ? "__gxx_personality_sj0"
-					     : "__gxx_personality_v0");
   default_init_unwind_resume_libfunc ();
   lang_eh_runtime_type = lto_eh_runtime_type;
 }
@@ -2846,7 +2839,7 @@ static tree
 input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
   unsigned index;
-
+  unsigned has_personality;
   tree decl = make_node (FUNCTION_DECL);
 
   lto_flags_type flags = input_tree_flags (ib, FUNCTION_DECL, true);
@@ -2883,6 +2876,15 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
   /* lang_specific */
   /* omit initial -- should be read with body */
 
+  has_personality = lto_input_uleb128 (ib);
+  if (has_personality)
+    {
+      decl->function_decl.personality = input_tree (ib, data_in);
+      gcc_assert (TREE_CODE (decl->function_decl.personality) == FUNCTION_DECL);
+      lto_input_uleb128 (ib);
+    }
+  else
+    decl->function_decl.personality = NULL ;
   decl->function_decl.function_code = lto_input_uleb128 (ib);
   decl->function_decl.built_in_class = lto_input_uleb128 (ib);
 

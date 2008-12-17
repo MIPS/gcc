@@ -1703,6 +1703,7 @@ sjlj_emit_function_enter (rtx dispatch_label)
 {
   rtx fn_begin, fc, mem, seq;
   bool fn_begin_outside_block;
+  rtx personality = get_personality_function (current_function_decl);
 
   fc = crtl->eh.sjlj_fc;
 
@@ -1711,9 +1712,9 @@ sjlj_emit_function_enter (rtx dispatch_label)
   /* We're storing this libcall's address into memory instead of
      calling it directly.  Thus, we must call assemble_external_libcall
      here, as we can not depend on emit_library_call to do it for us.  */
-  assemble_external_libcall (eh_personality_libfunc);
+  assemble_external_libcall (personality);
   mem = adjust_address (fc, Pmode, sjlj_fc_personality_ofs);
-  emit_move_insn (mem, eh_personality_libfunc);
+  emit_move_insn (mem, personality);
 
   mem = adjust_address (fc, Pmode, sjlj_fc_lsda_ofs);
   if (crtl->uses_eh_lsda)
@@ -3501,18 +3502,19 @@ output_function_exception_table (const char * ARG_UNUSED (fnname))
 #endif
   int have_tt_data;
   int tt_format_size = 0;
+  rtx personality = get_personality_function (current_function_decl);
 
   /* Not all functions need anything.  */
   if (! crtl->uses_eh_lsda)
     return;
 
-  if (eh_personality_libfunc)
-    assemble_external_libcall (eh_personality_libfunc);
+  if (personality)
+    assemble_external_libcall (personality);
 
 #ifdef TARGET_UNWIND_INFO
   /* TODO: Move this into target file.  */
   fputs ("\t.personality\t", asm_out_file);
-  output_addr_const (asm_out_file, eh_personality_libfunc);
+  output_addr_const (asm_out_file, personality);
   fputs ("\n\t.handlerdata\n", asm_out_file);
   /* Note that varasm still thinks we're in the function's code section.
      The ".endp" directive that will immediately follow will take us back.  */

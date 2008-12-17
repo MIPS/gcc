@@ -1,3 +1,7 @@
+2008-12-17  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc.dg/exceptions.c: New.
+
 2008-12-14  Doug Kwan  <dougkwan@google.com>
 
 	* g++.dg/lto/20081211-1.h: New.

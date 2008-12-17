@@ -78,9 +78,11 @@ init_exception_processing (void)
   call_unexpected_node
     = push_throw_library_fn (get_identifier ("__cxa_call_unexpected"), tmp);
 
-  eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
-					     ? "__gxx_personality_sj0"
-					     : "__gxx_personality_v0");
+  eh_personality_decl
+    = build_personality_function (USING_SJLJ_EXCEPTIONS
+				  ? "__gxx_personality_sj0"
+				  : "__gxx_personality_v0");
+
   if (targetm.arm_eabi_unwinder)
     unwind_resume_libfunc = init_one_libfunc ("__cxa_end_cleanup");
   else
@@ -313,7 +315,7 @@ decl_is_java_type (tree decl, int err)
 /* Select the personality routine to be used for exception handling,
    or issue an error if we need two different ones in the same
    translation unit.
-   ??? At present eh_personality_libfunc is set to
+   ??? At present eh_personality_decl is set to
    __gxx_personality_(sj|v)0 in init_exception_processing - should it
    be done here instead?  */
 void
@@ -353,9 +355,10 @@ choose_personality_routine (enum languages lang)
 
     case lang_java:
       state = chose_java;
-      eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
-						 ? "__gcj_personality_sj0"
-						 : "__gcj_personality_v0");
+      eh_personality_decl
+	= build_personality_function (USING_SJLJ_EXCEPTIONS
+				      ? "__gcj_personality_sj0"
+				      : "__gcj_personality_v0");
       break;
 
     default:
