@@ -1653,8 +1653,8 @@ add_call_clobber_ops (gimple stmt, tree callee ATTRIBUTE_UNUSED)
   /* Get info for local and module level statics.  There is a bit
      set for each static if the call being processed does not read
      or write that variable.  */
-  not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
-  not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL;
+  not_read_b = callee ? ipa_reference_get_not_read_global (cgraph_node (callee)) : NULL; 
+  not_written_b = callee ? ipa_reference_get_not_written_global (cgraph_node (callee)) : NULL;
 
   /* Add a VDEF operand for every call clobbered variable.  */
   EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, u, bi)
@@ -1705,7 +1705,7 @@ add_call_read_ops (gimple stmt, tree callee ATTRIBUTE_UNUSED)
   if (gimple_call_flags (stmt) & ECF_CONST)
     return;
 
-  not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL;
+  not_read_b = callee ? ipa_reference_get_not_read_global (cgraph_node (callee)) : NULL;
 
   /* For pure functions we compute non-escaped uses separately.  */
   if (gimple_call_flags (stmt) & ECF_PURE)
@@ -2010,6 +2010,10 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       }
 
     case BIT_FIELD_REF:
+      if (TREE_THIS_VOLATILE (expr))
+	gimple_set_has_volatile_ops (stmt, true);
+      /* FALLTHRU */
+
     case TRUTH_NOT_EXPR:
     case VIEW_CONVERT_EXPR:
     do_unary:

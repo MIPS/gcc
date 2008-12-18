@@ -1,5 +1,5 @@
 /* Target macros for the FRV port of GCC.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Red Hat Inc.
 
@@ -592,6 +592,8 @@
 #define FDPIC_FPTR_REGNO  (GPR_FIRST + 14)        /* uClinux PIC function pointer register.  */
 #define FDPIC_REGNO   (GPR_FIRST + 15)        /* uClinux PIC register.  */
 
+#define HARD_REGNO_RENAME_OK(from,to) (TARGET_FDPIC ? ((to) != FDPIC_REG) : 1)
+
 #define OUR_FDPIC_REG	get_hard_reg_initial_val (SImode, FDPIC_REGNO)
 
 #define FPR_FIRST       64			/* First FP reg */
@@ -1153,6 +1155,21 @@ enum reg_class
   { 0xffffffff,0xffffffff,0xffffffff,0xffffffff,0xffffffff,0x1fff}, /* ALL_REGS */\
 }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						\
+{									\
+  GPR_REGS, FPR_REGS, ACC_REGS, ICR_REGS, FCR_REGS, ICC_REGS, FCC_REGS, \
+  ACCG_REGS, SPR_REGS,							\
+  LIM_REG_CLASSES							\
+}
+
 /* A C expression whose value is a register class containing hard register
    REGNO.  In general there is more than one such class; choose a class which
    is "minimal", meaning that no smaller class also contains the register.  */
@@ -1235,10 +1252,10 @@ extern enum reg_class reg_class_from_letter[];
 #define PREFERRED_RELOAD_CLASS(X, CLASS) CLASS
 
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, X) \
-  frv_secondary_reload_class (CLASS, MODE, X, TRUE)
+  frv_secondary_reload_class (CLASS, MODE, X)
 
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X) \
-  frv_secondary_reload_class (CLASS, MODE, X, FALSE)
+  frv_secondary_reload_class (CLASS, MODE, X)
 
 /* A C expression whose value is nonzero if pseudos that have been assigned to
    registers of class CLASS would likely be spilled because registers of CLASS

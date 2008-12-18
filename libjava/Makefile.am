@@ -79,9 +79,19 @@ db_pathtail = $(gcjsubdir)/$(db_name)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool \
+bin_programs = jv-convert gij grmic grmiregistry gcj-dbtool \
 	gappletviewer gjarsigner gkeytool gjar gcjh gjavah gnative2ascii \
 	gorbd grmid gserialver gtnameserv gc-analyze
+if CREATE_GJDOC
+bin_programs += gjdoc
+endif
+
+noinst_PROGRAMS =
+if INSTALL_BINARIES
+bin_PROGRAMS = $(bin_programs)
+else
+noinst_PROGRAMS += $(bin_programs)
+endif
 
 ## It is convenient to actually build and install the default database
 ## when gcj-dbtool is available.
@@ -171,6 +181,12 @@ if SUPPRESS_LIBGCJ_BC
 LIBGCJ_BC_FLAGS =
 else
 LIBGCJ_BC_FLAGS = -findirect-dispatch -fno-indirect-classes
+endif
+
+if BUILD_LIBGCJ_REDUCED_REFLECTION
+LIBGCJ_REDUCED_REFLECTION_FLAGS = -freduced-reflection
+else
+LIBGCJ_REDUCED_REFLECTION_FLAGS =
 endif
 
 ## Extra CFLAGS used for JNI C sources shared with GNU Classpath.
@@ -401,8 +417,13 @@ lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPEND
 
 ## Compiling a list of java sources to a single .o.
 
+# Concurrent things use reflection internally.
+java/util/concurrent.lo \
+java/util/concurrent/atomic.lo \
+java/util/concurrent/locks.lo: LIBGCJ_REDUCED_REFLECTION_FLAGS =
+
 %.lo: %.list
-	$(LTGCJCOMPILE) -c -o $@ -fsource-filename=$(here)/classpath/lib/classes -MT $@ -MD -MP -MF $(basename $@).deps @$<
+	$(LTGCJCOMPILE) $(LIBGCJ_REDUCED_REFLECTION_FLAGS) -c -o $@ -fsource-filename=$(here)/classpath/lib/classes -MT $@ -MD -MP -MF $(basename $@).deps @$<
 
 java/lang/Object.lo: classpath/lib/java/lang/Object.class
 	$(LTGCJCOMPILE) -c -o $@ -fsource-filename=$(srcdir)/$(basename $@).java $<
@@ -598,11 +619,15 @@ if CREATE_JAVA_HOME
 	version=$(JAVA_VERSION).$(BUILD_VERSION); \
 	working_dir=`pwd`; \
 	cd $(DESTDIR)$(JVM_JAR_DIR); \
+	  RELATIVE=$$(relative $(DESTDIR)$(JRE_LIB_DIR) \
+	    $(DESTDIR)$(JVM_JAR_DIR)); \
 	  for jarname in jaas jce jdbc-stdext jndi jndi-cos jndi-dns \
 	    jndi-ldap jndi-rmi jsse sasl; \
 	  do \
-	    ln -s $$RELATIVE/$$jarname.jar $$jarname-$$version.jar; \
+	    ln -sf $$RELATIVE/rt.jar $$jarname-$$version.jar; \
 	  done; \
+	  RELATIVE=$$(relative $(DESTDIR)$(jardir) \
+	    $(DESTDIR)$(JVM_JAR_DIR)); \
 	  for jar in *-$$version.jar; \
 	  do \
 	    ln -sf $$jar $$(echo $$jar | sed "s|-$$version.jar|-$(JAVA_VERSION).jar|g"); \
@@ -619,14 +644,7 @@ if CREATE_JAVA_HOME
 	$(mkinstalldirs) $(DESTDIR)$(JRE_LIB_DIR)/$(CPU)/client; \
 	$(mkinstalldirs) $(DESTDIR)$(JRE_LIB_DIR)/$(CPU)/server; \
 	$(mkinstalldirs) $(DESTDIR)$(SDK_LIB_DIR); \
-	cd $(DESTDIR)$(JRE_LIB_DIR); \
-	  for jarname in jaas jce jdbc-stdext jndi jndi-cos jndi-dns \
-	    jndi-ldap jndi-rmi jsse sasl; \
-	  do \
-	    ln -s rt.jar $$jarname.jar; \
-	  done; \
-	cd $$working_dir; \
-	RELATIVE=$$(relative $(DESTDIR)$(datarootdir)/java \
+	RELATIVE=$$(relative $(DESTDIR)$(datadir)/java \
 	  $(DESTDIR)$(JRE_LIB_DIR)); \
 	ln -sf $$RELATIVE/libgcj-$(gcc_version).jar \
 	  $(DESTDIR)$(JRE_LIB_DIR)/rt.jar; \
@@ -642,14 +660,14 @@ if CREATE_JAVA_HOME
 	  $(DESTDIR)$(JRE_LIB_DIR)/$(CPU)/server); \
 	ln -sf $$RELATIVE/libjvm.so \
 	  $(DESTDIR)$(JRE_LIB_DIR)/$(CPU)/server/libjvm.so;	\
-	RELATIVE=$$(relative $(DESTDIR)$(datarootdir)/java \
+	RELATIVE=$$(relative $(DESTDIR)$(datadir)/java \
 	  $(DESTDIR)$(SDK_LIB_DIR)); \
 	ln -sf $$RELATIVE/libgcj-tools-$(gcc_version).jar \
 	  $(DESTDIR)$(SDK_LIB_DIR)/tools.jar; \
 	for headername in jawt jni; do \
 	  DIRECTORY=$$(dirname $$($(DESTDIR)$(bindir)/gcj \
 	    -print-file-name=include/$$headername.h)); \
-	  RELATIVE=$$(relative $(DESTDIR)$$DIRECTORY \
+	  RELATIVE=$$(relative $$DIRECTORY \
 	    $(DESTDIR)$(SDK_INCLUDE_DIR)); \
 	  ln -sf $$RELATIVE/$$headername.h \
 	    $(DESTDIR)$(SDK_INCLUDE_DIR)/$$headername.h; \
@@ -657,12 +675,12 @@ if CREATE_JAVA_HOME
 	for headername in jawt_md jni_md; do \
 	  DIRECTORY=$$(dirname $$($(DESTDIR)$(bindir)/gcj \
 	    -print-file-name=include/$$headername.h)); \
-	  RELATIVE=$$(relative $(DESTDIR)$$DIRECTORY \
+	  RELATIVE=$$(relative $$DIRECTORY \
 	    $(DESTDIR)$(SDK_INCLUDE_DIR)/linux); \
 	  ln -sf $$RELATIVE/$$headername.h \
 	    $(DESTDIR)$(SDK_INCLUDE_DIR)/linux/$$headername.h; \
 	done; \
-	RELATIVE=$$(relative $(DESTDIR)$(datarootdir)/java \
+	RELATIVE=$$(relative $(DESTDIR)$(datadir)/java \
 	  $(DESTDIR)$(JVM_ROOT_DIR)/$(SDK_DIR)); \
 	ln -sf $$RELATIVE/src-$(gcc_version).zip \
 	  $(DESTDIR)$(JVM_ROOT_DIR)/$(SDK_DIR)/src.zip;
@@ -723,7 +741,7 @@ write-entries-to-file-check:
 ## systems.
 if NATIVE
 if MAINTAINER_MODE
-noinst_PROGRAMS = gen-from-JIS
+noinst_PROGRAMS += gen-from-JIS
 
 gen_from_JIS_SOURCES = \
 	gnu/gcj/convert/gen-from-JIS.c \
@@ -1002,6 +1020,16 @@ grmiregistry_LINK = $(GCJLINK)
 grmiregistry_LDADD = -L$(here)/.libs libgcj-tools.la
 grmiregistry_DEPENDENCIES = libgcj-tools.la
 
+## This is a dummy definition.
+gjdoc_SOURCES =
+gjdoc_LDFLAGS = --main=gnu.classpath.tools.gjdoc.Main \
+	-Djava.class.path=$(ANTLR_JAR) \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS) $(extra_ldflags)
+gjdoc_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gjdoc_LDADD = -L$(here)/.libs libgcj-tools.la
+gjdoc_DEPENDENCIES = libgcj-tools.la
+
 ## ################################################################
 if INTERPRETER
 nat_jdwp_source_files = \
@@ -1071,8 +1099,7 @@ java/lang/natMath.cc \
 java/lang/natObject.cc \
 java/lang/natRuntime.cc	\
 java/lang/natString.cc \
-java/lang/natStringBuffer.cc \
-java/lang/natStringBuilder.cc \
+java/lang/natAbstractStringBuffer.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThreadLocal.cc \

@@ -3166,7 +3166,7 @@ declaration without explicit visibility is limited to the visibility
 of its type.
 
 In C++, you can mark member functions and static member variables of a
-class with the visibility attribute.  This is useful if if you know a
+class with the visibility attribute.  This is useful if you know a
 particular method or static member variable should only be used from
 one shared object; then you can mark it hidden while the rest of the
 class has default visibility.  Care must be taken to avoid breaking
@@ -5747,7 +5747,7 @@ backward.  Further, instructions will be issued as necessary to prevent the
 processor from speculating loads across the operation and from queuing stores
 after the operation.
 
-All of the routines are are described in the Intel documentation to take
+All of the routines are described in the Intel documentation to take
 ``an optional list of variables protected by the memory barrier''.  It's
 not clear what is meant by that; it could mean that @emph{only} the
 following variables are protected, or it could mean that these variables
@@ -5774,8 +5774,11 @@ returns the value that had previously been in memory.  That is,
 
 @smallexample
 @{ tmp = *ptr; *ptr @var{op}= value; return tmp; @}
-@{ tmp = *ptr; *ptr = ~tmp & value; return tmp; @}   // nand
+@{ tmp = *ptr; *ptr = ~(tmp & value); return tmp; @}   // nand
 @end smallexample
+
+@emph{Note:} GCC 4.4 and later implement @code{__sync_fetch_and_nand}
+builtin as @code{*ptr = ~(tmp & value)} instead of @code{*ptr = ~tmp & value}.
 
 @item @var{type} __sync_add_and_fetch (@var{type} *ptr, @var{type} value, ...)
 @itemx @var{type} __sync_sub_and_fetch (@var{type} *ptr, @var{type} value, ...)
@@ -5794,8 +5797,12 @@ return the new value.  That is,
 
 @smallexample
 @{ *ptr @var{op}= value; return *ptr; @}
-@{ *ptr = ~*ptr & value; return *ptr; @}   // nand
+@{ *ptr = ~(*ptr & value); return *ptr; @}   // nand
 @end smallexample
+
+@emph{Note:} GCC 4.4 and later implement @code{__sync_nand_and_fetch}
+builtin as @code{*ptr = ~(*ptr & value)} instead of
+@code{*ptr = ~*ptr & value}.
 
 @item bool __sync_bool_compare_and_swap (@var{type} *ptr, @var{type} oldval @var{type} newval, ...)
 @itemx @var{type} __sync_val_compare_and_swap (@var{type} *ptr, @var{type} oldval @var{type} newval, ...)
@@ -6985,6 +6992,7 @@ instructions, but allow the compiler to schedule those calls.
 * MIPS DSP Built-in Functions::
 * MIPS Paired-Single Support::
 * MIPS Loongson Built-in Functions::
+* Other MIPS Built-in Functions::
 * picoChip Built-in Functions::
 * PowerPC AltiVec Built-in Functions::
 * SPARC VIS Built-in Functions::
@@ -8697,6 +8705,12 @@ otherwise backwards-compatible with it.  You can select revision 2
 using the command-line option @option{-mdspr2}; this option implies
 @option{-mdsp}.
 
+The SCOUNT and POS bits of the DSP control register are global.  The
+WRDSP, EXTPDP, EXTPDPV and MTHLIP instructions modify the SCOUNT and
+POS bits.  During optimization, the compiler will not delete these
+instructions and it will not delete calls to functions containing
+these instructions.
+
 At present, GCC only provides support for operations on 32-bit
 vectors.  The vector type associated with 8-bit integer data is
 usually called @code{v4i8}, the vector type associated with Q7
@@ -9438,6 +9452,18 @@ Saturating subtraction.  Return the result of subtracting @var{y} from
 Halt.  The processor will stop execution.  This built-in is useful for
 implementing assertions.
 
+@end table
+
+@node Other MIPS Built-in Functions
+@subsection Other MIPS Built-in Functions
+
+GCC provides other MIPS-specific built-in functions:
+
+@table @code
+@item void __builtin_mips_cache (int @var{op}, const volatile void *@var{addr})
+Insert a @samp{cache} instruction with operands @var{op} and @var{addr}.
+GCC defines the preprocessor macro @code{___GCC_HAVE_BUILTIN_MIPS_CACHE}
+when this function is available.
 @end table
 
 @node PowerPC AltiVec Built-in Functions
@@ -12912,13 +12938,13 @@ type.  Diagnostic is produced if this requirement is not met.
 
 @item __is_class (type)
 If @code{type} is a cv class type, and not a union type
-([basic.compound]) the the trait is true, else it is false.
+([basic.compound]) the trait is true, else it is false.
 
 @item __is_empty (type)
 If @code{__is_class (type)} is false then the trait is false.
 Otherwise @code{type} is considered empty if and only if: @code{type}
 has no non-static data members, or all non-static data members, if
-any, are bit-fields of lenght 0, and @code{type} has no virtual
+any, are bit-fields of length 0, and @code{type} has no virtual
 members, and @code{type} has no virtual base classes, and @code{type}
 has no base classes @code{base_type} for which 
 @code{__is_empty (base_type)} is false.  Requires: @code{type} shall
@@ -12926,7 +12952,7 @@ be a complete type, an array type of unknown bound, or is a
 @code{void} type.
 
 @item __is_enum (type)
-If @code{type} is a cv enumeration type ([basic.compound]) the the trait is 
+If @code{type} is a cv enumeration type ([basic.compound]) the trait is
 true, else it is false.
 
 @item __is_pod (type)
@@ -12940,7 +12966,7 @@ is true, else it is false.  Requires: @code{type} shall be a complete
 type, an array type of unknown bound, or is a @code{void} type.
 
 @item __is_union (type)
-If @code{type} is a cv union type ([basic.compound]) the the trait is 
+If @code{type} is a cv union type ([basic.compound]) the trait is
 true, else it is false.
 
 @end table

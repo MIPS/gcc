@@ -551,6 +551,7 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 	enum machine_mode pmode;
 	int punsignedp, pvolatilep;
 
+	op0 = TREE_OPERAND (op0, 0);
 	if (!handled_component_p (op0))
 	  return false;
 
@@ -666,9 +667,9 @@ canonicalize_base_object_address (tree addr)
 }
 
 /* Analyzes the behavior of the memory reference DR in the innermost loop that
-   contains it.  */
+   contains it. Returns true if analysis succeed or false otherwise.  */
 
-void
+bool
 dr_analyze_innermost (struct data_reference *dr)
 {
   gimple stmt = DR_STMT (dr);
@@ -692,7 +693,7 @@ dr_analyze_innermost (struct data_reference *dr)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "failed: bit offset alignment.\n");
-      return;
+      return false;
     }
 
   base = build_fold_addr_expr (base);
@@ -700,7 +701,7 @@ dr_analyze_innermost (struct data_reference *dr)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "failed: evolution of base is not affine.\n");
-      return;
+      return false;
     }
   if (!poffset)
     {
@@ -711,7 +712,7 @@ dr_analyze_innermost (struct data_reference *dr)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "failed: evolution of offset is not affine.\n");
-      return;
+      return false;
     }
 
   init = ssize_int (pbitpos / BITS_PER_UNIT);
@@ -734,6 +735,8 @@ dr_analyze_innermost (struct data_reference *dr)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "success.\n");
+
+  return true;
 }
 
 /* Determines the base object and the list of indices of memory reference
@@ -747,6 +750,7 @@ dr_analyze_indices (struct data_reference *dr, struct loop *nest)
   VEC (tree, heap) *access_fns = NULL;
   tree ref = unshare_expr (DR_REF (dr)), aref = ref, op;
   tree base, off, access_fn;
+  basic_block before_loop = block_before_loop (nest);
 
   while (handled_component_p (aref))
     {
@@ -754,7 +758,7 @@ dr_analyze_indices (struct data_reference *dr, struct loop *nest)
 	{
 	  op = TREE_OPERAND (aref, 1);
 	  access_fn = analyze_scalar_evolution (loop, op);
-	  access_fn = instantiate_scev (nest, loop, access_fn);
+	  access_fn = instantiate_scev (before_loop, loop, access_fn);
 	  VEC_safe_push (tree, heap, access_fns, access_fn);
 
 	  TREE_OPERAND (aref, 1) = build_int_cst (TREE_TYPE (op), 0);
@@ -767,7 +771,7 @@ dr_analyze_indices (struct data_reference *dr, struct loop *nest)
     {
       op = TREE_OPERAND (aref, 0);
       access_fn = analyze_scalar_evolution (loop, op);
-      access_fn = instantiate_scev (nest, loop, access_fn);
+      access_fn = instantiate_scev (before_loop, loop, access_fn);
       base = initial_condition (access_fn);
       split_constant_offset (base, &base, &off);
       access_fn = chrec_replace_initial_condition (access_fn,
@@ -1397,6 +1401,7 @@ free_subscripts (VEC (subscript_p, heap) *subscripts)
     {
       free_conflict_function (s->conflicting_iterations_in_a);
       free_conflict_function (s->conflicting_iterations_in_b);
+      free (s);
     }
   VEC_free (subscript_p, heap, subscripts);
 }
@@ -3309,13 +3314,14 @@ bool
 stmt_simple_memref_p (struct loop *loop, gimple stmt, tree op)
 {
   data_reference_p dr;
+  bool res = true;
 
   dr = create_data_ref (loop, op, stmt, true);
   if (!access_functions_are_affine_or_constant_p (dr, loop))
-    return false;
+    res = false;
 
   free_data_ref (dr);
-  return true;
+  return res;
 }
 
 /* Initializes an equation for an OMEGA problem using the information

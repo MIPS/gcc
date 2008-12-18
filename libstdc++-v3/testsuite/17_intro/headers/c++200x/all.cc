@@ -96,10 +96,11 @@
 #include <array>
 #include <bitset>
 #include <chrono>
-#include <condition_variable>
 #include <complex>
+#include <condition_variable>
 #include <deque>
 #include <exception>
+#include <forward_list>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -128,6 +129,7 @@
 #include <streambuf>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <tuple>
 #include <typeinfo>
 #include <type_traits>

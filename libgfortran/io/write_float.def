@@ -55,6 +55,7 @@ calculate_sign (st_parameter_dt *dtp, int negative_flag)
 	s = S_NONE;
 	break;
       case SIGN_S:	/* Processor defined. */
+      case SIGN_UNSPECIFIED:
 	s = options.optional_plus ? S_PLUS : S_NONE;
 	break;
       }
@@ -118,6 +119,22 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
 	sign = calculate_sign (dtp, sign_bit);
       else
 	sign = calculate_sign (dtp, 0);
+
+      /* Handle special cases.  */
+      if (w == 0)
+	w = 2;
+
+      /* For this one we choose to not output a decimal point.
+	 F95 10.5.1.2.1  */
+      if (w == 1 && ft == FMT_F)
+	{
+	  out = write_block (dtp, w);
+	  if (out == NULL)
+	    return;
+	  *out = '0';
+	  return;
+	}
+	      
     }
 
   /* Normalize the fractional component.  */
@@ -403,7 +420,7 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
       out += nbefore;
     }
   /* Output the decimal point.  */
-  *(out++) = dtp->u.p.decimal_status == DECIMAL_POINT ? '.' : ',';
+  *(out++) = dtp->u.p.current_unit->decimal_status == DECIMAL_POINT ? '.' : ',';
 
   /* Output leading zeros after the decimal point.  */
   if (nzero > 0)
@@ -635,7 +652,10 @@ output_float_FMT_G_ ## x (st_parameter_dt *dtp, const fnode *f, \
           low = mid + 1;\
         }\
       else\
-        break;\
+	{\
+	  mid++;\
+	  break;\
+	}\
     }\
 \
   if (e < 0)\
@@ -740,12 +760,13 @@ sprintf (buffer, "%+-#" STR(MIN_FIELD_WIDTH) ".*" \
 	    return;\
 	  }\
 	tmp = sign_bit ? -tmp : tmp;\
-	if (f->u.real.d == 0 && f->format == FMT_F)\
+	if (f->u.real.d == 0 && f->format == FMT_F\
+	    && dtp->u.p.scale_factor == 0)\
 	  {\
 	    if (tmp < 0.5)\
 	      tmp = 0.0;\
 	    else if (tmp < 1.0)\
-	      tmp = tmp + 0.5;\
+	      tmp = 1.0;\
 	  }\
 	zero_flag = (tmp == 0.0);\
 \

@@ -272,9 +272,11 @@ int flag_next_runtime = 0;
 
 enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
 
-/* Set the default algorithm for the integrated register allocator.  */
+/* Set the default region and algorithm for the integrated register
+   allocator.  */
 
-enum ira_algorithm flag_ira_algorithm = IRA_ALGORITHM_MIXED;
+enum ira_algorithm flag_ira_algorithm = IRA_ALGORITHM_CB;
+enum ira_region flag_ira_region = IRA_REGION_MIXED;
 
 /* Set the default value for -fira-verbose.  */
 
@@ -1712,6 +1714,15 @@ process_options (void)
   else
     aux_base_name = "gccaux";
 
+#ifndef HAVE_cloog
+  if (flag_graphite
+      || flag_loop_block
+      || flag_loop_interchange
+      || flag_loop_strip_mine
+      || flag_graphite_identity)
+    sorry ("Graphite loop optimizations cannot be used");
+#endif
+
   /* Unrolling all loops implies that standard loop unrolling must also
      be done.  */
   if (flag_unroll_all_loops)
@@ -2121,6 +2132,7 @@ dump_memory_report (bool final)
   dump_varray_statistics ();
   dump_alloc_pool_statistics ();
   dump_bitmap_statistics ();
+  dump_vec_loc_statistics ();
   dump_ggc_loc_statistics (final);
 }
 

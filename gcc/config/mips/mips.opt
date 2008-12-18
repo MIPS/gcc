@@ -112,6 +112,10 @@ mfix-r4400
 Target Report Mask(FIX_R4400)
 Work around certain R4400 errata
 
+mfix-r10000
+Target Report Mask(FIX_R10000)
+Work around certain R10000 errata
+
 mfix-sb1
 Target Report Var(TARGET_FIX_SB1)
 Work around errata for early SB-1 revision 2 cores
@@ -236,6 +240,10 @@ mpaired-single
 Target Report Mask(PAIRED_SINGLE_FLOAT)
 Use paired-single floating-point instructions
 
+mr10k-cache-barrier=
+Target Joined RejectNegative
+-mr10k-cache-barrier=SETTING	Specify when r10k cache barriers should be inserted
+
 mshared
 Target Report Var(TARGET_SHARED) Init(1)
 When generating -mabicalls code, make the code suitable for use in shared libraries
@@ -245,7 +253,7 @@ Target Report RejectNegative Mask(SINGLE_FLOAT)
 Restrict the use of hardware floating-point instructions to 32-bit operations
 
 msmartmips
-Target Report RejectNegative Mask(SMARTMIPS)
+Target Report Mask(SMARTMIPS)
 Use SmartMIPS instructions
 
 msoft-float

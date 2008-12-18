@@ -704,7 +704,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
       layout_type (type);
     }
 
-  if (nest || write_symbols == NO_DEBUG)
+  if (write_symbols == NO_DEBUG)
     return;
 
   if (TYPE_NAME (type) != NULL_TREE
@@ -1170,7 +1170,8 @@ get_proc_pointer_decl (gfc_symbol *sym)
   decl = build_decl (VAR_DECL, get_identifier (sym->name),
 		     build_pointer_type (gfc_get_function_type (sym)));
 
-  if (sym->ns->proc_name->backend_decl == current_function_decl
+  if ((sym->ns->proc_name
+      && sym->ns->proc_name->backend_decl == current_function_decl)
       || sym->attr.contained)
     gfc_add_decl_to_function (decl);
   else
@@ -1760,7 +1761,7 @@ build_entry_thunks (gfc_namespace * ns)
 
       thunk_fndecl = thunk_sym->backend_decl;
 
-      gfc_start_block (&body);
+      gfc_init_block (&body);
 
       /* Pass extra parameter identifying this entry point.  */
       tmp = build_int_cst (gfc_array_index_type, el->id);
@@ -1868,8 +1869,12 @@ build_entry_thunks (gfc_namespace * ns)
 
       /* Finish off this function and send it for code generation.  */
       DECL_SAVED_TREE (thunk_fndecl) = gfc_finish_block (&body);
+      tmp = getdecls ();
       poplevel (1, 0, 1);
       BLOCK_SUPERCONTEXT (DECL_INITIAL (thunk_fndecl)) = thunk_fndecl;
+      DECL_SAVED_TREE (thunk_fndecl)
+	= build3_v (BIND_EXPR, tmp, DECL_SAVED_TREE (thunk_fndecl),
+		    DECL_INITIAL (thunk_fndecl));
 
       /* Output the GENERIC tree.  */
       dump_function (TDI_original, thunk_fndecl);
@@ -2582,7 +2587,7 @@ gfc_trans_dummy_character (gfc_symbol *sym, gfc_charlen *cl, tree fnbody)
   gfc_start_block (&body);
 
   /* Evaluate the string length expression.  */
-  gfc_conv_string_length (cl, &body);
+  gfc_conv_string_length (cl, NULL, &body);
 
   gfc_trans_vla_type_sizes (sym, &body);
 
@@ -2606,7 +2611,7 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
   gfc_start_block (&body);
 
   /* Evaluate the string length expression.  */
-  gfc_conv_string_length (sym->ts.cl, &body);
+  gfc_conv_string_length (sym->ts.cl, NULL, &body);
 
   gfc_trans_vla_type_sizes (sym, &body);
 
@@ -2776,20 +2781,34 @@ gfc_init_default_dt (gfc_symbol * sym, tree body)
 }
 
 
-/* Initialize INTENT(OUT) derived type dummies.  */
+/* Initialize INTENT(OUT) derived type dummies.  As well as giving
+   them their default initializer, if they do not have allocatable
+   components, they have their allocatable components deallocated. */
+
 static tree
 init_intent_out_dt (gfc_symbol * proc_sym, tree body)
 {
   stmtblock_t fnblock;
   gfc_formal_arglist *f;
+  tree tmp;
 
   gfc_init_block (&fnblock);
   for (f = proc_sym->formal; f; f = f->next)
     if (f->sym && f->sym->attr.intent == INTENT_OUT
-	  && f->sym->ts.type == BT_DERIVED
-	  && !f->sym->ts.derived->attr.alloc_comp
-	  && f->sym->value)
-      body = gfc_init_default_dt (f->sym, body);
+	  && f->sym->ts.type == BT_DERIVED)
+      {
+	if (f->sym->ts.derived->attr.alloc_comp)
+	  {
+	    tmp = gfc_deallocate_alloc_comp (f->sym->ts.derived,
+					     f->sym->backend_decl,
+					     f->sym->as ? f->sym->as->rank : 0);
+	    gfc_add_expr_to_block (&fnblock, tmp);
+	  }
+
+	if (!f->sym->ts.derived->attr.alloc_comp
+	      && f->sym->value)
+	  body = gfc_init_default_dt (f->sym, body);
+      }
 
   gfc_add_expr_to_block (&fnblock, body);
   return gfc_finish_block (&fnblock);
@@ -3476,16 +3495,11 @@ generate_local_decl (gfc_symbol * sym)
 {
   if (sym->attr.flavor == FL_VARIABLE)
     {
-      /* Check for dependencies in the array specification and string
-	length, adding the necessary declarations to the function.  We
-	mark the symbol now, as well as in traverse_ns, to prevent
-	getting stuck in a circular dependency.  */
-      sym->mark = 1;
       if (!sym->attr.dummy && !sym->ns->proc_name->attr.entry_master)
-        generate_dependency_declarations (sym);
+	generate_dependency_declarations (sym);
 
       if (sym->attr.referenced)
-        gfc_get_symbol_decl (sym);
+	gfc_get_symbol_decl (sym);
       /* INTENT(out) dummy arguments are likely meant to be set.  */
       else if (warn_unused_variable
 	       && sym->attr.dummy
@@ -3502,19 +3516,39 @@ generate_local_decl (gfc_symbol * sym)
 	       && !(sym->attr.in_common || sym->attr.use_assoc || sym->mark))
 	gfc_warning ("Unused variable '%s' declared at %L", sym->name,
 		     &sym->declared_at);
+
       /* For variable length CHARACTER parameters, the PARM_DECL already
 	 references the length variable, so force gfc_get_symbol_decl
 	 even when not referenced.  If optimize > 0, it will be optimized
 	 away anyway.  But do this only after emitting -Wunused-parameter
 	 warning if requested.  */
-      if (sym->attr.dummy && ! sym->attr.referenced
-	  && sym->ts.type == BT_CHARACTER
-	  && sym->ts.cl->backend_decl != NULL
-	  && TREE_CODE (sym->ts.cl->backend_decl) == VAR_DECL)
+      if (sym->attr.dummy && !sym->attr.referenced
+	    && sym->ts.type == BT_CHARACTER
+	    && sym->ts.cl->backend_decl != NULL
+	    && TREE_CODE (sym->ts.cl->backend_decl) == VAR_DECL)
 	{
 	  sym->attr.referenced = 1;
 	  gfc_get_symbol_decl (sym);
 	}
+
+      /* INTENT(out) dummy arguments with allocatable components are reset
+	 by default and need to be set referenced to generate the code for
+	 automatic lengths.  */
+      if (sym->attr.dummy && !sym->attr.referenced
+	    && sym->ts.type == BT_DERIVED
+	    && sym->ts.derived->attr.alloc_comp
+	    && sym->attr.intent == INTENT_OUT)
+	{
+	  sym->attr.referenced = 1;
+	  gfc_get_symbol_decl (sym);
+	}
+
+
+      /* Check for dependencies in the array specification and string
+	length, adding the necessary declarations to the function.  We
+	mark the symbol now, as well as in traverse_ns, to prevent
+	getting stuck in a circular dependency.  */
+      sym->mark = 1;
 
       /* We do not want the middle-end to warn about unused parameters
          as this was already done above.  */
@@ -3545,7 +3579,7 @@ generate_local_decl (gfc_symbol * sym)
 		        &sym->result->declared_at);
 
 	  /* Prevents "Unused variable" warning for RESULT variables.  */
-	  sym->mark = sym->result->mark = 1;
+	  sym->result->mark = 1;
 	}
     }
 
@@ -3650,7 +3684,7 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   trans_function_start (sym);
 
-  gfc_start_block (&block);
+  gfc_init_block (&block);
 
   if (ns->entries && ns->proc_name->ts.type == BT_CHARACTER)
     {
@@ -3884,10 +3918,15 @@ gfc_generate_function_code (gfc_namespace * ns)
   saved_function_decls = NULL_TREE;
 
   DECL_SAVED_TREE (fndecl) = gfc_finish_block (&block);
+  decl = getdecls ();
 
   /* Finish off this function and send it for code generation.  */
   poplevel (1, 0, 1);
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+
+  DECL_SAVED_TREE (fndecl)
+    = build3_v (BIND_EXPR, decl, DECL_SAVED_TREE (fndecl),
+		DECL_INITIAL (fndecl));
 
   /* Output the GENERIC tree.  */
   dump_function (TDI_original, fndecl);
@@ -3967,9 +4006,13 @@ gfc_generate_constructors (void)
       DECL_SAVED_TREE (fndecl) = build_stmt (EXPR_STMT, tmp);
     }
 
+  decl = getdecls ();
   poplevel (1, 0, 1);
 
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+  DECL_SAVED_TREE (fndecl)
+    = build3_v (BIND_EXPR, decl, DECL_SAVED_TREE (fndecl),
+		DECL_INITIAL (fndecl));
 
   free_after_parsing (cfun);
   free_after_compilation (cfun);

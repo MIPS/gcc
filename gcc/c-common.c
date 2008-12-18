@@ -1035,37 +1035,16 @@ fname_as_string (int pretty_p)
   return namep;
 }
 
-/* Expand DECL if it declares an entity not handled by the
-   common code.  */
-
-int
-c_expand_decl (tree decl)
-{
-  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
-    {
-      /* Let the back-end know about this variable.  */
-      if (!anon_aggr_type_p (TREE_TYPE (decl)))
-	emit_local_var (decl);
-      else
-	expand_anon_union_decl (decl, NULL_TREE,
-				DECL_ANON_UNION_ELEMS (decl));
-    }
-  else
-    return 0;
-
-  return 1;
-}
-
-
 /* Return the VAR_DECL for a const char array naming the current
    function. If the VAR_DECL has not yet been created, create it
    now. RID indicates how it should be formatted and IDENTIFIER_NODE
    ID is its name (unfortunately C and C++ hold the RID values of
    keywords in different places, so we can't derive RID from ID in
-   this language independent code.  */
+   this language independent code. LOC is the location of the
+   function.  */
 
 tree
-fname_decl (unsigned int rid, tree id)
+fname_decl (location_t loc, unsigned int rid, tree id)
 {
   unsigned ix;
   tree decl = NULL_TREE;
@@ -1096,7 +1075,7 @@ fname_decl (unsigned int rid, tree id)
       input_location = saved_location;
     }
   if (!ix && !current_function_decl)
-    pedwarn (input_location, 0, "%qD is not defined outside of function scope", decl);
+    pedwarn (loc, 0, "%qD is not defined outside of function scope", decl);
 
   return decl;
 }
@@ -1362,31 +1341,6 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
       }
 
   return false;
-}
-
-/* Print a warning about if (); or if () .. else; constructs
-   via the special empty statement node that we create.  INNER_THEN
-   and INNER_ELSE are the statement lists of the if and the else
-   block.  */
-
-void
-empty_if_body_warning (tree inner_then, tree inner_else)
-{
-  if (TREE_CODE (inner_then) == STATEMENT_LIST
-      && STATEMENT_LIST_TAIL (inner_then))
-    inner_then = STATEMENT_LIST_TAIL (inner_then)->stmt;
-
-  if (inner_else && TREE_CODE (inner_else) == STATEMENT_LIST
-      && STATEMENT_LIST_TAIL (inner_else))
-    inner_else = STATEMENT_LIST_TAIL (inner_else)->stmt;
-
-  if (IS_EMPTY_STMT (inner_then) && !inner_else)
-    warning (OPT_Wempty_body, "%Hsuggest braces around empty body "
-             "in an %<if%> statement", EXPR_LOCUS (inner_then));
-
-  else if (inner_else && IS_EMPTY_STMT (inner_else))
-    warning (OPT_Wempty_body, "%Hsuggest braces around empty body "
-             "in an %<else%> statement", EXPR_LOCUS (inner_else));
 }
 
 /* Warn for unlikely, improbable, or stupid DECL declarations
@@ -2817,7 +2771,7 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
 
 #define TYPE_OK(node)							    \
   (TYPE_MODE (type) == TYPE_MODE (node)					    \
-   && (c_dialect_cxx () || TYPE_PRECISION (type) == TYPE_PRECISION (node)))
+   && TYPE_PRECISION (type) == TYPE_PRECISION (node))
   if (TYPE_OK (signed_char_type_node))
     return unsignedp ? unsigned_char_type_node : signed_char_type_node;
   if (TYPE_OK (integer_type_node))
@@ -2847,10 +2801,7 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
     return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
 #undef TYPE_OK
 
-  if (c_dialect_cxx ())
-    return type;
-  else
-    return build_nonstandard_integer_type (TYPE_PRECISION (type), unsignedp);
+  return build_nonstandard_integer_type (TYPE_PRECISION (type), unsignedp);
 }
 
 /* Build a bit-field integer type for the given WIDTH and UNSIGNEDP.  */
@@ -2893,40 +2844,14 @@ c_register_builtin_type (tree type, const char* name)
 
   registered_builtin_types = tree_cons (0, type, registered_builtin_types);
 }
-
-
-/* Return the minimum number of bits needed to represent VALUE in a
-   signed or unsigned type, UNSIGNEDP says which.  */
-
-unsigned int
-min_precision (tree value, int unsignedp)
-{
-  int log;
-
-  /* If the value is negative, compute its negative minus 1.  The latter
-     adjustment is because the absolute value of the largest negative value
-     is one larger than the largest positive value.  This is equivalent to
-     a bit-wise negation, so use that operation instead.  */
-
-  if (tree_int_cst_sgn (value) < 0)
-    value = fold_build1 (BIT_NOT_EXPR, TREE_TYPE (value), value);
-
-  /* Return the number of bits needed, taking into account the fact
-     that we need one more bit for a signed than unsigned type.  */
-
-  if (integer_zerop (value))
-    log = 0;
-  else
-    log = tree_floor_log2 (value);
-
-  return log + 1 + !unsignedp;
-}
 
 /* Print an error message for invalid operands to arith operation
-   CODE with TYPE0 for operand 0, and TYPE1 for operand 1.  */
+   CODE with TYPE0 for operand 0, and TYPE1 for operand 1.
+   LOCATION is the location of the message.  */
 
 void
-binary_op_error (enum tree_code code, tree type0, tree type1)
+binary_op_error (location_t location, enum tree_code code,
+		 tree type0, tree type1)
 {
   const char *opname;
 
@@ -2977,8 +2902,9 @@ binary_op_error (enum tree_code code, tree type0, tree type1)
     default:
       gcc_unreachable ();
     }
-  error ("invalid operands to binary %s (have %qT and %qT)", opname,
-	 type0, type1);
+  error_at (location,
+	    "invalid operands to binary %s (have %qT and %qT)", opname,
+	    type0, type1);
 }
 
 /* Subroutine of build_binary_op, used for comparison operations.
@@ -3394,7 +3320,8 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
       /* Convert both subexpression types to the type of intop,
 	 because weird cases involving pointer arithmetic
 	 can result in a sum or difference with different type args.  */
-      ptrop = build_binary_op (subcode, ptrop,
+      ptrop = build_binary_op (EXPR_LOCATION (TREE_OPERAND (intop, 1)),
+			       subcode, ptrop,
 			       convert (int_type, TREE_OPERAND (intop, 1)), 1);
       intop = convert (int_type, TREE_OPERAND (intop, 0));
     }
@@ -3410,7 +3337,8 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      Do this multiplication as signed, then convert to the appropriate
      type for the pointer operation.  */
   intop = convert (sizetype,
-		   build_binary_op (MULT_EXPR, intop,
+		   build_binary_op (EXPR_LOCATION (intop),
+				    MULT_EXPR, intop,
 				    convert (TREE_TYPE (intop), size_exp), 1));
 
   /* Create the sum or difference.  */
@@ -3441,6 +3369,8 @@ decl_with_nonnull_addr_p (const_tree expr)
    have been validated to be of suitable type; otherwise, a bad
    diagnostic may result.
 
+   The EXPR is located at LOCATION.
+
    This preparation consists of taking the ordinary
    representation of an expression expr and producing a valid tree
    boolean expression describing whether expr is nonzero.  We could
@@ -3450,7 +3380,7 @@ decl_with_nonnull_addr_p (const_tree expr)
    The resulting type should always be `truthvalue_type_node'.  */
 
 tree
-c_common_truthvalue_conversion (tree expr)
+c_common_truthvalue_conversion (location_t location, tree expr)
 {
   switch (TREE_CODE (expr))
     {
@@ -3471,14 +3401,17 @@ c_common_truthvalue_conversion (tree expr)
       if (TREE_TYPE (expr) == truthvalue_type_node)
 	return expr;
       return build2 (TREE_CODE (expr), truthvalue_type_node,
-		 c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)),
-		 c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)));
+		 c_common_truthvalue_conversion (location, 
+						 TREE_OPERAND (expr, 0)),
+		 c_common_truthvalue_conversion (location,
+						 TREE_OPERAND (expr, 1)));
 
     case TRUTH_NOT_EXPR:
       if (TREE_TYPE (expr) == truthvalue_type_node)
 	return expr;
       return build1 (TREE_CODE (expr), truthvalue_type_node,
-		 c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)));
+		 c_common_truthvalue_conversion (location,
+						 TREE_OPERAND (expr, 0)));
 
     case ERROR_MARK:
       return expr;
@@ -3499,7 +3432,7 @@ c_common_truthvalue_conversion (tree expr)
 	     : truthvalue_false_node;
 
     case FUNCTION_DECL:
-      expr = build_unary_op (ADDR_EXPR, expr, 0);
+      expr = build_unary_op (location, ADDR_EXPR, expr, 0);
       /* Fall through.  */
 
     case ADDR_EXPR:
@@ -3508,9 +3441,10 @@ c_common_truthvalue_conversion (tree expr)
 	if (decl_with_nonnull_addr_p (inner))
 	  {
 	    /* Common Ada/Pascal programmer's mistake.  */
-	    warning (OPT_Waddress,
-		     "the address of %qD will always evaluate as %<true%>",
-		     inner);
+	    warning_at (location,
+			OPT_Waddress,
+			"the address of %qD will always evaluate as %<true%>",
+			inner);
 	    return truthvalue_true_node;
 	  }
 
@@ -3530,17 +3464,20 @@ c_common_truthvalue_conversion (tree expr)
       }
 
     case COMPLEX_EXPR:
-      return build_binary_op ((TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1))
+      return build_binary_op (EXPR_LOCATION (expr),
+			      (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1))
 			       ? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
-		c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)),
-		c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+		c_common_truthvalue_conversion (location,
+						TREE_OPERAND (expr, 0)),
+		c_common_truthvalue_conversion (location,
+						TREE_OPERAND (expr, 1)),
 			      0);
 
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
-      return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
+      return c_common_truthvalue_conversion (location, TREE_OPERAND (expr, 0));
 
     case LROTATE_EXPR:
     case RROTATE_EXPR:
@@ -3549,16 +3486,20 @@ c_common_truthvalue_conversion (tree expr)
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
 	return build2 (COMPOUND_EXPR, truthvalue_type_node,
 		       TREE_OPERAND (expr, 1),
-		       c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)));
+		       c_common_truthvalue_conversion 
+		        (location, TREE_OPERAND (expr, 0)));
       else
-	return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
+	return c_common_truthvalue_conversion (location,
+					       TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       return fold_build3 (COND_EXPR, truthvalue_type_node,
 		TREE_OPERAND (expr, 0),
-		c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)),
-		c_common_truthvalue_conversion (TREE_OPERAND (expr, 2)));
+		c_common_truthvalue_conversion (location,
+						TREE_OPERAND (expr, 1)),
+		c_common_truthvalue_conversion (location,
+						TREE_OPERAND (expr, 2)));
 
     CASE_CONVERT:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
@@ -3569,7 +3510,8 @@ c_common_truthvalue_conversion (tree expr)
       /* If this is widening the argument, we can ignore it.  */
       if (TYPE_PRECISION (TREE_TYPE (expr))
 	  >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
-	return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
+	return c_common_truthvalue_conversion (location,
+					       TREE_OPERAND (expr, 0));
       break;
 
     case MODIFY_EXPR:
@@ -3590,10 +3532,15 @@ c_common_truthvalue_conversion (tree expr)
     {
       tree t = save_expr (expr);
       return (build_binary_op
-	      ((TREE_SIDE_EFFECTS (expr)
+	      (EXPR_LOCATION (expr),
+	       (TREE_SIDE_EFFECTS (expr)
 		? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
-	c_common_truthvalue_conversion (build_unary_op (REALPART_EXPR, t, 0)),
-	c_common_truthvalue_conversion (build_unary_op (IMAGPART_EXPR, t, 0)),
+	c_common_truthvalue_conversion
+	       (location,
+		build_unary_op (location, REALPART_EXPR, t, 0)),
+	c_common_truthvalue_conversion
+	       (location,
+		build_unary_op (location, IMAGPART_EXPR, t, 0)),
 	       0));
     }
 
@@ -3602,10 +3549,12 @@ c_common_truthvalue_conversion (tree expr)
       tree fixed_zero_node = build_fixed (TREE_TYPE (expr),
 					  FCONST0 (TYPE_MODE
 						   (TREE_TYPE (expr))));
-      return build_binary_op (NE_EXPR, expr, fixed_zero_node, 1);
+      return build_binary_op (EXPR_LOCATION (expr),
+			      NE_EXPR, expr, fixed_zero_node, 1);
     }
 
-  return build_binary_op (NE_EXPR, expr, integer_zero_node, 1);
+  return build_binary_op (EXPR_LOCATION (expr),
+			  NE_EXPR, expr, integer_zero_node, 1);
 }
 
 static void def_builtin_1  (enum built_in_function fncode,
@@ -6180,7 +6129,9 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   /* We must ignore the attribute when it is associated with
      local-scoped decls, since attribute alias is ignored and many
      such symbols do not even have a DECL_WEAK field.  */
-  if (decl_function_context (*node) || current_function_decl)
+  if (decl_function_context (*node)
+      || current_function_decl
+      || (TREE_CODE (*node) != VAR_DECL && TREE_CODE (*node) != FUNCTION_DECL))
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
@@ -7077,6 +7028,7 @@ parse_optimize_options (tree args, bool attr_p)
   bool ret = true;
   unsigned opt_argc;
   unsigned i;
+  int saved_flag_strict_aliasing;
   const char **opt_argv;
   tree ap;
 
@@ -7167,8 +7119,13 @@ parse_optimize_options (tree args, bool attr_p)
   for (i = 1; i < opt_argc; i++)
     opt_argv[i] = VEC_index (const_char_p, optimize_args, i);
 
+  saved_flag_strict_aliasing = flag_strict_aliasing;
+
   /* Now parse the options.  */
   decode_options (opt_argc, opt_argv);
+
+  /* Don't allow changing -fstrict-aliasing.  */
+  flag_strict_aliasing = saved_flag_strict_aliasing;
 
   VEC_truncate (const_char_p, optimize_args, 0);
   return ret;
@@ -8884,94 +8841,132 @@ warn_array_subscript_with_type_char (tree index)
 /* Implement -Wparentheses for the unexpected C precedence rules, to
    cover cases like x + y << z which readers are likely to
    misinterpret.  We have seen an expression in which CODE is a binary
-   operator used to combine expressions headed by CODE_LEFT and
-   CODE_RIGHT.  CODE_LEFT and CODE_RIGHT may be ERROR_MARK, which
-   means that that side of the expression was not formed using a
-   binary operator, or it was enclosed in parentheses.  */
+   operator used to combine expressions ARG_LEFT and ARG_RIGHT, which
+   before folding had CODE_LEFT and CODE_RIGHT.  CODE_LEFT and
+   CODE_RIGHT may be ERROR_MARK, which means that that side of the
+   expression was not formed using a binary or unary operator, or it
+   was enclosed in parentheses.  */
 
 void
-warn_about_parentheses (enum tree_code code, enum tree_code code_left,
-			enum tree_code code_right)
+warn_about_parentheses (enum tree_code code,
+			enum tree_code code_left, tree ARG_UNUSED (arg_left),
+			enum tree_code code_right, tree arg_right)
 {
   if (!warn_parentheses)
     return;
 
-  if (code == LSHIFT_EXPR || code == RSHIFT_EXPR)
-    {
-      if (code_left == PLUS_EXPR || code_left == MINUS_EXPR
-	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
-	warning (OPT_Wparentheses,
-		 "suggest parentheses around + or - inside shift");
-    }
+  /* This macro tests that the expression ARG with original tree code
+     CODE appears to be a boolean expression. or the result of folding a
+     boolean expression.  */
+#define APPEARS_TO_BE_BOOLEAN_EXPR_P(CODE, ARG)                             \
+	(truth_value_p (TREE_CODE (ARG))                                    \
+	 || TREE_CODE (TREE_TYPE (ARG)) == BOOLEAN_TYPE                     \
+	 /* Folding may create 0 or 1 integers from other expressions.  */  \
+	 || ((CODE) != INTEGER_CST                                          \
+	     && (integer_onep (ARG) || integer_zerop (ARG))))
 
-  if (code == TRUTH_ORIF_EXPR)
+  switch (code) 
     {
-      if (code_left == TRUTH_ANDIF_EXPR
-	  || code_right == TRUTH_ANDIF_EXPR)
+    case LSHIFT_EXPR:
+      if (code_left == PLUS_EXPR || code_right == PLUS_EXPR)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around && within ||");
-    }
+		 "suggest parentheses around %<+%> inside %<<<%>");
+      else if (code_left == MINUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<-%> inside %<<<%>");
+      return;
 
-  if (code == BIT_IOR_EXPR)
-    {
+    case RSHIFT_EXPR:
+      if (code_left == PLUS_EXPR || code_right == PLUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<+%> inside %<>>%>");
+      else if (code_left == MINUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<-%> inside %<>>%>");
+      return;
+
+    case TRUTH_ORIF_EXPR:
+      if (code_left == TRUTH_ANDIF_EXPR || code_right == TRUTH_ANDIF_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<&&%> within %<||%>");
+      return;
+
+    case BIT_IOR_EXPR:
       if (code_left == BIT_AND_EXPR || code_left == BIT_XOR_EXPR
 	  || code_left == PLUS_EXPR || code_left == MINUS_EXPR
 	  || code_right == BIT_AND_EXPR || code_right == BIT_XOR_EXPR
 	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around arithmetic in operand of |");
+		 "suggest parentheses around arithmetic in operand of %<|%>");
       /* Check cases like x|y==z */
-      if (TREE_CODE_CLASS (code_left) == tcc_comparison
-	  || TREE_CODE_CLASS (code_right) == tcc_comparison)
+      else if (TREE_CODE_CLASS (code_left) == tcc_comparison
+	       || TREE_CODE_CLASS (code_right) == tcc_comparison)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around comparison in operand of |");
-    }
+		 "suggest parentheses around comparison in operand of %<|%>");
+      /* Check cases like !x | y */
+      else if (code_left == TRUTH_NOT_EXPR
+	       && !APPEARS_TO_BE_BOOLEAN_EXPR_P (code_right, arg_right))
+	warning (OPT_Wparentheses, "suggest parentheses around operand of "
+		 "%<!%> or change %<|%> to %<||%> or %<!%> to %<~%>");
+      return;
 
-  if (code == BIT_XOR_EXPR)
-    {
+    case BIT_XOR_EXPR:
       if (code_left == BIT_AND_EXPR
 	  || code_left == PLUS_EXPR || code_left == MINUS_EXPR
 	  || code_right == BIT_AND_EXPR
 	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around arithmetic in operand of ^");
+		 "suggest parentheses around arithmetic in operand of %<^%>");
       /* Check cases like x^y==z */
-      if (TREE_CODE_CLASS (code_left) == tcc_comparison
-	  || TREE_CODE_CLASS (code_right) == tcc_comparison)
+      else if (TREE_CODE_CLASS (code_left) == tcc_comparison
+	       || TREE_CODE_CLASS (code_right) == tcc_comparison)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around comparison in operand of ^");
-    }
+		 "suggest parentheses around comparison in operand of %<^%>");
+      return;
 
-  if (code == BIT_AND_EXPR)
-    {
-      if (code_left == PLUS_EXPR || code_left == MINUS_EXPR
-	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
+    case BIT_AND_EXPR:
+      if (code_left == PLUS_EXPR || code_right == PLUS_EXPR)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around + or - in operand of &");
+		 "suggest parentheses around %<+%> in operand of %<&%>");
+      else if (code_left == MINUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around %<-%> in operand of %<&%>");
       /* Check cases like x&y==z */
-      if (TREE_CODE_CLASS (code_left) == tcc_comparison
-	  || TREE_CODE_CLASS (code_right) == tcc_comparison)
+      else if (TREE_CODE_CLASS (code_left) == tcc_comparison
+	       || TREE_CODE_CLASS (code_right) == tcc_comparison)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around comparison in operand of &");
-    }
+		 "suggest parentheses around comparison in operand of %<&%>");
+      /* Check cases like !x & y */
+      else if (code_left == TRUTH_NOT_EXPR
+	       && !APPEARS_TO_BE_BOOLEAN_EXPR_P (code_right, arg_right))
+	warning (OPT_Wparentheses, "suggest parentheses around operand of "
+		 "%<!%> or change %<&%> to %<&&%> or %<!%> to %<~%>");
+      return;
 
-  if (code == EQ_EXPR || code == NE_EXPR)
-    {
+    case EQ_EXPR:
       if (TREE_CODE_CLASS (code_left) == tcc_comparison
           || TREE_CODE_CLASS (code_right) == tcc_comparison)
 	warning (OPT_Wparentheses,
-		 "suggest parentheses around comparison in operand of %s",
-                 code == EQ_EXPR ? "==" : "!=");
-    }
-  else if (TREE_CODE_CLASS (code) == tcc_comparison)
-    {
-      if ((TREE_CODE_CLASS (code_left) == tcc_comparison
-	   && code_left != NE_EXPR && code_left != EQ_EXPR)
-	  || (TREE_CODE_CLASS (code_right) == tcc_comparison
-	      && code_right != NE_EXPR && code_right != EQ_EXPR))
-	warning (OPT_Wparentheses, "comparisons like X<=Y<=Z do not "
+		 "suggest parentheses around comparison in operand of %<==%>");
+      return;
+    case NE_EXPR:
+      if (TREE_CODE_CLASS (code_left) == tcc_comparison
+          || TREE_CODE_CLASS (code_right) == tcc_comparison)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around comparison in operand of %<!=%>");
+      return;
+
+    default:
+      if (TREE_CODE_CLASS (code) == tcc_comparison
+	   && ((TREE_CODE_CLASS (code_left) == tcc_comparison
+		&& code_left != NE_EXPR && code_left != EQ_EXPR)
+	       || (TREE_CODE_CLASS (code_right) == tcc_comparison
+		   && code_right != NE_EXPR && code_right != EQ_EXPR)))
+	warning (OPT_Wparentheses, "comparisons like %<X<=Y<=Z%> do not "
 		 "have their mathematical meaning");
+      return;
     }
+#undef NOT_A_BOOLEAN_EXPR_P
 }
 
 /* If LABEL (a LABEL_DECL) has not been used, issue a warning.  */
@@ -8992,10 +8987,11 @@ warn_for_unused_label (tree label)
 struct gcc_targetcm targetcm = TARGETCM_INITIALIZER;
 #endif
 
-/* Warn for division by zero according to the value of DIVISOR.  */
+/* Warn for division by zero according to the value of DIVISOR.  LOC
+   is the location of the division operator.  */
 
 void
-warn_for_div_by_zero (tree divisor)
+warn_for_div_by_zero (location_t loc, tree divisor)
 {
   /* If DIVISOR is zero, and has integral or fixed-point type, issue a warning
      about division by zero.  Do not issue a warning if DIVISOR has a
@@ -9003,20 +8999,23 @@ warn_for_div_by_zero (tree divisor)
      generating a NaN.  */
   if (skip_evaluation == 0
       && (integer_zerop (divisor) || fixed_zerop (divisor)))
-    warning (OPT_Wdiv_by_zero, "division by zero");
+    warning_at (loc, OPT_Wdiv_by_zero, "division by zero");
 }
 
 /* Subroutine of build_binary_op. Give warnings for comparisons
    between signed and unsigned quantities that may fail. Do the
    checking based on the original operand trees ORIG_OP0 and ORIG_OP1,
    so that casts will be considered, but default promotions won't
-   be. 
+   be.
+
+   LOCATION is the location of the comparison operator.
 
    The arguments of this function map directly to local variables
    of build_binary_op.  */
 
 void 
-warn_for_sign_compare (tree orig_op0, tree orig_op1, 
+warn_for_sign_compare (location_t location,
+		       tree orig_op0, tree orig_op1, 
 		       tree op0, tree op1, 
 		       tree result_type, enum tree_code resultcode)
 {
@@ -9029,10 +9028,11 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
       && TREE_CODE (TREE_TYPE (orig_op0)) == ENUMERAL_TYPE
       && TREE_CODE (TREE_TYPE (orig_op1)) == ENUMERAL_TYPE
       && TYPE_MAIN_VARIANT (TREE_TYPE (orig_op0))
-      != TYPE_MAIN_VARIANT (TREE_TYPE (orig_op1)))
+	 != TYPE_MAIN_VARIANT (TREE_TYPE (orig_op1)))
     {
-      warning (OPT_Wsign_compare, "comparison between types %qT and %qT",
-               TREE_TYPE (orig_op0), TREE_TYPE (orig_op1));
+      warning_at (location,
+		  OPT_Wsign_compare, "comparison between types %qT and %qT",
+		  TREE_TYPE (orig_op0), TREE_TYPE (orig_op1));
     }
 
   /* Do not warn if the comparison is being done in a signed type,
@@ -9045,9 +9045,9 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
     /* OK */;
   else
     {
-      tree sop, uop;
+      tree sop, uop, base_type;
       bool ovf;
-      
+
       if (op0_signed)
         sop = orig_op0, uop = orig_op1;
       else 
@@ -9055,6 +9055,8 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
 
       STRIP_TYPE_NOPS (sop); 
       STRIP_TYPE_NOPS (uop);
+      base_type = (TREE_CODE (result_type) == COMPLEX_TYPE
+		   ? TREE_TYPE (result_type) : result_type);
 
       /* Do not warn if the signed quantity is an unsuffixed integer
          literal (or some static constant expression involving such
@@ -9067,7 +9069,7 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
          in the result if the result were signed.  */
       else if (TREE_CODE (uop) == INTEGER_CST
                && (resultcode == EQ_EXPR || resultcode == NE_EXPR)
-               && int_fits_type_p (uop, c_common_signed_type (result_type)))
+	       && int_fits_type_p (uop, c_common_signed_type (base_type)))
         /* OK */;
       /* In C, do not warn if the unsigned quantity is an enumeration
          constant and its maximum value would fit in the result if the
@@ -9075,11 +9077,12 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
       else if (!c_dialect_cxx() && TREE_CODE (uop) == INTEGER_CST
                && TREE_CODE (TREE_TYPE (uop)) == ENUMERAL_TYPE
                && int_fits_type_p (TYPE_MAX_VALUE (TREE_TYPE (uop)),
-                                   c_common_signed_type (result_type)))
+				   c_common_signed_type (base_type)))
         /* OK */;
       else 
-        warning (OPT_Wsign_compare, 
-                 "comparison between signed and unsigned integer expressions");
+        warning_at (location,
+		    OPT_Wsign_compare, 
+		    "comparison between signed and unsigned integer expressions");
     }
   
   /* Warn if two unsigned values are being compared in a size larger
@@ -9132,8 +9135,8 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
 		    warning (OPT_Wsign_compare, 
 			     "promoted ~unsigned is always non-zero");
 		  else
-		    warning (OPT_Wsign_compare, 
-			     "comparison of promoted ~unsigned with constant");
+		    warning_at (location, OPT_Wsign_compare, 
+				"comparison of promoted ~unsigned with constant");
 		}
             }
         }
@@ -9142,7 +9145,7 @@ warn_for_sign_compare (tree orig_op0, tree orig_op1,
                    < TYPE_PRECISION (result_type))
                && (TYPE_PRECISION (TREE_TYPE (op1))
                    < TYPE_PRECISION (result_type)))
-        warning (OPT_Wsign_compare, 
+        warning_at (location, OPT_Wsign_compare,
                  "comparison of promoted ~unsigned with unsigned");
     }
 }

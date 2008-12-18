@@ -870,10 +870,11 @@ decode_options (unsigned int argc, const char **argv)
 	}
     }
   
-#ifdef IRA_COVER_CLASSES
-  /* Use IRA if it is implemented for the target.  */
   flag_ira = 1;
-#endif
+  /* Use priority coloring if cover classes is not defined for the
+     target.  */
+  if (targetm.ira_cover_classes == NULL)
+    flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
 
   /* -O1 optimizations.  */
   opt1 = (optimize >= 1);
@@ -1008,21 +1009,32 @@ decode_options (unsigned int argc, const char **argv)
 
   handle_options (argc, argv, lang_mask);
 
-  /* -fno-unit-at-a-time and -fno-toplevel-reorder handling.  */
+  /* Handle related options for unit-at-a-time, toplevel-reorder, and
+     section-anchors.  */
   if (!flag_unit_at_a_time)
     {
+      if (flag_section_anchors == 1)
+	error ("Section anchors must be disabled when unit-at-a-time "
+	       "is disabled.");
       flag_section_anchors = 0;
+      if (flag_toplevel_reorder == 1)
+	error ("Toplevel reorder must be disabled when unit-at-a-time "
+	       "is disabled.");
       flag_toplevel_reorder = 0;
     }
-  else if (!optimize && flag_toplevel_reorder == 2)
-    /* We disable toplevel reordering at -O0 to disable transformations that
-       might be surprising to end users and to get -fno-toplevel-reorder
-       tested, but we keep section anchors.  */
-    flag_toplevel_reorder = 0;
-  else if (!flag_toplevel_reorder)
+  /* Unless the user has asked for section anchors, we disable toplevel
+     reordering at -O0 to disable transformations that might be surprising
+     to end users and to get -fno-toplevel-reorder tested.  */
+  if (!optimize && flag_toplevel_reorder == 2 && flag_section_anchors != 1)
+    {
+      flag_toplevel_reorder = 0;
+      flag_section_anchors = 0;
+    }
+  if (!flag_toplevel_reorder)
     {
       if (flag_section_anchors == 1)
-        error ("section anchors must be disabled when toplevel reorder is disabled");
+	error ("section anchors must be disabled when toplevel reorder"
+	       " is disabled");
       flag_section_anchors = 0;
     }
 
@@ -1086,13 +1098,13 @@ decode_options (unsigned int argc, const char **argv)
   if (!flag_sel_sched_pipelining)
     flag_sel_sched_pipelining_outer_loops = 0;
 
-#ifndef IRA_COVER_CLASSES
-  if (flag_ira)
+  if (flag_ira && !targetm.ira_cover_classes
+      && flag_ira_algorithm == IRA_ALGORITHM_CB)
     {
-      inform (input_location, "-fira does not work on this architecture");
-      flag_ira = 0;
+      inform (input_location,
+	      "-fira-algorithm=CB does not work on this architecture");
+      flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
     }
-#endif
 
   /* Save the current optimization options if this is the first call.  */
   if (first_time_p)
@@ -1101,6 +1113,14 @@ decode_options (unsigned int argc, const char **argv)
       optimization_current_node = optimization_default_node;
       first_time_p = false;
     }
+  if (flag_conserve_stack)
+    {
+      if (!PARAM_SET_P (PARAM_LARGE_STACK_FRAME))
+        PARAM_VALUE (PARAM_LARGE_STACK_FRAME) = 100;
+      if (!PARAM_SET_P (PARAM_STACK_FRAME_GROWTH))
+        PARAM_VALUE (PARAM_STACK_FRAME_GROWTH) = 40;
+    }
+
 }
 
 #define LEFT_COLUMN	27
@@ -1489,8 +1509,6 @@ common_handle_option (size_t scode, const char *arg, int value,
 	      { "warnings", CL_WARNING },
 	      { "undocumented", CL_UNDOCUMENTED },
 	      { "params", CL_PARAMS },
-	      { "joined", CL_JOINED },
-	      { "separate", CL_SEPARATE },
 	      { "common", CL_COMMON },
 	      { NULL, 0 }
 	    };
@@ -1962,14 +1980,23 @@ common_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_fira_algorithm_:
-      if (!strcmp (arg, "regional"))
-	flag_ira_algorithm = IRA_ALGORITHM_REGIONAL;
-      else if (!strcmp (arg, "CB"))
+      if (!strcmp (arg, "CB"))
 	flag_ira_algorithm = IRA_ALGORITHM_CB;
-      else if (!strcmp (arg, "mixed"))
-	flag_ira_algorithm = IRA_ALGORITHM_MIXED;
+      else if (!strcmp (arg, "priority"))
+	flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
       else
 	warning (0, "unknown ira algorithm \"%s\"", arg);
+      break;
+
+    case OPT_fira_region_:
+      if (!strcmp (arg, "one"))
+	flag_ira_region = IRA_REGION_ONE;
+      else if (!strcmp (arg, "all"))
+	flag_ira_region = IRA_REGION_ALL;
+      else if (!strcmp (arg, "mixed"))
+	flag_ira_region = IRA_REGION_MIXED;
+      else
+	warning (0, "unknown ira region \"%s\"", arg);
       break;
 
     case OPT_fira_verbose_:
@@ -2048,6 +2075,7 @@ common_handle_option (size_t scode, const char *arg, int value,
     case OPT_ftree_store_copy_prop:
     case OPT_fforce_addr:
     case OPT_ftree_salias:
+    case OPT_ftree_store_ccp:
       /* These are no-ops, preserved for backward compatibility.  */
       break;
 

@@ -65,8 +65,7 @@ write_default_char4 (st_parameter_dt *dtp, gfc_char4_t *source,
     }
 
   /* Get ready to handle delimiters if needed.  */
-
-  switch (dtp->u.p.delim_status)
+  switch (dtp->u.p.current_unit->delim_status)
     {
     case DELIM_APOSTROPHE:
       d = '\'';
@@ -128,8 +127,7 @@ write_utf8_char4 (st_parameter_dt *dtp, gfc_char4_t *source,
     }
 
   /* Get ready to handle delimiters if needed.  */
-
-  switch (dtp->u.p.delim_status)
+  switch (dtp->u.p.current_unit->delim_status)
     {
     case DELIM_APOSTROPHE:
       d = '\'';
@@ -602,9 +600,16 @@ write_decimal (st_parameter_dt *dtp, const fnode *f, const char *source,
   sign = calculate_sign (dtp, n < 0);
   if (n < 0)
     n = -n;
-
   nsign = sign == S_NONE ? 0 : 1;
+  
+  /* conv calls gfc_itoa which sets the negative sign needed
+     by write_integer. The sign '+' or '-' is set below based on sign
+     calculated above, so we just point past the sign in the string
+     before proceeding to avoid double signs in corner cases.
+     (see PR38504)  */
   q = conv (n, itoa_buf, sizeof (itoa_buf));
+  if (*q == '-')
+    q++;
 
   digits = strlen (q);
 
@@ -880,7 +885,7 @@ write_character (st_parameter_dt *dtp, const char *source, int kind, int length)
   int i, extra;
   char *p, d;
 
-  switch (dtp->u.p.delim_status)
+  switch (dtp->u.p.current_unit->delim_status)
     {
     case DELIM_APOSTROPHE:
       d = '\'';
@@ -1018,7 +1023,8 @@ write_real_g0 (st_parameter_dt *dtp, const char *source, int length, int d)
 static void
 write_complex (st_parameter_dt *dtp, const char *source, int kind, size_t size)
 {
-  char semi_comma = dtp->u.p.decimal_status == DECIMAL_POINT ? ',' : ';';
+  char semi_comma =
+	dtp->u.p.current_unit->decimal_status == DECIMAL_POINT ? ',' : ';';
 
   if (write_char (dtp, '('))
     return;
@@ -1066,8 +1072,8 @@ list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
   else
     {
       if (type != BT_CHARACTER || !dtp->u.p.char_flag ||
-	  dtp->u.p.delim_status != DELIM_NONE)
-	write_separator (dtp);
+	dtp->u.p.current_unit->delim_status != DELIM_NONE)
+      write_separator (dtp);
     }
 
   switch (type)
@@ -1147,6 +1153,35 @@ namelist_write_newline (st_parameter_dt *dtp)
 #else
       write_character (dtp, "\n", 1, 1);
 #endif
+      return;
+    }
+
+  if (is_array_io (dtp))
+    {
+      gfc_offset record;
+      int finished, length;
+
+      length = (int) dtp->u.p.current_unit->bytes_left;
+	      
+      /* Now that the current record has been padded out,
+	 determine where the next record in the array is. */
+      record = next_array_record (dtp, dtp->u.p.current_unit->ls,
+				  &finished);
+      if (finished)
+	dtp->u.p.current_unit->endfile = AT_ENDFILE;
+      else
+	{
+	  /* Now seek to this record */
+	  record = record * dtp->u.p.current_unit->recl;
+
+	  if (sseek (dtp->u.p.current_unit->s, record) == FAILURE)
+	    {
+	      generate_error (&dtp->common, LIBERROR_INTERNAL_UNIT, NULL);
+	      return;
+	    }
+
+	  dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
+	}
     }
   else
     write_character (dtp, " ", 1, 1);
@@ -1182,7 +1217,8 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   /* Set the character to be used to separate values
      to a comma or semi-colon.  */
 
-  char semi_comma = dtp->u.p.decimal_status == DECIMAL_POINT ? ',' : ';';
+  char semi_comma =
+	dtp->u.p.current_unit->decimal_status == DECIMAL_POINT ? ',' : ';';
 
   /* Write namelist variable names in upper case. If a derived type,
      nothing is output.  If a component, base and base_name are set.  */
@@ -1297,20 +1333,20 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
               break;
 
 	    case GFC_DTYPE_CHARACTER:
-	      tmp_delim = dtp->u.p.delim_status;
+	      tmp_delim = dtp->u.p.current_unit->delim_status;
 	      if (dtp->u.p.nml_delim == '"')
-		dtp->u.p.delim_status = DELIM_QUOTE;
+		dtp->u.p.current_unit->delim_status = DELIM_QUOTE;
 	      if (dtp->u.p.nml_delim == '\'')
-		dtp->u.p.delim_status = DELIM_APOSTROPHE;
+		dtp->u.p.current_unit->delim_status = DELIM_APOSTROPHE;
 	      write_character (dtp, p, 1, obj->string_length);
-	      dtp->u.p.delim_status = tmp_delim;
+		dtp->u.p.current_unit->delim_status = tmp_delim;
               break;
 
 	    case GFC_DTYPE_REAL:
 	      write_real (dtp, p, len);
               break;
 
-	    case GFC_DTYPE_COMPLEX:
+	   case GFC_DTYPE_COMPLEX:
 	      dtp->u.p.no_leading_blank = 0;
 	      num++;
               write_complex (dtp, p, len, obj_size);
@@ -1438,28 +1474,15 @@ namelist_write (st_parameter_dt *dtp)
   index_type dummy_offset = 0;
   char c;
   char * dummy_name = NULL;
-  unit_delim tmp_delim;
+  unit_delim tmp_delim = DELIM_UNSPECIFIED;
 
   /* Set the delimiter for namelist output.  */
+  tmp_delim = dtp->u.p.current_unit->delim_status;
 
-  tmp_delim = dtp->u.p.delim_status;
-  switch (tmp_delim)
-    {
-    case (DELIM_QUOTE):
-      dtp->u.p.nml_delim = '"';
-      break;
-
-    case (DELIM_APOSTROPHE):
-      dtp->u.p.nml_delim = '\'';
-      break;
-
-    default:
-      dtp->u.p.nml_delim = '\0';
-      break;
-    }
+  dtp->u.p.nml_delim = tmp_delim == DELIM_APOSTROPHE ? '\'' : '"';
 
   /* Temporarily disable namelist delimters.  */
-  dtp->u.p.delim_status = DELIM_NONE;
+  dtp->u.p.current_unit->delim_status = DELIM_NONE;
 
   write_character (dtp, "&", 1, 1);
 
@@ -1480,10 +1503,10 @@ namelist_write (st_parameter_dt *dtp)
 	}
     }
 
-  write_character (dtp, "  /", 1, 3);
   namelist_write_newline (dtp);
+  write_character (dtp, " /", 1, 2);
   /* Restore the original delimiter.  */
-  dtp->u.p.delim_status = tmp_delim;
+  dtp->u.p.current_unit->delim_status = tmp_delim;
 }
 
 #undef NML_DIGITS

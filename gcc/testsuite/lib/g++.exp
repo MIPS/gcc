@@ -24,6 +24,7 @@
 #
 load_lib prune.exp
 load_lib gcc-defs.exp
+load_lib timeout.exp
 load_lib target-libpath.exp
 
 #
@@ -185,6 +186,8 @@ proc g++_init { args } {
     global GXX_UNDER_TEST
     global TESTING_IN_BUILD_TREE
     global target_triplet
+    global gcc_warning_prefix
+    global gcc_error_prefix
 
     # We set LC_ALL and LANG to C so that we get the same error messages as expected.
     setenv LC_ALL C
@@ -247,6 +250,9 @@ proc g++_init { args } {
     # error-message parsing machinery.
     lappend ALWAYS_CXXFLAGS "additional_flags=-fmessage-length=0"
 
+    set gcc_warning_prefix "warning:"
+    set gcc_error_prefix "error:"
+
     if { [string match "*-*-darwin*" $target_triplet] } {
 	lappend ALWAYS_CXXFLAGS "ldflags=-multiply_defined suppress"
        }
@@ -274,6 +280,7 @@ proc g++_target_compile { source dest type options } {
 
     lappend options "additional_flags=[libio_include_flags]"
     lappend options "compiler=$GXX_UNDER_TEST"
+    lappend options "timeout=[timeout_value]"
 
     set options [concat $gpp_compile_options $options]
 

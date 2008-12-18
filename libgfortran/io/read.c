@@ -439,9 +439,9 @@ read_a (st_parameter_dt *dtp, const fnode *f, char *p, int length)
     read_utf8_char1 (dtp, p, length, w);
   else
     read_default_char1 (dtp, p, length, w);
-  
+
   dtp->u.p.sf_read_comma =
-    dtp->u.p.decimal_status == DECIMAL_COMMA ? 0 : 1;
+    dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA ? 0 : 1;
 }
 
 
@@ -468,7 +468,7 @@ read_a_char4 (st_parameter_dt *dtp, const fnode *f, char *p, int length)
     read_default_char4 (dtp, p, length, w);
   
   dtp->u.p.sf_read_comma =
-    dtp->u.p.decimal_status == DECIMAL_COMMA ? 0 : 1;
+    dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA ? 0 : 1;
 }
 
 /* eat_leading_spaces()-- Given a character pointer and a width,
@@ -840,8 +840,11 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
       switch (*p)
 	{
 	case ',':
-	  if (dtp->u.p.decimal_status == DECIMAL_COMMA && *p == ',')
+	  if (dtp->u.p.current_unit->decimal_status == DECIMAL_COMMA
+               && *p == ',')
 	    *p = '.';
+	  else
+	    goto bad_float;
 	  /* Fall through */
 	case '.':
 	  if (seen_dp)
@@ -953,14 +956,9 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
      of the exponent in order to take account of the scale factor and
      the d parameter before explict conversion takes place. */
  exp2:
-  if (!isdigit (*p))
-    goto bad_float;
-
-  exponent = *p - '0';
-  p++;
-  w--;
-
-  if (dtp->u.p.blank_status == BLANK_UNSPECIFIED) /* Normal processing of exponent */
+  /* Normal processing of exponent */
+  exponent = 0;
+  if (dtp->u.p.blank_status == BLANK_UNSPECIFIED)
     {
       while (w > 0 && isdigit (*p))
         {
@@ -981,7 +979,7 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
     }    
   else  /* BZ or BN status is enabled */
     {
-      while (w > 0)
+      while (w > 0 && (isdigit (*p) || *p == ' '))
         {
           if (*p == ' ')
             {
@@ -1074,8 +1072,8 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 void
 read_x (st_parameter_dt * dtp, int n)
 {
-  if ((dtp->u.p.pad_status == PAD_NO || is_internal_unit (dtp))
-      && dtp->u.p.current_unit->bytes_left < n)
+  if ((dtp->u.p.current_unit->pad_status == PAD_NO || is_internal_unit (dtp))
+       && dtp->u.p.current_unit->bytes_left < n)
     n = dtp->u.p.current_unit->bytes_left;
 
   dtp->u.p.sf_read_comma = 0;

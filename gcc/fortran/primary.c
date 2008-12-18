@@ -1360,6 +1360,7 @@ match_actual_arg (gfc_expr **result)
   gfc_expr *e;
   char c;
 
+  gfc_gobble_whitespace ();
   where = gfc_current_locus;
 
   switch (gfc_match_name (name))
@@ -1745,6 +1746,10 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag)
   if (equiv_flag)
     return MATCH_YES;
 
+  if (sym->ts.type == BT_UNKNOWN && gfc_peek_ascii_char () == '%'
+      && gfc_get_default_type (sym, sym->ns)->type == BT_DERIVED)
+    gfc_set_default_type (sym, 0, sym->ns);
+
   if (sym->ts.type != BT_DERIVED || gfc_match_char ('%') != MATCH_YES)
     goto check_substring;
 
@@ -1865,7 +1870,10 @@ check_substring:
 
 	case MATCH_NO:
 	  if (unknown)
-	    gfc_clear_ts (&primary->ts);
+	    {
+	      gfc_clear_ts (&primary->ts);
+	      gfc_clear_ts (&sym->ts);
+	    }
 	  break;
 
 	case MATCH_ERROR:
@@ -2434,10 +2442,6 @@ gfc_match_rvalue (gfc_expr **result)
     {
     case FL_VARIABLE:
     variable:
-      if (sym->ts.type == BT_UNKNOWN && gfc_peek_ascii_char () == '%'
-	  && gfc_get_default_type (sym, sym->ns)->type == BT_DERIVED)
-	gfc_set_default_type (sym, 0, sym->ns);
-
       e = gfc_get_expr ();
 
       e->expr_type = EXPR_VARIABLE;
@@ -2506,11 +2510,10 @@ gfc_match_rvalue (gfc_expr **result)
       if (gfc_matching_procptr_assignment)
 	{
 	  gfc_gobble_whitespace ();
-	  if (sym->attr.function && gfc_peek_ascii_char () == '(')
+	  if (gfc_peek_ascii_char () == '(')
 	    /* Parse functions returning a procptr.  */
 	    goto function0;
 
-	  if (sym->attr.flavor == FL_UNKNOWN) sym->attr.flavor = FL_PROCEDURE;
 	  if (gfc_is_intrinsic (sym, 0, gfc_current_locus)
 	      || gfc_is_intrinsic (sym, 1, gfc_current_locus))
 	    sym->attr.intrinsic = 1;
@@ -2818,10 +2821,10 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
       || gfc_current_state () == COMP_CONTAINS)
     host_flag = 0;
 
+  where = gfc_current_locus;
   m = gfc_match_sym_tree (&st, host_flag);
   if (m != MATCH_YES)
     return m;
-  where = gfc_current_locus;
 
   sym = st->n.sym;
 

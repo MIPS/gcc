@@ -137,8 +137,15 @@ merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
   struct du_chain *t = chain;
   rtx insn;
   HARD_REG_SET live;
+  df_ref *def_rec;
 
   REG_SET_TO_HARD_REG_SET (live, df_get_live_in (b));
+  for (def_rec = df_get_artificial_defs (b->index); *def_rec; def_rec++)
+    {
+      df_ref def = *def_rec;
+      if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+	SET_HARD_REG_BIT (live, DF_REF_REGNO (def));
+    }
   insn = BB_HEAD (b);
   while (t)
     {
@@ -357,11 +364,13 @@ do_replace (struct du_chain *chain, int reg)
     {
       unsigned int regno = ORIGINAL_REGNO (*chain->loc);
       struct reg_attrs * attr = REG_ATTRS (*chain->loc);
+      int reg_ptr = REG_POINTER (*chain->loc);
 
       *chain->loc = gen_raw_REG (GET_MODE (*chain->loc), reg);
       if (regno >= FIRST_PSEUDO_REGISTER)
 	ORIGINAL_REGNO (*chain->loc) = regno;
       REG_ATTRS (*chain->loc) = attr;
+      REG_POINTER (*chain->loc) = reg_ptr;
       df_insn_rescan (chain->insn);
       chain = chain->next_use;
     }
@@ -1314,6 +1323,10 @@ maybe_mode_change (enum machine_mode orig_mode, enum machine_mode copy_mode,
 		   enum machine_mode new_mode, unsigned int regno,
 		   unsigned int copy_regno ATTRIBUTE_UNUSED)
 {
+  if (GET_MODE_SIZE (copy_mode) < GET_MODE_SIZE (orig_mode)
+      && GET_MODE_SIZE (copy_mode) < GET_MODE_SIZE (new_mode))
+    return NULL_RTX;
+
   if (orig_mode == new_mode)
     return gen_rtx_raw_REG (new_mode, regno);
   else if (mode_change_ok (orig_mode, new_mode, regno))

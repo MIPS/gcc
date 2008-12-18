@@ -208,23 +208,14 @@ static void do_clobber_return_reg (rtx, void *);
 static void do_use_return_reg (rtx, void *);
 static void set_insn_locators (rtx, int) ATTRIBUTE_UNUSED;
 
-/* Pointer to chain of `struct function' for containing functions.  */
-struct function *outer_function_chain;
+/* Stack of nested functions.  */
+/* Keep track of the cfun stack.  */
 
-/* Given a function decl for a containing function,
-   return the `struct function' for it.  */
+typedef struct function *function_p;
 
-struct function *
-find_function_data (tree decl)
-{
-  struct function *p;
-
-  for (p = outer_function_chain; p; p = p->outer)
-    if (p->decl == decl)
-      return p;
-
-  gcc_unreachable ();
-}
+DEF_VEC_P(function_p);
+DEF_VEC_ALLOC_P(function_p,heap);
+static VEC(function_p,heap) *function_context_stack;
 
 /* Save the current context for compilation of a nested function.
    This is called from language-specific code.  */
@@ -235,8 +226,7 @@ push_function_context (void)
   if (cfun == 0)
     allocate_struct_function (NULL, false);
 
-  cfun->outer = outer_function_chain;
-  outer_function_chain = cfun;
+  VEC_safe_push (function_p, heap, function_context_stack, cfun);
   set_cfun (NULL);
 }
 
@@ -246,10 +236,8 @@ push_function_context (void)
 void
 pop_function_context (void)
 {
-  struct function *p = outer_function_chain;
-
+  struct function *p = VEC_pop (function_p, function_context_stack);
   set_cfun (p);
-  outer_function_chain = p->outer;
   current_function_decl = p->decl;
 
   /* Reset variables that have known state during rtx generation.  */
@@ -286,6 +274,7 @@ free_after_compilation (struct function *f)
   f->cfg = NULL;
 
   regno_reg_rtx = NULL;
+  insn_locators_free ();
 }
 
 /* Return size needed for stack frame based on slots so far allocated.
@@ -1515,6 +1504,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	    }
 	  x = simplify_gen_subreg (recog_data.operand_mode[i], new_rtx,
 				   GET_MODE (new_rtx), SUBREG_BYTE (x));
+	  gcc_assert (x);
 	  break;
 
 	default:
@@ -1644,7 +1634,7 @@ instantiate_decls_1 (tree let)
 static void
 instantiate_decls (tree fndecl)
 {
-  tree decl;
+  tree decl, t, next;
 
   /* Process all parameters of the function.  */
   for (decl = DECL_ARGUMENTS (fndecl); decl; decl = TREE_CHAIN (decl))
@@ -1660,6 +1650,17 @@ instantiate_decls (tree fndecl)
 
   /* Now process all variables defined in the function or its subblocks.  */
   instantiate_decls_1 (DECL_INITIAL (fndecl));
+
+  t = cfun->local_decls;
+  cfun->local_decls = NULL_TREE;
+  for (; t; t = next)
+    {
+      next = TREE_CHAIN (t);
+      decl = TREE_VALUE (t);
+      if (DECL_RTL_SET_P (decl))
+	instantiate_decl_rtl (DECL_RTL (decl));
+      ggc_free (t);
+    }
 }
 
 /* Pass through the INSNS of function FNDECL and convert virtual register
@@ -1765,7 +1766,9 @@ aggregate_value_p (const_tree exp, const_tree fntype)
       {
       case CALL_EXPR:
 	fndecl = get_callee_fndecl (fntype);
-	fntype = fndecl ? TREE_TYPE (fndecl) : 0;
+	fntype = (fndecl
+		  ? TREE_TYPE (fndecl)
+		  : TREE_TYPE (CALL_EXPR_FN (fntype)));
 	break;
       case FUNCTION_DECL:
 	fndecl = fntype;
@@ -2331,6 +2334,21 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
   stack_parm = gen_rtx_MEM (data->promoted_mode, stack_parm);
 
   set_mem_attributes (stack_parm, parm, 1);
+  /* set_mem_attributes could set MEM_SIZE to the passed mode's size,
+     while promoted mode's size is needed.  */
+  if (data->promoted_mode != BLKmode
+      && data->promoted_mode != DECL_MODE (parm))
+    {
+      set_mem_size (stack_parm, GEN_INT (GET_MODE_SIZE (data->promoted_mode)));
+      if (MEM_EXPR (stack_parm) && MEM_OFFSET (stack_parm))
+	{
+	  int offset = subreg_lowpart_offset (DECL_MODE (parm),
+					      data->promoted_mode);
+	  if (offset)
+	    set_mem_offset (stack_parm,
+			    plus_constant (MEM_OFFSET (stack_parm), -offset));
+	}
+    }
 
   boundary = data->locate.boundary;
   align = BITS_PER_UNIT;
@@ -2430,7 +2448,7 @@ assign_parm_remove_parallels (struct assign_parm_data_one *data)
   if (GET_CODE (entry_parm) == PARALLEL && GET_MODE (entry_parm) != BLKmode)
     {
       rtx parmreg = gen_reg_rtx (GET_MODE (entry_parm));
-      emit_group_store (parmreg, entry_parm, NULL_TREE,
+      emit_group_store (parmreg, entry_parm, data->passed_type,
 			GET_MODE_SIZE (GET_MODE (entry_parm)));
       entry_parm = parmreg;
     }
@@ -3259,6 +3277,14 @@ gimplify_parameters (void)
 		{
 		  local = create_tmp_var (type, get_name (parm));
 		  DECL_IGNORED_P (local) = 0;
+		  /* If PARM was addressable, move that flag over
+		     to the local copy, as its address will be taken,
+		     not the PARMs.  */
+		  if (TREE_ADDRESSABLE (parm))
+		    {
+		      TREE_ADDRESSABLE (parm) = 0;
+		      TREE_ADDRESSABLE (local) = 1;
+		    }
 		}
 	      else
 		{
@@ -3467,6 +3493,10 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
 
   locate->size.constant -= part_size_in_regs;
 #endif /* ARGS_GROW_DOWNWARD */
+
+#ifdef FUNCTION_ARG_OFFSET
+  locate->offset.constant += FUNCTION_ARG_OFFSET (passed_mode, type);
+#endif
 }
 
 /* Round the stack offset in *OFFSET_PTR up to a multiple of BOUNDARY.
@@ -3898,13 +3928,6 @@ set_cfun (struct function *new_cfun)
     }
 }
 
-/* Keep track of the cfun stack.  */
-
-typedef struct function *function_p;
-
-DEF_VEC_P(function_p);
-DEF_VEC_ALLOC_P(function_p,heap);
-
 /* Initialized with NOGC, making this poisonous to the garbage collector.  */
 
 static VEC(function_p,heap) *cfun_stack;
@@ -3966,6 +3989,8 @@ allocate_struct_function (tree fndecl, bool abstract_p)
   OVERRIDE_ABI_FORMAT (fndecl);
 #endif
 
+  invoke_set_current_function_hook (fndecl);
+
   if (fndecl != NULL_TREE)
     {
       DECL_STRUCT_FUNCTION (fndecl) = cfun;
@@ -3991,8 +4016,6 @@ allocate_struct_function (tree fndecl, bool abstract_p)
       cfun->va_list_gpr_size = VA_LIST_MAX_GPR_SIZE;
       cfun->va_list_fpr_size = VA_LIST_MAX_FPR_SIZE;
     }
-
-  invoke_set_current_function_hook (fndecl);
 }
 
 /* This is like allocate_struct_function, but pushes a new cfun for FNDECL

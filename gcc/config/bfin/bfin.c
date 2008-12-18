@@ -60,7 +60,11 @@
    This is added to the cfun structure.  */
 struct machine_function GTY(())
 {
+  /* Set if we are notified by the doloop pass that a hardware loop
+     was created.  */
   int has_hardware_loops;
+  /* Set if we create a memcpy pattern that uses loop registers.  */
+  int has_loopreg_clobber;
 };
 
 /* Test and compare insns in bfin.md store the information needed to
@@ -114,122 +118,184 @@ struct bfin_cpu
 
 struct bfin_cpu bfin_cpus[] =
 {
+  {"bf512", BFIN_CPU_BF512, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf514", BFIN_CPU_BF514, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf516", BFIN_CPU_BF516, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf518", BFIN_CPU_BF518, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf522", BFIN_CPU_BF522, 0x0002,
+   WA_SPECULATIVE_LOADS},
   {"bf522", BFIN_CPU_BF522, 0x0001,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf522", BFIN_CPU_BF522, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf523", BFIN_CPU_BF523, 0x0002,
+   WA_SPECULATIVE_LOADS},
   {"bf523", BFIN_CPU_BF523, 0x0001,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf523", BFIN_CPU_BF523, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf524", BFIN_CPU_BF524, 0x0002,
+   WA_SPECULATIVE_LOADS},
   {"bf524", BFIN_CPU_BF524, 0x0001,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf524", BFIN_CPU_BF524, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf525", BFIN_CPU_BF525, 0x0002,
+   WA_SPECULATIVE_LOADS},
   {"bf525", BFIN_CPU_BF525, 0x0001,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf525", BFIN_CPU_BF525, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf526", BFIN_CPU_BF526, 0x0002,
+   WA_SPECULATIVE_LOADS},
   {"bf526", BFIN_CPU_BF526, 0x0001,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf526", BFIN_CPU_BF526, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf527", BFIN_CPU_BF527, 0x0002,
+   WA_SPECULATIVE_LOADS},
   {"bf527", BFIN_CPU_BF527, 0x0001,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf527", BFIN_CPU_BF527, 0x0000,
    WA_SPECULATIVE_LOADS | WA_RETS},
 
+  {"bf531", BFIN_CPU_BF531, 0x0006,
+   WA_SPECULATIVE_LOADS},
   {"bf531", BFIN_CPU_BF531, 0x0005,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_05000283 | WA_05000315},
   {"bf531", BFIN_CPU_BF531, 0x0004,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
   {"bf531", BFIN_CPU_BF531, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
 
+  {"bf532", BFIN_CPU_BF532, 0x0006,
+   WA_SPECULATIVE_LOADS},
   {"bf532", BFIN_CPU_BF532, 0x0005,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_05000283 | WA_05000315},
   {"bf532", BFIN_CPU_BF532, 0x0004,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
   {"bf532", BFIN_CPU_BF532, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
 
+  {"bf533", BFIN_CPU_BF533, 0x0006,
+   WA_SPECULATIVE_LOADS},
   {"bf533", BFIN_CPU_BF533, 0x0005,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_05000283 | WA_05000315},
   {"bf533", BFIN_CPU_BF533, 0x0004,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
   {"bf533", BFIN_CPU_BF533, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
 
   {"bf534", BFIN_CPU_BF534, 0x0003,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf534", BFIN_CPU_BF534, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
   {"bf534", BFIN_CPU_BF534, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
 
   {"bf536", BFIN_CPU_BF536, 0x0003,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf536", BFIN_CPU_BF536, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
   {"bf536", BFIN_CPU_BF536, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
 
   {"bf537", BFIN_CPU_BF537, 0x0003,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf537", BFIN_CPU_BF537, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
   {"bf537", BFIN_CPU_BF537, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
 
+  {"bf538", BFIN_CPU_BF538, 0x0005,
+   WA_SPECULATIVE_LOADS},
   {"bf538", BFIN_CPU_BF538, 0x0004,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf538", BFIN_CPU_BF538, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS
+   | WA_05000283 | WA_05000315},
   {"bf538", BFIN_CPU_BF538, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_05000283 | WA_05000257 | WA_05000315},
 
+  {"bf539", BFIN_CPU_BF539, 0x0005,
+   WA_SPECULATIVE_LOADS},
   {"bf539", BFIN_CPU_BF539, 0x0004,
    WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf539", BFIN_CPU_BF539, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS
+   | WA_05000283 | WA_05000315},
   {"bf539", BFIN_CPU_BF539, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
 
+  {"bf542", BFIN_CPU_BF542, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf542", BFIN_CPU_BF542, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf542", BFIN_CPU_BF542, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
+  {"bf544", BFIN_CPU_BF544, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf544", BFIN_CPU_BF544, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf544", BFIN_CPU_BF544, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
+  {"bf547", BFIN_CPU_BF547, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf547", BFIN_CPU_BF547, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf547", BFIN_CPU_BF547, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
+  {"bf548", BFIN_CPU_BF548, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf548", BFIN_CPU_BF548, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf548", BFIN_CPU_BF548, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
+  {"bf549", BFIN_CPU_BF549, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf549", BFIN_CPU_BF549, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf549", BFIN_CPU_BF549, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
-  {"bf561", BFIN_CPU_BF561, 0x0005, WA_RETS},
+  {"bf561", BFIN_CPU_BF561, 0x0005, WA_RETS
+   | WA_05000283 | WA_05000315},
   {"bf561", BFIN_CPU_BF561, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
   {"bf561", BFIN_CPU_BF561, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS
+   | WA_05000283 | WA_05000257 | WA_05000315},
 
   {NULL, 0, 0, 0}
 };
@@ -409,6 +475,9 @@ must_save_p (bool is_inthandler, unsigned regno)
       return ((df_regs_ever_live_p (regno)
 	       && !fixed_regs[regno]
 	       && (is_inthandler || !call_used_regs[regno]))
+	      || (is_inthandler
+		  && (ENABLE_WA_05000283 || ENABLE_WA_05000315)
+		  && regno == REG_P5)
 	      || (!TARGET_FDPIC
 		  && regno == PIC_OFFSET_TABLE_REGNUM
 		  && (crtl->uses_pic_offset_table
@@ -500,7 +569,18 @@ expand_prologue_reg_save (rtx spreg, int saveall, bool is_inthandler)
   if (saveall || is_inthandler)
     {
       rtx insn = emit_move_insn (predec, gen_rtx_REG (SImode, REG_ASTAT));
+
       RTX_FRAME_RELATED_P (insn) = 1;
+      for (dregno = REG_LT0; dregno <= REG_LB1; dregno++)
+	if (! current_function_is_leaf
+	    || cfun->machine->has_hardware_loops
+	    || cfun->machine->has_loopreg_clobber
+	    || (ENABLE_WA_05000257
+		&& (dregno == REG_LC0 || dregno == REG_LC1)))
+	  {
+	    insn = emit_move_insn (predec, gen_rtx_REG (SImode, dregno));
+	    RTX_FRAME_RELATED_P (insn) = 1;
+	  }
     }
 
   if (total_consec != 0)
@@ -670,7 +750,16 @@ expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
       RTX_FRAME_RELATED_P (insn) = 1;
     }
   if (saveall || is_inthandler)
-    emit_move_insn (gen_rtx_REG (SImode, REG_ASTAT), postinc);
+    {
+      for (regno = REG_LB1; regno >= REG_LT0; regno--)
+	if (! current_function_is_leaf
+	    || cfun->machine->has_hardware_loops
+	    || cfun->machine->has_loopreg_clobber
+	    || (ENABLE_WA_05000257 && (regno == REG_LC0 || regno == REG_LC1)))
+	  emit_move_insn (gen_rtx_REG (SImode, regno), postinc);
+
+      emit_move_insn (gen_rtx_REG (SImode, REG_ASTAT), postinc);
+    }
 }
 
 /* Perform any needed actions needed for a function that is receiving a
@@ -769,8 +858,16 @@ n_regs_saved_by_prologue (void)
     }
 
   if (fkind != SUBROUTINE || all)
-    /* Increment once for ASTAT.  */
-    n++;
+    {
+      /* Increment once for ASTAT.  */
+      n++;
+      if (! current_function_is_leaf
+	  || cfun->machine->has_hardware_loops
+	  || cfun->machine->has_loopreg_clobber)
+	{
+	  n += 6;
+	}
+    }
 
   if (fkind != SUBROUTINE)
     {
@@ -1077,6 +1174,16 @@ expand_interrupt_handler_prologue (rtx spreg, e_funkind fkind, bool all)
     all = true;
   expand_prologue_reg_save (spreg, all, true);
 
+  if (ENABLE_WA_05000283 || ENABLE_WA_05000315)
+    {
+      rtx chipid = GEN_INT (trunc_int_for_mode (0xFFC00014, SImode));
+      rtx p5reg = gen_rtx_REG (Pmode, REG_P5);
+      emit_insn (gen_movbi (bfin_cc_rtx, const1_rtx));
+      emit_insn (gen_movsi_high (p5reg, chipid));
+      emit_insn (gen_movsi_low (p5reg, p5reg, chipid));
+      emit_insn (gen_dummy_load (p5reg, bfin_cc_rtx));
+    }
+  
   if (lookup_attribute ("nesting", attrs))
     {
       rtx srcreg = gen_rtx_REG (Pmode, (fkind == EXCPT_HANDLER ? REG_RETX
@@ -3100,6 +3207,7 @@ bfin_rtx_costs (rtx x, int code, int outer_code, int *total, bool speed)
 /* Used for communication between {push,pop}_multiple_operation (which
    we use not only as a predicate) and the corresponding output functions.  */
 static int first_preg_to_save, first_dreg_to_save;
+static int n_regs_to_save;
 
 int
 push_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
@@ -3168,6 +3276,7 @@ push_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 	  lastpreg++;
 	}
     }
+  n_regs_to_save = 8 - first_dreg_to_save + 6 - first_preg_to_save;
   return 1;
 }
 
@@ -3227,6 +3336,7 @@ pop_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
     }
   first_dreg_to_save = lastdreg;
   first_preg_to_save = lastpreg;
+  n_regs_to_save = 8 - first_dreg_to_save + 6 - first_preg_to_save;
   return 1;
 }
 
@@ -3351,6 +3461,7 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 	      countreg = copy_to_mode_reg (Pmode, GEN_INT (new_count));
 
 	      emit_insn (gen_rep_movsi (destreg, srcreg, countreg, destreg, srcreg));
+	      cfun->machine->has_loopreg_clobber = true;
 	    }
 	  if (count & 2)
 	    {
@@ -3371,6 +3482,7 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 	      countreg = copy_to_mode_reg (Pmode, GEN_INT (new_count));
 
 	      emit_insn (gen_rep_movhi (destreg, srcreg, countreg, destreg, srcreg));
+	      cfun->machine->has_loopreg_clobber = true;
 	    }
 	}
       if (count & 1)
@@ -3947,11 +4059,32 @@ bfin_optimize_loop (loop_info loop)
       print_rtl_single (dump_file, loop->loop_end);
     }
 
+  /* Create a sequence containing the loop setup.  */
   start_sequence ();
 
   if (loop->init != NULL_RTX)
     emit_insn (loop->init);
   seq_end = emit_insn (loop->loop_init);
+
+  /* If the loop isn't entered at the top, also create a jump to the entry
+     point.  */
+  if (!loop->incoming_src && loop->head != loop->incoming_dest)
+    {
+      rtx label = BB_HEAD (loop->incoming_dest);
+      /* If we're jumping to the final basic block in the loop, and there's
+	 only one cheap instruction before the end (typically an increment of
+	 an induction variable), we can just emit a copy here instead of a
+	 jump.  */
+      if (loop->incoming_dest == loop->tail
+	  && next_real_insn (label) == last_insn
+	  && asm_noperands (last_insn) < 0
+	  && GET_CODE (PATTERN (last_insn)) == SET)
+	{
+	  seq_end = emit_insn (copy_rtx (PATTERN (last_insn)));
+	}
+      else
+	seq_end = emit_insn (gen_jump (label));
+    }
 
   seq = get_insns ();
   end_sequence ();
@@ -3972,21 +4105,19 @@ bfin_optimize_loop (loop_info loop)
       basic_block new_bb;
       edge e;
       edge_iterator ei;
-      
+
+#ifdef ENABLE_CHECKING
       if (loop->head != loop->incoming_dest)
 	{
+	  /* We aren't entering the loop at the top.  Since we've established
+	     that the loop is entered only at one point, this means there
+	     can't be fallthru edges into the head.  Any such fallthru edges
+	     would become invalid when we insert the new block, so verify
+	     that this does not in fact happen.  */
 	  FOR_EACH_EDGE (e, ei, loop->head->preds)
-	    {
-	      if (e->flags & EDGE_FALLTHRU)
-		{
-		  rtx newjump = gen_jump (loop->start_label);
-		  emit_insn_before (newjump, BB_HEAD (loop->head));
-		  new_bb = create_basic_block (newjump, newjump, loop->head->prev_bb);
-		  gcc_assert (new_bb = loop->head->prev_bb);
-		  break;
-		}
-	    }
+	    gcc_assert (!(e->flags & EDGE_FALLTHRU));
 	}
+#endif
 
       emit_insn_before (seq, BB_HEAD (loop->head));
       seq = emit_label_before (gen_label_rtx (), seq);
@@ -4631,6 +4762,85 @@ reorder_var_tracking_notes (void)
     }
 }
 
+/* On some silicon revisions, functions shorter than a certain number of cycles
+   can cause unpredictable behaviour.  Work around this by adding NOPs as
+   needed.  */
+static void
+workaround_rts_anomaly (void)
+{
+  rtx insn, first_insn = NULL_RTX;
+  int cycles = 4;
+
+  if (! ENABLE_WA_RETS)
+    return;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      rtx pat;
+
+      if (BARRIER_P (insn))
+	return;
+      
+      if (NOTE_P (insn) || LABEL_P (insn))
+	continue;
+
+      if (first_insn == NULL_RTX)
+	first_insn = insn;
+      pat = PATTERN (insn);
+      if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER
+	  || GET_CODE (pat) == ASM_INPUT || GET_CODE (pat) == ADDR_VEC
+	  || GET_CODE (pat) == ADDR_DIFF_VEC || asm_noperands (pat) >= 0)
+	continue;
+
+      if (CALL_P (insn))
+	return;
+
+      if (JUMP_P (insn))
+	{
+	  if (recog_memoized (insn) == CODE_FOR_return_internal)
+	    break;
+
+	  /* Nothing to worry about for direct jumps.  */
+	  if (!any_condjump_p (insn))
+	    return;
+	  if (cycles <= 1)
+	    return;
+	  cycles--;
+	}
+      else if (INSN_P (insn))
+	{
+	  rtx pat = PATTERN (insn);
+	  int this_cycles = 1;
+
+	  if (GET_CODE (pat) == PARALLEL)
+	    {
+	      if (push_multiple_operation (pat, VOIDmode)
+		  || pop_multiple_operation (pat, VOIDmode))
+		this_cycles = n_regs_to_save;
+	    }
+	  else
+	    {
+	      enum insn_code icode = recog_memoized (insn);
+	      if (icode == CODE_FOR_link)
+		this_cycles = 4;
+	      else if (icode == CODE_FOR_unlink)
+		this_cycles = 3;
+	      else if (icode == CODE_FOR_mulsi3)
+		this_cycles = 5;
+	    }
+	  if (this_cycles >= cycles)
+	    return;
+
+	  cycles -= this_cycles;
+	}
+    }
+  while (cycles > 0)
+    {
+      emit_insn_before (gen_nop (), first_insn);
+      cycles--;
+    }
+}
+
 /* Return an insn type for INSN that can be used by the caller for anomaly
    workarounds.  This differs from plain get_attr_type in that it handles
    SEQUENCEs.  */
@@ -4711,59 +4921,32 @@ find_load (rtx insn)
   return NULL_RTX;
 }
 
-/* We use the machine specific reorg pass for emitting CSYNC instructions
-   after conditional branches as needed.
-
-   The Blackfin is unusual in that a code sequence like
-     if cc jump label
-     r0 = (p0)
-   may speculatively perform the load even if the condition isn't true.  This
-   happens for a branch that is predicted not taken, because the pipeline
-   isn't flushed or stalled, so the early stages of the following instructions,
-   which perform the memory reference, are allowed to execute before the
-   jump condition is evaluated.
-   Therefore, we must insert additional instructions in all places where this
-   could lead to incorrect behavior.  The manual recommends CSYNC, while
-   VDSP seems to use NOPs (even though its corresponding compiler option is
-   named CSYNC).
-
-   When optimizing for speed, we emit NOPs, which seems faster than a CSYNC.
-   When optimizing for size, we turn the branch into a predicted taken one.
-   This may be slower due to mispredicts, but saves code size.  */
+/* Determine whether PAT is an indirect call pattern.  */
+static bool
+indirect_call_p (rtx pat)
+{
+  if (GET_CODE (pat) == PARALLEL)
+    pat = XVECEXP (pat, 0, 0);
+  if (GET_CODE (pat) == SET)
+    pat = SET_SRC (pat);
+  gcc_assert (GET_CODE (pat) == CALL);
+  pat = XEXP (pat, 0);
+  gcc_assert (GET_CODE (pat) == MEM);
+  pat = XEXP (pat, 0);
+  
+  return REG_P (pat);
+}
 
 static void
-bfin_reorg (void)
+workaround_speculation (void)
 {
   rtx insn, next;
   rtx last_condjump = NULL_RTX;
   int cycles_since_jump = INT_MAX;
+  int delay_added = 0;
 
-  /* We are freeing block_for_insn in the toplev to keep compatibility
-     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
-  compute_bb_for_insn ();
-
-  if (bfin_flag_schedule_insns2)
-    {
-      splitting_for_sched = 1;
-      split_all_insns ();
-      splitting_for_sched = 0;
-
-      timevar_push (TV_SCHED2);
-      schedule_insns ();
-      timevar_pop (TV_SCHED2);
-
-      /* Examine the schedule and insert nops as necessary for 64-bit parallel
-	 instructions.  */
-      bfin_gen_bundles ();
-    }
-
-  df_analyze ();
-
-  /* Doloop optimization */
-  if (cfun->machine->has_hardware_loops)
-    bfin_reorg_loops (dump_file);
-
-  if (! ENABLE_WA_SPECULATIVE_LOADS && ! ENABLE_WA_SPECULATIVE_SYNCS)
+  if (! ENABLE_WA_SPECULATIVE_LOADS && ! ENABLE_WA_SPECULATIVE_SYNCS
+      && ! ENABLE_WA_INDIRECT_CALLS)
     return;
 
   /* First pass: find predicted-false branches; if something after them
@@ -4771,6 +4954,7 @@ bfin_reorg (void)
   for (insn = get_insns (); insn; insn = next)
     {
       rtx pat;
+      int delay_needed = 0;
 
       next = find_next_insn_start (insn);
       
@@ -4789,63 +4973,78 @@ bfin_reorg (void)
 	      && ! cbranch_predicted_taken_p (insn))
 	    {
 	      last_condjump = insn;
+	      delay_added = 0;
 	      cycles_since_jump = 0;
 	    }
 	  else
 	    cycles_since_jump = INT_MAX;
 	}
+      else if (CALL_P (insn))
+	{
+	  if (cycles_since_jump < INT_MAX)
+	    cycles_since_jump++;
+	  if (indirect_call_p (pat) && ENABLE_WA_INDIRECT_CALLS)
+	    {
+	      delay_needed = 3;
+	    }
+	}
       else if (INSN_P (insn))
 	{
 	  rtx load_insn = find_load (insn);
 	  enum attr_type type = type_for_anomaly (insn);
-	  int delay_needed = 0;
+
 	  if (cycles_since_jump < INT_MAX)
 	    cycles_since_jump++;
 
 	  if (load_insn && ENABLE_WA_SPECULATIVE_LOADS)
 	    {
 	      if (trapping_loads_p (load_insn))
-		delay_needed = 3;
+		delay_needed = 4;
 	    }
 	  else if (type == TYPE_SYNC && ENABLE_WA_SPECULATIVE_SYNCS)
-	    delay_needed = 4;
+	    delay_needed = 3;
+	}
 
-	  if (delay_needed > cycles_since_jump)
+      if (delay_needed > cycles_since_jump
+	  && (delay_needed - cycles_since_jump) > delay_added)
+	{
+	  rtx pat1;
+	  int num_clobbers;
+	  rtx *op = recog_data.operand;
+
+	  delay_needed -= cycles_since_jump;
+
+	  extract_insn (last_condjump);
+	  if (optimize_size)
 	    {
-	      rtx pat;
-	      int num_clobbers;
-	      rtx *op = recog_data.operand;
-
-	      delay_needed -= cycles_since_jump;
-
-	      extract_insn (last_condjump);
-	      if (optimize_size)
-		{
-		  pat = gen_cbranch_predicted_taken (op[0], op[1], op[2],
-						     op[3]);
-		  cycles_since_jump = INT_MAX;
-		}
-	      else
-		/* Do not adjust cycles_since_jump in this case, so that
-		   we'll increase the number of NOPs for a subsequent insn
-		   if necessary.  */
-		pat = gen_cbranch_with_nops (op[0], op[1], op[2], op[3],
-					     GEN_INT (delay_needed));
-	      PATTERN (last_condjump) = pat;
-	      INSN_CODE (last_condjump) = recog (pat, insn, &num_clobbers);
+	      pat1 = gen_cbranch_predicted_taken (op[0], op[1], op[2],
+						 op[3]);
+	      cycles_since_jump = INT_MAX;
 	    }
+	  else
+	    {
+	      /* Do not adjust cycles_since_jump in this case, so that
+		 we'll increase the number of NOPs for a subsequent insn
+		 if necessary.  */
+	      pat1 = gen_cbranch_with_nops (op[0], op[1], op[2], op[3],
+					    GEN_INT (delay_needed));
+	      delay_added = delay_needed;
+	    }
+	  PATTERN (last_condjump) = pat1;
+	  INSN_CODE (last_condjump) = recog (pat1, insn, &num_clobbers);
+	}
+      if (CALL_P (insn))
+	{
+	  cycles_since_jump = INT_MAX;
+	  delay_added = 0;
 	}
     }
+
   /* Second pass: for predicted-true branches, see if anything at the
      branch destination needs extra nops.  */
-  if (! ENABLE_WA_SPECULATIVE_SYNCS)
-    return;
-
-  if (! ENABLE_WA_RETS)
-    return;
-
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
+      int cycles_since_jump;
       if (JUMP_P (insn)
 	  && any_condjump_p (insn)
 	  && (INSN_CODE (insn) == CODE_FOR_cbranch_predicted_taken
@@ -4853,10 +5052,14 @@ bfin_reorg (void)
 	{
 	  rtx target = JUMP_LABEL (insn);
 	  rtx label = target;
+	  rtx next_tgt;
+
 	  cycles_since_jump = 0;
-	  for (; target && cycles_since_jump < 3; target = NEXT_INSN (target))
+	  for (; target && cycles_since_jump < 3; target = next_tgt)
 	    {
 	      rtx pat;
+
+	      next_tgt = find_next_insn_start (target);
 
 	      if (NOTE_P (target) || BARRIER_P (target) || LABEL_P (target))
 		continue;
@@ -4869,12 +5072,18 @@ bfin_reorg (void)
 
 	      if (INSN_P (target))
 		{
+		  rtx load_insn = find_load (target);
 		  enum attr_type type = type_for_anomaly (target);
 		  int delay_needed = 0;
 		  if (cycles_since_jump < INT_MAX)
 		    cycles_since_jump++;
 
-		  if (type == TYPE_SYNC && ENABLE_WA_SPECULATIVE_SYNCS)
+		  if (load_insn && ENABLE_WA_SPECULATIVE_LOADS)
+		    {
+		      if (trapping_loads_p (load_insn))
+			delay_needed = 2;
+		    }
+		  else if (type == TYPE_SYNC && ENABLE_WA_SPECULATIVE_SYNCS)
 		    delay_needed = 2;
 
 		  if (delay_needed > cycles_since_jump)
@@ -4907,6 +5116,57 @@ bfin_reorg (void)
 	    }
 	}
     }
+}
+
+/* We use the machine specific reorg pass for emitting CSYNC instructions
+   after conditional branches as needed.
+
+   The Blackfin is unusual in that a code sequence like
+     if cc jump label
+     r0 = (p0)
+   may speculatively perform the load even if the condition isn't true.  This
+   happens for a branch that is predicted not taken, because the pipeline
+   isn't flushed or stalled, so the early stages of the following instructions,
+   which perform the memory reference, are allowed to execute before the
+   jump condition is evaluated.
+   Therefore, we must insert additional instructions in all places where this
+   could lead to incorrect behavior.  The manual recommends CSYNC, while
+   VDSP seems to use NOPs (even though its corresponding compiler option is
+   named CSYNC).
+
+   When optimizing for speed, we emit NOPs, which seems faster than a CSYNC.
+   When optimizing for size, we turn the branch into a predicted taken one.
+   This may be slower due to mispredicts, but saves code size.  */
+
+static void
+bfin_reorg (void)
+{
+  /* We are freeing block_for_insn in the toplev to keep compatibility
+     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
+  compute_bb_for_insn ();
+
+  if (bfin_flag_schedule_insns2)
+    {
+      splitting_for_sched = 1;
+      split_all_insns ();
+      splitting_for_sched = 0;
+
+      timevar_push (TV_SCHED2);
+      schedule_insns ();
+      timevar_pop (TV_SCHED2);
+
+      /* Examine the schedule and insert nops as necessary for 64-bit parallel
+	 instructions.  */
+      bfin_gen_bundles ();
+    }
+
+  df_analyze ();
+
+  /* Doloop optimization */
+  if (cfun->machine->has_hardware_loops)
+    bfin_reorg_loops (dump_file);
+
+  workaround_speculation ();
 
   if (bfin_flag_var_tracking)
     {
@@ -4915,7 +5175,10 @@ bfin_reorg (void)
       reorder_var_tracking_notes ();
       timevar_pop (TV_VAR_TRACKING);
     }
+
   df_finish_pass (false);
+
+  workaround_rts_anomaly ();
 }
 
 /* Handle interrupt_handler, exception_handler and nmi_handler function
@@ -5516,7 +5779,13 @@ static const struct builtin_description bdesc_2arg[] =
   { CODE_FOR_flag_mulhi, "__builtin_bfin_mult_fr1x16", BFIN_BUILTIN_MULT_1X16, MACFLAG_T },
   { CODE_FOR_flag_mulhi, "__builtin_bfin_multr_fr1x16", BFIN_BUILTIN_MULTR_1X16, MACFLAG_NONE },
   { CODE_FOR_flag_mulv2hi, "__builtin_bfin_mult_fr2x16", BFIN_BUILTIN_MULT_2X16, MACFLAG_T },
-  { CODE_FOR_flag_mulv2hi, "__builtin_bfin_multr_fr2x16", BFIN_BUILTIN_MULTR_2X16, MACFLAG_NONE }
+  { CODE_FOR_flag_mulv2hi, "__builtin_bfin_multr_fr2x16", BFIN_BUILTIN_MULTR_2X16, MACFLAG_NONE },
+
+  { CODE_FOR_mulhisi_ll, "__builtin_bfin_mulhisill", BFIN_BUILTIN_MULHISILL, -1 },
+  { CODE_FOR_mulhisi_lh, "__builtin_bfin_mulhisilh", BFIN_BUILTIN_MULHISILH, -1 },
+  { CODE_FOR_mulhisi_hl, "__builtin_bfin_mulhisihl", BFIN_BUILTIN_MULHISIHL, -1 },
+  { CODE_FOR_mulhisi_hh, "__builtin_bfin_mulhisihh", BFIN_BUILTIN_MULHISIHH, -1 }
+
 };
 
 static const struct builtin_description bdesc_1arg[] =
