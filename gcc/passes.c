@@ -1124,11 +1124,10 @@ pass_init_dump_file (struct opt_pass *pass)
       dump_file = dump_begin (pass->static_pass_number, &dump_flags);
       if (dump_file && current_function_decl)
 	{
-	  const char *dname, *aname;
-	  dname = lang_hooks.decl_printable_name (current_function_decl, 2);
+	  const char *aname;
 	  aname = (IDENTIFIER_POINTER
 		   (DECL_ASSEMBLER_NAME (current_function_decl)));
-	  fprintf (dump_file, "\n;; Function %s (%s)%s\n\n", dname, aname,
+	  fprintf (dump_file, "\n;; Function %s%s\n\n", aname,
 	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
 	     ? " (hot)"
 	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED

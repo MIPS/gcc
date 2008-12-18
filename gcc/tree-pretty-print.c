@@ -52,10 +52,10 @@ static void do_niy (pretty_printer *, const_tree);
 
 #define NIY do_niy(buffer,node)
 
-#define PRINT_FUNCTION_NAME(NODE)  pp_printf             \
-  (buffer, "%s", TREE_CODE (NODE) == NOP_EXPR ?              \
-   lang_hooks.decl_printable_name (TREE_OPERAND (NODE, 0), 1) : \
-   lang_hooks.decl_printable_name (NODE, 1))
+#define PRINT_FUNCTION_NAME(NODE)  pp_printf	\
+  (buffer, "%s", TREE_CODE (NODE) == NOP_EXPR	\
+   ? get_name (TREE_OPERAND (NODE, 0))		\
+   : get_name (NODE))
 
 static pretty_printer buffer;
 static int initialized = 0;

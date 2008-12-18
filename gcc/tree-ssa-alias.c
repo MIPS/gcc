@@ -840,7 +840,7 @@ dump_mem_ref_stats (FILE *file)
                   &num_unpartitioned);
 
   fprintf (file, "\nMemory reference statistics for %s\n\n", 
-	   lang_hooks.decl_printable_name (current_function_decl, 2));
+	   get_name (current_function_decl));
 
   fprintf (file, "Number of memory statements:     %ld\n",
            stats->num_mem_stmts);
@@ -3361,8 +3361,7 @@ create_global_var (void)
 static void 
 dump_alias_stats (FILE *file)
 {
-  const char *funcname
-    = lang_hooks.decl_printable_name (current_function_decl, 2);
+  const char *funcname = get_name (current_function_decl);
   fprintf (file, "\nAlias statistics for %s\n\n", funcname);
   fprintf (file, "Total alias queries:\t%u\n", alias_stats.alias_queries);
   fprintf (file, "Total alias mayalias results:\t%u\n", 
@@ -3390,8 +3389,7 @@ void
 dump_alias_info (FILE *file)
 {
   size_t i;
-  const char *funcname
-    = lang_hooks.decl_printable_name (current_function_decl, 2);
+  const char *funcname = get_name (current_function_decl);
   referenced_var_iterator rvi;
   tree var;
 
@@ -3542,8 +3540,7 @@ dump_points_to_info (FILE *file ATTRIBUTE_UNUSED)
   basic_block bb;
   gimple_stmt_iterator si;
   ssa_op_iter iter;
-  const char *fname =
-    lang_hooks.decl_printable_name (current_function_decl, 2);
+  const char *fname = get_name (current_function_decl);
   referenced_var_iterator rvi;
   tree var;
 

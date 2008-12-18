@@ -1,3 +1,20 @@
+2008-12-18  Diego Novillo  <dnovillo@google.com>
+
+	* tree-into-ssa.c (dump_tree_ssa): Use get_name instead
+	of lang_hooks.decl_printable_name.
+	* tree-pretty-print.c (PRINT_FUNCTION_NAME): Likewise.
+	* tree-stdarg.c (execute_optimize_stdarg): Likewise.
+	* tree-ssa-alias.c (dump_mem_ref_stats): Likewise.
+	(dump_alias_stats): Likewise.
+	(dump_alias_info): Likewise.
+	(dump_points_to_info): Likewise.
+	* tree-dfa.c (dump_dfa_stats): Likewise.
+	* tree-cfg.c (gimple_dump_cfg): Likewise.
+	(dump_cfg_stats): Likewise.
+	(gimple_cfg2vcg): Likewise.
+	(dump_function_to_file): Likewise.
+	* passes.c (pass_init_dump_file): Likewise.
+
 2008-12-17  Diego Novillo  <dnovillo@google.com>
 
 	* cgraphunit.c (cgraph_expand_function): Move call to
