@@ -2186,7 +2186,7 @@ static int function_num;
 /* Output FN.  */
 
 static void
-output_function (struct cgraph_node* node)
+output_function (struct cgraph_node *node)
 {
   tree function = node->decl;
   struct function *fn = DECL_STRUCT_FUNCTION (function);
@@ -2404,11 +2404,31 @@ output_constructors_and_inits (cgraph_node_set set)
   /* The terminator for the constructor.  */
   output_zero (ob);
 
+  /* Emit the alias pairs for the nodes in SET.  */
   for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p); i++)
     {
-      output_expr_operand (ob, p->decl);
-      LTO_DEBUG_TOKEN ("alias_target");
-      output_expr_operand (ob, p->target);
+      bool output_p = false;
+
+      /* We only output the alias set for VAR_DECLs and FUNCTION_DECLs
+	 whose cgraph node is in SET.  This prevents problems when
+	 finalizing aliases during LTRANS (where the alias ends up
+	 referring to a function undefined in this file.  */
+      if (TREE_CODE (p->decl) == VAR_DECL)
+	output_p = true;
+      else
+	{
+	  cgraph_node_set_iterator csi;
+	  gcc_assert (TREE_CODE (p->decl) == FUNCTION_DECL);
+	  csi = cgraph_node_set_find (set, cgraph_node (p->decl));
+	  output_p = !csi_end_p (csi);
+	}
+
+      if (output_p)
+	{
+	  output_expr_operand (ob, p->decl);
+	  LTO_DEBUG_TOKEN ("alias_target");
+	  output_expr_operand (ob, p->target);
+	}
     }
 
   output_zero (ob);
