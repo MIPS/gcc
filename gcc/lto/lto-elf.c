@@ -536,7 +536,7 @@ lto_elf_file_open (const char *filename, bool writable)
   elf_file->fd = open (filename, writable ? O_WRONLY|O_CREAT : O_RDONLY, 0666);
   if (elf_file->fd == -1)
     {
-      error ("could not open");
+      error ("could not open file %s", filename);
       goto fail;
     }
 

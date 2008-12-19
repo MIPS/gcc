@@ -92,7 +92,7 @@ awk=/usr/bin/awk
 uptime=/usr/bin/uptime
 getconf=/usr/bin/getconf
 par=1
-if [ -x $awk -a -x $uptime -a -x $getconf ] ; then
+if [ $verbose -ne 1 -a -x $awk -a -x $uptime -a -x $getconf ] ; then
   loadavg=$($uptime | $awk '{ l = $(NF - 2); print int (strtonum (l)); }')
   nprocs=$($getconf _NPROCESSORS_ONLN)
   if [ $loadavg -lt $nprocs ] ; then
