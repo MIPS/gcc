@@ -425,7 +425,7 @@ const char *cgraph_inline_failed_string (cgraph_inline_failed_t);
 static inline bool
 csi_end_p (cgraph_node_set_iterator csi)
 {
-  return csi.index >= VEC_length(cgraph_node_ptr, csi.set->nodes);
+  return csi.index >= VEC_length (cgraph_node_ptr, csi.set->nodes);
 }
 
 /* Advance iterator CSI. */

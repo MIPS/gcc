@@ -1,3 +1,8 @@
+2008-12-19  Diego Novillo  <dnovillo@google.com>
+
+	* cgraph.c (dump_cgraph_node): Show memory address of NODE.
+	* cgraph.h (csi_end_p): Tidy formatting.
+
 2008-12-18  Diego Novillo  <dnovillo@google.com>
 
 	* tree-into-ssa.c (dump_tree_ssa): Use get_name instead
