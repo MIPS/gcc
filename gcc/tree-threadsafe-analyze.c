@@ -780,12 +780,14 @@ get_canonical_expr (tree lock, tree base_obj, bool is_temp_expr)
                        auto_ptr<Mutex> mu;
                        mu->Lock();
 
-                     We would like to ignore the "operator->" and simply
-                     return mu. We also treat the "get" method of a smart
-                     pointer the same as operator->.  */
+                     We would like to ignore the "operator->" (or "operator.")
+                     and simply return mu. We also treat the "get" method of
+                     a smart pointer the same as operator->.  */
                   else if (fdecl
                            && ((DECL_NAME (fdecl)
                                 == maybe_get_identifier ("operator->"))
+                               || (DECL_NAME (fdecl)
+                                   == maybe_get_identifier ("operator."))
                                || (DECL_NAME (fdecl)
                                    == maybe_get_identifier ("get")))
                            && POINTER_TYPE_P (TREE_TYPE (lock))

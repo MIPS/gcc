@@ -1,3 +1,8 @@
+2008-12-18  Le-Chun Wu  <lcwu@google.com>
+
+	* tree-threadsafe-analyze.c (get_canonical_expr): Fix an issue in
+	handling lockable objects wrapped in smart pointers.
+
 2008-12-17  Le-Chun Wu  <lcwu@google.com>
 
 	* attribs.c (decl_attributes): Handle fake attribute argument list
