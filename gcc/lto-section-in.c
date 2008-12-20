@@ -431,7 +431,7 @@ lto_original_decl_name (struct lto_file_decl_data *decl_data,
   struct lto_renaming_slot r_slot;
 
   r_slot.new_name = name;
-  slot = (struct lto_renaming_slot *)htab_find (renaming_hash_table, &r_slot);
+  slot = (struct lto_renaming_slot *) htab_find (renaming_hash_table, &r_slot);
   if (slot)
     return slot->old_name;
   else

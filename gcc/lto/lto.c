@@ -501,7 +501,7 @@ free_section_data (struct lto_file_decl_data *file_data,
 static GTY (()) VEC(cgraph_node_set ,gc) *lto_cgraph_node_sets;
 
 /* Group cgrah nodes by input files.  This is used mainly for testing
-   right now. */
+   right now.  */
 
 static void
 lto_1_to_1_map (void)
@@ -527,9 +527,9 @@ lto_1_to_1_map (void)
 
   for (node = cgraph_nodes; node; node = node->next)
     {
-      /* We assume file_data are unique. */
+      /* We assume file_data are unique.  */
       file_data = node->local.lto_file_data;
-      gcc_assert(file_data);
+      gcc_assert (file_data);
 
       slot = pointer_map_contains (pmap, file_data);
       if (slot)

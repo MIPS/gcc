@@ -2454,7 +2454,7 @@ copy_function (struct cgraph_node *node)
     lto_get_section_name (LTO_section_function_body, name);
   size_t i, j;
   struct lto_in_decl_state *in_state;
-  struct lto_out_decl_state *out_state = lto_get_out_decl_state();
+  struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
 
   lto_begin_section (section_name);
   free (section_name);

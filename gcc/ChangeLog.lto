@@ -1,5 +1,10 @@
 2008-12-19  Diego Novillo  <dnovillo@google.com>
 
+	* lto-function-out.c (copy_function): Tidy.
+	* lto-section-in.c (lto_original_decl_name): Likewise.
+
+2008-12-19  Diego Novillo  <dnovillo@google.com>
+
 	* lto-function-out.c (output_function): Tidy formatting.
 	(output_constructors_and_inits): Only emit alias_pairs
 	for FUNCTION_DECLs whose node is in SET.
