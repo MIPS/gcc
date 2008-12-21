@@ -93,6 +93,23 @@
 	information to error messages.
 	(lto_symtab_merge_decl): Likewise.
 
+2008-12-09  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @142607.
+	
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2008-12-09  Diego Novillo  <dnovillo@google.com>
+
+	* lto-tree-tags.def: Move COND_EXPR to TREE_SINGLE_MECHANICAL_TRUE
+	handler.
+	* lto-function-in.c (input_expr_operand): Remove special
+	handler for COND_EXPR.
+	(input_tree_operand): Likewise.
+	* lto-tree-flags.def: Do not stream out TREE_OVERFLOW for
+	INTEGER_CST.
+
 2008-12-09  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (get_resolution): Fix handling of weak decls.
