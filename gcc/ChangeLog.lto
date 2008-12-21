@@ -1,3 +1,8 @@
+2008-12-21  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-in.c (input_constructors_or_inits): Remove
+	#if 0s from previously botched commit.
+
 2008-12-20  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-in.c (input_constructors_or_inits): When

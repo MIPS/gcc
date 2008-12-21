@@ -2316,16 +2316,13 @@ input_constructors_or_inits (struct data_in *data_in,
   tag = input_record_start (ib);
   while (tag)
     {
-#if 0
       const char *orig_name, *new_name;
-#endif
       alias_pair *p = VEC_safe_push (alias_pair, gc, alias_pairs, NULL);
       p->decl = input_expr_operand (ib, data_in, NULL, tag);
       LTO_DEBUG_TOKEN ("alias_target");
       tag = input_record_start (ib);
       p->target = input_expr_operand (ib, data_in, NULL, tag);
 
-#if 0
       /* If the target is a static object, we may have registered a
 	 new name for it to avoid clashes between statics coming from
 	 different files.  In that case, use the new name.  */
@@ -2333,7 +2330,6 @@ input_constructors_or_inits (struct data_in *data_in,
       new_name = lto_get_decl_name_mapping (data_in->file_data, orig_name);
       if (strcmp (orig_name, new_name) != 0)
 	p->target = get_identifier (new_name);
-#endif
 
       tag = input_record_start (ib);
     }
