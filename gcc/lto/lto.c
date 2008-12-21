@@ -83,7 +83,7 @@ lto_materialize_function (struct cgraph_node *node)
   const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)); 
 
   /* We may have renamed the declaration, e.g., a static function.  */
-  name = lto_original_decl_name (file_data, name);
+  name = lto_get_decl_name_mapping (file_data, name);
 
   data = lto_get_section_data (file_data, LTO_section_function_body,
 			       name, &len);

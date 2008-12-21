@@ -202,8 +202,8 @@ extern tree lto_input_integer (struct lto_input_block *, tree);
 extern htab_t lto_create_renaming_table (void);
 extern void lto_record_renamed_decl (struct lto_file_decl_data *,
 				     const char *, const char *);
-extern const char *lto_original_decl_name (struct lto_file_decl_data *,
-					   const char *);
+extern const char *lto_get_decl_name_mapping (struct lto_file_decl_data *,
+					      const char *);
 extern struct lto_in_decl_state *lto_new_in_decl_state (void);
 extern void lto_delete_in_decl_state (struct lto_in_decl_state *);
 extern hashval_t lto_hash_in_decl_state (const void *);

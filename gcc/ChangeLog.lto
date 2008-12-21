@@ -1,3 +1,15 @@
+2008-12-20  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-in.c (input_constructors_or_inits): When
+	reading alias pairs, rename the target of the alias if a
+	new name had been registered for it.
+	(input_function_decl): Also register the mapping
+	NEW_ASSEMBLER_NAME -> OLD_ASSEMBLER_NAME.
+	* lto-section-in.c (lto_record_renamed_decl): Fix documentation.
+	(lto_get_decl_name_mapping): Rename from lto_original_decl_name. 
+	Fix documentation.
+	Update all users.
+
 2008-12-19  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (copy_function): Tidy.

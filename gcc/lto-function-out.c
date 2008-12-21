@@ -2460,7 +2460,7 @@ copy_function (struct cgraph_node *node)
   free (section_name);
 
   /* We may have renamed the declaration, e.g., a static function.  */
-  name = lto_original_decl_name (file_data, name);
+  name = lto_get_decl_name_mapping (file_data, name);
 
   data = lto_get_section_data (file_data, LTO_section_function_body,
                                name, &len);

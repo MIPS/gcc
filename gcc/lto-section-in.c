@@ -393,7 +393,8 @@ lto_create_renaming_table (void)
   return htab_create (37, hash_name, eq_name, renaming_slot_free);
 }
 
-/* Record a declaration renaming.  */
+/* Record a declaration name mapping OLD_NAME -> NEW_NAME.  DECL_DATA
+   holds the renaming hash table to use.  */
 
 void
 lto_record_renamed_decl (struct lto_file_decl_data *decl_data,
@@ -418,13 +419,14 @@ lto_record_renamed_decl (struct lto_file_decl_data *decl_data,
     gcc_unreachable ();
 }
 
-/* Return the original name of a declaration.  If the declaration was not
-   renamed, then this is the name we were given, else it is the name that
-   the declaration was previously renamed to.  */
+
+/* Given a string NAME, return the string that it has been mapped to
+   by lto_record_renamed_decl.  If NAME was not renamed, it is
+   returned unchanged.  DECL_DATA holds the renaming hash table to use.  */
 
 const char *
-lto_original_decl_name (struct lto_file_decl_data *decl_data,
-			const char *name)
+lto_get_decl_name_mapping (struct lto_file_decl_data *decl_data,
+			   const char *name)
 {
   htab_t renaming_hash_table = decl_data->renaming_hash_table;
   struct lto_renaming_slot *slot;
