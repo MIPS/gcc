@@ -1,3 +1,12 @@
+2008-12-22  Rafael Avila de Espindola  <espindola@google.com>
+
+	* Makefile.am (gcc_version, target_noncanonical, libexecsubdir): New.
+	(lib_LTLIBRARIES): Rename to libexecsub_LTLIBRARIES.
+	* Makefile.in: Regenerate.
+	* acinclude.m4: Include ../config/acx.m4 and ../lt~obsolete.m4
+	* configure: Regenerate.
+	* configure.ac: Add AC_SUBST(target_noncanonical).
+
 2008-12-08  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-plugin.c: Include stdbool.h.

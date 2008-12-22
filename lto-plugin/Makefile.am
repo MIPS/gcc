@@ -1,3 +1,7 @@
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
+target_noncanonical := @target_noncanonical@
+libexecsubdir := $(libexecdir)/gcc/$(target_noncanonical)/$(gcc_version)
+
 AM_CPPFLAGS = -I$(top_srcdir)/../include
 
 AM_CFLAGS = -Wall -Werror
@@ -9,7 +13,7 @@ ltosymtab_LDADD = -ldl -lelf
 #hack to use common.c in both targets
 ltosymtab_CFLAGS = $(AM_CFLAGS)
 
-lib_LTLIBRARIES = liblto_plugin.la
+libexecsub_LTLIBRARIES = liblto_plugin.la
 
 liblto_plugin_la_SOURCES = lto-plugin.c $(top_srcdir)/../gcc/lto/common.c
 liblto_plugin_la_LIBADD = -lelf
