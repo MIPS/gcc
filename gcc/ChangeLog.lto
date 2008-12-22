@@ -1,3 +1,9 @@
+2008-12-22  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_alias_pair_p): New.
+	Retrieve the cgraph node for the target of the alias pair.
+	(output_constructors_and_inits): Call it.
+
 2008-12-21  Diego Novillo  <dnovillo@google.com>
 
 	* toplev.c (compile_file): Emit gnu_lto_v1 in .comm.

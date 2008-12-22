@@ -2368,6 +2368,35 @@ output_all_constructors_and_inits (struct output_block *ob)
     }
 }
 
+
+/* Return true if alias pair P belongs to the set of cgraph nodes in
+   SET.  If P is a an alias for a VAR_DECL, it can always be emitted.
+   However, for FUNCTION_DECL aliases, we should only output the pair
+   if it belongs to a function whose cgraph node is in SET.
+   Otherwise, the LTRANS phase will get into trouble when finalizing
+   aliases because the alias will refer to a function not defined in
+   the file processed by LTRANS.  */
+
+static bool
+output_alias_pair_p (alias_pair *p, cgraph_node_set set)
+{
+  cgraph_node_set_iterator csi;
+  struct cgraph_node *target_node;
+
+  /* Always emit VAR_DECLs.  FIXME lto, we should probably only emit
+     those VAR_DECLs that are instantiated in this file partition, but
+     we have no easy way of knowing this based on SET.  */
+  if (TREE_CODE (p->decl) == VAR_DECL)
+    return true;
+
+  /* Check if the assembler name for P->TARGET has its cgraph node in SET.  */
+  gcc_assert (TREE_CODE (p->decl) == FUNCTION_DECL);
+  target_node = cgraph_node_for_asm (p->target);
+  csi = cgraph_node_set_find (set, target_node);
+  return (!csi_end_p (csi));
+}
+
+
 /* Output constructors and inits of all vars.  SET is the current
    cgraph node set being output.  */
 
@@ -2407,23 +2436,7 @@ output_constructors_and_inits (cgraph_node_set set)
   /* Emit the alias pairs for the nodes in SET.  */
   for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p); i++)
     {
-      bool output_p = false;
-
-      /* We only output the alias set for VAR_DECLs and FUNCTION_DECLs
-	 whose cgraph node is in SET.  This prevents problems when
-	 finalizing aliases during LTRANS (where the alias ends up
-	 referring to a function undefined in this file.  */
-      if (TREE_CODE (p->decl) == VAR_DECL)
-	output_p = true;
-      else
-	{
-	  cgraph_node_set_iterator csi;
-	  gcc_assert (TREE_CODE (p->decl) == FUNCTION_DECL);
-	  csi = cgraph_node_set_find (set, cgraph_node (p->decl));
-	  output_p = !csi_end_p (csi);
-	}
-
-      if (output_p)
+      if (output_alias_pair_p (p, set))
 	{
 	  output_expr_operand (ob, p->decl);
 	  LTO_DEBUG_TOKEN ("alias_target");
