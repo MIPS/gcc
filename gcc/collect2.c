@@ -905,6 +905,9 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
         }
       obstack_free (&temporary_obstack, temporary_firstobj);
 
+      if (debug)
+	num_lto_c_args++;
+
       /* Increment the argument count by the number of initial
 	 arguments added below.  */
       num_lto_c_args += 9;
@@ -925,6 +928,9 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
 	  *lto_c_ptr++ = xstrdup (s);
         }
       obstack_free (&temporary_obstack, temporary_firstobj);
+
+      if (debug)
+	*lto_c_ptr++ = xstrdup ("-debug");
 
       /* Add LTO objects to the wrapper command line.  */
       for (list = lto_objects.first; list; list = list->next)

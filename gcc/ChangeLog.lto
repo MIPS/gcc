@@ -1,3 +1,10 @@
+2008-12-23  Simon Baldwin  <simonb@google.com>
+
+	* collect2.c (maybe_run_lto_and_relink): Pass on any -debug flag
+	to lto-wrapper.
+	* lto-wrapper.c (maybe_unlink_file): New.
+	* (run_gcc): Call maybe_unlink_file() for ltrans_output_file.
+
 2008-12-22  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_alias_pair_p): New.

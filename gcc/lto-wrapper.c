@@ -173,6 +173,20 @@ fork_execute (char **argv)
   collect_wait (argv[0], pex);
 }
 
+/* Unlink a temporary LTRANS file unless requested otherwise.  */
+
+static void
+maybe_unlink_file (const char *file)
+{
+  if (! debug)
+    {
+      if (unlink_if_ordinary (file))
+	fatal_perror ("deleting LTRANS file %s", file);
+    }
+  else
+    fprintf (stderr, "[Leaving LTRANS %s]\n", file);
+}
+
 /* Execute gcc. ARGC is the number of arguments. ARGV contains the arguments. */
 
 static void
@@ -275,6 +289,7 @@ run_gcc (unsigned argc, char *argv[])
       while ((c = getc (stream)) != EOF)
 	putc (c, stdout);
       fclose (stream);
+      maybe_unlink_file (ltrans_output_file);
       free (ltrans_output_file);
       free (list_option_full);
     }
