@@ -1,3 +1,9 @@
+2008-12-23  Rafael Avila de Espindola  <espindola@google.com>
+
+	* Makefile.am (AM_CPPFLAGS): Add -D_LARGEFILE_SOURCE
+	-D_FILE_OFFSET_BITS=64
+	* Makefile.in: Regenerate
+
 2008-12-22  Rafael Avila de Espindola  <espindola@google.com>
 
 	* Makefile.am (gcc_version, target_noncanonical, libexecsubdir): New.

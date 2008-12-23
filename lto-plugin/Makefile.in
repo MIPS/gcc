@@ -213,7 +213,9 @@ target_noncanonical := @target_noncanonical@
 target_subdir = @target_subdir@
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 libexecsubdir := $(libexecdir)/gcc/$(target_noncanonical)/$(gcc_version)
-AM_CPPFLAGS = -I$(top_srcdir)/../include
+AM_CPPFLAGS = -I$(top_srcdir)/../include -D_LARGEFILE_SOURCE \
+	-D_FILE_OFFSET_BITS=64
+
 AM_CFLAGS = -Wall -Werror
 ltosymtab_SOURCES = lto-symtab.c $(top_srcdir)/../gcc/lto/common.c
 ltosymtab_LDADD = -ldl -lelf

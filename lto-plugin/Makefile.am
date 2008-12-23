@@ -2,7 +2,8 @@ gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 target_noncanonical := @target_noncanonical@
 libexecsubdir := $(libexecdir)/gcc/$(target_noncanonical)/$(gcc_version)
 
-AM_CPPFLAGS = -I$(top_srcdir)/../include
+AM_CPPFLAGS = -I$(top_srcdir)/../include -D_LARGEFILE_SOURCE \
+	-D_FILE_OFFSET_BITS=64
 
 AM_CFLAGS = -Wall -Werror
 
