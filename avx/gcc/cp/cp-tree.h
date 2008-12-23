@@ -89,6 +89,7 @@ framework extensions, you must include this file before toplev.h, not after.
       DECL_INITIALIZED_P (in VAR_DECL)
       TYPENAME_IS_CLASS_P (in TYPENAME_TYPE)
       STMT_IS_FULL_EXPR_P (in _STMT)
+      TARGET_EXPR_LIST_INIT_P (in TARGET_EXPR)
    2: IDENTIFIER_OPNAME_P (in IDENTIFIER_NODE)
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
@@ -174,9 +175,6 @@ framework extensions, you must include this file before toplev.h, not after.
      This is an expression with POINTER_TYPE that gives the value
      to which the vptr should be initialized.  Use get_vtbl_decl_for_binfo
      to extract the VAR_DECL for the complete vtable.
-
-   DECL_ARGUMENTS
-     For a VAR_DECL this is DECL_ANON_UNION_ELEMS.
 
    DECL_VINDEX
      This field is NULL for a non-virtual function.  For a virtual
@@ -319,8 +317,8 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 #define DECL_MAIN_P(NODE)				\
    (DECL_EXTERN_C_FUNCTION_P (NODE)			\
     && DECL_NAME (NODE) != NULL_TREE			\
-    && MAIN_NAME_P (DECL_NAME (NODE)))                  \
-    && flag_hosted
+    && MAIN_NAME_P (DECL_NAME (NODE))			\
+    && flag_hosted)
 
 /* The overloaded FUNCTION_DECL.  */
 #define OVL_FUNCTION(NODE) \
@@ -1629,7 +1627,7 @@ struct lang_decl_flags GTY(())
   unsigned this_thunk_p : 1;
   unsigned repo_available_p : 1;
   unsigned hidden_friend_p : 1;
-  unsigned threadprivate_p : 1;
+  unsigned threadprivate_or_deleted_p : 1;
   unsigned defaulted_p : 1;
 
   union lang_decl_u {
@@ -1981,8 +1979,7 @@ struct lang_decl GTY(())
 
 /* Nonzero for a DECL means that this member is a non-static member.  */
 #define DECL_NONSTATIC_MEMBER_P(NODE)		\
-  ((TREE_CODE (NODE) == FUNCTION_DECL		\
-    && DECL_NONSTATIC_MEMBER_FUNCTION_P (NODE))	\
+  (DECL_NONSTATIC_MEMBER_FUNCTION_P (NODE)	\
    || TREE_CODE (NODE) == FIELD_DECL)
 
 /* Nonzero for _DECL means that this member object type
@@ -2645,11 +2642,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 /* Nonzero if DECL has been declared threadprivate by
    #pragma omp threadprivate.  */
 #define CP_DECL_THREADPRIVATE_P(DECL) \
-  (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (DECL))->decl_flags.threadprivate_p)
+  (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (DECL))->decl_flags.threadprivate_or_deleted_p)
 
 /* Nonzero if DECL was declared with '= delete'.  */
 #define DECL_DELETED_FN(DECL) \
-  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.threadprivate_p)
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.threadprivate_or_deleted_p)
 
 /* Nonzero if DECL was declared with '= default'.  */
 #define DECL_DEFAULTED_FN(DECL) \
@@ -2828,7 +2825,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define CLASSTYPE_NON_AGGREGATE(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->non_aggregate)
 #define TYPE_NON_AGGREGATE_CLASS(NODE) \
-  (MAYBE_CLASS_TYPE_P (NODE) && CLASSTYPE_NON_AGGREGATE (NODE))
+  (CLASS_TYPE_P (NODE) && CLASSTYPE_NON_AGGREGATE (NODE))
 
 /* Nonzero if there is a user-defined X::op=(x&) for this class.  */
 #define TYPE_HAS_COMPLEX_ASSIGN_REF(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_complex_assign_ref)
@@ -3467,6 +3464,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define TARGET_EXPR_IMPLICIT_P(NODE) \
   TREE_LANG_FLAG_0 (TARGET_EXPR_CHECK (NODE))
 
+/* True if this TARGET_EXPR is the result of list-initialization of a
+   temporary.  */
+#define TARGET_EXPR_LIST_INIT_P(NODE) \
+  TREE_LANG_FLAG_1 (TARGET_EXPR_CHECK (NODE))
+
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types {
   none_type = 0, /* Not a tag type.  */
@@ -3558,20 +3560,22 @@ typedef enum linkage_kind {
 
 /* Bitmask flags to control type substitution.  */
 typedef enum tsubst_flags_t {
-  tf_none = 0,			/* nothing special */
-  tf_error = 1 << 0,		/* give error messages  */
-  tf_warning = 1 << 1,		/* give warnings too  */
-  tf_ignore_bad_quals = 1 << 2,	/* ignore bad cvr qualifiers */
-  tf_keep_type_decl = 1 << 3,	/* retain typedef type decls
-				   (make_typename_type use) */
-  tf_ptrmem_ok = 1 << 4,	/* pointers to member ok (internal
-				   instantiate_type use) */
-  tf_user = 1 << 5,		/* found template must be a user template
-				   (lookup_template_class use) */
-  tf_conv = 1 << 6,		/* We are determining what kind of
-				   conversion might be permissible,
-				   not actually performing the
-				   conversion.  */
+  tf_none = 0,			 /* nothing special */
+  tf_error = 1 << 0,		 /* give error messages  */
+  tf_warning = 1 << 1,	 	 /* give warnings too  */
+  tf_ignore_bad_quals = 1 << 2,	 /* ignore bad cvr qualifiers */
+  tf_keep_type_decl = 1 << 3,	 /* retain typedef type decls
+				    (make_typename_type use) */
+  tf_ptrmem_ok = 1 << 4,	 /* pointers to member ok (internal
+				    instantiate_type use) */
+  tf_user = 1 << 5,		 /* found template must be a user template
+				    (lookup_template_class use) */
+  tf_conv = 1 << 6,		 /* We are determining what kind of
+				    conversion might be permissible,
+				    not actually performing the
+				    conversion.  */
+  tf_no_access_control = 1 << 7, /* Do not perform access checks, even
+				    when issuing other errors.   */
   /* Convenient substitution flags combinations.  */
   tf_warning_or_error = tf_warning | tf_error
 } tsubst_flags_t;
@@ -3863,6 +3867,12 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define SF_INCLASS_INLINE    2  /* The function is an inline, defined
 				   in the class body.  */
 
+/* Used with start_decl's initialized parameter.  */
+#define SD_UNINITIALIZED     0
+#define SD_INITIALIZED       1
+#define SD_DEFAULTED         2
+#define SD_DELETED           3
+
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, or if TYPE2
    is derived from TYPE1, or if TYPE2 is a pointer (reference) to a
    class derived from the type pointed to (referred to) by TYPE1.  */
@@ -4086,7 +4096,7 @@ struct cp_declarator {
   /* For all but cdk_id and cdk_error, the contained declarator.  For
      cdk_id and cdk_error, guaranteed to be NULL.  */
   cp_declarator *declarator;
-  location_t id_loc; /* Currently only set for cdk_id. */
+  location_t id_loc; /* Currently only set for cdk_id and cdk_function. */
   union {
     /* For identifiers.  */
     struct {
@@ -4102,12 +4112,14 @@ struct cp_declarator {
     } id;
     /* For functions.  */
     struct {
-      /* The parameters to the function.  */
-      cp_parameter_declarator *parameters;
+      /* The parameters to the function as a TREE_LIST of decl/default.  */
+      tree parameters;
       /* The cv-qualifiers for the function.  */
       cp_cv_quals qualifiers;
       /* The exception-specification for the function.  */
       tree exception_specification;
+      /* The late-specified return type, if any.  */
+      tree late_return_type;
     } function;
     /* For arrays.  */
     struct {
@@ -4364,6 +4376,7 @@ extern tree register_dtor_fn			(tree);
 extern tmpl_spec_kind current_tmpl_spec_kind	(int);
 extern tree cp_fname_init			(const char *, tree *);
 extern tree cxx_builtin_function		(tree decl);
+extern tree cxx_builtin_function_ext_scope	(tree decl);
 extern tree check_elaborated_type_specifier	(enum tag_types, tree, bool);
 extern void warn_extern_redeclared_static	(tree, tree);
 extern const char *cxx_comdat_group		(tree);
@@ -4371,6 +4384,9 @@ extern bool cp_missing_noreturn_ok_p		(tree);
 extern void initialize_artificial_var		(tree, tree);
 extern tree check_var_type			(tree, tree);
 extern tree reshape_init (tree, tree);
+
+extern bool defer_mark_used_calls;
+extern GTY(()) VEC(tree, gc) *deferred_mark_used_calls;
 
 /* in decl2.c */
 extern bool check_java_method			(tree);
@@ -4460,7 +4476,6 @@ extern tree build_new				(tree, tree, tree, tree, int,
                                                  tsubst_flags_t);
 extern tree build_vec_init			(tree, tree, tree, bool, int,
                                                  tsubst_flags_t);
-extern tree build_default_init                  (tree, tree);
 extern tree build_delete			(tree, tree,
 						 special_function_kind,
 						 int, int);
@@ -4521,6 +4536,11 @@ extern void end_specialization			(void);
 extern void begin_explicit_instantiation	(void);
 extern void end_explicit_instantiation		(void);
 extern tree check_explicit_specialization	(tree, tree, int, int);
+extern tree make_auto				(void);
+extern tree do_auto_deduction			(tree, tree, tree);
+extern tree type_uses_auto			(tree);
+extern tree splice_late_return_type		(tree, tree);
+extern bool is_auto				(const_tree);
 extern tree process_template_parm		(tree, tree, bool, bool);
 extern tree end_template_parm_list		(tree);
 extern void end_template_decl			(void);
@@ -4794,6 +4814,7 @@ extern bool cxx_omp_create_clause_info		(tree, tree, bool, bool, bool);
 extern tree baselink_for_fns                    (tree);
 extern void finish_static_assert                (tree, tree, location_t,
                                                  bool);
+extern tree describable_type			(tree);
 extern tree finish_decltype_type                (tree, bool);
 extern tree finish_trait_expr			(enum cp_trait_kind, tree, tree);
 
@@ -4903,7 +4924,7 @@ extern tree build_x_indirect_ref		(tree, const char *,
                                                  tsubst_flags_t);
 extern tree cp_build_indirect_ref		(tree, const char *,
                                                  tsubst_flags_t);
-extern tree build_array_ref			(tree, tree);
+extern tree build_array_ref			(tree, tree, location_t);
 extern tree get_member_function_from_ptrfunc	(tree *, tree);
 extern tree cp_build_function_call              (tree, tree, tsubst_flags_t);
 extern tree build_x_binary_op			(enum tree_code, tree,
@@ -4945,11 +4966,13 @@ extern void cp_apply_type_quals_to_decl		(int, tree);
 extern tree build_ptrmemfunc1			(tree, tree, tree);
 extern void expand_ptrmemfunc_cst		(tree, tree *, tree *);
 extern tree type_after_usual_arithmetic_conversions (tree, tree);
+extern tree common_pointer_type                 (tree, tree);
 extern tree composite_pointer_type		(tree, tree, tree, tree,
 						 const char*, tsubst_flags_t);
 extern tree merge_types				(tree, tree);
 extern tree check_return_expr			(tree, bool *);
-extern tree cp_build_binary_op                  (enum tree_code, tree, tree,
+extern tree cp_build_binary_op                  (location_t,
+						 enum tree_code, tree, tree,
 						 tsubst_flags_t);
 #define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)
 extern tree build_ptrmemfunc_access_expr	(tree, tree);

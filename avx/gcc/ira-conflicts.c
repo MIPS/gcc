@@ -114,7 +114,8 @@ build_conflict_bit_table (void)
 	  EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, j)
 	    {
 	      live_a = ira_allocnos[j];
-	      if (cover_class == ALLOCNO_COVER_CLASS (live_a)
+	      if (ira_reg_classes_intersect_p
+		  [cover_class][ALLOCNO_COVER_CLASS (live_a)]
 		  /* Don't set up conflict for the allocno with itself.  */
 		  && num != (int) j)
 		{
@@ -181,7 +182,6 @@ get_dup_num (int op_num, bool use_commut_op_p)
   if (op_num < 0 || recog_data.n_alternatives == 0)
     return -1;
   op = recog_data.operand[op_num];
-  ira_assert (REG_P (op));
   commut_op_used_p = true;
   if (use_commut_op_p)
     {
@@ -295,6 +295,32 @@ get_dup (int op_num, bool use_commut_op_p)
     return recog_data.operand[n];
 }
 
+/* Check that X is REG or SUBREG of REG.  */
+#define REG_SUBREG_P(x)							\
+   (REG_P (x) || (GET_CODE (x) == SUBREG && REG_P (SUBREG_REG (x))))
+
+/* Return X if X is a REG, otherwise it should be SUBREG of REG and
+   the function returns the reg in this case.  *OFFSET will be set to
+   0 in the first case or the regno offset in the first case.  */
+static rtx
+go_through_subreg (rtx x, int *offset)
+{
+  rtx reg;
+
+  *offset = 0;
+  if (REG_P (x))
+    return x;
+  ira_assert (GET_CODE (x) == SUBREG);
+  reg = SUBREG_REG (x);
+  ira_assert (REG_P (reg));
+  if (REGNO (reg) < FIRST_PSEUDO_REGISTER)
+    *offset = subreg_regno_offset (REGNO (reg), GET_MODE (reg),
+				   SUBREG_BYTE (x), GET_MODE (x));
+  else
+    *offset = (SUBREG_BYTE (x) / REGMODE_NATURAL_SIZE (GET_MODE (x)));
+  return reg;
+}
+
 /* Process registers REG1 and REG2 in move INSN with execution
    frequency FREQ.  The function also processes the registers in a
    potential move insn (INSN == NULL in this case) with frequency
@@ -304,60 +330,83 @@ get_dup (int op_num, bool use_commut_op_p)
    registers.  When nothing is changed, the function returns
    FALSE.  */
 static bool
-process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
+process_regs_for_copy (rtx reg1, rtx reg2, bool constraint_p,
+		       rtx insn, int freq)
 {
-  int hard_regno, cost, index;
+  int allocno_preferenced_hard_regno, cost, index, offset1, offset2;
+  bool only_regs_p;
   ira_allocno_t a;
   enum reg_class rclass, cover_class;
   enum machine_mode mode;
   ira_copy_t cp;
+  ira_loop_tree_node_t parent;
 
-  gcc_assert (REG_P (reg1) && REG_P (reg2));
+  gcc_assert (REG_SUBREG_P (reg1) && REG_SUBREG_P (reg2));
+  only_regs_p = REG_P (reg1) && REG_P (reg2);
+  reg1 = go_through_subreg (reg1, &offset1);
+  reg2 = go_through_subreg (reg2, &offset2);
+  /* Set up hard regno preferenced by allocno.  If allocno gets the
+     hard regno the copy (or potential move) insn will be removed.  */
   if (HARD_REGISTER_P (reg1))
     {
       if (HARD_REGISTER_P (reg2))
 	return false;
-      hard_regno = REGNO (reg1);
+      allocno_preferenced_hard_regno = REGNO (reg1) + offset1 - offset2;
       a = ira_curr_regno_allocno_map[REGNO (reg2)];
     }
   else if (HARD_REGISTER_P (reg2))
     {
-      hard_regno = REGNO (reg2);
+      allocno_preferenced_hard_regno = REGNO (reg2) + offset2 - offset1;
       a = ira_curr_regno_allocno_map[REGNO (reg1)];
     }
   else if (!CONFLICT_ALLOCNO_P (ira_curr_regno_allocno_map[REGNO (reg1)],
-				ira_curr_regno_allocno_map[REGNO (reg2)]))
+				ira_curr_regno_allocno_map[REGNO (reg2)])
+	   && offset1 == offset2)
     {
       cp = ira_add_allocno_copy (ira_curr_regno_allocno_map[REGNO (reg1)],
 				 ira_curr_regno_allocno_map[REGNO (reg2)],
-				 freq, insn, ira_curr_loop_tree_node);
+				 freq, constraint_p, insn,
+				 ira_curr_loop_tree_node);
       bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num); 
       return true;
     }
   else
     return false;
-  rclass = REGNO_REG_CLASS (hard_regno);
+  if (! IN_RANGE (allocno_preferenced_hard_regno, 0, FIRST_PSEUDO_REGISTER - 1))
+    /* Can not be tied.  */
+    return false;
+  rclass = REGNO_REG_CLASS (allocno_preferenced_hard_regno);
   mode = ALLOCNO_MODE (a);
   cover_class = ALLOCNO_COVER_CLASS (a);
-  if (! ira_class_subset_p[rclass][cover_class])
-    return false;
-  if (reg_class_size[rclass] <= (unsigned) CLASS_MAX_NREGS (rclass, mode))
+  if (only_regs_p && insn != NULL_RTX
+      && reg_class_size[rclass] <= (unsigned) CLASS_MAX_NREGS (rclass, mode))
     /* It is already taken into account in ira-costs.c.  */
     return false;
-  index = ira_class_hard_reg_index[cover_class][hard_regno];
+  index = ira_class_hard_reg_index[cover_class][allocno_preferenced_hard_regno];
   if (index < 0)
+    /* Can not be tied.  It is not in the cover class.  */
     return false;
   if (HARD_REGISTER_P (reg1))
     cost = ira_register_move_cost[mode][cover_class][rclass] * freq;
   else
     cost = ira_register_move_cost[mode][rclass][cover_class] * freq;
-  ira_allocate_and_set_costs
-    (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
-     ALLOCNO_COVER_CLASS_COST (a));
-  ira_allocate_and_set_costs
-    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a), cover_class, 0);
-  ALLOCNO_HARD_REG_COSTS (a)[index] -= cost;
-  ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index] -= cost;
+  for (;;)
+    {
+      ira_allocate_and_set_costs
+	(&ALLOCNO_HARD_REG_COSTS (a), cover_class,
+	 ALLOCNO_COVER_CLASS_COST (a));
+      ira_allocate_and_set_costs
+	(&ALLOCNO_CONFLICT_HARD_REG_COSTS (a), cover_class, 0);
+      ALLOCNO_HARD_REG_COSTS (a)[index] -= cost;
+      ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index] -= cost;
+      if (ALLOCNO_HARD_REG_COSTS (a)[index] < ALLOCNO_COVER_CLASS_COST (a))
+	ALLOCNO_COVER_CLASS_COST (a) = ALLOCNO_HARD_REG_COSTS (a)[index];
+      if (ALLOCNO_CAP (a) != NULL)
+	a = ALLOCNO_CAP (a);
+      else if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) == NULL
+	       || (a = parent->regno_allocno_map[ALLOCNO_REGNO (a)]) == NULL)
+	break;
+    }
   return true;
 }
 
@@ -371,16 +420,16 @@ process_reg_shuffles (rtx reg, int op_num, int freq)
   int i;
   rtx another_reg;
 
-  gcc_assert (REG_P (reg));
+  gcc_assert (REG_SUBREG_P (reg));
   for (i = 0; i < recog_data.n_operands; i++)
     {
       another_reg = recog_data.operand[i];
       
-      if (!REG_P (another_reg) || op_num == i
+      if (!REG_SUBREG_P (another_reg) || op_num == i
 	  || recog_data.operand_type[i] != OP_OUT)
 	continue;
       
-      process_regs_for_copy (reg, another_reg, NULL_RTX, freq);
+      process_regs_for_copy (reg, another_reg, false, NULL_RTX, freq);
     }
 }
 
@@ -399,18 +448,23 @@ add_insn_allocno_copies (rtx insn)
   if (freq == 0)
     freq = 1;
   if ((set = single_set (insn)) != NULL_RTX
-      && REG_P (SET_DEST (set)) && REG_P (SET_SRC (set))
+      && REG_SUBREG_P (SET_DEST (set)) && REG_SUBREG_P (SET_SRC (set))
       && ! side_effects_p (set)
-      && find_reg_note (insn, REG_DEAD, SET_SRC (set)) != NULL_RTX)
-    process_regs_for_copy (SET_DEST (set), SET_SRC (set), insn, freq);
+      && find_reg_note (insn, REG_DEAD,
+			REG_P (SET_SRC (set))
+			? SET_SRC (set)
+			: SUBREG_REG (SET_SRC (set))) != NULL_RTX)
+    process_regs_for_copy (SET_DEST (set), SET_SRC (set), false, insn, freq);
   else
     {
       extract_insn (insn);
       for (i = 0; i < recog_data.n_operands; i++)
 	{
 	  operand = recog_data.operand[i];
-	  if (REG_P (operand)
-	      && find_reg_note (insn, REG_DEAD, operand) != NULL_RTX)
+	  if (REG_SUBREG_P (operand)
+	      && find_reg_note (insn, REG_DEAD,
+				REG_P (operand)
+				? operand : SUBREG_REG (operand)) != NULL_RTX)
 	    {
 	      str = recog_data.constraints[i];
 	      while (*str == ' ' && *str == '\t')
@@ -418,8 +472,9 @@ add_insn_allocno_copies (rtx insn)
 	      bound_p = false;
 	      for (j = 0, commut_p = false; j < 2; j++, commut_p = true)
 		if ((dup = get_dup (i, commut_p)) != NULL_RTX
-		    && REG_P (dup) && GET_MODE (operand) == GET_MODE (dup)
-		    && process_regs_for_copy (operand, dup, NULL_RTX, freq))
+		    && REG_SUBREG_P (dup)
+		    && process_regs_for_copy (operand, dup, true,
+					      NULL_RTX, freq))
 		  bound_p = true;
 	      if (bound_p)
 		continue;
@@ -473,55 +528,9 @@ propagate_copies (void)
 	parent_a2 = parent->regno_allocno_map[ALLOCNO_REGNO (a2)];
       ira_assert (parent_a1 != NULL && parent_a2 != NULL);
       if (! CONFLICT_ALLOCNO_P (parent_a1, parent_a2))
-	ira_add_allocno_copy (parent_a1, parent_a1, cp->freq,
-			      cp->insn, cp->loop_tree_node);
+	ira_add_allocno_copy (parent_a1, parent_a2, cp->freq,
+			      cp->constraint_p, cp->insn, cp->loop_tree_node);
     }
-}
-
-/* Return TRUE if live ranges of allocnos A1 and A2 intersect.  It is
-   used to find a conflict for new allocnos or allocnos with the
-   different cover classes.  */
-bool
-ira_allocno_live_ranges_intersect_p (ira_allocno_t a1, ira_allocno_t a2)
-{
-  allocno_live_range_t r1, r2;
-
-  if (a1 == a2)
-    return false;
-  if (ALLOCNO_REG (a1) != NULL && ALLOCNO_REG (a2) != NULL
-      && (ORIGINAL_REGNO (ALLOCNO_REG (a1))
-	  == ORIGINAL_REGNO (ALLOCNO_REG (a2))))
-    return false;
-  /* Remember the ranges are always kept ordered.  */
-  for (r1 = ALLOCNO_LIVE_RANGES (a1), r2 = ALLOCNO_LIVE_RANGES (a2);
-       r1 != NULL && r2 != NULL;)
-    {
-      if (r1->start > r2->finish)
-	r1 = r1->next;
-      else if (r2->start > r1->finish)
-	r2 = r2->next;
-      else
-	return true;
-    }
-  return false;
-}
-
-/* Return TRUE if live ranges of pseudo-registers REGNO1 and REGNO2
-   intersect.  This should be used when there is only one region.
-   Currently this is used during reload.  */
-bool
-ira_pseudo_live_ranges_intersect_p (int regno1, int regno2)
-{
-  ira_allocno_t a1, a2;
-
-  ira_assert (regno1 >= FIRST_PSEUDO_REGISTER
-	      && regno2 >= FIRST_PSEUDO_REGISTER);
-  /* Reg info caclulated by dataflow infrastructure can be different
-     from one calculated by regclass.  */
-  if ((a1 = ira_loop_tree_root->regno_allocno_map[regno1]) == NULL
-      || (a2 = ira_loop_tree_root->regno_allocno_map[regno2]) == NULL)
-    return false;
-  return ira_allocno_live_ranges_intersect_p (a1, a2);
 }
 
 /* Array used to collect all conflict allocnos for given allocno.  */
@@ -547,8 +556,8 @@ build_allocno_conflicts (ira_allocno_t a)
 			   ALLOCNO_MIN (a), ALLOCNO_MAX (a), i, asi)
     {
       another_a = ira_conflict_id_allocno_map[i];
-      ira_assert (ALLOCNO_COVER_CLASS (a)
-		  == ALLOCNO_COVER_CLASS (another_a));
+      ira_assert (ira_reg_classes_intersect_p
+		  [ALLOCNO_COVER_CLASS (a)][ALLOCNO_COVER_CLASS (another_a)]);
       collected_conflict_allocnos[px++] = another_a;
     }
   if (ira_conflict_vector_profitable_p (a, px))
@@ -584,8 +593,8 @@ build_allocno_conflicts (ira_allocno_t a)
 			   ALLOCNO_MIN (a), ALLOCNO_MAX (a), i, asi)
     {
       another_a = ira_conflict_id_allocno_map[i];
-      ira_assert (ALLOCNO_COVER_CLASS (a)
-		  == ALLOCNO_COVER_CLASS (another_a));
+      ira_assert (ira_reg_classes_intersect_p
+		  [ALLOCNO_COVER_CLASS (a)][ALLOCNO_COVER_CLASS (another_a)]);
       if ((another_parent_a = ALLOCNO_CAP (another_a)) == NULL
 	  && (another_parent_a = (parent->regno_allocno_map
 				  [ALLOCNO_REGNO (another_a)])) == NULL)
@@ -732,6 +741,7 @@ ira_build_conflicts (void)
 {
   ira_allocno_t a;
   ira_allocno_iterator ai;
+  HARD_REG_SET temp_hard_reg_set;
 
   if (optimize)
     {
@@ -739,8 +749,8 @@ ira_build_conflicts (void)
       build_conflicts ();
       ira_traverse_loop_tree (true, ira_loop_tree_root, NULL, add_copies);
       /* We need finished conflict table for the subsequent call.  */
-      if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
+      if (flag_ira_region == IRA_REGION_ALL
+	  || flag_ira_region == IRA_REGION_MIXED)
 	propagate_copies ();
       /* Now we can free memory for the conflict table (see function
 	 build_allocno_conflicts for details).  */
@@ -750,6 +760,14 @@ ira_build_conflicts (void)
 	    ira_free (conflicts[ALLOCNO_NUM (a)]);
 	}
       ira_free (conflicts);
+    }
+  if (! CLASS_LIKELY_SPILLED_P (BASE_REG_CLASS))
+    CLEAR_HARD_REG_SET (temp_hard_reg_set);
+  else
+    {
+      COPY_HARD_REG_SET (temp_hard_reg_set, reg_class_contents[BASE_REG_CLASS]);
+      AND_COMPL_HARD_REG_SET (temp_hard_reg_set, ira_no_alloc_regs);
+      AND_HARD_REG_SET (temp_hard_reg_set, call_used_reg_set);
     }
   FOR_EACH_ALLOCNO (a, ai)
     {
@@ -767,9 +785,15 @@ ira_build_conflicts (void)
 	{
 	  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
 			    no_caller_save_reg_set);
+	  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
+			    temp_hard_reg_set);
 	  if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
-	    IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
-			      no_caller_save_reg_set);
+	    {
+	      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
+				no_caller_save_reg_set);
+	      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
+				temp_hard_reg_set);
+	    }
 	}
     }
   if (optimize && internal_flag_ira_verbose > 2 && ira_dump_file != NULL)

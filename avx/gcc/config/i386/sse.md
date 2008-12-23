@@ -220,7 +220,7 @@
 }
   [(set_attr "type" "sselog1,ssemov,ssemov")
    (set (attr "mode")
-	(cond [(ior (ior (ne (symbol_ref "optimize_size") (const_int 0))
+	(cond [(ior (ior (ne (symbol_ref "optimize_function_for_size_p (cfun)") (const_int 0))
 			 (eq (symbol_ref "TARGET_SSE2") (const_int 0)))
 		    (and (eq_attr "alternative" "2")
 			 (ne (symbol_ref "TARGET_SSE_TYPELESS_STORES")
@@ -656,7 +656,7 @@
 		  (match_operand:V4SF 2 "nonimmediate_operand" "")))]
   "TARGET_SSE"
 {
-  if (TARGET_SSE_MATH && TARGET_RECIP && !optimize_size
+  if (TARGET_SSE_MATH && TARGET_RECIP && optimize_insn_for_speed_p ()
       && flag_finite_math_only && !flag_trapping_math
       && flag_unsafe_math_optimizations)
     {
@@ -794,7 +794,7 @@
 	(sqrt:V4SF (match_operand:V4SF 1 "nonimmediate_operand" "")))]
   "TARGET_SSE"
 {
-  if (TARGET_SSE_MATH && TARGET_RECIP && !optimize_size
+  if (TARGET_SSE_MATH && TARGET_RECIP && optimize_insn_for_speed_p ()
       && flag_finite_math_only && !flag_trapping_math
       && flag_unsafe_math_optimizations)
     {
@@ -1482,7 +1482,7 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define_insn "avx_nand<mode>3"
+(define_insn "avx_andnot<mode>3"
   [(set (match_operand:AVXMODEF2P 0 "register_operand" "=x")
 	(and:AVXMODEF2P
 	  (not:AVXMODEF2P
@@ -1494,7 +1494,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "<avxvecmode>")])
 
-(define_insn "<sse>_nand<mode>3"
+(define_insn "<sse>_andnot<mode>3"
   [(set (match_operand:SSEMODEF2P 0 "register_operand" "=x")
 	(and:SSEMODEF2P
 	  (not:SSEMODEF2P
@@ -1549,7 +1549,7 @@
 ;; allocation lossage.  These patterns do not allow memory operands
 ;; because the native instructions read the full 128-bits.
 
-(define_insn "*avx_nand<mode>3"
+(define_insn "*avx_andnot<mode>3"
   [(set (match_operand:MODEF 0 "register_operand" "=x")
 	(and:MODEF
 	  (not:MODEF
@@ -1561,7 +1561,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "<ssevecmode>")])
 
-(define_insn "*nand<mode>3"
+(define_insn "*andnot<mode>3"
   [(set (match_operand:MODEF 0 "register_operand" "=x")
 	(and:MODEF
 	  (not:MODEF
@@ -5866,7 +5866,7 @@
   operands[2] = force_reg (<MODE>mode, gen_rtx_CONST_VECTOR (<MODE>mode, v));
 })
 
-(define_insn "*avx_nand<mode>3"
+(define_insn "*avx_andnot<mode>3"
   [(set (match_operand:AVX256MODEI 0 "register_operand" "=x")
 	(and:AVX256MODEI
 	  (not:AVX256MODEI (match_operand:AVX256MODEI 1 "register_operand" "x"))
@@ -5877,7 +5877,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "<avxvecpsmode>")])
 
-(define_insn "*sse_nand<mode>3"
+(define_insn "*sse_andnot<mode>3"
   [(set (match_operand:SSEMODEI 0 "register_operand" "=x")
 	(and:SSEMODEI
 	  (not:SSEMODEI (match_operand:SSEMODEI 1 "register_operand" "0"))
@@ -5887,7 +5887,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "V4SF")])
 
-(define_insn "*avx_nand<mode>3"
+(define_insn "*avx_andnot<mode>3"
   [(set (match_operand:SSEMODEI 0 "register_operand" "=x")
 	(and:SSEMODEI
 	  (not:SSEMODEI (match_operand:SSEMODEI 1 "register_operand" "x"))
@@ -5898,7 +5898,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_nand<mode>3"
+(define_insn "sse2_andnot<mode>3"
   [(set (match_operand:SSEMODEI 0 "register_operand" "=x")
 	(and:SSEMODEI
 	  (not:SSEMODEI (match_operand:SSEMODEI 1 "register_operand" "0"))
@@ -5909,7 +5909,7 @@
    (set_attr "prefix_data16" "1")
    (set_attr "mode" "TI")])
 
-(define_insn "*nandtf3"
+(define_insn "*andnottf3"
   [(set (match_operand:TF 0 "register_operand" "=x")
 	(and:TF
 	  (not:TF (match_operand:TF 1 "register_operand" "0"))
@@ -7719,7 +7719,7 @@
 (define_insn "*sse2_mfence"
   [(set (match_operand:BLK 0 "" "")
 	(unspec:BLK [(match_dup 0)] UNSPEC_MFENCE))]
-  "TARGET_SSE2"
+  "TARGET_64BIT || TARGET_SSE2"
   "mfence"
   [(set_attr "type" "sse")
    (set_attr "memory" "unknown")])

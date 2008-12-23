@@ -162,20 +162,6 @@ pointer_info;
 #define gfc_get_pointer_info() XCNEW (pointer_info)
 
 
-/* Lists of rename info for the USE statement.  */
-
-typedef struct gfc_use_rename
-{
-  char local_name[GFC_MAX_SYMBOL_LEN + 1], use_name[GFC_MAX_SYMBOL_LEN + 1];
-  struct gfc_use_rename *next;
-  int found;
-  gfc_intrinsic_op op;
-  locus where;
-}
-gfc_use_rename;
-
-#define gfc_get_use_rename() XCNEW (gfc_use_rename);
-
 /* Local variables */
 
 /* The FILE for the module we're reading or writing.  */
@@ -201,6 +187,8 @@ static int symbol_number;	/* Counter for assigning symbol numbers */
 
 /* Tells mio_expr_ref to make symbols for unused equivalence members.  */
 static bool in_load_equiv;
+
+static locus use_locus;
 
 
 
@@ -559,6 +547,8 @@ gfc_match_use (void)
 	    return m;
 	}
     }
+
+  use_locus = gfc_current_locus;
 
   m = gfc_match_name (module_name);
   if (m != MATCH_YES)
@@ -1706,6 +1696,12 @@ static const mstring binding_overriding[] =
 {
     minit ("OVERRIDABLE", 0),
     minit ("NON_OVERRIDABLE", 1),
+    minit (NULL, -1)
+};
+static const mstring binding_generic[] =
+{
+    minit ("SPECIFIC", 0),
+    minit ("GENERIC", 1),
     minit (NULL, -1)
 };
 
@@ -3199,6 +3195,8 @@ mio_namespace_ref (gfc_namespace **nsp)
 
 /* Save/restore the f2k_derived namespace of a derived-type symbol.  */
 
+static gfc_namespace* current_f2k_derived;
+
 static void
 mio_typebound_proc (gfc_typebound_proc** proc)
 {
@@ -3212,13 +3210,13 @@ mio_typebound_proc (gfc_typebound_proc** proc)
   gcc_assert (*proc);
 
   mio_lparen ();
-  mio_symtree_ref (&(*proc)->target);
 
   (*proc)->access = MIO_NAME (gfc_access) ((*proc)->access, access_types);
 
   (*proc)->nopass = mio_name ((*proc)->nopass, binding_passing);
   (*proc)->non_overridable = mio_name ((*proc)->non_overridable,
 				       binding_overriding);
+  (*proc)->is_generic = mio_name ((*proc)->is_generic, binding_generic);
 
   if (iomode == IO_INPUT)
     (*proc)->pass_arg = NULL;
@@ -3226,6 +3224,38 @@ mio_typebound_proc (gfc_typebound_proc** proc)
   flag = (int) (*proc)->pass_arg_num;
   mio_integer (&flag);
   (*proc)->pass_arg_num = (unsigned) flag;
+
+  if ((*proc)->is_generic)
+    {
+      gfc_tbp_generic* g;
+
+      mio_lparen ();
+
+      if (iomode == IO_OUTPUT)
+	for (g = (*proc)->u.generic; g; g = g->next)
+	  mio_allocated_string (g->specific_st->name);
+      else
+	{
+	  (*proc)->u.generic = NULL;
+	  while (peek_atom () != ATOM_RPAREN)
+	    {
+	      g = gfc_get_tbp_generic ();
+	      g->specific = NULL;
+
+	      require_atom (ATOM_STRING);
+	      gfc_get_sym_tree (atom_string, current_f2k_derived,
+				&g->specific_st);
+	      gfc_free (atom_string);
+
+	      g->next = (*proc)->u.generic;
+	      (*proc)->u.generic = g;
+	    }
+	}
+
+      mio_rparen ();
+    }
+  else
+    mio_symtree_ref (&(*proc)->u.specific);
 
   mio_rparen ();
 }
@@ -3270,6 +3300,8 @@ mio_finalizer (gfc_finalizer **f)
 static void
 mio_f2k_derived (gfc_namespace *f2k)
 {
+  current_f2k_derived = f2k;
+
   /* Handle the list of finalizer procedures.  */
   mio_lparen ();
   if (iomode == IO_OUTPUT)
@@ -3774,11 +3806,16 @@ load_equiv (void)
 	mio_expr (&tail->expr);
       }
 
-    /* Unused equivalence members have a unique name.  */
+    /* Unused equivalence members have a unique name.  In addition, it
+       must be checked that the symbols are from the same module.  */
     unused = true;
     for (eq = head; eq; eq = eq->eq)
       {
-	if (!check_unique_name (eq->expr->symtree->name))
+	if (eq->expr->symtree->n.sym->module
+	      && head->expr->symtree->n.sym->module
+	      && strcmp (head->expr->symtree->n.sym->module,
+			 eq->expr->symtree->n.sym->module) == 0
+	      && !check_unique_name (eq->expr->symtree->name))
 	  {
 	    unused = false;
 	    break;
@@ -3909,6 +3946,41 @@ read_cleanup (pointer_info *p)
   /* Free unused symbols.  */
   if (p->type == P_SYMBOL && p->u.rsym.state == UNUSED)
     gfc_free_symbol (p->u.rsym.sym);
+}
+
+
+/* It is not quite enough to check for ambiguity in the symbols by
+   the loaded symbol and the new symbol not being identical.  */
+static bool
+check_for_ambiguous (gfc_symbol *st_sym, pointer_info *info)
+{
+  gfc_symbol *rsym;
+  module_locus locus;
+  symbol_attribute attr;
+
+  rsym = info->u.rsym.sym;
+  if (st_sym == rsym)
+    return false;
+
+  /* If the existing symbol is generic from a different module and
+     the new symbol is generic there can be no ambiguity.  */
+  if (st_sym->attr.generic
+	&& st_sym->module
+	&& strcmp (st_sym->module, module_name))
+    {
+      /* The new symbol's attributes have not yet been read.  Since
+	 we need attr.generic, read it directly.  */
+      get_module_locus (&locus);
+      set_module_locus (&info->u.rsym.where);
+      mio_lparen ();
+      attr.generic = 0;
+      mio_symbol_attribute (&attr);
+      set_module_locus (&locus);
+      if (attr.generic)
+	return false;
+    }
+
+  return true;
 }
 
 
@@ -4053,7 +4125,7 @@ read_module (void)
 	  if (st != NULL)
 	    {
 	      /* Check for ambiguous symbols.  */
-	      if (st->n.sym != info->u.rsym.sym)
+	      if (check_for_ambiguous (st->n.sym, info))
 		st->ambiguous = 1;
 	      info->u.rsym.symtree = st;
 	    }
@@ -4062,9 +4134,9 @@ read_module (void)
 	      st = gfc_find_symtree (gfc_current_ns->sym_root, name);
 
 	      /* Delete the symtree if the symbol has been added by a USE
-		 statement without an ONLY(11.3.2). Remember that the rsym
+		 statement without an ONLY(11.3.2).  Remember that the rsym
 		 will be the same as the symbol found in the symtree, for
-		 this case.*/
+		 this case.  */
 	      if (st && (only_flag || info->u.rsym.renamed)
 		     && !st->n.sym->attr.use_only
 		     && !st->n.sym->attr.use_rename
@@ -4099,6 +4171,11 @@ read_module (void)
 
 	      if (strcmp (name, p) != 0)
 		sym->attr.use_rename = 1;
+
+	      /* We need to set the only_flag here so that symbols from the
+		 same USE...ONLY but earlier are not deleted from the tree in
+		 the gfc_delete_symtree above.  */
+	      sym->attr.use_only = only_flag;
 
 	      /* Store the symtree pointing to this symbol.  */
 	      info->u.rsym.symtree = st;
@@ -4542,6 +4619,14 @@ write_symtree (gfc_symtree *st)
   pointer_info *p;
 
   sym = st->n.sym;
+
+  /* A symbol in an interface body must not be visible in the
+     module file.  */
+  if (sym->ns != gfc_current_ns
+	&& sym->ns->proc_name
+	&& sym->ns->proc_name->attr.if_source == IFSRC_IFBODY)
+    return;
+
   if (!gfc_check_access (sym->attr.access, sym->ns->default_access)
       || (sym->attr.flavor == FL_PROCEDURE && sym->attr.generic
 	  && !sym->attr.subroutine && !sym->attr.function))
@@ -4765,11 +4850,19 @@ gfc_dump_module (const char *name, int dump_flag)
       || memcmp (md5_old, md5_new, sizeof (md5_old)) != 0)
     {
       /* Module file have changed, replace the old one.  */
-      unlink (filename);
-      rename (filename_tmp, filename);
+      if (unlink (filename) && errno != ENOENT)
+	gfc_fatal_error ("Can't delete module file '%s': %s", filename,
+			 strerror (errno));
+      if (rename (filename_tmp, filename))
+	gfc_fatal_error ("Can't rename module file '%s' to '%s': %s",
+			 filename_tmp, filename, strerror (errno));
     }
   else
-    unlink (filename_tmp);
+    {
+      if (unlink (filename_tmp))
+	gfc_fatal_error ("Can't delete temporary module file '%s': %s",
+			 filename_tmp, strerror (errno));
+    }
 }
 
 
@@ -5058,6 +5151,7 @@ gfc_use_module (void)
   gfc_state_data *p;
   int c, line, start;
   gfc_symtree *mod_symtree;
+  gfc_use_list *use_stmt;
 
   filename = (char *) alloca (strlen (module_name) + strlen (MODULE_EXTENSION)
 			      + 1);
@@ -5150,6 +5244,34 @@ gfc_use_module (void)
   pi_root = NULL;
 
   fclose (module_fp);
+
+  use_stmt = gfc_get_use_list ();
+  use_stmt->module_name = gfc_get_string (module_name);
+  use_stmt->only_flag = only_flag;
+  use_stmt->rename = gfc_rename_list;
+  use_stmt->where = use_locus;
+  gfc_rename_list = NULL;
+  use_stmt->next = gfc_current_ns->use_stmts;
+  gfc_current_ns->use_stmts = use_stmt;
+}
+
+
+void
+gfc_free_use_stmts (gfc_use_list *use_stmts)
+{
+  gfc_use_list *next;
+  for (; use_stmts; use_stmts = next)
+    {
+      gfc_use_rename *next_rename;
+
+      for (; use_stmts->rename; use_stmts->rename = next_rename)
+	{
+	  next_rename = use_stmts->rename->next;
+	  gfc_free (use_stmts->rename);
+	}
+      next = use_stmts->next;
+      gfc_free (use_stmts);
+    }
 }
 
 

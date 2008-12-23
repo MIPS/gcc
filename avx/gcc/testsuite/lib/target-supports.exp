@@ -1,4 +1,4 @@
-#   Copyright (C) 1999, 2001, 2003, 2004, 2005, 2006, 2007
+#   Copyright (C) 1999, 2001, 2003, 2004, 2005, 2006, 2007, 2008
 #    Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -485,6 +485,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget mips*-*-elf*]
 	     || [istarget xstormy16-*]
 	     || [istarget xtensa*-*-elf]
+	     || [istarget *-*-rtems*]
 	     || [istarget *-*-vxworks*] } {
 	    set profiling_available_saved 0
 	} else {
@@ -560,6 +561,15 @@ proc check_effective_target_tls_runtime {} {
 	__thread int thr = 0;
 	int main (void) { return thr; }
     }]
+}
+
+# Return 1 if compilation with -fgraphite is error-free for trivial 
+# code, 0 otherwise.
+
+proc check_effective_target_fgraphite {} {
+    return [check_no_compiler_messages fgraphite object {
+	void foo (void) { }
+    } "-O1 -fgraphite"]
 }
 
 # Return 1 if compilation with -fopenmp is error-free for trivial
@@ -1048,6 +1058,18 @@ proc check_effective_target_lp64 { } {
     }]
 }
 
+# Return 1 if we're generating 64-bit code using default llp64 options,
+# 0 otherwise.
+
+proc check_effective_target_llp64 { } {
+    return [check_no_compiler_messages llp64 object {
+	int dummy[sizeof (int) == 4
+		  && sizeof (void *) == 8
+		  && sizeof (long long) == 8
+		  && sizeof (long) == 4 ? 1 : -1];
+    }]
+}
+
 # Return 1 if the target supports long double larger than double,
 # 0 otherwise.
 
@@ -1364,6 +1386,25 @@ proc check_effective_target_powerpc_altivec_ok { } {
 	return [check_no_compiler_messages powerpc_altivec_ok object {
 	    int dummy;
 	} "-maltivec"]
+    } else {
+	return 0
+    }
+}
+
+# Return 1 if this is a PowerPC target supporting -mcpu=cell.
+
+proc check_effective_target_powerpc_ppu_ok { } {
+    if [check_effective_target_powerpc_altivec_ok] {
+	return [check_no_compiler_messages cell_asm_available object {
+	    int main (void) {
+#ifdef __MACH__
+		asm volatile ("lvlx v0,v0,v0");
+#else
+		asm volatile ("lvlx 0,0,0");
+#endif
+		return 0;
+	    }
+	}]
     } else {
 	return 0
     }
@@ -2084,7 +2125,8 @@ proc check_effective_target_vect_short_mult { } {
 	if { [istarget ia64-*-*]
 	     || [istarget spu-*-*]
 	     || [istarget i?86-*-*]
-	     || [istarget x86_64-*-*] } {
+	     || [istarget x86_64-*-*] 
+             || [istarget powerpc*-*-*] } {
 	   set et_vect_short_mult_saved 1
 	}
     }
@@ -2581,4 +2623,46 @@ proc check_effective_target_avx { } {
 	   __builtin_ia32_vzeroall ();
 	}
     } "-O2 -mavx" ]
+}
+
+# Return 1 if C wchar_t type is compatible with char16_t.
+
+proc check_effective_target_wchar_t_char16_t_compatible { } {
+    return [check_no_compiler_messages wchar_t_char16_t object {
+        __WCHAR_TYPE__ wc;
+        __CHAR16_TYPE__ *p16 = &wc;
+        char t[(((__CHAR16_TYPE__) -1) < 0 == ((__WCHAR_TYPE__) -1) < 0) ? 1 : -1];
+    }]
+}
+
+# Return 1 if C wchar_t type is compatible with char32_t.
+
+proc check_effective_target_wchar_t_char32_t_compatible { } {
+    return [check_no_compiler_messages wchar_t_char32_t object {
+        __WCHAR_TYPE__ wc;
+        __CHAR32_TYPE__ *p32 = &wc;
+        char t[(((__CHAR32_TYPE__) -1) < 0 == ((__WCHAR_TYPE__) -1) < 0) ? 1 : -1];
+    }]
+}
+
+# Return 1 if pow10 function exists.
+
+proc check_effective_target_pow10 { } {
+    return [check_runtime pow10 {
+	#include <math.h>
+	int main () {
+	double x;
+	x = pow10 (1);
+	return 0;
+	}
+    } "-lm" ]
+}
+
+# Return 1 if current options generate DFP instructions, 0 otherwise.
+
+proc check_effective_target_hard_dfp {} {
+    return [check_no_messages_and_pattern hard_dfp "!adddd3" assembly {
+	_Decimal64 x, y, z;
+	void foo (void) { z = x + y; }
+    }]
 }

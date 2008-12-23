@@ -7,8 +7,8 @@
 extern void exit (int);
 extern void abort (void);
 
-#define SSE4A_ATTR __attribute__((__option__("arch=amdfam10")))
-#define SSE42_ATTR __attribute__((__option__("sse4.2")))
+#define SSE4A_ATTR __attribute__((__target__("arch=amdfam10")))
+#define SSE42_ATTR __attribute__((__target__("sse4.2")))
 
 static int sse4a_pop_i (int a) SSE4A_ATTR;
 static long sse42_pop_l (long a) SSE42_ATTR;
@@ -59,8 +59,9 @@ int main ()
   exit (0);
 }
 
-/* { dg-final { scan-assembler "popcntl" } } */
-/* { dg-final { scan-assembler "popcntq" } } */
+/* { dg-final { scan-assembler "popcntl" { target { ! *-*-darwin* } } } } */
+/* { dg-final { scan-assembler "popcntq" { target { ! *-*-darwin* } } } } */
+/* { dg-final { scan-assembler-times "popcnt" 2 { target *-*-darwin* } } } */
 /* { dg-final { scan-assembler "call\t(.*)sse4a_pop_i" } } */
 /* { dg-final { scan-assembler "call\t(.*)sse42_pop_l" } } */
 /* { dg-final { scan-assembler "call\t(.*)popcountdi2" } } */

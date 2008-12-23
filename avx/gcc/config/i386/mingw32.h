@@ -67,19 +67,39 @@ along with GCC; see the file COPYING3.  If not see
 #define LIB_SPEC "%{pg:-lgmon} %{mwindows:-lgdi32 -lcomdlg32} \
                   -luser32 -lkernel32 -ladvapi32 -lshell32"
 
-/* Include in the mingw32 libraries with libgcc */
-#undef LINK_SPEC
+/* Weak symbols do not get resolved if using a Windows dll import lib.
+   Make the unwind registration references strong undefs.  */
+#if DWARF2_UNWIND_INFO
+#define SHARED_LIBGCC_UNDEFS_SPEC \
+ "%{shared-libgcc: -u ___register_frame_info -u ___deregister_frame_info}"
+#else
+#define SHARED_LIBGCC_UNDEFS_SPEC ""
+#endif
+
+#undef  SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS						\
+  { "shared_libgcc_undefs", SHARED_LIBGCC_UNDEFS_SPEC }
+
 #define LINK_SPEC "%{mwindows:--subsystem windows} \
   %{mconsole:--subsystem console} \
   %{shared: %{mdll: %eshared and mdll are not compatible}} \
   %{shared: --shared} %{mdll:--dll} \
   %{static:-Bstatic} %{!static:-Bdynamic} \
-  %{shared|mdll: -e _DllMainCRTStartup@12}"
+  %{shared|mdll: -e _DllMainCRTStartup@12 --enable-auto-image-base} \
+  %(shared_libgcc_undefs)"
 
 /* Include in the mingw32 libraries with libgcc */
-#undef LIBGCC_SPEC
-#define LIBGCC_SPEC \
-  "%{mthreads:-lmingwthrd} -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt"
+#ifdef ENABLE_SHARED_LIBGCC
+#define SHARED_LIBGCC_SPEC "%{shared-libgcc:-lgcc_s} %{!shared-libgcc:-lgcc_eh}"
+#else
+#define SHARED_LIBGCC_SPEC /*empty*/
+#endif
+#undef REAL_LIBGCC_SPEC
+#define REAL_LIBGCC_SPEC \
+  "%{mthreads:-lmingwthrd} -lmingw32 \
+   "SHARED_LIBGCC_SPEC" \
+   -lgcc \
+   -lmoldname -lmingwex -lmsvcrt"
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "%{shared|mdll:dllcrt2%O%s} \
@@ -153,6 +173,10 @@ do {						         \
 #undef TARGET_OVERRIDES_FORMAT_ATTRIBUTES_COUNT
 #define TARGET_OVERRIDES_FORMAT_ATTRIBUTES_COUNT 3
 
+/* Custom initialization for warning -Wpedantic-ms-format for c-format.  */
+#undef TARGET_OVERRIDES_FORMAT_INIT
+#define TARGET_OVERRIDES_FORMAT_INIT msformat_init
+
 /* MS specific format attributes for ms_printf, ms_scanf, ms_strftime.  */
 #undef TARGET_FORMAT_TYPES
 #define TARGET_FORMAT_TYPES mingw_format_attributes
@@ -186,3 +210,6 @@ __enable_execute_stack (void *addr)					\
 #if !TARGET_64BIT
 #define MD_UNWIND_SUPPORT "config/i386/w32-unwind.h"
 #endif
+
+/* This matches SHLIB_SONAME and SHLIB_SOVERSION in t-cygming. */
+#define LIBGCC_SONAME "libgcc_s_1.dll"

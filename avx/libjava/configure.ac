@@ -77,6 +77,63 @@ AC_ARG_ENABLE(gconf-peer,
     [gconf_enabled=no]
 )
 
+AC_ARG_WITH([antlr-jar],
+            [AS_HELP_STRING([--with-antlr-jar=file],[Use ANTLR from the specified jar file])],
+            [
+             ANTLR_JAR=$withval
+            ],
+            [
+             ANTLR_JAR=
+            ])
+
+AC_MSG_CHECKING([for antlr.jar])
+if test "x$ANTLR_JAR" = x; then
+    for antlr_lib_home in `ls -d /usr/local/share/antlr* 2> /dev/null` \
+	/usr/share/antlr/lib /usr/share/java /usr/lib;
+    do
+	if test -f "$antlr_lib_home/antlr.jar"; then
+	    # FIXME: version check for antlr needed without using a VM
+	    ANTLR_JAR="$antlr_lib_home/antlr.jar"
+	    break
+	fi
+    done
+    if test "x$ANTLR_JAR" = x; then
+	AC_MSG_RESULT([not found])
+    else
+	AC_MSG_RESULT($ANTLR_JAR)
+    fi
+else
+    if test -f "${ANTLR_JAR}"; then
+	AC_MSG_RESULT($ANTLR_JAR)
+    else
+	AC_MSG_ERROR([antlr jar file not found: $ANTLR_JAR])
+    fi
+fi
+AC_SUBST(ANTLR_JAR)
+
+AC_ARG_ENABLE([gjdoc],
+              [AS_HELP_STRING(--disable-gjdoc,compile GJDoc (disabled by --disable-gjdoc) [default=yes])],
+              [case "${enableval}" in
+                yes) BUILD_GJDOC=yes ;;
+                no) BUILD_GJDOC=no ;;
+                *) BUILD_GJDOC=yes ;;
+              esac],
+              [BUILD_GJDOC=maybe])
+
+AC_MSG_CHECKING([whether to build gjdoc])
+if test "x$BUILD_GJDOC" = xmaybe; then
+    if test -f "${ANTLR_JAR}"; then
+	BUILD_GJDOC=yes
+	AC_MSG_RESULT(yes)
+    else
+	BUILD_GJDOC=no
+	AC_MSG_RESULT([no, antlr.jar not found])
+    fi
+else
+    AC_MSG_RESULT($BUILD_GJDOC)
+fi
+AM_CONDITIONAL(CREATE_GJDOC, test "x${BUILD_GJDOC}" = xyes)
+
 AC_ARG_ENABLE(java-maintainer-mode,
 	AS_HELP_STRING([--enable-java-maintainer-mode],
 	[allow rebuilding of .class and .h files]))
@@ -386,7 +443,6 @@ test -f libgcj.spec || touch libgcj.spec
 
 # Set up to configure Classpath.
 # FIXME: no supported way to pass args in autoconf.
-ac_configure_args="$ac_configure_args --with-fastjar=$JAR"
 # Disable tool wrappers to avoid ltdl.h configure check.
 ac_configure_args="$ac_configure_args --disable-tool-wrappers"
 ac_configure_args="$ac_configure_args --disable-load-library"
@@ -425,12 +481,14 @@ else
     ac_configure_args="$ac_configure_args --with-escher=$with_escher"
   fi
 fi
+if test "x$BUILD_GJDOC" = xno; then
+  ac_configure_args="$ac_configure_args --disable-gjdoc"
+fi
 # -Werror causes unavoidable problems in code using alsa.
 ac_configure_args="$ac_configure_args --disable-regen-headers"
 ac_configure_args="$ac_configure_args --disable-Werror"
 dnl --with-gcj=$GCJ
 dnl --with-javah=$GCJH
-dnl gjdoc?
 dnl gtk-cairo -- just export here...
 dnl --enable-regen-headers?
 
@@ -525,6 +583,15 @@ AC_ARG_ENABLE(libgcj-bc,
      suppress_libgcj_bc=yes
    fi])
 AM_CONDITIONAL(SUPPRESS_LIBGCJ_BC, test "$suppress_libgcj_bc" = "yes")
+
+build_libgcj_reduced_reflection=no
+AC_ARG_ENABLE(reduced-reflection,
+  AS_HELP_STRING([--enable-reduced-reflection],
+                 [enable or disable(default) -freduced-reflection when building portions of libgcj]),
+  [if test "$enable_reduced_reflection" = "yes"; then
+     build_libgcj_reduced_reflection=yes
+   fi])
+AM_CONDITIONAL(BUILD_LIBGCJ_REDUCED_REFLECTION, test "$build_libgcj_reduced_reflection" = "yes")
 
 # What is the native OS API for MinGW?
 AC_ARG_WITH(win32-nlsapi,
@@ -800,7 +867,7 @@ case "${host}" in
     # on Darwin -single_module speeds up loading of the dynamic libraries.
     extra_ldflags_libjava=-Wl,-single_module
     ;;
-*-*-darwin[[9]]*)
+*-*-darwin[[912]]*)
     extra_gij_ldflags=-Wl,-allow_stack_execute
     ;;
 arm*linux*eabi)
@@ -871,7 +938,7 @@ case "$THREADS" in
  no | none | single)
     THREADS=none
     ;;
- posix | posix95 | pthreads)
+ aix | posix | posix95 | pthreads)
     THREADS=posix
     case "$host" in
      *-*-linux*)
@@ -979,6 +1046,9 @@ AC_SUBST(THREADCXXFLAGS)
 AM_CONDITIONAL(USING_POSIX_THREADS, test "$THREADS" = posix)
 AM_CONDITIONAL(USING_WIN32_THREADS, test "$THREADS" = win32)
 AM_CONDITIONAL(USING_NO_THREADS, test "$THREADS" = none)
+if test "$enable_shared" != yes; then
+  use_libgcj_bc=no
+fi
 AM_CONDITIONAL(USE_LIBGCJ_BC, test "$use_libgcj_bc" = yes)
 
 if test -d sysdep; then true; else mkdir sysdep; fi
@@ -988,7 +1058,7 @@ AC_CONFIG_LINKS(sysdep/descriptor.h:$descriptor_h)
 
 LIBGCJ_SPEC="%{s-bc-abi:} -lgcj"
 if test "$use_libgcj_bc" = yes; then
-  LIBGCJ_SPEC="%{s-bc-abi:-lgcj_bc;:-lgcj}"
+  LIBGCJ_SPEC="%{static|static-libgcj|!s-bc-abi:-lgcj;:-lgcj_bc}"
 fi
 AC_SUBST(LIBGCJ_SPEC)
 
@@ -1316,6 +1386,7 @@ if test ! -f gnu/classpath/Configuration.java; then
       -e "s,@JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@,false," \
       -e "s,@GTK_CAIRO_ENABLED@,false," \
       -e "s,@ECJ_JAR@,," \
+      -e "s,@WANT_NATIVE_BIG_INTEGER@,false," \
 	< $srcdir/classpath/gnu/classpath/Configuration.java.in \
 	> gnu/classpath/Configuration.java
   # We do not want to redirect the output of the grep below to /dev/null,
@@ -1361,6 +1432,7 @@ AC_SUBST(IEEESPEC)
 AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes)
 AM_CONDITIONAL(ENABLE_SHARED, test "$enable_shared" = yes)
 AM_CONDITIONAL(NEEDS_DATA_START, test "$NEEDS_DATA_START" = yes && test "$NATIVE" = yes)
+AM_CONDITIONAL(INSTALL_BINARIES, test -z "${with_multisubdir}")
 AC_SUBST(GCC_UNWIND_INCLUDE)
 
 # Process the option "--enable-version-specific-runtime-libs"
@@ -1566,6 +1638,9 @@ case "${host}" in
  powerpc*-*-darwin* | i?86-*-darwin9* | x86_64-*-darwin9*)
     SIGNAL_HANDLER=include/darwin-signal.h
     ;;
+ powerpc*-*-aix*)
+    SIGNAL_HANDLER=include/aix-signal.h
+    ;;
  *)
     SIGNAL_HANDLER=include/default-signal.h
     ;;
@@ -1662,7 +1737,7 @@ AC_ARG_ENABLE([aot-compile-rpm],
   esac],
   [AOT_RPM_ENABLED=no]
 )
-AM_CONDITIONAL(INSTALL_AOT_RPM, test "x${AOT_RPM_ENABLED}" == xyes)
+AM_CONDITIONAL(INSTALL_AOT_RPM, test "x${AOT_RPM_ENABLED}" = xyes)
 
 AC_ARG_ENABLE([java-home],
   [AS_HELP_STRING([--enable-java-home],
@@ -1674,10 +1749,10 @@ AC_ARG_ENABLE([java-home],
   esac],
   [JAVA_HOME_ENABLED=no]
 )
-AM_CONDITIONAL(CREATE_JAVA_HOME, test "x${JAVA_HOME_ENABLED}" == xyes)
+AM_CONDITIONAL(CREATE_JAVA_HOME, test "x${JAVA_HOME_ENABLED}" = xyes)
 
 # Only do these checks if java-home above is enabled.
-if test "x${JAVA_HOME_ENABLED}" == xyes
+if test "x${JAVA_HOME_ENABLED}" = xyes
 then
 
   AC_ARG_WITH([gcc-suffix],

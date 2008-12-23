@@ -1072,7 +1072,7 @@ L2:     .word STATIC
 #define LEGITIMATE_CONSTANT_P(X)					\
   (! (GET_CODE (X) == CONST						\
       && GET_CODE (XEXP (X, 0)) == PLUS					\
-      && GET_CODE (XEXP (XEXP (X, 0), 0)) == SYMBOL_REF			\
+      && (GET_CODE (XEXP (XEXP (X, 0), 0)) == SYMBOL_REF || GET_CODE (XEXP (XEXP (X, 0), 0)) == LABEL_REF) \
       && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT			\
       && (unsigned HOST_WIDE_INT) INTVAL (XEXP (XEXP (X, 0), 1)) > 32767))
 
@@ -1224,7 +1224,7 @@ L2:     .word STATIC
 /* A value of 2 here causes GCC to avoid using branches in comparisons like
    while (a < N && a).  Branches aren't that expensive on the M32R so
    we define this as 1.  Defining it as 2 had a heavy hit in fp-bit.c.  */
-#define BRANCH_COST ((TARGET_BRANCH_COST) ? 2 : 1)
+#define BRANCH_COST(speed_p, predictable_p) ((TARGET_BRANCH_COST) ? 2 : 1)
 
 /* Nonzero if access to memory by bytes is slow and undesirable.
    For RISC chips, it means that access to memory by bytes is no

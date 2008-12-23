@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -283,6 +283,7 @@ static enum machine_mode this_insn_cc0_mode, prev_insn_cc0_mode;
 /* Insn being scanned.  */
 
 static rtx this_insn;
+static bool optimize_this_for_speed_p;
 
 /* Index by register number, gives the number of the next (or
    previous) register in the chain of registers sharing the same
@@ -573,7 +574,7 @@ static rtx use_related_value (rtx, struct table_elt *);
 
 static inline unsigned canon_hash (rtx, enum machine_mode);
 static inline unsigned safe_hash (rtx, enum machine_mode);
-static unsigned hash_rtx_string (const char *);
+static inline unsigned hash_rtx_string (const char *);
 
 static rtx canon_reg (rtx, rtx);
 static enum rtx_code find_comparison_args (enum rtx_code, rtx *, rtx *,
@@ -602,7 +603,8 @@ static bool set_live_p (rtx, rtx, int *);
 static int cse_change_cc_mode (rtx *, void *);
 static void cse_change_cc_mode_insn (rtx, rtx);
 static void cse_change_cc_mode_insns (rtx, rtx, rtx);
-static enum machine_mode cse_cc_succs (basic_block, rtx, rtx, bool);
+static enum machine_mode cse_cc_succs (basic_block, basic_block, rtx, rtx,
+				       bool);
 
 
 #undef RTL_HOOKS_GEN_LOWPART
@@ -752,7 +754,7 @@ notreg_cost (rtx x, enum rtx_code outer)
 	   && TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (GET_MODE (x)),
 				     GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (x)))))
 	  ? 0
-	  : rtx_cost (x, outer) * 2);
+	  : rtx_cost (x, outer, optimize_this_for_speed_p) * 2);
 }
 
 
@@ -1361,17 +1363,6 @@ lookup_as_function (rtx x, enum rtx_code code)
 {
   struct table_elt *p
     = lookup (x, SAFE_HASH (x, VOIDmode), GET_MODE (x));
-
-  /* If we are looking for a CONST_INT, the mode doesn't really matter, as
-     long as we are narrowing.  So if we looked in vain for a mode narrower
-     than word_mode before, look for word_mode now.  */
-  if (p == 0 && code == CONST_INT
-      && GET_MODE_SIZE (GET_MODE (x)) < GET_MODE_SIZE (word_mode))
-    {
-      x = copy_rtx (x);
-      PUT_MODE (x, word_mode);
-      p = lookup (x, SAFE_HASH (x, VOIDmode), word_mode);
-    }
 
   if (p == 0)
     return 0;
@@ -2043,6 +2034,7 @@ use_related_value (rtx x, struct table_elt *elt)
   return plus_constant (q->exp, offset);
 }
 
+
 /* Hash a string.  Just add its bytes up.  */
 static inline unsigned
 hash_rtx_string (const char *ps)
@@ -2057,27 +2049,20 @@ hash_rtx_string (const char *ps)
   return hash;
 }
 
-/* Hash an rtx.  We are careful to make sure the value is never negative.
-   Equivalent registers hash identically.
-   MODE is used in hashing for CONST_INTs only;
-   otherwise the mode of X is used.
-
-   Store 1 in DO_NOT_RECORD_P if any subexpression is volatile.
-
-   If HASH_ARG_IN_MEMORY_P is not NULL, store 1 in it if X contains
-   a MEM rtx which does not have the RTX_UNCHANGING_P bit set.
-
-   Note that cse_insn knows that the hash code of a MEM expression
-   is just (int) MEM plus the hash code of the address.  */
+/* Same as hash_rtx, but call CB on each rtx if it is not NULL.  
+   When the callback returns true, we continue with the new rtx.  */
 
 unsigned
-hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
-	  int *hash_arg_in_memory_p, bool have_reg_qty)
+hash_rtx_cb (const_rtx x, enum machine_mode mode,
+             int *do_not_record_p, int *hash_arg_in_memory_p,
+             bool have_reg_qty, hash_rtx_callback_function cb)
 {
   int i, j;
   unsigned hash = 0;
   enum rtx_code code;
   const char *fmt;
+  enum machine_mode newmode;
+  rtx newx;
 
   /* Used to turn recursion into iteration.  We can't rely on GCC's
      tail-recursion elimination since we need to keep accumulating values
@@ -2086,6 +2071,15 @@ hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
   if (x == 0)
     return hash;
 
+  /* Invoke the callback first.  */
+  if (cb != NULL 
+      && ((*cb) (x, mode, &newx, &newmode)))
+    {
+      hash += hash_rtx_cb (newx, newmode, do_not_record_p,
+                           hash_arg_in_memory_p, have_reg_qty, cb);
+      return hash;
+    }
+
   code = GET_CODE (x);
   switch (code)
     {
@@ -2093,7 +2087,7 @@ hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
       {
 	unsigned int regno = REGNO (x);
 
-	if (!reload_completed)
+	if (do_not_record_p && !reload_completed)
 	  {
 	    /* On some machines, we can't record any non-fixed hard register,
 	       because extending its life will cause reload problems.  We
@@ -2187,8 +2181,9 @@ hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
 	for (i = 0; i < units; ++i)
 	  {
 	    elt = CONST_VECTOR_ELT (x, i);
-	    hash += hash_rtx (elt, GET_MODE (elt), do_not_record_p,
-			      hash_arg_in_memory_p, have_reg_qty);
+	    hash += hash_rtx_cb (elt, GET_MODE (elt),
+                                 do_not_record_p, hash_arg_in_memory_p, 
+                                 have_reg_qty, cb);
 	  }
 
 	return hash;
@@ -2222,7 +2217,7 @@ hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
     case MEM:
       /* We don't record if marked volatile or if BLKmode since we don't
 	 know the size of the move.  */
-      if (MEM_VOLATILE_P (x) || GET_MODE (x) == BLKmode)
+      if (do_not_record_p && (MEM_VOLATILE_P (x) || GET_MODE (x) == BLKmode))
 	{
 	  *do_not_record_p = 1;
 	  return 0;
@@ -2269,11 +2264,16 @@ hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
     case CC0:
     case CALL:
     case UNSPEC_VOLATILE:
-      *do_not_record_p = 1;
-      return 0;
+      if (do_not_record_p) {
+        *do_not_record_p = 1;
+        return 0;
+      }
+      else
+        return hash;
+      break;
 
     case ASM_OPERANDS:
-      if (MEM_VOLATILE_P (x))
+      if (do_not_record_p && MEM_VOLATILE_P (x))
 	{
 	  *do_not_record_p = 1;
 	  return 0;
@@ -2290,12 +2290,12 @@ hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
 	    {
 	      for (i = 1; i < ASM_OPERANDS_INPUT_LENGTH (x); i++)
 		{
-		  hash += (hash_rtx (ASM_OPERANDS_INPUT (x, i),
-				     GET_MODE (ASM_OPERANDS_INPUT (x, i)),
-				     do_not_record_p, hash_arg_in_memory_p,
-				     have_reg_qty)
+		  hash += (hash_rtx_cb (ASM_OPERANDS_INPUT (x, i),
+                                        GET_MODE (ASM_OPERANDS_INPUT (x, i)),
+                                        do_not_record_p, hash_arg_in_memory_p,
+                                        have_reg_qty, cb)
 			   + hash_rtx_string
-				(ASM_OPERANDS_INPUT_CONSTRAINT (x, i)));
+                           (ASM_OPERANDS_INPUT_CONSTRAINT (x, i)));
 		}
 
 	      hash += hash_rtx_string (ASM_OPERANDS_INPUT_CONSTRAINT (x, 0));
@@ -2328,15 +2328,17 @@ hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
 	      x = XEXP (x, i);
 	      goto repeat;
 	    }
-
-	  hash += hash_rtx (XEXP (x, i), 0, do_not_record_p,
-			    hash_arg_in_memory_p, have_reg_qty);
+          
+	  hash += hash_rtx_cb (XEXP (x, i), 0, do_not_record_p,
+                               hash_arg_in_memory_p,
+                               have_reg_qty, cb);
 	  break;
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (x, i); j++)
-	    hash += hash_rtx (XVECEXP (x, i, j), 0, do_not_record_p,
-			      hash_arg_in_memory_p, have_reg_qty);
+	    hash += hash_rtx_cb (XVECEXP (x, i, j), 0, do_not_record_p,
+                                 hash_arg_in_memory_p,
+                                 have_reg_qty, cb);
 	  break;
 
 	case 's':
@@ -2357,6 +2359,27 @@ hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
     }
 
   return hash;
+}
+
+/* Hash an rtx.  We are careful to make sure the value is never negative.
+   Equivalent registers hash identically.
+   MODE is used in hashing for CONST_INTs only;
+   otherwise the mode of X is used.
+
+   Store 1 in DO_NOT_RECORD_P if any subexpression is volatile.
+
+   If HASH_ARG_IN_MEMORY_P is not NULL, store 1 in it if X contains
+   a MEM rtx which does not have the RTX_UNCHANGING_P bit set.
+
+   Note that cse_insn knows that the hash code of a MEM expression
+   is just (int) MEM plus the hash code of the address.  */
+
+unsigned
+hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
+	  int *hash_arg_in_memory_p, bool have_reg_qty)
+{
+  return hash_rtx_cb (x, mode, do_not_record_p,
+                      hash_arg_in_memory_p, have_reg_qty, NULL);
 }
 
 /* Hash an rtx X for cse via hash_rtx.
@@ -3137,33 +3160,15 @@ fold_rtx (rtx x, rtx insn)
     {
     case RTX_UNARY:
       {
-	int is_const = 0;
-
 	/* We can't simplify extension ops unless we know the
 	   original mode.  */
 	if ((code == ZERO_EXTEND || code == SIGN_EXTEND)
 	    && mode_arg0 == VOIDmode)
 	  break;
 
-	/* If we had a CONST, strip it off and put it back later if we
-	   fold.  */
-	if (const_arg0 != 0 && GET_CODE (const_arg0) == CONST)
-	  is_const = 1, const_arg0 = XEXP (const_arg0, 0);
-
 	new_rtx = simplify_unary_operation (code, mode,
 					const_arg0 ? const_arg0 : folded_arg0,
 					mode_arg0);
-	/* NEG of PLUS could be converted into MINUS, but that causes
-	   expressions of the form
-	   (CONST (MINUS (CONST_INT) (SYMBOL_REF)))
-	   which many ports mistakenly treat as LEGITIMATE_CONSTANT_P.
-	   FIXME: those ports should be fixed.  */
-	if (new_rtx != 0 && is_const
-	    && GET_CODE (new_rtx) == PLUS
-	    && (GET_CODE (XEXP (new_rtx, 0)) == SYMBOL_REF
-		|| GET_CODE (XEXP (new_rtx, 0)) == LABEL_REF)
-	    && GET_CODE (XEXP (new_rtx, 1)) == CONST_INT)
-	  new_rtx = gen_rtx_CONST (mode, new_rtx);
       }
       break;
 
@@ -3181,17 +3186,24 @@ fold_rtx (rtx x, rtx insn)
       if (const_arg0 == 0 || const_arg1 == 0)
 	{
 	  struct table_elt *p0, *p1;
-	  rtx true_rtx = const_true_rtx, false_rtx = const0_rtx;
+	  rtx true_rtx, false_rtx;
 	  enum machine_mode mode_arg1;
 
-#ifdef FLOAT_STORE_FLAG_VALUE
 	  if (SCALAR_FLOAT_MODE_P (mode))
 	    {
+#ifdef FLOAT_STORE_FLAG_VALUE
 	      true_rtx = (CONST_DOUBLE_FROM_REAL_VALUE
 			  (FLOAT_STORE_FLAG_VALUE (mode), mode));
+#else
+	      true_rtx = NULL_RTX;
+#endif
 	      false_rtx = CONST0_RTX (mode);
 	    }
-#endif
+	  else
+	    {
+	      true_rtx = const_true_rtx;
+	      false_rtx = const0_rtx;
+	    }
 
 	  code = find_comparison_args (code, &folded_arg0, &folded_arg1,
 				       &mode_arg0, &mode_arg1);
@@ -3299,8 +3311,17 @@ fold_rtx (rtx x, rtx insn)
 						  const_arg1))
 			      || (REG_P (folded_arg1)
 				  && (REG_QTY (REGNO (folded_arg1)) == ent->comparison_qty))))
-			return (comparison_dominates_p (ent->comparison_code, code)
-				? true_rtx : false_rtx);
+			{
+			  if (comparison_dominates_p (ent->comparison_code, code))
+			    {
+			      if (true_rtx)
+				return true_rtx;
+			      else
+				break;
+			    }
+			  else
+			    return false_rtx;
+			}
 		    }
 		}
 	    }
@@ -3609,6 +3630,8 @@ equiv_constant (rtx x)
 
   if (GET_CODE (x) == SUBREG)
     {
+      enum machine_mode mode = GET_MODE (x);
+      enum machine_mode imode = GET_MODE (SUBREG_REG (x));
       rtx new_rtx;
 
       /* See if we previously assigned a constant value to this SUBREG.  */
@@ -3617,10 +3640,25 @@ equiv_constant (rtx x)
           || (new_rtx = lookup_as_function (x, CONST_FIXED)) != 0)
         return new_rtx;
 
+      /* If we didn't and if doing so makes sense, see if we previously
+	 assigned a constant value to the enclosing word mode SUBREG.  */
+      if (GET_MODE_SIZE (mode) < GET_MODE_SIZE (word_mode)
+	  && GET_MODE_SIZE (word_mode) < GET_MODE_SIZE (imode))
+	{
+	  int byte = SUBREG_BYTE (x) - subreg_lowpart_offset (mode, word_mode);
+	  if (byte >= 0 && (byte % UNITS_PER_WORD) == 0)
+	    {
+	      rtx y = gen_rtx_SUBREG (word_mode, SUBREG_REG (x), byte);
+	      new_rtx = lookup_as_function (y, CONST_INT);
+	      if (new_rtx)
+		return gen_lowpart (mode, new_rtx);
+	    }
+	}
+
+      /* Otherwise see if we already have a constant for the inner REG.  */
       if (REG_P (SUBREG_REG (x))
 	  && (new_rtx = equiv_constant (SUBREG_REG (x))) != 0)
-        return simplify_subreg (GET_MODE (x), SUBREG_REG (x),
-				GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+        return simplify_subreg (mode, new_rtx, imode, SUBREG_BYTE (x));
 
       return 0;
     }
@@ -5958,11 +5996,11 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	 edge pointing to that bb.  */
       if (bb_has_eh_pred (bb))
 	{
-	  struct df_ref **def_rec;
+	  df_ref *def_rec;
 
 	  for (def_rec = df_get_artificial_defs (bb->index); *def_rec; def_rec++)
 	    {
-	      struct df_ref *def = *def_rec;
+	      df_ref def = *def_rec;
 	      if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
 		invalidate (DF_REF_REG (def), GET_MODE (DF_REF_REG (def)));
 	    }
@@ -5970,6 +6008,7 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 
       FOR_BB_INSNS (bb, insn)
 	{
+	  optimize_this_for_speed_p = optimize_bb_for_speed_p (bb);
 	  /* If we have processed 1,000 insns, flush the hash table to
 	     avoid extreme quadratic behavior.  We must not include NOTEs
 	     in the count since there may be more of them when generating
@@ -6537,13 +6576,17 @@ cse_change_cc_mode_insns (rtx start, rtx end, rtx newreg)
    permitted to change the mode of CC_SRC to a compatible mode.  This
    returns VOIDmode if no equivalent assignments were found.
    Otherwise it returns the mode which CC_SRC should wind up with.
+   ORIG_BB should be the same as BB in the outermost cse_cc_succs call,
+   but is passed unmodified down to recursive calls in order to prevent
+   endless recursion.
 
    The main complexity in this function is handling the mode issues.
    We may have more than one duplicate which we can eliminate, and we
    try to find a mode which will work for multiple duplicates.  */
 
 static enum machine_mode
-cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
+cse_cc_succs (basic_block bb, basic_block orig_bb, rtx cc_reg, rtx cc_src,
+	      bool can_change_mode)
 {
   bool found_equiv;
   enum machine_mode mode;
@@ -6574,7 +6617,9 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 	continue;
 
       if (EDGE_COUNT (e->dest->preds) != 1
-	  || e->dest == EXIT_BLOCK_PTR)
+	  || e->dest == EXIT_BLOCK_PTR
+	  /* Avoid endless recursion on unreachable blocks.  */
+	  || e->dest == orig_bb)
 	continue;
 
       end = NEXT_INSN (BB_END (e->dest));
@@ -6679,7 +6724,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 	{
 	  enum machine_mode submode;
 
-	  submode = cse_cc_succs (e->dest, cc_reg, cc_src, false);
+	  submode = cse_cc_succs (e->dest, orig_bb, cc_reg, cc_src, false);
 	  if (submode != VOIDmode)
 	    {
 	      gcc_assert (submode == mode);
@@ -6807,7 +6852,7 @@ cse_condition_code_reg (void)
 	 the basic block.  */
 
       orig_mode = GET_MODE (cc_src);
-      mode = cse_cc_succs (bb, cc_reg, cc_src, true);
+      mode = cse_cc_succs (bb, bb, cc_reg, cc_src, true);
       if (mode != VOIDmode)
 	{
 	  gcc_assert (mode == GET_MODE (cc_src));

@@ -746,6 +746,35 @@ gfc_conv_intrinsic_lib_function (gfc_se * se, gfc_expr * expr)
   se->expr = build_call_array (rettype, fndecl, num_args, args);
 }
 
+
+/* If bounds-checking is enabled, create code to verify at runtime that the
+   string lengths for both expressions are the same (needed for e.g. MERGE).
+   If bounds-checking is not enabled, does nothing.  */
+
+void
+gfc_trans_same_strlen_check (const char* intr_name, locus* where,
+			     tree a, tree b, stmtblock_t* target)
+{
+  tree cond;
+  tree name;
+
+  /* If bounds-checking is disabled, do nothing.  */
+  if (!flag_bounds_check)
+    return;
+
+  /* Compare the two string lengths.  */
+  cond = fold_build2 (NE_EXPR, boolean_type_node, a, b);
+
+  /* Output the runtime-check.  */
+  name = gfc_build_cstring_const (intr_name);
+  name = gfc_build_addr_expr (pchar_type_node, name);
+  gfc_trans_runtime_check (true, false, cond, target, where,
+			   "Unequal character lengths (%ld/%ld) in %s",
+			   fold_convert (long_integer_type_node, a),
+			   fold_convert (long_integer_type_node, b), name);
+}
+
+
 /* The EXPONENT(s) intrinsic function is translated into
        int ret;
        frexp (s, &ret);
@@ -2209,7 +2238,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
     tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 		       gfc_index_one_node, loop.from[0]);
   else
-    tmp = build_int_cst (gfc_array_index_type, 1);
+    tmp = gfc_index_one_node;
   
   gfc_add_modify (&block, offset, tmp);
 
@@ -2653,6 +2682,141 @@ gfc_conv_intrinsic_ishftc (gfc_se * se, gfc_expr * expr)
   se->expr = fold_build3 (COND_EXPR, type, tmp, args[0], rrot);
 }
 
+/* LEADZ (i) = (i == 0) ? BIT_SIZE (i)
+			: __builtin_clz(i) - (BIT_SIZE('int') - BIT_SIZE(i))
+
+   The conditional expression is necessary because the result of LEADZ(0)
+   is defined, but the result of __builtin_clz(0) is undefined for most
+   targets.
+
+   For INTEGER kinds smaller than the C 'int' type, we have to subtract the
+   difference in bit size between the argument of LEADZ and the C int.  */
+ 
+static void
+gfc_conv_intrinsic_leadz (gfc_se * se, gfc_expr * expr)
+{
+  tree arg;
+  tree arg_type;
+  tree cond;
+  tree result_type;
+  tree leadz;
+  tree bit_size;
+  tree tmp;
+  int arg_kind;
+  int i, n, s;
+
+  gfc_conv_intrinsic_function_args (se, expr, &arg, 1);
+
+  /* Which variant of __builtin_clz* should we call?  */
+  arg_kind = expr->value.function.actual->expr->ts.kind;
+  i = gfc_validate_kind (BT_INTEGER, arg_kind, false);
+  switch (arg_kind)
+    {
+      case 1:
+      case 2:
+      case 4:
+        arg_type = unsigned_type_node;
+	n = BUILT_IN_CLZ;
+	break;
+
+      case 8:
+        arg_type = long_unsigned_type_node;
+	n = BUILT_IN_CLZL;
+	break;
+
+      case 16:
+        arg_type = long_long_unsigned_type_node;
+	n = BUILT_IN_CLZLL;
+	break;
+
+      default:
+        gcc_unreachable ();
+    }
+
+  /* Convert the actual argument to the proper argument type for the built-in
+     function.  But the return type is of the default INTEGER kind.  */
+  arg = fold_convert (arg_type, arg);
+  result_type = gfc_get_int_type (gfc_default_integer_kind);
+
+  /* Compute LEADZ for the case i .ne. 0.  */
+  s = TYPE_PRECISION (arg_type) - gfc_integer_kinds[i].bit_size;
+  tmp = fold_convert (result_type, build_call_expr (built_in_decls[n], 1, arg));
+  leadz = fold_build2 (MINUS_EXPR, result_type,
+		       tmp, build_int_cst (result_type, s));
+
+  /* Build BIT_SIZE.  */
+  bit_size = build_int_cst (result_type, gfc_integer_kinds[i].bit_size);
+
+  /* ??? For some combinations of targets and integer kinds, the condition
+	 can be avoided if CLZ_DEFINED_VALUE_AT_ZERO is used.  Later.  */
+  cond = fold_build2 (EQ_EXPR, boolean_type_node,
+		      arg, build_int_cst (arg_type, 0));
+  se->expr = fold_build3 (COND_EXPR, result_type, cond, bit_size, leadz);
+}
+
+/* TRAILZ(i) = (i == 0) ? BIT_SIZE (i) : __builtin_ctz(i)
+
+   The conditional expression is necessary because the result of TRAILZ(0)
+   is defined, but the result of __builtin_ctz(0) is undefined for most
+   targets.  */
+ 
+static void
+gfc_conv_intrinsic_trailz (gfc_se * se, gfc_expr *expr)
+{
+  tree arg;
+  tree arg_type;
+  tree cond;
+  tree result_type;
+  tree trailz;
+  tree bit_size;
+  int arg_kind;
+  int i, n;
+
+  gfc_conv_intrinsic_function_args (se, expr, &arg, 1);
+
+  /* Which variant of __builtin_clz* should we call?  */
+  arg_kind = expr->value.function.actual->expr->ts.kind;
+  i = gfc_validate_kind (BT_INTEGER, arg_kind, false);
+  switch (expr->ts.kind)
+    {
+      case 1:
+      case 2:
+      case 4:
+        arg_type = unsigned_type_node;
+	n = BUILT_IN_CTZ;
+	break;
+
+      case 8:
+        arg_type = long_unsigned_type_node;
+	n = BUILT_IN_CTZL;
+	break;
+
+      case 16:
+        arg_type = long_long_unsigned_type_node;
+	n = BUILT_IN_CTZLL;
+	break;
+
+      default:
+        gcc_unreachable ();
+    }
+
+  /* Convert the actual argument to the proper argument type for the built-in
+     function.  But the return type is of the default INTEGER kind.  */
+  arg = fold_convert (arg_type, arg);
+  result_type = gfc_get_int_type (gfc_default_integer_kind);
+
+  /* Compute TRAILZ for the case i .ne. 0.  */
+  trailz = fold_convert (result_type, build_call_expr (built_in_decls[n], 1, arg));
+
+  /* Build BIT_SIZE.  */
+  bit_size = build_int_cst (result_type, gfc_integer_kinds[i].bit_size);
+
+  /* ??? For some combinations of targets and integer kinds, the condition
+	 can be avoided if CTZ_DEFINED_VALUE_AT_ZERO is used.  Later.  */
+  cond = fold_build2 (EQ_EXPR, boolean_type_node,
+		      arg, build_int_cst (arg_type, 0));
+  se->expr = fold_build3 (COND_EXPR, result_type, cond, bit_size, trailz);
+}
 
 /* Process an intrinsic with unspecified argument-types that has an optional
    argument (which could be of type character), e.g. EOSHIFT.  For those, we
@@ -2891,7 +3055,7 @@ gfc_conv_intrinsic_merge (gfc_se * se, gfc_expr * expr)
   tree fsource;
   tree mask;
   tree type;
-  tree len;
+  tree len, len2;
   tree *args;
   unsigned int num_args;
 
@@ -2912,13 +3076,17 @@ gfc_conv_intrinsic_merge (gfc_se * se, gfc_expr * expr)
 	 also have to set the string length for the result.  */
       len = args[0];
       tsource = args[1];
+      len2 = args[2];
       fsource = args[3];
       mask = args[4];
 
+      gfc_trans_same_strlen_check ("MERGE intrinsic", &expr->where, len, len2,
+				   &se->pre);
       se->string_length = len;
     }
   type = TREE_TYPE (tsource);
-  se->expr = fold_build3 (COND_EXPR, type, mask, tsource, fsource);
+  se->expr = fold_build3 (COND_EXPR, type, mask, tsource,
+			  fold_convert (type, fsource));
 }
 
 
@@ -3261,10 +3429,6 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
 			  gfc_array_index_type);
       gfc_add_block_to_block (&se->pre, &argse.pre);
 
-      /* Build the call to size1.  */
-      fncall1 = build_call_expr (gfor_fndecl_size1, 2,
-				 arg1, argse.expr);
-
       /* Unusually, for an intrinsic, size does not exclude
 	 an optional arg2, so we must test for it.  */  
       if (actual->expr->expr_type == EXPR_VARIABLE
@@ -3272,6 +3436,10 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
 	    && actual->expr->symtree->n.sym->attr.optional)
 	{
 	  tree tmp;
+	  /* Build the call to size1.  */
+	  fncall1 = build_call_expr (gfor_fndecl_size1, 2,
+				     arg1, argse.expr);
+
 	  gfc_init_se (&argse, NULL);
 	  argse.want_pointer = 1;
 	  argse.data_not_needed = 1;
@@ -3284,10 +3452,34 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
 				  tmp, fncall1, fncall0);
 	}
       else
-	se->expr = fncall1;
+	{
+	  se->expr = NULL_TREE;
+	  argse.expr = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+				    argse.expr, gfc_index_one_node);
+	}
+    }
+  else if (expr->value.function.actual->expr->rank == 1)
+    {
+      argse.expr = gfc_index_zero_node;
+      se->expr = NULL_TREE;
     }
   else
     se->expr = fncall0;
+
+  if (se->expr == NULL_TREE)
+    {
+      tree ubound, lbound;
+
+      arg1 = build_fold_indirect_ref (arg1);
+      ubound = gfc_conv_descriptor_ubound (arg1, argse.expr);
+      lbound = gfc_conv_descriptor_lbound (arg1, argse.expr);
+      se->expr = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+			      ubound, lbound);
+      se->expr = fold_build2 (PLUS_EXPR, gfc_array_index_type, se->expr,
+			      gfc_index_one_node);
+      se->expr = fold_build2 (MAX_EXPR, gfc_array_index_type, se->expr,
+			      gfc_index_zero_node);
+    }
 
   type = gfc_typenode_for_spec (&expr->ts);
   se->expr = convert (type, se->expr);
@@ -3571,6 +3763,14 @@ gfc_conv_intrinsic_array_transfer (gfc_se * se, gfc_expr * expr)
       mold_type = gfc_get_element_type (TREE_TYPE (argse.expr));
     }
 
+  if (strcmp (expr->value.function.name, "__transfer_in_transfer") == 0)
+    {
+      /* If this TRANSFER is nested in another TRANSFER, use a type
+	 that preserves all bits.  */
+      if (arg->expr->ts.type == BT_LOGICAL)
+	mold_type = gfc_get_int_type (arg->expr->ts.kind);
+    }
+
   if (arg->expr->ts.type == BT_CHARACTER)
     {
       tmp = size_of_string_in_bytes (arg->expr->ts.kind, argse.string_length);
@@ -3651,7 +3851,7 @@ gfc_conv_intrinsic_array_transfer (gfc_se * se, gfc_expr * expr)
      FIXME callee_alloc is not set!  */
 
   gfc_trans_create_temp_array (&se->pre, &se->post, se->loop,
-			       info, mold_type, false, true, false,
+			       info, mold_type, NULL_TREE, false, true, false,
 			       &expr->where);
 
   /* Cast the pointer to the result.  */
@@ -3699,6 +3899,13 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
 
   arg = arg->next;
   type = gfc_typenode_for_spec (&expr->ts);
+  if (strcmp (expr->value.function.name, "__transfer_in_transfer") == 0)
+    {
+      /* If this TRANSFER is nested in another TRANSFER, use a type
+	 that preserves all bits.  */
+      if (expr->ts.type == BT_LOGICAL)
+	type = gfc_get_int_type (expr->ts.kind);
+    }
 
   if (expr->ts.type == BT_CHARACTER)
     {
@@ -3717,7 +3924,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
       moldsize = size_in_bytes (type);
 
       /* Use memcpy to do the transfer.  */
-      tmp = fold_build1 (ADDR_EXPR, build_pointer_type (type), tmpdecl);
+      tmp = build_fold_addr_expr (tmpdecl);
       tmp = build_call_expr (built_in_decls[BUILT_IN_MEMCPY], 3,
 			     fold_convert (pvoid_type_node, tmp),
 			     fold_convert (pvoid_type_node, ptr),
@@ -4481,6 +4688,14 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_ishftc (se, expr);
       break;
 
+    case GFC_ISYM_LEADZ:
+      gfc_conv_intrinsic_leadz (se, expr);
+      break;
+
+    case GFC_ISYM_TRAILZ:
+      gfc_conv_intrinsic_trailz (se, expr);
+      break;
+
     case GFC_ISYM_LBOUND:
       gfc_conv_intrinsic_bound (se, expr, 0);
       break;
@@ -4606,20 +4821,30 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       break;
 
     case GFC_ISYM_TRANSFER:
-      if (se->ss)
+      if (se->ss && se->ss->useflags)
 	{
-	  if (se->ss->useflags)
-	    {
-	      /* Access the previously obtained result.  */
-	      gfc_conv_tmp_array_ref (se);
-	      gfc_advance_se_ss_chain (se);
-	      break;
-	    }
-	  else
-	    gfc_conv_intrinsic_array_transfer (se, expr);
+	  /* Access the previously obtained result.  */
+	  gfc_conv_tmp_array_ref (se);
+	  gfc_advance_se_ss_chain (se);
 	}
       else
-	gfc_conv_intrinsic_transfer (se, expr);
+	{
+	  /* Ensure double transfer through LOGICAL preserves all
+	     the needed bits.  */
+	  gfc_expr *source = expr->value.function.actual->expr;
+	  if (source->expr_type == EXPR_FUNCTION
+	      && source->value.function.esym == NULL
+	      && source->value.function.isym != NULL
+	      && source->value.function.isym->id == GFC_ISYM_TRANSFER
+	      && source->ts.type == BT_LOGICAL
+	      && expr->ts.type != source->ts.type)
+	    source->value.function.name = "__transfer_in_transfer";
+
+	  if (se->ss)
+	    gfc_conv_intrinsic_array_transfer (se, expr);
+	  else
+	    gfc_conv_intrinsic_transfer (se, expr);
+	}
       break;
 
     case GFC_ISYM_TTYNAM:

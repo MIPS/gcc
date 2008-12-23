@@ -243,13 +243,13 @@ check_maybe_invariant (rtx x)
    invariant.  */
 
 static struct invariant *
-invariant_for_use (struct df_ref *use)
+invariant_for_use (df_ref use)
 {
   struct df_link *defs;
-  struct df_ref *def;
+  df_ref def;
   basic_block bb = DF_REF_BB (use), def_bb;
 
-  if (use->flags & DF_REF_READ_WRITE)
+  if (DF_REF_FLAGS (use) & DF_REF_READ_WRITE)
     return NULL;
 
   defs = DF_REF_CHAIN (use);
@@ -276,7 +276,7 @@ hash_invariant_expr_1 (rtx insn, rtx x)
   const char *fmt;
   hashval_t val = code;
   int do_not_record_p;
-  struct df_ref *use;
+  df_ref use;
   struct invariant *inv;
 
   switch (code)
@@ -330,7 +330,7 @@ invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
   enum rtx_code code = GET_CODE (e1);
   int i, j;
   const char *fmt;
-  struct df_ref *use1, *use2;
+  df_ref use1, use2;
   struct invariant *inv1 = NULL, *inv2 = NULL;
   rtx sub1, sub2;
 
@@ -668,6 +668,7 @@ create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
 {
   struct invariant *inv = XNEW (struct invariant);
   rtx set = single_set (insn);
+  bool speed = optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn));
 
   inv->def = def;
   inv->always_executed = always_executed;
@@ -676,9 +677,9 @@ create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
   /* If the set is simple, usually by moving it we move the whole store out of
      the loop.  Otherwise we save only cost of the computation.  */
   if (def)
-    inv->cost = rtx_cost (set, SET);
+    inv->cost = rtx_cost (set, SET, speed);
   else
-    inv->cost = rtx_cost (SET_SRC (set), SET);
+    inv->cost = rtx_cost (SET_SRC (set), SET, speed);
 
   inv->move = false;
   inv->reg = NULL_RTX;
@@ -723,15 +724,15 @@ record_use (struct def *def, rtx *use, rtx insn)
    loop invariants, false otherwise.  */
 
 static bool
-check_dependency (basic_block bb, struct df_ref *use, bitmap depends_on)
+check_dependency (basic_block bb, df_ref use, bitmap depends_on)
 {
-  struct df_ref *def;
+  df_ref def;
   basic_block def_bb;
   struct df_link *defs;
   struct def *def_data;
   struct invariant *inv;
   
-  if (use->flags & DF_REF_READ_WRITE)
+  if (DF_REF_FLAGS (use) & DF_REF_READ_WRITE)
     return false;
   
   defs = DF_REF_CHAIN (use);
@@ -771,7 +772,7 @@ static bool
 check_dependencies (rtx insn, bitmap depends_on)
 {
   struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
-  struct df_ref **use_rec;
+  df_ref *use_rec;
   basic_block bb = BLOCK_FOR_INSN (insn);
 
   for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
@@ -791,7 +792,7 @@ check_dependencies (rtx insn, bitmap depends_on)
 static void
 find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
 {
-  struct df_ref *ref;
+  df_ref ref;
   struct def *def;
   bitmap depends_on;
   rtx set, dest;
@@ -854,19 +855,19 @@ static void
 record_uses (rtx insn)
 {
   struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
-  struct df_ref **use_rec;
+  df_ref *use_rec;
   struct invariant *inv;
 
   for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
     {
-      struct df_ref *use = *use_rec;
+      df_ref use = *use_rec;
       inv = invariant_for_use (use);
       if (inv)
 	record_use (inv->def, DF_REF_REAL_LOC (use), DF_REF_INSN (use));
     }
   for (use_rec = DF_INSN_INFO_EQ_USES (insn_info); *use_rec; use_rec++)
     {
-      struct df_ref *use = *use_rec;
+      df_ref use = *use_rec;
       inv = invariant_for_use (use);
       if (inv)
 	record_use (inv->def, DF_REF_REAL_LOC (use), DF_REF_INSN (use));
@@ -1048,15 +1049,15 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
 
 static int
 gain_for_invariant (struct invariant *inv, unsigned *regs_needed,
-		    unsigned new_regs, unsigned regs_used)
+		    unsigned new_regs, unsigned regs_used, bool speed)
 {
   int comp_cost, size_cost;
 
   get_inv_cost (inv, &comp_cost, regs_needed);
   actual_stamp++;
 
-  size_cost = (estimate_reg_pressure_cost (new_regs + *regs_needed, regs_used)
-	       - estimate_reg_pressure_cost (new_regs, regs_used));
+  size_cost = (estimate_reg_pressure_cost (new_regs + *regs_needed, regs_used, speed)
+	       - estimate_reg_pressure_cost (new_regs, regs_used, speed));
 
   return comp_cost - size_cost;
 }
@@ -1069,7 +1070,7 @@ gain_for_invariant (struct invariant *inv, unsigned *regs_needed,
 
 static int
 best_gain_for_invariant (struct invariant **best, unsigned *regs_needed,
-			 unsigned new_regs, unsigned regs_used)
+			 unsigned new_regs, unsigned regs_used, bool speed)
 {
   struct invariant *inv;
   int gain = 0, again;
@@ -1084,7 +1085,8 @@ best_gain_for_invariant (struct invariant **best, unsigned *regs_needed,
       if (inv->eqto != inv->invno)
 	continue;
 
-      again = gain_for_invariant (inv, &aregs_needed, new_regs, regs_used);
+      again = gain_for_invariant (inv, &aregs_needed, new_regs, regs_used,
+      				  speed);
       if (again > gain)
 	{
 	  gain = again;
@@ -1123,7 +1125,7 @@ set_move_mark (unsigned invno)
 /* Determines which invariants to move.  */
 
 static void
-find_invariants_to_move (void)
+find_invariants_to_move (bool speed)
 {
   unsigned i, regs_used, regs_needed = 0, new_regs;
   struct invariant *inv = NULL;
@@ -1147,7 +1149,7 @@ find_invariants_to_move (void)
     }
 
   new_regs = 0;
-  while (best_gain_for_invariant (&inv, &regs_needed, new_regs, regs_used) > 0)
+  while (best_gain_for_invariant (&inv, &regs_needed, new_regs, regs_used, speed) > 0)
     {
       set_move_mark (inv->invno);
       new_regs += regs_needed;
@@ -1314,7 +1316,7 @@ move_single_loop_invariants (struct loop *loop)
   init_inv_motion_data ();
 
   find_invariants (loop);
-  find_invariants_to_move ();
+  find_invariants_to_move (optimize_loop_for_speed_p (loop));
   move_invariants (loop);
 
   free_inv_motion_data ();

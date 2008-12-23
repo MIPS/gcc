@@ -887,6 +887,20 @@ write_nested_name (const tree decl)
       write_template_prefix (decl);
       write_template_args (TI_ARGS (template_info));
     }
+  else if (TREE_CODE (TREE_TYPE (decl)) == TYPENAME_TYPE)
+    {
+      tree name = TYPENAME_TYPE_FULLNAME (TREE_TYPE (decl));
+      if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+	{
+	  write_template_prefix (decl);
+	  write_template_args (TREE_OPERAND (name, 1));
+	}
+      else
+	{
+	  write_prefix (CP_DECL_CONTEXT (decl));
+	  write_unqualified_name (decl);
+	}
+    }
   else
     {
       /* No, just use <prefix>  */
@@ -953,6 +967,20 @@ write_prefix (const tree node)
       write_template_prefix (decl);
       write_template_args (TI_ARGS (template_info));
     }
+  else if (TREE_CODE (TREE_TYPE (decl)) == TYPENAME_TYPE)
+    {
+      tree name = TYPENAME_TYPE_FULLNAME (TREE_TYPE (decl));
+      if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+	{
+	  write_template_prefix (decl);
+	  write_template_args (TREE_OPERAND (name, 1));
+	}
+      else
+	{
+	  write_prefix (CP_DECL_CONTEXT (decl));
+	  write_unqualified_name (decl);
+	}
+    }
   else
     /* Not templated.  */
     {
@@ -982,6 +1010,9 @@ write_template_prefix (const tree node)
   /* Find the template decl.  */
   if (decl_is_template_id (decl, &template_info))
     templ = TI_TEMPLATE (template_info);
+  else if (TREE_CODE (type) == TYPENAME_TYPE)
+    /* For a typename type, all we have is the name.  */
+    templ = DECL_NAME (decl);
   else
     {
       gcc_assert (CLASSTYPE_TEMPLATE_ID_P (type));
@@ -1020,11 +1051,13 @@ write_template_prefix (const tree node)
     return;
 
   /* In G++ 3.2, the name of the template template parameter was used.  */
-  if (TREE_CODE (TREE_TYPE (templ)) == TEMPLATE_TEMPLATE_PARM
+  if (TREE_TYPE (templ)
+      && TREE_CODE (TREE_TYPE (templ)) == TEMPLATE_TEMPLATE_PARM
       && !abi_version_at_least (2))
     G.need_abi_warning = true;
 
-  if (TREE_CODE (TREE_TYPE (templ)) == TEMPLATE_TEMPLATE_PARM
+  if (TREE_TYPE (templ)
+      && TREE_CODE (TREE_TYPE (templ)) == TEMPLATE_TEMPLATE_PARM
       && abi_version_at_least (2))
     write_template_param (TREE_TYPE (templ));
   else
@@ -1549,6 +1582,13 @@ write_type (tree type)
 	  if (target_mangling)
 	    {
 	      write_string (target_mangling);
+	      /* Add substitutions for types other than fundamental
+		 types.  */
+	      if (TREE_CODE (type) != VOID_TYPE
+		  && TREE_CODE (type) != INTEGER_TYPE
+		  && TREE_CODE (type) != REAL_TYPE
+		  && TREE_CODE (type) != BOOLEAN_TYPE)
+		add_substitution (type);
 	      return;
 	    }
 
@@ -1558,6 +1598,7 @@ write_type (tree type)
 	    case BOOLEAN_TYPE:
 	    case INTEGER_TYPE:  /* Includes wchar_t.  */
 	    case REAL_TYPE:
+	    case FIXED_POINT_TYPE:
 	      {
 		/* If this is a typedef, TYPE may not be one of
 		   the standard builtin type nodes, but an alias of one.  Use
@@ -1629,7 +1670,7 @@ write_type (tree type)
 	      break;
 
             case TYPE_PACK_EXPANSION:
-              write_string ("U10__variadic");
+              write_string ("Dp");
               write_type (PACK_EXPANSION_PATTERN (type));
               break;
 
@@ -1639,7 +1680,9 @@ write_type (tree type)
                 write_char ('t');
               else
                 write_char ('T');
+	      ++skip_evaluation;
               write_expression (DECLTYPE_TYPE_EXPR (type));
+	      --skip_evaluation;
               write_char ('E');
               break;
 
@@ -1743,9 +1786,9 @@ write_builtin_type (tree type)
       if (type == wchar_type_node)
 	write_char ('w');
       else if (type == char16_type_node)
-	write_string ("u8char16_t");
+	write_string ("Ds");
       else if (type == char32_type_node)
-	write_string ("u8char32_t");
+	write_string ("Di");
       else if (TYPE_FOR_JAVA (type))
 	write_java_integer_type_codes (type);
       else
@@ -1810,6 +1853,59 @@ write_builtin_type (tree type)
 	write_char ('e');
       else
 	gcc_unreachable ();
+      break;
+
+    case FIXED_POINT_TYPE:
+      write_string ("DF");
+      if (GET_MODE_IBIT (TYPE_MODE (type)) > 0)
+	write_unsigned_number (GET_MODE_IBIT (TYPE_MODE (type)));
+      if (type == fract_type_node
+	  || type == sat_fract_type_node
+	  || type == accum_type_node
+	  || type == sat_accum_type_node)
+	write_char ('i');
+      else if (type == unsigned_fract_type_node
+	       || type == sat_unsigned_fract_type_node
+	       || type == unsigned_accum_type_node
+	       || type == sat_unsigned_accum_type_node)
+	write_char ('j');
+      else if (type == short_fract_type_node
+	       || type == sat_short_fract_type_node
+	       || type == short_accum_type_node
+	       || type == sat_short_accum_type_node)
+	write_char ('s');
+      else if (type == unsigned_short_fract_type_node
+	       || type == sat_unsigned_short_fract_type_node
+	       || type == unsigned_short_accum_type_node
+	       || type == sat_unsigned_short_accum_type_node)
+	write_char ('t');
+      else if (type == long_fract_type_node
+	       || type == sat_long_fract_type_node
+	       || type == long_accum_type_node
+	       || type == sat_long_accum_type_node)
+	write_char ('l');
+      else if (type == unsigned_long_fract_type_node
+	       || type == sat_unsigned_long_fract_type_node
+	       || type == unsigned_long_accum_type_node
+	       || type == sat_unsigned_long_accum_type_node)
+	write_char ('m');
+      else if (type == long_long_fract_type_node
+	       || type == sat_long_long_fract_type_node
+	       || type == long_long_accum_type_node
+	       || type == sat_long_long_accum_type_node)
+	write_char ('x');
+      else if (type == unsigned_long_long_fract_type_node
+	       || type == sat_unsigned_long_long_fract_type_node
+	       || type == unsigned_long_long_accum_type_node
+	       || type == sat_unsigned_long_long_accum_type_node)
+	write_char ('y');
+      else
+	sorry ("mangling unknown fixed point type");
+      write_unsigned_number (GET_MODE_FBIT (TYPE_MODE (type)));
+      if (TYPE_SATURATING (type))
+	write_char ('s');
+      else
+	write_char ('n');
       break;
 
     default:
@@ -2002,6 +2098,35 @@ write_template_args (tree args)
   write_char ('E');
 }
 
+/* Write out the
+   <unqualified-name>
+   <unqualified-name> <template-args>
+   part of SCOPE_REF or COMPONENT_REF mangling.  */
+
+static void
+write_member_name (tree member)
+{
+  if (TREE_CODE (member) == IDENTIFIER_NODE)
+    write_source_name (member);
+  else if (DECL_P (member))
+    {
+      /* G++ 3.2 incorrectly put out both the "sr" code and
+	 the nested name of the qualified name.  */
+      G.need_abi_warning = 1;
+      write_unqualified_name (member);
+    }
+  else if (TREE_CODE (member) == TEMPLATE_ID_EXPR)
+    {
+      tree name = TREE_OPERAND (member, 0);
+      if (TREE_CODE (name) == OVERLOAD)
+	name = OVL_FUNCTION (name);
+      write_member_name (name);
+      write_template_args (TREE_OPERAND (member, 1));
+    }
+  else
+    write_expression (member);
+}
+
 /* <expression> ::= <unary operator-name> <expression>
 		::= <binary operator-name> <expression> <expression>
 		::= <expr-primary>
@@ -2009,15 +2134,35 @@ write_template_args (tree args)
    <expr-primary> ::= <template-param>
 		  ::= L <type> <value number> E		# literal
 		  ::= L <mangled-name> E		# external name
-		  ::= sr <type> <unqualified-name>
+		  ::= st <type>				# sizeof
+		  ::= sr <type> <unqualified-name>	# dependent name
 		  ::= sr <type> <unqualified-name> <template-args> */
 
 static void
 write_expression (tree expr)
 {
-  enum tree_code code;
+  enum tree_code code = TREE_CODE (expr);
 
-  code = TREE_CODE (expr);
+  /* Inside decltype we can simplify some expressions, since we're only
+     interested in the type.  */
+  if (skip_evaluation)
+    {
+      tree type = describable_type (expr);
+      if (type == NULL_TREE)
+	;
+      else if (TREE_CODE (type) == REFERENCE_TYPE)
+	{
+	  write_string ("sT");
+	  write_type (TREE_TYPE (type));
+	  return;
+	}
+      else
+	{
+	  write_string ("sR");
+	  write_type (type);
+	  return;
+	}
+    }
 
   /* Skip NOP_EXPRs.  They can occur when (say) a pointer argument
      is converted (via qualification conversions) to another
@@ -2032,6 +2177,12 @@ write_expression (tree expr)
   if (code == BASELINK)
     {
       expr = BASELINK_FUNCTIONS (expr);
+      code = TREE_CODE (expr);
+    }
+
+  if (code == OVERLOAD)
+    {
+      expr = OVL_FUNCTION (expr);
       code = TREE_CODE (expr);
     }
 
@@ -2057,6 +2208,13 @@ write_expression (tree expr)
   else if (TREE_CODE_CLASS (code) == tcc_constant
 	   || (abi_version_at_least (2) && code == CONST_DECL))
     write_template_arg_literal (expr);
+  else if (code == PARM_DECL)
+    {
+      /* A function parameter used under decltype in a late-specified
+	 return type.  Represented with a type placeholder.  */
+      write_string ("sT");
+      write_type (non_reference (TREE_TYPE (expr)));
+    }
   else if (DECL_P (expr))
     {
       /* G++ 3.2 incorrectly mangled non-type template arguments of
@@ -2140,6 +2298,20 @@ write_expression (tree expr)
 	    write_template_args (template_args);
 	}
     }
+  else if (code == COMPONENT_REF)
+    {
+      tree ob = TREE_OPERAND (expr, 0);
+
+      if (TREE_CODE (ob) == ARROW_EXPR)
+	{
+	  code = ARROW_EXPR;
+	  ob = TREE_OPERAND (ob, 0);
+	}
+
+      write_string (operator_name_info[(int)code].mangled_name);
+      write_expression (ob);
+      write_member_name (TREE_OPERAND (expr, 1));
+    }
   else
     {
       int i;
@@ -2168,16 +2340,21 @@ write_expression (tree expr)
       switch (code)
 	{
 	case CALL_EXPR:
-	  sorry ("call_expr cannot be mangled due to a defect in the C++ ABI");
+	  write_expression (CALL_EXPR_FN (expr));
+	  for (i = 0; i < call_expr_nargs (expr); ++i)
+	    write_expression (CALL_EXPR_ARG (expr, i));
+	  write_char ('E');
 	  break;
 
 	case CAST_EXPR:
 	  write_type (TREE_TYPE (expr));
-	  /* There is no way to mangle a zero-operand cast like
-	     "T()".  */
 	  if (!TREE_OPERAND (expr, 0))
-	    sorry ("zero-operand casts cannot be mangled due to a defect "
-		   "in the C++ ABI");
+	    /* "T()" is mangled as "T(void)".  */
+	    write_char ('v');
+	  else if (list_length (TREE_OPERAND (expr, 0)) > 1)
+	    /* FIXME the above hack for T() needs to be replaced with
+	       something more general.  */
+	    sorry ("mangling function-style cast with more than one argument");
 	  else
 	    write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
 	  break;
@@ -2188,31 +2365,10 @@ write_expression (tree expr)
 	  write_expression (TREE_OPERAND (expr, 0));
 	  break;
 
-
 	/* Handle pointers-to-members specially.  */
 	case SCOPE_REF:
 	  write_type (TREE_OPERAND (expr, 0));
-	  if (TREE_CODE (TREE_OPERAND (expr, 1)) == IDENTIFIER_NODE)
-	    write_source_name (TREE_OPERAND (expr, 1));
-	  else if (TREE_CODE (TREE_OPERAND (expr, 1)) == TEMPLATE_ID_EXPR)
-	    {
-	      tree template_id;
-	      tree name;
-
-	      template_id = TREE_OPERAND (expr, 1);
-	      name = TREE_OPERAND (template_id, 0);
-	      /* FIXME: What about operators?  */
-	      gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
-	      write_source_name (TREE_OPERAND (template_id, 0));
-	      write_template_args (TREE_OPERAND (template_id, 1));
-	    }
-	  else
-	    {
-	      /* G++ 3.2 incorrectly put out both the "sr" code and
-		 the nested name of the qualified name.  */
-	      G.need_abi_warning = 1;
-	      write_encoding (TREE_OPERAND (expr, 1));
-	    }
+	  write_member_name (TREE_OPERAND (expr, 1));
 	  break;
 
 	default:
@@ -2317,8 +2473,10 @@ write_template_arg (tree node)
       /* Expand the template argument pack. */
       tree args = ARGUMENT_PACK_ARGS (node);
       int i, length = TREE_VEC_LENGTH (args);
+      write_char ('I');
       for (i = 0; i < length; ++i)
         write_template_arg (TREE_VEC_ELT (args, i));
+      write_char ('E');
     }
   else if (TYPE_P (node))
     write_type (node);

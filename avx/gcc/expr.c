@@ -175,7 +175,7 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 #ifndef MOVE_BY_PIECES_P
 #define MOVE_BY_PIECES_P(SIZE, ALIGN) \
   (move_by_pieces_ninsns (SIZE, ALIGN, MOVE_MAX_PIECES + 1) \
-   < (unsigned int) MOVE_RATIO)
+   < (unsigned int) MOVE_RATIO (optimize_insn_for_speed_p ()))
 #endif
 
 /* This macro is used to determine whether clear_by_pieces should be
@@ -183,7 +183,7 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 #ifndef CLEAR_BY_PIECES_P
 #define CLEAR_BY_PIECES_P(SIZE, ALIGN) \
   (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
-   < (unsigned int) CLEAR_RATIO)
+   < (unsigned int) CLEAR_RATIO (optimize_insn_for_speed_p ()))
 #endif
 
 /* This macro is used to determine whether store_by_pieces should be
@@ -191,7 +191,7 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 #ifndef SET_BY_PIECES_P
 #define SET_BY_PIECES_P(SIZE, ALIGN) \
   (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
-   < (unsigned int) SET_RATIO)
+   < (unsigned int) SET_RATIO (optimize_insn_for_speed_p ()))
 #endif
 
 /* This macro is used to determine whether store_by_pieces should be
@@ -199,7 +199,7 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 #ifndef STORE_BY_PIECES_P
 #define STORE_BY_PIECES_P(SIZE, ALIGN) \
   (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
-   < (unsigned int) MOVE_RATIO)
+   < (unsigned int) MOVE_RATIO (optimize_insn_for_speed_p ()))
 #endif
 
 /* This array records the insn_code of insns to perform block moves.  */
@@ -2039,9 +2039,54 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
       HOST_WIDE_INT bytepos = INTVAL (XEXP (XVECEXP (src, 0, i), 1));
       enum machine_mode mode = GET_MODE (tmps[i]);
       unsigned int bytelen = GET_MODE_SIZE (mode);
+      unsigned int adj_bytelen = bytelen;
       rtx dest = dst;
 
       /* Handle trailing fragments that run over the size of the struct.  */
+      if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
+	adj_bytelen = ssize - bytepos;
+
+      if (GET_CODE (dst) == CONCAT)
+	{
+	  if (bytepos + adj_bytelen
+	      <= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0))))
+	    dest = XEXP (dst, 0);
+	  else if (bytepos >= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0))))
+	    {
+	      bytepos -= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0)));
+	      dest = XEXP (dst, 1);
+	    }
+	  else
+	    {
+	      enum machine_mode dest_mode = GET_MODE (dest);
+	      enum machine_mode tmp_mode = GET_MODE (tmps[i]);
+
+	      gcc_assert (bytepos == 0 && XVECLEN (src, 0));
+
+	      if (GET_MODE_ALIGNMENT (dest_mode)
+		  >= GET_MODE_ALIGNMENT (tmp_mode))
+		{
+		  dest = assign_stack_temp (dest_mode,
+					    GET_MODE_SIZE (dest_mode),
+					    0);
+		  emit_move_insn (adjust_address (dest,
+						  tmp_mode,
+						  bytepos),
+				  tmps[i]);
+		  dst = dest;
+		}
+	      else
+		{
+		  dest = assign_stack_temp (tmp_mode,
+					    GET_MODE_SIZE (tmp_mode),
+					    0);
+		  emit_move_insn (dest, tmps[i]);
+		  dst = adjust_address (dest, dest_mode, bytepos);
+		}
+	      break;
+	    }
+	}
+
       if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
 	{
 	  /* store_bit_field always takes its value from the lsb.
@@ -2060,47 +2105,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 				      build_int_cst (NULL_TREE, shift),
 				      tmps[i], 0);
 	    }
-	  bytelen = ssize - bytepos;
-	}
-
-      if (GET_CODE (dst) == CONCAT)
-	{
-	  if (bytepos + bytelen <= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0))))
-	    dest = XEXP (dst, 0);
-	  else if (bytepos >= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0))))
-	    {
-	      bytepos -= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0)));
-	      dest = XEXP (dst, 1);
-	    }
-	  else
-	    {
-	      enum machine_mode dest_mode = GET_MODE (dest);
-	      enum machine_mode tmp_mode = GET_MODE (tmps[i]);
-	      int dest_size = GET_MODE_SIZE (dest_mode);
-	      int tmp_size = GET_MODE_SIZE (tmp_mode);
-
-	      gcc_assert (bytepos == 0
-			  && XVECLEN (src, 0)
-			  && dest_size == tmp_size);
-
-	      if (GET_MODE_ALIGNMENT (dest_mode)
-		  >= GET_MODE_ALIGNMENT (tmp_mode))
-		{
-		  dest = assign_stack_temp (dest_mode, dest_size, 0);
-		  emit_move_insn (adjust_address (dest,
-						  tmp_mode,
-						  bytepos),
-				  tmps[i]);
-		  dst = dest;
-		}
-	      else
-		{
-		  dest = assign_stack_temp (tmp_mode, tmp_size, 0);
-		  emit_move_insn (dest, tmps[i]);
-		  dst = adjust_address (dest, dest_mode, bytepos);
-		}
-	      break;
-	    }
+	  bytelen = adj_bytelen;
 	}
 
       /* Optimize the access just a bit.  */
@@ -2693,7 +2698,7 @@ set_storage_via_libcall (rtx object, rtx size, rtx val, bool tailcall)
    for the function we use for block clears.  The first time FOR_CALL
    is true, we call assemble_external.  */
 
-static GTY(()) tree block_clear_fn;
+tree block_clear_fn;
 
 void
 init_block_clear_fn (const char *asmspec)
@@ -3458,13 +3463,14 @@ compress_float_constant (rtx x, rtx y)
   enum machine_mode srcmode;
   REAL_VALUE_TYPE r;
   int oldcost, newcost;
+  bool speed = optimize_insn_for_speed_p ();
 
   REAL_VALUE_FROM_CONST_DOUBLE (r, y);
 
   if (LEGITIMATE_CONSTANT_P (y))
-    oldcost = rtx_cost (y, SET);
+    oldcost = rtx_cost (y, SET, speed);
   else
-    oldcost = rtx_cost (force_const_mem (dstmode, y), SET);
+    oldcost = rtx_cost (force_const_mem (dstmode, y), SET, speed);
 
   for (srcmode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_srcmode));
        srcmode != orig_srcmode;
@@ -3491,7 +3497,7 @@ compress_float_constant (rtx x, rtx y)
 	  if (! (*insn_data[ic].operand[1].predicate) (trunc_y, srcmode))
 	    continue;
 	  /* This is valid, but may not be cheaper than the original. */
-	  newcost = rtx_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y), SET);
+	  newcost = rtx_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y), SET, speed);
 	  if (oldcost < newcost)
 	    continue;
 	}
@@ -3499,7 +3505,7 @@ compress_float_constant (rtx x, rtx y)
 	{
 	  trunc_y = force_const_mem (srcmode, trunc_y);
 	  /* This is valid, but may not be cheaper than the original. */
-	  newcost = rtx_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y), SET);
+	  newcost = rtx_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y), SET, speed);
 	  if (oldcost < newcost)
 	    continue;
 	  trunc_y = validize_mem (trunc_y);
@@ -5015,6 +5021,9 @@ count_type_elements (const_tree type, bool allow_flexarr)
     case REFERENCE_TYPE:
       return 1;
 
+    case ERROR_MARK:
+      return 0;
+
     case VOID_TYPE:
     case METHOD_TYPE:
     case FUNCTION_TYPE:
@@ -5570,6 +5579,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	HOST_WIDE_INT bitpos;
 	rtvec vector = NULL;
 	unsigned n_elts;
+	alias_set_type alias;
 
 	gcc_assert (eltmode != BLKmode);
 
@@ -5621,7 +5631,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	if (need_to_clear && size > 0 && !vector)
 	  {
 	    if (REG_P (target))
-	      emit_move_insn (target,  CONST0_RTX (GET_MODE (target)));
+	      emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
 	    else
 	      clear_storage (target, GEN_INT (size), BLOCK_OP_NORMAL);
 	    cleared = 1;
@@ -5630,6 +5640,11 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	/* Inform later passes that the old value is dead.  */
 	if (!cleared && !vector && REG_P (target))
 	  emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
+
+        if (MEM_P (target))
+	  alias = MEM_ALIAS_SET (target);
+	else
+	  alias = get_alias_set (elttype);
 
         /* Store each element of the constructor into the corresponding
 	   element of TARGET, determined by counting the elements.  */
@@ -5666,7 +5681,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		bitpos = eltpos * elt_size;
 		store_constructor_field (target, bitsize, bitpos,
 					 value_mode, value, type,
-					 cleared, get_alias_set (elttype));
+					 cleared, alias);
 	      }
 	  }
 
@@ -6070,9 +6085,9 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
   return exp;
 }
 
-/* Given an expression EXP that may be a COMPONENT_REF or an ARRAY_REF,
-   look for whether EXP or any nested component-refs within EXP is marked
-   as PACKED.  */
+/* Given an expression EXP that may be a COMPONENT_REF, an ARRAY_REF or an
+   ARRAY_RANGE_REF, look for whether EXP or any nested component-refs within
+   EXP is marked as PACKED.  */
 
 bool
 contains_packed_reference (const_tree exp)
@@ -6112,7 +6127,7 @@ contains_packed_reference (const_tree exp)
 }
 
 /* Return a tree of sizetype representing the size, in bytes, of the element
-   of EXP, an ARRAY_REF.  */
+   of EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
 
 tree
 array_ref_element_size (tree exp)
@@ -6139,7 +6154,7 @@ array_ref_element_size (tree exp)
 }
 
 /* Return a tree representing the lower bound of the array mentioned in
-   EXP, an ARRAY_REF.  */
+   EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
 
 tree
 array_ref_low_bound (tree exp)
@@ -6160,7 +6175,7 @@ array_ref_low_bound (tree exp)
 }
 
 /* Return a tree representing the upper bound of the array mentioned in
-   EXP, an ARRAY_REF.  */
+   EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
 
 tree
 array_ref_up_bound (tree exp)
@@ -6847,6 +6862,16 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
   gcc_assert (inner != exp);
 
   subtarget = offset || bitpos ? NULL_RTX : target;
+  /* For VIEW_CONVERT_EXPR, where the outer alignment is bigger than
+     inner alignment, force the inner to be sufficiently aligned.  */
+  if (CONSTANT_CLASS_P (inner)
+      && TYPE_ALIGN (TREE_TYPE (inner)) < TYPE_ALIGN (TREE_TYPE (exp)))
+    {
+      inner = copy_node (inner);
+      TREE_TYPE (inner) = copy_node (TREE_TYPE (inner));
+      TYPE_ALIGN (TREE_TYPE (inner)) = TYPE_ALIGN (TREE_TYPE (exp));
+      TYPE_USER_ALIGN (TREE_TYPE (inner)) = 1;
+    }
   result = expand_expr_addr_expr_1 (inner, subtarget, tmode, modifier);
 
   if (offset)
@@ -7738,13 +7763,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case ARRAY_RANGE_REF:
     normal_inner_ref:
       {
-	enum machine_mode mode1;
+	enum machine_mode mode1, mode2;
 	HOST_WIDE_INT bitsize, bitpos;
 	tree offset;
-	int volatilep = 0;
+	int volatilep = 0, must_force_mem;
 	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
 					&mode1, &unsignedp, &volatilep, true);
-	rtx orig_op0;
+	rtx orig_op0, memloc;
 
 	/* If we got back the original object, something is wrong.  Perhaps
 	   we are evaluating an expression too early.  In any event, don't
@@ -7754,7 +7779,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	/* If TEM's type is a union of variable size, pass TARGET to the inner
 	   computation, since it will need a temporary and TARGET is known
 	   to have to do.  This occurs in unchecked conversion in Ada.  */
-
 	orig_op0 = op0
 	  = expand_expr (tem,
 			 (TREE_CODE (TREE_TYPE (tem)) == UNION_TYPE
@@ -7768,45 +7792,47 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 			  || modifier == EXPAND_STACK_PARM)
 			 ? modifier : EXPAND_NORMAL);
 
-	/* If this is a constant, put it into a register if it is a legitimate
-	   constant, OFFSET is 0, and we won't try to extract outside the
-	   register (in case we were passed a partially uninitialized object
-	   or a view_conversion to a larger size) or a BLKmode piece of it
-	   (e.g. if it is unchecked-converted to a record type in Ada).  Force
-	   the constant to memory otherwise.  */
-	if (CONSTANT_P (op0))
-	  {
-	    enum machine_mode mode = TYPE_MODE (TREE_TYPE (tem));
-	    if (mode != BLKmode && LEGITIMATE_CONSTANT_P (op0)
-		&& offset == 0
-		&& mode1 != BLKmode
-		&& bitpos + bitsize <= GET_MODE_BITSIZE (mode))
-	      op0 = force_reg (mode, op0);
-	    else
-	      op0 = validize_mem (force_const_mem (mode, op0));
-	  }
+	mode2
+	  = CONSTANT_P (op0) ? TYPE_MODE (TREE_TYPE (tem)) : GET_MODE (op0);
 
-	/* Otherwise, if this object not in memory and we either have an
-	   offset, a BLKmode result, or a reference outside the object, put it
-	   there.  Such cases can occur in Ada if we have unchecked conversion
-	   of an expression from a scalar type to an array or record type or
-	   for an ARRAY_RANGE_REF whose type is BLKmode.  */
-	else if (!MEM_P (op0)
-		 && (offset != 0
-		     || mode1 == BLKmode
-		     || (bitpos + bitsize
-			 > GET_MODE_BITSIZE (GET_MODE (op0)))))
+	/* If we have either an offset, a BLKmode result, or a reference
+	   outside the underlying object, we must force it to memory.
+	   Such a case can occur in Ada if we have unchecked conversion
+	   of an expression from a scalar type to an aggregate type or
+	   for an ARRAY_RANGE_REF whose type is BLKmode, or if we were
+	   passed a partially uninitialized object or a view-conversion
+	   to a larger size.  */
+	must_force_mem = (offset
+			  || mode1 == BLKmode
+			  || bitpos + bitsize > GET_MODE_BITSIZE (mode2));
+
+	/* If this is a constant, put it in a register if it is a legitimate
+	   constant and we don't need a memory reference.  */
+	if (CONSTANT_P (op0)
+	    && mode2 != BLKmode
+	    && LEGITIMATE_CONSTANT_P (op0)
+	    && !must_force_mem)
+	  op0 = force_reg (mode2, op0);
+
+	/* Otherwise, if this is a constant, try to force it to the constant
+	   pool.  Note that back-ends, e.g. MIPS, may refuse to do so if it
+	   is a legitimate constant.  */
+	else if (CONSTANT_P (op0) && (memloc = force_const_mem (mode2, op0)))
+	  op0 = validize_mem (memloc);
+
+	/* Otherwise, if this is a constant or the object is not in memory
+	   and need be, put it there.  */
+	else if (CONSTANT_P (op0) || (!MEM_P (op0) && must_force_mem))
 	  {
 	    tree nt = build_qualified_type (TREE_TYPE (tem),
 					    (TYPE_QUALS (TREE_TYPE (tem))
 					     | TYPE_QUAL_CONST));
-	    rtx memloc = assign_temp (nt, 1, 1, 1);
-
+	    memloc = assign_temp (nt, 1, 1, 1);
 	    emit_move_insn (memloc, op0);
 	    op0 = memloc;
 	  }
 
-	if (offset != 0)
+	if (offset)
 	  {
 	    rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode,
 					  EXPAND_SUM);
@@ -8308,6 +8334,14 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       /* Even though the sizetype mode and the pointer's mode can be different
          expand is able to handle this correctly and get the correct result out 
          of the PLUS_EXPR code.  */
+      /* Make sure to sign-extend the sizetype offset in a POINTER_PLUS_EXPR
+         if sizetype precision is smaller than pointer precision.  */
+      if (TYPE_PRECISION (sizetype) < TYPE_PRECISION (type))
+	exp = build2 (PLUS_EXPR, type,
+		      TREE_OPERAND (exp, 0),
+		      fold_convert (type,
+				    fold_convert (ssizetype,
+						  TREE_OPERAND (exp, 1))));
     case PLUS_EXPR:
 
       /* Check if this is a case for multiplication and addition.  */

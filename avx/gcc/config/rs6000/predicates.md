@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+;; Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -104,6 +104,14 @@
 		     || REGNO (op) > LAST_VIRTUAL_REGISTER
 		     || CR_REGNO_NOT_CR0_P (REGNO (op))")))
 
+;; Return 1 if op is a register that is a condition register field and if generating microcode, not cr0.
+(define_predicate "cc_reg_not_micro_cr0_operand"
+   (and (match_operand 0 "register_operand")
+	(match_test "GET_CODE (op) != REG
+		     || REGNO (op) > LAST_VIRTUAL_REGISTER
+		     || (rs6000_gen_cell_microcode && CR_REGNO_NOT_CR0_P (REGNO (op)))
+		     || (!rs6000_gen_cell_microcode && CR_REGNO_P (REGNO (op)))")))
+
 ;; Return 1 if op is a constant integer valid for D field
 ;; or non-special register register.
 (define_predicate "reg_or_short_operand"
@@ -192,7 +200,8 @@
     return 0;
 
   /* Consider all constants with -msoft-float to be easy.  */
-  if ((TARGET_SOFT_FLOAT || TARGET_E500_SINGLE)
+  if ((TARGET_SOFT_FLOAT || TARGET_E500_SINGLE 
+      || (TARGET_HARD_FLOAT && (TARGET_SINGLE_FLOAT && ! TARGET_DOUBLE_FLOAT)))
       && mode != DImode)
     return 1;
 
@@ -325,8 +334,8 @@
        (and (match_test "TARGET_ALTIVEC")
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
-  rtx last = CONST_VECTOR_ELT (op, GET_MODE_NUNITS (mode) - 1);
-  HOST_WIDE_INT val = ((INTVAL (last) & 0xff) ^ 0x80) - 0x80;
+  HOST_WIDE_INT val = const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
+  val = ((val & 0xff) ^ 0x80) - 0x80;
   return EASY_VECTOR_15_ADD_SELF (val);
 })
 
@@ -364,11 +373,23 @@
 
 ;; Return 1 if the operand is a memory operand with an address divisible by 4
 (define_predicate "word_offset_memref_operand"
-  (and (match_operand 0 "memory_operand")
-       (match_test "GET_CODE (XEXP (op, 0)) != PLUS
-		    || ! REG_P (XEXP (XEXP (op, 0), 0)) 
-		    || GET_CODE (XEXP (XEXP (op, 0), 1)) != CONST_INT
-		    || INTVAL (XEXP (XEXP (op, 0), 1)) % 4 == 0")))
+  (match_operand 0 "memory_operand")
+{
+  /* Address inside MEM.  */
+  op = XEXP (op, 0);
+
+  /* Extract address from auto-inc/dec.  */
+  if (GET_CODE (op) == PRE_INC
+      || GET_CODE (op) == PRE_DEC)
+    op = XEXP (op, 0);
+  else if (GET_CODE (op) == PRE_MODIFY)
+    op = XEXP (op, 1);
+
+  return (GET_CODE (op) != PLUS
+	  || ! REG_P (XEXP (op, 0))
+	  || GET_CODE (XEXP (op, 1)) != CONST_INT
+	  || INTVAL (XEXP (op, 1)) % 4 == 0);
+})
 
 ;; Return 1 if the operand is an indexed or indirect memory operand.
 (define_predicate "indexed_or_indirect_operand"

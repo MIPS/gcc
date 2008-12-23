@@ -204,7 +204,7 @@ extern int ix86_constant_alignment (tree, int);
 extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
 extern tree ix86_handle_selectany_attribute (tree *, tree, tree, int, bool *);
 extern int x86_field_alignment (tree, int);
-extern tree ix86_valid_option_attribute_tree (tree);
+extern tree ix86_valid_target_attribute_tree (tree);
 #endif
 
 extern rtx ix86_tls_get_addr (void);
@@ -272,3 +272,7 @@ extern enum rtx_code ix86_fp_compare_code_to_integer (enum rtx_code);
 extern rtx construct_plt_address (rtx);
 #endif
 extern int asm_preferred_eh_data_format (int, int);
+
+#ifdef HAVE_ATTR_cpu
+extern enum attr_cpu ix86_schedule;
+#endif

@@ -38,6 +38,12 @@ DEF_VEC_P(gimple_seq);
 DEF_VEC_ALLOC_P(gimple_seq,gc);
 DEF_VEC_ALLOC_P(gimple_seq,heap);
 
+/* For each block, the PHI nodes that need to be rewritten are stored into
+   these vectors.  */
+typedef VEC(gimple, heap) *gimple_vec;
+DEF_VEC_P (gimple_vec);
+DEF_VEC_ALLOC_P (gimple_vec, heap);
+
 enum gimple_code {
 #define DEFGSCODE(SYM, STRING, STRUCT)	SYM,
 #include "gimple.def"
@@ -53,9 +59,6 @@ extern const unsigned char gimple_rhs_class_table[];
 extern void gimple_check_failed (const_gimple, const char *, int,          \
                                  const char *, enum gimple_code,           \
 				 enum tree_code) ATTRIBUTE_NORETURN;
-extern void gimple_range_check_failed (const_gimple, const char *, int,    \
-                                       const char *, enum gimple_code,     \
-				       enum gimple_code) ATTRIBUTE_NORETURN;
 
 #define GIMPLE_CHECK(GS, CODE)						\
   do {									\
@@ -790,7 +793,7 @@ gimple gimple_build_asm_vec (const char *, VEC(tree,gc) *, VEC(tree,gc) *,
                              VEC(tree,gc) *);
 gimple gimple_build_catch (tree, gimple_seq);
 gimple gimple_build_eh_filter (tree, gimple_seq);
-gimple gimple_build_try (gimple_seq, gimple_seq, unsigned int);
+gimple gimple_build_try (gimple_seq, gimple_seq, enum gimple_try_flags);
 gimple gimple_build_wce (gimple_seq);
 gimple gimple_build_resx (int);
 gimple gimple_build_switch (unsigned, tree, tree, ...);
@@ -816,6 +819,7 @@ enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 void sort_case_labels (VEC(tree,heap) *);
 void gimple_set_body (tree, gimple_seq);
 gimple_seq gimple_body (tree);
+bool gimple_has_body_p (tree);
 gimple_seq gimple_seq_alloc (void);
 void gimple_seq_free (gimple_seq);
 void gimple_seq_add_seq (gimple_seq *, gimple_seq);
@@ -1046,6 +1050,7 @@ gimple_has_substatements (gimple g)
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
+    case GIMPLE_OMP_CRITICAL:
     case GIMPLE_WITH_CLEANUP_EXPR:
       return true;
 
@@ -2594,7 +2599,7 @@ static inline void
 gimple_bind_set_block (gimple gs, tree block)
 {
   GIMPLE_CHECK (gs, GIMPLE_BIND);
-  gcc_assert (TREE_CODE (block) == BLOCK);
+  gcc_assert (block == NULL_TREE || TREE_CODE (block) == BLOCK);
   gs->gimple_bind.block = block;
 }
 
@@ -4471,6 +4476,7 @@ basic_block gsi_insert_on_edge_immediate (edge, gimple);
 basic_block gsi_insert_seq_on_edge_immediate (edge, gimple_seq);
 void gsi_commit_one_edge_insert (edge, basic_block *);
 void gsi_commit_edge_inserts (void);
+gimple gimple_call_copy_skip_args (gimple, bitmap);
 
 
 /* Convenience routines to walk all statements of a gimple function.

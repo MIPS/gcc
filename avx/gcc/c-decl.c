@@ -1775,17 +1775,8 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	 throw it away, in case it was inlined into a function that
 	 hasn't been written out yet.  */
       if (new_is_definition && DECL_INITIAL (olddecl))
-	{
-	  if (TREE_USED (olddecl)
-	      /* We never inline re-defined extern inline functions.
-		 FIXME: This would be better handled by keeping both functions
-		 as separate declarations.  */
-	      && cgraph_function_possibly_inlined_p (olddecl))
-	    (*debug_hooks->outlining_inline_function) (olddecl);
-
-	  /* The new defn must not be inline.  */
-	  DECL_UNINLINABLE (newdecl) = 1;
-	}
+	/* The new defn must not be inline.  */
+	DECL_UNINLINABLE (newdecl) = 1;
       else
 	{
 	  /* If either decl says `inline', this fn is inline, unless
@@ -2843,6 +2834,31 @@ c_builtin_function (tree decl)
 
   return decl;
 }
+
+tree
+c_builtin_function_ext_scope (tree decl)
+{
+  tree type = TREE_TYPE (decl);
+  tree   id = DECL_NAME (decl);
+
+  const char *name = IDENTIFIER_POINTER (id);
+  C_DECL_BUILTIN_PROTOTYPE (decl) = (TYPE_ARG_TYPES (type) != 0);
+
+  /* Should never be called on a symbol with a preexisting meaning.  */
+  gcc_assert (!I_SYMBOL_BINDING (id));
+
+  bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false);
+
+  /* Builtins in the implementation namespace are made visible without
+     needing to be explicitly declared.  See push_file_scope.  */
+  if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+    {
+      TREE_CHAIN (decl) = visible_builtins;
+      visible_builtins = decl;
+    }
+
+  return decl;
+}
 
 /* Called when a declaration is seen that contains no names to declare.
    If its type is a reference to a structure, union or enum inherited
@@ -3625,7 +3641,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  tree cleanup;
 
 	  /* Build "cleanup(&decl)" for the destructor.  */
-	  cleanup = build_unary_op (ADDR_EXPR, decl, 0);
+	  cleanup = build_unary_op (input_location, ADDR_EXPR, decl, 0);
 	  cleanup = build_tree_list (NULL_TREE, cleanup);
 	  cleanup = build_function_call (cleanup_decl, cleanup);
 
@@ -3853,8 +3869,8 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
     {
       struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
       if (!lt
-	  || w < min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
-	  || w < min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
+	  || w < tree_int_cst_min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
+	  || w < tree_int_cst_min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
 	warning (0, "%qs is narrower than values of its type", name);
     }
 }
@@ -5286,7 +5302,7 @@ parser_xref_tag (enum tree_code code, tree name)
     {
       /* Give the type a default layout like unsigned int
 	 to avoid crashing if it does not get defined.  */
-      TYPE_MODE (ref) = TYPE_MODE (unsigned_type_node);
+      SET_TYPE_MODE (ref, TYPE_MODE (unsigned_type_node));
       TYPE_ALIGN (ref) = TYPE_ALIGN (unsigned_type_node);
       TYPE_USER_ALIGN (ref) = 0;
       TYPE_UNSIGNED (ref) = 1;
@@ -5850,8 +5866,8 @@ finish_enum (tree enumtype, tree values, tree attributes)
      that normally we only go as narrow as int - and signed iff any of
      the values are negative.  */
   unsign = (tree_int_cst_sgn (minnode) >= 0);
-  precision = MAX (min_precision (minnode, unsign),
-		   min_precision (maxnode, unsign));
+  precision = MAX (tree_int_cst_min_precision (minnode, unsign),
+		   tree_int_cst_min_precision (maxnode, unsign));
 
   if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
@@ -5901,17 +5917,15 @@ finish_enum (tree enumtype, tree values, tree attributes)
 	  /* The ISO C Standard mandates enumerators to have type int,
 	     even though the underlying type of an enum type is
 	     unspecified.  However, GCC allows enumerators of any
-	     integer type as an extensions.  Here we convert any
-	     enumerators that fit in an int to type int, to avoid
-	     promotions to unsigned types when comparing integers with
-	     enumerators that fit in the int range.  When -pedantic is
-	     given, build_enumerator() would have already warned about
-	     those that don't fit.  */
-	  if (int_fits_type_p (ini, integer_type_node))
-	    tem = integer_type_node;
-	  else
-	    tem = enumtype;
-	  ini = convert (tem, ini);
+	     integer type as an extensions.  build_enumerator()
+	     converts any enumerators that fit in an int to type int,
+	     to avoid promotions to unsigned types when comparing
+	     integers with enumerators that fit in the int range.
+	     When -pedantic is given, build_enumerator() would have
+	     already warned about those that don't fit. Here we
+	     convert the rest to the enumerator type. */
+	  if (TREE_TYPE (ini) != integer_type_node)
+	    ini = convert (enumtype, ini);
 
 	  DECL_INITIAL (enu) = ini;
 	  TREE_PURPOSE (pair) = DECL_NAME (enu);
@@ -5938,7 +5952,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       TYPE_MAX_VALUE (tem) = TYPE_MAX_VALUE (enumtype);
       TYPE_SIZE (tem) = TYPE_SIZE (enumtype);
       TYPE_SIZE_UNIT (tem) = TYPE_SIZE_UNIT (enumtype);
-      TYPE_MODE (tem) = TYPE_MODE (enumtype);
+      SET_TYPE_MODE (tem, TYPE_MODE (enumtype));
       TYPE_PRECISION (tem) = TYPE_PRECISION (enumtype);
       TYPE_ALIGN (tem) = TYPE_ALIGN (enumtype);
       TYPE_USER_ALIGN (tem) = TYPE_USER_ALIGN (enumtype);
@@ -6001,9 +6015,23 @@ build_enumerator (struct c_enum_contents *the_enum, tree name, tree value,
     pedwarn (value_loc, OPT_pedantic, 
 	     "ISO C restricts enumerator values to range of %<int%>");
 
+  /* The ISO C Standard mandates enumerators to have type int, even
+     though the underlying type of an enum type is unspecified.
+     However, GCC allows enumerators of any integer type as an
+     extensions.  Here we convert any enumerators that fit in an int
+     to type int, to avoid promotions to unsigned types when comparing
+     integers with enumerators that fit in the int range.  When
+     -pedantic is given, we would have already warned about those that
+     don't fit. We have to do this here rather than in finish_enum
+     because this value may be used to define more enumerators.  */
+  if (int_fits_type_p (value, integer_type_node))
+    value = convert (integer_type_node, value);
+
   /* Set basis for default for next value.  */
-  the_enum->enum_next_value = build_binary_op (PLUS_EXPR, value,
-					       integer_one_node, 0);
+  the_enum->enum_next_value
+    = build_binary_op
+         (EXPR_HAS_LOCATION (value) ? EXPR_LOCATION (value) : input_location,
+	 PLUS_EXPR, value, integer_one_node, 0);
   the_enum->enum_overflow = tree_int_cst_lt (the_enum->enum_next_value, value);
 
   /* Now create a declaration for the enum value name.  */
@@ -6951,15 +6979,6 @@ stmt_tree
 current_stmt_tree (void)
 {
   return &c_stmt_tree;
-}
-
-/* Nonzero if TYPE is an anonymous union or struct type.  Always 0 in
-   C.  */
-
-int
-anon_aggr_type_p (const_tree ARG_UNUSED (node))
-{
-  return 0;
 }
 
 /* Return the global value of T as a symbol.  */

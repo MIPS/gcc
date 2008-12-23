@@ -434,6 +434,8 @@ setup_class_hard_regs (void)
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
       AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
       CLEAR_HARD_REG_SET (processed_hard_reg_set);
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	ira_class_hard_reg_index[cl][0] = -1;
       for (n = 0, i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	{
 #ifdef REG_ALLOC_ORDER
@@ -670,7 +672,7 @@ setup_reg_subclasses (void)
 
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[i]);
       AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
-      if (hard_reg_set_equal_p (temp_hard_regset, ira_zero_hard_reg_set))
+      if (hard_reg_set_empty_p (temp_hard_regset))
 	continue;
       for (j = 0; j < N_REG_CLASSES; j++)
 	if (i != j)
@@ -714,27 +716,76 @@ enum reg_class ira_important_classes[N_REG_CLASSES];
    classes.  */
 int ira_important_class_nums[N_REG_CLASSES];
 
-#ifdef IRA_COVER_CLASSES
-
-/* Check IRA_COVER_CLASSES and sets the four global variables defined
-   above.  */
+/* Set the four global variables defined above.  */
 static void
 setup_cover_and_important_classes (void)
 {
-  int i, j;
+  int i, j, n;
+  bool set_p, eq_p;
   enum reg_class cl;
-  static enum reg_class classes[] = IRA_COVER_CLASSES;
+  const enum reg_class *cover_classes;
   HARD_REG_SET temp_hard_regset2;
+  static enum reg_class classes[LIM_REG_CLASSES + 1];
+
+  if (targetm.ira_cover_classes == NULL)
+    cover_classes = NULL;
+  else
+    cover_classes = targetm.ira_cover_classes ();
+  if (cover_classes == NULL)
+    ira_assert (flag_ira_algorithm == IRA_ALGORITHM_PRIORITY);
+  else
+    {
+      for (i = 0; (cl = cover_classes[i]) != LIM_REG_CLASSES; i++)
+	classes[i] = cl;
+      classes[i] = LIM_REG_CLASSES;
+    }
+
+  if (flag_ira_algorithm == IRA_ALGORITHM_PRIORITY)
+    {
+      n = 0;
+      for (i = 0; i <= LIM_REG_CLASSES; i++)
+	{
+	  if (i == NO_REGS)
+	    continue;
+#ifdef CONSTRAINT__LIMIT
+	  for (j = 0; j < CONSTRAINT__LIMIT; j++)
+	    if ((int) regclass_for_constraint (j) == i)
+	      break;
+	  if (j < CONSTRAINT__LIMIT)
+	    {
+	      classes[n++] = i;
+	      continue;
+	    }
+#endif
+	  COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[i]);
+	  AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+	  for (j = 0; j < LIM_REG_CLASSES; j++)
+	    {
+	      if (i == j)
+		continue;
+	      COPY_HARD_REG_SET (temp_hard_regset2, reg_class_contents[j]);
+	      AND_COMPL_HARD_REG_SET (temp_hard_regset2,
+				      no_unit_alloc_regs);
+	      if (hard_reg_set_equal_p (temp_hard_regset,
+					temp_hard_regset2))
+		    break;
+	    }
+	  if (j >= i)
+	    classes[n++] = i;
+	}
+      classes[n] = LIM_REG_CLASSES;
+    }
 
   ira_reg_class_cover_size = 0;
   for (i = 0; (cl = classes[i]) != LIM_REG_CLASSES; i++)
     {
       for (j = 0; j < i; j++)
-	if (reg_classes_intersect_p (cl, classes[j]))
+	if (flag_ira_algorithm != IRA_ALGORITHM_PRIORITY
+	    && reg_classes_intersect_p (cl, classes[j]))
 	  gcc_unreachable ();
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
       AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
-      if (! hard_reg_set_equal_p (temp_hard_regset, ira_zero_hard_reg_set))
+      if (! hard_reg_set_empty_p (temp_hard_regset))
 	ira_reg_class_cover[ira_reg_class_cover_size++] = cl;
     }
   ira_important_classes_num = 0;
@@ -742,33 +793,42 @@ setup_cover_and_important_classes (void)
     {
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
       AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
-      if (! hard_reg_set_equal_p (temp_hard_regset, ira_zero_hard_reg_set))
-	for (j = 0; j < ira_reg_class_cover_size; j++)
-	  {
-	    COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
-	    AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
-	    COPY_HARD_REG_SET (temp_hard_regset2,
-			       reg_class_contents[ira_reg_class_cover[j]]);
-	    AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
-	    if (cl == ira_reg_class_cover[j]
-		|| (hard_reg_set_subset_p (temp_hard_regset, temp_hard_regset2)
-		    && ! hard_reg_set_equal_p (temp_hard_regset,
-					       temp_hard_regset2)))
-	      {
-		ira_important_class_nums[cl] = ira_important_classes_num;
-		ira_important_classes[ira_important_classes_num++] = cl;
-	      }
-	  }
+      if (! hard_reg_set_empty_p (temp_hard_regset))
+	{
+	  set_p = eq_p = false;
+	  for (j = 0; j < ira_reg_class_cover_size; j++)
+	    {
+	      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
+	      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+	      COPY_HARD_REG_SET (temp_hard_regset2,
+				 reg_class_contents[ira_reg_class_cover[j]]);
+	      AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
+	      if (cl == ira_reg_class_cover[j])
+		{
+		  eq_p = false;
+		  set_p = true;
+		  break;
+		}
+	      else if (hard_reg_set_equal_p (temp_hard_regset,
+					     temp_hard_regset2))
+		eq_p = true;
+	      else if (hard_reg_set_subset_p (temp_hard_regset,
+					      temp_hard_regset2))
+		set_p = true;
+	    }
+	  if (set_p && ! eq_p)
+	    {
+	      ira_important_class_nums[cl] = ira_important_classes_num;
+	      ira_important_classes[ira_important_classes_num++] = cl;
+	    }
+	}
     }
 }
-#endif
 
 /* Map of all register classes to corresponding cover class containing
    the given class.  If given class is not a subset of a cover class,
    we translate it into the cheapest cover class.  */
 enum reg_class ira_class_translate[N_REG_CLASSES];
-
-#ifdef IRA_COVER_CLASSES
 
 /* Set up array IRA_CLASS_TRANSLATE.  */
 static void
@@ -780,26 +840,44 @@ setup_class_translate (void)
 
   for (cl = 0; cl < N_REG_CLASSES; cl++)
     ira_class_translate[cl] = NO_REGS;
+  
+  if (flag_ira_algorithm == IRA_ALGORITHM_PRIORITY)
+    for (cl = 0; cl < LIM_REG_CLASSES; cl++)
+      {
+	COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
+	AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+	for (i = 0; i < ira_reg_class_cover_size; i++)
+	  {
+	    HARD_REG_SET temp_hard_regset2;
+	    
+	    cover_class = ira_reg_class_cover[i];
+	    COPY_HARD_REG_SET (temp_hard_regset2,
+			       reg_class_contents[cover_class]);
+	    AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
+	    if (hard_reg_set_equal_p (temp_hard_regset, temp_hard_regset2))
+	      ira_class_translate[cl] = cover_class;
+	  }
+      }
   for (i = 0; i < ira_reg_class_cover_size; i++)
     {
       cover_class = ira_reg_class_cover[i];
-      for (cl_ptr = &alloc_reg_class_subclasses[cover_class][0];
-	   (cl = *cl_ptr) != LIM_REG_CLASSES;
-	   cl_ptr++)
-	{
-	  if (ira_class_translate[cl] == NO_REGS)
-	    ira_class_translate[cl] = cover_class;
+      if (flag_ira_algorithm != IRA_ALGORITHM_PRIORITY)
+	for (cl_ptr = &alloc_reg_class_subclasses[cover_class][0];
+	     (cl = *cl_ptr) != LIM_REG_CLASSES;
+	     cl_ptr++)
+	  {
+	    if (ira_class_translate[cl] == NO_REGS)
+	      ira_class_translate[cl] = cover_class;
 #ifdef ENABLE_IRA_CHECKING
-	  else
-	    {
-	      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
-	      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
-	      if (! hard_reg_set_subset_p (temp_hard_regset,
-					   ira_zero_hard_reg_set))
-		gcc_unreachable ();
-	    }
+	    else
+	      {
+		COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
+		AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+		if (! hard_reg_set_empty_p (temp_hard_regset))
+		  gcc_unreachable ();
+	      }
 #endif
-	}
+	  }
       ira_class_translate[cover_class] = cover_class;
     }
   /* For classes which are not fully covered by a cover class (in
@@ -818,7 +896,7 @@ setup_class_translate (void)
 			     reg_class_contents[cover_class]);
 	  AND_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
 	  AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
-	  if (! hard_reg_set_equal_p (temp_hard_regset, ira_zero_hard_reg_set))
+	  if (! hard_reg_set_empty_p (temp_hard_regset))
 	    {
 	      min_cost = INT_MAX;
 	      for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
@@ -838,7 +916,6 @@ setup_class_translate (void)
       ira_class_translate[cl] = best_class;
     }
 }
-#endif
 
 /* The biggest important reg_class inside of intersection of the two
    reg_classes (that is calculated taking only hard registers
@@ -847,6 +924,17 @@ setup_class_translate (void)
    calculated by taking all hard-registers including fixed ones into
    account.  */
 enum reg_class ira_reg_class_intersect[N_REG_CLASSES][N_REG_CLASSES];
+
+/* True if the two classes (that is calculated taking only hard
+   registers available for allocation into account) are
+   intersected.  */
+bool ira_reg_classes_intersect_p[N_REG_CLASSES][N_REG_CLASSES];
+
+/* Important classes with end marker LIM_REG_CLASSES which are
+   supersets with given important class (the first index).  That
+   includes given class itself.  This is calculated taking only hard
+   registers available for allocation into account.  */
+enum reg_class ira_reg_class_super_classes[N_REG_CLASSES][N_REG_CLASSES];
 
 /* The biggest important reg_class inside of union of the two
    reg_classes (that is calculated taking only hard registers
@@ -857,26 +945,30 @@ enum reg_class ira_reg_class_intersect[N_REG_CLASSES][N_REG_CLASSES];
    reg_class_subunion value.  */
 enum reg_class ira_reg_class_union[N_REG_CLASSES][N_REG_CLASSES];
 
-#ifdef IRA_COVER_CLASSES
-
-/* Set up IRA_REG_CLASS_INTERSECT and IRA_REG_CLASS_UNION.  */
+/* Set up the above reg class relations.  */
 static void
-setup_reg_class_intersect_union (void)
+setup_reg_class_relations (void)
 {
   int i, cl1, cl2, cl3;
   HARD_REG_SET intersection_set, union_set, temp_set2;
+  bool important_class_p[N_REG_CLASSES];
 
+  memset (important_class_p, 0, sizeof (important_class_p));
+  for (i = 0; i < ira_important_classes_num; i++)
+    important_class_p[ira_important_classes[i]] = true;
   for (cl1 = 0; cl1 < N_REG_CLASSES; cl1++)
     {
+      ira_reg_class_super_classes[cl1][0] = LIM_REG_CLASSES;
       for (cl2 = 0; cl2 < N_REG_CLASSES; cl2++)
 	{
+	  ira_reg_classes_intersect_p[cl1][cl2] = false;
 	  ira_reg_class_intersect[cl1][cl2] = NO_REGS;
 	  COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl1]);
 	  AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
 	  COPY_HARD_REG_SET (temp_set2, reg_class_contents[cl2]);
 	  AND_COMPL_HARD_REG_SET (temp_set2, no_unit_alloc_regs);
-	  if (hard_reg_set_equal_p (temp_hard_regset, ira_zero_hard_reg_set)
-	      && hard_reg_set_equal_p (temp_set2, ira_zero_hard_reg_set))
+	  if (hard_reg_set_empty_p (temp_hard_regset)
+	      && hard_reg_set_empty_p (temp_set2))
 	    {
 	      for (i = 0;; i++)
 		{
@@ -889,6 +981,19 @@ setup_reg_class_intersect_union (void)
 		}
 	      ira_reg_class_union[cl1][cl2] = reg_class_subunion[cl1][cl2];
 	      continue;
+	    }
+	  ira_reg_classes_intersect_p[cl1][cl2]
+	    = hard_reg_set_intersect_p (temp_hard_regset, temp_set2);
+	  if (important_class_p[cl1] && important_class_p[cl2]
+	      && hard_reg_set_subset_p (temp_hard_regset, temp_set2))
+	    {
+	      enum reg_class *p;
+
+	      p = &ira_reg_class_super_classes[cl1][0];
+	      while (*p != LIM_REG_CLASSES)
+		p++;
+	      *p++ = (enum reg_class) cl2;
+	      *p = LIM_REG_CLASSES;
 	    }
 	  ira_reg_class_union[cl1][cl2] = NO_REGS;
 	  COPY_HARD_REG_SET (intersection_set, reg_class_contents[cl1]);
@@ -944,8 +1049,6 @@ setup_reg_class_intersect_union (void)
     }
 }
 
-#endif
-
 /* Output all cover classes and the translation map into file F.  */
 static void
 print_class_cover (FILE *f)
@@ -976,11 +1079,39 @@ static void
 find_reg_class_closure (void)
 {
   setup_reg_subclasses ();
-#ifdef IRA_COVER_CLASSES
   setup_cover_and_important_classes ();
   setup_class_translate ();
-  setup_reg_class_intersect_union ();
-#endif
+  setup_reg_class_relations ();
+}
+
+
+
+/* Map: hard register number -> cover class it belongs to.  If the
+   corresponding class is NO_REGS, the hard register is not available
+   for allocation.  */
+enum reg_class ira_hard_regno_cover_class[FIRST_PSEUDO_REGISTER];
+
+/* Set up the array above.  */
+static void
+setup_hard_regno_cover_class (void)
+{
+  int i, j;
+  enum reg_class cl;
+
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    {
+      ira_hard_regno_cover_class[i] = NO_REGS;
+      for (j = 0; j < ira_reg_class_cover_size; j++)
+	{
+	  cl = ira_reg_class_cover[j];
+	  if (ira_class_hard_reg_index[cl][i] >= 0)
+	    {
+	      ira_hard_regno_cover_class[i] = cl;
+	      break;
+	    }
+	}
+	    
+    }
 }
 
 
@@ -1081,10 +1212,6 @@ ira_init_register_move_cost (enum machine_mode mode)
 
 
 
-/* Hard regsets whose all bits are correspondingly zero or one.  */
-HARD_REG_SET ira_zero_hard_reg_set;
-HARD_REG_SET ira_one_hard_reg_set;
-
 /* This is called once during compiler work.  It sets up
    different arrays whose values don't depend on the compiled
    function.  */
@@ -1093,8 +1220,6 @@ ira_init_once (void)
 {
   enum machine_mode mode;
 
-  CLEAR_HARD_REG_SET (ira_zero_hard_reg_set);
-  SET_HARD_REG_SET (ira_one_hard_reg_set);
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
     {
       ira_register_move_cost[mode] = NULL;
@@ -1133,6 +1258,7 @@ ira_init (void)
   setup_alloc_regs (flag_omit_frame_pointer != 0);
   setup_class_subset_and_memory_move_costs ();
   find_reg_class_closure ();
+  setup_hard_regno_cover_class ();
   setup_reg_class_nregs ();
   setup_prohibited_class_mode_regs ();
   ira_init_costs ();
@@ -1231,12 +1357,12 @@ compute_regs_asm_clobbered (char *regs_asm_clobbered)
       rtx insn;
       FOR_BB_INSNS_REVERSE (bb, insn)
 	{
-	  struct df_ref **def_rec;
+	  df_ref *def_rec;
 
 	  if (insn_contains_asm (insn))
 	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	      {
-		struct df_ref *def = *def_rec;
+		df_ref def = *def_rec;
 		unsigned int dregno = DF_REF_REGNO (def);
 		if (dregno < FIRST_PSEUDO_REGISTER)
 		  {
@@ -1258,7 +1384,6 @@ compute_regs_asm_clobbered (char *regs_asm_clobbered)
 static void
 setup_eliminable_regset (void)
 {
-  int i;
   /* Like regs_ever_live, but 1 if a reg is set or clobbered from an
      asm.  Unlike regs_ever_live, elements of this array corresponding
      to eliminable regs (like the frame pointer) are set if an asm
@@ -1266,6 +1391,7 @@ setup_eliminable_regset (void)
   char *regs_asm_clobbered
     = (char *) alloca (FIRST_PSEUDO_REGISTER * sizeof (char));
 #ifdef ELIMINABLE_REGS
+  int i;
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
 #endif
   /* FIXME: If EXIT_IGNORE_STACK is set, we will not save and restore
@@ -1679,99 +1805,21 @@ expand_reg_info (int old_size)
     }
 }
 
-
-
-/* This page contains code for sorting the insn chain used by reload.
-   In the old register allocator, the insn chain order corresponds to
-   the order of insns in RTL.  By putting insns with higher execution
-   frequency BBs first, reload has a better chance to generate less
-   expensive operand reloads for such insns.  */
-
-/* Map bb index -> order number in the BB chain in RTL code.  */
-static int *basic_block_order_nums;
-
-/* Map chain insn uid -> order number in the insn chain before sorting
-   the insn chain.  */
-static int *chain_insn_order;
-
-/* The function is used to sort insn chain according insn execution
-   frequencies.  */
-static int
-chain_freq_compare (const void *v1p, const void *v2p)
+/* Return TRUE if there is too high register pressure in the function.
+   It is used to decide when stack slot sharing is worth to do.  */
+static bool
+too_high_register_pressure_p (void)
 {
-  const struct insn_chain *c1 = *(struct insn_chain * const *)v1p;
-  const struct insn_chain *c2 = *(struct insn_chain * const *)v2p;
-  int diff;
-
-  diff = (BASIC_BLOCK (c2->block)->frequency
-	  - BASIC_BLOCK (c1->block)->frequency);
-  if (diff)
-    return diff;
-  /* Keep the same order in BB scope.  */
-  return (chain_insn_order[INSN_UID(c1->insn)]
-	  - chain_insn_order[INSN_UID(c2->insn)]);
-}
-
-/* Sort the insn chain according insn original order.  */
-static int
-chain_bb_compare (const void *v1p, const void *v2p)
-{
-  const struct insn_chain *c1 = *(struct insn_chain * const *)v1p;
-  const struct insn_chain *c2 = *(struct insn_chain * const *)v2p;
-  int diff;
-
-  diff = (basic_block_order_nums[c1->block]
-	  - basic_block_order_nums[c2->block]);
-  if (diff)
-    return diff;
-  /* Keep the same order in BB scope.  */
-  return (chain_insn_order[INSN_UID(c1->insn)]
-	  - chain_insn_order[INSN_UID(c2->insn)]);
-}
-
-/* Sort the insn chain according to insn frequencies if
-   FREQ_P or according to insn original order otherwise.  */
-void
-ira_sort_insn_chain (bool freq_p)
-{
-  struct insn_chain *chain, **chain_arr;
-  basic_block bb;
-  int i, n;
+  int i;
+  enum reg_class cover_class;
   
-  chain_insn_order = (int *) ira_allocate (get_max_uid () * sizeof (int));
-  for (n = 0, chain = reload_insn_chain; chain != 0; chain = chain->next)
+  for (i = 0; i < ira_reg_class_cover_size; i++)
     {
-      chain_insn_order[INSN_UID (chain->insn)] = n;
-      n++;
+      cover_class = ira_reg_class_cover[i];
+      if (ira_loop_tree_root->reg_pressure[cover_class] > 10000)
+	return true;
     }
-  if (n <= 1)
-    return;
-  chain_arr
-    = (struct insn_chain **) ira_allocate (n * sizeof (struct insn_chain *));
-  basic_block_order_nums
-    = (int *) ira_allocate (sizeof (int) * last_basic_block);
-  n = 0;
-  FOR_EACH_BB (bb)
-    {
-      basic_block_order_nums[bb->index] = n++;
-    }
-  for (n = 0, chain = reload_insn_chain; chain != 0; chain = chain->next)
-    chain_arr[n++] = chain;
-  qsort (chain_arr, n, sizeof (struct insn_chain *),
-	 freq_p ? chain_freq_compare : chain_bb_compare);
-  ira_free (chain_insn_order);
-  for (i = 1; i < n - 1; i++)
-    {
-      chain_arr[i]->next = chain_arr[i + 1];
-      chain_arr[i]->prev = chain_arr[i - 1];
-    }
-  chain_arr[i]->next = NULL;
-  chain_arr[i]->prev = chain_arr[i - 1];
-  reload_insn_chain = chain_arr[0];
-  reload_insn_chain->prev = NULL;
-  reload_insn_chain->next = chain_arr[1];
-  ira_free (basic_block_order_nums);
-  ira_free (chain_arr);
+  return false;
 }
 
 
@@ -1787,7 +1835,7 @@ ira (FILE *f)
   bool loops_p;
   int max_regno_before_ira, ira_max_point_before_emit;
   int rebuild_p;
-  int saved_flag_ira_algorithm;
+  int saved_flag_ira_share_spill_slots;
   basic_block bb;
 
   timevar_push (TV_IRA);
@@ -1862,19 +1910,20 @@ ira (FILE *f)
   ira_assert (current_loops == NULL);
   flow_loops_find (&ira_loops);
   current_loops = &ira_loops;
-  saved_flag_ira_algorithm = flag_ira_algorithm;
-  if (optimize && number_of_loops () > (unsigned) IRA_MAX_LOOPS_NUM)
-    flag_ira_algorithm = IRA_ALGORITHM_CB;
       
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "Building IRA IR\n");
   loops_p = ira_build (optimize
-		       && (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-			   || flag_ira_algorithm == IRA_ALGORITHM_MIXED));
-  if (optimize)
-    ira_color ();
-  else
-    ira_fast_allocation ();
+		       && (flag_ira_region == IRA_REGION_ALL
+			   || flag_ira_region == IRA_REGION_MIXED));
+
+  saved_flag_ira_share_spill_slots = flag_ira_share_spill_slots;
+  if (too_high_register_pressure_p ())
+    /* It is just wasting compiler's time to pack spilled pseudos into
+       stack slots in this case -- prohibit it.  */ 
+    flag_ira_share_spill_slots = FALSE;
+
+  ira_color ();
       
   ira_max_point_before_emit = ira_max_point;
       
@@ -1966,9 +2015,6 @@ ira (FILE *f)
   df_set_flags (DF_NO_INSN_RESCAN);
   build_insn_chain ();
 
-  if (optimize)
-    ira_sort_insn_chain (true);
-
   reload_completed = !reload (get_insns (), optimize > 0);
 
   timevar_pop (TV_RELOAD);
@@ -1987,13 +2033,13 @@ ira (FILE *f)
     fprintf (ira_dump_file, "+++Overall after reload %d\n", ira_overall_cost);
   ira_destroy ();
   
+  flag_ira_share_spill_slots = saved_flag_ira_share_spill_slots;
+
   flow_loops_free (&ira_loops);
   free_dominance_info (CDI_DOMINATORS);
   FOR_ALL_BB (bb)
     bb->loop_father = NULL;
   current_loops = NULL;
-
-  flag_ira_algorithm = saved_flag_ira_algorithm;
 
   regstat_free_ri ();
   regstat_free_n_sets_and_refs ();

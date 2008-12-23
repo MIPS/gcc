@@ -227,9 +227,6 @@ typedef enum
    doing the store).  */
 static prop_value_t *const_val;
 
-/* True if we are also propagating constants in stores and loads.  */
-static bool do_store_ccp;
-
 /* Dump constant propagation value VAL to file OUTF prefixed by PREFIX.  */
 
 static void
@@ -321,10 +318,10 @@ static prop_value_t
 get_default_value (tree var)
 {
   tree sym = SSA_NAME_VAR (var);
-  prop_value_t val = { UNINITIALIZED, NULL_TREE, NULL_TREE };
+  prop_value_t val = { UNINITIALIZED, NULL_TREE };
   tree cst_val;
   
-  if (!do_store_ccp && !is_gimple_reg (var))
+  if (!is_gimple_reg (var))
     {
       /* Short circuit for regular CCP.  We are not interested in any
 	 non-register when DO_STORE_CCP is false.  */
@@ -336,7 +333,6 @@ get_default_value (tree var)
 	 initial value.  */
       val.lattice_val = CONSTANT;
       val.value = cst_val;
-      val.mem_ref = sym;
     }
   else
     {
@@ -401,7 +397,6 @@ set_value_varying (tree var)
 
   val->lattice_val = VARYING;
   val->value = NULL_TREE;
-  val->mem_ref = NULL_TREE;
 }
 
 /* For float types, modify the value of VAL to make ccp work correctly
@@ -447,7 +442,6 @@ canonicalize_float_value (prop_value_t *val)
     {
       val->lattice_val = UNDEFINED;
       val->value = NULL;
-      val->mem_ref = NULL;
       return;
     }
 }
@@ -469,8 +463,7 @@ set_lattice_value (tree var, prop_value_t new_val)
   gcc_assert (old_val->lattice_val < new_val.lattice_val
               || (old_val->lattice_val == new_val.lattice_val
 		  && ((!old_val->value && !new_val.value)
-		      || operand_equal_p (old_val->value, new_val.value, 0))
-		  && old_val->mem_ref == new_val.mem_ref));
+		      || operand_equal_p (old_val->value, new_val.value, 0))));
 
   if (old_val->lattice_val != new_val.lattice_val)
     {
@@ -508,7 +501,7 @@ likely_value (gimple stmt)
   tree use;
   ssa_op_iter iter;
 
-  enum tree_code code = gimple_code (stmt);
+  enum gimple_code code = gimple_code (stmt);
 
   /* This function appears to be called only for assignments, calls,
      conditionals, and switches, due to the logic in visit_stmt.  */
@@ -524,8 +517,7 @@ likely_value (gimple stmt)
 
   /* If we are not doing store-ccp, statements with loads
      and/or stores will never fold into a constant.  */
-  if (!do_store_ccp
-      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
+  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return VARYING;
 
   /* Note that only a GIMPLE_SINGLE_RHS assignment can satisfy
@@ -613,15 +605,7 @@ surely_varying_stmt_p (gimple stmt)
     return true;
 
   if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
-    {
-      if (!do_store_ccp)
-	return true;
-
-      /* We can only handle simple loads and stores.  */
-      if (!stmt_makes_single_load (stmt)
-	  && !stmt_makes_single_store (stmt))
-	return true;
-    }
+    return true;
 
   /* If it is a call and does not return a value or is not a
      builtin and not an indirect call, it is varying.  */
@@ -692,7 +676,7 @@ ccp_initialize (void)
         {
           gimple phi = gsi_stmt (i);
 
-	  if (!do_store_ccp && !is_gimple_reg (gimple_phi_result (phi)))
+	  if (!is_gimple_reg (gimple_phi_result (phi)))
             prop_set_simulate_again (phi, false);
 	  else
             prop_set_simulate_again (phi, true);
@@ -747,14 +731,10 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
       /* any M VARYING = VARYING.  */
       val1->lattice_val = VARYING;
       val1->value = NULL_TREE;
-      val1->mem_ref = NULL_TREE;
     }
   else if (val1->lattice_val == CONSTANT
 	   && val2->lattice_val == CONSTANT
-	   && simple_cst_equal (val1->value, val2->value) == 1
-	   && (!do_store_ccp
-	       || (val1->mem_ref && val2->mem_ref
-		   && operand_equal_p (val1->mem_ref, val2->mem_ref, 0))))
+	   && simple_cst_equal (val1->value, val2->value) == 1)
     {
       /* Ci M Cj = Ci		if (i == j)
 	 Ci M Cj = VARYING	if (i != j)
@@ -763,14 +743,12 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
 	 they come from the same memory reference.  */
       val1->lattice_val = CONSTANT;
       val1->value = val1->value;
-      val1->mem_ref = val1->mem_ref;
     }
   else
     {
       /* Any other combination is VARYING.  */
       val1->lattice_val = VARYING;
       val1->value = NULL_TREE;
-      val1->mem_ref = NULL_TREE;
     }
 }
 
@@ -805,7 +783,6 @@ ccp_visit_phi_node (gimple phi)
     case UNDEFINED:
       new_val.lattice_val = UNDEFINED;
       new_val.value = NULL_TREE;
-      new_val.mem_ref = NULL_TREE;
       break;
 
     default:
@@ -837,7 +814,6 @@ ccp_visit_phi_node (gimple phi)
 	    {
 	      arg_val.lattice_val = CONSTANT;
 	      arg_val.value = arg;
-	      arg_val.mem_ref = NULL_TREE;
 	    }
 	  else
 	    arg_val = *(get_value (arg));
@@ -875,6 +851,31 @@ ccp_visit_phi_node (gimple phi)
     return SSA_PROP_NOT_INTERESTING;
 }
 
+/* Return true if we may propagate the address expression ADDR into the 
+   dereference DEREF and cancel them.  */
+
+bool
+may_propagate_address_into_dereference (tree addr, tree deref)
+{
+  gcc_assert (INDIRECT_REF_P (deref)
+	      && TREE_CODE (addr) == ADDR_EXPR);
+
+  /* If the address is invariant then we do not need to preserve restrict
+     qualifications.  But we do need to preserve volatile qualifiers until
+     we can annotate the folded dereference itself properly.  */
+  if (is_gimple_min_invariant (addr)
+      && (!TREE_THIS_VOLATILE (deref)
+	  || TYPE_VOLATILE (TREE_TYPE (addr))))
+    return useless_type_conversion_p (TREE_TYPE (deref),
+				      TREE_TYPE (TREE_OPERAND (addr, 0)));
+
+  /* Else both the address substitution and the folding must result in
+     a valid useless type conversion sequence.  */
+  return (useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (deref, 0)),
+				     TREE_TYPE (addr))
+	  && useless_type_conversion_p (TREE_TYPE (deref),
+					TREE_TYPE (TREE_OPERAND (addr, 0))));
+}
 
 /* CCP specific front-end to the non-destructive constant folding
    routines.
@@ -921,12 +922,8 @@ ccp_fold (gimple stmt)
 		      prop_value_t *val = get_value (TREE_OPERAND (*base, 0));
 		      if (val->lattice_val == CONSTANT
 			  && TREE_CODE (val->value) == ADDR_EXPR
-			  && useless_type_conversion_p
-			  (TREE_TYPE (TREE_OPERAND (*base, 0)),
-			   TREE_TYPE (val->value))
-			  && useless_type_conversion_p
-			  (TREE_TYPE (*base),
-			   TREE_TYPE (TREE_OPERAND (val->value, 0))))
+			  && may_propagate_address_into_dereference
+			       (val->value, *base))
 			{
 			  /* We need to return a new tree, not modify the IL
 			     or share parts of it.  So play some tricks to
@@ -940,25 +937,6 @@ ccp_fold (gimple stmt)
 			}
 		    }
 		}
-
-              else if (do_store_ccp && stmt_makes_single_load (stmt))
-                {
-                  /* If the RHS is a memory load, see if the VUSEs associated with
-                     it are a valid constant for that memory load.  */
-                  prop_value_t *val = get_value_loaded_by (stmt, const_val);
-                  if (val && val->mem_ref)
-                    {
-                      if (operand_equal_p (val->mem_ref, rhs, 0))
-                        return val->value;
-
-                      /* If RHS is extracting REALPART_EXPR or IMAGPART_EXPR of a
-                         complex type with a known constant value, return it.  */
-                      if ((TREE_CODE (rhs) == REALPART_EXPR
-                           || TREE_CODE (rhs) == IMAGPART_EXPR)
-                          && operand_equal_p (val->mem_ref, TREE_OPERAND (rhs, 0), 0))
-                        return fold_build1 (TREE_CODE (rhs), TREE_TYPE (rhs), val->value);
-                    }
-                }
 
               if (kind == tcc_reference)
 		{
@@ -984,6 +962,7 @@ ccp_fold (gimple stmt)
                  so this should almost always return a simplified RHS.  */
               tree lhs = gimple_assign_lhs (stmt);
               tree op0 = gimple_assign_rhs1 (stmt);
+	      tree res;
 
               /* Simplify the operand down to a constant.  */
               if (TREE_CODE (op0) == SSA_NAME)
@@ -1019,8 +998,21 @@ ccp_fold (gimple stmt)
 		  return op0;
 		}
 
-              return fold_unary (subcode, gimple_expr_type (stmt), op0);
-            }  
+              res = fold_unary (subcode, gimple_expr_type (stmt), op0);
+
+	      /* If the operation was a conversion do _not_ mark a
+	         resulting constant with TREE_OVERFLOW if the original
+		 constant was not.  These conversions have implementation
+		 defined behavior and retaining the TREE_OVERFLOW flag
+		 here would confuse later passes such as VRP.  */
+	      if (res
+		  && TREE_CODE (res) == INTEGER_CST
+		  && TREE_CODE (op0) == INTEGER_CST
+		  && CONVERT_EXPR_CODE_P (subcode))
+		TREE_OVERFLOW (res) = TREE_OVERFLOW (op0);
+
+	      return res;
+            }
 
           case GIMPLE_BINARY_RHS:
             {
@@ -1076,6 +1068,7 @@ ccp_fold (gimple stmt)
 	      fn = val->value;
 	  }
 	if (TREE_CODE (fn) == ADDR_EXPR
+	    && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
 	    && DECL_BUILT_IN (TREE_OPERAND (fn, 0)))
 	  {
 	    tree *args = XALLOCAVEC (tree, gimple_call_num_args (stmt));
@@ -1324,8 +1317,6 @@ evaluate_stmt (gimple stmt)
   ccp_lattice_t likelyvalue = likely_value (stmt);
   bool is_constant;
 
-  val.mem_ref = NULL_TREE;
-
   fold_defer_overflow_warnings ();
 
   /* If the statement is likely to have a CONSTANT result, then try
@@ -1339,7 +1330,7 @@ evaluate_stmt (gimple stmt)
      bother folding the statement.  */
   else if (likelyvalue == VARYING)
     {
-      enum tree_code code = gimple_code (stmt);
+      enum gimple_code code = gimple_code (stmt);
       if (code == GIMPLE_ASSIGN)
         {
           enum tree_code subcode = gimple_assign_rhs_code (stmt);
@@ -1429,21 +1420,6 @@ visit_assignment (gimple stmt, tree *output_p)
           prop_value_t *nval = get_value (rhs);
           val = *nval;
         }
-      else if (do_store_ccp && stmt_makes_single_load (stmt))
-        {
-          /* Same as above, but the RHS is not a gimple register and yet
-             has a known VUSE.  If STMT is loading from the same memory
-             location that created the SSA_NAMEs for the virtual operands,
-             we can propagate the value on the RHS.  */
-          prop_value_t *nval = get_value_loaded_by (stmt, const_val);
-
-          if (nval
-              && nval->mem_ref
-              && operand_equal_p (nval->mem_ref, rhs, 0))
-            val = *nval;
-          else
-            val = evaluate_stmt (stmt);
-        }
       else
         val = evaluate_stmt (stmt);
     }
@@ -1465,46 +1441,6 @@ visit_assignment (gimple stmt, tree *output_p)
 	  if (val.lattice_val == VARYING)
 	    retval = SSA_PROP_VARYING;
 	  else
-	    retval = SSA_PROP_INTERESTING;
-	}
-    }
-  else if (do_store_ccp && stmt_makes_single_store (stmt))
-    {
-      /* Otherwise, set the names in VDEF operands to the new
-	 constant value and mark the LHS as the memory reference
-	 associated with VAL.  */
-      ssa_op_iter i;
-      tree vdef;
-      bool changed;
-
-      /* Mark VAL as stored in the LHS of this assignment.  */
-      if (val.lattice_val == CONSTANT)
-	val.mem_ref = lhs;
-
-      /* Set the value of every VDEF to VAL.  */
-      changed = false;
-      FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, i, SSA_OP_VIRTUAL_DEFS)
-	{
-	  /* See PR 29801.  We may have VDEFs for read-only variables
-	     (see the handling of unmodifiable variables in
-	     add_virtual_operand); do not attempt to change their value.  */
-	  if (get_symbol_constant_value (SSA_NAME_VAR (vdef)) != NULL_TREE)
-	    continue;
-
-	  changed |= set_lattice_value (vdef, val);
-	}
-      
-      /* Note that for propagation purposes, we are only interested in
-	 visiting statements that load the exact same memory reference
-	 stored here.  Those statements will have the exact same list
-	 of virtual uses, so it is enough to set the output of this
-	 statement to be its first virtual definition.  */
-      *output_p = first_vdef (stmt);
-      if (changed)
-	{
-	  if (val.lattice_val == VARYING)
-	    retval = SSA_PROP_VARYING;
-	  else 
 	    retval = SSA_PROP_INTERESTING;
 	}
     }
@@ -1595,7 +1531,7 @@ ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
      Mark them VARYING.  */
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     {
-      prop_value_t v = { VARYING, NULL_TREE, NULL_TREE };
+      prop_value_t v = { VARYING, NULL_TREE };
       set_lattice_value (def, v);
     }
 
@@ -1606,22 +1542,14 @@ ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
 /* Main entry point for SSA Conditional Constant Propagation.  */
 
 static unsigned int
-execute_ssa_ccp (bool store_ccp)
+do_ssa_ccp (void)
 {
-  do_store_ccp = store_ccp;
   ccp_initialize ();
   ssa_propagate (ccp_visit_stmt, ccp_visit_phi_node);
   if (ccp_finalize ())
     return (TODO_cleanup_cfg | TODO_update_ssa | TODO_remove_unused_locals);
   else
     return 0;
-}
-
-
-static unsigned int
-do_ssa_ccp (void)
-{
-  return execute_ssa_ccp (false);
 }
 
 
@@ -1652,43 +1580,6 @@ struct gimple_opt_pass pass_ccp =
  }
 };
 
-
-static unsigned int
-do_ssa_store_ccp (void)
-{
-  /* If STORE-CCP is not enabled, we just run regular CCP.  */
-  return execute_ssa_ccp (flag_tree_store_ccp != 0);
-}
-
-static bool
-gate_store_ccp (void)
-{
-  /* STORE-CCP is enabled only with -ftree-store-ccp, but when
-     -fno-tree-store-ccp is specified, we should run regular CCP.
-     That's why the pass is enabled with either flag.  */
-  return flag_tree_store_ccp != 0 || flag_tree_ccp != 0;
-}
-
-
-struct gimple_opt_pass pass_store_ccp = 
-{
- {
-  GIMPLE_PASS,
-  "store_ccp",				/* name */
-  gate_store_ccp,			/* gate */
-  do_ssa_store_ccp,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_STORE_CCP,			/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa
-  | TODO_verify_stmts | TODO_ggc_collect/* todo_flags_finish */
- }
-};
 
 /* A subroutine of fold_stmt_r.  Attempts to fold *(A+O) to A[X].
    BASE is an array type.  OFFSET is a byte displacement.  ORIG_TYPE
@@ -2300,6 +2191,9 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 
       t = maybe_fold_stmt_indirect (expr, TREE_OPERAND (expr, 0),
 				    integer_zero_node);
+      /* Avoid folding *"abc" = 5 into 'a' = 5.  */
+      if (wi->is_lhs && t && TREE_CODE (t) == INTEGER_CST)
+	t = NULL_TREE;
       if (!t
 	  && TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR)
 	/* If we had a good reason for propagating the address here,
@@ -2328,8 +2222,10 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	 Otherwise we'd be wasting time.  */
     case ARRAY_REF:
       /* If we are not processing expressions found within an
-	 ADDR_EXPR, then we can fold constant array references.  */
-      if (!*inside_addr_expr_p)
+	 ADDR_EXPR, then we can fold constant array references.
+	 Don't fold on LHS either, to avoid folding "abc"[0] = 5
+	 into 'a' = 5.  */
+      if (!*inside_addr_expr_p && !wi->is_lhs)
 	t = fold_read_from_constant_string (expr);
       else
 	t = NULL;
@@ -2560,7 +2456,7 @@ ccp_fold_builtin (gimple stmt)
 {
   tree result, val[3];
   tree callee, a;
-  int arg_mask, i, type;
+  int arg_idx, type;
   bitmap visited;
   bool ignore;
   int nargs;
@@ -2596,12 +2492,12 @@ ccp_fold_builtin (gimple stmt)
     case BUILT_IN_STRLEN:
     case BUILT_IN_FPUTS:
     case BUILT_IN_FPUTS_UNLOCKED:
-      arg_mask = 1;
+      arg_idx = 0;
       type = 0;
       break;
     case BUILT_IN_STRCPY:
     case BUILT_IN_STRNCPY:
-      arg_mask = 2;
+      arg_idx = 1;
       type = 0;
       break;
     case BUILT_IN_MEMCPY_CHK:
@@ -2609,37 +2505,34 @@ ccp_fold_builtin (gimple stmt)
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
     case BUILT_IN_STRNCPY_CHK:
-      arg_mask = 4;
+      arg_idx = 2;
       type = 2;
       break;
     case BUILT_IN_STRCPY_CHK:
     case BUILT_IN_STPCPY_CHK:
-      arg_mask = 2;
+      arg_idx = 1;
       type = 1;
       break;
     case BUILT_IN_SNPRINTF_CHK:
     case BUILT_IN_VSNPRINTF_CHK:
-      arg_mask = 2;
+      arg_idx = 1;
       type = 2;
       break;
     default:
       return NULL_TREE;
     }
 
+  if (arg_idx >= nargs)
+    return NULL_TREE;
+
   /* Try to use the dataflow information gathered by the CCP process.  */
   visited = BITMAP_ALLOC (NULL);
+  bitmap_clear (visited);
 
   memset (val, 0, sizeof (val));
-  for (i = 0; i < nargs; i++)
-    {
-      if ((arg_mask >> i) & 1)
-        {
-          a = gimple_call_arg (stmt, i);
-          bitmap_clear (visited);
-          if (!get_maxval_strlen (a, &val[i], visited, type))
-            val[i] = NULL_TREE;
-        }
-    }
+  a = gimple_call_arg (stmt, arg_idx);
+  if (!get_maxval_strlen (a, &val[arg_idx], visited, type))
+    val[arg_idx] = NULL_TREE;
 
   BITMAP_FREE (visited);
 
@@ -2647,7 +2540,7 @@ ccp_fold_builtin (gimple stmt)
   switch (DECL_FUNCTION_CODE (callee))
     {
     case BUILT_IN_STRLEN:
-      if (val[0])
+      if (val[0] && nargs == 1)
 	{
 	  tree new_val =
               fold_convert (TREE_TYPE (gimple_call_lhs (stmt)), val[0]);
@@ -2679,22 +2572,24 @@ ccp_fold_builtin (gimple stmt)
       break;
 
     case BUILT_IN_FPUTS:
-      result = fold_builtin_fputs (gimple_call_arg (stmt, 0),
-                                   gimple_call_arg (stmt, 1),
-				   ignore, false, val[0]);
+      if (nargs == 2)
+	result = fold_builtin_fputs (gimple_call_arg (stmt, 0),
+				     gimple_call_arg (stmt, 1),
+				     ignore, false, val[0]);
       break;
 
     case BUILT_IN_FPUTS_UNLOCKED:
-      result = fold_builtin_fputs (gimple_call_arg (stmt, 0),
-				   gimple_call_arg (stmt, 1),
-                                   ignore, true, val[0]);
+      if (nargs == 2)
+	result = fold_builtin_fputs (gimple_call_arg (stmt, 0),
+				     gimple_call_arg (stmt, 1),
+				     ignore, true, val[0]);
       break;
 
     case BUILT_IN_MEMCPY_CHK:
     case BUILT_IN_MEMPCPY_CHK:
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
-      if (val[2] && is_gimple_val (val[2]))
+      if (val[2] && is_gimple_val (val[2]) && nargs == 4)
 	result = fold_builtin_memory_chk (callee,
                                           gimple_call_arg (stmt, 0),
                                           gimple_call_arg (stmt, 1),
@@ -2706,7 +2601,7 @@ ccp_fold_builtin (gimple stmt)
 
     case BUILT_IN_STRCPY_CHK:
     case BUILT_IN_STPCPY_CHK:
-      if (val[1] && is_gimple_val (val[1]))
+      if (val[1] && is_gimple_val (val[1]) && nargs == 3)
 	result = fold_builtin_stxcpy_chk (callee,
                                           gimple_call_arg (stmt, 0),
                                           gimple_call_arg (stmt, 1),
@@ -2716,7 +2611,7 @@ ccp_fold_builtin (gimple stmt)
       break;
 
     case BUILT_IN_STRNCPY_CHK:
-      if (val[2] && is_gimple_val (val[2]))
+      if (val[2] && is_gimple_val (val[2]) && nargs == 4)
 	result = fold_builtin_strncpy_chk (gimple_call_arg (stmt, 0),
                                            gimple_call_arg (stmt, 1),
                                            gimple_call_arg (stmt, 2),
@@ -2789,26 +2684,37 @@ fold_gimple_assign (gimple_stmt_iterator *si)
       break;
 
     case GIMPLE_UNARY_RHS:
-      result = fold_unary (subcode,
-                           gimple_expr_type (stmt),
-                           gimple_assign_rhs1 (stmt));
+      {
+	tree rhs = gimple_assign_rhs1 (stmt);
 
-      if (result)
-        {
-          STRIP_USELESS_TYPE_CONVERSION (result);
-          if (valid_gimple_rhs_p (result))
-	    return result;
-        }
-      else if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt))
-	       && POINTER_TYPE_P (gimple_expr_type (stmt))
-	       && POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (stmt))))
-	{
-	  tree type = gimple_expr_type (stmt);
-	  tree t = maybe_fold_offset_to_address (gimple_assign_rhs1 (stmt),
-						 integer_zero_node, type);
-	  if (t)
-	    return t;
-	}
+	result = fold_unary (subcode, gimple_expr_type (stmt), rhs);
+	if (result)
+	  {
+	    /* If the operation was a conversion do _not_ mark a
+	       resulting constant with TREE_OVERFLOW if the original
+	       constant was not.  These conversions have implementation
+	       defined behavior and retaining the TREE_OVERFLOW flag
+	       here would confuse later passes such as VRP.  */
+	    if (CONVERT_EXPR_CODE_P (subcode)
+		&& TREE_CODE (result) == INTEGER_CST
+		&& TREE_CODE (rhs) == INTEGER_CST)
+	      TREE_OVERFLOW (result) = TREE_OVERFLOW (rhs);
+
+	    STRIP_USELESS_TYPE_CONVERSION (result);
+	    if (valid_gimple_rhs_p (result))
+	      return result;
+	  }
+	else if (CONVERT_EXPR_CODE_P (subcode)
+		 && POINTER_TYPE_P (gimple_expr_type (stmt))
+		 && POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (stmt))))
+	  {
+	    tree type = gimple_expr_type (stmt);
+	    tree t = maybe_fold_offset_to_address (gimple_assign_rhs1 (stmt),
+						   integer_zero_node, type);
+	    if (t)
+	      return t;
+	  }
+      }
       break;
 
     case GIMPLE_BINARY_RHS:
@@ -2830,6 +2736,17 @@ fold_gimple_assign (gimple_stmt_iterator *si)
           STRIP_USELESS_TYPE_CONVERSION (result);
           if (valid_gimple_rhs_p (result))
 	    return result;
+
+	  /* Fold might have produced non-GIMPLE, so if we trust it blindly
+	     we lose canonicalization opportunities.  Do not go again
+	     through fold here though, or the same non-GIMPLE will be
+	     produced.  */
+          if (commutative_tree_code (subcode)
+              && tree_swap_operands_p (gimple_assign_rhs1 (stmt),
+                                       gimple_assign_rhs2 (stmt), false))
+            return build2 (subcode, TREE_TYPE (gimple_assign_lhs (stmt)),
+                           gimple_assign_rhs2 (stmt),
+                           gimple_assign_rhs1 (stmt));
         }
       break;
 

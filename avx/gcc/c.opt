@@ -131,6 +131,10 @@ Wbad-function-cast
 C ObjC Var(warn_bad_function_cast) Warning
 Warn about casting functions to incompatible types
 
+Wbuiltin-macro-redefined
+C ObjC C++ ObjC++ Warning
+Warn when a built-in preprocessor macro is undefined or redefined
+
 Wc++-compat
 C ObjC Var(warn_cxx_compat) Warning
 Warn about C constructs that are not in the common subset of C and C++
@@ -423,6 +427,10 @@ Warn about unprototyped function declarations
 Wstrict-selector-match
 ObjC ObjC++ Var(warn_strict_selector_match) Warning
 Warn if type signatures of candidate methods do not match exactly
+
+Wsync-nand
+C C++ Var(warn_sync_nand) Init(1) Warning
+Warn when __sync_fetch_and_nand and __sync_nand_and_fetch built-in functions are used
 
 Wsynth
 C++ ObjC++ Var(warn_synth) Warning

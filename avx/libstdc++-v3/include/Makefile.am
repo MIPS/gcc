@@ -36,6 +36,7 @@ std_headers = \
 	${std_srcdir}/complex \
 	${std_srcdir}/condition_variable \
 	${std_srcdir}/deque \
+	${std_srcdir}/forward_list \
 	${std_srcdir}/fstream \
 	${std_srcdir}/functional \
 	${std_srcdir}/iomanip \
@@ -63,6 +64,7 @@ std_headers = \
 	${std_srcdir}/streambuf \
 	${std_srcdir}/string \
 	${std_srcdir}/system_error \
+	${std_srcdir}/thread \
 	${std_srcdir}/tuple \
 	${std_srcdir}/type_traits \
 	${std_srcdir}/unordered_map \
@@ -76,17 +78,22 @@ bits_builddir = ./bits
 bits_headers = \
         ${bits_srcdir}/algorithmfwd.h \
 	${bits_srcdir}/allocator.h \
+	${bits_srcdir}/atomicfwd_c.h \
+	${bits_srcdir}/atomicfwd_cxx.h \
+	${bits_srcdir}/atomic_0.h \
+	${bits_srcdir}/atomic_2.h \
 	${bits_srcdir}/basic_ios.h \
 	${bits_srcdir}/basic_ios.tcc \
 	${bits_srcdir}/basic_string.h \
 	${bits_srcdir}/basic_string.tcc \
 	${bits_srcdir}/boost_concept_check.h \
-	${bits_srcdir}/boost_sp_shared_count.h \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
 	${bits_srcdir}/cpp_type_traits.h \
 	${bits_srcdir}/deque.tcc \
+	${bits_srcdir}/forward_list.h \
+	${bits_srcdir}/forward_list.tcc \
 	${bits_srcdir}/fstream.tcc \
 	${bits_srcdir}/functexcept.h \
 	${bits_srcdir}/functional_hash.h \
@@ -111,6 +118,7 @@ bits_headers = \
 	${bits_srcdir}/postypes.h \
 	${bits_srcdir}/stream_iterator.h \
 	${bits_srcdir}/streambuf_iterator.h \
+	${bits_srcdir}/shared_ptr.h \
 	${bits_srcdir}/slice_array.h \
 	${bits_srcdir}/sstream.tcc \
 	${bits_srcdir}/stl_algo.h \
@@ -480,10 +488,12 @@ ext_headers = \
 	${ext_srcdir}/atomicity.h \
 	${ext_srcdir}/array_allocator.h \
 	${ext_srcdir}/bitmap_allocator.h \
+	${ext_srcdir}/cast.h \
 	${ext_srcdir}/codecvt_specializations.h \
 	${ext_srcdir}/concurrence.h \
 	${ext_srcdir}/debug_allocator.h \
 	${ext_srcdir}/enc_filebuf.h \
+	${ext_srcdir}/extptr_allocator.h \
 	${ext_srcdir}/stdio_filebuf.h \
 	${ext_srcdir}/stdio_sync_filebuf.h \
 	${ext_srcdir}/functional \
@@ -495,6 +505,7 @@ ext_headers = \
 	${ext_srcdir}/numeric \
 	${ext_srcdir}/numeric_traits.h \
 	${ext_srcdir}/pod_char_traits.h \
+	${ext_srcdir}/pointer.h \
 	${ext_srcdir}/pool_allocator.h \
 	${ext_srcdir}/rb_tree \
 	${ext_srcdir}/rope \
@@ -522,7 +533,6 @@ tr1_headers = \
 	${tr1_srcdir}/array \
 	${tr1_srcdir}/bessel_function.tcc \
 	${tr1_srcdir}/beta_function.tcc \
-	${tr1_srcdir}/boost_sp_shared_count.h \
 	${tr1_srcdir}/ccomplex \
 	${tr1_srcdir}/cctype \
 	${tr1_srcdir}/cfenv \
@@ -562,6 +572,7 @@ tr1_headers = \
 	${tr1_srcdir}/random \
 	${tr1_srcdir}/regex \
 	${tr1_srcdir}/riemann_zeta.tcc \
+	${tr1_srcdir}/shared_ptr.h \
 	${tr1_srcdir}/special_function_util.h \
 	${tr1_srcdir}/stdarg.h \
 	${tr1_srcdir}/stdbool.h \
@@ -582,7 +593,6 @@ tr1_impl_srcdir = ${glibcxx_srcdir}/include/tr1_impl
 tr1_impl_builddir = ./tr1_impl
 tr1_impl_headers = \
 	${tr1_impl_srcdir}/array \
-	${tr1_impl_srcdir}/boost_shared_ptr.h \
 	${tr1_impl_srcdir}/boost_sp_counted_base.h \
 	${tr1_impl_srcdir}/cctype \
 	${tr1_impl_srcdir}/cfenv \
@@ -696,7 +706,6 @@ debug_headers = \
 	${debug_srcdir}/map.h \
 	${debug_srcdir}/multimap.h \
 	${debug_srcdir}/multiset.h \
-	${debug_srcdir}/safe_association.h \
 	${debug_srcdir}/safe_base.h \
 	${debug_srcdir}/safe_iterator.h \
 	${debug_srcdir}/safe_iterator.tcc \

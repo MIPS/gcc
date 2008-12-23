@@ -1,8 +1,8 @@
 /* { dg-do compile } */
-/* { dg-mips-options "-O -mgp64" } */
+/* { dg-options "-O -mgp64" } */
 
 /* { dg-final { scan-assembler-not "and\t\|andi\t\|ext\t\|sll\t\|srl\t" } } */
-/* { dg-final { scan-assembler-times "slt\t\|sltu\t" 12 } } */
+/* { dg-final { scan-assembler-times "slt\t\|slti?u\t" 12 } } */
 
 
 #define TEST(N, LHS, REL, RHS) \

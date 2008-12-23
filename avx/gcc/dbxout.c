@@ -369,7 +369,7 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   dbxout_function_decl,
   dbxout_global_decl,		         /* global_decl */
   dbxout_type_decl,			 /* type_decl */
-  debug_nothing_tree_tree,               /* imported_module_or_decl */
+  debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
@@ -401,7 +401,7 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   debug_nothing_tree,		         /* function_decl */
   dbxout_global_decl,		         /* global_decl */
   dbxout_type_decl,			 /* type_decl */
-  debug_nothing_tree_tree,               /* imported_module_or_decl */
+  debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
@@ -3376,6 +3376,8 @@ dbxout_parms (tree parms)
 	       was passed.  */
 	    if (REGNO (DECL_RTL (parms)) < FIRST_PSEUDO_REGISTER)
 	      best_rtl = DECL_RTL (parms);
+	    else if (GET_CODE (DECL_INCOMING_RTL (parms)) == PARALLEL)
+	      best_rtl = XEXP (XVECEXP (DECL_INCOMING_RTL (parms), 0, 0), 0);
 	    else
 	      best_rtl = DECL_INCOMING_RTL (parms);
 

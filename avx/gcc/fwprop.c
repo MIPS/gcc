@@ -184,7 +184,8 @@ canonicalize_address (rtx x)
    for a memory access in the given MODE.  */
 
 static bool
-should_replace_address (rtx old_rtx, rtx new_rtx, enum machine_mode mode)
+should_replace_address (rtx old_rtx, rtx new_rtx, enum machine_mode mode,
+			bool speed)
 {
   int gain;
 
@@ -196,14 +197,14 @@ should_replace_address (rtx old_rtx, rtx new_rtx, enum machine_mode mode)
     return true;
 
   /* Prefer the new address if it is less expensive.  */
-  gain = address_cost (old_rtx, mode) - address_cost (new_rtx, mode);
+  gain = address_cost (old_rtx, mode, speed) - address_cost (new_rtx, mode, speed);
 
   /* If the addresses have equivalent cost, prefer the new address
      if it has the highest `rtx_cost'.  That has the potential of
      eliminating the most insns without additional costs, and it
      is the same that cse.c used to do.  */
   if (gain == 0)
-    gain = rtx_cost (new_rtx, SET) - rtx_cost (old_rtx, SET);
+    gain = rtx_cost (new_rtx, SET, speed) - rtx_cost (old_rtx, SET, speed);
 
   return (gain > 0);
 }
@@ -231,7 +232,10 @@ enum {
      PR_HANDLE_MEM is set when the source of the propagation was not
      another MEM.  Then, it is safe not to treat non-read-only MEMs as
      ``opaque'' objects.  */
-  PR_HANDLE_MEM = 2
+  PR_HANDLE_MEM = 2,
+
+  /* Set when costs should be optimized for speed.  */
+  PR_OPTIMIZE_FOR_SPEED = 4
 };
 
 
@@ -360,7 +364,8 @@ propagate_rtx_1 (rtx *px, rtx old_rtx, rtx new_rtx, int flags)
 
 	  /* Copy propagations are always ok.  Otherwise check the costs.  */
 	  if (!(REG_P (old_rtx) && REG_P (new_rtx))
-	      && !should_replace_address (op0, new_op0, GET_MODE (x)))
+	      && !should_replace_address (op0, new_op0, GET_MODE (x),
+	      			 	  flags & PR_OPTIMIZE_FOR_SPEED))
 	    return true;
 
 	  tem = replace_equiv_address_nv (x, new_op0);
@@ -438,7 +443,8 @@ varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
    Otherwise, we accept simplifications that have a lower or equal cost.  */
 
 static rtx
-propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx)
+propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx,
+	       bool speed)
 {
   rtx tem;
   bool collapsed;
@@ -452,6 +458,9 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx)
     flags |= PR_CAN_APPEAR;
   if (!for_each_rtx (&new_rtx, varying_mem_p, NULL))
     flags |= PR_HANDLE_MEM;
+
+  if (speed)
+    flags |= PR_OPTIMIZE_FOR_SPEED;
 
   tem = x;
   collapsed = propagate_rtx_1 (&tem, old_rtx, copy_rtx (new_rtx), flags);
@@ -478,19 +487,19 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx)
    between FROM to (but not including) TO.  */
 
 static bool
-local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
+local_ref_killed_between_p (df_ref ref, rtx from, rtx to)
 {
   rtx insn;
 
   for (insn = from; insn != to; insn = NEXT_INSN (insn))
     {
-      struct df_ref **def_rec;
+      df_ref *def_rec;
       if (!INSN_P (insn))
 	continue;
 
       for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	{
-	  struct df_ref *def = *def_rec;
+	  df_ref def = *def_rec;
 	  if (DF_REF_REGNO (ref) == DF_REF_REGNO (def))
 	    return true;
 	}
@@ -508,12 +517,12 @@ local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
      we check if the definition is killed after DEF_INSN or before
      TARGET_INSN insn, in their respective basic blocks.  */
 static bool
-use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
+use_killed_between (df_ref use, rtx def_insn, rtx target_insn)
 {
   basic_block def_bb = BLOCK_FOR_INSN (def_insn);
   basic_block target_bb = BLOCK_FOR_INSN (target_insn);
   int regno;
-  struct df_ref * def;
+  df_ref def;
 
   /* In some obscure situations we can have a def reaching a use
      that is _before_ the def.  In other words the def does not
@@ -534,7 +543,7 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
   regno = DF_REF_REGNO (use);
   def = DF_REG_DEF_CHAIN (regno);
   if (def
-      && def->next_reg == NULL
+      && DF_REF_NEXT_REG (def) == NULL
       && regno >= FIRST_PSEUDO_REGISTER)
     return false;
 
@@ -546,7 +555,7 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
   if (single_pred_p (target_bb)
       && single_pred (target_bb) == def_bb)
     {
-      struct df_ref *x;
+      df_ref x;
 
       /* See if USE is killed between DEF_INSN and the last insn in the
 	 basic block containing DEF_INSN.  */
@@ -574,7 +583,7 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
 static bool
 all_uses_available_at (rtx def_insn, rtx target_insn)
 {
-  struct df_ref **use_rec;
+  df_ref *use_rec;
   struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
   rtx def_set = single_set (def_insn);
 
@@ -591,14 +600,14 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
          invalid.  */
       for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
 	{
-	  struct df_ref *use = *use_rec;
+	  df_ref use = *use_rec;
 	  if (rtx_equal_p (DF_REF_REG (use), def_reg))
 	    return false;
 	}
       for (use_rec = DF_INSN_INFO_EQ_USES (insn_info); *use_rec; use_rec++)
 	{
-	  struct df_ref *use = *use_rec;
-	  if (rtx_equal_p (use->reg, def_reg))
+	  df_ref use = *use_rec;
+	  if (rtx_equal_p (DF_REF_REG (use), def_reg))
 	    return false;
 	}
     }
@@ -608,13 +617,13 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
 	 killed between DEF_INSN and TARGET_INSN.  */
       for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
 	{
-	  struct df_ref *use = *use_rec;
+	  df_ref use = *use_rec;
 	  if (use_killed_between (use, def_insn, target_insn))
 	    return false;
 	}
       for (use_rec = DF_INSN_INFO_EQ_USES (insn_info); *use_rec; use_rec++)
 	{
-	  struct df_ref *use = *use_rec;
+	  df_ref use = *use_rec;
 	  if (use_killed_between (use, def_insn, target_insn))
 	    return false;
 	}
@@ -673,7 +682,7 @@ find_occurrence (rtx *px, rtx find)
    in the data flow object of the pass.  Mark any new uses as having the
    given TYPE.  */
 static void
-update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
+update_df (rtx insn, rtx *loc, df_ref *use_rec, enum df_ref_type type,
 	   int new_flags)
 {
   bool changed = false;
@@ -681,8 +690,8 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
   /* Add a use for the registers that were propagated.  */
   while (*use_rec)
     {
-      struct df_ref *use = *use_rec;
-      struct df_ref *orig_use = use, *new_use;
+      df_ref use = *use_rec;
+      df_ref orig_use = use, new_use;
       int width = -1;
       int offset = -1;
       enum machine_mode mode = 0;
@@ -722,13 +731,14 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
    performed.  */
 
 static bool
-try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new_rtx, rtx def_insn, bool set_reg_equal)
+try_fwprop_subst (df_ref use, rtx *loc, rtx new_rtx, rtx def_insn, bool set_reg_equal)
 {
   rtx insn = DF_REF_INSN (use);
   enum df_ref_type type = DF_REF_TYPE (use);
   int flags = DF_REF_FLAGS (use);
   rtx set = single_set (insn);
-  int old_cost = rtx_cost (SET_SRC (set), SET);
+  bool speed = optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn));
+  int old_cost = rtx_cost (SET_SRC (set), SET, speed);
   bool ok;
 
   if (dump_file)
@@ -750,7 +760,7 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new_rtx, rtx def_insn, bool 
     }
 
   else if (DF_REF_TYPE (use) == DF_REF_REG_USE
-	   && rtx_cost (SET_SRC (set), SET) > old_cost)
+	   && rtx_cost (SET_SRC (set), SET, speed) > old_cost)
     {
       if (dump_file)
 	fprintf (dump_file, "Changes to insn %d not profitable\n",
@@ -811,7 +821,7 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new_rtx, rtx def_insn, bool 
 /* If USE is a paradoxical subreg, see if it can be replaced by a pseudo.  */
 
 static bool
-forward_propagate_subreg (struct df_ref *use, rtx def_insn, rtx def_set)
+forward_propagate_subreg (df_ref use, rtx def_insn, rtx def_set)
 {
   rtx use_reg = DF_REF_REG (use);
   rtx use_insn, src;
@@ -846,7 +856,7 @@ forward_propagate_subreg (struct df_ref *use, rtx def_insn, rtx def_set)
    result.  */
 
 static bool
-forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
+forward_propagate_and_simplify (df_ref use, rtx def_insn, rtx def_set)
 {
   rtx use_insn = DF_REF_INSN (use);
   rtx use_set = single_set (use_insn);
@@ -928,7 +938,8 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
   else
     mode = GET_MODE (*loc);
 
-  new_rtx = propagate_rtx (*loc, mode, reg, src);
+  new_rtx = propagate_rtx (*loc, mode, reg, src,
+  			   optimize_bb_for_speed_p (BLOCK_FOR_INSN (use_insn)));
 
   if (!new_rtx)
     return false;
@@ -941,10 +952,10 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
    definition, try to forward propagate it into that insn.  */
 
 static void
-forward_propagate_into (struct df_ref *use)
+forward_propagate_into (df_ref use)
 {
   struct df_link *defs;
-  struct df_ref *def;
+  df_ref def;
   rtx def_insn, def_set, use_insn;
   rtx parent;
 
@@ -1026,6 +1037,7 @@ fwprop_done (void)
     fprintf (dump_file,
 	     "\nNumber of successful forward propagations: %d\n\n",
 	     num_changes);
+  df_remove_problem (df_chain);
 }
 
 
@@ -1053,7 +1065,7 @@ fwprop (void)
 
   for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
     {
-      struct df_ref *use = DF_USES_GET (i);
+      df_ref use = DF_USES_GET (i);
       if (use)
 	if (DF_REF_TYPE (use) == DF_REF_REG_USE
 	    || DF_REF_BB (use)->loop_father == NULL
@@ -1098,7 +1110,7 @@ fwprop_addr (void)
 
   for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
     {
-      struct df_ref *use = DF_USES_GET (i);
+      df_ref use = DF_USES_GET (i);
       if (use)
 	if (DF_REF_TYPE (use) != DF_REF_REG_USE
 	    && DF_REF_BB (use)->loop_father != NULL

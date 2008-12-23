@@ -36,7 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* The default branch cost is 1.  */
 #ifndef BRANCH_COST
-#define BRANCH_COST 1
+#define BRANCH_COST(speed_p, predictable_p) 1
 #endif
 
 /* This is the 4th arg to `expand_expr'.
@@ -66,10 +66,10 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
 
 #ifndef MOVE_RATIO
 #if defined (HAVE_movmemqi) || defined (HAVE_movmemhi) || defined (HAVE_movmemsi) || defined (HAVE_movmemdi) || defined (HAVE_movmemti)
-#define MOVE_RATIO 2
+#define MOVE_RATIO(speed) 2
 #else
 /* If we are optimizing for space (-Os), cut down the default move ratio.  */
-#define MOVE_RATIO (optimize_size ? 3 : 15)
+#define MOVE_RATIO(speed) ((speed) ? 15 : 3)
 #endif
 #endif
 
@@ -78,10 +78,10 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
 
 #ifndef CLEAR_RATIO
 #if defined (HAVE_setmemqi) || defined (HAVE_setmemhi) || defined (HAVE_setmemsi) || defined (HAVE_setmemdi) || defined (HAVE_setmemti)
-#define CLEAR_RATIO 2
+#define CLEAR_RATIO(speed) 2
 #else
 /* If we are optimizing for space, cut down the default clear ratio.  */
-#define CLEAR_RATIO (optimize_size ? 3 : 15)
+#define CLEAR_RATIO(speed) ((speed) ? 15 :3)
 #endif
 #endif
 
@@ -89,7 +89,7 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
    SET_RATIO or more simple move-instruction sequences, we will do a movmem
    or libcall instead.  */
 #ifndef SET_RATIO
-#define SET_RATIO MOVE_RATIO
+#define SET_RATIO(speed) MOVE_RATIO(speed)
 #endif
 
 enum direction {none, upward, downward};
@@ -404,6 +404,7 @@ enum block_op_methods
   BLOCK_OP_TAILCALL
 };
 
+extern tree GTY(()) block_clear_fn;
 extern void init_block_move_fn (const char *);
 extern void init_block_clear_fn (const char *);
 
@@ -694,6 +695,11 @@ extern void set_mem_attributes (rtx, tree, int);
    we alter MEM_OFFSET according to T then we should subtract BITPOS
    expecting that it'll be added back in later.  */
 extern void set_mem_attributes_minus_bitpos (rtx, tree, int, HOST_WIDE_INT);
+
+/* Return OFFSET if XEXP (MEM, 0) - OFFSET is known to be ALIGN
+   bits aligned for 0 <= OFFSET < ALIGN / BITS_PER_UNIT, or
+   -1 if not known.  */
+extern int get_mem_align_offset (rtx, int);
 
 /* Assemble the static constant template for function entry trampolines.  */
 extern rtx assemble_trampoline_template (void);

@@ -155,6 +155,8 @@
  (UNSPEC_DFTSV		 51)
  (UNSPEC_FLOAT_EXTEND	 52)
  (UNSPEC_FLOAT_TRUNCATE	 53)
+ (UNSPEC_SP_SET         54)
+ (UNSPEC_SP_TEST        55) 
 ])
 
 (include "predicates.md")
@@ -1864,58 +1866,6 @@
     DONE;
   })
 
-;; Taken from STI's gcc
-;; Does not correctly handle INF or NAN.
-(define_expand "divdf3"
-  [(set (match_operand:DF 0 "register_operand" "=r")
-        (div:DF (match_operand:DF 1 "register_operand" "r")
-                (match_operand:DF 2 "register_operand" "r")))]
-  "flag_finite_math_only"
-  "{    
-    /*
-    double
-    divdf3 (double x, double y)
-    {
-        float x0;
-        float y_f = (float) y;
-        double x1, x2;
-
-        x0 = spu_extract(spu_re(spu_promote(y_f, 0)), 0);
-        x1 = (double)(x0 * (2.0f - y_f * x0)); 
-        x2 = x1 * (2.0 - y * x1);
-        return (x * x2 * (2.0 - y * x2));
-    }
-    */
-
-    rtx dst = operands[0];
-    rtx x   = operands[1];
-    rtx y   = operands[2];
-    rtx y_f = gen_reg_rtx(SFmode);
-    rtx x0_f = gen_reg_rtx(SFmode);
-    rtx x1_f = gen_reg_rtx(SFmode);
-    rtx x1 = gen_reg_rtx(DFmode);
-    rtx x2 = gen_reg_rtx(DFmode);
-    rtx t1_f = gen_reg_rtx(SFmode);
-    rtx t1 = gen_reg_rtx(DFmode);
-    rtx two = gen_reg_rtx(DFmode);
-    rtx two_f = gen_reg_rtx(SFmode);
-
-    emit_insn (gen_truncdfsf2 (y_f, y));
-    emit_insn (gen_frest_sf (x0_f, y_f));
-    emit_insn (gen_fi_sf (x0_f, y_f, x0_f));
-    emit_insn (gen_movsf (two_f, spu_float_const(\"2.0\",SFmode)));
-    emit_insn (gen_fnms_sf (t1_f, y_f, x0_f, two_f));
-    emit_insn (gen_mulsf3 (x1_f, t1_f, x0_f));
-    emit_insn (gen_extendsfdf2 (x1, x1_f));
-    emit_insn (gen_extendsfdf2 (two, two_f));
-    emit_insn (gen_movdf (t1, two));
-    emit_insn (gen_fnms_df (t1, y, x1, t1));
-    emit_insn (gen_muldf3 (x2, x1, t1));
-    emit_insn (gen_fnms_df (two, y, x2, two));
-    emit_insn (gen_muldf3 (dst, x2, two));
-    emit_insn (gen_muldf3 (dst, dst, x));
-    DONE;
-}")
 
 ;; sqrt
 
@@ -4252,11 +4202,22 @@ selb\t%0,%4,%0,%3"
   "lnop"
   [(set_attr "type" "lnop")])
 
+;; The operand is so we know why we generated this hbrp.
+;; We clobber mem to make sure it isn't moved over any
+;; loads, stores or calls while scheduling.
 (define_insn "iprefetch"
-  [(unspec [(const_int 0)] UNSPEC_IPREFETCH)]
+  [(unspec [(match_operand:SI 0 "const_int_operand" "n")] UNSPEC_IPREFETCH)
+   (clobber (mem:BLK (scratch)))]
   ""
-  "hbrp"
+  "hbrp\t# %0"
   [(set_attr "type" "iprefetch")])
+
+;; A non-volatile version so it gets scheduled
+(define_insn "nopn_nv"
+  [(unspec [(match_operand:SI 0 "register_operand" "r")] UNSPEC_NOP)]
+  ""
+  "nop\t%0"
+  [(set_attr "type" "nop")])
 
 (define_insn "hbr"
   [(set (reg:SI 130)
@@ -5229,4 +5190,51 @@ DONE;
   DONE;
 }")
 
+(define_insn "stack_protect_set"
+  [(set (match_operand:SI 0 "spu_mem_operand" "=m")
+        (unspec:SI [(match_operand:SI 1 "spu_mem_operand" "m")] UNSPEC_SP_SET))
+   (set (match_scratch:SI 2 "=&r") (const_int 0))]
+  ""
+  "lq%p1\t%2,%1\;stq%p0\t%2,%0\;xor\t%2,%2,%2"
+  [(set_attr "length" "12")
+   (set_attr "type" "multi1")]
+)
+
+(define_expand "stack_protect_test"
+  [(match_operand 0 "spu_mem_operand" "")
+   (match_operand 1 "spu_mem_operand" "")
+   (match_operand 2 "" "")]
+  ""
+{
+  rtx compare_result;
+  rtx bcomp, loc_ref;
+
+  compare_result = gen_reg_rtx (SImode);
+
+  emit_insn (gen_stack_protect_test_si (compare_result,
+                                        operands[0],
+                                        operands[1]));
+
+  bcomp = gen_rtx_NE (SImode, compare_result, const0_rtx);
+
+  loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands[2]);
+
+  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+                                   gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
+                                                         loc_ref, pc_rtx)));
+
+  DONE;
+})
+
+(define_insn "stack_protect_test_si"
+  [(set (match_operand:SI 0 "spu_reg_operand" "=&r")
+        (unspec:SI [(match_operand:SI 1 "spu_mem_operand" "m")
+                    (match_operand:SI 2 "spu_mem_operand" "m")]
+                   UNSPEC_SP_TEST))
+   (set (match_scratch:SI 3 "=&r") (const_int 0))]
+  ""
+  "lq%p1\t%0,%1\;lq%p2\t%3,%2\;ceq\t%0,%0,%3\;xor\t%3,%3,%3"
+  [(set_attr "length" "16")
+   (set_attr "type" "multi1")]
+)
 

@@ -918,7 +918,7 @@ verify_c_interop_param (gfc_symbol *sym)
       if (sym->ns->proc_name->attr.is_bind_c == 1)
 	{
 	  is_c_interop =
-	    (verify_c_interop (&(sym->ts), sym->name, &(sym->declared_at))
+	    (verify_c_interop (&(sym->ts))
 	     == SUCCESS ? 1 : 0);
 
 	  if (is_c_interop != 1)
@@ -1981,6 +1981,17 @@ kind_expr:
       gfc_current_locus = where;
       return MATCH_ERROR;
     }
+
+  /* Warn if, e.g., c_int is used for a REAL variable, but not
+     if, e.g., c_double is used for COMPLEX as the standard
+     explicitly says that the kind type parameter for complex and real
+     variable is the same, i.e. c_float == c_float_complex.  */
+  if (ts->f90_type != BT_UNKNOWN && ts->f90_type != ts->type
+      && !((ts->f90_type == BT_REAL && ts->type == BT_COMPLEX)
+	   || (ts->f90_type == BT_COMPLEX && ts->type == BT_REAL)))
+    gfc_error_now ("C kind type parameter is for type %s but type at %L "
+		   "is %s", gfc_basic_typename (ts->f90_type), &where,
+		   gfc_basic_typename (ts->type));
 
   gfc_gobble_whitespace ();
   if ((c = gfc_next_ascii_char ()) != ')'
@@ -3299,29 +3310,8 @@ set_com_block_bind_c (gfc_common_head *com_block, int is_bind_c)
 /* Verify that the given gfc_typespec is for a C interoperable type.  */
 
 gfc_try
-verify_c_interop (gfc_typespec *ts, const char *name, locus *where)
+verify_c_interop (gfc_typespec *ts)
 {
-  gfc_try t;
-
-  /* Make sure the kind used is appropriate for the type.
-     The f90_type is unknown if an integer constant was
-     used (e.g., real(4), bind(c) :: myFloat).  */
-  if (ts->f90_type != BT_UNKNOWN)
-    {
-      t = gfc_validate_c_kind (ts);
-      if (t != SUCCESS)
-        {
-          /* Print an error, but continue parsing line.  */
-          gfc_error_now ("C kind parameter is for type %s but "
-                         "symbol '%s' at %L is of type %s",
-                         gfc_basic_typename (ts->f90_type),
-                         name, where, 
-                         gfc_basic_typename (ts->type));
-        }
-    }
-
-  /* Make sure the kind is C interoperable.  This does not care about the
-     possible error above.  */
   if (ts->type == BT_DERIVED && ts->derived != NULL)
     return (ts->derived->ts.is_c_interop ? SUCCESS : FAILURE);
   else if (ts->is_c_interop != 1)
@@ -3396,8 +3386,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
      the given ts (current_ts), so look in both.  */
   if (tmp_sym->ts.type != BT_UNKNOWN || ts->type != BT_UNKNOWN) 
     {
-      if (verify_c_interop (&(tmp_sym->ts), tmp_sym->name,
-                            &(tmp_sym->declared_at)) != SUCCESS)
+      if (verify_c_interop (&(tmp_sym->ts)) != SUCCESS)
 	{
 	  /* See if we're dealing with a sym in a common block or not.	*/
 	  if (is_in_common == 1)
@@ -3985,8 +3974,7 @@ match_result (gfc_symbol *function, gfc_symbol **result)
   if (gfc_get_symbol (name, NULL, &r))
     return MATCH_ERROR;
 
-  if (gfc_add_flavor (&r->attr, FL_VARIABLE, r->name, NULL) == FAILURE
-      || gfc_add_result (&r->attr, r->name, NULL) == FAILURE)
+  if (gfc_add_result (&r->attr, r->name, NULL) == FAILURE)
     return MATCH_ERROR;
 
   *result = r;
@@ -4105,6 +4093,7 @@ match_procedure_decl (void)
   /* Get the type spec. for the procedure interface.  */
   old_loc = gfc_current_locus;
   m = gfc_match_type_spec (&current_ts, 0);
+  gfc_gobble_whitespace ();
   if (m == MATCH_YES || (m == MATCH_NO && gfc_peek_ascii_char () == ')'))
     goto got_ts;
 
@@ -4125,6 +4114,7 @@ match_procedure_decl (void)
   /* Various interface checks.  */
   if (proc_if)
     {
+      proc_if->refs++;
       /* Resolve interface if possible. That way, attr.procedure is only set
 	 if it is declared by a later procedure-declaration-stmt, which is
 	 invalid per C1212.  */
@@ -4639,8 +4629,7 @@ gfc_match_entry (void)
      created symbols attached to the current namespace.  */
   if (get_proc_name (name, &entry,
 		     gfc_current_ns->parent != NULL
-		     && module_procedure
-		     && gfc_current_ns->proc_name->attr.function))
+		     && module_procedure))
     return MATCH_ERROR;
 
   proc = gfc_current_block ();
@@ -6361,7 +6350,7 @@ gfc_get_type_attr_spec (symbol_attribute *attr, char *name)
       if (gfc_add_access (attr, ACCESS_PUBLIC, NULL, NULL) == FAILURE)
 	return MATCH_ERROR;
     }
-  else if (gfc_match(" , bind ( c )") == MATCH_YES)
+  else if (gfc_match (" , bind ( c )") == MATCH_YES)
     {
       /* If the type is defined to be bind(c) it then needs to make
 	 sure that all fields are interoperable.  This will
@@ -6371,6 +6360,15 @@ gfc_get_type_attr_spec (symbol_attribute *attr, char *name)
 	return MATCH_ERROR;
 
       /* TODO: attr conflicts need to be checked, probably in symbol.c.  */
+    }
+  else if (gfc_match (" , abstract") == MATCH_YES)
+    {
+      if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: ABSTRACT type at %C")
+	    == FAILURE)
+	return MATCH_ERROR;
+
+      if (gfc_add_abstract (attr, &gfc_current_locus) == FAILURE)
+	return MATCH_ERROR;
     }
   else if (name && gfc_match(" , extends ( %n )", name) == MATCH_YES)
     {
@@ -6479,11 +6477,9 @@ gfc_match_derived_decl (void)
   if (attr.is_bind_c != 0)
     sym->attr.is_bind_c = attr.is_bind_c;
 
-
   /* Construct the f2k_derived namespace if it is not yet there.  */
   if (!sym->f2k_derived)
     sym->f2k_derived = gfc_get_namespace (NULL, 0);
-
   
   if (extended && !sym->components)
     {
@@ -6506,6 +6502,9 @@ gfc_match_derived_decl (void)
       st = gfc_new_symtree (&extended->f2k_derived->sym_root, sym->name);
       st->n.sym = sym;
     }
+
+  /* Take over the ABSTRACT attribute.  */
+  sym->attr.abstract = attr.abstract;
 
   gfc_new_block = sym;
 
@@ -6721,7 +6720,7 @@ cleanup:
 /* Match binding attributes.  */
 
 static match
-match_binding_attributes (gfc_typebound_proc* ba)
+match_binding_attributes (gfc_typebound_proc* ba, bool generic)
 {
   bool found_passing = false;
   match m;
@@ -6736,82 +6735,13 @@ match_binding_attributes (gfc_typebound_proc* ba)
 
   /* If we find a comma, we believe there are binding attributes.  */
   if (gfc_match_char (',') == MATCH_NO)
-    return MATCH_NO;
+    {
+      ba->access = gfc_typebound_default_access;
+      return MATCH_NO;
+    }
 
   do
     {
-      /* NOPASS flag.  */
-      m = gfc_match (" nopass");
-      if (m == MATCH_ERROR)
-	goto error;
-      if (m == MATCH_YES)
-	{
-	  if (found_passing)
-	    {
-	      gfc_error ("Binding attributes already specify passing, illegal"
-			 " NOPASS at %C");
-	      goto error;
-	    }
-
-	  found_passing = true;
-	  ba->nopass = 1;
-	  continue;
-	}
-
-      /* NON_OVERRIDABLE flag.  */
-      m = gfc_match (" non_overridable");
-      if (m == MATCH_ERROR)
-	goto error;
-      if (m == MATCH_YES)
-	{
-	  if (ba->non_overridable)
-	    {
-	      gfc_error ("Duplicate NON_OVERRIDABLE at %C");
-	      goto error;
-	    }
-
-	  ba->non_overridable = 1;
-	  continue;
-	}
-
-      /* DEFERRED flag.  */
-      /* TODO: Handle really once implemented.  */
-      m = gfc_match (" deferred");
-      if (m == MATCH_ERROR)
-	goto error;
-      if (m == MATCH_YES)
-	{
-	  gfc_error ("DEFERRED not yet implemented at %C");
-	  goto error;
-	}
-
-      /* PASS possibly including argument.  */
-      m = gfc_match (" pass");
-      if (m == MATCH_ERROR)
-	goto error;
-      if (m == MATCH_YES)
-	{
-	  char arg[GFC_MAX_SYMBOL_LEN + 1];
-
-	  if (found_passing)
-	    {
-	      gfc_error ("Binding attributes already specify passing, illegal"
-			 " PASS at %C");
-	      goto error;
-	    }
-
-	  m = gfc_match (" ( %n )", arg);
-	  if (m == MATCH_ERROR)
-	    goto error;
-	  if (m == MATCH_YES)
-	    ba->pass_arg = xstrdup (arg);
-	  gcc_assert ((m == MATCH_YES) == (ba->pass_arg != NULL));
-
-	  found_passing = true;
-	  ba->nopass = 0;
-	  continue;
-	}
-
       /* Access specifier.  */
 
       m = gfc_match (" public");
@@ -6844,11 +6774,95 @@ match_binding_attributes (gfc_typebound_proc* ba)
 	  continue;
 	}
 
+      /* If inside GENERIC, the following is not allowed.  */
+      if (!generic)
+	{
+
+	  /* NOPASS flag.  */
+	  m = gfc_match (" nopass");
+	  if (m == MATCH_ERROR)
+	    goto error;
+	  if (m == MATCH_YES)
+	    {
+	      if (found_passing)
+		{
+		  gfc_error ("Binding attributes already specify passing,"
+			     " illegal NOPASS at %C");
+		  goto error;
+		}
+
+	      found_passing = true;
+	      ba->nopass = 1;
+	      continue;
+	    }
+
+	  /* NON_OVERRIDABLE flag.  */
+	  m = gfc_match (" non_overridable");
+	  if (m == MATCH_ERROR)
+	    goto error;
+	  if (m == MATCH_YES)
+	    {
+	      if (ba->non_overridable)
+		{
+		  gfc_error ("Duplicate NON_OVERRIDABLE at %C");
+		  goto error;
+		}
+
+	      ba->non_overridable = 1;
+	      continue;
+	    }
+
+	  /* DEFERRED flag.  */
+	  /* TODO: Handle really once implemented.  */
+	  m = gfc_match (" deferred");
+	  if (m == MATCH_ERROR)
+	    goto error;
+	  if (m == MATCH_YES)
+	    {
+	      gfc_error ("DEFERRED not yet implemented at %C");
+	      goto error;
+	    }
+
+	  /* PASS possibly including argument.  */
+	  m = gfc_match (" pass");
+	  if (m == MATCH_ERROR)
+	    goto error;
+	  if (m == MATCH_YES)
+	    {
+	      char arg[GFC_MAX_SYMBOL_LEN + 1];
+
+	      if (found_passing)
+		{
+		  gfc_error ("Binding attributes already specify passing,"
+			     " illegal PASS at %C");
+		  goto error;
+		}
+
+	      m = gfc_match (" ( %n )", arg);
+	      if (m == MATCH_ERROR)
+		goto error;
+	      if (m == MATCH_YES)
+		ba->pass_arg = xstrdup (arg);
+	      gcc_assert ((m == MATCH_YES) == (ba->pass_arg != NULL));
+
+	      found_passing = true;
+	      ba->nopass = 0;
+	      continue;
+	    }
+
+	}
+
       /* Nothing matching found.  */
-      gfc_error ("Expected binding attribute at %C");
+      if (generic)
+	gfc_error ("Expected access-specifier at %C");
+      else
+	gfc_error ("Expected binding attribute at %C");
       goto error;
     }
   while (gfc_match_char (',') == MATCH_YES);
+
+  if (ba->access == ACCESS_UNKNOWN)
+    ba->access = gfc_typebound_default_access;
 
   return MATCH_YES;
 
@@ -6882,17 +6896,17 @@ match_procedure_in_type (void)
   /* TODO: Really implement PROCEDURE(interface).  */
   if (gfc_match (" (") == MATCH_YES)
     {
-      gfc_error ("Procedure with interface only allowed in abstract types at"
-		 " %C");
+      gfc_error ("PROCEDURE(interface) at %C is not yet implemented");
       return MATCH_ERROR;
     }
 
   /* Construct the data structure.  */
   tb = gfc_get_typebound_proc ();
   tb->where = gfc_current_locus;
+  tb->is_generic = 0;
 
   /* Match binding attributes.  */
-  m = match_binding_attributes (tb);
+  m = match_binding_attributes (tb, false);
   if (m == MATCH_ERROR)
     return m;
   seen_attrs = (m == MATCH_YES);
@@ -6962,9 +6976,10 @@ match_procedure_in_type (void)
   gcc_assert (ns);
 
   /* See if we already have a binding with this name in the symtree which would
-     be an error.  */
+     be an error.  If a GENERIC already targetted this binding, it may be
+     already there but then typebound is still NULL.  */
   stree = gfc_find_symtree (ns->sym_root, name);
-  if (stree)
+  if (stree && stree->typebound)
     {
       gfc_error ("There's already a procedure with binding name '%s' for the"
 		 " derived type '%s' at %C", name, block->name);
@@ -6974,11 +6989,143 @@ match_procedure_in_type (void)
   /* Insert it and set attributes.  */
   if (gfc_get_sym_tree (name, ns, &stree))
     return MATCH_ERROR;
-  if (gfc_get_sym_tree (target, gfc_current_ns, &tb->target))
+  if (gfc_get_sym_tree (target, gfc_current_ns, &tb->u.specific))
     return MATCH_ERROR;
+  gfc_set_sym_referenced (tb->u.specific->n.sym);
   stree->typebound = tb;
 
   return MATCH_YES;
+}
+
+
+/* Match a GENERIC procedure binding inside a derived type.  */
+
+match
+gfc_match_generic (void)
+{
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_symbol* block;
+  gfc_typebound_proc tbattr; /* Used for match_binding_attributes.  */
+  gfc_typebound_proc* tb;
+  gfc_symtree* st;
+  gfc_namespace* ns;
+  match m;
+
+  /* Check current state.  */
+  if (gfc_current_state () == COMP_DERIVED)
+    {
+      gfc_error ("GENERIC at %C must be inside a derived-type CONTAINS");
+      return MATCH_ERROR;
+    }
+  if (gfc_current_state () != COMP_DERIVED_CONTAINS)
+    return MATCH_NO;
+  block = gfc_state_stack->previous->sym;
+  ns = block->f2k_derived;
+  gcc_assert (block && ns);
+
+  /* See if we get an access-specifier.  */
+  m = match_binding_attributes (&tbattr, true);
+  if (m == MATCH_ERROR)
+    goto error;
+
+  /* Now the colons, those are required.  */
+  if (gfc_match (" ::") != MATCH_YES)
+    {
+      gfc_error ("Expected '::' at %C");
+      goto error;
+    }
+
+  /* The binding name and =>.  */
+  m = gfc_match (" %n =>", name);
+  if (m == MATCH_ERROR)
+    return MATCH_ERROR;
+  if (m == MATCH_NO)
+    {
+      gfc_error ("Expected generic name at %C");
+      goto error;
+    }
+
+  /* If there's already something with this name, check that it is another
+     GENERIC and then extend that rather than build a new node.  */
+  st = gfc_find_symtree (ns->sym_root, name);
+  if (st)
+    {
+      if (!st->typebound || !st->typebound->is_generic)
+	{
+	  gfc_error ("There's already a non-generic procedure with binding name"
+		     " '%s' for the derived type '%s' at %C",
+		     name, block->name);
+	  goto error;
+	}
+
+      tb = st->typebound;
+      if (tb->access != tbattr.access)
+	{
+	  gfc_error ("Binding at %C must have the same access as already"
+		     " defined binding '%s'", name);
+	  goto error;
+	}
+    }
+  else
+    {
+      if (gfc_get_sym_tree (name, ns, &st))
+	return MATCH_ERROR;
+
+      st->typebound = tb = gfc_get_typebound_proc ();
+      tb->where = gfc_current_locus;
+      tb->access = tbattr.access;
+      tb->is_generic = 1;
+      tb->u.generic = NULL;
+    }
+
+  /* Now, match all following names as specific targets.  */
+  do
+    {
+      gfc_symtree* target_st;
+      gfc_tbp_generic* target;
+
+      m = gfc_match_name (name);
+      if (m == MATCH_ERROR)
+	goto error;
+      if (m == MATCH_NO)
+	{
+	  gfc_error ("Expected specific binding name at %C");
+	  goto error;
+	}
+
+      if (gfc_get_sym_tree (name, ns, &target_st))
+	goto error;
+
+      /* See if this is a duplicate specification.  */
+      for (target = tb->u.generic; target; target = target->next)
+	if (target_st == target->specific_st)
+	  {
+	    gfc_error ("'%s' already defined as specific binding for the"
+		       " generic '%s' at %C", name, st->n.sym->name);
+	    goto error;
+	  }
+
+      gfc_set_sym_referenced (target_st->n.sym);
+
+      target = gfc_get_tbp_generic ();
+      target->specific_st = target_st;
+      target->specific = NULL;
+      target->next = tb->u.generic;
+      tb->u.generic = target;
+    }
+  while (gfc_match (" ,") == MATCH_YES);
+
+  /* Here should be the end.  */
+  if (gfc_match_eos () != MATCH_YES)
+    {
+      gfc_error ("Junk after GENERIC binding at %C");
+      goto error;
+    }
+
+  return MATCH_YES;
+
+error:
+  return MATCH_ERROR;
 }
 
 

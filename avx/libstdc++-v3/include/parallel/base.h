@@ -38,7 +38,6 @@
 #ifndef _GLIBCXX_PARALLEL_BASE_H
 #define _GLIBCXX_PARALLEL_BASE_H 1
 
-#include <cstdio>
 #include <functional>
 #include <omp.h>
 #include <parallel/features.h>
@@ -105,14 +104,14 @@ namespace __gnu_parallel
 
 /** @brief Calculates the rounded-down logarithm of @c n for base 2.
   *  @param n Argument.
-  *  @return Returns 0 for argument 0.
+  *  @return Returns 0 for any argument <1.
   */
 template<typename Size>
   inline Size
-  log2(Size n)
+  __log2(Size n)
     {
       Size k;
-      for (k = 0; n != 1; n >>= 1)
+      for (k = 0; n > 1; n >>= 1)
         ++k;
       return k;
     }
@@ -471,24 +470,7 @@ template<typename RandomAccessIterator, typename Comparator>
       }
   }
 
-// Avoid the use of assert, because we're trying to keep the <cassert>
-// include out of the mix. (Same as debug mode).
-inline void
-__replacement_assert(const char* __file, int __line,
-                     const char* __function, const char* __condition)
-{
-  std::printf("%s:%d: %s: Assertion '%s' failed.\n", __file, __line,
-              __function, __condition);
-  __builtin_abort();
-}
-
-#define _GLIBCXX_PARALLEL_ASSERT(_Condition)                            \
-do 								        \
-  {									\
-    if (!(_Condition))						   	\
-      __gnu_parallel::__replacement_assert(__FILE__, __LINE__,		\
-                                  __PRETTY_FUNCTION__, #_Condition);	\
-  } while (false)
+#define _GLIBCXX_PARALLEL_ASSERT(_Condition) __glibcxx_assert(_Condition)
 
 } //namespace __gnu_parallel
 
