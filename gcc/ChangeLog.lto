@@ -1,5 +1,10 @@
 2008-12-23  Simon Baldwin  <simonb@google.com>
 
+	* lto-section-out.c (write_symbol_vec): Avoid taking symbol size
+	for symbols that don't have one.
+
+2008-12-23  Simon Baldwin  <simonb@google.com>
+
 	* collect2.c (maybe_run_lto_and_relink): Pass on any -debug flag
 	to lto-wrapper.
 	* lto-wrapper.c (maybe_unlink_file): New.

@@ -1,3 +1,7 @@
+2008-12-23  Simon Baldwin  <simonb@google.com>
+
+	* gcc.dg/20081223-1.c: New.
+
 2008-12-22  Chris Demetriou  <cgd@google.com>
 
 	* gcc.dg/lto/20081222_0.c: New.
