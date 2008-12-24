@@ -1,3 +1,7 @@
+2008-12-24  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-section-out.c (write_symbol_vec): Skip builtins.
+
 2008-12-23  Simon Baldwin  <simonb@google.com>
 
 	* lto-section-out.c (write_symbol_vec): Avoid taking symbol size
