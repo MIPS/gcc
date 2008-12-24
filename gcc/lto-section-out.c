@@ -1078,7 +1078,7 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
       if (!TREE_PUBLIC (t))
 	continue;
 
-      if (DECL_IS_BUILTIN (t))
+      if (DECL_BUILT_IN (t))
 	continue;
 
       gcc_assert (!DECL_ABSTRACT (t));

@@ -1,5 +1,10 @@
 2008-12-24  Rafael Avila de Espindola  <espindola@google.com>
 
+	* lto-section-out.c (write_symbol_vec): Use DECL_BUILT_IN instead of
+	DECL_IS_BUILTIN.
+
+2008-12-24  Rafael Avila de Espindola  <espindola@google.com>
+
 	* lto-section-out.c (write_symbol_vec): Skip builtins.
 
 2008-12-23  Simon Baldwin  <simonb@google.com>
