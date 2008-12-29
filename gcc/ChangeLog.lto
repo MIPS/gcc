@@ -1,3 +1,8 @@
+2008-12-29  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (set_asm_name): Do not try to set the assembler
+	name for unused FUNCTION_DECLs.
+
 2008-12-24  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-section-out.c (write_symbol_vec): Use DECL_BUILT_IN only for

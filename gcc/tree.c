@@ -4008,7 +4008,9 @@ set_asm_name (void **slot, void *unused ATTRIBUTE_UNUSED)
       && (TREE_CODE (decl) != VAR_DECL
 	  || TREE_STATIC (decl)
 	  || TREE_PUBLIC (decl)
-	  || DECL_EXTERNAL (decl)))
+	  || DECL_EXTERNAL (decl))
+      && (TREE_CODE (decl) != FUNCTION_DECL
+	  || TREE_USED (decl)))
     lang_hooks.set_decl_assembler_name (decl);
   return 1;
 }
