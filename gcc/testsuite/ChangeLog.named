@@ -12,16 +12,18 @@
 	(ea_init2): Ditto.
 	(lm_init2): Ditto.
 
-	* execute1.c: New execution test, currently expected to fail.
-	* execute1-m64.c: Ditto.
-
-	* execute2.c: New execution test.
+	* execute1.c: Update execution tests.
+	* execute2.c: Ditto.
 	* execute3.c: Ditto.
-	* execute4.c: Ditto.
-	* execute5.c: Ditto.
-	* execute6.c: Ditto.
+	* execute1-m64.c: Ditto.
 	* execute2-m64.c: Ditto.
 	* execute3-m64.c: Ditto.
+
+	* execute4.c: Delete tests that rely on initialization of pointers
+	within the __ea named address space or pointers to the __ea named
+	address space.
+	* execute5.c: Ditto.
+	* execute6.c: Ditto.
 	* execute4-m64.c: Ditto.
 	* execute5-m64.c: Ditto.
 	* execute6-m64.c: Ditto.
