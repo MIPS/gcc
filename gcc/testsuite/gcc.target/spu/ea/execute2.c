@@ -3,12 +3,13 @@
 
 #include <stdlib.h>
 
-__ea char str[] = "abc";
-__ea char *p = str;
+char str[] = "abc";
 
 int
 main (void)
 {
+  __ea char *p = (__ea char *)str;
+
   if (*p++ != 'a')
     abort ();
 

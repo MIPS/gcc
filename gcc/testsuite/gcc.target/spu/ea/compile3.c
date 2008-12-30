@@ -49,12 +49,3 @@ int if_lm_with_cast (int test) { return *((test) ? lm : (lm_ptr_t)ea); }
 
 void void_ea (void) { ea = (void *)0; }
 void void_lm (void) { lm = (__ea void *)0; }
-
-ea_ptr_t ea_init = &lm_var;
-lm_ptr_t lm_init = &ea_var;
-
-ea_ptr_t ea_init2 = (ea_ptr_t)&lm_var;
-lm_ptr_t lm_init2 = (lm_ptr_t)&ea_var;
-
-ea_cptr_t ea_str = "abc";
-ea_cptr_t ea_str2 = (ea_cptr_t)"def";

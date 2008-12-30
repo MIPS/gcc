@@ -1,3 +1,31 @@
+2008-12-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* errors3.c (ea_init): Move tests to errors4.c.
+	(lm_init): Ditto.
+	(ea_init2): Ditto.
+	(lm_init2): Ditto.
+	
+	* errors4.c: New static initialization tests.
+
+	* compile3.c (ea_init): Delete tests.
+	(lm_init): Ditto.
+	(ea_init2): Ditto.
+	(lm_init2): Ditto.
+
+	* execute1.c: New execution test, currently expected to fail.
+	* execute1-m64.c: Ditto.
+
+	* execute2.c: New execution test.
+	* execute3.c: Ditto.
+	* execute4.c: Ditto.
+	* execute5.c: Ditto.
+	* execute6.c: Ditto.
+	* execute2-m64.c: Ditto.
+	* execute3-m64.c: Ditto.
+	* execute4-m64.c: Ditto.
+	* execute5-m64.c: Ditto.
+	* execute6-m64.c: Ditto.
+
 2008-12-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/spu/ea/compile3.c: Add static initializations.

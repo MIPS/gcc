@@ -9718,11 +9718,12 @@ Define this to return the section name to put static and global
 variables
 @end deftypefn
 
-@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_STATIC_INIT_OK_P (tree @var{init}, addr_space_t @var{as_var}, addr_space_t @var{as_init})
-Define this to return whether a static initialization should be
-allowed for @var{init} to be stored in the @var{as_var} named address
-space.  If @var{init} is a pointer or reference, @var{as_init}
-describes the named address space that the pointer points to.
+@deftypefn {Target Hook} {bool} TARGET_ADDR_SPACE_STATIC_INIT_OK_P (tree @var{type}, tree @var{init}, addr_space_t @var{as_var}, addr_space_t @var{as_init})
+Define this to return whether a static initialization of the type
+@var{type} should be allowed for the expression @var{init} to be
+stored in the @var{as_var} named address space.  If @var{init} is a
+pointer or reference, @var{as_init} describes the named address space
+that the pointer points to.
 @end deftypefn
 
 @node Misc

@@ -846,16 +846,16 @@ default_addr_space_section_name (addr_space_t addrspace ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 }
 
-/* The default hook for determining if a static initialization is ok.  For the
-   default case, only assume static initializations in the generic address
-   space are ok.  */
+/* The default hook for determining if a static initialization inside of or
+   pointing to a named address space is ok.  */
 
 bool
-default_addr_space_static_init_ok_p (tree value ATTRIBUTE_UNUSED,
-				     addr_space_t var_as,
-				     addr_space_t element_as)
+default_addr_space_static_init_ok_p (tree ARG_UNUSED (type),
+				     tree ARG_UNUSED (init),
+				     addr_space_t as,
+				     addr_space_t as_ptr)
 {
-  return (var_as == 0) && (element_as == 0);
+  return (as == 0 && as_ptr == 0);
 }
 
 bool

@@ -705,9 +705,9 @@ struct gcc_target
     /* Section name to use for a named address space.  */
     tree (* section_name) (addr_space_t);
 
-    /* Return whether static initialization of a pointer to a named address
-       space is allowed.  */
-    bool (* static_init_ok_p) (tree, addr_space_t, addr_space_t);
+    /* Return whether static initialization within a named address space or
+       pointing to a named address space is allowed.  */
+    bool (* static_init_ok_p) (tree, tree, addr_space_t, addr_space_t);
 
   } addr_space;
 
