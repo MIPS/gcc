@@ -3645,8 +3645,6 @@ find_func_aliases (gimple origt)
   struct constraint_expr *c;
   enum escape_type stmt_escape_type;
 
-  /* ???  Initialize pi->is_dereferenced here.  */
-
   /* Now build constraints expressions.  */
   if (gimple_code (t) == GIMPLE_PHI)
     {
@@ -4682,9 +4680,10 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
 	      mem_alias_set = get_alias_set (TREE_TYPE (TREE_TYPE (ptr)));
 	      if (!may_alias_p (SSA_NAME_VAR (ptr), mem_alias_set,
 				vi->decl, var_alias_set, true))
-		continue;
-	      else
-		++pruned;
+		{
+		  ++pruned;
+		  continue;
+		}
 	    }
 
 	  /* Add the decl to the points-to set.  Note that the points-to
@@ -5473,6 +5472,28 @@ compute_points_to_sets (void)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
 	  gimple stmt = gsi_stmt (gsi);
+	  use_operand_p use_p;
+	  ssa_op_iter iter;
+
+	  /* Mark dereferenced pointers.  This is used by TBAA pruning
+	     of the points-to sets and the alias warning machinery.  */
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+	    {
+	      unsigned num_uses, num_loads, num_stores;
+	      struct ptr_info_def *pi;
+	      tree op = USE_FROM_PTR (use_p);
+
+	      if (!POINTER_TYPE_P (TREE_TYPE (op)))
+		continue;
+
+	      pi = get_ptr_info (op);
+
+	      /* Determine whether OP is a dereferenced pointer.  */
+	      count_uses_and_derefs (op, stmt,
+				     &num_uses, &num_loads, &num_stores);
+	      if (num_loads + num_stores > 0)
+		pi->is_dereferenced = 1;
+	    }
 
 	  find_func_aliases (stmt);
 

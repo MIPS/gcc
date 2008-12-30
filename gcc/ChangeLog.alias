@@ -1,3 +1,9 @@
+2008-12-31  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (set_uids_in_ptset): Fix pruned accounting.
+	(compute_points_to_sets): Initialize the SSA_NAME pointer info
+	dereferenced field.
+ 
 2008-12-11  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r142671.
