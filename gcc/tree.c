@@ -3993,27 +3993,57 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 }
 
 
+
+/* Return true if DECL may need an assembler name to be set.  */
+
+static inline bool
+need_assembler_name_p (tree decl)
+{
+  /* Only FUNCTION_DECLs and VAR_DECLs are considered.  */
+  if (TREE_CODE (decl) != FUNCTION_DECL
+      && TREE_CODE (decl) != VAR_DECL)
+    return false;
+
+  /* If DECL is ignored or already has its assembler name set, it does
+     not need a new one.  */
+  if (DECL_IGNORED_P (decl)
+      || !HAS_DECL_ASSEMBLER_NAME_P (decl)
+      || DECL_ASSEMBLER_NAME_SET_P (decl))
+    return false;
+
+  /* For VAR_DECLs, we are only interested in static, public and external
+     declarations.  */
+  if (TREE_CODE (decl) == VAR_DECL
+      && !TREE_STATIC (decl)
+      && !TREE_PUBLIC (decl)
+      && !DECL_EXTERNAL (decl))
+    return false;
+
+  /* For FUNCTION_DECLs, we only are interested in addressable and used
+     functions.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && !TREE_USED (decl)
+      && !TREE_ADDRESSABLE (decl))
+    return false;
+
+  return true;
+}
+
+
 /* Helper function of free_lang_specifics.
    Set the assembler name for nodes that may need one.  */
 
 static int
 set_asm_name (void **slot, void *unused ATTRIBUTE_UNUSED)
 {
-  tree decl = *(tree*) slot;
-  if (HAS_DECL_ASSEMBLER_NAME_P (decl)
-      && (TREE_CODE (decl) == FUNCTION_DECL
-          || TREE_CODE (decl) == VAR_DECL)
-      && !DECL_ASSEMBLER_NAME_SET_P (decl)
-      && !DECL_IGNORED_P (decl)
-      && (TREE_CODE (decl) != VAR_DECL
-	  || TREE_STATIC (decl)
-	  || TREE_PUBLIC (decl)
-	  || DECL_EXTERNAL (decl))
-      && (TREE_CODE (decl) != FUNCTION_DECL
-	  || TREE_USED (decl)))
+  tree decl = *((tree *) slot);
+
+  if (need_assembler_name_p (decl))
     lang_hooks.set_decl_assembler_name (decl);
+
   return 1;
 }
+
 
 /* Helper function of free_lang_specifics. */
 
