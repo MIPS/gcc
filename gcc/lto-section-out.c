@@ -1078,7 +1078,7 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
       if (!TREE_PUBLIC (t))
 	continue;
 
-      if (TREE_CODE (t) == FUNCTION_DECL && DECL_BUILT_IN (t))
+      if (incorporeal_function_p (t))
 	continue;
 
       gcc_assert (!DECL_ABSTRACT (t));

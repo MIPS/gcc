@@ -1,3 +1,9 @@
+2008-12-31  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-section-out.c (write_symbol_vec): Use incorporeal_function_p.
+	* tree.h (incorporeal_function_p): New.
+	* varasm.c (incorporeal_function_p): Not static anymore.
+
 2008-12-31  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (need_assembler_name_p): Factor out of ...

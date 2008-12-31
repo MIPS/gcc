@@ -103,9 +103,6 @@ static alias_set_type const_alias_set;
 
 static const char *strip_reg_name (const char *);
 static int contains_pointers_p (tree);
-#ifdef ASM_OUTPUT_EXTERNAL
-static bool incorporeal_function_p (tree);
-#endif
 static void decode_addr_const (tree, struct addr_const *);
 static hashval_t const_desc_hash (const void *);
 static int const_desc_eq (const void *, const void *);
@@ -2244,11 +2241,10 @@ contains_pointers_p (tree type)
    it all the way to final.  See PR 17982 for further discussion.  */
 static GTY(()) tree pending_assemble_externals;
 
-#ifdef ASM_OUTPUT_EXTERNAL
 /* True if DECL is a function decl for which no out-of-line copy exists.
    It is assumed that DECL's assembler name has been set.  */
 
-static bool
+bool
 incorporeal_function_p (tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
@@ -2265,6 +2261,8 @@ incorporeal_function_p (tree decl)
     }
   return false;
 }
+
+#ifdef ASM_OUTPUT_EXTERNAL
 
 /* Actually do the tests to determine if this is necessary, and invoke
    ASM_OUTPUT_EXTERNAL.  */
