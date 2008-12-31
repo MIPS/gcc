@@ -1,3 +1,21 @@
+2008-12-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-12-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libstdc++/37144
+	* testsuite/util/regression/trait/assoc/type_trait.hpp
+	(regression_test_type_traits): Add const to pair_type_rebind.
+
+2008-12-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/37582
+	* include/bits/cpp_type_traits.h (struct __traitand): New.
+	* include/c_global/cmath (std::atan2, std::pow): Use __traitand
+	instead of && as first argument to __enable_if.
+	* include/c_std/cmath (std::atan2): Likewise.
+	* testsuite/26_numerics/headers/cmath/37582.cc: New.
+
 2008-12-04  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline:

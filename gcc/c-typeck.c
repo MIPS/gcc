@@ -2845,7 +2845,11 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
 static tree
 pointer_diff (tree op0, tree op1)
 {
-  tree restype = ptrdiff_type_node;
+  addr_space_t as0 = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0)));
+  addr_space_t as1 = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op1)));
+  tree restype = ((as0 == 0 && as1 == 0)
+		  ? ptrdiff_type_node
+		  : targetm.addr_space.minus_type (as0, as1));
 
   tree target_type = TREE_TYPE (TREE_TYPE (op0));
   tree con0, con1, lit0, lit1;
@@ -4335,8 +4339,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		     "space");
 	      break;
 	    case ic_init:
-	      error ("initialization of a pointer to an incompatible space"
-		     "address space");
+	      error ("initialization of a pointer to an incompatible address "
+		     "space");
 	      break;
 	    case ic_return:
 	      error ("return of a pointer to an incompatible address space");

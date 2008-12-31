@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "target.h"
 #include "df.h"
 
 #ifndef STACK_PUSH_CODE
@@ -1203,6 +1204,17 @@ memory_address_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx addr)
 
  win:
   return 1;
+}
+
+/* Like memory_address_p, expect for a distinct named address space.  */
+
+int
+memory_address_addr_space_p (enum machine_mode mode, rtx addr, addr_space_t as)
+{
+  if (!as)
+    return memory_address_p (mode, addr);
+  else
+    return targetm.addr_space.memory_address_p (mode, addr, as);
 }
 
 /* Return 1 if OP is a valid memory reference with mode MODE,

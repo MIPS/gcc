@@ -1,3 +1,38 @@
+2008-12-18  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/38565
+	* gimplifier.c (gimplify_init_constructor): For constant vector
+	CONSTRUCTORs use GENERIC_TREE_OPERAND instead of TREE_OPERAND.
+
+2008-12-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/38062
+	Backport from mainline:
+	2008-04-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* collect2.c (write_c_file): Don't wrap in "#ifdef __cplusplus".
+
+2008-12-12  Rainer Emrich  <r.emrich@de.tecosim.com>
+
+	PR bootstrap/38383
+	* pa64-hpux.h (LINK_GCC_C_SEQUENCE_SPEC): Don't hardcode search path
+	for the milli.a library.
+
+2008-12-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-12-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/38402
+	* gcc/doc/md.texi: Remove Y and document Yz, Y2, Yi and Ym
+	constraints for x86.
+
+2008-12-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/35677
+	* emutls.c (__emutls_get_address): Make sure offset is really zero
+	before initializing the object's offset.
+
 2008-12-10  Richard Guenther  <rguenther@suse.de>
 
 	Backport from trunk the fix for PR38051.

@@ -4,8 +4,17 @@
 /* This is the same as compile3.c except it should generate errors where
    pointers are mixed.  If you modify this code, please modify compile3.c as
    well.  */
+
+#define __lm
+
+__ea int ea_var = 1;
+__lm int lm_var = 2;
+
 typedef __ea int *ea_ptr_t;
-typedef      int *lm_ptr_t;
+typedef __lm int *lm_ptr_t;
+
+typedef __ea char *ea_cptr_t;
+typedef __lm char *lm_cptr_t;
 
 ea_ptr_t ea, ea2;
 lm_ptr_t lm, lm2;
@@ -42,3 +51,12 @@ int if_lm_with_cast (int test) { return *((test) ? lm : (lm_ptr_t)ea); }
 
 void void_ea (void) { ea = (void *)0; }
 void void_lm (void) { lm = (__ea void *)0; }
+
+ea_ptr_t ea_init = &lm_var;				/* { dg-error "initialization of a pointer to an incompatible address space" } */
+lm_ptr_t lm_init = &ea_var;				/* { dg-error "initialization of a pointer to an incompatible address space" } */
+
+ea_ptr_t ea_init2 = (ea_ptr_t)&lm_var;
+lm_ptr_t lm_init2 = (lm_ptr_t)&ea_var;
+
+ea_cptr_t ea_str = "abc";				/* { dg-error "initialization of a pointer to an incompatible address space" } */
+ea_cptr_t ea_str2 = (ea_cptr_t)"def";

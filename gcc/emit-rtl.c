@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "target.h"
 
 /* Commonly used modes.  */
 
@@ -175,7 +176,7 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 #define first_label_num (cfun->emit->x_first_label_num)
 
 static rtx make_call_insn_raw (rtx);
-static rtx change_address_1 (rtx, enum machine_mode, rtx, int);
+static rtx change_address_1 (rtx, enum machine_mode, rtx, int, addr_space_t);
 static void set_used_decls (tree);
 static void mark_label_nuses (rtx);
 static hashval_t const_int_htab_hash (const void *);
@@ -1848,7 +1849,8 @@ set_mem_size (rtx mem, rtx size)
    attributes are not changed.  */
 
 static rtx
-change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
+change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate,
+		  addr_space_t as)
 {
   rtx new;
 
@@ -1858,15 +1860,15 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
   if (addr == 0)
     addr = XEXP (memref, 0);
   if (mode == GET_MODE (memref) && addr == XEXP (memref, 0)
-      && (!validate || memory_address_p (mode, addr)))
+      && (!validate || memory_address_addr_space_p (mode, addr, as)))
     return memref;
 
   if (validate)
     {
       if (reload_in_progress || reload_completed)
-	gcc_assert (memory_address_p (mode, addr));
+	gcc_assert (memory_address_addr_space_p (mode, addr, as));
       else
-	addr = memory_address (mode, addr);
+	addr = memory_address_addr_space (mode, addr, as);
     }
 
   if (rtx_equal_p (addr, XEXP (memref, 0)) && mode == GET_MODE (memref))
@@ -1874,41 +1876,61 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
 
   new = gen_rtx_MEM (mode, addr);
   MEM_COPY_ATTRIBUTES (new, memref);
+
+  if (as != MEM_ADDR_SPACE (memref))
+    set_mem_addr_space (new, as);
+
   return new;
 }
 
-/* Like change_address_1 with VALIDATE nonzero, but we are not saying in what
-   way we are changing MEMREF, so we only preserve the alias set.  */
+/* Like change_address_1 with VALIDATE nonzero, and the address space set, but
+   we are not saying in what way we are changing MEMREF, so we only preserve
+   the alias set.  */
 
 rtx
-change_address (rtx memref, enum machine_mode mode, rtx addr)
+change_address_addr_space (rtx memref, enum machine_mode mode, rtx addr,
+			   addr_space_t as)
 {
-  rtx new = change_address_1 (memref, mode, addr, 1), size;
-  enum machine_mode mmode = GET_MODE (new);
+  rtx new_rtx = change_address_1 (memref, mode, addr, 1, as);
+  rtx size;
+  enum machine_mode mmode = GET_MODE (new_rtx);
   unsigned int align;
 
   size = mmode == BLKmode ? 0 : GEN_INT (GET_MODE_SIZE (mmode));
   align = mmode == BLKmode ? BITS_PER_UNIT : GET_MODE_ALIGNMENT (mmode);
 
   /* If there are no changes, just return the original memory reference.  */
-  if (new == memref)
+  if (new_rtx == memref)
     {
       if (MEM_ATTRS (memref) == 0
 	  || (MEM_EXPR (memref) == NULL
 	      && MEM_OFFSET (memref) == NULL
 	      && MEM_SIZE (memref) == size
+	      && MEM_ADDR_SPACE (memref) == as
 	      && MEM_ALIGN (memref) == align))
-	return new;
+	return new_rtx;
 
-      new = gen_rtx_MEM (mmode, XEXP (memref, 0));
-      MEM_COPY_ATTRIBUTES (new, memref);
+      new_rtx = gen_rtx_MEM (mmode, XEXP (memref, 0));
+      MEM_COPY_ATTRIBUTES (new_rtx, memref);
+
+      if (as != MEM_ADDR_SPACE (new_rtx))
+	set_mem_addr_space (new_rtx, as);
     }
 
-  MEM_ATTRS (new)
-    = get_mem_attrs (MEM_ALIAS_SET (memref), 0, 0, size, align,
-		     MEM_ADDR_SPACE (memref), mmode);
+  MEM_ATTRS (new_rtx)
+    = get_mem_attrs (MEM_ALIAS_SET (memref), 0, 0, size, align, as, mmode);
 
-  return new;
+  return new_rtx;
+}
+
+/* Like change_address_addr_space, except we don't change the named address
+   space.  */
+
+rtx
+change_address (rtx memref, enum machine_mode mode, rtx addr)
+{
+  return change_address_addr_space (memref, mode, addr,
+				    MEM_ADDR_SPACE (memref));
 }
 
 /* Return a memory reference like MEMREF, but with its mode changed
@@ -1926,10 +1948,14 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
   rtx memoffset = MEM_OFFSET (memref);
   rtx size = 0;
   unsigned int memalign = MEM_ALIGN (memref);
+  addr_space_t as = MEM_ADDR_SPACE (memref);
+  enum machine_mode mem_Pmode = (!as
+				 ? Pmode
+				 : targetm.addr_space.pointer_mode (as));
 
   /* If there are no changes, just return the original memory reference.  */
   if (mode == GET_MODE (memref) && !offset
-      && (!validate || memory_address_p (mode, addr)))
+      && (!validate || memory_address_addr_space_p (mode, addr, as)))
     return memref;
 
   /* ??? Prefer to create garbage instead of creating shared rtl.
@@ -1945,13 +1971,13 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
 	  && offset >= 0
 	  && (unsigned HOST_WIDE_INT) offset
 	      < GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT)
-	addr = gen_rtx_LO_SUM (Pmode, XEXP (addr, 0),
+	addr = gen_rtx_LO_SUM (mem_Pmode, XEXP (addr, 0),
 			       plus_constant (XEXP (addr, 1), offset));
       else
 	addr = plus_constant (addr, offset);
     }
 
-  new = change_address_1 (memref, mode, addr, validate);
+  new = change_address_1 (memref, mode, addr, validate, as);
 
   /* Compute the new values of the memory attributes due to this adjustment.
      We add the offsets and update the alignment.  */
@@ -1973,8 +1999,8 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
     size = plus_constant (MEM_SIZE (memref), -offset);
 
   MEM_ATTRS (new) = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref),
-				   memoffset, size, memalign,
-				   MEM_ADDR_SPACE (memref), GET_MODE (new));
+				   memoffset, size, memalign, as,
+				   GET_MODE (new));
 
   /* At some point, we should validate that this offset is within the object,
      if all the appropriate values are known.  */
@@ -1990,7 +2016,8 @@ rtx
 adjust_automodify_address_1 (rtx memref, enum machine_mode mode, rtx addr,
 			     HOST_WIDE_INT offset, int validate)
 {
-  memref = change_address_1 (memref, VOIDmode, addr, validate);
+  memref = change_address_1 (memref, VOIDmode, addr, validate,
+			     MEM_ADDR_SPACE (memref));
   return adjust_address_1 (memref, mode, offset, validate, 0);
 }
 
@@ -2002,8 +2029,12 @@ rtx
 offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
 {
   rtx new, addr = XEXP (memref, 0);
+  addr_space_t as = MEM_ADDR_SPACE (memref);
+  enum machine_mode mem_Pmode = (!as
+				 ? Pmode
+				 : targetm.addr_space.pointer_mode (as));
 
-  new = simplify_gen_binary (PLUS, Pmode, addr, offset);
+  new = simplify_gen_binary (PLUS, mem_Pmode, addr, offset);
 
   /* At this point we don't know _why_ the address is invalid.  It
      could have secondary memory references, multiplies or anything.
@@ -2012,16 +2043,17 @@ offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
      being able to recognize the magic around pic_offset_table_rtx.
      This stuff is fragile, and is yet another example of why it is
      bad to expose PIC machinery too early.  */
-  if (! memory_address_p (GET_MODE (memref), new)
+  if (! memory_address_addr_space_p (GET_MODE (memref), new, as)
       && GET_CODE (addr) == PLUS
       && XEXP (addr, 0) == pic_offset_table_rtx)
     {
       addr = force_reg (GET_MODE (addr), addr);
-      new = simplify_gen_binary (PLUS, Pmode, addr, offset);
+      new = simplify_gen_binary (PLUS, mem_Pmode, addr, offset);
     }
 
   update_temp_slot_address (XEXP (memref, 0), new);
-  new = change_address_1 (memref, VOIDmode, new, 1);
+  new = change_address_1 (memref, VOIDmode, new, 1,
+			  MEM_ADDR_SPACE (memref));
 
   /* If there are no changes, just return the original memory reference.  */
   if (new == memref)
@@ -2032,7 +2064,7 @@ offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
   MEM_ATTRS (new)
     = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 0, 0,
 		     MIN (MEM_ALIGN (memref), pow2 * BITS_PER_UNIT),
-		     MEM_ADDR_SPACE (memref), GET_MODE (new));
+		     as, GET_MODE (new));
   return new;
 }
 
@@ -2047,7 +2079,8 @@ replace_equiv_address (rtx memref, rtx addr)
   /* change_address_1 copies the memory attribute structure without change
      and that's exactly what we want here.  */
   update_temp_slot_address (XEXP (memref, 0), addr);
-  return change_address_1 (memref, VOIDmode, addr, 1);
+  return change_address_1 (memref, VOIDmode, addr, 1,
+			   MEM_ADDR_SPACE (memref));
 }
 
 /* Likewise, but the reference is not required to be valid.  */
@@ -2055,7 +2088,7 @@ replace_equiv_address (rtx memref, rtx addr)
 rtx
 replace_equiv_address_nv (rtx memref, rtx addr)
 {
-  return change_address_1 (memref, VOIDmode, addr, 0);
+  return change_address_1 (memref, VOIDmode, addr, 0, MEM_ADDR_SPACE (memref));
 }
 
 /* Return a memory reference like MEMREF, but with its mode widened to

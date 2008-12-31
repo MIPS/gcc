@@ -95,11 +95,22 @@ extern void hook_void_bitmap (bitmap);
 extern bool default_handle_c_option (size_t, const char *, int);
 extern int default_reloc_rw_mask (void);
 extern tree default_mangle_decl_assembler_name (tree, tree);
+extern bool default_valid_pointer_mode (enum machine_mode);
+extern enum machine_mode default_addr_space_pointer_mode (addr_space_t);
+extern tree default_addr_space_minus_type (addr_space_t, addr_space_t);
 extern const char *default_addr_space_name (addr_space_t);
 extern rtx default_addr_space_convert (rtx, enum machine_mode, addr_space_t,
 				       addr_space_t);
+extern bool default_addr_space_memory_address_p (enum machine_mode, rtx,
+						 addr_space_t);
+extern bool default_addr_space_strict_memory_address_p (enum machine_mode, rtx,
+							addr_space_t);
+extern rtx default_addr_space_legitimize_address (rtx, rtx, enum machine_mode,
+						  addr_space_t);
 extern bool default_addr_space_can_convert_p (addr_space_t, addr_space_t);
 extern bool default_addr_space_nop_convert_p (addr_space_t, addr_space_t);
 extern bool default_addr_space_subset_p (addr_space_t, addr_space_t,
 					 addr_space_t *);
 extern tree default_addr_space_section_name (addr_space_t);
+extern bool default_addr_space_static_init_ok_p (tree, addr_space_t,
+						 addr_space_t);
