@@ -79,6 +79,7 @@ do
 done
 
 echo "all: $outputlist" >> $makefile
+echo "	@true"		>> $makefile
 
 if [ $verbose -eq 1 ] ; then
   set -x
