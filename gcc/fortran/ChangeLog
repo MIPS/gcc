@@ -1,3 +1,45 @@
+2008-12-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38602
+	* trans-decl.c (init_intent_out_dt): Allow for optional args.
+
+2008-12-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/38398
+	* io.c: Add error checks for g0 formatting and provide adjustment of
+	error loci for improved error messages.
+
+2008-12-21  Arjen Markus  <arjen.markus@wldelft.nl>
+	    Daniel Kraft  <d@domob.eu>
+
+	PR fortran/37605
+	* gfortran.texi: Fixed some typos and some minor style improvements.
+	* intrinsic.texi: Some clarifications and typo-fixes.
+	* invoke.texi: Better documenation of the behaviour of the
+	-fdefault-*-8 options and some other fixes.
+
+2008-12-18  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/31822
+	* gfortran.h (gfc_check_same_strlen): Made public.
+	* trans.h (gfc_trans_same_strlen_check): Made public.
+	* check.c (gfc_check_same_strlen): Made public and adapted error
+	message output to be useful not only for intrinsics.
+	(gfc_check_merge): Adapt to gfc_check_same_strlen change.
+	* expr.c (gfc_check_pointer_assign): Use gfc_check_same_strlen for
+	string length compile-time check.
+	* trans-expr.c (gfc_trans_pointer_assignment): Add runtime-check for
+	equal string lengths using gfc_trans_same_strlen_check.
+	* trans-intrinsic.c (gfc_trans_same_strlen_check): Renamed and made
+	public from conv_same_strlen_check.
+	(gfc_conv_intrinsic_merge): Adapted accordingly.
+
+2008-12-17  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/38137
+	* trans-intrinsic.c (conv_same_strlen_check): New method.
+	(gfc_conv_intrinsic_merge): Call it here to actually do the check.
+
 2008-12-15  Mikael Morin  <mikael.morin@tele2.fr>
 
 	PR fortran/38487
