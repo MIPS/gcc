@@ -156,24 +156,40 @@ struct ptr_info_def GTY(())
   /* Mask of reasons this pointer's value escapes the function.  */
   ENUM_BITFIELD (escape_type) escape_mask : 9;
 
-  /* Nonzero if points-to analysis couldn't determine where this pointer
-     is pointing to.  */
-  unsigned int pt_anything : 1;
-
   /* Nonzero if the value of this pointer escapes the current function.  */
   unsigned int value_escapes_p : 1;
 
   /* Nonzero if this pointer is really dereferenced.  */
   unsigned int is_dereferenced : 1;
 
-  /* Nonzero if this pointer points to a global variable.  */
-  unsigned int pt_global_mem : 1;
+  /* The points-to solution.
 
-  /* Nonzero if this pointer points to NULL.  */
-  unsigned int pt_null : 1;
+     The points-to solution is a union of pt_vars and the abstract
+     sets specified by the flags.  */
+  struct pt_solution
+  {
+    /* Nonzero if points-to analysis couldn't determine where this pointer
+       is pointing to.  */
+    unsigned int anything : 1;
 
-  /* Set of variables that this pointer may point to.  */
-  bitmap pt_vars;
+    /* Nonzero if the points-to set includes any global memory.  Note that
+       even if this is zero pt_vars can still include global variables.  */
+    unsigned int nonlocal : 1;
+
+    /* Nonzero if the points-to set includes any escaped local variable.  */
+    unsigned int escaped : 1;
+
+    /* Nonzero if the points-to set includes 'nothing', the points-to set
+       includes memory at address NULL.  */
+    unsigned int null : 1;
+
+
+    /* Nonzero if the pt_vars bitmap includes a global variable.  */
+    unsigned int vars_contains_global : 1;
+
+    /* Set of variables that this pointer may point to.  */
+    bitmap vars;
+  } pt;
 };
 
 
@@ -699,8 +715,6 @@ extern void dump_may_aliases_for (FILE *, tree);
 extern void debug_may_aliases_for (tree);
 extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);
-extern void dump_points_to_info (FILE *);
-extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_alias_p (tree, alias_set_type, tree, alias_set_type, bool);
@@ -1024,7 +1038,6 @@ tree force_gimple_operand_gsi (gimple_stmt_iterator *, tree, bool, tree,
 tree gimple_fold_indirect_ref (tree);
 
 /* In tree-ssa-structalias.c */
-bool find_what_p_points_to (tree);
 bool clobber_what_escaped (void);
 void compute_call_used_vars (void);
 

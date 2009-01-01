@@ -1,3 +1,41 @@
+2009-01-01  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (dump_referenced_vars): Tidy.
+	(get_ref_base_and_extent): Allow bare decls.
+	(refs_may_alias_p): Unconditionally initialize size/max_size.
+	Handle register/constant bases.  Handle mixed the pointer/decl
+	case with both offset and PTA disambiguation.
+	* tree-flow.h (struct ptr_info_def): Remove pt_global_mem, factor
+	the points-to solution part into a pt_solution sub-structure.
+	Add nonlocal, escaped and vars_contains_global flags.
+	(dump_points_to_info): Remove.
+	(debug_points_to_info): Likewise.
+	(find_what_p_points_to): Likewise.
+	* tree-into-ssa.c (dump_decl_set): Do not print a newline.
+	(debug_decl_set): Do it here.
+	(dump_update_ssa): And here.
+	* tree-ssa-alias.c (compute_flow_sensitive_aliasing): Remove.
+	(set_pt_anything): Likewise.
+	(compute_may_aliases): Do not call compute_flow_sensitive_aliasing,
+	dump_points_to_info.
+	(reset_alias_info): Cleanup, initialize a correct points-to solution.
+	(may_point_to_global_var): Adjust.
+	(may_point_to_decl): New function.
+	(dump_alias_info): Clean.
+	(get_ptr_info): Initialize a correct points-to solution.
+	(dump_points_to_info_for): Adjust.
+	(dump_points_to_info): Remove.
+	(debug_points_to_info): Likewise.
+	* tree-ssanames.c (duplicate_ssa_name_ptr_info): No need to copy
+	the shared bitmaps.
+	* tree-ssa-alias.h (may_point_to_decl): Declare.
+	* tree-ssa-structalias.c (set_uids_in_ptset): Take a points-to
+	solution struct.
+	(find_what_var_points_to): Split out generic parts from ...
+	(find_what_p_points_to): ... here.
+	(compute_points_to_sets): Do what compute_flow_sensitive_aliasing
+	did as well.
+
 2008-12-31  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-structalias.c (set_uids_in_ptset): Fix pruned accounting.

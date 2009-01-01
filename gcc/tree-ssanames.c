@@ -268,12 +268,6 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
   new_ptr_info = GGC_NEW (struct ptr_info_def);
   *new_ptr_info = *ptr_info;
 
-  if (ptr_info->pt_vars)
-    {
-      new_ptr_info->pt_vars = BITMAP_GGC_ALLOC ();
-      bitmap_copy (new_ptr_info->pt_vars, ptr_info->pt_vars);
-    }
-
   SSA_NAME_PTR_INFO (name) = new_ptr_info;
 }
 

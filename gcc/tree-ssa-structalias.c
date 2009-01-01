@@ -4646,8 +4646,7 @@ shared_bitmap_add (bitmap pt_vars)
 
 static unsigned
 set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
-		   struct ptr_info_def *pi,
-		   bool no_tbaa_pruning)
+		   struct pt_solution *pt, bool do_tbaa_pruning)
 {
   unsigned int i;
   bitmap_iterator bi;
@@ -4672,8 +4671,7 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
 	     for pointers that have not been dereferenced or with
 	     type-based pruning disabled.  */
 	  if (!vi->is_artificial_var
-	      && pi->is_dereferenced
-	      && !no_tbaa_pruning)
+	      && do_tbaa_pruning)
 	    {
 	      alias_set_type var_alias_set, mem_alias_set;
 	      var_alias_set = get_alias_set (vi->decl);
@@ -4690,7 +4688,7 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
 	     set contains global variables.  */
 	  bitmap_set_bit (into, DECL_UID (vi->decl));
 	  if (is_global_var (vi->decl))
-	    pi->pt_global_mem = true;
+	    pt->vars_contains_global = true;
 	}
     }
 
@@ -4786,6 +4784,81 @@ emit_alias_warning (tree ptr)
     }
 }
 
+/* Compute the points-to solution *PT for the variable VI.
+   Prunes the points-to set based on TBAA rules if DO_TBAA_PRUNING
+   is true.  Returns the number of TBAA pruned variables from the
+   points-to set.  */
+
+static unsigned int
+find_what_var_points_to (varinfo_t vi, struct pt_solution *pt,
+			 bool do_tbaa_pruning)
+{
+  unsigned int i, pruned;
+  bitmap_iterator bi;
+  bitmap finished_solution;
+  bitmap result;
+  tree ptr = vi->decl;
+
+  memset (pt, 0, sizeof (struct pt_solution));
+
+  /* This variable may have been collapsed, let's get the real
+     variable.  */
+  vi = get_varinfo (find (vi->id));
+
+  /* Translate artificial variables into SSA_NAME_PTR_INFO
+     attributes.  */
+  EXECUTE_IF_SET_IN_BITMAP (vi->solution, 0, i, bi)
+    {
+      varinfo_t vi = get_varinfo (i);
+
+      if (vi->is_artificial_var)
+	{
+	  if (vi->id == nothing_id)
+	    pt->null = 1;
+	  else if (vi->id == escaped_id)
+	    {
+	      pt->escaped = 1;
+	      /* ???  We need to compute the escaped solution and store
+	         it somewhere.  */
+	      pt->anything = 1;
+	    }
+	  else if (vi->id == nonlocal_id
+		   || vi->is_heap_var)
+	    pt->nonlocal = 1;
+	  else if (vi->id == anything_id
+		   || vi->id == callused_id
+		   || vi->id == readonly_id
+		   || vi->id == integer_id)
+	    pt->anything = 1;
+	}
+    }
+
+  /* Instead of doing extra work, simply do not create
+     elaborate points-to information for pt_anything pointers.  */
+  if (pt->anything)
+    return 0;
+
+  /* Share the final set of variables when possible.  */
+  finished_solution = BITMAP_GGC_ALLOC ();
+  stats.points_to_sets_created++;
+
+  pruned = set_uids_in_ptset (ptr, finished_solution, vi->solution,
+			      pt, do_tbaa_pruning && !vi->no_tbaa_pruning);
+  result = shared_bitmap_lookup (finished_solution);
+  if (!result)
+    {
+      shared_bitmap_add (finished_solution);
+      pt->vars = finished_solution;
+    }
+  else
+    {
+      pt->vars = result;
+      bitmap_clear (finished_solution);
+    }
+
+  return pruned;
+}
+
 /* Given a pointer variable P, fill in its points-to set, or return
    false if we can't.
    Rather than return false for variables that point-to anything, we
@@ -4797,14 +4870,13 @@ emit_alias_warning (tree ptr)
    SMT's in the points-to set of the variable, we'd end up with
    statements that do not conflict but should.  */
 
-bool
+static void
 find_what_p_points_to (tree p)
 {
+  struct ptr_info_def *pi;
+  unsigned int pruned;
   tree lookup_p = p;
   varinfo_t vi;
-
-  if (!have_alias_info)
-    return false;
 
   /* For parameters, get at the points-to set for the actual parm
      decl.  */
@@ -4814,110 +4886,27 @@ find_what_p_points_to (tree p)
     lookup_p = SSA_NAME_VAR (p);
 
   vi = lookup_vi_for_tree (lookup_p);
-  if (vi)
+  if (!vi)
+    return;
+
+  pi = get_ptr_info (p);
+  pruned = find_what_var_points_to (vi, &pi->pt, pi->is_dereferenced);
+
+  if (!(pi->pt.anything || pi->pt.nonlocal || pi->pt.escaped)
+      && bitmap_empty_p (pi->pt.vars)
+      && pruned > 0
+      && pi->is_dereferenced
+      && warn_strict_aliasing > 0
+      && !SSA_NAME_IS_DEFAULT_DEF (p))
     {
-      if (vi->is_artificial_var)
-	return false;
-
-      /* See if this is a field or a structure.  */
-      if (vi->size != vi->fullsize)
+      if (dump_file && dump_flags & TDF_DETAILS)
 	{
-	  /* Nothing currently asks about structure fields directly,
-	     but when they do, we need code here to hand back the
-	     points-to set.  */
-	  return false;
+	  fprintf (dump_file, "alias warning for ");
+	  print_generic_expr (dump_file, p, 0);
+	  fprintf (dump_file, "\n");
 	}
-      else
-	{
-	  struct ptr_info_def *pi = get_ptr_info (p);
-	  unsigned int i, pruned;
-	  bitmap_iterator bi;
-	  bool was_pt_anything = false;
-	  bitmap finished_solution;
-	  bitmap result;
-
-	  /* This variable may have been collapsed, let's get the real
-	     variable.  */
-	  vi = get_varinfo (find (vi->id));
-
-	  /* Translate artificial variables into SSA_NAME_PTR_INFO
-	     attributes.  */
-	  EXECUTE_IF_SET_IN_BITMAP (vi->solution, 0, i, bi)
-	    {
-	      varinfo_t vi = get_varinfo (i);
-
-	      if (vi->is_artificial_var)
-		{
-		  /* FIXME.  READONLY should be handled better so that
-		     flow insensitive aliasing can disregard writable
-		     aliases.  */
-		  if (vi->id == nothing_id)
-		    pi->pt_null = 1;
-		  else if (vi->id == anything_id
-			   || vi->id == nonlocal_id
-			   || vi->id == escaped_id
-			   || vi->id == callused_id)
-		    was_pt_anything = 1;
-		  else if (vi->id == readonly_id)
-		    was_pt_anything = 1;
-		  else if (vi->id == integer_id)
-		    was_pt_anything = 1;
-		  else if (vi->is_heap_var)
-		    pi->pt_global_mem = 1;
-		}
-	    }
-
-	  /* Instead of doing extra work, simply do not create
-	     points-to information for pt_anything pointers.  This
-	     will cause the operand scanner to fall back to the
-	     type-based SMT and its aliases.  Which is the best
-	     we could do here for the points-to set as well.  */
-	  if (was_pt_anything)
-	    return false;
-
-	  /* Share the final set of variables when possible.  */
-	  finished_solution = BITMAP_GGC_ALLOC ();
-	  stats.points_to_sets_created++;
-
-	  pruned = set_uids_in_ptset (p, finished_solution, vi->solution,
-				      pi,
-				      vi->no_tbaa_pruning);
-	  result = shared_bitmap_lookup (finished_solution);
-
-	  if (!result)
-	    {
-	      shared_bitmap_add (finished_solution);
-	      pi->pt_vars = finished_solution;
-	    }
-	  else
-	    {
-	      pi->pt_vars = result;
-	      bitmap_clear (finished_solution);
-	    }
-
-	  if (bitmap_empty_p (pi->pt_vars))
-	    {
-	      pi->pt_vars = NULL;
-	      if (pruned > 0
-		  && pi->is_dereferenced
-		  && warn_strict_aliasing > 0
-		  && !SSA_NAME_IS_DEFAULT_DEF (p))
-		{
-		  if (dump_file && dump_flags & TDF_DETAILS)
-		    {
-		      fprintf (dump_file, "alias warning for ");
-		      print_generic_expr (dump_file, p, 0);
-		      fprintf (dump_file, "\n");
-		    }
-		  emit_alias_warning (p);
-		}
-	    }
-
-	  return true;
-	}
+      emit_alias_warning (p);
     }
-
-  return false;
 }
 
 /* Mark the ESCAPED solution as call clobbered.  Returns false if
@@ -5448,6 +5437,7 @@ compute_points_to_sets (void)
 {
   struct scc_info *si;
   basic_block bb;
+  unsigned i;
 
   timevar_push (TV_TREE_PTA);
 
@@ -5565,9 +5555,17 @@ compute_points_to_sets (void)
   if (dump_file)
     dump_sa_points_to_info (dump_file);
 
-  have_alias_info = true;
+  for (i = 0; i < num_ssa_names; ++i)
+    {
+      tree ptr = ssa_name (i);
+      if (ptr
+	  && POINTER_TYPE_P (TREE_TYPE (ptr)))
+	find_what_p_points_to (ptr);
+    }
 
   timevar_pop (TV_TREE_PTA);
+
+  have_alias_info = true;
 }
 
 

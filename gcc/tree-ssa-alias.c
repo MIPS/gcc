@@ -188,8 +188,6 @@ static struct alias_stats_d alias_stats;
 
 /* Local functions.  */
 static void dump_alias_stats (FILE *);
-static void compute_flow_sensitive_aliasing (void);
-static void set_pt_anything (tree);
 static void reset_alias_info (void);
 
 
@@ -376,10 +374,6 @@ compute_may_aliases (void)
      (i.e., whether &V is stored in a global variable or if its passed as a
      function call argument).  */
   compute_points_to_sets ();
-
-  /* Compute flow-sensitive, points-to based aliasing for all the name
-     memory tags.  */
-  compute_flow_sensitive_aliasing ();
   
   /* Compute call clobbering information.  */
   compute_call_clobbered ();
@@ -388,7 +382,6 @@ compute_may_aliases (void)
   if (dump_file)
     {
       dump_alias_info (dump_file);
-      dump_points_to_info (dump_file);
 
       if (dump_flags & TDF_STATS)
 	dump_alias_stats (dump_file);
@@ -537,48 +530,21 @@ reset_alias_info (void)
 	{
 	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (name);
 
-	  /* Clear all the flags but keep the name tag to
-	     avoid creating new temporaries unnecessarily.  If
-	     this pointer is found to point to a subset or
-	     superset of its former points-to set, then a new
-	     tag will need to be created in create_name_tags.  */
-	  pi->pt_anything = 0;
-	  pi->pt_null = 0;
+	  /* Clear all the flags and reset the points-to solution.  */
 	  pi->value_escapes_p = 0;
 	  pi->is_dereferenced = 0;
-	  if (pi->pt_vars)
-	    bitmap_clear (pi->pt_vars);
+	  pi->pt.anything = 1;
+	  pi->pt.nonlocal = 0;
+	  pi->pt.escaped = 0;
+	  pi->pt.null = 0;
+	  pi->pt.vars_contains_global = 0;
+	  if (pi->pt.vars)
+	    {
+	      bitmap_clear (pi->pt.vars);
+	      pi->pt.vars = NULL;
+	    }
 	}
     }
-}
-
-
-
-/* For every pointer P_i in AI->PROCESSED_PTRS, create may-alias sets for
-   the name memory tag (NMT) associated with P_i.  If P_i escapes, then its
-   name tag and the variables it points-to are call-clobbered.  Finally, if
-   P_i escapes and we could not determine where it points to, then all the
-   variables in the same alias set as *P_i are marked call-clobbered.  This
-   is necessary because we must assume that P_i may take the address of any
-   variable in the same alias set.  */
-
-static void
-compute_flow_sensitive_aliasing (void)
-{
-  unsigned i;
-
-  timevar_push (TV_FLOW_SENSITIVE);
-
-  for (i = 0; i < num_ssa_names; ++i)
-    {
-      tree ptr = ssa_name (i);
-      if (ptr
-	  && POINTER_TYPE_P (TREE_TYPE (ptr)))
-	if (!find_what_p_points_to (ptr))
-	  set_pt_anything (ptr);
-    }
-
-  timevar_pop (TV_FLOW_SENSITIVE);
 }
 
 
@@ -721,21 +687,51 @@ may_point_to_global_var (tree ptr)
   if (!pi)
     return true;
 
-  return pi->pt_global_mem;
+  return pi->pt.anything || pi->pt.nonlocal || pi->pt.vars_contains_global;
 }
 
+/* Return true if PTR may point to DECL.  */
 
-/* Mark pointer PTR as pointing to an arbitrary memory location.  */
-
-static void
-set_pt_anything (tree ptr)
+bool
+may_point_to_decl (tree ptr, tree decl)
 {
-  struct ptr_info_def *pi = get_ptr_info (ptr);
+  struct ptr_info_def *pi;
 
-  pi->pt_anything = 1;
-  /* Anything includes global memory.  */
-  pi->pt_global_mem = 1;
-  pi->pt_vars = NULL;
+  /* ???  During SCCVN/PRE we can end up with *&x during valueizing
+     operands.  Likewise we can end up with dereferencing constant
+     pointers.  Just bail out in these cases for now.  */
+  if (TREE_CODE (ptr) == ADDR_EXPR
+      || TREE_CODE (ptr) == INTEGER_CST)
+    return true;
+
+  gcc_assert (TREE_CODE (ptr) == SSA_NAME
+	      && (TREE_CODE (decl) == VAR_DECL
+		  || TREE_CODE (decl) == PARM_DECL
+		  || TREE_CODE (decl) == RESULT_DECL));
+
+  /* Local variables that do not have their address taken
+     can not be pointed to.  */
+  if (!TREE_ADDRESSABLE (decl)
+      && !is_global_var (decl))
+    return false;
+
+  /* If we do not have useful points-to information for this pointer
+     we cannot disambiguate anything else.  */
+  pi = SSA_NAME_PTR_INFO (ptr);
+  if (!pi
+      || pi->pt.anything)
+    return true;
+
+  /* If the points-to set includes the variable we are done.  */
+  if (bitmap_bit_p (pi->pt.vars, DECL_UID (decl)))
+    return true;
+
+  /* pt_nonlocal includes any global variable.  */
+  if (is_global_var (decl)
+      && pi->pt.nonlocal)
+    return true;
+
+  return false;
 }
 
 
@@ -877,7 +873,7 @@ dump_alias_info (FILE *file)
   referenced_var_iterator rvi;
   tree var;
 
-  fprintf (file, "\nAlias information for %s\n\n", funcname);
+  fprintf (file, "\n\nAlias information for %s\n\n", funcname);
 
   fprintf (file, "Aliased symbols\n\n");
   
@@ -887,11 +883,8 @@ dump_alias_info (FILE *file)
 	dump_variable (file, var);
     }
 
-  fprintf (file, "\nDereferenced pointers\n\n");
+  fprintf (file, "\n\nFlow-insensitive points-to information for %s\n\n", funcname);
 
-  fprintf (file, "\n\nFlow-sensitive alias information for %s\n\n", funcname);
-
-  fprintf (file, "SSA_NAME pointers\n\n");
   for (i = 1; i < num_ssa_names; i++)
     {
       tree ptr = ssa_name (i);
@@ -933,6 +926,7 @@ get_ptr_info (tree t)
   if (pi == NULL)
     {
       pi = GGC_CNEW (struct ptr_info_def);
+      pi->pt.anything = 1;
       SSA_NAME_PTR_INFO (t) = pi;
     }
 
@@ -956,16 +950,24 @@ dump_points_to_info_for (FILE *file, tree ptr)
       if (pi->value_escapes_p)
 	fprintf (file, ", its value escapes");
 
-      if (pi->pt_anything)
+      if (pi->pt.anything)
 	fprintf (file, ", points-to anything");
 
-      if (pi->pt_null)
+      if (pi->pt.nonlocal)
+	fprintf (file, ", points-to non-local");
+
+      if (pi->pt.escaped)
+	fprintf (file, ", points-to escaped");
+
+      if (pi->pt.null)
 	fprintf (file, ", points-to NULL");
 
-      if (pi->pt_vars)
+      if (pi->pt.vars)
 	{
 	  fprintf (file, ", points-to vars: ");
-	  dump_decl_set (file, pi->pt_vars);
+	  dump_decl_set (file, pi->pt.vars);
+	  if (pi->pt.vars_contains_global)
+	    fprintf (file, " (includes global vars)");
 	}
     }
 
@@ -979,70 +981,6 @@ void
 debug_points_to_info_for (tree var)
 {
   dump_points_to_info_for (stderr, var);
-}
-
-
-/* Dump points-to information into FILE.  NOTE: This function is slow, as
-   it needs to traverse the whole CFG looking for pointer SSA_NAMEs.  */
-
-void
-dump_points_to_info (FILE *file ATTRIBUTE_UNUSED)
-{
-  basic_block bb;
-  gimple_stmt_iterator si;
-  ssa_op_iter iter;
-  const char *fname =
-    lang_hooks.decl_printable_name (current_function_decl, 2);
-  referenced_var_iterator rvi;
-  tree var;
-
-  fprintf (file, "\n\nPointed-to sets for pointers in %s\n\n", fname);
-
-  /* First dump points-to information for the default definitions of
-     pointer variables.  This is necessary because default definitions are
-     not part of the code.  */
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    {
-      if (POINTER_TYPE_P (TREE_TYPE (var)))
-	{
-	  tree def = gimple_default_def (cfun, var);
-	  if (def)
-	    dump_points_to_info_for (file, def);
-	}
-    }
-
-  /* Dump points-to information for every pointer defined in the program.  */
-  FOR_EACH_BB (bb)
-    {
-      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
-	{
-	  gimple phi = gsi_stmt (si);
-	  tree ptr = PHI_RESULT (phi);
-	  if (POINTER_TYPE_P (TREE_TYPE (ptr)))
-	    dump_points_to_info_for (file, ptr);
-	}
-
-	for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
-	  {
-	    gimple stmt = gsi_stmt (si);
-	    tree def;
-	    FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
-	      if (TREE_CODE (def) == SSA_NAME
-		  && POINTER_TYPE_P (TREE_TYPE (def)))
-		dump_points_to_info_for (file, def);
-	  }
-    }
-
-  fprintf (file, "\n");
-}
-
-
-/* Dump points-to info pointed to by PTO into STDERR.  */
-
-void
-debug_points_to_info (void)
-{
-  dump_points_to_info (stderr);
 }
 
 

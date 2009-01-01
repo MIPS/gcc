@@ -24,6 +24,7 @@
 #include "coretypes.h"
 
 /* In tree-ssa-alias.c  */
+bool may_point_to_decl (tree, tree);
 void *walk_non_aliased_vuses (tree, tree,
 			      void *(*)(tree, tree, void *), void *);
 

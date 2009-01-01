@@ -254,8 +254,9 @@ dump_referenced_vars (FILE *file)
     {
       fprintf (file, "Variable: ");
       dump_variable (file, var);
-      fprintf (file, "\n");
     }
+
+  fprintf (file, "\n");
 }
 
 
@@ -763,8 +764,6 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
   HOST_WIDE_INT bit_offset = 0;
   bool seen_variable_array_ref = false;
 
-  gcc_assert (!SSA_VAR_P (exp));
-
   /* First get the final access size from just the outermost expression.  */
   if (TREE_CODE (exp) == COMPONENT_REF)
     size_tree = DECL_SIZE (TREE_OPERAND (exp, 1));
@@ -957,12 +956,17 @@ refs_may_alias_p (tree ref1, tree ref2)
     return false;
 
   /* Decompose the references into their base objects and the access.  */
-  base1 = ref1;
-  if (handled_component_p (ref1))
-    base1 = get_ref_base_and_extent (ref1, &offset1, &size1, &max_size1);
-  base2 = ref2;
-  if (handled_component_p (ref2))
-    base2 = get_ref_base_and_extent (ref2, &offset2, &size2, &max_size2);
+  base1 = get_ref_base_and_extent (ref1, &offset1, &size1, &max_size1);
+  base2 = get_ref_base_and_extent (ref2, &offset2, &size2, &max_size2);
+
+  /* We can end up with registers or constants as bases for example from
+     *D.1663_44 = VIEW_CONVERT_EXPR<struct DB_LSN>(__tmp$B0F64_59);
+     which is seen as a struct copy.  */
+  if (TREE_CODE (base1) == SSA_NAME
+      || CONSTANT_CLASS_P (base1)
+      || TREE_CODE (base2) == SSA_NAME
+      || CONSTANT_CLASS_P (base2))
+    return false;
 
   /* If both references are based on different variables, they cannot alias.
      If both references are based on the same variable, they cannot alias if
@@ -975,17 +979,29 @@ refs_may_alias_p (tree ref1, tree ref2)
       return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
     }
 
-  /* If one reference is based on a pointer and one is based on a local
-     variable that does not have its address taken, they cannot alias.  */
-  if ((SSA_VAR_P (base1)
-       && !TREE_ADDRESSABLE (base1)
-       && !is_global_var (base1)
-       && INDIRECT_REF_P (base2))
-      || (SSA_VAR_P (base2)
-	  && !TREE_ADDRESSABLE (base2)
-	  && !is_global_var (base2)
-	  && INDIRECT_REF_P (base1)))
-    return false;
+  /* If only one reference is based on a variable, they cannot alias if
+     the pointer access is beyond the extent of the variable access.
+     (the pointer base cannot validly point to an offset less than zero
+     of the variable).
+     They also cannot alias if the pointer may not point to the decl.  */
+  if (SSA_VAR_P (base1)
+      && INDIRECT_REF_P (base2))
+    {
+      if (max_size1 != -1
+	  && !ranges_overlap_p (0, offset1 + max_size1, offset2, max_size2))
+	return false;
+      if (!may_point_to_decl (TREE_OPERAND (base2, 0), base1))
+	return false;
+    }
+  else if (SSA_VAR_P (base2)
+	   && INDIRECT_REF_P (base1))
+    {
+      if (max_size2 != -1
+	  && !ranges_overlap_p (offset1, max_size1, 0, offset2 + max_size2))
+	return false;
+      if (!may_point_to_decl (TREE_OPERAND (base1, 0), base2))
+	return false;
+    }
 
   /* If one base is a ref-all pointer or a TARGET_MEM_REF weird things
      are allowed.  */

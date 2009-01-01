@@ -1466,10 +1466,10 @@ dump_decl_set (FILE *file, bitmap set)
 	  fprintf (file, " ");
 	}
 
-      fprintf (file, "}\n");
+      fprintf (file, "}");
     }
   else
-    fprintf (file, "NIL\n");
+    fprintf (file, "NIL");
 }
 
 
@@ -1479,6 +1479,7 @@ void
 debug_decl_set (bitmap set)
 {
   dump_decl_set (stderr, set);
+  fprintf (stderr, "\n");
 }
 
 
@@ -2620,6 +2621,7 @@ dump_update_ssa (FILE *file)
     {
       fprintf (file, "\n\nSymbols to be put in SSA form\n\n");
       dump_decl_set (file, syms_to_rename);
+      fprintf (file, "\n");
     }
   if (cfun->gimple_df->vop_needs_renaming)
     {
