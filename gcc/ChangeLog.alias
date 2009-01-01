@@ -1,5 +1,13 @@
 2009-01-01  Richard Guenther  <rguenther@suse.de>
 
+	testsuite/
+	* gcc.dg/tree-ssa/alias-15.c: Remove.
+	* gcc.dg/tree-ssa/alias-19.c: Adjust.
+	* gcc.dg/tree-ssa/pr23382.c: Likewise.
+	* gcc.dg/tree-ssa/pr26421.c: Likewise.
+
+2009-01-01  Richard Guenther  <rguenther@suse.de>
+
 	* tree-dfa.c (dump_referenced_vars): Tidy.
 	(get_ref_base_and_extent): Allow bare decls.
 	(refs_may_alias_p): Unconditionally initialize size/max_size.
