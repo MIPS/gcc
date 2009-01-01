@@ -1488,12 +1488,6 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
   unsigned int j;
   bitmap_iterator bi;
 
-  if (bitmap_bit_p (delta, anything_id))
-    {
-      flag |= bitmap_set_bit (sol, anything_id);
-      goto done;
-    }
-
   /* For x = *ESCAPED and x = *CALLUSED we want to compute the
      reachability set of the rhs var.  As a pointer to a sub-field
      of a variable can also reach all other fields of the variable
@@ -1537,6 +1531,12 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	    }
 	  BITMAP_FREE (vars);
 	}
+    }
+
+  if (bitmap_bit_p (delta, anything_id))
+    {
+      flag |= bitmap_set_bit (sol, anything_id);
+      goto done;
     }
 
   /* For each variable j in delta (Sol(y)), add
