@@ -1,5 +1,24 @@
 2009-01-02  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-alias.c (ref_may_used_by_call_p): New function.
+	(ref_may_used_by_stmt_p): Likewise.
+	(call_may_clobber_ref_p): Handle more cases.
+	(stmt_may_clobber_ref_p): Export.
+	* tree-ssa-alias.h (ref_may_used_by_stmt_p): Declare.
+	(stmt_may_clobber_ref_p): Likewise.
+	* tree-ssa-dse.c (struct address_walk_data): Remove.
+	(memory_ssa_name_same): Likewise.
+	(memory_address_same): Likewise.
+	(get_kill_of_stmt_lhs): Likewise.
+	(dse_possible_dead_store_p): Simplify, use the oracle.  Handle
+	unused stores.
+	(dse_optimize_stmt): Simplify.  Properly remove stores.
+
+	testsuite/
+	* gcc.dg/noncompile/920507-1.c: Fix invalid dead array access.
+
+2009-01-02  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-structalias.c (do_sd_constraint): Do not shortcut
 	computing the transitive closure.
 

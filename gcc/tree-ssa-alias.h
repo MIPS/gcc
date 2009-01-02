@@ -25,6 +25,8 @@
 
 /* In tree-ssa-alias.c  */
 bool may_point_to_decl (tree, tree);
+bool ref_may_used_by_stmt_p (gimple, tree);
+bool stmt_may_clobber_ref_p (gimple, tree);
 void *walk_non_aliased_vuses (tree, tree,
 			      void *(*)(tree, tree, void *), void *);
 

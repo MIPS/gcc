@@ -1045,6 +1045,69 @@ struct gimple_opt_pass pass_build_alias =
 };
 
 
+/* If the call CALL may use the memory reference REF return true,
+   otherwise return false.  */
+
+static bool
+ref_may_used_by_call_p (gimple call ATTRIBUTE_UNUSED, tree ref)
+{
+  tree base = get_base_address (ref);
+  unsigned i;
+
+  /* If the base variable is call-used then it may be used.  */
+  if (base
+      && DECL_P (base)
+      && is_call_used (base))
+    return true;
+
+  /* Inspect call arguments for passed-by-value aliases.  */
+  for (i = 0; i < gimple_call_num_args (call); ++i)
+    {
+      tree op = gimple_call_arg (call, i);
+
+      if (TREE_CODE (op) == EXC_PTR_EXPR
+	  || TREE_CODE (op) == FILTER_EXPR)
+	continue;
+
+      if (TREE_CODE (op) == WITH_SIZE_EXPR)
+	op = TREE_OPERAND (op, 0);
+
+      if (TREE_CODE (op) != SSA_NAME
+	  && !is_gimple_min_invariant (op)
+	  && refs_may_alias_p (op, ref))
+	return true;
+    }
+
+  return false;
+}
+
+/* If the statement STMT may use the memory reference REF return
+   true, otherwise return false.  */
+
+bool
+ref_may_used_by_stmt_p (gimple stmt, tree ref)
+{
+  if (is_gimple_assign (stmt))
+    {
+      tree rhs;
+
+      /* All memory assign statements are single.  */
+      if (!gimple_assign_single_p (stmt))
+	return false;
+
+      rhs = gimple_assign_rhs1 (stmt);
+      if (is_gimple_reg (rhs)
+	  || is_gimple_min_invariant (rhs)
+	  || gimple_assign_rhs_code (stmt) == CONSTRUCTOR)
+	return false;
+
+      return refs_may_alias_p (rhs, ref);
+    }
+  else if (is_gimple_call (stmt))
+    return ref_may_used_by_call_p (stmt, ref);
+
+  return true;
+}
 
 /* If the call in statement CALL may clobber the memory reference REF
    return true, otherwise return false.  */
@@ -1060,7 +1123,14 @@ call_may_clobber_ref_p (gimple call, tree ref)
     return false;
 
   base = get_base_address (ref);
-  if (SSA_VAR_P (base))
+  if (!base)
+    return true;
+
+  if (TREE_CODE (base) == SSA_NAME
+      || CONSTANT_CLASS_P (base))
+    return false;
+
+  if (DECL_P (base))
     return is_call_clobbered (base);
 
   return true;
@@ -1069,7 +1139,7 @@ call_may_clobber_ref_p (gimple call, tree ref)
 /* If the statement STMT may clobber the memory reference REF return true,
    otherwise return false.  */
 
-static bool
+bool
 stmt_may_clobber_ref_p (gimple stmt, tree ref)
 {
   if (is_gimple_call (stmt))
