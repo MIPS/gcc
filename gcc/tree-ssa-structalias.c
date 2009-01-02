@@ -4635,6 +4635,48 @@ shared_bitmap_add (bitmap pt_vars)
 }
 
 
+/* Helper for set_uids_in_ptset to do TBAA pruning of points-to sets.
+   Return TRUE if pointer PTR may point to variable VAR.
+   
+   MEM_ALIAS_SET is the alias set for the memory location pointed-to by PTR
+	This is needed because when checking for type conflicts we are
+	interested in the alias set of the memory location pointed-to by
+	PTR.  The alias set of PTR itself is irrelevant.
+   
+   VAR_ALIAS_SET is the alias set for VAR.  */
+
+static bool
+may_alias_p (tree ptr, alias_set_type mem_alias_set,
+	     tree var, alias_set_type var_alias_set)
+{
+  /* If -fargument-noalias-global is > 2, pointer arguments may
+     not point to anything else.  */
+  if (flag_argument_noalias > 2 && TREE_CODE (ptr) == PARM_DECL)
+    return false;
+
+  /* If -fargument-noalias-global is > 1, pointer arguments may
+     not point to global variables.  */
+  if (flag_argument_noalias > 1 && is_global_var (var)
+      && TREE_CODE (ptr) == PARM_DECL)
+    return false;
+
+  /* If the pointed to memory has alias set zero, or the pointer
+     is ref-all, or the pointer decl is marked that no TBAA is to
+     be applied, the MEM can alias VAR.  */
+  if (mem_alias_set == 0
+      || DECL_POINTER_ALIAS_SET (ptr) == 0
+      || TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (ptr))
+      || DECL_NO_TBAA_P (ptr))
+    return true;
+
+  /* If the alias sets don't conflict then MEM cannot alias VAR.  */
+  if (mem_alias_set != var_alias_set
+      && !alias_set_subset_of (mem_alias_set, var_alias_set))
+    return false;
+
+  return true;
+}
+
 /* Set bits in INTO corresponding to the variable uids in solution set
    FROM, which came from variable PTR.
    For variables that are actually dereferenced, we also use type
@@ -4677,7 +4719,7 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
 	      var_alias_set = get_alias_set (vi->decl);
 	      mem_alias_set = get_alias_set (TREE_TYPE (TREE_TYPE (ptr)));
 	      if (!may_alias_p (SSA_NAME_VAR (ptr), mem_alias_set,
-				vi->decl, var_alias_set, true))
+				vi->decl, var_alias_set))
 		{
 		  ++pruned;
 		  continue;
@@ -4913,7 +4955,7 @@ find_what_p_points_to (tree p)
    pt_anything escaped which needs all locals that have their address
    taken marked call clobbered as well.  */
 
-bool
+static bool
 clobber_what_escaped (void)
 {
   varinfo_t vi;
@@ -4967,7 +5009,7 @@ clobber_what_escaped (void)
 
 /* Compute the call-used variables.  */
 
-void
+static void
 compute_call_used_vars (void)
 {
   varinfo_t vi;
@@ -5429,10 +5471,30 @@ compute_tbaa_pruning (void)
     }
 }
 
+/* Initialize the heapvar for statement mapping.  */
+
+static void
+init_alias_heapvars (void)
+{
+  if (!heapvar_for_stmt)
+    heapvar_for_stmt = htab_create_ggc (11, tree_map_hash, tree_map_eq,
+					NULL);
+}
+
+/* Delete the heapvar for statement mapping.  */
+
+void
+delete_alias_heapvars (void)
+{
+  if (heapvar_for_stmt)
+    htab_delete (heapvar_for_stmt);
+  heapvar_for_stmt = NULL;
+}
+
 /* Create points-to sets for the current function.  See the comments
    at the start of the file for an algorithmic overview.  */
 
-void
+static void
 compute_points_to_sets (void)
 {
   struct scc_info *si;
@@ -5445,6 +5507,18 @@ compute_points_to_sets (void)
   init_alias_heapvars ();
 
   intra_create_variable_infos ();
+
+  /* Reset the is_dereferenced flag for all SSA_NAME pointers as we
+     re-compute that in the following.  In theory this information
+     never becomes incorrect semantically, but better play safe.  */
+  for (i = 1; i < num_ssa_names; i++)
+    {
+      tree name = ssa_name (i);
+      if (name
+	  && POINTER_TYPE_P (TREE_TYPE (name))
+	  && SSA_NAME_PTR_INFO (name))
+	SSA_NAME_PTR_INFO (name)->is_dereferenced = 0;
+    }
 
   /* Now walk all statements and derive aliases.  */
   FOR_EACH_BB (bb)
@@ -5571,7 +5645,7 @@ compute_points_to_sets (void)
 
 /* Delete created points-to sets.  */
 
-void
+static void
 delete_points_to_sets (void)
 {
   unsigned int i;
@@ -5601,6 +5675,128 @@ delete_points_to_sets (void)
   free_alloc_pool (constraint_pool);
   have_alias_info = false;
 }
+
+
+/* Transfer the call-clobber solutions from the points-to solution
+   to the call-clobber state of the variables.
+
+   The set of call-clobbered variables is the union of all global
+   variables and the set denoted by the gimple_call_clobbered_vars
+   bitmap.  The maximal set of the gimple_call_clobbered_vars bitmap
+   is all local aliased variables (all locals that have their address
+   taken).
+
+   The set of call-used variables is the union of all call-clobbered
+   variables and the set denoted by the gimple_call_used_vars bitmap.
+   Call-used variables get added to by escapes through pure functions.  */
+
+static void
+compute_call_clobbered (void)
+{
+  referenced_var_iterator rvi;
+  tree var;
+  bool any_pt_anything = false;
+  enum escape_type pt_anything_mask = 0;
+
+  timevar_push (TV_CALL_CLOBBER);
+
+  /* Clear the set of call-clobbered and call-used variables.  */
+  bitmap_clear (gimple_call_clobbered_vars (cfun));
+  bitmap_clear (gimple_call_used_vars (cfun));
+
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    {
+      if (is_global_var (var))
+	{
+	  if (!unmodifiable_var_p (var))
+	    mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
+	}
+    }
+
+  if (!clobber_what_escaped ())
+    {
+      any_pt_anything = true;
+      pt_anything_mask |= ESCAPE_TO_CALL;
+    }
+
+  compute_call_used_vars ();
+
+  /* If a pt_anything pointer escaped we need to mark all addressable
+     variables call clobbered.  */
+  if (any_pt_anything)
+    {
+      bitmap_iterator bi;
+      unsigned int j;
+
+      EXECUTE_IF_SET_IN_BITMAP (gimple_addressable_vars (cfun), 0, j, bi)
+	{
+	  tree var = referenced_var (j);
+	  if (!unmodifiable_var_p (var))
+	    mark_call_clobbered (var, pt_anything_mask);
+	}
+    }
+
+  timevar_pop (TV_CALL_CLOBBER);
+}
+
+
+/* Compute points-to information for every SSA_NAME pointer in the
+   current function and compute the transitive closure of escaped
+   variables to re-initialize the call-clobber states of local variables.  */
+
+unsigned int
+compute_may_aliases (void)
+{
+  /* For each pointer P_i, determine the sets of variables that P_i may
+     point-to.  Compute the reachability set of escaped and call-used
+     variables.  */
+  compute_points_to_sets ();
+  
+  /* Transfer the points-to solutions of ESCAPED and CALLUSED to the
+     call clobbering information.  */
+  compute_call_clobbered ();
+
+  /* Debugging dumps.  */
+  if (dump_file)
+    {
+      dump_alias_info (dump_file);
+
+      if (dump_flags & TDF_DETAILS)
+	dump_referenced_vars (dump_file);
+    }
+
+  /* Deallocate memory used by aliasing data structures and the internal
+     points-to solution.  */
+  delete_points_to_sets ();
+
+  gcc_assert (!need_ssa_update_p ());
+
+  return 0;
+}
+
+
+/* A dummy pass to cause points-to information to be computed via
+   TODO_rebuild_alias.  */
+
+struct gimple_opt_pass pass_build_alias =
+{
+ {
+  GIMPLE_PASS,
+  "alias",		    /* name */
+  NULL,			    /* gate */
+  NULL,                     /* execute */
+  NULL,                     /* sub */
+  NULL,                     /* next */
+  0,                        /* static_pass_number */
+  0,                        /* tv_id */
+  PROP_cfg | PROP_ssa,      /* properties_required */
+  PROP_alias,               /* properties_provided */
+  0,                        /* properties_destroyed */
+  0,                        /* todo_flags_start */
+  TODO_rebuild_alias | TODO_dump_func  /* todo_flags_finish */
+ }
+};
+
 
 /* Return true if we should execute IPA PTA.  */
 static bool
@@ -5736,21 +5932,5 @@ struct simple_ipa_opt_pass pass_ipa_pta =
  }
 };
 
-/* Initialize the heapvar for statement mapping.  */
-void
-init_alias_heapvars (void)
-{
-  if (!heapvar_for_stmt)
-    heapvar_for_stmt = htab_create_ggc (11, tree_map_hash, tree_map_eq,
-					NULL);
-}
-
-void
-delete_alias_heapvars (void)
-{
-  if (heapvar_for_stmt)
-    htab_delete (heapvar_for_stmt);
-  heapvar_for_stmt = NULL;
-}
 
 #include "gt-tree-ssa-structalias.h"

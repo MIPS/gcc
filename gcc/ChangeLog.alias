@@ -1,5 +1,33 @@
 2009-01-02  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-alias.c (struct count_ptr_d, count_ptr_derefs,
+	count_uses_and_derefs): Move ...
+	* gimple.c: ... here.
+	* gimple.h (count_uses_and_derefs): Declare.
+	* passes.c (init_optimization_passes): Remove reset_cc_flags pass.
+	* tree-pass.h (pass_reset_cc_flags): Remove.
+	* tree-flow-inline.h (may_be_aliased): New function, moved from ...
+	* tree-ssa-alias.c (may_be_aliased): ... here.
+	* tree-flow.h (enum escape_type): Move ...
+	* tree-ssa-alias.h: ... here.
+	* tree-flow.h (struct ptr_info_def): Remove escape_mask and
+	value_escapes_p members.
+	* tree-flow.h: Move declarations around to correct places.
+	* tree-ssa-alias.c: Rewrite overall documentation.
+	(struct alias_stats_d, alias_stats, dump_alias_stats,
+	reset_alias_info, reset_cc_flags, pass_reset_cc_flags): Remove.
+	(compute_call_clobbered, compute_may_aliases, may_alias_p,
+	pass_build_alias): Move ...
+	* tree-ssa-structalias.c: ... here.
+	(may_alias_p): Simplify, make static.
+	(clobber_what_escaped, compute_call_used_vars, compute_points_to_sets,
+	init_alias_heapvars): Make static.
+	(compute_points_to_sets): Reset is_dereferenced flags.
+	* tree-ssa-structalias.h (is_escape_site): Move to tree-ssa-alias.h.
+	(compute_points_to_sets, delete_points_to_sets): Remove.
+
+2009-01-02  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-alias.c (ref_may_used_by_call_p): New function.
 	(ref_may_used_by_stmt_p): Likewise.
 	(call_may_clobber_ref_p): Handle more cases.

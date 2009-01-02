@@ -910,6 +910,8 @@ extern bool is_gimple_call_addr (tree);
 extern tree get_call_expr_in (tree t);
 
 extern void recalculate_side_effects (tree);
+extern void count_uses_and_derefs (tree, gimple, unsigned *, unsigned *,
+				   unsigned *);
 
 /* In gimplify.c  */
 extern tree create_tmp_var_raw (tree, const char *);

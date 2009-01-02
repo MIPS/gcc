@@ -24,12 +24,7 @@
 struct constraint;
 typedef struct constraint *constraint_t;
 
-/* In tree-ssa-alias.c.  */
-enum escape_type is_escape_site (gimple);
-
 /* In tree-ssa-structalias.c.  */
-extern void compute_points_to_sets (void);
-extern void delete_points_to_sets (void);
 extern void dump_constraint (FILE *, constraint_t);
 extern void dump_constraint_edge (FILE *, constraint_t);
 extern void dump_constraints (FILE *);

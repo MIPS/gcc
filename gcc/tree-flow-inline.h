@@ -584,6 +584,16 @@ is_global_var (const_tree t)
   return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
 
+
+/* Return true if VAR may be aliased.  */
+
+static inline bool
+may_be_aliased (tree var)
+{
+  return TREE_ADDRESSABLE (var) || is_global_var (var);
+}
+
+
 /* PHI nodes should contain only ssa_names and invariants.  A test
    for ssa_name is definitely simpler; don't let invalid contents
    slip in in the meantime.  */

@@ -41,24 +41,6 @@ typedef struct basic_block_def *basic_block;
 #endif
 struct static_var_ann_d;
 
-/* The reasons a variable may escape a function.  */
-enum escape_type 
-{
-  NO_ESCAPE = 0,			/* Doesn't escape.  */
-  ESCAPE_STORED_IN_GLOBAL = 1 << 0,
-  ESCAPE_TO_ASM = 1 << 1,		/* Passed by address to an assembly
-					   statement.  */
-  ESCAPE_TO_CALL = 1 << 2,		/* Escapes to a function call.  */
-  ESCAPE_BAD_CAST = 1 << 3,		/* Cast from pointer to integer */
-  ESCAPE_TO_RETURN = 1 << 4,		/* Returned from function.  */
-  ESCAPE_TO_PURE_CONST = 1 << 5,	/* Escapes to a pure or constant
-					   function call.  */
-  ESCAPE_IS_GLOBAL = 1 << 6,		/* Is a global variable.  */
-  ESCAPE_IS_PARM = 1 << 7,		/* Is an incoming function argument.  */
-  ESCAPE_UNKNOWN = 1 << 8		/* We believe it escapes for
-					   some reason not enumerated
-					   above.  */
-};
 
 /* Gimple dataflow datastructure. All publicly available fields shall have
    gimple_ accessor defined in tree-flow-inline.h, all publicly modifiable
@@ -153,12 +135,6 @@ typedef struct
 /* Aliasing information for SSA_NAMEs representing pointer variables.  */
 struct ptr_info_def GTY(())
 {
-  /* Mask of reasons this pointer's value escapes the function.  */
-  ENUM_BITFIELD (escape_type) escape_mask : 9;
-
-  /* Nonzero if the value of this pointer escapes the current function.  */
-  unsigned int value_escapes_p : 1;
-
   /* Nonzero if this pointer is really dereferenced.  */
   unsigned int is_dereferenced : 1;
 
@@ -686,6 +662,8 @@ extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
 extern bool stmt_references_abnormal_ssa_name (gimple);
+extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
+				     HOST_WIDE_INT *, HOST_WIDE_INT *);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -708,31 +686,6 @@ extern void record_vars (tree);
 extern bool block_may_fallthru (const_tree);
 extern bool gimple_seq_may_fallthru (gimple_seq);
 extern bool gimple_stmt_may_fallthru (gimple);
-
-/* In tree-ssa-alias.c  */
-extern unsigned int compute_may_aliases (void);
-extern void dump_may_aliases_for (FILE *, tree);
-extern void debug_may_aliases_for (tree);
-extern void dump_alias_info (FILE *);
-extern void debug_alias_info (void);
-extern void dump_points_to_info_for (FILE *, tree);
-extern void debug_points_to_info_for (tree);
-extern bool may_alias_p (tree, alias_set_type, tree, alias_set_type, bool);
-extern struct ptr_info_def *get_ptr_info (tree);
-extern bool may_point_to_global_var (tree);
-extern void count_uses_and_derefs (tree, gimple, unsigned *, unsigned *,
-				   unsigned *);
-static inline bool ref_contains_array_ref (const_tree);
-static inline bool array_ref_contains_indirect_ref (const_tree);
-extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
-				     HOST_WIDE_INT *, HOST_WIDE_INT *);
-
-/* Call-back function for walk_use_def_chains().  At each reaching
-   definition, a function with this prototype is called.  */
-typedef bool (*walk_use_def_chains_fn) (tree, gimple, void *);
-
-/* In tree-ssa-alias-warnings.c  */
-extern void strict_aliasing_warning_backend (void);
 
 
 /* In tree-ssa.c  */
@@ -762,9 +715,14 @@ extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
 extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
-extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool ssa_undefined_value_p (tree);
 unsigned int execute_update_addresses_taken (void);
+
+/* Call-back function for walk_use_def_chains().  At each reaching
+   definition, a function with this prototype is called.  */
+typedef bool (*walk_use_def_chains_fn) (tree, gimple, void *);
+
+extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 
 
 /* In tree-into-ssa.c  */
@@ -960,6 +918,8 @@ static inline bool is_call_clobbered (const_tree);
 static inline void mark_call_clobbered (tree, unsigned int);
 static inline void set_is_used (tree);
 static inline bool unmodifiable_var_p (const_tree);
+static inline bool ref_contains_array_ref (const_tree);
+static inline bool array_ref_contains_indirect_ref (const_tree);
 
 /* In tree-eh.c  */
 extern void make_eh_edges (gimple);
@@ -1037,10 +997,6 @@ tree force_gimple_operand_gsi (gimple_stmt_iterator *, tree, bool, tree,
 			       bool, enum gsi_iterator_update);
 tree gimple_fold_indirect_ref (tree);
 
-/* In tree-ssa-structalias.c */
-bool clobber_what_escaped (void);
-void compute_call_used_vars (void);
-
 /* In tree-ssa-live.c */
 extern void remove_unused_locals (void);
 
@@ -1060,8 +1016,6 @@ rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
 
-void init_alias_heapvars (void);
-void delete_alias_heapvars (void);
 unsigned int execute_fixup_cfg (void);
 
 #include "tree-flow-inline.h"
