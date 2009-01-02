@@ -112,5 +112,5 @@ extern bool default_addr_space_nop_convert_p (addr_space_t, addr_space_t);
 extern bool default_addr_space_subset_p (addr_space_t, addr_space_t,
 					 addr_space_t *);
 extern tree default_addr_space_section_name (addr_space_t);
-extern bool default_addr_space_static_init_ok_p (tree, addr_space_t,
+extern bool default_addr_space_static_init_ok_p (tree, tree, addr_space_t,
 						 addr_space_t);

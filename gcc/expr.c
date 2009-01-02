@@ -6889,6 +6889,7 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
 {
   enum machine_mode rmode;
   enum machine_mode addrmode;
+  enum machine_mode local_ptr_mode = ptr_mode;
   rtx result;
 
   /* Target mode of VOIDmode says "whatever's natural".  */
@@ -6900,13 +6901,13 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
     {
       addr_space_t addr_space = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
       if (addr_space)
-	addrmode = targetm.addr_space.pointer_mode (addr_space);
+	local_ptr_mode = addrmode = targetm.addr_space.pointer_mode (addr_space);
     }
 
   /* We can get called with some Weird Things if the user does silliness
      like "(short) &a".  In that case, convert_memory_address won't do
      the right thing, so ignore the given target mode.  */
-  if (tmode != addrmode && tmode != ptr_mode)
+  if (tmode != addrmode && tmode != local_ptr_mode)
     tmode = addrmode;
 
   result = expand_expr_addr_expr_1 (TREE_OPERAND (exp, 0), target,

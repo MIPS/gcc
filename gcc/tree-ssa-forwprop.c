@@ -589,8 +589,8 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
       && (useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (lhs, 0)),
 				     TREE_TYPE (def_rhs))
 	  /* So explicitly check for this here.  */
-	  || (TYPE_QUALS (TREE_TYPE (TREE_TYPE (TREE_OPERAND (lhs, 0))))
-	      ^ TYPE_QUALS (TREE_TYPE (TREE_TYPE (def_rhs)))) == TYPE_QUAL_CONST)
+	  || (TYPE_QUALS_NO_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (lhs, 0))))
+	      ^ TYPE_QUALS_NO_ADDR_SPACE (TREE_TYPE (TREE_TYPE (def_rhs)))) == TYPE_QUAL_CONST)
       /* ???  This looks redundant, but is required for bogus types
 	 that can sometimes occur.  */
       && useless_type_conversion_p (TREE_TYPE (lhs),
@@ -622,8 +622,8 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
       && (useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (rhs, 0)),
 				     TREE_TYPE (def_rhs))
 	  /* So explicitly check for this here.  */
-	  || (TYPE_QUALS (TREE_TYPE (TREE_TYPE (TREE_OPERAND (rhs, 0))))
-	      ^ TYPE_QUALS (TREE_TYPE (TREE_TYPE (def_rhs)))) == TYPE_QUAL_CONST)
+	  || (TYPE_QUALS_NO_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (rhs, 0))))
+	      ^ TYPE_QUALS_NO_ADDR_SPACE (TREE_TYPE (TREE_TYPE (def_rhs)))) == TYPE_QUAL_CONST)
       && useless_type_conversion_p (TREE_TYPE (rhs),
 				    TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
     {
@@ -972,11 +972,29 @@ tree_ssa_forward_propagate_single_use_vars (void)
 	      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 	      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
-
 	      if (TREE_CODE (lhs) != SSA_NAME)
 		{
 		  bsi_next (&bsi);
 		  continue;
+		}
+
+		  /* Don't propigate conversions between pointers to different
+		     named address spaces.  */
+	      if ((TREE_CODE (rhs) == NOP_EXPR
+		   || TREE_CODE (rhs) == CONVERT_EXPR)
+		  && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
+		  && POINTER_TYPE_P (TREE_TYPE (rhs)))
+		{
+		  tree type_outer = TREE_TYPE (rhs);
+		  tree type_inner = TREE_TYPE (TREE_OPERAND (rhs, 0));
+		  addr_space_t as_outer = TYPE_ADDR_SPACE (TREE_TYPE (type_outer));
+		  addr_space_t as_inner = TYPE_ADDR_SPACE (TREE_TYPE (type_inner));
+
+		  if (as_outer != as_inner)
+		    {
+		      bsi_next (&bsi);
+		      continue;
+		    }
 		}
 
 	      if (TREE_CODE (rhs) == ADDR_EXPR

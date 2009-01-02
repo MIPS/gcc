@@ -92,7 +92,8 @@ static void push_member_name (tree);
 static int spelling_length (void);
 static char *print_spelling (char *);
 static void warning_init (const char *);
-static tree digest_init (tree, tree, bool, int);
+static bool digest_init_addr_space_ok_p (tree, tree, addr_space_t);
+static tree digest_init (tree, tree, bool, int, addr_space_t);
 static void output_init_element (tree, bool, tree, tree, int);
 static void output_pending_init_elements (int);
 static int set_designator (int);
@@ -3527,6 +3528,16 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 	result_type = qualify_type (type2, type1);
       else if (null_pointer_constant_p (orig_op2))
 	result_type = qualify_type (type1, type2);
+      else if (((as1 = TYPE_ADDR_SPACE (TREE_TYPE (type1)))
+		!= (as2 = TYPE_ADDR_SPACE (TREE_TYPE (type2))))
+	       && (TYPE_MAIN_VARIANT (TREE_TYPE (type1))
+		   == TYPE_MAIN_VARIANT (TREE_TYPE (type2)))
+	       && !targetm.addr_space.subset_p (as1, as2, &as_common))
+	{
+	  error ("pointers to incompatible address spaces used in conditional "
+		 "expression");
+	  result_type = type1;
+	}
       else if (VOID_TYPE_P (TREE_TYPE (type1)))
 	{
 	  if (pedantic && TREE_CODE (TREE_TYPE (type2)) == FUNCTION_TYPE)
@@ -3542,16 +3553,6 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 		     "%<void *%> and function pointer");
 	  result_type = build_pointer_type (qualify_type (TREE_TYPE (type2),
 							  TREE_TYPE (type1)));
-	}
-      else if (((as1 = TYPE_ADDR_SPACE (TREE_TYPE (type1)))
-		!= (as2 = TYPE_ADDR_SPACE (TREE_TYPE (type2))))
-	       && (TYPE_MAIN_VARIANT (TREE_TYPE (type1))
-		   == TYPE_MAIN_VARIANT (TREE_TYPE (type2)))
-	       && !targetm.addr_space.subset_p (as1, as2, &as_common))
-	{
-	  error ("pointers to incompatible address spaces used in conditional "
-		 "expression");
-	  result_type = type1;
 	}
       else
 	{
@@ -3709,7 +3710,7 @@ build_c_cast (tree type, tree expr)
 	    pedwarn ("ISO C forbids casts to union type");
 	  t = digest_init (type,
 			   build_constructor_single (type, field, value),
-			   true, 0);
+			   true, 0, 0);
 	  TREE_CONSTANT (t) = TREE_CONSTANT (value);
 	  TREE_INVARIANT (t) = TREE_INVARIANT (value);
 	  return t;
@@ -4582,7 +4583,8 @@ store_init_value (tree decl, tree init)
 
   /* Digest the specified initializer into an expression.  */
 
-  value = digest_init (type, init, true, TREE_STATIC (decl));
+  value = digest_init (type, init, true, TREE_STATIC (decl),
+		       TYPE_ADDR_SPACE (TREE_TYPE (decl)));
 
   /* Store the expression if valid; else report error.  */
 
@@ -4806,6 +4808,41 @@ maybe_warn_string_init (tree type, struct c_expr expr)
     pedwarn_init ("array initialized from parenthesized string constant");
 }
 
+/* Subroutine of digest_init to allow the backend to restrict what type of
+   static initializations are allowed for named address spaces.  Return true if
+   the initialization is valid.  */
+
+static bool
+digest_init_addr_space_ok_p (tree type, tree init, addr_space_t as)
+{
+  addr_space_t ptr_as = 0;
+
+  if (init == error_mark_node)
+    return false;
+
+  if (POINTER_TYPE_P (TREE_TYPE (init)))
+    ptr_as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (init)));
+
+  /* See if initializing elements in a named address space is ok.  */
+  if (as && !targetm.addr_space.static_init_ok_p (type, init, as, ptr_as))
+    {
+      error_init ("initializer element is not allowed in named address space");
+      return false;
+    }
+
+  /* Check for initializing pointers to a named address space.  */
+  else if (ptr_as
+	   && !targetm.addr_space.static_init_ok_p (type, init, as, ptr_as))
+    {
+      error_init ("initializer element pointing to a named address space "
+		  "is not allowed");
+      return false;
+    }
+
+  else
+    return true;
+}
+
 /* Digest the parser output INIT as an initializer for type TYPE.
    Return a C expression of type TYPE to represent the initial value.
 
@@ -4814,10 +4851,13 @@ maybe_warn_string_init (tree type, struct c_expr expr)
    For other types of INIT, STRICT_STRING is not used.
 
    REQUIRE_CONSTANT requests an error if non-constant initializers or
-   elements are seen.  */
+   elements are seen.
+
+   AS is non-zero if the declaration is in a named address space.  */
 
 static tree
-digest_init (tree type, tree init, bool strict_string, int require_constant)
+digest_init (tree type, tree init, bool strict_string, int require_constant,
+	     addr_space_t as)
 {
   enum tree_code code = TREE_CODE (type);
   tree inside_init = init;
@@ -4857,6 +4897,10 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	  char_string
 	    = (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (inside_init)))
 	       == char_type_node);
+
+	  if (require_constant
+	      && !digest_init_addr_space_ok_p (type, inside_init, as))
+	    return error_mark_node;
 
 	  if (comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
 			 TYPE_MAIN_VARIANT (type)))
@@ -4907,6 +4951,10 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
       && vector_types_convertible_p (TREE_TYPE (inside_init), type, true)
       && TREE_CONSTANT (inside_init))
     {
+      if (require_constant
+	  && !digest_init_addr_space_ok_p (type, inside_init, as))
+	return error_mark_node;
+
       if (TREE_CODE (inside_init) == VECTOR_CST
 	  && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
 			TYPE_MAIN_VARIANT (type)))
@@ -5013,6 +5061,9 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	  error_init ("initializer element is not constant");
 	  inside_init = error_mark_node;
 	}
+      else if (require_constant
+	       && !digest_init_addr_space_ok_p (type, inside_init, as))
+	inside_init = error_mark_node;
 
       /* Added to enable additional -Wmissing-format-attribute warnings.  */
       if (TREE_CODE (TREE_TYPE (inside_init)) == POINTER_TYPE)
@@ -5050,6 +5101,9 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	  error_init ("initializer element is not computable at load time");
 	  inside_init = error_mark_node;
 	}
+      else if (require_constant
+	       && !digest_init_addr_space_ok_p (type, inside_init, as))
+	inside_init = error_mark_node;
 
       return inside_init;
     }
@@ -6433,7 +6487,8 @@ output_init_element (tree value, bool strict_string, tree type, tree field,
 		  || TREE_CHAIN (field)))))
     return;
 
-  value = digest_init (type, value, strict_string, require_constant_value);
+  value = digest_init (type, value, strict_string, require_constant_value,
+		       TYPE_ADDR_SPACE (type));
   if (value == error_mark_node)
     {
       constructor_erroneous = 1;

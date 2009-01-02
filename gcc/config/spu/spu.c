@@ -142,6 +142,7 @@ static int spu_builtin_vectorization_cost (bool);
 static bool spu_vector_alignment_reachable (const_tree, bool);
 static int spu_sms_res_mii (struct ddg *g);
 static void asm_file_start (void);
+static bool spu_no_relocation (tree, tree);
 
 extern const char *reg_names[];
 rtx spu_compare_op0, spu_compare_op1;
@@ -256,7 +257,8 @@ static tree spu_addr_space_section_name (addr_space_t);
 #undef TARGET_ADDR_SPACE_SECTION_NAME
 #define TARGET_ADDR_SPACE_SECTION_NAME spu_addr_space_section_name
 
-static bool spu_addr_space_static_init_ok_p (tree, addr_space_t, addr_space_t);
+static bool spu_addr_space_static_init_ok_p (tree, tree, addr_space_t,
+					     addr_space_t);
 #undef TARGET_ADDR_SPACE_STATIC_INIT_OK_P
 #define TARGET_ADDR_SPACE_STATIC_INIT_OK_P spu_addr_space_static_init_ok_p
 
@@ -279,6 +281,15 @@ static bool spu_valid_pointer_mode (enum machine_mode mode);
 
 #undef TARGET_ASM_ALIGNED_DI_OP
 #define TARGET_ASM_ALIGNED_DI_OP "\t.quad\t"
+
+/* The current assembler doesn't like .4byte foo@ppu, so use the normal .long
+   and .quad for the debugger.  When it is known that the assembler is fixed,
+   these can be removed.  */
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP	"\t.long\t"
+
+#undef TARGET_ASM_UNALIGNED_DI_OP
+#define TARGET_ASM_UNALIGNED_DI_OP	"\t.quad\t"
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS spu_rtx_costs
@@ -6735,26 +6746,87 @@ spu_addr_space_section_name (addr_space_t addrspace)
   return spu_ea_name;
 }
 
+/* Return true if the tree contains any elements that require relocation that
+   would not be allowed to initialize a __ea memory address space.  */
+
 static bool
-spu_addr_space_static_init_ok_p (tree ARG_UNUSED (value),
-				 addr_space_t asl,
-				 addr_space_t asr)
+spu_no_relocation (tree type, tree init)
 {
-  gcc_assert (asl == ADDR_SPACE_GENERIC || asl == ADDR_SPACE_EA);
-  gcc_assert (asr == ADDR_SPACE_GENERIC || asr == ADDR_SPACE_EA);
+  bool ret;
+  unsigned HOST_WIDE_INT idx;
+  tree value;
+  tree field;
 
-#if 0
-  fprintf (stderr, "\nInitialize asl = %s, asr = %s:\n",
-	   (asl) ? "generic" : "__ea",
-	   (asr) ? "generic" : "__ea");
+  switch (TREE_CODE (init))
+    {
+    default:
+      ret = false;
+      break;
 
-  debug_tree (value);
-#endif
+      /* Constants are not relocatable.  */
+    case REAL_CST:
+    case FIXED_CST:
+    case COMPLEX_CST:
+    case INTEGER_CST:
+      ret = true;
+      break;
 
-  if (asl == ADDR_SPACE_GENERIC && asr == ADDR_SPACE_GENERIC)
-    return true;
+      /* Strings are ok if we are initializing a char array of some sort.  */
+    case STRING_CST:
+      ret = (type != NULL_TREE
+	     && TREE_CODE (type) == ARRAY_TYPE
+	     && TYPE_STRING_FLAG (TREE_TYPE (type)));
+      break;
 
-  return false;
+      /* Support a limited number of conversions.  */
+    case CONVERT_EXPR:
+    case NOP_EXPR:
+      ret = spu_no_relocation (type, TREE_OPERAND (init, 0));
+      break;
+
+      /* Decode the constructor.  */
+    case CONSTRUCTOR:
+      ret = true;
+      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), idx, field, value)
+	{
+	  if (value && !spu_no_relocation (TREE_TYPE (field), value))
+	    {
+	      ret = false;
+	      break;
+	    }
+	}
+      break;
+    }
+
+  return ret;
+}
+
+static bool
+spu_addr_space_static_init_ok_p (tree type,
+				 tree init,
+				 addr_space_t as,
+				 addr_space_t as_ptr)
+{
+  bool ret;
+
+  if (init == error_mark_node)
+    ret = false;
+
+  /* Normal initializations are ok.  */
+  else if (as == ADDR_SPACE_GENERIC && as_ptr == ADDR_SPACE_GENERIC)
+    ret = true;
+
+  else
+    {
+      /* Don't allow things that need relocations in or pointing to the __ea
+	 address space.  */
+      gcc_assert (as == ADDR_SPACE_GENERIC || as == ADDR_SPACE_EA);
+      gcc_assert (as_ptr == ADDR_SPACE_GENERIC || as_ptr == ADDR_SPACE_EA);
+
+      ret = spu_no_relocation (type, init);
+    }
+
+  return ret;
 }
 
 /* An early place to adjust some flags after GCC has finished processing
