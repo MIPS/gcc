@@ -1003,6 +1003,17 @@ refs_may_alias_p (tree ref1, tree ref2)
 	return false;
     }
 
+  /* If both bases are based on pointers they cannot alias if they may not
+     point to the same memory object.  */
+  else if (INDIRECT_REF_P (base1)
+	   && INDIRECT_REF_P (base2))
+    {
+      if (!may_point_to_same_object (TREE_OPERAND (base1, 0),
+				     TREE_OPERAND (base2, 0)))
+	return false;
+    }
+
+
   /* If one base is a ref-all pointer or a TARGET_MEM_REF weird things
      are allowed.  */
   strict_aliasing_applies = (flag_strict_aliasing

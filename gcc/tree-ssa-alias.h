@@ -47,6 +47,7 @@ enum escape_type
 extern enum escape_type is_escape_site (gimple);
 extern bool may_point_to_global_var (tree);
 extern bool may_point_to_decl (tree, tree);
+extern bool may_point_to_same_object (tree, tree);
 extern bool ref_may_used_by_stmt_p (gimple, tree);
 extern bool stmt_may_clobber_ref_p (gimple, tree);
 extern void *walk_non_aliased_vuses (tree, tree,

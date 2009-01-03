@@ -2765,10 +2765,21 @@ get_constraint_for_ptr_offset (tree ptr, tree offset,
   struct constraint_expr *c;
   unsigned int j, n;
   unsigned HOST_WIDE_INT rhsunitoffset, rhsoffset;
+  varinfo_t vi;
+  tree var;
 
   /* If we do not do field-sensitive PTA adding offsets to pointers
      does not change the points-to solution.  */
-  if (!use_field_sensitive)
+  if (!use_field_sensitive
+      /* The same is true if we are offsetting a variable that has not
+         been decomposed.
+	 ???  This can be done more generally as well, with support in
+	      the solver.  */
+      || (TREE_CODE (ptr) == ADDR_EXPR
+	  && (var = get_base_address (TREE_OPERAND (ptr, 0)))
+	  && DECL_P (var)
+	  && (vi = get_vi_for_tree (var))
+	  && vi->is_full_var))
     {
       get_constraint_for (ptr, results);
       return;
@@ -3881,20 +3892,50 @@ find_func_aliases (gimple origt)
     }
   else if (stmt_escape_type == ESCAPE_TO_ASM)
     {
-      unsigned i;
-      for (i = 0; i < gimple_asm_noutputs (t); ++i)
+      unsigned i, noutputs;
+      const char **oconstraints;
+      const char *constraint;
+      bool allows_mem, allows_reg, is_inout;
+
+      noutputs = gimple_asm_noutputs (t);
+      oconstraints = XALLOCAVEC (const char *, noutputs);
+
+      for (i = 0; i < noutputs; ++i)
 	{
-	  tree op = TREE_VALUE (gimple_asm_output_op (t, i));
+	  tree link = gimple_asm_output_op (t, i);
+	  tree op = TREE_VALUE (link);
+
+	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+	  oconstraints[i] = constraint;
+	  parse_output_constraint (&constraint, i, 0, 0, &allows_mem,
+				   &allows_reg, &is_inout);
+
+	  /* A memory constraint makes the address of the operand escape.  */
+	  if (!allows_reg && allows_mem)
+	    make_escape_constraint (build_fold_addr_expr (op));
+
 	  if (op && could_have_pointers (op))
-	    /* Strictly we'd only need the constraints from ESCAPED and
-	       NONLOCAL.  */
-	    make_escape_constraint (op);
+	    /* The asm may read global memory, so outputs may point to
+	       any escaped memory.  */
+	    handle_lhs_call (op, 0);
 	}
       for (i = 0; i < gimple_asm_ninputs (t); ++i)
 	{
-	  tree op = TREE_VALUE (gimple_asm_input_op (t, i));
-	  if (op && could_have_pointers (op))
-	    /* Strictly we'd only need the constraint to ESCAPED.  */
+	  tree link = gimple_asm_input_op (t, i);
+	  tree op = TREE_VALUE (link);
+
+	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+
+	  parse_input_constraint (&constraint, 0, 0, noutputs, 0, oconstraints,
+				  &allows_mem, &allows_reg);
+
+	  /* A memory constraint makes the address of the operand escape.  */
+	  if (!allows_reg && allows_mem)
+	    make_escape_constraint (build_fold_addr_expr (op));
+	  /* Strictly we'd only need the constraint to ESCAPED if
+	     the asm clobbers memory, otherwise using CALLUSED
+	     would be enough.  */
+	  else if (op && could_have_pointers (op))
 	    make_escape_constraint (op);
 	}
     }
@@ -4864,9 +4905,11 @@ find_what_var_points_to (varinfo_t vi, struct pt_solution *pt,
 	         it somewhere.  */
 	      pt->anything = 1;
 	    }
-	  else if (vi->id == nonlocal_id
-		   || vi->is_heap_var)
+	  else if (vi->id == nonlocal_id)
 	    pt->nonlocal = 1;
+	  else if (vi->is_heap_var)
+	    /* We represent heapvars in the points-to set properly.  */
+	    ;
 	  else if (vi->id == anything_id
 		   || vi->id == callused_id
 		   || vi->id == readonly_id

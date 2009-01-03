@@ -590,7 +590,14 @@ is_global_var (const_tree t)
 static inline bool
 may_be_aliased (tree var)
 {
-  return TREE_ADDRESSABLE (var) || is_global_var (var);
+  return (is_global_var (var)
+	  || (TREE_ADDRESSABLE (var)
+	      /* TREE_ADDRESSABLE is a pre-requesite for sth to have its
+	         address taken, but for aggregates only the addressable
+		 vars bitmap is a precise answer.  */
+	      && (!gimple_addressable_vars (cfun)
+		  || bitmap_bit_p (gimple_addressable_vars (cfun),
+				   DECL_UID (var)))));
 }
 
 

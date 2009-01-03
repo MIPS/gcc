@@ -134,6 +134,47 @@ may_point_to_decl (tree ptr, tree decl)
   return false;
 }
 
+/* Return true if PTR1 and PTR2 may point to the same memory object.  */
+
+bool
+may_point_to_same_object (tree ptr1, tree ptr2)
+{
+  struct ptr_info_def *pi1, *pi2;
+
+  /* ???  During SCCVN/PRE we can end up with *&x during valueizing
+     operands.  Likewise we can end up with dereferencing constant
+     pointers.  Just bail out in these cases for now.  */
+  if (TREE_CODE (ptr1) == ADDR_EXPR
+      || TREE_CODE (ptr1) == INTEGER_CST
+      || TREE_CODE (ptr2) == ADDR_EXPR
+      || TREE_CODE (ptr2) == INTEGER_CST)
+    return true;
+
+  gcc_assert (TREE_CODE (ptr1) == SSA_NAME
+	      && TREE_CODE (ptr2) == SSA_NAME);
+
+  /* If we do not have useful points-to information for either pointer
+     we cannot disambiguate anything else.  */
+  pi1 = SSA_NAME_PTR_INFO (ptr1);
+  pi2 = SSA_NAME_PTR_INFO (ptr2);
+  if (!pi1 || !pi2
+      || pi1->pt.anything || pi2->pt.anything)
+    return true;
+
+  /* If either points to unknown global memory and the other points to
+     any global memory they alias.  */
+  if ((pi1->pt.nonlocal
+       && (pi2->pt.nonlocal
+	   || pi2->pt.vars_contains_global))
+      || (pi2->pt.nonlocal
+	  && pi1->pt.vars_contains_global))
+    return true;
+
+  /* Now both pointers alias if their points-to solution intersects.  */
+  return (pi1->pt.vars
+	  && pi2->pt.vars
+	  && bitmap_intersect_p (pi1->pt.vars, pi2->pt.vars));
+}
 
 /* Return true if STMT is an "escape" site from the current function.  Escape
    sites those statements which might expose the address of a variable
@@ -340,10 +381,15 @@ ref_may_used_by_call_p (gimple call ATTRIBUTE_UNUSED, tree ref)
   tree base = get_base_address (ref);
   unsigned i;
 
+  /* If the reference is not based on a decl give up.
+     ???  Handle indirect references by intersecting the call-used
+     	  solution with that of the pointer.  */
+  if (!base
+      || !DECL_P (base))
+    return true;
+
   /* If the base variable is call-used then it may be used.  */
-  if (base
-      && DECL_P (base)
-      && is_call_used (base))
+  if (is_call_used (base))
     return true;
 
   /* Inspect call arguments for passed-by-value aliases.  */
