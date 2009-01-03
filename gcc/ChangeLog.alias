@@ -1,4 +1,8 @@
-2008-01-03  Richard Guenther  <rguenther@suse.de>
+2009-01-03  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r143032.
+
+2009-01-03  Richard Guenther  <rguenther@suse.de>
 
 	* tree-flow-inline.h (may_be_aliased): Query the addressable
 	vars bitmap in addition to checking TREE_ADDRESSABLE.

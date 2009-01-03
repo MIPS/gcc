@@ -2366,7 +2366,7 @@ compute_antic (void)
 	fprintf (dump_file, "Starting iteration %d\n", num_iterations);
       num_iterations++;
       changed = false;
-      for (i = 0; i < last_basic_block - NUM_FIXED_BLOCKS; i++)
+      for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
 	{
 	  if (TEST_BIT (changed_blocks, postorder[i]))
 	    {
@@ -2397,7 +2397,7 @@ compute_antic (void)
 	    fprintf (dump_file, "Starting iteration %d\n", num_iterations);
 	  num_iterations++;
 	  changed = false;
-	  for (i = 0; i < last_basic_block - NUM_FIXED_BLOCKS; i++)
+	  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
 	    {
 	      if (TEST_BIT (changed_blocks, postorder[i]))
 		{
