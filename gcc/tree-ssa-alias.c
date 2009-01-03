@@ -446,45 +446,73 @@ stmt_may_clobber_ref_p (gimple stmt, tree ref)
   return false;
 }
 
-/* For a phi-node PHI for the virtual operand get the argument that
-   represents the single incoming edge into a loop if REF is invariant
-   in that loop.  */
+/* Walk the virtual use-def chain of VUSE until hitting the virtual operand
+   TARGET or a statement clobbering the memory reference REF in which
+   case false is returned.  The walk starts with VUSE, one argument of PHI.  */
+
+static bool
+maybe_skip_until (gimple phi, tree target, tree ref, tree vuse)
+{
+  /* Walk until we hit the target.  */
+  while (vuse != target)
+    {
+      gimple def_stmt = SSA_NAME_DEF_STMT (vuse);
+      /* The original PHI node ends the walk successfully.  */
+      if (gimple_code (def_stmt) == GIMPLE_PHI)
+	return (def_stmt == phi);
+      /* A clobbering statement or the end of the IL ends it failing.  */
+      else if (gimple_nop_p (def_stmt)
+	       || stmt_may_clobber_ref_p (def_stmt, ref))
+	return false;
+      vuse = gimple_vuse (def_stmt);
+    }
+  return true;
+}
+
+/* Starting from a PHI node for the virtual operand of the memory reference
+   REF find a continuation virtual operand that allows to continue walking
+   statements dominating PHI skipping only statements that do not possibly
+   clobber REF.  Returns NULL_TREE if no suitable virtual operand can
+   be found.  */
 
 static tree
-get_single_incoming_phi_arg_for_maybe_loop_invariant_ref (gimple phi, tree ref)
+get_continuation_for_phi (gimple phi, tree ref)
 {
-  tree def_arg = NULL_TREE;
-  unsigned i;
+  unsigned nargs = gimple_phi_num_args (phi);
 
-  for (i = 0; i < gimple_phi_num_args (phi); ++i)
+  /* Through a single-argument PHI we can simply look through.  */
+  if (nargs == 1)
+    return PHI_ARG_DEF (phi, 0);
+
+  /* For two arguments try to skip non-aliasing code until we hit
+     the phi argument definition that dominates the other one.  */
+  if (nargs == 2)
     {
-      tree arg = PHI_ARG_DEF (phi, i);
-      gimple def_stmt;
+      tree arg0 = PHI_ARG_DEF (phi, 0);
+      tree arg1 = PHI_ARG_DEF (phi, 1);
+      gimple def0 = SSA_NAME_DEF_STMT (arg0);
+      gimple def1 = SSA_NAME_DEF_STMT (arg1);
 
-      if (!(gimple_phi_arg_edge (phi, i)->flags & EDGE_DFS_BACK))
+      if (arg0 == arg1)
+	return arg0;
+      else if (gimple_nop_p (def0)
+	       || (!gimple_nop_p (def1)
+		   && dominated_by_p (CDI_DOMINATORS,
+				      gimple_bb (def1), gimple_bb (def0))))
 	{
-	  /* Multiple non-back edges?  Do not try to handle this.  */
-	  if (def_arg)
-	    return NULL_TREE;
-	  def_arg = arg;
-	  continue;
+	  if (maybe_skip_until (phi, arg0, ref, arg1))
+	    return arg0;
 	}
-
-      /* Follow the definitions back to the original PHI node.  Bail
-	 out once a definition is found that may clobber REF.  */
-      def_stmt = SSA_NAME_DEF_STMT (arg);
-      do
+      else if (gimple_nop_p (def1)
+	       || dominated_by_p (CDI_DOMINATORS,
+				  gimple_bb (def0), gimple_bb (def1)))
 	{
-	  if (gimple_code (def_stmt) == GIMPLE_PHI
-	      || gimple_nop_p (def_stmt)
-	      || stmt_may_clobber_ref_p (def_stmt, ref))
-	    return NULL;
-	  def_stmt = SSA_NAME_DEF_STMT (gimple_vuse (def_stmt));
+	  if (maybe_skip_until (phi, arg1, ref, arg0))
+	    return arg1;
 	}
-      while (def_stmt != phi);
     }
 
-  return def_arg;
+  return NULL_TREE;
 }
 
 /* Based on the memory reference REF and its virtual use VUSE call
@@ -515,8 +543,7 @@ walk_non_aliased_vuses (tree ref, tree vuse,
       if (gimple_nop_p (def_stmt))
 	return NULL;
       else if (gimple_code (def_stmt) == GIMPLE_PHI)
-	vuse = get_single_incoming_phi_arg_for_maybe_loop_invariant_ref
-	         (def_stmt, ref);
+	vuse = get_continuation_for_phi (def_stmt, ref);
       else
 	{
 	  if (stmt_may_clobber_ref_p (def_stmt, ref))
