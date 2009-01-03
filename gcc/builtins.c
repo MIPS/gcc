@@ -1094,8 +1094,17 @@ expand_builtin_prefetch (tree exp)
 static rtx
 get_memory_rtx (tree exp, tree len)
 {
-  rtx addr = expand_expr (exp, NULL_RTX, ptr_mode, EXPAND_NORMAL);
-  rtx mem = gen_rtx_MEM (BLKmode, memory_address (BLKmode, addr));
+  tree orig_exp = exp;
+  rtx addr, mem;
+  HOST_WIDE_INT off;
+
+  /* When EXP is not resolved SAVE_EXPR, MEM_ATTRS can be still derived
+     from its expression, for expr->a.b only <variable>.a.b is recorded.  */
+  if (TREE_CODE (exp) == SAVE_EXPR && !SAVE_EXPR_RESOLVED_P (exp))
+    exp = TREE_OPERAND (exp, 0);
+
+  addr = expand_expr (orig_exp, NULL_RTX, ptr_mode, EXPAND_NORMAL);
+  mem = gen_rtx_MEM (BLKmode, memory_address (BLKmode, addr));
 
   /* Get an expression we can use to find the attributes to assign to MEM.
      If it is an ADDR_EXPR, use the operand.  Otherwise, dereference it if
@@ -1104,7 +1113,13 @@ get_memory_rtx (tree exp, tree len)
 	 && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0))))
     exp = TREE_OPERAND (exp, 0);
 
-  if (TREE_CODE (exp) == ADDR_EXPR)
+  off = 0;
+  if (TREE_CODE (exp) == POINTER_PLUS_EXPR
+      && TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
+      && host_integerp (TREE_OPERAND (exp, 1), 0)
+      && (off = tree_low_cst (TREE_OPERAND (exp, 1), 0)) > 0)
+    exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  else if (TREE_CODE (exp) == ADDR_EXPR)
     exp = TREE_OPERAND (exp, 0);
   else if (POINTER_TYPE_P (TREE_TYPE (exp)))
     exp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (exp)), exp);
@@ -1117,6 +1132,9 @@ get_memory_rtx (tree exp, tree len)
   if (exp)
     {
       set_mem_attributes (mem, exp, 0);
+
+      if (off)
+	mem = adjust_automodify_address_nv (mem, BLKmode, NULL, off);
 
       /* Allow the string and memory builtins to overflow from one
 	 field into another, see http://gcc.gnu.org/PR23561.
@@ -7682,7 +7700,7 @@ fold_builtin_sqrt (tree arg, tree type)
 	  tree tree_root;
 	  /* The inner root was either sqrt or cbrt.  */
 	  /* This was a conditional expression but it triggered a bug
-	     in the Solaris 8 compiler.  */
+	     in Sun C 5.5.  */
 	  REAL_VALUE_TYPE dconstroot;
 	  if (BUILTIN_SQRT_P (fcode))
 	    dconstroot = dconsthalf;
@@ -10797,6 +10815,22 @@ fold_builtin_varargs (tree fndecl, tree exp, bool ignore ATTRIBUTE_UNUSED)
   return NULL_TREE;
 }
 
+/* Return true if FNDECL shouldn't be folded right now.
+   If a built-in function has an inline attribute always_inline
+   wrapper, defer folding it after always_inline functions have
+   been inlined, otherwise e.g. -D_FORTIFY_SOURCE checking
+   might not be performed.  */
+
+static bool
+avoid_folding_inline_builtin (tree fndecl)
+{
+  return (DECL_DECLARED_INLINE_P (fndecl)
+	  && DECL_DISREGARD_INLINE_LIMITS (fndecl)
+	  && cfun
+	  && !cfun->always_inline_functions_inlined
+	  && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fndecl)));
+}
+
 /* A wrapper function for builtin folding that prevents warnings for
    "statement without effect" and the like, caused by removing the
    call node earlier than the warning is generated.  */
@@ -10828,6 +10862,9 @@ fold_call_expr (tree exp, bool ignore)
 	      && DECL_FUNCTION_CODE (fndecl2) == BUILT_IN_VA_ARG_PACK)
 	    return NULL_TREE;
 	}
+
+      if (avoid_folding_inline_builtin (fndecl))
+	return NULL_TREE;
 
       /* FIXME: Don't use a list in this interface.  */
       if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
@@ -10931,6 +10968,8 @@ fold_builtin_call_array (tree type,
 		&& DECL_FUNCTION_CODE (fndecl2) == BUILT_IN_VA_ARG_PACK)
 	      return build_call_array (type, fn, n, argarray);
 	  }
+	if (avoid_folding_inline_builtin (fndecl))
+	  return build_call_array (type, fn, n, argarray);
         if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
           {
             tree arglist = NULL_TREE;
@@ -10939,6 +10978,7 @@ fold_builtin_call_array (tree type,
             ret = targetm.fold_builtin (fndecl, arglist, false);
             if (ret)
               return ret;
+	    return build_call_array (type, fn, n, argarray);
           }
         else if (n <= MAX_ARGS_TO_FOLD_BUILTIN)
           {
@@ -13647,6 +13687,8 @@ fold_call_stmt (gimple stmt, bool ignore)
     {
       int nargs = gimple_call_num_args (stmt);
 
+      if (avoid_folding_inline_builtin (fndecl))
+	return NULL_TREE;
       /* FIXME: Don't use a list in this interface.  */
       if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
         {

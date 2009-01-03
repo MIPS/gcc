@@ -1,3 +1,92 @@
+2008-12-31  Daniel Franke  <franke.daniel@gmail.com>
+
+	* check.c (dim_rank_check): Fixed checking of dimension argument
+	if array is of type EXPR_ARRAY.
+
+2008-12-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38602
+	* trans-decl.c (init_intent_out_dt): Allow for optional args.
+
+2008-12-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/38398
+	* io.c: Add error checks for g0 formatting and provide adjustment of
+	error loci for improved error messages.
+
+2008-12-21  Arjen Markus  <arjen.markus@wldelft.nl>
+	    Daniel Kraft  <d@domob.eu>
+
+	PR fortran/37605
+	* gfortran.texi: Fixed some typos and some minor style improvements.
+	* intrinsic.texi: Some clarifications and typo-fixes.
+	* invoke.texi: Better documenation of the behaviour of the
+	-fdefault-*-8 options and some other fixes.
+
+2008-12-18  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/31822
+	* gfortran.h (gfc_check_same_strlen): Made public.
+	* trans.h (gfc_trans_same_strlen_check): Made public.
+	* check.c (gfc_check_same_strlen): Made public and adapted error
+	message output to be useful not only for intrinsics.
+	(gfc_check_merge): Adapt to gfc_check_same_strlen change.
+	* expr.c (gfc_check_pointer_assign): Use gfc_check_same_strlen for
+	string length compile-time check.
+	* trans-expr.c (gfc_trans_pointer_assignment): Add runtime-check for
+	equal string lengths using gfc_trans_same_strlen_check.
+	* trans-intrinsic.c (gfc_trans_same_strlen_check): Renamed and made
+	public from conv_same_strlen_check.
+	(gfc_conv_intrinsic_merge): Adapted accordingly.
+
+2008-12-17  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/38137
+	* trans-intrinsic.c (conv_same_strlen_check): New method.
+	(gfc_conv_intrinsic_merge): Call it here to actually do the check.
+
+2008-12-15  Mikael Morin  <mikael.morin@tele2.fr>
+
+	PR fortran/38487
+	* dependency.c (gfc_is_data_pointer): New function.
+	(gfc_check_argument_var_dependency): Disable the warning
+	in the pointer case.
+	(gfc_check_dependency): Use gfc_is_data_pointer.
+
+2008-12-15  Mikael Morin  <mikael.morin@tele2.fr>
+
+	PR fortran/38113
+	* error.c (show_locus): Start counting columns at 0.
+	* primary.c (match_actual_arg): Eat spaces
+	before copying the current locus.
+	(match_variable): Copy the locus before matching.
+
+2008-12-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35937
+	* trans-expr.c (gfc_finish_interface_mapping): Fold convert the
+	character length to gfc_charlen_type_node.
+
+2008-12-12  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/36355
+	* check.c (gfc_check_matmul): Fixed error message for invalid
+	types to correctly identify the offending argument, added check
+	for mismatching types.
+
+2008-12-11  Richard Guenther  <rguenther@suse.de>
+
+	* Make-lang.in (install-finclude-dir): Use correct mode argument
+	for mkinstalldirs.
+
+2008-12-09  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/36376
+	PR fortran/37468
+	* lang-specs.h: Pass on -i* options to f951 to (probably) report
+	them as unknown. Duplicate gcc.c (cpp_options), but omit
+	-fpch-preprocess on -save-temps.
+
 2008-12-09  Daniel Franke  <franke.daniel@gmail.com>
 
 	PR fortran/36457

@@ -3645,10 +3645,7 @@ compute_avail (void)
 
 	      add_to_value (get_expr_value_id (e), e);
 	      if (!in_fre)
-		{
-		  bitmap_insert_into_set (TMP_GEN (block), e);
-		  bitmap_value_insert_into_set (maximal_set, e);
-		}
+		bitmap_insert_into_set (TMP_GEN (block), e);
 	      bitmap_value_insert_into_set (AVAIL_OUT (block), e);
 	    }
 
@@ -3717,6 +3714,7 @@ compute_avail (void)
 		    if (is_exception_related (stmt))
 		      continue;
 		  case tcc_binary:
+		  case tcc_comparison:
 		    {
 		      vn_nary_op_t nary;
 		      unsigned int i;
