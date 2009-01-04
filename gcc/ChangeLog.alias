@@ -1,5 +1,12 @@
 2009-01-04  Richard Guenther  <rguenther@suse.de>
 
+	* tree-dfa.c (refs_may_alias_p): Disambiguate using alias
+	sets of the bases.
+	* tree-ssa-operands.c (create_ssa_artificial_load_stmt): Add
+	the virtual operand in SSA form.
+  
+2009-01-04  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-structalias.c (intra_create_variable_infos): Add
 	constraints for a result decl that is passed by hidden reference.
 	* tree-ssa-alias.c (may_point_to_same_object): Make two identical

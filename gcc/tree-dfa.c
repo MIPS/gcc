@@ -1049,6 +1049,12 @@ refs_may_alias_p (tree ref1, tree ref2)
 			      TREE_OPERAND (base2, 0), 0)))
     return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
 
+  /* If the base objects do not conflict, references based on them
+     cannot either.  */
+  if (strict_aliasing_applies
+      && !alias_sets_conflict_p (get_alias_set (base1), get_alias_set (base2)))
+    return false;
+
   /* If both are component references through pointers try to find a
      common base and apply offset based disambiguation.  This handles
      for example
@@ -1093,9 +1099,6 @@ refs_may_alias_p (tree ref1, tree ref2)
 	  offset1 -= offadj;
 	  return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
 	}
-      /* If we can be sure to catch all equivalent types in the search
-	 for the common base then we could return false here.  In that
-	 case we would be able to disambiguate q->i and p->k.  */
     }
 
   return true;

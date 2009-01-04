@@ -1774,9 +1774,10 @@ create_ssa_artificial_load_stmt (gimple new_stmt, gimple old_stmt,
   bitmap_clear (build_stores);
 
   /* For each VDEF on the original statement, we want to create a
-     VUSE of the VDEF result operand on the new statement.  */
+     VUSE of the VDEF result operand on the new statement.
+     ???  All this function can be simplified very much.  */
   FOR_EACH_SSA_TREE_OPERAND (op, old_stmt, iter, SSA_OP_VDEF)
-    append_vuse ();
+    VEC_safe_push (tree, heap, build_vuses, op);
 
   finalize_ssa_stmt_operands (new_stmt);
 
