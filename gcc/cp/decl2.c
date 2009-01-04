@@ -572,9 +572,14 @@ check_classfn (tree ctype, tree function, tree template_parms)
      either were not passed, or they are the same of DECL_TEMPLATE_PARMS.  */
   if (TREE_CODE (function) == TEMPLATE_DECL)
     {
-      gcc_assert (!template_parms
-		  || comp_template_parms (template_parms,
-					  DECL_TEMPLATE_PARMS (function)));
+      if (template_parms
+	  && !comp_template_parms (template_parms,
+				   DECL_TEMPLATE_PARMS (function)))
+	{
+	  error ("template parameter lists provided don't match the "
+		 "template parameters of %qD", function);
+	  return error_mark_node;
+	}
       template_parms = DECL_TEMPLATE_PARMS (function);
     }
 
@@ -638,8 +643,9 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	  return OVL_CURRENT (fndecls);
 	}
       
-      error ("prototype for %q#D does not match any in class %qT",
-	     function, ctype);
+      error_at (DECL_SOURCE_LOCATION (function),
+		"prototype for %q#D does not match any in class %qT",
+		function, ctype);
       is_conv_op = DECL_CONV_FN_P (fndecl);
 
       if (is_conv_op)
@@ -802,7 +808,17 @@ grokfield (const cp_declarator *declarator,
 	value = push_template_decl (value);
 
       if (attrlist)
-	cplus_decl_attributes (&value, attrlist, 0);
+	{
+	  int attrflags = 0;
+
+	  /* If this is a typedef that names the class for linkage purposes
+	     (7.1.3p8), apply any attributes directly to the type.  */
+	  if (TAGGED_TYPE_P (TREE_TYPE (value))
+	      && value == TYPE_NAME (TYPE_MAIN_VARIANT (TREE_TYPE (value))))
+	    attrflags = ATTR_FLAG_TYPE_IN_PLACE;
+
+	  cplus_decl_attributes (&value, attrlist, attrflags);
+	}
 
       return value;
     }
@@ -2529,14 +2545,16 @@ get_guard_cond (tree guard)
       guard_value = integer_one_node;
       if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
 	guard_value = convert (TREE_TYPE (guard), guard_value);
-      guard = cp_build_binary_op (BIT_AND_EXPR, guard, guard_value,
+      guard = cp_build_binary_op (input_location,
+				  BIT_AND_EXPR, guard, guard_value,
 				  tf_warning_or_error);
     }
 
   guard_value = integer_zero_node;
   if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
     guard_value = convert (TREE_TYPE (guard), guard_value);
-  return cp_build_binary_op (EQ_EXPR, guard, guard_value,
+  return cp_build_binary_op (input_location,
+			     EQ_EXPR, guard, guard_value,
 			     tf_warning_or_error);
 }
 
@@ -2926,20 +2944,22 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
 	 last to destroy the variable.  */
       else if (initp)
 	guard_cond
-	  = cp_build_binary_op (EQ_EXPR,
+	  = cp_build_binary_op (input_location,
+				EQ_EXPR,
 				cp_build_unary_op (PREINCREMENT_EXPR,
-						guard,
-						/*noconvert=*/1,
-                                                tf_warning_or_error),
+						   guard,
+						   /*noconvert=*/1,
+						   tf_warning_or_error),
 				integer_one_node,
 				tf_warning_or_error);
       else
 	guard_cond
-	  = cp_build_binary_op (EQ_EXPR,
+	  = cp_build_binary_op (input_location,
+				EQ_EXPR,
 				cp_build_unary_op (PREDECREMENT_EXPR,
-						guard,
-						/*noconvert=*/1,
-                                                tf_warning_or_error),
+						   guard,
+						   /*noconvert=*/1,
+						   tf_warning_or_error),
 				integer_zero_node,
 				tf_warning_or_error);
 
@@ -2992,7 +3012,8 @@ do_static_initialization_or_destruction (tree vars, bool initp)
   /* Build the outer if-stmt to check for initialization or destruction.  */
   init_if_stmt = begin_if_stmt ();
   cond = initp ? integer_one_node : integer_zero_node;
-  cond = cp_build_binary_op (EQ_EXPR,
+  cond = cp_build_binary_op (input_location,
+			     EQ_EXPR,
 			     initialize_p_decl,
 			     cond,
 			     tf_warning_or_error);
@@ -3025,7 +3046,8 @@ do_static_initialization_or_destruction (tree vars, bool initp)
     /* Conditionalize this initialization on being in the right priority
        and being initializing/finalizing appropriately.  */
     priority_if_stmt = begin_if_stmt ();
-    cond = cp_build_binary_op (EQ_EXPR,
+    cond = cp_build_binary_op (input_location,
+			       EQ_EXPR,
 			       priority_decl,
 			       build_int_cst (NULL_TREE, priority),
 			       tf_warning_or_error);
@@ -3826,8 +3848,6 @@ mark_used (tree decl)
 
       note_vague_linkage_fn (decl);
     }
-
-  assemble_external (decl);
 
   /* Is it a synthesized method that needs to be synthesized?  */
   if (TREE_CODE (decl) == FUNCTION_DECL

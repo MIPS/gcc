@@ -148,6 +148,13 @@ enum mips_address_type {
   ADDRESS_SYMBOLIC
 };
 
+/* Enumerates the setting of the -mr10k-cache-barrier option.  */
+enum mips_r10k_cache_barrier_setting {
+  R10K_CACHE_BARRIER_NONE,
+  R10K_CACHE_BARRIER_STORE,
+  R10K_CACHE_BARRIER_LOAD_STORE
+};
+
 /* Macros to create an enumeration identifier for a function prototype.  */
 #define MIPS_FTYPE_NAME1(A, B) MIPS_##A##_FTYPE_##B
 #define MIPS_FTYPE_NAME2(A, B, C) MIPS_##A##_FTYPE_##B##_##C
@@ -285,7 +292,8 @@ struct machine_function GTY(()) {
   /* The current frame information, calculated by mips_compute_frame_info.  */
   struct mips_frame_info frame;
 
-  /* The register to use as the function's global pointer.  */
+  /* The register to use as the function's global pointer, or INVALID_REGNUM
+     if the function doesn't need one.  */
   unsigned int global_pointer;
 
   /* True if mips_adjust_insn_length should ignore an instruction's
@@ -456,6 +464,9 @@ static int mips_base_align_functions; /* align_functions */
 /* The -mcode-readable setting.  */
 enum mips_code_readable_setting mips_code_readable = CODE_READABLE_YES;
 
+/* The -mr10k-cache-barrier setting.  */
+static enum mips_r10k_cache_barrier_setting mips_r10k_cache_barrier;
+
 /* Index [M][R] is true if register R is allowed to hold a value of mode M.  */
 bool mips_hard_regno_mode_ok[(int) MAX_MACHINE_MODE][FIRST_PSEUDO_REGISTER];
 
@@ -502,7 +513,7 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
   MD0_REG,	MD1_REG,	NO_REGS,	ST_REGS,
   ST_REGS,	ST_REGS,	ST_REGS,	ST_REGS,
   ST_REGS,	ST_REGS,	ST_REGS,	NO_REGS,
-  NO_REGS,	ALL_REGS,	ALL_REGS,	NO_REGS,
+  NO_REGS,	FRAME_REGS,	FRAME_REGS,	NO_REGS,
   COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
   COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
   COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
@@ -597,6 +608,10 @@ static const struct mips_cpu_info mips_cpu_info_table[] = {
 
   /* MIPS IV processors. */
   { "r8000", PROCESSOR_R8000, 4, 0 },
+  { "r10000", PROCESSOR_R10000, 4, 0 },
+  { "r12000", PROCESSOR_R10000, 4, 0 },
+  { "r14000", PROCESSOR_R10000, 4, 0 },
+  { "r16000", PROCESSOR_R10000, 4, 0 },
   { "vr5000", PROCESSOR_R5000, 4, 0 },
   { "vr5400", PROCESSOR_R5400, 4, 0 },
   { "vr5500", PROCESSOR_R5500, 4, PTF_AVOID_BRANCHLIKELY },
@@ -1002,6 +1017,19 @@ static const struct mips_rtx_cost_data mips_rtx_cost_data[PROCESSOR_MAX] = {
     COSTS_N_INSNS (8),            /* int_mult_di */
     COSTS_N_INSNS (69),           /* int_div_si */
     COSTS_N_INSNS (69),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
+  { /* R1x000 */
+    COSTS_N_INSNS (2),            /* fp_add */
+    COSTS_N_INSNS (2),            /* fp_mult_sf */
+    COSTS_N_INSNS (2),            /* fp_mult_df */
+    COSTS_N_INSNS (12),           /* fp_div_sf */
+    COSTS_N_INSNS (19),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (9),            /* int_mult_di */
+    COSTS_N_INSNS (34),           /* int_div_si */
+    COSTS_N_INSNS (66),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   },
@@ -5304,7 +5332,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	    {
 	      /* [1] Emit code for: off &= -rsize.	*/
 	      t = build2 (BIT_AND_EXPR, TREE_TYPE (off), off,
-			  build_int_cst (NULL_TREE, -rsize));
+			  build_int_cst (TREE_TYPE (off), -rsize));
 	      gimplify_assign (off, t, pre_p);
 	    }
 	  osize = rsize;
@@ -6163,7 +6191,8 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
      because there is no direct "jx" instruction equivalent to "jalx" to
      switch the ISA mode.  We only care about cases where the sibling
      and normal calls would both be direct.  */
-  if (mips_use_mips16_mode_p (decl)
+  if (decl
+      && mips_use_mips16_mode_p (decl)
       && const_call_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode))
     return false;
 
@@ -6372,8 +6401,10 @@ mips_expand_synci_loop (rtx begin, rtx end)
   rtx inc, label, cmp, cmp_result;
 
   /* Load INC with the cache line size (rdhwr INC,$1).  */
-  inc = gen_reg_rtx (SImode);
-  emit_insn (gen_rdhwr (inc, const1_rtx));
+  inc = gen_reg_rtx (Pmode);
+  emit_insn (Pmode == SImode
+	     ? gen_rdhwr_synci_step_si (inc)
+	     : gen_rdhwr_synci_step_di (inc));
 
   /* Loop back to here.  */
   label = gen_label_rtx ();
@@ -6881,6 +6912,7 @@ mips_print_operand_reloc (FILE *file, rtx op, enum mips_symbol_context context,
    '#'	Print a nop if in a ".set noreorder" block.
    '/'	Like '#', but do nothing within a delayed-branch sequence.
    '?'	Print "l" if mips_branch_likely is true
+   '~'	Print a nop if mips_branch_likely is true
    '.'	Print the name of the register with a hard-wired zero (zero or $0).
    '@'	Print the name of the assembler temporary register (at or $1).
    '^'	Print the name of the pic call-through register (t9 or $25).
@@ -6955,6 +6987,11 @@ mips_print_operand_punctuation (FILE *file, int ch)
 	putc ('l', file);
       break;
 
+    case '~':
+      if (mips_branch_likely)
+	fputs ("\n\tnop", file);
+      break;
+
     case '.':
       fputs (reg_names[GP_REG_FIRST + 0], file);
       break;
@@ -6998,7 +7035,7 @@ mips_init_print_operand_punct (void)
 {
   const char *p;
 
-  for (p = "()[]<>*#/?.@^+$|-"; *p; p++)
+  for (p = "()[]<>*#/?~.@^+$|-"; *p; p++)
     mips_print_operand_punct[(unsigned char) *p] = true;
 }
 
@@ -8324,8 +8361,8 @@ mips16_cfun_returns_in_fpr_p (void)
 }
 
 /* Return the register that should be used as the global pointer
-   within this function.  Return 0 if the function doesn't need
-   a global pointer.  */
+   within this function.  Return INVALID_REGNUM if the function
+   doesn't need a global pointer.  */
 
 static unsigned int
 mips_global_pointer (void)
@@ -8360,7 +8397,7 @@ mips_global_pointer (void)
 	 -call_nonpic code, no new uses will be introduced during or after
 	 reload.  */
       if (TARGET_ABICALLS_PIC0)
-	return 0;
+	return INVALID_REGNUM;
 
       /* We need to handle the following implicit gp references:
 
@@ -8382,7 +8419,7 @@ mips_global_pointer (void)
 	   external libgcc routine.  */
       if (!crtl->uses_const_pool
 	  && !mips16_cfun_returns_in_fpr_p ())
-	return 0;
+	return INVALID_REGNUM;
     }
 
   /* We need a global pointer, but perhaps we can use a call-clobbered
@@ -8398,48 +8435,85 @@ mips_global_pointer (void)
   return GLOBAL_POINTER_REGNUM;
 }
 
+/* Return true if the current function should treat register REGNO
+   as call-saved.  */
+
+static bool
+mips_cfun_call_saved_reg_p (unsigned int regno)
+{
+  /* call_insns preserve $28 unless they explicitly say otherwise,
+     so call_really_used_regs[] treats $28 as call-saved.  However,
+     we want the ABI property rather than the default call_insn
+     property here.  */
+  return (regno == GLOBAL_POINTER_REGNUM
+	  ? TARGET_CALL_SAVED_GP
+	  : !call_really_used_regs[regno]);
+}
+
+/* Return true if the function body might clobber register REGNO.
+   We know that REGNO is call-saved.  */
+
+static bool
+mips_cfun_might_clobber_call_saved_reg_p (unsigned int regno)
+{
+  /* Some functions should be treated as clobbering all call-saved
+     registers.  */
+  if (crtl->saves_all_registers)
+    return true;
+
+  /* DF handles cases where a register is explicitly referenced in
+     the rtl.  Incoming values are passed in call-clobbered registers,
+     so we can assume that any live call-saved register is set within
+     the function.  */
+  if (df_regs_ever_live_p (regno))
+    return true;
+
+  /* Check for registers that are clobbered by FUNCTION_PROFILER.
+     These clobbers are not explicit in the rtl.  */
+  if (crtl->profile && MIPS_SAVE_REG_FOR_PROFILING_P (regno))
+    return true;
+
+  /* If we're using a call-saved global pointer, the function's
+     prologue will need to set it up.  */
+  if (cfun->machine->global_pointer == regno)
+    return true;
+
+  /* The function's prologue will need to set the frame pointer if
+     frame_pointer_needed.  */
+  if (regno == HARD_FRAME_POINTER_REGNUM && frame_pointer_needed)
+    return true;
+
+  /* If a MIPS16 function returns a value in FPRs, its epilogue
+     will need to call an external libgcc routine.  This yet-to-be
+     generated call_insn will clobber $31.  */
+  if (regno == GP_REG_FIRST + 31 && mips16_cfun_returns_in_fpr_p ())
+    return true;
+
+  return false;
+}
+
 /* Return true if the current function must save register REGNO.  */
 
 static bool
 mips_save_reg_p (unsigned int regno)
 {
-  /* We need to save $gp if TARGET_CALL_SAVED_GP and if we have not
-     chosen a call-clobbered substitute.  */
-  if (TARGET_CALL_SAVED_GP
-      && regno == GLOBAL_POINTER_REGNUM
-      && cfun->machine->global_pointer == regno)
-    return true;
+  if (mips_cfun_call_saved_reg_p (regno))
+    {
+      if (mips_cfun_might_clobber_call_saved_reg_p (regno))
+	return true;
 
-  /* Check call-saved registers.  */
-  if ((crtl->saves_all_registers || df_regs_ever_live_p (regno))
-      && !call_really_used_regs[regno])
-    return true;
+      /* Save both registers in an FPR pair if either one is used.  This is
+	 needed for the case when MIN_FPRS_PER_FMT == 1, which allows the odd
+	 register to be used without the even register.  */
+      if (FP_REG_P (regno)
+	  && MAX_FPRS_PER_FMT == 2
+	  && mips_cfun_might_clobber_call_saved_reg_p (regno + 1))
+	return true;
+    }
 
-  /* Save both registers in an FPR pair if either one is used.  This is
-     needed for the case when MIN_FPRS_PER_FMT == 1, which allows the odd
-     register to be used without the even register.  */
-  if (FP_REG_P (regno)
-      && MAX_FPRS_PER_FMT == 2
-      && df_regs_ever_live_p (regno + 1)
-      && !call_really_used_regs[regno + 1])
-    return true;
-
-  /* We need to save the old frame pointer before setting up a new one.  */
-  if (regno == HARD_FRAME_POINTER_REGNUM && frame_pointer_needed)
-    return true;
-
-  /* Check for registers that must be saved for FUNCTION_PROFILER.  */
-  if (crtl->profile && MIPS_SAVE_REG_FOR_PROFILING_P (regno))
-    return true;
-
-  /* We need to save the incoming return address if it is ever clobbered
-     within the function, if __builtin_eh_return is being used to set a
-     different return address, or if a stub is being used to return a
-     value in FPRs.  */
-  if (regno == GP_REG_FIRST + 31
-      && (df_regs_ever_live_p (regno)
-	  || crtl->calls_eh_return
-	  || mips16_cfun_returns_in_fpr_p ()))
+  /* We need to save the incoming return address if __builtin_eh_return
+     is being used to set a different return address.  */
+  if (regno == GP_REG_FIRST + 31 && crtl->calls_eh_return)
     return true;
 
   return false;
@@ -8625,7 +8699,7 @@ mips_compute_frame_info (void)
 enum mips_loadgp_style
 mips_current_loadgp_style (void)
 {
-  if (!TARGET_USE_GOT || cfun->machine->global_pointer == 0)
+  if (!TARGET_USE_GOT || cfun->machine->global_pointer == INVALID_REGNUM)
     return LOADGP_NONE;
 
   if (TARGET_RTP_PIC)
@@ -8775,7 +8849,7 @@ mips_restore_gp (rtx temp)
 {
   gcc_assert (TARGET_ABICALLS && TARGET_OLDABI);
 
-  if (cfun->machine->global_pointer == 0)
+  if (cfun->machine->global_pointer == INVALID_REGNUM)
     return;
 
   if (TARGET_MIPS16)
@@ -8852,7 +8926,7 @@ static void
 mips_output_cplocal (void)
 {
   if (!TARGET_EXPLICIT_RELOCS
-      && cfun->machine->global_pointer > 0
+      && cfun->machine->global_pointer != INVALID_REGNUM
       && cfun->machine->global_pointer != GLOBAL_POINTER_REGNUM)
     output_asm_insn (".cplocal %+", 0);
 }
@@ -9088,7 +9162,7 @@ mips_expand_prologue (void)
   unsigned int nargs;
   rtx insn;
 
-  if (cfun->machine->global_pointer > 0)
+  if (cfun->machine->global_pointer != INVALID_REGNUM)
     SET_REGNO (pic_offset_table_rtx, cfun->machine->global_pointer);
 
   frame = &cfun->machine->frame;
@@ -9206,7 +9280,7 @@ mips_expand_prologue (void)
 
   /* Initialize the $gp save slot.  */
   if (frame->cprestore_size > 0
-      && cfun->machine->global_pointer != 0)
+      && cfun->machine->global_pointer != INVALID_REGNUM)
     {
       if (TARGET_MIPS16)
 	mips_emit_move (mips_cprestore_slot (MIPS_PROLOGUE_TEMP (Pmode)),
@@ -9661,62 +9735,165 @@ mips_preferred_reload_class (rtx x, enum reg_class rclass)
   return rclass;
 }
 
-/* Implement REGISTER_MOVE_COST.  */
+/* RCLASS is a class involved in a REGISTER_MOVE_COST calculation.
+   Return a "canonical" class to represent it in later calculations.  */
+
+static enum reg_class
+mips_canonicalize_move_class (enum reg_class rclass)
+{
+  /* All moves involving accumulator registers have the same cost.  */
+  if (reg_class_subset_p (rclass, ACC_REGS))
+    rclass = ACC_REGS;
+
+  /* Likewise promote subclasses of general registers to the most
+     interesting containing class.  */
+  if (TARGET_MIPS16 && reg_class_subset_p (rclass, M16_REGS))
+    rclass = M16_REGS;
+  else if (reg_class_subset_p (rclass, GENERAL_REGS))
+    rclass = GENERAL_REGS;
+
+  return rclass;
+}
+
+/* Return the cost of moving a value of mode MODE from a register of
+   class FROM to a GPR.  Return 0 for classes that are unions of other
+   classes handled by this function.  */
+
+static int
+mips_move_to_gpr_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
+		       enum reg_class from)
+{
+  switch (from)
+    {
+    case GENERAL_REGS:
+      /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
+      return 2;
+
+    case ACC_REGS:
+      /* MFLO and MFHI.  */
+      return 6;
+
+    case FP_REGS:
+      /* MFC1, etc.  */
+      return 4;
+
+    case ST_REGS:
+      /* LUI followed by MOVF.  */
+      return 4;
+
+    case COP0_REGS:
+    case COP2_REGS:
+    case COP3_REGS:
+      /* This choice of value is historical.  */
+      return 5;
+
+    default:
+      return 0;
+    }
+}
+
+/* Return the cost of moving a value of mode MODE from a GPR to a
+   register of class TO.  Return 0 for classes that are unions of
+   other classes handled by this function.  */
+
+static int
+mips_move_from_gpr_cost (enum machine_mode mode, enum reg_class to)
+{
+  switch (to)
+    {
+    case GENERAL_REGS:
+      /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
+      return 2;
+
+    case ACC_REGS:
+      /* MTLO and MTHI.  */
+      return 6;
+
+    case FP_REGS:
+      /* MTC1, etc.  */
+      return 4;
+
+    case ST_REGS:
+      /* A secondary reload through an FPR scratch.  */
+      return (mips_register_move_cost (mode, GENERAL_REGS, FP_REGS)
+	      + mips_register_move_cost (mode, FP_REGS, ST_REGS));
+
+    case COP0_REGS:
+    case COP2_REGS:
+    case COP3_REGS:
+      /* This choice of value is historical.  */
+      return 5;
+
+    default:
+      return 0;
+    }
+}
+
+/* Implement REGISTER_MOVE_COST.  Return 0 for classes that are the
+   maximum of the move costs for subclasses; regclass will work out
+   the maximum for us.  */
 
 int
 mips_register_move_cost (enum machine_mode mode,
-			 enum reg_class to, enum reg_class from)
+			 enum reg_class from, enum reg_class to)
 {
-  if (TARGET_MIPS16)
+  enum reg_class dregs;
+  int cost1, cost2;
+
+  from = mips_canonicalize_move_class (from);
+  to = mips_canonicalize_move_class (to);
+
+  /* Handle moves that can be done without using general-purpose registers.  */
+  if (from == FP_REGS)
     {
-      /* ??? We cannot move general registers into HI and LO because
-	 MIPS16 has no MTHI and MTLO instructions.  Make the cost of
-	 moves in the opposite direction just as high, which stops the
-	 register allocators from using HI and LO for pseudos.  */
-      if (reg_class_subset_p (from, GENERAL_REGS)
-	  && reg_class_subset_p (to, GENERAL_REGS))
-	{
-	  if (reg_class_subset_p (from, M16_REGS)
-	      || reg_class_subset_p (to, M16_REGS))
-	    return 2;
-	  /* Two MOVEs.  */
-	  return 4;
-	}
-    }
-  else if (reg_class_subset_p (from, GENERAL_REGS))
-    {
-      if (reg_class_subset_p (to, GENERAL_REGS))
-	return 2;
-      if (reg_class_subset_p (to, FP_REGS))
+      if (to == FP_REGS && mips_mode_ok_for_mov_fmt_p (mode))
+	/* MOV.FMT.  */
 	return 4;
-      if (reg_class_subset_p (to, ALL_COP_AND_GR_REGS))
-	return 5;
-      if (reg_class_subset_p (to, ACC_REGS))
-	return 6;
-    }
-  else if (reg_class_subset_p (to, GENERAL_REGS))
-    {
-      if (reg_class_subset_p (from, FP_REGS))
-	return 4;
-      if (reg_class_subset_p (from, ST_REGS))
-	/* LUI followed by MOVF.  */
-	return 4;
-      if (reg_class_subset_p (from, ALL_COP_AND_GR_REGS))
-	return 5;
-      if (reg_class_subset_p (from, ACC_REGS))
-	return 6;
-    }
-  else if (reg_class_subset_p (from, FP_REGS))
-    {
-      if (reg_class_subset_p (to, FP_REGS)
-	  && mips_mode_ok_for_mov_fmt_p (mode))
-	return 4;
-      if (reg_class_subset_p (to, ST_REGS))
-	/* An expensive sequence.  */
+      if (to == ST_REGS)
+	/* The sequence generated by mips_expand_fcc_reload.  */
 	return 8;
     }
 
-  return 12;
+  /* Handle cases in which only one class deviates from the ideal.  */
+  dregs = TARGET_MIPS16 ? M16_REGS : GENERAL_REGS;
+  if (from == dregs)
+    return mips_move_from_gpr_cost (mode, to);
+  if (to == dregs)
+    return mips_move_to_gpr_cost (mode, from);
+
+  /* Handles cases that require a GPR temporary.  */
+  cost1 = mips_move_to_gpr_cost (mode, from);
+  if (cost1 != 0)
+    {
+      cost2 = mips_move_from_gpr_cost (mode, to);
+      if (cost2 != 0)
+	return cost1 + cost2;
+    }
+
+  return 0;
+}
+
+/* Implement TARGET_IRA_COVER_CLASSES.  */
+
+static const enum reg_class *
+mips_ira_cover_classes (void)
+{
+  static const enum reg_class acc_classes[] = {
+    GR_AND_ACC_REGS, FP_REGS, COP0_REGS, COP2_REGS, COP3_REGS,
+    ST_REGS, LIM_REG_CLASSES
+  };
+  static const enum reg_class no_acc_classes[] = {
+    GR_REGS, FP_REGS, COP0_REGS, COP2_REGS, COP3_REGS,
+    ST_REGS, LIM_REG_CLASSES
+  };
+
+  /* Don't allow the register allocators to use LO and HI in MIPS16 mode,
+     which has no MTLO or MTHI instructions.  Also, using GR_AND_ACC_REGS
+     as a cover class only works well when we keep per-register costs.
+     Using it when not optimizing can cause us to think accumulators
+     have the same cost as GPRs in cases where GPRs are actually much
+     cheaper.  */
+  return TARGET_MIPS16 || !optimize ? no_acc_classes : acc_classes;
 }
 
 /* Return the register class required for a secondary register when
@@ -9741,10 +9918,6 @@ mips_secondary_reload_class (enum reg_class rclass,
     {
       /* In MIPS16 mode, every move must involve a member of M16_REGS.  */
       if (!reg_class_subset_p (rclass, M16_REGS) && !M16_REG_P (regno))
-	return M16_REGS;
-
-      /* We can't really copy to HI or LO at all in MIPS16 mode.  */
-      if (in_p ? reg_classes_intersect_p (rclass, ACC_REGS) : ACC_REG_P (regno))
 	return M16_REGS;
 
       return NO_REGS;
@@ -10019,6 +10192,8 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
   unsigned int length;
   rtx taken, not_taken;
 
+  gcc_assert (LABEL_P (operands[1]));  
+
   length = get_attr_length (insn);
   if (length <= 8)
     {
@@ -10125,6 +10300,17 @@ mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
       break;
     }
   return mips_output_conditional_branch (insn, operands, branch[1], branch[0]);
+}
+
+/* Return the assembly code for __sync_*() loop LOOP.  The loop should support
+   both normal and likely branches, using %? and %~ where appropriate.  */
+
+const char *
+mips_output_sync_loop (const char *loop)
+{
+  /* Use branch-likely instructions to work around the LL/SC R10000 errata.  */
+  mips_branch_likely = TARGET_FIX_R10000;
+  return loop;
 }
 
 /* Return the assembly code for DIV or DDIV instruction DIVISION, which has
@@ -10358,7 +10544,10 @@ mips_issue_rate (void)
 	 but in reality only a maximum of 3 insns can be issued as
 	 floating-point loads and stores also require a slot in the
 	 AGEN pipe.  */
-     return 4;
+    case PROCESSOR_R10000:
+      /* All R10K Processors are quad-issue (being the first MIPS
+         processors to support this feature). */
+      return 4;
 
     case PROCESSOR_20KC:
     case PROCESSOR_R4130:
@@ -10366,6 +10555,7 @@ mips_issue_rate (void)
     case PROCESSOR_R5500:
     case PROCESSOR_R7000:
     case PROCESSOR_R9000:
+    case PROCESSOR_OCTEON:
       return 2;
 
     case PROCESSOR_SB1:
@@ -10506,6 +10696,9 @@ mips_multipass_dfa_lookahead (void)
 
   if (TUNE_LOONGSON_2EF)
     return 4;
+
+  if (TUNE_OCTEON)
+    return 2;
 
   return 0;
 }
@@ -10922,6 +11115,7 @@ AVAIL_NON_MIPS16 (dspr2, TARGET_DSPR2)
 AVAIL_NON_MIPS16 (dsp_32, !TARGET_64BIT && TARGET_DSP)
 AVAIL_NON_MIPS16 (dspr2_32, !TARGET_64BIT && TARGET_DSPR2)
 AVAIL_NON_MIPS16 (loongson, TARGET_LOONGSON_VECTORS)
+AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
 
 /* Construct a mips_builtin_description from the given arguments.
 
@@ -11352,7 +11546,10 @@ static const struct mips_builtin_description mips_builtins[] = {
   LOONGSON_BUILTIN_SUFFIX (punpcklwd, u, MIPS_UV2SI_FTYPE_UV2SI_UV2SI),
   LOONGSON_BUILTIN_SUFFIX (punpcklbh, s, MIPS_V8QI_FTYPE_V8QI_V8QI),
   LOONGSON_BUILTIN_SUFFIX (punpcklhw, s, MIPS_V4HI_FTYPE_V4HI_V4HI),
-  LOONGSON_BUILTIN_SUFFIX (punpcklwd, s, MIPS_V2SI_FTYPE_V2SI_V2SI)
+  LOONGSON_BUILTIN_SUFFIX (punpcklwd, s, MIPS_V2SI_FTYPE_V2SI_V2SI),
+
+  /* Sundry other built-in functions.  */
+  DIRECT_NO_TARGET_BUILTIN (cache, MIPS_VOID_FTYPE_SI_CVPOINTER, cache)
 };
 
 /* MODE is a vector mode whose elements have type TYPE.  Return the type
@@ -11374,10 +11571,25 @@ mips_builtin_vector_type (tree type, enum machine_mode mode)
   return types[mode_index];
 }
 
+/* Return a type for 'const volatile void *'.  */
+
+static tree
+mips_build_cvpointer_type (void)
+{
+  static tree cache;
+
+  if (cache == NULL_TREE)
+    cache = build_pointer_type (build_qualified_type
+				(void_type_node,
+				 TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE));
+  return cache;
+}
+
 /* Source-level argument types.  */
 #define MIPS_ATYPE_VOID void_type_node
 #define MIPS_ATYPE_INT integer_type_node
 #define MIPS_ATYPE_POINTER ptr_type_node
+#define MIPS_ATYPE_CVPOINTER mips_build_cvpointer_type ()
 
 /* Standard mode-based argument types.  */
 #define MIPS_ATYPE_UQI unsigned_intQI_type_node
@@ -11470,14 +11682,24 @@ static rtx
 mips_prepare_builtin_arg (enum insn_code icode,
 			  unsigned int opno, tree exp, unsigned int argno)
 {
+  tree arg;
   rtx value;
   enum machine_mode mode;
 
-  value = expand_normal (CALL_EXPR_ARG (exp, argno));
+  arg = CALL_EXPR_ARG (exp, argno);
+  value = expand_normal (arg);
   mode = insn_data[icode].operand[opno].mode;
   if (!insn_data[icode].operand[opno].predicate (value, mode))
     {
-      value = copy_to_mode_reg (mode, value);
+      /* We need to get the mode from ARG for two reasons:
+
+	   - to cope with address operands, where MODE is the mode of the
+	     memory, rather than of VALUE itself.
+
+	   - to cope with special predicates like pmode_register_operand,
+	     where MODE is VOIDmode.  */
+      value = copy_to_mode_reg (TYPE_MODE (TREE_TYPE (arg)), value);
+
       /* Check the predicate again.  */
       if (!insn_data[icode].operand[opno].predicate (value, mode))
 	{
@@ -11520,7 +11742,8 @@ mips_expand_builtin_direct (enum insn_code icode, rtx target, tree exp,
   opno = 0;
   if (has_target_p)
     {
-      ops[opno] = mips_prepare_builtin_target (icode, opno, target);
+      target = mips_prepare_builtin_target (icode, opno, target);
+      ops[opno] = target;
       opno++;
     }
 
@@ -11707,8 +11930,7 @@ mips_expand_builtin_bposge (enum mips_builtin_type builtin_type, rtx target)
 
 static rtx
 mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
-		     enum machine_mode mode ATTRIBUTE_UNUSED,
-		     int ignore ATTRIBUTE_UNUSED)
+		     enum machine_mode mode, int ignore)
 {
   tree fndecl;
   unsigned int fcode, avail;
@@ -11724,7 +11946,7 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     {
       error ("built-in function %qs not supported for MIPS16",
 	     IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-      return const0_rtx;
+      return ignore ? const0_rtx : CONST0_RTX (mode);
     }
   switch (d->builtin_type)
     {
@@ -12022,6 +12244,378 @@ mips16_lay_out_constants (void)
 	}
     }
   mips16_emit_constants (pool.first, get_last_insn ());
+}
+
+/* Return true if it is worth r10k_simplify_address's while replacing
+   an address with X.  We are looking for constants, and for addresses
+   at a known offset from the incoming stack pointer.  */
+
+static bool
+r10k_simplified_address_p (rtx x)
+{
+  if (GET_CODE (x) == PLUS && CONST_INT_P (XEXP (x, 1)))
+    x = XEXP (x, 0);
+  return x == virtual_incoming_args_rtx || CONSTANT_P (x);
+}
+
+/* X is an expression that appears in INSN.  Try to use the UD chains
+   to simplify it, returning the simplified form on success and the
+   original form otherwise.  Replace the incoming value of $sp with
+   virtual_incoming_args_rtx (which should never occur in X otherwise).  */
+
+static rtx
+r10k_simplify_address (rtx x, rtx insn)
+{
+  rtx newx, op0, op1, set, def_insn, note;
+  df_ref use, def;
+  struct df_link *defs;
+
+  newx = NULL_RTX;
+  if (UNARY_P (x))
+    {
+      op0 = r10k_simplify_address (XEXP (x, 0), insn);
+      if (op0 != XEXP (x, 0))
+	newx = simplify_gen_unary (GET_CODE (x), GET_MODE (x),
+				   op0, GET_MODE (XEXP (x, 0)));
+    }
+  else if (BINARY_P (x))
+    {
+      op0 = r10k_simplify_address (XEXP (x, 0), insn);
+      op1 = r10k_simplify_address (XEXP (x, 1), insn);
+      if (op0 != XEXP (x, 0) || op1 != XEXP (x, 1))
+	newx = simplify_gen_binary (GET_CODE (x), GET_MODE (x), op0, op1);
+    }
+  else if (GET_CODE (x) == LO_SUM)
+    {
+      /* LO_SUMs can be offset from HIGHs, if we know they won't
+	 overflow.  See mips_classify_address for the rationale behind
+	 the lax check.  */
+      op0 = r10k_simplify_address (XEXP (x, 0), insn);
+      if (GET_CODE (op0) == HIGH)
+	newx = XEXP (x, 1);
+    }
+  else if (REG_P (x))
+    {
+      /* Uses are recorded by regno_reg_rtx, not X itself.  */
+      use = df_find_use (insn, regno_reg_rtx[REGNO (x)]);
+      gcc_assert (use);
+      defs = DF_REF_CHAIN (use);
+
+      /* Require a single definition.  */
+      if (defs && defs->next == NULL)
+	{
+	  def = defs->ref;
+	  if (DF_REF_IS_ARTIFICIAL (def))
+	    {
+	      /* Replace the incoming value of $sp with
+		 virtual_incoming_args_rtx.  */
+	      if (x == stack_pointer_rtx
+		  && DF_REF_BB (def) == ENTRY_BLOCK_PTR)
+		newx = virtual_incoming_args_rtx;
+	    }
+	  else if (dominated_by_p (CDI_DOMINATORS, DF_REF_BB (use),
+				   DF_REF_BB (def)))
+	    {
+	      /* Make sure that DEF_INSN is a single set of REG.  */
+	      def_insn = DF_REF_INSN (def);
+	      if (NONJUMP_INSN_P (def_insn))
+		{
+		  set = single_set (def_insn);
+		  if (set && rtx_equal_p (SET_DEST (set), x))
+		    {
+		      /* Prefer to use notes, since the def-use chains
+			 are often shorter.  */
+		      note = find_reg_equal_equiv_note (def_insn);
+		      if (note)
+			newx = XEXP (note, 0);
+		      else
+			newx = SET_SRC (set);
+		      newx = r10k_simplify_address (newx, def_insn);
+		    }
+		}
+	    }
+	}
+    }
+  if (newx && r10k_simplified_address_p (newx))
+    return newx;
+  return x;
+}
+
+/* Return true if ADDRESS is known to be an uncached address
+   on R10K systems.  */
+
+static bool
+r10k_uncached_address_p (unsigned HOST_WIDE_INT address)
+{
+  unsigned HOST_WIDE_INT upper;
+
+  /* Check for KSEG1.  */
+  if (address + 0x60000000 < 0x20000000)
+    return true;
+
+  /* Check for uncached XKPHYS addresses.  */
+  if (Pmode == DImode)
+    {
+      upper = (address >> 40) & 0xf9ffff;
+      if (upper == 0x900000 || upper == 0xb80000)
+	return true;
+    }
+  return false;
+}
+
+/* Return true if we can prove that an access to address X in instruction
+   INSN would be safe from R10K speculation.  This X is a general
+   expression; it might not be a legitimate address.  */
+
+static bool
+r10k_safe_address_p (rtx x, rtx insn)
+{
+  rtx base, offset;
+  HOST_WIDE_INT offset_val;
+
+  x = r10k_simplify_address (x, insn);
+
+  /* Check for references to the stack frame.  It doesn't really matter
+     how much of the frame has been allocated at INSN; -mr10k-cache-barrier
+     allows us to assume that accesses to any part of the eventual frame
+     is safe from speculation at any point in the function.  */
+  mips_split_plus (x, &base, &offset_val);
+  if (base == virtual_incoming_args_rtx
+      && offset_val >= -cfun->machine->frame.total_size
+      && offset_val < cfun->machine->frame.args_size)
+    return true;
+
+  /* Check for uncached addresses.  */
+  if (CONST_INT_P (x))
+    return r10k_uncached_address_p (INTVAL (x));
+
+  /* Check for accesses to a static object.  */
+  split_const (x, &base, &offset);
+  return offset_within_block_p (base, INTVAL (offset));
+}
+
+/* Return true if a MEM with MEM_EXPR EXPR and MEM_OFFSET OFFSET is
+   an in-range access to an automatic variable, or to an object with
+   a link-time-constant address.  */
+
+static bool
+r10k_safe_mem_expr_p (tree expr, rtx offset)
+{
+  if (expr == NULL_TREE
+      || offset == NULL_RTX
+      || !CONST_INT_P (offset)
+      || INTVAL (offset) < 0
+      || INTVAL (offset) >= int_size_in_bytes (TREE_TYPE (expr)))
+    return false;
+
+  while (TREE_CODE (expr) == COMPONENT_REF)
+    {
+      expr = TREE_OPERAND (expr, 0);
+      if (expr == NULL_TREE)
+	return false;
+    }
+
+  return DECL_P (expr);
+}
+
+/* A for_each_rtx callback for which DATA points to the instruction
+   containing *X.  Stop the search if we find a MEM that is not safe
+   from R10K speculation.  */
+
+static int
+r10k_needs_protection_p_1 (rtx *loc, void *data)
+{
+  rtx mem;
+
+  mem = *loc;
+  if (!MEM_P (mem))
+    return 0;
+
+  if (r10k_safe_mem_expr_p (MEM_EXPR (mem), MEM_OFFSET (mem)))
+    return -1;
+
+  if (r10k_safe_address_p (XEXP (mem, 0), (rtx) data))
+    return -1;
+
+  return 1;
+}
+
+/* A note_stores callback for which DATA points to an instruction pointer.
+   If *DATA is nonnull, make it null if it X contains a MEM that is not
+   safe from R10K speculation.  */
+
+static void
+r10k_needs_protection_p_store (rtx x, const_rtx pat ATTRIBUTE_UNUSED,
+			       void *data)
+{
+  rtx *insn_ptr;
+
+  insn_ptr = (rtx *) data;
+  if (*insn_ptr && for_each_rtx (&x, r10k_needs_protection_p_1, *insn_ptr))
+    *insn_ptr = NULL_RTX;
+}
+
+/* A for_each_rtx callback that iterates over the pattern of a CALL_INSN.
+   Return nonzero if the call is not to a declared function.  */
+
+static int
+r10k_needs_protection_p_call (rtx *loc, void *data ATTRIBUTE_UNUSED)
+{
+  rtx x;
+
+  x = *loc;
+  if (!MEM_P (x))
+    return 0;
+
+  x = XEXP (x, 0);
+  if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_DECL (x))
+    return -1;
+
+  return 1;
+}
+
+/* Return true if instruction INSN needs to be protected by an R10K
+   cache barrier.  */
+
+static bool
+r10k_needs_protection_p (rtx insn)
+{
+  if (CALL_P (insn))
+    return for_each_rtx (&PATTERN (insn), r10k_needs_protection_p_call, NULL);
+
+  if (mips_r10k_cache_barrier == R10K_CACHE_BARRIER_STORE)
+    {
+      note_stores (PATTERN (insn), r10k_needs_protection_p_store, &insn);
+      return insn == NULL_RTX;
+    }
+
+  return for_each_rtx (&PATTERN (insn), r10k_needs_protection_p_1, insn);
+}
+
+/* Return true if BB is only reached by blocks in PROTECTED_BBS and if every
+   edge is unconditional.  */
+
+static bool
+r10k_protected_bb_p (basic_block bb, sbitmap protected_bbs)
+{
+  edge_iterator ei;
+  edge e;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    if (!single_succ_p (e->src)
+	|| !TEST_BIT (protected_bbs, e->src->index)
+	|| (e->flags & EDGE_COMPLEX) != 0)
+      return false;
+  return true;
+}
+
+/* Implement -mr10k-cache-barrier= for the current function.  */
+
+static void
+r10k_insert_cache_barriers (void)
+{
+  int *rev_post_order;
+  unsigned int i, n;
+  basic_block bb;
+  sbitmap protected_bbs;
+  rtx insn, end, unprotected_region;
+
+  if (TARGET_MIPS16)
+    {
+      sorry ("%qs does not support MIPS16 code", "-mr10k-cache-barrier");
+      return;
+    }
+
+  /* Restore the BLOCK_FOR_INSN pointers, which are needed by DF.  */
+  compute_bb_for_insn ();
+
+  /* Create def-use chains.  */
+  df_set_flags (DF_EQ_NOTES);
+  df_chain_add_problem (DF_UD_CHAIN);
+  df_analyze ();
+
+  /* Calculate dominators.  */
+  calculate_dominance_info (CDI_DOMINATORS);
+
+  /* Bit X of PROTECTED_BBS is set if the last operation in basic block
+     X is protected by a cache barrier.  */
+  protected_bbs = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (protected_bbs);
+
+  /* Iterate over the basic blocks in reverse post-order.  */
+  rev_post_order = XNEWVEC (int, last_basic_block);
+  n = pre_and_rev_post_order_compute (NULL, rev_post_order, false);
+  for (i = 0; i < n; i++)
+    {
+      bb = BASIC_BLOCK (rev_post_order[i]);
+
+      /* If this block is only reached by unconditional edges, and if the
+	 source of every edge is protected, the beginning of the block is
+	 also protected.  */
+      if (r10k_protected_bb_p (bb, protected_bbs))
+	unprotected_region = NULL_RTX;
+      else
+	unprotected_region = pc_rtx;
+      end = NEXT_INSN (BB_END (bb));
+
+      /* UNPROTECTED_REGION is:
+
+	 - null if we are processing a protected region,
+	 - pc_rtx if we are processing an unprotected region but have
+	   not yet found the first instruction in it
+	 - the first instruction in an unprotected region otherwise.  */
+      for (insn = BB_HEAD (bb); insn != end; insn = NEXT_INSN (insn))
+	{
+	  if (unprotected_region && INSN_P (insn))
+	    {
+	      if (recog_memoized (insn) == CODE_FOR_mips_cache)
+		/* This CACHE instruction protects the following code.  */
+		unprotected_region = NULL_RTX;
+	      else
+		{
+		  /* See if INSN is the first instruction in this
+		     unprotected region.  */
+		  if (unprotected_region == pc_rtx)
+		    unprotected_region = insn;
+
+		  /* See if INSN needs to be protected.  If so,
+		     we must insert a cache barrier somewhere between
+		     PREV_INSN (UNPROTECTED_REGION) and INSN.  It isn't
+		     clear which position is better performance-wise,
+		     but as a tie-breaker, we assume that it is better
+		     to allow delay slots to be back-filled where
+		     possible, and that it is better not to insert
+		     barriers in the middle of already-scheduled code.
+		     We therefore insert the barrier at the beginning
+		     of the region.  */
+		  if (r10k_needs_protection_p (insn))
+		    {
+		      emit_insn_before (gen_r10k_cache_barrier (),
+					unprotected_region);
+		      unprotected_region = NULL_RTX;
+		    }
+		}
+	    }
+
+	  if (CALL_P (insn))
+	    /* The called function is not required to protect the exit path.
+	       The code that follows a call is therefore unprotected.  */
+	    unprotected_region = pc_rtx;
+	}
+
+      /* Record whether the end of this block is protected.  */
+      if (unprotected_region == NULL_RTX)
+	SET_BIT (protected_bbs, bb->index);
+    }
+  XDELETEVEC (rev_post_order);
+
+  sbitmap_free (protected_bbs);
+
+  free_dominance_info (CDI_DOMINATORS);
+
+  df_finish_pass (false);
+
+  free_bb_for_insn ();
 }
 
 /* A temporary variable used by for_each_rtx callbacks, etc.  */
@@ -12675,6 +13269,13 @@ mips_reorg_process_insns (void)
 		 orphaned high-part relocation.  */
 	      if (mips_orphaned_high_part_p (htab, insn))
 		delete_insn (insn);
+	      /* Also delete cache barriers if the last instruction
+		 was an annulled branch.  INSN will not be speculatively
+		 executed.  */
+	      else if (recog_memoized (insn) == CODE_FOR_r10k_cache_barrier
+		       && last_insn
+		       && INSN_ANNULLED_BRANCH_P (SEQ_BEGIN (last_insn)))
+		delete_insn (insn);
 	      else
 		{
 		  mips_avoid_hazard (last_insn, insn, &hilo_delay,
@@ -12694,6 +13295,8 @@ static void
 mips_reorg (void)
 {
   mips16_lay_out_constants ();
+  if (mips_r10k_cache_barrier != R10K_CACHE_BARRIER_NONE)
+    r10k_insert_cache_barriers ();
   if (mips_base_delayed_branch)
     dbr_schedule (get_insns ());
   mips_reorg_process_insns ();
@@ -13123,6 +13726,17 @@ mips_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
 	return false;
       return true;
 
+    case OPT_mr10k_cache_barrier_:
+      if (strcmp (arg, "load-store") == 0)
+	mips_r10k_cache_barrier = R10K_CACHE_BARRIER_LOAD_STORE;
+      else if (strcmp (arg, "store") == 0)
+	mips_r10k_cache_barrier = R10K_CACHE_BARRIER_STORE;
+      else if (strcmp (arg, "none") == 0)
+	mips_r10k_cache_barrier = R10K_CACHE_BARRIER_NONE;
+      else
+	return false;
+      return true;
+
     default:
       return true;
     }
@@ -13358,6 +13972,14 @@ mips_override_options (void)
     warning (0, "the %qs architecture does not support paired-single"
 	     " instructions", mips_arch_info->name);
 
+  if (mips_r10k_cache_barrier != R10K_CACHE_BARRIER_NONE
+      && !TARGET_CACHE_BUILTIN)
+    {
+      error ("%qs requires a target that provides the %qs instruction",
+	     "-mr10k-cache-barrier", "cache");
+      mips_r10k_cache_barrier = R10K_CACHE_BARRIER_NONE;
+    }
+
   /* If TARGET_DSPR2, enable MASK_DSP.  */
   if (TARGET_DSPR2)
     target_flags |= MASK_DSP;
@@ -13416,6 +14038,24 @@ mips_override_options (void)
       && mips_matching_cpu_name_p (mips_arch_info->name, "r4400"))
     target_flags |= MASK_FIX_R4400;
 
+  /* Default to working around R10000 errata only if the processor
+     was selected explicitly.  */
+  if ((target_flags_explicit & MASK_FIX_R10000) == 0
+      && mips_matching_cpu_name_p (mips_arch_info->name, "r10000"))
+    target_flags |= MASK_FIX_R10000;
+
+  /* Make sure that branch-likely instructions available when using
+     -mfix-r10000.  The instructions are not available if either:
+
+	1. -mno-branch-likely was passed.
+	2. The selected ISA does not support branch-likely and
+	   the command line does not include -mbranch-likely.  */
+  if (TARGET_FIX_R10000
+      && ((target_flags_explicit & MASK_BRANCHLIKELY) == 0
+          ? !ISA_HAS_BRANCHLIKELY
+          : !TARGET_BRANCHLIKELY))
+    sorry ("%qs requires branch-likely instructions", "-mfix-r10000");
+
   /* Save base state of options.  */
   mips_base_target_flags = target_flags;
   mips_base_delayed_branch = flag_delayed_branch;
@@ -13464,7 +14104,14 @@ mips_swap_registers (unsigned int i)
 void
 mips_conditional_register_usage (void)
 {
-  if (!ISA_HAS_DSP)
+
+  if (ISA_HAS_DSP)
+    {
+      /* These DSP control register fields are global.  */
+      global_regs[CCDSP_PO_REGNUM] = 1;
+      global_regs[CCDSP_SC_REGNUM] = 1;
+    }
+  else 
     {
       int regno;
 
@@ -13742,6 +14389,9 @@ mips_order_regs_for_local_alloc (void)
 #endif
 #undef TARGET_DWARF_REGISTER_SPAN
 #define TARGET_DWARF_REGISTER_SPAN mips_dwarf_register_span
+
+#undef TARGET_IRA_COVER_CLASSES
+#define TARGET_IRA_COVER_CLASSES mips_ira_cover_classes
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

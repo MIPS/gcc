@@ -117,20 +117,6 @@ int gfc_numeric_storage_size;
 int gfc_character_storage_size;
 
 
-/* Validate that the f90_type of the given gfc_typespec is valid for
-   the type it represents.  The f90_type represents the Fortran types
-   this C kind can be used with.  For example, c_int has a f90_type of
-   BT_INTEGER and c_float has a f90_type of BT_REAL.  Returns FAILURE
-   if a mismatch occurs between ts->f90_type and ts->type; SUCCESS if
-   they match.  */
-
-gfc_try
-gfc_validate_c_kind (gfc_typespec *ts)
-{
-   return ((ts->type == ts->f90_type) ? SUCCESS : FAILURE);
-}
-
-
 gfc_try
 gfc_check_any_c_kind (gfc_typespec *ts)
 {
@@ -1415,10 +1401,10 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, gfc_packed packed)
   mpz_clear (stride);
   mpz_clear (delta);
 
-  /* In debug info represent packed arrays as multi-dimensional
-     if they have rank > 1 and with proper bounds, instead of flat
-     arrays.  */
-  if (known_offset && write_symbols != NO_DEBUG)
+  /* Represent packed arrays as multi-dimensional if they have rank >
+     1 and with proper bounds, instead of flat arrays.  This makes for
+     better debug info.  */
+  if (known_offset)
     {
       tree gtype = etype, rtype, type_decl;
 
@@ -1626,6 +1612,16 @@ gfc_sym_type (gfc_symbol * sym)
 {
   tree type;
   int byref;
+
+  /* Procedure Pointers inside COMMON blocks or as function result.  */
+  if (sym->attr.proc_pointer && (sym->attr.in_common || sym->attr.result))
+    {
+      /* Unset proc_pointer as gfc_get_function_type calls gfc_sym_type.  */
+      sym->attr.proc_pointer = 0;
+      type = build_pointer_type (gfc_get_function_type (sym));
+      sym->attr.proc_pointer = 1;
+      return type;
+    }
 
   if (sym->attr.flavor == FL_PROCEDURE && !sym->attr.function)
     return void_type_node;
@@ -2147,6 +2143,9 @@ gfc_get_function_type (gfc_symbol * sym)
       type = gfc_typenode_for_spec (&sym->ts);
       sym->ts.kind = gfc_default_real_kind;
     }
+  else if (sym->result && sym->result->attr.proc_pointer)
+    /* Procedure pointer return values.  */
+    type = gfc_sym_type (sym->result);
   else
     type = gfc_sym_type (sym);
 

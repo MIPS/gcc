@@ -1,3 +1,187 @@
+2008-10-06  Tom Tromey  <tromey@redhat.com>
+
+	* errors.h (progname): Wrap in 'extern "C"'.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
+	* bitmap.c (bitmap_obstack_alloc_stat): Remove extra cast.
+	(bitmap_obstack_free): Likewise.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
+	* dominance.c (iterate_fix_dominators): Cast argument to
+	BITMAP_FREE.
+	* bitmap.c (bitmap_obstack_alloc_stat): Add cast.
+	(bitmap_obstack_free): Likewise.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
+	* fold-const.c (fold_unary): Rename 'and' to 'and_expr'.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
+	* sel-sched.c (move_op_hooks, fur_hooks): Mark forward
+	declarations 'extern'.
+	* regstat.c (regstat_n_sets_and_refs): Remove duplicate.
+	* haifa-sched.c (sched_scan_info): Remove duplicate.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
+	* cgraph.h (struct inline_summary): Move to top level.
+	(cgraph_local_info): Update.
+	* target.h (struct asm_out): Move to top level.
+	(struct asm_int_op): Likewise.
+	(struct sched): Likewise.
+	(struct vectorize): Likewise.
+	(struct calls): Likewise.
+	(struct c): Likewise.
+	(struct cxx): Likewise.
+	(struct emutls): Likewise.
+	(struct target_option_hooks): Likewise.
+	(struct gcc_target): Update.
+	* matrix-reorg.c (struct free_info): Move to top level.
+	(struct matrix_info): Update.
+	* tree-eh.c (struct goto_queue_node): Move to top level.
+	(struct leh_tf_state): Update.
+	* sched-int.h (struct deps_reg): Move to top level.
+	(enum post_call_value): Likewise.  Give name.
+	(struct deps): Update.
+	* cse.c (struct branch_path): Move to top level.
+	(struct cse_basic_block_data): Update.
+
+2008-10-05  Tom Tromey  <tromey@redhat.com>
+
+	* sdbout.c (sdb_debug_hooks): Initialize.
+	* ggc-page.c (ggc_pch_write_object): Initialize emptyBytes.
+
+2008-09-19  Tom Tromey  <tromey@redhat.com>
+
+	* gimple.h (gimple_cond_code): Cast result to tree_code.
+
+2008-09-19  Tom Tromey  <tromey@redhat.com>
+
+	* tree-flow.h (struct ptr_info_def) <escape_mask>: Now unsigned
+	int.
+	(struct var_ann_d) <escape_mask>: Likewise.
+
+2008-09-19  Tom Tromey  <tromey@redhat.com>
+
+	* tree.c (tree_range_check_failed): Use 'int' to iterate.
+	(omp_clause_range_check_failed): Likewise.
+	(build_common_builtin_nodes): Likewise.
+	* sel-sched.c (init_hard_regs_data): Use 'int' to iterate.
+	* regclass.c (cannot_change_mode_set_regs): Use 'int' to iterate.
+	(invalid_mode_change_p): Likewise.
+	* passes.c (finish_optimization_passes): Use 'int' to iterate.
+	* ira.c (setup_class_subset_and_memory_move_costs): Use 'int' to
+	iterate.
+	(setup_cover_and_important_classes): Likewise.
+	(setup_class_translate): Likewise.
+	(setup_reg_class_nregs): Likewise.
+	(ira_init_once): Likewise.
+	(free_register_move_costs): Likewise.
+	* gimple.c (gimple_range_check_failed): Use 'int' to iterate.
+
+2008-09-18  Tom Tromey  <tromey@redhat.com>
+
+	* cp/parser.c (cp_parser_check_decl_spec): Use 'int' to iterate.
+	* cp/class.c (layout_class_type): Use 'int' to iterate.
+	* cp/decl.c (finish_enum): Use 'int' to iterate.
+
+2008-09-17  Tom Tromey  <tromey@redhat.com>
+
+	* ipa-reference.c (pass_ipa_reference): Fix struct tag.
+	* ipa-pure-const.c (pass_ipa_pure_const): Fix struct tag.
+	* ipa-cp.c (pass_ipa_cp): Fix struct tag.
+	* except.c (add_call_site): Fix struct tag.
+	* tree-pass.h (pass_ipa_cp, pass_ipa_reference,
+	pass_ipa_pure_const): Fix struct tag.
+
+2008-09-17  Tom Tromey  <tromey@redhat.com>
+
+	* cfgrtl.c (pass_free_cfg): Use TV_NONE.
+	* tree-vectorizer.c (pass_ipa_increase_alignment): Use TV_NONE.
+	* tree-vect-generic.c (pass_lower_vector): Use TV_NONE.
+	(pass_lower_vector_ssa): Likewise.
+	* tree-tailcall.c (pass_tail_recursion): Use TV_NONE.
+	(pass_tail_calls): Likewise.
+	* tree-stdarg.c (pass_stdarg): Use TV_NONE.
+	* tree-ssanames.c (pass_release_ssa_names): Use TV_NONE.
+	* tree-ssa-math-opts.c (pass_cse_reciprocals): Use TV_NONE.
+	(pass_cse_sincos): Likewise.
+	(pass_convert_to_rsqrt): Likewise.
+	* tree-ssa-dse.c (pass_simple_dse): Use TV_NONE.
+	* tree-ssa-ccp.c (pass_fold_builtins): Use TV_NONE.
+	* tree-ssa.c (pass_early_warn_uninitialized): Use TV_NONE.
+	(pass_late_warn_uninitialized): Likewise.
+	(pass_update_address_taken): Likewise.
+	* tree-ssa-alias.c (pass_reset_cc_flags): Use TV_NONE.
+	(pass_build_alias): Likewise.
+	* tree-optimize.c (pass_all_optimizations): Use TV_NONE.
+	(pass_early_local_passes): Likewise.
+	(pass_all_early_optimizations): Likewise.
+	(pass_cleanup_cfg): Likewise.
+	(pass_cleanup_cfg_post_optimizing): Likewise.
+	(pass_free_datastructures): Likewise.
+	(pass_free_cfg_annotations): Likewise.
+	(pass_init_datastructures): Likewise.
+	* tree-object-size.c (pass_object_sizes): Use TV_NONE.
+	* tree-nrv.c (pass_return_slot): Use TV_NONE.
+	* tree-nomudflap.c (pass_mudflap_1): Use TV_NONE.
+	(pass_mudflap_2): Likewise.
+	* tree-mudflap.c (pass_mudflap_1): Use TV_NONE.
+	(pass_mudflap_2): Likewise.
+	* tree-into-ssa.c (pass_build_ssa): Use TV_NONE.
+	* tree-if-conv.c (pass_if_conversion): Use TV_NONE.
+	* tree-complex.c (pass_lower_complex): Use TV_NONE.
+	(pass_lower_complex_O0): Likewise.
+	* tree-cfg.c (pass_remove_useless_stmts): Use TV_NONE.
+	(pass_warn_function_return): Likewise.
+	(pass_warn_function_noreturn): Likewise.
+	* stack-ptr-mod.c (pass_stack_ptr_mod): Use TV_NONE.
+	* regclass.c (pass_regclass_init): Use TV_NONE.
+	(pass_subregs_of_mode_init): Likewise.
+	(pass_subregs_of_mode_finish): Likewise.
+	* recog.c (pass_split_all_insns): Use TV_NONE.
+	(pass_split_after_reload): Likewise.
+	(pass_split_before_regstack): Likewise.
+	(pass_split_before_sched2): Likewise.
+	(pass_split_for_shorten_branches): Likewise.
+	* omp-low.c (pass_expand_omp): Use TV_NONE.
+	(pass_lower_omp): Likewise.
+	* matrix-reorg.c (pass_ipa_matrix_reorg): Use TV_NONE.
+	* jump.c (pass_cleanup_barriers): Use TV_NONE.
+	* ira.c (pass_ira): Use TV_NONE.
+	* integrate.c (pass_initial_value_sets): Use TV_NONE.
+	* init-regs.c (pass_initialize_regs): Use TV_NONE.
+	* gimple-low.c (pass_lower_cf): Use TV_NONE.
+	(pass_mark_used_blocks): Likewise.
+	* function.c (pass_instantiate_virtual_regs): Use TV_NONE.
+	(pass_init_function): Likewise.
+	(pass_leaf_regs): Likewise.
+	(pass_match_asm_constraints): Likewise.
+	* final.c (pass_compute_alignments): Use TV_NONE.
+	* except.c (pass_set_nothrow_function_flags): Use TV_NONE.
+	(pass_convert_to_eh_region_ranges): Likewise.
+	* emit-rtl.c (pass_unshare_all_rtl): Use TV_NONE.
+	* combine-stack-adj.c (pass_stack_adjustments): Use TV_NONE.
+	* cgraphbuild.c (pass_build_cgraph_edges): Use TV_NONE.
+	(pass_rebuild_cgraph_edges): Likewise.
+	* cfglayout.c (pass_into_cfg_layout_mode): Use TV_NONE.
+	(pass_outof_cfg_layout_mode): Likewise.
+	* bt-load.c (pass_branch_target_load_optimize1): Use TV_NONE.
+	(pass_branch_target_load_optimize2): Likewise.
+	* passes.c (pass_postreload): Use TV_NONE.
+	(execute_one_ipa_transform_pass): Unconditionally push and pop
+	timevar.
+	(execute_one_pass): Likewise.
+	* df-core.c (pass_df_initialize_opt): Use TV_NONE.
+	(pass_df_finish): Likewise.
+	(pass_df_initialize_no_opt): Likewise.
+	* timevar.c (timevar_print): Ignore TV_NONE.
+	(timevar_push_1): Likewise.
+	* timevar.def (TV_NONE): New timevar.
+
 2008-09-10  Ian Lance Taylor  <iant@google.com>
 
 	* machmode.h (GET_MODE_CLASS): Add cast to enum type.

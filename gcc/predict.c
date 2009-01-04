@@ -203,7 +203,8 @@ bool
 optimize_function_for_size_p (struct function *fun)
 {
   return (optimize_size
-	  || fun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED);
+	  || (fun && (fun->function_frequency
+		      == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)));
 }
 
 /* Return true when current function should always be optimized for speed.  */
@@ -820,8 +821,33 @@ combine_predictions_for_bb (basic_block bb)
 	    probability = REG_BR_PROB_BASE - probability;
 
 	  found = true;
+	  /* First match heuristics would be widly confused if we predicted
+	     both directions.  */
 	  if (best_predictor > predictor)
-	    best_probability = probability, best_predictor = predictor;
+	    {
+              struct edge_prediction *pred2;
+	      int prob = probability;
+
+              for (pred2 = (struct edge_prediction *) *preds; pred2; pred2 = pred2->ep_next)
+	       if (pred2 != pred && pred2->ep_predictor == pred->ep_predictor)
+	         {
+	           int probability2 = pred->ep_probability;
+
+		   if (pred2->ep_edge != first)
+		     probability2 = REG_BR_PROB_BASE - probability2;
+
+		   if ((probability < REG_BR_PROB_BASE / 2) != 
+		       (probability2 < REG_BR_PROB_BASE / 2))
+		     break;
+
+		   /* If the same predictor later gave better result, go for it! */
+		   if ((probability >= REG_BR_PROB_BASE / 2 && (probability2 > probability))
+		       || (probability <= REG_BR_PROB_BASE / 2 && (probability2 < probability)))
+		     prob = probability2;
+		 }
+	      if (!pred2)
+	        best_probability = prob, best_predictor = predictor;
+	    }
 
 	  d = (combined_probability * probability
 	       + (REG_BR_PROB_BASE - combined_probability)
@@ -1522,6 +1548,16 @@ static void
 tree_bb_level_predictions (void)
 {
   basic_block bb;
+  bool has_return_edges = false;
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+    if (!(e->flags & (EDGE_ABNORMAL | EDGE_FAKE | EDGE_EH)))
+      {
+        has_return_edges = true;
+	break;
+      }
 
   apply_return_prediction ();
 
@@ -1536,7 +1572,8 @@ tree_bb_level_predictions (void)
 
 	  if (is_gimple_call (stmt))
 	    {
-	      if (gimple_call_flags (stmt) & ECF_NORETURN)
+	      if ((gimple_call_flags (stmt) & ECF_NORETURN)
+	          && has_return_edges)
 		predict_paths_leading_to (bb, PRED_NORETURN,
 					  NOT_TAKEN);
 	      decl = gimple_call_fndecl (stmt);
@@ -1600,6 +1637,7 @@ tree_estimate_probability (void)
     {
       edge e;
       edge_iterator ei;
+      gimple last;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
@@ -1622,7 +1660,8 @@ tree_estimate_probability (void)
 	      && e->dest != EXIT_BLOCK_PTR
 	      && single_succ_p (e->dest)
 	      && single_succ_edge (e->dest)->dest == EXIT_BLOCK_PTR
-	      && gimple_code (last_stmt (e->dest)) == GIMPLE_RETURN)
+	      && (last = last_stmt (e->dest)) != NULL
+	      && gimple_code (last) == GIMPLE_RETURN)
 	    {
 	      edge e1;
 	      edge_iterator ei1;

@@ -187,6 +187,7 @@ sources = \
 	mutex.cc \
 	condition_variable.cc \
 	chrono.cc \
+	thread.cc \
 	${host_sources} \
 	${host_sources_extra} 
 
@@ -273,9 +274,9 @@ limits_c++0x.o: limits_c++0x.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 atomic.lo: atomic.cc
-	$(LTCXXCOMPILE) -x c++ -std=gnu++0x -c $<
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 atomic.o: atomic.cc
-	$(CXXCOMPILE) -x c++ -std=gnu++0x -c $<
+	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 string-inst.lo: string-inst.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
@@ -290,6 +291,11 @@ wstring-inst.o: wstring-inst.cc
 chrono.lo: chrono.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 chrono.o: chrono.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+thread.lo: thread.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+thread.o: thread.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 if GLIBCXX_LDBL_COMPAT

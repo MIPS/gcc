@@ -565,6 +565,7 @@ init_optimization_passes (void)
 	}
       NEXT_PASS (pass_release_ssa_names);
       NEXT_PASS (pass_rebuild_cgraph_edges);
+      NEXT_PASS (pass_inline_parameters);
     }
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
@@ -1284,6 +1285,7 @@ execute_one_pass (struct opt_pass *pass)
   if (initializing_dump
       && dump_file
       && graph_dump_format != no_graph
+      && cfun
       && (cfun->curr_properties & (PROP_cfg | PROP_rtl))
 	  == (PROP_cfg | PROP_rtl))
     {

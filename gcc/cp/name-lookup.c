@@ -604,6 +604,13 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	     scope of the current namespace, not the current
 	     function.  */
 	  && !(TREE_CODE (x) == VAR_DECL && DECL_EXTERNAL (x))
+	  /* When parsing the parameter list of a function declarator,
+	     don't set DECL_CONTEXT to an enclosing function.  When we
+	     push the PARM_DECLs in order to process the function body,
+	     current_binding_level->this_entity will be set.  */
+	  && !(TREE_CODE (x) == PARM_DECL
+	       && current_binding_level->kind == sk_function_parms
+	       && current_binding_level->this_entity == NULL)
 	  && !DECL_CONTEXT (x))
 	DECL_CONTEXT (x) = current_function_decl;
 
@@ -712,11 +719,10 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	    }
 	  else if (TREE_CODE (t) == PARM_DECL)
 	    {
-	      gcc_assert (DECL_CONTEXT (t));
-
 	      /* Check for duplicate params.  */
-	      if (duplicate_decls (x, t, is_friend))
-		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
+	      tree d = duplicate_decls (x, t, is_friend);
+	      if (d)
+		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, d);
 	    }
 	  else if ((DECL_EXTERN_C_FUNCTION_P (x)
 		    || DECL_FUNCTION_TEMPLATE_P (x))
@@ -1542,7 +1548,8 @@ kept_level_p (void)
   return (current_binding_level->blocks != NULL_TREE
 	  || current_binding_level->keep
 	  || current_binding_level->kind == sk_cleanup
-	  || current_binding_level->names != NULL_TREE);
+	  || current_binding_level->names != NULL_TREE
+	  || current_binding_level->using_directives);
 }
 
 /* Returns the kind of the innermost scope.  */
@@ -3478,7 +3485,6 @@ do_using_directive (tree name_space)
   if (!toplevel_bindings_p ())
     {
       push_using_directive (name_space);
-      context = current_scope ();
     }
   else
     {
@@ -3486,12 +3492,12 @@ do_using_directive (tree name_space)
       add_using_namespace (current_namespace, name_space, 0);
       if (current_namespace != global_namespace)
 	context = current_namespace;
-    }
 
-  /* Emit debugging info.  */
-  if (!processing_template_decl)
-    (*debug_hooks->imported_module_or_decl) (name_space, NULL_TREE,
-					     context, false);
+      /* Emit debugging info.  */
+      if (!processing_template_decl)
+	(*debug_hooks->imported_module_or_decl) (name_space, NULL_TREE,
+						 context, false);
+    }
 }
 
 /* Deal with a using-directive seen by the parser.  Currently we only
@@ -4277,7 +4283,8 @@ lookup_type_scope (tree name, tag_scope scope)
 	  if (iter->scope == b)
 	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
 
-	  if (b->kind == sk_cleanup || b->kind == sk_template_parms)
+	  if (b->kind == sk_cleanup || b->kind == sk_template_parms
+	      || b->kind == sk_function_parms)
 	    b = b->level_chain;
 	  else if (b->kind == sk_class
 		   && scope == ts_within_enclosing_non_class)
@@ -4694,6 +4701,7 @@ arg_assoc_type (struct arg_lookup *k, tree type)
     case VECTOR_TYPE:
     case BOOLEAN_TYPE:
     case FIXED_POINT_TYPE:
+    case DECLTYPE_TYPE:
       return false;
     case RECORD_TYPE:
       if (TYPE_PTRMEMFUNC_P (type))
@@ -4929,6 +4937,9 @@ maybe_process_template_type_declaration (tree type, int is_friend,
 	  tree name = DECL_NAME (decl);
 
 	  decl = push_template_decl_real (decl, is_friend);
+	  if (decl == error_mark_node)
+	    return error_mark_node;
+
 	  /* If the current binding level is the binding level for the
 	     template parameters (see the comment in
 	     begin_template_parm_list) and the enclosing level is a class
@@ -4987,6 +4998,8 @@ pushtag (tree name, tree type, tag_scope scope)
   while (/* Cleanup scopes are not scopes from the point of view of
 	    the language.  */
 	 b->kind == sk_cleanup
+	 /* Neither are function parameter scopes.  */
+	 || b->kind == sk_function_parms
 	 /* Neither are the scopes used to hold template parameters
 	    for an explicit specialization.  For an ordinary template
 	    declaration, these scopes are not scopes from the point of

@@ -3200,6 +3200,10 @@ vect_supported_load_permutation_p (slp_instance slp_instn, int group_size,
   /* FORNOW: the only supported permutation is 0..01..1.. of length equal to 
      GROUP_SIZE and where each sequence of same drs is of GROUP_SIZE length as 
      well.  */
+  if (VEC_length (int, load_permutation)
+      != (unsigned int) (group_size * group_size))
+    return false;
+
   supported = true;
   for (j = 0; j < group_size; j++)
     {
@@ -3223,6 +3227,32 @@ vect_supported_load_permutation_p (slp_instance slp_instn, int group_size,
 
   return false; 
 }
+
+
+/* Find the first load in the loop that belongs to INSTANCE. 
+   When loads are in several SLP nodes, there can be a case in which the first
+   load does not appear in the first SLP node to be transformed, causing 
+   incorrect order of statements. Since we generate all the loads together,
+   they must be inserted before the first load of the SLP instance and not
+   before the first load of the first node of the instance.  */
+static gimple 
+vect_find_first_load_in_slp_instance (slp_instance instance) 
+{
+  int i, j;
+  slp_tree load_node;
+  gimple first_load = NULL, load;
+
+  for (i = 0; 
+       VEC_iterate (slp_tree, SLP_INSTANCE_LOADS (instance), i, load_node); 
+       i++)
+    for (j = 0; 
+         VEC_iterate (gimple, SLP_TREE_SCALAR_STMTS (load_node), j, load);
+         j++)
+      first_load = get_earlier_stmt (load, first_load);
+  
+  return first_load;
+}
+
 
 /* Analyze an SLP instance starting from a group of strided stores. Call
    vect_build_slp_tree to build a tree of packed stmts if possible.  
@@ -3308,6 +3338,7 @@ vect_analyze_slp_instance (loop_vec_info loop_vinfo, gimple stmt)
       SLP_INSTANCE_OUTSIDE_OF_LOOP_COST (new_instance) = outside_cost;
       SLP_INSTANCE_INSIDE_OF_LOOP_COST (new_instance) = inside_cost;
       SLP_INSTANCE_LOADS (new_instance) = loads;
+      SLP_INSTANCE_FIRST_LOAD_STMT (new_instance) = NULL;
       SLP_INSTANCE_LOAD_PERMUTATION (new_instance) = load_permutation;
       if (VEC_length (slp_tree, loads))
         {
@@ -3324,6 +3355,9 @@ vect_analyze_slp_instance (loop_vec_info loop_vinfo, gimple stmt)
               vect_free_slp_instance (new_instance);
               return false;
             }
+
+          SLP_INSTANCE_FIRST_LOAD_STMT (new_instance)
+             = vect_find_first_load_in_slp_instance (new_instance);
         }
       else
         VEC_free (int, heap, SLP_INSTANCE_LOAD_PERMUTATION (new_instance));
@@ -3572,8 +3606,8 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    {
-	      fprintf (dump_file, "analyze in outer-loop: ");
-	      print_generic_expr (dump_file, inner_base, TDF_SLIM);
+	      fprintf (vect_dump, "analyze in outer-loop: ");
+	      print_generic_expr (vect_dump, inner_base, TDF_SLIM);
 	    }
 
 	  outer_base = get_inner_reference (inner_base, &pbitsize, &pbitpos, 
@@ -3583,7 +3617,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  if (pbitpos % BITS_PER_UNIT != 0)
 	    {
 	      if (vect_print_dump_info (REPORT_DETAILS))
-		fprintf (dump_file, "failed: bit offset alignment.\n");
+		fprintf (vect_dump, "failed: bit offset alignment.\n");
 	      return false;
 	    }
 
@@ -3591,7 +3625,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  if (!simple_iv (loop, stmt, outer_base, &base_iv, false))
 	    {
 	      if (vect_print_dump_info (REPORT_DETAILS))
-		fprintf (dump_file, "failed: evolution of base is not affine.\n");
+		fprintf (vect_dump, "failed: evolution of base is not affine.\n");
 	      return false;
 	    }
 
@@ -3611,7 +3645,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  else if (!simple_iv (loop, stmt, poffset, &offset_iv, false))
 	    {
 	      if (vect_print_dump_info (REPORT_DETAILS))
-	        fprintf (dump_file, "evolution of offset is not affine.\n");
+	        fprintf (vect_dump, "evolution of offset is not affine.\n");
 	      return false;
 	    }
 
@@ -3634,18 +3668,18 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  STMT_VINFO_DR_ALIGNED_TO (stmt_info) = 
 				size_int (highest_pow2_factor (offset_iv.base));
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (vect_print_dump_info (REPORT_DETAILS))
 	    {
-	      fprintf (dump_file, "\touter base_address: ");
-	      print_generic_expr (dump_file, STMT_VINFO_DR_BASE_ADDRESS (stmt_info), TDF_SLIM);
-	      fprintf (dump_file, "\n\touter offset from base address: ");
-	      print_generic_expr (dump_file, STMT_VINFO_DR_OFFSET (stmt_info), TDF_SLIM);
-	      fprintf (dump_file, "\n\touter constant offset from base address: ");
-	      print_generic_expr (dump_file, STMT_VINFO_DR_INIT (stmt_info), TDF_SLIM);
-	      fprintf (dump_file, "\n\touter step: ");
-	      print_generic_expr (dump_file, STMT_VINFO_DR_STEP (stmt_info), TDF_SLIM);
-	      fprintf (dump_file, "\n\touter aligned to: ");
-	      print_generic_expr (dump_file, STMT_VINFO_DR_ALIGNED_TO (stmt_info), TDF_SLIM);
+	      fprintf (vect_dump, "\touter base_address: ");
+	      print_generic_expr (vect_dump, STMT_VINFO_DR_BASE_ADDRESS (stmt_info), TDF_SLIM);
+	      fprintf (vect_dump, "\n\touter offset from base address: ");
+	      print_generic_expr (vect_dump, STMT_VINFO_DR_OFFSET (stmt_info), TDF_SLIM);
+	      fprintf (vect_dump, "\n\touter constant offset from base address: ");
+	      print_generic_expr (vect_dump, STMT_VINFO_DR_INIT (stmt_info), TDF_SLIM);
+	      fprintf (vect_dump, "\n\touter step: ");
+	      print_generic_expr (vect_dump, STMT_VINFO_DR_STEP (stmt_info), TDF_SLIM);
+	      fprintf (vect_dump, "\n\touter aligned to: ");
+	      print_generic_expr (vect_dump, STMT_VINFO_DR_ALIGNED_TO (stmt_info), TDF_SLIM);
 	    }
 	}
 

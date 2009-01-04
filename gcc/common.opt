@@ -385,6 +385,10 @@ fcommon
 Common Report Var(flag_no_common,0) Optimization
 Do not put uninitialized globals in the common section
 
+fconserve-stack
+Common Var(flag_conserve_stack,0) Optimization
+Do not perform optimizations increasing noticeably stack usage
+
 fcprop-registers
 Common Report Var(flag_cprop_registers) Optimization
 Perform a register copy-propagation optimization pass
@@ -563,6 +567,10 @@ floop-block
 Common Report Var(flag_loop_block) Optimization
 Enable Loop Blocking transformation
 
+fgraphite-identity
+Common Report Var(flag_graphite_identity) Optimization
+Enable Graphite Identity transformation
+
 fguess-branch-probability
 Common Report Var(flag_guess_branch_prob) Optimization
 Enable guessing of branch probabilities
@@ -675,7 +683,11 @@ Use integrated register allocator.
 
 fira-algorithm=
 Common Joined RejectNegative
--fira-algorithm=[regional|CB|mixed] Set the used IRA algorithm
+-fira-algorithm=[CB|priority] Set the used IRA algorithm
+
+fira-region=
+Common Joined RejectNegative
+-fira-region=[one|all|mixed] Set regions for IRA
 
 fira-coalesce
 Common Report Var(flag_ira_coalesce) Init(0)

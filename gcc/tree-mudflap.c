@@ -669,6 +669,15 @@ mf_build_check_statement_for (tree base, tree limit,
 
   if (! flag_mudflap_threads)
     {
+      if (stmt_ends_bb_p (g))
+	{
+	  gsi = gsi_start_bb (then_bb);
+	  gsi_insert_seq_after (&gsi, seq, GSI_CONTINUE_LINKING);
+	  e = split_block (then_bb, g);
+	  then_bb = e->dest;
+	  seq = gimple_seq_alloc ();
+	}
+
       g = gimple_build_assign (mf_cache_shift_decl_l, mf_cache_shift_decl);
       gimple_seq_add_stmt (&seq, g);
 
@@ -773,6 +782,13 @@ mf_xform_derefs_1 (gimple_stmt_iterator *iter, tree *tp,
 		base = TREE_OPERAND (var, 0);
                 break;
               }
+            else if (TREE_CODE (var) == VIEW_CONVERT_EXPR)
+	      {
+		var = TREE_OPERAND (var, 0);
+		if (CONSTANT_CLASS_P (var)
+		    && TREE_CODE (var) != STRING_CST)
+		  return;
+	      }
             else 
               {
                 gcc_assert (TREE_CODE (var) == VAR_DECL 

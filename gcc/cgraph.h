@@ -169,6 +169,9 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Set when function must be output - it is externally visible
      or its address is taken.  */
   unsigned needed : 1;
+  /* Set when decl is an abstract function pointed to by the
+     ABSTRACT_DECL_ORIGIN of a reachable function.  */
+  unsigned abstract_and_needed : 1;
   /* Set when function is reachable by call from other function
      that is either reachable or needed.  */
   unsigned reachable : 1;
@@ -455,7 +458,6 @@ varpool_next_static_initializer (struct varpool_node *node)
 
 /* In ipa-inline.c  */
 void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool, bool);
-void cgraph_mark_inline_edge (struct cgraph_edge *, bool);
 bool cgraph_default_inline_p (struct cgraph_node *, const char **);
 unsigned int compute_inline_parameters (struct cgraph_node *);
 

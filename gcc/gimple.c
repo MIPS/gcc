@@ -1101,7 +1101,7 @@ gimple_statement_structure (gimple gs)
   return gss_for_code (gimple_code (gs));
 }
 
-#if defined ENABLE_GIMPLE_CHECKING && (GCC_VERSION >= 2007)
+#if defined ENABLE_GIMPLE_CHECKING
 /* Complain of a gimple type mismatch and die.  */
 
 void
@@ -1118,7 +1118,6 @@ gimple_check_failed (const_gimple gs, const char *file, int line,
 		    : "",
 		  function, trim_filename (file), line);
 }
-
 
 /* Similar to gimple_check_failed, except that instead of specifying a
    dozen codes, use the knowledge that they're all sequential.  */
@@ -1153,6 +1152,7 @@ gimple_range_check_failed (const_gimple gs, const char *file, int line,
 		  buffer, gimple_code_name[gimple_code (gs)],
 		  function, trim_filename (file), line);
 }
+
 #endif /* ENABLE_GIMPLE_CHECKING */
 
 
@@ -3144,8 +3144,11 @@ recalculate_side_effects (tree t)
 	}
       break;
 
+    case tcc_constant:
+      /* No side-effects.  */
+      return;
+
     default:
-      /* Can never be used with non-expressions.  */
       gcc_unreachable ();
    }
 }
@@ -3189,9 +3192,11 @@ canonicalize_cond_expr_cond (tree t)
   return NULL_TREE;
 }
 
-/* Build call same as STMT but skipping arguments ARGS_TO_SKIP.  */
+/* Build a GIMPLE_CALL identical to STMT but skipping the arguments in
+   the positions marked by the set ARGS_TO_SKIP.  */
+
 gimple
-giple_copy_call_skip_args (gimple stmt, bitmap args_to_skip)
+gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 {
   int i;
   tree fn = gimple_call_fn (stmt);

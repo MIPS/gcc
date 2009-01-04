@@ -153,6 +153,9 @@ GLIBCXX_ENABLE_CLOCK_GETTIME([no])
 # For gthread support
 GLIBCXX_CHECK_GTHREADS
 
+# For nanosleep support
+GLIBCXX_CHECK_NANOSLEEP
+
 AC_LC_MESSAGES
 
 # Check for available headers.
@@ -178,9 +181,6 @@ if $GLIBCXX_IS_NATIVE; then
 
   # For TLS support.
   GCC_CHECK_TLS
-
-  # For _Unwind_GetIPInfo.
-  GCC_CHECK_UNWIND_GETIPINFO
 
   # For iconv support.
   AM_ICONV
@@ -283,10 +283,11 @@ else
     AC_DEFINE(HAVE_TANL)
     AC_DEFINE(HAVE_TANHL)
   fi
-
-  # Assume we have _Unwind_GetIPInfo for cross-compiles.
-  AC_DEFINE(HAVE_GETIPINFO)
 fi
+
+# Check for _Unwind_GetIPInfo.
+GCC_CHECK_UNWIND_GETIPINFO
+
 
 GCC_LINUX_FUTEX([AC_DEFINE(HAVE_LINUX_FUTEX, 1, [Define if futex syscall is available.])])
 

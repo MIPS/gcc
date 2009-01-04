@@ -37,7 +37,8 @@ gfc_option_t gfc_option;
 
 
 /* Set flags that control warnings and errors for different
-   Fortran standards to their default values.  */
+   Fortran standards to their default values.  Keep in sync with
+   libgfortran/runtime/compile_options.c (init_compile_options).  */
 
 static void
 set_default_std_flags (void)
@@ -48,7 +49,9 @@ set_default_std_flags (void)
   gfc_option.warn_std = GFC_STD_F95_DEL | GFC_STD_LEGACY;
 }
 
-/* Get ready for options handling.  */
+
+/* Get ready for options handling. Keep in sync with
+   libgfortran/runtime/compile_options.c (init_compile_options). */
 
 unsigned int
 gfc_init_options (unsigned int argc, const char **argv)
@@ -62,6 +65,7 @@ gfc_init_options (unsigned int argc, const char **argv)
   gfc_option.max_continue_free = 255;
   gfc_option.max_identifier_length = GFC_MAX_SYMBOL_LEN;
   gfc_option.max_subrecord_length = 0;
+  gfc_option.flag_max_array_constructor = 65535;
   gfc_option.convert = GFC_CONVERT_NATIVE;
   gfc_option.record_marker = 0;
   gfc_option.dump_parse_tree = 0;
@@ -78,6 +82,7 @@ gfc_init_options (unsigned int argc, const char **argv)
   gfc_option.warn_underflow = 1;
   gfc_option.warn_intrinsic_shadow = 0;
   gfc_option.warn_intrinsics_std = 0;
+  gfc_option.warn_align_commons = 1;
   gfc_option.max_errors = 25;
 
   gfc_option.flag_all_intrinsics = 0;
@@ -117,6 +122,7 @@ gfc_init_options (unsigned int argc, const char **argv)
   gfc_option.flag_init_logical = GFC_INIT_LOGICAL_OFF;
   gfc_option.flag_init_character = GFC_INIT_CHARACTER_OFF;
   gfc_option.flag_init_character_value = (char)0;
+  gfc_option.flag_align_commons = 1;
   
   gfc_option.fpe = 0;
 
@@ -259,10 +265,10 @@ gfc_post_options (const char **pfilename)
       source_path = (char *) alloca (i + 1);
       memcpy (source_path, canon_source_file, i);
       source_path[i] = 0;
-      gfc_add_include_path (source_path, true);
+      gfc_add_include_path (source_path, true, true);
     }
   else
-    gfc_add_include_path (".", true);
+    gfc_add_include_path (".", true, true);
 
   if (canon_source_file != gfc_source_file)
     gfc_free (CONST_CAST (char *, canon_source_file));
@@ -401,7 +407,7 @@ gfc_handle_module_path_options (const char *arg)
   strcpy (gfc_option.module_dir, arg);
   strcat (gfc_option.module_dir, "/");
 
-  gfc_add_include_path (gfc_option.module_dir, true);
+  gfc_add_include_path (gfc_option.module_dir, true, false);
 }
 
 
@@ -517,6 +523,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.warn_intrinsic_shadow = value;
       break;
 
+    case OPT_Walign_commons:
+      gfc_option.warn_align_commons = value;
+      break;
+
     case OPT_fall_intrinsics:
       gfc_option.flag_all_intrinsics = 1;
       break;
@@ -629,8 +639,12 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_fintrinsic_modules_path:
-      gfc_add_include_path (arg, false);
+      gfc_add_include_path (arg, false, false);
       gfc_add_intrinsic_modules_path (arg);
+      break;
+
+    case OPT_fmax_array_constructor_:
+      gfc_option.flag_max_array_constructor = value > 65535 ? value : 65535;
       break;
 
     case OPT_fmax_errors_:
@@ -730,7 +744,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_I:
-      gfc_add_include_path (arg, true);
+      gfc_add_include_path (arg, true, false);
       break;
 
     case OPT_J:
@@ -824,6 +838,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_frecursive:
       gfc_option.flag_recursive = 1;
+      break;
+
+    case OPT_falign_commons:
+      gfc_option.flag_align_commons = value;
       break;
     }
 

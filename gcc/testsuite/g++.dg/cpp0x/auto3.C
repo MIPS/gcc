@@ -5,6 +5,10 @@
 
 auto x;				// { dg-error "auto" }
 
+// If the type deduced for the template parameter U is not the same in each
+// deduction, the program is ill-formed.
+auto i = 42, j = 42.0;		// { dg-error "" "" { xfail *-*-* } }
+
 // New CWG issue
 auto a[2] = { 1, 2 };		// { dg-error "auto" }
 
@@ -13,7 +17,7 @@ struct A { };
 
 A<int> A1;
 // CWG issue 625
-A<auto> A2 = A1;		// { dg-error "auto" }
+A<auto> A2 = A1;		// { dg-error "" }
 
 auto foo() { }			// { dg-error "auto" }
 

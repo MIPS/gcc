@@ -1067,7 +1067,10 @@ insert_restore (struct insn_chain *chain, int before_p, int regno,
   mem = regno_save_mem [regno][numregs];
   if (save_mode [regno] != VOIDmode
       && save_mode [regno] != GET_MODE (mem)
-      && numregs == (unsigned int) hard_regno_nregs[regno][save_mode [regno]])
+      && numregs == (unsigned int) hard_regno_nregs[regno][save_mode [regno]]
+      /* Check that insn to restore REGNO in save_mode[regno] is
+	 correct.  */
+      && reg_save_code (regno, save_mode[regno]) >= 0)
     mem = adjust_address (mem, save_mode[regno], 0);
   else
     mem = copy_rtx (mem);
@@ -1145,7 +1148,10 @@ insert_save (struct insn_chain *chain, int before_p, int regno,
   mem = regno_save_mem [regno][numregs];
   if (save_mode [regno] != VOIDmode
       && save_mode [regno] != GET_MODE (mem)
-      && numregs == (unsigned int) hard_regno_nregs[regno][save_mode [regno]])
+      && numregs == (unsigned int) hard_regno_nregs[regno][save_mode [regno]]
+      /* Check that insn to save REGNO in save_mode[regno] is
+	 correct.  */
+      && reg_save_code (regno, save_mode[regno]) >= 0)
     mem = adjust_address (mem, save_mode[regno], 0);
   else
     mem = copy_rtx (mem);
@@ -1210,10 +1216,12 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
       /* ??? It would be nice if we could exclude the already / still saved
 	 registers from the live sets.  */
       COPY_REG_SET (&new_chain->live_throughout, &chain->live_throughout);
-      /* Registers that die in CHAIN->INSN still live in the new insn.  */
+      /* Registers that die in CHAIN->INSN still live in the new insn.
+	 Likewise for those which are autoincremented or autodecremented.  */
       for (link = REG_NOTES (chain->insn); link; link = XEXP (link, 1))
 	{
-	  if (REG_NOTE_KIND (link) == REG_DEAD)
+	  enum reg_note kind = REG_NOTE_KIND (link);
+	  if (kind == REG_DEAD || kind == REG_INC)
 	    {
 	      rtx reg = XEXP (link, 0);
 	      int regno, i;

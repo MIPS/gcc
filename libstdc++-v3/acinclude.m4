@@ -1201,6 +1201,39 @@ AC_DEFUN([GLIBCXX_CHECK_GETTIMEOFDAY], [
 ])
 
 dnl
+dnl Check for nanosleep, used in the implementation of 30.2.2
+dnl [thread.thread.this] in the current C++0x working draft.
+dnl
+AC_DEFUN([GLIBCXX_CHECK_NANOSLEEP], [
+
+  AC_MSG_CHECKING([for nanosleep])
+
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -fno-exceptions"
+
+  ac_has_nanosleep=no;
+  AC_CHECK_HEADERS(time.h, ac_has_time_h=yes, ac_has_time_h=no)
+  if test x"$ac_has_time_h" = x"yes"; then
+    AC_MSG_CHECKING([for nanosleep])
+    AC_TRY_COMPILE([#include <time.h>],                                                                                                         
+      [timespec ts; nanosleep(&ts, 0);],
+      [ac_has_nanosleep=yes], [ac_has_nanosleep=no])
+
+    AC_MSG_RESULT($ac_has_nanosleep)
+  fi
+
+  if test x"$ac_has_nanosleep" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_NANOSLEEP, 1,
+      [ Defined if nanosleep is available. ])
+  fi
+
+  CXXFLAGS="$ac_save_CXXFLAGS"
+  AC_LANG_RESTORE
+])
+
+dnl
 dnl Check for ISO/IEC 9899:1999 "C99" support to ISO/IEC DTR 19768 "TR1"
 dnl facilities in Chapter 8, "C compatibility".
 dnl
@@ -1490,8 +1523,8 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
 	          remainderf(0.0f, 0.0f);
 	          remainderl(0.0l, 0.0l);
 	          remquo(0.0, 0.0, 0);
-	          remquo(0.0f, 0.0f, 0);
-	          remquo(0.0l, 0.0l, 0);
+	          remquof(0.0f, 0.0f, 0);
+	          remquol(0.0l, 0.0l, 0);
 	          rint(0.0);
 	          rintf(0.0f);
 	          rintl(0.0l);
@@ -1520,7 +1553,7 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
   fi
 
   # Check for the existence of <inttypes.h> functions (NB: doesn't make
-  # sense if the previous check fails, per C99, 7.8/1).
+  # sense if the glibcxx_cv_c99_stdint_tr1 check fails, per C99, 7.8/1).
   ac_c99_inttypes_tr1=no;
   if test x"$glibcxx_cv_c99_stdint_tr1" = x"yes"; then
     AC_MSG_CHECKING([for ISO C99 support to TR1 in <inttypes.h>])
@@ -1539,6 +1572,27 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
     AC_DEFINE(_GLIBCXX_USE_C99_INTTYPES_TR1, 1,
               [Define if C99 functions in <inttypes.h> should be imported in
               <tr1/cinttypes> in namespace std::tr1.])
+  fi
+
+  # Check for the existence of whcar_t <inttypes.h> functions (NB: doesn't
+  # make sense if the glibcxx_cv_c99_stdint_tr1 check fails, per C99, 7.8/1).
+  ac_c99_inttypes_wchar_t_tr1=no;
+  if test x"$glibcxx_cv_c99_stdint_tr1" = x"yes"; then
+    AC_MSG_CHECKING([for wchar_t ISO C99 support to TR1 in <inttypes.h>])
+    AC_TRY_COMPILE([#include <inttypes.h>],
+	           [intmax_t base;
+		    const wchar_t* s;
+	            wchar_t** endptr;
+	            intmax_t ret = wcstoimax(s, endptr, base);
+	            uintmax_t uret = wcstoumax(s, endptr, base);
+        	   ],[ac_c99_inttypes_wchar_t_tr1=yes],
+		     [ac_c99_inttypes_wchar_t_tr1=no])
+  fi
+  AC_MSG_RESULT($ac_c99_inttypes_wchar_t_tr1)
+  if test x"$ac_c99_inttypes_wchar_t_tr1" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C99_INTTYPES_WCHAR_T_TR1, 1,
+              [Define if wchar_t C99 functions in <inttypes.h> should be
+	      imported in <tr1/cinttypes> in namespace std::tr1.])
   fi
 
   # Check for the existence of the <stdbool.h> header.	
@@ -1620,46 +1674,6 @@ m4_define([n_syserr], m4_incr(n_syserr))dnl
 m4_popdef([SYSERR])dnl
 ])
 m4_popdef([n_syserr])dnl
-])
-
-dnl
-dnl Check whether C++200x's standard layout types are supported. 
-dnl
-AC_DEFUN([GLIBCXX_CHECK_STANDARD_LAYOUT], [
-
-  AC_MSG_CHECKING([for ISO C++200x standard layout type support])
-  AC_CACHE_VAL(ac_standard_layout, [
-  AC_LANG_SAVE
-  AC_LANG_CPLUSPLUS
-  ac_test_CXXFLAGS="${CXXFLAGS+set}"
-  ac_save_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS='-std=gnu++0x'
-
-  AC_TRY_COMPILE([struct b
-                  {
-  		    bool t;
-
-		    // Need standard layout relaxation from POD
-		    private:	    
-  		    b& operator=(const b&);
-  		    b(const b&);
-		    };
-
-		    int main()
-		    {
-		      b tst1 = { false };
-		       return 0;
-		    }],,
-             [ac_standard_layout=yes], [ac_standard_layout=no])
-
-  CXXFLAGS="$ac_save_CXXFLAGS"
-  AC_LANG_RESTORE
-  ])
-  AC_MSG_RESULT($ac_standard_layout)
-  if test x"$ac_standard_layout" = x"yes"; then
-    AC_DEFINE(_GLIBCXX_USE_STANDARD_LAYOUT, 1,
-              [Define if standard layout types are supported in C++200x.])
-  fi
 ])
 
 dnl
@@ -2407,7 +2421,9 @@ dnl see: CHECK_SYNC_FETCH_AND_ADD
 dnl
 dnl Defines:
 dnl  _GLIBCXX_ATOMIC_BUILTINS_1 
+dnl  _GLIBCXX_ATOMIC_BUILTINS_2
 dnl  _GLIBCXX_ATOMIC_BUILTINS_4
+dnl  _GLIBCXX_ATOMIC_BUILTINS_8
 dnl
 AC_DEFUN([GLIBCXX_ENABLE_ATOMIC_BUILTINS], [
   AC_LANG_SAVE
@@ -2419,6 +2435,66 @@ AC_DEFUN([GLIBCXX_ENABLE_ATOMIC_BUILTINS], [
 
   # Fake what AC_TRY_COMPILE does, without linking as this is
   # unnecessary for a builtins test.
+
+    cat > conftest.$ac_ext << EOF
+[#]line __oline__ "configure"
+int main()
+{
+  typedef bool atomic_type;
+  atomic_type c1;
+  atomic_type c2;
+  const atomic_type c3(0);
+  __sync_fetch_and_add(&c1, c2);
+  __sync_val_compare_and_swap(&c1, c3, c2);
+  __sync_lock_test_and_set(&c1, c3);
+  __sync_lock_release(&c1);
+  __sync_synchronize();
+  return 0;
+}
+EOF
+
+    AC_MSG_CHECKING([for atomic builtins for bool])
+    if AC_TRY_EVAL(ac_compile); then
+      if grep __sync_ conftest.s >/dev/null 2>&1 ; then
+        enable_atomic_builtinsb=no
+      else
+      AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_1, 1,
+      [Define if builtin atomic operations for bool are supported on this host.])
+        enable_atomic_builtinsb=yes
+      fi
+    fi
+    AC_MSG_RESULT($enable_atomic_builtinsb)
+    rm -f conftest*
+
+    cat > conftest.$ac_ext << EOF
+[#]line __oline__ "configure"
+int main()
+{
+  typedef short atomic_type;
+  atomic_type c1;
+  atomic_type c2;
+  const atomic_type c3(0);
+  __sync_fetch_and_add(&c1, c2);
+  __sync_val_compare_and_swap(&c1, c3, c2);
+  __sync_lock_test_and_set(&c1, c3);
+  __sync_lock_release(&c1);
+  __sync_synchronize();
+  return 0;
+}
+EOF
+
+    AC_MSG_CHECKING([for atomic builtins for short])
+    if AC_TRY_EVAL(ac_compile); then
+      if grep __sync_ conftest.s >/dev/null 2>&1 ; then
+        enable_atomic_builtinss=no
+      else
+      AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_2, 1,
+      [Define if builtin atomic operations for short are supported on this host.])
+        enable_atomic_builtinss=yes
+      fi
+    fi
+    AC_MSG_RESULT($enable_atomic_builtinss)
+    rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
 [#]line __oline__ "configure"
@@ -2455,7 +2531,7 @@ EOF
 [#]line __oline__ "configure"
 int main()
 {
-  typedef bool atomic_type;
+  typedef long long atomic_type;
   atomic_type c1;
   atomic_type c2;
   const atomic_type c3(0);
@@ -2468,18 +2544,19 @@ int main()
 }
 EOF
 
-    AC_MSG_CHECKING([for atomic builtins for bool])
+    AC_MSG_CHECKING([for atomic builtins for long long])
     if AC_TRY_EVAL(ac_compile); then
       if grep __sync_ conftest.s >/dev/null 2>&1 ; then
-        enable_atomic_builtinsb=no
+        enable_atomic_builtinsll=no
       else
-      AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_1, 1,
-      [Define if builtin atomic operations for bool are supported on this host.])
-        enable_atomic_builtinsb=yes
+      AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_8, 1,
+      [Define if builtin atomic operations for long long are supported on this host.])
+        enable_atomic_builtinsll=yes
       fi
     fi
-    AC_MSG_RESULT($enable_atomic_builtinsb)
+    AC_MSG_RESULT($enable_atomic_builtinsll)
     rm -f conftest*
+
 
   CXXFLAGS="$old_CXXFLAGS"
   AC_LANG_RESTORE
@@ -2493,7 +2570,7 @@ EOF
   if test $atomicity_dir = "cpu/generic" ; then
     atomicity_dir=cpu/generic/atomicity_mutex
     AC_MSG_WARN([No native atomic operations are provided for this platform.])
-      if test $target_thread_file = single; then
+      if test "x$target_thread_file" = xsingle; then
         AC_MSG_WARN([They cannot be faked when thread support is disabled.])
         AC_MSG_WARN([Thread-safety of certain classes is not guaranteed.])
       else
