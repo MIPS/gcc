@@ -1,3 +1,20 @@
+2009-01-04  Richard Guenther  <rguenther@suse.de>
+
+	PR libstdc++/38720
+	* include/ext/pointer.h (_Relative_pointer_impl): Use an unsigned
+	integer type for storage, arithmetic and comparisons.
+	* testsuite/ext/ext_pointer/1_neg.cc: Adjust line numbers.
+
+2009-01-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/38719
+	* include/bits/forward_list.h (_Fwd_list_iterator<>::_M_next,
+	_Fwd_list_const_iterator::_M_next): Fix return type.
+
+2009-01-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* Revert last commit, reopen and suspend libstdc++/38678.
+
 2009-01-01  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR libstdc++/38678

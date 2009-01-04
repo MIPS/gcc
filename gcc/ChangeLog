@@ -1,3 +1,91 @@
+2009-01-04  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* doc/extend.texi (Function Attributes): Move @cindex after @item
+	for 'artifical' and 'flatten'. Fix grammar for 'externally_visible'
+	and put in alphabetical order. Fix 'target' name and put in order.
+	* doc/invoke.texi (-Wstrict-null-sentinel, -fipa-matrix-reorg): Fix
+	typos.
+
+2009-01-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/s390/s390.md (UNSPEC_MB): Rename from UNSPECV_MB.
+	(memory_barrier): Expand as unspec instead of unspec_volatile.
+	Remove mem:BLK from insn operands.  Use Pmode scratch register.
+	(*memory_barrier): Define as unspec instead of unspec_volatile.
+	Use (match_dup 0) as input operand.
+
+	* config/sparc/sparc.md (UNSPEC_MEMBAR): Rename from UNSPECV_MEMBAR.
+	* config/sparc/sync.md (memory_barrier): Expand as unspec instead of
+	unspec_volatile.  Remove mem:BLK from insn operands.  Use Pmode
+	scratch register.  Remove operand 1.
+	(*stbar): Define as unspec instead of unspec_volatile.
+	Use (match_dup 0) as input operand, remove (const_int 8).
+	(*membar): Define as unspec instead of unspec_volatile.
+	Use (match_dup 0) as input operand, remove input operand 2.
+
+	* config/xtensa/xtensa.md (UNSPEC_MEMW): Rename from UNSPECV_MEMW.
+	(memory_barrier): Expand as unspec instead of unspec_volatile.
+	Remove mem:BLK from insn operands.  Use Pmode scratch register.
+	(*memory_barrier): Define as unspec instead of unspec_volatile.
+	Use (match_dup 0) as input operand.
+
+	* config/ia64/sync.md (memory_barrier): Redefine as expander pattern.
+	Remove mem:BLK from insn operands.  Use Pmode scratch register.
+	Set volatile flag on operand 0.
+	(*memory_barrier): New insn pattern.
+
+	* config/rs6000/sync.md (memory_barrier): Remove mem:BLK from
+	insn operands.
+	(*memory_barrier): Use (match_dup 0) as input operand.
+
+	* config/mips/sync.md (memory_barrier): Redefine as expander pattern.
+	Remove mem:BLK from insn operands.  Use Pmode scratch register.
+	Set volatile flag on operand 0.
+	(*memory_barrier): New insn pattern.
+
+	* config/alpha/sync.md (*memory_barrier): Rename from *mb_internal.
+
+2009-01-04  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/38586
+	* function.c (struct temp_slot): Move to the section of the file
+	that deals with temp slots.  Remove field 'address'.
+	(temp_slot_address_table): New hash table of address -> temp slot.
+	(struct temp_slot_address_entry): New struct, items for the table.
+	(temp_slot_address_compute_hash, temp_slot_address_hash,
+	temp_slot_address_eq, insert_temp_slot_address): Support functions
+	for the new table.
+	(find_temp_slot_from_address): Rewrite to use the new hash table.
+	(remove_unused_temp_slot_addresses): Remove addresses of temp
+	slots that have been made available.
+	(remove_unused_temp_slot_addresses_1): Call-back for htab_traverse,
+	worker function for remove_unused_temp_slot_addresses.
+	(assign_stack_temp_for_type): Don't clear the temp slot address list.
+	Add the temp slot address to the address -> temp slot map.
+	(update_temp_slot_address): Update via insert_temp_slot_address.
+	(free_temp_slots): Call remove_unused_temp_slot_addresses.
+	(pop_temp_slots): Likewise.
+	(init_temp_slots): Allocate the address -> temp slot map, or empty
+	the map if it is already allocated.
+	(prepare_function_start): Initialize temp slot processing.
+
+2009-01-04  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/38584
+	* cfgexpand.c (estimate_stack_frame_size): Simplify the estimate:
+	Calculate the size of all stack vars assuming no packing of stack
+	vars will happen, replacing a quadratic algorithm with a linear one.
+
+2009-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/38707
+	* expmed.c (store_bit_field_1): Don't modify op0 if movstrict insn
+	can't be used.
+
+2009-01-03  Diego Novillo  <dnovillo@google.com>
+
+	* doc/contrib.texi: Update contributions.
+
 2009-01-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/38705
