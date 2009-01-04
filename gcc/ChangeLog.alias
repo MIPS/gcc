@@ -1,5 +1,12 @@
 2009-01-04  Richard Guenther  <rguenther@suse.de>
 
+	PR tree-optimization/38723
+	* tree-ssa-alias.c (maybe_skip_until): Use get_continuation_for_phi.
+	* tree-ssa-pre.c (compute_avail): Add all default definitions to
+	the entry block.
+
+2009-01-04  Richard Guenther  <rguenther@suse.de>
+
 	* tree-dfa.c (refs_may_alias_p): Disambiguate using alias
 	sets of the bases.
 	* tree-ssa-operands.c (create_ssa_artificial_load_stmt): Add

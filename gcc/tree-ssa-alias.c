@@ -498,6 +498,8 @@ stmt_may_clobber_ref_p (gimple stmt, tree ref)
   return false;
 }
 
+static tree get_continuation_for_phi (gimple, tree);
+
 /* Walk the virtual use-def chain of VUSE until hitting the virtual operand
    TARGET or a statement clobbering the memory reference REF in which
    case false is returned.  The walk starts with VUSE, one argument of PHI.  */
@@ -511,7 +513,14 @@ maybe_skip_until (gimple phi, tree target, tree ref, tree vuse)
       gimple def_stmt = SSA_NAME_DEF_STMT (vuse);
       /* The original PHI node ends the walk successfully.  */
       if (gimple_code (def_stmt) == GIMPLE_PHI)
-	return (def_stmt == phi);
+	{
+	  if (def_stmt == phi)
+	    return true;
+	  vuse = get_continuation_for_phi (def_stmt, ref);
+	  if (!vuse)
+	    return false;
+	  continue;
+	}
       /* A clobbering statement or the end of the IL ends it failing.  */
       else if (gimple_nop_p (def_stmt)
 	       || stmt_may_clobber_ref_p (def_stmt, ref))
