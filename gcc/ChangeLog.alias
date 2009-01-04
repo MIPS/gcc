@@ -1,3 +1,10 @@
+2009-01-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (intra_create_variable_infos): Add
+	constraints for a result decl that is passed by hidden reference.
+	* tree-ssa-alias.c (may_point_to_same_object): Make two identical
+	pointer always conflict.
+
 2009-01-03  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r143032.

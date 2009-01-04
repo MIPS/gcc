@@ -4596,6 +4596,20 @@ intra_create_variable_infos (void)
 	}
     }
 
+  /* ???  Both a passed by reference result object and the object pointed
+     to by the static chain should be non-aliased by any other pointers.
+     So we may want to assign them a heap variable.  */
+
+  /* Add a constraint for a result decl that is passed by reference.  */
+  if (DECL_RESULT (cfun->decl)
+      && DECL_BY_REFERENCE (DECL_RESULT (cfun->decl)))
+    {
+      varinfo_t p, result_vi = get_vi_for_tree (DECL_RESULT (cfun->decl));
+
+      for (p = result_vi; p; p = p->next)
+	make_constraint_from (p, nonlocal_id);
+    }
+
   /* Add a constraint for the incoming static chain parameter.  */
   if (cfun->static_chain_decl != NULL_TREE)
     {

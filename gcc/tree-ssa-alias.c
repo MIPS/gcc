@@ -153,6 +153,12 @@ may_point_to_same_object (tree ptr1, tree ptr2)
   gcc_assert (TREE_CODE (ptr1) == SSA_NAME
 	      && TREE_CODE (ptr2) == SSA_NAME);
 
+  /* We may end up with two empty points-to solutions for two same pointers.
+     In this case we still want to say both pointers alias, so shortcut
+     that here.  */
+  if (ptr1 == ptr2)
+    return true;
+
   /* If we do not have useful points-to information for either pointer
      we cannot disambiguate anything else.  */
   pi1 = SSA_NAME_PTR_INFO (ptr1);
