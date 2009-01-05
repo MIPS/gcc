@@ -1,3 +1,8 @@
+2009-01-05  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-section-out.c (write_symbol_vec): Correctly handle names that
+	start with a '*'.
+
 2009-01-05  Simon Baldwin  <simonb@google.com>
 
 	* lto-symtab.c (lto_same_type_p): Compare TYPE_MAIN_VARIANTs for

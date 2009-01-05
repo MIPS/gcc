@@ -1091,6 +1091,12 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
 
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t));
 
+      /* FIXME lto: this is from assemble_name_raw in varasm.c. For some
+	 architectures we might have to do the same name manipulations that
+	 ASM_OUTPUT_LABELREF does. */
+      if (name[0] == '*')
+	name = &name[1];
+
       d_slot.t = t;
       slot = htab_find_slot (hash, &d_slot, NO_INSERT);
       gcc_assert (slot != NULL);
