@@ -279,6 +279,8 @@ lto_same_type_p (tree type_1, tree type_2)
       /* Enumeration and class types are the same if they have the same
 	 name.  */
       {
+	tree variant_1 = TYPE_MAIN_VARIANT (type_1);
+	tree variant_2 = TYPE_MAIN_VARIANT (type_2);
 	tree name_1 = TYPE_NAME (type_1);
 	tree name_2 = TYPE_NAME (type_2);
 	if (!name_1 || !name_2)
@@ -303,7 +305,18 @@ lto_same_type_p (tree type_1, tree type_2)
 
 	/* Identifiers can be compared with pointer equality rather
 	   than a string comparison.  */
-	return name_1 == name_2;
+	if (name_1 == name_2)
+	  return true;
+
+	/* If either type has a variant type, compare that.  This finds
+	   the case where a struct is typedef'ed in one module but referred
+	   to as 'struct foo' in the other; here, the main type for one is
+	   'foo', and for the other 'foo_t', but the variants have the same
+	   name 'foo'.  */
+	if (variant_1 != type_1 || variant_2 != type_2)
+	  return lto_same_type_p (variant_1, variant_2);
+	else
+	  return false;
       }
 
       /* FIXME:  add pointer to member types.  */

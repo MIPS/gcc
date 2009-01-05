@@ -1,3 +1,8 @@
+2009-01-05  Simon Baldwin  <simonb@google.com>
+
+	* lto-symtab.c (lto_same_type_p): Compare TYPE_MAIN_VARIANTs for
+	class types if the primary identifier string comparison fails.
+
 2009-01-03  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @142987.

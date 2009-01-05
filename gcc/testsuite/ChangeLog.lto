@@ -1,3 +1,9 @@
+2009-01-05  Simon Baldwin  <simonb@google.com>
+
+	* gcc.dg/lto/20081224_0.h: New.
+	* gcc.dg/lto/20081224_0.c: New.
+	* gcc.dg/lto/20081224_1.c: New.
+
 2008-12-23  Simon Baldwin  <simonb@google.com>
 
 	* gcc.dg/20081223-1.c: New.
