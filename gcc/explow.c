@@ -504,8 +504,6 @@ memory_address_addr_space (enum machine_mode mode, rtx x, addr_space_t as)
 
  done:
 
-  gcc_assert (memory_address_addr_space_p (mode, x, as));
-
   /* If we didn't change the address, we are done.  Otherwise, mark
      a reg as a pointer if we have REG or REG + CONST_INT.  */
   if (oldx == x)

@@ -1,5 +1,8 @@
 2009-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* explow.c (memory_address_addr_space): Eliminate assertion that
+	crept in from 4.4 merge.
+
 	* auto-inc-dec.c (toplevel): Include target.h.
 
 	* Makefile.in (auto-inc-dec.o): Add $(TARGET_H) dependency.
