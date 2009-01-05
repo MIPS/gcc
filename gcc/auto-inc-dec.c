@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "dbgcnt.h"
+#include "target.h"
 
 /* This pass was originally removed from flow.c. However there is
    almost nothing that remains of that code.

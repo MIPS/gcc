@@ -1,3 +1,9 @@
+2009-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* auto-inc-dec.c (toplevel): Include target.h.
+
+	* Makefile.in (auto-inc-dec.o): Add $(TARGET_H) dependency.
+
 2009-01-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Strip off
@@ -89,6 +95,8 @@
 
 	* auto-inc-dec.c (try_merge): Use GET_MODE instead of Pmode for
 	the mode of newly created RTL.
+	(find_inc): Use named space hook to validate pointer mode instead
+	of comparing to Pmode.
 
 	* expr.c (emit_move_insn): Add named address support.
 	(expand_expr_real_1): Ditto.
