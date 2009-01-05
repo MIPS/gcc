@@ -937,7 +937,13 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
      base type boundary.
 
      Unfortunately this is difficult to determine reliably when unions are
-     involved and so we are conservative in such cases.  */
+     involved and so we are conservative in such cases.
+
+     FIXME: This approach may be too conservative, we probably want to at least
+     check that the union is the last field/element at its level or even
+     propagate the calculated offsets back up the access chain and check
+     there.  */
+
   if (seen_variable_array_ref
       && (seen_union
 	  || (maxsize != -1

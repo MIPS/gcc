@@ -1,3 +1,7 @@
+2009-01-05  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-dfa.c (get_ref_base_and_extent): Added a FIXME comment.
+
 2008-12-25  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-prop.h (jump_func_type): Rename IPA_UNKNOWN, IPA_CONST,
