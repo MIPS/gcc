@@ -2227,8 +2227,33 @@ check_handled (tree handled, tree type)
   if (! lang_eh_type_covers)
     {
       for (t = handled; t ; t = TREE_CHAIN (t))
-	if (TREE_VALUE (t) == type)
-	  return 1;
+	{
+	  tree t1 = TREE_VALUE (t);
+	  tree t2 = type;
+
+	  /* If the types have been converted to runtime types (i.e.,
+	     when the IL is being read from disk in an LTO
+	     compilation), then T1 and T2 will be pointers to the
+	     runtime type of the form '(void *) &<runtime_type>' (See
+	     cp/except.c:build_eh_type_type).  Strip the conversion
+	     and the address.  */
+	  if (CONVERT_EXPR_P (t1))
+	    {
+	      STRIP_NOPS (t1);
+	      gcc_assert (TREE_CODE (t1) == ADDR_EXPR);
+	      t1 = TREE_OPERAND (t1, 0);
+	    }
+
+	  if (CONVERT_EXPR_P (t2))
+	    {
+	      STRIP_NOPS (t2);
+	      gcc_assert (TREE_CODE (t2) == ADDR_EXPR);
+	      t2 = TREE_OPERAND (t2, 0);
+	    }
+
+	  if (t1 == t2)
+	    return 1;
+	}
     }
   else
     {

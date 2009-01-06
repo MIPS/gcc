@@ -1,3 +1,7 @@
+2009-01-05  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/20081224_0.c: Add -fPIC.
+
 2009-01-05  Simon Baldwin  <simonb@google.com>
 
 	* gcc.dg/lto/20081224_0.h: New.
