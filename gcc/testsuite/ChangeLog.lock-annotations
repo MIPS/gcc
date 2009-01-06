@@ -1,0 +1,63 @@
+2008-12-17  Le-Chun Wu  <lcwu@google.com>
+
+        * gcc.dg/thread_annot_common_c.h: New test header file for C.
+        * gcc.dg/thread_annot_lock-23.c: New test in C.
+        * gcc.dg/thread_annot_lock-24.c: Likewise.
+        * gcc.dg/thread_annot_lock-25.c: Likewise.
+        * gcc.dg/thread_annot_lock-26.c: Likewise.
+        * gcc.dg/thread_annot_lock-27.c: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-23.C: New test in C++.
+        * g++.dg/thread-ann/thread_annot_lock-24.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-25.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-26.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-27.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-28.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-29.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-30.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-31.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-32.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-33.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-34.C: Likewise.
+        * g++.dg/thread-ann/thread_annot_lock-1.C: Change expected warning
+        messages.
+        * g++.dg/thread-ann/thread_annot_lock-3.C: Change to not use function
+        calls in the lock attributes.
+
+2008-09-02  Le-Chun Wu  <lcwu@google.com>
+
+        * g++.dg/thread-ann/thread_annot_lock-21.C: New test.
+        * g++.dg/thread-ann/thread_annot_lock-22.C: New test.
+        * g++.dg/thread-ann/thread_annot_lock-4.C: Modified to not use function
+        calls in the lock expression, which is not longer supported after
+        moving lock annotation support to the new GIMPLE tuple IR.
+        * g++.dg/thread-ann/thread_annot_lock-7.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-8.C: Ditto.
+
+2008-08-05  Le-Chun Wu  <lcwu@google.com>
+
+        * g++.dg/thread-ann/thread_annot_lock-18.C: New test.
+        * g++.dg/thread-ann/thread_annot_lock-19.C: New test.
+        * g++.dg/thread-ann/thread_annot_lock-20.C: New test.
+
+2008-06-17  Le-Chun Wu  <lcwu@google.com>
+
+        * g++.dg/thread-ann: New test sub-directory.
+        * g++.dg/thread-ann/thread_annot_common.h: New test header file.
+        * g++.dg/thread-ann/thread_annot_lock-1.C: New test.
+        * g++.dg/thread-ann/thread_annot_lock-2.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-3.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-4.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-5.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-6.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-7.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-8.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-9.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-10.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-11.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-12.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-13.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-14.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-15.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-16.C: Ditto.
+        * g++.dg/thread-ann/thread_annot_lock-17.C: Ditto.
+        * g++.dg/README: Add an entry for the new thread-ann sub-directory.
