@@ -4051,13 +4051,15 @@ static int
 reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 {
   tree decl = *(tree *) slot;
+  tree context = DECL_CONTEXT (decl);
 
   lang_hooks.reset_lang_specifics (decl);
 
+  if (context && TREE_CODE (context) == NAMESPACE_DECL)
+    DECL_CONTEXT (decl) = context = NULL_TREE;
 
  if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == VAR_DECL)
    {
-     tree context = DECL_CONTEXT (decl);
      if (context)
        {
 	 enum tree_code code = TREE_CODE (context);
@@ -4079,7 +4081,6 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
     }
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      tree context = DECL_CONTEXT (decl);
       if (context && TREE_CODE (context) == FUNCTION_DECL)
 	DECL_CONTEXT (decl) = NULL_TREE;
     }

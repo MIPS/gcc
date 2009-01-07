@@ -1,3 +1,8 @@
+2009-01-07  Rafael Avila de Espindola  <espindola@google.com>
+
+	* tree.c (reset_decl_lang_specific): Clear DECL_CONTEXT if it is a
+	NAMESPACE_DECL.
+
 2009-01-05  Diego Novillo  <dnovillo@google.com>
 
 	* except.c (check_handled): Handle pointers to runtime types.
