@@ -1,3 +1,13 @@
+2009-01-07  Martin Jambor  <mjambor@suse.cz>
+
+        * tree-inline.c (optimize_inline_calls): Do not call
+        cgraph_node_remove_callees.
+        * cgraphbuild.c (remove_cgraph_callee_edges): New function.
+        (pass_remove_cgraph_callee_edges): New variable.
+        * passes.c (init_optimization_passes): Add
+        pass_remove_cgraph_callee_edges after early inlining and before all
+        late intraprocedural passes.
+
 2009-01-05  Martin Jambor  <mjambor@suse.cz>
 
 	* tree-dfa.c (get_ref_base_and_extent): Added a FIXME comment.
