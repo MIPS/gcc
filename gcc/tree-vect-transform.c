@@ -50,7 +50,7 @@ static bool vect_transform_stmt (gimple, gimple_stmt_iterator *, bool *,
 				 slp_tree, slp_instance);
 static tree vect_create_destination_var (tree, tree);
 static tree vect_create_data_ref_ptr 
-  (gimple, struct loop*, tree, tree *, gimple *, bool, bool *, tree);
+  (gimple, struct loop*, tree, tree *, gimple *, bool, bool *);
 static tree vect_create_addr_base_for_vector_ref 
   (gimple, gimple_seq *, tree, struct loop *);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
@@ -1013,7 +1013,7 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
 static tree
 vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
 			  tree offset, tree *initial_address, gimple *ptr_incr,
-			  bool only_init, bool *inv_p, tree type)
+			  bool only_init, bool *inv_p)
 {
   tree base_name;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -1071,22 +1071,29 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
     }
 
   /** (1) Create the new vector-pointer variable:  **/
-  if (type)
-    vect_ptr_type = build_pointer_type (type);
-  else
-    vect_ptr_type = build_pointer_type (vectype);
-
-  if (TREE_CODE (DR_BASE_ADDRESS (dr)) == SSA_NAME
-      && TYPE_RESTRICT (TREE_TYPE (DR_BASE_ADDRESS (dr))))
-    vect_ptr_type = build_qualified_type (vect_ptr_type, TYPE_QUAL_RESTRICT);
+  vect_ptr_type = build_pointer_type (vectype);
   vect_ptr = vect_get_new_vect_var (vect_ptr_type, vect_pointer_var,
                                     get_name (base_name));
-  if (TREE_CODE (DR_BASE_ADDRESS (dr)) == SSA_NAME
-      && TYPE_RESTRICT (TREE_TYPE (DR_BASE_ADDRESS (dr))))
+
+  /* If any of the data-references in the stmt group does not conflict
+     with the created vector data-reference use a ref-all pointer instead.  */
+  if (STMT_VINFO_DR_GROUP_SIZE (stmt_info) > 1)
     {
-      get_alias_set (base_name);
-      DECL_POINTER_ALIAS_SET (vect_ptr)
-	= DECL_POINTER_ALIAS_SET (SSA_NAME_VAR (DR_BASE_ADDRESS (dr)));
+      gimple orig_stmt = STMT_VINFO_DR_GROUP_FIRST_DR (stmt_info);
+      do
+	{
+	  if (!alias_sets_conflict_p (get_deref_alias_set (vect_ptr),
+				      get_alias_set (gimple_assign_lhs (orig_stmt))))
+	    {
+	      vect_ptr_type = build_pointer_type_for_mode (vectype,
+							   ptr_mode, true);
+	      vect_ptr = vect_get_new_vect_var (vect_ptr_type, vect_pointer_var,
+						get_name (base_name));
+	      break;
+	    }
+	  orig_stmt = STMT_VINFO_DR_GROUP_NEXT_DR (vinfo_for_stmt (orig_stmt));
+	}
+      while (orig_stmt);
     }
 
   add_referenced_var (vect_ptr);
@@ -5377,7 +5384,7 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 						 TREE_TYPE (vec_oprnd)));
 	  dataref_ptr = vect_create_data_ref_ptr (first_stmt, NULL, NULL_TREE, 
 						  &dummy, &ptr_incr, false, 
-						  &inv_p, NULL);
+						  &inv_p);
 	  gcc_assert (!inv_p);
 	}
       else 
@@ -5426,6 +5433,10 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	    vec_oprnd = VEC_index (tree, result_chain, i);
 
 	  data_ref = build_fold_indirect_ref (dataref_ptr);
+	  /* If accesses through a pointer to vectype do not alias the original
+	     memory reference we have a problem.  This should never happen.  */
+	  gcc_assert (alias_sets_conflict_p (get_alias_set (data_ref),
+					     get_alias_set (gimple_assign_lhs (stmt))));
 
 	  /* Arguments are ready. Create the new vector stmt.  */
 	  new_stmt = gimple_build_assign (data_ref, vec_oprnd);
@@ -5616,7 +5627,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
       pe = loop_preheader_edge (loop_for_initial_load);
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
       ptr = vect_create_data_ref_ptr (stmt, loop_for_initial_load, NULL_TREE,
-		                  &init_addr, &inc, true, &inv_p, NULL_TREE);
+				      &init_addr, &inc, true, &inv_p);
       data_ref = build1 (ALIGN_INDIRECT_REF, vectype, ptr);
       new_stmt = gimple_build_assign (vec_dest, data_ref);
       new_temp = make_ssa_name (vec_dest, new_stmt);
@@ -6588,7 +6599,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
         dataref_ptr = vect_create_data_ref_ptr (first_stmt,
 					        at_loop, offset, 
 						&dummy, &ptr_incr, false, 
-						&inv_p, NULL_TREE);
+						&inv_p);
       else
         dataref_ptr = 
 		bump_vector_ptr (dataref_ptr, ptr_incr, gsi, stmt, NULL_TREE);
@@ -6649,6 +6660,10 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	    default:
 	      gcc_unreachable ();
 	    }
+	  /* If accesses through a pointer to vectype do not alias the original
+	     memory reference we have a problem.  This should never happen.  */
+	  gcc_assert (alias_sets_conflict_p (get_alias_set (data_ref),
+					     get_alias_set (gimple_assign_rhs1 (stmt))));
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
 	  new_stmt = gimple_build_assign (vec_dest, data_ref);
 	  new_temp = make_ssa_name (vec_dest, new_stmt);

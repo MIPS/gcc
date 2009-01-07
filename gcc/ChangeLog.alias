@@ -1,3 +1,15 @@
+2009-01-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38301
+	* alias.c (get_deref_alias_set): New function split out from ...
+	(get_alias_set): ... here.
+	* alias.h (get_deref_alias_set): Declare.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Remove unused
+	type parameter.  Remove restrict pointer handling.  Create a
+	ref-all pointer in case type-based alias sets do not conflict.
+	(vectorizable_store): Re-instantiate TBAA assert.
+	(vectorizable_load): Likewise.
+
 2009-01-05  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r143059.
