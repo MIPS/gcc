@@ -1147,7 +1147,7 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
       else
 	size = 0;
 
-      if (DECL_COMDAT (t))
+      if (DECL_ONE_ONLY (t))
 	comdat = lang_hooks.decls.comdat_group (t);
       else
 	comdat = "";
