@@ -1866,6 +1866,10 @@ parallelize_loops (void)
 
       changed = true;
       gen_parallel_loop (loop, reduction_list, n_threads, &niter_desc);
+      /* ???  If verify_loop_closed_ssa would not call verify_ssa or that
+         would not call verify_stmts we could defer this to after processing
+	 all loops.  */
+      execute_update_addresses_taken (false);
       verify_flow_info ();
       verify_dominators (CDI_DOMINATORS);
       verify_loop_structure ();

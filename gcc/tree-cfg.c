@@ -2783,8 +2783,9 @@ gimple_split_edge (edge edge_in)
    inside a PHI node.  */
 
 static tree
-verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+verify_expr (tree *tp, int *walk_subtrees, void *data)
 {
+  struct walk_stmt_info *wi = (struct walk_stmt_info *)data;
   tree t = *tp, x;
 
   if (TYPE_P (t))
@@ -2862,11 +2863,32 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	     x = TREE_OPERAND (x, 0))
 	  ;
 
-	if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
+	if (!(TREE_CODE (x) == VAR_DECL
+	      || TREE_CODE (x) == PARM_DECL
+	      || TREE_CODE (x) == RESULT_DECL))
 	  return NULL;
 	if (!TREE_ADDRESSABLE (x))
 	  {
 	    error ("address taken, but ADDRESSABLE bit not set");
+	    return x;
+	  }
+
+	if (!gimple_in_ssa_p (cfun))
+	  break;
+
+	/* Make sure the stmt addresses_taken bitmap is conservatively
+	   correct.  Likewise the per-function addressable_vars bitmap.  */
+	if (!bitmap_bit_p (gimple_addresses_taken (gsi_stmt (wi->gsi)),
+			   DECL_UID (x)))
+	  {
+	    error ("address taken, but stmt addresses_taken bitmap not "
+		   "up-to-date");
+	    return x;
+	  }
+	if (!is_global_var (x)
+	    && !bitmap_bit_p (gimple_addressable_vars (cfun), DECL_UID (x)))
+	  {
+	    error ("address taken, but decl not included in addressable-vars");
 	    return x;
 	  }
 
@@ -4053,6 +4075,7 @@ verify_stmt (gimple_stmt_iterator *gsi)
     }
 
   memset (&wi, 0, sizeof (wi));
+  wi.gsi = *gsi;
   addr = walk_gimple_op (gsi_stmt (*gsi), verify_expr, &wi);
   if (addr)
     {

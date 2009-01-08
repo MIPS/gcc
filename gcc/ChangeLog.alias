@@ -1,5 +1,28 @@
 2009-01-07  Richard Guenther  <rguenther@suse.de>
 
+	PR tree-optimization/38721
+	* tree-into-ssa.c (pass_build_ssa): Add TODO_update_address_taken.
+	* tree-pass.h (TODO_update_address_taken): New flag.
+	* tree-ssa-loop.c (tree_ssa_loop_ivopts): Update address-taken.
+	* tree-ssa.c (execute_update_addresses_taken): Optimize only when
+	optimizing.
+	(pass_update_address_taken): Just use TODO_update_address_taken.
+	* tree-flow.h (execute_update_addresses_taken): Update prototype.
+	* tree-cfg.c (verify_expr): Verify that stmt addresses-taken and
+	function addressable-vars are conservatively correct.
+	(verify_stmt): Initialize gsi of walk data.
+	* tree-inline.c (optimize_inline_calls): Execute
+	TODO_update_address_taken.
+	(tree_function_versioning): Call execute_update_addresses_taken.
+	* passes.c (execute_function_todo): Handle TODO_update_address_taken.
+	(init_optimization_passes): Remove redundant update-address-taken pass
+	after final inlining.
+	* tree-parloops.c (parallelize_loops): Call
+	execute_update_addresses_taken.
+	* tree-vectorizer.c (vectorize_loops): Likewise.
+
+2009-01-07  Richard Guenther  <rguenther@suse.de>
+
 	PR tree-optimization/38301
 	* alias.c (get_deref_alias_set): New function split out from ...
 	(get_alias_set): ... here.

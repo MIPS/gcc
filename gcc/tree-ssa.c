@@ -1469,8 +1469,8 @@ struct gimple_opt_pass pass_late_warn_uninitialized =
 
 /* Compute TREE_ADDRESSABLE and DECL_GIMPLE_REG_P for local variables.  */
 
-unsigned int
-execute_update_addresses_taken (void)
+void
+execute_update_addresses_taken (bool do_optimize)
 {
   tree var;
   referenced_var_iterator rvi;
@@ -1530,43 +1530,44 @@ execute_update_addresses_taken (void)
 
   /* When possible, clear ADDRESSABLE bit or set the REGISTER bit
      and mark variable for conversion into SSA.  */
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    {
-      /* Global Variables, result decls cannot be changed.  */
-      if (is_global_var (var)
-          || TREE_CODE (var) == RESULT_DECL
-	  || bitmap_bit_p (addresses_taken, DECL_UID (var)))
-	continue;
-	
-      if (TREE_ADDRESSABLE (var))
-	{
-	  clear_call_clobbered (var);
-	  TREE_ADDRESSABLE (var) = 0;
-	  if (is_gimple_reg (var))
+  if (optimize && do_optimize)
+    FOR_EACH_REFERENCED_VAR (var, rvi)
+      {
+	/* Global Variables, result decls cannot be changed.  */
+	if (is_global_var (var)
+	    || TREE_CODE (var) == RESULT_DECL
+	    || bitmap_bit_p (addresses_taken, DECL_UID (var)))
+	  continue;
+
+	if (TREE_ADDRESSABLE (var))
+	  {
+	    clear_call_clobbered (var);
+	    TREE_ADDRESSABLE (var) = 0;
+	    if (is_gimple_reg (var))
+	      mark_sym_for_renaming (var);
+	    update_vops = true;
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "No longer having address taken ");
+		print_generic_expr (dump_file, var, 0);
+		fprintf (dump_file, "\n");
+	      }
+	  }
+	if (!DECL_GIMPLE_REG_P (var)
+	    && !bitmap_bit_p (not_reg_needs, DECL_UID (var))
+	    && (TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE
+		|| TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE))
+	  {
+	    DECL_GIMPLE_REG_P (var) = 1;
 	    mark_sym_for_renaming (var);
-	  update_vops = true;
-	  if (dump_file)
-	    {
-	      fprintf (dump_file, "No longer having address taken ");
-	      print_generic_expr (dump_file, var, 0);
-	      fprintf (dump_file, "\n");
-	    }
-	}
-      if (!DECL_GIMPLE_REG_P (var)
-	  && !bitmap_bit_p (not_reg_needs, DECL_UID (var))
-	  && (TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE
-	      || TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE))
-	{
-	  DECL_GIMPLE_REG_P (var) = 1;
-	  mark_sym_for_renaming (var);
-	  update_vops = true;
-	  if (dump_file)
-	    {
-	      fprintf (dump_file, "Decl is now a gimple register ");
-	      print_generic_expr (dump_file, var, 0);
-	      fprintf (dump_file, "\n");
-	    }
-	}
+	    update_vops = true;
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "Decl is now a gimple register ");
+		print_generic_expr (dump_file, var, 0);
+		fprintf (dump_file, "\n");
+	      }
+	  }
       }
 
   /* Operand caches needs to be recomputed for operands referencing the updated
@@ -1587,8 +1588,6 @@ execute_update_addresses_taken (void)
     }
 
   BITMAP_FREE (not_reg_needs);
-
-  return 0;
 }
 
 struct gimple_opt_pass pass_update_address_taken =
@@ -1597,7 +1596,7 @@ struct gimple_opt_pass pass_update_address_taken =
   GIMPLE_PASS,
   "addressables",			/* name */
   NULL,					/* gate */
-  execute_update_addresses_taken,	/* execute */
+  NULL,					/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -1606,6 +1605,7 @@ struct gimple_opt_pass pass_update_address_taken =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_update_address_taken
+  | TODO_dump_func			/* todo_flags_finish */
  }
 };

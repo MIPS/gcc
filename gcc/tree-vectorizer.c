@@ -2818,6 +2818,10 @@ vectorize_loops (void)
 	  continue;
 
 	vect_transform_loop (loop_vinfo);
+	/* ???  If verify_loop_closed_ssa would not call verify_ssa or that
+	   would not call verify_stmts we could defer this to after processing
+	   all loops.  */
+	execute_update_addresses_taken (false);
 	num_vectorized_loops++;
       }
   vect_loop_location = UNKNOWN_LOC;
@@ -2847,7 +2851,8 @@ vectorize_loops (void)
 
   free_stmt_vec_info_vec ();
 
-  return num_vectorized_loops > 0 ? TODO_cleanup_cfg : 0;
+  return (num_vectorized_loops > 0
+	  ? TODO_cleanup_cfg : 0);
 }
 
 /* Increase alignment of global arrays to improve vectorization potential.

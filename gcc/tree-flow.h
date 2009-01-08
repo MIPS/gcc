@@ -719,7 +719,7 @@ extern void flush_pending_stmts (edge);
 extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
 extern bool ssa_undefined_value_p (tree);
-unsigned int execute_update_addresses_taken (void);
+extern void execute_update_addresses_taken (bool);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */

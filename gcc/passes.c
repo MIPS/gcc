@@ -586,7 +586,6 @@ init_optimization_passes (void)
       /* Initial scalar cleanups before alias computation.
 	 They ensure memory accesses are not indirect wherever possible.  */
       NEXT_PASS (pass_strip_predict_hints);
-      NEXT_PASS (pass_update_address_taken);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
@@ -941,9 +940,13 @@ execute_function_todo (void *data)
       cfun->last_verified &= ~TODO_verify_ssa;
     }
   
+  if (flags & TODO_update_address_taken)
+    execute_update_addresses_taken (true);
+
   if (flags & TODO_rebuild_alias)
     {
-      execute_update_addresses_taken ();
+      if (!(flags & TODO_update_address_taken))
+	execute_update_addresses_taken (true);
       compute_may_aliases ();
       cfun->curr_properties |= PROP_alias;
     }

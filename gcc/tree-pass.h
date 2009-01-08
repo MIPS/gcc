@@ -285,7 +285,10 @@ struct dump_file_info
 #define TODO_mark_first_instance	(1 << 19)
 
 /* Rebuild aliasing info.  */
-#define TODO_rebuild_alias                (1 << 20)
+#define TODO_rebuild_alias              (1 << 20)
+
+/* Rebuild the addressable-vars bitmap and do register promotion.  */
+#define TODO_update_address_taken	(1 << 21)
 
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\

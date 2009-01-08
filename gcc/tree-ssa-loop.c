@@ -665,7 +665,10 @@ tree_ssa_loop_ivopts (void)
     return 0;
 
   tree_ssa_iv_optimize ();
-  return 0;
+  /* ???  We sometimes use TMR_BASE with an invariant ADDR_EXPR instead
+     of using TMR_SYMBOL.  This makes variables having their address
+     taken (libgcc/config/libbid/bid128_fma.c).  */
+  return TODO_update_address_taken;
 }
 
 static bool
