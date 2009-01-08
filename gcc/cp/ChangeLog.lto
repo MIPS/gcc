@@ -1,3 +1,8 @@
+2009-01-08  Simon Baldwin  <simonb@google.com>
+
+	* error.c (dump_typename): Emit placeholder in place of nulled
+	TYPE_CONTEXT in diagnostics issued by optimization phases.
+
 2008-12-17  Diego Novillo  <dnovillo@google.com>
 
 	* cp/method.c (use_thunk): Disable generation of asm
