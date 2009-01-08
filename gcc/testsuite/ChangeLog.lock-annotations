@@ -1,3 +1,8 @@
+2009-01-07  Le-Chun Wu  <lcwu@google.com>
+
+        * g++.dg/thread-ann/thread_annot_lock-35.C: New test.
+        * g++.dg/thread-ann/thread_annot_lock-36.C: New test.
+
 2008-12-17  Le-Chun Wu  <lcwu@google.com>
 
         * gcc.dg/thread_annot_common_c.h: New test header file for C.

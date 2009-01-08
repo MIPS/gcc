@@ -974,21 +974,25 @@ lock_set_contains (const struct pointer_set_t *lock_set, tree lock,
       && pointer_set_contains (lock_set, error_mark_node))
     return lock;
   
-  /* Maybe the lock is already in canonical form. Try it first.  */
-  if (pointer_set_contains (lock_set, lock))
-    return lock;
-
-  if (leftmost_operand_is_field_decl (lock) && (base_obj != NULL_TREE))
+  /* If the lock is a field and the base is not 'this' pointer, we need to
+     check the lock set with the fully-qualified lock name. Otherwise, we
+     could be confused by the same lock field of a different object.  */
+  if (leftmost_operand_is_field_decl (lock)
+      && base_obj != NULL_TREE
+      && !is_base_object_this_pointer (base_obj))
     {
-      /* Get the canonical lock tree */
+      /* canonical lock is a fully-qualified name. */
       tree canonical_lock = get_canonical_expr (lock, base_obj,
                                                 true /* is_temp_expr */);
       tree result = (pointer_set_contains (lock_set, canonical_lock)
                      ? canonical_lock : NULL_TREE);
-      /* Since we know full_lock is not going to be used any more, we might
-         as well free it even though it's not necessary.  */
       return result;
     }
+  /* Check the lock set with the given lock directly as it could already be
+     in canonical form.  */
+  else if (pointer_set_contains (lock_set, lock))
+    return lock;
+  /* If the lock is not yet bound to a decl, try to bind it now.  */
   else if (TREE_CODE (lock) == IDENTIFIER_NODE)
     {
       void **entry;

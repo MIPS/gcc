@@ -1,3 +1,8 @@
+2009-01-07  Le-Chun Wu  <lcwu@google.com>
+
+	* tree-threadsafe-analyze.c (lock_set_contains): Check the lock set
+	with the fully-qualified name if the lock is a field.
+
 2008-12-18  Le-Chun Wu  <lcwu@google.com>
 
 	* tree-threadsafe-analyze.c (get_canonical_expr): Fix an issue in
