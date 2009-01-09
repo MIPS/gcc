@@ -2157,7 +2157,7 @@ to filter out those warnings.
 Warn also about the use of an uncasted @code{NULL} as sentinel.  When
 compiling only with GCC this is a valid sentinel, as @code{NULL} is defined
 to @code{__null}.  Although it is a null pointer constant not a null pointer,
-it is guaranteed to of the same size as a pointer.  But this use is
+it is guaranteed to be of the same size as a pointer.  But this use is
 not portable across different compilers.
 
 @item -Wno-non-template-friend @r{(C++ and Objective-C++ only)}
@@ -6008,8 +6008,8 @@ This reduces the level of indirection needed for accessing the elements
 of the matrix. The second optimization is matrix transposing that
 attemps to change the order of the matrix's dimensions in order to 
 improve cache locality.
-Both optimizations need fwhole-program flag. 
-Transposing is enabled only if profiling information is avaliable.
+Both optimizations need the @option{-fwhole-program} flag. 
+Transposing is enabled only if profiling information is available.
 
 
 @item -ftree-sink
@@ -7621,6 +7621,15 @@ contains loops more than number given by the parameter, only at most
 given number of the most frequently executed loops will form regions
 for the regional register allocation.  The default value of the
 parameter is 100.
+
+@item ira-max-conflict-table-size
+Although IRA uses a sophisticated algorithm of compression conflict
+table, the table can be still big for huge functions.  If the conflict
+table for a function could be more than size in MB given by the
+parameter, the conflict table is not built and faster, simpler, and
+lower quality register allocation algorithm will be used.  The
+algorithm do not use pseudo-register conflicts.  The default value of
+the parameter is 2000.
 
 @end table
 @end table

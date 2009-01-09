@@ -105,6 +105,7 @@ darwin port		Eric Christopher	echristo@apple.com
 darwin port		Stan Shebs		stanshebs@earthlink.net
 DJGPP			DJ Delorie		dj@delorie.com
 freebsd			Loren J. Rittle		ljrittle@acm.org
+GNU/Hurd		Thomas Schwinge		tschwinge@gnu.org
 hpux			John David Anglin	dave.anglin@nrc-cnrc.gc.ca
 hpux			Steve Ellcey		sje@cup.hp.com
 irix, osf		Rainer Orth		ro@TechFak.Uni-Bielefeld.DE
@@ -213,7 +214,6 @@ linear loop transforms	Daniel Berlin		dberlin@dberlin.org
 profile feedback	Jan Hubicka		jh@suse.cz
 type-safe vectors	Nathan Sidwell		nathan@codesourcery.com
 alias analysis		Daniel Berlin		dberlin@dberlin.org
-alias analysis		Diego Novillo		dnovillo@google.com
 reload			Ulrich Weigand		uweigand@de.ibm.com
 reload			Bernd Schmidt		bernd.schmidt@analog.com
 dfp.c, related		Ben Elliston		bje@au.ibm.com
@@ -427,7 +427,6 @@ Douglas Rupp					rupp@gnat.com
 Silvius Rus					rus@google.com
 Matthew Sachs					msachs@apple.com
 Duncan Sands					baldrick@gcc.gnu.org
-Thomas Schwinge					tschwinge@gnu.org
 Dodji Seketeli					dseketel@redhat.com
 Svein Seldal					svein@dev.seldal.com
 Thiemo Seufer					ths@networkno.de
