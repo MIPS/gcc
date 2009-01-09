@@ -2797,6 +2797,10 @@ output_function_decl (struct output_block *ob, tree decl)
 
   output_tree (ob, decl->decl_with_vis.assembler_name);
   output_tree (ob, decl->decl_with_vis.section_name);
+  if (decl->decl_with_vis.comdat_group)
+    output_tree (ob, decl->decl_with_vis.comdat_group);
+  else
+    output_zero (ob);
 
   /* omit chain, which would result in writing all functions  */
   output_tree (ob, decl->common.type);
@@ -2879,6 +2883,10 @@ output_var_decl (struct output_block *ob, tree decl)
   LTO_DEBUG_TOKEN ("var_decl_assembler_name");
   output_tree (ob, decl->decl_with_vis.assembler_name);
   output_tree (ob, decl->decl_with_vis.section_name);
+  if (decl->decl_with_vis.comdat_group)
+    output_tree (ob, decl->decl_with_vis.comdat_group);
+  else
+    output_zero (ob);
 
   /* omit chain */
   output_tree (ob, decl->common.type);

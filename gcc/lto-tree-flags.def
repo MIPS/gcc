@@ -361,7 +361,6 @@
       ADD_VIS_FLAG (comdat_flag)
       ADD_VIS_FLAG_SIZE (visibility, 2);
       ADD_VIS_FLAG (visibility_specified)
-      ADD_VIS_FLAG (one_only)
       /* #### FIXME
 	The init priority itself appears to be
 	stored external to the tree.  We appear

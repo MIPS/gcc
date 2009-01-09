@@ -2865,6 +2865,7 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
   decl->decl_with_vis.section_name = input_tree (ib, data_in);
+  decl->decl_with_vis.comdat_group = input_tree (ib, data_in);
 
   decl->common.type = input_tree (ib, data_in);
 
@@ -2992,7 +2993,8 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
   LTO_DEBUG_TOKEN ("var_decl_assembler_name");
   decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
   decl->decl_with_vis.section_name = input_tree (ib, data_in);
-   
+  decl->decl_with_vis.comdat_group = input_tree (ib, data_in);
+
   decl->common.type = input_tree (ib, data_in);
 
   decl->decl_common.attributes = input_tree (ib, data_in);

@@ -1148,7 +1148,7 @@ write_symbol_vec (htab_t hash, struct lto_output_stream *stream,
 	size = 0;
 
       if (DECL_ONE_ONLY (t))
-	comdat = lang_hooks.decls.comdat_group (t);
+	comdat = IDENTIFIER_POINTER (DECL_COMDAT_GROUP (t));
       else
 	comdat = "";
 

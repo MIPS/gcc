@@ -1843,7 +1843,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   /* Merge the storage class information.  */
   merge_weak (newdecl, olddecl);
 
-  DECL_ONE_ONLY (newdecl) |= DECL_ONE_ONLY (olddecl);
+  if (DECL_ONE_ONLY (olddecl))
+    DECL_COMDAT_GROUP (newdecl) = DECL_COMDAT_GROUP (olddecl);
+
   DECL_DEFER_OUTPUT (newdecl) |= DECL_DEFER_OUTPUT (olddecl);
   TREE_PUBLIC (newdecl) = TREE_PUBLIC (olddecl);
   TREE_STATIC (olddecl) = TREE_STATIC (newdecl) |= TREE_STATIC (olddecl);
@@ -12671,7 +12673,7 @@ cp_missing_noreturn_ok_p (tree decl)
 
 /* Return the COMDAT group into which DECL should be placed.  */
 
-const char *
+tree
 cxx_comdat_group (tree decl)
 {
   tree name;
@@ -12701,7 +12703,7 @@ cxx_comdat_group (tree decl)
       name = DECL_ASSEMBLER_NAME (decl);
     }
 
-  return IDENTIFIER_POINTER (name);
+  return name;
 }
 
 #include "gt-cp-decl.h"

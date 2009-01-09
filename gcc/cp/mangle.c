@@ -2698,6 +2698,13 @@ start_mangling (const tree entity)
 static void
 finish_mangling_internal (const bool warn)
 {
+  /* FIXME lto: This warning is incomplete in the LTO branch. The is caused
+     by the removal of the comdat_group langhook. It changed the order
+     in which decl_assembler_names are computed, and this confuses the
+     c++ FE. Haven't investigated exacly how, but has something to do with the
+     function problematic_instantiation_changed using global variables to
+     track the state of the parser. Changing the mangling order changes
+     the values of those variables.*/
   if (warn_abi && warn && G.need_abi_warning)
     warning (OPT_Wabi, "the mangled name of %qD will change in a future "
 	     "version of GCC",

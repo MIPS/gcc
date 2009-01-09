@@ -1,3 +1,15 @@
+2009-01-09  Rafael Avila de Espindola  <espindola@google.com>
+
+	* cp-tree.h (cxx_comdat_group): Change signature.
+	* decl.c (duplicate_decls): Use DECL_COMDAT_GROUP.
+	(cxx_comdat_group): Change signature.
+	* decl2.c (comdat_linkage, maybe_make_one_only): Update call to
+	make_decl_one_only.
+	(constrain_visibility, get_guard): Use DECL_COMDAT_GROUP.
+	* mangle.c (finish_mangling_internal): Add FIXME.
+	* method.c (use_thunk): Update call to make_decl_one_only.
+	* optimize.c (maybe_clone_body): Use DECL_COMDAT_GROUP.
+
 2009-01-08  Simon Baldwin  <simonb@google.com>
 
 	* error.c (dump_typename): Emit placeholder in place of nulled

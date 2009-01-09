@@ -837,7 +837,7 @@ dw2_force_const_mem (rtx x, bool is_public)
 	  DECL_IGNORED_P (decl) = 1;
 	  TREE_PUBLIC (decl) = 1;
 	  DECL_INITIAL (decl) = decl;
-	  make_decl_one_only (decl);
+	  make_decl_one_only (decl, DECL_ASSEMBLER_NAME (decl));
 	}
       else
 	{
