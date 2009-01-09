@@ -215,7 +215,6 @@ extern bool ssa_operands_active (void);
 extern void push_stmt_changes (gimple *);
 extern void pop_stmt_changes (gimple *);
 extern void discard_stmt_changes (gimple *);
-void add_to_addressable_set (tree, bitmap *);
 
 enum ssa_op_iter_type {
   ssa_op_iter_none = 0,

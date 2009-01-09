@@ -1197,6 +1197,43 @@ add_stmt_operand (tree *var_p, gimple stmt, int flags)
     }
 }
 
+/* Add the base address of REF to SET.  */
+
+static void
+add_to_addressable_set (tree ref, bitmap *set)
+{
+  tree var;
+
+  /* Note that it is *NOT OKAY* to use the target of a COMPONENT_REF
+     as the only thing we take the address of.  If VAR is a structure,
+     taking the address of a field means that the whole structure may
+     be referenced using pointer arithmetic.  See PR 21407 and the
+     ensuing mailing list discussion.  */
+  var = get_base_address (ref);
+  if (var && SSA_VAR_P (var))
+    {
+      if (*set == NULL)
+	*set = BITMAP_ALLOC (&operands_bitmap_obstack);
+
+      bitmap_set_bit (*set, DECL_UID (var));
+      TREE_ADDRESSABLE (var) = 1;
+    }
+}
+
+/* Add the base address of REF to the set of addresses taken by STMT.
+   REF may be a single variable whose address has been taken or any
+   other valid GIMPLE memory reference (structure reference, array,
+   etc).  If the base address of REF is a decl that has sub-variables,
+   also add all of its sub-variables.  */
+
+static void
+gimple_add_to_addresses_taken (gimple stmt, tree ref)
+{
+  gcc_assert (gimple_has_ops (stmt));
+  add_to_addressable_set (ref, gimple_addresses_taken_ptr (stmt));
+}
+
+
 /* A subroutine of get_expr_operands to handle INDIRECT_REF,
    ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.  
 
@@ -1834,43 +1871,6 @@ swap_tree_operands (gimple stmt, tree *exp0, tree *exp1)
   /* Now swap the data.  */
   *exp0 = op1;
   *exp1 = op0;
-}
-
-/* Add the base address of REF to SET.  */
-
-void
-add_to_addressable_set (tree ref, bitmap *set)
-{
-  tree var;
-
-  /* Note that it is *NOT OKAY* to use the target of a COMPONENT_REF
-     as the only thing we take the address of.  If VAR is a structure,
-     taking the address of a field means that the whole structure may
-     be referenced using pointer arithmetic.  See PR 21407 and the
-     ensuing mailing list discussion.  */
-  var = get_base_address (ref);
-  if (var && SSA_VAR_P (var))
-    {
-      if (*set == NULL)
-	*set = BITMAP_ALLOC (&operands_bitmap_obstack);
-
-      bitmap_set_bit (*set, DECL_UID (var));
-      TREE_ADDRESSABLE (var) = 1;
-    }
-}
-
-
-/* Add the base address of REF to the set of addresses taken by STMT.
-   REF may be a single variable whose address has been taken or any
-   other valid GIMPLE memory reference (structure reference, array,
-   etc).  If the base address of REF is a decl that has sub-variables,
-   also add all of its sub-variables.  */
-
-void
-gimple_add_to_addresses_taken (gimple stmt, tree ref)
-{
-  gcc_assert (gimple_has_ops (stmt));
-  add_to_addressable_set (ref, gimple_addresses_taken_ptr (stmt));
 }
 
 

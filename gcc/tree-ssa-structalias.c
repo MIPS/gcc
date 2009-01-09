@@ -5108,8 +5108,15 @@ compute_call_used_vars (void)
 
   /* If anything is call-used, add all addressable locals to the set.  */
   if (has_anything_id)
-    bitmap_ior_into (gimple_call_used_vars (cfun),
-		     gimple_addressable_vars (cfun));
+    {
+      referenced_var_iterator rvi;
+      tree var;
+
+      FOR_EACH_REFERENCED_VAR (var, rvi)
+	if (!is_global_var (var)
+	    && TREE_ADDRESSABLE (var))
+	  bitmap_set_bit (gimple_call_used_vars (cfun), DECL_UID (var));
+    }
 }
 
 
@@ -5782,13 +5789,12 @@ compute_call_clobbered (void)
      variables call clobbered.  */
   if (any_pt_anything)
     {
-      bitmap_iterator bi;
-      unsigned int j;
+      referenced_var_iterator rvi;
 
-      EXECUTE_IF_SET_IN_BITMAP (gimple_addressable_vars (cfun), 0, j, bi)
+      FOR_EACH_REFERENCED_VAR (var, rvi)
 	{
-	  tree var = referenced_var (j);
-	  if (!unmodifiable_var_p (var))
+	  if (TREE_ADDRESSABLE (var)
+	      && !unmodifiable_var_p (var))
 	    mark_call_clobbered (var, pt_anything_mask);
 	}
     }

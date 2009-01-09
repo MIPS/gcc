@@ -1015,9 +1015,6 @@ extern tree gimple_assign_rhs_to_tree (gimple);
 /* In builtins.c  */
 extern bool validate_gimple_arglist (const_gimple, ...);
 
-/* In tree-ssa-operands.c  */
-extern void gimple_add_to_addresses_taken (gimple, tree);
-
 /* In tree-ssa.c  */
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool useless_type_conversion_p (tree, tree);

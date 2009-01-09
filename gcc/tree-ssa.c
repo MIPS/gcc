@@ -779,7 +779,6 @@ init_tree_ssa (struct function *fn)
 				                 uid_ssaname_map_eq, NULL);
   fn->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
   fn->gimple_df->call_used_vars = BITMAP_GGC_ALLOC ();
-  fn->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
   init_ssanames (fn, 0);
   init_phinodes ();
 }
@@ -863,7 +862,6 @@ delete_tree_ssa (void)
   cfun->gimple_df->default_defs = NULL;
   cfun->gimple_df->call_clobbered_vars = NULL;
   cfun->gimple_df->call_used_vars = NULL;
-  cfun->gimple_df->addressable_vars = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
   cfun->gimple_df = NULL;
 
@@ -1476,13 +1474,9 @@ execute_update_addresses_taken (bool do_optimize)
   referenced_var_iterator rvi;
   gimple_stmt_iterator gsi;
   basic_block bb;
-  bitmap addresses_taken;
+  bitmap addresses_taken = BITMAP_ALLOC (NULL);
   bitmap not_reg_needs = BITMAP_ALLOC (NULL);
   bool update_vops = false;
-
-  /* Reset the addressable vars bitmap.  */
-  addresses_taken = gimple_addressable_vars (cfun);
-  bitmap_clear (addresses_taken);
 
   /* Collect into ADDRESSES_TAKEN all variables whose address is taken within
      the function body.  */
@@ -1588,6 +1582,7 @@ execute_update_addresses_taken (bool do_optimize)
     }
 
   BITMAP_FREE (not_reg_needs);
+  BITMAP_FREE (addresses_taken);
 }
 
 struct gimple_opt_pass pass_update_address_taken =

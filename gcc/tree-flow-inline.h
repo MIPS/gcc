@@ -35,20 +35,6 @@ gimple_in_ssa_p (const struct function *fun)
   return fun && fun->gimple_df && fun->gimple_df->in_ssa_p;
 }
 
-/* Addressable variables in the function.  If bit I is set, then
-   REFERENCED_VARS (I) has had its address taken.  Note that
-   CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
-   addressable variable is not necessarily call-clobbered (e.g., a
-   local addressable whose address does not escape) and not all
-   call-clobbered variables are addressable (e.g., a local static
-   variable).  */
-static inline bitmap
-gimple_addressable_vars (const struct function *fun)
-{
-  gcc_assert (fun && fun->gimple_df);
-  return fun->gimple_df->addressable_vars;
-}
-
 /* Call clobbered variables in the function.  If bit I is set, then
    REFERENCED_VARS (I) is call-clobbered.  */
 static inline bitmap
@@ -576,7 +562,8 @@ set_is_used (tree var)
 }
 
 
-/* Return true if T (assumed to be a DECL) is a global variable.  */
+/* Return true if T (assumed to be a DECL) is a global variable.
+   A variable is considered global if its storage is not automatic.  */
 
 static inline bool
 is_global_var (const_tree t)
@@ -585,19 +572,14 @@ is_global_var (const_tree t)
 }
 
 
-/* Return true if VAR may be aliased.  */
+/* Return true if VAR may be aliased.  A variable is considered as
+   maybe aliased if it has its address taken by the local TU
+   or possibly by another TU.  */
 
 static inline bool
 may_be_aliased (tree var)
 {
-  return (is_global_var (var)
-	  || (TREE_ADDRESSABLE (var)
-	      /* TREE_ADDRESSABLE is a pre-requesite for sth to have its
-	         address taken, but for aggregates only the addressable
-		 vars bitmap is a precise answer.  */
-	      && (!gimple_addressable_vars (cfun)
-		  || bitmap_bit_p (gimple_addressable_vars (cfun),
-				   DECL_UID (var)))));
+  return (TREE_PUBLIC (var) || DECL_EXTERNAL (var) || TREE_ADDRESSABLE (var));
 }
 
 

@@ -75,15 +75,6 @@ struct gimple_df GTY(())
      REFERENCED_VARS (I) is call-used at pure function call-sites.  */
   bitmap call_used_vars;
 
-  /* Addressable variables in the function.  If bit I is set, then
-     REFERENCED_VARS (I) has had its address taken.  Note that
-     CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
-     addressable variable is not necessarily call-clobbered (e.g., a
-     local addressable whose address does not escape) and not all
-     call-clobbered variables are addressable (e.g., a local static
-     variable).  */
-  bitmap addressable_vars;
-
   /* Free list of SSA_NAMEs.  */
   tree free_ssanames;
 
