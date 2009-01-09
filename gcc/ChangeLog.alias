@@ -1,3 +1,23 @@
+2009-01-09  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2009-01-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38721
+	* tree-into-ssa.c (pass_build_ssa): Add TODO_update_address_taken.
+	* tree-ssa-loop.c (tree_ssa_loop_ivopts): Update address-taken.
+	* tree-cfg.c (verify_expr): Verify that stmt addresses-taken and
+	function addressable-vars are conservatively correct.
+	(verify_stmt): Initialize gsi of walk data.
+	* tree-inline.c (optimize_inline_calls): Execute
+	TODO_update_address_taken.
+	(tree_function_versioning): Call execute_update_addresses_taken.
+	* passes.c (init_optimization_passes): Remove redundant
+	update-address-taken pass after final inlining.
+	* tree-parloops.c (parallelize_loops): Call
+	execute_update_addresses_taken.
+	* tree-vectorizer.c (vectorize_loops): Likewise.
+
 2009-01-07  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/38721
