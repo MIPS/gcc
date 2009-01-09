@@ -1,5 +1,17 @@
 2009-01-09  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-alias.c (get_continuation_for_phi): Add visited param,
+	adjust maybe_skip_until calls.
+	(maybe_skip_until): Likewise.  All multiply visited PHI nodes
+	finish the walking.
+	(walk_non_aliased_vuses): Adjust get_continuation_for_phi calls.
+	Free visited bitmap.
+
+	testsuite/
+	* gcc.dg/tree-ssa/ssa-fre-20.c: New testcase.
+
+2009-01-09  Richard Guenther  <rguenther@suse.de>
+
 	* tree-flow-inline.h (gimple_addressable_vars): Remove.
 	(is_global_var): Adjust documentation.
 	(may_be_aliased): Rely on TREE_ADDRESSABLE, do not use

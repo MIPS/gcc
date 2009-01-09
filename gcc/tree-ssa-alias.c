@@ -498,25 +498,31 @@ stmt_may_clobber_ref_p (gimple stmt, tree ref)
   return false;
 }
 
-static tree get_continuation_for_phi (gimple, tree);
+static tree get_continuation_for_phi (gimple, tree, bitmap *);
 
 /* Walk the virtual use-def chain of VUSE until hitting the virtual operand
    TARGET or a statement clobbering the memory reference REF in which
    case false is returned.  The walk starts with VUSE, one argument of PHI.  */
 
 static bool
-maybe_skip_until (gimple phi, tree target, tree ref, tree vuse)
+maybe_skip_until (gimple phi, tree target, tree ref, tree vuse, bitmap *visited)
 {
+  if (!*visited)
+    *visited = BITMAP_ALLOC (NULL);
+
+  bitmap_set_bit (*visited, SSA_NAME_VERSION (PHI_RESULT (phi)));
+
   /* Walk until we hit the target.  */
   while (vuse != target)
     {
       gimple def_stmt = SSA_NAME_DEF_STMT (vuse);
-      /* The original PHI node ends the walk successfully.  */
+      /* Recurse for PHI nodes.  */
       if (gimple_code (def_stmt) == GIMPLE_PHI)
 	{
-	  if (def_stmt == phi)
+	  /* An already visited PHI node ends the walk successfully.  */
+	  if (bitmap_bit_p (*visited, SSA_NAME_VERSION (PHI_RESULT (def_stmt))))
 	    return true;
-	  vuse = get_continuation_for_phi (def_stmt, ref);
+	  vuse = get_continuation_for_phi (def_stmt, ref, visited);
 	  if (!vuse)
 	    return false;
 	  continue;
@@ -537,7 +543,7 @@ maybe_skip_until (gimple phi, tree target, tree ref, tree vuse)
    be found.  */
 
 static tree
-get_continuation_for_phi (gimple phi, tree ref)
+get_continuation_for_phi (gimple phi, tree ref, bitmap *visited)
 {
   unsigned nargs = gimple_phi_num_args (phi);
 
@@ -561,14 +567,14 @@ get_continuation_for_phi (gimple phi, tree ref)
 		   && dominated_by_p (CDI_DOMINATORS,
 				      gimple_bb (def1), gimple_bb (def0))))
 	{
-	  if (maybe_skip_until (phi, arg0, ref, arg1))
+	  if (maybe_skip_until (phi, arg0, ref, arg1, visited))
 	    return arg0;
 	}
       else if (gimple_nop_p (def1)
 	       || dominated_by_p (CDI_DOMINATORS,
 				  gimple_bb (def0), gimple_bb (def1)))
 	{
-	  if (maybe_skip_until (phi, arg1, ref, arg0))
+	  if (maybe_skip_until (phi, arg1, ref, arg0, visited))
 	    return arg1;
 	}
     }
@@ -591,28 +597,33 @@ void *
 walk_non_aliased_vuses (tree ref, tree vuse,
 			void *(*walker)(tree, tree, void *), void *data)
 {
+  bitmap visited = NULL;
+  void *res;
+
   do
     {
       gimple def_stmt;
-      void *res;
 
       res = (*walker) (ref, vuse, data);
       if (res)
-	return res;
+	break;
 
       def_stmt = SSA_NAME_DEF_STMT (vuse);
       if (gimple_nop_p (def_stmt))
-	return NULL;
+	break;
       else if (gimple_code (def_stmt) == GIMPLE_PHI)
-	vuse = get_continuation_for_phi (def_stmt, ref);
+	vuse = get_continuation_for_phi (def_stmt, ref, &visited);
       else
 	{
 	  if (stmt_may_clobber_ref_p (def_stmt, ref))
-	    return NULL;
+	    break;
 	  vuse = gimple_vuse (def_stmt);
 	}
     }
   while (vuse);
 
-  return NULL;
+  if (visited)
+    BITMAP_FREE (visited);
+
+  return res;
 }
