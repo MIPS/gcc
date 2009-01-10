@@ -1,3 +1,10 @@
+2009-01-09  Diego Novillo  <dnovillo@google.com>
+
+	* ipa-cp.c (ipcp_update_callgraph): Handle cloned
+	caller nodes.
+	* ipa-reference.c (write_node_summary_p): Return false
+	for inlined nodes.
+
 2009-01-09  Rafael Avila de Espindola  <espindola@google.com>
 
 	* cgraphunit.c (cgraph_function_versioning,save_inline_function_body):

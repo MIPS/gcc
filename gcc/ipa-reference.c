@@ -1002,6 +1002,7 @@ static bool
 write_node_summary_p (struct cgraph_node *node)
 {
   return (node->analyzed 
+	  && node->global.inlined_to == NULL
 	  && (cgraph_is_master_clone (node, true)
 	      || (cgraph_function_body_availability (node) 
 		  == AVAIL_OVERWRITABLE)));

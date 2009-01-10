@@ -938,6 +938,7 @@ ipcp_update_callgraph (void)
         struct ipa_node_params *info = IPA_NODE_REF (orig_node);
         int i, count = ipa_get_param_count (info);
         struct cgraph_edge *cs, *next;
+	gimple *call_stmt_map;
 
 	for (i = 0; i < count; i++)
 	  {
@@ -956,24 +957,55 @@ ipcp_update_callgraph (void)
 	    if (lat->type == IPA_CONST_VALUE)
 	      bitmap_set_bit (args_to_skip, i);
 	  }
+
+	/* Use a map to store all the CALL_STMT replacements we make
+	   in the call edges coming from all the callers to NODE.
+	   This is needed for cases where callers have been cloned,
+	   resulting in two or more call graph nodes for the same
+	   function calling NODE.  After doing the first replacement,
+	   we will not be able to find the original statement in the
+	   caller body.  */
+	for (i = 0, cs = node->callers; cs; cs = cs->next_caller)
+	  gimple_set_uid (cs->call_stmt, i++);
+
+	call_stmt_map = (gimple *) xcalloc (i, sizeof (gimple));
+
+	/* Traverse all callers for NODE replacing the call to
+	   NODE->DECL with its specialized version.  */
 	for (cs = node->callers; cs; cs = next)
 	  {
 	    next = cs->next_caller;
 	    if (ipcp_node_is_clone (cs->caller) || !ipcp_need_redirect_p (cs))
 	      {
 		gimple new_stmt;
-		gimple_stmt_iterator gsi;
 
-		current_function_decl = cs->caller->decl;
-	        push_cfun (DECL_STRUCT_FUNCTION (cs->caller->decl));
-		
-		new_stmt = gimple_call_copy_skip_args (cs->call_stmt,
-						       args_to_skip);
-		gsi = gsi_for_stmt (cs->call_stmt);
-		gsi_replace (&gsi, new_stmt, true);
+		if (call_stmt_map[gimple_uid (cs->call_stmt)])
+		  {
+		    /* If we found CS->CALL_STMT in CALL_STMT_MAP it
+		       means that we had replaced it in another call
+		       edge in a previous iteration.  If we try to
+		       look for CS->CALL_STMT again in the body we
+		       will not find it.  Therefore,  we just pick up
+		       the replacement stored by a previous iteration.  */
+		    new_stmt = call_stmt_map[gimple_uid (cs->call_stmt)];
+		  }
+		else
+		  {
+		    gimple_stmt_iterator gsi;
+
+		    current_function_decl = cs->caller->decl;
+		    push_cfun (DECL_STRUCT_FUNCTION (cs->caller->decl));
+		    
+		    new_stmt = gimple_call_copy_skip_args (cs->call_stmt,
+							   args_to_skip);
+		    gsi = gsi_for_stmt (cs->call_stmt);
+		    gsi_replace (&gsi, new_stmt, true);
+		    pop_cfun ();
+		    current_function_decl = NULL;
+		    call_stmt_map[gimple_uid (cs->call_stmt)] = new_stmt;
+		  }
+
 		cgraph_set_call_stmt (cs, new_stmt);
-	        pop_cfun ();
-		current_function_decl = NULL;
 	      }
 	    else
 	      {
@@ -981,6 +1013,8 @@ ipcp_update_callgraph (void)
 		gimple_call_set_fndecl (cs->call_stmt, orig_node->decl);
 	      }
 	  }
+
+	free (call_stmt_map);
       }
 }
 
