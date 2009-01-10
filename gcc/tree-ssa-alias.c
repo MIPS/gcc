@@ -118,20 +118,10 @@ may_point_to_decl (tree ptr, tree decl)
   /* If we do not have useful points-to information for this pointer
      we cannot disambiguate anything else.  */
   pi = SSA_NAME_PTR_INFO (ptr);
-  if (!pi
-      || pi->pt.anything)
+  if (!pi)
     return true;
 
-  /* If the points-to set includes the variable we are done.  */
-  if (bitmap_bit_p (pi->pt.vars, DECL_UID (decl)))
-    return true;
-
-  /* pt_nonlocal includes any global variable.  */
-  if (is_global_var (decl)
-      && pi->pt.nonlocal)
-    return true;
-
-  return false;
+  return pt_solution_includes (&pi->pt, decl);
 }
 
 /* Return true if PTR1 and PTR2 may point to the same memory object.  */
@@ -163,23 +153,10 @@ may_point_to_same_object (tree ptr1, tree ptr2)
      we cannot disambiguate anything else.  */
   pi1 = SSA_NAME_PTR_INFO (ptr1);
   pi2 = SSA_NAME_PTR_INFO (ptr2);
-  if (!pi1 || !pi2
-      || pi1->pt.anything || pi2->pt.anything)
+  if (!pi1 || !pi2)
     return true;
 
-  /* If either points to unknown global memory and the other points to
-     any global memory they alias.  */
-  if ((pi1->pt.nonlocal
-       && (pi2->pt.nonlocal
-	   || pi2->pt.vars_contains_global))
-      || (pi2->pt.nonlocal
-	  && pi1->pt.vars_contains_global))
-    return true;
-
-  /* Now both pointers alias if their points-to solution intersects.  */
-  return (pi1->pt.vars
-	  && pi2->pt.vars
-	  && bitmap_intersect_p (pi1->pt.vars, pi2->pt.vars));
+  return pt_solutions_intersect (&pi1->pt, &pi2->pt);
 }
 
 /* Return true if STMT is an "escape" site from the current function.  Escape
@@ -323,7 +300,7 @@ get_ptr_info (tree t)
   if (pi == NULL)
     {
       pi = GGC_CNEW (struct ptr_info_def);
-      pi->pt.anything = 1;
+      pt_solution_reset (&pi->pt);
       SSA_NAME_PTR_INFO (t) = pi;
     }
 
@@ -352,6 +329,9 @@ dump_points_to_info_for (FILE *file, tree ptr)
 
       if (pi->pt.escaped)
 	fprintf (file, ", points-to escaped");
+
+      if (pi->pt.callused)
+	fprintf (file, ", points-to call-used");
 
       if (pi->pt.null)
 	fprintf (file, ", points-to NULL");

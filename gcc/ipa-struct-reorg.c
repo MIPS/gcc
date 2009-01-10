@@ -496,8 +496,6 @@ static void
 finalize_var_creation (tree new_decl)
 {
   add_referenced_var (new_decl);  
-  if (is_global_var (new_decl))
-    mark_call_clobbered (new_decl, ESCAPE_UNKNOWN);
   mark_sym_for_renaming (new_decl); 
 }
 

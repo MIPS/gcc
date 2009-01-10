@@ -308,33 +308,9 @@ dump_variable (FILE *file, tree var)
     fprintf (file, ", is volatile");
 
   if (is_call_clobbered (var))
-    {
-      const char *s = "";
-      var_ann_t va = var_ann (var);
-      unsigned int escape_mask = va->escape_mask;
-
-      fprintf (file, ", call clobbered");
-      fprintf (file, " (");
-      if (escape_mask & ESCAPE_STORED_IN_GLOBAL)
-	{ fprintf (file, "%sstored in global", s); s = ", "; }
-      if (escape_mask & ESCAPE_TO_ASM)
-	{ fprintf (file, "%sgoes through ASM", s); s = ", "; }
-      if (escape_mask & ESCAPE_TO_CALL)
-	{ fprintf (file, "%spassed to call", s); s = ", "; }
-      if (escape_mask & ESCAPE_BAD_CAST)
-	{ fprintf (file, "%sbad cast", s); s = ", "; }
-      if (escape_mask & ESCAPE_TO_RETURN)
-	{ fprintf (file, "%sreturned from func", s); s = ", "; }
-      if (escape_mask & ESCAPE_TO_PURE_CONST)
-	{ fprintf (file, "%spassed to pure/const", s); s = ", "; }
-      if (escape_mask & ESCAPE_IS_GLOBAL)
-	{ fprintf (file, "%sis global var", s); s = ", "; }
-      if (escape_mask & ESCAPE_IS_PARM)
-	{ fprintf (file, "%sis incoming pointer", s); s = ", "; }
-      if (escape_mask & ESCAPE_UNKNOWN)
-	{ fprintf (file, "%sunknown escape", s); s = ", "; }
-      fprintf (file, ")");
-    }
+    fprintf (file, ", call clobbered");
+  else if (is_call_used (var))
+    fprintf (file, ", call used");
 
   if (ann->noalias_state == NO_ALIAS)
     fprintf (file, ", NO_ALIAS (does not alias other NO_ALIAS symbols)");
@@ -622,15 +598,6 @@ add_referenced_var (tree var)
   /* Insert VAR into the referenced_vars has table if it isn't present.  */
   if (referenced_var_check_and_insert (var))
     {
-      /* If this is a new global or addressable variable conservatively
-         initialize its call-clobber state.  */
-      if (is_global_var (var))
-	mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
-      else if (TREE_ADDRESSABLE (var))
-	mark_call_clobbered (var, ESCAPE_UNKNOWN);
-      else
-	clear_call_clobbered (var);
-
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
 	 variables.  
@@ -654,8 +621,6 @@ remove_referenced_var (tree var)
   void **loc;
   unsigned int uid = DECL_UID (var);
 
-  clear_call_clobbered (var);
-  bitmap_clear_bit (gimple_call_used_vars (cfun), uid);
   /* Preserve var_anns of globals.  */
   if (!is_global_var (var)
       && (v_ann = var_ann (var)))

@@ -1,3 +1,66 @@
+2009-01-10  Richard Guenther  <rguenther@suse.de>
+
+	* Makefile.in (GTFILES): Add tree-ssa-alias.h.
+	* ipa-struct-reorg.c (finalize_var_creation): Do not mark vars
+	call-clobbered.
+	* tree-dfa.c (dump_variable): Do not dump escape reason.  Dump
+	call-used state.
+	(add_referenced_var): Remove call-clobber related code.
+	(remove_referenced_var): Likewise.
+	* tree-flow-inline.h (gimple_call_clobbered_vars): Remove.
+	(gimple_call_used_vars): Likewise.
+	(may_be_aliased): Take a const_tree argument.
+	(is_call_clobbered): Query the escaped solution if the variable
+	may be aliased.
+	(is_call_used): Query the callused solution if the variable may
+	be aliased.
+	(mark_call_clobbered): Remove.
+	(clear_call_clobbered): Likewise.
+	* tree-flow.h (struct gimple_df): Remove call_clobbered_vars and
+	call_used_vars, add escaped and callused solutions.
+	(struct var_ann): Remove escape_mask.
+	* tree-outof-ssa.c (create_temp): Do not fiddle with call-clobber
+	state.
+	* tree-ssa-alias.c (may_point_to_decl): Use pt_solution_includes.
+	(may_point_to_same_object): Use pt_solutions_intersect.
+	(get_ptr_info): Use pt_solution_reset.
+	(dump_points_to_info): Dump pt_callused state.
+	* tree-ssa-alias.h (struct pt_solution): Move here from tree-flow.h.
+	Add callused flag.
+	(pt_solution_includes): Declare.
+	(pt_solution_reset): Likewise.
+	(pt_solutions_intersect): Likewise.
+	* tree-ssa-structalias.c (handle_lhs_call): Use a scalar
+	NONLOCAL constraint for the return value.
+	(make_copy_constraint): New function.
+	(create_variable_info_for): Globals point to what NONLOCAL
+	points to.
+	(find_what_var_points_to): Properly separate NONLOCAL, ESCAPED,
+	and CALLUSED.
+	(clobber_what_escaped): Remove.
+	(compute_call_used_vars): Likewise.
+	(pt_solution_reset): New function.
+	(pt_solution_empty_p): Likewise.
+	(pt_solution_includes): Likewise.
+	(pt_solutions_intersect): Likewise.
+	(pt_solution_merge_into): Likewise.
+	(init_base_vars): Use a pointer type for the artificial variables.
+	Add a NONLOCAL = &NONLOCAL constraint.  Add *ESCAPED = NONLOCAL
+	constraint.  Remove *ESCAPED = &ESCAPED and *ESCAPED = &NONLOCAL
+	constraints.
+	(compute_points_to_sets): Build the ESCAPED and CALLUSED solutions.
+	(compute_call_clobbered): Remove.
+	(compute_may_aliases): Do not call compute_call_clobbered.
+	* tree-ssa.c (verify_call_clobbering): Remove.
+	(verify_alias_info): Likewise.
+	(verify_ssa): Do not call verify_alias_info.
+	(init_tree_ssa): Reset the escaped and callused solutions.
+	(delete_tree_ssa): Likewise.
+	(execute_update_addresses_taken): Do not clear call-clobber state.
+
+	testsuite/
+	* gcc.dg/torture/ssa-pta-fn-1.c: New testcase.
+
 2009-01-09  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-alias.c (get_continuation_for_phi): Add visited param,

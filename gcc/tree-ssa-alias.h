@@ -43,6 +43,40 @@ enum escape_type
 					   above.  */
 };
 
+
+/* The points-to solution.
+
+   The points-to solution is a union of pt_vars and the abstract
+   sets specified by the flags.  */
+struct pt_solution GTY(())
+{
+  /* Nonzero if points-to analysis couldn't determine where this pointer
+     is pointing to.  */
+  unsigned int anything : 1;
+
+  /* Nonzero if the points-to set includes any global memory.  Note that
+     even if this is zero pt_vars can still include global variables.  */
+  unsigned int nonlocal : 1;
+
+  /* Nonzero if the points-to set includes any escaped local variable.  */
+  unsigned int escaped : 1;
+
+  /* Nonzero if the points-to set includes any callused variable.  */
+  unsigned int callused : 1;
+
+  /* Nonzero if the points-to set includes 'nothing', the points-to set
+     includes memory at address NULL.  */
+  unsigned int null : 1;
+
+
+  /* Nonzero if the pt_vars bitmap includes a global variable.  */
+  unsigned int vars_contains_global : 1;
+
+  /* Set of variables that this pointer may point to.  */
+  bitmap vars;
+};
+
+
 /* In tree-ssa-alias.c  */
 extern enum escape_type is_escape_site (gimple);
 extern bool may_point_to_global_var (tree);
@@ -62,6 +96,9 @@ extern void debug_points_to_info_for (tree);
 /* In tree-ssa-structalias.c  */
 extern unsigned int compute_may_aliases (void);
 extern void delete_alias_heapvars (void);
+extern bool pt_solution_includes (struct pt_solution *, const_tree);
+extern bool pt_solutions_intersect (struct pt_solution *, struct pt_solution *);
+extern void pt_solution_reset (struct pt_solution *);
 
 
 /* In tree-dfa.c  */

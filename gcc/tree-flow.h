@@ -67,13 +67,11 @@ struct gimple_df GTY(())
      variables.  */
   tree nonlocal_all;
 
-  /* Call clobbered variables in the function.  If bit I is set, then
-     REFERENCED_VARS (I) is call-clobbered.  */
-  bitmap call_clobbered_vars;
+  /* The PTA solution for the ESCAPED artificial variable.  */
+  struct pt_solution escaped;
 
-  /* Call-used variables in the function.  If bit I is set, then
-     REFERENCED_VARS (I) is call-used at pure function call-sites.  */
-  bitmap call_used_vars;
+  /* The PTA solution for the CALLUSED artificial variable.  */
+  struct pt_solution callused;
 
   /* Free list of SSA_NAMEs.  */
   tree free_ssanames;
@@ -129,34 +127,8 @@ struct ptr_info_def GTY(())
   /* Nonzero if this pointer is really dereferenced.  */
   unsigned int is_dereferenced : 1;
 
-  /* The points-to solution.
-
-     The points-to solution is a union of pt_vars and the abstract
-     sets specified by the flags.  */
-  struct pt_solution
-  {
-    /* Nonzero if points-to analysis couldn't determine where this pointer
-       is pointing to.  */
-    unsigned int anything : 1;
-
-    /* Nonzero if the points-to set includes any global memory.  Note that
-       even if this is zero pt_vars can still include global variables.  */
-    unsigned int nonlocal : 1;
-
-    /* Nonzero if the points-to set includes any escaped local variable.  */
-    unsigned int escaped : 1;
-
-    /* Nonzero if the points-to set includes 'nothing', the points-to set
-       includes memory at address NULL.  */
-    unsigned int null : 1;
-
-
-    /* Nonzero if the pt_vars bitmap includes a global variable.  */
-    unsigned int vars_contains_global : 1;
-
-    /* Set of variables that this pointer may point to.  */
-    bitmap vars;
-  } pt;
+  /* The points-to solution.  */
+  struct pt_solution pt;
 };
 
 
@@ -270,10 +242,6 @@ struct var_ann_d GTY(())
      symbols are known to have.  See the enum's definition for more
      information on each attribute.  */
   ENUM_BITFIELD (noalias_state) noalias_state : 2;
-
-  /* Mask of values saying the reasons why this variable has escaped
-     the function.  */
-  ENUM_BITFIELD (escape_type) escape_mask : 9;
 
   /* Used when going out of SSA form to indicate which partition this
      variable represents storage for.  */
@@ -910,7 +878,6 @@ char *get_lsm_tmp_name (tree, unsigned);
 
 /* In tree-flow-inline.h  */
 static inline bool is_call_clobbered (const_tree);
-static inline void mark_call_clobbered (tree, unsigned int);
 static inline void set_is_used (tree);
 static inline bool unmodifiable_var_p (const_tree);
 static inline bool ref_contains_array_ref (const_tree);

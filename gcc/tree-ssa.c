@@ -511,47 +511,6 @@ error:
 }
 
 
-/* Verify the consistency of call clobbering information.  */
-
-static void
-verify_call_clobbering (void)
-{
-  unsigned int i;
-  bitmap_iterator bi;
-  tree var;
-
-  /* At all times, the result of the call_clobbered flag should
-     match the result of the call_clobbered_vars bitmap.  Verify both
-     that everything in call_clobbered_vars is marked
-     call_clobbered, and that everything marked
-     call_clobbered is in call_clobbered_vars.  */
-  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
-    {
-      var = referenced_var (i);
-      if (is_global_var (var))
-	{
-	  error ("global variable in call_clobbered_vars");
-	  debug_variable (var);
-	  goto err;
-	}
-    }
-
-  return;
-
- err:
-    internal_error ("verify_call_clobbering failed");
-}
-
-
-/* Verify the consistency of aliasing information.  */
-
-static void
-verify_alias_info (void)
-{
-  verify_call_clobbering ();
-}
-
-
 /* Verify common invariants in the SSA web.
    TODO: verify the variable annotations.  */
 
@@ -692,9 +651,6 @@ verify_ssa (bool check_modified_stmt)
       bitmap_clear (names_defined_in_bb);
     }
 
-  /* Finally, verify alias information.  */
-  verify_alias_info ();
-
   free (definition_block);
 
   /* Restore the dominance information to its prior known state, so
@@ -777,8 +733,8 @@ init_tree_ssa (struct function *fn)
 				     		    uid_decl_map_eq, NULL);
   fn->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash, 
 				                 uid_ssaname_map_eq, NULL);
-  fn->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
-  fn->gimple_df->call_used_vars = BITMAP_GGC_ALLOC ();
+  pt_solution_reset (&fn->gimple_df->escaped);
+  pt_solution_reset (&fn->gimple_df->callused);
   init_ssanames (fn, 0);
   init_phinodes ();
 }
@@ -860,8 +816,8 @@ delete_tree_ssa (void)
 
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
-  cfun->gimple_df->call_clobbered_vars = NULL;
-  cfun->gimple_df->call_used_vars = NULL;
+  pt_solution_reset (&cfun->gimple_df->escaped);
+  pt_solution_reset (&cfun->gimple_df->callused);
   cfun->gimple_df->modified_noreturn_calls = NULL;
   cfun->gimple_df = NULL;
 
@@ -1535,7 +1491,6 @@ execute_update_addresses_taken (bool do_optimize)
 
 	if (TREE_ADDRESSABLE (var))
 	  {
-	    clear_call_clobbered (var);
 	    TREE_ADDRESSABLE (var) = 0;
 	    if (is_gimple_reg (var))
 	      mark_sym_for_renaming (var);

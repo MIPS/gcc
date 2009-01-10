@@ -3510,9 +3510,9 @@ handle_lhs_call (tree lhs, int flags)
     }
   else
     {
-      rhsc.var = escaped_id;
+      rhsc.var = nonlocal_id;
       rhsc.offset = 0;
-      rhsc.type = ADDRESSOF;
+      rhsc.type = SCALAR;
     }
   for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
     process_constraint (new_constraint (*lhsp, rhsc));
@@ -4191,6 +4191,23 @@ make_constraint_from (varinfo_t vi, int from)
   process_constraint (new_constraint (lhs, rhs));
 }
 
+/* Create a constraint ID = FROM.  */
+
+static void
+make_copy_constraint (varinfo_t vi, int from)
+{
+  struct constraint_expr lhs, rhs;
+
+  lhs.var = vi->id;
+  lhs.offset = 0;
+  lhs.type = SCALAR;
+
+  rhs.var = from;
+  rhs.offset = 0;
+  rhs.type = SCALAR;
+  process_constraint (new_constraint (lhs, rhs));
+}
+
 /* Count the number of arguments DECL has, and set IS_VARARGS to true
    if it is a varargs function.  */
 
@@ -4391,7 +4408,7 @@ create_variable_info_for (tree decl, const char *name)
 	  && var_ann (decl)->noalias_state == NO_ALIAS_ANYTHING)
 	make_constraint_from (vi, vi->id);
       else
-	make_constraint_from (vi, escaped_id);
+	make_copy_constraint (vi, nonlocal_id);
     }
 
   stats.total_vars++;
@@ -4471,7 +4488,7 @@ create_variable_info_for (tree decl, const char *name)
 	  VEC_safe_push (varinfo_t, heap, varmap, newvi);
 	  if (is_global && (!flag_whole_program || !in_ipa_mode)
 	      && fo->may_have_pointers)
-	    make_constraint_from (newvi, escaped_id);
+	    make_copy_constraint (newvi, nonlocal_id);
 
 	  stats.total_vars++;
 	}
@@ -4913,19 +4930,15 @@ find_what_var_points_to (varinfo_t vi, struct pt_solution *pt,
 	  if (vi->id == nothing_id)
 	    pt->null = 1;
 	  else if (vi->id == escaped_id)
-	    {
-	      pt->escaped = 1;
-	      /* ???  We need to compute the escaped solution and store
-	         it somewhere.  */
-	      pt->anything = 1;
-	    }
+	    pt->escaped = 1;
+	  else if (vi->id == callused_id)
+	    pt->callused = 1;
 	  else if (vi->id == nonlocal_id)
 	    pt->nonlocal = 1;
 	  else if (vi->is_heap_var)
 	    /* We represent heapvars in the points-to set properly.  */
 	    ;
 	  else if (vi->id == anything_id
-		   || vi->id == callused_id
 		   || vi->id == readonly_id
 		   || vi->id == integer_id)
 	    pt->anything = 1;
@@ -5008,115 +5021,154 @@ find_what_p_points_to (tree p)
     }
 }
 
-/* Mark the ESCAPED solution as call clobbered.  Returns false if
-   pt_anything escaped which needs all locals that have their address
-   taken marked call clobbered as well.  */
+/* Reset the points-to solution *PT to a conservative default
+   (point to anything).  */
+
+void
+pt_solution_reset (struct pt_solution *pt)
+{
+  memset (pt, 0, sizeof (struct pt_solution));
+  pt->anything = true;
+}
+
+/* Return true if the points-to solution *PT is empty.  */
 
 static bool
-clobber_what_escaped (void)
+pt_solution_empty_p (struct pt_solution *pt)
 {
-  varinfo_t vi;
-  unsigned int i;
-  bitmap_iterator bi;
-
-  if (!have_alias_info)
+  if (pt->anything
+      || pt->nonlocal)
     return false;
 
-  /* This variable may have been collapsed, let's get the real
-     variable for escaped_id.  */
-  vi = get_varinfo (find (escaped_id));
+  if (pt->vars
+      && !bitmap_empty_p (pt->vars))
+    return false;
 
-  /* If call-used memory escapes we need to include it in the
-     set of escaped variables.  This can happen if a pure
-     function returns a pointer and this pointer escapes.  */
-  if (bitmap_bit_p (vi->solution, callused_id))
-    {
-      varinfo_t cu_vi = get_varinfo (find (callused_id));
-      bitmap_ior_into (vi->solution, cu_vi->solution);
-    }
+  /* If this isn't already the escaped solution, check if that is empty.  */
+  if (pt->escaped
+      && &cfun->gimple_df->escaped != pt
+      && !pt_solution_empty_p (&cfun->gimple_df->escaped))
+    return false;
 
-  /* Mark variables in the solution call-clobbered.  */
-  EXECUTE_IF_SET_IN_BITMAP (vi->solution, 0, i, bi)
-    {
-      varinfo_t vi = get_varinfo (i);
-
-      if (vi->is_artificial_var)
-	{
-	  /* nothing_id and readonly_id do not cause any
-	     call clobber ops.  For anything_id and integer_id
-	     we need to clobber all addressable vars.  */
-	  if (vi->id == anything_id
-	      || vi->id == integer_id)
-	    return false;
-	}
-
-      /* Only artificial heap-vars are further interesting.  */
-      if (vi->is_artificial_var && !vi->is_heap_var)
-	continue;
-
-      if ((TREE_CODE (vi->decl) == VAR_DECL
-	   || TREE_CODE (vi->decl) == PARM_DECL
-	   || TREE_CODE (vi->decl) == RESULT_DECL)
-	  && !unmodifiable_var_p (vi->decl))
-	mark_call_clobbered (vi->decl, ESCAPE_TO_CALL);
-    }
+  /* If this isn't already the callused solution, check if that is empty.  */
+  if (pt->callused
+      && &cfun->gimple_df->callused != pt
+      && !pt_solution_empty_p (&cfun->gimple_df->callused))
+    return false;
 
   return true;
 }
 
-/* Compute the call-used variables.  */
+/* Return true if the points-to solution *PT includes the variable
+   declaration DECL.  */
+
+bool
+pt_solution_includes (struct pt_solution *pt, const_tree decl)
+{
+  if (pt->anything)
+    return true;
+
+  if (pt->nonlocal
+      && is_global_var (decl))
+    return true;
+
+  if (bitmap_bit_p (pt->vars, DECL_UID (decl)))
+    return true;
+
+  /* If this isn't already the escaped solution, union it with that.  */
+  if (pt->escaped
+      && &cfun->gimple_df->escaped != pt
+      && pt_solution_includes (&cfun->gimple_df->escaped, decl))
+    return true;
+
+  /* If this isn't already the callused solution, union it with that.  */
+  if (pt->callused
+      && &cfun->gimple_df->callused != pt
+      && pt_solution_includes (&cfun->gimple_df->callused, decl))
+    return true;
+
+  return false;
+}
+
+/* Return true if both points-to solutions PT1 and PT2 have a non-empty
+   intersection.  */
+
+bool
+pt_solutions_intersect (struct pt_solution *pt1, struct pt_solution *pt2)
+{
+  if (pt1->anything || pt2->anything)
+    return true;
+
+  /* If either points to unknown global memory and the other points to
+     any global memory they alias.  */
+  if ((pt1->nonlocal
+       && (pt2->nonlocal
+	   || pt2->vars_contains_global))
+      || (pt2->nonlocal
+	  && pt1->vars_contains_global))
+    return true;
+
+  /* Check the escaped solution if required.  */
+  if ((pt1->escaped || pt1 == &cfun->gimple_df->escaped
+       || pt2->escaped || pt2 == &cfun->gimple_df->escaped)
+      && !pt_solution_empty_p (&cfun->gimple_df->escaped))
+    {
+      /* If both point to escaped memory and that solution
+	 is not empty they alias.  */
+      if ((pt1->escaped || pt1 == &cfun->gimple_df->escaped)
+	  && (pt2->escaped || pt2 == &cfun->gimple_df->escaped))
+	return true;
+
+      /* If either points to escaped memory see if the escaped solution
+	 intersects.  */
+      if (((pt1->escaped || pt1 == &cfun->gimple_df->escaped)
+	   && pt_solutions_intersect (&cfun->gimple_df->escaped, pt1))
+	  || ((pt2->escaped || pt2 == &cfun->gimple_df->escaped)
+	      && pt_solutions_intersect (&cfun->gimple_df->escaped, pt2)))
+	return true;
+    }
+
+  /* Check the callused solution if required.  */
+  if ((pt1->callused || pt1 == &cfun->gimple_df->callused
+       || pt2->callused || pt2 == &cfun->gimple_df->callused)
+      && !pt_solution_empty_p (&cfun->gimple_df->callused))
+    {
+      /* If both point to callused memory and that solution
+	 is not empty they alias.  */
+      if ((pt1->callused || pt1 == &cfun->gimple_df->callused)
+	  && (pt2->callused || pt2 == &cfun->gimple_df->callused))
+	  return true;
+
+      /* If either points to callused memory see if the callused solution
+	 intersects.  */
+      if (((pt1->callused || pt1 == &cfun->gimple_df->callused)
+	   && pt_solutions_intersect (&cfun->gimple_df->callused, pt1))
+	  || ((pt2->callused || pt2 == &cfun->gimple_df->callused)
+	      && pt_solutions_intersect (&cfun->gimple_df->callused, pt2)))
+	return true;
+    }
+
+  /* Now both pointers alias if their points-to solution intersects.  */
+  return (pt1->vars
+	  && pt2->vars
+	  && bitmap_intersect_p (pt1->vars, pt2->vars));
+}
+
+/* Merge the solution SRC into the solution DEST.  */
 
 static void
-compute_call_used_vars (void)
+pt_solution_merge_into (struct pt_solution *dest, struct pt_solution *src)
 {
-  varinfo_t vi;
-  unsigned int i;
-  bitmap_iterator bi;
-  bool has_anything_id = false;
-
-  if (!have_alias_info)
-    return;
-
-  /* This variable may have been collapsed, let's get the real
-     variable for escaped_id.  */
-  vi = get_varinfo (find (callused_id));
-
-  /* Mark variables in the solution call-clobbered.  */
-  EXECUTE_IF_SET_IN_BITMAP (vi->solution, 0, i, bi)
-    {
-      varinfo_t vi = get_varinfo (i);
-
-      if (vi->is_artificial_var)
-	{
-	  /* For anything_id and integer_id we need to make
-	     all local addressable vars call-used.  */
-	  if (vi->id == anything_id
-	      || vi->id == integer_id)
-	    has_anything_id = true;
-	}
-
-      /* Only artificial heap-vars are further interesting.  */
-      if (vi->is_artificial_var && !vi->is_heap_var)
-	continue;
-
-      if ((TREE_CODE (vi->decl) == VAR_DECL
-	   || TREE_CODE (vi->decl) == PARM_DECL
-	   || TREE_CODE (vi->decl) == RESULT_DECL)
-	  && !unmodifiable_var_p (vi->decl))
-	bitmap_set_bit (gimple_call_used_vars (cfun), DECL_UID (vi->decl));
-    }
-
-  /* If anything is call-used, add all addressable locals to the set.  */
-  if (has_anything_id)
-    {
-      referenced_var_iterator rvi;
-      tree var;
-
-      FOR_EACH_REFERENCED_VAR (var, rvi)
-	if (!is_global_var (var)
-	    && TREE_ADDRESSABLE (var))
-	  bitmap_set_bit (gimple_call_used_vars (cfun), DECL_UID (var));
-    }
+  dest->anything |= src->anything;
+  dest->nonlocal |= src->nonlocal;
+  dest->escaped |= src->escaped;
+  dest->callused |= src->callused;
+  dest->null |= src->null;
+  dest->vars_contains_global |= src->vars_contains_global;
+  if (src->vars && dest->vars)
+    bitmap_ior_into (dest->vars, src->vars);
+  else if (src->vars)
+    dest->vars = src->vars;
 }
 
 
@@ -5181,7 +5233,7 @@ init_base_vars (void)
 
   /* Create the ANYTHING variable, used to represent that a variable
      points to some unknown piece of memory.  */
-  anything_tree = create_tmp_var_raw (void_type_node, "ANYTHING");
+  anything_tree = create_tmp_var_raw (ptr_type_node, "ANYTHING");
   var_anything = new_var_info (anything_tree, anything_id, "ANYTHING");
   insert_vi_for_tree (anything_tree, var_anything);
   var_anything->is_artificial_var = 1;
@@ -5209,7 +5261,7 @@ init_base_vars (void)
 
   /* Create the READONLY variable, used to represent that a variable
      points to readonly memory.  */
-  readonly_tree = create_tmp_var_raw (void_type_node, "READONLY");
+  readonly_tree = create_tmp_var_raw (ptr_type_node, "READONLY");
   var_readonly = new_var_info (readonly_tree, readonly_id, "READONLY");
   var_readonly->is_artificial_var = 1;
   var_readonly->offset = 0;
@@ -5234,7 +5286,7 @@ init_base_vars (void)
 
   /* Create the ESCAPED variable, used to represent the set of escaped
      memory.  */
-  escaped_tree = create_tmp_var_raw (void_type_node, "ESCAPED");
+  escaped_tree = create_tmp_var_raw (ptr_type_node, "ESCAPED");
   var_escaped = new_var_info (escaped_tree, escaped_id, "ESCAPED");
   insert_vi_for_tree (escaped_tree, var_escaped);
   var_escaped->is_artificial_var = 1;
@@ -5245,18 +5297,9 @@ init_base_vars (void)
   VEC_safe_push (varinfo_t, heap, varmap, var_escaped);
   gcc_assert (VEC_index (varinfo_t, varmap, 3) == var_escaped);
 
-  /* ESCAPED = *ESCAPED, because escaped is may-deref'd at calls, etc.  */
-  lhs.type = SCALAR;
-  lhs.var = escaped_id;
-  lhs.offset = 0;
-  rhs.type = DEREF;
-  rhs.var = escaped_id;
-  rhs.offset = 0;
-  process_constraint (new_constraint (lhs, rhs));
-
   /* Create the NONLOCAL variable, used to represent the set of nonlocal
      memory.  */
-  nonlocal_tree = create_tmp_var_raw (void_type_node, "NONLOCAL");
+  nonlocal_tree = create_tmp_var_raw (ptr_type_node, "NONLOCAL");
   var_nonlocal = new_var_info (nonlocal_tree, nonlocal_id, "NONLOCAL");
   insert_vi_for_tree (nonlocal_tree, var_nonlocal);
   var_nonlocal->is_artificial_var = 1;
@@ -5266,11 +5309,35 @@ init_base_vars (void)
   var_nonlocal->is_special_var = 1;
   VEC_safe_push (varinfo_t, heap, varmap, var_nonlocal);
 
-  /* Nonlocal memory points to escaped (which includes nonlocal),
-     in order to make deref easier.  */
+  /* ESCAPED = *ESCAPED, because escaped is may-deref'd at calls, etc.  */
+  lhs.type = SCALAR;
+  lhs.var = escaped_id;
+  lhs.offset = 0;
+  rhs.type = DEREF;
+  rhs.var = escaped_id;
+  rhs.offset = 0;
+  process_constraint (new_constraint (lhs, rhs));
+
+  /* *ESCAPED = NONLOCAL.  This is true because we have to assume
+     everything pointed to by escaped points to what global memory can
+     point to.  */
+  lhs.type = DEREF;
+  lhs.var = escaped_id;
+  lhs.offset = 0;
+  rhs.type = SCALAR;
+  rhs.var = nonlocal_id;
+  rhs.offset = 0;
+  process_constraint (new_constraint (lhs, rhs));
+
+  /* NONLOCAL = &NONLOCAL, NONLOCAL = &ESCAPED.  This is true because
+     global memory may point to global memory and escaped memory.  */
   lhs.type = SCALAR;
   lhs.var = nonlocal_id;
   lhs.offset = 0;
+  rhs.type = ADDRESSOF;
+  rhs.var = nonlocal_id;
+  rhs.offset = 0;
+  process_constraint (new_constraint (lhs, rhs));
   rhs.type = ADDRESSOF;
   rhs.var = escaped_id;
   rhs.offset = 0;
@@ -5278,7 +5345,7 @@ init_base_vars (void)
 
   /* Create the CALLUSED variable, used to represent the set of call-used
      memory.  */
-  callused_tree = create_tmp_var_raw (void_type_node, "CALLUSED");
+  callused_tree = create_tmp_var_raw (ptr_type_node, "CALLUSED");
   var_callused = new_var_info (callused_tree, callused_id, "CALLUSED");
   insert_vi_for_tree (callused_tree, var_callused);
   var_callused->is_artificial_var = 1;
@@ -5298,8 +5365,8 @@ init_base_vars (void)
   process_constraint (new_constraint (lhs, rhs));
 
   /* Create the INTEGER variable, used to represent that a variable points
-     to an INTEGER.  */
-  integer_tree = create_tmp_var_raw (void_type_node, "INTEGER");
+     to what an INTEGER "points to".  */
+  integer_tree = create_tmp_var_raw (ptr_type_node, "INTEGER");
   var_integer = new_var_info (integer_tree, integer_id, "INTEGER");
   insert_vi_for_tree (integer_tree, var_integer);
   var_integer->is_artificial_var = 1;
@@ -5317,26 +5384,6 @@ init_base_vars (void)
   lhs.offset = 0;
   rhs.type = ADDRESSOF;
   rhs.var = anything_id;
-  rhs.offset = 0;
-  process_constraint (new_constraint (lhs, rhs));
-
-  /* *ESCAPED = &ESCAPED.  This is true because we have to assume
-     everything pointed to by escaped can also point to escaped. */
-  lhs.type = DEREF;
-  lhs.var = escaped_id;
-  lhs.offset = 0;
-  rhs.type = ADDRESSOF;
-  rhs.var = escaped_id;
-  rhs.offset = 0;
-  process_constraint (new_constraint (lhs, rhs));
-
-  /* *ESCAPED = &NONLOCAL.  This is true because we have to assume
-     everything pointed to by escaped can also point to nonlocal. */
-  lhs.type = DEREF;
-  lhs.var = escaped_id;
-  lhs.offset = 0;
-  rhs.type = ADDRESSOF;
-  rhs.var = nonlocal_id;
   rhs.offset = 0;
   process_constraint (new_constraint (lhs, rhs));
 }
@@ -5693,12 +5740,29 @@ compute_points_to_sets (void)
   if (dump_file)
     dump_sa_points_to_info (dump_file);
 
+  /* Compute the points-to sets for pointer SSA_NAMEs.  */
   for (i = 0; i < num_ssa_names; ++i)
     {
       tree ptr = ssa_name (i);
       if (ptr
 	  && POINTER_TYPE_P (TREE_TYPE (ptr)))
 	find_what_p_points_to (ptr);
+    }
+
+  /* Compute the points-to sets for ESCAPED and CALLUSED used for
+     call-clobber analysis.  */
+  find_what_var_points_to (var_escaped, &cfun->gimple_df->escaped, false);
+  find_what_var_points_to (var_callused, &cfun->gimple_df->callused, false);
+  /* If both include each other merge and separate them to avoid running
+     in circles during queries of these placeholder solutions.  */
+  if (cfun->gimple_df->escaped.callused
+      && cfun->gimple_df->callused.escaped)
+    {
+      pt_solution_merge_into (&cfun->gimple_df->escaped,
+			      &cfun->gimple_df->callused);
+      cfun->gimple_df->callused = cfun->gimple_df->escaped;
+      cfun->gimple_df->escaped.callused = false;
+      cfun->gimple_df->callused.escaped = false;
     }
 
   timevar_pop (TV_TREE_PTA);
@@ -5741,68 +5805,6 @@ delete_points_to_sets (void)
 }
 
 
-/* Transfer the call-clobber solutions from the points-to solution
-   to the call-clobber state of the variables.
-
-   The set of call-clobbered variables is the union of all global
-   variables and the set denoted by the gimple_call_clobbered_vars
-   bitmap.  The maximal set of the gimple_call_clobbered_vars bitmap
-   is all local aliased variables (all locals that have their address
-   taken).
-
-   The set of call-used variables is the union of all call-clobbered
-   variables and the set denoted by the gimple_call_used_vars bitmap.
-   Call-used variables get added to by escapes through pure functions.  */
-
-static void
-compute_call_clobbered (void)
-{
-  referenced_var_iterator rvi;
-  tree var;
-  bool any_pt_anything = false;
-  enum escape_type pt_anything_mask = 0;
-
-  timevar_push (TV_CALL_CLOBBER);
-
-  /* Clear the set of call-clobbered and call-used variables.  */
-  bitmap_clear (gimple_call_clobbered_vars (cfun));
-  bitmap_clear (gimple_call_used_vars (cfun));
-
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    {
-      if (is_global_var (var))
-	{
-	  if (!unmodifiable_var_p (var))
-	    mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
-	}
-    }
-
-  if (!clobber_what_escaped ())
-    {
-      any_pt_anything = true;
-      pt_anything_mask |= ESCAPE_TO_CALL;
-    }
-
-  compute_call_used_vars ();
-
-  /* If a pt_anything pointer escaped we need to mark all addressable
-     variables call clobbered.  */
-  if (any_pt_anything)
-    {
-      referenced_var_iterator rvi;
-
-      FOR_EACH_REFERENCED_VAR (var, rvi)
-	{
-	  if (TREE_ADDRESSABLE (var)
-	      && !unmodifiable_var_p (var))
-	    mark_call_clobbered (var, pt_anything_mask);
-	}
-    }
-
-  timevar_pop (TV_CALL_CLOBBER);
-}
-
-
 /* Compute points-to information for every SSA_NAME pointer in the
    current function and compute the transitive closure of escaped
    variables to re-initialize the call-clobber states of local variables.  */
@@ -5814,10 +5816,6 @@ compute_may_aliases (void)
      point-to.  Compute the reachability set of escaped and call-used
      variables.  */
   compute_points_to_sets ();
-  
-  /* Transfer the points-to solutions of ESCAPED and CALLUSED to the
-     call clobbering information.  */
-  compute_call_clobbered ();
 
   /* Debugging dumps.  */
   if (dump_file)

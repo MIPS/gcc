@@ -35,24 +35,6 @@ gimple_in_ssa_p (const struct function *fun)
   return fun && fun->gimple_df && fun->gimple_df->in_ssa_p;
 }
 
-/* Call clobbered variables in the function.  If bit I is set, then
-   REFERENCED_VARS (I) is call-clobbered.  */
-static inline bitmap
-gimple_call_clobbered_vars (const struct function *fun)
-{
-  gcc_assert (fun && fun->gimple_df);
-  return fun->gimple_df->call_clobbered_vars;
-}
-
-/* Call-used variables in the function.  If bit I is set, then
-   REFERENCED_VARS (I) is call-used at pure function call-sites.  */
-static inline bitmap
-gimple_call_used_vars (const struct function *fun)
-{
-  gcc_assert (fun && fun->gimple_df);
-  return fun->gimple_df->call_used_vars;
-}
-
 /* Array of all variables referenced in the function.  */
 static inline htab_t
 gimple_referenced_vars (const struct function *fun)
@@ -577,7 +559,7 @@ is_global_var (const_tree t)
    or possibly by another TU.  */
 
 static inline bool
-may_be_aliased (tree var)
+may_be_aliased (const_tree var)
 {
   return (TREE_PUBLIC (var) || DECL_EXTERNAL (var) || TREE_ADDRESSABLE (var));
 }
@@ -617,7 +599,8 @@ static inline bool
 is_call_clobbered (const_tree var)
 {
   return (is_global_var (var)
-	  || bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)));
+	  || (may_be_aliased (var)
+	      && pt_solution_includes (&cfun->gimple_df->escaped, var)));
 }
 
 /* Return true if VAR is used by function calls.  */
@@ -625,27 +608,8 @@ static inline bool
 is_call_used (const_tree var)
 {
   return (is_call_clobbered (var)
-	  || bitmap_bit_p (gimple_call_used_vars (cfun), DECL_UID (var)));
-}
-
-/* Mark variable VAR as being clobbered by function calls.  */
-static inline void
-mark_call_clobbered (tree var, unsigned int escape_type)
-{
-  if (is_global_var (var))
-    return;
-  var_ann (var)->escape_mask |= escape_type;
-  bitmap_set_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
-}
-
-/* Clear the call-clobbered attribute from variable VAR.  */
-static inline void
-clear_call_clobbered (tree var)
-{
-  if (is_global_var (var))
-    return;
-  var_ann (var)->escape_mask = 0;
-  bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
+	  || (may_be_aliased (var)
+	      && pt_solution_includes (&cfun->gimple_df->callused, var)));
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation
