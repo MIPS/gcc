@@ -1194,7 +1194,8 @@ add_stmt_operand (tree *var_p, gimple stmt, int flags)
 	{
 	  if (flags & opf_def)
 	    bitmap_set_bit (build_stores, DECL_UID (var));
-	  bitmap_set_bit (build_loads, DECL_UID (var));
+	  else
+	    bitmap_set_bit (build_loads, DECL_UID (var));
 	}
       add_virtual_operand (stmt, flags);
     }
@@ -2209,3 +2210,28 @@ discard_stmt_changes (gimple *stmt_p)
   buf->stmt_p = NULL;
   free (buf);
 }
+
+/* Unlink STMTs virtual definition from the IL by propagating its use.  */
+
+void
+unlink_stmt_vdef (gimple stmt)
+{
+  use_operand_p use_p;
+  imm_use_iterator iter;
+  gimple use_stmt;
+  tree vdef = gimple_vdef (stmt);
+
+  if (!vdef
+      || TREE_CODE (vdef) != SSA_NAME)
+    return;
+
+  FOR_EACH_IMM_USE_STMT (use_stmt, iter, gimple_vdef (stmt))
+    {
+      FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+	SET_USE (use_p, gimple_vuse (stmt));
+    }
+
+  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_vdef (stmt)))
+    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_vuse (stmt)) = 1;
+}
+

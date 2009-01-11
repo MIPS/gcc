@@ -312,21 +312,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
             }
 
 	  /* Then we need to fix the operand of the consuming stmt.  */
-	  if (gimple_vdef (stmt))
-	    {
-	      use_operand_p use_p;
-	      imm_use_iterator iter;
-	      gimple use_stmt;
-
-	      FOR_EACH_IMM_USE_STMT (use_stmt, iter, gimple_vdef (stmt))
-		{
-		  FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
-		    SET_USE (use_p, gimple_vuse (stmt));
-		}
-
-	      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_vdef (stmt)))
-		SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_vuse (stmt)) = 1;
-	    }
+	  unlink_stmt_vdef (stmt);
 
 	  /* Remove the dead store.  */
 	  gsi_remove (&gsi, true);
@@ -504,8 +490,6 @@ execute_simple_dse (void)
 	    bitmap_iterator bi;
 	    bool dead = true;
 
-
-
 	    /* See if STMT only stores to write-only variables and
 	       verify that there are no volatile operands.  tree-ssa-operands
 	       sets has_volatile_ops flag for all statements involving
@@ -555,6 +539,7 @@ execute_simple_dse (void)
 		    push_stmt_changes (gsi_stmt_ptr (&gsi));
                     gimple_call_set_lhs (stmt, NULL);
 		    pop_stmt_changes (gsi_stmt_ptr (&gsi));
+		    todo |= TODO_update_ssa_only_virtuals;
 		  }
 		else
 		  {
@@ -565,6 +550,7 @@ execute_simple_dse (void)
 			fprintf (dump_file, "'\n");
 		      }
 		    removed = true;
+		    unlink_stmt_vdef (stmt);
 		    gsi_remove (&gsi, true);
 		    todo |= TODO_cleanup_cfg;
 		  }

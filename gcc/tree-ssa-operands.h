@@ -216,6 +216,8 @@ extern void push_stmt_changes (gimple *);
 extern void pop_stmt_changes (gimple *);
 extern void discard_stmt_changes (gimple *);
 
+extern void unlink_stmt_vdef (gimple);
+
 enum ssa_op_iter_type {
   ssa_op_iter_none = 0,
   ssa_op_iter_tree,
