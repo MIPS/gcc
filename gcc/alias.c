@@ -483,10 +483,11 @@ component_uses_parent_alias_set (const_tree t)
 }
 
 /* Return the alias set for the memory pointed to by T, which may be
-   either a type or an expression.  */
+   either a type or an expression.  Return -1 if there is nothing
+   special about dereferencing T.  */
 
-alias_set_type
-get_deref_alias_set (tree t)
+static alias_set_type
+get_deref_alias_set_1 (tree t)
 {
   /* If we're not doing any alias analysis, just assume everything
      aliases everything else.  */
@@ -551,8 +552,26 @@ get_deref_alias_set (tree t)
       || TYPE_REF_CAN_ALIAS_ALL (t))
     return 0;
 
+  return -1;
+}
+
+/* Return the alias set for the memory pointed to by T, which may be
+   either a type or an expression.  */
+
+alias_set_type
+get_deref_alias_set (tree t)
+{
+  alias_set_type set = get_deref_alias_set_1 (t);
+
   /* Fall back to the alias-set of the pointed-to type.  */
-  return get_alias_set (TREE_TYPE (t));
+  if (set == -1)
+    {
+      if (! TYPE_P (t))
+	t = TREE_TYPE (t);
+      set = get_alias_set (TREE_TYPE (t));
+    }
+
+  return set;
 }
 
 /* Return the alias set for T, which may be either a type or an
@@ -596,7 +615,11 @@ get_alias_set (tree t)
 	}
 
       if (INDIRECT_REF_P (inner))
-	return get_deref_alias_set (TREE_OPERAND (inner, 0));
+	{
+	  set = get_deref_alias_set_1 (TREE_OPERAND (inner, 0));
+	  if (set != -1)
+	    return set;
+	}
 
       /* Otherwise, pick up the outermost object that we could have a pointer
 	 to, processing conversions as above.  */

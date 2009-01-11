@@ -4789,7 +4789,7 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
 	    {
 	      alias_set_type var_alias_set, mem_alias_set;
 	      var_alias_set = get_alias_set (vi->decl);
-	      mem_alias_set = get_alias_set (TREE_TYPE (TREE_TYPE (ptr)));
+	      mem_alias_set = get_deref_alias_set (ptr);
 	      if (!may_alias_p (SSA_NAME_VAR (ptr), mem_alias_set,
 				vi->decl, var_alias_set))
 		{

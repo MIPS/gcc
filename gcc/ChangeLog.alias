@@ -1,5 +1,15 @@
 2009-01-11  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-structalias.c (set_uids_in_ptset): Use get_deref_alias_set.
+	* alias.c (get_deref_alias_set_1): Split out from
+	(get_deref_alias_set): Fall back to access type alias-set here.
+	(get_alias_set): Use get_deref_alias_set_1.
+
+	testsuite/
+	* gcc.dg/tree-ssa/alias-20.c: New testcase.
+
+2009-01-11  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-operands.h (unlink_stmt_vdef): Declare.
 	* tree-ssa-dse.c (dse_optimize_stmt): Use it.
 	(execute_simple_dse): Likewise.  Make sure to update virtual
