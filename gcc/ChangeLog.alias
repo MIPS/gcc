@@ -1,5 +1,13 @@
 2009-01-11  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-alias.c (ref_may_used_by_call_p): Use 
+	ipa_reference_get_not_read_global to disambiguate against
+	global statics.
+	(call_may_clobber_ref_p): Same with
+	ipa_reference_get_not_written_global.
+
+2009-01-11  Richard Guenther  <rguenther@suse.de>
+
 	* tree-dfa.c (refs_may_alias_p): Simplify structure.  Generalize
 	pointer vs. decl disambiguation based on strict-aliasing rules.
 

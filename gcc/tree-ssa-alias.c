@@ -362,7 +362,7 @@ debug_points_to_info_for (tree var)
    otherwise return false.  */
 
 static bool
-ref_may_used_by_call_p (gimple call ATTRIBUTE_UNUSED, tree ref)
+ref_may_used_by_call_p (gimple call, tree ref)
 {
   tree base = get_base_address (ref);
   unsigned i;
@@ -373,6 +373,22 @@ ref_may_used_by_call_p (gimple call ATTRIBUTE_UNUSED, tree ref)
   if (!base
       || !DECL_P (base))
     return true;
+
+  /* Check if base is a global static variable that is not read
+     by the function.  */
+  if (TREE_CODE (base) == VAR_DECL
+      && TREE_STATIC (base)
+      && !TREE_PUBLIC (base))
+    {
+      tree callee = gimple_call_fndecl (call);
+      bitmap not_read;
+
+      if (callee != NULL_TREE
+	  && (not_read
+	        = ipa_reference_get_not_read_global (cgraph_node (callee)))
+	  && bitmap_bit_p (not_read, DECL_UID (base)))
+	return false;
+    }
 
   /* If the base variable is call-used then it may be used.  */
   if (is_call_used (base))
@@ -447,6 +463,22 @@ call_may_clobber_ref_p (gimple call, tree ref)
   if (TREE_CODE (base) == SSA_NAME
       || CONSTANT_CLASS_P (base))
     return false;
+
+  /* Check if base is a global static variable that is not written
+     by the function.  */
+  if (TREE_CODE (base) == VAR_DECL
+      && TREE_STATIC (base)
+      && !TREE_PUBLIC (base))
+    {
+      tree callee = gimple_call_fndecl (call);
+      bitmap not_written;
+
+      if (callee != NULL_TREE
+	  && (not_written
+	        = ipa_reference_get_not_written_global (cgraph_node (callee)))
+	  && bitmap_bit_p (not_written, DECL_UID (base)))
+	return false;
+    }
 
   if (DECL_P (base))
     return is_call_clobbered (base);
