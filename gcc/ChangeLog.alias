@@ -1,5 +1,10 @@
 2009-01-11  Richard Guenther  <rguenther@suse.de>
 
+	* tree-dfa.c (refs_may_alias_p): Simplify structure.  Generalize
+	pointer vs. decl disambiguation based on strict-aliasing rules.
+
+2009-01-11  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-structalias.c (set_uids_in_ptset): Use get_deref_alias_set.
 	* alias.c (get_deref_alias_set_1): Split out from
 	(get_deref_alias_set): Fall back to access type alias-set here.

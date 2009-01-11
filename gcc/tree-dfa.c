@@ -904,7 +904,7 @@ refs_may_alias_p (tree ref1, tree ref2)
   HOST_WIDE_INT offset1 = 0, offset2 = 0;
   HOST_WIDE_INT size1 = -1, size2 = -1;
   HOST_WIDE_INT max_size1 = -1, max_size2 = -1;
-  bool strict_aliasing_applies;
+  alias_set_type base1_alias_set, base2_alias_set;
 
   gcc_assert ((SSA_VAR_P (ref1)
 	       || handled_component_p (ref1)
@@ -969,66 +969,70 @@ refs_may_alias_p (tree ref1, tree ref2)
     }
 
   /* If both bases are based on pointers they cannot alias if they may not
-     point to the same memory object.  */
+     point to the same memory object or if they point to the same object
+     and the accesses do not overlap.  */
   else if (INDIRECT_REF_P (base1)
 	   && INDIRECT_REF_P (base2))
     {
+      if (operand_equal_p (TREE_OPERAND (base1, 0),
+			   TREE_OPERAND (base2, 0), 0))
+	return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
       if (!may_point_to_same_object (TREE_OPERAND (base1, 0),
 				     TREE_OPERAND (base2, 0)))
 	return false;
     }
 
 
-  /* If one base is a ref-all pointer or a TARGET_MEM_REF weird things
-     are allowed.  */
-  strict_aliasing_applies = (flag_strict_aliasing
-			     && TREE_CODE (base1) != TARGET_MEM_REF
-			     && (!INDIRECT_REF_P (base1)
-				 || get_alias_set (base1) != 0)
-			     && TREE_CODE (base2) != TARGET_MEM_REF
-			     && (!INDIRECT_REF_P (base2)
-				 || get_alias_set (base2) != 0));
+  /* Disambiguations that rely on strict aliasing rules follow.  */
+  if (!flag_strict_aliasing)
+    return true;
 
-  /* If strict aliasing applies the only way to access a scalar variable
-     is through a pointer dereference or through a union (gcc extension).  */
-  if (strict_aliasing_applies
-      && ((SSA_VAR_P (ref2)
-	   && !AGGREGATE_TYPE_P (TREE_TYPE (ref2))
-	   && !INDIRECT_REF_P (ref1)
-	   && TREE_CODE (TREE_TYPE (base1)) != UNION_TYPE)
-	  || (SSA_VAR_P (ref1)
-	      && !AGGREGATE_TYPE_P (TREE_TYPE (ref1))
-	      && !INDIRECT_REF_P (ref2)
-	      && TREE_CODE (TREE_TYPE (base2)) != UNION_TYPE)))
-    return false;
+  /* If one base is a TARGET_MEM_REF weird things are allowed.  */
+  if (TREE_CODE (base1) == TARGET_MEM_REF
+      || TREE_CODE (base2) == TARGET_MEM_REF)
+    return true;
 
-  /* If both references are through the same type, or if strict aliasing
-     doesn't apply they are through two same pointers, they do not alias
-     if the accesses do not overlap.  */
-  if ((strict_aliasing_applies
-       && (TYPE_MAIN_VARIANT (TREE_TYPE (base1))
-	   == TYPE_MAIN_VARIANT (TREE_TYPE (base2))))
-      || (TREE_CODE (base1) == INDIRECT_REF
-	  && TREE_CODE (base2) == INDIRECT_REF
-	  && operand_equal_p (TREE_OPERAND (base1, 0),
-			      TREE_OPERAND (base2, 0), 0)))
+  /* If the alias set for a pointer access is zero all bets are off.  */
+  base1_alias_set = get_alias_set (base1);
+  if (INDIRECT_REF_P (base1)
+      && base1_alias_set == 0)
+    return true;
+  base2_alias_set = get_alias_set (base2);
+  if (INDIRECT_REF_P (base2)
+      && base2_alias_set == 0)
+    return true;
+
+  /* If both references are through the same type, they do not alias
+     if the accesses do not overlap.  This does extra disambiguation
+     for mixed/pointer accesses but requires strict aliasing.  */
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (base1))
+      == TYPE_MAIN_VARIANT (TREE_TYPE (base2)))
     return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
+
+  /* The only way to access a variable is through a pointer dereference
+     of the same alias set or a subset of it.  */
+  if (base1_alias_set != base2_alias_set
+      && ((SSA_VAR_P (base1)
+	   && INDIRECT_REF_P (base2)
+	   && !alias_set_subset_of (base2_alias_set, base1_alias_set))
+	  || (SSA_VAR_P (base2)
+	      && INDIRECT_REF_P (base1)
+	      && !alias_set_subset_of (base1_alias_set, base2_alias_set))))
+    return false;
 
   /* If the base objects do not conflict, references based on them
      cannot either.  */
-  if (strict_aliasing_applies
-      && !alias_sets_conflict_p (get_alias_set (base1), get_alias_set (base2)))
+  if (!alias_sets_conflict_p (base1_alias_set, base2_alias_set))
     return false;
 
-  /* If both are component references through pointers try to find a
+  /* If one reference is a component references through pointers try to find a
      common base and apply offset based disambiguation.  This handles
      for example
        struct A { int i; int j; } *q;
        struct B { struct A a; int k; } *p;
      disambiguating q->i and p->a.j.  */
-  if (strict_aliasing_applies
-      && (TREE_CODE (base1) == INDIRECT_REF
-	  || TREE_CODE (base2) == INDIRECT_REF)
+  if ((TREE_CODE (base1) == INDIRECT_REF
+       || TREE_CODE (base2) == INDIRECT_REF)
       && handled_component_p (ref1)
       && handled_component_p (ref2))
     {
