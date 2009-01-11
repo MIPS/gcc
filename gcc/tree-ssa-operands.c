@@ -925,13 +925,17 @@ finalize_ssa_vuse_ops (gimple stmt)
 	{
 	  /* This is a new operand.  */
 	  VEC_safe_push (tree, heap, new_ops, new_op);
+	  mark_sym_for_renaming (gimple_vop (cfun));
 	  new_i++;
 	}
     }
 
   /* If there is anything remaining in the build_vuses list, simply emit it.  */
   for ( ; new_i < VEC_length (tree, build_vuses); new_i++)
-    VEC_safe_push (tree, heap, new_ops, VEC_index (tree, build_vuses, new_i));
+    {
+      VEC_safe_push (tree, heap, new_ops, VEC_index (tree, build_vuses, new_i));
+      mark_sym_for_renaming (gimple_vop (cfun));
+    }
 
   /* If there is anything in the old list, free it.  */
   if (old_ops)
@@ -955,7 +959,6 @@ finalize_ssa_vuse_ops (gimple stmt)
 
       gimple_set_vuse_ops (stmt, last);
       VEC_free (tree, heap, new_ops);
-      mark_sym_for_renaming (gimple_vop (cfun));
     }
 
 #ifdef ENABLE_CHECKING
