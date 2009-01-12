@@ -856,13 +856,13 @@ finalize_ssa_vdefs (gimple stmt)
   /* If there is anything in the old list, free it.  */
   if (old_ops)
     {
+      unlink_stmt_vdef (stmt);
       for (ptr = old_ops; ptr; ptr = last)
         {
 	  last = ptr->next;
 	  delink_imm_use (VDEF_OP_PTR (ptr, 0));
 	  add_vop_to_freelist (ptr);
 	}
-      mark_sym_for_renaming (gimple_vop (cfun));
     }
 
   /* Now set STMT's operands.  */

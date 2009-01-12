@@ -692,7 +692,6 @@ eliminate_unnecessary_stmts (void)
 	      if (call)
 		{
 		  tree name;
-		  gimple g;
 
 		  /* When LHS of var = call (); is dead, simplify it into
 		     call (); saving one operand.  */
@@ -709,11 +708,8 @@ eliminate_unnecessary_stmts (void)
 			}
 		      
 		      push_stmt_changes (gsi_stmt_ptr (&gsi));
-		      g = gimple_copy (stmt);
-		      gimple_call_set_lhs (g, NULL_TREE);
-		      gsi_replace (&gsi, g, false);
-		      maybe_clean_or_replace_eh_stmt (stmt, g);
-		      mark_symbols_for_renaming (g);
+		      gimple_call_set_lhs (stmt, NULL_TREE);
+		      maybe_clean_or_replace_eh_stmt (stmt, stmt);
 		      pop_stmt_changes (gsi_stmt_ptr (&gsi));
 		      release_ssa_name (name);
 		    }

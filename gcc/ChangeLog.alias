@@ -1,3 +1,15 @@
+2009-01-12  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (tidy_after_forward_propagate_addr): Do
+	not mark symbols for renaming.
+	(forward_propagate_addr_expr): Match up push/pop_stmt_changes
+	with the same statement, make sure to update the new pointed-to one.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Do not copy
+	call statements, do not mark symbols for renaming.
+	* tree-ssa-operands.c (finalize_ssa_vdefs): Do not mark the VOP
+	for renaming if a VDEF is removed but instead unlink that from
+	the IL.
+
 2009-01-11  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-alias.c (ref_may_used_by_call_p): Use 
