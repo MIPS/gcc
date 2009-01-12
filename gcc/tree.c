@@ -3890,6 +3890,14 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
   tree type = *(tree *) slot;
   lang_hooks.reset_lang_specifics (type);
 
+  TREE_LANG_FLAG_0 (type) = 0;
+  TREE_LANG_FLAG_1 (type) = 0;
+  TREE_LANG_FLAG_2 (type) = 0;
+  TREE_LANG_FLAG_3 (type) = 0;
+  TREE_LANG_FLAG_4 (type) = 0;
+  TREE_LANG_FLAG_5 (type) = 0;
+  TREE_LANG_FLAG_6 (type) = 0;
+
   if (TREE_CODE (type) == ARRAY_TYPE
       || TREE_CODE (type) == RECORD_TYPE)
     {
@@ -4055,6 +4063,14 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 
   lang_hooks.reset_lang_specifics (decl);
 
+  TREE_LANG_FLAG_0 (decl) = 0;
+  TREE_LANG_FLAG_1 (decl) = 0;
+  TREE_LANG_FLAG_2 (decl) = 0;
+  TREE_LANG_FLAG_3 (decl) = 0;
+  TREE_LANG_FLAG_4 (decl) = 0;
+  TREE_LANG_FLAG_5 (decl) = 0;
+  TREE_LANG_FLAG_6 (decl) = 0;
+
   if (context && TREE_CODE (context) == NAMESPACE_DECL)
     DECL_CONTEXT (decl) = context = NULL_TREE;
 
@@ -4145,6 +4161,9 @@ free_lang_specifics (void)
   /* FIXME lto.  This is a hack.  fileptr_type_node may be set to
      a variant copy of ptr_type_node for front-end purposes.  */
   fileptr_type_node = ptr_type_node;
+
+  /* Reset some langhooks. */
+  lang_hooks.callgraph.analyze_expr = NULL;
 
   return 0;
 }

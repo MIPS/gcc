@@ -433,7 +433,7 @@ struct lang_hooks
 };
 
 /* Each front end provides its own.  */
-extern const struct lang_hooks lang_hooks;
+extern struct lang_hooks lang_hooks;
 extern tree add_builtin_function (const char *name, tree type,
 				  int function_code, enum built_in_class cl,
 				  const char *library_name,

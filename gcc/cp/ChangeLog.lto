@@ -1,3 +1,7 @@
+2009-01-12  Rafael Avila de Espindola  <espindola@google.com>
+
+	* cp-lang.c (lang_hooks): Remove the const qualifier.
+
 2009-01-09  Rafael Avila de Espindola  <espindola@google.com>
 
 	* cp-tree.h (cxx_comdat_group): Change signature.
