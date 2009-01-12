@@ -1,3 +1,7 @@
+2009-01-12  Chris Demetriou  <cgd@google.com>
+
+	* g++.dg/lto/20090112_0.C: New.
+
 2009-01-08  Simon Baldwin  <simonb@google.com>
 
 	* g++.dg/20090107-1.C: New.
