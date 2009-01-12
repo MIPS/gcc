@@ -4081,6 +4081,8 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	 enum tree_code code = TREE_CODE (context);
 	 if (code == FUNCTION_DECL && DECL_ABSTRACT (context))
 	   DECL_CONTEXT (decl) = NULL_TREE;
+	 if (TREE_STATIC (decl))
+	   DECL_CONTEXT (decl) = NULL_TREE;
        }
    }
 

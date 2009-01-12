@@ -1,5 +1,10 @@
 2009-01-12  Rafael Avila de Espindola  <espindola@google.com>
 
+	* tree.c (reset_decl_lang_specific): Clear DECL_CONTEXT of TREE_STATIC
+	VAR_DECLs.
+
+2009-01-12  Rafael Avila de Espindola  <espindola@google.com>
+
 	* c-lang.c (lang_hooks): Remove the const qualifier.
         * gcc/langhooks.h (lang_hooks): Remove the const qualifier.
 	* gcc/tree.c (reset_type_lang_specific, reset_decl_lang_specific):
