@@ -1,3 +1,9 @@
+2009-01-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* auto-inc-dec.c (toplevel): Include target.h.
+
+	* Makefile.in (auto-inc-dec.o): Add $(TARGET_H) dependency.
+
 2009-01-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* ChangeLog.name2: Update to complete changelog for patch

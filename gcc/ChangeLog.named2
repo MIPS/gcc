@@ -1,5 +1,5 @@
 [gcc changes]
-2009-01-09  Ben Elliston  <bje@au.ibm.com>
+2009-01-13  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/extend.texi (Named Address Spaces): Add new section
@@ -108,8 +108,9 @@
 	(fit_double_type): Add named address space support.
 	(fold_convert_const): Ditto.
 
-	* auto-inc-dec.c (try_merge): Deal with pointers that can be
-	different sizes due to named address space support.
+	* auto-inc-dec.c (toplevel): Include target.h.
+	(try_merge): Deal with pointers that can be different sizes due to
+	named address space support.
 	(find_inc): Ditto.
 
 	* c-tree.h (struct c_declspecs): Add address space field.
@@ -267,6 +268,7 @@
 	(tree-pretty-print.o): Ditto.
 	(fold-const.o): Ditto.
 	(emit-rtl.o): Ditto.
+	(auto-inc-dec.o): Ditto.
 
 	* c-parser.c (c_parse_init): Add assertion to make sure RID
 	keywords fit in a byte.
@@ -404,13 +406,13 @@
 	(convert_to_integer): Ditto.
 
 [gcc/cp changes]
-2009-01-09  Ben Elliston  <bje@au.ibm.com>
+2009-01-13  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* typeck.c (cp_type_quals): Convert argument to const_tree.
 
 [gcc/testsuite changes]
-2009-01-09  Ben Elliston  <bje@au.ibm.com>
+2009-01-13  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* testsuite/gcc.target/spu/ea/cache-common.h: New file for named
