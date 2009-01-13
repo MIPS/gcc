@@ -1,0 +1,3 @@
+2009-01-12  Diego Novillo  <dnovillo@google.com>
+
+	* objcp-lang.c: Remove const qualifier.

@@ -1,3 +1,7 @@
+2009-01-12  Diego Novillo  <dnovillo@google.com>
+
+	* lang.c (struct lang_hooks): Remove const qualifier.
+
 2008-12-17  Rafael Avila de Espindola  <espindola@google.com>
 
 	* decl.c (java_init_decl_processing): Init eh_personality_decl
