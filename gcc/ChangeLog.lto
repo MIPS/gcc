@@ -1,3 +1,9 @@
+2009-01-13  Rafael Avila de Espindola  <espindola@google.com>
+
+	* Makefile.in (tree.o): Add langhooks-def.h
+	* tree.c: Include langhooks-def.h
+	(free_lang_specifics): Set lang_hooks.dwarf_name to lhd_dwarf_name.
+
 2009-01-12  Rafael Avila de Espindola  <espindola@google.com>
 
 	* tree.c (reset_decl_lang_specific): Clear DECL_CONTEXT of TREE_STATIC

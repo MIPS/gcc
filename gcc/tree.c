@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "fixed-value.h"
 #include "tree-pass.h"
+#include "langhooks-def.h"
 
 /* Tree code classes.  */
 
@@ -4166,6 +4167,9 @@ free_lang_specifics (void)
 
   /* Reset some langhooks. */
   lang_hooks.callgraph.analyze_expr = NULL;
+
+  /* FIXME lto: We have to compute these names early. */
+  lang_hooks.dwarf_name = lhd_dwarf_name;
 
   return 0;
 }
