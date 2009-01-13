@@ -1,8 +1,134 @@
+2009-01-13  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/38786
+	* graphite.c (expand_scalar_variables_ssa_name): New, outlined from
+	the SSA_NAME case of expand_scalar_variables_expr.
+	Set the type of an expression to the type of its assign	statement.
+	(expand_scalar_variables_expr): Also gather the scalar computation
+	used to index the memory access.  Do not pass loop_p.
+	Fix comment.  Stop recursion on tcc_constant or tcc_declaration.
+	(expand_scalar_variables_stmt): Pass to expand_scalar_variables_expr
+	the gimple_stmt_iterator where it inserts new code.  Do not pass loop_p.
+	(copy_bb_and_scalar_dependences): Do not pass loop_p.
+	(translate_clast): Update call to copy_bb_and_scalar_dependences.
+
+2009-01-13  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* graphite.h (debug_value): Removed.
+	* graphite.c (debug_value): Removed.
+
+2009-01-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (output_move_double): Don't synthesize thumb-2 ldrd/strd with
+	two 32-bit instructions.
+
+2009-01-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (struct processors): Pass for speed down into cost helper
+	functions.
+	(const_ok_for_op): Handle COMPARE and inequality nodes.
+	(arm_rtx_costs_1): Rewrite.
+	(arm_size_rtx_costs): Update prototype.
+	(arm_rtx_costs): Pass speed down to helper functions.
+	(arm_slowmul_rtx_costs): Rework cost calculations.
+	(arm_fastmul_rtx_costs, arm_xscale_rtx_costs): Likewise.
+	(arm_9e_rtx_costs): Likewise.
+
+2009-01-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_legitimate_address_p): Explicit
+	relocations of local symbols  wider than UNITS_PER_WORD are not valid.
+	(alpha_legitimize_address): Do not split local symbols wider than
+	UNITS_PER_WORD into HIGH/LO_SUM parts.
+
+2009-01-13  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR bootstrap/38580
+	* gcc.c (process_command): Replace call to execvp with calls
+	to pex_one and exit.
+
+2009-01-03  Anatoly Sokolov  <aesok@post.ru>
+
+	PR target/29141
+	* config/avr/t-avr (LIB1ASMFUNCS): Add _tablejump_elpm.
+	* config/avr/libgcc.S (__do_global_ctors, __do_global_dtors): Add
+	variant for devices with 3-byte PC.
+	(__tablejump_elpm__) : New.
+
+2009-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/32041
+	* c-parser.c (c_parser_postfix_expression): Allow `->' in
+	offsetof member-designator, handle it as `[0].'.
+
+2009-01-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (pa_asm_output_mi_thunk): Use pc-relative branch to thunk
+	function when not using named sections on targets with named sections
+	if branch distance is less than 262132.
+
+2009-01-12  Richard Earnshaw  <rearnsha@arm.com>
+
+	* combine.c (combine_instructions):  Recompute
+	optimize_this_for_speed_p  for each BB in the main combine loop.
+
+2009-01-12  Tomas Bily  <tbily@suse.cz>
+
+	PR middlend/38385
+	* tree-loop-distribution.c (prop_phis): New function.
+	(generate_builtin): Call prop_phis.
+	* testsuite/gcc.dg/tree-ssa/pr38385.c: New file.
+
+2009-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/38807
+	* tree-ssa-reassoc.c (remove_visited_stmt_chain): Don't look at
+	gimple_visited_p unless stmt is GIMPLE_ASSIGN.
+
+2009-01-11  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* expmed.c (store_bit_field_1): Properly truncate the paradoxical
+	subreg of op0 to the original op0.
+
+2009-01-11  Laurent GUERBY <laurent@guerby.net>
+
+	* doc/sourcebuild.texi (Source Tree): Move up intl and fixinc.
+	
+2009-01-11  Markus Schoepflin  <markus.schoepflin@comsoft.de>
+
+	PR debug/7055
+	* gcc/mips-tfile.c (parse_def): Fix parsing of def strings
+	starting with digits.
+
+2009-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/38695
+	* config/arm/arm.c (arm_is_long_call_p): Don't call
+	arm_function_in_section_p if decl isn't a FUNCTION_DECL.
+
+2009-01-09  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* regrename.c (regrename_optimize): Fix dumping.
+	(find_oldest_value_reg): Preserve REG_POINTER.
+	(copy_hardreg_forward_1): Likewise.
+
+2009-01-09  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.h (struct gimple_statement_base)<uid>: Document
+	the restrictions on its use.
+	(gimple_uid): Tidy.
+	(gimple_set_uid): Tidy.
+
+2009-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_movmem, ix86_expand_setmem): Add
+	zero guard even if align_bytes != 0 and count is smaller than
+	size_needed.
+
 2008-01-09  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/38495
-	* ira-emit.c (print_move_list, ira_debug_move_list): New
-	functions.
+	* ira-emit.c (print_move_list, ira_debug_move_list): New functions.
 	(add_range_and_copies_from_move_list): Print all added ranges.
 	Add ranges to memory optimized destination.
 
@@ -27,8 +153,7 @@
 	epilogue_size_needed to the epilogue expanders.
 
 	PR c/35742
-	* c-pretty-print.c (pp_c_expression): Handle GOTO_EXPR like
-	BIND_EXPR.
+	* c-pretty-print.c (pp_c_expression): Handle GOTO_EXPR like BIND_EXPR.
 
 2009-01-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
