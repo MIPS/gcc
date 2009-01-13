@@ -1,3 +1,115 @@
+2009-01-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* scripts/extract_symvers: Add sed script to remove ' [<other>: xx] '
+	field from readelf output.
+
+2009-01-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/38384
+	* crossconfig.m4 (hpux): Update for 10.20, 11, 11.20.
+	* configure: Regenerate.
+
+2009-01-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* crossconfig.m4 (linux): Add GCC_CHECK_TLS to define _GLIBCXX_HAVE_TLS.
+	Use GLIBCXX_CHECK_COMPILER_FEATURES to compute SECTION_FLAGS.
+
+2009-01-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/tr1_impl/regex (basic_regex::basic_regex): Use range
+	constructor for _M_pattern.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/char/
+	string.cc: Test construction from different basic_string type.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/wchar_t/
+	string.cc: Likewise.
+
+2009-01-07  Benjamin Kosnik  <bkoz@redhat.com>
+	    Jonathan Larmour  <jifl@eCosCentric.com>
+
+	PR libstdc++/36801
+	* config/cpu/generic/atomicity_mutex/atomicity.h (get_atomic_mutex):
+	New.
+	(__gnu_cxx::__exchange_and_add): Use it.
+	* src/atomic.cc (get_atomic_mutex): New.
+	* src/debug.cc (get_safe_base_mutex): New.
+	* src/locale.cc (get_locale_cache_mutex): New.
+	* src/mt_allocator.cc (get_freelist): New.
+	(get_freelist_mutex): New.
+	* src/pool_allocator.cc (get_palloc_mutex): New.
+	* include/std/mutex (__once_functor_lock): To
+	(__get_once_functor_lock): ...this.
+	* src/mutex.cc (__once_mutex): Don't export, use
+	(get_once_mutex): ...this.
+	* config/abi/pre/gnu.ver: Adjust exports.
+
+2009-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/38732
+	* libsupc++/unwind-cxx.h (__cxxabiv1::__cxa_exception): Remove
+	referenceCount field again.
+	(__cxxabiv1::__cxa_refcounted_exception): New struct.
+	(__cxxabiv1::__get_refcounted_exception_header_from_obj,
+	__cxxabiv1::__get_refcounted_exception_header_from_ue): New static
+	inline functions.
+	* libsupc++/eh_alloc.cc (__cxxabiv1::__cxa_allocate_exception,
+	__cxxabiv1::__cxa_free_exception): Use __cxa_refcounted_exception
+	instead of __cxa_exception.
+	* libsupc++/eh_throw.cc (__gxx_exception_cleanup,
+	__cxxabiv1::__cxa_throw): Likewise.
+	* libsupc++/eh_ptr.cc (std::rethrow_exception,
+	std::__exception_ptr::exception_ptr::_M_addref,
+	std::__exception_ptr::exception_ptr::_M_release,
+	__gxx_dependent_exception_cleanup): Likewise.
+	* testsuite/18_support/exception/38732.cc: New test.
+
+	PR libstdc++/38092
+	* acinclude.m4 (HAVE_AS_SYMVER_DIRECTIVE): New test.
+	* src/compatibility.cc: Don't use .symver directives if
+	_GLIBCXX_HAVE_AS_SYMVER_DIRECTIVE is not defined.
+	* config.h.in: Regenerated.
+	* configure: Likewise.
+
+2009-01-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/38466
+	* include/bits/stl_pair.h: Document C++03 pair vs swap.
+
+2009-01-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/locale_init.cc (locale::_S_initialize_once): Move construction
+	of classic locale...
+	(locale::classic): Here.
+
+2009-01-06  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/tr1_impl/regex: Fix bad return statements and typos.
+
+2009-01-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1_impl/regex: Remove unimplemented function definitions.
+	* testsuite/28_regex/init-list.cc: Compile only.
+	* testsuite/tr1/7_regular_expressions/regex/cons/char/
+	c_string_extended.cc: Same.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/*: Same.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/*: Same.
+
+2009-01-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/38384
+	* crossconfig.m4: Define HAVE_FABSF for hpux crosses.
+	* configure: Regenerate.
+
+2009-01-05  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac (GLIBCXX_CHECK_STANDARD_LAYOUT): Remove invocation.
+	* configure: Regenerate.
+
+2009-01-05  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac: Exchange the order of GLIBCXX_ENABLE_THREADS and
+	GLIBCXX_ENABLE_ATOMIC_BUILTINS macro invocations.
+	* configure: Regenerate.
+
 2009-01-04  Richard Guenther  <rguenther@suse.de>
 
 	PR libstdc++/38720
@@ -73,12 +185,12 @@
 
 2008-12-17  Jack Howarth  <howarth@bromo.med.uc.edu>
 
-        * testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
+	* testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
 	Don't xfail test on darwin8 or later.
 
 2008-12-16  Jack Howarth  <howarth@bromo.med.uc.edu>
 
-        * testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
+	* testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
 	Don't xfail excessive errors on darwin8 or later.
 
 2008-12-15  Benjamin Kosnik  <bkoz@redhat.com>
@@ -3424,10 +3536,10 @@
 
 2008-05-07  Johannes Singler  <singler@ira.uka.de>
 
-       * include/parallel/quicksort.h:
-       (parallel_sort_qs_conquer) Explicitly request number of threads
-       in the parallel clause.
-       (parallel_sort_qs) Remove setting the number of threads globally.
+	* include/parallel/quicksort.h:
+	(parallel_sort_qs_conquer) Explicitly request number of threads
+	in the parallel clause.
+	(parallel_sort_qs) Remove setting the number of threads globally.
 
 2008-05-06  Benjamin Kosnik  <bkoz@redhat.com>
 
@@ -4063,14 +4175,14 @@
 
 2008-03-16  Pedro Lamarão  <pedro.lamarao@gmail.com>
 
-      * testsuite/31_date_time/headers/date_time/types_std.cc: New.
-      * testsuite/31_date_time/headers/date_time/std_c++0x_neg.cc: Likewise.
-      * testsuite/31_date_time/headers/date_time/functions_std.cc: Likewise.
-      * testsuite/31_date_time/headers/date_time/synopsis.cc: Likewise.
-      * testsuite/31_date_time/nanoseconds/requirements/traits.cc: Likewise.
-      * testsuite/31_date_time/nanoseconds/requirements/duration.cc: Likewise.
-      * testsuite/31_date_time/system_time/requirements: Likewise.
-      * testsuite/31_date_time/system_time/requirements/traits.cc: Likewise.
+	* testsuite/31_date_time/headers/date_time/types_std.cc: New.
+	* testsuite/31_date_time/headers/date_time/std_c++0x_neg.cc: Likewise.
+	* testsuite/31_date_time/headers/date_time/functions_std.cc: Likewise.
+	* testsuite/31_date_time/headers/date_time/synopsis.cc: Likewise.
+	* testsuite/31_date_time/nanoseconds/requirements/traits.cc: Likewise.
+	* testsuite/31_date_time/nanoseconds/requirements/duration.cc: Likewise.
+	* testsuite/31_date_time/system_time/requirements: Likewise.
+	* testsuite/31_date_time/system_time/requirements/traits.cc: Likewise.
 
 2008-03-16  Paolo Carlini  <pcarlini@suse.de>
 

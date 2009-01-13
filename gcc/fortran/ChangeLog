@@ -1,3 +1,52 @@
+2009-01-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38763
+	* target-memory.c (encode_derived): Encode NULL.
+
+2009-01-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38765
+	* resolve.c (check_host_association): Use the symtree name to
+	search for a potential contained procedure, since this is the
+	name by which it would be referenced.
+
+2009-01-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/38220
+	* interface.c (gfc_procedure_use):  Don't warn about functions
+	from ISO_C_BINDING.
+	* symbol.c (generate_isocbinding_symbol):  Mark c_loc and
+	c_funloc as pure.
+
+2009-01-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38657
+	* module.c (write_common_0): Use the name of the symtree rather
+	than the common block, to determine if the common has been
+	written.
+
+2009-01-05  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/37159
+	* check.c (gfc_check_random_seed): Added size check for GET
+	dummy argument, reworded error messages to follow common pattern.
+
+2009-01-05  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/38672
+	* trans-types.c (gfc_get_derived_type):  Check for the
+	presence of derived->ns->proc_name before
+	accessing derived->ns->proc_name->attr.flavor .
+	* resolve.c (resolve_symbol):  Likewise.
+
+2009-01-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38665
+	* gfortran.h : Add bit to gfc_expr 'user_operator'
+	* interface.c (gfc_extend_expr): Set the above if the operator
+	is substituted by a function. 
+	* resolve.c (check_host_association): Return if above is set.
+
 2009-01-04  Mikael Morin  <mikael.morin@tele2.fr>
 
 	PR fortran/35681

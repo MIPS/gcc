@@ -1,3 +1,7 @@
+2009-01-13  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r143334.
+
 2009-01-12  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-forwprop.c (tidy_after_forward_propagate_addr): Do

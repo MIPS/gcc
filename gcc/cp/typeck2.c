@@ -1147,7 +1147,11 @@ process_init_constructor_union (tree type, tree init)
       tree field = TYPE_FIELDS (type);
       while (field && (!DECL_NAME (field) || TREE_CODE (field) != FIELD_DECL))
 	field = TREE_CHAIN (field);
-      gcc_assert (field);
+      if (field == NULL_TREE)
+	{
+	  error ("too many initializers for %qT", type);
+	  ce->value = error_mark_node;
+	}
       ce->index = field;
     }
 
@@ -1440,6 +1444,12 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
     type = TREE_TYPE (exp);
   else
     type = exp;
+
+  if (TREE_CODE (type) == REFERENCE_TYPE && !parms)
+    {
+      error ("invalid value-initialization of reference types");
+      return error_mark_node;
+    }
 
   if (processing_template_decl)
     {

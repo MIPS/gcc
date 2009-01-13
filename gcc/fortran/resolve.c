@@ -1,5 +1,5 @@
 /* Perform type resolution on the various structures.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -4300,7 +4300,12 @@ check_host_association (gfc_expr *e)
   int n;
   bool retval = e->expr_type == EXPR_FUNCTION;
 
-  if (e->symtree == NULL || e->symtree->n.sym == NULL)
+  /*  If the expression is the result of substitution in
+      interface.c(gfc_extend_expr) because there is no way in
+      which the host association can be wrong.  */
+  if (e->symtree == NULL
+	|| e->symtree->n.sym == NULL
+	|| e->user_operator)
     return retval;
 
   old_sym = e->symtree->n.sym;
@@ -4308,7 +4313,7 @@ check_host_association (gfc_expr *e)
   if (gfc_current_ns->parent
 	&& old_sym->ns != gfc_current_ns)
     {
-      gfc_find_symbol (old_sym->name, gfc_current_ns, 1, &sym);
+      gfc_find_symbol (e->symtree->name, gfc_current_ns, 1, &sym);
       if (sym && old_sym != sym
 	      && sym->ts.type == old_sym->ts.type
 	      && sym->attr.flavor == FL_PROCEDURE
@@ -4336,6 +4341,11 @@ check_host_association (gfc_expr *e)
 	      gfc_free (e->shape);
 	    }
 
+/* TODO - Replace this gfc_match_rvalue with a straight replacement of
+   actual arglists for function to function substitutions and with a
+   conversion of the reference list to an actual arglist in the case of
+   a variable to function replacement.  This should be quite easy since
+   only integers and vectors can be involved.  */	    
 	  gfc_match_rvalue (&expr);
 	  gfc_clear_error ();
 	  gfc_buffer_error (0);
@@ -9237,6 +9247,7 @@ resolve_symbol (gfc_symbol *sym)
      module function and is not PRIVATE.  */
   if (sym->ts.type == BT_DERIVED
 	&& sym->ts.derived->attr.use_assoc
+	&& sym->ns->proc_name
 	&& sym->ns->proc_name->attr.flavor == FL_MODULE)
     {
       gfc_symbol *ds;
