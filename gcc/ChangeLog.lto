@@ -6,7 +6,7 @@
 2009-01-12  Rafael Avila de Espindola  <espindola@google.com>
 
 	* c-lang.c (lang_hooks): Remove the const qualifier.
-        * gcc/langhooks.h (lang_hooks): Remove the const qualifier.
+	* gcc/langhooks.h (lang_hooks): Remove the const qualifier.
 	* gcc/tree.c (reset_type_lang_specific, reset_decl_lang_specific):
 	Reset TREE_LANG_FLAG_[0-6].
 	(free_lang_specifics): Set lang_hooks.callgraph.analyze_expr to NULL.
