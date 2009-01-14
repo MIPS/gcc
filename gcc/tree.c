@@ -4060,7 +4060,6 @@ static int
 reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 {
   tree decl = *(tree *) slot;
-  tree context = DECL_CONTEXT (decl);
 
   lang_hooks.reset_lang_specifics (decl);
 
@@ -4072,11 +4071,13 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
   TREE_LANG_FLAG_5 (decl) = 0;
   TREE_LANG_FLAG_6 (decl) = 0;
 
-  if (context && TREE_CODE (context) == NAMESPACE_DECL)
-    DECL_CONTEXT (decl) = context = NULL_TREE;
+  if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
+    DECL_CONTEXT (decl) = NULL_TREE;
 
  if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == VAR_DECL)
    {
+     tree context = DECL_CONTEXT (decl);
+
      if (context)
        {
 	 enum tree_code code = TREE_CODE (context);
@@ -4100,6 +4101,7 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
     }
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {
+      tree context = DECL_CONTEXT (decl);
       if (context && TREE_CODE (context) == FUNCTION_DECL)
 	DECL_CONTEXT (decl) = NULL_TREE;
     }
@@ -4170,6 +4172,7 @@ free_lang_specifics (void)
 
   /* FIXME lto: We have to compute these names early. */
   lang_hooks.dwarf_name = lhd_dwarf_name;
+  lang_hooks.decl_printable_name = lhd_decl_printable_name;
 
   return 0;
 }

@@ -1,3 +1,9 @@
+2009-01-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* tree.c (reset_decl_lang_specific): Remove the context variable.
+	(free_lang_specifics): Set lang_hooks.decl_printable_name to
+	lhd_decl_printable_name.
+
 2009-01-13  Rafael Avila de Espindola  <espindola@google.com>
 
 	* Makefile.in (tree.o): Add langhooks-def.h
