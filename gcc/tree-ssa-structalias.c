@@ -4790,7 +4790,7 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
 	      alias_set_type var_alias_set, mem_alias_set;
 	      var_alias_set = get_alias_set (vi->decl);
 	      mem_alias_set = get_deref_alias_set (ptr);
-	      if (!may_alias_p (SSA_NAME_VAR (ptr), mem_alias_set,
+	      if (!may_alias_p (ptr, mem_alias_set,
 				vi->decl, var_alias_set))
 		{
 		  ++pruned;
@@ -4954,6 +4954,8 @@ find_what_var_points_to (varinfo_t vi, struct pt_solution *pt,
   finished_solution = BITMAP_GGC_ALLOC ();
   stats.points_to_sets_created++;
 
+  if (TREE_CODE (ptr) == SSA_NAME)
+    ptr = SSA_NAME_VAR (ptr);
   pruned = set_uids_in_ptset (ptr, finished_solution, vi->solution,
 			      pt, do_tbaa_pruning && !vi->no_tbaa_pruning);
   result = shared_bitmap_lookup (finished_solution);

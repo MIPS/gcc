@@ -858,38 +858,33 @@ vn_reference_lookup_pieces (tree vuse,
 			    vn_reference_t *vnresult, bool maywalk)
 {
   struct vn_reference_s vr1;
-  tree result;
+  vn_reference_t tmp;
 
-  if (vnresult)
-    *vnresult = NULL;
+  if (!vnresult)
+    vnresult = &tmp;
+  *vnresult = NULL;
   
   vr1.vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
   vr1.operands = valueize_refs (operands);
   vr1.hashcode = vn_reference_compute_hash (&vr1);
-  result = vn_reference_lookup_1 (&vr1, vnresult);
+  vn_reference_lookup_1 (&vr1, vnresult);
 
-  if (!result
+  if (!*vnresult
       && maywalk
       && vr1.vuse)
     {
-      vn_reference_t wvnresult;
       tree ref = get_ref_from_reference_ops (operands);
       if (!ref)
 	return NULL_TREE;
-      wvnresult =
+      *vnresult =
 	(vn_reference_t)walk_non_aliased_vuses (ref, vr1.vuse,
 						vn_reference_lookup_2, &vr1);
-      if (wvnresult)
-	{
-	  if (vnresult)
-	    *vnresult = wvnresult;
-	  return wvnresult->result;
-	}
-
-      return NULL_TREE;
     }
 
-  return result;
+  if (*vnresult)
+     return (*vnresult)->result;
+
+  return NULL_TREE;
 }
 
 /* Lookup OP in the current hash table, and return the resulting value

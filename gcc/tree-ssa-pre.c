@@ -3293,7 +3293,7 @@ do_regular_insertion (basic_block block, basic_block dom)
 			  pre_stats.constified++;
 			}
 		      else
-			info->valnum = PRE_EXPR_NAME (edoubleprime);
+			info->valnum = VN_INFO (PRE_EXPR_NAME (edoubleprime))->valnum;
 		      info->value_id = new_val;
 		    }
 		}

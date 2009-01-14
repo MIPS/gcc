@@ -1,3 +1,17 @@
+2009-01-14  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (do_regular_insertion): Use the value number
+	of edoubleprime for the value number of the expr.
+	* tree-ssa-sccvn.c (vn_reference_lookup_pieces): Do not start
+	walking if we found an expression, even if its value number
+	is NULL.
+	* tree-ssa-structalias.c (set_uids_in_ptset): Expect a pointer
+	decl.
+	(find_what_var_points_to): Always pass a decl to set_uids_in_ptset.
+
+	testsuite/
+	* gcc.c-torture/compile/20090114-1.c: New testcase.
+
 2009-01-13  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r143334.
