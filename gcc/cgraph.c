@@ -628,7 +628,7 @@ cgraph_edge (struct cgraph_node *node, gimple call_stmt)
 }
 
 
-/* Change field call_smt of edge E to NEW_STMT.  */
+/* Change field call_stmt of edge E to NEW_STMT.  */
 
 void
 cgraph_set_call_stmt (struct cgraph_edge *e, gimple new_stmt)
