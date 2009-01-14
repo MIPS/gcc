@@ -1748,13 +1748,11 @@ avoid_placement_new_aliasing (tree t, tree placement)
 /* Generate code for a new-expression, including calling the "operator
    new" function, initializing the object, and, if an exception occurs
    during construction, cleaning up.  The arguments are as for
-   build_raw_new_expr.
-   We take an additional NELTS_FOR_TYPE for the case we want NELTS to
-   have nodes that shouldn't be on a type. */
+   build_raw_new_expr.  */
 
 static tree
-build_new_1 (tree placement, tree type, tree nelts, tree nelts_for_type,
-	     tree init, bool globally_qualified_p, tsubst_flags_t complain)
+build_new_1 (tree placement, tree type, tree nelts, tree init,
+	     bool globally_qualified_p, tsubst_flags_t complain)
 {
   tree size, rval;
   /* True iff this is a call to "operator new[]" instead of just
@@ -1880,7 +1878,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree nelts_for_type,
 	     necessary in order for the <INIT_EXPR <*foo> <CONSTRUCTOR
 	     ...>> to be valid.  */
 	  TYPE_SIZE_UNIT (full_type) = size;
-	  n = convert (bitsizetype, nelts_for_type);
+	  n = convert (bitsizetype, nelts);
 	  bitsize = size_binop (MULT_EXPR, TYPE_SIZE (elt_type), n);
 	  TYPE_SIZE (full_type) = bitsize;
 	}
@@ -2326,7 +2324,6 @@ build_new (tree placement, tree type, tree nelts, tree init,
   tree orig_placement;
   tree orig_nelts;
   tree orig_init;
-  tree nelts_for_type = NULL;
 
   if (placement == error_mark_node || type == error_mark_node
       || init == error_mark_node)
@@ -2369,10 +2366,7 @@ build_new (tree placement, tree type, tree nelts, tree init,
           else
             return error_mark_node;
         }
-      /* Avoid having SAVE_EXPR on a type. */
-      nelts_for_type = cp_convert (sizetype, nelts);
-      nelts = cp_save_expr (nelts_for_type);
-
+      nelts = cp_save_expr (cp_convert (sizetype, nelts));
     }
 
   /* ``A reference cannot be created by the new operator.  A reference
@@ -2400,8 +2394,7 @@ build_new (tree placement, tree type, tree nelts, tree init,
   if (!complete_type_or_else (type, NULL_TREE))
     return error_mark_node;
 
-  rval = build_new_1 (placement, type, nelts, nelts_for_type, init,
-		      use_global_new, complain);
+  rval = build_new_1 (placement, type, nelts, init, use_global_new, complain);
   if (rval == error_mark_node)
     return error_mark_node;
 

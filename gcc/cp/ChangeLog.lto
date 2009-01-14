@@ -1,3 +1,9 @@
+2009-01-13  Simon Baldwin  <simonb@google.com>
+
+	* init.c (build_new_1): Remove nelts_for_type argument, and use
+	only nelts.
+	(build_new): Eliminate all uses of nelts_for_type.
+
 2009-01-12  Rafael Avila de Espindola  <espindola@google.com>
 
 	* cp-lang.c (lang_hooks): Remove the const qualifier.
