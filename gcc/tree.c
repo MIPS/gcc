@@ -4069,6 +4069,11 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
   TREE_LANG_FLAG_5 (decl) = 0;
   TREE_LANG_FLAG_6 (decl) = 0;
 
+  if (TREE_CODE (decl) != FIELD_DECL)
+    /* Ignore any intervening types, because we
+       are going to clear their TYPE_CONTEXT fields.  */
+    DECL_CONTEXT (decl) = decl_function_context (decl);
+
   if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
     DECL_CONTEXT (decl) = NULL_TREE;
 
@@ -4131,15 +4136,6 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	 in cgraph_node.  */
       DECL_CONTEXT (decl) = NULL_TREE;
     }
-  /* FIXME lto: Ideally, we would like to flatten out the nesting
-     of other non-field declarations within types, however this does
-     not work.  This should be investigated further.  */
-#if 0
-  else if (TREE_CODE (decl) != FIELD_DECL)
-    /* Ignore any intervening types, because we
-       are going to clear their TYPE_CONTEXT fields.  */
-    DECL_CONTEXT (decl) = decl_function_context (decl);
-#endif
 
   return 1;
 }

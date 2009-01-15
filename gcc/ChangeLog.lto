@@ -1,5 +1,12 @@
 2009-01-15  Rafael Avila de Espindola  <espindola@google.com>
 
+	* tree.c (reset_decl_lang_specific): Set DECL_CONTEXT (decl) to
+	decl_function_context (decl) for all non FIELD_DECL DECLs.
+	* dwarf2out.c (add_pure_or_virtual_attribute): Check the DECL_CONTEXT is
+	not NULL.
+
+2009-01-15  Rafael Avila de Espindola  <espindola@google.com>
+
 	* tree.c (need_assembler_name_p): Ignore DECL_IGNORED_P.
 	(reset_decl_lang_specific): Compute the assembler name for every
 	cgraph node.

@@ -12569,7 +12569,7 @@ add_pure_or_virtual_attribute (dw_die_ref die, tree func_decl)
 				   0));
 
       /* GNU extension: Record what type this method came from originally.  */
-      if (debug_info_level > DINFO_LEVEL_TERSE)
+      if (debug_info_level > DINFO_LEVEL_TERSE && DECL_CONTEXT (func_decl))
 	add_AT_die_ref (die, DW_AT_containing_type,
 			lookup_type_die (DECL_CONTEXT (func_decl)));
     }
