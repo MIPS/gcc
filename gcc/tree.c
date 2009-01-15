@@ -4013,10 +4013,8 @@ need_assembler_name_p (tree decl)
       && TREE_CODE (decl) != VAR_DECL)
     return false;
 
-  /* If DECL is ignored or already has its assembler name set, it does
-     not need a new one.  */
-  if (DECL_IGNORED_P (decl)
-      || !HAS_DECL_ASSEMBLER_NAME_P (decl)
+  /* If DECL already has its assembler name set, it does not need a new one.  */
+  if (!HAS_DECL_ASSEMBLER_NAME_P (decl)
       || DECL_ASSEMBLER_NAME_SET_P (decl))
     return false;
 
@@ -4151,9 +4149,18 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 static unsigned
 free_lang_specifics (void)
 {
+  struct cgraph_node *node;
+
   /* Set assembler names now, as callbacks from the back-end
      will fail after we strip DECL_CONTEXT from declaration nodes.  */
   htab_traverse (decl_for_uid_map, set_asm_name, NULL);
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      tree decl = node->decl;
+      if (!DECL_ASSEMBLER_NAME_SET_P (decl))
+	lang_hooks.set_decl_assembler_name (decl);
+    }
 
   htab_traverse (decl_for_uid_map, reset_decl_lang_specific, NULL);
   htab_traverse (uid2type_map, reset_type_lang_specific, NULL);
@@ -4173,6 +4180,11 @@ free_lang_specifics (void)
   /* FIXME lto: We have to compute these names early. */
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = lhd_decl_printable_name;
+
+  /* FIXME lto: Ideally we would like to abort at any attempt to compute
+     an assemble name, but there are too many places in gcc that create
+     new decls. */
+  lang_hooks.set_decl_assembler_name = lhd_set_decl_assembler_name;
 
   return 0;
 }

@@ -1,3 +1,11 @@
+2009-01-15  Rafael Avila de Espindola  <espindola@google.com>
+
+	* tree.c (need_assembler_name_p): Ignore DECL_IGNORED_P.
+	(reset_decl_lang_specific): Compute the assembler name for every
+	cgraph node.
+	(free_lang_specifics): Set lang_hooks.set_decl_assembler_name to
+	lhd_set_decl_assembler_name.
+
 2009-01-14  Rafael Avila de Espindola  <espindola@google.com>
 
 	* tree.c (reset_decl_lang_specific): Remove the context variable.
