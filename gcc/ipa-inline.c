@@ -1561,6 +1561,7 @@ cgraph_early_inlining (void)
       todo = optimize_inline_calls (current_function_decl);
       timevar_pop (TV_INTEGRATION);
     }
+  cfun->always_inline_functions_inlined = true;
   return todo;
 }
 
@@ -1775,12 +1776,18 @@ estimate_function_body_sizes (struct cgraph_node *node)
 unsigned int
 compute_inline_parameters (struct cgraph_node *node)
 {
+  HOST_WIDE_INT self_stack_size;
+
   gcc_assert (!node->global.inlined_to);
-  inline_summary (node)->estimated_self_stack_size
-    = estimated_stack_frame_size ();
-  node->global.estimated_stack_size
-    = inline_summary (node)->estimated_self_stack_size;
+
+  /* Estimate the stack size for the function.  But not at -O0
+     because estimated_stack_frame_size is a quadratic problem.  */
+  self_stack_size = optimize ? estimated_stack_frame_size () : 0;
+  inline_summary (node)->estimated_self_stack_size = self_stack_size;
+  node->global.estimated_stack_size = self_stack_size;
   node->global.stack_frame_offset = 0;
+
+  /* Can this function be inlined at all?  */
   node->local.inlinable = tree_inlinable_function_p (current_function_decl);
   if (node->local.inlinable && !node->local.disregard_inline_limits)
     node->local.disregard_inline_limits
@@ -1916,7 +1923,10 @@ inline_transform (struct cgraph_node *node)
       todo = optimize_inline_calls (current_function_decl);
       timevar_pop (TV_INTEGRATION);
     }
+
   cfun->after_inlining = true;
+  cfun->always_inline_functions_inlined = true;
+
   return todo | execute_fixup_cfg ();
 }
 

@@ -1,3 +1,7 @@
+2009-01-16  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline.
+
 2009-01-07  Martin Jambor  <mjambor@suse.cz>
 
         * tree-inline.c (optimize_inline_calls): Do not call
