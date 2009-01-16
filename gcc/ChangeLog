@@ -1,3 +1,162 @@
+2009-01-16  Sebastian Pop  <sebastian.pop@amd.com>
+	    Tobias Grosser  <tobi.grosser@amd.com>
+
+	* graphite.c (compare_prefix_loops): New.
+	(build_scop_canonical_schedules): Rewritten.
+	(graphite_transform_loops): Move build_scop_canonical_schedules
+	after build_scop_iteration_domain.
+
+2009-01-16  Sebastian Pop  <sebastian.pop@amd.com>
+	    Tobias Grosser  <tobi.grosser@amd.com>
+
+	* graphite.c (add_conditions_to_domain): Add the loops to 
+	the dimension of the iteration domain.  Do copy the domain
+	only when it exists.
+	(build_scop_conditions_1): Do not call add_conditions_to_domain.
+	(add_conditions_to_constraints): New.
+	(can_generate_code_stmt, can_generate_code): Removed.
+	(gloog): Do not call can_generate_code.
+	(graphite_transform_loops): Call add_conditions_to_constraints
+	after building the iteration domain.
+
+2009-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/38789
+	* tree-ssa-threadedge.c
+	(record_temporary_equivalences_from_stmts_at_dest): Ignore calls to
+	__builtin_constant_p.
+
+2009-01-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dce.c (delete_unmarked_insns): Reversed the order that insns are
+	examined before deleting them.
+	
+2009-01-16  Richard Earnshaw  <rearnsha@arm.com>
+
+	* function.c (aggregate_value_p): Correctly extract the function
+	type from CALL_EXPR_FN lookup.
+
+2009-01-16  Hariharan Sandanagobalane <hariharan@picochip.com>
+
+	* config/picochip/picochip.c (picochip_override_options): Revert
+	CFI asm flag disable commited previously.
+
+2009-01-15  Sebastian Pop  <sebastian.pop@amd.com>
+	    Tobias Grosser  <tobi.grosser@amd.com>
+	    Jan Sjodin  <jan.sjodin@amd.com>
+
+	* graphite.c (scan_tree_for_params): On substractions negate
+	all the coefficients of the term.
+	(clast_to_gcc_expression_red): New.  Handle reduction expressions
+	of more than two operands.
+	(clast_to_gcc_expression): Call clast_to_gcc_expression_red.
+	(get_vdef_before_scop): Handle also the case of default definitions.
+
+2009-01-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* caller-save.c (add_used_regs_1, add_used_regs): New functions.
+	(insert_one_insn): Use them instead of REG_DEAD and REG_INC notes.
+	Also use them when walking CALL_INSN_FUNCTION_USAGE.
+
+2009-01-15  H.J. Lu  <hongjiu.lu@intel.com>
+	    Joey Ye  <joey.ye@intel.com>
+
+	PR middle-end/37843
+	* cfgexpand.c (expand_stack_alignment): Don't update stack
+	boundary nor check incoming stack boundary here.
+	(gimple_expand_cfg): Update stack boundary and check incoming
+	stack boundary here.
+
+2009-01-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dce.c (find_call_stack_args, delete_unmarked_insns): Fixed
+	comments.
+	
+2009-01-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/38245
+	* calls.c (expand_call): Add stack arguments to
+	CALL_INSN_FUNCTION_USAGE even for pure calls (when
+	ACCUMULATE_OUTGOING_ARGS) and even for args partially passed
+	in regs and partially in memory or BLKmode arguments.
+	(emit_library_call_value_1): Add stack arguments to
+	CALL_INSN_FUNCTION_USAGE even for pure calls (when
+	ACCUMULATE_OUTGOING_ARGS).
+	* dce.c: Include tm_p.h.
+	(find_call_stack_args): New function.
+	(deletable_insn_p): Call it for CALL_P insns.  Add ARG_STORES
+	argument.
+	(mark_insn): Call find_call_stack_args for CALL_Ps.
+	(prescan_insns_for_dce): Walk insns backwards in bb rather than
+	forwards.  Allocate and free arg_stores bitmap if needed, pass it
+	down to deletable_insn_p, don't mark stores set in arg_stores
+	bitmap, clear the bitmap at the beginning of each bb.
+	* Makefile.in (dce.o): Depend on $(TM_P_H).
+
+2009-01-14  Michael Meissner  <gnu@the-meissners.org>
+
+	PR target/22599
+	* i386.c (print_operand): Add tests for 'D', 'C', 'F', 'f' to make
+	sure the insn is a conditional test (bug 22599).  Reformat a few long
+	lines.
+
+2009-01-14  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/38431
+	* graphite.c (get_vdef_before_scop, scop_adjust_vphi): New.
+	(scop_adjust_phis_for_liveouts): Call scop_adjust_vphi.
+	(gloog): Do not call cleanup_tree_cfg.
+	(graphite_transform_loops): Call cleanup_tree_cfg after all 
+	scops have been code generated.
+
+2009-01-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* testsuite/g++.dg/torture/pr38811.C: New file.
+
+2009-01-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* doc/gty.texi (Invoking the garbage collector): Added new node
+	and section documenting ggc_collect.
+
+2009-01-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38826
+	PR middle-end/38477
+	* tree-ssa-structalias.c (emit_alias_warning): Emit the pointer
+	initialization notes only if we actually emitted a warning.
+	(intra_create_variable_infos): Add constraints for a result decl
+	that is passed by hidden reference.
+	(build_pred_graph): Mark all related variables non-direct on
+	address-taking.
+
+2009-01-14  Nick Clifton  <nickc@redhat.com>
+
+	* ira-conflicts.c: Include addresses.h for the definition of
+	base_reg_class.
+	(ira_build_conflicts): Use base_reg_class instead of
+	BASE_REG_CLASS.
+	* Makefile.in: Add a dependency of ira-conflicts.o on
+	addresses.h.
+
+2009-01-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/38811
+	* Makefile.in (ira-lives.o): Add except.h.
+
+	* ira-lives.c: Include except.h.
+	(process_bb_node_lives): Process can_throw_internal.
+
+2009-01-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/38774
+	* combine.c (simplify_set): When undoing cc_use change, don't do
+	PUT_CODE on the newly created comparison, but instead put back the
+	old comparison.
+
+2009-01-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/invoke.texi (ARM Options): Update lists of -mcpu and -march
+	values.  Remove duplicate arm8 entry.
+
 2009-01-13  Sebastian Pop  <sebastian.pop@amd.com>
 
 	PR tree-optimization/38786

@@ -2472,6 +2472,29 @@ build_scop_dynamic_schedules (scop_p scop)
     }
 }
 
+/* Returns the number of loops that are identical at the beginning of
+   the vectors A and B.  */
+
+static int
+compare_prefix_loops (VEC (loop_p, heap) *a, VEC (loop_p, heap) *b)
+{
+  int i;
+  loop_p ea;
+  int lb;
+
+  if (!a || !b)
+    return 0;
+
+  lb = VEC_length (loop_p, b);
+
+  for (i = 0; VEC_iterate (loop_p, a, i, ea); i++)
+    if (i >= lb
+	|| ea != VEC_index (loop_p, b, i))
+      return i;
+
+  return 0;
+}
+
 /* Build for BB the static schedule.
 
    The STATIC_SCHEDULE is defined like this:
@@ -2508,34 +2531,29 @@ build_scop_dynamic_schedules (scop_p scop)
 static void
 build_scop_canonical_schedules (scop_p scop)
 {
-  int i, j;
+  int i;
   graphite_bb_p gb;
-  int nb = scop_nb_loops (scop) + 1;
+  int nb_loops = scop_nb_loops (scop);
+  lambda_vector static_schedule = lambda_vector_new (nb_loops + 1);
+  VEC (loop_p, heap) *loops_previous = NULL;
 
-  SCOP_STATIC_SCHEDULE (scop) = lambda_vector_new (nb);
+  /* We have to start schedules at 0 on the first component and
+     because we cannot compare_prefix_loops against a previous loop,
+     prefix will be equal to zero, and that index will be
+     incremented before copying.  */
+  static_schedule[0] = -1;
 
   for (i = 0; VEC_iterate (graphite_bb_p, SCOP_BBS (scop), i, gb); i++)
     {
-      int offset = nb_loops_around_gb (gb);
+      int prefix = compare_prefix_loops (loops_previous, GBB_LOOPS (gb));
+      int nb = gbb_nb_loops (gb);
 
-      /* After leaving a loop, it is possible that the schedule is not
-	 set at zero.  This loop reinitializes components located
-	 after OFFSET.  */
-
-      for (j = offset + 1; j < nb; j++)
-	if (SCOP_STATIC_SCHEDULE (scop)[j])
-	  {
-	    memset (&(SCOP_STATIC_SCHEDULE (scop)[j]), 0,
-		    sizeof (int) * (nb - j));
-	    ++SCOP_STATIC_SCHEDULE (scop)[offset];
-	    break;
-	  }
-
-      GBB_STATIC_SCHEDULE (gb) = lambda_vector_new (offset + 1);
-      lambda_vector_copy (SCOP_STATIC_SCHEDULE (scop), 
-			  GBB_STATIC_SCHEDULE (gb), offset + 1);
-
-      ++SCOP_STATIC_SCHEDULE (scop)[offset];
+      loops_previous = GBB_LOOPS (gb);
+      memset (&(static_schedule[prefix + 1]), 0, sizeof (int) * (nb_loops - prefix));
+      ++static_schedule[prefix];
+      GBB_STATIC_SCHEDULE (gb) = lambda_vector_new (nb + 1);
+      lambda_vector_copy (static_schedule, 
+			  GBB_STATIC_SCHEDULE (gb), nb + 1);
     }
 }
 
@@ -2698,13 +2716,11 @@ scan_tree_for_params (scop_p s, tree e, CloogMatrix *c, int r, Value k,
 
     case MINUS_EXPR:
       scan_tree_for_params (s, TREE_OPERAND (e, 0), c, r, k, subtract);
-      value_oppose (k, k);
-      scan_tree_for_params (s, TREE_OPERAND (e, 1), c, r, k, subtract);
+      scan_tree_for_params (s, TREE_OPERAND (e, 1), c, r, k, !subtract);
       break;
 
     case NEGATE_EXPR:
-      value_oppose (k, k);
-      scan_tree_for_params (s, TREE_OPERAND (e, 0), c, r, k, subtract);
+      scan_tree_for_params (s, TREE_OPERAND (e, 0), c, r, k, !subtract);
       break;
 
     case SSA_NAME:
@@ -3114,7 +3130,7 @@ add_conditions_to_domain (graphite_bb_p gb)
   else  
     {
       nb_rows = 0;
-      nb_cols = scop_nb_params (scop) + 2;
+      nb_cols = nb_loops_around_gb (gb) + scop_nb_params (scop) + 2;
     }
 
   /* Count number of necessary new rows to add the conditions to the
@@ -3163,14 +3179,18 @@ add_conditions_to_domain (graphite_bb_p gb)
     CloogMatrix *new_domain;
     new_domain = cloog_matrix_alloc (nb_rows + nb_new_rows, nb_cols);
 
-    for (i = 0; i < nb_rows; i++)
-      for (j = 0; j < nb_cols; j++)
-          value_assign (new_domain->p[i][j], domain->p[i][j]);
+    if (domain)
+      {
+	for (i = 0; i < nb_rows; i++)
+	  for (j = 0; j < nb_cols; j++)
+	    value_assign (new_domain->p[i][j], domain->p[i][j]);
 
-    cloog_matrix_free (domain);
+	cloog_matrix_free (domain);
+      }
+
     domain = new_domain;
     GBB_DOMAIN (gb) = new_domain;
-  }     
+  }
 
   /* Add the conditions to the new enlarged domain matrix.  */
   row = nb_rows;
@@ -3360,7 +3380,6 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
     {
       GBB_CONDITIONS (gbb) = VEC_copy (gimple, heap, *conditions);
       GBB_CONDITION_CASES (gbb) = VEC_copy (gimple, heap, *cases);
-      add_conditions_to_domain (gbb);
     }
 
   dom = get_dominated_by (CDI_DOMINATORS, bb);
@@ -3515,6 +3534,19 @@ build_scop_conditions (scop_p scop)
   VEC_free (gimple, heap, conditions);
   VEC_free (gimple, heap, cases);
   return res;
+}
+
+/* Traverses all the GBBs of the SCOP and add their constraints to the
+   iteration domains.  */
+
+static void
+add_conditions_to_constraints (scop_p scop)
+{
+  int i;
+  graphite_bb_p gbb;
+
+  for (i = 0; VEC_iterate (graphite_bb_p, SCOP_BBS (scop), i, gbb); i++)
+    add_conditions_to_domain (gbb);
 }
 
 /* Build the current domain matrix: the loops belonging to the current
@@ -3717,8 +3749,35 @@ max_precision_type (tree e1, tree e2)
   return TYPE_PRECISION (type1) > TYPE_PRECISION (type2) ? type1 : type2;
 }
 
-/* Converts a Cloog AST expression E back to a GCC expression tree
-   of type TYPE.  */
+static tree
+clast_to_gcc_expression (tree, struct clast_expr *, VEC (name_tree, heap) *,
+			 loop_iv_stack);
+
+/* Converts a Cloog reduction expression R with reduction operation OP
+   to a GCC expression tree of type TYPE.  PARAMS is a vector of
+   parameters of the scop, and IVSTACK contains the stack of induction
+   variables.  */
+
+static tree
+clast_to_gcc_expression_red (tree type, enum tree_code op,
+			     struct clast_reduction *r,
+			     VEC (name_tree, heap) *params,
+			     loop_iv_stack ivstack)
+{
+  int i;
+  tree res = clast_to_gcc_expression (type, r->elts[0], params, ivstack);
+
+  for (i = 1; i < r->n; i++)
+    {
+      tree t = clast_to_gcc_expression (type, r->elts[i], params, ivstack);
+      res = fold_build2 (op, type, res, t);
+    }
+  return res;
+}
+
+/* Converts a Cloog AST expression E back to a GCC expression tree of
+   type TYPE.  PARAMS is a vector of parameters of the scop, and
+   IVSTACK contains the stack of induction variables.  */
 
 static tree
 clast_to_gcc_expression (tree type, struct clast_expr *e,
@@ -3764,54 +3823,13 @@ clast_to_gcc_expression (tree type, struct clast_expr *e,
         switch (r->type)
           {
 	  case clast_red_sum:
-	    if (r->n == 1)
-	      return clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-
-	    else 
-	      {
-		tree tl = clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-		tree tr = clast_to_gcc_expression (type, r->elts[1], params, ivstack);
-
-		gcc_assert (r->n >= 1
-			    && r->elts[0]->type == expr_term
-			    && r->elts[1]->type == expr_term);
-
-		return fold_build2 (PLUS_EXPR, type, tl, tr);
-	      }
-
-	    break;
+	    return clast_to_gcc_expression_red (type, PLUS_EXPR, r, params, ivstack);
 
 	  case clast_red_min:
-	    if (r->n == 1)
-	      return clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-
-	    else if (r->n == 2)
-	      {
-		tree tl = clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-		tree tr = clast_to_gcc_expression (type, r->elts[1], params, ivstack);
-		return fold_build2 (MIN_EXPR, type, tl, tr);
-	      }
-
-	    else
-	      gcc_unreachable();
-
-	    break;
+	    return clast_to_gcc_expression_red (type, MIN_EXPR, r, params, ivstack);
 
 	  case clast_red_max:
-	    if (r->n == 1)
-	      return clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-
-	    else if (r->n == 2)
-	      {
-		tree tl = clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-		tree tr = clast_to_gcc_expression (type, r->elts[1], params, ivstack);
-		return fold_build2 (MAX_EXPR, type, tl, tr);
-	      }
-
-	    else
-	      gcc_unreachable();
-
-	    break;
+	    return clast_to_gcc_expression_red (type, MAX_EXPR, r, params, ivstack);
 
 	  default:
 	    gcc_unreachable ();
@@ -4911,64 +4929,6 @@ find_transform (scop_p scop)
   return stmt;
 }
 
-/* Returns true when it is possible to generate code for this STMT.
-   For the moment we cannot generate code when Cloog decides to
-   duplicate a statement, as we do not do a copy, but a move.
-   USED_BASIC_BLOCKS records the blocks that have already been seen.
-   We return false if we have to generate code twice for the same
-   block.  */
-
-static bool 
-can_generate_code_stmt (struct clast_stmt *stmt,
-			struct pointer_set_t *used_basic_blocks)
-{
-  if (!stmt)
-    return true;
-
-  if (CLAST_STMT_IS_A (stmt, stmt_root))
-    return can_generate_code_stmt (stmt->next, used_basic_blocks);
-
-  if (CLAST_STMT_IS_A (stmt, stmt_user))
-    {
-      CloogStatement *cs = ((struct clast_user_stmt *) stmt)->statement;
-      graphite_bb_p gbb = (graphite_bb_p) cloog_statement_usr (cs);
-
-      if (pointer_set_contains (used_basic_blocks, gbb))
-	return false;
-      pointer_set_insert (used_basic_blocks, gbb);
-      return can_generate_code_stmt (stmt->next, used_basic_blocks);
-    }
-
-  if (CLAST_STMT_IS_A (stmt, stmt_for))
-    return can_generate_code_stmt (((struct clast_for *) stmt)->body,
-				   used_basic_blocks)
-      && can_generate_code_stmt (stmt->next, used_basic_blocks);
-
-  if (CLAST_STMT_IS_A (stmt, stmt_guard))
-    return can_generate_code_stmt (((struct clast_guard *) stmt)->then,
-				   used_basic_blocks);
-
-  if (CLAST_STMT_IS_A (stmt, stmt_block))
-    return can_generate_code_stmt (((struct clast_block *) stmt)->body,
-				   used_basic_blocks)
-      && can_generate_code_stmt (stmt->next, used_basic_blocks);
-
-  return false;
-}
-
-/* Returns true when it is possible to generate code for this STMT.  */
-
-static bool 
-can_generate_code (struct clast_stmt *stmt)
-{
-  bool result;
-  struct pointer_set_t *used_basic_blocks = pointer_set_create ();
-
-  result = can_generate_code_stmt (stmt, used_basic_blocks);
-  pointer_set_destroy (used_basic_blocks);
-  return result;
-}
-
 /* Remove from the CFG the REGION.  */
 
 static inline void
@@ -5172,6 +5132,83 @@ scop_insert_phis_for_liveouts (sese region, basic_block bb,
   update_ssa (TODO_update_ssa);
 }
 
+/* Get the definition of NAME before the SCOP.  Keep track of the
+   basic blocks that have been VISITED in a bitmap.  */
+
+static tree
+get_vdef_before_scop (scop_p scop, tree name, sbitmap visited)
+{
+  unsigned i;
+  gimple def_stmt = SSA_NAME_DEF_STMT (name);
+  basic_block def_bb = gimple_bb (def_stmt);
+
+  if (!def_bb
+      || !bb_in_scop_p (def_bb, scop))
+    return name;
+
+  if (TEST_BIT (visited, def_bb->index))
+    return NULL_TREE;
+
+  SET_BIT (visited, def_bb->index);
+
+  switch (gimple_code (def_stmt))
+    {
+    case GIMPLE_PHI:
+      for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
+	{
+	  tree arg = gimple_phi_arg_def (def_stmt, i);
+	  tree res = get_vdef_before_scop (scop, arg, visited);
+	  if (res)
+	    return res;
+	}
+      return NULL_TREE;
+
+    default:
+      return NULL_TREE;
+    }
+}
+
+/* Adjust a virtual phi node PHI that is placed at the end of the
+   generated code for SCOP:
+
+   | if (1)
+   |   generated code from REGION;
+   | else
+   |   REGION;
+
+   The FALSE_E edge comes from the original code, TRUE_E edge comes
+   from the code generated for the SCOP.  */
+
+static void
+scop_adjust_vphi (scop_p scop, gimple phi, edge true_e)
+{
+  unsigned i;
+
+  gcc_assert (gimple_phi_num_args (phi) == 2);
+
+  for (i = 0; i < gimple_phi_num_args (phi); i++)
+    if (gimple_phi_arg_edge (phi, i) == true_e)
+      {
+	tree true_arg, false_arg, before_scop_arg;
+	sbitmap visited;
+
+	true_arg = gimple_phi_arg_def (phi, i);
+	if (!SSA_NAME_IS_DEFAULT_DEF (true_arg))
+	  return;
+
+	false_arg = gimple_phi_arg_def (phi, i == 0 ? 1 : 0);
+	if (SSA_NAME_IS_DEFAULT_DEF (false_arg))
+	  return;
+
+	visited = sbitmap_alloc (last_basic_block);
+	sbitmap_zero (visited);
+	before_scop_arg = get_vdef_before_scop (scop, false_arg, visited);
+	gcc_assert (before_scop_arg != NULL_TREE);
+	SET_PHI_ARG_DEF (phi, i, before_scop_arg);
+	sbitmap_free (visited);
+      }
+}
+
 /* Adjusts the phi nodes in the block BB for variables defined in
    SCOP_REGION and used outside the SCOP_REGION.  The code generation
    moves SCOP_REGION in the else clause of an "if (1)" and generates
@@ -5198,7 +5235,10 @@ scop_adjust_phis_for_liveouts (scop_p scop, basic_block bb, edge false_e,
       gimple phi = gsi_stmt (si);
 
       if (!is_gimple_reg (PHI_RESULT (phi)))
-	continue;
+	{
+	  scop_adjust_vphi (scop, phi, true_e);
+	  continue;
+	}
 
       for (i = 0; i < gimple_phi_num_args (phi); i++)
 	if (gimple_phi_arg_edge (phi, i) == false_e)
@@ -5349,12 +5389,6 @@ gloog (scop_p scop, struct clast_stmt *stmt)
   loop_p context_loop;
   ifsese if_region = NULL;
 
-  if (!can_generate_code (stmt))
-    {
-      cloog_clast_free (stmt);
-      return;
-    }
-
   if_region = move_sese_in_condition (SCOP_REGION (scop));
   sese_build_livein_liveouts (SCOP_REGION (scop));
   scop_insert_phis_for_liveouts (SCOP_REGION (scop),
@@ -5378,9 +5412,6 @@ gloog (scop_p scop, struct clast_stmt *stmt)
 				 if_region->false_region->exit,
 				 if_region->true_region->exit);
 
-  recompute_all_dominators ();
-  graphite_verify ();
-  cleanup_tree_cfg ();
   recompute_all_dominators ();
   graphite_verify ();
 }
@@ -6036,10 +6067,11 @@ graphite_transform_loops (void)
       if (!build_scop_loop_nests (scop))
 	continue;
 
-      build_scop_canonical_schedules (scop);
       build_bb_loops (scop);
+
       if (!build_scop_conditions (scop))
 	continue;
+
       find_scop_parameters (scop);
       build_scop_context (scop);
 
@@ -6054,6 +6086,9 @@ graphite_transform_loops (void)
 
       if (!build_scop_iteration_domain (scop))
 	continue;
+
+      add_conditions_to_constraints (scop);
+      build_scop_canonical_schedules (scop);
 
       build_scop_data_accesses (scop);
       build_scop_dynamic_schedules (scop);
@@ -6076,6 +6111,7 @@ graphite_transform_loops (void)
     }
 
   /* Cleanup.  */
+  cleanup_tree_cfg ();
   free_scops (current_scops);
   cloog_finalize ();
   free_original_copy_tables ();
