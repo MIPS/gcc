@@ -3610,7 +3610,9 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    else
 	      align = TYPE_ALIGN (type);
 
-	    if (size > 0 && !can_move_by_pieces (size, align))
+	    if (size > 0
+		&& num_nonzero_elements > 1
+		&& !can_move_by_pieces (size, align))
 	      {
 		tree new_tree;
 
@@ -7376,6 +7378,10 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
       gimplify_expr (gimple_cond_lhs_ptr (stmt), &pre, NULL,
 		     is_gimple_val, fb_rvalue);
       gimplify_expr (gimple_cond_rhs_ptr (stmt), &pre, NULL,
+		     is_gimple_val, fb_rvalue);
+      break;
+    case GIMPLE_SWITCH:
+      gimplify_expr (gimple_switch_index_ptr (stmt), &pre, NULL,
 		     is_gimple_val, fb_rvalue);
       break;
     case GIMPLE_OMP_ATOMIC_LOAD:

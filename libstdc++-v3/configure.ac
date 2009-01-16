@@ -97,12 +97,11 @@ GLIBCXX_ENABLE_HOSTED
 # Enable compiler support that doesn't require linking.
 GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
 GLIBCXX_ENABLE_PCH($is_hosted)
-GLIBCXX_ENABLE_ATOMIC_BUILTINS
 GLIBCXX_ENABLE_THREADS
+GLIBCXX_ENABLE_ATOMIC_BUILTINS
 
 # Checks for compiler support that doesn't require linking.
 GLIBCXX_CHECK_COMPILER_FEATURES
-GLIBCXX_CHECK_STANDARD_LAYOUT
 
 # Enable all the variable C++ runtime options that don't require linking.
 GLIBCXX_ENABLE_CSTDIO
@@ -146,15 +145,12 @@ GLIBCXX_CHECK_STDIO_MACROS
 # For gettimeofday support.
 GLIBCXX_CHECK_GETTIMEOFDAY
 
-# For clock_gettime support.
+# For clock_gettime, nanosleep and sched_yield support.
 # NB: The default is [no], because otherwise it requires linking.
-GLIBCXX_ENABLE_CLOCK_GETTIME([no])
+GLIBCXX_ENABLE_LIBSTDCXX_TIME([no])
 
 # For gthread support
 GLIBCXX_CHECK_GTHREADS
-
-# For nanosleep support
-GLIBCXX_CHECK_NANOSLEEP
 
 AC_LC_MESSAGES
 
