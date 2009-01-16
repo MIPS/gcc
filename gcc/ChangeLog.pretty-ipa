@@ -23,7 +23,7 @@
 	seen_variable_array_ref while also traversing a union.
 
 2008-12-09  Jan Hubicka  <jh@suse.cz>
-    
+
 	Merge from mainline.
 
 2008-12-06  Jan Hubicka  <jh@suse.cz>
