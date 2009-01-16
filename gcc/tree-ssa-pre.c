@@ -899,26 +899,42 @@ print_pre_expr (FILE *outfile, const pre_expr expr)
 	     VEC_iterate (vn_reference_op_s, ref->operands, i, vro);
 	     i++)
 	  {
+	    bool closebrace = false;
 	    if (vro->opcode != SSA_NAME
 		&& TREE_CODE_CLASS (vro->opcode) != tcc_declaration)
-	      fprintf (outfile, "%s ", tree_code_name [vro->opcode]);
+	      {
+		fprintf (outfile, "%s", tree_code_name [vro->opcode]);
+		if (vro->op0)
+		  {
+		    fprintf (outfile, "<");
+		    closebrace = true;
+		  }
+	      }
 	    if (vro->op0)
 	      {
-		if (vro->op1)
-		  fprintf (outfile, "<");
 		print_generic_expr (outfile, vro->op0, 0);
 		if (vro->op1)
 		  {
 		    fprintf (outfile, ",");
 		    print_generic_expr (outfile, vro->op1, 0);
 		  }
-		if (vro->op1)
-		  fprintf (outfile, ">");
+		if (vro->op2)
+		  {
+		    fprintf (outfile, ",");
+		    print_generic_expr (outfile, vro->op2, 0);
+		  }
 	      }
+	    if (closebrace)
+		fprintf (outfile, ">");
 	    if (i != VEC_length (vn_reference_op_s, ref->operands) - 1)
 	      fprintf (outfile, ",");
 	  }
 	fprintf (outfile, "}");
+	if (ref->vuse)
+	  {
+	    fprintf (outfile, "@");
+	    print_generic_expr (outfile, ref->vuse, 0);
+	  }
       }
       break;
     }

@@ -1,3 +1,11 @@
+2009-01-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (refs_may_alias_p): Move ...
+	* tree-ssa-alias.c (refs_may_alias_p): ... here.
+	* tree-ssa-alias.h: Adjust.
+	* tree-ssa-pre.c (print_pre_expr): Print the VOP as well,
+	always print <>s.
+
 2009-01-15  Richard Guenther  <rguenther@suse.de>
 
 	testsuite/
