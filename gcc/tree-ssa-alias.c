@@ -357,6 +357,24 @@ debug_points_to_info_for (tree var)
   dump_points_to_info_for (stderr, var);
 }
 
+/* Return 1 if TYPE1 and TYPE2 are to be considered equivalent for the
+   purpose of TBAA.  Return 0 if they are distinct and -1 if we cannot
+   decide.  */
+
+static inline int
+same_type_for_tbaa (tree type1, tree type2)
+{
+  type1 = TYPE_MAIN_VARIANT (type1);
+  type2 = TYPE_MAIN_VARIANT (type2);
+
+  /* If we would have to do structural comparison bail out.  */
+  if (TYPE_STRUCTURAL_EQUALITY_P (type1)
+      || TYPE_STRUCTURAL_EQUALITY_P (type2))
+    return -1;
+
+  /* Compare the canonical types.  */
+  return (TYPE_CANONICAL (type1) == TYPE_CANONICAL (type2)) ? 1 : 0;
+}
 
 /* Return true, if the two memory references REF1 and REF2 may alias.  */
 
@@ -468,8 +486,7 @@ refs_may_alias_p (tree ref1, tree ref2)
   /* If both references are through the same type, they do not alias
      if the accesses do not overlap.  This does extra disambiguation
      for mixed/pointer accesses but requires strict aliasing.  */
-  if (TYPE_MAIN_VARIANT (TREE_TYPE (base1))
-      == TYPE_MAIN_VARIANT (TREE_TYPE (base2)))
+  if (same_type_for_tbaa (TREE_TYPE (base1), TREE_TYPE (base2)) == 1)
     return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
 
   /* The only way to access a variable is through a pointer dereference
@@ -500,37 +517,45 @@ refs_may_alias_p (tree ref1, tree ref2)
       && handled_component_p (ref2))
     {
       tree *refp;
+      int same_p;
       /* Now search for the type of base1 in the access path of ref2.  This
 	 would be a common base for doing offset based disambiguation on.  */
       refp = &ref2;
       while (handled_component_p (*refp)
-	     /* Note that the following is only conservative if there are
-		never copies of types appearing as sub-structures.  */
-	     && (TYPE_MAIN_VARIANT (TREE_TYPE (*refp))
-		 != TYPE_MAIN_VARIANT (TREE_TYPE (base1))))
+	     && same_type_for_tbaa (TREE_TYPE (*refp),
+				    TREE_TYPE (base1)) == 0)
 	refp = &TREE_OPERAND (*refp, 0);
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (*refp))
-	  == TYPE_MAIN_VARIANT (TREE_TYPE (base1)))
+      same_p = same_type_for_tbaa (TREE_TYPE (*refp), TREE_TYPE (base1));
+      /* If we couldn't compare types we have to bail out.  */
+      if (same_p == -1)
+	return true;
+      else if (same_p == 1)
 	{
 	  HOST_WIDE_INT offadj, sztmp, msztmp;
 	  get_ref_base_and_extent (*refp, &offadj, &sztmp, &msztmp);
 	  offset2 -= offadj;
 	  return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
 	}
-      /* The other way around.  */
+      /* If we didn't find a common base, try the other way around.  */
       refp = &ref1;
       while (handled_component_p (*refp)
-	     && (TYPE_MAIN_VARIANT (TREE_TYPE (*refp))
-		 != TYPE_MAIN_VARIANT (TREE_TYPE (base2))))
+	     && same_type_for_tbaa (TREE_TYPE (*refp),
+				    TREE_TYPE (base2)) == 0)
 	refp = &TREE_OPERAND (*refp, 0);
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (*refp))
-	  == TYPE_MAIN_VARIANT (TREE_TYPE (base2)))
+      same_p = same_type_for_tbaa (TREE_TYPE (*refp), TREE_TYPE (base2));
+      /* If we couldn't compare types we have to bail out.  */
+      if (same_p == -1)
+	return true;
+      else if (same_p == 1)
 	{
 	  HOST_WIDE_INT offadj, sztmp, msztmp;
 	  get_ref_base_and_extent (*refp, &offadj, &sztmp, &msztmp);
 	  offset1 -= offadj;
 	  return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
 	}
+      /* If we have two type access paths B1.path1 and B2.path2 they may
+         only alias if either B1 is in B2.path2 or B2 is in B1.path1.  */
+      return false;
     }
 
   return true;

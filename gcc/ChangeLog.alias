@@ -1,3 +1,15 @@
+2009-01-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/13146
+	PR tree-optimization/38895
+	* tree-ssa-alias.c (same_type_for_tbaa): New helper function.
+	(refs_may_alias_p): Use it.  Extend access path based disambiguation.
+
+	testsuite/
+	* gcc.dg/tree-ssa/pr13146.c: New testcase.
+	* gcc.dg/tree-ssa/pr38895.c: Likewise.
+	* g++.dg/tree-ssa/pr13146.C: Likewise.
+
 2009-01-16  Richard Guenther  <rguenther@suse.de>
 
 	* tree-dfa.c (refs_may_alias_p): Move ...
