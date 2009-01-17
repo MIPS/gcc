@@ -251,6 +251,25 @@ finish_member_template_decl (tree decl)
   return error_mark_node;
 }
 
+/* Return the template info node corresponding to T, whatever T is.  */
+
+tree
+get_template_info (tree t)
+{
+  tree tinfo = NULL_TREE;
+
+  if (DECL_P (t) && DECL_LANG_SPECIFIC (t))
+    tinfo = DECL_TEMPLATE_INFO (t);
+
+  if (!tinfo && TREE_CODE (t) == TYPE_DECL)
+    t = TREE_TYPE (t);
+
+  if (TAGGED_TYPE_P (t))
+    tinfo = TYPE_TEMPLATE_INFO (t);
+
+  return tinfo;
+}
+
 /* Returns the template nesting level of the indicated class TYPE.
 
    For example, in:
@@ -5327,6 +5346,30 @@ outermost_tinst_level (void)
   return tree_last (current_tinst_level);
 }
 
+/* Returns TRUE if PARM is a parameter of the template TEMPL.  */
+
+bool
+parameter_of_template_p (tree parm, tree templ)
+{
+  tree parms;
+  int i;
+
+  if (!parm || !templ)
+    return false;
+
+  gcc_assert (DECL_TEMPLATE_PARM_P (parm));
+  gcc_assert (TREE_CODE (templ) == TEMPLATE_DECL);
+
+  parms = DECL_TEMPLATE_PARMS (templ);
+  parms = INNERMOST_TEMPLATE_PARMS (parms);
+
+  for (i = 0; i < TREE_VEC_LENGTH (parms); ++i)
+    if (parm == TREE_VALUE (TREE_VEC_ELT (parms, i)))
+      return true;
+
+  return false;
+}
+
 /* DECL is a friend FUNCTION_DECL or TEMPLATE_DECL.  ARGS is the
    vector of template arguments, as for tsubst.
 
@@ -9274,9 +9317,12 @@ tsubst_copy_and_build (tree t,
 		       qualified_p ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL,
 		       /*fn_p=*/NULL));
 	  }
+	/* Pass true for koenig_p so that build_new_function_call will
+	   allow hidden friends found by arg-dependent lookup at template
+	   parsing time.  */
 	return finish_call_expr (function, call_args,
 				 /*disallow_virtual=*/qualified_p,
-				 koenig_p);
+				 /*koenig_p*/true);
       }
 
     case COND_EXPR:
