@@ -1,3 +1,10 @@
+2009-01-17  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_node_can_be_local_p, cgraph_make_node_local): New
+	function.
+	* cgraph.h (cgraph_node_can_be_local_p, cgraph_make_node_local):
+	Declare.
+
 2009-01-16  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline.
