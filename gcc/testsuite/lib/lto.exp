@@ -85,7 +85,7 @@ proc lto-obj { source dest optall optfile optstr xfaildata } {
 
     # Set up the options for compiling this file.
     set options ""
-    lappend options "additional_flags=$optfile $optall"
+    lappend options "additional_flags=$optall $optfile"
 
     set compiler_conditional_xfail_data $xfaildata
     set comp_output [${tool}_target_compile "$source" "$dest" object $options]
@@ -117,7 +117,7 @@ proc lto-link-and-maybe-run { testname objlist dest optall optfile optstr } {
 
     # Set up the options for linking this test.
     set options ""
-    lappend options "additional_flags=$optfile $optall"
+    lappend options "additional_flags=$optall $optfile"
 
     # Link the objects into an executable.
     set comp_output [${tool}_target_compile "$objlist" $dest executable \
