@@ -1,3 +1,8 @@
+2009-01-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* builtins.c (fold_builtin_sincos): Build COMPOUND_EXPR in
+	void_type_node.
+
 2008-12-10  Joseph Myers  <joseph@codesourcery.com>
 
 	* c-typeck.c (c_fully_fold, c_fully_fold_internal,
