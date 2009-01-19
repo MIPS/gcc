@@ -1959,9 +1959,9 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	maybe_replace_use (use_p);
 
-      if (need_to_update_vops_p)
-	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
-	  maybe_replace_use (use_p);
+      if (need_to_update_vops_p
+	  && (use_p = gimple_vuse_op (stmt)) != NULL_USE_OPERAND_P)
+	maybe_replace_use (use_p);
     }
 
   /* Register definitions of names in NEW_SSA_NAMES and OLD_SSA_NAMES.
@@ -1972,9 +1972,9 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
 	maybe_register_def (def_p, stmt);
 
-      if (need_to_update_vops_p)
-	FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_VIRTUAL_DEFS)
-	  maybe_register_def (def_p, stmt);
+      if (need_to_update_vops_p
+	  && (def_p = gimple_vdef_op (stmt)) != NULL_DEF_OPERAND_P)
+	maybe_register_def (def_p, stmt);
     }
 }
 

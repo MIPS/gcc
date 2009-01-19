@@ -598,7 +598,7 @@ surely_varying_stmt_p (gimple stmt)
     }
 
   /* Any other store operation is not interesting.  */
-  else if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
+  else if (gimple_vdef (stmt))
     return true;
 
   /* Anything other than assignments and conditional jumps are not
@@ -3166,7 +3166,6 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
   else
     {
       new_stmt = gimple_build_assign (lhs, tmp);
-      copy_virtual_operands (new_stmt, stmt);
       move_ssa_defining_stmt_for_defs (new_stmt, stmt);
     }
 

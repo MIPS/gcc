@@ -1,3 +1,165 @@
+2009-01-19  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-operands.h (struct vuse_element_d): Remove.
+	(struct vuse_vec_d): Likewise.
+	(VUSE_VECT_NUM_ELEM, VUSE_VECT_ELEMENT_NC, VUSE_ELEMENT_PTR_NC,
+	VUSE_ELEMENT_VAR_NC, VUSE_VECT_ELEMENT, VUSE_ELEMENT_PTR,
+	SET_VUSE_VECT_ELEMENT, SET_VUSE_ELEMENT_VAR, SET_VUSE_ELEMENT_PTR,
+	VUSE_ELEMENT_VAR): Likewise.
+	(struct voptype_d): Likewise.
+	(NUM_VOP_FREE_BUCKETS): Likewise.
+	(struct ssa_operands): Remove vop_free_buckets member.
+	(struct stmt_operands_d): Remove.
+	(VUSE_OP_PTR, VUSE_OP, SET_VUSE_OP, VUSE_NUM, VUSE_VECT,
+	VDEF_RESULT_PTR, VDEF_RESULT, VDEF_OP_PTR, VDEF_OP, SET_VDEF_OP,
+	VDEF_NUM, VDEF_VECT): Likewise.
+	(copy_virtual_operands): Remove.
+	(operand_build_cmp): Likewise.
+	(create_ssa_artificial_load_stmt): Likewise.
+	(enum ssa_op_iter_type): Remove ssa_op_iter_vdef.
+	(struct ssa_operand_iterator_d): Remove vuses, vdefs, mayusesm
+	vuse_index and mayuse_index members.  Pack and move done and iter_type
+	members to the front.
+	(SSA_OP_VMAYUSE): Remove.
+	(SSA_OP_VIRTUAL_USES): Adjust.
+	(FOR_EACH_SSA_VDEF_OPERAND): Remove.
+	* tree-flow-inline.h (op_iter_next_use): Remove vuses and mayuses
+	cases.
+	(op_iter_next_def): Remove vdefs case.
+	(op_iter_next_tree): Remove vuses, mayuses and vdefs cases.
+	(clear_and_done_ssa_iter): Do not set removed fields.
+	(op_iter_init): Likewise.  Skip vuse and/or vdef if requested.
+	Assert we are not iterating over vuses or vdefs if not also
+	iterating over uses or defs.
+	(op_iter_init_use): Likewise.
+	(op_iter_init_def): Likewise.
+	(op_iter_next_vdef): Remove.
+	(op_iter_next_mustdef): Likewise.
+	(op_iter_init_vdef): Likewise.
+	(compare_ssa_operands_equal): Likewise.
+	(link_use_stmts_after): Handle vuse operand.
+	* tree-flow.h (struct var_ann_d): Remove in_vuse_list and
+	in_vdef_list members.
+	* gimple.h (struct gimple_statement_with_memory_ops_base): Remove
+	vdef_ops and vuse_ops members, add vuse and vdef members.
+	(gimple_vuse_ops): Remove.
+	(gimple_set_vuse_ops): Likewise.
+	(gimple_vdef_ops): Likewise.
+	(gimple_set_vdef_ops): Likewise.
+	(gimple_vuse_op): New.
+	(gimple_vdef_op): Likewise.
+	(gimple_vuse): Simplify
+	(gimple_vdef): Likewise.
+	(gimple_vuse_ptr): New.
+	(gimple_vdef_ptr): Likewise.
+	(gimple_set_vuse): Likewise.
+	(gimple_set_vdef): Likewise.
+	* tree-ssa-operands.c (build_vdefs): Rename to ...
+	(build_vdef): ... this.  Make it a tree.
+	(build_vuses): Rename to ...
+	(build_vuse): ... this.  Make it a tree.
+	(operand_build_cmp): Remove.
+	(operand_build_sort_virtual): Likewise.
+	(vop_free_bucket_size): Likewise.
+	(vop_free_bucket_index): Likewise.
+	(init_vop_buckets): Likewise.
+	(add_vop_to_freelist): Likewise.
+	(init_ssa_operands): Zero build_vuse, build_vdef.
+	Do not call init_vop_buckets.
+	(fini_ssa_operands): Zero build_vuse, build_vdef.
+	(ssa_operand_alloc): Use struct use_optype_d for size computations.
+	(alloc_vop): Remove.
+	(add_vop): Likewise.
+	(add_vuse_op): Likewise.
+	(add_vdef_op): Likewise.
+	(finalize_ssa_defs): Fold in finalize_ssa_vdefs.
+	(finalize_ssa_uses): Fold in finalize_ssa_vuses.
+	(finalize_ssa_vdefs): Remove.
+	(finalize_ssa_vuse_ops): Likewise.
+	(finalize_ssa_vuses): Likewise.
+	(cleanup_build_arrays): Do not clear in_vdef_list or in_vuse_list
+	flags.  Zero build_vuse, build_vdef.
+	(finalize_ssa_stmt_operands): Do not call finalize_ssa_vdefs
+	or finalize_ssa_vuses.
+	(start_ssa_stmt_operands): Assert build_vuse, build_vdef are NULL.
+	(append_vdef): Assert we do not have different VOPs, add a VUSE.
+	(append_vuse): Assert we do not have different VOPs.
+	(build_ssa_operands): Do not sort virtual operands.
+	(free_stmt_operands): Do not free virtual uses/defs.  Zero
+	the VUSE and VDEF operands.
+	(copy_virtual_operands): Remove.
+	(create_ssa_artificial_load_stmt): Likewise.
+	(push_stmt_changes): Adjust.
+	(pop_stmt_changes): Likewise.
+
+	* tree-vrp.c (stmt_interesting_for_vrp): Adjust.
+	(vrp_visit_stmt): Likewise.
+	* tree-into-ssa.c (rewrite_update_stmt): Adjust.
+	* tree-ssa-loop-im.c (movement_possibility): Adjust.
+	(determine_max_movement): Likewise.
+	(gather_mem_refs_stmt): Likewise.
+	* tree-complex.c (update_all_vops): Remove.
+	(expand_complex_move): Adjust.
+	* tree-loop-distribution.c (generate_memset_zero): Adjust.
+	(rdg_flag_uses): Likewise.
+	* tree-ssa-dse.c (dse_optimize_stmt): Adjust.
+	* tree-ssa-ccp.c (surely_varying_stmt_p): Adjust.
+	(gimplify_and_update_call_from_tree): Likewise.
+	* tree-ssa-dom.c (eliminate_redundant_computations): Adjust.
+	(record_equivalences_from_stmt): Likewise.
+	(avail_expr_hash): Likewise.
+	(avail_expr_eq): Likewise.
+	* tree-ssa-propagate.c (update_call_from_tree): Adjust.
+	(stmt_makes_single_load): Likewise.
+	(stmt_makes_single_store): Likewise.
+	* tree-ssa-sink.c (is_hidden_global_store): Adjust.
+	(statement_sink_location): Likewise.
+	* tree-ssa-loop-ivcanon.c (empty_loop_p): Adjust.
+	* tree-ssa-ifcombine.c (bb_no_side_effects_p): Adjust.
+	* gimple-pretty-print.c (dump_gimple_mem_ops): Adjust.
+	* tree-data-ref.c (get_references_in_stmt): Adjust.
+	(stores_from_loop): Likewise.
+	* tree-vect-analyze.c (vect_stmt_relevant_p): Adjust.
+	* tree-ssa-coalesce.c (create_outofssa_var_map): Adjust.
+	* tree-dfa.c (collect_dfa_stats): Adjust.
+	* graphite.c (rename_variables_in_stmt): Adjust.
+	(graphite_copy_stmts_from_block): Likewise.
+	(translate_clast): Likewise.
+	* tree-sra.c (mark_all_v_defs_stmt): Remove.
+	(mark_all_v_defs_seq): Adjust.
+	(sra_replace): Likewise.
+	(scalarize_use): Likewise.
+	(scalarize_copy): Likewise.
+	(scalarize_init): Likewise.
+	(scalarize_ldst): Likewise.
+	* tree-predcom.c (mark_virtual_ops_for_renaming): Adjust.
+	(mark_virtual_ops_for_renaming_list): Remove.
+	(initialize_root_vars): Adjust.
+	(initialize_root_vars_lm): Likewise.
+	(prepare_initializers_chain): Likewise.
+	* tree-ssa-copy.c (propagate_tree_value_into_stmt): Adjust.
+	(stmt_may_generate_copy): Likewise.
+	* tree-ssa-ter.c (is_replaceable_p): Adjust.
+	(process_replaceable): Likewise.
+	(find_replaceable_in_bb): Likewise.
+	* tree-ssa.c (verify_ssa): Verify new VUSE / VDEF properties.
+	(delete_tree_ssa): Clear the VUSE, VDEF operands.
+	(warn_uninitialized_var): Adjust.
+	* tree-ssa-loop-prefetch.c (gather_memory_references): Adjust.
+	* lambda-code.c (can_put_in_inner_loop): Adjust.
+	(can_put_after_inner_loop): Likewise.
+	(perfect_nestify): Likewise.
+	* tree-ssa-phiprop.c (phivn_valid_p): Adjust.
+	(propagate_with_phi): Likewise.
+	* tree-vect-transform.c (vectorizable_call): Adjust.
+	(vect_gen_widened_results_half): Likewise.
+	(vectorizable_conversion): Likewise.
+	(vect_create_mask_and_perm): Likewise.
+	(vectorizable_load): Likewise.
+	* gimple.c (gimple_copy): Also copy virtual operands.
+	* tree-cfg.c (gimple_duplicate_bb): Adjust.
+	* tree-ssa-reassoc.c (get_rank): Adjust.
+
 2009-01-17  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/13146

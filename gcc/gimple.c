@@ -2208,8 +2208,8 @@ gimple_copy (gimple stmt)
 
       if (gimple_has_mem_ops (stmt))
 	{
-	  gimple_set_vdef_ops (copy, NULL);
-	  gimple_set_vuse_ops (copy, NULL);
+	  gimple_set_vdef (copy, gimple_vdef (stmt));
+	  gimple_set_vuse (copy, gimple_vuse (stmt));
 	  copy->gsmem.membase.stores = NULL;
 	  copy->gsmem.membase.loads = NULL;
 	}

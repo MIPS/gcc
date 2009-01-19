@@ -137,11 +137,11 @@ static VEC(tree,heap) *build_defs;
 /* Array for building all the use operands.  */
 static VEC(tree,heap) *build_uses;
 
-/* Set for building all the VDEF operands.  */
-static VEC(tree,heap) *build_vdefs;
+/* The built VDEF operand.  */
+static tree build_vdef;
 
-/* Set for building all the VUSE operands.  */
-static VEC(tree,heap) *build_vuses;
+/* The built VUSE operand.  */
+static tree build_vuse;
 
 /* Bitmap obstack for our datastructures that needs to survive across	
    compilations of multiple functions.  */
@@ -213,54 +213,6 @@ get_name_decl (const_tree t)
 }
 
 
-/* Comparison function for qsort used in operand_build_sort_virtual.  */
-
-int
-operand_build_cmp (const void *p, const void *q)
-{
-  const_tree const e1 = *((const_tree const *)p);
-  const_tree const e2 = *((const_tree const *)q);
-  const unsigned int u1 = get_name_decl (e1);
-  const unsigned int u2 = get_name_decl (e2);
-
-  /* We want to sort in ascending order.  They can never be equal.  */
-#ifdef ENABLE_CHECKING
-  gcc_assert (u1 != u2);
-#endif
-  return (u1 > u2 ? 1 : -1);
-}
-
-
-/* Sort the virtual operands in LIST from lowest DECL_UID to highest.  */
-
-static inline void
-operand_build_sort_virtual (VEC(tree,heap) *list)
-{
-  int num = VEC_length (tree, list);
-
-  if (num < 2)
-    return;
-
-  if (num == 2)
-    {
-      if (get_name_decl (VEC_index (tree, list, 0)) 
-	  > get_name_decl (VEC_index (tree, list, 1)))
-	{  
-	  /* Swap elements if in the wrong order.  */
-	  tree tmp = VEC_index (tree, list, 0);
-	  VEC_replace (tree, list, 0, VEC_index (tree, list, 1));
-	  VEC_replace (tree, list, 1, tmp);
-	}
-      return;
-    }
-
-  /* There are 3 or more elements, call qsort.  */
-  qsort (VEC_address (tree, list), 
-	 VEC_length (tree, list), 
-	 sizeof (tree),
-	 operand_build_cmp);
-}
-
 /*  Return true if the SSA operands cache is active.  */
 
 bool
@@ -276,84 +228,6 @@ ssa_operands_active (void)
   return cfun->gimple_df && gimple_ssa_operands (cfun)->ops_active;
 }
 
-
-/* VOPs are of variable sized, so the free list maps "free buckets" to the 
-   following table:  
-    bucket   # operands
-    ------   ----------
-	0	1
-	1	2
-	  ...
-	15	16
-	16	17-24
-	17	25-32
-	18	31-40
-	  ...
-	29	121-128
-   Any VOPs larger than this are simply added to the largest bucket when they
-   are freed.  */
-
-
-/* Return the number of operands used in bucket BUCKET.  */
-
-static inline int
-vop_free_bucket_size (int bucket)
-{
-#ifdef ENABLE_CHECKING
-  gcc_assert (bucket >= 0 && bucket < NUM_VOP_FREE_BUCKETS);
-#endif
-  if (bucket < 16)
-    return bucket + 1;
-  return (bucket - 13) * 8;
-}
-
-
-/* For a vop of NUM operands, return the bucket NUM belongs to.  If NUM is 
-   beyond the end of the bucket table, return -1.  */
-
-static inline int 
-vop_free_bucket_index (int num)
-{
-  gcc_assert (num > 0 && NUM_VOP_FREE_BUCKETS > 16);
-
-  /* Sizes 1 through 16 use buckets 0-15.  */
-  if (num <= 16)
-    return num - 1;
-  /* Buckets 16 - NUM_VOP_FREE_BUCKETS represent 8 unit chunks.  */
-  num = 14 + (num - 1) / 8;
-  if (num >= NUM_VOP_FREE_BUCKETS)
-    return -1;
-  else
-    return num;
-}
-
-
-/* Initialize the VOP free buckets.  */
-
-static inline void
-init_vop_buckets (void)
-{
-  int x;
-
-  for (x = 0; x < NUM_VOP_FREE_BUCKETS; x++)
-    gimple_ssa_operands (cfun)->vop_free_buckets[x] = NULL;
-}
-
-
-/* Add PTR to the appropriate VOP bucket.  */
-
-static inline void
-add_vop_to_freelist (voptype_p ptr)
-{
-  int bucket = vop_free_bucket_index (VUSE_VECT_NUM_ELEM (ptr->usev));
-
-  /* Too large, use the largest bucket so its not a complete throw away.  */
-  if (bucket == -1)
-    bucket = NUM_VOP_FREE_BUCKETS - 1;
-
-  ptr->next = gimple_ssa_operands (cfun)->vop_free_buckets[bucket];
-  gimple_ssa_operands (cfun)->vop_free_buckets[bucket] = ptr;
-}
  
 /* Create the VOP variable, an artificial global variable to act as a
    representative of all of the virtual operands FUD chain.  */
@@ -399,8 +273,8 @@ init_ssa_operands (void)
     {
       build_defs = VEC_alloc (tree, heap, 5);
       build_uses = VEC_alloc (tree, heap, 10);
-      build_vuses = VEC_alloc (tree, heap, 25);
-      build_vdefs = VEC_alloc (tree, heap, 25);
+      build_vuse = NULL_TREE;
+      build_vdef = NULL_TREE;
       bitmap_obstack_initialize (&operands_bitmap_obstack);
       build_loads = BITMAP_ALLOC (&operands_bitmap_obstack);
       build_stores = BITMAP_ALLOC (&operands_bitmap_obstack);
@@ -412,7 +286,6 @@ init_ssa_operands (void)
      = gimple_ssa_operands (cfun)->ssa_operand_mem_size;
   gimple_ssa_operands (cfun)->ops_active = true;
   memset (&clobber_stats, 0, sizeof (clobber_stats));
-  init_vop_buckets ();
   gimple_ssa_operands (cfun)->ssa_operand_mem_size = OP_SIZE_INIT;
   create_vop_var ();
 }
@@ -429,8 +302,8 @@ fini_ssa_operands (void)
     {
       VEC_free (tree, heap, build_defs);
       VEC_free (tree, heap, build_uses);
-      VEC_free (tree, heap, build_vdefs);
-      VEC_free (tree, heap, build_vuses);
+      build_vdef = NULL_TREE;
+      build_vuse = NULL_TREE;
       BITMAP_FREE (build_loads);
       BITMAP_FREE (build_stores);
 
@@ -489,20 +362,20 @@ ssa_operand_alloc (unsigned size)
 
       if (gimple_ssa_operands (cfun)->ssa_operand_mem_size == OP_SIZE_INIT)
 	gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	   = OP_SIZE_1 * sizeof (struct voptype_d);
+	   = OP_SIZE_1 * sizeof (struct use_optype_d);
       else
 	if (gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	    == OP_SIZE_1 * sizeof (struct voptype_d))
+	    == OP_SIZE_1 * sizeof (struct use_optype_d))
 	  gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	     = OP_SIZE_2 * sizeof (struct voptype_d);
+	     = OP_SIZE_2 * sizeof (struct use_optype_d);
 	else
 	  gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	     = OP_SIZE_3 * sizeof (struct voptype_d);
+	     = OP_SIZE_3 * sizeof (struct use_optype_d);
 
       /* Go right to the maximum size if the request is too large.  */
       if (size > gimple_ssa_operands (cfun)->ssa_operand_mem_size)
         gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	  = OP_SIZE_3 * sizeof (struct voptype_d);
+	  = OP_SIZE_3 * sizeof (struct use_optype_d);
 
       /* We can reliably trigger the case that we need arbitrary many
 	 operands (see PR34093), so allocate a buffer just for this request.  */
@@ -561,38 +434,6 @@ alloc_use (void)
 }
 
 
-/* Allocate a vop with NUM elements.  */
-
-static inline struct voptype_d *
-alloc_vop (int num)
-{
-  struct voptype_d *ret = NULL;
-  int alloc_size = 0;
-
-  int bucket = vop_free_bucket_index (num);
-  if (bucket != -1)
-    {
-      /* If there is a free operand, use it.  */
-      if (gimple_ssa_operands (cfun)->vop_free_buckets[bucket] != NULL)
-	{
-	  ret = gimple_ssa_operands (cfun)->vop_free_buckets[bucket];
-	  gimple_ssa_operands (cfun)->vop_free_buckets[bucket] = 
-		  gimple_ssa_operands (cfun)->vop_free_buckets[bucket]->next;
-	}
-      else
-        alloc_size = vop_free_bucket_size(bucket);
-    }
-  else
-    alloc_size = num;
-
-  if (alloc_size > 0)
-    ret = (struct voptype_d *)ssa_operand_alloc (
-	sizeof (struct voptype_d) + (alloc_size - 1) * sizeof (vuse_element_t));
-
-  VUSE_VECT_NUM_ELEM (ret->usev) = num;
-  return ret;
-}
-
 
 /* This routine makes sure that PTR is in an immediate use list, and makes
    sure the stmt pointer is set to the current stmt.  */
@@ -641,56 +482,6 @@ add_use_op (gimple stmt, tree *op, use_optype_p last)
 }
 
 
-/* Return a virtual op pointer with NUM elements which are all
-   initialized to OP and are linked into the immediate uses for STMT.
-   The new vop is appended after PREV.  */
-
-static inline voptype_p
-add_vop (gimple stmt, tree op, int num, voptype_p prev)
-{
-  voptype_p new_vop;
-  int x;
-
-  new_vop = alloc_vop (num);
-  for (x = 0; x < num; x++)
-    {
-      VUSE_OP_PTR (new_vop, x)->prev = NULL;
-      SET_VUSE_OP (new_vop, x, op);
-      VUSE_OP_PTR (new_vop, x)->use = &new_vop->usev.uses[x].use_var;
-      link_imm_use_stmt (VUSE_OP_PTR (new_vop, x),
-			 new_vop->usev.uses[x].use_var, stmt);
-    }
-
-  if (prev)
-    prev->next = new_vop;
-  new_vop->next = NULL;
-  return new_vop;
-}
-
-
-/* Adds OP to the list of vuses of statement STMT after LAST, and moves
-   LAST to the new element.  */
-
-static inline voptype_p
-add_vuse_op (gimple stmt, tree op, int num, voptype_p last)
-{
-  voptype_p new_vop = add_vop (stmt, op, num, last);
-  VDEF_RESULT (new_vop) = NULL_TREE;
-  return new_vop;
-}
-
-
-/* Adds OP to the list of vdefs of statement STMT after LAST, and moves
-   LAST to the new element.  */
-
-static inline voptype_p
-add_vdef_op (gimple stmt, tree op, int num, voptype_p last)
-{
-  voptype_p new_vop = add_vop (stmt, op, num, last);
-  VDEF_RESULT (new_vop) = op;
-  return new_vop;
-}
-  
 
 /* Takes elements from build_defs and turns them into def operands of STMT.
    TODO -- Make build_defs VEC of tree *.  */
@@ -706,12 +497,43 @@ finalize_ssa_defs (gimple stmt)
   /* There should only be a single real definition per assignment.  */
   gcc_assert ((stmt && gimple_code (stmt) != GIMPLE_ASSIGN) || num <= 1);
 
+  /* Set the symbols referenced by STMT.  */
+  if (gimple_has_mem_ops (stmt))
+    gimple_set_stored_syms (stmt, build_stores, &operands_bitmap_obstack);
+
+  /* Pre-pend the vdef we may have built.  */
+  if (build_vdef != NULL_TREE)
+    {
+      tree oldvdef = gimple_vdef (stmt);
+      if (oldvdef
+	  && TREE_CODE (oldvdef) == SSA_NAME)
+	oldvdef = SSA_NAME_VAR (oldvdef);
+      if (oldvdef != build_vdef)
+	gimple_set_vdef (stmt, build_vdef);
+      VEC_safe_insert (tree, heap, build_defs, 0, (tree)gimple_vdef_ptr (stmt));
+      ++num;
+    }
+
   new_list.next = NULL;
   last = &new_list;
 
   old_ops = gimple_def_ops (stmt);
 
   new_i = 0;
+
+  /* Clear and unlink a no longer necessary VDEF.  */
+  if (build_vdef == NULL_TREE
+      && gimple_vdef (stmt) != NULL_TREE)
+    {
+      if (gimple_vdef_op (stmt) != NULL_DEF_OPERAND_P)
+	unlink_stmt_vdef (stmt);
+      gimple_set_vdef (stmt, NULL_TREE);
+    }
+
+  /* If we have a non-SSA_NAME VDEF, mark it for renaming.  */
+  if (gimple_vdef (stmt)
+      && TREE_CODE (gimple_vdef (stmt)) != SSA_NAME)
+    mark_sym_for_renaming (gimple_vdef (stmt));
 
   /* Check for the common case of 1 def that hasn't changed.  */
   if (old_ops && old_ops->next == NULL && num == 1
@@ -731,17 +553,6 @@ finalize_ssa_defs (gimple stmt)
 
   /* Now set the stmt's operands.  */
   gimple_set_def_ops (stmt, new_list.next);
-
-#ifdef ENABLE_CHECKING
-  {
-    def_optype_p ptr;
-    unsigned x = 0;
-    for (ptr = gimple_def_ops (stmt); ptr; ptr = ptr->next)
-      x++;
-
-    gcc_assert (x == num);
-  }
-#endif
 }
 
 
@@ -755,10 +566,32 @@ finalize_ssa_uses (gimple stmt)
   struct use_optype_d new_list;
   use_optype_p old_ops, ptr, last;
 
+  /* Set the symbols referenced by STMT.  */
+  if (gimple_has_mem_ops (stmt))
+    gimple_set_loaded_syms (stmt, build_loads, &operands_bitmap_obstack);
+
+  /* Pre-pend the VUSE we may have built.  */
+  if (build_vuse != NULL_TREE)
+    {
+      tree oldvuse = gimple_vuse (stmt);
+      if (oldvuse
+	  && TREE_CODE (oldvuse) == SSA_NAME)
+	oldvuse = SSA_NAME_VAR (oldvuse);
+      if (oldvuse != (build_vuse != NULL_TREE
+		      ? build_vuse : build_vdef))
+	gimple_set_vuse (stmt, NULL_TREE);
+      VEC_safe_insert (tree, heap, build_uses, 0, (tree)gimple_vuse_ptr (stmt));
+    }
+
   new_list.next = NULL;
   last = &new_list;
 
   old_ops = gimple_use_ops (stmt);
+
+  /* Clear a no longer necessary VUSE.  */
+  if (build_vuse == NULL_TREE
+      && gimple_vuse (stmt) != NULL_TREE)
+    gimple_set_vuse (stmt, NULL_TREE);
 
   /* If there is anything in the old list, free it.  */
   if (old_ops)
@@ -769,6 +602,15 @@ finalize_ssa_uses (gimple stmt)
       gimple_ssa_operands (cfun)->free_uses = old_ops;
     }
 
+  /* If we added a VUSE, make sure to set the operand if it is not already
+     present and mark it for renaming.  */
+  if (build_vuse != NULL_TREE
+      && gimple_vuse (stmt) == NULL_TREE)
+    {
+      gimple_set_vuse (stmt, gimple_vop (cfun));
+      mark_sym_for_renaming (gimple_vop (cfun));
+    }
+
   /* Now create nodes for all the new nodes.  */
   for (new_i = 0; new_i < VEC_length (tree, build_uses); new_i++)
     last = add_use_op (stmt, 
@@ -777,248 +619,6 @@ finalize_ssa_uses (gimple stmt)
 
   /* Now set the stmt's operands.  */
   gimple_set_use_ops (stmt, new_list.next);
-
-#ifdef ENABLE_CHECKING
-  {
-    unsigned x = 0;
-    for (ptr = gimple_use_ops (stmt); ptr; ptr = ptr->next)
-      x++;
-
-    gcc_assert (x == VEC_length (tree, build_uses));
-  }
-#endif
-}
-
-
-/* Takes elements from BUILD_VDEFS and turns them into vdef operands of
-   STMT.  */
-
-static inline void
-finalize_ssa_vdefs (gimple stmt)
-{
-  unsigned new_i;
-  struct voptype_d new_list;
-  voptype_p old_ops, ptr, last;
-
-  /* Set the symbols referenced by STMT.  */
-  gimple_set_stored_syms (stmt, build_stores, &operands_bitmap_obstack);
-
-  new_list.next = NULL;
-  last = &new_list;
-
-  old_ops = gimple_vdef_ops (stmt);
-  new_i = 0;
-  while (old_ops && new_i < VEC_length (tree, build_vdefs))
-    {
-      tree op = VEC_index (tree, build_vdefs, new_i);
-      unsigned new_uid = get_name_decl (op);
-      unsigned old_uid = get_name_decl (VDEF_RESULT (old_ops));
-
-      /* FIXME, for now each VDEF operator should have at most one
-	 operand in their RHS.  */
-      gcc_assert (VDEF_NUM (old_ops) == 1);
-
-      if (old_uid == new_uid)
-        {
-	  /* If the symbols are the same, reuse the existing operand.  */
-	  last->next = old_ops;
-	  last = old_ops;
-	  old_ops = old_ops->next;
-	  last->next = NULL;
-	  set_virtual_use_link (VDEF_OP_PTR (last, 0), stmt);
-	  new_i++;
-	}
-      else if (old_uid < new_uid)
-	{
-	  /* If old is less than new, old goes to the free list.  */
-	  voptype_p next;
-	  delink_imm_use (VDEF_OP_PTR (old_ops, 0));
-	  next = old_ops->next;
-	  add_vop_to_freelist (old_ops);
-	  old_ops = next;
-	}
-      else
-	{
-	  /* This is a new operand.  */
-	  last = add_vdef_op (stmt, op, 1, last);
-	  mark_sym_for_renaming (gimple_vop (cfun));
-	  new_i++;
-	}
-    }
-
-  /* If there is anything remaining in BUILD_VDEFS, simply emit it.  */
-  for ( ; new_i < VEC_length (tree, build_vdefs); new_i++)
-    {
-      last = add_vdef_op (stmt, VEC_index (tree, build_vdefs, new_i), 1, last);
-      mark_sym_for_renaming (gimple_vop (cfun));
-    }
-
-  /* If there is anything in the old list, free it.  */
-  if (old_ops)
-    {
-      unlink_stmt_vdef (stmt);
-      for (ptr = old_ops; ptr; ptr = last)
-        {
-	  last = ptr->next;
-	  delink_imm_use (VDEF_OP_PTR (ptr, 0));
-	  add_vop_to_freelist (ptr);
-	}
-    }
-
-  /* Now set STMT's operands.  */
-  gimple_set_vdef_ops (stmt, new_list.next);
-
-#ifdef ENABLE_CHECKING
-  {
-    unsigned x = 0;
-    for (ptr = gimple_vdef_ops (stmt); ptr; ptr = ptr->next)
-      x++;
-
-    gcc_assert (x == VEC_length (tree, build_vdefs));
-  }
-#endif
-}
-
-
-/* Takes elements from BUILD_VUSES and turns them into VUSE operands of
-   STMT.  */
-
-static inline void
-finalize_ssa_vuse_ops (gimple stmt)
-{
-  unsigned new_i, old_i;
-  voptype_p old_ops, last;
-  VEC(tree,heap) *new_ops;
-
-  /* Set the symbols referenced by STMT.  */
-  gimple_set_loaded_syms (stmt, build_loads, &operands_bitmap_obstack);
-
-  /* STMT should have at most one VUSE operator.  */
-  old_ops = gimple_vuse_ops (stmt);
-  gcc_assert (old_ops == NULL || old_ops->next == NULL);
-
-  new_ops = NULL;
-  new_i = old_i = 0;
-  while (old_ops
-         && old_i < VUSE_NUM (old_ops)
-	 && new_i < VEC_length (tree, build_vuses))
-    {
-      tree new_op = VEC_index (tree, build_vuses, new_i);
-      tree old_op = VUSE_OP (old_ops, old_i);
-      unsigned new_uid = get_name_decl (new_op);
-      unsigned old_uid = get_name_decl (old_op);
-
-      if (old_uid == new_uid)
-        {
-	  /* If the symbols are the same, reuse the existing operand.  */
-	  VEC_safe_push (tree, heap, new_ops, old_op);
-	  new_i++;
-	  old_i++;
-	}
-      else if (old_uid < new_uid)
-	{
-	  /* If OLD_UID is less than NEW_UID, the old operand has
-	     disappeared, skip to the next old operand.  */
-	  old_i++;
-	}
-      else
-	{
-	  /* This is a new operand.  */
-	  VEC_safe_push (tree, heap, new_ops, new_op);
-	  mark_sym_for_renaming (gimple_vop (cfun));
-	  new_i++;
-	}
-    }
-
-  /* If there is anything remaining in the build_vuses list, simply emit it.  */
-  for ( ; new_i < VEC_length (tree, build_vuses); new_i++)
-    {
-      VEC_safe_push (tree, heap, new_ops, VEC_index (tree, build_vuses, new_i));
-      mark_sym_for_renaming (gimple_vop (cfun));
-    }
-
-  /* If there is anything in the old list, free it.  */
-  if (old_ops)
-    {
-      for (old_i = 0; old_i < VUSE_NUM (old_ops); old_i++)
-	delink_imm_use (VUSE_OP_PTR (old_ops, old_i));
-      add_vop_to_freelist (old_ops);
-      gimple_set_vuse_ops (stmt, NULL);
-    }
-
-  /* If there are any operands, instantiate a VUSE operator for STMT.  */
-  if (new_ops)
-    {
-      tree op;
-      unsigned i;
-
-      last = add_vuse_op (stmt, NULL, VEC_length (tree, new_ops), NULL);
-
-      for (i = 0; VEC_iterate (tree, new_ops, i, op); i++)
-	SET_USE (VUSE_OP_PTR (last, (int) i), op);
-
-      gimple_set_vuse_ops (stmt, last);
-      VEC_free (tree, heap, new_ops);
-    }
-
-#ifdef ENABLE_CHECKING
-  {
-    unsigned x;
-    
-    if (gimple_vuse_ops (stmt))
-      {
-	gcc_assert (gimple_vuse_ops (stmt)->next == NULL);
-	x = VUSE_NUM (gimple_vuse_ops (stmt));
-      }
-    else
-      x = 0;
-
-    gcc_assert (x == VEC_length (tree, build_vuses));
-  }
-#endif
-}
-
-/* Return a new VUSE operand vector for STMT.  */
-                                                                              
-static void
-finalize_ssa_vuses (gimple stmt)
-{
-  unsigned num, num_vdefs;
-  unsigned vuse_index;
-
-  /* Remove superfluous VUSE operands.  If the statement already has a
-     VDEF operator for a variable 'a', then a VUSE for 'a' is not
-     needed because VDEFs imply a VUSE of the variable.  For instance,
-     suppose that variable 'a' is pointed-to by p and q:
-
-	      # VUSE <a_2>
-	      # a_3 = VDEF <a_2>
-	      *p = *q;
-
-     The VUSE <a_2> is superfluous because it is implied by the
-     VDEF operator.  */
-  num = VEC_length (tree, build_vuses);
-  num_vdefs = VEC_length (tree, build_vdefs);
-
-  if (num > 0 && num_vdefs > 0)
-    for (vuse_index = 0; vuse_index < VEC_length (tree, build_vuses); )
-      {
-	tree vuse;
-	vuse = VEC_index (tree, build_vuses, vuse_index);
-	if (TREE_CODE (vuse) != SSA_NAME)
-	  {
-	    var_ann_t ann = var_ann (vuse);
-	    ann->in_vuse_list = 0;
-	    if (ann->in_vdef_list)
-	      {
-		VEC_ordered_remove (tree, build_vuses, vuse_index);
-		continue;
-	      }
-	  }
-	vuse_index++;
-      }
-
-  finalize_ssa_vuse_ops (stmt);
 }
 
 
@@ -1028,19 +628,8 @@ finalize_ssa_vuses (gimple stmt)
 static inline void
 cleanup_build_arrays (void)
 {
-  unsigned i;
-  tree t;
-
-  for (i = 0; VEC_iterate (tree, build_vdefs, i, t); i++)
-    if (TREE_CODE (t) != SSA_NAME)
-      var_ann (t)->in_vdef_list = false;
-
-  for (i = 0; VEC_iterate (tree, build_vuses, i, t); i++)
-    if (TREE_CODE (t) != SSA_NAME)
-      var_ann (t)->in_vuse_list = false;
-
-  VEC_truncate (tree, build_vdefs, 0);
-  VEC_truncate (tree, build_vuses, 0);
+  build_vdef = NULL_TREE;
+  build_vuse = NULL_TREE;
   VEC_truncate (tree, build_defs, 0);
   VEC_truncate (tree, build_uses, 0);
   bitmap_clear (build_loads);
@@ -1055,11 +644,6 @@ finalize_ssa_stmt_operands (gimple stmt)
 {
   finalize_ssa_defs (stmt);
   finalize_ssa_uses (stmt);
-  if (gimple_has_mem_ops (stmt))
-    {
-      finalize_ssa_vdefs (stmt);
-      finalize_ssa_vuses (stmt);
-    }
   cleanup_build_arrays ();
 }
 
@@ -1071,8 +655,8 @@ start_ssa_stmt_operands (void)
 {
   gcc_assert (VEC_length (tree, build_defs) == 0);
   gcc_assert (VEC_length (tree, build_uses) == 0);
-  gcc_assert (VEC_length (tree, build_vuses) == 0);
-  gcc_assert (VEC_length (tree, build_vdefs) == 0);
+  gcc_assert (build_vuse == NULL_TREE);
+  gcc_assert (build_vdef == NULL_TREE);
   gcc_assert (bitmap_empty_p (build_loads));
   gcc_assert (bitmap_empty_p (build_stores));
 }
@@ -1102,13 +686,14 @@ static inline void
 append_vdef (void)
 {
   tree vop = gimple_vop (cfun);
-  var_ann_t ann;
 
-  ann = var_ann (vop);
-  if (ann->in_vdef_list)
-    return;
-  ann->in_vdef_list = true;
-  VEC_safe_push (tree, heap, build_vdefs, vop);
+  gcc_assert ((build_vdef == NULL_TREE
+	       || build_vdef == vop)
+	      && (build_vuse == NULL_TREE
+		  || build_vuse == vop));
+
+  build_vdef = vop;
+  build_vuse = vop;
 }
 
 
@@ -1118,16 +703,11 @@ static inline void
 append_vuse (void)
 {
   tree vop = gimple_vop (cfun);
-  var_ann_t ann;
 
-  ann = var_ann (vop);
-  if (ann->in_vuse_list)
-    return;
-  if (!ann->in_vdef_list)
-    {
-      ann->in_vuse_list = true;
-      VEC_safe_push (tree, heap, build_vuses, vop);
-    }
+  gcc_assert (build_vuse == NULL_TREE
+	      || build_vuse == vop);
+
+  build_vuse = vop;
 }
 
 /* Add VAR to the virtual operands for STMT.  FLAGS is as in
@@ -1629,8 +1209,6 @@ build_ssa_operands (gimple stmt)
 
   start_ssa_stmt_operands ();
   parse_ssa_operands (stmt);
-  operand_build_sort_virtual (build_vuses);
-  operand_build_sort_virtual (build_vdefs);
   finalize_ssa_stmt_operands (stmt);
 
   /* For added safety, assume that statements with volatile operands
@@ -1648,9 +1226,6 @@ free_stmt_operands (gimple stmt)
 {
   def_optype_p defs = gimple_def_ops (stmt), last_def;
   use_optype_p uses = gimple_use_ops (stmt), last_use;
-  voptype_p vuses = gimple_vuse_ops (stmt);
-  voptype_p vdefs = gimple_vdef_ops (stmt), vdef, next_vdef;
-  unsigned i;
 
   if (defs)
     {
@@ -1671,25 +1246,6 @@ free_stmt_operands (gimple stmt)
       gimple_set_use_ops (stmt, NULL);
     }
 
-  if (vuses)
-    {
-      for (i = 0; i < VUSE_NUM (vuses); i++)
-	delink_imm_use (VUSE_OP_PTR (vuses, i));
-      add_vop_to_freelist (vuses);
-      gimple_set_vuse_ops (stmt, NULL);
-    }
-
-  if (vdefs)
-    {
-      for (vdef = vdefs; vdef; vdef = next_vdef)
-	{
-	  next_vdef = vdef->next;
-	  delink_imm_use (VDEF_OP_PTR (vdef, 0));
-	  add_vop_to_freelist (vdef);
-	}
-      gimple_set_vdef_ops (stmt, NULL);
-    }
-
   if (gimple_has_ops (stmt))
     gimple_set_addresses_taken (stmt, NULL);
 
@@ -1697,6 +1253,8 @@ free_stmt_operands (gimple stmt)
     {
       gimple_set_stored_syms (stmt, NULL, &operands_bitmap_obstack);
       gimple_set_loaded_syms (stmt, NULL, &operands_bitmap_obstack);
+      gimple_set_vuse (stmt, NULL_TREE);
+      gimple_set_vdef (stmt, NULL_TREE);
     }
 }
 
@@ -1718,114 +1276,6 @@ update_stmt_operands (gimple stmt)
   gimple_set_modified (stmt, false);
 
   timevar_pop (TV_TREE_OPS);
-}
-
-
-/* Copies virtual operands from SRC to DST.  */
-
-void
-copy_virtual_operands (gimple dest, gimple src)
-{
-  unsigned int i, n;
-  voptype_p src_vuses, dest_vuses;
-  voptype_p src_vdefs, dest_vdefs;
-  struct voptype_d vuse;
-  struct voptype_d vdef;
-
-  if (!gimple_has_mem_ops (src))
-    return;
-
-  gimple_set_vdef_ops (dest, NULL);
-  gimple_set_vuse_ops (dest, NULL);
-
-  gimple_set_stored_syms (dest, gimple_stored_syms (src),
-			  &operands_bitmap_obstack);
-  gimple_set_loaded_syms (dest, gimple_loaded_syms (src),
-			  &operands_bitmap_obstack);
-
-  /* Copy all the VUSE operators and corresponding operands.  */
-  dest_vuses = &vuse;
-  for (src_vuses = gimple_vuse_ops (src);
-       src_vuses;
-       src_vuses = src_vuses->next)
-    {
-      n = VUSE_NUM (src_vuses);
-      dest_vuses = add_vuse_op (dest, NULL_TREE, n, dest_vuses);
-      for (i = 0; i < n; i++)
-	SET_USE (VUSE_OP_PTR (dest_vuses, i), VUSE_OP (src_vuses, i));
-
-      if (gimple_vuse_ops (dest) == NULL)
-	gimple_set_vuse_ops (dest, vuse.next);
-    }
-
-  /* Copy all the VDEF operators and corresponding operands.  */
-  dest_vdefs = &vdef;
-  for (src_vdefs = gimple_vdef_ops (src);
-       src_vdefs;
-       src_vdefs = src_vdefs->next)
-    {
-      n = VUSE_NUM (src_vdefs);
-      dest_vdefs = add_vdef_op (dest, NULL_TREE, n, dest_vdefs);
-      VDEF_RESULT (dest_vdefs) = VDEF_RESULT (src_vdefs);
-      for (i = 0; i < n; i++)
-	SET_USE (VUSE_OP_PTR (dest_vdefs, i), VUSE_OP (src_vdefs, i));
-
-      if (gimple_vdef_ops (dest) == NULL)
-	gimple_set_vdef_ops (dest, vdef.next);
-    }
-}
-
-
-/* Specifically for use in DOM's expression analysis.  Given a store, we
-   create an artificial stmt which looks like a load from the store, this can
-   be used to eliminate redundant loads.  OLD_OPS are the operands from the 
-   store stmt, and NEW_STMT is the new load which represents a load of the
-   values stored.  If DELINK_IMM_USES_P is specified, the immediate
-   uses of this stmt will be de-linked.  */
-
-void
-create_ssa_artificial_load_stmt (gimple new_stmt, gimple old_stmt,
-				 bool delink_imm_uses_p)
-{
-  tree op;
-  ssa_op_iter iter;
-  use_operand_p use_p;
-  unsigned i;
-
-  gimple_set_modified (new_stmt, false);
-
-  /* Process NEW_STMT looking for operands.  */
-  start_ssa_stmt_operands ();
-  parse_ssa_operands (new_stmt);
-
-  for (i = 0; VEC_iterate (tree, build_vuses, i, op); i++)
-    if (TREE_CODE (op) != SSA_NAME)
-      var_ann (op)->in_vuse_list = false;
-   
-  for (i = 0; VEC_iterate (tree, build_vdefs, i, op); i++)
-    if (TREE_CODE (op) != SSA_NAME)
-      var_ann (op)->in_vdef_list = false;
-
-  /* Remove any virtual operands that were found.  */
-  VEC_truncate (tree, build_vdefs, 0);
-  VEC_truncate (tree, build_vuses, 0);
-
-  /* Clear the loads and stores bitmaps.  */
-  bitmap_clear (build_loads);
-  bitmap_clear (build_stores);
-
-  /* For each VDEF on the original statement, we want to create a
-     VUSE of the VDEF result operand on the new statement.
-     ???  All this function can be simplified very much.  */
-  FOR_EACH_SSA_TREE_OPERAND (op, old_stmt, iter, SSA_OP_VDEF)
-    VEC_safe_push (tree, heap, build_vuses, op);
-
-  finalize_ssa_stmt_operands (new_stmt);
-
-  /* All uses in this fake stmt must not be in the immediate use lists.  */
-  if (delink_imm_uses_p)
-    FOR_EACH_SSA_USE_OPERAND (use_p, new_stmt, iter, SSA_OP_ALL_USES)
-      delink_imm_use (use_p);
 }
 
 
@@ -2048,9 +1498,8 @@ push_stmt_changes (gimple *stmt_p)
   if (gimple_references_memory_p (stmt))
     {
       tree op;
-      ssa_op_iter i;
 
-      FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_VUSE)
+      if ((op = gimple_vuse (stmt)) != NULL_TREE)
 	{
 	  tree sym = TREE_CODE (op) == SSA_NAME ? SSA_NAME_VAR (op) : op;
 	  if (buf->loads == NULL)
@@ -2058,7 +1507,7 @@ push_stmt_changes (gimple *stmt_p)
 	  bitmap_set_bit (buf->loads, DECL_UID (sym));
 	}
 
-      FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_VDEF)
+      if ((op = gimple_vdef (stmt)) != NULL_TREE)
 	{
 	  tree sym = TREE_CODE (op) == SSA_NAME ? SSA_NAME_VAR (op) : op;
 	  if (buf->stores == NULL)
@@ -2131,9 +1580,8 @@ pop_stmt_changes (gimple *stmt_p)
   if (gimple_references_memory_p (stmt))
     {
       tree op;
-      ssa_op_iter i;
 
-      FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_VUSE)
+      if ((op = gimple_vuse (stmt)) != NULL_TREE)
 	{
 	  tree sym = TREE_CODE (op) == SSA_NAME ? SSA_NAME_VAR (op) : op;
 	  if (loads == NULL)
@@ -2141,7 +1589,7 @@ pop_stmt_changes (gimple *stmt_p)
 	  bitmap_set_bit (loads, DECL_UID (sym));
 	}
 
-      FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_VDEF)
+      if ((op = gimple_vdef (stmt)) != NULL_TREE)
 	{
 	  tree sym = TREE_CODE (op) == SSA_NAME ? SSA_NAME_VAR (op) : op;
 	  if (stores == NULL)

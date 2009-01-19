@@ -363,8 +363,7 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
 
       tree expr = NULL_TREE;
       propagate_tree_value (&expr, val);
-      new_stmt  = gimple_build_assign (gimple_call_lhs (stmt), expr);
-      copy_virtual_operands (new_stmt, stmt);
+      new_stmt = gimple_build_assign (gimple_call_lhs (stmt), expr);
       move_ssa_defining_stmt_for_defs (new_stmt, stmt);
       gsi_replace (gsi, new_stmt, false);
     }
@@ -412,7 +411,7 @@ stmt_may_generate_copy (gimple stmt)
     return false;
 
   /* Statements with loads and/or stores will never generate a useful copy.  */
-  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
+  if (gimple_vuse (stmt))
     return false;
 
   /* Otherwise, the only statements that generate useful copies are

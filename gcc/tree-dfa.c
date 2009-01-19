@@ -464,8 +464,8 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p ATTRIBUTE_UNUSED)
 	  gimple stmt = gsi_stmt (si);
 	  dfa_stats_p->num_defs += NUM_SSA_OPERANDS (stmt, SSA_OP_DEF);
 	  dfa_stats_p->num_uses += NUM_SSA_OPERANDS (stmt, SSA_OP_USE);
-	  dfa_stats_p->num_vdefs += NUM_SSA_OPERANDS (stmt, SSA_OP_VDEF);
-	  dfa_stats_p->num_vuses += NUM_SSA_OPERANDS (stmt, SSA_OP_VUSE);
+	  dfa_stats_p->num_vdefs += gimple_vdef (stmt) ? 1 : 0;
+	  dfa_stats_p->num_vuses += gimple_vuse (stmt) ? 1 : 0;
 	}
     }
 }

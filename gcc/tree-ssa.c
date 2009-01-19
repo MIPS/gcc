@@ -589,6 +589,7 @@ verify_ssa (bool check_modified_stmt)
 	{
 	  gimple stmt = gsi_stmt (gsi);
 	  use_operand_p use_p;
+	  bool has_err;
 
 	  if (check_modified_stmt && gimple_modified_p (stmt))
 	    {
@@ -608,7 +609,7 @@ verify_ssa (bool check_modified_stmt)
 
 	      if (base_address
 		  && SSA_VAR_P (base_address)
-		  && ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF))
+		  && !gimple_vdef (stmt))
 		{
 		  error ("statement makes a memory store, but has no VDEFS");
 		  print_gimple_stmt (stderr, stmt, 0, TDF_VOPS);
@@ -616,14 +617,42 @@ verify_ssa (bool check_modified_stmt)
 		}
 	    }
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_VIRTUALS)
+	  /* Verify the single virtual operand and its constraints.  */
+	  has_err = false;
+	  if (gimple_vdef (stmt))
 	    {
-	      if (verify_ssa_name (op, true))
+	      if (gimple_vdef_op (stmt) == NULL_DEF_OPERAND_P)
 		{
-		  error ("in statement");
-		  print_gimple_stmt (stderr, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
-		  goto err;
+		  error ("statement has VDEF operand not in defs list");
+		  has_err = true;
 		}
+	      if (!gimple_vuse (stmt))
+		{
+		  error ("statement has VDEF but no VUSE operand");
+		  has_err = true;
+		}
+	      else if (SSA_NAME_VAR (gimple_vdef (stmt))
+		       != SSA_NAME_VAR (gimple_vuse (stmt)))
+		{
+		  error ("VDEF and VUSE do not use the same symbol");
+		  has_err = true;
+		}
+	      has_err |= verify_ssa_name (gimple_vdef (stmt), true);
+	    }
+	  if (gimple_vuse (stmt))
+	    {
+	      if  (gimple_vuse_op (stmt) == NULL_USE_OPERAND_P)
+		{
+		  error ("statement has VUSE operand not in usess list");
+		  has_err = true;
+		}
+	      has_err |= verify_ssa_name (gimple_vuse (stmt), true);
+	    }
+	  if (has_err)
+	    {
+	      error ("in statement");
+	      print_gimple_stmt (stderr, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
+	      goto err;
 	    }
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE|SSA_OP_DEF)
@@ -782,8 +811,8 @@ delete_tree_ssa (void)
 
 	  if (gimple_has_mem_ops (stmt))
 	    {
-	      gimple_set_vdef_ops (stmt, NULL);
-	      gimple_set_vuse_ops (stmt, NULL);
+	      gimple_set_vdef (stmt, NULL_TREE);
+	      gimple_set_vuse (stmt, NULL_TREE);
 	      BITMAP_FREE (stmt->gsmem.membase.stores);
 	      BITMAP_FREE (stmt->gsmem.membase.loads);
 	    }
@@ -1254,7 +1283,7 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data_)
 	if (data->stmt == NULL)
 	  return NULL_TREE;
 
-	vuse = SINGLE_SSA_USE_OPERAND (data->stmt, SSA_OP_VUSE);
+	vuse = gimple_vuse_op (data->stmt);
 	if (vuse == NULL_USE_OPERAND_P)
 	    return NULL_TREE;
 

@@ -1423,7 +1423,6 @@ get_init_expr (chain_p chain, unsigned index)
 void
 mark_virtual_ops_for_renaming (gimple stmt)
 {
-  ssa_op_iter iter;
   tree var;
 
   if (gimple_code (stmt) == GIMPLE_PHI)
@@ -1439,24 +1438,8 @@ mark_virtual_ops_for_renaming (gimple stmt)
     }
 
   update_stmt (stmt);
-
-  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_VIRTUALS)
-    {
-      if (TREE_CODE (var) == SSA_NAME)
-	var = SSA_NAME_VAR (var);
-      mark_sym_for_renaming (var);
-    }
-}
-
-/* Calls mark_virtual_ops_for_renaming for all members of LIST.  */
-
-static void
-mark_virtual_ops_for_renaming_list (gimple_seq list)
-{
-  gimple_stmt_iterator gsi;
-
-  for (gsi = gsi_start (list); !gsi_end_p (gsi); gsi_next (&gsi))
-    mark_virtual_ops_for_renaming (gsi_stmt (gsi));
+  if (gimple_vuse (stmt))
+    mark_sym_for_renaming (gimple_vop (cfun));
 }
 
 /* Returns a new temporary variable used for the I-th variable carrying
@@ -1525,10 +1508,7 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
 
       init = force_gimple_operand (init, &stmts, true, NULL_TREE);
       if (stmts)
-	{
-	  mark_virtual_ops_for_renaming_list (stmts);
-	  gsi_insert_seq_on_edge_immediate (entry, stmts);
-	}
+	gsi_insert_seq_on_edge_immediate (entry, stmts);
 
       phi = create_phi_node (var, loop->header);
       SSA_NAME_DEF_STMT (var) = phi;
@@ -1589,10 +1569,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
       
   init = force_gimple_operand (init, &stmts, written, NULL_TREE);
   if (stmts)
-    {
-      mark_virtual_ops_for_renaming_list (stmts);
-      gsi_insert_seq_on_edge_immediate (entry, stmts);
-    }
+    gsi_insert_seq_on_edge_immediate (entry, stmts);
 
   if (written)
     {
@@ -2466,10 +2443,7 @@ prepare_initializers_chain (struct loop *loop, chain_p chain)
 
       init = force_gimple_operand (init, &stmts, false, NULL_TREE);
       if (stmts)
-	{
-	  mark_virtual_ops_for_renaming_list (stmts);
-	  gsi_insert_seq_on_edge_immediate (entry, stmts);
-	}
+	gsi_insert_seq_on_edge_immediate (entry, stmts);
 
       VEC_replace (tree, chain->inits, i, init);
     }

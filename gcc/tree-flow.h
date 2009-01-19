@@ -226,14 +226,6 @@ struct var_ann_d GTY(())
      states.  */
   ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
-  /* Used during operand processing to determine if this variable is already 
-     in the VUSE list.  */
-  unsigned in_vuse_list : 1;
-
-  /* Used during operand processing to determine if this variable is already 
-     in the VDEF list.  */
-  unsigned in_vdef_list : 1;
-
   /* True for HEAP artificial variables.  These variables represent
      the memory area allocated by a call to malloc.  */
   unsigned is_heapvar : 1;

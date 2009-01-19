@@ -3316,7 +3316,7 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt)
       return false;
     }
 
-  gcc_assert (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS));
+  gcc_assert (!gimple_vuse (stmt));
 
   if (modifier == NARROW)
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_out;
@@ -3478,8 +3478,6 @@ vect_gen_widened_results_half (enum tree_code code,
 { 
   gimple new_stmt;
   tree new_temp; 
-  tree sym; 
-  ssa_op_iter iter;
  
   /* Generate half of the widened result:  */ 
   if (code == CALL_EXPR) 
@@ -3504,16 +3502,6 @@ vect_gen_widened_results_half (enum tree_code code,
       gimple_assign_set_lhs (new_stmt, new_temp);
     } 
   vect_finish_stmt_generation (stmt, new_stmt, gsi);
-
-  if (code == CALL_EXPR)
-    {
-      FOR_EACH_SSA_TREE_OPERAND (sym, new_stmt, iter, SSA_OP_ALL_VIRTUALS)
-        {
-          if (TREE_CODE (sym) == SSA_NAME)
-            sym = SSA_NAME_VAR (sym);
-          mark_sym_for_renaming (sym);
-        }
-    }
 
   return new_stmt;
 }
@@ -3679,9 +3667,6 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
     case NONE:
       for (j = 0; j < ncopies; j++)
 	{
-	  tree sym;
-	  ssa_op_iter iter;
-
 	  if (j == 0)
 	    vect_get_vec_defs (op0, NULL, stmt, &vec_oprnds0, NULL, slp_node); 
 	  else
@@ -3696,13 +3681,6 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
 	      new_temp = make_ssa_name (vec_dest, new_stmt);
 	      gimple_call_set_lhs (new_stmt, new_temp);
 	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
-	      FOR_EACH_SSA_TREE_OPERAND (sym, new_stmt, iter, 
-					 SSA_OP_ALL_VIRTUALS)
-		{
-		  if (TREE_CODE (sym) == SSA_NAME)
-		    sym = SSA_NAME_VAR (sym);
-		  mark_sym_for_renaming (sym);
-		}
 	      if (slp_node)
 		VEC_quick_push (gimple, SLP_TREE_VEC_STMTS (slp_node), new_stmt);
 	    }
@@ -6005,8 +5983,6 @@ vect_create_mask_and_perm (gimple stmt, gimple next_scalar_stmt,
   stmt_vec_info next_stmt_info;
   int i, group_size, stride, dr_chain_size;
   tree first_vec, second_vec, data_ref;
-  tree sym;
-  ssa_op_iter iter;
   VEC (tree, heap) *params = NULL;
 
   /* Create a vector mask.  */
@@ -6044,12 +6020,6 @@ vect_create_mask_and_perm (gimple stmt, gimple next_scalar_stmt,
       data_ref = make_ssa_name (perm_dest, perm_stmt);
       gimple_call_set_lhs (perm_stmt, data_ref);
       vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-      FOR_EACH_SSA_TREE_OPERAND (sym, perm_stmt, iter, SSA_OP_ALL_VIRTUALS)
-        {
-          if (TREE_CODE (sym) == SSA_NAME)
-            sym = SSA_NAME_VAR (sym);
-          mark_sym_for_renaming (sym);
-        }
 
       /* Store the vector statement in NODE.  */ 
       VEC_replace (gimple, SLP_TREE_VEC_STMTS (node), 
@@ -6638,9 +6608,9 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		new_stmt = gimple_build_assign (vec_dest, data_ref);
 		new_temp = make_ssa_name (vec_dest, new_stmt);
 		gimple_assign_set_lhs (new_stmt, new_temp);
+		gimple_set_vdef (new_stmt, gimple_vdef (stmt));
+		gimple_set_vuse (new_stmt, gimple_vuse (stmt));
 		vect_finish_stmt_generation (stmt, new_stmt, gsi);
-		copy_virtual_operands (new_stmt, stmt);
-		mark_symbols_for_renaming (new_stmt);
 		msq = new_temp;
 
 		bump = size_binop (MULT_EXPR, vs_minus_1,

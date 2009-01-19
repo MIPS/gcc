@@ -363,12 +363,12 @@ struct gimple_statement_with_memory_ops_base GTY(())
   /* [ WORD 1-7 ]  */
   struct gimple_statement_with_ops_base opbase;
 
-  /* [ WORD 8-9 ]  
-     Vectors for virtual operands.  */
-  struct voptype_d GTY((skip (""))) *vdef_ops;
-  struct voptype_d GTY((skip (""))) *vuse_ops;
+  /* [ WORD 8-9 ]
+     Virtual operands for this statement.  */
+  tree vdef;
+  tree vuse;
 
-  /* [ WORD 9-10 ]
+  /* [ WORD 10-11 ]
      Symbols stored/loaded by this statement.  */
   bitmap GTY((skip (""))) stores;
   bitmap GTY((skip (""))) loads;
@@ -1318,45 +1318,34 @@ gimple_set_use_ops (gimple g, struct use_optype_d *use)
 }
 
 
-/* Return the set of VUSE operands for statement G.  */
+/* Return the set of VUSE operand for statement G.  */
 
-static inline struct voptype_d *
-gimple_vuse_ops (const_gimple g)
+static inline use_operand_p
+gimple_vuse_op (const_gimple g)
 {
+  struct use_optype_d *ops;
   if (!gimple_has_mem_ops (g))
-    return NULL;
-  return g->gsmem.membase.vuse_ops;
+    return NULL_USE_OPERAND_P;
+  ops = g->gsops.opbase.use_ops;
+  if (ops
+      && USE_OP_PTR (ops)->use == &g->gsmem.membase.vuse)
+    return USE_OP_PTR (ops);
+  return NULL_USE_OPERAND_P;
 }
 
+/* Return the set of VDEF operand for statement G.  */
 
-/* Set OPS to be the set of VUSE operands for statement G.  */
-
-static inline void
-gimple_set_vuse_ops (gimple g, struct voptype_d *ops)
+static inline def_operand_p
+gimple_vdef_op (const_gimple g)
 {
-  gcc_assert (gimple_has_mem_ops (g));
-  g->gsmem.membase.vuse_ops = ops;
-}
-
-
-/* Return the set of VDEF operands for statement G.  */
-
-static inline struct voptype_d *
-gimple_vdef_ops (const_gimple g)
-{
+  struct def_optype_d *ops;
   if (!gimple_has_mem_ops (g))
-    return NULL;
-  return g->gsmem.membase.vdef_ops;
-}
-
-
-/* Set OPS to be the set of VDEF operands for statement G.  */
-
-static inline void
-gimple_set_vdef_ops (gimple g, struct voptype_d *ops)
-{
-  gcc_assert (gimple_has_mem_ops (g));
-  g->gsmem.membase.vdef_ops = ops;
+    return NULL_DEF_OPERAND_P;
+  ops = g->gsops.opbase.def_ops;
+  if (ops
+      && DEF_OP_PTR (ops) == &g->gsmem.membase.vdef)
+    return DEF_OP_PTR (ops);
+  return NULL_DEF_OPERAND_P;
 }
 
 
@@ -1365,13 +1354,9 @@ gimple_set_vdef_ops (gimple g, struct voptype_d *ops)
 static inline tree
 gimple_vuse (const_gimple g)
 {
-  struct voptype_d *ops = gimple_vuse_ops (g);
-  if (!ops)
-    /* The VMAYUSE is in the vdef ops list.  */
-    ops = gimple_vdef_ops (g);
-  if (!ops)
+  if (!gimple_has_mem_ops (g))
     return NULL_TREE;
-  return VUSE_OP (ops, 0);
+  return g->gsmem.membase.vuse;
 }
 
 /* Return the single VDEF operand of the statement G.  */
@@ -1379,12 +1364,48 @@ gimple_vuse (const_gimple g)
 static inline tree
 gimple_vdef (const_gimple g)
 {
-  struct voptype_d *ops = gimple_vdef_ops (g);
-  if (!ops)
+  if (!gimple_has_mem_ops (g))
     return NULL_TREE;
-  return VDEF_RESULT (ops);
+  return g->gsmem.membase.vdef;
 }
 
+/* Return the single VUSE operand of the statement G.  */
+
+static inline tree *
+gimple_vuse_ptr (gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL;
+  return &g->gsmem.membase.vuse;
+}
+
+/* Return the single VDEF operand of the statement G.  */
+
+static inline tree *
+gimple_vdef_ptr (gimple g)
+{
+  if (!gimple_has_mem_ops (g))
+    return NULL;
+  return &g->gsmem.membase.vdef;
+}
+
+/* Set the single VUSE operand of the statement G.  */
+
+static inline void
+gimple_set_vuse (gimple g, tree vuse)
+{
+  gcc_assert (gimple_has_mem_ops (g));
+  g->gsmem.membase.vuse = vuse;
+}
+
+/* Set the single VDEF operand of the statement G.  */
+
+static inline void
+gimple_set_vdef (gimple g, tree vdef)
+{
+  gcc_assert (gimple_has_mem_ops (g));
+  g->gsmem.membase.vdef = vdef;
+}
 
 /* Return the set of symbols loaded by statement G.  Each element of the
    set is the DECL_UID of the corresponding symbol.  */

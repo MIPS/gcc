@@ -4016,7 +4016,7 @@ get_references_in_stmt (gimple stmt, VEC (data_ref_loc, heap) **references)
 	  && gimple_asm_volatile_p (stmt)))
     clobbers_memory = true;
 
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
+  if (!gimple_vuse (stmt))
     return clobbers_memory;
 
   if (stmt_code == GIMPLE_ASSIGN)
@@ -4896,7 +4896,7 @@ stores_from_loop (struct loop *loop, VEC (gimple, heap) **stmts)
       gimple_stmt_iterator bsi;
 
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
-	if (!ZERO_SSA_OPERANDS (gsi_stmt (bsi), SSA_OP_VDEF))
+	if (gimple_vdef (gsi_stmt (bsi)))
 	  VEC_safe_push (gimple, heap, *stmts, gsi_stmt (bsi));
     }
 

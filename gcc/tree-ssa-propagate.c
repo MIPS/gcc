@@ -730,7 +730,6 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 
       new_stmt = gimple_build_call_vec (fn, args);
       gimple_call_set_lhs (new_stmt, lhs);
-      copy_virtual_operands (new_stmt, stmt);
       move_ssa_defining_stmt_for_defs (new_stmt, stmt);
       gimple_set_location (new_stmt, gimple_location (stmt));
       gsi_replace (si_p, new_stmt, false);
@@ -750,7 +749,6 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
              Introduce a new GIMPLE_ASSIGN statement.  */
           STRIP_USELESS_TYPE_CONVERSION (expr);
           new_stmt = gimple_build_assign (lhs, expr);
-          copy_virtual_operands (new_stmt, stmt);
           move_ssa_defining_stmt_for_defs (new_stmt, stmt);
         }
       else if (!TREE_SIDE_EFFECTS (expr))
@@ -771,7 +769,8 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
           add_referenced_var (lhs);
           lhs = make_ssa_name (lhs, new_stmt);
           gimple_assign_set_lhs (new_stmt, lhs);
-          copy_virtual_operands (new_stmt, stmt);
+	  gimple_set_vuse (new_stmt, gimple_vuse (stmt));
+	  gimple_set_vdef (new_stmt, gimple_vdef (stmt));
           move_ssa_defining_stmt_for_defs (new_stmt, stmt);
         }
       gimple_set_location (new_stmt, gimple_location (stmt));
@@ -842,7 +841,7 @@ stmt_makes_single_load (gimple stmt)
       != GIMPLE_SINGLE_RHS)
     return false;
 
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF|SSA_OP_VUSE))
+  if (!gimple_vuse (stmt))
     return false;
 
   rhs = gimple_assign_rhs1 (stmt);
@@ -867,7 +866,7 @@ stmt_makes_single_store (gimple stmt)
       && gimple_code (stmt) != GIMPLE_CALL)
     return false;
 
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF))
+  if (!gimple_vdef (stmt))
     return false;
 
   lhs = gimple_get_lhs (stmt);

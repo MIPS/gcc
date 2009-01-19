@@ -3792,7 +3792,7 @@ vect_stmt_relevant_p (gimple stmt, loop_vec_info loop_vinfo,
 
   /* changing memory.  */
   if (gimple_code (stmt) != GIMPLE_PHI)
-    if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
+    if (gimple_vdef (stmt))
       {
 	if (vect_print_dump_info (REPORT_DETAILS))
 	  fprintf (vect_dump, "vec_stmt_relevant_p: stmt has vdefs.");

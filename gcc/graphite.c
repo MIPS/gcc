@@ -4054,7 +4054,7 @@ rename_variables_in_stmt (gimple stmt, htab_t map)
   ssa_op_iter iter;
   use_operand_p use_p;
 
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
     {
       tree use = USE_FROM_PTR (use_p);
       tree new_name = get_new_name_from_old_name (map, use);
@@ -4351,7 +4351,7 @@ graphite_copy_stmts_from_block (basic_block bb, basic_block new_bb, htab_t map)
 	 operands.  */
       copy = gimple_copy (stmt);
       gsi_insert_after (&gsi_tgt, copy, GSI_NEW_STMT);
-      mark_symbols_for_renaming (copy);
+      mark_sym_for_renaming (gimple_vop (cfun));
 
       region = lookup_stmt_eh_region (stmt);
       if (region >= 0)
@@ -4360,7 +4360,7 @@ graphite_copy_stmts_from_block (basic_block bb, basic_block new_bb, htab_t map)
 
       /* Create new names for all the definitions created by COPY and
 	 add replacement mappings for each new name.  */
-      FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_DEF)
+      FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_ALL_DEFS)
 	{
 	  tree old_name = DEF_FROM_PTR (def_p);
 	  tree new_name = create_new_def_for (old_name, copy, def_p);
@@ -4581,8 +4581,8 @@ translate_clast (scop_p scop, struct loop *context_loop,
 					       context_loop, next_e, map);
       htab_delete (map);
       loop_iv_stack_remove_constants (ivstack);
-      update_ssa (TODO_update_ssa);
       recompute_all_dominators ();
+      update_ssa (TODO_update_ssa);
       graphite_verify ();
       return translate_clast (scop, context_loop, stmt->next, next_e, ivstack);
     }

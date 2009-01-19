@@ -210,7 +210,6 @@ extern void debug_sra_elt_name (struct sra_elt *);
 static tree generate_element_ref (struct sra_elt *);
 static gimple_seq sra_build_assignment (tree dst, tree src);
 static void mark_all_v_defs_seq (gimple_seq);
-static void mark_all_v_defs_stmt (gimple);
 
 
 /* Return true if DECL is an SRA candidate.  */
@@ -2014,27 +2013,6 @@ decide_instantiations (void)
 
 /* Phase Four: Update the function to match the replacements created.  */
 
-/* Mark all the variables in VDEF/VUSE operators for STMT for
-   renaming. This becomes necessary when we modify all of a
-   non-scalar.  */
-
-static void
-mark_all_v_defs_stmt (gimple stmt)
-{
-  tree sym;
-  ssa_op_iter iter;
-
-  update_stmt_if_modified (stmt);
-
-  FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_ALL_VIRTUALS)
-    {
-      if (TREE_CODE (sym) == SSA_NAME)
-	sym = SSA_NAME_VAR (sym);
-      mark_sym_for_renaming (sym);
-    }
-}
-
-
 /* Mark all the variables in virtual operands in all the statements in
    LIST for renaming.  */
 
@@ -2044,7 +2022,7 @@ mark_all_v_defs_seq (gimple_seq seq)
   gimple_stmt_iterator gsi;
 
   for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
-    mark_all_v_defs_stmt (gsi_stmt (gsi));
+    update_stmt_if_modified (gsi_stmt (gsi));
 }
 
 /* Mark every replacement under ELT with TREE_NO_WARNING.  */
@@ -2869,6 +2847,7 @@ static void
 sra_replace (gimple_stmt_iterator *gsi, gimple_seq seq)
 {
   sra_insert_before (gsi, seq);
+  unlink_stmt_vdef (gsi_stmt (*gsi));
   gsi_remove (gsi, false);
   if (gsi_end_p (*gsi))
     *gsi = gsi_last (gsi_seq (*gsi));
@@ -3144,7 +3123,7 @@ scalarize_use (struct sra_elt *elt, tree *expr_p, gimple_stmt_iterator *gsi,
 	  replacement = tmp;
 	}
       if (is_output)
-	  mark_all_v_defs_stmt (stmt);
+	  update_stmt_if_modified (stmt);
       *expr_p = REPLDUP (replacement);
       update_stmt (stmt);
     }
@@ -3364,7 +3343,7 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
 	 original block copy statement.  */
 
       stmt = gsi_stmt (*gsi);
-      mark_all_v_defs_stmt (stmt);
+      update_stmt_if_modified (stmt);
 
       seq = NULL;
       generate_element_copy (lhs_elt, rhs_elt, &seq);
@@ -3431,7 +3410,7 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, gimple_stmt_iterator *gsi)
       /* The LHS is fully instantiated.  The list of initializations
 	 replaces the original structure assignment.  */
       gcc_assert (seq);
-      mark_all_v_defs_stmt (gsi_stmt (*gsi));
+      update_stmt_if_modified (gsi_stmt (*gsi));
       mark_all_v_defs_seq (seq);
       sra_replace (gsi, seq);
     }
@@ -3482,7 +3461,7 @@ scalarize_ldst (struct sra_elt *elt, tree other,
       gimple_seq seq = NULL;
       gimple stmt = gsi_stmt (*gsi);
 
-      mark_all_v_defs_stmt (stmt);
+      update_stmt_if_modified (stmt);
       generate_copy_inout (elt, is_output, other, &seq);
       gcc_assert (seq);
       mark_all_v_defs_seq (seq);

@@ -256,7 +256,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 
   /* If this statement has no virtual defs, then there is nothing
      to do.  */
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF))
+  if (!gimple_vdef (stmt))
     return;
 
   /* We know we have virtual definitions.  If this is a GIMPLE_ASSIGN
