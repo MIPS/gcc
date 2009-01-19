@@ -16,7 +16,7 @@ struct C {
 int foo(struct C *c, struct B *b)
 {
   c->a1.i = 1;
-  b->a1.j = 0;
+  b->a1.i = 0;
   return c->a1.i;
 }
 

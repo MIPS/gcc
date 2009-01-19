@@ -1,5 +1,11 @@
 2009-01-19  Richard Guenther  <rguenther@suse.de>
 
+	testsuite/
+	* gcc.dg/tree-ssa/pr38895.c: Adjust testcase to test what it
+	was supposed to test.
+
+2009-01-19  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-operands.h (struct vuse_element_d): Remove.
 	(struct vuse_vec_d): Likewise.
 	(VUSE_VECT_NUM_ELEM, VUSE_VECT_ELEMENT_NC, VUSE_ELEMENT_PTR_NC,
