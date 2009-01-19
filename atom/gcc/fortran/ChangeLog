@@ -1,0 +1,94 @@
+2009-01-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38763
+	* target-memory.c (encode_derived): Encode NULL.
+
+2009-01-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38765
+	* resolve.c (check_host_association): Use the symtree name to
+	search for a potential contained procedure, since this is the
+	name by which it would be referenced.
+
+2009-01-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/38220
+	* interface.c (gfc_procedure_use):  Don't warn about functions
+	from ISO_C_BINDING.
+	* symbol.c (generate_isocbinding_symbol):  Mark c_loc and
+	c_funloc as pure.
+
+2009-01-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38657
+	* module.c (write_common_0): Use the name of the symtree rather
+	than the common block, to determine if the common has been
+	written.
+
+2009-01-05  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/37159
+	* check.c (gfc_check_random_seed): Added size check for GET
+	dummy argument, reworded error messages to follow common pattern.
+
+2009-01-05  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/38672
+	* trans-types.c (gfc_get_derived_type):  Check for the
+	presence of derived->ns->proc_name before
+	accessing derived->ns->proc_name->attr.flavor .
+	* resolve.c (resolve_symbol):  Likewise.
+
+2009-01-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38665
+	* gfortran.h : Add bit to gfc_expr 'user_operator'
+	* interface.c (gfc_extend_expr): Set the above if the operator
+	is substituted by a function. 
+	* resolve.c (check_host_association): Return if above is set.
+
+2009-01-04  Mikael Morin  <mikael.morin@tele2.fr>
+
+	PR fortran/35681
+	* ChangeLog-2008: Fix function name.
+
+	PR fortran/38487
+	* dependency.c (gfc_check_argument_var_dependency):
+	Move the check for pointerness inside the if block
+	so that it doesn't affect the return value.
+
+	PR fortran/38669
+	* trans-stmt.c (gfc_trans_call):
+	Add the dependency code after the loop bounds calculation one.
+
+2009-01-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.c (do_simplify): Removed already implemented TODO.
+
+2009-01-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/38718
+	* simplify.c (gfc_simplify_merge): New.
+	* intrinsic.h (gfc_simplify_merge): New prototype.
+	* intrinsic.c (add_functions): Added simplification for MERGE.
+
+2009-01-04  Mikael Morin  <mikael.morin@tele2.fr>
+
+	PR fortran/38536
+	* gfortran.h (gfc_is_data_pointer): Added prototype
+	* resolve.c (gfc_iso_c_func_interface):
+	Use gfc_is_data_pointer to test for pointer attribute.
+	* dependency.c (gfc_is_data_pointer):
+	Support pointer-returning functions.
+
+2009-01-03  Daniel Franke  <franke.daniel@gmail.com>
+
+	* symbol.c (save_symbol): Don't SAVE function results.
+
+2009-01-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38594
+	* resolve.c (resolve_call): When searching for proper host
+	association, use symtree rather than symbol.  For everything
+	except generic subroutines, substitute the symtree in the call
+	rather than the symbol.
