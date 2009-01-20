@@ -1,3 +1,8 @@
+2009-01-20  Simon Baldwin  <simonb@google.com>
+
+	* tree-ssa-coalesce.c (coalesce_ssa_name): Skip an SSA name if
+	it does not map to a partition.
+
 2009-01-20  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_local_field_decl, input_local_type_decl,
