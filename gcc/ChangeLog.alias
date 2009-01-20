@@ -1,3 +1,33 @@
+2009-01-20  Richard Guenther  <rguenther@suse.de>
+
+	* doc/invoke.texi (max-aliased-vops): Remove docs.
+	(avg-aliased-vops): Likewise.
+	* opts.c (decode_options): Do not adjust max-aliased-vops or
+	avg-aliased-vops values.
+	* params.def (PARAM_MAX_ALIASED_VOPS): Remove.
+	(PARAM_AVG_ALIASED_VOPS): Likewise.
+	* params.h (MAX_ALIASED_VOPS): Remove.
+	(AVG_ALIASED_VOPS): Likewise.
+	* timevar.def (TV_TREE_MAY_ALIAS): Remove.
+	(TV_CALL_CLOBBER): Likewise.
+	(TV_FLOW_SENSITIVE): Likewise.
+	(TV_FLOW_INSENSITIVE): Likewise.
+	(TV_MEMORY_PARTITIONING): Likewise.
+
+	testsuite/
+	* g++.dg/opt/pr36187.C: Remove no longer supported --param
+	adjustments.
+	* gcc.dg/pr19633-1.c: Likewise.
+	* gcc.dg/torture/pr30375.c: Likewise.
+	* gcc.dg/torture/pr33560.c: Likewise.
+	* gcc.dg/torture/pr33563.c: Likewise.
+	* gcc.dg/torture/pr33870.c: Likewise.
+	* gcc.dg/tree-ssa/alias-16.c: Likewise.
+	* gcc.dg/tree-ssa/alias-18.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-13.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-14.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-15.c: Likewise.
+
 2009-01-19  Richard Guenther  <rguenther@suse.de>
 
 	testsuite/
