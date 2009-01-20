@@ -1,3 +1,8 @@
+2009-01-20  Le-Chun Wu  <lcwu@google.com>
+
+	* cp/parser.c (cp_parser_init_declarator): Pass both prefix_attributes
+	and attributes to grokfield.
+
 2009-01-07  Le-Chun Wu  <lcwu@google.com>
 
 	* tree-threadsafe-analyze.c (lock_set_contains): Check the lock set
