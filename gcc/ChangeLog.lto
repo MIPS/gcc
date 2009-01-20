@@ -1,3 +1,12 @@
+2009-01-20  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_local_field_decl, input_local_type_decl,
+	input_local_type): Remove.
+	(input_local_decl): Don't call the removed functions.
+	* lto-function-out.c (output_local_field_decl,
+	output_local_type_decl, output_local_type): Remove.
+	(output_local_decl): Don't call the removed functions.
+
 2009-01-15  Rafael Avila de Espindola  <espindola@google.com>
 
 	* tree.c (reset_decl_lang_specific): Set DECL_CONTEXT (decl) to

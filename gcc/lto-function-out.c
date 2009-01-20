@@ -1396,185 +1396,6 @@ output_local_tree (struct output_block *ob, tree expr)
     output_expr_operand (ob, expr);
 }
 
-
-/* Output the local field declaration DECL to OB.
-   A "local" field declaration is one that that has a
-   dependency on a function context, and should always
-   have been declared within a function.  */
-
-static void
-output_local_field_decl (struct output_block *ob, tree decl)
-{
-  /* tag and flags */
-  output_record_start (ob, NULL, NULL, LTO_field_decl0);
-  output_tree_flags (ob, 0, decl, true);
-
-  /* uid and locus are handled specially */
-  output_local_tree (ob, decl->decl_minimal.name);
-  output_local_tree (ob, decl->decl_minimal.context);
-
-  output_local_tree (ob, decl->common.type);
-
-  output_local_tree (ob, decl->decl_common.attributes);
-  output_local_tree (ob, decl->decl_common.abstract_origin);
-
-  output_uleb128 (ob, decl->decl_common.mode);
-  output_uleb128 (ob, decl->decl_common.align);
-  output_uleb128 (ob, decl->decl_common.off_align);
-
-  output_local_tree (ob, decl->decl_common.size);
-  output_local_tree (ob, decl->decl_common.size_unit);
-
-  output_local_tree (ob, decl->field_decl.offset);
-  output_local_tree (ob, decl->field_decl.bit_field_type);
-  output_local_tree (ob, decl->field_decl.qualifier);
-  output_local_tree (ob, decl->field_decl.bit_offset);
-  output_local_tree (ob, decl->field_decl.fcontext);
-
-  /* lang_specific */
-  output_local_tree (ob, decl->decl_common.initial);
-
-  /* Write out current field before its siblings,
-     so follow the chain last.  */
-  output_local_tree (ob, decl->common.chain);
-
-  LTO_DEBUG_UNDENT();
-}
-
-
-/* Output the local type declaration DECL to OB.
-   A "local" type declaration  is one that that has a
-   dependency on a function context, and should always
-   have been declared within a function.  */
-
-static void
-output_local_type_decl (struct output_block *ob, tree decl)
-{
-  /* tag and flags */
-  output_record_start (ob, NULL, NULL, LTO_type_decl0);
-  output_tree_flags (ob, 0, decl, true);
-
-  /* uid and locus are handled specially */
-  /* Must output name before type.  */
-  output_local_tree (ob, decl->decl_minimal.name);
-  output_local_tree (ob, decl->decl_minimal.context);
-
-  output_local_tree (ob, decl->decl_with_vis.assembler_name);
-  output_local_tree (ob, decl->decl_with_vis.section_name);
-
-  output_local_tree (ob, decl->common.type);
-
-  output_local_tree (ob, decl->decl_common.attributes);
-  output_local_tree (ob, decl->decl_common.abstract_origin);
-
-  output_uleb128 (ob, decl->decl_common.mode);
-  output_uleb128 (ob, decl->decl_common.align);
-
-  output_local_tree (ob, decl->decl_common.size);		/* ??? */
-  output_local_tree (ob, decl->decl_common.size_unit);		/* ??? */
-
-  /* lang_specific */
-
-  gcc_assert (decl->decl_with_rtl.rtl == NULL);
-
-  output_local_tree (ob, decl->decl_common.initial);		/* ??? */
-
-  output_local_tree (ob, decl->decl_non_common.saved_tree);	/* ??? */
-  output_local_tree (ob, decl->decl_non_common.arguments);	/* ??? */
-  output_local_tree (ob, decl->decl_non_common.result);
-  output_local_tree (ob, decl->decl_non_common.vindex);		/* ??? */
-
-  LTO_DEBUG_UNDENT();
-}
-
-
-/* Output the local type TYPE to OB.
-   A "local" type is one that that has a dependency on a
-   function context, as the type of local var decl or
-   type decl, or a type that is variably-modified with a
-   dependency on a local variable or parameter.  */
-
-static void
-output_local_type (struct output_block *ob, tree type, enum LTO_tags tag)
-{
-  /* FIXME lto:  Support for local types is not used, and has not kept
-     up with changes to the global type streamer.  Make sure we take
-     another look if we start using it again.  */
-  gcc_unreachable ();
-
-  /* tag and flags */
-  output_record_start (ob, NULL, NULL, tag);
-  output_tree_flags (ob, 0, type, false);
-
-  LTO_DEBUG_TOKEN ("type");
-  output_local_tree (ob, type->common.type);
-  LTO_DEBUG_TOKEN ("size");
-  output_local_tree (ob, type->type.size);
-  LTO_DEBUG_TOKEN ("size_unit");
-  output_local_tree (ob, type->type.size_unit);
-  LTO_DEBUG_TOKEN ("attributes");
-  output_local_tree (ob, type->type.attributes);
-  LTO_DEBUG_TOKEN ("uid");
-  output_uleb128 (ob, type->type.uid);
-  LTO_DEBUG_TOKEN ("precision");
-  output_uleb128 (ob, type->type.precision);
-  LTO_DEBUG_TOKEN ("mode");
-  output_uleb128 (ob, type->type.mode);
-  LTO_DEBUG_TOKEN ("align");
-  output_uleb128 (ob, type->type.align);
-  LTO_DEBUG_TOKEN ("pointer_to");
-  output_local_tree (ob, type->type.pointer_to);
-  LTO_DEBUG_TOKEN ("reference_to");
-  output_local_tree (ob, type->type.reference_to);
-  /* FIXME: Output symtab here.  Do we need it?  */
-  LTO_DEBUG_TOKEN ("name");
-  output_local_tree (ob, type->type.name);	/* may be a TYPE_DECL */
-  LTO_DEBUG_TOKEN ("minval");
-  output_local_tree (ob, type->type.minval);
-  LTO_DEBUG_TOKEN ("maxval");
-  output_local_tree (ob, type->type.maxval);
-  LTO_DEBUG_TOKEN ("next_variant");
-  output_local_tree (ob, type->type.next_variant);
-  LTO_DEBUG_TOKEN ("main_variant");
-  output_local_tree (ob, type->type.main_variant);
-  /* FIXME: Handle BINFO.  */
-  /*
-    LTO_DEBUG_TOKEN ("binfo");
-    output_local_tree (ob, type->type.binfo);
-  */
-  LTO_DEBUG_TOKEN ("context");
-  /* FIXME: We don't emit BLOCKs, so context must be a
-     function or toplevel.  We probably break debugging.  */
-  /*output_tree (ob, type->type.context);*/
-  output_local_tree (ob, type_function_context (type));
-  LTO_DEBUG_TOKEN ("canonical");
-  output_local_tree (ob, type->type.canonical);
-
-  /* Slot 'values' may be the structures fields, so do them last,
-     after other slots of the structure type have been filled in.  */
-  LTO_DEBUG_TOKEN ("values");
-  if (TYPE_CACHED_VALUES_P (type))
-    {
-      gcc_assert (tag != RECORD_TYPE
-                  && tag != UNION_TYPE
-                  && tag != ARRAY_TYPE);
-      /* Don't stream the values cache.  We must clear flag
-         TYPE_CACHED_VALUES_P on input.  We don't do it here
-         because we don't want to clobber the tree as we write
-         it, and there is no infrastructure for modifying
-         flags as we serialize them.  */
-      output_zero (ob);
-    }
-  else
-    output_local_tree (ob, type->type.values);	/* should be a TREE_VEC */
-
-  LTO_DEBUG_TOKEN ("chain");
-  output_local_tree (ob, type->common.chain);	/* overloaded as TYPE_STUB_DECL */
-
-  LTO_DEBUG_UNDENT();
-}
-
-
 /* Output the local declaration or type at INDEX to OB.  */
 
 static void
@@ -1582,31 +1403,16 @@ output_local_decl (struct output_block *ob, int index)
 {
   tree decl = lto_tree_ref_encoder_get_tree (&ob->local_decl_encoder, index);
 
-  /* DEBUG */
-  /*
-    fprintf (stderr, "LOCAL: ");
-    print_generic_expr (stderr, decl, 0);
-    fprintf (stderr, "\n");
-  */
-
   VEC_replace (int, ob->local_decls_index, index, ob->main_stream->total_size);
 #ifdef LTO_STREAM_DEBUGGING
   VEC_replace (int, ob->local_decls_index_d, index, ob->debug_decl_stream->total_size);
 #endif
 
-  if (TREE_CODE (decl) == FIELD_DECL)
-    output_local_field_decl (ob, decl);
-  else if (TREE_CODE (decl) == VAR_DECL
-           || TREE_CODE (decl) == PARM_DECL)
+  if (TREE_CODE (decl) == VAR_DECL
+      || TREE_CODE (decl) == PARM_DECL)
     output_local_var_decl (ob, index);
-  else if (TREE_CODE (decl) == TYPE_DECL)
-    output_local_type_decl (ob, decl);
   else
-    {
-      gcc_assert (TYPE_P (decl));
-
-      output_local_type (ob, decl, expr_to_tag [TREE_CODE (decl)]);
-    }
+    gcc_unreachable ();
 }
 
 
