@@ -571,6 +571,12 @@ type_decl_is_local (tree decl ATTRIBUTE_UNUSED)
 static void
 output_type_ref_1 (struct output_block *ob, tree node)
 {
+  /* FIXME lto.  This is a hack, the use of -funsigned-char should be
+     reflected in the IL by changing every reference to char_type_node
+     into unsigned_char_type_node in pass_ipa_free_lang_data.  */
+  if (flag_signed_char == 0 && node == char_type_node)
+    node = unsigned_char_type_node;
+
   output_record_start (ob, NULL, NULL, LTO_global_type_ref);
   lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
 
@@ -3087,9 +3093,6 @@ output_tree (struct output_block *ob, tree expr)
   unsigned int tag;
   void **slot;
   struct lto_decl_slot d_slot;
-
-  if (flag_signed_char == 0 && expr == char_type_node)
-    expr = unsigned_char_type_node;
 
   if (expr == NULL_TREE)
     {

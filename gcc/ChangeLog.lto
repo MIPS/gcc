@@ -1,3 +1,9 @@
+2009-01-20  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_tree): Do not handle char_type_node.
+	(output_tree): Move check for flag_signed_char ... 
+	(output_type_ref_1): ... here.
+
 2009-01-20  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_local_vars): Set DECL_CONTEXT (var) to NULL.
