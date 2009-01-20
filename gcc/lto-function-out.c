@@ -545,28 +545,6 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
     }
 }
 
-
-/* Return innermost enclosing FUNCTION_DECL for a type,
-   or NULL_TREE if there is none.  */
-/* FIXME: Move this to tree.c alongside DECL_FUNCTION_CONTEXT.  */
-/* FIXME: Can type be ERROR_MARK?  See DECL_FUNCTION_CONTEXT.  */
-
-static tree
-type_function_context (const_tree type)
-{
-  tree context = TYPE_CONTEXT (type);
-
-  while (context && TREE_CODE (context) != FUNCTION_DECL)
-    {
-      if (TREE_CODE (context) == BLOCK)
-        context = BLOCK_SUPERCONTEXT (context);
-      else
-        context = get_containing_scope (context);
-    }
-  
-  return context;
-}
-
 /* Return true if a FIELD_DECL depends on a function context,
    i.e., makes reference to a function body and should be serialized
    with the function body, not the file scope.  */
@@ -574,13 +552,7 @@ type_function_context (const_tree type)
 static bool
 field_decl_is_local (tree decl ATTRIBUTE_UNUSED)
 {
-#ifdef STREAM_LOCAL_TYPES
-  return (decl_function_context (decl)
-          || variably_modified_type_p (TREE_TYPE(decl), NULL)
-          || type_function_context (TREE_TYPE (decl)));
-#else
   return false;
-#endif
 }
 
 /* Return true if a TYPE__DECL depends on a function context,
@@ -590,12 +562,7 @@ field_decl_is_local (tree decl ATTRIBUTE_UNUSED)
 static bool
 type_decl_is_local (tree decl ATTRIBUTE_UNUSED)
 {
-#ifdef STREAM_LOCAL_TYPES
-  return (decl_function_context (decl)
-          || variably_modified_type_p (TREE_TYPE(decl), NULL));
-#else
   return false;
-#endif
 }
 
 
@@ -604,18 +571,8 @@ type_decl_is_local (tree decl ATTRIBUTE_UNUSED)
 static void
 output_type_ref_1 (struct output_block *ob, tree node)
 {
-#ifdef STREAM_LOCAL_TYPES
-  if (variably_modified_type_p (node, NULL) || type_function_context (node))
-    {
-      output_record_start (ob, NULL, NULL, LTO_local_type_ref);
-      output_local_decl_ref (ob, node, true);
-    }
-  else
-#endif
-    {
-      output_record_start (ob, NULL, NULL, LTO_global_type_ref);
-      lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
-    }
+  output_record_start (ob, NULL, NULL, LTO_global_type_ref);
+  lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
 
   LTO_DEBUG_UNDENT();
 }
@@ -1380,20 +1337,6 @@ output_local_var_decl (struct output_block *ob, int index)
     output_expr_operand (ob, DECL_ABSTRACT_ORIGIN (decl));
   
   LTO_DEBUG_UNDENT();
-}
-
-
-/* Emit tree node EXPR to output block OB.  */
-
-static void
-output_local_tree (struct output_block *ob, tree expr)
-{
-  if (expr == NULL_TREE)
-    output_zero (ob);
-  else if (TYPE_P (expr))
-    output_type_ref_1 (ob, expr);
-  else
-    output_expr_operand (ob, expr);
 }
 
 /* Output the local declaration or type at INDEX to OB.  */

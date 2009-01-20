@@ -1,6 +1,14 @@
 2009-01-20  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_local_field_decl, input_local_type_decl,
+	input_local_type, input_local_tree): Remove.
+	* lto-function-out.c (field_decl_is_local, type_decl_is_local,
+	output_type_ref_1): Remove STREAM_LOCAL_TYPES ifdef.
+	(output_local_tree, type_function_context): Remove.
+
+2009-01-20  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_local_field_decl, input_local_type_decl,
 	input_local_type): Remove.
 	(input_local_decl): Don't call the removed functions.
 	* lto-function-out.c (output_local_field_decl,

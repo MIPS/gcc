@@ -113,25 +113,8 @@ input_expr_operand (struct lto_input_block *, struct data_in *,
                     struct function *, enum LTO_tags);
 
 static tree
-input_local_tree (struct lto_input_block *, struct data_in *,
-                  struct function *);
-
-static tree
 input_local_var_decl (struct lto_input_block *, struct data_in *,
                       struct function *, unsigned int, enum LTO_tags);
-
-static tree
-input_local_field_decl (struct lto_input_block *, struct data_in *,
-                        struct function *, unsigned int);
-
-static tree
-input_local_type_decl (struct lto_input_block *, struct data_in *,
-                       struct function *, unsigned int);
-
-static tree
-input_local_type (struct lto_input_block *, struct data_in *,
-                  struct function *, unsigned int, enum tree_code code);
-
 
 static tree
 input_local_decl (struct lto_input_block *, struct data_in *,
@@ -1129,77 +1112,6 @@ input_local_vars_index (struct lto_input_block *ib, struct data_in *data_in,
       data_in->local_decls_index_d[i] = lto_input_uleb128 (ib); 
 #endif
     }
-}
-
-
-static tree
-input_local_tree (struct lto_input_block *ib, struct data_in *data_in,
-                  struct function *fn)
-{
-  int index;
-  tree result;
-  enum LTO_tags tag;
-
-  tag = input_record_start (ib);
-
-  if (tag == 0)
-    return NULL_TREE;
-  else if (tag == LTO_global_type_ref)
-    {
-      index = lto_input_uleb128 (ib);
-      result = lto_file_decl_data_get_type (data_in->file_data, index);
-    }
-  else if (tag == LTO_local_type_ref)
-    {
-      /* FIXME: Refactor to avoid all the cut/paste of
-         code cribbed from the VAR_DECL handler, here
-         and elsewhere.  */
-      int lv_index = lto_input_uleb128 (ib);
-      result = data_in->local_decls[lv_index];
-      if (result == NULL)
-      {
-        /* Create a context to read the local variable so that
-           it does not disturb the position of the code that is
-           calling for the local variable.  This allows locals
-           to refer to other locals.  */
-        struct lto_input_block lib;
-
-#ifdef LTO_STREAM_DEBUGGING
-        struct lto_input_block *current
-	  = (struct lto_input_block *) lto_debug_context.current_data;
-        struct lto_input_block debug;
-        int current_indent = lto_debug_context.indent;
-
-        debug.data = current->data;
-        debug.len = current->len;
-        debug.p = data_in->local_decls_index_d[lv_index];
-
-        lto_debug_context.indent = 0;
-        lto_debug_context.current_data = &debug;
-        lto_debug_context.tag_names = LTO_tree_tag_names;
-#endif
-        lib.data = ib->data;
-        lib.len = ib->len;
-        lib.p = data_in->local_decls_index[lv_index];
-
-        /* The TYPE_DECL case doesn't care about the FN argument.  */
-        result = input_local_decl (&lib, data_in, NULL, lv_index);
-        gcc_assert (TYPE_P (result));
-        data_in->local_decls[lv_index] = result;
-
-#ifdef LTO_STREAM_DEBUGGING
-        lto_debug_context.indent = current_indent;
-        lto_debug_context.current_data = current;
-        lto_debug_context.tag_names = LTO_tree_tag_names;
-#endif
-      }
-    }
-  else
-    /* Not a type_ref.  */
-    return input_expr_operand (ib, data_in, fn, tag);
-
-  LTO_DEBUG_UNDENT();
-  return result;
 }
 
 /* Input local var I for FN from IB.  */
