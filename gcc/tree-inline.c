@@ -1393,14 +1393,24 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		break;
 
 	      case CB_CGE_MOVE_CLONES:
-		for (node = id->dst_node->next_clone;
-		    node;
-		    node = node->next_clone)
-		  {
-		    edge = cgraph_edge (node, orig_stmt);
-			  if (edge)
-			    cgraph_set_call_stmt (edge, stmt);
-		  }
+	        if (id->dst_node->clones)
+		  for (node = id->dst_node->clones; node != id->dst_node;)
+		    {
+		      edge = cgraph_edge (node, orig_stmt);
+		      if (edge)
+			cgraph_set_call_stmt (edge, stmt);
+		      if (node->clones)
+			node = node->clones;
+		      else if (node->next_sibling_clone)
+			node = node->next_sibling_clone;
+		      else
+			{
+			  while (node != id->dst_node && !node->next_sibling_clone)
+			    node = node->clone_of;
+			  if (node != id->dst_node)
+			    node = node->next_sibling_clone;
+			}
+		    }
 		/* FALLTHRU */
 
 	      case CB_CGE_MOVE:

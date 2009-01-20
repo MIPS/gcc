@@ -1,5 +1,18 @@
 2009-01-17  Jan Hubicka  <jh@suse.cz>
 
+	* cgraph.c (cgraph_remove_node): Handle clones tree.
+	(cgraph_clone_node): Create clone tree.
+	(cgraph_function_body_availability): Fixup comment.
+	* cgraph.h (cgraph_node): Add clone tree.
+	* cgraphunit.c (verify_cgraph_node): Verify clone tree.
+	(cgraph_preserve_function_body_p): Use clone tree.
+	(save_inline_function_body): Redirect clone tree to new copy.
+	* ipa.c (cgraph_remove_unreachable_nodes): Check clone childs.
+	* tree-inline.c (copy_bb): Likewise.
+	* ipa-struct-reorg.c (do_reorg_1): Likewise.
+
+2009-01-17  Jan Hubicka  <jh@suse.cz>
+
 	* cgraph.c (cgraph_node_can_be_local_p, cgraph_make_node_local): New
 	function.
 	* cgraph.h (cgraph_node_can_be_local_p, cgraph_make_node_local):

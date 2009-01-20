@@ -174,8 +174,8 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		{
 		  struct cgraph_node *clone;
 
-		  for (clone = node->next_clone; clone;
-		       clone = clone->next_clone)
+		  for (clone = node->clones; clone;
+		       clone = clone->next_sibling_clone)
 		    if (clone->aux)
 		      break;
 		  if (!clone)

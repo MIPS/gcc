@@ -147,8 +147,10 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Pointer to the next function in cgraph_nodes_queue.  */
   struct cgraph_node *next_needed;
   /* Pointer to the next clone.  */
-  struct cgraph_node *next_clone;
-  struct cgraph_node *prev_clone;
+  struct cgraph_node *next_sibling_clone;
+  struct cgraph_node *prev_sibling_clone;
+  struct cgraph_node *clones;
+  struct cgraph_node *clone_of;
   /* For functions with many calls sites it holds map from call expression
      to the edge to speed up cgraph_edge function.  */
   htab_t GTY((param_is (struct cgraph_edge))) call_site_hash;

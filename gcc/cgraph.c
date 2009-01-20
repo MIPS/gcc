@@ -978,13 +978,32 @@ cgraph_remove_node (struct cgraph_node *node)
   slot = htab_find_slot (cgraph_hash, node, NO_INSERT);
   if (*slot == node)
     {
-      if (node->next_clone)
-      {
-	struct cgraph_node *new_node = node->next_clone;
+      gcc_assert (!node->clone_of);
+      gcc_assert (!node->next_sibling_clone);
+      if (node->clones)
+	{
+	  struct cgraph_node *new_node = node->clones;
+	  struct cgraph_node *n;
 
-	*slot = new_node;
-	node->next_clone->prev_clone = NULL;
-      }
+	  *slot = new_node;
+	  if (new_node->next_sibling_clone)
+	    {
+	      n = new_node->next_sibling_clone;
+	      while (n->next_sibling_clone)
+		{
+		  n->clone_of = new_node;
+		  n = n->next_sibling_clone;
+		}
+	      n->clone_of = new_node;
+	      if (new_node->clones)
+	        new_node->clones->prev_sibling_clone = n;
+	      n->next_sibling_clone = new_node->clones;
+	      new_node->clones = new_node->next_sibling_clone;
+	      new_node->next_sibling_clone->prev_sibling_clone = NULL;
+	      new_node->next_sibling_clone = NULL;
+	    }
+	  new_node->clone_of = NULL;
+	}
       else
 	{
 	  htab_clear_slot (cgraph_hash, slot);
@@ -993,9 +1012,24 @@ cgraph_remove_node (struct cgraph_node *node)
     }
   else
     {
-      node->prev_clone->next_clone = node->next_clone;
-      if (node->next_clone)
-	node->next_clone->prev_clone = node->prev_clone;
+      gcc_assert (node->clone_of);
+      if (node->prev_sibling_clone)
+        node->prev_sibling_clone->next_sibling_clone = node->next_sibling_clone;
+      else if (node->clone_of)
+        node->clone_of->clones = node->next_sibling_clone;
+      if (node->next_sibling_clone)
+        node->next_sibling_clone->prev_sibling_clone = node->prev_sibling_clone;
+      if (node->clones)
+	{
+	  struct cgraph_node *n;
+	  for (n = node->clones; n->next_sibling_clone; n = n->next_sibling_clone)
+	    n->clone_of = node->clone_of;
+	  n->clone_of = node->clone_of;
+	  n->next_sibling_clone = node->clone_of->clones;
+	  if (node->clone_of->clones)
+	    node->clone_of->clones->prev_sibling_clone = n;
+	  node->clone_of->clones = node->clones;
+	}
     }
 
   /* While all the clones are removed after being proceeded, the function
@@ -1005,7 +1039,7 @@ cgraph_remove_node (struct cgraph_node *node)
   if (!kill_body && *slot)
     {
       struct cgraph_node *n = (struct cgraph_node *) *slot;
-      if (!n->next_clone && !n->global.inlined_to
+      if (!n->clones && !n->clone_of && !n->global.inlined_to
 	  && (cgraph_global_info_ready
 	      && (TREE_ASM_WRITTEN (n->decl) || DECL_EXTERNAL (n->decl))))
 	kill_body = true;
@@ -1384,11 +1418,11 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq,
     cgraph_clone_edge (e, new_node, e->call_stmt, count_scale, freq, loop_nest,
 		       update_original);
 
-  new_node->next_clone = n->next_clone;
-  new_node->prev_clone = n;
-  n->next_clone = new_node;
-  if (new_node->next_clone)
-    new_node->next_clone->prev_clone = new_node;
+  new_node->next_sibling_clone = n->clones;
+  if (n->clones)
+    n->clones->prev_sibling_clone = new_node;
+  n->clones = new_node;
+  new_node->clone_of = n;
 
   cgraph_call_node_duplication_hooks (n, new_node);
   return new_node;
@@ -1434,12 +1468,7 @@ cgraph_function_body_availability (struct cgraph_node *node)
 
      ??? Does the C++ one definition rule allow us to always return
      AVAIL_AVAILABLE here?  That would be good reason to preserve this
-     hook Similarly deal with extern inline functions - this is again
-     necessary to get C++ shared functions having keyed templates
-     right and in the C extension documentation we probably should
-     document the requirement of both versions of function (extern
-     inline and offline) having same side effect characteristics as
-     good optimization is what this optimization is about.  */
+     bit.  */
 
   else if (!(*targetm.binds_local_p) (node->decl)
 	   && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))

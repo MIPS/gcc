@@ -553,7 +553,6 @@ void
 verify_cgraph_node (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
-  struct cgraph_node *main_clone;
   struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
   struct function *saved_cfun = cfun;
   basic_block this_block;
@@ -628,13 +627,49 @@ verify_cgraph_node (struct cgraph_node *node)
       error_found = true;
     }
 
-  for (main_clone = cgraph_node (node->decl); main_clone;
-       main_clone = main_clone->next_clone)
-    if (main_clone == node)
-      break;
   if (!cgraph_node (node->decl))
     {
       error ("node not found in cgraph_hash");
+      error_found = true;
+    }
+
+  if (node->clone_of)
+    {
+      struct cgraph_node *n;
+      for (n = node->clone_of->clones; n; n = n->next_sibling_clone)
+        if (n == node)
+	  break;
+      if (!n)
+	{
+	  error ("node has wrong clone_of");
+	  error_found = true;
+	}
+    }
+  if (node->clones)
+    {
+      struct cgraph_node *n;
+      for (n = node->clones; n; n = n->next_sibling_clone)
+        if (n->clone_of != node)
+	  break;
+      if (n)
+	{
+	  error ("node has wrong clone list");
+	  error_found = true;
+	}
+    }
+  if ((node->prev_sibling_clone || node->next_sibling_clone) && !node->clone_of)
+    {
+       error ("node is in clone list but it is not clone");
+       error_found = true;
+    }
+  if (!node->prev_sibling_clone && node->clone_of && node->clone_of->clones != node)
+    {
+      error ("node has wrong prev_clone pointer");
+      error_found = true;
+    }
+  if (node->prev_sibling_clone && node->prev_sibling_clone->next_sibling_clone != node)
+    {
+      error ("double linked list of clones corrupted");
       error_found = true;
     }
 
@@ -1223,9 +1258,9 @@ cgraph_preserve_function_body_p (tree decl)
 
   gcc_assert (cgraph_global_info_ready);
   /* Look if there is any clone around.  */
-  for (node = cgraph_node (decl); node; node = node->next_clone)
-    if (node->global.inlined_to)
-      return true;
+  node = cgraph_node (decl);
+  if (node->clones)
+    return true;
   return false;
 }
 
@@ -1567,19 +1602,32 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
 struct cgraph_node *
 save_inline_function_body (struct cgraph_node *node)
 {
-  struct cgraph_node *first_clone;
+  struct cgraph_node *first_clone, *n;
 
   gcc_assert (node == cgraph_node (node->decl));
 
   cgraph_lower_function (node);
 
-  first_clone = node->next_clone;
+  first_clone = node->clones;
 
   first_clone->decl = copy_node (node->decl);
-  node->next_clone = NULL;
-  first_clone->prev_clone = NULL;
   cgraph_insert_node_to_hashtable (first_clone);
   gcc_assert (first_clone == cgraph_node (first_clone->decl));
+  if (first_clone->next_sibling_clone)
+    {
+      for (n = first_clone->next_sibling_clone; n->next_sibling_clone; n = n->next_sibling_clone)
+        n->clone_of = first_clone;
+      n->clone_of = first_clone;
+      n->next_sibling_clone = first_clone->clones;
+      if (first_clone->clones)
+        first_clone->clones->prev_sibling_clone = n;
+      first_clone->clones = first_clone->next_sibling_clone;
+      first_clone->next_sibling_clone->prev_sibling_clone = NULL;
+      first_clone->next_sibling_clone = NULL;
+      gcc_assert (!first_clone->prev_sibling_clone);
+    }
+  first_clone->clone_of = NULL;
+  node->clones = NULL;
 
   /* Copy the OLD_VERSION_NODE function tree to the new version.  */
   tree_function_versioning (node->decl, first_clone->decl, NULL, true, NULL);
@@ -1589,8 +1637,22 @@ save_inline_function_body (struct cgraph_node *node)
   TREE_PUBLIC (first_clone->decl) = 0;
   DECL_COMDAT (first_clone->decl) = 0;
 
-  for (node = first_clone->next_clone; node; node = node->next_clone)
-    node->decl = first_clone->decl;
+  if (first_clone->clones)
+    for (node = first_clone->clones; node != first_clone;)
+      {
+	node->decl = first_clone->decl;
+	if (node->clones)
+	  node = node->clones;
+	else if (node->next_sibling_clone)
+	  node = node->next_sibling_clone;
+	else
+	  {
+	    while (node != first_clone && !node->next_sibling_clone)
+	      node = node->clone_of;
+	    if (node != first_clone)
+	      node = node->next_sibling_clone;
+	  }
+      }
 #ifdef ENABLE_CHECKING
   verify_cgraph_node (first_clone);
 #endif
