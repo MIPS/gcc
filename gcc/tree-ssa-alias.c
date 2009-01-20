@@ -373,7 +373,18 @@ same_type_for_tbaa (tree type1, tree type2)
     return -1;
 
   /* Compare the canonical types.  */
-  return (TYPE_CANONICAL (type1) == TYPE_CANONICAL (type2)) ? 1 : 0;
+  if (TYPE_CANONICAL (type1) == TYPE_CANONICAL (type2))
+    return 1;
+
+  /* ???  Array types are not properly unified in all cases as we have
+     spurious changes in the index types for example.  Removing this
+     causes all sorts of problems with the Fortran frontend.  */
+  if (TREE_CODE (type1) == ARRAY_TYPE
+      && TREE_CODE (type2) == ARRAY_TYPE)
+    return -1;
+
+  /* The types are known to be not equal.  */
+  return 0;
 }
 
 /* Return true, if the two memory references REF1 and REF2 may alias.  */
@@ -520,7 +531,8 @@ refs_may_alias_p (tree ref1, tree ref2)
       int same_p;
       /* Now search for the type of base1 in the access path of ref2.  This
 	 would be a common base for doing offset based disambiguation on.  */
-      refp = &ref2;
+      /* Skip the outermost ref - we would have caught that earlier.  */
+      refp = &TREE_OPERAND (ref2, 0);
       while (handled_component_p (*refp)
 	     && same_type_for_tbaa (TREE_TYPE (*refp),
 				    TREE_TYPE (base1)) == 0)
@@ -537,7 +549,7 @@ refs_may_alias_p (tree ref1, tree ref2)
 	  return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
 	}
       /* If we didn't find a common base, try the other way around.  */
-      refp = &ref1;
+      refp = &TREE_OPERAND (ref1, 0);
       while (handled_component_p (*refp)
 	     && same_type_for_tbaa (TREE_TYPE (*refp),
 				    TREE_TYPE (base2)) == 0)

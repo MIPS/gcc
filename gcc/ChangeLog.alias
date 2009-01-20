@@ -1,5 +1,12 @@
 2009-01-20  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-alias.c (same_type_for_tbaa): Never say that two
+	array types are not equal - that is too unreliable.
+	(refs_may_alias_p): Skip first component for path based
+	type disambiguation.
+
+2009-01-20  Richard Guenther  <rguenther@suse.de>
+
 	* doc/invoke.texi (max-aliased-vops): Remove docs.
 	(avg-aliased-vops): Likewise.
 	* opts.c (decode_options): Do not adjust max-aliased-vops or
