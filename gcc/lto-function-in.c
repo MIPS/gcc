@@ -1292,9 +1292,8 @@ input_local_vars (struct lto_input_block *ib, struct data_in *data_in,
       fn->local_decls
 	= tree_cons (NULL_TREE, var, fn->local_decls);
 
-      if (lto_input_uleb128 (ib))
-	DECL_CONTEXT (var) = fn->decl;
-	
+      DECL_CONTEXT (var) = NULL_TREE;
+
       /* DECL_INITIAL.  */
       tag = input_record_start (ib);
       if (tag)
@@ -1934,18 +1933,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   if (tag)
     DECL_ARGUMENTS (fn_decl) = input_expr_operand (ib, data_in, fn, tag); 
 
-  LTO_DEBUG_INDENT_TOKEN ("decl_context");
-  tag = input_record_start (ib);
-  if (tag)
-    {
-      if (tag == LTO_type)
-	{
-	  DECL_CONTEXT (fn_decl) = input_type_ref_1 (data_in, ib);
-	  LTO_DEBUG_UNDENT ();
-	}
-      else
-	DECL_CONTEXT (fn_decl) = input_expr_operand (ib, data_in, fn, tag);
-    }
+  DECL_CONTEXT (fn_decl) = NULL_TREE;
 
   tag = input_record_start (ib);
   while (tag)

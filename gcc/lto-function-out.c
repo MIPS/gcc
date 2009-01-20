@@ -1392,10 +1392,9 @@ output_local_vars (struct output_block *ob, struct function *fn)
 	    {
 	      bitmap_set_bit (local_statics, DECL_UID (lv));
 	      output_expr_operand (ob, lv);
-	      if (DECL_CONTEXT (lv) == fn->decl)
-		output_uleb128 (ob, 1); /* Restore context.  */
-	      else
-		output_zero (ob); /* Restore context. */
+
+	      gcc_assert (!DECL_CONTEXT (lv));
+
 	      if (DECL_INITIAL (lv))
 		output_expr_operand (ob, DECL_INITIAL (lv));
 	      else 
@@ -1941,7 +1940,6 @@ output_function (struct cgraph_node *node)
   struct function *fn = DECL_STRUCT_FUNCTION (function);
   basic_block bb;
   struct output_block *ob = create_output_block (LTO_section_function_body);
-  tree context;
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);
@@ -1969,15 +1967,8 @@ output_function (struct cgraph_node *node)
     output_expr_operand (ob, DECL_ARGUMENTS (function));
   else
     output_zero (ob);
-    
-  LTO_DEBUG_INDENT_TOKEN ("decl_context");
-  context = DECL_CONTEXT (function);
-  if (!context)
-    output_zero (ob);
-  else if (TYPE_P (context))
-    output_type_ref_1 (ob, context);
-  else
-    output_expr_operand (ob, DECL_CONTEXT (function));
+
+  gcc_assert (!DECL_CONTEXT (function));
 
   /* We will renumber the statements.  The code that does this uses
      the same ordering that we use for serializing them so we can use
