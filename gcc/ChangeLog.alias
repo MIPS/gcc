@@ -1,5 +1,13 @@
 2009-01-20  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-operands.c (OP_SIZE_1, OP_SIZE_2, OP_SIZE_3): Change
+	unit to bytes.  Change values to do 1k, 4k and 16k allocations.
+	(ssa_operand_alloc): Simplify, adjust according to the above change.
+	(set_virtual_use_link): Remove.
+	(finalize_ssa_defs): Release the SSA_NAME of removed VDEFs.
+
+2009-01-20  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-alias.c (same_type_for_tbaa): Never say that two
 	array types are not equal - that is too unreliable.
 	(refs_may_alias_p): Skip first component for path based

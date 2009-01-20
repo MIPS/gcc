@@ -255,14 +255,17 @@ create_vop_var (void)
   cfun->gimple_df->vop = global_var;
 }
 
-/* These are the sizes of the operand memory  buffer which gets allocated each 
-   time more operands space is required.  The final value is the amount that is
-   allocated every time after that.  */
+/* These are the sizes of the operand memory buffer in bytes which gets
+   allocated each time more operands space is required.  The final value is
+   the amount that is allocated every time after that.
+   In 1k we can fit 25 use operands (or 63 def operands) on a host with
+   8 byte pointers, that would be 10 statements each with 1 def and 2
+   uses.  */
   
 #define OP_SIZE_INIT	0
-#define OP_SIZE_1	30
-#define OP_SIZE_2	110
-#define OP_SIZE_3	511
+#define OP_SIZE_1	(1024 - sizeof (void *))
+#define OP_SIZE_2	(1024 * 4 - sizeof (void *))
+#define OP_SIZE_3	(1024 * 16 - sizeof (void *))
 
 /* Initialize the operand cache routines.  */
 
@@ -348,47 +351,45 @@ fini_ssa_operands (void)
 }
 
 
-/* Return memory for operands of SIZE chunks.  */
+/* Return memory for an operand of size SIZE.  */
                                                                               
 static inline void *
 ssa_operand_alloc (unsigned size)
 {
   char *ptr;
 
+  gcc_assert (size == sizeof (struct use_optype_d)
+	      || size == sizeof (struct def_optype_d));
+
   if (gimple_ssa_operands (cfun)->operand_memory_index + size
       >= gimple_ssa_operands (cfun)->ssa_operand_mem_size)
     {
       struct ssa_operand_memory_d *ptr;
 
-      if (gimple_ssa_operands (cfun)->ssa_operand_mem_size == OP_SIZE_INIT)
-	gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	   = OP_SIZE_1 * sizeof (struct use_optype_d);
-      else
-	if (gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	    == OP_SIZE_1 * sizeof (struct use_optype_d))
-	  gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	     = OP_SIZE_2 * sizeof (struct use_optype_d);
-	else
-	  gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	     = OP_SIZE_3 * sizeof (struct use_optype_d);
-
-      /* Go right to the maximum size if the request is too large.  */
-      if (size > gimple_ssa_operands (cfun)->ssa_operand_mem_size)
-        gimple_ssa_operands (cfun)->ssa_operand_mem_size
-	  = OP_SIZE_3 * sizeof (struct use_optype_d);
-
-      /* We can reliably trigger the case that we need arbitrary many
-	 operands (see PR34093), so allocate a buffer just for this request.  */
-      if (size > gimple_ssa_operands (cfun)->ssa_operand_mem_size)
-	gimple_ssa_operands (cfun)->ssa_operand_mem_size = size;
+      switch (gimple_ssa_operands (cfun)->ssa_operand_mem_size)
+	{
+	case OP_SIZE_INIT:
+	  gimple_ssa_operands (cfun)->ssa_operand_mem_size = OP_SIZE_1;
+	  break;
+	case OP_SIZE_1:
+	  gimple_ssa_operands (cfun)->ssa_operand_mem_size = OP_SIZE_2;
+	  break;
+	case OP_SIZE_2:
+	case OP_SIZE_3:
+	  gimple_ssa_operands (cfun)->ssa_operand_mem_size = OP_SIZE_3;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
 
       ptr = (struct ssa_operand_memory_d *) 
-	      ggc_alloc (sizeof (struct ssa_operand_memory_d) 
-			 + gimple_ssa_operands (cfun)->ssa_operand_mem_size - 1);
+	      ggc_alloc (sizeof (void *)
+			 + gimple_ssa_operands (cfun)->ssa_operand_mem_size);
       ptr->next = gimple_ssa_operands (cfun)->operand_memory;
       gimple_ssa_operands (cfun)->operand_memory = ptr;
       gimple_ssa_operands (cfun)->operand_memory_index = 0;
     }
+
   ptr = &(gimple_ssa_operands (cfun)->operand_memory
 	  ->mem[gimple_ssa_operands (cfun)->operand_memory_index]);
   gimple_ssa_operands (cfun)->operand_memory_index += size;
@@ -431,23 +432,6 @@ alloc_use (void)
     ret = (struct use_optype_d *)
           ssa_operand_alloc (sizeof (struct use_optype_d));
   return ret;
-}
-
-
-
-/* This routine makes sure that PTR is in an immediate use list, and makes
-   sure the stmt pointer is set to the current stmt.  */
-
-static inline void
-set_virtual_use_link (use_operand_p ptr, gimple stmt)
-{
-  /*  fold_stmt may have changed the stmt pointers.  */
-  if (ptr->loc.stmt != stmt)
-    ptr->loc.stmt = stmt;
-
-  /* If this use isn't in a list, add it to the correct list.  */
-  if (!ptr->prev)
-    link_imm_use (ptr, *(ptr->use));
 }
 
 
@@ -525,8 +509,12 @@ finalize_ssa_defs (gimple stmt)
   if (build_vdef == NULL_TREE
       && gimple_vdef (stmt) != NULL_TREE)
     {
-      if (gimple_vdef_op (stmt) != NULL_DEF_OPERAND_P)
-	unlink_stmt_vdef (stmt);
+      if (gimple_vdef_op (stmt) != NULL_DEF_OPERAND_P
+	  && TREE_CODE (gimple_vdef (stmt)) == SSA_NAME)
+	{
+	  unlink_stmt_vdef (stmt);
+	  release_ssa_name (gimple_vdef (stmt));
+	}
       gimple_set_vdef (stmt, NULL_TREE);
     }
 
