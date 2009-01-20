@@ -1,3 +1,11 @@
+2009-01-20  Antoniu Pop  <antoniu.pop@gmail.com>
+
+	* omp-low.c (lower_omp_taskreg): Moved the generation of post/wait
+	synchronization to gimplify.c.
+	* gimplify.c (gimplify_omp_task): Added generation of post/wait
+	synchronization.  Pass the semaphore by copy in the outlined
+	task as a firstprivate variable.
+
 2008-12-11  Antoniu Pop  <antoniu.pop@gmail.com>
 
 	* omp-builtins.def (BUILT_IN_GOMP_STREAM_TAIL,
