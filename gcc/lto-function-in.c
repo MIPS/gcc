@@ -2932,50 +2932,6 @@ input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
   return decl;
 }
 
-static tree
-input_namespace_decl (struct lto_input_block *ib, struct data_in *data_in)
-{
-  tree decl = make_node (NAMESPACE_DECL);
-
-  lto_flags_type flags = input_tree_flags (ib, NAMESPACE_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
-  process_tree_flags (decl, flags);
-
-  global_vector_enter (data_in, decl);
-
-  /* omit locus, uid */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
-
-  decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
-  decl->decl_with_vis.section_name = input_tree (ib, data_in);
-
-  /* omit type */
-
-  decl->decl_common.attributes = input_tree (ib, data_in);
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
-
-  /* omit mode */
-
-  /* FIXME lto: Is this meaningful for NAMESPACE_DECL?  */
-  decl->decl_common.align = lto_input_uleb128 (ib);
-
-  /* omit size, size_unit */
-
-  /* lang_specific */
-  /* omit rtl */
-
-  decl->decl_non_common.saved_tree = input_tree (ib, data_in);
-  /* omit arguments, result */
-  decl->decl_non_common.vindex = input_tree (ib, data_in);
-
-  LTO_DEBUG_TOKEN ("end_namespace_decl");
-
-  return decl;
-}
-
-
 /* Read an IMPORTED_DECL node from IB using descriptors in DATA_IN.  */
 
 static tree
@@ -3419,10 +3375,6 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case TYPE_DECL:
       result = input_type_decl (ib, data_in);
-      break;
-
-    case NAMESPACE_DECL:
-      result = input_namespace_decl (ib, data_in);
       break;
 
     case TRANSLATION_UNIT_DECL:

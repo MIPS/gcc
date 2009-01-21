@@ -2813,50 +2813,6 @@ output_label_decl (struct output_block *ob, tree decl)
   LTO_DEBUG_TOKEN ("end_label_decl");
 }
 
-static void
-output_namespace_decl (struct output_block *ob, tree decl)
-{
-  /* tag and flags */
-  output_global_record_start (ob, NULL, NULL, LTO_namespace_decl);
-  output_tree_flags (ob, 0, decl, true);
-
-  global_vector_debug (ob);
-
-  /* uid and locus are handled specially */
-  output_tree (ob, decl->decl_minimal.name);
-  output_tree (ob, decl->decl_minimal.context);
-
-  output_tree (ob, decl->decl_with_vis.assembler_name);
-  output_tree (ob, decl->decl_with_vis.section_name);
-
-  gcc_assert (decl->common.type == void_type_node
-	      || decl->common.type == NULL_TREE);
-
-  output_tree (ob, decl->decl_common.attributes);
-  output_tree (ob, decl->decl_common.abstract_origin);
-
-  gcc_assert (decl->decl_common.mode == 0);
-  /* FIXME lto:  I'm seeing both 0 and 1 here, but I don't
-     think alignment should be meaningful for NAMESPACE_DECL.  */
-  output_uleb128 (ob, decl->decl_common.align);
-
-  gcc_assert (decl->decl_common.size == NULL_TREE);
-  gcc_assert (decl->decl_common.size_unit == NULL_TREE);
-
-  /* lang_specific */
-
-  gcc_assert (decl->decl_with_rtl.rtl == NULL);
-
-  output_tree (ob, decl->decl_non_common.saved_tree);  		/* ??? */
-  gcc_assert (decl->decl_non_common.arguments == NULL_TREE);
-  gcc_assert (decl->decl_non_common.result == NULL_TREE);
-  output_tree (ob, decl->decl_non_common.vindex);
-
-  /* omit chain */
-  LTO_DEBUG_TOKEN ("end_namespace_decl");
-}
-
-
 /* Emit IMPORTED_DECL DECL to output block OB.  */
 
 static void
@@ -3332,10 +3288,6 @@ output_tree (struct output_block *ob, tree expr)
 
     case TYPE_DECL:
       output_type_decl (ob, expr);
-      break;
-
-    case NAMESPACE_DECL:
-      output_namespace_decl (ob, expr);
       break;
 
     case TRANSLATION_UNIT_DECL:

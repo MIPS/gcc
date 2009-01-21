@@ -1,5 +1,12 @@
 2009-01-21  Rafael Avila de Espindola  <espindola@google.com>
 
+	* lto-function-in.c (input_namespace_decl): Remove.
+	(input_tree_operand): Don't call input_namespace_decl.
+	* lto-function-out.c (output_namespace_decl): Remove.
+	(output_tree): Don't call output_namespace_decl.
+
+2009-01-21  Rafael Avila de Espindola  <espindola@google.com>
+
 	* lto-function-out.c (output_inits_in_decl_state,
 	output_remaining_constructors_and_inits,
 	output_all_constructors_and_inits): Assert that if there is a context
