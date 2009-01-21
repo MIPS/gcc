@@ -1,3 +1,10 @@
+2009-01-21  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_local_var_decl): Don't read
+	DECL_ABSTRACT_ORIGIN.
+	* lto-function-out.c (output_local_var_decl): Don't write
+	DECL_ABSTRACT_ORIGIN.
+
 2009-01-21  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c: Include diagnostic.h.

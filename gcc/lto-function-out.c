@@ -1255,8 +1255,7 @@ output_local_var_decl (struct output_block *ob, int index)
   variant |= DECL_ATTRIBUTES (decl)      != NULL_TREE ? 0x01 : 0;
   variant |= DECL_SIZE_UNIT (decl)       != NULL_TREE ? 0x02 : 0;
   variant |= needs_backing_var                        ? 0x04 : 0;
-  variant |= DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE ? 0x08 : 0;
-  
+
   tag = (is_var
 	 ? LTO_local_var_decl_body0
 	 : LTO_parm_decl_body0)
@@ -1339,9 +1338,11 @@ output_local_var_decl (struct output_block *ob, int index)
     output_expr_operand (ob, DECL_SIZE_UNIT (decl));
   if (needs_backing_var)
     output_expr_operand (ob, DECL_DEBUG_EXPR (decl));
-  if (DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE)
-    output_expr_operand (ob, DECL_ABSTRACT_ORIGIN (decl));
-  
+
+  /* FIXME lto: We don't need DECL_ABSTRACT_ORIGIN. We should probably clear it
+   before getting here. It is created by the inliner after
+   reset_decl_lang_specific. */
+
   LTO_DEBUG_UNDENT();
 }
 

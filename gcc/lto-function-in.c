@@ -1229,10 +1229,7 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
     SET_DECL_DEBUG_EXPR (result, 
 			 input_expr_operand (ib, data_in, fn, 
 					     input_record_start (ib)));
-  if (variant & 0x8)
-    DECL_ABSTRACT_ORIGIN (result) 
-      = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-  
+
   process_tree_flags (result, flags);
   LTO_DEBUG_UNDENT();
 
