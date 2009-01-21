@@ -1,5 +1,9 @@
 2009-01-21  Diego Novillo  <dnovillo@google.com>
 
+	* g++.dg/20090121-1.C: New.
+
+2009-01-21  Diego Novillo  <dnovillo@google.com>
+
 	* gcc.dg/lto/20090120_0.c: New.
 
 2009-01-20  Simon Baldwin  <simonb@google.com>

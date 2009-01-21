@@ -1,5 +1,14 @@
 2009-01-21  Diego Novillo  <dnovillo@google.com>
 
+	* tree.c: Include diagnostic.h.
+	(free_lang_specifics): Reset diagnostic hooks to the
+	default hooks.
+	* diagnostic.h (default_tree_printer): Declare.
+	* toplev.c (default_tree_printer): Make extern.
+	* Makefile.in (tree.o): Add dependency on $(DIAGNOSTIC_H)
+
+2009-01-21  Diego Novillo  <dnovillo@google.com>
+
 	* tree.c (reset_type_lang_specific): Do not overwrite
 	char_type_node if -funsigned-char is used.
 

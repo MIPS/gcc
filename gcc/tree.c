@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "fixed-value.h"
 #include "tree-pass.h"
 #include "langhooks-def.h"
+#include "diagnostic.h"
 
 /* Tree code classes.  */
 
@@ -4164,6 +4165,12 @@ free_lang_specifics (void)
      an assemble name, but there are too many places in gcc that create
      new decls. */
   lang_hooks.set_decl_assembler_name = lhd_set_decl_assembler_name;
+
+  /* FIXME lto: We should implement a diagnostic machinery for GIMPLE
+     that can unmangle symbols and types.  For now, the default hooks
+     work but will not be able to print C++ symbols.  */
+  diagnostic_initialize (global_dc);
+  diagnostic_format_decoder (global_dc) = default_tree_printer;
 
   return 0;
 }
