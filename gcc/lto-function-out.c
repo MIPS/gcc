@@ -2046,8 +2046,9 @@ output_inits_in_decl_state (struct output_block *ob,
     {
       tree var = lto_tree_ref_encoder_get_tree (encoder, i);
       tree context = DECL_CONTEXT (var);
+      gcc_assert (!context || TREE_CODE (context) == FUNCTION_DECL);
       if (TREE_STATIC (var)
-	  && (!context || TREE_CODE (context) != FUNCTION_DECL)
+	  && !context
 	  && !bitmap_bit_p (seen, DECL_UID (var)))
 	{
 	  bitmap_set_bit (seen, DECL_UID (var));
@@ -2091,8 +2092,9 @@ output_remaining_constructors_and_inits (struct output_block *ob)
     {
       tree var = vnode->decl;
       tree context = DECL_CONTEXT (var);
+      gcc_assert (!context || TREE_CODE (context) == FUNCTION_DECL);
       if (TREE_STATIC (var) && TREE_PUBLIC (var)
-	  && (!context || TREE_CODE (context) != FUNCTION_DECL)
+	  && !context
 	  && !(lto_get_decl_flags (var) & LTO_DECL_FLAG_DEFINED))
 	output_var_init (ob, var);
     }
@@ -2109,7 +2111,8 @@ output_all_constructors_and_inits (struct output_block *ob)
     {
       tree var = vnode->decl;
       tree context = DECL_CONTEXT (var);
-      if (!context || TREE_CODE (context) != FUNCTION_DECL)
+      gcc_assert (!context || TREE_CODE (context) == FUNCTION_DECL);
+      if (!context)
 	output_var_init (ob, var);
     }
 }
@@ -2539,7 +2542,7 @@ output_function_decl (struct output_block *ob, tree decl)
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
-  output_tree (ob, decl->decl_minimal.context);
+  gcc_assert (decl->decl_minimal.context == NULL_TREE);
 
   output_tree (ob, decl->decl_with_vis.assembler_name);
   output_tree (ob, decl->decl_with_vis.section_name);

@@ -1,3 +1,13 @@
+2009-01-21  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-out.c (output_inits_in_decl_state,
+	output_remaining_constructors_and_inits,
+	output_all_constructors_and_inits): Assert that if there is a context
+	it is a FUNCTION_DECL.
+	(output_function_decl): Don't write decl->decl_minimal.context.
+	* lto-function-in.c (input_function_decl): Don't read
+	decl->decl_minimal.context.
+
 2009-01-20  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_tree): Do not handle char_type_node.
