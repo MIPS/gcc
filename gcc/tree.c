@@ -3981,23 +3981,6 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
      FIXME lto: This will break debug info generation.  */
   TYPE_CONTEXT (type) = NULL_TREE;
 
-  /* If -funsigned-char is used, force all the expressions using
-     char_type_node to use unsigned_char_type_node.  */
-  if (flag_signed_char == 0)
-    {
-      if (type == char_type_node)
-	memcpy (type, unsigned_char_type_node, tree_size (type));
-      else if (TYPE_MAIN_VARIANT (type) == char_type_node)
-	TYPE_MAIN_VARIANT (type) = unsigned_char_type_node;
-
-      /* Clear the cached values for TYPE.  */
-      if (TYPE_CACHED_VALUES_P (type))
-	{
-	  TYPE_CACHED_VALUES_P (type) = 0;
-	  TYPE_CACHED_VALUES (type) = NULL;
-	}
-    }
-
   return 1;
 }
 

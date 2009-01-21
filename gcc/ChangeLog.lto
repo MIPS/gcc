@@ -1,3 +1,8 @@
+2009-01-21  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (reset_type_lang_specific): Do not overwrite
+	char_type_node if -funsigned-char is used.
+
 2009-01-21  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_namespace_decl): Remove.
@@ -25,7 +30,8 @@
 
 	* lto-function-in.c (input_local_vars): Set DECL_CONTEXT (var) to NULL.
 	(input_function): Set DECL_CONTEXT (fn_decl) to NULL.
-	* lto-function-out.c (output_local_vars): Assert that DECL_CONTEXT is NULL.
+	* lto-function-out.c (output_local_vars): Assert that
+	DECL_CONTEXT is NULL.
 	(output_function): Assert DECL_CONTEXT is NULL.
 
 2009-01-20  Simon Baldwin  <simonb@google.com>
