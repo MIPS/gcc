@@ -1,3 +1,69 @@
+2009-01-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/23287
+	* parser.c (cp_parser_unqualified_id): In a template,
+	accept ~identifier.
+	* typeck.c (lookup_destructor): Handle IDENTIFIER_NODE.
+
+2009-01-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38877
+	* tree.c (lvalue_p_1): Allow non-fields in COMPONENT_REF.
+	* init.c (build_new): Don't call describable_type unless we
+	have an auto.
+
+	PR c++/29470
+	* pt.c (tsubst_decl) [USING_DECL]: Propagate access flags.
+
+	PR c++/38579
+	* search.c (protected_accessible_p): N doesn't vary.
+
+2009-01-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38850
+	* pt.c (tsubst_copy_and_build): Tell finish_call_expr to
+	accept hidden friends.
+
+2009-01-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/29388
+	* decl.c (grokdeclarator): Check for a non namespace/class context.
+
+2009-01-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/36334
+	PR c++/37646
+	* tree.c (lvalue_p_1): Handle BASELINK.  A COMPONENT_REF to
+	a function isn't necessarily an lvalue. Take tree, not const_tree.
+	(lvalue_p, real_lvalue_p): Take tree, not const_tree.
+	* typeck.c (lvalue_or_else): Likewise.
+	* cp-tree.h: Adjust prototypes.
+
+2009-01-15  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/38357
+	* pt.c (tsubst): Check for NULL args.
+
+2009-01-15  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/38636
+	* name-lookup.c (pushtag): Don't create members to types that are not
+	being created.
+
+2009-01-14  Nick Clifton  <nickc@redhat.com>
+
+	PR c++/37862
+	* parser.c: Pass cp_id_kind computed in
+	cp_parser_postfix_dot_deref_expression to
+	cp_parser_primary_expression.
+
+2009-01-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/38795
+	* tree.c (cp_walk_subtrees): Handle REINTERPRET_CAST_EXPR,
+	STATIC_CAST_EXPR, CONST_CAST_EXPR and DYNAMIC_CAST_EXPR the same
+	as CAST_EXPR.
+
 2009-01-12  Jason Merrill  <jason@redhat.com>
 	    Steve Ellcey  <sje@cup.hp.com>
 

@@ -1,3 +1,7 @@
+2009-01-21  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r143541.
+
 2009-01-20  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-operands.c (OP_SIZE_1, OP_SIZE_2, OP_SIZE_3): Change
