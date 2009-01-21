@@ -547,7 +547,12 @@ finish_goto_stmt (tree destination)
     {
       /* The DESTINATION is being used as an rvalue.  */
       if (!processing_template_decl)
-	destination = decay_conversion (destination);
+	{
+	  destination = decay_conversion (destination);
+	  destination = cp_convert (ptr_type_node, destination);
+	  if (error_operand_p (destination))
+	    return NULL_TREE;
+	}
       /* We don't inline calls to functions with computed gotos.
 	 Those functions are typically up to some funny business,
 	 and may be depending on the labels being at particular
@@ -1536,6 +1541,30 @@ check_accessibility_of_qualified_id (tree decl,
 {
   tree scope;
   tree qualifying_type = NULL_TREE;
+
+  /* If we are parsing a template declaration and if decl is a typedef,
+     add it to a list tied to the template.
+     At template instantiation time, that list will be walked and
+     access check performed.  */
+  if (is_typedef_decl (decl))
+    {
+      /* This the scope through which type_decl is accessed.
+	 It will be useful information later to do access check for
+	 type_decl usage.  */
+      tree scope = nested_name_specifier ? nested_name_specifier : DECL_CONTEXT (decl);
+      tree templ_info = NULL;
+      tree cs = current_scope ();
+
+      if (cs && (CLASS_TYPE_P (cs) || TREE_CODE (cs) == FUNCTION_DECL))
+	templ_info = get_template_info (cs);
+
+      if (templ_info
+	  && TI_TEMPLATE (templ_info)
+	  && scope
+	  && CLASS_TYPE_P (scope)
+	  && !currently_open_class (scope))
+	append_type_to_template_for_access_check (current_scope (), decl, scope);
+    }
 
   /* If we're not checking, return immediately.  */
   if (deferred_access_no_check)

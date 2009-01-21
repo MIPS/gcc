@@ -1,5 +1,5 @@
 /* Gimple Represented as Polyhedra.
-   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@inria.fr>.
 
 This file is part of GCC.
@@ -1040,14 +1040,12 @@ stmt_simple_for_scop_p (basic_block scop_entry, gimple stmt)
 	size_t n = gimple_call_num_args (stmt);
 	tree lhs = gimple_call_lhs (stmt);
 
-	for (i = 0; i < n; i++)
-	  {
-	    tree arg = gimple_call_arg (stmt, i);
+	if (lhs && !is_simple_operand (loop, stmt, lhs))
+	  return false;
 
-	    if (!(is_simple_operand (loop, stmt, lhs)
-		  && is_simple_operand (loop, stmt, arg)))
-	      return false;
-	  }
+	for (i = 0; i < n; i++)
+	  if (!is_simple_operand (loop, stmt, gimple_call_arg (stmt, i)))
+	    return false;
 
 	return true;
       }
@@ -1579,6 +1577,17 @@ move_sd_regions (VEC (sd_region, heap) **source, VEC (sd_region, heap) **target)
   VEC_free (sd_region, heap, *source);
 }
 
+/* Return true when it is not possible to represent the upper bound of
+   LOOP in the polyhedral representation.  */
+
+static bool
+graphite_cannot_represent_loop_niter (loop_p loop)
+{
+  tree niter = number_of_latch_executions (loop);
+
+  return chrec_contains_undetermined (niter)
+    || !scev_is_linear_expression (niter);
+}
 /* Store information needed by scopdet_* functions.  */
 
 struct scopdet_info
@@ -1650,8 +1659,7 @@ scopdet_basic_block_info (basic_block bb, VEC (sd_region, heap) **scops,
 	if (result.last->loop_father != loop)
 	  result.next = NULL;
 
-        if (TREE_CODE (number_of_latch_executions (loop))
-            == SCEV_NOT_KNOWN)
+        if (graphite_cannot_represent_loop_niter (loop))
           result.difficult = true;
 
         if (sinfo.difficult)
@@ -2350,9 +2358,7 @@ graphite_loop_normal_form (loop_p loop)
   gimple_seq stmts;
   edge exit = single_dom_exit (loop);
 
-  if (!number_of_iterations_exit (loop, exit, &niter, false))
-    gcc_unreachable ();
-
+  gcc_assert (number_of_iterations_exit (loop, exit, &niter, false));
   nit = force_gimple_operand (unshare_expr (niter.niter), &stmts, true,
 			      NULL_TREE);
   if (stmts)
@@ -2464,6 +2470,29 @@ build_scop_dynamic_schedules (scop_p scop)
     }
 }
 
+/* Returns the number of loops that are identical at the beginning of
+   the vectors A and B.  */
+
+static int
+compare_prefix_loops (VEC (loop_p, heap) *a, VEC (loop_p, heap) *b)
+{
+  int i;
+  loop_p ea;
+  int lb;
+
+  if (!a || !b)
+    return 0;
+
+  lb = VEC_length (loop_p, b);
+
+  for (i = 0; VEC_iterate (loop_p, a, i, ea); i++)
+    if (i >= lb
+	|| ea != VEC_index (loop_p, b, i))
+      return i;
+
+  return 0;
+}
+
 /* Build for BB the static schedule.
 
    The STATIC_SCHEDULE is defined like this:
@@ -2500,34 +2529,29 @@ build_scop_dynamic_schedules (scop_p scop)
 static void
 build_scop_canonical_schedules (scop_p scop)
 {
-  int i, j;
+  int i;
   graphite_bb_p gb;
-  int nb = scop_nb_loops (scop) + 1;
+  int nb_loops = scop_nb_loops (scop);
+  lambda_vector static_schedule = lambda_vector_new (nb_loops + 1);
+  VEC (loop_p, heap) *loops_previous = NULL;
 
-  SCOP_STATIC_SCHEDULE (scop) = lambda_vector_new (nb);
+  /* We have to start schedules at 0 on the first component and
+     because we cannot compare_prefix_loops against a previous loop,
+     prefix will be equal to zero, and that index will be
+     incremented before copying.  */
+  static_schedule[0] = -1;
 
   for (i = 0; VEC_iterate (graphite_bb_p, SCOP_BBS (scop), i, gb); i++)
     {
-      int offset = nb_loops_around_gb (gb);
+      int prefix = compare_prefix_loops (loops_previous, GBB_LOOPS (gb));
+      int nb = gbb_nb_loops (gb);
 
-      /* After leaving a loop, it is possible that the schedule is not
-	 set at zero.  This loop reinitializes components located
-	 after OFFSET.  */
-
-      for (j = offset + 1; j < nb; j++)
-	if (SCOP_STATIC_SCHEDULE (scop)[j])
-	  {
-	    memset (&(SCOP_STATIC_SCHEDULE (scop)[j]), 0,
-		    sizeof (int) * (nb - j));
-	    ++SCOP_STATIC_SCHEDULE (scop)[offset];
-	    break;
-	  }
-
-      GBB_STATIC_SCHEDULE (gb) = lambda_vector_new (offset + 1);
-      lambda_vector_copy (SCOP_STATIC_SCHEDULE (scop), 
-			  GBB_STATIC_SCHEDULE (gb), offset + 1);
-
-      ++SCOP_STATIC_SCHEDULE (scop)[offset];
+      loops_previous = GBB_LOOPS (gb);
+      memset (&(static_schedule[prefix + 1]), 0, sizeof (int) * (nb_loops - prefix));
+      ++static_schedule[prefix];
+      GBB_STATIC_SCHEDULE (gb) = lambda_vector_new (nb + 1);
+      lambda_vector_copy (static_schedule, 
+			  GBB_STATIC_SCHEDULE (gb), nb + 1);
     }
 }
 
@@ -2690,13 +2714,11 @@ scan_tree_for_params (scop_p s, tree e, CloogMatrix *c, int r, Value k,
 
     case MINUS_EXPR:
       scan_tree_for_params (s, TREE_OPERAND (e, 0), c, r, k, subtract);
-      value_oppose (k, k);
-      scan_tree_for_params (s, TREE_OPERAND (e, 1), c, r, k, subtract);
+      scan_tree_for_params (s, TREE_OPERAND (e, 1), c, r, k, !subtract);
       break;
 
     case NEGATE_EXPR:
-      value_oppose (k, k);
-      scan_tree_for_params (s, TREE_OPERAND (e, 0), c, r, k, subtract);
+      scan_tree_for_params (s, TREE_OPERAND (e, 0), c, r, k, !subtract);
       break;
 
     case SSA_NAME:
@@ -2732,8 +2754,7 @@ scan_tree_for_params (scop_p s, tree e, CloogMatrix *c, int r, Value k,
 	}
       break;
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
     case NON_LVALUE_EXPR:
       scan_tree_for_params (s, TREE_OPERAND (e, 0), c, r, k, subtract);
       break;
@@ -3107,7 +3128,7 @@ add_conditions_to_domain (graphite_bb_p gb)
   else  
     {
       nb_rows = 0;
-      nb_cols = scop_nb_params (scop) + 2;
+      nb_cols = nb_loops_around_gb (gb) + scop_nb_params (scop) + 2;
     }
 
   /* Count number of necessary new rows to add the conditions to the
@@ -3156,14 +3177,18 @@ add_conditions_to_domain (graphite_bb_p gb)
     CloogMatrix *new_domain;
     new_domain = cloog_matrix_alloc (nb_rows + nb_new_rows, nb_cols);
 
-    for (i = 0; i < nb_rows; i++)
-      for (j = 0; j < nb_cols; j++)
-          value_assign (new_domain->p[i][j], domain->p[i][j]);
+    if (domain)
+      {
+	for (i = 0; i < nb_rows; i++)
+	  for (j = 0; j < nb_cols; j++)
+	    value_assign (new_domain->p[i][j], domain->p[i][j]);
 
-    cloog_matrix_free (domain);
+	cloog_matrix_free (domain);
+      }
+
     domain = new_domain;
     GBB_DOMAIN (gb) = new_domain;
-  }     
+  }
 
   /* Add the conditions to the new enlarged domain matrix.  */
   row = nb_rows;
@@ -3278,13 +3303,63 @@ add_conditions_to_domain (graphite_bb_p gb)
     }
 }
 
-/* Helper recursive function.  */
+/* Returns true when PHI defines an induction variable in the loop
+   containing the PHI node.  */
 
-static void
+static bool
+phi_node_is_iv (gimple phi)
+{
+  loop_p loop = gimple_bb (phi)->loop_father;
+  tree scev = analyze_scalar_evolution (loop, gimple_phi_result (phi));
+
+  return tree_contains_chrecs (scev, NULL);
+}
+
+/* Returns true when BB contains scalar phi nodes that are not an
+   induction variable of a loop.  */
+
+static bool
+bb_contains_non_iv_scalar_phi_nodes (basic_block bb)
+{
+  gimple phi = NULL;
+  gimple_stmt_iterator si;
+
+  for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+    if (is_gimple_reg (gimple_phi_result (gsi_stmt (si))))
+      {
+	/* Store the unique scalar PHI node: at this point, loops
+	   should be in cannonical form, so we expect to see at most
+	   one scalar phi node in the loop header.  */
+	if (phi
+	    || bb != bb->loop_father->header)
+	  return true;
+
+	phi = gsi_stmt (si);
+      }
+
+  if (!phi
+      || phi_node_is_iv (phi))
+    return false;
+
+  return true;
+}
+
+/* Helper recursive function.  Record in CONDITIONS and CASES all
+   conditions from 'if's and 'switch'es occurring in BB from SCOP.
+
+   Returns false when the conditions contain scalar computations that
+   depend on the condition, i.e. when there are scalar phi nodes on
+   the junction after the condition.  Only the computations occurring
+   on memory can be handled in the polyhedral model: operations that
+   define scalar evolutions in conditions, that can potentially be
+   used to index memory, can't be handled by the polyhedral model.  */
+
+static bool
 build_scop_conditions_1 (VEC (gimple, heap) **conditions,
 			 VEC (gimple, heap) **cases, basic_block bb,
 			 scop_p scop)
 {
+  bool res = true;
   int i, j;
   graphite_bb_p gbb;
   gimple_stmt_iterator gsi;
@@ -3293,15 +3368,16 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
   
   /* Make sure we are in the SCoP.  */
   if (!bb_in_scop_p (bb, scop))
-    return;
+    return true;
 
-  /* Record conditions in graphite_bb.  */
+  if (bb_contains_non_iv_scalar_phi_nodes (bb))
+    return false;
+
   gbb = gbb_from_bb (bb);
   if (gbb)
     {
       GBB_CONDITIONS (gbb) = VEC_copy (gimple, heap, *conditions);
       GBB_CONDITION_CASES (gbb) = VEC_copy (gimple, heap, *cases);
-      add_conditions_to_domain (gbb);
     }
 
   dom = get_dominated_by (CDI_DOMINATORS, bb);
@@ -3331,13 +3407,18 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
 		/* Recursively scan the then or else part.  */
 		if (e->flags & EDGE_TRUE_VALUE)
 		  VEC_safe_push (gimple, heap, *cases, stmt);
-		else if (e->flags & EDGE_FALSE_VALUE)
-		  VEC_safe_push (gimple, heap, *cases, NULL);
-		else
-		  gcc_unreachable ();
+		else 
+		  {
+		    gcc_assert (e->flags & EDGE_FALSE_VALUE);
+		    VEC_safe_push (gimple, heap, *cases, NULL);
+		  }
 
 		VEC_safe_push (gimple, heap, *conditions, stmt);
-		build_scop_conditions_1 (conditions, cases, e->dest, scop);
+		if (!build_scop_conditions_1 (conditions, cases, e->dest, scop))
+		  {
+		    res = false;
+		    goto done;
+		  }
 		VEC_pop (gimple, *conditions);
 		VEC_pop (gimple, *cases);
 	      }
@@ -3358,43 +3439,45 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
 		bb_child = label_to_block
 		  (CASE_LABEL (gimple_switch_label (stmt, i)));
 
-		/* Do not handle multiple values for the same block.  */
 		for (k = 0; k < n; k++)
 		  if (i != k
 		      && label_to_block 
 		      (CASE_LABEL (gimple_switch_label (stmt, k))) == bb_child)
 		    break;
 
-		if (k != n)
-		  continue;
-
-		/* Switch cases with more than one predecessor are not
-		   handled.  */
-		if (VEC_length (edge, bb_child->preds) != 1)
-		  continue;
+		/* Switches with multiple case values for the same
+		   block are not handled.  */
+		if (k != n
+		    /* Switch cases with more than one predecessor are
+		       not handled.  */
+		    || VEC_length (edge, bb_child->preds) != 1)
+		  {
+		    res = false;
+		    goto done;
+		  }
 
 		/* Recursively scan the corresponding 'case' block.  */
-
 		for (gsi_search_gimple_label = gsi_start_bb (bb_child);
 		     !gsi_end_p (gsi_search_gimple_label);
 		     gsi_next (&gsi_search_gimple_label))
 		  {
-		    gimple stmt_gimple_label 
-		      = gsi_stmt (gsi_search_gimple_label);
+		    gimple label = gsi_stmt (gsi_search_gimple_label);
 
-		    if (gimple_code (stmt_gimple_label) == GIMPLE_LABEL)
+		    if (gimple_code (label) == GIMPLE_LABEL)
 		      {
-			tree t = gimple_label_label (stmt_gimple_label);
+			tree t = gimple_label_label (label);
 
-			if (t == gimple_switch_label (stmt, i))
-			  VEC_replace (gimple, *cases, n_cases,
-				       stmt_gimple_label);
-			else
-			  gcc_unreachable ();
+			gcc_assert (t == gimple_switch_label (stmt, i));
+			VEC_replace (gimple, *cases, n_cases, label);
+			break;
 		      }
 		  }
 
-		build_scop_conditions_1 (conditions, cases, bb_child, scop);
+		if (!build_scop_conditions_1 (conditions, cases, bb_child, scop))
+		  {
+		    res = false;
+		    goto done;
+		  }
 
 		/* Remove the scanned block from the dominator successors.  */
 		for (j = 0; VEC_iterate (basic_block, dom, j, bb_iter); j++)
@@ -3402,13 +3485,14 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
 		    {
 		      VEC_unordered_remove (basic_block, dom, j);
 		      break;
-		    }  
+		    }
 	      }
 
 	    VEC_pop (gimple, *conditions);
 	    VEC_pop (gimple, *cases);
 	    break;
 	  }
+
 	default:
 	  break;
       }
@@ -3416,23 +3500,51 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
 
   /* Scan all immediate dominated successors.  */
   for (i = 0; VEC_iterate (basic_block, dom, i, bb_child); i++)
-    build_scop_conditions_1 (conditions, cases, bb_child, scop);
+    if (!build_scop_conditions_1 (conditions, cases, bb_child, scop))
+      {
+	res = false;
+	goto done;
+      }
 
+ done:
   VEC_free (basic_block, heap, dom);
+  return res;
 }
 
-/* Record all 'if' and 'switch' conditions in each gbb of SCOP.  */
+/* Record all conditions from SCOP.
 
-static void
+   Returns false when the conditions contain scalar computations that
+   depend on the condition, i.e. when there are scalar phi nodes on
+   the junction after the condition.  Only the computations occurring
+   on memory can be handled in the polyhedral model: operations that
+   define scalar evolutions in conditions, that can potentially be
+   used to index memory, can't be handled by the polyhedral model.  */
+
+static bool
 build_scop_conditions (scop_p scop)
 {
+  bool res;
   VEC (gimple, heap) *conditions = NULL;
   VEC (gimple, heap) *cases = NULL;
 
-  build_scop_conditions_1 (&conditions, &cases, SCOP_ENTRY (scop), scop);
+  res = build_scop_conditions_1 (&conditions, &cases, SCOP_ENTRY (scop), scop);
 
   VEC_free (gimple, heap, conditions);
   VEC_free (gimple, heap, cases);
+  return res;
+}
+
+/* Traverses all the GBBs of the SCOP and add their constraints to the
+   iteration domains.  */
+
+static void
+add_conditions_to_constraints (scop_p scop)
+{
+  int i;
+  graphite_bb_p gbb;
+
+  for (i = 0; VEC_iterate (graphite_bb_p, SCOP_BBS (scop), i, gbb); i++)
+    add_conditions_to_domain (gbb);
 }
 
 /* Build the current domain matrix: the loops belonging to the current
@@ -3540,7 +3652,7 @@ build_access_matrix (data_reference_p ref, graphite_bb_p gb)
   int i, ndim = DR_NUM_DIMENSIONS (ref);
   struct access_matrix *am = GGC_NEW (struct access_matrix);
 
-  AM_MATRIX (am) = VEC_alloc (lambda_vector, heap, ndim);
+  AM_MATRIX (am) = VEC_alloc (lambda_vector, gc, ndim);
   DR_SCOP (ref) = GBB_SCOP (gb);
 
   for (i = 0; i < ndim; i++)
@@ -3552,7 +3664,7 @@ build_access_matrix (data_reference_p ref, graphite_bb_p gb)
       if (!build_access_matrix_with_af (af, v, scop, ref_nb_loops (ref)))
 	return false;
 
-      VEC_safe_push (lambda_vector, heap, AM_MATRIX (am), v);
+      VEC_quick_push (lambda_vector, AM_MATRIX (am), v);
     }
 
   DR_ACCESS_MATRIX (ref) = am;
@@ -3635,8 +3747,35 @@ max_precision_type (tree e1, tree e2)
   return TYPE_PRECISION (type1) > TYPE_PRECISION (type2) ? type1 : type2;
 }
 
-/* Converts a Cloog AST expression E back to a GCC expression tree
-   of type TYPE.  */
+static tree
+clast_to_gcc_expression (tree, struct clast_expr *, VEC (name_tree, heap) *,
+			 loop_iv_stack);
+
+/* Converts a Cloog reduction expression R with reduction operation OP
+   to a GCC expression tree of type TYPE.  PARAMS is a vector of
+   parameters of the scop, and IVSTACK contains the stack of induction
+   variables.  */
+
+static tree
+clast_to_gcc_expression_red (tree type, enum tree_code op,
+			     struct clast_reduction *r,
+			     VEC (name_tree, heap) *params,
+			     loop_iv_stack ivstack)
+{
+  int i;
+  tree res = clast_to_gcc_expression (type, r->elts[0], params, ivstack);
+
+  for (i = 1; i < r->n; i++)
+    {
+      tree t = clast_to_gcc_expression (type, r->elts[i], params, ivstack);
+      res = fold_build2 (op, type, res, t);
+    }
+  return res;
+}
+
+/* Converts a Cloog AST expression E back to a GCC expression tree of
+   type TYPE.  PARAMS is a vector of parameters of the scop, and
+   IVSTACK contains the stack of induction variables.  */
 
 static tree
 clast_to_gcc_expression (tree type, struct clast_expr *e,
@@ -3682,54 +3821,13 @@ clast_to_gcc_expression (tree type, struct clast_expr *e,
         switch (r->type)
           {
 	  case clast_red_sum:
-	    if (r->n == 1)
-	      return clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-
-	    else 
-	      {
-		tree tl = clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-		tree tr = clast_to_gcc_expression (type, r->elts[1], params, ivstack);
-
-		gcc_assert (r->n >= 1
-			    && r->elts[0]->type == expr_term
-			    && r->elts[1]->type == expr_term);
-
-		return fold_build2 (PLUS_EXPR, type, tl, tr);
-	      }
-
-	    break;
+	    return clast_to_gcc_expression_red (type, PLUS_EXPR, r, params, ivstack);
 
 	  case clast_red_min:
-	    if (r->n == 1)
-	      return clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-
-	    else if (r->n == 2)
-	      {
-		tree tl = clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-		tree tr = clast_to_gcc_expression (type, r->elts[1], params, ivstack);
-		return fold_build2 (MIN_EXPR, type, tl, tr);
-	      }
-
-	    else
-	      gcc_unreachable();
-
-	    break;
+	    return clast_to_gcc_expression_red (type, MIN_EXPR, r, params, ivstack);
 
 	  case clast_red_max:
-	    if (r->n == 1)
-	      return clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-
-	    else if (r->n == 2)
-	      {
-		tree tl = clast_to_gcc_expression (type, r->elts[0], params, ivstack);
-		tree tr = clast_to_gcc_expression (type, r->elts[1], params, ivstack);
-		return fold_build2 (MAX_EXPR, type, tl, tr);
-	      }
-
-	    else
-	      gcc_unreachable();
-
-	    break;
+	    return clast_to_gcc_expression_red (type, MAX_EXPR, r, params, ivstack);
 
 	  default:
 	    gcc_unreachable ();
@@ -4000,31 +4098,123 @@ is_iv (tree name)
 }
 
 static void expand_scalar_variables_stmt (gimple, basic_block, scop_p,
-					  loop_p, htab_t);
+					  htab_t);
+static tree
+expand_scalar_variables_expr (tree, tree, enum tree_code, tree, basic_block,
+			      scop_p, htab_t, gimple_stmt_iterator *);
 
-/* Constructs a tree which only contains old_ivs and parameters.  Any
-   other variables that are defined outside BB will be eliminated by
-   using their definitions in the constructed tree.  OLD_LOOP_FATHER
-   is the original loop that contained BB.  */
+/* Copies at GSI all the scalar computations on which the ssa_name OP0
+   depends on in the SCOP: these are all the scalar variables used in
+   the definition of OP0, that are defined outside BB and still in the
+   SCOP, i.e. not a parameter of the SCOP.  The expression that is
+   returned contains only induction variables from the generated code:
+   MAP contains the induction variables renaming mapping, and is used
+   to translate the names of induction variables.  */
+
+static tree
+expand_scalar_variables_ssa_name (tree op0, basic_block bb,
+				  scop_p scop, htab_t map, 
+				  gimple_stmt_iterator *gsi)
+{
+  tree var0, var1, type;
+  gimple def_stmt;
+  enum tree_code subcode;
+      
+  if (is_parameter (scop, op0)
+      || is_iv (op0))
+    return get_new_name_from_old_name (map, op0);
+      
+  def_stmt = SSA_NAME_DEF_STMT (op0);
+      
+  if (gimple_bb (def_stmt) == bb)
+    {
+      /* If the defining statement is in the basic block already
+	 we do not need to create a new expression for it, we
+	 only need to ensure its operands are expanded.  */
+      expand_scalar_variables_stmt (def_stmt, bb, scop, map);
+      return get_new_name_from_old_name (map, op0);
+    }
+  else
+    {
+      if (gimple_code (def_stmt) != GIMPLE_ASSIGN
+	  || !bb_in_scop_p (gimple_bb (def_stmt), scop))
+	return get_new_name_from_old_name (map, op0);
+
+      var0 = gimple_assign_rhs1 (def_stmt);
+      subcode = gimple_assign_rhs_code (def_stmt);
+      var1 = gimple_assign_rhs2 (def_stmt);
+      type = gimple_expr_type (def_stmt);
+
+      return expand_scalar_variables_expr (type, var0, subcode, var1, bb, scop,
+					   map, gsi);
+    }
+}
+
+/* Copies at GSI all the scalar computations on which the expression
+   OP0 CODE OP1 depends on in the SCOP: these are all the scalar
+   variables used in OP0 and OP1, defined outside BB and still defined
+   in the SCOP, i.e. not a parameter of the SCOP.  The expression that
+   is returned contains only induction variables from the generated
+   code: MAP contains the induction variables renaming mapping, and is
+   used to translate the names of induction variables.  */
 
 static tree
 expand_scalar_variables_expr (tree type, tree op0, enum tree_code code, 
 			      tree op1, basic_block bb, scop_p scop, 
-			      loop_p old_loop_father, htab_t map)
+			      htab_t map, gimple_stmt_iterator *gsi)
 {
-  if ((TREE_CODE_CLASS (code) == tcc_constant
-       && code == INTEGER_CST)
-      || TREE_CODE_CLASS (code) == tcc_reference)
+  if (TREE_CODE_CLASS (code) == tcc_constant
+      || TREE_CODE_CLASS (code) == tcc_declaration)
     return op0;
+
+  /* For data references we have to duplicate also its memory
+     indexing.  */
+  if (TREE_CODE_CLASS (code) == tcc_reference)
+    {
+      switch (code)
+	{
+	case INDIRECT_REF:
+	  {
+	    tree old_name = TREE_OPERAND (op0, 0);
+	    tree expr = expand_scalar_variables_ssa_name
+	      (old_name, bb, scop, map, gsi);
+	    tree new_name = force_gimple_operand_gsi (gsi, expr, true, NULL,
+						      true, GSI_SAME_STMT);
+
+	    set_symbol_mem_tag (SSA_NAME_VAR (new_name),
+				symbol_mem_tag (SSA_NAME_VAR (old_name)));
+	    return fold_build1 (code, type, new_name);
+	  }
+
+	case ARRAY_REF:
+	  {
+	    tree op00 = TREE_OPERAND (op0, 0);
+	    tree op01 = TREE_OPERAND (op0, 1);
+	    tree op02 = TREE_OPERAND (op0, 2);
+	    tree op03 = TREE_OPERAND (op0, 3);
+	    tree base = expand_scalar_variables_expr
+	      (TREE_TYPE (op00), op00, TREE_CODE (op00), NULL, bb, scop,
+	       map, gsi);
+	    tree subscript = expand_scalar_variables_expr
+	      (TREE_TYPE (op01), op01, TREE_CODE (op01), NULL, bb, scop,
+	       map, gsi);
+
+	    return build4 (ARRAY_REF, type, base, subscript, op02, op03);
+	  }
+
+	default:
+	  /* The above cases should catch everything.  */
+	  gcc_unreachable ();
+	}
+    }
 
   if (TREE_CODE_CLASS (code) == tcc_unary)
     {
       tree op0_type = TREE_TYPE (op0);
       enum tree_code op0_code = TREE_CODE (op0);
-      tree op0_expr = 
-	expand_scalar_variables_expr (op0_type, op0, op0_code,
-				      NULL, bb, scop, old_loop_father, map);
-
+      tree op0_expr = expand_scalar_variables_expr (op0_type, op0, op0_code,
+						    NULL, bb, scop, map, gsi);
+  
       return fold_build1 (code, type, op0_expr);
     }
 
@@ -4032,80 +4222,48 @@ expand_scalar_variables_expr (tree type, tree op0, enum tree_code code,
     {
       tree op0_type = TREE_TYPE (op0);
       enum tree_code op0_code = TREE_CODE (op0);
-      tree op0_expr = 
-	expand_scalar_variables_expr (op0_type, op0, op0_code,
-				      NULL, bb, scop, old_loop_father, map);
+      tree op0_expr = expand_scalar_variables_expr (op0_type, op0, op0_code,
+						    NULL, bb, scop, map, gsi);
       tree op1_type = TREE_TYPE (op1);
       enum tree_code op1_code = TREE_CODE (op1);
-      tree op1_expr = 
-	expand_scalar_variables_expr (op1_type, op1, op1_code,
-				      NULL, bb, scop, old_loop_father, map);
+      tree op1_expr = expand_scalar_variables_expr (op1_type, op1, op1_code,
+						    NULL, bb, scop, map, gsi);
 
       return fold_build2 (code, type, op0_expr, op1_expr);
     }
 
   if (code == SSA_NAME)
-    {
-      tree var0, var1;
-      gimple def_stmt;
-      enum tree_code subcode;
-      
-      if (is_parameter (scop, op0)
-	  || is_iv (op0))
-	return get_new_name_from_old_name (map, op0);
-      
-      def_stmt = SSA_NAME_DEF_STMT (op0);
-      
-      if (gimple_bb (def_stmt) == bb)
-	{
-	  /* If the defining statement is in the basic block already
-	     we do not need to create a new expression for it, we
-	     only need to ensure its operands are expanded.  */
-	  expand_scalar_variables_stmt (def_stmt, bb, scop,
-					old_loop_father, map);
-	  return get_new_name_from_old_name (map, op0);
-	  
-	}
-      else
-	{
-	  if (gimple_code (def_stmt) != GIMPLE_ASSIGN
-	      || !bb_in_scop_p (gimple_bb (def_stmt), scop))
-	    return get_new_name_from_old_name (map, op0);
-	  
-	  var0 = gimple_assign_rhs1 (def_stmt);
-	  subcode = gimple_assign_rhs_code (def_stmt);
-	  var1 = gimple_assign_rhs2 (def_stmt);
-	  
-	  return expand_scalar_variables_expr (type, var0, subcode, var1,
-					       bb, scop, old_loop_father, map);
-	}
-    }
+    return expand_scalar_variables_ssa_name (op0, bb, scop, map, gsi);
 
   gcc_unreachable ();
   return NULL;
 }
 
-/* Replicates any uses of non-parameters and non-old-ivs variablesthat
-   are defind outside BB with code that is inserted in BB.
-   OLD_LOOP_FATHER is the original loop that contained STMT.  */
+/* Copies at the beginning of BB all the scalar computations on which
+   STMT depends on in the SCOP: these are all the scalar variables used
+   in STMT, defined outside BB and still defined in the SCOP, i.e. not a
+   parameter of the SCOP.  The expression that is returned contains
+   only induction variables from the generated code: MAP contains the
+   induction variables renaming mapping, and is used to translate the
+   names of induction variables.  */
  
 static void
 expand_scalar_variables_stmt (gimple stmt, basic_block bb, scop_p scop,
-			      loop_p old_loop_father, htab_t map)
+			      htab_t map)
 {
   ssa_op_iter iter;
   use_operand_p use_p;
+  gimple_stmt_iterator gsi = gsi_after_labels (bb);
 
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
     {
       tree use = USE_FROM_PTR (use_p);
       tree type = TREE_TYPE (use);
-      enum tree_code code  = TREE_CODE (use);
+      enum tree_code code = TREE_CODE (use);
       tree use_expr = expand_scalar_variables_expr (type, use, code, NULL, bb,
-						    scop, old_loop_father, map);
+						    scop, map, &gsi);
       if (use_expr != use)
 	{
-	  gimple_stmt_iterator gsi = gsi_after_labels (bb);
 	  tree new_use =
 	    force_gimple_operand_gsi (&gsi, use_expr, true, NULL,
 				      true, GSI_NEW_STMT);
@@ -4116,21 +4274,23 @@ expand_scalar_variables_stmt (gimple stmt, basic_block bb, scop_p scop,
   update_stmt (stmt);
 }
 
-/* Copies the definitions outside of BB of variables that are not
-   induction variables nor parameters.  BB must only contain
-   "external" references to these types of variables.  OLD_LOOP_FATHER
-   is the original loop that contained BB.  */
+/* Copies at the beginning of BB all the scalar computations on which
+   BB depends on in the SCOP: these are all the scalar variables used
+   in BB, defined outside BB and still defined in the SCOP, i.e. not a
+   parameter of the SCOP.  The expression that is returned contains
+   only induction variables from the generated code: MAP contains the
+   induction variables renaming mapping, and is used to translate the
+   names of induction variables.  */
 
 static void 
-expand_scalar_variables (basic_block bb, scop_p scop, 
-			 loop_p old_loop_father, htab_t map)
+expand_scalar_variables (basic_block bb, scop_p scop, htab_t map)
 {
   gimple_stmt_iterator gsi;
   
   for (gsi = gsi_after_labels (bb); !gsi_end_p (gsi);)
     {
       gimple stmt = gsi_stmt (gsi);
-      expand_scalar_variables_stmt (stmt, bb, scop, old_loop_father, map);
+      expand_scalar_variables_stmt (stmt, bb, scop, map);
       gsi_next (&gsi);
     }
 }
@@ -4307,7 +4467,6 @@ register_scop_liveout_renames (scop_p scop, htab_t rename_map)
  
 static edge
 copy_bb_and_scalar_dependences (basic_block bb, scop_p scop,
-				loop_p context_loop,
 				edge next_e, htab_t map)
 {
   basic_block new_bb = split_edge (next_e);
@@ -4317,7 +4476,7 @@ copy_bb_and_scalar_dependences (basic_block bb, scop_p scop,
   remove_condition (new_bb);
   rename_variables (new_bb, map);
   remove_phi_nodes (new_bb);
-  expand_scalar_variables (new_bb, scop, context_loop, map);
+  expand_scalar_variables (new_bb, scop, map);
   register_scop_liveout_renames (scop, map);
 
   return next_e;
@@ -4489,7 +4648,7 @@ translate_clast (scop_p scop, struct loop *context_loop,
       loop_iv_stack_patch_for_consts (ivstack, (struct clast_user_stmt *) stmt);
       build_iv_mapping (ivstack, map, gbb, scop);
       next_e = copy_bb_and_scalar_dependences (GBB_BB (gbb), scop,
-					       context_loop, next_e, map);
+					       next_e, map);
       htab_delete (map);
       loop_iv_stack_remove_constants (ivstack);
       update_ssa (TODO_update_ssa);
@@ -4768,64 +4927,6 @@ find_transform (scop_p scop)
   return stmt;
 }
 
-/* Returns true when it is possible to generate code for this STMT.
-   For the moment we cannot generate code when Cloog decides to
-   duplicate a statement, as we do not do a copy, but a move.
-   USED_BASIC_BLOCKS records the blocks that have already been seen.
-   We return false if we have to generate code twice for the same
-   block.  */
-
-static bool 
-can_generate_code_stmt (struct clast_stmt *stmt,
-			struct pointer_set_t *used_basic_blocks)
-{
-  if (!stmt)
-    return true;
-
-  if (CLAST_STMT_IS_A (stmt, stmt_root))
-    return can_generate_code_stmt (stmt->next, used_basic_blocks);
-
-  if (CLAST_STMT_IS_A (stmt, stmt_user))
-    {
-      CloogStatement *cs = ((struct clast_user_stmt *) stmt)->statement;
-      graphite_bb_p gbb = (graphite_bb_p) cloog_statement_usr (cs);
-
-      if (pointer_set_contains (used_basic_blocks, gbb))
-	return false;
-      pointer_set_insert (used_basic_blocks, gbb);
-      return can_generate_code_stmt (stmt->next, used_basic_blocks);
-    }
-
-  if (CLAST_STMT_IS_A (stmt, stmt_for))
-    return can_generate_code_stmt (((struct clast_for *) stmt)->body,
-				   used_basic_blocks)
-      && can_generate_code_stmt (stmt->next, used_basic_blocks);
-
-  if (CLAST_STMT_IS_A (stmt, stmt_guard))
-    return can_generate_code_stmt (((struct clast_guard *) stmt)->then,
-				   used_basic_blocks);
-
-  if (CLAST_STMT_IS_A (stmt, stmt_block))
-    return can_generate_code_stmt (((struct clast_block *) stmt)->body,
-				   used_basic_blocks)
-      && can_generate_code_stmt (stmt->next, used_basic_blocks);
-
-  return false;
-}
-
-/* Returns true when it is possible to generate code for this STMT.  */
-
-static bool 
-can_generate_code (struct clast_stmt *stmt)
-{
-  bool result;
-  struct pointer_set_t *used_basic_blocks = pointer_set_create ();
-
-  result = can_generate_code_stmt (stmt, used_basic_blocks);
-  pointer_set_destroy (used_basic_blocks);
-  return result;
-}
-
 /* Remove from the CFG the REGION.  */
 
 static inline void
@@ -5029,6 +5130,83 @@ scop_insert_phis_for_liveouts (sese region, basic_block bb,
   update_ssa (TODO_update_ssa);
 }
 
+/* Get the definition of NAME before the SCOP.  Keep track of the
+   basic blocks that have been VISITED in a bitmap.  */
+
+static tree
+get_vdef_before_scop (scop_p scop, tree name, sbitmap visited)
+{
+  unsigned i;
+  gimple def_stmt = SSA_NAME_DEF_STMT (name);
+  basic_block def_bb = gimple_bb (def_stmt);
+
+  if (!def_bb
+      || !bb_in_scop_p (def_bb, scop))
+    return name;
+
+  if (TEST_BIT (visited, def_bb->index))
+    return NULL_TREE;
+
+  SET_BIT (visited, def_bb->index);
+
+  switch (gimple_code (def_stmt))
+    {
+    case GIMPLE_PHI:
+      for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
+	{
+	  tree arg = gimple_phi_arg_def (def_stmt, i);
+	  tree res = get_vdef_before_scop (scop, arg, visited);
+	  if (res)
+	    return res;
+	}
+      return NULL_TREE;
+
+    default:
+      return NULL_TREE;
+    }
+}
+
+/* Adjust a virtual phi node PHI that is placed at the end of the
+   generated code for SCOP:
+
+   | if (1)
+   |   generated code from REGION;
+   | else
+   |   REGION;
+
+   The FALSE_E edge comes from the original code, TRUE_E edge comes
+   from the code generated for the SCOP.  */
+
+static void
+scop_adjust_vphi (scop_p scop, gimple phi, edge true_e)
+{
+  unsigned i;
+
+  gcc_assert (gimple_phi_num_args (phi) == 2);
+
+  for (i = 0; i < gimple_phi_num_args (phi); i++)
+    if (gimple_phi_arg_edge (phi, i) == true_e)
+      {
+	tree true_arg, false_arg, before_scop_arg;
+	sbitmap visited;
+
+	true_arg = gimple_phi_arg_def (phi, i);
+	if (!SSA_NAME_IS_DEFAULT_DEF (true_arg))
+	  return;
+
+	false_arg = gimple_phi_arg_def (phi, i == 0 ? 1 : 0);
+	if (SSA_NAME_IS_DEFAULT_DEF (false_arg))
+	  return;
+
+	visited = sbitmap_alloc (last_basic_block);
+	sbitmap_zero (visited);
+	before_scop_arg = get_vdef_before_scop (scop, false_arg, visited);
+	gcc_assert (before_scop_arg != NULL_TREE);
+	SET_PHI_ARG_DEF (phi, i, before_scop_arg);
+	sbitmap_free (visited);
+      }
+}
+
 /* Adjusts the phi nodes in the block BB for variables defined in
    SCOP_REGION and used outside the SCOP_REGION.  The code generation
    moves SCOP_REGION in the else clause of an "if (1)" and generates
@@ -5055,7 +5233,10 @@ scop_adjust_phis_for_liveouts (scop_p scop, basic_block bb, edge false_e,
       gimple phi = gsi_stmt (si);
 
       if (!is_gimple_reg (PHI_RESULT (phi)))
-	continue;
+	{
+	  scop_adjust_vphi (scop, phi, true_e);
+	  continue;
+	}
 
       for (i = 0; i < gimple_phi_num_args (phi); i++)
 	if (gimple_phi_arg_edge (phi, i) == false_e)
@@ -5206,12 +5387,6 @@ gloog (scop_p scop, struct clast_stmt *stmt)
   loop_p context_loop;
   ifsese if_region = NULL;
 
-  if (!can_generate_code (stmt))
-    {
-      cloog_clast_free (stmt);
-      return;
-    }
-
   if_region = move_sese_in_condition (SCOP_REGION (scop));
   sese_build_livein_liveouts (SCOP_REGION (scop));
   scop_insert_phis_for_liveouts (SCOP_REGION (scop),
@@ -5235,9 +5410,6 @@ gloog (scop_p scop, struct clast_stmt *stmt)
 				 if_region->false_region->exit,
 				 if_region->true_region->exit);
 
-  recompute_all_dominators ();
-  graphite_verify ();
-  cleanup_tree_cfg ();
   recompute_all_dominators ();
   graphite_verify ();
 }
@@ -5378,24 +5550,43 @@ get_upper_bound_row (CloogMatrix *domain, int column)
   return get_first_matching_sign_row_index (domain, column, false);
 }
 
-/* Get the lower bound of LOOP.  */
+/* Copies the OLD_ROW constraint from OLD_DOMAIN to the NEW_DOMAIN at
+   row NEW_ROW.  */
 
 static void
-get_lower_bound (CloogMatrix *domain, int loop, Value lower_bound_result)
+copy_constraint (CloogMatrix *old_domain, CloogMatrix *new_domain,
+		 int old_row, int new_row)
 {
-  int lower_bound_row = get_lower_bound_row (domain, loop);
-  value_assign (lower_bound_result,
-		domain->p[lower_bound_row][const_column_index(domain)]);
+  int i;
+
+  gcc_assert (old_domain->NbColumns == new_domain->NbColumns
+	      && old_row < old_domain->NbRows
+	      && new_row < new_domain->NbRows);
+
+  for (i = 0; i < old_domain->NbColumns; i++)
+    value_assign (new_domain->p[new_row][i], old_domain->p[old_row][i]);
 }
 
-/* Get the upper bound of LOOP.  */
+/* Swap coefficients of variables X and Y on row R.   */
 
 static void
-get_upper_bound (CloogMatrix *domain, int loop, Value upper_bound_result)
+swap_constraint_variables (CloogMatrix *domain,
+			   int r, int x, int y)
 {
-  int upper_bound_row = get_upper_bound_row (domain, loop);
-  value_assign (upper_bound_result,
-		domain->p[upper_bound_row][const_column_index(domain)]);
+  value_swap (domain->p[r][x], domain->p[r][y]);
+}
+
+/* Scale by X the coefficient C of constraint at row R in DOMAIN.  */
+
+static void
+scale_constraint_variable (CloogMatrix *domain,
+			   int r, int c, int x)
+{
+  Value strip_size_value;
+  value_init (strip_size_value);
+  value_set_si (strip_size_value, x);
+  value_multiply (domain->p[r][c], domain->p[r][c], strip_size_value);
+  value_clear (strip_size_value);
 }
 
 /* Strip mines the loop of BB at the position LOOP_DEPTH with STRIDE.
@@ -5413,25 +5604,12 @@ graphite_trans_bb_strip_mine (graphite_bb_p gb, int loop_depth, int stride)
   int col_loop_old = loop_depth + 2; 
   int col_loop_strip = col_loop_old - 1;
 
-  Value old_lower_bound;
-  Value old_upper_bound;
-
   gcc_assert (loop_depth <= gbb_nb_loops (gb) - 1);
 
   VEC_safe_insert (loop_p, heap, GBB_LOOPS (gb), loop_depth, NULL);
 
   GBB_DOMAIN (gb) = new_domain;
 
-  /*
-   nrows = 4, ncols = 4
-  eq    i    j    c
-   1    1    0    0 
-   1   -1    0   99 
-   1    0    1    0 
-   1    0   -1   99 
-  */
- 
-  /* Move domain.  */
   for (row = 0; row < domain->NbRows; row++)
     for (col = 0; col < domain->NbColumns; col++)
       if (col <= loop_depth)
@@ -5439,125 +5617,36 @@ graphite_trans_bb_strip_mine (graphite_bb_p gb, int loop_depth, int stride)
       else
 	value_assign (new_domain->p[row][col + 1], domain->p[row][col]);
 
-
-  /*
-    nrows = 6, ncols = 5
-           outer inner
-   eq   i   jj    j    c
-   1    1    0    0    0 
-   1   -1    0    0   99 
-   1    0    0    1    0 
-   1    0    0   -1   99 
-   0    0    0    0    0 
-   0    0    0    0    0 
-   0    0    0    0    0 
-   */
-
   row = domain->NbRows;
 
-  /* Add outer loop.  */
-  value_init (old_lower_bound);
-  value_init (old_upper_bound);
-  get_lower_bound (new_domain, col_loop_old, old_lower_bound);
-  get_upper_bound (new_domain, col_loop_old, old_upper_bound);
-
-  /* Set Lower Bound */
-  value_set_si (new_domain->p[row][0], 1);
-  value_set_si (new_domain->p[row][col_loop_strip], 1);
-  value_assign (new_domain->p[row][const_column_index (new_domain)],
-		old_lower_bound);
-  value_clear (old_lower_bound);
+  /* Lower bound of the outer stripped loop.  */
+  copy_constraint (new_domain, new_domain,
+		   get_lower_bound_row (new_domain, col_loop_old), row);
+  swap_constraint_variables (new_domain, row, col_loop_old, col_loop_strip);
   row++;
 
+  /* Upper bound of the outer stripped loop.  */
+  copy_constraint (new_domain, new_domain,
+		   get_upper_bound_row (new_domain, col_loop_old), row);
+  swap_constraint_variables (new_domain, row, col_loop_old, col_loop_strip);
+  scale_constraint_variable (new_domain, row, col_loop_strip, stride);
+  row++;
 
-  /*
-    6 5
-   eq   i   jj    j    c
-   1    1    0    0    0 
-   1   -1    0    0   99 
-   1    0    0    1    0  - 
-   1    0    0   -1   99   | copy old lower bound
-   1    0    1    0    0 <-
-   0    0    0    0    0
-   0    0    0    0    0
-   */
+  /* Lower bound of a tile starts at "stride * outer_iv".  */
+  row = get_lower_bound_row (new_domain, col_loop_old);
+  value_set_si (new_domain->p[row][0], 1);
+  value_set_si (new_domain->p[row][const_column_index (new_domain)], 0);
+  value_set_si (new_domain->p[row][col_loop_old], 1);
+  value_set_si (new_domain->p[row][col_loop_strip], -1 * stride);
 
-  {
-    Value new_upper_bound;
-    Value strip_size_value;
-
-    value_init (new_upper_bound);
-    value_init (strip_size_value);
-    value_set_si (strip_size_value, (int) stride);
-
-    value_pdivision (new_upper_bound, old_upper_bound, strip_size_value);
-    value_add_int (new_upper_bound, new_upper_bound, 1);
-
-    /* Set Upper Bound */
-    value_set_si (new_domain->p[row][0], 1);
-    value_set_si (new_domain->p[row][col_loop_strip], -1);
-    value_assign (new_domain->p[row][const_column_index (new_domain)],
-		  new_upper_bound);
-
-    value_clear (strip_size_value);
-    value_clear (old_upper_bound);
-    value_clear (new_upper_bound);
-    row++;
-  }
-  /*
-    6 5
-   eq   i   jj    j    c
-   1    1    0    0    0 
-   1   -1    0    0   99 
-   1    0    0    1    0  
-   1    0    0   -1   99  
-   1    0    1    0    0 
-   1    0   -1    0   25  (divide old upper bound with stride) 
-   0    0    0    0    0
-  */
-
-  {
-    row = get_lower_bound_row (new_domain, col_loop_old);
-    /* Add local variable to keep linear representation.  */
-    value_set_si (new_domain->p[row][0], 1);
-    value_set_si (new_domain->p[row][const_column_index (new_domain)],0);
-    value_set_si (new_domain->p[row][col_loop_old], 1);
-    value_set_si (new_domain->p[row][col_loop_strip], -1*((int)stride));
-  }
-
-  /*
-    6 5
-   eq   i   jj    j    c
-   1    1    0    0    0 
-   1   -1    0    0   99 
-   1    0    -1   1    0  
-   1    0    0   -1   99  
-   1    0    1    0    0 
-   1    0   -1    0   25  (divide old upper bound with stride) 
-   0    0    0    0    0
-  */
-
-  {
-    row = new_domain->NbRows-1;
-    
-    value_set_si (new_domain->p[row][0], 1);
-    value_set_si (new_domain->p[row][col_loop_old], -1);
-    value_set_si (new_domain->p[row][col_loop_strip], stride);
-    value_set_si (new_domain->p[row][const_column_index (new_domain)],
-		  stride-1);
-  }
-
-  /*
-    6 5
-   eq   i   jj    j    c
-   1    1    0    0    0     i >= 0
-   1   -1    0    0   99    99 >= i
-   1    0    -4   1    0     j >= 4*jj
-   1    0    0   -1   99    99 >= j
-   1    0    1    0    0    jj >= 0
-   1    0   -1    0   25    25 >= jj
-   0    0    4    -1   3  jj+3 >= j
-  */
+  /* Upper bound of a tile stops at "stride * outer_iv + stride - 1",
+     or at the old upper bound that is not modified.  */
+  row = new_domain->NbRows - 1;
+  value_set_si (new_domain->p[row][0], 1);
+  value_set_si (new_domain->p[row][col_loop_old], -1);
+  value_set_si (new_domain->p[row][col_loop_strip], stride);
+  value_set_si (new_domain->p[row][const_column_index (new_domain)],
+		stride - 1);
 
   cloog_matrix_free (domain);
 
@@ -5607,7 +5696,7 @@ strip_mine_profitable_p (graphite_bb_p gb, int stride,
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "\nStrip Mining is not profitable for loop %d:",
-		   loop_index);
+		   loop->num);
 	  fprintf (dump_file, "number of iterations is too low.\n");
 	}
     }
@@ -5616,17 +5705,16 @@ strip_mine_profitable_p (graphite_bb_p gb, int stride,
 }
  
 /* Determines when the interchange of LOOP_A and LOOP_B belonging to
-   SCOP is legal.  */
+   SCOP is legal.  DEPTH is the number of loops around.  */
 
 static bool
-is_interchange_valid (scop_p scop, int loop_a, int loop_b)
+is_interchange_valid (scop_p scop, int loop_a, int loop_b, int depth)
 {
   bool res;
   VEC (ddr_p, heap) *dependence_relations;
   VEC (data_reference_p, heap) *datarefs;
 
   struct loop *nest = VEC_index (loop_p, SCOP_LOOP_NEST (scop), loop_a);
-  int depth = perfect_loop_nest_depth (nest);
   lambda_trans_matrix trans;
 
   gcc_assert (loop_a < loop_b);
@@ -5692,7 +5780,7 @@ graphite_trans_bb_block (graphite_bb_p gb, int stride, int loops)
 
   for (i = start ; i < nb_loops; i++)
     for (j = i + 1; j < nb_loops; j++)
-      if (!is_interchange_valid (scop, i, j))
+      if (!is_interchange_valid (scop, i, j, nb_loops))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
@@ -5715,6 +5803,10 @@ graphite_trans_bb_block (graphite_bb_p gb, int stride, int loops)
   /* Interchange loops.  */
   for (i = 1; i < nb_loops - start; i++)
     graphite_trans_bb_move_loop (gb, start + 2 * i, start + i);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\nLoops containing BB %d will be loop blocked.\n",
+	     GBB_BB (gb)->index);
 
   return true;
 }
@@ -5854,12 +5946,9 @@ graphite_trans_scop_block (scop_p scop)
   j++;
 
   /* Found perfect loop nest.  */
-  if (last_nb_loops - j > 0)
+  if (last_nb_loops - j >= 2)
     transform_done |= graphite_trans_loop_block (bbs, last_nb_loops - j);
   VEC_free (graphite_bb_p, heap, bbs);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nLoop blocked.\n");
 
   return transform_done;
 }
@@ -5976,9 +6065,11 @@ graphite_transform_loops (void)
       if (!build_scop_loop_nests (scop))
 	continue;
 
-      build_scop_canonical_schedules (scop);
       build_bb_loops (scop);
-      build_scop_conditions (scop);
+
+      if (!build_scop_conditions (scop))
+	continue;
+
       find_scop_parameters (scop);
       build_scop_context (scop);
 
@@ -5993,6 +6084,9 @@ graphite_transform_loops (void)
 
       if (!build_scop_iteration_domain (scop))
 	continue;
+
+      add_conditions_to_constraints (scop);
+      build_scop_canonical_schedules (scop);
 
       build_scop_data_accesses (scop);
       build_scop_dynamic_schedules (scop);
@@ -6015,6 +6109,7 @@ graphite_transform_loops (void)
     }
 
   /* Cleanup.  */
+  cleanup_tree_cfg ();
   free_scops (current_scops);
   cloog_finalize ();
   free_original_copy_tables ();
