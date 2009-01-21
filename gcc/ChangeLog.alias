@@ -1,5 +1,9 @@
 2009-01-21  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-sccvn.c (vn_nary_may_trap): Re-add.
+
+2009-01-21  Richard Guenther  <rguenther@suse.de>
+
 	Merge from trunk r143541.
 
 2009-01-20  Richard Guenther  <rguenther@suse.de>
