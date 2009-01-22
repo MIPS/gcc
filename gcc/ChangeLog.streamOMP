@@ -1,5 +1,22 @@
 2009-01-20  Antoniu Pop  <antoniu.pop@gmail.com>
 
+	* omp-low.c (scan_sharing_clauses): Added specific case for tasks,
+	in the OMP_CLAUSE_LASTPRIVATE case, to force passing the pointers
+	to the variables in the omp_data structures.
+	(lower_lastprivate_clauses, lower_send_clauses): Make sure that
+	when lowering lastprivate clauses on tasks we only use references.
+	(create_task_copyfn): Ensure that the pointers to all lastprivate
+	items are copied and available to the task if a copy function is
+	created.
+	(lower_omp_taskreg): Removed the reordering of the semaphore wait
+	statement introduced in the parent as the copy-out is now done on
+	hte child side (within the task).
+
+	* gimplify.c (gimplify_omp_task): Code cleanup and pass the
+	semaphore as firstprivate rather than shared to the task.
+
+2009-01-20  Antoniu Pop  <antoniu.pop@gmail.com>
+
 	* omp-low.c (lower_omp_taskreg): Moved the generation of post/wait
 	synchronization to gimplify.c.
 	* gimplify.c (gimplify_omp_task): Added generation of post/wait

@@ -5797,7 +5797,7 @@ gimplify_omp_task (tree *expr_p, gimple_seq *pre_p)
       sem = create_tmp_var_raw (ptr_type_node, ".omp_task_lastprivate_sem");
 
       {
-	tree clause = build_omp_clause (OMP_CLAUSE_SHARED);
+	tree clause = build_omp_clause (OMP_CLAUSE_FIRSTPRIVATE);
 	OMP_CLAUSE_DECL (clause) = sem;
 	OMP_CLAUSE_CHAIN (clause) = OMP_TASK_CLAUSES (expr);
 	OMP_TASK_CLAUSES (expr) = clause;
@@ -5808,28 +5808,27 @@ gimplify_omp_task (tree *expr_p, gimple_seq *pre_p)
       gimple_call_set_lhs (sem_create_stmt, sem);
 
       gimple_seq_add_stmt (pre_p, sem_create_stmt);
-	  
+
       sem_init_val = build_int_cst (unsigned_type_node, 0);
       sem_init_stmt
-	= gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_INIT], 
+	= gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_INIT],
 			     2, sem, sem_init_val);
-	  
       gimple_seq_add_stmt (pre_p, sem_init_stmt);
 
       /* Generate semaphore post call after the writes.  */
-      sem_post_stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_POST],
-					 1, sem);
+      sem_post_stmt
+	= gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_POST], 1, sem);
       gimple_seq_add_stmt (&post_sync, sem_post_stmt);
 
 
       /* Generate semaphore wait call before the reads.  */
-      sem_wait_stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_WAIT],
-					 1, sem);
+      sem_wait_stmt
+	= gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_WAIT], 1, sem);
       gimple_seq_add_stmt (&wait_sync, sem_wait_stmt);
 
       /* Generate semaphore destroy call.  */
-      sem_destroy_stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_DESTROY],
-					    1, sem);
+      sem_destroy_stmt
+	= gimple_build_call (built_in_decls[BUILT_IN_GOMP_SEM_DESTROY], 1, sem);
       gimple_seq_add_stmt (&wait_sync, sem_destroy_stmt);
     }
 

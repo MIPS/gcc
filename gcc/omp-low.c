@@ -1385,6 +1385,17 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  goto do_private;
 
 	case OMP_CLAUSE_LASTPRIVATE:
+	  /* If this is a lastprivate clause on a task construct, then
+	     we need to pass a pointer to its variable for
+	     copy-out.  */
+	  if (is_task_ctx (ctx))
+	    {
+	      decl = OMP_CLAUSE_DECL (c);
+	      install_var_field (decl, true, 1, ctx);
+	      install_var_field (decl, true, 2, ctx);
+	      install_var_local (decl, ctx);
+	      break;
+	    }
 	  /* Let the corresponding firstprivate clause create
 	     the variable.  */
 	  if (OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c))
@@ -2541,7 +2552,10 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 	    }
 	  OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c) = NULL;
 
-	  x = build_outer_var_ref (var, ctx);
+	  if (is_task_ctx (ctx))
+	    x = build_receiver_ref (var, true, ctx);
+	  else
+	    x = build_outer_var_ref (var, ctx);
 	  if (is_reference (var))
 	    new_var = build_fold_indirect_ref (new_var);
 	  x = lang_hooks.decls.omp_clause_assign_op (c, x, new_var);
@@ -2745,7 +2759,17 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 	  break;
 
 	case OMP_CLAUSE_LASTPRIVATE:
-	  if (by_ref || is_reference (val))
+	  /* If we have a lastprivate clause on a task construct,
+	     force passing by pointer for the field.  Do not copy-out
+	     in the sender as the task function does the copy to the
+	     pointer passed in before posting the semaphore.  */
+	  if (is_task_ctx (ctx))
+	    {
+	      by_ref = true;
+	      do_in = true;
+	      do_out = false;
+	    }
+	  else if (by_ref || is_reference (val))
 	    {
 	      if (OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c))
 		continue;
@@ -6122,7 +6146,8 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
      sizes and field offsets.  */
   if (tcctx.cb.decl_map)
     for (c = gimple_omp_task_clauses (task_stmt); c; c = OMP_CLAUSE_CHAIN (c))
-      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+	  || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
 	{
 	  tree *p;
 
@@ -6144,6 +6169,7 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
   for (c = gimple_omp_task_clauses (task_stmt); c; c = OMP_CLAUSE_CHAIN (c))
     switch (OMP_CLAUSE_CODE (c))
       {
+      case OMP_CLAUSE_LASTPRIVATE:
       case OMP_CLAUSE_SHARED:
 	decl = OMP_CLAUSE_DECL (c);
 	n = splay_tree_lookup (ctx->field_map, (splay_tree_key) decl);
@@ -6446,14 +6472,6 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (ilist || olist)
     {
       gimple_seq_add_stmt (&ilist, bind);
-      if (gimple_code (stmt) == GIMPLE_OMP_TASK
-	  && find_omp_clause (clauses, OMP_CLAUSE_LASTPRIVATE))
-	{
-	  gimple_stmt_iterator gsi = *gsi_p;
-	  gsi_next (&gsi);
-	  gimple_seq_add_stmt (&ilist, gsi_stmt (gsi));
-	  gsi_remove (&gsi, false);
-	}
       gimple_seq_add_seq (&ilist, olist);
       bind = gimple_build_bind (NULL, ilist, NULL);
     }
