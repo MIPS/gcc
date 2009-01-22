@@ -2394,7 +2394,7 @@ lto_debug_tree_flags (struct lto_debug_context *context,
 
 /* Serialization of global types and declarations.  */
 
-void output_tree (struct output_block *, tree);
+static void output_tree_with_context (struct output_block *, tree, tree);
 void output_type_tree (struct output_block *, tree);
 
 /* Output the start of a record with TAG and possibly flags for EXPR,
@@ -2571,7 +2571,7 @@ output_function_decl (struct output_block *ob, tree decl)
 
   /* saved_tree -- this is a function body, so omit it here */
   output_tree (ob, decl->decl_non_common.arguments);
-  output_tree (ob, decl->decl_non_common.result);
+  output_tree_with_context (ob, decl->decl_non_common.result, decl);
   output_tree (ob, decl->decl_non_common.vindex);
 
   /* omit initial -- should be written with body */
@@ -2703,7 +2703,7 @@ output_parm_decl (struct output_block *ob, tree decl)
 }
 
 static void
-output_result_decl (struct output_block *ob, tree decl)
+output_result_decl (struct output_block *ob, tree decl, tree fn)
 {
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_result_decl);
@@ -2713,8 +2713,10 @@ output_result_decl (struct output_block *ob, tree decl)
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
-  output_tree (ob, decl->decl_minimal.context);
-        
+
+  /* FIXME lto: We should probably set this to NULL in reset_lang_specifics. */
+  gcc_assert (decl->decl_minimal.context == fn);
+
   output_tree (ob, decl->common.type);
 
   output_tree (ob, decl->decl_common.attributes);
@@ -3042,11 +3044,11 @@ output_global_constructor (struct output_block *ob, tree ctor)
     }
 }
 
+/* Emit tree node EXPR to output block OB. If relevant, the DECL_CONTEXT
+   is asserted to be FN. */
 
-/* Emit tree node EXPR to output block OB.  */
-
-void
-output_tree (struct output_block *ob, tree expr)
+static void
+output_tree_with_context (struct output_block *ob, tree expr, tree fn)
 {
   enum tree_code code;
   enum tree_code_class klass;
@@ -3284,7 +3286,7 @@ output_tree (struct output_block *ob, tree expr)
       break;
 
     case RESULT_DECL:
-      output_result_decl (ob, expr);
+      output_result_decl (ob, expr, fn);
       break;
 
     case TYPE_DECL:
@@ -3490,6 +3492,15 @@ output_tree (struct output_block *ob, tree expr)
 
   LTO_DEBUG_UNDENT ();
 }
+
+/* Emit tree node EXPR to output block OB.  */
+
+void
+output_tree (struct output_block *ob, tree expr)
+{
+  output_tree_with_context (ob, expr, NULL_TREE);
+}
+
 
 /* Replacement for output_type_ref when serializing globals.  */
 

@@ -55,10 +55,13 @@ Boston, MA 02110-1301, USA.  */
 #include "cpplib.h"
 
 tree input_tree (struct lto_input_block *, struct data_in *);
+static tree input_tree_with_context (struct lto_input_block *ib,
+				     struct data_in *data_in, tree fn);
+
 static tree input_type_tree (struct data_in *, struct lto_input_block *);
 static tree input_tree_operand (struct lto_input_block *,
                                 struct data_in *,
-                                struct function *, enum LTO_tags);
+                                tree, enum LTO_tags);
 
 
 /* Vector of tree-pointer locations for backpatching.  */
@@ -2581,7 +2584,7 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   /* saved_tree -- this is a function body, so omit it here */
   decl->decl_non_common.arguments = input_tree (ib, data_in);
-  decl->decl_non_common.result = input_tree (ib, data_in);
+  decl->decl_non_common.result = input_tree_with_context (ib, data_in, decl);
   decl->decl_non_common.vindex = input_tree (ib, data_in);
 
   /* lang_specific */
@@ -2808,7 +2811,8 @@ input_parm_decl (struct lto_input_block *ib, struct data_in *data_in)
 }
 
 static tree
-input_result_decl (struct lto_input_block *ib, struct data_in *data_in)
+input_result_decl (struct lto_input_block *ib, struct data_in *data_in,
+		   tree fn)
 {
   tree decl = make_node (RESULT_DECL);
 
@@ -2821,7 +2825,7 @@ input_result_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   /* omit locus, uid */
   decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  decl->decl_minimal.context = fn;
 
   decl->common.type = input_tree (ib, data_in);
 
@@ -3136,7 +3140,7 @@ input_type (struct lto_input_block *ib, struct data_in *data_in, enum tree_code 
 
 static tree
 input_tree_operand (struct lto_input_block *ib, struct data_in *data_in, 
-		    struct function *fn, enum LTO_tags tag)
+		    tree fn, enum LTO_tags tag)
 {
   enum tree_code code;
   tree type = NULL_TREE;
@@ -3367,7 +3371,7 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
          but these are apparently treated similarly to parameters, for
          which dummy instances are created for extern declarations, etc.
          Actual references should occur only within a function body.  */
-      result = input_result_decl (ib, data_in);
+      result = input_result_decl (ib, data_in, fn);
       break;
 
     case TYPE_DECL:
@@ -3646,12 +3650,9 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
   return result;
 }
 
-/* Input a generic tree from the LTO IR input stream IB using the per-file
-   context in DATA_IN.  This context is used, for example, to resolve
-   references to previously input nodes. */
-
-tree
-input_tree (struct lto_input_block *ib, struct data_in *data_in)
+static tree
+input_tree_with_context (struct lto_input_block *ib,
+			 struct data_in *data_in, tree fn)
 {
   enum LTO_tags tag = input_record_start (ib);
 
@@ -3681,7 +3682,17 @@ input_tree (struct lto_input_block *ib, struct data_in *data_in)
       return result;
     }
   else
-    return input_tree_operand (ib, data_in, NULL, tag);
+    return input_tree_operand (ib, data_in, fn, tag);
+}
+
+/* Input a generic tree from the LTO IR input stream IB using the per-file
+   context in DATA_IN.  This context is used, for example, to resolve
+   references to previously input nodes. */
+
+tree
+input_tree (struct lto_input_block *ib, struct data_in *data_in)
+{
+  return input_tree_with_context (ib, data_in, NULL_TREE);
 }
 
 /* FIXME: Note reversed argument order.  */
