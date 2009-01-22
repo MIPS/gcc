@@ -2830,43 +2830,6 @@ output_imported_decl (struct output_block *ob, tree decl)
   LTO_DEBUG_TOKEN ("end_imported_decl");
 }
 
-
-static void
-output_translation_unit_decl (struct output_block *ob, tree decl)
-{
-  /* tag and flags */
-  output_global_record_start (ob, NULL, NULL, LTO_translation_unit_decl);
-  output_tree_flags (ob, 0, decl, true);
-
-  global_vector_debug (ob);
-
-  /* uid and locus are handled specially */
-  output_tree (ob, decl->decl_minimal.name);
-  output_tree (ob, decl->decl_minimal.context);
-
-  output_tree (ob, decl->decl_with_vis.assembler_name);
-  output_tree (ob, decl->decl_with_vis.section_name);
-
-  output_tree (ob, decl->common.type);
-
-  gcc_assert (decl->decl_common.attributes == NULL_TREE);
-  output_tree (ob, decl->decl_common.abstract_origin);
-
-  gcc_assert (decl->decl_common.mode == 0);
-  output_uleb128 (ob, decl->decl_common.align);
-
-  gcc_assert (decl->decl_common.size == NULL_TREE);
-  gcc_assert (decl->decl_common.size_unit == NULL_TREE);
-  /* FIXME lto: Verify this.  */
-  /* Omit initial value.  I believe this is covered when
-     we read constructors and inits.  */
-
-  gcc_assert (decl->decl_with_rtl.rtl == NULL);
-
-  /* omit chain */
-  LTO_DEBUG_TOKEN ("end_translation_unit_decl");
-}
-
 static void
 output_binfo (struct output_block *ob, tree binfo)
 {
@@ -3292,11 +3255,6 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
     case TYPE_DECL:
       output_type_decl (ob, expr);
       break;
-
-    case TRANSLATION_UNIT_DECL:
-      output_translation_unit_decl (ob, expr);
-      break;
-
 
     case LABEL_DECL:
       output_label_decl (ob, expr);

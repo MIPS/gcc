@@ -1,5 +1,12 @@
 2009-01-22  Rafael Avila de Espindola  <espindola@google.com>
 
+	* lto-function-in.c (input_translation_unit_decl): Remove.
+	(input_tree_operand): Don't call input_translation_unit_decl.
+	* lto-function-out.c (output_translation_unit_decl): Remove.
+	(output_tree_with_context): Don't call output_translation_unit_decl.
+
+2009-01-22  Rafael Avila de Espindola  <espindola@google.com>
+
 	* lto-function-in.c (input_tree_with_context): New.
 	(input_tree_operand): Change signature. Pass fn to input_result_decl.
 	(input_function_decl): Use input_tree_with_context for the result.

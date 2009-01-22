@@ -2954,40 +2954,6 @@ input_imported_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   return decl;
 }
-static tree
-input_translation_unit_decl (struct lto_input_block *ib, struct data_in *data_in)
-{
-  tree decl = make_node (TRANSLATION_UNIT_DECL);
-
-  lto_flags_type flags = input_tree_flags (ib, TRANSLATION_UNIT_DECL, true);
-  if (input_line_info (ib, data_in, flags))
-    set_line_info (data_in, decl);
-  process_tree_flags (decl, flags);
-
-  global_vector_enter (data_in, decl);
-
-  /* omit locus, uid */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
-
-  decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
-  decl->decl_with_vis.section_name = input_tree (ib, data_in);
-
-  decl->common.type = input_tree (ib, data_in);
-
-  /* omit attributes */
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
-
-  /* omit mode */
-  decl->decl_common.align  = lto_input_uleb128 (ib);
-
-  /* omit size, size_unit, initial */
-  /* omit rtl */
-
-  LTO_DEBUG_TOKEN ("end_translation_unit_decl");
-
-  return decl;
-}
 
 static tree
 input_binfo (struct lto_input_block *ib, struct data_in *data_in)
@@ -3376,10 +3342,6 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case TYPE_DECL:
       result = input_type_decl (ib, data_in);
-      break;
-
-    case TRANSLATION_UNIT_DECL:
-      result = input_translation_unit_decl (ib, data_in);
       break;
 
     case LABEL_DECL:
