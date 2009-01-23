@@ -1,3 +1,11 @@
+2009-01-23  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_const_decl): Set context to NULL_TREE.
+	* lto-function-out.c (output_const_decl): Assert that context is
+	NULL_TREE.
+	* tree.c (reset_decl_lang_specific): Set DECL_CONTEXT of CONST_DECL to
+	NULL_TREE.
+
 2009-01-22  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_translation_unit_decl): Remove.

@@ -2479,7 +2479,7 @@ input_const_decl (struct lto_input_block *ib, struct data_in *data_in)
   global_vector_enter (data_in, decl);
 
   decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  decl->decl_minimal.context = NULL_TREE;
   decl->common.type = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = input_tree (ib, data_in);
   decl->decl_common.mode = lto_input_uleb128 (ib);

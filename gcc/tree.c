@@ -4053,6 +4053,9 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
   TREE_LANG_FLAG_5 (decl) = 0;
   TREE_LANG_FLAG_6 (decl) = 0;
 
+  if (TREE_CODE (decl) == CONST_DECL)
+    DECL_CONTEXT (decl) = NULL_TREE;
+
   if (TREE_CODE (decl) != FIELD_DECL)
     /* Ignore any intervening types, because we
        are going to clear their TYPE_CONTEXT fields.  */

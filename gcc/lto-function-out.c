@@ -2442,7 +2442,7 @@ output_const_decl (struct output_block *ob, tree decl)
   global_vector_debug (ob);
 
   output_tree (ob, decl->decl_minimal.name);
-  output_tree (ob, decl->decl_minimal.context);
+  gcc_assert (decl->decl_minimal.context == NULL_TREE);
   output_tree (ob, decl->common.type);
   output_tree (ob, decl->decl_common.abstract_origin);
   output_uleb128 (ob, decl->decl_common.mode);
