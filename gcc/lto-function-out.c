@@ -2628,7 +2628,7 @@ output_var_decl (struct output_block *ob, tree decl)
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
-  output_tree (ob, decl->decl_minimal.context);
+  gcc_assert (decl->decl_minimal.context == NULL_TREE);
 
   LTO_DEBUG_TOKEN ("var_decl_assembler_name");
   output_tree (ob, decl->decl_with_vis.assembler_name);

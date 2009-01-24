@@ -2691,7 +2691,7 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   /* omit locus, uid */
   decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  decl->decl_minimal.context = NULL_TREE;
 
   LTO_DEBUG_TOKEN ("var_decl_assembler_name");
   decl->decl_with_vis.assembler_name = input_tree (ib, data_in);

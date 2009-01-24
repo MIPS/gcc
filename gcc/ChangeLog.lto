@@ -1,3 +1,9 @@
+2009-01-24  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_var_decl): Don't read DECL_CONTEXT.
+	* lto-function-out.c (output_var_decl): Don't write DECL_CONTEXT.
+	Assert it is NULL_TREE.
+
 2009-01-23  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_const_decl): Set context to NULL_TREE.
