@@ -1005,7 +1005,8 @@ write_node_summary_p (struct cgraph_node *node)
 	  && node->global.inlined_to == NULL
 	  && (cgraph_is_master_clone (node, true)
 	      || (cgraph_function_body_availability (node) 
-		  == AVAIL_OVERWRITABLE)));
+		  == AVAIL_OVERWRITABLE))
+	  && get_reference_vars_info (node) != NULL);
 }
 
 /* Serialize the ipa info for lto.  */
@@ -1072,49 +1073,53 @@ read_summary (void)
 
   while ((file_data = file_data_vec[j++]))
     {
-      unsigned int f_count;
-      unsigned int i;
       const char *data;
       size_t len;
       struct lto_input_block *ib
 	= lto_create_simple_input_block (file_data, 
 					 LTO_section_ipa_reference, 
 					 &data, &len);
-      
-      f_count = lto_input_uleb128 (ib);
-      for (i = 0; i < f_count; i++)
-	{
-	  unsigned int fn_index = lto_input_uleb128 (ib);
-	  tree fn_decl = lto_file_decl_data_get_fn_decl (file_data, fn_index);
-	  unsigned int j;
-	  struct cgraph_node *node = cgraph_node (fn_decl);
-	  ipa_reference_local_vars_info_t l = init_function_info (node);
+      if (ib)
+	{ 
+	  unsigned int i;
+	  unsigned int f_count = lto_input_uleb128 (ib);
 
-	  /* Set the statics read.  */
-	  unsigned int v_count = lto_input_uleb128 (ib);
-	  for (j = 0; j < v_count; j++)
+	  for (i = 0; i < f_count; i++)
 	    {
-	      unsigned int var_index = lto_input_uleb128 (ib);
-	      tree v_decl = lto_file_decl_data_get_var_decl (file_data,
-							     var_index);
-	      add_static_var (v_decl);
-	      bitmap_set_bit (l->statics_read, DECL_UID (v_decl));
-	    } 
+	      unsigned int fn_index = lto_input_uleb128 (ib);
+	      tree fn_decl = lto_file_decl_data_get_fn_decl (file_data,
+							     fn_index);
+	      unsigned int j;
+	      struct cgraph_node *node = cgraph_node (fn_decl);
+	      ipa_reference_local_vars_info_t l = init_function_info (node);
 
-	  /* Set the statics written.  */
-	  v_count = lto_input_uleb128 (ib);
-	  for (j = 0; j < v_count; j++)
-	    {
-	      unsigned int var_index = lto_input_uleb128 (ib);
-	      tree v_decl = lto_file_decl_data_get_var_decl (file_data,
-							     var_index);
-	      add_static_var (v_decl);
-	      bitmap_set_bit (l->statics_written, DECL_UID (v_decl));
-	    } 
-	  }
-      lto_destroy_simple_input_block (file_data, 
-				      LTO_section_ipa_reference, 
-				      ib, data, len);
+	      /* Set the statics read.  */
+	      unsigned int v_count = lto_input_uleb128 (ib);
+	      for (j = 0; j < v_count; j++)
+		{
+		  unsigned int var_index = lto_input_uleb128 (ib);
+		  tree v_decl = lto_file_decl_data_get_var_decl (file_data,
+								 var_index);
+		  add_static_var (v_decl);
+		  bitmap_set_bit (l->statics_read, DECL_UID (v_decl));
+		} 
+
+	      /* Set the statics written.  */
+	      v_count = lto_input_uleb128 (ib);
+	      for (j = 0; j < v_count; j++)
+		{
+		  unsigned int var_index = lto_input_uleb128 (ib);
+		  tree v_decl = lto_file_decl_data_get_var_decl (file_data,
+								 var_index);
+		  add_static_var (v_decl);
+		  bitmap_set_bit (l->statics_written, DECL_UID (v_decl));
+		} 
+	    }
+
+	  lto_destroy_simple_input_block (file_data, 
+					  LTO_section_ipa_reference, 
+					  ib, data, len);
+	}
     }
 }
 

@@ -750,7 +750,8 @@ write_summary (cgraph_node_set set)
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-      if (node->analyzed && cgraph_is_master_clone (node, true))
+      if (node->analyzed && cgraph_is_master_clone (node, true)
+	  && get_function_state (node) != NULL)
 	count++;
     }
   
@@ -760,11 +761,11 @@ write_summary (cgraph_node_set set)
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-      if (node->analyzed && cgraph_is_master_clone (node, true))
+      if (node->analyzed && cgraph_is_master_clone (node, true)
+	  && get_function_state (node) != NULL)
 	{
 	  unsigned HOST_WIDEST_INT flags = 0;
 	  funct_state fs = get_function_state (node);
-	  gcc_assert (fs);
 
 	  lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
 				    node->decl);
@@ -792,32 +793,34 @@ read_summary (void)
 
   while ((file_data = file_data_vec[j++]))
     {
-      unsigned int count;
-      unsigned int i;
       const char *data;
       size_t len;
       struct lto_input_block *ib
 	= lto_create_simple_input_block (file_data, 
 					 LTO_section_ipa_pure_const, 
 					 &data, &len);
-      
-      count = lto_input_uleb128 (ib);
-      for (i = 0; i < count; i++)
+      if (ib)
 	{
-	  unsigned int index = lto_input_uleb128 (ib);
-	  tree fn_decl = lto_file_decl_data_get_fn_decl (file_data, index);
-	  unsigned HOST_WIDEST_INT flags = lto_input_uleb128 (ib);
-	  funct_state fs = XCNEW (struct funct_state_d);
-	  
-	  set_function_state (cgraph_node (fn_decl), fs);
-	  fs->state_set_in_source = lto_get_flag (&flags);
-	  fs->looping = lto_get_flag (&flags);
-	  fs->pure_const_state = lto_get_flags (&flags, 2);
+	  unsigned int i;
+	  unsigned int count = lto_input_uleb128 (ib);
+
+	  for (i = 0; i < count; i++)
+	    {
+	      unsigned int index = lto_input_uleb128 (ib);
+	      tree fn_decl = lto_file_decl_data_get_fn_decl (file_data, index);
+	      unsigned HOST_WIDEST_INT flags = lto_input_uleb128 (ib);
+	      funct_state fs = XCNEW (struct funct_state_d);
+
+	      set_function_state (cgraph_node (fn_decl), fs);
+	      fs->state_set_in_source = lto_get_flag (&flags);
+	      fs->looping = lto_get_flag (&flags);
+	      fs->pure_const_state = lto_get_flags (&flags, 2);
+	    }
+
+	  lto_destroy_simple_input_block (file_data, 
+					  LTO_section_ipa_pure_const, 
+					  ib, data, len);
 	}
-      
-      lto_destroy_simple_input_block (file_data, 
-				      LTO_section_ipa_pure_const, 
-				      ib, data, len);
     }
 }
 

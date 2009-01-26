@@ -1,3 +1,8 @@
+2009-01-26  Simon Baldwin  <simonb@google.com>
+
+	* gcc/testsuite/gcc.dg/lto/20090126-1_0.c: New.
+	* gcc/testsuite/gcc.dg/lto/20090126-2_0.c: New.
+
 2009-01-21  Diego Novillo  <dnovillo@google.com>
 
 	* g++.dg/20090121-1.C: New.

@@ -1,3 +1,12 @@
+2009-01-26  Simon Baldwin  <simonb@google.com>
+
+	* ipa-reference.c (write_node_summary_p): Add get_reference_vars_info
+	to items verified before writing.
+	(read_summary): Avoid reading where no input block is available.
+	* ipa-pure-const.c (write_summary): Confirm that function state is
+	present before writing a summary.
+	(read_summary): Avoid reading where no input block is available.
+
 2009-01-26  Diego Novillo  <dnovillo@google.com>
 
 	* tree.h (TYPE_MAXVAL): Define.
