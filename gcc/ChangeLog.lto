@@ -1,3 +1,67 @@
+2009-01-26  Diego Novillo  <dnovillo@google.com>
+
+	* tree.h (TYPE_MAXVAL): Define.
+	(TYPE_MINVAL): Define.
+	* tree.c: Include cgraph.h, timevar.h and except.h.
+	(free_lang_data_in_type): Rename from reset_type_lang_specific.
+	Change argument to be the type to process.
+	Change return type to void.
+	Update all users.
+	(set_asm_name): Remove.  Update all users.
+	(free_lang_data_in_decl): Rename from
+	reset_decl_lang_specific.
+	Change argument to be the decl to process.
+	Change return type to void.
+	Update all users.
+	Also analyze DECL_SIZE in RESULT_DECLs.
+	(struct free_lang_data_d): Declare.
+	(find_decls_types_r): New.
+	(get_eh_types_for_runtime): Move from lto-function-out.c.
+	(find_decls_types_in_eh_region): New.
+	(find_decls_types_in_node): New.
+	(find_decls_types_in_var): New.
+	(free_lang_data_in_cgraph): New.
+	(free_lang_data): Rename from free_lang_specifics
+	Call free_lang_data_in_cgraph.
+	Set char_type_node to unsigned_char_type_node if -funsigned-char
+	was given.
+	(gate_free_lang_data): Rename from gate_free_lang_specifics.
+	Update all users.
+	(pass_ipa_free_lang_data): Rename from free_lang_specifics.
+	Update all users.
+	Add timer TV_IPA_FREE_LANG_DATA.
+	* Makefile.in (tree.o): Add dependency on CGRAPH_H,
+	TIMEVAR_H and except.h.
+	* lto-function-out.c (get_eh_types_for_runtime): Move to tree.c.
+	(output_eh_region): Do not call get_eh_types_for_runtime.
+	* timevar.def (TV_IPA_FREE_LANG_DATA): Define.
+	* langhooks.h (struct lang_hooks): Rename
+	free_lang_specifics to free_lang_data.
+	Update all users.
+	* langhooks-def.h (LANG_HOOKS_FREE_LANG_DATA): Rename
+	from LANG_HOOKS_RESET_LANG_SPECIFICS.  Update all users.
+	* except.c (output_ttype): Only call lookup_type_for_runtime
+	if TYPE is actually a type.
+
+2009-01-26  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (uid2type_map): Remove.  Update all users.
+	(decl_for_uid_map): Remove.  Update all users.
+	(insert_decl_to_uid_decl_map): Remove.  Update all users.
+	(insert_type_to_uid_type_map): Remove.  Update all users.
+	(uid_type_map_eq): Remove.  Update all users.
+	(uid_type_map_hash): Remove.  Update all users.
+	(insert_decl_to_uid_decl_map): Remove.  Update all users.
+	(remove_decl_from_map): Remove.  Update all users.
+
+2009-01-26  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (free_lang_data): Set lang_hooks.types_compatible_p
+	to gimple_types_compatible_p.
+	* gimple.c (gimple_types_compatible_p): Moved from
+	lto/lto-lang.c.  Renamed from lto_types_compatible_p.
+	* gimple.h (gimple_types_compatible_p): Declare.
+
 2009-01-24  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_var_decl): Don't read DECL_CONTEXT.

@@ -1,3 +1,12 @@
+2009-01-26  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Update.
+
+2009-01-26  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c (lto_types_compatible_p): Move to gimple.c
+	and rename into gimple_types_compatible_p.
+
 2009-01-12  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-lang.c (lang_hooks): Remove the const qualifier.

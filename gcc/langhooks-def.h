@@ -103,7 +103,7 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	lhd_decl_printable_name
 #define LANG_HOOKS_DWARF_NAME		lhd_dwarf_name
 #define LANG_HOOKS_EXPR_SIZE		lhd_expr_size
-#define LANG_HOOKS_RESET_LANG_SPECIFICS	lhd_do_nothing_t
+#define LANG_HOOKS_FREE_LANG_DATA	lhd_do_nothing_t
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	lhd_builtin_function
@@ -239,7 +239,7 @@ extern void lhd_end_section (void);
 #define LANG_HOOKS_INITIALIZER { \
   LANG_HOOKS_NAME, \
   LANG_HOOKS_IDENTIFIER_SIZE, \
-  LANG_HOOKS_RESET_LANG_SPECIFICS, \
+  LANG_HOOKS_FREE_LANG_DATA, \
   LANG_HOOKS_TREE_SIZE, \
   LANG_HOOKS_INIT_OPTIONS, \
   LANG_HOOKS_INITIALIZE_DIAGNOSTICS, \

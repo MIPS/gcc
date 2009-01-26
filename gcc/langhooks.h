@@ -240,7 +240,7 @@ struct lang_hooks
   size_t identifier_size;
 
   /* Remove any parts of the tree that are used only by the FE. */
-  void (*reset_lang_specifics) (tree);
+  void (*free_lang_data) (tree);
 
   /* Determines the size of any language-specific tcc_constant or
      tcc_exceptional nodes.  Since it is called from make_node, the

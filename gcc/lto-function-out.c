@@ -675,32 +675,6 @@ output_record_start (struct output_block *ob, tree expr,
 }
 
 
-/* Translate all the types in LIST with the corresponding runtime
-   types.  */
-
-static tree
-get_eh_types_for_runtime (tree list)
-{
-  tree head, prev;
-
-  if (list == NULL_TREE)
-    return NULL_TREE;
-
-  head = build_tree_list (0, lookup_type_for_runtime (TREE_VALUE (list)));
-  prev = head;
-  list = TREE_CHAIN (list);
-  while (list)
-    {
-      tree n = build_tree_list (0, lookup_type_for_runtime (TREE_VALUE (list)));
-      TREE_CHAIN (prev) = n;
-      prev = TREE_CHAIN (prev);
-      list = TREE_CHAIN (list);
-    }
-
-  return head;
-}
-
-
 /* Output EH region R to OB.  */
 
 static void
@@ -790,10 +764,7 @@ output_eh_region (struct output_block *ob, eh_region r)
 	 by calling output_zero.  */
       list = r->u.eh_catch.type_list;
       if (list)
-	{
-	  list = get_eh_types_for_runtime (list);
-	  output_expr_operand (ob, list);
-	}
+	output_expr_operand (ob, list);
       else
 	output_zero (ob);
 
@@ -805,7 +776,7 @@ output_eh_region (struct output_block *ob, eh_region r)
     }
   else if (r->type == ERT_ALLOWED_EXCEPTIONS)
     {
-      tree list = get_eh_types_for_runtime (r->u.allowed.type_list);
+      tree list = r->u.allowed.type_list;
       if (list)
 	output_expr_operand (ob, list);
       else
@@ -2750,7 +2721,7 @@ output_type_decl (struct output_block *ob, tree decl)
   /* Must output name before type.  */
   output_tree (ob, decl->decl_minimal.name);
 
-  /* Should be cleared by pass_ipa_free_lang_specifics.  */
+  /* Should be cleared by pass_ipa_free_lang_data.  */
   gcc_assert (decl->decl_minimal.context == NULL_TREE);
 
   output_tree (ob, decl->decl_with_vis.assembler_name);
@@ -2767,7 +2738,7 @@ output_type_decl (struct output_block *ob, tree decl)
   output_tree (ob, decl->decl_common.size);
   output_tree (ob, decl->decl_common.size_unit);
 
-  /* We expect pass_ipa_free_lang_specifics to clear the INITIAL field.  */
+  /* We expect pass_ipa_free_lang_data to clear the INITIAL field.  */
   gcc_assert (decl->decl_common.initial == NULL_TREE);
 
   /* lang_specific */
@@ -2912,7 +2883,7 @@ output_type (struct output_block *ob, tree type, enum LTO_tags tag)
   LTO_DEBUG_TOKEN ("binfo");
   output_tree (ob, type->type.binfo);
 
-  /* Should be cleared by pass_ipa_free_lang_specifics.  */
+  /* Should be cleared by pass_ipa_free_lang_data.  */
   gcc_assert (type->type.context == NULL_TREE);
 
   LTO_DEBUG_TOKEN ("canonical");

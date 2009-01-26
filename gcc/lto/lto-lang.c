@@ -906,30 +906,6 @@ lto_builtin_function (tree decl)
   return decl;
 }
 
-static int
-lto_types_compatible_p (tree type1, tree type2)
-{
-  if (TREE_CODE (type1) == RECORD_TYPE
-      && TREE_CODE (type2) == RECORD_TYPE)
-    {
-      /* Check structural equality.  */
-      tree f1, f2;
-
-      for (f1 = TYPE_FIELDS (type1), f2 = TYPE_FIELDS (type2);
-	   f1 && f2;
-	   f1 = TREE_CHAIN (f1), f2 = TREE_CHAIN (f2))
-	{
-	  if (TREE_CODE (f1) != TREE_CODE (f2)
-	      || DECL_NAME (f1) != DECL_NAME (f2))
-	    break;
-	}
-
-      return f1 && f2 ? 0 : 1;
-    }
-
-  return TYPE_MAIN_VARIANT (type1) == TYPE_MAIN_VARIANT (type2);
-}
-
 static void
 lto_register_builtin_type (tree type, const char *name)
 {
@@ -1074,7 +1050,7 @@ static void lto_init_ts (void)
 #undef LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
 #define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef LANG_HOOKS_TYPES_COMPATIBLE_P
-#define LANG_HOOKS_TYPES_COMPATIBLE_P lto_types_compatible_p
+#define LANG_HOOKS_TYPES_COMPATIBLE_P gimple_types_compatible_p
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE

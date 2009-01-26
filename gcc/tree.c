@@ -54,6 +54,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "langhooks-def.h"
 #include "diagnostic.h"
+#include "cgraph.h"
+#include "timevar.h"
+#include "except.h"
 
 /* Tree code classes.  */
 
@@ -147,15 +150,6 @@ static const char * const tree_node_kind_names[] = {
 static GTY(()) int next_decl_uid;
 /* Unique id for next type created.  */
 static GTY(()) int next_type_uid = 1;
-
-static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
-     htab_t uid2type_map;
-
-/* Mapping from unique DECL_UID to the decl tree node.  */
-static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
-     htab_t decl_for_uid_map;
-
-static void insert_decl_to_uid_decl_map (tree);
 
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
@@ -272,41 +266,6 @@ const char * const omp_clause_code_name[] =
 
 /* Init tree.c.  */
 
-/* Add tree NODE into the UID2TYPE_MAP hash table. */
-
-static void
-insert_type_to_uid_type_map (tree node)
-{
-  void **slot;
-  struct tree_type key;
-
-  key.uid = TYPE_UID (node);
-  slot = htab_find_slot_with_hash (uid2type_map,
-				   &key, TYPE_UID (node), INSERT);
-
-  gcc_assert (!*slot);
-
-  *(tree *)slot = node;
-}
-
-/* Compares tree VA and tree VB.  */
-
-static int
-uid_type_map_eq (const void *va, const void *vb)
-{
-  const_tree a = (const_tree) va;
-  const_tree b = (const_tree) vb;
-  return (a->type.uid == b->type.uid);
-}
-
-/* Hash the tree ITEM. */
-
-static unsigned int
-uid_type_map_hash (const void *item)
-{
-  return ((const_tree)item)->type.uid;
-}
-
 void
 init_ttree (void)
 {
@@ -328,12 +287,6 @@ init_ttree (void)
 					int_cst_hash_eq, NULL);
   
   int_cst_node = make_node (INTEGER_CST);
-
-  decl_for_uid_map = htab_create_ggc (4093, uid_decl_map_hash,
-				      uid_decl_map_eq, NULL);
-
-  uid2type_map = htab_create_ggc (4093, uid_type_map_hash,
-				  uid_type_map_eq, NULL);
 
   cl_option_hash_table = htab_create_ggc (64, cl_option_hash_hash,
 					  cl_option_hash_eq, NULL);
@@ -736,8 +689,6 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	}
       DECL_SOURCE_LOCATION (t) = input_location;
       DECL_UID (t) = next_decl_uid++;
-      insert_decl_to_uid_decl_map (t);
-
       break;
 
     case tcc_type:
@@ -753,7 +704,6 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 
       /* We have not yet computed the alias set for this type.  */
       TYPE_ALIAS_SET (t) = -1;
-      insert_type_to_uid_type_map (t);
       break;
 
     case tcc_constant:
@@ -828,7 +778,6 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	  SET_DECL_RESTRICT_BASE (t, DECL_GET_RESTRICT_BASE (node));
 	  DECL_BASED_ON_RESTRICT_P (t) = 1;
 	}
-      insert_decl_to_uid_decl_map (t);
     }
   else if (TREE_CODE_CLASS (code) == tcc_type)
     {
@@ -847,7 +796,6 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	  TYPE_CACHED_VALUES_P (t) = 0;
 	  TYPE_CACHED_VALUES (t) = NULL_TREE;
 	}
-      insert_type_to_uid_type_map (t);
     }
 
   return t;
@@ -3560,45 +3508,6 @@ build_nt_call_list (tree fn, tree arglist)
   return t;
 }
 
-/* Insert the declaration NODE into the map mapping its unique uid
-   back to the tree.  */
-
-static void
-insert_decl_to_uid_decl_map (tree node)
-{
-  void **slot;
-  struct tree_decl_minimal key;
-
-  key.uid = DECL_UID (node);
-  slot = htab_find_slot_with_hash (decl_for_uid_map,
-				   &key, DECL_UID (node), INSERT);
-
-  /* We should never try to re-insert a decl with the same uid.
-     ???  The C++ frontend breaks this invariant.  Hopefully in a
-     non-fatal way, so just overwrite the slot in this case.  */
-#if 0
-  gcc_assert (!*slot);
-#endif
-
-  *(tree *)slot = node;
-}
-
-/* Remove the declaration tree DECL from the global UID to decl map.
-   This needs to be called if you ggc_free a decl tree, otherwise
-   garbage collection will take care of it.  */
-
-void
-remove_decl_from_map (tree decl)
-{
-    struct tree_decl_minimal key;
-
-    key.uid = DECL_UID (decl);
-#if ENABLE_CHECKING
-    gcc_assert (decl == htab_find_with_hash (decl_for_uid_map, &key, key.uid));
-#endif
-    htab_remove_elt_with_hash (decl_for_uid_map, &key, key.uid);
-}
-
 
 /* Create a DECL_... node of code CODE, name NAME and data type TYPE.
    We do NOT enter this node in any sort of symbol table.
@@ -3884,13 +3793,15 @@ build_type_attribute_variant (tree ttype, tree attribute)
 					    TYPE_QUALS (ttype));
 }
 
-/* Helper function of free_lang_specifics. */
+/* Reset all language specific information still present in TYPE.  */
 
-static int
-reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
+static void
+free_lang_data_in_type (tree type)
 {
-  tree type = *(tree *) slot;
-  lang_hooks.reset_lang_specifics (type);
+  gcc_assert (TYPE_P (type));
+
+  /* Give the FE a chance to remove its own data first.  */
+  lang_hooks.free_lang_data (type);
 
   TREE_LANG_FLAG_0 (type) = 0;
   TREE_LANG_FLAG_1 (type) = 0;
@@ -3981,10 +3892,7 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
      scoping and should not be part of the IR.
      FIXME lto: This will break debug info generation.  */
   TYPE_CONTEXT (type) = NULL_TREE;
-
-  return 1;
 }
-
 
 
 /* Return true if DECL may need an assembler name to be set.  */
@@ -4021,29 +3929,16 @@ need_assembler_name_p (tree decl)
 }
 
 
-/* Helper function of free_lang_specifics.
-   Set the assembler name for nodes that may need one.  */
+/* Reset all language specific information still present in symbol
+   DECL.  */
 
-static int
-set_asm_name (void **slot, void *unused ATTRIBUTE_UNUSED)
+static void
+free_lang_data_in_decl (tree decl)
 {
-  tree decl = *((tree *) slot);
+  gcc_assert (DECL_P (decl));
 
-  if (need_assembler_name_p (decl))
-    lang_hooks.set_decl_assembler_name (decl);
-
-  return 1;
-}
-
-
-/* Helper function of free_lang_specifics. */
-
-static int
-reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
-{
-  tree decl = *(tree *) slot;
-
-  lang_hooks.reset_lang_specifics (decl);
+  /* Give the FE a chance to remove its own data first.  */
+  lang_hooks.free_lang_data (decl);
 
   TREE_LANG_FLAG_0 (decl) = 0;
   TREE_LANG_FLAG_1 (decl) = 0;
@@ -4056,9 +3951,9 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
   if (TREE_CODE (decl) == CONST_DECL)
     DECL_CONTEXT (decl) = NULL_TREE;
 
+  /* Ignore any intervening types, because we are going to clear their
+     TYPE_CONTEXT fields.  */
   if (TREE_CODE (decl) != FIELD_DECL)
-    /* Ignore any intervening types, because we
-       are going to clear their TYPE_CONTEXT fields.  */
     DECL_CONTEXT (decl) = decl_function_context (decl);
 
   if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
@@ -4078,7 +3973,9 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
        }
    }
 
-  if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == FIELD_DECL)
+  if (TREE_CODE (decl) == PARM_DECL
+      || TREE_CODE (decl) == FIELD_DECL
+      || TREE_CODE (decl) == RESULT_DECL)
     {
       tree unit_size = DECL_SIZE_UNIT (decl);
       tree size = DECL_SIZE (decl);
@@ -4123,30 +4020,315 @@ reset_decl_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	 in cgraph_node.  */
       DECL_CONTEXT (decl) = NULL_TREE;
     }
-
-  return 1;
 }
+
+/* Data used when collecting DECLs and TYPEs for language data removal.  */
+
+struct free_lang_data_d
+{
+  /* Set of traversed objects.  Used to avoid duplicate visits.  */
+  struct pointer_set_t *pset;
+
+  /* Array of symbols to process with free_lang_data_in_decl.  */
+  VEC(tree,heap) *decls;
+
+  /* Array of types to process with free_lang_data_in_type.  */
+  VEC(tree,heap) *types;
+};
+
+
+/* Operand callback helper for free_lang_data_in_node.  *TP is the
+   subtree operand being considered.  */
+
+static tree
+find_decls_types_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
+{
+  tree t = *tp;
+  struct free_lang_data_d *fld = (struct free_lang_data_d *) data;
+
+  if (DECL_P (t))
+    {
+      /* Note that walk_tree does not traverse every possible field in
+	 decls, so we have to do our own traversals here.  */
+      VEC_safe_push (tree, heap, fld->decls, t);
+
+      walk_tree (&DECL_NAME (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&DECL_CONTEXT (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&DECL_SIZE (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&DECL_SIZE_UNIT (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&DECL_INITIAL (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&DECL_ATTRIBUTES (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&DECL_ABSTRACT_ORIGIN (t), find_decls_types_r, fld, fld->pset);
+
+      if (TREE_CODE (t) == FUNCTION_DECL)
+	{
+	  walk_tree (&DECL_ARGUMENTS (t), find_decls_types_r, fld, fld->pset);
+	  walk_tree (&DECL_RESULT (t), find_decls_types_r, fld, fld->pset);
+	}
+      else if (TREE_CODE (t) == TYPE_DECL)
+	{
+	  walk_tree (&DECL_ARGUMENT_FLD (t), find_decls_types_r, fld,
+		     fld->pset);
+	  walk_tree (&DECL_VINDEX (t), find_decls_types_r, fld, fld->pset);
+	}
+      else if (TREE_CODE (t) == FIELD_DECL)
+	{
+	  walk_tree (&DECL_FIELD_OFFSET (t), find_decls_types_r, fld,
+		     fld->pset);
+	  walk_tree (&DECL_BIT_FIELD_TYPE (t), find_decls_types_r, fld,
+		     fld->pset);
+	  walk_tree (&DECL_QUALIFIER (t), find_decls_types_r, fld, fld->pset);
+	  walk_tree (&DECL_FIELD_BIT_OFFSET (t), find_decls_types_r, fld,
+		     fld->pset);
+	  walk_tree (&DECL_FCONTEXT (t), find_decls_types_r, fld, fld->pset);
+	}
+      else if (TREE_CODE (t) == VAR_DECL)
+	{
+	  walk_tree (&DECL_SECTION_NAME (t), find_decls_types_r, fld,
+		     fld->pset);
+	  walk_tree (&DECL_COMDAT_GROUP (t), find_decls_types_r, fld,
+		     fld->pset);
+	}
+    }
+  else if (TYPE_P (t))
+    {
+      /* Note that walk_tree does not traverse every possible field in
+	 types, so we have to do our own traversals here.  */
+      VEC_safe_push (tree, heap, fld->types, t);
+
+      walk_tree (&TYPE_CACHED_VALUES (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_SIZE (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_SIZE_UNIT (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_ATTRIBUTES (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_POINTER_TO (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_REFERENCE_TO (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_NAME (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_MINVAL (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_MAXVAL (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_NEXT_VARIANT (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_MAIN_VARIANT (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_CONTEXT (t), find_decls_types_r, fld, fld->pset);
+      walk_tree (&TYPE_CANONICAL (t), find_decls_types_r, fld, fld->pset);
+    }
+
+  if (TREE_TYPE (t))
+    walk_tree (&TREE_TYPE (t), find_decls_types_r, fld, fld->pset);
+
+  /* Do not recurse into TREE_CHAIN to avoid blowing up the stack.  */
+  for (tp = &TREE_CHAIN (t); *tp; tp = &TREE_CHAIN (*tp))
+    {
+      tree saved_chain = TREE_CHAIN (*tp);
+      TREE_CHAIN (*tp) = NULL_TREE;
+      walk_tree (tp, find_decls_types_r, fld, fld->pset);
+      TREE_CHAIN (*tp) = saved_chain;
+    }
+
+  return NULL_TREE;
+}
+
+
+/* Translate all the types in LIST with the corresponding runtime
+   types.  */
+
+static tree
+get_eh_types_for_runtime (tree list)
+{
+  tree head, prev;
+
+  if (list == NULL_TREE)
+    return NULL_TREE;
+
+  head = build_tree_list (0, lookup_type_for_runtime (TREE_VALUE (list)));
+  prev = head;
+  list = TREE_CHAIN (list);
+  while (list)
+    {
+      tree n = build_tree_list (0, lookup_type_for_runtime (TREE_VALUE (list)));
+      TREE_CHAIN (prev) = n;
+      prev = TREE_CHAIN (prev);
+      list = TREE_CHAIN (list);
+    }
+
+  return head;
+}
+
+
+/* Find decls and types referenced in EH region R and store them in
+   FLD->DECLS and FLD->TYPES.  */
+
+static void
+find_decls_types_in_eh_region (eh_region r, struct free_lang_data_d *fld)
+{
+  if (r == NULL)
+    return;
+
+  /* The types referenced in R must first be changed to the EH types
+     used at runtime.  This removes references to FE types in the
+     region.  */
+  if (r->type == ERT_CATCH)
+    {
+      tree list = r->u.eh_catch.type_list;
+      r->u.eh_catch.type_list = get_eh_types_for_runtime (list);
+      walk_tree (&r->u.eh_catch.type_list, find_decls_types_r, fld, fld->pset);
+    }
+  else if (r->type == ERT_ALLOWED_EXCEPTIONS)
+    {
+      tree list = r->u.allowed.type_list;
+      r->u.allowed.type_list = get_eh_types_for_runtime (list);
+      walk_tree (&r->u.allowed.type_list, find_decls_types_r, fld, fld->pset);
+    }
+}
+
+
+/* Find decls and types referenced in cgraph node N and store them in
+   FLD->DECLS and FLD->TYPES.  Unlike pass_referenced_vars, this will
+   look for *every* kind of DECL and TYPE node reachable from N,
+   including those embedded inside types and decls (i.e,, TYPE_DECLs,
+   NAMESPACE_DECLs, etc).  */
+
+static void
+find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
+{
+  basic_block bb;
+  struct function *fn;
+
+  /* Although free_lang_data_in_cgraph will set the assembler name on
+     most DECLs, it refuses to do it on unused ones.  For cgraph
+     nodes, we need to set it even if it's seemingly unused.  */
+  if (!DECL_ASSEMBLER_NAME_SET_P (n->decl))
+    lang_hooks.set_decl_assembler_name (n->decl);
+
+  walk_tree (&n->decl, find_decls_types_r, fld, fld->pset);
+
+  if (!gimple_has_body_p (n->decl))
+    return;
+
+  gcc_assert (current_function_decl == NULL_TREE && cfun == NULL);
+
+  fn = DECL_STRUCT_FUNCTION (n->decl);
+
+  /* Traverse EH regions in FN.  */
+  if (fn->eh->region_array)
+    {
+      unsigned i;
+      eh_region r;
+
+      for (i = 0; VEC_iterate (eh_region, fn->eh->region_array, i, r); i++)
+	find_decls_types_in_eh_region (r, fld);
+    }
+
+  /* Traverse every statement in FN.  */
+  FOR_EACH_BB_FN (bb, fn)
+    {
+      gimple_stmt_iterator si;
+      unsigned i;
+
+      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+	{
+	  gimple phi = gsi_stmt (si);
+
+	  for (i = 0; i < gimple_phi_num_args (phi); i++)
+	    {
+	      tree *arg_p = gimple_phi_arg_def_ptr (phi, i);
+	      walk_tree (arg_p, find_decls_types_r, fld, fld->pset);
+	    }
+	}
+
+      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
+	{
+	  gimple stmt = gsi_stmt (si);
+
+	  for (i = 0; i < gimple_num_ops (stmt); i++)
+	    {
+	      tree *arg_p = gimple_op_ptr (stmt, i);
+	      walk_tree (arg_p, find_decls_types_r, fld, fld->pset);
+	    }
+	}
+    }
+}
+
+
+/* Find decls and types referenced in varpool node N and store them in
+   FLD->DECLS and FLD->TYPES.  Unlike pass_referenced_vars, this will
+   look for *every* kind of DECL and TYPE node reachable from N,
+   including those embedded inside types and decls (i.e,, TYPE_DECLs,
+   NAMESPACE_DECLs, etc).  */
+
+static void
+find_decls_types_in_var (struct varpool_node *v, struct free_lang_data_d *fld)
+{
+  walk_tree (&v->decl, find_decls_types_r, fld, fld->pset);
+}
+
+
+/* Free language specific information for every operand and expression
+   in every node of the call graph.  This process operates in three stages:
+
+   1- Every callgraph node and varpool node is traversed looking for
+      decls and types embedded in them.  This is a more exhaustive
+      search than that done by find_referenced_vars, because it will
+      also collect individual fields, decls embedded in types, etc.
+
+   2- All the decls found are sent to free_lang_data_in_decl.
+
+   3- All the types found are sent to free_lang_data_in_type.
+
+   The ordering between decls and types is important because
+   free_lang_data_in_decl sets assembler names, which includes
+   mangling.  So types cannot be freed up until assembler names have
+   been set up.  */
+
+static void
+free_lang_data_in_cgraph (void)
+{
+  struct cgraph_node *n;
+  struct varpool_node *v;
+  struct free_lang_data_d fld;
+  tree t;
+  unsigned i;
+
+  /* Initialize sets and arrays to store referenced decls and types.  */
+  fld.pset = pointer_set_create ();
+  fld.decls = VEC_alloc (tree, heap, 100);
+  fld.types = VEC_alloc (tree, heap, 100);
+
+  /* Find decls and types in the body of every function in the callgraph.  */
+  for (n = cgraph_nodes; n; n = n->next)
+    find_decls_types_in_node (n, &fld);
+
+  /* Find decls and types in every varpool symbol.  */
+  for (v = varpool_nodes_queue; v; v = v->next_needed)
+    find_decls_types_in_var (v, &fld);
+
+  /* Set the assembler name on every decl found.  We need to do this
+     now because free_lang_data_in_decl will invalidate data needed
+     for mangling.  This breaks mangling on interdependent decls.  */
+  for (i = 0; VEC_iterate (tree, fld.decls, i, t); i++)
+    if (need_assembler_name_p (t))
+      lang_hooks.set_decl_assembler_name (t);
+
+  /* Traverse every decl found freeing its language data.  */
+  for (i = 0; VEC_iterate (tree, fld.decls, i, t); i++)
+    free_lang_data_in_decl (t);
+
+  /* Traverse every type found freeing its language data.  */
+  for (i = 0; VEC_iterate (tree, fld.types, i, t); i++)
+    free_lang_data_in_type (t);
+
+  pointer_set_destroy (fld.pset);
+  VEC_free (tree, heap, fld.decls);
+  VEC_free (tree, heap, fld.types);
+}
+
 
 /* Free resources that are used by FE but are not needed once they are done. */
 
 static unsigned
-free_lang_specifics (void)
+free_lang_data (void)
 {
-  struct cgraph_node *node;
-
-  /* Set assembler names now, as callbacks from the back-end
-     will fail after we strip DECL_CONTEXT from declaration nodes.  */
-  htab_traverse (decl_for_uid_map, set_asm_name, NULL);
-
-  for (node = cgraph_nodes; node; node = node->next)
-    {
-      tree decl = node->decl;
-      if (!DECL_ASSEMBLER_NAME_SET_P (decl))
-	lang_hooks.set_decl_assembler_name (decl);
-    }
-
-  htab_traverse (decl_for_uid_map, reset_decl_lang_specific, NULL);
-  htab_traverse (uid2type_map, reset_type_lang_specific, NULL);
+  /* Traverse the IL resetting language specific information for
+     operands, expressions, etc.  */
+  free_lang_data_in_cgraph ();
 
   /* FIXME lto.  This is a hack.  ptrdiff_type_node is only created
      by the C/C++ FE.  This should be converted to some similar
@@ -4157,10 +4339,11 @@ free_lang_specifics (void)
      a variant copy of ptr_type_node for front-end purposes.  */
   fileptr_type_node = ptr_type_node;
 
-  /* Reset some langhooks. */
+  /* Reset some langhooks.  */
   lang_hooks.callgraph.analyze_expr = NULL;
+  lang_hooks.types_compatible_p = gimple_types_compatible_p;
 
-  /* FIXME lto: We have to compute these names early. */
+  /* FIXME lto: We have to compute these names early.  */
   lang_hooks.dwarf_name = lhd_dwarf_name;
   lang_hooks.decl_printable_name = lhd_decl_printable_name;
 
@@ -4179,29 +4362,29 @@ free_lang_specifics (void)
 }
 
 
-/* Gate function for free_lang_specifics.  FIXME lto.  This should be
+/* Gate function for free_lang_data.  FIXME lto.  This should be
    unconditional and not depend on whether we're producing LTO
    information and it should be done very early on.  This currently
    breaks libstdc++ builds, though.  */
 
 static bool
-gate_free_lang_specifics (void)
+gate_free_lang_data (void)
 {
   return flag_generate_lto;
 }
 
 
-struct simple_ipa_opt_pass pass_ipa_free_lang_specifics = 
+struct simple_ipa_opt_pass pass_ipa_free_lang_data = 
 {
  {
   SIMPLE_IPA_PASS,
   NULL,					/* name */
-  gate_free_lang_specifics,		/* gate */
-  free_lang_specifics,			/* execute */
+  gate_free_lang_data,			/* gate */
+  free_lang_data,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_IPA_FREE_LANG_DATA,		/* tv_id */
   0,	                                /* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

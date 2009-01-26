@@ -2829,7 +2829,7 @@ cp_fix_function_decl_p (tree decl)
 /* Clean the C++ specific parts of the tree T. */
 
 void
-cp_reset_lang_specifics (tree t)
+cp_free_lang_data (tree t)
 {
   if (TREE_CODE (t) == METHOD_TYPE
       || TREE_CODE (t) == FUNCTION_TYPE)

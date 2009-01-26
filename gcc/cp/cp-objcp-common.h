@@ -30,8 +30,8 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
    specific to C++ or ObjC++ go in cp/cp-lang.c and objcp/objcp-lang.c,
    respectively.  */
 
-#undef LANG_HOOKS_RESET_LANG_SPECIFICS
-#define LANG_HOOKS_RESET_LANG_SPECIFICS cp_reset_lang_specifics
+#undef LANG_HOOKS_FREE_LANG_DATA
+#define LANG_HOOKS_FREE_LANG_DATA cp_free_lang_data
 #undef LANG_HOOKS_TREE_SIZE
 #define LANG_HOOKS_TREE_SIZE cp_tree_size
 #undef LANG_HOOKS_FINISH

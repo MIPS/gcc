@@ -2098,6 +2098,8 @@ struct tree_block GTY(())
 #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->type.next_variant)
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->type.main_variant)
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->type.context)
+#define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->type.maxval)
+#define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->type.minval)
 
 /* Vector types need to check target flags to determine type.  */
 extern enum machine_mode vector_type_mode (const_tree);
@@ -5254,10 +5256,6 @@ struct tree_int_map GTY(())
 #define tree_int_map_eq tree_map_base_eq
 #define tree_int_map_hash tree_map_base_hash
 #define tree_int_map_marked_p tree_map_base_marked_p
-
-/* Map from a DECL_UID to the decl tree.  */
-
-extern void remove_decl_from_map (tree);
 
 /* Map from a tree to initialization/finalization priorities.  */
 

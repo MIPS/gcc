@@ -1,3 +1,8 @@
+2009-01-26  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (cp_free_lang_data): Rename from cp_reset_lang_specifics.
+	Update all users.
+
 2009-01-13  Simon Baldwin  <simonb@google.com>
 
 	* init.c (build_new_1): Remove nelts_for_type argument, and use
