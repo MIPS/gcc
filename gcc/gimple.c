@@ -2214,7 +2214,8 @@ gimple_copy (gimple stmt)
 	  copy->gsmem.membase.loads = NULL;
 	}
 
-      update_stmt (copy);
+      /* SSA operands need to be updated.  */
+      gimple_set_modified (copy, true);
     }
 
   return copy;

@@ -1,3 +1,7 @@
+2009-01-26  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.c (gimple_copy): Delay updating the statement.
+
 2009-01-21  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-sccvn.c (vn_nary_may_trap): Re-add.
