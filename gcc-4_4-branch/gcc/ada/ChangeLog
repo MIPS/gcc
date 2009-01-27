@@ -1,3 +1,8 @@
+2009-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc-interface/Makefile.in: Fix multilib handling for
+	powerpc64-linux.
+
 2009-01-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* gnat_ugn.texi: Add : and . to direntry.

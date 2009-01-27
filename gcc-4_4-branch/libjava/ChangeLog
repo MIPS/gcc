@@ -1,3 +1,9 @@
+2009-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgcj/38872
+	* gcj/javaprims.h (_Jv_CreateJavaVM): Change to extern "C" symbol.
+	* libjgc_bc.c (_Jv_GetStringChars): Remove.
+
 2009-01-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.ac (toolexeclibdir, dbexecdir): Canonicalize /lib/../lib
