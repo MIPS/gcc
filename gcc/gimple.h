@@ -297,7 +297,9 @@ struct gimple_statement_base GTY(())
      in there.  */
   unsigned int subcode		: 16;
 
-  /* UID of this statement.  */
+  /* UID of this statement.  This is used by passes that want to
+     assign IDs to statements.  It must be assigned and used by each
+     pass.  By default it should be assumed to contain garbage.  */
   unsigned uid;
 
   /* [ WORD 2 ]
@@ -1209,7 +1211,7 @@ gimple_plf (gimple stmt, enum plf_mask plf)
 }
 
 
-/* Set the uid of statement  */
+/* Set the UID of statement.  */
 
 static inline void
 gimple_set_uid (gimple g, unsigned uid)
@@ -1218,7 +1220,7 @@ gimple_set_uid (gimple g, unsigned uid)
 }
 
 
-/* Return the uid of statement  */
+/* Return the UID of statement.  */
 
 static inline unsigned
 gimple_uid (const_gimple g)

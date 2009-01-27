@@ -5051,7 +5051,9 @@ handle_packed_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     }
   else if (TREE_CODE (*node) == FIELD_DECL)
     {
-      if (TYPE_ALIGN (TREE_TYPE (*node)) <= BITS_PER_UNIT)
+      if (TYPE_ALIGN (TREE_TYPE (*node)) <= BITS_PER_UNIT
+	  /* Still pack bitfields.  */
+	  && ! DECL_INITIAL (*node))
 	warning (OPT_Wattributes,
 		 "%qE attribute ignored for field of type %qT",
 		 name, TREE_TYPE (*node));
@@ -5844,7 +5846,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   tree *type = NULL;
   int is_type = 0;
   tree align_expr = (args ? TREE_VALUE (args)
-		     : size_int (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
+		     : size_int (ATTRIBUTE_ALIGNED_VALUE / BITS_PER_UNIT));
   int i;
 
   if (DECL_P (*node))
@@ -6482,7 +6484,8 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
       || (!SCALAR_FLOAT_MODE_P (orig_mode)
 	  && GET_MODE_CLASS (orig_mode) != MODE_INT
 	  && !ALL_SCALAR_FIXED_POINT_MODE_P (orig_mode))
-      || !host_integerp (TYPE_SIZE_UNIT (type), 1))
+      || !host_integerp (TYPE_SIZE_UNIT (type), 1)
+      || TREE_CODE (type) == BOOLEAN_TYPE)
     {
       error ("invalid vector type for attribute %qE", name);
       return NULL_TREE;

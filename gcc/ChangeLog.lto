@@ -1,7 +1,14 @@
+2009-01-27  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @143693.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2009-01-27  Rafael Avila de Espindola  <espindola@google.com>
 
-       * lto-function-in.c (input_label_decl): Set DECL_CONTEXT to NULL_TREE.
-       * lto-function-out.c (output_label_decl) Don't write DECL_CONTEXT.
+	* lto-function-in.c (input_label_decl): Set DECL_CONTEXT to NULL_TREE.
+	* lto-function-out.c (output_label_decl) Don't write DECL_CONTEXT.
 
 2009-01-27  Rafael Avila de Espindola  <espindola@google.com>
 

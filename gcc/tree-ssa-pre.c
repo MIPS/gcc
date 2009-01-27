@@ -2394,7 +2394,7 @@ compute_antic (void)
 	fprintf (dump_file, "Starting iteration %d\n", num_iterations);
       num_iterations++;
       changed = false;
-      for (i = 0; i < last_basic_block - NUM_FIXED_BLOCKS; i++)
+      for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
 	{
 	  if (TEST_BIT (changed_blocks, postorder[i]))
 	    {
@@ -2425,7 +2425,7 @@ compute_antic (void)
 	    fprintf (dump_file, "Starting iteration %d\n", num_iterations);
 	  num_iterations++;
 	  changed = false;
-	  for (i = 0; i < last_basic_block - NUM_FIXED_BLOCKS; i++)
+	  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
 	    {
 	      if (TEST_BIT (changed_blocks, postorder[i]))
 		{
@@ -3005,6 +3005,15 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 	}
     }
 
+  /* Make sure we are not inserting trapping expressions.  */
+  FOR_EACH_EDGE (pred, ei, block->preds)
+    {
+      bprime = pred->src;
+      eprime = avail[bprime->index];
+      if (eprime->kind == NARY
+	  && vn_nary_may_trap (PRE_EXPR_NARY (eprime)))
+	return false;
+    }
 
   /* Make the necessary insertions.  */
   FOR_EACH_EDGE (pred, ei, block->preds)
