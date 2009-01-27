@@ -2763,8 +2763,8 @@ output_label_decl (struct output_block *ob, tree decl)
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
-  output_tree (ob, decl->decl_minimal.context);
-        
+  /* We don't output the context here. It is output by output_named_labels. */
+
   output_tree (ob, decl->common.type);
 
   output_tree (ob, decl->decl_common.attributes);		/* ??? */

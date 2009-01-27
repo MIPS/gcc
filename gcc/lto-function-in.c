@@ -2911,7 +2911,9 @@ input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   /* omit locus, uid */
   decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+
+  /* This value will be overwritten while reading the body. */
+  decl->decl_minimal.context = NULL_TREE;
 
   decl->common.type = input_tree (ib, data_in);
 
