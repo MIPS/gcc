@@ -2541,7 +2541,7 @@ output_function_decl (struct output_block *ob, tree decl)
   /* omit rtl */
 
   /* saved_tree -- this is a function body, so omit it here */
-  output_tree (ob, decl->decl_non_common.arguments);
+  output_tree_with_context (ob, decl->decl_non_common.arguments, decl);
   output_tree_with_context (ob, decl->decl_non_common.result, decl);
   output_tree (ob, decl->decl_non_common.vindex);
 
@@ -2639,7 +2639,7 @@ output_var_decl (struct output_block *ob, tree decl)
 }
 
 static void
-output_parm_decl (struct output_block *ob, tree decl)
+output_parm_decl (struct output_block *ob, tree decl, tree fn)
 {
   /* tag and flags */
   output_global_record_start (ob, NULL, NULL, LTO_parm_decl);
@@ -2649,12 +2649,11 @@ output_parm_decl (struct output_block *ob, tree decl)
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
-  output_tree (ob, decl->decl_minimal.context);
-        
+  gcc_assert (decl->decl_minimal.context == fn);
+
   output_tree (ob, decl->common.type);
 
   output_tree (ob, decl->decl_common.attributes);
-  output_tree (ob, decl->decl_common.abstract_origin);
 
   output_uleb128 (ob, decl->decl_common.mode);
   output_uleb128 (ob, decl->decl_common.align);
@@ -2668,7 +2667,7 @@ output_parm_decl (struct output_block *ob, tree decl)
   /* lang_specific */
   /* omit rtl, incoming_rtl */
 
-  output_tree (ob, decl->common.chain);
+  output_tree_with_context (ob, decl->common.chain, fn);
 
   LTO_DEBUG_TOKEN ("end_parm_decl");
 }
@@ -3216,7 +3215,7 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
       break;
 
     case PARM_DECL:
-      output_parm_decl (ob, expr);
+      output_parm_decl (ob, expr, fn);
       break;
 
     case RESULT_DECL:

@@ -1,3 +1,19 @@
+2009-01-27  Rafael Avila de Espindola  <espindola@google.com>
+
+	* c-decl.c (merge_decls): Make sure newdecl and olddecl don't
+	share the argument list.
+	* lto-function-in.c (input_function_decl): Pass the context
+	while reading the arguments.
+	(input_parm_decl): Add the FN argument. Set the contetxt to it.
+	(input_tree_operand): Update call to input_parm_decl.
+	* lto-function-out.c (output_function_decl): Pass the context
+	while writting the arguments.
+	(output_parm_decl): Add the FN argument. Check that it is
+	equal to the context.
+	(output_tree_with_context): Update the call to ouput_parm_decl.
+	* tree.c (free_lang_data_in_decl): Force every PARM_DECL to
+	point the the correct FUNCTION_DECL.
+
 2009-01-26  Simon Baldwin  <simonb@google.com>
 
 	* ipa-reference.c (write_node_summary_p): Add get_reference_vars_info

@@ -2583,7 +2583,7 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
   decl->decl_common.size_unit = input_tree (ib, data_in);
 
   /* saved_tree -- this is a function body, so omit it here */
-  decl->decl_non_common.arguments = input_tree (ib, data_in);
+  decl->decl_non_common.arguments = input_tree_with_context (ib, data_in, decl);
   decl->decl_non_common.result = input_tree_with_context (ib, data_in, decl);
   decl->decl_non_common.vindex = input_tree (ib, data_in);
 
@@ -2771,7 +2771,7 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
 }
 
 static tree
-input_parm_decl (struct lto_input_block *ib, struct data_in *data_in)
+input_parm_decl (struct lto_input_block *ib, struct data_in *data_in, tree fn)
 {
   tree decl = make_node (PARM_DECL);
 
@@ -2784,12 +2784,12 @@ input_parm_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   /* omit locus, uid */
   decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  decl->decl_minimal.context = fn;
 
   decl->common.type = input_tree (ib, data_in);
 
   decl->decl_common.attributes = input_tree (ib, data_in);
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  decl->decl_common.abstract_origin = NULL_TREE;
 
   decl->decl_common.mode = lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
@@ -2803,7 +2803,7 @@ input_parm_decl (struct lto_input_block *ib, struct data_in *data_in)
   /* lang_specific */
   /* omit rtl, incoming_rtl */
 
-  decl->common.chain = input_tree (ib, data_in);
+  decl->common.chain = input_tree_with_context (ib, data_in, fn);
 
   LTO_DEBUG_TOKEN ("end_parm_decl");
 
@@ -3327,7 +3327,7 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case PARM_DECL:
       /* These should be dummy parameters in extern declarations, etc.  */
-      result = input_parm_decl (ib, data_in);
+      result = input_parm_decl (ib, data_in, fn);
       break;
 
     case RESULT_DECL:

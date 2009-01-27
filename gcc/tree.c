@@ -3959,7 +3959,7 @@ free_lang_data_in_decl (tree decl)
   if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
     DECL_CONTEXT (decl) = NULL_TREE;
 
- if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == VAR_DECL)
+ if (TREE_CODE (decl) == VAR_DECL)
    {
      tree context = DECL_CONTEXT (decl);
 
@@ -3989,8 +3989,11 @@ free_lang_data_in_decl (tree decl)
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       tree context = DECL_CONTEXT (decl);
+      tree t;
       if (context && TREE_CODE (context) == FUNCTION_DECL)
 	DECL_CONTEXT (decl) = NULL_TREE;
+      for (t = DECL_ARGUMENTS (decl); t ; t = TREE_CHAIN (t))
+	DECL_CONTEXT (t) = decl;
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {

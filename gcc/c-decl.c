@@ -1782,12 +1782,17 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       /* Also preserve various other info from the definition.  */
       if (!new_is_definition)
 	{
+	  tree t;
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 	  DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
 	  DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
 	  gimple_set_body (newdecl, gimple_body (olddecl));
-	  DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
+	  DECL_ARGUMENTS (newdecl) = copy_list (DECL_ARGUMENTS (olddecl));
+
+	  for (t = DECL_ARGUMENTS (newdecl); t ; t = TREE_CHAIN (t))
+	    DECL_CONTEXT (t) = newdecl;
+
 
 	  /* See if we've got a function to instantiate from.  */
 	  if (DECL_SAVED_TREE (olddecl))
@@ -1809,6 +1814,9 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   {
     unsigned olddecl_uid = DECL_UID (olddecl);
     tree olddecl_context = DECL_CONTEXT (olddecl);
+    tree olddecl_arguments;
+    if (TREE_CODE (olddecl) == FUNCTION_DECL)
+      olddecl_arguments = DECL_ARGUMENTS (olddecl);
 
     memcpy ((char *) olddecl + sizeof (struct tree_common),
 	    (char *) newdecl + sizeof (struct tree_common),
@@ -1839,6 +1847,9 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       }
     DECL_UID (olddecl) = olddecl_uid;
     DECL_CONTEXT (olddecl) = olddecl_context;
+    if (TREE_CODE (olddecl) == FUNCTION_DECL)
+      DECL_ARGUMENTS (olddecl) = olddecl_arguments;
+
   }
 
   /* If OLDDECL had its DECL_RTL instantiated, re-invoke make_decl_rtl
