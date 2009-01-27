@@ -1,3 +1,174 @@
+2009-01-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38745
+	* tree-ssa-alias.c (update_alias_info_1): Exclude RESULT_DECL
+	from special handling.
+
+2009-01-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38745
+	* tree-ssa.c (execute_update_addresses_taken): Do not include
+	variables that cannot possibly be a register in not_reg_needs.
+	Do not clear TREE_ADDRESSABLE on vars that may not become
+	registers.
+	* tree-ssa.c (update_alias_info_1): Include those in the set
+	of addressable vars.
+
+2009-01-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/38851
+	* Makefile.in (tree-ssa-dse.o): Add langhooks.h.
+	* tree-ssa-dse.c: Include langhooks.h
+	(execute_simple_dse): Remove stores with zero size.
+
+2009-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/38957
+	* c-typeck.c (c_finish_return): Handle POINTER_PLUS_EXPR the same way
+	as PLUS_EXPR.
+
+2009-01-24  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/t-linux-eabi (LIB2FUNCS_STATIC_EXTRA): Add
+	config/arm/linux-atomic.c.
+	* config/arm/linux-atomic.c: New.
+
+2009-01-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/linux.h (DBX_REGISTER_NUMBER): Delete.
+	* config/sparc/linux64.h (DBX_REGISTER_NUMBER): Likewise.
+	* config/sparc/sysv4.h (DBX_REGISTER_NUMBER): Likewise.
+
+2009-01-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/38938
+	* c-opts.c (c_common_handle_option): Update warn_pointer_sign
+	properly.
+
+2009-01-24  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/38953
+	* graphite.c (graphite_verify): Add a call to verify_loop_closed_ssa.
+	(scop_adjust_phis_for_liveouts): Initialize false_i to zero.
+	(gloog): Split the exit of the scop when the scop exit is a loop exit.
+	(graphite_transform_loops): Only call cleanup_tree_cfg if gloog
+	changed the CFG.
+
+2009-01-24  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/neon.md (neon_type): Move to arm.md.
+	(neon_mov<VSTRUCT>): Add neon_type attribute.
+	* config/arm/arm.md (neon_type): Move to here.
+	(conds): Add "unconditioal" and use as default for NEON insns.
+
+2009-01-24  Ben Elliston  <bje@au.ibm.com>
+
+	* bitmap.h (BITMAP_FREE): Eliminate `implicit conversion from
+	void *' warning from -Wc++-compat.
+	* Makefile.in (dominance.o-warn): Remove.
+
+2008-01-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/38932
+	* fold-const.c (fold_unary_ignore_overflow): New.
+	* tree.h (fold_unary_ignore_overflow): Declare.
+	* tree-ssa-ccp.c (ccp_fold): Use fold_unary_ignore_overflow.
+	* tree-ssa-sccvn.c (visit_reference_op_load,
+	simplify_unary_expression): Likewise.
+
+2009-01-22  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* c-decl.c (finish_struct): Move code to set DECL_PACKED after
+	DECL_BIT_FIELD is alreay known.  Also inherit packed for bitfields
+	regardless of their type.
+	* c-common.c (handle_packed_attribute): Don't ignore packed on
+	bitfields.
+	* c.opt (Wpacked-bitfield-compat): New warning option.
+	* stor-layout.c (place_field): Warn if offset of a field changed.
+	* doc/extend.texi (packed): Mention the ABI change.
+	* doc/invoke.texi (-Wpacked-bitfield-compat): Document.
+	(Warning Options): Add it to the list.
+
+2009-01-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* c-opts.c (c_common_post_options): Fix a typo in comments.
+
+2009-01-22  Steve Ellcey  <sje@cup.hp.com>
+
+	PR middle-end/38615
+	* gimplify.c (gimplify_init_constructor): Fix promotion of const
+	variables to static.
+	* doc/invoke.texi (-fmerge-all-constants): Update description.
+
+2009-01-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/38931
+	* config/i386/i386.md (*movsi_1): Use type "mmx" for alternative 2.
+	(*movdi_1_rex64): Use type "mmx" for alternative 5.
+
+2009-01-22  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (DATA_ALIGNMENT): Align structures, unions and arrays to
+	a word boundary.
+	(LOCAL_ALIGNMENT): Similarly.
+
+2009-01-22  Mark Shinwell  <shinwell@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.c (all_architectures): Add iWMMXt2 entry.
+	* config/arm/arm-cores.def: New ARM_CORE entry for iWMMXt2.
+	* config/arm/arm-tune.md: Regenerate.
+	* doc/invoke.texi (ARM Options): Document -mcpu=iwmmxt2 and
+	-march=iwmmxt2.
+
+2009-01-22  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* config/arm/bpabi.h (SUBTARGET_EXTRA_ASM_SPEC): Bump EABI
+	version number to five.
+
+2009-01-22  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/38930
+	* c-decl.c: (clone_underlying_type): Revert PR c++/26693 changes.
+	* c-common.c (set_underlying_type): Likewise.
+	(is_typedef_decl ): Likewise
+	* tree.h: Likewise
+	(set_underlying_type): Likewise.
+	(is_typedef_type): Likewise.
+
+2009-01-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/38587
+	* ira-color.c (coalesce_spill_slots): Don't coalesce allocnos
+	crossing setjmps.
+
+2009-01-21  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	PR bootstrap/37660
+	* config/i386/cygwin.h (SHARED_LIBGCC_SPEC):  New helper macro.
+	(LIBGCC_SPEC):  Don't define.
+	(REAL_LIBGCC_SPEC):  Define instead, using SHARED_LIBGCC_SPEC.
+
+2009-01-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/38879
+	* alias.c (base_alias_check): Unaligned access via AND address can
+	alias all surrounding object types except those with sizes equal
+	or wider than the size of unaligned access.
+
+2009-01-21  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/26693
+	* c-decl.c: (clone_underlying_type): Move this ...
+	* c-common.c (set_underlying_type): ... here.
+	Also, make sure the function properly sets TYPE_STUB_DECL() on
+	the newly created typedef variant type.
+	(is_typedef_decl ): New entry point.
+	* tree.h: Added a new member member_types_needing_access_check to
+	struct tree_decl_non_common.
+	(set_underlying_type): New entry point.
+	(is_typedef_type): Likewise.
+
 2009-01-21  Bingfeng Mei  <bmei@broadcom.com>
 
 	* alias.c (walk_mems_1, walk_mems_2, insn_alias_sets_conflict_p):
@@ -22,7 +193,7 @@
 	(version_id): Modify.
 
 2009-01-20  Andrew Pinski  <andrew_pinski@playstation.sony.com>
-	Richard Guenther  <rguenther@suse.de>
+	    Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/38747
 	PR tree-optimization/38748
@@ -49,14 +220,13 @@
 2009-01-20  Ben Elliston  <bje@au.ibm.com>
 
 	* libgcov.c (__gcov_execl, __gcov_execlp, __gcov_execle): Remove
-	const qualifier from arg parameter. Remove unnecessary cast to
-	char *.
+	const qualifier from arg parameter. Remove unnecessary cast to char *.
 	* gcov-io.h (__gcov_execl, __gcov_execlp, __gcov_execle): Remove
 	const qualifier from arg 2.
 
 2009-01-19  Iain Sandoe  <iain.sandoe@sandoe-acoustics.co.uk>
 
-        * config/darwin.h: Add static-libgfortran to LINK_SPEC.
+	* config/darwin.h: Add static-libgfortran to LINK_SPEC.
 
 2009-01-19  Vladimir Makarov  <vmakarov@redhat.com>
 
@@ -215,8 +385,7 @@
 
 2009-01-15  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	* dce.c (find_call_stack_args, delete_unmarked_insns): Fixed
-	comments.
+	* dce.c (find_call_stack_args, delete_unmarked_insns): Fixed comments.
 	
 2009-01-14  Jakub Jelinek  <jakub@redhat.com>
 
@@ -242,9 +411,9 @@
 2009-01-14  Michael Meissner  <gnu@the-meissners.org>
 
 	PR target/22599
-	* i386.c (print_operand): Add tests for 'D', 'C', 'F', 'f' to make
-	sure the insn is a conditional test (bug 22599).  Reformat a few long
-	lines.
+	* config/i386/i386.c (print_operand): Add tests for 'D', 'C', 'F', 'f'
+	to make sure the insn is a conditional test (bug 22599).  Reformat a
+	few long lines.
 
 2009-01-14  Sebastian Pop  <sebastian.pop@amd.com>
 
@@ -254,10 +423,6 @@
 	(gloog): Do not call cleanup_tree_cfg.
 	(graphite_transform_loops): Call cleanup_tree_cfg after all 
 	scops have been code generated.
-
-2009-01-14  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* testsuite/g++.dg/torture/pr38811.C: New file.
 
 2009-01-14  Basile Starynkevitch  <basile@starynkevitch.net>
 	* doc/gty.texi (Invoking the garbage collector): Added new node
@@ -278,10 +443,8 @@
 
 	* ira-conflicts.c: Include addresses.h for the definition of
 	base_reg_class.
-	(ira_build_conflicts): Use base_reg_class instead of
-	BASE_REG_CLASS.
-	* Makefile.in: Add a dependency of ira-conflicts.o on
-	addresses.h.
+	(ira_build_conflicts): Use base_reg_class instead of BASE_REG_CLASS.
+	* Makefile.in: Add a dependency of ira-conflicts.o on addresses.h.
 
 2009-01-13  Vladimir Makarov  <vmakarov@redhat.com>
 
@@ -324,13 +487,13 @@
 
 2009-01-13  Richard Earnshaw  <rearnsha@arm.com>
 
-	* arm.c (output_move_double): Don't synthesize thumb-2 ldrd/strd with
-	two 32-bit instructions.
+	* config/arm/arm.c (output_move_double): Don't synthesize thumb-2
+	ldrd/strd with two 32-bit instructions.
 
 2009-01-13  Richard Earnshaw  <rearnsha@arm.com>
 
-	* arm.c (struct processors): Pass for speed down into cost helper
-	functions.
+	* config/arm/arm.c (struct processors): Pass for speed down into
+	cost helper functions.
 	(const_ok_for_op): Handle COMPARE and inequality nodes.
 	(arm_rtx_costs_1): Rewrite.
 	(arm_size_rtx_costs): Update prototype.
@@ -342,7 +505,7 @@
 2009-01-13  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/alpha/alpha.c (alpha_legitimate_address_p): Explicit
-	relocations of local symbols  wider than UNITS_PER_WORD are not valid.
+	relocations of local symbols wider than UNITS_PER_WORD are not valid.
 	(alpha_legitimize_address): Do not split local symbols wider than
 	UNITS_PER_WORD into HIGH/LO_SUM parts.
 
@@ -639,7 +802,7 @@
 2009-01-06  Jan Hubicka  <jh@suse.cz>
 
 	PR target/38744
-	* i386.c (ix86_expand_call): Use ARRAY_SIZE.
+	* config/i386/i386.c (ix86_expand_call): Use ARRAY_SIZE.
 
 2009-01-06  Gerald Pfeifer  <gerald@pfeifer.com>
 
@@ -649,14 +812,15 @@
 2009-01-06  Jan Hubicka  <jh@suse.cz>
 	    Kai Tietz <kai.tietz@onevision.com>
 
-	* i386.md (*msabi_syvabi): Add SSE regs clobbers.
-	* i386.c (ix86_expand_call): Add clobbers.
+	* config/i386/i386.md (*msabi_syvabi): Add SSE regs clobbers.
+	* config/i386/i386.c (ix86_expand_call): Add clobbers.
 
 2009-01-06  Jan Hubicka  <jh@suse.cz>
 	    Kai Tietz <kai.tietz@onevision.com>
 
-	* i386.h (CONDITIONAL_CALL_USAGE): SSE regs are not used for w64 ABI.
-	* i386.c (struct ix86_frame): Add padding0 and nsseregs.
+	* config/i386/i386.h (CONDITIONAL_CALL_USAGE): SSE regs are not used
+	for w64 ABI.
+	* config/i386/i386.c (struct ix86_frame): Add padding0 and nsseregs.
 	(ix86_nsaved_regs): Count only general purpose regs.
 	(ix86_nsaved_sseregs): New.
 	(ix86_compute_frame_layout): Update nsseregs; set preferred alignment
@@ -672,9 +836,9 @@
 2009-01-06  Jan Hubicka  <jh@suse.cz>
 	    Kai Tietz <kai.tietz@onevision.com>
 
-	* i386.h (ACCUMULATE_OUTGOING_ARGS): Enable for MSABI
-	* i386.c (init_cumulative_args): Disallow calls of MSABI functions
-	when accumulate outgoing args is off.
+	* config/i386/i386.h (ACCUMULATE_OUTGOING_ARGS): Enable for MSABI
+	* config/i386/i386.c (init_cumulative_args): Disallow calls of MSABI
+	functions when accumulate outgoing args is off.
 
 2009-01-06  H.J. Lu  <hongjiu.lu@intel.com>
 

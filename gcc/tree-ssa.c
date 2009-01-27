@@ -1518,7 +1518,12 @@ execute_update_addresses_taken (bool do_optimize)
 	    || bitmap_bit_p (addresses_taken, DECL_UID (var)))
 	  continue;
 
-	if (TREE_ADDRESSABLE (var))
+	if (TREE_ADDRESSABLE (var)
+	    /* Do not change TREE_ADDRESSABLE if we need to preserve var as
+	       a non-register.  Otherwise we are confused and forget to
+	       add virtual operands for it.  */
+	    && (!is_gimple_reg_type (TREE_TYPE (var))
+		|| !bitmap_bit_p (not_reg_needs, DECL_UID (var))))
 	  {
 	    TREE_ADDRESSABLE (var) = 0;
 	    if (is_gimple_reg (var))

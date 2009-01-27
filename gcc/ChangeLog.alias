@@ -1,3 +1,7 @@
+2009-01-27  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r143679.
+
 2009-01-26  Richard Guenther  <rguenther@suse.de>
 
 	* gimple.c (gimple_copy): Delay updating the statement.
