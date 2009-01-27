@@ -493,6 +493,7 @@ execute_simple_dse (void)
 		fprintf (dump_file, "'\n");
 	      }
 	    removed = true;
+	    unlink_stmt_vdef (stmt);
 	    gsi_remove (&gsi, true);
 	    todo |= TODO_cleanup_cfg;
 	  }
