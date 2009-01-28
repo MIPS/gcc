@@ -1,3 +1,7 @@
+2009-01-28  Andreas Schwab  <schwab@suse.de>
+
+	* gcc-interface/misc.c (lang_hooks): Remove const qualifier.
+
 2009-01-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc-interface/Makefile.in: Fix multilib handling for

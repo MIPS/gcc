@@ -154,7 +154,7 @@ static tree gnat_type_max_size		(const_tree);
 #undef  LANG_HOOKS_BUILTIN_FUNCTION
 #define LANG_HOOKS_BUILTIN_FUNCTION        gnat_builtin_function
 
-const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 /* How much we want of our DWARF extensions.  Some of our dwarf+ extensions
    are incompatible with regular GDB versions, so we must make sure to only
