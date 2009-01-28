@@ -1,3 +1,11 @@
+2009-01-28  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-plugin.c (plugin_file_info): Remove fd and elf.
+	(parse_table_entry): strdup entry->name and entry->comdat_key.
+	(free_1): Free name and comdat_key. Don't close the file. Don't call
+	elf_end.
+	(claim_file_handler): Always call elf_end.
+
 2008-12-23  Rafael Avila de Espindola  <espindola@google.com>
 
 	* Makefile.am (AM_CPPFLAGS): Add -D_LARGEFILE_SOURCE

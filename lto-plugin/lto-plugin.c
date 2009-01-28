@@ -75,9 +75,7 @@ struct plugin_symtab
 struct plugin_file_info
 {
   char *name;
-  int fd;
   void *handle;
-  Elf *elf;
   struct plugin_symtab symtab;
   unsigned char temp;
 };
@@ -128,7 +126,7 @@ parse_table_entry (char *p, struct ld_plugin_symbol *entry, uint32_t *slot)
       LDPV_HIDDEN
     };
 
-  entry->name = p;
+  entry->name = strdup (p);
   while (*p)
     p++;
   p++;
@@ -142,6 +140,8 @@ parse_table_entry (char *p, struct ld_plugin_symbol *entry, uint32_t *slot)
 
   if (strcmp (entry->comdat_key, "") == 0)
     entry->comdat_key = NULL;
+  else
+    entry->comdat_key = strdup (entry->comdat_key);
 
   t = *p;
   assert (t <= 4);
@@ -241,12 +241,16 @@ free_1 (void)
     {
       struct plugin_file_info *info = &claimed_files[i];
       struct plugin_symtab *symtab = &info->symtab;
-      int t = close (info->fd);
-      assert (t == 0);
+      unsigned int j;
+      for (j = 0; j < symtab->nsyms; j++)
+	{
+	  struct ld_plugin_symbol *s = &symtab->syms[j];
+	  free (s->name);
+	  if (s->comdat_key)
+	    free (s->comdat_key);
+	}
       free (symtab->syms);
       symtab->syms = NULL;
-      elf_end (info->elf);
-      info->elf = NULL;
     }
 }
 
@@ -496,6 +500,7 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
   Elf *elf;
   struct plugin_file_info lto_file;
   Elf_Data *symtab;
+  int lto_file_fd;
 
   if (file->offset != 0)
     {
@@ -527,19 +532,18 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
 	  size -= r;
 	}
       lto_file.name = objname;
-      lto_file.fd = fd;
+      lto_file_fd = fd;
       lto_file.handle = file->handle;
       lto_file.temp = 1;
     }
   else
     {
       lto_file.name = strdup (file->name);
-      lto_file.fd = file->fd;
+      lto_file_fd = file->fd;
       lto_file.handle = file->handle;
       lto_file.temp = 0;
     }
-  lto_file.elf = elf_begin (lto_file.fd, ELF_C_READ, NULL);
-  elf = lto_file.elf;
+  elf = elf_begin (lto_file_fd, ELF_C_READ, NULL);
 
   *claimed = 0;
 
@@ -563,7 +567,7 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
 	     num_claimed_files * sizeof (struct plugin_file_info));
   claimed_files[num_claimed_files - 1] = lto_file;
 
-  return LDPS_OK;
+  goto cleanup;
 
  err:
   if (file->offset != 0)
@@ -572,6 +576,8 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
       assert (t == 0);
     }
   free (lto_file.name);
+
+ cleanup:
   if (elf)
     elf_end (elf);
 
