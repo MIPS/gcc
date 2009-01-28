@@ -906,6 +906,12 @@
 #endif
 
 
+/* Define to 1 if you have the <gelf.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GELF_H
+#endif
+
+
 /* Define to 1 if you have the `getchar_unlocked' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GETCHAR_UNLOCKED
@@ -1058,6 +1064,12 @@
 /* Define if your linker supports --sysroot. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_SYSROOT
+#endif
+
+
+/* Define to 1 if you have the <libelf/gelf.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LIBELF_GELF_H
 #endif
 
 
@@ -1576,6 +1588,12 @@
 #ifndef __cplusplus
 #undef inline
 #endif
+
+/* Define to `long' if <sys/types.h> does not define. */
+#ifndef USED_FOR_TARGET
+#undef intptr_t
+#endif
+
 
 /* Define to `int' if <sys/types.h> does not define. */
 #ifndef USED_FOR_TARGET

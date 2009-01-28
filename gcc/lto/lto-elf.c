@@ -24,13 +24,13 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "toplev.h"
 #include "lto.h"
-#ifdef HAVE_LIBELF_H
-# include <libelf.h>
+#ifdef HAVE_GELF_H
+# include <gelf.h>
 #else
-# if defined(HAVE_LIBELF_LIBELF_H)
-#   include <libelf/libelf.h>
+# if defined(HAVE_LIBELF_GELF_H)
+#   include <libelf/gelf.h>
 # else
-#  error "libelf.h not available"
+#  error "gelf.h not available"
 # endif
 #endif
 #include "tm.h"
@@ -590,10 +590,33 @@ lto_elf_file_close (lto_file *file)
   /* Write the ELF section header string table.  */
   if (elf_file->shstrtab_stream)
     {
+      size_t strtab;
+      GElf_Ehdr *ehdr_p, ehdr_buf;
       lto_file *old_file = lto_set_current_out_file (file);
 
       lto_elf_begin_section_with_type (".shstrtab", SHT_STRTAB);
-      elfx_update_shstrndx (elf_file->elf, elf_ndxscn (elf_file->scn));
+      ehdr_p = gelf_getehdr (elf_file->elf, &ehdr_buf);
+      if (ehdr_p == NULL)
+	fatal_error ("gelf_getehdr() failed: %s.", elf_errmsg(-1));
+      strtab = elf_ndxscn (elf_file->scn);
+      if (strtab < SHN_LORESERVE)
+	ehdr_p->e_shstrndx = strtab;
+      else
+	{
+	  GElf_Shdr *shdr_p, shdr_buf;
+	  Elf_Scn *scn_p = elf_getscn (elf_file->elf, 0);
+	  if (scn_p == NULL)
+	    fatal_error ("elf_getscn() failed: %s.", elf_errmsg(-1));
+	  shdr_p = gelf_getshdr (scn_p, &shdr_buf);
+	  if (shdr_p == NULL)
+	    fatal_error ("gelf_getshdr() failed: %s.", elf_errmsg(-1));
+	  shdr_p->sh_link = strtab;
+	  if (gelf_update_shdr (scn_p, shdr_p) == 0)
+	    fatal_error ("gelf_update_shdr() failed: %s.", elf_errmsg(-1));
+	  ehdr_p->e_shstrndx = SHN_XINDEX;
+	}
+      if (gelf_update_ehdr (elf_file->elf, ehdr_p) == 0)
+	fatal_error ("gelf_update_ehdr() failed: %s.", elf_errmsg(-1));
       lto_write_stream (elf_file->shstrtab_stream);
       lto_elf_end_section ();
 

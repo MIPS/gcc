@@ -927,6 +927,7 @@ AC_CHECK_HEADER(thread.h, [have_thread_h=yes], [have_thread_h=])
 AC_CHECK_HEADER(pthread.h, [have_pthread_h=yes], [have_pthread_h=])
 
 AC_CHECK_LIBELF
+AC_CHECK_GELF
 
 # These tests can't be done till we know if we have limits.h.
 gcc_AC_C_CHAR_BIT

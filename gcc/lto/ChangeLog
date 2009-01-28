@@ -1,5 +1,13 @@
 2009-01-28  H.J. Lu  <hongjiu.lu@intel.com>
 
+	PR bootstrap/38992
+	* lto-elf.c: Include gelf.h instead of libelf.h.
+	(lto_elf_file_close): Replace elfx_update_shstrndx with
+	gelf_getehdr, elf_getscn, gelf_getshdr, gelf_update_shdr and
+	gelf_update_ehdr.
+
+2009-01-28  H.J. Lu  <hongjiu.lu@intel.com>
+
 	PR middle-end/38996
 	* lto-elf.c (DEFINE_INIT_EHDR): Initialize e_version.
 
