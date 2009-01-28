@@ -76,7 +76,7 @@ lto-warn = $(STRICT_WARN)
 
 $(LTO_EXE): $(LTO_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(LTO_OBJS) $(BACKEND) $(LIBS) $(GMPLIBS) -lelf
+		$(LTO_OBJS) $(BACKEND) $(BACKENDLIBS) $(LIBS) -lelf
 
 $(LTRANS_DRIVER_EXE): $(srcdir)/lto/ltrans-driver
 	cp $(srcdir)/lto/ltrans-driver $(LTRANS_DRIVER_EXE)
