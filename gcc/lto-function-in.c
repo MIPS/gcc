@@ -1131,8 +1131,6 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
   tree type;
   lto_flags_type flags;
   tree result;
-  tree context;
-  enum LTO_tags context_tag;
 
   variant = tag & 0xF;
   is_var = ((tag & 0xFFF0) == LTO_local_var_decl_body0);
