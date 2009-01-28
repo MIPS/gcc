@@ -1207,7 +1207,7 @@ output_expr_operand (struct output_block *ob, tree expr)
 /* Output the local var at INDEX to OB.  */
 
 static void
-output_local_var_decl (struct output_block *ob, int index)
+output_local_var_decl (struct output_block *ob, int index, tree fn)
 {
   tree decl = lto_tree_ref_encoder_get_tree (&ob->local_decl_encoder, index);
   unsigned int variant = 0;
@@ -1282,12 +1282,8 @@ output_local_var_decl (struct output_block *ob, int index)
   clear_line_info (ob);
   output_tree_flags (ob, 0, decl, true);
 
-  LTO_DEBUG_TOKEN ("context");
-  if (DECL_CONTEXT (decl))
-    output_expr_operand (ob, DECL_CONTEXT (decl));
-  else 
-    output_zero (ob);
-  
+  gcc_assert (DECL_CONTEXT (decl) == fn);
+
   LTO_DEBUG_TOKEN ("align");
   output_uleb128 (ob, DECL_ALIGN (decl));
   
@@ -1320,7 +1316,7 @@ output_local_var_decl (struct output_block *ob, int index)
 /* Output the local declaration or type at INDEX to OB.  */
 
 static void
-output_local_decl (struct output_block *ob, int index)
+output_local_decl (struct output_block *ob, int index, tree fn)
 {
   tree decl = lto_tree_ref_encoder_get_tree (&ob->local_decl_encoder, index);
 
@@ -1331,7 +1327,7 @@ output_local_decl (struct output_block *ob, int index)
 
   if (TREE_CODE (decl) == VAR_DECL
       || TREE_CODE (decl) == PARM_DECL)
-    output_local_var_decl (ob, index);
+    output_local_var_decl (ob, index, fn);
   else
     gcc_unreachable ();
 }
@@ -1402,7 +1398,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
      them.  */
   LTO_DEBUG_TOKEN ("local vars");
   while (index < lto_tree_ref_encoder_size (&ob->local_decl_encoder))
-    output_local_decl (ob, index++);
+    output_local_decl (ob, index++, fn->decl);
 
   ob->main_stream = tmp_stream;
 }

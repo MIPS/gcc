@@ -1198,17 +1198,8 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
   if (input_line_info (ib, data_in, flags))
     set_line_info (data_in, result);
 
-  LTO_DEBUG_TOKEN ("context");
-  context_tag = input_record_start (ib);
-  if (context_tag)
-    context = input_expr_operand (ib, data_in, fn, context_tag);
-  else
-    context = NULL_TREE;
-  if (context && TYPE_P (context))
-    DECL_CONTEXT (result) = TYPE_NAME (context);
-  else
-    DECL_CONTEXT (result) = context;
-  
+  DECL_CONTEXT (result) = fn->decl;
+
   LTO_DEBUG_TOKEN ("align");
   DECL_ALIGN (result) = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("size");

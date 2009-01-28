@@ -1,3 +1,13 @@
+2009-01-29  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_local_var_decl): Set DECL_CONTEXT to
+	fn->decl.
+	* lto-function-out.c (output_local_var_decl): Add the FN argument.
+	Assert DECL_CONTEXT is fn.
+	(output_local_decl): Add the FN argument. Pass it to
+	output_local_var_decl.
+	(output_local_vars): Pass fn->decl to output_local_decl.
+
 2009-01-28  Rafael Avila de Espindola  <espindola@google.com>
 
 	* tree.c (free_lang_data_in_cgraph): Call find_decls_types_r on the
