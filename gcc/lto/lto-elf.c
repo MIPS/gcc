@@ -487,6 +487,7 @@ init_ehdr##BITS (lto_elf_file *elf_file)			      \
   memcpy (ehdr->e_ident, cached_file_attrs.elf_ident,		      \
 	  sizeof cached_file_attrs.elf_ident);			      \
   ehdr->e_type = ET_REL;					      \
+  ehdr->e_version = EV_CURRENT;					      \
   ehdr->e_machine = cached_file_attrs.elf_machine;		      \
 }
 

@@ -1,3 +1,8 @@
+2009-01-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/38996
+	* lto-elf.c (DEFINE_INIT_EHDR): Initialize e_version.
+
 2009-01-26  Diego Novillo  <dnovillo@google.com>
 
 	* lto-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Update.
