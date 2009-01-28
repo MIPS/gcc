@@ -4,7 +4,7 @@
 	* lto-function-in.c (input_local_var_decl): Remove unused
 	locals CONTEXT_TAG and CONTEXT.
 
-2009-01-29  Rafael Avila de Espindola  <espindola@google.com>
+2009-01-28  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_local_var_decl): Set DECL_CONTEXT to
 	fn->decl.
