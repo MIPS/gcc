@@ -4289,6 +4289,7 @@ free_lang_data_in_cgraph (void)
   struct free_lang_data_d fld;
   tree t;
   unsigned i;
+  alias_pair *p;
 
   /* Initialize sets and arrays to store referenced decls and types.  */
   fld.pset = pointer_set_create ();
@@ -4298,6 +4299,9 @@ free_lang_data_in_cgraph (void)
   /* Find decls and types in the body of every function in the callgraph.  */
   for (n = cgraph_nodes; n; n = n->next)
     find_decls_types_in_node (n, &fld);
+
+  for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p); i++)
+    walk_tree (&p->decl, find_decls_types_r, &fld, fld.pset);
 
   /* Find decls and types in every varpool symbol.  */
   for (v = varpool_nodes_queue; v; v = v->next_needed)

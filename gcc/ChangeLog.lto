@@ -1,3 +1,8 @@
+2009-01-28  Rafael Avila de Espindola  <espindola@google.com>
+
+	* tree.c (free_lang_data_in_cgraph): Call find_decls_types_r on the
+	decls in alias_pairs.
+
 2009-01-27  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @143693.
