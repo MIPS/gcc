@@ -1,3 +1,7 @@
+2009-01-28  Andreas Schwab  <schwab@suse.de>
+
+	* gcc-interface/misc.c (lang_hooks): Remove const qualifier.
+
 2008-12-17  Rafael Avila de Espindola  <espindola@google.com>
 
 	* gcc-interface/misc.c (gnat_init_gcc_eh): Init eh_personality_decl
