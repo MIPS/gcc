@@ -362,15 +362,43 @@ exec_lto_wrapper (char *const argv[])
   int pipe_read;
   int pipe_write;
   int t;
+  const int name_size = 100;
+  char *at_args;
+  char *args_name;
+  FILE *args;
+  int i;
+  char *new_argv[3];
+
+  /* Write argv to a file to avoid a command line that is too long. */
+  at_args = malloc (name_size + 1);
+  assert (at_args);
+
+  t = snprintf (at_args, name_size, "@%s/arguments",
+		    temp_obj_dir_name);
+  assert (t >= 0 && t < name_size);
+
+  args_name = at_args + 1;
+  args = fopen (args_name, "w");
+  assert (args);
+  for (i = 1; argv[i]; i++)
+    {
+      t = fprintf(args, "%s\n", argv[i]);
+      assert (t >= 0);
+    }
+  t = fclose (args);
+  assert (t == 0);
+
+  new_argv[0] = argv[0];
+  new_argv[1] = at_args;
+  new_argv[2] = NULL;
 
   if (debug)
     {
-      int i;
-      for (i = 0; argv[i]; i++)
-	fprintf (stderr, "%s ", argv[i]);
+      for (i = 0; new_argv[i]; i++)
+	fprintf (stderr, "%s ", new_argv[i]);
       fprintf (stderr, "\n");
-
     }
+
   t = pipe (pipefd);
   assert (t == 0);
   pipe_read = pipefd[0];
@@ -387,7 +415,7 @@ exec_lto_wrapper (char *const argv[])
       assert (t == 0);
       t = dup2 (pipe_write, 1);
       assert (t == 1);
-      execv (argv[0], argv);
+      execv (new_argv[0], new_argv);
       perror ("error: ");
       exit (1);
     }
@@ -405,6 +433,10 @@ exec_lto_wrapper (char *const argv[])
       p = wait (&status);
       assert (p == pid);
       assert (WIFEXITED (status) && WEXITSTATUS (status) == 0);
+
+      t = unlink (args_name);
+      assert (t == 0);
+      free (at_args);
     }
 }
 
