@@ -45,6 +45,7 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <stdbool.h>
+#include <libiberty.h>
 
 #ifdef HAVE_GELF_H
 # include <gelf.h>
@@ -362,7 +363,6 @@ exec_lto_wrapper (char *const argv[])
   int pipe_read;
   int pipe_write;
   int t;
-  const int name_size = 100;
   char *at_args;
   char *args_name;
   FILE *args;
@@ -370,12 +370,8 @@ exec_lto_wrapper (char *const argv[])
   char *new_argv[3];
 
   /* Write argv to a file to avoid a command line that is too long. */
-  at_args = malloc (name_size + 1);
-  assert (at_args);
-
-  t = snprintf (at_args, name_size, "@%s/arguments",
-		    temp_obj_dir_name);
-  assert (t >= 0 && t < name_size);
+  t = asprintf (&at_args, "@%s/arguments", temp_obj_dir_name);
+  assert (t >= 0);
 
   args_name = at_args + 1;
   args = fopen (args_name, "w");
@@ -542,11 +538,10 @@ claim_file_handler (const struct ld_plugin_input_file *file, int *claimed)
       off_t offset;
 
       static int objnum = 0;
-      const int name_size = 100;
-      char *objname = malloc (name_size);
-      int t = snprintf (objname, name_size, "%s/obj%d.o",
+      char *objname;
+      int t = asprintf (&objname, "%s/obj%d.o",
 			temp_obj_dir_name, objnum);
-      assert (t >= 0 && t < name_size);
+      assert (t >= 0);
       objnum++;
 
       fd = open (objname, O_RDWR | O_CREAT, 0666);

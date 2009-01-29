@@ -1,5 +1,11 @@
 2009-01-29  Rafael Avila de Espindola  <espindola@google.com>
 
+	* lto-plugin.c: Include libiberty.h.
+	(exec_lto_wrapper, claim_file_handler): Use asprintf instead of
+	snprintf.
+
+2009-01-29  Rafael Avila de Espindola  <espindola@google.com>
+
 	* lto-plugin.c (exec_lto_wrapper): Write argv to a file. Pass that
 	file to lto-wrapper.
 
