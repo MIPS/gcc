@@ -26,7 +26,6 @@
 
         * tree-inline.c (optimize_inline_calls): Do not call
         cgraph_node_remove_callees.
-
         * cgraphbuild.c (remove_cgraph_callee_edges): New function.
         (pass_remove_cgraph_callee_edges): New variable.
         * passes.c (init_optimization_passes): Add
