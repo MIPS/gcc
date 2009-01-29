@@ -1,3 +1,9 @@
+2009-01-29  Andreas Schwab  <schwab@suse.de>
+
+	* lto-function-in.c (input_eh_region): Add intermediate cast to
+	intptr_t when converting between pointer and HOST_WIDE_INT.
+	(fixup_region): Likewise.
+
 2009-01-29  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-wrapper.c (collect_execute): Remove unused vars.

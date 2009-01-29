@@ -1342,9 +1342,9 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
 
   /* Read all the region pointers as region numbers.  We'll fix up
      the pointers once the whole array has been read.  */
-  r->outer = (eh_region) lto_input_uleb128 (ib);
-  r->inner = (eh_region) lto_input_uleb128 (ib);
-  r->next_peer = (eh_region) lto_input_uleb128 (ib);
+  r->outer = (eh_region) (intptr_t) lto_input_uleb128 (ib);
+  r->inner = (eh_region) (intptr_t) lto_input_uleb128 (ib);
+  r->next_peer = (eh_region) (intptr_t) lto_input_uleb128 (ib);
   if (input_record_start (ib))
     r->tree_label = input_expr_operand (ib, data_in, fn, LTO_label_decl);
 
@@ -1361,21 +1361,21 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
       case LTO_eh_table_cleanup0:
       case LTO_eh_table_cleanup1:
 	r->type = ERT_CLEANUP;
-	r->u.cleanup.prev_try = (eh_region) lto_input_uleb128 (ib);
+	r->u.cleanup.prev_try = (eh_region) (intptr_t) lto_input_uleb128 (ib);
 	break;
 
       case LTO_eh_table_try0:
       case LTO_eh_table_try1:
 	r->type = ERT_TRY;
-	r->u.eh_try.eh_catch = (eh_region) lto_input_uleb128 (ib);
-	r->u.eh_try.last_catch = (eh_region) lto_input_uleb128 (ib);
+	r->u.eh_try.eh_catch = (eh_region) (intptr_t) lto_input_uleb128 (ib);
+	r->u.eh_try.last_catch = (eh_region) (intptr_t) lto_input_uleb128 (ib);
 	break;
 
       case LTO_eh_table_catch0:
       case LTO_eh_table_catch1:
 	r->type = ERT_CATCH;
-	r->u.eh_catch.next_catch = (eh_region) lto_input_uleb128 (ib);
-	r->u.eh_catch.prev_catch = (eh_region) lto_input_uleb128 (ib);
+	r->u.eh_catch.next_catch = (eh_region) (intptr_t) lto_input_uleb128 (ib);
+	r->u.eh_catch.prev_catch = (eh_region) (intptr_t) lto_input_uleb128 (ib);
 	if (input_record_start (ib))
 	  {
 	    tree list = input_expr_operand (ib, data_in, fn, LTO_tree_list);
@@ -1434,7 +1434,8 @@ fixup_eh_region_pointers (struct function *fn, unsigned root_region,
   unsigned i;
   VEC(eh_region,gc) *array = fn->eh->region_array;
 
-#define fixup_region(r) (r) = VEC_index (eh_region, array, (HOST_WIDE_INT) (r))
+#define fixup_region(r) (r) = VEC_index (eh_region, array, \
+					 (HOST_WIDE_INT) (intptr_t) (r))
 
   fn->eh->region_tree = VEC_index (eh_region, array, root_region);
 
