@@ -529,6 +529,11 @@ enum mips_code_readable_setting {
 	  builtin_define ("_MIPSEL");					\
 	}								\
                                                                         \
+      /* Whether calls should go through $25.  The separate __PIC__	\
+	 macro indicates whether abicalls code might use a GOT.  */	\
+      if (TARGET_ABICALLS)						\
+	builtin_define ("__mips_abicalls");				\
+									\
       /* Whether Loongson vector modes are enabled.  */                 \
       if (TARGET_LOONGSON_VECTORS)					\
         builtin_define ("__mips_loongson_vector_rev");                  \
@@ -2845,6 +2850,32 @@ while (0)
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)			\
   sprintf ((LABEL), "*%s%s%ld", (LOCAL_LABEL_PREFIX), (PREFIX), (long)(NUM))
 
+/* Print debug labels as "foo = ." rather than "foo:" because they should
+   represent a byte pointer rather than an ISA-encoded address.  This is
+   particularly important for code like:
+
+	$LFBxxx = .
+		.cfi_startproc
+		...
+		.section .gcc_except_table,...
+		...
+		.uleb128 foo-$LFBxxx
+
+   The .uleb128 requies $LFBxxx to match the FDE start address, which is
+   likewise a byte pointer rather than an ISA-encoded address.
+
+   At the time of writing, this hook is not used for the function end
+   label:
+
+   	$LFExxx:
+		.end foo
+
+   But this doesn't matter, because GAS doesn't treat a pre-.end label
+   as a MIPS16 one anyway.  */
+
+#define ASM_OUTPUT_DEBUG_LABEL(FILE, PREFIX, NUM)			\
+  fprintf (FILE, "%s%s%d = .\n", LOCAL_LABEL_PREFIX, PREFIX, NUM)
+
 /* This is how to output an element of a case-vector that is absolute.  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)				\
@@ -3157,24 +3188,25 @@ while (0)
 
      - Uses scratch register %4.
 
-    NOT_OP are the optional instructions to do a bit-wise not
-    operation in conjunction with an AND INSN to generate a sync_nand
-    operation.  */
-#define MIPS_SYNC_OP_12(INSN, NOT_OP)		\
+    AND_OP is an instruction done after INSN to mask INSN's result
+    with the mask.  For most operations, this is an AND with the
+    inclusive mask (%1).  For nand operations -- where the result of
+    INSN is already correctly masked -- it instead performs a bitwise
+    not.  */
+#define MIPS_SYNC_OP_12(INSN, AND_OP)		\
   "%(%<%[%|sync\n"				\
   "1:\tll\t%4,%0\n"				\
   "\tand\t%@,%4,%2\n"				\
-  NOT_OP					\
   "\t" INSN "\t%4,%4,%z3\n"			\
-  "\tand\t%4,%4,%1\n"				\
+  AND_OP					\
   "\tor\t%@,%@,%4\n"				\
   "\tsc\t%@,%0\n"				\
   "\tbeq%?\t%@,%.,1b\n"				\
   "\tnop\n"					\
   "\tsync%-%]%>%)"
 
-#define MIPS_SYNC_OP_12_NOT_NOP ""
-#define MIPS_SYNC_OP_12_NOT_NOT "\tnor\t%4,%4,%.\n"
+#define MIPS_SYNC_OP_12_AND "\tand\t%4,%4,%1\n"
+#define MIPS_SYNC_OP_12_XOR "\txor\t%4,%4,%1\n"
 
 /* Return an asm string that atomically:
 
@@ -3187,29 +3219,25 @@ while (0)
 
      - Uses scratch register %5.
 
-    NOT_OP are the optional instructions to do a bit-wise not
-    operation in conjunction with an AND INSN to generate a sync_nand
-    operation.
-
-    REG is used in conjunction with NOT_OP and is used to select the
-    register operated on by the INSN.  */
-#define MIPS_SYNC_OLD_OP_12(INSN, NOT_OP, REG)	\
+    AND_OP is an instruction done after INSN to mask INSN's result
+    with the mask.  For most operations, this is an AND with the
+    inclusive mask (%1).  For nand operations -- where the result of
+    INSN is already correctly masked -- it instead performs a bitwise
+    not.  */
+#define MIPS_SYNC_OLD_OP_12(INSN, AND_OP)	\
   "%(%<%[%|sync\n"				\
   "1:\tll\t%0,%1\n"				\
   "\tand\t%@,%0,%3\n"				\
-  NOT_OP					\
-  "\t" INSN "\t%5," REG ",%z4\n"		\
-  "\tand\t%5,%5,%2\n"				\
+  "\t" INSN "\t%5,%0,%z4\n"			\
+  AND_OP					\
   "\tor\t%@,%@,%5\n"				\
   "\tsc\t%@,%1\n"				\
   "\tbeq%?\t%@,%.,1b\n"				\
   "\tnop\n"					\
   "\tsync%-%]%>%)"
 
-#define MIPS_SYNC_OLD_OP_12_NOT_NOP ""
-#define MIPS_SYNC_OLD_OP_12_NOT_NOP_REG "%0"
-#define MIPS_SYNC_OLD_OP_12_NOT_NOT "\tnor\t%5,%0,%.\n"
-#define MIPS_SYNC_OLD_OP_12_NOT_NOT_REG "%5"
+#define MIPS_SYNC_OLD_OP_12_AND "\tand\t%5,%5,%2\n"
+#define MIPS_SYNC_OLD_OP_12_XOR "\txor\t%5,%5,%2\n"
 
 /* Return an asm string that atomically:
 
@@ -3220,24 +3248,25 @@ while (0)
 
      - Sets %0 to the new value of %1.
 
-    NOT_OP are the optional instructions to do a bit-wise not
-    operation in conjunction with an AND INSN to generate a sync_nand
-    operation.  */
-#define MIPS_SYNC_NEW_OP_12(INSN, NOT_OP)	\
+    AND_OP is an instruction done after INSN to mask INSN's result
+    with the mask.  For most operations, this is an AND with the
+    inclusive mask (%1).  For nand operations -- where the result of
+    INSN is already correctly masked -- it instead performs a bitwise
+    not.  */
+#define MIPS_SYNC_NEW_OP_12(INSN, AND_OP)	\
   "%(%<%[%|sync\n"				\
   "1:\tll\t%0,%1\n"				\
   "\tand\t%@,%0,%3\n"				\
-  NOT_OP					\
   "\t" INSN "\t%0,%0,%z4\n"			\
-  "\tand\t%0,%0,%2\n"				\
+  AND_OP					\
   "\tor\t%@,%@,%0\n"				\
   "\tsc\t%@,%1\n"				\
   "\tbeq%?\t%@,%.,1b\n"				\
   "\tnop\n"					\
   "\tsync%-%]%>%)"
 
-#define MIPS_SYNC_NEW_OP_12_NOT_NOP ""
-#define MIPS_SYNC_NEW_OP_12_NOT_NOT "\tnor\t%0,%0,%.\n"
+#define MIPS_SYNC_NEW_OP_12_AND "\tand\t%0,%0,%2\n"
+#define MIPS_SYNC_NEW_OP_12_XOR "\txor\t%0,%0,%2\n"
 
 /* Return an asm string that atomically:
 
@@ -3275,7 +3304,7 @@ while (0)
 
 /* Return an asm string that atomically:
 
-     - Sets memory reference %0 to ~%0 AND %1.
+     - Sets memory reference %0 to ~(%0 AND %1).
 
    SUFFIX is the suffix that should be added to "ll" and "sc"
    instructions.  INSN is the and instruction needed to and a register
@@ -3283,8 +3312,8 @@ while (0)
 #define MIPS_SYNC_NAND(SUFFIX, INSN)		\
   "%(%<%[%|sync\n"				\
   "1:\tll" SUFFIX "\t%@,%0\n"			\
-  "\tnor\t%@,%@,%.\n"				\
   "\t" INSN "\t%@,%@,%1\n"			\
+  "\tnor\t%@,%@,%.\n"				\
   "\tsc" SUFFIX "\t%@,%0\n"			\
   "\tbeq%?\t%@,%.,1b\n"				\
   "\tnop\n"					\
@@ -3292,7 +3321,7 @@ while (0)
 
 /* Return an asm string that atomically:
 
-     - Sets memory reference %1 to ~%1 AND %2.
+     - Sets memory reference %1 to ~(%1 AND %2).
 
      - Sets register %0 to the old value of memory reference %1.
 
@@ -3302,8 +3331,8 @@ while (0)
 #define MIPS_SYNC_OLD_NAND(SUFFIX, INSN)	\
   "%(%<%[%|sync\n"				\
   "1:\tll" SUFFIX "\t%0,%1\n"			\
-  "\tnor\t%@,%0,%.\n"				\
-  "\t" INSN "\t%@,%@,%2\n"			\
+  "\t" INSN "\t%@,%0,%2\n"			\
+  "\tnor\t%@,%@,%.\n"				\
   "\tsc" SUFFIX "\t%@,%1\n"			\
   "\tbeq%?\t%@,%.,1b\n"				\
   "\tnop\n"					\
@@ -3311,7 +3340,7 @@ while (0)
 
 /* Return an asm string that atomically:
 
-     - Sets memory reference %1 to ~%1 AND %2.
+     - Sets memory reference %1 to ~(%1 AND %2).
 
      - Sets register %0 to the new value of memory reference %1.
 
@@ -3321,11 +3350,11 @@ while (0)
 #define MIPS_SYNC_NEW_NAND(SUFFIX, INSN)	\
   "%(%<%[%|sync\n"				\
   "1:\tll" SUFFIX "\t%0,%1\n"			\
-  "\tnor\t%0,%0,%.\n"				\
-  "\t" INSN "\t%@,%0,%2\n"			\
+  "\t" INSN "\t%0,%0,%2\n"			\
+  "\tnor\t%@,%0,%.\n"				\
   "\tsc" SUFFIX "\t%@,%1\n"			\
   "\tbeq%?\t%@,%.,1b%~\n"			\
-  "\t" INSN "\t%0,%0,%2\n"			\
+  "\tnor\t%0,%0,%.\n"				\
   "\tsync%-%]%>%)"
 
 /* Return an asm string that atomically:

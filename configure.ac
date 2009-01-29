@@ -446,8 +446,12 @@ case "${target}" in
   *-*-chorusos)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
-  powerpc-*-darwin* | i[[3456789]]86-*-darwin* | x86_64-*-darwin9*)
+  powerpc-*-darwin* | x86_64-*-darwin[[912]]*)
     noconfigdirs="$noconfigdirs ld gas gdb gprof"
+    noconfigdirs="$noconfigdirs sim target-rda"
+    ;;
+  i[[3456789]]86-*-darwin*)
+    noconfigdirs="$noconfigdirs ld gas gprof"
     noconfigdirs="$noconfigdirs sim target-rda"
     ;;
   *-*-darwin*)
@@ -683,6 +687,10 @@ case "${target}" in
   ia64*-**-hpux*)
     # No gdb or ld support yet.
     noconfigdirs="$noconfigdirs ${libgcj} readline mmalloc libgui itcl gdb ld"
+    ;;
+  ia64*-*-*vms*)
+    # No gdb or ld support yet.
+    noconfigdirs="$noconfigdirs ${libgcj} tix readline mmalloc libgui itcl gdb ld"
     ;;
   i370-*-opened*)
     ;;
@@ -1311,7 +1319,7 @@ AC_SUBST(gmpinc)
 # Check for PPL
 ppl_major_version=0
 ppl_minor_version=10
-ppllibs=
+ppllibs=" -lppl_c -lppl -lgmpxx "
 pplinc=
 
 AC_ARG_WITH(ppl, [  --with-ppl=PATH         Specify prefix directory for the installed PPL package
@@ -1320,11 +1328,16 @@ AC_ARG_WITH(ppl, [  --with-ppl=PATH         Specify prefix directory for the ins
 AC_ARG_WITH(ppl_include, [  --with-ppl-include=PATH Specify directory for installed PPL include files])
 AC_ARG_WITH(ppl_lib, [  --with-ppl-lib=PATH     Specify the directory for the installed PPL library])
 
-if test "x$with_ppl" != x; then
-  ppllibs="-L$with_ppl/lib -lppl_c -lppl -lgmpxx"
-  pplinc="-I$with_ppl/include $pplinc"
-  LIBS="$ppllibs $LIBS"
-fi
+case $with_ppl in 
+  no)
+    ppllibs=
+    ;;
+  *)
+    ppllibs="-L$with_ppl/lib -lppl_c -lppl -lgmpxx"
+    pplinc="-I$with_ppl/include $pplinc"
+    LIBS="$ppllibs $LIBS"
+    ;;
+esac
 if test "x$with_ppl_include" != x; then
   pplinc="-I$with_ppl_include $pplinc"
 fi
@@ -1369,18 +1382,18 @@ AC_ARG_WITH(cloog, [  --with-cloog=PATH       Specify prefix directory for the i
                           plus --with-cloog-lib=PATH/lib])
 AC_ARG_WITH(cloog_include, [  --with-cloog-include=PATH Specify directory for installed CLooG include files])
 AC_ARG_WITH(cloog_lib, [  --with-cloog-lib=PATH   Specify the directory for the installed CLooG library])
-AC_ARG_WITH(cloog-polylib, [  --with-cloog-polylib=PATH Specify prefix directory for the installed CLooG-PolyLib package])
 
-if test "x$with_cloog" != x; then
-  clooglibs="-L$with_cloog/lib -lcloog"
-  clooginc="-I$with_cloog/include -DCLOOG_PPL_BACKEND "
-  LIBS="$clooglibs $LIBS"
-fi
-if test "x$with_cloog_polylib" != x; then
-  clooglibs="-L$with_cloog/lib -lcloog"
-  clooginc="-I$with_cloog/include "
-  LIBS="$clooglibs $LIBS"
-fi
+case $with_cloog in 
+  no)
+    clooglibs=
+    clooginc=
+    ;;
+  *)
+    clooglibs="-L$with_cloog/lib -lcloog"
+    clooginc="-I$with_cloog/include -DCLOOG_PPL_BACKEND "
+    LIBS="$clooglibs $LIBS"
+    ;;
+esac
 if test "x$with_cloog_include" != x; then
   clooginc="-I$with_cloog_include -DCLOOG_PPL_BACKEND "
 fi

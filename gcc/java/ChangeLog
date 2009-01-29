@@ -1,3 +1,14 @@
+2009-01-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38835
+	PR middle-end/36227
+	* builtins.c (build_addr_sum): Use POINTER_PLUS_EXPR.
+
+2008-12-05  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR bootstrap/38262
+	* Make-lang.in (jc1): Add BACKENDLIBS, remove GMPLIBS.
+
 2008-11-04  Andrew Haley  <aph@redhat.com>
 
 	PR java/37068

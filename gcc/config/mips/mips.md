@@ -644,6 +644,18 @@
 (define_mode_iterator MOVECC [SI (DI "TARGET_64BIT")
                               (CC "TARGET_HARD_FLOAT && !TARGET_LOONGSON_2EF")])
 
+;; 32-bit integer moves for which we provide move patterns.
+(define_mode_iterator IMOVE32
+  [SI
+   (V2HI "TARGET_DSP")
+   (V4QI "TARGET_DSP")
+   (V2HQ "TARGET_DSP")
+   (V2UHQ "TARGET_DSP")
+   (V2HA "TARGET_DSP")
+   (V2UHA "TARGET_DSP")
+   (V4QQ "TARGET_DSP")
+   (V4UQQ "TARGET_DSP")])
+
 ;; 64-bit modes for which we provide move patterns.
 (define_mode_iterator MOVE64
   [DI DF
@@ -3936,34 +3948,34 @@
 ;; different predicates, because register spilling and other parts of
 ;; the compiler, have memoized the insn number already.
 
-(define_expand "movsi"
-  [(set (match_operand:SI 0 "")
-	(match_operand:SI 1 ""))]
+(define_expand "mov<mode>"
+  [(set (match_operand:IMOVE32 0 "")
+	(match_operand:IMOVE32 1 ""))]
   ""
 {
-  if (mips_legitimize_move (SImode, operands[0], operands[1]))
+  if (mips_legitimize_move (<MODE>mode, operands[0], operands[1]))
     DONE;
 })
 
 ;; The difference between these two is whether or not ints are allowed
 ;; in FP registers (off by default, use -mdebugh to enable).
 
-(define_insn "*movsi_internal"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,d,e,d,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m")
-	(match_operand:SI 1 "move_operand" "d,U,T,m,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D"))]
+(define_insn "*mov<mode>_internal"
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,d,e,d,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m")
+	(match_operand:IMOVE32 1 "move_operand" "d,U,T,m,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D"))]
   "!TARGET_MIPS16
-   && (register_operand (operands[0], SImode)
-       || reg_or_0_operand (operands[1], SImode))"
+   && (register_operand (operands[0], <MODE>mode)
+       || reg_or_0_operand (operands[1], <MODE>mode))"
   { return mips_output_move (operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,store,mtc,fpload,mfc,fpstore,mfc,mtc,mthilo,mfhilo,mtc,fpload,mfc,fpstore")
    (set_attr "mode" "SI")])
 
-(define_insn "*movsi_mips16"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,m,*d")
-	(match_operand:SI 1 "move_operand" "d,d,y,K,N,U,kf,m,d,*a"))]
+(define_insn "*mov<mode>_mips16"
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,m,*d")
+	(match_operand:IMOVE32 1 "move_operand" "d,d,y,K,N,U,kf,m,d,*a"))]
   "TARGET_MIPS16
-   && (register_operand (operands[0], SImode)
-       || register_operand (operands[1], SImode))"
+   && (register_operand (operands[0], <MODE>mode)
+       || register_operand (operands[1], <MODE>mode))"
   { return mips_output_move (operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mfhilo")
    (set_attr "mode" "SI")])
@@ -4109,10 +4121,11 @@
 ;; address expression, not shift.
 
 (define_insn "*lwxs"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(mem:SI (plus:SI (mult:SI (match_operand:SI 1 "register_operand" "d")
-				  (const_int 4))
-			 (match_operand:SI 2 "register_operand" "d"))))]
+  [(set (match_operand:IMOVE32 0 "register_operand" "=d")
+	(mem:IMOVE32
+	  (plus:SI (mult:SI (match_operand:SI 1 "register_operand" "d")
+			    (const_int 4))
+		   (match_operand:SI 2 "register_operand" "d"))))]
   "ISA_HAS_LWXS"
   "lwxs\t%0,%1(%2)"
   [(set_attr "type"	"load")
@@ -4508,8 +4521,8 @@
       rtx low = mips_subword (operands[1], 0);
       rtx high = mips_subword (operands[1], 1);
       emit_insn (gen_load_low<mode> (operands[0], low));
-      if (ISA_HAS_MXHC1)
- 	emit_insn (gen_mthc1<mode> (operands[0], high, operands[0]));
+      if (TARGET_FLOAT64 && !TARGET_64BIT)
+      	emit_insn (gen_mthc1<mode> (operands[0], high, operands[0]));
       else
 	emit_insn (gen_load_high<mode> (operands[0], high, operands[0]));
     }
@@ -4518,7 +4531,7 @@
       rtx low = mips_subword (operands[0], 0);
       rtx high = mips_subword (operands[0], 1);
       emit_insn (gen_store_word<mode> (low, operands[1], const0_rtx));
-      if (ISA_HAS_MXHC1)
+      if (TARGET_FLOAT64 && !TARGET_64BIT)
 	emit_insn (gen_mfhc1<mode> (high, operands[1]));
       else
 	emit_insn (gen_store_word<mode> (high, operands[1], const1_rtx));
@@ -4573,7 +4586,7 @@
 ;; value in the low word.
 (define_insn "mthc1<mode>"
   [(set (match_operand:SPLITF 0 "register_operand" "=f")
-	(unspec:SPLITF [(match_operand:<HALFMODE> 1 "general_operand" "dJ")
+	(unspec:SPLITF [(match_operand:<HALFMODE> 1 "reg_or_0_operand" "dJ")
 		        (match_operand:SPLITF 2 "register_operand" "0")]
 		       UNSPEC_MTHC1))]
   "TARGET_HARD_FLOAT && ISA_HAS_MXHC1"
@@ -4703,7 +4716,9 @@
     {
       mips_expand_synci_loop (operands[0], operands[1]);
       emit_insn (gen_sync ());
-      emit_insn (gen_clear_hazard ());
+      emit_insn (Pmode == SImode
+		 ? gen_clear_hazard_si ()
+		 : gen_clear_hazard_di ());
     }
   else if (mips_cache_flush_func && mips_cache_flush_func[0])
     {
@@ -4725,21 +4740,21 @@
   "ISA_HAS_SYNCI"
   "synci\t0(%0)")
 
-(define_insn "rdhwr"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-        (unspec_volatile [(match_operand:SI 1 "const_int_operand" "n")]
+(define_insn "rdhwr_synci_step_<mode>"
+  [(set (match_operand:P 0 "register_operand" "=d")
+        (unspec_volatile [(const_int 1)]
         UNSPEC_RDHWR))]
   "ISA_HAS_SYNCI"
-  "rdhwr\t%0,$%1")
+  "rdhwr\t%0,$1")
 
-(define_insn "clear_hazard"
+(define_insn "clear_hazard_<mode>"
   [(unspec_volatile [(const_int 0)] UNSPEC_CLEAR_HAZARD)
-   (clobber (reg:SI 31))]
+   (clobber (reg:P 31))]
   "ISA_HAS_SYNCI"
 {
   return "%(%<bal\t1f\n"
          "\tnop\n"
-         "1:\taddiu\t$31,$31,12\n"
+         "1:\t<d>addiu\t$31,$31,12\n"
          "\tjr.hb\t$31\n"
          "\tnop%>%)";
 }
@@ -5188,18 +5203,18 @@
   [(set (pc)
 	(if_then_else
 	 (equality_op (zero_extract:GPR
-		       (match_operand:GPR 1 "register_operand" "d")
+		       (match_operand:GPR 0 "register_operand" "d")
 		       (const_int 1)
 		       (match_operand 2 "const_int_operand" ""))
 		      (const_int 0))
-	 (label_ref (match_operand 0 ""))
+	 (label_ref (match_operand 1 ""))
 	 (pc)))]
   "ISA_HAS_BBIT && UINTVAL (operands[2]) < GET_MODE_BITSIZE (<MODE>mode)"
 {
   return
     mips_output_conditional_branch (insn, operands,
-				    MIPS_BRANCH ("bbit<bbv>", "%1,%2,%0"),
-				    MIPS_BRANCH ("bbit<bbinv>", "%1,%2,%0"));
+				    MIPS_BRANCH ("bbit<bbv>", "%0,%2,%1"),
+				    MIPS_BRANCH ("bbit<bbinv>", "%0,%2,%1"));
 }
   [(set_attr "type"	     "branch")
    (set_attr "mode"	     "none")
@@ -5209,18 +5224,18 @@
   [(set (pc)
 	(if_then_else
 	 (equality_op (zero_extract:GPR
-		       (match_operand:GPR 1 "register_operand" "d")
+		       (match_operand:GPR 0 "register_operand" "d")
 		       (const_int 1)
 		       (match_operand 2 "const_int_operand" ""))
 		      (const_int 0))
 	 (pc)
-	 (label_ref (match_operand 0 ""))))]
+	 (label_ref (match_operand 1 ""))))]
   "ISA_HAS_BBIT && UINTVAL (operands[2]) < GET_MODE_BITSIZE (<MODE>mode)"
 {
   return
     mips_output_conditional_branch (insn, operands,
-				    MIPS_BRANCH ("bbit<bbinv>", "%1,%2,%0"),
-				    MIPS_BRANCH ("bbit<bbv>", "%1,%2,%0"));
+				    MIPS_BRANCH ("bbit<bbinv>", "%0,%2,%1"),
+				    MIPS_BRANCH ("bbit<bbv>", "%0,%2,%1"));
 }
   [(set_attr "type"	     "branch")
    (set_attr "mode"	     "none")

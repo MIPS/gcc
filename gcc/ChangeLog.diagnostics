@@ -1,3 +1,7 @@
+2009-01-29  Aldy Hernandez  <aldyh@redhat.com>
+
+	Merge with mainline @ 143706.
+
 2008-12-12  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-tree.h (check_for_loop_decls, undeclared_variable,

@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "sparseset.h"
 #include "ira-int.h"
+#include "addresses.h"
 
 /* This file contains code responsible for allocno conflict creation,
    allocno copy creation and allocno info accumulation on upper level
@@ -60,8 +61,10 @@ static IRA_INT_TYPE **conflicts;
 
 
 
-/* Build allocno conflict table by processing allocno live ranges.  */
-static void
+/* Build allocno conflict table by processing allocno live ranges.
+   Return true if the table was built.  The table is not built if it
+   is too big.  */
+static bool
 build_conflict_bit_table (void)
 {
   int i, num, id, allocated_words_num, conflict_bit_vec_words_num;
@@ -74,6 +77,26 @@ build_conflict_bit_table (void)
   int allocno_set_words;
 
   allocno_set_words = (ira_allocnos_num + IRA_INT_BITS - 1) / IRA_INT_BITS;
+  allocated_words_num = 0;
+  FOR_EACH_ALLOCNO (allocno, ai)
+    {
+      if (ALLOCNO_MAX (allocno) < ALLOCNO_MIN (allocno))
+	  continue;
+      conflict_bit_vec_words_num
+	= ((ALLOCNO_MAX (allocno) - ALLOCNO_MIN (allocno) + IRA_INT_BITS)
+	   / IRA_INT_BITS);
+      allocated_words_num += conflict_bit_vec_words_num;
+      if ((unsigned long long) allocated_words_num * sizeof (IRA_INT_TYPE)
+	  > (unsigned long long) IRA_MAX_CONFLICT_TABLE_SIZE * 1024 * 1024)
+	{
+	  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+	    fprintf
+	      (ira_dump_file,
+	       "+++Conflict table will be too big(>%dMB) -- don't use it\n",
+	       IRA_MAX_CONFLICT_TABLE_SIZE);
+	  return false;
+	}
+    }
   allocnos_live = sparseset_alloc (ira_allocnos_num);
   conflicts = (IRA_INT_TYPE **) ira_allocate (sizeof (IRA_INT_TYPE *)
 					      * ira_allocnos_num);
@@ -114,7 +137,8 @@ build_conflict_bit_table (void)
 	  EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, j)
 	    {
 	      live_a = ira_allocnos[j];
-	      if (cover_class == ALLOCNO_COVER_CLASS (live_a)
+	      if (ira_reg_classes_intersect_p
+		  [cover_class][ALLOCNO_COVER_CLASS (live_a)]
 		  /* Don't set up conflict for the allocno with itself.  */
 		  && num != (int) j)
 		{
@@ -133,6 +157,7 @@ build_conflict_bit_table (void)
 	sparseset_clear_bit (allocnos_live, ALLOCNO_NUM (r->allocno));
     }
   sparseset_free (allocnos_live);
+  return true;
 }
 
 
@@ -532,52 +557,6 @@ propagate_copies (void)
     }
 }
 
-/* Return TRUE if live ranges of allocnos A1 and A2 intersect.  It is
-   used to find a conflict for new allocnos or allocnos with the
-   different cover classes.  */
-bool
-ira_allocno_live_ranges_intersect_p (ira_allocno_t a1, ira_allocno_t a2)
-{
-  allocno_live_range_t r1, r2;
-
-  if (a1 == a2)
-    return false;
-  if (ALLOCNO_REG (a1) != NULL && ALLOCNO_REG (a2) != NULL
-      && (ORIGINAL_REGNO (ALLOCNO_REG (a1))
-	  == ORIGINAL_REGNO (ALLOCNO_REG (a2))))
-    return false;
-  /* Remember the ranges are always kept ordered.  */
-  for (r1 = ALLOCNO_LIVE_RANGES (a1), r2 = ALLOCNO_LIVE_RANGES (a2);
-       r1 != NULL && r2 != NULL;)
-    {
-      if (r1->start > r2->finish)
-	r1 = r1->next;
-      else if (r2->start > r1->finish)
-	r2 = r2->next;
-      else
-	return true;
-    }
-  return false;
-}
-
-/* Return TRUE if live ranges of pseudo-registers REGNO1 and REGNO2
-   intersect.  This should be used when there is only one region.
-   Currently this is used during reload.  */
-bool
-ira_pseudo_live_ranges_intersect_p (int regno1, int regno2)
-{
-  ira_allocno_t a1, a2;
-
-  ira_assert (regno1 >= FIRST_PSEUDO_REGISTER
-	      && regno2 >= FIRST_PSEUDO_REGISTER);
-  /* Reg info caclulated by dataflow infrastructure can be different
-     from one calculated by regclass.  */
-  if ((a1 = ira_loop_tree_root->regno_allocno_map[regno1]) == NULL
-      || (a2 = ira_loop_tree_root->regno_allocno_map[regno2]) == NULL)
-    return false;
-  return ira_allocno_live_ranges_intersect_p (a1, a2);
-}
-
 /* Array used to collect all conflict allocnos for given allocno.  */
 static ira_allocno_t *collected_conflict_allocnos;
 
@@ -601,8 +580,8 @@ build_allocno_conflicts (ira_allocno_t a)
 			   ALLOCNO_MIN (a), ALLOCNO_MAX (a), i, asi)
     {
       another_a = ira_conflict_id_allocno_map[i];
-      ira_assert (ALLOCNO_COVER_CLASS (a)
-		  == ALLOCNO_COVER_CLASS (another_a));
+      ira_assert (ira_reg_classes_intersect_p
+		  [ALLOCNO_COVER_CLASS (a)][ALLOCNO_COVER_CLASS (another_a)]);
       collected_conflict_allocnos[px++] = another_a;
     }
   if (ira_conflict_vector_profitable_p (a, px))
@@ -638,8 +617,8 @@ build_allocno_conflicts (ira_allocno_t a)
 			   ALLOCNO_MIN (a), ALLOCNO_MAX (a), i, asi)
     {
       another_a = ira_conflict_id_allocno_map[i];
-      ira_assert (ALLOCNO_COVER_CLASS (a)
-		  == ALLOCNO_COVER_CLASS (another_a));
+      ira_assert (ira_reg_classes_intersect_p
+		  [ALLOCNO_COVER_CLASS (a)][ALLOCNO_COVER_CLASS (another_a)]);
       if ((another_parent_a = ALLOCNO_CAP (another_a)) == NULL
 	  && (another_parent_a = (parent->regno_allocno_map
 				  [ALLOCNO_REGNO (another_a)])) == NULL)
@@ -786,24 +765,38 @@ ira_build_conflicts (void)
 {
   ira_allocno_t a;
   ira_allocno_iterator ai;
+  HARD_REG_SET temp_hard_reg_set;
 
-  if (optimize)
+  if (ira_conflicts_p)
     {
-      build_conflict_bit_table ();
-      build_conflicts ();
-      ira_traverse_loop_tree (true, ira_loop_tree_root, NULL, add_copies);
-      /* We need finished conflict table for the subsequent call.  */
-      if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
-	propagate_copies ();
-      /* Now we can free memory for the conflict table (see function
-	 build_allocno_conflicts for details).  */
-      FOR_EACH_ALLOCNO (a, ai)
+      ira_conflicts_p = build_conflict_bit_table ();
+      if (ira_conflicts_p)
 	{
-	  if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) != conflicts[ALLOCNO_NUM (a)])
-	    ira_free (conflicts[ALLOCNO_NUM (a)]);
+	  build_conflicts ();
+	  ira_traverse_loop_tree (true, ira_loop_tree_root, NULL, add_copies);
+	  /* We need finished conflict table for the subsequent call.  */
+	  if (flag_ira_region == IRA_REGION_ALL
+	      || flag_ira_region == IRA_REGION_MIXED)
+	    propagate_copies ();
+	  /* Now we can free memory for the conflict table (see function
+	     build_allocno_conflicts for details).  */
+	  FOR_EACH_ALLOCNO (a, ai)
+	    {
+	      if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a)
+		  != conflicts[ALLOCNO_NUM (a)])
+		ira_free (conflicts[ALLOCNO_NUM (a)]);
+	    }
+	  ira_free (conflicts);
 	}
-      ira_free (conflicts);
+    }
+  if (! CLASS_LIKELY_SPILLED_P (base_reg_class (VOIDmode, ADDRESS, SCRATCH)))
+    CLEAR_HARD_REG_SET (temp_hard_reg_set);
+  else
+    {
+      COPY_HARD_REG_SET (temp_hard_reg_set,
+			 reg_class_contents[base_reg_class (VOIDmode, ADDRESS, SCRATCH)]);
+      AND_COMPL_HARD_REG_SET (temp_hard_reg_set, ira_no_alloc_regs);
+      AND_HARD_REG_SET (temp_hard_reg_set, call_used_reg_set);
     }
   FOR_EACH_ALLOCNO (a, ai)
     {
@@ -821,11 +814,18 @@ ira_build_conflicts (void)
 	{
 	  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
 			    no_caller_save_reg_set);
+	  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
+			    temp_hard_reg_set);
 	  if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
-	    IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
-			      no_caller_save_reg_set);
+	    {
+	      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
+				no_caller_save_reg_set);
+	      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
+				temp_hard_reg_set);
+	    }
 	}
     }
-  if (optimize && internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
+  if (optimize && ira_conflicts_p
+      && internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
     print_conflicts (ira_dump_file, false);
 }

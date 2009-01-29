@@ -657,13 +657,8 @@ static bool
 is_gimple_mem_or_call_rhs (tree t)
 {
   /* If we're dealing with a renamable type, either source or dest must be
-     a renamed variable.  Also force a temporary if the type doesn't need
-     to be stored in memory, since it's cheap and prevents erroneous
-     tailcalls (PR 17526).  */
-  if (is_gimple_reg_type (TREE_TYPE (t))
-      || (TYPE_MODE (TREE_TYPE (t)) != BLKmode
-	  && (TREE_CODE (t) != CALL_EXPR
-              || ! aggregate_value_p (t, t))))
+     a renamed variable.  */
+  if (is_gimple_reg_type (TREE_TYPE (t)))
     return is_gimple_val (t);
   else
     return is_gimple_formal_tmp_or_call_rhs (t);
@@ -2354,56 +2349,18 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   else if (POINTER_TYPE_P (TREE_TYPE (CALL_EXPR_FN (*expr_p))))
     parms = TYPE_ARG_TYPES (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (*expr_p))));
 
-  /* Verify if the type of the argument matches that of the function
-     declaration.  If we cannot verify this or there is a mismatch,
-     mark the call expression so it doesn't get inlined later.  */
   if (fndecl && DECL_ARGUMENTS (fndecl))
-    {
-      for (i = 0, p = DECL_ARGUMENTS (fndecl);
-	   i < nargs;
-	   i++, p = TREE_CHAIN (p))
-	{
-	  /* We cannot distinguish a varargs function from the case
-	     of excess parameters, still deferring the inlining decision
-	     to the callee is possible.  */
-	  if (!p)
-	    break;
-	  if (p == error_mark_node
-	      || CALL_EXPR_ARG (*expr_p, i) == error_mark_node
-	      || !fold_convertible_p (DECL_ARG_TYPE (p),
-				      CALL_EXPR_ARG (*expr_p, i)))
-	    {
-	      CALL_CANNOT_INLINE_P (*expr_p) = 1;
-	      break;
-	    }
-	}
-    }
+    p = DECL_ARGUMENTS (fndecl);
   else if (parms)
-    {
-      for (i = 0, p = parms; i < nargs; i++, p = TREE_CHAIN (p))
-	{
-	  /* If this is a varargs function defer inlining decision
-	     to callee.  */
-	  if (!p)
-	    break;
-	  if (TREE_VALUE (p) == error_mark_node
-	      || CALL_EXPR_ARG (*expr_p, i) == error_mark_node
-	      || TREE_CODE (TREE_VALUE (p)) == VOID_TYPE
-	      || !fold_convertible_p (TREE_VALUE (p),
-				      CALL_EXPR_ARG (*expr_p, i)))
-	    {
-	      CALL_CANNOT_INLINE_P (*expr_p) = 1;
-	      break;
-	    }
-	}
-    }
+    p = parms;
   else
     {
       if (nargs != 0)
 	CALL_CANNOT_INLINE_P (*expr_p) = 1;
-      i = 0;
       p = NULL_TREE;
     }
+  for (i = 0; i < nargs && p; i++, p = TREE_CHAIN (p))
+    ;
 
   /* If the last argument is __builtin_va_arg_pack () and it is not
      passed as a named argument, decrease the number of CALL_EXPR
@@ -3571,7 +3528,8 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	if (valid_const_initializer
 	    && num_nonzero_elements > 1
 	    && TREE_READONLY (object)
-	    && TREE_CODE (object) == VAR_DECL)
+	    && TREE_CODE (object) == VAR_DECL
+	    && (flag_merge_constants >= 2 || !TREE_ADDRESSABLE (object)))
 	  {
 	    if (notify_temp_creation)
 	      return GS_ERROR;
@@ -3627,8 +3585,13 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	   be dropped to memory, and then memcpy'd out.  Don't do this
 	   for sparse arrays, though, as it's more efficient to follow
 	   the standard CONSTRUCTOR behavior of memset followed by
-	   individual element initialization.  */
-	if (valid_const_initializer && !cleared)
+	   individual element initialization.  Also don't do this for small
+	   all-zero initializers (which aren't big enough to merit
+	   clearing), and don't try to make bitwise copies of
+	   TREE_ADDRESSABLE types.  */
+	if (valid_const_initializer
+	    && !(cleared || num_nonzero_elements == 0)
+	    && !TREE_ADDRESSABLE (type))
 	  {
 	    HOST_WIDE_INT size = int_size_in_bytes (type);
 	    unsigned int align;
@@ -3650,7 +3613,9 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    else
 	      align = TYPE_ALIGN (type);
 
-	    if (size > 0 && !can_move_by_pieces (size, align))
+	    if (size > 0
+		&& num_nonzero_elements > 1
+		&& !can_move_by_pieces (size, align))
 	      {
 		tree new_tree;
 
@@ -6986,7 +6951,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != ASM_EXPR
 		  && code != BIND_EXPR
 		  && code != CATCH_EXPR
-		  && code != COND_EXPR
+		  && (code != COND_EXPR || gimplify_ctxp->allow_rhs_cond_expr)
 		  && code != EH_FILTER_EXPR
 		  && code != GOTO_EXPR
 		  && code != LABEL_EXPR
@@ -7416,6 +7381,10 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
       gimplify_expr (gimple_cond_lhs_ptr (stmt), &pre, NULL,
 		     is_gimple_val, fb_rvalue);
       gimplify_expr (gimple_cond_rhs_ptr (stmt), &pre, NULL,
+		     is_gimple_val, fb_rvalue);
+      break;
+    case GIMPLE_SWITCH:
+      gimplify_expr (gimple_switch_index_ptr (stmt), &pre, NULL,
 		     is_gimple_val, fb_rvalue);
       break;
     case GIMPLE_OMP_ATOMIC_LOAD:

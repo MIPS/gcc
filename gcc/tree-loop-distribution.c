@@ -216,13 +216,30 @@ generate_loops_for_partition (struct loop *loop, bitmap partition, bool copy_p)
   return true;
 }
 
+/* Build size argument.  */
+
+static inline tree
+build_size_arg (tree nb_iter, tree op, gimple_seq* stmt_list)
+{
+    tree nb_bytes;
+    gimple_seq stmts = NULL;
+
+    nb_bytes = fold_build2 (MULT_EXPR, TREE_TYPE (nb_iter),
+			    nb_iter, TYPE_SIZE_UNIT (TREE_TYPE (op)));
+    nb_bytes = force_gimple_operand (nb_bytes, &stmts, true, NULL);
+    gimple_seq_add_seq (stmt_list, stmts);
+
+    return nb_bytes;
+}
+
 /* Generate a call to memset.  Return true when the operation succeeded.  */
 
 static bool
 generate_memset_zero (gimple stmt, tree op0, tree nb_iter,
 		      gimple_stmt_iterator bsi)
 {
-  tree t, nb_bytes, addr_base;
+  tree t, addr_base;
+  tree nb_bytes = NULL;
   bool res = false;
   gimple_seq stmts = NULL, stmt_list = NULL;
   gimple fn_call;
@@ -231,14 +248,10 @@ generate_memset_zero (gimple stmt, tree op0, tree nb_iter,
   ssa_op_iter iter;
   struct data_reference *dr = XCNEW (struct data_reference);
 
-  nb_bytes = fold_build2 (MULT_EXPR, TREE_TYPE (nb_iter),
-			  nb_iter, TYPE_SIZE_UNIT (TREE_TYPE (op0)));
-  nb_bytes = force_gimple_operand (nb_bytes, &stmts, true, NULL);
-  gimple_seq_add_seq (&stmt_list, stmts);
-
   DR_STMT (dr) = stmt;
   DR_REF (dr) = op0;
-  dr_analyze_innermost (dr);
+  if (!dr_analyze_innermost (dr))
+    goto end;
 
   /* Test for a positive stride, iterating over every element.  */
   if (integer_zerop (fold_build2 (MINUS_EXPR, integer_type_node, DR_STEP (dr),
@@ -253,6 +266,7 @@ generate_memset_zero (gimple stmt, tree op0, tree nb_iter,
 				       TYPE_SIZE_UNIT (TREE_TYPE (op0)),
 				       DR_STEP (dr))))
     {
+      nb_bytes = build_size_arg (nb_iter, op0, &stmt_list);
       addr_base = size_binop (PLUS_EXPR, DR_OFFSET (dr), DR_INIT (dr));
       addr_base = fold_build2 (MINUS_EXPR, sizetype, addr_base, nb_bytes);
       addr_base = force_gimple_operand (addr_base, &stmts, true, NULL);
@@ -272,6 +286,8 @@ generate_memset_zero (gimple stmt, tree op0, tree nb_iter,
   fntype = TREE_TYPE (fndecl);
   fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
 
+  if (!nb_bytes)
+      nb_bytes = build_size_arg (nb_iter, op0, &stmt_list);
   fn_call = gimple_build_call (fn, 3, mem, integer_zero_node, nb_bytes);
   gimple_seq_add_stmt (&stmt_list, fn_call);
 
@@ -313,6 +329,38 @@ generate_memset_zero (gimple stmt, tree op0, tree nb_iter,
  end:
   free_data_ref (dr);
   return res;
+}
+
+/* Propagate phis in BB b to their uses and remove them.  */
+
+static void
+prop_phis (basic_block b)
+{
+  gimple_stmt_iterator psi;
+  gimple_seq phis = phi_nodes (b);
+
+  for (psi = gsi_start (phis); !gsi_end_p (psi); )
+    {
+      gimple phi = gsi_stmt (psi);
+      tree def = gimple_phi_result (phi), use = gimple_phi_arg_def (phi, 0);
+
+      gcc_assert (gimple_phi_num_args (phi) == 1);
+
+      if (!is_gimple_reg (def))
+	{
+	  imm_use_iterator iter;
+	  use_operand_p use_p;
+	  gimple stmt;
+
+	  FOR_EACH_IMM_USE_STMT (stmt, iter, def)
+	    FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+	      SET_USE (use_p, use);
+	}
+      else
+	replace_uses_by (def, use);
+
+      remove_phi_node (&psi, true);
+    }
 }
 
 /* Tries to generate a builtin function for the instructions of LOOP
@@ -384,6 +432,7 @@ generate_builtin (struct loop *loop, bitmap partition, bool copy_p)
       unsigned nbbs = loop->num_nodes;
       basic_block src = loop_preheader_edge (loop)->src;
       basic_block dest = single_exit (loop)->dest;
+      prop_phis (dest);
       make_edge (src, dest, EDGE_FALLTHRU);
       set_immediate_dominator (CDI_DOMINATORS, dest, src);
       cancel_loop_tree (loop);

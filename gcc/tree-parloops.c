@@ -278,6 +278,7 @@ loop_parallel_p (struct loop *loop, htab_t reduction_list,
       return false;
     }
 
+  vect_dump = NULL;
   simple_loop_info = vect_analyze_loop_form (loop);
 
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -1195,7 +1196,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 
   VEC_free (basic_block, heap, body);
 
-  if (htab_elements (name_copies) == 0)
+  if (htab_elements (name_copies) == 0 && reduction_list == 0) 
     {
       /* It may happen that there is nothing to copy (if there are only
          loop carried and external variables in the loop).  */
@@ -1330,9 +1331,10 @@ create_loop_fn (void)
 /* Bases all the induction variables in LOOP on a single induction variable
    (unsigned with base 0 and step 1), whose final value is compared with
    NIT.  The induction variable is incremented in the loop latch.  
-   REDUCTION_LIST describes the reductions in LOOP.  */
+   REDUCTION_LIST describes the reductions in LOOP.  Return the induction 
+   variable that was created.  */
 
-static void
+tree
 canonicalize_loop_ivs (struct loop *loop, htab_t reduction_list, tree nit)
 {
   unsigned precision = TYPE_PRECISION (TREE_TYPE (nit));
@@ -1373,7 +1375,12 @@ canonicalize_loop_ivs (struct loop *loop, htab_t reduction_list, tree nit)
 	}
 
       ok = simple_iv (loop, phi, res, &iv, true);
-      red = reduction_phi (reduction_list, phi);
+
+      if (reduction_list)
+	red = reduction_phi (reduction_list, phi);
+      else
+	red = NULL;
+
       /* We preserve the reduction phi nodes.  */
       if (!ok && red)
 	{
@@ -1411,6 +1418,9 @@ canonicalize_loop_ivs (struct loop *loop, htab_t reduction_list, tree nit)
   gimple_cond_set_code (stmt, LT_EXPR);
   gimple_cond_set_lhs (stmt, var_before);
   gimple_cond_set_rhs (stmt, nit);
+  update_stmt (stmt);
+
+  return var_before;
 }
 
 /* Moves the exit condition of LOOP to the beginning of its header, and
