@@ -94,8 +94,6 @@ collect_execute (char **argv)
   struct pex_obj *pex;
   const char *errmsg;
   int err;
-  char *response_arg = NULL;
-  char *response_argv[3] ATTRIBUTE_UNUSED;
 
   if (debug)
     {
@@ -128,9 +126,6 @@ collect_execute (char **argv)
 	fatal (errmsg);
     }
 
-  if (response_arg)
-    free (response_arg);
-
   return pex;
 }
 
@@ -162,17 +157,6 @@ collect_wait (const char *prog, struct pex_obj *pex)
   return 0;
 }
 
-/* Execute program ARGV[0] with arguments ARGV. Wait for it to finish. */
-
-static void
-fork_execute (char **argv)
-{
-  struct pex_obj *pex;
-
-  pex = collect_execute (argv);
-  collect_wait (argv[0], pex);
-}
-
 /* Unlink a temporary LTRANS file unless requested otherwise.  */
 
 static void
@@ -185,6 +169,37 @@ maybe_unlink_file (const char *file)
     }
   else
     fprintf (stderr, "[Leaving LTRANS %s]\n", file);
+}
+
+/* Execute program ARGV[0] with arguments ARGV. Wait for it to finish. */
+
+static void
+fork_execute (char **argv)
+{
+  struct pex_obj *pex;
+  char *new_argv[3];
+  char *args_name = make_temp_file(".args");
+  char *at_args = concat ("@", args_name, NULL);
+  FILE *args = fopen (args_name, "w");
+  int i;
+
+  if (args == NULL)
+    fatal ("failed to open %s", args_name);
+  for (i = 1; argv[i]; i++)
+    fprintf (args, "%s\n", argv[i]);
+
+  fclose (args);
+
+  new_argv[0] = argv[0];
+  new_argv[1] = at_args;
+  new_argv[2] = NULL;
+
+  pex = collect_execute (new_argv);
+  collect_wait (new_argv[0], pex);
+
+  maybe_unlink_file (args_name);
+  free (args_name);
+  free (at_args);
 }
 
 /* Execute gcc. ARGC is the number of arguments. ARGV contains the arguments. */
