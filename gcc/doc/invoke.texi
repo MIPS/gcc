@@ -6599,7 +6599,7 @@ individual object files are optimized using both summary information from
 the WPA mode and the actual function bodies.  It then initiates LTRANS by
 executing the LTRANS driver (See @option{-fltrans-driver}.).
 
-Disabled by default.  This options is only supported by the LTO frontend.
+Disabled by default.  This option is only supported by the LTO frontend.
 
 @item -fltrans
 @opindex fltrans
@@ -6607,7 +6607,7 @@ This option runs the link-time optimizer in the local-transformation (LTRANS)
 mode, which reads in output from a previous run of the LTO in WPA mode.
 In the LTRANS mode, LTO optimizes an object and produces the final assembly.
 
-Disabled by default.  This options is only supported by the LTO frontend.
+Disabled by default.  This option is only supported by the LTO frontend.
 
 @item -fltrans-driver=@var{driver}
 @opindex fltrans-driver

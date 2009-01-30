@@ -1,3 +1,8 @@
+2009-01-30  Ramana Radhakrishnan  <ramana.r@gmail.com>
+
+	* doc/invoke.texi (Optimize Options): Fix typo in documentation 
+	for -fltrans and -fwpa.
+
 2009-01-30  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR lto/38995
