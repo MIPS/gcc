@@ -72,6 +72,10 @@
 
   #include "decSingleSymbols.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
   /* Utilities (binary argument(s) or result, extractors, etc.) */
   extern decSingle * decSingleFromBCD(decSingle *, int32_t, const uint8_t *, int32_t);
   extern decSingle * decSingleFromPacked(decSingle *, int32_t, const uint8_t *);
@@ -99,5 +103,9 @@
   /* to force a dependency on decimal32 and decNumber in decSingle.    */
   #define decSingleToNumber(dq, dn) decimal32ToNumber((decimal32 *)(dq), dn)
   #define decSingleFromNumber(dq, dn, set) (decSingle *)decimal32FromNumber((decimal32 *)(dq), dn, set)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

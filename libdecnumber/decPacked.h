@@ -61,10 +61,18 @@
 
   #include "decPackedSymbols.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
   /* Conversions						      */
   uint8_t * decPackedFromNumber(uint8_t *, int32_t, int32_t *,
 				const decNumber *);
   decNumber * decPackedToNumber(const uint8_t *, int32_t, const int32_t *,
 				decNumber *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

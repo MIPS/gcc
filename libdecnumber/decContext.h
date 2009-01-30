@@ -239,6 +239,10 @@
 
   #include "decContextSymbols.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
   extern decContext  * decContextClearStatus(decContext *, uint32_t);
   extern decContext  * decContextDefault(decContext *, int32_t);
   extern enum rounding decContextGetRounding(decContext *);
@@ -254,5 +258,9 @@
   extern uint32_t      decContextTestSavedStatus(uint32_t, uint32_t);
   extern uint32_t      decContextTestStatus(decContext *, uint32_t);
   extern decContext  * decContextZeroStatus(decContext *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
