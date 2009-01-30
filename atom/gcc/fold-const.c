@@ -8628,6 +8628,24 @@ fold_unary (enum tree_code code, tree type, tree op0)
     } /* switch (code) */
 }
 
+
+/* If the operation was a conversion do _not_ mark a resulting constant
+   with TREE_OVERFLOW if the original constant was not.  These conversions
+   have implementation defined behavior and retaining the TREE_OVERFLOW
+   flag here would confuse later passes such as VRP.  */
+tree
+fold_unary_ignore_overflow (enum tree_code code, tree type, tree op0)
+{
+  tree res = fold_unary (code, type, op0);
+  if (res
+      && TREE_CODE (res) == INTEGER_CST
+      && TREE_CODE (op0) == INTEGER_CST
+      && CONVERT_EXPR_CODE_P (code))
+    TREE_OVERFLOW (res) = TREE_OVERFLOW (op0);
+
+  return res;
+}
+
 /* Fold a binary expression of code CODE and type TYPE with operands
    OP0 and OP1, containing either a MIN-MAX or a MAX-MIN combination.
    Return the folded expression if folding is successful.  Otherwise,
@@ -9864,20 +9882,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       return NULL_TREE;
 
     case PLUS_EXPR:
-      /* PTR + INT -> (INT)(PTR p+ INT) */
-      if (POINTER_TYPE_P (TREE_TYPE (arg0))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (arg1)))
-	return fold_convert (type, fold_build2 (POINTER_PLUS_EXPR,
-						TREE_TYPE (arg0),
-						arg0,
-						fold_convert (sizetype, arg1)));
-      /* INT + PTR -> (INT)(PTR p+ INT) */
-      if (POINTER_TYPE_P (TREE_TYPE (arg1))
-	  && INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
-	return fold_convert (type, fold_build2 (POINTER_PLUS_EXPR,
-						TREE_TYPE (arg1),
-						arg1,
-						fold_convert (sizetype, arg0)));
       /* A + (-B) -> A - B */
       if (TREE_CODE (arg1) == NEGATE_EXPR)
 	return fold_build2 (MINUS_EXPR, type,
