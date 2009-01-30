@@ -1,3 +1,9 @@
+2009-01-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR lto/38995
+	* langhooks.c (lhd_begin_section): Call assemble_align to
+	align LTO sections to POINTER_SIZE.
+
 2009-01-29  Andreas Schwab  <schwab@suse.de>
 
 	* lto-function-in.c (input_eh_region): Add intermediate cast to

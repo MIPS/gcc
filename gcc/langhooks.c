@@ -612,6 +612,7 @@ lhd_begin_section (const char *name)
   /* Create a new section and switch to it.  */
   section = get_section (name, SECTION_DEBUG, NULL);
   switch_to_section (section);
+  assemble_align (POINTER_SIZE);
 }
 
 

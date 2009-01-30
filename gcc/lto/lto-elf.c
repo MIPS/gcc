@@ -245,6 +245,7 @@ init_shdr##BITS (Elf_Scn *scn, size_t sh_name, size_t sh_type)	      \
 								      \
   shdr->sh_name = sh_name;					      \
   shdr->sh_type = sh_type;					      \
+  shdr->sh_addralign = POINTER_SIZE;				      \
   shdr->sh_flags = 0;						      \
   shdr->sh_entsize = 0;						      \
 }

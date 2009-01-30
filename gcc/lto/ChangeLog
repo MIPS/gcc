@@ -1,8 +1,13 @@
+2009-01-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR lto/38995
+	* lto-elf.c (init_shdr##BITS): Set the sh_addralign field
+	to POINTER_SIZE.
+
 2009-01-29  Ramana Radhakrishnan  <ramana.r@gmail.com>
 
 	* Make-lang.in (LTO_EXE): Link with all 
 	BACKENDLIBS and not only GMPLIBS
-	
 
 2009-01-28  H.J. Lu  <hongjiu.lu@intel.com>
 
