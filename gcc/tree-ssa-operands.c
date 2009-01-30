@@ -509,8 +509,7 @@ finalize_ssa_defs (gimple stmt)
   if (build_vdef == NULL_TREE
       && gimple_vdef (stmt) != NULL_TREE)
     {
-      if (gimple_vdef_op (stmt) != NULL_DEF_OPERAND_P
-	  && TREE_CODE (gimple_vdef (stmt)) == SSA_NAME)
+      if (TREE_CODE (gimple_vdef (stmt)) == SSA_NAME)
 	{
 	  unlink_stmt_vdef (stmt);
 	  release_ssa_name (gimple_vdef (stmt));

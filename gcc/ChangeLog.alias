@@ -1,3 +1,9 @@
+2009-01-30  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (remap_gimple_stmt): Clear the copied vops.
+	* tree-ssa-operands.c (finalize_ssa_defs): Always correctly
+	remove defs.
+
 2009-01-27  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-dse.c (execute_simple_dse): Properly remove VOPs

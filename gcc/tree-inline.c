@@ -1227,6 +1227,14 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   else
     walk_gimple_op (copy, remap_gimple_op_r, &wi); 
 
+  /* Clear the copied virtual operands.  We are not remapping them here
+     but are going to recreate them from scratch.  */
+  if (gimple_has_mem_ops (copy))
+    {
+      gimple_set_vdef (copy, NULL_TREE);
+      gimple_set_vuse (copy, NULL_TREE);
+    }
+
   /* We have to handle EH region remapping of GIMPLE_RESX specially because
      the region number is not an operand.  */
   if (gimple_code (stmt) == GIMPLE_RESX && id->eh_region_offset)
