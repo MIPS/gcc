@@ -1484,7 +1484,7 @@ if test -d ${srcdir}/gcc; then
   done
 
   new_enable_languages=,c,c++,
-  missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
+  missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ -e s/,c++,/,/ `
   potential_languages=,c,c++,
 
   for lang_frag in ${srcdir}/gcc/*/config-lang.in .. ; do
@@ -2873,24 +2873,24 @@ case $build in
 esac
 
 # This is aimed to mimic bootstrap with a non-GCC compiler to catch problems.
-if test "$GCC" = yes; then
-  saved_CFLAGS="$CFLAGS"
-
-  # Pass -fkeep-inline-functions for stage 1 if the GCC version supports it.
-  CFLAGS="$CFLAGS -fkeep-inline-functions"
-  AC_MSG_CHECKING([whether -fkeep-inline-functions is supported])
-  AC_TRY_COMPILE([
-#if (__GNUC__ < 3) \
-    || (__GNUC__ == 3 && (__GNUC_MINOR__ < 3 \
-			  || (__GNUC_MINOR__ == 3 && __GNUC_PATCHLEVEL__ < 1)))
-#error http://gcc.gnu.org/PR29382
-#endif
-    ],,
-    [AC_MSG_RESULT([yes]); stage1_cflags="$stage1_cflags -fkeep-inline-functions"],
-    [AC_MSG_RESULT([no])])
-
-  CFLAGS="$saved_CFLAGS"
-fi
+#if test "$GCC" = yes; then
+#  saved_CFLAGS="$CFLAGS"
+#
+#  # Pass -fkeep-inline-functions for stage 1 if the GCC version supports it.
+#  CFLAGS="$CFLAGS -fkeep-inline-functions"
+#  AC_MSG_CHECKING([whether -fkeep-inline-functions is supported])
+#  AC_TRY_COMPILE([
+##if (__GNUC__ < 3) \
+#    || (__GNUC__ == 3 && (__GNUC_MINOR__ < 3 \
+#			  || (__GNUC_MINOR__ == 3 && __GNUC_PATCHLEVEL__ < 1)))
+##error http://gcc.gnu.org/PR29382
+##endif
+#    ],,
+#    [AC_MSG_RESULT([yes]); stage1_cflags="$stage1_cflags -fkeep-inline-functions"],
+#    [AC_MSG_RESULT([no])])
+#
+#  CFLAGS="$saved_CFLAGS"
+#fi
 
 AC_SUBST(stage1_cflags)
 
