@@ -1,5 +1,12 @@
 2009-01-30  Richard Guenther  <rguenther@suse.de>
 
+	* gimple.c (gimple_call_copy_skip_args): Copy the virtual operands
+	and mark the new statement modified.
+	* ipa-cp.c (ipcp_update_callgraph): Do not update SSA form.
+	Adjust the SSA_NAME_DEF_STMT of a VDEF to the new statement.
+
+2009-01-30  Richard Guenther  <rguenther@suse.de>
+
 	* tree-inline.c (remap_gimple_stmt): Clear the copied vops.
 	* tree-ssa-operands.c (finalize_ssa_defs): Always correctly
 	remove defs.

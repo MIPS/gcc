@@ -969,13 +969,11 @@ ipcp_update_callgraph (void)
 		
 		new_stmt = gimple_call_copy_skip_args (cs->call_stmt,
 						       args_to_skip);
+		if (gimple_vdef (new_stmt))
+		  SSA_NAME_DEF_STMT (gimple_vdef (new_stmt)) = new_stmt;
 		gsi = gsi_for_stmt (cs->call_stmt);
 		gsi_replace (&gsi, new_stmt, true);
 		cgraph_set_call_stmt (cs, new_stmt);
-		/* ???  We lose pure/const or clobber information during
-		   cloning so we may end up with different VOPs for
-		   the call.  See gcc.c-torture/execute/20000113-1.c.  */
-		update_ssa (TODO_update_ssa);
 	        pop_cfun ();
 		current_function_decl = NULL;
 	      }
