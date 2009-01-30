@@ -19,6 +19,11 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 #define LIBCPP_SYMTAB_H
 
 #include "obstack.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef GTY
 #define GTY(x) /* nothing */
 #endif
@@ -98,5 +103,9 @@ extern void ht_load (cpp_hash_table *ht, hashnode *entries,
 
 /* Dump allocation statistics to stderr.  */
 extern void ht_dump_statistics (cpp_hash_table *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LIBCPP_SYMTAB_H */

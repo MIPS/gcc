@@ -1,3 +1,9 @@
+2009-01-30  Ian Lance Taylor  <iant@google.com>
+
+	* include/symtab.h: Use extern "C" for C++.
+	* include/line-map.h: Likewise.
+	* include/internal.h: Likewise.
+
 2008-07-05  Tom Tromey  <tromey@redhat.com>
 
 	* include/mkdeps.h: Use 'extern "C"'.
