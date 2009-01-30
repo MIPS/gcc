@@ -1,5 +1,11 @@
 2009-01-30  Richard Guenther  <rguenther@suse.de>
 
+	* gimple.h (gimple_loaded_syms): Revert comment adjustment.
+	* tree-ssa-copy.c (may_propagate_copy): Re-structure virtual
+	operand case.
+
+2009-01-30  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa.c (verify_ssa): Verify that all stmts definitions
 	have the stmt as SSA_NAME_DEF_STMT.
 	* tree-inline.c (expand_call_inline): Unlink the virtual

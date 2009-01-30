@@ -126,20 +126,13 @@ may_propagate_copy (tree dest, tree orig)
 	return false;
     }
 
-  /* If the destination is a SSA_NAME for a virtual operand, then we have
-     some special cases to handle.  */
+  /* Propagating virtual operands is always ok.  */
   if (TREE_CODE (dest) == SSA_NAME && !is_gimple_reg (dest))
     {
-      /* If both operands are SSA_NAMEs referring to virtual operands, then
-	 we can always propagate.  */
-      if (TREE_CODE (orig) == SSA_NAME
-	  && !is_gimple_reg (orig))
-	return true;
+      /* But only between virtual operands.  */
+      gcc_assert (TREE_CODE (orig) == SSA_NAME && !is_gimple_reg (orig));
 
-      /* We have a "copy" from something like a constant into a virtual
-	 operand.  Reject these.
-	 ???  Funny.  We should really never come along here.  */
-      gcc_unreachable ();
+      return true;
     }
 
   /* Anything else is OK.  */

@@ -1420,9 +1420,7 @@ gimple_loaded_syms (const_gimple g)
 
 
 /* Return the set of symbols stored by statement G.  Each element of
-   the set is the DECL_UID of the corresponding symbol.
-   ???  This is at most one symbol which is directly stored.
-   	A cheaper representation would be possible.  */
+   the set is the DECL_UID of the corresponding symbol.  */
 
 static inline bitmap
 gimple_stored_syms (const_gimple g)
