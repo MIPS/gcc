@@ -1,3 +1,10 @@
+2009-01-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR lto/39010
+	* lto-function-out.c (output_string): Properly handle the
+	trailing '\0'.
+	(output_tree_flags): Updated.
+
 2009-01-30  Ramana Radhakrishnan  <ramana.r@gmail.com>
 
 	* doc/invoke.texi (Optimize Options): Fix typo in documentation 
