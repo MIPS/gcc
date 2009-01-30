@@ -674,7 +674,19 @@ verify_ssa (bool check_modified_stmt)
 	    }
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_DEFS)
-	    bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
+	    {
+	      if (SSA_NAME_DEF_STMT (op) != stmt)
+		{
+		  error ("SSA_NAME_DEF_STMT is wrong");
+		  fprintf (stderr, "Expected definition statement:\n");
+		  print_gimple_stmt (stderr, stmt, 4, TDF_VOPS);
+		  fprintf (stderr, "\nActual definition statement:\n");
+		  print_gimple_stmt (stderr, SSA_NAME_DEF_STMT (op),
+				     4, TDF_VOPS);
+		  goto err;
+		}
+	      bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
+	    }
 	}
 
       bitmap_clear (names_defined_in_bb);

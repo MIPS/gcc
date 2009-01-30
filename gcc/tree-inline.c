@@ -3333,6 +3333,9 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   pointer_map_destroy (id->decl_map);
   id->decl_map = st;
 
+  /* Unlink the calls virtual operands before replacing it.  */
+  unlink_stmt_vdef (stmt);
+
   /* If the inlined function returns a result that we care about,
      substitute the GIMPLE_CALL with an assignment of the return
      variable to the LHS of the call.  That is, if STMT was
@@ -3343,10 +3346,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       stmt = gimple_build_assign (gimple_call_lhs (stmt), use_retvar);
       gsi_replace (&stmt_gsi, stmt, false);
       if (gimple_in_ssa_p (cfun))
-	{
-          update_stmt (stmt);
-          mark_symbols_for_renaming (stmt);
-	}
+	mark_symbols_for_renaming (stmt);
       maybe_clean_or_replace_eh_stmt (old_stmt, stmt);
     }
   else
@@ -3366,7 +3366,6 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 		 undefined via a move.  */
 	      stmt = gimple_build_assign (gimple_call_lhs (stmt), def);
 	      gsi_replace (&stmt_gsi, stmt, true);
-	      update_stmt (stmt);
 	    }
 	  else
 	    {
@@ -3404,9 +3403,6 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 
   id->block = NULL_TREE;
   successfully_inlined = TRUE;
-  /* ???  This should not be necessary if we update stmts correctly.  */
-  if (gimple_in_ssa_p (cfun))
-    mark_sym_for_renaming (gimple_vop (cfun));
 
  egress:
   input_location = saved_location;

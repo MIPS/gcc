@@ -1248,6 +1248,13 @@ create_general_new_stmt (struct access_site *acc, tree new_type)
   gimple new_stmt = gimple_copy (old_stmt);
   unsigned i;
 
+  /* We are really building a new stmt, clear the virtual operands.  */
+  if (gimple_has_mem_ops (new_stmt))
+    {
+      gimple_set_vuse (new_stmt, NULL_TREE);
+      gimple_set_vdef (new_stmt, NULL_TREE);
+    }
+
   for (i = 0; VEC_iterate (tree, acc->vars, i, var); i++)
     {
       tree *pos;

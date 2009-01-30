@@ -1,5 +1,13 @@
 2009-01-30  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa.c (verify_ssa): Verify that all stmts definitions
+	have the stmt as SSA_NAME_DEF_STMT.
+	* tree-inline.c (expand_call_inline): Unlink the virtual
+	operands of the call statement.  Remove duplicate stmt updating.
+	* ipa-struct-reorg.c (create_general_new_stmt): Clear vops.
+
+2009-01-30  Richard Guenther  <rguenther@suse.de>
+
 	* gimple.c (gimple_call_copy_skip_args): Copy the virtual operands
 	and mark the new statement modified.
 	* ipa-cp.c (ipcp_update_callgraph): Do not update SSA form.
