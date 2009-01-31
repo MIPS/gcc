@@ -1,3 +1,7 @@
+2009-01-31  Ian Lance Taylor  <iant@google.com>
+
+	* config/i386/x-i386 (driver-i386.o): Build with $(CXX).
+
 2008-10-06  Tom Tromey  <tromey@redhat.com>
 
 	* errors.h (progname): Wrap in 'extern "C"'.
