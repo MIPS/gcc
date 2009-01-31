@@ -1639,7 +1639,7 @@ libbackend.a: $(OBJS@onestep@)
 # and CC is `gcc'.  It is renamed to `gcc' when it is installed.
 xgcc$(exeext): $(GCC_OBJS) gccspec.o version.o intl.o prefix.o \
    version.o $(LIBDEPS) $(EXTRA_GCC_OBJS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GCC_OBJS) gccspec.o \
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ $(GCC_OBJS) gccspec.o \
 	  intl.o prefix.o version.o $(EXTRA_GCC_OBJS) $(LIBS)
 
 # cpp is to cpp0 as gcc is to cc1.
@@ -1647,7 +1647,7 @@ xgcc$(exeext): $(GCC_OBJS) gccspec.o version.o intl.o prefix.o \
 # instead of gccspec.o.
 cpp$(exeext): $(GCC_OBJS) cppspec.o version.o intl.o prefix.o \
    version.o $(LIBDEPS) $(EXTRA_GCC_OBJS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GCC_OBJS) cppspec.o \
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ $(GCC_OBJS) cppspec.o \
 	  intl.o prefix.o version.o $(EXTRA_GCC_OBJS) $(LIBS)
 
 # Dump a specs file to make -B./ read these specs over installed ones.
@@ -1664,7 +1664,7 @@ gcc-cross$(exeext): xgcc$(exeext)
 dummy-checksum.o : dummy-checksum.c
 
 cc1-dummy$(exeext): $(C_OBJS) dummy-checksum.o $(BACKEND) $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(C_OBJS) dummy-checksum.o \
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ $(C_OBJS) dummy-checksum.o \
 	  $(BACKEND) $(LIBS) $(BACKENDLIBS)
 
 cc1-checksum.c : cc1-dummy$(exeext) build/genchecksum$(build_exeext)
@@ -1673,7 +1673,7 @@ cc1-checksum.c : cc1-dummy$(exeext) build/genchecksum$(build_exeext)
 cc1-checksum.o : cc1-checksum.c
 
 cc1$(exeext): $(C_OBJS) cc1-checksum.o $(BACKEND) $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(C_OBJS) cc1-checksum.o \
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ $(C_OBJS) cc1-checksum.o \
 	  $(BACKEND) $(LIBS) $(BACKENDLIBS)
 
 #
@@ -1890,13 +1890,13 @@ COLLECT2_OBJS = collect2.o tlink.o intl.o version.o
 COLLECT2_LIBS = @COLLECT2_LIBS@
 collect2$(exeext): $(COLLECT2_OBJS) $(LIBDEPS)
 # Don't try modifying collect2 (aka ld) in place--it might be linking this.
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o T$@ \
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o T$@ \
 		$(COLLECT2_OBJS) $(LIBS) $(COLLECT2_LIBS)
 	mv -f T$@ $@
 
 collect2.o : collect2.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) intl.h \
 	$(OBSTACK_H) $(DEMANGLE_H) collect2.h version.h
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS)  \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS)  \
 	-DTARGET_MACHINE=\"$(target_noncanonical)\" \
 	-c $(srcdir)/collect2.c $(OUTPUT_OPTION)
 
@@ -1923,14 +1923,14 @@ c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)		\
         $(TREE_INLINE_H) $(DIAGNOSTIC_H) intl.h debug.h $(C_COMMON_H)	\
         opts.h options.h $(MKDEPS_H) incpath.h cppdefault.h $(TARGET_H) \
 	$(TM_P_H) $(VARRAY_H)
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 		$< $(OUTPUT_OPTION) @TARGET_SYSTEM_ROOT_DEFINE@
 
 c-cppbuiltin.o : c-cppbuiltin.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	$(TREE_H) version.h $(C_COMMON_H) $(C_PRAGMA_H) $(FLAGS_H) \
 	$(TOPLEV_H) output.h except.h $(REAL_H) $(TARGET_H) $(TM_P_H) \
 	$(BASEVER) debug.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) -DBASEVER=$(BASEVER_s) \
+	$(CXX) -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) -DBASEVER=$(BASEVER_s) \
 		$< $(OUTPUT_OPTION)
 
 # A file used by all variants of C and some other languages.
@@ -1955,7 +1955,7 @@ c-dump.o : c-dump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 c-pch.o : c-pch.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(CPPLIB_H) $(TREE_H) \
 	$(C_COMMON_H) output.h $(TOPLEV_H) $(C_PRAGMA_H) $(GGC_H) debug.h \
 	langhooks.h $(FLAGS_H) hosthooks.h version.h $(TARGET_H) opts.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 	  -DHOST_MACHINE=\"$(host)\" -DTARGET_MACHINE=\"$(target)\" \
 	  $< $(OUTPUT_OPTION)
 
@@ -1981,13 +1981,13 @@ gcc.o: gcc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) intl.h multilib.h \
     Makefile $(lang_specs_files) specs.h prefix.h $(GCC_H) $(FLAGS_H) \
     configargs.h $(OBSTACK_H) opts.h
 	(SHLIB_LINK='$(SHLIB_LINK)'; \
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
   $(DRIVER_DEFINES) \
   -c $(srcdir)/gcc.c $(OUTPUT_OPTION))
 
 gccspec.o: gccspec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H)
 	(SHLIB_LINK='$(SHLIB_LINK)'; \
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
   $(DRIVER_DEFINES) \
   -c $(srcdir)/gccspec.c $(OUTPUT_OPTION))
 
@@ -2022,7 +2022,7 @@ options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TARGET_H) $(FLAGS_H) 
 	$(TM_H) opts.h intl.h
 
 gcc-options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) opts.h intl.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(OUTPUT_OPTION) -DGCC_DRIVER options.c
+	$(CXX) -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) $(OUTPUT_OPTION) -DGCC_DRIVER options.c
 
 dumpvers: dumpvers.c
 
@@ -2031,7 +2031,7 @@ version.o: version.c version.h $(REVISION) $(DATESTAMP) $(BASEVER) $(DEVPHASE)
 else
 version.o: version.c version.h $(DATESTAMP) $(BASEVER) $(DEVPHASE)
 endif
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 	-DBASEVER=$(BASEVER_s) -DDATESTAMP=$(DATESTAMP_s) \
 	-DREVISION=$(REVISION_s) \
 	-DDEVPHASE=$(DEVPHASE_s) -DPKGVERSION=$(PKGVERSION_s) \
@@ -2063,7 +2063,7 @@ stringpool.o: stringpool.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 
 prefix.o: prefix.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) prefix.h \
 	Makefile $(BASEVER)
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 	-DPREFIX=\"$(prefix)\" -DBASEVER=$(BASEVER_s) \
 	  -c $(srcdir)/prefix.c $(OUTPUT_OPTION)
 
@@ -2361,7 +2361,7 @@ omp-low.o : omp-low.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(GIMPLE_H) $(TREE_INLINE_H) langhooks.h $(DIAGNOSTIC_H) \
    $(TREE_FLOW_H) $(TIMEVAR_H) $(FLAGS_H) $(EXPR_H) $(TOPLEV_H) $(TREE_PASS_H) \
    $(GGC_H) except.h $(SPLAY_TREE_H) $(OPTABS_H) $(CFGLOOP_H) \
-   tree-iterator.h
+   tree-iterator.h gt-omp-low.h
 tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(TREE_INLINE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) \
    $(TM_H) coretypes.h
@@ -2472,7 +2472,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(CFGLOOP_H) hosthooks.h \
    $(CGRAPH_H) $(COVERAGE_H) alloc-pool.h $(GGC_H) $(INTEGRATE_H) \
    opts.h params.def tree-mudflap.h $(REAL_H) $(TREE_PASS_H) $(GIMPLE_H)
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
 
@@ -2636,7 +2636,7 @@ ipa-prop.o : ipa-prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 ipa-cp.o : ipa-cp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    $(TREE_H) $(TARGET_H) $(CGRAPH_H) $(IPA_PROP_H) $(TREE_FLOW_H) \
    $(TREE_PASS_H) $(FLAGS_H) $(TIMEVAR_H) $(DIAGNOSTIC_H) $(TREE_DUMP_H) \
-   $(TREE_INLINE_H)
+   $(TREE_INLINE_H) $(FIBHEAP_H) $(PARAMS_H)
 matrix-reorg.o : matrix-reorg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    $(TM_H) $(TREE_H) $(RTL_H) $(C_TREE_H) $(TREE_INLINE_H) $(TREE_FLOW_H) \
    tree-flow-inline.h langhooks.h $(HASHTAB_H) $(TOPLEV_H) $(FLAGS_H) $(GGC_H) \
@@ -2656,7 +2656,7 @@ ipa-reference.o : ipa-reference.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(IPA_REFERENCE_H) $(IPA_UTILS_H) $(C_COMMON_H) \
    $(GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) $(TREE_PASS_H) \
-   $(TIMEVAR_H) $(DIAGNOSTIC_H) $(FUNCTION_H)
+   $(TIMEVAR_H) $(DIAGNOSTIC_H) $(FUNCTION_H) gt-ipa-reference.h
 
 ipa-pure-const.o : ipa-pure-const.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
@@ -3097,7 +3097,7 @@ $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
    output.h $(INSN_ATTR_H) $(SYSTEM_H) $(TOPLEV_H) $(TARGET_H) libfuncs.h \
    $(TARGET_DEF_H) $(FUNCTION_H) $(SCHED_INT_H) $(TM_P_H) $(EXPR_H) \
    langhooks.h $(GGC_H) $(OPTABS_H) $(REAL_H) tm-constrs.h $(GIMPLE_H)
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 		$(out_file) $(OUTPUT_OPTION)
 
 # Build auxiliary files that support ecoff format.
@@ -3117,7 +3117,7 @@ mips-tdump.o : mips-tdump.c $(CONFIG_H) $(RTL_H) $(SYSTEM_H) coretypes.h \
 libbackend.o : $(OBJS-common:.o=.c) $(out_file) \
   insn-config.h insn-flags.h insn-codes.h insn-constants.h \
   insn-attr.h  $(DATESTAMP) $(BASEVER) $(DEVPHASE) gcov-iov.h
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -DLOCALEDIR=\"$(localedir)\" \
 	  -c $(filter %.c,$^) -o $@  \
@@ -3495,7 +3495,7 @@ gengtype-lex.c : gengtype-lex.l
 #
 # Remake internationalization support.
 intl.o: intl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) intl.h Makefile
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 	  -DLOCALEDIR=\"$(localedir)\" \
 	  -c $(srcdir)/intl.c $(OUTPUT_OPTION)
 
@@ -3517,7 +3517,7 @@ PREPROCESSOR_DEFINES = \
 
 cppdefault.o: cppdefault.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	cppdefault.h Makefile
-	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
 	  $(PREPROCESSOR_DEFINES) \
 	  -c $(srcdir)/cppdefault.c $(OUTPUT_OPTION)
 
@@ -3529,22 +3529,22 @@ proto: config.status protoize$(exeext) unprotoize$(exeext) SYSCALLS.c.X
 PROTO_OBJS = intl.o version.o cppdefault.o errors.o
 
 protoize$(exeext): protoize.o $(PROTO_OBJS) $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ protoize.o $(PROTO_OBJS) $(LIBS)
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ protoize.o $(PROTO_OBJS) $(LIBS)
 
 unprotoize$(exeext): unprotoize.o $(PROTO_OBJS) $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ unprotoize.o $(PROTO_OBJS) $(LIBS)
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ unprotoize.o $(PROTO_OBJS) $(LIBS)
 
 protoize.o: protoize.c $(srcdir)/../include/getopt.h $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) Makefile version.h cppdefault.h intl.h
 	(SHLIB_LINK='$(SHLIB_LINK)'; \
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
 	  $(DRIVER_DEFINES) \
 	  $(srcdir)/protoize.c $(OUTPUT_OPTION))
 
 unprotoize.o: protoize.c $(srcdir)/../include/getopt.h $(CONFIG_H) \
     $(SYSTEM_H) coretypes.h $(TM_H) Makefile version.h cppdefault.h intl.h
 	(SHLIB_LINK='$(SHLIB_LINK)'; \
-	$(CC) -c -DUNPROTOIZE $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	$(CXX) -c -DUNPROTOIZE $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
 	  $(DRIVER_DEFINES) \
 	  $(srcdir)/protoize.c $(OUTPUT_OPTION))
 
@@ -3611,10 +3611,10 @@ gcov-dump.o: gcov-dump.c gcov-io.c $(GCOV_IO_H) $(SYSTEM_H) coretypes.h \
 
 GCOV_OBJS = gcov.o intl.o version.o errors.o
 gcov$(exeext): $(GCOV_OBJS) $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) $(GCOV_OBJS) $(LIBS) -o $@
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) $(GCOV_OBJS) $(LIBS) -o $@
 GCOV_DUMP_OBJS = gcov-dump.o version.o errors.o
 gcov-dump$(exeext): $(GCOV_DUMP_OBJS) $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) $(GCOV_DUMP_OBJS) $(LIBS) -o $@
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) $(GCOV_DUMP_OBJS) $(LIBS) -o $@
 #
 # Build the include directories.  The stamp files are stmp-* rather than
 # s-* so that mostlyclean does not force the include directory to

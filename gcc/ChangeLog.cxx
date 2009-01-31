@@ -1,5 +1,29 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* Makefile.in (xgcc$(exeext)): Link with $(CXX).
+	(cpp$(exeext)): Likewise.
+	(cc1-dummy$(exeext), cc1$(exeext)): Likewise.
+	(collect2$(exeext)): Likewise.
+	(protoize$(exeext), unprotoize$(exeext)): Likewise.
+	(gcov$(exeext), gcov-dump$(exeext)): Likewise.
+	(collect2.o, c-opts.o, c-cppbuiltin.o): Compile with $(CXX).
+	(c-pch.o, gcc.o, gccspec.o, gcc-options.o): Likewise.
+	(version.o, prefix.o, toplev.o, intl.o): Likewise.
+	($(out_object_file)): Likewise.
+	(libbackend.o): Likewise.
+	(cppdefault.o): Likewise.
+	(protoize.o, unprotoize.o): Likewise.
+	* cp/Make-lang.in (g++spec.o): Likewise.
+	(g++$(exeext)): Link with $(CXX).
+	(cc1plus-dummy$(exeext), cc1plus$(exeext)): Likewise.
+	* config/x-linux (host-linux.o): Compile with $(CXX).
+
+	* Makefile.in (omp.low.o): Depend upon gt-omp-low.h.
+	(ipa-reference.o): Depend upon gt-ipa-reference.h.
+	(ipa-cp.o): Depend upon $(FIBHEAP_H) and $(PARAMS_H).
+	* cp/Make-lang.in (cp/class.o): Depend upon gt-cp-class.h.
+	(cp/semantics.o): Depend upon gt-cp-semantics.h.
+
 	* config/i386/i386.c (ix86_function_specific_restore): Add casts
 	to enum types.
 	(bdesc_multi_arg): Change 0 to UNKNOWN where appropriate.  Add
