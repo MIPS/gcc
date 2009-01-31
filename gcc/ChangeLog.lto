@@ -1,5 +1,9 @@
 2009-01-31  Diego Novillo  <dnovillo@google.com>
 
+	* lto-cgraph.c: Do not include ctype.h.
+
+2009-01-31  Diego Novillo  <dnovillo@google.com>
+
 	Revert
 
 	2009-01-30  H.J. Lu  <hongjiu.lu@intel.com>

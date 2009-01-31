@@ -52,7 +52,6 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-out.h"
 #include "pointer-set.h"
 #include "lto-tree-in.h"
-#include <ctype.h>
 
 /* Call-Graph Streamer.
 
