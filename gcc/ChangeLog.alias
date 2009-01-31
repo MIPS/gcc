@@ -1,3 +1,43 @@
+2009-01-31  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (struct gimple_df): Remove vop_needs_renaming member.
+	Add syms_to_rename member.
+	(SYMS_TO_RENAME): New private accessor.
+	(need_ssa_update_p): Adjust prototype to take function argument.
+	* tree-ssanames.c (init_ssanames): Allocate SYMS_TO_RENAME.
+	* tree-into-ssa.c (syms_to_rename): Remove.
+	(need_to_update_vops_p): Likewise.
+	(need_to_initialize_update_ssa_p): Rename to ...
+	(update_ssa_initialized_fn): ... this.  Track function we are
+	initialized for.
+	(symbol_marked_for_renaming): Simplify.
+	(add_new_name_mapping): Do not set need_to_update_vops_p.
+	(dump_currdefs): Use SYMS_TO_RENAME.
+	(rewrite_update_stmt): Always walk all uses/defs.
+	(dump_update_ssa): Adjust.
+	(init_update_ssa): Take function argument.  Track what we are
+	initialized for.
+	(delete_update_ssa): Reset SYMS_TO_RENAME and update_ssa_initialized_fn.
+	(create_new_def_for): Initialize for cfun, assert we are initialized
+	for cfun.
+	(mark_sym_for_renaming): Simplify.
+	(mark_set_for_renaming): Do not initialize update-ssa.
+	(need_ssa_update_p): Simplify.  Take function argument.
+	(name_mappings_registered_p): Assert we ask for the correct function.
+	(name_registered_for_update_p): Likewise.
+	(ssa_names_to_replace): Likewise.
+	(release_ssa_name_after_update_ssa): Likewise.
+	(update_ssa): Likewise.  Use SYMS_TO_RENAME.
+	* passes.c (execute_function_todo): Adjust.
+	(execute_todo): Likewise.
+	* tree-cfg.c (gimple_duplicate_sese_region): Adjust.
+	(gimple_duplicate_sese_tail): Likewise.
+	* tree-inline.c (tree_function_versioning): Adjust.
+	* tree-ssa-loop-im.c (move_computations): Adjust.
+	* tree-ssa-structalias.c (compute_may_aliases): Adjust.
+	* tree-ssa.c (verify_ssa): Adjust.
+	* tree-vectorizer.c (slpeel_can_duplicate_loop_p): Adjust.
+
 2009-01-30  Richard Guenther  <rguenther@suse.de>
 
 	* gimple.h (gimple_loaded_syms): Revert comment adjustment.

@@ -87,6 +87,8 @@ init_ssanames (struct function *fn, int size)
      least 50 elements reserved in it.  */
   VEC_quick_push (tree, SSANAMES (fn), NULL_TREE);
   FREE_SSANAMES (fn) = NULL;
+
+  SYMS_TO_RENAME (fn) = BITMAP_GGC_ALLOC ();
 }
 
 /* Finalize management of SSA_NAMEs.  */

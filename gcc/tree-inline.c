@@ -4364,8 +4364,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
       if (!update_clones)
 	{
 	  fold_cond_expr_cond ();
-	  if (need_ssa_update_p ())
-	    update_ssa (TODO_update_ssa);
+	  update_ssa (TODO_update_ssa);
 	}
     }
   free_dominance_info (CDI_DOMINATORS);

@@ -82,11 +82,12 @@ struct gimple_df GTY(())
      for this variable with an empty defining statement.  */
   htab_t GTY((param_is (union tree_node))) default_defs;
 
+  /* Symbols whose SSA form needs to be updated or created for the first
+     time.  */
+  bitmap syms_to_rename;
+
   /* True if the code is in ssa form.  */
   unsigned int in_ssa_p : 1;
-
-  /* True if the VOP needs to be renamed.  */
-  unsigned int vop_needs_renaming : 1;
 
   struct ssa_operands ssa_operands;
 };
@@ -97,6 +98,7 @@ struct gimple_df GTY(())
 #define SSANAMES(fun) (fun)->gimple_df->ssa_names
 #define MODIFIED_NORETURN_CALLS(fun) (fun)->gimple_df->modified_noreturn_calls
 #define DEFAULT_DEFS(fun) (fun)->gimple_df->default_defs
+#define SYMS_TO_RENAME(fun) (fun)->gimple_df->syms_to_rename
 
 typedef struct
 {
@@ -684,7 +686,7 @@ void update_ssa (unsigned);
 void delete_update_ssa (void);
 void register_new_name_mapping (tree, tree);
 tree create_new_def_for (tree, gimple, def_operand_p);
-bool need_ssa_update_p (void);
+bool need_ssa_update_p (struct function *);
 bool name_mappings_registered_p (void);
 bool name_registered_for_update_p (tree);
 bitmap ssa_names_to_replace (void);

@@ -930,7 +930,7 @@ execute_function_todo (void *data)
 	 SSA form to become out-of-date (see PR 22037).  So, even
 	 if the parent pass had not scheduled an SSA update, we may
 	 still need to do one.  */
-      if (!(flags & TODO_update_ssa_any) && need_ssa_update_p ())
+      if (!(flags & TODO_update_ssa_any) && need_ssa_update_p (cfun))
 	flags |= TODO_update_ssa;
     }
 
@@ -1019,7 +1019,8 @@ static void
 execute_todo (unsigned int flags)
 {
 #if defined ENABLE_CHECKING
-  if (need_ssa_update_p ())
+  if (cfun
+      && need_ssa_update_p (cfun))
     gcc_assert (flags & TODO_update_ssa_any);
 #endif
 

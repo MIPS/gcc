@@ -5841,7 +5841,7 @@ compute_may_aliases (void)
      points-to solution.  */
   delete_points_to_sets ();
 
-  gcc_assert (!need_ssa_update_p ());
+  gcc_assert (!need_ssa_update_p (cfun));
 
   return 0;
 }

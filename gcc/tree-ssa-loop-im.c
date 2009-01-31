@@ -1080,7 +1080,7 @@ move_computations (void)
   fini_walk_dominator_tree (&walk_data);
 
   gsi_commit_edge_inserts ();
-  if (need_ssa_update_p ())
+  if (need_ssa_update_p (cfun))
     rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
 }
 

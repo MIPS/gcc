@@ -525,7 +525,7 @@ verify_ssa (bool check_modified_stmt)
   enum dom_state orig_dom_state = dom_info_state (CDI_DOMINATORS);
   bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
 
-  gcc_assert (!need_ssa_update_p ());
+  gcc_assert (!need_ssa_update_p (cfun));
 
   verify_stmts ();
 
