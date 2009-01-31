@@ -1,3 +1,7 @@
+2009-01-31  Diego Novillo  <dnovillo@google.com>
+
+	* lto-header.h (LTO_STREAM_DEBUGGING): Disable.
+
 2009-01-30  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR lto/39010

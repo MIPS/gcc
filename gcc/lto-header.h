@@ -85,7 +85,7 @@ void lto_fixup_nothrow_decls (void);
    pinpoint problems where the reader is not in sync with the writers.
    The cost is a large amount of time and space, but this is the
    necessary to debug a stream protocol with little redundancy.  */
-#define LTO_STREAM_DEBUGGING
+/* #define LTO_STREAM_DEBUGGING  */
 
 #ifdef LTO_STREAM_DEBUGGING
 
