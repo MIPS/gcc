@@ -1,5 +1,16 @@
 2009-01-31  Diego Novillo  <dnovillo@google.com>
 
+	Revert
+
+	2009-01-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+		PR lto/39010
+		* lto-function-out.c (output_string): Properly handle the
+		trailing '\0'.
+		(output_tree_flags): Updated.
+
+2009-01-31  Diego Novillo  <dnovillo@google.com>
+
 	* lto-header.h (LTO_STREAM_DEBUGGING): Disable.
 
 2009-01-30  H.J. Lu  <hongjiu.lu@intel.com>

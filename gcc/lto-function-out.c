@@ -280,9 +280,9 @@ output_string (struct output_block *ob,
       struct string_slot *new_slot
 	= (struct string_slot *) xmalloc (sizeof (struct string_slot));
       unsigned int i;
-      char *new_string = (char *) xmalloc (len + 1);
+      char *new_string = (char *) xmalloc (len);
 
-      memcpy (new_string, string, len + 1);
+      memcpy (new_string, string, len);
       new_slot->s = new_string;
       new_slot->len = len;
       new_slot->slot_num = start;
@@ -530,7 +530,7 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
 	{
 	  LTO_DEBUG_TOKEN ("file");
 	  output_string (ob, ob->main_stream, 
-			 file_to_write, strlen (file_to_write));
+			 file_to_write, strlen (file_to_write) + 1);
 	}
       if (line_to_write != -1)
 	{
