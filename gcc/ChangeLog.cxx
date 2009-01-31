@@ -1,5 +1,12 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* config/i386/i386.c (ix86_function_specific_restore): Add casts
+	to enum types.
+	(bdesc_multi_arg): Change 0 to UNKNOWN where appropriate.  Add
+	casts to enum type where needed.
+	* config/i386/i386-c.c (ix86_pragma_target_parse): Add casts to
+	enum types.
+
 	* config/i386/x-i386 (driver-i386.o): Build with $(CXX).
 	* config/i386/t-i386 (i386-c.o): Likewise.
 
