@@ -1,5 +1,15 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* reginfo.c (init_move_cost): Add casts to enum type and integer
+	types.
+	(init_reg_sets_1, init_fake_stack_mems): Likewise.
+	(cannot_change_mode_set_regs): Change 'to' to unsigned int.  Add
+	casts to enum type.
+	(invalid_mode_change_p): Likewise.
+	(pass_reginfo_init): Use TV_NONE for tv_id initializer.
+	(pass_subregs_of_mode_init): Likewise.
+	(pass_subregs_of_mode_finish): Likewise.
+
 	* reload.c (push_secondary_reload): Add cast for
 	secondary_reload_info icode field.
 	(secondary_reload_class): Likewise.
