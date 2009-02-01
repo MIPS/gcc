@@ -1,5 +1,8 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* profile.c (compute_branch_probabilities): Remove useless
+	references to variable on right side of comma operator.
+
 	* parser.c (cp_parser_expression_stack_entry): Change prec field
 	to enum cp_parser_prec.
 	(cp_parser_decl_specifier_seq): Change flags to int.

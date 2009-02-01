@@ -741,7 +741,7 @@ compute_branch_probabilities (void)
 	  if (bb->index >= NUM_FIXED_BLOCKS
 	      && block_ends_with_condjump_p (bb)
 	      && EDGE_COUNT (bb->succs) >= 2)
-	    num_branches++, num_never_executed;
+	    num_branches++;
 	}
     }
   counts_to_freqs ();
