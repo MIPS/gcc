@@ -5275,7 +5275,7 @@ build_over_call (struct z_candidate *cand, int flags, int complain)
 	(conv, TREE_VALUE (arg), fn, i - is_method, complain);
 
       val = convert_for_arg_passing (type, val);
-      if ((complain == tf_none) && val == error_mark_node)
+      if (val == error_mark_node)
         return error_mark_node;
       else
         argarray[j++] = val;

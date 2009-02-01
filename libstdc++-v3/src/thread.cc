@@ -1,6 +1,6 @@
 // thread -*- C++ -*-
 
-// Copyright (C) 2008 Free Software Foundation, Inc.
+// Copyright (C) 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,7 +28,7 @@
 // the GNU General Public License.
 
 #include <thread>
-#include <bits/move.h> // std::move
+#include <cerrno>
 
 #if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
 
@@ -41,12 +41,12 @@ namespace std
       void* __thread_proxy(void* __p)
       {
 	__thread_data_base* __t = static_cast<__thread_data_base*>(__p);
-	__thread_data_ptr __local_thread_data = __t->_M_this_ptr;
-	__t->_M_this_ptr.reset();
+	__thread_data_ptr __local_thread_data;
+	__local_thread_data.swap(__t->_M_this_ptr);
 
 	try
 	  {
-	    __local_thread_data->__run();
+	    __local_thread_data->_M_run();
 	  }
 	catch(...)
 	  {
@@ -58,81 +58,48 @@ namespace std
     }
   }
 
-  thread::thread()
-  { }
-
-  thread::~thread()
-  {
-    detach();
-  }
-
-  thread::id
-  thread::get_id() const
-  {
-    if(_M_thread_data)
-      return thread::id(_M_thread_data->_M_thread_handle); 
-    else
-      return thread::id();
-  }
-
-  bool
-  thread::joinable() const
-  { return get_id() != id(); }
-  
   void
   thread::join()
   {
-    if(joinable())
-      {
-	void* __r = 0;
-	int __e = __gthread_join(_M_thread_data->_M_thread_handle, &__r);
-	if(__e)
-	  __throw_system_error(__e);
+    int __e = EINVAL;
 
-	lock_guard<mutex> __lock(_M_thread_data_mutex);
-	_M_thread_data.reset();
-      }
+    if (_M_thread_data)
+    {
+      void* __r = 0;
+      __e = __gthread_join(_M_thread_data->_M_thread_handle, &__r);
+    }
+
+    if (__e)
+      __throw_system_error(__e);
+
+    _M_thread_data.reset();
   }
 
   void
   thread::detach()
   {    
-    if(joinable())
-      {
-	int __e = __gthread_detach(_M_thread_data->_M_thread_handle);
-	if(__e)
-	  __throw_system_error(__e);
+    int __e = EINVAL;
 
-	lock_guard<mutex> __lock(_M_thread_data_mutex);
-	_M_thread_data.reset();
-      }
-  }
+    if (_M_thread_data)
+      __e = __gthread_detach(_M_thread_data->_M_thread_handle);
 
-  void
-  thread::swap(thread&& __t)
-  {
-    std::swap(_M_thread_data, __t._M_thread_data);
+    if (__e)
+      __throw_system_error(__e);
+
+    _M_thread_data.reset();
   }
 
   void 
-  thread::__start_thread()
+  thread::_M_start_thread()
   {
     _M_thread_data->_M_this_ptr = _M_thread_data;
     int __e = __gthread_create(&_M_thread_data->_M_thread_handle, 
 			       &__thread_proxy, _M_thread_data.get());
-    if(__e)
+    if (__e)
+    {
+      _M_thread_data->_M_this_ptr.reset();
       __throw_system_error(__e);
-  }
-
-  namespace this_thread
-  {
-    thread::id
-    get_id()
-    { return thread::id(__gthread_self()); }
-    
-    void
-    yield()
-    { __gthread_yield(); }   
+    }
   }
 }
 

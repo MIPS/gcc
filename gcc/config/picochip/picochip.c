@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not, see
 #include "target-def.h"
 #include "langhooks.h"
 #include "reload.h"
+#include "params.h"
 
 #include "picochip-protos.h"
 
@@ -303,6 +304,16 @@ picochip_return_in_memory(const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 void
 picochip_override_options (void)
 {
+  /* If we are optimizing for stack, dont let inliner to inline functions
+     that could potentially increase stack size.*/
+   if (flag_conserve_stack)
+   {
+     PARAM_VALUE (PARAM_LARGE_STACK_FRAME) = 0;
+     PARAM_VALUE (PARAM_STACK_FRAME_GROWTH) = 0;
+   }
+   /* The function call overhead on picochip is not very high. Let the
+      inliner know so its heuristics become more reasonable. */
+   PARAM_VALUE (PARAM_INLINE_CALL_COST) = 2;
 
   /* Turn off the elimination of unused types. The elaborator
      generates various interesting types to represent constants,
@@ -323,9 +334,6 @@ picochip_override_options (void)
      accessing offsets from the anchor for file local data variables.
      This isnt the default at O2 as yet. */
   flag_section_anchors = 1;
-
-  /* CFI asm labels are not supported by the picochip assembler yet */
-  flag_dwarf2_cfi_asm = 0;
 
   /* Turn off the second scheduling pass, and move it to
      picochip_reorg, to avoid having the second jump optimisation

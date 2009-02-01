@@ -434,6 +434,7 @@ static tree create_expression_by_pieces (basic_block, pre_expr, gimple_seq *,
 					 gimple, tree);
 static tree find_or_generate_expression (basic_block, pre_expr, gimple_seq *,
 					 gimple);
+static unsigned int get_expr_value_id (pre_expr);
 
 /* We can add and remove elements and entries to and from sets
    and hash tables, so we use alloc pools for them.  */
@@ -558,6 +559,8 @@ void
 add_to_value (unsigned int v, pre_expr e)
 {
   bitmap_set_t set;
+
+  gcc_assert (get_expr_value_id (e) == v);
 
   if (v >= VEC_length (bitmap_set_t, value_expressions))
     {
@@ -2394,7 +2397,7 @@ compute_antic (void)
 	fprintf (dump_file, "Starting iteration %d\n", num_iterations);
       num_iterations++;
       changed = false;
-      for (i = 0; i < last_basic_block - NUM_FIXED_BLOCKS; i++)
+      for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
 	{
 	  if (TEST_BIT (changed_blocks, postorder[i]))
 	    {
@@ -2425,7 +2428,7 @@ compute_antic (void)
 	    fprintf (dump_file, "Starting iteration %d\n", num_iterations);
 	  num_iterations++;
 	  changed = false;
-	  for (i = 0; i < last_basic_block - NUM_FIXED_BLOCKS; i++)
+	  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
 	    {
 	      if (TEST_BIT (changed_blocks, postorder[i]))
 		{
@@ -2975,7 +2978,7 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
   pre_expr eprime;
   edge_iterator ei;
   tree type = get_expr_type (expr);
-  tree temp, res;
+  tree temp;
   gimple phi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3004,6 +3007,15 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 	}
     }
 
+  /* Make sure we are not inserting trapping expressions.  */
+  FOR_EACH_EDGE (pred, ei, block->preds)
+    {
+      bprime = pred->src;
+      eprime = avail[bprime->index];
+      if (eprime->kind == NARY
+	  && vn_nary_may_trap (PRE_EXPR_NARY (eprime)))
+	return false;
+    }
 
   /* Make the necessary insertions.  */
   FOR_EACH_EDGE (pred, ei, block->preds)
@@ -3122,8 +3134,12 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
   if (TREE_CODE (type) == COMPLEX_TYPE
       || TREE_CODE (type) == VECTOR_TYPE)
     DECL_GIMPLE_REG_P (temp) = 1;
-
   phi = create_phi_node (temp, block);
+
+  gimple_set_plf (phi, NECESSARY, false);
+  VN_INFO_GET (gimple_phi_result (phi))->valnum = gimple_phi_result (phi);
+  VN_INFO (gimple_phi_result (phi))->value_id = val;
+  VEC_safe_push (gimple, heap, inserted_exprs, phi);
   FOR_EACH_EDGE (pred, ei, block->preds)
     {
       pre_expr ae = avail[pred->src->index];
@@ -3134,20 +3150,6 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
       else
 	add_phi_arg (phi, PRE_EXPR_NAME (avail[pred->src->index]), pred);
     }
-  /* If the PHI node is already available, use it.  */
-  if ((res = vn_phi_lookup (phi)) != NULL_TREE)
-    {
-      gimple_stmt_iterator gsi = gsi_for_stmt (phi);
-      remove_phi_node (&gsi, true);
-      release_defs (phi);
-      add_to_value (val, get_or_alloc_expr_for_name (res));
-      return false;
-    }
-
-  gimple_set_plf (phi, NECESSARY, false);
-  VN_INFO_GET (gimple_phi_result (phi))->valnum = gimple_phi_result (phi);
-  VN_INFO (gimple_phi_result (phi))->value_id = val;
-  VEC_safe_push (gimple, heap, inserted_exprs, phi);
 
   newphi = get_or_alloc_expr_for_name (gimple_phi_result (phi));
   add_to_value (val, newphi);
@@ -3321,7 +3323,7 @@ do_regular_insertion (basic_block block, basic_block dom)
 			  pre_stats.constified++;
 			}
 		      else
-			info->valnum = PRE_EXPR_NAME (edoubleprime);
+			info->valnum = VN_INFO (PRE_EXPR_NAME (edoubleprime))->valnum;
 		      info->value_id = new_val;
 		    }
 		}

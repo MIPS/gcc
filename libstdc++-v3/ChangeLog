@@ -1,3 +1,350 @@
+2009-01-30  Ulrich Drepper  <drepper@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/30928 (partial, works together with recent glibcs)
+	* include/c_std/cstring (memchr, strchr, strpbrk, strrchr, strstr):
+	Provide inlines only if __CORRECT_ISO_CPP_STRING_H_PROTO is not
+	defined.
+	* include/c_std/cwchar (wcschr, wcspbrk, wcsrchr, wcsstr, wmemchr):
+	Provide inlines only if __CORRECT_ISO_CPP_WCHAR_H_PROTO is not
+	defined.
+	* include/c_global/cstring (memchr, strchr, strpbrk, strrchr, strstr):
+	Provide inlines only if __CORRECT_ISO_CPP_STRING_H_PROTO is not
+	defined.
+	* include/c_global/cwchar (wcschr, wcspbrk, wcsrchr, wcsstr, wmemchr):
+	Provide inlines only if __CORRECT_ISO_CPP_WCHAR_H_PROTO is not
+	defined.
+	* testsuite/21_strings/c_strings/char_t/2.cc (test02): If first
+	argument is const char *, assign result to const char * var, not
+	char *.
+	* testsuite/21_strings/c_strings/wchar_t/2.cc (test02): If first
+	argument is const wchar_t *, assign result to const wchar_t * var, not
+	wchar_t *.
+
+2009-01-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/thread: Remove unused headers.
+	(__thread_data_base): Remove unused mutex and base.
+	(thread::~thread): Only detach if joinable.
+	(thread::joinable): Test if thread data ptr is empty.
+	(thread::_M_thread_data_mutex): Remove.
+	(thread::_M_get_thread_data): Remove.
+	(thread::_M_make_thread_data): Remove overload, use make_shared.
+	(thread::id::id): Make constructor explicit.
+	* src/thread.cc (thread::join,thread::detach): Throw if not joinable.
+	(thread::_M_start_thread): Break shared_ptr cycle on error.
+	(__thread_proxy): Use shared_ptr swap instead of copy and reset.
+	* testsuite/30_threads/thread/member/4.cc: New.
+	* testsuite/30_threads/thread/member/5.cc: New.
+
+2009-01-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_common_types.h (has_trivial_cons_dtor): New.
+	(standard_layout): Just use !has_virtual_destructor for now.
+	* testsuite/30_threads/mutex/requirements/standard_layout.cc: New.
+	* testsuite/30_threads/timed_mutex/requirements/standard_layout.cc: New.
+	* testsuite/30_threads/recursive_mutex/requirements/
+	standard_layout.cc: New.
+	* testsuite/30_threads/condition_variable/requirements/
+	standard_layout.cc: New.
+	* testsuite/29_atomics/atomic_address/requirements/
+	standard_layout.cc: Adjust.
+	* testsuite/29_atomics/atomic_flag/requirements/
+	standard_layout.cc: Same.
+	* testsuite/29_atomics/atomic_address/requirements/trivial.cc: New.
+	* testsuite/29_atomics/atomic_integral/requirements/trivial.cc: Same.
+	* testsuite/29_atomics/atomic_flag/requirements/trivial.cc: Same.
+	* testsuite/30_threads/condition_variable/requirements/typedefs.cc: New.
+	* testsuite/29_atomics/atomic_integral/cons/assign_neg.cc: Adjust
+	line numbers.
+	* testsuite/29_atomics/atomic_integral/cons/copy_neg.cc: Same.
+	* testsuite/29_atomics/atomic/cons/assign_neg.cc: Same.
+	* testsuite/29_atomics/atomic/cons/copy_neg.cc: Same.
+	* testsuite/29_atomics/atomic/requirements/standard_layout.cc:
+	Remove, not required.
+
+2009-01-22  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/thread (__thread_data_base, thread): Rename member
+	functions to match coding style.
+	(thread::thread,thread::operator=): Define move operations.
+	* src/thread.cc (__thread_data_base, thread): Rename member functions.
+	* config/abi/pre/gnu.ver: Adjust.
+
+2009-01-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/38384
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Disable symbol versioning
+	on HPUX.
+	* configure: Regenerate.
+
+2009-01-22  Dodji Seketeli  <dodji@redhat.com>
+
+	* include/ext/bitmap_allocator.h: Reverting changes related to PR
+	c++/26693.
+
+2009-01-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/29_atomics/headers/stdatomic.h/functions.c: Remove
+	atomic_flag_fence.
+
+2009-01-21  Dodji Seketeli  <dodji@redhat.com>
+
+	* include/ext/bitmap_allocator.h: the typedefs should be made public
+	if we want them to be accessible. This has been revealed by the patch
+	that fixes PR c++/26693 in g++.
+
+2009-01-20  Benjamin Kosnik  <bkoz@redhat.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libstdc++/38834
+	* config/abi/pre/gnu.ver: Correct char16_t and char32_t exports.
+	* config/os/gnu-linux/ldbl-extra.ver: Tweak.
+
+2009-01-20  Benjamin Kosnik  <bkoz@redhat.com>
+            Rainer Emrich  <r.emrich@de.tecosim.com>
+
+	PR libstdc++/38919
+	* crossconfig.m4: Use GLIBCXX_CHECK_MATH_SUPPORT and
+	GLIBCXX_CHECK_STDLIB_SUPPORT for mingw crosses.
+	* configure: Regenerate.
+
+2009-01-18  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/thread (__thread_data_base::__run): Make non-const.
+	* testsuite/30_threads/thread/cons/5.cc: New.
+
+2009-01-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/Makefile.am (sources): Add math_stubs_float.cc.
+	* src/Makefile.in: Regenerate.
+	* src/math_stubs_float.cc: New, from libmath/stubs.c.
+
+2009-01-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/Makefile.am (sources): Add math_stubs_long_double.cc.
+	* src/Makefile.in: Regenerate.
+	* src/math_stubs_long_double.cc: New, from libmath/stubs.c.
+
+2009-01-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/32666
+	* config/abi/post/hppa-linux-gnu/baseline_symbols.txt: Update.
+
+2009-01-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/32666
+	* Makefile.am (hosted_source): Remove libmath directory.
+	* Makefile.in: Regenerate.
+	* linkage.m4 (GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT): Remove.
+	(AC_REPLACE_MATHFUNCS): Remove.
+	(GLIBCXX_CHECK_MATH_SUPPORT): Remove copysign, copysignl checks as done
+	in GLIBCXX_CHECK_C99_TR1.
+	* acinclude.m4: Remove libmath, need_math.
+	* crossconfig.m4: Remove use of HAVE_COPYSIGN, HAVE_COPYSIGNL,
+	HAVE_COPYSIGNF, GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT, need_libmath.
+	* configure.ac: Same.
+	* configure: Regenerate.
+	* fragment.am: Fix comment.
+	* config.h.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* src/Makefile.am: Remove libmath references.
+	* doc/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+	* src/compatibility.cc: Also export long double versions of "C" math
+	library if hppa-linux.
+	* config/abi/pre/gnu.ver: Remove unused __signbit exports.
+	* doc/xml/manual/appendix_contributing.xml: Remove libmath reference.
+
+	* libmath: Remove.
+	* libmath/signbit.c: Same.
+	* libmath/stubs.c: Same.
+	* libmath/Makefile.in: Same.
+	* libmath/copysignf.c: Same.
+	* libmath/mathconf.h: Same.
+	* libmath/signbitf.c: Same.
+	* libmath/Makefile.am: Same.
+	* libmath/signbitl.c: Same.
+
+2009-01-15  Chris Fairles  <cfairles@gcc.gnu.org>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* acinclude.m4 ([GLIBCXX_ENABLE_CLOCK_GETTIME],
+	[GLIBCXX_CHECK_NANOSLEEP]): Remove.
+	([GLIBCXX_ENABLE_LIBSTDCXX_TIME]): Add.
+	* configure.ac: Adjust.
+	* doc/xml/manual/configure.xml: Update.
+	* testsuite/lib/libstdc++.exp (check_v3_target_sched_yield): Add.
+	* testsuite/lib/dg-options.exp (dg-require-sched-yield): Add.
+	* testsuite/30_threads/thread/this_thread/2.cc: Use the latter.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+
+	* src/thread.cc (thread::thread(), thread::~thread, thread::get_id,
+	thread::joinable, thread::swap, this_thread::get_id,
+	this_thread::yield): Define inline...
+	* include/std/thread: ... here.
+	* config/abi/pre/gnu.ver: Adjust.
+
+2009-01-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/ext/pb_ds/regression/hash_data_map_rand.cc:
+	Add dg-timeout-factor 2.0.
+	* testsuite/ext/pb_ds/regression/trie_data_map_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/tree_no_data_map_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/hash_no_data_map_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/priority_queue_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/tree_data_map_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/trie_no_data_map_rand.cc: Ditto.
+
+2009-01-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* scripts/extract_symvers: Add sed script to remove ' [<other>: xx] '
+	field from readelf output.
+
+2009-01-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/38384
+	* crossconfig.m4 (hpux): Update for 10.20, 11, 11.20.
+	* configure: Regenerate.
+
+2009-01-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* crossconfig.m4 (linux): Add GCC_CHECK_TLS to define
+	_GLIBCXX_HAVE_TLS.
+	Use GLIBCXX_CHECK_COMPILER_FEATURES to compute SECTION_FLAGS.
+
+2009-01-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/tr1_impl/regex (basic_regex::basic_regex): Use range
+	constructor for _M_pattern.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/char/
+	string.cc: Test construction from different basic_string type.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/wchar_t/
+	string.cc: Likewise.
+
+2009-01-07  Benjamin Kosnik  <bkoz@redhat.com>
+	    Jonathan Larmour  <jifl@eCosCentric.com>
+
+	PR libstdc++/36801
+	* config/cpu/generic/atomicity_mutex/atomicity.h (get_atomic_mutex):
+	New.
+	(__gnu_cxx::__exchange_and_add): Use it.
+	* src/atomic.cc (get_atomic_mutex): New.
+	* src/debug.cc (get_safe_base_mutex): New.
+	* src/locale.cc (get_locale_cache_mutex): New.
+	* src/mt_allocator.cc (get_freelist): New.
+	(get_freelist_mutex): New.
+	* src/pool_allocator.cc (get_palloc_mutex): New.
+	* include/std/mutex (__once_functor_lock): To
+	(__get_once_functor_lock): ...this.
+	* src/mutex.cc (__once_mutex): Don't export, use
+	(get_once_mutex): ...this.
+	* config/abi/pre/gnu.ver: Adjust exports.
+
+2009-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/38732
+	* libsupc++/unwind-cxx.h (__cxxabiv1::__cxa_exception): Remove
+	referenceCount field again.
+	(__cxxabiv1::__cxa_refcounted_exception): New struct.
+	(__cxxabiv1::__get_refcounted_exception_header_from_obj,
+	__cxxabiv1::__get_refcounted_exception_header_from_ue): New static
+	inline functions.
+	* libsupc++/eh_alloc.cc (__cxxabiv1::__cxa_allocate_exception,
+	__cxxabiv1::__cxa_free_exception): Use __cxa_refcounted_exception
+	instead of __cxa_exception.
+	* libsupc++/eh_throw.cc (__gxx_exception_cleanup,
+	__cxxabiv1::__cxa_throw): Likewise.
+	* libsupc++/eh_ptr.cc (std::rethrow_exception,
+	std::__exception_ptr::exception_ptr::_M_addref,
+	std::__exception_ptr::exception_ptr::_M_release,
+	__gxx_dependent_exception_cleanup): Likewise.
+	* testsuite/18_support/exception/38732.cc: New test.
+
+	PR libstdc++/38092
+	* acinclude.m4 (HAVE_AS_SYMVER_DIRECTIVE): New test.
+	* src/compatibility.cc: Don't use .symver directives if
+	_GLIBCXX_HAVE_AS_SYMVER_DIRECTIVE is not defined.
+	* config.h.in: Regenerated.
+	* configure: Likewise.
+
+2009-01-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/38466
+	* include/bits/stl_pair.h: Document C++03 pair vs swap.
+
+2009-01-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/locale_init.cc (locale::_S_initialize_once): Move construction
+	of classic locale...
+	(locale::classic): Here.
+
+2009-01-06  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/tr1_impl/regex: Fix bad return statements and typos.
+
+2009-01-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1_impl/regex: Remove unimplemented function definitions.
+	* testsuite/28_regex/init-list.cc: Compile only.
+	* testsuite/tr1/7_regular_expressions/regex/cons/char/
+	c_string_extended.cc: Same.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/*: Same.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/*: Same.
+
+2009-01-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/38384
+	* crossconfig.m4: Define HAVE_FABSF for hpux crosses.
+	* configure: Regenerate.
+
+2009-01-05  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac (GLIBCXX_CHECK_STANDARD_LAYOUT): Remove invocation.
+	* configure: Regenerate.
+
+2009-01-05  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac: Exchange the order of GLIBCXX_ENABLE_THREADS and
+	GLIBCXX_ENABLE_ATOMIC_BUILTINS macro invocations.
+	* configure: Regenerate.
+
+2009-01-04  Richard Guenther  <rguenther@suse.de>
+
+	PR libstdc++/38720
+	* include/ext/pointer.h (_Relative_pointer_impl): Use an unsigned
+	integer type for storage, arithmetic and comparisons.
+	* testsuite/ext/ext_pointer/1_neg.cc: Adjust line numbers.
+
+2009-01-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/38719
+	* include/bits/forward_list.h (_Fwd_list_iterator<>::_M_next,
+	_Fwd_list_const_iterator::_M_next): Fix return type.
+
+2009-01-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* Revert last commit, reopen and suspend libstdc++/38678.
+
+2009-01-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/38678
+	* include/std/istream (basic_istream<>::_M_read): New.
+	* include/bits/istream.tcc (basic_istream<>::_M_read): Define.
+	(basic_istream<>::read, basic_istream<>::readsome): Use it.
+	* include/std/ostream (basic_ostream<>::_M_write_): New.
+	(basic_ostream<>::_M_write): Adjust.
+	* include/bits/ostream.tcc (basic_ostream<>::_M_write_): Define.
+	* testsuite/27_io/basic_istream/read/char/38678.cc: New.
+	* testsuite/27_io/basic_istream/read/wchar_t/38678.cc: Likewise.
+	* testsuite/27_io/basic_ostream/write/char/38678.cc: Likewise.
+	* testsuite/27_io/basic_ostream/write/wchar_t/38678.cc: Likewise.
+
 2008-12-22  Jonathan Larmour  <jifl@eCosCentric.com>
 
 	* include/ext/concurrence.h: Fix __gthread_cond_t initialisation
@@ -42,12 +389,12 @@
 
 2008-12-17  Jack Howarth  <howarth@bromo.med.uc.edu>
 
-        * testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
+	* testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
 	Don't xfail test on darwin8 or later.
 
 2008-12-16  Jack Howarth  <howarth@bromo.med.uc.edu>
 
-        * testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
+	* testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
 	Don't xfail excessive errors on darwin8 or later.
 
 2008-12-15  Benjamin Kosnik  <bkoz@redhat.com>
@@ -3393,10 +3740,10 @@
 
 2008-05-07  Johannes Singler  <singler@ira.uka.de>
 
-       * include/parallel/quicksort.h:
-       (parallel_sort_qs_conquer) Explicitly request number of threads
-       in the parallel clause.
-       (parallel_sort_qs) Remove setting the number of threads globally.
+	* include/parallel/quicksort.h:
+	(parallel_sort_qs_conquer) Explicitly request number of threads
+	in the parallel clause.
+	(parallel_sort_qs) Remove setting the number of threads globally.
 
 2008-05-06  Benjamin Kosnik  <bkoz@redhat.com>
 
@@ -4032,14 +4379,14 @@
 
 2008-03-16  Pedro Lamarão  <pedro.lamarao@gmail.com>
 
-      * testsuite/31_date_time/headers/date_time/types_std.cc: New.
-      * testsuite/31_date_time/headers/date_time/std_c++0x_neg.cc: Likewise.
-      * testsuite/31_date_time/headers/date_time/functions_std.cc: Likewise.
-      * testsuite/31_date_time/headers/date_time/synopsis.cc: Likewise.
-      * testsuite/31_date_time/nanoseconds/requirements/traits.cc: Likewise.
-      * testsuite/31_date_time/nanoseconds/requirements/duration.cc: Likewise.
-      * testsuite/31_date_time/system_time/requirements: Likewise.
-      * testsuite/31_date_time/system_time/requirements/traits.cc: Likewise.
+	* testsuite/31_date_time/headers/date_time/types_std.cc: New.
+	* testsuite/31_date_time/headers/date_time/std_c++0x_neg.cc: Likewise.
+	* testsuite/31_date_time/headers/date_time/functions_std.cc: Likewise.
+	* testsuite/31_date_time/headers/date_time/synopsis.cc: Likewise.
+	* testsuite/31_date_time/nanoseconds/requirements/traits.cc: Likewise.
+	* testsuite/31_date_time/nanoseconds/requirements/duration.cc: Likewise.
+	* testsuite/31_date_time/system_time/requirements: Likewise.
+	* testsuite/31_date_time/system_time/requirements/traits.cc: Likewise.
 
 2008-03-16  Paolo Carlini  <pcarlini@suse.de>
 

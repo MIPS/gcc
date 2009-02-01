@@ -1129,6 +1129,8 @@ build_pred_graph (void)
 	}
       else if (rhs.type == ADDRESSOF)
 	{
+	  varinfo_t v;
+
 	  /* x = &y */
 	  if (graph->points_to[lhsvar] == NULL)
 	    graph->points_to[lhsvar] = BITMAP_ALLOC (&predbitmap_obstack);
@@ -1141,7 +1143,19 @@ build_pred_graph (void)
 	  /* Implicitly, *x = y */
 	  add_implicit_graph_edge (graph, FIRST_REF_NODE + lhsvar, rhsvar);
 
+	  /* All related variables are no longer direct nodes.  */
 	  RESET_BIT (graph->direct_nodes, rhsvar);
+	  v = get_varinfo (rhsvar);
+	  if (!v->is_full_var)
+	    {
+	      v = lookup_vi_for_tree (v->decl);
+	      do
+		{
+		  RESET_BIT (graph->direct_nodes, v->id);
+		  v = v->next;
+		}
+	      while (v != NULL);
+	    }
 	  bitmap_set_bit (graph->address_taken, rhsvar);
 	}
       else if (lhsvar > anything_id
@@ -1488,12 +1502,6 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
   unsigned int j;
   bitmap_iterator bi;
 
-  if (bitmap_bit_p (delta, anything_id))
-    {
-      flag |= bitmap_set_bit (sol, anything_id);
-      goto done;
-    }
-
   /* For x = *ESCAPED and x = *CALLUSED we want to compute the
      reachability set of the rhs var.  As a pointer to a sub-field
      of a variable can also reach all other fields of the variable
@@ -1537,6 +1545,12 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	    }
 	  BITMAP_FREE (vars);
 	}
+    }
+
+  if (bitmap_bit_p (delta, anything_id))
+    {
+      flag |= bitmap_set_bit (sol, anything_id);
+      goto done;
     }
 
   /* For each variable j in delta (Sol(y)), add
@@ -3030,8 +3044,14 @@ get_constraint_for_1 (tree t, VEC (ce_s, heap) **results, bool address_p)
      happens below, since it will fall into the default case. The only
      case we know something about an integer treated like a pointer is
      when it is the NULL pointer, and then we just say it points to
-     NULL.  */
-  if (TREE_CODE (t) == INTEGER_CST
+     NULL.
+
+     Do not do that if -fno-delete-null-pointer-checks though, because
+     in that case *NULL does not fail, so it _should_ alias *anything.
+     It is not worth adding a new option or renaming the existing one,
+     since this case is relatively obscure.  */
+  if (flag_delete_null_pointer_checks
+      && TREE_CODE (t) == INTEGER_CST
       && integer_zerop (t))
     {
       temp.var = nothing_id;
@@ -4561,6 +4581,16 @@ intra_create_variable_infos (void)
 	}
     }
 
+  /* Add a constraint for a result decl that is passed by reference.  */
+  if (DECL_RESULT (cfun->decl)
+      && DECL_BY_REFERENCE (DECL_RESULT (cfun->decl)))
+    {
+      varinfo_t p, result_vi = get_vi_for_tree (DECL_RESULT (cfun->decl));
+
+      for (p = result_vi; p; p = p->next)
+        make_constraint_from (p, nonlocal_id);
+    }
+
   /* Add a constraint for the incoming static chain parameter.  */
   if (cfun->static_chain_decl != NULL_TREE)
     {
@@ -4679,7 +4709,8 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 	     type-based pruning disabled.  */
 	  if (vi->is_artificial_var
 	      || !is_derefed
-	      || no_tbaa_pruning)
+	      || no_tbaa_pruning
+	      || vi->no_tbaa_pruning)
 	    bitmap_set_bit (into, DECL_UID (vi->decl));
 	  else
 	    {
@@ -4735,7 +4766,7 @@ emit_alias_warning (tree ptr)
 {
   gimple use;
   imm_use_iterator ui;
-  unsigned warned = 0;
+  bool warned = false;
 
   FOR_EACH_IMM_USE_STMT (use, ui, ptr)
     {
@@ -4773,13 +4804,12 @@ emit_alias_warning (tree ptr)
 	  && !TREE_NO_WARNING (deref))
 	{
 	  TREE_NO_WARNING (deref) = 1;
-	  warning_at (gimple_location (use), OPT_Wstrict_aliasing,
-		      "dereferencing pointer %qD does break strict-aliasing "
-		      "rules", SSA_NAME_VAR (ptr));
-	  ++warned;
+	  warned |= warning_at (gimple_location (use), OPT_Wstrict_aliasing,
+				"dereferencing pointer %qD does break "
+				"strict-aliasing rules", SSA_NAME_VAR (ptr));
 	}
     }
-  if (warned > 0)
+  if (warned)
     {
       bitmap visited = BITMAP_ALLOC (NULL);
       emit_pointer_definition (ptr, visited);
@@ -5473,19 +5503,8 @@ compute_points_to_sets (void)
 	    find_func_aliases (phi);
 	}
 
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
-	{
-	  gimple stmt = gsi_stmt (gsi);
-
-	  find_func_aliases (stmt);
-
-	  /* The information in GIMPLE_CHANGE_DYNAMIC_TYPE statements
-	     has now been captured, and we can remove them.  */
-	  if (gimple_code (stmt) == GIMPLE_CHANGE_DYNAMIC_TYPE)
-	    gsi_remove (&gsi, true);
-	  else
-	    gsi_next (&gsi);
-	}
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	find_func_aliases (gsi_stmt (gsi));
     }
 
 
