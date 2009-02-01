@@ -1,5 +1,9 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* tree-complex.c (complex_lattice_t): Change to int type.  Leave
+	enum type unnamed.
+	(expand_complex_libcall): Add casts to enum type.
+
 	* hooks.h (hook_int_void_no_regs): Don't declare.
 	* hooks.c (hook_int_void_no_regs): Don't define.
 
