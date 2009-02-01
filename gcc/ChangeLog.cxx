@@ -1,5 +1,8 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* hooks.h (hook_int_void_no_regs): Don't declare.
+	* hooks.c (hook_int_void_no_regs): Don't define.
+
 	* target.h (struct sched): Correct needs_block_p prototype.
 	(struct gcc_target): Change return type of
 	branch_target_register_class to enum reg_class.
