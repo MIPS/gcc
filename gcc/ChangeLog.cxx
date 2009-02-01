@@ -1,5 +1,14 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* fwprop.c (update_df): Change 0 to VOIDmode.
+	* sel-sched-ir.c (hash_with_unspec_callback): Likewise.
+	* combine.c (record_value_for_reg): Likewise.
+	(record_dead_and_set_regs): Likewise.
+	* optabs.c (expand_widen_pattern_expr): Likewise.
+	(expand_vec_shift_expr): Don't cast insn_code field of
+	optab_handler to int.
+	(emit_cmp_and_jump_insn_1): Likewise.
+
 	* Makefile.in (xgcc$(exeext)): Link with $(CXX).
 	(cpp$(exeext)): Likewise.
 	(cc1-dummy$(exeext), cc1$(exeext)): Likewise.
