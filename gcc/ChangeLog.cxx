@@ -1,3 +1,8 @@
+2009-02-01  Tom Tromey  <tromey@redhat.com>
+
+	* c-pch.c (get_ident) <templ>: Don't specify array length.
+	(pch_init) <partial_pch>: Likewise.
+
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
 	* genattrtab.c (write_length_unit_log): If C++, declare const to
