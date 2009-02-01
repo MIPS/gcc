@@ -1,5 +1,15 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* cse.c (insert): Put empty loop ';' on new line.
+	* emit-rtl.c (push_to_sequence): Likewise.
+	* matrix-reorg.c (add_allocation_site): Likewise.
+	* postreload-gcse.c (eliminate_partially_redundant_load):
+	Likewise.
+	* sched-rgn.c (rgn_add_block): Likewise.
+	(rgn_fix_recovery_cfg): Likewise.
+	* tree-loop-distribution.c (rdg_flag_similar_memory_accesses):
+	Likewise.
+
 	* profile.c (compute_branch_probabilities): Remove useless
 	references to variable on right side of comma operator.
 
