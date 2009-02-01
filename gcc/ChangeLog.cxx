@@ -1,5 +1,8 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* cp/semantics.c (finish_omp_clauses): Change c_kind to enum
+	omp_clause_code.
+
 	* tree-complex.c (complex_lattice_t): Change to int type.  Leave
 	enum type unnamed.
 	(expand_complex_libcall): Add casts to enum type.
