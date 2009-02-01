@@ -1,5 +1,13 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* parser.c (cp_parser_expression_stack_entry): Change prec field
+	to enum cp_parser_prec.
+	(cp_parser_decl_specifier_seq): Change flags to int.
+	(cp_parser_type_specifier): Likewise.
+	(cp_parser_simple_type_specifier): Likewise.
+	(cp_parser_type_specifier_seq): Likewise.
+	(cp_parser_direct_declarator): Don't jump into variable scope.
+
 	* cp/semantics.c (finish_omp_clauses): Change c_kind to enum
 	omp_clause_code.
 
