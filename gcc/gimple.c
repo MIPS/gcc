@@ -45,6 +45,9 @@ const char *const gimple_code_name[] = {
    operands vector the size of the structure minus the size of the 1
    element tree array at the end (see gimple_ops).  */
 #define DEFGSCODE(SYM, NAME, STRUCT)	(sizeof (STRUCT) - sizeof (tree)),
+#ifdef __cplusplus
+extern
+#endif
 const size_t gimple_ops_offset_[] = {
 #include "gimple.def"
 };
@@ -451,7 +454,7 @@ gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
 
    This function returns the newly created GIMPLE_ASSIGN tuple.  */
 
-inline gimple
+gimple
 gimplify_assign (tree dst, tree src, gimple_seq *seq_p)
 { 
   tree t = build2 (MODIFY_EXPR, TREE_TYPE (dst), dst, src);

@@ -1,5 +1,14 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* genattrtab.c (write_length_unit_log): If C++, declare const to
+	be extern.
+	* genchecksum.c (dosum): Likewise.
+	* gengtype.c (write_rtx_next, finish_root_table): Likewise.
+	(write_roots): Likewise.
+	* dummy-checksum.c (executable_checksum): Likewise.
+	* gimple.c (gimple_ops_offset_): Likewise.
+	(gimplify_assign): Do not declare as inline.
+
 	* reginfo.c (init_move_cost): Add casts to enum type and integer
 	types.
 	(init_reg_sets_1, init_fake_stack_mems): Likewise.
