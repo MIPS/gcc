@@ -1,5 +1,14 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* reload.c (push_secondary_reload): Add cast for
+	secondary_reload_info icode field.
+	(secondary_reload_class): Likewise.
+	(find_valid_class): Likewise.
+	(alternative_allows_const_pool_ref): Put empty loop ';' on new
+	line.
+	* reload1.c (emit_input_reload_insns): Add cast for
+	secondary_reload_info icode field.
+
 	* cse.c (insert): Put empty loop ';' on new line.
 	* emit-rtl.c (push_to_sequence): Likewise.
 	* matrix-reorg.c (add_allocation_site): Likewise.
