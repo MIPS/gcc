@@ -998,6 +998,8 @@ cgraph_finalize_compilation_unit (void)
   cgraph_analyze_functions ();
   timevar_pop (TV_CGRAPH);
 }
+ 
+
 /* Figure out what functions we want to assemble.  */
 
 static void
@@ -1280,7 +1282,13 @@ cgraph_emit_thunks (void)
 
   for (n = cgraph_nodes; n; n = n->next)
     {
-      /* Only emit thunks on functions defined in this TU.  */
+      /* Only emit thunks on functions defined in this TU.
+	 Note that this may emit more thunks than strictly necessary.
+	 During optimization some nodes may disappear.  It would be
+	 nice to only emit thunks only for the functions that will be
+	 emitted, but we cannot know that until the inliner and other
+	 IPA passes have run (see the sequencing of the call to
+	 cgraph_mark_functions_to_output in cgraph_optimize).  */
       if (!DECL_EXTERNAL (n->decl))
 	lang_hooks.callgraph.emit_associated_thunks (n->decl);
     }

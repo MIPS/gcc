@@ -1,5 +1,14 @@
 2009-01-31  Diego Novillo  <dnovillo@google.com>
 
+	* cgraphunit.c (cgraph_emit_thunks): Add comment.
+	* varasm.c (remove_unreachable_alias_pairs): New.
+	* tree.h (remove_unreachable_alias_pairs): Declare.
+	* ipa.c (cgraph_remove_unreachable_nodes): Call
+	remove_unreachable_alias_pairs.
+	* Makefile.in (LTO_SECTION_OUT_H): Add lto-header.h.
+
+2009-01-31  Diego Novillo  <dnovillo@google.com>
+
 	* lto-cgraph.c: Do not include ctype.h.
 
 2009-01-31  Diego Novillo  <dnovillo@google.com>

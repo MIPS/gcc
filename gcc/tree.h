@@ -5102,6 +5102,7 @@ extern bool incorporeal_function_p (tree);
 extern void finish_aliases_1 (void);
 extern void finish_aliases_2 (void);
 extern tree emutls_decl (tree);
+extern void remove_unreachable_alias_pairs (void);
 
 /* In stmt.c */
 extern void expand_computed_goto (tree);

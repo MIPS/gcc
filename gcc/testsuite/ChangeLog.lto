@@ -1,3 +1,8 @@
+2009-01-31  Diego Novillo  <dnovillo@google.com>
+
+	* g++.dg/opt/thunk3.C: New.
+	* g++.dg/opt/thunk4.C: New.
+
 2009-01-28  Diego Novillo  <dnovillo@google.com>
 
 	* g++.dg/lto/20090128_0.C: New test.
