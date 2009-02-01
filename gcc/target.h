@@ -397,7 +397,7 @@ struct sched
   /* The following member value is a pointer to a function called
      by the insn scheduler.  It should return true if the check instruction
      passed as the parameter needs a recovery block.  */
-  bool (* needs_block_p) (const_rtx);
+  bool (* needs_block_p) (int);
 
   /* The following member value is a pointer to a function called
      by the insn scheduler.  It should return a pattern for the check
@@ -789,7 +789,7 @@ struct gcc_target
 
   /* Return a register class for which branch target register
      optimizations should be applied.  */
-  int (* branch_target_register_class) (void);
+  enum reg_class (* branch_target_register_class) (void);
 
   /* Return true if branch target register optimizations should include
      callee-saved registers that are not already live during the current

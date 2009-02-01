@@ -1,5 +1,13 @@
 2009-01-31  Ian Lance Taylor  <iant@google.com>
 
+	* target.h (struct sched): Correct needs_block_p prototype.
+	(struct gcc_target): Change return type of
+	branch_target_register_class to enum reg_class.
+	* target-def.h (TARGET_BRANCH_TARGET_REGISTER_CLASS): Change to
+	default_branch_target_register_class.
+	* targhooks.h (default_branch_target_register_class): Declare.
+	* targhooks.c (default_branch_target_register_class): Define.
+
 	* fwprop.c (update_df): Change 0 to VOIDmode.
 	* sel-sched-ir.c (hash_with_unspec_callback): Likewise.
 	* combine.c (record_value_for_reg): Likewise.
