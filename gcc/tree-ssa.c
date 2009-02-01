@@ -643,7 +643,7 @@ verify_ssa (bool check_modified_stmt)
 	    {
 	      if  (gimple_vuse_op (stmt) == NULL_USE_OPERAND_P)
 		{
-		  error ("statement has VUSE operand not in usess list");
+		  error ("statement has VUSE operand not in uses list");
 		  has_err = true;
 		}
 	      has_err |= verify_ssa_name (gimple_vuse (stmt), true);

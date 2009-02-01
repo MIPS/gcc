@@ -1,3 +1,18 @@
+2009-02-01  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Use
+	ref_maybe_used_by_stmt_p.
+	* tree-ssa-ccp.c (likely_value): Add comment, skip static-chain
+	of call statements.
+	* tree-ssa-alias.c (ref_may_used_by_call_p): Rename to ...
+	(ref_maybe_used_by_call_p): ... this.
+	(ref_may_used_by_stmt_p): Rename to ...
+	(ref_maybe_used_by_stmt_p): ... this.  Adjust.
+	(maybe_skip_until): Fix comment.
+	* tree-ssa-alias.h (ref_may_used_by_stmt_p): Rename to ...
+	(ref_maybe_used_by_stmt_p): ... this.
+	* tree-ssa.c (verify_ssa): Fix typo.
+
 2009-01-31  Richard Guenther  <rguenther@suse.de>
 
 	* tree-flow.h (struct gimple_df): Remove vop_needs_renaming member.

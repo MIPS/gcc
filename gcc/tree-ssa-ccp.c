@@ -525,8 +525,10 @@ likely_value (gimple stmt)
 	has_constant_operand = true;
     }
 
-  /* There may be constants in regular rhs operands.  */
-  for (i = is_gimple_call (stmt) + gimple_has_lhs (stmt);
+  /* There may be constants in regular rhs operands.  For calls we
+     have to ignore lhs, fndecl and static chain, otherwise only
+     the lhs.  */
+  for (i = (is_gimple_call (stmt) ? 2 : 0) + gimple_has_lhs (stmt);
        i < gimple_num_ops (stmt); ++i)
     {
       tree op = gimple_op (stmt, i);

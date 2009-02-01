@@ -183,7 +183,7 @@ dse_possible_dead_store_p (gimple stmt, gimple *use_stmt)
 	    }
 
 	  /* If the statement is a use the store is not dead.  */
-	  if (ref_may_used_by_stmt_p (use_stmt, gimple_assign_lhs (stmt)))
+	  if (ref_maybe_used_by_stmt_p (use_stmt, gimple_assign_lhs (stmt)))
 	    {
 	      fail = true;
 	      BREAK_FROM_IMM_USE_STMT (ui);

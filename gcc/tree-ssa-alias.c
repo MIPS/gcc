@@ -578,7 +578,7 @@ refs_may_alias_p (tree ref1, tree ref2)
    otherwise return false.  */
 
 static bool
-ref_may_used_by_call_p (gimple call, tree ref)
+ref_maybe_used_by_call_p (gimple call, tree ref)
 {
   tree base = get_base_address (ref);
   unsigned i;
@@ -635,7 +635,7 @@ ref_may_used_by_call_p (gimple call, tree ref)
    true, otherwise return false.  */
 
 bool
-ref_may_used_by_stmt_p (gimple stmt, tree ref)
+ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
 {
   if (is_gimple_assign (stmt))
     {
@@ -654,7 +654,7 @@ ref_may_used_by_stmt_p (gimple stmt, tree ref)
       return refs_may_alias_p (rhs, ref);
     }
   else if (is_gimple_call (stmt))
-    return ref_may_used_by_call_p (stmt, ref);
+    return ref_maybe_used_by_call_p (stmt, ref);
 
   return true;
 }
@@ -766,7 +766,7 @@ maybe_skip_until (gimple phi, tree target, tree ref, tree vuse, bitmap *visited)
 
 /* Starting from a PHI node for the virtual operand of the memory reference
    REF find a continuation virtual operand that allows to continue walking
-   statements dominating PHI skipping only statements that do not possibly
+   statements dominating PHI skipping only statements that cannot possibly
    clobber REF.  Returns NULL_TREE if no suitable virtual operand can
    be found.  */
 
