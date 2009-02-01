@@ -1,5 +1,10 @@
 2009-02-01  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-coalesce.c (create_outofssa_var_map): Adjust
+	virtual operands sanity check.
+
+2009-02-01  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-dse.c (dse_possible_dead_store_p): Use
 	ref_maybe_used_by_stmt_p.
 	* tree-ssa-ccp.c (likely_value): Add comment, skip static-chain
