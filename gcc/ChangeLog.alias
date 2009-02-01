@@ -1,5 +1,9 @@
 2009-02-01  Richard Guenther  <rguenther@suse.de>
 
+	Merge from trunk r143837.
+
+2009-02-01  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-coalesce.c (create_outofssa_var_map): Adjust
 	virtual operands sanity check.
 

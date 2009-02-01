@@ -183,7 +183,6 @@ vn_reference_t vn_reference_insert (tree, tree, tree);
 vn_reference_t vn_reference_insert_pieces (tree,
 					   VEC (vn_reference_op_s, heap) *,
 					   tree, unsigned int);
-tree vn_phi_lookup (gimple);
 
 hashval_t vn_nary_op_compute_hash (const vn_nary_op_t);
 int vn_nary_op_eq (const void *, const void *);

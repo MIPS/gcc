@@ -1295,9 +1295,13 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data_)
 	if (data->stmt == NULL)
 	  return NULL_TREE;
 
+	/* If the load happens as part of a call do not warn about it.  */
+	if (is_gimple_call (data->stmt))
+	  return NULL_TREE;
+
 	vuse = gimple_vuse_op (data->stmt);
 	if (vuse == NULL_USE_OPERAND_P)
-	    return NULL_TREE;
+	  return NULL_TREE;
 
 	op = USE_FROM_PTR (vuse);
 	if (t != SSA_NAME_VAR (op) 
