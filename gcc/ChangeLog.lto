@@ -1,3 +1,12 @@
+2009-02-02  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc.c (create_at_file): New.
+	(compile_input_file_p): New.
+	(do_spec_1): Use @args files for %i. Use create_at_file for %o.
+	* main.c (main): Update call to toplev_main.
+	* toplev.c (toplev_main): Change signature. Call expandargv.
+	* toplev.h (toplev_main): Change signature.
+
 2009-01-31  Diego Novillo  <dnovillo@google.com>
 
 	* cgraphunit.c (cgraph_emit_thunks): Add comment.
