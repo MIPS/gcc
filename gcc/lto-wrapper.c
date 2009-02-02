@@ -181,12 +181,15 @@ fork_execute (char **argv)
   char *args_name = make_temp_file(".args");
   char *at_args = concat ("@", args_name, NULL);
   FILE *args = fopen (args_name, "w");
-  int i;
+  int status;
 
   if (args == NULL)
     fatal ("failed to open %s", args_name);
-  for (i = 1; argv[i]; i++)
-    fprintf (args, "%s\n", argv[i]);
+
+  status = writeargv (&argv[1], args);
+
+  if (status)
+    fatal ("could not write to temporary file %s",  args_name);
 
   fclose (args);
 
