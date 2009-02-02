@@ -1,6 +1,6 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
@@ -158,7 +158,7 @@ genericize_eh_spec_block (tree *stmt_p)
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
 
 static void
-gimplify_if_stmt (tree *stmt_p)
+genericize_if_stmt (tree *stmt_p)
 {
   tree stmt, cond, then_, else_;
   location_t locus = EXPR_LOCATION (*stmt_p);
@@ -611,11 +611,6 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       ret = GS_ALL_DONE;
       break;
 
-    case IF_STMT:
-      gimplify_if_stmt (expr_p);
-      ret = GS_OK;
-      break;
-
     case FOR_STMT:
       gimplify_for_stmt (expr_p, pre_p);
       ret = GS_OK;
@@ -803,6 +798,13 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 		      CLEANUP_BODY (stmt),
 		      CLEANUP_EXPR (stmt));
 
+  else if (TREE_CODE (stmt) == IF_STMT)
+    {
+      genericize_if_stmt (stmt_p);
+      /* *stmt_p has changed, tail recurse to handle it again.  */
+      return cp_genericize_r (stmt_p, walk_subtrees, data);
+    }
+
   /* COND_EXPR might have incompatible types in branches if one or both
      arms are bitfields.  Fix it up now.  */
   else if (TREE_CODE (stmt) == COND_EXPR)
@@ -815,14 +817,18 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	= (TREE_OPERAND (stmt, 2)
 	   ? is_bitfield_expr_with_lowered_type (TREE_OPERAND (stmt, 2))
 	   : NULL_TREE);
-      if (type_left)
+      if (type_left
+	  && !useless_type_conversion_p (TREE_TYPE (stmt),
+					 TREE_TYPE (TREE_OPERAND (stmt, 1))))
 	{
 	  TREE_OPERAND (stmt, 1)
 	    = fold_convert (type_left, TREE_OPERAND (stmt, 1));
 	  gcc_assert (useless_type_conversion_p (TREE_TYPE (stmt),
 						 type_left));
 	}
-      if (type_right)
+      if (type_right
+	  && !useless_type_conversion_p (TREE_TYPE (stmt),
+					 TREE_TYPE (TREE_OPERAND (stmt, 2))))
 	{
 	  TREE_OPERAND (stmt, 2)
 	    = fold_convert (type_right, TREE_OPERAND (stmt, 2));

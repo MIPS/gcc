@@ -42,6 +42,7 @@ extern void validate_condition_mode (enum rtx_code, enum machine_mode);
 extern bool legitimate_constant_pool_address_p (rtx);
 extern bool legitimate_indirect_address_p (rtx, int);
 extern bool legitimate_indexed_address_p (rtx, int);
+extern bool avoiding_indexed_address_p (enum machine_mode);
 
 extern rtx rs6000_got_register (rtx);
 extern rtx find_addr_reg (rtx);
@@ -179,6 +180,10 @@ extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
 
 #if TARGET_MACHO
 char *output_call (rtx, rtx *, int, int);
+#endif
+
+#ifdef NO_DOLLAR_IN_LABEL
+const char * rs6000_xcoff_strip_dollar (const char *);
 #endif
 
 void rs6000_final_prescan_insn (rtx, rtx *operand, int num_operands);

@@ -364,6 +364,10 @@ Woverride-init
 C ObjC Var(warn_override_init) Init(-1) Warning
 Warn about overriding initializers without side effects
 
+Wpacked-bitfield-compat
+C ObjC C++ ObjC++ Var(warn_packed_bitfield_compat) Init(-1) Warning
+Warn about packed bit-fields whose offset changed in GCC 4.4
+
 Wparentheses
 C ObjC C++ ObjC++ Var(warn_parentheses) Warning
 Warn about possibly missing parentheses
@@ -427,6 +431,10 @@ Warn about unprototyped function declarations
 Wstrict-selector-match
 ObjC ObjC++ Var(warn_strict_selector_match) Warning
 Warn if type signatures of candidate methods do not match exactly
+
+Wsync-nand
+C C++ Var(warn_sync_nand) Init(1) Warning
+Warn when __sync_fetch_and_nand and __sync_nand_and_fetch built-in functions are used
 
 Wsynth
 C++ ObjC++ Var(warn_synth) Warning

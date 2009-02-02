@@ -781,14 +781,18 @@ pop_scope (void)
 	      error ("nested function %q+D declared but never defined", p);
 	      undef_nested_function = true;
 	    }
-	  /* C99 6.7.4p6: "a function with external linkage... declared
-	     with an inline function specifier ... shall also be defined in the
-	     same translation unit."  */
 	  else if (DECL_DECLARED_INLINE_P (p)
 		   && TREE_PUBLIC (p)
-		   && !DECL_INITIAL (p)
-		   && !flag_gnu89_inline)
-	    pedwarn (input_location, 0, "inline function %q+D declared but never defined", p);
+		   && !DECL_INITIAL (p))
+	    {
+	      /* C99 6.7.4p6: "a function with external linkage... declared
+		 with an inline function specifier ... shall also be defined
+		 in the same translation unit."  */
+	      if (!flag_gnu89_inline)
+		pedwarn (input_location, 0,
+			 "inline function %q+D declared but never defined", p);
+	      DECL_EXTERNAL (p) = 1;
+	    }
 
 	  goto common_symbol;
 
@@ -1775,17 +1779,8 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	 throw it away, in case it was inlined into a function that
 	 hasn't been written out yet.  */
       if (new_is_definition && DECL_INITIAL (olddecl))
-	{
-	  if (TREE_USED (olddecl)
-	      /* We never inline re-defined extern inline functions.
-		 FIXME: This would be better handled by keeping both functions
-		 as separate declarations.  */
-	      && cgraph_function_possibly_inlined_p (olddecl))
-	    (*debug_hooks->outlining_inline_function) (olddecl);
-
-	  /* The new defn must not be inline.  */
-	  DECL_UNINLINABLE (newdecl) = 1;
-	}
+	/* The new defn must not be inline.  */
+	DECL_UNINLINABLE (newdecl) = 1;
       else
 	{
 	  /* If either decl says `inline', this fn is inline, unless
@@ -3878,8 +3873,8 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
     {
       struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
       if (!lt
-	  || w < min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
-	  || w < min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
+	  || w < tree_int_cst_min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
+	  || w < tree_int_cst_min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
 	warning (0, "%qs is narrower than values of its type", name);
     }
 }
@@ -5311,7 +5306,7 @@ parser_xref_tag (enum tree_code code, tree name)
     {
       /* Give the type a default layout like unsigned int
 	 to avoid crashing if it does not get defined.  */
-      TYPE_MODE (ref) = TYPE_MODE (unsigned_type_node);
+      SET_TYPE_MODE (ref, TYPE_MODE (unsigned_type_node));
       TYPE_ALIGN (ref) = TYPE_ALIGN (unsigned_type_node);
       TYPE_USER_ALIGN (ref) = 0;
       TYPE_UNSIGNED (ref) = 1;
@@ -5573,9 +5568,6 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 
       DECL_CONTEXT (x) = t;
 
-      if (TYPE_PACKED (t) && TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
-	DECL_PACKED (x) = 1;
-
       /* If any field is const, the structure type is pseudo-const.  */
       if (TREE_READONLY (x))
 	C_TYPE_FIELDS_READONLY (t) = 1;
@@ -5606,6 +5598,11 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  DECL_BIT_FIELD (x) = 1;
 	  SET_DECL_C_BIT_FIELD (x);
 	}
+
+      if (TYPE_PACKED (t)
+	  && (DECL_BIT_FIELD (x)
+	      || TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT))
+	DECL_PACKED (x) = 1;
 
       /* Detect flexible array member in an invalid context.  */
       if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
@@ -5875,8 +5872,8 @@ finish_enum (tree enumtype, tree values, tree attributes)
      that normally we only go as narrow as int - and signed iff any of
      the values are negative.  */
   unsign = (tree_int_cst_sgn (minnode) >= 0);
-  precision = MAX (min_precision (minnode, unsign),
-		   min_precision (maxnode, unsign));
+  precision = MAX (tree_int_cst_min_precision (minnode, unsign),
+		   tree_int_cst_min_precision (maxnode, unsign));
 
   if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
@@ -5926,17 +5923,15 @@ finish_enum (tree enumtype, tree values, tree attributes)
 	  /* The ISO C Standard mandates enumerators to have type int,
 	     even though the underlying type of an enum type is
 	     unspecified.  However, GCC allows enumerators of any
-	     integer type as an extensions.  Here we convert any
-	     enumerators that fit in an int to type int, to avoid
-	     promotions to unsigned types when comparing integers with
-	     enumerators that fit in the int range.  When -pedantic is
-	     given, build_enumerator() would have already warned about
-	     those that don't fit.  */
-	  if (int_fits_type_p (ini, integer_type_node))
-	    tem = integer_type_node;
-	  else
-	    tem = enumtype;
-	  ini = convert (tem, ini);
+	     integer type as an extensions.  build_enumerator()
+	     converts any enumerators that fit in an int to type int,
+	     to avoid promotions to unsigned types when comparing
+	     integers with enumerators that fit in the int range.
+	     When -pedantic is given, build_enumerator() would have
+	     already warned about those that don't fit. Here we
+	     convert the rest to the enumerator type. */
+	  if (TREE_TYPE (ini) != integer_type_node)
+	    ini = convert (enumtype, ini);
 
 	  DECL_INITIAL (enu) = ini;
 	  TREE_PURPOSE (pair) = DECL_NAME (enu);
@@ -5963,7 +5958,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       TYPE_MAX_VALUE (tem) = TYPE_MAX_VALUE (enumtype);
       TYPE_SIZE (tem) = TYPE_SIZE (enumtype);
       TYPE_SIZE_UNIT (tem) = TYPE_SIZE_UNIT (enumtype);
-      TYPE_MODE (tem) = TYPE_MODE (enumtype);
+      SET_TYPE_MODE (tem, TYPE_MODE (enumtype));
       TYPE_PRECISION (tem) = TYPE_PRECISION (enumtype);
       TYPE_ALIGN (tem) = TYPE_ALIGN (enumtype);
       TYPE_USER_ALIGN (tem) = TYPE_USER_ALIGN (enumtype);
@@ -6025,6 +6020,18 @@ build_enumerator (struct c_enum_contents *the_enum, tree name, tree value,
   else if (!int_fits_type_p (value, integer_type_node))
     pedwarn (value_loc, OPT_pedantic, 
 	     "ISO C restricts enumerator values to range of %<int%>");
+
+  /* The ISO C Standard mandates enumerators to have type int, even
+     though the underlying type of an enum type is unspecified.
+     However, GCC allows enumerators of any integer type as an
+     extensions.  Here we convert any enumerators that fit in an int
+     to type int, to avoid promotions to unsigned types when comparing
+     integers with enumerators that fit in the int range.  When
+     -pedantic is given, we would have already warned about those that
+     don't fit. We have to do this here rather than in finish_enum
+     because this value may be used to define more enumerators.  */
+  if (int_fits_type_p (value, integer_type_node))
+    value = convert (integer_type_node, value);
 
   /* Set basis for default for next value.  */
   the_enum->enum_next_value

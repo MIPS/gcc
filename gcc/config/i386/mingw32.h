@@ -89,11 +89,15 @@ along with GCC; see the file COPYING3.  If not see
   %(shared_libgcc_undefs)"
 
 /* Include in the mingw32 libraries with libgcc */
+#ifdef ENABLE_SHARED_LIBGCC
+#define SHARED_LIBGCC_SPEC "%{shared-libgcc:-lgcc_s} %{!shared-libgcc:-lgcc_eh}"
+#else
+#define SHARED_LIBGCC_SPEC /*empty*/
+#endif
 #undef REAL_LIBGCC_SPEC
 #define REAL_LIBGCC_SPEC \
   "%{mthreads:-lmingwthrd} -lmingw32 \
-   %{shared-libgcc:-lgcc_s} \
-   %{!shared-libgcc:-lgcc_eh} \
+   "SHARED_LIBGCC_SPEC" \
    -lgcc \
    -lmoldname -lmingwex -lmsvcrt"
 
@@ -208,4 +212,10 @@ __enable_execute_stack (void *addr)					\
 #endif
 
 /* This matches SHLIB_SONAME and SHLIB_SOVERSION in t-cygming. */
-#define LIBGCC_SONAME "libgcc_s_1.dll"
+/* This matches SHLIB_SONAME and SHLIB_SOVERSION in t-cygwin. */
+#if DWARF2_UNWIND_INFO
+#define LIBGCC_EH_EXTN "_dw2"
+#else
+#define LIBGCC_EH_EXTN "_sjlj"
+#endif
+#define LIBGCC_SONAME "libgcc_s" LIBGCC_EH_EXTN "-1.dll"

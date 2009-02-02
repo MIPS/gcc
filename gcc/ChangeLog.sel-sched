@@ -1,10 +1,14 @@
+2009-02-02  Andrey Belevantsev  <abel@ispras.ru>
+
+	Merge with trunk rev. 143865.
+
 2008-10-14  Andrey Belevantsev  <abel@ispras.ru>
 
-        Merge with trunk rev. 141104.
+	Merge with trunk rev. 141104.
 
 2008-10-13  Andrey Belevantsev  <abel@ispras.ru>
 
-        Merge with trunk rev. 141085.
+	Merge with trunk rev. 141085.
 	* config/ia64/ia64.c (ia64_clear_sched_context): Set sc->prev_cycle_state 
 	to NULL.
 

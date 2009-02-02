@@ -1865,8 +1865,9 @@ gen_struct_type (tree decl, tree new_str_type)
 	  wr.wrap = 0;
 	  wr.domain = NULL_TREE;
 	}
-      else if (TREE_CODE (type_orig) == ARRAY_TYPE)
+      else
 	{
+	  gcc_assert (TREE_CODE (type_orig) == ARRAY_TYPE);
 	  wr.wrap = 1;
 	  wr.domain = TYPE_DOMAIN (type_orig);
 	}
@@ -2114,8 +2115,9 @@ create_new_alloc_sites (fallocs_t m_data, tree context)
       num = gen_num_of_structs_in_malloc (stmt, str->decl, &new_stmts);
       if (new_stmts)
 	{
-	  last_stmt = gimple_seq_last_stmt (new_stmts);
+	  gimple last_stmt_tmp = gimple_seq_last_stmt (new_stmts);
 	  insert_seq_after_stmt (last_stmt, new_stmts);
+	  last_stmt = last_stmt_tmp;
 	}
       
       /* Generate an allocation sites for each new structure type.  */      

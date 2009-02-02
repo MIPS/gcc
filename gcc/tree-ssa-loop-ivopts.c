@@ -2228,9 +2228,11 @@ add_old_iv_candidates (struct ivopts_data *data, struct iv *iv)
   add_candidate (data, iv->base, iv->step, true, NULL);
 
   /* The same, but with initial value zero.  */
-  add_candidate (data,
-		 build_int_cst (TREE_TYPE (iv->base), 0),
-		 iv->step, true, NULL);
+  if (POINTER_TYPE_P (TREE_TYPE (iv->base)))
+    add_candidate (data, size_int (0), iv->step, true, NULL);
+  else
+    add_candidate (data, build_int_cst (TREE_TYPE (iv->base), 0),
+		   iv->step, true, NULL);
 
   phi = SSA_NAME_DEF_STMT (iv->ssa_name);
   if (gimple_code (phi) == GIMPLE_PHI)
@@ -3842,7 +3844,12 @@ may_eliminate_iv (struct ivopts_data *data,
     return false;
 
   cand_value_at (loop, cand, use->stmt, nit, &bnd);
+
   *bound = aff_combination_to_tree (&bnd);
+  /* It is unlikely that computing the number of iterations using division
+     would be more profitable than keeping the original induction variable.  */
+  if (expression_expensive_p (*bound))
+    return false;
   return true;
 }
 
@@ -4353,7 +4360,12 @@ iv_ca_add_use (struct ivopts_data *data, struct iv_ca *ivs,
 static comp_cost
 iv_ca_cost (struct iv_ca *ivs)
 {
-  return (ivs->bad_uses ? infinite_cost : ivs->cost);
+  /* This was a conditional expression but it triggered a bug in
+     Sun C 5.5.  */
+  if (ivs->bad_uses)
+    return infinite_cost;
+  else
+    return ivs->cost;
 }
 
 /* Returns true if all dependences of CP are among invariants in IVS.  */
@@ -5321,11 +5333,15 @@ rewrite_use_compare (struct ivopts_data *data,
     {
       tree var = var_at_stmt (data->current_loop, cand, use->stmt);
       tree var_type = TREE_TYPE (var);
+      gimple_seq stmts;
 
       compare = iv_elimination_compare (data, use);
       bound = unshare_expr (fold_convert (var_type, bound));
-      op = force_gimple_operand_gsi (&bsi, bound, true, NULL_TREE,
-				     true, GSI_SAME_STMT);
+      op = force_gimple_operand (bound, &stmts, true, NULL_TREE);
+      if (stmts)
+	gsi_insert_seq_on_edge_immediate (
+		loop_preheader_edge (data->current_loop),
+		stmts);
 
       gimple_cond_set_lhs (use->stmt, var);
       gimple_cond_set_code (use->stmt, compare);
