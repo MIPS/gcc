@@ -1,3 +1,7 @@
+2009-02-02  Diego Novillo  <dnovillo@google.com>
+
+	* timevar.def (TV_WHOPR_WPA_LTRANS_EXEC): New timer.
+
 2009-02-02  Rafael Avila de Espindola  <espindola@google.com>
 
 	* gcc.c (create_at_file): New.

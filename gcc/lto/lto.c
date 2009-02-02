@@ -1506,6 +1506,14 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       char **output_files;
       size_t i;
 
+      /* We are about to launch the final LTRANS phase, stop the WPA
+	 timer.  */
+      timevar_pop (lto_timer);
+
+      /* Start the LTRANS launch timer.  This will measure only the
+	 time that WPA waits for final optimization and code generation.  */
+      timevar_push (TV_WHOPR_WPA_LTRANS_EXEC);
+
       output_files = lto_wpa_write_files ();
       lto_execute_ltrans (output_files);
 
@@ -1515,6 +1523,11 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 	  free (output_files[i]);
         }
       XDELETEVEC (output_files);
+
+      timevar_pop (TV_WHOPR_WPA_LTRANS_EXEC);
+
+      /* Restart the LTO timer.  */
+      timevar_push (lto_timer);
     }
 
 finish:
