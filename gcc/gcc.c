@@ -5159,6 +5159,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		      if (compile_input_file_p (&infiles[i]))
 			{
 			  argv[j] = CONST_CAST (char *, infiles[i].name);
+			  infiles[i].compiled = true;
 			  j++;
 			}
 		    argv[j] = NULL;
