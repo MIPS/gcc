@@ -1,5 +1,9 @@
 2009-02-03  Ian Lance Taylor  <iant@google.com>
 
+	* builtins.c (validate_gimple_arglist): Don't pass an enum typ eto
+	va_arg.
+	* calls.c (emit_library_call_value_1): Likewise.
+
 	* mcf.c (add_fixup_edge): Change type parameter to edge_type.
 
 	* tree.c (attribute_list_contained): Put empty loop ';' on new
