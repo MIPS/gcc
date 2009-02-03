@@ -1,5 +1,7 @@
 2009-02-03  Ian Lance Taylor  <iant@google.com>
 
+	* gcov.c (read_count_file): Avoid goto.
+
 	* fold-const.c (fold_undefer_overflow_warnings): Add cast to enum
 	type.
 	(combine_comparisons): Change compcode to int.  Add cast.
