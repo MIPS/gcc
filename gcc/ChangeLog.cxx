@@ -1,5 +1,7 @@
 2009-02-03  Ian Lance Taylor  <iant@google.com>
 
+	* omega.c (omega_do_elimination): Avoid math on enum types.
+
 	* gcov.c (read_count_file): Avoid goto.
 
 	* fold-const.c (fold_undefer_overflow_warnings): Add cast to enum

@@ -3049,7 +3049,8 @@ omega_do_elimination (omega_pb pb, int e, int i)
 	      eqn->coef[j] *= a;
 	    k = eqn->coef[i];
 	    eqn->coef[i] = 0;
-	    eqn->color |= sub->color;
+	    if (sub->color == omega_red)
+	      eqn->color = omega_red;
 	    for (j = n_vars; j >= 0; j--)
 	      eqn->coef[j] -= sub->coef[j] * k / c;
 	  }
