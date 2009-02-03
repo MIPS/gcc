@@ -4834,7 +4834,8 @@ attribute_list_contained (const_tree l1, const_tree l2)
        t1 != 0 && t2 != 0
         && TREE_PURPOSE (t1) == TREE_PURPOSE (t2)
         && TREE_VALUE (t1) == TREE_VALUE (t2);
-       t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2));
+       t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2))
+    ;
 
   /* Maybe the lists are equal.  */
   if (t1 == 0 && t2 == 0)
@@ -7794,7 +7795,7 @@ build_common_builtin_nodes (void)
 	enum built_in_function mcode, dcode;
 	tree type, inner_type;
 
-	type = lang_hooks.types.type_for_mode (mode, 0);
+	type = lang_hooks.types.type_for_mode ((enum machine_mode) mode, 0);
 	if (type == NULL)
 	  continue;
 	inner_type = TREE_TYPE (type);
@@ -7805,8 +7806,10 @@ build_common_builtin_nodes (void)
 	tmp = tree_cons (NULL_TREE, inner_type, tmp);
 	ftype = build_function_type (type, tmp);
 
-        mcode = BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
-        dcode = BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+        mcode = ((enum built_in_function)
+		 (BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT));
+        dcode = ((enum built_in_function)
+		 (BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT));
 
         for (p = GET_MODE_NAME (mode), q = mode_name_buf; *p; p++, q++)
 	  *q = TOLOWER (*p);

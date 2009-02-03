@@ -1,3 +1,9 @@
+2009-02-03  Ian Lance Taylor  <iant@google.com>
+
+	* tree.c (attribute_list_contained): Put empty loop ';' on new
+	line.
+	(build_common_builtin_nodes): Add casts to enum type.
+
 2009-02-01  Tom Tromey  <tromey@redhat.com>
 
 	* c-pch.c (get_ident) <templ>: Don't specify array length.
