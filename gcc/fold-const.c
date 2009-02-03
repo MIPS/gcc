@@ -964,7 +964,7 @@ fold_undefer_overflow_warnings (bool issue, const_gimple stmt, int code)
       if (fold_deferred_overflow_warning != NULL
 	  && code != 0
 	  && code < (int) fold_deferred_overflow_code)
-	fold_deferred_overflow_code = code;
+	fold_deferred_overflow_code = (enum warn_strict_overflow_code) code;
       return;
     }
 
@@ -2914,7 +2914,7 @@ combine_comparisons (enum tree_code code, enum tree_code lcode,
   bool honor_nans = HONOR_NANS (TYPE_MODE (TREE_TYPE (ll_arg)));
   enum comparison_code lcompcode = comparison_to_compcode (lcode);
   enum comparison_code rcompcode = comparison_to_compcode (rcode);
-  enum comparison_code compcode;
+  int compcode;
 
   switch (code)
     {
@@ -2980,8 +2980,11 @@ combine_comparisons (enum tree_code code, enum tree_code lcode,
   else if (compcode == COMPCODE_FALSE)
     return constant_boolean_node (false, truth_type);
   else
-    return fold_build2 (compcode_to_comparison (compcode),
-			truth_type, ll_arg, lr_arg);
+    {
+      enum comparison_code cc = (enum comparison_code) compcode;
+      return fold_build2 (compcode_to_comparison (cc),
+			  truth_type, ll_arg, lr_arg);
+    }
 }
 
 /* Return nonzero if two operands (typically of the same tree node)

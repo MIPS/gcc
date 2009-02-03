@@ -1,5 +1,9 @@
 2009-02-03  Ian Lance Taylor  <iant@google.com>
 
+	* fold-const.c (fold_undefer_overflow_warnings): Add cast to enum
+	type.
+	(combine_comparisons): Change compcode to int.  Add cast.
+
 	* builtins.c (validate_gimple_arglist): Don't pass an enum typ eto
 	va_arg.
 	* calls.c (emit_library_call_value_1): Likewise.
