@@ -1,3 +1,89 @@
+2009-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39041
+	* gcc.c-torture/compile/pr39041.c: New testcase.
+
+2009-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39013
+	* gcc.target/i386/pr39013-1.c: New test.
+	* gcc.target/i386/pr39013-2.c: New test.
+
+	PR c++/39028
+	* g++.dg/ext/label12.C: New test.
+
+2009-01-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/33465
+	* g++.dg/parse/error34.C: New.
+	* g++.dg/parse/error35.C: Likewise.
+
+2009-01-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/38655
+	* g++.dg/cpp0x/decltype-38655.C: New.
+
+2009-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39002
+	* g++.dg/torture/pr39002.C: New test.
+
+2009-01-29  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/39007
+	* gcc.dg/tree-ssa/pr39007.c: New.
+
+2009-01-29  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR middle-end/35854
+	* gcc.dg/lower-subreg-1.c: Renamed dump pass from "subreg" to "subreg1"		
+	
+2009-01-29  Steve Ellcey  <sje@cup.hp.com>
+
+	PR middle-end/38857
+	* gcc.c-torture/compile/pr38857.c: New test.
+
+2009-01-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38852
+	PR fortran/39006
+	* gfortran.dg/bound_6.f90: New test.
+
+2009-01-28  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/avoid-indexed-addresses.c: New test.
+
+2009-01-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/38997
+	* gcc.dg/tree-ssa/pr38997.c: New.
+
+2009-01-28  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38926
+	* gcc.c-torture/compile/pr38926.c: New testcase.
+
+2009-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/38934
+	* gcc.dg/pr38934.c: New test.
+
+2009-01-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/38908
+	* g++.dg/warn/Wuninitialized-2.C: New testcase.
+
+2009-01-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/38984
+	* gcc.dg/pr38984.c: New XFAILed testcase.
+
+
+2009-01-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/38988
+	* gcc.target/i386/pr38988.c: New test.
+
 2009-01-27  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/37554
