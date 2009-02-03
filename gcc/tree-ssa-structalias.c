@@ -262,6 +262,8 @@ struct variable_info
 typedef struct variable_info *varinfo_t;
 
 static varinfo_t first_vi_for_offset (varinfo_t, unsigned HOST_WIDE_INT);
+static varinfo_t first_or_preceding_vi_for_offset (varinfo_t,
+						   unsigned HOST_WIDE_INT);
 static varinfo_t lookup_vi_for_tree (tree);
 
 /* Pool of variable info structures.  */
@@ -407,8 +409,11 @@ struct constraint_expr
 
      IOW, in a deref constraint, we would deref, get the result set,
      then add OFFSET to each member.   */
-  unsigned HOST_WIDE_INT offset;
+  HOST_WIDE_INT offset;
 };
+
+/* Use 0x8000... as special unknown offset.  */
+#define UNKNOWN_OFFSET ((HOST_WIDE_INT)-1 << (HOST_BITS_PER_WIDE_INT-1))
 
 typedef struct constraint_expr ce_s;
 DEF_VEC_O(ce_s);
@@ -574,7 +579,9 @@ dump_constraint (FILE *file, constraint_t c)
   else if (c->lhs.type == DEREF)
     fprintf (file, "*");
   fprintf (file, "%s", get_varinfo_fc (c->lhs.var)->name);
-  if (c->lhs.offset != 0)
+  if (c->lhs.offset == UNKNOWN_OFFSET)
+    fprintf (file, " + UNKNOWN");
+  else if (c->lhs.offset != 0)
     fprintf (file, " + " HOST_WIDE_INT_PRINT_DEC, c->lhs.offset);
   fprintf (file, " = ");
   if (c->rhs.type == ADDRESSOF)
@@ -582,7 +589,9 @@ dump_constraint (FILE *file, constraint_t c)
   else if (c->rhs.type == DEREF)
     fprintf (file, "*");
   fprintf (file, "%s", get_varinfo_fc (c->rhs.var)->name);
-  if (c->rhs.offset != 0)
+  if (c->rhs.offset == UNKNOWN_OFFSET)
+    fprintf (file, " + UNKNOWN");
+  else if (c->rhs.offset != 0)
     fprintf (file, " + " HOST_WIDE_INT_PRINT_DEC, c->rhs.offset);
   fprintf (file, "\n");
 }
@@ -824,15 +833,61 @@ constraint_set_union (VEC(constraint_t,heap) **to,
     }
 }
 
+/* Expands the solution in SET to all sub-fields of variables included.
+   Union the expanded result into RESULT.  */
+
+static void
+solution_set_expand (bitmap result, bitmap set)
+{
+  bitmap_iterator bi;
+  bitmap vars = NULL;
+  unsigned j;
+
+  /* In a first pass record all variables we need to add all
+     sub-fields off.  This avoids quadratic behavior.  */
+  EXECUTE_IF_SET_IN_BITMAP (set, 0, j, bi)
+    {
+      varinfo_t v = get_varinfo (j);
+      if (v->is_artificial_var
+	  || v->is_full_var)
+	continue;
+      v = lookup_vi_for_tree (v->decl);
+      if (vars == NULL)
+	vars = BITMAP_ALLOC (NULL);
+      bitmap_set_bit (vars, v->id);
+    }
+
+  /* In the second pass now do the addition to the solution and
+     to speed up solving add it to the delta as well.  */
+  if (vars != NULL)
+    {
+      EXECUTE_IF_SET_IN_BITMAP (vars, 0, j, bi)
+	{
+	  varinfo_t v = get_varinfo (j);
+	  for (; v != NULL; v = v->next)
+	    bitmap_set_bit (result, v->id);
+	}
+      BITMAP_FREE (vars);
+    }
+}
+
 /* Take a solution set SET, add OFFSET to each member of the set, and
    overwrite SET with the result when done.  */
 
 static void
-solution_set_add (bitmap set, unsigned HOST_WIDE_INT offset)
+solution_set_add (bitmap set, HOST_WIDE_INT offset)
 {
   bitmap result = BITMAP_ALLOC (&iteration_obstack);
   unsigned int i;
   bitmap_iterator bi;
+
+  /* If the offset is unknown we have to expand the solution to
+     all subfields.  */
+  if (offset == UNKNOWN_OFFSET)
+    {
+      solution_set_expand (set, set);
+      return;
+    }
 
   EXECUTE_IF_SET_IN_BITMAP (set, 0, i, bi)
     {
@@ -847,21 +902,23 @@ solution_set_add (bitmap set, unsigned HOST_WIDE_INT offset)
       else
 	{
 	  unsigned HOST_WIDE_INT fieldoffset = vi->offset + offset;
-	  varinfo_t v = first_vi_for_offset (vi, fieldoffset);
-	  /* If the result is outside of the variable use the last field.  */
-	  if (!v)
-	    {
-	      v = vi;
-	      while (v->next != NULL)
-		v = v->next;
-	    }
-	  bitmap_set_bit (result, v->id);
+
+	  /* If the offset makes the pointer point to before the
+	     variable use offset zero for the field lookup.  */
+	  if (offset < 0
+	      && fieldoffset > vi->offset)
+	    fieldoffset = 0;
+
+	  if (offset != 0)
+	    vi = first_or_preceding_vi_for_offset (vi, fieldoffset);
+
+	  bitmap_set_bit (result, vi->id);
 	  /* If the result is not exactly at fieldoffset include the next
 	     field as well.  See get_constraint_for_ptr_offset for more
 	     rationale.  */
-	  if (v->offset != fieldoffset
-	      && v->next != NULL)
-	    bitmap_set_bit (result, v->next->id);
+	  if (vi->offset != fieldoffset
+	      && vi->next != NULL)
+	    bitmap_set_bit (result, vi->next->id);
 	}
     }
 
@@ -873,7 +930,7 @@ solution_set_add (bitmap set, unsigned HOST_WIDE_INT offset)
    process.  */
 
 static bool
-set_union_with_increment  (bitmap to, bitmap from, unsigned HOST_WIDE_INT inc)
+set_union_with_increment  (bitmap to, bitmap from, HOST_WIDE_INT inc)
 {
   if (inc == 0)
     return bitmap_ior_into (to, from);
@@ -1468,29 +1525,8 @@ topo_visit (constraint_graph_t graph, struct topo_info *ti,
   VEC_safe_push (unsigned, heap, ti->topo_order, n);
 }
 
-/* Return true if variable N + OFFSET is a legal field of N.  */
-
-static bool
-type_safe (unsigned int n, unsigned HOST_WIDE_INT *offset)
-{
-  varinfo_t ninfo = get_varinfo (n);
-
-  /* For things we've globbed to single variables, any offset into the
-     variable acts like the entire variable, so that it becomes offset
-     0.  */
-  if (ninfo->is_special_var
-      || ninfo->is_artificial_var
-      || ninfo->is_unknown_size_var
-      || ninfo->is_full_var)
-    {
-      *offset = 0;
-      return true;
-    }
-  return (get_varinfo (n)->offset + *offset) < get_varinfo (n)->fullsize;
-}
-
-/* Process a constraint C that represents x = *y, using DELTA as the
-   starting solution.  */
+/* Process a constraint C that represents x = *(y + off), using DELTA as the
+   starting solution for y.  */
 
 static void
 do_sd_constraint (constraint_graph_t graph, constraint_t c,
@@ -1501,73 +1537,47 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
   bitmap sol = get_varinfo (lhs)->solution;
   unsigned int j;
   bitmap_iterator bi;
+  HOST_WIDE_INT roffset = c->rhs.offset;
 
-  /* For x = *ESCAPED and x = *CALLUSED we want to compute the
-     reachability set of the rhs var.  As a pointer to a sub-field
-     of a variable can also reach all other fields of the variable
-     we simply have to expand the solution to contain all sub-fields
-     if one sub-field is contained.  */
-  if (c->rhs.var == escaped_id
-      || c->rhs.var == callused_id)
-    {
-      bitmap vars = NULL;
-      /* In a first pass record all variables we need to add all
-         sub-fields off.  This avoids quadratic behavior.  */
-      EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
-	{
-	  varinfo_t v = get_varinfo (j);
-	  if (v->is_full_var)
-	    continue;
+  /* Our IL does not allow this.  */
+  gcc_assert (c->lhs.offset == 0);
 
-	  v = lookup_vi_for_tree (v->decl);
-	  if (v->next != NULL)
-	    {
-	      if (vars == NULL)
-		vars = BITMAP_ALLOC (NULL);
-	      bitmap_set_bit (vars, v->id);
-	    }
-	}
-      /* In the second pass now do the addition to the solution and
-         to speed up solving add it to the delta as well.  */
-      if (vars != NULL)
-	{
-	  EXECUTE_IF_SET_IN_BITMAP (vars, 0, j, bi)
-	    {
-	      varinfo_t v = get_varinfo (j);
-	      for (; v != NULL; v = v->next)
-		{
-		  if (bitmap_set_bit (sol, v->id))
-		    {
-		      flag = true;
-		      bitmap_set_bit (delta, v->id);
-		    }
-		}
-	    }
-	  BITMAP_FREE (vars);
-	}
-    }
-
+  /* If the solution of Y contains anything it is good enough to transfer
+     this to the LHS.  */
   if (bitmap_bit_p (delta, anything_id))
     {
       flag |= bitmap_set_bit (sol, anything_id);
       goto done;
     }
 
+  /* If we do not know at with offset the rhs is dereferenced compute
+     the reachability set of DELTA, conservatively assuming it is
+     dereferenced at all valid offsets.  */
+  if (roffset == UNKNOWN_OFFSET)
+    {
+      solution_set_expand (delta, delta);
+      /* No further offset processing is necessary.  */
+      roffset = 0;
+    }
+
   /* For each variable j in delta (Sol(y)), add
      an edge in the graph from j to x, and union Sol(j) into Sol(x).  */
   EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
     {
-      unsigned HOST_WIDE_INT roffset = c->rhs.offset;
-      if (type_safe (j, &roffset))
-	{
-	  varinfo_t v;
-	  unsigned HOST_WIDE_INT fieldoffset = get_varinfo (j)->offset + roffset;
-	  unsigned int t;
+      varinfo_t v = get_varinfo (j);
+      HOST_WIDE_INT fieldoffset = v->offset + roffset;
+      unsigned int t;
 
-	  v = first_vi_for_offset (get_varinfo (j), fieldoffset);
-	  /* If the access is outside of the variable we can ignore it.  */
-	  if (!v)
-	    continue;
+      if (v->is_full_var)
+	fieldoffset = v->offset;
+      else if (roffset != 0)
+	v = first_vi_for_offset (v, fieldoffset);
+      /* If the access is outside of the variable we can ignore it.  */
+      if (!v)
+	continue;
+
+      do
+	{
 	  t = find (v->id);
 
 	  /* Adding edges from the special vars is pointless.
@@ -1582,7 +1592,17 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	    flag |= bitmap_set_bit (sol, get_varinfo (t)->id);
 	  else if (add_graph_edge (graph, lhs, t))
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
+
+	  /* If the variable is not exactly at the requested offset
+	     we have to include the next one.  */
+	  if (v->offset == (unsigned HOST_WIDE_INT)fieldoffset
+	      || v->next == NULL)
+	    break;
+
+	  v = v->next;
+	  fieldoffset = v->offset;
 	}
+      while (1);
     }
 
 done:
@@ -1598,7 +1618,8 @@ done:
     }
 }
 
-/* Process a constraint C that represents *x = y.  */
+/* Process a constraint C that represents *(x + off) = y using DELTA
+   as the starting solution for x.  */
 
 static void
 do_ds_constraint (constraint_t c, bitmap delta)
@@ -1607,53 +1628,83 @@ do_ds_constraint (constraint_t c, bitmap delta)
   bitmap sol = get_varinfo (rhs)->solution;
   unsigned int j;
   bitmap_iterator bi;
+  HOST_WIDE_INT loff = c->lhs.offset;
 
- if (bitmap_bit_p (sol, anything_id))
-   {
-     EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
-       {
-	 varinfo_t jvi = get_varinfo (j);
-	 unsigned int t;
-	 unsigned int loff = c->lhs.offset;
-	 unsigned HOST_WIDE_INT fieldoffset = jvi->offset + loff;
-	 varinfo_t v;
+  /* Our IL does not allow this.  */
+  gcc_assert (c->rhs.offset == 0);
 
-	 v = get_varinfo (j);
-	 if (!v->is_full_var)
-	   {
-	     v = first_vi_for_offset (v, fieldoffset);
-	     /* If the access is outside of the variable we can ignore it.  */
-	     if (!v)
-	       continue;
-	   }
-	 t = find (v->id);
+  if (bitmap_bit_p (sol, anything_id))
+    {
+      EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
+        {
+	  varinfo_t v = get_varinfo (j);
+	  unsigned int t;
+	  HOST_WIDE_INT fieldoffset = v->offset + loff;
 
-	 if (bitmap_set_bit (get_varinfo (t)->solution, anything_id)
-	     && !TEST_BIT (changed, t))
-	   {
-	     SET_BIT (changed, t);
-	     changed_count++;
-	   }
-       }
-     return;
-   }
+	  if (v->is_full_var)
+	    fieldoffset = v->offset;
+	  else if (loff != 0)
+	    v = first_vi_for_offset (v, fieldoffset);
+	  /* If the access is outside of the variable we can ignore it.  */
+	  if (!v)
+	    continue;
+
+	  do
+	    {
+	      t = find (v->id);
+
+	      if (bitmap_set_bit (get_varinfo (t)->solution, anything_id)
+		  && !TEST_BIT (changed, t))
+		{
+		  SET_BIT (changed, t);
+		  changed_count++;
+		}
+
+	      /* If the variable is not exactly at the requested offset
+		 we have to include the next one.  */
+	      if (v->offset == (unsigned HOST_WIDE_INT)fieldoffset
+		  || v->next == NULL)
+		break;
+
+	      v = v->next;
+	      fieldoffset = v->offset;
+	    }
+	  while (1);
+	}
+      return;
+    }
+
+  /* If we do not know at with offset the rhs is dereferenced compute
+     the reachability set of DELTA, conservatively assuming it is
+     dereferenced at all valid offsets.  */
+  if (loff == UNKNOWN_OFFSET)
+    {
+      solution_set_expand (delta, delta);
+      loff = 0;
+    }
 
   /* For each member j of delta (Sol(x)), add an edge from y to j and
      union Sol(y) into Sol(j) */
   EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
     {
-      unsigned HOST_WIDE_INT loff = c->lhs.offset;
-      if (type_safe (j, &loff) && !(get_varinfo (j)->is_special_var))
-	{
-	  varinfo_t v;
-	  unsigned int t;
-	  unsigned HOST_WIDE_INT fieldoffset = get_varinfo (j)->offset + loff;
-	  bitmap tmp;
+      varinfo_t v = get_varinfo (j);
+      unsigned int t;
+      HOST_WIDE_INT fieldoffset = v->offset + loff;
+      bitmap tmp;
 
-	  v = first_vi_for_offset (get_varinfo (j), fieldoffset);
-	  /* If the access is outside of the variable we can ignore it.  */
-	  if (!v)
-	    continue;
+      if (v->is_special_var)
+	continue;
+
+      if (v->is_full_var)
+	fieldoffset = v->offset;
+      else if (loff != 0)
+	v = first_vi_for_offset (v, fieldoffset);
+      /* If the access is outside of the variable we can ignore it.  */
+      if (!v)
+	continue;
+
+      do
+	{
 	  t = find (v->id);
 	  tmp = get_varinfo (t)->solution;
 
@@ -1668,7 +1719,17 @@ do_ds_constraint (constraint_t c, bitmap delta)
 		  changed_count++;
 		}
 	    }
+
+	  /* If the variable is not exactly at the requested offset
+	     we have to include the next one.  */
+	  if (v->offset == (unsigned HOST_WIDE_INT)fieldoffset
+	      || v->next == NULL)
+	    break;
+
+	  v = v->next;
+	  fieldoffset = v->offset;
 	}
+      while (1);
     }
 }
 
@@ -2778,22 +2839,11 @@ get_constraint_for_ptr_offset (tree ptr, tree offset,
 {
   struct constraint_expr *c;
   unsigned int j, n;
-  unsigned HOST_WIDE_INT rhsunitoffset, rhsoffset;
-  varinfo_t vi;
-  tree var;
+  HOST_WIDE_INT rhsunitoffset, rhsoffset;
 
   /* If we do not do field-sensitive PTA adding offsets to pointers
      does not change the points-to solution.  */
-  if (!use_field_sensitive
-      /* The same is true if we are offsetting a variable that has not
-         been decomposed.
-	 ???  This can be done more generally as well, with support in
-	      the solver.  */
-      || (TREE_CODE (ptr) == ADDR_EXPR
-	  && (var = get_base_address (TREE_OPERAND (ptr, 0)))
-	  && DECL_P (var)
-	  && (vi = get_vi_for_tree (var))
-	  && vi->is_full_var))
+  if (!use_field_sensitive)
     {
       get_constraint_for (ptr, results);
       return;
@@ -2802,30 +2852,16 @@ get_constraint_for_ptr_offset (tree ptr, tree offset,
   /* If the offset is not a non-negative integer constant that fits
      in a HOST_WIDE_INT, we have to fall back to a conservative
      solution which includes all sub-fields of all pointed-to
-     variables of ptr.
-     ???  As we do not have the ability to express this, fall back
-     to anything.  */
-  if (!host_integerp (offset, 1))
+     variables of ptr.  */
+  if (!host_integerp (offset, 0))
+    rhsoffset = UNKNOWN_OFFSET;
+  else
     {
-      struct constraint_expr temp;
-      temp.var = anything_id;
-      temp.type = SCALAR;
-      temp.offset = 0;
-      VEC_safe_push (ce_s, heap, *results, &temp);
-      return;
-    }
-
-  /* Make sure the bit-offset also fits.  */
-  rhsunitoffset = TREE_INT_CST_LOW (offset);
-  rhsoffset = rhsunitoffset * BITS_PER_UNIT;
-  if (rhsunitoffset != rhsoffset / BITS_PER_UNIT)
-    {
-      struct constraint_expr temp;
-      temp.var = anything_id;
-      temp.type = SCALAR;
-      temp.offset = 0;
-      VEC_safe_push (ce_s, heap, *results, &temp);
-      return;
+      /* Make sure the bit-offset also fits.  */
+      rhsunitoffset = TREE_INT_CST_LOW (offset);
+      rhsoffset = rhsunitoffset * BITS_PER_UNIT;
+      if (rhsunitoffset != rhsoffset / BITS_PER_UNIT)
+	rhsoffset = UNKNOWN_OFFSET;
     }
 
   get_constraint_for (ptr, results);
@@ -2842,36 +2878,49 @@ get_constraint_for_ptr_offset (tree ptr, tree offset,
       curr = get_varinfo (c->var);
 
       if (c->type == ADDRESSOF
-	  && !curr->is_full_var)
+	  /* If this varinfo represents a full variable just use it.  */
+	  && curr->is_full_var)
+	c->offset = 0;
+      else if (c->type == ADDRESSOF
+	       /* If we do not know the offset add all subfields.  */
+	       && rhsoffset == UNKNOWN_OFFSET)
 	{
-	  varinfo_t temp, curr = get_varinfo (c->var);
+	  varinfo_t temp = lookup_vi_for_tree (curr->decl);
+	  do
+	    {
+	      struct constraint_expr c2;
+	      c2.var = temp->id;
+	      c2.type = ADDRESSOF;
+	      c2.offset = 0;
+	      VEC_safe_push (ce_s, heap, *results, &c2);
+	      temp = temp->next;
+	    }
+	  while (temp);
+	}
+      else if (c->type == ADDRESSOF)
+	{
+	  varinfo_t temp;
+	  unsigned HOST_WIDE_INT offset = curr->offset + rhsoffset;
 
 	  /* Search the sub-field which overlaps with the
-	     pointed-to offset.  As we deal with positive offsets
-	     only, we can start the search from the current variable.  */
-	  temp = first_vi_for_offset (curr, curr->offset + rhsoffset);
-
-	  /* If the result is outside of the variable we have to provide
-	     a conservative result, as the variable is still reachable
-	     from the resulting pointer (even though it technically
-	     cannot point to anything).  The last sub-field is such
-	     a conservative result.
+	     pointed-to offset.  If the result is outside of the variable
+	     we have to provide a conservative result, as the variable is
+	     still reachable from the resulting pointer (even though it
+	     technically cannot point to anything).  The last and first
+	     sub-fields are such conservative results.
 	     ???  If we always had a sub-field for &object + 1 then
 	     we could represent this in a more precise way.  */
-	  if (temp == NULL)
-	    {
-	      temp = curr;
-	      while (temp->next != NULL)
-		temp = temp->next;
-	      continue;
-	    }
+	  if (rhsoffset < 0
+	      && curr->offset < offset)
+	    offset = 0;
+	  temp = first_or_preceding_vi_for_offset (curr, offset);
 
 	  /* If the found variable is not exactly at the pointed to
 	     result, we have to include the next variable in the
 	     solution as well.  Otherwise two increments by offset / 2
 	     do not result in the same or a conservative superset
 	     solution.  */
-	  if (temp->offset != curr->offset + rhsoffset
+	  if (temp->offset != offset
 	      && temp->next != NULL)
 	    {
 	      struct constraint_expr c2;
@@ -2883,10 +2932,6 @@ get_constraint_for_ptr_offset (tree ptr, tree offset,
 	  c->var = temp->id;
 	  c->offset = 0;
 	}
-      else if (c->type == ADDRESSOF
-	       /* If this varinfo represents a full variable just use it.  */
-	       && curr->is_full_var)
-	c->offset = 0;
       else
 	c->offset = rhsoffset;
     }
@@ -3966,26 +4011,61 @@ find_func_aliases (gimple origt)
 
 
 /* Find the first varinfo in the same variable as START that overlaps with
-   OFFSET.
-   Effectively, walk the chain of fields for the variable START to find the
-   first field that overlaps with OFFSET.
-   Return NULL if we can't find one.  */
+   OFFSET.  Return NULL if we can't find one.  */
 
 static varinfo_t
 first_vi_for_offset (varinfo_t start, unsigned HOST_WIDE_INT offset)
 {
-  varinfo_t curr = start;
-  while (curr)
+  /* If the offset is outside of the variable, bail out.  */
+  if (offset >= start->fullsize)
+    return NULL;
+
+  /* If we cannot reach offset from start, lookup the first field
+     and start from there.  */
+  if (start->offset > offset)
+    start = lookup_vi_for_tree (start->decl);
+
+  while (start)
     {
       /* We may not find a variable in the field list with the actual
 	 offset when when we have glommed a structure to a variable.
 	 In that case, however, offset should still be within the size
 	 of the variable. */
-      if (offset >= curr->offset && offset < (curr->offset +  curr->size))
-	return curr;
-      curr = curr->next;
+      if (offset >= start->offset
+	  && offset < (start->offset + start->size))
+	return start;
+
+      start= start->next;
     }
+
   return NULL;
+}
+
+/* Find the first varinfo in the same variable as START that overlaps with
+   OFFSET.  If there is no such varinfo the varinfo directly preceding
+   OFFSET is returned.  */
+
+static varinfo_t
+first_or_preceding_vi_for_offset (varinfo_t start,
+				  unsigned HOST_WIDE_INT offset)
+{
+  /* If we cannot reach offset from start, lookup the first field
+     and start from there.  */
+  if (start->offset > offset)
+    start = lookup_vi_for_tree (start->decl);
+
+  /* We may not find a variable in the field list with the actual
+     offset when when we have glommed a structure to a variable.
+     In that case, however, offset should still be within the size
+     of the variable.
+     If we got beyond the offset we look for return the field
+     directly preceding offset which may be the last field.  */
+  while (start->next
+	 && offset >= start->offset
+	 && !(offset < (start->offset + start->size)))
+    start = start->next;
+
+  return start;
 }
 
 
@@ -5334,6 +5414,16 @@ init_base_vars (void)
   rhs.type = DEREF;
   rhs.var = escaped_id;
   rhs.offset = 0;
+  process_constraint (new_constraint (lhs, rhs));
+
+  /* ESCAPED = ESCAPED + UNKNOWN_OFFSET, because if a sub-field escapes the
+     whole variable escapes.  */
+  lhs.type = SCALAR;
+  lhs.var = escaped_id;
+  lhs.offset = 0;
+  rhs.type = SCALAR;
+  rhs.var = escaped_id;
+  rhs.offset = UNKNOWN_OFFSET;
   process_constraint (new_constraint (lhs, rhs));
 
   /* *ESCAPED = NONLOCAL.  This is true because we have to assume
