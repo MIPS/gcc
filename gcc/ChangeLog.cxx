@@ -1,5 +1,7 @@
 2009-02-03  Ian Lance Taylor  <iant@google.com>
 
+	* mcf.c (add_fixup_edge): Change type parameter to edge_type.
+
 	* tree.c (attribute_list_contained): Put empty loop ';' on new
 	line.
 	(build_common_builtin_nodes): Add casts to enum type.
