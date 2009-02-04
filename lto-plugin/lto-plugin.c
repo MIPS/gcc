@@ -356,7 +356,7 @@ add_output_files (int fd)
    argument list. */
 
 static void
-exec_lto_wrapper (char *argv[])
+exec_lto_wrapper (char *const argv[])
 {
   int pipefd[2];
   int pid;
@@ -366,6 +366,7 @@ exec_lto_wrapper (char *argv[])
   char *at_args;
   char *args_name;
   FILE *args;
+  int i;
   char *new_argv[3];
 
   /* Write argv to a file to avoid a command line that is too long. */
@@ -375,9 +376,11 @@ exec_lto_wrapper (char *argv[])
   args_name = at_args + 1;
   args = fopen (args_name, "w");
   assert (args);
-
-  t = writeargv (&argv[1], args);
-  assert (t == 0);
+  for (i = 1; argv[i]; i++)
+    {
+      t = fprintf(args, "%s\n", argv[i]);
+      assert (t >= 0);
+    }
   t = fclose (args);
   assert (t == 0);
 
@@ -387,7 +390,6 @@ exec_lto_wrapper (char *argv[])
 
   if (debug)
     {
-      int i;
       for (i = 0; new_argv[i]; i++)
 	fprintf (stderr, "%s ", new_argv[i]);
       fprintf (stderr, "\n");
