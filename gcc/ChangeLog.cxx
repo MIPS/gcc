@@ -1,5 +1,8 @@
 2009-02-03  Ian Lance Taylor  <iant@google.com>
 
+	* opts.c (set_debug_level): Don't put an arbitrary int in an
+	enum.
+
 	* omega.c (omega_do_elimination): Avoid math on enum types.
 
 	* gcov.c (read_count_file): Avoid goto.
