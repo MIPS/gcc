@@ -4552,7 +4552,7 @@ extern tree lookup_template_function		(tree, tree);
 extern int uses_template_parms			(tree);
 extern int uses_template_parms_level		(tree, int);
 extern tree instantiate_class_template		(tree);
-extern tree instantiate_template		(tree, tree, tsubst_flags_t);
+extern tree instantiate_template		(tree, tree, int);
 extern int fn_type_unification			(tree, tree, tree, tree,
 						 tree, unification_kind_t, int);
 extern void mark_decl_instantiated		(tree, int);
@@ -4832,7 +4832,7 @@ extern tree canonical_type_variant		(tree);
 extern tree copy_binfo				(tree, tree, tree,
 						 tree *, int);
 extern int member_p				(const_tree);
-extern cp_lvalue_kind real_lvalue_p		(tree);
+extern int real_lvalue_p			(tree);
 extern bool builtin_valid_in_constant_expr_p    (const_tree);
 extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt			(enum tree_code, ...);

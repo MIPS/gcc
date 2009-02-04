@@ -706,7 +706,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
   if ((TYPE_PTRFN_P (to) || TYPE_PTRMEMFUNC_P (to))
       && expr && type_unknown_p (expr))
     {
-      tsubst_flags_t tflags = tf_conv;
+      int tflags = tf_conv;
       if (!(flags & LOOKUP_PROTECT))
 	tflags |= tf_no_access_control;
       expr = instantiate_type (to, expr, tflags);
@@ -1195,7 +1195,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
   tree tfrom;
   bool related_p;
   bool compatible_p;
-  cp_lvalue_kind lvalue_p = clk_none;
+  int lvalue_p = clk_none;
 
   if (TREE_CODE (to) == FUNCTION_TYPE && expr && type_unknown_p (expr))
     {
@@ -4465,7 +4465,7 @@ build_temp (tree expr, tree type, int flags,
   else if (errorcount > savee)
     *diagnostic_kind = DK_ERROR;
   else
-    *diagnostic_kind = 0;
+    *diagnostic_kind = DK_UNSPECIFIED;
   return expr;
 }
 
@@ -4721,7 +4721,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    || TREE_CODE (expr) == VA_ARG_EXPR)
 	  {
 	    tree type = convs->u.next->type;
-	    cp_lvalue_kind lvalue = real_lvalue_p (expr);
+	    int lvalue = real_lvalue_p (expr);
 
 	    if (!CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (ref_type))
 		&& !TYPE_REF_IS_RVALUE (ref_type))

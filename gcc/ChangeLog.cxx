@@ -1,6 +1,22 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
-	* error.c (next_tcode, next_int): Pass int to va_arg.
+	* cp/class.c (resolve_address_of_overloaded_function): Change
+	flags to int.
+	(instantiate_type): Change flags_in to int.
+	* cp/call.c (standard_conversion): Change flags to int.
+	(reference_binding): Change lvalue_p to int.
+	(build_temp): Change 0 to DK_UNSPECIFIED.
+	(convert_like_real): Change lvalue to int.
+	* cp/tree.c (lvalue_p_1): Change return type to int. Change
+	op1_lvalue_kind and op2_lvalue_kind to int.
+	(real_lvalue_p): Change return type to int.
+	* cp/cp-gimplify.c (cp_gimplify_expr): Add cast to enum type.
+	* cp/cp-tree.h (instantiate_template): Update declaration.
+	(real_lvalue_p): Likewise.
+	* cp/pt.c (check_instantiated_args): Change complain to int.
+	(instantiate_template): Likewise.
+
+	* cp/error.c (next_tcode, next_int): Pass int to va_arg.
 
 2009-02-03  Ian Lance Taylor  <iant@google.com>
 

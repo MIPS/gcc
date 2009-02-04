@@ -11839,7 +11839,7 @@ check_instantiated_arg (tree tmpl, tree t, int complain)
 }
 
 static bool
-check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
+check_instantiated_args (tree tmpl, tree args, int complain)
 {
   int ix, len = DECL_NTPARMS (tmpl);
   bool result = false;
@@ -11858,7 +11858,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
    the template arguments in TARG_PTR.  */
 
 tree
-instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
+instantiate_template (tree tmpl, tree targ_ptr, int complain)
 {
   tree fndecl;
   tree gen_tmpl;
