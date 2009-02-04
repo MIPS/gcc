@@ -1,3 +1,7 @@
+2009-02-04  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-plugin.c (exec_lto_wrapper): Use writeargv.
+
 2009-01-29  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-plugin.c: Include libiberty.h.
