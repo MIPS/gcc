@@ -1,5 +1,8 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
+	* dse.c (struct store_info): Change field name from bitmap to
+	bmap.  Change all uses.
+
 	* dwarf2.h (enum dwarf_type): Add DW_ATE_lo_user and
 	DW_ATE_hi_user as explicit enum values rather than #define
 	macros.
