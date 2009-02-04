@@ -230,6 +230,9 @@ struct variable_info
      variable.  This is used for C++ placement new.  */
   unsigned int no_tbaa_pruning : 1;
 
+  /* True if this field may contain pointers.  */
+  unsigned int may_have_pointers : 1;
+
   /* Variable id this was collapsed to due to type unsafety.  Zero if
      this variable was not collapsed.  This should be unused completely
      after build_succ_graph, or something is broken.  */
@@ -379,6 +382,7 @@ new_var_info (tree t, unsigned int id, const char *name)
   ret->is_special_var = false;
   ret->is_unknown_size_var = false;
   ret->is_full_var = false;
+  ret->may_have_pointers = true;
   var = t;
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
@@ -1639,6 +1643,9 @@ do_ds_constraint (constraint_t c, bitmap delta)
 	  unsigned int t;
 	  HOST_WIDE_INT fieldoffset = v->offset + loff;
 
+	  if (v->is_special_var)
+	    continue;
+
 	  if (v->is_full_var)
 	    fieldoffset = v->offset;
 	  else if (loff != 0)
@@ -1649,13 +1656,16 @@ do_ds_constraint (constraint_t c, bitmap delta)
 
 	  do
 	    {
-	      t = find (v->id);
-
-	      if (bitmap_set_bit (get_varinfo (t)->solution, anything_id)
-		  && !TEST_BIT (changed, t))
+	      if (v->may_have_pointers)
 		{
-		  SET_BIT (changed, t);
-		  changed_count++;
+		  t = find (v->id);
+
+		  if (bitmap_set_bit (get_varinfo (t)->solution, anything_id)
+		      && !TEST_BIT (changed, t))
+		    {
+		      SET_BIT (changed, t);
+		      changed_count++;
+		    }
 		}
 
 	      /* If the variable is not exactly at the requested offset
@@ -1703,18 +1713,21 @@ do_ds_constraint (constraint_t c, bitmap delta)
 
       do
 	{
-	  t = find (v->id);
-	  tmp = get_varinfo (t)->solution;
-
-	  if (set_union_with_increment (tmp, sol, 0))
+	  if (v->may_have_pointers)
 	    {
-	      get_varinfo (t)->solution = tmp;
-	      if (t == rhs)
-		sol = get_varinfo (rhs)->solution;
-	      if (!TEST_BIT (changed, t))
+	      t = find (v->id);
+	      tmp = get_varinfo (t)->solution;
+
+	      if (set_union_with_increment (tmp, sol, 0))
 		{
-		  SET_BIT (changed, t);
-		  changed_count++;
+		  get_varinfo (t)->solution = tmp;
+		  if (t == rhs)
+		    sol = get_varinfo (rhs)->solution;
+		  if (!TEST_BIT (changed, t))
+		    {
+		      SET_BIT (changed, t);
+		      changed_count++;
+		    }
 		}
 	    }
 
@@ -2796,19 +2809,27 @@ process_constraint (constraint_t t)
     }
 }
 
+/* Return true if T is a type that could contain pointers.  */
+
+static bool
+type_could_have_pointers (tree type)
+{
+  if (POINTER_TYPE_P (type))
+    return true;
+
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    return type_could_have_pointers (TREE_TYPE (type));
+
+  return AGGREGATE_TYPE_P (type);
+}
+
 /* Return true if T is a variable of a type that could contain
    pointers.  */
 
 static bool
 could_have_pointers (tree t)
 {
-  tree type = TREE_TYPE (t);
-
-  if (POINTER_TYPE_P (type)
-      || AGGREGATE_TYPE_P (type))
-    return true;
-
-  return false;
+  return type_could_have_pointers (TREE_TYPE (t));
 }
 
 /* Return the position, in bits, of FIELD_DECL from the beginning of its
@@ -3567,6 +3588,9 @@ handle_lhs_call (tree lhs, int flags)
       vi = get_varinfo (rhsc.var);
       vi->is_artificial_var = 1;
       vi->is_heap_var = 1;
+      vi->is_unknown_size_var = true;
+      vi->fullsize = ~0;
+      vi->size = ~0;
       rhsc.type = ADDRESSOF;
       rhsc.offset = 0;
     }
@@ -4483,6 +4507,7 @@ create_variable_info_for (tree decl, const char *name)
   vi = new_var_info (decl, index, name);
   vi->decl = decl;
   vi->offset = 0;
+  vi->may_have_pointers = could_have_pointers (decl);
   if (!declsize
       || !host_integerp (declsize, 1))
     {
@@ -4499,7 +4524,7 @@ create_variable_info_for (tree decl, const char *name)
   insert_vi_for_tree (vi->decl, vi);
   VEC_safe_push (varinfo_t, heap, varmap, vi);
   if (is_global && (!flag_whole_program || !in_ipa_mode)
-      && could_have_pointers (decl))
+      && vi->may_have_pointers)
     {
       if (var_ann (decl)
 	  && var_ann (decl)->noalias_state == NO_ALIAS_ANYTHING)
@@ -4560,6 +4585,7 @@ create_variable_info_for (tree decl, const char *name)
 
       vi->size = fo->size;
       vi->offset = fo->offset;
+      vi->may_have_pointers = fo->may_have_pointers;
       for (i = VEC_length (fieldoff_s, fieldstack) - 1;
 	   i >= 1 && VEC_iterate (fieldoff_s, fieldstack, i, fo);
 	   i--)
@@ -4581,10 +4607,11 @@ create_variable_info_for (tree decl, const char *name)
 	  newvi->offset = fo->offset;
 	  newvi->size = fo->size;
 	  newvi->fullsize = vi->fullsize;
+	  newvi->may_have_pointers = fo->may_have_pointers;
 	  insert_into_field_list (vi, newvi);
 	  VEC_safe_push (varinfo_t, heap, varmap, newvi);
 	  if (is_global && (!flag_whole_program || !in_ipa_mode)
-	      && fo->may_have_pointers)
+	      && newvi->may_have_pointers)
 	    make_copy_constraint (newvi, nonlocal_id);
 
 	  stats.total_vars++;
@@ -4668,7 +4695,7 @@ intra_create_variable_infos (void)
 	  if (heapvar == NULL_TREE)
 	    {
 	      var_ann_t ann;
-	      heapvar = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (t)),
+	      heapvar = create_tmp_var_raw (ptr_type_node,
 					    "PARM_NOALIAS");
 	      DECL_EXTERNAL (heapvar) = 1;
 	      if (gimple_referenced_vars (cfun))
@@ -4691,6 +4718,9 @@ intra_create_variable_infos (void)
 	  vi = get_vi_for_tree (heapvar);
 	  vi->is_artificial_var = 1;
 	  vi->is_heap_var = 1;
+	  vi->is_unknown_size_var = true;
+	  vi->fullsize = ~0;
+	  vi->size = ~0;
 	  rhs.var = vi->id;
 	  rhs.type = ADDRESSOF;
 	  rhs.offset = 0;

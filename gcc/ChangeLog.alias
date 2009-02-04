@@ -1,5 +1,19 @@
 2009-02-04  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-structalias.c (struct variable_info): Add may_have_pointers
+	field.
+	(do_ds_constraint): Do not add to special var or non-pointer
+	field solutions.
+	(type_could_have_pointers): Split out from ...
+	(could_have_pointers): ... here.  For arrays use the element type.
+	(create_variable_info_for): Initialize may_have_pointers.
+	(new_var_info): Likewise.
+	(handle_lhs_call): Make the HEAP variable unknown-sized.
+	(intra_create_variable_infos): Use a type with pointers for
+	PARM_NOALIAS, make it unknown-sized.
+
+2009-02-04  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-structalias.c (find_what_var_points_to): CALLUSED
 	shall not appear in poins-to solutions.
 	(pt_solution_empty_p): Remove code dealing with CALLUSED
