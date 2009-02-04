@@ -1,3 +1,7 @@
+2009-02-04  Ian Lance Taylor  <iant@google.com>
+
+	* error.c (next_tcode, next_int): Pass int to va_arg.
+
 2009-02-03  Ian Lance Taylor  <iant@google.com>
 
 	* opts.c (set_debug_level): Don't put an arbitrary int in an
