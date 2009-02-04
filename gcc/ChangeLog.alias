@@ -1,5 +1,28 @@
 2009-02-04  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-structalias.c (find_what_var_points_to): CALLUSED
+	shall not appear in poins-to solutions.
+	(pt_solution_empty_p): Remove code dealing with CALLUSED
+	in points-to solutions.
+	(pt_solution_includes): Likewise.
+	(pt_solutions_intersect): Likewise.
+	(pt_solution_merge_into): Remove.
+	(compute_points_to_sets): Do not merge escaped/callused solutions.
+	(do_sd_constraint): Do not use CALLUSED as a representative.
+	(solve_graph): Do propagate CALLUSED.
+	(handle_pure_call): Use a scalar constraint from CALLUSED for
+	the return value.
+	(init_base_vars): Add CALLUSED = CALLUSED + UNKNOWN constraint.
+	* tree-ssa-alias.c (dump_points_to_info_for): Do not dump
+	callused flag.
+	* tree-ssa-alias.h (struct pt_solution): Remove callused flag.
+
+	testsuite/
+	* gcc.dg/torture/pta-callused-1.c: New testcase.
+	* gcc.dg/torture/ssa-pta-fn-1.c: Adjust.
+
+2009-02-04  Richard Guenther  <rguenther@suse.de>
+
 	Revert
 	* tree-ssa-loop-niter.c (chain_of_csts_start): Use NULL_TREE.
 	Simplify test for memory referencing statement.

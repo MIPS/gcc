@@ -61,9 +61,6 @@ struct pt_solution GTY(())
   /* Nonzero if the points-to set includes any escaped local variable.  */
   unsigned int escaped : 1;
 
-  /* Nonzero if the points-to set includes any callused variable.  */
-  unsigned int callused : 1;
-
   /* Nonzero if the points-to set includes 'nothing', the points-to set
      includes memory at address NULL.  */
   unsigned int null : 1;

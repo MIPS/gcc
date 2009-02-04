@@ -330,9 +330,6 @@ dump_points_to_info_for (FILE *file, tree ptr)
       if (pi->pt.escaped)
 	fprintf (file, ", points-to escaped");
 
-      if (pi->pt.callused)
-	fprintf (file, ", points-to call-used");
-
       if (pi->pt.null)
 	fprintf (file, ", points-to NULL");
 

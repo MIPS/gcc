@@ -1585,10 +1585,8 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	  if (get_varinfo (t)->is_special_var)
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
 	  /* Merging the solution from ESCAPED needlessly increases
-	     the set.  Use ESCAPED as representative instead.
-	     Same for CALLUSED.  */
-	  else if (get_varinfo (t)->id == escaped_id
-		   || get_varinfo (t)->id == callused_id)
+	     the set.  Use ESCAPED as representative instead.  */
+	  else if (get_varinfo (t)->id == escaped_id)
 	    flag |= bitmap_set_bit (sol, get_varinfo (t)->id);
 	  else if (add_graph_edge (graph, lhs, t))
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
@@ -2558,9 +2556,8 @@ solve_graph (constraint_graph_t graph)
 	      solution_empty = bitmap_empty_p (solution);
 
 	      if (!solution_empty
-		  /* Do not propagate the ESCAPED/CALLUSED solutions.  */
-		  && i != escaped_id
-		  && i != callused_id)
+		  /* Do not propagate the ESCAPED solution.  */
+		  && i != escaped_id)
 		{
 		  bitmap_iterator bi;
 
@@ -3700,7 +3697,7 @@ handle_pure_call (gimple stmt)
          and globals will be dealt with in handle_lhs_call.  */
       rhsc.var = callused_id;
       rhsc.offset = 0;
-      rhsc.type = ADDRESSOF;
+      rhsc.type = SCALAR;
       for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
 	process_constraint (new_constraint (*lhsp, rhsc));
       VEC_free (ce_s, heap, lhsc);
@@ -5028,7 +5025,7 @@ find_what_var_points_to (varinfo_t vi, struct pt_solution *pt,
 	  else if (vi->id == escaped_id)
 	    pt->escaped = 1;
 	  else if (vi->id == callused_id)
-	    pt->callused = 1;
+	    gcc_unreachable ();
 	  else if (vi->id == nonlocal_id)
 	    pt->nonlocal = 1;
 	  else if (vi->is_heap_var)
@@ -5148,12 +5145,6 @@ pt_solution_empty_p (struct pt_solution *pt)
       && !pt_solution_empty_p (&cfun->gimple_df->escaped))
     return false;
 
-  /* If this isn't already the callused solution, check if that is empty.  */
-  if (pt->callused
-      && &cfun->gimple_df->callused != pt
-      && !pt_solution_empty_p (&cfun->gimple_df->callused))
-    return false;
-
   return true;
 }
 
@@ -5177,12 +5168,6 @@ pt_solution_includes (struct pt_solution *pt, const_tree decl)
   if (pt->escaped
       && &cfun->gimple_df->escaped != pt
       && pt_solution_includes (&cfun->gimple_df->escaped, decl))
-    return true;
-
-  /* If this isn't already the callused solution, union it with that.  */
-  if (pt->callused
-      && &cfun->gimple_df->callused != pt
-      && pt_solution_includes (&cfun->gimple_df->callused, decl))
     return true;
 
   return false;
@@ -5226,47 +5211,10 @@ pt_solutions_intersect (struct pt_solution *pt1, struct pt_solution *pt2)
 	return true;
     }
 
-  /* Check the callused solution if required.  */
-  if ((pt1->callused || pt1 == &cfun->gimple_df->callused
-       || pt2->callused || pt2 == &cfun->gimple_df->callused)
-      && !pt_solution_empty_p (&cfun->gimple_df->callused))
-    {
-      /* If both point to callused memory and that solution
-	 is not empty they alias.  */
-      if ((pt1->callused || pt1 == &cfun->gimple_df->callused)
-	  && (pt2->callused || pt2 == &cfun->gimple_df->callused))
-	  return true;
-
-      /* If either points to callused memory see if the callused solution
-	 intersects.  */
-      if (((pt1->callused || pt1 == &cfun->gimple_df->callused)
-	   && pt_solutions_intersect (&cfun->gimple_df->callused, pt1))
-	  || ((pt2->callused || pt2 == &cfun->gimple_df->callused)
-	      && pt_solutions_intersect (&cfun->gimple_df->callused, pt2)))
-	return true;
-    }
-
   /* Now both pointers alias if their points-to solution intersects.  */
   return (pt1->vars
 	  && pt2->vars
 	  && bitmap_intersect_p (pt1->vars, pt2->vars));
-}
-
-/* Merge the solution SRC into the solution DEST.  */
-
-static void
-pt_solution_merge_into (struct pt_solution *dest, struct pt_solution *src)
-{
-  dest->anything |= src->anything;
-  dest->nonlocal |= src->nonlocal;
-  dest->escaped |= src->escaped;
-  dest->callused |= src->callused;
-  dest->null |= src->null;
-  dest->vars_contains_global |= src->vars_contains_global;
-  if (src->vars && dest->vars)
-    bitmap_ior_into (dest->vars, src->vars);
-  else if (src->vars)
-    dest->vars = src->vars;
 }
 
 
@@ -5470,6 +5418,16 @@ init_base_vars (void)
   rhs.type = DEREF;
   rhs.var = callused_id;
   rhs.offset = 0;
+  process_constraint (new_constraint (lhs, rhs));
+
+  /* CALLUSED = CALLUSED + UNKNOWN, because if a sub-field is call-used the
+     whole variable is call-used.  */
+  lhs.type = SCALAR;
+  lhs.var = callused_id;
+  lhs.offset = 0;
+  rhs.type = SCALAR;
+  rhs.var = callused_id;
+  rhs.offset = UNKNOWN_OFFSET;
   process_constraint (new_constraint (lhs, rhs));
 
   /* Create the INTEGER variable, used to represent that a variable points
@@ -5854,17 +5812,6 @@ compute_points_to_sets (void)
      call-clobber analysis.  */
   find_what_var_points_to (var_escaped, &cfun->gimple_df->escaped, false);
   find_what_var_points_to (var_callused, &cfun->gimple_df->callused, false);
-  /* If both include each other merge and separate them to avoid running
-     in circles during queries of these placeholder solutions.  */
-  if (cfun->gimple_df->escaped.callused
-      && cfun->gimple_df->callused.escaped)
-    {
-      pt_solution_merge_into (&cfun->gimple_df->escaped,
-			      &cfun->gimple_df->callused);
-      cfun->gimple_df->callused = cfun->gimple_df->escaped;
-      cfun->gimple_df->escaped.callused = false;
-      cfun->gimple_df->callused.escaped = false;
-    }
 
   timevar_pop (TV_TREE_PTA);
 
