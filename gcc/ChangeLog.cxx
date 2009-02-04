@@ -1,5 +1,9 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
+	* gimplify.c (gimplify_omp_for): Use MIN, not bitwise or, to
+	gather gimplification status from subroutines.
+	(gimplify_expr): Add cast to enum type.
+
 	* dse.c (struct store_info): Change field name from bitmap to
 	bmap.  Change all uses.
 
