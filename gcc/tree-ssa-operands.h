@@ -30,8 +30,8 @@ typedef tree *def_operand_p;
 typedef ssa_use_operand_t *use_operand_p;
 
 /* NULL operand types.  */
-#define NULL_USE_OPERAND_P 		NULL
-#define NULL_DEF_OPERAND_P 		NULL
+#define NULL_USE_OPERAND_P 		((use_operand_p)NULL)
+#define NULL_DEF_OPERAND_P 		((def_operand_p)NULL)
 
 /* This represents the DEF operands of a stmt.  */
 struct def_optype_d

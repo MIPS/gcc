@@ -1,3 +1,27 @@
+2009-02-04  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.h (struct gimple_statement_base): Replace
+	references_memory_p member with padding.
+	(gimple_references_memory_p): Alias to gimple_vuse.
+	(gimple_set_references_memory): Remove.
+	* tree-flow-inline.h (op_iter_init_phidef): Use NULL_DEF_OPERAND_P.
+	(first_imm_use_stmt): Use NULL.
+	* tree-ssa-loop-niter.c (chain_of_csts_start): Use NULL_TREE.
+	Simplify test for memory referencing statement.
+	(get_val_for): Handle &a[i_1] by bailing out.
+	(loop_niter_by_eval): Handle get_va_for bailing out.
+	* tree-ssa-operands.c (append_vdef): Add back var parameter.
+	(append_vuse): Likewise.
+	(add_virtual_operand): Adjust function comment.  Do not
+	set references_memory.
+	(gimple_add_to_addresses_taken): Adjust function comment.
+	(get_indirect_ref_operands): Do not set references_memory.
+	(get_tmr_operands): Likewise.
+	(maybe_add_call_vops): Likewise.
+	(build_ssa_operands): Likewise.
+	* tree-ssa-operands.h (NULL_USE_OPERAND_P): Make of type use_operand_p.
+	(NULL_DEF_OPERAND_P): Make of type def_operand_p.
+
 2009-02-03  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/38049

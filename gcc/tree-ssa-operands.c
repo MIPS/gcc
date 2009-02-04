@@ -670,57 +670,44 @@ append_use (tree *use_p)
 /* Add VAR to the set of variables that require a VDEF operator.  */
 
 static inline void
-append_vdef (void)
+append_vdef (tree var)
 {
-  tree vop = gimple_vop (cfun);
-
   gcc_assert ((build_vdef == NULL_TREE
-	       || build_vdef == vop)
+	       || build_vdef == var)
 	      && (build_vuse == NULL_TREE
-		  || build_vuse == vop));
+		  || build_vuse == var));
 
-  build_vdef = vop;
-  build_vuse = vop;
+  build_vdef = var;
+  build_vuse = var;
 }
 
 
 /* Add VAR to the set of variables that require a VUSE operator.  */
 
 static inline void
-append_vuse (void)
+append_vuse (tree var)
 {
-  tree vop = gimple_vop (cfun);
-
   gcc_assert (build_vuse == NULL_TREE
-	      || build_vuse == vop);
+	      || build_vuse == var);
 
-  build_vuse = vop;
+  build_vuse = var;
 }
 
-/* Add VAR to the virtual operands for STMT.  FLAGS is as in
-   get_expr_operands.  FULL_REF is a tree that contains the entire
-   pointer dereference expression, if available, or NULL otherwise.
-   OFFSET and SIZE come from the memory access expression that
-   generated this virtual operand.  IS_CALL_SITE is true if the
-   affected statement is a call site.  */
+/* Add virtual operands for STMT.  FLAGS is as in get_expr_operands.  */
 
 static void
-add_virtual_operand (gimple stmt, int flags)
+add_virtual_operand (gimple stmt ATTRIBUTE_UNUSED, int flags)
 {
-  /* Mark the statement as having memory operands.  */
-  gimple_set_references_memory (stmt, true);
-  
-  /* The variable is not a GIMPLE register.  Add it (or its aliases) to
-     virtual operands, unless the caller has specifically requested
-     not to add virtual operands (used when adding operands inside an
+  /* Add virtual operands to the stmt, unless the caller has specifically
+     requested not to do that (used when adding operands inside an
      ADDR_EXPR expression).  */
   if (flags & opf_no_vops)
     return;
 
   if (flags & opf_def)
-    append_vdef ();
+    append_vdef (gimple_vop (cfun));
   else
-    append_vuse ();
+    append_vuse (gimple_vop (cfun));
 }
 
 
@@ -813,9 +800,6 @@ gimple_add_to_addresses_taken (gimple stmt, tree ref)
    
    FLAGS is as in get_expr_operands.
 
-   FULL_REF contains the full pointer dereference expression, if we
-      have it, or NULL otherwise.
-
    RECURSE_ON_BASE should be set to true if we want to continue
       calling get_expr_operands on the base pointer, and false if
       something else will do it for us.  */
@@ -828,9 +812,6 @@ get_indirect_ref_operands (gimple stmt, tree expr, int flags,
 
   if (TREE_THIS_VOLATILE (expr))
     gimple_set_has_volatile_ops (stmt, true);
-
-  /* Mark the statement as having memory operands.  */
-  gimple_set_references_memory (stmt, true);
 
   /* Add the VOP.  */
   add_virtual_operand (stmt, flags);
@@ -846,9 +827,6 @@ get_indirect_ref_operands (gimple stmt, tree expr, int flags,
 static void
 get_tmr_operands (gimple stmt, tree expr, int flags)
 {
-  /* Mark the statement as having memory operands.  */
-  gimple_set_references_memory (stmt, true);
-
   /* First record the real operands.  */
   get_expr_operands (stmt, &TMR_BASE (expr), opf_use);
   get_expr_operands (stmt, &TMR_INDEX (expr), opf_use);
@@ -867,9 +845,6 @@ static void
 maybe_add_call_vops (gimple stmt)
 {
   int call_flags = gimple_call_flags (stmt);
-
-  /* Mark the statement as having memory operands.  */
-  gimple_set_references_memory (stmt, true);
 
   /* If aliases have been computed already, add VDEF or VUSE
      operands for all the symbols that have been found to be
@@ -1188,7 +1163,6 @@ build_ssa_operands (gimple stmt)
   /* Initially assume that the statement has no volatile operands and
      makes no memory references.  */
   gimple_set_has_volatile_ops (stmt, false);
-  gimple_set_references_memory (stmt, false);
 
   /* Just clear the bitmap so we don't end up reallocating it over and over.  */
   if (gimple_addresses_taken (stmt))
@@ -1197,11 +1171,6 @@ build_ssa_operands (gimple stmt)
   start_ssa_stmt_operands ();
   parse_ssa_operands (stmt);
   finalize_ssa_stmt_operands (stmt);
-
-  /* For added safety, assume that statements with volatile operands
-     also reference memory.  */
-  if (gimple_has_volatile_ops (stmt))
-    gimple_set_references_memory (stmt, true);
 }
 
 

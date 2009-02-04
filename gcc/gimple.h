@@ -288,8 +288,8 @@ struct gimple_statement_base GTY(())
   /* Nonzero if this statement contains volatile operands.  */
   unsigned has_volatile_ops 	: 1;
 
-  /* Nonzero if this statement contains memory refernces.  */
-  unsigned references_memory_p 	: 1;
+  /* Padding to get subcode to 16 bit alignment.  */
+  unsigned pad			: 1;
 
   /* The SUBCODE field can be used for tuple-specific flags for tuples
      that do not require subcodes.  Note that SUBCODE should be at
@@ -1537,18 +1537,9 @@ gimple_set_has_volatile_ops (gimple stmt, bool volatilep)
 static inline bool
 gimple_references_memory_p (gimple stmt)
 {
-  return gimple_has_mem_ops (stmt) && stmt->gsbase.references_memory_p;
+  return gimple_has_mem_ops (stmt) && gimple_vuse (stmt);
 }
 
-
-/* Set the REFERENCES_MEMORY_P flag for STMT to MEM_P.  */
-
-static inline void
-gimple_set_references_memory (gimple stmt, bool mem_p)
-{
-  if (gimple_has_mem_ops (stmt))
-    stmt->gsbase.references_memory_p = (unsigned) mem_p;
-}
 
 /* Return the subcode for OMP statement S.  */
 

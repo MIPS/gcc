@@ -1966,18 +1966,11 @@ chain_of_csts_start (struct loop *loop, tree x)
     return NULL;
 
   code = gimple_assign_rhs_code (stmt);
-  if (gimple_references_memory_p (stmt)
-      /* Before alias information is computed, operand scanning marks
-	 statements that write memory volatile.  However, the statements
-	 that only read memory are not marked, thus gimple_references_memory_p
-	 returns false for them.  */
-      || TREE_CODE_CLASS (code) == tcc_reference
-      || TREE_CODE_CLASS (code) == tcc_declaration
-      || SINGLE_SSA_DEF_OPERAND (stmt, SSA_OP_DEF) == NULL_DEF_OPERAND_P)
+  if (gimple_references_memory_p (stmt))
     return NULL;
 
   use = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_USE);
-  if (use == NULL_USE_OPERAND_P)
+  if (use == NULL_TREE)
     return NULL;
 
   return chain_of_csts_start (loop, use);
@@ -2071,7 +2064,9 @@ get_val_for (tree x, tree base)
 			  gimple_expr_type (stmt), rhs1, rhs2);
     }
   else
-    gcc_unreachable ();
+    /* We can also end up with for example &a._M_instance[i_1]; for
+       which we just bail out for now.  */
+    return NULL_TREE;
 }
 
 
@@ -2139,7 +2134,14 @@ loop_niter_by_eval (struct loop *loop, edge exit)
   for (i = 0; i < MAX_ITERATIONS_TO_TRACK; i++)
     {
       for (j = 0; j < 2; j++)
-	aval[j] = get_val_for (op[j], val[j]);
+	{
+	  aval[j] = get_val_for (op[j], val[j]);
+	  if (aval[j] == NULL_TREE)
+	    {
+	      fold_undefer_and_ignore_overflow_warnings ();
+	      return chrec_dont_know;
+	    }
+	}
 
       acnd = fold_binary (cmp, boolean_type_node, aval[0], aval[1]);
       if (acnd && integer_zerop (acnd))
@@ -2155,7 +2157,8 @@ loop_niter_by_eval (struct loop *loop, edge exit)
       for (j = 0; j < 2; j++)
 	{
 	  val[j] = get_val_for (next[j], val[j]);
-	  if (!is_gimple_min_invariant (val[j]))
+	  if (!val[j]
+	      || !is_gimple_min_invariant (val[j]))
 	    {
 	      fold_undefer_and_ignore_overflow_warnings ();
 	      return chrec_dont_know;

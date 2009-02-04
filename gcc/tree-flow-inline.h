@@ -938,11 +938,12 @@ op_iter_init_phidef (ssa_op_iter *ptr, gimple phi, int flags)
 
   comp = (is_gimple_reg (phi_def) ? SSA_OP_DEF : SSA_OP_VIRTUAL_DEFS);
     
-  /* If the PHI node doesn't the operand type we care about, we're done.  */
+  /* If the PHI node doesn't have the operand type we care about,
+     we're done.  */
   if ((flags & comp) == 0)
     {
       ptr->done = true;
-      return NULL_USE_OPERAND_P;
+      return NULL_DEF_OPERAND_P;
     }
 
   ptr->iter_type = ssa_op_iter_def;
@@ -1056,7 +1057,7 @@ first_imm_use_stmt (imm_use_iterator *imm, tree var)
   imm->iter_node.prev = NULL_USE_OPERAND_P;
   imm->iter_node.next = NULL_USE_OPERAND_P;
   imm->iter_node.loc.stmt = NULL;
-  imm->iter_node.use = NULL_USE_OPERAND_P;
+  imm->iter_node.use = NULL;
 
   if (end_imm_use_stmt_p (imm))
     return NULL;
