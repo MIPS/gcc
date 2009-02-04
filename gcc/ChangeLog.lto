@@ -1,3 +1,10 @@
+2009-02-04  Diego Novillo  <dnovillo@google.com>
+
+	PR 39001
+	* toplev.c (eh_personality_decl): Fix comment.
+	* dwarf2out.c (dwarf2out_do_cfi_asm): Return true if
+	current_function_decl is NULL.
+
 2009-02-03  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.c (do_spec_1): Mark files added to @args as

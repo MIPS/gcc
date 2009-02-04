@@ -150,8 +150,9 @@ dwarf2out_do_cfi_asm (void)
      so we cannot find the personality of the current function. For now we
      use the global eh_personality_decl, but this is probably wrong for the
      case of a program with decls with different personality functions. */
-  if (saved_do_cfi_asm || !eh_personality_decl)
+  if (saved_do_cfi_asm || !eh_personality_decl || !current_function_decl)
     return true;
+
   if (!HAVE_GAS_CFI_PERSONALITY_DIRECTIVE)
     return false;
 
