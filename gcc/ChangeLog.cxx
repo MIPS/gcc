@@ -1,5 +1,16 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
+	* dwarf2.h (enum dwarf_type): Add DW_ATE_lo_user and
+	DW_ATE_hi_user as explicit enum values rather than #define
+	macros.
+	* dwarf2out.c (struct indirect_string_node): Change form to enum
+	dwarf_form.
+	(INTERNAL_DW_OP_tls_addr): Add cast to enum type.
+	(AT_string_form): Change return type to enum dwarf_form.
+	(int_loc_descriptor): Add cast to enum type.  Add cast to
+	HOST_WIDE_INT for unsigned constant.
+	(add_calling_convention_attribute): Add cast to enum type.
+
 	* cp/class.c (resolve_address_of_overloaded_function): Change
 	flags to int.
 	(instantiate_type): Change flags_in to int.
