@@ -1,5 +1,10 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
+	* df-problems.c (df_byte_lr_alloc): Don't assign problem_data to
+	itself.
+	(df_simulate_one_insn_forwards): Move default case out of inner
+	block.
+
 	* gimplify.c (gimplify_omp_for): Use MIN, not bitwise or, to
 	gather gimplification status from subroutines.
 	(gimplify_expr): Add cast to enum type.
