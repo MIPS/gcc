@@ -325,11 +325,9 @@ write_resolution (void)
    stdout. */
 
 static void
-add_output_files (int fd)
+add_output_files (FILE *f)
 {
   char fname[1000]; /* FIXME: Is this big enough? */
-  int t;
-  FILE *f = fdopen (fd, "r");
 
   for (;;)
     {
@@ -347,27 +345,23 @@ add_output_files (int fd)
       output_files[num_output_files - 1] = strdup (s);
       add_input_file (output_files[num_output_files - 1]);
     }
-
-  t = fclose (f);
-  assert (t == 0);
 }
 
 /* Execute the lto-wrapper. ARGV[0] is the binary. The rest of ARGV is the
    argument list. */
 
 static void
-exec_lto_wrapper (char *const argv[])
+exec_lto_wrapper (char *argv[])
 {
-  int pipefd[2];
-  int pid;
-  int pipe_read;
-  int pipe_write;
   int t;
+  int status;
   char *at_args;
   char *args_name;
   FILE *args;
-  int i;
+  FILE *wrapper_output;
   char *new_argv[3];
+  struct pex_obj *pex;
+  const char *errmsg;
 
   /* Write argv to a file to avoid a command line that is too long. */
   t = asprintf (&at_args, "@%s/arguments", temp_obj_dir_name);
@@ -376,11 +370,9 @@ exec_lto_wrapper (char *const argv[])
   args_name = at_args + 1;
   args = fopen (args_name, "w");
   assert (args);
-  for (i = 1; argv[i]; i++)
-    {
-      t = fprintf(args, "%s\n", argv[i]);
-      assert (t >= 0);
-    }
+
+  t = writeargv (&argv[1], args);
+  assert (t == 0);
   t = fclose (args);
   assert (t == 0);
 
@@ -390,50 +382,34 @@ exec_lto_wrapper (char *const argv[])
 
   if (debug)
     {
+      int i;
       for (i = 0; new_argv[i]; i++)
 	fprintf (stderr, "%s ", new_argv[i]);
       fprintf (stderr, "\n");
     }
 
-  t = pipe (pipefd);
+
+  pex = pex_init (PEX_USE_PIPES, "lto-wrapper", NULL);
+  assert (pex != NULL);
+
+  errmsg = pex_run (pex, 0, new_argv[0], new_argv, NULL, NULL, &t);
+  assert (errmsg == NULL);
   assert (t == 0);
-  pipe_read = pipefd[0];
-  pipe_write = pipefd[1];
 
-  pid = fork ();
-  assert (pid >= 0);
-  if (pid == 0)
-    {
-      /* Child. redirect stdout to the pipe. Exec lto-wrapper. */
-      t = close (1);
-      assert (t == 0);
-      t = close (pipe_read);
-      assert (t == 0);
-      t = dup2 (pipe_write, 1);
-      assert (t == 1);
-      execv (new_argv[0], new_argv);
-      perror ("error: ");
-      exit (1);
-    }
-  else
-    {
-      int status;
-      int p;
+  wrapper_output = pex_read_output (pex, 0);
+  assert (wrapper_output);
 
-      /* Parent. Read the child output and wait for it to finish. */
-      t = close (pipe_write);
-      assert (t == 0);
+  add_output_files (wrapper_output);
 
-      add_output_files (pipe_read);
+  t = pex_get_status (pex, 1, &status);
+  assert (t == 1);
+  assert (WIFEXITED (status) && WEXITSTATUS (status) == 0);
 
-      p = wait (&status);
-      assert (p == pid);
-      assert (WIFEXITED (status) && WEXITSTATUS (status) == 0);
+  pex_free (pex);
 
-      t = unlink (args_name);
-      assert (t == 0);
-      free (at_args);
-    }
+  t = unlink (args_name);
+  assert (t == 0);
+  free (at_args);
 }
 
 /* Pass the original files back to the linker. */

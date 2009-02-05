@@ -192,10 +192,11 @@ if [[ -n "${frag}" ]]; then
 fi
 
 # If they didn't specify --enable-shared, don't generate shared libs.
+# We build shared by default in lto. Find a better way before merging.
 case "${enable_shared}" in
   yes) shared=yes ;;
   no) shared=no ;;
-  "") shared=no ;;
+  "") shared=yes ;;
   *) shared=yes ;;
 esac
 if [[ "${shared}" = "yes" ]]; then
