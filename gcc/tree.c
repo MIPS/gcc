@@ -3990,6 +3990,15 @@ free_lang_data_in_decl (tree decl)
     {
       tree context = DECL_CONTEXT (decl);
       tree t;
+
+      /* An weakref to an external function is DECL_EXTERNAL but not
+	 TREE_PUBLIC. FIXME lto: This is confusing, why does it need to be
+	 DECL_EXTERNAL? */
+
+      if (DECL_EXTERNAL (decl)
+	  && !lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
+	TREE_PUBLIC (decl) = true;
+
       if (context && TREE_CODE (context) == FUNCTION_DECL)
 	DECL_CONTEXT (decl) = NULL_TREE;
       for (t = DECL_ARGUMENTS (decl); t ; t = TREE_CHAIN (t))
