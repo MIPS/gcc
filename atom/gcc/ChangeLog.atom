@@ -1,6 +1,6 @@
 2009-02-05  Joey Ye  <joey.ye@intel.com>
-			Xuepeng Guo <xuepeng.guo@intel.com>
-			H.J. Lu  <hongjiu.lu@intel.com>
+	    Xuepeng Guo <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
 
 	Atom pipeline model, tuning and insn selection.
 	* rtlanal.c (reg_mentioned_by_mem_p_1): New function.
@@ -40,9 +40,9 @@
 	(distance_agu_use): Likewise.
 	(ix86_lea_for_add_ok): Likewise.
 	(ix86_dep_by_shift_count): Likewise.
+	(ix86_agi_dependent): Make it global.
 	(ix86_issue_rate): New case PROCESSOR_ATOM.
 	(ix86_adjust_cost): Likewise.
-	(ix86_agi_dependent): Discard attr_type argument.
 
 	* config/i386/i386.md (cpu): Add new value "atom".
 	(atom.md): Include atom.md.
@@ -111,96 +111,13 @@
 	(ssse3_palignrti): Likewise.
 	(ssse3_palignrdi): Likewise.
 
-	* config/i386/atom.md: New machine description for Atom.
-	(atom_other): New insn reservation.
-	(atom_other_2): Likewise.
-	(atom_multi): Likewise.
-	(atom_alu): Likewise.
-	(atom_alu_mem): Likewise.
-	(atom_alu_carry): Likewise.
-	(atom_alu_carry_mem): Likewise.
-	(atom_alu1): Likewise.
-	(atom_alu1_mem): Likewise.
-	(atom_negnot): Likewise.
-	(atom_negnot_mem): Likewise.
-	(atom_imov): Likewise.
-	(atom_imov_mem): Likewise.
-	(atom_imovx): Likewise.
-	(atom_imovx_2): Likewise.
-	(atom_imovx_3): Likewise.
-	(atom_imovx_mem): Likewise.
-	(atom_imovx_2_mem): Likewise.
-	(atom_lea): Likewise.
-	(atom_lea_2): Likewise.
-	(atom_incdec): Likewise.
-	(atom_incdec_mem): Likewise.
-	(atom_ishift): Likewise.
-	(atom_ishift_mem): Likewise.
-	(atom_ishift_3): Likewise.
-	(atom_ishift1): Likewise.
-	(atom_ishift1_mem): Likewise.
-	(atom_rotate): Likewise.
-	(atom_rotate_mem): Likewise.
-	(atom_rotate1): Likewise.
-	(atom_rotate1_mem): Likewise.
-	(atom_imul): Likewise.
-	(atom_imul_mem): Likewise.
-	(atom_imul_3): Likewise.
-	(atom_idiv): Likewise.
-	(atom_icmp): Likewise.
-	(atom_icmp_mem): Likewise.
-	(atom_test): Likewise.
-	(atom_test_mem): Likewise.
-	(atom_ibr): Likewise.
-	(atom_ibr_2): Likewise.
-	(atom_setcc): Likewise.
-	(atom_setcc_2): Likewise.
-	(atom_icmov): Likewise.
-	(atom_icmov_mem): Likewise.
-	(atom_push): Likewise.
-	(atom_pop): Likewise.
-	(atom_pop_2): Likewise.
-	(atom_call): Likewise.
-	(atom_callv): Likewise.
-	(atom_leave): Likewise.
-	(atom_str): Likewise.
-	(atom_sselog): Likewise.
-	(atom_sselog_mem): Likewise.
-	(atom_sselog1): Likewise.
-	(atom_sselog1_mem): Likewise.
-	(atom_sseiadd): Likewise.
-	(atom_sseiadd_2): Likewise.
-	(atom_sseiadd_3): Likewise.
-	(atom_sseiadd_4): Likewise.
-	(atom_sseishft): Likewise.
-	(atom_sseishft_2): Likewise.
-	(atom_sseishft_3): Likewise.
-	(atom_sseimul): Likewise.
-	(atom_sse): Likewise.
-	(atom_sse_2): Likewise.
-	(atom_sse_3): Likewise.
-	(atom_sse_4): Likewise.
-	(atom_sse_5): Likewise.
-	(atom_ssemov): Likewise.
-	(atom_ssemov_2): Likewise.
-	(atom_ssemov_3): Likewise.
-	(atom_ssemov_4): Likewise.
-	(atom_ssemov_5): Likewise.
-	(atom_sseadd): Likewise.
-	(atom_sseadd_mem): Likewise.
-	(atom_sseadd_3): Likewise.
-	(atom_ssemul): Likewise.
-	(atom_ssemul_2): Likewise.
-	(atom_ssecmp): Likewise.
-	(atom_ssecomi): Likewise.
-	(atom_ssecvt): Likewise.
-	(atom_ssecvt_2): Likewise.
-	(atom_ssecvt_3): Likewise.
-	(atom_sseicvt): Likewise.
-	(atom_sseicvt_2): Likewise.
-	(atom_ssediv): Likewise.
-	(atom_fmov): Likewise.
-	(atom_fmov_mem): Likewise.
+	* config/i386/atom.md: New.
+
+2009-02-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_agi_dependent): Remove the third
+	argument.  Swap the first 2 arguments.
+	(ix86_adjust_cost): Updated.
 
 2009-01-30  Vladimir Makarov  <vmakarov@redhat.com>
 
