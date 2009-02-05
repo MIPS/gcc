@@ -1,5 +1,7 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
+	* config/linux.opt: Put mglibc before muclibc.
+
 	* df-problems.c (df_byte_lr_alloc): Don't assign problem_data to
 	itself.
 	(df_simulate_one_insn_forwards): Move default case out of inner
