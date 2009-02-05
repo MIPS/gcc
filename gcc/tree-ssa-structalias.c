@@ -1698,7 +1698,6 @@ do_ds_constraint (constraint_t c, bitmap delta)
       varinfo_t v = get_varinfo (j);
       unsigned int t;
       HOST_WIDE_INT fieldoffset = v->offset + loff;
-      bitmap tmp;
 
       if (v->is_special_var)
 	continue;
@@ -1716,17 +1715,17 @@ do_ds_constraint (constraint_t c, bitmap delta)
 	  if (v->may_have_pointers)
 	    {
 	      t = find (v->id);
-	      tmp = get_varinfo (t)->solution;
-
-	      if (set_union_with_increment (tmp, sol, 0))
+	      if (add_graph_edge (graph, t, rhs))
 		{
-		  get_varinfo (t)->solution = tmp;
-		  if (t == rhs)
-		    sol = get_varinfo (rhs)->solution;
-		  if (!TEST_BIT (changed, t))
+		  if (bitmap_ior_into (get_varinfo (t)->solution, sol))
 		    {
-		      SET_BIT (changed, t);
-		      changed_count++;
+		      if (t == rhs)
+			sol = get_varinfo (rhs)->solution;
+		      if (!TEST_BIT (changed, t))
+			{
+			  SET_BIT (changed, t);
+			  changed_count++;
+			}
 		    }
 		}
 	    }

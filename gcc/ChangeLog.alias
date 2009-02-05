@@ -1,3 +1,7 @@
+2009-02-05  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r143958.
+
 2009-02-04  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-structalias.c (struct variable_info): Add may_have_pointers
