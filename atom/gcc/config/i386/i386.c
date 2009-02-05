@@ -1036,6 +1036,79 @@ struct processor_costs core2_cost = {
   1,                                    /* cond_not_taken_branch_cost.  */
 };
 
+static const
+struct processor_costs atom_cost = {
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (2)},			/*                               other */
+  0,					/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
+  8,					/* "large" insn */
+  17,					/* MOVE_RATIO */
+  2,					/* cost for loading QImode using movzbl */
+  {4, 4, 4},				/* cost of loading integer registers
+					   in QImode, HImode and SImode.
+					   Relative to reg-reg move (2).  */
+  {4, 4, 4},				/* cost of storing integer registers */
+  4,					/* cost of reg,reg fld/fst */
+  {12, 12, 12},				/* cost of loading fp registers
+					   in SFmode, DFmode and XFmode */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
+  2,					/* cost of moving MMX register */
+  {8, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {8, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {8, 8, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {8, 8, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  5,					/* MMX or SSE register to integer */
+  32,					/* size of l1 cache.  */
+  256,					/* size of l2 cache.  */
+  64,					/* size of prefetch block */
+  6,					/* number of parallel prefetches */
+  3,					/* Branch cost */
+  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
+  {{libcall, {{11, loop}, {-1, rep_prefix_4_byte}}},
+   {libcall, {{32, loop}, {64, rep_prefix_4_byte},
+          {8192, rep_prefix_8_byte}, {-1, libcall}}}},
+  {{libcall, {{8, loop}, {15, unrolled_loop},
+          {2048, rep_prefix_4_byte}, {-1, libcall}}},
+   {libcall, {{24, loop}, {32, unrolled_loop},
+          {8192, rep_prefix_8_byte}, {-1, libcall}}}},
+  1,                                    /* scalar_stmt_cost.  */
+  1,                                    /* scalar load_cost.  */
+  1,                                    /* scalar_store_cost.  */
+  1,                                    /* vec_stmt_cost.  */
+  1,                                    /* vec_to_scalar_cost.  */
+  1,                                    /* scalar_to_vec_cost.  */
+  1,                                    /* vec_align_load_cost.  */
+  2,                                    /* vec_unalign_load_cost.  */
+  1,                                    /* vec_store_cost.  */
+  3,                                    /* cond_taken_branch_cost.  */
+  1,                                    /* cond_not_taken_branch_cost.  */
+};
+
 /* Generic64 should produce code tuned for Nocona and K8.  */
 static const
 struct processor_costs generic64_cost = {
@@ -1194,6 +1267,7 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_PENT4  (1<<PROCESSOR_PENTIUM4)
 #define m_NOCONA  (1<<PROCESSOR_NOCONA)
 #define m_CORE2  (1<<PROCESSOR_CORE2)
+#define m_ATOM  (1<<PROCESSOR_ATOM)
 
 #define m_GEODE  (1<<PROCESSOR_GEODE)
 #define m_K6  (1<<PROCESSOR_K6)
@@ -1231,10 +1305,11 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_486 | m_PENT,
 
   /* X86_TUNE_UNROLL_STRLEN */
-  m_486 | m_PENT | m_PPRO | m_AMD_MULTIPLE | m_K6 | m_CORE2 | m_GENERIC,
+  m_486 | m_PENT | m_ATOM | m_PPRO | m_AMD_MULTIPLE | m_K6
+  | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_DEEP_BRANCH_PREDICTION */
-  m_PPRO | m_K6_GEODE | m_AMD_MULTIPLE | m_PENT4 | m_GENERIC,
+  m_ATOM | m_PPRO | m_K6_GEODE | m_AMD_MULTIPLE | m_PENT4 | m_GENERIC,
 
   /* X86_TUNE_BRANCH_PREDICTION_HINTS: Branch hints were put in P4 based
      on simulation result. But after P4 was made, no performance benefit
@@ -1246,12 +1321,12 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   ~m_386,
 
   /* X86_TUNE_USE_SAHF */
-  m_PPRO | m_K6_GEODE | m_K8 | m_AMDFAM10 | m_PENT4
+  m_ATOM | m_PPRO | m_K6_GEODE | m_K8 | m_AMDFAM10 | m_PENT4
   | m_NOCONA | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_MOVX: Enable to zero extend integer registers to avoid
      partial dependencies.  */
-  m_AMD_MULTIPLE | m_PPRO | m_PENT4 | m_NOCONA
+  m_AMD_MULTIPLE | m_ATOM | m_PPRO | m_PENT4 | m_NOCONA
   | m_CORE2 | m_GENERIC | m_GEODE /* m_386 | m_K6 */,
 
   /* X86_TUNE_PARTIAL_REG_STALL: We probably ought to watch for partial
@@ -1271,13 +1346,13 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_386 | m_486 | m_K6_GEODE,
 
   /* X86_TUNE_USE_SIMODE_FIOP */
-  ~(m_PPRO | m_AMD_MULTIPLE | m_PENT | m_CORE2 | m_GENERIC),
+  ~(m_PPRO | m_AMD_MULTIPLE | m_PENT | m_ATOM | m_CORE2 | m_GENERIC),
 
   /* X86_TUNE_USE_MOV0 */
   m_K6,
 
   /* X86_TUNE_USE_CLTD */
-  ~(m_PENT | m_K6 | m_CORE2 | m_GENERIC),
+  ~(m_PENT | m_ATOM | m_K6 | m_CORE2 | m_GENERIC),
 
   /* X86_TUNE_USE_XCHGB: Use xchgb %rh,%rl instead of rolw/rorw $8,rx.  */
   m_PENT4,
@@ -1292,8 +1367,8 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   ~(m_PENT | m_PPRO),
 
   /* X86_TUNE_PROMOTE_QIMODE */
-  m_K6_GEODE | m_PENT | m_386 | m_486 | m_AMD_MULTIPLE | m_CORE2
-  | m_GENERIC /* | m_PENT4 ? */,
+  m_K6_GEODE | m_PENT | m_ATOM | m_386 | m_486 | m_AMD_MULTIPLE
+  | m_CORE2 | m_GENERIC /* | m_PENT4 ? */,
 
   /* X86_TUNE_FAST_PREFIX */
   ~(m_PENT | m_486 | m_386),
@@ -1317,26 +1392,28 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_PPRO,
 
   /* X86_TUNE_ADD_ESP_4: Enable if add/sub is preferred over 1/2 push/pop.  */
-  m_AMD_MULTIPLE | m_K6_GEODE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+  m_ATOM | m_AMD_MULTIPLE | m_K6_GEODE | m_PENT4 | m_NOCONA
+  | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_ADD_ESP_8 */
-  m_AMD_MULTIPLE | m_PPRO | m_K6_GEODE | m_386
+  m_AMD_MULTIPLE | m_ATOM | m_PPRO | m_K6_GEODE | m_386
   | m_486 | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_SUB_ESP_4 */
-  m_AMD_MULTIPLE | m_PPRO | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+  m_AMD_MULTIPLE | m_ATOM | m_PPRO | m_PENT4 | m_NOCONA | m_CORE2
+  | m_GENERIC,
 
   /* X86_TUNE_SUB_ESP_8 */
-  m_AMD_MULTIPLE | m_PPRO | m_386 | m_486
+  m_AMD_MULTIPLE | m_ATOM | m_PPRO | m_386 | m_486
   | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_INTEGER_DFMODE_MOVES: Enable if integer moves are preferred
      for DFmode copies */
-  ~(m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2
+  ~(m_AMD_MULTIPLE | m_ATOM | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2
     | m_GENERIC | m_GEODE),
 
   /* X86_TUNE_PARTIAL_REG_DEPENDENCY */
-  m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+  m_AMD_MULTIPLE | m_ATOM | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_SSE_PARTIAL_REG_DEPENDENCY: In the Generic model we have a
      conflict here in between PPro/Pentium4 based chips that thread 128bit
@@ -1347,7 +1424,8 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
      shows that disabling this option on P4 brings over 20% SPECfp regression,
      while enabling it on K8 brings roughly 2.4% regression that can be partly
      masked by careful scheduling of moves.  */
-  m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC | m_AMDFAM10,
+  m_ATOM | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC
+  | m_AMDFAM10,
 
   /* X86_TUNE_SSE_UNALIGNED_MOVE_OPTIMAL */
   m_AMDFAM10,
@@ -1365,13 +1443,13 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_PPRO | m_PENT4 | m_NOCONA,
 
   /* X86_TUNE_MEMORY_MISMATCH_STALL */
-  m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+  m_AMD_MULTIPLE | m_ATOM | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_PROLOGUE_USING_MOVE */
-  m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC,
+  m_ATHLON_K8 | m_ATOM | m_PPRO | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_EPILOGUE_USING_MOVE */
-  m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC,
+  m_ATHLON_K8 | m_ATOM | m_PPRO | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_SHIFT1 */
   ~m_486,
@@ -1380,29 +1458,32 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_AMD_MULTIPLE,
 
   /* X86_TUNE_INTER_UNIT_MOVES */
-  ~(m_AMD_MULTIPLE | m_GENERIC),
+  ~(m_AMD_MULTIPLE | m_ATOM | m_GENERIC),
 
   /* X86_TUNE_INTER_UNIT_CONVERSIONS */
   ~(m_AMDFAM10),
 
   /* X86_TUNE_FOUR_JUMP_LIMIT: Some CPU cores are not able to predict more
      than 4 branch instructions in the 16 byte window.  */
-  m_PPRO | m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+  m_ATOM | m_PPRO | m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2
+  | m_GENERIC,
 
   /* X86_TUNE_SCHEDULE */
-  m_PPRO | m_AMD_MULTIPLE | m_K6_GEODE | m_PENT | m_CORE2 | m_GENERIC,
+  m_PPRO | m_AMD_MULTIPLE | m_K6_GEODE | m_PENT | m_ATOM | m_CORE2
+  | m_GENERIC,
 
   /* X86_TUNE_USE_BT */
-  m_AMD_MULTIPLE | m_CORE2 | m_GENERIC,
+  m_AMD_MULTIPLE | m_ATOM | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_USE_INCDEC */
-  ~(m_PENT4 | m_NOCONA | m_GENERIC),
+  ~(m_PENT4 | m_NOCONA | m_GENERIC | m_ATOM),
 
   /* X86_TUNE_PAD_RETURNS */
   m_AMD_MULTIPLE | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_EXT_80387_CONSTANTS */
-  m_K6_GEODE | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC,
+  m_K6_GEODE | m_ATHLON_K8 | m_ATOM | m_PENT4 | m_NOCONA | m_PPRO
+  | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_SHORTEN_X87_SSE */
   ~m_K8,
@@ -1447,6 +1528,10 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
      with a subsequent conditional jump instruction into a single
      compare-and-branch uop.  */
   m_CORE2,
+
+  /* X86_TUNE_OPT_AGU: Optimize for Address Generation Unit. This flag
+     will impact LEA instruction selection. */
+  m_ATOM,
 };
 
 /* Feature tests against the various architecture variations.  */
@@ -1472,10 +1557,11 @@ static unsigned int initial_ix86_arch_features[X86_ARCH_LAST] = {
 };
 
 static const unsigned int x86_accumulate_outgoing_args
-  = m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC;
+  = m_AMD_MULTIPLE | m_ATOM | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2
+    | m_GENERIC;
 
 static const unsigned int x86_arch_always_fancy_math_387
-  = m_PENT | m_PPRO | m_AMD_MULTIPLE | m_PENT4
+  = m_PENT | m_ATOM | m_PPRO | m_AMD_MULTIPLE | m_PENT4
     | m_NOCONA | m_CORE2 | m_GENERIC;
 
 static enum stringop_alg stringop_alg = no_stringop;
@@ -1958,7 +2044,8 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {&core2_cost, 16, 10, 16, 10, 16},
   {&generic32_cost, 16, 7, 16, 7, 16},
   {&generic64_cost, 16, 10, 16, 10, 16},
-  {&amdfam10_cost, 32, 24, 32, 7, 32}
+  {&amdfam10_cost, 32, 24, 32, 7, 32},
+  {&atom_cost, 16, 7, 16, 7, 16}
 };
 
 static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
@@ -1976,6 +2063,7 @@ static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
   "prescott",
   "nocona",
   "core2",
+  "atom",
   "geode",
   "k6",
   "k6-2",
@@ -2532,6 +2620,9 @@ override_options (bool main_args_p)
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_CX16 | PTA_NO_SAHF},
       {"core2", PROCESSOR_CORE2, CPU_CORE2,
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_SSSE3 | PTA_CX16},
+      {"atom", PROCESSOR_ATOM, CPU_ATOM,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_CX16},
       {"geode", PROCESSOR_GEODE, CPU_GEODE,
@@ -12765,6 +12856,263 @@ ix86_expand_unary_operator (enum rtx_code code, enum machine_mode mode,
     emit_move_insn (operands[0], dst);
 }
 
+#define LEA_SEARCH_THRESHOLD 12
+
+/* Reach non-agu definition of op1 and op2 in insn's basic block. 
+   Search backward until 1. passed LEA_SEARCH_THRESHOLD instructions, 
+   or 2. reach BB boundary, or reach agu definition. 
+   Returns the distance between the non-agu definition point and insn.
+   If no definition point, returns -1 
+   TODO: Currently we have no way to distinguish if definition insn is a LEA. 
+   We just assume all definitions are non-lea. */
+static int
+distance_non_agu_define (rtx op1, rtx op2, rtx insn)
+{
+  rtx reg_op1 = REG_P (op1) ? op1 : NULL;
+  rtx reg_op2 = REG_P (op2) ? op2 : NULL;
+  basic_block bb = BLOCK_FOR_INSN (insn);
+  int distance = 0;
+
+  if (insn != BB_HEAD (bb))
+    {
+
+      rtx prev = PREV_INSN (insn);
+      while (prev && distance < LEA_SEARCH_THRESHOLD)
+	{
+	  if (INSN_P (prev))
+	    {
+	      distance++;
+	      if ((reg_op1 && reg_set_p (reg_op1, prev))
+		  || (reg_op2 && reg_set_p (reg_op2, prev)))
+		return distance ;
+	    }
+	  if (prev == BB_HEAD (bb))
+	    break;
+	  prev = PREV_INSN (prev);
+	}
+    }
+  
+  if (distance < LEA_SEARCH_THRESHOLD)
+    {
+      edge e;
+      edge_iterator ei;
+      bool simple_loop = false;
+  
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (e->src == bb)
+	  {
+	    simple_loop = true;
+	    break;
+	  }
+  
+      if (simple_loop)
+	{
+	  rtx prev = BB_END (bb);
+	  while (prev
+		 && prev != insn
+		 && distance < LEA_SEARCH_THRESHOLD)
+	    {
+	      if (INSN_P (prev))
+		{
+		  distance++;
+		  if ((reg_op1 && reg_set_p (reg_op1, prev))
+		      || (reg_op2 && reg_set_p (reg_op2, prev)))
+		    return distance;
+		}
+	      prev = PREV_INSN (prev);
+	    }
+	}
+    }
+
+  return -1;
+}
+
+/* Return the distance between this insn and the next insn that uses 
+   result of this insn as memory address. 
+   Return -1 if not found such a use within LEA_SEARCH_THRESHOLD. */
+static int
+distance_agu_use (rtx op0, rtx insn)
+{
+  basic_block bb = BLOCK_FOR_INSN (insn);
+  int distance = 0;
+
+  if (insn != BB_END(bb))
+    {
+      rtx next = NEXT_INSN (insn);
+
+      while (next && distance < LEA_SEARCH_THRESHOLD)
+	{
+	  if (INSN_P (next))
+	    {
+	      distance++;
+	      if (reg_mentioned_by_mem_p (op0, next))
+		return distance;
+	      if (reg_set_p (op0, next))
+		return -1;
+	    }
+	  if (next == BB_END (bb))
+	    break;
+	  next = NEXT_INSN (next);
+	}
+    }
+
+  if (distance < LEA_SEARCH_THRESHOLD)
+    {
+      edge e;
+      edge_iterator ei;
+      bool simple_loop = false;
+  
+      FOR_EACH_EDGE (e, ei, bb->succs)
+        if (e->dest == bb)
+	  {
+	    simple_loop = true;
+	    break;
+	  }
+  
+      if (simple_loop)
+	{
+	  rtx next = BB_HEAD (bb);
+	  while (next && distance < LEA_SEARCH_THRESHOLD)
+	    {
+	      if (next == insn)
+		break;
+	      if (INSN_P (next))
+		{
+		  distance++;
+		  if (reg_mentioned_by_mem_p (op0, next))
+		    return distance;
+		  if (reg_set_p (op0, next))
+		    return -1;
+		}
+	      next = NEXT_INSN (next);
+	    }
+	}
+    }  
+
+  return -1;
+}
+
+/* Define this macro to tune LEA priority vs ADD, it take effect when
+   there is a dilemma of choicing LEA or ADD
+   Negative value: ADD is more preferred than LEA
+   Zero: Netrual
+   Positive value: LEA is more preferred than ADD*/
+#define IX86_LEA_PRIORITY 2
+
+/* Return true if it is ok to optimize an ADD operation to LEA
+   operation to avoid flag register consumation.  For the processors
+   like ATOM, if the destination register of LEA holds an actual
+   address which will be used soon, LEA is better and otherwise ADD
+   is better.  */
+
+bool
+ix86_lea_for_add_ok (enum rtx_code code ATTRIBUTE_UNUSED,
+                     rtx insn,
+                     rtx operands[])
+{
+  gcc_assert (REG_P (operands[0]));
+  gcc_assert (operands[1] && operands[2]);
+
+  if (!TARGET_OPT_AGU || optimize_function_for_size_p (cfun))
+    {
+      if (true_regnum (operands[0]) != true_regnum (operands[1]))
+        return true;
+      else
+        return false;
+    }
+
+  /* If a = b + c, (a!=b && a!=c), must use lea form. */
+  if (true_regnum (operands[0]) != true_regnum (operands[1])
+      && true_regnum (operands[0]) != true_regnum (operands[2]))
+    return true;
+  else    
+    {
+      int dist_define, dist_use;
+      dist_define = distance_non_agu_define (operands[1],
+					     operands[2], insn);
+      if (dist_define <= 0)
+        return true;
+
+      /* If this insn has both backward non-agu dependence and forward
+         agu dependence, the one with short distance take effect. */
+      dist_use = distance_agu_use (operands[0], insn);
+      if (dist_use <= 0
+	  || (dist_define + IX86_LEA_PRIORITY) < dist_use)
+        return false;
+
+      return true;
+    }
+}
+
+/* Return true if destination reg of SET_INSN is shift count of
+   USE_INSN.  */
+
+bool
+ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn)
+{
+  rtx set_pattern = PATTERN (set_insn);
+  rtx set_dest;
+  rtx shift_rtx;
+  rtx use_pattern;
+
+  /* Retrieve destination of set_insn */
+  switch (GET_CODE (set_pattern))
+    {
+    case SET:
+      set_dest = SET_DEST (set_pattern);
+      break;
+    case PARALLEL:
+      set_pattern = XVECEXP (set_pattern, 0, 0);
+      if (GET_CODE (set_pattern ) == SET)
+	{
+	  set_dest = SET_DEST (set_pattern);
+	  break;
+	}
+    default:
+      set_dest = NULL;
+      break;
+    }
+  if (!set_dest || !REG_P (set_dest))
+    return false;
+
+  /* Retrieve shift count of use_insn */
+  use_pattern = PATTERN (use_insn);
+  switch (GET_CODE (use_pattern))
+    {
+    case SET:
+      shift_rtx = XEXP (use_pattern, 1);
+      break;
+    case PARALLEL:
+      set_pattern = XVECEXP (use_pattern, 0, 0);
+      if (GET_CODE (set_pattern) == SET)
+	{
+	  shift_rtx = XEXP (set_pattern, 1);
+	  break;
+	}
+    default:
+      shift_rtx = NULL;
+      break;
+    }
+
+  if (shift_rtx 
+      && (GET_CODE (shift_rtx) == ASHIFT
+	  || GET_CODE (shift_rtx) == LSHIFTRT
+	  || GET_CODE (shift_rtx) == ASHIFTRT
+	  || GET_CODE (shift_rtx) == ROTATE
+	  || GET_CODE (shift_rtx) == ROTATERT))
+    {
+      rtx shift_count = XEXP (shift_rtx, 1);
+      gcc_assert (shift_count);
+
+      /* Return true if shift count is dest of set_insn */
+      if (REG_P (shift_count)
+	  && true_regnum (set_dest) == true_regnum (shift_count))
+	return true;
+    }
+
+  return false;
+}
+
 /* Return TRUE or FALSE depending on whether the unary operator meets the
    appropriate constraints.  */
 
@@ -18884,6 +19232,7 @@ ix86_issue_rate (void)
   switch (ix86_tune)
     {
     case PROCESSOR_PENTIUM:
+    case PROCESSOR_ATOM:
     case PROCESSOR_K6:
       return 2;
 
@@ -18950,41 +19299,21 @@ ix86_flags_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
   return 1;
 }
 
-/* A subroutine of ix86_adjust_cost -- return true iff INSN has a memory
-   address with operands set by DEP_INSN.  */
+/* Return true iff USE_INSN has a memory address with operands set by
+   SET_INSN.  */
 
-static int
-ix86_agi_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
+bool
+ix86_agi_dependent (rtx set_insn, rtx use_insn)
 {
-  rtx addr;
-
-  if (insn_type == TYPE_LEA
-      && TARGET_PENTIUM)
-    {
-      addr = PATTERN (insn);
-
-      if (GET_CODE (addr) == PARALLEL)
-	addr = XVECEXP (addr, 0, 0);
-
-      gcc_assert (GET_CODE (addr) == SET);
-
-      addr = SET_SRC (addr);
-    }
-  else
-    {
-      int i;
-      extract_insn_cached (insn);
-      for (i = recog_data.n_operands - 1; i >= 0; --i)
-	if (MEM_P (recog_data.operand[i]))
-	  {
-	    addr = XEXP (recog_data.operand[i], 0);
-	    goto found;
-	  }
-      return 0;
-    found:;
-    }
-
-  return modified_in_p (addr, dep_insn);
+  int i;
+  extract_insn_cached (use_insn);
+  for (i = recog_data.n_operands - 1; i >= 0; --i)
+    if (MEM_P (recog_data.operand[i]))
+      {
+	rtx addr = XEXP (recog_data.operand[i], 0);
+	return modified_in_p (addr, set_insn) != 0;
+      }
+  return false;
 }
 
 static int
@@ -19012,8 +19341,19 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     {
     case PROCESSOR_PENTIUM:
       /* Address Generation Interlock adds a cycle of latency.  */
-      if (ix86_agi_dependent (insn, dep_insn, insn_type))
-	cost += 1;
+      if (insn_type == TYPE_LEA)
+	{
+	  rtx addr = PATTERN (insn);
+
+	  if (GET_CODE (addr) == PARALLEL)
+	    addr = XVECEXP (addr, 0, 0);
+
+	  gcc_assert (GET_CODE (addr) == SET);
+
+	  addr = SET_SRC (addr);
+	  if (modified_in_p (addr, dep_insn))
+	    cost += 1;
+	}
 
       /* ??? Compares pair with jump/setcc.  */
       if (ix86_flags_dependent (insn, dep_insn, insn_type))
@@ -19022,7 +19362,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
       /* Floating point stores require value to be ready one cycle earlier.  */
       if (insn_type == TYPE_FMOV
 	  && get_attr_memory (insn) == MEMORY_STORE
-	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (dep_insn, insn))
 	cost += 1;
       break;
 
@@ -19045,7 +19385,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (dep_insn, insn))
 	{
 	  /* Claim moves to take one cycle, as core can issue one load
 	     at time and the next load can start cycle later.  */
@@ -19074,7 +19414,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (dep_insn, insn))
 	{
 	  /* Claim moves to take one cycle, as core can issue one load
 	     at time and the next load can start cycle later.  */
@@ -19091,6 +19431,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     case PROCESSOR_ATHLON:
     case PROCESSOR_K8:
     case PROCESSOR_AMDFAM10:
+    case PROCESSOR_ATOM:
     case PROCESSOR_GENERIC32:
     case PROCESSOR_GENERIC64:
       memory = get_attr_memory (insn);
@@ -19099,7 +19440,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (dep_insn, insn))
 	{
 	  enum attr_unit unit = get_attr_unit (insn);
 	  int loadcost = 3;
