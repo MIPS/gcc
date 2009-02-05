@@ -236,8 +236,6 @@ static int use_pipes;
 
 static int lto_single;
 
-static int use_linker_plugin;
-
 /* The compiler version.  */
 
 static const char *compiler_version;
@@ -383,7 +381,6 @@ static const char *version_compare_spec_function (int, const char **);
 static const char *include_spec_function (int, const char **);
 static const char *print_asm_header_spec_function (int, const char **);
 static const char *lto_single_spec_function (int, const char **);
-static const char *use_linker_plugin_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -749,7 +746,7 @@ proper position among the other output files.  */
 #define LINK_COMMAND_SPEC "\
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) \
-    %{?use-linker-plugin(): \
+    %{use-linker-plugin: \
     -plugin %(linker_plugin_file) \
     -plugin-opt=%(lto_wrapper) \
     -plugin-opt=%(lto_gcc) \
@@ -1702,7 +1699,6 @@ static const struct spec_function static_spec_functions[] =
   { "include",			include_spec_function },
   { "print-asm-header",		print_asm_header_spec_function },
   { "lto-single",		lto_single_spec_function },
-  { "use-linker-plugin",	use_linker_plugin_spec_function },
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -3900,8 +3896,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
         }
       else if (strcmp (argv[i], "-flto-single") == 0)
 	lto_single = 1;
-      else if (strcmp (argv[i], "-use-linker-plugin") == 0)
-	use_linker_plugin = 1;
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -4278,8 +4272,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strcmp (argv[i], "-time") == 0)
 	;
       else if (strcmp (argv[i], "-flto-single") == 0)
-	;
-      else if (strcmp (argv[i], "-use-linker-plugin") == 0)
 	;
       else if (strcmp (argv[i], "-###") == 0)
 	;
@@ -7058,6 +7050,7 @@ main (int argc, char **argv)
   if (num_linker_inputs > 0 && error_count == 0 && print_subprocess_help < 2)
     {
       int tmp = execution_count;
+      const char *use_linker_plugin = "use-linker-plugin";
 
       /* We'll use ld if we can't find collect2.  */
       if (! strcmp (linker_name_spec, "collect2"))
@@ -7067,7 +7060,8 @@ main (int argc, char **argv)
 	    linker_name_spec = "ld";
 	}
 
-      if (use_linker_plugin)
+      if (switch_matches (use_linker_plugin,
+			  use_linker_plugin + strlen (use_linker_plugin), 0))
 	{
 	  linker_plugin_file_spec = find_a_file (&exec_prefixes,
 						 "liblto_plugin.so", X_OK,
@@ -8308,17 +8302,4 @@ lto_single_spec_function (int argc,
     abort ();
 
   return ((lto_single) ? "lto-single" : NULL);
-}
-
-/* ?use-linker-plugin() spec predicate.  Return true, i.e., a non-empty string,
-   if the -use-linker-plugin switch was given to 'gcc'.  */
-
-static const char *
-use_linker_plugin_spec_function (int argc,
-                          const char **argv ATTRIBUTE_UNUSED)
-{
-  if (argc != 0)
-    abort ();
-
-  return ((use_linker_plugin) ? "use-plugin" : NULL);
 }

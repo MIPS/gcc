@@ -1,5 +1,10 @@
 2009-02-05  Rafael Avila de Espindola  <espindola@google.com>
 
+	* gcc.c (use_linker_plugin): Remove. Update all uses.
+	(use_linker_plugin_spec_function): Remove. Update all uses.
+
+2009-02-05  Rafael Avila de Espindola  <espindola@google.com>
+
 	* tree.c (free_lang_data_in_decl): For non aliases, set TREE_PUBLIC if
 	DECL_EXTERNAL is set.
 
