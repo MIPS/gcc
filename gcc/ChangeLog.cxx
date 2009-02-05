@@ -1,5 +1,10 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
+	* main.c (main): Use CONST_CAST when adding potentially unsafe
+	const.
+	* attribs.c (init_attributes): Change slot to void** and use
+	CONST_CAST when assigning to it.
+
 	* collect2.c (is_ctor_dtor): Change ret field of struct names to
 	symkind.
 	* df-scan.c (df_ref_create_structure): Change struct df_ref * in
