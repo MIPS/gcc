@@ -1,5 +1,9 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
+	* configure.ac: Use AC_PROG_CXX.
+	* Makefile.in (CXX): Set to @CXX@.
+	* configure: Rebuild.
+
 	* main.c (main): Use CONST_CAST when adding potentially unsafe
 	const.
 	* attribs.c (init_attributes): Change slot to void** and use

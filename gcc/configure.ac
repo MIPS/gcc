@@ -276,6 +276,7 @@ rm -f a.out a.exe b.out
 # Find the native compiler
 AC_PROG_CC
 AM_PROG_CC_C_O
+AC_PROG_CXX
 ACX_PROG_GNAT([-I"$srcdir"/ada])
 
 # autoconf is lame and doesn't give us any substitution variable for this.

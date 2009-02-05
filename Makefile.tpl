@@ -217,6 +217,20 @@ POSTSTAGE1_HOST_EXPORTS = \
 	  $$r/$(HOST_SUBDIR)/prev-gcc/xgcc$(exeext) \
 	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ \
 	  -B$(build_tooldir)/bin/"; export CC_FOR_BUILD; \
+	CXX="$(STAGE_CC_WRAPPER) $$r/$(HOST_SUBDIR)/prev-gcc/g++$(exeext) \
+	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ -B$(build_tooldir)/bin/ \
+	  -nostdinc++ \
+	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include/$(TARGET_SUBDIR) \
+	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include \
+	  -I$$r/$(srcdir)/libstdc++-v3/libsupc++"; export CXX; \
+	CXX_FOR_BUILD="$(STAGE_CC_WRAPPER) \
+	  $$r/$(HOST_SUBDIR)/prev-gcc/g++$(exeext) \
+	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ \
+	  -B$(build_tooldir)/bin/ \
+	  -nostdinc++ \
+	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include/$(TARGET_SUBDIR) \
+	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include \
+	  -I$$r/$(srcdir)/libstdc++-v3/libsupc++"; export CXX_FOR_BUILD; \
 	LDFLAGS="$(BOOT_LDFLAGS)"; export LDFLAGS;
 
 # Target libraries are put under this directory:
@@ -513,6 +527,7 @@ X11_FLAGS_TO_PASS = \
 
 POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
+	CXX="$${CXX}" CXX_FOR_BUILD="$${CXX_FOR_BUILD}" \
 	GNATBIND="$$r/$(HOST_SUBDIR)/prev-gcc/gnatbind" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
 	"`echo 'ADAFLAGS=$(BOOT_ADAFLAGS)' | sed -e s'/[^=][^=]*=$$/XFOO=/'`"

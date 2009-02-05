@@ -1,3 +1,11 @@
+2009-02-04  Ian Lance Taylor  <iant@google.com>
+
+	* Makefile.def: Bootstrap the libstdc++-v3 target module.
+	* Makefile.tpl (POSTSTAGE1_HOST_EXPORTS): Add CXX and
+	CXX_FOR_BUILD.
+	(POSTSTAGE1_FLAGS_TO_PASS): Likewise.
+	* Makefile.in: Rebuild.
+
 2009-01-30  Ian Lance Taylor  <iant@google.com>
 
 	* configure.ac: Don't add c++ to missing_languages.  Don't use
