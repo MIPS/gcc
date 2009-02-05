@@ -1,5 +1,8 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
+	* ira-build.c (setup_min_max_conflict_allocno_ids): Use
+	LIM_REG_CLASSES instead of -1.
+
 	* config/linux.opt: Put mglibc before muclibc.
 
 	* df-problems.c (df_byte_lr_alloc): Don't assign problem_data to
