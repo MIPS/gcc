@@ -112,12 +112,11 @@ static void df_uses_record (enum df_ref_class, struct df_collection_rec *,
 			    basic_block, struct df_insn_info *,
 			    int, int, int, enum machine_mode);
 
-static struct df_ref *df_ref_create_structure (enum df_ref_class, 
-					       struct df_collection_rec *,
-					       rtx, rtx *, basic_block,
-					       struct df_insn_info *,
-					       enum df_ref_type, int,
-					       int, int, enum machine_mode);
+static df_ref df_ref_create_structure (enum df_ref_class, 
+				       struct df_collection_rec *, rtx, rtx *, 
+				       basic_block, struct df_insn_info *,
+				       enum df_ref_type, int,
+				       int, int, enum machine_mode);
 
 static void df_insn_refs_collect (struct df_collection_rec*, 
 				  basic_block, struct df_insn_info *); 
@@ -2883,7 +2882,7 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
   rtx dst;
   int offset = -1;
   int width = -1;
-  enum machine_mode mode = 0;
+  enum machine_mode mode = VOIDmode;
   enum df_ref_class cl = DF_REF_REGULAR;
 
  /* We may recursively call ourselves on EXPR_LIST when dealing with PARALLEL
@@ -2977,7 +2976,7 @@ df_defs_record (struct df_collection_rec *collection_rec,
   if (code == SET || code == CLOBBER)
     {
       /* Mark the single def within the pattern.  */
-      enum df_ref_flags clobber_flags = flags;
+      int clobber_flags = flags;
       clobber_flags |= (code == CLOBBER) ? DF_REF_MUST_CLOBBER : 0;
       df_def_record_1 (collection_rec, x, bb, insn_info, clobber_flags);
     }
@@ -3293,7 +3292,7 @@ df_get_conditional_uses (struct df_collection_rec *collection_rec)
         {
 	  int width = -1;
 	  int offset = -1;
-	  enum machine_mode mode = 0;
+	  enum machine_mode mode = VOIDmode;
           df_ref use;
 
 	  if (DF_REF_FLAGS_IS_SET (ref, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))

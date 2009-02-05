@@ -546,7 +546,7 @@ set_initial_properties (struct alias_info *ai)
   tree var;
   tree ptr;
   bool any_pt_anything = false;
-  enum escape_type pt_anything_mask = 0;
+  int pt_anything_mask = 0;
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {

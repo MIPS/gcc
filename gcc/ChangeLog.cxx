@@ -1,5 +1,41 @@
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
+	* collect2.c (is_ctor_dtor): Change ret field of struct names to
+	symkind.
+	* df-scan.c (df_ref_create_structure): Change struct df_ref * in
+	declaration to just df_ref.
+	(df_def_record_1): Change 0 to VOIDmode.
+	(df_get_conditional_uses): Likewise.
+	(df_defs_record): Change clobber_flags to int.
+	* fixed-value.c (fixed_compare): Add cast to enum type.
+	* haifa-sched.c (reemit_notes): Likewise
+	(max_issue): Put empty loop ';' on new line.
+	* ira.c (setup_class_subset_and_memory_move_costs): Add casts to
+	enum type.
+	(setup_cover_and_important_classes): Likewise.
+	(setup_reg_class_relations): Likewise.
+	* real.c (real_arithmetic): Likewise.
+	(real_compare): Likewise.
+	* rtl.h (NOTE_VAR_LOCATION_STATUS): Likewise.
+	* tree-cfg.c (gimple_redirect_edge_and_branch): Change ERROR_MARK
+	to GIMPLE_ERROR_MARK.
+	* tree-data-ref.c (print_direction_vector): Add cast to enum
+	type.
+	* tree-ssa-alias.c (set_initial_properties): Change
+	pt_anything_mask to int.
+	* tree-vectorizer.c (vect_set_verbosity_level): Add casts to enum
+	type.
+	(supportable_widening_operation): Likewise.
+	(new_stmt_vec_info): Change 0 to enum constants.
+	(vect_supportable_dr_alignment): Remove useless cast.
+	* tree-vect-analyze.c (vect_build_slp_tree): Change 0 to enum
+	constants.
+	* tree-vect-transform.c (vect_create_epilog_for_reduction):
+	Likewise.
+	(vectorizable_reduction): Likewise.  Add casts to enum types.
+	* var-tracking.c (get_init_value): Change return type and ret_val
+	local variable to enum var_init_status.
+
 	* ira-build.c (setup_min_max_conflict_allocno_ids): Use
 	LIM_REG_CLASSES instead of -1.
 

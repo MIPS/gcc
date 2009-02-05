@@ -989,7 +989,7 @@ bool
 real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
 		 const REAL_VALUE_TYPE *op1)
 {
-  enum tree_code code = icode;
+  enum tree_code code = (enum tree_code) icode;
 
   if (op0->decimal || (op1 && op1->decimal))
     return decimal_real_arithmetic (r, (enum tree_code) icode, op0, op1);
@@ -1061,7 +1061,7 @@ bool
 real_compare (int icode, const REAL_VALUE_TYPE *op0,
 	      const REAL_VALUE_TYPE *op1)
 {
-  enum tree_code code = icode;
+  enum tree_code code = (enum tree_code) icode;
 
   switch (code)
     {

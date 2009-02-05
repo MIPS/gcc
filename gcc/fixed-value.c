@@ -784,7 +784,7 @@ bool
 fixed_compare (int icode, const FIXED_VALUE_TYPE *op0,
 	       const FIXED_VALUE_TYPE *op1)
 {
-  enum tree_code code = icode;
+  enum tree_code code = (enum tree_code) icode;
   gcc_assert (op0->mode == op1->mode);
 
   switch (code)

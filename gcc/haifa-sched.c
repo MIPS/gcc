@@ -1897,7 +1897,7 @@ reemit_notes (rtx insn)
     {
       if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
 	{
-	  enum insn_note note_type = INTVAL (XEXP (note, 0));
+	  enum insn_note note_type = (enum insn_note) INTVAL (XEXP (note, 0));
 
 	  last = emit_note_before (note_type, last);
 	  remove_note (insn, note);
@@ -2131,7 +2131,8 @@ max_issue (struct ready_list *ready, int privileged_n, state_t state,
 		{
 		  n = privileged_n;
 		  /* Try to find issued privileged insn.  */
-		  while (n && !ready_try[--n]);
+		  while (n && !ready_try[--n])
+		    ;
 		}
 
 	      if (/* If all insns are equally good...  */

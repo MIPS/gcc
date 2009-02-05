@@ -537,7 +537,7 @@ dump_file (const char *name, FILE *to)
 static symkind
 is_ctor_dtor (const char *s)
 {
-  struct names { const char *const name; const int len; const int ret;
+  struct names { const char *const name; const int len; const symkind ret;
     const int two_underscores; };
 
   const struct names *p;
