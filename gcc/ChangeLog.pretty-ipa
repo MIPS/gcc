@@ -15,6 +15,7 @@
 
 	* cgraph.c (cgraph_node_can_be_local_p, cgraph_make_node_local): New
 	function.
+
 	* cgraph.h (cgraph_node_can_be_local_p, cgraph_make_node_local):
 	Declare.
 
