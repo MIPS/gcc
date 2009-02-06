@@ -1,3 +1,88 @@
+2009-02-06  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/38844
+	* ipa-inline.c (try_inline): Stop inlining recursion when edge
+	is already inlined.
+
+2009-02-06  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/38977
+	* tree-cfg.c (need_fake_edge_p): Force a fake edge for
+	fork because we may expand it as __gcov_fork.
+
+2009-02-06  Nick Clifton  <nickc@redhat.com>
+
+	* config/m32c/m32c.h (PCC_BITFIELD_TYPE_MATTERS): Define to
+	zero.
+
+2009-02-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/35659
+	* tree-ssa-sccvn.c (vn_constant_eq, vn_reference_eq, vn_nary_op_eq
+	vn_phi_eq): Shortcut if hashcode does not match.
+	(vn_reference_op_compute_hash): Do not call iterative_hash_expr for
+	NULL operands.
+	* tree-ssa-pre.c (pre_expr_hash): Look at hashcode if available,
+	and avoid iterative_hash_expr.
+	(FOR_EACH_VALUE_ID_IN_SET): New.
+	(value_id_compare): Remove.
+	(sorted_array_from_bitmap_set): Use FOR_EACH_VALUE_ID_IN_SET to
+	sort expressions by value id.
+
+2009-02-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/38991
+	* config/sh/predicates.md (general_movsrc_operand): Don't check
+	the subreg of system registers here.
+
+2009-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39106
+	* cgraphunit.c (cgraph_function_versioning): Clear also DECL_VIRTUAL_P
+	on the copied decl.
+
+2009-02-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/39110
+	* rtlanal.c (rtx_addr_can_trap_p_1): Shortcut unaligned
+	addresses, not aligned ones.
+
+2009-02-05  Daniel Berlin  <dberlin@dberlin.org>
+	    Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39100
+	* tree-ssa-structalias.c (do_ds_constraint): Actually do what the
+	comment says and add edges.
+
+2009-02-05  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35435
+	* c-common.c (handle_tls_model_attribute): Ignore attribute for
+	non-VAR_DECLs without checking DECL_THREAD_LOCAL_P.
+
+2009-02-04  Tobias Grosser  <grosser@fim.uni-passau.de>	
+
+	* graphite.c (bb_in_sese_p, sese_build_livein_liveouts_use,
+	sese_build_livein_liveouts_bb, sese_build_livein_liveouts,
+	register_bb_in_sese, new_sese, free_sese): Moved.
+	(dot_scop_1, build_scop_loop_nests, build_loop_iteration_domains,
+	outermost_loop_in_scop, build_scop_iteration_domain,
+	expand_scalar_variables_ssa_name, get_vdef_before_scop,
+	limit_scops): Use bb_in_sese_p instead of bb_in_scop_p.
+	Use loop_in_sese_p instead of loop_in_scop_p.
+	(new_graphite_bb, gloog): Do not initialize SCOP_BBS_B.
+	(new_scop, free_scop): Remove SCOP_LOOP2CLOOG_LOOP and SCOP_BBS_B.
+	(scopdet_basic_block_info): Fix bug in scop detection.
+	(new_loop_to_cloog_loop_str, hash_loop_to_cloog_loop,
+	eq_loop_to_cloog_loop): Remove.
+	(nb_loops_around_loop_in_scop, nb_loop
+	ref_nb_loops): Moved here...
+	* graphite.h (ref_nb_loops): ... from here.
+	(struct scop): Remove bbs_b bitmap and loop2cloog_loop.
+	(loop_domain_dim, loop_iteration_vector_dim): Remove.
+	(SCOP_BBS_B, bb_in_scop_p, loop_in_scop_p): Removed.
+	* testsuite/gcc.dg/graphite/scop-19.c: New
+
 2009-02-04  Paolo Bonzini  <bonzini@gnu.org>
 	    Hans-Peter Nilsson  <hp@axis.com>
 
@@ -24,8 +109,7 @@
 
 	PR tree-optimization/38977
 	PR gcov-profile/38292
-	* calls.c (special_function_p): Disregard __builtin_
-	prefix.
+	* calls.c (special_function_p): Disregard __builtin_ prefix.
 
 2009-02-04  Hariharan Sandanagobalane  <hariharan@picochip.com>
 
@@ -77,8 +161,7 @@
 
 2009-02-02  Catherine Moore  <clm@codesourcery.com>
 
-	* sde.h (SUBTARGET_ARM_SPEC): Don;t assemble -fpic code as
-	-mabicalls.
+	* sde.h (SUBTARGET_ARM_SPEC): Don;t assemble -fpic code as -mabicalls.
 
 2009-02-02  Richard Sandiford  <rdsandiford@googlemail.com>
 
@@ -145,8 +228,7 @@
 
 	PR target/38952
 	* config/i386/i386.c (ix86_builtin_setjmp_frame_value): New.
-	(TARGET_BUILTIN_SETJMP_FRAME_VALUE): Override default to point
-	at it.
+	(TARGET_BUILTIN_SETJMP_FRAME_VALUE): Override default to point at it.
 
 2009-01-31  Richard Guenther  <rguenther@suse.de>
 
@@ -235,8 +317,7 @@
 
 	* caller-save.c (setup_save_areas): Remove flag_ira.
 
-	* ira-color.c (ira_reuse_stack_slot, ira_mark_new_stack_slot):
-	Ditto.
+	* ira-color.c (ira_reuse_stack_slot, ira_mark_new_stack_slot): Ditto.
 
 	* global.c: Remove the file.
 
@@ -267,7 +348,7 @@
 	no_equiv, recorded_label_ref): Move from local-alloc.c.
 	(update_equiv_regs): Ditto.  Make it static.
 	(print_insn_chain, print_insn_chains): Move it from global.c.
-	pseudo_for_reload_consideration_p): Ditto.  Remove flag_ira.
+	(pseudo_for_reload_consideration_p): Ditto.  Remove flag_ira.
 	(build_insn_chain): Ditto.  Make it static.
 	(ra_init_live_subregs): Move from ra-conflict.c.  Make it static.
 	Rename to init_live_subregs.
@@ -282,8 +363,7 @@
 	(init_regs): Remove init_reg_autoinc.
 	(struct costs, costs, init_cost, ok_for_index_p_nonstrict,
 	ok_for_base_p_nonstrict): Remove.
-	(regclass_init): Rename to reginfo_init.  Don't initialize
-	init_cost.
+	(regclass_init): Rename to reginfo_init.  Don't initialize init_cost.
 	(pass_regclass_init): Rename to pass_reginfo_init.  Modify
 	corresponding entries.
 	(dump_regclass, record_operand_costs, scan_one_insn,
@@ -292,8 +372,7 @@
 	(gt-regclass.h): Rename to gt-reginfo.h.
 
 	* rtl.h (dump_global_regs, retry_global_alloc,
-	build_insn_chain, dump_local_alloc, update_equiv_regs):
-	Remove.
+	build_insn_chain, dump_local_alloc, update_equiv_regs): Remove.
 
 	* Makefile.in (RA_H): Remove.
 	(OBJS-common): Remove global.o, local-alloc.o, and ra-conflict.o.
@@ -304,8 +383,7 @@
 	(GTFILES): Rename regclass.c to	reginfo.c.
 
 	* passes.c (init_optimization_passes): Remove pass_local_alloc and
-	pass_global_alloc.  Rename pass_regclass_init to
-	pass_reginfo_init.
+	pass_global_alloc.  Rename pass_regclass_init to pass_reginfo_init.
 
 	* reload1.c (compute_use_by_pseudos, reload, count_pseudo,
 	count_spilled_pseudo, find_reg, alter_reg, delete_output_reload):
@@ -427,7 +505,7 @@
 
 	Revert
 	2008-08-21  Richard Guenther  <rguenther@suse.de>
-  
+
 	* tree-ssa-pre.c (insert_into_preds_of_block): Before inserting
 	a PHI ask VN if it is already available.
 	* tree-ssa-sccvn.h (vn_phi_lookup): Declare.
@@ -1143,7 +1221,7 @@
 
 2009-01-09  Diego Novillo  <dnovillo@google.com>
 
-	* gimple.h (struct gimple_statement_base)<uid>: Document
+	* gimple.h (struct gimple_statement_base) <uid>: Document
 	the restrictions on its use.
 	(gimple_uid): Tidy.
 	(gimple_set_uid): Tidy.

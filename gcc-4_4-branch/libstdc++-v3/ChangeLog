@@ -1,6 +1,36 @@
+2009-02-05  Chris Fairles  <cfairles@gcc.gnu.org>
+
+	* include/std/tuple (_Head_base<>::_Head_base(_UHead&&)): Formatting.
+	(_Head_base<>::__swap_impl): Rename to _M_swap_impl.
+	(_Tuple_impl<>::__swap_impl): Likewise and make protected to avoid
+	exposing it in public std::tuple interface.
+
+2009-02-05  Chris Fairles  <cfairles@gcc.gnu.org>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* include/std/thread (__thread_data_base): Nest class in std::thread.
+	(__thread_data): Likewise.
+	(__thread_data_ptr): Nest typedef in std::thread.
+	* src/thread.cc (__thread_proxy): Qualify the above names.
+	* config/abi/pre/gnu.ver: Remove unused exports.
+	
+2009-02-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/unique_ptr.h: Remove private __this_type typedef.
+	* include/bits/stl_vector.h: Remove private vector_type typedef.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Fix line numbers.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc: Same.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Same.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Same.
+	* testsuite/20_util/unique_ptr/modifiers/reset_neg.cc: Same.
+	* testsuite/20_util/unique_ptr/assign/assign.cc: Same.
+
 2009-02-03  Paolo Carlini  <paolo.carlini@oracle.com>
 
-	PR libstdc++/25191	
+	PR libstdc++/25191
 	* libsupc++/exception_defines.h: Depending on __EXCEPTIONS,
 	deal consistently with __try and __catch too.
 	* src/localename.cc: Replace try -> __try, catch -> __catch.
