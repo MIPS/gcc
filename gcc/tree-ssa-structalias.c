@@ -302,7 +302,8 @@ get_varinfo_fc (unsigned int n)
 
 /* Static IDs for the special variables.  */
 enum { nothing_id = 0, anything_id = 1, readonly_id = 2,
-       escaped_id = 3, nonlocal_id = 4, callused_id = 5, integer_id = 6 };
+       escaped_id = 3, nonlocal_id = 4, callused_id = 5,
+       storedanything_id = 6, integer_id = 7 };
 
 /* Variable that represents the unknown pointer.  */
 static varinfo_t var_anything;
@@ -327,6 +328,10 @@ static tree nonlocal_tree;
 /* Variable that represents call-used memory.  */
 static varinfo_t var_callused;
 static tree callused_tree;
+
+/* Variable that represents variables that are stored to anything.  */
+static varinfo_t var_storedanything;
+static tree storedanything_tree;
 
 /* Variable that represents integers.  This is used for when people do things
    like &0->a.b.  */
@@ -1243,7 +1248,7 @@ build_pred_graph (void)
 static void
 build_succ_graph (void)
 {
-  int i;
+  unsigned i, t;
   constraint_t c;
 
   for (i = 0; VEC_iterate (constraint_t, constraints, i, c); i++)
@@ -1283,6 +1288,14 @@ build_succ_graph (void)
 	{
 	  add_graph_edge (graph, lhsvar, rhsvar);
 	}
+    }
+
+  /* Add edges from STOREDANYTHING to all non-direct nodes.  */
+  t = find (storedanything_id);
+  for (i = integer_id + 1; i < FIRST_REF_NODE; ++i)
+    {
+      if (!TEST_BIT (graph->direct_nodes, i))
+	add_graph_edge (graph, find (i), t);
     }
 }
 
@@ -1635,49 +1648,27 @@ do_ds_constraint (constraint_t c, bitmap delta)
   /* Our IL does not allow this.  */
   gcc_assert (c->rhs.offset == 0);
 
+  /* If the solution of y contains ANYTHING simply use the ANYTHING
+     solution.  This avoids needlessly increasing the points-to sets.  */
   if (bitmap_bit_p (sol, anything_id))
+    sol = get_varinfo (find (anything_id))->solution;
+
+  /* If the solution for x contains ANYTHING we have to merge the
+     solution of y into all pointer variables which we do via
+     STOREDANYTHING.  */
+  if (bitmap_bit_p (delta, anything_id))
     {
-      EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
-        {
-	  varinfo_t v = get_varinfo (j);
-	  unsigned int t;
-	  HOST_WIDE_INT fieldoffset = v->offset + loff;
-
-	  if (v->is_special_var)
-	    continue;
-
-	  if (v->is_full_var)
-	    fieldoffset = v->offset;
-	  else if (loff != 0)
-	    v = first_vi_for_offset (v, fieldoffset);
-	  /* If the access is outside of the variable we can ignore it.  */
-	  if (!v)
-	    continue;
-
-	  do
+      unsigned t = find (storedanything_id);
+      if (add_graph_edge (graph, t, rhs))
+	{
+	  if (bitmap_ior_into (get_varinfo (t)->solution, sol))
 	    {
-	      if (v->may_have_pointers)
+	      if (!TEST_BIT (changed, t))
 		{
-		  t = find (v->id);
-
-		  if (bitmap_set_bit (get_varinfo (t)->solution, anything_id)
-		      && !TEST_BIT (changed, t))
-		    {
-		      SET_BIT (changed, t);
-		      changed_count++;
-		    }
+		  SET_BIT (changed, t);
+		  changed_count++;
 		}
-
-	      /* If the variable is not exactly at the requested offset
-		 we have to include the next one.  */
-	      if (v->offset == (unsigned HOST_WIDE_INT)fieldoffset
-		  || v->next == NULL)
-		break;
-
-	      v = v->next;
-	      fieldoffset = v->offset;
 	    }
-	  while (1);
 	}
       return;
     }
@@ -3124,8 +3115,11 @@ get_constraint_for_1 (tree t, VEC (ce_s, heap) **results, bool address_p)
      It is not worth adding a new option or renaming the existing one,
      since this case is relatively obscure.  */
   if (flag_delete_null_pointer_checks
-      && TREE_CODE (t) == INTEGER_CST
-      && integer_zerop (t))
+      && ((TREE_CODE (t) == INTEGER_CST
+	   && integer_zerop (t))
+	  /* The only valid CONSTRUCTORs in gimple with pointer typed
+	     elements are zero-initializer.  */
+	  || TREE_CODE (t) == CONSTRUCTOR))
     {
       temp.var = nothing_id;
       temp.type = ADDRESSOF;
@@ -5459,6 +5453,19 @@ init_base_vars (void)
   rhs.offset = UNKNOWN_OFFSET;
   process_constraint (new_constraint (lhs, rhs));
 
+  /* Create the STOREDANYTHING variable, used to represent the set of
+     variables stored to *ANYTHING.  */
+  storedanything_tree = create_tmp_var_raw (ptr_type_node, "STOREDANYTHING");
+  var_storedanything = new_var_info (storedanything_tree, storedanything_id,
+				     "STOREDANYTHING");
+  insert_vi_for_tree (storedanything_tree, var_storedanything);
+  var_storedanything->is_artificial_var = 1;
+  var_storedanything->offset = 0;
+  var_storedanything->size = ~0;
+  var_storedanything->fullsize = ~0;
+  var_storedanything->is_special_var = 0;
+  VEC_safe_push (varinfo_t, heap, varmap, var_storedanything);
+
   /* Create the INTEGER variable, used to represent that a variable points
      to what an INTEGER "points to".  */
   integer_tree = create_tmp_var_raw (ptr_type_node, "INTEGER");
@@ -5796,9 +5803,9 @@ compute_points_to_sets (void)
     fprintf (dump_file, "Rewriting constraints and unifying "
 	     "variables\n");
   rewrite_constraints (graph, si);
-  free_var_substitution_info (si);
 
   build_succ_graph ();
+  free_var_substitution_info (si);
 
   if (dump_file && (dump_flags & TDF_GRAPH))
     dump_constraint_graph (dump_file);
@@ -6026,9 +6033,9 @@ ipa_pta_execute (void)
   build_pred_graph ();
   si = perform_var_substitution (graph);
   rewrite_constraints (graph, si);
-  free_var_substitution_info (si);
 
   build_succ_graph ();
+  free_var_substitution_info (si);
   move_complex_constraints (graph);
   unite_pointer_equivalences (graph);
   find_indirect_cycles (graph);

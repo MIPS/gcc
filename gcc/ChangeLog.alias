@@ -1,3 +1,25 @@
+2009-02-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39074
+	* tree-ssa-structalias.c (storedanything_id, var_storedanything,
+	storedanything_tree): New.
+	(do_ds_constraint): Simplify ANYTHING shortcutting.  Update
+	the STOREDANYTHING solution if the lhs solution contains
+	ANYTHING.
+	(build_pred_graph): Add edges from STOREDANYTHING to all
+	non-direct nodes.
+	(get_constraint_for_1): CONSTRUCTOR
+	is a zero-initializer.  Generate &NOTHING for it.
+	(init_base_vars): Initialize STOREDANYTHING.
+	(compute_points_to_sets): Free substitution info after
+	building the succ graph.
+	(ipa_pta_execute): Likewise.
+
+	testsuite/
+	* gcc.dg/torture/pr39074.c: New testcase.
+	* gcc.dg/torture/pr39074-2.c: Likewise.
+	* gcc.dg/torture/pr39074-3.c: Likewise.
+
 2009-02-05  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r143958.
