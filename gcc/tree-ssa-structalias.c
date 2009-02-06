@@ -5139,6 +5139,35 @@ find_what_p_points_to (tree p)
     }
 }
 
+
+/* Query statistics for points-to solutions.  */
+
+static struct {
+  unsigned HOST_WIDE_INT pt_solution_includes_may_alias;
+  unsigned HOST_WIDE_INT pt_solution_includes_no_alias;
+  unsigned HOST_WIDE_INT pt_solutions_intersect_may_alias;
+  unsigned HOST_WIDE_INT pt_solutions_intersect_no_alias;
+} pta_stats;
+
+void
+dump_pta_stats (FILE *s)
+{
+  fprintf (s, "\nPTA query stats:\n");
+  fprintf (s, "  pt_solution_includes: "
+	   HOST_WIDE_INT_PRINT_DEC" disambiguations, "
+	   HOST_WIDE_INT_PRINT_DEC" queries\n",
+	   pta_stats.pt_solution_includes_no_alias,
+	   pta_stats.pt_solution_includes_no_alias
+	   + pta_stats.pt_solution_includes_may_alias);
+  fprintf (s, "  pt_solutions_intersect: "
+	   HOST_WIDE_INT_PRINT_DEC" disambiguations, "
+	   HOST_WIDE_INT_PRINT_DEC" queries\n",
+	   pta_stats.pt_solutions_intersect_no_alias,
+	   pta_stats.pt_solutions_intersect_no_alias
+	   + pta_stats.pt_solutions_intersect_may_alias);
+}
+
+
 /* Reset the points-to solution *PT to a conservative default
    (point to anything).  */
 
@@ -5174,8 +5203,8 @@ pt_solution_empty_p (struct pt_solution *pt)
 /* Return true if the points-to solution *PT includes the variable
    declaration DECL.  */
 
-bool
-pt_solution_includes (struct pt_solution *pt, const_tree decl)
+static bool
+pt_solution_includes_1 (struct pt_solution *pt, const_tree decl)
 {
   if (pt->anything)
     return true;
@@ -5190,17 +5219,28 @@ pt_solution_includes (struct pt_solution *pt, const_tree decl)
   /* If this isn't already the escaped solution, union it with that.  */
   if (pt->escaped
       && &cfun->gimple_df->escaped != pt
-      && pt_solution_includes (&cfun->gimple_df->escaped, decl))
+      && pt_solution_includes_1 (&cfun->gimple_df->escaped, decl))
     return true;
 
   return false;
 }
 
+bool
+pt_solution_includes (struct pt_solution *pt, const_tree decl)
+{
+  bool res = pt_solution_includes_1 (pt, decl);
+  if (res)
+    ++pta_stats.pt_solution_includes_may_alias;
+  else
+    ++pta_stats.pt_solution_includes_no_alias;
+  return res;
+}
+
 /* Return true if both points-to solutions PT1 and PT2 have a non-empty
    intersection.  */
 
-bool
-pt_solutions_intersect (struct pt_solution *pt1, struct pt_solution *pt2)
+static bool
+pt_solutions_intersect_1 (struct pt_solution *pt1, struct pt_solution *pt2)
 {
   if (pt1->anything || pt2->anything)
     return true;
@@ -5228,9 +5268,9 @@ pt_solutions_intersect (struct pt_solution *pt1, struct pt_solution *pt2)
       /* If either points to escaped memory see if the escaped solution
 	 intersects.  */
       if (((pt1->escaped || pt1 == &cfun->gimple_df->escaped)
-	   && pt_solutions_intersect (&cfun->gimple_df->escaped, pt1))
+	   && pt_solutions_intersect_1 (&cfun->gimple_df->escaped, pt1))
 	  || ((pt2->escaped || pt2 == &cfun->gimple_df->escaped)
-	      && pt_solutions_intersect (&cfun->gimple_df->escaped, pt2)))
+	      && pt_solutions_intersect_1 (&cfun->gimple_df->escaped, pt2)))
 	return true;
     }
 
@@ -5238,6 +5278,17 @@ pt_solutions_intersect (struct pt_solution *pt1, struct pt_solution *pt2)
   return (pt1->vars
 	  && pt2->vars
 	  && bitmap_intersect_p (pt1->vars, pt2->vars));
+}
+
+bool
+pt_solutions_intersect (struct pt_solution *pt1, struct pt_solution *pt2)
+{
+  bool res = pt_solutions_intersect_1 (pt1, pt2);
+  if (res)
+    ++pta_stats.pt_solutions_intersect_may_alias;
+  else
+    ++pta_stats.pt_solutions_intersect_no_alias;
+  return res;
 }
 
 

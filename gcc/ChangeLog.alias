@@ -1,5 +1,27 @@
 2009-02-06  Richard Guenther  <rguenther@suse.de>
 
+	* Makefile.in (toplev.o): Add tree-ssa-alias.h dependency.
+	* toplev.c (dump_memory_report): Dump alias and pta stats.
+	* tree-ssa-alias.c (alias_stats): New global variable.
+	(dump_alias_stats): New function.
+	(may_point_to_decl): Make static.
+	(may_point_to_same_object): Likewise.
+	(refs_may_alias_p): Make a wrapper for statistics, move body ...
+	(refs_may_alias_p_1): ... here.
+	(ref_maybe_used_by_call_p, ref_maybe_used_by_call_p_1): Likewise.
+	(call_may_clobber_ref_p, call_may_clobber_ref_p_1): Likewise.
+	* tree-ssa-alias.h (may_point_to_decl, may_point_to_same_object):
+	Remove.
+	(dump_alias_stats): Declare.
+	(dump_pta_stats): Likewise.
+	* tree-ssa-structalias.c (pta_stats): New global variable.
+	(dump_pta_stats): New function.
+	(pt_solution_includes): Make a wrapper for statistics, move body ...
+	(pt_solution_includes_1): ... here.
+	(pt_solutions_intersect, pt_solutions_intersect_1): Likewise.
+
+2009-02-06  Richard Guenther  <rguenther@suse.de>
+
 	PR tree-optimization/39074
 	* tree-ssa-structalias.c (storedanything_id, var_storedanything,
 	storedanything_tree): New.

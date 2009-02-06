@@ -70,6 +70,43 @@ along with GCC; see the file COPYING3.  If not see
    and tools for walking of the gimple IL.  */
 
 
+/* Query statistics for the different low-level disambiguators.
+   A high-level query may trigger multiple of them.  */
+
+static struct {
+  unsigned HOST_WIDE_INT refs_may_alias_p_may_alias;
+  unsigned HOST_WIDE_INT refs_may_alias_p_no_alias;
+  unsigned HOST_WIDE_INT ref_maybe_used_by_call_p_may_alias;
+  unsigned HOST_WIDE_INT ref_maybe_used_by_call_p_no_alias;
+  unsigned HOST_WIDE_INT call_may_clobber_ref_p_may_alias;
+  unsigned HOST_WIDE_INT call_may_clobber_ref_p_no_alias;
+} alias_stats;
+
+void
+dump_alias_stats (FILE *s)
+{
+  fprintf (s, "\nAlias oracle query stats:\n");
+  fprintf (s, "  refs_may_alias_p: "
+	   HOST_WIDE_INT_PRINT_DEC" disambiguations, "
+	   HOST_WIDE_INT_PRINT_DEC" queries\n",
+	   alias_stats.refs_may_alias_p_no_alias,
+	   alias_stats.refs_may_alias_p_no_alias
+	   + alias_stats.refs_may_alias_p_may_alias);
+  fprintf (s, "  ref_maybe_used_by_call_p: "
+	   HOST_WIDE_INT_PRINT_DEC" disambiguations, "
+	   HOST_WIDE_INT_PRINT_DEC" queries\n",
+	   alias_stats.ref_maybe_used_by_call_p_no_alias,
+	   alias_stats.refs_may_alias_p_no_alias
+	   + alias_stats.ref_maybe_used_by_call_p_may_alias);
+  fprintf (s, "  call_may_clobber_ref_p: "
+	   HOST_WIDE_INT_PRINT_DEC" disambiguations, "
+	   HOST_WIDE_INT_PRINT_DEC" queries\n",
+	   alias_stats.call_may_clobber_ref_p_no_alias,
+	   alias_stats.call_may_clobber_ref_p_no_alias
+	   + alias_stats.call_may_clobber_ref_p_may_alias);
+}
+
+
 /* Return true, if PTR may point to a global variable.  */
 
 bool
@@ -94,7 +131,7 @@ may_point_to_global_var (tree ptr)
 
 /* Return true if PTR may point to DECL.  */
 
-bool
+static bool
 may_point_to_decl (tree ptr, tree decl)
 {
   struct ptr_info_def *pi;
@@ -126,7 +163,7 @@ may_point_to_decl (tree ptr, tree decl)
 
 /* Return true if PTR1 and PTR2 may point to the same memory object.  */
 
-bool
+static bool
 may_point_to_same_object (tree ptr1, tree ptr2)
 {
   struct ptr_info_def *pi1, *pi2;
@@ -386,8 +423,8 @@ same_type_for_tbaa (tree type1, tree type2)
 
 /* Return true, if the two memory references REF1 and REF2 may alias.  */
 
-bool
-refs_may_alias_p (tree ref1, tree ref2)
+static bool
+refs_may_alias_p_1 (tree ref1, tree ref2)
 {
   tree base1, base2;
   HOST_WIDE_INT offset1 = 0, offset2 = 0;
@@ -570,12 +607,23 @@ refs_may_alias_p (tree ref1, tree ref2)
   return true;
 }
 
+bool
+refs_may_alias_p (tree ref1, tree ref2)
+{
+  bool res = refs_may_alias_p_1 (ref1, ref2);
+  if (res)
+    ++alias_stats.refs_may_alias_p_may_alias;
+  else
+    ++alias_stats.refs_may_alias_p_no_alias;
+  return res;
+}
+
 
 /* If the call CALL may use the memory reference REF return true,
    otherwise return false.  */
 
 static bool
-ref_maybe_used_by_call_p (gimple call, tree ref)
+ref_maybe_used_by_call_p_1 (gimple call, tree ref)
 {
   tree base = get_base_address (ref);
   unsigned i;
@@ -628,6 +676,18 @@ ref_maybe_used_by_call_p (gimple call, tree ref)
   return false;
 }
 
+static bool
+ref_maybe_used_by_call_p (gimple call, tree ref)
+{
+  bool res = ref_maybe_used_by_call_p_1 (call, ref);
+  if (res)
+    ++alias_stats.ref_maybe_used_by_call_p_may_alias;
+  else
+    ++alias_stats.ref_maybe_used_by_call_p_no_alias;
+  return res;
+}
+
+
 /* If the statement STMT may use the memory reference REF return
    true, otherwise return false.  */
 
@@ -660,7 +720,7 @@ ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
    return true, otherwise return false.  */
 
 static bool
-call_may_clobber_ref_p (gimple call, tree ref)
+call_may_clobber_ref_p_1 (gimple call, tree ref)
 {
   tree base;
 
@@ -698,6 +758,18 @@ call_may_clobber_ref_p (gimple call, tree ref)
 
   return true;
 }
+
+static bool
+call_may_clobber_ref_p (gimple call, tree ref)
+{
+  bool res = call_may_clobber_ref_p_1 (call, ref);
+  if (res)
+    ++alias_stats.call_may_clobber_ref_p_may_alias;
+  else
+    ++alias_stats.call_may_clobber_ref_p_no_alias;
+  return res;
+}
+
 
 /* If the statement STMT may clobber the memory reference REF return true,
    otherwise return false.  */

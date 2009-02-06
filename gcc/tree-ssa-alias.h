@@ -77,8 +77,6 @@ struct pt_solution GTY(())
 /* In tree-ssa-alias.c  */
 extern enum escape_type is_escape_site (gimple);
 extern bool may_point_to_global_var (tree);
-extern bool may_point_to_decl (tree, tree);
-extern bool may_point_to_same_object (tree, tree);
 extern bool refs_may_alias_p (tree, tree);
 extern bool ref_maybe_used_by_stmt_p (gimple, tree);
 extern bool stmt_may_clobber_ref_p (gimple, tree);
@@ -89,6 +87,7 @@ extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
+extern void dump_alias_stats (FILE *);
 
 
 /* In tree-ssa-structalias.c  */
@@ -97,6 +96,7 @@ extern void delete_alias_heapvars (void);
 extern bool pt_solution_includes (struct pt_solution *, const_tree);
 extern bool pt_solutions_intersect (struct pt_solution *, struct pt_solution *);
 extern void pt_solution_reset (struct pt_solution *);
+extern void dump_pta_stats (FILE *);
 
 
 #endif /* TREE_SSA_ALIAS_H  */
