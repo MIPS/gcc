@@ -316,6 +316,10 @@ timevar_pop_1 (timevar_id_t timevar)
   struct timevar_time_def now;
   struct timevar_stack_def *popped = stack;
 
+  /* Completely ignore TV_NONE.  */
+  if (timevar == TV_NONE)
+    return;
+
   gcc_assert (&timevars[timevar] == stack->timevar);
   
   /* What time is it?  */

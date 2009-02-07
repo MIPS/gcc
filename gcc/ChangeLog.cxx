@@ -1,3 +1,7 @@
+2009-02-06  Ian Lance Taylor  <iant@google.com>
+
+	* timevar.c (timevar_pop_1): Ignore TV_NONE.
+
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
 	* configure.ac: Use AC_PROG_CXX.
