@@ -3458,13 +3458,14 @@ cp_build_binary_op (location_t location,
 	    {
 	      if (tree_int_cst_lt (op1, integer_zero_node))
 		{
-		  if (complain & tf_warning)
+		  if ((complain & tf_warning) && !skip_evaluation)
 		    warning (0, "right shift count is negative");
 		}
 	      else
 		{
 		  if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0
-		      && (complain & tf_warning))
+		      && (complain & tf_warning)
+		      && !skip_evaluation)
 		    warning (0, "right shift count >= width of type");
 		}
 	    }
@@ -3485,12 +3486,12 @@ cp_build_binary_op (location_t location,
 	    {
 	      if (tree_int_cst_lt (op1, integer_zero_node))
 		{
-		  if (complain & tf_warning)
+		  if ((complain & tf_warning) && !skip_evaluation)
 		    warning (0, "left shift count is negative");
 		}
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		{
-		  if (complain & tf_warning)
+		  if ((complain & tf_warning) && !skip_evaluation)
 		    warning (0, "left shift count >= width of type");
 		}
 	    }

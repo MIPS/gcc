@@ -1,5 +1,10 @@
 2009-02-06  Ian Lance Taylor  <iant@google.com>
 
+	* parser.c (cp_parser_question_colon_clause): Set skip_evaluation
+	if the condition is known to be true or false.
+	* typeck.c (cp_build_binary_op): Don't warn about out of range
+	shift counts if skip_evaluation is true.
+
 	* timevar.c (timevar_pop_1): Ignore TV_NONE.
 
 2009-02-04  Ian Lance Taylor  <iant@google.com>

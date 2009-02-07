@@ -6356,16 +6356,25 @@ cp_parser_question_colon_clause (cp_parser* parser, tree logical_or_expr)
   cp_lexer_consume_token (parser->lexer);
   if (cp_parser_allow_gnu_extensions_p (parser)
       && cp_lexer_next_token_is (parser->lexer, CPP_COLON))
-    /* Implicit true clause.  */
-    expr = NULL_TREE;
+    {
+      /* Implicit true clause.  */
+      expr = NULL_TREE;
+      skip_evaluation += logical_or_expr == truthvalue_true_node;
+    }
   else
-    /* Parse the expression.  */
-    expr = cp_parser_expression (parser, /*cast_p=*/false, NULL);
+    {
+      /* Parse the expression.  */
+      skip_evaluation += logical_or_expr == truthvalue_false_node;
+      expr = cp_parser_expression (parser, /*cast_p=*/false, NULL);
+      skip_evaluation += ((logical_or_expr == truthvalue_true_node)
+			  - (logical_or_expr == truthvalue_false_node));
+    }
 
   /* The next token should be a `:'.  */
   cp_parser_require (parser, CPP_COLON, "%<:%>");
   /* Parse the assignment-expression.  */
   assignment_expr = cp_parser_assignment_expression (parser, /*cast_p=*/false, NULL);
+  skip_evaluation -= logical_or_expr == truthvalue_true_node;
 
   /* Build the conditional-expression.  */
   return build_x_conditional_expr (logical_or_expr,
