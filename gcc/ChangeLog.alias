@@ -1,5 +1,9 @@
 2009-02-07  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-alias.c: Expand documentation.
+
+2009-02-07  Richard Guenther  <rguenther@suse.de>
+
 	PR tree-optimization/39120
 	* tree-ssa-structalias.c (handle_rhs_call): Fill out return
 	constraints.

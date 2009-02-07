@@ -66,8 +66,37 @@ along with GCC; see the file COPYING3.  If not see
    precise tracking of call-clobbered and call-used variables and
    related disambiguations.
 
-   This file contains functions for disambiguating memory references
-   and tools for walking of the gimple IL.  */
+   This file contains functions for disambiguating memory references,
+   the so called alias-oracle and tools for walking of the gimple IL.
+
+   The main alias-oracle entry-points are
+
+   bool stmt_may_clobber_ref_p (gimple, tree)
+
+     This function queries if a statement may invalidate (parts of)
+     the memory designated by the reference tree argument.
+
+   bool ref_maybe_used_by_stmt_p (gimple, tree)
+
+     This function queries if a statement may need (parts of) the
+     memory designated by the reference tree argument.
+
+   There are variants of these functions that only handle the call
+   part of a statement, call_may_clobber_ref_p and ref_maybe_used_by_call_p.
+   Note that these do not disambiguate against a possible call lhs.
+
+   bool refs_may_alias_p (tree, tree)
+
+     This function tries to disambiguate two reference trees.
+
+   bool may_point_to_global_var (tree)
+
+     This function queries if a pointer variable may point to global
+     memory.
+
+   More low-level disambiguators are available and documented in
+   this file.  Low-level disambiguators dealing with points-to
+   information are in tree-ssa-structalias.c.  */
 
 
 /* Query statistics for the different low-level disambiguators.
