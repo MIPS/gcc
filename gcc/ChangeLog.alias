@@ -1,5 +1,13 @@
 2009-02-07  Richard Guenther  <rguenther@suse.de>
 
+	* gimplify.c (mark_addressable): Export.
+	* tree-flow.h (mark_addressable): Declare.
+	* tree-ssa-loop-manip.c (create_iv): Mark the base addressable.
+	* tree-ssa.c (verify_phi_args): Verify that address taken
+	variables have TREE_ADDRESSABLE set.
+
+2009-02-07  Richard Guenther  <rguenther@suse.de>
+
 	* timevar.def (TV_ALIAS_STMT_WALK): New timevar.
 	* tree-ssa-alias.c (walk_non_aliased_vuses): Account to
 	TV_ALIAS_STMT_WALK.
