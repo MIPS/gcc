@@ -69,6 +69,7 @@ DEFTIMEVAR (TV_DF_NOTE		     , "df reg dead/unused notes")
 DEFTIMEVAR (TV_REG_STATS	     , "register information")
 
 DEFTIMEVAR (TV_ALIAS_ANALYSIS	     , "alias analysis")
+DEFTIMEVAR (TV_ALIAS_STMT_WALK	     , "alias stmt walking")
 DEFTIMEVAR (TV_REG_SCAN		     , "register scan")
 DEFTIMEVAR (TV_REBUILD_JUMP	     , "rebuild jump labels")
 /* Timing in various stages of the compiler.  */

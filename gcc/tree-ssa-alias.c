@@ -943,10 +943,13 @@ walk_non_aliased_vuses (tree ref, tree vuse,
   bitmap visited = NULL;
   void *res;
 
+  timevar_push (TV_ALIAS_STMT_WALK);
+
   do
     {
       gimple def_stmt;
 
+      /* ???  Do we want to account this to TV_ALIAS_STMT_WALK?  */
       res = (*walker) (ref, vuse, data);
       if (res)
 	break;
@@ -967,6 +970,8 @@ walk_non_aliased_vuses (tree ref, tree vuse,
 
   if (visited)
     BITMAP_FREE (visited);
+
+  timevar_pop (TV_ALIAS_STMT_WALK);
 
   return res;
 }

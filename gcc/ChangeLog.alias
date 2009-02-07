@@ -1,5 +1,11 @@
 2009-02-07  Richard Guenther  <rguenther@suse.de>
 
+	* timevar.def (TV_ALIAS_STMT_WALK): New timevar.
+	* tree-ssa-alias.c (walk_non_aliased_vuses): Account to
+	TV_ALIAS_STMT_WALK.
+
+2009-02-07  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-alias.c: Expand documentation.
 
 2009-02-07  Richard Guenther  <rguenther@suse.de>
