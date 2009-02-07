@@ -1,5 +1,7 @@
 2009-02-06  Ian Lance Taylor  <iant@google.com>
 
+	* decl2.c (constrain_visibility): Add cast to enum type.
+
 	* parser.c (cp_parser_question_colon_clause): Set skip_evaluation
 	if the condition is known to be true or false.
 	* typeck.c (cp_build_binary_op): Don't warn about out of range
