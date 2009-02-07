@@ -625,12 +625,19 @@ refs_may_alias_p (tree ref1, tree ref2)
 static bool
 ref_maybe_used_by_call_p_1 (gimple call, tree ref)
 {
-  tree base = get_base_address (ref);
+  tree base;
   unsigned i;
+  int flags = gimple_call_flags (call);
+
+  /* Const functions without a static chain do not implicitly use memory.  */
+  if (!gimple_call_chain (call)
+      && (flags & (ECF_CONST|ECF_NOVOPS)))
+    goto process_args;
 
   /* If the reference is not based on a decl give up.
      ???  Handle indirect references by intersecting the call-used
      	  solution with that of the pointer.  */
+  base = get_base_address (ref);
   if (!base
       || !DECL_P (base))
     return true;
@@ -648,14 +655,24 @@ ref_maybe_used_by_call_p_1 (gimple call, tree ref)
 	  && (not_read
 	        = ipa_reference_get_not_read_global (cgraph_node (callee)))
 	  && bitmap_bit_p (not_read, DECL_UID (base)))
-	return false;
+	goto process_args;
     }
 
-  /* If the base variable is call-used then it may be used.  */
-  if (is_call_used (base))
-    return true;
+  /* If the base variable is call-used or call-clobbered then
+     it may be used.  */
+  if (flags & (ECF_PURE|ECF_CONST|ECF_LOOPING_CONST_OR_PURE|ECF_NOVOPS))
+    {
+      if (is_call_used (base))
+	return true;
+    }
+  else
+    {
+      if (is_call_clobbered (base))
+	return true;
+    }
 
   /* Inspect call arguments for passed-by-value aliases.  */
+process_args:
   for (i = 0; i < gimple_call_num_args (call); ++i)
     {
       tree op = gimple_call_arg (call, i);
