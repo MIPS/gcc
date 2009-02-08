@@ -1,3 +1,8 @@
+2009-02-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/x86_64/abi/abi-x86_64.exp: Use glob instead of
+	find.
+
 2008-08-21  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.target/i386/avx-set-v16hi-1.c: New.
