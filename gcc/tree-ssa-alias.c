@@ -975,3 +975,68 @@ walk_non_aliased_vuses (tree ref, tree vuse,
 
   return res;
 }
+
+
+/* Based on the memory reference REF call WALKER for each vdef which
+   defining statement may clobber REF, starting with VDEF.  If REF
+   is NULL_TREE, each defining statement is visited.
+
+   WALKER is called with REF, the current vdef and DATA.  If WALKER
+   returns true the walk is stopped, otherwise it continues.
+
+   At PHI nodes walk_aliased_vdefs forks into one walk for reach
+   PHI argument (but only one walk continues on merge points), the
+   return value is true if any of the walks was successful.  */
+
+static void
+walk_aliased_vdefs_1 (tree ref, tree vdef,
+		      bool (*walker)(tree, tree, void *), void *data,
+		      bitmap *visited)
+{
+  do
+    {
+      gimple def_stmt = SSA_NAME_DEF_STMT (vdef);
+
+      if (*visited
+	  && !bitmap_set_bit (*visited, SSA_NAME_VERSION (vdef)))
+	return;
+
+      if (gimple_nop_p (def_stmt))
+	return;
+      else if (gimple_code (def_stmt) == GIMPLE_PHI)
+	{
+	  unsigned i;
+	  if (!*visited)
+	    *visited = BITMAP_ALLOC (NULL);
+	  for (i = 0; i < gimple_phi_num_args (def_stmt); ++i)
+	    walk_aliased_vdefs_1 (ref, gimple_phi_arg_def (def_stmt, i),
+				  walker, data, visited);
+	  return;
+	}
+
+      /* ???  Do we want to account this to TV_ALIAS_STMT_WALK?  */
+      if ((!ref
+	   || stmt_may_clobber_ref_p (def_stmt, ref))
+	  && (*walker) (ref, vdef, data))
+	return;
+
+      vdef = gimple_vuse (def_stmt);
+    }
+  while (1);
+}
+
+void
+walk_aliased_vdefs (tree ref, tree vdef,
+		    bool (*walker)(tree, tree, void *), void *data)
+{
+  bitmap visited = NULL;
+
+  timevar_push (TV_ALIAS_STMT_WALK);
+
+  walk_aliased_vdefs_1 (ref, vdef, walker, data, &visited);
+  if (visited)
+    BITMAP_FREE (visited);
+
+  timevar_pop (TV_ALIAS_STMT_WALK);
+}
+

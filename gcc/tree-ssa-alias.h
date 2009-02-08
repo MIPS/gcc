@@ -82,6 +82,8 @@ extern bool ref_maybe_used_by_stmt_p (gimple, tree);
 extern bool stmt_may_clobber_ref_p (gimple, tree);
 extern void *walk_non_aliased_vuses (tree, tree,
 				     void *(*)(tree, tree, void *), void *);
+extern void walk_aliased_vdefs (tree, tree,
+				bool (*)(tree, tree, void *), void *);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);

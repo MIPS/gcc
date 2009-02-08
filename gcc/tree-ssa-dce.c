@@ -242,6 +242,14 @@ mark_operand_necessary (tree op)
   if (gimple_plf (stmt, STMT_NECESSARY) || gimple_nop_p (stmt))
     return;
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "marking necessary through ");
+      print_generic_expr (dump_file, op, 0);
+      fprintf (dump_file, " stmt ");
+      print_gimple_stmt (dump_file, stmt, 0, 0);
+    }
+
   gimple_set_plf (stmt, STMT_NECESSARY, true);
   VEC_safe_push (gimple, heap, worklist, stmt);
 }
@@ -429,6 +437,111 @@ find_obviously_necessary_stmts (struct edge_list *el)
 }
 
 
+/* Return true if REF is based on an aliased base, otherwise false.  */
+
+static bool
+ref_may_be_aliased (tree ref)
+{
+  while (handled_component_p (ref))
+    ref = TREE_OPERAND (ref, 0);
+  return !(DECL_P (ref)
+	   && !may_be_aliased (ref));
+}
+
+struct ref_data {
+  tree base;
+  HOST_WIDE_INT size;
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT max_size;
+};
+
+/* Worker for the walker that marks reaching definitions of REF,
+   which is based on a non-aliased decl, necessary.  It returns
+   true whenever the defining statement of the current VDEF is
+   a kill for REF, as no dominating may-defs are necessary for REF
+   anymore.  DATA points to cached get_ref_base_and_extent data for REF.  */
+
+static bool
+mark_nonaliased_loads_necessary_1 (tree ref, tree vdef, void *data)
+{
+  gimple def_stmt = SSA_NAME_DEF_STMT (vdef);
+  struct ref_data *refd = (struct ref_data *)data;
+
+  /* All stmts we visit are necessary.  */
+  mark_operand_necessary (vdef);
+
+  /* If the stmt lhs kills ref, then we can stop walking.  */
+  if (gimple_has_lhs (def_stmt)
+      && TREE_CODE (gimple_get_lhs (def_stmt)) != SSA_NAME)
+    {
+      tree base, lhs = gimple_get_lhs (def_stmt);
+      HOST_WIDE_INT size, offset, max_size;
+      base = get_ref_base_and_extent (lhs, &offset, &size, &max_size);
+      /* We can get MEM[symbol: sZ, index: D.8862_1] here,
+	 so base == refd->base does not always hold.  */
+      if (base == refd->base)
+	{
+	  /* For a must-alias check we need to be able to constrain
+	     the accesses properly.  */
+	  if (size != -1 && size == max_size
+	      && refd->max_size != -1)
+	    {
+	      if (offset <= refd->offset
+		  && offset + size >= refd->offset + refd->max_size)
+		return true;
+	    }
+	  /* Or they need to be exactly the same.  */
+	  else if (operand_equal_p (ref, lhs, 0))
+	    return true;
+	}
+    }
+
+  /* Otherwise keep walking.  */
+  return false;
+}
+
+static void
+mark_nonaliased_loads_necessary (gimple stmt, tree ref)
+{
+  struct ref_data refd;
+  refd.base = get_ref_base_and_extent (ref, &refd.offset, &refd.size,
+				       &refd.max_size);
+  walk_aliased_vdefs (ref, gimple_vuse (stmt),
+		      mark_nonaliased_loads_necessary_1, &refd);
+}
+
+/* Worker for the walker that marks reaching definitions of REF, which
+   is not based on a non-aliased decl.  For simplicity we need to end
+   up marking all may-defs necessary that are not based on a non-aliased
+   decl.  The only job of this walker is to skip may-defs based on
+   a non-aliased decl.  */
+
+static bool
+mark_aliased_loads_necessary_1 (tree ref ATTRIBUTE_UNUSED,
+				tree vdef, void *data ATTRIBUTE_UNUSED)
+{
+  gimple def_stmt = SSA_NAME_DEF_STMT (vdef);
+
+  /* We want to skip stores to non-aliased variables.  */
+  if (gimple_assign_single_p (def_stmt))
+    {
+      tree lhs = gimple_assign_lhs (def_stmt);
+      if (!ref_may_be_aliased (lhs))
+	return false;
+    }
+
+  /* But can stop after the first necessary statement.  */
+  mark_operand_necessary (vdef);
+  return true;
+}
+
+static void
+mark_aliased_loads_necessary (gimple stmt)
+{
+  walk_aliased_vdefs (NULL, gimple_vuse (stmt),
+		      mark_aliased_loads_necessary_1, NULL);
+}
+
 /* Propagate necessity using the operands of necessary statements.
    Process the uses on each statement in the worklist, and add all
    feeding statements which contribute to the calculation of this
@@ -471,7 +584,10 @@ propagate_necessity (struct edge_list *el)
 	    }
 	}
 
-      if (gimple_code (stmt) == GIMPLE_PHI)
+      if (gimple_code (stmt) == GIMPLE_PHI
+	  /* We do not process virtual PHI nodes nor do we track their
+	     necessity.  */
+	  && is_gimple_reg (gimple_phi_result (stmt)))
 	{
 	  /* PHI nodes are somewhat special in that each PHI alternative has
 	     data and control dependencies.  All the statements feeding the
@@ -506,16 +622,93 @@ propagate_necessity (struct edge_list *el)
 	{
 	  /* Propagate through the operands.  Examine all the USE, VUSE and
 	     VDEF operands in this statement.  Mark all the statements 
-	     which feed this statement's uses as necessary.  The
-	     operands of VDEF expressions are also needed as they
-	     represent potential definitions that may reach this
-	     statement (VDEF operands allow us to follow def-def
-	     links).  */
+	     which feed this statement's uses as necessary.  */
 	  ssa_op_iter iter;
 	  tree use;
 
-	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_USES)
+	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
 	    mark_operand_necessary (use);
+
+	  use = gimple_vuse (stmt);
+	  if (!use)
+	    continue;
+
+	  /* For statements that may load from memory (have a VUSE) we
+	     have to mark all reaching (may-)definitions as necessary.
+	     We partition this task into two cases:
+	      1) explicit loads based on decls that are not aliased
+	      2) implicit loads (like calls) and explicit loads not
+	         based on decls that are not aliased (like indirect
+		 references or loads from globals)
+	     For 1) we mark all reaching may-defs as necessary, stopping
+	     at dominating kills.  For 2) we want to mark all dominating
+	     references necessary, but non-aliased ones which we handle
+	     in 1).  Instead of doing so for each load we rely on the
+	     worklist to eventually reach all dominating references and
+	     instead just mark the immediately dominating references
+	     as necessary (but skipping non-aliased ones).  */
+
+	  if (is_gimple_call (stmt))
+	    {
+	      unsigned i;
+
+	      /* Calls implicitly load from memory, their arguments
+	         in addition may explicitly perform memory loads.
+		 This also ensures propagation for case 2 for stores.  */
+	      mark_aliased_loads_necessary (stmt);
+	      for (i = 0; i < gimple_call_num_args (stmt); ++i)
+		{
+		  tree arg = gimple_call_arg (stmt, i);
+		  if (TREE_CODE (arg) == SSA_NAME
+		      || is_gimple_min_invariant (arg))
+		    continue;
+		  if (!ref_may_be_aliased (arg))
+		    mark_nonaliased_loads_necessary (stmt, arg);
+		}
+	    }
+	  else if (gimple_assign_single_p (stmt))
+	    {
+	      tree lhs, rhs;
+	      /* If this is a load mark things necessary.  */
+	      rhs = gimple_assign_rhs1 (stmt);
+	      if (TREE_CODE (rhs) != SSA_NAME
+		  && !is_gimple_min_invariant (rhs))
+		{
+		  if (!ref_may_be_aliased (rhs))
+		    mark_nonaliased_loads_necessary (stmt, rhs);
+		  else
+		    {
+		      mark_aliased_loads_necessary (stmt);
+		      continue;
+		    }
+		}
+	      /* If this is an aliased store, mark things necessary.
+		 This is where we make sure to propagate for case 2.  */
+	      lhs = gimple_assign_lhs (stmt);
+	      if (TREE_CODE (lhs) != SSA_NAME
+		  && ref_may_be_aliased (lhs))
+		mark_aliased_loads_necessary (stmt);
+	    }
+	  else if (gimple_code (stmt) == GIMPLE_RETURN)
+	    {
+	      tree rhs = gimple_return_retval (stmt);
+	      /* A return statement may perform a load.  */
+	      if (TREE_CODE (rhs) != SSA_NAME
+		  && !is_gimple_min_invariant (rhs))
+		{
+		  if (!ref_may_be_aliased (rhs))
+		    mark_nonaliased_loads_necessary (stmt, rhs);
+		  else
+		    {
+		      mark_aliased_loads_necessary (stmt);
+		      continue;
+		    }
+		}
+	    }
+	  else if (gimple_code (stmt) == GIMPLE_ASM)
+	    mark_aliased_loads_necessary (stmt);
+	  else
+	    gcc_unreachable ();
 	}
     }
 }
@@ -537,6 +730,40 @@ remove_dead_phis (basic_block bb)
       stats.total_phis++;
       phi = gsi_stmt (gsi);
 
+      /* We do not track necessity of virtual PHI nodes.  Instead do
+         very simple dead PHI removal here.  */
+      if (!is_gimple_reg (gimple_phi_result (phi)))
+	{
+	  unsigned i;
+	  tree vuse;
+
+	  /* Virtual PHI nodes with one or identical arguments
+	     can be removed.  */
+	  vuse = gimple_phi_arg_def (phi, 0);
+	  for (i = 1; i < gimple_phi_num_args (phi); ++i)
+	    {
+	      if (gimple_phi_arg_def (phi, i) != vuse)
+		{
+		  vuse = NULL_TREE;
+		  break;
+		}
+	    }
+	  if (vuse != NULL_TREE)
+	    {
+	      tree vdef = gimple_phi_result (phi);
+	      use_operand_p use_p;
+	      imm_use_iterator iter;
+	      gimple use_stmt;
+	      FOR_EACH_IMM_USE_STMT (use_stmt, iter, vdef)
+		FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+		  SET_USE (use_p, vuse);
+	      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (vdef))
+		SSA_NAME_OCCURS_IN_ABNORMAL_PHI (vuse) = 1;
+	    }
+	  else
+	    gimple_set_plf (phi, STMT_NECESSARY, true);
+	}
+
       if (!gimple_plf (phi, STMT_NECESSARY))
 	{
 	  something_changed = true;
@@ -549,11 +776,10 @@ remove_dead_phis (basic_block bb)
 
 	  remove_phi_node (&gsi, true);
 	  stats.removed_phis++;
+	  continue;
 	}
-      else
-	{
-          gsi_next (&gsi);
-	}
+
+      gsi_next (&gsi);
     }
   return something_changed;
 }
@@ -643,7 +869,8 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
           remove_edge (EDGE_SUCC (bb, 1));
 	}
     }
-  
+
+  unlink_stmt_vdef (stmt);
   gsi_remove (i, true);  
   release_defs (stmt); 
 }
@@ -665,11 +892,6 @@ eliminate_unnecessary_stmts (void)
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
 
   clear_special_calls ();
-  FOR_EACH_BB (bb)
-    {
-      /* Remove dead PHI nodes.  */
-      something_changed |= remove_dead_phis (bb);
-    }
 
   FOR_EACH_BB (bb)
     {
@@ -722,6 +944,12 @@ eliminate_unnecessary_stmts (void)
 	      gsi_next (&gsi);
 	    }
 	}
+    }
+
+  FOR_EACH_BB (bb)
+    {
+      /* Remove dead PHI nodes.  */
+      something_changed |= remove_dead_phis (bb);
     }
 
   return something_changed;
