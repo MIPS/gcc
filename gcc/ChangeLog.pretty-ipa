@@ -15,7 +15,6 @@
 
 	* cgraph.c (cgraph_node_can_be_local_p, cgraph_make_node_local): New
 	function.
-
 	* cgraph.h (cgraph_node_can_be_local_p, cgraph_make_node_local):
 	Declare.
 
@@ -29,6 +28,7 @@
         cgraph_node_remove_callees.
         * cgraphbuild.c (remove_cgraph_callee_edges): New function.
         (pass_remove_cgraph_callee_edges): New variable.
+
         * passes.c (init_optimization_passes): Add
         pass_remove_cgraph_callee_edges after early inlining and before all
         late intraprocedural passes.
