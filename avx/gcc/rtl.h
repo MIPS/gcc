@@ -1767,7 +1767,6 @@ extern int volatile_refs_p (const_rtx);
 extern int volatile_insn_p (const_rtx);
 extern int may_trap_p_1 (const_rtx, unsigned);
 extern int may_trap_p (const_rtx);
-extern int may_trap_after_code_motion_p (const_rtx);
 extern int may_trap_or_fault_p (const_rtx);
 extern int inequality_comparisons_p (const_rtx);
 extern rtx replace_rtx (rtx, rtx, rtx);
@@ -2212,17 +2211,11 @@ extern void expand_dec (rtx, rtx);
 extern bool can_copy_p (enum machine_mode);
 extern rtx fis_get_condition (rtx);
 
-/* In global.c */
+/* In ira.c */
 #ifdef HARD_CONST
 extern HARD_REG_SET eliminable_regset;
 #endif
 extern void mark_elimination (int, int);
-extern void dump_global_regs (FILE *);
-#ifdef HARD_CONST
-/* Yes, this ifdef is silly, but HARD_REG_SET is not always defined.  */
-extern void retry_global_alloc (int, HARD_REG_SET);
-#endif
-extern void build_insn_chain (void);
 
 /* In regclass.c */
 extern int reg_classes_intersect_p (enum reg_class, enum reg_class);
@@ -2230,6 +2223,7 @@ extern int reg_class_subset_p (enum reg_class, enum reg_class);
 extern void globalize_reg (int);
 extern void init_reg_modes_target (void);
 extern void init_regs (void);
+extern void reinit_regs (void);
 extern void init_fake_stack_mems (void);
 extern void save_register_info (void);
 extern void init_reg_sets (void);
@@ -2245,10 +2239,6 @@ extern bool invalid_mode_change_p (unsigned int, enum reg_class,
 
 /* In reorg.c */
 extern void dbr_schedule (rtx);
-
-/* In local-alloc.c */
-extern void dump_local_alloc (FILE *);
-extern int update_equiv_regs (void);
 
 /* In reload1.c */
 extern int function_invariant_p (const_rtx);

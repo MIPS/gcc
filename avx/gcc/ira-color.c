@@ -2537,6 +2537,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
   int i, j, n, last_coalesced_allocno_num;
   ira_allocno_t allocno, a;
   bool merged_p = false;
+  bitmap set_jump_crosses = regstat_get_setjmp_crosses ();
 
   slot_coalesced_allocnos_live_ranges
     = (allocno_live_range_t *) ira_allocate (sizeof (allocno_live_range_t)
@@ -2550,6 +2551,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
     {
       allocno = spilled_coalesced_allocnos[i];
       if (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) != allocno
+	  || bitmap_bit_p (set_jump_crosses, ALLOCNO_REGNO (allocno))
 	  || (ALLOCNO_REGNO (allocno) < ira_reg_equiv_len
 	      && (ira_reg_equiv_const[ALLOCNO_REGNO (allocno)] != NULL_RTX
 		  || ira_reg_equiv_invariant_p[ALLOCNO_REGNO (allocno)])))
@@ -2559,6 +2561,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
 	  a = spilled_coalesced_allocnos[j];
 	  n = ALLOCNO_TEMP (a);
 	  if (ALLOCNO_FIRST_COALESCED_ALLOCNO (a) == a
+	      && ! bitmap_bit_p (set_jump_crosses, ALLOCNO_REGNO (a))
 	      && (ALLOCNO_REGNO (a) >= ira_reg_equiv_len
 		  || (! ira_reg_equiv_invariant_p[ALLOCNO_REGNO (a)]
 		      && ira_reg_equiv_const[ALLOCNO_REGNO (a)] == NULL_RTX))
@@ -2769,8 +2772,7 @@ ira_mark_memory_move_deletion (int dst_regno, int src_regno)
 }
 
 /* Try to assign a hard register (except for FORBIDDEN_REGS) to
-   allocno A and return TRUE in the case of success.  That is an
-   analog of retry_global_alloc for IRA.  */
+   allocno A and return TRUE in the case of success.  */
 static bool
 allocno_reload_assign (ira_allocno_t a, HARD_REG_SET forbidden_regs)
 {
@@ -2959,7 +2961,7 @@ ira_reuse_stack_slot (int regno, unsigned int inherent_size,
   bitmap_iterator bi;
   struct ira_spilled_reg_stack_slot *slot = NULL;
 
-  ira_assert (flag_ira && inherent_size == PSEUDO_REGNO_BYTES (regno)
+  ira_assert (inherent_size == PSEUDO_REGNO_BYTES (regno)
 	      && inherent_size <= total_size
 	      && ALLOCNO_HARD_REGNO (allocno) < 0);
   if (! flag_ira_share_spill_slots)
@@ -3037,11 +3039,13 @@ ira_reuse_stack_slot (int regno, unsigned int inherent_size,
   if (x != NULL_RTX)
     {
       ira_assert (slot->width >= total_size);
+#ifdef ENABLE_IRA_CHECKING
       EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
 				FIRST_PSEUDO_REGISTER, i, bi)
 	{
 	  ira_assert (! pseudos_have_intersected_live_ranges_p (regno, i));
 	}
+#endif
       SET_REGNO_REG_SET (&slot->spilled_regs, regno);
       if (internal_flag_ira_verbose > 3 && ira_dump_file)
 	{
@@ -3069,7 +3073,7 @@ ira_mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
   int slot_num;
   ira_allocno_t allocno;
 
-  ira_assert (flag_ira && PSEUDO_REGNO_BYTES (regno) <= total_size);
+  ira_assert (PSEUDO_REGNO_BYTES (regno) <= total_size);
   allocno = ira_regno_allocno_map[regno];
   slot_num = -ALLOCNO_HARD_REGNO (allocno) - 2;
   if (slot_num == -1)
@@ -3267,7 +3271,7 @@ fast_allocation (void)
 						  * ira_max_point);
   for (i = 0; i < ira_max_point; i++)
     CLEAR_HARD_REG_SET (used_hard_regs[i]);
-  qsort (sorted_allocnos, ira_allocnos_num, sizeof (ira_allocno_t), 
+  qsort (sorted_allocnos, num, sizeof (ira_allocno_t),
 	 allocno_priority_compare_func);
   for (i = 0; i < num; i++)
     {
@@ -3329,7 +3333,7 @@ ira_color (void)
       ALLOCNO_UPDATED_MEMORY_COST (a) = ALLOCNO_MEMORY_COST (a);
       ALLOCNO_UPDATED_COVER_CLASS_COST (a) = ALLOCNO_COVER_CLASS_COST (a);
     }
-  if (optimize)
+  if (ira_conflicts_p)
     color ();
   else
     fast_allocation ();

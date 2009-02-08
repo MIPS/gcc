@@ -1,6 +1,6 @@
 /* Parser for C and Objective-C.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
@@ -3090,7 +3090,7 @@ c_parser_initelt (c_parser *parser)
 		  init.original_code = ERROR_MARK;
 		  c_parser_error (parser, "expected identifier");
 		  c_parser_skip_until_found (parser, CPP_COMMA, NULL);
-		  process_init_element (init);
+		  process_init_element (init, false);
 		  return;
 		}
 	    }
@@ -3213,7 +3213,7 @@ c_parser_initelt (c_parser *parser)
 		  init.original_code = ERROR_MARK;
 		  c_parser_error (parser, "expected %<=%>");
 		  c_parser_skip_until_found (parser, CPP_COMMA, NULL);
-		  process_init_element (init);
+		  process_init_element (init, false);
 		  return;
 		}
 	    }
@@ -3243,7 +3243,7 @@ c_parser_initval (c_parser *parser, struct c_expr *after)
 	  && TREE_CODE (init.value) != COMPOUND_LITERAL_EXPR)
 	init = default_function_array_conversion (init);
     }
-  process_init_element (init);
+  process_init_element (init, false);
 }
 
 /* Parse a compound statement (possibly a function body) (C90 6.6.2,
@@ -4949,13 +4949,6 @@ c_parser_sizeof_expression (c_parser *parser)
       /* sizeof ( type-name ).  */
       skip_evaluation--;
       in_sizeof--;
-      if (type_name->declarator->kind == cdk_array
-	  && type_name->declarator->u.array.vla_unspec_p)
-	{
-	  /* C99 6.7.5.2p4 */
-	  error_at (expr_loc,
-		    "%<[*]%> not allowed in other than a declaration");
-	}
       return c_expr_sizeof_type (type_name);
     }
   else
@@ -5089,6 +5082,17 @@ c_parser_postfix_expression (c_parser *parser)
   switch (c_parser_peek_token (parser)->type)
     {
     case CPP_NUMBER:
+      expr.value = c_parser_peek_token (parser)->value;
+      expr.original_code = ERROR_MARK;
+      loc = c_parser_peek_token (parser)->location;
+      c_parser_consume_token (parser);
+      if (TREE_CODE (expr.value) == FIXED_CST
+	  && !targetm.fixed_point_supported_p ())
+	{
+	  error_at (loc, "fixed-point types not supported for this target");
+	  expr.value = error_mark_node;
+	}
+      break;
     case CPP_CHAR:
     case CPP_CHAR16:
     case CPP_CHAR32:
@@ -5273,10 +5277,21 @@ c_parser_postfix_expression (c_parser *parser)
 		c_parser_consume_token (parser);
 		while (c_parser_next_token_is (parser, CPP_DOT)
 		       || c_parser_next_token_is (parser,
-						  CPP_OPEN_SQUARE))
+						  CPP_OPEN_SQUARE)
+		       || c_parser_next_token_is (parser,
+						  CPP_DEREF))
 		  {
-		    if (c_parser_next_token_is (parser, CPP_DOT))
+		    if (c_parser_next_token_is (parser, CPP_DEREF))
 		      {
+			loc = c_parser_peek_token (parser)->location;
+			offsetof_ref = build_array_ref (offsetof_ref,
+							integer_zero_node,
+							loc);
+			goto do_dot;
+		      }
+		    else if (c_parser_next_token_is (parser, CPP_DOT))
+		      {
+		      do_dot:
 			c_parser_consume_token (parser);
 			if (c_parser_next_token_is_not (parser,
 							CPP_NAME))

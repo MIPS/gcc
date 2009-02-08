@@ -1,6 +1,6 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -498,10 +498,14 @@ special_function_p (const_tree fndecl, int flags)
 	       && ! strcmp (name, "__builtin_alloca"))))
 	flags |= ECF_MAY_BE_ALLOCA;
 
-      /* Disregard prefix _, __ or __x.  */
+      /* Disregard prefix _, __, __x or __builtin_.  */
       if (name[0] == '_')
 	{
-	  if (name[1] == '_' && name[2] == 'x')
+	  if (name[1] == '_'
+	      && name[2] == 'b'
+	      && !strncmp (name + 3, "uiltin_", 7))
+	    tname += 10;
+	  else if (name[1] == '_' && name[2] == 'x')
 	    tname += 3;
 	  else if (name[1] == '_')
 	    tname += 2;
@@ -992,7 +996,6 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	    && targetm.calls.split_complex_arg (argtype))
 	  {
 	    tree subtype = TREE_TYPE (argtype);
-	    arg = save_expr (arg);
 	    args[j].tree_value = build1 (REALPART_EXPR, subtype, arg);
 	    j += inc;
 	    args[j].tree_value = build1 (IMAGPART_EXPR, subtype, arg);
@@ -2705,26 +2708,28 @@ expand_call (tree exp, rtx target, int ignore)
 	 but we do preallocate space here if they want that.  */
 
       for (i = 0; i < num_actuals; i++)
-	if (args[i].reg == 0 || args[i].pass_on_stack)
-	  {
-	    rtx before_arg = get_last_insn ();
+	{
+	  if (args[i].reg == 0 || args[i].pass_on_stack)
+	    {
+	      rtx before_arg = get_last_insn ();
 
-	    if (store_one_arg (&args[i], argblock, flags,
-			       adjusted_args_size.var != 0,
-			       reg_parm_stack_space)
-		|| (pass == 0
-		    && check_sibcall_argument_overlap (before_arg,
-						       &args[i], 1)))
-	      sibcall_failure = 1;
+	      if (store_one_arg (&args[i], argblock, flags,
+				 adjusted_args_size.var != 0,
+				 reg_parm_stack_space)
+		  || (pass == 0
+		      && check_sibcall_argument_overlap (before_arg,
+							 &args[i], 1)))
+		sibcall_failure = 1;
+	      }
 
-	    if (flags & ECF_CONST
-		&& args[i].stack
-		&& args[i].value == args[i].stack)
-	      call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
-					       gen_rtx_USE (VOIDmode,
-							    args[i].value),
-					       call_fusage);
-	  }
+	  if (((flags & ECF_CONST)
+	       || ((flags & ECF_PURE) && ACCUMULATE_OUTGOING_ARGS))
+	      && args[i].stack)
+	    call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
+					     gen_rtx_USE (VOIDmode,
+							  args[i].stack),
+					     call_fusage);
+	}
 
       /* If we have a parm that is passed in registers but not in memory
 	 and whose alignment does not permit a direct copy into registers,
@@ -3672,7 +3677,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
 	  NO_DEFER_POP;
 
-	  if (flags & ECF_CONST)
+	  if ((flags & ECF_CONST)
+	      || ((flags & ECF_PURE) && ACCUMULATE_OUTGOING_ARGS))
 	    {
 	      rtx use;
 

@@ -2298,20 +2298,6 @@ write_expression (tree expr)
 	    write_template_args (template_args);
 	}
     }
-  else if (code == COMPONENT_REF)
-    {
-      tree ob = TREE_OPERAND (expr, 0);
-
-      if (TREE_CODE (ob) == ARROW_EXPR)
-	{
-	  code = ARROW_EXPR;
-	  ob = TREE_OPERAND (ob, 0);
-	}
-
-      write_string (operator_name_info[(int)code].mangled_name);
-      write_expression (ob);
-      write_member_name (TREE_OPERAND (expr, 1));
-    }
   else
     {
       int i;
@@ -2334,6 +2320,23 @@ write_expression (tree expr)
 	  code = TREE_CODE (expr);
 	}
 
+      if (code == COMPONENT_REF)
+	{
+	  tree ob = TREE_OPERAND (expr, 0);
+
+	  if (TREE_CODE (ob) == ARROW_EXPR)
+	    {
+	      write_string (operator_name_info[(int)code].mangled_name);
+	      ob = TREE_OPERAND (ob, 0);
+	    }
+	  else
+	    write_string ("dt");
+
+	  write_expression (ob);
+	  write_member_name (TREE_OPERAND (expr, 1));
+	  return;
+	}
+
       /* If it wasn't any of those, recursively expand the expression.  */
       write_string (operator_name_info[(int) code].mangled_name);
 
@@ -2348,12 +2351,12 @@ write_expression (tree expr)
 
 	case CAST_EXPR:
 	  write_type (TREE_TYPE (expr));
+	  /* There is no way to mangle a zero-operand cast like
+	     "T()".  */
 	  if (!TREE_OPERAND (expr, 0))
-	    /* "T()" is mangled as "T(void)".  */
-	    write_char ('v');
+	    sorry ("zero-operand casts cannot be mangled due to a defect "
+		   "in the C++ ABI");
 	  else if (list_length (TREE_OPERAND (expr, 0)) > 1)
-	    /* FIXME the above hack for T() needs to be replaced with
-	       something more general.  */
 	    sorry ("mangling function-style cast with more than one argument");
 	  else
 	    write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));

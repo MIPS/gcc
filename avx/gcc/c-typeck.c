@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -92,11 +92,11 @@ static int spelling_length (void);
 static char *print_spelling (char *);
 static void warning_init (int, const char *);
 static tree digest_init (tree, tree, bool, int);
-static void output_init_element (tree, bool, tree, tree, int);
+static void output_init_element (tree, bool, tree, tree, int, bool);
 static void output_pending_init_elements (int);
 static int set_designator (int);
 static void push_range_stack (tree);
-static void add_pending_init (tree, tree);
+static void add_pending_init (tree, tree, bool);
 static void set_nonincremental_init (void);
 static void set_nonincremental_init_from_string (tree);
 static tree find_init_member (tree);
@@ -326,9 +326,13 @@ composite_type (tree t1, tree t2)
 	tree d2 = TYPE_DOMAIN (t2);
 	bool d1_variable, d2_variable;
 	bool d1_zero, d2_zero;
+	bool t1_complete, t2_complete;
 
 	/* We should not have any type quals on arrays at all.  */
 	gcc_assert (!TYPE_QUALS (t1) && !TYPE_QUALS (t2));
+
+	t1_complete = COMPLETE_TYPE_P (t1);
+	t2_complete = COMPLETE_TYPE_P (t2);
 
 	d1_zero = d1 == 0 || !TYPE_MAX_VALUE (d1);
 	d2_zero = d2 == 0 || !TYPE_MAX_VALUE (d2);
@@ -369,6 +373,15 @@ composite_type (tree t1, tree t2)
 						 || !d1_variable))
 					    ? t1
 					    : t2));
+	/* Ensure a composite type involving a zero-length array type
+	   is a zero-length type not an incomplete type.  */
+	if (d1_zero && d2_zero
+	    && (t1_complete || t2_complete)
+	    && !COMPLETE_TYPE_P (t1))
+	  {
+	    TYPE_SIZE (t1) = bitsize_zero_node;
+	    TYPE_SIZE_UNIT (t1) = size_zero_node;
+	  }
 	t1 = c_build_qualified_type (t1, quals);
 	return build_type_attribute_variant (t1, attributes);
       }
@@ -5389,12 +5402,12 @@ push_init_level (int implicit)
 	  if ((TREE_CODE (constructor_type) == RECORD_TYPE
 	       || TREE_CODE (constructor_type) == UNION_TYPE)
 	      && constructor_fields == 0)
-	    process_init_element (pop_init_level (1));
+	    process_init_element (pop_init_level (1), true);
 	  else if (TREE_CODE (constructor_type) == ARRAY_TYPE
 		   && constructor_max_index
 		   && tree_int_cst_lt (constructor_max_index,
 				       constructor_index))
-	    process_init_element (pop_init_level (1));
+	    process_init_element (pop_init_level (1), true);
 	  else
 	    break;
 	}
@@ -5588,7 +5601,7 @@ pop_init_level (int implicit)
       /* When we come to an explicit close brace,
 	 pop any inner levels that didn't have explicit braces.  */
       while (constructor_stack->implicit)
-	process_init_element (pop_init_level (1));
+	process_init_element (pop_init_level (1), true);
 
       gcc_assert (!constructor_range_stack);
     }
@@ -5747,7 +5760,7 @@ set_designator (int array)
       /* Designator list starts at the level of closest explicit
 	 braces.  */
       while (constructor_stack->implicit)
-	process_init_element (pop_init_level (1));
+	process_init_element (pop_init_level (1), true);
       constructor_designated = 1;
       return 0;
     }
@@ -5908,10 +5921,15 @@ set_init_label (tree fieldname)
 
 /* Add a new initializer to the tree of pending initializers.  PURPOSE
    identifies the initializer, either array index or field in a structure.
-   VALUE is the value of that index or field.  */
+   VALUE is the value of that index or field.
+
+   IMPLICIT is true if value comes from pop_init_level (1),
+   the new initializer has been merged with the existing one
+   and thus no warnings should be emitted about overriding an
+   existing initializer.  */
 
 static void
-add_pending_init (tree purpose, tree value)
+add_pending_init (tree purpose, tree value, bool implicit)
 {
   struct init_node *p, **q, *r;
 
@@ -5929,10 +5947,13 @@ add_pending_init (tree purpose, tree value)
 	    q = &p->right;
 	  else
 	    {
-	      if (TREE_SIDE_EFFECTS (p->value))
-		warning_init (0, "initialized field with side-effects overwritten");
-	      else if (warn_override_init)
-		warning_init (OPT_Woverride_init, "initialized field overwritten");
+	      if (!implicit)
+		{
+		  if (TREE_SIDE_EFFECTS (p->value))
+		    warning_init (0, "initialized field with side-effects overwritten");
+		  else if (warn_override_init)
+		    warning_init (OPT_Woverride_init, "initialized field overwritten");
+		}
 	      p->value = value;
 	      return;
 	    }
@@ -5952,10 +5973,13 @@ add_pending_init (tree purpose, tree value)
 	    q = &p->right;
 	  else
 	    {
-	      if (TREE_SIDE_EFFECTS (p->value))
-		warning_init (0, "initialized field with side-effects overwritten");
-	      else if (warn_override_init)
-		warning_init (OPT_Woverride_init, "initialized field overwritten");
+	      if (!implicit)
+		{
+		  if (TREE_SIDE_EFFECTS (p->value))
+		    warning_init (0, "initialized field with side-effects overwritten");
+		  else if (warn_override_init)
+		    warning_init (OPT_Woverride_init, "initialized field overwritten");
+		}
 	      p->value = value;
 	      return;
 	    }
@@ -6140,7 +6164,7 @@ set_nonincremental_init (void)
     return;
 
   FOR_EACH_CONSTRUCTOR_ELT (constructor_elements, ix, index, value)
-    add_pending_init (index, value);
+    add_pending_init (index, value, false);
   constructor_elements = 0;
   if (TREE_CODE (constructor_type) == RECORD_TYPE)
     {
@@ -6230,7 +6254,7 @@ set_nonincremental_init_from_string (tree str)
 	}
 
       value = build_int_cst_wide (type, val[1], val[0]);
-      add_pending_init (purpose, value);
+      add_pending_init (purpose, value, false);
     }
 
   constructor_incremental = 0;
@@ -6303,11 +6327,16 @@ find_init_member (tree field)
 
    PENDING if non-nil means output pending elements that belong
    right after this element.  (PENDING is normally 1;
-   it is 0 while outputting pending elements, to avoid recursion.)  */
+   it is 0 while outputting pending elements, to avoid recursion.)
+
+   IMPLICIT is true if value comes from pop_init_level (1),
+   the new initializer has been merged with the existing one
+   and thus no warnings should be emitted about overriding an
+   existing initializer.  */
 
 static void
 output_init_element (tree value, bool strict_string, tree type, tree field,
-		     int pending)
+		     int pending, bool implicit)
 {
   constructor_elt *celt;
 
@@ -6386,7 +6415,7 @@ output_init_element (tree value, bool strict_string, tree type, tree field,
 	  && tree_int_cst_lt (field, constructor_unfilled_index))
 	set_nonincremental_init ();
 
-      add_pending_init (field, value);
+      add_pending_init (field, value, implicit);
       return;
     }
   else if (TREE_CODE (constructor_type) == RECORD_TYPE
@@ -6412,17 +6441,21 @@ output_init_element (tree value, bool strict_string, tree type, tree field,
 	    }
 	}
 
-      add_pending_init (field, value);
+      add_pending_init (field, value, implicit);
       return;
     }
   else if (TREE_CODE (constructor_type) == UNION_TYPE
 	   && !VEC_empty (constructor_elt, constructor_elements))
     {
-      if (TREE_SIDE_EFFECTS (VEC_last (constructor_elt,
-				       constructor_elements)->value))
-	warning_init (0, "initialized field with side-effects overwritten");
-      else if (warn_override_init)
-	warning_init (OPT_Woverride_init, "initialized field overwritten");
+      if (!implicit)
+	{
+	  if (TREE_SIDE_EFFECTS (VEC_last (constructor_elt,
+					   constructor_elements)->value))
+	    warning_init (0,
+			  "initialized field with side-effects overwritten");
+	  else if (warn_override_init)
+	    warning_init (OPT_Woverride_init, "initialized field overwritten");
+	}
 
       /* We can have just one union field set.  */
       constructor_elements = 0;
@@ -6493,7 +6526,7 @@ output_pending_init_elements (int all)
 				  constructor_unfilled_index))
 	    output_init_element (elt->value, true,
 				 TREE_TYPE (constructor_type),
-				 constructor_unfilled_index, 0);
+				 constructor_unfilled_index, 0, false);
 	  else if (tree_int_cst_lt (constructor_unfilled_index,
 				    elt->purpose))
 	    {
@@ -6546,7 +6579,7 @@ output_pending_init_elements (int all)
 	    {
 	      constructor_unfilled_fields = elt->purpose;
 	      output_init_element (elt->value, true, TREE_TYPE (elt->purpose),
-				   elt->purpose, 0);
+				   elt->purpose, 0, false);
 	    }
 	  else if (tree_int_cst_lt (ctor_unfilled_bitpos, elt_bitpos))
 	    {
@@ -6609,10 +6642,15 @@ output_pending_init_elements (int all)
    to handle a partly-braced initializer.
 
    Once this has found the correct level for the new element,
-   it calls output_init_element.  */
+   it calls output_init_element.
+
+   IMPLICIT is true if value comes from pop_init_level (1),
+   the new initializer has been merged with the existing one
+   and thus no warnings should be emitted about overriding an
+   existing initializer.  */
 
 void
-process_init_element (struct c_expr value)
+process_init_element (struct c_expr value, bool implicit)
 {
   tree orig_value = value.value;
   int string_flag = orig_value != 0 && TREE_CODE (orig_value) == STRING_CST;
@@ -6653,12 +6691,12 @@ process_init_element (struct c_expr value)
       if ((TREE_CODE (constructor_type) == RECORD_TYPE
 	   || TREE_CODE (constructor_type) == UNION_TYPE)
 	  && constructor_fields == 0)
-	process_init_element (pop_init_level (1));
+	process_init_element (pop_init_level (1), true);
       else if (TREE_CODE (constructor_type) == ARRAY_TYPE
 	       && (constructor_max_index == 0
 		   || tree_int_cst_lt (constructor_max_index,
 				       constructor_index)))
-	process_init_element (pop_init_level (1));
+	process_init_element (pop_init_level (1), true);
       else
 	break;
     }
@@ -6725,7 +6763,7 @@ process_init_element (struct c_expr value)
 	    {
 	      push_member_name (constructor_fields);
 	      output_init_element (value.value, strict_string,
-				   fieldtype, constructor_fields, 1);
+				   fieldtype, constructor_fields, 1, implicit);
 	      RESTORE_SPELLING_DEPTH (constructor_depth);
 	    }
 	  else
@@ -6815,7 +6853,7 @@ process_init_element (struct c_expr value)
 	    {
 	      push_member_name (constructor_fields);
 	      output_init_element (value.value, strict_string,
-				   fieldtype, constructor_fields, 1);
+				   fieldtype, constructor_fields, 1, implicit);
 	      RESTORE_SPELLING_DEPTH (constructor_depth);
 	    }
 	  else
@@ -6865,7 +6903,7 @@ process_init_element (struct c_expr value)
 	    {
 	      push_array_bounds (tree_low_cst (constructor_index, 1));
 	      output_init_element (value.value, strict_string,
-				   elttype, constructor_index, 1);
+				   elttype, constructor_index, 1, implicit);
 	      RESTORE_SPELLING_DEPTH (constructor_depth);
 	    }
 
@@ -6894,7 +6932,7 @@ process_init_element (struct c_expr value)
 	  /* Now output the actual element.  */
 	  if (value.value)
 	    output_init_element (value.value, strict_string,
-				 elttype, constructor_index, 1);
+				 elttype, constructor_index, 1, implicit);
 
 	  constructor_index
 	    = size_binop (PLUS_EXPR, constructor_index, bitsize_one_node);
@@ -6919,7 +6957,7 @@ process_init_element (struct c_expr value)
 	{
 	  if (value.value)
 	    output_init_element (value.value, strict_string,
-				 constructor_type, NULL_TREE, 1);
+				 constructor_type, NULL_TREE, 1, implicit);
 	  constructor_fields = 0;
 	}
 
@@ -6935,14 +6973,14 @@ process_init_element (struct c_expr value)
 	  while (constructor_stack != range_stack->stack)
 	    {
 	      gcc_assert (constructor_stack->implicit);
-	      process_init_element (pop_init_level (1));
+	      process_init_element (pop_init_level (1), true);
 	    }
 	  for (p = range_stack;
 	       !p->range_end || tree_int_cst_equal (p->index, p->range_end);
 	       p = p->prev)
 	    {
 	      gcc_assert (constructor_stack->implicit);
-	      process_init_element (pop_init_level (1));
+	      process_init_element (pop_init_level (1), true);
 	    }
 
 	  p->index = size_binop (PLUS_EXPR, p->index, bitsize_one_node);
@@ -7201,8 +7239,10 @@ c_finish_return (tree retval)
 	{
 	  switch (TREE_CODE (inner))
 	    {
-	    CASE_CONVERT:   case NON_LVALUE_EXPR:
+	    CASE_CONVERT:
+	    case NON_LVALUE_EXPR:
 	    case PLUS_EXPR:
+	    case POINTER_PLUS_EXPR:
 	      inner = TREE_OPERAND (inner, 0);
 	      continue;
 

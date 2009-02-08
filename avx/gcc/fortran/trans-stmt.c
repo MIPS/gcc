@@ -1,5 +1,5 @@
 /* Statement translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
@@ -213,7 +213,6 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
   gfc_ss_info *info;
   gfc_symbol *fsym;
   int n;
-  stmtblock_t block;
   tree data;
   tree offset;
   tree size;
@@ -252,7 +251,7 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 	    && gfc_check_fncall_dependency (e, fsym->attr.intent,
 					    sym, arg0, check_variable))
 	{
-	  tree initial;
+	  tree initial, temptype;
 	  stmtblock_t temp_post;
 
 	  /* Make a local loopinfo for the temporary creation, so that
@@ -278,24 +277,31 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 	  else
 	    initial = NULL_TREE;
 
-	  /* Generate the temporary.  Merge the block so that the
-	     declarations are put at the right binding level.  Cleaning up the
-	     temporary should be the very last thing done, so we add the code to
-	     a new block and add it to se->post as last instructions.  */
+	  /* Find the type of the temporary to create; we don't use the type
+	     of e itself as this breaks for subcomponent-references in e (where
+	     the type of e is that of the final reference, but parmse.expr's
+	     type corresponds to the full derived-type).  */
+	  /* TODO: Fix this somehow so we don't need a temporary of the whole
+	     array but instead only the components referenced.  */
+	  temptype = TREE_TYPE (parmse.expr); /* Pointer to descriptor.  */
+	  gcc_assert (TREE_CODE (temptype) == POINTER_TYPE);
+	  temptype = TREE_TYPE (temptype);
+	  temptype = gfc_get_element_type (temptype);
+
+	  /* Generate the temporary.  Cleaning up the temporary should be the
+	     very last thing done, so we add the code to a new block and add it
+	     to se->post as last instructions.  */
 	  size = gfc_create_var (gfc_array_index_type, NULL);
 	  data = gfc_create_var (pvoid_type_node, NULL);
-	  gfc_start_block (&block);
 	  gfc_init_block (&temp_post);
-	  tmp = gfc_typenode_for_spec (&e->ts);
 	  tmp = gfc_trans_create_temp_array (&se->pre, &temp_post,
-					     &tmp_loop, info, tmp,
+					     &tmp_loop, info, temptype,
 					     initial,
 					     false, true, false,
 					     &arg->expr->where);
 	  gfc_add_modify (&se->pre, size, tmp);
 	  tmp = fold_convert (pvoid_type_node, info->data);
 	  gfc_add_modify (&se->pre, data, tmp);
-	  gfc_merge_block_scope (&block);
 
 	  /* Calculate the offset for the temporary.  */
 	  offset = gfc_index_zero_node;
@@ -311,14 +317,11 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 	  info->offset = gfc_create_var (gfc_array_index_type, NULL);	  
 	  gfc_add_modify (&se->pre, info->offset, offset);
 
-
 	  /* Copy the result back using unpack.  */
 	  tmp = build_call_expr (gfor_fndecl_in_unpack, 2, parmse.expr, data);
 	  gfc_add_expr_to_block (&se->post, tmp);
 
-	  /* XXX: This is possibly not needed; but isn't it cleaner this way? */
-	  gfc_add_block_to_block (&se->pre, &parmse.pre);
-
+	  /* parmse.pre is already added above.  */
 	  gfc_add_block_to_block (&se->post, &parmse.post);
 	  gfc_add_block_to_block (&se->post, &temp_post);
 	}
@@ -386,6 +389,7 @@ gfc_trans_call (gfc_code * code, bool dependency_check)
       stmtblock_t body;
       stmtblock_t block;
       gfc_se loopse;
+      gfc_se depse;
 
       /* gfc_walk_elemental_function_args renders the ss chain in the
 	 reverse order to the actual argument order.  */
@@ -413,8 +417,13 @@ gfc_trans_call (gfc_code * code, bool dependency_check)
 	check_variable = ELEM_CHECK_VARIABLE;
       else
 	check_variable = ELEM_DONT_CHECK_VARIABLE;
-      gfc_conv_elemental_dependencies (&se, &loopse, code->resolved_sym,
+
+      gfc_init_se (&depse, NULL);
+      gfc_conv_elemental_dependencies (&depse, &loopse, code->resolved_sym,
 				       code->ext.actual, check_variable);
+
+      gfc_add_block_to_block (&loop.pre,  &depse.pre);
+      gfc_add_block_to_block (&loop.post, &depse.post);
 
       /* Generate the loop body.  */
       gfc_start_scalarized_body (&loop, &body);
