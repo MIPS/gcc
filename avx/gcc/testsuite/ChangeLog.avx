@@ -1,5 +1,17 @@
 2009-02-08  H.J. Lu  <hongjiu.lu@intel.com>
 
+	PR target/39119
+	* gcc.target/x86_64/abi/avx/abi-avx.exp: New.
+	* gcc.target/x86_64/abi/avx/args.h: Likewise.
+	* gcc.target/x86_64/abi/avx/asm-support.S: Likewise.
+	* gcc.target/x86_64/abi/avx/avx-check.h: Likewise.
+	* gcc.target/x86_64/abi/avx/test_m256_returning.c: Likewise.
+	* gcc.target/x86_64/abi/avx/test_passing_m256.c: Likewise.
+	* gcc.target/x86_64/abi/avx/test_passing_structs.c: Likewise.
+	* gcc.target/x86_64/abi/avx/test_passing_unions.c: Likewise.
+
+2009-02-08  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* gcc.target/x86_64/abi/abi-x86_64.exp: Use glob instead of
 	find.
 
