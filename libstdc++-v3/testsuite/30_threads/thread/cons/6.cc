@@ -1,6 +1,11 @@
-// thread -*- C++ -*-
+// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* alpha*-*-osf* mips-sgi-irix6* } }
+// { dg-options " -std=gnu++0x -pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* alpha*-*-osf* mips-sgi-irix6* } }
+// { dg-options " -std=gnu++0x -pthreads" { target *-*-solaris* } }
+// { dg-options " -std=gnu++0x " { target *-*-cygwin *-*-darwin* } }
+// { dg-require-cstdint "" }
+// { dg-require-gthreads "" }
 
-// Copyright (C) 2008, 2009 Free Software Foundation, Inc.
+// Copyright (C) 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,78 +33,38 @@
 // the GNU General Public License.
 
 #include <thread>
-#include <cerrno>
+#include <system_error>
+#include <testsuite_hooks.h>
 
-#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
+bool f_was_called = false;
 
-namespace std
+void f()
 {
-  namespace
+  f_was_called = true;
+}
+
+void test06()
+{
+  bool test __attribute__((unused)) = true;
+
+  try
   {
-    extern "C" void*
-    execute_native_thread_routine(void* __p)
-    {
-      thread::_Impl_base* __t = static_cast<thread::_Impl_base*>(__p);
-      thread::__shared_base_type __local;
-      __local.swap(__t->_M_this_ptr);
-
-      __try
-	{
-	  __local->_M_run();
-	}
-      __catch(...)
-	{
-	  std::terminate();
-	}
-
-      return 0;
-    }
+    std::thread t(f);
+    t.join();
+    VERIFY( f_was_called );
   }
-
-  void
-  thread::join()
+  catch (const std::system_error&)
   {
-    int __e = EINVAL;
-
-    if (_M_data)
-    {
-      void* __r = 0;
-      __e = __gthread_join(_M_data->_M_id._M_thread, &__r);
-    }
-
-    if (__e)
-      __throw_system_error(__e);
-
-    _M_data.reset();
+    VERIFY( false );
   }
-
-  void
-  thread::detach()
+  catch (...)
   {
-    int __e = EINVAL;
-
-    if (_M_data)
-      __e = __gthread_detach(_M_data->_M_id._M_thread);
-
-    if (__e)
-      __throw_system_error(__e);
-
-    _M_data.reset();
-  }
-
-  void
-  thread::_M_start_thread()
-  {
-    // _M_data->_M_this_ptr = _M_data;
-    _M_data->_M_this_ptr = _M_data;
-    int __e = __gthread_create(&_M_data->_M_id._M_thread,
-			       &execute_native_thread_routine, _M_data.get());
-    if (__e)
-    {
-      _M_data->_M_this_ptr.reset();
-      __throw_system_error(__e);
-    }
+    VERIFY( false );
   }
 }
 
-#endif // _GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1
+int main()
+{
+  test06();
+  return 0;
+}
