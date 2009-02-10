@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "stdint.h"
 #include "lto-symtab.h"
+#include "lto-opts.h"
 #include "lto-utils.h"
 #include "bitmap.h"
 
@@ -1316,6 +1317,9 @@ produce_asm_for_decls (cgraph_node_set set)
 
   /* Write the symbol table. */
   produce_symtab (ob->main_hash_table);
+
+  /* Write command line opts.  */
+  lto_write_options ();
 
   VEC_free (lto_out_decl_state_ptr, heap, lto_function_decl_states);
   lto_function_decl_states = NULL;

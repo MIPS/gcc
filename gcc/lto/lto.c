@@ -40,6 +40,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-out.h"
 #include "lto-tree-in.h"
 #include "lto-tags.h"
+#include "lto-opts.h"
 #include "lto-utils.h"
 #include "vec.h"
 #include "bitmap.h"
@@ -1402,6 +1403,9 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       gcc_assert (num_objects == num_in_fnames);
     }
 
+  /* Clear any file options currently saved.  */
+  lto_clear_file_options ();
+
   /* Read all of the object files specified on the command line.  */
   for (i = 0; i < num_in_fnames; ++i)
     {
@@ -1412,11 +1416,23 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       if (!file_data)
 	break;
 
+      /* Read the options saved from the first file in the link set.
+	 FIXME lto, this assumes that all the files had been compiled
+	 with the same options, which is not a good assumption.  In
+	 general, options ought to be read from all the files in the
+	 set and merged.  However, it is still unclear what the merge
+	 rules should be.  */
+      if (i == 0)
+	lto_read_file_options (file_data);
+
       all_file_decl_data[j++] = file_data;
 
       lto_elf_file_close (current_lto_file);
       current_lto_file = NULL;
     }
+
+  /* Apply globally the options read from the first file.  */
+  lto_reissue_options ();
 
   if (resolution_file_name)
     fclose (resolution);

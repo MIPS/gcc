@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "dbgcnt.h"
 #include "debug.h"
+#include "lto-opts.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -647,16 +648,28 @@ handle_option (const char **argv, unsigned int lang_mask)
       }
 
   if (option->flags & lang_mask)
-    if (lang_hooks.handle_option (opt_index, arg, value) == 0)
-      result = 0;
+    {
+      if (lang_hooks.handle_option (opt_index, arg, value) == 0)
+	result = 0;
+      else
+	lto_register_user_option (opt_index, arg, value, lang_mask);
+    }
 
   if (result && (option->flags & CL_COMMON))
-    if (common_handle_option (opt_index, arg, value, lang_mask) == 0)
-      result = 0;
+    {
+      if (common_handle_option (opt_index, arg, value, lang_mask) == 0)
+	result = 0;
+      else
+	lto_register_user_option (opt_index, arg, value, CL_COMMON);
+    }
 
   if (result && (option->flags & CL_TARGET))
-    if (!targetm.handle_option (opt_index, arg, value))
-      result = 0;
+    {
+      if (!targetm.handle_option (opt_index, arg, value))
+	result = 0;
+      else
+	lto_register_user_option (opt_index, arg, value, CL_TARGET);
+    }
 
  done:
   if (dup)
@@ -1013,6 +1026,9 @@ decode_options (unsigned int argc, const char **argv)
       /* Some targets have ABI-specified unwind tables.  */
       flag_unwind_tables = targetm.unwind_tables_default;
     }
+
+  /* Clear any options currently held for LTO.  */
+  lto_clear_user_options ();
 
 #ifdef OPTIMIZATION_OPTIONS
   /* Allow default optimizations to be specified on a per-machine basis.  */

@@ -1,3 +1,10 @@
+2009-02-10  Simon Baldwin  <simonb@google.com>
+
+	* lto.c: Include lto-opts.h.
+	* (lto_main): Clear file options at loop start, read any saved
+	options from the first file handled, and re-issue options.
+	* Makefile.in (lto.o): Add dependency on lto-opts.h.
+
 2009-02-02  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c (lto_main): Stop LTO_TIMER and use

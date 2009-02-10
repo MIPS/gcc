@@ -886,6 +886,7 @@ LTO_SECTION_H = lto-section.h lto-header.h
 LTO_SECTION_IN_H = lto-section-in.h lto-header.h
 LTO_SECTION_OUT_H = lto-section-in.h lto-section.h lto-header.h
 LTO_TREE_IN_H = lto-tree-in.h $(LTO_SECTION_IN_H) $(PLUGIN_API_H)
+LTO_OPTS_H = lto-opts.h
 TREE_VECTORIZER_H = tree-vectorizer.h $(TREE_DATA_REF_H)
 IPA_PROP_H = ipa-prop.h $(TREE_H) vec.h $(CGRAPH_H)
 GSTAB_H = gstab.h stab.def
@@ -1164,6 +1165,7 @@ OBJS-common = \
 	lto-section-out.o \
 	lto-stream-debug.o \
 	lto-symtab.o \
+	lto-opts.o \
 	lto-utils.o \
 	lto-wpa-fixup.o \
 	mcf.o \
@@ -2112,10 +2114,14 @@ lto-section-out.o : lto-section-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
    except.h debug.h $(TIMEVAR_H) lto-header.h $(LTO_SECTION_OUT_H) output.h \
-   dwarf2asm.h dwarf2out.h  $(BITMAP_H) lto-utils.h
+   dwarf2asm.h dwarf2out.h  $(BITMAP_H) lto-utils.h $(LTO_OPTS_H)
 lto-symtab.o: lto-symtab.c $(LTO_TREE_IN_H) $(CONFIG_H) coretypes.h \
    $(SYSTEM_H) toplev.h $(LTO_TREE_H) $(GGC_H) $(LAMBDA_H) \
    $(GIMPLE_H) $(HASHTAB_H) $(LTO_TREE_IN_H) gt-lto-symtab.h
+lto-opts.o: lto-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
+   $(HASHTAB_H) $(GGC_H) vec.h  $(BITMAP_H) $(FLAGS_H) opts.h options.h \
+   $(TARGET_H) $(TOPLEV_H) $(LTO_SECTION_OUT_H) $(LTO_SECTION_IN_H) \
+   lto-utils.h $(LTO_OPTS_H)
 lto-utils.o: lto-utils.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
    $(TM_H) $(TREE_H) $(BITMAP_H) vec.h lto-header.h lto-utils.h
 lto-wpa-fixup.o: lto-wpa-fixup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
@@ -2502,7 +2508,8 @@ diagnostic.o : diagnostic.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 opts.o : opts.c opts.h options.h $(TOPLEV_H) $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TREE_H) $(TM_H) langhooks.h $(GGC_H) $(EXPR_H) $(RTL_H) \
    output.h $(DIAGNOSTIC_H) $(TM_P_H) $(INSN_ATTR_H) intl.h $(TARGET_H) \
-   $(FLAGS_H) $(PARAMS_H) tree-pass.h $(DBGCNT_H) debug.h varray.h
+   $(FLAGS_H) $(PARAMS_H) tree-pass.h $(DBGCNT_H) debug.h varray.h \
+   $(LTO_OPTS_H)
 opts-common.o : opts-common.c opts.h $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h intl.h
 targhooks.o : targhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \

@@ -1,3 +1,23 @@
+2009-02-10  Simon Baldwin  <simonb@google.com>
+
+	* lto-opts.h: New.
+	* lto-opts.c: New.
+	* lto-header.h (lto_section_type): Add LTO_section_opts.
+	* opts.c: Include lto-opts.h.
+	* (handle_option): Call lto_register_user_option for each
+	valid option handled.
+	* (decode_options): Clear registered options before the options
+	handling loop.
+	* lto-utils.c (lto_get_section_name): Add LTO_section_opts section.
+	* lto-section-out.c: Include lto-opts.h.
+	* (produce_asm_for_decls): Write saved options to the output
+	object file.
+	* Makefile.in (LTO_OPTS_H): New.
+	* (OBJS-common): Add lto-opts.o.
+	* (opts.o): Add dependency on LTO_OPTS_H.
+	* (lto-section-out.o): Ditto.
+	* (lto-opts.o): Dependencies for new modules.
+
 2009-02-09  Simon Baldwin  <simonb@google.com>
 
 	* collect2.c (maybe_run_lto_and_relink): Set environment variable

@@ -45,7 +45,8 @@ enum lto_section_type
   LTO_section_ipa_pure_const,
   LTO_section_ipa_reference,
   LTO_section_symtab,
-  LTO_section_wpa_fixup
+  LTO_section_wpa_fixup,
+  LTO_section_opts
 };
 
 struct lto_header

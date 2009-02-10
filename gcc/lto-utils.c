@@ -121,6 +121,9 @@ lto_get_section_name (int section_type, const char *name)
     case LTO_section_wpa_fixup:
       return concat (LTO_SECTION_NAME_PREFIX, ".wpa_fixup", NULL);
 
+    case LTO_section_opts:
+      return concat (LTO_SECTION_NAME_PREFIX, ".opts", NULL);
+
     default:
       gcc_unreachable ();
     }
