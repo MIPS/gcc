@@ -1,5 +1,9 @@
 2009-02-10  Diego Novillo  <dnovillo@google.com>
 
+	* lto.c (read_cgraph_and_symbols): Fix comment.
+
+2009-02-10  Diego Novillo  <dnovillo@google.com>
+
 	* lto.c (read_cgraph_and_symbols): Read options from all
 	IL files.
 

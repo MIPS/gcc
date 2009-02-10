@@ -1413,7 +1413,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       if (!file_data)
 	break;
 
-      /* Read the options saved from the first file in the link set.
+      /* Read the options saved from each file in the link set.
 	 FIXME lto, this assumes that all the files had been compiled
 	 with the same options, which is not a good assumption.  In
 	 general, options ought to be read from all the files in the
