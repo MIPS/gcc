@@ -1,3 +1,8 @@
+2009-02-10  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-dce.c (propagate_necessity): Handle loads in
+	asm input operands.
+
 2009-02-09  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r144030.

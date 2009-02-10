@@ -706,7 +706,19 @@ propagate_necessity (struct edge_list *el)
 		}
 	    }
 	  else if (gimple_code (stmt) == GIMPLE_ASM)
-	    mark_aliased_loads_necessary (stmt);
+	    {
+	      unsigned i;
+	      mark_aliased_loads_necessary (stmt);
+	      /* Inputs may perform loads.  */
+	      for (i = 0; i < gimple_asm_ninputs (stmt); ++i)
+		{
+		  tree op = TREE_VALUE (gimple_asm_input_op (stmt, i));
+		  if (TREE_CODE (op) != SSA_NAME
+		      && !is_gimple_min_invariant (op)
+		      && !ref_may_be_aliased (op))
+		    mark_nonaliased_loads_necessary (stmt, op);
+		}
+	    }
 	  else
 	    gcc_unreachable ();
 	}
