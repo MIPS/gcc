@@ -546,7 +546,8 @@ initialize_reductions (void **slot, void *data)
   bvar = create_tmp_var (type, "reduction");
   add_referenced_var (bvar);
 
-  c = build_omp_clause (OMP_CLAUSE_REDUCTION);
+  c = build_omp_clause (gimple_location (reduc->reduc_stmt),
+			OMP_CLAUSE_REDUCTION);
   OMP_CLAUSE_REDUCTION_CODE (c) = reduc->reduction_code;
   OMP_CLAUSE_DECL (c) = SSA_NAME_VAR (gimple_assign_lhs (reduc->reduc_stmt));
 
@@ -1560,7 +1561,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   paral_bb = single_pred (bb);
   gsi = gsi_last_bb (paral_bb);
 
-  t = build_omp_clause (OMP_CLAUSE_NUM_THREADS);
+  t = build_omp_clause (input_location, OMP_CLAUSE_NUM_THREADS);
   OMP_CLAUSE_NUM_THREADS_EXPR (t)
     = build_int_cst (integer_type_node, n_threads);
   stmt = gimple_build_omp_parallel (NULL, t, loop_fn, data);
@@ -1631,7 +1632,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   /* Emit GIMPLE_OMP_FOR.  */
   gimple_cond_set_lhs (cond_stmt, cvar_base);
   type = TREE_TYPE (cvar);
-  t = build_omp_clause (OMP_CLAUSE_SCHEDULE);
+  t = build_omp_clause (input_location, OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (t) = OMP_CLAUSE_SCHEDULE_STATIC;
 
   for_stmt = gimple_build_omp_for (NULL, t, 1, NULL);

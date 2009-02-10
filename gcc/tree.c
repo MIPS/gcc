@@ -8005,10 +8005,11 @@ build_empty_stmt (location_t loc)
 }
 
 
-/* Build an OpenMP clause with code CODE.  */
+/* Build an OpenMP clause with code CODE.  LOC is the location of the
+   clause.  */
 
 tree
-build_omp_clause (enum omp_clause_code code)
+build_omp_clause (location_t loc, enum omp_clause_code code)
 {
   tree t;
   int size, length;
@@ -8020,6 +8021,7 @@ build_omp_clause (enum omp_clause_code code)
   memset (t, 0, size);
   TREE_SET_CODE (t, OMP_CLAUSE);
   OMP_CLAUSE_SET_CODE (t, code);
+  OMP_CLAUSE_LOCATION (t) = loc;
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int) omp_clause_kind]++;

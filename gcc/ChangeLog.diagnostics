@@ -1,3 +1,69 @@
+2009-02-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree.c (build_omp_clause): Add location argument.
+	* tree.h (OMP_CLAUSE_HAS_LOCATION): New macro.
+	(OMP_CLAUSE_LOCATION): New macro.
+	(struct tree_omp_clause): Add location field.
+	(build_omp_clause): Add argument.
+	* testsuite/gcc.dg/gomp/for-1.c: Fix column.
+	* cp/pt.c (tsubst_omp_for_iterator): Pass location to
+	build_omp_clause.
+	* cp/parser.c (cp_parser_omp_var_list_no_open): Same.
+	(cp_parser_omp_clause_collapse): Same.
+	(cp_parser_omp_clause_default): Same.
+	(cp_parser_omp_clause_if): Same.
+	(cp_parser_omp_clause_nowait): Same.
+	(cp_parser_omp_clause_num_threads): Same.
+	(cp_parser_omp_clause_ordered): Same.
+	(cp_parser_omp_clause_schedule): Same.
+	(cp_parser_omp_clause_untied): Same.
+	(cp_parser_omp_for_loop): Same.
+	(cp_parser_omp_parallel): Pass location to c_split_parallel_clauses.
+	* c-tree.h (c_start_case): Add location argument.
+	(c_process_expr_stmt): Same.
+	(c_finish_goto_*): Same.
+	* tree-parloops.c (initialize_reductions): Pass location to
+	build_omp_clause.
+	(create_parallel_loop): Same.
+	* fortran/trans-openmp.c (gfc_trans_omp_variable_list): Same.
+	(gfc_trans_omp_reduction_list): Same.
+	(gfc_trans_omp_clauses): Same.
+	(gfc_trans_omp_do): Same.
+	* c-typeck.c (c_finish_goto_label): Same.
+	(c_finish_goto_ptr): New location argument.
+	(c_start_case): Same.
+	(emit_side_effect_warnings): Same.
+	(c_process_expr_stmt): Same.
+	(c_finish_stmt_expr): Same.
+	(c_finish_omp_clauses): Use error_at instead of error.
+	* gimplify.c (gimplify_adjust_omp_clauses_1): Pass location to
+	build_omp_clause.
+	* c-omp.c (c_split_parallel_clauses): New location argument.
+	* tree-nested.c (convert_nonlocal_reference_stmt): Pass location
+	to build_omp_clause.
+	(convert_local_reference_stmt): Same.
+	(convert_gimple_call): Same.
+	* c-common.h (c_split_parallel_clauses): New argument.
+	* c-parser.c (c_parser_statement_after_labels): Pass location to
+	c_finish_goto_label.
+	(c_parser_switch_statement): Pass location to c_start_case.
+	(c_parser_for_statement): Pass location to c_finish_expr_stmt,
+	and c_process_expr_stmt.
+	(c_parser_omp_variable_list): Add location argument.
+	(c_parser_omp_clause_collapse): Pass location to
+	build_omp_clause.
+	(c_parser_omp_clause_default): Same.
+	(c_parser_omp_clause_if): Same.
+	(c_parser_omp_clause_num_threads): Same.
+	(-c_parser_omp_clause_ordered): Same.
+	(c_parser_omp_clause_reduction): Pass location to
+	c_parser_omp_variable_list.
+	(c_parser_omp_clause_schedule): Pass location to build_omp_clause.
+	(c_parser_omp_clause_untied): Same.
+	(c_parser_omp_for_loop): Pass location to c_process_expr_stmt.
+	(c_parser_omp_parallel): Pass location to
+	c_split_parallel_clauses.
+
 2009-01-29  Aldy Hernandez  <aldyh@redhat.com>
 
 	Merge with mainline @ 143706.

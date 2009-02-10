@@ -20267,7 +20267,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	cp_parser_name_lookup_error (parser, name, decl, NULL, token->location);
       else if (kind != 0)
 	{
-	  tree u = build_omp_clause (kind);
+	  tree u = build_omp_clause (token->location, kind);
 	  OMP_CLAUSE_DECL (u) = decl;
 	  OMP_CLAUSE_CHAIN (u) = list;
 	  list = u;
@@ -20345,7 +20345,7 @@ cp_parser_omp_clause_collapse (cp_parser *parser, tree list, location_t location
     }
 
   check_no_duplicate_clause (list, OMP_CLAUSE_COLLAPSE, "collapse", location);
-  c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
+  c = build_omp_clause (loc, OMP_CLAUSE_COLLAPSE);
   OMP_CLAUSE_CHAIN (c) = list;
   OMP_CLAUSE_COLLAPSE_EXPR (c) = num;
 
@@ -20403,7 +20403,7 @@ cp_parser_omp_clause_default (cp_parser *parser, tree list, location_t location)
     return list;
 
   check_no_duplicate_clause (list, OMP_CLAUSE_DEFAULT, "default", location);
-  c = build_omp_clause (OMP_CLAUSE_DEFAULT);
+  c = build_omp_clause (location, OMP_CLAUSE_DEFAULT);
   OMP_CLAUSE_CHAIN (c) = list;
   OMP_CLAUSE_DEFAULT_KIND (c) = kind;
 
@@ -20431,7 +20431,7 @@ cp_parser_omp_clause_if (cp_parser *parser, tree list, location_t location)
 
   check_no_duplicate_clause (list, OMP_CLAUSE_IF, "if", location);
 
-  c = build_omp_clause (OMP_CLAUSE_IF);
+  c = build_omp_clause (location, OMP_CLAUSE_IF);
   OMP_CLAUSE_IF_EXPR (c) = t;
   OMP_CLAUSE_CHAIN (c) = list;
 
@@ -20449,7 +20449,7 @@ cp_parser_omp_clause_nowait (cp_parser *parser ATTRIBUTE_UNUSED,
 
   check_no_duplicate_clause (list, OMP_CLAUSE_NOWAIT, "nowait", location);
 
-  c = build_omp_clause (OMP_CLAUSE_NOWAIT);
+  c = build_omp_clause (location, OMP_CLAUSE_NOWAIT);
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -20477,7 +20477,7 @@ cp_parser_omp_clause_num_threads (cp_parser *parser, tree list,
   check_no_duplicate_clause (list, OMP_CLAUSE_NUM_THREADS,
 			     "num_threads", location);
 
-  c = build_omp_clause (OMP_CLAUSE_NUM_THREADS);
+  c = build_omp_clause (location, OMP_CLAUSE_NUM_THREADS);
   OMP_CLAUSE_NUM_THREADS_EXPR (c) = t;
   OMP_CLAUSE_CHAIN (c) = list;
 
@@ -20496,7 +20496,7 @@ cp_parser_omp_clause_ordered (cp_parser *parser ATTRIBUTE_UNUSED,
   check_no_duplicate_clause (list, OMP_CLAUSE_ORDERED,
 			     "ordered", location);
 
-  c = build_omp_clause (OMP_CLAUSE_ORDERED);
+  c = build_omp_clause (location, OMP_CLAUSE_ORDERED);
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -20578,7 +20578,7 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return list;
 
-  c = build_omp_clause (OMP_CLAUSE_SCHEDULE);
+  c = build_omp_clause (location, OMP_CLAUSE_SCHEDULE);
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
@@ -20666,7 +20666,7 @@ cp_parser_omp_clause_untied (cp_parser *parser ATTRIBUTE_UNUSED,
 
   check_no_duplicate_clause (list, OMP_CLAUSE_UNTIED, "untied", location);
 
-  c = build_omp_clause (OMP_CLAUSE_UNTIED);
+  c = build_omp_clause (location, OMP_CLAUSE_UNTIED);
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -21338,7 +21338,7 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	      {
 		/* Add lastprivate (decl) clause to OMP_FOR_CLAUSES,
 		   change it to shared (decl) in OMP_PARALLEL_CLAUSES.  */
-		tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
+		tree l = build_omp_clause (loc, OMP_CLAUSE_LASTPRIVATE);
 		OMP_CLAUSE_DECL (l) = real_decl;
 		OMP_CLAUSE_CHAIN (l) = clauses;
 		CP_OMP_CLAUSE_INFO (l) = CP_OMP_CLAUSE_INFO (*c);
@@ -21376,7 +21376,7 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	    }
 	  if (c == NULL)
 	    {
-	      c = build_omp_clause (OMP_CLAUSE_PRIVATE);
+	      c = build_omp_clause (loc, OMP_CLAUSE_PRIVATE);
 	      OMP_CLAUSE_DECL (c) = decl;
 	      c = finish_omp_clauses (c);
 	      if (c)
@@ -21700,6 +21700,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
   tree stmt, clauses, par_clause, ws_clause, block;
   unsigned int mask = OMP_PARALLEL_CLAUSE_MASK;
   unsigned int save;
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
 
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
     {
@@ -21735,12 +21736,12 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
       break;
 
     case PRAGMA_OMP_PARALLEL_FOR:
-      c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
+      c_split_parallel_clauses (loc, clauses, &par_clause, &ws_clause);
       cp_parser_omp_for_loop (parser, ws_clause, &par_clause);
       break;
 
     case PRAGMA_OMP_PARALLEL_SECTIONS:
-      c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
+      c_split_parallel_clauses (loc, clauses, &par_clause, &ws_clause);
       stmt = cp_parser_omp_sections_scope (parser);
       if (stmt)
 	OMP_SECTIONS_CLAUSES (stmt) = ws_clause;

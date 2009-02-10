@@ -443,18 +443,20 @@ c_finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 }
 
 
-/* Divide CLAUSES into two lists: those that apply to a parallel construct,
-   and those that apply to a work-sharing construct.  Place the results in
-   *PAR_CLAUSES and *WS_CLAUSES respectively.  In addition, add a nowait
-   clause to the work-sharing list.  */
+/* Divide CLAUSES into two lists: those that apply to a parallel
+   construct, and those that apply to a work-sharing construct.  Place
+   the results in *PAR_CLAUSES and *WS_CLAUSES respectively.  In
+   addition, add a nowait clause to the work-sharing list.  LOC is the
+   location of the OMP_PARALLEL*.  */
 
 void
-c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
+c_split_parallel_clauses (location_t loc, tree clauses,
+			  tree *par_clauses, tree *ws_clauses)
 {
   tree next;
 
   *par_clauses = NULL;
-  *ws_clauses = build_omp_clause (OMP_CLAUSE_NOWAIT);
+  *ws_clauses = build_omp_clause (loc, OMP_CLAUSE_NOWAIT);
 
   for (; clauses ; clauses = next)
     {

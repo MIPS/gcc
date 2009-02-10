@@ -7141,10 +7141,11 @@ build_asm_expr (location_t loc, tree string, tree outputs, tree inputs,
   return args;
 }
 
-/* Generate a goto statement to LABEL.  */
+/* Generate a goto statement to LABEL.  LOC is the location of the
+   GOTO.  */
 
 tree
-c_finish_goto_label (tree label)
+c_finish_goto_label (location_t loc, tree label)
 {
   tree decl = lookup_label (label);
   if (!decl)
@@ -7152,13 +7153,14 @@ c_finish_goto_label (tree label)
 
   if (C_DECL_UNJUMPABLE_STMT_EXPR (decl))
     {
-      error ("jump into statement expression");
+      error_at (loc, "jump into statement expression");
       return NULL_TREE;
     }
 
   if (C_DECL_UNJUMPABLE_VM (decl))
     {
-      error ("jump into scope of identifier with variably modified type");
+      error_at (loc,
+		"jump into scope of identifier with variably modified type");
       return NULL_TREE;
     }
 
@@ -7186,17 +7188,25 @@ c_finish_goto_label (tree label)
     }
 
   TREE_USED (decl) = 1;
-  return add_stmt (build1 (GOTO_EXPR, void_type_node, decl));
+  {
+    tree t = build1 (GOTO_EXPR, void_type_node, decl);
+    SET_EXPR_LOCATION (t, loc);
+    return add_stmt (t);
+  }
 }
 
-/* Generate a computed goto statement to EXPR.  */
+/* Generate a computed goto statement to EXPR.  LOC is the location of
+   the GOTO.  */
 
 tree
-c_finish_goto_ptr (tree expr)
+c_finish_goto_ptr (location_t loc, tree expr)
 {
-  pedwarn (input_location, OPT_pedantic, "ISO C forbids %<goto *expr;%>");
+  tree t;
+  pedwarn (loc, OPT_pedantic, "ISO C forbids %<goto *expr;%>");
   expr = convert (ptr_type_node, expr);
-  return add_stmt (build1 (GOTO_EXPR, void_type_node, expr));
+  t = build1 (GOTO_EXPR, void_type_node, expr);
+  SET_EXPR_LOCATION (t, loc);
+  return add_stmt (t);
 }
 
 /* Generate a C `return' statement.  RETVAL is the expression for what
@@ -7352,10 +7362,13 @@ struct c_switch {
 struct c_switch *c_switch_stack;
 
 /* Start a C switch statement, testing expression EXP.  Return the new
-   SWITCH_EXPR.  */
+   SWITCH_EXPR.  SWITCH_LOC is the location of the `switch'.
+   SWITCH_COND_LOC is the location of the switch's condition.  */
 
 tree
-c_start_case (tree exp)
+c_start_case (location_t switch_loc,
+	      location_t switch_cond_loc,
+	      tree exp)
 {
   tree orig_type = error_mark_node;
   struct c_switch *cs;
@@ -7368,7 +7381,7 @@ c_start_case (tree exp)
 	{
 	  if (orig_type != error_mark_node)
 	    {
-	      error ("switch quantity not an integer");
+	      error_at (switch_cond_loc, "switch quantity not an integer");
 	      orig_type = error_mark_node;
 	    }
 	  exp = integer_zero_node;
@@ -7380,8 +7393,9 @@ c_start_case (tree exp)
 	  if (!in_system_header
 	      && (type == long_integer_type_node
 		  || type == long_unsigned_type_node))
-	    warning (OPT_Wtraditional, "%<long%> switch expression not "
-		     "converted to %<int%> in ISO C");
+	    warning_at (switch_cond_loc,
+			OPT_Wtraditional, "%<long%> switch expression not "
+			"converted to %<int%> in ISO C");
 
 	  exp = default_conversion (exp);
 
@@ -7393,6 +7407,7 @@ c_start_case (tree exp)
   /* Add this new SWITCH_EXPR to the stack.  */
   cs = XNEW (struct c_switch);
   cs->switch_expr = build3 (SWITCH_EXPR, orig_type, exp, NULL_TREE, NULL_TREE);
+  SET_EXPR_LOCATION (cs->switch_expr, switch_loc);
   cs->orig_type = orig_type;
   cs->cases = splay_tree_new (case_compare, NULL, NULL);
   cs->blocked_stmt_expr = 0;
@@ -7463,10 +7478,7 @@ c_finish_case (tree body)
   gcc_assert (!cs->blocked_stmt_expr);
 
   /* Emit warnings as needed.  */
-  if (EXPR_HAS_LOCATION (cs->switch_expr))
-    switch_location = EXPR_LOCATION (cs->switch_expr);
-  else
-    switch_location = input_location;
+  switch_location = EXPR_LOCATION (cs->switch_expr);
   c_do_switch_warnings (cs->cases, switch_location,
 			TREE_TYPE (cs->switch_expr),
 			SWITCH_COND (cs->switch_expr));
@@ -7654,29 +7666,26 @@ c_finish_bc_stmt (location_t loc, tree *label_p, bool is_break)
 /* A helper routine for c_process_expr_stmt and c_finish_stmt_expr.  */
 
 static void
-emit_side_effect_warnings (tree expr)
+emit_side_effect_warnings (location_t loc, tree expr)
 {
   if (expr == error_mark_node)
     ;
   else if (!TREE_SIDE_EFFECTS (expr))
     {
       if (!VOID_TYPE_P (TREE_TYPE (expr)) && !TREE_NO_WARNING (expr))
-	warning (OPT_Wunused_value, "%Hstatement with no effect",
-		 EXPR_HAS_LOCATION (expr) ? EXPR_LOCUS (expr) : &input_location);
+	warning_at (loc, OPT_Wunused_value, "statement with no effect");
     }
   else
-    warn_if_unused_value (expr, input_location);
+    warn_if_unused_value (expr, loc);
 }
 
 /* Process an expression as if it were a complete statement.  Emit
-   diagnostics, but do not call ADD_STMT.  */
+   diagnostics, but do not call ADD_STMT.  LOC is the location of the
+   statement.  */
 
 tree
-c_process_expr_stmt (tree expr)
+c_process_expr_stmt (location_t loc, tree expr)
 {
-  location_t loc = CAN_HAVE_LOCATION_P (expr) ? EXPR_LOCATION (expr)
-    : input_location;
-
   if (!expr)
     return NULL_TREE;
 
@@ -7693,7 +7702,7 @@ c_process_expr_stmt (tree expr)
      out which is the result.  */
   if (!STATEMENT_LIST_STMT_EXPR (cur_stmt_list)
       && warn_unused_value)
-    emit_side_effect_warnings (expr);
+    emit_side_effect_warnings (loc, expr);
 
   /* If the expression is not of a type to which we cannot assign a line
      number, wrap the thing in a no-op NOP_EXPR.  */
@@ -7706,13 +7715,14 @@ c_process_expr_stmt (tree expr)
   return expr;
 }
 
-/* Emit an expression as a statement.  */
+/* Emit an expression as a statement.  LOC is the location of the
+   expression.  */
 
 tree
-c_finish_expr_stmt (tree expr)
+c_finish_expr_stmt (location_t loc, tree expr)
 {
   if (expr)
-    return add_stmt (c_process_expr_stmt (expr));
+    return add_stmt (c_process_expr_stmt (loc, expr));
   else
     return NULL;
 }
@@ -7814,7 +7824,13 @@ c_finish_stmt_expr (location_t loc, tree body)
       if (warn_unused_value)
 	{
 	  for (i = tsi_start (last); !tsi_one_before_end_p (i); tsi_next (&i))
-	    emit_side_effect_warnings (tsi_stmt (i));
+	    {
+	      location_t tloc;
+	      tree t = tsi_stmt (i);
+
+	      tloc = EXPR_HAS_LOCATION (t) ? EXPR_LOCATION (t) : loc;
+	      emit_side_effect_warnings (tloc, t);
+	    }
 	}
       else
 	i = tsi_last (last);
@@ -8764,7 +8780,8 @@ c_finish_omp_clauses (tree clauses)
 	  if (AGGREGATE_TYPE_P (TREE_TYPE (t))
 	      || POINTER_TYPE_P (TREE_TYPE (t)))
 	    {
-	      error ("%qE has invalid type for %<reduction%>", t);
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE has invalid type for %<reduction%>", t);
 	      remove = true;
 	    }
 	  else if (FLOAT_TYPE_P (TREE_TYPE (t)))
@@ -8798,8 +8815,9 @@ c_finish_omp_clauses (tree clauses)
 		}
 	      if (r_name)
 		{
-		  error ("%qE has invalid type for %<reduction(%s)%>",
-			 t, r_name);
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE has invalid type for %<reduction(%s)%>",
+			    t, r_name);
 		  remove = true;
 		}
 	    }
@@ -8814,7 +8832,8 @@ c_finish_omp_clauses (tree clauses)
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) != VAR_DECL || !DECL_THREAD_LOCAL_P (t))
 	    {
-	      error ("%qE must be %<threadprivate%> for %<copyin%>", t);
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE must be %<threadprivate%> for %<copyin%>", t);
 	      remove = true;
 	    }
 	  goto check_dup_generic;
@@ -8823,14 +8842,16 @@ c_finish_omp_clauses (tree clauses)
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 	    {
-	      error ("%qE is not a variable in clause %qs", t, name);
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE is not a variable in clause %qs", t, name);
 	      remove = true;
 	    }
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
 		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t))
 		   || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
 	    {
-	      error ("%qE appears more than once in data clauses", t);
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE appears more than once in data clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -8844,13 +8865,15 @@ c_finish_omp_clauses (tree clauses)
 	  need_implicitly_determined = true;
 	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 	    {
-	      error ("%qE is not a variable in clause %<firstprivate%>", t);
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE is not a variable in clause %<firstprivate%>", t);
 	      remove = true;
 	    }
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
 		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
 	    {
-	      error ("%qE appears more than once in data clauses", t);
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE appears more than once in data clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -8864,13 +8887,15 @@ c_finish_omp_clauses (tree clauses)
 	  need_implicitly_determined = true;
 	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 	    {
-	      error ("%qE is not a variable in clause %<lastprivate%>", t);
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE is not a variable in clause %<lastprivate%>", t);
 	      remove = true;
 	    }
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
 		   || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
 	    {
-	      error ("%qE appears more than once in data clauses", t);
+	      error_at (OMP_CLAUSE_LOCATION (c),
+		     "%qE appears more than once in data clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -8924,8 +8949,9 @@ c_finish_omp_clauses (tree clauses)
 		}
 	      if (share_name)
 		{
-		  error ("%qE is predetermined %qs for %qs",
-			 t, share_name, name);
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE is predetermined %qs for %qs",
+			    t, share_name, name);
 		  remove = true;
 		}
 	    }

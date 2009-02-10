@@ -10457,7 +10457,7 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
 	}
       if (c == NULL)
 	{
-	  c = build_omp_clause (OMP_CLAUSE_PRIVATE);
+	  c = build_omp_clause (input_location, OMP_CLAUSE_PRIVATE);
 	  OMP_CLAUSE_DECL (c) = decl;
 	  c = finish_omp_clauses (c);
 	  if (c)

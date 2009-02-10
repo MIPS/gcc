@@ -3700,13 +3700,15 @@ c_parser_statement_after_labels (c_parser *parser)
 	  c_parser_consume_token (parser);
 	  if (c_parser_next_token_is (parser, CPP_NAME))
 	    {
-	      stmt = c_finish_goto_label (c_parser_peek_token (parser)->value);
+	      stmt = c_finish_goto_label (loc,
+					  c_parser_peek_token (parser)->value);
 	      c_parser_consume_token (parser);
 	    }
 	  else if (c_parser_next_token_is (parser, CPP_MULT))
 	    {
 	      c_parser_consume_token (parser);
-	      stmt = c_finish_goto_ptr (c_parser_expression (parser).value);
+	      stmt = c_finish_goto_ptr (loc,
+					c_parser_expression (parser).value);
 	    }
 	  else
 	    c_parser_error (parser, "expected identifier or %<*%>");
@@ -3781,7 +3783,7 @@ c_parser_statement_after_labels (c_parser *parser)
       break;
     default:
     expr_stmt:
-      stmt = c_finish_expr_stmt (c_parser_expression_conv (parser).value);
+      stmt = c_finish_expr_stmt (loc, c_parser_expression_conv (parser).value);
     expect_semicolon:
       c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
       break;
@@ -3955,17 +3957,22 @@ c_parser_switch_statement (c_parser *parser)
 {
   tree block, expr, body, save_break;
   location_t switch_loc = c_parser_peek_token (parser)->location;
+  location_t switch_cond_loc;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_SWITCH));
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
+      switch_cond_loc = c_parser_peek_token (parser)->location;
       expr = c_parser_expression (parser).value;
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
   else
-    expr = error_mark_node;
-  c_start_case (expr);
+    {
+      switch_cond_loc = UNKNOWN_LOCATION;
+      expr = error_mark_node;
+    }
+  c_start_case (switch_loc, switch_cond_loc, expr);
   save_break = c_break_label;
   c_break_label = NULL_TREE;
   body = c_parser_c99_block_statement (parser);
@@ -4075,7 +4082,7 @@ c_parser_for_statement (c_parser *parser)
       if (c_parser_next_token_is (parser, CPP_SEMICOLON))
 	{
 	  c_parser_consume_token (parser);
-	  c_finish_expr_stmt (NULL_TREE);
+	  c_finish_expr_stmt (loc, NULL_TREE);
 	}
       else if (c_parser_next_token_starts_declspecs (parser))
 	{
@@ -4107,7 +4114,7 @@ c_parser_for_statement (c_parser *parser)
       else
 	{
 	init_expr:
-	  c_finish_expr_stmt (c_parser_expression (parser).value);
+	  c_finish_expr_stmt (loc, c_parser_expression (parser).value);
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 	}
       /* Parse the loop condition.  */
@@ -4123,9 +4130,9 @@ c_parser_for_statement (c_parser *parser)
 	}
       /* Parse the increment expression.  */
       if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-	incr = c_process_expr_stmt (NULL_TREE);
+	incr = c_process_expr_stmt (loc, NULL_TREE);
       else
-	incr = c_process_expr_stmt (c_parser_expression (parser).value);
+	incr = c_process_expr_stmt (loc, c_parser_expression (parser).value);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
   else
@@ -6826,7 +6833,8 @@ check_no_duplicate_clause (tree clauses, enum omp_clause_code code,
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == code)
       {
-	error ("too many %qs clauses", name);
+	location_t loc = OMP_CLAUSE_LOCATION (c);
+	error_at (loc, "too many %qs clauses", name);
 	break;
       }
 }
@@ -6836,14 +6844,17 @@ check_no_duplicate_clause (tree clauses, enum omp_clause_code code,
      identifier
      variable-list , identifier
 
-   If KIND is nonzero, create the appropriate node and install the decl
-   in OMP_CLAUSE_DECL and add the node to the head of the list.
+   If KIND is nonzero, create the appropriate node and install the
+   decl in OMP_CLAUSE_DECL and add the node to the head of the list.
+   If KIND is nonzero, CLAUSE_LOC is the location of the clause.
 
    If KIND is zero, create a TREE_LIST with the decl in TREE_PURPOSE;
    return the list created.  */
 
 static tree
-c_parser_omp_variable_list (c_parser *parser, enum omp_clause_code kind,
+c_parser_omp_variable_list (c_parser *parser,
+			    location_t clause_loc,
+			    enum omp_clause_code kind,
                             tree list)
 {
   if (c_parser_next_token_is_not (parser, CPP_NAME)
@@ -6862,7 +6873,7 @@ c_parser_omp_variable_list (c_parser *parser, enum omp_clause_code kind,
 	;
       else if (kind != 0)
 	{
-	  tree u = build_omp_clause (kind);
+	  tree u = build_omp_clause (clause_loc, kind);
 	  OMP_CLAUSE_DECL (u) = t;
 	  OMP_CLAUSE_CHAIN (u) = list;
 	  list = u;
@@ -6888,9 +6899,12 @@ static tree
 c_parser_omp_var_list_parens (c_parser *parser, enum omp_clause_code kind,
 			      tree list)
 {
+  /* The clauses location.  */
+  location_t loc = c_parser_peek_token (parser)->location;
+
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      list = c_parser_omp_variable_list (parser, kind, list);
+      list = c_parser_omp_variable_list (parser, loc, kind, list);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
   return list;
@@ -6925,7 +6939,7 @@ c_parser_omp_clause_collapse (c_parser *parser, tree list)
 		"collapse argument needs positive constant integer expression");
       return list;
     }
-  c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
+  c = build_omp_clause (loc, OMP_CLAUSE_COLLAPSE);
   OMP_CLAUSE_COLLAPSE_EXPR (c) = num;
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
@@ -6956,6 +6970,7 @@ static tree
 c_parser_omp_clause_default (c_parser *parser, tree list)
 {
   enum omp_clause_default_kind kind = OMP_CLAUSE_DEFAULT_UNSPECIFIED;
+  location_t loc = c_parser_peek_token (parser)->location;
   tree c;
 
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
@@ -6995,7 +7010,7 @@ c_parser_omp_clause_default (c_parser *parser, tree list)
     return list;
 
   check_no_duplicate_clause (list, OMP_CLAUSE_DEFAULT, "default");
-  c = build_omp_clause (OMP_CLAUSE_DEFAULT);
+  c = build_omp_clause (loc, OMP_CLAUSE_DEFAULT);
   OMP_CLAUSE_CHAIN (c) = list;
   OMP_CLAUSE_DEFAULT_KIND (c) = kind;
 
@@ -7017,6 +7032,7 @@ c_parser_omp_clause_firstprivate (c_parser *parser, tree list)
 static tree
 c_parser_omp_clause_if (c_parser *parser, tree list)
 {
+  location_t loc = c_parser_peek_token (parser)->location;
   if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
     {
       tree t = c_parser_paren_condition (parser);
@@ -7024,7 +7040,7 @@ c_parser_omp_clause_if (c_parser *parser, tree list)
 
       check_no_duplicate_clause (list, OMP_CLAUSE_IF, "if");
 
-      c = build_omp_clause (OMP_CLAUSE_IF);
+      c = build_omp_clause (loc, OMP_CLAUSE_IF);
       OMP_CLAUSE_IF_EXPR (c) = t;
       OMP_CLAUSE_CHAIN (c) = list;
       list = c;
@@ -7051,10 +7067,11 @@ static tree
 c_parser_omp_clause_nowait (c_parser *parser ATTRIBUTE_UNUSED, tree list)
 {
   tree c;
+  location_t loc = c_parser_peek_token (parser)->location;
 
   check_no_duplicate_clause (list, OMP_CLAUSE_NOWAIT, "nowait");
 
-  c = build_omp_clause (OMP_CLAUSE_NOWAIT);
+  c = build_omp_clause (loc, OMP_CLAUSE_NOWAIT);
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -7065,6 +7082,7 @@ c_parser_omp_clause_nowait (c_parser *parser ATTRIBUTE_UNUSED, tree list)
 static tree
 c_parser_omp_clause_num_threads (c_parser *parser, tree list)
 {
+  location_t num_threads_loc = c_parser_peek_token (parser)->location;
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       location_t expr_loc = c_parser_peek_token (parser)->location;
@@ -7081,6 +7099,8 @@ c_parser_omp_clause_num_threads (c_parser *parser, tree list)
       /* Attempt to statically determine when the number isn't positive.  */
       c = fold_build2 (LE_EXPR, boolean_type_node, t,
 		       build_int_cst (TREE_TYPE (t), 0));
+      if (CAN_HAVE_LOCATION_P (c))
+	SET_EXPR_LOCATION (c, expr_loc);
       if (c == boolean_true_node)
 	{
 	  warning_at (expr_loc, 0,
@@ -7090,7 +7110,7 @@ c_parser_omp_clause_num_threads (c_parser *parser, tree list)
 
       check_no_duplicate_clause (list, OMP_CLAUSE_NUM_THREADS, "num_threads");
 
-      c = build_omp_clause (OMP_CLAUSE_NUM_THREADS);
+      c = build_omp_clause (num_threads_loc, OMP_CLAUSE_NUM_THREADS);
       OMP_CLAUSE_NUM_THREADS_EXPR (c) = t;
       OMP_CLAUSE_CHAIN (c) = list;
       list = c;
@@ -7103,14 +7123,16 @@ c_parser_omp_clause_num_threads (c_parser *parser, tree list)
    ordered */
 
 static tree
-c_parser_omp_clause_ordered (c_parser *parser ATTRIBUTE_UNUSED, tree list)
+c_parser_omp_clause_ordered (c_parser *parser, tree list)
 {
   tree c;
 
   check_no_duplicate_clause (list, OMP_CLAUSE_ORDERED, "ordered");
 
-  c = build_omp_clause (OMP_CLAUSE_ORDERED);
+  c = build_omp_clause (c_parser_peek_token (parser)->location,
+			OMP_CLAUSE_ORDERED);
   OMP_CLAUSE_CHAIN (c) = list;
+
   return c;
 }
 
@@ -7132,6 +7154,7 @@ c_parser_omp_clause_private (c_parser *parser, tree list)
 static tree
 c_parser_omp_clause_reduction (c_parser *parser, tree list)
 {
+  location_t clause_loc = c_parser_peek_token (parser)->location;
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       enum tree_code code;
@@ -7174,7 +7197,8 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 	{
 	  tree nl, c;
 
-	  nl = c_parser_omp_variable_list (parser, OMP_CLAUSE_REDUCTION, list);
+	  nl = c_parser_omp_variable_list (parser, clause_loc,
+					   OMP_CLAUSE_REDUCTION, list);
 	  for (c = nl; c != list; c = OMP_CLAUSE_CHAIN (c))
 	    OMP_CLAUSE_REDUCTION_CODE (c) = code;
 
@@ -7197,11 +7221,12 @@ static tree
 c_parser_omp_clause_schedule (c_parser *parser, tree list)
 {
   tree c, t;
+  location_t loc = c_parser_peek_token (parser)->location;
 
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return list;
 
-  c = build_omp_clause (OMP_CLAUSE_SCHEDULE);
+  c = build_omp_clause (loc, OMP_CLAUSE_SCHEDULE);
 
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
@@ -7296,8 +7321,10 @@ c_parser_omp_clause_untied (c_parser *parser ATTRIBUTE_UNUSED, tree list)
   /* FIXME: Should we allow duplicates?  */
   check_no_duplicate_clause (list, OMP_CLAUSE_UNTIED, "untied");
 
-  c = build_omp_clause (OMP_CLAUSE_UNTIED);
+  c = build_omp_clause (c_parser_peek_token (parser)->location,
+			OMP_CLAUSE_UNTIED);
   OMP_CLAUSE_CHAIN (c) = list;
+
   return c;
 }
 
@@ -7652,7 +7679,7 @@ c_parser_omp_for_loop (location_t loc,
 	  init_exp = default_function_array_conversion (init_exp);
 	  init = build_modify_expr (init_loc,
 				    decl, NOP_EXPR, init_exp.value);
-	  init = c_process_expr_stmt (init);
+	  init = c_process_expr_stmt (init_loc, init);
 
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 	}
@@ -7684,8 +7711,8 @@ c_parser_omp_for_loop (location_t loc,
 	{
 	  location_t incr_loc = c_parser_peek_token (parser)->location;
 
-	  incr = c_process_expr_stmt (c_parser_expression (parser).value);
-	  protected_set_expr_location (incr, incr_loc);
+	  incr = c_process_expr_stmt (incr_loc,
+				      c_parser_expression (parser).value);
 	}
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
 
@@ -7824,7 +7851,8 @@ c_parser_omp_for_loop (location_t loc,
 			/* Copy lastprivate (decl) clause to OMP_FOR_CLAUSES,
 			   change it to shared (decl) in
 			   OMP_PARALLEL_CLAUSES.  */
-			tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
+			tree l = build_omp_clause (OMP_CLAUSE_LOCATION (*c),
+						   OMP_CLAUSE_LASTPRIVATE);
 			OMP_CLAUSE_DECL (l) = OMP_CLAUSE_DECL (*c);
 			OMP_CLAUSE_CHAIN (l) = clauses;
 			clauses = l;
@@ -8089,7 +8117,7 @@ c_parser_omp_parallel (location_t loc, c_parser *parser)
 
     case PRAGMA_OMP_PARALLEL_FOR:
       block = c_begin_omp_parallel ();
-      c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
+      c_split_parallel_clauses (loc, clauses, &par_clause, &ws_clause);
       c_parser_omp_for_loop (loc, parser, ws_clause, &par_clause);
       stmt = c_finish_omp_parallel (loc, par_clause, block);
       OMP_PARALLEL_COMBINED (stmt) = 1;
@@ -8097,7 +8125,7 @@ c_parser_omp_parallel (location_t loc, c_parser *parser)
 
     case PRAGMA_OMP_PARALLEL_SECTIONS:
       block = c_begin_omp_parallel ();
-      c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
+      c_split_parallel_clauses (loc, clauses, &par_clause, &ws_clause);
       stmt = c_parser_omp_sections_scope (loc, parser);
       if (stmt)
 	OMP_SECTIONS_CLAUSES (stmt) = ws_clause;

@@ -1146,7 +1146,8 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	{
 	  tree c, decl;
 	  decl = get_chain_decl (info);
-	  c = build_omp_clause (OMP_CLAUSE_FIRSTPRIVATE);
+	  c = build_omp_clause (gimple_location (stmt),
+				OMP_CLAUSE_FIRSTPRIVATE);
 	  OMP_CLAUSE_DECL (c) = decl;
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_taskreg_clauses (stmt);
 	  gimple_omp_taskreg_set_clauses (stmt, c);
@@ -1541,7 +1542,8 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	{
 	  tree c;
 	  (void) get_frame_type (info);
-	  c = build_omp_clause (OMP_CLAUSE_SHARED);
+	  c = build_omp_clause (gimple_location (stmt),
+				OMP_CLAUSE_SHARED);
 	  OMP_CLAUSE_DECL (c) = info->frame_decl;
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_taskreg_clauses (stmt);
 	  gimple_omp_taskreg_set_clauses (stmt, c);
@@ -1885,8 +1887,9 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	      break;
 	  if (c == NULL)
 	    {
-	      c = build_omp_clause (i ? OMP_CLAUSE_FIRSTPRIVATE
-				      : OMP_CLAUSE_SHARED);
+	      c = build_omp_clause (gimple_location (stmt),
+				    i ? OMP_CLAUSE_FIRSTPRIVATE
+				    : OMP_CLAUSE_SHARED);
 	      OMP_CLAUSE_DECL (c) = decl;
 	      OMP_CLAUSE_CHAIN (c) = gimple_omp_taskreg_clauses (stmt);
 	      gimple_omp_taskreg_set_clauses (stmt, c);
