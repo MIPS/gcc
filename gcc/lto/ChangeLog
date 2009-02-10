@@ -1,3 +1,11 @@
+2009-02-10  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (read_cgraph_and_symbols): Factor out of lto_main.
+	(materialize_cgraph): Likewise.
+	(do_whole_program_analysis): Likewise.
+	(lto_main): Call read_cgraph_and_symbols,
+	materialize_cgraph and do_whole_program_analysis.
+
 2009-02-10  Simon Baldwin  <simonb@google.com>
 
 	* lto.c: Include lto-opts.h.

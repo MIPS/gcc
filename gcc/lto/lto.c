@@ -1315,7 +1315,7 @@ free_decl (const void *p, void *data ATTRIBUTE_UNUSED)
 }
 
 /* Fix the decls from all FILES. Replaces each decl with the corresponding
-   prevailing one. */
+   prevailing one.  */
 
 static void
 lto_fixup_decls (struct lto_file_decl_data **files)
@@ -1364,54 +1364,51 @@ lto_maybe_unlink (const char *file)
     fprintf (stderr, "[Leaving LTRANS %s]\n", file);
 }
 
-void
-lto_main (int debug_p ATTRIBUTE_UNUSED)
+
+/* Read all the symbols from the input files FNAMES.  NFILES is the
+   number of files requested in the command line.  Instantiate a
+   global call graph by aggregating all the sub-graphs found in each
+   file.  */
+
+static void
+read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 {
-  unsigned int i;
-  unsigned int j = 0;
-  tree decl;
-  struct cgraph_node *node; 
-  struct lto_file_decl_data** all_file_decl_data 
-    = XNEWVEC (struct lto_file_decl_data*, num_in_fnames + 1);
-  struct lto_file_decl_data* file_data = NULL;
-  FILE *resolution = NULL;
-  unsigned num_objects;
-  int t;
-  timevar_id_t lto_timer;
-
-  /* Start the appropriate timer depending on the mode that we are
-     operating in.  */
-  lto_timer = (flag_wpa) ? TV_WHOPR_WPA
-	      : (flag_ltrans) ? TV_WHOPR_LTRANS
-	      : TV_LTO;
-
-  timevar_push (lto_timer);
+  unsigned int i, last_file_ix;
+  struct lto_file_decl_data **all_file_decl_data;
+  FILE *resolution;
 
   /* Set the hooks so that all of the ipa passes can read in their data.  */
-  lto_set_in_hooks (all_file_decl_data, get_section_data,
-		    free_section_data);
+  all_file_decl_data = XNEWVEC (struct lto_file_decl_data*, nfiles + 1);
+  lto_set_in_hooks (all_file_decl_data, get_section_data, free_section_data);
 
-  /* Read the resolution file. */
+  /* Read the resolution file.  */
+  resolution = NULL;
   if (resolution_file_name)
     {
+      int t;
+      unsigned num_objects;
+
       resolution = fopen (resolution_file_name, "r");
       gcc_assert (resolution != NULL);
       t = fscanf (resolution, "%u", &num_objects);
       gcc_assert (t == 1);
 
-      /* True, since the plugin splits the archives. */
-      gcc_assert (num_objects == num_in_fnames);
+      /* True, since the plugin splits the archives.  */
+      gcc_assert (num_objects == nfiles);
     }
 
   /* Clear any file options currently saved.  */
   lto_clear_file_options ();
 
   /* Read all of the object files specified on the command line.  */
-  for (i = 0; i < num_in_fnames; ++i)
+  for (i = 0, last_file_ix = 0; i < nfiles; ++i)
     {
-      current_lto_file = lto_elf_file_open (in_fnames[i], /*writable=*/false);
+      struct lto_file_decl_data *file_data = NULL;
+
+      current_lto_file = lto_elf_file_open (fnames[i], /*writable=*/false);
       if (!current_lto_file)
 	break;
+
       file_data = lto_file_read (current_lto_file, resolution);
       if (!file_data)
 	break;
@@ -1425,7 +1422,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       if (i == 0)
 	lto_read_file_options (file_data);
 
-      all_file_decl_data[j++] = file_data;
+      all_file_decl_data[last_file_ix++] = file_data;
 
       lto_elf_file_close (current_lto_file);
       current_lto_file = NULL;
@@ -1437,32 +1434,34 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   if (resolution_file_name)
     fclose (resolution);
 
-  all_file_decl_data[j] = NULL;
+  all_file_decl_data[last_file_ix] = NULL;
 
   /* Set the hooks so that all of the ipa passes can read in their data.  */
-  lto_set_in_hooks (all_file_decl_data, get_section_data,
-		    free_section_data);
+  lto_set_in_hooks (all_file_decl_data, get_section_data, free_section_data);
 
   ipa_read_summaries ();
 
   lto_fixup_decls (all_file_decl_data);
 
-  /* Skip over the rest if any errors were found.  FIXME lto, this
-     should be reorganized to use the pass manager.  */
-  if (errorcount)
-    goto finish;
-
   /* FIXME lto. This loop needs to be changed to use the pass manager to
      call the ipa passes directly.  */
-  for (i = 0; i < j; i++)
-    {
-      struct lto_file_decl_data* file_data = all_file_decl_data [i];
+  if (!errorcount)
+    for (i = 0; i < last_file_ix; i++)
+      {
+	struct lto_file_decl_data *file_data = all_file_decl_data [i];
+	lto_materialize_constructors_and_inits (file_data);
+      }
+}
 
-      lto_materialize_constructors_and_inits (file_data);
-    }
 
-  if (flag_wpa)
-    lto_1_to_1_map ();
+/* Materialize all the bodies for all the nodes in the callgraph.  */
+
+static void
+materialize_cgraph (void)
+{
+  tree decl;
+  struct cgraph_node *node; 
+  unsigned i;
 
   /* Now that we have input the cgraph, we need to clear all of the aux
      nodes and read the functions if we are not running in WPA mode.  
@@ -1491,62 +1490,122 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 
   /* Fix up any calls to DECLs that have become not exception throwing.  */
   lto_fixup_nothrow_decls ();
+}
 
-  /* Let the middle end know that we have read and merged all of the
-     input files.  */ 
-  if (!flag_wpa)
-    cgraph_optimize ();
-  else
+
+/* Perform whole program analysis (WPA) on the callgraph and write out the
+   optimization plan.  */
+
+static void
+do_whole_program_analysis (void)
+{
+  char **output_files;
+  size_t i;
+  struct cgraph_node *node; 
+
+  lto_1_to_1_map ();
+
+  /* Note that since we are in WPA mode, materialize_cgraph will not
+     actually read in all the function bodies.  It only materializes
+     the decls and cgraph nodes so that analysis can be performed.  */
+  materialize_cgraph ();
+
+  /* FIXME lto. Hack. We should use the IPA passes.  There are a
+     number of issues with this now. 1. There is no convenient way to
+     do this. 2. Some passes may depend on properties that requires
+     the function bodies to compute.  */
+  cgraph_function_flags_ready = true;
+  bitmap_obstack_initialize (NULL);
+  ipa_register_cgraph_hooks ();
+
+  /* Reset inlining information before running IPA inliner.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    reset_inline_failed (node);
+
+  /* FIXME lto.  We should not call this function directly. */
+  pass_ipa_inline.pass.execute ();
+
+  verify_cgraph ();
+  bitmap_obstack_release (NULL);
+
+  /* We are about to launch the final LTRANS phase, stop the WPA timer.  */
+  timevar_pop (TV_WHOPR_WPA);
+
+  /* Start the LTRANS launch timer.  This will measure only the time
+     that WPA waits for final optimization and code generation.  */
+  timevar_push (TV_WHOPR_WPA_LTRANS_EXEC);
+
+  output_files = lto_wpa_write_files ();
+  lto_execute_ltrans (output_files);
+
+  for (i = 0; output_files[i]; ++i)
     {
-      /* FIXME lto. Hack. We should use the IPA passes.  There are a number
-         of issues with this now. 1. There is no convenient way to do this.
-         2. Some passes may depend on properties that requires the function
-	 bodies to compute.  */
-      cgraph_function_flags_ready = true;
-      bitmap_obstack_initialize (NULL);
-      ipa_register_cgraph_hooks ();
+      lto_maybe_unlink (output_files[i]);
+      free (output_files[i]);
+    }
+  XDELETEVEC (output_files);
 
-      /* Reset inlining informationi before running IPA inliner.  */
-      for (node = cgraph_nodes; node; node = node->next)
-	reset_inline_failed (node);
+  timevar_pop (TV_WHOPR_WPA_LTRANS_EXEC);
 
-      /* FIXME lto. We should not call this function directly. */
-      pass_ipa_inline.pass.execute ();
+  /* Restart the LTO timer.  */
+  timevar_push (TV_WHOPR_WPA);
+}
 
-      verify_cgraph ();
-      bitmap_obstack_release (NULL);
+
+/* Main entry point for the GIMPLE front end.  This front end has
+   three main personalities:
+
+   - LTO (-flto).  All the object files on the command line are
+     loaded in memory and processed as a single translation unit.
+     This is the traditional link-time optimization behavior.
+
+   - WPA (-fwpa).  Only the callgraph and summary information for
+     files in the command file are loaded.  A single callgraph
+     (without function bodies) is instantiated for the whole set of
+     files.  IPA passes are only allowed to analyze the call graph
+     and make transformation decisions.  The callgraph is
+     partitioned, each partition is written to a new object file
+     together with the transformation decisions.
+
+   - LTRANS (-fltrans).  Similar to -flto but it prevents the IPA
+     summary files from running again.  Since WPA computed summary
+     information and decided what transformations to apply, LTRANS
+     simply applies them.  FIXME lto, it may be possible to remove
+     this flag and just use -flto for LTRANS.  */
+
+void
+lto_main (int debug_p ATTRIBUTE_UNUSED)
+{
+  timevar_id_t lto_timer;
+
+  /* Start the appropriate timer depending on the mode that we are
+     operating in.  */
+  lto_timer = (flag_wpa) ? TV_WHOPR_WPA
+	      : (flag_ltrans) ? TV_WHOPR_LTRANS
+	      : TV_LTO;
+  timevar_push (lto_timer);
+
+  /* Read all the symbols and call graph from all the files in the
+     command line.  */
+  read_cgraph_and_symbols (num_in_fnames, in_fnames);
+
+  if (!errorcount)
+    {
+      /* If WPA is enabled analyze the whole call graph and create an
+	 optimization plan.  Otherwise, read in all the function
+	 bodies and continue with optimization.  */
+      if (flag_wpa)
+	do_whole_program_analysis ();
+      else
+	{
+	  materialize_cgraph ();
+
+	  /* Let the middle end know that we have read and merged all of
+	     the input files.  */ 
+	  cgraph_optimize ();
+	}
     }
 
-  if (flag_wpa)
-    {
-      char **output_files;
-      size_t i;
-
-      /* We are about to launch the final LTRANS phase, stop the WPA
-	 timer.  */
-      timevar_pop (lto_timer);
-
-      /* Start the LTRANS launch timer.  This will measure only the
-	 time that WPA waits for final optimization and code generation.  */
-      timevar_push (TV_WHOPR_WPA_LTRANS_EXEC);
-
-      output_files = lto_wpa_write_files ();
-      lto_execute_ltrans (output_files);
-
-      for (i = 0; output_files[i]; ++i)
-        {
-	  lto_maybe_unlink (output_files[i]);
-	  free (output_files[i]);
-        }
-      XDELETEVEC (output_files);
-
-      timevar_pop (TV_WHOPR_WPA_LTRANS_EXEC);
-
-      /* Restart the LTO timer.  */
-      timevar_push (lto_timer);
-    }
-
-finish:
   /* Stop the LTO timer.  */
   timevar_pop (lto_timer);
 }
