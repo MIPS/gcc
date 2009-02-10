@@ -1419,8 +1419,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 	 general, options ought to be read from all the files in the
 	 set and merged.  However, it is still unclear what the merge
 	 rules should be.  */
-      if (i == 0)
-	lto_read_file_options (file_data);
+      lto_read_file_options (file_data);
 
       all_file_decl_data[last_file_ix++] = file_data;
 
