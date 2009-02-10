@@ -1,3 +1,8 @@
+2009-02-10  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/20090210_0.c: New.
+	* gcc.dg/lto/20090210_1.c: New.
+
 2009-02-10  Simon Baldwin  <simonb@google.com>
 
 	* gcc.dg/lto/20090206-1_0.c: New.
