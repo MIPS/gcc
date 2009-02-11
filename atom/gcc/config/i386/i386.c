@@ -1859,7 +1859,6 @@ enum x86_64_reg_class
     X86_64_NO_CLASS,
     X86_64_INTEGER_CLASS,
     X86_64_INTEGERSI_CLASS,
-    X86_64_AVX_CLASS,
     X86_64_SSE_CLASS,
     X86_64_SSESF_CLASS,
     X86_64_SSEDF_CLASS,
@@ -1869,11 +1868,6 @@ enum x86_64_reg_class
     X86_64_COMPLEX_X87_CLASS,
     X86_64_MEMORY_CLASS
   };
-static const char * const x86_64_reg_class_name[] =
-{
-  "no", "integer", "integerSI", "sse", "sseSF", "sseDF",
-  "sseup", "x87", "x87up", "cplx87", "no"
-};
 
 #define MAX_CLASSES 4
 
@@ -4954,8 +4948,8 @@ classify_argument (enum machine_mode mode, const_tree type,
       tree field;
       enum x86_64_reg_class subclasses[MAX_CLASSES];
 
-      /* On x86-64 we pass structures larger than 16 bytes on the stack.  */
-      if (bytes > 16)
+      /* On x86-64 we pass structures larger than 32 bytes on the stack.  */
+      if (bytes > 32)
 	return 0;
 
       for (i = 0; i < words; i++)
@@ -5065,6 +5059,20 @@ classify_argument (enum machine_mode mode, const_tree type,
 	  gcc_unreachable ();
 	}
 
+      if (words > 2)
+	{
+	  /* When size > 16 bytes, if the first one isn't
+	     X86_64_SSE_CLASS or any other ones aren't
+	     X86_64_SSEUP_CLASS, everything should be passed in
+	     memory.  */
+	  if (classes[0] != X86_64_SSE_CLASS)
+	      return 0;
+
+	  for (i = 1; i < words; i++)
+	    if (classes[i] != X86_64_SSEUP_CLASS)
+	      return 0;
+	}
+
       /* Final merger cleanup.  */
       for (i = 0; i < words; i++)
 	{
@@ -5074,10 +5082,15 @@ classify_argument (enum machine_mode mode, const_tree type,
 	    return 0;
 
 	  /* The X86_64_SSEUP_CLASS should be always preceded by
-	     X86_64_SSE_CLASS.  */
+	     X86_64_SSE_CLASS or X86_64_SSEUP_CLASS.  */
 	  if (classes[i] == X86_64_SSEUP_CLASS
-	      && (i == 0 || classes[i - 1] != X86_64_SSE_CLASS))
-	    classes[i] = X86_64_SSE_CLASS;
+	      && classes[i - 1] != X86_64_SSE_CLASS
+	      && classes[i - 1] != X86_64_SSEUP_CLASS)
+	    {
+	      /* The first one should never be X86_64_SSEUP_CLASS.  */
+	      gcc_assert (i != 0);
+	      classes[i] = X86_64_SSE_CLASS;
+	    }
 
 	  /*  X86_64_X87UP_CLASS should be preceded by X86_64_X87_CLASS.  */
 	  if (classes[i] == X86_64_X87UP_CLASS
@@ -5198,8 +5211,11 @@ classify_argument (enum machine_mode mode, const_tree type,
     case V16HImode:
     case V4DFmode:
     case V4DImode:
-      classes[0] = X86_64_AVX_CLASS;
-      return 1;
+      classes[0] = X86_64_SSE_CLASS;
+      classes[1] = X86_64_SSEUP_CLASS;
+      classes[2] = X86_64_SSEUP_CLASS;
+      classes[3] = X86_64_SSEUP_CLASS;
+      return 4;
     case V4SFmode:
     case V4SImode:
     case V16QImode:
@@ -5256,7 +5272,6 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
       case X86_64_INTEGERSI_CLASS:
 	(*int_nregs)++;
 	break;
-      case X86_64_AVX_CLASS:
       case X86_64_SSE_CLASS:
       case X86_64_SSESF_CLASS:
       case X86_64_SSEDF_CLASS:
@@ -5355,7 +5370,6 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
       case X86_64_INTEGER_CLASS:
       case X86_64_INTEGERSI_CLASS:
 	return gen_rtx_REG (mode, intreg[0]);
-      case X86_64_AVX_CLASS:
       case X86_64_SSE_CLASS:
       case X86_64_SSESF_CLASS:
       case X86_64_SSEDF_CLASS:
@@ -5371,6 +5385,13 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
       }
   if (n == 2 && regclass[0] == X86_64_SSE_CLASS
       && regclass[1] == X86_64_SSEUP_CLASS && mode != BLKmode)
+    return gen_rtx_REG (mode, SSE_REGNO (sse_regno));
+  if (n == 4
+      && regclass[0] == X86_64_SSE_CLASS
+      && regclass[1] == X86_64_SSEUP_CLASS
+      && regclass[2] == X86_64_SSEUP_CLASS
+      && regclass[3] == X86_64_SSEUP_CLASS
+      && mode != BLKmode)
     return gen_rtx_REG (mode, SSE_REGNO (sse_regno));
 
   if (n == 2
@@ -5422,14 +5443,22 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 	    break;
 	  case X86_64_SSE_CLASS:
 	    if (i < n - 1 && regclass[i + 1] == X86_64_SSEUP_CLASS)
-	      tmpmode = TImode;
+	      {
+		if (regclass[i + 2] == X86_64_SSEUP_CLASS
+		    || regclass[i + 3] == X86_64_SSEUP_CLASS)
+		  tmpmode = OImode;
+		else
+		  tmpmode = TImode;
+	      }
 	    else
 	      tmpmode = DImode;
 	    exp [nexps++] = gen_rtx_EXPR_LIST (VOIDmode,
 					       gen_rtx_REG (tmpmode,
 							    SSE_REGNO (sse_regno)),
 					       GEN_INT (i*8));
-	    if (tmpmode == TImode)
+	    if (tmpmode == OImode)
+	      i += 3;
+	    else if (tmpmode == TImode)
 	      i++;
 	    sse_regno++;
 	    break;
@@ -8059,6 +8088,7 @@ ix86_expand_prologue (void)
 {
   rtx insn;
   bool pic_reg_used;
+  bool emit_blockage = false;
   struct ix86_frame frame;
   HOST_WIDE_INT allocate;
 
@@ -8276,7 +8306,7 @@ ix86_expand_prologue (void)
     {
       if (pic_reg_used)
 	emit_insn (gen_prologue_use (pic_offset_table_rtx));
-      emit_insn (gen_blockage ());
+      emit_blockage = true;
     }
 
   if (crtl->drap_reg && !crtl->stack_realign_needed)
@@ -8288,6 +8318,18 @@ ix86_expand_prologue (void)
       rtx x = plus_constant (hard_frame_pointer_rtx, drap_bp_offset);
       insn = emit_insn (gen_rtx_SET (VOIDmode, crtl->drap_reg, x));
     }
+
+  /* Prevent instructions from being scheduled into register save push
+     sequence when access to the redzone area is done through frame pointer.
+     The offset betweeh the frame pointer and the stack pointer is calculated
+     relative to the value of the stack pointer at the end of the function
+     prologue, and moving instructions that access redzone area via frame
+     pointer inside push sequence violates this assumption.  */
+  if (frame_pointer_needed && frame.red_zone_size)
+    emit_blockage = true;
+
+  if (emit_blockage)
+    emit_insn (gen_blockage ()); 
 
   /* Emit cld instruction if stringops are used in the function.  */
   if (TARGET_CLD && ix86_current_function_needs_cld)
