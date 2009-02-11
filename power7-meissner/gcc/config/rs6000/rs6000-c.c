@@ -308,6 +308,8 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
   /* Used by libstdc++.  */
   if (TARGET_NO_LWSYNC)
     builtin_define ("__NO_LWSYNC__");
+  if (TARGET_VSX)
+    builtin_define ("__VSX__");
 
   /* May be overridden by target configuration.  */
   RS6000_CPU_CPP_ENDIAN_BUILTINS();

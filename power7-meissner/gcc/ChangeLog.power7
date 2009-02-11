@@ -1,3 +1,32 @@
+2009-02-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/invoke.texi (-mvsx, -mno-vsx): Document new switches.
+
+	* config/rs6000/linux64.opt (-mprofile-kernel): Move to being a
+	variable to reduce the number of target flag bits.
+	* config/rs6000/sysv4.opt (-mbit-align): Ditto.
+	(-mbit-word): Ditto.
+	(-mregnames): Ditto.
+	* config/rs6000/rs6000.opt (-mupdate, -mno-update): Ditto.
+	(-mvsx): New switch, enable VSX support.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__VSX__ if the vector/scalar instruction set is available.
+
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Change
+	to allow -mprofile-kernel to be a variable.
+
+	* config/rs6000/rs6000.c (processor_target_table): Set -mvsx for
+	power7 cpus.
+	(POWERPC_MASKS): Add -mvsx.
+
+	* config/rs6000/rs6000.h (ADDITIONAL_REGISTER_NAMES): Add VSX
+	register names for the registers that overlap with the floating
+	point and altivec registers.
+
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS):
+	TARGET_NO_BITFIELD_WORD is now a variable, not a target mask.
+
 2009-02-11  Pat Haugen  <pthaugen@us.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
