@@ -1,3 +1,90 @@
+2009-02-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.target/i386/pr38824.c: New testcase.
+
+2009-02-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38649
+	* g++.dg/cpp0x/defaulted8.C: New test.
+
+	PR c++/36744
+	* g++.dg/cpp0x/rv9p.C: New test.
+
+2009-02-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/aliasing3.adb: New test.
+	* gnat.dg/aliasing3_pkg.ad[sb]: New helper.
+
+2009-02-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/34397
+	* g++.dg/template/crash88.C: New.
+	* g++.dg/template/crash89.C: Likewise.
+
+2009-02-10  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c/39084
+	* gcc.dg/pr39084.c: New test.
+
+2009-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39139
+	* gcc.target/i386/pr39139.c: New test.
+
+2009-02-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39132
+	* gcc.dg/torture/pr39132.c: New testcase.
+
+2009-02-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39119
+	* gcc.target/x86_64/abi/avx/abi-avx.exp: New.
+	* gcc.target/x86_64/abi/avx/args.h: Likewise.
+	* gcc.target/x86_64/abi/avx/asm-support.S: Likewise.
+	* gcc.target/x86_64/abi/avx/avx-check.h: Likewise.
+	* gcc.target/x86_64/abi/avx/test_m256_returning.c: Likewise.
+	* gcc.target/x86_64/abi/avx/test_passing_m256.c: Likewise.
+	* gcc.target/x86_64/abi/avx/test_passing_structs.c: Likewise.
+	* gcc.target/x86_64/abi/avx/test_passing_unions.c: Likewise.
+
+2009-02-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39109
+	* g++.dg/init/value6.C: New test.
+
+2009-02-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/x86_64/abi/abi-x86_64.exp: Use glob instead of
+	find.
+
+2009-02-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20090209-1.c: New test.
+
+2009-02-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/35147
+	PR c++/37737
+	* g++.dg/cpp0x/vt-35147.C: New.
+	* g++.dg/cpp0x/vt-37737-1.C: Likewise.
+	* g++.dg/cpp0x/vt-37737-2.C: Likewise.
+
+2009-02-06  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35434
+	* gcc.dg/attr-alias-4.c: New test.
+
+2009-02-06  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39035
+	* gcc.dg/dfp/pr39035.c: New test.
+
+2009-02-06  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/36432
+	* gcc.dg/c90-flex-array-2.c, gcc.dg/c99-flex-array-6.c: New tests.
+
 2009-02-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/39106

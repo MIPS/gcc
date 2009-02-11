@@ -1,3 +1,154 @@
+2009-02-11  Uros Bizjak  <ubizjak@gmail.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39118
+	* config/i386/i386.md (UNSPEC_MEMORY_BLOCKAGE): New constant.
+	(memory_blockage): New expander.
+	(*memory_blockage): New insn pattern.
+	* config/i386/i386.c (ix86_expand_prologue): Use memory_blockage
+	instead of general blockage at the end of function prologue when
+	frame pointer is used to access red zone area.  Do not emit blockage
+	when profiling, it is emitted in generic code.
+	(ix86_expand_epilogue): Emit memory_blockage at the beginning of
+	function epilogue when frame pointer is used to access red zone area.
+
+2009-02-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/i386/i386.md: Add two new peephole2 to avoid mov followed
+	by arithmetic with memory operands.
+	* config/i386/predicates.md (commutative_operator): New.
+
+2009-02-10  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/extend.texi (Fixed-Point Types): Break long paragraphs into
+	bulleted lists.
+
+2009-02-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* alias.h (record_alias_subset): Declare.
+	* alias.c (record_alias_subset): Make global.
+
+2009-02-10  Nick Clifton  <nickc@redhat.com>
+
+	* tree-parloops.c: Change license to GPLv3.
+	* ipa-struct-reorg.c: Change license to GPLv3.
+	* ipa-struct-reorg.h: Change license to GPLv3.
+
+2009-02-10  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c/39084
+	* c-decl.c (start_struct): Return NULL on error.
+
+2009-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/39124
+	* cfgloopmanip.c (remove_path): Call remove_bbs after
+	cancel_loop_tree, not before it.
+
+	PR target/39139
+	* function.h (struct function): Add has_local_explicit_reg_vars bit.
+	* gimplify.c (gimplify_bind_expr): Set it if local DECL_HARD_REGISTER
+	VAR_DECLs were seen.
+	* tree-ssa-live.c (remove_unused_locals): Recompute
+	cfun->has_local_explicit_reg_vars.
+	* tree-ssa-sink.c (statement_sink_location): Don't sink BLKmode
+	copies or clearings if cfun->has_local_explicit_reg_vars.
+
+2009-02-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39118
+	* config/i386/i386.c (expand_prologue): Emit blockage at the end
+	of function prologue when frame pointer is used to access
+	red zone area.
+
+2009-02-10  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39127
+	* gimplify.c (gimple_regimplify_operands): Always look if
+	we need to create a temporary.
+
+2009-02-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39132
+	* tree-loop-distribution.c (todo): New global var.
+	(generate_memset_zero): Trigger TODO_rebuild_alias.
+	(tree_loop_distribution): Return todo.
+
+2009-02-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39119
+	* config/i386/i386.c (x86_64_reg_class): Remove X86_64_AVX_CLASS.
+	(x86_64_reg_class_name): Removed.
+	(classify_argument): Return 0 if bytes > 32.  Return 0 if the
+	first one isn't X86_64_SSE_CLASS or any other ones aren't
+	X86_64_SSEUP_CLASS when size > 16bytes.  Don't turn
+	X86_64_SSEUP_CLASS into X86_64_SSE_CLASS if the preceded one
+	is X86_64_SSEUP_CLASS.  Set AVX modes to 1 X86_64_SSE_CLASS
+	and 3 X86_64_SSEUP_CLASS.
+	(construct_container): Remove X86_64_AVX_CLASS.  Handle 4
+	registers with 1 X86_64_SSE_CLASS and 3 X86_64_SSEUP_CLASS.
+
+2009-02-10  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.md (allocate_stack): Always use an update
+	form instruction to update the stack back chain word, even if the
+	user has disabled the generation of update instructions.
+	(movdi_<mode>_update_stack): New.
+	(movsi_update_stack): Likewise.
+	* config/rs6000/rs6000.c (rs6000_emit_allocate_stack): Likewise,
+	always use an update form instruction to update the stack back
+	chain word.
+
+2009-02-09  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/38953
+	* graphite.c (if_region_set_false_region): After moving a region in
+	the false branch of a condition, remove the empty dummy basic block.
+	(gloog): Remove wrong fix for PR38953.
+
+2009-02-09  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (array_to_constant): Fix (latent) wrong-code
+	generation due to implicit sign extension.
+
+2009-02-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/38981
+	* tree-ssa-coalesce.c (add_coalesce): Cap the costs of coalesce pairs
+	at MUST_COALESCE_COST-1 instead of MUST_COALESCE_COST.
+
+2009-02-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35202
+	* convert.c (convert_to_real): Disable (float)fn((double)x)
+	to fnf(x) conversion if errno differences may occur and
+	-fmath-errno is set.
+
+2009-02-07  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.c (avr_mcu_t): Add ata6289 device.
+	* config/avr/avr.h (LINK_SPEC, CRT_BINUTILS_SPECS): (Ditto.).
+	* config/avr/t-avr (MULTILIB_MATCHES): (Ditto.).
+
+2009-02-06  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35434
+	* c-common.c (handle_alias_attribute): Disallow attribute for
+	anything not a FUNCTION_DECL or VAR_DECL.
+
+2009-02-06  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39035
+	* real.c (do_compare): Special-case compare of zero against
+	decimal float value.
+
+2009-02-06  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/36432
+	* c-decl.c (grokdeclarator): Don't treat [] declarators in fields
+	as indicating flexible array members unless the field itself is
+	being declarared as the incomplete array.
+
 2009-02-06  Jan Hubicka  <jh@suse.cz>
 
 	PR tree-optimization/38844
@@ -12,8 +163,7 @@
 
 2009-02-06  Nick Clifton  <nickc@redhat.com>
 
-	* config/m32c/m32c.h (PCC_BITFIELD_TYPE_MATTERS): Define to
-	zero.
+	* config/m32c/m32c.h (PCC_BITFIELD_TYPE_MATTERS): Define to zero.
 
 2009-02-06  Paolo Bonzini  <bonzini@gnu.org>
 
@@ -161,7 +311,7 @@
 
 2009-02-02  Catherine Moore  <clm@codesourcery.com>
 
-	* sde.h (SUBTARGET_ARM_SPEC): Don;t assemble -fpic code as -mabicalls.
+	* sde.h (SUBTARGET_ARM_SPEC): Don't assemble -fpic code as -mabicalls.
 
 2009-02-02  Richard Sandiford  <rdsandiford@googlemail.com>
 
@@ -356,8 +506,7 @@
 
 	* regclass.c: Rename reginfo.c.  Change file description.
 	(FORBIDDEN_INC_DEC_CLASSES): Remove.
-	(reg_class_superclasses, forbidden_inc_dec_class, in_inc_dec):
-	Remove.
+	(reg_class_superclasses, forbidden_inc_dec_class, in_inc_dec): Remove.
 	(init_reg_sets_1): Remove code for evaluation of
 	reg_class_superclasses and losing_caller_save_reg_set.
 	(init_regs): Remove init_reg_autoinc.
@@ -491,8 +640,7 @@
 2009-01-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/38740
-	* reorg.c (gate_handle_delay_slots): Avoid dbr scheduling
-	if !optimize.
+	* reorg.c (gate_handle_delay_slots): Avoid dbr scheduling if !optimize.
 	* config/mips/mips.c (mips_reorg): Likewise.
 
 2009-01-28  Richard Guenther  <rguenther@suse.de>
