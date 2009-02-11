@@ -1,3 +1,14 @@
+2009-02-10  Ian Lance Taylor  <iant@google.com>
+
+	* parser.c (cp_parser_label_for_labeled_statement): Permit
+	attributes on a label.
+	* semantics.c (finish_label_stmt): Return the new label decl, not
+	the new statement.
+	* decl2.c (is_late_template_attribute): Return true for "unused"
+	on a label.
+	* pt.c (tsubst_expr): If the original label decl has attributes,
+	apply them to the new label decl.
+
 2009-02-06  Ian Lance Taylor  <iant@google.com>
 
 	* decl2.c (constrain_visibility): Add cast to enum type.

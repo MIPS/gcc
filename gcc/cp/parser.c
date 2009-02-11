@@ -7031,6 +7031,7 @@ static void
 cp_parser_label_for_labeled_statement (cp_parser* parser)
 {
   cp_token *token;
+  tree label = NULL_TREE;
 
   /* The next token should be an identifier.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -7090,12 +7091,21 @@ cp_parser_label_for_labeled_statement (cp_parser* parser)
 
     default:
       /* Anything else must be an ordinary label.  */
-      finish_label_stmt (cp_parser_identifier (parser));
+      label = finish_label_stmt (cp_parser_identifier (parser));
       break;
     }
 
   /* Require the `:' token.  */
   cp_parser_require (parser, CPP_COLON, "%<:%>");
+
+  /* For an ordinary label, check for attributes.  */
+  if (label != NULL_TREE)
+    {
+      tree attrs = cp_parser_attributes_opt (parser);
+
+      if (attrs != NULL_TREE)
+	cplus_decl_attributes (&label, attrs, 0);
+    }
 }
 
 /* Parse an expression-statement.
