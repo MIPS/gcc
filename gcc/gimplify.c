@@ -1,6 +1,6 @@
 /* Tree lowering pass.  This pass converts the GENERIC functions-as-trees
    tree representation into the GIMPLE form.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
@@ -1242,6 +1242,9 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
 	    omp_add_variable (gimplify_omp_ctxp, t, GOVD_LOCAL | GOVD_SEEN);
 
 	  DECL_SEEN_IN_BIND_EXPR_P (t) = 1;
+
+	  if (DECL_HARD_REGISTER (t) && !is_global_var (t) && cfun)
+	    cfun->has_local_explicit_reg_vars = true;
 	}
 
       /* Preliminarily mark non-addressed complex variables as eligible
@@ -7463,9 +7466,9 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 	}
 
       lhs = gimple_get_lhs (stmt);
-      /* If regimplification of the LHS changed it in a way that requires
-	 a simple RHS, create temporary.  */
-      if (orig_lhs != lhs && !is_gimple_formal_tmp_var (lhs))
+      /* If the LHS changed it in a way that requires a simple RHS,
+	 create temporary.  */
+      if (lhs && !is_gimple_formal_tmp_var (lhs))
 	{
 	  bool need_temp = false;
 
