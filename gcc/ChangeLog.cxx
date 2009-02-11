@@ -1,5 +1,8 @@
 2009-02-10  Ian Lance Taylor  <iant@google.com>
 
+	* df.h (struct df_mw_hardreg): Change flags field to int.
+	(struct df_base_ref): Likewise.
+
 	* parser.c (cp_parser_label_for_labeled_statement): Permit
 	attributes on a label.
 	* semantics.c (finish_label_stmt): Return the new label decl, not

@@ -344,8 +344,7 @@ struct df_mw_hardreg
      accesses to 16-bit fields will usually be quicker.  */
   ENUM_BITFIELD(df_ref_type) type : 16;
 				/* Used to see if the ref is read or write.  */
-  ENUM_BITFIELD(df_ref_flags) flags : 16;
-				/* Various flags.  */
+  int flags : 16;		/* Various flags.  */
   unsigned int start_regno;     /* First word of the multi word subreg.  */
   unsigned int end_regno;       /* Last word of the multi word subreg.  */
   unsigned int mw_order;        /* Same as df_ref.ref_order.  */
@@ -363,8 +362,7 @@ struct df_base_ref
 
   ENUM_BITFIELD(df_ref_type) type : 8;
 				/* Type of ref.  */
-  ENUM_BITFIELD(df_ref_flags) flags : 16;
-				/* Various flags.  */
+  int flags : 16;		/* Various flags.  */
   rtx reg;			/* The register referenced.  */
   struct df_link *chain;	/* Head of def-use, use-def.  */
   /* Pointer to the insn info of the containing instruction.  FIXME! 
