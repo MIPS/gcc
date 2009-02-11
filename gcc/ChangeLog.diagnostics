@@ -1,3 +1,12 @@
+2009-02-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-tree.h: (struct c_declarator): Add comment to id_loc.
+	(build_array_declarator): New argument.
+	* c-decl.c (build_array_declarator): Add location argument.
+	(grokdeclarator): Set id_loc for cdk_array.
+	* c-parser.c (c_parser_direct_declarator_inner): Pass location to
+	build_array_declarator.
+
 2009-02-09  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree.c (build_omp_clause): Add location argument.

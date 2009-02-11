@@ -3034,21 +3034,24 @@ quals_from_declspecs (const struct c_declspecs *specs)
   return quals;
 }
 
-/* Construct an array declarator.  EXPR is the expression inside [],
-   or NULL_TREE.  QUALS are the type qualifiers inside the [] (to be
-   applied to the pointer to which a parameter array is converted).
-   STATIC_P is true if "static" is inside the [], false otherwise.
-   VLA_UNSPEC_P is true if the array is [*], a VLA of unspecified
-   length which is nevertheless a complete type, false otherwise.  The
-   field for the contained declarator is left to be filled in by
-   set_array_declarator_inner.  */
+/* Construct an array declarator.  LOC is the location of the
+   beginning of the array (usually the opening brace).  EXPR is the
+   expression inside [], or NULL_TREE.  QUALS are the type qualifiers
+   inside the [] (to be applied to the pointer to which a parameter
+   array is converted).  STATIC_P is true if "static" is inside the
+   [], false otherwise.  VLA_UNSPEC_P is true if the array is [*], a
+   VLA of unspecified length which is nevertheless a complete type,
+   false otherwise.  The field for the contained declarator is left to
+   be filled in by set_array_declarator_inner.  */
 
 struct c_declarator *
-build_array_declarator (tree expr, struct c_declspecs *quals, bool static_p,
+build_array_declarator (location_t loc,
+			tree expr, struct c_declspecs *quals, bool static_p,
 			bool vla_unspec_p)
 {
   struct c_declarator *declarator = XOBNEW (&parser_obstack,
 					    struct c_declarator);
+  declarator->id_loc = loc;
   declarator->kind = cdk_array;
   declarator->declarator = 0;
   declarator->u.array.dimen = expr;
@@ -3067,11 +3070,11 @@ build_array_declarator (tree expr, struct c_declspecs *quals, bool static_p,
   if (!flag_isoc99)
     {
       if (static_p || quals != NULL)
-	pedwarn (input_location, OPT_pedantic,
+	pedwarn (loc, OPT_pedantic,
 		 "ISO C90 does not support %<static%> or type "
 		 "qualifiers in parameter array declarators");
       if (vla_unspec_p)
-	pedwarn (input_location, OPT_pedantic,
+	pedwarn (loc, OPT_pedantic,
 		 "ISO C90 does not support %<[*]%> array declarators");
     }
   if (vla_unspec_p)
@@ -3079,7 +3082,8 @@ build_array_declarator (tree expr, struct c_declspecs *quals, bool static_p,
       if (!current_scope->parm_flag)
 	{
 	  /* C99 6.7.5.2p4 */
-	  error ("%<[*]%> not allowed in other than function prototype scope");
+	  error_at (loc, "%<[*]%> not allowed in other than "
+		    "function prototype scope");
 	  declarator->u.array.vla_unspec_p = false;
 	  return NULL;
 	}
@@ -4009,8 +4013,11 @@ grokdeclarator (const struct c_declarator *declarator,
     while (decl)
       switch (decl->kind)
 	{
-	case cdk_function:
 	case cdk_array:
+	  loc = decl->id_loc;
+	  /* FALL THRU.  */
+
+	case cdk_function:
 	case cdk_pointer:
 	  funcdef_syntax = (decl->kind == cdk_function);
 	  decl = decl->declarator;

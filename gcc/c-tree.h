@@ -329,7 +329,7 @@ struct c_declarator {
   enum c_declarator_kind kind;
   /* Except for cdk_id, the contained declarator.  For cdk_id, NULL.  */
   struct c_declarator *declarator;
-  location_t id_loc; /* Currently only set for cdk_id. */
+  location_t id_loc; /* Currently only set for cdk_id, cdk_array. */
   union {
     /* For identifiers, an IDENTIFIER_NODE or NULL_TREE if an abstract
        declarator.  */
@@ -461,7 +461,8 @@ extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
 extern void c_print_identifier (FILE *, tree, int);
 extern int quals_from_declspecs (const struct c_declspecs *);
-extern struct c_declarator *build_array_declarator (tree, struct c_declspecs *,
+extern struct c_declarator *build_array_declarator (location_t, tree,
+    						    struct c_declspecs *,
 						    bool, bool);
 extern tree build_enumerator (location_t, struct c_enum_contents *, tree, tree);
 extern tree check_for_loop_decls (location_t);

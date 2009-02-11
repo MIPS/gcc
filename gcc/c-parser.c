@@ -2343,6 +2343,7 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
   /* Parse a sequence of array declarators and parameter lists.  */
   if (c_parser_next_token_is (parser, CPP_OPEN_SQUARE))
     {
+      location_t brace_loc = c_parser_peek_token (parser)->location; 
       struct c_declarator *declarator;
       struct c_declspecs *quals_attrs = build_null_declspecs ();
       bool static_seen;
@@ -2400,8 +2401,8 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
 				     "expected %<]%>");
 	  return NULL;
 	}
-      declarator = build_array_declarator (dimen, quals_attrs, static_seen,
-					   star_seen);
+      declarator = build_array_declarator (brace_loc, dimen, quals_attrs,
+					   static_seen, star_seen);
       if (declarator == NULL)
 	return NULL;
       inner = set_array_declarator_inner (declarator, inner);
