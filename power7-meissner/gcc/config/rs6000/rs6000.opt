@@ -1,6 +1,6 @@
 ; Options for the rs6000 port of the compiler
 ;
-; Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+; Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 ; Contributed by Aldy Hernandez <aldy@quesejoda.com>.
 ;
 ; This file is part of GCC.
@@ -123,12 +123,12 @@ mavoid-indexed-addresses
 Target Report Var(TARGET_AVOID_XFORM) Init(-1)
 Avoid generation of indexed load/store instructions when possible
 
-mno-fused-madd
-Target Report RejectNegative Mask(NO_FUSED_MADD)
-Do not generate fused multiply/add instructions
+mpopcntd
+Target Report Mask(POPCNTD)
+Use PowerPC V2.06 popcntd instruction
 
 mfused-madd
-Target Report RejectNegative InverseMask(NO_FUSED_MADD, FUSED_MADD)
+Target Report Var(TARGET_FUSED_MADD) Init(1)
 Generate fused multiply/add instructions
 
 msched-prolog

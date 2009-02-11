@@ -1,0 +1,43 @@
+2009-02-11  Pat Haugen  <pthaugen@us.ibm.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/invoke.texi (-mpopcntd, -mno-popcntd): Document new
+	switches.
+
+	* configure.ac (powerpc*-*-*): Test for the assembler having the
+	popcntd instruction.
+	* configure: Regenerate.
+	* config.in (HAVE_AS_POPCNTD): Add default value for configure
+	test.
+
+	* config/rs6000/power7.md: New file.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	_ARCH_PWR7 if the popcntd instruction is available.
+
+	* config/rs6000/rs6000.opt (-mpopcntd): New switch to
+	enable/disable the use of the popcntd and popcntw instructions.
+	(-mfused-madd, -mno-fused-madd): Move to being a separate variable
+	because we are out of mask bits.
+
+	* config/rs6000/rs6000.c (power7_cost): Define.
+	(rs6000_override_options): Add Power7 support.
+	(rs6000_issue_rate): Ditto.
+	(insn_must_be_first_in_group): Ditto.
+	(insn_must_be_last_in_group): Ditto.
+	(rs6000_emit_popcount): Add support for using the popcntw and
+	popcntd instructions.
+
+	* config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Switch to using
+	popcntd as the test for a power7 assembler instead of vector
+	scalar instructions.
+	* (TARGET_POPCNTD): If assembler does not support the popcntd
+	instruction, disable using it.
+	(processor_type): Add Power7 entry.
+
+	* config/rs6000/rs6000.md (define_attr "cpu"):  Add power7.
+	(power7.md): Include it.
+	(andi./andis./nor. patterns): Change insn type to fast_compare.
+	(popcntwsi2): Add popcntw support.
+	(popcntddi2): Add popcntd support.
+

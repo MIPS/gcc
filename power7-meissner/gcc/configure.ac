@@ -2,7 +2,7 @@
 # Process this file with autoconf to generate a configuration script.
 
 # Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-# 2007, 2008 Free Software Foundation, Inc.
+# 2007, 2008, 2009 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -3148,6 +3148,21 @@ LCF0:
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_VSX, 1,
 	  [Define if your assembler supports VSX instructions.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr7"
+	.csect .text[[PR]]
+	popcntd 3,3';;
+      *) conftest_s='	.machine power7
+	.text
+	popcntd 3,3';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([popcntd support],
+      gcc_cv_as_powerpc_popcntd, [9,99,0], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_POPCNTD, 1,
+	  [Define if your assembler supports POPCNTD instructions.])])
 
     gcc_GAS_CHECK_FEATURE([.gnu_attribute support],
       gcc_cv_as_powerpc_gnu_attribute, [2,18,0],,

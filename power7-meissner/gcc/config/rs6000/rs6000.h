@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -72,7 +72,7 @@
 #define ASM_CPU_POWER6_SPEC "-mpower4 -maltivec"
 #endif
 
-#ifdef HAVE_AS_VSX
+#ifdef HAVE_AS_POPCNTD
 #define ASM_CPU_POWER7_SPEC "-mpower7"
 #else
 #define ASM_CPU_POWER7_SPEC "-mpower4 -maltivec"
@@ -240,6 +240,14 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_DFP 0
 #endif
 
+/* Define TARGET_POPCNTD if the target assembler does not support the
+   popcount word and double word instructions.  */
+
+#ifndef HAVE_AS_POPCNTD
+#undef  TARGET_POPCNTD
+#define TARGET_POPCNTD 0
+#endif
+
 #ifndef TARGET_SECURE_PLT
 #define TARGET_SECURE_PLT 0
 #endif
@@ -295,6 +303,7 @@ enum processor_type
    PROCESSOR_POWER4,
    PROCESSOR_POWER5,
    PROCESSOR_POWER6,
+   PROCESSOR_POWER7,
    PROCESSOR_CELL
 };
 

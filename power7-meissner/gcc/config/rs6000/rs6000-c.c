@@ -265,6 +265,8 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     builtin_define ("_ARCH_PWR6X");
   if (! TARGET_POWER && ! TARGET_POWER2 && ! TARGET_POWERPC)
     builtin_define ("_ARCH_COM");
+  if (TARGET_POPCNTD)
+    builtin_define ("_ARCH_PWR7");
   if (TARGET_ALTIVEC)
     {
       builtin_define ("__ALTIVEC__");
