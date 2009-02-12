@@ -1,3 +1,15 @@
+2009-02-12  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (walk_aliased_vdefs): Get visited bitmap.
+	Only free it if we didn't get one.
+	* tree-ssa-alias.h (walk_aliased_vdefs): Adjust prototype.
+	* tree-ssa-dce.c (mark_nonaliased_loads_necessary): Pass NULL
+	for the bitmap argument to walk_aliased_vdefs.
+	(mark_aliased_loads_necessary): Pass locally cached bitmap.
+	(visited): New global static.
+	(perform_tree_ssa_dce): Free visited bitmap after propagating
+	necessity.
+
 2009-02-11  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r144098.

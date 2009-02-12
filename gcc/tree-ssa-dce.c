@@ -507,7 +507,7 @@ mark_nonaliased_loads_necessary (gimple stmt, tree ref)
   refd.base = get_ref_base_and_extent (ref, &refd.offset, &refd.size,
 				       &refd.max_size);
   walk_aliased_vdefs (ref, gimple_vuse (stmt),
-		      mark_nonaliased_loads_necessary_1, &refd);
+		      mark_nonaliased_loads_necessary_1, &refd, NULL);
 }
 
 /* Worker for the walker that marks reaching definitions of REF, which
@@ -535,11 +535,13 @@ mark_aliased_loads_necessary_1 (tree ref ATTRIBUTE_UNUSED,
   return true;
 }
 
+static bitmap visited = NULL;
+
 static void
 mark_aliased_loads_necessary (gimple stmt)
 {
   walk_aliased_vdefs (NULL, gimple_vuse (stmt),
-		      mark_aliased_loads_necessary_1, NULL);
+		      mark_aliased_loads_necessary_1, NULL, &visited);
 }
 
 /* Propagate necessity using the operands of necessary statements.
@@ -1076,6 +1078,7 @@ perform_tree_ssa_dce (bool aggressive)
   find_obviously_necessary_stmts (el);
 
   propagate_necessity (el);
+  BITMAP_FREE (visited);
 
   something_changed |= eliminate_unnecessary_stmts ();
   something_changed |= cfg_altered;

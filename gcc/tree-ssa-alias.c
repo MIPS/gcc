@@ -1027,15 +1027,17 @@ walk_aliased_vdefs_1 (tree ref, tree vdef,
 
 void
 walk_aliased_vdefs (tree ref, tree vdef,
-		    bool (*walker)(tree, tree, void *), void *data)
+		    bool (*walker)(tree, tree, void *), void *data,
+		    bitmap *visited)
 {
-  bitmap visited = NULL;
+  bitmap local_visited = NULL;
 
   timevar_push (TV_ALIAS_STMT_WALK);
 
-  walk_aliased_vdefs_1 (ref, vdef, walker, data, &visited);
-  if (visited)
-    BITMAP_FREE (visited);
+  walk_aliased_vdefs_1 (ref, vdef, walker, data,
+			visited ? visited : &local_visited);
+  if (local_visited)
+    BITMAP_FREE (local_visited);
 
   timevar_pop (TV_ALIAS_STMT_WALK);
 }
