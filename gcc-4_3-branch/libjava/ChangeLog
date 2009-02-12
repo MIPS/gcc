@@ -1,3 +1,33 @@
+2009-01-24  Release Manager
+
+	* GCC 4.3.3 released.
+
+2009-01-12  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/38396:
+	* libgcj_bc.c: Sort lines.
+	*(_Jv_LookupInterfaceMethod, _Jv_MonitorExit,
+	_Jv_RegisterResource, _Jv_JNI_PopSystemFrame): Add.
+
+	* sun/misc/natUnsafe.cc (spinlock contructor): Call sched_yield().
+
+2008-08-27  Release Manager
+
+	* GCC 4.3.2 released.
+
+2008-08-22  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/8995:
+	
+	* interpret-run.cc (REWRITE_INSN): Null this macro.
+
+	* include/jvm.h (class _Jv_Linker): Declare resolve_mutex, init.
+	(read_cpool_entry, write_cpool_entry): New functions.
+	* link.cc (_Jv_Linker::resolve_mutex): new.
+	(_Jv_Linker::init): New function.
+	(_Jv_Linker::resolve_pool_entry): Use {read,write}_cpool_entry
+	to ensure atomic access to constant pool entries.
+
 2008-08-05  Matthias Klose  <doko@ubuntu.com>
 
 	PR libgcj/31890
