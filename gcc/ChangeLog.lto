@@ -1,5 +1,19 @@
 2009-02-13  Diego Novillo  <dnovillo@google.com>
 
+	* lto-tree-flags.def (VAR_DECL, FUNCTION_DECL): Remove
+	asm_written_flag.
+	* toplev.c (compile_file): Move call to coverage_finish ...
+	* cgraphunit.c (ipa_passes): ... here.
+	Include coverage.h.
+	(cgraph_build_static_cdtor): Set DECL_CONTEXT for RESDECL.
+	* ipa-utils.c (ipa_utils_reduced_inorder): Handle
+	CONSTRUCTOR nodes.
+	* ipa-inline.c (cgraph_decide_inlining): Do not expect
+	profile_info to be set in LTO.
+	* Makefile.in (cgraphunit.o): Add dependency on COVERAGE_H.
+
+2009-02-13  Diego Novillo  <dnovillo@google.com>
+
 	* lto-cgraph.c (output_node): Remove local variable
 	NEEDED.  Do not alter the status of the needed marker in
 	NODE.

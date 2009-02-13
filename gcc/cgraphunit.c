@@ -134,6 +134,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "output.h"
+#include "coverage.h"
 
 static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
@@ -1262,6 +1263,14 @@ ipa_passes (void)
      inlined.  */
   cgraph_remove_unreachable_nodes (false, dump_file);
 
+  if (!in_lto_p)
+    {
+      coverage_finish ();
+      set_cfun (NULL);
+      current_function_decl = NULL;
+      cgraph_process_new_functions ();
+    }
+
   execute_ipa_summary_passes ((struct ipa_opt_pass *) all_regular_ipa_passes);
   execute_ipa_summary_passes ((struct ipa_opt_pass *) all_lto_gen_passes);
 
@@ -1433,6 +1442,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   resdecl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (resdecl) = 1;
   DECL_RESULT (decl) = resdecl;
+  DECL_CONTEXT (resdecl) = decl;
 
   allocate_struct_function (decl, false);
 

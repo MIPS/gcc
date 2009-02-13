@@ -1106,7 +1106,9 @@ cgraph_decide_inlining (void)
 	    max_count = e->count;
       }
   overall_insns = initial_insns;
-  gcc_assert (!max_count || (profile_info && flag_branch_probabilities));
+  gcc_assert (in_lto_p
+	      || !max_count
+	      || (profile_info && flag_branch_probabilities));
 
   nnodes = cgraph_postorder (order);
 
