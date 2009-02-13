@@ -949,6 +949,13 @@ extern int rs6000_xilinx_fpu;
 	 ((MODE) == V4SFmode		\
 	  || (MODE) == V2DFmode)	\
 
+#define VSX_SCALAR_MODE(MODE)		\
+	((MODE) == DFmode)
+
+#define VSX_MODE(MODE)			\
+	(VSX_VECTOR_MODE (MODE)		\
+	 || VSX_SCALAR_MODE (MODE))
+
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\
 	  || (MODE) == V8HImode		\

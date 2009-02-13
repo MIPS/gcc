@@ -159,3 +159,7 @@
 (define_constraint "W"
   "vector constant that does not require memory"
   (match_operand 0 "easy_vector_constant"))
+
+(define_constraint "j"
+  "Zero vector constant"
+  (match_test "(op == const0_rtx || op == CONST0_RTX (GET_MODE (op)))"))

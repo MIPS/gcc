@@ -1,3 +1,54 @@
+2009-02-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.in: Update two comments.
+
+	* config/rs6000/vector.md (VEC_L): Add V2DI type.
+	(move<mode>): Use VEC_L to get all vector types, and delete the
+	separate integer mode move definitions.
+	(vector_load_<mode>): Ditto.
+	(vector_store_<mode>): Ditto.
+	(vector move splitters): Move GPR register splitters here from
+	altivec.md.
+
+	* config/rs6000/constraints.md ("j"): Add "j" constraint to match
+	the mode's 0 value.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal): Only
+	count the FPRs as being 128 bits if the mode is a VSX type.
+	(rs6000_hard_regno_mode_ok): Ditto.
+	(rs6000_emit_minmax): Use new VSX_MODE instead of separate tests.
+
+	* config/rs6000/vsx.md (VSX_L): Add V2DImode.
+	(VSm): Rename from VSX_mem, add modes for integer vectors.  Change
+	all uses.
+	(VSs): Rename from VSX_op, add modes for integer vectors.  Change
+	all uses.
+	(VSr): New mode address to give the register class.
+	(mov<mode>_vsx): Use VSr to get the register preferences.  Add
+	explicit 0 option.
+	(scalar double precision patterns): Do not use v register
+	constraint right now.
+	(logical patterns): Use VSr mode attribute for register
+	preferences.
+
+	* config/rs6000/rs6000.h (VSX_SCALAR_MODE): New macro.
+	(VSX_MODE): Ditto.
+
+	* config/rs6000/altivec.md (VM): New mode iterator for memory
+	operations.  Add V2DI mode.
+	(mov_altivec_<mode>): Disable if -mvsx for all modes, not just
+	V4SFmode.
+	(gpr move splitters): Move to vector.md.
+	(and<mode>3_altivec): Use VM mode iterator, not V.
+	(ior<mode>3_altivec): Ditto.
+	(xor<mode>3_altivec): Ditto.
+	(one_cmpl<mode>2_altivec): Ditto.
+	(nor<mode>3_altivec): Ditto.
+	(andc<mode>3_altivec): Ditto.
+
+	* config/rs6000/rs6000.md (movdf_hardfloat): Back out vsx changes.
+	(movdf_hardfloat64_vsx): Delete.
+
 2009-02-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md: New file to abstract out the expanders

@@ -176,15 +176,17 @@
 (define_mode_iterator VF [V4SF])
 ;; Vec modes, pity mode iterators are not composable
 (define_mode_iterator V [V4SI V8HI V16QI V4SF])
+;; Vec modes for move/logical ops, include vector types for move not otherwise
+;; handled by altivec (v2df, v2di)
+(define_mode_iterator VM [V4SI V8HI V16QI V4SF V2DF V2DI])
 
 (define_mode_attr VI_char [(V4SI "w") (V8HI "h") (V16QI "b")])
 
 ;; Altivec move instructions, prefer VSX if we have it
 (define_insn "*mov_altivec_<mode>"
-  [(set (match_operand:V 0 "nonimmediate_operand" "=Z,v,v,o,r,r,v")
-	(match_operand:V 1 "input_operand" "v,Z,v,r,o,r,W"))]
-  "TARGET_ALTIVEC
-   && (<MODE>mode != V4SFmode && !TARGET_VSX)
+  [(set (match_operand:VM 0 "nonimmediate_operand" "=Z,v,v,o,r,r,v")
+	(match_operand:VM 1 "input_operand" "v,Z,v,r,o,r,W"))]
+  "TARGET_ALTIVEC && !TARGET_VSX
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
@@ -203,44 +205,8 @@
   [(set_attr "type" "vecstore,vecload,vecsimple,store,load,*,*")])
 
 (define_split
-  [(set (match_operand:V4SI 0 "nonimmediate_operand" "")
-        (match_operand:V4SI 1 "input_operand" ""))]
-  "TARGET_ALTIVEC && reload_completed
-   && gpr_or_gpr_p (operands[0], operands[1])"
-  [(pc)]
-{
-  rs6000_split_multireg_move (operands[0], operands[1]); DONE;
-})
-
-(define_split
-  [(set (match_operand:V8HI 0 "nonimmediate_operand" "")
-        (match_operand:V8HI 1 "input_operand" ""))]
-  "TARGET_ALTIVEC && reload_completed
-   && gpr_or_gpr_p (operands[0], operands[1])"
-  [(pc)]
-{ rs6000_split_multireg_move (operands[0], operands[1]); DONE; })
-
-(define_split
-  [(set (match_operand:V16QI 0 "nonimmediate_operand" "")
-        (match_operand:V16QI 1 "input_operand" ""))]
-  "TARGET_ALTIVEC && reload_completed
-   && gpr_or_gpr_p (operands[0], operands[1])"
-  [(pc)]
-{ rs6000_split_multireg_move (operands[0], operands[1]); DONE; })
-
-(define_split
-  [(set (match_operand:V4SF 0 "nonimmediate_operand" "")
-        (match_operand:V4SF 1 "input_operand" ""))]
-  "(TARGET_ALTIVEC || TARGET_VSX) && reload_completed
-   && gpr_or_gpr_p (operands[0], operands[1])"
-  [(pc)]
-{
-  rs6000_split_multireg_move (operands[0], operands[1]); DONE;
-})
-
-(define_split
-  [(set (match_operand:V 0 "altivec_register_operand" "")
-	(match_operand:V 1 "easy_vector_constant_add_self" ""))]
+  [(set (match_operand:VM 0 "altivec_register_operand" "")
+	(match_operand:VM 1 "easy_vector_constant_add_self" ""))]
   "TARGET_ALTIVEC && reload_completed"
   [(set (match_dup 0) (match_dup 3))
    (set (match_dup 0) (match_dup 4))]
@@ -1074,48 +1040,48 @@
 ;; logical ops
 
 (define_insn "*and<mode>3_altivec"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (and:V (match_operand:V 1 "register_operand" "v")
-	       (match_operand:V 2 "register_operand" "v")))]
+  [(set (match_operand:VM 0 "register_operand" "=v")
+        (and:VM (match_operand:VM 1 "register_operand" "v")
+		(match_operand:VM 2 "register_operand" "v")))]
   "TARGET_ALTIVEC && !TARGET_VSX"
   "vand %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "*ior<mode>3_altivec"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (ior:V (match_operand:V 1 "register_operand" "v")
-	       (match_operand:V 2 "register_operand" "v")))]
+  [(set (match_operand:VM 0 "register_operand" "=v")
+        (ior:VM (match_operand:VM 1 "register_operand" "v")
+		(match_operand:VM 2 "register_operand" "v")))]
   "TARGET_ALTIVEC && !TARGET_VSX"
   "vor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "*xor<mode>3_altivec"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (xor:V (match_operand:V 1 "register_operand" "v")
-	       (match_operand:V 2 "register_operand" "v")))]
+  [(set (match_operand:VM 0 "register_operand" "=v")
+        (xor:VM (match_operand:VM 1 "register_operand" "v")
+		(match_operand:VM 2 "register_operand" "v")))]
   "TARGET_ALTIVEC && !TARGET_VSX"
   "vxor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "*one_cmpl<mode>2_altivec"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (not:V (match_operand:V 1 "register_operand" "v")))]
+  [(set (match_operand:VM 0 "register_operand" "=v")
+        (not:VM (match_operand:VM 1 "register_operand" "v")))]
   "TARGET_ALTIVEC && !TARGET_VSX"
   "vnor %0,%1,%1"
   [(set_attr "type" "vecsimple")])
   
 (define_insn "*nor<mode>3_altivec"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (not:V (ior:V (match_operand:V 1 "register_operand" "v")
-		      (match_operand:V 2 "register_operand" "v"))))]
+  [(set (match_operand:VM 0 "register_operand" "=v")
+        (not:VM (ior:VM (match_operand:VM 1 "register_operand" "v")
+			(match_operand:VM 2 "register_operand" "v"))))]
   "TARGET_ALTIVEC && !TARGET_VSX"
   "vnor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "*andc<mode>3_altivec"
-  [(set (match_operand:V 0 "register_operand" "=v")
-        (and:V (not:V (match_operand:V 2 "register_operand" "v"))
-	       (match_operand:V 1 "register_operand" "v")))]
+  [(set (match_operand:VM 0 "register_operand" "=v")
+        (and:VM (not:VM (match_operand:VM 2 "register_operand" "v"))
+		(match_operand:VM 1 "register_operand" "v")))]
   "TARGET_ALTIVEC && !TARGET_VSX"
   "vandc %0,%1,%2"
   [(set_attr "type" "vecsimple")])

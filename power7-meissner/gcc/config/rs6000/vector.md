@@ -31,12 +31,12 @@
 (define_mode_iterator VEC_F [V4SF V2DF])
 
 ;; Vector logical modes
-(define_mode_iterator VEC_L [V4SI V8HI V16QI V4SF V2DF])
+(define_mode_iterator VEC_L [V4SI V8HI V16QI V4SF V2DF V2DI])
 
-;; Vector floating point move instructions.
+;; Vector move instructions.
 (define_expand "mov<mode>"
-  [(set (match_operand:VEC_F 0 "nonimmediate_operand" "")
-	(match_operand:VEC_F 1 "any_operand" ""))]
+  [(set (match_operand:VEC_L 0 "nonimmediate_operand" "")
+	(match_operand:VEC_L 1 "any_operand" ""))]
   "TARGET_ALTIVEC || TARGET_VSX"
 {
   rs6000_emit_move (operands[0], operands[1], <MODE>mode);
@@ -46,8 +46,8 @@
 ;; Generic vector floating point load/store instructions.  These will match
 ;; insns defined in vsx.md or altivec.md depending on the switches.
 (define_expand "vector_load_<mode>"
-  [(set (match_operand:VEC_F 0 "vfloat_operand" "")
-	(match_operand:VEC_F 1 "memory_operand" ""))]
+  [(set (match_operand:VEC_L 0 "vfloat_operand" "")
+	(match_operand:VEC_L 1 "memory_operand" ""))]
   "TARGET_ALTIVEC || TARGET_VSX"
 {
   rs6000_emit_move (operands[0], operands[1], <MODE>mode);
@@ -55,14 +55,27 @@
 })
 
 (define_expand "vector_store_<mode>"
-  [(set (match_operand:VEC_F 0 "memory_operand" "")
-	(match_operand:VEC_F 1 "vfloat_operand" ""))]
+  [(set (match_operand:VEC_L 0 "memory_operand" "")
+	(match_operand:VEC_L 1 "vfloat_operand" ""))]
   "TARGET_ALTIVEC || TARGET_VSX"
 {
   rs6000_emit_move (operands[0], operands[1], <MODE>mode);
   DONE;
 })
 
+;; Splits if a GPR register was chosen for the move
+(define_split
+  [(set (match_operand:VEC_L 0 "nonimmediate_operand" "")
+        (match_operand:VEC_L 1 "input_operand" ""))]
+  "(TARGET_ALTIVEC || TARGET_VSX) && reload_completed
+   && gpr_or_gpr_p (operands[0], operands[1])"
+  [(pc)]
+{
+  rs6000_split_multireg_move (operands[0], operands[1]);
+  DONE;
+})
+
+
 ;; Generic floating point vector arithmetic support
 (define_expand "add<mode>3"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
@@ -165,36 +178,6 @@
     FAIL;
 }")
 
-
-
-;; Vector integer move instructions.
-(define_expand "mov<mode>"
-  [(set (match_operand:VEC_I 0 "nonimmediate_operand" "")
-	(match_operand:VEC_I 1 "any_operand" ""))]
-  "TARGET_ALTIVEC"
-{
-  rs6000_emit_move (operands[0], operands[1], <MODE>mode);
-  DONE;
-})
-
-;; Generic vector integer load/store instructions.
-(define_expand "vector_load_<mode>"
-  [(set (match_operand:VEC_I 0 "vint_operand" "")
-	(match_operand:VEC_I 1 "memory_operand" ""))]
-  "TARGET_ALTIVEC"
-{
-  rs6000_emit_move (operands[0], operands[1], <MODE>mode);
-  DONE;
-})
-
-(define_expand "vector_store_<mode>"
-  [(set (match_operand:VEC_I 0 "memory_operand" "")
-	(match_operand:VEC_I 1 "vint_operand" ""))]
-  "TARGET_ALTIVEC"
-{
-  rs6000_emit_move (operands[0], operands[1], <MODE>mode);
-  DONE;
-})
 
 
 ;; Vector logical instructions

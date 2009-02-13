@@ -1342,7 +1342,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 static int
 rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
 {
-  if (TARGET_VSX && VSX_REGNO_P (regno))
+  if (TARGET_VSX && VSX_REGNO_P (regno) && VSX_MODE (mode))
     return (GET_MODE_SIZE (mode) + UNITS_PER_VSX_WORD - 1) / UNITS_PER_VSX_WORD;
 
   if (FP_REGNO_P (regno))
@@ -1374,7 +1374,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
      implementations.  */
-  if (TARGET_VSX && VSX_REGNO_P (regno) && VSX_VECTOR_MODE (mode))
+  if (TARGET_VSX && VSX_REGNO_P (regno) && VSX_MODE (mode))
     return VSX_REGNO_P (regno + rs6000_hard_regno_nregs[mode][regno] - 1);
 
   /* The GPRs can hold any mode, but values bigger than one register
@@ -3094,6 +3094,9 @@ output_vec_const_move (rtx *operands)
   dest = operands[0];
   vec = operands[1];
   mode = GET_MODE (dest);
+
+  if (TARGET_VSX && zero_constant (vec, mode))
+    return "xxlxor %x0,%x0,%x0";
 
   if (TARGET_ALTIVEC)
     {
@@ -13923,7 +13926,7 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
 
   /* VSX/altivec have direct min/max insns.  */
   if ((code == SMAX || code == SMIN)
-      && ((TARGET_VSX && (mode == DFmode || VSX_VECTOR_MODE (mode)))
+      && ((TARGET_VSX && VSX_MODE (mode))
 	  || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))))
     {
       emit_insn (gen_rtx_SET (VOIDmode,
