@@ -1,3 +1,99 @@
+2009-02-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md: New file to abstract out the expanders
+	for vector operations from alitvec.md.
+
+	* config/rs6000/predicates.md (vsx_register_operand): New
+	predicate to match VSX registers.
+	(vfloat_operand): New predicate to match registers used for vector
+	floating point operations.
+	(vint_operand): New predicate to match registers used for vector
+	integer operations.
+	(vlogical_operand): New predicate to match registers used for
+	vector logical operations.
+
+	* config/rs6000/rs6000-protos.h (rs6000_hard_regno_nregs): Change
+	from a function to an array.
+	(rs6000_class_max_nregs): Add declaration.
+
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Define to include all of
+	the .md files included by rs6000.md.
+
+	* config/rs6000/rs6000.c (rs6000_class_max_nregs): New global
+	array to pre-calculate CLASS_MAX_NREGS.
+	(rs6000_hard_regno_nregs): Change from a function to an array to
+	pre-calculate HARD_REGNO_NREGS.
+	(rs6000_hard_regno_nregs_internal): Rename from
+	rs6000_hard_regno_nregs and add VSX support.
+	(rs6000_hard_regno_mode_ok): Add VSX support, and switch to use
+	lookup table rs6000_hard_regno_nregs.
+	(rs6000_init_hard_regno_mode_ok): Add initialization of
+	rs6000_hard_regno_nregs, and rs6000_class_max_nregs global
+	arrays.
+	(rs6000_override_options): Add some warnings for things that are
+	incompatible with -mvsx.
+	(rs6000_legitimate_offset_address_p): Add V2DFmode.
+	(rs6000_conditional_register_usage): Enable altivec registers if
+	-mvsx.
+	(bdesc_2arg): Change the name of the nor pattern.
+	(altivec_expand_ld_builtin): Change the names of the load
+	patterns to be the generic vector loads.
+	(altivec_expand_st_builtin): Change the names of the store
+	patterns to be the generic vector stores.
+	(print_operand): Add 'x' to print out a VSX register properly.
+	(rs6000_emit_minmax): Directly emit the min/max patterns for VSX
+	and Altivec.
+
+	* config/rs6000/vsx.md: New file to add all of the VSX specific
+	instructions.  Add support for load, store, move, add, subtract,
+	multiply, multiply/add, divide, negate, absolute value, maximum,
+	minimum, sqrt, and, or, xor, and complent, xor, one's complement,
+	and nor instructions.
+
+	* config/rs6000/rs6000.h (UNITS_PER_VSX_WORD): Define.
+	(VSX_REGNO_P): New macro for VSX registers.
+	(VFLOAT_REGNO): New macro for vector floating point registers.
+	(VINT_REGNO): New macro for vector integer registers.
+	(VLOGICAL_REGNO): New macro for vector logical registers.
+	(VSX_VECTOR_MODE): New macro for vector modes supported by VSX.
+	(HARD_REGNO_NREGS): Switch to using pre-computed table.
+	(CLASS_MAX_NREGS): Ditto.
+
+	* config/rs6000/altivec.md (altivec_lvx_<mode>): Delete, repalced
+	by expanders in vector.md.
+	(altivec_stvx_<mode>): Ditto.
+	(mov<mode>): Ditto.
+	(mov_altivec_<mode>): Rename from mov<mode>_internal, and prefer
+	using VSX if available.
+	(addv4sf3_altivec): Rename from standard name, and prefer using
+	VSX if available.
+	(subv4sf3_altivec): Ditto.
+	(mulv4sf3_altivec): Ditto.
+	(smaxv4sf3_altivec): Ditto.
+	(sminv4sf3_altivec): Ditto.
+	(and<mode>3_altivec): Ditto.
+	(ior<mode>3_altivec): Ditto.
+	(xor<mode>3_altivec): Ditto.
+	(one_cmpl<mode>2): Ditto.
+	(nor<mode>3_altivec): Ditto.
+	(andc<mode>3_altivec): Ditto.
+	(absv4sf2_altivec): Ditto.
+	(vcondv4sf): Move to vector.md.
+
+	* config/rs6000/rs6000.md (negdf2_fpr): Add !TARGET_VSX to prefer
+	the version in vsx.md if -mvsx is available.
+	(absdf2_fpr): Ditto.
+	(nabsdf2_fpr): Ditto.
+	(adddf3_fpr): Ditto.
+	(subdf3_fpr): Ditto.
+	(muldf3_fpr): Ditto.
+	(multiply/add patterns): Ditto.
+	(movdf_hardfloat64): Disable if -mvsx.
+	(movdf_hardfloat64_vsx): Clone from movdf_hardfloat64 and add VSX
+	support.
+	(vector.md): Include new .md file.
+	(vsx.md): Ditto.
+
 2009-02-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi (-mvsx, -mno-vsx): Document new switches.

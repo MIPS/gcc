@@ -231,6 +231,12 @@ int rs6000_debug_arg;		/* debug argument handling */
 /* Value is TRUE if register/mode pair is acceptable.  */
 bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
 
+/* Maximum number of registers needed for a given register class and mode.  */
+unsigned char rs6000_class_max_nregs[NUM_MACHINE_MODES][LIM_REG_CLASSES];
+
+/* How many registers are needed for a given register and mode.  */
+unsigned char rs6000_hard_regno_nregs[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
+
 /* Built in types.  */
 
 tree rs6000_builtin_types[RS6000_BTI_MAX];
@@ -1321,16 +1327,60 @@ static const char alt_reg_names[][8] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Return number of consecutive hard regs needed starting at reg REGNO
+   to hold something of mode MODE.
+   This is ordinarily the length in words of a value of mode MODE
+   but can be less for certain modes in special long registers.
+
+   For the SPE, GPRs are 64 bits but only 32 bits are visible in
+   scalar instructions.  The upper 32 bits are only available to the
+   SIMD instructions.
+
+   POWER and PowerPC GPRs hold 32 bits worth;
+   PowerPC64 GPRs and FPRs point register holds 64 bits worth.  */
+
+static int
+rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
+{
+  if (TARGET_VSX && VSX_REGNO_P (regno))
+    return (GET_MODE_SIZE (mode) + UNITS_PER_VSX_WORD - 1) / UNITS_PER_VSX_WORD;
+
+  if (FP_REGNO_P (regno))
+    return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
+
+  if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
+    return (GET_MODE_SIZE (mode) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD;
+
+  if (ALTIVEC_REGNO_P (regno))
+    return
+      (GET_MODE_SIZE (mode) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD;
+
+  /* The value returned for SCmode in the E500 double case is 2 for
+     ABI compatibility; storing an SCmode value in a single register
+     would require function_arg and rs6000_spe_function_arg to handle
+     SCmode so as to pass the value correctly in a pair of
+     registers.  */
+  if (TARGET_E500_DOUBLE && FLOAT_MODE_P (mode) && mode != SCmode
+      && !DECIMAL_FLOAT_MODE_P (mode))
+    return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
+
+  return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+}
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode
    MODE.  */
 static int
 rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
+  /* VSX registers that overlap the FPR registers are larger than for non-VSX
+     implementations.  */
+  if (TARGET_VSX && VSX_REGNO_P (regno) && VSX_VECTOR_MODE (mode))
+    return VSX_REGNO_P (regno + rs6000_hard_regno_nregs[mode][regno] - 1);
+
   /* The GPRs can hold any mode, but values bigger than one register
      cannot go past R31.  */
   if (INT_REGNO_P (regno))
-    return INT_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1);
+    return INT_REGNO_P (regno + rs6000_hard_regno_nregs[mode][regno] - 1);
 
   /* The float registers can only hold floating modes and DImode.
      This excludes the 32-bit decimal float mode for now.  */
@@ -1338,7 +1388,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return
       ((SCALAR_FLOAT_MODE_P (mode)
        && (mode != TDmode || (regno % 2) == 0)
-       && FP_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1))
+       && FP_REGNO_P (regno + rs6000_hard_regno_nregs[mode][regno] - 1))
       || (GET_MODE_CLASS (mode) == MODE_INT
 	  && GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD)
       || (PAIRED_SIMD_REGNO_P (regno) && TARGET_PAIRED_FLOAT
@@ -1365,16 +1415,47 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   return GET_MODE_SIZE (mode) <= UNITS_PER_WORD;
 }
 
-/* Initialize rs6000_hard_regno_mode_ok_p table.  */
+/* Initialize the various global tables that are based on register size.  */
 static void
 rs6000_init_hard_regno_mode_ok (void)
 {
-  int r, m;
+  int r, m, c;
 
+  /* Precalculate HARD_REGNO_NREGS.  */
+  for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
+    for (m = 0; m < NUM_MACHINE_MODES; ++m)
+      rs6000_hard_regno_nregs[m][r] = rs6000_hard_regno_nregs_internal (r, m);
+
+  /* Precalculate HARD_REGNO_MODE_OK.  */
   for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
     for (m = 0; m < NUM_MACHINE_MODES; ++m)
       if (rs6000_hard_regno_mode_ok (r, m))
 	rs6000_hard_regno_mode_ok_p[m][r] = true;
+
+  /* Precalculate CLASSS_MAX_NREGS sizes.  */
+  for (c = 0; c < LIM_REG_CLASSES; ++c)
+    {
+      int reg_size;
+
+      if (TARGET_VSX && (c == FLOAT_REGS || c == ALTIVEC_REGS))
+	reg_size = UNITS_PER_VSX_WORD;
+
+      else if (c == ALTIVEC_REGS)
+	reg_size = UNITS_PER_ALTIVEC_WORD;
+
+      else if (c == FLOAT_REGS)
+	reg_size = UNITS_PER_FP_WORD;
+
+      else
+	reg_size = UNITS_PER_WORD;
+
+      for (m = 0; m < NUM_MACHINE_MODES; ++m)
+	rs6000_class_max_nregs[m][c]
+	  = (GET_MODE_SIZE (m) + reg_size - 1) / reg_size;
+    }
+
+  if (TARGET_E500_DOUBLE)
+    rs6000_class_max_nregs[DFmode][GENERAL_REGS] = 1;
 }
 
 #if TARGET_MACHO
@@ -1663,6 +1744,23 @@ rs6000_override_options (const char *default_cpu)
 	  target_flags &= ~MASK_STRING;
 	  if ((target_flags_explicit & MASK_STRING) != 0)
 	    warning (0, "-mstring is not supported on little endian systems");
+	}
+    }
+
+  /* Add some warnings for VSX.  */
+  if (TARGET_VSX)
+    {
+      const char *msg = NULL;
+      if (!TARGET_HARD_FLOAT || !TARGET_FPRS
+	  || !TARGET_SINGLE_FLOAT || !TARGET_DOUBLE_FLOAT)
+	msg = "-mvsx requires hardware floating point";
+      else if (TARGET_PAIRED_FLOAT)
+	msg = "-mvsx and -mpaired are incompatible";
+
+      if (msg)
+	{
+	  warning (0, msg);
+	  target_flags &= MASK_VSX;
 	}
     }
 
@@ -3657,7 +3755,8 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
     case V8HImode:
     case V4SFmode:
     case V4SImode:
-      /* AltiVec vector modes.  Only reg+reg addressing is valid and
+    case V2DFmode:
+      /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid and
 	 constant offset zero should not occur due to canonicalization.  */
       return false;
 
@@ -4601,43 +4700,6 @@ rs6000_offsettable_memref_p (rtx op)
   return rs6000_legitimate_offset_address_p (GET_MODE (op), XEXP (op, 0), 1);
 }
 
-/* Return number of consecutive hard regs needed starting at reg REGNO
-   to hold something of mode MODE.
-   This is ordinarily the length in words of a value of mode MODE
-   but can be less for certain modes in special long registers.
-
-   For the SPE, GPRs are 64 bits but only 32 bits are visible in
-   scalar instructions.  The upper 32 bits are only available to the
-   SIMD instructions.
-
-   POWER and PowerPC GPRs hold 32 bits worth;
-   PowerPC64 GPRs and FPRs point register holds 64 bits worth.  */
-
-int
-rs6000_hard_regno_nregs (int regno, enum machine_mode mode)
-{
-  if (FP_REGNO_P (regno))
-    return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
-
-  if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
-    return (GET_MODE_SIZE (mode) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD;
-
-  if (ALTIVEC_REGNO_P (regno))
-    return
-      (GET_MODE_SIZE (mode) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD;
-
-  /* The value returned for SCmode in the E500 double case is 2 for
-     ABI compatibility; storing an SCmode value in a single register
-     would require function_arg and rs6000_spe_function_arg to handle
-     SCmode so as to pass the value correctly in a pair of
-     registers.  */
-  if (TARGET_E500_DOUBLE && FLOAT_MODE_P (mode) && mode != SCmode
-      && !DECIMAL_FLOAT_MODE_P (mode))
-    return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
-
-  return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
-}
-
 /* Change register usage conditional on target flags.  */
 void
 rs6000_conditional_register_usage (void)
@@ -4702,14 +4764,14 @@ rs6000_conditional_register_usage (void)
 	= call_really_used_regs[14] = 1;
     }
 
-  if (!TARGET_ALTIVEC)
+  if (!TARGET_ALTIVEC && !TARGET_VSX)
     {
       for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)
 	fixed_regs[i] = call_used_regs[i] = call_really_used_regs[i] = 1;
       call_really_used_regs[VRSAVE_REGNO] = 1;
     }
 
-  if (TARGET_ALTIVEC)
+  if (TARGET_ALTIVEC || TARGET_VSX)
     global_regs[VSCR_REGNO] = 1;
 
   if (TARGET_ALTIVEC_ABI)
@@ -5131,6 +5193,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
     case V2SFmode:
     case V2SImode:
     case V1DImode:
+    case V2DFmode:
       if (CONSTANT_P (operands[1])
 	  && !easy_vector_constant (operands[1], mode))
 	operands[1] = force_const_mem (mode, operands[1]);
@@ -7361,7 +7424,7 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vmulosb, "__builtin_altivec_vmulosb", ALTIVEC_BUILTIN_VMULOSB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmulouh, "__builtin_altivec_vmulouh", ALTIVEC_BUILTIN_VMULOUH },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmulosh, "__builtin_altivec_vmulosh", ALTIVEC_BUILTIN_VMULOSH },
-  { MASK_ALTIVEC, CODE_FOR_altivec_norv4si3, "__builtin_altivec_vnor", ALTIVEC_BUILTIN_VNOR },
+  { MASK_ALTIVEC, CODE_FOR_norv4si3, "__builtin_altivec_vnor", ALTIVEC_BUILTIN_VNOR },
   { MASK_ALTIVEC, CODE_FOR_iorv4si3, "__builtin_altivec_vor", ALTIVEC_BUILTIN_VOR },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkuhum, "__builtin_altivec_vpkuhum", ALTIVEC_BUILTIN_VPKUHUM },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum, "__builtin_altivec_vpkuwum", ALTIVEC_BUILTIN_VPKUWUM },
@@ -8382,16 +8445,16 @@ altivec_expand_ld_builtin (tree exp, rtx target, bool *expandedp)
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_LD_INTERNAL_16qi:
-      icode = CODE_FOR_altivec_lvx_v16qi;
+      icode = CODE_FOR_vector_load_v16qi;
       break;
     case ALTIVEC_BUILTIN_LD_INTERNAL_8hi:
-      icode = CODE_FOR_altivec_lvx_v8hi;
+      icode = CODE_FOR_vector_load_v8hi;
       break;
     case ALTIVEC_BUILTIN_LD_INTERNAL_4si:
-      icode = CODE_FOR_altivec_lvx_v4si;
+      icode = CODE_FOR_vector_load_v4si;
       break;
     case ALTIVEC_BUILTIN_LD_INTERNAL_4sf:
-      icode = CODE_FOR_altivec_lvx_v4sf;
+      icode = CODE_FOR_vector_load_v4sf;
       break;
     default:
       *expandedp = false;
@@ -8435,16 +8498,16 @@ altivec_expand_st_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_ST_INTERNAL_16qi:
-      icode = CODE_FOR_altivec_stvx_v16qi;
+      icode = CODE_FOR_vector_store_v16qi;
       break;
     case ALTIVEC_BUILTIN_ST_INTERNAL_8hi:
-      icode = CODE_FOR_altivec_stvx_v8hi;
+      icode = CODE_FOR_vector_store_v8hi;
       break;
     case ALTIVEC_BUILTIN_ST_INTERNAL_4si:
-      icode = CODE_FOR_altivec_stvx_v4si;
+      icode = CODE_FOR_vector_store_v4si;
       break;
     case ALTIVEC_BUILTIN_ST_INTERNAL_4sf:
-      icode = CODE_FOR_altivec_stvx_v4sf;
+      icode = CODE_FOR_vector_store_v4sf;
       break;
     default:
       *expandedp = false;
@@ -12436,6 +12499,26 @@ print_operand (FILE *file, rtx x, int code)
       fprintf (file, "%d", i + 1);
       return;
 
+    case 'x':
+      /* X is a FPR or Altivec register used in a VSX context.  */
+      if (GET_CODE (x) != REG || !VSX_REGNO_P (REGNO (x)))
+	output_operand_lossage ("invalid %%x value");
+      else
+	{
+	  int reg = REGNO (x);
+	  int vsx_reg = (FP_REGNO_P (reg)
+			 ? reg - 32
+			 : reg - FIRST_ALTIVEC_REGNO + 32);
+
+#ifdef TARGET_REGNAMES      
+	  if (TARGET_REGNAMES)
+	    fprintf (file, "%%vs%d", vsx_reg);
+	  else
+#endif
+	    fprintf (file, "%d", vsx_reg);
+	}
+      return;
+
     case 'X':
       if (GET_CODE (x) == MEM
 	  && (legitimate_indexed_address_p (XEXP (x, 0), 0)
@@ -13837,6 +13920,17 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
   enum machine_mode mode = GET_MODE (op0);
   enum rtx_code c;
   rtx target;
+
+  /* VSX/altivec have direct min/max insns.  */
+  if ((code == SMAX || code == SMIN)
+      && ((TARGET_VSX && (mode == DFmode || VSX_VECTOR_MODE (mode)))
+	  || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))))
+    {
+      emit_insn (gen_rtx_SET (VOIDmode,
+			      dest,
+			      gen_rtx_fmt_ee (code, mode, op0, op1)));
+      return;
+    }
 
   if (code == SMAX || code == SMIN)
     c = GE;
@@ -22468,7 +22562,7 @@ rs6000_emit_popcount (rtx dst, rtx src)
   enum machine_mode mode = GET_MODE (dst);
   rtx tmp1, tmp2;
 
-  /* Use the power7 popcnt{w,d} instruction if we can.  */
+  /* Use the PPC ISA 2.06 popcnt{w,d} instruction if we can.  */
   if (TARGET_POPCNTD)
     {
       if (mode == SImode)

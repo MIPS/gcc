@@ -539,6 +539,7 @@ extern int rs6000_xilinx_fpu;
 #endif
 #define UNITS_PER_FP_WORD 8
 #define UNITS_PER_ALTIVEC_WORD 16
+#define UNITS_PER_VSX_WORD 16
 #define UNITS_PER_SPE_WORD 8
 #define UNITS_PER_PAIRED_WORD 8
 
@@ -918,15 +919,35 @@ extern int rs6000_xilinx_fpu;
 /* True if register is an AltiVec register.  */
 #define ALTIVEC_REGNO_P(N) ((N) >= FIRST_ALTIVEC_REGNO && (N) <= LAST_ALTIVEC_REGNO)
 
+/* True if register is a VSX register.  */
+#define VSX_REGNO_P(N) (FP_REGNO_P (N) || ALTIVEC_REGNO_P (N))
+
+/* Alternate name for any vector register supporting floating point, no matter
+   which instruction set(s) are available.  */
+#define VFLOAT_REGNO_P(N) \
+  (ALTIVEC_REGNO_P (N) || (TARGET_VSX && FP_REGNO_P (N)))
+
+/* Alternate name for any vector register supporting integer, no matter which
+   instruction set(s) are available.  */
+#define VINT_REGNO_P(N) ALTIVEC_REGNO_P (N)
+
+/* Alternate name for any vector register supporting logical operations, no
+   matter which instruction set(s) are available.  */
+#define VLOGICAL_REGNO_P(N) VFLOAT_REGNO_P (N)
+
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.  */
 
-#define HARD_REGNO_NREGS(REGNO, MODE) rs6000_hard_regno_nregs ((REGNO), (MODE))
+#define HARD_REGNO_NREGS(REGNO, MODE) rs6000_hard_regno_nregs[(MODE)][(REGNO)]
 
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
   ((TARGET_32BIT && TARGET_POWERPC64			\
     && (GET_MODE_SIZE (MODE) > 4)  \
     && INT_REGNO_P (REGNO)) ? 1 : 0)
+
+#define VSX_VECTOR_MODE(MODE)		\
+	 ((MODE) == V4SFmode		\
+	  || (MODE) == V2DFmode)	\
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\
@@ -1266,15 +1287,10 @@ enum reg_class
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
 
-   On RS/6000, this is the size of MODE in words,
-   except in the FP regs, where a single reg is enough for two words.  */
-#define CLASS_MAX_NREGS(CLASS, MODE)					\
- (((CLASS) == FLOAT_REGS) 						\
-  ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
-  : (TARGET_E500_DOUBLE && (CLASS) == GENERAL_REGS			\
-     && (MODE) == DFmode)				\
-  ? 1                                                                   \
-  : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+   On RS/6000, this is the size of MODE in words, except in the FP regs, where
+   a single reg is enough for two words, unless we have VSX, where the FP
+   registers can hold 128 bits.  */
+#define CLASS_MAX_NREGS(CLASS, MODE) rs6000_class_max_nregs[(MODE)][(CLASS)]
 
 /* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
 

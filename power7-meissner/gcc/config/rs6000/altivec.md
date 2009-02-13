@@ -179,36 +179,12 @@
 
 (define_mode_attr VI_char [(V4SI "w") (V8HI "h") (V16QI "b")])
 
-;; Generic LVX load instruction.
-(define_insn "altivec_lvx_<mode>"
-  [(set (match_operand:V 0 "altivec_register_operand" "=v")
-	(match_operand:V 1 "memory_operand" "Z"))]
-  "TARGET_ALTIVEC"
-  "lvx %0,%y1"
-  [(set_attr "type" "vecload")])
-
-;; Generic STVX store instruction.
-(define_insn "altivec_stvx_<mode>"
-  [(set (match_operand:V 0 "memory_operand" "=Z")
-	(match_operand:V 1 "altivec_register_operand" "v"))]
-  "TARGET_ALTIVEC"
-  "stvx %1,%y0"
-  [(set_attr "type" "vecstore")])
-
-;; Vector move instructions.
-(define_expand "mov<mode>"
-  [(set (match_operand:V 0 "nonimmediate_operand" "")
-	(match_operand:V 1 "any_operand" ""))]
-  "TARGET_ALTIVEC"
-{
-  rs6000_emit_move (operands[0], operands[1], <MODE>mode);
-  DONE;
-})
-
-(define_insn "*mov<mode>_internal"
+;; Altivec move instructions, prefer VSX if we have it
+(define_insn "*mov_altivec_<mode>"
   [(set (match_operand:V 0 "nonimmediate_operand" "=Z,v,v,o,r,r,v")
 	(match_operand:V 1 "input_operand" "v,Z,v,r,o,r,W"))]
-  "TARGET_ALTIVEC 
+  "TARGET_ALTIVEC
+   && (<MODE>mode != V4SFmode && !TARGET_VSX)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
@@ -255,7 +231,7 @@
 (define_split
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "")
         (match_operand:V4SF 1 "input_operand" ""))]
-  "TARGET_ALTIVEC && reload_completed
+  "(TARGET_ALTIVEC || TARGET_VSX) && reload_completed
    && gpr_or_gpr_p (operands[0], operands[1])"
   [(pc)]
 {
@@ -346,11 +322,11 @@
   "vaddu<VI_char>m %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "addv4sf3"
+(define_insn "*addv4sf3_altivec"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (plus:V4SF (match_operand:V4SF 1 "register_operand" "v")
 	 	   (match_operand:V4SF 2 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vaddfp %0,%1,%2"
   [(set_attr "type" "vecfloat")])
 
@@ -392,11 +368,11 @@
   "vsubu<VI_char>m %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "subv4sf3"
+(define_insn "*subv4sf3_altivec"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (minus:V4SF (match_operand:V4SF 1 "register_operand" "v")
                     (match_operand:V4SF 2 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vsubfp %0,%1,%2"
   [(set_attr "type" "vecfloat")])
 
@@ -571,13 +547,13 @@
 	(plus:V4SF (mult:V4SF (match_operand:V4SF 1 "register_operand" "v")
 			      (match_operand:V4SF 2 "register_operand" "v"))
 	  	   (match_operand:V4SF 3 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vmaddfp %0,%1,%2,%3"
   [(set_attr "type" "vecfloat")])
 
 ;; We do multiply as a fused multiply-add with an add of a -0.0 vector.
 
-(define_expand "mulv4sf3"
+(define_expand "mulv4sf3_altivec"
   [(use (match_operand:V4SF 0 "register_operand" ""))
    (use (match_operand:V4SF 1 "register_operand" ""))
    (use (match_operand:V4SF 2 "register_operand" ""))]
@@ -758,11 +734,11 @@
   "vmaxs<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "smaxv4sf3"
+(define_insn "*smaxv4sf3_altivec"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (smax:V4SF (match_operand:V4SF 1 "register_operand" "v")
                    (match_operand:V4SF 2 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vmaxfp %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -782,11 +758,11 @@
   "vmins<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "sminv4sf3"
+(define_insn "*sminv4sf3_altivec"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (smin:V4SF (match_operand:V4SF 1 "register_operand" "v")
                    (match_operand:V4SF 2 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vminfp %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -1097,66 +1073,50 @@
 
 ;; logical ops
 
-(define_insn "and<mode>3"
-  [(set (match_operand:VI 0 "register_operand" "=v")
-        (and:VI (match_operand:VI 1 "register_operand" "v")
-                (match_operand:VI 2 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+(define_insn "*and<mode>3_altivec"
+  [(set (match_operand:V 0 "register_operand" "=v")
+        (and:V (match_operand:V 1 "register_operand" "v")
+	       (match_operand:V 2 "register_operand" "v")))]
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vand %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "ior<mode>3"
-  [(set (match_operand:VI 0 "register_operand" "=v")
-        (ior:VI (match_operand:VI 1 "register_operand" "v")
-                (match_operand:VI 2 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+(define_insn "*ior<mode>3_altivec"
+  [(set (match_operand:V 0 "register_operand" "=v")
+        (ior:V (match_operand:V 1 "register_operand" "v")
+	       (match_operand:V 2 "register_operand" "v")))]
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "xor<mode>3"
-  [(set (match_operand:VI 0 "register_operand" "=v")
-        (xor:VI (match_operand:VI 1 "register_operand" "v")
-                (match_operand:VI 2 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+(define_insn "*xor<mode>3_altivec"
+  [(set (match_operand:V 0 "register_operand" "=v")
+        (xor:V (match_operand:V 1 "register_operand" "v")
+	       (match_operand:V 2 "register_operand" "v")))]
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vxor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "xorv4sf3"
-  [(set (match_operand:V4SF 0 "register_operand" "=v")
-        (xor:V4SF (match_operand:V4SF 1 "register_operand" "v")
-                  (match_operand:V4SF 2 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
-  "vxor %0,%1,%2" 
-  [(set_attr "type" "vecsimple")])
-
-(define_insn "one_cmpl<mode>2"
-  [(set (match_operand:VI 0 "register_operand" "=v")
-        (not:VI (match_operand:VI 1 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+(define_insn "*one_cmpl<mode>2_altivec"
+  [(set (match_operand:V 0 "register_operand" "=v")
+        (not:V (match_operand:V 1 "register_operand" "v")))]
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vnor %0,%1,%1"
   [(set_attr "type" "vecsimple")])
   
-(define_insn "altivec_nor<mode>3"
-  [(set (match_operand:VI 0 "register_operand" "=v")
-        (not:VI (ior:VI (match_operand:VI 1 "register_operand" "v")
-                        (match_operand:VI 2 "register_operand" "v"))))]
-  "TARGET_ALTIVEC"
+(define_insn "*nor<mode>3_altivec"
+  [(set (match_operand:V 0 "register_operand" "=v")
+        (not:V (ior:V (match_operand:V 1 "register_operand" "v")
+		      (match_operand:V 2 "register_operand" "v"))))]
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vnor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "andc<mode>3"
-  [(set (match_operand:VI 0 "register_operand" "=v")
-        (and:VI (not:VI (match_operand:VI 2 "register_operand" "v"))
-                (match_operand:VI 1 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
-  "vandc %0,%1,%2"
-  [(set_attr "type" "vecsimple")])
-
-(define_insn "*andc3_v4sf"
-  [(set (match_operand:V4SF 0 "register_operand" "=v")
-        (and:V4SF (not:V4SF (match_operand:V4SF 2 "register_operand" "v"))
-                  (match_operand:V4SF 1 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+(define_insn "*andc<mode>3_altivec"
+  [(set (match_operand:V 0 "register_operand" "=v")
+        (and:V (not:V (match_operand:V 2 "register_operand" "v"))
+	       (match_operand:V 1 "register_operand" "v")))]
+  "TARGET_ALTIVEC && !TARGET_VSX"
   "vandc %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
@@ -1542,25 +1502,6 @@
                    (match_operand:V4SI 5 "register_operand" "v")])
                (match_operand:V4SI 1 "register_operand" "v")
                (match_operand:V4SI 2 "register_operand" "v")))]
-	"TARGET_ALTIVEC"
-	"
-{
-	if (rs6000_emit_vector_cond_expr (operands[0], operands[1], operands[2],
-					  operands[3], operands[4], operands[5]))
-	DONE;
-	else
-	FAIL;
-}
-	")
-
-(define_expand "vcondv4sf"
-        [(set (match_operand:V4SF 0 "register_operand" "=v")
-              (if_then_else:V4SF
-                (match_operator 3 "comparison_operator"
-                  [(match_operand:V4SF 4 "register_operand" "v")
-                   (match_operand:V4SF 5 "register_operand" "v")])
-               (match_operand:V4SF 1 "register_operand" "v")
-               (match_operand:V4SF 2 "register_operand" "v")))]
 	"TARGET_ALTIVEC"
 	"
 {
@@ -2069,7 +2010,7 @@
 ;;    vspltisw SCRATCH1,-1
 ;;    vslw SCRATCH2,SCRATCH1,SCRATCH1
 ;;    vandc %0,%1,SCRATCH2
-(define_expand "absv4sf2"
+(define_expand "absv4sf2_altivec"
   [(set (match_dup 2)
 	(vec_duplicate:V4SI (const_int -1)))
    (set (match_dup 3)
@@ -2665,7 +2606,7 @@
   DONE;
 }")
 
-(define_expand "negv4sf2"
+(define_expand "negv4sf2_altivec"
   [(use (match_operand:V4SF 0 "register_operand" ""))
    (use (match_operand:V4SF 1 "register_operand" ""))]
   "TARGET_ALTIVEC"

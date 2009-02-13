@@ -38,6 +38,37 @@
 		     || ALTIVEC_REGNO_P (REGNO (op))
 		     || REGNO (op) > LAST_VIRTUAL_REGISTER")))
 
+;; Return 1 if op is a VSX register.
+(define_predicate "vsx_register_operand"
+   (and (match_operand 0 "register_operand")
+	(match_test "GET_CODE (op) != REG
+		     || VSX_REGNO_P (REGNO (op))
+		     || REGNO (op) > LAST_VIRTUAL_REGISTER")))
+
+;; Return 1 if op is a vector register that operates on floating point vectors
+;; (either altivec or VSX).
+(define_predicate "vfloat_operand"
+   (and (match_operand 0 "register_operand")
+	(match_test "GET_CODE (op) != REG
+		     || VFLOAT_REGNO_P (REGNO (op))
+		     || REGNO (op) > LAST_VIRTUAL_REGISTER")))
+
+;; Return 1 if op is a vector register that operates on integer vectors
+;; (only altivec, VSX doesn't support integer vectors)
+(define_predicate "vint_operand"
+   (and (match_operand 0 "register_operand")
+	(match_test "GET_CODE (op) != REG
+		     || VINT_REGNO_P (REGNO (op))
+		     || REGNO (op) > LAST_VIRTUAL_REGISTER")))
+
+;; Return 1 if op is a vector register to do logical operations on (and, or,
+;; xor, etc.)
+(define_predicate "vlogical_operand"
+   (and (match_operand 0 "register_operand")
+	(match_test "GET_CODE (op) != REG
+		     || VLOGICAL_REGNO_P (REGNO (op))
+		     || REGNO (op) > LAST_VIRTUAL_REGISTER")))
+
 ;; Return 1 if op is XER register.
 (define_predicate "xer_operand"
   (and (match_code "reg")
