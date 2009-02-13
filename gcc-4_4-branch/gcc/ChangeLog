@@ -1,3 +1,117 @@
+2008-02-13  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* loop-iv.c (implies_p): In the final case, test that operands 0
+	of the two comparisons match.
+
+	* config/bfin/bfin.c (find_prev_insn_start): New function.
+	(bfin_optimize_loop): Use it in some cases instead of PREV_INSN.
+	(find_next_insn_start): Move.
+
+2009-02-13  Richard Guenther  <rguenther@suse.de>
+
+	* configure.ac: Enable LFS.
+	* configure: Re-generate.
+	* config.in: Likewise.
+
+2009-02-13  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35444
+	* c-parser.c (c_parser_parms_list_declarator): Discard pending
+	sizes on syntax error after some arguments have been parsed.
+
+2009-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/invoke.texi (-fira): Remove.
+
+2009-02-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* caller-save.c: Replace regclass.c with reginfo.c in comments.
+	* recog.c: Likewise.
+	* rtl.h: Likewise.
+
+2009-02-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* longlong.h (sub_ddmmss): New for ia64. Ported from GMP 4.2.
+	(umul_ppmm): Likewise.
+	(count_leading_zeros): Likewise.
+	(count_trailing_zeros): Likewise.
+	(UMUL_TIME): Likewise.
+
+2009-02-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config.gcc (ia64*-*-linux*): Add ia64/t-fprules-softfp and
+	soft-fp/t-softfp to tmake_file.
+
+	* config/ia64/ia64.c (ia64_soft_fp_init_libfuncs): New.
+	(ia64_expand_compare): Use HPUX library for TFmode only for HPUX.
+	(ia64_builtins) [IA64_BUILTIN_COPYSIGNQ, IA64_BUILTIN_FABSQ,
+	IA64_BUILTIN_INFQ]: New.
+	(ia64_init_builtins): Initialize __builtin_infq,
+	__builtin_fabsq and __builtin_copysignq if not HPUX.
+	(ia64_expand_builtin): Handle IA64_BUILTIN_COPYSIGNQ,
+	IA64_BUILTIN_FABSQ and IA64_BUILTIN_INFQ.
+
+	* config/ia64/lib1funcs.asm (__divtf3): Define only if
+	SHARED is defined.
+	(__fixtfti): Likewise.
+	(__fixunstfti): Likewise.
+	(__floattitf): Likewise.
+
+	* config/ia64/libgcc-glibc.ver: New.
+	* config/ia64/t-fprules-softfp: Likewise.
+	* config/ia64/sfp-machine.h: Likewise.
+
+	* config/ia64/linux.h (LIBGCC2_HAS_TF_MODE): New.
+	(LIBGCC2_TF_CEXT): Likewise.
+	(TF_SIZE): Likewise.
+	(TARGET_INIT_LIBFUNCS): Likewise.
+
+	* config/ia64/t-glibc (SHLINB_MAPFILES):
+	Add $(srcdir)/config/ia64/libgcc-glibc.ver,
+
+2009-02-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (construct_container): Rewrite processing
+	BLKmode with X86_64_SSE_CLASS.
+
+2009-02-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/39152
+	* config/i386/i386.md: Replace simplify_replace_rtx with
+	replace_rtx in the new peephole2.
+
+2009-02-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* doc/invoke.texi (Optimize Options): Stop claiming inlining and
+	loop unrolling do not happen at -O2.
+
+2009-02-12  Michael Matz  <matz@suse.de>
+
+	* gcc.c (ASM_DEBUG_SPEC): Check for -g0.
+
+2009-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf2out_finish): Force output of comp_unit_die
+	for -g3.
+
+2009-02-12  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.md (allocate_stack): Use _stack form of
+	patterns when updating the back chain.  Missed in the 2009-02-10
+	change.
+
+2009-02-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/extend.texi (Decimal Floating Types): Update identifier of
+	draft TR and list of missing support.
+
+2009-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/39154
+	* gimplify.c (omp_notice_variable): If adding GOVD_SEEN
+	bit to variable length decl's flags, add it also to its
+	pointer replacement variable.
+
 2009-02-11  Uros Bizjak  <ubizjak@gmail.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
@@ -14,6 +128,7 @@
 
 2009-02-11  Paolo Bonzini  <bonzini@gnu.org>
 
+	PR target/38824
 	* config/i386/i386.md: Add two new peephole2 to avoid mov followed
 	by arithmetic with memory operands.
 	* config/i386/predicates.md (commutative_operator): New.
