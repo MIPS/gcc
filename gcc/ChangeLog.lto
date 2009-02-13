@@ -1,3 +1,14 @@
+2009-02-13  Diego Novillo  <dnovillo@google.com>
+
+	* lto-cgraph.c (output_node): Remove local variable
+	NEEDED.  Do not alter the status of the needed marker in
+	NODE.
+	* lto-section-out.c (lto_force_function_static_inline):
+	Remove unused function.
+	(lto_forced_static_inline_p): Add comment.
+	* lto-section-out.h (lot_force_function_static_inline):
+	Remove.
+
 2009-02-12  Diego Novillo  <dnovillo@google.com>
 
 	* varpool.c (debug_varpool): New.

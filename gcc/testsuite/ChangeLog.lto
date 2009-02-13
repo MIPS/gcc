@@ -1,3 +1,8 @@
+2009-02-13  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/lto/20090213_0.c: New.
+	* gcc.dg/lto/20090213_1.c: New.
+
 2009-02-10  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/20090210_0.c: New.

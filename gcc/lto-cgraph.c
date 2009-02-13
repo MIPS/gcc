@@ -237,7 +237,7 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   unsigned int tag;
   unsigned HOST_WIDEST_INT flags = 0;
   struct cgraph_node *master_clone = node->master_clone;
-  unsigned needed, local, externally_visible, inlinable;
+  unsigned local, externally_visible, inlinable;
   bool boundary_p = !cgraph_node_in_set_p (node, set);
   bool clone_p = node->master_clone && node != node->master_clone;
   intptr_t ref;
@@ -270,7 +270,6 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   lto_output_uleb128_stream (ob->main_stream, tag);
   LTO_DEBUG_INDENT (tag);
 
-  needed = node->needed;
   local = node->local.local;
   externally_visible = node->local.externally_visible;
   inlinable = node->local.inlinable;
@@ -279,23 +278,20 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
      fake cgraph node attributes.  There are two cases that we care.
 
      Boundary nodes: There are nodes that are not part of SET but are
-     called from within SET.  We artificially make them look like externally
-     visible nodes with no function body. 
+     called from within SET.  We artificially make them look like
+     externally visible nodes with no function body. 
 
-     Cherry-pikced nodes:  These are nodes we pull from other translational
-     units into SET during IPA-inlining.  We make them as local static
-     nodes and suppress the output of the master clone.  */
-
+     Cherry-pikced nodes:  These are nodes we pulled from other
+     translation units into SET during IPA-inlining.  We make them as
+     local static nodes to prevent clashes with other local statics.  */
   if (boundary_p)
     {
-      needed = 0;
       local = 0;
       externally_visible = 1;
       inlinable = 0;
     }
   else if (lto_forced_static_inline_p (node->decl))
     {
-      needed = 0;
       local = 1;
       externally_visible = 0;
       inlinable = 1;
@@ -319,7 +315,7 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 
   lto_set_flag (&flags, node->lowered);
   lto_set_flag (&flags, node->analyzed);
-  lto_set_flag (&flags, needed);
+  lto_set_flag (&flags, node->needed);
   lto_set_flag (&flags, local);
   lto_set_flag (&flags, externally_visible);
   lto_set_flag (&flags, node->local.finalized);

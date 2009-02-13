@@ -63,7 +63,6 @@ VEC(lto_out_decl_state_ptr, heap) *lto_function_decl_states;
 
 /* Bitmap indexed by DECL_UID to indicate if a function needs to be
    forced static inline. */
-
 static bitmap forced_static_inline;
 
 /* Initialize states for determining which function decls to be ouput
@@ -85,22 +84,17 @@ lto_delete_static_inline_states (void)
   forced_static_inline = NULL;
 }
 
-/* Force FN_DECL to be output as static inline.  */
-
-void
-lto_force_function_static_inline (tree fn_decl)
-{
-  bitmap_set_bit (forced_static_inline, DECL_UID (fn_decl));
-}
-
-/* Like lto_force_function_static_inline above but for multiple decls.
-   DECL is a bitmap indexed by DECL_UID. */
+/* Force all the functions in DECLS to be output as static inline.
+   DECLS is a bitmap indexed by DECL_UID. */
  
 void
 lto_force_functions_static_inline (bitmap decls)
 {
   bitmap_ior_into (forced_static_inline, decls);
 }
+
+/* Return true if FN_DECL is a function which should be emitted as
+   static inline.  */
 
 bool
 lto_forced_static_inline_p (tree fn_decl)
