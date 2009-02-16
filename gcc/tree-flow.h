@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -418,11 +418,6 @@ struct static_var_ann_d GTY(())
 struct function_ann_d GTY(())
 {
   struct tree_ann_common_d common;
-
-  /* Pointer to the structure that contains the sets of global
-     variables modified by function calls.  This field is only used
-     for FUNCTION_DECLs.  */
-  ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
 };
 
 
@@ -508,7 +503,7 @@ typedef struct immediate_use_iterator_d
        {
          FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
 	   {
-	     SET_USE (use_p) = blah;
+	     SET_USE (use_p, blah);
 	   }
 	 update_stmt (stmt);
        }							 */
@@ -676,7 +671,7 @@ extern struct omp_region *new_omp_region (basic_block, enum gimple_code,
 					  struct omp_region *);
 extern void free_omp_regions (void);
 void omp_expand_local (basic_block);
-extern tree find_omp_clause (tree, enum tree_code);
+extern tree find_omp_clause (tree, enum omp_clause_code);
 tree copy_var_decl (tree, tree, tree);
 
 /*---------------------------------------------------------------------------
@@ -757,6 +752,8 @@ extern bool cleanup_tree_cfg (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
+extern int op_code_prio (enum tree_code);
+extern int op_prio (const_tree);
 extern const char *op_symbol_code (enum tree_code);
 
 /* In tree-dfa.c  */
@@ -786,10 +783,13 @@ extern gimple get_single_def_stmt_with_phi (tree, gimple);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
+extern void add_phi_node_to_bb (gimple phi, basic_block bb);
+extern gimple make_phi_node (tree var, int len);
 extern gimple create_phi_node (tree, basic_block);
 extern void add_phi_arg (gimple, tree, edge);
 extern void remove_phi_args (edge);
 extern void remove_phi_node (gimple_stmt_iterator *, bool);
+extern void remove_phi_nodes (basic_block);
 extern void init_phinodes (void);
 extern void fini_phinodes (void);
 extern void release_phi_node (gimple);
@@ -908,10 +908,12 @@ bool fold_stmt (gimple_stmt_iterator *);
 bool fold_stmt_inplace (gimple);
 tree get_symbol_constant_value (tree);
 tree fold_const_aggregate_ref (tree);
+bool may_propagate_address_into_dereference (tree, tree);
+
 
 /* In tree-vrp.c  */
 tree vrp_evaluate_conditional (enum tree_code, tree, tree, gimple);
-void simplify_stmt_using_ranges (gimple);
+bool simplify_stmt_using_ranges (gimple_stmt_iterator *);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
@@ -989,6 +991,7 @@ unsigned int tree_ssa_prefetch_arrays (void);
 unsigned int remove_empty_loops (void);
 void tree_ssa_iv_optimize (void);
 unsigned tree_predictive_commoning (void);
+tree canonicalize_loop_ivs (struct loop *, htab_t, tree);
 bool parallelize_loops (void);
 
 bool loop_only_exit_p (const struct loop *, const_edge);
@@ -1023,6 +1026,7 @@ bool gimple_duplicate_loop_to_header_edge (struct loop *, edge,
 					 int);
 struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *, edge);
 void rename_variables_in_loop (struct loop *);
+void rename_variables_in_bb (basic_block bb);
 struct loop *tree_ssa_loop_version (struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);
@@ -1067,6 +1071,8 @@ static inline bool unmodifiable_var_p (const_tree);
 /* In tree-eh.c  */
 extern void make_eh_edges (gimple);
 extern bool tree_could_trap_p (tree);
+extern bool operation_could_trap_helper_p (enum tree_code, bool, bool, bool,
+					   bool, tree, bool *);
 extern bool operation_could_trap_p (enum tree_code, bool, bool, tree);
 extern bool stmt_could_throw_p (gimple);
 extern bool tree_could_throw_p (tree);
@@ -1116,6 +1122,10 @@ bool sra_type_can_be_decomposed_p (tree);
 
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (void);
+extern unsigned perfect_loop_nest_depth (struct loop *);
+
+/* In graphite.c  */
+extern void graphite_transform_loops (void);
 
 /* In tree-data-ref.c  */
 extern void tree_check_data_deps (void);
@@ -1124,7 +1134,7 @@ extern void tree_check_data_deps (void);
 bool expr_invariant_in_loop_p (struct loop *, tree);
 bool stmt_invariant_in_loop_p (struct loop *, gimple);
 bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode);
-unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
+unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode, bool);
 
 /* In tree-ssa-threadupdate.c.  */
 extern bool thread_through_all_blocks (bool);
@@ -1155,7 +1165,7 @@ struct mem_address
 
 struct affine_tree_combination;
 tree create_mem_ref (gimple_stmt_iterator *, tree, 
-		     struct affine_tree_combination *);
+		     struct affine_tree_combination *, bool);
 rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);

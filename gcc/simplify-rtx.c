@@ -1594,10 +1594,14 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	 to CONST_INT since overflow won't be computed properly if wider
 	 than HOST_BITS_PER_WIDE_INT.  */
 
-      if (CONSTANT_P (op0) && GET_MODE (op0) != VOIDmode
+      if ((GET_CODE (op0) == CONST
+	   || GET_CODE (op0) == SYMBOL_REF
+	   || GET_CODE (op0) == LABEL_REF)
 	  && GET_CODE (op1) == CONST_INT)
 	return plus_constant (op0, INTVAL (op1));
-      else if (CONSTANT_P (op1) && GET_MODE (op1) != VOIDmode
+      else if ((GET_CODE (op1) == CONST
+		|| GET_CODE (op1) == SYMBOL_REF
+		|| GET_CODE (op1) == LABEL_REF)
 	       && GET_CODE (op0) == CONST_INT)
 	return plus_constant (op1, INTVAL (op0));
 
@@ -1665,12 +1669,13 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	      rtx coeff;
 	      unsigned HOST_WIDE_INT l;
 	      HOST_WIDE_INT h;
+	      bool speed = optimize_function_for_speed_p (cfun);
 
 	      add_double (coeff0l, coeff0h, coeff1l, coeff1h, &l, &h);
 	      coeff = immed_double_const (l, h, mode);
 
 	      tem = simplify_gen_binary (MULT, mode, lhs, coeff);
-	      return rtx_cost (tem, SET) <= rtx_cost (orig, SET)
+	      return rtx_cost (tem, SET, speed) <= rtx_cost (orig, SET, speed)
 		? tem : 0;
 	    }
 	}
@@ -1859,12 +1864,13 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	      rtx coeff;
 	      unsigned HOST_WIDE_INT l;
 	      HOST_WIDE_INT h;
+	      bool speed = optimize_function_for_speed_p (cfun);
 
 	      add_double (coeff0l, coeff0h, negcoeff1l, negcoeff1h, &l, &h);
 	      coeff = immed_double_const (l, h, mode);
 
 	      tem = simplify_gen_binary (MULT, mode, lhs, coeff);
-	      return rtx_cost (tem, SET) <= rtx_cost (orig, SET)
+	      return rtx_cost (tem, SET, speed) <= rtx_cost (orig, SET, speed)
 		? tem : 0;
 	    }
 	}
@@ -2298,12 +2304,19 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
     case AND:
       if (trueop1 == CONST0_RTX (mode) && ! side_effects_p (op0))
 	return trueop1;
-      /* If we are turning off bits already known off in OP0, we need
-	 not do an AND.  */
       if (GET_CODE (trueop1) == CONST_INT
-	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
-	  && (nonzero_bits (trueop0, mode) & ~INTVAL (trueop1)) == 0)
-	return op0;
+	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+	{
+	  HOST_WIDE_INT nzop0 = nonzero_bits (trueop0, mode);
+	  HOST_WIDE_INT val1 = INTVAL (trueop1);
+	  /* If we are turning off bits already known off in OP0, we need
+	     not do an AND.  */
+	  if ((nzop0 & ~val1) == 0)
+	    return op0;
+	  /* If we are clearing all the nonzero bits, the result is zero.  */
+	  if ((val1 & nzop0) == 0 && !side_effects_p (op0))
+	    return CONST0_RTX (mode);
+	}
       if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0)
 	  && GET_MODE_CLASS (mode) != MODE_CC)
 	return op0;
@@ -2385,7 +2398,9 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	 ((A & N) + B) & M -> (A + B) & M
 	 Similarly if (N & M) == 0,
 	 ((A | N) + B) & M -> (A + B) & M
-	 and for - instead of + and/or ^ instead of |.  */
+	 and for - instead of + and/or ^ instead of |.
+         Also, if (N & M) == 0, then
+	 (A +- N) & M -> A & M.  */
       if (GET_CODE (trueop1) == CONST_INT
 	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	  && ~INTVAL (trueop1)
@@ -2397,6 +2412,10 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 
 	  pmop[0] = XEXP (op0, 0);
 	  pmop[1] = XEXP (op0, 1);
+
+	  if (GET_CODE (pmop[1]) == CONST_INT
+	      && (INTVAL (pmop[1]) & INTVAL (trueop1)) == 0)
+	    return simplify_gen_binary (AND, mode, pmop[0], op1);
 
 	  for (which = 0; which < 2; which++)
 	    {
@@ -3585,10 +3604,6 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
           ops[j + 1] = save;
         }
 
-      /* This is only useful the first time through.  */
-      if (!canonicalized)
-        return NULL_RTX;
-
       changed = 0;
       for (i = n_ops - 1; i > 0; i--)
 	for (j = i - 1; j >= 0; j--)
@@ -3644,9 +3659,14 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 		    ops[i].neg = lneg;
 		    ops[j].op = NULL_RTX;
 		    changed = 1;
+		    canonicalized = 1;
 		  }
 	      }
 	  }
+
+      /* If nothing changed, fail.  */
+      if (!canonicalized)
+        return NULL_RTX;
 
       /* Pack all the operands to the lower-numbered entries.  */
       for (i = 0, j = 0; j < n_ops; j++)
@@ -3671,24 +3691,6 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
      The combination loop should have ensured that there is exactly
      one CONST_INT, and the sort will have ensured that it is last
      in the array and that any other constant will be next-to-last.  */
-
-  if (GET_CODE (ops[n_ops - 1].op) == CONST_INT)
-    i = n_ops - 2;
-  else
-    i = n_ops - 1;
-
-  if (i >= 1
-      && ops[i].neg
-      && !ops[i - 1].neg
-      && CONSTANT_P (ops[i].op)
-      && GET_CODE (ops[i].op) == GET_CODE (ops[i - 1].op))
-    {
-      ops[i - 1].op = gen_rtx_MINUS (mode, ops[i - 1].op, ops[i].op);
-      ops[i - 1].op = gen_rtx_CONST (mode, ops[i - 1].op);
-      if (i < n_ops - 1)
-	ops[i] = ops[i + 1];
-      n_ops--;
-    }
 
   if (n_ops > 1
       && GET_CODE (ops[n_ops - 1].op) == CONST_INT
@@ -5069,35 +5071,13 @@ simplify_subreg (enum machine_mode outermode, rtx op,
      suppress this simplification.  If the hard register is the stack,
      frame, or argument pointer, leave this as a SUBREG.  */
 
-  if (REG_P (op)
-      && REGNO (op) < FIRST_PSEUDO_REGISTER
-#ifdef CANNOT_CHANGE_MODE_CLASS
-      && ! (REG_CANNOT_CHANGE_MODE_P (REGNO (op), innermode, outermode)
-	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_INT
-	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_FLOAT)
-#endif
-      && ((reload_completed && !frame_pointer_needed)
-	  || (REGNO (op) != FRAME_POINTER_REGNUM
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
-	      && REGNO (op) != HARD_FRAME_POINTER_REGNUM
-#endif
-	     ))
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-      && REGNO (op) != ARG_POINTER_REGNUM
-#endif
-      && REGNO (op) != STACK_POINTER_REGNUM
-      && subreg_offset_representable_p (REGNO (op), innermode,
-					byte, outermode))
+  if (REG_P (op) && HARD_REGISTER_P (op))
     {
-      unsigned int regno = REGNO (op);
-      unsigned int final_regno
-	= regno + subreg_regno_offset (regno, innermode, byte, outermode);
+      unsigned int regno, final_regno;
 
-      /* ??? We do allow it if the current REG is not valid for
-	 its mode.  This is a kludge to work around how float/complex
-	 arguments are passed on 32-bit SPARC and should be fixed.  */
-      if (HARD_REGNO_MODE_OK (final_regno, outermode)
-	  || ! HARD_REGNO_MODE_OK (regno, innermode))
+      regno = REGNO (op);
+      final_regno = simplify_subreg_regno (regno, innermode, byte, outermode);
+      if (HARD_REGISTER_NUM_P (final_regno))
 	{
 	  rtx x;
 	  int final_offset = byte;

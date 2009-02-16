@@ -372,6 +372,7 @@ decode_statement (void)
       break;
 
     case 'g':
+      match ("generic", gfc_match_generic, ST_GENERIC);
       match ("go to", gfc_match_goto, ST_GOTO);
       break;
 
@@ -806,6 +807,7 @@ next_statement (void)
   locus old_locus;
   gfc_new_block = NULL;
 
+  gfc_current_ns->old_cl_list = gfc_current_ns->cl_list;
   for (;;)
     {
       gfc_statement_label = NULL;
@@ -1195,6 +1197,9 @@ gfc_ascii_statement (gfc_statement st)
     case ST_FUNCTION:
       p = "FUNCTION";
       break;
+    case ST_GENERIC:
+      p = "GENERIC";
+      break;
     case ST_GOTO:
       p = "GOTO";
       break;
@@ -1508,6 +1513,10 @@ accept_statement (gfc_statement st)
 static void
 reject_statement (void)
 {
+  /* Revert to the previous charlen chain.  */
+  gfc_free_charlen (gfc_current_ns->cl_list, gfc_current_ns->old_cl_list);
+  gfc_current_ns->cl_list = gfc_current_ns->old_cl_list;
+
   gfc_new_block = NULL;
   gfc_undo_symbols ();
   gfc_clear_warning ();
@@ -1691,20 +1700,9 @@ unexpected_eof (void)
 }
 
 
-/* Set the default access attribute for a typebound procedure; this is used
-   as callback for gfc_traverse_symtree.  */
-
-static gfc_access typebound_default_access;
-
-static void
-set_typebound_default_access (gfc_symtree* stree)
-{
-  if (stree->typebound && stree->typebound->access == ACCESS_UNKNOWN)
-    stree->typebound->access = typebound_default_access;
-}
-
-
 /* Parse the CONTAINS section of a derived type definition.  */
+
+gfc_access gfc_typebound_default_access;
 
 static bool
 parse_derived_contains (void)
@@ -1730,6 +1728,8 @@ parse_derived_contains (void)
   accept_statement (ST_CONTAINS);
   push_state (&s, COMP_DERIVED_CONTAINS, NULL);
 
+  gfc_typebound_default_access = ACCESS_PUBLIC;
+
   to_finish = false;
   while (!to_finish)
     {
@@ -1752,6 +1752,15 @@ parse_derived_contains (void)
 	    error_flag = true;
 
 	  accept_statement (ST_PROCEDURE);
+	  seen_comps = true;
+	  break;
+
+	case ST_GENERIC:
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003:  GENERIC binding"
+					     " at %C") == FAILURE)
+	    error_flag = true;
+
+	  accept_statement (ST_GENERIC);
 	  seen_comps = true;
 	  break;
 
@@ -1801,6 +1810,7 @@ parse_derived_contains (void)
 	    }
 
 	  accept_statement (ST_PRIVATE);
+	  gfc_typebound_default_access = ACCESS_PRIVATE;
 	  seen_private = true;
 	  break;
 
@@ -1822,12 +1832,6 @@ parse_derived_contains (void)
 
   pop_state ();
   gcc_assert (gfc_current_state () == COMP_DERIVED);
-
-  /* Walk the parsed type-bound procedures and set ACCESS_UNKNOWN attributes
-     to PUBLIC or PRIVATE depending on seen_private.  */
-  typebound_default_access = (seen_private ? ACCESS_PRIVATE : ACCESS_PUBLIC);
-  gfc_traverse_symtree (gfc_current_block ()->f2k_derived->sym_root,
-			&set_typebound_default_access);
 
   return error_flag;
 }
@@ -2064,7 +2068,7 @@ static gfc_statement parse_spec (gfc_statement);
 static void
 parse_interface (void)
 {
-  gfc_compile_state new_state, current_state;
+  gfc_compile_state new_state = COMP_NONE, current_state;
   gfc_symbol *prog_unit, *sym;
   gfc_interface_info save;
   gfc_state_data s1, s2;
@@ -2171,7 +2175,7 @@ loop:
 
   if (current_interface.type == INTERFACE_ABSTRACT)
     {
-      gfc_new_block->attr.abstract = 1;
+      gfc_add_abstract (&gfc_new_block->attr, &gfc_current_locus);
       if (gfc_is_intrinsic_typename (gfc_new_block->name))
 	gfc_error ("Name '%s' of ABSTRACT INTERFACE at %C "
 		   "cannot be the same as an intrinsic type",
@@ -2261,8 +2265,9 @@ match_deferred_characteristics (gfc_typespec * ts)
 
   /* Set the function locus correctly.  If we have not found the
      function name, there is an error.  */
-  gfc_match ("function% %n", name);
-  if (m == MATCH_YES && strcmp (name, gfc_current_block ()->name) == 0)
+  if (m == MATCH_YES
+      && gfc_match ("function% %n", name) == MATCH_YES
+      && strcmp (name, gfc_current_block ()->name) == 0)
     {
       gfc_current_block ()->declared_at = gfc_current_locus;
       gfc_commit_symbols ();
@@ -2333,7 +2338,7 @@ loop:
     {
       bool verify_now = false;
 
-      if (st == ST_END_FUNCTION)
+      if (st == ST_END_FUNCTION || st == ST_CONTAINS)
 	verify_now = true;
       else
 	{
@@ -3314,7 +3319,7 @@ gfc_fixup_sibling_symbols (gfc_symbol *sym, gfc_namespace *siblings)
       gfc_find_sym_tree (sym->name, ns, 0, &st);
 
       if (!st || (st->n.sym->attr.dummy && ns == st->n.sym->ns))
-	continue;
+	goto fixup_contained;
 
       old_sym = st->n.sym;
       if (old_sym->ns == ns
@@ -3348,6 +3353,7 @@ gfc_fixup_sibling_symbols (gfc_symbol *sym, gfc_namespace *siblings)
 	    gfc_free_symbol (old_sym);
 	}
 
+fixup_contained:
       /* Do the same for any contained procedures.  */
       gfc_fixup_sibling_symbols (sym, ns->contained);
     }

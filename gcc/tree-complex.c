@@ -537,7 +537,8 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
   /* If we've nothing assigned, and the value we're given is already stable,
      then install that as the value for this SSA_NAME.  This preemptively
      copy-propagates the value, which avoids unnecessary memory allocation.  */
-  else if (is_gimple_min_invariant (value))
+  else if (is_gimple_min_invariant (value)
+	   && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ssa_name))
     {
       VEC_replace (tree, complex_ssa_name_components, ssa_name_index, value);
       return NULL;
@@ -952,10 +953,10 @@ expand_complex_libcall (gimple_stmt_iterator *gsi, tree ar, tree ai,
   enum machine_mode mode;
   enum built_in_function bcode;
   tree fn, type, lhs;
-  gimple stmt;
+  gimple old_stmt, stmt;
 
-  stmt = gsi_stmt (*gsi);
-  lhs = gimple_assign_lhs (stmt);
+  old_stmt = gsi_stmt (*gsi);
+  lhs = gimple_assign_lhs (old_stmt);
   type = TREE_TYPE (lhs);
 
   mode = TYPE_MODE (type);
@@ -972,7 +973,10 @@ expand_complex_libcall (gimple_stmt_iterator *gsi, tree ar, tree ai,
   stmt = gimple_build_call (fn, 4, ar, ai, br, bi);
   gimple_call_set_lhs (stmt, lhs);
   update_stmt (stmt);
-  gsi_replace (gsi, stmt, true);
+  gsi_replace (gsi, stmt, false);
+
+  if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
+    gimple_purge_dead_eh_edges (gsi_bb (*gsi));
 
   if (gimple_in_ssa_p (cfun))
     {

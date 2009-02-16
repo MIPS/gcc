@@ -107,10 +107,10 @@ static gfc_dt *current_dt;
 typedef enum
 {
   FMT_NONE, FMT_UNKNOWN, FMT_SIGNED_INT, FMT_ZERO, FMT_POSINT, FMT_PERIOD,
-  FMT_COMMA, FMT_COLON, FMT_SLASH, FMT_DOLLAR, FMT_POS, FMT_LPAREN,
+  FMT_COMMA, FMT_COLON, FMT_SLASH, FMT_DOLLAR, FMT_LPAREN,
   FMT_RPAREN, FMT_X, FMT_SIGN, FMT_BLANK, FMT_CHAR, FMT_P, FMT_IBOZ, FMT_F,
   FMT_E, FMT_EXT, FMT_G, FMT_L, FMT_A, FMT_D, FMT_H, FMT_END, FMT_ERROR, FMT_DC,
-  FMT_DP
+  FMT_DP, FMT_T, FMT_TR, FMT_TL
 }
 format_token;
 
@@ -118,6 +118,7 @@ format_token;
    used to back up by a single format token during the parsing
    process.  */
 static gfc_char_t *format_string;
+static int format_string_pos;
 static int format_length, use_last_char;
 static char error_element;
 static locus format_locus;
@@ -169,6 +170,8 @@ next_char (int in_string)
 
   if (mode != MODE_STRING)
     format_locus = gfc_current_locus;
+
+  format_string_pos++;
 
   c = gfc_wide_toupper (c);
   return c;
@@ -314,10 +317,18 @@ format_lex (void)
 
     case 'T':
       c = next_char_not_space (&error);
-      if (c != 'L' && c != 'R')
-	unget_char ();
-
-      token = FMT_POS;
+      switch (c)
+	{
+	case 'L':
+	  token = FMT_TL;
+	  break;
+	case 'R':
+	  token = FMT_TR;
+	  break;
+	default:
+	  token = FMT_T;
+	  unget_char ();
+	}
       break;
 
     case '(':
@@ -483,7 +494,6 @@ check_format (bool is_input)
 				      " at %L");
   const char *unexpected_end	  = _("Unexpected end of format string");
   const char *zero_width	  = _("Zero width in format descriptor");
-  const char *g0_precision	= _("Specifying precision with G0 not allowed");
 
   const char *error;
   format_token t, u;
@@ -496,6 +506,7 @@ check_format (bool is_input)
   level = 0;
   repeat = 0;
   rv = SUCCESS;
+  format_string_pos = 0;
 
   t = format_lex ();
   if (t == FMT_ERROR)
@@ -597,7 +608,9 @@ format_item_1:
 
       goto finished;
 
-    case FMT_POS:
+    case FMT_T:
+    case FMT_TL:
+    case FMT_TR:
     case FMT_IBOZ:
     case FMT_F:
     case FMT_E:
@@ -647,7 +660,17 @@ data_desc:
 
       goto optional_comma;
 
-    case FMT_POS:
+    case FMT_T:
+    case FMT_TL:
+    case FMT_TR:
+      t = format_lex ();
+      if (t != FMT_POSINT)
+	{
+	  error = _("Positive width required with T descriptor");
+	  goto syntax;
+	}
+      break;
+
     case FMT_L:
       t = format_lex ();
       if (t == FMT_ERROR)
@@ -701,27 +724,29 @@ data_desc:
 	      error = zero_width;
 	      goto syntax;
 	    }
-
 	  if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: 'G0' in "
 			      "format at %C") == FAILURE)
 	    return FAILURE;
-
 	  u = format_lex ();
-          if (u == FMT_PERIOD)
+	  if (u != FMT_PERIOD)
 	    {
-	      error = g0_precision;
+	      saved_token = u;
+	      break;
+	    }
+	  u = format_lex ();
+	  if (u != FMT_POSINT)
+	    {
+	      error = posint_required;
+	      goto syntax;
+	    }
+	  u = format_lex ();
+	  if (u == FMT_E)
+	    {
+	      error = _("E specifier not allowed with g0 descriptor");
 	      goto syntax;
 	    }
 	  saved_token = u;
-	  goto between_desc;
-	}
-
-      if (u == FMT_ERROR)
-	goto fail;
-      if (u != FMT_POSINT)
-	{
-	  error = posint_required;
-	  goto syntax;
+	  break;
 	}
 
       u = format_lex ();
@@ -966,6 +991,8 @@ extension_optional_comma:
   goto format_item;
 
 syntax:
+  if (mode != MODE_FORMAT)
+    format_locus.nextc += format_string_pos;
   if (error == unexpected_element)
     gfc_error (error, error_element, &format_locus);
   else
@@ -1124,14 +1151,15 @@ match_vtag (const io_tag *tag, gfc_expr **v)
 
   if (result->symtree->n.sym->attr.intent == INTENT_IN)
     {
-      gfc_error ("Variable tag cannot be INTENT(IN) at %C");
+      gfc_error ("Variable %s cannot be INTENT(IN) at %C", tag->name);
       gfc_free_expr (result);
       return MATCH_ERROR;
     }
 
   if (gfc_pure (NULL) && gfc_impure_variable (result->symtree->n.sym))
     {
-      gfc_error ("Variable tag cannot be assigned in PURE procedure at %C");
+      gfc_error ("Variable %s cannot be assigned in PURE procedure at %C",
+		 tag->name);
       gfc_free_expr (result);
       return MATCH_ERROR;
     }
@@ -1144,13 +1172,13 @@ match_vtag (const io_tag *tag, gfc_expr **v)
 /* Match I/O tags that cause variables to become redefined.  */
 
 static match
-match_out_tag(const io_tag *tag, gfc_expr **result)
+match_out_tag (const io_tag *tag, gfc_expr **result)
 {
   match m;
 
-  m = match_vtag(tag, result);
+  m = match_vtag (tag, result);
   if (m == MATCH_YES)
-    gfc_check_do_variable((*result)->symtree);
+    gfc_check_do_variable ((*result)->symtree);
 
   return m;
 }
@@ -2394,7 +2422,7 @@ match_dt_element (io_kind k, gfc_dt *dt)
   m = match_etag (&tag_rec, &dt->rec);
   if (m != MATCH_NO)
     return m;
-  m = match_etag (&tag_spos, &dt->rec);
+  m = match_etag (&tag_spos, &dt->pos);
   if (m != MATCH_NO)
     return m;
   m = match_out_tag (&tag_iomsg, &dt->iomsg);
@@ -2460,6 +2488,7 @@ gfc_free_dt (gfc_dt *dt)
   gfc_free_expr (dt->blank);
   gfc_free_expr (dt->decimal);
   gfc_free_expr (dt->extra_comma);
+  gfc_free_expr (dt->pos);
   gfc_free (dt);
 }
 
@@ -2473,8 +2502,9 @@ gfc_resolve_dt (gfc_dt *dt)
 
   RESOLVE_TAG (&tag_format, dt->format_expr);
   RESOLVE_TAG (&tag_rec, dt->rec);
-  RESOLVE_TAG (&tag_spos, dt->rec);
+  RESOLVE_TAG (&tag_spos, dt->pos);
   RESOLVE_TAG (&tag_advance, dt->advance);
+  RESOLVE_TAG (&tag_id, dt->id);
   RESOLVE_TAG (&tag_iomsg, dt->iomsg);
   RESOLVE_TAG (&tag_iostat, dt->iostat);
   RESOLVE_TAG (&tag_size, dt->size);
@@ -2484,6 +2514,7 @@ gfc_resolve_dt (gfc_dt *dt)
   RESOLVE_TAG (&tag_e_round, dt->round);
   RESOLVE_TAG (&tag_e_blank, dt->blank);
   RESOLVE_TAG (&tag_e_decimal, dt->decimal);
+  RESOLVE_TAG (&tag_e_async, dt->asynchronous);
 
   e = dt->io_unit;
   if (gfc_resolve_expr (e) == SUCCESS
@@ -2910,6 +2941,10 @@ if (condition) \
       io_constraint (dt->rec != NULL,
 		     "REC tag at %L is incompatible with internal file",
 		     &dt->rec->where);
+    
+      io_constraint (dt->pos != NULL,
+		     "POS tag at %L is incompatible with internal file",
+		     &dt->pos->where);
 
       io_constraint (unformatted,
 		     "Unformatted I/O not allowed with internal unit at %L",
@@ -2973,7 +3008,7 @@ if (condition) \
     {
       static const char * asynchronous[] = { "YES", "NO", NULL };
 
-      if (dt->asynchronous->expr_type != EXPR_CONSTANT)
+      if (gfc_reduce_init_expr (dt->asynchronous) != SUCCESS)
 	{
 	  gfc_error ("ASYNCHRONOUS= specifier at %L must be an initialization "
 		     "expression", &dt->asynchronous->where);
@@ -3148,7 +3183,7 @@ if (condition) \
 
       io_constraint (dt->format_expr,
 		     "IO spec-list cannot contain both NAMELIST group name "
-		     "and format specification at %L.",
+		     "and format specification at %L",
 		     &dt->format_expr->where);
 
       io_constraint (dt->format_label,
@@ -3157,22 +3192,26 @@ if (condition) \
 
       io_constraint (dt->rec,
 		     "NAMELIST IO is not allowed with a REC= specifier "
-		     "at %L.", &dt->rec->where);
+		     "at %L", &dt->rec->where);
 
       io_constraint (dt->advance,
 		     "NAMELIST IO is not allowed with a ADVANCE= specifier "
-		     "at %L.", &dt->advance->where);
+		     "at %L", &dt->advance->where);
     }
 
   if (dt->rec)
     {
       io_constraint (dt->end,
 		     "An END tag is not allowed with a "
-		     "REC= specifier at %L.", &dt->end_where);
+		     "REC= specifier at %L", &dt->end_where);
 
       io_constraint (dt->format_label == &format_asterisk,
 		     "FMT=* is not allowed with a REC= specifier "
-		     "at %L.", spec_end);
+		     "at %L", spec_end);
+
+      io_constraint (dt->pos,
+		     "POS= is not allowed with REC= specifier "
+		     "at %L", &dt->pos->where);
     }
 
   if (dt->advance)
@@ -3520,9 +3559,11 @@ gfc_free_inquire (gfc_inquire *inquire)
   gfc_free_expr (inquire->convert);
   gfc_free_expr (inquire->strm_pos);
   gfc_free_expr (inquire->asynchronous);
+  gfc_free_expr (inquire->decimal);
   gfc_free_expr (inquire->pending);
   gfc_free_expr (inquire->id);
   gfc_free_expr (inquire->sign);
+  gfc_free_expr (inquire->size);
   gfc_free_expr (inquire->round);
   gfc_free (inquire);
 }
@@ -3564,7 +3605,7 @@ match_inquire_element (gfc_inquire *inquire)
   RETM m = match_vtag (&tag_s_async, &inquire->asynchronous);
   RETM m = match_vtag (&tag_s_delim, &inquire->delim);
   RETM m = match_vtag (&tag_s_decimal, &inquire->decimal);
-  RETM m = match_vtag (&tag_s_blank, &inquire->blank);
+  RETM m = match_vtag (&tag_size, &inquire->size);
   RETM m = match_vtag (&tag_s_encoding, &inquire->encoding);
   RETM m = match_vtag (&tag_s_round, &inquire->round);
   RETM m = match_vtag (&tag_s_sign, &inquire->sign);
@@ -3741,6 +3782,7 @@ gfc_resolve_inquire (gfc_inquire *inquire)
   RESOLVE_TAG (&tag_s_sign, inquire->sign);
   RESOLVE_TAG (&tag_s_round, inquire->round);
   RESOLVE_TAG (&tag_pending, inquire->pending);
+  RESOLVE_TAG (&tag_size, inquire->size);
   RESOLVE_TAG (&tag_id, inquire->id);
 
   if (gfc_reference_st_label (inquire->err, ST_LABEL_TARGET) == FAILURE)

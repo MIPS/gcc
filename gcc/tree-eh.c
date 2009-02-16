@@ -1535,7 +1535,7 @@ decide_copy_try_finally (int ndests, gimple_seq finally)
   sw_estimate = 10 + 2 * ndests;
 
   /* Optimize for size clearly wants our best guess.  */
-  if (optimize_size)
+  if (optimize_function_for_size_p (cfun))
     return f_estimate < sw_estimate;
 
   /* ??? These numbers are completely made up so far.  */
@@ -2067,7 +2067,7 @@ verify_eh_edges (gimple stmt)
 
 /* Helper function for operation_could_trap_p and stmt_could_throw_p.  */
 
-static bool
+bool
 operation_could_trap_helper_p (enum tree_code op,
 			       bool fp_operation,
 			       bool honor_trapv,

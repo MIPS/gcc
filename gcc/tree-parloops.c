@@ -1,5 +1,5 @@
 /* Loop autoparallelization.
-   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr> and
    Zdenek Dvorak <dvorakz@suse.cz>.
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -278,6 +277,7 @@ loop_parallel_p (struct loop *loop, htab_t reduction_list,
       return false;
     }
 
+  vect_dump = NULL;
   simple_loop_info = vect_analyze_loop_form (loop);
 
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -1193,7 +1193,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 
   VEC_free (basic_block, heap, body);
 
-  if (htab_elements (name_copies) == 0)
+  if (htab_elements (name_copies) == 0 && reduction_list == 0) 
     {
       /* It may happen that there is nothing to copy (if there are only
          loop carried and external variables in the loop).  */
@@ -1324,9 +1324,10 @@ create_loop_fn (void)
 /* Bases all the induction variables in LOOP on a single induction variable
    (unsigned with base 0 and step 1), whose final value is compared with
    NIT.  The induction variable is incremented in the loop latch.  
-   REDUCTION_LIST describes the reductions in LOOP.  */
+   REDUCTION_LIST describes the reductions in LOOP.  Return the induction 
+   variable that was created.  */
 
-static void
+tree
 canonicalize_loop_ivs (struct loop *loop, htab_t reduction_list, tree nit)
 {
   unsigned precision = TYPE_PRECISION (TREE_TYPE (nit));
@@ -1367,7 +1368,12 @@ canonicalize_loop_ivs (struct loop *loop, htab_t reduction_list, tree nit)
 	}
 
       ok = simple_iv (loop, phi, res, &iv, true);
-      red = reduction_phi (reduction_list, phi);
+
+      if (reduction_list)
+	red = reduction_phi (reduction_list, phi);
+      else
+	red = NULL;
+
       /* We preserve the reduction phi nodes.  */
       if (!ok && red)
 	{
@@ -1405,6 +1411,9 @@ canonicalize_loop_ivs (struct loop *loop, htab_t reduction_list, tree nit)
   gimple_cond_set_code (stmt, LT_EXPR);
   gimple_cond_set_lhs (stmt, var_before);
   gimple_cond_set_rhs (stmt, nit);
+  update_stmt (stmt);
+
+  return var_before;
 }
 
 /* Moves the exit condition of LOOP to the beginning of its header, and
@@ -1843,7 +1852,7 @@ parallelize_loops (void)
     {
       htab_empty (reduction_list);
       if (/* Do not bother with loops in cold areas.  */
-	  !maybe_hot_bb_p (loop->header)
+	  optimize_loop_nest_for_size_p (loop)
 	  /* Or loops that roll too little.  */
 	  || expected_loop_iterations (loop) <= n_threads
 	  /* And of course, the loop must be parallelizable.  */

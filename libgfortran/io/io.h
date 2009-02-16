@@ -233,6 +233,10 @@ typedef enum
 { ASYNC_YES, ASYNC_NO, ASYNC_UNSPECIFIED }
 unit_async;
 
+typedef enum
+{ SIGN_S, SIGN_SS, SIGN_SP }
+unit_sign_s;
+
 #define CHARACTER1(name) \
 	      char * name; \
 	      gfc_charlen_type name ## _len
@@ -306,9 +310,9 @@ st_parameter_filepos;
 #define IOPARM_INQUIRE_HAS_ASYNCHRONOUS	(1 << 0)
 #define IOPARM_INQUIRE_HAS_DECIMAL	(1 << 1)
 #define IOPARM_INQUIRE_HAS_ENCODING	(1 << 2)
-#define IOPARM_INQUIRE_HAS_PENDING	(1 << 3)
-#define IOPARM_INQUIRE_HAS_ROUND	(1 << 4)
-#define IOPARM_INQUIRE_HAS_SIGN		(1 << 5)
+#define IOPARM_INQUIRE_HAS_ROUND	(1 << 3)
+#define IOPARM_INQUIRE_HAS_SIGN		(1 << 4)
+#define IOPARM_INQUIRE_HAS_PENDING	(1 << 5)
 #define IOPARM_INQUIRE_HAS_SIZE		(1 << 6)
 #define IOPARM_INQUIRE_HAS_ID		(1 << 7)
 
@@ -339,9 +343,9 @@ typedef struct
   CHARACTER1 (asynchronous);
   CHARACTER2 (decimal);
   CHARACTER1 (encoding);
-  CHARACTER2 (pending);
-  CHARACTER1 (round);
-  CHARACTER2 (sign);
+  CHARACTER2 (round);
+  CHARACTER1 (sign);
+  GFC_INTEGER_4 *pending;
   GFC_INTEGER_4 *size;
   GFC_INTEGER_4 *id;
 }
@@ -368,8 +372,10 @@ struct format_data;
 #define IOPARM_DT_HAS_PAD			(1 << 22)
 #define IOPARM_DT_HAS_ROUND			(1 << 23)
 #define IOPARM_DT_HAS_SIGN			(1 << 24)
+#define IOPARM_DT_HAS_F2003                     (1 << 25)
 /* Internal use bit.  */
 #define IOPARM_DT_IONML_SET			(1 << 31)
+
 
 typedef struct st_parameter_dt
 {
@@ -381,15 +387,6 @@ typedef struct st_parameter_dt
   CHARACTER2 (advance);
   CHARACTER1 (internal_unit);
   CHARACTER2 (namelist_name);
-  GFC_IO_INT *id;
-  GFC_IO_INT pos;
-  CHARACTER1 (asynchronous);
-  CHARACTER2 (blank);
-  CHARACTER1 (decimal);
-  CHARACTER2 (delim);
-  CHARACTER1 (pad);
-  CHARACTER2 (round);
-  CHARACTER1 (sign);
   /* Private part of the structure.  The compiler just needs
      to reserve enough space.  */
   union
@@ -400,12 +397,11 @@ typedef struct st_parameter_dt
 			    size_t, size_t);
 	  struct gfc_unit *current_unit;
 	  /* Item number in a formatted data transfer.  Also used in namelist
-	       read_logical as an index into line_buffer.  */
+	     read_logical as an index into line_buffer.  */
 	  int item_count;
 	  unit_mode mode;
 	  unit_blank blank_status;
-          unit_pad pad_status;
-	  enum { SIGN_S, SIGN_SS, SIGN_SP } sign_status;
+	  unit_sign sign_status;
 	  int scale_factor;
 	  int max_pos; /* Maximum righthand column written to.  */
 	  /* Number of skips + spaces to be done for T and X-editing.  */
@@ -418,9 +414,6 @@ typedef struct st_parameter_dt
 	       2 if an EOR was encountered due to a 2-bytes marker (CRLF) */
 	  int sf_seen_eor;
 	  unit_advance advance_status;
-	  unit_decimal decimal_status;
-          unit_delim delim_status;
-
 	  unsigned reversion_flag : 1; /* Format reversion has occurred.  */
 	  unsigned first_item : 1;
 	  unsigned seen_dollar : 1;
@@ -442,7 +435,7 @@ typedef struct st_parameter_dt
 	     character string is being read so don't use commas to shorten a
 	     formatted field width.  */
 	  unsigned sf_read_comma : 1;
-          /* A namelist specific flag used to enable reading input from 
+	  /* A namelist specific flag used to enable reading input from 
 	     line_buffer for logical reads.  */
 	  unsigned line_buffer_enabled : 1;
 	  /* An internal unit specific flag used to identify that the associated
@@ -451,7 +444,9 @@ typedef struct st_parameter_dt
 	  /* An internal unit specific flag to signify an EOF condition for list
 	     directed read.  */
 	  unsigned at_eof : 1;
-	  /* 16 unused bits.  */
+	  /* Used for g0 floating point output.  */
+	  unsigned g0_no_blanks : 1;
+	  /* 15 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;
@@ -473,13 +468,22 @@ typedef struct st_parameter_dt
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
 	  char value[32];
-	  gfc_offset size_used;
+	  GFC_IO_INT size_used;
 	} p;
       /* This pad size must be equal to the pad_size declared in
 	 trans-io.c (gfc_build_io_library_fndecls).  The above structure
 	 must be smaller or equal to this array.  */
       char pad[16 * sizeof (char *) + 32 * sizeof (int)];
     } u;
+  GFC_INTEGER_4 *id;
+  GFC_IO_INT pos;
+  CHARACTER1 (asynchronous);
+  CHARACTER2 (blank);
+  CHARACTER1 (decimal);
+  CHARACTER2 (delim);
+  CHARACTER1 (pad);
+  CHARACTER2 (round);
+  CHARACTER1 (sign);
 }
 st_parameter_dt;
 
@@ -512,12 +516,12 @@ typedef struct
   unit_position position;
   unit_status status;
   unit_pad pad;
+  unit_convert convert;
+  int has_recl;
   unit_decimal decimal;
   unit_encoding encoding;
   unit_round round;
   unit_sign sign;
-  unit_convert convert;
-  int has_recl;
   unit_async async;
 }
 unit_flags;
@@ -559,6 +563,9 @@ typedef struct gfc_unit
 
   unit_mode mode;
   unit_flags flags;
+  unit_pad pad_status;
+  unit_decimal decimal_status;
+  unit_delim delim_status;
 
   /* recl                 -- Record length of the file.
      last_record          -- Last record number read or written
@@ -939,6 +946,9 @@ internal_proto(write_o);
 
 extern void write_real (st_parameter_dt *, const char *, int);
 internal_proto(write_real);
+
+extern void write_real_g0 (st_parameter_dt *, const char *, int, int);
+internal_proto(write_real_g0);
 
 extern void write_x (st_parameter_dt *, int, int);
 internal_proto(write_x);

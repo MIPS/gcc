@@ -1,3 +1,13 @@
+2008-11-18  Ben Elliston  <bje@au.ibm.com>
+
+	* dg-cmp-results.sh: Do not print usage if either .sum file cannot
+	be opened; print a more meaningful error instead.
+
+2008-10-24  Janis Johnson  <janis187@us.ibm.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* dg-extract-results.sh: New file.
+
 2008-07-14  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* check_makefile_deps.sh: New file.
@@ -653,7 +663,7 @@
 	* texi2pod.pl: Handle @include, @ftable, @vtable.
 	Reformat some code for clarity.
 
-2002-02-24  Christian Jönsson  <c.christian.joensson@telia.com>
+2002-02-24  Christian JÃ¶nsson  <c.christian.joensson@telia.com>
 
 	* test_summary: Additional to XPASS and FAIL, add UNRESOLVED,
 	WARNING and ERROR output from the *.sum files.
@@ -1058,7 +1068,7 @@ Sun Nov 28 00:41:44 1999  William Bader (william@nscs.fast.net)
 
 	* gcc_update: Allow patches compressed by bzip2.
 
-1999-10-11  Martin v. Löwis <loewis@informatik.hu-berlin.de>
+1999-10-11  Martin v. LÃ¶wis <loewis@informatik.hu-berlin.de>
 
 	* newcvsroot: New file.
 

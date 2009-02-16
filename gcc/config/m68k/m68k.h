@@ -516,6 +516,11 @@ extern enum reg_class regno_reg_class[];
 /* Moves between fp regs and other regs are two insns.  */
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2)	\
   ((((CLASS1) == FP_REGS) != ((CLASS2) == FP_REGS)) ? 4 : 2)
+
+#define IRA_COVER_CLASSES						\
+{									\
+  ALL_REGS, LIM_REG_CLASSES						\
+}
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -849,6 +854,14 @@ __transfer_from_trampoline ()					\
    possibly invalid to use the saved cc's.  In those cases we clear out
    some or all of the saved cc's so they won't be used.  */
 #define NOTICE_UPDATE_CC(EXP,INSN) notice_update_cc (EXP, INSN)
+
+/* The shift instructions always clear the overflow bit.  */
+#define CC_OVERFLOW_UNUSABLE 01000
+
+/* The shift instructions use the carry bit in a way not compatible with
+   conditional branches.  conditions.h uses CC_NO_OVERFLOW for this purpose.
+   Rename it to something more understandable.  */
+#define CC_NO_CARRY CC_NO_OVERFLOW
 
 #define OUTPUT_JUMP(NORMAL, FLOAT, NO_OV)  \
 do { if (cc_prev_status.flags & CC_IN_68881)			\

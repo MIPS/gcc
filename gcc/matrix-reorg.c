@@ -1601,7 +1601,7 @@ check_allocation_function (void **slot, void *data ATTRIBUTE_UNUSED)
     {
       gimple call_stmt;
       tree size;
-      struct malloc_call_data mcd;
+      struct malloc_call_data mcd = {NULL, NULL_TREE, NULL_TREE};
 
       call_stmt = mi->malloc_for_level[level];
 
@@ -2026,7 +2026,7 @@ transform_allocation_sites (void **slot, void *data ATTRIBUTE_UNUSED)
   struct cgraph_node *c_node;
   struct cgraph_edge *e;
   gimple_stmt_iterator gsi;
-  struct malloc_call_data mcd;
+  struct malloc_call_data mcd = {NULL, NULL_TREE, NULL_TREE};
   HOST_WIDE_INT element_size;
 
   imm_use_iterator imm_iter;

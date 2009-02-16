@@ -3439,7 +3439,7 @@ relax_delay_slots (rtx first)
 
 	 Only do so if optimizing for size since this results in slower, but
 	 smaller code.  */
-      if (optimize_size
+      if (optimize_function_for_size_p (cfun)
 	  && GET_CODE (PATTERN (delay_insn)) == RETURN
 	  && next
 	  && JUMP_P (next)
@@ -4038,6 +4038,7 @@ dbr_schedule (rtx first)
   }
 
 #endif
+  crtl->dbr_scheduled_p = true;
 }
 #endif /* DELAY_SLOTS */
 
@@ -4045,7 +4046,8 @@ static bool
 gate_handle_delay_slots (void)
 {
 #ifdef DELAY_SLOTS
-  return flag_delayed_branch;
+  /* At -O0 dataflow info isn't updated after RA.  */
+  return optimize > 0 && flag_delayed_branch && !crtl->dbr_scheduled_p;
 #else
   return 0;
 #endif

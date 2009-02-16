@@ -777,7 +777,12 @@ void
 __gcov_indirect_call_profiler (gcov_type* counter, gcov_type value, 
 			       void* cur_func, void* callee_func)
 {
-  if (cur_func == callee_func)
+  /* If the C++ virtual tables contain function descriptors then one
+     function may have multiple descriptors and we need to dereference
+     the descriptors to see if they point to the same function.  */
+  if (cur_func == callee_func
+      || (TARGET_VTABLE_USES_DESCRIPTORS && callee_func
+	  && *(void **) cur_func == *(void **) callee_func))
     __gcov_one_value_profiler_body (counter, value);
 }
 #endif
@@ -823,7 +828,7 @@ __gcov_fork (void)
    that they are not lost.  */
 
 int
-__gcov_execl (const char *path, const char *arg, ...)
+__gcov_execl (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -840,7 +845,7 @@ __gcov_execl (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   va_end (aq);
@@ -854,7 +859,7 @@ __gcov_execl (const char *path, const char *arg, ...)
    that they are not lost.  */
 
 int
-__gcov_execlp (const char *path, const char *arg, ...)
+__gcov_execlp (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -871,7 +876,7 @@ __gcov_execlp (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   va_end (aq);
@@ -885,7 +890,7 @@ __gcov_execlp (const char *path, const char *arg, ...)
    that they are not lost.  */
 
 int
-__gcov_execle (const char *path, const char *arg, ...)
+__gcov_execle (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -903,7 +908,7 @@ __gcov_execle (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   envp = va_arg (aq, char **);

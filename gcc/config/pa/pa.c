@@ -86,8 +86,8 @@ hppa_fpstore_bypass_p (rtx out_insn, rtx in_insn)
 static void copy_reg_pointer (rtx, rtx);
 static void fix_range (const char *);
 static bool pa_handle_option (size_t, const char *, int);
-static int hppa_address_cost (rtx);
-static bool hppa_rtx_costs (rtx, int, int, int *);
+static int hppa_address_cost (rtx, bool);
+static bool hppa_rtx_costs (rtx, int, int, int *, bool);
 static inline rtx force_mode (enum machine_mode, rtx);
 static void pa_reorg (void);
 static void pa_combine_instructions (void);
@@ -103,7 +103,7 @@ static void store_reg_modify (int, int, HOST_WIDE_INT);
 static void load_reg (int, HOST_WIDE_INT, int);
 static void set_reg_plus_d (int, int, HOST_WIDE_INT, int);
 static void pa_output_function_prologue (FILE *, HOST_WIDE_INT);
-static void update_total_code_bytes (int);
+static void update_total_code_bytes (unsigned int);
 static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static int pa_adjust_cost (rtx, rtx, rtx, int);
 static int pa_adjust_priority (rtx, int);
@@ -191,7 +191,7 @@ unsigned long total_code_bytes;
 /* The last address of the previous function plus the number of bytes in
    associated thunks that have been output.  This is used to determine if
    a thunk can use an IA-relative branch to reach its target function.  */
-static int last_address;
+static unsigned int last_address;
 
 /* Variables to handle plabels that we discover are necessary at assembly
    output time.  They are output after the current function.  */
@@ -714,8 +714,8 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
       if (function_label_operand (orig, mode))
 	{
-	  /* Force function label into memory.  */
-	  orig = XEXP (force_const_mem (mode, orig), 0);
+	  /* Force function label into memory in word mode.  */
+	  orig = XEXP (force_const_mem (word_mode, orig), 0);
 	  /* Load plabel address from DLT.  */
 	  emit_move_insn (tmp_reg,
 			  gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
@@ -1279,7 +1279,8 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
    as GO_IF_LEGITIMATE_ADDRESS.  */
 
 static int
-hppa_address_cost (rtx X)
+hppa_address_cost (rtx X,
+		   bool speed ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (X))
     {
@@ -1299,7 +1300,8 @@ hppa_address_cost (rtx X)
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-hppa_rtx_costs (rtx x, int code, int outer_code, int *total)
+hppa_rtx_costs (rtx x, int code, int outer_code, int *total,
+		bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -3984,23 +3986,18 @@ load_reg (int reg, HOST_WIDE_INT disp, int base)
 /* Update the total code bytes output to the text section.  */
 
 static void
-update_total_code_bytes (int nbytes)
+update_total_code_bytes (unsigned int nbytes)
 {
   if ((TARGET_PORTABLE_RUNTIME || !TARGET_GAS || !TARGET_SOM)
       && !IN_NAMED_SECTION_P (cfun->decl))
     {
-      if (INSN_ADDRESSES_SET_P ())
-	{
-	  unsigned long old_total = total_code_bytes;
+      unsigned int old_total = total_code_bytes;
 
-	  total_code_bytes += nbytes;
+      total_code_bytes += nbytes;
 
-	  /* Be prepared to handle overflows.  */
-	  if (old_total > total_code_bytes)
-	    total_code_bytes = -1;
-	}
-      else
-	total_code_bytes = -1;
+      /* Be prepared to handle overflows.  */
+      if (old_total > total_code_bytes)
+        total_code_bytes = UINT_MAX;
     }
 }
 
@@ -4064,6 +4061,8 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       last_address = ((last_address + FUNCTION_BOUNDARY / BITS_PER_UNIT - 1)
 		      & ~(FUNCTION_BOUNDARY / BITS_PER_UNIT - 1));
     }
+  else
+    last_address = UINT_MAX;
 
   /* Finally, update the total number of code bytes output so far.  */
   update_total_code_bytes (last_address);
@@ -5886,7 +5885,11 @@ enum direction
 function_arg_padding (enum machine_mode mode, const_tree type)
 {
   if (mode == BLKmode
-      || (TARGET_64BIT && type && AGGREGATE_TYPE_P (type)))
+      || (TARGET_64BIT
+	  && type
+	  && (AGGREGATE_TYPE_P (type)
+	      || TREE_CODE (type) == COMPLEX_TYPE
+	      || TREE_CODE (type) == VECTOR_TYPE)))
     {
       /* Return none if justification is not required.  */
       if (type
@@ -7375,11 +7378,13 @@ int
 attr_length_call (rtx insn, int sibcall)
 {
   int local_call;
-  rtx call_dest;
+  rtx call, call_dest;
   tree call_decl;
   int length = 0;
   rtx pat = PATTERN (insn);
   unsigned long distance = -1;
+
+  gcc_assert (GET_CODE (insn) == CALL_INSN);
 
   if (INSN_ADDRESSES_SET_P ())
     {
@@ -7391,12 +7396,17 @@ attr_length_call (rtx insn, int sibcall)
 	distance = -1;
     }
 
-  /* Determine if this is a local call.  */
-  if (GET_CODE (XVECEXP (pat, 0, 0)) == CALL)
-    call_dest = XEXP (XEXP (XVECEXP (pat, 0, 0), 0), 0);
-  else
-    call_dest = XEXP (XEXP (XEXP (XVECEXP (pat, 0, 0), 1), 0), 0);
+  gcc_assert (GET_CODE (pat) == PARALLEL);
 
+  /* Get the call rtx.  */
+  call = XVECEXP (pat, 0, 0);
+  if (GET_CODE (call) == SET)
+    call = SET_SRC (call);
+
+  gcc_assert (GET_CODE (call) == CALL);
+
+  /* Determine if this is a local call.  */
+  call_dest = XEXP (XEXP (call, 0), 0);
   call_decl = SYMBOL_REF_DECL (call_dest);
   local_call = call_decl && targetm.binds_local_p (call_decl);
 
@@ -7534,7 +7544,9 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 	  if (seq_length != 0
 	      && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN
 	      && !sibcall
-	      && (!TARGET_PA_20 || indirect_call))
+	      && (!TARGET_PA_20
+		  || indirect_call
+		  || ((TARGET_LONG_ABS_CALL || local_call) && !flag_pic)))
 	    {
 	      /* A non-jump insn in the delay slot.  By definition we can
 		 emit this insn before the call (and in fact before argument
@@ -7929,7 +7941,7 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 {
   static unsigned int current_thunk_number;
   int val_14 = VAL_14_BITS_P (delta);
-  int nbytes = 0;
+  unsigned int old_last_address = last_address, nbytes = 0;
   char label[16];
   rtx xoperands[4];
 
@@ -7968,6 +7980,10 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 		   || ((DECL_SECTION_NAME (thunk_fndecl)
 			== DECL_SECTION_NAME (function))
 		       && last_address < 262132)))
+	      || (targetm.have_named_sections
+		  && DECL_SECTION_NAME (thunk_fndecl) == NULL
+		  && DECL_SECTION_NAME (function) == NULL
+		  && last_address < 262132)
 	      || (!targetm.have_named_sections && last_address < 262132))))
     {
       if (!val_14)
@@ -8162,6 +8178,8 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
   nbytes = ((nbytes + FUNCTION_BOUNDARY / BITS_PER_UNIT - 1)
 	    & ~(FUNCTION_BOUNDARY / BITS_PER_UNIT - 1));
   last_address += nbytes;
+  if (old_last_address > last_address)
+    last_address = UINT_MAX;
   update_total_code_bytes (nbytes);
 }
 

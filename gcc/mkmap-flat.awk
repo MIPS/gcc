@@ -18,6 +18,11 @@
 # along with GCC; see the file COPYING3.  If not see
 # <http://www.gnu.org/licenses/>.
 
+# Options:
+#   "-v leading_underscore=1" : Symbols in map need leading underscore.
+#   "-v pe_dll=1"             : Create .DEF file for Windows PECOFF
+#                               DLL link instead of map file.
+
 BEGIN {
   state = "nm";
   excluding = 0;
@@ -86,7 +91,13 @@ $1 == "}" {
 }
 
 END {
+
+  if (pe_dll) {
+    print "LIBRARY " pe_dll;
+    print "EXPORTS";
+  }
+
   for (sym in export)
-    if (def[sym])
+    if (def[sym] || (pe_dll && def["_" sym]))
       print sym;
 }

@@ -949,6 +949,11 @@ m32c_const_ok_for_constraint_p (HOST_WIDE_INT value,
       int b = exact_log2 ((value ^ 0xff) & 0xff);
       return (b >= 0 && b <= 7);
     }
+  if (memcmp (str, "ImB", 3) == 0)
+    {
+      int b = exact_log2 ((value ^ 0xffff) & 0xffff);
+      return (b >= 0 && b <= 7);
+    }
   if (memcmp (str, "Ilw", 3) == 0)
     {
       int b = exact_log2 (value);
@@ -2119,7 +2124,8 @@ m32c_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS m32c_rtx_costs
 static bool
-m32c_rtx_costs (rtx x, int code, int outer_code, int *total)
+m32c_rtx_costs (rtx x, int code, int outer_code, int *total,
+		bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -2198,7 +2204,7 @@ m32c_rtx_costs (rtx x, int code, int outer_code, int *total)
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST m32c_address_cost
 static int
-m32c_address_cost (rtx addr)
+m32c_address_cost (rtx addr, bool speed ATTRIBUTE_UNUSED)
 {
   int i;
   /*  fprintf(stderr, "\naddress_cost\n");

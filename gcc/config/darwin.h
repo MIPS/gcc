@@ -258,6 +258,7 @@ extern GTY(()) int darwin_ms_struct;
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
    %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
+   %{static|static-libgfortran:%:replace-outfile(-lgfortran libgfortran.a%s)}\
    %{!Zdynamiclib: \
      %{Zforce_cpusubtype_ALL:-arch %(darwin_arch) -force_cpusubtype_ALL} \
      %{!Zforce_cpusubtype_ALL:-arch %(darwin_subarch)} \
@@ -525,6 +526,9 @@ extern GTY(()) int darwin_ms_struct;
 
 #define USER_LABEL_PREFIX "_"
 
+/* A dummy symbol that will be replaced with the function base name.  */
+#define MACHOPIC_FUNCTION_BASE_NAME "<pic base>"
+
 /* Don't output a .file directive.  That is only used by the assembler for
    error reporting.  */
 #undef	TARGET_ASM_FILE_START_FILE_DIRECTIVE
@@ -609,7 +613,7 @@ extern GTY(()) int darwin_ms_struct;
 #define ASM_OUTPUT_LABELREF(FILE,NAME)					     \
   do {									     \
        const char *xname = (NAME);					     \
-       if (! strcmp (xname, "<pic base>"))				     \
+       if (! strcmp (xname, MACHOPIC_FUNCTION_BASE_NAME))		     \
          machopic_output_function_base_name(FILE);                           \
        else if (xname[0] == '&' || xname[0] == '*')			     \
          {								     \

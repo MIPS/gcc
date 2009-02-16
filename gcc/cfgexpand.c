@@ -1392,16 +1392,23 @@ fini_vars_expansion (void)
   stack_vars_conflict_alloc = 0;
 }
 
+/* Make a fair guess for the size of the stack frame of the current
+   function.  This doesn't have to be exact, the result is only used
+   in the inline heuristics.  So we don't want to run the full stack
+   var packing algorithm (which is quadratic in the number of stack
+   vars).  Instead, we calculate the total size of all stack vars.
+   This turns out to be a pretty fair estimate -- packing of stack
+   vars doesn't happen very often.  */
+
 HOST_WIDE_INT
 estimated_stack_frame_size (void)
 {
   HOST_WIDE_INT size = 0;
+  size_t i;
   tree t, outer_block = DECL_INITIAL (current_function_decl);
 
   init_vars_expansion ();
 
-  /* At this point all variables on the local_decls with TREE_USED
-     set are not associated with any block scope.  Lay them out.  */
   for (t = cfun->local_decls; t; t = TREE_CHAIN (t))
     {
       tree var = TREE_VALUE (t);
@@ -1411,27 +1418,17 @@ estimated_stack_frame_size (void)
       TREE_USED (var) = 1;
     }
   size += account_used_vars_for_block (outer_block, true);
+
   if (stack_vars_num > 0)
     {
-      /* Due to the way alias sets work, no variables with non-conflicting
-	 alias sets may be assigned the same address.  Add conflicts to
-	 reflect this.  */
-      add_alias_set_conflicts ();
-
-      /* If stack protection is enabled, we don't share space between
-	 vulnerable data and non-vulnerable data.  */
-      if (flag_stack_protect)
-	add_stack_protection_conflicts ();
-
-      /* Now that we have collected all stack variables, and have computed a
-	 minimal interference graph, attempt to save some stack space.  */
-      partition_stack_vars ();
-      if (dump_file)
-	dump_stack_var_partition ();
-
+      /* Fake sorting the stack vars for account_stack_vars ().  */
+      stack_vars_sorted = XNEWVEC (size_t, stack_vars_num);
+      for (i = 0; i < stack_vars_num; ++i)
+	stack_vars_sorted[i] = i;
       size += account_stack_vars ();
       fini_vars_expansion ();
     }
+
   return size;
 }
 
@@ -1440,7 +1437,7 @@ estimated_stack_frame_size (void)
 static void
 expand_used_vars (void)
 {
-  tree t, outer_block = DECL_INITIAL (current_function_decl);
+  tree t, next, outer_block = DECL_INITIAL (current_function_decl);
 
   /* Compute the phase of the stack frame for this function.  */
   {
@@ -1453,10 +1450,14 @@ expand_used_vars (void)
 
   /* At this point all variables on the local_decls with TREE_USED
      set are not associated with any block scope.  Lay them out.  */
-  for (t = cfun->local_decls; t; t = TREE_CHAIN (t))
+  t = cfun->local_decls;
+  cfun->local_decls = NULL_TREE;
+  for (; t; t = next)
     {
       tree var = TREE_VALUE (t);
       bool expand_now = false;
+
+      next = TREE_CHAIN (t);
 
       /* We didn't set a block for static or extern because it's hard
 	 to tell the difference between a global variable (re)declared
@@ -1484,9 +1485,25 @@ expand_used_vars (void)
       TREE_USED (var) = 1;
 
       if (expand_now)
-	expand_one_var (var, true, true);
+	{
+	  expand_one_var (var, true, true);
+	  if (DECL_ARTIFICIAL (var) && !DECL_IGNORED_P (var))
+	    {
+	      rtx rtl = DECL_RTL_IF_SET (var);
+
+	      /* Keep artificial non-ignored vars in cfun->local_decls
+		 chain until instantiate_decls.  */
+	      if (rtl && (MEM_P (rtl) || GET_CODE (rtl) == CONCAT))
+		{
+		  TREE_CHAIN (t) = cfun->local_decls;
+		  cfun->local_decls = t;
+		  continue;
+		}
+	    }
+	}
+
+      ggc_free (t);
     }
-  cfun->local_decls = NULL_TREE;
 
   /* At this point, all variables within the block tree with TREE_USED
      set are actually used by the optimized function.  Lay them out.  */
@@ -1646,7 +1663,12 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
       if (true_edge->goto_locus)
-  	set_curr_insn_source_location (true_edge->goto_locus);
+	{
+	  set_curr_insn_source_location (true_edge->goto_locus);
+	  set_curr_insn_block (true_edge->goto_block);
+	  true_edge->goto_locus = curr_insn_locator ();
+	}
+      true_edge->goto_block = NULL;
       false_edge->flags |= EDGE_FALLTHRU;
       ggc_free (pred);
       return NULL;
@@ -1657,7 +1679,12 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
       if (false_edge->goto_locus)
-  	set_curr_insn_source_location (false_edge->goto_locus);
+	{
+	  set_curr_insn_source_location (false_edge->goto_locus);
+	  set_curr_insn_block (false_edge->goto_block);
+	  false_edge->goto_locus = curr_insn_locator ();
+	}
+      false_edge->goto_block = NULL;
       true_edge->flags |= EDGE_FALLTHRU;
       ggc_free (pred);
       return NULL;
@@ -1666,6 +1693,13 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   jumpif (pred, label_rtx_for_bb (true_edge->dest));
   add_reg_br_prob_note (last, true_edge->probability);
   last = get_last_insn ();
+  if (false_edge->goto_locus)
+    {
+      set_curr_insn_source_location (false_edge->goto_locus);
+      set_curr_insn_block (false_edge->goto_block);
+      false_edge->goto_locus = curr_insn_locator ();
+    }
+  false_edge->goto_block = NULL;
   emit_jump (label_rtx_for_bb (false_edge->dest));
 
   BB_END (bb) = last;
@@ -1688,8 +1722,13 @@ expand_gimple_cond (basic_block bb, gimple stmt)
 
   maybe_dump_rtl_for_gimple_stmt (stmt, last2);
 
-  if (false_edge->goto_locus)
-    set_curr_insn_source_location (false_edge->goto_locus);
+  if (true_edge->goto_locus)
+    {
+      set_curr_insn_source_location (true_edge->goto_locus);
+      set_curr_insn_block (true_edge->goto_block);
+      true_edge->goto_locus = curr_insn_locator ();
+    }
+  true_edge->goto_block = NULL;
 
   ggc_free (pred);
   return new_bb;
@@ -1931,7 +1970,7 @@ expand_gimple_basic_block (basic_block bb)
 		    return new_bb;
 		}
 	    }
-	  else
+	  else if (gimple_code (stmt) != GIMPLE_CHANGE_DYNAMIC_TYPE)
 	    {
 	      tree stmt_tree = gimple_to_tree (stmt);
 	      last = get_last_insn ();
@@ -1942,19 +1981,21 @@ expand_gimple_basic_block (basic_block bb)
 	}
     }
 
-  /* Expand implicit goto.  */
+  /* Expand implicit goto and convert goto_locus.  */
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
-      if (e->flags & EDGE_FALLTHRU)
-	break;
-    }
-
-  if (e && e->dest != bb->next_bb)
-    {
-      emit_jump (label_rtx_for_bb (e->dest));
-      if (e->goto_locus)
-        set_curr_insn_source_location (e->goto_locus);
-      e->flags &= ~EDGE_FALLTHRU;
+      if (e->goto_locus && e->goto_block)
+	{
+	  set_curr_insn_source_location (e->goto_locus);
+	  set_curr_insn_block (e->goto_block);
+	  e->goto_locus = curr_insn_locator ();
+	}
+      e->goto_block = NULL;
+      if ((e->flags & EDGE_FALLTHRU) && e->dest != bb->next_bb)
+	{
+	  emit_jump (label_rtx_for_bb (e->dest));
+	  e->flags &= ~EDGE_FALLTHRU;
+	}
     }
 
   do_pending_stack_adjust ();
@@ -2174,7 +2215,7 @@ static void
 expand_stack_alignment (void)
 {
   rtx drap_rtx;
-  unsigned int preferred_stack_boundary, incoming_stack_boundary;
+  unsigned int preferred_stack_boundary;
 
   if (! SUPPORTS_STACK_ALIGNMENT)
     return;
@@ -2186,10 +2227,6 @@ expand_stack_alignment (void)
 
   gcc_assert (crtl->stack_alignment_needed
 	      <= crtl->stack_alignment_estimated);
-
-  /* Update stack boundary if needed.  */
-  if (targetm.calls.update_stack_boundary)
-    targetm.calls.update_stack_boundary (); 
 
   /* Update crtl->stack_alignment_estimated and use it later to align
      stack.  We check PREFERRED_STACK_BOUNDARY if there may be non-call
@@ -2205,15 +2242,8 @@ expand_stack_alignment (void)
   if (preferred_stack_boundary > crtl->stack_alignment_needed)
     crtl->stack_alignment_needed = preferred_stack_boundary;
 
-  /* The incoming stack frame has to be aligned at least at
-     parm_stack_boundary.  */
-  if (crtl->parm_stack_boundary > INCOMING_STACK_BOUNDARY)
-    incoming_stack_boundary = crtl->parm_stack_boundary;
-  else
-    incoming_stack_boundary = INCOMING_STACK_BOUNDARY;
-
   crtl->stack_realign_needed
-    = incoming_stack_boundary < crtl->stack_alignment_estimated;
+    = INCOMING_STACK_BOUNDARY < crtl->stack_alignment_estimated;
   crtl->stack_realign_tried = crtl->stack_realign_needed;
 
   crtl->stack_realign_processed = true;
@@ -2261,7 +2291,14 @@ gimple_expand_cfg (void)
 
   insn_locators_alloc ();
   if (!DECL_BUILT_IN (current_function_decl))
-    set_curr_insn_source_location (DECL_SOURCE_LOCATION (current_function_decl));
+    {
+      /* Eventually, all FEs should explicitly set function_start_locus.  */
+      if (cfun->function_start_locus == UNKNOWN_LOCATION)
+       set_curr_insn_source_location
+         (DECL_SOURCE_LOCATION (current_function_decl));
+      else
+       set_curr_insn_source_location (cfun->function_start_locus);
+    }
   set_curr_insn_block (DECL_INITIAL (current_function_decl));
   prologue_locator = curr_insn_locator ();
 
@@ -2310,6 +2347,23 @@ gimple_expand_cfg (void)
      call to __main (if any) so that the external decl is initialized.  */
   if (crtl->stack_protect_guard)
     stack_protect_prologue ();
+
+  /* Update stack boundary if needed.  */
+  if (SUPPORTS_STACK_ALIGNMENT)
+    {
+      /* Call update_stack_boundary here to update incoming stack
+	 boundary before TARGET_FUNCTION_OK_FOR_SIBCALL is called.
+	 TARGET_FUNCTION_OK_FOR_SIBCALL needs to know the accurate
+	 incoming stack alignment to check if it is OK to perform
+	 sibcall optimization since sibcall optimization will only
+	 align the outgoing stack to incoming stack boundary.  */
+      if (targetm.calls.update_stack_boundary)
+	targetm.calls.update_stack_boundary ();
+      
+      /* The incoming stack frame has to be aligned at least at
+	 parm_stack_boundary.  */
+      gcc_assert (crtl->parm_stack_boundary <= INCOMING_STACK_BOUNDARY);
+    }
 
   /* Register rtl specific functions for cfg.  */
   rtl_register_cfg_hooks ();

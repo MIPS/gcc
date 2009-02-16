@@ -1,6 +1,6 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -444,6 +444,9 @@ struct rtl_data GTY(())
   /* Nonzero if function stack realignment has been finalized, namely
      stack_realign_needed flag has been set and finalized after reload.  */
   bool stack_realign_finalized;
+
+  /* True if dbr_schedule has already been called for this function.  */
+  bool dbr_scheduled_p;
 };
 
 #define return_label (crtl->x_return_label)
@@ -495,9 +498,6 @@ struct function GTY(())
   /* Points to the FUNCTION_DECL of this function.  */
   tree decl;
 
-  /* Function containing this function, if any.  */
-  struct function *outer;
-
   /* A PARM_DECL that should contain the static chain for this function.
      It will be initialized at the beginning of the function.  */
   tree static_chain_decl;
@@ -526,6 +526,9 @@ struct function GTY(())
 
   /* Last statement uid.  */
   int last_stmt_uid;
+
+  /* Line number of the start of the function for debugging purposes.  */
+  location_t function_start_locus;
 
   /* Line number of the end of the function.  */
   location_t function_end_locus;
@@ -578,6 +581,7 @@ struct function GTY(())
   unsigned int dont_save_pending_sizes_p : 1;
 
   unsigned int after_inlining : 1;
+  unsigned int always_inline_functions_inlined : 1;
 
   /* Fields below this point are not set for abstract functions; see
      allocate_struct_function.  */
@@ -592,6 +596,10 @@ struct function GTY(())
 
   /* Nonzero if pass_tree_profile was run on this function.  */
   unsigned int after_tree_profile : 1;
+
+  /* Nonzero if this function has local DECL_HARD_REGISTER variables.
+     In this case code motion has to be done more carefully.  */
+  unsigned int has_local_explicit_reg_vars : 1;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how
@@ -606,9 +614,6 @@ extern GTY(()) struct function *cfun;
    that it is not an lvalue.  Rather than assign to cfun, use
    push_cfun or set_cfun.  */
 #define cfun (cfun + 0)
-
-/* Pointer to chain of `struct function' for containing functions.  */
-extern GTY(()) struct function *outer_function_chain;
 
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
@@ -629,10 +634,6 @@ extern void instantiate_decl_rtl (rtx x);
 #define dom_computed (cfun->cfg->x_dom_computed)
 #define n_bbs_in_dom_tree (cfun->cfg->x_n_bbs_in_dom_tree)
 #define VALUE_HISTOGRAMS(fun) (fun)->value_histograms
-
-/* Given a function decl for a containing function,
-   return the `struct function' for it.  */
-struct function *find_function_data (tree);
 
 /* Identify BLOCKs referenced by more than one NOTE_INSN_BLOCK_{BEG,END},
    and create duplicate blocks.  */

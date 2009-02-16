@@ -2045,8 +2045,6 @@ cprop_operand (gimple stmt, use_operand_p op_p)
   val = SSA_NAME_VALUE (op);
   if (val && val != op)
     {
-      tree op_type, val_type;
-
       /* Do not change the base variable in the virtual operand
 	 tables.  That would make it impossible to reconstruct
 	 the renamed virtual operand if we later modify this
@@ -2063,38 +2061,20 @@ cprop_operand (gimple stmt, use_operand_p op_p)
 	  && !may_propagate_copy_into_asm (op))
 	return false;
 
-      /* Get the toplevel type of each operand.  */
-      op_type = TREE_TYPE (op);
-      val_type = TREE_TYPE (val);
-
-      /* While both types are pointers, get the type of the object
-	 pointed to.  */
-      while (POINTER_TYPE_P (op_type) && POINTER_TYPE_P (val_type))
-	{
-	  op_type = TREE_TYPE (op_type);
-	  val_type = TREE_TYPE (val_type);
-	}
-
-      /* Make sure underlying types match before propagating a constant by
-	 converting the constant to the proper type.  Note that convert may
-	 return a non-gimple expression, in which case we ignore this
-	 propagation opportunity.  */
-      if (TREE_CODE (val) != SSA_NAME)
-	{
-	  if (!useless_type_conversion_p (op_type, val_type))
-	    {
-	      val = fold_convert (TREE_TYPE (op), val);
-	      if (!is_gimple_min_invariant (val))
-		return false;
-	    }
-	}
-
       /* Certain operands are not allowed to be copy propagated due
 	 to their interaction with exception handling and some GCC
 	 extensions.  */
-      else if (!may_propagate_copy (op, val))
+      if (!may_propagate_copy (op, val))
 	return false;
-      
+
+      /* Do not propagate addresses that point to volatiles into memory
+	 stmts without volatile operands.  */
+      if (POINTER_TYPE_P (TREE_TYPE (val))
+	  && TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (val)))
+	  && gimple_has_mem_ops (stmt)
+	  && !gimple_has_volatile_ops (stmt))
+	return false;
+
       /* Do not propagate copies if the propagated value is at a deeper loop
 	 depth than the propagatee.  Otherwise, this may move loop variant
 	 variables outside of their loops and prevent coalescing
@@ -2179,7 +2159,8 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 {
   gimple stmt, old_stmt;
   bool may_optimize_p;
-  bool may_have_exposed_new_symbols = false;
+  bool may_have_exposed_new_symbols;
+  bool modified_p = false;
 
   old_stmt = stmt = gsi_stmt (si);
   
@@ -2188,7 +2169,6 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   
   update_stmt_if_modified (stmt);
   opt_stats.num_stmts++;
-  may_have_exposed_new_symbols = false;
   push_stmt_changes (gsi_stmt_ptr (&si));
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2237,6 +2217,10 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
 	 Indicate we will need to rescan and rewrite the statement.  */
       may_have_exposed_new_symbols = true;
+      /* Indicate that maybe_clean_or_replace_eh_stmt needs to be called,
+	 even if fold_stmt updated the stmt already and thus cleared
+	 gimple_modified_p flag on it.  */
+      modified_p = true;
     }
 
   /* Check for redundant computations.  Do this optimization only
@@ -2285,7 +2269,7 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
      Ultimately I suspect we're going to need to change the interface
      into the SSA_NAME manager.  */
-  if (gimple_modified_p (stmt))
+  if (gimple_modified_p (stmt) || modified_p)
     {
       tree val = NULL;
 

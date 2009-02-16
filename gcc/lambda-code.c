@@ -1,5 +1,6 @@
 /*  Loop transformation code generation
-    Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+    Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+    Free Software Foundation, Inc.
     Contributed by Daniel Berlin <dberlin@dberlin.org>
 
     This file is part of GCC.
@@ -147,7 +148,6 @@ static lambda_lattice lambda_lattice_new (int, int, struct obstack *);
 static lambda_lattice lambda_lattice_compute_base (lambda_loopnest,
                                                    struct obstack *);
 
-static tree find_induction_var_from_exit_cond (struct loop *);
 static bool can_convert_to_perfect_nest (struct loop *);
 
 /* Create a new lambda body vector.  */
@@ -1434,7 +1434,7 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 /* Given a LOOP, find the induction variable it is testing against in the exit
    condition.  Return the induction variable if found, NULL otherwise.  */
 
-static tree
+tree
 find_induction_var_from_exit_cond (struct loop *loop)
 {
   gimple expr = get_loop_exit_condition (loop);
@@ -2683,6 +2683,7 @@ lambda_collect_parameters (VEC (data_reference_p, heap) *datarefs,
     for (j = 0; j < DR_NUM_DIMENSIONS (data_reference); j++)
       lambda_collect_parameters_from_af (DR_ACCESS_FN (data_reference, j),
 					 parameter_set, parameters);
+  pointer_set_destroy (parameter_set);
 }
 
 /* Translates BASE_EXPR to vector CY.  AM is needed for inferring
@@ -2787,23 +2788,19 @@ av_for_af (tree access_fun, lambda_vector cy, struct access_matrix *am)
 
 static bool
 build_access_matrix (data_reference_p data_reference,
-		     VEC (tree, heap) *parameters, int loop_nest_num)
+		     VEC (tree, heap) *parameters, VEC (loop_p, heap) *nest)
 {
   struct access_matrix *am = GGC_NEW (struct access_matrix);
   unsigned i, ndim = DR_NUM_DIMENSIONS (data_reference);
-  struct loop *loop = gimple_bb (DR_STMT (data_reference))->loop_father;
-  struct loop *loop_nest = get_loop (loop_nest_num);
-  unsigned nivs = loop_depth (loop) - loop_depth (loop_nest) + 1;
+  unsigned nivs = VEC_length (loop_p, nest);
   unsigned lambda_nb_columns;
-  lambda_vector_vec_p matrix;
 
-  AM_LOOP_NEST_NUM (am) = loop_nest_num;
+  AM_LOOP_NEST (am) = nest;
   AM_NB_INDUCTION_VARS (am) = nivs;
   AM_PARAMETERS (am) = parameters;
 
   lambda_nb_columns = AM_NB_COLUMNS (am);
-  matrix = VEC_alloc (lambda_vector, heap, lambda_nb_columns);
-  AM_MATRIX (am) = matrix;
+  AM_MATRIX (am) = VEC_alloc (lambda_vector, gc, ndim);
 
   for (i = 0; i < ndim; i++)
     {
@@ -2813,7 +2810,7 @@ build_access_matrix (data_reference_p data_reference,
       if (!av_for_af (access_function, access_vector, am))
 	return false;
 
-      VEC_safe_push (lambda_vector, heap, matrix, access_vector);
+      VEC_quick_push (lambda_vector, AM_MATRIX (am), access_vector);
     }
 
   DR_ACCESS_MATRIX (data_reference) = am;
@@ -2825,13 +2822,13 @@ build_access_matrix (data_reference_p data_reference,
 bool
 lambda_compute_access_matrices (VEC (data_reference_p, heap) *datarefs,
 				VEC (tree, heap) *parameters,
-				int loop_nest_num)
+				VEC (loop_p, heap) *nest)
 {
   data_reference_p dataref;
   unsigned ix;
 
   for (ix = 0; VEC_iterate (data_reference_p, datarefs, ix, dataref); ix++)
-    if (!build_access_matrix (dataref, parameters, loop_nest_num))
+    if (!build_access_matrix (dataref, parameters, nest))
       return false;
 
   return true;

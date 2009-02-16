@@ -241,6 +241,9 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_INT_SIMD \
   (TARGET_32BIT && arm_arch6 && arm_arch_notm)
 
+/* Should MOVW/MOVT be used in preference to a constant pool.  */
+#define TARGET_USE_MOVT (arm_arch_thumb2 && !optimize_size)
+
 /* We could use unified syntax for arm mode, but for now we just use it
    for Thumb-2.  */
 #define TARGET_UNIFIED_ASM TARGET_THUMB2
@@ -404,6 +407,9 @@ extern int arm_tune_xscale;
 /* Nonzero if tuning for stores via the write buffer.  */
 extern int arm_tune_wbuf;
 
+/* Nonzero if tuning for Cortex-A9.  */
+extern int arm_tune_cortex_a9;
+
 /* Nonzero if we should define __THUMB_INTERWORK__ in the
    preprocessor.
    XXX This is a bit of a hack, it's intended to help work around
@@ -426,6 +432,9 @@ extern int arm_arch_hwdiv;
 #define CAN_DEBUG_WITHOUT_FP
 
 #define OVERRIDE_OPTIONS  arm_override_options ()
+
+#define OPTIMIZATION_OPTIONS(LEVEL,SIZE)		\
+	arm_optimization_options ((LEVEL), (SIZE))
 
 /* Nonzero if PIC code requires explicit qualifiers to generate
    PLT and GOT relocs rather than the assembler doing so implicitly.
@@ -554,6 +563,19 @@ extern int arm_arch_hwdiv;
      && !optimize_size						\
      && (ALIGN) < BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR)	\
     ? BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR : (ALIGN))
+
+/* Align definitions of arrays, unions and structures so that
+   initializations and copies can be made more efficient.  This is not
+   ABI-changing, so it only affects places where we can see the
+   definition.  */
+#define DATA_ALIGNMENT(EXP, ALIGN)					\
+  ((((ALIGN) < BITS_PER_WORD)                                           \
+    && (TREE_CODE (EXP) == ARRAY_TYPE					\
+	|| TREE_CODE (EXP) == UNION_TYPE				\
+	|| TREE_CODE (EXP) == RECORD_TYPE)) ? BITS_PER_WORD : (ALIGN))
+
+/* Similarly, make sure that objects on the stack are sensibly aligned.  */
+#define LOCAL_ALIGNMENT(EXP, ALIGN) DATA_ALIGNMENT(EXP, ALIGN)
 
 /* Setting STRUCTURE_SIZE_BOUNDARY to 32 produces more efficient code, but the
    value set in previous versions of this toolchain was 8, which produces more
@@ -1959,6 +1981,11 @@ typedef struct
    SYMBOL's section.  */
 #define ARM_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 0
 
+/* Nonzero if all target requires all absolute relocations be R_ARM_ABS32.  */
+#ifndef TARGET_DEFAULT_WORD_RELOCATIONS
+#define TARGET_DEFAULT_WORD_RELOCATIONS 0
+#endif
+
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.
 
@@ -2241,7 +2268,7 @@ do {							\
 #define MOVE_MAX 4
 
 #undef  MOVE_RATIO
-#define MOVE_RATIO (arm_tune_xscale ? 4 : 2)
+#define MOVE_RATIO(speed) (arm_tune_xscale ? 4 : 2)
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
@@ -2294,7 +2321,7 @@ do {							\
 
 /* Try to generate sequences that don't involve branches, we can then use
    conditional instructions */
-#define BRANCH_COST \
+#define BRANCH_COST(speed_p, predictable_p) \
   (TARGET_32BIT ? 4 : (optimize > 0 ? 2 : 0))
 
 /* Position Independent Code.  */
