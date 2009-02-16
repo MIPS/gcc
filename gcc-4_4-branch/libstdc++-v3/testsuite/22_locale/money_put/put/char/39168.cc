@@ -1,9 +1,4 @@
-// { dg-do compile }
-// { dg-options "-std=gnu++0x" }
-// { dg-require-cstdint "" }
-// { dg-require-gthreads "" }
-
-// Copyright (C) 2009 Free Software Foundation, Inc.
+// Copyright (C) 2009 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,16 +16,36 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
-#include <thread>
+// 22.2.6.2.1 money_put members
 
+#include <sstream>
+#include <locale>
+#include <climits>
+#include <testsuite_hooks.h>
+
+class my_moneypunct: public std::moneypunct<char>
+{
+protected:
+  std::string do_grouping() const { return std::string(1, CHAR_MAX); }
+};
+
+// libstdc++/39168
 void test01()
 {
-  // assign
-  typedef std::thread test_type;
-  test_type t1;
-  test_type t2;
-  t1 = t2;
+  bool test __attribute__((unused)) = true;
+  using namespace std;
+
+  ostringstream oss;
+  oss.imbue(locale(oss.getloc(), new my_moneypunct));
+  const money_put<char>& mp = use_facet<money_put<char> >(oss.getloc());
+
+  string digits(300, '1');
+  mp.put(oss.rdbuf(), false, oss, ' ', digits);
+  VERIFY( oss.str() == digits );
 }
 
-// { dg-error "used here" "" { target *-*-* } 32 }
-// { dg-error "deleted function" "" { target *-*-* } 138 }
+int main()
+{
+  test01();
+  return 0;
+}
