@@ -14,6 +14,7 @@
 
 2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
 
+	PR target/37049
 	* gcc.target/i386/push-1.c: New.
 
 2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>

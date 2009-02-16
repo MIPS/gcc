@@ -6,6 +6,7 @@
 
 2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
 
+	PR target/37049
 	* config/i386/i386.c (ix86_expand_push): Set memory alignment
 	to function argument boundary.
 
