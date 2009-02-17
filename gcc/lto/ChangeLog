@@ -1,3 +1,9 @@
+2009-02-17  Diego Novillo  <dnovillo@google.com>
+
+	PR 39203
+	* lto-lang.c (lto_post_options): Disable -fwhole-program
+	when running LTRANS.
+
 2009-02-10  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c (read_cgraph_and_symbols): Fix comment.

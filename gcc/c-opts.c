@@ -1023,7 +1023,14 @@ c_common_post_options (const char **pfilename)
     error ("-flto and -fwhopr are mutually exclusive");
 
   if (flag_lto || flag_whopr)
-    flag_generate_lto = 1;
+    {
+      flag_generate_lto = 1;
+
+      /* When generating IL, do not operate in whole-program mode.
+	 Otherwise, symbols will be privatized too early, causing link
+	 errors later.  */
+      flag_whole_program = 0;
+    }
 
   /* By default we use C99 inline semantics in GNU99 or C99 mode.  C99
      inline semantics are not supported in GNU89 or C89 mode.  */

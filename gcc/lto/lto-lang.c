@@ -715,7 +715,15 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
     error ("-fwpa and -fltrans are mutually exclusive.");
 
   if (flag_ltrans)
-    flag_generate_lto = 0;
+    {
+      flag_generate_lto = 0;
+
+      /* During LTRANS, we are not looking at the whole program, only
+	 a subset of the whole callgraph.  FIXME lto, this may not be
+	 true if the partitioning assigned all the nodes in the call
+	 graph to the same file.  */
+      flag_whole_program = 0;
+    }
 
   if (flag_wpa)
     flag_generate_lto = 1;
