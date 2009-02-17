@@ -1,3 +1,24 @@
+2009-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39202
+	* gcc.c-torture/compile/pr39202.c: New testcase.
+
+2009-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39204
+	* gcc.dg/torture/pr39204.c: New testcase.
+
+2009-02-17  Bingfeng Mei <bmei@broadcom.com>
+
+	* gcc.dg/vect/vect-outer-5.c: Require vect_float support.
+	* gcc.dg/vect/vect-outer-6.c: Ditto.
+
+2009-02-16  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35446
+	* gcc.dg/noncompile/init-5.c: New test.
+	* gcc.dg/init-bad-4.c: Adjust expected errors.
+
 2009-02-16  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/37049
