@@ -1,8 +1,3 @@
-2009-02-17  Thomas Neumann <tneumann@users.sourceforge.net>
-
-	* ira.c (setup_prohibited_mode_move_regs): Add missing casts to
-	enum machine_mode
-
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
 	* Makefile.def: Bootstrap the libstdc++-v3 target module.

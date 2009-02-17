@@ -1,3 +1,8 @@
+2009-02-17  Thomas Neumann <tneumann@users.sourceforge.net>
+
+        * ira.c (setup_prohibited_mode_move_regs): Add missing casts to
+        enum machine_mode
+
 2009-02-10  Ian Lance Taylor  <iant@google.com>
 
 	* df.h (struct df_mw_hardreg): Change flags field to int.
