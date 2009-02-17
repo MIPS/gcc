@@ -1,0 +1,4 @@
+2009-02-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR lto/39216
+	* gcc_update: Adjust file timestamps for lto-plugin.
