@@ -127,14 +127,15 @@ input_local_decl (struct lto_input_block *, struct data_in *,
 /* Return the next character of input from IB.  Abort if you
    overrun.  */
 
-/* Read the string at LOC from the string table in DATA_IN.  */
+/* Read a string from the string table in DATA_IN. Write the length te RLEN. */
 
-static const char * 
-input_string_internal (struct data_in *data_in, unsigned int loc, 
+static const char *
+input_string_internal (struct data_in *data_in, struct lto_input_block *ib,
 		       unsigned int *rlen)
 {
   struct lto_input_block str_tab;
   unsigned int len;
+  unsigned int loc = lto_input_uleb128 (ib);
   const char * result;
   
   LTO_INIT_INPUT_BLOCK (str_tab, data_in->strings,
@@ -149,36 +150,75 @@ input_string_internal (struct data_in *data_in, unsigned int loc,
 }
 
 
-/* Read a STRING_CST at LOC from the string table in DATA_IN.  */
+/* Read a STRING_CST from the string table in DATA_IN.  */
 
 static tree
-input_string (struct data_in *data_in, unsigned int loc)
+input_string_cst (struct data_in *data_in, struct lto_input_block *ib)
 {
   unsigned int len;
-  const char * ptr = input_string_internal (data_in, loc, &len);
+  const char * ptr;
+  unsigned int is_null;
+
+  LTO_DEBUG_TOKEN ("string_cst");
+
+  is_null = lto_input_uleb128 (ib);
+  if (is_null)
+    return NULL;
+
+  ptr = input_string_internal (data_in, ib, &len);
   return build_string (len, ptr);
 }
 
+/* Read an IDENTIFIER from the string table in DATA_IN.  */
+
+static tree
+input_identifier (struct data_in *data_in, struct lto_input_block *ib)
+{
+  unsigned int len;
+  const char * ptr;
+  unsigned int is_null;
+
+  LTO_DEBUG_TOKEN ("identifier");
+
+  is_null = lto_input_uleb128 (ib);
+  if (is_null)
+    return NULL;
+
+  ptr = input_string_internal (data_in, ib, &len);
+  return get_identifier_with_length (ptr, len);
+}
+
+/* Reads a '\0' terminated string from the string table in DATA_IN.  */
+
+static const char *
+input_string (struct data_in *data_in, struct lto_input_block *ib)
+{
+  unsigned int len;
+  const char * ptr;
+  unsigned int is_null;
+
+  LTO_DEBUG_TOKEN ("string");
+
+  is_null = lto_input_uleb128 (ib);
+  if (is_null)
+    return NULL;
+
+  ptr = input_string_internal (data_in, ib, &len);
+  gcc_assert (ptr[len - 1] == '\0');
+  return ptr;
+}
 
 /* Input a real constant of TYPE at LOC.  */
 
 static tree
 input_real (struct lto_input_block *ib, struct data_in *data_in, tree type)
 {
-  unsigned int loc;
-  unsigned int len;
   const char * str;
   REAL_VALUE_TYPE value;
-  static char buffer[1000];
 
   LTO_DEBUG_TOKEN ("real");
-  loc = lto_input_uleb128 (ib);
-  str = input_string_internal (data_in, loc, &len);
-  /* Copy over to make sure real_from_string doesn't see peculiar
-     trailing characters in the exponent.  */
-  memcpy (buffer, str, len);
-  buffer[len] = '\0';
-  real_from_string (&value, buffer);
+  str = input_string (data_in, ib);
+  real_from_string (&value, str);
   return build_real (type, value);
 }
 
@@ -424,13 +464,12 @@ input_line_info (struct lto_input_block *ib, struct data_in *data_in,
 {
   if (flags & LTO_SOURCE_FILE)
     {
-      unsigned int len;
       if (data_in->current_file)
 	linemap_add (line_table, LC_LEAVE, false, NULL, 0);
 
       LTO_DEBUG_TOKEN ("file");
       data_in->current_file 
-	= canon_file_name (input_string_internal (data_in, lto_input_uleb128 (ib), &len));
+	= canon_file_name (input_string (data_in, ib));
     }
   if (flags & LTO_SOURCE_LINE)
     {
@@ -581,16 +620,12 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case STRING_CST:
-      result = input_string (data_in, lto_input_uleb128 (ib));
+      result = input_string_cst (data_in, ib);
       TREE_TYPE (result) = type;
       break;
 
     case IDENTIFIER_NODE:
-      {
-	unsigned int len;
-	const char * ptr = input_string_internal (data_in, lto_input_uleb128 (ib), &len);
-	result = get_identifier_with_length (ptr, len);
-      }
+      result = input_identifier (data_in, ib);
       break;
 
     case VECTOR_CST:
@@ -1082,10 +1117,7 @@ input_labels (struct lto_input_block *ib, struct data_in *data_in,
   data_in->labels = (tree *) xcalloc (named_count + unnamed_count, sizeof (tree));
   for (i = 0; i < named_count; i++)
     {
-      unsigned int name_index = lto_input_uleb128 (ib);
-      unsigned int len;
-      const char *s = input_string_internal (data_in, name_index, &len);
-      tree name = get_identifier_with_length (s, len);
+      tree name = input_identifier (data_in, ib);
       data_in->labels[i] = build_decl (LABEL_DECL, name, void_type_node);
     }
 
@@ -1125,7 +1157,6 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
 {
   unsigned int variant;
   bool is_var;
-  unsigned int name_index;
   tree name = NULL_TREE;
   tree assembler_name = NULL_TREE;
   tree type;
@@ -1135,21 +1166,9 @@ input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in,
   variant = tag & 0xF;
   is_var = ((tag & 0xFFF0) == LTO_local_var_decl_body0);
   
-  name_index = lto_input_uleb128 (ib);
-  if (name_index)
-    {
-      unsigned int len;
-      const char *s = input_string_internal (data_in, name_index, &len);
-      name = get_identifier_with_length (s, len);
+  name = input_identifier (data_in, ib);
+  assembler_name = input_identifier (data_in, ib);
 
-      name_index = lto_input_uleb128 (ib);
-      if (name_index)
-	{
-	  s = input_string_internal (data_in, name_index, &len);
-	  assembler_name = get_identifier_with_length (s, len);
-	}
-    }
-  
   type = input_type_ref (data_in, ib);
   gcc_assert (type);
   
@@ -1778,8 +1797,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   if (code == GIMPLE_ASM)
     {
       /* FIXME lto.  Move most of this into a new gimple_asm_set_string().  */
-      unsigned loc = lto_input_uleb128 (ib);
-      tree str = input_string (data_in, loc);
+      tree str = input_string_cst (data_in, ib);
       stmt->gimple_asm.string = TREE_STRING_POINTER (str);
     }
 
@@ -3185,16 +3203,12 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case STRING_CST:
-      result = input_string (data_in, lto_input_uleb128 (ib));
+      result = input_string_cst (data_in, ib);
       TREE_TYPE (result) = type;
       break;
 
     case IDENTIFIER_NODE:
-      {
-	unsigned int len;
-	const char * ptr = input_string_internal (data_in, lto_input_uleb128 (ib), &len);
-	result = get_identifier_with_length (ptr, len);
-      }
+      result = input_identifier (data_in, ib);
       break;
 
     case VECTOR_CST:

@@ -257,22 +257,28 @@ destroy_output_block (struct output_block * ob)
 
 
 
-/* Output STRING of LEN to the string table in OB.  Then put the index 
-   onto the INDEX_STREAM.  */
+/* Output STRING of LEN characters to the string
+   table in OB. The string might or might not include a trailing '\0'.
+   Then put the index onto the INDEX_STREAM.  */
 
 static void
-output_string (struct output_block *ob, 
-	       struct lto_output_stream *index_stream,
-	       const char *string,
-	       unsigned int len)
+output_string_with_length (struct output_block *ob,
+			   struct lto_output_stream *index_stream,
+			   const char *s,
+			   unsigned int len)
 {
-  void **slot;
+  struct string_slot **slot;
   struct string_slot s_slot;
+  char *string = (char *) xmalloc (len + 1);
+  memcpy (string, s, len);
+  string[len] = '\0';
+
   s_slot.s = string;
   s_slot.len = len;
   s_slot.slot_num = 0;
 
-  slot = htab_find_slot (ob->string_hash_table, &s_slot, INSERT);
+  slot = (struct string_slot **) htab_find_slot (ob->string_hash_table,
+						 &s_slot, INSERT);
   if (*slot == NULL)
     {
       struct lto_output_stream *string_stream = ob->string_stream;
@@ -280,10 +286,8 @@ output_string (struct output_block *ob,
       struct string_slot *new_slot
 	= (struct string_slot *) xmalloc (sizeof (struct string_slot));
       unsigned int i;
-      char *new_string = (char *) xmalloc (len);
 
-      memcpy (new_string, string, len);
-      new_slot->s = new_string;
+      new_slot->s = string;
       new_slot->len = len;
       new_slot->slot_num = start;
       *slot = new_slot;
@@ -296,6 +300,7 @@ output_string (struct output_block *ob,
     {
       struct string_slot *old_slot = (struct string_slot *)*slot;
       lto_output_uleb128_stream (index_stream, old_slot->slot_num);
+      free (string);
 
       /* From the debugging protocol's point of view, the entry needs
 	 to look the same reguardless of whether this is the first
@@ -304,9 +309,70 @@ output_string (struct output_block *ob,
 	 string.  */
       LTO_DEBUG_WIDE ("U", len);
     }
-  LTO_DEBUG_STRING (string, len);
+
+  LTO_DEBUG_STRING ((*slot)->s, (*slot)->len);
+
 }
 
+/* Output the '\0' terminated STRING to the string
+   table in OB.  Then put the index onto the INDEX_STREAM.  */
+
+static void
+output_string (struct output_block *ob,
+	       struct lto_output_stream *index_stream,
+	       const char *string)
+{
+  LTO_DEBUG_TOKEN ("string");
+  if (string)
+    {
+      lto_output_uleb128_stream (index_stream, 0);
+      output_string_with_length (ob, index_stream, string, strlen (string) + 1);
+    }
+  else
+    lto_output_uleb128_stream (index_stream, 1);
+}
+
+
+/* Output the STRING constant to the string
+   table in OB.  Then put the index onto the INDEX_STREAM.  */
+
+static void
+output_string_cst (struct output_block *ob,
+		   struct lto_output_stream *index_stream,
+		   tree string)
+{
+  LTO_DEBUG_TOKEN ("string_cst");
+  if (string)
+    {
+      lto_output_uleb128_stream (index_stream, 0);
+      output_string_with_length (ob, index_stream,
+				 TREE_STRING_POINTER (string),
+				 TREE_STRING_LENGTH (string));
+    }
+  else
+    lto_output_uleb128_stream (index_stream, 1);
+}
+
+
+/* Output the identifier ID to the string
+   table in OB.  Then put the index onto the INDEX_STREAM.  */
+
+static void
+output_identifier (struct output_block *ob,
+		   struct lto_output_stream *index_stream,
+		   tree id)
+{
+  LTO_DEBUG_TOKEN ("identifier");
+  if (id)
+    {
+      lto_output_uleb128_stream (index_stream, 0);
+      output_string_with_length (ob, index_stream,
+				 IDENTIFIER_POINTER (id),
+				 IDENTIFIER_LENGTH (id));
+    }
+  else
+    lto_output_uleb128_stream (index_stream, 1);
+}
 
 /* Put out a real constant.  */
 
@@ -318,7 +384,7 @@ output_real (struct output_block *ob, tree t)
 
   LTO_DEBUG_TOKEN ("real");
   real_to_hexadecimal (real_buffer, r, 1000, 0, 1);
-  output_string (ob, ob->main_stream, real_buffer, strlen (real_buffer));
+  output_string (ob, ob->main_stream, real_buffer);
 }
 
 
@@ -529,8 +595,7 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr,
       if (file_to_write)
 	{
 	  LTO_DEBUG_TOKEN ("file");
-	  output_string (ob, ob->main_stream, 
-			 file_to_write, strlen (file_to_write) + 1);
+	  output_string (ob, ob->main_stream, file_to_write);
 	}
       if (line_to_write != -1)
 	{
@@ -908,18 +973,14 @@ output_expr_operand (struct output_block *ob, tree expr)
 	  TREE_TYPE (expr) = void_type_node;
 
 	output_record_start (ob, expr, expr, LTO_string_cst);
-	output_string (ob, ob->main_stream, 
-		       TREE_STRING_POINTER (expr),
-		       TREE_STRING_LENGTH (expr));
+	output_string_cst (ob, ob->main_stream, expr);
       }
       break;
 
     case IDENTIFIER_NODE:
       {
 	output_record_start (ob, expr, expr, LTO_identifier_node);
-	output_string (ob, ob->main_stream, 
-		       IDENTIFIER_POINTER (expr),
-		       IDENTIFIER_LENGTH (expr));
+	output_identifier (ob, ob->main_stream, expr);
       }
       break;
       
@@ -1099,9 +1160,7 @@ output_expr_operand (struct output_block *ob, tree expr)
       {
 	tree string_cst = ASM_STRING (expr);
 	output_record_start (ob, expr, NULL, LTO_asm_expr);
-	output_string (ob, ob->main_stream, 
-		       TREE_STRING_POINTER (string_cst),
-		       TREE_STRING_LENGTH (string_cst));
+	output_string_cst (ob, ob->main_stream, string_cst);
 	if (ASM_INPUTS (expr))
 	  output_expr_operand (ob, ASM_INPUTS (expr));
 	else 
@@ -1234,27 +1293,9 @@ output_local_var_decl (struct output_block *ob, int index, tree fn)
 
   output_record_start (ob, NULL, NULL, tag);
 
-  /* Put out the name if there is one.  */
-  if (DECL_NAME (decl))
-    {
-      tree name = DECL_NAME (decl);
-      output_string (ob, ob->main_stream, 
-		     IDENTIFIER_POINTER (name), 
-		     IDENTIFIER_LENGTH (name));
+  output_identifier (ob, ob->main_stream, DECL_NAME (decl));
+  output_identifier (ob, ob->main_stream, decl->decl_with_vis.assembler_name);
 
-      if (DECL_ASSEMBLER_NAME_SET_P (decl))
-        {
-	  tree assembler_name = DECL_ASSEMBLER_NAME (decl);
-	  output_string (ob, ob->main_stream, 
-			 IDENTIFIER_POINTER (assembler_name), 
-			 IDENTIFIER_LENGTH (assembler_name));
-        }
-      else
-	output_zero (ob);
-    }
-  else
-    output_zero (ob);
-  
   output_type_ref (ob, TREE_TYPE (decl));
   
   if (is_var)
@@ -1439,9 +1480,7 @@ output_named_labels (struct output_block *ob)
     {
       tree decl = VEC_index (tree, ob->named_labels, index++);
       tree name = DECL_NAME (decl);
-      output_string (ob, ob->named_label_stream, 
-		     IDENTIFIER_POINTER (name), 
-		     IDENTIFIER_LENGTH (name));
+      output_identifier (ob, ob->named_label_stream, name);
    }
 }
 
@@ -1578,8 +1617,7 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASM:
-      output_string (ob, ob->main_stream, gimple_asm_string (stmt),
-		     strlen (gimple_asm_string (stmt)));
+      output_string (ob, ob->main_stream, gimple_asm_string (stmt));
       /* Fallthru  */
 
     case GIMPLE_ASSIGN:
@@ -3128,18 +3166,14 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
 	  TREE_TYPE (expr) = void_type_node;
 
 	output_global_record_start (ob, expr, expr, LTO_string_cst);
-	output_string (ob, ob->main_stream, 
-		       TREE_STRING_POINTER (expr),
-		       TREE_STRING_LENGTH (expr));
+	output_string_cst (ob, ob->main_stream, expr);
       }
       break;
 
     case IDENTIFIER_NODE:
       {
 	output_global_record_start (ob, expr, expr, LTO_identifier_node);
-	output_string (ob, ob->main_stream, 
-		       IDENTIFIER_POINTER (expr),
-		       IDENTIFIER_LENGTH (expr));
+	output_identifier (ob, ob->main_stream, expr);
       }
       break;
       

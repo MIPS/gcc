@@ -1,3 +1,29 @@
+2009-02-16  Rafael Avila de Espindola  <espindola@google.com>
+
+	PR 39010
+	* lto-function-in.c (input_string): Rename to input_string_cst.
+	Read loc.
+	(input_identifier): New.
+	(input_string): New.
+	(input_line_info): Use input_string.
+	(input_expr_operand): Use input_string_cst, input_identifier.
+	(input_labels): Use input_identifier.
+	(input_local_var_decl): Use input_identifier.
+	(input_gimple_stmt): Use input_string_cst.
+	(input_tree_operand): Use input_string_cst, input_identifier.
+	* lto-function-out.c (output_string): Rename to
+	output_string_with_length. Add trailing '\0'.
+	(output_string): New.
+	(output_string_cst): New.
+	(output_identifier): New.
+	(output_real): Update call to output_string.
+	(output_tree_flags): Update call to output_string.
+	(output_expr_operand): Use output_string_cst, output_identifier.
+	(output_local_var_decl): Use output_identifier.
+	(output_named_labels): Use output_identifier.
+	(output_gimple_stmt): Update call to output_string.
+	(output_tree_with_context): Use output_string_cst, output_identifier.
+
 2009-02-13  Diego Novillo  <dnovillo@google.com>
 
 	* lto-tree-flags.def (VAR_DECL, FUNCTION_DECL): Remove
