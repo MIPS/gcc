@@ -1,3 +1,152 @@
+2009-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39224
+	* config/i386/i386.c (ix86_return_in_memory): Properly check
+	ABI.
+
+2009-02-18  Jason Merrill  <jason@redhat.com>
+
+	PR target/39179
+	* tree-ssa-ccp.c (get_symbol_constant_value): Don't assume zero
+	value if DECL_EXTERNAL.
+	* tree-sra.c (sra_walk_gimple_assign): Likewise.
+	* target.h (gcc_target::binds_local_p): Clarify "module".
+	* tree.h (TREE_PUBLIC): Clarify "module".
+
+2009-02-17  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	PR target/38891
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE): Move the hunk of
+	initialization for MS_ABI prior to the hunk of !TARGET_MMX.
+
+2009-02-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39082
+	* c.opt (Wabi): Support C and ObjC.
+	(Wpsabi): New.
+
+	* c-opts.c (c_common_handle_option): Handle OPT_Wabi.
+
+	* config/i386/i386.c (classify_argument): Warn once about the ABI
+	change when passing union with long double.
+
+	* doc/invoke.texi: Update -Wabi for warning psABI changes.
+
+2009-02-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35447
+	* c-parser.c (c_parser_compound_statement): Always enter and leave
+	a scope.
+
+2009-02-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/34587
+	* config/darwin.h (SUPPORTS_INIT_PRIORITY): Define.
+
+2009-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36922
+	* tree-data-ref.c (initialize_matrix_A): Handle BIT_NOT_EXPR.
+	* tree-scalar-evolution.c (interpret_rhs_expr, instantiate_scev_1):
+	Likewise.
+
+2009-02-17  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_override_options): Set flag_dwarf2_cfi_asm
+	to 0 for EABI64.
+
+2009-02-17  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.md (type): Reclassify lui_movf as "unknown".
+
+2009-02-17  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_gimplify_va_arg_expr): Fix invalid
+	tree sharing.
+
+2009-02-17  Ruan Beihong  <ruanbeihong@gmail.com>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (CODE_FOR_loongson_biadd): Delete.
+	* config/mips/loongson.md (reduc_uplus_<mode>): Rename to...
+	(loongson_biadd): ...this.
+
+2009-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39202
+	* tree-ssa-structalias.c (do_structure_copy): Before collapsing
+	a var make sure to follow existing collapses.
+
+2009-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39214
+	* langhooks.c (lhd_print_error_function): Check for NULL block.
+
+2009-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39204
+	* tree-ssa-pre.c (phi_translate_1): Lookup the value-number
+	of the PHI arg.
+
+2009-02-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/soft-fp/double.h: Update from glibc CVS.
+
+2009-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39207
+	* tree-ssa-structalias.c (find_what_p_points_to): Do not emit
+	strict-aliasing warnings for pointers pointing to NULL.
+
+2009-02-16  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35446
+	* c-parser.c (c_parser_braced_init): Call pop_init_level when
+	skipping until next close brace.
+
+2009-02-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/37049
+	* config/i386/i386.c (ix86_expand_push): Set memory alignment
+	to function argument boundary.
+
+2009-02-16  Hariharan Sandanagobalane  <hariharan@picochip.com>
+
+	* config/picochip/picochip.md (lea_add): Allow any nonimmediate
+	in the lea_add. Reload eventually constraints it properly.
+	* config/picochip/constraints.md : Remove the target constraint
+	"b", since it is not needed anymore.
+
+2009-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gthr-dce.h: Uglify function parameter and local variable names.
+	* gthr-gnat.h: Likewise.
+	* gthr-mipssde.h: Likewise.
+	* gthr-nks.h: Likewise.
+	* gthr-posix95.h: Likewise.
+	* gthr-posix.h: Likewise.
+	* gthr-rtems.h: Likewise.
+	* gthr-single.h: Likewise.
+	* gthr-solaris.h: Likewise.
+	* gthr-tpf.h: Likewise.
+	* gthr-vxworks.h: Likewise.
+	* gthr-win32.h: Likewise.
+
+2009-02-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39196
+	* config/i386/i386.md: Restrict the new peephole2 to move
+	between MMX/SSE registers.
+
+2009-02-15  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2009-02-13  Richard Guenther  <rguenther@suse.de>
+
+	* configure.ac: Enable LFS.
+	* configure: Re-generate.
+	* config.in: Likewise.
+
 2009-02-13  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* config/spu/spu_internals.h (spu_sr, spu_sra, spu_srqw,
