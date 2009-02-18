@@ -610,8 +610,9 @@ extern int rs6000_xilinx_fpu;
 #define PARM_BOUNDARY (TARGET_32BIT ? 32 : 64)
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY \
-  ((TARGET_32BIT && !TARGET_ALTIVEC && !TARGET_ALTIVEC_ABI) ? 64 : 128)
+#define STACK_BOUNDARY	\
+  ((TARGET_32BIT && !TARGET_ALTIVEC && !TARGET_ALTIVEC_ABI && !TARGET_VSX) \
+    ? 64 : 128)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -623,10 +624,11 @@ extern int rs6000_xilinx_fpu;
    local store.  TYPE is the data type, and ALIGN is the alignment
    that the object would ordinarily have.  */
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
-  ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :	\
+  (((TARGET_ALTIVEC || TARGET_VSX)				\
+    && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :			\
     (TARGET_E500_DOUBLE						\
-     && TYPE_MODE (TYPE) == DFmode) ? 64 : \
-    ((TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE \
+     && TYPE_MODE (TYPE) == DFmode) ? 64 :			\
+    ((TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE		\
      && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) || (TARGET_PAIRED_FLOAT \
         && TREE_CODE (TYPE) == VECTOR_TYPE \
         && PAIRED_VECTOR_MODE (TYPE_MODE (TYPE)))) ? 64 : ALIGN)
@@ -971,10 +973,12 @@ extern int rs6000_xilinx_fpu;
 #define PAIRED_VECTOR_MODE(MODE)        \
          ((MODE) == V2SFmode)            
 
-#define UNITS_PER_SIMD_WORD(MODE)				     \
-	(TARGET_ALTIVEC ? UNITS_PER_ALTIVEC_WORD		     \
-	 : (TARGET_SPE ? UNITS_PER_SPE_WORD : (TARGET_PAIRED_FLOAT ? \
-	 UNITS_PER_PAIRED_WORD : UNITS_PER_WORD)))
+#define UNITS_PER_SIMD_WORD(MODE)					\
+	(TARGET_VSX ? UNITS_PER_VSX_WORD				\
+	 : (TARGET_ALTIVEC ? UNITS_PER_ALTIVEC_WORD			\
+	 : (TARGET_SPE ? UNITS_PER_SPE_WORD				\
+	 : (TARGET_PAIRED_FLOAT ? UNITS_PER_PAIRED_WORD			\
+	 : UNITS_PER_WORD))))
 
 /* Value is TRUE if hard register REGNO can hold a value of
    machine-mode MODE.  */
@@ -1093,9 +1097,10 @@ extern int rs6000_xilinx_fpu;
    For any two classes, it is very desirable that there be another
    class that represents their union.  */
 
-/* The RS/6000 has three types of registers, fixed-point, floating-point,
-   and condition registers, plus three special registers, MQ, CTR, and the
-   link register.  AltiVec adds a vector register class.
+/* The RS/6000 has three types of registers, fixed-point, floating-point, and
+   condition registers, plus three special registers, MQ, CTR, and the link
+   register.  AltiVec adds a vector register class.  VSX registers overlap the
+   FPR registers and the Altivec registers.
 
    However, r0 is special in that it cannot be used as a base register.
    So make a class for registers valid as base registers.
@@ -1110,6 +1115,7 @@ enum reg_class
   GENERAL_REGS,
   FLOAT_REGS,
   ALTIVEC_REGS,
+  VSX_REGS,
   VRSAVE_REGS,
   VSCR_REGS,
   SPE_ACC_REGS,
@@ -1140,6 +1146,7 @@ enum reg_class
   "GENERAL_REGS",							\
   "FLOAT_REGS",								\
   "ALTIVEC_REGS",							\
+  "VSX_REGS",								\
   "VRSAVE_REGS",							\
   "VSCR_REGS",								\
   "SPE_ACC_REGS",                                                       \
@@ -1169,6 +1176,7 @@ enum reg_class
   { 0xffffffff, 0x00000000, 0x00000008, 0x00020000 }, /* GENERAL_REGS */     \
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000 }, /* FLOAT_REGS */       \
   { 0x00000000, 0x00000000, 0xffffe000, 0x00001fff }, /* ALTIVEC_REGS */     \
+  { 0x00000000, 0xffffffff, 0xffffe000, 0x00001fff }, /* VSX_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00002000 }, /* VRSAVE_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00004000 }, /* VSCR_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00008000 }, /* SPE_ACC_REGS */     \
@@ -1216,8 +1224,8 @@ enum reg_class
   : (REGNO) == CR0_REGNO ? CR0_REGS		\
   : CR_REGNO_P (REGNO) ? CR_REGS		\
   : (REGNO) == MQ_REGNO ? MQ_REGS		\
-  : (REGNO) == LR_REGNO ? LINK_REGS	\
-  : (REGNO) == CTR_REGNO ? CTR_REGS	\
+  : (REGNO) == LR_REGNO ? LINK_REGS		\
+  : (REGNO) == CTR_REGNO ? CTR_REGS		\
   : (REGNO) == ARG_POINTER_REGNUM ? BASE_REGS	\
   : (REGNO) == XER_REGNO ? XER_REGS		\
   : (REGNO) == VRSAVE_REGNO ? VRSAVE_REGS	\
@@ -1250,13 +1258,7 @@ enum reg_class
  */
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  ((CONSTANT_P (X)					\
-    && reg_classes_intersect_p ((CLASS), FLOAT_REGS))	\
-   ? NO_REGS 						\
-   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
-      && (CLASS) == NON_SPECIAL_REGS)			\
-   ? GENERAL_REGS					\
-   : (CLASS))
+  rs6000_preferred_reload_class (X, CLASS)
 
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in CLASS in MODE.  If it can be done directly,
@@ -1271,18 +1273,7 @@ enum reg_class
    are available.*/
 
 #define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
- ((CLASS1) != (CLASS2) && (((CLASS1) == FLOAT_REGS			\
-                            && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				|| ((MODE != DFmode)			\
-				    && (MODE != DDmode)			\
-				    && (MODE != DImode))))		\
-			   || ((CLASS2) == FLOAT_REGS			\
-                               && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				   || ((MODE != DFmode)			\
-				       && (MODE != DDmode)		\
-				       && (MODE != DImode))))		\
-			   || (CLASS1) == ALTIVEC_REGS			\
-			   || (CLASS2) == ALTIVEC_REGS))
+  rs6000_secondary_memory_needed (CLASS1, CLASS2, MODE)
 
 /* For cpus that cannot load/store SDmode values from the 64-bit
    FP registers without using a full 64-bit load/store, we need
@@ -1302,19 +1293,7 @@ enum reg_class
 /* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				\
-   ? ((GET_MODE_SIZE (FROM) < 8 || GET_MODE_SIZE (TO) < 8		\
-       || TARGET_IEEEQUAD)						\
-      && reg_classes_intersect_p (FLOAT_REGS, CLASS))			\
-   : (((TARGET_E500_DOUBLE						\
-	&& ((((TO) == DFmode) + ((FROM) == DFmode)) == 1		\
-	    || (((TO) == TFmode) + ((FROM) == TFmode)) == 1		\
-	    || (((TO) == DDmode) + ((FROM) == DDmode)) == 1		\
-	    || (((TO) == TDmode) + ((FROM) == TDmode)) == 1		\
-	    || (((TO) == DImode) + ((FROM) == DImode)) == 1))		\
-       || (TARGET_SPE							\
-	   && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1))	\
-      && reg_classes_intersect_p (GENERAL_REGS, CLASS)))
+  rs6000_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1375,8 +1354,8 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 #define STARTING_FRAME_OFFSET						\
   (FRAME_GROWS_DOWNWARD							\
    ? 0									\
-   : (RS6000_ALIGN (crtl->outgoing_args_size,		\
-		    TARGET_ALTIVEC ? 16 : 8)				\
+   : (RS6000_ALIGN (crtl->outgoing_args_size,				\
+		    (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8)		\
       + RS6000_SAVE_AREA))
 
 /* Offset from the stack pointer register to an item dynamically
@@ -1386,8 +1365,8 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
    length of the outgoing arguments.  The default is correct for most
    machines.  See `function.c' for details.  */
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
-  (RS6000_ALIGN (crtl->outgoing_args_size,			\
-		 TARGET_ALTIVEC ? 16 : 8)				\
+  (RS6000_ALIGN (crtl->outgoing_args_size,				\
+		 (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8)		\
    + (STACK_POINTER_OFFSET))
 
 /* If we generate an insn to push BYTES bytes,
@@ -1637,7 +1616,7 @@ typedef struct rs6000_args
 #define	EPILOGUE_USES(REGNO)					\
   ((reload_completed && (REGNO) == LR_REGNO)			\
    || (TARGET_ALTIVEC && (REGNO) == VRSAVE_REGNO)		\
-   || (crtl->calls_eh_return				\
+   || (crtl->calls_eh_return					\
        && TARGET_AIX						\
        && (REGNO) == 2))
 

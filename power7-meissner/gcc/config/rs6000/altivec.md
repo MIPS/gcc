@@ -182,10 +182,26 @@
 
 (define_mode_attr VI_char [(V4SI "w") (V8HI "h") (V16QI "b")])
 
-;; Altivec move instructions, prefer VSX if we have it
-(define_insn "*mov_altivec_<mode>"
-  [(set (match_operand:VM 0 "nonimmediate_operand" "=Z,v,v,o,r,r,v")
-	(match_operand:VM 1 "input_operand" "v,Z,v,r,o,r,W"))]
+;; Generic LVX load instruction.
+(define_insn "altivec_lvx_<mode>"
+  [(set (match_operand:V 0 "altivec_register_operand" "=v")
+	(match_operand:V 1 "memory_operand" "Z"))]
+  "TARGET_ALTIVEC"
+  "lvx %0,%y1"
+  [(set_attr "type" "vecload")])
+
+;; Generic STVX store instruction.
+(define_insn "altivec_stvx_<mode>"
+  [(set (match_operand:V 0 "memory_operand" "=Z")
+	(match_operand:V 1 "altivec_register_operand" "v"))]
+  "TARGET_ALTIVEC && !TARGET_VSX"
+  "stvx %1,%y0"
+  [(set_attr "type" "vecstore")])
+
+;; Vector move instructions.
+(define_insn "*mov<mode>_altivec"
+  [(set (match_operand:V 0 "nonimmediate_operand" "=Z,v,v,o,r,r,v,v")
+	(match_operand:V 1 "input_operand" "v,Z,v,r,o,r,j,W"))]
   "TARGET_ALTIVEC && !TARGET_VSX
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
@@ -198,11 +214,12 @@
     case 3: return "#";
     case 4: return "#";
     case 5: return "#";
-    case 6: return output_vec_const_move (operands);
+    case 6: return "vxor %0,%0,%0";
+    case 7: return output_vec_const_move (operands);
     default: gcc_unreachable ();
     }
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,store,load,*,*")])
+  [(set_attr "type" "vecstore,vecload,vecsimple,store,load,*,vecsimple,*")])
 
 (define_split
   [(set (match_operand:VM 0 "altivec_register_operand" "")

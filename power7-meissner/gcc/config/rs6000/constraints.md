@@ -38,6 +38,9 @@
 (define_register_constraint "l" "LINK_REGS"
   "@internal")
 
+(define_register_constraint "w" "TARGET_VSX ? VSX_REGS : NO_REGS"
+  "@internal")
+
 (define_register_constraint "v" "ALTIVEC_REGS"
   "@internal")
 

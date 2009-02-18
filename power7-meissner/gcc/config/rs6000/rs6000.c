@@ -3759,6 +3759,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
     case V4SFmode:
     case V4SImode:
     case V2DFmode:
+    case V2DImode:
       /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid and
 	 constant offset zero should not occur due to canonicalization.  */
       return false;
@@ -11697,6 +11698,80 @@ rs6000_instantiate_decls (void)
     instantiate_decl_rtl (cfun->machine->sdmode_stack_slot);
 }
 
+/* Given an rtx X being reloaded into a reg required to be
+   in class CLASS, return the class of reg to actually use.
+   In general this is just CLASS; but on some machines
+   in some cases it is preferable to use a more restrictive class.
+
+   On the RS/6000, we have to return NO_REGS when we want to reload a
+   floating-point CONST_DOUBLE to force it to be copied to memory.
+
+   We also don't want to reload integer values into floating-point
+   registers if we can at all help it.  In fact, this can
+   cause reload to die, if it tries to generate a reload of CTR
+   into a FP register and discovers it doesn't have the memory location
+   required.
+
+   ??? Would it be a good idea to have reload do the converse, that is
+   try to reload floating modes into FP registers if possible?
+ */
+
+enum reg_class
+rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
+{
+  enum machine_mode mode = GET_MODE (x);
+
+  if (TARGET_VSX && VSX_VECTOR_MODE (mode) && x == CONST0_RTX (mode)
+      && (rclass == FLOAT_REGS || rclass == VSX_REGS
+	  || rclass == ALTIVEC_REGS))
+    return rclass;
+
+  if (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode) && rclass == ALTIVEC_REGS
+      && easy_vector_constant (x, mode))
+    return rclass;
+
+  if (CONSTANT_P (x) && reg_classes_intersect_p (rclass, FLOAT_REGS))
+    return NO_REGS;
+
+  if (GET_MODE_CLASS (mode) == MODE_INT && rclass == NON_SPECIAL_REGS)
+    return GENERAL_REGS;
+
+  return rclass;
+}
+
+/* If we are copying between FP or AltiVec registers and anything
+   else, we need a memory location.  The exception is when we are
+   targeting ppc64 and the move to/from fpr to gpr instructions
+   are available.*/
+
+bool
+rs6000_secondary_memory_needed (enum reg_class class1,
+				enum reg_class class2,
+				enum machine_mode mode)
+{
+  if (class1 == class2)
+    return false;
+
+  if (class1 == FLOAT_REGS
+       && (!TARGET_MFPGPR || !TARGET_POWERPC64
+	   || ((mode != DFmode)
+	       && (mode != DDmode)
+	       && (mode != DImode))))
+    return true;
+
+  if (class2 == FLOAT_REGS
+      && (!TARGET_MFPGPR || !TARGET_POWERPC64
+	  || ((mode != DFmode)
+	      && (mode != DDmode)
+	      && (mode != DImode))))
+    return true;
+
+  if (class1 == ALTIVEC_REGS || class2 == ALTIVEC_REGS)
+    return true;
+
+  return false;
+}
+
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in RCLASS in MODE.  If it can be done directly,
    NO_REGS is returned.  */
@@ -11771,6 +11846,28 @@ rs6000_secondary_reload_class (enum reg_class rclass,
 
   /* Otherwise, we need GENERAL_REGS.  */
   return GENERAL_REGS;
+}
+
+/* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
+
+bool
+rs6000_cannot_change_mode_class (enum machine_mode from,
+				 enum machine_mode to,
+				 enum reg_class rclass)
+{
+  return (GET_MODE_SIZE (from) != GET_MODE_SIZE (to)
+	  ? ((GET_MODE_SIZE (from) < 8 || GET_MODE_SIZE (to) < 8
+	      || TARGET_IEEEQUAD)
+	     && reg_classes_intersect_p (FLOAT_REGS, rclass))
+	  : (((TARGET_E500_DOUBLE
+	       && ((((to) == DFmode) + ((from) == DFmode)) == 1
+		   || (((to) == TFmode) + ((from) == TFmode)) == 1
+		   || (((to) == DDmode) + ((from) == DDmode)) == 1
+		   || (((to) == TDmode) + ((from) == TDmode)) == 1
+		   || (((to) == DImode) + ((from) == DImode)) == 1))
+	      || (TARGET_SPE
+		  && (SPE_VECTOR_MODE (from) + SPE_VECTOR_MODE (to)) == 1))
+	     && reg_classes_intersect_p (GENERAL_REGS, rclass)));
 }
 
 /* Given a comparison operation, return the bit number in CCR to test.  We

@@ -46,13 +46,29 @@
 (define_mode_attr VSr	[(V16QI "v")
 			 (V8HI  "v")
 			 (V4SI  "v")
-			 (V4SF  "fv")
+			 (V4SF  "w")
 			 (V2DI  "v")
-			 (V2DF  "fv")])
+			 (V2DF  "w")])
 
-;; VSX move instructions
+;; Generic LX load instruction.
+(define_insn "*lx_<mode>_vsx"
+  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>")
+	(match_operand:VSX_L 1 "memory_operand" "Z"))]
+  "TARGET_VSX"
+  "lx<VSm>x %x0,%y1"
+  [(set_attr "type" "vecload")])
+
+;; Generic STVX store instruction.
+(define_insn "*stx_<mode>_vsx"
+  [(set (match_operand:VSX_L 0 "memory_operand" "=Z")
+	(match_operand:VSX_L 1 "vsx_register_operand" "<VSr>"))]
+  "TARGET_VSX"
+  "stx<VSm>x %x1,%y0"
+  [(set_attr "type" "vecstore")])
+
+;; VSX moves
 (define_insn "*mov<mode>_vsx"
-  [(set (match_operand:VSX_L 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,o,r,r,fv,v")
+  [(set (match_operand:VSX_L 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,o,r,r,<VSr>,v")
 	(match_operand:VSX_L 1 "input_operand" "<VSr>,Z,<VSr>,r,o,r,j,W"))]
   "TARGET_VSX
    && (register_operand (operands[0], <MODE>mode) 
