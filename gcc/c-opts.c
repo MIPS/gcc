@@ -978,6 +978,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_v:
       verbose = true;
       break;
+
+    case OPT_Wabi:
+      warn_psabi = value;
+      break;
     }
 
   return result;
@@ -1100,6 +1104,11 @@ c_common_post_options (const char **pfilename)
   if (warn_sign_conversion == -1)
     warn_sign_conversion =  (c_dialect_cxx ()) ? 0 : warn_conversion;
 
+  /* -Wpacked-bitfield-compat is on by default for the C languages.  The
+     warning is issued in stor-layout.c which is not part of the front-end so
+     we need to selectively turn it on here.  */
+  if (warn_packed_bitfield_compat == -1)
+    warn_packed_bitfield_compat = 1;
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */

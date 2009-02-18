@@ -112,8 +112,11 @@ C ObjC C++ ObjC++ Joined Separate
 -U<macro>	Undefine <macro>
 
 Wabi
-C++ ObjC++ Var(warn_abi) Warning
+C ObjC C++ ObjC++ Var(warn_abi) Warning
 Warn about things that will change when compiling with an ABI-compliant compiler
+
+Wpsabi
+C ObjC C++ ObjC++ Var(warn_psabi) Init(1) Undocumented
 
 Waddress
 C ObjC C++ ObjC++ Var(warn_address) Warning
@@ -365,7 +368,7 @@ C ObjC Var(warn_override_init) Init(-1) Warning
 Warn about overriding initializers without side effects
 
 Wpacked-bitfield-compat
-C ObjC C++ ObjC++ Var(warn_packed_bitfield_compat) Init(1) Warning
+C ObjC C++ ObjC++ Var(warn_packed_bitfield_compat) Init(-1) Warning
 Warn about packed bit-fields whose offset changed in GCC 4.4
 
 Wparentheses

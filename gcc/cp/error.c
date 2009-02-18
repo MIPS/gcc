@@ -639,6 +639,7 @@ dump_type_prefix (tree t, int flags)
     case TYPEOF_TYPE:
     case DECLTYPE_TYPE:
     case TYPE_PACK_EXPANSION:
+    case FIXED_POINT_TYPE:
       dump_type (t, flags);
       pp_base (cxx_pp)->padding = pp_before;
       break;
@@ -737,6 +738,7 @@ dump_type_suffix (tree t, int flags)
     case TYPEOF_TYPE:
     case DECLTYPE_TYPE:
     case TYPE_PACK_EXPANSION:
+    case FIXED_POINT_TYPE:
       break;
 
     default:
@@ -2086,6 +2088,8 @@ dump_expr (tree t, int flags)
     case LTGT_EXPR:
     case COMPLEX_EXPR:
     case BIT_FIELD_REF:
+    case FIX_TRUNC_EXPR:
+    case FLOAT_EXPR:
       pp_expression (cxx_pp, t);
       break;
 

@@ -4722,9 +4722,8 @@ array_to_constant (enum machine_mode mode, unsigned char arr[16])
     }
   if (mode == DFmode)
     {
-      val = (arr[0] << 24) | (arr[1] << 16) | (arr[2] << 8) | arr[3];
-      val <<= 32;
-      val |= (arr[4] << 24) | (arr[5] << 16) | (arr[6] << 8) | arr[7];
+      for (i = 0, val = 0; i < 8; i++)
+	val = (val << 8) | arr[i];
       return hwint_to_const_double (DFmode, val);
     }
 
@@ -5879,7 +5878,7 @@ spu_check_builtin_parm (struct spu_builtin_description *d, rtx op, int p)
 }
 
 
-static void
+static int
 expand_builtin_args (struct spu_builtin_description *d, tree exp,
 		     rtx target, rtx ops[])
 {
@@ -5891,13 +5890,18 @@ expand_builtin_args (struct spu_builtin_description *d, tree exp,
   if (d->parm[0] != SPU_BTI_VOID)
     ops[i++] = target;
 
-  for (a = 0; i < insn_data[icode].n_operands; i++, a++)
+  for (a = 0; d->parm[a+1] != SPU_BTI_END_OF_PARAMS; i++, a++)
     {
       tree arg = CALL_EXPR_ARG (exp, a);
       if (arg == 0)
 	abort ();
       ops[i] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
     }
+
+  /* The insn pattern may have additional operands (SCRATCH).
+     Return the number of actual non-SCRATCH operands.  */
+  gcc_assert (i <= insn_data[icode].n_operands);
+  return i;
 }
 
 static rtx
@@ -5909,10 +5913,11 @@ spu_expand_builtin_1 (struct spu_builtin_description *d,
   enum insn_code icode = d->icode;
   enum machine_mode mode, tmode;
   int i, p;
+  int n_operands;
   tree return_type;
 
   /* Set up ops[] with values from arglist. */
-  expand_builtin_args (d, exp, target, ops);
+  n_operands = expand_builtin_args (d, exp, target, ops);
 
   /* Handle the target operand which must be operand 0. */
   i = 0;
@@ -5970,7 +5975,7 @@ spu_expand_builtin_1 (struct spu_builtin_description *d,
     return 0;
 
   /* Handle the rest of the operands. */
-  for (p = 1; i < insn_data[icode].n_operands; i++, p++)
+  for (p = 1; i < n_operands; i++, p++)
     {
       if (insn_data[d->icode].operand[i].mode != VOIDmode)
 	mode = insn_data[d->icode].operand[i].mode;
@@ -6010,7 +6015,7 @@ spu_expand_builtin_1 (struct spu_builtin_description *d,
 	ops[i] = spu_force_reg (mode, ops[i]);
     }
 
-  switch (insn_data[icode].n_operands)
+  switch (n_operands)
     {
     case 0:
       pat = GEN_FCN (icode) (0);

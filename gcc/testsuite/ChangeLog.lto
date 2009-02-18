@@ -1,3 +1,7 @@
+2009-02-18  Diego Novillo  <dnovillo@google.com>
+
+	* g++.dg/opt/thunk3-1.C: Rename from thunk3.C
+
 2009-02-18  Rafael Avila de Espindola  <espindola@google.com>
 
 	* gcc.dg/lto/20090218_0.c: New.
