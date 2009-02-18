@@ -1,3 +1,10 @@
+2009-02-18  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc.dg/lto/20090218_0.c: New.
+	* gcc.dg/lto/20090218_1.c: New.
+	* gcc.dg/lto/20090218_2.c: New.
+	* gcc.dg/lto/20090218_3.c: New.
+
 2009-02-13  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/lto/20090213_0.c: New.

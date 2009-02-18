@@ -62,44 +62,44 @@ static VEC(lto_out_decl_state_ptr, heap) *decl_state_stack;
 VEC(lto_out_decl_state_ptr, heap) *lto_function_decl_states;
 
 /* Bitmap indexed by DECL_UID to indicate if a function needs to be
-   forced static inline. */
-static bitmap forced_static_inline;
+   forced extern inline. */
+static bitmap forced_extern_inline;
 
 /* Initialize states for determining which function decls to be ouput
-   as static inline, regardless of the decls' own attributes.  */
+   as extern inline, regardless of the decls' own attributes.  */
 
 void
-lto_new_static_inline_states (void)
+lto_new_extern_inline_states (void)
 {
-  forced_static_inline = lto_bitmap_alloc ();
+  forced_extern_inline = lto_bitmap_alloc ();
 }
 
 /* Releasing resources use for states to determine which function decls
-   to be ouput as static inline */
+   to be ouput as extern inline */
 
 void
-lto_delete_static_inline_states (void)
+lto_delete_extern_inline_states (void)
 {
-  lto_bitmap_free (forced_static_inline);
-  forced_static_inline = NULL;
+  lto_bitmap_free (forced_extern_inline);
+  forced_extern_inline = NULL;
 }
 
-/* Force all the functions in DECLS to be output as static inline.
+/* Force all the functions in DECLS to be output as extern inline.
    DECLS is a bitmap indexed by DECL_UID. */
  
 void
-lto_force_functions_static_inline (bitmap decls)
+lto_force_functions_extern_inline (bitmap decls)
 {
-  bitmap_ior_into (forced_static_inline, decls);
+  bitmap_ior_into (forced_extern_inline, decls);
 }
 
 /* Return true if FN_DECL is a function which should be emitted as
-   static inline.  */
+   extern inline.  */
 
 bool
-lto_forced_static_inline_p (tree fn_decl)
+lto_forced_extern_inline_p (tree fn_decl)
 {
-  return bitmap_bit_p (forced_static_inline, DECL_UID (fn_decl));
+  return bitmap_bit_p (forced_extern_inline, DECL_UID (fn_decl));
 }
 
 /* Add FLAG onto the end of BASE.  */

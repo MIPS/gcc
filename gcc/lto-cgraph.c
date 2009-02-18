@@ -290,7 +290,7 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       externally_visible = 1;
       inlinable = 0;
     }
-  else if (lto_forced_static_inline_p (node->decl))
+  else if (lto_forced_extern_inline_p (node->decl))
     {
       local = 1;
       externally_visible = 0;

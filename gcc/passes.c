@@ -1442,12 +1442,12 @@ ipa_write_summaries (void)
  
   if (flag_generate_lto && !(errorcount || sorrycount))
     {
-      lto_new_static_inline_states ();
+      lto_new_extern_inline_states ();
       set = cgraph_node_set_new ();
       for (node = cgraph_nodes; node; node = node->next)
 	cgraph_node_set_add (set, node);
       ipa_write_summaries_1 (set);
-      lto_delete_static_inline_states ();
+      lto_delete_extern_inline_states ();
       ggc_free (set);
     }
 }

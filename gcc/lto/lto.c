@@ -94,7 +94,6 @@ lto_materialize_function (struct cgraph_node *node)
 
       /* This function has a definition.  */
       TREE_STATIC (decl) = 1;
-      DECL_EXTERNAL (decl) = 0;
 
       allocate_struct_function (decl, false);
 
@@ -858,16 +857,16 @@ lto_wpa_write_files (void)
         fatal_error ("lto_elf_file_open() failed");
 
       lto_set_current_out_file (file);
-      lto_new_static_inline_states ();
+      lto_new_extern_inline_states ();
 
       decls = VEC_index (bitmap, inlined_decls, i);
-      lto_force_functions_static_inline (decls);
+      lto_force_functions_extern_inline (decls);
 
       /* Set AUX to 1 in the last LTRANS file.  */
       set = VEC_index (cgraph_node_set, lto_cgraph_node_sets, i);
       set->aux = (void*) ((intptr_t) (i == (n_sets - 1)));
       ipa_write_summaries_of_cgraph_node_set (set);
-      lto_delete_static_inline_states ();
+      lto_delete_extern_inline_states ();
       
       lto_set_current_out_file (NULL);
       lto_elf_file_close (file);
