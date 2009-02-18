@@ -184,6 +184,30 @@
   ""
   "xor")
 
+(define_insn "ashl<mode>3"
+  [(set (match_operand:ALLINTEVALMODES 0 "nonimmediate_operand"  "")
+	(ashift:ALLINTEVALMODES
+	 (match_operand:ALLINTEVALMODES 1 "general_operand" "")
+	 (match_operand:ALLINTEVALMODES 2 "general_operand" "")))]
+  ""
+  "ashl")
+
+(define_insn "lshr<mode>3"
+  [(set (match_operand:ALLINTEVALMODES 0 "nonimmediate_operand"  "")
+	(lshiftrt:ALLINTEVALMODES
+	 (match_operand:ALLINTEVALMODES 1 "general_operand" "")
+	 (match_operand:ALLINTEVALMODES 2 "general_operand" "")))]
+  ""
+  "lshr")
+
+(define_insn "ashr<mode>3"
+  [(set (match_operand:ALLINTEVALMODES 0 "nonimmediate_operand"  "")
+	(ashiftrt:ALLINTEVALMODES
+	 (match_operand:ALLINTEVALMODES 1 "general_operand" "")
+	 (match_operand:ALLINTEVALMODES 2 "general_operand" "")))]
+  ""
+  "ashr")
+
 
 ;; Call insns.
 

@@ -82,8 +82,8 @@ static bool simp_cil_early_gate (void);
  ******************************************************************************/
 
 /* Values used by the switch-conversion heuristics */
-#define SIMP_SWITCH_RANGE_SIZE (4)
-#define SIMP_SWITCH_HOLE_SIZE (4)
+#define SIMP_SWITCH_RANGE_SIZE (3)
+#define SIMP_SWITCH_HOLE_SIZE (3)
 
 /* Hash-table used for storing equivalent labels */
 static struct pointer_map_t *eqv_labels = NULL;
@@ -144,8 +144,8 @@ is_eqv_label (tree label1, tree label2)
 {
   struct eqv_label_entry_t *t1, *t2;
 
-  t1 = *pointer_map_contains(eqv_labels, label1);
-  t2 = *pointer_map_contains(eqv_labels, label2);
+  t1 = *pointer_map_contains (eqv_labels, label1);
+  t2 = *pointer_map_contains (eqv_labels, label2);
 
   if (t1 == NULL || t2 == NULL)
     return false;
@@ -161,7 +161,7 @@ is_eqv_label (tree label1, tree label2)
    not group equivalent labels which are non-adjacent. */
 
 static void
-group_labels(tree func)
+group_labels (tree func)
 {
   tree_stmt_iterator tsi;
   tree t = NULL_TREE;
@@ -193,7 +193,7 @@ group_labels(tree func)
     }
 }
 
-/* Used in pointer_map_traverse() to free eqv_label_t entries */
+/* Used in pointer_map_traverse () to free eqv_label_t entries */
 
 static bool
 eqv_label_dispose (void *key ATTRIBUTE_UNUSED, void **value,
@@ -307,41 +307,41 @@ case_to_cond_expr (tree switch_stmt, tree single_case, tree *list)
 		     build1 (GOTO_EXPR, void_type_node, label_decl));
 
   /* Append the COND_EXPR to the list */
-  append_to_statement_list(cmp_stmt, list);
+  append_to_statement_list (cmp_stmt, list);
 
   /* Create the label to the next statement and append it to the list */
   label = build1 (LABEL_EXPR, void_type_node, label_decl);
-  append_to_statement_list(label, list);
+  append_to_statement_list (label, list);
 }
 
 /* Turn a case range into a couple of COND_EXPRs */
 
 static void
-case_range_to_cond_expr(tree switch_stmt, tree case_range, tree *list)
+case_range_to_cond_expr (tree switch_stmt, tree case_range, tree *list)
 {
   tree label_decl1 = create_artificial_label ();
   tree label_decl2 = create_artificial_label ();
   tree cmp1_stmt, cmp2_stmt, label;
 
-  gcc_assert(CASE_HIGH (case_range) != NULL_TREE
-             && CASE_LOW (case_range) != NULL_TREE);
+  gcc_assert (CASE_HIGH (case_range) != NULL_TREE
+              && CASE_LOW (case_range) != NULL_TREE);
 
   /* Build the 1st COND_EXPR */
   cmp1_stmt = build3 (COND_EXPR, void_type_node,
 		      build2 (GE_EXPR, boolean_type_node,
 			      SWITCH_COND (switch_stmt),
-			      CASE_LOW(case_range)),
+			      CASE_LOW (case_range)),
 		      build1 (GOTO_EXPR, void_type_node,
 			      label_decl1),
 		      build1 (GOTO_EXPR, void_type_node,
 			      label_decl2));
 
   /* Append the 1st COND_EXPR to the list */
-  append_to_statement_list(cmp1_stmt, list);
+  append_to_statement_list (cmp1_stmt, list);
 
   /* Create a new label and append it to the list */
   label = build1 (LABEL_EXPR, void_type_node, label_decl1);
-  append_to_statement_list(label, list);
+  append_to_statement_list (label, list);
 
   /* Build the 2nd COND_EXPR */
   cmp2_stmt = build3 (COND_EXPR, void_type_node,
@@ -358,7 +358,7 @@ case_range_to_cond_expr(tree switch_stmt, tree case_range, tree *list)
 
   /* Create the label to the next statement and append it */
   label = build1 (LABEL_EXPR, void_type_node, label_decl2);
-  append_to_statement_list(label, list);
+  append_to_statement_list (label, list);
 }
 
 /* Turn the cases between <start> and <end> (included) into a new switch
@@ -368,26 +368,30 @@ static void
 cases_to_switch (tree switch_stmt, unsigned int start, unsigned int end,
                  tree *list)
 {
-  tree label_decl = create_artificial_label ();
+  tree label_decl;
   tree labels = SWITCH_LABELS (switch_stmt);
   tree stmt, label, vec, deft, elt;
   unsigned int i, len;
-  double_int low, high, range, limit = shwi_to_double_int (8192);
+  tree low, high, range, limit;
+  tree type;
+
+  type = TREE_TYPE (CASE_LOW (TREE_VEC_ELT (labels, start)));
+  limit = build_int_cst (type, 8192);
 
   while (start <= end)
     {
+      label_decl = create_artificial_label ();
       elt = TREE_VEC_ELT (labels, start);
-      low = TREE_INT_CST (CASE_LOW (elt));
+      low = CASE_LOW (elt);
       len = 1;
 
       while (start + len <= end)
         {
 	  elt = TREE_VEC_ELT (labels, start + len);
-          high = TREE_INT_CST (CASE_HIGH (elt) ? CASE_HIGH (elt)
-			       : CASE_LOW (elt));
-	  range = double_int_add (high, double_int_neg (low));
+          high = CASE_HIGH (elt) ? CASE_HIGH (elt) : CASE_LOW (elt);
+	  range = size_binop (MINUS_EXPR, high, low);
 
-	  if (double_int_ucmp (range, limit) == -1)
+	  if (tree_int_cst_lt (range, limit))
 	    len++;
 	  else
 	    break;
@@ -409,11 +413,11 @@ cases_to_switch (tree switch_stmt, unsigned int start, unsigned int end,
 		     SWITCH_COND (switch_stmt), NULL, vec);
 
       /* Append the SWITCH to the list */
-      append_to_statement_list(stmt, list);
+      append_to_statement_list (stmt, list);
 
       /* Create a new label and append it to the list */
       label = build1 (LABEL_EXPR, void_type_node, label_decl);
-      append_to_statement_list(label, list);
+      append_to_statement_list (label, list);
 
       /* Move ahead in the labels vector */
       start += len;
@@ -433,17 +437,10 @@ simp_cil_switch (tree switch_stmt)
   tree curr, next;
   tree labels = SWITCH_LABELS (switch_stmt);
   tree list = NULL_TREE;
-  double_int range_size = shwi_to_double_int (SIMP_SWITCH_RANGE_SIZE);
-  double_int hole_size = shwi_to_double_int (SIMP_SWITCH_HOLE_SIZE);
-  double_int curr_high, next_low;
+  tree range_size, hole_size, curr_high, next_low;
+  tree type;
   unsigned int i = 0;
   unsigned int base_idx = 0;
-
-  /* The switch body is lowered in gimplify.c, we should never have
-     switches with a non-NULL SWITCH_BODY here.  */
-  gcc_assert (TREE_CODE (switch_stmt) == SWITCH_EXPR
-	      && SWITCH_LABELS (switch_stmt)
-	      && !SWITCH_BODY (switch_stmt));
 
   merge_cases_into_ranges (switch_stmt);
 
@@ -454,7 +451,9 @@ simp_cil_switch (tree switch_stmt)
       return NULL_TREE;
     }
 
-  gcc_assert (!is_copy_required (SWITCH_COND (switch_stmt)));
+  type = TREE_TYPE (CASE_LOW (TREE_VEC_ELT (labels, 0)));
+  range_size = build_int_cst (type, SIMP_SWITCH_RANGE_SIZE);
+  hole_size = build_int_cst (type, SIMP_SWITCH_HOLE_SIZE);
 
   while (true)
     {
@@ -481,7 +480,7 @@ simp_cil_switch (tree switch_stmt)
 
 	  /* Add a label which jumps to the default label. */
 	  append_to_statement_list (build1 (GOTO_EXPR, void_type_node,
-				    CASE_LABEL(next)),
+				    CASE_LABEL (next)),
 				    &list);
 	  break;
 	}
@@ -492,13 +491,13 @@ simp_cil_switch (tree switch_stmt)
 	     COND_EXPRs. We don't need to check if we have some pending cases to
 	     deal with as we have already emitted them in the previous iteration
 	     as implemented below. */
-	  double_int low = TREE_INT_CST (CASE_LOW (curr));
-	  double_int high = TREE_INT_CST (CASE_HIGH (curr));
+	  tree low = size_binop (PLUS_EXPR, CASE_LOW (curr), range_size);
+	  tree high = CASE_HIGH (curr);
 
 	  /* if (low + SIMP_SWITCH_RANGE_SIZE > high) */
-	  if (double_int_scmp(double_int_add (low, range_size), high) == 1)
+	  if (tree_int_cst_compare (low, high) == 1)
 	    {
-	      gcc_assert(i == base_idx);
+	      gcc_assert (i == base_idx);
 	      case_range_to_cond_expr (switch_stmt, curr, &list);
 
 	      i++;
@@ -511,11 +510,11 @@ simp_cil_switch (tree switch_stmt)
 	{
 	  /* The next case is a range, if it's large enough blow it up into two
 	     COND_EXPRs then emit the previous cases. */
-	  double_int low = TREE_INT_CST (CASE_LOW (next));
-	  double_int high = TREE_INT_CST (CASE_HIGH (next));
+	  tree low = size_binop (PLUS_EXPR, CASE_LOW (next), range_size);
+	  tree high = CASE_HIGH (next);
 
 	  /* if (low + SIMP_SWITCH_RANGE_SIZE > high) */
-	  if (double_int_scmp(double_int_add (low, range_size), high) == 1)
+	  if (tree_int_cst_compare (low, high) == 1)
 	    {
 	      if (base_idx != i)
 		cases_to_switch (switch_stmt, base_idx, i, &list);
@@ -533,14 +532,15 @@ simp_cil_switch (tree switch_stmt)
 	/* Detect 'holes', if a large enough hole is found emit the previous
 	   cases. */
 	if (CASE_HIGH (curr) != NULL_TREE)
-	  curr_high = TREE_INT_CST (CASE_HIGH (curr));
+	  curr_high = CASE_HIGH (curr);
 	else
-	  curr_high = TREE_INT_CST (CASE_LOW (curr));
+	  curr_high = CASE_LOW (curr);
 
-	next_low = TREE_INT_CST (CASE_LOW (next));
+	curr_high = size_binop (PLUS_EXPR, curr_high, hole_size);
+	next_low = CASE_LOW (next);
 
-	if (double_int_scmp(double_int_add (curr_high, hole_size), next_low)
-	    == -1)
+	/* if (curr_high + SIMP_SWITCH_HOLE_SIZE < next_low) */
+	if (tree_int_cst_lt (curr_high, next_low))
 	  {
 	    if (base_idx != i)
 	      cases_to_switch (switch_stmt, base_idx, i, &list);

@@ -159,34 +159,6 @@ cil_switch_case_label (const_cil_stmt stmt, size_t i)
   return CASE_LABEL (stmt->arg.labels->cases[i]);
 }
 
-/* Return the low value of the I-th case of CIL switch statement as an
-   HOST_WIDE_INT instead of a tree.  */
-
-static inline HOST_WIDE_INT
-cil_switch_case_low (const_cil_stmt stmt, size_t i)
-{
-  gcc_assert (stmt->opcode == CIL_SWITCH);
-  gcc_assert (i < stmt->arg.labels->ncases);
-
-  return tree_low_cst (CASE_LOW (stmt->arg.labels->cases[i]), 0);
-}
-
-/* Return the high value of the I-th case of CIL switch statement as an
-   HOST_WIDE_INT instead of a tree. If the case doesn't represent a range then
-   this function will return the case value (i.e. the low value). */
-
-static inline HOST_WIDE_INT
-cil_switch_case_high (const_cil_stmt stmt, size_t i)
-{
-  gcc_assert (stmt->opcode == CIL_SWITCH);
-  gcc_assert (i < stmt->arg.labels->ncases);
-
-  if (CASE_HIGH (stmt->arg.labels->cases[i]))
-    return tree_low_cst (CASE_HIGH (stmt->arg.labels->cases[i]), 0);
-  else
-    return tree_low_cst (CASE_LOW (stmt->arg.labels->cases[i]), 0);
-}
-
 /* Return the function declaration of a CIL LDFTN statement.  */
 
 static inline

@@ -55,6 +55,8 @@ extern void cil_set_prefix_unaligned (cil_stmt, int);
 extern bool cil_prefix_volatile (const_cil_stmt);
 extern void cil_set_prefix_volatile (cil_stmt, bool);
 extern size_t cil_call_nargs_base (const_cil_stmt);
+extern HOST_WIDE_INT cil_switch_case_low (const_cil_stmt, size_t);
+extern HOST_WIDE_INT cil_switch_case_high (const_cil_stmt, size_t);
 
 static inline enum cil_opcode cil_opcode (const_cil_stmt);
 static inline basic_block cil_bb (const_cil_stmt);
@@ -69,8 +71,6 @@ static inline size_t cil_switch_ncases (const_cil_stmt);
 static inline tree cil_switch_case (const_cil_stmt, size_t);
 static inline tree cil_switch_default (const_cil_stmt);
 static inline tree cil_switch_case_label (const_cil_stmt, size_t);
-static inline HOST_WIDE_INT cil_switch_case_low (const_cil_stmt, size_t);
-static inline HOST_WIDE_INT cil_switch_case_high (const_cil_stmt, size_t);
 static inline tree cil_func (const_cil_stmt);
 static inline cil_stmt cil_build_call (tree);
 static inline cil_stmt cil_build_calli (tree);

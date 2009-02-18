@@ -1488,13 +1488,8 @@ emit_call (FILE *file, const_cil_stmt call)
 
       fprintf (file, " ");
 
-      if (DECL_BUILT_IN (fdecl))
-	{
-	  if (DECL_BUILT_IN_CLASS (fdecl) == BUILT_IN_MD)
-	    fprintf (file, "%s", IDENTIFIER_POINTER (DECL_NAME (fdecl)));
-	  else
-	    dump_decl_name (file, fdecl);
-	}
+      if (DECL_BUILT_IN (fdecl) && DECL_BUILT_IN_CLASS (fdecl) == BUILT_IN_MD)
+	fprintf (file, "%s", IDENTIFIER_POINTER (DECL_NAME (fdecl)));
       else
       	{
 	  if (attrs.assembly_name)
@@ -2407,12 +2402,11 @@ emit_cil_1 (FILE *file)
       emit_cil_bb (file, bb);
     }
 
-/* FIXME
   if (TARGET_EMIT_JIT_COMPILATION_HINTS)
     {
       basic_block_frequency_emit (file);
       branch_probability_emit_and_reset (file);
-    } */
+    }
 
   fprintf (file,
 	   "\n\t.maxstack %u\n"

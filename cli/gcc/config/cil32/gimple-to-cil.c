@@ -97,7 +97,6 @@ static void gen_view_convert_expr (cil_stmt_iterator *, tree);
 static void gen_complex_part_expr (cil_stmt_iterator *, tree);
 static void gen_complex (cil_stmt_iterator *, tree, tree, tree);
 static enum cil_opcode conv_opcode_from_type (tree);
-static tree get_integer_type (unsigned int, bool);
 static void gen_integral_conv (cil_stmt_iterator *, tree, tree);
 static void gen_conv (cil_stmt_iterator *, bool, tree, tree);
 static void gen_rotate (cil_stmt_iterator *, tree);
@@ -216,6 +215,21 @@ gen_addr_expr (cil_stmt_iterator *csi, tree node)
 
     case VIEW_CONVERT_EXPR:
       gen_addr_expr (csi, GENERIC_TREE_OPERAND (node, 0));
+      break;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      gen_addr_expr (csi, GENERIC_TREE_OPERAND (node, 0));
+
+      if (TREE_CODE (node) == IMAGPART_EXPR)
+	{
+	  gen_integer_cst (csi,
+			   fold_convert (intSI_type_node,
+					 TYPE_SIZE_UNIT (TREE_TYPE (node))));
+	  stmt = cil_build_stmt (CIL_ADD);
+	  csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+	}
+
       break;
 
     default:
@@ -1829,11 +1843,24 @@ gen_minmax_expr (cil_stmt_iterator *csi, tree node)
   enum cil32_builtin builtin = 0;
 
   gimple_to_cil_node (csi, TREE_OPERAND (node, 0));
+
+  if (POINTER_TYPE_P (type))
+    {
+      stmt = cil_build_stmt (CIL_CONV_I);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+    }
+
   gimple_to_cil_node (csi, TREE_OPERAND (node, 1));
 
-  if (INTEGRAL_TYPE_P (type))
+  if (POINTER_TYPE_P (type))
     {
-      unsignedp = TYPE_UNSIGNED (type);
+      stmt = cil_build_stmt (CIL_CONV_I);
+      csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
+    }
+
+  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
+    {
+      unsignedp = TYPE_UNSIGNED (type) || POINTER_TYPE_P (type);
 
       if (size <= 32)
 	{
@@ -2486,23 +2513,6 @@ conv_opcode_from_type (tree type)
     gcc_unreachable ();
 }
 
-/* Return an integer type of SIZE bits, unsigned if UNSIGNEDP is set, signed
-   otherwise.  */
-
-static tree
-get_integer_type (unsigned int size, bool unsignedp)
-{
-  switch (size)
-    {
-      case 8:  return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
-      case 16: return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
-      case 32: return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
-      case 64: return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
-      default:
-	gcc_unreachable ();
-    }
-}
-
 /* Emit a conversion from integral or pointer type SRC to integral type DST.
    If the precision of DST is bigger than that of SRC, then SRC and DST have
    to have the same signedness.   */
@@ -2973,6 +2983,12 @@ gimple_to_cil_node (cil_stmt_iterator *csi, tree node)
     case NEGATE_EXPR:
     case BIT_NOT_EXPR:
       gimple_to_cil_node (csi, TREE_OPERAND (node, 0));
+
+      if (POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 0))))
+	{
+	  csi_insert_after (csi, cil_build_stmt (CIL_CONV_I),
+			    CSI_CONTINUE_LINKING);
+	}
 
       opcode = (TREE_CODE (node) == NEGATE_EXPR) ? CIL_NEG : CIL_NOT;
       stmt = cil_build_stmt (opcode);

@@ -71,7 +71,7 @@ static int fill_label_addrs (void **, void *);
 static bool mostly_zeros_p (tree);
 static bool all_zeros_p (tree);
 static void expand_init_to_stmt_list1 (tree, tree, tree *, bool, tree *,
-				       void *, void *);
+				       void *, void *, unsigned HOST_WIDE_INT);
 static int statement_list_num_instr (tree);
 
 /******************************************************************************
@@ -741,6 +741,23 @@ cil_pointer_type_p (tree type)
   return false;
 }
 
+/* Return an integer type of SIZE bits, unsigned if UNSIGNEDP is set, signed
+   otherwise.  */
+
+tree
+get_integer_type (unsigned int size, bool unsignedp)
+{
+  switch (size)
+    {
+      case 8:  return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
+      case 16: return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
+      case 32: return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
+      case 64: return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
+      default:
+	gcc_unreachable ();
+    }
+}
+
 /******************************************************************************
  * Strings                                                                    *
  ******************************************************************************/
@@ -1107,7 +1124,8 @@ all_zeros_p (tree exp)
 static void
 expand_init_to_stmt_list1 (tree decl, tree init,
 			   tree *stmt_list1, bool cleared,
-			   tree *stmt_list2, void *le_image, void *be_image)
+			   tree *stmt_list2, void *le_image, void *be_image,
+			   unsigned HOST_WIDE_INT image_offset)
 {
   tree decl_size = TYPE_SIZE_UNIT (TREE_TYPE (decl));
   unsigned HOST_WIDE_INT size = tree_low_cst (decl_size, 1);
@@ -1160,10 +1178,10 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 
 	append_to_statement_list (t, stmt_list1);
 
-	memcpy(le_image, TREE_STRING_POINTER (init),
-	       tree_low_cst (decl_size, 1));
-	memcpy(be_image, TREE_STRING_POINTER (init),
-	       tree_low_cst (decl_size, 1));
+	memcpy((unsigned char *) le_image + image_offset,
+	       TREE_STRING_POINTER (init), tree_low_cst (decl_size, 1));
+	memcpy((unsigned char *) be_image + image_offset,
+	       TREE_STRING_POINTER (init), tree_low_cst (decl_size, 1));
       }
     break;
 
@@ -1235,24 +1253,108 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 
 		ltarget = build3 (COMPONENT_REF, TREE_TYPE (field), decl, field, NULL);
 
-		if (le_image != NULL && !DECL_BIT_FIELD(field))
+		if (le_image != NULL && !DECL_BIT_FIELD (field))
 		  {
-		    unsigned HOST_WIDE_INT offset = tree_low_cst (DECL_FIELD_OFFSET(field), 1);
-		    unsigned HOST_WIDE_INT bit_offset = tree_low_cst (DECL_FIELD_BIT_OFFSET(field), 1);
+		    unsigned HOST_WIDE_INT offset = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
+		    unsigned HOST_WIDE_INT bit_offset = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
 		    gcc_assert (bit_offset % BITS_PER_UNIT == 0);
-		    offset += bit_offset / BITS_PER_UNIT;
+		    offset += (bit_offset / BITS_PER_UNIT) + image_offset;
 
 		    expand_init_to_stmt_list1 (ltarget, value,
 					       stmt_list1, cleared,
 					       stmt_list2,
-					       (void *) ((intptr_t) le_image + offset),
-                                               (void *) ((intptr_t) be_image + offset));
+					       le_image, be_image, offset);
+		  }
+		else if (le_image != NULL && DECL_BIT_FIELD (field)
+			 && (TARGET_LITTLE_ENDIAN || TARGET_BIG_ENDIAN))
+		  {
+		    unsigned char b0, b1, b2, b3;
+		    unsigned HOST_WIDE_INT offset = 0;
+		    HOST_WIDE_INT bit_size = 0;
+		    HOST_WIDE_INT bit_pos = 0;
+		    HOST_WIDE_INT cont_off;
+		    HOST_WIDE_INT cont_size = 8;
+		    enum machine_mode mode;
+		    int unsignedp = 0;
+		    int volatilep = 0;
+		    tree cont_type;
+		    tree shift_cst;
+		    tree tmp;
+		  
+		    get_inner_reference (ltarget, &bit_size, &bit_pos,
+					 &tmp, &mode, &unsignedp,
+					 &volatilep, false);
+
+		    /* Calculate the container size.  */
+		    while ((bit_pos % cont_size + bit_size) > cont_size)
+		      cont_size *= 2;
+
+		    if (cont_size > 32)
+		      {
+			expand_init_to_stmt_list1 (ltarget, value,
+						   stmt_list1, cleared,
+						   stmt_list2, NULL, NULL, 0);
+		      }
+		    else
+		      {
+			cont_type = get_integer_type (cont_size, true);
+			cont_off = bit_pos % cont_size;
+
+			/* Calculate the container offset.  */
+			if ((bit_pos - cont_off) / BITS_PER_UNIT != 0)
+			  {
+			    tmp = build_int_cst (intSI_type_node,
+						 (bit_pos - cont_off)
+						 / BITS_PER_UNIT);
+			    offset = tree_low_cst (tmp, 1);
+			  }
+		    
+			shift_cst = build_int_cst (intSI_type_node, cont_off);
+			tmp = fold_binary_to_constant (LSHIFT_EXPR, cont_type,
+						       fold_convert (cont_type,
+								     value),
+						       shift_cst);
+
+			b0 = tree_low_cst (tmp, 1);
+			b1 = tree_low_cst (tmp, 1) >> 8;
+			b2 = tree_low_cst (tmp, 1) >> 16;
+			b3 = tree_low_cst (tmp, 1) >> 24;
+
+			switch (cont_size)
+			  {
+			  case 8:
+			    *((unsigned char *) le_image + offset) |= b0;
+			    *((unsigned char *) be_image + offset) |= b0;
+			    break;
+		      
+			  case 16:
+			    *((unsigned char *) le_image + offset + 0) |= b0;
+			    *((unsigned char *) le_image + offset + 1) |= b1;
+			    *((unsigned char *) be_image + offset + 0) |= b1;
+			    *((unsigned char *) be_image + offset + 1) |= b0;
+			    break;
+		      
+			  case 32:
+			    *((unsigned char *) le_image + offset + 0) |= b0;
+			    *((unsigned char *) le_image + offset + 1) |= b1;
+			    *((unsigned char *) le_image + offset + 2) |= b2;
+			    *((unsigned char *) le_image + offset + 3) |= b3;
+			    *((unsigned char *) be_image + offset + 0) |= b3;
+			    *((unsigned char *) be_image + offset + 1) |= b2;
+			    *((unsigned char *) be_image + offset + 2) |= b1;
+			    *((unsigned char *) be_image + offset + 3) |= b0;
+			    break;
+		      
+		          default:
+			    gcc_unreachable ();
+		          }
+		      }
 		  }
 		else
 		  {
 		    expand_init_to_stmt_list1 (ltarget, value,
 					       stmt_list1, cleared,
-					       stmt_list2, NULL, NULL);
+					       stmt_list2, NULL, NULL, 0);
 		  }
 	      }
 	  }
@@ -1388,18 +1490,18 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 		  {
 		    unsigned HOST_WIDE_INT offset;
 
-		    offset = tree_low_cst (index, 1) * tree_low_cst (elsize, 1);
+		    offset = tree_low_cst (index, 1) * tree_low_cst (elsize, 1)
+		             + image_offset;
 		    expand_init_to_stmt_list1 (t, value,
 					       stmt_list1, cleared,
 					       stmt_list2,
-					       (void *)((intptr_t) le_image + offset),
-					       (void *)((intptr_t) be_image + offset));
+					       le_image, be_image, offset);
 		  }
 		else
 		  {
 		    expand_init_to_stmt_list1 (t, value,
 					       stmt_list1, cleared,
-					       stmt_list2, NULL, NULL);
+					       stmt_list2, NULL, NULL, 0);
 		  }
 	      }
 	  }
@@ -1533,26 +1635,26 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 	    switch (type_size)
 	      {
 	      case 1:
-		*(unsigned char *) le_image = b0;
-		*(unsigned char *) be_image = b0;
+		*((unsigned char *) le_image + image_offset) = b0;
+		*((unsigned char *) be_image + image_offset) = b0;
 		break;
 
 	      case 2:
-		*((unsigned char *) le_image + 0) = b0;
-		*((unsigned char *) le_image + 1) = b1;
-		*((unsigned char *) be_image + 0) = b1;
-		*((unsigned char *) be_image + 1) = b0;
+		*((unsigned char *) le_image + image_offset + 0) = b0;
+		*((unsigned char *) le_image + image_offset + 1) = b1;
+		*((unsigned char *) be_image + image_offset + 0) = b1;
+		*((unsigned char *) be_image + image_offset + 1) = b0;
 		break;
 
 	      case 4:
-		*((unsigned char *) le_image + 0) = b0;
-		*((unsigned char *) le_image + 1) = b1;
-		*((unsigned char *) le_image + 2) = b2;
-		*((unsigned char *) le_image + 3) = b3;
-		*((unsigned char *) be_image + 0) = b3;
-		*((unsigned char *) be_image + 1) = b2;
-		*((unsigned char *) be_image + 2) = b1;
-		*((unsigned char *) be_image + 3) = b0;
+		*((unsigned char *) le_image + image_offset + 0) = b0;
+		*((unsigned char *) le_image + image_offset + 1) = b1;
+		*((unsigned char *) le_image + image_offset + 2) = b2;
+		*((unsigned char *) le_image + image_offset + 3) = b3;
+		*((unsigned char *) be_image + image_offset + 0) = b3;
+		*((unsigned char *) be_image + image_offset + 1) = b2;
+		*((unsigned char *) be_image + image_offset + 2) = b1;
+		*((unsigned char *) be_image + image_offset + 3) = b0;
 		break;
 
 	      default:
@@ -1608,7 +1710,7 @@ expand_init_to_stmt_list (tree decl, tree init, tree *stmt_list)
 
   expand_init_to_stmt_list1 (decl, init,
 			     &stmt_list1, FALSE,
-			     &stmt_list2, le_image, be_image);
+			     &stmt_list2, le_image, be_image, 0);
 
   num_list1 = statement_list_num_instr (stmt_list1);
   num_list2 = statement_list_num_instr (stmt_list2);

@@ -266,6 +266,41 @@ cil_call_nargs_base (const_cil_stmt stmt)
     }
 }
 
+/* Return the low value of the I-th case of CIL switch statement as an
+   HOST_WIDE_INT instead of a tree.  */
+
+HOST_WIDE_INT
+cil_switch_case_low (const_cil_stmt stmt, size_t i)
+{
+  tree value;
+
+  gcc_assert (stmt->opcode == CIL_SWITCH);
+  gcc_assert (i < stmt->arg.labels->ncases);
+
+  value = CASE_LOW (stmt->arg.labels->cases[i]);
+  return tree_low_cst (value, TYPE_UNSIGNED (TREE_TYPE (value)));
+}
+
+/* Return the high value of the I-th case of CIL switch statement as an
+   HOST_WIDE_INT instead of a tree. If the case doesn't represent a range then
+   this function will return the case value (i.e. the low value). */
+
+HOST_WIDE_INT
+cil_switch_case_high (const_cil_stmt stmt, size_t i)
+{
+  tree value;
+
+  gcc_assert (stmt->opcode == CIL_SWITCH);
+  gcc_assert (i < stmt->arg.labels->ncases);
+
+  if (CASE_HIGH (stmt->arg.labels->cases[i]))
+    value = CASE_HIGH (stmt->arg.labels->cases[i]);
+  else
+    value = CASE_LOW (stmt->arg.labels->cases[i]);
+
+  return tree_low_cst (value, TYPE_UNSIGNED (TREE_TYPE (value)));
+}
+
 /* Create a deep copy of the CIL statement pointed by STMT and return it.  */
 
 cil_stmt

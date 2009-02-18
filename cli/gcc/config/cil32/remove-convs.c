@@ -170,8 +170,11 @@ fold_conversion (enum cil_opcode op, cil_type_t type)
       break;
 
     case CIL_CONV_I2:
-      if (type == CIL_UNSIGNED_INT8)
-	return true;
+      if ((type == CIL_INT8) || (type == CIL_UNSIGNED_INT8)
+	  || (type == CIL_INT16))
+	{
+	  return true;
+	}
 
       break;
 
