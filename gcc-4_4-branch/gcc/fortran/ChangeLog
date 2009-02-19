@@ -1,3 +1,12 @@
+2009-02-18  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.texi: New chapter about compiler characteristics.
+	(Compiler Characteristics): Document KIND type parameters here.
+
+2009-02-18  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.texi (MALLOC): Make example more portable.
+
 2009-02-13  Mikael Morin  <mikael.morin@tele2.fr>
 
 	PR fortran/38259

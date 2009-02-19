@@ -1,3 +1,148 @@
+2009-02-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39188
+	* g++.dg/abi/pr39188-1a.C: New.
+	* g++.dg/abi/pr39188-1b.C: Likewise.
+	* g++.dg/abi/pr39188-1.h: Likewise.
+	* g++.dg/abi/pr39188-2a.C: Likewise.
+	* g++.dg/abi/pr39188-2b.C: Likewise.
+	* g++.dg/abi/pr39188-2.h: Likewise.
+	* g++.dg/abi/pr39188-3a.C: Likewise.
+	* g++.dg/abi/pr39188-3b.C: Likewise.
+	* g++.dg/abi/pr39188-3.h: Likewise.
+
+2009-02-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/38483
+	* gcc.c-torture/execute/call-trap-1.c,
+	gcc.c-torture/execute/va-arg-trap-1.c, gcc.dg/call-diag-1.c: New
+	tests.
+
+2009-02-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39228
+	* gcc.c-torture/execute/pr39228.c: New test.
+
+2009-02-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39074
+	* gcc.dg/torture/pr39074.c: New testcase.
+	* gcc.dg/torture/pr39074-2.c: Likewise.
+	* gcc.dg/torture/pr39074-3.c: Likewise.
+
+2009-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39219
+	* g++.dg/parse/attr3.C: New.
+
+2009-02-18  Jack Howarth <howarth@bromo.med.uc.edu>
+
+	PR testsuite/38165
+	* g++.dg/pubtypes.C: Adopt Radar 4535968 fix to testcase.
+
+	PR testsuite/38166
+	* g++.dg/ext/visibility/class1.C: Revert revision 122348
+	and skip on Darwin.
+
+2009-02-18  Jason Merrill  <jason@redhat.com>
+
+	PR target/39179
+	* g++.dg/opt/const6.C: New test.
+
+2009-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/callabi/callabi.exp: Moved to ...
+	* gcc.target/x86_64/abi/callabi/callabi.exp: Here.  Only run
+	in 64bit mode.
+
+	* gcc.target/x86_64/abi/callabi/func-1.c: Don't check target.
+	* gcc.target/x86_64/abi/callabi/func-indirect.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/func-indirect.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/pr38891.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/vaarg-1.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/vaarg-2.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/vaarg-3.c: Likewise.
+
+	* gcc.dg/callabi/callabi.h: Moved to ...
+	* gcc.target/x86_64/abi/callabi/callabi.h: Here.
+
+	* gcc.dg/callabi/func-1.c: Moved to ...
+	* gcc.target/x86_64/abi/callabi/func-1.c: Here.
+
+	* gcc.dg/callabi/func-indirect.c: Moved to ...
+	* gcc.target/x86_64/abi/callabi/func-indirect.c: Here.
+
+	* gcc.dg/callabi/pr38891.c: Moved to ...
+	* gcc.target/x86_64/abi/callabi/pr38891.c: Here.
+
+	* gcc.dg/callabi/vaarg-1.c: Moved to ...
+	* gcc.target/x86_64/abi/callabi/vaarg-1.c: Here.
+
+	* gcc.dg/callabi/vaarg-2.c: Moved to ...
+	* gcc.target/x86_64/abi/callabi/vaarg-2.c: Here.
+
+	* gcc.dg/callabi/vaarg-3.c: Moved to ...
+	* gcc.target/x86_64/abi/callabi/vaarg-3.c: Here.
+
+2009-02-17  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	PR target/38891
+	* gcc.dg/callabi/pr38891.c: New.
+
+2009-02-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/callabi/callabi.exp: New.
+
+2009-02-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39082
+	* g++.dg/compat/struct-layout-1_generate.c (dg_options): Add
+	-Wno-abi for x86.
+	* gcc.dg/compat/struct-layout-1_generate.c (dg_options): Likewise.
+
+	* gcc.target/i386/pr39082-1.c: New.
+
+	* gcc.target/x86_64/abi/abi-x86_64.exp (additional_flags): Add
+	-Wno-abi.
+
+	* gcc.target/x86_64/abi/args.h (XMM_T): Add _m64 and _m128 if
+	CHECK_M64_M128 is defined.
+	(check_f_arguments): Add "do".
+	(check_vector_arguments): New.
+	(check_m64_arguments): Likewise.
+	(check_m128_arguments): Likewise.
+
+	* gcc.target/x86_64/abi/defines.h: Include <xmmintrin.h>.
+	(CHECK_M64_M128): Define.
+
+	* gcc.target/x86_64/abi/test_m64m128_returning.c: New.  Based
+	on abitest.
+	* gcc.target/x86_64/abi/test_passing_m64m128.c: Likewise.
+
+	* gcc.target/x86_64/abi/test_passing_structs.c: Define __m128
+	tests only if CHECK_M64_M128 is defined.
+
+	* gcc.target/x86_64/abi/test_passing_structs.c (m128_struct): New.
+	(m128_2_struct): Likewise.
+	(check_struct_passing5): Likewise.
+	(check_struct_passing6): Likewise.
+	(main): Test struct with __m128 if CHECK_M64_M128 is defined.
+
+	* gcc.target/x86_64/abi/test_passing_unions.c (un4): New.
+	(un5): Likewise.
+	(check_union_passing4): Likewise.
+	(main): Test union with __m128 if CHECK_M64_M128 is defined.
+
+2009-02-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35447
+	* gcc.dg/noncompile/pr35447-1.c: New test.
+
+2009-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36922
+	* gfortran.dg/pr36922.f: New test.
+
 2009-02-17  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/39202
