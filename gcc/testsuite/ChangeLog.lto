@@ -1,3 +1,14 @@
+2009-02-19  Diego Novillo  <dnovillo@google.com>
+
+	Revert
+
+	2009-02-19  Rafael Avila de Espindola  <espindola@google.com>
+
+		* gcc.dg/lto/20090218-1_0.c: New.
+		* gcc.dg/lto/20090218-1_1.c: New.
+		* gcc.dg/lto/20090218-2_0.c: New.
+		* gcc.dg/lto/20090218-2_1.c: New.
+
 2009-02-19  Rafael Avila de Espindola  <espindola@google.com>
 
 	* gcc.dg/lto/20090218-1_0.c: New.

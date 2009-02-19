@@ -1,19 +1,28 @@
-2009-02-19  Rafael Avila de Espindola  <espindola@google.com>
+2009-02-19  Diego Novillo  <dnovillo@google.com>
 
-	* lto-cgraph.c: Include lto-util.h
-	(maybe_redirect_inlined_node): Remove.
-	(output_edge): Don't worry about an edge poiting to a node not in know
-	by the encoder.
-	(output_node): Output the decl number instead of the master node
-	number in the case of a clone.
-	(output_cgraph_verify_node): Don't check that the master is in the set.
-	(output_cgraph): Don't output the current master for each decl. The
-	first node output will be the master in ltrans.
-	(input_node): If a clone, read the decl number and use that decls'
-	master node.
-	(input_cgraph_1): Update call to input_node.
-	* lto-function-out.c (lto_output): Proces each function once. Don't
-	care if the node is the master.
+	Revert
+
+	2009-02-19  Rafael Avila de Espindola  <espindola@google.com>
+
+		* lto-cgraph.c: Include lto-util.h
+		(maybe_redirect_inlined_node): Remove.
+		(output_edge): Don't worry about an edge poiting
+		to a node not in know by the encoder.
+		(output_node): Output the decl number instead of the master node
+		number in the case of a clone.
+		(output_cgraph_verify_node): Don't check that the
+		master is in the set.
+
+		(output_cgraph): Don't output the current master
+		for each decl. The
+
+		first node output will be the master in ltrans.
+		(input_node): If a clone, read the decl number
+		and use that decls' master node.
+		(input_cgraph_1): Update call to input_node.
+		* lto-function-out.c (lto_output): Proces each
+		function once. Don't care if the node is the
+		master.
 
 2009-02-18  Diego Novillo  <dnovillo@google.com>
 

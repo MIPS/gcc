@@ -1,3 +1,19 @@
+2009-02-19  Diego Novillo  <dnovillo@google.com>
+
+	Revert
+
+	2009-02-19  Rafael Avila de Espindola  <espindola@google.com>
+
+		* lto.c (lto_add_inline_clones): Don't add the
+		master clone. Check for a decl in the original
+		bitmap, not a node.
+		(lto_add_all_inlinees): Remove original nodes
+		that are not needed.
+		(lto_scan_statics_in_cgraph_node): Don't care if
+		the node is the master.
+		(lto_promote_cross_file_statics): Use a new
+		context.seen_node_decls for each set
+
 2009-02-19  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto.c (lto_add_inline_clones): Don't add the master clone. Check
