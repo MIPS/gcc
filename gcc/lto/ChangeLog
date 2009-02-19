@@ -1,3 +1,15 @@
+2009-02-18  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (lto_wpa_write_files): Use timers TV_WHOPR_WPA
+	and TV_WHOPR_WPA_IO.
+	(lto_execute_ltrans): Use timer TV_WHOPR_WPA_LTRANS_EXEC.
+	(read_cgraph_and_symbols): Use timer TV_IPA_LTO_DECL_IO.
+	(materialize_cgraph): Use timer TV_IPA_LTO_GIMPLE_IO.
+	Use timer TV_WHOPR_WPA or TV_WHOPR_LTRANS or TV_LTO
+	depending on command line flags.
+	(do_whole_program_analysis): Use timer TV_WHOPR_WPA.
+	(lto_main): Remove timer uses.
+
 2009-02-18  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto.c (lto_materialize_function): Don't set DECL_EXTERN to 0.

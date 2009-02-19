@@ -512,6 +512,8 @@ lto_1_to_1_map (void)
   cgraph_node_set set;
   void **slot;
 
+  timevar_push (TV_WHOPR_WPA);
+
   lto_cgraph_node_sets = VEC_alloc (cgraph_node_set, gc, 1);
 
   /* If the cgraph is empty, create one cgraph node set so that there is still
@@ -545,7 +547,10 @@ lto_1_to_1_map (void)
     }
 
   pointer_map_destroy (pmap);
+
+  timevar_pop (TV_WHOPR_WPA);
 }
+
 
 /* Add inlined clone NODE and its master clone to SET, if NODE itself has
    inlined callee, recursively add the callees.  */
@@ -831,6 +836,8 @@ lto_wpa_write_files (void)
   bitmap decls;
   VEC(bitmap,heap) *inlined_decls = NULL;
 
+  timevar_push (TV_WHOPR_WPA);
+
   /* Include all inlined functions.  */
   for (i = 0; VEC_iterate (cgraph_node_set, lto_cgraph_node_sets, i, set); i++)
     {
@@ -841,6 +848,10 @@ lto_wpa_write_files (void)
   /* After adding all inlinees, find out statics that need to be promoted
      to globals because of cross-file inlining.  */
   lto_promote_cross_file_statics ();
+
+  timevar_pop (TV_WHOPR_WPA);
+
+  timevar_push (TV_WHOPR_WPA_IO);
 
   output_files = XNEWVEC (char *, VEC_length (cgraph_node_set,
 					      lto_cgraph_node_sets) + 1);
@@ -870,7 +881,6 @@ lto_wpa_write_files (void)
       
       lto_set_current_out_file (NULL);
       lto_elf_file_close (file);
-
     } 
 
   output_files[i] = NULL;
@@ -878,6 +888,8 @@ lto_wpa_write_files (void)
   for (i = 0; VEC_iterate (bitmap, inlined_decls, i, decls); i++)
     lto_bitmap_free (decls);
   VEC_free (bitmap, heap, inlined_decls);
+
+  timevar_pop (TV_WHOPR_WPA_IO);
 
   return output_files;
 }
@@ -904,6 +916,8 @@ lto_execute_ltrans (char *const *files)
   int err;
   int status;
   FILE *ltrans_output_list_stream = NULL;
+
+  timevar_push (TV_WHOPR_WPA_LTRANS_EXEC);
 
   /* Set the CC environment variable.  */
   env_val = getenv ("COLLECT_GCC");
@@ -988,6 +1002,8 @@ lto_execute_ltrans (char *const *files)
       else
 	fatal_error ("%s terminated with status %d", argv[0], status);
     }
+
+  timevar_pop (TV_WHOPR_WPA_LTRANS_EXEC);
 }
 
 
@@ -1376,6 +1392,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   struct lto_file_decl_data **all_file_decl_data;
   FILE *resolution;
 
+  timevar_push (TV_IPA_LTO_DECL_IO);
+
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   all_file_decl_data = XNEWVEC (struct lto_file_decl_data*, nfiles + 1);
   lto_set_in_hooks (all_file_decl_data, get_section_data, free_section_data);
@@ -1404,7 +1422,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
     {
       struct lto_file_decl_data *file_data = NULL;
 
-      current_lto_file = lto_elf_file_open (fnames[i], /*writable=*/false);
+      current_lto_file = lto_elf_file_open (fnames[i], false);
       if (!current_lto_file)
 	break;
 
@@ -1437,7 +1455,12 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data, free_section_data);
 
+  /* Each pass will set the appropriate timer.  */
+  timevar_pop (TV_IPA_LTO_DECL_IO);
+
   ipa_read_summaries ();
+
+  timevar_push (TV_IPA_LTO_DECL_IO);
 
   lto_fixup_decls (all_file_decl_data);
 
@@ -1449,6 +1472,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 	struct lto_file_decl_data *file_data = all_file_decl_data [i];
 	lto_materialize_constructors_and_inits (file_data);
       }
+
+  timevar_pop (TV_IPA_LTO_DECL_IO);
 }
 
 
@@ -1460,6 +1485,7 @@ materialize_cgraph (void)
   tree decl;
   struct cgraph_node *node; 
   unsigned i;
+  timevar_id_t lto_timer;
 
   /* Now that we have input the cgraph, we need to clear all of the aux
      nodes and read the functions if we are not running in WPA mode.  
@@ -1476,8 +1502,19 @@ materialize_cgraph (void)
      code be pulled out of lto_materialize_function, but that is a
      small part of what will be a complex set of management
      issues.  */
+  timevar_push (TV_IPA_LTO_GIMPLE_IO);
+
   for (node = cgraph_nodes; node; node = node->next)
     lto_materialize_function (node);
+
+  timevar_pop (TV_IPA_LTO_GIMPLE_IO);
+
+  /* Start the appropriate timer depending on the mode that we are
+     operating in.  */
+  lto_timer = (flag_wpa) ? TV_WHOPR_WPA
+	      : (flag_ltrans) ? TV_WHOPR_LTRANS
+	      : TV_LTO;
+  timevar_push (lto_timer);
 
   current_function_decl = NULL;
   set_cfun (NULL);
@@ -1488,6 +1525,8 @@ materialize_cgraph (void)
 
   /* Fix up any calls to DECLs that have become not exception throwing.  */
   lto_fixup_nothrow_decls ();
+
+  timevar_pop (lto_timer);
 }
 
 
@@ -1507,6 +1546,9 @@ do_whole_program_analysis (void)
      actually read in all the function bodies.  It only materializes
      the decls and cgraph nodes so that analysis can be performed.  */
   materialize_cgraph ();
+
+  /* Reading in the cgraph uses different timers, start timing WPA now.  */
+  timevar_push (TV_WHOPR_WPA);
 
   /* FIXME lto. Hack. We should use the IPA passes.  There are a
      number of issues with this now. 1. There is no convenient way to
@@ -1529,10 +1571,6 @@ do_whole_program_analysis (void)
   /* We are about to launch the final LTRANS phase, stop the WPA timer.  */
   timevar_pop (TV_WHOPR_WPA);
 
-  /* Start the LTRANS launch timer.  This will measure only the time
-     that WPA waits for final optimization and code generation.  */
-  timevar_push (TV_WHOPR_WPA_LTRANS_EXEC);
-
   output_files = lto_wpa_write_files ();
   lto_execute_ltrans (output_files);
 
@@ -1542,11 +1580,6 @@ do_whole_program_analysis (void)
       free (output_files[i]);
     }
   XDELETEVEC (output_files);
-
-  timevar_pop (TV_WHOPR_WPA_LTRANS_EXEC);
-
-  /* Restart the LTO timer.  */
-  timevar_push (TV_WHOPR_WPA);
 }
 
 
@@ -1574,15 +1607,6 @@ do_whole_program_analysis (void)
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
 {
-  timevar_id_t lto_timer;
-
-  /* Start the appropriate timer depending on the mode that we are
-     operating in.  */
-  lto_timer = (flag_wpa) ? TV_WHOPR_WPA
-	      : (flag_ltrans) ? TV_WHOPR_LTRANS
-	      : TV_LTO;
-  timevar_push (lto_timer);
-
   /* Read all the symbols and call graph from all the files in the
      command line.  */
   read_cgraph_and_symbols (num_in_fnames, in_fnames);
@@ -1603,9 +1627,6 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 	  cgraph_optimize ();
 	}
     }
-
-  /* Stop the LTO timer.  */
-  timevar_pop (lto_timer);
 }
 
 #include "gt-lto-lto.h"

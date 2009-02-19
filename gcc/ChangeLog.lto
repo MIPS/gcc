@@ -1,5 +1,9 @@
 2009-02-18  Diego Novillo  <dnovillo@google.com>
 
+	* timevar.def (TV_WHOPR_WPA_IO): New timer.
+
+2009-02-18  Diego Novillo  <dnovillo@google.com>
+
 	Mainline merge @144262.
 
 	* configure.ac (ACX_PKGVERSION): Update revision merge string.
