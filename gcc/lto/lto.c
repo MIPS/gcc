@@ -557,32 +557,23 @@ lto_1_to_1_map (void)
 
 static void
 lto_add_inline_clones (cgraph_node_set set, struct cgraph_node *node,
-		       bitmap original_nodes, bitmap inlined_decls)
+		       bitmap original_decls, bitmap inlined_decls)
 {
-   struct cgraph_node *master_clone, *callee;
+   struct cgraph_node *callee;
    struct cgraph_edge *edge;
 
-   /* NODE must be an inlined clone.  Add both its master clone and node
-      itself to SET and mark the decls as inlined.  */
-   if (!bitmap_bit_p (original_nodes, node->uid))
-     {
-	master_clone = cgraph_master_clone (node, false);
-	gcc_assert (master_clone != NULL && master_clone != node);
-	if (!cgraph_node_in_set_p (master_clone, set))
-	  {
-	    cgraph_node_set_add (set, master_clone);
-	    bitmap_set_bit (inlined_decls, DECL_UID (node->decl));
-	  }
-	cgraph_node_set_add (set, node);
-     }
-   
+   cgraph_node_set_add (set, node);
+
+   if (!bitmap_bit_p (original_decls, DECL_UID (node->decl)))
+     bitmap_set_bit (inlined_decls, DECL_UID (node->decl));
+
    /* Check to see if NODE has any inlined callee.  */
    for (edge = node->callees; edge != NULL; edge = edge->next_callee)
      {
 	callee = edge->callee;
 	if (callee->global.inlined_to != NULL)
-	    lto_add_inline_clones (set, callee, original_nodes,
-				   inlined_decls);
+	  lto_add_inline_clones (set, callee, original_decls,
+				 inlined_decls);
      }
 }
 
@@ -596,21 +587,59 @@ lto_add_all_inlinees (cgraph_node_set set)
   cgraph_node_set_iterator csi;
   struct cgraph_node *node;
   bitmap original_nodes = lto_bitmap_alloc ();
+  bitmap original_decls = lto_bitmap_alloc ();
   bitmap inlined_decls = lto_bitmap_alloc();
+  bool changed;
 
   /* We are going to iterate SET will adding to it, mark all original
      nodes so that we only add node inlined to original nodes.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
-    bitmap_set_bit (original_nodes, csi_node (csi)->uid);
+    {
+      bitmap_set_bit (original_nodes, csi_node (csi)->uid);
+      bitmap_set_bit (original_decls, DECL_UID (csi_node (csi)->decl));
+    }
+
+  /* Some of the original nodes might not be needed anymore.  Remove them. */
+  do
+    {
+      changed = false;
+      for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+	{
+	  struct cgraph_node *inlined_to;
+	  struct cgraph_node *caller;
+	  node = csi_node (csi);
+
+	  /* NODE was not inlined. We still need it. */
+	  if (!node->global.inlined_to)
+	    continue;
+
+	  inlined_to = node->global.inlined_to;
+	  caller = node->callers->caller;
+
+	  /* NODE should have only one caller */
+	  gcc_assert (!node->callers->next_caller);
+
+	  if (!bitmap_bit_p (original_nodes, inlined_to->uid)
+	      || !bitmap_bit_p (original_nodes, caller->uid))
+	    {
+	      gcc_assert (!bitmap_bit_p (original_nodes, inlined_to->uid));
+	      gcc_assert (!bitmap_bit_p (original_nodes, caller->uid));
+	      bitmap_clear_bit (original_nodes, node->uid);
+	      cgraph_node_set_remove (set, node);
+	      changed = true;
+	    }
+	}
+    } while (changed);
 
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
       if (bitmap_bit_p (original_nodes, node->uid))
-	lto_add_inline_clones (set, node, original_nodes, inlined_decls);
+	lto_add_inline_clones (set, node, original_decls, inlined_decls);
     }
 
   lto_bitmap_free (original_nodes);
+  lto_bitmap_free (original_decls);
   return inlined_decls;
 }
 
@@ -740,8 +769,7 @@ lto_scan_statics_in_cgraph_node (struct cgraph_node *node,
   struct lto_in_decl_state *state;
   
   /* Return if NODE has no function body or is not the master clone. */
-  if (!node->analyzed
-      || (node->master_clone != NULL && node->master_clone != node))
+  if (!node->analyzed)
     return;
   
   /* Return if the DECL of nodes has been visited before.  */
@@ -796,7 +824,6 @@ lto_promote_cross_file_statics (void)
   memset (&context, 0, sizeof (context));
   context.all_vars = lto_bitmap_alloc ();
   context.all_static_vars = lto_bitmap_alloc ();
-  context.seen_node_decls = lto_bitmap_alloc ();
 
   n_sets = VEC_length (cgraph_node_set, lto_cgraph_node_sets);
   for (i = 0; i < n_sets; i++)
@@ -805,6 +832,8 @@ lto_promote_cross_file_statics (void)
       context.set = set;
       context.visited = pointer_set_create ();
       context.static_vars_in_set = lto_bitmap_alloc ();
+      context.seen_node_decls = lto_bitmap_alloc ();
+
       for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
 	lto_scan_statics_in_cgraph_node (csi_node (csi), &context);
 
@@ -812,13 +841,14 @@ lto_promote_cross_file_statics (void)
         lto_scan_statics_in_remaining_global_vars (&context);
 
       bitmap_ior_into (context.all_static_vars, context.static_vars_in_set);
+
       pointer_set_destroy (context.visited);
       lto_bitmap_free (context.static_vars_in_set);
+      lto_bitmap_free (context.seen_node_decls);
     }
 
   lto_bitmap_free (context.all_vars);
   lto_bitmap_free (context.all_static_vars);
-  lto_bitmap_free (context.seen_node_decls);
 }
 
 static lto_file *current_lto_file;

@@ -2272,16 +2272,16 @@ lto_output (cgraph_node_set set)
   struct cgraph_node *node;
   struct lto_out_decl_state *decl_state;
   cgraph_node_set_iterator csi;
+  bitmap output = lto_bitmap_alloc ();
 
   lto_static_init_local ();
 
-  /* Process only the functions with bodies and only process the master
-     ones of them.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-      if (node->analyzed && cgraph_is_master_clone (node, false))
+      if (node->analyzed && !bitmap_bit_p (output, DECL_UID (node->decl)))
 	{
+	  bitmap_set_bit (output, DECL_UID (node->decl));
 	  decl_state = lto_new_out_decl_state ();
 	  lto_push_out_decl_state (decl_state);
 	  if (!flag_wpa)
@@ -2293,6 +2293,7 @@ lto_output (cgraph_node_set set)
 	  lto_record_function_out_decl_state (node->decl, decl_state);
 	}
     }
+  lto_bitmap_free (output);
 }
 
 struct ipa_opt_pass pass_ipa_lto_gimple_out =
