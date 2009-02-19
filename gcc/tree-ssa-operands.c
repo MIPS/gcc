@@ -75,11 +75,6 @@ along with GCC; see the file COPYING3.  If not see
    operand vector for VUSE, then the new vector will also be modified
    such that it contains 'a_5' rather than 'a'.  */
 
-/* Helper functions from gimple.c.  These are GIMPLE manipulation
-   routines that only the operand scanner should need.  */
-void gimple_set_stored_syms (gimple, bitmap, bitmap_obstack *);
-void gimple_set_loaded_syms (gimple, bitmap, bitmap_obstack *);
-
 /* Structure storing statistics on how many call clobbers we have, and
    how many where avoided.  */
 
@@ -146,12 +141,6 @@ static tree build_vuse;
 /* Bitmap obstack for our datastructures that needs to survive across	
    compilations of multiple functions.  */
 static bitmap_obstack operands_bitmap_obstack;
-
-/* Set for building all the loaded symbols.  */
-static bitmap build_loads;
-
-/* Set for building all the stored symbols.  */
-static bitmap build_stores;
 
 static void get_expr_operands (gimple, tree *, int);
 
@@ -279,8 +268,6 @@ init_ssa_operands (void)
       build_vuse = NULL_TREE;
       build_vdef = NULL_TREE;
       bitmap_obstack_initialize (&operands_bitmap_obstack);
-      build_loads = BITMAP_ALLOC (&operands_bitmap_obstack);
-      build_stores = BITMAP_ALLOC (&operands_bitmap_obstack);
       scb_stack = VEC_alloc (scb_t, heap, 20);
     }
 
@@ -307,8 +294,6 @@ fini_ssa_operands (void)
       VEC_free (tree, heap, build_uses);
       build_vdef = NULL_TREE;
       build_vuse = NULL_TREE;
-      BITMAP_FREE (build_loads);
-      BITMAP_FREE (build_stores);
 
       /* The change buffer stack had better be empty.  */
       gcc_assert (VEC_length (scb_t, scb_stack) == 0);
@@ -481,10 +466,6 @@ finalize_ssa_defs (gimple stmt)
   /* There should only be a single real definition per assignment.  */
   gcc_assert ((stmt && gimple_code (stmt) != GIMPLE_ASSIGN) || num <= 1);
 
-  /* Set the symbols referenced by STMT.  */
-  if (gimple_has_mem_ops (stmt))
-    gimple_set_stored_syms (stmt, build_stores, &operands_bitmap_obstack);
-
   /* Pre-pend the vdef we may have built.  */
   if (build_vdef != NULL_TREE)
     {
@@ -553,10 +534,6 @@ finalize_ssa_uses (gimple stmt)
   struct use_optype_d new_list;
   use_optype_p old_ops, ptr, last;
 
-  /* Set the symbols referenced by STMT.  */
-  if (gimple_has_mem_ops (stmt))
-    gimple_set_loaded_syms (stmt, build_loads, &operands_bitmap_obstack);
-
   /* Pre-pend the VUSE we may have built.  */
   if (build_vuse != NULL_TREE)
     {
@@ -619,8 +596,6 @@ cleanup_build_arrays (void)
   build_vuse = NULL_TREE;
   VEC_truncate (tree, build_defs, 0);
   VEC_truncate (tree, build_uses, 0);
-  bitmap_clear (build_loads);
-  bitmap_clear (build_stores);
 }
 
 
@@ -644,8 +619,6 @@ start_ssa_stmt_operands (void)
   gcc_assert (VEC_length (tree, build_uses) == 0);
   gcc_assert (build_vuse == NULL_TREE);
   gcc_assert (build_vdef == NULL_TREE);
-  gcc_assert (bitmap_empty_p (build_loads));
-  gcc_assert (bitmap_empty_p (build_stores));
 }
 
 
@@ -741,18 +714,7 @@ add_stmt_operand (tree *var_p, gimple stmt, int flags)
 	append_use (var_p);
     }
   else
-    {
-      if (TREE_CODE (var) == VAR_DECL
-	  || TREE_CODE (var) == PARM_DECL
-	  || TREE_CODE (var) == RESULT_DECL)
-	{
-	  if (flags & opf_def)
-	    bitmap_set_bit (build_stores, DECL_UID (var));
-	  else
-	    bitmap_set_bit (build_loads, DECL_UID (var));
-	}
-      add_virtual_operand (stmt, flags);
-    }
+    add_virtual_operand (stmt, flags);
 }
 
 /* Add the base address of REF to SET.  */
@@ -1207,8 +1169,6 @@ free_stmt_operands (gimple stmt)
 
   if (gimple_has_mem_ops (stmt))
     {
-      gimple_set_stored_syms (stmt, NULL, &operands_bitmap_obstack);
-      gimple_set_loaded_syms (stmt, NULL, &operands_bitmap_obstack);
       gimple_set_vuse (stmt, NULL_TREE);
       gimple_set_vdef (stmt, NULL_TREE);
     }

@@ -840,8 +840,6 @@ delete_tree_ssa (void)
 	    {
 	      gimple_set_vdef (stmt, NULL_TREE);
 	      gimple_set_vuse (stmt, NULL_TREE);
-	      BITMAP_FREE (stmt->gsmem.membase.stores);
-	      BITMAP_FREE (stmt->gsmem.membase.loads);
 	    }
 
 	  gimple_set_modified (stmt, true);

@@ -367,11 +367,6 @@ struct gimple_statement_with_memory_ops_base GTY(())
      Virtual operands for this statement.  */
   tree vdef;
   tree vuse;
-
-  /* [ WORD 10-11 ]
-     Symbols stored/loaded by this statement.  */
-  bitmap GTY((skip (""))) stores;
-  bitmap GTY((skip (""))) loads;
 };
 
 
@@ -379,10 +374,10 @@ struct gimple_statement_with_memory_ops_base GTY(())
 
 struct gimple_statement_with_memory_ops GTY(())
 {
-  /* [ WORD 1-10 ]  */
+  /* [ WORD 1-9 ]  */
   struct gimple_statement_with_memory_ops_base membase;
 
-  /* [ WORD 11 ]
+  /* [ WORD 10 ]
      Operand vector.  NOTE!  This must always be the last field
      of this structure.  In particular, this means that this
      structure cannot be embedded inside another one.  */
@@ -545,20 +540,20 @@ struct gimple_statement_wce GTY(())
 
 struct gimple_statement_asm GTY(())
 {
-  /* [ WORD 1-10 ]  */
+  /* [ WORD 1-9 ]  */
   struct gimple_statement_with_memory_ops_base membase;
 
-  /* [ WORD 11 ]
+  /* [ WORD 10 ]
      __asm__ statement.  */
   const char *string;
 
-  /* [ WORD 12 ]
+  /* [ WORD 11 ]
        Number of inputs, outputs and clobbers.  */
   unsigned char ni;
   unsigned char no;
   unsigned short nc;
 
-  /* [ WORD 13 ]
+  /* [ WORD 12 ]
      Operand vector.  NOTE!  This must always be the last field
      of this structure.  In particular, this means that this
      structure cannot be embedded inside another one.  */
@@ -1405,29 +1400,6 @@ gimple_set_vdef (gimple g, tree vdef)
 {
   gcc_assert (gimple_has_mem_ops (g));
   g->gsmem.membase.vdef = vdef;
-}
-
-/* Return the set of symbols loaded by statement G.  Each element of the
-   set is the DECL_UID of the corresponding symbol.  */
-
-static inline bitmap
-gimple_loaded_syms (const_gimple g)
-{
-  if (!gimple_has_mem_ops (g))
-    return NULL;
-  return g->gsmem.membase.loads;
-}
-
-
-/* Return the set of symbols stored by statement G.  Each element of
-   the set is the DECL_UID of the corresponding symbol.  */
-
-static inline bitmap
-gimple_stored_syms (const_gimple g)
-{
-  if (!gimple_has_mem_ops (g))
-    return NULL;
-  return g->gsmem.membase.stores;
 }
 
 

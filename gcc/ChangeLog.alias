@@ -1,3 +1,28 @@
+2009-02-19  Richard Guenther  <rguenther@suse.de>
+
+	* ipa-reference.c (scan_stmt_for_static_refs): Open-code
+	gimple_loaded_syms and gimple_stored_syms computation.
+	* gimple-pretty-print.c (dump_symbols): Remove.
+	(dump_gimple_mem_ops): Do not dump loaded or stored syms.
+	* tree-ssa.c (delete_tree_ssa): Do not free the loaded and stored
+	syms bitmaps
+	* gimple.c (gimple_copy): Do not reset them.
+	(gimple_set_stored_syms): Remove.
+	(gimple_set_loaded_syms): Likewise.
+	* gimple.h (struct gimple_statement_with_memory_ops_base): Remove
+	stores and loads members.
+	(gimple_loaded_syms): Remove.
+	(gimple_stored_syms): Remove.
+	* tree-ssa-operands.c (build_loads, build_stores): Remove.
+	(init_ssa_operands): Do not init them.
+	(fini_ssa_operands): Do not free them.
+	(finalize_ssa_defs): Do not transfer them to stmts.
+	(finalize_ssa_uses): Likewise.
+	(cleanup_build_arrays): Do not clear them.
+	(start_ssa_stmt_operands): Do not assert they are empty.
+	(add_stmt_operand): Do not add to them.
+	(free_stmt_operands): Do not reset stmt loaded and stored syms.
+
 2009-02-16  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r144196.

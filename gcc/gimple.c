@@ -2210,8 +2210,6 @@ gimple_copy (gimple stmt)
 	{
 	  gimple_set_vdef (copy, gimple_vdef (stmt));
 	  gimple_set_vuse (copy, gimple_vuse (stmt));
-	  copy->gsmem.membase.stores = NULL;
-	  copy->gsmem.membase.loads = NULL;
 	}
 
       /* SSA operands need to be updated.  */
@@ -2453,46 +2451,6 @@ dump_gimple_statistics (void)
 #else
   fprintf (stderr, "No gimple statistics\n");
 #endif
-}
-
-
-/* Deep copy SYMS into the set of symbols stored by STMT.  If SYMS is
-   NULL or empty, the storage used is freed up.  */
-
-void
-gimple_set_stored_syms (gimple stmt, bitmap syms, bitmap_obstack *obs)
-{
-  gcc_assert (gimple_has_mem_ops (stmt));
-
-  if (syms == NULL || bitmap_empty_p (syms))
-    BITMAP_FREE (stmt->gsmem.membase.stores);
-  else
-    {
-      if (stmt->gsmem.membase.stores == NULL)
-	stmt->gsmem.membase.stores = BITMAP_ALLOC (obs);
-
-      bitmap_copy (stmt->gsmem.membase.stores, syms);
-    }
-}
-
-
-/* Deep copy SYMS into the set of symbols loaded by STMT.  If SYMS is
-   NULL or empty, the storage used is freed up.  */
-
-void
-gimple_set_loaded_syms (gimple stmt, bitmap syms, bitmap_obstack *obs)
-{
-  gcc_assert (gimple_has_mem_ops (stmt));
-
-  if (syms == NULL || bitmap_empty_p (syms))
-    BITMAP_FREE (stmt->gsmem.membase.loads);
-  else
-    {
-      if (stmt->gsmem.membase.loads == NULL)
-	stmt->gsmem.membase.loads = BITMAP_ALLOC (obs);
-
-      bitmap_copy (stmt->gsmem.membase.loads, syms);
-    }
 }
 
 
