@@ -186,34 +186,6 @@ ipcp_analyze_node (struct cgraph_node *node)
   ipa_detect_param_modifications (node);
 }
 
-/* Recompute all local information since node might've got new
-   direct calls after cloning.  */
-static void
-ipcp_update_cloned_node (struct cgraph_node *new_node)
-{
-  /* We might've introduced new direct calls.  */
-  push_cfun (DECL_STRUCT_FUNCTION (new_node->decl));
-  current_function_decl = new_node->decl;
-  rebuild_cgraph_edges ();
-
-  /* Indirect inlinng rely on fact that we've already analyzed
-     the body..  */
-  if (flag_indirect_inlining)
-    {
-      struct cgraph_edge *cs;
-
-      ipcp_analyze_node (new_node);
-
-      for (cs = new_node->callees; cs; cs = cs->next_callee)
-	{
-	  ipa_count_arguments (cs);
-	  ipa_compute_jump_functions (cs);
-	}
-    }
-  pop_cfun ();
-  current_function_decl = NULL;
-}
-
 /* Return scale for NODE.  */
 static inline gcov_type
 ipcp_get_node_scale (struct cgraph_node *node)
@@ -872,7 +844,7 @@ ipcp_create_replace_map (tree parm_tree, struct ipcp_lattice *lat)
   struct ipa_replace_map *replace_map;
   tree const_val;
 
-  replace_map = XCNEW (struct ipa_replace_map);
+  replace_map = GGC_NEW (struct ipa_replace_map);
   const_val = build_const_val (lat, TREE_TYPE (parm_tree));
   if (dump_file)
     {
@@ -959,52 +931,13 @@ ipcp_update_callgraph (void)
 	for (cs = node->callers; cs; cs = next)
 	  {
 	    next = cs->next_caller;
-	    if (ipcp_node_is_clone (cs->caller) || !ipcp_need_redirect_p (cs))
-	      {
-		gimple new_stmt;
-		gimple_stmt_iterator gsi;
-
-		current_function_decl = cs->caller->decl;
-	        push_cfun (DECL_STRUCT_FUNCTION (cs->caller->decl));
-		
-		new_stmt = gimple_call_copy_skip_args (cs->call_stmt,
-						       args_to_skip);
-		gsi = gsi_for_stmt (cs->call_stmt);
-		gsi_replace (&gsi, new_stmt, true);
-		cgraph_set_call_stmt (cs, new_stmt);
-	        pop_cfun ();
-		current_function_decl = NULL;
-	      }
-	    else
+	    if (!ipcp_node_is_clone (cs->caller) && ipcp_need_redirect_p (cs))
 	      {
 		cgraph_redirect_edge_callee (cs, orig_node);
 		gimple_call_set_fndecl (cs->call_stmt, orig_node->decl);
 	      }
 	  }
       }
-}
-
-/* Update all cfg basic blocks in NODE according to SCALE.  */
-static void
-ipcp_update_bb_counts (struct cgraph_node *node, gcov_type scale)
-{
-  basic_block bb;
-
-  FOR_ALL_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
-    bb->count = bb->count * scale / REG_BR_PROB_BASE;
-}
-
-/* Update all cfg edges in NODE according to SCALE.  */
-static void
-ipcp_update_edges_counts (struct cgraph_node *node, gcov_type scale)
-{
-  basic_block bb;
-  edge_iterator ei;
-  edge e;
-
-  FOR_ALL_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
-    FOR_EACH_EDGE (e, ei, bb->succs)
-    e->count = e->count * scale / REG_BR_PROB_BASE;
 }
 
 /* Update profiling info for versioned functions and the functions they were
@@ -1030,10 +963,6 @@ ipcp_update_profiling (void)
 	    cs->count = cs->count * scale / REG_BR_PROB_BASE;
 	  for (cs = orig_node->callees; cs; cs = cs->next_callee)
 	    cs->count = cs->count * scale_complement / REG_BR_PROB_BASE;
-	  ipcp_update_bb_counts (node, scale);
-	  ipcp_update_bb_counts (orig_node, scale_complement);
-	  ipcp_update_edges_counts (node, scale);
-	  ipcp_update_edges_counts (orig_node, scale_complement);
 	}
     }
 }
@@ -1158,7 +1087,7 @@ ipcp_insert_stage (void)
   struct cgraph_node *node, *node1 = NULL;
   int i;
   VEC (cgraph_edge_p, heap) * redirect_callers;
-  varray_type replace_trees;
+  VEC (ipa_replace_map_p,gc)* replace_trees;
   int node_callers, count;
   tree parm_tree;
   struct ipa_replace_map *replace_param;
@@ -1240,9 +1169,8 @@ ipcp_insert_stage (void)
       info = IPA_NODE_REF (node);
       count = ipa_get_param_count (info);
 
-      VARRAY_GENERIC_PTR_INIT (replace_trees, ipcp_const_param_count (node),
-				"replace_trees");
-      args_to_skip = BITMAP_ALLOC (NULL);
+      replace_trees = VEC_alloc (ipa_replace_map_p, gc, 1);
+      args_to_skip = BITMAP_GGC_ALLOC ();
       for (i = 0; i < count; i++)
 	{
 	  struct ipcp_lattice *lat = ipcp_get_lattice (info, i);
@@ -1261,7 +1189,7 @@ ipcp_insert_stage (void)
 	    {
 	      replace_param =
 		ipcp_create_replace_map (parm_tree, lat);
-	      VARRAY_PUSH_GENERIC_PTR (replace_trees, replace_param);
+	      VEC_safe_push (ipa_replace_map_p, gc, replace_trees, replace_param);
 	      bitmap_set_bit (args_to_skip, i);
 	    }
 	}
@@ -1277,11 +1205,12 @@ ipcp_insert_stage (void)
       /* Redirecting all the callers of the node to the
          new versioned node.  */
       node1 =
-	cgraph_function_versioning (node, redirect_callers, replace_trees,
-				    args_to_skip);
-      BITMAP_FREE (args_to_skip);
+	cgraph_create_virtual_clone (node, redirect_callers, replace_trees,
+				     args_to_skip);
+      args_to_skip = NULL;
       VEC_free (cgraph_edge_p, heap, redirect_callers);
-      VARRAY_CLEAR (replace_trees);
+      replace_trees = NULL;
+
       if (node1 == NULL)
 	continue;
       if (dump_file)
@@ -1289,8 +1218,7 @@ ipcp_insert_stage (void)
 		 cgraph_node_name (node), (int)growth, (int)new_size);
       ipcp_init_cloned_node (node, node1);
 
-      /* We've possibly introduced direct calls.  */
-      ipcp_update_cloned_node (node1);
+      /* TODO: We can use indirect inlning info to produce new calls.  */
 
       if (dump_file)
 	dump_function_to_file (node1->decl, dump_file, dump_flags);

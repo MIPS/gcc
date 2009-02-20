@@ -128,6 +128,29 @@ struct cgraph_rtl_info GTY(())
    unsigned int preferred_incoming_stack_boundary;
 };
 
+/* Represent which DECL tree (or reference to such tree)
+   will be replaced by another tree while versioning.  */
+struct ipa_replace_map GTY(())
+{
+  /* The tree that will be replaced.  */
+  tree old_tree;
+  /* The new (replacing) tree.  */
+  tree new_tree;
+  /* True when a substitution should be done, false otherwise.  */
+  bool replace_p;
+  /* True when we replace a reference to old_tree.  */
+  bool ref_p;
+};
+typedef struct ipa_replace_map *ipa_replace_map_p;
+DEF_VEC_P(ipa_replace_map_p);
+DEF_VEC_ALLOC_P(ipa_replace_map_p,gc);
+
+struct cgraph_clone_info GTY(())
+{
+  VEC(ipa_replace_map_p,gc)* tree_map;
+  bitmap args_to_skip;
+};
+
 /* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
 
@@ -160,6 +183,7 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   struct cgraph_local_info local;
   struct cgraph_global_info global;
   struct cgraph_rtl_info rtl;
+  struct cgraph_clone_info clone;
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -327,6 +351,11 @@ struct cgraph_node *cgraph_node (tree);
 struct cgraph_node *cgraph_node_for_asm (tree asmname);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, gimple);
 void cgraph_set_call_stmt (struct cgraph_edge *, gimple);
+void cgraph_set_call_stmt_including_clones (struct cgraph_node *, gimple, gimple);
+void cgraph_create_edge_including_clones (struct cgraph_node *,
+					  struct cgraph_node *,
+					  gimple, gcov_type, int, int,
+					  cgraph_inline_failed_t);
 void cgraph_update_edges_for_call_stmt (gimple, gimple);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
@@ -348,6 +377,10 @@ void cgraph_unnest_node (struct cgraph_node *);
 enum availability cgraph_function_body_availability (struct cgraph_node *);
 void cgraph_add_new_function (tree, bool);
 const char* cgraph_inline_failed_string (cgraph_inline_failed_t);
+struct cgraph_node * cgraph_create_virtual_clone (struct cgraph_node *old_node,
+			                          VEC(cgraph_edge_p,heap)*,
+			                          VEC(ipa_replace_map_p,gc)* tree_map,
+			                          bitmap args_to_skip);
 
 /* In cgraphunit.c  */
 void cgraph_finalize_function (tree, bool);
@@ -365,8 +398,9 @@ void cgraph_reset_static_var_maps (void);
 void init_cgraph (void);
 struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
 						VEC(cgraph_edge_p,heap)*,
-						varray_type,
+						VEC(ipa_replace_map_p,gc)*,
 						bitmap);
+void tree_function_versioning (tree, tree, VEC (ipa_replace_map_p,gc)*, bool, bitmap);
 void cgraph_analyze_function (struct cgraph_node *);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);
 void record_references_in_initializer (tree);
@@ -395,6 +429,7 @@ struct cgraph_2edge_hook_list *cgraph_add_edge_duplication_hook (cgraph_2edge_ho
 void cgraph_remove_edge_duplication_hook (struct cgraph_2edge_hook_list *);
 struct cgraph_2node_hook_list *cgraph_add_node_duplication_hook (cgraph_2node_hook, void *);
 void cgraph_remove_node_duplication_hook (struct cgraph_2node_hook_list *);
+void cgraph_materialize_all_clones (void);
 
 /* In cgraphbuild.c  */
 unsigned int rebuild_cgraph_edges (void);

@@ -1,3 +1,45 @@
+2009-02-16  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c: Do not include varray.h
+	(cgraph_set_call_stmt_including_clones,
+	cgraph_create_edge_including_clones): New functions.
+	(cgraph_remove_node): Update clone tree correctly.
+	(cgraph_clone_node): Update clone datastructure.
+	(cgraph_create_virtual_clone): New functio.
+	* cgraph.h (struct ipa_replace_map): Move here from ipa-prop.h
+	(ipa_replace_map_p): New type and vector.
+	(cgraph_set_call_stmt_including_clones,
+	cgraph_create_edge_including_clones, cgraph_create_virtual_clone):
+	Declare.
+	(cgraph_function_versioning): Use vector instead of varray.
+	(tree_function_versioning): Declare here.
+	(cgraph_materialize_all_clones): New function.
+	* ipa-cp (ipcp_update_cloned_node): Remove
+	(ipcp_create_replace_map): Allocate replace_map in GGC.
+	(ipcp_update_callgraph): Only create virtual nodes.
+	(ipcp_update_bb_counts, ipcp_update_edges_counts): Remove.
+	(ipcp_update_profiling): Only update cgraph.
+	(ipcp_insert_stage): Use GGC for skip_args bitmap; use vector for
+	replace_map.
+	* cgraphunit.c (clone_of_p): New function.
+	(verify_cgraph_node): Handle cones correctly.
+	(cgraph_optimize): Do cgraph_materialize_all_clones.
+	(cgraph_materialize_clone, cgraph_materialize_all_clones): Update.
+	* ipa-inline.c (cgraph_default_inline_p): Use analyzed flag instead of looking
+	into the body.
+	* ipa.c: Include gimple.h
+	(cgraph_remove_unreachable_nodes): Functions that need to be instantiated
+	to clones are needed.
+	* ipa-prop.h (ipa_replace_map): Move to cgraph.h
+	* tree-inline.c: Do not include varray.h
+	(copy_bb): Properly update edges; take care of creating new edges
+	for new call statements.
+	(expand_call_inline): Edge should always exist.
+	(tree_function_versioning): Use vector.
+	* tree-inline.h: Remove varray.h
+	(tree_function_versioning): Remove.
+	* passes.c (do_per_function): Only do functions with bodies.
+
 2009-02-16  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (expand_omp_taskreg): Always set current_function_decl.

@@ -448,7 +448,7 @@ cgraph_default_inline_p (struct cgraph_node *n, cgraph_inline_failed_t *reason)
       return false;
     }
 
-  if (!DECL_STRUCT_FUNCTION (decl)->cfg)
+  if (!n->analyzed)
     {
       if (reason)
 	*reason = CIF_BODY_NOT_AVAILABLE;
@@ -1338,7 +1338,8 @@ try_inline (struct cgraph_edge *e, enum inlining_mode mode, int depth)
 
      Also flattening needs to be done recursively.  */
 
-  if (mode == INLINE_ALL || always_inline)
+  if ((mode == INLINE_ALL || always_inline)
+      && !cgraph_recursive_inlining_p (e->caller, e->callee, &e->inline_failed))
     cgraph_decide_inlining_incrementally (e->callee, mode, depth + 1);
   callee->aux = (void *)(size_t) callee_mode;
   return true;

@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "timevar.h"
+#include "gimple.h"
 
 /* Fill array order with all nodes with output flag set in the reverse
    topological order.  */
@@ -142,6 +143,12 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	    e->callee->aux = first;
 	    first = e->callee;
 	  }
+      while (node->clone_of && !node->clone_of->aux && !gimple_has_body_p (node->decl))
+        {
+	  node = node->clone_of;
+	  node->aux = first;
+	  first = node;
+	}
     }
 
   /* Remove unreachable nodes.  Extern inline functions need special care;
@@ -194,7 +201,18 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	}
     }
   for (node = cgraph_nodes; node; node = node->next)
-    node->aux = NULL;
+    {
+      /* Inline clones might be kept around so their materializing allows further
+         cloning.  If the function the clone is inlined into is removed, we need
+         to turn it into normal cone.  */
+      if (node->global.inlined_to
+	  && !node->callers)
+	{
+	  gcc_assert (node->clones);
+	  node->global.inlined_to = false;
+	}
+      node->aux = NULL;
+    }
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
