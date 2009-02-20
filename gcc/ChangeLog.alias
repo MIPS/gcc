@@ -1,3 +1,10 @@
+2009-02-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (compute_avail): Do not make VOPs available.
+
+	testsuite/
+	* gcc.dg/tree-ssa/ssa-pre-24.c: Adjust pattern.
+
 2009-02-19  Richard Guenther  <rguenther@suse.de>
 
 	* ipa-reference.c (scan_stmt_for_static_refs): Open-code

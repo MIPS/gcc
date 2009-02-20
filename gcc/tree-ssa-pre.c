@@ -3559,7 +3559,8 @@ compute_avail (void)
       pre_expr e;
       if (!name
 	  || !SSA_NAME_IS_DEFAULT_DEF (name)
-	  || has_zero_uses (name))
+	  || has_zero_uses (name)
+	  || !is_gimple_reg (name))
 	continue;
 
       e = get_or_alloc_expr_for_name (name);
