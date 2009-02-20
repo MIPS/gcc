@@ -522,7 +522,7 @@ lto_1_to_1_map (void)
     {
       set = cgraph_node_set_new ();
       VEC_safe_push (cgraph_node_set, gc, lto_cgraph_node_sets, set);
-      return;
+      goto finish;
     }
 
   pmap = pointer_map_create ();
@@ -548,6 +548,7 @@ lto_1_to_1_map (void)
 
   pointer_map_destroy (pmap);
 
+finish:
   timevar_pop (TV_WHOPR_WPA);
 }
 
