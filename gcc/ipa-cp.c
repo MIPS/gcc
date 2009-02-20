@@ -379,6 +379,33 @@ ipcp_print_all_lattices (FILE * f)
     }
 }
 
+/* Return true if this NODE may be cloned in ltrans.
+
+   FIXME lto: returns false if any caller of NODE is a clone, described
+   in http://gcc.gnu.org/ml/gcc/2009-02/msg00297.html; this extra check
+   should be deleted if the underlying issue is resolved.  */
+
+static bool
+ipcp_ltrans_cloning_candidate_p (struct cgraph_node *node)
+{
+  struct cgraph_edge *e;
+
+  /* Check callers of this node to see if any is a clone.  */
+  for (e = node->callers; e; e = e->next_caller)
+    {
+      if (cgraph_is_clone_node (e->caller))
+	break;
+    }
+  if (e)
+    {
+      if (dump_file)
+        fprintf (dump_file, "Not considering %s for cloning; has a clone caller.\n",
+ 	         cgraph_node_name (node));
+      return false;
+    }
+  return true;
+}
+
 /* Return true if this NODE is viable candidate for cloning.  */
 static bool
 ipcp_cloning_candidate_p (struct cgraph_node *node)
@@ -393,6 +420,11 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
      different constants, but current ipcp implementation is not good on this.
      */
   if (!node->needed || !node->analyzed)
+    return false;
+
+  /* If reading ltrans, we want an extra check here.
+     FIXME lto: see ipcp_ltrans_cloning_candidate_p above for details.  */
+  if (flag_ltrans && !ipcp_ltrans_cloning_candidate_p (node))
     return false;
 
   if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)

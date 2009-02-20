@@ -1422,6 +1422,13 @@ cgraph_clone_input_node (struct cgraph_node *n)
   return new_node;
 }
 
+/* Return true if N is a cloned node.  */
+
+bool
+cgraph_is_clone_node (struct cgraph_node *n)
+{
+  return n->next_clone || n->prev_clone;
+}
 
 /* Return true if N is an master_clone, (see cgraph_master_clone).  */
 

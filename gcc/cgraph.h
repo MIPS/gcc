@@ -407,6 +407,7 @@ bool cgraph_function_possibly_inlined_p (tree);
 void cgraph_unnest_node (struct cgraph_node *);
 
 enum availability cgraph_function_body_availability (struct cgraph_node *);
+bool cgraph_is_clone_node (struct cgraph_node *);
 bool cgraph_is_master_clone (struct cgraph_node *, bool);
 struct cgraph_node *cgraph_master_clone (struct cgraph_node *, bool);
 void cgraph_add_new_function (tree, bool);

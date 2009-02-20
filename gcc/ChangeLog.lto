@@ -1,3 +1,11 @@
+2009-02-20  Simon Baldwin  <simonb@google.com>
+
+	* cgraph.h (cgraph_is_clone_node): New function declaration.
+	* cgraph.c (cgraph_is_clone_node): Definition.
+	* ipa-cp.c (ipcp_ltrans_cloning_candidate_p): New function,
+	applies extra candidate check for ltrans.
+	(ipcp_cloning_candidate_p): Call it.
+
 2009-02-19  Diego Novillo  <dnovillo@google.com>
 
 	Revert

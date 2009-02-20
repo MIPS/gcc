@@ -1,3 +1,7 @@
+2009-02-20  Simon Baldwin  <simonb@google.com>
+
+	* gcc.dg/lto/20090219_0.c: New.
+
 2009-02-19  Diego Novillo  <dnovillo@google.com>
 
 	Revert
