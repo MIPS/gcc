@@ -175,6 +175,7 @@ vn_nary_op_t vn_nary_op_insert_pieces (unsigned int, enum tree_code,
 				       tree, tree, unsigned int);
 void copy_reference_ops_from_ref (tree, VEC(vn_reference_op_s, heap) **);
 void copy_reference_ops_from_call (gimple, VEC(vn_reference_op_s, heap) **);
+tree get_ref_from_reference_ops (VEC(vn_reference_op_s, heap) *ops);
 tree vn_reference_lookup_pieces (tree,
 				 VEC (vn_reference_op_s, heap) *,
 				 vn_reference_t *, bool);

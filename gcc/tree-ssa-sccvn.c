@@ -607,7 +607,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
    Returns NULL_TREE if the ops were not handled.
    This routine needs to be kept in sync with copy_reference_ops_from_ref.  */
 
-static tree
+tree
 get_ref_from_reference_ops (VEC(vn_reference_op_s, heap) *ops)
 {
   vn_reference_op_t op;

@@ -377,6 +377,9 @@ typedef struct bb_bitmap_sets
      the current iteration.  */
   bitmap_set_t new_sets;
 
+  /* A cache for value_dies_in_block_x.  */
+  bitmap expr_dies;
+
   /* True if we have visited this block during ANTIC calculation.  */
   unsigned int visited:1;
 
@@ -392,7 +395,8 @@ typedef struct bb_bitmap_sets
 #define ANTIC_IN(BB)	((bb_value_sets_t) ((BB)->aux))->antic_in
 #define PA_IN(BB)	((bb_value_sets_t) ((BB)->aux))->pa_in
 #define NEW_SETS(BB)	((bb_value_sets_t) ((BB)->aux))->new_sets
-#define BB_VISITED(BB) ((bb_value_sets_t) ((BB)->aux))->visited
+#define EXPR_DIES(BB)	((bb_value_sets_t) ((BB)->aux))->expr_dies
+#define BB_VISITED(BB)	((bb_value_sets_t) ((BB)->aux))->visited
 #define BB_DEFERRED(BB) ((bb_value_sets_t) ((BB)->aux))->deferred
 
 
@@ -1245,20 +1249,43 @@ do_unary:
    it has the value it would have in BLOCK.  */
 
 static tree
-translate_vuse_through_block (tree vuse,
+translate_vuse_through_block (VEC (vn_reference_op_s, heap) *operands,
+			      tree vuse,
 			      basic_block phiblock,
 			      basic_block block)
 {
   gimple phi = SSA_NAME_DEF_STMT (vuse);
-  if (gimple_code (phi) == GIMPLE_PHI
-      && gimple_bb (phi) == phiblock)
+  tree ref;
+
+  if (gimple_bb (phi) != phiblock)
+    return vuse;
+
+  if (gimple_code (phi) == GIMPLE_PHI)
     {
-      edge e = find_edge (block, gimple_bb (phi));
-      if (e)
-	return PHI_ARG_DEF (phi, e->dest_idx);
+      edge e = find_edge (block, phiblock);
+      return PHI_ARG_DEF (phi, e->dest_idx);
     }
 
-  return vuse;
+  if (!(ref = get_ref_from_reference_ops (operands)))
+    return NULL_TREE;
+
+  /* Use the alias-oracle to find either the PHI node in this block,
+     the first VUSE used in this block that is equivalent to vuse or
+     the first VUSE which definition in this block kills the value.  */
+  while (!stmt_may_clobber_ref_p (phi, ref))
+    {
+      vuse = gimple_vuse (phi);
+      phi = SSA_NAME_DEF_STMT (vuse);
+      if (gimple_bb (phi) != phiblock)
+	return vuse;
+      if (gimple_code (phi) == GIMPLE_PHI)
+	{
+	  edge e = find_edge (block, phiblock);
+	  return PHI_ARG_DEF (phi, e->dest_idx);
+	}
+    }
+
+  return NULL_TREE;
 }
 
 /* Like find_leader, but checks for the value existing in SET1 *or*
@@ -1623,7 +1650,15 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 	  }
 
 	if (vuse)
-	  newvuse = translate_vuse_through_block (vuse, phiblock, pred);
+	  {
+	    newvuse = translate_vuse_through_block (newoperands,
+						    vuse, phiblock, pred);
+	    if (newvuse == NULL_TREE)
+	      {
+		VEC_free (vn_reference_op_s, heap, newoperands);
+		return NULL;
+	      }
+	  }
 	changed |= newvuse != vuse;
 
 	if (changed)
@@ -1835,18 +1870,72 @@ static bool
 value_dies_in_block_x (pre_expr expr, basic_block block)
 {
   tree vuse = PRE_EXPR_REFERENCE (expr)->vuse;
+  vn_reference_t refx = PRE_EXPR_REFERENCE (expr);
+  gimple def;
+  tree ref = NULL_TREE;
+  gimple_stmt_iterator gsi;
+  unsigned id = get_expression_id (expr);
+  bool res = false;
 
-  /* Conservatively, a value dies if it's vuse is defined in this
-     block, unless they come from phi nodes (which are merge operations,
-     rather than stores.  */
-  if (vuse)
+  if (!vuse)
+    return false;
+
+  /* Lookup a previously calculated result.  */
+  if (EXPR_DIES (block)
+      && bitmap_bit_p (EXPR_DIES (block), id * 2))
+    return bitmap_bit_p (EXPR_DIES (block), id * 2 + 1);
+
+  /* A memory expression {e, VUSE} dies in the block if there is a
+     statement that may clobber e.  If, starting statement walk from the
+     top of the basic block, a statement uses VUSE there can be no kill
+     inbetween that use and the original statement that loaded {e, VUSE},
+     so we can stop walking.  */
+  for (gsi = gsi_start_bb (block); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple def = SSA_NAME_DEF_STMT (vuse);
-      if (gimple_bb (def) == block
-	  && gimple_code (def) != GIMPLE_PHI)
-	return true;
+      tree def_vuse, def_vdef;
+      def = gsi_stmt (gsi);
+      def_vuse = gimple_vuse (def);
+      def_vdef = gimple_vdef (def);
+
+      /* Not a memory statement.  */
+      if (!def_vuse)
+	continue;
+
+      /* Not a may-def.  */
+      if (!def_vdef)
+	{
+	  /* A load with the same VUSE, we're done.  */
+	  if (def_vuse == vuse)
+	    break;
+
+	  continue;
+	}
+
+      /* Init ref only if we really need it.  */
+      if (ref == NULL_TREE)
+	{
+	  if (!(ref = get_ref_from_reference_ops (refx->operands)))
+	    {
+	      res = true;
+	      break;
+	    }
+	}
+      /* If the statement may clobber expr, it dies.  */
+      if (stmt_may_clobber_ref_p (def, ref))
+	{
+	  res = true;
+	  break;
+	}
     }
-  return false;
+
+  /* Remember the result.  */
+  if (!EXPR_DIES (block))
+    EXPR_DIES (block) = BITMAP_ALLOC (&grand_bitmap_obstack);
+  bitmap_set_bit (EXPR_DIES (block), id * 2);
+  if (res)
+    bitmap_set_bit (EXPR_DIES (block), id * 2 + 1);
+
+  return res;
 }
 
 

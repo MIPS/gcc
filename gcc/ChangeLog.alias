@@ -1,5 +1,20 @@
 2009-02-20  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-sccvn.h (get_ref_from_reference_ops): Declare.
+	* tree-ssa-sccvn.c (get_ref_from_reference_ops): Export.
+	* tree-ssa-pre.c (struct bb_bitmap_sets): Add expr_dies bitmap.
+	(EXPR_DIES): New.
+	(translate_vuse_through_block): Use the oracle.
+	(phi_translate_1): Adjust.
+	(value_dies_in_block_x): Use the oracle.  Cache the outcome
+	in EXPR_DIES.
+
+	testsuite/
+	* gcc.c-torture/execute/20090113-1.c: New testcase.
+	* gcc.c-torture/execute/20090113-2.c: Likewise.
+
+2009-02-20  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-pre.c (compute_avail): Do not make VOPs available.
 
 	testsuite/
