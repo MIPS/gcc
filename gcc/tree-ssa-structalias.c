@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -3470,8 +3470,8 @@ do_structure_copy (tree lhsop, tree rhsop)
 	{
 	  if (!do_simple_structure_copy (lhs, rhs, MIN (lhssize, rhssize)))
 	    {
-	      lhs.var = collapse_rest_of_var (lhs.var);
-	      rhs.var = collapse_rest_of_var (rhs.var);
+	      lhs.var = collapse_rest_of_var (get_varinfo_fc (lhs.var)->id);
+	      rhs.var = collapse_rest_of_var (get_varinfo_fc (rhs.var)->id);
 	      lhs.offset = 0;
 	      rhs.offset = 0;
 	      lhs.type = SCALAR;
