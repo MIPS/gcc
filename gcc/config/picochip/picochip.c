@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not, see
 #include "target-def.h"
 #include "langhooks.h"
 #include "reload.h"
+#include "params.h"
 
 #include "picochip-protos.h"
 
@@ -303,6 +304,16 @@ picochip_return_in_memory(const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 void
 picochip_override_options (void)
 {
+  /* If we are optimizing for stack, dont let inliner to inline functions
+     that could potentially increase stack size.*/
+   if (flag_conserve_stack)
+   {
+     PARAM_VALUE (PARAM_LARGE_STACK_FRAME) = 0;
+     PARAM_VALUE (PARAM_STACK_FRAME_GROWTH) = 0;
+   }
+   /* The function call overhead on picochip is not very high. Let the
+      inliner know so its heuristics become more reasonable. */
+   PARAM_VALUE (PARAM_INLINE_CALL_COST) = 2;
 
   /* Turn off the elimination of unused types. The elaborator
      generates various interesting types to represent constants,
@@ -323,9 +334,6 @@ picochip_override_options (void)
      accessing offsets from the anchor for file local data variables.
      This isnt the default at O2 as yet. */
   flag_section_anchors = 1;
-
-  /* CFI asm labels are not supported by the picochip assembler yet */
-  flag_dwarf2_cfi_asm = 0;
 
   /* Turn off the second scheduling pass, and move it to
      picochip_reorg, to avoid having the second jump optimisation
@@ -1192,8 +1200,7 @@ picochip_legitimate_address_register (rtx x, unsigned strict)
 /* Determine whether the given constant is in the range required for
    the given base register. */
 static int
-picochip_const_ok_for_base (enum machine_mode mode, int regno, int offset,
-                            int strict)
+picochip_const_ok_for_base (enum machine_mode mode, int regno, int offset)
 {
   HOST_WIDE_INT corrected_offset;
 
@@ -1201,17 +1208,16 @@ picochip_const_ok_for_base (enum machine_mode mode, int regno, int offset,
     {
       if (GET_MODE_SIZE(mode) <= 4)
       {
-         /* We can allow incorrect offsets if strict is 0. If strict is 1,
-            we are in reload and these memory accesses need to be changed. */
-         if (offset % GET_MODE_SIZE (mode) != 0 && strict == 1)
+         /* We used to allow incorrect offsets if strict is 0. But, this would
+            then rely on reload doing the right thing. We have had problems
+            there before, and on > 4.3 compiler, there are no benefits. */
+         if (offset % GET_MODE_SIZE (mode) != 0)
            return 0;
          corrected_offset = offset / GET_MODE_SIZE (mode);
       }
       else
       {
-         /* We can allow incorrect offsets if strict is 0. If strict is 1,
-            we are in reload and these memory accesses need to be changed. */
-         if (offset % 4 != 0 && strict == 1)
+         if (offset % 4 != 0)
            return 0;
          corrected_offset = offset / 4;
       }
@@ -1264,7 +1270,7 @@ picochip_legitimate_address_p (int mode, rtx x, unsigned strict)
 		 picochip_legitimate_address_register (base, strict) &&
 		 CONST_INT == GET_CODE (offset) &&
 		 picochip_const_ok_for_base (mode, REGNO (base),
-					     INTVAL (offset),strict));
+					     INTVAL (offset)));
 	break;
       }
 

@@ -1848,7 +1848,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
 	fndecl = get_callee_fndecl (fntype);
 	fntype = (fndecl
 		  ? TREE_TYPE (fndecl)
-		  : TREE_TYPE (CALL_EXPR_FN (fntype)));
+		  : TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (fntype))));
 	break;
       case FUNCTION_DECL:
 	fndecl = fntype;
@@ -5476,6 +5476,9 @@ match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
       const char *constraint = ASM_OPERANDS_INPUT_CONSTRAINT (op, i);
       char *end;
       int match, j;
+
+      if (*constraint == '%')
+	constraint++;
 
       match = strtoul (constraint, &end, 10);
       if (end == constraint)

@@ -1105,6 +1105,11 @@ Alignment, in bits, a C conformant malloc implementation has to
 provide.  If not defined, the default value is @code{BITS_PER_WORD}.
 @end defmac
 
+@defmac ATTRIBUTE_ALIGNED_VALUE
+Alignment used by the @code{__attribute__ ((aligned))} construct.  If
+not defined, the default value is @code{BIGGEST_ALIGNMENT}.
+@end defmac
+
 @defmac MINIMUM_ATOMIC_ALIGNMENT
 If defined, the smallest alignment, in bits, that can be given to an
 object that can be referenced in one operation, without disturbing any
@@ -1302,14 +1307,14 @@ Like @code{PCC_BITFIELD_TYPE_MATTERS} except that its effect is limited
 to aligning a bit-field within the structure.
 @end defmac
 
-@deftypefn {Target Hook} bool TARGET_ALIGN_ANON_BITFIELDS (void)
+@deftypefn {Target Hook} bool TARGET_ALIGN_ANON_BITFIELD (void)
 When @code{PCC_BITFIELD_TYPE_MATTERS} is true this hook will determine
 whether unnamed bitfields affect the alignment of the containing
 structure.  The hook should return true if the structure should inherit
 the alignment requirements of an unnamed bitfield's type.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_NARROW_VOLATILE_BITFIELDS (void)
+@deftypefn {Target Hook} bool TARGET_NARROW_VOLATILE_BITFIELD (void)
 This target hook should return @code{true} if accesses to volatile bitfields
 should use the narrowest mode possible.  It should return @code{false} if
 these accesses should use the bitfield container type.
@@ -6386,7 +6391,7 @@ Return a pointer to a store large enough to hold target scheduling context.
 @deftypefn {Target Hook} void TARGET_SCHED_INIT_SCHED_CONTEXT (void *@var{tc}, bool @var{clean_p})
 Initialize store pointed to by @var{tc} to hold target scheduling context.
 It @var{clean_p} is true then initialize @var{tc} as if scheduler is at the
-beginning of the block.  Overwise, make a copy of the current context in
+beginning of the block.  Otherwise, make a copy of the current context in
 @var{tc}.
 @end deftypefn
 
@@ -6409,7 +6414,7 @@ Return a pointer to a store large enough to hold target scheduling context.
 @deftypefn {Target Hook} void TARGET_SCHED_INIT_SCHED_CONTEXT (void *@var{tc}, bool @var{clean_p})
 Initialize store pointed to by @var{tc} to hold target scheduling context.
 It @var{clean_p} is true then initialize @var{tc} as if scheduler is at the
-beginning of the block.  Overwise, make a copy of the current context in
+beginning of the block.  Otherwise, make a copy of the current context in
 @var{tc}.
 @end deftypefn
 
@@ -9365,7 +9370,7 @@ For targets whose psABI does not provide Thread Local Storage via
 specific relocations and instruction sequences, an emulation layer is
 used.  A set of target hooks allows this emulation layer to be
 configured for the requirements of a particular target.  For instance
-the psABI may infact specify TLS support in terms of an emulation
+the psABI may in fact specify TLS support in terms of an emulation
 layer.
 
 The emulation layer works by creating a control object for every TLS

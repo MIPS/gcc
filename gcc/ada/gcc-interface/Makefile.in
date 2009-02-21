@@ -1458,10 +1458,16 @@ ifeq ($(strip $(filter-out mipsel linux%,$(arch) $(osys))),)
   s-taprop.adb<s-taprop-linux.adb \
   s-tasinf.ads<s-tasinf-linux.ads \
   s-tasinf.adb<s-tasinf-linux.adb \
-  s-taspri.ads<s-taspri-posix.ads \
+  s-taspri.ads<s-taspri-posix-noaltstack.ads \
   s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
+  g-sercom.adb<g-sercom-linux.adb \
   system.ads<system-linux-mipsel.ads
 
+  TOOLS_TARGET_PAIRS =  \
+    mlib-tgt-specific.adb<mlib-tgt-specific-linux.adb \
+    indepsw.adb<indepsw-gnu.adb
+
+  EXTRA_GNATRTL_TASKING_OBJS=s-linux.o
   EH_MECHANISM=-gcc
   THREADSLIB = -lpthread
   GNATLIB_SHARED = gnatlib-shared-dual
@@ -1492,7 +1498,7 @@ ifeq ($(strip $(filter-out powerpc% linux%,$(arch) $(osys))),)
   LIBGNAT_TARGET_PAIRS_64 = \
   system.ads<system-linux-ppc64.ads
 
-  ifeq ($(strip $(MULTISUBDIR)),/64)
+  ifeq ($(strip $(shell $(GCC_FOR_TARGET) $(GNATLIBCFLAGS) -print-multi-os-directory)),../lib64)
     LIBGNAT_TARGET_PAIRS = \
     $(LIBGNAT_TARGET_PAIRS_COMMON) $(LIBGNAT_TARGET_PAIRS_64)
   else

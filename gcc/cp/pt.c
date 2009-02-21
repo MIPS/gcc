@@ -1,6 +1,7 @@
 /* Handle parameterized types (templates) for GNU C++.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2007, 2008  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -4566,6 +4567,13 @@ convert_nontype_argument (tree type, tree expr)
       expr = convert_nontype_argument_function (type, expr);
       if (!expr || expr == error_mark_node)
 	return expr;
+
+      if (TREE_CODE (expr) != ADDR_EXPR)
+	{
+	  error ("%qE is not a valid template argument for type %qT", expr, type);
+	  error ("it must be the address of a function with external linkage");
+	  return NULL_TREE;
+	}
     }
   /* [temp.arg.nontype]/5, bullet 5
 
@@ -8485,6 +8493,11 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	     tsubst_copy (DECL_NAME (t), args, complain, in_decl));
 	  if (!r)
 	    r = error_mark_node;
+	  else
+	    {
+	      TREE_PROTECTED (r) = TREE_PROTECTED (t);
+	      TREE_PRIVATE (r) = TREE_PRIVATE (t);
+	    }
 	}
       else
 	{
@@ -8974,6 +8987,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
   if (DECL_P (t))
     return tsubst_decl (t, args, complain);
+
+  if (args == NULL_TREE)
+    return t;
 
   if (TREE_CODE (t) == IDENTIFIER_NODE)
     type = IDENTIFIER_TYPE_VALUE (t);
@@ -11213,16 +11229,7 @@ tsubst_copy_and_build (tree t,
     case ARRAY_REF:
       op1 = tsubst_non_call_postfix_expression (TREE_OPERAND (t, 0),
 						args, complain, in_decl);
-      return build_x_binary_op (ARRAY_REF, op1,
-				(TREE_NO_WARNING (TREE_OPERAND (t, 0))
-				 ? ERROR_MARK
-				 : TREE_CODE (TREE_OPERAND (t, 0))),
-				RECUR (TREE_OPERAND (t, 1)),
-				(TREE_NO_WARNING (TREE_OPERAND (t, 1))
-				 ? ERROR_MARK
-				 : TREE_CODE (TREE_OPERAND (t, 1))),
-				/*overloaded_p=*/NULL,
-				complain);
+      return build_x_array_ref (op1, RECUR (TREE_OPERAND (t, 1)), complain);
 
     case SIZEOF_EXPR:
       if (PACK_EXPANSION_P (TREE_OPERAND (t, 0)))
@@ -11397,9 +11404,12 @@ tsubst_copy_and_build (tree t,
 		       /*fn_p=*/NULL,
 		       complain));
 	  }
+	/* Pass -1 for koenig_p so that build_new_function_call will
+	   allow hidden friends found by arg-dependent lookup at template
+	   parsing time.  */
 	return finish_call_expr (function, call_args,
 				 /*disallow_virtual=*/qualified_p,
-				 koenig_p,
+				 /*koenig_p*/-1,
 				 complain);
       }
 
@@ -13447,7 +13457,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	/* Convert the ARG to the type of PARM; the deduced non-type
 	   template argument must exactly match the types of the
 	   corresponding parameter.  */
-	arg = fold (build_nop (TREE_TYPE (parm), arg));
+	arg = fold (build_nop (tparm, arg));
       else if (uses_template_parms (tparm))
 	/* We haven't deduced the type of this parameter yet.  Try again
 	   later.  */

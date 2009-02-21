@@ -1839,10 +1839,14 @@ perform_koenig_lookup (tree fn, tree args)
    qualified.  For example a call to `X::f' never generates a virtual
    call.)
 
+   KOENIG_P is 1 if we want to perform argument-dependent lookup,
+   -1 if we don't, but we want to accept functions found by previous
+   argument-dependent lookup, and 0 if we want nothing to do with it.
+
    Returns code for the call.  */
 
 tree
-finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
+finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
 		  tsubst_flags_t complain)
 {
   tree result;
@@ -1865,7 +1869,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
 	  || any_type_dependent_arguments_p (args))
 	{
 	  result = build_nt_call_list (fn, args);
-	  KOENIG_LOOKUP_P (result) = koenig_p;
+	  KOENIG_LOOKUP_P (result) = koenig_p > 0;
 	  if (cfun)
 	    {
 	      do
@@ -1955,7 +1959,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
 
       if (!result)
 	/* A call to a namespace-scope function.  */
-	result = build_new_function_call (fn, args, koenig_p, complain);
+	result = build_new_function_call (fn, args, koenig_p != 0, complain);
     }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
@@ -3123,6 +3127,15 @@ simplify_aggr_init_expr (tree *tp)
                                    tf_warning_or_error);
       pop_deferring_access_checks ();
       call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
+    }
+
+  if (AGGR_INIT_ZERO_FIRST (aggr_init_expr))
+    {
+      tree init = build_zero_init (type, NULL_TREE,
+				   /*static_storage_p=*/false);
+      init = build2 (INIT_EXPR, void_type_node, slot, init);
+      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (call_expr),
+			  init, call_expr);
     }
 
   *tp = call_expr;

@@ -1,3 +1,8 @@
+2009-02-21  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline up to last merge point of alias-improvements
+	branch.
+
 2009-02-16  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c: Do not include varray.h

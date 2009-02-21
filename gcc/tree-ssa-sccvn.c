@@ -316,6 +316,9 @@ vn_constant_eq (const void *p1, const void *p2)
   const struct vn_constant_s *vc1 = (const struct vn_constant_s *) p1;
   const struct vn_constant_s *vc2 = (const struct vn_constant_s *) p2;
 
+  if (vc1->hashcode != vc2->hashcode)
+    return false;
+
   return vn_constant_eq_with_type (vc1->constant, vc2->constant);
 }
 
@@ -386,6 +389,7 @@ vn_reference_op_eq (const void *p1, const void *p2)
 {
   const_vn_reference_op_t const vro1 = (const_vn_reference_op_t) p1;
   const_vn_reference_op_t const vro2 = (const_vn_reference_op_t) p2;
+
   return vro1->opcode == vro2->opcode
     && types_compatible_p (vro1->type, vro2->type)
     && expressions_equal_p (vro1->op0, vro2->op0)
@@ -398,9 +402,14 @@ vn_reference_op_eq (const void *p1, const void *p2)
 static hashval_t
 vn_reference_op_compute_hash (const vn_reference_op_t vro1)
 {
-  return iterative_hash_expr (vro1->op0, vro1->opcode)
-    + iterative_hash_expr (vro1->op1, vro1->opcode)
-    + iterative_hash_expr (vro1->op2, vro1->opcode);
+  hashval_t result = 0;
+  if (vro1->op0)
+    result += iterative_hash_expr (vro1->op0, vro1->opcode);
+  if (vro1->op1)
+    result += iterative_hash_expr (vro1->op1, vro1->opcode);
+  if (vro1->op2)
+    result += iterative_hash_expr (vro1->op2, vro1->opcode);
+  return result;
 }
 
 /* Return the hashcode for a given reference operation P1.  */
@@ -442,6 +451,8 @@ vn_reference_eq (const void *p1, const void *p2)
 
   const_vn_reference_t const vr1 = (const_vn_reference_t) p1;
   const_vn_reference_t const vr2 = (const_vn_reference_t) p2;
+  if (vr1->hashcode != vr2->hashcode)
+    return false;
 
   if (vr1->vuses == vr2->vuses
       && vr1->operands == vr2->operands)
@@ -1183,6 +1194,9 @@ vn_nary_op_eq (const void *p1, const void *p2)
   const_vn_nary_op_t const vno2 = (const_vn_nary_op_t) p2;
   unsigned i;
 
+  if (vno1->hashcode != vno2->hashcode)
+    return false;
+
   if (vno1->opcode != vno2->opcode
       || !types_compatible_p (vno1->type, vno2->type))
     return false;
@@ -1449,6 +1463,9 @@ vn_phi_eq (const void *p1, const void *p2)
   const_vn_phi_t const vp1 = (const_vn_phi_t) p1;
   const_vn_phi_t const vp2 = (const_vn_phi_t) p2;
 
+  if (vp1->hashcode != vp2->hashcode)
+    return false;
+
   if (vp1->block == vp2->block)
     {
       int i;
@@ -1481,7 +1498,7 @@ static VEC(tree, heap) *shared_lookup_phiargs;
    value number if it exists in the hash table.  Return NULL_TREE if
    it does not exist in the hash table. */
 
-tree
+static tree
 vn_phi_lookup (gimple phi)
 {
   void **slot;
@@ -1761,7 +1778,8 @@ visit_reference_op_load (tree lhs, tree op, gimple stmt)
 	  tree tem = valueize_expr (vn_get_expr_for (TREE_OPERAND (val, 0)));
 	  if ((CONVERT_EXPR_P (tem)
 	       || TREE_CODE (tem) == VIEW_CONVERT_EXPR)
-	      && (tem = fold_unary (TREE_CODE (val), TREE_TYPE (val), tem)))
+	      && (tem = fold_unary_ignore_overflow (TREE_CODE (val),
+						    TREE_TYPE (val), tem)))
 	    val = tem;
 	}
       result = val;
@@ -2123,7 +2141,7 @@ simplify_binary_expression (gimple stmt)
   fold_defer_overflow_warnings ();
 
   result = fold_binary (gimple_assign_rhs_code (stmt),
-			TREE_TYPE (gimple_get_lhs (stmt)), op0, op1);
+		        TREE_TYPE (gimple_get_lhs (stmt)), op0, op1);
   if (result)
     STRIP_USELESS_TYPE_CONVERSION (result);
 
@@ -2182,8 +2200,8 @@ simplify_unary_expression (gimple stmt)
   if (op0 == orig_op0)
     return NULL_TREE;
 
-  result = fold_unary (gimple_assign_rhs_code (stmt),
-		       gimple_expr_type (stmt), op0);
+  result = fold_unary_ignore_overflow (gimple_assign_rhs_code (stmt),
+				       gimple_expr_type (stmt), op0);
   if (result)
     {
       STRIP_USELESS_TYPE_CONVERSION (result);
@@ -3071,4 +3089,51 @@ sort_vuses_heap (VEC (tree,heap) *vuses)
 	   VEC_length (tree, vuses),
 	   sizeof (tree),
 	   operand_build_cmp);
+}
+
+
+/* Return true if the nary operation NARY may trap.  This is a copy
+   of stmt_could_throw_1_p adjusted to the SCCVN IL.  */
+
+bool
+vn_nary_may_trap (vn_nary_op_t nary)
+{
+  tree type;
+  tree rhs2;
+  bool honor_nans = false;
+  bool honor_snans = false;
+  bool fp_operation = false;
+  bool honor_trapv = false;
+  bool handled, ret;
+  unsigned i;
+
+  if (TREE_CODE_CLASS (nary->opcode) == tcc_comparison
+      || TREE_CODE_CLASS (nary->opcode) == tcc_unary
+      || TREE_CODE_CLASS (nary->opcode) == tcc_binary)
+    {
+      type = nary->type;
+      fp_operation = FLOAT_TYPE_P (type);
+      if (fp_operation)
+	{
+	  honor_nans = flag_trapping_math && !flag_finite_math_only;
+	  honor_snans = flag_signaling_nans != 0;
+	}
+      else if (INTEGRAL_TYPE_P (type)
+	       && TYPE_OVERFLOW_TRAPS (type))
+	honor_trapv = true;
+    }
+  rhs2 = nary->op[1];
+  ret = operation_could_trap_helper_p (nary->opcode, fp_operation,
+				       honor_trapv,
+				       honor_nans, honor_snans, rhs2,
+				       &handled);
+  if (handled
+      && ret)
+    return true;
+
+  for (i = 0; i < nary->length; ++i)
+    if (tree_could_trap_p (nary->op[i]))
+      return true;
+
+  return false;
 }

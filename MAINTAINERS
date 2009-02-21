@@ -31,6 +31,7 @@ David S. Miller					davem@redhat.com
 Mark Mitchell					mark@codesourcery.com
 Diego Novillo					dnovillo@google.com
 Bernd Schmidt					bernd.schmidt@analog.com
+Ian Lance Taylor				ian@airs.com
 Jim Wilson					wilson@tuliptree.org
 
 Note that while global reviewers can approve changes to any part of
@@ -232,7 +233,6 @@ check in changes outside of the parts of the compiler they maintain.
 loop optimizer		Zdenek Dvorak		ook@ucw.cz
 loop optimizer		Daniel Berlin		dberlin@dberlin.org
 libcpp			Tom Tromey		tromey@redhat.com
-blanket write		Ian Lance Taylor	ian@airs.com
 
 Note that individuals who maintain parts of the compiler as non-algorithmic
 maintainers need approval to check in algorithmic changes or changes
@@ -392,7 +392,6 @@ Michael Matz					matz@suse.de
 Greg McGary					gkm@gnu.org
 Adam Megacz					adam@xwt.org
 Martin Michlmayr				tbm@cyrius.com
-Robert Millan					rmh@gcc.gnu.org
 Lee Millward					lee.millward@gmail.com
 Alan Modra					amodra@bigpond.net.au
 Alexander Monakov				amonakov@ispras.ru
@@ -416,7 +415,7 @@ Antoniu Pop					antoniu.pop@gmail.com
 Vladimir Prus					vladimir@codesourcery.com
 Jerry Quinn					jlquinn@optonline.net
 Dwarakanath Rajagopal				dwarak.rajagopal@amd.com
-Ramana Radhakrishnan                            ramana.r@gmail.com
+Ramana Radhakrishnan				ramana.r@gmail.com
 Rolf Rasmussen					rolfwr@gcc.gnu.org
 Volker Reichelt					v.reichelt@netcologne.de
 Bernhard Reutner-Fischer			rep.dot.nop@gmail.com
