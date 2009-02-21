@@ -1,3 +1,16 @@
+2009-02-20  Joey Ye  <joey.ye@intel.com>
+
+	PR middle-end/39146
+	* cfgexpand.c (get_decl_align_unit): Update
+	max_used_stack_slot_alignment with align instead of
+	stack_alignment_needed.
+
+	* function.c (assign_stack_local_1): Update
+	max_used_stack_slot_alignment with alignment_in_bits instead
+	of stack_alignment_needed.
+	(locate_and_pad_parm): Don't update max_used_stack_slot_alignment
+	here.
+
 2008-08-05  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR middle-end/37010
