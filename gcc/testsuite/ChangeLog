@@ -1,5 +1,29 @@
+2008-02-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/38914
+	* bound_simplification_2.f90:  New test case.
+	* bound_7.f90:  New test case.
+
+2009-02-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cpp/include4.c: New test.
+
+2008-02-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39256
+	* gcc.target/i386/abi-2.c: New.
+
+2009-02-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc.c-torture/execute/pr39228.x: New.
+
+2009-02-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/abi-1.c: Use scan-assembler-times "..." 1 instead of
+	scan-assembler to check for xmm0 register.
+
 2009-02-20  Mark Mitchell  <mark@codesourcery.com>
-            Joseph Myers  <joseph@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.target/arm/va_list.c: New test.
 	* g++.dg/abi/arm_va_list.C: Likewise.
