@@ -1,3 +1,10 @@
+2009-02-22  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.c (gimple_types_compatible_p): Call itself
+	recursively when comparing fields of aggregates.
+	Handle unions.
+	Honor TYPE_CANONICAL and pointer equality.
+
 2009-02-20  Simon Baldwin  <simonb@google.com>
 
 	* cgraph.h (cgraph_is_clone_node): New function declaration.

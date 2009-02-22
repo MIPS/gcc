@@ -3193,30 +3193,47 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 }
 
 
-/* Return 1 if TYPE1 and TYPE2 are structurally compatible and/or they
-   have the same main variant.  */
+/* Return 1 if TYPE1 and TYPE2 are structurally compatible.  */
 
 int
 gimple_types_compatible_p (tree type1, tree type2)
 {
+  /* Types are trivially compatible with themselves.  */
+  if (type1 == type2)
+    return 1;
+
+  /* Only types with the same code can be compatible.  */
+  if (TREE_CODE (type1) != TREE_CODE (type2))
+    return 0;
+
+  /* If the main variants or their canonical type are the same, then
+     they are compatible.  */
+  if (TYPE_MAIN_VARIANT (type1) == TYPE_MAIN_VARIANT (type2)
+      || TYPE_CANONICAL (type1) == TYPE_CANONICAL (type2))
+    return 1;
+
+  /* In the case of aggregates, check structural equality.  Note that
+     at this point, TYPE1 and TYPE2 are guaranteed to have the same
+     code already.  */
   if (TREE_CODE (type1) == RECORD_TYPE
-      && TREE_CODE (type2) == RECORD_TYPE)
+      || TREE_CODE (type1) == UNION_TYPE
+      || TREE_CODE (type1) == QUAL_UNION_TYPE)
     {
-      /* Check structural equality.  */
       tree f1, f2;
 
       for (f1 = TYPE_FIELDS (type1), f2 = TYPE_FIELDS (type2);
 	   f1 && f2;
 	   f1 = TREE_CHAIN (f1), f2 = TREE_CHAIN (f2))
-	{
-	  if (TREE_CODE (f1) != TREE_CODE (f2)
-	      || DECL_NAME (f1) != DECL_NAME (f2))
-	    break;
-	}
+	if (!gimple_types_compatible_p (TREE_TYPE (f1), TREE_TYPE (f2)))
+	  return 0;
 
-      return f1 && f2 ? 0 : 1;
+      /* If one aggregate is bigger than the other, then they are not
+	 compatible.  */
+      return f1 || f2 ? 0 : 1;
     }
 
-  return TYPE_MAIN_VARIANT (type1) == TYPE_MAIN_VARIANT (type2);
+  /* In any other case, the two types are not compatible.  */
+  return 0;
 }
+
 #include "gt-gimple.h"

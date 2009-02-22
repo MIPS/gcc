@@ -1,5 +1,5 @@
 /* { dg-do link } */
-/* { dg-options "{-O3 -fwhopr -shared}" } */
+/* { dg-options "{-O3 -fwhopr -fPIC -shared}" } */
 
 struct Foo { int f1, f2, f3, f4, f5; };
 
