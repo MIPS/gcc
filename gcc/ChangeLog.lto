@@ -1,5 +1,10 @@
 2009-02-22  Diego Novillo  <dnovillo@google.com>
 
+	* tree.c (free_lang_data_in_type): Remove non-FIELD_DECLs
+	from UNION_TYPE and QUAL_UNION_TYPE.
+
+2009-02-22  Diego Novillo  <dnovillo@google.com>
+
 	* gimple.c (gimple_types_compatible_p): Call itself
 	recursively when comparing fields of aggregates.
 	Handle unions.

@@ -3825,9 +3825,11 @@ free_lang_data_in_type (tree type)
 	}
     }
 
-  /* Remove members that are not actually FIELD_DECLs
-     from the field list of a record.  These occur in C++.  */
-  if (TREE_CODE (type) == RECORD_TYPE)
+  /* Remove members that are not actually FIELD_DECLs from the field
+     list of an aggregate.  These occur in C++.  */
+  if (TREE_CODE (type) == RECORD_TYPE
+      || TREE_CODE (type) == UNION_TYPE
+      || TREE_CODE (type) == QUAL_UNION_TYPE)
     {
       tree prev, member;
 
