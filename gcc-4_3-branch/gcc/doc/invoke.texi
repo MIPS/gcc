@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+@c 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -11,7 +11,7 @@
 
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
@@ -684,7 +684,8 @@ See RS/6000 and PowerPC Options.
 -maltivec  -mno-altivec @gol
 -mpowerpc-gpopt  -mno-powerpc-gpopt @gol
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
--mmfcrf  -mno-mfcrf  -mpopcntb  -mno-popcntb  -mfprnd  -mno-fprnd @gol
+-mmfcrf  -mno-mfcrf  -mpopcntb  -mno-popcntb -mpopcntd -mno-popcntd @gol
+-mfprnd  -mno-fprnd @gol
 -mcmpb -mno-cmpb -mmfpgpr -mno-mfpgpr -mhard-dfp -mno-hard-dfp @gol
 -mnew-mnemonics  -mold-mnemonics @gol
 -mfull-toc   -mminimal-toc  -mno-fp-in-toc  -mno-sum-in-toc @gol
@@ -12820,6 +12821,8 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @itemx -mno-mfcrf
 @itemx -mpopcntb
 @itemx -mno-popcntb
+@itemx -mpopcntd
+@itemx -mno-popcntd
 @itemx -mfprnd
 @itemx -mno-fprnd
 @itemx -mcmpb
@@ -12844,6 +12847,8 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @opindex mno-mfcrf
 @opindex mpopcntb
 @opindex mno-popcntb
+@opindex mpopcntd
+@opindex mno-popcntd
 @opindex mfprnd
 @opindex mno-fprnd
 @opindex mcmpb
@@ -12893,6 +12898,9 @@ The @option{-mpopcntb} option allows GCC to generate the popcount and
 double precision FP reciprocal estimate instruction implemented on the
 POWER5 processor and other processors that support the PowerPC V2.02
 architecture.
+The @option{-mpopcntd} option allows GCC to generate the popcount
+instruction implemented on the POWER7 processor and other processors
+that support the PowerPC V2.06 architecture.
 The @option{-mfprnd} option allows GCC to generate the FP round to
 integer instructions implemented on the POWER5+ processor and other
 processors that support the PowerPC V2.03 architecture.
@@ -12946,7 +12954,7 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
 @samp{860}, @samp{970}, @samp{8540}, @samp{ec603e}, @samp{G3},
 @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
-@samp{power4}, @samp{power5}, @samp{power5+}, @samp{power6},
+@samp{power4}, @samp{power5}, @samp{power5+}, @samp{power6}, @samp{power7},
 @samp{power6x}, @samp{common}, @samp{powerpc}, @samp{powerpc64},
 @samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64}.
 
@@ -12970,7 +12978,7 @@ The @option{-mcpu} options automatically enable or disable the
 following options:
 
 @gccoptlist{-maltivec  -mfprnd  -mhard-float  -mmfcrf  -mmultiple @gol
--mnew-mnemonics  -mpopcntb  -mpower  -mpower2  -mpowerpc64 @gol
+-mnew-mnemonics  -mpopcntb  -mpopcntd  -mpower  -mpower2  -mpowerpc64 @gol
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -mstring  -mmulhw  -mdlmzb  -mmfpgpr}
 
 The particular options set for any particular CPU will vary between

@@ -1,6 +1,7 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -705,6 +706,25 @@ struct processor_costs power6_cost = {
   64,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
+};
+
+/* Instruction costs on POWER7 processors.  */
+static const
+struct processor_costs power7_cost = {
+  COSTS_N_INSNS (2),    /* mulsi */
+  COSTS_N_INSNS (2),    /* mulsi_const */
+  COSTS_N_INSNS (2),    /* mulsi_const9 */
+  COSTS_N_INSNS (2),    /* muldi */
+  COSTS_N_INSNS (18),   /* divsi */
+  COSTS_N_INSNS (34),   /* divdi */
+  COSTS_N_INSNS (3),    /* fp */
+  COSTS_N_INSNS (3),    /* dmul */
+  COSTS_N_INSNS (13),   /* sdiv */
+  COSTS_N_INSNS (16),   /* ddiv */
+  128,
+  32,                   /* l1 cache */
+  256,                  /* l2 cache */
+  12,                   /* prefetch streams */
 };
 
 
@@ -1450,6 +1470,9 @@ rs6000_override_options (const char *default_cpu)
 	 {"power6x", PROCESSOR_POWER6,
 	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_MFCRF | MASK_POPCNTB
 	  | MASK_FPRND | MASK_CMPB | MASK_MFPGPR | MASK_DFP },
+ 	 {"power7", PROCESSOR_POWER7,
+	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_MFCRF | MASK_POPCNTB
+	  | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_POPCNTD},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -1476,7 +1499,8 @@ rs6000_override_options (const char *default_cpu)
     POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT | MASK_STRICT_ALIGN
 		     | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
 		     | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW
-		     | MASK_DLMZB | MASK_CMPB | MASK_MFPGPR | MASK_DFP)
+		     | MASK_DLMZB | MASK_CMPB | MASK_MFPGPR | MASK_DFP
+		     | MASK_POPCNTD)
   };
 
   rs6000_init_hard_regno_mode_ok ();
@@ -1663,12 +1687,14 @@ rs6000_override_options (const char *default_cpu)
   rs6000_always_hint = (rs6000_cpu != PROCESSOR_POWER4
 			&& rs6000_cpu != PROCESSOR_POWER5
                         && rs6000_cpu != PROCESSOR_POWER6
+                        && rs6000_cpu != PROCESSOR_POWER7
 			&& rs6000_cpu != PROCESSOR_CELL);
   rs6000_sched_groups = (rs6000_cpu == PROCESSOR_POWER4
 			 || rs6000_cpu == PROCESSOR_POWER5);
   rs6000_align_branch_targets = (rs6000_cpu == PROCESSOR_POWER4
                                  || rs6000_cpu == PROCESSOR_POWER5
-                                 || rs6000_cpu == PROCESSOR_POWER6);
+                                 || rs6000_cpu == PROCESSOR_POWER6
+                                 || rs6000_cpu == PROCESSOR_POWER7);
 
   rs6000_sched_restricted_insns_priority
     = (rs6000_sched_groups ? 1 : 0);
@@ -1852,6 +1878,10 @@ rs6000_override_options (const char *default_cpu)
 
       case PROCESSOR_POWER6:
 	rs6000_cost = &power6_cost;
+	break;
+
+      case PROCESSOR_POWER7:
+	rs6000_cost = &power7_cost;
 	break;
 
       default:
@@ -18621,6 +18651,7 @@ rs6000_issue_rate (void)
   case CPU_POWER4:
   case CPU_POWER5:
   case CPU_POWER6:
+  case CPU_POWER7:
     return 5;
   default:
     return 1;
@@ -19217,6 +19248,41 @@ insn_must_be_first_in_group (rtx insn)
           break;
         }
       break;
+    case PROCESSOR_POWER7:
+      type = get_attr_type (insn);
+
+      switch (type)
+        {
+        case TYPE_CR_LOGICAL:
+        case TYPE_MFCR:
+        case TYPE_MFCRF:
+        case TYPE_MTCR:
+        case TYPE_IDIV:
+        case TYPE_LDIV:
+        case TYPE_COMPARE:
+        case TYPE_DELAYED_COMPARE:
+        case TYPE_VAR_DELAYED_COMPARE:
+        case TYPE_ISYNC:
+        case TYPE_LOAD_L:
+        case TYPE_STORE_C:
+        case TYPE_LOAD_U:
+        case TYPE_LOAD_UX:
+        case TYPE_LOAD_EXT:
+        case TYPE_LOAD_EXT_U:
+        case TYPE_LOAD_EXT_UX:
+        case TYPE_STORE_U:
+        case TYPE_STORE_UX:
+        case TYPE_FPLOAD_U:
+        case TYPE_FPLOAD_UX:
+        case TYPE_FPSTORE_U:
+        case TYPE_FPSTORE_UX:
+        case TYPE_MFJMPR:
+        case TYPE_MTJMPR:
+          return true;
+        default:
+          break;
+        }
+      break;
     default:
       break;
     }
@@ -19273,6 +19339,23 @@ insn_must_be_last_in_group (rtx insn)
       case TYPE_SYNC:
       case TYPE_LOAD_L:
       case TYPE_STORE_C:
+        return true;
+      default:
+        break;
+    }
+    break;
+  case PROCESSOR_POWER7:
+    type = get_attr_type (insn);
+
+    switch (type)
+      {
+      case TYPE_ISYNC:
+      case TYPE_SYNC:
+      case TYPE_LOAD_L:
+      case TYPE_STORE_C:
+      case TYPE_LOAD_EXT_U:
+      case TYPE_LOAD_EXT_UX:
+      case TYPE_STORE_UX:
         return true;
       default:
         break;
@@ -21600,14 +21683,24 @@ rs6000_emit_swrsqrtsf (rtx dst, rtx src)
   emit_label (XEXP (label, 0));
 }
 
-/* Emit popcount intrinsic on TARGET_POPCNTB targets.  DST is the
-   target, and SRC is the argument operand.  */
+/* Emit popcount intrinsic on TARGET_POPCNTB (Power5) and TARGET_POPCNTD
+   (Power7) targets.  DST is the target, and SRC is the argument operand.  */
 
 void
 rs6000_emit_popcount (rtx dst, rtx src)
 {
   enum machine_mode mode = GET_MODE (dst);
   rtx tmp1, tmp2;
+
+  /* Use the power7 popcnt{w,d} instruction if we can.  */
+  if (TARGET_POPCNTD)
+    {
+      if (mode == SImode)
+	emit_insn (gen_popcntwsi2 (dst, src));
+      else
+	emit_insn (gen_popcntddi2 (dst, src));
+      return;
+    }
 
   tmp1 = gen_reg_rtx (mode);
 

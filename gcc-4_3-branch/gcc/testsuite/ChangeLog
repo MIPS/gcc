@@ -1,3 +1,11 @@
+2009-2-23  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport:
+	2009-02-11 Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	 * gcc.target/powerpc/popcount-2.c: New file for power7 support.
+	 * gcc.target/powerpc/popcount-3.c: Ditto.
+
 2009-02-20  Steve Ellcey  <sje@cup.hp.com>
 
 	PR target/38056

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -60,6 +60,25 @@
 #define TARGET_PAIRED_FLOAT 0
 #endif
 
+#ifdef HAVE_AS_POPCNTB
+#define ASM_CPU_POWER5_SPEC "-mpower5"
+#else
+#define ASM_CPU_POWER5_SPEC "-mpower4"
+#endif
+
+#ifdef HAVE_AS_DFP
+#define ASM_CPU_POWER6_SPEC "-mpower6 -maltivec"
+#else
+#define ASM_CPU_POWER6_SPEC "-mpower4 -maltivec"
+#endif
+
+#ifdef HAVE_AS_POPCNTD
+#define ASM_CPU_POWER7_SPEC "-mpower7"
+#else
+#define ASM_CPU_POWER7_SPEC "-mpower4 -maltivec"
+#endif
+
+
 /* Common ASM definitions used by ASM_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
 #define ASM_CPU_SPEC \
@@ -76,10 +95,11 @@
 %{mcpu=power2: -mpwrx} \
 %{mcpu=power3: -mppc64} \
 %{mcpu=power4: -mpower4} \
-%{mcpu=power5: -mpower4} \
-%{mcpu=power5+: -mpower4} \
-%{mcpu=power6: -mpower4 -maltivec} \
-%{mcpu=power6x: -mpower4 -maltivec} \
+%{mcpu=power5: %(asm_cpu_power5)} \
+%{mcpu=power5+: %(asm_cpu_power5)} \
+%{mcpu=power6: %(asm_cpu_power6)} \
+%{mcpu=power6x: %(asm_cpu_power6)} \
+%{mcpu=power7: %(asm_cpu_power7)} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -141,6 +161,9 @@
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
   { "cc1_cpu",			CC1_CPU_SPEC },				\
+  { "asm_cpu_power5",		ASM_CPU_POWER5_SPEC },			\
+  { "asm_cpu_power6",		ASM_CPU_POWER6_SPEC },			\
+  { "asm_cpu_power7",		ASM_CPU_POWER7_SPEC },			\
   SUBTARGET_EXTRA_SPECS
 
 /* -mcpu=native handling only makes sense with compiler running on
@@ -213,6 +236,14 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_DFP 0
 #endif
 
+/* Define TARGET_POPCNTD if the target assembler does not support the
+   popcount word and double word instructions.  */
+
+#ifndef HAVE_AS_POPCNTD
+#undef  TARGET_POPCNTD
+#define TARGET_POPCNTD 0
+#endif
+
 #ifndef TARGET_SECURE_PLT
 #define TARGET_SECURE_PLT 0
 #endif
@@ -265,6 +296,7 @@ enum processor_type
    PROCESSOR_POWER4,
    PROCESSOR_POWER5,
    PROCESSOR_POWER6,
+   PROCESSOR_POWER7,
    PROCESSOR_CELL
 };
 
