@@ -797,7 +797,6 @@ lto_promote_cross_file_statics (void)
   memset (&context, 0, sizeof (context));
   context.all_vars = lto_bitmap_alloc ();
   context.all_static_vars = lto_bitmap_alloc ();
-  context.seen_node_decls = lto_bitmap_alloc ();
 
   n_sets = VEC_length (cgraph_node_set, lto_cgraph_node_sets);
   for (i = 0; i < n_sets; i++)
@@ -806,6 +805,8 @@ lto_promote_cross_file_statics (void)
       context.set = set;
       context.visited = pointer_set_create ();
       context.static_vars_in_set = lto_bitmap_alloc ();
+      context.seen_node_decls = lto_bitmap_alloc ();
+
       for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
 	lto_scan_statics_in_cgraph_node (csi_node (csi), &context);
 
@@ -813,13 +814,14 @@ lto_promote_cross_file_statics (void)
         lto_scan_statics_in_remaining_global_vars (&context);
 
       bitmap_ior_into (context.all_static_vars, context.static_vars_in_set);
+
       pointer_set_destroy (context.visited);
       lto_bitmap_free (context.static_vars_in_set);
+      lto_bitmap_free (context.seen_node_decls);
     }
 
   lto_bitmap_free (context.all_vars);
   lto_bitmap_free (context.all_static_vars);
-  lto_bitmap_free (context.seen_node_decls);
 }
 
 static lto_file *current_lto_file;
