@@ -1,86 +1,91 @@
+2009-02-24  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/aix53.h (ASM_CPU_SPEC): Add Power7 entry.
+	* config/rs6000/aix61.h (ASM_CPU_SPEC): Likewise.
+
 2009-02-23  Pat Haugen  <pthaugen@us.ibm.com>
 
 	Initial Power7 checkin made up of the following from our internal
 	power7 development tree:
 
 	2009-02-15  Pat Haugen  <pthaugen@us.ibm.com>
-          	  Michael Meissner  <meissner@linux.vnet.ibm.com>
+		    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-        * doc/invoke.texi (-mpopcntd, -mno-popcntd): Document new switch.
-        * configure.ac (powerpc*-*-*): Test for the assembler having the
-        popcntd instruction.
-        * configure: Regenerate.
-        * config.in (HAVE_AS_POPCNTD): Add default value for configure
-        test.
-        * config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
-        _ARCH_PWR7 if the popcntd instruction is available.
-        * config/rs6000/rs6000.opt (-mpopcntd): New switch to
-        enable/disable the use of the popcntd and popcntw instructions.
-        (-mfused-madd, -mno-fused-madd): Move to being a separate variable
-        because we are out of mask bits.
-        * config/rs6000/rs6000.c
-        (insn_must_be_first_in_group): Add Power7 support.
-        (insn_must_be_last_in_group): Ditto.
-        (rs6000_emit_popcount): Add support for using the popcntw and
-        popcntd instructions.
-        * config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Switch to using
-        popcntd as the test for a power7 assembler instead of vector
-        scalar instructions.
-        * (TARGET_POPCNTD): If assembler does not support the popcntd
-        instruction, disable using it.
-        * config/rs6000/rs6000.md
-        (andi./andis./nor. patterns): Change insn type to fast_compare.
-        (popcntwsi2): Add popcntw support.
-        (popcntddi2): Add popcntd support.
+	* doc/invoke.texi (-mpopcntd, -mno-popcntd): Document new switch.
+	* configure.ac (powerpc*-*-*): Test for the assembler having the
+	popcntd instruction.
+	* configure: Regenerate.
+	* config.in (HAVE_AS_POPCNTD): Add default value for configure
+	test.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	_ARCH_PWR7 if the popcntd instruction is available.
+	* config/rs6000/rs6000.opt (-mpopcntd): New switch to
+	enable/disable the use of the popcntd and popcntw instructions.
+	(-mfused-madd, -mno-fused-madd): Move to being a separate variable
+	because we are out of mask bits.
+	* config/rs6000/rs6000.c
+	(insn_must_be_first_in_group): Add Power7 support.
+	(insn_must_be_last_in_group): Ditto.
+	(rs6000_emit_popcount): Add support for using the popcntw and
+	popcntd instructions.
+	* config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Switch to using
+	popcntd as the test for a power7 assembler instead of vector
+	scalar instructions.
+	* (TARGET_POPCNTD): If assembler does not support the popcntd
+	instruction, disable using it.
+	* config/rs6000/rs6000.md
+	(andi./andis./nor. patterns): Change insn type to fast_compare.
+	(popcntwsi2): Add popcntw support.
+	(popcntddi2): Add popcntd support.
 
 	[gcc/testsuite patches]
-        * gcc.target/powerpc/popcount-2.c: New file for power7 support.
-        * gcc.target/powerpc/popcount-3.c: Ditto.
+	* gcc.target/powerpc/popcount-2.c: New file for power7 support.
+	* gcc.target/powerpc/popcount-3.c: Ditto.
 
 	2008-08-22  Pat Haugen  <pthaugen@us.ibm.com>
 
-        Backport missing portions from FSF mainline:
-        2008-08-08  Peter Bergner  <bergner@vnet.ibm.com>
+	Backport missing portions from FSF mainline:
+	2008-08-08  Peter Bergner  <bergner@vnet.ibm.com>
 
-        * doc/invoke.texi: Add cpu_type power7.
-        * config.in (HAVE_AS_VSX): New.
-        * configure.ac (HAVE_AS_VSX): Check for assembler support of the
-        VSX instructions.
-        * configure: Regenerate.
-        * config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Define based on
-        HAVE_AS_VSX.
+	* doc/invoke.texi: Add cpu_type power7.
+	* config.in (HAVE_AS_VSX): New.
+	* configure.ac (HAVE_AS_VSX): Check for assembler support of the
+	VSX instructions.
+	* configure: Regenerate.
+	* config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Define based on
+	HAVE_AS_VSX.
 
 	2008-08-22  Pat Haugen  <pthaugen@us.ibm.com>
 
-        * config/rs6000/power7.md: Add power7 machine description.
-        * config/rs6000/rs6000.c: (power7_cost): Define.
-        (rs6000_override_options): Add power7 support.
-        (rs6000_issue_rate): Likewise.
-        * config/rs6000/rs6000.h: (processor_type): Add power7 entry.
-        * config/rs6000/rs6000.md: (define_attr "cpu"):  Add power7.
+	* config/rs6000/power7.md: Add power7 machine description.
+	* config/rs6000/rs6000.c: (power7_cost): Define.
+	(rs6000_override_options): Add power7 support.
+	(rs6000_issue_rate): Likewise.
+	* config/rs6000/rs6000.h: (processor_type): Add power7 entry.
+	* config/rs6000/rs6000.md: (define_attr "cpu"):  Add power7.
 
 	2008-04-28  Peter Bergner  <bergner@vnet.ibm.com>
 
-        * config/rs6000/power7.md: New file.
-        * config/rs6000/rs6000.md: Include it.
+	* config/rs6000/power7.md: New file.
+	* config/rs6000/rs6000.md: Include it.
 
 	2008-04-28  Peter Bergner  <bergner@vnet.ibm.com>
 
-        Backport from FSF mainline:
-        2008-02-26  Ben Elliston  <bje@au.ibm.com>
+	Backport from FSF mainline:
+	2008-02-26  Ben Elliston  <bje@au.ibm.com>
 
-        * config/rs6000/rs6000.h (ASM_CPU_POWER5_SPEC): Define.
-        (ASM_CPU_POWER6_SPEC): Likewise.
-        (ASM_CPU_SPEC): Pass %(asm_cpu_power5) for -mcpu=power5.
-        Likewise, pass %(asm_cpu_power6) for -mcpu=power6.
-        (EXTRA_SPECS): Add asm_cpu_power5, asm_cpu_power6 spec strings.
+	* config/rs6000/rs6000.h (ASM_CPU_POWER5_SPEC): Define.
+	(ASM_CPU_POWER6_SPEC): Likewise.
+	(ASM_CPU_SPEC): Pass %(asm_cpu_power5) for -mcpu=power5.
+	Likewise, pass %(asm_cpu_power6) for -mcpu=power6.
+	(EXTRA_SPECS): Add asm_cpu_power5, asm_cpu_power6 spec strings.
 
-        * config.gcc: Handle --with-cpu=power7.
-        * config/rs6000/rs6000.c: Add power7 entry.
-        * config/rs6000/rs6000.h: Handle -mcpu=power7.
-        (ASM_CPU_POWER7_SPEC): Define.
-        (ASM_CPU_SPEC): Pass %(asm_cpu_power7) for -mcpu=power7.
-        (EXTRA_SPECS): Add asm_cpu_power7 string.
+	* config.gcc: Handle --with-cpu=power7.
+	* config/rs6000/rs6000.c: Add power7 entry.
+	* config/rs6000/rs6000.h: Handle -mcpu=power7.
+	(ASM_CPU_POWER7_SPEC): Define.
+	(ASM_CPU_SPEC): Pass %(asm_cpu_power7) for -mcpu=power7.
+	(EXTRA_SPECS): Add asm_cpu_power7 string.
 
 2009-02-20  Steve Ellcey  <sje@cup.hp.com>
 
