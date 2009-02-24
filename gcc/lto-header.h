@@ -35,10 +35,13 @@
 /* These are all the LTO section types that are in an object file.  This
    list will grow as the number of IPA passes grows since each IPA
    pass will need its own section type to store its summary
-   information.  */
+   information.
+
+   When adding a new section type, you must also extend the
+   LTO_SECTION_NAME array in lto-section-in.c.  */
 enum lto_section_type
 {
-  LTO_section_decls,
+  LTO_section_decls = 0,
   LTO_section_function_body,
   LTO_section_static_initializer,
   LTO_section_cgraph,
@@ -46,8 +49,11 @@ enum lto_section_type
   LTO_section_ipa_reference,
   LTO_section_symtab,
   LTO_section_wpa_fixup,
-  LTO_section_opts
+  LTO_section_opts,
+  LTO_N_SECTION_TYPES		/* Must be last.  */
 };
+
+extern const char *lto_section_name[];
 
 struct lto_header
 {
@@ -76,6 +82,22 @@ typedef enum {
   LTO_DECL_STREAM_NAMESPACE_DECL,
   LTO_N_DECL_STREAMS
 } lto_decl_stream_e_t;
+
+
+/* Statistics gathered during LTO, WPA and LTRANS.  */
+struct lto_stats_d
+{
+  unsigned HOST_WIDE_INT num_input_cgraph_nodes;
+  unsigned HOST_WIDE_INT num_output_cgraph_nodes;
+  unsigned HOST_WIDE_INT num_input_files;
+  unsigned HOST_WIDE_INT num_output_files;
+  unsigned HOST_WIDE_INT num_cgraph_partitions;
+  unsigned HOST_WIDE_INT section_size[LTO_N_SECTION_TYPES];
+  unsigned HOST_WIDE_INT num_function_bodies;
+  unsigned HOST_WIDE_INT num_trees[NUM_TREE_CODES];
+};
+
+extern struct lto_stats_d lto_stats;
 
 /* In lto-wpa-fixup.c  */
 void lto_mark_nothrow_fndecl (tree);

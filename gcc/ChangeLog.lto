@@ -1,3 +1,20 @@
+2009-02-24  Diego Novillo  <dnovillo@google.com>
+
+	* doc/invoke.texi: Document -flto, -fwhopr and -flto-report.
+	* lto-function-in.c (global_vector_enter):
+	* lto-header.h (enum lto_section_type): Add LTO_N_SECTION_TYPES.
+	(lto_section_name): Declare.
+	(struct lto_stats_d): Declare.
+	(lto_stats): Declare.
+	* lto-section-in.c (lto_section_name): Declare.
+	(lto_get_section_data): Update lto_stats.section_size.
+	* common.opt (flto-report): Define.
+	* lto-stream-debug.c: Include tree.h before lto-header.h.
+	* Makefile.in (LTO_OPTS_H): Add dependency on lto-section-in.h
+	* lto-utils.c (lto_stats): New.
+	(print_lto_report): New.
+	* lto-utils.h (print_lto_report): Declare.
+
 2009-02-23  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto.c (lto_promote_cross_file_statics): Reset context.seen_node_decls

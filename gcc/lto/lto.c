@@ -100,7 +100,10 @@ lto_materialize_function (struct cgraph_node *node)
       /* Load the function body only if not operating in WPA mode.  In
 	 WPA mode, the body of the function is not needed.  */
       if (!flag_wpa)
-        lto_input_function_body (file_data, decl, data);
+	{
+	  lto_input_function_body (file_data, decl, data);
+	  lto_stats.num_function_bodies++;
+	}
 
       fn = DECL_STRUCT_FUNCTION (decl);
       lto_free_section_data (file_data, LTO_section_function_body, name,
@@ -461,6 +464,7 @@ get_section_data (struct lto_file_decl_data *file_data,
   const char *section_name = lto_get_section_name (section_type, name);
   char *data = NULL;
 
+  *len = 0;
   s_slot.name = section_name;
   f_slot = (struct lto_section_slot *) htab_find (section_hash_table, &s_slot);
   if (f_slot)
@@ -550,6 +554,9 @@ lto_1_to_1_map (void)
 
 finish:
   timevar_pop (TV_WHOPR_WPA);
+
+  lto_stats.num_cgraph_partitions += VEC_length (cgraph_node_set, 
+						 lto_cgraph_node_sets);
 }
 
 
@@ -846,6 +853,8 @@ lto_wpa_write_files (void)
     {
       decls = lto_add_all_inlinees (set);
       VEC_safe_push (bitmap, heap, inlined_decls, decls);
+      lto_stats.num_output_cgraph_nodes += VEC_length (cgraph_node_ptr,
+						       set->nodes);
     }
 
   /* After adding all inlinees, find out statics that need to be promoted
@@ -884,7 +893,9 @@ lto_wpa_write_files (void)
       
       lto_set_current_out_file (NULL);
       lto_elf_file_close (file);
-    } 
+    }
+
+  lto_stats.num_output_files += n_sets;
 
   output_files[i] = NULL;
 
@@ -1395,10 +1406,12 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   struct lto_file_decl_data **all_file_decl_data;
   FILE *resolution;
 
+  lto_stats.num_input_files = nfiles;
+
   timevar_push (TV_IPA_LTO_DECL_IO);
 
   /* Set the hooks so that all of the ipa passes can read in their data.  */
-  all_file_decl_data = XNEWVEC (struct lto_file_decl_data*, nfiles + 1);
+  all_file_decl_data = XNEWVEC (struct lto_file_decl_data *, nfiles + 1);
   lto_set_in_hooks (all_file_decl_data, get_section_data, free_section_data);
 
   /* Read the resolution file.  */
@@ -1508,7 +1521,10 @@ materialize_cgraph (void)
   timevar_push (TV_IPA_LTO_GIMPLE_IO);
 
   for (node = cgraph_nodes; node; node = node->next)
-    lto_materialize_function (node);
+    {
+      lto_materialize_function (node);
+      lto_stats.num_input_cgraph_nodes++;
+    }
 
   timevar_pop (TV_IPA_LTO_GIMPLE_IO);
 
@@ -1610,6 +1626,9 @@ do_whole_program_analysis (void)
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
 {
+  /* Initialize stats counters.  */
+  memset (&lto_stats, 0, sizeof (lto_stats));
+
   /* Read all the symbols and call graph from all the files in the
      command line.  */
   read_cgraph_and_symbols (num_in_fnames, in_fnames);
@@ -1630,6 +1649,9 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 	  cgraph_optimize ();
 	}
     }
+
+  if (flag_lto_report)
+    print_lto_report ();
 }
 
 #include "gt-lto-lto.h"

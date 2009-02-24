@@ -51,6 +51,21 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-utils.h"
 #include "cpplib.h"
 
+/* Section names.  These must correspond to the values of
+   enum lto_section_type.  */
+const char *lto_section_name[LTO_N_SECTION_TYPES] =
+{
+  "decls",
+  "function_body",
+  "static_initializer",
+  "cgraph",
+  "ipa_pure_const",
+  "ipa_reference",
+  "symtab",
+  "wpa_fixup",
+  "opts"
+};
+
 /* Return 0 or 1 based on the last bit of FLAGS and right shift FLAGS
    by 1.  */
 
@@ -256,8 +271,9 @@ lto_get_section_data (struct lto_file_decl_data *file_data,
 		      const char *name, 
 		      size_t *len)
 {
-  gcc_assert (get_section_f);
-  return (get_section_f) (file_data, section_type, name, len);
+  const char *s = (get_section_f) (file_data, section_type, name, len);
+  lto_stats.section_size[section_type] += *len;
+  return s;
 }
 
 

@@ -28,8 +28,8 @@ Boston, MA 02110-1301, USA.  */
 #include "params.h"
 #include "input.h"
 #include "debug.h"
-#include "lto-header.h"
 #include "tree.h"
+#include "lto-header.h"
 #include <ctype.h>
 
 #ifdef LTO_STREAM_DEBUGGING

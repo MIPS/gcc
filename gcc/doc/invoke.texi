@@ -6707,6 +6707,32 @@ compilation unit, not for the single source file itself.
 
 This option is not supported for Fortran programs.
 
+@item -flto
+@opindex flto
+This option runs the standard link-time optimizer.  When invoked
+with source code, it generates GIMPLE and writes it to special
+ELF sections in the object file.  When the object files are
+linked together, all the function bodies are read from these ELF
+sections and instantiated as if they had been part of the same
+translation unit.
+
+Disabled by default.
+
+@item -flto
+@opindex flto
+This option is similar to @option{-flto} but it differs in how
+the final link stage is executed.  Instead of loading all the
+function bodies in memory, the callgraph is analyzed and
+optimization decisions are made (whole program analysis or WPA).
+Once optimizations decisions are made, the callgraph is
+partitioned and the different sections are compiled separately
+(local transformations or LTRANS).  This process allows
+optimizations on very large programs that otherwise would not fit
+in memory.  This option enables @option{-fwpa} and
+@option{-fltrans} automatically.
+
+Disabled by default.
+
 @item -fwpa
 @opindex fwpa
 This option runs the link-time optimizer in the whole-program-analysis (WPA)
@@ -6743,6 +6769,12 @@ Default value points to the ltrans_driver script installed alongside lto1.
 @opindex fltrans-output-list
 This option specifies a file to which the names of LTRANS output files are
 written.  This option is only meaningful in conjunction with @option{-fwpa}.
+
+Disabled by default.
+
+@item -flto-report
+This option is only useful when processing object files in LTO
+mode (via -fwhopr or -flto).
 
 Disabled by default.
 

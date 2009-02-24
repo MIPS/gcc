@@ -2405,6 +2405,8 @@ global_vector_enter (struct data_in *data_in, tree node)
 #endif
 
   VEC_safe_push (tree, heap, data_in->globals_index, node);
+  gcc_assert (TREE_CODE (node) < NUM_TREE_CODES);
+  lto_stats.num_trees[TREE_CODE (node)]++;
 
 #ifdef LTO_STREAM_DEBUGGING
   LTO_DEBUG_TOKEN ("[");

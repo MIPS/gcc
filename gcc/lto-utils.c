@@ -31,6 +31,9 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-header.h"
 #include "lto-utils.h"
 
+/* Statistics gathered during LTO, WPA and LTRANS.  */
+struct lto_stats_d lto_stats;
+
 /* LTO uses bitmaps with different life-times.  So use a seperate
    obstack for all LTO bitmaps.  */
 
@@ -129,3 +132,50 @@ lto_get_section_name (int section_type, const char *name)
     }
 }
 
+
+/* Show various memory usage statistics related to LTO.  */
+
+void
+print_lto_report (void)
+{
+  const char *s = (flag_lto) ? "LTO" : (flag_wpa) ? "WPA" : "LTRANS";
+  unsigned i;
+
+  fprintf (stderr, "%s statistics\n", s);
+  fprintf (stderr, "[%s] # of input files: "
+	   HOST_WIDE_INT_PRINT_UNSIGNED "\n", s, lto_stats.num_input_files);
+
+  fprintf (stderr, "[%s] # of input cgraph nodes: " 
+	   HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
+	   lto_stats.num_input_cgraph_nodes);
+
+  fprintf (stderr, "[%s] # of function bodies: "
+	   HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
+	   lto_stats.num_function_bodies);
+
+  for (i = 0; i < NUM_TREE_CODES; i++)
+    if (lto_stats.num_trees[i])
+      fprintf (stderr, "[%s] # of '%s' objects read: "
+	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
+	       tree_code_name[i], lto_stats.num_trees[i]);
+
+  if (flag_wpa)
+    {
+      fprintf (stderr, "[%s] # of output files: "
+	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
+	       lto_stats.num_output_files);
+
+      fprintf (stderr, "[%s] # of output cgraph nodes: "
+	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
+	       lto_stats.num_output_cgraph_nodes);
+
+      fprintf (stderr, "[%s] # callgraph partitions: "
+	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
+	       lto_stats.num_cgraph_partitions);
+    }
+
+  for (i = 0; i < LTO_N_SECTION_TYPES; i++)
+    fprintf (stderr, "[%s] Size of mmap'd section %s: "
+	     HOST_WIDE_INT_PRINT_UNSIGNED " bytes\n", s,
+	     lto_section_name[i], lto_stats.section_size[i]);
+}

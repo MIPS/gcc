@@ -23,16 +23,17 @@
 #ifndef GCC_LTO_UTILS_H
 #define GCC_LTO_UITLS_H
 
-bitmap lto_bitmap_alloc (void);
-
 #define LTO_DECL_FLAG_DEFINED		(1<<0)
 #define LTO_DECL_FLAG_SUPPRESS_OUTPUT	(1<<1)
 
 typedef unsigned char	lto_decl_flags_t;
 
-void lto_bitmap_free (bitmap);
-lto_decl_flags_t lto_get_decl_flags (tree);
-void lto_set_decl_flags (tree, lto_decl_flags_t);
-char* lto_get_section_name (int, const char *);
+/* In lto-utils.c.  */
+extern bitmap lto_bitmap_alloc (void);
+extern void lto_bitmap_free (bitmap);
+extern lto_decl_flags_t lto_get_decl_flags (tree);
+extern void lto_set_decl_flags (tree, lto_decl_flags_t);
+extern char *lto_get_section_name (int, const char *);
+extern void print_lto_report (void);
 
 #endif /* !GCC_LTO_UTILS_H */

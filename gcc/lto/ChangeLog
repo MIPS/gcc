@@ -1,3 +1,16 @@
+2009-02-24  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (lto_materialize_function): Update
+	lto_stats.num_function_bodies.
+	(get_section_data): Initialize *LEN to 0.
+	(lto_1_to_1_map): Update lto_stats.num_cgraph_partitions.
+	(lto_wpa_write_files): Update lto_stats.num_cgraph_nodes.
+	Update lto_stats.num_output_files.
+	(read_cgraph_and_symbols): Update lto_stats.num_input_files.
+	(materialize_cgraph): Update lto_stats.num_input_cgraph_nodes.
+	(lto_main): Initialize lto_stats.
+	If flag_lto_report is set, call print_lto_report.
+
 2009-02-19  Diego Novillo  <dnovillo@google.com>
 
 	Revert
