@@ -227,6 +227,7 @@ int dot_symbols;
 const char *rs6000_debug_name;
 int rs6000_debug_stack;		/* debug stack applications */
 int rs6000_debug_arg;		/* debug argument handling */
+int rs6000_debug_reg;		/* debug register classes */
 
 /* Value is TRUE if register/mode pair is acceptable.  */
 bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
@@ -1430,6 +1431,62 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   return GET_MODE_SIZE (mode) <= UNITS_PER_WORD;
 }
 
+/* Print interesting facts about registers.  */
+static void
+rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
+{
+  int r, m;
+
+  for (r = first_regno; r <= last_regno; ++r)
+    {
+      const char *comma = "";
+      int len;
+
+      if (first_regno == last_regno)
+	len = fprintf (stderr, "%s:%*s", reg_name,
+		       (int)(4 - strlen (reg_name)), "");
+      else if ((r - first_regno) > 9)
+	len = fprintf (stderr, "%s%d:", reg_name, r - first_regno);
+      else
+	len = fprintf (stderr, "%s%d: ", reg_name, r - first_regno);
+
+      for (m = 0; m < NUM_MACHINE_MODES; ++m)
+	if (rs6000_hard_regno_mode_ok_p[m][r] && rs6000_hard_regno_nregs[m][r])
+	  {
+	    if (rs6000_hard_regno_nregs[m][r] > 1)
+	      len += fprintf (stderr, "%s %s/%d", comma, GET_MODE_NAME (m),
+			     rs6000_hard_regno_nregs[m][r]);
+	    else
+	      len += fprintf (stderr, "%s %s", comma, GET_MODE_NAME (m));
+
+	    if (len > 60)
+	      {
+		len = 5;
+		comma = ",\n     ";
+	      }
+	    else
+	      comma = ",";
+	  }
+
+      if (call_used_regs[r])
+	{
+	  len += fprintf (stderr, "%s %s", comma, "call-used");
+	  if (len > 60)
+	    {
+	      len = 5;
+	      comma = ",\n    ";
+	    }
+	  else
+	    comma = ",";
+	}
+
+      if (fixed_regs[r])
+	fprintf (stderr, "%s %s", comma, "fixed");
+
+      fputc ('\n', stderr);
+    }
+}
+
 /* Initialize the various global tables that are based on register size.  */
 static void
 rs6000_init_hard_regno_mode_ok (void)
@@ -1590,6 +1647,34 @@ rs6000_init_hard_regno_mode_ok (void)
 
   if (TARGET_E500_DOUBLE)
     rs6000_class_max_nregs[DFmode][GENERAL_REGS] = 1;
+
+  if (TARGET_DEBUG_REG)
+    {
+      fprintf (stderr, "Register information:\n");
+      rs6000_debug_reg_print (0, 31, "gr");
+      rs6000_debug_reg_print (32, 63, "fp");
+      rs6000_debug_reg_print (FIRST_ALTIVEC_REGNO,
+			      LAST_ALTIVEC_REGNO,
+			      "vs");
+      rs6000_debug_reg_print (LR_REGNO, LR_REGNO, "lr");
+      rs6000_debug_reg_print (CTR_REGNO, CTR_REGNO, "ctr");
+      rs6000_debug_reg_print (CR0_REGNO, CR7_REGNO, "cr");
+
+      fprintf (stderr,
+	       "\n"
+	       "rs6000_vsx_v4sf_regclass    = %s\n"
+	       "rs6000_vsx_v2df_regclass    = %s\n"
+	       "rs6000_vsx_df_regclass      = %s\n"
+	       "rs6000_vsx_int_regclass     = %s\n"
+	       "rs6000_vsx_logical_regclass = %s\n"
+	       "rs6000_vsx_any_regclass     = %s\n\n",
+	       reg_class_names[rs6000_vsx_v4sf_regclass],
+	       reg_class_names[rs6000_vsx_v2df_regclass],
+	       reg_class_names[rs6000_vsx_df_regclass],
+	       reg_class_names[rs6000_vsx_int_regclass],
+	       reg_class_names[rs6000_vsx_logical_regclass],
+	       reg_class_names[rs6000_vsx_any_regclass]);
+    }
 }
 
 #if TARGET_MACHO
@@ -1912,11 +1997,13 @@ rs6000_override_options (const char *default_cpu)
   if (rs6000_debug_name)
     {
       if (! strcmp (rs6000_debug_name, "all"))
-	rs6000_debug_stack = rs6000_debug_arg = 1;
+	rs6000_debug_stack = rs6000_debug_arg = rs6000_debug_reg = 1;
       else if (! strcmp (rs6000_debug_name, "stack"))
 	rs6000_debug_stack = 1;
       else if (! strcmp (rs6000_debug_name, "arg"))
 	rs6000_debug_arg = 1;
+      else if (! strcmp (rs6000_debug_name, "reg"))
+	rs6000_debug_reg = 1;
       else
 	error ("unknown -mdebug-%s switch", rs6000_debug_name);
     }

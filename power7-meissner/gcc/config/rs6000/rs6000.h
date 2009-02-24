@@ -397,9 +397,11 @@ extern struct rs6000_cpu_select rs6000_select[];
 extern const char *rs6000_debug_name;	/* Name for -mdebug-xxxx option */
 extern int rs6000_debug_stack;		/* debug stack applications */
 extern int rs6000_debug_arg;		/* debug argument handling */
+extern int rs6000_debug_reg;		/* debug register handling */
 
 #define	TARGET_DEBUG_STACK	rs6000_debug_stack
 #define	TARGET_DEBUG_ARG	rs6000_debug_arg
+#define TARGET_DEBUG_REG	rs6000_debug_reg
 
 extern const char *rs6000_traceback_name; /* Type of traceback table.  */
 

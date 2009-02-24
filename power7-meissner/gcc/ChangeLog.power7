@@ -1,3 +1,16 @@
+2009-02-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg): New global.
+	(rs6000_debug_reg_print): New function to print register classes
+	for a given register range.
+	(rs6000_init_hard_regno_mode_ok): If -mdebug=reg, print out the
+	register class, call used, fixed information for most of the
+	registers.  Print the vsx register class variables.
+	(rs6000_override_options): Add -mdebug=reg support.
+
+	* config/rs6000/rs6000.h (rs6000_debug_reg): New global.
+	(TARGET_DEBUG_REG): New target switch for -mdebug=reg.
+
 2009-02-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* reload.c (subst_reloads): Change gcc_assert into a fatal_insn.
