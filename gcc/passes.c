@@ -1261,6 +1261,8 @@ execute_one_pass (struct opt_pass *pass)
      This is a hack until the new folder is ready.  */
   in_gimple_form = (cfun && (cfun->curr_properties & PROP_trees)) != 0;
 
+  initializing_dump = pass_init_dump_file (pass);
+
   /* Run pre-pass verification.  */
   execute_todo (pass->todo_flags_start);
 
@@ -1268,8 +1270,6 @@ execute_one_pass (struct opt_pass *pass)
   do_per_function (verify_curr_properties,
 		   (void *)(size_t)pass->properties_required);
 #endif
-
-  initializing_dump = pass_init_dump_file (pass);
 
   /* If a timevar is present, start it.  */
   if (pass->tv_id)

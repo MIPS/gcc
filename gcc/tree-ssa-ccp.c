@@ -3243,10 +3243,7 @@ execute_fold_all_builtins (void)
 	  push_stmt_changes (gsi_stmt_ptr (&i));
 
           if (!update_call_from_tree (&i, result))
-            {
-              gimplify_and_update_call_from_tree (&i, result);
-              todoflags |= TODO_rebuild_alias;
-            }
+	    gimplify_and_update_call_from_tree (&i, result);
 
 	  stmt = gsi_stmt (i);
 	  pop_stmt_changes (gsi_stmt_ptr (&i));

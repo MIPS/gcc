@@ -1,3 +1,15 @@
+2009-02-24  Richard Guenther  <rguenther@suse.de>
+
+	* passes.c (execute_one_pass): Initialize dump-files before
+	running the pre-pass todo.
+	* tree-sra.c (todoflags): Remove.
+	(tree_sra): Do not rebuild alias info.
+	(tree_sra_early): Adjust.
+	(pass_sra): Run TODO_update_address_taken before SRA.
+	* tree-ssa-ccp.c (execute_fold_all_builtins): Do not rebuild alias info.
+	* tree-ssa-pre.c (do_pre): Likewise.
+	(pass_pre): Run TODO_rebuild_alias before PRE.
+
 2009-02-21  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r144352.

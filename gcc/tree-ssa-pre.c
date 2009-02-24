@@ -4361,7 +4361,7 @@ execute_pre (bool do_fre ATTRIBUTE_UNUSED)
 static unsigned int
 do_pre (void)
 {
-  return TODO_rebuild_alias | execute_pre (false);
+  return execute_pre (false);
 }
 
 static bool
@@ -4386,7 +4386,7 @@ struct gimple_opt_pass pass_pre =
     | PROP_ssa | PROP_alias,		/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
+  TODO_rebuild_alias,			/* todo_flags_start */
   TODO_update_ssa_only_virtuals | TODO_dump_func | TODO_ggc_collect
   | TODO_verify_ssa /* todo_flags_finish */
  }
