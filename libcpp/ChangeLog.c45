@@ -1,0 +1,5 @@
+2009-02-23  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/33466
+	* expr.c (interpret_float_suffix): Reject invalid suffix that uses
+	letters from decimal float and fixed-point suffixes.

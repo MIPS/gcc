@@ -1,9 +1,3 @@
-2009-02-23  Janis Johnson  <janis187@us.ibm.com>
-
-	PR c/33466
-	* expr.c (interpret_float_suffix): Reject invalid suffix that uses
-	letters from decimal float and fixed-point suffixes.
-
 2009-01-05  Ben Elliston  <bje@au.ibm.com>
 
 	* Makefile.in (.po.gmo): Use mkinstalldirs, not test -d || mkdir.
