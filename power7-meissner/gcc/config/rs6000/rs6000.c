@@ -292,6 +292,18 @@ struct builtin_description
   const char *const name;
   const enum rs6000_builtins code;
 };
+
+/* Describe the vector unit used for types.  */
+struct rs6000_vector_struct rs6000_vector_info[NUM_MACHINE_MODES];
+
+/* Describe the register classes used by VSX instructions.  */
+enum reg_class rs6000_vsx_v4sf_regclass		= NO_REGS;
+enum reg_class rs6000_vsx_v2df_regclass		= NO_REGS;
+enum reg_class rs6000_vsx_df_regclass		= NO_REGS;
+enum reg_class rs6000_vsx_int_regclass		= NO_REGS;
+enum reg_class rs6000_vsx_logical_regclass	= NO_REGS;
+enum reg_class rs6000_vsx_any_regclass		= NO_REGS;
+
 
 /* Target cpu costs.  */
 
@@ -988,12 +1000,10 @@ static tree rs6000_gimplify_va_arg (tree, tree, gimple_seq *, gimple_seq *);
 static bool rs6000_must_pass_in_stack (enum machine_mode, const_tree);
 static bool rs6000_scalar_mode_supported_p (enum machine_mode);
 static bool rs6000_vector_mode_supported_p (enum machine_mode);
-static int get_vec_cmp_insn (enum rtx_code, enum machine_mode,
-			     enum machine_mode);
+static rtx rs6000_emit_vector_compare_vsx (enum rtx_code, rtx, rtx, rtx);
+static rtx rs6000_emit_vector_compare_altivec (enum rtx_code, rtx, rtx, rtx);
 static rtx rs6000_emit_vector_compare (enum rtx_code, rtx, rtx,
 				       enum machine_mode);
-static int get_vsel_insn (enum machine_mode);
-static void rs6000_emit_vector_select (rtx, rtx, rtx, rtx);
 static tree rs6000_stack_protect_fail (void);
 
 const int INSN_NOT_AVAILABLE = -1;
@@ -1342,29 +1352,32 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 static int
 rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
 {
-  if (TARGET_VSX && VSX_REGNO_P (regno) && VSX_MODE (mode))
-    return (GET_MODE_SIZE (mode) + UNITS_PER_VSX_WORD - 1) / UNITS_PER_VSX_WORD;
+  unsigned HOST_WIDE_INT reg_size;
 
   if (FP_REGNO_P (regno))
-    return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
+    reg_size = ((rs6000_vector_info[mode].move == VECTOR_VSX)
+		? UNITS_PER_VSX_WORD
+		: UNITS_PER_FP_WORD);
 
-  if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
-    return (GET_MODE_SIZE (mode) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD;
+  else if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
+    reg_size = UNITS_PER_SPE_WORD;
 
-  if (ALTIVEC_REGNO_P (regno))
-    return
-      (GET_MODE_SIZE (mode) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD;
+  else if (ALTIVEC_REGNO_P (regno))
+    reg_size = UNITS_PER_ALTIVEC_WORD;
 
   /* The value returned for SCmode in the E500 double case is 2 for
      ABI compatibility; storing an SCmode value in a single register
      would require function_arg and rs6000_spe_function_arg to handle
      SCmode so as to pass the value correctly in a pair of
      registers.  */
-  if (TARGET_E500_DOUBLE && FLOAT_MODE_P (mode) && mode != SCmode
-      && !DECIMAL_FLOAT_MODE_P (mode))
-    return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
+  else if (TARGET_E500_DOUBLE && FLOAT_MODE_P (mode) && mode != SCmode
+	   && !DECIMAL_FLOAT_MODE_P (mode))
+    reg_size = UNITS_PER_FP_WORD;
 
-  return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  else
+    reg_size = UNITS_PER_WORD;
+
+  return (GET_MODE_SIZE (mode) + reg_size - 1) / reg_size;
 }
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode
@@ -1374,7 +1387,8 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
      implementations.  */
-  if (TARGET_VSX && VSX_REGNO_P (regno) && VSX_MODE (mode))
+  if (TARGET_VSX && VSX_REGNO_P (regno)
+      && rs6000_vector_info[mode].move == VECTOR_VSX)
     return VSX_REGNO_P (regno + rs6000_hard_regno_nregs[mode][regno] - 1);
 
   /* The GPRs can hold any mode, but values bigger than one register
@@ -1382,8 +1396,9 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (INT_REGNO_P (regno))
     return INT_REGNO_P (regno + rs6000_hard_regno_nregs[mode][regno] - 1);
 
-  /* The float registers can only hold floating modes and DImode.
-     This excludes the 32-bit decimal float mode for now.  */
+  /* The float registers (except for VSX vector modes) can only hold floating
+     modes and DImode.  This excludes the 32-bit decimal float mode for
+     now.  */
   if (FP_REGNO_P (regno))
     return
       ((SCALAR_FLOAT_MODE_P (mode)
@@ -1420,6 +1435,125 @@ static void
 rs6000_init_hard_regno_mode_ok (void)
 {
   int r, m, c;
+
+  /* Precalculate vector information, this must be set up before the
+     rs6000_hard_regno_nregs_internal below.  */
+  for (m = 0; m < NUM_MACHINE_MODES; ++m)
+    {
+      rs6000_vector_info[m].move = VECTOR_NONE;
+      rs6000_vector_info[m].arith = VECTOR_NONE;
+      rs6000_vector_info[m].align = GET_MODE_ALIGNMENT (m);
+    }
+
+  /* Drill down between altivec/VSX to figure out which unit to use.  */
+  if (TARGET_VSX || TARGET_ALTIVEC)
+    {
+      if (TARGET_VSX && TARGET_VSX_VECTOR_MOVE)
+	{
+	  rs6000_vector_info[V16QImode].move = VECTOR_VSX;
+	  rs6000_vector_info[V8HImode].move = VECTOR_VSX;
+	  rs6000_vector_info[V4SImode].move = VECTOR_VSX;
+	  rs6000_vector_info[V4SFmode].move = VECTOR_VSX;
+	  rs6000_vector_info[V2DImode].move = VECTOR_VSX;
+	  rs6000_vector_info[V2DFmode].move = VECTOR_VSX;
+	  rs6000_vector_info[V16QImode].align = 32;
+	  rs6000_vector_info[V8HImode].align = 32;
+	  rs6000_vector_info[V4SImode].align = 32;
+	  rs6000_vector_info[V4SFmode].align = 32;
+	  rs6000_vector_info[V2DImode].align = 64;
+	  rs6000_vector_info[V2DFmode].align = 64;
+	}
+      else if (TARGET_ALTIVEC)
+	{
+	  rs6000_vector_info[V16QImode].move = VECTOR_ALTIVEC;
+	  rs6000_vector_info[V8HImode].move = VECTOR_ALTIVEC;
+	  rs6000_vector_info[V4SImode].move = VECTOR_ALTIVEC;
+	  rs6000_vector_info[V4SFmode].move = VECTOR_ALTIVEC;
+	  rs6000_vector_info[V16QImode].align = 128;
+	  rs6000_vector_info[V8HImode].align = 128;
+	  rs6000_vector_info[V4SImode].align = 128;
+	  rs6000_vector_info[V4SFmode].align = 128;
+	}
+
+      if (TARGET_VSX && TARGET_VSX_VECTOR_LOGICAL)
+	{
+	  rs6000_vector_info[V16QImode].logical = VECTOR_VSX;
+	  rs6000_vector_info[V8HImode].logical = VECTOR_VSX;
+	  rs6000_vector_info[V4SImode].logical = VECTOR_VSX;
+	  rs6000_vector_info[V4SFmode].logical = VECTOR_VSX;
+	  rs6000_vector_info[V2DImode].logical = VECTOR_VSX;
+	  rs6000_vector_info[V2DFmode].logical = VECTOR_VSX;
+	}
+      else if (TARGET_ALTIVEC)
+	{
+	  rs6000_vector_info[V16QImode].logical = VECTOR_ALTIVEC;
+	  rs6000_vector_info[V8HImode].logical = VECTOR_ALTIVEC;
+	  rs6000_vector_info[V4SImode].logical = VECTOR_ALTIVEC;
+	  rs6000_vector_info[V4SFmode].logical = VECTOR_ALTIVEC;
+	}
+
+      if (TARGET_ALTIVEC)
+	{
+	  rs6000_vector_info[V16QImode].arith = VECTOR_ALTIVEC;
+	  rs6000_vector_info[V8HImode].arith = VECTOR_ALTIVEC;
+	  rs6000_vector_info[V4SImode].arith = VECTOR_ALTIVEC;
+	}
+
+      if (TARGET_VSX && TARGET_VSX_VECTOR_FLOAT)
+	rs6000_vector_info[V4SFmode].arith = VECTOR_VSX;
+      else if (TARGET_ALTIVEC)
+	rs6000_vector_info[V4SFmode].arith = VECTOR_ALTIVEC;
+
+      if (TARGET_VSX && TARGET_VSX_VECTOR_DOUBLE)
+	{
+	  rs6000_vector_info[V2DFmode].move = VECTOR_VSX;
+	  rs6000_vector_info[V2DFmode].arith = VECTOR_VSX;
+	  rs6000_vector_info[V2DFmode].align = 64;
+	}
+
+      if (TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
+	{
+	  rs6000_vector_info[DFmode].move = VECTOR_VSX;
+	  rs6000_vector_info[DFmode].arith = VECTOR_VSX;
+	  rs6000_vector_info[DFmode].align = 64;
+	}
+    }
+
+  /* TODO, add SPE and paired floating point vector support.  */
+
+  /* Set the VSX register classes.  */
+  rs6000_vsx_v4sf_regclass
+    = ((TARGET_VSX && TARGET_VSX_VECTOR_MOVE && TARGET_VSX_VECTOR_FLOAT)
+       ? VSX_REGS
+       : ((TARGET_VSX || TARGET_ALTIVEC)
+	  ? ALTIVEC_REGS
+	  : NO_REGS));
+
+  rs6000_vsx_v2df_regclass
+    = ((TARGET_VSX && TARGET_VSX_VECTOR_FLOAT)
+       ? FLOAT_REGS /* VSX_REGS */
+       : ((TARGET_VSX || TARGET_ALTIVEC)
+	  ? ALTIVEC_REGS
+	  : NO_REGS));
+
+  rs6000_vsx_df_regclass
+    = (!(TARGET_HARD_FLOAT && TARGET_FPRS)
+       ? NO_REGS
+       : ((TARGET_VSX && TARGET_VSX_SCALAR_MOVE && TARGET_VSX_SCALAR_DOUBLE)
+	  ? FLOAT_REGS /* VSX_REGS */
+	  : FLOAT_REGS));
+
+  rs6000_vsx_int_regclass
+    = ((TARGET_VSX || TARGET_ALTIVEC) ? ALTIVEC_REGS : NO_REGS);
+
+  rs6000_vsx_logical_regclass
+    = ((TARGET_VSX && TARGET_VSX_VECTOR_LOGICAL && TARGET_VSX_VECTOR_MOVE)
+       ? VSX_REGS
+       : ((TARGET_ALTIVEC)
+	  ? ALTIVEC_REGS
+	  : NO_REGS));
+
+  rs6000_vsx_any_regclass = (TARGET_VSX) ? VSX_REGS : NO_REGS;
 
   /* Precalculate HARD_REGNO_NREGS.  */
   for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
@@ -1747,7 +1881,8 @@ rs6000_override_options (const char *default_cpu)
 	}
     }
 
-  /* Add some warnings for VSX.  */
+  /* Add some warnings for VSX.  Enable -maltivec unless the user explicitly
+     used -mno-altivec  */
   if (TARGET_VSX)
     {
       const char *msg = NULL;
@@ -1756,12 +1891,21 @@ rs6000_override_options (const char *default_cpu)
 	msg = "-mvsx requires hardware floating point";
       else if (TARGET_PAIRED_FLOAT)
 	msg = "-mvsx and -mpaired are incompatible";
+      /* The hardware will allow VSX and little endian, but until we make sure
+	 things like vector select, etc. work don't allow VSX on little endian
+	 systems at this point.  */
+      else if (!BYTES_BIG_ENDIAN)
+	msg = "-mvsx used with little endian code";
+      else if (TARGET_AVOID_XFORM > 0)
+	msg = "-mvsx needs indexed addressing";
 
       if (msg)
 	{
 	  warning (0, msg);
 	  target_flags &= MASK_VSX;
 	}
+      else if (!TARGET_ALTIVEC && (target_flags_explicit & MASK_ALTIVEC) == 0)
+	target_flags |= MASK_ALTIVEC;
     }
 
   /* Set debug flags */
@@ -2276,6 +2420,14 @@ rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
 
     case V4SFmode:
       d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SF];
+      break;
+
+    case V2DFmode:
+      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DF];
+      break;
+
+    case V2DImode:
+      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI];
       break;
 
     default:
@@ -3321,20 +3473,21 @@ rs6000_expand_vector_init (rtx target, rtx vals)
   if (n_var == 0)
     {
       rtx const_vec = gen_rtx_CONST_VECTOR (mode, XVEC (vals, 0));
-      if (mode != V4SFmode && all_const_zero)
+      bool int_vector_p = (GET_MODE_CLASS (mode) == MODE_VECTOR_INT);
+      if ((int_vector_p || TARGET_VSX) && all_const_zero)
 	{
 	  /* Zero register.  */
 	  emit_insn (gen_rtx_SET (VOIDmode, target,
 				  gen_rtx_XOR (mode, target, target)));
 	  return;
 	}
-      else if (mode != V4SFmode && easy_vector_constant (const_vec, mode))
+      else if (int_vector_p && easy_vector_constant (const_vec, mode))
 	{
 	  /* Splat immediate.  */
 	  emit_insn (gen_rtx_SET (VOIDmode, target, const_vec));
 	  return;
 	}
-      else if (all_same)
+      else if (all_same && int_vector_p)
 	;	/* Splat vector element.  */
       else
 	{
@@ -3342,6 +3495,18 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	  emit_move_insn (target, const_vec);
 	  return;
 	}
+    }
+
+  if (mode == V2DFmode)
+    {
+      gcc_assert (TARGET_VSX);
+      if (all_same)
+	emit_insn (gen_vsx_splatv2df (target, XVECEXP (vals, 0, 0)));
+      else
+	emit_insn (gen_vsx_concat_v2df (target,
+					XVECEXP (vals, 0, 0),
+					XVECEXP (vals, 0, 1)));
+      return;
     }
 
   /* Store value to stack temp.  Load vector element.  Splat.  */
@@ -3403,6 +3568,13 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
   int width = GET_MODE_SIZE (inner_mode);
   int i;
 
+  if (mode == V2DFmode)
+    {
+      gcc_assert (TARGET_VSX);
+      emit_insn (gen_vsx_set_v2df (target, val, target, GEN_INT (elt)));
+      return;
+    }
+
   /* Load single variable value.  */
   mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode), 0);
   emit_move_insn (adjust_address_nv (mem, inner_mode, 0), val);
@@ -3439,6 +3611,13 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
   enum machine_mode mode = GET_MODE (vec);
   enum machine_mode inner_mode = GET_MODE_INNER (mode);
   rtx mem, x;
+
+  if (mode == V2DFmode)
+    {
+      gcc_assert (TARGET_VSX);
+      emit_insn (gen_vsx_extract_v2df (target, vec, GEN_INT (elt)));
+      return;
+    }
 
   /* Allocate mode-sized buffer.  */
   mem = assign_stack_temp (mode, GET_MODE_SIZE (mode), 0);
@@ -3849,7 +4028,9 @@ avoiding_indexed_address_p (enum machine_mode mode)
 {
   /* Avoid indexed addressing for modes that have non-indexed
      load/store instruction forms.  */
-  return TARGET_AVOID_XFORM && !ALTIVEC_VECTOR_MODE (mode);
+  return (TARGET_AVOID_XFORM
+	  && (!TARGET_ALTIVEC || !ALTIVEC_VECTOR_MODE (mode))
+	  && (!TARGET_VSX || !VSX_VECTOR_MODE (mode)));
 }
 
 inline bool
@@ -3955,8 +4136,9 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       && !((TARGET_POWERPC64
 	    && (mode == DImode || mode == TImode)
 	    && (INTVAL (XEXP (x, 1)) & 3) != 0)
-	   || SPE_VECTOR_MODE (mode)
-	   || ALTIVEC_VECTOR_MODE (mode)
+	   || (TARGET_SPE && SPE_VECTOR_MODE (mode))
+	   || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))
+	   || (TARGET_VSX && VSX_VECTOR_MODE (mode))
 	   || (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
 				      || mode == DImode || mode == DDmode
 				      || mode == TDmode))))
@@ -3986,7 +4168,8 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       return gen_rtx_PLUS (Pmode, XEXP (x, 0),
 			   force_reg (Pmode, force_operand (XEXP (x, 1), 0)));
     }
-  else if (ALTIVEC_VECTOR_MODE (mode))
+  else if ((TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))
+	   || (TARGET_VSX && VSX_VECTOR_MODE (mode)))
     {
       rtx reg;
 
@@ -3998,7 +4181,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       reg = force_reg (Pmode, x);
       return reg;
     }
-  else if (SPE_VECTOR_MODE (mode)
+  else if ((TARGET_SPE && SPE_VECTOR_MODE (mode))
 	   || (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
 				      || mode == DDmode || mode == TDmode
 				      || mode == DImode)))
@@ -4407,6 +4590,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && (INTVAL (XEXP (x, 1)) & 3) != 0
       && !ALTIVEC_VECTOR_MODE (mode)
+      && !VSX_VECTOR_MODE (mode)
       && GET_MODE_SIZE (mode) >= UNITS_PER_WORD
       && TARGET_POWERPC64)
     {
@@ -4427,7 +4611,8 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && !(TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
 				  || mode == DDmode || mode == TDmode
 				  || mode == DImode))
-      && !ALTIVEC_VECTOR_MODE (mode))
+      && !ALTIVEC_VECTOR_MODE (mode)
+      && !VSX_VECTOR_MODE (mode))
     {
       HOST_WIDE_INT val = INTVAL (XEXP (x, 1));
       HOST_WIDE_INT low = ((val & 0xffff) ^ 0x8000) - 0x8000;
@@ -4458,6 +4643,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 
   if (GET_CODE (x) == SYMBOL_REF
       && !ALTIVEC_VECTOR_MODE (mode)
+      && !VSX_VECTOR_MODE (mode)
       && !SPE_VECTOR_MODE (mode)
 #if TARGET_MACHO
       && DEFAULT_ABI == ABI_DARWIN
@@ -4500,6 +4686,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
      convert the offset address into an indirect address.  */
   if (TARGET_ALTIVEC
       && ALTIVEC_VECTOR_MODE (mode)
+      && (!TARGET_VSX || !VSX_VECTOR_MODE (mode))
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
@@ -4547,6 +4734,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
 {
   /* If this is an unaligned stvx/ldvx type address, discard the outer AND.  */
   if (TARGET_ALTIVEC
+      && (!TARGET_VSX || !VSX_VECTOR_MODE (mode))
       && ALTIVEC_VECTOR_MODE (mode)
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 1)) == CONST_INT
@@ -4559,6 +4747,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
     return 1;
   if ((GET_CODE (x) == PRE_INC || GET_CODE (x) == PRE_DEC)
       && !ALTIVEC_VECTOR_MODE (mode)
+      && !VSX_VECTOR_MODE (mode)
       && !SPE_VECTOR_MODE (mode)
       && mode != TFmode
       && mode != TDmode
@@ -4602,6 +4791,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
 	  || ((mode != DFmode && mode != DDmode) || TARGET_E500_DOUBLE))
       && (TARGET_POWERPC64 || mode != DImode)
       && !ALTIVEC_VECTOR_MODE (mode)
+      && !VSX_VECTOR_MODE (mode)
       && !SPE_VECTOR_MODE (mode)
       /* Restrict addressing for DI because of our SUBREG hackery.  */
       && !(TARGET_E500_DOUBLE
@@ -5402,10 +5592,10 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
 /* Nonzero if we can use an AltiVec register to pass this arg.  */
-#define USE_ALTIVEC_FOR_ARG_P(CUM,MODE,TYPE,NAMED)	\
-  (ALTIVEC_VECTOR_MODE (MODE)				\
-   && (CUM)->vregno <= ALTIVEC_ARG_MAX_REG		\
-   && TARGET_ALTIVEC_ABI				\
+#define USE_ALTIVEC_FOR_ARG_P(CUM,MODE,TYPE,NAMED)		\
+  ((ALTIVEC_VECTOR_MODE (MODE) || VSX_VECTOR_MODE (MODE))	\
+   && (CUM)->vregno <= ALTIVEC_ARG_MAX_REG			\
+   && TARGET_ALTIVEC_ABI					\
    && (NAMED))
 
 /* Return a nonzero value to say to return the function value in
@@ -5646,7 +5836,7 @@ function_arg_boundary (enum machine_mode mode, tree type)
 	       && int_size_in_bytes (type) >= 8
 	       && int_size_in_bytes (type) < 16))
     return 64;
-  else if (ALTIVEC_VECTOR_MODE (mode)
+  else if ((ALTIVEC_VECTOR_MODE (mode) || VSX_VECTOR_MODE (mode))
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
 	       && int_size_in_bytes (type) >= 16))
     return 128;
@@ -5791,7 +5981,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     cum->nargs_prototype--;
 
   if (TARGET_ALTIVEC_ABI
-      && (ALTIVEC_VECTOR_MODE (mode)
+      && ((ALTIVEC_VECTOR_MODE (mode) || VSX_VECTOR_MODE (mode))
 	  || (type && TREE_CODE (type) == VECTOR_TYPE
 	      && int_size_in_bytes (type) == 16)))
     {
@@ -6385,7 +6575,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     else
       return gen_rtx_REG (mode, cum->vregno);
   else if (TARGET_ALTIVEC_ABI
-	   && (ALTIVEC_VECTOR_MODE (mode)
+	   && ((ALTIVEC_VECTOR_MODE (mode) || VSX_VECTOR_MODE (mode))
 	       || (type && TREE_CODE (type) == VECTOR_TYPE
 		   && int_size_in_bytes (type) == 16)))
     {
@@ -7309,10 +7499,14 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v4si, "__builtin_altivec_vperm_4si", ALTIVEC_BUILTIN_VPERM_4SI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v8hi, "__builtin_altivec_vperm_8hi", ALTIVEC_BUILTIN_VPERM_8HI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v16qi, "__builtin_altivec_vperm_16qi", ALTIVEC_BUILTIN_VPERM_16QI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_v4sf, "__builtin_altivec_vsel_4sf", ALTIVEC_BUILTIN_VSEL_4SF },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_v4si, "__builtin_altivec_vsel_4si", ALTIVEC_BUILTIN_VSEL_4SI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_v8hi, "__builtin_altivec_vsel_8hi", ALTIVEC_BUILTIN_VSEL_8HI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_v16qi, "__builtin_altivec_vsel_16qi", ALTIVEC_BUILTIN_VSEL_16QI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v2df, "__builtin_altivec_vperm_2df", ALTIVEC_BUILTIN_VPERM_2DF },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v2di, "__builtin_altivec_vperm_2di", ALTIVEC_BUILTIN_VPERM_2DI },
+  { MASK_ALTIVEC, CODE_FOR_vector_vselv4sf, "__builtin_altivec_vsel_4sf", ALTIVEC_BUILTIN_VSEL_4SF },
+  { MASK_ALTIVEC, CODE_FOR_vector_vselv4si, "__builtin_altivec_vsel_4si", ALTIVEC_BUILTIN_VSEL_4SI },
+  { MASK_ALTIVEC, CODE_FOR_vector_vselv8hi, "__builtin_altivec_vsel_8hi", ALTIVEC_BUILTIN_VSEL_8HI },
+  { MASK_ALTIVEC, CODE_FOR_vector_vselv16qi, "__builtin_altivec_vsel_16qi", ALTIVEC_BUILTIN_VSEL_16QI },
+  { MASK_ALTIVEC, CODE_FOR_vector_vselv2df, "__builtin_altivec_vsel_2df", ALTIVEC_BUILTIN_VSEL_2DF },
+  { MASK_ALTIVEC, CODE_FOR_vector_vselv2di, "__builtin_altivec_vsel_2di", ALTIVEC_BUILTIN_VSEL_2DI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v16qi, "__builtin_altivec_vsldoi_16qi", ALTIVEC_BUILTIN_VSLDOI_16QI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v8hi, "__builtin_altivec_vsldoi_8hi", ALTIVEC_BUILTIN_VSLDOI_8HI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v4si, "__builtin_altivec_vsldoi_4si", ALTIVEC_BUILTIN_VSLDOI_4SI },
@@ -7386,18 +7580,18 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vcfux, "__builtin_altivec_vcfux", ALTIVEC_BUILTIN_VCFUX },
   { MASK_ALTIVEC, CODE_FOR_altivec_vcfsx, "__builtin_altivec_vcfsx", ALTIVEC_BUILTIN_VCFSX },
   { MASK_ALTIVEC, CODE_FOR_altivec_vcmpbfp, "__builtin_altivec_vcmpbfp", ALTIVEC_BUILTIN_VCMPBFP },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpequb, "__builtin_altivec_vcmpequb", ALTIVEC_BUILTIN_VCMPEQUB },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpequh, "__builtin_altivec_vcmpequh", ALTIVEC_BUILTIN_VCMPEQUH },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpequw, "__builtin_altivec_vcmpequw", ALTIVEC_BUILTIN_VCMPEQUW },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpeqfp, "__builtin_altivec_vcmpeqfp", ALTIVEC_BUILTIN_VCMPEQFP },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgefp, "__builtin_altivec_vcmpgefp", ALTIVEC_BUILTIN_VCMPGEFP },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtub, "__builtin_altivec_vcmpgtub", ALTIVEC_BUILTIN_VCMPGTUB },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtsb, "__builtin_altivec_vcmpgtsb", ALTIVEC_BUILTIN_VCMPGTSB },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtuh, "__builtin_altivec_vcmpgtuh", ALTIVEC_BUILTIN_VCMPGTUH },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtsh, "__builtin_altivec_vcmpgtsh", ALTIVEC_BUILTIN_VCMPGTSH },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtuw, "__builtin_altivec_vcmpgtuw", ALTIVEC_BUILTIN_VCMPGTUW },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtsw, "__builtin_altivec_vcmpgtsw", ALTIVEC_BUILTIN_VCMPGTSW },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpgtfp, "__builtin_altivec_vcmpgtfp", ALTIVEC_BUILTIN_VCMPGTFP },
+  { MASK_ALTIVEC, CODE_FOR_vector_eqv16qi, "__builtin_altivec_vcmpequb", ALTIVEC_BUILTIN_VCMPEQUB },
+  { MASK_ALTIVEC, CODE_FOR_vector_eqv8hi, "__builtin_altivec_vcmpequh", ALTIVEC_BUILTIN_VCMPEQUH },
+  { MASK_ALTIVEC, CODE_FOR_vector_eqv4si, "__builtin_altivec_vcmpequw", ALTIVEC_BUILTIN_VCMPEQUW },
+  { MASK_ALTIVEC, CODE_FOR_vector_eqv4sf, "__builtin_altivec_vcmpeqfp", ALTIVEC_BUILTIN_VCMPEQFP },
+  { MASK_ALTIVEC, CODE_FOR_vector_gev4sf, "__builtin_altivec_vcmpgefp", ALTIVEC_BUILTIN_VCMPGEFP },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtuv16qi, "__builtin_altivec_vcmpgtub", ALTIVEC_BUILTIN_VCMPGTUB },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtuv8hi, "__builtin_altivec_vcmpgtsb", ALTIVEC_BUILTIN_VCMPGTSB },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtuv4si, "__builtin_altivec_vcmpgtuh", ALTIVEC_BUILTIN_VCMPGTUH },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtv16qi, "__builtin_altivec_vcmpgtsh", ALTIVEC_BUILTIN_VCMPGTSH },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtv8hi, "__builtin_altivec_vcmpgtuw", ALTIVEC_BUILTIN_VCMPGTUW },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtv4si, "__builtin_altivec_vcmpgtsw", ALTIVEC_BUILTIN_VCMPGTSW },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtv4sf, "__builtin_altivec_vcmpgtfp", ALTIVEC_BUILTIN_VCMPGTFP },
   { MASK_ALTIVEC, CODE_FOR_altivec_vctsxs, "__builtin_altivec_vctsxs", ALTIVEC_BUILTIN_VCTSXS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vctuxs, "__builtin_altivec_vctuxs", ALTIVEC_BUILTIN_VCTUXS },
   { MASK_ALTIVEC, CODE_FOR_umaxv16qi3, "__builtin_altivec_vmaxub", ALTIVEC_BUILTIN_VMAXUB },
@@ -9469,6 +9663,8 @@ rs6000_init_builtins (void)
 {
   V2SI_type_node = build_vector_type (intSI_type_node, 2);
   V2SF_type_node = build_vector_type (float_type_node, 2);
+  V2DI_type_node = build_vector_type (intDI_type_node, 2);
+  V2DF_type_node = build_vector_type (double_type_node, 2);
   V4HI_type_node = build_vector_type (intHI_type_node, 4);
   V4SI_type_node = build_vector_type (intSI_type_node, 4);
   V4SF_type_node = build_vector_type (float_type_node, 4);
@@ -9501,7 +9697,10 @@ rs6000_init_builtins (void)
   uintHI_type_internal_node = unsigned_intHI_type_node;
   intSI_type_internal_node = intSI_type_node;
   uintSI_type_internal_node = unsigned_intSI_type_node;
+  intDI_type_internal_node = intDI_type_node;
+  uintDI_type_internal_node = unsigned_intDI_type_node;
   float_type_internal_node = float_type_node;
+  double_type_internal_node = float_type_node;
   void_type_internal_node = void_type_node;
 
   (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
@@ -9559,13 +9758,18 @@ rs6000_init_builtins (void)
 					    get_identifier ("__vector __pixel"),
 					    pixel_V8HI_type_node));
 
+  if (TARGET_VSX)
+    (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
+					      get_identifier ("__vector double"),
+					      V2DF_type_node));
+
   if (TARGET_PAIRED_FLOAT)
     paired_init_builtins ();
   if (TARGET_SPE)
     spe_init_builtins ();
   if (TARGET_ALTIVEC)
     altivec_init_builtins ();
-  if (TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT)
+  if (TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT || TARGET_VSX)
     rs6000_common_init_builtins ();
   if (TARGET_PPC_GFXOPT)
     {
@@ -10504,6 +10708,22 @@ rs6000_common_init_builtins (void)
   tree int_ftype_v8hi_v8hi
     = build_function_type_list (integer_type_node,
 				V8HI_type_node, V8HI_type_node, NULL_TREE);
+  tree v2df_ftype_v2df_v2df_v2df
+    = build_function_type_list (V2DF_type_node,
+				V2DF_type_node, V2DF_type_node,
+				V2DF_type_node, NULL_TREE);
+  tree v2di_ftype_v2di_v2di_v2di
+    = build_function_type_list (V2DI_type_node,
+				V2DI_type_node, V2DI_type_node,
+				V2DI_type_node, NULL_TREE);
+  tree v2df_ftype_v2df_v2df_v16qi
+    = build_function_type_list (V2DF_type_node,
+				V2DF_type_node, V2DF_type_node,
+				V16QI_type_node, NULL_TREE);
+  tree v2di_ftype_v2di_v2di_v16qi
+    = build_function_type_list (V2DI_type_node,
+				V2DI_type_node, V2DI_type_node,
+				V16QI_type_node, NULL_TREE);
 
   /* Add the simple ternary operators.  */
   d = bdesc_3arg;
@@ -10540,6 +10760,12 @@ rs6000_common_init_builtins (void)
 	    case VOIDmode:
 	      type = opaque_ftype_opaque_opaque_opaque;
 	      break;
+	    case V2DImode:
+	      type = v2di_ftype_v2di_v2di_v2di;
+	      break;
+	    case V2DFmode:
+	      type = v2df_ftype_v2df_v2df_v2df;
+	      break;
 	    case V4SImode:
 	      type = v4si_ftype_v4si_v4si_v4si;
 	      break;
@@ -10563,6 +10789,12 @@ rs6000_common_init_builtins (void)
 	{
 	  switch (mode0)
 	    {
+	    case V2DImode:
+	      type = v2di_ftype_v2di_v2di_v16qi;
+	      break;
+	    case V2DFmode:
+	      type = v2df_ftype_v2df_v2df_v16qi;
+	      break;
 	    case V4SImode:
 	      type = v4si_ftype_v4si_v4si_v16qi;
 	      break;
@@ -13509,55 +13741,62 @@ output_e500_flip_gt_bit (rtx dst, rtx src)
   return string;
 }
 
-/* Return insn index for the vector compare instruction for given CODE,
-   and DEST_MODE, OP_MODE. Return INSN_NOT_AVAILABLE if valid insn is
-   not available.  */
+/* Return insn for VSX comparisons.  */
 
-static int
-get_vec_cmp_insn (enum rtx_code code,
-		  enum machine_mode dest_mode,
-		  enum machine_mode op_mode)
+static rtx
+rs6000_emit_vector_compare_vsx (enum rtx_code code,
+				rtx mask,
+				rtx op0,
+				rtx op1)
 {
-  if (!TARGET_ALTIVEC)
-    return INSN_NOT_AVAILABLE;
-
   switch (code)
     {
-    case EQ:
-      if (dest_mode == V16QImode && op_mode == V16QImode)
-	return UNSPEC_VCMPEQUB;
-      if (dest_mode == V8HImode && op_mode == V8HImode)
-	return UNSPEC_VCMPEQUH;
-      if (dest_mode == V4SImode && op_mode == V4SImode)
-	return UNSPEC_VCMPEQUW;
-      if (dest_mode == V4SImode && op_mode == V4SFmode)
-	return UNSPEC_VCMPEQFP;
-      break;
-    case GE:
-      if (dest_mode == V4SImode && op_mode == V4SFmode)
-	return UNSPEC_VCMPGEFP;
-    case GT:
-      if (dest_mode == V16QImode && op_mode == V16QImode)
-	return UNSPEC_VCMPGTSB;
-      if (dest_mode == V8HImode && op_mode == V8HImode)
-	return UNSPEC_VCMPGTSH;
-      if (dest_mode == V4SImode && op_mode == V4SImode)
-	return UNSPEC_VCMPGTSW;
-      if (dest_mode == V4SImode && op_mode == V4SFmode)
-	return UNSPEC_VCMPGTFP;
-      break;
-    case GTU:
-      if (dest_mode == V16QImode && op_mode == V16QImode)
-	return UNSPEC_VCMPGTUB;
-      if (dest_mode == V8HImode && op_mode == V8HImode)
-	return UNSPEC_VCMPGTUH;
-      if (dest_mode == V4SImode && op_mode == V4SImode)
-	return UNSPEC_VCMPGTUW;
-      break;
     default:
       break;
+
+    case EQ:
+    case GT:
+    case GE:
+      emit_insn (gen_rtx_SET (VOIDmode,
+			      mask,
+			      gen_rtx_fmt_ee (code, GET_MODE (mask),
+					      op0,
+					      op1)));
+      return mask;
     }
-  return INSN_NOT_AVAILABLE;
+
+  return NULL_RTX;
+}
+
+/* Return insn for Altivec comparisons.  */
+
+static rtx
+rs6000_emit_vector_compare_altivec (enum rtx_code code,
+				    rtx mask,
+				    rtx op0,
+				    rtx op1)
+{
+  switch (code)
+    {
+    default:
+      break;
+
+    case GE:
+      if (GET_MODE (mask) != V4SFmode)
+	return NULL_RTX;
+      /* fall through */
+    case EQ:
+    case GT:
+    case GTU:
+      emit_insn (gen_rtx_SET (VOIDmode,
+			      mask,
+			      gen_rtx_fmt_ee (code, GET_MODE (mask),
+					      op0,
+					      op1)));
+      return mask;
+    }
+
+  return NULL_RTX;
 }
 
 /* Emit vector compare for operands OP0 and OP1 using code RCODE.
@@ -13568,129 +13807,111 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 			    rtx op0, rtx op1,
 			    enum machine_mode dmode)
 {
-  int vec_cmp_insn;
   rtx mask;
-  enum machine_mode dest_mode;
-  enum machine_mode op_mode = GET_MODE (op1);
+  bool swap_operands = false;
+  bool try_again = false;
 
-  gcc_assert (TARGET_ALTIVEC);
+  gcc_assert (TARGET_ALTIVEC || TARGET_VSX);
   gcc_assert (GET_MODE (op0) == GET_MODE (op1));
 
-  /* Floating point vector compare instructions uses destination V4SImode.
-     Move destination to appropriate mode later.  */
-  if (dmode == V4SFmode)
-    dest_mode = V4SImode;
-  else
-    dest_mode = dmode;
+  mask = gen_reg_rtx (dmode);
 
-  mask = gen_reg_rtx (dest_mode);
-  vec_cmp_insn = get_vec_cmp_insn (rcode, dest_mode, op_mode);
-
-  if (vec_cmp_insn == INSN_NOT_AVAILABLE)
+  /* Try for VSX before Altivec.  */
+  if (TARGET_VSX && VSX_VECTOR_MODE (dmode))
     {
-      bool swap_operands = false;
-      bool try_again = false;
-      switch (rcode)
-	{
-	case LT:
-	  rcode = GT;
-	  swap_operands = true;
-	  try_again = true;
-	  break;
-	case LTU:
-	  rcode = GTU;
-	  swap_operands = true;
-	  try_again = true;
-	  break;
-	case NE:
-	case UNLE:
-	case UNLT:
-	case UNGE:
-	case UNGT:
-	  /* Invert condition and try again.
-	     e.g., A != B becomes ~(A==B).  */
+      rtx vsx = rs6000_emit_vector_compare_vsx (rcode, mask, op0, op1);
+      if (vsx)
+	return vsx;
+    }
+  else if (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (dmode))
+    {
+      rtx av = rs6000_emit_vector_compare_altivec (rcode, mask, op0, op1);
+      if (av)
+	return av;
+    }
+
+  switch (rcode)
+    {
+    case LT:
+      rcode = GT;
+      swap_operands = true;
+      try_again = true;
+      break;
+    case LTU:
+      rcode = GTU;
+      swap_operands = true;
+      try_again = true;
+      break;
+    case NE:
+    case UNLE:
+    case UNLT:
+    case UNGE:
+    case UNGT:
+      /* Invert condition and try again.
+	 e.g., A != B becomes ~(A==B).  */
+      {
+	enum rtx_code rev_code;
+	enum insn_code nor_code;
+	rtx eq_rtx;
+
+	rev_code = reverse_condition_maybe_unordered (rcode);
+	eq_rtx = rs6000_emit_vector_compare (rev_code, op0, op1, dmode);
+
+	nor_code = optab_handler (one_cmpl_optab, (int)dmode)->insn_code;
+	gcc_assert (nor_code != CODE_FOR_nothing);
+	emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
+	return mask;
+      }
+      break;
+    case GE:
+    case GEU:
+    case LE:
+    case LEU:
+      /* Try GT/GTU/LT/LTU OR EQ */
+      {
+	rtx c_rtx, eq_rtx;
+	enum insn_code ior_code;
+	enum rtx_code new_code;
+
+	switch (rcode)
 	  {
-	    enum rtx_code rev_code;
-	    enum insn_code nor_code;
-	    rtx eq_rtx;
+	  case  GE:
+	    new_code = GT;
+	    break;
 
-	    rev_code = reverse_condition_maybe_unordered (rcode);
-	    eq_rtx = rs6000_emit_vector_compare (rev_code, op0, op1,
-						 dest_mode);
+	  case GEU:
+	    new_code = GTU;
+	    break;
 
-	    nor_code = optab_handler (one_cmpl_optab, (int)dest_mode)->insn_code;
-	    gcc_assert (nor_code != CODE_FOR_nothing);
-	    emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
+	  case LE:
+	    new_code = LT;
+	    break;
 
-	    if (dmode != dest_mode)
-	      {
-		rtx temp = gen_reg_rtx (dest_mode);
-		convert_move (temp, mask, 0);
-		return temp;
-	      }
-	    return mask;
+	  case LEU:
+	    new_code = LTU;
+	    break;
+
+	  default:
+	    gcc_unreachable ();
 	  }
-	  break;
-	case GE:
-	case GEU:
-	case LE:
-	case LEU:
-	  /* Try GT/GTU/LT/LTU OR EQ */
-	  {
-	    rtx c_rtx, eq_rtx;
-	    enum insn_code ior_code;
-	    enum rtx_code new_code;
 
-	    switch (rcode)
-	      {
-	      case  GE:
-		new_code = GT;
-		break;
+	c_rtx = rs6000_emit_vector_compare (new_code,
+					    op0, op1, dmode);
+	eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1,
+					     dmode);
 
-	      case GEU:
-		new_code = GTU;
-		break;
+	ior_code = optab_handler (ior_optab, (int)dmode)->insn_code;
+	gcc_assert (ior_code != CODE_FOR_nothing);
+	emit_insn (GEN_FCN (ior_code) (mask, c_rtx, eq_rtx));
+	return mask;
+      }
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
-	      case LE:
-		new_code = LT;
-		break;
-
-	      case LEU:
-		new_code = LTU;
-		break;
-
-	      default:
-		gcc_unreachable ();
-	      }
-
-	    c_rtx = rs6000_emit_vector_compare (new_code,
-						op0, op1, dest_mode);
-	    eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1,
-						 dest_mode);
-
-	    ior_code = optab_handler (ior_optab, (int)dest_mode)->insn_code;
-	    gcc_assert (ior_code != CODE_FOR_nothing);
-	    emit_insn (GEN_FCN (ior_code) (mask, c_rtx, eq_rtx));
-	    if (dmode != dest_mode)
-	      {
-		rtx temp = gen_reg_rtx (dest_mode);
-		convert_move (temp, mask, 0);
-		return temp;
-	      }
-	    return mask;
-	  }
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-
-      if (try_again)
-	{
-	  vec_cmp_insn = get_vec_cmp_insn (rcode, dest_mode, op_mode);
-	  /* You only get two chances.  */
-	  gcc_assert (vec_cmp_insn != INSN_NOT_AVAILABLE);
-	}
-
+  if (try_again)
+    {
       if (swap_operands)
 	{
 	  rtx tmp;
@@ -13698,69 +13919,23 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	  op0 = op1;
 	  op1 = tmp;
 	}
+
+      if (TARGET_VSX && VSX_VECTOR_MODE (dmode))
+	{
+	  rtx vsx = rs6000_emit_vector_compare_vsx (rcode, mask, op0, op1);
+	  if (vsx)
+	    return vsx;
+	}
+      else if (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (dmode))
+	{
+	  rtx av = rs6000_emit_vector_compare_altivec (rcode, mask, op0, op1);
+	  if (av)
+	    return av;
+	}
     }
 
-  emit_insn (gen_rtx_SET (VOIDmode, mask,
-			  gen_rtx_UNSPEC (dest_mode,
-					  gen_rtvec (2, op0, op1),
-					  vec_cmp_insn)));
-  if (dmode != dest_mode)
-    {
-      rtx temp = gen_reg_rtx (dest_mode);
-      convert_move (temp, mask, 0);
-      return temp;
-    }
-  return mask;
-}
-
-/* Return vector select instruction for MODE. Return INSN_NOT_AVAILABLE, if
-   valid insn doesn exist for given mode.  */
-
-static int
-get_vsel_insn (enum machine_mode mode)
-{
-  switch (mode)
-    {
-    case V4SImode:
-      return UNSPEC_VSEL4SI;
-      break;
-    case V4SFmode:
-      return UNSPEC_VSEL4SF;
-      break;
-    case V8HImode:
-      return UNSPEC_VSEL8HI;
-      break;
-    case V16QImode:
-      return UNSPEC_VSEL16QI;
-      break;
-    default:
-      return INSN_NOT_AVAILABLE;
-      break;
-    }
-  return INSN_NOT_AVAILABLE;
-}
-
-/* Emit vector select insn where DEST is destination using
-   operands OP1, OP2 and MASK.  */
-
-static void
-rs6000_emit_vector_select (rtx dest, rtx op1, rtx op2, rtx mask)
-{
-  rtx t, temp;
-  enum machine_mode dest_mode = GET_MODE (dest);
-  int vsel_insn_index  = get_vsel_insn (GET_MODE (dest));
-
-  temp = gen_reg_rtx (dest_mode);
-
-  /* For each vector element, select op1 when mask is 1 otherwise
-     select op2.  */
-  t = gen_rtx_SET (VOIDmode, temp,
-		   gen_rtx_UNSPEC (dest_mode,
-				   gen_rtvec (3, op2, op1, mask),
-				   vsel_insn_index));
-  emit_insn (t);
-  emit_move_insn (dest, temp);
-  return;
+  /* You only get two chances.  */
+  gcc_unreachable ();
 }
 
 /* Emit vector conditional expression.
@@ -13775,15 +13950,29 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
   enum rtx_code rcode = GET_CODE (cond);
   rtx mask;
 
-  if (!TARGET_ALTIVEC)
+  if (!TARGET_ALTIVEC && !TARGET_VSX)
     return 0;
 
   /* Get the vector mask for the given relational operations.  */
   mask = rs6000_emit_vector_compare (rcode, cc_op0, cc_op1, dest_mode);
 
-  rs6000_emit_vector_select (dest, op1, op2, mask);
+  if (!mask)
+    return 0;
 
-  return 1;
+  if ((TARGET_VSX && VSX_VECTOR_MOVE_MODE (dest_mode))
+      || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (dest_mode)))
+    {
+      rtx cond2 = gen_rtx_fmt_ee (NE, VOIDmode, mask, const0_rtx);
+      emit_insn (gen_rtx_SET (VOIDmode,
+			      dest,
+			      gen_rtx_IF_THEN_ELSE (dest_mode,
+						    cond2,
+						    op1,
+						    op2)));
+      return 1;
+    }
+
+  return 0;
 }
 
 /* Emit a conditional move: move TRUE_COND to DEST if OP of the
@@ -14023,8 +14212,8 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
 
   /* VSX/altivec have direct min/max insns.  */
   if ((code == SMAX || code == SMIN)
-      && ((TARGET_VSX && VSX_MODE (mode))
-	  || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))))
+      && (rs6000_vector_info[mode].arith == VECTOR_VSX
+	  || rs6000_vector_info[mode].arith == VECTOR_ALTIVEC))
     {
       emit_insn (gen_rtx_SET (VOIDmode,
 			      dest,
@@ -16009,6 +16198,7 @@ emit_frame_save (rtx frame_reg, rtx frame_ptr, enum machine_mode mode,
 
   /* Some cases that need register indexed addressing.  */
   if ((TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
+      || (TARGET_VSX && VSX_VECTOR_MODE (mode))
       || (TARGET_E500_DOUBLE && mode == DFmode)
       || (TARGET_SPE_ABI
 	  && SPE_VECTOR_MODE (mode)
@@ -23085,6 +23275,9 @@ rs6000_vector_mode_supported_p (enum machine_mode mode)
     return true;
 
   else if (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))
+    return true;
+
+  else if (TARGET_VSX && VSX_VECTOR_MODE (mode))
     return true;
 
   else

@@ -6255,8 +6255,14 @@ subst_reloads (rtx insn)
 	    *r->where = reloadreg;
 	}
       /* If reload got no reg and isn't optional, something's wrong.  */
-      else
-	gcc_assert (rld[r->what].optional);
+      else if (!rld[r->what].optional)
+	{
+	  char buffer[100];
+	  sprintf (buffer,
+		   "unable to find register for reload, replacement #%d",
+		   i);
+	  fatal_insn (buffer, insn);
+	}
     }
 }
 

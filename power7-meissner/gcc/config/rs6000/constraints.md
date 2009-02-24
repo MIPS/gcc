@@ -17,6 +17,8 @@
 ;; along with GCC; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.
 
+;; Available constraint letters: "e", "k", "u", "A", "B", "C", "D"
+
 ;; Register constraints
 
 (define_register_constraint "f" "TARGET_HARD_FLOAT && TARGET_FPRS
@@ -38,9 +40,6 @@
 (define_register_constraint "l" "LINK_REGS"
   "@internal")
 
-(define_register_constraint "w" "TARGET_VSX ? VSX_REGS : NO_REGS"
-  "@internal")
-
 (define_register_constraint "v" "ALTIVEC_REGS"
   "@internal")
 
@@ -51,6 +50,31 @@
   "@internal")
 
 (define_register_constraint "z" "XER_REGS"
+  "@internal")
+
+;; Use w as a prefix to add VSX modes
+;; vector double (V2DF)
+(define_register_constraint "wd" "rs6000_vsx_v2df_regclass"
+  "@internal")
+
+;; vector float (V4SF)
+(define_register_constraint "wf" "rs6000_vsx_v4sf_regclass"
+  "@internal")
+
+;; vector int
+(define_register_constraint "wi" "rs6000_vsx_int_regclass"
+  "@internal")
+
+;; vector logical
+(define_register_constraint "wl" "rs6000_vsx_logical_regclass"
+  "@internal")
+
+;; scalar double (DF)
+(define_register_constraint "ws" "rs6000_vsx_v4sf_regclass"
+  "@internal")
+
+;; any VSX register
+(define_register_constraint "wa" "rs6000_vsx_any_regclass"
   "@internal")
 
 ;; Integer constraints

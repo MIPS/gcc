@@ -417,6 +417,25 @@ extern const char *rs6000_sched_insert_nops_str;
 extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 extern int rs6000_xilinx_fpu;
 
+/* Which vector unit to use.  */
+enum rs6000_vector {
+  VECTOR_NONE,			/* Type is not  a vector or not supported */
+  VECTOR_ALTIVEC,		/* Use altivec for vector processing */
+  VECTOR_VSX,			/* Use VSX for vector processing */
+  VECTOR_PAIRED,		/* Use paired floating point for vectors */
+  VECTOR_SPE,			/* Use SPE for vector processing */
+  VECTOR_OTHER			/* Some other vector unit */
+};
+
+struct rs6000_vector_struct {
+  enum rs6000_vector move;	/* vector unit to use for data movement */
+  enum rs6000_vector arith;	/* vector unit to use for arithmetic */
+  enum rs6000_vector logical;	/* vector unit to use for logical/permute */
+  int align;			/* vector alignment */
+};
+
+extern struct rs6000_vector_struct rs6000_vector_info[];
+
 /* Alignment options for fields in structures for sub-targets following
    AIX-like ABI.
    ALIGN_POWER word-aligns FP doubles (default AIX ABI).
@@ -686,15 +705,20 @@ extern int rs6000_xilinx_fpu;
 /* Define this macro to be the value 1 if unaligned accesses have a cost
    many times greater than aligned accesses, for example if they are
    emulated in a trap handler.  */
-/* Altivec vector memory instructions simply ignore the low bits; SPE
-   vector memory instructions trap on unaligned accesses.  */
+/* Altivec vector memory instructions simply ignore the low bits; SPE vector
+   memory instructions trap on unaligned accesses; VSX memory instructions are
+   aligned to 4 or 8 bytes.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
 	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
 	|| (MODE) == DImode)						\
        && (ALIGN) < 32)							\
-   || (VECTOR_MODE_P ((MODE)) && (ALIGN) < GET_MODE_BITSIZE ((MODE))))
+   || (VECTOR_MODE_P ((MODE))						\
+       && ((int)(ALIGN)) < ((rs6000_vector_info[(MODE)].align)		\
+			    ? (int)rs6000_vector_info[(MODE)].align	\
+			    : (int)GET_MODE_BITSIZE ((MODE)))))
+
 
 /* Standard register usage.  */
 
@@ -951,12 +975,24 @@ extern int rs6000_xilinx_fpu;
 	 ((MODE) == V4SFmode		\
 	  || (MODE) == V2DFmode)	\
 
+#define VSX_VECTOR_MOVE_MODE(MODE)	\
+	 ((MODE) == V16QImode		\
+	  || (MODE) == V8HImode		\
+	  || (MODE) == V4SImode		\
+	  || (MODE) == V2DImode		\
+	  || (MODE) == V4SFmode		\
+	  || (MODE) == V2DFmode)	\
+
 #define VSX_SCALAR_MODE(MODE)		\
 	((MODE) == DFmode)
 
 #define VSX_MODE(MODE)			\
 	(VSX_VECTOR_MODE (MODE)		\
 	 || VSX_SCALAR_MODE (MODE))
+
+#define VSX_MOVE_MODE(MODE)		\
+	(VSX_VECTOR_MOVE_MODE (MODE)	\
+	 || VSX_SCALAR_MODE(MODE))
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\
@@ -1006,6 +1042,10 @@ extern int rs6000_xilinx_fpu;
    ? ALTIVEC_VECTOR_MODE (MODE2)		\
    : ALTIVEC_VECTOR_MODE (MODE2)		\
    ? ALTIVEC_VECTOR_MODE (MODE1)		\
+   : VSX_VECTOR_MODE (MODE1)			\
+   ? VSX_VECTOR_MODE (MODE2)			\
+   : VSX_VECTOR_MODE (MODE2)			\
+   ? VSX_VECTOR_MODE (MODE1)			\
    : 1)
 
 /* Post-reload, we can't use any new AltiVec registers, as we already
@@ -1234,6 +1274,14 @@ enum reg_class
   : (REGNO) == SPEFSCR_REGNO ? SPEFSCR_REGS	\
   : (REGNO) == FRAME_POINTER_REGNUM ? BASE_REGS	\
   : NO_REGS)
+
+/* VSX register classes.  */
+extern enum reg_class rs6000_vsx_v4sf_regclass;
+extern enum reg_class rs6000_vsx_v2df_regclass;
+extern enum reg_class rs6000_vsx_df_regclass;
+extern enum reg_class rs6000_vsx_int_regclass;
+extern enum reg_class rs6000_vsx_logical_regclass;
+extern enum reg_class rs6000_vsx_any_regclass;
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS
@@ -2508,10 +2556,14 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VSEL_4SF,
   ALTIVEC_BUILTIN_VSEL_8HI,
   ALTIVEC_BUILTIN_VSEL_16QI,
+  ALTIVEC_BUILTIN_VSEL_2DF,		/* needed for VSX */
+  ALTIVEC_BUILTIN_VSEL_2DI,		/* needed for VSX */
   ALTIVEC_BUILTIN_VPERM_4SI,
   ALTIVEC_BUILTIN_VPERM_4SF,
   ALTIVEC_BUILTIN_VPERM_8HI,
   ALTIVEC_BUILTIN_VPERM_16QI,
+  ALTIVEC_BUILTIN_VPERM_2DF,		/* needed for VSX */
+  ALTIVEC_BUILTIN_VPERM_2DI,		/* needed for VSX */
   ALTIVEC_BUILTIN_VPKUHUM,
   ALTIVEC_BUILTIN_VPKUWUM,
   ALTIVEC_BUILTIN_VPKPX,
@@ -3151,6 +3203,8 @@ enum rs6000_builtin_type_index
   RS6000_BTI_V16QI,
   RS6000_BTI_V2SI,
   RS6000_BTI_V2SF,
+  RS6000_BTI_V2DI,
+  RS6000_BTI_V2DF,
   RS6000_BTI_V4HI,
   RS6000_BTI_V4SI,
   RS6000_BTI_V4SF,
@@ -3174,7 +3228,10 @@ enum rs6000_builtin_type_index
   RS6000_BTI_UINTHI,		 /* unsigned_intHI_type_node */
   RS6000_BTI_INTSI,		 /* intSI_type_node */
   RS6000_BTI_UINTSI,		 /* unsigned_intSI_type_node */
+  RS6000_BTI_INTDI,		 /* intDI_type_node */
+  RS6000_BTI_UINTDI,		 /* unsigned_intDI_type_node */
   RS6000_BTI_float,	         /* float_type_node */
+  RS6000_BTI_double,	         /* double_type_node */
   RS6000_BTI_void,	         /* void_type_node */
   RS6000_BTI_MAX
 };
@@ -3185,6 +3242,8 @@ enum rs6000_builtin_type_index
 #define opaque_p_V2SI_type_node       (rs6000_builtin_types[RS6000_BTI_opaque_p_V2SI])
 #define opaque_V4SI_type_node         (rs6000_builtin_types[RS6000_BTI_opaque_V4SI])
 #define V16QI_type_node               (rs6000_builtin_types[RS6000_BTI_V16QI])
+#define V2DI_type_node                (rs6000_builtin_types[RS6000_BTI_V2DI])
+#define V2DF_type_node                (rs6000_builtin_types[RS6000_BTI_V2DF])
 #define V2SI_type_node                (rs6000_builtin_types[RS6000_BTI_V2SI])
 #define V2SF_type_node                (rs6000_builtin_types[RS6000_BTI_V2SF])
 #define V4HI_type_node                (rs6000_builtin_types[RS6000_BTI_V4HI])
@@ -3211,7 +3270,10 @@ enum rs6000_builtin_type_index
 #define uintHI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_UINTHI])
 #define intSI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_INTSI])
 #define uintSI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_UINTSI])
+#define intDI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_INTDI])
+#define uintDI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_UINTDI])
 #define float_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_float])
+#define double_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_double])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
 
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];

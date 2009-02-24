@@ -427,7 +427,7 @@
   (match_code "mem")
 {
   op = XEXP (op, 0);
-  if (TARGET_ALTIVEC
+  if (TARGET_ALTIVEC && !TARGET_VSX
       && ALTIVEC_VECTOR_MODE (mode)
       && GET_CODE (op) == AND
       && GET_CODE (XEXP (op, 1)) == CONST_INT

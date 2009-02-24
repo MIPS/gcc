@@ -728,6 +728,8 @@ See RS/6000 and PowerPC Options.
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc  -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
 -mdynamic-no-pic  -maltivec -mswdiv -mvsx @gol
+-mvsx-vector-move -mvsx-scalar-move -mvsx-vector-float @gol
+-mvsx-vector-double -mvsx-vector-logical -mvsx-scalar-double @gol
 -mprioritize-restricted-insns=@var{priority} @gol
 -msched-costly-dep=@var{dependence_type} @gol
 -minsert-sched-nops=@var{scheme} @gol
@@ -13763,6 +13765,42 @@ This option has been deprecated.  Use @option{-mspe} and
 Generate code that uses (does not use) vector/scalar (VSX)
 instructions, and also enable the use of built-in functions that allow
 more direct access to the VSX instruction set.
+
+@item -mvsx-vector-move
+@itemx -mno-vsx-vector-move
+If @option{-mvsx}, use VSX load and store instructions for float and
+integer vector types.  This option is a temporary switch to tune the
+compiler, and may not be supported in future versions.
+
+@item -mvsx-scalar-move
+@itemx -mno-vsx-scalar-move
+If @option{-mvsx}, use VSX load and store instructions for scalar
+double precision.  This option is a temporary switch to tune the
+compiler, and may not be supported in future versions.
+
+@item -mvsx-vector-float
+@itemx -mno-vsx-vector-float
+If @option{-mvsx}, use VSX arithmetic instructions for float vectors.
+This option is a temporary switch to tune the compiler, and may not be
+supported in future versions.
+
+@item -mvsx-vector-double
+@itemx -mno-vsx-vector-double
+If @option{-mvsx}, use VSX arithmetic instructions for double
+vectors.  This option is a temporary switch to tune the
+compiler, and may not be supported in future versions.
+
+@item -mvsx-vector-logical
+@itemx -mno-vsx-vector-logical
+If @option{-mvsx}, use VSX logical and permute instructions for
+vectors.  This option is a temporary switch to tune the
+compiler, and may not be supported in future versions.
+
+@item -mvsx-scalar-double
+@itemx -mno-vsx-scalar-double
+If @option{-mvsx}, use VSX arithmetic instructions for scalar double.
+This option is a temporary switch to tune the compiler, and may not be
+supported in future versions.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs
