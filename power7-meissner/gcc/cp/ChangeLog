@@ -1,3 +1,46 @@
+2009-02-24  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/39242
+	* pt.c (instantiate_decl): Do not instantiate extern, non-inline
+	declared functions.
+
+2009-02-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/36411
+	* pt.c (coerce_template_template_parms): Return 0 if parameter
+	is error_mark_node.
+
+2009-02-23  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (unify): Call maybe_adjust_types_for_deduction when
+	deducing from an initializer list.
+
+2009-02-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39225
+	* decl.c (grokdeclarator): Handle ~identifier.
+
+2009-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39175
+	* decl2.c (determine_visibility): If visibility changed and
+	DECL_RTL has been already set, call make_decl_rtl to update symbol
+	flags.
+
+2009-02-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39188
+	* cp-tree.h (maybe_commonize_var): New.
+
+	* decl.c (maybe_commonize_var): Make it extern.
+
+	* decl2.c (finish_anon_union): Call maybe_commonize_var.
+
+2009-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39219
+	* parser.c (cp_parser_enum_specifier): Apply all attributes.
+
 2009-02-18  Jason Merrill  <jason@redhat.com>
 
 	* cfns.h: Tweak pathname for cfns.gperf.
