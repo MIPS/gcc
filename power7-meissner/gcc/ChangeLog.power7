@@ -182,6 +182,8 @@
 	(movdf_hardfloat64_mfpgpr): Ditto.
 	(movdf_hardfloat64): Ditto.
 
+	* doc/invoke.texi (-mvsx-*): Add new vsx switches.
+
 2009-02-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config.in: Update two comments.
