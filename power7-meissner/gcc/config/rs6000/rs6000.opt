@@ -119,25 +119,17 @@ mvsx
 Target Report Mask(VSX)
 Use vector/scalar (VSX) instructions.
 
-mvsx-vector-move
-Target Report Var(TARGET_VSX_VECTOR_MOVE)
-If -mvsx, use VSX load and store instructions for float and integer vector types
-
-mvsx-scalar-move
-Target Report Var(TARGET_VSX_SCALAR_MOVE)
-If -mvsx, use VSX load and store instructions for scalar double precision
+mvsx-vector-memory
+Target Report Var(TARGET_VSX_VECTOR_MEMORY)
+If -mvsx, use VSX vector load/store instructions instead of Altivec instructions
 
 mvsx-vector-float
-Target Report Var(TARGET_VSX_VECTOR_FLOAT) Init(1)
+Target Report Var(TARGET_VSX_VECTOR_FLOAT)
 If -mvsx, use VSX arithmetic instructions for float vectors
 
 mvsx-vector-double
-Target Report Var(TARGET_VSX_VECTOR_DOUBLE) Init(1)
+Target Report Var(TARGET_VSX_VECTOR_DOUBLE) Init(-1)
 If -mvsx, use VSX arithmetic instructions for double vectors
-
-mvsx-vector-logical
-Target Report Var(TARGET_VSX_VECTOR_LOGICAL) Init(1)
-If -mvsx, use VSX logical and permute instructions for vectors
 
 mvsx-scalar-double
 Target Report Var(TARGET_VSX_SCALAR_DOUBLE)

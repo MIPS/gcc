@@ -172,8 +172,7 @@
 (define_insn "*altivec_mov<mode>"
   [(set (match_operand:V 0 "nonimmediate_operand" "=Z,v,v,*o,*r,*r,v,v")
 	(match_operand:V 1 "input_operand" "v,Z,v,r,o,r,j,W"))]
-  "TARGET_ALTIVEC
-   && rs6000_vector_info[<MODE>mode].move == VECTOR_ALTIVEC
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
@@ -195,7 +194,7 @@
 (define_split
   [(set (match_operand:VM 0 "altivec_register_operand" "")
 	(match_operand:VM 1 "easy_vector_constant_add_self" ""))]
-  "TARGET_ALTIVEC && reload_completed"
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode) && reload_completed"
   [(set (match_dup 0) (match_dup 3))
    (set (match_dup 0) (match_dup 4))]
 {
@@ -280,7 +279,7 @@
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (plus:V4SF (match_operand:V4SF 1 "register_operand" "v")
 	 	   (match_operand:V4SF 2 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vaddfp %0,%1,%2"
   [(set_attr "type" "vecfloat")])
 
@@ -326,7 +325,7 @@
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (minus:V4SF (match_operand:V4SF 1 "register_operand" "v")
                     (match_operand:V4SF 2 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vsubfp %0,%1,%2"
   [(set_attr "type" "vecfloat")])
 
@@ -415,7 +414,7 @@
   [(set (match_operand:V4SF 0 "altivec_register_operand" "=v")
 	(eq:V4SF (match_operand:V4SF 1 "altivec_register_operand" "v")
 		 (match_operand:V4SF 2 "altivec_register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vcmpeqfp %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -423,7 +422,7 @@
   [(set (match_operand:V4SF 0 "altivec_register_operand" "=v")
 	(gt:V4SF (match_operand:V4SF 1 "altivec_register_operand" "v")
 		 (match_operand:V4SF 2 "altivec_register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vcmpgtfp %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -431,7 +430,7 @@
   [(set (match_operand:V4SF 0 "altivec_register_operand" "=v")
 	(ge:V4SF (match_operand:V4SF 1 "altivec_register_operand" "v")
 		 (match_operand:V4SF 2 "altivec_register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vcmpgefp %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -441,7 +440,7 @@
 			     (const_int 0))
 			 (match_operand:VM 2 "altivec_register_operand" "v")
 			 (match_operand:VM 3 "altivec_register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
   "vsel %0,%3,%2,%1"
   [(set_attr "type" "vecperm")])
 
@@ -451,7 +450,7 @@
 	(plus:V4SF (mult:V4SF (match_operand:V4SF 1 "register_operand" "v")
 			      (match_operand:V4SF 2 "register_operand" "v"))
 	  	   (match_operand:V4SF 3 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vmaddfp %0,%1,%2,%3"
   [(set_attr "type" "vecfloat")])
 
@@ -461,7 +460,7 @@
   [(use (match_operand:V4SF 0 "register_operand" ""))
    (use (match_operand:V4SF 1 "register_operand" ""))
    (use (match_operand:V4SF 2 "register_operand" ""))]
-  "TARGET_ALTIVEC && TARGET_FUSED_MADD"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode) && TARGET_FUSED_MADD"
   "
 {
   rtx neg0;
@@ -564,7 +563,7 @@
 	(neg:V4SF (minus:V4SF (mult:V4SF (match_operand:V4SF 1 "register_operand" "v")
 			       (match_operand:V4SF 2 "register_operand" "v"))
 	  	    (match_operand:V4SF 3 "register_operand" "v"))))]
-  "TARGET_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vnmsubfp %0,%1,%2,%3"
   [(set_attr "type" "vecfloat")])
 
@@ -642,7 +641,7 @@
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (smax:V4SF (match_operand:V4SF 1 "register_operand" "v")
                    (match_operand:V4SF 2 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vmaxfp %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -666,7 +665,7 @@
   [(set (match_operand:V4SF 0 "register_operand" "=v")
         (smin:V4SF (match_operand:V4SF 1 "register_operand" "v")
                    (match_operand:V4SF 2 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vminfp %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -798,7 +797,7 @@
                                                     (const_int 3)
                                                     (const_int 1)]))
                       (const_int 5)))]
-  "rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vmrghw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -898,7 +897,7 @@
                                                     (const_int 1)
                                                     (const_int 3)]))
                       (const_int 5)))]
-  "rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vmrglw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -975,13 +974,14 @@
   [(set_attr "type" "veccomplex")])
 
 
-;; logical ops
+;; logical ops.  Have the logical ops follow the memory ops in
+;; terms of whether to prefer VSX or Altivec
 
 (define_insn "*altivec_and<mode>3"
   [(set (match_operand:VM 0 "register_operand" "=v")
         (and:VM (match_operand:VM 1 "register_operand" "v")
 		(match_operand:VM 2 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC"
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vand %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
@@ -989,7 +989,7 @@
   [(set (match_operand:VM 0 "register_operand" "=v")
         (ior:VM (match_operand:VM 1 "register_operand" "v")
 		(match_operand:VM 2 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC"
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
@@ -997,14 +997,14 @@
   [(set (match_operand:VM 0 "register_operand" "=v")
         (xor:VM (match_operand:VM 1 "register_operand" "v")
 		(match_operand:VM 2 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC"
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vxor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "*altivec_one_cmpl<mode>2"
   [(set (match_operand:VM 0 "register_operand" "=v")
         (not:VM (match_operand:VM 1 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC"
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vnor %0,%1,%1"
   [(set_attr "type" "vecsimple")])
   
@@ -1012,7 +1012,7 @@
   [(set (match_operand:VM 0 "register_operand" "=v")
         (not:VM (ior:VM (match_operand:VM 1 "register_operand" "v")
 			(match_operand:VM 2 "register_operand" "v"))))]
-  "rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC"
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vnor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
@@ -1020,7 +1020,7 @@
   [(set (match_operand:VM 0 "register_operand" "=v")
         (and:VM (not:VM (match_operand:VM 2 "register_operand" "v"))
 		(match_operand:VM 1 "register_operand" "v")))]
-  "rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC"
+  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vandc %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
@@ -1568,6 +1568,12 @@
   gcc_assert (GET_CODE (operands[1]) == MEM);
 
   addr = XEXP (operands[1], 0);
+  if (VECTOR_MEM_VSX_P (GET_MODE (addr)))
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+      DONE;
+    }
+
   temp = gen_reg_rtx (GET_MODE (addr));
   emit_insn (gen_rtx_SET (VOIDmode, temp, 
 			  gen_rtx_NEG (GET_MODE (addr), addr)));

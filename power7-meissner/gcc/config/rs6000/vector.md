@@ -48,8 +48,7 @@
 (define_expand "mov<mode>"
   [(set (match_operand:VEC_L 0 "nonimmediate_operand" "")
 	(match_operand:VEC_L 1 "any_operand" ""))]
-  "((rs6000_vector_info[<MODE>mode].move == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].move == VECTOR_ALTIVEC))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   rs6000_emit_move (operands[0], operands[1], <MODE>mode);
   DONE;
@@ -60,8 +59,7 @@
 (define_expand "vector_load_<mode>"
   [(set (match_operand:VEC_L 0 "vfloat_operand" "")
 	(match_operand:VEC_L 1 "memory_operand" ""))]
-  "((rs6000_vector_info[<MODE>mode].move == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].move == VECTOR_ALTIVEC))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   rs6000_emit_move (operands[0], operands[1], <MODE>mode);
   DONE;
@@ -70,8 +68,7 @@
 (define_expand "vector_store_<mode>"
   [(set (match_operand:VEC_L 0 "memory_operand" "")
 	(match_operand:VEC_L 1 "vfloat_operand" ""))]
-  "((rs6000_vector_info[<MODE>mode].move == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].move == VECTOR_ALTIVEC))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   rs6000_emit_move (operands[0], operands[1], <MODE>mode);
   DONE;
@@ -81,8 +78,7 @@
 (define_split
   [(set (match_operand:VEC_L 0 "nonimmediate_operand" "")
         (match_operand:VEC_L 1 "input_operand" ""))]
-  "((rs6000_vector_info[<MODE>mode].move == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].move == VECTOR_ALTIVEC))
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
    && reload_completed
    && gpr_or_gpr_p (operands[0], operands[1])"
   [(pc)]
@@ -97,29 +93,25 @@
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(plus:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")
 		    (match_operand:VEC_F 2 "vfloat_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "sub<mode>3"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(minus:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")
 		     (match_operand:VEC_F 2 "vfloat_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "mul<mode>3"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(mult:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")
 		    (match_operand:VEC_F 2 "vfloat_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC
-        && TARGET_FUSED_MADD))"
+  "(VECTOR_UNIT_VSX_P (<MODE>mode)
+    || (VECTOR_UNIT_ALTIVEC_P (<MODE>mode) && TARGET_FUSED_MADD))"
   "
 {
-  if (<MODE>mode == V4SFmode
-      && rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC)
+  if (<MODE>mode == V4SFmode && VECTOR_UNIT_ALTIVEC_P (<MODE>mode))
     {
       emit_insn (gen_altivec_mulv4sf3 (operands[0], operands[1], operands[2]));
       DONE;
@@ -130,18 +122,16 @@
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(div:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")
 		   (match_operand:VEC_F 2 "vfloat_operand" "")))]
-  "rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX"
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "neg<mode>3"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(neg:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "
 {
-  if (<MODE>mode == V4SFmode
-      && rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC)
+  if (<MODE>mode == V4SFmode && VECTOR_UNIT_ALTIVEC_P (<MODE>mode))
     {
       emit_insn (gen_altivec_negv4sf2 (operands[0], operands[1]));
       DONE;
@@ -151,12 +141,10 @@
 (define_expand "abs<mode>2"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(abs:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "
 {
-  if (<MODE>mode == V4SFmode
-      && rs6000_vector_info[V4SFmode].arith == VECTOR_ALTIVEC)
+  if (<MODE>mode == V4SFmode && VECTOR_UNIT_ALTIVEC_P (<MODE>mode))
     {
       emit_insn (gen_altivec_absv4sf2 (operands[0], operands[1]));
       DONE;
@@ -167,23 +155,21 @@
   [(set (match_operand:VEC_F 0 "register_operand" "")
         (smin:VEC_F (match_operand:VEC_F 1 "register_operand" "")
 		    (match_operand:VEC_F 2 "register_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "smax<mode>3"
   [(set (match_operand:VEC_F 0 "register_operand" "")
         (smax:VEC_F (match_operand:VEC_F 1 "register_operand" "")
 		    (match_operand:VEC_F 2 "register_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 
 (define_expand "sqrt<mode>2"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(sqrt:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")))]
-  "rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX"
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "")
 
 
@@ -196,8 +182,7 @@
 			  (match_operand:VEC_F 5 "vfloat_operand" "")])
 	 (match_operand:VEC_F 1 "vfloat_operand" "")
 	 (match_operand:VEC_F 2 "vfloat_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "
 {
   if (rs6000_emit_vector_cond_expr (operands[0], operands[1], operands[2],
@@ -215,7 +200,7 @@
 			  (match_operand:VEC_I 5 "vint_operand" "")])
 	 (match_operand:VEC_I 1 "vint_operand" "")
 	 (match_operand:VEC_I 2 "vint_operand" "")))]
-  "rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
   "
 {
   if (rs6000_emit_vector_cond_expr (operands[0], operands[1], operands[2],
@@ -233,7 +218,7 @@
 			  (match_operand:VEC_I 5 "vint_operand" "")])
 	 (match_operand:VEC_I 1 "vint_operand" "")
 	 (match_operand:VEC_I 2 "vint_operand" "")))]
-  "rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
   "
 {
   if (rs6000_emit_vector_cond_expr (operands[0], operands[1], operands[2],
@@ -247,65 +232,67 @@
   [(set (match_operand:VEC_C 0 "vlogical_operand" "")
 	(eq:VEC_C (match_operand:VEC_C 1 "vlogical_operand" "")
 		  (match_operand:VEC_C 2 "vlogical_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "vector_gt<mode>"
   [(set (match_operand:VEC_C 0 "vlogical_operand" "")
 	(gt:VEC_C (match_operand:VEC_C 1 "vlogical_operand" "")
 		  (match_operand:VEC_C 2 "vlogical_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "vector_ge<mode>"
   [(set (match_operand:VEC_C 0 "vlogical_operand" "")
 	(ge:VEC_C (match_operand:VEC_C 1 "vlogical_operand" "")
 		  (match_operand:VEC_C 2 "vlogical_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "vector_gtu<mode>"
   [(set (match_operand:VEC_I 0 "vint_operand" "")
 	(gtu:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
 		   (match_operand:VEC_I 2 "vint_operand" "")))]
-  "rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
   "")
 
 (define_expand "vector_geu<mode>"
   [(set (match_operand:VEC_I 0 "vint_operand" "")
 	(geu:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
 		   (match_operand:VEC_I 2 "vint_operand" "")))]
-  "rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
   "")
 
 ;; Note the arguments for __builtin_altivec_vsel are op2, op1, mask
 ;; which is in the reverse order that we want
 (define_expand "vector_vsel<mode>"
-  [(match_operand:VEC_L 0 "vlogical_operand" "")
-   (match_operand:VEC_L 1 "vlogical_operand" "")
-   (match_operand:VEC_L 2 "vlogical_operand" "")
-   (match_operand:VEC_L 3 "vlogical_operand" "")]
-  "((rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC))"
+  [(match_operand:VEC_F 0 "vlogical_operand" "")
+   (match_operand:VEC_F 1 "vlogical_operand" "")
+   (match_operand:VEC_F 2 "vlogical_operand" "")
+   (match_operand:VEC_F 3 "vlogical_operand" "")]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "
 {
-  if (rs6000_vector_info[<MODE>mode].arith == VECTOR_VSX)
-    {
-      emit_insn (gen_vsx_vsel<mode> (operands[0], operands[3],
-				     operands[2], operands[1]));
-      DONE;
-    }
-  else if (rs6000_vector_info[<MODE>mode].arith == VECTOR_ALTIVEC)
-    {
-      emit_insn (gen_altivec_vsel<mode> (operands[0], operands[3],
-					 operands[2], operands[1]));
-      DONE;
-    }
+  if (VECTOR_UNIT_VSX_P (<MODE>mode))
+    emit_insn (gen_vsx_vsel<mode> (operands[0], operands[3],
+				   operands[2], operands[1]));
   else
-    FAIL;
+    emit_insn (gen_altivec_vsel<mode> (operands[0], operands[3],
+				       operands[2], operands[1]));
+  DONE;
+}")
+
+(define_expand "vector_vsel<mode>"
+  [(match_operand:VEC_I 0 "vlogical_operand" "")
+   (match_operand:VEC_I 1 "vlogical_operand" "")
+   (match_operand:VEC_I 2 "vlogical_operand" "")
+   (match_operand:VEC_I 3 "vlogical_operand" "")]
+  "VECTOR_UNIT_ALTIVEC_P (<MODE>mode)"
+  "
+{
+  emit_insn (gen_altivec_vsel<mode> (operands[0], operands[3],
+				     operands[2], operands[1]));
+  DONE;
 }")
 
 
@@ -314,47 +301,41 @@
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (xor:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
 		   (match_operand:VEC_L 2 "vlogical_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "ior<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (ior:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
 		   (match_operand:VEC_L 2 "vlogical_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "and<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (and:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
 		   (match_operand:VEC_L 2 "vlogical_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "one_cmpl<mode>2"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (not:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
   
 (define_expand "nor<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (not:VEC_L (ior:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
 			      (match_operand:VEC_L 2 "vlogical_operand" ""))))]
-  "((rs6000_vector_info[<MODE>mode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 (define_expand "andc<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (and:VEC_L (not:VEC_L (match_operand:VEC_L 2 "vlogical_operand" ""))
 		   (match_operand:VEC_L 1 "vlogical_operand" "")))]
-  "((rs6000_vector_info[<MODE>mode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 
@@ -362,8 +343,7 @@
 (define_expand "vec_init<mode>"
   [(match_operand:VEC_C 0 "vlogical_operand" "")
    (match_operand 1 "" "")]
-  "((rs6000_vector_info[<MODE>mode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   rs6000_expand_vector_init (operands[0], operands[1]);
   DONE;
@@ -373,8 +353,7 @@
   [(match_operand:VEC_C 0 "vlogical_operand" "")
    (match_operand:<VEC_base> 1 "register_operand" "")
    (match_operand 2 "const_int_operand" "")]
-  "((rs6000_vector_info[<MODE>mode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   rs6000_expand_vector_set (operands[0], operands[1], INTVAL (operands[2]));
   DONE;
@@ -384,8 +363,7 @@
   [(match_operand:<VEC_base> 0 "register_operand" "")
    (match_operand:VEC_C 1 "vlogical_operand" "")
    (match_operand 2 "const_int_operand" "")]
-  "((rs6000_vector_info[<MODE>mode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[<MODE>mode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   rs6000_expand_vector_extract (operands[0], operands[1],
 				INTVAL (operands[2]));
@@ -407,8 +385,7 @@
 				     (const_int 1)
 				     (const_int 3)]))
 	 (const_int 5)))]
-  "((rs6000_vector_info[V4SFmode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
   "")
 
 (define_expand "vec_interleave_lowv4sf"
@@ -425,8 +402,7 @@
 				     (const_int 3)
 				     (const_int 1)]))
 	 (const_int 5)))]
-  "((rs6000_vector_info[V4SFmode].logical == VECTOR_VSX)
-    || (rs6000_vector_info[V4SFmode].logical == VECTOR_ALTIVEC))"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
   "")
 
 (define_expand "vec_interleave_highv2df"
@@ -436,7 +412,7 @@
 			(parallel [(const_int 0)]))
 	 (vec_select:DF (match_operand:V2DF 2 "vfloat_operand" "")
 			(parallel [(const_int 0)]))))]
-  "rs6000_vector_info[V2DFmode].logical == VECTOR_VSX"
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
   "")
 
 (define_expand "vec_interleave_lowv2df"
@@ -446,5 +422,5 @@
 			(parallel [(const_int 1)]))
 	 (vec_select:DF (match_operand:V2DF 2 "vfloat_operand" "")
 			(parallel [(const_int 1)]))))]
-  "rs6000_vector_info[V2DFmode].logical == VECTOR_VSX"
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
   "")

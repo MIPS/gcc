@@ -1,3 +1,82 @@
+2009-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/invoke.texi (-mvsx-vector-memory): Rename from
+	-mvsx-vector-move.
+	(-mvsx-vector-logical): Delete.
+
+	* config/rs6000/aix53.h (ASM_CPU_SPEC): Add power7 support.
+	* config/rs6000/aix61.h (ASM_CPU_SPEC): Ditto.
+
+	* config/rs6000/vector.md (all insns); Change from using
+	rs6000_vector_info to VECTOR_MEM_* or VECTOR_UNIT_* macros.
+
+	* config/rs6000/constraints.md ("wi" constraint): Delete.
+	("wl" constraint): Ditto.
+	("ws" constraint): Change to use rs6000_vsx_df_regclass.
+
+	* config/rs6000/rs6000.opt (-mvsx-vector-memory): Rename from
+	-mvsx-vector-move.
+	(-mvsx-vector-float): Make default 0, not 1.
+	(-mvsx-vector-double): Make default -1, not 1.
+	(-mvsx-vector-logical): Delete.
+
+	* config/rs6000/rs6000.c (rs6000_vector_info): Delete.
+	(rs6000_vector_unit): New global array to say what vector unit is
+	used for arithmetic instructions.
+	(rs6000_vector_move): New global array to say what vector unit is
+	used for memory references.
+	(rs6000_vsx_int_regclass): Delete.
+	(rs6000_vsx_logical_regclass): Delete.
+	(rs6000_hard_regno_nregs_internal): Switch from using
+	rs6000_vector_info to rs6000_vector_unit, rs6000_vector_move.
+	(rs6000_hard_regno_mode_ok): Ditto.  Reformat code somewhat.
+	(rs6000_debug_vector_unit): New array to print vector unit
+	information if -mdebug=reg.
+	(rs6000_init_hard_regno_mode_ok): Rework to better describe VSX
+	and Altivec register sets.
+	(builtin_mask_for_load): Return 0 if -mvsx.
+	(rs6000_legitimize_reload_address): Allow AND in VSX addresses.
+	(rs6000_legitimate_address): Ditto.
+	(bdesc_3arg): Delete vselv2di builtin.
+	(rs6000_emit_minmax): Use rs6000_vector_unit instead of
+	rs6000_vector_info.
+	(rs6000_vector_mode_supported_p): Ditto.
+
+	* config/rs6000/vsx.md (all insns): Change from using
+	rs6000_vector_info to VECTOR_MEM_* and VECTOR_UNIT_* macros.
+	(VSr): Change to use "v" register class, not "wi".
+	(vsx_mov<mode>): Combine floating and integer.  Allow prefered
+	register class, and then use ?wa for all VSX registers.
+	(vsx_fmadddf4): Use ws constraint, not f.
+	(vsx_fmsubdf4): Ditto.
+	(vsx_fnmadddf4): Ditto.
+	(vsx_fnmsubdf4): Ditto.
+	(vsx_and<mode>3): Use preferred register class, and then ?wa to
+	catch all VSX registers.
+	(vsx_ior<mode>3): Ditto.
+	(vsx_xor<mode>3): Ditto.
+	(vsx_one_cmpl<mode>2): Ditto.
+	(vsx_nor<mode>3): Ditto.
+	(vsx_andc<mode>3): Ditto.
+
+	* config/rs6000/rs6000.h (rs6000_vector_struct): Delete.
+	(rs6000_vector_info): Ditto.
+	(rs6000_vector_unit): New global array to say whether a machine
+	mode arithmetic is handled by a particular vector unit.
+	(rs6000_vector_mem): New global array to say which vector unit to
+	use for moves.
+	(VECTOR_UNIT_*): New macros to say which vector unit to use.
+	(VECTOR_MEM_*): Ditto.
+	(rs6000_vsx_int_regclass): Delete.
+	(rs6000_vsx_logical_regclass): Delete.
+
+	* config/rs6000/altivec.md (all insns): Change from using
+	rs6000_vector_info to VECTOR_MEM_* and VECTOR_UNIT_* macros.
+	(build_vector_mask_for_load): Disable if VSX.
+
+	* config/rs6000/rs6000.md (all DF insns): Change how the VSX
+	exclusion is done.
+
 2009-02-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_debug_reg): New global.

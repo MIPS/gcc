@@ -61,16 +61,8 @@
 (define_register_constraint "wf" "rs6000_vsx_v4sf_regclass"
   "@internal")
 
-;; vector int
-(define_register_constraint "wi" "rs6000_vsx_int_regclass"
-  "@internal")
-
-;; vector logical
-(define_register_constraint "wl" "rs6000_vsx_logical_regclass"
-  "@internal")
-
 ;; scalar double (DF)
-(define_register_constraint "ws" "rs6000_vsx_v4sf_regclass"
+(define_register_constraint "ws" "rs6000_vsx_df_regclass"
   "@internal")
 
 ;; any VSX register

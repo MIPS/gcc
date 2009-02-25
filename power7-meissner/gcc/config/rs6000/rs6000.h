@@ -419,7 +419,7 @@ extern const char *rs6000_sched_insert_nops_str;
 extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 extern int rs6000_xilinx_fpu;
 
-/* Which vector unit to use.  */
+/* Describe which vector unit to use for a given machine mode.  */
 enum rs6000_vector {
   VECTOR_NONE,			/* Type is not  a vector or not supported */
   VECTOR_ALTIVEC,		/* Use altivec for vector processing */
@@ -429,14 +429,42 @@ enum rs6000_vector {
   VECTOR_OTHER			/* Some other vector unit */
 };
 
-struct rs6000_vector_struct {
-  enum rs6000_vector move;	/* vector unit to use for data movement */
-  enum rs6000_vector arith;	/* vector unit to use for arithmetic */
-  enum rs6000_vector logical;	/* vector unit to use for logical/permute */
-  int align;			/* vector alignment */
-};
+extern enum rs6000_vector rs6000_vector_unit[];
 
-extern struct rs6000_vector_struct rs6000_vector_info[];
+#define VECTOR_UNIT_VSX_P(MODE)				\
+  (rs6000_vector_unit[(MODE)] == VECTOR_VSX)
+
+#define VECTOR_UNIT_ALTIVEC_P(MODE)			\
+  (rs6000_vector_unit[(MODE)] == VECTOR_ALTIVEC)
+
+#define VECTOR_UNIT_ALTIVEC_OR_VSX_P(MODE)		\
+  (rs6000_vector_unit[(MODE)] == VECTOR_ALTIVEC 	\
+   || rs6000_vector_unit[(MODE)] == VECTOR_VSX)
+
+/* Describe whether to use VSX loads or Altivec loads.  For now, just use the
+   same unit as the vector unit we are using, but we may want to migrate to
+   using VSX style loads even for types handled by altivec.  */
+extern enum rs6000_vector rs6000_vector_mem[];
+
+#define VECTOR_MEM_VSX_P(MODE)				\
+  (rs6000_vector_mem[(MODE)] == VECTOR_VSX)
+
+#define VECTOR_MEM_ALTIVEC_P(MODE)			\
+  (rs6000_vector_mem[(MODE)] == VECTOR_ALTIVEC)
+
+#define VECTOR_MEM_ALTIVEC_OR_VSX_P(MODE)		\
+  (rs6000_vector_mem[(MODE)] == VECTOR_ALTIVEC 	\
+   || rs6000_vector_mem[(MODE)] == VECTOR_VSX)
+
+/* Return the alignment of a given vector type, which is set based on the
+   vector unit use.  VSX for instance can load 32 or 64 bit aligned words
+   without problems, while Altivec requires 128-bit aligned vectors.  */
+extern int rs6000_vector_align[];
+
+#define VECTOR_ALIGN(MODE)						\
+  ((rs6000_vector_align[(MODE)] != 0)					\
+   ? rs6000_vector_align[(MODE)]					\
+   : (int)GET_MODE_BITSIZE ((MODE)))
 
 /* Alignment options for fields in structures for sub-targets following
    AIX-like ABI.
@@ -716,10 +744,7 @@ extern struct rs6000_vector_struct rs6000_vector_info[];
 	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
 	|| (MODE) == DImode)						\
        && (ALIGN) < 32)							\
-   || (VECTOR_MODE_P ((MODE))						\
-       && ((int)(ALIGN)) < ((rs6000_vector_info[(MODE)].align)		\
-			    ? (int)rs6000_vector_info[(MODE)].align	\
-			    : (int)GET_MODE_BITSIZE ((MODE)))))
+   || (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE))))
 
 
 /* Standard register usage.  */
@@ -1281,8 +1306,6 @@ enum reg_class
 extern enum reg_class rs6000_vsx_v4sf_regclass;
 extern enum reg_class rs6000_vsx_v2df_regclass;
 extern enum reg_class rs6000_vsx_df_regclass;
-extern enum reg_class rs6000_vsx_int_regclass;
-extern enum reg_class rs6000_vsx_logical_regclass;
 extern enum reg_class rs6000_vsx_any_regclass;
 
 /* The class value for index registers, and the one for base regs.  */

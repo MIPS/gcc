@@ -294,15 +294,17 @@ struct builtin_description
   const enum rs6000_builtins code;
 };
 
-/* Describe the vector unit used for types.  */
-struct rs6000_vector_struct rs6000_vector_info[NUM_MACHINE_MODES];
+/* Describe the vector unit used for modes.  */
+enum rs6000_vector rs6000_vector_unit[NUM_MACHINE_MODES];
+enum rs6000_vector rs6000_vector_mem[NUM_MACHINE_MODES];
+
+/* Describe the alignment of a vector.  */
+int rs6000_vector_align[NUM_MACHINE_MODES];
 
 /* Describe the register classes used by VSX instructions.  */
 enum reg_class rs6000_vsx_v4sf_regclass		= NO_REGS;
 enum reg_class rs6000_vsx_v2df_regclass		= NO_REGS;
 enum reg_class rs6000_vsx_df_regclass		= NO_REGS;
-enum reg_class rs6000_vsx_int_regclass		= NO_REGS;
-enum reg_class rs6000_vsx_logical_regclass	= NO_REGS;
 enum reg_class rs6000_vsx_any_regclass		= NO_REGS;
 
 
@@ -1356,7 +1358,7 @@ rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
   unsigned HOST_WIDE_INT reg_size;
 
   if (FP_REGNO_P (regno))
-    reg_size = ((rs6000_vector_info[mode].move == VECTOR_VSX)
+    reg_size = (VECTOR_UNIT_VSX_P (mode)
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -1386,29 +1388,45 @@ rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
 static int
 rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
+  int last_regno = regno + rs6000_hard_regno_nregs[mode][regno] - 1;
+
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
-     implementations.  */
-  if (TARGET_VSX && VSX_REGNO_P (regno)
-      && rs6000_vector_info[mode].move == VECTOR_VSX)
-    return VSX_REGNO_P (regno + rs6000_hard_regno_nregs[mode][regno] - 1);
+     implementations.  Don't allow an item to be split between a FP register
+     and an Altivec register.  */
+  if (VECTOR_UNIT_VSX_P (mode))
+    {
+      if (FP_REGNO_P (regno))
+	return FP_REGNO_P (last_regno);
+
+      if (ALTIVEC_REGNO_P (regno))
+	return ALTIVEC_REGNO_P (last_regno);
+    }
 
   /* The GPRs can hold any mode, but values bigger than one register
      cannot go past R31.  */
   if (INT_REGNO_P (regno))
-    return INT_REGNO_P (regno + rs6000_hard_regno_nregs[mode][regno] - 1);
+    return INT_REGNO_P (last_regno);
 
   /* The float registers (except for VSX vector modes) can only hold floating
      modes and DImode.  This excludes the 32-bit decimal float mode for
      now.  */
   if (FP_REGNO_P (regno))
-    return
-      ((SCALAR_FLOAT_MODE_P (mode)
-       && (mode != TDmode || (regno % 2) == 0)
-       && FP_REGNO_P (regno + rs6000_hard_regno_nregs[mode][regno] - 1))
-      || (GET_MODE_CLASS (mode) == MODE_INT
+    {
+      if (SCALAR_FLOAT_MODE_P (mode)
+	  && (mode != TDmode || (regno % 2) == 0)
+	  && FP_REGNO_P (last_regno))
+	return 1;
+
+      if (GET_MODE_CLASS (mode) == MODE_INT
 	  && GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD)
-      || (PAIRED_SIMD_REGNO_P (regno) && TARGET_PAIRED_FLOAT
-           && PAIRED_VECTOR_MODE (mode)));
+	return 1;
+
+      if (PAIRED_SIMD_REGNO_P (regno) && TARGET_PAIRED_FLOAT
+	  && PAIRED_VECTOR_MODE (mode))
+	return 1;
+
+      return 0;
+    }
 
   /* The CR register can only hold CC modes.  */
   if (CR_REGNO_P (regno))
@@ -1419,7 +1437,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 
   /* AltiVec only in AldyVec registers.  */
   if (ALTIVEC_REGNO_P (regno))
-    return ALTIVEC_VECTOR_MODE (mode);
+    return VECTOR_UNIT_ALTIVEC_P (mode);
 
   /* ...but GPRs can hold SIMD data on the SPE in one register.  */
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
@@ -1487,130 +1505,104 @@ rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
     }
 }
 
+/* Map enum rs6000_vector to string.  */
+static const char *
+rs6000_debug_vector_unit[] = {
+  "none",
+  "altivec",
+  "vsx",
+  "paired",
+  "spe",
+  "other"
+};
+
 /* Initialize the various global tables that are based on register size.  */
 static void
 rs6000_init_hard_regno_mode_ok (void)
 {
   int r, m, c;
+  enum reg_class vsx_rc = (TARGET_ALTIVEC ? VSX_REGS : FLOAT_REGS);
+  bool float_p = (TARGET_HARD_FLOAT && TARGET_FPRS);
 
   /* Precalculate vector information, this must be set up before the
      rs6000_hard_regno_nregs_internal below.  */
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
+    rs6000_vector_unit[m] = rs6000_vector_mem[m] = VECTOR_NONE;
+
+  if (float_p && TARGET_VSX && TARGET_VSX_VECTOR_DOUBLE)
     {
-      rs6000_vector_info[m].move = VECTOR_NONE;
-      rs6000_vector_info[m].arith = VECTOR_NONE;
-      rs6000_vector_info[m].align = GET_MODE_ALIGNMENT (m);
+      rs6000_vector_unit[V2DFmode] = VECTOR_VSX;
+      rs6000_vector_mem[V2DFmode] = VECTOR_VSX;
+      rs6000_vector_align[V2DFmode] = 64;
     }
 
-  /* Drill down between altivec/VSX to figure out which unit to use.  */
-  if (TARGET_VSX || TARGET_ALTIVEC)
+  if (float_p && TARGET_VSX && TARGET_VSX_VECTOR_FLOAT)
     {
-      if (TARGET_VSX && TARGET_VSX_VECTOR_MOVE)
-	{
-	  rs6000_vector_info[V16QImode].move = VECTOR_VSX;
-	  rs6000_vector_info[V8HImode].move = VECTOR_VSX;
-	  rs6000_vector_info[V4SImode].move = VECTOR_VSX;
-	  rs6000_vector_info[V4SFmode].move = VECTOR_VSX;
-	  rs6000_vector_info[V2DImode].move = VECTOR_VSX;
-	  rs6000_vector_info[V2DFmode].move = VECTOR_VSX;
-	  rs6000_vector_info[V16QImode].align = 32;
-	  rs6000_vector_info[V8HImode].align = 32;
-	  rs6000_vector_info[V4SImode].align = 32;
-	  rs6000_vector_info[V4SFmode].align = 32;
-	  rs6000_vector_info[V2DImode].align = 64;
-	  rs6000_vector_info[V2DFmode].align = 64;
-	}
-      else if (TARGET_ALTIVEC)
-	{
-	  rs6000_vector_info[V16QImode].move = VECTOR_ALTIVEC;
-	  rs6000_vector_info[V8HImode].move = VECTOR_ALTIVEC;
-	  rs6000_vector_info[V4SImode].move = VECTOR_ALTIVEC;
-	  rs6000_vector_info[V4SFmode].move = VECTOR_ALTIVEC;
-	  rs6000_vector_info[V16QImode].align = 128;
-	  rs6000_vector_info[V8HImode].align = 128;
-	  rs6000_vector_info[V4SImode].align = 128;
-	  rs6000_vector_info[V4SFmode].align = 128;
-	}
+      rs6000_vector_unit[V4SFmode] = VECTOR_VSX;
+      rs6000_vector_align[V4SFmode] = 32;
+    }
+  else if (float_p && TARGET_ALTIVEC)
+    {
+      rs6000_vector_unit[V4SFmode] = VECTOR_ALTIVEC;
+      rs6000_vector_align[V4SFmode] = 128;
+    }
 
-      if (TARGET_VSX && TARGET_VSX_VECTOR_LOGICAL)
-	{
-	  rs6000_vector_info[V16QImode].logical = VECTOR_VSX;
-	  rs6000_vector_info[V8HImode].logical = VECTOR_VSX;
-	  rs6000_vector_info[V4SImode].logical = VECTOR_VSX;
-	  rs6000_vector_info[V4SFmode].logical = VECTOR_VSX;
-	  rs6000_vector_info[V2DImode].logical = VECTOR_VSX;
-	  rs6000_vector_info[V2DFmode].logical = VECTOR_VSX;
-	}
-      else if (TARGET_ALTIVEC)
-	{
-	  rs6000_vector_info[V16QImode].logical = VECTOR_ALTIVEC;
-	  rs6000_vector_info[V8HImode].logical = VECTOR_ALTIVEC;
-	  rs6000_vector_info[V4SImode].logical = VECTOR_ALTIVEC;
-	  rs6000_vector_info[V4SFmode].logical = VECTOR_ALTIVEC;
-	}
+  if (TARGET_VSX && TARGET_VSX_VECTOR_MEMORY)
+    {
+      rs6000_vector_mem[V2DImode] = VECTOR_VSX;
+      rs6000_vector_mem[V4SFmode] = VECTOR_VSX;
+      rs6000_vector_mem[V4SImode] = VECTOR_VSX;
+      rs6000_vector_mem[V8HImode] = VECTOR_VSX;
+      rs6000_vector_mem[V16QImode] = VECTOR_VSX;
+    }
+  else if (TARGET_ALTIVEC)
+    {
+      rs6000_vector_mem[V2DImode] = VECTOR_ALTIVEC;
+      rs6000_vector_mem[V4SFmode] = VECTOR_ALTIVEC;
+      rs6000_vector_mem[V4SImode] = VECTOR_ALTIVEC;
+      rs6000_vector_mem[V8HImode] = VECTOR_ALTIVEC;
+      rs6000_vector_mem[V16QImode] = VECTOR_ALTIVEC;
+    }
 
-      if (TARGET_ALTIVEC)
-	{
-	  rs6000_vector_info[V16QImode].arith = VECTOR_ALTIVEC;
-	  rs6000_vector_info[V8HImode].arith = VECTOR_ALTIVEC;
-	  rs6000_vector_info[V4SImode].arith = VECTOR_ALTIVEC;
-	}
+  if (TARGET_ALTIVEC)
+    {
+      rs6000_vector_unit[V16QImode] = VECTOR_ALTIVEC;
+      rs6000_vector_unit[V8HImode] = VECTOR_ALTIVEC;
+      rs6000_vector_unit[V4SImode] = VECTOR_ALTIVEC;
+      rs6000_vector_align[V16QImode] = 128;
+      rs6000_vector_align[V8HImode] = 128;
+      rs6000_vector_align[V4SImode] = 128;
+    }
 
-      if (TARGET_VSX && TARGET_VSX_VECTOR_FLOAT)
-	rs6000_vector_info[V4SFmode].arith = VECTOR_VSX;
-      else if (TARGET_ALTIVEC)
-	rs6000_vector_info[V4SFmode].arith = VECTOR_ALTIVEC;
-
-      if (TARGET_VSX && TARGET_VSX_VECTOR_DOUBLE)
-	{
-	  rs6000_vector_info[V2DFmode].move = VECTOR_VSX;
-	  rs6000_vector_info[V2DFmode].arith = VECTOR_VSX;
-	  rs6000_vector_info[V2DFmode].align = 64;
-	}
-
-      if (TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
-	{
-	  rs6000_vector_info[DFmode].move = VECTOR_VSX;
-	  rs6000_vector_info[DFmode].arith = VECTOR_VSX;
-	  rs6000_vector_info[DFmode].align = 64;
-	}
+  if (float_p && TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
+    {
+      rs6000_vector_unit[DFmode] = VECTOR_VSX;
+      rs6000_vector_align[DFmode] = 64;
+      rs6000_vector_mem[DFmode]
+	= (TARGET_VSX_VECTOR_MEMORY ? VECTOR_VSX : VECTOR_NONE);
     }
 
   /* TODO, add SPE and paired floating point vector support.  */
 
   /* Set the VSX register classes.  */
   rs6000_vsx_v4sf_regclass
-    = ((TARGET_VSX && TARGET_VSX_VECTOR_MOVE && TARGET_VSX_VECTOR_FLOAT)
-       ? VSX_REGS
-       : ((TARGET_VSX || TARGET_ALTIVEC)
+    = ((VECTOR_UNIT_VSX_P (V4SFmode) && VECTOR_MEM_VSX_P (V4SFmode))
+       ? ALTIVEC_REGS /* vsx_rc */
+       : (VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)
 	  ? ALTIVEC_REGS
 	  : NO_REGS));
 
   rs6000_vsx_v2df_regclass
-    = ((TARGET_VSX && TARGET_VSX_VECTOR_FLOAT)
-       ? FLOAT_REGS /* VSX_REGS */
-       : ((TARGET_VSX || TARGET_ALTIVEC)
-	  ? ALTIVEC_REGS
-	  : NO_REGS));
+    = (VECTOR_UNIT_VSX_P (V2DFmode) ? vsx_rc : NO_REGS);
 
   rs6000_vsx_df_regclass
-    = (!(TARGET_HARD_FLOAT && TARGET_FPRS)
+    = (!float_p
        ? NO_REGS
-       : ((TARGET_VSX && TARGET_VSX_SCALAR_MOVE && TARGET_VSX_SCALAR_DOUBLE)
-	  ? FLOAT_REGS /* VSX_REGS */
+       : ((VECTOR_UNIT_VSX_P (DFmode) && TARGET_VSX_VECTOR_MEMORY > 0)
+	  ? vsx_rc
 	  : FLOAT_REGS));
 
-  rs6000_vsx_int_regclass
-    = ((TARGET_VSX || TARGET_ALTIVEC) ? ALTIVEC_REGS : NO_REGS);
-
-  rs6000_vsx_logical_regclass
-    = ((TARGET_VSX && TARGET_VSX_VECTOR_LOGICAL && TARGET_VSX_VECTOR_MOVE)
-       ? VSX_REGS
-       : ((TARGET_ALTIVEC)
-	  ? ALTIVEC_REGS
-	  : NO_REGS));
-
-  rs6000_vsx_any_regclass = (TARGET_VSX) ? VSX_REGS : NO_REGS;
+  rs6000_vsx_any_regclass = (float_p && TARGET_VSX) ? vsx_rc : NO_REGS;
 
   /* Precalculate HARD_REGNO_NREGS.  */
   for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
@@ -1628,7 +1620,8 @@ rs6000_init_hard_regno_mode_ok (void)
     {
       int reg_size;
 
-      if (TARGET_VSX && (c == FLOAT_REGS || c == ALTIVEC_REGS))
+      if (TARGET_VSX
+	  && (c == FLOAT_REGS || c == ALTIVEC_REGS || c == VSX_REGS))
 	reg_size = UNITS_PER_VSX_WORD;
 
       else if (c == ALTIVEC_REGS)
@@ -1650,6 +1643,8 @@ rs6000_init_hard_regno_mode_ok (void)
 
   if (TARGET_DEBUG_REG)
     {
+      const char *nl = (const char *)0;
+
       fprintf (stderr, "Register information:\n");
       rs6000_debug_reg_print (0, 31, "gr");
       rs6000_debug_reg_print (32, 63, "fp");
@@ -1665,15 +1660,24 @@ rs6000_init_hard_regno_mode_ok (void)
 	       "rs6000_vsx_v4sf_regclass    = %s\n"
 	       "rs6000_vsx_v2df_regclass    = %s\n"
 	       "rs6000_vsx_df_regclass      = %s\n"
-	       "rs6000_vsx_int_regclass     = %s\n"
-	       "rs6000_vsx_logical_regclass = %s\n"
 	       "rs6000_vsx_any_regclass     = %s\n\n",
 	       reg_class_names[rs6000_vsx_v4sf_regclass],
 	       reg_class_names[rs6000_vsx_v2df_regclass],
 	       reg_class_names[rs6000_vsx_df_regclass],
-	       reg_class_names[rs6000_vsx_int_regclass],
-	       reg_class_names[rs6000_vsx_logical_regclass],
 	       reg_class_names[rs6000_vsx_any_regclass]);
+
+      for (m = 0; m < NUM_MACHINE_MODES; ++m)
+	if (rs6000_vector_unit[m] || rs6000_vector_mem[m])
+	  {
+	    nl = "\n";
+	    fprintf (stderr, "Vector mode: %-5s arithmetic: %-8s move: %-8s\n",
+		     GET_MODE_NAME (m),
+		     rs6000_debug_vector_unit[ rs6000_vector_unit[m] ],
+		     rs6000_debug_vector_unit[ rs6000_vector_mem[m] ]);
+	  }
+
+      if (nl)
+	fputs (nl, stderr);
     }
 }
 
@@ -2360,7 +2364,7 @@ rs6000_override_options (const char *default_cpu)
 static tree
 rs6000_builtin_mask_for_load (void)
 {
-  if (TARGET_ALTIVEC)
+  if (TARGET_ALTIVEC && !TARGET_VSX)
     return altivec_builtin_mask_for_load;
   else
     return 0;
@@ -4772,8 +4776,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
      masking of the lower bits.  Strip the outer AND and let reload
      convert the offset address into an indirect address.  */
   if (TARGET_ALTIVEC
-      && ALTIVEC_VECTOR_MODE (mode)
-      && (!TARGET_VSX || !VSX_VECTOR_MODE (mode))
+      && (ALTIVEC_VECTOR_MODE (mode) || VSX_VECTOR_MODE (mode))
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
@@ -4821,8 +4824,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
 {
   /* If this is an unaligned stvx/ldvx type address, discard the outer AND.  */
   if (TARGET_ALTIVEC
-      && (!TARGET_VSX || !VSX_VECTOR_MODE (mode))
-      && ALTIVEC_VECTOR_MODE (mode)
+      && (ALTIVEC_VECTOR_MODE (mode) || VSX_VECTOR_MODE (mode))
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && INTVAL (XEXP (x, 1)) == -16)
@@ -7593,7 +7595,6 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_ALTIVEC, CODE_FOR_vector_vselv8hi, "__builtin_altivec_vsel_8hi", ALTIVEC_BUILTIN_VSEL_8HI },
   { MASK_ALTIVEC, CODE_FOR_vector_vselv16qi, "__builtin_altivec_vsel_16qi", ALTIVEC_BUILTIN_VSEL_16QI },
   { MASK_ALTIVEC, CODE_FOR_vector_vselv2df, "__builtin_altivec_vsel_2df", ALTIVEC_BUILTIN_VSEL_2DF },
-  { MASK_ALTIVEC, CODE_FOR_vector_vselv2di, "__builtin_altivec_vsel_2di", ALTIVEC_BUILTIN_VSEL_2DI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v16qi, "__builtin_altivec_vsldoi_16qi", ALTIVEC_BUILTIN_VSLDOI_16QI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v8hi, "__builtin_altivec_vsldoi_8hi", ALTIVEC_BUILTIN_VSLDOI_8HI },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v4si, "__builtin_altivec_vsldoi_4si", ALTIVEC_BUILTIN_VSLDOI_4SI },
@@ -14298,9 +14299,7 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
   rtx target;
 
   /* VSX/altivec have direct min/max insns.  */
-  if ((code == SMAX || code == SMIN)
-      && (rs6000_vector_info[mode].arith == VECTOR_VSX
-	  || rs6000_vector_info[mode].arith == VECTOR_ALTIVEC))
+  if ((code == SMAX || code == SMIN) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode))
     {
       emit_insn (gen_rtx_SET (VOIDmode,
 			      dest,
@@ -23361,10 +23360,7 @@ rs6000_vector_mode_supported_p (enum machine_mode mode)
   if (TARGET_SPE && SPE_VECTOR_MODE (mode))
     return true;
 
-  else if (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))
-    return true;
-
-  else if (TARGET_VSX && VSX_VECTOR_MODE (mode))
+  else if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode))
     return true;
 
   else
