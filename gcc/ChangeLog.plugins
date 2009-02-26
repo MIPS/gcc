@@ -1,0 +1,19 @@
+2009-02-25  Le-Chun Wu  <lcwu@google.com>
+
+	* configure.ac: Add PLUGINLIBS variable.
+	* configure: Regenerate.
+	* Makefile.in: Add PLUGINLIBS to link command. Add/modify dependencies
+	for plugin.o and files including plugin.h.
+	* tree-pass.h (register_one_dump_file): Add a prototype for
+	register_one_dump_file.
+	* toplev.c (compile_file): Call initialize_plugins.
+	(do_compile): Call invoke_plugin_callbacks.
+	(toplev_main): Call invoke_plugin_callbacks.
+	* opts.c (common_handle_option): Handle OPT_fplugin_ and
+	OPT_fplugin_arg_.
+	* common.opt: Add -fplugin= and -fplugin-arg-.
+	* gcc-plugin.h: New public header file for plugins to include.
+	* plugin.c: New source file.
+	* plugin.h: New internal header file.
+	* passes.c (register_one_dump_file): Make it external.
+	* c-parser.c (c_parser_declspecs): Call invoke_plugin_callbacks.

@@ -523,6 +523,9 @@ extern void execute_pass_list (struct opt_pass *);
 extern void execute_ipa_pass_list (struct opt_pass *);
 extern void print_current_pass (FILE *);
 extern void debug_pass (void);
+/* Need to expose this function externally for the plugin pass management
+   support to register dump files for new passes.  */
+extern void register_one_dump_file (struct opt_pass *);
 
 /* Set to true if the pass is called the first time during compilation of the
    current function.  Note that using this information in the optimization

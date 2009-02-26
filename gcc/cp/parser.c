@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "c-common.h"
+#include "plugin.h"
 
 
 /* The lexer.  */
@@ -10998,6 +10999,8 @@ cp_parser_type_specifier (cp_parser* parser,
       cp_parser_parse_tentatively (parser);
       /* Look for the class-specifier.  */
       type_spec = cp_parser_class_specifier (parser);
+      /* Invoke registered plugin callbacks if any.  */
+      invoke_plugin_callbacks (PLUGIN_FINISH_STRUCT, type_spec);
       /* If that worked, we're done.  */
       if (cp_parser_parse_definitely (parser))
 	{

@@ -3968,6 +3968,8 @@ if test "x${CLOOGLIBS}" != "x" ; then
    AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
 fi
 
+AC_ARG_VAR(PLUGINLIBS,[Libs and linker option needed for plugin support])
+
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)
 

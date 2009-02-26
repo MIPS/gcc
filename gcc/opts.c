@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "dbgcnt.h"
 #include "debug.h"
+#include "plugin.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -1790,6 +1791,14 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fpeel_loops:
       flag_peel_loops_set = true;
+      break;
+
+    case OPT_fplugin_:
+      add_new_plugin (arg);
+      break;
+
+    case OPT_fplugin_arg_:
+      parse_plugin_arg_opt (arg);
       break;
 
     case OPT_fprofile_arcs:

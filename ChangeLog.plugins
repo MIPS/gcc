@@ -1,0 +1,7 @@
+2009-02-25  Le-Chun Wu  <lcwu@google.com>
+
+	* configure.ac: Add --enalbe-plugin support. Set pluginlibs only for
+	ELF targets.
+	* configure: Regenerate.
+	* Makefile.tpl: Define and export PLUGINLIBS.
+	* Makefile.in: Regenerate.
