@@ -1,3 +1,8 @@
+2009-02-25  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/29027
+	* c-lex.c (interpret_float): Default (no suffix) is double.
+
 2009-02-04  Joseph Myers  <joseph@codesourcery.com>
 
 	PR c/35235

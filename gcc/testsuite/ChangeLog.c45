@@ -1,3 +1,11 @@
+2009-02-25  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/29027
+	* gcc.dg/fltconst-1.c: Don't error for use of d or D in suffix.
+	* gcc.dg/fltconst-2.c: New test.
+	* gcc.dg/fltconst-double-pedantic-1.c: New test.
+	* gcc.dg/fltconst-double-pedantic-2.c: New test.
+
 2009-02-23  Janis Johnson  <janis187@us.ibm.com>
 
 	PR c/33466
