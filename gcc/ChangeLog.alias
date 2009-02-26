@@ -1,3 +1,24 @@
+2009-02-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39299
+	* tree-ssa-structalias.c (struct variable_info): Remove collapsed_to
+	member.
+	(get_varinfo_fc): Remove.
+	(new_var_info): Do not set collapsed_to.
+	(dump_constraint): Do not follow cycles.
+	(dump_constraint_graph): Likewise.
+	(build_pred_graph): Likewise.
+	(build_succ_graph): Likewise.
+	(rewrite_constraints): Likewise.
+	(do_simple_structure_copy): Remove.
+	(do_rhs_deref_structure_copy): Remove.
+	(do_lhs_deref_structure_copy): Remove.
+	(collapse_rest_of_var): Remove.
+	(do_structure_copy): Re-implement.
+
+	testsuite/
+	* gcc.dg/torture/pta-structcopy-1.c: New testcase.
+
 2009-02-24  Richard Guenther  <rguenther@suse.de>
 
 	* passes.c (execute_one_pass): Initialize dump-files before

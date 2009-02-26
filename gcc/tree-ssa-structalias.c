@@ -233,11 +233,6 @@ struct variable_info
   /* True if this field may contain pointers.  */
   unsigned int may_have_pointers : 1;
 
-  /* Variable id this was collapsed to due to type unsafety.  Zero if
-     this variable was not collapsed.  This should be unused completely
-     after build_succ_graph, or something is broken.  */
-  unsigned int collapsed_to;
-
   /* A link to the variable for the next field in this structure.  */
   struct variable_info *next;
 
@@ -286,18 +281,6 @@ static inline varinfo_t
 get_varinfo (unsigned int n)
 {
   return VEC_index (varinfo_t, varmap, n);
-}
-
-/* Return the varmap element N, following the collapsed_to link.  */
-
-static inline varinfo_t
-get_varinfo_fc (unsigned int n)
-{
-  varinfo_t v = VEC_index (varinfo_t, varmap, n);
-
-  if (v->collapsed_to != 0)
-    return get_varinfo (v->collapsed_to);
-  return v;
 }
 
 /* Static IDs for the special variables.  */
@@ -397,7 +380,6 @@ new_var_info (tree t, unsigned int id, const char *name)
   ret->solution = BITMAP_ALLOC (&pta_obstack);
   ret->oldsolution = BITMAP_ALLOC (&oldpta_obstack);
   ret->next = NULL;
-  ret->collapsed_to = 0;
   return ret;
 }
 
@@ -587,7 +569,7 @@ dump_constraint (FILE *file, constraint_t c)
     fprintf (file, "&");
   else if (c->lhs.type == DEREF)
     fprintf (file, "*");
-  fprintf (file, "%s", get_varinfo_fc (c->lhs.var)->name);
+  fprintf (file, "%s", get_varinfo (c->lhs.var)->name);
   if (c->lhs.offset == UNKNOWN_OFFSET)
     fprintf (file, " + UNKNOWN");
   else if (c->lhs.offset != 0)
@@ -597,7 +579,7 @@ dump_constraint (FILE *file, constraint_t c)
     fprintf (file, "&");
   else if (c->rhs.type == DEREF)
     fprintf (file, "*");
-  fprintf (file, "%s", get_varinfo_fc (c->rhs.var)->name);
+  fprintf (file, "%s", get_varinfo (c->rhs.var)->name);
   if (c->rhs.offset == UNKNOWN_OFFSET)
     fprintf (file, " + UNKNOWN");
   else if (c->rhs.offset != 0)
@@ -644,8 +626,8 @@ dump_constraint_edge (FILE *file, constraint_t c)
 {
   if (c->rhs.type != ADDRESSOF)
     {
-      const char *src = get_varinfo_fc (c->rhs.var)->name;
-      const char *dst = get_varinfo_fc (c->lhs.var)->name;
+      const char *src = get_varinfo (c->rhs.var)->name;
+      const char *dst = get_varinfo (c->lhs.var)->name;
       fprintf (file, "  \"%s\" -> \"%s\" ", src, dst);
       /* Due to preprocessing of constraints, instructions like *a = *b are
          illegal; thus, we do not have to handle such cases.  */
@@ -699,7 +681,7 @@ dump_constraint_graph (FILE *file)
   size = size < graph->size ? size : graph->size;
   for (i = 0; i < size; i++)
     {
-      const char *name = get_varinfo_fc (graph->rep[i])->name;
+      const char *name = get_varinfo (graph->rep[i])->name;
       fprintf (file, "  \"%s\" ;\n", name);
     }
 
@@ -1176,8 +1158,8 @@ build_pred_graph (void)
     {
       struct constraint_expr lhs = c->lhs;
       struct constraint_expr rhs = c->rhs;
-      unsigned int lhsvar = get_varinfo_fc (lhs.var)->id;
-      unsigned int rhsvar = get_varinfo_fc (rhs.var)->id;
+      unsigned int lhsvar = lhs.var;
+      unsigned int rhsvar = rhs.var;
 
       if (lhs.type == DEREF)
 	{
@@ -1263,8 +1245,8 @@ build_succ_graph (void)
 
       lhs = c->lhs;
       rhs = c->rhs;
-      lhsvar = find (get_varinfo_fc (lhs.var)->id);
-      rhsvar = find (get_varinfo_fc (rhs.var)->id);
+      lhsvar = find (lhs.var);
+      rhsvar = find (rhs.var);
 
       if (lhs.type == DEREF)
 	{
@@ -1279,8 +1261,7 @@ build_succ_graph (void)
       else if (rhs.type == ADDRESSOF)
 	{
 	  /* x = &y */
-	  gcc_assert (find (get_varinfo_fc (rhs.var)->id)
-		      == get_varinfo_fc (rhs.var)->id);
+	  gcc_assert (find (rhs.var) == rhs.var);
 	  bitmap_set_bit (get_varinfo (lhsvar)->solution, rhsvar);
 	}
       else if (lhsvar > anything_id
@@ -2367,8 +2348,8 @@ rewrite_constraints (constraint_graph_t graph,
     {
       struct constraint_expr lhs = c->lhs;
       struct constraint_expr rhs = c->rhs;
-      unsigned int lhsvar = find (get_varinfo_fc (lhs.var)->id);
-      unsigned int rhsvar = find (get_varinfo_fc (rhs.var)->id);
+      unsigned int lhsvar = find (lhs.var);
+      unsigned int rhsvar = find (rhs.var);
       unsigned int lhsnode, rhsnode;
       unsigned int lhslabel, rhslabel;
 
@@ -3181,6 +3162,9 @@ get_constraint_for_1 (tree t, VEC (ce_s, heap) **results, bool address_p)
 	  case COMPONENT_REF:
 	    get_constraint_for_component_ref (t, results, address_p);
 	    return;
+	  case VIEW_CONVERT_EXPR:
+	    get_constraint_for_1 (TREE_OPERAND (t, 0), results, address_p);
+	    return;
 	  default:;
 	  }
 	break;
@@ -3223,277 +3207,83 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
   get_constraint_for_1 (t, results, false);
 }
 
-/* Handle the structure copy case where we have a simple structure copy
-   between LHS and RHS that is of SIZE (in bits)
-
-   For each field of the lhs variable (lhsfield)
-     For each field of the rhs variable at lhsfield.offset (rhsfield)
-       add the constraint lhsfield = rhsfield
-
-   If we fail due to some kind of type unsafety or other thing we
-   can't handle, return false.  We expect the caller to collapse the
-   variable in that case.  */
-
-static bool
-do_simple_structure_copy (const struct constraint_expr lhs,
-			  const struct constraint_expr rhs,
-			  const unsigned HOST_WIDE_INT size)
-{
-  varinfo_t p = get_varinfo (lhs.var);
-  unsigned HOST_WIDE_INT pstart, last;
-  pstart = p->offset;
-  last = p->offset + size;
-  for (; p && p->offset < last; p = p->next)
-    {
-      varinfo_t q;
-      struct constraint_expr templhs = lhs;
-      struct constraint_expr temprhs = rhs;
-      unsigned HOST_WIDE_INT fieldoffset;
-
-      templhs.var = p->id;
-      q = get_varinfo (temprhs.var);
-      fieldoffset = p->offset - pstart;
-      q = first_vi_for_offset (q, q->offset + fieldoffset);
-      if (!q)
-	return false;
-      temprhs.var = q->id;
-      process_constraint (new_constraint (templhs, temprhs));
-    }
-  return true;
-}
-
-
-/* Handle the structure copy case where we have a  structure copy between a
-   aggregate on the LHS and a dereference of a pointer on the RHS
-   that is of SIZE (in bits)
-
-   For each field of the lhs variable (lhsfield)
-       rhs.offset = lhsfield->offset
-       add the constraint lhsfield = rhs
-*/
-
-static void
-do_rhs_deref_structure_copy (const struct constraint_expr lhs,
-			     const struct constraint_expr rhs,
-			     const unsigned HOST_WIDE_INT size)
-{
-  varinfo_t p = get_varinfo (lhs.var);
-  unsigned HOST_WIDE_INT pstart,last;
-  pstart = p->offset;
-  last = p->offset + size;
-
-  for (; p && p->offset < last; p = p->next)
-    {
-      varinfo_t q;
-      struct constraint_expr templhs = lhs;
-      struct constraint_expr temprhs = rhs;
-      unsigned HOST_WIDE_INT fieldoffset;
-
-
-      if (templhs.type == SCALAR)
-	templhs.var = p->id;
-      else
-	templhs.offset = p->offset;
-
-      q = get_varinfo (temprhs.var);
-      fieldoffset = p->offset - pstart;
-      temprhs.offset += fieldoffset;
-      process_constraint (new_constraint (templhs, temprhs));
-    }
-}
-
-/* Handle the structure copy case where we have a structure copy
-   between an aggregate on the RHS and a dereference of a pointer on
-   the LHS that is of SIZE (in bits)
-
-   For each field of the rhs variable (rhsfield)
-       lhs.offset = rhsfield->offset
-       add the constraint lhs = rhsfield
-*/
-
-static void
-do_lhs_deref_structure_copy (const struct constraint_expr lhs,
-			     const struct constraint_expr rhs,
-			     const unsigned HOST_WIDE_INT size)
-{
-  varinfo_t p = get_varinfo (rhs.var);
-  unsigned HOST_WIDE_INT pstart,last;
-  pstart = p->offset;
-  last = p->offset + size;
-
-  for (; p && p->offset < last; p = p->next)
-    {
-      varinfo_t q;
-      struct constraint_expr templhs = lhs;
-      struct constraint_expr temprhs = rhs;
-      unsigned HOST_WIDE_INT fieldoffset;
-
-
-      if (temprhs.type == SCALAR)
-	temprhs.var = p->id;
-      else
-	temprhs.offset = p->offset;
-
-      q = get_varinfo (templhs.var);
-      fieldoffset = p->offset - pstart;
-      templhs.offset += fieldoffset;
-      process_constraint (new_constraint (templhs, temprhs));
-    }
-}
-
-/* Sometimes, frontends like to give us bad type information.  This
-   function will collapse all the fields from VAR to the end of VAR,
-   into VAR, so that we treat those fields as a single variable.
-   We return the variable they were collapsed into.  */
-
-static unsigned int
-collapse_rest_of_var (unsigned int var)
-{
-  varinfo_t currvar = get_varinfo (var);
-  varinfo_t field;
-
-  for (field = currvar->next; field; field = field->next)
-    {
-      if (dump_file)
-	fprintf (dump_file, "Type safety: Collapsing var %s into %s\n",
-		 field->name, currvar->name);
-
-      gcc_assert (field->collapsed_to == 0);
-      field->collapsed_to = currvar->id;
-    }
-
-  currvar->next = NULL;
-  currvar->size = currvar->fullsize - currvar->offset;
-
-  return currvar->id;
-}
-
 /* Handle aggregate copies by expanding into copies of the respective
    fields of the structures.  */
 
 static void
 do_structure_copy (tree lhsop, tree rhsop)
 {
-  struct constraint_expr lhs, rhs, tmp;
+  struct constraint_expr *lhsp, *rhsp;
   VEC (ce_s, heap) *lhsc = NULL, *rhsc = NULL;
-  varinfo_t p;
-  unsigned HOST_WIDE_INT lhssize;
-  unsigned HOST_WIDE_INT rhssize;
+  unsigned j;
 
-  /* Pretend we are taking the address of the constraint exprs.
-     We deal with walking the sub-fields ourselves.  */
-  get_constraint_for_1 (lhsop, &lhsc, true);
-  get_constraint_for_1 (rhsop, &rhsc, true);
-  gcc_assert (VEC_length (ce_s, lhsc) == 1);
-  gcc_assert (VEC_length (ce_s, rhsc) == 1);
-  lhs = *(VEC_last (ce_s, lhsc));
-  rhs = *(VEC_last (ce_s, rhsc));
-
-  VEC_free (ce_s, heap, lhsc);
-  VEC_free (ce_s, heap, rhsc);
-
-  /* If we have special var = x, swap it around.  */
-  if (lhs.var <= integer_id && !(get_varinfo (rhs.var)->is_special_var))
+  get_constraint_for (lhsop, &lhsc);
+  get_constraint_for (rhsop, &rhsc);
+  lhsp = VEC_index (ce_s, lhsc, 0);
+  if (lhsp->type == DEREF)
     {
-      tmp = lhs;
-      lhs = rhs;
-      rhs = tmp;
+      gcc_assert (VEC_length (ce_s, lhsc) == 1);
+      lhsp->offset = UNKNOWN_OFFSET;
+    }
+  rhsp = VEC_index (ce_s, rhsc, 0);
+  if (rhsp->type == DEREF)
+    {
+      gcc_assert (VEC_length (ce_s, rhsc) == 1);
+      rhsp->offset = UNKNOWN_OFFSET;
     }
 
-  /*  This is fairly conservative for the RHS == ADDRESSOF case, in that it's
-      possible it's something we could handle.  However, most cases falling
-      into this are dealing with transparent unions, which are slightly
-      weird. */
-  if (rhs.type == ADDRESSOF && !(get_varinfo (rhs.var)->is_special_var))
+  if (lhsp->type == DEREF
+      || rhsp->type == DEREF)
     {
-      rhs.type = ADDRESSOF;
-      rhs.var = anything_id;
+      struct constraint_expr tmp;
+      tree tmpvar = create_tmp_var_raw (ptr_type_node,
+					"structcopydereftmp");
+      tmp.var = get_vi_for_tree (tmpvar)->id;
+      tmp.type = SCALAR;
+      tmp.offset = 0;
+      for (j = 0; VEC_iterate (ce_s, rhsc, j, rhsp); ++j)
+	process_constraint (new_constraint (tmp, *rhsp));
+      for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); ++j)
+	process_constraint (new_constraint (*lhsp, tmp));
     }
-
-  /* If the RHS is a special var, or an addressof, set all the LHS fields to
-     that special var.  */
-  if (rhs.var <= integer_id)
+  else if (lhsp->type == SCALAR
+	   && (rhsp->type == SCALAR
+	       || rhsp->type == ADDRESSOF))
     {
-      for (p = get_varinfo (lhs.var); p; p = p->next)
+      tree lhsbase, rhsbase;
+      HOST_WIDE_INT lhssize, lhsmaxsize, lhsoffset;
+      HOST_WIDE_INT rhssize, rhsmaxsize, rhsoffset;
+      unsigned k = 0;
+      lhsbase = get_ref_base_and_extent (lhsop, &lhsoffset,
+					 &lhssize, &lhsmaxsize);
+      rhsbase = get_ref_base_and_extent (rhsop, &rhsoffset,
+					 &rhssize, &rhsmaxsize);
+      for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp);)
 	{
-	  struct constraint_expr templhs = lhs;
-	  struct constraint_expr temprhs = rhs;
-
-	  if (templhs.type == SCALAR )
-	    templhs.var = p->id;
+	  varinfo_t lhsv, rhsv;
+	  rhsp = VEC_index (ce_s, rhsc, k);
+	  lhsv = get_varinfo (lhsp->var);
+	  rhsv = get_varinfo (rhsp->var);
+	  if (lhsv->may_have_pointers
+	      && ranges_overlap_p (lhsv->offset + rhsoffset, lhsv->size,
+				   rhsv->offset + lhsoffset, rhsv->size))
+	    process_constraint (new_constraint (*lhsp, *rhsp));
+	  if (lhsv->offset + rhsoffset + lhsv->size
+	      > rhsv->offset + lhsoffset + rhsv->size)
+	    {
+	      ++k;
+	      if (k >= VEC_length (ce_s, rhsc))
+		break;
+	    }
 	  else
-	    templhs.offset += p->offset;
-	  process_constraint (new_constraint (templhs, temprhs));
+	    ++j;
 	}
     }
   else
-    {
-      tree rhstype = TREE_TYPE (rhsop);
-      tree lhstype = TREE_TYPE (lhsop);
-      tree rhstypesize;
-      tree lhstypesize;
+    gcc_unreachable ();
 
-      lhstypesize = DECL_P (lhsop) ? DECL_SIZE (lhsop) : TYPE_SIZE (lhstype);
-      rhstypesize = DECL_P (rhsop) ? DECL_SIZE (rhsop) : TYPE_SIZE (rhstype);
-
-      /* If we have a variably sized types on the rhs or lhs, and a deref
-	 constraint, add the constraint, lhsconstraint = &ANYTHING.
-	 This is conservatively correct because either the lhs is an unknown
-	 sized var (if the constraint is SCALAR), or the lhs is a DEREF
-	 constraint, and every variable it can point to must be unknown sized
-	 anyway, so we don't need to worry about fields at all.  */
-      if ((rhs.type == DEREF && TREE_CODE (rhstypesize) != INTEGER_CST)
-	  || (lhs.type == DEREF && TREE_CODE (lhstypesize) != INTEGER_CST))
-	{
-	  rhs.var = anything_id;
-	  rhs.type = ADDRESSOF;
-	  rhs.offset = 0;
-	  process_constraint (new_constraint (lhs, rhs));
-	  return;
-	}
-
-      /* The size only really matters insofar as we don't set more or less of
-	 the variable.  If we hit an unknown size var, the size should be the
-	 whole darn thing.  */
-      if (get_varinfo (rhs.var)->is_unknown_size_var)
-	rhssize = ~0;
-      else
-	rhssize = TREE_INT_CST_LOW (rhstypesize);
-
-      if (get_varinfo (lhs.var)->is_unknown_size_var)
-	lhssize = ~0;
-      else
-	lhssize = TREE_INT_CST_LOW (lhstypesize);
-
-
-      if (rhs.type == SCALAR && lhs.type == SCALAR)
-	{
-	  if (!do_simple_structure_copy (lhs, rhs, MIN (lhssize, rhssize)))
-	    {
-	      lhs.var = collapse_rest_of_var (get_varinfo_fc (lhs.var)->id);
-	      rhs.var = collapse_rest_of_var (get_varinfo_fc (rhs.var)->id);
-	      lhs.offset = 0;
-	      rhs.offset = 0;
-	      lhs.type = SCALAR;
-	      rhs.type = SCALAR;
-	      process_constraint (new_constraint (lhs, rhs));
-	    }
-	}
-      else if (lhs.type != DEREF && rhs.type == DEREF)
-	do_rhs_deref_structure_copy (lhs, rhs, MIN (lhssize, rhssize));
-      else if (lhs.type == DEREF && rhs.type != DEREF)
-	do_lhs_deref_structure_copy (lhs, rhs, MIN (lhssize, rhssize));
-      else
-	{
-	  tree pointedtotype = lhstype;
-	  tree tmpvar;
-
-	  gcc_assert (rhs.type == DEREF && lhs.type == DEREF);
-	  tmpvar = create_tmp_var_raw (pointedtotype, "structcopydereftmp");
-	  do_structure_copy (tmpvar, rhsop);
-	  do_structure_copy (lhsop, tmpvar);
-	}
-    }
+  VEC_free (ce_s, heap, lhsc);
+  VEC_free (ce_s, heap, rhsc);
 }
 
 /* Create a constraint ID = OP.  */
