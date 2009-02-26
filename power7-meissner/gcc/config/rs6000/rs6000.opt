@@ -120,11 +120,11 @@ Target Report Mask(VSX)
 Use vector/scalar (VSX) instructions.
 
 mvsx-vector-memory
-Target Report Var(TARGET_VSX_VECTOR_MEMORY)
+Target Report Var(TARGET_VSX_VECTOR_MEMORY) Init(-1)
 If -mvsx, use VSX vector load/store instructions instead of Altivec instructions
 
 mvsx-vector-float
-Target Report Var(TARGET_VSX_VECTOR_FLOAT)
+Target Report Var(TARGET_VSX_VECTOR_FLOAT) Init(-1)
 If -mvsx, use VSX arithmetic instructions for float vectors
 
 mvsx-vector-double

@@ -297,15 +297,13 @@ struct builtin_description
 /* Describe the vector unit used for modes.  */
 enum rs6000_vector rs6000_vector_unit[NUM_MACHINE_MODES];
 enum rs6000_vector rs6000_vector_mem[NUM_MACHINE_MODES];
+enum reg_class rs6000_vector_reg_class[NUM_MACHINE_MODES];
 
 /* Describe the alignment of a vector.  */
 int rs6000_vector_align[NUM_MACHINE_MODES];
 
 /* Describe the register classes used by VSX instructions.  */
-enum reg_class rs6000_vsx_v4sf_regclass		= NO_REGS;
-enum reg_class rs6000_vsx_v2df_regclass		= NO_REGS;
-enum reg_class rs6000_vsx_df_regclass		= NO_REGS;
-enum reg_class rs6000_vsx_any_regclass		= NO_REGS;
+enum reg_class rs6000_vsx_reg_class = NO_REGS;
 
 
 /* Target cpu costs.  */
@@ -1395,11 +1393,14 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
      and an Altivec register.  */
   if (VECTOR_UNIT_VSX_P (mode))
     {
+      enum reg_class rclass = rs6000_vector_reg_class[mode];
       if (FP_REGNO_P (regno))
-	return FP_REGNO_P (last_regno);
+	return ((rclass == FLOAT_REGS || rclass == VSX_REGS)
+		&& FP_REGNO_P (last_regno));
 
       if (ALTIVEC_REGNO_P (regno))
-	return ALTIVEC_REGNO_P (last_regno);
+	return ((rclass == ALTIVEC_REGS || rclass == VSX_REGS)
+		&& ALTIVEC_REGNO_P (last_regno));
     }
 
   /* The GPRs can hold any mode, but values bigger than one register
@@ -1437,7 +1438,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 
   /* AltiVec only in AldyVec registers.  */
   if (ALTIVEC_REGNO_P (regno))
-    return VECTOR_UNIT_ALTIVEC_P (mode);
+    return VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode);
 
   /* ...but GPRs can hold SIMD data on the SPE in one register.  */
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
@@ -1527,7 +1528,10 @@ rs6000_init_hard_regno_mode_ok (void)
   /* Precalculate vector information, this must be set up before the
      rs6000_hard_regno_nregs_internal below.  */
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
-    rs6000_vector_unit[m] = rs6000_vector_mem[m] = VECTOR_NONE;
+    {
+      rs6000_vector_unit[m] = rs6000_vector_mem[m] = VECTOR_NONE;
+      rs6000_vector_reg_class[m] = NO_REGS;
+    }
 
   if (float_p && TARGET_VSX && TARGET_VSX_VECTOR_DOUBLE)
     {
@@ -1585,24 +1589,31 @@ rs6000_init_hard_regno_mode_ok (void)
   /* TODO, add SPE and paired floating point vector support.  */
 
   /* Set the VSX register classes.  */
-  rs6000_vsx_v4sf_regclass
+  rs6000_vector_reg_class[V4SFmode]
     = ((VECTOR_UNIT_VSX_P (V4SFmode) && VECTOR_MEM_VSX_P (V4SFmode))
-       ? ALTIVEC_REGS /* vsx_rc */
+       ? vsx_rc
        : (VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)
 	  ? ALTIVEC_REGS
 	  : NO_REGS));
 
-  rs6000_vsx_v2df_regclass
+  rs6000_vector_reg_class[V2DFmode]
     = (VECTOR_UNIT_VSX_P (V2DFmode) ? vsx_rc : NO_REGS);
 
-  rs6000_vsx_df_regclass
+  rs6000_vector_reg_class[DFmode]
     = (!float_p
        ? NO_REGS
        : ((VECTOR_UNIT_VSX_P (DFmode) && TARGET_VSX_VECTOR_MEMORY > 0)
 	  ? vsx_rc
 	  : FLOAT_REGS));
 
-  rs6000_vsx_any_regclass = (float_p && TARGET_VSX) ? vsx_rc : NO_REGS;
+  if (TARGET_ALTIVEC)
+    {
+      rs6000_vector_reg_class[V16QImode] = ALTIVEC_REGS;
+      rs6000_vector_reg_class[V8HImode] = ALTIVEC_REGS;
+      rs6000_vector_reg_class[V4SImode] = ALTIVEC_REGS;
+    }
+
+  rs6000_vsx_reg_class = (float_p && TARGET_VSX) ? vsx_rc : NO_REGS;
 
   /* Precalculate HARD_REGNO_NREGS.  */
   for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
@@ -1620,8 +1631,7 @@ rs6000_init_hard_regno_mode_ok (void)
     {
       int reg_size;
 
-      if (TARGET_VSX
-	  && (c == FLOAT_REGS || c == ALTIVEC_REGS || c == VSX_REGS))
+      if (TARGET_VSX && VSX_REG_CLASS_P (c))
 	reg_size = UNITS_PER_VSX_WORD;
 
       else if (c == ALTIVEC_REGS)
@@ -1657,14 +1667,22 @@ rs6000_init_hard_regno_mode_ok (void)
 
       fprintf (stderr,
 	       "\n"
-	       "rs6000_vsx_v4sf_regclass    = %s\n"
-	       "rs6000_vsx_v2df_regclass    = %s\n"
-	       "rs6000_vsx_df_regclass      = %s\n"
-	       "rs6000_vsx_any_regclass     = %s\n\n",
-	       reg_class_names[rs6000_vsx_v4sf_regclass],
-	       reg_class_names[rs6000_vsx_v2df_regclass],
-	       reg_class_names[rs6000_vsx_df_regclass],
-	       reg_class_names[rs6000_vsx_any_regclass]);
+	       "V16QI reg_class = %s\n"
+	       "V8HI  reg_class = %s\n"
+	       "V4SI  reg_class = %s\n"
+	       "V2DI  reg_class = %s\n"
+	       "V4SF  reg_class = %s\n"
+	       "V2DF  reg_class = %s\n"
+	       "DF    reg_class = %s\n"
+	       "vsx   reg_class = %s\n\n",
+	       reg_class_names[rs6000_vector_reg_class[V16QImode]],
+	       reg_class_names[rs6000_vector_reg_class[V8HImode]],
+	       reg_class_names[rs6000_vector_reg_class[V4SImode]],
+	       reg_class_names[rs6000_vector_reg_class[V2DImode]],
+	       reg_class_names[rs6000_vector_reg_class[V4SFmode]],
+	       reg_class_names[rs6000_vector_reg_class[V2DFmode]],
+	       reg_class_names[rs6000_vector_reg_class[DFmode]],
+	       reg_class_names[rs6000_vsx_reg_class]);
 
       for (m = 0; m < NUM_MACHINE_MODES; ++m)
 	if (rs6000_vector_unit[m] || rs6000_vector_mem[m])
@@ -12042,8 +12060,7 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
   enum machine_mode mode = GET_MODE (x);
 
   if (TARGET_VSX && VSX_VECTOR_MODE (mode) && x == CONST0_RTX (mode)
-      && (rclass == FLOAT_REGS || rclass == VSX_REGS
-	  || rclass == ALTIVEC_REGS))
+      && VSX_REG_CLASS_P (rclass))
     return rclass;
 
   if (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode) && rclass == ALTIVEC_REGS
@@ -12056,13 +12073,24 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
   if (GET_MODE_CLASS (mode) == MODE_INT && rclass == NON_SPECIAL_REGS)
     return GENERAL_REGS;
 
+  /* For VSX, prefer the traditional registers.  */
+  if (rclass == VSX_REGS)
+    {
+      if (mode == DFmode)
+	return FLOAT_REGS;
+
+      if (ALTIVEC_VECTOR_MODE (mode))
+	return ALTIVEC_REGS;
+    }
+
   return rclass;
 }
 
-/* If we are copying between FP or AltiVec registers and anything
-   else, we need a memory location.  The exception is when we are
-   targeting ppc64 and the move to/from fpr to gpr instructions
-   are available.*/
+/* If we are copying between FP or AltiVec registers and anything else, we need
+   a memory location.  The exception is when we are targeting ppc64 and the
+   move to/from fpr to gpr instructions are available.  Also, under VSX, you
+   can copy vector registers from the FP register set to the Altivec register
+   set and vice versa.  */
 
 bool
 rs6000_secondary_memory_needed (enum reg_class class1,
@@ -12070,6 +12098,10 @@ rs6000_secondary_memory_needed (enum reg_class class1,
 				enum machine_mode mode)
 {
   if (class1 == class2)
+    return false;
+
+  if (TARGET_VSX && VSX_MOVE_MODE (mode) && VSX_REG_CLASS_P (class1)
+      && VSX_REG_CLASS_P (class2))
     return false;
 
   if (class1 == FLOAT_REGS
@@ -12098,7 +12130,7 @@ rs6000_secondary_memory_needed (enum reg_class class1,
 
 enum reg_class
 rs6000_secondary_reload_class (enum reg_class rclass,
-			       enum machine_mode mode ATTRIBUTE_UNUSED,
+			       enum machine_mode mode,
 			       rtx in)
 {
   int regno;
@@ -12153,6 +12185,13 @@ rs6000_secondary_reload_class (enum reg_class rclass,
   if ((regno == -1 || FP_REGNO_P (regno))
       && (rclass == FLOAT_REGS || rclass == NON_SPECIAL_REGS))
     return (mode != SDmode) ? NO_REGS : GENERAL_REGS;
+
+  /* Memory, and FP/altivec registers can go into fp/altivec registers under
+     VSX.  */
+  if (TARGET_VSX
+      && (regno == -1 || VSX_REGNO_P (regno))
+      && VSX_REG_CLASS_P (rclass))
+    return NO_REGS;
 
   /* Memory, and AltiVec registers can go into AltiVec registers.  */
   if ((regno == -1 || ALTIVEC_REGNO_P (regno))

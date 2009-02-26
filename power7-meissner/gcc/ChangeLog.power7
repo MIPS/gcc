@@ -1,3 +1,47 @@
+2009-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md ("wd" constraint):  Change the
+	variable that holds the register class to use.
+	("wf" constraint): Ditto.
+	("ws" constraint): Ditto.
+	("wa" constraint): Ditto.
+
+	* config/rs6000/rs6000.opt (-mvsx-vector-memory): Make this on by
+	default.
+	(-mvsx-vector-float): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_vector_reg_class): New global to
+	hold the register classes for the vector modes.
+	(rs6000_vsx_v4sf_regclass): Delete, move into
+	rs6000_vector_reg_class.
+	(rs6000_vsx_v2df_regclass): Ditto.
+	(rs6000_vsx_df_regclass): Ditto.
+	(rs6000_vsx_reg_class): Rename from rs6000_vsx_any_regclass.
+	(rs6000_hard_regno_mode_ok): Rework VSX, Altivec registers.
+	(rs6000_init_hard_regno_mode_ok): Setup rs6000_vector_reg_class.
+	Drop rs6000_vsx_*_regclass.  By default, use all 64 registers for
+	V4SF and V2DF.  Use VSX_REG_CLASS_P macro instead of separate
+	tests.  Update -mdebug=reg printout.
+	(rs6000_preferred_reload_class): If VSX, prefer FLOAT_REGS for
+	scalar floating point and ALTIVEC_REGS for the types that have
+	altivec instructions.
+	(rs6000_secondary_memory_needed): If VSX, we can copy between FPR
+	and Altivec registers without needed memory.
+	(rs6000_secondary_reload_class): Delete ATTRIBUTE_UNUSED from an
+	argument that is used.  If VSX, we can copy between FPR and
+	Altivec registers directly.
+
+	* config/rs6000/rs6000.h (VSX_MOVE_MODE): Add in the Altivec
+	types.
+	(rs6000_vsx_v4sf_regclass): Delete.
+	(rs6000_vsx_v2df_regclass): Ditto.
+	(rs6000_vsx_df_regclass): Ditto.
+	(rs6000_vsx_reg_class): Rename from rs6000_vsx_any_reg_class.
+	(rs6000_vector_reg_class): New global to map machine mode to the
+	preferred register class to use for that mode.
+	(VSX_REG_CLASS_P): New macro to return true for all of the
+	register classes VSX items can be in.
+
 2009-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi (-mvsx-vector-memory): Rename from

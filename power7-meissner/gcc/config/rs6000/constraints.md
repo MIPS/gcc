@@ -54,19 +54,19 @@
 
 ;; Use w as a prefix to add VSX modes
 ;; vector double (V2DF)
-(define_register_constraint "wd" "rs6000_vsx_v2df_regclass"
+(define_register_constraint "wd" "rs6000_vector_reg_class[V2DFmode]"
   "@internal")
 
 ;; vector float (V4SF)
-(define_register_constraint "wf" "rs6000_vsx_v4sf_regclass"
+(define_register_constraint "wf" "rs6000_vector_reg_class[V4SFmode]"
   "@internal")
 
 ;; scalar double (DF)
-(define_register_constraint "ws" "rs6000_vsx_df_regclass"
+(define_register_constraint "ws" "rs6000_vector_reg_class[DFmode]"
   "@internal")
 
 ;; any VSX register
-(define_register_constraint "wa" "rs6000_vsx_any_regclass"
+(define_register_constraint "wa" "rs6000_vsx_reg_class"
   "@internal")
 
 ;; Integer constraints

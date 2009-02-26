@@ -1019,7 +1019,11 @@ extern int rs6000_vector_align[];
 
 #define VSX_MOVE_MODE(MODE)		\
 	(VSX_VECTOR_MOVE_MODE (MODE)	\
-	 || VSX_SCALAR_MODE(MODE))
+	 || VSX_SCALAR_MODE(MODE)	\
+	 || (MODE) == V16QImode		\
+	 || (MODE) == V8HImode		\
+	 || (MODE) == V4SImode		\
+	 || (MODE) == V2DImode)
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\
@@ -1303,14 +1307,16 @@ enum reg_class
   : NO_REGS)
 
 /* VSX register classes.  */
-extern enum reg_class rs6000_vsx_v4sf_regclass;
-extern enum reg_class rs6000_vsx_v2df_regclass;
-extern enum reg_class rs6000_vsx_df_regclass;
-extern enum reg_class rs6000_vsx_any_regclass;
+extern enum reg_class rs6000_vector_reg_class[];
+extern enum reg_class rs6000_vsx_reg_class;
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS
 #define BASE_REG_CLASS BASE_REGS
+
+/* Return whether a given register class can hold VSX objects.  */
+#define VSX_REG_CLASS_P(CLASS)			\
+  ((CLASS) == VSX_REGS || (CLASS) == FLOAT_REGS || (CLASS) == ALTIVEC_REGS)
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
