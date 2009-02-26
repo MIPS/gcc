@@ -1,4 +1,95 @@
-2008-02-21  H.J. Lu  <hongjiu.lu@intel.com>
+2009-02-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/39241
+	* jump.c (rtx_renumbered_equal_p): Remove 2 superfluous calls
+	to subreg_offset_representable_p.
+
+2009-02-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* regmove.c (regmove_optimize): Conform to struct rtl_opt_pass
+	execute function prototype.  Get f and nregs from max_reg_num
+	and get_insns.  Remove the first backward pass as it's dead,
+	guard the forward pass by flag_expensive_optimizations.
+	(rest_of_handle_regmove): Delete.
+	(pass_regmove): Replace it with regmove_optimize.
+
+2009-02-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/39259
+	* tree-inline.c (initialize_cfun): Remove asserts for calls_setjmp and
+	alls_alloca function flags.
+	(copy_bb): Set calls_setjmp and alls_alloca function flags if such
+	calls are detected.
+
+2009-02-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* regmove.c (discover_flags_reg, flags_set_1, mark_flags_life_zones,
+	flags_set_1_rtx, flags_set_1_set): Delete.
+	(regmove_optimize): Do not call mark_flags_life_zones.
+
+2009-02-24  Julian Brown  <julian@codesourcery.com>
+
+	PR target/35965
+	* config/arm/arm.c (require_pic_register): Only set
+	cfun->machine->pic_reg once per function.
+
+2009-02-24  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi (Link Options): Document an easier way to pass
+	options that take arguments to the GNU linker using -Xlinker and
+	-Wl.
+
+2009-02-24  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/33785
+	* doc/tm.texi (TARGET_C99_FUNCTIONS): Fix description.
+
+2009-02-24  Richard Guenther  <rguenther@suse.de>
+
+	PR debug/39285
+	* dwarf2out.c (gen_enumeration_type_die): Handle CONST_DECLs.
+
+2009-02-24  Richard Guenther  <rguenther@suse.de>
+	    Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/39233
+	* tree-ssa-loop-ivopts.c (add_candidate_1): Do not except pointers
+	from converting them to a generic type.
+
+2009-02-23  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/39260
+	* graphite.c (harmful_stmt_in_bb): Stop a SCoP when the basic block
+	contains a condition with a real type.
+	(build_scop_conditions_1): Conditions are always last_stmt of a bb.
+
+2009-02-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38880
+	* varasm.c (initializer_constant_valid_p) [PLUS_EXPR]: Check
+	narrowing_initializer_constant_valid_p.
+	(narrowing_initializer_constant_valid_p): Don't return 
+	null_pointer_node for adding a pointer to itself.
+
+2009-02-23  Jan Hubicka  <jh@suse.cz>
+
+	PR c/12245
+	* ggc.h (htab_create_ggc): Use ggc_free to free hashtable when resizing.
+
+2009-02-23  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/37709                                              
+	* tree.c (block_ultimate_origin): Move here from dwarf2out.             
+	* tree.h (block_ultimate_origin): Declare.                              
+	* dwarf2out.c (block_ultimate_origin): Move to tree.c                   
+	* tree-ssa-live.c (remove_unused_scope_block_p):
+	Eliminate blocks containig no instructions nor live variables nor
+	nested blocks.
+	(dump_scope_block): New function.
+	(remove_unused_locals): Enable removal of dead blocks by default;
+	enable dumping at TDF_DETAILS.                                          
+
+2009-02-21  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (classify_argument): Don't allow COImode
 	and OImode.
@@ -8,7 +99,7 @@
 	(return_in_memory_32): Likewise.
 	(function_arg_64): Remove OImode comment.
 
-2008-02-21  H.J. Lu  <hongjiu.lu@intel.com>
+2009-02-21  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/39261
 	* config/i386/i386.c (ix86_expand_vector_init_one_nonzero): Use
@@ -25,7 +116,7 @@
 	* loop-iv.c: Revert last change.
 	* emit-rtl.c: Likewise.
 
-2008-02-21  H.J. Lu  <hongjiu.lu@intel.com>
+2009-02-21  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/39256
 	* config/i386/i386.c (type_natural_mode): Remove an extra
@@ -341,7 +432,7 @@
 	(function_arg_32): Don't warn ABX ABI change here.
 	(function_arg_64): Likewise.
 
-2008-02-13  Bernd Schmidt  <bernd.schmidt@analog.com>
+2009-02-13  Bernd Schmidt  <bernd.schmidt@analog.com>
 
 	* loop-iv.c (implies_p): In the final case, test that operands 0
 	of the two comparisons match.
@@ -901,12 +992,12 @@
 	recompute_dominator to compute the immediate dominator of the
 	basic block just after the loop.
 
-2008-01-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+2009-01-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* config/i386/sol2-10.h [!HAVE_AS_IX86_DIFF_SECT_DELTA]
 	(ASM_OUTPUT_DWARF_PCREL): Define.
 
-2008-01-29  Vladimir Makarov  <vmakarov@redhat.com>
+2009-01-29  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/tm.texi (TARGET_IRA_COVER_CLASSES): Modify description.
 	* doc/passes.texi: Remove entries about regclass, local-alloc, and
@@ -1247,7 +1338,7 @@
 	void *' warning from -Wc++-compat.
 	* Makefile.in (dominance.o-warn): Remove.
 
-2008-01-23  Paolo Bonzini  <bonzini@gnu.org>
+2009-01-23  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR tree-optimization/38932
 	* fold-const.c (fold_unary_ignore_overflow): New.
@@ -1391,7 +1482,7 @@
 	* graphite.c (stmt_simple_for_scop_p): Also handle cases when
 	gimple_call_lhs is NULL.
 
-2008-01-20  Paolo Bonzini  <bonzini@gnu.org>
+2009-01-20  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR target/38868
 	* emit-rtl.c (adjust_address_1): Make sure memref is never
@@ -1774,7 +1865,7 @@
 	zero guard even if align_bytes != 0 and count is smaller than
 	size_needed.
 
-2008-01-09  Vladimir Makarov  <vmakarov@redhat.com>
+2009-01-09  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/38495
 	* ira-emit.c (print_move_list, ira_debug_move_list): New functions.

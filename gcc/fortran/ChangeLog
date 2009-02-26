@@ -1,4 +1,10 @@
-2008-02-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+2009-02-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39292
+	* trans-array.c (gfc_conv_array_initializer): Convert all
+	expressions rather than ICEing.
+
+2009-02-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/38914
 	* array.c (ref_dimen_size):  Rename to gfc_ref_dimen_size,
