@@ -3165,6 +3165,7 @@ get_constraint_for_1 (tree t, VEC (ce_s, heap) **results, bool address_p)
 	  case VIEW_CONVERT_EXPR:
 	    get_constraint_for_1 (TREE_OPERAND (t, 0), results, address_p);
 	    return;
+	  /* We are missing handling for TARGET_MEM_REF here.  */
 	  default:;
 	  }
 	break;
@@ -3220,7 +3221,28 @@ do_structure_copy (tree lhsop, tree rhsop)
   get_constraint_for (lhsop, &lhsc);
   get_constraint_for (rhsop, &rhsc);
   lhsp = VEC_index (ce_s, lhsc, 0);
-  if (lhsp->type == DEREF)
+  /* If we didn't get any useful constraint from the lhs we get
+     &ANYTHING which isn't valid here.  Build
+       structcopydereftmp = &ANYTHING
+       *structcopydereftmp = rhs
+     for that instead.  */
+  if (lhsp->type == ADDRESSOF
+      && lhsp->var == anything_id)
+    {
+      struct constraint_expr tmp;
+      tree tmpvar;
+      gcc_assert (VEC_length (ce_s, lhsc) == 1);
+      tmpvar = create_tmp_var_raw (ptr_type_node,
+				   "structcopydereftmp");
+      tmp.var = get_vi_for_tree (tmpvar)->id;
+      tmp.type = SCALAR;
+      tmp.offset = 0;
+      process_constraint (new_constraint (tmp, *lhsp));
+      lhsp->type = DEREF;
+      lhsp->var = tmp.var;
+      lhsp->offset = 0;
+    }
+  else if (lhsp->type == DEREF)
     {
       gcc_assert (VEC_length (ce_s, lhsc) == 1);
       lhsp->offset = UNKNOWN_OFFSET;

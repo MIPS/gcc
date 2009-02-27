@@ -1,3 +1,9 @@
+2009-02-27  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (get_constraint_for_1): Note that
+	we should handle TARGET_MEM_REF here.
+	(do_structure_copy): Handle &ANYTHING fallback on the lhs.
+
 2009-02-26  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/39299
