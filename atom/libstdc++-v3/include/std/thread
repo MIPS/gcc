@@ -53,6 +53,14 @@
 
 namespace std
 {
+  /**
+   * @defgroup threads Threads
+   * @ingroup concurrency
+   *
+   * Classes for thread support.
+   * @{
+   */
+
   /// thread
   class thread
   {
@@ -89,7 +97,7 @@ namespace std
     };
 
     // Simple base type that the templatized, derived class containing
-    // an abitrary functor can be converted to and called.
+    // an arbitrary functor can be converted to and called.
     struct _Impl_base
     {
       __shared_base_type	_M_this_ptr;
@@ -225,7 +233,10 @@ namespace std
 	return __out << __id._M_thread;
     }
 
-  // 30.2.2 Namespace this_thread.
+  /** @namespace std::this_thread
+   *  @brief ISO C++ 0x entities sub namespace for thread.
+   *  30.2.2 Namespace this_thread.
+   */
   namespace this_thread
   {
     /// get_id
@@ -267,6 +278,8 @@ namespace std
       }
 #endif
   }
+
+  // @} group threads
 }
 
 #endif // _GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1
