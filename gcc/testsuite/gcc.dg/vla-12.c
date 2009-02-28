@@ -1,99 +1,50 @@
-/* Test for VLA size evaluation; see PR 35198.  */
+/* Test for typeof evaluation: should be at the appropriate point in
+   the containing expression rather than just adding a statement.  */
 /* Origin: Joseph Myers <joseph@codesourcery.com> */
 /* { dg-do run } */
-/* { dg-options "-std=c99" } */
+/* { dg-options "-std=gnu99" } */
 
 extern void exit (int);
 extern void abort (void);
 
-int i;
 void *p;
 
 void
-f1 (void *x, int j)
+f1 (void)
 {
-  p = (int (*)[++i])x;
-  if (i != j)
+  int i = 0, j = -1, k = -1;
+  /* typeof applied to expression with cast.  */
+  (j = ++i), (void)(typeof ((int (*)[(k = ++i)])p))p;
+  if (j != 1 || k != 2 || i != 2)
     abort ();
 }
 
 void
-f1c (void *x, int j)
+f2 (void)
 {
-  p = (int (*)[++i]){x};
-  if (i != j)
+  int i = 0, j = -1, k = -1;
+  /* typeof applied to type.  */
+  (j = ++i), (void)(typeof (int (*)[(k = ++i)]))p;
+  if (j != 1 || k != 2 || i != 2)
     abort ();
 }
 
 void
-f2 (void *x, int j)
+f3 (void)
 {
-  x = (void *)(int (*)[++i])p;
-  if (i != j)
-    abort ();
-}
-
-void
-f2c (void *x, int j)
-{
-  x = (void *)(int (*)[++i]){p};
-  if (i != j)
-    abort ();
-}
-
-void
-f3 (void *x, int j)
-{
-  (void)(int (*)[++i])p;
-  if (i != j)
-    abort ();
-}
-
-void
-f3c (void *x, int j)
-{
-  (void)(int (*)[++i]){p};
-  if (i != j)
-    abort ();
-}
-
-void
-f4 (void *x, int j)
-{
-  (int (*)[++i])p;
-  (int (*)[++i])p;
-  if (i != j)
-    abort ();
-}
-
-void
-f4c (void *x, int j)
-{
-  (int (*)[++i]){p};
-  (int (*)[++i]){p};
-  if (i != j)
-    abort ();
-}
-
-void
-f5c (void *x, int j, int k)
-{
-  (++i, f3c (x, j), (int (*)[++i]){p});
-  if (i != k)
+  int i = 0, j = -1, k = -1;
+  void *q;
+  /* typeof applied to expression with cast that is used.  */
+  (j = ++i), (void)((typeof (1 + (int (*)[(k = ++i)])p))p);
+  if (j != 1 || k != 2 || i != 2)
     abort ();
 }
 
 int
 main (void)
 {
-  f1 (p, 1);
-  f2 (p, 2);
-  f3 (p, 3);
-  f4 (p, 5);
-  f1c (p, 6);
-  f2c (p, 7);
-  f3c (p, 8);
-  f4c (p, 10);
-  f5c (p, 12, 13);
+  f1 ();
+  f2 ();
+  f3 ();
   exit (0);
 }

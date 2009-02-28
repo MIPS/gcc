@@ -1,3 +1,11 @@
+2009-02-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/vla-15.c: Rename to gcc.dg/vla-16.c.
+	* gcc.dg/vla-14.c: Rename to gcc.dg/vla-15.c.
+	* gcc.dg/vla-13.c: Rename to gcc.dg/vla-14.c.
+	* gcc.dg/vla-12.c: Rename to gcc.dg/vla-13.c.
+	* gcc.dg/vla-11.c: Rename to gcc.dg/vla-12.c.
+
 2009-02-25  Janis Johnson  <janis187@us.ibm.com>
 
 	PR c/29027

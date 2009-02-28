@@ -1,4 +1,4 @@
-/* Test for VLA size evaluation in sizeof typeof.  */
+/* Test for VLA size evaluation in va_arg.  */
 /* Origin: Joseph Myers <joseph@codesourcery.com> */
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
@@ -8,20 +8,26 @@
 extern void exit (int);
 extern void abort (void);
 
-char a[1];
+int a[10];
+int i = 9;
 
 void
-f1 (void)
+f (int n, ...)
 {
-  int i = 0;
-  int j = sizeof (typeof (*(++i, (char (*)[i])a)));
-  if (i != 1 || j != 1)
+  va_list ap;
+  void *p;
+  va_start (ap, n);
+  p = va_arg (ap, typeof (int (*)[++i]));
+  if (p != a)
     abort ();
+  if (i != n)
+    abort ();
+  va_end (ap);
 }
 
 int
 main (void)
 {
-  f1 ();
+  f (10, &a);
   exit (0);
 }
