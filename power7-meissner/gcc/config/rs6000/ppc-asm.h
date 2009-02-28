@@ -77,6 +77,41 @@
 #define f30	30
 #define f31	31
 
+#ifdef __VSX__
+#define f32	32
+#define f33	33
+#define f34	34
+#define f35	35
+#define f36	36
+#define f37	37
+#define f38	38
+#define f39	39
+#define f40	40
+#define f41	41
+#define f42	42
+#define f43	43
+#define f44	44
+#define f45	45
+#define f46	46
+#define f47	47
+#define f48	48
+#define f49	49
+#define f50	30
+#define f51	51
+#define f52	52
+#define f53	53
+#define f54	54
+#define f55	55
+#define f56	56
+#define f57	57
+#define f58	58
+#define f59	59
+#define f60	60
+#define f61	61
+#define f62	62
+#define f63	63
+#endif
+
 #ifdef __ALTIVEC__
 #define v0	0
 #define v1	1
@@ -111,7 +146,6 @@
 #define v30	30
 #define v31	31
 #endif
-
 
 #ifdef __VSX__
 #define vs0	0

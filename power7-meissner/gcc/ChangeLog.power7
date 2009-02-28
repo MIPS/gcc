@@ -1,3 +1,8 @@
+2009-02-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/ppc-asm.h: If __VSX__ define the additional scalar
+	floating point registers that overlap with th Altivec registers.
+
 2009-02-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/spe.md (spe_fixuns_truncdfsi2): Rename from
