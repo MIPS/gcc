@@ -1,3 +1,14 @@
+2009-02-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/37789
+	* other/pr37789.C: New.
+
+2009-02-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39295
+	* gfortran.dg/interface_25.f90: New test.
+	* gfortran.dg/interface_26.f90: New test.
+
 2009-02-26  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/39292
