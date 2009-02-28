@@ -3236,4 +3236,191 @@ gimple_types_compatible_p (tree type1, tree type2)
   return 0;
 }
 
+
+/* Returns true iff T1 and T2 are the same type.  */
+
+bool
+gimple_same_type_p (tree t1, tree t2)
+{
+  /* Check first for the obvious case of pointer identity.  */
+  if (t1 == t2)
+    return true;
+
+  /* Check that we have two types to compare.  */
+  if (t1 == NULL_TREE || t2 == NULL_TREE)
+    return false;
+
+  /* Can't be the same type if the types don't have the same code.  */
+  if (TREE_CODE (t1) != TREE_CODE (t2))
+    return false;
+
+  /* Can't be the same type if they have different CV qualifiers.  */
+  if (TYPE_QUALS (t1) != TYPE_QUALS (t1))
+    return false;
+
+  /* If their attributes are not the same they can't be the same type.  */
+  if (!attribute_list_equal (TYPE_ATTRIBUTES (t1), TYPE_ATTRIBUTES (t2)))
+    return false;
+
+  switch (TREE_CODE (t1))
+    {
+    case VOID_TYPE:
+      /* Void types are the same in all translation units.  */
+      return true;
+
+    case INTEGER_TYPE:
+    case BOOLEAN_TYPE:
+      /* Corresponding integral types are the same.  */
+      return (TYPE_PRECISION (t1) == TYPE_PRECISION (t2)
+	      && TYPE_UNSIGNED (t1) == TYPE_UNSIGNED (t2)
+	      && tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
+	      && TYPE_ALIGN (t1) == TYPE_ALIGN (t2)
+	      && TYPE_STRING_FLAG (t1) == TYPE_STRING_FLAG (t2));
+      
+    case REAL_TYPE:
+      /* Corresponding float types are the same.  */
+      return (TYPE_PRECISION (t1) == TYPE_PRECISION (t2)
+	      && tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
+	      && TYPE_ALIGN (t1) == TYPE_ALIGN (t2));
+
+    case ARRAY_TYPE:
+      /* Array types are the same if the element types are the same and
+	 the number of elements are the same.  */
+      if (!gimple_same_type_p (TREE_TYPE (t1), TREE_TYPE (t2))
+	  || TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2))
+	return false;
+      else
+	{
+	  tree i1 = TYPE_DOMAIN (t1);
+	  tree i2 = TYPE_DOMAIN (t2);
+
+	  /* For an incomplete external array, the type domain can be
+ 	     NULL_TREE.  Check this condition also.  */
+	  if (!i1 || !i2)
+	    return (!i1 && !i2);
+	  else
+	    {
+	      tree min1 = TYPE_MIN_VALUE (i1);
+	      tree min2 = TYPE_MIN_VALUE (i2);
+	      tree max1 = TYPE_MAX_VALUE (i1);
+	      tree max2 = TYPE_MAX_VALUE (i2);
+
+	      /* If the array types both have unspecified bounds, then
+		 MAX_{1,2} will be NULL_TREE.  */
+	      if (min1 && min2 && !max1 && !max2)
+		return (integer_zerop (min1)
+			&& integer_zerop (min2));
+
+	      /* Otherwise, we need the bounds to be fully
+		 specified.  */
+	      if (!min1 || !min2 || !max1 || !max2)
+		return false;
+	      else if (TREE_CODE (min1) != INTEGER_CST
+		  || TREE_CODE (min2) != INTEGER_CST
+		  || TREE_CODE (max1) != INTEGER_CST
+		  || TREE_CODE (max2) != INTEGER_CST)
+		return false;
+	      else if (tree_int_cst_equal (min1, min2))
+		return tree_int_cst_equal (max1, max2);
+	      else
+		{
+		  tree nelts1 = array_type_nelts (t1);
+		  tree nelts2 = array_type_nelts (t2);
+
+		  if (!nelts1 || !nelts2)
+		    return false;
+
+		  if (TREE_CODE (nelts1) != INTEGER_CST
+		      || TREE_CODE (nelts2) != INTEGER_CST)
+		    return false;
+
+		  return tree_int_cst_equal (nelts1, nelts2);
+		}
+	    }
+	}
+
+    case FUNCTION_TYPE:
+      /* Function types are the same if the return type and arguments types
+	 are the same.  */
+      if (!gimple_same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+	return false;
+      else
+	{
+	  tree parms1 = TYPE_ARG_TYPES (t1);
+	  tree parms2 = TYPE_ARG_TYPES (t2);
+	  if (parms1 == parms2)
+	    return true;
+	  else
+	    {
+	      while (parms1 && parms2)
+		{
+		  if (!gimple_same_type_p (TREE_VALUE (parms1),
+					   TREE_VALUE (parms2)))
+		    return false;
+		  parms1 = TREE_CHAIN (parms1);
+		  parms2 = TREE_CHAIN (parms2);
+		}
+	      return !parms1 && !parms2;
+	    }
+	}
+
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+      /* Pointer and reference types are the same if the pointed-to types are
+	 the same.  */
+      return gimple_same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
+
+    case ENUMERAL_TYPE:
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      /* Enumeration and class types are the same if they have the same
+	 name.  */
+      {
+	tree variant1 = TYPE_MAIN_VARIANT (t1);
+	tree variant2 = TYPE_MAIN_VARIANT (t2);
+	tree name1 = TYPE_NAME (t1);
+	tree name2 = TYPE_NAME (t2);
+	if (!name1 || !name2)
+	  /* Presumably, anonymous types are all unique.  */
+	  return false;
+
+	if (TREE_CODE (name1) == TYPE_DECL)
+	  {
+	    name1 = DECL_NAME (name1);
+	    if (!name1)
+	      return false;
+	  }
+	gcc_assert (TREE_CODE (name1) == IDENTIFIER_NODE);
+
+	if (TREE_CODE (name2) == TYPE_DECL)
+	  {
+	    name2 = DECL_NAME (name2);
+	    if (!name2)
+	      return false;
+	  }
+	gcc_assert (TREE_CODE (name2) == IDENTIFIER_NODE);
+
+	/* Identifiers can be compared with pointer equality rather
+	   than a string comparison.  */
+	if (name1 == name2)
+	  return true;
+
+	/* If either type has a variant type, compare that.  This finds
+	   the case where a struct is typedef'ed in one module but referred
+	   to as 'struct foo' in the other; here, the main type for one is
+	   'foo', and for the other 'foo_t', but the variants have the same
+	   name 'foo'.  */
+	if (variant1 != t1 || variant2 != t2)
+	  return gimple_same_type_p (variant1, variant2);
+	else
+	  return false;
+      }
+
+      /* FIXME: add pointer to member types.  */
+    default:
+      return false;
+    }
+}
+
 #include "gt-gimple.h"

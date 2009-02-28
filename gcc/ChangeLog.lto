@@ -1,3 +1,17 @@
+2009-02-27  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.c (gimple_same_type_p): Move from lto-symtab.c.
+	Rename from lto_same_type_p.  Update all users.
+	Compare TYPE_QUALS and TYPE_ATTRIBUTES.
+	* gimple.h (gimple_same_type_p): Declare.
+	* lto-tree-in.h: Fix comment.
+	* tree.c (free_lang_data_in_type): Remove variants that
+	are the same gimple type as the main variant.
+	* lto-symtab.c (lto_merge_qualifiers): Merge in both
+	directions.
+	(lto_merge_types): Always merge qualifiers for merged
+	ARRAY_TYPEs.
+
 2009-02-24  Rafael Avila de Espindola  <espindola@google.com>
 
 	* ipa.c (cgraph_remove_unreachable_nodes): Search all clones.

@@ -98,7 +98,7 @@ lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
 				  const char *data);
 
 
-/* lto-symtab.c */
+/* In lto-symtab.c.  */
 
 /* The NEW_VAR (a VAR_DECL) has just been read with resolution RESOLUTION. If
    there is an existing variable with the same name, merge the declaration for
