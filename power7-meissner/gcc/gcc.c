@@ -241,6 +241,12 @@ static const char *const spec_version = DEFAULT_TARGET_VERSION;
 
 static const char *spec_machine = DEFAULT_TARGET_MACHINE;
 
+/* Store -o dirname for use in substituting in %b so that the temporary files
+   go in the output directory rather than the current directory (bug
+   39293).  */
+static const char *output_dir_name = "";
+static size_t output_dir_length = 0;
+
 /* Nonzero if cross-compiling.
    When -b is used, the value comes from the `specs' file.  */
 
@@ -393,7 +399,8 @@ or with constant text in a single argument.
  %i     substitute the name of the input file being processed.
  %b     substitute the basename of the input file being processed.
 	This is the substring up to (and not including) the last period
-	and not including the directory.
+	and not including the directory.  If -o was specified, the basename
+	will be located in the directory that -o specifies.
  %B	same as %b, but include the file suffix (text after the last period).
  %gSUFFIX
 	substitute a file name that has suffix SUFFIX and is chosen
@@ -460,6 +467,8 @@ or with constant text in a single argument.
 	except that %g, %u, and %U do not currently support additional
 	SUFFIX characters following %O as they would following, for
 	example, `.o'.
+ %p	substitutes the directory the output file specified by -o is located
+	in.
  %I	Substitute any of -iprefix (made from GCC_EXEC_PREFIX), -isysroot
 	(made from TARGET_SYSTEM_ROOT), -isystem (made from COMPILER_PATH
 	and -B options) and -imultilib as necessary.
@@ -833,7 +842,7 @@ static const char *cc1_options =
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
  %{--help=*:--help=%(VALUE)}\
- %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
+ %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %{save-temps:%p}%b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
  %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
  %{coverage:-fprofile-arcs -ftest-coverage}";
@@ -997,15 +1006,15 @@ static const struct compiler default_compilers[] =
 %eGNU C no longer supports -traditional without -E}\
        %{!combine:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
-		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
-		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
+		%(cpp_options) -o %{save-temps:%p%b.i} %{!save-temps:%g.i} \n\
+		    cc1 -fpreprocessed %{save-temps:%p%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)}}}\
           %{!fsyntax-only:%(invoke_as)}} \
       %{combine:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
-		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i}}\
+		%(cpp_options) -o %{save-temps:%p%b.i} %{!save-temps:%g.i}}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)}}\
                 %{!fsyntax-only:%(invoke_as)}}}}}}", 0, 1, 1},
@@ -1020,7 +1029,7 @@ static const struct compiler default_compilers[] =
       %{!E:%{!M:%{!MM:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
-		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
+		    cc1 -fpreprocessed %{save-temps:%p%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)\
                         -o %g.s %{!o*:--output-pch=%i.gch}\
                         %W{o*:--output-pch=%*}%V}\
@@ -3929,6 +3938,31 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 
 	    case 'o':
 	      have_o = 1;
+	      /* Store output directory name so that we can put -save-temps files
+		 in the output directory, rather than the current directory.  */
+	      if (! output_dir_length)
+		{
+		  const char *begin = (p[1] == 0) ? argv[i+1] : p+1;
+		  const char *begin2 = begin;
+		  const char *end = begin + strlen (begin) - 1;
+#ifdef HAVE_DOS_BASED_FILE_SYSTEM
+		  /* Skip drive name so 'x:foo' is handled properly.  */
+		  if (begin2[1] == ':')
+		    begin2 += 2;
+#endif
+		  while (end > begin2 && !IS_DIR_SEPARATOR (*end))
+		    end--;
+
+		  if (IS_DIR_SEPARATOR (*end))
+		    {
+		      char *dir;
+		      output_dir_length = end - begin + 1;
+		      dir = XNEWVAR (char, output_dir_length + 1);
+		      memcpy (dir, begin, output_dir_length);
+		      dir[output_dir_length] = '\0';
+		      output_dir_name = dir;
+		    }
+		}
 #if defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 	      if (! have_c)
 		{
@@ -4784,6 +4818,14 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    arg_going = 1;
 	    break;
 
+	  case 'p':
+	    if (output_dir_length)
+	      {
+		obstack_grow (&obstack, output_dir_name, output_dir_length);
+		arg_going = 1;
+	      }
+	    break;
+
 	  case 'd':
 	    delete_this_arg = 2;
 	    break;
@@ -4937,11 +4979,15 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		if (save_temps_flag)
 		  {
 		    char *tmp;
-		    
-		    temp_filename_length = basename_length + suffix_length;
+
+		    temp_filename_length
+		      = output_dir_length + basename_length + suffix_length;
 		    tmp = (char *) alloca (temp_filename_length + 1);
-		    strncpy (tmp, input_basename, basename_length);
-		    strncpy (tmp + basename_length, suffix, suffix_length);
+		    strncpy (tmp, output_dir_name, output_dir_length);
+		    strncpy (tmp + output_dir_length, input_basename,
+			     basename_length);
+		    strncpy (tmp + basename_length + output_dir_length, suffix,
+			     suffix_length);
 		    tmp[temp_filename_length] = '\0';
 		    temp_filename = tmp;
 		    if (strcmp (temp_filename, input_filename) != 0)

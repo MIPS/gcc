@@ -404,7 +404,7 @@
 
 (define_insn "*altivec_gtu<mode>"
   [(set (match_operand:VI 0 "altivec_register_operand" "=v")
-	(geu:VI (match_operand:VI 1 "altivec_register_operand" "v")
+	(gtu:VI (match_operand:VI 1 "altivec_register_operand" "v")
 		(match_operand:VI 2 "altivec_register_operand" "v")))]
   "TARGET_ALTIVEC"
   "vcmpgtu<VI_char> %0,%1,%2"

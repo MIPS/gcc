@@ -412,7 +412,6 @@ extern int rs6000_ieeequad;
 extern int rs6000_altivec_abi;
 extern int rs6000_spe_abi;
 extern int rs6000_spe;
-extern int rs6000_isel;
 extern int rs6000_float_gprs;
 extern int rs6000_alignment_flags;
 extern const char *rs6000_sched_insert_nops_str;
@@ -490,7 +489,7 @@ extern int rs6000_vector_align[];
 #define TARGET_SPE_ABI 0
 #define TARGET_SPE 0
 #define TARGET_E500 0
-#define TARGET_ISEL rs6000_isel
+#define TARGET_ISEL64 (TARGET_ISEL && TARGET_POWERPC64)
 #define TARGET_FPRS 1
 #define TARGET_E500_SINGLE 0
 #define TARGET_E500_DOUBLE 0

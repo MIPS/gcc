@@ -411,6 +411,63 @@
   [(set_attr "type" "fp")
    (set_attr "fp_type" "fp_maddsub_d")])
 
+;; For the conversions, limit the register class for the integer value to be
+;; the fprs.  For the unsigned tests, there isn't a generic double -> unsigned
+;; conversion in rs6000.md so don't test VECTOR_UNIT_VSX_P, just test against
+;; VSX.
+
+(define_insn "*vsx_floatdidf2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws")
+	(float:DF (match_operand:DI 1 "vsx_register_operand" "!f#r")))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xscvsxddp %x0,%x1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*vsx_floatunsdidf2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws")
+	(unsigned_float:DF (match_operand:DI 1 "vsx_register_operand" "!f#r")))]
+  "TARGET_HARD_FLOAT && TARGET_VSX"
+  "xscvuxddp %x0,%x1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*vsx_fix_truncdfdi2"
+  [(set (match_operand:DI 0 "vsx_register_operand" "=!f#r")
+	(fix:DI (match_operand:DF 1 "vsx_register_operand" "ws")))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xscvdpsxds %x0,%x1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*vsx_fixuns_truncdfdi2"
+  [(set (match_operand:DI 0 "vsx_register_operand" "=!f#r")
+	(unsigned_fix:DI (match_operand:DF 1 "vsx_register_operand" "ws")))]
+  "TARGET_HARD_FLOAT && TARGET_VSX"
+  "xscvdpuxds %x0,%x1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*vsx_btruncdf2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws")
+	(unspec:DF [(match_operand:DF 1 "vsx_register_operand" "ws")]
+		   UNSPEC_FRIZ))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xsrdpiz %x0,%x1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*vsx_floordf2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws")
+	(unspec:DF [(match_operand:DF 1 "vsx_register_operand" "ws")]
+		   UNSPEC_FRIM))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xsrdpim %x0,%x1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*vsx_ceildf2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws")
+	(unspec:DF [(match_operand:DF 1 "vsx_register_operand" "ws")]
+		   UNSPEC_FRIP))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xsrdpip %x0,%x1"
+  [(set_attr "type" "fp")])
+
 
 ;; Logical and permute operations
 (define_insn "*vsx_and<mode>3"

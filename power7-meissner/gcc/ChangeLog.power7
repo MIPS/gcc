@@ -1,3 +1,76 @@
+2009-02-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/spe.md (spe_fixuns_truncdfsi2): Rename from
+	fixuns_truncdfsi2, and move fixuns_truncdfsi2 into rs6000.md.
+
+	* config/rs6000/ppc-asm.h: If __ALTIVEC__ is defined, define the
+	Altivec registers.  If __VSX__ is defined, define the VSX
+	registers.
+
+	* config/rs6000/rs6000.opt (-mvsx-scalar-double): Make this on by
+	default.
+	(-misel): Make this a target mask instead of a variable.
+
+	* config/rs6000/rs6000.c (rs6000_isel): Delete global variable.
+	(rs6000_explicit_options): Delete isel field.
+	(POWERPC_MASKS): Add MASK_ISEL.
+	(processor_target_table): Add MASK_ISEL to 8540, 8548, e500mc, and
+	power7 processors.
+	(rs6000_override_options): Move -misel to a target mask.
+	(rs6000_handle_option): Ditto.
+	(rs6000_emit_int_cmove): Add support for 64-bit isel.
+
+	* config/rs6000/vsx.md (vsx_floatdidf2): New scalar floating point
+	pattern to support VSX conversion and rounding instructions.
+	(vsx_floatunsdidf2): Ditto.
+	(vsx_fix_trundfdi2): Ditto.
+	(vsx_fixuns_trundfdi2): Ditto.
+	(vsx_btrundf2): Ditto.
+	(vsx_floordf2): Ditto.
+	(vsx_ceildf2): Ditto.
+
+	* config/rs6000/rs6000.h (rs6000_isel): Delete global.
+	(TARGET_ISEL): Delete, since -misel is now a target mask.
+	(TARGET_ISEL64): New target option for -misel on 64-bit systems.
+
+	* config/rs6000/altivec.md (altivec_gtu<mode>): Use gtu, not geu.
+
+	* config/rs6000/rs6000.md (sel): New mode attribute for 64-bit
+	ISEL support.
+	(mov<mode>cc): Add 64-bit ISEL support.
+	(isel_signed_<mode>): Ditto.
+	(isel_unsigned_<mode>): Ditto.
+	(fixuns_truncdfsi2): Move expander here from spe.md.
+	(fixuns_truncdfdi2): New expander for unsigned floating point
+	conversion on power7.
+	(btruncdf2): Split into expander and insn.  On the insn, disallow
+	on VSX, so the VSX instruction will be generated.
+	(ceildf2): Ditto.
+	(floordf2): Ditto.
+	(floatdidf2): Ditto.
+	(fix_truncdfdi2): Ditto.
+	(smindi3): Define if we have -misel on 64-bit systems.
+	(smaxdi3): Ditto.
+	(umindi3): Ditto.
+	(umaxdi3): Ditto.
+
+	* config/rs6000/e500.h (CHECK_E500_OPTIONS): Disable -mvsx on
+	E500.
+
+	PR driver/39293
+	* gcc.c (output_dir_name): New static to keep track of the
+	directory name specified with -o so that -save-temps files will be
+	located in the output directory, and not the current dirctory.
+	(output_dir_length): New static length of output_dir_name.
+	(cc1_options): If -save-temps, put output files in the output
+	directory.
+	(default_compilers): Ditto.
+	(process_command): If -o, save the directory the output filename
+	is in.
+	(do_spec_1): Add %p spec to print out the directory prefix for the
+	output name.  Use output directory if save temps for %g, %u, and
+	%U filenames.
+
 2009-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/constraints.md ("wd" constraint):  Change the

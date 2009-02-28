@@ -37,6 +37,8 @@
       {									\
 	if (TARGET_ALTIVEC)						\
 	  error ("AltiVec and E500 instructions cannot coexist");	\
+	if (TARGET_VSX)							\
+	  error ("VSX and E500 instructions cannot coexist");		\
 	if (TARGET_64BIT)						\
 	  error ("64-bit E500 not supported");				\
 	if (TARGET_HARD_FLOAT && TARGET_FPRS)				\

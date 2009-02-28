@@ -178,9 +178,6 @@ int rs6000_spe;
 /* Nonzero if we want SPE ABI extensions.  */
 int rs6000_spe_abi;
 
-/* Nonzero to use isel instructions.  */
-int rs6000_isel;
-
 /* Nonzero if floating point operations are done in the GPRs.  */
 int rs6000_float_gprs = 0;
 
@@ -277,7 +274,6 @@ struct {
   bool altivec_abi;		/* True if -mabi=altivec/no-altivec used.  */
   bool spe;			/* True if -mspe= was used.  */
   bool float_gprs;		/* True if -mfloat-gprs= was used.  */
-  bool isel;			/* True if -misel was used. */
   bool long_double;	        /* True if -mlong-double- was used.  */
   bool ieee;			/* True if -mabi=ieee/ibmlongdouble used.  */
   bool vrsave;			/* True if -mvrsave was used.  */
@@ -1826,12 +1822,15 @@ rs6000_override_options (const char *default_cpu)
 	 {"801", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"821", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"823", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN},
+	 {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN
+	  | MASK_ISEL},
 	 /* 8548 has a dummy entry for now.  */
-	 {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN},
+	 {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN
+	  | MASK_ISEL},
 	 {"e300c2", PROCESSOR_PPCE300C2, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"e300c3", PROCESSOR_PPCE300C3, POWERPC_BASE_MASK},
-	 {"e500mc", PROCESSOR_PPCE500MC, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"e500mc", PROCESSOR_PPCE500MC, POWERPC_BASE_MASK | MASK_PPC_GFXOPT
+	  | MASK_ISEL},
 	 {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"970", PROCESSOR_POWER4,
 	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
@@ -1867,7 +1866,7 @@ rs6000_override_options (const char *default_cpu)
 	 {"power7", PROCESSOR_POWER7,
 	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
 	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_POPCNTD
-	  | MASK_VSX},
+	  | MASK_VSX | MASK_ISEL},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -1895,7 +1894,7 @@ rs6000_override_options (const char *default_cpu)
 		     | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
 		     | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW
 		     | MASK_DLMZB | MASK_CMPB | MASK_MFPGPR | MASK_DFP
-		     | MASK_POPCNTD | MASK_VSX)
+		     | MASK_POPCNTD | MASK_VSX | MASK_ISEL)
   };
 
   set_masks = POWER_MASKS | POWERPC_MASKS | MASK_SOFT_FLOAT;
@@ -1939,10 +1938,6 @@ rs6000_override_options (const char *default_cpu)
 	    error ("bad value (%s) for %s switch", ptr->string, ptr->name);
 	}
     }
-
-  if ((TARGET_E500 || rs6000_cpu == PROCESSOR_PPCE500MC)
-      && !rs6000_explicit_options.isel)
-    rs6000_isel = 1;
 
   if (rs6000_cpu == PROCESSOR_PPCE300C2 || rs6000_cpu == PROCESSOR_PPCE300C3
       || rs6000_cpu == PROCESSOR_PPCE500MC)
@@ -2116,8 +2111,8 @@ rs6000_override_options (const char *default_cpu)
 	rs6000_spe = 0;
       if (!rs6000_explicit_options.float_gprs)
 	rs6000_float_gprs = 0;
-      if (!rs6000_explicit_options.isel)
-	rs6000_isel = 0;
+      if (!(target_flags_explicit & MASK_ISEL))
+	target_flags &= ~MASK_ISEL;
     }
 
   /* Detect invalid option combinations with E500.  */
@@ -2618,6 +2613,7 @@ static bool
 rs6000_handle_option (size_t code, const char *arg, int value)
 {
   enum fpu_type_t fpu_type = FPU_NONE;
+  int isel;
 
   switch (code)
     {
@@ -2720,14 +2716,14 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       rs6000_parse_yes_no_option ("vrsave", arg, &(TARGET_ALTIVEC_VRSAVE));
       break;
 
-    case OPT_misel:
-      rs6000_explicit_options.isel = true;
-      rs6000_isel = value;
-      break;
-
     case OPT_misel_:
-      rs6000_explicit_options.isel = true;
-      rs6000_parse_yes_no_option ("isel", arg, &(rs6000_isel));
+      target_flags_explicit |= MASK_ISEL;
+      isel = 0;
+      rs6000_parse_yes_no_option ("isel", arg, &isel);
+      if (isel)
+	target_flags |= MASK_ISEL;
+      else
+	target_flags &= ~MASK_ISEL;
       break;
 
     case OPT_mspe:
@@ -14295,8 +14291,8 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 {
   rtx condition_rtx, cr;
 
-  /* All isel implementations thus far are 32-bits.  */
-  if (GET_MODE (rs6000_compare_op0) != SImode)
+  if (GET_MODE (rs6000_compare_op0) != SImode
+      && (!TARGET_POWERPC64 || GET_MODE (rs6000_compare_op0) != DImode))
     return 0;
 
   /* We still have to do the compare, because isel doesn't do a
@@ -14305,12 +14301,24 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   condition_rtx = rs6000_generate_compare (GET_CODE (op));
   cr = XEXP (condition_rtx, 0);
 
-  if (GET_MODE (cr) == CCmode)
-    emit_insn (gen_isel_signed (dest, condition_rtx,
-				true_cond, false_cond, cr));
+  if (GET_MODE (rs6000_compare_op0) == SImode)
+    {
+      if (GET_MODE (cr) == CCmode)
+	emit_insn (gen_isel_signed_si (dest, condition_rtx,
+				       true_cond, false_cond, cr));
+      else
+	emit_insn (gen_isel_unsigned_si (dest, condition_rtx,
+					 true_cond, false_cond, cr));
+    }
   else
-    emit_insn (gen_isel_unsigned (dest, condition_rtx,
-				  true_cond, false_cond, cr));
+    {
+      if (GET_MODE (cr) == CCmode)
+	emit_insn (gen_isel_signed_di (dest, condition_rtx,
+				       true_cond, false_cond, cr));
+      else
+	emit_insn (gen_isel_unsigned_di (dest, condition_rtx,
+					 true_cond, false_cond, cr));
+    }
 
   return 1;
 }

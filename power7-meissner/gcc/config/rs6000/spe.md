@@ -99,7 +99,7 @@
 
 ;; Floating point conversion instructions.
 
-(define_insn "fixuns_truncdfsi2"
+(define_insn "spe_fixuns_truncdfsi2"
   [(set (match_operand:SI 0 "gpc_reg_operand" "=r")
 	(unsigned_fix:SI (match_operand:DF 1 "gpc_reg_operand" "r")))]
   "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
