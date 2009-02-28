@@ -1071,6 +1071,8 @@ static inline bool unmodifiable_var_p (const_tree);
 /* In tree-eh.c  */
 extern void make_eh_edges (gimple);
 extern bool tree_could_trap_p (tree);
+extern bool operation_could_trap_helper_p (enum tree_code, bool, bool, bool,
+					   bool, tree, bool *);
 extern bool operation_could_trap_p (enum tree_code, bool, bool, tree);
 extern bool stmt_could_throw_p (gimple);
 extern bool tree_could_throw_p (tree);
@@ -1151,6 +1153,7 @@ void compute_call_used_vars (void);
 
 /* In tree-ssa-live.c */
 extern void remove_unused_locals (void);
+extern void dump_scope_blocks (FILE *, int);
 
 /* In tree-ssa-address.c  */
 

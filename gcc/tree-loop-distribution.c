@@ -1,5 +1,5 @@
 /* Loop distribution.
-   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Georges-Andre Silber <Georges-Andre.Silber@ensmp.fr>
    and Sebastian Pop <sebastian.pop@amd.com>.
 
@@ -76,6 +76,9 @@ static bitmap remaining_stmts;
 /* A node of the RDG is marked in this bitmap when it has as a
    predecessor a node that writes to memory.  */
 static bitmap upstream_mem_writes;
+
+/* TODOs we need to run after the pass.  */
+static unsigned int todo;
 
 /* Update the PHI nodes of NEW_LOOP.  NEW_LOOP is a duplicate of
    ORIG_LOOP.  */
@@ -256,10 +259,15 @@ generate_memset_zero (gimple stmt, tree op0, tree nb_iter,
   /* Test for a positive stride, iterating over every element.  */
   if (integer_zerop (fold_build2 (MINUS_EXPR, integer_type_node, DR_STEP (dr),
 				  TYPE_SIZE_UNIT (TREE_TYPE (op0)))))
-    addr_base = fold_build2 (PLUS_EXPR, TREE_TYPE (DR_BASE_ADDRESS (dr)),
-			     DR_BASE_ADDRESS (dr), 
-			     size_binop (PLUS_EXPR,
-					 DR_OFFSET (dr), DR_INIT (dr)));
+    {
+      tree offset = fold_convert (sizetype,
+				  size_binop (PLUS_EXPR,
+					      DR_OFFSET (dr),
+					      DR_INIT (dr)));
+      addr_base = fold_build2 (POINTER_PLUS_EXPR,
+			       TREE_TYPE (DR_BASE_ADDRESS (dr)),
+			       DR_BASE_ADDRESS (dr), offset);
+    }
 
   /* Test for a negative stride, iterating over every element.  */
   else if (integer_zerop (fold_build2 (PLUS_EXPR, integer_type_node,
@@ -325,6 +333,8 @@ generate_memset_zero (gimple stmt, tree op0, tree nb_iter,
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "generated memset zero\n");
+
+  todo |= TODO_rebuild_alias;
 
  end:
   free_data_ref (dr);
@@ -434,11 +444,13 @@ generate_builtin (struct loop *loop, bitmap partition, bool copy_p)
       basic_block dest = single_exit (loop)->dest;
       prop_phis (dest);
       make_edge (src, dest, EDGE_FALLTHRU);
-      set_immediate_dominator (CDI_DOMINATORS, dest, src);
       cancel_loop_tree (loop);
 
       for (i = 0; i < nbbs; i++)
 	delete_basic_block (bbs[i]);
+
+      set_immediate_dominator (CDI_DOMINATORS, dest,
+			       recompute_dominator (CDI_DOMINATORS, dest));
     }
 
  end:
@@ -1199,6 +1211,8 @@ tree_loop_distribution (void)
   loop_iterator li;
   int nb_generated_loops = 0;
 
+  todo = 0;
+
   FOR_EACH_LOOP (li, loop, 0)
     {
       VEC (gimple, heap) *work_list = VEC_alloc (gimple, heap, 3);
@@ -1230,7 +1244,7 @@ tree_loop_distribution (void)
       VEC_free (gimple, heap, work_list);
     }
 
-  return 0;
+  return todo;
 }
 
 static bool

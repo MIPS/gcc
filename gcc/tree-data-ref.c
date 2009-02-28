@@ -1,5 +1,6 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -1894,6 +1895,14 @@ initialize_matrix_A (lambda_matrix A, tree chrec, unsigned index, int mult)
       {
 	tree op = initialize_matrix_A (A, TREE_OPERAND (chrec, 0), index, mult);
 	return chrec_convert (chrec_type (chrec), op, NULL);
+      }
+
+    case BIT_NOT_EXPR:
+      {
+	/* Handle ~X as -1 - X.  */
+	tree op = initialize_matrix_A (A, TREE_OPERAND (chrec, 0), index, mult);
+	return chrec_fold_op (MINUS_EXPR, chrec_type (chrec),
+			      build_int_cst (TREE_TYPE (chrec), -1), op);
       }
 
     case INTEGER_CST:

@@ -1,5 +1,5 @@
 @ignore
-Copyright (C) 2005, 2006, 2007, 2008
+Copyright (C) 2005, 2006, 2007, 2008, 2009
 Free Software Foundation, Inc.
 This is part of the GNU Fortran manual.   
 For copying conditions, see the file gfortran.texi.
@@ -214,7 +214,7 @@ Some basic guidelines for editing this document:
 * @code{RANDOM_NUMBER}: RANDOM_NUMBER, Pseudo-random number
 * @code{RANDOM_SEED}:   RANDOM_SEED, Initialize a pseudo-random number sequence
 * @code{RAND}:          RAND,      Real pseudo-random number
-* @code{RANGE}:         RANGE,     Decimal exponent range of a real kind
+* @code{RANGE}:         RANGE,     Decimal exponent range
 * @code{RAN}:           RAN,       Real pseudo-random number
 * @code{REAL}:          REAL,      Convert to real type 
 * @code{RENAME}:        RENAME,    Rename a file
@@ -7333,15 +7333,12 @@ C pointers (@code{sizeof(void *)}).
 
 @item @emph{Example}:
 The following example demonstrates the use of @code{MALLOC} and
-@code{FREE} with Cray pointers. This example is intended to run on
-32-bit systems, where the default integer kind is suitable to store
-pointers; on 64-bit systems, ptr_x would need to be declared as
-@code{integer(kind=8)}.
+@code{FREE} with Cray pointers.
 
 @smallexample
 program test_malloc
+  implicit none
   integer i
-  integer ptr_x
   real*8 x(*), z
   pointer(ptr_x,x)
 
@@ -8884,7 +8881,7 @@ END SUBROUTINE
 
 
 @node RANGE
-@section @code{RANGE} --- Decimal exponent range of a real kind
+@section @code{RANGE} --- Decimal exponent range
 @fnindex RANGE
 @cindex model representation, range
 
@@ -8904,7 +8901,8 @@ Inquiry function
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
-@item @var{X} @tab Shall be of type @code{REAL} or @code{COMPLEX}.
+@item @var{X} @tab Shall be of type @code{INTEGER}, @code{REAL}
+or @code{COMPLEX}.
 @end multitable
 
 @item @emph{Return value}:

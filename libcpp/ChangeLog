@@ -1,3 +1,19 @@
+2009-02-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* lex.c (lex_string): Return a CPP_LESS token for missing '>' in a
+	header name.
+	(_cpp_lex_direct): Handle this.
+
+2009-02-15  Richard Guenther  <rguenther@suse.de>
+
+	Revert last change.
+
+2009-02-13  Richard Guenther  <rguenther@suse.de>
+
+	* configure.ac: Enable LFS.
+	* configure: Re-generate.
+	* config.in: Likewise.
+
 2009-01-05  Ben Elliston  <bje@au.ibm.com>
 
 	* Makefile.in (.po.gmo): Use mkinstalldirs, not test -d || mkdir.

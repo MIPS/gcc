@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -724,6 +724,10 @@ enum target_cpu_default
 /* Maximum stack alignment.  */
 #define MAX_STACK_ALIGNMENT MAX_OFILE_ALIGNMENT
 
+/* Alignment value for attribute ((aligned)).  It is a constant since
+   it is the part of the ABI.  We shouldn't change it with -mavx.  */
+#define ATTRIBUTE_ALIGNED_VALUE 128
+
 /* Decide whether a variable of mode MODE should be 128 bit aligned.  */
 #define ALIGN_MODE_128(MODE) \
  ((MODE) == XFmode || SSE_REG_MODE_P (MODE))
@@ -947,6 +951,17 @@ do {									\
 	fixed_regs[j] = 1;						\
 	call_used_regs[j] = 1;						\
       }									\
+    if (TARGET_64BIT							\
+        && ((cfun && cfun->machine->call_abi == MS_ABI)			\
+            || (!cfun && DEFAULT_ABI == MS_ABI)))			\
+      {									\
+        int i;								\
+        call_used_regs[4 /*RSI*/] = 0;                                  \
+        call_used_regs[5 /*RDI*/] = 0;                                  \
+	for (i = 0; i < 8; i++)						\
+	  call_used_regs[45+i] = 0;					\
+	call_used_regs[27] = call_used_regs[28] = 0;			\
+      }									\
     if (! TARGET_MMX)							\
       {									\
 	int i;								\
@@ -977,17 +992,6 @@ do {									\
 	  reg_names[i] = "";						\
 	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
 	  reg_names[i] = "";						\
-      }									\
-    if (TARGET_64BIT							\
-        && ((cfun && cfun->machine->call_abi == MS_ABI)			\
-            || (!cfun && DEFAULT_ABI == MS_ABI)))			\
-      {									\
-        int i;								\
-        call_used_regs[4 /*RSI*/] = 0;                                  \
-        call_used_regs[5 /*RDI*/] = 0;                                  \
-	for (i = 0; i < 8; i++)						\
-	  call_used_regs[45+i] = 0;					\
-	call_used_regs[27] = call_used_regs[28] = 0;			\
       }									\
   } while (0)
 

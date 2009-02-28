@@ -350,7 +350,7 @@ ia64*-*-freebsd*)
 	;;
 ia64*-*-linux*)
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
-	tmake_file="ia64/t-ia64"
+	tmake_file="ia64/t-ia64 t-softfp ia64/t-fprules-softfp ia64/t-softfp-compat"
 	;;
 ia64*-*-hpux*)
 	;;
@@ -593,7 +593,7 @@ case ${host} in
 i[34567]86-*-darwin* | x86_64-*-darwin* | \
   i[34567]86-*-linux* | x86_64-*-linux*)
 	if test "${host_address}" = 32; then
-		tmake_file="${tmake_file} i386/${host_address}/t-fprules-softfp"
+		tmake_file="${tmake_file} t-softfp i386/${host_address}/t-fprules-softfp"
 	fi
 	;;
 esac

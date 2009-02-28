@@ -49,7 +49,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE], [
   # Keep these sync'd with the list in Makefile.am.  The first provides an
   # expandable list at autoconf time; the second provides an expandable list
   # (i.e., shell variable) at configure time.
-  m4_define([glibcxx_SUBDIRS],[include libmath libsupc++ src doc po testsuite])
+  m4_define([glibcxx_SUBDIRS],[include libsupc++ src doc po testsuite])
   SUBDIRS='glibcxx_SUBDIRS'
 
   # These need to be absolute paths, yet at the same time need to
@@ -123,7 +123,6 @@ AC_DEFUN([GLIBCXX_CONFIGURE], [
   # which are themselves conditionally expanded.
   ## (Right now, this only matters for enable_wchar_t, but nothing prevents
   ## other macros from doing the same.  This should be automated.)  -pme
-  need_libmath=no
 
   # Check for uClibc since Linux platforms use different configuration
   # directories depending on the C library in use.
@@ -639,7 +638,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
   fi
   
   # Export file names for ABI checking.
-  baseline_dir="$glibcxx_srcdir/config/abi/post/${abi_baseline_pair}\$(MULTISUBDIR)"
+  baseline_dir="$glibcxx_srcdir/config/abi/post/${abi_baseline_pair}"
   AC_SUBST(baseline_dir)
 ])
 
@@ -2729,7 +2728,7 @@ if test x$enable_symvers = xyes ; then
   else
     if test $with_gnu_ld = yes ; then
       case ${target_os} in
-        cygwin* | pe | mingw32*)
+        cygwin* | pe | mingw32* | hpux*)
           enable_symvers=no ;;
         *)
           enable_symvers=gnu ;;
