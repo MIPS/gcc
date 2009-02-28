@@ -1,3 +1,8 @@
+2009-02-28  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.h (struct gimple_statement_with_memory_ops_base):
+	Mark vdef and vuse members with GTY((skip (""))).
+
 2009-02-27  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-structalias.c (get_constraint_for_1): Note that

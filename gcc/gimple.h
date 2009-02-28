@@ -364,9 +364,10 @@ struct gimple_statement_with_memory_ops_base GTY(())
   struct gimple_statement_with_ops_base opbase;
 
   /* [ WORD 8-9 ]
-     Virtual operands for this statement.  */
-  tree vdef;
-  tree vuse;
+     Virtual operands for this statement.  The GC will pick them
+     up via the ssa_names array.  */
+  tree GTY((skip (""))) vdef;
+  tree GTY((skip (""))) vuse;
 };
 
 
