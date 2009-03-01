@@ -1,3 +1,8 @@
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* libdecnumber/dpd/decimal128.c (decimal128ToNumber): Use memcpy
+	to copy across aliasing-incompatible types.
+
 2008-12-05  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR target/37033
