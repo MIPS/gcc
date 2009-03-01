@@ -2737,20 +2737,18 @@ process_constraint (constraint_t t)
   gcc_assert (rhs.var < VEC_length (varinfo_t, varmap));
   gcc_assert (lhs.var < VEC_length (varinfo_t, varmap));
 
-  /* ANYTHING == ANYTHING is pointless.  */
-  if (lhs.var == anything_id && rhs.var == anything_id)
-    return;
+  /* If we didn't get any useful constraint from the lhs we get
+     &ANYTHING as fallback from get_constraint_for.  Deal with
+     it here by turning it into *ANYTHING.  */
+  if (lhs.type == ADDRESSOF
+      && lhs.var == anything_id)
+    lhs.type = DEREF;
 
-  /* If we have &ANYTHING = something, convert to SOMETHING = &ANYTHING) */
-  else if (lhs.var == anything_id && lhs.type == ADDRESSOF)
-    {
-      rhs = t->lhs;
-      t->lhs = t->rhs;
-      t->rhs = rhs;
-      process_constraint (t);
-    }
+  /* ADDRESSOF on the lhs is invalid.  */
+  gcc_assert (lhs.type != ADDRESSOF);
+
   /* This can happen in our IR with things like n->a = *p */
-  else if (rhs.type == DEREF && lhs.type == DEREF && rhs.var != anything_id)
+  if (rhs.type == DEREF && lhs.type == DEREF && rhs.var != anything_id)
     {
       /* Split into tmp = *rhs, *lhs = tmp */
       tree rhsdecl = get_varinfo (rhs.var)->decl;
@@ -2966,10 +2964,6 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results,
   gcc_assert (VEC_length (ce_s, *results) == 1);
   result = VEC_last (ce_s, *results);
 
-  /* This can also happen due to weird offsetof type macros.  */
-  if (TREE_CODE (t) != ADDR_EXPR && result->type == ADDRESSOF)
-    result->type = SCALAR;
-
   if (result->type == SCALAR
       && get_varinfo (result->var)->is_full_var)
     /* For single-field vars do not bother about the offset.  */
@@ -3033,15 +3027,20 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results,
 	if (dump_file && (dump_flags & TDF_DETAILS))
 	  fprintf (dump_file, "Access to past the end of variable, ignoring\n");
     }
-  else if (bitmaxsize == -1)
+  else if (result->type == DEREF)
     {
-      /* We can't handle DEREF constraints with unknown size, we'll
-	 get the wrong answer.  Punt and return anything.  */
-      result->var = anything_id;
-      result->offset = 0;
+      /* If we do not know exactly where the access goes say so.  Note
+	 that only for non-structure accesses we know that we access
+	 at most one subfiled of any variable.  */
+      if (bitpos == -1
+	  || bitsize != bitmaxsize
+	  || AGGREGATE_TYPE_P (TREE_TYPE (orig_t)))
+	result->offset = UNKNOWN_OFFSET;
+      else
+	result->offset = bitpos;
     }
   else
-    result->offset = bitpos;
+    gcc_unreachable ();
 }
 
 
@@ -3221,40 +3220,9 @@ do_structure_copy (tree lhsop, tree rhsop)
   get_constraint_for (lhsop, &lhsc);
   get_constraint_for (rhsop, &rhsc);
   lhsp = VEC_index (ce_s, lhsc, 0);
-  /* If we didn't get any useful constraint from the lhs we get
-     &ANYTHING which isn't valid here.  Build
-       structcopydereftmp = &ANYTHING
-       *structcopydereftmp = rhs
-     for that instead.  */
-  if (lhsp->type == ADDRESSOF
-      && lhsp->var == anything_id)
-    {
-      struct constraint_expr tmp;
-      tree tmpvar;
-      gcc_assert (VEC_length (ce_s, lhsc) == 1);
-      tmpvar = create_tmp_var_raw (ptr_type_node,
-				   "structcopydereftmp");
-      tmp.var = get_vi_for_tree (tmpvar)->id;
-      tmp.type = SCALAR;
-      tmp.offset = 0;
-      process_constraint (new_constraint (tmp, *lhsp));
-      lhsp->type = DEREF;
-      lhsp->var = tmp.var;
-      lhsp->offset = 0;
-    }
-  else if (lhsp->type == DEREF)
-    {
-      gcc_assert (VEC_length (ce_s, lhsc) == 1);
-      lhsp->offset = UNKNOWN_OFFSET;
-    }
   rhsp = VEC_index (ce_s, rhsc, 0);
-  if (rhsp->type == DEREF)
-    {
-      gcc_assert (VEC_length (ce_s, rhsc) == 1);
-      rhsp->offset = UNKNOWN_OFFSET;
-    }
-
   if (lhsp->type == DEREF
+      || (lhsp->type == ADDRESSOF && lhsp->var == anything_id)
       || rhsp->type == DEREF)
     {
       struct constraint_expr tmp;

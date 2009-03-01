@@ -1,3 +1,14 @@
+2009-03-01  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (process_constraint): Deal with
+	&ANYTHING on the lhs, reject all other ADDRESSOF constraints
+	on the lhs.
+	(get_constraint_for_component_ref): Assert that we don't get
+	ADDRESSOF constraints from the base of the reference.
+	Properly generate UNKNOWN_OFFSET for DEREF if needed.
+	(do_structure_copy): Remove special casings, treat &ANYTHING
+	on the lhs like DEREF.
+
 2009-02-28  Richard Guenther  <rguenther@suse.de>
 
 	* gimple.h (struct gimple_statement_with_memory_ops_base):
