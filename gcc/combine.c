@@ -12511,6 +12511,29 @@ reg_bitfield_target_p (rtx x, rtx body)
 
   return 0;
 }
+
+/* Return the next insn after INSN that is neither a NOTE nor a
+   DEBUG_INSN.  This routine does not look inside SEQUENCEs.  */
+
+static rtx
+next_nonnote_nondebug_insn (rtx insn)
+{
+  while (insn)
+    {
+      insn = NEXT_INSN (insn);
+      if (insn == 0)
+	break;
+      if (NOTE_P (insn))
+	continue;
+      if (DEBUG_INSN_P (insn))
+	continue;
+      break;
+    }
+
+  return insn;
+}
+
+
 
 /* Given a chain of REG_NOTES originally from FROM_INSN, try to place them
    as appropriate.  I3 and I2 are the insns resulting from the combination
@@ -12764,7 +12787,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 		place = from_insn;
 	      else if (reg_referenced_p (XEXP (note, 0), PATTERN (i3)))
 		place = i3;
-	      else if (i2 != 0 && next_nonnote_insn (i2) == i3
+	      else if (i2 != 0 && next_nonnote_nondebug_insn (i2) == i3
 		       && reg_referenced_p (XEXP (note, 0), PATTERN (i2)))
 		place = i2;
 	      else if ((rtx_equal_p (XEXP (note, 0), elim_i2)
@@ -12782,7 +12805,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 
 	      for (tem = PREV_INSN (tem); place == 0; tem = PREV_INSN (tem))
 		{
-		  if (! INSN_P (tem))
+		  if (! INSN_P (tem) || DEBUG_INSN_P (tem))
 		    {
 		      if (tem == BB_HEAD (bb))
 			break;
@@ -12983,7 +13006,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 			    for (tem = PREV_INSN (place); ;
 				 tem = PREV_INSN (tem))
 			      {
-				if (! INSN_P (tem))
+				if (! INSN_P (tem) || DEBUG_INSN_P (tem))
 				  {
 				    if (tem == BB_HEAD (bb))
 			 	      break;
