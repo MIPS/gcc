@@ -1,6 +1,6 @@
 /* Common subexpression elimination library for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -867,7 +867,7 @@ new_cselib_val (unsigned int value, enum machine_mode mode, rtx x)
   e->locs = 0;
   e->next_containing_mem = 0;
 
-  if (dump_file)
+  if (dump_file && flag_verbose_cselib)
     {
       fprintf (dump_file, "cselib value %u ", value);
       if (flag_dump_noaddr || flag_dump_unnumbered)
@@ -978,7 +978,7 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
       else if (!REG_P (p->loc))
 	{
 	  rtx result;
-	  if (dump_file)
+	  if (dump_file && flag_verbose_cselib)
 	    {
 	      print_inline_rtx (dump_file, p->loc, 0);
 	      fprintf (dump_file, "\n");
@@ -993,7 +993,7 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
   if (regno != UINT_MAX)
     {
       rtx result;
-      if (dump_file)
+      if (dump_file && flag_verbose_cselib)
 	fprintf (dump_file, "r%d\n", regno);
 
       result = cselib_expand_value_rtx_1 (reg_result, evd, max_depth - 1);
@@ -1001,7 +1001,7 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
 	return result;
     }
 
-  if (dump_file)
+  if (dump_file && flag_verbose_cselib)
     {
       if (reg_result)
 	{
@@ -1115,7 +1115,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 
 	      bitmap_set_bit (evd->regs_active, regno);
 
-	      if (dump_file)
+	      if (dump_file && flag_verbose_cselib)
 		fprintf (dump_file, "expanding: r%d into: ", regno);
 
 	      result = expand_loc (l->elt->locs, evd, max_depth);
@@ -1152,7 +1152,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
     case VALUE:
       {
 	rtx result;
-	if (dump_file)
+	if (dump_file && flag_verbose_cselib)
 	  {
 	    fputs ("\nexpanding ", dump_file);
 	    print_rtl_single (dump_file, orig);
@@ -1178,7 +1178,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 	    && GET_MODE (orig) != VOIDmode)
 	  {
 	    result = gen_rtx_CONST (GET_MODE (orig), result);
-	    if (dump_file)
+	    if (dump_file && flag_verbose_cselib)
 	      fprintf (dump_file, "  wrapping const_int result in const to preserve mode %s\n", 
 		       GET_MODE_NAME (GET_MODE (orig)));
 	  }
@@ -1351,7 +1351,7 @@ cselib_subst_to_values (rtx x)
 static cselib_val *
 cselib_log_lookup (rtx x, cselib_val *ret)
 {
-  if (dump_file)
+  if (dump_file && flag_verbose_cselib)
     {
       fputs ("cselib lookup ", dump_file);
       print_inline_rtx (dump_file, x, 2);

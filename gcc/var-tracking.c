@@ -1,5 +1,5 @@
 /* Variable tracking routines for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -1329,7 +1329,7 @@ val_resolve (dataflow_set *set, rtx val, rtx loc, rtx insn)
   decl_or_value dv = dv_from_value (val);
   void **slot;
 
-  if (dump_file)
+  if (dump_file && flag_verbose_cselib)
     {
       fprintf (dump_file, "%i: ", INSN_UID (insn));
       print_inline_rtx (dump_file, val, 0);
@@ -2800,7 +2800,7 @@ dataflow_set_different_1 (void **slot, void *data)
     {
       dataflow_set_different_value = true;
 
-      if (dump_file)
+      if (dump_file && flag_verbose_cselib)
 	{
 	  fprintf (dump_file, "dataflow difference found: removal of:\n");
 	  dump_variable (var1);
@@ -2814,7 +2814,7 @@ dataflow_set_different_1 (void **slot, void *data)
     {
       dataflow_set_different_value = true;
 
-      if (dump_file)
+      if (dump_file && flag_verbose_cselib)
 	{
 	  fprintf (dump_file, "dataflow difference found: old and new follow:\n");
 	  dump_variable (var1);
@@ -2845,7 +2845,7 @@ dataflow_set_different_2 (void **slot, void *data)
     {
       dataflow_set_different_value = true;
 
-      if (dump_file)
+      if (dump_file && flag_verbose_cselib)
 	{
 	  fprintf (dump_file, "dataflow difference found: addition of:\n");
 	  dump_variable (var1);
@@ -3298,7 +3298,7 @@ count_uses (rtx *loc, void *cuip)
 
       VTI (cui->bb)->n_mos++;
 
-      if (dump_file)
+      if (dump_file && flag_verbose_cselib)
 	log_op_type (*loc, cui->bb, cui->insn, mopt, dump_file);
 
       switch (mopt)
@@ -3446,7 +3446,7 @@ add_uses (rtx *loc, void *data)
 		  mo->type = MO_VAL_USE;
 		  mloc = cselib_subst_to_values (XEXP (mloc, 0));
 		  mo->u.loc = gen_rtx_CONCAT (Pmode, val->val_rtx, mloc);
-		  if (dump_file)
+		  if (dump_file && flag_verbose_cselib)
 		    log_op_type (mo->u.loc, cui->bb, cui->insn,
 				 mo->type, dump_file);
 		  mo = mon;
@@ -3514,7 +3514,7 @@ add_uses (rtx *loc, void *data)
 		  mloc = cselib_subst_to_values (XEXP (mloc, 0));
 		  mo->u.loc = gen_rtx_CONCAT (Pmode, val->val_rtx, mloc);
 		  mo->insn = cui->insn;
-		  if (dump_file)
+		  if (dump_file && flag_verbose_cselib)
 		    log_op_type (mo->u.loc, cui->bb, cui->insn,
 				 mo->type, dump_file);
 		  mo = mon;
@@ -3563,7 +3563,7 @@ add_uses (rtx *loc, void *data)
       else
 	gcc_assert (type == MO_USE || type == MO_USE_NO_VAR);
 
-      if (dump_file)
+      if (dump_file && flag_verbose_cselib)
 	log_op_type (mo->u.loc, cui->bb, cui->insn, mo->type, dump_file);
     }
 
@@ -3654,7 +3654,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 	      mloc = cselib_subst_to_values (XEXP (mloc, 0));
 	      mo->u.loc = gen_rtx_CONCAT (Pmode, val->val_rtx, mloc);
 	      mo->insn = cui->insn;
-	      if (dump_file)
+	      if (dump_file && flag_verbose_cselib)
 		log_op_type (mo->u.loc, cui->bb, cui->insn,
 			     mo->type, dump_file);
 	      mo = VTI (bb)->mos + VTI (bb)->n_mos++;
@@ -3772,7 +3772,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
   mo->type = MO_VAL_SET;
 
  log_and_return:
-  if (dump_file)
+  if (dump_file && flag_verbose_cselib)
     log_op_type (mo->u.loc, cui->bb, cui->insn, mo->type, dump_file);
 }
 
@@ -3827,7 +3827,7 @@ add_with_sets (rtx insn, struct cselib_set *sets, int n_sets)
       mo->type = MO_CALL;
       mo->insn = insn;
 
-      if (dump_file)
+      if (dump_file && flag_verbose_cselib)
 	log_op_type (PATTERN (insn), bb, insn, mo->type, dump_file);
     }
 
@@ -4309,7 +4309,7 @@ vt_find_locations (void)
 	      changed = compute_bb_dataflow (bb);
 	      htabsz += VTI (bb)->in.vars->size + VTI (bb)->out.vars->size;
 
-	      if (dump_file)
+	      if (dump_file && flag_verbose_cselib)
 		fprintf (dump_file,
 			 "BB %i: in %i, out %i, tsz %i, rem %i\n",
 			 bb->index, (int)VTI (bb)->in.vars->n_elements,
@@ -4318,7 +4318,7 @@ vt_find_locations (void)
 
 	      if (changed)
 		{
-		  if (dump_file)
+		  if (dump_file && flag_verbose_cselib)
 		    fprintf (dump_file, "BB %i ->", bb->index);
 
 		  FOR_EACH_EDGE (e, ei, bb->succs)
@@ -4326,7 +4326,7 @@ vt_find_locations (void)
 		      if (e->dest == EXIT_BLOCK_PTR)
 			continue;
 
-		      if (dump_file)
+		      if (dump_file && flag_verbose_cselib)
 			fprintf (dump_file, " %i", e->dest->index);
 
 		      if (TEST_BIT (visited, e->dest->index))
@@ -4349,11 +4349,11 @@ vt_find_locations (void)
 			}
 		    }
 
-		  if (dump_file)
+		  if (dump_file && flag_verbose_cselib)
 		    fputc ('\n', dump_file);
 		}
 
-	      if (dump_file)
+	      if (dump_file && flag_verbose_cselib)
 		{
 		  fprintf (dump_file, "BB %i IN:\n", bb->index);
 		  dump_dataflow_set (&VTI (bb)->in);
@@ -4367,7 +4367,7 @@ vt_find_locations (void)
   if (MAY_HAVE_DEBUG_INSNS
       && merge_with_missing_1pdv_as_union)
     {
-      if (dump_file)
+      if (dump_file && flag_verbose_cselib)
 	fprintf (dump_file,
 		 "dataflow union completed, starting dataflow merge\n");
       goto repeat_with_intersect;
@@ -5768,7 +5768,7 @@ vt_initialize (void)
       if (MAY_HAVE_DEBUG_INSNS)
 	{
 	  cselib_record_sets_hook = count_with_sets;
-	  if (dump_file)
+	  if (dump_file && flag_verbose_cselib)
 	    fprintf (dump_file, "first value: %i\n",
 		     cselib_get_next_unknown_value ());
 	}
@@ -5786,14 +5786,14 @@ vt_initialize (void)
 		  if (pre)
 		    {
 		      VTI (bb)->n_mos++;
-		      if (dump_file)
+		      if (dump_file && flag_verbose_cselib)
 			log_op_type (GEN_INT (pre), bb, insn,
 				     MO_ADJUST, dump_file);
 		    }
 		  if (post)
 		    {
 		      VTI (bb)->n_mos++;
-		      if (dump_file)
+		      if (dump_file && flag_verbose_cselib)
 			log_op_type (GEN_INT (post), bb, insn,
 				     MO_ADJUST, dump_file);
 		    }
@@ -5802,7 +5802,7 @@ vt_initialize (void)
 	      if (MAY_HAVE_DEBUG_INSNS)
 		{
 		  cselib_process_insn (insn);
-		  if (dump_file)
+		  if (dump_file && flag_verbose_cselib)
 		    {
 		      print_rtl_single (dump_file, insn);
 		      dump_cselib_table (dump_file);
@@ -5813,7 +5813,7 @@ vt_initialize (void)
 	      if (CALL_P (insn))
 		{
 		  VTI (bb)->n_mos++;
-		  if (dump_file)
+		  if (dump_file && flag_verbose_cselib)
 		    log_op_type (PATTERN (insn), bb, insn,
 				 MO_CALL, dump_file);
 		}
@@ -5828,7 +5828,7 @@ vt_initialize (void)
 	  next_value_after = cselib_get_next_unknown_value ();
 	  cselib_reset_table_with_next_value (next_value_before);
 	  cselib_record_sets_hook = add_with_sets;
-	  if (dump_file)
+	  if (dump_file && flag_verbose_cselib)
 	    fprintf (dump_file, "first value: %i\n",
 		     cselib_get_next_unknown_value ());
 	}
@@ -5852,7 +5852,7 @@ vt_initialize (void)
 		      mo->u.adjust = pre;
 		      mo->insn = insn;
 
-		      if (dump_file)
+		      if (dump_file && flag_verbose_cselib)
 			log_op_type (PATTERN (insn), bb, insn,
 				     MO_ADJUST, dump_file);
 		    }
@@ -5862,7 +5862,7 @@ vt_initialize (void)
 	      if (MAY_HAVE_DEBUG_INSNS)
 		{
 		  cselib_process_insn (insn);
-		  if (dump_file)
+		  if (dump_file && flag_verbose_cselib)
 		    {
 		      print_rtl_single (dump_file, insn);
 		      dump_cselib_table (dump_file);
@@ -5879,7 +5879,7 @@ vt_initialize (void)
 		  mo->u.adjust = post;
 		  mo->insn = insn;
 
-		  if (dump_file)
+		  if (dump_file && flag_verbose_cselib)
 		    log_op_type (PATTERN (insn), bb, insn,
 				 MO_ADJUST, dump_file);
 		}
