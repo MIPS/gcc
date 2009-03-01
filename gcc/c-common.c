@@ -1,6 +1,7 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -5113,7 +5114,9 @@ handle_packed_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     }
   else if (TREE_CODE (*node) == FIELD_DECL)
     {
-      if (TYPE_ALIGN (TREE_TYPE (*node)) <= BITS_PER_UNIT)
+      if (TYPE_ALIGN (TREE_TYPE (*node)) <= BITS_PER_UNIT
+	  /* Still pack bitfields.  */
+	  && ! DECL_INITIAL (*node))
 	warning (OPT_Wattributes,
 		 "%qE attribute ignored for field of type %qT",
 		 name, TREE_TYPE (*node));
@@ -5906,7 +5909,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   tree *type = NULL;
   int is_type = 0;
   tree align_expr = (args ? TREE_VALUE (args)
-		     : size_int (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
+		     : size_int (ATTRIBUTE_ALIGNED_VALUE / BITS_PER_UNIT));
   int i;
 
   if (DECL_P (*node))
@@ -6013,7 +6016,12 @@ handle_alias_attribute (tree *node, tree name, tree args,
 {
   tree decl = *node;
 
-  if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
+  if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+  else if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
       || (TREE_CODE (decl) != FUNCTION_DECL 
 	  && TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
       /* A static variable declaration is always a tentative definition,
@@ -6242,8 +6250,18 @@ c_determine_visibility (tree decl)
      visibility_specified depending on #pragma GCC visibility.  */
   if (!DECL_VISIBILITY_SPECIFIED (decl))
     {
-      DECL_VISIBILITY (decl) = default_visibility;
-      DECL_VISIBILITY_SPECIFIED (decl) = visibility_options.inpragma;
+      if (visibility_options.inpragma
+	  || DECL_VISIBILITY (decl) != default_visibility)
+	{
+	  DECL_VISIBILITY (decl) = default_visibility;
+	  DECL_VISIBILITY_SPECIFIED (decl) = visibility_options.inpragma;
+	  /* If visibility changed and DECL already has DECL_RTL, ensure
+	     symbol flags are updated.  */
+	  if (((TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+	       || TREE_CODE (decl) == FUNCTION_DECL)
+	      && DECL_RTL_SET_P (decl))
+	    make_decl_rtl (decl);
+	}
     }
   return false;
 }
@@ -6261,7 +6279,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
 
   *no_add_attrs = true;
 
-  if (!DECL_THREAD_LOCAL_P (decl))
+  if (TREE_CODE (decl) != VAR_DECL || !DECL_THREAD_LOCAL_P (decl))
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       return NULL_TREE;
@@ -6544,7 +6562,8 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
       || (!SCALAR_FLOAT_MODE_P (orig_mode)
 	  && GET_MODE_CLASS (orig_mode) != MODE_INT
 	  && !ALL_SCALAR_FIXED_POINT_MODE_P (orig_mode))
-      || !host_integerp (TYPE_SIZE_UNIT (type), 1))
+      || !host_integerp (TYPE_SIZE_UNIT (type), 1)
+      || TREE_CODE (type) == BOOLEAN_TYPE)
     {
       error ("invalid vector type for attribute %qE", name);
       return NULL_TREE;
@@ -7721,6 +7740,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	      tree curindex;
 	      unsigned HOST_WIDE_INT cnt;
 	      constructor_elt *ce;
+	      bool fold_p = false;
 
 	      if (VEC_index (constructor_elt, v, 0)->index)
 		maxindex = fold_convert (sizetype,
@@ -7732,14 +7752,20 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 		   VEC_iterate (constructor_elt, v, cnt, ce);
 		   cnt++)
 		{
+		  bool curfold_p = false;
 		  if (ce->index)
-		    curindex = fold_convert (sizetype, ce->index);
+		    curindex = ce->index, curfold_p = true;
 		  else
-		    curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
-
+		    {
+		      if (fold_p)
+		        curindex = fold_convert (sizetype, curindex);
+		      curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
+		    }
 		  if (tree_int_cst_lt (maxindex, curindex))
-		    maxindex = curindex;
+		    maxindex = curindex, fold_p = curfold_p;
 		}
+	       if (fold_p)
+	         maxindex = fold_convert (sizetype, maxindex);
 	    }
 	}
       else
@@ -8059,7 +8085,7 @@ warn_array_subscript_with_type_char (tree index)
 
 void
 warn_about_parentheses (enum tree_code code,
-			enum tree_code code_left, tree ARG_UNUSED (arg_left),
+			enum tree_code code_left, tree arg_left,
 			enum tree_code code_right, tree arg_right)
 {
   if (!warn_parentheses)
@@ -8169,9 +8195,11 @@ warn_about_parentheses (enum tree_code code,
     default:
       if (TREE_CODE_CLASS (code) == tcc_comparison
 	   && ((TREE_CODE_CLASS (code_left) == tcc_comparison
-		&& code_left != NE_EXPR && code_left != EQ_EXPR)
+		&& code_left != NE_EXPR && code_left != EQ_EXPR
+		&& INTEGRAL_TYPE_P (TREE_TYPE (arg_left)))
 	       || (TREE_CODE_CLASS (code_right) == tcc_comparison
-		   && code_right != NE_EXPR && code_right != EQ_EXPR)))
+		   && code_right != NE_EXPR && code_right != EQ_EXPR
+		   && INTEGRAL_TYPE_P (TREE_TYPE (arg_right)))))
 	warning (OPT_Wparentheses, "comparisons like %<X<=Y<=Z%> do not "
 		 "have their mathematical meaning");
       return;

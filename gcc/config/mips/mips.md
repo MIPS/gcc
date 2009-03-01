@@ -1,6 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+;;  1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 ;;  Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
@@ -404,7 +404,7 @@
 	 (eq_attr "move_type" "andi") (const_string "logical")
 
 	 ;; These types of move are always split.
-	 (eq_attr "move_type" "constN,lui_movf,shift_shift")
+	 (eq_attr "move_type" "constN,shift_shift")
 	   (const_string "multi")
 
 	 ;; These types of move are split for doubleword modes only.
@@ -413,6 +413,8 @@
 	   (const_string "multi")
 	 (eq_attr "move_type" "move") (const_string "move")
 	 (eq_attr "move_type" "const") (const_string "const")]
+	;; We classify "lui_movf" as "unknown" rather than "multi"
+	;; because we don't split it.  FIXME: we should split instead.
 	(const_string "unknown")))
 
 ;; Mode for conversion types (fcvt)
@@ -4521,8 +4523,8 @@
       rtx low = mips_subword (operands[1], 0);
       rtx high = mips_subword (operands[1], 1);
       emit_insn (gen_load_low<mode> (operands[0], low));
-      if (ISA_HAS_MXHC1 && reg_or_0_operand (high, <HALFMODE>mode))
- 	emit_insn (gen_mthc1<mode> (operands[0], high, operands[0]));
+      if (TARGET_FLOAT64 && !TARGET_64BIT)
+      	emit_insn (gen_mthc1<mode> (operands[0], high, operands[0]));
       else
 	emit_insn (gen_load_high<mode> (operands[0], high, operands[0]));
     }
@@ -4531,7 +4533,7 @@
       rtx low = mips_subword (operands[0], 0);
       rtx high = mips_subword (operands[0], 1);
       emit_insn (gen_store_word<mode> (low, operands[1], const0_rtx));
-      if (ISA_HAS_MXHC1 && register_operand (high, <HALFMODE>mode))
+      if (TARGET_FLOAT64 && !TARGET_64BIT)
 	emit_insn (gen_mfhc1<mode> (high, operands[1]));
       else
 	emit_insn (gen_store_word<mode> (high, operands[1], const1_rtx));
@@ -5203,18 +5205,18 @@
   [(set (pc)
 	(if_then_else
 	 (equality_op (zero_extract:GPR
-		       (match_operand:GPR 1 "register_operand" "d")
+		       (match_operand:GPR 0 "register_operand" "d")
 		       (const_int 1)
 		       (match_operand 2 "const_int_operand" ""))
 		      (const_int 0))
-	 (label_ref (match_operand 0 ""))
+	 (label_ref (match_operand 1 ""))
 	 (pc)))]
   "ISA_HAS_BBIT && UINTVAL (operands[2]) < GET_MODE_BITSIZE (<MODE>mode)"
 {
   return
     mips_output_conditional_branch (insn, operands,
-				    MIPS_BRANCH ("bbit<bbv>", "%1,%2,%0"),
-				    MIPS_BRANCH ("bbit<bbinv>", "%1,%2,%0"));
+				    MIPS_BRANCH ("bbit<bbv>", "%0,%2,%1"),
+				    MIPS_BRANCH ("bbit<bbinv>", "%0,%2,%1"));
 }
   [(set_attr "type"	     "branch")
    (set_attr "mode"	     "none")
@@ -5224,18 +5226,18 @@
   [(set (pc)
 	(if_then_else
 	 (equality_op (zero_extract:GPR
-		       (match_operand:GPR 1 "register_operand" "d")
+		       (match_operand:GPR 0 "register_operand" "d")
 		       (const_int 1)
 		       (match_operand 2 "const_int_operand" ""))
 		      (const_int 0))
 	 (pc)
-	 (label_ref (match_operand 0 ""))))]
+	 (label_ref (match_operand 1 ""))))]
   "ISA_HAS_BBIT && UINTVAL (operands[2]) < GET_MODE_BITSIZE (<MODE>mode)"
 {
   return
     mips_output_conditional_branch (insn, operands,
-				    MIPS_BRANCH ("bbit<bbinv>", "%1,%2,%0"),
-				    MIPS_BRANCH ("bbit<bbv>", "%1,%2,%0"));
+				    MIPS_BRANCH ("bbit<bbinv>", "%0,%2,%1"),
+				    MIPS_BRANCH ("bbit<bbv>", "%0,%2,%1"));
 }
   [(set_attr "type"	     "branch")
    (set_attr "mode"	     "none")

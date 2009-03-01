@@ -977,12 +977,18 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
 	continue;
       else if (!REG_P (p->loc))
 	{
-	  rtx result;
+	  rtx result, note;
 	  if (dump_file && flag_verbose_cselib)
 	    {
 	      print_inline_rtx (dump_file, p->loc, 0);
 	      fprintf (dump_file, "\n");
 	    }
+	  if (GET_CODE (p->loc) == LO_SUM
+	      && GET_CODE (XEXP (p->loc, 1)) == SYMBOL_REF
+	      && p->setting_insn
+	      && (note = find_reg_note (p->setting_insn, REG_EQUAL, NULL_RTX))
+	      && XEXP (note, 0) == XEXP (p->loc, 1))
+	    return XEXP (p->loc, 1);
 	  result = cselib_expand_value_rtx_1 (p->loc, evd, max_depth - 1);
 	  if (result)
 	    return result;
@@ -1015,6 +1021,23 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
 }
 
 
+/* Wrap result in CONST:MODE if needed to preserve the mode.  */
+static rtx
+check_wrap_constant (enum machine_mode mode, rtx result)
+{
+  if (!result || GET_MODE (result) == mode)
+    return result;
+
+  if (dump_file && flag_verbose_cselib)
+    fprintf (dump_file, "  wrapping result in const to preserve mode %s\n",
+	     GET_MODE_NAME (mode));
+
+  result = wrap_constant (mode, result);
+  gcc_assert (GET_MODE (result) == mode);
+
+  return result;
+}
+
 /* Forward substitute and expand an expression out to its roots.
    This is the opposite of common subexpression.  Because local value
    numbering is such a weak optimization, the expanded expression is
@@ -1042,7 +1065,9 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
   evd.callback = NULL;
   evd.callback_arg = NULL;
 
-  return cselib_expand_value_rtx_1 (orig, &evd, max_depth);
+  return check_wrap_constant (GET_MODE (orig),
+			      cselib_expand_value_rtx_1 (orig, &evd,
+							 max_depth));
 }
 
 /* Same as cselib_expand_value_rtx, but using a callback to try to
@@ -1058,7 +1083,9 @@ cselib_expand_value_rtx_cb (rtx orig, bitmap regs_active, int max_depth,
   evd.callback = cb;
   evd.callback_arg = data;
 
-  return cselib_expand_value_rtx_1 (orig, &evd, max_depth);
+  return check_wrap_constant (GET_MODE (orig),
+			      cselib_expand_value_rtx_1 (orig, &evd,
+							 max_depth));
 }
 
 static rtx
@@ -1069,6 +1096,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
   int i, j;
   RTX_CODE code;
   const char *format_ptr;
+  enum machine_mode mode;
 
   code = GET_CODE (orig);
 
@@ -1148,6 +1176,24 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 	return orig;
       break;
 
+    case SUBREG:
+      {
+	rtx subreg = cselib_expand_value_rtx_1 (SUBREG_REG (orig), evd,
+						max_depth - 1);
+	if (!subreg)
+	  return NULL;
+	scopy = simplify_gen_subreg (GET_MODE (orig), subreg,
+				     GET_MODE (SUBREG_REG (orig)),
+				     SUBREG_BYTE (orig));
+	if (scopy == NULL
+	    || (GET_CODE (scopy) == SUBREG
+		&& !REG_P (SUBREG_REG (scopy))
+		&& !MEM_P (SUBREG_REG (scopy))
+		&& (REG_P (SUBREG_REG (orig))
+		    || MEM_P (SUBREG_REG (orig)))))
+	  return shallow_copy_rtx (orig);
+	return scopy;
+      }
 
     case VALUE:
       {
@@ -1173,15 +1219,6 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 
 	if (!result)
 	  result = expand_loc (CSELIB_VAL_PTR (orig)->locs, evd, max_depth);
-	if (result
-	    && GET_CODE (result) == CONST_INT
-	    && GET_MODE (orig) != VOIDmode)
-	  {
-	    result = gen_rtx_CONST (GET_MODE (orig), result);
-	    if (dump_file && flag_verbose_cselib)
-	      fprintf (dump_file, "  wrapping const_int result in const to preserve mode %s\n", 
-		       GET_MODE_NAME (GET_MODE (orig)));
-	  }
 	return result;
       }
     default:
@@ -1194,9 +1231,9 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
      us to explicitly document why we are *not* copying a flag.  */
   copy = shallow_copy_rtx (orig);
 
-  format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
+  format_ptr = GET_RTX_FORMAT (code);
 
-  for (i = 0; i < GET_RTX_LENGTH (GET_CODE (copy)); i++)
+  for (i = 0; i < GET_RTX_LENGTH (code); i++)
     switch (*format_ptr++)
       {
       case 'e':
@@ -1242,6 +1279,70 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 	gcc_unreachable ();
       }
 
+  mode = GET_MODE (copy);
+  /* If an operand has been simplified into CONST_INT, which doesn't
+     have a mode and the mode isn't derivable from whole rtx's mode,
+     try simplify_*_operation first with mode from original's operand
+     and as a fallback wrap CONST_INT into gen_rtx_CONST.  */
+  scopy = copy;
+  switch (GET_RTX_CLASS (code))
+    {
+    case RTX_UNARY:
+      if (CONST_INT_P (XEXP (copy, 0))
+	  && GET_MODE (XEXP (orig, 0)) != VOIDmode)
+	{
+	  scopy = simplify_unary_operation (code, mode, XEXP (copy, 0),
+					    GET_MODE (XEXP (orig, 0)));
+	  if (scopy)
+	    return scopy;
+	}
+      break;
+    case RTX_COMM_ARITH:
+    case RTX_BIN_ARITH:
+      /* These expressions can derive operand modes from the whole rtx's mode.  */
+      break;
+    case RTX_TERNARY:
+    case RTX_BITFIELD_OPS:
+      if (CONST_INT_P (XEXP (copy, 0))
+	  && GET_MODE (XEXP (orig, 0)) != VOIDmode)
+	{
+	  scopy = simplify_ternary_operation (code, mode,
+					      GET_MODE (XEXP (orig, 0)),
+					      XEXP (copy, 0), XEXP (copy, 1),
+					      XEXP (copy, 2));
+	  if (scopy)
+	    return scopy;
+	}
+      break;
+    case RTX_COMPARE:
+    case RTX_COMM_COMPARE:
+      if (CONST_INT_P (XEXP (copy, 0))
+	  && GET_MODE (XEXP (copy, 1)) == VOIDmode
+	  && (GET_MODE (XEXP (orig, 0)) != VOIDmode
+	      || GET_MODE (XEXP (orig, 1)) != VOIDmode))
+	{
+	  scopy = simplify_relational_operation (code, mode,
+						 (GET_MODE (XEXP (orig, 0))
+						  != VOIDmode)
+						 ? GET_MODE (XEXP (orig, 0))
+						 : GET_MODE (XEXP (orig, 1)),
+						 XEXP (copy, 0),
+						 XEXP (copy, 1));
+	  if (scopy)
+	    return scopy;
+	}
+      break;
+    default:
+      break;
+    }
+  if (scopy == NULL_RTX)
+    {
+      XEXP (copy, 0)
+	= gen_rtx_CONST (GET_MODE (XEXP (orig, 0)), XEXP (copy, 0));
+      if (dump_file && flag_verbose_cselib)
+	fprintf (dump_file, "  wrapping const_int result in const to preserve mode %s\n",
+		 GET_MODE_NAME (GET_MODE (XEXP (copy, 0))));
+    }
   scopy = simplify_rtx (copy);
   if (scopy)
     {
@@ -1749,6 +1850,17 @@ cselib_record_sets (rtx insn)
 	      n_sets++;
 	    }
 	}
+    }
+
+  if (n_sets == 1
+      && MEM_P (sets[0].src)
+      && !cselib_record_memory
+      && MEM_READONLY_P (sets[0].src))
+    {
+      rtx note = find_reg_equal_equiv_note (insn);
+
+      if (note && CONSTANT_P (XEXP (note, 0)))
+	sets[0].src = XEXP (note, 0);
     }
 
   /* Look up the values that are read.  Do this before invalidating the

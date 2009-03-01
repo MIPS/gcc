@@ -98,7 +98,7 @@ endif
 dbexec_DATA = $(db_name)
 endif 
 
-bin_SCRIPTS = addr2name.awk contrib/rebuild-gcj-db contrib/aot-compile
+bin_SCRIPTS = contrib/rebuild-gcj-db contrib/aot-compile
 
 if INSTALL_AOT_RPM
 bin_SCRIPTS += contrib/aot-compile-rpm
@@ -128,12 +128,15 @@ if ANONVERSCRIPT
 extra_ldflags_libjava += -Wl,--version-script=$(srcdir)/libgcj.ver
 endif
 
+LTLDFLAGS = $(shell $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) \
-          $(LDFLAGS) -o $@
+          $(LTLDFLAGS) -o $@
 GCJ_FOR_ECJX = @GCJ_FOR_ECJX@
 GCJ_FOR_ECJX_LINK = $(GCJ_FOR_ECJX) -o $@
 LIBLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXX) -L$(here) $(JC1FLAGS) \
-          $(LDFLAGS) $(extra_ldflags_libjava) $(extra_ldflags) -o $@
+          $(LTLDFLAGS) $(extra_ldflags_libjava) $(extra_ldflags) -o $@
+CXXLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXXLD) $(AM_CXXFLAGS) \
+	$(CXXFLAGS) $(AM_LDFLAGS) $(LTLDFLAGS) -o $@
 
 GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 
@@ -868,7 +871,7 @@ gij_LDADD = -L$(here)/.libs libgij.la
 gij_DEPENDENCIES = libgij.la
 
 ## Build an ecjx from a .jar.
-ecjx_SOURCES =
+ecjx_SOURCES = ecjx.cc
 ## We use the BC ABI here so that we don't need to compile ecj.jar.
 ## Hopefully the user has compiled it into his system .db.
 ## However, even if not it will run reasonably quickly.
@@ -888,10 +891,12 @@ else !ENABLE_SHARED
 ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) $(ECJ_BUILD_JAR) -fbootclasspath=$(BOOTCLASSPATH)
 endif !ENABLE_SHARED
 
-ecjx_LDADD = -L$(here)/.libs libgcj.la
+ecjx_LDADD = -L$(here)/.libs $(extra_ldflags)
 ecjx_DEPENDENCIES = libgcj.la libgcj.spec
 if USE_LIBGCJ_BC
 ecjx_DEPENDENCIES += libgcj_bc.la
+else
+ecjx_LDADD += libgcj.la
 endif
 
 else !NATIVE
@@ -1086,6 +1091,7 @@ gnu/java/nio/natVMSelector.cc \
 gnu/java/nio/natNIOServerSocket.cc \
 gnu/java/nio/natVMChannel.cc \
 gnu/java/nio/channels/natFileChannelImpl.cc \
+gnu/java/security/jce/prng/natVMSecureRandom.cc \
 java/io/natFile.cc \
 java/io/natVMObjectInputStream.cc \
 java/io/natVMObjectStreamClass.cc \
@@ -1293,6 +1299,7 @@ AM_MAKEFLAGS = \
 	"SHELL=$(SHELL)" \
 	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
 	"exec_prefix=$(exec_prefix)" \
+	"datadir=$(datadir)" \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \
 	"mandir=$(mandir)" \

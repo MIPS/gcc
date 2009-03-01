@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -2974,7 +2974,8 @@ check_field_decls (tree t, tree *access_decls,
 		 x);
 	      cant_pack = 1;
 	    }
-	  else if (TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
+	  else if (DECL_C_BIT_FIELD (x)
+		   || TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
 	    DECL_PACKED (x) = 1;
 	}
 
@@ -4089,6 +4090,9 @@ type_has_user_provided_constructor (tree t)
 {
   tree fns;
 
+  if (!CLASS_TYPE_P (t))
+    return false;
+
   if (!TYPE_HAS_USER_CONSTRUCTOR (t))
     return false;
 
@@ -4137,17 +4141,19 @@ defaultable_fn_p (tree fn)
 {
   if (DECL_CONSTRUCTOR_P (fn))
     {
-      if (skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn))
-	  == NULL_TREE)
+      if (FUNCTION_FIRST_USER_PARMTYPE (fn) == void_list_node)
 	return true;
-      else if (copy_fn_p (fn) > 0)
+      else if (copy_fn_p (fn) > 0
+	       && (TREE_CHAIN (FUNCTION_FIRST_USER_PARMTYPE (fn))
+		   == void_list_node))
 	return true;
       else
 	return false;
     }
   else if (DECL_DESTRUCTOR_P (fn))
     return true;
-  else if (DECL_ASSIGNMENT_OPERATOR_P (fn))
+  else if (DECL_ASSIGNMENT_OPERATOR_P (fn)
+	   && DECL_OVERLOADED_OPERATOR_P (fn) == NOP_EXPR)
     return copy_fn_p (fn);
   else
     return false;

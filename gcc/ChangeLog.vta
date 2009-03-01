@@ -1,5 +1,12 @@
 2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
 
+	Merged with trunk@144510
+	* cselib.c (check_wrap_constant): New.
+	(cselib_expand_value_rtx, cselib_expand_value_rtx_cb): Use it.
+	Don't require REG/MEM SUBREG if incoming SUBREG isn't.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
 	* sel-sched-ir.c (return_nop_to_pool): Add full_tidying argument.
 	Adjust callers.
 	(setup_id_for_insn): Choose suitable type for debug insns.

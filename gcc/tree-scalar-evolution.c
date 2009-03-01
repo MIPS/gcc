@@ -1,6 +1,6 @@
 /* Scalar evolution detector.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software
-   Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -1712,6 +1712,15 @@ interpret_rhs_expr (struct loop *loop, gimple at_stmt,
 				 fold_convert (type, integer_minus_one_node));
       break;
 
+    case BIT_NOT_EXPR:
+      /* Handle ~X as -1 - X.  */
+      chrec1 = analyze_scalar_evolution (loop, rhs1);
+      chrec1 = chrec_convert (type, chrec1, at_stmt);
+      res = chrec_fold_minus (type,
+			      fold_convert (type, integer_minus_one_node),
+			      chrec1);
+      break;
+
     case MULT_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
@@ -2214,6 +2223,24 @@ instantiate_scev_1 (basic_block instantiate_below,
 	return fold_convert (TREE_TYPE (chrec), op0);
 
       return chrec_convert (TREE_TYPE (chrec), op0, NULL);
+
+    case BIT_NOT_EXPR:
+      /* Handle ~X as -1 - X.  */
+      op0 = instantiate_scev_1 (instantiate_below, evolution_loop,
+				TREE_OPERAND (chrec, 0),
+				fold_conversions, cache, size_expr);
+      if (op0 == chrec_dont_know)
+	return chrec_dont_know;
+
+      if (TREE_OPERAND (chrec, 0) != op0)
+	{
+	  op0 = chrec_convert (type, op0, NULL);
+	  chrec = chrec_fold_minus (type,
+				    fold_convert (type,
+						  integer_minus_one_node),
+				    op0);
+	}
+      return chrec;
 
     case SCEV_NOT_KNOWN:
       return chrec_dont_know;
@@ -2805,6 +2832,50 @@ scev_finalize (void)
   scalar_evolution_info = NULL;
 }
 
+/* Returns true if the expression EXPR is considered to be too expensive
+   for scev_const_prop.  */
+
+bool
+expression_expensive_p (tree expr)
+{
+  enum tree_code code;
+
+  if (is_gimple_val (expr))
+    return false;
+
+  code = TREE_CODE (expr);
+  if (code == TRUNC_DIV_EXPR
+      || code == CEIL_DIV_EXPR
+      || code == FLOOR_DIV_EXPR
+      || code == ROUND_DIV_EXPR
+      || code == TRUNC_MOD_EXPR
+      || code == CEIL_MOD_EXPR
+      || code == FLOOR_MOD_EXPR
+      || code == ROUND_MOD_EXPR
+      || code == EXACT_DIV_EXPR)
+    {
+      /* Division by power of two is usually cheap, so we allow it.
+	 Forbid anything else.  */
+      if (!integer_pow2p (TREE_OPERAND (expr, 1)))
+	return true;
+    }
+
+  switch (TREE_CODE_CLASS (code))
+    {
+    case tcc_binary:
+    case tcc_comparison:
+      if (expression_expensive_p (TREE_OPERAND (expr, 1)))
+	return true;
+
+      /* Fallthru.  */
+    case tcc_unary:
+      return expression_expensive_p (TREE_OPERAND (expr, 0));
+
+    default:
+      return true;
+    }
+}
+
 /* Replace ssa names for that scev can prove they are constant by the
    appropriate constants.  Also perform final value replacement in loops,
    in case the replacement expressions are cheap.
@@ -2896,12 +2967,6 @@ scev_const_prop (void)
 	continue;
 
       niter = number_of_latch_executions (loop);
-      /* We used to check here whether the computation of NITER is expensive,
-	 and avoided final value elimination if that is the case.  The problem
-	 is that it is hard to evaluate whether the expression is too
-	 expensive, as we do not know what optimization opportunities the
-	 elimination of the final value may reveal.  Therefore, we now
-	 eliminate the final values of induction variables unconditionally.  */
       if (niter == chrec_dont_know)
 	continue;
 
@@ -2938,7 +3003,15 @@ scev_const_prop (void)
 	      /* Moving the computation from the loop may prolong life range
 		 of some ssa names, which may cause problems if they appear
 		 on abnormal edges.  */
-	      || contains_abnormal_ssa_name_p (def))
+	      || contains_abnormal_ssa_name_p (def)
+	      /* Do not emit expensive expressions.  The rationale is that
+		 when someone writes a code like
+
+		 while (n > 45) n -= 45;
+
+		 he probably knows that n is not large, and does not want it
+		 to be turned into n %= 45.  */
+	      || expression_expensive_p (def))
 	    {
 	      gsi_next (&psi);
 	      continue;

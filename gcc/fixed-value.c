@@ -1,5 +1,5 @@
 /* Fixed-point arithmetic support.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -295,8 +295,8 @@ do_fixed_add (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
   double_int temp;
   int i_f_bits;
 
-  /* This was a conditional expression but it triggered a bug in the
-     Solaris 8 compiler.  */
+  /* This was a conditional expression but it triggered a bug in
+     Sun C 5.5.  */
   if (subtract_p)
     temp = double_int_neg (b->data);
   else

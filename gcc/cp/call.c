@@ -1,6 +1,6 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
@@ -5276,7 +5276,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	(conv, TREE_VALUE (arg), fn, i - is_method, complain);
 
       val = convert_for_arg_passing (type, val);
-      if ((complain == tf_none) && val == error_mark_node)
+      if (val == error_mark_node)
         return error_mark_node;
       else
         argarray[j++] = val;
@@ -5993,6 +5993,15 @@ build_new_method_call (tree instance, tree fns, tree args,
 
   if (processing_template_decl && call != error_mark_node)
     {
+      bool cast_to_void = false;
+
+      if (TREE_CODE (call) == COMPOUND_EXPR)
+	call = TREE_OPERAND (call, 1);
+      else if (TREE_CODE (call) == NOP_EXPR)
+	{
+	  cast_to_void = true;
+	  call = TREE_OPERAND (call, 0);
+	}
       if (TREE_CODE (call) == INDIRECT_REF)
 	call = TREE_OPERAND (call, 0);
       call = (build_min_non_dep_call_list
@@ -6001,6 +6010,8 @@ build_new_method_call (tree instance, tree fns, tree args,
 			  orig_instance, orig_fns, NULL_TREE),
 	       orig_args));
       call = convert_from_reference (call);
+      if (cast_to_void)
+	call = build_nop (void_type_node, call);
     }
 
  /* Free all the conversions we allocated.  */

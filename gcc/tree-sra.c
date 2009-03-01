@@ -1,8 +1,8 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
-     Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -1008,6 +1008,7 @@ sra_walk_gimple_assign (gimple stmt, gimple_stmt_iterator *gsi,
 	 we'd been passed the constructor directly.  Invoke INIT.  */
       else if (TREE_CODE (rhs) == VAR_DECL
 	       && TREE_STATIC (rhs)
+	       && !DECL_EXTERNAL (rhs)
 	       && TREE_READONLY (rhs)
 	       && targetm.binds_local_p (rhs))
 	fns->init (lhs_elt, DECL_INITIAL (rhs), gsi);
@@ -2354,14 +2355,17 @@ sra_build_bf_assignment (tree dst, tree src)
       tmp = var;
       if (!is_gimple_variable (tmp))
 	tmp = unshare_expr (var);
+      else
+	TREE_NO_WARNING (var) = true;
 
       tmp2 = make_rename_temp (utype, "SR");
 
       if (INTEGRAL_TYPE_P (TREE_TYPE (var)))
-	stmt = gimple_build_assign (tmp2, fold_convert (utype, tmp));
+	tmp = fold_convert (utype, tmp);
       else
-	stmt = gimple_build_assign (tmp2, fold_build1 (VIEW_CONVERT_EXPR,
-						       utype, tmp));
+	tmp = fold_build1 (VIEW_CONVERT_EXPR, utype, tmp);
+
+      stmt = gimple_build_assign (tmp2, tmp);
       gimple_seq_add_stmt (&seq, stmt);
     }
   else

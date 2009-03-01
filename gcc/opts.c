@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
@@ -811,6 +811,7 @@ decode_options (unsigned int argc, const char **argv)
   static int initial_avg_aliased_vops;
   static int initial_min_crossjump_insns;
   static int initial_max_fields_for_field_sensitive;
+  static int initial_loop_invariant_max_bbs_in_loop;
   static unsigned int initial_lang_mask;
 
   unsigned int i, lang_mask;
@@ -833,6 +834,8 @@ decode_options (unsigned int argc, const char **argv)
 	= compiler_params[PARAM_MIN_CROSSJUMP_INSNS].value;
       initial_max_fields_for_field_sensitive
 	= compiler_params[PARAM_MAX_FIELDS_FOR_FIELD_SENSITIVE].value;
+      initial_loop_invariant_max_bbs_in_loop
+	= compiler_params[PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP].value;
     }
   else
     lang_mask = initial_lang_mask;
@@ -870,7 +873,6 @@ decode_options (unsigned int argc, const char **argv)
 	}
     }
   
-  flag_ira = 1;
   /* Use priority coloring if cover classes is not defined for the
      target.  */
   if (targetm.ira_cover_classes == NULL)
@@ -943,6 +945,10 @@ decode_options (unsigned int argc, const char **argv)
   /* Track fields in field-sensitive alias analysis.  */
   set_param_value ("max-fields-for-field-sensitive",
 		   (opt2) ? 100 : initial_max_fields_for_field_sensitive);
+
+  /* For -O1 only do loop invariant motion for very small loops.  */
+  set_param_value ("loop-invariant-max-bbs-in-loop",
+		   (opt2) ? initial_loop_invariant_max_bbs_in_loop : 1000);
 
   /* -O3 optimizations.  */
   opt3 = (optimize >= 3);
@@ -1098,7 +1104,7 @@ decode_options (unsigned int argc, const char **argv)
   if (!flag_sel_sched_pipelining)
     flag_sel_sched_pipelining_outer_loops = 0;
 
-  if (flag_ira && !targetm.ira_cover_classes
+  if (!targetm.ira_cover_classes
       && flag_ira_algorithm == IRA_ALGORITHM_CB)
     {
       inform (input_location,

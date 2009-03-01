@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -309,24 +309,30 @@ build_value_init (tree type)
 	  /* This is a class that needs constructing, but doesn't have
 	     a user-provided constructor.  So we need to zero-initialize
 	     the object and then call the implicitly defined ctor.
-	     Implement this by sticking the zero-initialization inside
-	     the TARGET_EXPR for the constructor call;
-	     cp_gimplify_init_expr will know how to handle it.  */
-	  tree init = build_zero_init (type, NULL_TREE,
-				       /*static_storage_p=*/false);
+	     This will be handled in simplify_aggr_init_expr.  */
 	  tree ctor = build_special_member_call
 	    (NULL_TREE, complete_ctor_identifier,
 	     NULL_TREE, type, LOOKUP_NORMAL, tf_warning_or_error);
 
-	  ctor = build_cplus_new (type, ctor);
-	  init = build2 (INIT_EXPR, void_type_node,
-			 TARGET_EXPR_SLOT (ctor), init);
-	  init = build2 (COMPOUND_EXPR, void_type_node, init,
-			 TARGET_EXPR_INITIAL (ctor));
-	  TARGET_EXPR_INITIAL (ctor) = init;
+	  ctor = build_aggr_init_expr (type, ctor);
+	  AGGR_INIT_ZERO_FIRST (ctor) = 1;
 	  return ctor;
 	}
-      else if (TREE_CODE (type) != UNION_TYPE)
+    }
+  return build_value_init_noctor (type);
+}
+
+/* Like build_value_init, but don't call the constructor for TYPE.  Used
+   for base initializers.  */
+
+tree
+build_value_init_noctor (tree type)
+{
+  if (CLASS_TYPE_P (type))
+    {
+      gcc_assert (!TYPE_NEEDS_CONSTRUCTING (type));
+	
+      if (TREE_CODE (type) != UNION_TYPE)
 	{
 	  tree field;
 	  VEC(constructor_elt,gc) *v = NULL;
@@ -435,19 +441,25 @@ perform_member_init (tree member, tree init)
     {
       /* mem() means value-initialization.  */
       if (TREE_CODE (type) == ARRAY_TYPE)
-	init = build_vec_init (decl, NULL_TREE, NULL_TREE,
-			       /*explicit_value_init_p=*/true,
-			       /* from_array=*/0,
-			       tf_warning_or_error);
+	{
+	  init = build_vec_init (decl, NULL_TREE, NULL_TREE,
+				 /*explicit_value_init_p=*/true,
+				 /* from_array=*/0,
+				 tf_warning_or_error);
+	  finish_expr_stmt (init);
+	}
       else
 	{
 	  if (TREE_CODE (type) == REFERENCE_TYPE)
-	    warning (0, "%Jdefault-initialization of %q#D, "
-		     "which has reference type",
-		     current_function_decl, member);
-	  init = build2 (INIT_EXPR, type, decl, build_value_init (type));
+	    permerror (input_location, "%Jvalue-initialization of %q#D, "
+				       "which has reference type",
+		       current_function_decl, member);
+	  else
+	    {
+	      init = build2 (INIT_EXPR, type, decl, build_value_init (type));
+	      finish_expr_stmt (init);
+	    }
 	}
-      finish_expr_stmt (init);
     }
   /* Deal with this here, as we will get confused if we try to call the
      assignment op for an anonymous union.  This can happen in a
@@ -801,11 +813,6 @@ emit_mem_initializers (tree mem_inits)
 	warning (OPT_Wextra, "%Jbase class %q#T should be explicitly initialized in the "
 		 "copy constructor",
 		 current_function_decl, BINFO_TYPE (subobject));
-
-      /* If an explicit -- but empty -- initializer list was present,
-	 treat it just like default initialization at this point.  */
-      if (arguments == void_type_node)
-	arguments = NULL_TREE;
 
       /* Initialize the base.  */
       if (BINFO_VIRTUAL_P (subobject))
@@ -1385,6 +1392,33 @@ expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags,
       if (init)
 	finish_expr_stmt (init);
       return;
+    }
+
+  /* If an explicit -- but empty -- initializer list was present,
+     that's value-initialization.  */
+  if (init == void_type_node)
+    {
+      /* If there's a user-provided constructor, we just call that.  */
+      if (type_has_user_provided_constructor (type))
+	/* Fall through.  */;
+      /* If there isn't, but we still need to call the constructor,
+	 zero out the object first.  */
+      else if (TYPE_NEEDS_CONSTRUCTING (type))
+	{
+	  init = build_zero_init (type, NULL_TREE, /*static_storage_p=*/false);
+	  init = build2 (INIT_EXPR, type, exp, init);
+	  finish_expr_stmt (init);
+	  /* And then call the constructor.  */
+	}
+      /* If we don't need to mess with the constructor at all,
+	 then just zero out the object and we're done.  */
+      else
+	{
+	  init = build2 (INIT_EXPR, type, exp, build_value_init_noctor (type));
+	  finish_expr_stmt (init);
+	  return;
+	}
+      init = NULL_TREE;
     }
 
   /* We know that expand_default_init can handle everything we want
@@ -2328,11 +2362,10 @@ build_new (tree placement, tree type, tree nelts, tree init,
   orig_nelts = nelts;
   orig_init = init;
 
-  if (nelts == NULL_TREE && init != void_zero_node && list_length (init) == 1
-      && !any_type_dependent_arguments_p (init))
+  if (nelts == NULL_TREE && init != void_zero_node && list_length (init) == 1)
     {
       tree auto_node = type_uses_auto (type);
-      if (auto_node)
+      if (auto_node && describable_type (TREE_VALUE (init)))
 	type = do_auto_deduction (type, TREE_VALUE (init), auto_node);
     }
 

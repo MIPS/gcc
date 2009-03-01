@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from GCC.
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -159,7 +159,8 @@ dwarf2out_do_cfi_asm (void)
   if ((enc & 0x70) != 0 && (enc & 0x70) != DW_EH_PE_pcrel)
     return false;
 
-  return saved_do_cfi_asm = true;
+  saved_do_cfi_asm = true;
+  return true;
 }
 
 /* The size of the target's pointer type.  */
@@ -3408,6 +3409,17 @@ typedef const struct die_struct *const_dw_die_ref;
 typedef struct dw_loc_descr_struct *dw_loc_descr_ref;
 typedef struct dw_loc_list_struct *dw_loc_list_ref;
 
+typedef struct deferred_locations_struct GTY(()) 
+{
+  tree variable;
+  dw_die_ref die;
+} deferred_locations;
+
+DEF_VEC_O(deferred_locations);
+DEF_VEC_ALLOC_O(deferred_locations,gc);
+
+static GTY(()) VEC(deferred_locations, gc) *deferred_locations_list;
+
 /* Each DIE may have a series of attribute/value pairs.  Values
    can take on several forms.  The forms that are used in this
    implementation are listed below.  */
@@ -4955,7 +4967,6 @@ static const char *dwarf_tag_name (unsigned);
 static const char *dwarf_attr_name (unsigned);
 static const char *dwarf_form_name (unsigned);
 static tree decl_ultimate_origin (const_tree);
-static tree block_ultimate_origin (const_tree);
 static tree decl_class_context (tree);
 static void add_dwarf_attr (dw_die_ref, dw_attr_ref);
 static inline enum dw_val_class AT_class (dw_attr_ref);
@@ -5778,51 +5789,6 @@ decl_ultimate_origin (const_tree decl)
   gcc_assert (!DECL_FROM_INLINE (DECL_ORIGIN (decl)));
 
   return DECL_ABSTRACT_ORIGIN (decl);
-}
-
-/* Determine the "ultimate origin" of a block.  The block may be an inlined
-   instance of an inlined instance of a block which is local to an inline
-   function, so we have to trace all of the way back through the origin chain
-   to find out what sort of node actually served as the original seed for the
-   given block.  */
-
-static tree
-block_ultimate_origin (const_tree block)
-{
-  tree immediate_origin = BLOCK_ABSTRACT_ORIGIN (block);
-
-  /* output_inline_function sets BLOCK_ABSTRACT_ORIGIN for all the
-     nodes in the function to point to themselves; ignore that if
-     we're trying to output the abstract instance of this function.  */
-  if (BLOCK_ABSTRACT (block) && immediate_origin == block)
-    return NULL_TREE;
-
-  if (immediate_origin == NULL_TREE)
-    return NULL_TREE;
-  else
-    {
-      tree ret_val;
-      tree lookahead = immediate_origin;
-
-      do
-	{
-	  ret_val = lookahead;
-	  lookahead = (TREE_CODE (ret_val) == BLOCK
-		       ? BLOCK_ABSTRACT_ORIGIN (ret_val) : NULL);
-	}
-      while (lookahead != NULL && lookahead != ret_val);
-
-      /* The block's abstract origin chain may not be the *ultimate* origin of
-	 the block. It could lead to a DECL that has an abstract origin set.
-	 If so, we want that DECL's abstract origin (which is what DECL_ORIGIN
-	 will give us if it has one).  Note that DECL's abstract origins are
-	 supposed to be the most distant ancestor (or so decl_ultimate_origin
-	 claims), so we don't need to loop following the DECL origins.  */
-      if (DECL_P (ret_val))
-	return DECL_ORIGIN (ret_val);
-
-      return ret_val;
-    }
 }
 
 /* Get the class to which DECL belongs, if any.  In g++, the DECL_CONTEXT
@@ -11988,6 +11954,17 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
   tree_add_const_value_attribute (die, decl);
 }
 
+/* Add VARIABLE and DIE into deferred locations list.  */
+
+static void
+defer_location (tree variable, dw_die_ref die)
+{
+  deferred_locations entry;
+  entry.variable = variable;
+  entry.die = die;
+  VEC_safe_push (deferred_locations, gc, deferred_locations_list, &entry);
+}
+
 /* Helper function for tree_add_const_value_attribute.  Natively encode
    initializer INIT into an array.  Return true if successful.  */
 
@@ -13377,6 +13354,9 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 	  add_name_attribute (enum_die,
 			      IDENTIFIER_POINTER (TREE_PURPOSE (link)));
 
+	  if (TREE_CODE (value) == CONST_DECL)
+	    value = DECL_INITIAL (value);
+
 	  if (host_integerp (value, TYPE_UNSIGNED (TREE_TYPE (value))))
 	    /* DWARF2 does not provide a way of indicating whether or
 	       not enumeration constants are signed or unsigned.  GDB
@@ -14194,7 +14174,11 @@ gen_variable_die (tree decl, dw_die_ref context_die)
 
   if (! declaration && ! DECL_ABSTRACT (decl))
     {
-      add_location_or_const_value_attribute (var_die, decl, DW_AT_location);
+      if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl)
+          && !TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+	defer_location (decl, var_die);
+      else
+        add_location_or_const_value_attribute (var_die, decl, DW_AT_location);
       add_pubname (decl, var_die);
     }
   else
@@ -14275,35 +14259,6 @@ add_call_src_coords_attributes (tree stmt, dw_die_ref die)
 }
 
 
-/* If STMT's abstract origin is a function declaration and STMT's
-   first subblock's abstract origin is the function's outermost block,
-   then we're looking at the main entry point.  */
-static bool
-is_inlined_entry_point (const_tree stmt)
-{
-  tree decl, block;
-
-  if (!stmt || TREE_CODE (stmt) != BLOCK)
-    return false;
-
-  decl = block_ultimate_origin (stmt);
-
-  if (!decl || TREE_CODE (decl) != FUNCTION_DECL)
-    return false;
-
-  block = BLOCK_SUBBLOCKS (stmt);
-
-  if (block)
-    {
-      if (TREE_CODE (block) != BLOCK)
-	return false;
-
-      block = block_ultimate_origin (block);
-    }
-
-  return block == DECL_INITIAL (decl);
-}
-
 /* A helper function for gen_lexical_block_die and gen_inlined_subroutine_die.
    Add low_pc and high_pc attributes to the DIE for a block STMT.  */
 
@@ -14316,7 +14271,7 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
     {
       tree chain;
 
-      if (is_inlined_entry_point (stmt))
+      if (inlined_function_outer_scope_p (stmt))
 	{
 	  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
 				       BLOCK_NUMBER (stmt));
@@ -15001,13 +14956,14 @@ static void
 gen_block_die (tree stmt, dw_die_ref context_die, int depth)
 {
   int must_output_die = 0;
-  tree origin;
   tree decl;
-  enum tree_code origin_code;
+  bool inlined_func;
 
   /* Ignore blocks that are NULL.  */
   if (stmt == NULL_TREE)
     return;
+
+  inlined_func = inlined_function_outer_scope_p (stmt);
 
   /* If the block is one fragment of a non-contiguous block, do not
      process the variables, since they will have been done by the
@@ -15022,52 +14978,34 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
       return;
     }
 
-  /* Determine the "ultimate origin" of this block.  This block may be an
-     inlined instance of an inlined instance of inline function, so we have
-     to trace all of the way back through the origin chain to find out what
-     sort of node actually served as the original seed for the creation of
-     the current block.  */
-  origin = block_ultimate_origin (stmt);
-  origin_code = (origin != NULL) ? TREE_CODE (origin) : ERROR_MARK;
-
   /* Determine if we need to output any Dwarf DIEs at all to represent this
      block.  */
-  if (origin_code == FUNCTION_DECL)
+  if (inlined_func)
     /* The outer scopes for inlinings *must* always be represented.  We
        generate DW_TAG_inlined_subroutine DIEs for them.  (See below.) */
     must_output_die = 1;
   else
     {
-      /* In the case where the current block represents an inlining of the
-	 "body block" of an inline function, we must *NOT* output any DIE for
-	 this block because we have already output a DIE to represent the whole
-	 inlined function scope and the "body block" of any function doesn't
-	 really represent a different scope according to ANSI C rules.  So we
-	 check here to make sure that this block does not represent a "body
-	 block inlining" before trying to set the MUST_OUTPUT_DIE flag.  */
-      if (! is_body_block (origin ? origin : stmt))
-	{
-	  /* Determine if this block directly contains any "significant"
-	     local declarations which we will need to output DIEs for.  */
-	  if (debug_info_level > DINFO_LEVEL_TERSE)
-	    /* We are not in terse mode so *any* local declaration counts
-	       as being a "significant" one.  */
-	    must_output_die = (BLOCK_VARS (stmt) != NULL
-			       && (TREE_USED (stmt)
-				   || TREE_ASM_WRITTEN (stmt)
-				   || BLOCK_ABSTRACT (stmt)));
-	  else
-	    /* We are in terse mode, so only local (nested) function
-	       definitions count as "significant" local declarations.  */
-	    for (decl = BLOCK_VARS (stmt);
-		 decl != NULL; decl = TREE_CHAIN (decl))
-	      if (TREE_CODE (decl) == FUNCTION_DECL
-		  && DECL_INITIAL (decl))
-		{
-		  must_output_die = 1;
-		  break;
-		}
-	}
+      /* Determine if this block directly contains any "significant"
+	 local declarations which we will need to output DIEs for.  */
+      if (debug_info_level > DINFO_LEVEL_TERSE)
+	/* We are not in terse mode so *any* local declaration counts
+	   as being a "significant" one.  */
+	must_output_die = (BLOCK_VARS (stmt) != NULL
+			   && (TREE_USED (stmt)
+			       || TREE_ASM_WRITTEN (stmt)
+			       || BLOCK_ABSTRACT (stmt)));
+      else
+	/* We are in terse mode, so only local (nested) function
+	   definitions count as "significant" local declarations.  */
+	for (decl = BLOCK_VARS (stmt);
+	     decl != NULL; decl = TREE_CHAIN (decl))
+	  if (TREE_CODE (decl) == FUNCTION_DECL
+	      && DECL_INITIAL (decl))
+	    {
+	      must_output_die = 1;
+	      break;
+	    }
     }
 
   /* It would be a waste of space to generate a Dwarf DW_TAG_lexical_block
@@ -15079,7 +15017,7 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
      instances and local (nested) function definitions.  */
   if (must_output_die)
     {
-      if (origin_code == FUNCTION_DECL)
+      if (inlined_func)
 	gen_inlined_subroutine_die (stmt, context_die, depth);
       else
 	gen_lexical_block_die (stmt, context_die, depth);
@@ -15120,16 +15058,6 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
 
 	  if (die != NULL && die->die_parent == NULL)
 	    add_child_die (context_die, die);
-	  /* Do not produce debug information for static variables since
-	     these might be optimized out.  We are called for these later
-	     in varpool_analyze_pending_decls.
-
-	     But *do* produce it for Fortran COMMON variables because,
-	     even though they are static, their names can differ depending
-	     on the scope, which we need to preserve.  */
-	  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl)
-	      && !(is_fortran () && TREE_PUBLIC (decl)))
-	    ;
 	  else if (TREE_CODE (decl) == IMPORTED_DECL)
 	    dwarf2out_imported_module_or_decl_1 (decl, DECL_NAME (decl),
 						 stmt, context_die);
@@ -16677,6 +16605,7 @@ dwarf2out_finish (const char *filename)
 {
   limbo_die_node *node, *next_node;
   dw_die_ref die = 0;
+  unsigned int i;
 
   /* Add the name for the main input file now.  We delayed this from
      dwarf2out_init to avoid complications with PCH.  */
@@ -16689,6 +16618,14 @@ dwarf2out_finish (const char *filename)
       htab_traverse (file_table, file_table_relative_p, &p);
       if (p)
 	add_comp_dir_attribute (comp_unit_die);
+    }
+
+  for (i = 0; i < VEC_length (deferred_locations, deferred_locations_list); i++)
+    {
+      add_location_or_const_value_attribute (
+        VEC_index (deferred_locations, deferred_locations_list, i)->die,
+        VEC_index (deferred_locations, deferred_locations_list, i)->variable,
+	DW_AT_location);
     }
 
   /* Traverse the limbo die list, and add parent/child links.  The only
@@ -16857,7 +16794,9 @@ dwarf2out_finish (const char *filename)
   for (node = limbo_die_list; node; node = node->next)
     output_comp_unit (node->die, 0);
 
-  output_comp_unit (comp_unit_die, 0);
+  /* Output the main compilation unit if non-empty or if .debug_macinfo
+     has been emitted.  */
+  output_comp_unit (comp_unit_die, debug_info_level >= DINFO_LEVEL_VERBOSE);
 
   /* Output the abbreviation table.  */
   switch_to_section (debug_abbrev_section);

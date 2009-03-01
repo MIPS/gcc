@@ -1,7 +1,7 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -626,6 +626,7 @@ dump_type_prefix (tree t, int flags)
     case TYPEOF_TYPE:
     case DECLTYPE_TYPE:
     case TYPE_PACK_EXPANSION:
+    case FIXED_POINT_TYPE:
       dump_type (t, flags);
       pp_base (cxx_pp)->padding = pp_before;
       break;
@@ -724,6 +725,7 @@ dump_type_suffix (tree t, int flags)
     case TYPEOF_TYPE:
     case DECLTYPE_TYPE:
     case TYPE_PACK_EXPANSION:
+    case FIXED_POINT_TYPE:
       break;
 
     default:
@@ -1977,6 +1979,7 @@ dump_expr (tree t, int flags)
 
     case BIND_EXPR:
     case STMT_EXPR:
+    case EXPR_STMT:
     case STATEMENT_LIST:
       /* We don't yet have a way of dumping statements in a
 	 human-readable format.  */
@@ -2072,6 +2075,8 @@ dump_expr (tree t, int flags)
     case LTGT_EXPR:
     case COMPLEX_EXPR:
     case BIT_FIELD_REF:
+    case FIX_TRUNC_EXPR:
+    case FLOAT_EXPR:
       pp_expression (cxx_pp, t);
       break;
 

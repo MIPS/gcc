@@ -1,7 +1,8 @@
 /* Routines required for instrumenting a program.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -828,7 +829,7 @@ __gcov_fork (void)
    that they are not lost.  */
 
 int
-__gcov_execl (const char *path, const char *arg, ...)
+__gcov_execl (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -845,7 +846,7 @@ __gcov_execl (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   va_end (aq);
@@ -859,7 +860,7 @@ __gcov_execl (const char *path, const char *arg, ...)
    that they are not lost.  */
 
 int
-__gcov_execlp (const char *path, const char *arg, ...)
+__gcov_execlp (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -876,7 +877,7 @@ __gcov_execlp (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   va_end (aq);
@@ -890,7 +891,7 @@ __gcov_execlp (const char *path, const char *arg, ...)
    that they are not lost.  */
 
 int
-__gcov_execle (const char *path, const char *arg, ...)
+__gcov_execle (const char *path, char *arg, ...)
 {
   va_list ap, aq;
   unsigned i, length;
@@ -908,7 +909,7 @@ __gcov_execle (const char *path, const char *arg, ...)
   va_end (ap);
 
   args = (char **) alloca (length * sizeof (void *));
-  args[0] = (char *) arg;
+  args[0] = arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
   envp = va_arg (aq, char **);

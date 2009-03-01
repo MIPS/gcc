@@ -1,6 +1,6 @@
 /* Definitions of various defaults for tm.h macros.
    Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2007, 2008
+   2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -942,6 +942,11 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef STACK_SLOT_ALIGNMENT
 #define STACK_SLOT_ALIGNMENT(TYPE,MODE,ALIGN) \
   ((TYPE) ? LOCAL_ALIGNMENT ((TYPE), (ALIGN)) : (ALIGN))
+#endif
+
+/* Alignment value for attribute ((aligned)).  */
+#ifndef ATTRIBUTE_ALIGNED_VALUE
+#define ATTRIBUTE_ALIGNED_VALUE BIGGEST_ALIGNMENT
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

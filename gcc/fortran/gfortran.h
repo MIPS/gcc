@@ -1,5 +1,5 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -1553,6 +1553,10 @@ typedef struct gfc_expr
   /* Sometimes, when an error has been emitted, it is necessary to prevent
       it from recurring.  */
   unsigned int error : 1;
+  
+  /* Mark and expression where a user operator has been substituted by
+     a function call in interface.c(gfc_extend_expr).  */
+  unsigned int user_operator : 1;
 
   /* Used to quickly find a given constructor by its offset.  */
   splay_tree con_by_offset;
@@ -2513,6 +2517,9 @@ gfc_try spec_size (gfc_array_spec *, mpz_t *);
 gfc_try spec_dimen_size (gfc_array_spec *, int, mpz_t *);
 int gfc_is_compile_time_shape (gfc_array_spec *);
 
+gfc_try gfc_ref_dimen_size (gfc_array_ref *, int dimen, mpz_t *);
+
+
 /* interface.c -- FIXME: some of these should be in symbol.c */
 void gfc_free_interface (gfc_interface *);
 int gfc_compare_derived_types (gfc_symbol *, gfc_symbol *);
@@ -2579,5 +2586,9 @@ void gfc_global_used (gfc_gsymbol *, locus *);
 
 /* dependency.c */
 int gfc_dep_compare_expr (gfc_expr *, gfc_expr *);
+int gfc_is_data_pointer (gfc_expr *);
+
+/* check.c */
+gfc_try gfc_check_same_strlen (const gfc_expr*, const gfc_expr*, const char*);
 
 #endif /* GCC_GFORTRAN_H  */

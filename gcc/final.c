@@ -3441,7 +3441,10 @@ output_addr_const (FILE *file, rtx x)
 
     case SYMBOL_REF:
       if (SYMBOL_REF_DECL (x))
-	mark_decl_referenced (SYMBOL_REF_DECL (x));
+	{
+	  mark_decl_referenced (SYMBOL_REF_DECL (x));
+	  assemble_external (SYMBOL_REF_DECL (x));
+	}
 #ifdef ASM_OUTPUT_SYMBOL_REF
       ASM_OUTPUT_SYMBOL_REF (file, x);
 #else

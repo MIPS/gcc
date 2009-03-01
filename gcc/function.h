@@ -1,6 +1,6 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -448,6 +448,9 @@ struct rtl_data GTY(())
   /* Nonzero if function stack realignment has been finalized, namely
      stack_realign_needed flag has been set and finalized after reload.  */
   bool stack_realign_finalized;
+
+  /* True if dbr_schedule has already been called for this function.  */
+  bool dbr_scheduled_p;
 };
 
 #define return_label (crtl->x_return_label)
@@ -597,6 +600,10 @@ struct function GTY(())
 
   /* Nonzero if pass_tree_profile was run on this function.  */
   unsigned int after_tree_profile : 1;
+
+  /* Nonzero if this function has local DECL_HARD_REGISTER variables.
+     In this case code motion has to be done more carefully.  */
+  unsigned int has_local_explicit_reg_vars : 1;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how

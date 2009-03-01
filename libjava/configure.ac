@@ -685,6 +685,9 @@ if AC_TRY_EVAL(ac_compile); then
     enable_sjlj_exceptions=yes
   elif grep _Unwind_Resume conftest.s >/dev/null 2>&1 ; then
     enable_sjlj_exceptions=no
+  elif grep __cxa_end_cleanup conftest.s >/dev/null 2>&1 ; then
+    # ARM EH ABI.
+    enable_sjlj_exceptions=no
   fi
 fi
 CXXFLAGS="$old_CXXFLAGS"
@@ -839,6 +842,10 @@ AC_CONFIG_LINKS(gnu/java/nio/natVMSelector.cc:gnu/java/nio/natVMSelector${PLATFO
 # Likewise for natFileChannelImpl.cc
 test -d gnu/java/nio/channels || mkdir gnu/java/nio/channels
 AC_CONFIG_LINKS(gnu/java/nio/channels/natFileChannelImpl.cc:gnu/java/nio/channels/natFileChannel${FILE-${PLATFORM}}.cc)
+
+# Likewise for natVMSecureRandom.cc
+test -d gnu/java/security/jce/prng || mkdir gnu/java/security/jce/prng
+AC_CONFIG_LINKS(gnu/java/security/jce/prng/natVMSecureRandom.cc:gnu/java/security/jce/prng/natVMSecureRandom${FILE-${PLATFORM}}.cc)
 
 case "${host}" in
     *mingw*)
@@ -1056,6 +1063,9 @@ AC_SUBST(THREADCXXFLAGS)
 AM_CONDITIONAL(USING_POSIX_THREADS, test "$THREADS" = posix)
 AM_CONDITIONAL(USING_WIN32_THREADS, test "$THREADS" = win32)
 AM_CONDITIONAL(USING_NO_THREADS, test "$THREADS" = none)
+if test "$enable_shared" != yes; then
+  use_libgcj_bc=no
+fi
 AM_CONDITIONAL(USE_LIBGCJ_BC, test "$use_libgcj_bc" = yes)
 
 if test -d sysdep; then true; else mkdir sysdep; fi
@@ -1065,7 +1075,7 @@ AC_CONFIG_LINKS(sysdep/descriptor.h:$descriptor_h)
 
 LIBGCJ_SPEC="%{s-bc-abi:} -lgcj"
 if test "$use_libgcj_bc" = yes; then
-  LIBGCJ_SPEC="%{s-bc-abi:-lgcj_bc;:-lgcj}"
+  LIBGCJ_SPEC="%{static|static-libgcj|!s-bc-abi:-lgcj;:-lgcj_bc}"
 fi
 AC_SUBST(LIBGCJ_SPEC)
 

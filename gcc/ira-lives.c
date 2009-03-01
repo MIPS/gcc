@@ -1,5 +1,5 @@
 /* IRA processing allocno lives to build allocno live ranges.
-   Copyright (C) 2006, 2007, 2008
+   Copyright (C) 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "target.h"
 #include "flags.h"
+#include "except.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "insn-config.h"
@@ -984,6 +985,13 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 		    {
 		      SET_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a));
 		      SET_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+		    }
+		  if (can_throw_internal (insn))
+		    {
+		      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
+					call_used_reg_set);
+		      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
+					call_used_reg_set);
 		    }
 		}
 	    }

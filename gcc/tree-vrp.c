@@ -1,5 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
-   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>.
 
 This file is part of GCC.
@@ -1620,7 +1620,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	 all should be optimized away above us.  */
       if ((cond_code == LT_EXPR
 	   && compare_values (max, min) == 0)
-	  || is_overflow_infinity (max))
+	  || (CONSTANT_CLASS_P (max) && TREE_OVERFLOW (max)))
 	set_value_range_to_varying (vr_p);
       else
 	{
@@ -1655,7 +1655,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	 all should be optimized away above us.  */
       if ((cond_code == GT_EXPR
 	   && compare_values (min, max) == 0)
-	  || is_overflow_infinity (min))
+	  || (CONSTANT_CLASS_P (min) && TREE_OVERFLOW (min)))
 	set_value_range_to_varying (vr_p);
       else
 	{
@@ -6364,9 +6364,12 @@ vrp_visit_phi_node (gimple phi)
 	     minimums.  */
 	  if (cmp_min > 0 || cmp_min < 0)
 	    {
-	      /* If we will end up with a (-INF, +INF) range, set it
-		 to VARYING.  */
-	      if (vrp_val_is_max (vr_result.max))
+	      /* If we will end up with a (-INF, +INF) range, set it to
+		 VARYING.  Same if the previous max value was invalid for
+		 the type and we'd end up with vr_result.min > vr_result.max.  */
+	      if (vrp_val_is_max (vr_result.max)
+		  || compare_values (TYPE_MIN_VALUE (TREE_TYPE (vr_result.min)),
+				     vr_result.max) > 0)
 		goto varying;
 
 	      if (!needs_overflow_infinity (TREE_TYPE (vr_result.min))
@@ -6383,9 +6386,12 @@ vrp_visit_phi_node (gimple phi)
 	     the previous one, go all the way to +INF.  */
 	  if (cmp_max < 0 || cmp_max > 0)
 	    {
-	      /* If we will end up with a (-INF, +INF) range, set it
-		 to VARYING.  */
-	      if (vrp_val_is_min (vr_result.min))
+	      /* If we will end up with a (-INF, +INF) range, set it to
+		 VARYING.  Same if the previous min value was invalid for
+		 the type and we'd end up with vr_result.max < vr_result.min.  */
+	      if (vrp_val_is_min (vr_result.min)
+		  || compare_values (TYPE_MAX_VALUE (TREE_TYPE (vr_result.max)),
+				     vr_result.min) < 0)
 		goto varying;
 
 	      if (!needs_overflow_infinity (TREE_TYPE (vr_result.max))
