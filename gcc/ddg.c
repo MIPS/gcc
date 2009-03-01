@@ -283,7 +283,8 @@ add_cross_iteration_register_deps (ddg_ptr g, df_ref last_def)
 	  /* Add true deps from last_def to it's uses in the next
 	     iteration.  Any such upwards exposed use appears before
 	     the last_def def.  */
-	  create_ddg_dep_no_link (g, last_def_node, use_node, TRUE_DEP,
+	  create_ddg_dep_no_link (g, last_def_node, use_node,
+				  DEBUG_INSN_P (use_insn) ? ANTI_DEP : TRUE_DEP,
 				  REG_DEP, 1);
 	}
       else if (!DEBUG_INSN_P (use_insn))
