@@ -1,3 +1,8 @@
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* sched-deps.c (sd_lists_size): Don't count size of NULL lists.
+	* sched-int.h (sd_iterator_cont): Skip NULL lists.
+
 2009-03-01  Alexandre Oliva <aoliva@redhat.com>
 
 	* fortran/simplify.c (gfc_simplify_transfer): Zero-initialize
