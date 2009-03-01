@@ -1,5 +1,10 @@
 2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cp/decl.c (record_builtin_java_type): Use canonicalized integer
+	types. 
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-vrp.c (extract_range_from_binary_expr): Don't shift by
 	floor_log2 of zero.  Negate widened zero.
 
