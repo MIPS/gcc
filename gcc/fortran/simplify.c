@@ -4432,6 +4432,7 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
   size_t result_size;
   size_t result_elt_size;
   size_t buffer_size;
+  size_t used_size;
   mpz_t tmp;
   unsigned char *buffer;
 
@@ -4510,7 +4511,11 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
   buffer = (unsigned char*)alloca (buffer_size);
 
   /* Now write source to the buffer.  */
-  gfc_target_encode_expr (source, buffer, buffer_size);
+  used_size = gfc_target_encode_expr (source, buffer, buffer_size);
+
+  /* Don't let random stack data leak into the output.  */
+  if (used_size < buffer_size)
+    memset (buffer + used_size, 0, buffer_size - used_size);
 
   /* And read the buffer back into the new expression.  */
   gfc_target_interpret_expr (buffer, buffer_size, result);

@@ -1,3 +1,8 @@
+2009-03-01  Alexandre Oliva <aoliva@redhat.com>
+
+	* fortran/simplify.c (gfc_simplify_transfer): Zero-initialize
+	unused portions of the buffer.
+
 2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
 
 	* ddg.c (add_cross_iteration_register_deps): Change dep type
