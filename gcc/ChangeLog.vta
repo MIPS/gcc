@@ -1,5 +1,48 @@
 2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
 
+	* sel-sched-ir.c (return_nop_to_pool): Add full_tidying argument.
+	Adjust callers.
+	(setup_id_for_insn): Choose suitable type for debug insns.
+	(tidy_control_flow): Skip debug insns.
+	(sel_remove_insn): Remove debug insn from av_set of its BB.
+	(sel_estimate_number_of_insns): Don't count debug insns.
+	(create_insn_rtx_from_pattern): Handle debug insns.
+	(create_copy_of_insn_rtx): Likewise.
+	* sel-sched.c (moving_insn_crates_bookkeeping_block_p): New.
+	(moveup_expr): Handle debug insns.
+	(moveup_expr_cached): Don't use the cache for debug insns that are
+	heads of blocks.
+	(compute_av_set_inside_bb): Skip debug insns.
+	(sel_rank_for_schedule): Move debug insns first.  Remove redundant
+	sets of tmp_insn and tmp2_insn.
+	(find_block_for_bookkeeping): Introduce lax mode.
+	(create_block_for_bookkeeping): When splitting a block with debug
+	insns only, emulate the behavior of splitting its single successor.
+	(find_place_for_bookkeeping): Don't use debug-only blocks for
+	bookkeeping.
+	(generate_bookkeeping_insn): Accept not finding a place to insert.
+	(remove_temp_moveops_nops): Add full_tidying argument.
+	Adjust callers.
+	(prepare_place_to_insert): Don't choose the normal place to insert
+	if we're looking at a list of debug insns.
+	(advance_state_on_fence): Don't start a cycle at a debug insn.
+	(update_boundaries): Handle debug insns.  Update fence insn.
+	(schedule_expr_on_boundary): Don't fully-tidy after debug insn.
+	(fill_insns): Don't stop after moving a debug insns to the end of
+	a basic block.
+	(track_scheduled_insns_and_blocks): Don't count debug insns.
+	(need_nop_to_preserve_insn_bb): Handle debug insns.  Split out of...
+	(remove_insn_from_stream): ... this.
+	(fur_orig_expr_not_found): Handle debug insns.
+	(code_motion_path_driver): Fix return type.
+	* sched-deps.c (sched_analyze_insn): Honor readonly flag.  Don't add
+	pending memory flush deps for jumps in sel-sched.
+	* sel-sched-ir.h (sel_bb_empty_or_nop_p): New.
+	(get_all_loops_exit, _eligible_successor_edge_p): Use it.
+	(return_nop_to_pool): Update prototype.
+
+2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
 	* common.opt (fverbose-cselib): New.
 	* cselib.c (new_cselib_val, expand_loc): Honor it.
 	(cselib_expand_value_rtx_1): Likewise.

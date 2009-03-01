@@ -2382,16 +2382,21 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
   if (DEBUG_INSN_P (insn))
     {
       rtx prev = deps->last_debug_insn;
+      rtx u;
 
-      deps->last_debug_insn = insn;
+      if (!deps->readonly)
+	deps->last_debug_insn = insn;
 
       if (prev)
 	add_dependence (insn, prev, REG_DEP_ANTI);
 
       add_dependence_list (insn, deps->last_function_call, 1,
 			   REG_DEP_ANTI);
-      add_dependence_list (insn, deps->last_pending_memory_flush, 1,
-			   REG_DEP_ANTI);
+
+      for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
+	if (! JUMP_P (XEXP (u, 0))
+	    || !sel_sched_p ())
+	  add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
       EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
 	{
