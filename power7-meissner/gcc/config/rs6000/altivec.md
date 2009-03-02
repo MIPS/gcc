@@ -869,34 +869,36 @@
 
 (define_insn "altivec_vmrglw"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (vec_merge:V4SI (vec_select:V4SI (match_operand:V4SI 1 "register_operand" "v")
-					 (parallel [(const_int 2)
-					 	    (const_int 0)
-						    (const_int 3)
-						    (const_int 1)]))
-                        (vec_select:V4SI (match_operand:V4SI 2 "register_operand" "v")
-					 (parallel [(const_int 0)
-					 	    (const_int 2)
-						    (const_int 1)
-						    (const_int 3)]))
-		      (const_int 5)))]
+        (vec_merge:V4SI
+	 (vec_select:V4SI (match_operand:V4SI 1 "register_operand" "v")
+			  (parallel [(const_int 2)
+				     (const_int 0)
+				     (const_int 3)
+				     (const_int 1)]))
+	 (vec_select:V4SI (match_operand:V4SI 2 "register_operand" "v")
+			  (parallel [(const_int 0)
+				     (const_int 2)
+				     (const_int 1)
+				     (const_int 3)]))
+	 (const_int 5)))]
   "TARGET_ALTIVEC"
   "vmrglw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
 (define_insn "*altivec_vmrglsf"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
-        (vec_merge:V4SF (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "v")
-                                         (parallel [(const_int 2)
-                                                    (const_int 0)
-                                                    (const_int 3)
-                                                    (const_int 1)]))
-                        (vec_select:V4SF (match_operand:V4SF 2 "register_operand" "v")
-                                         (parallel [(const_int 0)
-                                                    (const_int 2)
-                                                    (const_int 1)
-                                                    (const_int 3)]))
-                      (const_int 5)))]
+        (vec_merge:V4SF
+	 (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "v")
+			  (parallel [(const_int 2)
+				     (const_int 0)
+				     (const_int 3)
+				     (const_int 1)]))
+	 (vec_select:V4SF (match_operand:V4SF 2 "register_operand" "v")
+			  (parallel [(const_int 0)
+				     (const_int 2)
+				     (const_int 1)
+				     (const_int 3)]))
+	 (const_int 5)))]
   "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vmrglw %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1256,7 +1258,7 @@
 	 (vec_select:SF (match_operand:V4SF 1 "register_operand" "v")
 			(parallel
 			 [(match_operand:QI 2 "u5bit_cint_operand" "i")]))))]
-  "TARGET_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vspltw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -1268,10 +1270,10 @@
   "vspltis<VI_char> %0,%1"
   [(set_attr "type" "vecperm")])
 
-(define_insn "ftruncv4sf2"
+(define_insn "*altivec_ftruncv4sf2"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
   	(fix:V4SF (match_operand:V4SF 1 "register_operand" "v")))]
-  "TARGET_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vrfiz %0,%1"
   [(set_attr "type" "vecfloat")])
 

@@ -130,7 +130,7 @@
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "")
 
-(define_expand "neg<mode>3"
+(define_expand "neg<mode>2"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(neg:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
@@ -175,6 +175,12 @@
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
 	(sqrt:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "")
+
+(define_insn "ftrunc<mode>2"
+  [(set (match_operand:VEC_F 0 "vfloat_operand" "")
+  	(fix:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 
@@ -384,7 +390,7 @@
 				     (const_int 0)
 				     (const_int 3)
 				     (const_int 1)]))
-	 (vec_select:V4SF (match_operand:V4SI 2 "vfloat_operand" "")
+	 (vec_select:V4SF (match_operand:V4SF 2 "vfloat_operand" "")
 			  (parallel [(const_int 0)
 				     (const_int 2)
 				     (const_int 1)
@@ -421,6 +427,27 @@
   "")
 
 (define_expand "vec_interleave_lowv2df"
+  [(set (match_operand:V2DF 0 "vfloat_operand" "")
+	(vec_concat:V2DF
+	 (vec_select:DF (match_operand:V2DF 1 "vfloat_operand" "")
+			(parallel [(const_int 1)]))
+	 (vec_select:DF (match_operand:V2DF 2 "vfloat_operand" "")
+			(parallel [(const_int 1)]))))]
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
+  "")
+
+;; For 2 element vectors, even/odd is the same as high/low
+(define_expand "vec_extract_evenv2df"
+  [(set (match_operand:V2DF 0 "vfloat_operand" "")
+	(vec_concat:V2DF
+	 (vec_select:DF (match_operand:V2DF 1 "vfloat_operand" "")
+			(parallel [(const_int 0)]))
+	 (vec_select:DF (match_operand:V2DF 2 "vfloat_operand" "")
+			(parallel [(const_int 0)]))))]
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
+  "")
+
+(define_expand "vec_extract_oddv2df"
   [(set (match_operand:V2DF 0 "vfloat_operand" "")
 	(vec_concat:V2DF
 	 (vec_select:DF (match_operand:V2DF 1 "vfloat_operand" "")

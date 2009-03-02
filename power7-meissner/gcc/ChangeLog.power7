@@ -1,5 +1,27 @@
 2009-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (neg<mode>2): Fix typo to enable
+	vectorized negation.
+	(ftrunc<mode>2): Move ftrunc expander here from altivec.md, and
+	add V2DF case.
+	(vec_interleave_highv4sf): Correct type to be V4SF, not V4SI.
+	(vec_extract_evenv2df): Add expander.
+	(vec_extract_oddv2df): Ditto.
+
+	* config/rs6000/vsx.md (vsx_ftrunc<mode>2): New VSX pattern for
+	truncate.
+	(vsx_ftruncdf2): Ditto.
+	(vsx_xxspltw): New instruction for word splat.
+	(vsx_xxmrglw): Whitespace changes.  Fix type from V4SI to v4SF.
+	(vsx_xxmrghw): Ditto.
+
+	* config/rs6000/altivec.md (altivec_vmrghsf): Whitespace changes.
+	(altivec_vmrglsf): Ditto.
+	(altivec_vspltsf): Disable if we have VSX.
+	(altivec_ftruncv4sf2): Move expander to vector.md, rename insn.
+
+	* config/rs6000/rs6000.md (ftruncdf2): Add expander for VSX.
+
 	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok):
 	Reenable vectorizing V4SF under altivec.
 	(rs6000_hard_regno_mode_ok): Don't allow floating values in LR,

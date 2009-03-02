@@ -319,6 +319,13 @@
   "xvcpsgn<VSs> %x0,%x2,%x1"
   [(set_attr "type" "vecsimple")])
 
+(define_insn "*vsx_ftrunc<mode>2"
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>")
+  	(fix:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>")))]
+  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+  "xvr<VSs>piz %x0,%x1"
+  [(set_attr "type" "vecperm")])
+
 
 ;; VSX scalar double precision floating point operations
 (define_insn"*vsx_adddf3"
@@ -558,6 +565,13 @@
   "xscpsgndp %x0,%x2,%x1"
   [(set_attr "type" "fp")])
 
+(define_insn "*vsx_ftruncdf2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws")
+  	(fix:DF (match_operand:DF 1 "register_operand" "ws")))]
+  "VECTOR_UNIT_VSX_P (DFmode)"
+  "xsrdppiz %x0,%x1"
+  [(set_attr "type" "vecfloat")])
+
 
 ;; Logical and permute operations
 (define_insn "*vsx_and<mode>3"
@@ -683,37 +697,50 @@
    lxvdsx %x0,%y1"
   [(set_attr "type" "vecperm,vecload")])
 
+;; V4SF splat
+(define_insn "*vsx_xxspltw"
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wf")
+	(vec_duplicate:V4SF
+	 (vec_select:SF (match_operand:V4SF 1 "vsx_register_operand" "wf")
+			(parallel
+			 [(match_operand:QI 2 "u5bit_cint_operand" "i")]))))]
+  "VECTOR_UNIT_VSX_P (V4SFmode)"
+  "xxspltw %x0,%x1,%2"
+  [(set_attr "type" "vecperm")])
+
 ;; V4SF interleave
 (define_insn "vsx_xxmrglw"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wf")
-        (vec_merge:V4SF (vec_select:V4SF (match_operand:V4SF 1 "vsx_register_operand" "wf")
-					 (parallel [(const_int 2)
-					 	    (const_int 0)
-						    (const_int 3)
-						    (const_int 1)]))
-                        (vec_select:V4SF (match_operand:V4SI 2 "vsx_register_operand" "wf")
-					 (parallel [(const_int 0)
-					 	    (const_int 2)
-						    (const_int 1)
-						    (const_int 3)]))
-			(const_int 5)))]
+        (vec_merge:V4SF
+	 (vec_select:V4SF (match_operand:V4SF 1 "vsx_register_operand" "wf")
+			  (parallel [(const_int 2)
+				     (const_int 0)
+				     (const_int 3)
+				     (const_int 1)]))
+	 (vec_select:V4SF (match_operand:V4SF 2 "vsx_register_operand" "wf")
+			  (parallel [(const_int 0)
+				     (const_int 2)
+				     (const_int 1)
+				     (const_int 3)]))
+	 (const_int 5)))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
   "xxmrglw %x0,%x1,%x2"
   [(set_attr "type" "vecperm")])
 
 (define_insn "vsx_xxmrghw"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wf")
-        (vec_merge:V4SF (vec_select:V4SF (match_operand:V4SF 1 "vsx_register_operand" "wf")
-                                         (parallel [(const_int 0)
-                                                    (const_int 2)
-                                                    (const_int 1)
-                                                    (const_int 3)]))
-                        (vec_select:V4SF (match_operand:V4SF 2 "vsx_register_operand" "wf")
-                                         (parallel [(const_int 2)
-                                                    (const_int 0)
-                                                    (const_int 3)
-                                                    (const_int 1)]))
-			(const_int 5)))]
+        (vec_merge:V4SF
+	 (vec_select:V4SF (match_operand:V4SF 1 "vsx_register_operand" "wf")
+			  (parallel [(const_int 0)
+				     (const_int 2)
+				     (const_int 1)
+				     (const_int 3)]))
+	 (vec_select:V4SF (match_operand:V4SF 2 "vsx_register_operand" "wf")
+			  (parallel [(const_int 2)
+				     (const_int 0)
+				     (const_int 3)
+				     (const_int 1)]))
+	 (const_int 5)))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
   "xxmrghw %x0,%x1,%x2"
   [(set_attr "type" "vecperm")])
