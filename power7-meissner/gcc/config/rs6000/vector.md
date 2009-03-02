@@ -31,7 +31,10 @@
 (define_mode_iterator VEC_F [V4SF V2DF])
 
 ;; Vector logical modes
-(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF])
+(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF TI])
+
+;; Vector modes for moves.  Don't do TImode here.
+(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF])
 
 ;; Vector comparison modes
 (define_mode_iterator VEC_C [V16QI V8HI V4SI V4SF V2DF])
@@ -42,37 +45,39 @@
 			    (V4SI  "SI")
 			    (V2DI  "DI")
 			    (V4SF  "SF")
-			    (V2DF  "DF")])
+			    (V2DF  "DF")
+			    (TI    "TI")])
 
 ;; Vector move instructions.
 (define_expand "mov<mode>"
-  [(set (match_operand:VEC_L 0 "nonimmediate_operand" "")
-	(match_operand:VEC_L 1 "any_operand" ""))]
+  [(set (match_operand:VEC_M 0 "nonimmediate_operand" "")
+	(match_operand:VEC_M 1 "any_operand" ""))]
   "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
-  rs6000_emit_move (operands[0], operands[1], <MODE>mode);
-  DONE;
+  /* modes without special handling just generate the normal SET operation.  */
+  if (<MODE>mode != TImode && <MODE>mode != V2DImode && <MODE>mode != V2DFmode)
+    {
+      rs6000_emit_move (operands[0], operands[1], <MODE>mode);
+      DONE;
+    }
+  else if (!vlogical_operand (operands[0], <MODE>mode)
+	   && !vlogical_operand (operands[1], <MODE>mode))
+    operands[1] = force_reg (<MODE>mode, operands[1]);
 })
 
 ;; Generic vector floating point load/store instructions.  These will match
 ;; insns defined in vsx.md or altivec.md depending on the switches.
 (define_expand "vector_load_<mode>"
-  [(set (match_operand:VEC_L 0 "vfloat_operand" "")
-	(match_operand:VEC_L 1 "memory_operand" ""))]
+  [(set (match_operand:VEC_M 0 "vfloat_operand" "")
+	(match_operand:VEC_M 1 "memory_operand" ""))]
   "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
-{
-  rs6000_emit_move (operands[0], operands[1], <MODE>mode);
-  DONE;
-})
+  "")
 
 (define_expand "vector_store_<mode>"
-  [(set (match_operand:VEC_L 0 "memory_operand" "")
-	(match_operand:VEC_L 1 "vfloat_operand" ""))]
+  [(set (match_operand:VEC_M 0 "memory_operand" "")
+	(match_operand:VEC_M 1 "vfloat_operand" ""))]
   "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
-{
-  rs6000_emit_move (operands[0], operands[1], <MODE>mode);
-  DONE;
-})
+  "")
 
 ;; Splits if a GPR register was chosen for the move
 (define_split
@@ -342,7 +347,7 @@
 ;; Vector initialization, set, extract
 (define_expand "vec_init<mode>"
   [(match_operand:VEC_C 0 "vlogical_operand" "")
-   (match_operand 1 "" "")]
+   (match_operand:VEC_C 1 "vec_init_operand" "")]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   rs6000_expand_vector_init (operands[0], operands[1]);

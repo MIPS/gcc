@@ -430,6 +430,9 @@ enum rs6000_vector {
 
 extern enum rs6000_vector rs6000_vector_unit[];
 
+#define VECTOR_UNIT_NONE_P(MODE)			\
+  (rs6000_vector_unit[(MODE)] == VECTOR_NONE)
+
 #define VECTOR_UNIT_VSX_P(MODE)				\
   (rs6000_vector_unit[(MODE)] == VECTOR_VSX)
 
@@ -444,6 +447,9 @@ extern enum rs6000_vector rs6000_vector_unit[];
    same unit as the vector unit we are using, but we may want to migrate to
    using VSX style loads even for types handled by altivec.  */
 extern enum rs6000_vector rs6000_vector_mem[];
+
+#define VECTOR_MEM_NONE_P(MODE)				\
+  (rs6000_vector_mem[(MODE)] == VECTOR_NONE)
 
 #define VECTOR_MEM_VSX_P(MODE)				\
   (rs6000_vector_mem[(MODE)] == VECTOR_VSX)
@@ -1022,7 +1028,8 @@ extern int rs6000_vector_align[];
 	 || (MODE) == V16QImode		\
 	 || (MODE) == V8HImode		\
 	 || (MODE) == V4SImode		\
-	 || (MODE) == V2DImode)
+	 || (MODE) == V2DImode		\
+	 || (MODE) == TImode)
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\

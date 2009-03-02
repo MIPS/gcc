@@ -163,8 +163,8 @@
 ;; Vec modes, pity mode iterators are not composable
 (define_mode_iterator V [V4SI V8HI V16QI V4SF])
 ;; Vec modes for move/logical/permute ops, include vector types for move not
-;; otherwise handled by altivec (v2df, v2di)
-(define_mode_iterator VM [V4SI V8HI V16QI V4SF V2DF V2DI])
+;; otherwise handled by altivec (v2df, v2di, ti)
+(define_mode_iterator VM [V4SI V8HI V16QI V4SF V2DF V2DI TI])
 
 (define_mode_attr VI_char [(V4SI "w") (V8HI "h") (V16QI "b")])
 
@@ -1568,8 +1568,10 @@
   gcc_assert (GET_CODE (operands[1]) == MEM);
 
   addr = XEXP (operands[1], 0);
-  if (VECTOR_MEM_VSX_P (GET_MODE (addr)))
+  if (VECTOR_MEM_VSX_P (GET_MODE (operands[1])))
     {
+      /* VSX doesn't and off the bottom address bits, and memory
+	 operations are aligned to the natural data type.  */
       emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
       DONE;
     }

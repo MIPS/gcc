@@ -1,3 +1,22 @@
+2009-03-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-vector-1.c: Fix typos.
+	* gcc.target/powerpc/vsx-vector-2.c: Ditto.
+
+	* gcc.target/powerpc/vsx-vector-3.c: New file, test __vector
+	double.
+
+	* gcc.target/powerpc/vsx-vector-4.c: New file, test __vector float
+	uses VSX instructions if -mvsx.
+
+	* gcc.dg/vmx/vmx.exp (DEFAULT_VMXCLFAGS): Add -mno-vsx.
+
+	* lib/target-supports.exp (check_vsx_hw_available): New function
+	to test for VSX.
+	(check_vmx_hw_available): Add -mno-vsx to options.
+	(check_effective_target_powerpc_vsx_ok): New function to check if
+	the powerpc compiler can support VSX.
+
 2009-02-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vsx-vector-1.c: New file to test VSX code

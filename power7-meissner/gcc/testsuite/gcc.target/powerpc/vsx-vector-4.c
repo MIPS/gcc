@@ -9,66 +9,40 @@
 /* { dg-final { scan-assembler "xvmadd" } } */
 /* { dg-final { scan-assembler "xvmsub" } } */
 
-#ifndef SIZE
-#define SIZE 1024
-#endif
-
-float a[SIZE] __attribute__((__aligned__(32)));
-float b[SIZE] __attribute__((__aligned__(32)));
-float c[SIZE] __attribute__((__aligned__(32)));
-float d[SIZE] __attribute__((__aligned__(32)));
-float e[SIZE] __attribute__((__aligned__(32)));
+__vector float a, b, c, d;
 
 void
 vector_add (void)
 {
-  int i;
-
-  for (i = 0; i < SIZE; i++)
-    a[i] = b[i] + c[i];
+  a = b + c;
 }
 
 void
 vector_subtract (void)
 {
-  int i;
-
-  for (i = 0; i < SIZE; i++)
-    a[i] = b[i] - c[i];
+  a = b - c;
 }
 
 void
 vector_multiply (void)
 {
-  int i;
-
-  for (i = 0; i < SIZE; i++)
-    a[i] = b[i] * c[i];
+  a = b * c;
 }
 
 void
 vector_multiply_add (void)
 {
-  int i;
-
-  for (i = 0; i < SIZE; i++)
-    a[i] = (b[i] * c[i]) + d[i];
+  a = (b * c) + d;
 }
 
 void
 vector_multiply_subtract (void)
 {
-  int i;
-
-  for (i = 0; i < SIZE; i++)
-    a[i] = (b[i] * c[i]) - d[i];
+  a = (b * c) - d;
 }
 
 void
 vector_divide (void)
 {
-  int i;
-
-  for (i = 0; i < SIZE; i++)
-    a[i] = b[i] / c[i];
+  a = b / c;
 }

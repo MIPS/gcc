@@ -1387,7 +1387,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
      implementations.  Don't allow an item to be split between a FP register
      and an Altivec register.  */
-  if (VECTOR_UNIT_VSX_P (mode))
+  if (VECTOR_UNIT_VSX_P (mode) || VECTOR_MEM_VSX_P (mode))
     {
       enum reg_class rclass = rs6000_vector_reg_class[mode];
       if (FP_REGNO_P (regno))
@@ -1458,47 +1458,63 @@ rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
       int len;
 
       if (first_regno == last_regno)
-	len = fprintf (stderr, "%s:%*s", reg_name,
-		       (int)(4 - strlen (reg_name)), "");
-      else if ((r - first_regno) > 9)
-	len = fprintf (stderr, "%s%d:", reg_name, r - first_regno);
+	fprintf (stderr, "%s:\t", reg_name);
       else
-	len = fprintf (stderr, "%s%d: ", reg_name, r - first_regno);
+	fprintf (stderr, "%s%d:\t", reg_name, r - first_regno);
 
+      len = 8;
       for (m = 0; m < NUM_MACHINE_MODES; ++m)
 	if (rs6000_hard_regno_mode_ok_p[m][r] && rs6000_hard_regno_nregs[m][r])
 	  {
+	    if (len > 70)
+	      {
+		fprintf (stderr, ",\n\t");
+		len = 8;
+		comma = "";
+	      }
+
 	    if (rs6000_hard_regno_nregs[m][r] > 1)
-	      len += fprintf (stderr, "%s %s/%d", comma, GET_MODE_NAME (m),
+	      len += fprintf (stderr, "%s%s/%d", comma, GET_MODE_NAME (m),
 			     rs6000_hard_regno_nregs[m][r]);
 	    else
-	      len += fprintf (stderr, "%s %s", comma, GET_MODE_NAME (m));
+	      len += fprintf (stderr, "%s%s", comma, GET_MODE_NAME (m));
 
-	    if (len > 60)
-	      {
-		len = 5;
-		comma = ",\n     ";
-	      }
-	    else
-	      comma = ",";
+	    comma = ", ";
 	  }
 
       if (call_used_regs[r])
 	{
-	  len += fprintf (stderr, "%s %s", comma, "call-used");
-	  if (len > 60)
+	  if (len > 70)
 	    {
-	      len = 5;
-	      comma = ",\n    ";
+	      fprintf (stderr, ",\n\t");
+	      len = 8;
+	      comma = "";
 	    }
-	  else
-	    comma = ",";
+
+	  len += fprintf (stderr, "%s%s", comma, "call-used");
+	  comma = ", ";
 	}
 
       if (fixed_regs[r])
-	fprintf (stderr, "%s %s", comma, "fixed");
+	{
+	  if (len > 70)
+	    {
+	      fprintf (stderr, ",\n\t");
+	      len = 8;
+	      comma = "";
+	    }
 
-      fputc ('\n', stderr);
+	  len += fprintf (stderr, "%s%s", comma, "fixed");
+	  comma = ", ";
+	}
+
+      if (len > 70)
+	{
+	  fprintf (stderr, ",\n\t");
+	  comma = "";
+	}
+
+      fprintf (stderr, "%sregno = %d\n", comma, r);
     }
 }
 
@@ -1529,6 +1545,9 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_vector_reg_class[m] = NO_REGS;
     }
 
+  /* TODO, add TI/V2DI mode for moving data if Altivec or VSX.  */
+
+  /* V2DF mode, VSX only.  */
   if (float_p && TARGET_VSX && TARGET_VSX_VECTOR_DOUBLE)
     {
       rs6000_vector_unit[V2DFmode] = VECTOR_VSX;
@@ -1536,10 +1555,18 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_vector_align[V2DFmode] = 64;
     }
 
+  /* V4SF mode, either VSX or Altivec.  */
   if (float_p && TARGET_VSX && TARGET_VSX_VECTOR_FLOAT)
     {
       rs6000_vector_unit[V4SFmode] = VECTOR_VSX;
-      rs6000_vector_align[V4SFmode] = 32;
+      if (TARGET_VSX_VECTOR_MEMORY || !TARGET_ALTIVEC)
+	{
+	  rs6000_vector_align[V4SFmode] = 32;
+	  rs6000_vector_mem[V4SFmode] = VECTOR_VSX;
+	} else {
+	  rs6000_vector_align[V4SFmode] = 128;
+	  rs6000_vector_mem[V4SFmode] = VECTOR_ALTIVEC;
+      }
     }
   else if (float_p && TARGET_ALTIVEC)
     {
@@ -1547,33 +1574,39 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_vector_align[V4SFmode] = 128;
     }
 
-  if (TARGET_VSX && TARGET_VSX_VECTOR_MEMORY)
-    {
-      rs6000_vector_mem[V2DImode] = VECTOR_VSX;
-      rs6000_vector_mem[V4SFmode] = VECTOR_VSX;
-      rs6000_vector_mem[V4SImode] = VECTOR_VSX;
-      rs6000_vector_mem[V8HImode] = VECTOR_VSX;
-      rs6000_vector_mem[V16QImode] = VECTOR_VSX;
-    }
-  else if (TARGET_ALTIVEC)
-    {
-      rs6000_vector_mem[V2DImode] = VECTOR_ALTIVEC;
-      rs6000_vector_mem[V4SFmode] = VECTOR_ALTIVEC;
-      rs6000_vector_mem[V4SImode] = VECTOR_ALTIVEC;
-      rs6000_vector_mem[V8HImode] = VECTOR_ALTIVEC;
-      rs6000_vector_mem[V16QImode] = VECTOR_ALTIVEC;
-    }
-
+  /* V16QImode, V8HImode, V4SImode are Altivec only, but possibly do VSX loads
+     and stores. */
   if (TARGET_ALTIVEC)
     {
-      rs6000_vector_unit[V16QImode] = VECTOR_ALTIVEC;
-      rs6000_vector_unit[V8HImode] = VECTOR_ALTIVEC;
       rs6000_vector_unit[V4SImode] = VECTOR_ALTIVEC;
-      rs6000_vector_align[V16QImode] = 128;
-      rs6000_vector_align[V8HImode] = 128;
-      rs6000_vector_align[V4SImode] = 128;
+      rs6000_vector_unit[V8HImode] = VECTOR_ALTIVEC;
+      rs6000_vector_unit[V16QImode] = VECTOR_ALTIVEC;
+
+      rs6000_vector_reg_class[V16QImode] = ALTIVEC_REGS;
+      rs6000_vector_reg_class[V8HImode] = ALTIVEC_REGS;
+      rs6000_vector_reg_class[V4SImode] = ALTIVEC_REGS;
+
+      if (TARGET_VSX && TARGET_VSX_VECTOR_MEMORY)
+	{
+	  rs6000_vector_mem[V4SImode] = VECTOR_VSX;
+	  rs6000_vector_mem[V8HImode] = VECTOR_VSX;
+	  rs6000_vector_mem[V16QImode] = VECTOR_VSX;
+	  rs6000_vector_align[V4SImode] = 32;
+	  rs6000_vector_align[V8HImode] = 32;
+	  rs6000_vector_align[V16QImode] = 32;
+	}
+      else
+	{
+	  rs6000_vector_mem[V4SImode] = VECTOR_ALTIVEC;
+	  rs6000_vector_mem[V8HImode] = VECTOR_ALTIVEC;
+	  rs6000_vector_mem[V16QImode] = VECTOR_ALTIVEC;
+	  rs6000_vector_align[V4SImode] = 128;
+	  rs6000_vector_align[V8HImode] = 128;
+	  rs6000_vector_align[V16QImode] = 128;
+	}
     }
 
+  /* DFmode, see if we want to use the VSX unit.  */
   if (float_p && TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
     {
       rs6000_vector_unit[DFmode] = VECTOR_VSX;
@@ -1596,18 +1629,11 @@ rs6000_init_hard_regno_mode_ok (void)
     = (VECTOR_UNIT_VSX_P (V2DFmode) ? vsx_rc : NO_REGS);
 
   rs6000_vector_reg_class[DFmode]
-    = (!float_p
+    = ((!float_p || !VECTOR_UNIT_VSX_P (DFmode))
        ? NO_REGS
-       : ((VECTOR_UNIT_VSX_P (DFmode) && TARGET_VSX_VECTOR_MEMORY > 0)
+       : ((TARGET_VSX_VECTOR_MEMORY > 0)
 	  ? vsx_rc
 	  : FLOAT_REGS));
-
-  if (TARGET_ALTIVEC)
-    {
-      rs6000_vector_reg_class[V16QImode] = ALTIVEC_REGS;
-      rs6000_vector_reg_class[V8HImode] = ALTIVEC_REGS;
-      rs6000_vector_reg_class[V4SImode] = ALTIVEC_REGS;
-    }
 
   rs6000_vsx_reg_class = (float_p && TARGET_VSX) ? vsx_rc : NO_REGS;
 
@@ -1651,7 +1677,8 @@ rs6000_init_hard_regno_mode_ok (void)
     {
       const char *nl = (const char *)0;
 
-      fprintf (stderr, "Register information:\n");
+      fprintf (stderr, "Register information: (last virtual reg = %d)\n",
+	       LAST_VIRTUAL_REGISTER);
       rs6000_debug_reg_print (0, 31, "gr");
       rs6000_debug_reg_print (32, 63, "fp");
       rs6000_debug_reg_print (FIRST_ALTIVEC_REGNO,
@@ -3609,8 +3636,8 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	emit_insn (gen_vsx_splatv2df (target, XVECEXP (vals, 0, 0)));
       else
 	emit_insn (gen_vsx_concat_v2df (target,
-					XVECEXP (vals, 0, 0),
-					XVECEXP (vals, 0, 1)));
+					copy_to_reg (XVECEXP (vals, 0, 0)),
+					copy_to_reg (XVECEXP (vals, 0, 1))));
       return;
     }
 
@@ -4046,7 +4073,9 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
     case V2DImode:
       /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid and
 	 constant offset zero should not occur due to canonicalization.  */
-      return false;
+      if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode))
+	return false;
+      break;
 
     case V4HImode:
     case V2SImode:
@@ -5491,6 +5520,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
     case V2SImode:
     case V1DImode:
     case V2DFmode:
+    case V2DImode:
       if (CONSTANT_P (operands[1])
 	  && !easy_vector_constant (operands[1], mode))
 	operands[1] = force_const_mem (mode, operands[1]);
@@ -5660,6 +5690,9 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     case TImode:
+      if (VECTOR_MEM_ALTIVEC_OR_VSX_P (TImode))
+	break;
+
       rs6000_eliminate_indexed_memrefs (operands);
 
       if (TARGET_POWER)
@@ -5675,7 +5708,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     default:
-      gcc_unreachable ();
+      fatal_insn ("bad move", gen_rtx_SET (VOIDmode, dest, source));
     }
 
   /* Above, we may have called force_const_mem which may have returned
@@ -21154,8 +21187,8 @@ rs6000_handle_altivec_attribute (tree *node,
   else if (type == long_long_unsigned_type_node
            || type == long_long_integer_type_node)
     error ("use of %<long long%> in AltiVec types is invalid");
-  else if (type == double_type_node)
-    error ("use of %<double%> in AltiVec types is invalid");
+  else if (type == double_type_node && !TARGET_VSX)
+    error ("use of %<double%> in AltiVec types is invalid without -mvsx");
   else if (type == long_double_type_node)
     error ("use of %<long double%> in AltiVec types is invalid");
   else if (type == boolean_type_node)
@@ -21181,6 +21214,7 @@ rs6000_handle_altivec_attribute (tree *node,
 	  result = (unsigned_p ? unsigned_V16QI_type_node : V16QI_type_node);
 	  break;
 	case SFmode: result = V4SF_type_node; break;
+	case DFmode: result = V2DF_type_node; break;
 	  /* If the user says 'vector int bool', we may be handed the 'bool'
 	     attribute _before_ the 'vector' attribute, and so select the
 	     proper type in the 'b' case below.  */
@@ -22716,7 +22750,7 @@ rs6000_register_move_cost (enum machine_mode mode,
       if (! reg_classes_intersect_p (to, GENERAL_REGS))
 	from = to;
 
-      if (from == FLOAT_REGS || from == ALTIVEC_REGS)
+      if (from == FLOAT_REGS || from == ALTIVEC_REGS || from == VSX_REGS)
 	return (rs6000_memory_move_cost (mode, from, 0)
 		+ rs6000_memory_move_cost (mode, GENERAL_REGS, 0));
 
@@ -22735,6 +22769,12 @@ rs6000_register_move_cost (enum machine_mode mode,
 	/* A move will cost one instruction per GPR moved.  */
 	return 2 * hard_regno_nregs[0][mode];
     }
+
+  /* If we have VSX, we can easily move between FPR or Altivec registers.  */
+  else if (TARGET_VSX
+	   && ((from == VSX_REGS || from == FLOAT_REGS || from == ALTIVEC_REGS)
+	       || (to == VSX_REGS || to == FLOAT_REGS || to == ALTIVEC_REGS)))
+    return 2;
 
   /* Moving between two similar registers is just one instruction.  */
   else if (reg_classes_intersect_p (to, from))
@@ -22858,8 +22898,11 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 					  UNSPEC_FRES)));
   /* e0 = 1. - d * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, e0,
-			  gen_rtx_MINUS (DFmode, one,
-					 gen_rtx_MULT (SFmode, d, x0))));
+			  gen_rtx_MINUS (DFmode,
+					 gen_rtx_MULT (DFmode,
+						       gen_rtx_NEG (DFmode, d),
+						       x0),
+					 one)));
   /* y1 = x0 + e0 * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, y1,
 			  gen_rtx_PLUS (DFmode,
@@ -22883,8 +22926,11 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 			  gen_rtx_MULT (DFmode, n, y3)));
   /* v0 = n - d * u0 */
   emit_insn (gen_rtx_SET (VOIDmode, v0,
-			  gen_rtx_MINUS (DFmode, n,
-					 gen_rtx_MULT (DFmode, d, u0))));
+			  gen_rtx_MINUS (DFmode,
+					 gen_rtx_MULT (DFmode,
+						       gen_rtx_NEG (DFmode, d),
+						       u0),
+					 n)));
   /* dst = u0 + v0 * y3 */
   emit_insn (gen_rtx_SET (VOIDmode, dst,
 			  gen_rtx_PLUS (DFmode,

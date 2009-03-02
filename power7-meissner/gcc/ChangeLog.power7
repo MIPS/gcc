@@ -1,3 +1,102 @@
+2009-03-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_L): At TImode.
+	(VEC_M): Like VEC_L, except no TImode.
+	(VEC_base): Add TImode support.
+	(mov<mode>): Use VEC_M, not VEC_L.  If there is no extra
+	optimization for the move, just generate the standard move.
+	(vector_store_<mode>): Ditto.
+	(vector_load_<mode>): Ditto.
+	(vec_init<mode>): Use vec_init_operand predicate.
+
+	* config/rs6000/predicates.md (vec_init_operand): New predicate.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Allow mode
+	in a VSX register if there is a move operation.
+	(rs6000_vector_reg_class): Add internal register number to the
+	debug output.
+	(rs6000_init_hard_regno_mode_ok): Reorganize so all of the code
+	for a given type is located together.  If not -mvsx, make "ws"
+	constraint become NO_REGS, not FLOAT_REGS.  Change -mdebug=reg
+	output.
+	(rs6000_expand_vector_init): Before calling gen_vsx_concat_v2df,
+	make sure the two float arguments are copied into registers.
+	(rs6000_legitimate_offset_address_p): If no vsx or altivec, don't
+	disallow offset addressing.  Add V2DImode.  If TImode is handled
+	by the vector unit, allow indexed addressing.  Change default case
+	to be a fatal_insn instead of gcc_unreachable.
+	(rs6000_handle_altivec_attribute): Add support for vector double
+	if -mvsx.
+	(rs6000_register_move_cost): Add support for VSX_REGS.  Know that
+	under VSX, you can move between float and altivec registers
+	cheaply.
+	(rs6000_emit_swdivdf): Change the pattern of the negate multiply
+	and subtract operation.
+
+	* config/rs6000/vsx.md (VSX_I): Add TImode.
+	(VSX_L): Add TImode.
+	(VSm): Ditto.
+	(VSs): Ditto.
+	(VSr): Ditto.
+	(UNSPEC_VSX_CONCAT_V2DF): New constant.
+	(vsx_fre<mode>2): Add reciprocal estimate.
+	(vsx_freDF2): Ditto.
+	(vsx_fnmadd<mode>4): Rework pattern so it matches the
+	canonicalization that the compiler does.
+	(vsx_fnmsub<mode>4): Ditto.
+	(vsx_fnmaddDF4): Ditto.
+	(vsx_fnmsubDF4): Ditto.
+	(vsx_vsel<mode>): Use vsx_register_operand, not register_operand.
+	(vsx_adddf3): Ditto.
+	(vsx_subdf3): Ditto.
+	(vsx_muldf3): Ditto.
+	(vsx_divdf3): Ditto.
+	(vsx_negdf3): Ditto.
+	(vsx_absdf2): Ditto.
+	(vsx_nabsdf2): Ditto.
+	(vsx_copysign<mode>3): Add copysign support.
+	(vsx_copysignDF3): Ditto.
+	(vsx_concat_v2df): Rewrite to use an UNSPEC.
+	(vsx_set_v2df): Use "ws" constraint for scalar float.
+	(vsx_splatv2df): Ditto.
+
+	* config/rs6000/rs6000.h (VECTOR_UNIT_NONE_P): New macro to say no
+	vector support.
+	(VECTOR_MEM_NONE_P): Ditto.
+	(VSX_MOVE_MODE): Add V2DImode, TImode.
+
+	* config/rs6000/altivec.md (VM): Add V2DI, TI.
+	(build_vector_mask_for_load): Fix thinko in VSX case.
+
+	* config/rs6000/rs6000.md (fmaddsf4_powerpc): Name previously
+	unnamed pattern.  Fix insns so combine will generate the negative
+	multiply and subtract operations.
+	(fmaddsf4_power): Ditto.
+	(fmsubsf4_powerpc): Ditto.
+	(fmsubsf4_power): Ditto.
+	(fnmaddsf4_powerpc): Ditto.
+	(fnmaddsf4_power): Ditto.
+	(fnmsubsf4_powerpc): Ditto.
+	(fnmsubsf4_power): Ditto.
+	(fnsubsf4_powerpc2): Ditto.
+	(fnsubsf4_power2): Ditto.
+	(fmadddf4_powerpc): Ditto.
+	(fmadddf4_power): Ditto.
+	(fmsubdf4_powerpc): Ditto.
+	(fmsubdf4_power): Ditto.
+	(fnmadddf4_powerpc): Ditto.
+	(fnmadddf4_power): Ditto.
+	(fnmsubdf4_powerpc): Ditto.
+	(fnmsubdf4_power): Ditto.
+	(copysigndf3): If VSX, call the VSX copysign.
+	(fred): Split into an expander and insn.  On insn, disable if
+	VSX.
+	(movdf_hardfloat32): Rework VSX support.
+	(movdf_hardfloat64_mfpgpr): Ditto.
+	(movdf_hardfloat64): Ditto.
+	(movti_ppc64): If vector unit is handling TImode, disable this
+	pattern.
+
 2009-02-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/ppc-asm.h: If __VSX__ define the additional scalar
