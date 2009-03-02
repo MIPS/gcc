@@ -1440,8 +1440,21 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
     return 1;
 
-  /* We cannot put TImode anywhere except general register and it must be
-     able to fit within the register set.  */
+  /* Don't allow anything but word sized integers (aka pointers) in CTR/LR.  You
+     really don't want to spill your floating point values to those
+     registers.  Also do it for the old MQ register in the power.  */
+  if (regno == CTR_REGNO || regno == LR_REGNO || regno == MQ_REGNO)
+    return (GET_MODE_CLASS (mode) == MODE_INT
+	    && GET_MODE_SIZE (mode) <= UNITS_PER_WORD);
+
+  /* The VRSAVE/VSCR registers are 32-bits (they are fixed, but add this for
+     completeness).  */
+  if (regno == VRSAVE_REGNO || regno == VSCR_REGNO)
+    return (mode == SImode);
+
+  /* We cannot put TImode anywhere except general register and it must be able
+     to fit within the register set.  In the future, allow TImode in the
+     Altivec or VSX registers.  */
 
   return GET_MODE_SIZE (mode) <= UNITS_PER_WORD;
 }
@@ -1688,6 +1701,12 @@ rs6000_init_hard_regno_mode_ok (void)
       rs6000_debug_reg_print (LR_REGNO, LR_REGNO, "lr");
       rs6000_debug_reg_print (CTR_REGNO, CTR_REGNO, "ctr");
       rs6000_debug_reg_print (CR0_REGNO, CR7_REGNO, "cr");
+      rs6000_debug_reg_print (MQ_REGNO, MQ_REGNO, "mq");
+      rs6000_debug_reg_print (XER_REGNO, XER_REGNO, "xer");
+      rs6000_debug_reg_print (VRSAVE_REGNO, VRSAVE_REGNO, "vrsave");
+      rs6000_debug_reg_print (VSCR_REGNO, VSCR_REGNO, "vscr");
+      rs6000_debug_reg_print (SPE_ACC_REGNO, SPE_ACC_REGNO, "spe_a");
+      rs6000_debug_reg_print (SPEFSCR_REGNO, SPEFSCR_REGNO, "spe_f");
 
       fprintf (stderr,
 	       "\n"

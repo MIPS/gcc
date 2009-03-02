@@ -193,11 +193,11 @@
 	 (mult:VSX_F
 	  (match_operand:VSX_F 1 "vsx_register_operand" "%<VSr>,<VSr>")
 	  (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,0"))
-	 (match_operand:VSX_F 3 "vsx_register_operand" "0,<VSr>")))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode) && TARGET_FUSED_MADD"
+	 (match_operand:VSX_F 3 "gpc_reg_operand" "0,<VSr>")))]
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD"
   "@
-   xvmadda<VSs> %x0,%x1,%x2
-   xvmaddm<VSs> %x0,%x1,%x3"
+   xvmaddadp %x0,%x1,%x2
+   xvmaddmdp %x0,%x1,%x3"
   [(set_attr "type" "vecfloat")])
 
 (define_insn "*vsx_fmsub<mode>4"
@@ -207,44 +207,69 @@
 	  (match_operand:VSX_F 1 "vsx_register_operand" "%<VSr>,<VSr>")
 	  (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,0"))
 	 (match_operand:VSX_F 3 "vsx_register_operand" "0,<VSr>")))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode) && TARGET_FUSED_MADD"
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD"
   "@
-   xvmsuba<VSs> %x0,%x1,%x2
-   xvmsubm<VSs> %x0,%x1,%x3"
+   xvmsubadp %x0,%x1,%x2
+   xvmsubmdp %x0,%x1,%x3"
   [(set_attr "type" "vecfloat")])
 
-;; Reorder the negative multiply add/sub patterns so they match the
-;; canonicalization that the compiler does.  Note operands for negative
-;; multiply/add are out of order.
-(define_insn "*vsx_fnmadd<mode>4"
+(define_insn "*vsx_fnmadd<mode>4_1"
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,<VSr>")
+	(neg:VSX_F
+	 (plus:VSX_F
+	  (mult:VSX_F
+	   (match_operand:VSX_F 1 "vsx_register_operand" "%<VSr>,<VSr>")
+	   (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,0"))
+	  (match_operand:VSX_F 3 "vsx_register_operand" "0,<VSr>"))))]
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD
+   && HONOR_SIGNED_ZEROS (DFmode)"
+  "@
+   xvnmaddadp %x0,%x1,%x2
+   xvnmaddmdp %x0,%x1,%x3"
+  [(set_attr "type" "vecfloat")])
+
+(define_insn "*vsx_fnmadd<mode>4_2"
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,<VSr>")
+	(minus:VSX_F
+	 (mult:VSX_F
+	  (neg:VSX_F
+	   (match_operand:VSX_F 1 "gpc_reg_operand" "%<VSr>,<VSr>"))
+	  (match_operand:VSX_F 2 "gpc_reg_operand" "<VSr>,0"))
+	 (match_operand:VSX_F 3 "vsx_register_operand" "0,<VSr>")))]
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD
+   && !HONOR_SIGNED_ZEROS (DFmode)"
+  "@
+   xvnmaddadp %x0,%x1,%x2
+   xvnmaddmdp %x0,%x1,%x3"
+  [(set_attr "type" "vecfloat")])
+
+(define_insn "*vsx_fnmsub<mode>4_1"
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,<VSr>")
+	(neg:VSX_F
+	 (minus:VSX_F
+	  (mult:VSX_F
+	   (match_operand:VSX_F 1 "vsx_register_operand" "%<VSr>,<VSr>")
+	   (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,0"))
+	  (match_operand:VSX_F 3 "vsx_register_operand" "0,<VSr>"))))]
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD
+   && HONOR_SIGNED_ZEROS (DFmode)"
+  "@
+   xvnmsubadp %x0,%x1,%x2
+   xvnmsubmdp %x0,%x1,%x3"
+  [(set_attr "type" "vecfloat")])
+
+(define_insn "*vsx_fnmsub<mode>4_2"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,<VSr>")
 	(minus:VSX_F
 	 (match_operand:VSX_F 3 "vsx_register_operand" "0,<VSr>")
 	 (mult:VSX_F
 	  (match_operand:VSX_F 1 "vsx_register_operand" "%<VSr>,<VSr>")
 	  (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,0"))))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode)
-   && TARGET_FUSED_MADD
-   && HONOR_SIGNED_ZEROS (<MODE>mode)"
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD
+   && !HONOR_SIGNED_ZEROS (DFmode)"
   "@
-   xvnmadda<VSs> %x0,%x1,%x2
-   xvnmaddm<VSs> %x0,%x1,%x3"
-  [(set_attr "type" "vecfloat")])
-
-(define_insn "*vsx_fnmsub<mode>4"
-  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,<VSr>")
-	(minus:VSX_F
-	 (mult:VSX_F
-	  (neg:VSX_F
-	   (match_operand:VSX_F 1 "vsx_register_operand" "%<VSr>,<VSr>"))
-	  (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,0"))
-	 (match_operand:VSX_F 3 "vsx_register_operand" "0,<VSr>")))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode)
-   && TARGET_FUSED_MADD
-   && HONOR_SIGNED_ZEROS (<MODE>mode)"
-  "@
-   xvnmsuba<VSs> %x0,%x1,%x2
-   xvnmsubm<VSs> %x0,%x1,%x3"
+   xvnmsubadp %x0,%x1,%x2
+   xvnmsubmdp %x0,%x1,%x3"
   [(set_attr "type" "vecfloat")])
 
 ;; Vector conditional expressions
@@ -387,63 +412,83 @@
 ;; Fused vector multiply/add instructions
 (define_insn "*vsx_fmadddf4"
   [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws")
-	(plus:DF
-	 (mult:DF
-	  (match_operand:DF 1 "vsx_register_operand" "%ws,ws")
-	  (match_operand:DF 2 "vsx_register_operand" "ws,0"))
-	 (match_operand:DF 3 "vsx_register_operand" "0,ws")))]
+	(plus:DF (mult:DF (match_operand:DF 1 "vsx_register_operand" "%ws,ws")
+			  (match_operand:DF 2 "vsx_register_operand" "ws,0"))
+		 (match_operand:DF 3 "gpc_reg_operand" "0,ws")))]
   "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD"
   "@
    xsmaddadp %x0,%x1,%x2
    xsmaddmdp %x0,%x1,%x3"
-  [(set_attr "type" "fp")
+  [(set_attr "type" "dmul")
    (set_attr "fp_type" "fp_maddsub_d")])
 
 (define_insn "*vsx_fmsubdf4"
   [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws")
-	(minus:DF
-	 (mult:DF
-	  (match_operand:DF 1 "vsx_register_operand" "%ws,ws")
-	  (match_operand:DF 2 "vsx_register_operand" "ws,0"))
-	 (match_operand:DF 3 "vsx_register_operand" "0,ws")))]
+	(minus:DF (mult:DF (match_operand:DF 1 "vsx_register_operand" "%ws,ws")
+			   (match_operand:DF 2 "vsx_register_operand" "ws,0"))
+		  (match_operand:DF 3 "vsx_register_operand" "0,ws")))]
   "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD"
   "@
    xsmsubadp %x0,%x1,%x2
    xsmsubmdp %x0,%x1,%x3"
-  [(set_attr "type" "fp")
+  [(set_attr "type" "dmul")
    (set_attr "fp_type" "fp_maddsub_d")])
 
-;; Reorder the negative multiply add/sub patterns so they match the
-;; canonicalization that the compiler does.  Note operands for negative
-;; multiply/add are out of order.
-(define_insn "*vsx_fnmadddf4"
+(define_insn "*vsx_fnmadddf4_1"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws")
+	(neg:DF
+	 (plus:DF (mult:DF (match_operand:DF 1 "vsx_register_operand" "%ws,ws")
+			   (match_operand:DF 2 "vsx_register_operand" "ws,0"))
+		  (match_operand:DF 3 "vsx_register_operand" "0,ws"))))]
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD
+   && HONOR_SIGNED_ZEROS (DFmode)"
+  "@
+   xsnmaddadp %x0,%x1,%x2
+   xsnmaddmdp %x0,%x1,%x3"
+  [(set_attr "type" "dmul")
+   (set_attr "fp_type" "fp_maddsub_d")])
+
+(define_insn "*vsx_fnmadddf4_2"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws")
+	(minus:DF (mult:DF (neg:DF
+			    (match_operand:DF 1 "gpc_reg_operand" "%ws,ws"))
+			   (match_operand:DF 2 "gpc_reg_operand" "ws,0"))
+		  (match_operand:DF 3 "vsx_register_operand" "0,ws")))]
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD
+   && !HONOR_SIGNED_ZEROS (DFmode)"
+  "@
+   xsnmaddadp %x0,%x1,%x2
+   xsnmaddmdp %x0,%x1,%x3"
+  [(set_attr "type" "dmul")
+   (set_attr "fp_type" "fp_maddsub_d")])
+
+(define_insn "*vsx_fnmsubdf4_1"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws")
+	(neg:DF
+	 (minus:DF
+	  (mult:DF (match_operand:DF 1 "vsx_register_operand" "%ws,ws")
+		   (match_operand:DF 2 "vsx_register_operand" "ws,0"))
+	  (match_operand:DF 3 "vsx_register_operand" "0,ws"))))]
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD
+   && HONOR_SIGNED_ZEROS (DFmode)"
+  "@
+   xsnmsubadp %x0,%x1,%x2
+   xsnmsubmdp %x0,%x1,%x3"
+  [(set_attr "type" "dmul")
+   (set_attr "fp_type" "fp_maddsub_d")])
+
+(define_insn "*vsx_fnmsubdf4_2"
   [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws")
 	(minus:DF
 	 (match_operand:DF 3 "vsx_register_operand" "0,ws")
 	 (mult:DF (match_operand:DF 1 "vsx_register_operand" "%ws,ws")
 		  (match_operand:DF 2 "vsx_register_operand" "ws,0"))))]
-  "VECTOR_UNIT_VSX_P (DFmode)
-   && TARGET_FUSED_MADD
-   && HONOR_SIGNED_ZEROS (DFmode)"
-  "@
-   xsnmaddadp %x0,%x1,%x2
-   xsnmaddmdp %x0,%x1,%x3"
-  [(set_attr "type" "fp")
-   (set_attr "fp_type" "fp_maddsub_d")])
-
-(define_insn "*vsx_fnmsubdf4"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws")
-	(minus:DF
-	 (mult:DF (neg:DF (match_operand:DF 1 "vsx_register_operand" "%ws,ws"))
-		  (match_operand:DF 2 "vsx_register_operand" "ws,0"))
-	 (match_operand:DF 3 "vsx_register_operand" "0,ws")))]
-  "VECTOR_UNIT_VSX_P (DFmode)
-   && TARGET_FUSED_MADD
-   && HONOR_SIGNED_ZEROS (DFmode)"
+  "VECTOR_UNIT_VSX_P (DFmode) && TARGET_FUSED_MADD
+   && !HONOR_SIGNED_ZEROS (DFmode)"
   "@
    xsnmsubadp %x0,%x1,%x2
    xsnmsubmdp %x0,%x1,%x3"
-  [(set_attr "type" "fp")
+  [(set_attr "type" "dmul")
    (set_attr "fp_type" "fp_maddsub_d")])
 
 ;; For the conversions, limit the register class for the integer value to be

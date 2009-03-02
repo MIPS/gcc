@@ -2,6 +2,17 @@
 
 	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok):
 	Reenable vectorizing V4SF under altivec.
+	(rs6000_hard_regno_mode_ok): Don't allow floating values in LR,
+	CTR, MQ.  Also, VRSAVE/VSCR are both 32-bits.
+	(rs6000_init_hard_regno_mode_ok): Print some of the special
+	registers if -mdebug=reg.
+
+	* config/rs6000/rs6000.md (floating multiply/add insns): Go back
+	to the original semantics for multiply add/subtract, particularly
+	with -ffast-math.
+
+	* config/rs6000/vsx.md (floating multiply/add insns): Mirror the
+	rs6000 floating point multiply/add insns in VSX.
 
 2009-03-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
