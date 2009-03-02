@@ -1,3 +1,8 @@
+2009-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok):
+	Reenable vectorizing V4SF under altivec.
+
 2009-03-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_L): At TImode.

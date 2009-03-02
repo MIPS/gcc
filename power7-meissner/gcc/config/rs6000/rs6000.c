@@ -1571,6 +1571,7 @@ rs6000_init_hard_regno_mode_ok (void)
   else if (float_p && TARGET_ALTIVEC)
     {
       rs6000_vector_unit[V4SFmode] = VECTOR_ALTIVEC;
+      rs6000_vector_mem[V4SFmode] = VECTOR_ALTIVEC;
       rs6000_vector_align[V4SFmode] = 128;
     }
 
