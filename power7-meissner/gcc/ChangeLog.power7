@@ -12,7 +12,7 @@
 	truncate.
 	(vsx_ftruncdf2): Ditto.
 	(vsx_xxspltw): New instruction for word splat.
-	(vsx_xxmrglw): Whitespace changes.  Fix type from V4SI to v4SF.
+	(vsx_xxmrglw): Whitespace changes.  Fix typo from V4SI to v4SF.
 	(vsx_xxmrghw): Ditto.
 
 	* config/rs6000/altivec.md (altivec_vmrghsf): Whitespace changes.
