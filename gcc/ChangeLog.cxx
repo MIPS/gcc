@@ -1,3 +1,7 @@
+2009-03-03  Thomas Neumann <tneumann@users.sourceforge.net>
+	* langhooks.c (add_builtin_function_common): Avoid assigning -1 to an enum for
+	C++ compatibility.
+
 2009-02-17  Thomas Neumann <tneumann@users.sourceforge.net>
 
         * ira.c (setup_prohibited_mode_move_regs): Add missing casts to
