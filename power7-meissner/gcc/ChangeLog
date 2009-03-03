@@ -1,7 +1,198 @@
+2009-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (ST?_REG, MM?_REG): New constants.
+	(*call_1_rex64_ms_sysv): Use named constants instead of magic
+	numbers to describe clobbbered registers.
+	(*call_value_0_rex64_ms_sysv): Ditto.
+	* config/i386/mmx.md (emms): Ditto.
+	(femms): Ditto.
+
+2009-03-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_mdebug_abi_name): Fix the handling
+	of ABI_64.
+
+2009-03-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (TARGET_SECTION_TYPE_FLAGS): Define.
+	(spu_section_type_flags): New function.
+
+2009-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE): Do not copy
+	reg_class_contents of FLOAT_REGS into a temporary.
+
+2009-03-02  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39318
+	* tree-vect-transform.c (vectorizable_call): Transfer the EH region
+	information to the vectorized statement.
+
+2009-03-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE): Do not shadow "i"
+	variable.  Use defined names instead of magic constants for REX SSE
+	registers.
+
+2009-03-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39331
+	* omp-low.c (lower_send_shared_vars): Do not receive new
+	values for the reference of DECL_BY_REFERENCE parms or results.
+
+2009-03-01  Jan Hubicka  <jh@suse.cz>
+
+	PR debug/39267
+	* tree.h (BLOCK_NONLOCALIZED_VARS, BLOCK_NUM_NONLOCALIZED_VARS,
+	BLOCK_NONLOCALIZED_VAR): New macros.
+	(tree_block): Add nonlocalized_vars.
+	* dwarf2out.c (gen_formal_parameter_die, gen_variable_die,
+	gen_decl_die): Add origin argument.  Allow generation of die with
+	origin at hand only.
+	(gen_member_die, gen_type_die_with_usage, force_decl_die,
+	declare_in_namespace, gen_namescpace_die, dwarf2out_decl): Update use
+	of gen_*.
+	(gen_block_die): Fix checking for unused blocks.
+	(process_scope_var): Break out from .... ; work with origins only.
+	(decls_for_scope) ... here; process nonlocalized list.
+	(dwarf2out_ignore_block): Look for nonlocalized vars.
+	* tree-ssa-live.c (remove_unused_scope_block_p): Look for nonlocalized
+	vars.
+	(dump_scope_block): Dump them.
+	* tree-inline.c (remap_decls): Handle nonlocalized vars.
+	(remap_block): Likewise.
+	(can_be_nonlocal): New predicate.
+	(copy_bind_expr, copy_gimple_bind): Update use of remap_block.
+
+2009-03-01  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure: Regenerate.
+
+2009-03-01  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* optc-gen.awk: No need to duplicate option flags twice.
+	Reuse help texts for duplicate options which do not have
+	any.
+
+	* gcc.c (display_help): Document --version.
+
+	* gcc.c (main): If print_help_list and verbose_flag, ensure
+	driver output comes before subprocess output.
+
+	* optc-gen.awk: Assign all remaining fields to help string,
+	space-separated, for multi-line help in *.opt.
+
+	* doc/invoke.texi (Warning Options): -Wsync-nand is C/C++ only.
+	-Wno-pedantic-ms-format is for MinGW targets only.
+
+	* doc/options.texi (Option file format): Fix bad indentation,
+	restoring dropped sentence.
+
+2009-02-28  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (tree_function_versioning): Output debug info.
+
+2009-02-28  Jan Hubicka  <jh@suse.cz>
+
+	PR debug/39267
+	* tree-inline.c (setup_one_parameter): Do not copy propagate
+	arguments when not optimizing.
+
+2009-02-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39327
+	* config/i386/sse.md (avx_addsubv8sf3): Correct item bits.
+	(avx_addsubv4df3): Likewise.
+	(*avx_addsubv4sf3): Likewise.
+	(sse3_addsubv4sf3): Likewise.
+	(*avx_addsubv2df3): Likewise.
+	(sse3_addsubv2df3): Likewise.
+	(avx_unpckhps256): Correct item selectors.
+	(avx_unpcklps256): Likewise.
+	(avx_unpckhpd256): Likewise.
+	(avx_unpcklpd256): Likewise.
+
+2009-02-28  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (expand_call_inline): Avoid duplicate declarations of
+	static vars.
+	(copy_arguments_for_versioning): If var is declared don't declare it.
+	(tree_function_versioning): First setup substitutions and then copy
+	args.
+
+2009-02-27  Jan Hubicka  <jh@suse.cz>
+
+	PR debug/39267
+	* cgraph.h (varpool_output_debug_info): Remove.
+	* cgraphunit.c (varpool_output_debug_info): Remove.
+	* dwarf2out.c (deferred_locations_struct): New struct
+	(deferred_locations): New type.
+	(deferred_locations_list): New static var.
+	(deffer_location): New function.
+	(gen_variable_die): Use it.
+	(decls_for_scope): Output info on local static vars.
+	(dwarf2out_finish): Process deferred locations.
+	* varpool.c (varpool_output_debug_info): Remove.
+
+2009-02-27  Jan Hubicka  <jh@suse.cz>
+
+	PR debug/39267
+	* tree.h (TREE_PROTECTED): Fix comment.
+	(BLOCK_HANDLER_BLOCK): Remove.
+	(struct tree_block): Remove handler_block add body_block.
+	(inlined_function_outer_scope_p): New.
+	(is_body_block): Remove.
+	* dbxout.c (dbxout_block): Remove BLOCK_HANDLER_BLOCK.
+	* dwarf2out.c (is_inlined_entry_point): Remove.
+	(add_high_low_attributes): Use inlined_function_outer_scope_p.
+	(gen_block_die): Use is_inlined_entry_point check.  Remove body block
+	code.
+	* langhooks.h (struct lang_hooks): Remove no_bodu_blocks.
+	* gimplify.c (gimplify_expr): Gimplify body blocks.
+	* tree-ssa-live.c (remove_unused_scope_block_p): Allow removing wrapper
+	block with multiple subblocks.
+	(dump_scope_block): Prettier output; dump more flags and info.
+	(dump_scope_blocks): New.
+	(remove_unused_locals): Use dump_scope_blocks.
+	* tree-flow.h (dump_scope_blocks): Declare.
+	* tree-cfg.c (execute_build_cfg): Dump scope blocks.
+	* stmt.c (is_body_block): Remove.
+	* tree-inline.c (remap_block): Copy BODY_BLOCK info.
+	* langhooks-def.h (LANG_HOOKS_NO_BODY_BLOCKS): Remove.
+
+2009-02-27  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/39308
+	* graphite.c (graphite_loop_normal_form): Do not call 
+	number_of_iterations_exit from a gcc_assert.
+
+2009-02-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc/config/s390/s390.c: (s390_swap_cmp): Look for conditional
+	jumps if COND is NULL.
+	(find_cond_jump): New function.
+	(s390_z10_optimize_cmp): Handling for reg-reg compares added.
+	* gcc/config/s390/s390.md: Remove z10_cobra attribute value.
+
 2009-02-26  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/alpha/alpha.h (alpha_expand_mov): Return false if
 	force_const_mem returns NULL_RTX.
+
+2009-02-26  Jan Hubicka  <jh@suse.cz>
+
+	PR debug/39267
+	* cgraph.h (varpool_output_debug_info): Remove.
+	* cgraphunit.c (varpool_output_debug_info): Remove.
+	* dwarf2out.c (deferred_locations_struct): New struct
+	(deferred_locations): New type.
+	(deferred_locations_list): New static var.
+	(deffer_location): New function.
+	(gen_variable_die): Use it.
+	(decls_for_scope): Output info on local static vars.
+	(dwarf2out_finish): Process deferred locations.
+	* varpool.c (varpool_output_debug_info): Remove.
 
 2009-02-25  H.J. Lu  <hongjiu.lu@intel.com>
 
