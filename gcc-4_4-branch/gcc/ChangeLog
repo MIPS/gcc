@@ -1,3 +1,7 @@
+2009-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (execute, retry_ice): Shut up -Wcast-qual warnings.
+
 2009-02-19  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR c++/39188

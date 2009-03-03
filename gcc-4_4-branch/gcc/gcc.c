@@ -3106,7 +3106,7 @@ See %s for instructions.",
       }
 
     if (commands[0].argv[0] != commands[0].prog)
-      free ((PTR) commands[0].argv[0]);
+      free (CONST_CAST (char *, commands[0].argv[0]));
 
     return ret_code;
   }
@@ -6159,7 +6159,7 @@ retry_ice (const char *prog, const char **argv)
     return;
 
   memset (temp_filenames, '\0', sizeof (temp_filenames));
-  new_argv = alloca ((nargs + 3) * sizeof (const char *));
+  new_argv = XALLOCAVEC (const char *, nargs + 3);
   memcpy (new_argv, argv, (nargs + 1) * sizeof (const char *));
   new_argv[nargs++] = "-frandom-seed=0";
   new_argv[nargs] = NULL;
@@ -6184,7 +6184,7 @@ retry_ice (const char *prog, const char **argv)
 	  size_t n, len;
 	  char *buf;
 
-	  buf = xmalloc (8192);
+	  buf = XNEWVEC (char, 8192);
 
 	  for (i = 0; i < 2; ++i)
 	    {
@@ -6301,9 +6301,9 @@ retry_ice (const char *prog, const char **argv)
 	    }
 
 	  if (prog == new_argv[0])
-	    execvp (prog, (char *const *) new_argv);
+	    execvp (prog, CONST_CAST2 (char *const *, const char **, new_argv));
 	  else
-	    execv (new_argv[0], (char *const *) new_argv);
+	    execv (new_argv[0], CONST_CAST2 (char *const *, const char **, new_argv));
 	  exit (-1);
 	}
 
