@@ -1,5 +1,12 @@
 2009-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (vsx_xxmrglw): Delete for now, use Altivec.
+	(vsx_xxmrghw): Ditto.
+
+	* config/rs6000/altivec.md (altivec_vmrghsf): Use this insn even
+	on VSX systems.
+	(altivec_vmrglsf): Ditto.
+
 	* config/rs6000/rs6000.h (ASM_CPU_NATIVE_SPEC): Use %(asm_default)
 	if we are running as a cross compiler.
 
