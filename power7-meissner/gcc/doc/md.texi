@@ -1907,8 +1907,17 @@ Floating point register
 @item v
 Altivec vector register
 
-@item w
-VSX vector register (floating point and altivec)
+@item wd
+VSX vector register to hold vector double data
+
+@item wf
+VSX vector register to hold vector float data
+
+@item ws
+VSX vector register to hold scalar float data
+
+@item wa
+Any VSX register
 
 @item h
 @samp{MQ}, @samp{CTR}, or @samp{LINK} register
