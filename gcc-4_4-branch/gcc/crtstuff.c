@@ -236,7 +236,7 @@ STATIC void *__JCR_LIST__[]
    dynamic linker takes care of this.  */
 
 #ifdef TARGET_LIBGCC_SDATA_SECTION
-extern void *__dso_handle __attribute__ ((__section__ (TARGET_LIBGCC_SDATA_SECTION)));
+extern void *const __dso_handle __attribute__ ((__section__ (TARGET_LIBGCC_SDATA_SECTION)));
 #endif
 #ifdef HAVE_GAS_HIDDEN
 extern void *const __dso_handle __attribute__ ((__visibility__ ("hidden")));
