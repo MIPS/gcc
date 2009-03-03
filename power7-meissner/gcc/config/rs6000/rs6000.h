@@ -186,7 +186,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define ASM_CPU_NATIVE_SPEC "%:local_cpu_detect(asm)"
 
 #else
-#define ASM_CPU_NATIVE_SPEC ""
+#define ASM_CPU_NATIVE_SPEC "%(asm_default)"
 #endif
 
 #ifndef CC1_CPU_SPEC
