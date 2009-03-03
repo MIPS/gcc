@@ -22918,11 +22918,8 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 					  UNSPEC_FRES)));
   /* e0 = 1. - d * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, e0,
-			  gen_rtx_MINUS (DFmode,
-					 gen_rtx_MULT (DFmode,
-						       gen_rtx_NEG (DFmode, d),
-						       x0),
-					 one)));
+			  gen_rtx_MINUS (DFmode, one,
+					 gen_rtx_MULT (SFmode, d, x0))));
   /* y1 = x0 + e0 * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, y1,
 			  gen_rtx_PLUS (DFmode,
@@ -22946,11 +22943,8 @@ rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 			  gen_rtx_MULT (DFmode, n, y3)));
   /* v0 = n - d * u0 */
   emit_insn (gen_rtx_SET (VOIDmode, v0,
-			  gen_rtx_MINUS (DFmode,
-					 gen_rtx_MULT (DFmode,
-						       gen_rtx_NEG (DFmode, d),
-						       u0),
-					 n)));
+			  gen_rtx_MINUS (DFmode, n,
+					 gen_rtx_MULT (DFmode, d, u0))));
   /* dst = u0 + v0 * y3 */
   emit_insn (gen_rtx_SET (VOIDmode, dst,
 			  gen_rtx_PLUS (DFmode,
