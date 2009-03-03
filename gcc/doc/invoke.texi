@@ -6718,8 +6718,8 @@ translation unit.
 
 Disabled by default.
 
-@item -flto
-@opindex flto
+@item -fwhopr
+@opindex fwhopr
 This option is similar to @option{-flto} but it differs in how
 the final link stage is executed.  Instead of loading all the
 function bodies in memory, the callgraph is analyzed and

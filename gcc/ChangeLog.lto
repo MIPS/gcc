@@ -1,3 +1,7 @@
+2009-03-03  Diego Novillo  <dnovillo@google.com>
+
+	* doc/invoke.texi: Fix documentation for -fwhopr.
+
 2009-02-27  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.c (gimple_same_type_p): Move from lto-symtab.c.
