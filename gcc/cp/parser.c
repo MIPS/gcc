@@ -470,7 +470,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
   else if (token->type == CPP_PRAGMA)
     {
       /* We smuggled the cpp_token->u.pragma value in an INTEGER_CST.  */
-      token->pragma_kind = TREE_INT_CST_LOW (token->u.value);
+      token->pragma_kind = ((enum pragma_kind)
+		TREE_INT_CST_LOW (token->u.value));
       token->u.value = NULL_TREE;
     }
 }

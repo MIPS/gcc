@@ -1,6 +1,10 @@
 2009-03-03  Thomas Neumann <tneumann@users.sourceforge.net>
 
-	* tree-into-ssa.c (get_ssa_name_ann): Use NEED_PHI_STATE_UNKNOWN instead of 0
+	* cp/parser.c (cp_lexer_get_preprocessor_token): Add missing cast to enum.
+
+2009-03-03  Thomas Neumann <tneumann@users.sourceforge.net>
+
+	* tree-into-ssa.c (get_ssa_name_ann): Use NEED_PHI_STATE_UNKNOWN instead of 0.
 
 2009-03-03  Thomas Neumann <tneumann@users.sourceforge.net>
 
@@ -10,7 +14,7 @@
 2009-02-17  Thomas Neumann <tneumann@users.sourceforge.net>
 
         * ira.c (setup_prohibited_mode_move_regs): Add missing casts to
-        enum machine_mode
+        enum machine_mode.
 
 2009-02-10  Ian Lance Taylor  <iant@google.com>
 
