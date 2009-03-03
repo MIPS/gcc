@@ -386,15 +386,15 @@
   [(set (match_operand:V4SF 0 "vfloat_operand" "")
         (vec_merge:V4SF
 	 (vec_select:V4SF (match_operand:V4SF 1 "vfloat_operand" "")
-			  (parallel [(const_int 2)
-				     (const_int 0)
-				     (const_int 3)
-				     (const_int 1)]))
-	 (vec_select:V4SF (match_operand:V4SF 2 "vfloat_operand" "")
 			  (parallel [(const_int 0)
 				     (const_int 2)
 				     (const_int 1)
 				     (const_int 3)]))
+	 (vec_select:V4SF (match_operand:V4SF 2 "vfloat_operand" "")
+			  (parallel [(const_int 2)
+				     (const_int 0)
+				     (const_int 3)
+				     (const_int 1)]))
 	 (const_int 5)))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
   "")
@@ -403,15 +403,15 @@
   [(set (match_operand:V4SF 0 "vfloat_operand" "")
         (vec_merge:V4SF
 	 (vec_select:V4SF (match_operand:V4SF 1 "vfloat_operand" "")
-			  (parallel [(const_int 0)
-				     (const_int 2)
-				     (const_int 1)
-				     (const_int 3)]))
-	 (vec_select:V4SF (match_operand:V4SF 2 "vfloat_operand" "")
 			  (parallel [(const_int 2)
 				     (const_int 0)
 				     (const_int 3)
 				     (const_int 1)]))
+	 (vec_select:V4SF (match_operand:V4SF 2 "vfloat_operand" "")
+			  (parallel [(const_int 0)
+				     (const_int 2)
+				     (const_int 1)
+				     (const_int 3)]))
 	 (const_int 5)))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
   "")

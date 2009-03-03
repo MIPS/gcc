@@ -1,5 +1,9 @@
 2009-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (vec_interleave_highv4sf): Use correct
+	constants for the extraction.
+	(vec_interleave_lowv4sf): Ditto.
+
 	* config/rs6000/rs6000.md (floordf2): Fix typo, make this a
 	define_expand, not define_insn.
 
