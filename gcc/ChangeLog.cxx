@@ -1,4 +1,9 @@
 2009-03-03  Thomas Neumann <tneumann@users.sourceforge.net>
+
+	* tree-into-ssa.c (get_ssa_name_ann): Use NEED_PHI_STATE_UNKNOWN instead of 0
+
+2009-03-03  Thomas Neumann <tneumann@users.sourceforge.net>
+
 	* langhooks.c (add_builtin_function_common): Avoid assigning -1 to an enum for
 	C++ compatibility.
 
