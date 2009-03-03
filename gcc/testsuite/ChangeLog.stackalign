@@ -1,3 +1,9 @@
+2009-03-03  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/39146
+	* gcc.target/i386/stackalign/pr39146.c: New.
+
 2009-02-28  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR middle-end/39315
