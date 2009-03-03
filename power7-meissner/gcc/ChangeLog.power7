@@ -1,3 +1,21 @@
+2009-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/aix53.h (ASM_CPU_SPEC): If -mcpu=native, call
+	%:local_cpu_detect(asm) to get the appropriate assembler flags for
+	the machine.
+	* config/rs6000/aix61.h (ASM_CPU_SPEC): Ditto.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Ditto.
+	(ASM_CPU_NATIVE_SPEC): New spec to get asm options if
+	-mcpu=native.
+	(EXTRA_SPECS): Add ASM_CPU_NATIVE_SPEC.
+
+	* config/rs6000/driver-rs6000.c (asm_names): New static array to
+	give the appropriate asm switches if -mcpu=native.
+	(host_detect_local_cpu): Add support for "asm".
+
+	* config/rs6000/rs6000.c (processor_target_table): Don't turn on
+	-misel by default for power7.
+
 2009-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_emit_swdivdf): Revert last

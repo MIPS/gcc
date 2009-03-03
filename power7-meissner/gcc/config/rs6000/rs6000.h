@@ -78,8 +78,10 @@
 #define ASM_CPU_POWER7_SPEC "-mpower4 -maltivec"
 #endif
 
-/* Common ASM definitions used by ASM_SPEC among the various targets
-   for handling -mcpu=xxx switches.  */
+/* Common ASM definitions used by ASM_SPEC among the various targets for
+   handling -mcpu=xxx switches.  There is a parallel list in driver-rs6000.c to
+   provide the default assembler options if the user uses -mcpu=native, so if
+   you make changes here, make them also there.  */
 #define ASM_CPU_SPEC \
 "%{!mcpu*: \
   %{mpower: %{!mpower2: -mpwr}} \
@@ -88,6 +90,7 @@
   %{!mpowerpc64*: %{mpowerpc*: -mppc}} \
   %{mno-power: %{!mpowerpc*: -mcom}} \
   %{!mno-power: %{!mpower*: %(asm_default)}}} \
+%{mcpu=native: %(asm_cpu_native)} \
 %{mcpu=common: -mcom} \
 %{mcpu=cell: -mcell} \
 %{mcpu=power: -mpwr} \
@@ -163,6 +166,7 @@
 #define EXTRA_SPECS							\
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
   { "asm_cpu",			ASM_CPU_SPEC },				\
+  { "asm_cpu_native",		ASM_CPU_NATIVE_SPEC },			\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
   { "cc1_cpu",			CC1_CPU_SPEC },				\
   { "asm_cpu_power5",		ASM_CPU_POWER5_SPEC },			\
@@ -179,6 +183,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define EXTRA_SPEC_FUNCTIONS \
   { "local_cpu_detect", host_detect_local_cpu },
 #define HAVE_LOCAL_CPU_DETECT
+#define ASM_CPU_NATIVE_SPEC "%:local_cpu_detect(asm)"
+
+#else
+#define ASM_CPU_NATIVE_SPEC ""
 #endif
 
 #ifndef CC1_CPU_SPEC
