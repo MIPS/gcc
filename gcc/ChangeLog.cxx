@@ -1,5 +1,8 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* gcc.c (process_command, main): Use CONST_CAST.
+	* collect2.c (main, scan_prog_file): Likewise.
+
 	* bitmap.c (bitmap_clear): Don't declare as inline.
 	* tree-ssa-sccvn.c (vn_nary_op_compute_hash): Likewise.
 
