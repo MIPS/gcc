@@ -1,5 +1,7 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* vec.c (vec_gc_o_reserve_1): Don't initialize alloc to itself.
+
 	* gcc.c (process_command, main): Use CONST_CAST.
 	* collect2.c (main, scan_prog_file): Likewise.
 
