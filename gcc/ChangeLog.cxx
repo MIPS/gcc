@@ -1,5 +1,8 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* bitmap.c (bitmap_clear): Don't declare as inline.
+	* tree-ssa-sccvn.c (vn_nary_op_compute_hash): Likewise.
+
 	* cp/cvt.c (convert_to_void): Only warn about ?: operator with
 	no effect if neither side has an effect.
 
