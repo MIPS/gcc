@@ -1,15 +1,61 @@
+2009-03-04  Ian Lance Taylor  <iant@google.com>
+
+	* fortran/Make-lang.in (gfortranspec.o): Compile with $(CXX).
+	(fortran/cpp.o): Likewise.
+	(gfortran$(exeext)): Link with $(CXX).
+	(f951$(exeext)): Likewise.
+	* fortran/gfortran.h (enum omp_sched_kind): Move out of struct
+	gfc_omp_clauses.
+	(enum omp_sharing): Likewise.
+	(enum gfc_symbol_type): Move out of struct gfc_gsymbol.
+	(enum gfc_array_ref_dimen_type): Move out of strutc
+	gfc_array_ref.
+	* fortran/cpp.c (struct gfc_cpp_option_data): Give name to
+	anonymous struct.
+	* fortran/decl.c (build_struct): Initialize first_len.
+	(match_attr_spec): Change variable 'd' to int.
+	(add_global_entry): Change variable 'type' to gfc_symbol_type.
+	* fortran/dump-parse-tree.c (show_namespace): Change variable 'op'
+	to int.
+	* fortran/interface.c (gfc_check_interfaces): Change loop to use
+	int type rather than enum type.
+	* fortran/module.c (enum rsym_state, enum wsym_state): Move out of
+	struct pointer_info.
+	(mio_array_ref, mio_symbol): Add casts to enum type.
+	(read_module): Change variable 'i' to int.
+	(write_module): Likewise.
+	(import_iso_c_binding_module): Add cast to enum type.
+	* fortran/parse.c (enum state_order): Move out of st_state
+	struct.
+	* fortran/resolve.c (resolve_global_procedure): Change variable
+	'type' to gfc_symbol_type.
+	(check_host_association): Initialize tail.
+	* fortran/symbol.c (gfc_get_namespace): Change variable 'in' to
+	int.
+	(gfc_free_namespace): Change variable 'i' to int.
+	* fortran/trans-intrinsic.c (DEFINE_MATH_BUILTIN): Add casts to
+	enum type.
+	* fortran/trans-io.c (st_parameter_field): Add casts to enum
+	type.
+	(gfc_build_st_parameter): Change variable 'type' to int.
+	(gfc_build_io_library_fndecls): Change variable 'ptype' to int.
+	* fortran/trans-types.c (gfc_init_kinds): Change loops to use int
+	type rather than enum type.
+
 2009-03-03  Thomas Neumann <tneumann@users.sourceforge.net>
 
-	* cp/parser.c (cp_lexer_get_preprocessor_token): Add missing cast to enum.
+	* cp/parser.c (cp_lexer_get_preprocessor_token): Add missing cast
+	to enum.
 
 2009-03-03  Thomas Neumann <tneumann@users.sourceforge.net>
 
-	* tree-into-ssa.c (get_ssa_name_ann): Use NEED_PHI_STATE_UNKNOWN instead of 0.
+	* tree-into-ssa.c (get_ssa_name_ann): Use NEED_PHI_STATE_UNKNOWN
+	instead of 0.
 
 2009-03-03  Thomas Neumann <tneumann@users.sourceforge.net>
 
-	* langhooks.c (add_builtin_function_common): Avoid assigning -1 to an enum for
-	C++ compatibility.
+	* langhooks.c (add_builtin_function_common): Avoid assigning -1 to
+	an enum for C++ compatibility.
 
 2009-02-17  Thomas Neumann <tneumann@users.sourceforge.net>
 
