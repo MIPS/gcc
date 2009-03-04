@@ -1,5 +1,8 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* tree-nomudflap.c (gt_ggc_r_gt_tree_mudflap_h): Declare as extern
+	if C++.
+
 	* vec.c (vec_gc_o_reserve_1): Don't initialize alloc to itself.
 
 	* gcc.c (process_command, main): Use CONST_CAST.
