@@ -1,3 +1,14 @@
+2009-03-04  Diego Novillo  <dnovillo@google.com>
+
+	* lto/lto.c (lto_read_all_file_options): Factor out of ...
+	(read_cgraph_and_symbols): ... here.
+	* lto/lto.h (lto_read_all_file_options): Declare.
+	* lto/lto-lang.c (lto_post_options): Call lto_read_all_file_options.
+	* lto/Make-lang.in (lto-lang.o): Add dependency on
+	LTO_OPTS_H and opts.h.
+	* lto-opts.c (lto_reissue_options): Do not call target_reinit.
+	* lto-opts.h: Add include guards.
+
 2009-03-03  Diego Novillo  <dnovillo@google.com>
 
 	* doc/invoke.texi: Fix typo.

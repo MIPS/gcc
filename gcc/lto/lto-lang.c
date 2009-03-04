@@ -728,6 +728,8 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (flag_wpa)
     flag_generate_lto = 1;
 
+  lto_read_all_file_options ();
+
   /* Initialize the compiler back end.  */
   return false;
 }

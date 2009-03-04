@@ -391,25 +391,18 @@ void
 lto_reissue_options (void)
 {
   VEC(opt_t, heap) *opts = concatenate_options (file_options, user_options);
-  bool target_p = false;
   int i;
   opt_t *o;
 
   for (i = 0; VEC_iterate (opt_t, opts, i, o); i++)
     {
       if (o->type == CL_TARGET)
-	{
-	  targetm.handle_option (o->code, o->arg, o->value);
-	  target_p = true;
-	}
+	targetm.handle_option (o->code, o->arg, o->value);
       else if (o->type == CL_COMMON)
 	handle_common_option (o->code, o->arg, o->value);
       else
 	gcc_unreachable ();
     }
-
-  if (target_p)
-    target_reinit ();
 
   VEC_free (opt_t, heap, opts);
 }

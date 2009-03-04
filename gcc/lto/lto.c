@@ -1416,6 +1416,51 @@ lto_maybe_unlink (const char *file)
     fprintf (stderr, "[Leaving LTRANS %s]\n", file);
 }
 
+/* Read the options saved from each file in the command line.  Called
+   from lang_hooks.post_options which is called by process_options
+   right before all the options are used to initialize the compiler.
+   This assumes that decode_options has already run, so the
+   num_in_fnames and in_fnames are properly set.
+
+   FIXME lto, this assumes that all the files had been compiled with
+   the same options, which is not a good assumption.  In general,
+   options ought to be read from all the files in the set and merged.
+   However, it is still unclear what the merge rules should be.  */
+
+void
+lto_read_all_file_options (void)
+{
+  size_t i;
+
+  /* Clear any file options currently saved.  */
+  lto_clear_file_options ();
+
+  /* Set the hooks to read ELF sections.  */
+  lto_set_in_hooks (NULL, get_section_data, free_section_data);
+
+  for (i = 0; i < num_in_fnames; i++)
+    {
+      struct lto_file_decl_data *file_data;
+      lto_file *file = lto_elf_file_open (in_fnames[i], false);
+      if (!file)
+	break;
+
+      file_data = XCNEW (struct lto_file_decl_data);
+      file_data->file_name = file->filename;
+      file_data->fd = -1;
+      file_data->section_hash_table = lto_elf_build_section_table (file);
+
+      lto_read_file_options (file_data);
+
+      lto_elf_file_close (file);
+      htab_delete (file_data->section_hash_table);
+      free (file_data);
+    }
+
+  /* Apply globally the options read from all the files.  */
+  lto_reissue_options ();
+}
+
 
 /* Read all the symbols from the input files FNAMES.  NFILES is the
    number of files requested in the command line.  Instantiate a
@@ -1453,9 +1498,6 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       gcc_assert (num_objects == nfiles);
     }
 
-  /* Clear any file options currently saved.  */
-  lto_clear_file_options ();
-
   /* Read all of the object files specified on the command line.  */
   for (i = 0, last_file_ix = 0; i < nfiles; ++i)
     {
@@ -1469,22 +1511,11 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       if (!file_data)
 	break;
 
-      /* Read the options saved from each file in the link set.
-	 FIXME lto, this assumes that all the files had been compiled
-	 with the same options, which is not a good assumption.  In
-	 general, options ought to be read from all the files in the
-	 set and merged.  However, it is still unclear what the merge
-	 rules should be.  */
-      lto_read_file_options (file_data);
-
       all_file_decl_data[last_file_ix++] = file_data;
 
       lto_elf_file_close (current_lto_file);
       current_lto_file = NULL;
     }
-
-  /* Apply globally the options read from the first file.  */
-  lto_reissue_options ();
 
   if (resolution_file_name)
     fclose (resolution);

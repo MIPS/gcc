@@ -44,19 +44,14 @@ typedef struct lto_file_struct
 }
 lto_file;
 
-/* lto-lang.c */
-
+/* In lto-lang.c */
 extern const char *resolution_file_name;
 
-/* lto.c */
- 
-/* Read all of the input object files, generate a TREE representation
-   of the combined program, and provide that combined representation
-   to the middle end.  */
-extern void lto_main (int debug_p);
+/* In lto.c */
+extern void lto_main (int);
+extern void lto_read_all_file_options (void);
 
-
-/* lto-elf.c */
+/* In lto-elf.c */
 
 /* Open the ELF file indicated by FILENAME.  */
 extern lto_file *lto_elf_file_open (const char *filename, bool writable);

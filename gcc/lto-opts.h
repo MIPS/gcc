@@ -20,6 +20,9 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#ifndef GCC_LTO_OPTS_H
+#define GCC_LTO_OPTS_H
+
 #include "lto-section-in.h"
 
 extern void lto_register_user_option (size_t, const char *, int, int);
@@ -28,3 +31,5 @@ extern void lto_write_options (void);
 extern void lto_reissue_options (void);
 void lto_clear_user_options (void);
 void lto_clear_file_options (void);
+
+#endif /* GCC_LTO_OPTS_H  */
