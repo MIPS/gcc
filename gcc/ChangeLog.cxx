@@ -1,5 +1,7 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* cp-tree.h (finish_call_expr): Correct declaration.
+
 	* rtl.h (SUBREG_PROMOTED_UNSIGNED_P): Add cast.
 	* ipa-struct-reorg.c (create_general_new_stmt): Initialize rhs.
 	* ira-build.c (copy_info_to_removed_store_destinations):
