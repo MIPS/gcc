@@ -6724,7 +6724,7 @@ This option is similar to @option{-flto} but it differs in how
 the final link stage is executed.  Instead of loading all the
 function bodies in memory, the callgraph is analyzed and
 optimization decisions are made (whole program analysis or WPA).
-Once optimizations decisions are made, the callgraph is
+Once optimization decisions are made, the callgraph is
 partitioned and the different sections are compiled separately
 (local transformations or LTRANS).  This process allows
 optimizations on very large programs that otherwise would not fit
