@@ -9490,7 +9490,7 @@ objc_lookup_ivar (tree other, tree id)
    needs to be done if we are calling a function through a cast.  */
 
 tree
-objc_rewrite_function_call (tree function, VEC(tree,gc) *params)
+objc_rewrite_function_call (tree function, tree params)
 {
   if (TREE_CODE (function) == NOP_EXPR
       && TREE_CODE (TREE_OPERAND (function, 0)) == ADDR_EXPR
@@ -9499,7 +9499,7 @@ objc_rewrite_function_call (tree function, VEC(tree,gc) *params)
     {
       function = build3 (OBJ_TYPE_REF, TREE_TYPE (function),
 			 TREE_OPERAND (function, 0),
-			 VEC_index (tree, params, 0), size_zero_node);
+			 TREE_VALUE (params), size_zero_node);
     }
 
   return function;
@@ -9509,7 +9509,7 @@ objc_rewrite_function_call (tree function, VEC(tree,gc) *params)
    a function in OBJ_TYPE_REF_EXPR (presumably objc_msgSend or one
    of its cousins).  */
 
-enum gimplify_status
+int
 objc_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 {
   enum gimplify_status r0, r1;

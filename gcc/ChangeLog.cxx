@@ -1,5 +1,12 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* objc/Make-lang.in (cc1obj-dummy$(exeext)): Link with $(CXX).
+	(cc1obj$(exeext)): Likewise.
+	* objc/objc-act.c (objc_rewrite_function_call): Change params to
+	tree.
+	(objc_gimplify_expr): Change return type to int.
+	* objc/objc-act.h (objc_gimplify_expr): Update declaration.
+
 	* java/jcf-io.c (find_class): Use CONST_CAST.
 
 	* fortran/Make-lang.in (gfortranspec.o): Compile with $(CXX).
