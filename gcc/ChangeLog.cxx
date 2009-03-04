@@ -1,5 +1,8 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* cp/cvt.c (convert_to_void): Only warn about ?: operator with
+	no effect if neither side has an effect.
+
 	* objc/Make-lang.in (cc1obj-dummy$(exeext)): Link with $(CXX).
 	(cc1obj$(exeext)): Likewise.
 	* objc/objc-act.c (objc_rewrite_function_call): Change params to
