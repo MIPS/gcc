@@ -1,5 +1,7 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* config/i386/i386.md (isinf<mode>2): Change slot to enum type.
+
 	* cp-tree.h (finish_call_expr): Correct declaration.
 
 	* rtl.h (SUBREG_PROMOTED_UNSIGNED_P): Add cast.
