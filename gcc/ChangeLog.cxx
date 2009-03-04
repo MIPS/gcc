@@ -1,5 +1,7 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* java/jcf-io.c (find_class): Use CONST_CAST.
+
 	* fortran/Make-lang.in (gfortranspec.o): Compile with $(CXX).
 	(fortran/cpp.o): Likewise.
 	(gfortran$(exeext)): Link with $(CXX).
