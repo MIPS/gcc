@@ -1,3 +1,10 @@
+2009-03-04  Ian Lance Taylor  <iant@google.com>
+
+	* Makefile.tpl (POSTSTAGE1_HOST_EXPORTS): Add -L option to CXX and
+	CXX_FOR_BUILD to pick up previous libstdc++.  Set RPATH_ENVVAR to
+	point to previous libstdc++.
+	* Makefile.in: Rebuild.
+
 2009-02-04  Ian Lance Taylor  <iant@google.com>
 
 	* Makefile.def: Bootstrap the libstdc++-v3 target module.

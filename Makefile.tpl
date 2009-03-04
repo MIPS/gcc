@@ -222,7 +222,8 @@ POSTSTAGE1_HOST_EXPORTS = \
 	  -nostdinc++ \
 	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include/$(TARGET_SUBDIR) \
 	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include \
-	  -I$$r/$(srcdir)/libstdc++-v3/libsupc++"; export CXX; \
+	  -I$$r/$(srcdir)/libstdc++-v3/libsupc++ \
+	  -L$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs"; export CXX; \
 	CXX_FOR_BUILD="$(STAGE_CC_WRAPPER) \
 	  $$r/$(HOST_SUBDIR)/prev-gcc/g++$(exeext) \
 	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ \
@@ -230,8 +231,12 @@ POSTSTAGE1_HOST_EXPORTS = \
 	  -nostdinc++ \
 	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include/$(TARGET_SUBDIR) \
 	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include \
-	  -I$$r/$(srcdir)/libstdc++-v3/libsupc++"; export CXX_FOR_BUILD; \
-	LDFLAGS="$(BOOT_LDFLAGS)"; export LDFLAGS;
+	  -I$$r/$(srcdir)/libstdc++-v3/libsupc++ \
+	  -L$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs"; \
+	  export CXX_FOR_BUILD; \
+	LDFLAGS="$(BOOT_LDFLAGS)"; export LDFLAGS; \
+	$(RPATH_ENVVAR)=`echo "$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$$(RPATH_ENVVAR)"| sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; \
+	export $(RPATH_ENVVAR);
 
 # Target libraries are put under this directory:
 TARGET_SUBDIR = @target_subdir@
