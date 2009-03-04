@@ -24560,7 +24560,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   tree arg0, arg1, arg2;
   rtx op0, op1, op2, pat;
   enum machine_mode mode0, mode1, mode2;
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  enum ix86_builtins fcode = (enum ix86_builtins) DECL_FUNCTION_CODE (fndecl);
 
   /* Determine whether the builtin function is available under the current ISA.
      Originally the builtin was not created if it wasn't applicable to the

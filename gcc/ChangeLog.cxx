@@ -1,5 +1,13 @@
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
+	* rtl.h (SUBREG_PROMOTED_UNSIGNED_P): Add cast.
+	* ipa-struct-reorg.c (create_general_new_stmt): Initialize rhs.
+	* ira-build.c (copy_info_to_removed_store_destinations):
+	Initialize parent_a.
+	* varasm.c (const_rtx_hash_1): Don't declare 'shift' as const.
+	* config/i386/i386.c (ix86_expand_builtin): Change fcode to enum
+	type.
+
 	* tree-nomudflap.c (gt_ggc_r_gt_tree_mudflap_h): Declare as extern
 	if C++.
 
