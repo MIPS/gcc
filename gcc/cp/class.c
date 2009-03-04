@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -4090,6 +4090,9 @@ type_has_user_provided_constructor (tree t)
 {
   tree fns;
 
+  if (!CLASS_TYPE_P (t))
+    return false;
+
   if (!TYPE_HAS_USER_CONSTRUCTOR (t))
     return false;
 
@@ -4138,10 +4141,11 @@ defaultable_fn_p (tree fn)
 {
   if (DECL_CONSTRUCTOR_P (fn))
     {
-      if (skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn))
-	  == NULL_TREE)
+      if (FUNCTION_FIRST_USER_PARMTYPE (fn) == void_list_node)
 	return true;
-      else if (copy_fn_p (fn) > 0)
+      else if (copy_fn_p (fn) > 0
+	       && (TREE_CHAIN (FUNCTION_FIRST_USER_PARMTYPE (fn))
+		   == void_list_node))
 	return true;
       else
 	return false;

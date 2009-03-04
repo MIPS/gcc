@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -15542,6 +15542,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12, int copy_r11)
   rtx stack_reg = gen_rtx_REG (Pmode, STACK_POINTER_REGNUM);
   rtx tmp_reg = gen_rtx_REG (Pmode, 0);
   rtx todec = gen_int_mode (-size, Pmode);
+  rtx par, set, mem;
 
   if (INTVAL (todec) != -size)
     {
@@ -15585,54 +15586,39 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12, int copy_r11)
 	warning (0, "stack limit expression is not supported");
     }
 
-  if (copy_r12 || copy_r11 || ! TARGET_UPDATE)
+  if (copy_r12 || copy_r11)
     emit_move_insn (copy_r11
                     ? gen_rtx_REG (Pmode, 11)
                     : gen_rtx_REG (Pmode, 12),
                     stack_reg);
 
-  if (TARGET_UPDATE)
+  if (size > 32767)
     {
-      rtx par, set, mem;
-
-      if (size > 32767)
-	{
-	  /* Need a note here so that try_split doesn't get confused.  */
-	  if (get_last_insn () == NULL_RTX)
-	    emit_note (NOTE_INSN_DELETED);
-	  insn = emit_move_insn (tmp_reg, todec);
-	  try_split (PATTERN (insn), insn, 0);
-	  todec = tmp_reg;
-	}
-
-      insn = emit_insn (TARGET_32BIT
-			? gen_movsi_update (stack_reg, stack_reg,
-					    todec, stack_reg)
-			: gen_movdi_di_update (stack_reg, stack_reg,
-					    todec, stack_reg));
-      /* Since we didn't use gen_frame_mem to generate the MEM, grab
-	 it now and set the alias set/attributes. The above gen_*_update
-	 calls will generate a PARALLEL with the MEM set being the first
-	 operation. */
-      par = PATTERN (insn);
-      gcc_assert (GET_CODE (par) == PARALLEL);
-      set = XVECEXP (par, 0, 0);
-      gcc_assert (GET_CODE (set) == SET);
-      mem = SET_DEST (set);
-      gcc_assert (MEM_P (mem));
-      MEM_NOTRAP_P (mem) = 1;
-      set_mem_alias_set (mem, get_frame_alias_set ());
+      /* Need a note here so that try_split doesn't get confused.  */
+      if (get_last_insn () == NULL_RTX)
+	emit_note (NOTE_INSN_DELETED);
+      insn = emit_move_insn (tmp_reg, todec);
+      try_split (PATTERN (insn), insn, 0);
+      todec = tmp_reg;
     }
-  else
-    {
-      insn = emit_insn (TARGET_32BIT
-			? gen_addsi3 (stack_reg, stack_reg, todec)
-			: gen_adddi3 (stack_reg, stack_reg, todec));
-      emit_move_insn (gen_frame_mem (Pmode, stack_reg),
-		      copy_r11
-                      ? gen_rtx_REG (Pmode, 11)
-                      : gen_rtx_REG (Pmode, 12));
-    }
+  
+  insn = emit_insn (TARGET_32BIT
+		    ? gen_movsi_update_stack (stack_reg, stack_reg,
+					todec, stack_reg)
+		    : gen_movdi_di_update_stack (stack_reg, stack_reg,
+					   todec, stack_reg));
+  /* Since we didn't use gen_frame_mem to generate the MEM, grab
+     it now and set the alias set/attributes. The above gen_*_update
+     calls will generate a PARALLEL with the MEM set being the first
+     operation. */
+  par = PATTERN (insn);
+  gcc_assert (GET_CODE (par) == PARALLEL);
+  set = XVECEXP (par, 0, 0);
+  gcc_assert (GET_CODE (set) == SET);
+  mem = SET_DEST (set);
+  gcc_assert (MEM_P (mem));
+  MEM_NOTRAP_P (mem) = 1;
+  set_mem_alias_set (mem, get_frame_alias_set ());
 
   RTX_FRAME_RELATED_P (insn) = 1;
   REG_NOTES (insn) =

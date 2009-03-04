@@ -1,5 +1,5 @@
 /* Control flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -221,6 +221,11 @@ execute_build_cfg (void)
 
   build_gimple_cfg (body);
   gimple_set_body (current_function_decl, NULL);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Scope blocks:\n");
+      dump_scope_blocks (dump_file, dump_flags);
+    }
   return 0;
 }
 
@@ -6444,9 +6449,14 @@ need_fake_edge_p (gimple t)
       && fndecl
       && DECL_BUILT_IN (fndecl)
       && (call_flags & ECF_NOTHROW)
-      && !(call_flags & ECF_NORETURN)
-      && !(call_flags & ECF_RETURNS_TWICE))
-   return false;
+      && !(call_flags & ECF_RETURNS_TWICE)
+      /* fork() doesn't really return twice, but the effect of
+         wrapping it in __gcov_fork() which calls __gcov_flush()
+	 and clears the counters before forking has the same
+	 effect as returning twice.  Force a fake edge.  */
+      && !(DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	   && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_FORK))
+    return false;
 
   if (is_gimple_call (t)
       && !(call_flags & ECF_NORETURN))

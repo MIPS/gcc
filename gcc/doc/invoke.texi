@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+@c 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -11,7 +11,7 @@
 
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
@@ -337,7 +337,7 @@ Objective-C and Objective-C++ Dialects}.
 -finline-functions -finline-functions-called-once -finline-limit=@var{n} @gol
 -finline-small-functions -fipa-cp -fipa-cp-clone -fipa-matrix-reorg -fipa-pta @gol 
 -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
--fipa-type-escape -fira -fira-algorithm=@var{algorithm} @gol
+-fipa-type-escape -fira-algorithm=@var{algorithm} @gol
 -fira-region=@var{region} -fira-coalesce -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
@@ -1966,7 +1966,7 @@ Do not assume @samp{inline} for functions defined inside a class scope.
 functions will have linkage like inline functions; they just won't be
 inlined by default.
 
-@item -Wabi @r{(C++ and Objective-C++ only)}
+@item -Wabi @r{(C, Objective-C, C++ and Objective-C++ only)}
 @opindex Wabi
 @opindex Wno-abi
 Warn when G++ generates code that is probably not compatible with the
@@ -2063,6 +2063,27 @@ void f(typename Q<int>::X) @{@}
 
 @noindent
 Instantiations of these templates may be mangled incorrectly.
+
+@end itemize
+
+It also warns psABI related changes.  The known psABI changes at this
+point include:
+
+@itemize @bullet
+
+@item
+For SYSV/x86-64, when passing union with long double, it is changed to
+pass in memory as specified in psABI.  For example:
+
+@smallexample
+union U @{
+  long double ld;
+  int i;
+@};
+@end smallexample
+
+@noindent
+@code{union U} will always be passed in memory.
 
 @end itemize
 
@@ -3129,7 +3150,7 @@ and lacks a @code{case} for one or more of the named codes of that
 enumeration.  @code{case} labels outside the enumeration range also
 provoke warnings when this option is used.
 
-@item -Wsync-nand
+@item -Wsync-nand @r{(C and C++ only)}
 @opindex Wsync-nand
 @opindex Wno-sync-nand
 Warn when @code{__sync_fetch_and_nand} and @code{__sync_nand_and_fetch}
@@ -3583,7 +3604,7 @@ assume anything on the bounds of the loop indices.  With
 @option{-funsafe-loop-optimizations} warn if the compiler made
 such assumptions.
 
-@item -Wno-pedantic-ms-format
+@item -Wno-pedantic-ms-format @r{(MinGW targets only)}
 @opindex Wno-pedantic-ms-format
 @opindex Wpedantic-ms-format
 Disables the warnings about non-ISO @code{printf} / @code{scanf} format
@@ -5352,8 +5373,7 @@ where doing so does not interfere with debugging.
 @item -O2
 @opindex O2
 Optimize even more.  GCC performs nearly all supported optimizations
-that do not involve a space-speed tradeoff.  The compiler does not
-perform loop unrolling or function inlining when you specify @option{-O2}.
+that do not involve a space-speed tradeoff.
 As compared to @option{-O}, this option increases both compilation time
 and the performance of the generated code.
 
@@ -5846,12 +5866,6 @@ Note @option{-fregmove} and @option{-foptimize-register-move} are the same
 optimization.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
-
-@item -fira
-@opindex fira
-Use the integrated register allocator (@acronym{IRA}) for register
-allocation.  It is a default if @acronym{IRA} has been ported for the
-target.
 
 @item -fira-algorithm=@var{algorithm}
 Use specified coloring algorithm for the integrated register
@@ -7752,6 +7766,13 @@ lower quality register allocation algorithm will be used.  The
 algorithm do not use pseudo-register conflicts.  The default value of
 the parameter is 2000.
 
+@item loop-invariant-max-bbs-in-loop
+Loop invariant motion can be very expensive, both in compile time and
+in amount of needed compile time memory, with very large loops.  Loops
+with more basic blocks than this parameter won't have loop invariant
+motion optimization performed on them.  The default value of the
+parameter is 1000 for -O1 and 10000 for -O2 and above.
+
 @end table
 @end table
 
@@ -8021,17 +8042,28 @@ Pass @var{option} as an option to the linker.  You can use this to
 supply system-specific linker options which GCC does not know how to
 recognize.
 
-If you want to pass an option that takes an argument, you must use
+If you want to pass an option that takes a separate argument, you must use
 @option{-Xlinker} twice, once for the option and once for the argument.
 For example, to pass @option{-assert definitions}, you must write
 @samp{-Xlinker -assert -Xlinker definitions}.  It does not work to write
 @option{-Xlinker "-assert definitions"}, because this passes the entire
 string as a single argument, which is not what the linker expects.
 
+When using the GNU linker, it is usually more convenient to pass 
+arguments to linker options using the @option{@var{option}=@var{value}}
+syntax than as separate arguments.  For example, you can specify
+@samp{-Xlinker -Map=output.map} rather than
+@samp{-Xlinker -Map -Xlinker output.map}.  Other linkers may not support
+this syntax for command-line options.
+
 @item -Wl,@var{option}
 @opindex Wl
 Pass @var{option} as an option to the linker.  If @var{option} contains
-commas, it is split into multiple options at the commas.
+commas, it is split into multiple options at the commas.  You can use this
+syntax to pass an argument to the option.  
+For example, @samp{-Wl,-Map,output.map} passes @samp{-Map output.map} to the
+linker.  When using the GNU linker, you can also get the same effect with
+@samp{-Wl,-Map=output.map}.
 
 @item -u @var{symbol}
 @opindex u

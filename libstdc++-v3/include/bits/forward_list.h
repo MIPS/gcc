@@ -366,13 +366,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
         _M_create_node(_Args&&... __args)
         {
           typename _Node::_Pointer __node = this->_M_get_node();
-          try
+          __try
             {
               _M_get_Node_allocator().construct(__node,
                                               std::forward<_Args>(__args)...);
               __node->_M_next = 0;
             }
-          catch(...)
+          __catch(...)
             {
               this->_M_put_node(__node);
               __throw_exception_again;
@@ -400,8 +400,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @brief A standard container with linear time access to elements,
    *  and fixed time insertion/deletion at any point in the sequence.
    *
-   *  @ingroup Containers
-   *  @ingroup Sequences
+   *  @ingroup sequences
    *
    *  Meets the requirements of a <a href="tables.html#65">container</a>, a
    *  <a href="tables.html#67">sequence</a>, including the

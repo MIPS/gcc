@@ -1,5 +1,6 @@
 /* Rtl-level induction variable analysis.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -1556,7 +1557,8 @@ implies_p (rtx a, rtx b)
       && ((GET_CODE (a) == GT && op1 == constm1_rtx)
 	  || INTVAL (op1) >= 0)
       && GET_CODE (b) == LTU
-      && GET_CODE (opb1) == CONST_INT)
+      && GET_CODE (opb1) == CONST_INT
+      && rtx_equal_p (op0, opb0))
     return INTVAL (opb1) < 0;
 
   return false;

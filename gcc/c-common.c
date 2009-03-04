@@ -1,6 +1,7 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -6015,7 +6016,12 @@ handle_alias_attribute (tree *node, tree name, tree args,
 {
   tree decl = *node;
 
-  if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
+  if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+  else if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
       || (TREE_CODE (decl) != FUNCTION_DECL 
 	  && TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
       /* A static variable declaration is always a tentative definition,
@@ -6244,8 +6250,18 @@ c_determine_visibility (tree decl)
      visibility_specified depending on #pragma GCC visibility.  */
   if (!DECL_VISIBILITY_SPECIFIED (decl))
     {
-      DECL_VISIBILITY (decl) = default_visibility;
-      DECL_VISIBILITY_SPECIFIED (decl) = visibility_options.inpragma;
+      if (visibility_options.inpragma
+	  || DECL_VISIBILITY (decl) != default_visibility)
+	{
+	  DECL_VISIBILITY (decl) = default_visibility;
+	  DECL_VISIBILITY_SPECIFIED (decl) = visibility_options.inpragma;
+	  /* If visibility changed and DECL already has DECL_RTL, ensure
+	     symbol flags are updated.  */
+	  if (((TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+	       || TREE_CODE (decl) == FUNCTION_DECL)
+	      && DECL_RTL_SET_P (decl))
+	    make_decl_rtl (decl);
+	}
     }
   return false;
 }
@@ -6263,7 +6279,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
 
   *no_add_attrs = true;
 
-  if (!DECL_THREAD_LOCAL_P (decl))
+  if (TREE_CODE (decl) != VAR_DECL || !DECL_THREAD_LOCAL_P (decl))
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       return NULL_TREE;
@@ -7724,6 +7740,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	      tree curindex;
 	      unsigned HOST_WIDE_INT cnt;
 	      constructor_elt *ce;
+	      bool fold_p = false;
 
 	      if (VEC_index (constructor_elt, v, 0)->index)
 		maxindex = fold_convert (sizetype,
@@ -7735,14 +7752,20 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 		   VEC_iterate (constructor_elt, v, cnt, ce);
 		   cnt++)
 		{
+		  bool curfold_p = false;
 		  if (ce->index)
-		    curindex = fold_convert (sizetype, ce->index);
+		    curindex = ce->index, curfold_p = true;
 		  else
-		    curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
-
+		    {
+		      if (fold_p)
+		        curindex = fold_convert (sizetype, curindex);
+		      curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
+		    }
 		  if (tree_int_cst_lt (maxindex, curindex))
-		    maxindex = curindex;
+		    maxindex = curindex, fold_p = curfold_p;
 		}
+	       if (fold_p)
+	         maxindex = fold_convert (sizetype, maxindex);
 	    }
 	}
       else
