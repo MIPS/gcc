@@ -299,6 +299,8 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 	pp_character (buffer, '!');
       else if (rhs_code == NEGATE_EXPR)
 	pp_character (buffer, '-');
+      else if (rhs_code == NEGATENV_EXPR)
+	pp_string (buffer, "-/nv");
       else
 	{
 	  pp_character (buffer, '[');

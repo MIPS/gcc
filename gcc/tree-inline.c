@@ -2753,14 +2753,19 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights)
     case VEC_COND_EXPR:
 
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
     case MULT_EXPR:
+    case MULTNV_EXPR:
 
     case FIXED_CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
 
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
     case FLOAT_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:

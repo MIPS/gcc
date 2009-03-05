@@ -8331,7 +8331,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
       return op0;
 
-    case POINTER_PLUS_EXPR: 
+    case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
       /* Even though the sizetype mode and the pointer's mode can be different
          expand is able to handle this correctly and get the correct result out 
          of the PLUS_EXPR code.  */
@@ -8344,11 +8345,12 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 				    fold_convert (ssizetype,
 						  TREE_OPERAND (exp, 1))));
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
 
       /* Check if this is a case for multiplication and addition.  */
       if ((TREE_CODE (type) == INTEGER_TYPE
 	   || TREE_CODE (type) == FIXED_POINT_TYPE)
-	  && TREE_CODE (TREE_OPERAND (exp, 0)) == MULT_EXPR)
+	  && MULT_EXPR_P (TREE_OPERAND (exp, 0)))
 	{
 	  tree subsubexp0, subsubexp1;
 	  enum tree_code code0, code1, this_code;
@@ -8405,7 +8407,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	 sp, ap, or fp is our second argument, in which case we must swap
 	 the innermost first argument and our second argument.  */
 
-      if (TREE_CODE (TREE_OPERAND (exp, 0)) == PLUS_EXPR
+      if (PLUS_EXPR_P (TREE_OPERAND (exp, 0))
 	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 1)) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (exp, 1)) == VAR_DECL
 	  && (DECL_RTL (TREE_OPERAND (exp, 1)) == frame_pointer_rtx
@@ -8508,6 +8510,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       return REDUCE_BIT_FIELD (simplify_gen_binary (PLUS, mode, op0, op1));
 
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       /* Check if this is a case for multiplication and subtraction.  */
       if ((TREE_CODE (type) == INTEGER_TYPE
 	   || TREE_CODE (type) == FIXED_POINT_TYPE)
@@ -8598,6 +8601,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       goto binop2;
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
       /* If this is a fixed-point operation, then we cannot use the code
 	 below because "expand_mult" doesn't support sat/no-sat fixed-point
          multiplications.   */
@@ -8818,6 +8822,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       return target;
 
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget,
 			 VOIDmode, EXPAND_NORMAL);
       if (modifier == EXPAND_STACK_PARM)

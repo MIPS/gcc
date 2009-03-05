@@ -177,6 +177,47 @@ extern const enum tree_code_class tree_code_type[];
 
 #define EXPR_P(NODE) IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))
 
+/* Returns true if the tree code is of a plain or non-overflowing kind.  */
+
+#define NEGATE_EXPR_CODE_P(CODE) \
+    ((CODE) == NEGATE_EXPR || (CODE) == NEGATENV_EXPR)
+#define PLUS_EXPR_CODE_P(CODE) \
+    ((CODE) == PLUS_EXPR || (CODE) == PLUSNV_EXPR)
+#define POINTER_PLUS_EXPR_CODE_P(CODE) \
+    ((CODE) == POINTER_PLUS_EXPR \
+     || (CODE) == POINTER_PLUSNV_EXPR)
+#define MINUS_EXPR_CODE_P(CODE) \
+    ((CODE) == MINUS_EXPR || (CODE) == MINUSNV_EXPR)
+#define MULT_EXPR_CODE_P(CODE) \
+    ((CODE) == MULT_EXPR || (CODE) == MULTNV_EXPR)
+
+/* Returns true if the expression is of a plain or non-overflowing kind.  */
+
+#define NEGATE_EXPR_P(NODE) NEGATE_EXPR_CODE_P (TREE_CODE (NODE))
+#define PLUS_EXPR_P(NODE) PLUS_EXPR_CODE_P (TREE_CODE (NODE))
+#define POINTER_PLUS_EXPR_P(NODE) POINTER_PLUS_EXPR_CODE_P (TREE_CODE (NODE))
+#define MINUS_EXPR_P(NODE) MINUS_EXPR_CODE_P (TREE_CODE (NODE))
+#define MULT_EXPR_P(NODE) MULT_EXPR_CODE_P (TREE_CODE (NODE))
+
+/* Returns an equivalent non-NV tree code for CODE.  */
+static inline enum tree_code
+strip_nv (enum tree_code code)
+{
+  switch (code)
+    {
+    case NEGATENV_EXPR:
+      return NEGATE_EXPR;
+    case PLUSNV_EXPR:
+      return PLUS_EXPR;
+    case MINUSNV_EXPR:
+      return MINUS_EXPR;
+    case MULTNV_EXPR:
+      return MULT_EXPR;
+    default:
+      return code;
+    }
+}
+
 /* Number of argument-words in each kind of tree-node.  */
 
 extern const unsigned char tree_code_length[];
@@ -5370,5 +5411,15 @@ more_const_call_expr_args_p (const const_call_expr_arg_iterator *iter)
 #define FOR_EACH_CONST_CALL_EXPR_ARG(arg, iter, call)			\
   for ((arg) = first_const_call_expr_arg ((call), &(iter)); (arg);	\
        (arg) = next_const_call_expr_arg (&(iter)))
+
+bool undefined_overflow_used_p_1 (enum tree_code, tree);
+
+/* Returns true if EXP does not overflow because overflow is undefined.  */
+static inline bool
+undefined_overflow_used_p (tree exp)
+{
+  return (!TREE_NO_WARNING (exp)
+	  && undefined_overflow_used_p_1 (TREE_CODE (exp), TREE_TYPE (exp)));
+}
 
 #endif  /* GCC_TREE_H  */

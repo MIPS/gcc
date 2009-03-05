@@ -2130,7 +2130,9 @@ omp_reduction_init (tree clause, tree type)
   switch (OMP_CLAUSE_REDUCTION_CODE (clause))
     {
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case TRUTH_OR_EXPR:
@@ -2140,6 +2142,7 @@ omp_reduction_init (tree clause, tree type)
       return fold_convert (type, integer_zero_node);
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
     case TRUTH_AND_EXPR:
     case TRUTH_ANDIF_EXPR:
     case EQ_EXPR:

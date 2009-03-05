@@ -345,8 +345,7 @@ extern bool warn_disallowed_functions;
 
 /* True if overflow wraps around for the given integral type.  That
    is, TYPE_MAX + 1 == TYPE_MIN.  */
-#define TYPE_OVERFLOW_WRAPS(TYPE) \
-  (TYPE_UNSIGNED (TYPE) || flag_wrapv)
+#define TYPE_OVERFLOW_WRAPS(TYPE) true
 
 /* True if overflow is undefined for the given integral type.  We may
    optimize on the assumption that values in the type never overflow.
@@ -356,8 +355,7 @@ extern bool warn_disallowed_functions;
    it will be appropriate to issue the warning immediately, and in
    other cases it will be appropriate to simply set a flag and let the
    caller decide whether a warning is appropriate or not.  */
-#define TYPE_OVERFLOW_UNDEFINED(TYPE) \
-  (!TYPE_UNSIGNED (TYPE) && !flag_wrapv && !flag_trapv && flag_strict_overflow)
+#define TYPE_OVERFLOW_UNDEFINED(TYPE) false
 
 /* True if overflow for the given integral type should issue a
    trap.  */
@@ -365,7 +363,7 @@ extern bool warn_disallowed_functions;
   (!TYPE_UNSIGNED (TYPE) && flag_trapv)
 
 /* True if pointer types have undefined overflow.  */
-#define POINTER_TYPE_OVERFLOW_UNDEFINED (flag_strict_overflow)
+#define POINTER_TYPE_OVERFLOW_UNDEFINED false
 
 /* Names for the different levels of -Wstrict-overflow=N.  The numeric
    values here correspond to N.  */

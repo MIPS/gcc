@@ -3288,7 +3288,9 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
 
   gcc_assert (TREE_CODE_LENGTH (code) == 2);
 
-  if ((code == MINUS_EXPR || code == PLUS_EXPR || code == MULT_EXPR)
+  if ((MINUS_EXPR_CODE_P (code)
+       || PLUS_EXPR_CODE_P (code)
+       || MULT_EXPR_CODE_P (code))
       && arg0 && arg1 && tt && POINTER_TYPE_P (tt)
       /* When sizetype precision doesn't match that of pointers
          we need to be able to build explicit extensions or truncations
@@ -3297,7 +3299,7 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
     gcc_assert (TREE_CODE (arg0) == INTEGER_CST
 		&& TREE_CODE (arg1) == INTEGER_CST);
 
-  if (code == POINTER_PLUS_EXPR && arg0 && arg1 && tt)
+  if (POINTER_PLUS_EXPR_CODE_P (code) && arg0 && arg1 && tt)
     gcc_assert (POINTER_TYPE_P (tt) && POINTER_TYPE_P (TREE_TYPE (arg0))
 		&& INTEGRAL_TYPE_P (TREE_TYPE (arg1))
 		&& useless_type_conversion_p (sizetype, TREE_TYPE (arg1)));
@@ -5284,7 +5286,9 @@ associative_tree_code (enum tree_code code)
     case BIT_AND_EXPR:
     case BIT_XOR_EXPR:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case MULT_EXPR:
+    case MULTNV_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:
       return true;
@@ -5303,7 +5307,9 @@ commutative_tree_code (enum tree_code code)
   switch (code)
     {
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case MULT_EXPR:
+    case MULTNV_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:
     case BIT_IOR_EXPR:
@@ -9278,6 +9284,33 @@ block_ultimate_origin (const_tree block)
 
       return ret_val;
     }
+}
+
+
+/* Returns true if operation CODE on type TYPE does not overflow because
+   overflow might have been undefined.  */
+
+bool
+undefined_overflow_used_p_1 (enum tree_code code, tree type)
+{
+  if (flag_strict_overflow
+      && ((!flag_wrapv
+	   && INTEGRAL_TYPE_P (type)
+	   && !TYPE_UNSIGNED (type))
+	  || POINTER_TYPE_P (type)))
+    {
+      switch (code)
+	{
+	case NEGATENV_EXPR:
+	case PLUSNV_EXPR:
+	case MINUSNV_EXPR:
+	case MULTNV_EXPR:
+	  return true;
+	default:
+	  return false;
+	}
+    }
+  return false;
 }
 
 #include "gt-tree.h"

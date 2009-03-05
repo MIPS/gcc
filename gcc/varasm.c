@@ -4126,7 +4126,7 @@ narrowing_initializer_constant_valid_p (tree value, tree endtype)
     {
       if (op0 == op1
 	  && (op0 == null_pointer_node
-	      || TREE_CODE (value) == MINUS_EXPR))
+	      || MINUS_EXPR_P (value)))
 	return null_pointer_node;
 
       /* Support differences between labels.  */
@@ -4301,7 +4301,9 @@ initializer_constant_valid_p (tree value, tree endtype)
       break;
 
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       if (! INTEGRAL_TYPE_P (endtype)
 	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
 	{
@@ -4324,6 +4326,7 @@ initializer_constant_valid_p (tree value, tree endtype)
       break;
 
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       if (! INTEGRAL_TYPE_P (endtype)
 	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
 	{

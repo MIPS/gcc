@@ -1236,9 +1236,13 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case WIDEN_SUM_EXPR:
     case WIDEN_MULT_EXPR:
     case MULT_EXPR:
+    case MULTNV_EXPR:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -1312,6 +1316,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
       /* Unary arithmetic and logic expressions.  */
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
     case ADDR_EXPR:
@@ -2307,8 +2312,11 @@ op_code_prio (enum tree_code code)
 
     case WIDEN_SUM_EXPR:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       return 12;
 
     case VEC_WIDEN_MULT_HI_EXPR:
@@ -2316,6 +2324,7 @@ op_code_prio (enum tree_code code)
     case WIDEN_MULT_EXPR:
     case DOT_PROD_EXPR:
     case MULT_EXPR:
+    case MULTNV_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -2335,6 +2344,7 @@ op_code_prio (enum tree_code code)
     case PREINCREMENT_EXPR:
     case PREDECREMENT_EXPR:
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
     case ALIGN_INDIRECT_REF:
     case MISALIGNED_INDIRECT_REF:
     case INDIRECT_REF:
@@ -2479,9 +2489,15 @@ op_symbol_code (enum tree_code code)
 
     case POINTER_PLUS_EXPR:
       return "+";
+
+    case POINTER_PLUSNV_EXPR:
+      return "+/nv";
  
     case PLUS_EXPR:
       return "+";
+
+    case PLUSNV_EXPR:
+      return "+/nv";
 
     case REDUC_PLUS_EXPR:
       return "r+";
@@ -2496,6 +2512,10 @@ op_symbol_code (enum tree_code code)
     case MINUS_EXPR:
       return "-";
 
+    case NEGATENV_EXPR:
+    case MINUSNV_EXPR:
+      return "-/nv";
+
     case BIT_NOT_EXPR:
       return "~";
 
@@ -2505,6 +2525,9 @@ op_symbol_code (enum tree_code code)
     case MULT_EXPR:
     case INDIRECT_REF:
       return "*";
+
+    case MULTNV_EXPR:
+      return "*/nv";
 
     case ALIGN_INDIRECT_REF:
       return "A*";

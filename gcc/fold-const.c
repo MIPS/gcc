@@ -1292,6 +1292,7 @@ fold_negate_expr (tree t)
       break;
 
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
       return TREE_OPERAND (t, 0);
 
     case PLUS_EXPR:
@@ -1684,16 +1685,19 @@ int_const_binop (enum tree_code code, const_tree arg1, const_tree arg2, int notr
       break;
 
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       overflow = add_double (int1l, int1h, int2l, int2h, &low, &hi);
       break;
 
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       neg_double (int2l, int2h, &low, &hi);
       add_double (int1l, int1h, low, hi, &low, &hi);
       overflow = OVERFLOW_SUM_SIGN (hi, int2h, int1h);
       break;
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
       overflow = mul_double (int1l, int1h, int2l, int2h, &low, &hi);
       break;
 
@@ -8412,6 +8416,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
       return fold_view_convert_expr (type, op0);
 
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
       tem = fold_negate_expr (arg0);
       if (tem)
 	return fold_convert (type, tem);
@@ -14887,7 +14892,7 @@ tree_unary_nonzero_warnv_p (enum tree_code code, tree type, tree op0,
 
 bool
 tree_binary_nonzero_warnv_p (enum tree_code code,
-			     tree type,
+			     tree type ATTRIBUTE_UNUSED,
 			     tree op0,
 			     tree op1, bool *strict_overflow_p)
 {

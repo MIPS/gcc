@@ -3409,6 +3409,7 @@ verify_gimple_assign_unary (gimple stmt)
       }
 
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
     case ABS_EXPR:
     case BIT_NOT_EXPR:
     case PAREN_EXPR:
@@ -3536,6 +3537,7 @@ verify_gimple_assign_binary (gimple stmt)
       }
 
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
       {
 	if (!POINTER_TYPE_P (rhs1_type)
 	    || !useless_type_conversion_p (lhs_type, rhs1_type)
@@ -3593,7 +3595,9 @@ verify_gimple_assign_binary (gimple stmt)
       return verify_gimple_comparison (lhs_type, rhs1, rhs2);
 
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       {
 	if (POINTER_TYPE_P (lhs_type)
 	    || POINTER_TYPE_P (rhs1_type)
@@ -3608,6 +3612,7 @@ verify_gimple_assign_binary (gimple stmt)
       }
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:

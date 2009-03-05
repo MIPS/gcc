@@ -490,22 +490,27 @@ optab_for_tree_code (enum tree_code code, const_tree type,
   switch (code)
     {
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       if (TYPE_SATURATING(type))
 	return TYPE_UNSIGNED(type) ? usadd_optab : ssadd_optab;
       return trapv ? addv_optab : add_optab;
 
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       if (TYPE_SATURATING(type))
 	return TYPE_UNSIGNED(type) ? ussub_optab : sssub_optab;
       return trapv ? subv_optab : sub_optab;
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
       if (TYPE_SATURATING(type))
 	return TYPE_UNSIGNED(type) ? usmul_optab : ssmul_optab;
       return trapv ? smulv_optab : smul_optab;
 
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
       if (TYPE_SATURATING(type))
 	return TYPE_UNSIGNED(type) ? usneg_optab : ssneg_optab;
       return trapv ? negv_optab : neg_optab;

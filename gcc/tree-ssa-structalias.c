@@ -3866,7 +3866,7 @@ find_func_aliases (gimple origt)
 	  struct constraint_expr temp;
 	  get_constraint_for (lhsop, &lhsc);
 
-	  if (gimple_assign_rhs_code (t) == POINTER_PLUS_EXPR)
+	  if (POINTER_PLUS_EXPR_CODE_P (gimple_assign_rhs_code (t)))
 	    get_constraint_for_ptr_offset (gimple_assign_rhs1 (t),
 					   gimple_assign_rhs2 (t), &rhsc);
 	  else if ((CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (t))
