@@ -1048,6 +1048,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 #endif
 	  if (! TEST_HARD_REG_BIT (used, regno)
 	      && HARD_REGNO_MODE_OK (regno, mode)
+	      && (!alt_regs_p || !DONT_REALLOC (regno, mode))
 	      && (allocno[num].calls_crossed == 0
 		  || accept_call_clobbered
 		  || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
@@ -1222,6 +1223,16 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 #ifdef CANNOT_CHANGE_MODE_CLASS
 	      && ! invalid_mode_change_p (regno, REGNO_REG_CLASS (regno),
 					  mode)
+#endif
+/* Some registers are just stupid to reallocate based on frequency alone.
+   E.g. floating point registers for integer use, integer registers for
+   floating point use, and dedicated loop count registers for any
+   non-loop-count use.
+   Since this code does not honor the cost implications of using the wrong
+   class, we need another way to prevent this.  STACK_REGS is the x86 specific
+   hack for it...  */
+#ifdef DONT_REALLOOC
+	     && !DONT_REALLOC (regno, mode)
 #endif
 #ifdef STACK_REGS
 	     && (!allocno[num].no_stack_reg

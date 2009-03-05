@@ -946,7 +946,7 @@ struct reg_pref
 {
   /* (enum reg_class) prefclass is the preferred class.  May be
      NO_REGS if no class is better than memory.  */
-  char prefclass;
+  short prefclass;
 
   /* altclass is a register class that we should use for allocating
      pseudo if no register in the preferred class is available.
@@ -955,7 +955,7 @@ struct reg_pref
      It might appear to be more general to have a bitmask of classes here,
      but since it is recommended that there be a class corresponding to the
      union of most major pair of classes, that generality is not required.  */
-  char altclass;
+  short altclass;
 };
 
 /* Record the cost of each class for each pseudo.  */

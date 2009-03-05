@@ -222,9 +222,22 @@ try_auto_increment (rtx insn, rtx inc_insn, rtx inc_insn_set, rtx reg,
 static rtx
 discover_flags_reg (void)
 {
-  rtx tmp;
-  tmp = gen_rtx_REG (word_mode, 10000);
-  tmp = gen_add3_insn (tmp, tmp, const2_rtx);
+  rtx tmp0, tmp = NULL_RTX;
+  enum machine_mode mode;
+
+  /* mxp has 128 wide words, but the widest scalar it can add is 32 bit,
+     and the widest scalar for which gen_add3_insn succeeds is 16 bit.  */
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+       mode != VOIDmode && GET_MODE_SIZE (mode) <= UNITS_PER_WORD;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      tmp0 = gen_rtx_REG (mode, 10000);
+      tmp0 = gen_add3_insn (tmp0, tmp0, const2_rtx);
+      if (tmp0)
+	tmp = tmp0;
+    }
+  if (!tmp)
+    return pc_rtx;
 
   /* If we get something that isn't a simple set, or a
      [(set ..) (clobber ..)], this whole function will go wrong.  */
