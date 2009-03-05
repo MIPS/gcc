@@ -3260,6 +3260,13 @@ build_unary_op (location_t location,
 
   if (argtype == 0)
     argtype = TREE_TYPE (arg);
+
+  if (!flag_wrapv
+      && TREE_CODE (argtype) == INTEGER_TYPE
+      && !TYPE_UNSIGNED (argtype)
+      && code == NEGATE_EXPR)
+    code = NEGATENV_EXPR;
+
   ret = require_constant_value ? fold_build1_initializer (code, argtype, arg)
 			       : fold_build1 (code, argtype, arg);
  return_build_unary_op:
@@ -8104,6 +8111,7 @@ build_binary_op (location_t location, enum tree_code code,
   switch (code)
     {
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       /* Handle the pointer + int case.  */
       if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
@@ -8120,6 +8128,7 @@ build_binary_op (location_t location, enum tree_code code,
       break;
 
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       /* Subtraction of two similar pointers.
 	 We must subtract them as integers, then divide by object size.  */
       if (code0 == POINTER_TYPE && code1 == POINTER_TYPE
@@ -8139,6 +8148,7 @@ build_binary_op (location_t location, enum tree_code code,
       break;
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
       common = 1;
       break;
 
@@ -8562,6 +8572,18 @@ build_binary_op (location_t location, enum tree_code code,
 
   if (build_type == NULL_TREE)
     build_type = result_type;
+
+  if (TREE_CODE (build_type) == INTEGER_TYPE
+      && !TYPE_UNSIGNED (build_type)
+      && !flag_wrapv)
+    {
+      if (resultcode == PLUS_EXPR)
+	resultcode = PLUSNV_EXPR;
+      else if (resultcode == MINUS_EXPR)
+	resultcode = MINUSNV_EXPR;
+      else if (resultcode == MULT_EXPR)
+	resultcode = MULTNV_EXPR;
+    }
 
   /* Treat expressions in initializers specially as they can't trap.  */
   ret = require_constant_value ? fold_build2_initializer (resultcode,

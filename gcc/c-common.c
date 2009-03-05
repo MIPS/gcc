@@ -3287,14 +3287,14 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      type for the pointer operation.  */
   intop = convert (sizetype,
 		   build_binary_op (EXPR_LOCATION (intop),
-				    MULT_EXPR, intop,
+				    MULTNV_EXPR, intop,
 				    convert (TREE_TYPE (intop), size_exp), 1));
 
   /* Create the sum or difference.  */
   if (resultcode == MINUS_EXPR)
-    intop = fold_build1 (NEGATE_EXPR, sizetype, intop);
+    intop = fold_build1 (NEGATENV_EXPR, sizetype, intop);
 
-  ret = fold_build2 (POINTER_PLUS_EXPR, result_type, ptrop, intop);
+  ret = fold_build2 (POINTER_PLUSNV_EXPR, result_type, ptrop, intop);
 
   fold_undefer_and_ignore_overflow_warnings ();
 

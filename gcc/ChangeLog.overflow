@@ -1,5 +1,16 @@
 2009-03-05  Richard Guenther  <rguenther@suse.de>
 
+	* c-common.c (pointer_int_sum): Use *NV_EXPR codes for
+	pointer arithmetic.
+	* c-typeck.c (build_unary_op): Use NEGATENV_EXPR if
+	signed arithmetic has undefined overflow.
+	(build_binary_op): Handle *NV_EXPR for recursive invocations.
+	If signed arithmetic has undefined overflow use
+	PLUSNV_EXPR, MINUSNV_EXPR and MULTNV_EXPR.
+	* c-omp.c (c_finish_omp_for): Deal with *NV_EXPR for increments.
+
+2009-03-05  Richard Guenther  <rguenther@suse.de>
+
 	* expr.c (expand_expr_real_1): Handle POINTER_PLUSNV_EXPR,
 	PLUSNV_EXPR, MINUSNV_EXPR, MULTNV_EXPR and NEGATENV_EXPR.
 	* flags.h (TYPE_OVERFLOW_WRAPS): Define to always true.

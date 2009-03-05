@@ -375,13 +375,12 @@ c_finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 		break;
 	      if (TREE_OPERAND (incr, 1) == decl)
 		break;
-	      if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
+	      if (PLUS_EXPR_P (TREE_OPERAND (incr, 1))
 		  && (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl
 		      || TREE_OPERAND (TREE_OPERAND (incr, 1), 1) == decl))
 		incr_ok = true;
-	      else if ((TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
-			|| (TREE_CODE (TREE_OPERAND (incr, 1))
-			    == POINTER_PLUS_EXPR))
+	      else if ((MINUS_EXPR_P (TREE_OPERAND (incr, 1))
+			|| POINTER_PLUS_EXPR_P (TREE_OPERAND (incr, 1)))
 		       && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl)
 		incr_ok = true;
 	      else
