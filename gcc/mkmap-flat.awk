@@ -1,5 +1,5 @@
 # Generate a flat list of symbols to export.
-#	Copyright (C) 2007, 2008  Free Software Foundation, Inc.
+#	Copyright (C) 2007, 2008, 2009  Free Software Foundation, Inc.
 #	Contributed by Richard Henderson <rth@cygnus.com>
 #
 # This file is part of GCC.
@@ -17,6 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with GCC; see the file COPYING3.  If not see
 # <http://www.gnu.org/licenses/>.
+
+# Options:
+#   "-v leading_underscore=1" : Symbols in map need leading underscore.
+#   "-v pe_dll=1"             : Create .DEF file for Windows PECOFF
+#                               DLL link instead of map file.
 
 BEGIN {
   state = "nm";
@@ -86,7 +91,13 @@ $1 == "}" {
 }
 
 END {
+
+  if (pe_dll) {
+    print "LIBRARY " pe_dll;
+    print "EXPORTS";
+  }
+
   for (sym in export)
-    if (def[sym])
+    if (def[sym] || (pe_dll && def["_" sym]))
       print sym;
 }

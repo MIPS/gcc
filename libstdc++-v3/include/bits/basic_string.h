@@ -53,8 +53,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @class basic_string basic_string.h <string>
    *  @brief  Managing sequences of characters and character-like objects.
    *
-   *  @ingroup Containers
-   *  @ingroup Sequences
+   *  @ingroup sequences
    *
    *  Meets the requirements of a <a href="tables.html#65">container</a>, a
    *  <a href="tables.html#66">reversible container</a>, and a
@@ -2562,7 +2561,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 _GLIBCXX_END_NAMESPACE
 
-#if (defined(__GXX_EXPERIMENTAL_CXX0X__) && defined(_GLIBCXX_USE_C99))
+#if (defined(__GXX_EXPERIMENTAL_CXX0X__) && defined(_GLIBCXX_USE_C99) \
+     && !defined(_GLIBCXX_HAVE_BROKEN_VSWPRINTF))
 
 #include <ext/string_conversions.h>
 

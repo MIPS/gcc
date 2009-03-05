@@ -24,13 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 
-/* This parameter is the size of the largest array constructor that we
-   will expand to an array constructor without iterators.
-   Constructors larger than this will remain in the iterator form.  */
-
-#define GFC_MAX_AC_EXPAND 65535
-
-
 /**************** Array reference matching subroutines *****************/
 
 /* Copy an array reference structure.  */
@@ -208,7 +201,7 @@ gfc_free_array_spec (gfc_array_spec *as)
 /* Take an array bound, resolves the expression, that make up the
    shape and check associated constraints.  */
 
-static try
+static gfc_try
 resolve_array_bound (gfc_expr *e, int check_constant)
 {
   if (e == NULL)
@@ -232,7 +225,7 @@ resolve_array_bound (gfc_expr *e, int check_constant)
 /* Takes an array specification, resolves the expressions that make up
    the shape and make sure everything is integral.  */
 
-try
+gfc_try
 gfc_resolve_array_spec (gfc_array_spec *as, int check_constant)
 {
   gfc_expr *e;
@@ -314,6 +307,8 @@ match_array_element_spec (gfc_array_spec *as)
     gfc_error ("Expected expression in array specification at %C");
   if (m != MATCH_YES)
     return AS_UNKNOWN;
+  if (gfc_expr_check_typed (*upper, gfc_current_ns, false) == FAILURE)
+    return AS_UNKNOWN;
 
   if (gfc_match_char (':') == MATCH_NO)
     {
@@ -332,6 +327,8 @@ match_array_element_spec (gfc_array_spec *as)
     return AS_UNKNOWN;
   if (m == MATCH_NO)
     return AS_ASSUMED_SHAPE;
+  if (gfc_expr_check_typed (*upper, gfc_current_ns, false) == FAILURE)
+    return AS_UNKNOWN;
 
   return AS_EXPLICIT;
 }
@@ -469,7 +466,7 @@ cleanup:
    have that array specification.  The error locus is needed in case
    something goes wrong.  On failure, the caller must free the spec.  */
 
-try
+gfc_try
 gfc_set_array_spec (gfc_symbol *sym, gfc_array_spec *as, locus *error_loc)
 {
   if (as == NULL)
@@ -1038,7 +1035,7 @@ check_element_type (gfc_expr *expr, bool convert)
 
 /* Recursive work function for gfc_check_constructor_type().  */
 
-static try
+static gfc_try
 check_constructor_type (gfc_constructor *c, bool convert)
 {
   gfc_expr *e;
@@ -1066,10 +1063,10 @@ check_constructor_type (gfc_constructor *c, bool convert)
 /* Check that all elements of an array constructor are the same type.
    On FAILURE, an error has been generated.  */
 
-try
+gfc_try
 gfc_check_constructor_type (gfc_expr *e)
 {
-  try t;
+  gfc_try t;
 
   if (e->ts.type != BT_UNKNOWN)
     {
@@ -1102,12 +1099,12 @@ cons_stack;
 
 static cons_stack *base;
 
-static try check_constructor (gfc_constructor *, try (*) (gfc_expr *));
+static gfc_try check_constructor (gfc_constructor *, gfc_try (*) (gfc_expr *));
 
 /* Check an EXPR_VARIABLE expression in a constructor to make sure
    that that variable is an iteration variables.  */
 
-try
+gfc_try
 gfc_check_iter_variable (gfc_expr *expr)
 {
   gfc_symbol *sym;
@@ -1127,12 +1124,12 @@ gfc_check_iter_variable (gfc_expr *expr)
    to calling the check function for each expression in the
    constructor, giving variables with the names of iterators a pass.  */
 
-static try
-check_constructor (gfc_constructor *c, try (*check_function) (gfc_expr *))
+static gfc_try
+check_constructor (gfc_constructor *c, gfc_try (*check_function) (gfc_expr *))
 {
   cons_stack element;
   gfc_expr *e;
-  try t;
+  gfc_try t;
 
   for (; c; c = c->next)
     {
@@ -1165,11 +1162,11 @@ check_constructor (gfc_constructor *c, try (*check_function) (gfc_expr *))
    expression -- specification, restricted, or initialization as
    determined by the check_function.  */
 
-try
-gfc_check_constructor (gfc_expr *expr, try (*check_function) (gfc_expr *))
+gfc_try
+gfc_check_constructor (gfc_expr *expr, gfc_try (*check_function) (gfc_expr *))
 {
   cons_stack *base_save;
-  try t;
+  gfc_try t;
 
   base_save = base;
   base = NULL;
@@ -1197,19 +1194,19 @@ typedef struct
   gfc_component *component;
   mpz_t *repeat;
 
-  try (*expand_work_function) (gfc_expr *);
+  gfc_try (*expand_work_function) (gfc_expr *);
 }
 expand_info;
 
 static expand_info current_expand;
 
-static try expand_constructor (gfc_constructor *);
+static gfc_try expand_constructor (gfc_constructor *);
 
 
 /* Work function that counts the number of elements present in a
    constructor.  */
 
-static try
+static gfc_try
 count_elements (gfc_expr *e)
 {
   mpz_t result;
@@ -1236,7 +1233,7 @@ count_elements (gfc_expr *e)
 /* Work function that extracts a particular element from an array
    constructor, freeing the rest.  */
 
-static try
+static gfc_try
 extract_element (gfc_expr *e)
 {
 
@@ -1259,7 +1256,7 @@ extract_element (gfc_expr *e)
 /* Work function that constructs a new constructor out of the old one,
    stringing new elements together.  */
 
-static try
+static gfc_try
 expand (gfc_expr *e)
 {
   if (current_expand.new_head == NULL)
@@ -1307,7 +1304,7 @@ gfc_simplify_iterator_var (gfc_expr *e)
 /* Expand an expression with that is inside of a constructor,
    recursing into other constructors if present.  */
 
-static try
+static gfc_try
 expand_expr (gfc_expr *e)
 {
   if (e->expr_type == EXPR_ARRAY)
@@ -1325,13 +1322,13 @@ expand_expr (gfc_expr *e)
 }
 
 
-static try
+static gfc_try
 expand_iterator (gfc_constructor *c)
 {
   gfc_expr *start, *end, *step;
   iterator_stack frame;
   mpz_t trip;
-  try t;
+  gfc_try t;
 
   end = step = NULL;
 
@@ -1409,7 +1406,7 @@ cleanup:
    expressions.  The work function needs to either save or free the
    passed expression.  */
 
-static try
+static gfc_try
 expand_constructor (gfc_constructor *c)
 {
   gfc_expr *e;
@@ -1452,14 +1449,14 @@ expand_constructor (gfc_constructor *c)
 /* Top level subroutine for expanding constructors.  We only expand
    constructor if they are small enough.  */
 
-try
+gfc_try
 gfc_expand_constructor (gfc_expr *e)
 {
   expand_info expand_save;
   gfc_expr *f;
-  try rc;
+  gfc_try rc;
 
-  f = gfc_get_array_element (e, GFC_MAX_AC_EXPAND);
+  f = gfc_get_array_element (e, gfc_option.flag_max_array_constructor);
   if (f != NULL)
     {
       gfc_free_expr (f);
@@ -1496,7 +1493,7 @@ done:
    constant, after removal of any iteration variables.  We return
    FAILURE if not so.  */
 
-static try
+static gfc_try
 constant_element (gfc_expr *e)
 {
   int rv;
@@ -1518,7 +1515,7 @@ int
 gfc_constant_ac (gfc_expr *e)
 {
   expand_info expand_save;
-  try rc;
+  gfc_try rc;
 
   iter_stack = NULL;
   expand_save = current_expand;
@@ -1556,10 +1553,10 @@ gfc_expanded_ac (gfc_expr *e)
 /* Recursive array list resolution function.  All of the elements must
    be of the same type.  */
 
-static try
+static gfc_try
 resolve_array_list (gfc_constructor *p)
 {
-  try t;
+  gfc_try t;
 
   t = SUCCESS;
 
@@ -1581,7 +1578,7 @@ resolve_array_list (gfc_constructor *p)
    all elements are of compile-time known length, emit an error as this is
    invalid.  */
 
-try
+gfc_try
 gfc_resolve_character_array_constructor (gfc_expr *expr)
 {
   gfc_constructor *p;
@@ -1711,10 +1708,10 @@ got_charlen:
 
 /* Resolve all of the expressions in an array list.  */
 
-try
+gfc_try
 gfc_resolve_array_constructor (gfc_expr *expr)
 {
-  try t;
+  gfc_try t;
 
   t = resolve_array_list (expr->value.constructor);
   if (t == SUCCESS)
@@ -1795,7 +1792,7 @@ gfc_get_array_element (gfc_expr *array, int element)
 {
   expand_info expand_save;
   gfc_expr *e;
-  try rc;
+  gfc_try rc;
 
   expand_save = current_expand;
   current_expand.extract_n = element;
@@ -1826,7 +1823,7 @@ gfc_get_array_element (gfc_expr *array, int element)
 /* Get the size of single dimension of an array specification.  The
    array is guaranteed to be one dimensional.  */
 
-try
+gfc_try
 spec_dimen_size (gfc_array_spec *as, int dimen, mpz_t *result)
 {
   if (as == NULL)
@@ -1853,7 +1850,7 @@ spec_dimen_size (gfc_array_spec *as, int dimen, mpz_t *result)
 }
 
 
-try
+gfc_try
 spec_size (gfc_array_spec *as, mpz_t *result)
 {
   mpz_t size;
@@ -1879,14 +1876,14 @@ spec_size (gfc_array_spec *as, mpz_t *result)
 
 /* Get the number of elements in an array section.  */
 
-static try
-ref_dimen_size (gfc_array_ref *ar, int dimen, mpz_t *result)
+gfc_try
+gfc_ref_dimen_size (gfc_array_ref *ar, int dimen, mpz_t *result)
 {
   mpz_t upper, lower, stride;
-  try t;
+  gfc_try t;
 
   if (dimen < 0 || ar == NULL || dimen > ar->dimen - 1)
-    gfc_internal_error ("ref_dimen_size(): Bad dimension");
+    gfc_internal_error ("gfc_ref_dimen_size(): Bad dimension");
 
   switch (ar->dimen_type[dimen])
     {
@@ -1960,14 +1957,14 @@ ref_dimen_size (gfc_array_ref *ar, int dimen, mpz_t *result)
       return t;
 
     default:
-      gfc_internal_error ("ref_dimen_size(): Bad dimen_type");
+      gfc_internal_error ("gfc_ref_dimen_size(): Bad dimen_type");
     }
 
   return t;
 }
 
 
-static try
+static gfc_try
 ref_size (gfc_array_ref *ar, mpz_t *result)
 {
   mpz_t size;
@@ -1977,7 +1974,7 @@ ref_size (gfc_array_ref *ar, mpz_t *result)
 
   for (d = 0; d < ar->dimen; d++)
     {
-      if (ref_dimen_size (ar, d, &size) == FAILURE)
+      if (gfc_ref_dimen_size (ar, d, &size) == FAILURE)
 	{
 	  mpz_clear (*result);
 	  return FAILURE;
@@ -1996,7 +1993,7 @@ ref_size (gfc_array_ref *ar, mpz_t *result)
    able to return a result in the 'result' variable, FAILURE
    otherwise.  */
 
-try
+gfc_try
 gfc_array_dimen_size (gfc_expr *array, int dimen, mpz_t *result)
 {
   gfc_ref *ref;
@@ -2023,7 +2020,7 @@ gfc_array_dimen_size (gfc_expr *array, int dimen, mpz_t *result)
 		if (ref->u.ar.dimen_type[i] != DIMEN_ELEMENT)
 		  dimen--;
 
-	      return ref_dimen_size (&ref->u.ar, i - 1, result);
+	      return gfc_ref_dimen_size (&ref->u.ar, i - 1, result);
 	    }
 	}
 
@@ -2064,19 +2061,18 @@ gfc_array_dimen_size (gfc_expr *array, int dimen, mpz_t *result)
    array.  Returns SUCCESS if this is possible, and sets the 'result'
    variable.  Otherwise returns FAILURE.  */
 
-try
+gfc_try
 gfc_array_size (gfc_expr *array, mpz_t *result)
 {
   expand_info expand_save;
   gfc_ref *ref;
-  int i, flag;
-  try t;
+  int i;
+  gfc_try t;
 
   switch (array->expr_type)
     {
     case EXPR_ARRAY:
-      flag = gfc_suppress_error;
-      gfc_suppress_error = 1;
+      gfc_push_suppress_errors ();
 
       expand_save = current_expand;
 
@@ -2087,7 +2083,8 @@ gfc_array_size (gfc_expr *array, mpz_t *result)
       iter_stack = NULL;
 
       t = expand_constructor (array->value.constructor);
-      gfc_suppress_error = flag;
+
+      gfc_pop_suppress_errors ();
 
       if (t == FAILURE)
 	mpz_clear (*result);
@@ -2129,7 +2126,7 @@ gfc_array_size (gfc_expr *array, mpz_t *result)
 /* Given an array reference, return the shape of the reference in an
    array of mpz_t integers.  */
 
-try
+gfc_try
 gfc_array_ref_shape (gfc_array_ref *ar, mpz_t *shape)
 {
   int d;
@@ -2151,7 +2148,7 @@ gfc_array_ref_shape (gfc_array_ref *ar, mpz_t *shape)
 	{
 	  if (ar->dimen_type[i] != DIMEN_ELEMENT)
 	    {
-	      if (ref_dimen_size (ar, i, &shape[d]) == FAILURE)
+	      if (gfc_ref_dimen_size (ar, i, &shape[d]) == FAILURE)
 		goto cleanup;
 	      d++;
 	    }

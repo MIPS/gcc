@@ -1,6 +1,7 @@
 /* Definitions for C parsing and type checking.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -151,7 +152,7 @@ struct c_expr
 {
   /* The value of the expression.  */
   tree value;
-  /* Record the original binary operator of an expression, which may
+  /* Record the original unary/binary operator of an expression, which may
      have been changed by fold, STRING_CST for unparenthesized string
      constants, or ERROR_MARK for other expressions (including
      parenthesized expressions).  */
@@ -462,7 +463,7 @@ extern void c_print_identifier (FILE *, tree, int);
 extern int quals_from_declspecs (const struct c_declspecs *);
 extern struct c_declarator *build_array_declarator (tree, struct c_declspecs *,
 						    bool, bool);
-extern tree build_enumerator (struct c_enum_contents *, tree, tree);
+extern tree build_enumerator (struct c_enum_contents *, tree, tree, location_t);
 extern tree check_for_loop_decls (void);
 extern void mark_forward_parm_decls (void);
 extern void declare_parm_level (void);
@@ -475,8 +476,8 @@ extern tree finish_enum (tree, tree, tree);
 extern void finish_function (void);
 extern tree finish_struct (tree, tree, tree);
 extern struct c_arg_info *get_parm_info (bool);
-extern tree grokfield (struct c_declarator *, struct c_declspecs *,
-		       tree, tree *);
+extern tree grokfield (location_t, struct c_declarator *,
+		       struct c_declspecs *, tree, tree *);
 extern tree groktypename (struct c_type_name *);
 extern tree grokparm (const struct c_parm *);
 extern tree implicitly_declare (tree);
@@ -488,6 +489,7 @@ extern void push_parm_decl (const struct c_parm *);
 extern struct c_declarator *set_array_declarator_inner (struct c_declarator *,
 							struct c_declarator *);
 extern tree c_builtin_function (tree);
+extern tree c_builtin_function_ext_scope (tree);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
 extern tree start_enum (struct c_enum_contents *, tree);
@@ -520,7 +522,6 @@ extern struct c_declspecs *finish_declspecs (struct c_declspecs *);
 /* in c-objc-common.c */
 extern bool c_objc_common_init (void);
 extern bool c_missing_noreturn_ok_p (tree);
-extern tree c_objc_common_truthvalue_conversion (tree expr);
 extern bool c_warn_unused_global_decl (const_tree);
 extern void c_initialize_diagnostics (diagnostic_context *);
 extern bool c_vla_unspec_p (tree x, tree fn);
@@ -539,6 +540,7 @@ extern struct c_switch *c_switch_stack;
 extern struct c_label_context_se *label_context_stack_se;
 extern struct c_label_context_vm *label_context_stack_vm;
 
+extern tree c_objc_common_truthvalue_conversion (location_t, tree);
 extern tree require_complete_type (tree);
 extern int same_translation_unit_p (const_tree, const_tree);
 extern int comptypes (tree, tree);
@@ -549,13 +551,15 @@ extern tree c_type_promotes_to (tree);
 extern struct c_expr default_function_array_conversion (struct c_expr);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (tree, tree);
-extern tree build_array_ref (tree, tree);
+extern tree build_array_ref (tree, tree, location_t);
 extern tree build_external_ref (tree, int, location_t);
 extern void pop_maybe_used (bool);
 extern struct c_expr c_expr_sizeof_expr (struct c_expr);
 extern struct c_expr c_expr_sizeof_type (struct c_type_name *);
-extern struct c_expr parser_build_unary_op (enum tree_code, struct c_expr);
-extern struct c_expr parser_build_binary_op (enum tree_code, struct c_expr,
+extern struct c_expr parser_build_unary_op (enum tree_code, struct c_expr,
+    					    location_t);
+extern struct c_expr parser_build_binary_op (location_t, 
+    					     enum tree_code, struct c_expr,
 					     struct c_expr);
 extern tree build_conditional_expr (tree, tree, tree);
 extern tree build_compound_expr (tree, tree);
@@ -563,7 +567,7 @@ extern tree c_cast_expr (struct c_type_name *, tree);
 extern tree build_c_cast (tree, tree);
 extern void store_init_value (tree, tree);
 extern void error_init (const char *);
-extern void pedwarn_init (const char *);
+extern void pedwarn_init (location_t, int opt, const char *);
 extern void maybe_warn_string_init (tree, struct c_expr);
 extern void start_init (tree, tree, int);
 extern void finish_init (void);
@@ -572,7 +576,7 @@ extern void push_init_level (int);
 extern struct c_expr pop_init_level (int);
 extern void set_init_index (tree, tree);
 extern void set_init_label (tree);
-extern void process_init_element (struct c_expr);
+extern void process_init_element (struct c_expr, bool);
 extern tree build_compound_literal (tree, tree);
 extern tree c_start_case (tree);
 extern void c_finish_case (tree);
@@ -640,7 +644,7 @@ extern void c_write_global_declarations (void);
 #define ATTRIBUTE_GCC_CDIAG(m, n) ATTRIBUTE_NONNULL(m)
 #endif
 
-extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2);
-extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2);
+extern void pedwarn_c90 (location_t, int opt, const char *, ...) ATTRIBUTE_GCC_CDIAG(3,4);
+extern void pedwarn_c99 (location_t, int opt, const char *, ...) ATTRIBUTE_GCC_CDIAG(3,4);
 
 #endif /* ! GCC_C_TREE_H */

@@ -1,6 +1,7 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -164,6 +165,22 @@ enum mips_loadgp_style {
 
 struct mips16e_save_restore_info;
 
+/* Classifies a type of call.
+
+   MIPS_CALL_NORMAL
+	A normal call or call_value pattern.
+
+   MIPS_CALL_SIBCALL
+	A sibcall or sibcall_value pattern.
+
+   MIPS_CALL_EPILOGUE
+	A call inserted in the epilogue.  */
+enum mips_call_type {
+  MIPS_CALL_NORMAL,
+  MIPS_CALL_SIBCALL,
+  MIPS_CALL_EPILOGUE
+};
+
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,
 				      enum mips_symbol_type *);
 extern int mips_regno_mode_ok_for_base_p (int, enum machine_mode, bool);
@@ -175,6 +192,8 @@ extern int mips_split_const_insns (rtx);
 extern int mips_load_store_insns (rtx, rtx);
 extern int mips_idiv_insns (void);
 extern rtx mips_emit_move (rtx, rtx);
+extern rtx mips_pic_base_register (rtx);
+extern rtx mips_got_load (rtx, rtx, enum mips_symbol_type);
 extern bool mips_split_symbol (rtx, rtx, enum machine_mode, rtx *);
 extern rtx mips_unspec_address (rtx, enum mips_symbol_type);
 extern bool mips_legitimize_address (rtx *, enum machine_mode);
@@ -202,7 +221,7 @@ extern rtx mips_subword (rtx, bool);
 extern bool mips_split_64bit_move_p (rtx, rtx);
 extern void mips_split_doubleword_move (rtx, rtx);
 extern const char *mips_output_move (rtx, rtx);
-extern void mips_restore_gp (void);
+extern void mips_restore_gp (rtx);
 #ifdef RTX_CODE
 extern bool mips_expand_scc (enum rtx_code, rtx);
 extern void mips_expand_conditional_branch (rtx *, enum rtx_code);
@@ -210,7 +229,9 @@ extern void mips_expand_vcondv2sf (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
 extern void mips_expand_conditional_move (rtx *);
 extern void mips_expand_conditional_trap (enum rtx_code);
 #endif
-extern rtx mips_expand_call (rtx, rtx, rtx, rtx, bool);
+extern bool mips_use_pic_fn_addr_reg_p (const_rtx);
+extern rtx mips_expand_call (enum mips_call_type, rtx, rtx, rtx, rtx, bool);
+extern void mips_split_call (rtx, rtx);
 extern void mips_expand_fcc_reload (rtx, rtx, rtx);
 extern void mips_set_return_address (rtx, rtx);
 extern bool mips_expand_block_move (rtx, rtx, rtx);
@@ -280,6 +301,7 @@ extern const char *mips_output_load_label (void);
 extern const char *mips_output_conditional_branch (rtx, rtx *, const char *,
 						   const char *);
 extern const char *mips_output_order_conditional_branch (rtx, rtx *, bool);
+extern const char *mips_output_sync_loop (const char *);
 extern const char *mips_output_division (const char *, rtx *);
 extern unsigned int mips_hard_regno_nregs (int, enum machine_mode);
 extern bool mips_linked_madd_p (rtx, rtx);
@@ -294,6 +316,10 @@ extern bool mips_use_ins_ext_p (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 extern const char *mips16e_output_save_restore (rtx, HOST_WIDE_INT);
 extern bool mips16e_save_restore_pattern_p (rtx, HOST_WIDE_INT,
 					    struct mips16e_save_restore_info *);
+
+extern bool mask_low_and_shift_p (enum machine_mode, rtx, rtx, int);
+extern int mask_low_and_shift_len (enum machine_mode, rtx, rtx);
+
 union mips_gen_fn_ptrs
 {
   rtx (*fn_6) (rtx, rtx, rtx, rtx, rtx, rtx);

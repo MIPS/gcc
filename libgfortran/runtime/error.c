@@ -199,13 +199,13 @@ show_locus (st_parameter_common *cmp)
       if (filename != NULL)
 	{
 	  st_printf ("At line %d of file %s (unit = %d, file = '%s')\n",
-		   (int) cmp->line, cmp->filename, cmp->unit, filename);
+		   (int) cmp->line, cmp->filename, (int) cmp->unit, filename);
 	  free_mem (filename);
 	}
       else
 	{
 	  st_printf ("At line %d of file %s (unit = %d)\n",
-		   (int) cmp->line, cmp->filename, cmp->unit);
+		   (int) cmp->line, cmp->filename, (int) cmp->unit);
 	}
       return;
     }
@@ -283,6 +283,21 @@ runtime_error_at (const char *where, const char *message, ...)
   sys_exit (2);
 }
 iexport(runtime_error_at);
+
+
+void
+runtime_warning_at (const char *where, const char *message, ...)
+{
+  va_list ap;
+
+  st_printf ("%s\n", where);
+  st_printf ("Fortran runtime warning: ");
+  va_start (ap, message);
+  st_vprintf (message, ap);
+  va_end (ap);
+  st_printf ("\n");
+}
+iexport(runtime_warning_at);
 
 
 /* void internal_error()-- These are this-can't-happen errors

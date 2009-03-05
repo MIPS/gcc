@@ -1,6 +1,6 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
    Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "flags.h"
+#include "except.h"
 #include "function.h"
 #include "expr.h"
 #include "optabs.h"
@@ -697,10 +698,8 @@ force_reg (enum machine_mode mode, rtx x)
 
 	align = MIN (sa, ca);
       }
-    else if (MEM_P (x) && MEM_POINTER (x))
-      align = MEM_ALIGN (x);
 
-    if (align)
+    if (align || (MEM_P (x) && MEM_POINTER (x)))
       mark_reg_pointer (temp, align);
   }
 
@@ -1190,10 +1189,13 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
   gcc_assert (!(stack_pointer_delta
 		% (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)));
 
-  /* If needed, check that we have the required amount of stack.  Take into
-     account what has already been checked.  */
-  if (flag_stack_check && ! STACK_CHECK_BUILTIN)
-    probe_stack_range (STACK_CHECK_MAX_FRAME_SIZE + STACK_CHECK_PROTECT, size);
+  /* If needed, check that we have the required amount of stack.
+     Take into account what has already been checked.  */
+  if (flag_stack_check == GENERIC_STACK_CHECK)
+    probe_stack_range (STACK_OLD_CHECK_PROTECT + STACK_CHECK_MAX_FRAME_SIZE,
+		       size);
+  else if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    probe_stack_range (STACK_CHECK_PROTECT, size);
 
   /* Don't use a TARGET that isn't a pseudo or is the wrong mode.  */
   if (target == 0 || !REG_P (target)

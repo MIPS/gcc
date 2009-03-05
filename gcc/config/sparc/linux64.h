@@ -1,6 +1,6 @@
 /* Definitions for 64-bit SPARC running Linux-based GNU systems with ELF.
-   Copyright 1996, 1997, 1998, 2000, 2002, 2003, 2004, 2005, 2006, 2007
-   Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998, 2000, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
+   2009 Free Software Foundation, Inc.
    Contributed by David S. Miller (davem@caip.rutgers.edu)
 
 This file is part of GCC.
@@ -121,7 +121,7 @@ along with GCC; see the file COPYING3.  If not see
   { "link_arch_default", LINK_ARCH_DEFAULT_SPEC },	  \
   { "link_arch",	 LINK_ARCH_SPEC },
 
-#define LINK_ARCH32_SPEC "-m elf32_sparc -Y P,/usr/lib %{shared:-shared} \
+#define LINK_ARCH32_SPEC "-m elf32_sparc -Y P,%R/usr/lib %{shared:-shared} \
   %{!shared: \
     %{!ibcs: \
       %{!static: \
@@ -130,7 +130,7 @@ along with GCC; see the file COPYING3.  If not see
         %{static:-static}}} \
 "
 
-#define LINK_ARCH64_SPEC "-m elf64_sparc -Y P,/usr/lib64 %{shared:-shared} \
+#define LINK_ARCH64_SPEC "-m elf64_sparc -Y P,%R/usr/lib64 %{shared:-shared} \
   %{!shared: \
     %{!ibcs: \
       %{!static: \
@@ -211,7 +211,7 @@ along with GCC; see the file COPYING3.  If not see
 #else /* !SPARC_BI_ARCH */
 
 #undef LINK_SPEC
-#define LINK_SPEC "-m elf64_sparc -Y P,/usr/lib64 %{shared:-shared} \
+#define LINK_SPEC "-m elf64_sparc -Y P,%R/usr/lib64 %{shared:-shared} \
   %{!shared: \
     %{!ibcs: \
       %{!static: \
@@ -238,10 +238,6 @@ along with GCC; see the file COPYING3.  If not see
 -s %{fpic|fPIC|fpie|fPIE:-K PIC} \
 %{mlittle-endian:-EL} \
 %(asm_cpu) %(asm_arch) %(asm_relax)"
-
-/* Same as sparc.h */
-#undef DBX_REGISTER_NUMBER
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 #undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\

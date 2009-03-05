@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -185,8 +185,7 @@ package body Sem_Ch11 is
             --  scope for visibility purposes. We create an entity to denote
             --  the whole exception part, and use it as the scope of all the
             --  choices, which may even have the same name without conflict.
-            --  This scope plays no other role in expansion or or code
-            --  generation.
+            --  This scope plays no other role in expansion or code generation.
 
             Choice := Choice_Parameter (Handler);
 

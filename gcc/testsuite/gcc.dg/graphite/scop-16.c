@@ -1,6 +1,6 @@
-/* { dg-do compile } */ 
-/* { dg-options "-O2 -floop-block -fdump-tree-graphite-all" } */
-#define N 100000
+/* { dg-options "-O2 -fgraphite -fdump-tree-graphite-all" } */
+
+#define N 10000
 void foo (int);
 int test ()
 {
@@ -21,5 +21,5 @@ int test ()
       foo (a[i][j]); 
 }
 
-/* { dg-final { scan-tree-dump-times "Interchange valid for loops 2 and 3:" 1 "graphite"} } */
-/* Interchange is legal for loops 2 and 3.  */
+/* { dg-final { scan-tree-dump-times "number of SCoPs: 2" 1 "graphite"} } */
+/* { dg-final { cleanup-tree-dump "graphite" } } */

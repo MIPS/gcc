@@ -44,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "ipa-utils.h"
 #include "c-common.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "cgraph.h"
 #include "output.h"
 #include "flags.h"
@@ -65,24 +65,73 @@ enum pure_const_state_e
   IPA_NEITHER
 };
 
-/* Holder inserted into the ipa_dfs_info aux field to hold the
-   const_state.  */
+/* Holder for the const_state.  There is one of these per function
+   decl.  */
 struct funct_state_d 
 {
+  /* See above.  */
   enum pure_const_state_e pure_const_state;
+
+  /* True if the function could possibly infinite loop.  There are a
+     lot of ways that this could be determined.  We are pretty
+     conservative here.  While it is possible to cse pure and const
+     calls, it is not legal to have dce get rid of the call if there
+     is a possibility that the call could infinite loop since this is
+     a behavioral change.  */
   bool looping;
-  bool state_set_in_source;
+
+  /* If the state of the function was set in the source, then assume
+     that it was done properly even if the analysis we do would be
+     more pessimestic.  */
+  bool state_set_in_source; 
 };
 
 typedef struct funct_state_d * funct_state;
+
+/* The storage of the funct_state is abstracted because there is the
+   possibility that it may be desirable to move this to the cgraph
+   local info.  */ 
+
+/* Array, indexed by cgraph node uid, of function states.  */
+
+DEF_VEC_P (funct_state);
+DEF_VEC_ALLOC_P (funct_state, heap);
+static VEC (funct_state, heap) *funct_state_vec;
+
+/* Holders of ipa cgraph hooks: */
+static struct cgraph_node_hook_list *function_insertion_hook_holder;
+static struct cgraph_2node_hook_list *node_duplication_hook_holder;
+static struct cgraph_node_hook_list *node_removal_hook_holder;
+
+/* Init the function state.  */
+
+static void
+finish_state (void)
+{
+  free (funct_state_vec);
+}
+
 
 /* Return the function state from NODE.  */ 
 
 static inline funct_state
 get_function_state (struct cgraph_node *node)
 {
-  struct ipa_dfs_info * info = (struct ipa_dfs_info *) node->aux;
-  return (funct_state) info->aux;
+  if (!funct_state_vec
+      || VEC_length (funct_state, funct_state_vec) <= (unsigned int)node->uid)
+    return NULL;
+  return VEC_index (funct_state, funct_state_vec, node->uid);
+}
+
+/* Set the function state S for NODE.  */
+
+static inline void
+set_function_state (struct cgraph_node *node, funct_state s)
+{
+  if (!funct_state_vec
+      || VEC_length (funct_state, funct_state_vec) <= (unsigned int)node->uid)
+     VEC_safe_grow_cleared (funct_state, heap, funct_state_vec, node->uid + 1);
+  VEC_replace (funct_state, funct_state_vec, node->uid, s);
 }
 
 /* Check to see if the use (or definition when CHECKING_WRITE is true)
@@ -276,42 +325,47 @@ check_lhs_var (funct_state local, tree t)
    actual asm statement.  */
 
 static void
-get_asm_expr_operands (funct_state local, tree stmt)
+get_asm_expr_operands (funct_state local, gimple stmt)
 {
-  int noutputs = list_length (ASM_OUTPUTS (stmt));
+  size_t noutputs = gimple_asm_noutputs (stmt);
   const char **oconstraints
     = (const char **) alloca ((noutputs) * sizeof (const char *));
-  int i;
-  tree link;
+  size_t i;
+  tree op;
   const char *constraint;
   bool allows_mem, allows_reg, is_inout;
   
-  for (i=0, link = ASM_OUTPUTS (stmt); link; ++i, link = TREE_CHAIN (link))
+  for (i = 0; i < noutputs; i++)
     {
+      op = gimple_asm_output_op (stmt, i);
       oconstraints[i] = constraint
-	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
       parse_output_constraint (&constraint, i, 0, 0,
 			       &allows_mem, &allows_reg, &is_inout);
       
-      check_lhs_var (local, TREE_VALUE (link));
+      check_lhs_var (local, TREE_VALUE (op));
     }
 
-  for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
+  for (i = 0; i < gimple_asm_ninputs (stmt); i++)
     {
+      op = gimple_asm_input_op (stmt, i);
       constraint
-	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
       parse_input_constraint (&constraint, 0, 0, noutputs, 0,
 			      oconstraints, &allows_mem, &allows_reg);
       
-      check_rhs_var (local, TREE_VALUE (link));
+      check_rhs_var (local, TREE_VALUE (op));
     }
   
-  for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
-    if (simple_cst_equal(TREE_VALUE (link), memory_identifier_string) == 1) 
-      /* Abandon all hope, ye who enter here. */
-      local->pure_const_state = IPA_NEITHER;
+  for (i = 0; i < gimple_asm_nclobbers (stmt); i++)
+    {
+      op = gimple_asm_clobber_op (stmt, i);
+      if (simple_cst_equal(TREE_VALUE (op), memory_identifier_string) == 1) 
+	/* Abandon all hope, ye who enter here. */
+	local->pure_const_state = IPA_NEITHER;
+    }
 
-  if (ASM_VOLATILE_P (stmt))
+  if (gimple_asm_volatile_p (stmt))
     local->pure_const_state = IPA_NEITHER;
 }
 
@@ -323,17 +377,20 @@ get_asm_expr_operands (funct_state local, tree stmt)
    the entire call expression.  */
 
 static void
-check_call (funct_state local, tree call_expr) 
+check_call (funct_state local, gimple call) 
 {
-  int flags = call_expr_flags (call_expr);
-  tree operand;
-  call_expr_arg_iterator iter;
-  tree callee_t = get_callee_fndecl (call_expr);
+  int flags = gimple_call_flags (call);
+  tree lhs, callee_t = gimple_call_fndecl (call);
   struct cgraph_node* callee;
   enum availability avail = AVAIL_NOT_AVAILABLE;
+  size_t i;
 
-  FOR_EACH_CALL_EXPR_ARG (operand, iter, call_expr)
-    check_rhs_var (local, operand);
+  lhs = gimple_call_lhs (call);
+  if (lhs)
+    check_lhs_var (local, lhs);
+
+  for (i = 0; i < gimple_call_num_args (call); i++)
+    check_rhs_var (local, gimple_call_arg (call, i));
   
   /* The const and pure flags are set by a variety of places in the
      compiler (including here).  If someone has already set the flags
@@ -405,11 +462,10 @@ check_call (funct_state local, tree call_expr)
    should be converted to use the operand scanner.  */
 
 static tree
-scan_function (tree *tp, 
-		      int *walk_subtrees, 
-		      void *data)
+scan_function_op (tree *tp, int *walk_subtrees, void *data)
 {
-  struct cgraph_node *fn = (struct cgraph_node *) data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  struct cgraph_node *fn = (struct cgraph_node *) wi->info;
   tree t = *tp;
   funct_state local = get_function_state (fn);
 
@@ -417,68 +473,8 @@ scan_function (tree *tp,
     {
     case VAR_DECL:
       if (DECL_INITIAL (t))
-	walk_tree (&DECL_INITIAL (t), scan_function, fn, visited_nodes);
+	walk_tree (&DECL_INITIAL (t), scan_function_op, data, visited_nodes);
       *walk_subtrees = 0;
-      break;
-
-    case GIMPLE_MODIFY_STMT:
-      {
-	/* First look on the lhs and see what variable is stored to */
-	tree lhs = GIMPLE_STMT_OPERAND (t, 0);
-	tree rhs = GIMPLE_STMT_OPERAND (t, 1);
-	check_lhs_var (local, lhs);
-
-	/* For the purposes of figuring out what the cast affects */
-
-	/* Next check the operands on the rhs to see if they are ok. */
-	switch (TREE_CODE_CLASS (TREE_CODE (rhs))) 
-	  {
-	  case tcc_binary:	    
- 	    {
- 	      tree op0 = TREE_OPERAND (rhs, 0);
- 	      tree op1 = TREE_OPERAND (rhs, 1);
- 	      check_rhs_var (local, op0);
- 	      check_rhs_var (local, op1);
-	    }
-	    break;
-	  case tcc_unary:
- 	    {
- 	      tree op0 = TREE_OPERAND (rhs, 0);
- 	      check_rhs_var (local, op0);
- 	    }
-
-	    break;
-	  case tcc_reference:
-	    check_rhs_var (local, rhs);
-	    break;
-	  case tcc_declaration:
-	    check_rhs_var (local, rhs);
-	    break;
-	  case tcc_expression:
-	    switch (TREE_CODE (rhs)) 
-	      {
-	      case ADDR_EXPR:
-		check_rhs_var (local, rhs);
-		break;
-	      default:
-		break;
-	      }
-	    break;
-	  case tcc_vl_exp:
-	    switch (TREE_CODE (rhs)) 
-	      {
-	      case CALL_EXPR:
-		check_call (local, rhs);
-		break;
-	      default:
-		break;
-	      }
-	    break;
-	  default:
-	    break;
-	  }
-	*walk_subtrees = 0;
-      }
       break;
 
     case ADDR_EXPR:
@@ -488,8 +484,75 @@ scan_function (tree *tp,
       *walk_subtrees = 0;
       break;
 
-    case LABEL_EXPR:
-      if (DECL_NONLOCAL (TREE_OPERAND (t, 0)))
+    default:
+      break;
+    }
+  return NULL;
+}
+
+static tree
+scan_function_stmt (gimple_stmt_iterator *gsi_p,
+		    bool *handled_ops_p,
+		    struct walk_stmt_info *wi)
+{
+  struct cgraph_node *fn = (struct cgraph_node *) wi->info;
+  gimple stmt = gsi_stmt (*gsi_p);
+  funct_state local = get_function_state (fn);
+
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_ASSIGN:
+      {
+	/* First look on the lhs and see what variable is stored to */
+	tree lhs = gimple_assign_lhs (stmt);
+	tree rhs1 = gimple_assign_rhs1 (stmt);
+	tree rhs2 = gimple_assign_rhs2 (stmt);
+	enum tree_code code = gimple_assign_rhs_code (stmt);
+
+	check_lhs_var (local, lhs);
+
+	/* For the purposes of figuring out what the cast affects */
+
+	/* Next check the operands on the rhs to see if they are ok. */
+	switch (TREE_CODE_CLASS (code))
+	  {
+	  case tcc_binary:	    
+ 	    {
+ 	      check_rhs_var (local, rhs1);
+ 	      check_rhs_var (local, rhs2);
+	    }
+	    break;
+	  case tcc_unary:
+ 	    {
+ 	      check_rhs_var (local, rhs1);
+ 	    }
+
+	    break;
+	  case tcc_reference:
+	    check_rhs_var (local, rhs1);
+	    break;
+	  case tcc_declaration:
+	    check_rhs_var (local, rhs1);
+	    break;
+	  case tcc_expression:
+	    switch (code)
+	      {
+	      case ADDR_EXPR:
+		check_rhs_var (local, rhs1);
+		break;
+	      default:
+		break;
+	      }
+	    break;
+	  default:
+	    break;
+	  }
+	*handled_ops_p = true;
+      }
+      break;
+
+    case GIMPLE_LABEL:
+      if (DECL_NONLOCAL (gimple_label_label (stmt)))
 	/* Target of long jump. */
 	{
 	  local->pure_const_state = IPA_NEITHER;
@@ -497,14 +560,14 @@ scan_function (tree *tp,
 	}
       break;
 
-    case CALL_EXPR: 
-      check_call (local, t);
-      *walk_subtrees = 0;
+    case GIMPLE_CALL:
+      check_call (local, stmt);
+      *handled_ops_p = true;
       break;
       
-    case ASM_EXPR:
-      get_asm_expr_operands (local, t);
-      *walk_subtrees = 0;
+    case GIMPLE_ASM:
+      get_asm_expr_operands (local, stmt);
+      *handled_ops_p = true;
       break;
       
     default:
@@ -513,17 +576,20 @@ scan_function (tree *tp,
   return NULL;
 }
 
+
 /* This is the main routine for finding the reference patterns for
    global variables within a function FN.  */
 
 static void
 analyze_function (struct cgraph_node *fn)
 {
-  funct_state l = XCNEW (struct funct_state_d);
   tree decl = fn->decl;
-  struct ipa_dfs_info * w_info = (struct ipa_dfs_info *) fn->aux;
+  funct_state l = XCNEW (struct funct_state_d);
 
-  w_info->aux = l;
+ if (cgraph_function_body_availability (fn) <= AVAIL_OVERWRITABLE)
+   return;
+
+  set_function_state (fn, l);
 
   l->pure_const_state = IPA_CONST;
   l->state_set_in_source = false;
@@ -567,11 +633,18 @@ analyze_function (struct cgraph_node *fn)
       
       FOR_EACH_BB_FN (this_block, this_cfun)
 	{
-	  block_stmt_iterator bsi;
-	  for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
+	  gimple_stmt_iterator gsi;
+	  struct walk_stmt_info wi;
+
+	  memset (&wi, 0, sizeof(wi));
+	  for (gsi = gsi_start_bb (this_block);
+	       !gsi_end_p (gsi);
+	       gsi_next (&gsi))
 	    {
-	      walk_tree (bsi_stmt_ptr (bsi), scan_function, 
-			 fn, visited_nodes);
+	      wi.info = fn;
+	      wi.pset = visited_nodes;
+	      walk_gimple_stmt (&gsi, scan_function_stmt, scan_function_op, 
+				&wi);
 	      if (l->pure_const_state == IPA_NEITHER) 
 		goto end;
 	    }
@@ -610,25 +683,64 @@ end:
     }
 }
 
-
-/* Produce the global information by preforming a transitive closure
-   on the local information that was produced by ipa_analyze_function
-   and ipa_analyze_variable.  */
+/* Called when new function is inserted to callgraph late.  */
+static void
+add_new_function (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+{
+ if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)
+   return;
+  /* There are some shared nodes, in particular the initializers on
+     static declarations.  We do not need to scan them more than once
+     since all we would be interested in are the addressof
+     operations.  */
+  visited_nodes = pointer_set_create ();
+  analyze_function (node);
+  pointer_set_destroy (visited_nodes);
+  visited_nodes = NULL;
+}
 
-static unsigned int
-static_execute (void)
+/* Called when new clone is inserted to callgraph late.  */
+
+static void
+duplicate_node_data (struct cgraph_node *src, struct cgraph_node *dst,
+	 	     void *data ATTRIBUTE_UNUSED)
+{
+  if (get_function_state (src))
+    {
+      funct_state l = XNEW (struct funct_state_d);
+      gcc_assert (!get_function_state (dst));
+      memcpy (l, get_function_state (src), sizeof (*l));
+      set_function_state (dst, l);
+    }
+}
+
+/* Called when new clone is inserted to callgraph late.  */
+
+static void
+remove_node_data (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+{
+  if (get_function_state (node))
+    {
+      free (get_function_state (node));
+      set_function_state (node, NULL);
+    }
+}
+
+
+/* Analyze each function in the cgraph to see if it is locally PURE or
+   CONST.  */
+
+static void 
+generate_summary (void)
 {
   struct cgraph_node *node;
-  struct cgraph_node *w;
-  struct cgraph_node **order =
-    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
-  int order_pos = ipa_utils_reduced_inorder (order, true, false);
-  int i;
-  struct ipa_dfs_info * w_info;
 
-  if (!memory_identifier_string)
-    memory_identifier_string = build_string(7, "memory");
-
+  node_removal_hook_holder =
+      cgraph_add_node_removal_hook (&remove_node_data, NULL);
+  node_duplication_hook_holder =
+      cgraph_add_node_duplication_hook (&duplicate_node_data, NULL);
+  function_insertion_hook_holder =
+      cgraph_add_function_insertion_hook (&add_new_function, NULL);
   /* There are some shared nodes, in particular the initializers on
      static declarations.  We do not need to scan them more than once
      since all we would be interested in are the addressof
@@ -637,18 +749,38 @@ static_execute (void)
 
   /* Process all of the functions. 
 
-     We do not want to process any of the clones so we check that this
-     is a master clone.  However, we do NOT process any
-     AVAIL_OVERWRITABLE functions (these are never clones) we cannot
+     We do NOT process any AVAIL_OVERWRITABLE functions, we cannot
      guarantee that what we learn about the one we see will be true
      for the one that overrides it.
   */
   for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && cgraph_is_master_clone (node))
+    if (cgraph_function_body_availability (node) > AVAIL_OVERWRITABLE)
       analyze_function (node);
 
   pointer_set_destroy (visited_nodes);
   visited_nodes = NULL;
+}
+
+/* Produce the global information by preforming a transitive closure
+   on the local information that was produced by generate_summary.
+   Note that there is no function_transform pass since this only
+   updates the function_decl.  */
+
+static unsigned int
+propagate (void)
+{
+  struct cgraph_node *node;
+  struct cgraph_node *w;
+  struct cgraph_node **order =
+    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  int order_pos;
+  int i;
+  struct ipa_dfs_info * w_info;
+
+  cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
+  cgraph_remove_node_duplication_hook (node_duplication_hook_holder);
+  cgraph_remove_node_removal_hook (node_removal_hook_holder);
+  order_pos = ipa_utils_reduced_inorder (order, true, false);
   if (dump_file)
     {
       dump_cgraph (dump_file);
@@ -691,12 +823,8 @@ static_execute (void)
 	      for (e = w->callees; e; e = e->next_callee) 
 		{
 		  struct cgraph_node *y = e->callee;
-		  /* Only look at the master nodes and skip external nodes.  */
-		  y = cgraph_master_clone (y);
 
-		  if (w == y)
-		    looping = true;
-		  if (y)
+		  if (cgraph_function_body_availability (y) > AVAIL_OVERWRITABLE)
 		    {
 		      funct_state y_l = get_function_state (y);
 		      if (pure_const_state < y_l->pure_const_state)
@@ -723,6 +851,8 @@ static_execute (void)
 	  if (!w_l->state_set_in_source)
 	    {
 	      w_l->pure_const_state = pure_const_state;
+	      w_l->looping = looping;
+
 	      switch (pure_const_state)
 		{
 		case IPA_CONST:
@@ -754,35 +884,39 @@ static_execute (void)
 
   /* Cleanup. */
   for (node = cgraph_nodes; node; node = node->next)
-    /* Get rid of the aux information.  */
-    if (node->aux)
-      {
-	w_info = (struct ipa_dfs_info *) node->aux;
-	if (w_info->aux)
-	  free (w_info->aux);
-	free (node->aux);
-	node->aux = NULL;
-      }
-
+    {
+      /* Get rid of the aux information.  */
+      if (node->aux)
+	{
+	  w_info = (struct ipa_dfs_info *) node->aux;
+	  free (node->aux);
+	  node->aux = NULL;
+	}
+      if (cgraph_function_body_availability (node) > AVAIL_OVERWRITABLE)
+	free (get_function_state (node));
+    }
+  
   free (order);
+  VEC_free (funct_state, heap, funct_state_vec);
+  finish_state ();
   return 0;
 }
 
 static bool
 gate_pure_const (void)
 {
-  return (flag_unit_at_a_time != 0 && flag_ipa_pure_const 
+  return (flag_ipa_pure_const
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !(errorcount || sorrycount));
 }
 
-struct simple_ipa_opt_pass pass_ipa_pure_const =
+struct ipa_opt_pass pass_ipa_pure_const =
 {
  {
-  SIMPLE_IPA_PASS,
+  IPA_PASS,
   "pure-const",		                /* name */
   gate_pure_const,			/* gate */
-  static_execute,			/* execute */
+  propagate,			        /* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -792,7 +926,12 @@ struct simple_ipa_opt_pass pass_ipa_pure_const =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0                                     /* todo_flags_finish */
- }
+ },
+ generate_summary,		        /* generate_summary */
+ NULL,					/* write_summary */
+ NULL,					/* read_summary */
+ NULL,					/* function_read_summary */
+ 0,					/* TODOs */
+ NULL,			                /* function_transform */
+ NULL					/* variable_transform */
 };
-
-

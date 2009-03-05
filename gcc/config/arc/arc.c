@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the Argonaut ARC cpu.
    Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -92,8 +92,8 @@ static void arc_internal_label (FILE *, const char *, unsigned long);
 static void arc_va_start (tree, rtx);
 static void arc_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int *, int);
-static bool arc_rtx_costs (rtx, int, int, int *);
-static int arc_address_cost (rtx);
+static bool arc_rtx_costs (rtx, int, int, int *, bool);
+static int arc_address_cost (rtx, bool);
 static void arc_external_libcall (rtx);
 static bool arc_return_in_memory (const_tree, const_tree);
 static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
@@ -830,7 +830,8 @@ arc_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-arc_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
+arc_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total,
+	       bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -884,7 +885,7 @@ arc_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
    If ADDR is not a valid address, its cost is irrelevant.  */
 
 static int
-arc_address_cost (rtx addr)
+arc_address_cost (rtx addr, bool speed ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (addr))
     {

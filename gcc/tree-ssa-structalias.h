@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2002, 2003, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -25,8 +25,8 @@ struct constraint;
 typedef struct constraint *constraint_t;
 
 /* In tree-ssa-alias.c.  */
-enum escape_type is_escape_site (tree);
-void update_mem_sym_stats_from_stmt (tree, tree, long, long);
+enum escape_type is_escape_site (gimple);
+void update_mem_sym_stats_from_stmt (tree, gimple, long, long);
 
 /* In tree-ssa-structalias.c.  */
 extern void compute_points_to_sets (void);

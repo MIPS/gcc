@@ -1,5 +1,6 @@
 /* Loop unrolling and peeling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -269,7 +270,7 @@ decide_unrolling_and_peeling (int flags)
 	fprintf (dump_file, "\n;; *** Considering loop %d ***\n", loop->num);
 
       /* Do not peel cold areas.  */
-      if (!maybe_hot_bb_p (loop->header))
+      if (optimize_loop_for_size_p (loop))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, ";; Not considering loop, cold area\n");
@@ -368,7 +369,7 @@ decide_peel_completely (struct loop *loop, int flags ATTRIBUTE_UNUSED)
     }
 
   /* Do not peel cold areas.  */
-  if (!maybe_hot_bb_p (loop->header))
+  if (optimize_loop_for_size_p (loop))
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not considering loop, cold area\n");

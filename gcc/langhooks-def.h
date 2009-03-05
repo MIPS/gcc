@@ -1,5 +1,6 @@
 /* Default macros to initialize the lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -51,7 +52,6 @@ extern const char *lhd_decl_printable_name (tree, int);
 extern const char *lhd_dwarf_name (tree, int);
 extern int lhd_types_compatible_p (tree, tree);
 extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
-extern int lhd_expand_decl (tree);
 extern void lhd_print_error_function (struct diagnostic_context *,
 				      const char *, struct diagnostic_info *);
 extern void lhd_set_decl_assembler_name (tree);
@@ -73,7 +73,7 @@ extern tree lhd_callgraph_analyze_expr (tree *, int *);
 
 
 /* Declarations for tree gimplification hooks.  */
-extern int lhd_gimplify_expr (tree *, tree *, tree *);
+extern int lhd_gimplify_expr (tree *, gimple_seq *, gimple_seq *);
 extern enum omp_clause_default_kind lhd_omp_predetermined_sharing (tree);
 extern tree lhd_omp_assignment (tree, tree, tree);
 struct gimplify_omp_ctx;
@@ -93,12 +93,10 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_MISSING_NORETURN_OK_P hook_bool_tree_true
 #define LANG_HOOKS_GET_ALIAS_SET	lhd_get_alias_set
 #define LANG_HOOKS_EXPAND_EXPR		lhd_expand_expr
-#define LANG_HOOKS_EXPAND_DECL		lhd_expand_decl
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL lhd_do_nothing_t
 #define LANG_HOOKS_STATICP		lhd_staticp
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL lhd_do_nothing_t
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lhd_set_decl_assembler_name
-#define LANG_HOOKS_NO_BODY_BLOCKS	false
 #define LANG_HOOKS_PRINT_STATISTICS	lhd_do_nothing
 #define LANG_HOOKS_PRINT_XNODE		lhd_print_tree_nothing
 #define LANG_HOOKS_PRINT_DECL		lhd_print_tree_nothing
@@ -107,11 +105,11 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION lhd_print_error_function
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	lhd_decl_printable_name
 #define LANG_HOOKS_DWARF_NAME		lhd_dwarf_name
-#define LANG_HOOKS_GET_CALLEE_FNDECL	lhd_return_null_const_tree
 #define LANG_HOOKS_EXPR_SIZE		lhd_expr_size
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	lhd_builtin_function
+#define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE	LANG_HOOKS_BUILTIN_FUNCTION
 #define LANG_HOOKS_EXPR_TO_DECL		lhd_expr_to_decl
 #define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
 #define LANG_HOOKS_INIT_TS		lhd_do_nothing
@@ -242,13 +240,11 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_MISSING_NORETURN_OK_P, \
   LANG_HOOKS_GET_ALIAS_SET, \
   LANG_HOOKS_EXPAND_EXPR, \
-  LANG_HOOKS_EXPAND_DECL, \
   LANG_HOOKS_FINISH_INCOMPLETE_DECL, \
   LANG_HOOKS_MARK_ADDRESSABLE, \
   LANG_HOOKS_STATICP, \
   LANG_HOOKS_DUP_LANG_SPECIFIC_DECL, \
   LANG_HOOKS_SET_DECL_ASSEMBLER_NAME, \
-  LANG_HOOKS_NO_BODY_BLOCKS, \
   LANG_HOOKS_PRINT_STATISTICS, \
   LANG_HOOKS_PRINT_XNODE, \
   LANG_HOOKS_PRINT_DECL, \
@@ -257,7 +253,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_DECL_PRINTABLE_NAME, \
   LANG_HOOKS_DWARF_NAME, \
   LANG_HOOKS_TYPES_COMPATIBLE_P, \
-  LANG_HOOKS_GET_CALLEE_FNDECL, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \
   LANG_HOOKS_TO_TARGET_CHARSET, \
@@ -272,6 +267,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
   LANG_HOOKS_BUILTIN_FUNCTION, \
+  LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE, \
   LANG_HOOKS_INIT_TS,          \
   LANG_HOOKS_EXPR_TO_DECL, \
 }

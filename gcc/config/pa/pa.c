@@ -1,6 +1,7 @@
 /* Subroutines for insn-output.c for HPPA.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GCC.
@@ -86,8 +87,8 @@ hppa_fpstore_bypass_p (rtx out_insn, rtx in_insn)
 static void copy_reg_pointer (rtx, rtx);
 static void fix_range (const char *);
 static bool pa_handle_option (size_t, const char *, int);
-static int hppa_address_cost (rtx);
-static bool hppa_rtx_costs (rtx, int, int, int *);
+static int hppa_address_cost (rtx, bool);
+static bool hppa_rtx_costs (rtx, int, int, int *, bool);
 static inline rtx force_mode (enum machine_mode, rtx);
 static void pa_reorg (void);
 static void pa_combine_instructions (void);
@@ -103,7 +104,7 @@ static void store_reg_modify (int, int, HOST_WIDE_INT);
 static void load_reg (int, HOST_WIDE_INT, int);
 static void set_reg_plus_d (int, int, HOST_WIDE_INT, int);
 static void pa_output_function_prologue (FILE *, HOST_WIDE_INT);
-static void update_total_code_bytes (int);
+static void update_total_code_bytes (unsigned int);
 static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static int pa_adjust_cost (rtx, rtx, rtx, int);
 static int pa_adjust_priority (rtx, int);
@@ -125,7 +126,7 @@ static void pa_asm_out_destructor (rtx, int);
 static void pa_init_builtins (void);
 static rtx hppa_builtin_saveregs (void);
 static void hppa_va_start (tree, rtx);
-static tree hppa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+static tree hppa_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 static bool pa_scalar_mode_supported_p (enum machine_mode);
 static bool pa_commutative_p (const_rtx x, int outer_code);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
@@ -191,7 +192,7 @@ unsigned long total_code_bytes;
 /* The last address of the previous function plus the number of bytes in
    associated thunks that have been output.  This is used to determine if
    a thunk can use an IA-relative branch to reach its target function.  */
-static int last_address;
+static unsigned int last_address;
 
 /* Variables to handle plabels that we discover are necessary at assembly
    output time.  They are output after the current function.  */
@@ -714,8 +715,8 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
       if (function_label_operand (orig, mode))
 	{
-	  /* Force function label into memory.  */
-	  orig = XEXP (force_const_mem (mode, orig), 0);
+	  /* Force function label into memory in word mode.  */
+	  orig = XEXP (force_const_mem (word_mode, orig), 0);
 	  /* Load plabel address from DLT.  */
 	  emit_move_insn (tmp_reg,
 			  gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
@@ -1279,7 +1280,8 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
    as GO_IF_LEGITIMATE_ADDRESS.  */
 
 static int
-hppa_address_cost (rtx X)
+hppa_address_cost (rtx X,
+		   bool speed ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (X))
     {
@@ -1299,7 +1301,8 @@ hppa_address_cost (rtx X)
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-hppa_rtx_costs (rtx x, int code, int outer_code, int *total)
+hppa_rtx_costs (rtx x, int code, int outer_code, int *total,
+		bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -3984,23 +3987,18 @@ load_reg (int reg, HOST_WIDE_INT disp, int base)
 /* Update the total code bytes output to the text section.  */
 
 static void
-update_total_code_bytes (int nbytes)
+update_total_code_bytes (unsigned int nbytes)
 {
   if ((TARGET_PORTABLE_RUNTIME || !TARGET_GAS || !TARGET_SOM)
       && !IN_NAMED_SECTION_P (cfun->decl))
     {
-      if (INSN_ADDRESSES_SET_P ())
-	{
-	  unsigned long old_total = total_code_bytes;
+      unsigned int old_total = total_code_bytes;
 
-	  total_code_bytes += nbytes;
+      total_code_bytes += nbytes;
 
-	  /* Be prepared to handle overflows.  */
-	  if (old_total > total_code_bytes)
-	    total_code_bytes = -1;
-	}
-      else
-	total_code_bytes = -1;
+      /* Be prepared to handle overflows.  */
+      if (old_total > total_code_bytes)
+        total_code_bytes = UINT_MAX;
     }
 }
 
@@ -4064,6 +4062,8 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       last_address = ((last_address + FUNCTION_BOUNDARY / BITS_PER_UNIT - 1)
 		      & ~(FUNCTION_BOUNDARY / BITS_PER_UNIT - 1));
     }
+  else
+    last_address = UINT_MAX;
 
   /* Finally, update the total number of code bytes output so far.  */
   update_total_code_bytes (last_address);
@@ -5684,19 +5684,19 @@ output_arg_descriptor (rtx call_insn)
 }
 
 static enum reg_class
-pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
+pa_secondary_reload (bool in_p, rtx x, enum reg_class rclass,
 		     enum machine_mode mode, secondary_reload_info *sri)
 {
   int is_symbolic, regno;
 
   /* Handle the easy stuff first.  */
-  if (class == R1_REGS)
+  if (rclass == R1_REGS)
     return NO_REGS;
 
   if (REG_P (x))
     {
       regno = REGNO (x);
-      if (class == BASE_REG_CLASS && regno < FIRST_PSEUDO_REGISTER)
+      if (rclass == BASE_REG_CLASS && regno < FIRST_PSEUDO_REGISTER)
 	return NO_REGS;
     }
   else
@@ -5712,7 +5712,7 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
      generation requires %r1 as a scratch register.  */
   if (flag_pic
       && (mode == SImode || mode == DImode)
-      && FP_REG_CLASS_P (class)
+      && FP_REG_CLASS_P (rclass)
       && (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE))
     {
       sri->icode = (mode == SImode ? CODE_FOR_reload_insi_r1
@@ -5735,7 +5735,7 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
      memory loads and stores.  */
   if ((regno >= FIRST_PSEUDO_REGISTER || regno == -1)
       && GET_MODE_CLASS (mode) == MODE_INT
-      && FP_REG_CLASS_P (class))
+      && FP_REG_CLASS_P (rclass))
     {
       /* Reload passes (mem:SI (reg/f:DI 30 %r30) when it wants to check
 	 the secondary reload needed for a pseudo.  It never passes a
@@ -5767,7 +5767,7 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
 
   /* We need a secondary register (GPR) for copies between the SAR
      and anything other than a general register.  */
-  if (class == SHIFT_REGS && (regno <= 0 || regno >= 32))
+  if (rclass == SHIFT_REGS && (regno <= 0 || regno >= 32))
     {
       sri->icode = in_p ? reload_in_optab[mode] : reload_out_optab[mode];
       return NO_REGS;
@@ -5777,7 +5777,7 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
      well as secondary memory.  */
   if (regno >= 0 && regno < FIRST_PSEUDO_REGISTER
       && (REGNO_REG_CLASS (regno) == SHIFT_REGS
-      && FP_REG_CLASS_P (class)))
+      && FP_REG_CLASS_P (rclass)))
     {
       sri->icode = in_p ? reload_in_optab[mode] : reload_out_optab[mode];
       return NO_REGS;
@@ -5886,7 +5886,11 @@ enum direction
 function_arg_padding (enum machine_mode mode, const_tree type)
 {
   if (mode == BLKmode
-      || (TARGET_64BIT && type && AGGREGATE_TYPE_P (type)))
+      || (TARGET_64BIT
+	  && type
+	  && (AGGREGATE_TYPE_P (type)
+	      || TREE_CODE (type) == COMPLEX_TYPE
+	      || TREE_CODE (type) == VECTOR_TYPE)))
     {
       /* Return none if justification is not required.  */
       if (type
@@ -5998,7 +6002,8 @@ hppa_va_start (tree valist, rtx nextarg)
 }
 
 static tree
-hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
+hppa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+			   gimple_seq *post_p)
 {
   if (TARGET_64BIT)
     {
@@ -7374,11 +7379,13 @@ int
 attr_length_call (rtx insn, int sibcall)
 {
   int local_call;
-  rtx call_dest;
+  rtx call, call_dest;
   tree call_decl;
   int length = 0;
   rtx pat = PATTERN (insn);
   unsigned long distance = -1;
+
+  gcc_assert (GET_CODE (insn) == CALL_INSN);
 
   if (INSN_ADDRESSES_SET_P ())
     {
@@ -7390,12 +7397,17 @@ attr_length_call (rtx insn, int sibcall)
 	distance = -1;
     }
 
-  /* Determine if this is a local call.  */
-  if (GET_CODE (XVECEXP (pat, 0, 0)) == CALL)
-    call_dest = XEXP (XEXP (XVECEXP (pat, 0, 0), 0), 0);
-  else
-    call_dest = XEXP (XEXP (XEXP (XVECEXP (pat, 0, 0), 1), 0), 0);
+  gcc_assert (GET_CODE (pat) == PARALLEL);
 
+  /* Get the call rtx.  */
+  call = XVECEXP (pat, 0, 0);
+  if (GET_CODE (call) == SET)
+    call = SET_SRC (call);
+
+  gcc_assert (GET_CODE (call) == CALL);
+
+  /* Determine if this is a local call.  */
+  call_dest = XEXP (XEXP (call, 0), 0);
   call_decl = SYMBOL_REF_DECL (call_dest);
   local_call = call_decl && targetm.binds_local_p (call_decl);
 
@@ -7533,7 +7545,9 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 	  if (seq_length != 0
 	      && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN
 	      && !sibcall
-	      && (!TARGET_PA_20 || indirect_call))
+	      && (!TARGET_PA_20
+		  || indirect_call
+		  || ((TARGET_LONG_ABS_CALL || local_call) && !flag_pic)))
 	    {
 	      /* A non-jump insn in the delay slot.  By definition we can
 		 emit this insn before the call (and in fact before argument
@@ -7928,7 +7942,7 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 {
   static unsigned int current_thunk_number;
   int val_14 = VAL_14_BITS_P (delta);
-  int nbytes = 0;
+  unsigned int old_last_address = last_address, nbytes = 0;
   char label[16];
   rtx xoperands[4];
 
@@ -7967,6 +7981,10 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 		   || ((DECL_SECTION_NAME (thunk_fndecl)
 			== DECL_SECTION_NAME (function))
 		       && last_address < 262132)))
+	      || (targetm.have_named_sections
+		  && DECL_SECTION_NAME (thunk_fndecl) == NULL
+		  && DECL_SECTION_NAME (function) == NULL
+		  && last_address < 262132)
 	      || (!targetm.have_named_sections && last_address < 262132))))
     {
       if (!val_14)
@@ -8161,6 +8179,8 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
   nbytes = ((nbytes + FUNCTION_BOUNDARY / BITS_PER_UNIT - 1)
 	    & ~(FUNCTION_BOUNDARY / BITS_PER_UNIT - 1));
   last_address += nbytes;
+  if (old_last_address > last_address)
+    last_address = UINT_MAX;
   update_total_code_bytes (nbytes);
 }
 
@@ -8830,7 +8850,7 @@ pa_reorg (void)
 static void
 pa_combine_instructions (void)
 {
-  rtx anchor, new;
+  rtx anchor, new_rtx;
 
   /* This can get expensive since the basic algorithm is on the
      order of O(n^2) (or worse).  Only do it for -O2 or higher
@@ -8842,8 +8862,8 @@ pa_combine_instructions (void)
      may be combined with "floating" insns.  As the name implies,
      "anchor" instructions don't move, while "floating" insns may
      move around.  */
-  new = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, NULL_RTX, NULL_RTX));
-  new = make_insn_raw (new);
+  new_rtx = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, NULL_RTX, NULL_RTX));
+  new_rtx = make_insn_raw (new_rtx);
 
   for (anchor = get_insns (); anchor; anchor = NEXT_INSN (anchor))
     {
@@ -8899,7 +8919,7 @@ pa_combine_instructions (void)
 		{
 		  /* If ANCHOR and FLOATER can be combined, then we're
 		     done with this pass.  */
-		  if (pa_can_combine_p (new, anchor, floater, 0,
+		  if (pa_can_combine_p (new_rtx, anchor, floater, 0,
 					SET_DEST (PATTERN (floater)),
 					XEXP (SET_SRC (PATTERN (floater)), 0),
 					XEXP (SET_SRC (PATTERN (floater)), 1)))
@@ -8911,7 +8931,7 @@ pa_combine_instructions (void)
 		{
 		  if (GET_CODE (SET_SRC (PATTERN (floater))) == PLUS)
 		    {
-		      if (pa_can_combine_p (new, anchor, floater, 0,
+		      if (pa_can_combine_p (new_rtx, anchor, floater, 0,
 					    SET_DEST (PATTERN (floater)),
 					XEXP (SET_SRC (PATTERN (floater)), 0),
 					XEXP (SET_SRC (PATTERN (floater)), 1)))
@@ -8919,7 +8939,7 @@ pa_combine_instructions (void)
 		    }
 		  else
 		    {
-		      if (pa_can_combine_p (new, anchor, floater, 0,
+		      if (pa_can_combine_p (new_rtx, anchor, floater, 0,
 					    SET_DEST (PATTERN (floater)),
 					    SET_SRC (PATTERN (floater)),
 					    SET_SRC (PATTERN (floater))))
@@ -8961,7 +8981,7 @@ pa_combine_instructions (void)
 		    {
 		      /* If ANCHOR and FLOATER can be combined, then we're
 			 done with this pass.  */
-		      if (pa_can_combine_p (new, anchor, floater, 1,
+		      if (pa_can_combine_p (new_rtx, anchor, floater, 1,
 					    SET_DEST (PATTERN (floater)),
 					    XEXP (SET_SRC (PATTERN (floater)),
 						  0),
@@ -9020,7 +9040,7 @@ pa_combine_instructions (void)
 }
 
 static int
-pa_can_combine_p (rtx new, rtx anchor, rtx floater, int reversed, rtx dest,
+pa_can_combine_p (rtx new_rtx, rtx anchor, rtx floater, int reversed, rtx dest,
 		  rtx src1, rtx src2)
 {
   int insn_code_number;
@@ -9033,12 +9053,12 @@ pa_can_combine_p (rtx new, rtx anchor, rtx floater, int reversed, rtx dest,
      If the pattern doesn't match or the constraints
      aren't met keep searching for a suitable floater
      insn.  */
-  XVECEXP (PATTERN (new), 0, 0) = PATTERN (anchor);
-  XVECEXP (PATTERN (new), 0, 1) = PATTERN (floater);
-  INSN_CODE (new) = -1;
-  insn_code_number = recog_memoized (new);
+  XVECEXP (PATTERN (new_rtx), 0, 0) = PATTERN (anchor);
+  XVECEXP (PATTERN (new_rtx), 0, 1) = PATTERN (floater);
+  INSN_CODE (new_rtx) = -1;
+  insn_code_number = recog_memoized (new_rtx);
   if (insn_code_number < 0
-      || (extract_insn (new), ! constrain_operands (1)))
+      || (extract_insn (new_rtx), ! constrain_operands (1)))
     return 0;
 
   if (reversed)
@@ -9651,11 +9671,11 @@ pa_hpux_file_end (void)
 #endif
 
 /* Return true if a change from mode FROM to mode TO for a register
-   in register class CLASS is invalid.  */
+   in register class RCLASS is invalid.  */
 
 bool
 pa_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
-			     enum reg_class class)
+			     enum reg_class rclass)
 {
   if (from == to)
     return false;
@@ -9673,7 +9693,7 @@ pa_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
      On the 64-bit target, this conflicts with the definition of
      LOAD_EXTEND_OP.  Thus, we can't allow changing between modes
      with different sizes in the floating-point registers.  */
-  if (MAYBE_FP_REG_CLASS_P (class))
+  if (MAYBE_FP_REG_CLASS_P (rclass))
     return true;
 
   /* HARD_REGNO_MODE_OK places modes with sizes larger than a word

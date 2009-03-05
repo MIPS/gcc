@@ -1,5 +1,5 @@
 ;; Constraint definitions for MIPS.
-;; Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -43,8 +43,10 @@
 (define_register_constraint "b" "ALL_REGS"
   "@internal")
 
-(define_register_constraint "c" "TARGET_USE_PIC_FN_ADDR_REG ? PIC_FN_ADDR_REG
-				 : TARGET_MIPS16 ? M16_NA_REGS
+;; MIPS16 code always calls through a MIPS16 register; see mips_emit_call_insn
+;; for details.
+(define_register_constraint "c" "TARGET_MIPS16 ? M16_REGS
+				 : TARGET_USE_PIC_FN_ADDR_REG ? PIC_FN_ADDR_REG
 				 : GR_REGS"
   "A register suitable for use in an indirect jump.  This will always be
    @code{$25} for @option{-mabicalls}.")

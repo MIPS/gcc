@@ -1,4 +1,4 @@
-/* Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -344,39 +344,6 @@ struct gomp_thread
   struct gomp_thread_pool *thread_pool;
 };
 
-/* This structure represents a stream between tasks.  */
-
-typedef struct gomp_stream
-{
-  /* Offset in bytes of the sliding reading window.  Read window is of
-     size LOCAL_BUFFER_SIZE bytes.  */
-  unsigned read_buffer_index;
-
-  /* Offset in bytes of the first used element in the stream.  */
-  unsigned read_index;
-
-  /* Offset in bytes of the sliding writing window.  Writing window is
-     of size LOCAL_BUFFER_SIZE bytes.  */
-  unsigned write_buffer_index;
-
-  /* Offset in bytes of the first empty element in the stream.  */
-  unsigned write_index;
-
-  /* Size in bytes of sub-buffers for unsynchronized reads and writes.  */
-  unsigned size_local_buffer;
-
-  /* End of stream: true when producer has finished inserting elements.  */
-  bool eos_p;
-
-  /* Size in bytes of an element in the stream.  */
-  size_t size_elt;
-
-  /* Number of bytes in the circular buffer.  */
-  unsigned capacity;
-
-  /* Circular buffer.  */
-  char *buffer;
-} *gomp_stream;
 
 struct gomp_thread_pool
 {
@@ -499,18 +466,6 @@ extern unsigned gomp_resolve_num_threads (unsigned, unsigned);
 extern void gomp_init_num_threads (void);
 extern unsigned gomp_dynamic_max_threads (void);
 
-/* stream.c */
-
-extern gomp_stream gomp_stream_create (size_t, unsigned);
-extern void gomp_stream_push (gomp_stream, char *);
-extern char *gomp_stream_head (gomp_stream);
-extern void gomp_stream_pop (gomp_stream);
-extern bool gomp_stream_eos_p (gomp_stream);
-extern void gomp_stream_set_eos (gomp_stream);
-extern void gomp_stream_destroy (gomp_stream);
-extern void gomp_stream_align_push (gomp_stream, char *, int);
-extern void gomp_stream_align_pop (gomp_stream, int);
-
 /* task.c */
 
 extern void gomp_init_task (struct gomp_task *, struct gomp_task *,
@@ -561,6 +516,7 @@ gomp_work_share_init_done (void)
 
 #if !defined (HAVE_ATTRIBUTE_VISIBILITY) \
     || !defined (HAVE_ATTRIBUTE_ALIAS) \
+    || !defined (HAVE_AS_SYMVER_DIRECTIVE) \
     || !defined (PIC)
 # undef LIBGOMP_GNU_SYMBOL_VERSIONING
 #endif

@@ -1,6 +1,6 @@
 // Pair implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -151,7 +151,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     operator==(const pair<_T1, _T2>& __x, const pair<_T1, _T2>& __y)
     { return __x.first == __y.first && __x.second == __y.second; }
 
-  /// <http://gcc.gnu.org/onlinedocs/libstdc++/20_util/howto.html#pairlt>
+  /// <http://gcc.gnu.org/onlinedocs/libstdc++/manual/utilities.html>
   template<class _T1, class _T2>
     inline bool
     operator<(const pair<_T1, _T2>& __x, const pair<_T1, _T2>& __y)
@@ -184,6 +184,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
   /// See std::pair::swap().
+  // Note:  no std::swap overloads in C++03 mode, this has performance
+  //        implications, see, eg, libstdc++/38466.
   template<class _T1, class _T2>
     inline void
     swap(pair<_T1, _T2>& __x, pair<_T1, _T2>& __y)

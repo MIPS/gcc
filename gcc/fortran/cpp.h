@@ -36,11 +36,12 @@ int gfc_cpp_handle_option(size_t scode, const char *arg, int value);
 
 void gfc_cpp_post_options (void);
 
-try gfc_cpp_preprocess (const char *source_file);
+gfc_try gfc_cpp_preprocess (const char *source_file);
 
 void gfc_cpp_done (void);
 
 void gfc_cpp_add_include_path (char *path, bool user_supplied);
+void gfc_cpp_add_include_path_after (char *path, bool user_supplied);
 
 void gfc_cpp_register_include_paths (void);
 

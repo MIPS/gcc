@@ -664,7 +664,7 @@ insn_current_reference_address (rtx branch)
 /* Compute branch alignments based on frequency information in the
    CFG.  */
 
-static unsigned int
+unsigned int
 compute_alignments (void)
 {
   int log, max_skip, max_log;
@@ -683,7 +683,7 @@ compute_alignments (void)
   label_align = XCNEWVEC (struct label_alignment, max_labelno - min_labelno + 1);
 
   /* If not optimizing or optimizing for size, don't assign any alignments.  */
-  if (! optimize || optimize_size)
+  if (! optimize || optimize_function_for_size_p (cfun))
     return 0;
 
   if (dump_file)
@@ -707,7 +707,7 @@ compute_alignments (void)
       edge_iterator ei;
 
       if (!LABEL_P (label)
-	  || probably_never_executed_bb_p (bb))
+	  || optimize_bb_for_size_p (bb))
 	{
 	  if (dump_file)
 	    fprintf(dump_file, "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
@@ -765,7 +765,7 @@ compute_alignments (void)
       /* In case block is frequent and reached mostly by non-fallthru edge,
 	 align it.  It is most likely a first block of loop.  */
       if (has_fallthru
-	  && maybe_hot_bb_p (bb)
+	  && optimize_bb_for_speed_p (bb)
 	  && branch_frequency + fallthru_frequency > freq_threshold
 	  && (branch_frequency
 	      > fallthru_frequency * PARAM_VALUE (PARAM_ALIGN_LOOP_ITERATIONS)))
@@ -784,7 +784,10 @@ compute_alignments (void)
     }
 
   if (dump_file)
-    loop_optimizer_finalize ();
+    {
+      loop_optimizer_finalize ();
+      free_dominance_info (CDI_DOMINATORS);
+    }
   return 0;
 }
 
@@ -1744,6 +1747,34 @@ output_alternate_entry_point (FILE *file, rtx insn)
     }
 }
 
+/* Given a CALL_INSN, find and return the nested CALL. */
+static rtx
+call_from_call_insn (rtx insn)
+{
+  rtx x;
+  gcc_assert (CALL_P (insn));
+  x = PATTERN (insn);
+
+  while (GET_CODE (x) != CALL)
+    {
+      switch (GET_CODE (x))
+	{
+	default:
+	  gcc_unreachable ();
+	case COND_EXEC:
+	  x = COND_EXEC_CODE (x);
+	  break;
+	case PARALLEL:
+	  x = XVECEXP (x, 0, 0);
+	  break;
+	case SET:
+	  x = XEXP (x, 1);
+	  break;
+	}
+    }
+  return x;
+}
+
 /* The final scan for one insn, INSN.
    Args are same as in `final', except that INSN
    is the insn being scanned.
@@ -1979,11 +2010,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       if (LABEL_NAME (insn))
 	(*debug_hooks->label) (insn);
 
-      if (app_on)
-	{
-	  fputs (ASM_APP_OFF, file);
-	  app_on = 0;
-	}
+      app_disable ();
 
       next = next_nonnote_insn (insn);
       if (next != 0 && JUMP_P (next))
@@ -2083,11 +2110,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    else
 	      switch_to_section (current_function_section ());
 
-	    if (app_on)
-	      {
-		fputs (ASM_APP_OFF, file);
-		app_on = 0;
-	      }
+	    app_disable ();
 
 #if defined(ASM_OUTPUT_ADDR_VEC) || defined(ASM_OUTPUT_ADDR_DIFF_VEC)
 	    if (GET_CODE (body) == ADDR_VEC)
@@ -2161,11 +2184,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	      {
 		expanded_location loc;
 
-		if (! app_on)
-		  {
-		    fputs (ASM_APP_ON, file);
-		    app_on = 1;
-		  }
+		app_enable ();
 		loc = expand_location (ASM_INPUT_SOURCE_LOCATION (body));
 		if (*loc.file && loc.line)
 		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
@@ -2205,11 +2224,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    /* Output the insn using them.  */
 	    if (string[0])
 	      {
-		if (! app_on)
-		  {
-		    fputs (ASM_APP_ON, file);
-		    app_on = 1;
-		  }
+		app_enable ();
 		if (expanded.file && expanded.line)
 		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
 			   ASM_COMMENT_START, expanded.line, expanded.file);
@@ -2224,11 +2239,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    break;
 	  }
 
-	if (app_on)
-	  {
-	    fputs (ASM_APP_OFF, file);
-	    app_on = 0;
-	  }
+	app_disable ();
 
 	if (GET_CODE (body) == SEQUENCE)
 	  {
@@ -2608,6 +2619,20 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	   before get_insn_template breaks if the insns is split.  */
 	targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
+
+	if (CALL_P (insn))
+	  {
+	    rtx x = call_from_call_insn (insn);
+	    x = XEXP (x, 0);
+	    if (x && MEM_P (x) && GET_CODE (XEXP (x, 0)) == SYMBOL_REF)
+	      {
+		tree t;
+		x = XEXP (x, 0);
+		t = SYMBOL_REF_DECL (x);
+		if (t)
+		  assemble_external (t);
+	      }
+	  }
 
 	/* Output assembler code from the template.  */
 	output_asm_insn (templ, recog_data.operand);
@@ -3324,6 +3349,40 @@ output_asm_label (rtx x)
   assemble_name (asm_out_file, buf);
 }
 
+/* Helper rtx-iteration-function for mark_symbol_refs_as_used and
+   output_operand.  Marks SYMBOL_REFs as referenced through use of
+   assemble_external.  */
+
+static int
+mark_symbol_ref_as_used (rtx *xp, void *dummy ATTRIBUTE_UNUSED)
+{
+  rtx x = *xp;
+
+  /* If we have a used symbol, we may have to emit assembly
+     annotations corresponding to whether the symbol is external, weak
+     or has non-default visibility.  */
+  if (GET_CODE (x) == SYMBOL_REF)
+    {
+      tree t;
+
+      t = SYMBOL_REF_DECL (x);
+      if (t)
+	assemble_external (t);
+
+      return -1;
+    }
+
+  return 0;
+}
+
+/* Marks SYMBOL_REFs in x as referenced through use of assemble_external.  */
+
+void
+mark_symbol_refs_as_used (rtx x)
+{
+  for_each_rtx (&x, mark_symbol_ref_as_used, NULL);
+}
+
 /* Print operand X using machine-dependent assembler syntax.
    The macro PRINT_OPERAND is defined just to control this function.
    CODE is a non-digit that preceded the operand-number in the % spec,
@@ -3344,14 +3403,11 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
   gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
 
   PRINT_OPERAND (asm_out_file, x, code);
-  if (x && MEM_P (x) && GET_CODE (XEXP (x, 0)) == SYMBOL_REF)
-    {
-      tree t;
-      x = XEXP (x, 0);
-      t = SYMBOL_REF_DECL (x);
-      if (t)
-	assemble_external (t);
-    }
+
+  if (x == NULL_RTX)
+    return;
+
+  for_each_rtx (&x, mark_symbol_ref_as_used, NULL);
 }
 
 /* Print a memory reference operand for address X
@@ -3384,7 +3440,10 @@ output_addr_const (FILE *file, rtx x)
 
     case SYMBOL_REF:
       if (SYMBOL_REF_DECL (x))
-	mark_decl_referenced (SYMBOL_REF_DECL (x));
+	{
+	  mark_decl_referenced (SYMBOL_REF_DECL (x));
+	  assemble_external (SYMBOL_REF_DECL (x));
+	}
 #ifdef ASM_OUTPUT_SYMBOL_REF
       ASM_OUTPUT_SYMBOL_REF (file, x);
 #else
@@ -4140,6 +4199,10 @@ rest_of_handle_final (void)
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (current_function_decl);
   timevar_pop (TV_SYMOUT);
+
+  /* Release the blocks that are linked to DECL_INITIAL() to free the memory.  */
+  DECL_INITIAL (current_function_decl) = error_mark_node;
+
   if (DECL_STATIC_CONSTRUCTOR (current_function_decl)
       && targetm.have_ctors_dtors)
     targetm.asm_out.constructor (XEXP (DECL_RTL (current_function_decl), 0),

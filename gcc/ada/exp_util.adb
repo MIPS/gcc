@@ -1581,7 +1581,12 @@ package body Exp_Util is
                 or else Etype (First_Entity (Op)) = Etype (Last_Entity (Op)));
 
          Next_Elmt (Prim);
-         pragma Assert (Present (Prim));
+
+         --  Raise Program_Error if no primitive found
+
+         if No (Prim) then
+            raise Program_Error;
+         end if;
       end loop;
 
       return Node (Prim);
@@ -1608,7 +1613,12 @@ package body Exp_Util is
       Prim := First_Elmt (Primitive_Operations (Typ));
       while not Is_TSS (Node (Prim), Name) loop
          Next_Elmt (Prim);
-         pragma Assert (Present (Prim));
+
+         --  Raise program error if no primitive found
+
+         if No (Prim) then
+            raise Program_Error;
+         end if;
       end loop;
 
       return Node (Prim);
@@ -1885,7 +1895,7 @@ package body Exp_Util is
 
                --  If the variable reference does not come from source, we
                --  cannot reliably tell whether it appears in the else part.
-               --  In particular, if if appears in generated code for a node
+               --  In particular, if it appears in generated code for a node
                --  that requires finalization, it may be attached to a list
                --  that has not been yet inserted into the code. For now,
                --  treat it as unknown.
@@ -4523,7 +4533,7 @@ package body Exp_Util is
       elsif Nkind (Exp) = N_Unchecked_Type_Conversion
         and then not Safe_Unchecked_Type_Conversion (Exp)
       then
-         if CW_Or_Controlled_Type (Exp_Type) then
+         if CW_Or_Has_Controlled_Part (Exp_Type) then
 
             --  Use a renaming to capture the expression, rather than create
             --  a controlled temporary.

@@ -1,6 +1,6 @@
 /* DWARF2 exception handling and frame unwind runtime interface routines.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+   2008  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -492,6 +492,14 @@ execute_stack_op (const unsigned char *op_ptr, const unsigned char *op_end,
 	case DW_OP_addr:
 	  result = (_Unwind_Word) (_Unwind_Ptr) read_pointer (op_ptr);
 	  op_ptr += sizeof (void *);
+	  break;
+
+	case DW_OP_GNU_encoded_addr:
+	  {
+	    _Unwind_Ptr presult;
+	    op_ptr = read_encoded_value (context, *op_ptr, op_ptr+1, &presult);
+	    result = presult;
+	  }
 	  break;
 
 	case DW_OP_const1u:

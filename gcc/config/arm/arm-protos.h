@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in arm.c and pe.c
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
@@ -24,6 +24,7 @@
 #define GCC_ARM_PROTOS_H
 
 extern void arm_override_options (void);
+extern void arm_optimization_options (int, int);
 extern int use_return_insn (int, rtx);
 extern int arm_regno_class (int);
 extern void arm_load_pic_register (unsigned long);
@@ -122,6 +123,7 @@ extern const char *fp_immediate_constant (rtx);
 extern void arm_emit_call_insn (rtx, rtx);
 extern const char *output_call (rtx *);
 extern const char *output_call_mem (rtx *);
+void arm_emit_movpair (rtx, rtx);
 extern const char *output_mov_long_double_fpa_from_arm (rtx *);
 extern const char *output_mov_long_double_arm_from_fpa (rtx *);
 extern const char *output_mov_long_double_arm_from_arm (rtx *);
@@ -207,5 +209,7 @@ extern void arm_pr_long_calls_off (struct cpp_reader *);
 extern void arm_lang_object_attributes_init(void);
 
 extern const char *arm_mangle_type (const_tree);
+
+extern void arm_order_regs_for_local_alloc (void);
 
 #endif /* ! GCC_ARM_PROTOS_H */

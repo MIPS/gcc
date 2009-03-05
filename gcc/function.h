@@ -1,6 +1,6 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -311,6 +311,9 @@ struct rtl_data GTY(())
      needed by inner routines.  */
   rtx x_arg_pointer_save_area;
 
+  /* Dynamic Realign Argument Pointer used for realigning stack.  */
+  rtx drap_reg;
+
   /* Offset to end of allocated area of stack frame.
      If stack grows down, this is the address of the last stack slot allocated.
      If stack grows up, this is the address for the next slot.  */
@@ -328,11 +331,28 @@ struct rtl_data GTY(())
   /* Current nesting level for temporaries.  */
   int x_temp_slot_level;
 
-  /* The largest alignment of slot allocated on the stack.  */
+  /* The largest alignment needed on the stack, including requirement
+     for outgoing stack alignment.  */
   unsigned int stack_alignment_needed;
 
-  /* Preferred alignment of the end of stack frame.  */
+  /* Preferred alignment of the end of stack frame, which is preferred
+     to call other functions.  */
   unsigned int preferred_stack_boundary;
+
+  /* The minimum alignment of parameter stack.  */
+  unsigned int parm_stack_boundary;
+
+  /* The largest alignment of slot allocated on the stack.  */
+  unsigned int max_used_stack_slot_alignment;
+
+  /* The stack alignment estimated before reload, with consideration of
+     following factors:
+     1. Alignment of local stack variables (max_used_stack_slot_alignment)
+     2. Alignment requirement to call other functions 
+        (preferred_stack_boundary)
+     3. Alignment of non-local stack variables but might be spilled in
+        local stack.  */
+  unsigned int stack_alignment_estimated;
 
   /* For reorg.  */
 
@@ -393,10 +413,40 @@ struct rtl_data GTY(())
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   bool arg_pointer_save_area_init;
 
-  /* Nonzero means current function must be given a frame pointer.
-     Set in stmt.c if anything is allocated on the stack there.
-     Set in reload1.c if anything is allocated on the stack there.  */
+  /* Nonzero if current function must be given a frame pointer.
+     Set in global.c if anything is allocated on the stack there.  */
   bool frame_pointer_needed;
+
+  /* When set, expand should optimize for speed.  */
+  bool maybe_hot_insn_p;
+
+  /* Nonzero if function stack realignment is needed.  This flag may be
+     set twice: before and after reload.  It is set before reload wrt
+     stack alignment estimation before reload.  It will be changed after
+     reload if by then criteria of stack realignment is different.
+     The value set after reload is the accurate one and is finalized.  */
+  bool stack_realign_needed;
+
+  /* Nonzero if function stack realignment is tried.  This flag is set
+     only once before reload.  It affects register elimination.  This
+     is used to generate DWARF debug info for stack variables.  */
+  bool stack_realign_tried;
+
+  /* Nonzero if function being compiled needs dynamic realigned
+     argument pointer (drap) if stack needs realigning.  */
+  bool need_drap;
+
+  /* Nonzero if function stack realignment estimation is done, namely
+     stack_realign_needed flag has been set before reload wrt estimated
+     stack alignment info.  */
+  bool stack_realign_processed;
+
+  /* Nonzero if function stack realignment has been finalized, namely
+     stack_realign_needed flag has been set and finalized after reload.  */
+  bool stack_realign_finalized;
+
+  /* True if dbr_schedule has already been called for this function.  */
+  bool dbr_scheduled_p;
 };
 
 #define return_label (crtl->x_return_label)
@@ -411,6 +461,8 @@ struct rtl_data GTY(())
 #define temp_slot_level (crtl->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (crtl->x_nonlocal_goto_handler_labels)
 #define frame_pointer_needed (crtl->frame_pointer_needed)
+#define stack_realign_fp (crtl->stack_realign_needed && !crtl->need_drap)
+#define stack_realign_drap (crtl->stack_realign_needed && crtl->need_drap)
 
 extern GTY(()) struct rtl_data x_rtl;
 
@@ -428,6 +480,10 @@ struct function GTY(())
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
+
+  /* GIMPLE body for this function.  */
+  struct gimple_seq_d *gimple_body;
+
   /* SSA and dataflow information.  */
   struct gimple_df *gimple_df;
 
@@ -441,9 +497,6 @@ struct function GTY(())
 
   /* Points to the FUNCTION_DECL of this function.  */
   tree decl;
-
-  /* Function containing this function, if any.  */
-  struct function *outer;
 
   /* A PARM_DECL that should contain the static chain for this function.
      It will be initialized at the beginning of the function.  */
@@ -473,6 +526,9 @@ struct function GTY(())
 
   /* Last statement uid.  */
   int last_stmt_uid;
+
+  /* Line number of the start of the function for debugging purposes.  */
+  location_t function_start_locus;
 
   /* Line number of the end of the function.  */
   location_t function_end_locus;
@@ -525,6 +581,7 @@ struct function GTY(())
   unsigned int dont_save_pending_sizes_p : 1;
 
   unsigned int after_inlining : 1;
+  unsigned int always_inline_functions_inlined : 1;
 
   /* Fields below this point are not set for abstract functions; see
      allocate_struct_function.  */
@@ -539,6 +596,10 @@ struct function GTY(())
 
   /* Nonzero if pass_tree_profile was run on this function.  */
   unsigned int after_tree_profile : 1;
+
+  /* Nonzero if this function has local DECL_HARD_REGISTER variables.
+     In this case code motion has to be done more carefully.  */
+  unsigned int has_local_explicit_reg_vars : 1;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how
@@ -553,9 +614,6 @@ extern GTY(()) struct function *cfun;
    that it is not an lvalue.  Rather than assign to cfun, use
    push_cfun or set_cfun.  */
 #define cfun (cfun + 0)
-
-/* Pointer to chain of `struct function' for containing functions.  */
-extern GTY(()) struct function *outer_function_chain;
 
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
@@ -576,10 +634,6 @@ extern void instantiate_decl_rtl (rtx x);
 #define dom_computed (cfun->cfg->x_dom_computed)
 #define n_bbs_in_dom_tree (cfun->cfg->x_n_bbs_in_dom_tree)
 #define VALUE_HISTOGRAMS(fun) (fun)->value_histograms
-
-/* Given a function decl for a containing function,
-   return the `struct function' for it.  */
-struct function *find_function_data (tree);
 
 /* Identify BLOCKs referenced by more than one NOTE_INSN_BLOCK_{BEG,END},
    and create duplicate blocks.  */

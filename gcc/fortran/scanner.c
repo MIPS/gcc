@@ -1,5 +1,5 @@
 /* Character scanner.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -307,7 +307,7 @@ gfc_scanner_done_1 (void)
 
 static void
 add_path_to_list (gfc_directorylist **list, const char *path,
-		  bool use_for_modules)
+		  bool use_for_modules, bool head)
 {
   gfc_directorylist *dir;
   const char *p;
@@ -317,11 +317,15 @@ add_path_to_list (gfc_directorylist **list, const char *path,
     if (*p++ == '\0')
       return;
 
-  dir = *list;
-  if (!dir)
-    dir = *list = XCNEW (gfc_directorylist);
+  if (head || *list == NULL)
+    {
+      dir = XCNEW (gfc_directorylist);
+      if (!head)
+        *list = dir;
+    }
   else
     {
+      dir = *list;
       while (dir->next)
 	dir = dir->next;
 
@@ -329,7 +333,9 @@ add_path_to_list (gfc_directorylist **list, const char *path,
       dir = dir->next;
     }
 
-  dir->next = NULL;
+  dir->next = head ? *list : NULL;
+  if (head)
+    *list = dir;
   dir->use_for_modules = use_for_modules;
   dir->path = XCNEWVEC (char, strlen (p) + 2);
   strcpy (dir->path, p);
@@ -338,17 +344,20 @@ add_path_to_list (gfc_directorylist **list, const char *path,
 
 
 void
-gfc_add_include_path (const char *path, bool use_for_modules)
+gfc_add_include_path (const char *path, bool use_for_modules, bool file_dir)
 {
-  add_path_to_list (&include_dirs, path, use_for_modules);
-  gfc_cpp_add_include_path (xstrdup(path), true);
+  add_path_to_list (&include_dirs, path, use_for_modules, file_dir);
+
+  /* For '#include "..."' these directories are automatically searched.  */
+  if (!file_dir)
+    gfc_cpp_add_include_path (xstrdup(path), true);
 }
 
 
 void
 gfc_add_intrinsic_modules_path (const char *path)
 {
-  add_path_to_list (&intrinsic_modules_dirs, path, true);
+  add_path_to_list (&intrinsic_modules_dirs, path, true, false);
 }
 
 
@@ -1460,6 +1469,9 @@ load_line (FILE *input, gfc_char_t **pbuf, int *pbuflen, const int *first_char)
 	  for (;;)
 	    {
 	      c = getc (input);
+	      if (c == '\r')
+	        continue;
+
 	      if (c == '\n' || c == EOF)
 		break;
 
@@ -1672,7 +1684,7 @@ preprocessor_line (gfc_char_t *c)
 }
 
 
-static try load_file (const char *, const char *, bool);
+static gfc_try load_file (const char *, const char *, bool);
 
 /* include_line()-- Checks a line buffer to see if it is an include
    line.  If so, we call load_file() recursively to load the included
@@ -1751,7 +1763,7 @@ include_line (gfc_char_t *line)
 
 /* Load a file into memory by calling load_line until the file ends.  */
 
-static try
+static gfc_try
 load_file (const char *realfilename, const char *displayedname, bool initial)
 {
   gfc_char_t *line;
@@ -1767,7 +1779,9 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
   for (f = current_file; f; f = f->up)
     if (strcmp (filename, f->filename) == 0)
       {
-	gfc_error_now ("File '%s' is being included recursively", filename);
+	fprintf (stderr, "%s:%d: Error: File '%s' is being included "
+		 "recursively\n", current_file->filename, current_file->line,
+		 filename);
 	return FAILURE;
       }
 
@@ -1791,7 +1805,8 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
       input = gfc_open_included_file (realfilename, false, false);
       if (input == NULL)
 	{
-	  gfc_error_now ("Can't open included file '%s'", filename);
+	  fprintf (stderr, "%s:%d: Error: Can't open included file '%s'\n",
+		   current_file->filename, current_file->line, filename);
 	  return FAILURE;
 	}
     }
@@ -1921,10 +1936,10 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
    it tries to determine the source form from the filename, defaulting
    to free form.  */
 
-try
+gfc_try
 gfc_new_file (void)
 {
-  try result;
+  gfc_try result;
 
   if (gfc_cpp_enabled ())
     {

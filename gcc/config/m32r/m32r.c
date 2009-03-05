@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the Renesas M32R cpu.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2007 Free Software Foundation, Inc.
+   2005, 2007, 2008 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -85,7 +85,7 @@ static bool m32r_return_in_memory (const_tree, const_tree);
 static void m32r_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static void init_idents (void);
-static bool m32r_rtx_costs (rtx, int, int, int *);
+static bool m32r_rtx_costs (rtx, int, int, int *, bool speed);
 static bool m32r_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    const_tree, bool);
 static int m32r_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
@@ -126,7 +126,7 @@ static int m32r_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 #undef  TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS m32r_rtx_costs
 #undef  TARGET_ADDRESS_COST
-#define TARGET_ADDRESS_COST hook_int_rtx_0
+#define TARGET_ADDRESS_COST hook_int_rtx_bool_0
 
 #undef  TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
@@ -1092,7 +1092,8 @@ m32r_issue_rate (void)
 /* Cost functions.  */
 
 static bool
-m32r_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
+m32r_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total,
+		bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {

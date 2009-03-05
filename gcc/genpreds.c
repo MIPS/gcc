@@ -2,7 +2,7 @@
    - prototype declarations for operand predicates (tm-preds.h)
    - function definitions of operand predicates, if defined new-style
      (insn-preds.c)
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -959,7 +959,7 @@ write_enum_constraint_num (void)
 	 "  CONSTRAINT__UNKNOWN = 0", stdout);
   FOR_ALL_CONSTRAINTS (c)
     printf (",\n  CONSTRAINT_%s", c->c_name);
-  puts ("\n};\n");
+  puts (",\n  CONSTRAINT__LIMIT\n};\n");
 }
 
 /* Write out a function which looks at a string and determines what

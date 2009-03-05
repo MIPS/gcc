@@ -1,6 +1,6 @@
 /* Perform instruction reorganizations for delay slot filling.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu).
    Hacked by Michael Tiemann (tiemann@cygnus.com).
@@ -1529,12 +1529,12 @@ try_merge_delay_insns (rtx insn, rtx thread)
 	    {
 	      if (! annul_p)
 		{
-		  rtx new;
+		  rtx new_rtx;
 
 		  update_block (dtrial, thread);
-		  new = delete_from_delay_slot (dtrial);
+		  new_rtx = delete_from_delay_slot (dtrial);
 	          if (INSN_DELETED_P (thread))
-		    thread = new;
+		    thread = new_rtx;
 		  INSN_FROM_TARGET_P (next_to_match) = 0;
 		}
 	      else
@@ -1567,12 +1567,12 @@ try_merge_delay_insns (rtx insn, rtx thread)
 	{
 	  if (GET_MODE (merged_insns) == SImode)
 	    {
-	      rtx new;
+	      rtx new_rtx;
 
 	      update_block (XEXP (merged_insns, 0), thread);
-	      new = delete_from_delay_slot (XEXP (merged_insns, 0));
+	      new_rtx = delete_from_delay_slot (XEXP (merged_insns, 0));
 	      if (INSN_DELETED_P (thread))
-		thread = new;
+		thread = new_rtx;
 	    }
 	  else
 	    {
@@ -3439,7 +3439,7 @@ relax_delay_slots (rtx first)
 
 	 Only do so if optimizing for size since this results in slower, but
 	 smaller code.  */
-      if (optimize_size
+      if (optimize_function_for_size_p (cfun)
 	  && GET_CODE (PATTERN (delay_insn)) == RETURN
 	  && next
 	  && JUMP_P (next)
@@ -4038,6 +4038,7 @@ dbr_schedule (rtx first)
   }
 
 #endif
+  crtl->dbr_scheduled_p = true;
 }
 #endif /* DELAY_SLOTS */
 
@@ -4045,7 +4046,8 @@ static bool
 gate_handle_delay_slots (void)
 {
 #ifdef DELAY_SLOTS
-  return flag_delayed_branch;
+  /* At -O0 dataflow info isn't updated after RA.  */
+  return optimize > 0 && flag_delayed_branch && !crtl->dbr_scheduled_p;
 #else
   return 0;
 #endif

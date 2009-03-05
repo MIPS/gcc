@@ -1,6 +1,6 @@
 ## Linker script for GNU versioning (GNU ld 2.13.91+ only.)
 ##
-## Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+## Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 ## Free Software Foundation, Inc.
 ##
 ## This file is part of the GNU ISO C++ Library.  This library is free
@@ -66,7 +66,9 @@ GLIBCXX_3.4 {
 #     std::condition_variable;
       std::co[^n]*;
       std::c[p-s]*;
-      std::c[u-z]*;
+      std::cu[^r]*;
+#     std::current_exception
+      std::c[v-z]*;
 #     std::[d-g]*;
       std::d[a-d]*;
       std::d[f-z]*;
@@ -112,10 +114,13 @@ GLIBCXX_3.4 {
       std::n[^au]*;
       std::nu[^m]*;
       std::num[^e]*;
-      std::[p-r]*;
       std::ostrstream*;
       std::out_of_range*;
       std::overflow_error*;
+      std::[p-q]*;
+      std::r[^e]*;
+      std::re[^t]*;
+#     std::rethrow_exception
       std::set_new_handler*;
       std::set_terminate*;
       std::set_unexpected*;
@@ -123,10 +128,18 @@ GLIBCXX_3.4 {
       std::strstream*;
       std::strstreambuf*;
 #     std::t[a-q]*;
-      std::t[a-n]*;
+      std::t[a-g]*;      
+      std::th[a-h]*;
+      std::th[j-q]*;
+      std::th[s-z]*;
+      std::t[i-n]*;
       std::tr1::h[^a]*;
       std::t[s-z]*;
-      std::[A-Zu-z]*;
+#     std::[A-Zu-z]*;
+      std::underflow_error*;
+      std::uncaught_exception*;
+      std::unexpected*;
+      std::[A-Zv-z]*;
       std::_List_node_base::hook*;
       std::_List_node_base::swap*;
       std::_List_node_base::unhook*;
@@ -390,8 +403,7 @@ GLIBCXX_3.4 {
     _ZNKSt9money_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
 
     # std::numeric_limits
-    # _ZNSt14numeric_limitsI[^g]*;
-    _ZNSt14numeric_limitsI[a-z]E*;
+    _ZNSt14numeric_limitsI[^g]E*;
 
     # std::_Rb_tree
     _ZSt18_Rb_tree_decrementPKSt18_Rb_tree_node_base;
@@ -497,7 +509,12 @@ GLIBCXX_3.4 {
     _ZTVSt[0-9][A-Za-z]*;
 #   _ZTVSt[0-9][0-9][A-Za-z]*;
     _ZTVSt[0-9][0-9][A-Z]*;
-    _ZTVSt[0-9][0-9][a-d]*;
+#   _ZTVSt[0-9][0-9][a-d]*;
+    _ZTVSt[0-9][0-9]a*;
+    _ZTVSt10bad_typeid;
+    _ZTVSt13bad_exception;
+    _ZTVSt[0-9][0-9]basic*;
+    _ZTVSt[0-9][0-9][c-d]*;
     _ZTVSt[0-9][0-9][f-k]*;
     _ZTVSt11logic_error;
     _ZTVSt12length_error;
@@ -520,7 +537,12 @@ GLIBCXX_3.4 {
     _ZTISt[0-9][A-Za-z]*;
 #   _ZTISt[0-9][0-9][A-Za-z]*;
     _ZTISt[0-9][0-9][A-Z]*;
-    _ZTISt[0-9][0-9][a-d]*;
+#   _ZTISt[0-9][0-9][a-d]*;
+    _ZTISt[0-9][0-9]a*;
+    _ZTISt10bad_typeid;
+    _ZTISt13bad_exception;
+    _ZTISt[0-9][0-9]basic*;
+    _ZTISt[0-9][0-9][c-d]*;
     _ZTISt[0-9][0-9][f-k]*;
     _ZTISt11logic_error;
     _ZTISt12length_error;
@@ -545,9 +567,14 @@ GLIBCXX_3.4 {
     _ZTSNSt6locale5facetE;
     _ZTSS[a-z];
     _ZTSSt[0-9][A-Za-z]*;
-#    _ZTSSt[0-9][0-9][A-Za-z]*;
+#   _ZTSSt[0-9][0-9][A-Za-z]*;
     _ZTSSt[0-9][0-9][A-Z]*;
-    _ZTSSt[0-9][0-9][a-d]*;
+#   _ZTSSt[0-9][0-9][a-d]*;
+    _ZTSSt[0-9][0-9]a*;
+    _ZTSSt10bad_typeid;
+    _ZTSSt13bad_exception;
+    _ZTSSt[0-9][0-9]basic*;
+    _ZTSSt[0-9][0-9][c-d]*;
     _ZTSSt[0-9][0-9][f-k]*;
     _ZTSSt11logic_error;
     _ZTSSt12length_error;
@@ -609,9 +636,6 @@ GLIBCXX_3.4 {
     sqrtf;
     sqrtl;
     copysignf;
-    __signbit;
-    __signbitf;
-    __signbitl;
 
    # GLIBCXX_ABI compatibility only.
     # std::string
@@ -838,13 +862,11 @@ GLIBCXX_3.4.11 {
     # atomic
     __atomic_flag_for_address;
     __atomic_flag_wait_explicit;
-    atomic_flag_clear;
     atomic_flag_clear_explicit;
-    atomic_flag_fence;
-    atomic_flag_test_and_set;
     atomic_flag_test_and_set_explicit;
-    atomic_global_fence_compatibility;
-    
+    _ZNVSt9__atomic011atomic_flag12test_and_setESt12memory_order;
+    _ZNVSt9__atomic011atomic_flag5clearESt12memory_order;
+
     # mutex
     _ZSt10adopt_lock;
     _ZSt10defer_lock;
@@ -855,17 +877,33 @@ GLIBCXX_3.4.11 {
     _ZTSSt10lock_error;
     _ZNKSt10lock_error4whatEv;
 
+    _ZSt11__once_call;
+    _ZSt15__once_callable;
+    _ZSt14__once_functor;
+    _ZSt23__get_once_functor_lockv;
+    __once_proxy;
+
     # condition_variable
     _ZNSt18condition_variable10notify_allEv;
     _ZNSt18condition_variable10notify_oneEv;
+    _ZNSt18condition_variable4waitERSt11unique_lockISt5mutexE;
     _ZNSt18condition_variableC1Ev;
     _ZNSt18condition_variableC2Ev;
     _ZNSt18condition_variableD1Ev;
     _ZNSt18condition_variableD2Ev;
+    _ZNSt22condition_variable_anyC1Ev;
+    _ZNSt22condition_variable_anyC2Ev;
+    _ZNSt22condition_variable_anyD1Ev;
+    _ZNSt22condition_variable_anyD2Ev;
+
+    # thread
+    _ZNSt6thread4joinEv;
+    _ZNSt6thread6detachEv;
+    _ZNSt6thread15_M_start_threadESt10shared_ptrINS_10_Impl_baseEE;
 
     # system_error
-    _ZSt18get_posix_categoryv;
-    _ZSt19get_system_categoryv;
+    _ZSt15system_categoryv;
+    _ZSt16generic_categoryv;
 
     _ZNKSt10error_code23default_error_conditionEv;
     _ZNKSt14error_category23default_error_conditionEi;
@@ -885,15 +923,17 @@ GLIBCXX_3.4.11 {
 
     _ZNKSt4hashISt10error_codeEclES0_;
 
-    _ZSt20__throw_system_errorPKc;
     _ZSt20__throw_system_errori;
 
     # char16_t and char32_t
-    _ZNSt14numeric_limitsIu8char*;
+    _ZNSt14numeric_limitsIDiE*;
+    _ZNSt14numeric_limitsIDsE*;
 
     # chrono
     _ZNSt6chrono12system_clock12is_monotonicE;
     _ZNSt6chrono12system_clock3nowEv;
+    _ZNSt6chrono15monotonic_clock12is_monotonicE;
+    _ZNSt6chrono15monotonic_clock3nowEv;
 
     # string/wstring initializer_list overloads
     _ZNSs6appendESt16initializer_listIcE;
@@ -912,6 +952,10 @@ GLIBCXX_3.4.11 {
     _ZNSbIwSt11char_traitsIwESaIwEEC2ESt16initializer_listIwERKS1_;
     _ZNSbIwSt11char_traitsIwESaIwEEaSESt16initializer_listIwE;
     _ZNSbIwSt11char_traitsIwESaIwEEpLESt16initializer_listIwE;
+
+    # ctype<char>::_M_narrow_init and _M_widen_init
+    _ZNKSt5ctypeIcE14_M_narrow_initEv;
+    _ZNKSt5ctypeIcE13_M_widen_initEv;
 
 } GLIBCXX_3.4.10;
 
@@ -1040,11 +1084,31 @@ CXXABI_1.3.2 {
 CXXABI_1.3.3 {
 
     # typeinfo for char16_t and char32_t
-    _ZTIu8char16_t;
-    _ZTIPu8char16_t;
-    _ZTIPKu8char16_t;
-    _ZTIu8char32_t;
-    _ZTIPu8char32_t;
-    _ZTIPKu8char32_t;
+    _ZTIDs;
+    _ZTIPDs;
+    _ZTIPKDs;
+    _ZTIDi;
+    _ZTIPDi;
+    _ZTIPKDi;
+
+    # exception_ptr
+    _ZNSt15__exception_ptr13exception_ptrC1Ev;
+    _ZNSt15__exception_ptr13exception_ptrC2Ev;
+    _ZNSt15__exception_ptr13exception_ptrC1ERKS0_;
+    _ZNSt15__exception_ptr13exception_ptrC2ERKS0_;
+    _ZNSt15__exception_ptr13exception_ptrC1EMS0_FvvE;
+    _ZNSt15__exception_ptr13exception_ptrC2EMS0_FvvE;
+    _ZNSt15__exception_ptr13exception_ptrD1Ev;
+    _ZNSt15__exception_ptr13exception_ptrD2Ev;
+    _ZNSt15__exception_ptr13exception_ptraSERKS0_;
+    _ZNKSt15__exception_ptr13exception_ptrcvMS0_FvvEEv;
+    _ZNKSt15__exception_ptr13exception_ptrntEv;
+    _ZNKSt15__exception_ptr13exception_ptr20__cxa_exception_typeEv;
+    _ZNSt15__exception_ptr13exception_ptr4swapERS0_;
+    _ZNSt15__exception_ptreqERKNS_13exception_ptrES2_;
+    _ZNSt15__exception_ptrneERKNS_13exception_ptrES2_;
+
+    _ZSt17current_exceptionv;
+    _ZSt17rethrow_exceptionNSt15__exception_ptr13exception_ptrE;
 
 } CXXABI_1.3.2;

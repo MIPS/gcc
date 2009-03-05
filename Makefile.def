@@ -4,7 +4,8 @@ AutoGen definitions Makefile.tpl;
 // Makefile.in is generated from Makefile.tpl by 'autogen Makefile.def'.
 // This file was originally written by Nathanael Nerode.
 //
-//   Copyright 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation
+//   Copyright 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+//   Free Software Foundation
 //
 // This file is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -68,13 +69,13 @@ host_modules= { module= mpfr; lib_path=.libs; bootstrap=true;
 		no_install= true; 
 	        host="none-${host_vendor}-${host_os}";
 		target="none-${host_vendor}-${host_os}"; };
-host_modules= { module= polylib; lib_path=.libs; bootstrap=true;
-		extra_configure_flags='--disable-shared --with-gmp-libs=$$r/$(HOST_SUBDIR)/gmp/.libs --with-gmp-includes=$$r/$(HOST_SUBDIR)/gmp';
+host_modules= { module= ppl; lib_path=.libs; bootstrap=true;
+		extra_configure_flags='--disable-shared --with-libgmp-prefix=$$r/$(HOST_SUBDIR)/gmp/ --with-libgmpxx-prefix=$$r/$(HOST_SUBDIR)/gmp/';
 		no_install= true; 
 	        host="none-${host_vendor}-${host_os}";
 		target="none-${host_vendor}-${host_os}"; };
 host_modules= { module= cloog; lib_path=.libs; bootstrap=true;
-		extra_configure_flags='--disable-shared --with-gmp-library=$$r/$(HOST_SUBDIR)/gmp/.libs --with-gmp-include=$$r/$(HOST_SUBDIR)/gmp --with-polylib-builddir=$$r/$(HOST_SUBDIR)/polylib/ --with-bits=gmp';
+		extra_configure_flags='--disable-shared --with-gmp-library=$$r/$(HOST_SUBDIR)/gmp/.libs --with-gmp-include=$$r/$(HOST_SUBDIR)/gmp --with-ppl=$$r/$(HOST_SUBDIR)/ppl/ --with-bits=gmp';
 		no_install= true; 
 	        host="none-${host_vendor}-${host_os}";
 		target="none-${host_vendor}-${host_os}"; };
@@ -236,6 +237,7 @@ flags_to_pass = { flag= YACC ; };
 
 // Host tools
 flags_to_pass = { flag= ADAFLAGS ; optional=true ; };
+flags_to_pass = { flag= ADA_CFLAGS ; };
 flags_to_pass = { flag= AR_FLAGS ; };
 flags_to_pass = { flag= BOOT_ADAFLAGS ; optional=true ; };
 flags_to_pass = { flag= BOOT_CFLAGS ; };
@@ -304,7 +306,7 @@ dependencies = { module=all-gcc; on=all-libiberty; hard=true; };
 dependencies = { module=all-gcc; on=all-gmp; };
 dependencies = { module=all-gcc; on=all-intl; };
 dependencies = { module=all-gcc; on=all-mpfr; };
-dependencies = { module=all-gcc; on=all-polylib; };
+dependencies = { module=all-gcc; on=all-ppl; };
 dependencies = { module=all-gcc; on=all-cloog; };
 dependencies = { module=all-gcc; on=all-build-texinfo; };
 dependencies = { module=all-gcc; on=all-build-bison; };
@@ -329,9 +331,9 @@ dependencies = { module=all-fixincludes; on=all-libiberty; };
 dependencies = { module=all-gnattools; on=all-target-libada; };
 
 dependencies = { module=configure-mpfr; on=all-gmp; };
-dependencies = { module=configure-polylib; on=all-gmp; };
-dependencies = { module=configure-polylib; on=all-mpfr; };
-dependencies = { module=configure-cloog; on=all-polylib; };
+dependencies = { module=configure-ppl; on=all-gmp; };
+dependencies = { module=configure-ppl; on=all-mpfr; };
+dependencies = { module=configure-cloog; on=all-ppl; };
 
 // Host modules specific to gdb.
 dependencies = { module=configure-gdb; on=all-intl; };
@@ -356,6 +358,8 @@ dependencies = { module=configure-bfd; on=configure-libiberty; hard=true; };
 dependencies = { module=configure-bfd; on=configure-intl; };
 dependencies = { module=all-bfd; on=all-libiberty; };
 dependencies = { module=all-bfd; on=all-intl; };
+dependencies = { module=configure-opcodes; on=configure-libiberty; hard=true; };
+dependencies = { module=all-opcodes; on=all-libiberty; };
 
 dependencies = { module=configure-binutils; on=configure-intl; };
 dependencies = { module=all-binutils; on=all-libiberty; };
@@ -495,6 +499,7 @@ lang_env_dependencies = { module=libgcc; no_gcc=true; no_c=true; };
 lang_env_dependencies = { module=libiberty; no_c=true; };
 
 dependencies = { module=configure-target-boehm-gc; on=configure-target-qthreads; };
+dependencies = { module=configure-target-boehm-gc; on=all-target-libstdc++-v3; };
 dependencies = { module=configure-target-fastjar; on=configure-target-zlib; };
 dependencies = { module=all-target-fastjar; on=all-target-zlib; };
 dependencies = { module=all-target-fastjar; on=all-target-libiberty; };

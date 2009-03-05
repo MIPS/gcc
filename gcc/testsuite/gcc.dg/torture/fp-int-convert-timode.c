@@ -1,6 +1,6 @@
 /* Test floating-point conversions.  TImode types.  */
 /* Origin: Joseph Myers <joseph@codesourcery.com> */
-/* { dg-do run { xfail { ia64-*-hpux* && lp64 } } } */
+/* { dg-do run } */
 /* { dg-options "" } */
 
 #include <float.h>
@@ -9,10 +9,7 @@
 int
 main (void)
 {
-#ifndef __SPU__
-  /* Single-precision floating point on SPU always rounds to zero.  */
   TEST_I_F(TItype, UTItype, float, FLT_MANT_DIG);
-#endif
   TEST_I_F(TItype, UTItype, double, DBL_MANT_DIG);
   /* Disable the long double tests when using IBM Extended Doubles.
      They have variable precision, but constants calculated by gcc's

@@ -1,6 +1,6 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "gimple.h"
 #include "flags.h"
 #include "expr.h"
 #include "optabs.h"
@@ -41,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "except.h"
 #include "dbgcnt.h"
+#include "tree-flow.h"
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -130,11 +132,11 @@ static void store_unaligned_arguments_into_pseudos (struct arg_data *, int);
 static int finalize_must_preallocate (int, int, struct arg_data *,
 				      struct args_size *);
 static void precompute_arguments (int, struct arg_data *);
-static int compute_argument_block_size (int, struct args_size *, tree, int);
+static int compute_argument_block_size (int, struct args_size *, tree, tree, int);
 static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int,
 					     tree, tree,
-					     tree, CUMULATIVE_ARGS *, int,
+					     tree, tree, CUMULATIVE_ARGS *, int,
 					     rtx *, int *, int *, int *,
 					     bool *, bool);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
@@ -380,7 +382,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
     add_reg_note (call_insn, REG_EH_REGION, const0_rtx);
   else
     {
-      int rn = lookup_stmt_eh_region (fntree);
+      int rn = lookup_expr_eh_region (fntree);
 
       /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't
 	 throw, which we already took care of.  */
@@ -413,6 +415,10 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
       rounded_stack_size -= n_popped;
       rounded_stack_size_rtx = GEN_INT (rounded_stack_size);
       stack_pointer_delta -= n_popped;
+
+      /* If popup is needed, stack realign must use DRAP  */
+      if (SUPPORTS_STACK_ALIGNMENT)
+        crtl->need_drap = true;
     }
 
   if (!ACCUMULATE_OUTGOING_ARGS)
@@ -492,10 +498,14 @@ special_function_p (const_tree fndecl, int flags)
 	       && ! strcmp (name, "__builtin_alloca"))))
 	flags |= ECF_MAY_BE_ALLOCA;
 
-      /* Disregard prefix _, __ or __x.  */
+      /* Disregard prefix _, __, __x or __builtin_.  */
       if (name[0] == '_')
 	{
-	  if (name[1] == '_' && name[2] == 'x')
+	  if (name[1] == '_'
+	      && name[2] == 'b'
+	      && !strncmp (name + 3, "uiltin_", 7))
+	    tname += 10;
+	  else if (name[1] == '_' && name[2] == 'x')
 	    tname += 3;
 	  else if (name[1] == '_')
 	    tname += 2;
@@ -542,7 +552,26 @@ setjmp_call_p (const_tree fndecl)
   return special_function_p (fndecl, 0) & ECF_RETURNS_TWICE;
 }
 
+
+/* Return true if STMT is an alloca call.  */
+
+bool
+gimple_alloca_call_p (const_gimple stmt)
+{
+  tree fndecl;
+
+  if (!is_gimple_call (stmt))
+    return false;
+
+  fndecl = gimple_call_fndecl (stmt);
+  if (fndecl && (special_function_p (fndecl, 0) & ECF_MAY_BE_ALLOCA))
+    return true;
+
+  return false;
+}
+
 /* Return true when exp contains alloca call.  */
+
 bool
 alloca_call_p (const_tree exp)
 {
@@ -688,7 +717,8 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 		     || (GET_CODE (args[i].value) == SUBREG
 			 && REG_P (SUBREG_REG (args[i].value)))))
 		 && args[i].mode != BLKmode
-		 && rtx_cost (args[i].value, SET) > COSTS_N_INSNS (1)
+		 && rtx_cost (args[i].value, SET, optimize_insn_for_speed_p ())
+		    > COSTS_N_INSNS (1)
 		 && ((SMALL_REGISTER_CLASSES && *reg_parm_seen)
 		     || optimize))
 	  args[i].value = copy_to_mode_reg (args[i].mode, args[i].value);
@@ -811,7 +841,8 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
   for (i = 0; i < num_actuals; i++)
     if (args[i].reg != 0 && ! args[i].pass_on_stack
 	&& args[i].mode == BLKmode
-	&& (TYPE_ALIGN (TREE_TYPE (args[i].tree_value))
+	&& MEM_P (args[i].value)
+	&& (MEM_ALIGN (args[i].value)
 	    < (unsigned int) MIN (BIGGEST_ALIGNMENT, BITS_PER_WORD)))
       {
 	int bytes = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
@@ -911,7 +942,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 struct args_size *args_size,
 				 int n_named_args ATTRIBUTE_UNUSED,
 				 tree exp, tree struct_value_addr_value,
-				 tree fndecl,
+				 tree fndecl, tree fntype,
 				 CUMULATIVE_ARGS *args_so_far,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
@@ -965,7 +996,6 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	    && targetm.calls.split_complex_arg (argtype))
 	  {
 	    tree subtype = TREE_TYPE (argtype);
-	    arg = save_expr (arg);
 	    args[j].tree_value = build1 (REALPART_EXPR, subtype, arg);
 	    j += inc;
 	    args[j].tree_value = build1 (IMAGPART_EXPR, subtype, arg);
@@ -1044,10 +1074,10 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	      rtx copy;
 
 	      if (!COMPLETE_TYPE_P (type)
-		  || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
-		  || (flag_stack_check && ! STACK_CHECK_BUILTIN
-		      && (0 < compare_tree_int (TYPE_SIZE_UNIT (type),
-						STACK_CHECK_MAX_VAR_SIZE))))
+		  || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST
+		  || (flag_stack_check == GENERIC_STACK_CHECK
+		      && compare_tree_int (TYPE_SIZE_UNIT (type),
+					   STACK_CHECK_MAX_VAR_SIZE) > 0))
 		{
 		  /* This is a variable-sized object.  Make space on the stack
 		     for it.  */
@@ -1092,7 +1122,9 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       mode = TYPE_MODE (type);
       unsignedp = TYPE_UNSIGNED (type);
 
-      if (targetm.calls.promote_function_args (fndecl ? TREE_TYPE (fndecl) : 0))
+      if (targetm.calls.promote_function_args (fndecl
+					       ? TREE_TYPE (fndecl)
+					       : fntype))
 	mode = promote_mode (type, mode, &unsignedp, 1);
 
       args[i].unsignedp = unsignedp;
@@ -1178,6 +1210,7 @@ static int
 compute_argument_block_size (int reg_parm_stack_space,
 			     struct args_size *args_size,
 			     tree fndecl ATTRIBUTE_UNUSED,
+			     tree fntype ATTRIBUTE_UNUSED,
 			     int preferred_stack_boundary ATTRIBUTE_UNUSED)
 {
   int unadjusted_args_size = args_size->constant;
@@ -1215,7 +1248,7 @@ compute_argument_block_size (int reg_parm_stack_space,
 
 	  /* The area corresponding to register parameters is not to count in
 	     the size of the block we need.  So make the adjustment.  */
-	  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+	  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 	    args_size->var
 	      = size_binop (MINUS_EXPR, args_size->var,
 			    ssize_int (reg_parm_stack_space));
@@ -1236,7 +1269,7 @@ compute_argument_block_size (int reg_parm_stack_space,
       args_size->constant = MAX (args_size->constant,
 				 reg_parm_stack_space);
 
-      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 	args_size->constant -= reg_parm_stack_space;
     }
   return unadjusted_args_size;
@@ -1852,7 +1885,7 @@ shift_return_value (enum machine_mode mode, bool left_p, rtx value)
 static rtx
 avoid_likely_spilled_reg (rtx x)
 {
-  rtx new;
+  rtx new_rtx;
 
   if (REG_P (x)
       && HARD_REGISTER_P (x)
@@ -1863,10 +1896,10 @@ avoid_likely_spilled_reg (rtx x)
 	 and the whole point of this function is to avoid
 	 using the hard register directly in such a situation.  */
       generating_concat_p = 0;
-      new = gen_reg_rtx (GET_MODE (x));
+      new_rtx = gen_reg_rtx (GET_MODE (x));
       generating_concat_p = 1;
-      emit_move_insn (new, x);
-      return new;
+      emit_move_insn (new_rtx, x);
+      return new_rtx;
     }
   return x;
 }
@@ -2050,17 +2083,17 @@ expand_call (tree exp, rtx target, int ignore)
     }
 
 #ifdef REG_PARM_STACK_SPACE
-  reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
+  reg_parm_stack_space = REG_PARM_STACK_SPACE (!fndecl ? fntype : fndecl);
 #endif
 
-  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl)))
+  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl)))
       && reg_parm_stack_space > 0 && PUSH_ARGS)
     must_preallocate = 1;
 
   /* Set up a place to return a structure.  */
 
   /* Cater to broken compilers.  */
-  if (aggregate_value_p (exp, fndecl))
+  if (aggregate_value_p (exp, (!fndecl ? fntype : fndecl)))
     {
       /* This call returns a big structure.  */
       flags &= ~(ECF_CONST | ECF_PURE | ECF_LOOPING_CONST_OR_PURE);
@@ -2217,7 +2250,7 @@ expand_call (tree exp, rtx target, int ignore)
      arguments into ARGS_SIZE, etc.  */
   initialize_argument_information (num_actuals, args, &args_size,
 				   n_named_args, exp,
-				   structure_value_addr_value, fndecl,
+				   structure_value_addr_value, fndecl, fntype,
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
 				   &must_preallocate, &flags,
@@ -2251,7 +2284,7 @@ expand_call (tree exp, rtx target, int ignore)
   if (currently_expanding_call++ != 0
       || !flag_optimize_sibling_calls
       || args_size.var
-      || lookup_stmt_eh_region (exp) >= 0
+      || lookup_expr_eh_region (exp) >= 0
       || dbg_cnt (tail_call) == false)
     try_tail_call = 0;
 
@@ -2268,6 +2301,12 @@ expand_call (tree exp, rtx target, int ignore)
 	 It does not seem worth the effort since few optimizable
 	 sibling calls will return a structure.  */
       || structure_value_addr != NULL_RTX
+#ifdef REG_PARM_STACK_SPACE
+      /* If outgoing reg parm stack space changes, we can not do sibcall.  */
+      || (OUTGOING_REG_PARM_STACK_SPACE (funtype)
+	  != OUTGOING_REG_PARM_STACK_SPACE (TREE_TYPE (current_function_decl)))
+      || (reg_parm_stack_space != REG_PARM_STACK_SPACE (fndecl))
+#endif
       /* Check whether the target is able to optimize the call
 	 into a sibcall.  */
       || !targetm.function_ok_for_sibcall (fndecl, exp)
@@ -2294,10 +2333,44 @@ expand_call (tree exp, rtx target, int ignore)
       || !lang_hooks.decls.ok_for_sibcall (fndecl))
     try_tail_call = 0;
 
-  /* Ensure current function's preferred stack
-     boundary is at least what we need.  */
+  /* Check if caller and callee disagree in promotion of function
+     return value.  */
+  if (try_tail_call)
+    {
+      enum machine_mode caller_mode, caller_promoted_mode;
+      enum machine_mode callee_mode, callee_promoted_mode;
+      int caller_unsignedp, callee_unsignedp;
+      tree caller_res = DECL_RESULT (current_function_decl);
+
+      caller_unsignedp = TYPE_UNSIGNED (TREE_TYPE (caller_res));
+      caller_mode = caller_promoted_mode = DECL_MODE (caller_res);
+      callee_unsignedp = TYPE_UNSIGNED (TREE_TYPE (funtype));
+      callee_mode = callee_promoted_mode = TYPE_MODE (TREE_TYPE (funtype));
+      if (targetm.calls.promote_function_return (TREE_TYPE (current_function_decl)))
+	caller_promoted_mode
+	  = promote_mode (TREE_TYPE (caller_res), caller_mode,
+			  &caller_unsignedp, 1);
+      if (targetm.calls.promote_function_return (funtype))
+	callee_promoted_mode
+	  = promote_mode (TREE_TYPE (funtype), callee_mode,
+			  &callee_unsignedp, 1);
+      if (caller_mode != VOIDmode
+	  && (caller_promoted_mode != callee_promoted_mode
+	      || ((caller_mode != caller_promoted_mode
+		   || callee_mode != callee_promoted_mode)
+		  && (caller_unsignedp != callee_unsignedp
+		      || GET_MODE_BITSIZE (caller_mode)
+			 < GET_MODE_BITSIZE (callee_mode)))))
+	try_tail_call = 0;
+    }
+
+  /* Ensure current function's preferred stack boundary is at least
+     what we need.  Stack alignment may also increase preferred stack
+     boundary.  */
   if (crtl->preferred_stack_boundary < preferred_stack_boundary)
     crtl->preferred_stack_boundary = preferred_stack_boundary;
+  else
+    preferred_stack_boundary = crtl->preferred_stack_boundary;
 
   preferred_unit_stack_boundary = preferred_stack_boundary / BITS_PER_UNIT;
 
@@ -2374,7 +2447,7 @@ expand_call (tree exp, rtx target, int ignore)
       unadjusted_args_size
 	= compute_argument_block_size (reg_parm_stack_space,
 				       &adjusted_args_size,
-				       fndecl,
+				       fndecl, fntype,
 				       (pass == 0 ? 0
 					: preferred_stack_boundary));
 
@@ -2384,7 +2457,7 @@ expand_call (tree exp, rtx target, int ignore)
 	 incoming argument block.  */
       if (pass == 0)
 	{
-	  argblock = virtual_incoming_args_rtx;
+	  argblock = crtl->args.internal_arg_pointer;
 	  argblock
 #ifdef STACK_GROWS_DOWNWARD
 	    = plus_constant (argblock, crtl->args.pretend_args_size);
@@ -2450,7 +2523,7 @@ expand_call (tree exp, rtx target, int ignore)
 		  /* Since we will be writing into the entire argument area,
 		     the map must be allocated for its entire size, not just
 		     the part that is the responsibility of the caller.  */
-		  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+		  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 		    needed += reg_parm_stack_space;
 
 #ifdef ARGS_GROW_DOWNWARD
@@ -2549,7 +2622,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    {
 	      rtx push_size
 		= GEN_INT (adjusted_args_size.constant
-			   + (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL
+			   + (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype
 			   					      : TREE_TYPE (fndecl))) ? 0
 			      : reg_parm_stack_space));
 	      if (old_stack_level == 0)
@@ -2666,26 +2739,28 @@ expand_call (tree exp, rtx target, int ignore)
 	 but we do preallocate space here if they want that.  */
 
       for (i = 0; i < num_actuals; i++)
-	if (args[i].reg == 0 || args[i].pass_on_stack)
-	  {
-	    rtx before_arg = get_last_insn ();
+	{
+	  if (args[i].reg == 0 || args[i].pass_on_stack)
+	    {
+	      rtx before_arg = get_last_insn ();
 
-	    if (store_one_arg (&args[i], argblock, flags,
-			       adjusted_args_size.var != 0,
-			       reg_parm_stack_space)
-		|| (pass == 0
-		    && check_sibcall_argument_overlap (before_arg,
-						       &args[i], 1)))
-	      sibcall_failure = 1;
+	      if (store_one_arg (&args[i], argblock, flags,
+				 adjusted_args_size.var != 0,
+				 reg_parm_stack_space)
+		  || (pass == 0
+		      && check_sibcall_argument_overlap (before_arg,
+							 &args[i], 1)))
+		sibcall_failure = 1;
+	      }
 
-	    if (flags & ECF_CONST
-		&& args[i].stack
-		&& args[i].value == args[i].stack)
-	      call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
-					       gen_rtx_USE (VOIDmode,
-							    args[i].value),
-					       call_fusage);
-	  }
+	  if (((flags & ECF_CONST)
+	       || ((flags & ECF_PURE) && ACCUMULATE_OUTGOING_ARGS))
+	      && args[i].stack)
+	    call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
+					     gen_rtx_USE (VOIDmode,
+							  args[i].stack),
+					     call_fusage);
+	}
 
       /* If we have a parm that is passed in registers but not in memory
 	 and whose alignment does not permit a direct copy into registers,
@@ -2720,7 +2795,7 @@ expand_call (tree exp, rtx target, int ignore)
       /* If register arguments require space on the stack and stack space
 	 was not preallocated, allocate stack space here for arguments
 	 passed in registers.  */
-      if (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl)))
+      if (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl)))
           && !ACCUMULATE_OUTGOING_ARGS
 	  && must_preallocate == 0 && reg_parm_stack_space > 0)
 	anti_adjust_stack (GEN_INT (reg_parm_stack_space));
@@ -3200,6 +3275,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   /* Todo, choose the correct decl type of orgfun. Sadly this information
      isn't present here, so we default to native calling abi here.  */
   tree fndecl ATTRIBUTE_UNUSED = NULL_TREE; /* library calls default to host calling abi ? */
+  tree fntype ATTRIBUTE_UNUSED = NULL_TREE; /* library calls default to host calling abi ? */
   int inc;
   int count;
   rtx argblock = 0;
@@ -3229,7 +3305,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
      save, if any.  */
-  int low_to_save, high_to_save;
+  int low_to_save = 0, high_to_save = 0;
   rtx save_area = 0;            /* Place that it is saved.  */
 #endif
 
@@ -3394,7 +3470,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	      flags |= ECF_PURE;
 	    }
 
-	  if (GET_MODE (val) == MEM && !must_copy)
+	  if (MEM_P (val) && !must_copy)
 	    slot = val;
 	  else
 	    {
@@ -3457,7 +3533,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   args_size.constant = MAX (args_size.constant,
 			    reg_parm_stack_space);
 
-  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
     args_size.constant -= reg_parm_stack_space;
 
   if (args_size.constant > crtl->outgoing_args_size)
@@ -3482,7 +3558,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       /* Since we will be writing into the entire argument area, the
 	 map must be allocated for its entire size, not just the part that
 	 is the responsibility of the caller.  */
-      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
+      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 	needed += reg_parm_stack_space;
 
 #ifdef ARGS_GROW_DOWNWARD
@@ -3570,10 +3646,10 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #ifdef ARGS_GROW_DOWNWARD
 	      /* stack_slot is negative, but we want to index stack_usage_map
 		 with positive values.  */
-	      upper_bound = -argvec[argnum].locate.offset.constant + 1;
+	      upper_bound = -argvec[argnum].locate.slot_offset.constant + 1;
 	      lower_bound = upper_bound - argvec[argnum].locate.size.constant;
 #else
-	      lower_bound = argvec[argnum].locate.offset.constant;
+	      lower_bound = argvec[argnum].locate.slot_offset.constant;
 	      upper_bound = lower_bound + argvec[argnum].locate.size.constant;
 #endif
 
@@ -3632,7 +3708,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
 	  NO_DEFER_POP;
 
-	  if (flags & ECF_CONST)
+	  if ((flags & ECF_CONST)
+	      || ((flags & ECF_PURE) && ACCUMULATE_OUTGOING_ARGS))
 	    {
 	      rtx use;
 

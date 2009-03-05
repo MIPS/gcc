@@ -89,7 +89,7 @@ extern enum processor_flags s390_arch_flags;
 #define TARGET_EXTIMM \
        (TARGET_ZARCH && TARGET_CPU_EXTIMM)
 #define TARGET_DFP \
-       (TARGET_ZARCH && TARGET_CPU_DFP)
+       (TARGET_ZARCH && TARGET_CPU_DFP && TARGET_HARD_FLOAT)
 #define TARGET_Z10 \
        (TARGET_ZARCH && TARGET_CPU_Z10)
 
@@ -478,6 +478,30 @@ enum reg_class
   { 0xffffffff, 0x0000003f },	/* ALL_REGS */		\
 }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, FP_REGS, CC_REGS, ACCESS_REGS, LIM_REG_CLASSES		     \
+}
+
+/* In some case register allocation order is not enough for IRA to
+   generate a good code.  The following macro (if defined) increases
+   cost of REGNO for a pseudo approximately by pseudo usage frequency
+   multiplied by the macro value.
+
+   We avoid usage of BASE_REGNUM by nonzero macro value because the
+   reload can decide not to use the hard register because some
+   constant was forced to be in memory.  */
+#define IRA_HARD_REGNO_ADD_COST_MULTIPLIER(regno)	\
+  (regno == BASE_REGNUM ? 0.0 : 0.5)
+
 /* Register -> class mapping.  */
 extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) (regclass_map[REGNO])
@@ -550,9 +574,7 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 /* Defining this macro makes __builtin_frame_address(0) and 
    __builtin_return_address(0) work with -fomit-frame-pointer.  */
 #define INITIAL_FRAME_ADDRESS_RTX                                             \
-  (TARGET_PACKED_STACK ?                                                      \
-   plus_constant (arg_pointer_rtx, -UNITS_PER_WORD) :                         \
-   plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET))
+  (plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET))
 
 /* The return address of the current frame is retrieved
    from the initial value of register RETURN_REGNUM.
@@ -561,6 +583,16 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 #define DYNAMIC_CHAIN_ADDRESS(FRAME)                                          \
   (TARGET_PACKED_STACK ?                                                      \
    plus_constant ((FRAME), STACK_POINTER_OFFSET - UNITS_PER_WORD) : (FRAME))
+
+/* For -mpacked-stack this adds 160 - 8 (96 - 4) to the output of
+   builtin_frame_address.  Otherwise arg pointer -
+   STACK_POINTER_OFFSET would be returned for
+   __builtin_frame_address(0) what might result in an address pointing
+   somewhere into the middle of the local variables since the packed
+   stack layout generally does not need all the bytes in the register
+   save area.  */
+#define FRAME_ADDR_RTX(FRAME)			\
+  DYNAMIC_CHAIN_ADDRESS ((FRAME))
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)					      \
   s390_return_addr_rtx ((COUNT), DYNAMIC_CHAIN_ADDRESS ((FRAME)))
@@ -748,10 +780,10 @@ used in insn definitions or inline assemblies.  */
    macro is used in only one place: `find_reloads_address' in reload.c.  */
 #define LEGITIMIZE_RELOAD_ADDRESS(AD, MODE, OPNUM, TYPE, IND, WIN)	\
 do {									\
-  rtx new = legitimize_reload_address (AD, MODE, OPNUM, (int)(TYPE));	\
-  if (new)								\
+  rtx new_rtx = legitimize_reload_address (AD, MODE, OPNUM, (int)(TYPE));	\
+  if (new_rtx)								\
     {									\
-      (AD) = new;							\
+      (AD) = new_rtx;							\
       goto WIN;								\
     }									\
 } while (0)
@@ -804,7 +836,7 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1, *s390_compare_emitte
 
 /* A C expression for the cost of a branch instruction.  A value of 1
    is the default; other values are interpreted relative to that.  */
-#define BRANCH_COST 1
+#define BRANCH_COST(speed_p, predictable_p) 1
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 1
@@ -848,7 +880,7 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1, *s390_compare_emitte
    in tree-sra with UNITS_PER_WORD to make a decision so we adjust it
    here to compensate for that factor since mvc costs exactly the same
    on 31 and 64 bit.  */
-#define MOVE_RATIO (TARGET_64BIT? 2 : 4)
+#define MOVE_RATIO(speed) (TARGET_64BIT? 2 : 4)
 
 
 /* Sections.  */

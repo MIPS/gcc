@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
@@ -596,6 +596,8 @@ enum reg_class
   ((OCODE) != POST_INC ? BASE_REG_CLASS : GENNONACR_REGS)
 
 #define INDEX_REG_CLASS GENERAL_REGS
+
+#define IRA_COVER_CLASSES { GENERAL_REGS, SPECIAL_REGS, LIM_REG_CLASSES }
 
 #define REG_CLASS_FROM_LETTER(C)		\
   (						\
@@ -1242,7 +1244,7 @@ struct cum_args {int regs;};
    word-length sizes will be emitted.  The "9" will translate to
    (9 - 1) * 4 = 32 bytes maximum moved, but using 16 instructions
    (8 instruction sequences) or less.  */
-#define MOVE_RATIO 9
+#define MOVE_RATIO(speed) 9
 
 
 /* Node: Sections */

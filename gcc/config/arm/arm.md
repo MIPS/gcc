@@ -1,6 +1,6 @@
 ;;- Machine description for ARM for GNU compiler
 ;;  Copyright 1991, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999, 2000,
-;;  2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+;;  2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 ;;  Free Software Foundation, Inc.
 ;;  Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
 ;;  and Martin Simmons (@harleqn.co.uk).
@@ -67,10 +67,9 @@
    (UNSPEC_PIC_SYM   3) ; A symbol that has been treated properly for pic
 			;   usage, that is, we will add the pic_register
 			;   value to it before trying to dereference it.
-   (UNSPEC_PIC_BASE  4)	; Adding the PC value to the offset to the
-			;   GLOBAL_OFFSET_TABLE.  The operation is fully
-			;   described by the RTL but must be wrapped to
-			;   prevent combine from trying to rip it apart.
+   (UNSPEC_PIC_BASE  4)	; Add PC and all but the last operand together,
+			;   The last operand is the number of a PIC_LABEL
+			;   that points at the containing instruction.
    (UNSPEC_PRLG_STK  5) ; A special barrier that prevents frame accesses 
 			;   being scheduled before the stack adjustment insn.
    (UNSPEC_PROLOGUE_USE 6) ; As USE insns are not meaningful after reload,
@@ -98,6 +97,8 @@
 			   ; generate correct unwind information.
    (UNSPEC_PIC_OFFSET 23) ; A symbolic 12-bit OFFSET that has been treated
 			  ; correctly for PIC usage.
+   (UNSPEC_GOTSYM_OFF 24) ; The offset of the start of the the GOT from a
+			  ; a given symbolic address.
   ]
 )
 
@@ -157,7 +158,7 @@
 ; Floating Point Unit.  If we only have floating point emulation, then there
 ; is no point in scheduling the floating point insns.  (Well, for best
 ; performance we should try and group them together).
-(define_attr "fpu" "none,fpa,fpe2,fpe3,maverick,vfp"
+(define_attr "fpu" "none,fpa,fpe2,fpe3,maverick,vfp,vfpv3d16,vfpv3,neon"
   (const (symbol_ref "arm_fpu_attr")))
 
 ; LENGTH of an instruction (in bytes)
@@ -193,6 +194,8 @@
 ; scheduling of writes.
 
 ; Classification of each insn
+; Note: vfp.md has different meanings for some of these, and some further
+; types as well.  See that file for details.
 ; alu		any alu  instruction that doesn't hit memory or fp
 ;		regs or have a shifted source operand
 ; alu_shift	any data instruction that doesn't hit memory or fp
@@ -237,7 +240,7 @@
 ;
 
 (define_attr "type"
-	"alu,alu_shift,alu_shift_reg,mult,block,float,fdivx,fdivd,fdivs,fmul,fmuls,fmuld,fmacs,fmacd,ffmul,farith,ffarith,f_flag,float_em,f_load,f_store,f_loads,f_loadd,f_stores,f_stored,f_mem_r,r_mem_f,f_2_r,r_2_f,f_cvt,branch,call,load_byte,load1,load2,load3,load4,store1,store2,store3,store4,mav_farith,mav_dmult"
+	"alu,alu_shift,alu_shift_reg,mult,block,float,fdivx,fdivd,fdivs,fmul,fmuls,fmuld,fmacs,fmacd,ffmul,farith,ffarith,f_flag,float_em,f_load,f_store,f_loads,f_loadd,f_stores,f_stored,f_mem_r,r_mem_f,f_2_r,r_2_f,f_cvt,branch,call,load_byte,load1,load2,load3,load4,store1,store2,store3,store4,mav_farith,mav_dmult,fconsts,fconstd,fadds,faddd,ffariths,ffarithd,fcmps,fcmpd,fcpys"
 	(if_then_else 
 	 (eq_attr "insn" "smulxy,smlaxy,smlalxy,smulwy,smlawx,mul,muls,mla,mlas,umull,umulls,umlal,umlals,smull,smulls,smlal,smlals")
 	 (const_string "mult")
@@ -246,6 +249,75 @@
 ; Load scheduling, set from the arm_ld_sched variable
 ; initialized by arm_override_options() 
 (define_attr "ldsched" "no,yes" (const (symbol_ref "arm_ld_sched")))
+
+;; Classification of NEON instructions for scheduling purposes.
+;; Do not set this attribute and the "type" attribute together in
+;; any one instruction pattern.
+(define_attr "neon_type"
+   "neon_int_1,\
+   neon_int_2,\
+   neon_int_3,\
+   neon_int_4,\
+   neon_int_5,\
+   neon_vqneg_vqabs,\
+   neon_vmov,\
+   neon_vaba,\
+   neon_vsma,\
+   neon_vaba_qqq,\
+   neon_mul_ddd_8_16_qdd_16_8_long_32_16_long,\
+   neon_mul_qqq_8_16_32_ddd_32,\
+   neon_mul_qdd_64_32_long_qqd_16_ddd_32_scalar_64_32_long_scalar,\
+   neon_mla_ddd_8_16_qdd_16_8_long_32_16_long,\
+   neon_mla_qqq_8_16,\
+   neon_mla_ddd_32_qqd_16_ddd_32_scalar_qdd_64_32_long_scalar_qdd_64_32_long,\
+   neon_mla_qqq_32_qqd_32_scalar,\
+   neon_mul_ddd_16_scalar_32_16_long_scalar,\
+   neon_mul_qqd_32_scalar,\
+   neon_mla_ddd_16_scalar_qdd_32_16_long_scalar,\
+   neon_shift_1,\
+   neon_shift_2,\
+   neon_shift_3,\
+   neon_vshl_ddd,\
+   neon_vqshl_vrshl_vqrshl_qqq,\
+   neon_vsra_vrsra,\
+   neon_fp_vadd_ddd_vabs_dd,\
+   neon_fp_vadd_qqq_vabs_qq,\
+   neon_fp_vsum,\
+   neon_fp_vmul_ddd,\
+   neon_fp_vmul_qqd,\
+   neon_fp_vmla_ddd,\
+   neon_fp_vmla_qqq,\
+   neon_fp_vmla_ddd_scalar,\
+   neon_fp_vmla_qqq_scalar,\
+   neon_fp_vrecps_vrsqrts_ddd,\
+   neon_fp_vrecps_vrsqrts_qqq,\
+   neon_bp_simple,\
+   neon_bp_2cycle,\
+   neon_bp_3cycle,\
+   neon_ldr,\
+   neon_str,\
+   neon_vld1_1_2_regs,\
+   neon_vld1_3_4_regs,\
+   neon_vld2_2_regs_vld1_vld2_all_lanes,\
+   neon_vld2_4_regs,\
+   neon_vld3_vld4,\
+   neon_vst1_1_2_regs_vst2_2_regs,\
+   neon_vst1_3_4_regs,\
+   neon_vst2_4_regs_vst3_vst4,\
+   neon_vst3_vst4,\
+   neon_vld1_vld2_lane,\
+   neon_vld3_vld4_lane,\
+   neon_vst1_vst2_lane,\
+   neon_vst3_vst4_lane,\
+   neon_vld3_vld4_all_lanes,\
+   neon_mcr,\
+   neon_mcr_2_mcrr,\
+   neon_mrc,\
+   neon_mrrc,\
+   neon_ldm_2,\
+   neon_stm_2,\
+   none"
+ (const_string "none"))
 
 ; condition codes: this one is used by final_prescan_insn to speed up
 ; conditionalizing instructions.  It saves having to scan the rtl to see if
@@ -264,13 +336,17 @@
 ; JUMP_CLOB is used when the condition cannot be represented by a single
 ;   instruction (UNEQ and LTGT).  These cannot be predicated.
 ;
+; UNCONDITIONAL means the instions can not be conditionally executed.
+;
 ; NOCOND means that the condition codes are neither altered nor affect the
 ;   output of this insn
 
-(define_attr "conds" "use,set,clob,jump_clob,nocond"
+(define_attr "conds" "use,set,clob,jump_clob,unconditional,nocond"
 	(if_then_else (eq_attr "type" "call")
 	 (const_string "clob")
-	 (const_string "nocond")))
+	 (if_then_else (eq_attr "neon_type" "none")
+	  (const_string "nocond")
+	  (const_string "unconditional"))))
 
 ; Predicable means that the insn can be conditionally executed based on
 ; an automatically added predicate (additional patterns are generated by 
@@ -329,18 +405,26 @@
 ;; Processor type.  This is created automatically from arm-cores.def.
 (include "arm-tune.md")
 
+(define_attr "tune_cortexr4" "yes,no"
+  (const (if_then_else
+	  (eq_attr "tune" "cortexr4,cortexr4f")
+	  (const_string "yes")
+	  (const_string "no"))))
+
 ;; True if the generic scheduling description should be used.
 
 (define_attr "generic_sched" "yes,no"
   (const (if_then_else 
-          (eq_attr "tune" "arm926ejs,arm1020e,arm1026ejs,arm1136js,arm1136jfs,cortexa8,cortexr4")
+          (ior (eq_attr "tune" "arm926ejs,arm1020e,arm1026ejs,arm1136js,arm1136jfs,cortexa8,cortexa9")
+	      (eq_attr "tune_cortexr4" "yes"))
           (const_string "no")
           (const_string "yes"))))
 
 (define_attr "generic_vfp" "yes,no"
   (const (if_then_else
 	  (and (eq_attr "fpu" "vfp")
-	       (eq_attr "tune" "!arm1020e,arm1022e,cortexa8"))
+	       (eq_attr "tune" "!arm1020e,arm1022e,cortexa8,cortexa9")
+	       (eq_attr "tune_cortexr4" "no"))
 	  (const_string "yes")
 	  (const_string "no"))))
 
@@ -350,7 +434,10 @@
 (include "arm1026ejs.md")
 (include "arm1136jfs.md")
 (include "cortex-a8.md")
+(include "cortex-a9.md")
 (include "cortex-r4.md")
+(include "cortex-r4f.md")
+(include "vfp11.md")
 
 
 ;;---------------------------------------------------------------------------
@@ -518,14 +605,18 @@
   ""
 )
 
+;; The r/r/k alternative is required when reloading the address
+;;  (plus (reg rN) (reg sp)) into (reg rN).  In this case reload will
+;; put the duplicated register first, and not try the commutative version.
 (define_insn_and_split "*arm_addsi3"
-  [(set (match_operand:SI          0 "s_register_operand" "=r, !k,r, !k,r")
-	(plus:SI (match_operand:SI 1 "s_register_operand" "%rk,!k,rk,!k,rk")
-		 (match_operand:SI 2 "reg_or_int_operand" "rI, rI,L, L,?n")))]
+  [(set (match_operand:SI          0 "s_register_operand" "=r, !k, r,r, !k,r")
+	(plus:SI (match_operand:SI 1 "s_register_operand" "%rk,!k, r,rk,!k,rk")
+		 (match_operand:SI 2 "reg_or_int_operand" "rI, rI,!k,L, L,?n")))]
   "TARGET_32BIT"
   "@
    add%?\\t%0, %1, %2
    add%?\\t%0, %1, %2
+   add%?\\t%0, %2, %1
    sub%?\\t%0, %1, #%n2
    sub%?\\t%0, %1, #%n2
    #"
@@ -540,7 +631,7 @@
 		      operands[1], 0);
   DONE;
   "
-  [(set_attr "length" "4,4,4,4,16")
+  [(set_attr "length" "4,4,4,4,4,16")
    (set_attr "predicable" "yes")]
 )
 
@@ -4285,7 +4376,7 @@
 
 (define_expand "extendqihi2"
   [(set (match_dup 2)
-	(ashift:SI (match_operand:QI 1 "general_operand" "")
+	(ashift:SI (match_operand:QI 1 "arm_reg_or_extendqisi_mem_op" "")
 		   (const_int 24)))
    (set (match_operand:HI 0 "s_register_operand" "")
 	(ashiftrt:SI (match_dup 2)
@@ -4310,7 +4401,7 @@
 
 (define_insn "*arm_extendqihi_insn"
   [(set (match_operand:HI 0 "s_register_operand" "=r")
-	(sign_extend:HI (match_operand:QI 1 "memory_operand" "Uq")))]
+	(sign_extend:HI (match_operand:QI 1 "arm_extendqisi_mem_op" "Uq")))]
   "TARGET_ARM && arm_arch4"
   "ldr%(sb%)\\t%0, %1"
   [(set_attr "type" "load_byte")
@@ -4321,7 +4412,7 @@
 
 (define_expand "extendqisi2"
   [(set (match_dup 2)
-	(ashift:SI (match_operand:QI 1 "general_operand" "")
+	(ashift:SI (match_operand:QI 1 "arm_reg_or_extendqisi_mem_op" "")
 		   (const_int 24)))
    (set (match_operand:SI 0 "s_register_operand" "")
 	(ashiftrt:SI (match_dup 2)
@@ -4353,7 +4444,7 @@
 
 (define_insn "*arm_extendqisi"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(sign_extend:SI (match_operand:QI 1 "memory_operand" "Uq")))]
+	(sign_extend:SI (match_operand:QI 1 "arm_extendqisi_mem_op" "Uq")))]
   "TARGET_ARM && arm_arch4 && !arm_arch6"
   "ldr%(sb%)\\t%0, %1"
   [(set_attr "type" "load_byte")
@@ -4364,7 +4455,8 @@
 
 (define_insn "*arm_extendqisi_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-	(sign_extend:SI (match_operand:QI 1 "nonimmediate_operand" "r,Uq")))]
+	(sign_extend:SI
+	 (match_operand:QI 1 "arm_reg_or_extendqisi_mem_op" "r,Uq")))]
   "TARGET_ARM && arm_arch6"
   "@
    sxtb%?\\t%0, %1
@@ -4811,6 +4903,14 @@
 			       optimize && can_create_pseudo_p ());
           DONE;
         }
+
+      if (TARGET_USE_MOVT && !target_word_relocations
+	  && GET_CODE (operands[1]) == SYMBOL_REF
+	  && !flag_pic && !arm_tls_referenced_p (operands[1]))
+	{
+	  arm_emit_movpair (operands[0], operands[1]);
+	  DONE;
+	}
     }
   else /* TARGET_THUMB1...  */
     {
@@ -4869,6 +4969,28 @@
 					     : 0));
   }
   "
+)
+
+;; The ARM LO_SUM and HIGH are backwards - HIGH sets the low bits, and
+;; LO_SUM adds in the high bits.  Fortunately these are opaque operations
+;; so this does not matter.
+(define_insn "*arm_movt"
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r")
+	(lo_sum:SI (match_operand:SI 1 "nonimmediate_operand" "0")
+		   (match_operand:SI 2 "general_operand"      "i")))]
+  "TARGET_32BIT"
+  "movt%?\t%0, #:upper16:%c2"
+  [(set_attr "predicable" "yes")
+   (set_attr "length" "4")]
+)
+
+(define_insn "*arm_movw"
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r")
+	(high:SI (match_operand:SI 1 "general_operand"      "i")))]
+  "TARGET_32BIT"
+  "movw%?\t%0, #:lower16:%c1"
+  [(set_attr "predicable" "yes")
+   (set_attr "length" "4")]
 )
 
 (define_insn "*arm_movsi_insn"
@@ -4990,8 +5112,8 @@
 
 (define_insn "pic_add_dot_plus_four"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(unspec:SI [(plus:SI (match_operand:SI 1 "register_operand" "0")
-			     (const (plus:SI (pc) (const_int 4))))
+	(unspec:SI [(match_operand:SI 1 "register_operand" "0")
+		    (const_int 4)
 		    (match_operand 2 "" "")]
 		   UNSPEC_PIC_BASE))]
   "TARGET_THUMB1"
@@ -5005,8 +5127,8 @@
 
 (define_insn "pic_add_dot_plus_eight"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(unspec:SI [(plus:SI (match_operand:SI 1 "register_operand" "r")
-			     (const (plus:SI (pc) (const_int 8))))
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")
+		    (const_int 8)
 		    (match_operand 2 "" "")]
 		   UNSPEC_PIC_BASE))]
   "TARGET_ARM"
@@ -5020,8 +5142,8 @@
 
 (define_insn "tls_load_dot_plus_eight"
   [(set (match_operand:SI 0 "register_operand" "+r")
-	(mem:SI (unspec:SI [(plus:SI (match_operand:SI 1 "register_operand" "r")
-				     (const (plus:SI (pc) (const_int 8))))
+	(mem:SI (unspec:SI [(match_operand:SI 1 "register_operand" "r")
+			    (const_int 8)
 			    (match_operand 2 "" "")]
 			   UNSPEC_PIC_BASE)))]
   "TARGET_ARM"
@@ -5038,18 +5160,18 @@
 ;; tls_load_dot_plus_eight by a peephole.
 
 (define_peephole2
-  [(parallel [(set (match_operand:SI 0 "register_operand" "")
-		   (unspec:SI [(plus:SI (match_operand:SI 3 "register_operand" "")
-			     	 	(const (plus:SI (pc) (const_int 8))))]
-			      UNSPEC_PIC_BASE))
-   	      (use (label_ref (match_operand 1 "" "")))])
+  [(set (match_operand:SI 0 "register_operand" "")
+	(unspec:SI [(match_operand:SI 3 "register_operand" "")
+		    (const_int 8)
+		    (match_operand 1 "" "")]
+		   UNSPEC_PIC_BASE))
    (set (match_operand:SI 2 "register_operand" "") (mem:SI (match_dup 0)))]
   "TARGET_ARM && peep2_reg_dead_p (2, operands[0])"
-  [(parallel [(set (match_dup 2)
-		   (mem:SI (unspec:SI [(plus:SI (match_dup 3)
-						(const (plus:SI (pc) (const_int 8))))]
-				      UNSPEC_PIC_BASE)))
-   	      (use (label_ref (match_dup 1)))])]
+  [(set (match_dup 2)
+	(mem:SI (unspec:SI [(match_dup 3)
+			    (const_int 8)
+			    (match_dup 1)]
+			   UNSPEC_PIC_BASE)))]
   ""
 )
 
@@ -5286,12 +5408,12 @@
 			   && GET_CODE (base = XEXP (base, 0)) == REG))
 		      && REGNO_POINTER_ALIGN (REGNO (base)) >= 32)
 		    {
-		      rtx new;
+		      rtx new_rtx;
 
-		      new = widen_memory_access (operands[1], SImode,
-						 ((INTVAL (offset) & ~3)
-						  - INTVAL (offset)));
-		      emit_insn (gen_movsi (reg, new));
+		      new_rtx = widen_memory_access (operands[1], SImode,
+						     ((INTVAL (offset) & ~3)
+						      - INTVAL (offset)));
+		      emit_insn (gen_movsi (reg, new_rtx));
 		      if (((INTVAL (offset) & 2) != 0)
 			  ^ (BYTES_BIG_ENDIAN ? 1 : 0))
 			{
@@ -10792,6 +10914,7 @@
       }
       default:
         assemble_integer (operands[0], 4, BITS_PER_WORD, 1);
+	mark_symbol_refs_as_used (operands[0]);
         break;
       }
     return \"\";

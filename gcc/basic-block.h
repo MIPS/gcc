@@ -106,6 +106,11 @@ typedef bitmap_iterator reg_set_iterator;
 #define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, RSI) \
   EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, RSI)	\
 
+/* Same information as REGS_INVALIDATED_BY_CALL but in regset form to be used
+   in dataflow more conveniently.  */
+
+extern regset regs_invalidated_by_call_regset;
+
 /* Type we use to hold basic block counters.  Should be at least
    64bit.  Although a counter cannot be negative, we use a signed
    type, because erroneous negative counts can be generated when the
@@ -122,14 +127,15 @@ struct edge_def GTY(())
 
   /* Instructions queued on the edge.  */
   union edge_def_insns {
-    tree GTY ((tag ("true"))) t;
+    gimple_seq GTY ((tag ("true"))) g;
     rtx GTY ((tag ("false"))) r;
   } GTY ((desc ("current_ir_type () == IR_GIMPLE"))) insns;
 
   /* Auxiliary info specific to a pass.  */
   PTR GTY ((skip (""))) aux;
 
-  /* Location of any goto implicit in the edge, during tree-ssa.  */
+  /* Location of any goto implicit in the edge and associated BLOCK.  */
+  tree goto_block;
   location_t goto_locus;
 
   /* The index number corresponding to this edge in the edge vector
@@ -231,7 +237,7 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   struct basic_block_def *next_bb;
 
   union basic_block_il_dependent {
-      struct tree_bb_info * GTY ((tag ("0"))) tree;
+      struct gimple_bb_info * GTY ((tag ("0"))) gimple;
       struct rtl_bb_info * GTY ((tag ("1"))) rtl;
     } GTY ((desc ("((%1.flags & BB_RTL) != 0)"))) il;
 
@@ -266,13 +272,13 @@ struct rtl_bb_info GTY(())
   int visited;
 };
 
-struct tree_bb_info GTY(())
+struct gimple_bb_info GTY(())
 {
-  /* Pointers to the first and last trees of the block.  */
-  tree stmt_list;
+  /* Sequence of statements in this block.  */
+  gimple_seq seq;
 
-  /* Chain of PHI nodes for this block.  */
-  tree phi_nodes;
+  /* PHI nodes for this block.  */
+  gimple_seq phi_nodes;
 };
 
 typedef struct basic_block_def *basic_block;
@@ -383,7 +389,7 @@ struct control_flow_graph GTY(())
   int x_last_basic_block;
 
   /* Mapping of labels to their associated blocks.  At present
-     only used for the tree CFG.  */
+     only used for the gimple CFG.  */
   VEC(basic_block,gc) *x_label_to_block_map;
 
   enum profile_status {
@@ -829,17 +835,27 @@ extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 /* In predict.c */
 extern bool maybe_hot_bb_p (const_basic_block);
 extern bool maybe_hot_edge_p (edge);
-extern bool probably_cold_bb_p (const_basic_block);
 extern bool probably_never_executed_bb_p (const_basic_block);
-extern bool tree_predicted_by_p (const_basic_block, enum br_predictor);
+extern bool optimize_bb_for_size_p (const_basic_block);
+extern bool optimize_bb_for_speed_p (const_basic_block);
+extern bool optimize_edge_for_size_p (edge);
+extern bool optimize_edge_for_speed_p (edge);
+extern bool optimize_function_for_size_p (struct function *);
+extern bool optimize_function_for_speed_p (struct function *);
+extern bool optimize_loop_for_size_p (struct loop *);
+extern bool optimize_loop_for_speed_p (struct loop *);
+extern bool optimize_loop_nest_for_size_p (struct loop *);
+extern bool optimize_loop_nest_for_speed_p (struct loop *);
+extern bool gimple_predicted_by_p (const_basic_block, enum br_predictor);
 extern bool rtl_predicted_by_p (const_basic_block, enum br_predictor);
-extern void tree_predict_edge (edge, enum br_predictor, int);
+extern void gimple_predict_edge (edge, enum br_predictor, int);
 extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
 extern void guess_outgoing_edge_probabilities (basic_block);
 extern void remove_predictions_associated_with_edge (edge);
 extern bool edge_probability_reliable_p (const_edge);
 extern bool br_prob_note_reliable_p (const_rtx);
+extern bool predictable_edge_p (edge);
 
 /* In cfg.c  */
 extern void dump_regset (regset, FILE *);
@@ -988,6 +1004,11 @@ bb_has_abnormal_pred (basic_block bb)
 
 /* In cfgloopmanip.c.  */
 extern edge mfb_kj_edge;
-bool mfb_keep_just (edge);
+extern bool mfb_keep_just (edge);
+
+/* In cfgexpand.c.  */
+extern void rtl_profile_for_bb (basic_block);
+extern void rtl_profile_for_edge (edge);
+extern void default_rtl_profile (void);
 
 #endif /* GCC_BASIC_BLOCK_H */

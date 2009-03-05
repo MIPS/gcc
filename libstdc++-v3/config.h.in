@@ -12,6 +12,9 @@
 /* Define to 1 if you have the `asinl' function. */
 #undef HAVE_ASINL
 
+/* Define to 1 if the target assembler supports .symver directive. */
+#undef HAVE_AS_SYMVER_DIRECTIVE
+
 /* Define to 1 if you have the `atan2f' function. */
 #undef HAVE_ATAN2F
 
@@ -35,15 +38,6 @@
 
 /* Define to 1 if you have the <complex.h> header file. */
 #undef HAVE_COMPLEX_H
-
-/* Define to 1 if you have the `copysign' function. */
-#undef HAVE_COPYSIGN
-
-/* Define to 1 if you have the `copysignf' function. */
-#undef HAVE_COPYSIGNF
-
-/* Define to 1 if you have the `copysignl' function. */
-#undef HAVE_COPYSIGNL
 
 /* Define to 1 if you have the `cosf' function. */
 #undef HAVE_COSF
@@ -159,9 +153,6 @@
 /* Define if _Unwind_GetIPInfo is available. */
 #undef HAVE_GETIPINFO
 
-/* Define to 1 if you have the `getpagesize' function. */
-#undef HAVE_GETPAGESIZE
-
 /* Define if gthr-default.h exists (meaning that threading support is
    enabled). */
 #undef HAVE_GTHR_DEFAULT
@@ -183,6 +174,12 @@
 
 /* Define if int64_t is available in <stdint.h>. */
 #undef HAVE_INT64_T
+
+/* Define if int64_t is a long. */
+#undef HAVE_INT64_T_LONG
+
+/* Define if int64_t is a long long. */
+#undef HAVE_INT64_T_LONG_LONG
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -219,9 +216,6 @@
 
 /* Define to 1 if you have the <libintl.h> header file. */
 #undef HAVE_LIBINTL_H
-
-/* Define to 1 if you have the `m' library (-lm). */
-#undef HAVE_LIBM
 
 /* Only used in build directory testsuite_hooks.h. */
 #undef HAVE_LIMIT_AS
@@ -268,9 +262,6 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
-/* Define to 1 if you have a working `mmap' system call. */
-#undef HAVE_MMAP
-
 /* Define to 1 if you have the `modf' function. */
 #undef HAVE_MODF
 
@@ -297,9 +288,6 @@
 
 /* Define to 1 if you have the `setenv' function. */
 #undef HAVE_SETENV
-
-/* Define if sigsetjmp is available. */
-#undef HAVE_SIGSETJMP
 
 /* Define to 1 if you have the `sincos' function. */
 #undef HAVE_SINCOS
@@ -472,12 +460,6 @@
 /* Define to 1 if you have the `_ceill' function. */
 #undef HAVE__CEILL
 
-/* Define to 1 if you have the `_copysign' function. */
-#undef HAVE__COPYSIGN
-
-/* Define to 1 if you have the `_copysignl' function. */
-#undef HAVE__COPYSIGNL
-
 /* Define to 1 if you have the `_cosf' function. */
 #undef HAVE__COSF
 
@@ -634,57 +616,6 @@
 /* Define to 1 if you have the `_tanl' function. */
 #undef HAVE__TANL
 
-/* Define if the compiler/host combination has __builtin_abs. */
-#undef HAVE___BUILTIN_ABS
-
-/* Define if the compiler/host combination has __builtin_cos. */
-#undef HAVE___BUILTIN_COS
-
-/* Define if the compiler/host combination has __builtin_cosf. */
-#undef HAVE___BUILTIN_COSF
-
-/* Define if the compiler/host combination has __builtin_cosl. */
-#undef HAVE___BUILTIN_COSL
-
-/* Define if the compiler/host combination has __builtin_fabs. */
-#undef HAVE___BUILTIN_FABS
-
-/* Define if the compiler/host combination has __builtin_fabsf. */
-#undef HAVE___BUILTIN_FABSF
-
-/* Define if the compiler/host combination has __builtin_fabsl. */
-#undef HAVE___BUILTIN_FABSL
-
-/* Define if the compiler/host combination has __builtin_labs. */
-#undef HAVE___BUILTIN_LABS
-
-/* Define if the compiler/host combination has __builtin_sin. */
-#undef HAVE___BUILTIN_SIN
-
-/* Define if the compiler/host combination has __builtin_sinf. */
-#undef HAVE___BUILTIN_SINF
-
-/* Define if the compiler/host combination has __builtin_sinl. */
-#undef HAVE___BUILTIN_SINL
-
-/* Define if the compiler/host combination has __builtin_sqrt. */
-#undef HAVE___BUILTIN_SQRT
-
-/* Define if the compiler/host combination has __builtin_sqrtf. */
-#undef HAVE___BUILTIN_SQRTF
-
-/* Define if the compiler/host combination has __builtin_sqrtl. */
-#undef HAVE___BUILTIN_SQRTL
-
-/* Define to 1 if you have the `__signbit' function. */
-#undef HAVE___SIGNBIT
-
-/* Define to 1 if you have the `__signbitf' function. */
-#undef HAVE___SIGNBITF
-
-/* Define to 1 if you have the `__signbitl' function. */
-#undef HAVE___SIGNBITL
-
 /* Define as const if the declaration of iconv() needs const. */
 #undef ICONV_CONST
 
@@ -734,14 +665,25 @@
 /* Define if builtin atomic operations for bool are supported on this host. */
 #undef _GLIBCXX_ATOMIC_BUILTINS_1
 
+/* Define if builtin atomic operations for short are supported on this host.
+   */
+#undef _GLIBCXX_ATOMIC_BUILTINS_2
+
 /* Define if builtin atomic operations for int are supported on this host. */
 #undef _GLIBCXX_ATOMIC_BUILTINS_4
+
+/* Define if builtin atomic operations for long long are supported on this
+   host. */
+#undef _GLIBCXX_ATOMIC_BUILTINS_8
 
 /* Define to use concept checking code from the boost libraries. */
 #undef _GLIBCXX_CONCEPT_CHECKS
 
 /* Define if a fully dynamic basic_string is wanted. */
 #undef _GLIBCXX_FULLY_DYNAMIC_STRING
+
+/* Define if gthreads library is available. */
+#undef _GLIBCXX_HAS_GTHREADS
 
 /* Define to 1 if a full hosted library is built, or 0 if freestanding. */
 #undef _GLIBCXX_HOSTED
@@ -760,6 +702,9 @@
 
 /* Define if the compiler is configured for setjmp/longjmp exceptions. */
 #undef _GLIBCXX_SJLJ_EXCEPTIONS
+
+/* Define if EOF == -1, SEEK_CUR == 1, SEEK_END == 2. */
+#undef _GLIBCXX_STDIO_MACROS
 
 /* Define to use symbol versioning in the shared library. */
 #undef _GLIBCXX_SYMVER
@@ -799,6 +744,10 @@
    <tr1/cinttypes> in namespace std::tr1. */
 #undef _GLIBCXX_USE_C99_INTTYPES_TR1
 
+/* Define if wchar_t C99 functions in <inttypes.h> should be imported in
+   <tr1/cinttypes> in namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_INTTYPES_WCHAR_T_TR1
+
 /* Define if C99 functions or macros in <math.h> should be imported in <cmath>
    in namespace std. */
 #undef _GLIBCXX_USE_C99_MATH
@@ -826,15 +775,18 @@
 /* Define if code specialized for long long should be used. */
 #undef _GLIBCXX_USE_LONG_LONG
 
+/* Defined if nanosleep is available. */
+#undef _GLIBCXX_USE_NANOSLEEP
+
 /* Define if NLS translations are to be used. */
 #undef _GLIBCXX_USE_NLS
 
-/* Define if dev/random and dev/urandom are available for the random_device of
-   TR1 (Chapter 5.1). */
+/* Define if /dev/random and /dev/urandom are available for the random_device
+   of TR1 (Chapter 5.1). */
 #undef _GLIBCXX_USE_RANDOM_TR1
 
-/* Define if standard layout types are supported in C++200x. */
-#undef _GLIBCXX_USE_STANDARD_LAYOUT
+/* Defined if sched_yield is available. */
+#undef _GLIBCXX_USE_SCHED_YIELD
 
 /* Define if code specialized for wchar_t should be used. */
 #undef _GLIBCXX_USE_WCHAR_T
@@ -887,16 +839,6 @@
 #if defined (HAVE__CEILL) && ! defined (HAVE_CEILL)
 # define HAVE_CEILL 1
 # define ceill _ceill
-#endif
-
-#if defined (HAVE__COPYSIGN) && ! defined (HAVE_COPYSIGN)
-# define HAVE_COPYSIGN 1
-# define copysign _copysign
-#endif
-
-#if defined (HAVE__COPYSIGNL) && ! defined (HAVE_COPYSIGNL)
-# define HAVE_COPYSIGNL 1
-# define copysignl _copysignl
 #endif
 
 #if defined (HAVE__COSF) && ! defined (HAVE_COSF)

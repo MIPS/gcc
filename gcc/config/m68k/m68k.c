@@ -146,7 +146,7 @@ static tree m68k_handle_fndecl_attribute (tree *node, tree name,
 static void m68k_compute_frame_layout (void);
 static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
 static bool m68k_ok_for_sibcall_p (tree, tree);
-static bool m68k_rtx_costs (rtx, int, int, int *);
+static bool m68k_rtx_costs (rtx, int, int, int *, bool);
 #if M68K_HONOR_TARGET_STRICT_ALIGNMENT
 static bool m68k_return_in_memory (const_tree, const_tree);
 #endif
@@ -2205,7 +2205,8 @@ const_int_cost (HOST_WIDE_INT i)
 }
 
 static bool
-m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
+m68k_rtx_costs (rtx x, int code, int outer_code, int *total,
+		bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -3604,9 +3605,7 @@ notice_update_cc (rtx exp, rtx insn)
       case ROTATE: case ROTATERT:
 	/* These instructions always clear the overflow bit, and set
 	   the carry to the bit shifted out.  */
-	/* ??? We don't currently have a way to signal carry not valid,
-	   nor do we check for it in the branch insns.  */
-	CC_STATUS_INIT;
+	cc_status.flags |= CC_OVERFLOW_UNUSABLE | CC_NO_CARRY;
 	break;
 
       case PLUS: case MINUS: case MULT:
@@ -3887,7 +3886,7 @@ print_operand (FILE *file, rtx op, int letter)
       long l;
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
       REAL_VALUE_TO_TARGET_SINGLE (r, l);
-      asm_fprintf (file, "%I0x%lx", l);
+      asm_fprintf (file, "%I0x%lx", l & 0xFFFFFFFF);
     }
   else if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == XFmode)
     {
@@ -3895,7 +3894,8 @@ print_operand (FILE *file, rtx op, int letter)
       long l[3];
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
       REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, l);
-      asm_fprintf (file, "%I0x%lx%08lx%08lx", l[0], l[1], l[2]);
+      asm_fprintf (file, "%I0x%lx%08lx%08lx", l[0] & 0xFFFFFFFF,
+		   l[1] & 0xFFFFFFFF, l[2] & 0xFFFFFFFF);
     }
   else if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == DFmode)
     {
@@ -3903,7 +3903,7 @@ print_operand (FILE *file, rtx op, int letter)
       long l[2];
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
       REAL_VALUE_TO_TARGET_DOUBLE (r, l);
-      asm_fprintf (file, "%I0x%lx%08lx", l[0], l[1]);
+      asm_fprintf (file, "%I0x%lx%08lx", l[0] & 0xFFFFFFFF, l[1] & 0xFFFFFFFF);
     }
   else
     {
@@ -4830,7 +4830,8 @@ sched_attr_op_type (rtx insn, bool opx_p, bool address_p)
 	}
     }
 
-  if (symbolic_operand (op, VOIDmode)
+  if (GET_CODE (op) == CONST
+      || symbolic_operand (op, VOIDmode)
       || LABEL_P (op))
     {
       switch (GET_MODE (op))

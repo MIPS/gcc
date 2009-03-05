@@ -1,5 +1,6 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -428,7 +429,8 @@
 	  || !CONST_INT_P (XEXP (op, 1)))
 	return 0;
       op = XEXP (op, 0);
-      if (GET_CODE (op) == UNSPEC)
+      if (GET_CODE (op) == UNSPEC
+	  && XINT (op, 1) != UNSPEC_MACHOPIC_OFFSET)
 	return 1;
     }
   return 0;
@@ -640,10 +642,30 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 2, 3)")))
 
+;; Match 4 to 5.
+(define_predicate "const_4_to_5_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 4, 5)")))
+
 ;; Match 4 to 7.
 (define_predicate "const_4_to_7_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 4, 7)")))
+
+;; Match 6 to 7.
+(define_predicate "const_6_to_7_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 6, 7)")))
+
+;; Match 8 to 11.
+(define_predicate "const_8_to_11_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 8, 11)")))
+
+;; Match 12 to 15.
+(define_predicate "const_12_to_15_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 12, 15)")))
 
 ;; Match exactly one bit in 2-bit mask.
 (define_predicate "const_pow2_1_to_2_operand"
@@ -914,6 +936,11 @@
 (define_special_predicate "sse_comparison_operator"
   (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered"))
 
+;; Return 1 if OP is a comparison operator that can be issued by
+;; avx predicate generation instructions
+(define_predicate "avx_comparison_float_operator"
+  (match_code "ne,eq,ge,gt,le,lt,unordered,ordered,uneq,unge,ungt,unle,unlt,ltgt"))
+
 ;; Return 1 if OP is a comparison operator that can be issued by sse predicate
 ;; generation instructions
 (define_predicate "sse5_comparison_float_operator"
@@ -1024,6 +1051,10 @@
   (match_code "plus,mult,and,ior,xor,smin,smax,umin,umax,compare,minus,div,
 	       mod,udiv,umod,ashift,rotate,ashiftrt,lshiftrt,rotatert"))
 
+;; Return true for COMMUTATIVE_P.
+(define_predicate "commutative_operator"
+  (match_code "plus,mult,and,ior,xor,smin,smax,umin,umax"))
+
 ;; Return 1 if OP is a binary operator that can be promoted to wider mode.
 (define_predicate "promotable_binary_operator"
   (ior (match_code "plus,and,ior,xor,ashift")
@@ -1057,3 +1088,15 @@
 (define_predicate "misaligned_operand"
   (and (match_code "mem")
        (match_test "MEM_ALIGN (op) < GET_MODE_ALIGNMENT (mode)")))
+
+;; Return 1 if OP is a vzeroall operation, known to be a PARALLEL.
+(define_predicate "vzeroall_operation"
+  (match_code "parallel")
+{
+  int nregs = TARGET_64BIT ? 16 : 8;
+
+  if (XVECLEN (op, 0) != nregs + 1)
+    return 0;
+
+  return 1;
+})

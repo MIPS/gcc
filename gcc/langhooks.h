@@ -294,10 +294,6 @@ struct lang_hooks
      Fourth argument is actually an enum expand_modifier.  */
   rtx (*expand_expr) (tree, rtx, enum machine_mode, int, rtx *);
 
-  /* Called by expand_expr to generate the definition of a decl.  Returns
-     1 if handled, 0 otherwise.  */
-  int (*expand_decl) (tree);
-
   /* Function to finish handling an incomplete decl at the end of
      compilation.  Default hook is does nothing.  */
   void (*finish_incomplete_decl) (tree);
@@ -320,11 +316,6 @@ struct lang_hooks
      Otherwise, set it to the ERROR_MARK_NODE to ensure that the
      assembler does not talk about it.  */
   void (*set_decl_assembler_name) (tree);
-
-  /* Nonzero if this front end does not generate a dummy BLOCK between
-     the outermost scope of the function and the FUNCTION_DECL.  See
-     is_body_block in stmt.c, and its callers.  */
-  bool no_body_blocks;
 
   /* The front end can add its own statistics to -fmem-report with
      this hook.  It should output to stderr.  */
@@ -357,9 +348,6 @@ struct lang_hooks
      This routine should only return 1 if it is sure.  It should not be used
      in contexts where erroneously returning 0 causes problems.  */
   int (*types_compatible_p) (tree x, tree y);
-
-  /* Given a CALL_EXPR, return a function decl that is its target.  */
-  tree (*lang_get_callee_fndecl) (const_tree);
 
   /* Called by report_error_function to print out function name.  */
   void (*print_error_function) (struct diagnostic_context *, const char *,
@@ -401,7 +389,7 @@ struct lang_hooks
 
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */
-  int (*gimplify_expr) (tree *, tree *, tree *);
+  int (*gimplify_expr) (tree *, gimple_seq *, gimple_seq *);
 
   /* Fold an OBJ_TYPE_REF expression to the address of a function.
      KNOWN_TYPE carries the true type of the OBJ_TYPE_REF_OBJECT.  */
@@ -409,6 +397,14 @@ struct lang_hooks
 
   /* Do language specific processing in the builtin function DECL  */
   tree (*builtin_function) (tree decl);
+
+  /* Like builtin_function, but make sure the scope is the external scope.
+     This is used to delay putting in back end builtin functions until the ISA
+     that defines the builtin is declared via function specific target options,
+     which can save memory for machines like the x86_64 that have multiple
+     ISAs.  If this points to the same function as builtin_function, the
+     backend must add all of the builtins at program initialization time.  */
+  tree (*builtin_function_ext_scope) (tree decl);
 
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);
@@ -428,5 +424,11 @@ extern tree add_builtin_function (const char *name, tree type,
 				  int function_code, enum built_in_class cl,
 				  const char *library_name,
 				  tree attrs);
+
+extern tree add_builtin_function_ext_scope (const char *name, tree type,
+					    int function_code,
+					    enum built_in_class cl,
+					    const char *library_name,
+					    tree attrs);
 
 #endif /* GCC_LANG_HOOKS_H */

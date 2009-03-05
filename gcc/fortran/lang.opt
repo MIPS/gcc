@@ -72,9 +72,17 @@ Waliasing
 Fortran Warning
 Warn about possible aliasing of dummy arguments
 
+Walign-commons
+Fortran Warning
+Warn about alignment of COMMON blocks
+
 Wampersand
 Fortran Warning
 Warn about missing ampersand in continued character constants
+
+Warray-temporaries
+Fortran Warning
+Warn about creation of array temporaries
 
 Wcharacter-truncation
 Fortran Warning
@@ -92,9 +100,9 @@ Wline-truncation
 Fortran Warning
 Warn about truncated source lines
 
-Wnonstd-intrinsics
+Wintrinsics-std
 Fortran Warning
-Warn about usage of non-standard intrinsics
+Warn on intrinsics not part of the selected standard
 
 Wreturn-type
 Fortran Warning
@@ -112,6 +120,10 @@ Wunderflow
 Fortran Warning
 Warn about underflow of numerical constant expressions
 
+Wintrinsic-shadow
+Fortran Warning
+Warn if a user-procedure has the same name as an intrinsic
+
 cpp
 Fortran Joined Separate Negative(nocpp)
 Enable preprocessing
@@ -123,6 +135,10 @@ Disable preprocessing
 d
 Fortran Joined
 -d[DIMNU]	Dump details about macro names and definitions during preprocessing
+
+falign-commons
+Fortran
+Enable alignment of COMMON blocks
 
 fall-intrinsics
 Fortran RejectNegative
@@ -147,6 +163,10 @@ Produce a backtrace when a runtime error is encountered
 fblas-matmul-limit=
 Fortran RejectNegative Joined UInteger
 -fblas-matmul-limit=<n>        Size of the smallest matrix for which matmul will use BLAS
+
+fcheck-array-temporaries
+Fortran
+Produce a warning at runtime if a array temporary has been created for a procedure argument
 
 fconvert=big-endian
 Fortran RejectNegative
@@ -264,6 +284,10 @@ finit-real=
 Fortran RejectNegative Joined
 -finit-real=<zero|nan|inf|-inf> Initialize local real variables
 
+fmax-array-constructor=
+Fortran RejectNegative Joined UInteger
+-fmax-array-constructor=<n>        Maximum number of objects in an array constructor
+
 fmax-errors=
 Fortran RejectNegative Joined UInteger
 -fmax-errors=<n>	Maximum number of errors to report
@@ -334,6 +358,10 @@ Append underscores to externally visible names
 
 fworking-directory
 Fortran
+; Documented in C
+
+idirafter
+Fortran Joined Separate
 ; Documented in C
 
 imultilib

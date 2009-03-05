@@ -1,6 +1,6 @@
 // mutex -*- C++ -*-
 
-// Copyright (C) 2008 Free Software Foundation, Inc.
+// Copyright (C) 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,6 +29,19 @@
 
 #include <mutex>
 
+#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
+#ifndef _GLIBCXX_HAVE_TLS
+namespace
+{
+  std::mutex&
+  get_once_mutex()
+  {
+    static std::mutex once_mutex;
+    return once_mutex;
+  }
+}
+#endif
+
 namespace std
 {
   const defer_lock_t defer_lock = defer_lock_t();
@@ -38,5 +51,34 @@ namespace std
   const char*
   lock_error::what() const throw()
   { return "std::lock_error"; }
+
+#ifdef _GLIBCXX_HAVE_TLS
+  __thread void* __once_callable;
+  __thread void (*__once_call)();
+#else
+  // Explicit instantiation due to -fno-implicit-instantiation.
+  template class function<void()>;
+  function<void()> __once_functor;
+
+  unique_lock<mutex>&
+  __get_once_functor_lock()
+  {
+    static unique_lock<mutex> once_functor_lock(get_once_mutex(), defer_lock);
+    return once_functor_lock;
+  }
+#endif
+
+  extern "C"
+  {
+    void __once_proxy()
+    {
+#ifndef _GLIBCXX_HAVE_TLS
+      function<void()> __once_call = std::move(__once_functor);
+      __get_once_functor_lock().unlock();
+#endif
+      __once_call();
+    }
+  }
 }
 
+#endif // _GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1

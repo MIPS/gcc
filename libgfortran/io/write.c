@@ -36,9 +36,158 @@ Boston, MA 02110-1301, USA.  */
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <errno.h>
 #define star_fill(p, n) memset(p, '*', n)
 
 #include "write_float.def"
+
+typedef unsigned char uchar;
+
+/* Write out default char4.  */
+
+static void
+write_default_char4 (st_parameter_dt *dtp, gfc_char4_t *source,
+		     int src_len, int w_len)
+{
+  char *p;
+  int j, k = 0;
+  gfc_char4_t c;
+  uchar d;
+      
+  /* Take care of preceding blanks.  */
+  if (w_len > src_len)
+    {
+      k = w_len - src_len;
+      p = write_block (dtp, k);
+      if (p == NULL)
+	return;
+      memset (p, ' ', k);
+    }
+
+  /* Get ready to handle delimiters if needed.  */
+  switch (dtp->u.p.current_unit->delim_status)
+    {
+    case DELIM_APOSTROPHE:
+      d = '\'';
+      break;
+    case DELIM_QUOTE:
+      d = '"';
+      break;
+    default:
+      d = ' ';
+      break;
+    }
+
+  /* Now process the remaining characters, one at a time.  */
+  for (j = k; j < src_len; j++)
+    {
+      c = source[j];
+    
+      /* Handle delimiters if any.  */
+      if (c == d && d != ' ')
+	{
+	  p = write_block (dtp, 2);
+	  if (p == NULL)
+	    return;
+	  *p++ = (uchar) c;
+	}
+      else
+	{
+	  p = write_block (dtp, 1);
+	  if (p == NULL)
+	    return;
+	}
+      *p = c > 255 ? '?' : (uchar) c;
+    }
+}
+
+
+/* Write out UTF-8 converted from char4.  */
+
+static void
+write_utf8_char4 (st_parameter_dt *dtp, gfc_char4_t *source,
+		     int src_len, int w_len)
+{
+  char *p;
+  int j, k = 0;
+  gfc_char4_t c;
+  static const uchar masks[6] =  { 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
+  static const uchar limits[6] = { 0x80, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE };
+  size_t nbytes;
+  uchar buf[6], d, *q; 
+
+  /* Take care of preceding blanks.  */
+  if (w_len > src_len)
+    {
+      k = w_len - src_len;
+      p = write_block (dtp, k);
+      if (p == NULL)
+	return;
+      memset (p, ' ', k);
+    }
+
+  /* Get ready to handle delimiters if needed.  */
+  switch (dtp->u.p.current_unit->delim_status)
+    {
+    case DELIM_APOSTROPHE:
+      d = '\'';
+      break;
+    case DELIM_QUOTE:
+      d = '"';
+      break;
+    default:
+      d = ' ';
+      break;
+    }
+
+  /* Now process the remaining characters, one at a time.  */
+  for (j = k; j < src_len; j++)
+    {
+      c = source[j];
+      if (c < 0x80)
+	{
+	  /* Handle the delimiters if any.  */
+	  if (c == d && d != ' ')
+	    {
+	      p = write_block (dtp, 2);
+	      if (p == NULL)
+		return;
+	      *p++ = (uchar) c;
+	    }
+	  else
+	    {
+	      p = write_block (dtp, 1);
+	      if (p == NULL)
+		return;
+	    }
+	  *p = (uchar) c;
+	}
+      else
+	{
+	  /* Convert to UTF-8 sequence.  */
+	  nbytes = 1;
+	  q = &buf[6];
+
+	  do
+	    {
+	      *--q = ((c & 0x3F) | 0x80);
+	      c >>= 6;
+	      nbytes++;
+	    }
+	  while (c >= 0x3F || (c & limits[nbytes-1]));
+
+	  *--q = (c | masks[nbytes-1]);
+
+	  p = write_block (dtp, nbytes);
+	  if (p == NULL)
+	    return;
+
+	  while (q < &buf[6])
+	    *p++ = *q++;
+	}
+    }
+}
+
 
 void
 write_a (st_parameter_dt *dtp, const fnode *f, const char *source, int len)
@@ -126,17 +275,16 @@ write_a (st_parameter_dt *dtp, const fnode *f, const char *source, int len)
 
 
 /* The primary difference between write_a_char4 and write_a is that we have to
-   deal with writing from the first byte of the 4-byte character and take care
-   of endianess.  This currently implements encoding="default" which means we
-   write the lowest significant byte. If the 3 most significant bytes are
-   not representable emit a '?'.  TODO: Implement encoding="UTF-8"
-   which will process all 4 bytes and translate to the encoded output.  */
+   deal with writing from the first byte of the 4-byte character and pay
+   attention to the most significant bytes.  For ENCODING="default" write the
+   lowest significant byte. If the 3 most significant bytes contain
+   non-zero values, emit a '?'.  For ENCODING="utf-8", convert the UCS-32 value
+   to the UTF-8 encoded string before writing out.  */
 
 void
 write_a_char4 (st_parameter_dt *dtp, const fnode *f, const char *source, int len)
 {
   int wlen;
-  char *p;
   gfc_char4_t *q;
 
   wlen = f->u.string.length < 0
@@ -151,13 +299,14 @@ write_a_char4 (st_parameter_dt *dtp, const fnode *f, const char *source, int len
   if (is_stream_io (dtp))
     {
       const char crlf[] = "\r\n";
-      int i, j, bytes;
+      int i, bytes;
       gfc_char4_t *qq;
       bytes = 0;
 
       /* Write out any padding if needed.  */
       if (len < wlen)
 	{
+	  char *p;
 	  p = write_block (dtp, wlen - len);
 	  if (p == NULL)
 	    return;
@@ -173,19 +322,15 @@ write_a_char4 (st_parameter_dt *dtp, const fnode *f, const char *source, int len
 	      /* Write out the previously scanned characters in the string.  */
 	      if (bytes > 0)
 		{
-		  p = write_block (dtp, bytes);
-		  if (p == NULL)
-		    return;
-		  for (j = 0; j < bytes; j++)
-		    p[j] = q[j] > 255 ? '?' : (unsigned char) q[j];
+		  if (dtp->u.p.current_unit->flags.encoding == ENCODING_UTF8)
+		    write_utf8_char4 (dtp, q, bytes, 0);
+		  else
+		    write_default_char4 (dtp, q, bytes, 0);
 		  bytes = 0;
 		}
 
 	      /* Write out the CR_LF sequence.  */ 
-	      p = write_block (dtp, 2);
-              if (p == NULL)
-                return;
-	      memcpy (p, crlf, 2);
+	      write_default_char4 (dtp, crlf, 2, 0);
 	    }
 	  else
 	    bytes++;
@@ -194,32 +339,19 @@ write_a_char4 (st_parameter_dt *dtp, const fnode *f, const char *source, int len
       /*  Write out any remaining bytes if no LF was found.  */
       if (bytes > 0)
 	{
-	  p = write_block (dtp, bytes);
-	  if (p == NULL)
-	    return;
-	  for (j = 0; j < bytes; j++)
-	    p[j] = q[j] > 255 ? '?' : (unsigned char) q[j];
+	  if (dtp->u.p.current_unit->flags.encoding == ENCODING_UTF8)
+	    write_utf8_char4 (dtp, q, bytes, 0);
+	  else
+	    write_default_char4 (dtp, q, bytes, 0);
 	}
     }
   else
     {
 #endif
-      int j;
-      p = write_block (dtp, wlen);
-      if (p == NULL)
-	return;
-
-      if (wlen < len)
-	{
-	  for (j = 0; j < wlen; j++)
-	    p[j] = q[j] > 255 ? '?' : (unsigned char) q[j];
-	}
+      if (dtp->u.p.current_unit->flags.encoding == ENCODING_UTF8)
+	write_utf8_char4 (dtp, q, len, wlen);
       else
-	{
-	  memset (p, ' ', wlen - len);
-	  for (j = wlen - len; j < wlen; j++)
-	    p[j] = q[j] > 255 ? '?' : (unsigned char) q[j];
-	}
+	write_default_char4 (dtp, q, len, wlen);
 #ifdef HAVE_CRLF
     }
 #endif
@@ -468,9 +600,16 @@ write_decimal (st_parameter_dt *dtp, const fnode *f, const char *source,
   sign = calculate_sign (dtp, n < 0);
   if (n < 0)
     n = -n;
-
   nsign = sign == S_NONE ? 0 : 1;
+  
+  /* conv calls gfc_itoa which sets the negative sign needed
+     by write_integer. The sign '+' or '-' is set below based on sign
+     calculated above, so we just point past the sign in the string
+     before proceeding to avoid double signs in corner cases.
+     (see PR38504)  */
   q = conv (n, itoa_buf, sizeof (itoa_buf));
+  if (*q == '-')
+    q++;
 
   digits = strlen (q);
 
@@ -745,10 +884,8 @@ write_character (st_parameter_dt *dtp, const char *source, int kind, int length)
 {
   int i, extra;
   char *p, d;
-  gfc_char4_t *q;
 
-
-  switch (dtp->u.p.delim_status)
+  switch (dtp->u.p.current_unit->delim_status)
     {
     case DELIM_APOSTROPHE:
       d = '\'';
@@ -769,9 +906,9 @@ write_character (st_parameter_dt *dtp, const char *source, int kind, int length)
 	{
 	  extra = 2;
 
-	    for (i = 0; i < length; i++)
-	      if (source[i] == d)
-		extra++;
+	  for (i = 0; i < length; i++)
+	    if (source[i] == d)
+	      extra++;
 	}
 
       p = write_block (dtp, length + extra);
@@ -796,46 +933,63 @@ write_character (st_parameter_dt *dtp, const char *source, int kind, int length)
     }
   else
     {
-      /* We have to scan the source string looking for delimiters to determine
-	 how large the write block needs to be.  */
-      if (d == ' ')
-	extra = 0;
-      else
-	{
-	  extra = 2;
-
-	  q = (gfc_char4_t *) source;
-	  for (i = 0; i < length; i++, q++)
-	    if (*q == (gfc_char4_t) d)
-	      extra++;
-	}
-
-      p = write_block (dtp, length + extra);
-      if (p == NULL)
-	return;
-
       if (d == ' ')
 	{
-	  q = (gfc_char4_t *) source;
-	  for (i = 0; i < length; i++, q++)
-	    p[i] = *q > 255 ? '?' : (unsigned char) *q;
+	  if (dtp->u.p.current_unit->flags.encoding == ENCODING_UTF8)
+	    write_utf8_char4 (dtp, (gfc_char4_t *) source, length, 0);
+	  else
+	    write_default_char4 (dtp, (gfc_char4_t *) source, length, 0);
 	}
       else
 	{
-	  *p++ = d;
-	  q = (gfc_char4_t *) source;
-	  for (i = 0; i < length; i++, q++)
-	    {
-	      *p++ = *q > 255 ? '?' : (unsigned char) *q;
-	      if (*q == (gfc_char4_t) d)
-		*p++ = d;
-	    }
+	  p = write_block (dtp, 1);
+	  *p = d;
+
+	  if (dtp->u.p.current_unit->flags.encoding == ENCODING_UTF8)
+	    write_utf8_char4 (dtp, (gfc_char4_t *) source, length, 0);
+	  else
+	    write_default_char4 (dtp, (gfc_char4_t *) source, length, 0);
+
+	  p = write_block (dtp, 1);
 	  *p = d;
 	}
     }
 }
 
 
+/* Set an fnode to default format.  */
+
+static void
+set_fnode_default (st_parameter_dt *dtp, fnode *f, int length)
+{
+  f->format = FMT_G;
+  switch (length)
+    {
+    case 4:
+      f->u.real.w = 15;
+      f->u.real.d = 8;
+      f->u.real.e = 2;
+      break;
+    case 8:
+      f->u.real.w = 25;
+      f->u.real.d = 17;
+      f->u.real.e = 3;
+      break;
+    case 10:
+      f->u.real.w = 29;
+      f->u.real.d = 20;
+      f->u.real.e = 4;
+      break;
+    case 16:
+      f->u.real.w = 44;
+      f->u.real.d = 35;
+      f->u.real.e = 4;
+      break;
+    default:
+      internal_error (&dtp->common, "bad real kind");
+      break;
+    }
+}
 /* Output a real number with default format.
    This is 1PG14.7E2 for REAL(4), 1PG23.15E3 for REAL(8),
    1PG28.19E4 for REAL(10) and 1PG43.34E4 for REAL(16).  */
@@ -845,43 +999,31 @@ write_real (st_parameter_dt *dtp, const char *source, int length)
 {
   fnode f ;
   int org_scale = dtp->u.p.scale_factor;
-  f.format = FMT_G;
   dtp->u.p.scale_factor = 1;
-  switch (length)
-    {
-    case 4:
-      f.u.real.w = 15;
-      f.u.real.d = 8;
-      f.u.real.e = 2;
-      break;
-    case 8:
-      f.u.real.w = 25;
-      f.u.real.d = 17;
-      f.u.real.e = 3;
-      break;
-    case 10:
-      f.u.real.w = 29;
-      f.u.real.d = 20;
-      f.u.real.e = 4;
-      break;
-    case 16:
-      f.u.real.w = 44;
-      f.u.real.d = 35;
-      f.u.real.e = 4;
-      break;
-    default:
-      internal_error (&dtp->common, "bad real kind");
-      break;
-    }
+  set_fnode_default (dtp, &f, length);
   write_float (dtp, &f, source , length);
   dtp->u.p.scale_factor = org_scale;
+}
+
+
+void
+write_real_g0 (st_parameter_dt *dtp, const char *source, int length, int d)
+{
+  fnode f ;
+  set_fnode_default (dtp, &f, length);
+  if (d > 0)
+    f.u.real.d = d;
+  dtp->u.p.g0_no_blanks = 1;
+  write_float (dtp, &f, source , length);
+  dtp->u.p.g0_no_blanks = 0;
 }
 
 
 static void
 write_complex (st_parameter_dt *dtp, const char *source, int kind, size_t size)
 {
-  char semi_comma = dtp->u.p.decimal_status == DECIMAL_POINT ? ',' : ';';
+  char semi_comma =
+	dtp->u.p.current_unit->decimal_status == DECIMAL_POINT ? ',' : ';';
 
   if (write_char (dtp, '('))
     return;
@@ -929,8 +1071,8 @@ list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
   else
     {
       if (type != BT_CHARACTER || !dtp->u.p.char_flag ||
-	  dtp->u.p.delim_status != DELIM_NONE)
-	write_separator (dtp);
+	dtp->u.p.current_unit->delim_status != DELIM_NONE)
+      write_separator (dtp);
     }
 
   switch (type)
@@ -1000,6 +1142,51 @@ list_formatted_write (st_parameter_dt *dtp, bt type, void *p, int kind,
 
 #define NML_DIGITS 20
 
+static void
+namelist_write_newline (st_parameter_dt *dtp)
+{
+  if (!is_internal_unit (dtp))
+    {
+#ifdef HAVE_CRLF
+      write_character (dtp, "\r\n", 1, 2);
+#else
+      write_character (dtp, "\n", 1, 1);
+#endif
+      return;
+    }
+
+  if (is_array_io (dtp))
+    {
+      gfc_offset record;
+      int finished, length;
+
+      length = (int) dtp->u.p.current_unit->bytes_left;
+	      
+      /* Now that the current record has been padded out,
+	 determine where the next record in the array is. */
+      record = next_array_record (dtp, dtp->u.p.current_unit->ls,
+				  &finished);
+      if (finished)
+	dtp->u.p.current_unit->endfile = AT_ENDFILE;
+      else
+	{
+	  /* Now seek to this record */
+	  record = record * dtp->u.p.current_unit->recl;
+
+	  if (sseek (dtp->u.p.current_unit->s, record) == FAILURE)
+	    {
+	      generate_error (&dtp->common, LIBERROR_INTERNAL_UNIT, NULL);
+	      return;
+	    }
+
+	  dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
+	}
+    }
+  else
+    write_character (dtp, " ", 1, 1);
+}
+
+
 static namelist_info *
 nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 	       namelist_info * base, char * base_name)
@@ -1029,18 +1216,17 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   /* Set the character to be used to separate values
      to a comma or semi-colon.  */
 
-  char semi_comma = dtp->u.p.decimal_status == DECIMAL_POINT ? ',' : ';';
+  char semi_comma =
+	dtp->u.p.current_unit->decimal_status == DECIMAL_POINT ? ',' : ';';
 
   /* Write namelist variable names in upper case. If a derived type,
      nothing is output.  If a component, base and base_name are set.  */
 
   if (obj->type != GFC_DTYPE_DERIVED)
     {
-#ifdef HAVE_CRLF
-      write_character (dtp, "\r\n ", 1, 3);
-#else
-      write_character (dtp, "\n ", 1, 2);
-#endif
+      namelist_write_newline (dtp);
+      write_character (dtp, " ", 1, 1);
+
       len = 0;
       if (base)
 	{
@@ -1146,20 +1332,20 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
               break;
 
 	    case GFC_DTYPE_CHARACTER:
-	      tmp_delim = dtp->u.p.delim_status;
+	      tmp_delim = dtp->u.p.current_unit->delim_status;
 	      if (dtp->u.p.nml_delim == '"')
-		dtp->u.p.delim_status = DELIM_QUOTE;
+		dtp->u.p.current_unit->delim_status = DELIM_QUOTE;
 	      if (dtp->u.p.nml_delim == '\'')
-		dtp->u.p.delim_status = DELIM_APOSTROPHE;
+		dtp->u.p.current_unit->delim_status = DELIM_APOSTROPHE;
 	      write_character (dtp, p, 1, obj->string_length);
-	      dtp->u.p.delim_status = tmp_delim;
+		dtp->u.p.current_unit->delim_status = tmp_delim;
               break;
 
 	    case GFC_DTYPE_REAL:
 	      write_real (dtp, p, len);
               break;
 
-	    case GFC_DTYPE_COMPLEX:
+	   case GFC_DTYPE_COMPLEX:
 	      dtp->u.p.no_leading_blank = 0;
 	      num++;
               write_complex (dtp, p, len, obj_size);
@@ -1245,11 +1431,8 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 	  if (num > 5)
 	    {
 	      num = 0;
-#ifdef HAVE_CRLF
-	      write_character (dtp, "\r\n ", 1, 3);
-#else
-	      write_character (dtp, "\n ", 1, 2);
-#endif
+	      namelist_write_newline (dtp);
+	      write_character (dtp, " ", 1, 1);
 	    }
 	  rep_ctr = 1;
 	}
@@ -1276,6 +1459,7 @@ obj_loop:
   return retval;
 }
 
+
 /* This is the entry function for namelist writes.  It outputs the name
    of the namelist and iterates through the namelist by calls to
    nml_write_obj.  The call below has dummys in the arguments used in
@@ -1289,28 +1473,15 @@ namelist_write (st_parameter_dt *dtp)
   index_type dummy_offset = 0;
   char c;
   char * dummy_name = NULL;
-  unit_delim tmp_delim;
+  unit_delim tmp_delim = DELIM_UNSPECIFIED;
 
   /* Set the delimiter for namelist output.  */
+  tmp_delim = dtp->u.p.current_unit->delim_status;
 
-  tmp_delim = dtp->u.p.delim_status;
-  switch (tmp_delim)
-    {
-    case (DELIM_QUOTE):
-      dtp->u.p.nml_delim = '"';
-      break;
-
-    case (DELIM_APOSTROPHE):
-      dtp->u.p.nml_delim = '\'';
-      break;
-
-    default:
-      dtp->u.p.nml_delim = '\0';
-      break;
-    }
+  dtp->u.p.nml_delim = tmp_delim == DELIM_APOSTROPHE ? '\'' : '"';
 
   /* Temporarily disable namelist delimters.  */
-  dtp->u.p.delim_status = DELIM_NONE;
+  dtp->u.p.current_unit->delim_status = DELIM_NONE;
 
   write_character (dtp, "&", 1, 1);
 
@@ -1331,14 +1502,10 @@ namelist_write (st_parameter_dt *dtp)
 	}
     }
 
-#ifdef HAVE_CRLF
-  write_character (dtp, "  /\r\n", 1, 5);
-#else
-  write_character (dtp, "  /\n", 1, 4);
-#endif
-
+  namelist_write_newline (dtp);
+  write_character (dtp, " /", 1, 2);
   /* Restore the original delimiter.  */
-  dtp->u.p.delim_status = tmp_delim;
+  dtp->u.p.current_unit->delim_status = tmp_delim;
 }
 
 #undef NML_DIGITS

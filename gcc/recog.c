@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -69,7 +69,7 @@ get_attr_enabled (rtx insn ATTRIBUTE_UNUSED)
 }
 #endif
 
-static void validate_replace_rtx_1 (rtx *, rtx, rtx, rtx);
+static void validate_replace_rtx_1 (rtx *, rtx, rtx, rtx, bool);
 static void validate_replace_src_1 (rtx *, void *);
 static rtx split_insn (rtx);
 
@@ -77,7 +77,7 @@ static rtx split_insn (rtx);
    This should be 0 if you are generating rtl, such as if you are calling
    the functions in optabs.c and expmed.c (most of the time).
    This should be 1 if all valid insns need to be recognized,
-   such as in regclass.c and final.c and reload.c.
+   such as in reginfo.c and final.c and reload.c.
 
    init_recog and init_recog_no_volatile are responsible for setting this.  */
 
@@ -156,10 +156,7 @@ check_asm_operands (rtx x)
       const char *c = constraints[i];
       if (c[0] == '%')
 	c++;
-      if (ISDIGIT ((unsigned char) c[0]) && c[1] == '\0')
-	c = constraints[c[0] - '0'];
-
-      if (! asm_operand_ok (operands[i], c))
+      if (! asm_operand_ok (operands[i], c, constraints))
 	return 0;
     }
 
@@ -513,87 +510,16 @@ cancel_changes (int num)
   num_changes = num;
 }
 
-/* Replace every occurrence of FROM in X with TO.  Mark each change with
-   validate_change passing OBJECT.  */
+/* A subroutine of validate_replace_rtx_1 that tries to simplify the resulting
+   rtx.  */
 
 static void
-validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
+simplify_while_replacing (rtx *loc, rtx to, rtx object, 
+                          enum machine_mode op0_mode)
 {
-  int i, j;
-  const char *fmt;
   rtx x = *loc;
-  enum rtx_code code;
-  enum machine_mode op0_mode = VOIDmode;
-  int prev_changes = num_changes;
+  enum rtx_code code = GET_CODE (x);
   rtx new_rtx;
-
-  if (!x)
-    return;
-
-  code = GET_CODE (x);
-  fmt = GET_RTX_FORMAT (code);
-  if (fmt[0] == 'e')
-    op0_mode = GET_MODE (XEXP (x, 0));
-
-  /* X matches FROM if it is the same rtx or they are both referring to the
-     same register in the same mode.  Avoid calling rtx_equal_p unless the
-     operands look similar.  */
-
-  if (x == from
-      || (REG_P (x) && REG_P (from)
-	  && GET_MODE (x) == GET_MODE (from)
-	  && REGNO (x) == REGNO (from))
-      || (GET_CODE (x) == GET_CODE (from) && GET_MODE (x) == GET_MODE (from)
-	  && rtx_equal_p (x, from)))
-    {
-      validate_unshare_change (object, loc, to, 1);
-      return;
-    }
-
-  /* Call ourself recursively to perform the replacements.
-     We must not replace inside already replaced expression, otherwise we
-     get infinite recursion for replacements like (reg X)->(subreg (reg X))
-     done by regmove, so we must special case shared ASM_OPERANDS.  */
-
-  if (GET_CODE (x) == PARALLEL)
-    {
-      for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
-	{
-	  if (j && GET_CODE (XVECEXP (x, 0, j)) == SET
-	      && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == ASM_OPERANDS)
-	    {
-	      /* Verify that operands are really shared.  */
-	      gcc_assert (ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP (x, 0, 0)))
-			  == ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP
-							      (x, 0, j))));
-	      validate_replace_rtx_1 (&SET_DEST (XVECEXP (x, 0, j)),
-				      from, to, object);
-	    }
-	  else
-	    validate_replace_rtx_1 (&XVECEXP (x, 0, j), from, to, object);
-	}
-    }
-  else
-    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-      {
-	if (fmt[i] == 'e')
-	  validate_replace_rtx_1 (&XEXP (x, i), from, to, object);
-	else if (fmt[i] == 'E')
-	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    validate_replace_rtx_1 (&XVECEXP (x, i, j), from, to, object);
-      }
-
-  /* If we didn't substitute, there is nothing more to do.  */
-  if (num_changes == prev_changes)
-    return;
-
-  /* Allow substituted expression to have different mode.  This is used by
-     regmove to change mode of pseudo register.  */
-  if (fmt[0] == 'e' && GET_MODE (XEXP (x, 0)) != VOIDmode)
-    op0_mode = GET_MODE (XEXP (x, 0));
-
-  /* Do changes needed to keep rtx consistent.  Don't do any other
-     simplifications, as it is not our job.  */
 
   if (SWAPPABLE_OPERANDS_P (x)
       && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
@@ -715,14 +641,124 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
     }
 }
 
+/* Replace every occurrence of FROM in X with TO.  Mark each change with
+   validate_change passing OBJECT.  */
+
+static void
+validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object, 
+                        bool simplify)
+{
+  int i, j;
+  const char *fmt;
+  rtx x = *loc;
+  enum rtx_code code;
+  enum machine_mode op0_mode = VOIDmode;
+  int prev_changes = num_changes;
+
+  if (!x)
+    return;
+
+  code = GET_CODE (x);
+  fmt = GET_RTX_FORMAT (code);
+  if (fmt[0] == 'e')
+    op0_mode = GET_MODE (XEXP (x, 0));
+
+  /* X matches FROM if it is the same rtx or they are both referring to the
+     same register in the same mode.  Avoid calling rtx_equal_p unless the
+     operands look similar.  */
+
+  if (x == from
+      || (REG_P (x) && REG_P (from)
+	  && GET_MODE (x) == GET_MODE (from)
+	  && REGNO (x) == REGNO (from))
+      || (GET_CODE (x) == GET_CODE (from) && GET_MODE (x) == GET_MODE (from)
+	  && rtx_equal_p (x, from)))
+    {
+      validate_unshare_change (object, loc, to, 1);
+      return;
+    }
+
+  /* Call ourself recursively to perform the replacements.
+     We must not replace inside already replaced expression, otherwise we
+     get infinite recursion for replacements like (reg X)->(subreg (reg X))
+     done by regmove, so we must special case shared ASM_OPERANDS.  */
+
+  if (GET_CODE (x) == PARALLEL)
+    {
+      for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
+	{
+	  if (j && GET_CODE (XVECEXP (x, 0, j)) == SET
+	      && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == ASM_OPERANDS)
+	    {
+	      /* Verify that operands are really shared.  */
+	      gcc_assert (ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP (x, 0, 0)))
+			  == ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP
+							      (x, 0, j))));
+	      validate_replace_rtx_1 (&SET_DEST (XVECEXP (x, 0, j)),
+				      from, to, object, simplify);
+	    }
+	  else
+	    validate_replace_rtx_1 (&XVECEXP (x, 0, j), from, to, object, 
+                                    simplify);
+	}
+    }
+  else
+    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+      {
+	if (fmt[i] == 'e')
+	  validate_replace_rtx_1 (&XEXP (x, i), from, to, object, simplify);
+	else if (fmt[i] == 'E')
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    validate_replace_rtx_1 (&XVECEXP (x, i, j), from, to, object, 
+                                    simplify);
+      }
+
+  /* If we didn't substitute, there is nothing more to do.  */
+  if (num_changes == prev_changes)
+    return;
+
+  /* Allow substituted expression to have different mode.  This is used by
+     regmove to change mode of pseudo register.  */
+  if (fmt[0] == 'e' && GET_MODE (XEXP (x, 0)) != VOIDmode)
+    op0_mode = GET_MODE (XEXP (x, 0));
+
+  /* Do changes needed to keep rtx consistent.  Don't do any other
+     simplifications, as it is not our job.  */
+  if (simplify)
+    simplify_while_replacing (loc, to, object, op0_mode);
+}
+
 /* Try replacing every occurrence of FROM in INSN with TO.  After all
    changes have been made, validate by seeing if INSN is still valid.  */
 
 int
 validate_replace_rtx (rtx from, rtx to, rtx insn)
 {
-  validate_replace_rtx_1 (&PATTERN (insn), from, to, insn);
+  validate_replace_rtx_1 (&PATTERN (insn), from, to, insn, true);
   return apply_change_group ();
+}
+
+/* Try replacing every occurrence of FROM in WHERE with TO.  Assume that WHERE
+   is a part of INSN.  After all changes have been made, validate by seeing if 
+   INSN is still valid.  
+   validate_replace_rtx (from, to, insn) is equivalent to 
+   validate_replace_rtx_part (from, to, &PATTERN (insn), insn).  */
+
+int
+validate_replace_rtx_part (rtx from, rtx to, rtx *where, rtx insn)
+{
+  validate_replace_rtx_1 (where, from, to, insn, true);
+  return apply_change_group ();
+}
+
+/* Same as above, but do not simplify rtx afterwards.  */
+int 
+validate_replace_rtx_part_nosimplify (rtx from, rtx to, rtx *where, 
+                                      rtx insn)
+{
+  validate_replace_rtx_1 (where, from, to, insn, false);
+  return apply_change_group ();
+
 }
 
 /* Try replacing every occurrence of FROM in INSN with TO.  */
@@ -730,7 +766,7 @@ validate_replace_rtx (rtx from, rtx to, rtx insn)
 void
 validate_replace_rtx_group (rtx from, rtx to, rtx insn)
 {
-  validate_replace_rtx_1 (&PATTERN (insn), from, to, insn);
+  validate_replace_rtx_1 (&PATTERN (insn), from, to, insn, true);
 }
 
 /* Function called by note_uses to replace used subexpressions.  */
@@ -747,7 +783,7 @@ validate_replace_src_1 (rtx *x, void *data)
   struct validate_replace_src_data *d
     = (struct validate_replace_src_data *) data;
 
-  validate_replace_rtx_1 (x, d->from, d->to, d->insn);
+  validate_replace_rtx_1 (x, d->from, d->to, d->insn, true);
 }
 
 /* Try replacing every occurrence of FROM in INSN with TO, avoiding
@@ -1508,7 +1544,7 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
    Return > 0 if ok, = 0 if bad, < 0 if inconclusive.  */
 
 int
-asm_operand_ok (rtx op, const char *constraint)
+asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 {
   int result = 0;
 
@@ -1536,15 +1572,29 @@ asm_operand_ok (rtx op, const char *constraint)
 
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
-	  /* For best results, our caller should have given us the
-	     proper matching constraint, but we can't actually fail
-	     the check if they didn't.  Indicate that results are
-	     inconclusive.  */
-	  do
-	    constraint++;
-	  while (ISDIGIT (*constraint));
-	  if (! result)
-	    result = -1;
+	  /* If caller provided constraints pointer, look up
+	     the maching constraint.  Otherwise, our caller should have
+	     given us the proper matching constraint, but we can't
+	     actually fail the check if they didn't.  Indicate that
+	     results are inconclusive.  */
+	  if (constraints)
+	    {
+	      char *end;
+	      unsigned long match;
+
+	      match = strtoul (constraint, &end, 10);
+	      if (!result)
+		result = asm_operand_ok (op, constraints[match], NULL);
+	      constraint = (const char *) end;
+	    }
+	  else
+	    {
+	      do
+		constraint++;
+	      while (ISDIGIT (*constraint));
+	      if (! result)
+		result = -1;
+	    }
 	  continue;
 
 	case 'p':
@@ -2630,9 +2680,28 @@ split_insn (rtx insn)
   /* Split insns here to get max fine-grain parallelism.  */
   rtx first = PREV_INSN (insn);
   rtx last = try_split (PATTERN (insn), insn, 1);
+  rtx insn_set, last_set, note;
 
   if (last == insn)
     return NULL_RTX;
+
+  /* If the original instruction was a single set that was known to be
+     equivalent to a constant, see if we can say the same about the last
+     instruction in the split sequence.  The two instructions must set
+     the same destination.  */
+  insn_set = single_set (insn);
+  if (insn_set)
+    {
+      last_set = single_set (last);
+      if (last_set && rtx_equal_p (SET_DEST (last_set), SET_DEST (insn_set)))
+	{
+	  note = find_reg_equal_equiv_note (insn);
+	  if (note && CONSTANT_P (XEXP (note, 0)))
+	    set_unique_reg_note (last, REG_EQUAL, XEXP (note, 0));
+	  else if (CONSTANT_P (SET_SRC (insn_set)))
+	    set_unique_reg_note (last, REG_EQUAL, SET_SRC (insn_set));
+	}
+    }
 
   /* try_split returns the NOTE that INSN became.  */
   SET_INSN_DELETED (insn);
@@ -2651,6 +2720,7 @@ split_insn (rtx insn)
 	  first = NEXT_INSN (first);
 	}
     }
+
   return last;
 }
 
@@ -2672,6 +2742,7 @@ split_all_insns (void)
       rtx insn, next;
       bool finish = false;
 
+      rtl_profile_for_bb (bb);
       for (insn = BB_HEAD (bb); !finish ; insn = next)
 	{
 	  /* Can't use `next_real_insn' because that might go across
@@ -2714,6 +2785,7 @@ split_all_insns (void)
 	}
     }
 
+  default_rtl_profile ();
   if (changed)
     find_many_sub_basic_blocks (blocks);
 
@@ -2966,6 +3038,7 @@ peephole2_optimize (void)
 
   FOR_EACH_BB_REVERSE (bb)
     {
+      rtl_profile_for_bb (bb);
       /* Indicate that all slots except the last holds invalid data.  */
       for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
 	peep2_insn_data[i].insn = NULL_RTX;
@@ -2977,7 +3050,7 @@ peephole2_optimize (void)
 
       /* Start up propagation.  */
       bitmap_copy (live, DF_LR_OUT (bb));
-      df_simulate_artificial_refs_at_end (bb, live);
+      df_simulate_initialize_backwards (bb, live);
       bitmap_copy (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
       for (insn = BB_END (bb); ; insn = prev)
@@ -2997,7 +3070,7 @@ peephole2_optimize (void)
 		  && peep2_insn_data[peep2_current].insn == NULL_RTX)
 		peep2_current_count++;
 	      peep2_insn_data[peep2_current].insn = insn;
-	      df_simulate_one_insn (bb, insn, live);
+	      df_simulate_one_insn_backwards (bb, insn, live);
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
 
 	      if (RTX_FRAME_RELATED_P (insn))
@@ -3156,7 +3229,7 @@ peephole2_optimize (void)
 			    peep2_current_count++;
 			  peep2_insn_data[i].insn = x;
 			  df_insn_rescan (x);
-			  df_simulate_one_insn (bb, x, live);
+			  df_simulate_one_insn_backwards (bb, x, live);
 			  bitmap_copy (peep2_insn_data[i].live_before, live);
 			}
 		      x = PREV_INSN (x);
@@ -3182,6 +3255,7 @@ peephole2_optimize (void)
 	}
     }
 
+  default_rtl_profile ();
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
     BITMAP_FREE (peep2_insn_data[i].live_before);
   BITMAP_FREE (live);

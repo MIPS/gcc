@@ -866,6 +866,306 @@ handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
   GCC_BAD ("unknown option after %<#pragma GCC diagnostic%> kind");
 }
 
+/*  Parse #pragma GCC target (xxx) to set target specific options.  */
+static void
+handle_pragma_target(cpp_reader *ARG_UNUSED(dummy))
+{
+  enum cpp_ttype token;
+  tree x;
+  bool close_paren_needed_p = false;
+
+  if (cfun)
+    {
+      error ("#pragma GCC option is not allowed inside functions");
+      return;
+    }
+
+  token = pragma_lex (&x);
+  if (token == CPP_OPEN_PAREN)
+    {
+      close_paren_needed_p = true;
+      token = pragma_lex (&x);
+    }
+
+  if (token != CPP_STRING)
+    {
+      GCC_BAD ("%<#pragma GCC option%> is not a string");
+      return;
+    }
+
+  /* Strings are user options.  */
+  else
+    {
+      tree args = NULL_TREE;
+
+      do
+	{
+	  /* Build up the strings now as a tree linked list.  Skip empty
+	     strings.  */
+	  if (TREE_STRING_LENGTH (x) > 0)
+	    args = tree_cons (NULL_TREE, x, args);
+
+	  token = pragma_lex (&x);
+	  while (token == CPP_COMMA)
+	    token = pragma_lex (&x);
+	}
+      while (token == CPP_STRING);
+
+      if (close_paren_needed_p)
+	{
+	  if (token == CPP_CLOSE_PAREN)
+	    token = pragma_lex (&x);
+	  else
+	    GCC_BAD ("%<#pragma GCC target (string [,string]...)%> does "
+		     "not have a final %<)%>.");
+	}
+
+      if (token != CPP_EOF)
+	{
+	  error ("#pragma GCC target string... is badly formed");
+	  return;
+	}
+
+      /* put arguments in the order the user typed them.  */
+      args = nreverse (args);
+
+      if (targetm.target_option.pragma_parse (args, NULL_TREE))
+	current_target_pragma = args;
+    }
+}
+
+/* Handle #pragma GCC optimize to set optimization options.  */
+static void
+handle_pragma_optimize (cpp_reader *ARG_UNUSED(dummy))
+{
+  enum cpp_ttype token;
+  tree x;
+  bool close_paren_needed_p = false;
+  tree optimization_previous_node = optimization_current_node;
+
+  if (cfun)
+    {
+      error ("#pragma GCC optimize is not allowed inside functions");
+      return;
+    }
+
+  token = pragma_lex (&x);
+  if (token == CPP_OPEN_PAREN)
+    {
+      close_paren_needed_p = true;
+      token = pragma_lex (&x);
+    }
+
+  if (token != CPP_STRING && token != CPP_NUMBER)
+    {
+      GCC_BAD ("%<#pragma GCC optimize%> is not a string or number");
+      return;
+    }
+
+  /* Strings/numbers are user options.  */
+  else
+    {
+      tree args = NULL_TREE;
+
+      do
+	{
+	  /* Build up the numbers/strings now as a list.  */
+	  if (token != CPP_STRING || TREE_STRING_LENGTH (x) > 0)
+	    args = tree_cons (NULL_TREE, x, args);
+
+	  token = pragma_lex (&x);
+	  while (token == CPP_COMMA)
+	    token = pragma_lex (&x);
+	}
+      while (token == CPP_STRING || token == CPP_NUMBER);
+
+      if (close_paren_needed_p)
+	{
+	  if (token == CPP_CLOSE_PAREN)
+	    token = pragma_lex (&x);
+	  else
+	    GCC_BAD ("%<#pragma GCC optimize (string [,string]...)%> does "
+		     "not have a final %<)%>.");
+	}
+
+      if (token != CPP_EOF)
+	{
+	  error ("#pragma GCC optimize string... is badly formed");
+	  return;
+	}
+
+      /* put arguments in the order the user typed them.  */
+      args = nreverse (args);
+
+      parse_optimize_options (args, false);
+      current_optimize_pragma = chainon (current_optimize_pragma, args);
+      optimization_current_node = build_optimization_node ();
+      c_cpp_builtins_optimize_pragma (parse_in,
+				      optimization_previous_node,
+				      optimization_current_node);
+    }
+}
+
+/* Stack of the #pragma GCC options created with #pragma GCC push_option.  Save
+   both the binary representation of the options and the TREE_LIST of
+   strings that will be added to the function's attribute list.  */
+typedef struct opt_stack GTY(())
+{
+  struct opt_stack *prev;
+  tree target_binary;
+  tree target_strings;
+  tree optimize_binary;
+  tree optimize_strings;
+} opt_stack;
+
+static GTY(()) struct opt_stack * options_stack;
+
+/* Handle #pragma GCC push_options to save the current target and optimization
+   options.  */
+
+static void
+handle_pragma_push_options (cpp_reader *ARG_UNUSED(dummy))
+{
+  enum cpp_ttype token;
+  tree x = 0;
+  opt_stack *p;
+
+  token = pragma_lex (&x);
+  if (token != CPP_EOF)
+    {
+      warning (OPT_Wpragmas, "junk at end of %<#pragma push_options%>");
+      return;
+    }
+
+  p = GGC_NEW (opt_stack);
+  p->prev = options_stack;
+  options_stack = p;
+
+  /* Save optimization and target flags in binary format.  */
+  p->optimize_binary = build_optimization_node ();
+  p->target_binary = build_target_option_node ();
+
+  /* Save optimization and target flags in string list format.  */
+  p->optimize_strings = copy_list (current_optimize_pragma);
+  p->target_strings = copy_list (current_target_pragma);
+}
+
+/* Handle #pragma GCC pop_options to restore the current target and
+   optimization options from a previous push_options.  */
+
+static void
+handle_pragma_pop_options (cpp_reader *ARG_UNUSED(dummy))
+{
+  enum cpp_ttype token;
+  tree x = 0;
+  opt_stack *p;
+
+  token = pragma_lex (&x);
+  if (token != CPP_EOF)
+    {
+      warning (OPT_Wpragmas, "junk at end of %<#pragma pop_options%>");
+      return;
+    }
+
+  if (! options_stack)
+    {
+      warning (OPT_Wpragmas,
+	       "%<#pragma GCC pop_options%> without a corresponding "
+	       "%<#pragma GCC push_options%>");
+      return;
+    }
+
+  p = options_stack;
+  options_stack = p->prev;
+
+  if (p->target_binary != target_option_current_node)
+    {
+      (void) targetm.target_option.pragma_parse (NULL_TREE, p->target_binary);
+      target_option_current_node = p->target_binary;
+    }
+
+  if (p->optimize_binary != optimization_current_node)
+    {
+      tree old_optimize = optimization_current_node;
+      cl_optimization_restore (TREE_OPTIMIZATION (p->optimize_binary));
+      c_cpp_builtins_optimize_pragma (parse_in, old_optimize,
+				      p->optimize_binary);
+      optimization_current_node = p->optimize_binary;
+    }
+
+  current_target_pragma = p->target_strings;
+  current_optimize_pragma = p->optimize_strings;
+}
+
+/* Handle #pragma GCC reset_options to restore the current target and
+   optimization options to the original options used on the command line.  */
+
+static void
+handle_pragma_reset_options (cpp_reader *ARG_UNUSED(dummy))
+{
+  enum cpp_ttype token;
+  tree x = 0;
+  tree new_optimize = optimization_default_node;
+  tree new_target = target_option_default_node;
+
+  token = pragma_lex (&x);
+  if (token != CPP_EOF)
+    {
+      warning (OPT_Wpragmas, "junk at end of %<#pragma reset_options%>");
+      return;
+    }
+
+  if (new_target != target_option_current_node)
+    {
+      (void) targetm.target_option.pragma_parse (NULL_TREE, new_target);
+      target_option_current_node = new_target;
+    }
+
+  if (new_optimize != optimization_current_node)
+    {
+      tree old_optimize = optimization_current_node;
+      cl_optimization_restore (TREE_OPTIMIZATION (new_optimize));
+      c_cpp_builtins_optimize_pragma (parse_in, old_optimize, new_optimize);
+      optimization_current_node = new_optimize;
+    }
+
+  current_target_pragma = NULL_TREE;
+  current_optimize_pragma = NULL_TREE;
+}
+
+/* Print a plain user-specified message.  */
+
+static void
+handle_pragma_message (cpp_reader *ARG_UNUSED(dummy))
+{
+  enum cpp_ttype token;
+  tree x, message = 0;
+
+  token = pragma_lex (&x);
+  if (token == CPP_OPEN_PAREN)
+    {
+      token = pragma_lex (&x);
+      if (token == CPP_STRING)
+        message = x;
+      else
+        GCC_BAD ("expected a string after %<#pragma message%>");
+      if (pragma_lex (&x) != CPP_CLOSE_PAREN)
+        GCC_BAD ("malformed %<#pragma message%>, ignored");
+    }
+  else if (token == CPP_STRING)
+    message = x;
+  else
+    GCC_BAD ("expected a string after %<#pragma message%>");
+
+  gcc_assert (message);
+
+  if (pragma_lex (&x) != CPP_EOF)
+    warning (OPT_Wpragmas, "junk at end of %<#pragma message%>");
+
+  if (TREE_STRING_LENGTH (message) > 1)
+    inform (input_location, "#pragma message: %s", TREE_STRING_POINTER (message));
+}
+
 /* A vector of registered pragma callbacks.  */
 
 DEF_VEC_O (pragma_handler);
@@ -1028,9 +1328,16 @@ init_pragma (void)
 #endif
 
   c_register_pragma ("GCC", "diagnostic", handle_pragma_diagnostic);
+  c_register_pragma ("GCC", "target", handle_pragma_target);
+  c_register_pragma ("GCC", "optimize", handle_pragma_optimize);
+  c_register_pragma ("GCC", "push_options", handle_pragma_push_options);
+  c_register_pragma ("GCC", "pop_options", handle_pragma_pop_options);
+  c_register_pragma ("GCC", "reset_options", handle_pragma_reset_options);
 
   c_register_pragma_with_expansion (0, "redefine_extname", handle_pragma_redefine_extname);
   c_register_pragma (0, "extern_prefix", handle_pragma_extern_prefix);
+
+  c_register_pragma_with_expansion (0, "message", handle_pragma_message);
 
 #ifdef REGISTER_TARGET_PRAGMAS
   REGISTER_TARGET_PRAGMAS ();

@@ -1,5 +1,5 @@
 /* Gimple Represented as Polyhedra.
-   Copyright (C) 2006, 2007, 2008  Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008, 2009  Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@inria.fr>.
 
 This file is part of GCC.
@@ -18,10 +18,12 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#ifndef GCC_GRAPHITE_H
+#define GCC_GRAPHITE_H
+
 #include "tree-data-ref.h"
 
-
-typedef VEC (int, heap)* graphite_loops_mapping;
+int ref_nb_loops (data_reference_p);
 
 typedef struct graphite_bb *graphite_bb_p;
 DEF_VEC_P(graphite_bb_p);
@@ -34,7 +36,7 @@ static inline int scop_nb_loops (scop_p scop);
 static inline unsigned scop_nb_params (scop_p scop);
 static inline bool scop_contains_loop (scop_p scop, struct loop *loop);
 
-struct graphite_bb
+typedef struct graphite_bb
 {
   basic_block bb;
   scop_p scop;
@@ -119,7 +121,7 @@ struct graphite_bb
    CloogMatrix *domain;
 
   /* Lists containing the restrictions of the conditional statements
-     dominating this bb. This bb can only be executed, if all conditions
+     dominating this bb.  This bb can only be executed, if all conditions
      are true.
  
      Example:
@@ -132,16 +134,16 @@ struct graphite_bb
          B
      }
  
-     So for B there is a additional condition (2i <= 8).
+     So for B there is an additional condition (2i <= 8).
  
-     TODO: Add this restrictions to the domain matrix.
+     TODO: Add these restrictions to the domain matrix.
       
-     List of COND_EXPR and SWITCH_EXPR. A COND_EXPR is true only if the 
-     corresponding element in CONDITION_CASES is not NULL_TREE. For a 
-     SWITCH_EXPR the corresponding element in CONDITION_CASES is a 
+     List of COND_EXPR and SWITCH_EXPR.  A COND_EXPR is true only if the
+     corresponding element in CONDITION_CASES is not NULL_TREE.  For a
+     SWITCH_EXPR the corresponding element in CONDITION_CASES is a
      CASE_LABEL_EXPR.  */
-  VEC (tree, heap) *conditions;
-  VEC (tree, heap) *condition_cases;
+  VEC (gimple, heap) *conditions;
+  VEC (gimple, heap) *condition_cases;
 
   /* LOOPS contains for every column in the graphite domain the corresponding
      gimple loop. If there exists no corresponding gimple loop LOOPS contains
@@ -185,14 +187,16 @@ struct graphite_bb
      0        1        2         3
      Loop j   NULL     Loop i    NULL
     
-     Means the original loop i is now at column two of the domain and loop j in
-     the original loop nest is now at column 0. Column 1 and 3 are emtpy.  */
+     Means the original loop i is now at column two of the domain and
+     loop j in the original loop nest is now at column 0.  Column 1 and
+     3 are emtpy.  */
   VEC (loop_p, heap) *loops;
 
   lambda_vector compressed_alpha_matrix;
   CloogMatrix *dynamic_schedule;
   VEC (data_reference_p, heap) *data_refs;
-};
+  htab_t cloog_iv_types;
+} *gbb_p;
 
 #define GBB_BB(GBB) GBB->bb
 #define GBB_SCOP(GBB) GBB->scop
@@ -204,7 +208,7 @@ struct graphite_bb
 #define GBB_CONDITIONS(GBB) GBB->conditions
 #define GBB_CONDITION_CASES(GBB) GBB->condition_cases
 #define GBB_LOOPS(GBB) GBB->loops
-#define GBB_LOOPS_MAPPING(GBB) GBB->loops_mapping
+#define GBB_CLOOG_IV_TYPES(GBB) GBB->cloog_iv_types
 
 /* Return the loop that contains the basic block GBB.  */
 
@@ -214,10 +218,12 @@ gbb_loop (struct graphite_bb *gbb)
   return GBB_BB (gbb)->loop_father;
 }
 
+int nb_loops_around_gb (graphite_bb_p);
+
 /* Calculate the number of loops around GB in the current SCOP.  Only
    works if GBB_DOMAIN is built.  */
 
-static inline unsigned 
+static inline int
 gbb_nb_loops (const struct graphite_bb *gb)
 {
   scop_p scop = GBB_SCOP (gb);
@@ -237,7 +243,7 @@ gbb_loop_at_index (graphite_bb_p gb, int index)
   return VEC_index (loop_p, GBB_LOOPS (gb), index);
 }
 
-/* Returns the corresponding loop iterator index for a gimple loop.  */
+/* Returns the index of LOOP in the loop nest around GB.  */
 
 static inline int
 gbb_loop_index (graphite_bb_p gb, loop_p loop)
@@ -263,70 +269,107 @@ typedef struct name_tree
 {
   tree t;
   const char *name;
-  struct loop* loop;
+  struct loop *loop;
 } *name_tree;
 
 DEF_VEC_P(name_tree);
 DEF_VEC_ALLOC_P (name_tree, heap);
 
-/* A SCoP is a Static Control Part of the program, simple enough to be
+/* A Single Entry, Single Exit region is a part of the CFG delimited
+   by two edges.  */
+typedef struct sese
+{
+  /* Single ENTRY and single EXIT from the SESE region.  */
+  edge entry, exit;
+
+  /* REGION_BASIC_BLOCKS contains the set of all the basic blocks
+     belonging to the SESE region.  */
+  struct pointer_set_t *region_basic_blocks;
+
+  /* An SSA_NAME version is flagged in the LIVEOUT bitmap if the
+     SSA_NAME is defined inside and used outside the SESE region.  */
+  bitmap liveout;
+
+  /* The overall number of SSA_NAME versions used to index LIVEIN.  */
+  int num_ver;
+
+  /* For each SSA_NAME version VER in LIVEOUT, LIVEIN[VER] contains
+     the set of basic blocks indices that contain a use of VER.  */
+  bitmap *livein;
+} *sese;
+
+#define SESE_ENTRY(S) (S->entry)
+#define SESE_EXIT(S) (S->exit)
+#define SESE_REGION_BBS(S) (S->region_basic_blocks)
+#define SESE_LIVEOUT(S) (S->liveout)
+#define SESE_LIVEIN(S) (S->livein)
+#define SESE_LIVEIN_VER(S, I) (S->livein[I])
+#define SESE_NUM_VER(S) (S->num_ver)
+
+extern sese new_sese (edge, edge);
+extern void free_sese (sese);
+extern void sese_build_livein_liveouts (sese);
+
+/* A SCOP is a Static Control Part of the program, simple enough to be
    represented in polyhedral form.  */
 struct scop
 {
-  /* The entry bb dominates all the bbs of the scop.  The exit bb
-     post-dominates all the bbs of the scop.  The exit bb
-     potentially contains non affine data accesses, side effect
-     statements or difficult constructs, and thus is not
-     considered part of the scop, but just boundary.  The entry bb is
-     considered part of the scop.  */
-  basic_block entry, exit;
+  /* A SCOP is defined as a SESE region.  */
+  sese region;
 
-  /* All the basic blocks in the scope.  They have extra information
-     attached to them, in the graphite_bb structure.  */
+  /* All the basic blocks in this scop that contain memory references
+     and that will be represented as statements in the polyhedral
+     representation.  */
   VEC (graphite_bb_p, heap) *bbs;
-
-  /* Set for a basic block index when it belongs to this scope.  */
-  bitmap bbs_b;
 
   lambda_vector static_schedule;
 
   /* Parameters used within the SCOP.  */
   VEC (name_tree, heap) *params;
 
-  /* New induction variables generated for this SCOP.  */
-  VEC (name_tree, heap) *new_ivs;
-
   /* A collection of old induction variables*/ 
   VEC (name_tree, heap) *old_ivs;
 
-  /* Loops completely contained in the scop.  */
+  /* Loops completely contained in the SCOP.  */
   bitmap loops;
   VEC (loop_p, heap) *loop_nest;
-
-  /* specifies for loop num in loops which corresponding loop depth that num is mapped to
-     in the transformed program */
-  graphite_loops_mapping loops_mapping;
 
   /* ???  It looks like a global mapping loop_id -> cloog_loop would work.  */
   htab_t loop2cloog_loop;
 
   /* Cloog representation of this scop.  */
   CloogProgram *program;
+
+  /* Are we allowed to add more params?  This is for debugging purpose.  We
+     can only add new params before generating the bb domains, otherwise they
+     become invalid.  */
+  bool add_params;
+
+  /* LIVEOUT_RENAMES registers the rename mapping that has to be
+     applied after code generation.  */
+  htab_t liveout_renames;
 };
 
 #define SCOP_BBS(S) S->bbs
-#define SCOP_BBS_B(S) S->bbs_b
-#define SCOP_ENTRY(S) S->entry
-#define SCOP_EXIT(S) S->exit
+#define SCOP_REGION(S) S->region
+/* SCOP_ENTRY bb dominates all the bbs of the scop.  SCOP_EXIT bb
+   post-dominates all the bbs of the scop.  SCOP_EXIT potentially
+   contains non affine data accesses, side effect statements or
+   difficult constructs, and thus is not considered part of the scop,
+   but just a boundary.  SCOP_ENTRY is considered part of the scop.  */
+#define SCOP_ENTRY(S) (SESE_ENTRY (SCOP_REGION (S))->dest)
+#define SCOP_EXIT(S) (SESE_EXIT (SCOP_REGION (S))->dest)
+#define SCOP_REGION_BBS(S) (SESE_REGION_BBS (SCOP_REGION (S)))
 #define SCOP_STATIC_SCHEDULE(S) S->static_schedule
 #define SCOP_LOOPS(S) S->loops
 #define SCOP_LOOP_NEST(S) S->loop_nest
+#define SCOP_ADD_PARAMS(S) S->add_params
 #define SCOP_PARAMS(S) S->params
-#define SCOP_NEWIVS(S) S->new_ivs
 #define SCOP_OLDIVS(S) S->old_ivs
 #define SCOP_PROG(S) S->program
 #define SCOP_LOOP2CLOOG_LOOP(S) S->loop2cloog_loop
 #define SCOP_LOOPS_MAPPING(S) S->loops_mapping
+#define SCOP_LIVEOUT_RENAMES(S) S->liveout_renames
 
 extern void debug_scop (scop_p, int);
 extern void debug_scops (int);
@@ -335,6 +378,58 @@ extern void debug_gbb (graphite_bb_p, int);
 extern void dot_scop (scop_p);
 extern void dot_all_scops (void);
 extern void debug_clast_stmt (struct clast_stmt *);
+extern void debug_rename_map (htab_t);
+extern void debug_ivtype_map (htab_t);
+extern void debug_loop_vec (graphite_bb_p);
+extern void debug_oldivs (scop_p);
+
+/* Describes the type of an iv stack entry.  */
+typedef enum {
+  iv_stack_entry_unknown = 0,
+  iv_stack_entry_iv,
+  iv_stack_entry_const
+} iv_stack_entry_kind;
+
+/* Data contained in an iv stack entry.  */
+typedef union iv_stack_entry_data_union
+{
+  name_tree iv;
+  tree constant;
+} iv_stack_entry_data;
+
+/* Datatype for loop iv stack entry.  */
+typedef struct iv_stack_entry_struct
+{
+  iv_stack_entry_kind kind;
+  iv_stack_entry_data data;
+} iv_stack_entry;
+
+typedef iv_stack_entry *iv_stack_entry_p;
+
+DEF_VEC_P(iv_stack_entry_p);
+DEF_VEC_ALLOC_P(iv_stack_entry_p,heap);
+
+typedef VEC(iv_stack_entry_p, heap) **loop_iv_stack;
+extern void debug_loop_iv_stack (loop_iv_stack);
+
+/* Return the old induction variable of the LOOP that is in normal
+   form in SCOP.  */
+
+static inline tree
+oldiv_for_loop (scop_p scop, loop_p loop)
+{
+  int i;
+  name_tree iv;
+
+  if (!loop)
+    return NULL_TREE;
+
+  for (i = 0; VEC_iterate (name_tree, SCOP_OLDIVS (scop), i, iv); i++)
+    if (iv->loop == loop)
+      return iv->t;
+
+  return NULL_TREE;
+}
 
 /* Return the number of gimple loops contained in SCOP.  */
 
@@ -342,23 +437,6 @@ static inline int
 scop_nb_loops (scop_p scop)
 {
   return VEC_length (loop_p, SCOP_LOOP_NEST (scop));
-}
-
-static int
-scop_max_loop_depth (scop_p scop)
-{
-  int i;
-  graphite_bb_p gbb;
-  int max_nb_loops = 0;
-
-  for (i = 0; VEC_iterate (graphite_bb_p, SCOP_BBS (scop), i, gbb); i++) 
-    {    
-      int nb_loops = gbb_nb_loops (gbb);
-      if (max_nb_loops < nb_loops)
-        max_nb_loops = nb_loops;
-    }    
-
-  return max_nb_loops;
 }
 
 /* Returns the number of parameters for SCOP.  */
@@ -402,16 +480,7 @@ loop_domain_dim (unsigned int loop_num, scop_p scop)
   if (!slot)
     return scop_nb_params (scop) + 2;
 
-  return slot->cloog_loop->domain->polyhedron->Dimension + 2;
-}
-
-/* Returns the dimensionality of an enclosing loop iteration domain
-   with respect to enclosing SCoP for a given data reference REF.  */
-
-static inline int
-ref_nb_loops (data_reference_p ref)
-{
-  return loop_domain_dim (loop_containing_stmt (DR_STMT (ref))->num, DR_SCOP (ref));
+  return cloog_domain_dim (cloog_loop_domain (slot->cloog_loop)) + 2;
 }
 
 /* Returns the dimensionality of a loop iteration vector in a loop
@@ -486,22 +555,22 @@ gbb_outer_most_loop_index (scop_p scop, graphite_bb_p gb)
   return scop_loop_index (scop, outer_most_loop (scop, gbb_loop (gb)));
 }
 
-/* Associate a POLYHEDRON dependence description to two data
-   references A and B.  */
-struct data_dependence_polyhedron
+/* Return the loop depth of LOOP in SCOP.  */
+
+static inline unsigned int
+scop_gimple_loop_depth (scop_p scop, loop_p loop)
 {
-  struct data_reference *a;
-  struct data_reference *b;
-  bool reversed_p;
-  bool loop_carried; /*TODO:konrad get rid of this, make level signed */
-  signed level;
-  CloogDomain *polyhedron;  
-};
+  unsigned int depth = 0;
 
-#define RDGE_DDP(E)   ((struct data_dependence_polyhedron*) ((E)->data))
+  loop = loop_outer (loop);
 
-typedef struct data_dependence_polyhedron *ddp_p;
+  while (scop_contains_loop (scop, loop))
+    {
+      depth++;
+      loop = loop_outer (loop);
+    }
 
-DEF_VEC_P(ddp_p);
-DEF_VEC_ALLOC_P(ddp_p,heap);
+  return depth;
+}
 
+#endif  /* GCC_GRAPHITE_H  */

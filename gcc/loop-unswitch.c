@@ -1,5 +1,6 @@
 /* Loop unswitching for GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -290,7 +291,7 @@ unswitch_single_loop (struct loop *loop, rtx cond_checked, int num)
     }
 
   /* Do not unswitch in cold areas.  */
-  if (!maybe_hot_bb_p (loop->header))
+  if (optimize_loop_for_size_p (loop))
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not unswitching, not hot area\n");

@@ -1,5 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -501,7 +501,9 @@ pp_base_format (pretty_printer *pp, text_info *text)
 	      {
 		tree ao = BLOCK_ABSTRACT_ORIGIN (block);
 
-		while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+		while (TREE_CODE (ao) == BLOCK
+		       && BLOCK_ABSTRACT_ORIGIN (ao)
+		       && BLOCK_ABSTRACT_ORIGIN (ao) != ao)
 		  ao = BLOCK_ABSTRACT_ORIGIN (ao);
 
 		if (TREE_CODE (ao) == FUNCTION_DECL)

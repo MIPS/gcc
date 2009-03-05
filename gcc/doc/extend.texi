@@ -1,5 +1,6 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001,
-@c 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+@c Free Software Foundation, Inc.
 
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -930,7 +931,7 @@ is supported on x86_64 and ia64 targets.
 @cindex @code{DL} integer suffix
 
 As an extension, the GNU C compiler supports decimal floating types as
-defined in the N1176 draft of ISO/IEC WDTR24732.  Support for decimal
+defined in the N1312 draft of ISO/IEC WDTR24732.  Support for decimal
 floating types in GCC will evolve as the draft technical report changes.
 Calling conventions for any target might also change.  Not all targets
 support decimal floating types.
@@ -953,12 +954,21 @@ is incomplete:
 
 @itemize @bullet
 @item
-Translation time data type (TTDT) is not supported.
+Pragma @code{FLOAT_CONST_DECIMAL64} is not supported, nor is the @samp{d}
+suffix for literal constants of type @code{double}.
 
 @item
 When the value of a decimal floating type cannot be represented in the
 integer type to which it is being converted, the result is undefined
 rather than the result value specified by the draft technical report.
+
+@item
+GCC does not provide the C library functionality associated with
+@file{math.h}, @file{fenv.h}, @file{stdio.h}, @file{stdlib.h}, and
+@file{wchar.h}, which must come from a separate C library implementation.
+Because of this the GNU C compiler does not define macro
+@code{__STDC_DEC_FP__} to indicate that the implementation conforms to
+the technical report.
 @end itemize
 
 Types @code{_Decimal32}, @code{_Decimal64}, and @code{_Decimal128}
@@ -1069,45 +1079,64 @@ The fixed-point types are
 @code{_Sat unsigned _Accum},
 @code{_Sat unsigned long _Accum},
 @code{_Sat unsigned long long _Accum}.
+
 Fixed-point data values contain fractional and optional integral parts.
 The format of fixed-point data varies and depends on the target machine.
 
-Support for fixed-point types includes prefix and postfix increment
-and decrement operators (@code{++}, @code{--}); unary arithmetic operators
-(@code{+}, @code{-}, @code{!}); binary arithmetic operators (@code{+},
-@code{-}, @code{*}, @code{/}); binary shift operators (@code{<<}, @code{>>});
-relational operators (@code{<}, @code{<=}, @code{>=}, @code{>});
-equality operators (@code{==}, @code{!=}); assignment operators
-(@code{+=}, @code{-=}, @code{*=}, @code{/=}, @code{<<=}, @code{>>=});
-and conversions to and from integer, floating-point, or fixed-point types.
+Support for fixed-point types includes:
+@itemize @bullet
+@item
+prefix and postfix increment and decrement operators (@code{++}, @code{--})
+@item
+unary arithmetic operators (@code{+}, @code{-}, @code{!})
+@item
+binary arithmetic operators (@code{+}, @code{-}, @code{*}, @code{/})
+@item
+binary shift operators (@code{<<}, @code{>>})
+@item
+relational operators (@code{<}, @code{<=}, @code{>=}, @code{>})
+@item
+equality operators (@code{==}, @code{!=})
+@item
+assignment operators (@code{+=}, @code{-=}, @code{*=}, @code{/=},
+@code{<<=}, @code{>>=})
+@item
+conversions to and from integer, floating-point, or fixed-point types
+@end itemize
 
-Use a suffix @samp{hr} or @samp{HR} in a literal constant of type
-@code{short _Fract} and @code{_Sat short _Fract},
-@samp{r} or @samp{R} for @code{_Fract} and @code{_Sat _Fract},
-@samp{lr} or @samp{LR} for @code{long _Fract} and @code{_Sat long _Fract},
-@samp{llr} or @samp{LLR} for @code{long long _Fract} and
-@code{_Sat long long _Fract},
-@samp{uhr} or @samp{UHR} for @code{unsigned short _Fract} and
-@code{_Sat unsigned short _Fract},
-@samp{ur} or @samp{UR} for @code{unsigned _Fract} and
-@code{_Sat unsigned _Fract},
-@samp{ulr} or @samp{ULR} for @code{unsigned long _Fract} and
-@code{_Sat unsigned long _Fract},
-@samp{ullr} or @samp{ULLR} for @code{unsigned long long _Fract}
-and @code{_Sat unsigned long long _Fract},
-@samp{hk} or @samp{HK} for @code{short _Accum} and @code{_Sat short _Accum},
-@samp{k} or @samp{K} for @code{_Accum} and @code{_Sat _Accum},
-@samp{lk} or @samp{LK} for @code{long _Accum} and @code{_Sat long _Accum},
-@samp{llk} or @samp{LLK} for @code{long long _Accum} and
-@code{_Sat long long _Accum},
-@samp{uhk} or @samp{UHK} for @code{unsigned short _Accum} and
-@code{_Sat unsigned short _Accum},
-@samp{uk} or @samp{UK} for @code{unsigned _Accum} and
-@code{_Sat unsigned _Accum},
-@samp{ulk} or @samp{ULK} for @code{unsigned long _Accum} and
-@code{_Sat unsigned long _Accum},
-and @samp{ullk} or @samp{ULLK} for @code{unsigned long long _Accum}
-and @code{_Sat unsigned long long _Accum}.
+Use a suffix in a fixed-point literal constant:
+@itemize
+@item @samp{hr} or @samp{HR} for @code{short _Fract} and
+@code{_Sat short _Fract}
+@item @samp{r} or @samp{R} for @code{_Fract} and @code{_Sat _Fract}
+@item @samp{lr} or @samp{LR} for @code{long _Fract} and
+@code{_Sat long _Fract}
+@item @samp{llr} or @samp{LLR} for @code{long long _Fract} and
+@code{_Sat long long _Fract}
+@item @samp{uhr} or @samp{UHR} for @code{unsigned short _Fract} and
+@code{_Sat unsigned short _Fract}
+@item @samp{ur} or @samp{UR} for @code{unsigned _Fract} and
+@code{_Sat unsigned _Fract}
+@item @samp{ulr} or @samp{ULR} for @code{unsigned long _Fract} and
+@code{_Sat unsigned long _Fract}
+@item @samp{ullr} or @samp{ULLR} for @code{unsigned long long _Fract}
+and @code{_Sat unsigned long long _Fract}
+@item @samp{hk} or @samp{HK} for @code{short _Accum} and
+@code{_Sat short _Accum}
+@item @samp{k} or @samp{K} for @code{_Accum} and @code{_Sat _Accum}
+@item @samp{lk} or @samp{LK} for @code{long _Accum} and
+@code{_Sat long _Accum}
+@item @samp{llk} or @samp{LLK} for @code{long long _Accum} and
+@code{_Sat long long _Accum}
+@item @samp{uhk} or @samp{UHK} for @code{unsigned short _Accum} and
+@code{_Sat unsigned short _Accum}
+@item @samp{uk} or @samp{UK} for @code{unsigned _Accum} and
+@code{_Sat unsigned _Accum}
+@item @samp{ulk} or @samp{ULK} for @code{unsigned long _Accum} and
+@code{_Sat unsigned long _Accum}
+@item @samp{ullk} or @samp{ULLK} for @code{unsigned long long _Accum}
+and @code{_Sat unsigned long long _Accum}
+@end itemize
 
 GCC support of fixed-point types as specified by the draft technical report
 is incomplete:
@@ -1792,6 +1821,8 @@ the enclosing block.
 @cindex functions that are passed arguments in registers on the 386
 @cindex functions that pop the argument stack on the 386
 @cindex functions that do not pop the argument stack on the 386
+@cindex functions that have different compilation options on the 386
+@cindex functions that have different optimization options
 
 In GNU C, you declare certain things about functions called in your program
 which help the compiler optimize function calls and check your code more
@@ -1932,16 +1963,16 @@ In C++, this attribute does not depend on @code{extern} in any way,
 but it still requires the @code{inline} keyword to enable its special
 behavior.
 
-@cindex @code{artificial} function attribute
 @item artificial
+@cindex @code{artificial} function attribute
 This attribute is useful for small inline wrappers which if possible
 should appear during debugging as a unit, depending on the debug
 info format it will either mean marking the function as artificial
 or using the caller location for all instructions within the inlined
 body.
 
-@cindex @code{flatten} function attribute
 @item flatten
+@cindex @code{flatten} function attribute
 Generally, inlining into a function is limited.  For a function marked with
 this attribute, every call inside this function will be inlined, if possible.
 Whether the function itself is considered for inlining depends on its size and
@@ -2156,6 +2187,12 @@ Use this attribute on the Blackfin to indicate that the specified function
 is an exception handler.  The compiler will generate function entry and
 exit sequences suitable for use in an exception handler when this
 attribute is present.
+
+@item externally_visible
+@cindex @code{externally_visible} attribute.
+This attribute, attached to a global variable or function, nullifies
+the effect of the @option{-fwhole-program} command-line option, so the
+object remains visible outside the current compilation unit.
 
 @item far
 @cindex functions which handle memory bank switching
@@ -2662,6 +2699,24 @@ with the notable exceptions of @code{qsort} and @code{bsearch} that
 take function pointer arguments.  The @code{nothrow} attribute is not
 implemented in GCC versions earlier than 3.3.
 
+@item optimize
+@cindex @code{optimize} function attribute
+The @code{optimize} attribute is used to specify that a function is to
+be compiled with different optimization options than specified on the
+command line.  Arguments can either be numbers or strings.  Numbers
+are assumed to be an optimization level.  Strings that begin with
+@code{O} are assumed to be an optimization option, while other options
+are assumed to be used with a @code{-f} prefix.  You can also use the
+@samp{#pragma GCC optimize} pragma to set the optimization options
+that affect more than one function.
+@xref{Function Specific Option Pragmas}, for details about the
+@samp{#pragma GCC optimize} pragma.
+
+This can be used for instance to have frequently executed functions
+compiled with more aggressive optimization options that produce faster
+and larger code, while other functions can be called with less
+aggressive options.
+
 @item pure
 @cindex @code{pure} function attribute
 Many functions have no effects except the return value and their
@@ -2697,7 +2752,8 @@ all hot functions appears close together improving locality.
 When profile feedback is available, via @option{-fprofile-use}, hot functions
 are automatically detected and this attribute is ignored.
 
-The @code{hot} attribute is not implemented in GCC versions earlier than 4.3.
+The @code{hot} attribute is not implemented in GCC versions earlier
+than 4.3.
 
 @item cold
 @cindex @code{cold} function attribute
@@ -2714,7 +2770,7 @@ occasions.
 When profile feedback is available, via @option{-fprofile-use}, hot functions
 are automatically detected and this attribute is ignored.
 
-The @code{hot} attribute is not implemented in GCC versions earlier than 4.3.
+The @code{cold} attribute is not implemented in GCC versions earlier than 4.3.
 
 @item regparm (@var{number})
 @cindex @code{regparm} attribute
@@ -2747,21 +2803,15 @@ floating point arguments on the stack.
 @cindex @code{force_align_arg_pointer} attribute
 On the Intel x86, the @code{force_align_arg_pointer} attribute may be
 applied to individual function definitions, generating an alternate
-prologue and epilogue that realigns the runtime stack.  This supports
-mixing legacy codes that run with a 4-byte aligned stack with modern
-codes that keep a 16-byte stack for SSE compatibility.  The alternate
-prologue and epilogue are slower and bigger than the regular ones, and
-the alternate prologue requires a scratch register; this lowers the
-number of registers available if used in conjunction with the
-@code{regparm} attribute.  The @code{force_align_arg_pointer}
-attribute is incompatible with nested functions; this is considered a
-hard error.
+prologue and epilogue that realigns the runtime stack if necessary.
+This supports mixing legacy codes that run with a 4-byte aligned stack
+with modern codes that keep a 16-byte stack for SSE compatibility.
 
 @item resbank
 @cindex @code{resbank} attribute
 On the SH2A target, this attribute enables the high-speed register
 saving and restoration using a register bank for @code{interrupt_handler}
-routines.  Saving to the bank is performed automatcially after the CPU
+routines.  Saving to the bank is performed automatically after the CPU
 accepts an interrupt that uses a register bank.
 
 The nineteen 32-bit registers comprising general register R0 to R14,
@@ -2864,6 +2914,187 @@ On the Intel 386, the @code{stdcall} attribute causes the compiler to
 assume that the called function will pop off the stack space used to
 pass arguments, unless it takes a variable number of arguments.
 
+@item syscall_linkage
+@cindex @code{syscall_linkage} attribute
+This attribute is used to modify the IA64 calling convention by marking
+all input registers as live at all function exits.  This makes it possible
+to restart a system call after an interrupt without having to save/restore
+the input registers.  This also prevents kernel data from leaking into
+application code.
+
+@item target
+@cindex @code{target} function attribute
+The @code{target} attribute is used to specify that a function is to
+be compiled with different target options than specified on the
+command line.  This can be used for instance to have functions
+compiled with a different ISA (instruction set architecture) than the
+default.  You can also use the @samp{#pragma GCC target} pragma to set
+more than one function to be compiled with specific target options.
+@xref{Function Specific Option Pragmas}, for details about the
+@samp{#pragma GCC target} pragma.
+
+For instance on a 386, you could compile one function with
+@code{target("sse4.1,arch=core2")} and another with
+@code{target("sse4a,arch=amdfam10")} that would be equivalent to
+compiling the first function with @option{-msse4.1} and
+@option{-march=core2} options, and the second function with
+@option{-msse4a} and @option{-march=amdfam10} options.  It is up to the
+user to make sure that a function is only invoked on a machine that
+supports the particular ISA it was compiled for (for example by using
+@code{cpuid} on 386 to determine what feature bits and architecture
+family are used).
+
+@smallexample
+int core2_func (void) __attribute__ ((__target__ ("arch=core2")));
+int sse3_func (void) __attribute__ ((__target__ ("sse3")));
+@end smallexample
+
+On the 386, the following options are allowed:
+
+@table @samp
+@item abm
+@itemx no-abm
+@cindex @code{target("abm")} attribute
+Enable/disable the generation of the advanced bit instructions.
+
+@item aes
+@itemx no-aes
+@cindex @code{target("aes")} attribute
+Enable/disable the generation of the AES instructions.
+
+@item mmx
+@itemx no-mmx
+@cindex @code{target("mmx")} attribute
+Enable/disable the generation of the MMX instructions.
+
+@item pclmul
+@itemx no-pclmul
+@cindex @code{target("pclmul")} attribute
+Enable/disable the generation of the PCLMUL instructions.
+
+@item popcnt
+@itemx no-popcnt
+@cindex @code{target("popcnt")} attribute
+Enable/disable the generation of the POPCNT instruction.
+
+@item sse
+@itemx no-sse
+@cindex @code{target("sse")} attribute
+Enable/disable the generation of the SSE instructions.
+
+@item sse2
+@itemx no-sse2
+@cindex @code{target("sse2")} attribute
+Enable/disable the generation of the SSE2 instructions.
+
+@item sse3
+@itemx no-sse3
+@cindex @code{target("sse3")} attribute
+Enable/disable the generation of the SSE3 instructions.
+
+@item sse4
+@itemx no-sse4
+@cindex @code{target("sse4")} attribute
+Enable/disable the generation of the SSE4 instructions (both SSE4.1
+and SSE4.2).
+
+@item sse4.1
+@itemx no-sse4.1
+@cindex @code{target("sse4.1")} attribute
+Enable/disable the generation of the sse4.1 instructions.
+
+@item sse4.2
+@itemx no-sse4.2
+@cindex @code{target("sse4.2")} attribute
+Enable/disable the generation of the sse4.2 instructions.
+
+@item sse4a
+@itemx no-sse4a
+@cindex @code{target("sse4a")} attribute
+Enable/disable the generation of the SSE4A instructions.
+
+@item sse5
+@itemx no-sse5
+@cindex @code{target("sse5")} attribute
+Enable/disable the generation of the SSE5 instructions.
+
+@item ssse3
+@itemx no-ssse3
+@cindex @code{target("ssse3")} attribute
+Enable/disable the generation of the SSSE3 instructions.
+
+@item cld
+@itemx no-cld
+@cindex @code{target("cld")} attribute
+Enable/disable the generation of the CLD before string moves.
+
+@item fancy-math-387
+@itemx no-fancy-math-387
+@cindex @code{target("fancy-math-387")} attribute
+Enable/disable the generation of the @code{sin}, @code{cos}, and
+@code{sqrt} instructions on the 387 floating point unit.
+
+@item fused-madd
+@itemx no-fused-madd
+@cindex @code{target("fused-madd")} attribute
+Enable/disable the generation of the fused multiply/add instructions.
+
+@item ieee-fp
+@itemx no-ieee-fp
+@cindex @code{target("ieee-fp")} attribute
+Enable/disable the generation of floating point that depends on IEEE arithmetic.
+
+@item inline-all-stringops
+@itemx no-inline-all-stringops
+@cindex @code{target("inline-all-stringops")} attribute
+Enable/disable inlining of string operations.
+
+@item inline-stringops-dynamically
+@itemx no-inline-stringops-dynamically
+@cindex @code{target("inline-stringops-dynamically")} attribute
+Enable/disable the generation of the inline code to do small string
+operations and calling the library routines for large operations.
+
+@item align-stringops
+@itemx no-align-stringops
+@cindex @code{target("align-stringops")} attribute
+Do/do not align destination of inlined string operations.
+
+@item recip
+@itemx no-recip
+@cindex @code{target("recip")} attribute
+Enable/disable the generation of RCPSS, RCPPS, RSQRTSS and RSQRTPS
+instructions followed an additional Newton-Rhapson step instead of
+doing a floating point division.
+
+@item arch=@var{ARCH}
+@cindex @code{target("arch=@var{ARCH}")} attribute
+Specify the architecture to generate code for in compiling the function.
+
+@item tune=@var{TUNE}
+@cindex @code{target("tune=@var{TUNE}")} attribute
+Specify the architecture to tune for in compiling the function.
+
+@item fpmath=@var{FPMATH}
+@cindex @code{target("fpmath=@var{FPMATH}")} attribute
+Specify which floating point unit to use.  The
+@code{target("fpmath=sse,387")} option must be specified as
+@code{target("fpmath=sse+387")} because the comma would separate
+different options.
+@end table
+
+On the 386, you can use either multiple strings to specify multiple
+options, or you can separate the option with a comma (@code{,}).
+
+On the 386, the inliner will not inline a function that has different
+target options than the caller, unless the callee has a subset of the
+target options of the caller.  For example a function declared with
+@code{target("sse5")} can inline a function with
+@code{target("sse2")}, since @code{-msse5} implies @code{-msse2}.
+
+The @code{target} attribute is not implemented in GCC versions earlier
+than 4.4, and at present only the 386 uses it.
+
 @item tiny_data
 @cindex tiny data section on the H8/300H and H8S
 Use this attribute on the H8/300H and H8S to indicate that the specified
@@ -2891,8 +3122,8 @@ This is useful, for example, when the function is referenced only in
 inline assembly.
 
 @item version_id
-@cindex @code{version_id} attribute on IA64 HP-UX
-This attribute, attached to a global variable or function, renames a
+@cindex @code{version_id} attribute
+This IA64 HP-UX attribute, attached to a global variable or function, renames a
 symbol to contain a version string, thus allowing for function level
 versioning.  HP-UX system header files may use version level functioning
 for some system calls.
@@ -2978,7 +3209,7 @@ declaration without explicit visibility is limited to the visibility
 of its type.
 
 In C++, you can mark member functions and static member variables of a
-class with the visibility attribute.  This is useful if if you know a
+class with the visibility attribute.  This is useful if you know a
 particular method or static member variable should only be used from
 one shared object; then you can mark it hidden while the rest of the
 class has default visibility.  Care must be taken to avoid breaking
@@ -3062,12 +3293,6 @@ performing a reloadable link on them.
 
 At present, a declaration to which @code{weakref} is attached can
 only be @code{static}.
-
-@item externally_visible
-@cindex @code{externally_visible} attribute.
-This attribute, attached to a global variable or function nullify
-effect of @option{-fwhole-program} command line option, so the object
-remain visible outside the current compilation unit
 
 @end table
 
@@ -3509,21 +3734,27 @@ that forces the union to be double-word aligned.
 As in the preceding examples, you can explicitly specify the alignment
 (in bytes) that you wish the compiler to use for a given variable or
 structure field.  Alternatively, you can leave out the alignment factor
-and just ask the compiler to align a variable or field to the maximum
-useful alignment for the target machine you are compiling for.  For
-example, you could write:
+and just ask the compiler to align a variable or field to the
+default alignment for the target architecture you are compiling for.
+The default alignment is sufficient for all scalar types, but may not be
+enough for all vector types on a target which supports vector operations.
+The default alignment is fixed for a particular target ABI.
+
+Gcc also provides a target specific macro @code{__BIGGEST_ALIGNMENT__},
+which is the largest alignment ever used for any data type on the
+target machine you are compiling for.  For example, you could write:
 
 @smallexample
-short array[3] __attribute__ ((aligned));
+short array[3] __attribute__ ((aligned (__BIGGEST_ALIGNMENT__)));
 @end smallexample
 
-Whenever you leave out the alignment factor in an @code{aligned} attribute
-specification, the compiler automatically sets the alignment for the declared
-variable or field to the largest alignment which is ever used for any data
-type on the target machine you are compiling for.  Doing this can often make
-copy operations more efficient, because the compiler can use whatever
-instructions copy the biggest chunks of memory when performing copies to
-or from the variables or fields that you have aligned this way.
+The compiler automatically sets the alignment for the declared
+variable or field to @code{__BIGGEST_ALIGNMENT__}.  Doing this can
+often make copy operations more efficient, because the compiler can
+use whatever instructions copy the biggest chunks of memory when
+performing copies to or from the variables or fields that you have
+aligned this way.  Note that the value of @code{__BIGGEST_ALIGNMENT__}
+may change depending on command line options.
 
 When used on a struct, or struct member, the @code{aligned} attribute can
 only increase the alignment; in order to decrease it, the @code{packed}
@@ -3622,6 +3853,12 @@ struct foo
 @};
 @end smallexample
 
+@emph{Note:} The 4.1, 4.2 and 4.3 series of GCC ignore the
+@code{packed} attribute on bit-fields of type @code{char}.  This has
+been fixed in GCC 4.4 but the change can lead to differences in the
+structure layout.  See the documention of
+@option{-Wpacked-bitfield-compat} for more information.
+
 @item section ("@var{section-name}")
 @cindex @code{section} variable attribute
 Normally, the compiler places the objects it generates in sections like
@@ -3635,7 +3872,7 @@ section.  For example, this small program uses several specific section names:
 struct duart a __attribute__ ((section ("DUART_A"))) = @{ 0 @};
 struct duart b __attribute__ ((section ("DUART_B"))) = @{ 0 @};
 char stack[10000] __attribute__ ((section ("STACK"))) = @{ 0 @};
-int init_data __attribute__ ((section ("INITDATA"))) = 0;
+int init_data __attribute__ ((section ("INITDATA")));
 
 main()
 @{
@@ -3652,18 +3889,19 @@ main()
 @end smallexample
 
 @noindent
-Use the @code{section} attribute with an @emph{initialized} definition
-of a @emph{global} variable, as shown in the example.  GCC issues
-a warning and otherwise ignores the @code{section} attribute in
-uninitialized variable declarations.
+Use the @code{section} attribute with
+@emph{global} variables and not @emph{local} variables,
+as shown in the example.
 
-You may only use the @code{section} attribute with a fully initialized
-global definition because of the way linkers work.  The linker requires
+You may use the @code{section} attribute with initialized or
+uninitialized global variables but the linker requires
 each object be defined once, with the exception that uninitialized
 variables tentatively go in the @code{common} (or @code{bss}) section
-and can be multiply ``defined''.  You can force a variable to be
-initialized with the @option{-fno-common} flag or the @code{nocommon}
-attribute.
+and can be multiply ``defined''.  Using the @code{section} attribute
+will change what section the variable goes into and may cause the
+linker to issue an error if an uninitialized variable has multiple
+definitions.  You can force a variable to be initialized with the
+@option{-fno-common} flag or the @code{nocommon} attribute.
 
 Some file formats do not support arbitrary sections so the @code{section}
 attribute is not available on all platforms.
@@ -4644,6 +4882,8 @@ asm ("sysint" : "=r" (result) : "0" (p1), "r" (p2));
 In the above example, beware that a register that is call-clobbered by
 the target ABI will be overwritten by any function call in the
 assignment, including library calls for arithmetic operators.
+Also a register may be clobbered when generating some operations,
+like variable shift, memory copy or memory move on x86.
 Assuming it is a call-clobbered register, this may happen to @code{r0}
 above by the assignment to @code{p2}.  If you have to use such a
 register, use temporary variables for expressions between the register
@@ -5559,7 +5799,7 @@ backward.  Further, instructions will be issued as necessary to prevent the
 processor from speculating loads across the operation and from queuing stores
 after the operation.
 
-All of the routines are are described in the Intel documentation to take
+All of the routines are described in the Intel documentation to take
 ``an optional list of variables protected by the memory barrier''.  It's
 not clear what is meant by that; it could mean that @emph{only} the
 following variables are protected, or it could mean that these variables
@@ -5586,8 +5826,11 @@ returns the value that had previously been in memory.  That is,
 
 @smallexample
 @{ tmp = *ptr; *ptr @var{op}= value; return tmp; @}
-@{ tmp = *ptr; *ptr = ~tmp & value; return tmp; @}   // nand
+@{ tmp = *ptr; *ptr = ~(tmp & value); return tmp; @}   // nand
 @end smallexample
+
+@emph{Note:} GCC 4.4 and later implement @code{__sync_fetch_and_nand}
+builtin as @code{*ptr = ~(tmp & value)} instead of @code{*ptr = ~tmp & value}.
 
 @item @var{type} __sync_add_and_fetch (@var{type} *ptr, @var{type} value, ...)
 @itemx @var{type} __sync_sub_and_fetch (@var{type} *ptr, @var{type} value, ...)
@@ -5606,8 +5849,12 @@ return the new value.  That is,
 
 @smallexample
 @{ *ptr @var{op}= value; return *ptr; @}
-@{ *ptr = ~*ptr & value; return *ptr; @}   // nand
+@{ *ptr = ~(*ptr & value); return *ptr; @}   // nand
 @end smallexample
+
+@emph{Note:} GCC 4.4 and later implement @code{__sync_nand_and_fetch}
+builtin as @code{*ptr = ~(*ptr & value)} instead of
+@code{*ptr = ~*ptr & value}.
 
 @item bool __sync_bool_compare_and_swap (@var{type} *ptr, @var{type} oldval @var{type} newval, ...)
 @itemx @var{type} __sync_val_compare_and_swap (@var{type} *ptr, @var{type} oldval @var{type} newval, ...)
@@ -6797,6 +7044,8 @@ instructions, but allow the compiler to schedule those calls.
 * MIPS DSP Built-in Functions::
 * MIPS Paired-Single Support::
 * MIPS Loongson Built-in Functions::
+* Other MIPS Built-in Functions::
+* picoChip Built-in Functions::
 * PowerPC AltiVec Built-in Functions::
 * SPARC VIS Built-in Functions::
 * SPU Built-in Functions::
@@ -7865,6 +8114,7 @@ v2di __builtin_ia32_psrlqi128 (v2di, int)
 v8hi __builtin_ia32_psrawi128 (v8hi, int)
 v4si __builtin_ia32_psradi128 (v4si, int)
 v4si __builtin_ia32_pmaddwd128 (v8hi, v8hi)
+v2di __builtin_ia32_movq128 (v2di)
 @end smallexample
 
 The following built-in functions are available when @option{-msse3} is used.
@@ -8063,6 +8313,141 @@ depending on the size of @code{unsigned long}.
 @item int __builtin_popcountll (unsigned long long)
 Generates the @code{popcntq} machine instruction.
 @end table
+
+The following built-in functions are available when @option{-mavx} is
+used. All of them generate the machine instruction that is part of the
+name.
+
+@smallexample
+v4df __builtin_ia32_addpd256 (v4df,v4df)
+v8sf __builtin_ia32_addps256 (v8sf,v8sf)
+v4df __builtin_ia32_addsubpd256 (v4df,v4df)
+v8sf __builtin_ia32_addsubps256 (v8sf,v8sf)
+v4df __builtin_ia32_andnpd256 (v4df,v4df)
+v8sf __builtin_ia32_andnps256 (v8sf,v8sf)
+v4df __builtin_ia32_andpd256 (v4df,v4df)
+v8sf __builtin_ia32_andps256 (v8sf,v8sf)
+v4df __builtin_ia32_blendpd256 (v4df,v4df,int)
+v8sf __builtin_ia32_blendps256 (v8sf,v8sf,int)
+v4df __builtin_ia32_blendvpd256 (v4df,v4df,v4df)
+v8sf __builtin_ia32_blendvps256 (v8sf,v8sf,v8sf)
+v2df __builtin_ia32_cmppd (v2df,v2df,int)
+v4df __builtin_ia32_cmppd256 (v4df,v4df,int)
+v4sf __builtin_ia32_cmpps (v4sf,v4sf,int)
+v8sf __builtin_ia32_cmpps256 (v8sf,v8sf,int)
+v2df __builtin_ia32_cmpsd (v2df,v2df,int)
+v4sf __builtin_ia32_cmpss (v4sf,v4sf,int)
+v4df __builtin_ia32_cvtdq2pd256 (v4si)
+v8sf __builtin_ia32_cvtdq2ps256 (v8si)
+v4si __builtin_ia32_cvtpd2dq256 (v4df)
+v4sf __builtin_ia32_cvtpd2ps256 (v4df)
+v8si __builtin_ia32_cvtps2dq256 (v8sf)
+v4df __builtin_ia32_cvtps2pd256 (v4sf)
+v4si __builtin_ia32_cvttpd2dq256 (v4df)
+v8si __builtin_ia32_cvttps2dq256 (v8sf)
+v4df __builtin_ia32_divpd256 (v4df,v4df)
+v8sf __builtin_ia32_divps256 (v8sf,v8sf)
+v8sf __builtin_ia32_dpps256 (v8sf,v8sf,int)
+v4df __builtin_ia32_haddpd256 (v4df,v4df)
+v8sf __builtin_ia32_haddps256 (v8sf,v8sf)
+v4df __builtin_ia32_hsubpd256 (v4df,v4df)
+v8sf __builtin_ia32_hsubps256 (v8sf,v8sf)
+v32qi __builtin_ia32_lddqu256 (pcchar)
+v32qi __builtin_ia32_loaddqu256 (pcchar)
+v4df __builtin_ia32_loadupd256 (pcdouble)
+v8sf __builtin_ia32_loadups256 (pcfloat)
+v2df __builtin_ia32_maskloadpd (pcv2df,v2df)
+v4df __builtin_ia32_maskloadpd256 (pcv4df,v4df)
+v4sf __builtin_ia32_maskloadps (pcv4sf,v4sf)
+v8sf __builtin_ia32_maskloadps256 (pcv8sf,v8sf)
+void __builtin_ia32_maskstorepd (pv2df,v2df,v2df)
+void __builtin_ia32_maskstorepd256 (pv4df,v4df,v4df)
+void __builtin_ia32_maskstoreps (pv4sf,v4sf,v4sf)
+void __builtin_ia32_maskstoreps256 (pv8sf,v8sf,v8sf)
+v4df __builtin_ia32_maxpd256 (v4df,v4df)
+v8sf __builtin_ia32_maxps256 (v8sf,v8sf)
+v4df __builtin_ia32_minpd256 (v4df,v4df)
+v8sf __builtin_ia32_minps256 (v8sf,v8sf)
+v4df __builtin_ia32_movddup256 (v4df)
+int __builtin_ia32_movmskpd256 (v4df)
+int __builtin_ia32_movmskps256 (v8sf)
+v8sf __builtin_ia32_movshdup256 (v8sf)
+v8sf __builtin_ia32_movsldup256 (v8sf)
+v4df __builtin_ia32_mulpd256 (v4df,v4df)
+v8sf __builtin_ia32_mulps256 (v8sf,v8sf)
+v4df __builtin_ia32_orpd256 (v4df,v4df)
+v8sf __builtin_ia32_orps256 (v8sf,v8sf)
+v2df __builtin_ia32_pd_pd256 (v4df)
+v4df __builtin_ia32_pd256_pd (v2df)
+v4sf __builtin_ia32_ps_ps256 (v8sf)
+v8sf __builtin_ia32_ps256_ps (v4sf)
+int __builtin_ia32_ptestc256 (v4di,v4di,ptest)
+int __builtin_ia32_ptestnzc256 (v4di,v4di,ptest)
+int __builtin_ia32_ptestz256 (v4di,v4di,ptest)
+v8sf __builtin_ia32_rcpps256 (v8sf)
+v4df __builtin_ia32_roundpd256 (v4df,int)
+v8sf __builtin_ia32_roundps256 (v8sf,int)
+v8sf __builtin_ia32_rsqrtps_nr256 (v8sf)
+v8sf __builtin_ia32_rsqrtps256 (v8sf)
+v4df __builtin_ia32_shufpd256 (v4df,v4df,int)
+v8sf __builtin_ia32_shufps256 (v8sf,v8sf,int)
+v4si __builtin_ia32_si_si256 (v8si)
+v8si __builtin_ia32_si256_si (v4si)
+v4df __builtin_ia32_sqrtpd256 (v4df)
+v8sf __builtin_ia32_sqrtps_nr256 (v8sf)
+v8sf __builtin_ia32_sqrtps256 (v8sf)
+void __builtin_ia32_storedqu256 (pchar,v32qi)
+void __builtin_ia32_storeupd256 (pdouble,v4df)
+void __builtin_ia32_storeups256 (pfloat,v8sf)
+v4df __builtin_ia32_subpd256 (v4df,v4df)
+v8sf __builtin_ia32_subps256 (v8sf,v8sf)
+v4df __builtin_ia32_unpckhpd256 (v4df,v4df)
+v8sf __builtin_ia32_unpckhps256 (v8sf,v8sf)
+v4df __builtin_ia32_unpcklpd256 (v4df,v4df)
+v8sf __builtin_ia32_unpcklps256 (v8sf,v8sf)
+v4df __builtin_ia32_vbroadcastf128_pd256 (pcv2df)
+v8sf __builtin_ia32_vbroadcastf128_ps256 (pcv4sf)
+v4df __builtin_ia32_vbroadcastsd256 (pcdouble)
+v4sf __builtin_ia32_vbroadcastss (pcfloat)
+v8sf __builtin_ia32_vbroadcastss256 (pcfloat)
+v2df __builtin_ia32_vextractf128_pd256 (v4df,int)
+v4sf __builtin_ia32_vextractf128_ps256 (v8sf,int)
+v4si __builtin_ia32_vextractf128_si256 (v8si,int)
+v4df __builtin_ia32_vinsertf128_pd256 (v4df,v2df,int)
+v8sf __builtin_ia32_vinsertf128_ps256 (v8sf,v4sf,int)
+v8si __builtin_ia32_vinsertf128_si256 (v8si,v4si,int)
+v4df __builtin_ia32_vperm2f128_pd256 (v4df,v4df,int)
+v8sf __builtin_ia32_vperm2f128_ps256 (v8sf,v8sf,int)
+v8si __builtin_ia32_vperm2f128_si256 (v8si,v8si,int)
+v2df __builtin_ia32_vpermil2pd (v2df,v2df,v2di,int)
+v4df __builtin_ia32_vpermil2pd256 (v4df,v4df,v4di,int)
+v4sf __builtin_ia32_vpermil2ps (v4sf,v4sf,v4si,int)
+v8sf __builtin_ia32_vpermil2ps256 (v8sf,v8sf,v8si,int)
+v2df __builtin_ia32_vpermilpd (v2df,int)
+v4df __builtin_ia32_vpermilpd256 (v4df,int)
+v4sf __builtin_ia32_vpermilps (v4sf,int)
+v8sf __builtin_ia32_vpermilps256 (v8sf,int)
+v2df __builtin_ia32_vpermilvarpd (v2df,v2di)
+v4df __builtin_ia32_vpermilvarpd256 (v4df,v4di)
+v4sf __builtin_ia32_vpermilvarps (v4sf,v4si)
+v8sf __builtin_ia32_vpermilvarps256 (v8sf,v8si)
+int __builtin_ia32_vtestcpd (v2df,v2df,ptest)
+int __builtin_ia32_vtestcpd256 (v4df,v4df,ptest)
+int __builtin_ia32_vtestcps (v4sf,v4sf,ptest)
+int __builtin_ia32_vtestcps256 (v8sf,v8sf,ptest)
+int __builtin_ia32_vtestnzcpd (v2df,v2df,ptest)
+int __builtin_ia32_vtestnzcpd256 (v4df,v4df,ptest)
+int __builtin_ia32_vtestnzcps (v4sf,v4sf,ptest)
+int __builtin_ia32_vtestnzcps256 (v8sf,v8sf,ptest)
+int __builtin_ia32_vtestzpd (v2df,v2df,ptest)
+int __builtin_ia32_vtestzpd256 (v4df,v4df,ptest)
+int __builtin_ia32_vtestzps (v4sf,v4sf,ptest)
+int __builtin_ia32_vtestzps256 (v8sf,v8sf,ptest)
+void __builtin_ia32_vzeroall (void)
+void __builtin_ia32_vzeroupper (void)
+v4df __builtin_ia32_xorpd256 (v4df,v4df)
+v8sf __builtin_ia32_xorps256 (v8sf,v8sf)
+@end smallexample
 
 The following built-in functions are available when @option{-maes} is
 used.  All of them generate the machine instruction that is part of the
@@ -8371,6 +8756,12 @@ This revision adds extra instructions to the original ASE, but is
 otherwise backwards-compatible with it.  You can select revision 2
 using the command-line option @option{-mdspr2}; this option implies
 @option{-mdsp}.
+
+The SCOUNT and POS bits of the DSP control register are global.  The
+WRDSP, EXTPDP, EXTPDPV and MTHLIP instructions modify the SCOUNT and
+POS bits.  During optimization, the compiler will not delete these
+instructions and it will not delete calls to functions containing
+these instructions.
 
 At present, GCC only provides support for operations on 32-bit
 vectors.  The vector type associated with 8-bit integer data is
@@ -9077,6 +9468,54 @@ if (__builtin_mips_all_c_eq_4s (a, b, c, d))
 else
   some_are_false ();
 @end smallexample
+@end table
+
+@node picoChip Built-in Functions
+@subsection picoChip Built-in Functions
+
+GCC provides an interface to selected machine instructions from the
+picoChip instruction set.
+
+@table @code
+@item int __builtin_sbc (int @var{value})
+Sign bit count.  Return the number of consecutive bits in @var{value}
+which have the same value as the sign-bit.  The result is the number of
+leading sign bits minus one, giving the number of redundant sign bits in
+@var{value}.
+
+@item int __builtin_byteswap (int @var{value})
+Byte swap.  Return the result of swapping the upper and lower bytes of
+@var{value}.
+
+@item int __builtin_brev (int @var{value})
+Bit reversal.  Return the result of reversing the bits in
+@var{value}.  Bit 15 is swapped with bit 0, bit 14 is swapped with bit 1,
+and so on.
+
+@item int __builtin_adds (int @var{x}, int @var{y})
+Saturating addition.  Return the result of adding @var{x} and @var{y},
+storing the value 32767 if the result overflows.
+
+@item int __builtin_subs (int @var{x}, int @var{y})
+Saturating subtraction.  Return the result of subtracting @var{y} from
+@var{x}, storing the value -32768 if the result overflows.
+
+@item void __builtin_halt (void)
+Halt.  The processor will stop execution.  This built-in is useful for
+implementing assertions.
+
+@end table
+
+@node Other MIPS Built-in Functions
+@subsection Other MIPS Built-in Functions
+
+GCC provides other MIPS-specific built-in functions:
+
+@table @code
+@item void __builtin_mips_cache (int @var{op}, const volatile void *@var{addr})
+Insert a @samp{cache} instruction with operands @var{op} and @var{addr}.
+GCC defines the preprocessor macro @code{___GCC_HAVE_BUILTIN_MIPS_CACHE}
+when this function is available.
 @end table
 
 @node PowerPC AltiVec Built-in Functions
@@ -11108,6 +11547,7 @@ for further explanation.
 * Diagnostic Pragmas::
 * Visibility Pragmas::
 * Push/Pop Macro Pragmas::
+* Function Specific Option Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -11403,6 +11843,35 @@ strict control over project policies.
 
 @end table
 
+GCC also offers a simple mechanism for printing messages during
+compilation.
+
+@table @code
+@item #pragma message @var{string}
+@cindex pragma, diagnostic
+
+Prints @var{string} as a compiler message on compilation.  The message
+is informational only, and is neither a compilation warning nor an error.
+
+@smallexample
+#pragma message "Compiling " __FILE__ "..."
+@end smallexample
+
+@var{string} may be parenthesized, and is printed with location
+information.  For example,
+
+@smallexample
+#define DO_PRAGMA(x) _Pragma (#x)
+#define TODO(x) DO_PRAGMA(message ("TODO - " #x))
+
+TODO(Remember to fix this)
+@end smallexample
+
+prints @samp{/tmp/file.c:4: note: #pragma message:
+TODO - Remember to fix this}.
+
+@end table
+
 @node Visibility Pragmas
 @subsection Visibility Pragmas
 
@@ -11457,6 +11926,70 @@ int x [X];
 
 In this example, the definition of X as 1 is saved by @code{#pragma
 push_macro} and restored by @code{#pragma pop_macro}.
+
+@node Function Specific Option Pragmas
+@subsection Function Specific Option Pragmas
+
+@table @code
+@item #pragma GCC target (@var{"string"}...)
+@cindex pragma GCC target
+
+This pragma allows you to set target specific options for functions
+defined later in the source file.  One or more strings can be
+specified.  Each function that is defined after this point will be as
+if @code{attribute((target("STRING")))} was specified for that
+function.  The parenthesis around the options is optional.
+@xref{Function Attributes}, for more information about the
+@code{target} attribute and the attribute syntax.
+
+The @samp{#pragma GCC target} pragma is not implemented in GCC
+versions earlier than 4.4, and is currently only implemented for the
+386 and x86_64 backends.
+@end table
+
+@table @code
+@item #pragma GCC optimize (@var{"string"}...)
+@cindex pragma GCC optimize
+
+This pragma allows you to set global optimization options for functions
+defined later in the source file.  One or more strings can be
+specified.  Each function that is defined after this point will be as
+if @code{attribute((optimize("STRING")))} was specified for that
+function.  The parenthesis around the options is optional.
+@xref{Function Attributes}, for more information about the
+@code{optimize} attribute and the attribute syntax.
+
+The @samp{#pragma GCC optimize} pragma is not implemented in GCC
+versions earlier than 4.4.
+@end table
+
+@table @code
+@item #pragma GCC push_options
+@itemx #pragma GCC pop_options
+@cindex pragma GCC push_options
+@cindex pragma GCC pop_options
+
+These pragmas maintain a stack of the current target and optimization
+options.  It is intended for include files where you temporarily want
+to switch to using a different @samp{#pragma GCC target} or
+@samp{#pragma GCC optimize} and then to pop back to the previous
+options.
+
+The @samp{#pragma GCC push_options} and @samp{#pragma GCC pop_options}
+pragmas are not implemented in GCC versions earlier than 4.4.
+@end table
+
+@table @code
+@item #pragma GCC reset_options
+@cindex pragma GCC reset_options
+
+This pragma clears the current @code{#pragma GCC target} and
+@code{#pragma GCC optimize} to use the default switches as specified
+on the command line.
+
+The @samp{#pragma GCC reset_options} pragma is not implemented in GCC
+versions earlier than 4.4.
+@end table
 
 @node Unnamed Fields
 @section Unnamed struct/union fields within structs/unions
@@ -12457,13 +12990,13 @@ type.  Diagnostic is produced if this requirement is not met.
 
 @item __is_class (type)
 If @code{type} is a cv class type, and not a union type
-([basic.compound]) the the trait is true, else it is false.
+([basic.compound]) the trait is true, else it is false.
 
 @item __is_empty (type)
 If @code{__is_class (type)} is false then the trait is false.
 Otherwise @code{type} is considered empty if and only if: @code{type}
 has no non-static data members, or all non-static data members, if
-any, are bit-fields of lenght 0, and @code{type} has no virtual
+any, are bit-fields of length 0, and @code{type} has no virtual
 members, and @code{type} has no virtual base classes, and @code{type}
 has no base classes @code{base_type} for which 
 @code{__is_empty (base_type)} is false.  Requires: @code{type} shall
@@ -12471,7 +13004,7 @@ be a complete type, an array type of unknown bound, or is a
 @code{void} type.
 
 @item __is_enum (type)
-If @code{type} is a cv enumeration type ([basic.compound]) the the trait is 
+If @code{type} is a cv enumeration type ([basic.compound]) the trait is
 true, else it is false.
 
 @item __is_pod (type)
@@ -12485,7 +13018,7 @@ is true, else it is false.  Requires: @code{type} shall be a complete
 type, an array type of unknown bound, or is a @code{void} type.
 
 @item __is_union (type)
-If @code{type} is a cv union type ([basic.compound]) the the trait is 
+If @code{type} is a cv union type ([basic.compound]) the trait is
 true, else it is false.
 
 @end table

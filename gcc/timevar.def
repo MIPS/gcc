@@ -1,6 +1,6 @@
 /* This file contains the definitions for timing variables used to
    measure run-time performance of the compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
@@ -127,7 +127,6 @@ DEFTIMEVAR (TV_TREE_PARALLELIZE_LOOPS, "tree parallelize loops")
 DEFTIMEVAR (TV_TREE_VECTORIZATION    , "tree vectorization")
 DEFTIMEVAR (TV_GRAPHITE_TRANSFORMS   , "GRAPHITE loop transforms")
 DEFTIMEVAR (TV_TREE_LINEAR_TRANSFORM , "tree loop linear")
-DEFTIMEVAR (TV_TREE_LOOP_FUSION      , "tree loop fusion") 
 DEFTIMEVAR (TV_TREE_LOOP_DISTRIBUTION, "tree loop distribution")
 DEFTIMEVAR (TV_CHECK_DATA_DEPS       , "tree check data dependences")
 DEFTIMEVAR (TV_TREE_PREFETCH	     , "tree prefetching")
@@ -181,6 +180,8 @@ DEFTIMEVAR (TV_SMS		     , "sms modulo scheduling")
 DEFTIMEVAR (TV_SCHED                 , "scheduling")
 DEFTIMEVAR (TV_LOCAL_ALLOC           , "local alloc")
 DEFTIMEVAR (TV_GLOBAL_ALLOC          , "global alloc")
+DEFTIMEVAR (TV_IRA	   	     , "integrated RA")
+DEFTIMEVAR (TV_RELOAD	   	     , "reload")
 DEFTIMEVAR (TV_RELOAD_CSE_REGS       , "reload CSE regs")
 DEFTIMEVAR (TV_SEQABSTR              , "sequence abstraction")
 DEFTIMEVAR (TV_GCSE_AFTER_RELOAD      , "load CSE after reload")

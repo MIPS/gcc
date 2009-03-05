@@ -45,6 +45,22 @@ extern int target_flags;
 						\
       switch (bfin_cpu_type)			\
 	{					\
+	case BFIN_CPU_BF512:			\
+	  builtin_define ("__ADSPBF512__");	\
+	  builtin_define ("__ADSPBF51x__");	\
+	  break;				\
+	case BFIN_CPU_BF514:			\
+	  builtin_define ("__ADSPBF514__");	\
+	  builtin_define ("__ADSPBF51x__");	\
+	  break;				\
+	case BFIN_CPU_BF516:			\
+	  builtin_define ("__ADSPBF516__");	\
+	  builtin_define ("__ADSPBF51x__");	\
+	  break;				\
+	case BFIN_CPU_BF518:			\
+	  builtin_define ("__ADSPBF518__");	\
+	  builtin_define ("__ADSPBF51x__");	\
+	  break;				\
 	case BFIN_CPU_BF522:			\
 	  builtin_define ("__ADSPBF522__");	\
 	  builtin_define ("__ADSPBF52x__");	\
@@ -133,8 +149,10 @@ extern int target_flags;
 	builtin_define ("__WORKAROUND_SPECULATIVE_LOADS");		\
       if (ENABLE_WA_SPECULATIVE_SYNCS)					\
 	builtin_define ("__WORKAROUND_SPECULATIVE_SYNCS");		\
+      if (ENABLE_WA_INDIRECT_CALLS)					\
+	builtin_define ("__WORKAROUND_INDIRECT_CALLS");			\
       if (ENABLE_WA_RETS)						\
-	builtin_define ("__WORKAROUND_RETS");		\
+	builtin_define ("__WORKAROUND_RETS");				\
 						\
       if (TARGET_FDPIC)				\
 	{					\
@@ -711,6 +729,19 @@ enum reg_class
  : (REGNO) >= REG_RETS ? PROLOGUE_REGS			\
  : NO_REGS)
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES				\
+{							\
+    MOST_REGS, AREGS, CCREGS, LIM_REG_CLASSES		\
+}
+
 /* When defined, the compiler allows registers explicitly used in the
    rtl to be used as spill registers but prevents the compiler from
    extending the lifetime of these registers. */
@@ -985,7 +1016,7 @@ do {					       \
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
    move-instruction pairs, we will do a movmem or libcall instead.  */
 
-#define MOVE_RATIO 5
+#define MOVE_RATIO(speed) 5
 
 /* STORAGE LAYOUT: target machine storage layout
    Define this macro as a C expression which is nonzero if accessing

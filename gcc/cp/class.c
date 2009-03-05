@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -299,7 +299,7 @@ build_base_path (enum tree_code code,
     {
       expr = build_nop (build_pointer_type (target_type), expr);
       if (!want_pointer)
-	expr = build_indirect_ref (expr, NULL);
+	expr = build_indirect_ref (EXPR_LOCATION (expr), expr, NULL);
       return expr;
     }
 
@@ -627,7 +627,7 @@ build_vtbl_ref_1 (tree instance, tree idx)
 
   assemble_external (vtbl);
 
-  aref = build_array_ref (vtbl, idx);
+  aref = build_array_ref (vtbl, idx, input_location);
   TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
 
   return aref;
@@ -1494,7 +1494,7 @@ finish_struct_bits (tree t)
       DECL_MODE (TYPE_MAIN_DECL (t)) = BLKmode;
       for (variants = t; variants; variants = TYPE_NEXT_VARIANT (variants))
 	{
-	  TYPE_MODE (variants) = BLKmode;
+	  SET_TYPE_MODE (variants, BLKmode);
 	  TREE_ADDRESSABLE (variants) = 1;
 	}
     }
@@ -2497,10 +2497,10 @@ finish_struct_anon (tree t)
 	      if (TREE_CODE (elt) != FIELD_DECL)
 		{
 		  if (is_union)
-		    permerror ("%q+#D invalid; an anonymous union can "
+		    permerror (input_location, "%q+#D invalid; an anonymous union can "
 			       "only have non-static data members", elt);
 		  else
-		    permerror ("%q+#D invalid; an anonymous struct can "
+		    permerror (input_location, "%q+#D invalid; an anonymous struct can "
 			       "only have non-static data members", elt);
 		  continue;
 		}
@@ -2508,16 +2508,16 @@ finish_struct_anon (tree t)
 	      if (TREE_PRIVATE (elt))
 		{
 		  if (is_union)
-		    permerror ("private member %q+#D in anonymous union", elt);
+		    permerror (input_location, "private member %q+#D in anonymous union", elt);
 		  else
-		    permerror ("private member %q+#D in anonymous struct", elt);
+		    permerror (input_location, "private member %q+#D in anonymous struct", elt);
 		}
 	      else if (TREE_PROTECTED (elt))
 		{
 		  if (is_union)
-		    permerror ("protected member %q+#D in anonymous union", elt);
+		    permerror (input_location, "protected member %q+#D in anonymous union", elt);
 		  else
-		    permerror ("protected member %q+#D in anonymous struct", elt);
+		    permerror (input_location, "protected member %q+#D in anonymous struct", elt);
 		}
 
 	      TREE_PRIVATE (elt) = TREE_PRIVATE (field);
@@ -2728,10 +2728,11 @@ check_bitfield_decl (tree field)
 	warning (0, "width of %q+D exceeds its type", field);
       else if (TREE_CODE (type) == ENUMERAL_TYPE
 	       && (0 > compare_tree_int (w,
-					 min_precision (TYPE_MIN_VALUE (type),
-							TYPE_UNSIGNED (type)))
+					 tree_int_cst_min_precision
+					 (TYPE_MIN_VALUE (type),
+					  TYPE_UNSIGNED (type)))
 		   ||  0 > compare_tree_int (w,
-					     min_precision
+					     tree_int_cst_min_precision
 					     (TYPE_MAX_VALUE (type),
 					      TYPE_UNSIGNED (type)))))
 	warning (0, "%q+D is too small to hold all values of %q#T", field, type);
@@ -2973,7 +2974,8 @@ check_field_decls (tree t, tree *access_decls,
 		 x);
 	      cant_pack = 1;
 	    }
-	  else if (TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
+	  else if (DECL_C_BIT_FIELD (x)
+		   || TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
 	    DECL_PACKED (x) = 1;
 	}
 
@@ -3045,10 +3047,10 @@ check_field_decls (tree t, tree *access_decls,
 
       /* Core issue 80: A nonstatic data member is required to have a
 	 different name from the class iff the class has a
-	 user-defined constructor.  */
+	 user-declared constructor.  */
       if (constructor_name_p (DECL_NAME (x), t)
 	  && TYPE_HAS_USER_CONSTRUCTOR (t))
-	permerror ("field %q+#D with same name as class", x);
+	permerror (input_location, "field %q+#D with same name as class", x);
 
       /* We set DECL_C_BIT_FIELD in grokbitfield.
 	 If the type and width are valid, we'll also set DECL_BIT_FIELD.  */
@@ -3767,8 +3769,8 @@ check_methods (tree t)
 	  if (DECL_PURE_VIRTUAL_P (x))
 	    VEC_safe_push (tree, gc, CLASSTYPE_PURE_VIRTUALS (t), x);
 	}
-      /* All user-declared destructors are non-trivial.  */
-      if (DECL_DESTRUCTOR_P (x))
+      /* All user-provided destructors are non-trivial.  */
+      if (DECL_DESTRUCTOR_P (x) && !DECL_DEFAULTED_FN (x))
 	TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = 1;
     }
 }
@@ -4067,6 +4069,96 @@ type_has_user_nondefault_constructor (tree t)
   return false;
 }
 
+/* Returns true iff FN is a user-provided function, i.e. user-declared
+   and not defaulted at its first declaration.  */
+
+static bool
+user_provided_p (tree fn)
+{
+  if (TREE_CODE (fn) == TEMPLATE_DECL)
+    return true;
+  else
+    return (!DECL_ARTIFICIAL (fn)
+	    && !(DECL_DEFAULTED_FN (fn)
+		 && DECL_INITIALIZED_IN_CLASS_P (fn)));
+}
+
+/* Returns true iff class T has a user-provided constructor.  */
+
+bool
+type_has_user_provided_constructor (tree t)
+{
+  tree fns;
+
+  if (!CLASS_TYPE_P (t))
+    return false;
+
+  if (!TYPE_HAS_USER_CONSTRUCTOR (t))
+    return false;
+
+  /* This can happen in error cases; avoid crashing.  */
+  if (!CLASSTYPE_METHOD_VEC (t))
+    return false;
+
+  for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+    if (user_provided_p (OVL_CURRENT (fns)))
+      return true;
+
+  return false;
+}
+
+/* Returns true iff class T has a user-provided default constructor.  */
+
+bool
+type_has_user_provided_default_constructor (tree t)
+{
+  tree fns, args;
+
+  if (!TYPE_HAS_USER_CONSTRUCTOR (t))
+    return false;
+
+  for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+    {
+      tree fn = OVL_CURRENT (fns);
+      if (TREE_CODE (fn) == FUNCTION_DECL
+	  && user_provided_p (fn))
+	{
+	  args = FUNCTION_FIRST_USER_PARMTYPE (fn);
+	  while (args && TREE_PURPOSE (args))
+	    args = TREE_CHAIN (args);
+	  if (!args || args == void_list_node)
+	    return true;
+	}
+    }
+
+  return false;
+}
+
+/* Returns true if FN can be explicitly defaulted.  */
+
+bool
+defaultable_fn_p (tree fn)
+{
+  if (DECL_CONSTRUCTOR_P (fn))
+    {
+      if (FUNCTION_FIRST_USER_PARMTYPE (fn) == void_list_node)
+	return true;
+      else if (copy_fn_p (fn) > 0
+	       && (TREE_CHAIN (FUNCTION_FIRST_USER_PARMTYPE (fn))
+		   == void_list_node))
+	return true;
+      else
+	return false;
+    }
+  else if (DECL_DESTRUCTOR_P (fn))
+    return true;
+  else if (DECL_ASSIGNMENT_OPERATOR_P (fn)
+	   && DECL_OVERLOADED_OPERATOR_P (fn) == NOP_EXPR)
+    return copy_fn_p (fn);
+  else
+    return false;
+}
+
 /* Remove all zero-width bit-fields from T.  */
 
 static void
@@ -4158,6 +4250,8 @@ check_bases_and_members (tree t)
      should take a non-const reference argument.  */
   int no_const_asn_ref;
   tree access_decls;
+  bool saved_complex_asn_ref;
+  bool saved_nontrivial_dtor;
 
   /* By default, we use const reference arguments and generate default
      constructors.  */
@@ -4170,6 +4264,12 @@ check_bases_and_members (tree t)
 
   /* Check all the method declarations.  */
   check_methods (t);
+
+  /* Save the initial values of these flags which only indicate whether
+     or not the class has user-provided functions.  As we analyze the
+     bases and members we can set these flags for other reasons.  */
+  saved_complex_asn_ref = TYPE_HAS_COMPLEX_ASSIGN_REF (t);
+  saved_nontrivial_dtor = TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t);
 
   /* Check all the data member declarations.  We cannot call
      check_field_decls until we have called check_bases check_methods,
@@ -4186,37 +4286,33 @@ check_bases_and_members (tree t)
 
   /* Do some bookkeeping that will guide the generation of implicitly
      declared member functions.  */
-  TYPE_HAS_COMPLEX_INIT_REF (t)
-    |= (TYPE_HAS_INIT_REF (t) || TYPE_CONTAINS_VPTR_P (t));
+  TYPE_HAS_COMPLEX_INIT_REF (t) |= TYPE_CONTAINS_VPTR_P (t);
   /* We need to call a constructor for this class if it has a
-     user-declared constructor, or if the default constructor is going
+     user-provided constructor, or if the default constructor is going
      to initialize the vptr.  (This is not an if-and-only-if;
      TYPE_NEEDS_CONSTRUCTING is set elsewhere if bases or members
      themselves need constructing.)  */
   TYPE_NEEDS_CONSTRUCTING (t)
-    |= (TYPE_HAS_USER_CONSTRUCTOR (t) || TYPE_CONTAINS_VPTR_P (t));
+    |= (type_has_user_provided_constructor (t) || TYPE_CONTAINS_VPTR_P (t));
   /* [dcl.init.aggr]
 
-     An aggregate is an array or a class with no user-declared
+     An aggregate is an array or a class with no user-provided
      constructors ... and no virtual functions.  
 
      Again, other conditions for being an aggregate are checked
      elsewhere.  */
   CLASSTYPE_NON_AGGREGATE (t)
-    |= (TYPE_HAS_USER_CONSTRUCTOR (t) || TYPE_POLYMORPHIC_P (t));
+    |= (type_has_user_provided_constructor (t) || TYPE_POLYMORPHIC_P (t));
   CLASSTYPE_NON_POD_P (t)
     |= (CLASSTYPE_NON_AGGREGATE (t)
-	|| TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t)
-	|| TYPE_HAS_ASSIGN_REF (t));
-  TYPE_HAS_COMPLEX_ASSIGN_REF (t)
-    |= TYPE_HAS_ASSIGN_REF (t) || TYPE_CONTAINS_VPTR_P (t);
-  TYPE_HAS_COMPLEX_DFLT (t)
-    |= (TYPE_HAS_DEFAULT_CONSTRUCTOR (t) || TYPE_CONTAINS_VPTR_P (t));
+	|| saved_nontrivial_dtor || saved_complex_asn_ref);
+  TYPE_HAS_COMPLEX_ASSIGN_REF (t) |= TYPE_CONTAINS_VPTR_P (t);
+  TYPE_HAS_COMPLEX_DFLT (t) |= TYPE_CONTAINS_VPTR_P (t);
 
   /* If the class has no user-declared constructor, but does have
      non-static const or reference data members that can never be
      initialized, issue a warning.  */
-  if (extra_warnings
+  if (warn_uninitialized
       /* Classes with user-declared constructors are presumed to
 	 initialize these members.  */
       && !TYPE_HAS_USER_CONSTRUCTOR (t)
@@ -4235,13 +4331,13 @@ check_bases_and_members (tree t)
 
 	  type = TREE_TYPE (field);
 	  if (TREE_CODE (type) == REFERENCE_TYPE)
-	    warning (OPT_Wextra, "non-static reference %q+#D in class "
-		     "without a constructor", field);
+	    warning (OPT_Wuninitialized, "non-static reference %q+#D "
+		     "in class without a constructor", field);
 	  else if (CP_TYPE_CONST_P (type)
 		   && (!CLASS_TYPE_P (type)
 		       || !TYPE_HAS_DEFAULT_CONSTRUCTOR (type)))
-	    warning (OPT_Wextra, "non-static const member %q+#D in class "
-		     "without a constructor", field);
+	    warning (OPT_Wuninitialized, "non-static const member %q+#D "
+		     "in class without a constructor", field);
 	}
     }
 
@@ -5691,6 +5787,9 @@ currently_open_class (tree t)
 {
   int i;
 
+  if (!CLASS_TYPE_P (t))
+    return false;
+
   /* We start looking from 1 because entry 0 is from global scope,
      and has no type.  */
   for (i = current_class_depth; i > 0; --i)
@@ -5833,9 +5932,13 @@ pop_lang_context (void)
    control of FLAGS.  Permit pointers to member function if FLAGS
    permits.  If TEMPLATE_ONLY, the name of the overloaded function was
    a template-id, and EXPLICIT_TARGS are the explicitly provided
-   template arguments.  If OVERLOAD is for one or more member
-   functions, then ACCESS_PATH is the base path used to reference
-   those member functions.  */
+   template arguments.  
+
+   If OVERLOAD is for one or more member functions, then ACCESS_PATH
+   is the base path used to reference those member functions.  If
+   TF_NO_ACCESS_CONTROL is not set in FLAGS, and the address is
+   resolved to a member function, access checks will be performed and
+   errors issued if appropriate.  */
 
 static tree
 resolve_address_of_overloaded_function (tree target_type,
@@ -6081,10 +6184,10 @@ resolve_address_of_overloaded_function (tree target_type,
       if (!(flags & tf_error))
 	return error_mark_node;
 
-      permerror ("assuming pointer to member %qD", fn);
+      permerror (input_location, "assuming pointer to member %qD", fn);
       if (!explained)
 	{
-	  inform ("(a pointer to member can only be formed with %<&%E%>)", fn);
+	  inform (input_location, "(a pointer to member can only be formed with %<&%E%>)", fn);
 	  explained = 1;
 	}
     }
@@ -6095,15 +6198,21 @@ resolve_address_of_overloaded_function (tree target_type,
      function will be marked as used at this point.  */
   if (!(flags & tf_conv))
     {
+      /* Make =delete work with SFINAE.  */
+      if (DECL_DELETED_FN (fn) && !(flags & tf_error))
+	return error_mark_node;
+      
       mark_used (fn);
-      /* We could not check access when this expression was originally
-	 created since we did not know at that time to which function
-	 the expression referred.  */
-      if (DECL_FUNCTION_MEMBER_P (fn))
-	{
-	  gcc_assert (access_path);
-	  perform_or_defer_access_check (access_path, fn, fn);
-	}
+    }
+
+  /* We could not check access to member functions when this
+     expression was originally created since we did not know at that
+     time to which function the expression referred.  */
+  if (!(flags & tf_no_access_control) 
+      && DECL_FUNCTION_MEMBER_P (fn))
+    {
+      gcc_assert (access_path);
+      perform_or_defer_access_check (access_path, fn, fn);
     }
 
   if (TYPE_PTRFN_P (target_type) || TYPE_PTRMEMFUNC_P (target_type))
@@ -6444,8 +6553,8 @@ note_name_declared_in_class (tree name, tree decl)
 	 A name N used in a class S shall refer to the same declaration
 	 in its context and when re-evaluated in the completed scope of
 	 S.  */
-      permerror ("declaration of %q#D", decl);
-      permerror ("changes meaning of %qD from %q+#D",
+      permerror (input_location, "declaration of %q#D", decl);
+      permerror (input_location, "changes meaning of %qD from %q+#D",
 	       DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
     }
 }

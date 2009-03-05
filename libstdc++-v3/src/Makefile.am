@@ -1,7 +1,7 @@
 ## Makefile for the src subdirectory of the GNU C++ Standard library.
 ##
 ## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-## 2006, 2007, 2008
+## 2006, 2007, 2008, 2009
 ## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
@@ -162,6 +162,8 @@ sources = \
 	locale_init.cc \
 	locale_facets.cc \
 	localename.cc \
+	math_stubs_float.cc \
+	math_stubs_long_double.cc \
 	stdexcept.cc \
 	strstream.cc \
 	system_error.cc \
@@ -187,6 +189,7 @@ sources = \
 	mutex.cc \
 	condition_variable.cc \
 	chrono.cc \
+	thread.cc \
 	${host_sources} \
 	${host_sources_extra} 
 
@@ -196,10 +199,12 @@ vpath % $(top_srcdir)
 libstdc___la_SOURCES = $(sources)
 
 libstdc___la_LIBADD = \
-	$(top_builddir)/libmath/libmath.la \
+	$(GLIBCXX_LIBS) \
 	$(top_builddir)/libsupc++/libsupc++convenience.la
 
-libstdc___la_DEPENDENCIES = ${version_dep} $(libstdc___la_LIBADD)
+libstdc___la_DEPENDENCIES = \
+	${version_dep} \
+	$(top_builddir)/libsupc++/libsupc++convenience.la
 
 libstdc___la_LDFLAGS = \
 	-version-info $(libtool_VERSION) ${version_arg} -lm 
@@ -269,9 +274,9 @@ limits_c++0x.o: limits_c++0x.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 atomic.lo: atomic.cc
-	$(LTCXXCOMPILE) -x c++ -std=gnu++0x -c $<
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 atomic.o: atomic.cc
-	$(CXXCOMPILE) -x c++ -std=gnu++0x -c $<
+	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 string-inst.lo: string-inst.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
@@ -286,6 +291,11 @@ wstring-inst.o: wstring-inst.cc
 chrono.lo: chrono.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 chrono.o: chrono.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+thread.lo: thread.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+thread.o: thread.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 if GLIBCXX_LDBL_COMPAT

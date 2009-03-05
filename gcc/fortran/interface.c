@@ -1,5 +1,5 @@
 /* Deal with interfaces.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -392,19 +392,19 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
       if (strcmp (dt1->name, dt2->name) != 0)
 	return 0;
 
-      if (dt1->access != dt2->access)
+      if (dt1->attr.access != dt2->attr.access)
 	return 0;
 
-      if (dt1->pointer != dt2->pointer)
+      if (dt1->attr.pointer != dt2->attr.pointer)
 	return 0;
 
-      if (dt1->dimension != dt2->dimension)
+      if (dt1->attr.dimension != dt2->attr.dimension)
 	return 0;
 
-     if (dt1->allocatable != dt2->allocatable)
+     if (dt1->attr.allocatable != dt2->attr.allocatable)
 	return 0;
 
-      if (dt1->dimension && gfc_compare_array_spec (dt1->as, dt2->as) == 0)
+      if (dt1->attr.dimension && gfc_compare_array_spec (dt1->as, dt2->as) == 0)
 	return 0;
 
       /* Make sure that link lists do not put this function into an 
@@ -479,7 +479,6 @@ compare_type_rank (gfc_symbol *s1, gfc_symbol *s2)
 }
 
 
-static int compare_interfaces (gfc_symbol *, gfc_symbol *, int);
 static int compare_intr_interfaces (gfc_symbol *, gfc_symbol *);
 
 /* Given two symbols that are formal arguments, compare their types
@@ -492,17 +491,26 @@ compare_type_rank_if (gfc_symbol *s1, gfc_symbol *s2)
   if (s1 == NULL || s2 == NULL)
     return s1 == s2 ? 1 : 0;
 
+  if (s1 == s2)
+    return 1;
+
   if (s1->attr.flavor != FL_PROCEDURE && s2->attr.flavor != FL_PROCEDURE)
     return compare_type_rank (s1, s2);
 
   if (s1->attr.flavor != FL_PROCEDURE || s2->attr.flavor != FL_PROCEDURE)
     return 0;
 
-  /* At this point, both symbols are procedures.  */
-  if ((s1->attr.function == 0 && s1->attr.subroutine == 0)
-      || (s2->attr.function == 0 && s2->attr.subroutine == 0))
-    return 0;
+  /* At this point, both symbols are procedures.  It can happen that
+     external procedures are compared, where one is identified by usage
+     to be a function or subroutine but the other is not.  Check TKR
+     nonetheless for these cases.  */
+  if (s1->attr.function == 0 && s1->attr.subroutine == 0)
+    return s1->attr.external == 1 ? compare_type_rank (s1, s2) : 0;
 
+  if (s2->attr.function == 0 && s2->attr.subroutine == 0)
+    return s2->attr.external == 1 ? compare_type_rank (s1, s2) : 0;
+
+  /* Now the type of procedure has been identified.  */
   if (s1->attr.function != s2->attr.function
       || s1->attr.subroutine != s2->attr.subroutine)
     return 0;
@@ -954,8 +962,8 @@ generic_correspondence (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
    We return nonzero if there exists an actual argument list that
    would be ambiguous between the two interfaces, zero otherwise.  */
 
-static int
-compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, int generic_flag)
+int
+gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, int generic_flag)
 {
   gfc_formal_arglist *f1, *f2;
 
@@ -1173,7 +1181,7 @@ check_interface1 (gfc_interface *p, gfc_interface *q0,
 	if (p->sym->name == q->sym->name && p->sym->module == q->sym->module)
 	  continue;
 
-	if (compare_interfaces (p->sym, q->sym, generic_flag))
+	if (gfc_compare_interfaces (p->sym, q->sym, generic_flag))
 	  {
 	    if (referenced)
 	      {
@@ -1460,7 +1468,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 	 if (!compare_intr_interfaces (formal, actual->symtree->n.sym))
 	   goto proc_fail;
 	}
-      else if (!compare_interfaces (formal, actual->symtree->n.sym, 0))
+      else if (!gfc_compare_interfaces (formal, actual->symtree->n.sym, 0))
 	goto proc_fail;
 
       return 1;
@@ -1821,7 +1829,7 @@ has_vector_subscript (gfc_expr *e)
 
 static int
 compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
-		       int ranks_must_agree, int is_elemental, locus *where)
+	 	       int ranks_must_agree, int is_elemental, locus *where)
 {
   gfc_actual_arglist **new_arg, *a, *actual, temp;
   gfc_formal_arglist *f;
@@ -2218,7 +2226,7 @@ pair_cmp (const void *p1, const void *p2)
    refer to the same expression. The analysis is conservative.
    Returning FAILURE will produce no warning.  */
 
-static try
+static gfc_try
 compare_actual_expr (gfc_expr *e1, gfc_expr *e2)
 {
   const gfc_ref *r1, *r2;
@@ -2267,7 +2275,7 @@ compare_actual_expr (gfc_expr *e1, gfc_expr *e2)
    another, check that identical actual arguments aren't not
    associated with some incompatible INTENTs.  */
 
-static try
+static gfc_try
 check_some_aliasing (gfc_formal_arglist *f, gfc_actual_arglist *a)
 {
   sym_intent f1_intent, f2_intent;
@@ -2275,7 +2283,7 @@ check_some_aliasing (gfc_formal_arglist *f, gfc_actual_arglist *a)
   gfc_actual_arglist *a1;
   size_t n, i, j;
   argpair *p;
-  try t = SUCCESS;
+  gfc_try t = SUCCESS;
 
   n = 0;
   for (f1 = f, a1 = a;; f1 = f1->next, a1 = a1->next)
@@ -2355,7 +2363,7 @@ compare_parameter_intent (gfc_symbol *formal, gfc_expr *actual)
    another, check that they are compatible in the sense that intents
    are not mismatched.  */
 
-static try
+static gfc_try
 check_intents (gfc_formal_arglist *f, gfc_actual_arglist *a)
 {
   sym_intent f_intent;
@@ -2412,9 +2420,12 @@ void
 gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 {
 
-  /* Warn about calls with an implicit interface.  */
+  /* Warn about calls with an implicit interface.  Special case
+     for calling a ISO_C_BINDING becase c_loc and c_funloc
+     are pseudo-unknown.  */
   if (gfc_option.warn_implicit_interface
-      && sym->attr.if_source == IFSRC_UNKNOWN)
+      && sym->attr.if_source == IFSRC_UNKNOWN
+      && ! sym->attr.is_iso_c)
     gfc_warning ("Procedure '%s' called with an implicit interface at %L",
 		 sym->name, where);
 
@@ -2449,13 +2460,36 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
       return;
     }
 
-  if (!compare_actual_formal (ap, sym->formal, 0,
-			      sym->attr.elemental, where))
+  if (!compare_actual_formal (ap, sym->formal, 0, sym->attr.elemental, where))
     return;
 
   check_intents (sym->formal, *ap);
   if (gfc_option.warn_aliasing)
     check_some_aliasing (sym->formal, *ap);
+}
+
+
+/* Try if an actual argument list matches the formal list of a symbol,
+   respecting the symbol's attributes like ELEMENTAL.  This is used for
+   GENERIC resolution.  */
+
+bool
+gfc_arglist_matches_symbol (gfc_actual_arglist** args, gfc_symbol* sym)
+{
+  bool r;
+
+  gcc_assert (sym->attr.flavor == FL_PROCEDURE);
+
+  r = !sym->attr.elemental;
+  if (compare_actual_formal (args, sym->formal, r, !r, NULL))
+    {
+      check_intents (sym->formal, *args);
+      if (gfc_option.warn_aliasing)
+	check_some_aliasing (sym->formal, *args);
+      return true;
+    }
+
+  return false;
 }
 
 
@@ -2468,8 +2502,6 @@ gfc_symbol *
 gfc_search_interface (gfc_interface *intr, int sub_flag,
 		      gfc_actual_arglist **ap)
 {
-  int r;
-
   for (; intr; intr = intr->next)
     {
       if (sub_flag && intr->sym->attr.function)
@@ -2477,15 +2509,8 @@ gfc_search_interface (gfc_interface *intr, int sub_flag,
       if (!sub_flag && intr->sym->attr.subroutine)
 	continue;
 
-      r = !intr->sym->attr.elemental;
-
-      if (compare_actual_formal (ap, intr->sym->formal, r, !r, NULL))
-	{
-	  check_intents (intr->sym->formal, *ap);
-	  if (gfc_option.warn_aliasing)
-	    check_some_aliasing (intr->sym->formal, *ap);
-	  return intr->sym;
-	}
+      if (gfc_arglist_matches_symbol (ap, intr->sym))
+	return intr->sym;
     }
 
   return NULL;
@@ -2513,8 +2538,8 @@ find_symtree0 (gfc_symtree *root, gfc_symbol *sym)
 
 /* Find a symtree for a symbol.  */
 
-static gfc_symtree *
-find_sym_in_symtree (gfc_symbol *sym)
+gfc_symtree *
+gfc_find_sym_in_symtree (gfc_symbol *sym)
 {
   gfc_symtree *st;
   gfc_namespace *ns;
@@ -2546,7 +2571,7 @@ find_sym_in_symtree (gfc_symbol *sym)
    interface.  If one is found, the expression node is replaced with
    the appropriate function call.  */
 
-try
+gfc_try
 gfc_extend_expr (gfc_expr *e)
 {
   gfc_actual_arglist *actual;
@@ -2652,11 +2677,12 @@ gfc_extend_expr (gfc_expr *e)
 
   /* Change the expression node to a function call.  */
   e->expr_type = EXPR_FUNCTION;
-  e->symtree = find_sym_in_symtree (sym);
+  e->symtree = gfc_find_sym_in_symtree (sym);
   e->value.function.actual = actual;
   e->value.function.esym = NULL;
   e->value.function.isym = NULL;
   e->value.function.name = NULL;
+  e->user_operator = 1;
 
   if (gfc_pure (NULL) && !gfc_pure (sym))
     {
@@ -2677,7 +2703,7 @@ gfc_extend_expr (gfc_expr *e)
    SUCCESS if the node was replaced.  On FAILURE, no error is
    generated.  */
 
-try
+gfc_try
 gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
 {
   gfc_actual_arglist *actual;
@@ -2718,7 +2744,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
 
   /* Replace the assignment with the call.  */
   c->op = EXEC_ASSIGN_CALL;
-  c->symtree = find_sym_in_symtree (sym);
+  c->symtree = gfc_find_sym_in_symtree (sym);
   c->expr = NULL;
   c->expr2 = NULL;
   c->ext.actual = actual;
@@ -2731,7 +2757,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
    the given interface list.  Ambiguity isn't checked yet since module
    procedures can be present without interfaces.  */
 
-static try
+static gfc_try
 check_new_interface (gfc_interface *base, gfc_symbol *new_sym)
 {
   gfc_interface *ip;
@@ -2752,7 +2778,7 @@ check_new_interface (gfc_interface *base, gfc_symbol *new_sym)
 
 /* Add a symbol to the current interface.  */
 
-try
+gfc_try
 gfc_add_interface (gfc_symbol *new_sym)
 {
   gfc_interface **head, *intr;

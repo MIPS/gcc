@@ -1,5 +1,5 @@
 /* Simulate storage of variables into target memory.
-   Copyright (C) 2007, 2008
+   Copyright (C) 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Paul Thomas and Brooks Moses
 
@@ -220,8 +220,13 @@ encode_derived (gfc_expr *source, unsigned char *buffer, size_t buffer_size)
 	continue;
       ptr = TREE_INT_CST_LOW(DECL_FIELD_OFFSET(cmp->backend_decl))
 	    + TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(cmp->backend_decl))/8;
-      gfc_target_encode_expr (ctr->expr, &buffer[ptr],
-			      buffer_size - ptr);
+
+      if (ctr->expr->expr_type == EXPR_NULL)
+ 	memset (&buffer[ptr], 0,
+		int_size_in_bytes (TREE_TYPE (cmp->backend_decl)));
+      else
+	gfc_target_encode_expr (ctr->expr, &buffer[ptr],
+				buffer_size - ptr);
     }
 
   return int_size_in_bytes (type);
@@ -349,8 +354,9 @@ gfc_interpret_integer (int kind, unsigned char *buffer, size_t buffer_size,
 
 int
 gfc_interpret_float (int kind, unsigned char *buffer, size_t buffer_size,
-		 mpfr_t real)
+		     mpfr_t real)
 {
+  gfc_set_model_kind (kind);
   mpfr_init (real);
   gfc_conv_tree_to_mpfr (real,
 			 native_interpret_expr (gfc_get_real_type (kind),
@@ -399,9 +405,28 @@ gfc_interpret_character (unsigned char *buffer, size_t buffer_size,
   result->value.character.string =
     gfc_get_wide_string (result->value.character.length + 1);
 
-  gcc_assert (result->ts.kind == gfc_default_character_kind);
-  for (i = 0; i < result->value.character.length; i++)
-    result->value.character.string[i] = (gfc_char_t) buffer[i];
+  if (result->ts.kind == gfc_default_character_kind)
+    for (i = 0; i < result->value.character.length; i++)
+      result->value.character.string[i] = (gfc_char_t) buffer[i];
+  else
+    {
+      mpz_t integer;
+      unsigned bytes = size_character (1, result->ts.kind);
+      mpz_init (integer);
+      gcc_assert (bytes <= sizeof (unsigned long));
+
+      for (i = 0; i < result->value.character.length; i++)
+	{
+	  gfc_conv_tree_to_mpz (integer,
+	    native_interpret_expr (gfc_get_char_type (result->ts.kind),
+				   &buffer[bytes*i], buffer_size-bytes*i));
+	  result->value.character.string[i]
+	    = (gfc_char_t) mpz_get_ui (integer);
+	}
+
+      mpz_clear (integer);
+    }
+
   result->value.character.string[result->value.character.length] = '\0';
 
   return result->value.character.length;
@@ -680,10 +705,8 @@ gfc_convert_boz (gfc_expr *expr, gfc_typespec *ts)
     }
 
   for (index = 0; gfc_integer_kinds[index].kind != 0; ++index)
-    {
-	if ((unsigned) gfc_integer_kinds[index].bit_size >= ts_bit_size)
-	  break;
-    }
+    if ((unsigned) gfc_integer_kinds[index].bit_size >= ts_bit_size)
+      break;
 
   expr->ts.kind = gfc_integer_kinds[index].kind;
   buffer_size = MAX (buffer_size, size_integer (expr->ts.kind));

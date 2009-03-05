@@ -1,6 +1,6 @@
 ;;- Machine description for Renesas / SuperH SH.
 ;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-;;  2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+;;  2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -152,6 +152,17 @@
   (UNSPEC_SP_SET	40)
   (UNSPEC_SP_TEST	41)
   (UNSPEC_MOVUA		42)
+
+  ;; (unspec [VAL SHIFT] UNSPEC_EXTRACT_S16) computes (short) (VAL >> SHIFT).
+  ;; UNSPEC_EXTRACT_U16 is the unsigned equivalent.
+  (UNSPEC_EXTRACT_S16	43)
+  (UNSPEC_EXTRACT_U16	44)
+
+  ;; (unspec [TARGET ANCHOR] UNSPEC_SYMOFF) == TARGET - ANCHOR.
+  (UNSPEC_SYMOFF	45)
+
+  ;; (unspec [OFFSET ANCHOR] UNSPEC_PCREL_SYMOFF) == OFFSET - (ANCHOR - .).
+  (UNSPEC_PCREL_SYMOFF	46)
 
   ;; These are used with unspec_volatile.
   (UNSPECV_BLOCKAGE	0)
@@ -1143,7 +1154,7 @@
    (set (match_dup 4) (match_dup 5))]
   "
 {
-  rtx set1, set2;
+  rtx set1, set2, insn2;
   rtx replacements[4];
 
   /* We want to replace occurrences of operands[0] with operands[1] and
@@ -1173,7 +1184,10 @@
   extract_insn (emit_insn (set1));
   if (! constrain_operands (1))
     goto failure;
-  extract_insn (emit (set2));
+  insn2 = emit (set2);
+  if (GET_CODE (insn2) == BARRIER)
+    goto failure;
+  extract_insn (insn2);
   if (! constrain_operands (1))
     {
       rtx tmp;
@@ -5131,16 +5145,12 @@ label:
 
 (define_expand "movsi_const"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r")
-	(const:SI (sign_extend:SI
-		   (truncate:HI
-		    (ashiftrt:SI
-		     (match_operand:DI 1 "immediate_operand" "s")
-		     (const_int 16))))))
+	(const:SI (unspec:SI [(match_operand:DI 1 "immediate_operand" "s")
+			      (const_int 16)] UNSPEC_EXTRACT_S16)))
    (set (match_dup 0)
 	(ior:SI (ashift:SI (match_dup 0) (const_int 16))
-		(const:SI
-		  (zero_extend:SI
- 		   (truncate:HI (match_dup 1))))))]
+		(const:SI (unspec:SI [(match_dup 1)
+				      (const_int 0)] UNSPEC_EXTRACT_U16))))]
   "TARGET_SHMEDIA && reload_completed
    && MOVI_SHORI_BASE_OPERAND_P (operands[1])"
   "
@@ -5166,9 +5176,8 @@ label:
 
 (define_expand "movsi_const_16bit"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r")
-	(const:SI (sign_extend:SI
-		   (truncate:HI
-		    (match_operand:DI 1 "immediate_operand" "s")))))]
+	(const:SI (unspec:SI [(match_operand:DI 1 "immediate_operand" "s")
+			      (const_int 0)] UNSPEC_EXTRACT_S16)))]
   "TARGET_SHMEDIA && flag_pic && reload_completed
    && GET_CODE (operands[1]) == SYMBOL_REF"
   "")
@@ -5585,33 +5594,20 @@ label:
 
 (define_expand "movdi_const"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
-	(const:DI (sign_extend:DI
-		   (truncate:HI
-		    (ashiftrt:DI
-		     (match_operand:DI 1 "immediate_operand" "s")
-		     (const_int 48))))))
+	(const:DI (unspec:DI [(match_operand:DI 1 "immediate_operand" "s")
+		  	      (const_int 48)] UNSPEC_EXTRACT_S16)))
    (set (match_dup 0)
 	(ior:DI (ashift:DI (match_dup 0) (const_int 16))
-		(const:DI
-		 (zero_extend:DI
-		  (truncate:HI
-		   (ashiftrt:SI
-		    (match_dup 1)
-		    (const_int 32)))))))
+		(const:DI (unspec:DI [(match_dup 1)
+				      (const_int 32)] UNSPEC_EXTRACT_U16))))
    (set (match_dup 0)
 	(ior:DI (ashift:DI (match_dup 0) (const_int 16))
-		(const:DI
-		 (zero_extend:DI
-		  (truncate:HI
-		   (ashiftrt:SI
-		    (match_dup 1)
-		    (const_int 16)))))))
+		(const:DI (unspec:DI [(match_dup 1)
+				      (const_int 16)] UNSPEC_EXTRACT_U16))))
    (set (match_dup 0)
 	(ior:DI (ashift:DI (match_dup 0) (const_int 16))
-		(const:DI
-		 (zero_extend:DI
-		  (truncate:HI
-		   (match_dup 1))))))]
+		(const:DI (unspec:DI [(match_dup 1)
+				      (const_int 0)] UNSPEC_EXTRACT_U16))))]
   "TARGET_SHMEDIA64 && reload_completed
    && MOVI_SHORI_BASE_OPERAND_P (operands[1])"
   "
@@ -5621,17 +5617,12 @@ label:
 
 (define_expand "movdi_const_32bit"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
-	(const:DI (sign_extend:DI
-		   (truncate:HI
-		    (ashiftrt:DI
-		     (match_operand:DI 1 "immediate_operand" "s")
-		     (const_int 16))))))
+	(const:DI (unspec:DI [(match_operand:DI 1 "immediate_operand" "s")
+			      (const_int 16)] UNSPEC_EXTRACT_S16)))
    (set (match_dup 0)
 	(ior:DI (ashift:DI (match_dup 0) (const_int 16))
-		(const:DI
-		 (zero_extend:DI
-		  (truncate:HI
-		   (match_dup 1))))))]
+		(const:DI (unspec:DI [(match_dup 1)
+				      (const_int 0)] UNSPEC_EXTRACT_U16))))]
   "TARGET_SHMEDIA32 && reload_completed
    && MOVI_SHORI_BASE_OPERAND_P (operands[1])"
   "
@@ -5641,9 +5632,8 @@ label:
 
 (define_expand "movdi_const_16bit"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
-	(const:DI (sign_extend:DI
-		   (truncate:HI
-		    (match_operand:DI 1 "immediate_operand" "s")))))]
+	(const:DI (unspec:DI [(match_operand:DI 1 "immediate_operand" "s")
+			      (const_int 0)] UNSPEC_EXTRACT_S16)))]
   "TARGET_SHMEDIA && flag_pic && reload_completed
    && GET_CODE (operands[1]) == SYMBOL_REF"
   "")
@@ -6652,7 +6642,6 @@ label:
 	! move optimized away"
   [(set_attr "type" "fmove,move,fmove,fmove,pcfload,fload,fstore,pcload,load,store,fmove,fmove,load,*,fpul_gp,gp_fpul,fstore,load,nil")
    (set_attr "late_fp_use" "*,*,*,*,*,*,yes,*,*,*,*,*,*,*,yes,*,yes,*,*")
-   (set_attr "length" "*,*,*,*,4,2,2,*,*,*,2,2,2,4,2,2,2,2,0")
    (set_attr_alternative "length"
      [(const_int 2)
       (const_int 2)
@@ -6666,8 +6655,12 @@ label:
 	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
 	(const_int 4) (const_int 2))
       (const_int 2)
-      (const_int 2)
-      (const_int 2)
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
+      (if_then_else
+	(ne (symbol_ref "TARGET_SH2A") (const_int 0))
+	(const_int 4) (const_int 2))
       (const_int 2)
       (const_int 2)
       (const_int 2)
@@ -8718,16 +8711,9 @@ label:
       rtx insn, equiv;
 
       equiv = operands[1];
-      operands[1] = gen_rtx_MINUS (Pmode,
-				   operands[1],
-				   gen_rtx_CONST
-				   (Pmode,
-				    gen_rtx_MINUS (Pmode,
-						   gen_rtx_CONST (Pmode,
-								  lab),
-						   pc_rtx)));
-      operands[1] = gen_sym2PIC (operands[1]);
-      PUT_MODE (operands[1], Pmode);
+      operands[1] = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, operands[1], lab),
+				    UNSPEC_PCREL_SYMOFF);
+      operands[1] = gen_rtx_CONST (Pmode, operands[1]);
 
       if (Pmode == SImode)
 	{
@@ -8813,13 +8799,10 @@ label:
 
 (define_expand "sym_label2reg"
   [(set (match_operand:SI 0 "" "")
-	(const:SI (minus:SI
-		   (const:SI
-		    (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PIC))
-		   (const:SI
-		    (plus:SI
-		     (match_operand:SI 2 "" "")
-		     (const_int 2))))))]
+	(const:SI (unspec:SI [(match_operand:SI 1 "" "")
+			      (const (plus:SI (match_operand:SI 2 "" "")
+					      (const_int 2)))]
+			     UNSPEC_SYMOFF)))]
   "TARGET_SH1" "")
 
 (define_expand "symGOT_load"
@@ -8946,15 +8929,11 @@ label:
 
 (define_expand "symPLT_label2reg"
   [(set (match_operand:SI 0 "" "")
-	(const:SI (minus:SI
-		   (const:SI
-		    (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PLT))
-		   (const:SI
-		    (minus:SI
-		     (const:SI (plus:SI
-				(match_operand:SI 2 "" "")
-				(const_int 2)))
-		     (const:SI (unspec:SI [(pc)] UNSPEC_PIC)))))))
+	(const:SI
+	 (unspec:SI
+	  [(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PLT))
+	   (const:SI (plus:SI (match_operand:SI 2 "" "")
+			      (const_int 2)))] UNSPEC_PCREL_SYMOFF)))
    ;; Even though the PIC register is not really used by the call
    ;; sequence in which this is expanded, the PLT code assumes the PIC
    ;; register is set, so we must not skip its initialization.  Since
@@ -10258,7 +10237,10 @@ mov.l\\t1f,r0\\n\\
  "*
 {
   if (operands[1] != const0_rtx)
-    assemble_integer (operands[0], 4, BITS_PER_UNIT * 4, 1);
+    {
+      assemble_integer (operands[0], 4, BITS_PER_UNIT * 4, 1);
+      mark_symbol_refs_as_used (operands[0]);
+    }
   return \"\";
 }"
  [(set_attr "length" "4")

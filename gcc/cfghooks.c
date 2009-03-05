@@ -51,9 +51,21 @@ cfg_layout_rtl_register_cfg_hooks (void)
 /* Initialization of functions specific to the tree IR.  */
 
 void
-tree_register_cfg_hooks (void)
+gimple_register_cfg_hooks (void)
 {
-  cfg_hooks = &tree_cfg_hooks;
+  cfg_hooks = &gimple_cfg_hooks;
+}
+
+struct cfg_hooks
+get_cfg_hooks (void)
+{
+  return *cfg_hooks;
+}
+
+void
+set_cfg_hooks (struct cfg_hooks new_cfg_hooks)
+{
+  *cfg_hooks = new_cfg_hooks;
 }
 
 /* Returns current ir type.  */
@@ -61,7 +73,7 @@ tree_register_cfg_hooks (void)
 enum ir_type
 current_ir_type (void)
 {
-  if (cfg_hooks == &tree_cfg_hooks)
+  if (cfg_hooks == &gimple_cfg_hooks)
     return IR_GIMPLE;
   else if (cfg_hooks == &rtl_cfg_hooks)
     return IR_RTL_CFGRTL;
@@ -291,7 +303,7 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   putc ('\n', outf);
 
   if (cfg_hooks->dump_bb)
-    cfg_hooks->dump_bb (bb, outf, indent);
+    cfg_hooks->dump_bb (bb, outf, indent, 0);
 }
 
 /* Redirect edge E to the given basic block DEST and update underlying program
@@ -413,6 +425,7 @@ edge
 split_block (basic_block bb, void *i)
 {
   basic_block new_bb;
+  edge res;
 
   if (!cfg_hooks->split_block)
     internal_error ("%s does not support split_block", cfg_hooks->name);
@@ -438,7 +451,15 @@ split_block (basic_block bb, void *i)
 	bb->loop_father->latch = new_bb;
     }
 
-  return make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
+  res = make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
+
+  if (bb->flags & BB_IRREDUCIBLE_LOOP)
+    {
+      new_bb->flags |= BB_IRREDUCIBLE_LOOP;
+      res->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
+
+  return res;
 }
 
 /* Splits block BB just after labels.  The newly created edge is returned.  */
@@ -507,16 +528,41 @@ delete_basic_block (basic_block bb)
   expunge_block (bb);
 }
 
-/* Updates the dominator information for block RET.  */
+/* Splits edge E and returns the newly created basic block.  */
 
-static void
-update_dominator_information (basic_block ret)
+basic_block
+split_edge (edge e)
 {
+  basic_block ret;
+  gcov_type count = e->count;
+  int freq = EDGE_FREQUENCY (e);
   edge f;
+  bool irr = (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
+  struct loop *loop;
+  basic_block src = e->src, dest = e->dest;
+
+  if (!cfg_hooks->split_edge)
+    internal_error ("%s does not support split_edge", cfg_hooks->name);
+
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
+  ret = cfg_hooks->split_edge (e);
+  ret->count = count;
+  ret->frequency = freq;
+  single_succ_edge (ret)->probability = REG_BR_PROB_BASE;
+  single_succ_edge (ret)->count = count;
+
+  if (irr)
+    {
+      ret->flags |= BB_IRREDUCIBLE_LOOP;
+      single_pred_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      single_succ_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
 
   if (dom_info_available_p (CDI_DOMINATORS))
     set_immediate_dominator (CDI_DOMINATORS, ret, single_pred (ret));
-  
+
   if (dom_info_state (CDI_DOMINATORS) >= DOM_NO_FAST_QUERY)
     {
       /* There are two cases:
@@ -546,41 +592,6 @@ update_dominator_information (basic_block ret)
 	    set_immediate_dominator (CDI_DOMINATORS, single_succ (ret), ret);
 	}
     }
-}
-
-
-/* Splits edge E and returns the newly created basic block.  */
-
-basic_block
-split_edge (edge e)
-{
-  basic_block ret;
-  gcov_type count = e->count;
-  int freq = EDGE_FREQUENCY (e);
-  bool irr = (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
-  struct loop *loop;
-  basic_block src = e->src, dest = e->dest;
-
-  if (!cfg_hooks->split_edge)
-    internal_error ("%s does not support split_edge", cfg_hooks->name);
-
-  if (current_loops != NULL)
-    rescan_loop_exit (e, false, true);
-
-  ret = cfg_hooks->split_edge (e);
-  ret->count = count;
-  ret->frequency = freq;
-  single_succ_edge (ret)->probability = REG_BR_PROB_BASE;
-  single_succ_edge (ret)->count = count;
-
-  if (irr)
-    {
-      ret->flags |= BB_IRREDUCIBLE_LOOP;
-      single_pred_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
-      single_succ_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
-    }
-
-  update_dominator_information(ret);
 
   if (current_loops != NULL)
     {
@@ -729,6 +740,8 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
   /* Redirect back edges we want to keep.  */
   for (ei = ei_start (dummy->preds); (e = ei_safe_edge (ei)); )
     {
+      basic_block e_src;
+
       if (redirect_edge_p (e))
 	{
 	  ei_next (&ei);
@@ -745,10 +758,21 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
       if (fallthru->count < 0)
 	fallthru->count = 0;
 
+      e_src = e->src;
       jump = redirect_edge_and_branch_force (e, bb);
-      if (jump != NULL
-	  && new_bb_cbk != NULL)
-	new_bb_cbk (jump);
+      if (jump != NULL)
+        {
+          /* If we redirected the loop latch edge, the JUMP block now acts like
+             the new latch of the loop.  */
+          if (current_loops != NULL
+              && dummy->loop_father != NULL
+              && dummy->loop_father->header == dummy
+              && dummy->loop_father->latch == e_src)
+            dummy->loop_father->latch = jump;
+          
+          if (new_bb_cbk != NULL)
+            new_bb_cbk (jump);
+        }
     }
 
   if (dom_info_available_p (CDI_DOMINATORS))

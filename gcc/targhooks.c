@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -575,6 +575,15 @@ default_internal_arg_pointer (void)
     return virtual_incoming_args_rtx;
 }
 
+#ifdef IRA_COVER_CLASSES
+const enum reg_class *
+default_ira_cover_classes (void)
+{
+  static enum reg_class classes[] = IRA_COVER_CLASSES;
+  return classes;
+}
+#endif
+
 enum reg_class
 default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 			  enum reg_class reload_class ATTRIBUTE_UNUSED,
@@ -707,6 +716,53 @@ bool
 default_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
 {
   return true;
+}
+
+bool
+default_target_option_valid_attribute_p (tree ARG_UNUSED (fndecl),
+					 tree ARG_UNUSED (name),
+					 tree ARG_UNUSED (args),
+					 int ARG_UNUSED (flags))
+{
+  warning (OPT_Wattributes,
+	   "target attribute is not supported on this machine");
+
+  return false;
+}
+
+bool
+default_target_option_pragma_parse (tree ARG_UNUSED (args),
+				    tree ARG_UNUSED (pop_target))
+{
+  warning (OPT_Wpragmas,
+	   "#pragma GCC target is not supported for this machine");
+
+  return false;
+}
+
+bool
+default_target_option_can_inline_p (tree caller, tree callee)
+{
+  bool ret = false;
+  tree callee_opts = DECL_FUNCTION_SPECIFIC_TARGET (callee);
+  tree caller_opts = DECL_FUNCTION_SPECIFIC_TARGET (caller);
+
+  /* If callee has no option attributes, then it is ok to inline */
+  if (!callee_opts)
+    ret = true;
+
+  /* If caller has no option attributes, but callee does then it is not ok to
+     inline */
+  else if (!caller_opts)
+    ret = false;
+
+  /* If both caller and callee have attributes, assume that if the pointer is
+     different, the the two functions have different target options since
+     build_target_option_node uses a hash table for the options.  */
+  else
+    ret = (callee_opts == caller_opts);
+
+  return ret;
 }
 
 #include "gt-targhooks.h"

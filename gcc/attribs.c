@@ -1,6 +1,6 @@
 /* Functions dealing with attribute handling, used by most front ends.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "langhooks.h"
 #include "hashtab.h"
+#include "c-common.h"
 
 static void init_attributes (void);
 
@@ -231,6 +232,41 @@ decl_attributes (tree *node, tree attributes, int flags)
 
   if (!attributes_initialized)
     init_attributes ();
+
+  /* If this is a function and the user used #pragma GCC optimize, add the
+     options to the attribute((optimize(...))) list.  */
+  if (TREE_CODE (*node) == FUNCTION_DECL && current_optimize_pragma)
+    {
+      tree cur_attr = lookup_attribute ("optimize", attributes);
+      tree opts = copy_list (current_optimize_pragma);
+
+      if (! cur_attr)
+	attributes
+	  = tree_cons (get_identifier ("optimize"), opts, attributes);
+      else
+	TREE_VALUE (cur_attr) = chainon (opts, TREE_VALUE (cur_attr));
+    }
+
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      && optimization_current_node != optimization_default_node
+      && !DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node))
+    DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node) = optimization_current_node;
+
+  /* If this is a function and the user used #pragma GCC target, add the
+     options to the attribute((target(...))) list.  */
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      && current_target_pragma
+      && targetm.target_option.valid_attribute_p (*node, NULL_TREE,
+						  current_target_pragma, 0))
+    {
+      tree cur_attr = lookup_attribute ("target", attributes);
+      tree opts = copy_list (current_target_pragma);
+
+      if (! cur_attr)
+	attributes = tree_cons (get_identifier ("target"), opts, attributes);
+      else
+	TREE_VALUE (cur_attr) = chainon (opts, TREE_VALUE (cur_attr));
+    }
 
   targetm.insert_attributes (*node, &attributes);
 

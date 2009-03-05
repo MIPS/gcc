@@ -1,5 +1,6 @@
 /* Chains of recurrences.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -57,8 +58,8 @@ tree_is_chrec (const_tree expr)
 extern tree chrec_fold_plus (tree, tree, tree);
 extern tree chrec_fold_minus (tree, tree, tree);
 extern tree chrec_fold_multiply (tree, tree, tree);
-extern tree chrec_convert (tree, tree, tree);
-extern tree chrec_convert_rhs (tree, tree, tree);
+extern tree chrec_convert (tree, tree, gimple);
+extern tree chrec_convert_rhs (tree, tree, gimple);
 extern tree chrec_convert_aggressive (tree, tree);
 
 /* Operations.  */
@@ -84,6 +85,7 @@ extern bool evolution_function_is_affine_multivariate_p (const_tree, int);
 extern bool evolution_function_is_univariate_p (const_tree);
 extern unsigned nb_vars_in_chrec (tree);
 extern bool evolution_function_is_invariant_p (tree, int);
+extern bool scev_is_linear_expression (tree);
 
 /* Determines whether CHREC is equal to zero.  */
 

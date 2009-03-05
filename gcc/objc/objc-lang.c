@@ -1,5 +1,5 @@
 /* Language-dependent hooks for Objective-C.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
@@ -48,8 +48,6 @@ static void objc_init_ts (void);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME objc_printable_name
 #undef LANG_HOOKS_GIMPLIFY_EXPR 
 #define LANG_HOOKS_GIMPLIFY_EXPR objc_gimplify_expr
-#undef LANG_HOOKS_GET_CALLEE_FNDECL
-#define LANG_HOOKS_GET_CALLEE_FNDECL	objc_get_callee_fndecl
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS objc_init_ts
 

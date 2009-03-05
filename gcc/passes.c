@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -180,7 +180,7 @@ rest_of_decl_compilation (tree decl,
       /* Don't output anything when a tentative file-scope definition
 	 is seen.  But at end of compilation, do output code for them.
 
-	 We do output all variables when unit-at-a-time is active and rely on
+	 We do output all variables and rely on
 	 callgraph code to defer them except for forward declarations
 	 (see gcc.c-torture/compile/920624-1.c) */
       if ((at_end
@@ -406,7 +406,7 @@ register_dump_files_1 (struct opt_pass *pass, int properties)
       int new_properties = (properties | pass->properties_provided)
 			   & ~pass->properties_destroyed;
 
-      if (pass->name)
+      if (pass->name && pass->name[0] != '*')
         register_one_dump_file (pass);
 
       if (pass->sub)
@@ -447,13 +447,13 @@ next_pass_1 (struct opt_pass **list, struct opt_pass *pass)
      pass is already in the list.  */
   if (pass->static_pass_number)
     {
-      struct opt_pass *new;
+      struct opt_pass *new_pass;
 
-      new = XNEW (struct opt_pass);
-      memcpy (new, pass, sizeof (*new));
-      new->next = NULL;
+      new_pass = XNEW (struct opt_pass);
+      memcpy (new_pass, pass, sizeof (*new_pass));
+      new_pass->next = NULL;
 
-      new->todo_flags_start &= ~TODO_mark_first_instance;
+      new_pass->todo_flags_start &= ~TODO_mark_first_instance;
 
       /* Indicate to register_dump_files that this pass has duplicates,
          and so it should rename the dump file.  The first instance will
@@ -462,10 +462,10 @@ next_pass_1 (struct opt_pass **list, struct opt_pass *pass)
       if (pass->name)
         {
           pass->static_pass_number -= 1;
-          new->static_pass_number = -pass->static_pass_number;
+          new_pass->static_pass_number = -pass->static_pass_number;
 	}
       
-      *list = new;
+      *list = new_pass;
     }
   else
     {
@@ -523,9 +523,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_inline_parameters);
   *p = NULL;
 
-  /* Interprocedural optimization passes. 
-     All these passes are ignored in -fno-unit-at-a-time
-     except for subpasses of early_local_passes.  */
+  /* Interprocedural optimization passes.  */
   p = &all_ipa_passes;
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
   NEXT_PASS (pass_ipa_early_inline);
@@ -546,31 +544,20 @@ init_optimization_passes (void)
       NEXT_PASS (pass_referenced_vars);
       NEXT_PASS (pass_reset_cc_flags);
       NEXT_PASS (pass_build_ssa);
+      NEXT_PASS (pass_early_warn_uninitialized);
       NEXT_PASS (pass_all_early_optimizations);
 	{
 	  struct opt_pass **p = &pass_all_early_optimizations.pass.sub;
-	  NEXT_PASS (pass_early_warn_uninitialized);
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
-	  NEXT_PASS (pass_cleanup_cfg);
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
 	  NEXT_PASS (pass_update_address_taken);
-	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
-	  NEXT_PASS (pass_dce);
-          /* Ideally the function call conditional 
-             dead code elimination phase can be delayed
-             till later where potentially more opportunities
-             can be found.  Due to lack of good ways to
-             update VDEFs associated with the shrink-wrapped
-             calls, it is better to do the transformation
-             here where memory SSA is not built yet.  */
-	  NEXT_PASS (pass_call_cdce);
-	  NEXT_PASS (pass_update_address_taken);
+	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_tail_recursion);
 	  NEXT_PASS (pass_convert_switch);
@@ -578,6 +565,7 @@ init_optimization_passes (void)
 	}
       NEXT_PASS (pass_release_ssa_names);
       NEXT_PASS (pass_rebuild_cgraph_edges);
+      NEXT_PASS (pass_inline_parameters);
     }
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
@@ -593,35 +581,38 @@ init_optimization_passes (void)
   /* These passes are run after IPA passes on every function that is being
      output to the assembler file.  */
   p = &all_passes;
-  NEXT_PASS (pass_O0_always_inline);
   NEXT_PASS (pass_all_optimizations);
     {
       struct opt_pass **p = &pass_all_optimizations.pass.sub;
-      /* pass_build_alias is a dummy pass that ensures that we
-	 execute TODO_rebuild_alias at this point.  */
-      NEXT_PASS (pass_build_alias);
-      NEXT_PASS (pass_return_slot);
+      /* Initial scalar cleanups before alias computation.
+	 They ensure memory accesses are not indirect wherever possible.  */
+      NEXT_PASS (pass_strip_predict_hints);
+      NEXT_PASS (pass_update_address_taken);
       NEXT_PASS (pass_rename_ssa_copies);
-
-      /* Initial scalar cleanups.  */
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
+      NEXT_PASS (pass_forwprop);
+      /* Ideally the function call conditional
+	 dead code elimination phase can be delayed
+	 till later where potentially more opportunities
+	 can be found.  Due to lack of good ways to
+	 update VDEFs associated with the shrink-wrapped
+	 calls, it is better to do the transformation
+	 here where memory SSA is not built yet.  */
+      NEXT_PASS (pass_call_cdce);
+      /* pass_build_alias is a dummy pass that ensures that we
+	 execute TODO_rebuild_alias at this point.  Re-building
+	 alias information also rewrites no longer addressed
+	 locals into SSA form if possible.  */
+      NEXT_PASS (pass_build_alias);
+      NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_fre);
-      NEXT_PASS (pass_dce);
-      NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_cselim);
-      NEXT_PASS (pass_dominator);
-      /* The only const/copy propagation opportunities left after
-	 DOM should be due to degenerate PHI nodes.  So rather than
-	 run the full propagators, run a specialized pass which
-	 only examines PHIs to discover const/copy propagation
-	 opportunities.  */
-      NEXT_PASS (pass_phi_only_cprop);
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_recursion);
@@ -631,21 +622,19 @@ init_optimization_passes (void)
       NEXT_PASS (pass_sra);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_dominator);
-
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
-
+      NEXT_PASS (pass_dse);
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_dce);
-      NEXT_PASS (pass_dse);
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_object_sizes);
-      NEXT_PASS (pass_store_ccp);
+      NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_fold_builtins);
       NEXT_PASS (pass_cse_sincos);
@@ -665,8 +654,6 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_empty_loop);
 	  NEXT_PASS (pass_record_bounds);
 	  NEXT_PASS (pass_check_data_deps);
-	  NEXT_PASS (pass_loop_fusion);
-	  NEXT_PASS (pass_loop_streamization);
 	  NEXT_PASS (pass_loop_distribution);
 	  NEXT_PASS (pass_linear_transform);
 	  NEXT_PASS (pass_graphite_transforms);
@@ -689,14 +676,12 @@ init_optimization_passes (void)
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dominator);
-      
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
-
       NEXT_PASS (pass_cd_dce);
       NEXT_PASS (pass_tracer);
 
@@ -725,6 +710,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_free_datastructures);
   NEXT_PASS (pass_mudflap_2);
+
   NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_rest_of_compilation);
@@ -763,7 +749,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_cse2);
       NEXT_PASS (pass_rtl_dse1);
       NEXT_PASS (pass_rtl_fwprop_addr);
-      NEXT_PASS (pass_regclass_init);
+      NEXT_PASS (pass_reginfo_init);
       NEXT_PASS (pass_inc_dec);
       NEXT_PASS (pass_initialize_regs);
       NEXT_PASS (pass_outof_cfg_layout_mode);
@@ -782,8 +768,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_sms);
       NEXT_PASS (pass_sched);
       NEXT_PASS (pass_subregs_of_mode_init);
-      NEXT_PASS (pass_local_alloc);
-      NEXT_PASS (pass_global_alloc);
+      NEXT_PASS (pass_ira);
       NEXT_PASS (pass_subregs_of_mode_finish);
       NEXT_PASS (pass_postreload);
 	{
@@ -964,12 +949,10 @@ execute_function_todo (void *data)
   if (flags & TODO_remove_unused_locals)
     remove_unused_locals ();
 
-  if ((flags & TODO_dump_func)
-      && dump_file && current_function_decl)
+  if ((flags & TODO_dump_func) && dump_file && current_function_decl)
     {
       if (cfun->curr_properties & PROP_trees)
-        dump_function_to_file (current_function_decl,
-                               dump_file, dump_flags);
+        dump_function_to_file (current_function_decl, dump_file, dump_flags);
       else
 	{
 	  if (dump_flags & TDF_SLIM)
@@ -980,7 +963,7 @@ execute_function_todo (void *data)
           else
 	    print_rtl (dump_file, get_insns ());
 
-	  if (cfun->curr_properties & PROP_cfg
+	  if ((cfun->curr_properties & PROP_cfg)
 	      && graph_dump_format != no_graph
 	      && (dump_flags & TDF_GRAPH))
 	    print_rtl_graph_with_bb (dump_file_name, get_insns ());
@@ -1049,8 +1032,7 @@ execute_todo (unsigned int flags)
       cgraph_remove_unreachable_nodes (true, dump_file);
     }
 
-  if ((flags & TODO_dump_cgraph)
-      && dump_file && !current_function_decl)
+  if ((flags & TODO_dump_cgraph) && dump_file && !current_function_decl)
     {
       gcc_assert (!cfun);
       dump_cgraph (dump_file);
@@ -1060,9 +1042,7 @@ execute_todo (unsigned int flags)
     }
 
   if (flags & TODO_ggc_collect)
-    {
-      ggc_collect ();
-    }
+    ggc_collect ();
 
   /* Now that the dumping has been done, we can get rid of the optional 
      df problems.  */
@@ -1231,8 +1211,6 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
   pass_fini_dump_file (pass);
 
   current_pass = NULL;
-  /* Reset in_gimple_form to not break non-unit-at-a-time mode.  */
-  in_gimple_form = false;
 }
 
 static bool
@@ -1264,6 +1242,7 @@ execute_one_pass (struct opt_pass *pass)
     }
 
   current_pass = pass;
+
   /* See if we're supposed to run this pass.  */
   if (pass->gate && !pass->gate ())
     return false;
@@ -1308,6 +1287,7 @@ execute_one_pass (struct opt_pass *pass)
   if (initializing_dump
       && dump_file
       && graph_dump_format != no_graph
+      && cfun
       && (cfun->curr_properties & (PROP_cfg | PROP_rtl))
 	  == (PROP_cfg | PROP_rtl))
     {
@@ -1332,8 +1312,6 @@ execute_one_pass (struct opt_pass *pass)
 		|| pass->type != RTL_PASS);
 
   current_pass = NULL;
-  /* Reset in_gimple_form to not break non-unit-at-a-time mode.  */
-  in_gimple_form = false;
 
   return true;
 }

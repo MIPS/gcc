@@ -252,7 +252,8 @@ get_tinfo_decl_dynamic (tree exp)
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  if (CLASS_TYPE_P (type))
+  /* For UNKNOWN_TYPEs call complete_type_or_else to get diagnostics.  */
+  if (CLASS_TYPE_P (type) || TREE_CODE (type) == UNKNOWN_TYPE)
     type = complete_type_or_else (type, exp);
 
   if (!type)
@@ -459,7 +460,8 @@ get_typeid (tree type)
      that is the operand of typeid are always ignored.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  if (CLASS_TYPE_P (type))
+  /* For UNKNOWN_TYPEs call complete_type_or_else to get diagnostics.  */
+  if (CLASS_TYPE_P (type) || TREE_CODE (type) == UNKNOWN_TYPE)
     type = complete_type_or_else (type, NULL_TREE);
 
   if (!type)
@@ -719,8 +721,10 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	      tree neq;
 
 	      result = save_expr (result);
-	      neq = c_common_truthvalue_conversion (result);
-	      return build3 (COND_EXPR, type, neq, result, bad);
+	      neq = c_common_truthvalue_conversion (input_location, result);
+	      return cp_convert (type,
+				 build3 (COND_EXPR, TREE_TYPE (result),
+					 neq, result, bad));
 	    }
 
 	  /* Now back to the type we want from a void*.  */

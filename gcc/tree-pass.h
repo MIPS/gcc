@@ -1,6 +1,6 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation,
-   Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -72,7 +72,9 @@ enum tree_dump_index
 #define TDF_DIAGNOSTIC	(1 << 15)	/* A dump to be put in a diagnostic
 					   message.  */
 #define TDF_VERBOSE     (1 << 16)       /* A dump that uses the full tree 
-					   dumper to print stmts. */
+					   dumper to print stmts.  */
+#define TDF_RHS_ONLY	(1 << 17)	/* a flag to only print the RHS of
+					   a gimple stmt.  */
 
 extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_enabled_p (enum tree_dump_index);
@@ -102,7 +104,8 @@ struct opt_pass
     SIMPLE_IPA_PASS,
     IPA_PASS
   } type;
-  /* Terse name of the pass used as a fragment of the dump file name.  */
+  /* Terse name of the pass used as a fragment of the dump file
+     name.  If the name starts with a star, no dump happens. */
   const char *name;
 
   /* If non-null, this pass and all sub-passes are executed only if
@@ -321,9 +324,7 @@ extern struct gimple_opt_pass pass_empty_loop;
 extern struct gimple_opt_pass pass_record_bounds;
 extern struct gimple_opt_pass pass_graphite_transforms;
 extern struct gimple_opt_pass pass_if_conversion;
-extern struct gimple_opt_pass pass_loop_fusion; 
 extern struct gimple_opt_pass pass_loop_distribution;
-extern struct gimple_opt_pass pass_loop_streamization;
 extern struct gimple_opt_pass pass_vectorize;
 extern struct gimple_opt_pass pass_complete_unroll;
 extern struct gimple_opt_pass pass_complete_unrolli;
@@ -346,6 +347,7 @@ extern struct gimple_opt_pass pass_merge_phi;
 extern struct gimple_opt_pass pass_split_crit_edges;
 extern struct gimple_opt_pass pass_pre;
 extern struct gimple_opt_pass pass_profile;
+extern struct gimple_opt_pass pass_strip_predict_hints;
 extern struct gimple_opt_pass pass_lower_complex_O0;
 extern struct gimple_opt_pass pass_lower_complex;
 extern struct gimple_opt_pass pass_lower_vector;
@@ -379,7 +381,6 @@ extern struct gimple_opt_pass pass_fre;
 extern struct gimple_opt_pass pass_linear_transform;
 extern struct gimple_opt_pass pass_check_data_deps;
 extern struct gimple_opt_pass pass_copy_prop;
-extern struct gimple_opt_pass pass_store_ccp;
 extern struct gimple_opt_pass pass_vrp;
 extern struct gimple_opt_pass pass_uncprop;
 extern struct gimple_opt_pass pass_return_slot;
@@ -390,12 +391,12 @@ extern struct gimple_opt_pass pass_reset_cc_flags;
 
 /* IPA Passes */
 extern struct ipa_opt_pass pass_ipa_inline;
-extern struct simple_ipa_opt_pass pass_ipa_reference;
+extern struct ipa_opt_pass pass_ipa_cp;
+extern struct ipa_opt_pass pass_ipa_reference;
+extern struct ipa_opt_pass pass_ipa_pure_const;
 
 extern struct simple_ipa_opt_pass pass_ipa_matrix_reorg;
-extern struct simple_ipa_opt_pass pass_ipa_cp;
 extern struct simple_ipa_opt_pass pass_ipa_early_inline;
-extern struct simple_ipa_opt_pass pass_ipa_pure_const;
 extern struct simple_ipa_opt_pass pass_ipa_type_escape;
 extern struct simple_ipa_opt_pass pass_ipa_pta;
 extern struct simple_ipa_opt_pass pass_ipa_struct_reorg;
@@ -449,7 +450,7 @@ extern struct rtl_opt_pass pass_web;
 extern struct rtl_opt_pass pass_cse2;
 extern struct rtl_opt_pass pass_df_initialize_opt;
 extern struct rtl_opt_pass pass_df_initialize_no_opt;
-extern struct rtl_opt_pass pass_regclass_init;
+extern struct rtl_opt_pass pass_reginfo_init;
 extern struct rtl_opt_pass pass_subregs_of_mode_init;
 extern struct rtl_opt_pass pass_subregs_of_mode_finish;
 extern struct rtl_opt_pass pass_inc_dec;
@@ -467,8 +468,7 @@ extern struct rtl_opt_pass pass_mode_switching;
 extern struct rtl_opt_pass pass_see;
 extern struct rtl_opt_pass pass_sms;
 extern struct rtl_opt_pass pass_sched;
-extern struct rtl_opt_pass pass_local_alloc;
-extern struct rtl_opt_pass pass_global_alloc;
+extern struct rtl_opt_pass pass_ira;
 extern struct rtl_opt_pass pass_postreload;
 extern struct rtl_opt_pass pass_clean_state;
 extern struct rtl_opt_pass pass_branch_prob;
@@ -507,7 +507,6 @@ extern struct rtl_opt_pass pass_final;
 extern struct rtl_opt_pass pass_rtl_seqabstr;
 extern struct gimple_opt_pass pass_release_ssa_names;
 extern struct gimple_opt_pass pass_early_inline;
-extern struct gimple_opt_pass pass_O0_always_inline;
 extern struct gimple_opt_pass pass_inline_parameters;
 extern struct gimple_opt_pass pass_all_early_optimizations;
 extern struct gimple_opt_pass pass_update_address_taken;
