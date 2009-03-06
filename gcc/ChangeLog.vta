@@ -1,3 +1,8 @@
+2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ira.c (update_equiv_regs): Leave debug insns between insn
+	and equiv_insn.
+
 2009-03-01  Alexandre Oliva  <aoliva@redhat.com>
 
 	Merged with trunk@144510

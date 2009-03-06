@@ -2642,7 +2642,7 @@ update_equiv_regs (void)
 		    }
 		  /* Move the initialization of the register to just before
 		     INSN.  Update the flow information.  */
-		  else if (PREV_INSN (insn) != equiv_insn)
+		  else if (prev_nondebug_insn (insn) != equiv_insn)
 		    {
 		      rtx new_insn;
 
