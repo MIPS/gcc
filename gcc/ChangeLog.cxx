@@ -1,3 +1,8 @@
+2009-03-06  Ian Lance Taylor  <iant@google.com>
+
+	* toplev.h (floor_log2, exact_log2): Don't define as extern for
+	C++.
+
 2009-03-04  Ian Lance Taylor  <iant@google.com>
 
 	* config/i386/i386.md (isinf<mode>2): Change slot to enum type.
