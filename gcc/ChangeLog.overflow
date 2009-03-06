@@ -1,5 +1,13 @@
 2009-03-06  Richard Guenther  <rguenther@suse.de>
 
+	* fold-const.c (int_const_binop_1): New worker function split
+	out from ...
+	(int_const_binop): ... here.
+	(fold_comparison): Adjust X +- C1 CMP C2 to X CMP C2 +- C1 folding
+	to always apply if X +- C1 does not overflow.
+
+2009-03-06  Richard Guenther  <rguenther@suse.de>
+
 	* tree.def (PLUSNV_EXPR, MINUSNV_EXPR, MULTNV_EXPR,
 	POINTER_PLUSNV_EXPR, NEGATENV_EXPR): Fix tree code name.
 

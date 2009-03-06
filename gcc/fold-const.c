@@ -1606,13 +1606,13 @@ int_binop_types_match_p (enum tree_code code, const_tree type1, const_tree type2
 
 
 /* Combine two integer constants ARG1 and ARG2 under operation CODE
-   to produce a new constant.  Return NULL_TREE if we don't know how
-   to evaluate CODE at compile-time.
+   to produce a new constant in *LOWP, *HIP.  Return -1 if we don't know how
+   to evaluate CODE at compile-time otherwise return 1 if the
+   operation overflowed and 0 if not.  */
 
-   If NOTRUNC is nonzero, do not truncate the result to fit the data type.  */
-
-tree
-int_const_binop (enum tree_code code, const_tree arg1, const_tree arg2, int notrunc)
+static int
+int_const_binop_1 (enum tree_code code, const_tree arg1, const_tree arg2,
+		   unsigned HOST_WIDE_INT *lowp, HOST_WIDE_INT *hip)
 {
   unsigned HOST_WIDE_INT int1l, int2l;
   HOST_WIDE_INT int1h, int2h;
@@ -1620,11 +1620,8 @@ int_const_binop (enum tree_code code, const_tree arg1, const_tree arg2, int notr
   HOST_WIDE_INT hi;
   unsigned HOST_WIDE_INT garbagel;
   HOST_WIDE_INT garbageh;
-  tree t;
   tree type = TREE_TYPE (arg1);
   int uns = TYPE_UNSIGNED (type);
-  int is_sizetype
-    = (TREE_CODE (type) == INTEGER_TYPE && TYPE_IS_SIZETYPE (type));
   int overflow = 0;
 
   int1l = TREE_INT_CST_LOW (arg1);
@@ -1700,7 +1697,7 @@ int_const_binop (enum tree_code code, const_tree arg1, const_tree arg2, int notr
 
     case ROUND_DIV_EXPR:
       if (int2h == 0 && int2l == 0)
-	return NULL_TREE;
+	return -1;
       if (int2h == 0 && int2l == 1)
 	{
 	  low = int1l, hi = int1h;
@@ -1734,7 +1731,7 @@ int_const_binop (enum tree_code code, const_tree arg1, const_tree arg2, int notr
 
     case ROUND_MOD_EXPR:
       if (int2h == 0 && int2l == 0)
-	return NULL_TREE;
+	return -1;
       overflow = div_and_round_double (code, uns,
 				       int1l, int1h, int2l, int2h,
 				       &garbagel, &garbageh, &low, &hi);
@@ -1759,8 +1756,37 @@ int_const_binop (enum tree_code code, const_tree arg1, const_tree arg2, int notr
       break;
 
     default:
-      return NULL_TREE;
+      return -1;
     }
+
+  *lowp = low;
+  *hip = hi;
+
+  return overflow;
+}
+
+/* Combine two integer constants ARG1 and ARG2 under operation CODE
+   to produce a new constant.  Return NULL_TREE if we don't know how
+   to evaluate CODE at compile-time.
+
+   If NOTRUNC is nonzero, do not truncate the result to fit the data type.  */
+
+tree
+int_const_binop (enum tree_code code, const_tree arg1, const_tree arg2,
+		 int notrunc)
+{
+  unsigned HOST_WIDE_INT low;
+  HOST_WIDE_INT hi;
+  tree t;
+  tree type = TREE_TYPE (arg1);
+  int uns = TYPE_UNSIGNED (type);
+  int is_sizetype
+    = (TREE_CODE (type) == INTEGER_TYPE && TYPE_IS_SIZETYPE (type));
+  int overflow;
+
+  overflow = int_const_binop_1 (code, arg1, arg2, &low, &hi);
+  if (overflow == -1)
+    return NULL_TREE;
 
   if (notrunc)
     {
@@ -8871,67 +8897,39 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
   if (tree_swap_operands_p (arg0, arg1, true))
     return fold_build2 (swap_tree_comparison (code), type, op1, op0);
 
-  /* Transform comparisons of the form X +- C1 CMP C2 to X CMP C2 +- C1.  */
-  if ((TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
-      && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
-	  && !TREE_OVERFLOW (TREE_OPERAND (arg0, 1))
-	  && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (arg1)))
-      && (TREE_CODE (arg1) == INTEGER_CST
-	  && !TREE_OVERFLOW (arg1)))
+  /* Transform comparisons of the form X +- C1 CMP C2 to X CMP C2 +- C1
+     if the original addition does not overflow.  */
+  if ((TREE_CODE (arg0) == PLUSNV_EXPR || TREE_CODE (arg0) == MINUSNV_EXPR)
+      && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
+      && TREE_CODE (arg1) == INTEGER_CST)
     {
       tree const1 = TREE_OPERAND (arg0, 1);
       tree const2 = arg1;
       tree variable = TREE_OPERAND (arg0, 0);
       tree lhs;
       int lhs_add;
-      lhs_add = TREE_CODE (arg0) != PLUS_EXPR;
+      unsigned HOST_WIDE_INT low;
+      HOST_WIDE_INT hi;
+      int overflow;
 
-      lhs = fold_build2 (lhs_add ? PLUS_EXPR : MINUS_EXPR,
-			 TREE_TYPE (arg1), const2, const1);
+      lhs_add = TREE_CODE (arg0) != PLUSNV_EXPR;
 
-      /* If the constant operation overflowed this can be
-	 simplified as a comparison against INT_MAX/INT_MIN.  */
-      if (TREE_CODE (lhs) == INTEGER_CST
-	  && TREE_OVERFLOW (lhs))
-	{
-	  int const1_sgn = tree_int_cst_sgn (const1);
-	  enum tree_code code2 = code;
+      overflow = int_const_binop_1 (lhs_add ? PLUS_EXPR : MINUS_EXPR,
+				    const2, const1, &low, &hi);
+      overflow |= fit_double_type (low, hi, &low, &hi, TREE_TYPE (arg1));
 
-	  /* Get the sign of the constant on the lhs if the
-	     operation were VARIABLE + CONST1.  */
-	  if (TREE_CODE (arg0) == MINUS_EXPR)
-	    const1_sgn = -const1_sgn;
+      /* If there was overflow on combining the two constants we have to
+         flip the comparison code.  */
+      if (overflow)
+	code = swap_tree_comparison (code);
 
-	  /* The sign of the constant determines if we overflowed
-	     INT_MAX (const1_sgn == -1) or INT_MIN (const1_sgn == 1).
-	     Canonicalize to the INT_MIN overflow by swapping the comparison
-	     if necessary.  */
-	  if (const1_sgn == -1)
-	    code2 = swap_tree_comparison (code);
-
-	  /* We now can look at the canonicalized case
-	       VARIABLE + 1  CODE2  INT_MIN
-	     and decide on the result.  */
-	  if (code2 == LT_EXPR
-	      || code2 == LE_EXPR
-	      || code2 == EQ_EXPR)
-	    return omit_one_operand (type, boolean_false_node, variable);
-	  else if (code2 == NE_EXPR
-		   || code2 == GE_EXPR
-		   || code2 == GT_EXPR)
-	    return omit_one_operand (type, boolean_true_node, variable);
-	}
-
-      if (TREE_CODE (lhs) == TREE_CODE (arg1)
-	  && (TREE_CODE (lhs) != INTEGER_CST
-	      || !TREE_OVERFLOW (lhs)))
-	{
-	  fold_overflow_warning (("assuming signed overflow does not occur "
-				  "when changing X +- C1 cmp C2 to "
-				  "X cmp C1 +- C2"),
-				 WARN_STRICT_OVERFLOW_COMPARISON);
-	  return fold_build2 (code, type, variable, lhs);
-	}
+      lhs = build_int_cst_wide (TREE_TYPE (arg1), low, hi);
+      if (!TREE_NO_WARNING (arg0))
+	fold_overflow_warning (("assuming signed overflow does not occur "
+				"when changing X +- C1 cmp C2 to "
+				"X cmp C1 +- C2"),
+			       WARN_STRICT_OVERFLOW_COMPARISON);
+      return fold_build2 (code, type, variable, lhs);
     }
 
   /* For comparisons of pointers we can decompose it to a compile time
