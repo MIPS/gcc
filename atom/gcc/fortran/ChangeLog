@@ -1,3 +1,19 @@
+2009-03-06  Alexandre Oliva <aoliva@redhat.com>
+
+	* simplify.c (gfc_simplify_transfer): Zero-initialize the
+	buffer.
+
+2009-02-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39309
+	* module.c (read_md5_from_module_file): Add missing quote.
+
+2009-02-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39309
+	* module.c (read_md5_from_module_file): Include mod version
+	in had-changed test.
+
 2009-02-26  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/39295
