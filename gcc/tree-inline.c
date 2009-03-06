@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
@@ -762,7 +762,8 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	 vars.  If not referenced from types only.  */
       if (gimple_in_ssa_p (cfun)
 	  && TREE_CODE (*tp) == VAR_DECL
-	  && id->remapping_type_depth == 0)
+	  && id->remapping_type_depth == 0
+	  && !processing_debug_stmt)
 	add_referenced_var (*tp);
 
       /* We should never have TREE_BLOCK set on non-statements.  */
