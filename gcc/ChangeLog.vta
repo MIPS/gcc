@@ -1,5 +1,9 @@
 2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
 
+	* ira.c (memref_used_between_p): Skip debug insns.
+
+2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-inline.c (remap_gimple_op_r): Don't mark variable in
 	debug stmt as referenced.
 
