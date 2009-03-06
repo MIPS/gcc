@@ -1244,6 +1244,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 					  VAR_DEBUG_VALUE_VALUE (stmt),
 					  stmt);
 	  VARRAY_PUSH_GENERIC_PTR (id->debug_stmts, copy);
+	  return copy;
 	}
       else
 	/* Create a new deep copy of the statement.  */
@@ -1258,15 +1259,8 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
     {
       tree *n;
       n = (tree *) pointer_map_contains (id->decl_map, gimple_block (copy));
-      if (n)
-	new_block = *n;
-      else
-	{
-	  tree nb = gimple_block (copy);
-	  gcc_assert (IS_DEBUG_BIND (copy));
-	  remap_block (&nb, id);
-	  new_block = nb;
-	}
+      gcc_assert (n);
+      new_block = *n;
     }
 
   gimple_set_block (copy, new_block);
@@ -1947,6 +1941,16 @@ copy_debug_stmt (gimple stmt, copy_body_data *id)
 {
   tree t, *n;
   struct walk_stmt_info wi;
+
+  t = id->block;
+  if (gimple_block (stmt))
+    {
+      tree *n;
+      n = (tree *) pointer_map_contains (id->decl_map, gimple_block (stmt));
+      if (n)
+	t = *n;
+    }
+  gimple_set_block (stmt, t);
 
   /* Remap all the operands in COPY.  */
   memset (&wi, 0, sizeof (wi));
