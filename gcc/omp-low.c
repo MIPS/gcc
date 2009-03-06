@@ -760,10 +760,10 @@ use_pointer_for_field (tree decl, omp_context *shared_ctx)
 	  omp_context *up;
 
 	  for (up = shared_ctx->outer; up; up = up->outer)
-	    if (maybe_lookup_decl (decl, up))
+	    if (is_taskreg_ctx (up) && maybe_lookup_decl (decl, up))
 	      break;
 
-	  if (up && is_taskreg_ctx (up))
+	  if (up)
 	    {
 	      tree c;
 
@@ -2821,7 +2821,14 @@ lower_send_shared_vars (gimple_seq *ilist, gimple_seq *olist, omp_context *ctx)
 	  x = build_sender_ref (ovar, ctx);
 	  gimplify_assign (x, var, ilist);
 
-	  if (!TREE_READONLY (var))
+	  if (!TREE_READONLY (var)
+	      /* We don't need to receive a new reference to a result
+	         or parm decl.  In fact we may not store to it as we will
+		 invalidate any pending RSO and generate wrong gimple
+		 during inlining.  */
+	      && !((TREE_CODE (var) == RESULT_DECL
+		    || TREE_CODE (var) == PARM_DECL)
+		   && DECL_BY_REFERENCE (var)))
 	    {
 	      x = build_sender_ref (ovar, ctx);
 	      gimplify_assign (var, x, olist);

@@ -1,7 +1,7 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -789,7 +789,8 @@ digest_init_r (tree type, tree init, bool nested)
     }
 
   /* Handle scalar types (including conversions) and references.  */
-  if (TREE_CODE (type) != COMPLEX_TYPE
+  if ((TREE_CODE (type) != COMPLEX_TYPE
+       || BRACE_ENCLOSED_INITIALIZER_P (init))
       && (SCALAR_TYPE_P (type) || code == REFERENCE_TYPE))
     {
       tree *exp;
@@ -820,7 +821,8 @@ digest_init_r (tree type, tree init, bool nested)
 	      || TREE_CODE (type) == UNION_TYPE
 	      || TREE_CODE (type) == COMPLEX_TYPE);
 
-  if (BRACE_ENCLOSED_INITIALIZER_P (init))
+  if (BRACE_ENCLOSED_INITIALIZER_P (init)
+      && !TYPE_NON_AGGREGATE_CLASS (type))
     return process_init_constructor (type, init);
   else
     {
@@ -1081,6 +1083,9 @@ process_init_constructor_record (tree type, tree init)
       CONSTRUCTOR_APPEND_ELT (v, field, next);
     }
 
+  if (idx < VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)))
+    error ("too many initializers for %qT", type);
+    
   CONSTRUCTOR_ELTS (init) = v;
   return flags;
 }
@@ -1093,12 +1098,19 @@ static int
 process_init_constructor_union (tree type, tree init)
 {
   constructor_elt *ce;
+  int len;
 
   /* If the initializer was empty, use default zero initialization.  */
   if (VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (init)))
     return 0;
 
-  gcc_assert (VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) == 1);
+  len = VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init));
+  if (len > 1)
+    {
+      error ("too many initializers for %qT", type);
+      VEC_block_remove (constructor_elt, CONSTRUCTOR_ELTS (init), 1, len-1);
+    }
+
   ce = VEC_index (constructor_elt, CONSTRUCTOR_ELTS (init), 0);
 
   /* If this element specifies a field, initialize via that field.  */
@@ -1136,7 +1148,11 @@ process_init_constructor_union (tree type, tree init)
       tree field = TYPE_FIELDS (type);
       while (field && (!DECL_NAME (field) || TREE_CODE (field) != FIELD_DECL))
 	field = TREE_CHAIN (field);
-      gcc_assert (field);
+      if (field == NULL_TREE)
+	{
+	  error ("too many initializers for %qT", type);
+	  ce->value = error_mark_node;
+	}
       ce->index = field;
     }
 
@@ -1429,6 +1445,12 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
     type = TREE_TYPE (exp);
   else
     type = exp;
+
+  if (TREE_CODE (type) == REFERENCE_TYPE && !parms)
+    {
+      error ("invalid value-initialization of reference types");
+      return error_mark_node;
+    }
 
   if (processing_template_decl)
     {

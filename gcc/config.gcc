@@ -1,6 +1,6 @@
 # GCC target-specific configuration file.
 # Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-# 2008 Free Software Foundation, Inc.
+# 2008, 2009 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -217,7 +217,6 @@ case ${target} in
  | m68k-*-aout*		\
  | m68k-*-coff*		\
  | sh-*-*		\
- | mips-sgi-irix[56]*	\
  | pdp11-*-bsd		\
  | rs6000-ibm-aix4.[12]* \
  | powerpc-ibm-aix4.[12]* \
@@ -299,7 +298,8 @@ i[34567]86-*-*)
 	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
 		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
 		       nmmintrin.h bmmintrin.h mmintrin-common.h
-		       wmmintrin.h gmmintrin.h cross-stdarg.h"
+		       wmmintrin.h immintrin.h x86intrin.h avxintrin.h 
+		       cross-stdarg.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
@@ -308,7 +308,8 @@ x86_64-*-*)
 	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
 		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
 		       nmmintrin.h bmmintrin.h mmintrin-common.h
-		       wmmintrin.h gmmintrin.h cross-stdarg.h"
+		       wmmintrin.h immintrin.h x86intrin.h avxintrin.h 
+		       cross-stdarg.h"
 	need_64bit_hwint=yes
 	;;
 ia64-*-*)
@@ -480,7 +481,7 @@ case ${target} in
   esac
   fbsd_tm_file="${fbsd_tm_file} freebsd-spec.h freebsd.h"
   ;;
-*-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu | *-*-gnu*)
+*-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu | *-*-gnu* | *-*-kopensolaris*-gnu)
   extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
   gas=yes
   gnu_ld=yes
@@ -489,7 +490,7 @@ case ${target} in
   esac
   tmake_file="t-slibgcc-elf-ver t-linux"
   case $target in
-    *-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu)
+    *-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu | *-*-kopensolaris*-gnu)
       :;;
     *-*-gnu*)
       tmake_file="$tmake_file t-gnu";;
@@ -1074,7 +1075,7 @@ i[34567]86-*-openbsd*)
 i[34567]86-*-coff*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/i386-coff.h"
 	;;
-i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i[34567]86-*-gnu*)
+i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i[34567]86-*-gnu* | i[34567]86-*-kopensolaris*-gnu)
 			# Intel 80386's running GNU/*
 			# with ELF format using glibc 2
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h"
@@ -1105,6 +1106,7 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i
 		;;
 	i[34567]86-*-knetbsd*-gnu) tm_file="${tm_file} i386/linux.h knetbsd-gnu.h i386/knetbsd-gnu.h" ;;
 	i[34567]86-*-kfreebsd*-gnu) tm_file="${tm_file} i386/linux.h kfreebsd-gnu.h i386/kfreebsd-gnu.h" ;;
+	i[34567]86-*-kopensolaris*-gnu) tm_file="${tm_file} i386/linux.h kopensolaris-gnu.h i386/kopensolaris-gnu.h" ;;
 	i[34567]86-*-gnu*) tm_file="$tm_file i386/linux.h gnu.h i386/gnu.h";;
 	esac
 	tmake_file="${tmake_file} i386/t-crtstuff i386/t-crtpc i386/t-crtfm t-dfprules"
@@ -1174,7 +1176,7 @@ i[34567]86-*-solaris2*)
 		;;
 	esac
 	tm_file="${tm_file} i386/sol2.h"
-	tmake_file="${tmake_file} t-sol2 i386/t-sol2 t-svr4"
+	tmake_file="${tmake_file} t-sol2 t-svr4"
 	c_target_objs="${c_target_objs} sol2-c.o"
 	cxx_target_objs="${cxx_target_objs} sol2-c.o"
 	extra_objs="sol2.o"
@@ -1193,7 +1195,10 @@ i[34567]86-*-solaris2*)
 	*-*-solaris2.1[0-9]*)
 		tm_file="${tm_file} i386/x86-64.h i386/sol2-10.h"
 		tm_defines="${tm_defines} TARGET_BI_ARCH=1"
-		tmake_file="$tmake_file i386/t-crtstuff i386/t-sol2-10"
+		tmake_file="$tmake_file i386/t-sol2-10"
+		# i386/t-crtstuff only affects libgcc.  Its inclusion
+		# depends on a runtime test and is thus performed in
+		# libgcc/configure.ac instead.
 		need_64bit_hwint=yes
 		case X"${with_cpu}" in
 		Xgeneric|Xcore2|Xnocona|Xx86-64|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx)
@@ -1209,12 +1214,6 @@ i[34567]86-*-solaris2*)
 			exit 1
 			;;
 		esac
-		# Solaris 2.10 provides crt1.o, crti.o, crtn.o, and gcrt1.o as
-		# part of the base system.
-		extra_parts="gmon.o crtbegin.o crtend.o"
-		;;
-	*)
-		extra_parts="crt1.o crti.o crtn.o gcrt1.o gmon.o crtbegin.o crtend.o"
 		;;
 	esac
 	case ${enable_threads}:${have_pthread_h}:${have_thread_h} in
@@ -1242,7 +1241,13 @@ i[4567]86-wrs-vxworks|i[4567]86-wrs-vxworksae)
 i[34567]86-*-pe | i[34567]86-*-cygwin*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/cygwin.h"
 	xm_file=i386/xm-cygwin.h
-	tmake_file="${tmake_file} i386/t-cygwin i386/t-cygming"
+	# This has to match the logic for DWARF2_UNWIND_INFO in gcc/config/i386/cygming.h
+	if test x$sjlj = x0; then
+		tmake_eh_file="i386/t-dw2-eh"
+	else
+		tmake_eh_file="i386/t-sjlj-eh"
+	fi
+	tmake_file="${tmake_file} ${tmake_eh_file} i386/t-cygming i386/t-cygwin"
 	target_gtfiles="\$(srcdir)/config/i386/winnt.c"
 	extra_options="${extra_options} i386/cygming.opt"
 	extra_objs="winnt.o winnt-stubs.o"
@@ -1256,7 +1261,13 @@ i[34567]86-*-pe | i[34567]86-*-cygwin*)
 i[34567]86-*-mingw* | x86_64-*-mingw*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/mingw32.h"
 	xm_file=i386/xm-mingw32.h
-	tmake_file="${tmake_file} i386/t-cygming i386/t-mingw32"
+	# This has to match the logic for DWARF2_UNWIND_INFO in gcc/config/i386/cygming.h
+	if test x$sjlj = x0; then
+		tmake_eh_file="i386/t-dw2-eh"
+	else
+		tmake_eh_file="i386/t-sjlj-eh"
+	fi
+	tmake_file="${tmake_file} ${tmake_eh_file} i386/t-cygming i386/t-mingw32"
 	target_gtfiles="\$(srcdir)/config/i386/winnt.c"
 	extra_options="${extra_options} i386/cygming.opt i386/mingw.opt"
 	extra_objs="winnt.o winnt-stubs.o"
@@ -1353,6 +1364,11 @@ m32rle-*-elf*)
 	tm_file="dbxelf.h elfos.h svr4.h m32r/little.h ${tm_file}"
 	extra_parts="crtinit.o crtfini.o m32rx/crtinit.o m32rx/crtfini.o"
 	;;
+m32r-*-rtems*)
+	tm_file="dbxelf.h elfos.h svr4.h ${tm_file} m32r/rtems.h rtems.h"
+	tmake_file="m32r/t-m32r t-rtems"
+	extra_parts="crtinit.o crtfini.o"
+ 	;;
 m32r-*-linux*)
 	tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} m32r/linux.h"
 	# We override the tmake_file for linux -- why?
@@ -1527,7 +1543,6 @@ mips-sgi-irix[56]*)
 	case ${enable_threads}:${have_pthread_h} in
 	  "":yes | yes:yes ) thread_file=posix ;;
 	esac
-	use_fixproto=yes
 	;;
 mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	target_cpu_default="MASK_ABICALLS"
@@ -1602,6 +1617,9 @@ mips*-sde-elf*)
 	  mipsisa32*)
 	    tm_defines="MIPS_ISA_DEFAULT=32 MIPS_ABI_DEFAULT=ABI_32"
 	    ;;
+	  mipsisa64r2*)
+	    tm_defines="MIPS_ISA_DEFAULT=65 MIPS_ABI_DEFAULT=ABI_N32"
+	    ;;
 	  mipsisa64*)
 	    tm_defines="MIPS_ISA_DEFAULT=64 MIPS_ABI_DEFAULT=ABI_N32"
 	    ;;
@@ -1609,7 +1627,8 @@ mips*-sde-elf*)
 	;;
 mipsisa32-*-elf* | mipsisa32el-*-elf* | \
 mipsisa32r2-*-elf* | mipsisa32r2el-*-elf* | \
-mipsisa64-*-elf* | mipsisa64el-*-elf*)
+mipsisa64-*-elf* | mipsisa64el-*-elf* | \
+mipsisa64r2-*-elf* | mipsisa64r2el-*-elf*)
 	tm_file="elfos.h ${tm_file} mips/elf.h"
 	tmake_file="mips/t-isa3264 mips/t-libgcc-mips16"
 	case ${target} in
@@ -1618,6 +1637,9 @@ mipsisa64-*-elf* | mipsisa64el-*-elf*)
 	    ;;
 	  mipsisa32*)
 	    tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
+	    ;;
+	  mipsisa64r2*)
+	    tm_defines="${tm_defines} MIPS_ISA_DEFAULT=65"
 	    ;;
 	  mipsisa64*)
 	    tm_defines="${tm_defines} MIPS_ISA_DEFAULT=64"
@@ -2372,6 +2394,12 @@ am33_2.0-*-linux*)
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
 	use_collect2=no
 	;;
+m32c-*-rtems*)
+	tm_file="dbxelf.h elfos.h svr4.h ${tm_file} m32c/rtems.h rtems.h"
+	tmake_file="${tmake_file} t-rtems"
+	c_target_objs="m32c-pragma.o"
+	cxx_target_objs="m32c-pragma.o"
+ 	;;
 m32c-*-elf*)
 	tm_file="dbxelf.h elfos.h svr4.h ${tm_file}"
 	c_target_objs="m32c-pragma.o"
@@ -3029,6 +3057,9 @@ case ${target} in
 		;;
 	i[34567]86-*-linux* | x86_64-*-linux*)
 		tmake_file="${tmake_file} i386/t-fprules-softfp soft-fp/t-softfp i386/t-linux"
+		;;
+	ia64*-*-linux*)
+		tmake_file="${tmake_file} ia64/t-fprules-softfp soft-fp/t-softfp"
 		;;
 
 	mips*-*-*)

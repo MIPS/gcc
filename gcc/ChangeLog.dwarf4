@@ -1,3 +1,7 @@
+2009-03-06  Cary Coutant  <ccoutant@google.com>
+
+Merged trunk revision 144679 into dwarf4 branch.
+
 2008-11-17  Cary Coutant  <ccoutant@google.com>
 
 	Add support for comdat type sections for DWARF v4.

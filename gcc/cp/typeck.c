@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -403,7 +403,7 @@ type_after_usual_arithmetic_conversions (tree t1, tree t2)
 
   /* Perform the integral promotions.  We do not promote real types here.  */
   if (INTEGRAL_OR_ENUMERATION_TYPE_P (t1)
-      && INTEGRAL_OR_ENUMERATION_TYPE_P (t1)) 
+      && INTEGRAL_OR_ENUMERATION_TYPE_P (t2))
     {
       t1 = type_promotes_to (t1);
       t2 = type_promotes_to (t2);
@@ -637,6 +637,20 @@ merge_types (tree t1, tree t2)
 
   code1 = TREE_CODE (t1);
   code2 = TREE_CODE (t2);
+  if (code1 != code2)
+    {
+      gcc_assert (code1 == TYPENAME_TYPE || code2 == TYPENAME_TYPE);
+      if (code1 == TYPENAME_TYPE)
+	{
+          t1 = resolve_typename_type (t1, /*only_current_p=*/true);
+	  code1 = TREE_CODE (t1);
+	}
+      else
+	{
+          t2 = resolve_typename_type (t2, /*only_current_p=*/true);
+	  code2 = TREE_CODE (t2);
+	}
+    }
 
   switch (code1)
     {
@@ -1494,7 +1508,7 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op, bool complain)
 bool
 invalid_nonstatic_memfn_p (const_tree expr, tsubst_flags_t complain)
 {
-  if (TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE)
+  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
     {
       if (complain & tf_error)
         error ("invalid use of non-static member function");
@@ -2101,8 +2115,8 @@ build_class_member_access_expr (tree object, tree member,
   return result;
 }
 
-/* Return the destructor denoted by OBJECT.SCOPE::~DTOR_NAME, or, if
-   SCOPE is NULL, by OBJECT.~DTOR_NAME.  */
+/* Return the destructor denoted by OBJECT.SCOPE::DTOR_NAME, or, if
+   SCOPE is NULL, by OBJECT.DTOR_NAME, where DTOR_NAME is ~type.  */
 
 static tree
 lookup_destructor (tree object, tree scope, tree dtor_name)
@@ -2117,7 +2131,21 @@ lookup_destructor (tree object, tree scope, tree dtor_name)
 	     scope, dtor_type);
       return error_mark_node;
     }
-  if (!DERIVED_FROM_P (dtor_type, TYPE_MAIN_VARIANT (object_type)))
+  if (TREE_CODE (dtor_type) == IDENTIFIER_NODE)
+    {
+      /* In a template, names we can't find a match for are still accepted
+	 destructor names, and we check them here.  */
+      if (check_dtor_name (object_type, dtor_type))
+	dtor_type = object_type;
+      else
+	{
+	  error ("object type %qT does not match destructor name ~%qT",
+		 object_type, dtor_type);
+	  return error_mark_node;
+	}
+      
+    }
+  else if (!DERIVED_FROM_P (dtor_type, TYPE_MAIN_VARIANT (object_type)))
     {
       error ("the type being destroyed is %qT, but the destructor refers to %qT",
 	     TYPE_MAIN_VARIANT (object_type), dtor_type);
@@ -2790,6 +2818,10 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       vtbl = build1 (NOP_EXPR, build_pointer_type (vtbl_ptr_type_node),
 		     instance_ptr);
       vtbl = cp_build_indirect_ref (vtbl, NULL, tf_warning_or_error);
+      /* If the object is not dynamic the access invokes undefined
+	 behavior.  As it is not executed in this case silence the
+	 spurious warnings it may provoke.  */
+      TREE_NO_WARNING (vtbl) = 1;
 
       /* Finally, extract the function pointer from the vtable.  */
       e2 = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtbl), vtbl,
@@ -3163,6 +3195,34 @@ build_x_binary_op (enum tree_code code, tree arg1, enum tree_code arg1_code,
   if (processing_template_decl && expr != error_mark_node)
     return build_min_non_dep (code, expr, orig_arg1, orig_arg2);
 
+  return expr;
+}
+
+/* Build and return an ARRAY_REF expression.  */
+
+tree
+build_x_array_ref (tree arg1, tree arg2, tsubst_flags_t complain)
+{
+  tree orig_arg1 = arg1;
+  tree orig_arg2 = arg2;
+  tree expr;
+
+  if (processing_template_decl)
+    {
+      if (type_dependent_expression_p (arg1)
+	  || type_dependent_expression_p (arg2))
+	return build_min_nt (ARRAY_REF, arg1, arg2,
+			     NULL_TREE, NULL_TREE);
+      arg1 = build_non_dependent_expr (arg1);
+      arg2 = build_non_dependent_expr (arg2);
+    }
+
+  expr = build_new_op (ARRAY_REF, LOOKUP_NORMAL, arg1, arg2, NULL_TREE,
+		       /*overloaded_p=*/NULL, complain);
+
+  if (processing_template_decl && expr != error_mark_node)
+    return build_min_non_dep (ARRAY_REF, expr, orig_arg1, orig_arg2,
+			      NULL_TREE, NULL_TREE);
   return expr;
 }
 
@@ -4185,7 +4245,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
   tree val;
   const char *invalid_op_diag;
 
-  if (arg == error_mark_node)
+  if (error_operand_p (arg))
     return error_mark_node;
 
   if ((invalid_op_diag
@@ -4441,12 +4501,15 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	  arg = build1 (CONVERT_EXPR, type, arg);
 	  return arg;
 	}
-      else if (DECL_MAIN_P (arg))
+      else if (pedantic && DECL_MAIN_P (arg))
         {
           /* ARM $3.4 */
-          if (complain & tf_error)
-            permerror (input_location, "ISO C++ forbids taking address of function %<::main%>");
-          else
+	  /* Apparently a lot of autoconf scripts for C++ packages do this,
+	     so only complain if -pedantic.  */
+          if (complain & (flag_pedantic_errors ? tf_error : tf_warning))
+            pedwarn (input_location, OPT_pedantic,
+		     "ISO C++ forbids taking address of function %<::main%>");
+          else if (flag_pedantic_errors)
             return error_mark_node;
         }
 
@@ -6022,7 +6085,7 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	}
 
       /* Allow array assignment in compiler-generated code.  */
-      if (! DECL_ARTIFICIAL (current_function_decl))
+      if (!current_function_decl || !DECL_ARTIFICIAL (current_function_decl))
 	{
           /* This routine is used for both initialization and assignment.
              Make sure the diagnostic message differentiates the context.  */
@@ -7335,7 +7398,7 @@ non_reference (tree t)
    how the lvalue is being used and so selects the error message.  */
 
 int
-lvalue_or_else (const_tree ref, enum lvalue_use use, tsubst_flags_t complain)
+lvalue_or_else (tree ref, enum lvalue_use use, tsubst_flags_t complain)
 {
   int win = lvalue_p (ref);
 

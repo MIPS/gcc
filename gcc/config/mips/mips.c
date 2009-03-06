@@ -1,6 +1,6 @@
 /* Subroutines used for MIPS code generation.
    Copyright (C) 1989, 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
@@ -453,7 +453,6 @@ static int mips_base_target_flags;
 bool mips_base_mips16;
 
 /* The ambient values of other global variables.  */
-static int mips_base_delayed_branch; /* flag_delayed_branch */
 static int mips_base_schedule_insns; /* flag_schedule_insns */
 static int mips_base_reorder_blocks_and_partition; /* flag_reorder... */
 static int mips_base_move_loop_invariants; /* flag_move_loop_invariants */
@@ -5293,10 +5292,10 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_FLOAT
 	  && GET_MODE_SIZE (TYPE_MODE (type)) <= UNITS_PER_FPVALUE)
 	{
-	  top = build3 (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop,
-		        NULL_TREE);
-	  off = build3 (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff,
-		        NULL_TREE);
+	  top = build3 (COMPONENT_REF, TREE_TYPE (f_ftop),
+			unshare_expr (valist), f_ftop, NULL_TREE);
+	  off = build3 (COMPONENT_REF, TREE_TYPE (f_foff),
+			unshare_expr (valist), f_foff, NULL_TREE);
 
 	  /* When va_start saves FPR arguments to the stack, each slot
 	     takes up UNITS_PER_HWFPVALUE bytes, regardless of the
@@ -5323,17 +5322,17 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	}
       else
 	{
-	  top = build3 (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop,
-		        NULL_TREE);
-	  off = build3 (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff,
-		        NULL_TREE);
+	  top = build3 (COMPONENT_REF, TREE_TYPE (f_gtop),
+			unshare_expr (valist), f_gtop, NULL_TREE);
+	  off = build3 (COMPONENT_REF, TREE_TYPE (f_goff),
+			unshare_expr (valist), f_goff, NULL_TREE);
 	  rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
 	  if (rsize > UNITS_PER_WORD)
 	    {
 	      /* [1] Emit code for: off &= -rsize.	*/
-	      t = build2 (BIT_AND_EXPR, TREE_TYPE (off), off,
-			  build_int_cst (NULL_TREE, -rsize));
-	      gimplify_assign (off, t, pre_p);
+	      t = build2 (BIT_AND_EXPR, TREE_TYPE (off), unshare_expr (off),
+			  build_int_cst (TREE_TYPE (off), -rsize));
+	      gimplify_assign (unshare_expr (off), t, pre_p);
 	    }
 	  osize = rsize;
 	}
@@ -5364,12 +5363,14 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	{
 	  /* [9] Emit: ovfl = ((intptr_t) ovfl + osize - 1) & -osize.  */
 	  u = size_int (osize - 1);
-	  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovfl), ovfl, u);
+	  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovfl),
+		      unshare_expr (ovfl), u);
 	  t = fold_convert (sizetype, t);
 	  u = size_int (-osize);
 	  t = build2 (BIT_AND_EXPR, sizetype, t, u);
 	  t = fold_convert (TREE_TYPE (ovfl), t);
-	  align = build2 (MODIFY_EXPR, TREE_TYPE (ovfl), ovfl, t);
+	  align = build2 (MODIFY_EXPR, TREE_TYPE (ovfl),
+			  unshare_expr (ovfl), t);
 	}
       else
 	align = NULL;
@@ -6401,8 +6402,10 @@ mips_expand_synci_loop (rtx begin, rtx end)
   rtx inc, label, cmp, cmp_result;
 
   /* Load INC with the cache line size (rdhwr INC,$1).  */
-  inc = gen_reg_rtx (SImode);
-  emit_insn (gen_rdhwr (inc, const1_rtx));
+  inc = gen_reg_rtx (Pmode);
+  emit_insn (Pmode == SImode
+	     ? gen_rdhwr_synci_step_si (inc)
+	     : gen_rdhwr_synci_step_di (inc));
 
   /* Loop back to here.  */
   label = gen_label_rtx ();
@@ -7779,7 +7782,7 @@ mips_mdebug_abi_name (void)
     case ABI_N32:
       return "abiN32";
     case ABI_64:
-      return "abiN64";
+      return "abi64";
     case ABI_EABI:
       return TARGET_64BIT ? "eabi64" : "eabi32";
     default:
@@ -10190,6 +10193,8 @@ mips_output_conditional_branch (rtx insn, rtx *operands,
   unsigned int length;
   rtx taken, not_taken;
 
+  gcc_assert (LABEL_P (operands[1]));  
+
   length = get_attr_length (insn);
   if (length <= 8)
     {
@@ -11250,7 +11255,6 @@ AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
 #define CODE_FOR_loongson_pminub CODE_FOR_uminv8qi3
 #define CODE_FOR_loongson_pmulhuh CODE_FOR_umulv4hi3_highpart
 #define CODE_FOR_loongson_pmulhh CODE_FOR_smulv4hi3_highpart
-#define CODE_FOR_loongson_biadd CODE_FOR_reduc_uplus_v8qi
 #define CODE_FOR_loongson_psubw CODE_FOR_subv2si3
 #define CODE_FOR_loongson_psubh CODE_FOR_subv4hi3
 #define CODE_FOR_loongson_psubb CODE_FOR_subv8qi3
@@ -11678,19 +11682,23 @@ static rtx
 mips_prepare_builtin_arg (enum insn_code icode,
 			  unsigned int opno, tree exp, unsigned int argno)
 {
+  tree arg;
   rtx value;
   enum machine_mode mode;
 
-  value = expand_normal (CALL_EXPR_ARG (exp, argno));
+  arg = CALL_EXPR_ARG (exp, argno);
+  value = expand_normal (arg);
   mode = insn_data[icode].operand[opno].mode;
   if (!insn_data[icode].operand[opno].predicate (value, mode))
     {
-      /* Cope with address operands, where MODE is not the mode of
-	 VALUE itself.  */
-      if (GET_MODE (value) == VOIDmode)
-	value = copy_to_mode_reg (mode, value);
-      else
-	value = copy_to_reg (value);
+      /* We need to get the mode from ARG for two reasons:
+
+	   - to cope with address operands, where MODE is the mode of the
+	     memory, rather than of VALUE itself.
+
+	   - to cope with special predicates like pmode_register_operand,
+	     where MODE is VOIDmode.  */
+      value = copy_to_mode_reg (TYPE_MODE (TREE_TYPE (arg)), value);
 
       /* Check the predicate again.  */
       if (!insn_data[icode].operand[opno].predicate (value, mode))
@@ -11734,7 +11742,8 @@ mips_expand_builtin_direct (enum insn_code icode, rtx target, tree exp,
   opno = 0;
   if (has_target_p)
     {
-      ops[opno] = mips_prepare_builtin_target (icode, opno, target);
+      target = mips_prepare_builtin_target (icode, opno, target);
+      ops[opno] = target;
       opno++;
     }
 
@@ -11921,8 +11930,7 @@ mips_expand_builtin_bposge (enum mips_builtin_type builtin_type, rtx target)
 
 static rtx
 mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
-		     enum machine_mode mode ATTRIBUTE_UNUSED,
-		     int ignore ATTRIBUTE_UNUSED)
+		     enum machine_mode mode, int ignore)
 {
   tree fndecl;
   unsigned int fcode, avail;
@@ -11938,7 +11946,7 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     {
       error ("built-in function %qs not supported for MIPS16",
 	     IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-      return const0_rtx;
+      return ignore ? const0_rtx : CONST0_RTX (mode);
     }
   switch (d->builtin_type)
     {
@@ -13289,7 +13297,7 @@ mips_reorg (void)
   mips16_lay_out_constants ();
   if (mips_r10k_cache_barrier != R10K_CACHE_BARRIER_NONE)
     r10k_insert_cache_barriers ();
-  if (mips_base_delayed_branch)
+  if (optimize > 0 && flag_delayed_branch)
     dbr_schedule (get_insns ());
   mips_reorg_process_insns ();
   if (!TARGET_MIPS16
@@ -13976,6 +13984,27 @@ mips_override_options (void)
   if (TARGET_DSPR2)
     target_flags |= MASK_DSP;
 
+  /* .eh_frame addresses should be the same width as a C pointer.
+     Most MIPS ABIs support only one pointer size, so the assembler
+     will usually know exactly how big an .eh_frame address is.
+
+     Unfortunately, this is not true of the 64-bit EABI.  The ABI was
+     originally defined to use 64-bit pointers (i.e. it is LP64), and
+     this is still the default mode.  However, we also support an n32-like
+     ILP32 mode, which is selected by -mlong32.  The problem is that the
+     assembler has traditionally not had an -mlong option, so it has
+     traditionally not known whether we're using the ILP32 or LP64 form.
+
+     As it happens, gas versions up to and including 2.19 use _32-bit_
+     addresses for EABI64 .cfi_* directives.  This is wrong for the
+     default LP64 mode, so we can't use the directives by default.
+     Moreover, since gas's current behavior is at odds with gcc's
+     default behavior, it seems unwise to rely on future versions
+     of gas behaving the same way.  We therefore avoid using .cfi
+     directives for -mlong32 as well.  */
+  if (mips_abi == ABI_EABI && TARGET_64BIT)
+    flag_dwarf2_cfi_asm = 0;
+
   mips_init_print_operand_punct ();
 
   /* Set up array to map GCC register number to debug register number.
@@ -14050,7 +14079,6 @@ mips_override_options (void)
 
   /* Save base state of options.  */
   mips_base_target_flags = target_flags;
-  mips_base_delayed_branch = flag_delayed_branch;
   mips_base_schedule_insns = flag_schedule_insns;
   mips_base_reorder_blocks_and_partition = flag_reorder_blocks_and_partition;
   mips_base_move_loop_invariants = flag_move_loop_invariants;
@@ -14063,9 +14091,6 @@ mips_override_options (void)
      Do all CPP-sensitive stuff in non-MIPS16 mode; we'll switch to
      MIPS16 mode afterwards if need be.  */
   mips_set_mips16_mode (false);
-
-  /* We call dbr_schedule from within mips_reorg.  */
-  flag_delayed_branch = 0;
 }
 
 /* Swap the register information for registers I and I + 1, which

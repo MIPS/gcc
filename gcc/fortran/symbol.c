@@ -1,5 +1,5 @@
 /* Maintain binary trees of symbols.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -618,7 +618,10 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
       break;
 
     case FL_VARIABLE:
+      break;
+
     case FL_NAMELIST:
+      conf2 (result);
       break;
 
     case FL_PROCEDURE:
@@ -672,6 +675,7 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
       conf2 (function);
       conf2 (subroutine);
       conf2 (threadprivate);
+      conf2 (result);
 
       if (attr->intent != INTENT_UNKNOWN)
 	{
@@ -698,6 +702,7 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
       conf2 (threadprivate);
       conf2 (value);
       conf2 (is_bind_c);
+      conf2 (result);
       break;
 
     default:
@@ -3192,6 +3197,7 @@ save_symbol (gfc_symbol *sym)
 
   if (sym->attr.in_common
       || sym->attr.dummy
+      || sym->attr.result
       || sym->attr.flavor != FL_VARIABLE)
     return;
   /* Automatic objects are not saved.  */
@@ -3395,8 +3401,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
       else
 	{
 	  /* Grab the typespec for the given component and test the kind.  */ 
-	  is_c_interop = verify_c_interop (&(curr_comp->ts), curr_comp->name,
-                                           &(curr_comp->loc));
+	  is_c_interop = verify_c_interop (&(curr_comp->ts));
 	  
 	  if (is_c_interop != SUCCESS)
 	    {
@@ -4164,6 +4169,7 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 		tmp_sym->result = tmp_sym;
 		tmp_sym->attr.external = 1;
 		tmp_sym->attr.use_assoc = 0;
+		tmp_sym->attr.pure = 1;
 		tmp_sym->attr.if_source = IFSRC_UNKNOWN;
 		tmp_sym->attr.proc = PROC_UNKNOWN;
 	      }

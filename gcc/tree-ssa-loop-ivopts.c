@@ -884,7 +884,7 @@ determine_biv_step (gimple phi)
   if (!is_gimple_reg (name))
     return NULL_TREE;
 
-  if (!simple_iv (loop, phi, name, &iv, true))
+  if (!simple_iv (loop, loop, name, &iv, true))
     return NULL_TREE;
 
   return integer_zerop (iv.step) ? NULL_TREE : iv.step;
@@ -990,7 +990,7 @@ find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (!simple_iv (loop, stmt, lhs, iv, true))
+  if (!simple_iv (loop, loop_containing_stmt (stmt), lhs, iv, true))
     return false;
   iv->base = expand_simple_operations (iv->base);
 
@@ -2071,9 +2071,7 @@ add_candidate_1 (struct ivopts_data *data,
     {
       orig_type = TREE_TYPE (base);
       type = generic_type_for (orig_type);
-      /* Don't convert the base to the generic type for pointers as the generic
-	 type is an integer type with the same size as the pointer type.  */
-      if (type != orig_type && !POINTER_TYPE_P (orig_type))
+      if (type != orig_type)
 	{
 	  base = fold_convert (type, base);
 	  step = fold_convert (type, step);
@@ -3844,7 +3842,12 @@ may_eliminate_iv (struct ivopts_data *data,
     return false;
 
   cand_value_at (loop, cand, use->stmt, nit, &bnd);
+
   *bound = aff_combination_to_tree (&bnd);
+  /* It is unlikely that computing the number of iterations using division
+     would be more profitable than keeping the original induction variable.  */
+  if (expression_expensive_p (*bound))
+    return false;
   return true;
 }
 
@@ -4355,7 +4358,12 @@ iv_ca_add_use (struct ivopts_data *data, struct iv_ca *ivs,
 static comp_cost
 iv_ca_cost (struct iv_ca *ivs)
 {
-  return (ivs->bad_uses ? infinite_cost : ivs->cost);
+  /* This was a conditional expression but it triggered a bug in
+     Sun C 5.5.  */
+  if (ivs->bad_uses)
+    return infinite_cost;
+  else
+    return ivs->cost;
 }
 
 /* Returns true if all dependences of CP are among invariants in IVS.  */
@@ -5323,11 +5331,15 @@ rewrite_use_compare (struct ivopts_data *data,
     {
       tree var = var_at_stmt (data->current_loop, cand, use->stmt);
       tree var_type = TREE_TYPE (var);
+      gimple_seq stmts;
 
       compare = iv_elimination_compare (data, use);
       bound = unshare_expr (fold_convert (var_type, bound));
-      op = force_gimple_operand_gsi (&bsi, bound, true, NULL_TREE,
-				     true, GSI_SAME_STMT);
+      op = force_gimple_operand (bound, &stmts, true, NULL_TREE);
+      if (stmts)
+	gsi_insert_seq_on_edge_immediate (
+		loop_preheader_edge (data->current_loop),
+		stmts);
 
       gimple_cond_set_lhs (use->stmt, var);
       gimple_cond_set_code (use->stmt, compare);

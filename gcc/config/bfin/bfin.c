@@ -1,5 +1,5 @@
 /* The Blackfin code generation auxiliary output file.
-   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -254,39 +254,39 @@ struct bfin_cpu bfin_cpus[] =
    | WA_05000283 | WA_05000257 | WA_05000315},
 
   {"bf542", BFIN_CPU_BF542, 0x0002,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf542", BFIN_CPU_BF542, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf542", BFIN_CPU_BF542, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
   {"bf544", BFIN_CPU_BF544, 0x0002,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf544", BFIN_CPU_BF544, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf544", BFIN_CPU_BF544, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
   {"bf547", BFIN_CPU_BF547, 0x0002,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf547", BFIN_CPU_BF547, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf547", BFIN_CPU_BF547, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
   {"bf548", BFIN_CPU_BF548, 0x0002,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf548", BFIN_CPU_BF548, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf548", BFIN_CPU_BF548, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
   {"bf549", BFIN_CPU_BF549, 0x0002,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_INDIRECT_CALLS},
   {"bf549", BFIN_CPU_BF549, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
   {"bf549", BFIN_CPU_BF549, 0x0000,
-   WA_SPECULATIVE_LOADS | WA_RETS},
+   WA_SPECULATIVE_LOADS | WA_RETS | WA_INDIRECT_CALLS},
 
   {"bf561", BFIN_CPU_BF561, 0x0005, WA_RETS
    | WA_05000283 | WA_05000315},
@@ -3554,7 +3554,36 @@ bfin_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 
   return cost;
 }
+
+/* This function acts like NEXT_INSN, but is aware of three-insn bundles and
+   skips all subsequent parallel instructions if INSN is the start of such
+   a group.  */
+static rtx
+find_next_insn_start (rtx insn)
+{
+  if (GET_MODE (insn) == SImode)
+    {
+      while (GET_MODE (insn) != QImode)
+	insn = NEXT_INSN (insn);
+    }
+  return NEXT_INSN (insn);
+}
 
+/* This function acts like PREV_INSN, but is aware of three-insn bundles and
+   skips all subsequent parallel instructions if INSN is the start of such
+   a group.  */
+static rtx
+find_prev_insn_start (rtx insn)
+{
+  insn = PREV_INSN (insn);
+  gcc_assert (GET_MODE (insn) != SImode);
+  if (GET_MODE (insn) == QImode)
+    {
+      while (GET_MODE (PREV_INSN (insn)) == SImode)
+	insn = PREV_INSN (insn);
+    }
+  return insn;
+}
 
 /* Increment the counter for the number of loop instructions in the
    current function.  */
@@ -3932,16 +3961,16 @@ bfin_optimize_loop (loop_info loop)
      - Returns (RTS, RTN, etc.)  */
 
   bb = loop->tail;
-  last_insn = PREV_INSN (loop->loop_end);
+  last_insn = find_prev_insn_start (loop->loop_end);
 
   while (1)
     {
-      for (; last_insn != PREV_INSN (BB_HEAD (bb));
-	   last_insn = PREV_INSN (last_insn))
+      for (; last_insn != BB_HEAD (bb);
+	   last_insn = find_prev_insn_start (last_insn))
 	if (INSN_P (last_insn))
 	  break;
 
-      if (last_insn != PREV_INSN (BB_HEAD (bb)))
+      if (last_insn != BB_HEAD (bb))
 	break;
 
       if (single_pred_p (bb)
@@ -4332,6 +4361,12 @@ bfin_discover_loop (loop_info loop, basic_block tail_bb, rtx tail_insn)
 		      retry = 1;
 		      break;
 		    }
+		}
+	      if (!retry)
+		{
+		  if (dump_file)
+		    fprintf (dump_file, ";; No forwarder blocks found\n");
+		  loop->bad = 1;
 		}
 	    }
 	}
@@ -4888,20 +4923,6 @@ trapping_loads_p (rtx insn)
     return may_trap_p (SET_SRC (single_set (insn)));
 }
 
-/* This function acts like NEXT_INSN, but is aware of three-insn bundles and
-   skips all subsequent parallel instructions if INSN is the start of such
-   a group.  */
-static rtx
-find_next_insn_start (rtx insn)
-{
-  if (GET_MODE (insn) == SImode)
-    {
-      while (GET_MODE (insn) != QImode)
-	insn = NEXT_INSN (insn);
-    }
-  return NEXT_INSN (insn);
-}
-
 /* Return INSN if it is of TYPE_MCLD.  Alternatively, if INSN is the start of
    a three-insn bundle, see if one of them is a load and return that if so.
    Return NULL_RTX if the insn does not contain loads.  */
@@ -4921,6 +4942,22 @@ find_load (rtx insn)
   return NULL_RTX;
 }
 
+/* Determine whether PAT is an indirect call pattern.  */
+static bool
+indirect_call_p (rtx pat)
+{
+  if (GET_CODE (pat) == PARALLEL)
+    pat = XVECEXP (pat, 0, 0);
+  if (GET_CODE (pat) == SET)
+    pat = SET_SRC (pat);
+  gcc_assert (GET_CODE (pat) == CALL);
+  pat = XEXP (pat, 0);
+  gcc_assert (GET_CODE (pat) == MEM);
+  pat = XEXP (pat, 0);
+  
+  return REG_P (pat);
+}
+
 static void
 workaround_speculation (void)
 {
@@ -4929,7 +4966,8 @@ workaround_speculation (void)
   int cycles_since_jump = INT_MAX;
   int delay_added = 0;
 
-  if (! ENABLE_WA_SPECULATIVE_LOADS && ! ENABLE_WA_SPECULATIVE_SYNCS)
+  if (! ENABLE_WA_SPECULATIVE_LOADS && ! ENABLE_WA_SPECULATIVE_SYNCS
+      && ! ENABLE_WA_INDIRECT_CALLS)
     return;
 
   /* First pass: find predicted-false branches; if something after them
@@ -4961,6 +4999,15 @@ workaround_speculation (void)
 	    }
 	  else
 	    cycles_since_jump = INT_MAX;
+	}
+      else if (CALL_P (insn))
+	{
+	  if (cycles_since_jump < INT_MAX)
+	    cycles_since_jump++;
+	  if (indirect_call_p (pat) && ENABLE_WA_INDIRECT_CALLS)
+	    {
+	      delay_needed = 3;
+	    }
 	}
       else if (INSN_P (insn))
 	{

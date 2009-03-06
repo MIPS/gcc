@@ -1,6 +1,6 @@
 // <forward_list.h> -*- C++ -*-
 
-// Copyright (C) 2008 Free Software Foundation, Inc.
+// Copyright (C) 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -188,7 +188,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       operator!=(const _Self& __x) const
       { return this->_M_node != __x._M_node; }
 
-      const _Self&
+      _Self
       _M_next() const
       {
         if (_M_node)
@@ -259,7 +259,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       operator!=(const _Self& __x) const
       { return this->_M_node != __x._M_node; }
 
-      const _Self&
+      _Self
       _M_next() const
       {
         if (this->_M_node)
@@ -366,13 +366,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
         _M_create_node(_Args&&... __args)
         {
           typename _Node::_Pointer __node = this->_M_get_node();
-          try
+          __try
             {
               _M_get_Node_allocator().construct(__node,
                                               std::forward<_Args>(__args)...);
               __node->_M_next = 0;
             }
-          catch(...)
+          __catch(...)
             {
               this->_M_put_node(__node);
               __throw_exception_again;
@@ -400,8 +400,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @brief A standard container with linear time access to elements,
    *  and fixed time insertion/deletion at any point in the sequence.
    *
-   *  @ingroup Containers
-   *  @ingroup Sequences
+   *  @ingroup sequences
    *
    *  Meets the requirements of a <a href="tables.html#65">container</a>, a
    *  <a href="tables.html#67">sequence</a>, including the
@@ -1311,21 +1310,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
                const forward_list<_Tp, _Alloc>& __ly)
     { return !(__ly < __lx); }
 
-  /// See std::forward_list::forward_swap().
+  /// See std::forward_list::swap().
   template<typename _Tp, typename _Alloc>
     inline void
     swap(forward_list<_Tp, _Alloc>& __lx,
          forward_list<_Tp, _Alloc>& __ly)
     { __lx.swap(__ly); }
 
-  /// See std::forward_list::forward_swap().
+  /// See std::forward_list::swap().
   template<typename _Tp, typename _Alloc>
     inline void
     swap(forward_list<_Tp, _Alloc>&& __lx,
          forward_list<_Tp, _Alloc>& __ly)
     { __lx.swap(__ly); }
 
-  /// See std::forward_list::forward_swap().
+  /// See std::forward_list::swap().
   template<typename _Tp, typename _Alloc>
     inline void 
     swap(forward_list<_Tp, _Alloc>& __lx,

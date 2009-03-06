@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
@@ -575,7 +575,7 @@ static bool fpu_option_set = false;
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION sparc_handle_option
 
-#if TARGET_GNU_TLS
+#if TARGET_GNU_TLS && defined(HAVE_AS_SPARC_UA_PCREL)
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL sparc_output_dwarf_dtprel
 #endif

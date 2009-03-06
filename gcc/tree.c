@@ -3289,8 +3289,13 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   gcc_assert (TREE_CODE_LENGTH (code) == 2);
 
   if ((code == MINUS_EXPR || code == PLUS_EXPR || code == MULT_EXPR)
-      && arg0 && arg1 && tt && POINTER_TYPE_P (tt))
-    gcc_assert (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST);
+      && arg0 && arg1 && tt && POINTER_TYPE_P (tt)
+      /* When sizetype precision doesn't match that of pointers
+         we need to be able to build explicit extensions or truncations
+	 of the offset argument.  */
+      && TYPE_PRECISION (sizetype) == TYPE_PRECISION (tt))
+    gcc_assert (TREE_CODE (arg0) == INTEGER_CST
+		&& TREE_CODE (arg1) == INTEGER_CST);
 
   if (code == POINTER_PLUS_EXPR && arg0 && arg1 && tt)
     gcc_assert (POINTER_TYPE_P (tt) && POINTER_TYPE_P (TREE_TYPE (arg0))
@@ -5517,7 +5522,7 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
   t = make_node (POINTER_TYPE);
 
   TREE_TYPE (t) = to_type;
-  TYPE_MODE (t) = mode;
+  SET_TYPE_MODE (t, mode);
   TYPE_REF_CAN_ALIAS_ALL (t) = can_alias_all;
   TYPE_NEXT_PTR_TO (t) = TYPE_POINTER_TO (to_type);
   TYPE_POINTER_TO (to_type) = t;
@@ -5581,7 +5586,7 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
   t = make_node (REFERENCE_TYPE);
 
   TREE_TYPE (t) = to_type;
-  TYPE_MODE (t) = mode;
+  SET_TYPE_MODE (t, mode);
   TYPE_REF_CAN_ALIAS_ALL (t) = can_alias_all;
   TYPE_NEXT_REF_TO (t) = TYPE_REFERENCE_TO (to_type);
   TYPE_REFERENCE_TO (to_type) = t;
@@ -5650,7 +5655,7 @@ build_index_type (tree maxval)
   TYPE_PRECISION (itype) = TYPE_PRECISION (sizetype);
   TYPE_MIN_VALUE (itype) = size_zero_node;
   TYPE_MAX_VALUE (itype) = fold_convert (sizetype, maxval);
-  TYPE_MODE (itype) = TYPE_MODE (sizetype);
+  SET_TYPE_MODE (itype, TYPE_MODE (sizetype));
   TYPE_SIZE (itype) = TYPE_SIZE (sizetype);
   TYPE_SIZE_UNIT (itype) = TYPE_SIZE_UNIT (sizetype);
   TYPE_ALIGN (itype) = TYPE_ALIGN (sizetype);
@@ -5706,7 +5711,7 @@ build_range_type (tree type, tree lowval, tree highval)
   TYPE_MAX_VALUE (itype) = highval ? fold_convert (type, highval) : NULL;
 
   TYPE_PRECISION (itype) = TYPE_PRECISION (type);
-  TYPE_MODE (itype) = TYPE_MODE (type);
+  SET_TYPE_MODE (itype, TYPE_MODE (type));
   TYPE_SIZE (itype) = TYPE_SIZE (type);
   TYPE_SIZE_UNIT (itype) = TYPE_SIZE_UNIT (type);
   TYPE_ALIGN (itype) = TYPE_ALIGN (type);
@@ -7291,7 +7296,7 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
   t = make_node (VECTOR_TYPE);
   TREE_TYPE (t) = TYPE_MAIN_VARIANT (innertype);
   SET_TYPE_VECTOR_SUBPARTS (t, nunits);
-  TYPE_MODE (t) = mode;
+  SET_TYPE_MODE (t, mode);
   TYPE_READONLY (t) = TYPE_READONLY (innertype);
   TYPE_VOLATILE (t) = TYPE_VOLATILE (innertype);
 
@@ -7548,19 +7553,19 @@ build_common_tree_nodes_2 (int short_double)
   dfloat32_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (dfloat32_type_node) = DECIMAL32_TYPE_SIZE; 
   layout_type (dfloat32_type_node);
-  TYPE_MODE (dfloat32_type_node) = SDmode;
+  SET_TYPE_MODE (dfloat32_type_node, SDmode);
   dfloat32_ptr_type_node = build_pointer_type (dfloat32_type_node);
 
   dfloat64_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (dfloat64_type_node) = DECIMAL64_TYPE_SIZE;
   layout_type (dfloat64_type_node);
-  TYPE_MODE (dfloat64_type_node) = DDmode;
+  SET_TYPE_MODE (dfloat64_type_node, DDmode);
   dfloat64_ptr_type_node = build_pointer_type (dfloat64_type_node);
 
   dfloat128_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (dfloat128_type_node) = DECIMAL128_TYPE_SIZE; 
   layout_type (dfloat128_type_node);
-  TYPE_MODE (dfloat128_type_node) = TDmode;
+  SET_TYPE_MODE (dfloat128_type_node, TDmode);
   dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
 
   complex_integer_type_node = build_complex_type (integer_type_node);
@@ -9066,6 +9071,42 @@ block_nonartificial_location (tree block)
   return ret;
 }
 
+
+/* If EXP is inlined from an __attribute__((__artificial__))
+   function, return the location of the original call expression.  */
+
+location_t
+tree_nonartificial_location (tree exp)
+{
+  tree block = TREE_BLOCK (exp);
+
+  while (block
+	 && TREE_CODE (block) == BLOCK
+	 && BLOCK_ABSTRACT_ORIGIN (block))
+    {
+      tree ao = BLOCK_ABSTRACT_ORIGIN (block);
+
+      do
+	{
+	  if (TREE_CODE (ao) == FUNCTION_DECL
+	      && DECL_DECLARED_INLINE_P (ao)
+	      && lookup_attribute ("artificial", DECL_ATTRIBUTES (ao)))
+	    return BLOCK_SOURCE_LOCATION (block);
+	  else if (TREE_CODE (ao) == BLOCK
+		   && BLOCK_SUPERCONTEXT (ao) != ao)
+	    ao = BLOCK_SUPERCONTEXT (ao);
+	  else
+	    break;
+	}
+      while (ao);
+
+      block = BLOCK_SUPERCONTEXT (block);
+    }
+
+  return EXPR_LOCATION (exp);
+}
+
+
 /* These are the hash table functions for the hash table of OPTIMIZATION_NODEq
    nodes.  */
 
@@ -9192,6 +9233,51 @@ build_target_option_node (void)
     }
 
   return t;
+}
+
+/* Determine the "ultimate origin" of a block.  The block may be an inlined
+   instance of an inlined instance of a block which is local to an inline
+   function, so we have to trace all of the way back through the origin chain
+   to find out what sort of node actually served as the original seed for the
+   given block.  */
+
+tree
+block_ultimate_origin (const_tree block)
+{
+  tree immediate_origin = BLOCK_ABSTRACT_ORIGIN (block);
+
+  /* output_inline_function sets BLOCK_ABSTRACT_ORIGIN for all the
+     nodes in the function to point to themselves; ignore that if
+     we're trying to output the abstract instance of this function.  */
+  if (BLOCK_ABSTRACT (block) && immediate_origin == block)
+    return NULL_TREE;
+
+  if (immediate_origin == NULL_TREE)
+    return NULL_TREE;
+  else
+    {
+      tree ret_val;
+      tree lookahead = immediate_origin;
+
+      do
+	{
+	  ret_val = lookahead;
+	  lookahead = (TREE_CODE (ret_val) == BLOCK
+		       ? BLOCK_ABSTRACT_ORIGIN (ret_val) : NULL);
+	}
+      while (lookahead != NULL && lookahead != ret_val);
+
+      /* The block's abstract origin chain may not be the *ultimate* origin of
+	 the block. It could lead to a DECL that has an abstract origin set.
+	 If so, we want that DECL's abstract origin (which is what DECL_ORIGIN
+	 will give us if it has one).  Note that DECL's abstract origins are
+	 supposed to be the most distant ancestor (or so decl_ultimate_origin
+	 claims), so we don't need to loop following the DECL origins.  */
+      if (DECL_P (ret_val))
+	return DECL_ORIGIN (ret_val);
+
+      return ret_val;
+    }
 }
 
 #include "gt-tree.h"

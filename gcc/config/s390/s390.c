@@ -4681,9 +4681,9 @@ s390_expand_atomic (enum machine_mode mode, enum rtx_code code,
 				 NULL_RTX, 1, OPTAB_DIRECT);
       break;
     case MULT: /* NAND */
-      new_rtx = expand_simple_binop (SImode, XOR, new_rtx, ac.modemask,
-				 NULL_RTX, 1, OPTAB_DIRECT);
       new_rtx = expand_simple_binop (SImode, AND, new_rtx, val,
+				 NULL_RTX, 1, OPTAB_DIRECT);
+      new_rtx = expand_simple_binop (SImode, XOR, new_rtx, ac.modemask,
 				 NULL_RTX, 1, OPTAB_DIRECT);
       break;
     default:
@@ -6664,25 +6664,6 @@ s390_chunkify_cancel (struct constant_pool *pool_list)
     }
 }
 
-/* Helper rtx-iteration-function for s390_output_pool_entry.  Marks
-   SYMBOL_REFs as referenced through use of assemble_external.  */
-
-static int
-s390_mark_symbol_ref_as_used (rtx *x, void *dummy ATTRIBUTE_UNUSED)
-{
-  /* If we have a used symbol, we may have to emit assembly
-     annotations corresponding to whether the symbol is external, weak
-     or has non-default visibility.  */
-  if (GET_CODE (*x) == SYMBOL_REF)
-    {
-      tree t = SYMBOL_REF_DECL (*x);
-      if (t)
-        assemble_external (t);
-      return -1;
-    }
-  return 0;
-}
-
 /* Output the constant pool entry EXP in mode MODE with alignment ALIGN.  */
 
 void
@@ -6702,7 +6683,7 @@ s390_output_pool_entry (rtx exp, enum machine_mode mode, unsigned int align)
 
     case MODE_INT:
       assemble_integer (exp, GET_MODE_SIZE (mode), align, 1);
-      for_each_rtx (&exp, s390_mark_symbol_ref_as_used, NULL);
+      mark_symbol_refs_as_used (exp);
       break;
 
     default:
@@ -9608,6 +9589,179 @@ s390_optimize_prologue (void)
     }
 }
 
+/* Returns 1 if INSN reads the value of REG for purposes not related
+   to addressing of memory, and 0 otherwise.  */
+static int
+s390_non_addr_reg_read_p (rtx reg, rtx insn)
+{
+  return reg_referenced_p (reg, PATTERN (insn))
+    && !reg_used_in_mem_p (REGNO (reg), PATTERN (insn));
+}
+
+/* Starting from INSN find_cond_jump looks downwards in the insn
+   stream for a single jump insn which is the last user of the
+   condition code set in INSN.  */
+static rtx
+find_cond_jump (rtx insn)
+{
+  for (; insn; insn = NEXT_INSN (insn))
+    {
+      rtx ite, cc;
+
+      if (LABEL_P (insn))
+	break;
+
+      if (!JUMP_P (insn))
+	{
+	  if (reg_mentioned_p (gen_rtx_REG (CCmode, CC_REGNUM), insn))
+	    break;
+	  continue;
+	}
+
+      /* This will be triggered by a return.  */
+      if (GET_CODE (PATTERN (insn)) != SET)
+	break;
+
+      gcc_assert (SET_DEST (PATTERN (insn)) == pc_rtx);
+      ite = SET_SRC (PATTERN (insn));
+
+      if (GET_CODE (ite) != IF_THEN_ELSE)
+	break;
+
+      cc = XEXP (XEXP (ite, 0), 0);
+      if (!REG_P (cc) || !CC_REGNO_P (REGNO (cc)))
+	break;
+
+      if (find_reg_note (insn, REG_DEAD, cc))
+	return insn;
+      break;
+    }
+
+  return NULL_RTX;
+}
+
+/* Swap the condition in COND and the operands in OP0 and OP1 so that
+   the semantics does not change.  If NULL_RTX is passed as COND the
+   function tries to find the conditional jump starting with INSN.  */
+static void
+s390_swap_cmp (rtx cond, rtx *op0, rtx *op1, rtx insn)
+{
+  rtx tmp = *op0;
+
+  if (cond == NULL_RTX)
+    {
+      rtx jump = find_cond_jump (NEXT_INSN (insn));
+      jump = jump ? single_set (jump) : NULL_RTX;
+
+      if (jump == NULL_RTX)
+	return;
+
+      cond = XEXP (XEXP (jump, 1), 0);
+    }
+
+  *op0 = *op1;
+  *op1 = tmp;
+  PUT_CODE (cond, swap_condition (GET_CODE (cond)));
+}
+
+/* On z10, instructions of the compare-and-branch family have the
+   property to access the register occurring as second operand with
+   its bits complemented.  If such a compare is grouped with a second
+   instruction that accesses the same register non-complemented, and
+   if that register's value is delivered via a bypass, then the
+   pipeline recycles, thereby causing significant performance decline.
+   This function locates such situations and exchanges the two
+   operands of the compare.  */
+static void
+s390_z10_optimize_cmp (void)
+{
+  rtx insn, prev_insn, next_insn;
+  int added_NOPs = 0;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      rtx cond, *op0, *op1;
+
+      if (!INSN_P (insn) || INSN_CODE (insn) <= 0)
+	continue;
+
+      if (GET_CODE (PATTERN (insn)) == PARALLEL)
+	{
+	  /* Handle compare and branch and branch on count
+	     instructions.  */
+	  rtx pattern = single_set (insn);
+
+	  if (!pattern
+	      || SET_DEST (pattern) != pc_rtx
+	      || GET_CODE (SET_SRC (pattern)) != IF_THEN_ELSE)
+	    continue;
+
+	  cond = XEXP (SET_SRC (pattern), 0);
+	  op0 = &XEXP (cond, 0);
+	  op1 = &XEXP (cond, 1);
+	}
+      else if (GET_CODE (PATTERN (insn)) == SET)
+	{
+	  rtx src, dest;
+
+	  /* Handle normal compare instructions.  */
+	  src = SET_SRC (PATTERN (insn));
+	  dest = SET_DEST (PATTERN (insn));
+
+	  if (!REG_P (dest)
+	      || !CC_REGNO_P (REGNO (dest))
+	      || GET_CODE (src) != COMPARE)
+	    continue;
+
+	  /* s390_swap_cmp will try to find the conditional
+	     jump when passing NULL_RTX as condition.  */
+	  cond = NULL_RTX;
+	  op0 = &XEXP (src, 0);
+	  op1 = &XEXP (src, 1);
+	}
+      else
+	continue;
+
+      if (!REG_P (*op0) || !REG_P (*op1))
+	continue;
+
+      /* Swap the COMPARE arguments and its mask if there is a
+	 conflicting access in the previous insn.  */
+      prev_insn = PREV_INSN (insn);
+      if (prev_insn != NULL_RTX && INSN_P (prev_insn)
+	  && reg_referenced_p (*op1, PATTERN (prev_insn)))
+	s390_swap_cmp (cond, op0, op1, insn);
+
+      /* Check if there is a conflict with the next insn. If there
+	 was no conflict with the previous insn, then swap the
+	 COMPARE arguments and its mask.  If we already swapped
+	 the operands, or if swapping them would cause a conflict
+	 with the previous insn, issue a NOP after the COMPARE in
+	 order to separate the two instuctions.  */
+      next_insn = NEXT_INSN (insn);
+      if (next_insn != NULL_RTX && INSN_P (next_insn)
+	  && s390_non_addr_reg_read_p (*op1, next_insn))
+	{
+	  if (prev_insn != NULL_RTX && INSN_P (prev_insn)
+	      && s390_non_addr_reg_read_p (*op0, prev_insn))
+	    {
+	      if (REGNO (*op1) == 0)
+		emit_insn_after (gen_nop1 (), insn);
+	      else
+		emit_insn_after (gen_nop (), insn);
+	      added_NOPs = 1;
+	    }
+	  else
+	    s390_swap_cmp (cond, op0, op1, insn);
+	}
+    }
+
+  /* Adjust branches if we added new instructions.  */
+  if (added_NOPs)
+    shorten_branches (get_insns ());
+}
+
+
 /* Perform machine-dependent processing.  */
 
 static void
@@ -9717,6 +9871,11 @@ s390_reorg (void)
 
   /* Try to optimize prologue and epilogue further.  */
   s390_optimize_prologue ();
+
+  /* Eliminate z10-specific pipeline recycles related to some compare
+     instructions.  */
+  if (s390_tune == PROCESSOR_2097_Z10)
+    s390_z10_optimize_cmp ();
 }
 
 

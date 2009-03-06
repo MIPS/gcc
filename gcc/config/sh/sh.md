@@ -1,6 +1,6 @@
 ;;- Machine description for Renesas / SuperH SH.
 ;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-;;  2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+;;  2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -10237,7 +10237,10 @@ mov.l\\t1f,r0\\n\\
  "*
 {
   if (operands[1] != const0_rtx)
-    assemble_integer (operands[0], 4, BITS_PER_UNIT * 4, 1);
+    {
+      assemble_integer (operands[0], 4, BITS_PER_UNIT * 4, 1);
+      mark_symbol_refs_as_used (operands[0]);
+    }
   return \"\";
 }"
  [(set_attr "length" "4")

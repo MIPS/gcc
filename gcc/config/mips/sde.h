@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    MIPS SDE version.
-   Copyright (C) 2003, 2004, 2007
+   Copyright (C) 2003, 2004, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -60,13 +60,12 @@ along with GCC; see the file COPYING3.  If not see
 #undef SUBTARGET_ASM_SPEC
 #define SUBTARGET_ASM_SPEC "\
 %{!mips1:--trap} \
-%{fPIC|fpic|fPIE|fpie:%{!mips16*:-KPIC}} \
 %{mips16:-no-mips16}"
 
 #undef LINK_SPEC
 #define LINK_SPEC "\
 %(endian_spec) \
-%{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips32r2} %{mips64} \
+%{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32*} %{mips64*} \
 %{bestGnum} \
 %{shared} %{non_shared} %{call_shared} \
 %{mabi=n32:-melf32%{EB:b}%{EL:l}tsmipn32} \
