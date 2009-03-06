@@ -1,5 +1,13 @@
 2009-03-06  Richard Guenther  <rguenther@suse.de>
 
+	* fold-const.c (maybe_canonicalize_comparison_1): Canonicalize
+	A +- CST code arg1 if A +- CST does not overflow.
+	(fold_comparison): Transform X +- C1 CMP Y +- C2 to
+	X CMP Y +- C2 +- C1 if X +- C1 does not overflow and C2 +- C1
+	is less in magnitude than C2.
+
+2009-03-06  Richard Guenther  <rguenther@suse.de>
+
 	* fold-const.c (int_const_binop_1): New worker function split
 	out from ...
 	(int_const_binop): ... here.

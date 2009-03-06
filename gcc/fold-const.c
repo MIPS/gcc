@@ -8685,13 +8685,11 @@ maybe_canonicalize_comparison_1 (enum tree_code code, tree type,
   bool swap = false;
 
   /* Match A +- CST code arg1 and CST code arg1.  We can change the
-     first form only if overflow is undefined.  */
-  if (!((TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (arg0))
-	 /* In principle pointers also have undefined overflow behavior,
+     first form only if the operation does not wrap.  */
+  if (!((/* In principle pointer arithmetic also can be non-wrapping,
 	    but that causes problems elsewhere.  */
-	 && !POINTER_TYPE_P (TREE_TYPE (arg0))
-	 && (code0 == MINUS_EXPR
-	     || code0 == PLUS_EXPR)
+	 (code0 == MINUSNV_EXPR
+	  || code0 == PLUSNV_EXPR)
          && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
 	|| code0 == INTEGER_CST))
     return NULL_TREE;
@@ -8733,23 +8731,24 @@ maybe_canonicalize_comparison_1 (enum tree_code code, tree type,
     {
       /* A - CST < arg1  ->  A - CST-1 <= arg1.  */
       if (code == LT_EXPR
-	  && code0 == ((sgn0 == -1) ? PLUS_EXPR : MINUS_EXPR))
+	  && code0 == ((sgn0 == -1) ? PLUSNV_EXPR : MINUSNV_EXPR))
 	code = LE_EXPR;
       /* A + CST > arg1  ->  A + CST-1 >= arg1.  */
       else if (code == GT_EXPR
-	       && code0 == ((sgn0 == -1) ? MINUS_EXPR : PLUS_EXPR))
+	       && code0 == ((sgn0 == -1) ? MINUSNV_EXPR : PLUSNV_EXPR))
 	code = GE_EXPR;
       /* A + CST <= arg1  ->  A + CST-1 < arg1.  */
       else if (code == LE_EXPR
-	       && code0 == ((sgn0 == -1) ? MINUS_EXPR : PLUS_EXPR))
+	       && code0 == ((sgn0 == -1) ? MINUSNV_EXPR : PLUSNV_EXPR))
 	code = LT_EXPR;
       /* A - CST >= arg1  ->  A - CST-1 > arg1.  */
       else if (code == GE_EXPR
-	       && code0 == ((sgn0 == -1) ? PLUS_EXPR : MINUS_EXPR))
+	       && code0 == ((sgn0 == -1) ? PLUSNV_EXPR : MINUSNV_EXPR))
 	code = GT_EXPR;
       else
 	return NULL_TREE;
-      *strict_overflow_p = true;
+      if (!TREE_NO_WARNING (arg0))
+	*strict_overflow_p = true;
     }
 
   /* Now build the constant reduced in magnitude.  But not if that
@@ -8767,6 +8766,8 @@ maybe_canonicalize_comparison_1 (enum tree_code code, tree type,
 
   t = int_const_binop (sgn0 == -1 ? PLUS_EXPR : MINUS_EXPR,
 		       cst0, build_int_cst (TREE_TYPE (cst0), 1), 0);
+  /* If A - CST didn't overflow so does A - (CST - 1).  So it is safe
+     to keep the *NV_EXPR variants.  */
   if (code0 != INTEGER_CST)
     t = fold_build2 (code0, TREE_TYPE (arg0), TREE_OPERAND (arg0, 0), t);
 
@@ -9112,52 +9113,71 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
     }
 
   /* Transform comparisons of the form X +- C1 CMP Y +- C2 to
-     X CMP Y +- C2 +- C1 for signed X, Y.  This is valid if
-     the resulting offset is smaller in absolute value than the
+     X CMP Y +- C2 +- C1 if X +- C1 does not overflow..  This is then
+     valid if the resulting offset is smaller in absolute value than the
      original one.  */
-  if (TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (arg0))
-      && (TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
-      && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
-	  && !TREE_OVERFLOW (TREE_OPERAND (arg0, 1)))
-      && (TREE_CODE (arg1) == PLUS_EXPR || TREE_CODE (arg1) == MINUS_EXPR)
-      && (TREE_CODE (TREE_OPERAND (arg1, 1)) == INTEGER_CST
-	  && !TREE_OVERFLOW (TREE_OPERAND (arg1, 1))))
+  if ((((TREE_CODE (arg0) == PLUSNV_EXPR || TREE_CODE (arg0) == MINUSNV_EXPR)
+	&& (PLUS_EXPR_P (arg1) || MINUS_EXPR_P (arg1)))
+       || ((TREE_CODE (arg1) == PLUSNV_EXPR || TREE_CODE (arg1) == MINUSNV_EXPR)
+	   && (PLUS_EXPR_P (arg0) || MINUS_EXPR_P (arg0))))
+      && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
+      && TREE_CODE (TREE_OPERAND (arg1, 1)) == INTEGER_CST)
     {
       tree const1 = TREE_OPERAND (arg0, 1);
       tree const2 = TREE_OPERAND (arg1, 1);
       tree variable1 = TREE_OPERAND (arg0, 0);
       tree variable2 = TREE_OPERAND (arg1, 0);
       tree cst;
+      unsigned HOST_WIDE_INT low;
+      HOST_WIDE_INT hi;
+      int overflow;
       const char * const warnmsg = G_("assuming signed overflow does not "
 				      "occur when combining constants around "
 				      "a comparison");
 
       /* Put the constant on the side where it doesn't overflow and is
-	 of lower absolute value than before.  */
-      cst = int_const_binop (TREE_CODE (arg0) == TREE_CODE (arg1)
-			     ? MINUS_EXPR : PLUS_EXPR,
-			     const2, const1, 0);
-      if (!TREE_OVERFLOW (cst)
-	  && tree_int_cst_compare (const2, cst) == tree_int_cst_sgn (const2))
+	 of lower absolute value than before if the operation on
+	 the other side doesn't overflow.  */
+      if (TREE_CODE (arg0) == PLUSNV_EXPR || TREE_CODE (arg0) == MINUSNV_EXPR)
 	{
-	  fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_COMPARISON);
-	  return fold_build2 (code, type,
-			      variable1,
-			      fold_build2 (TREE_CODE (arg1), TREE_TYPE (arg1),
-					   variable2, cst));
+	  overflow = int_const_binop_1 ((strip_nv (TREE_CODE (arg0))
+					 == strip_nv (TREE_CODE (arg1)))
+					? MINUS_EXPR : PLUS_EXPR,
+					const2, const1, &low, &hi);
+	  overflow |= fit_double_type (low, hi, &low, &hi, TREE_TYPE (arg1));
+	  cst = build_int_cst_wide (TREE_TYPE (arg1), low, hi);
+	  if (!overflow
+	      && tree_int_cst_compare (const2, cst) == tree_int_cst_sgn (const2))
+	    {
+	      if (!TREE_NO_WARNING (arg0))
+		fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_COMPARISON);
+	      return fold_build2 (code, type,
+				  variable1,
+				  fold_build2 (strip_nv (TREE_CODE (arg1)),
+					       TREE_TYPE (arg1),
+					       variable2, cst));
+	    }
 	}
 
-      cst = int_const_binop (TREE_CODE (arg0) == TREE_CODE (arg1)
-			     ? MINUS_EXPR : PLUS_EXPR,
-			     const1, const2, 0);
-      if (!TREE_OVERFLOW (cst)
-	  && tree_int_cst_compare (const1, cst) == tree_int_cst_sgn (const1))
+      if (TREE_CODE (arg1) == PLUSNV_EXPR || TREE_CODE (arg1) == MINUSNV_EXPR)
 	{
-	  fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_COMPARISON);
-	  return fold_build2 (code, type,
-			      fold_build2 (TREE_CODE (arg0), TREE_TYPE (arg0),
-					   variable1, cst),
-			      variable2);
+	  overflow = int_const_binop_1 ((strip_nv (TREE_CODE (arg0))
+					 == strip_nv (TREE_CODE (arg1)))
+					? MINUS_EXPR : PLUS_EXPR,
+					const1, const2, &low, &hi);
+	  overflow |= fit_double_type (low, hi, &low, &hi, TREE_TYPE (arg0));
+	  cst = build_int_cst_wide (TREE_TYPE (arg0), low, hi);
+	  if (!overflow
+	      && tree_int_cst_compare (const1, cst) == tree_int_cst_sgn (const1))
+	    {
+	      if (!TREE_NO_WARNING (arg1))
+		fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_COMPARISON);
+	      return fold_build2 (code, type,
+				  fold_build2 (strip_nv (TREE_CODE (arg0)),
+					       TREE_TYPE (arg0),
+					       variable1, cst),
+				  variable2);
+	    }
 	}
     }
 
