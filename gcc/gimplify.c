@@ -5885,6 +5885,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	  switch (TREE_CODE (t))
 	    {
 	    case PLUS_EXPR:
+	    case PLUSNV_EXPR:
 	      if (TREE_OPERAND (t, 1) == decl)
 		{
 		  TREE_OPERAND (t, 1) = TREE_OPERAND (t, 0);
@@ -5894,7 +5895,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 
 	      /* Fallthru.  */
 	    case MINUS_EXPR:
+	    case MINUSNV_EXPR:
 	    case POINTER_PLUS_EXPR:
+	    case POINTER_PLUSNV_EXPR:
 	      gcc_assert (TREE_OPERAND (t, 0) == decl);
 	      TREE_OPERAND (t, 0) = var;
 	      break;
@@ -5922,9 +5925,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 		gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
 		gcc_assert (TREE_OPERAND (t, 0) == var);
 		t = TREE_OPERAND (t, 1);
-		gcc_assert (TREE_CODE (t) == PLUS_EXPR
-			    || TREE_CODE (t) == MINUS_EXPR
-			    || TREE_CODE (t) == POINTER_PLUS_EXPR);
+		gcc_assert (PLUS_EXPR_P (t)
+			    || MINUS_EXPR_P (t)
+			    || POINTER_PLUS_EXPR_P (t));
 		gcc_assert (TREE_OPERAND (t, 0) == var);
 		t = build2 (TREE_CODE (t), TREE_TYPE (decl), decl,
 			    TREE_OPERAND (t, 1));
@@ -6766,6 +6769,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 
 	case POINTER_PLUS_EXPR:
+	case POINTER_PLUSNV_EXPR:
           /* Convert ((type *)A)+offset into &A->field_of_type_and_offset.
 	     The second is gimple immediate saving a need for extra statement.
 	   */

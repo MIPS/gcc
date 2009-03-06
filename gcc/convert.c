@@ -639,7 +639,9 @@ convert_to_integer (tree type, tree expr)
 	  }
 
 	case PLUS_EXPR:
+	case PLUSNV_EXPR:
 	case MINUS_EXPR:
+	case MINUSNV_EXPR:
 	case BIT_AND_EXPR:
 	case BIT_IOR_EXPR:
 	case BIT_XOR_EXPR:
@@ -686,19 +688,14 @@ convert_to_integer (tree type, tree expr)
 				|| ex_form == RSHIFT_EXPR
 				|| ex_form == LROTATE_EXPR
 				|| ex_form == RROTATE_EXPR))
-			|| ex_form == LSHIFT_EXPR
-			/* If we have !flag_wrapv, and either ARG0 or
-			   ARG1 is of a signed type, we have to do
-			   PLUS_EXPR or MINUS_EXPR in an unsigned
-			   type.  Otherwise, we would introduce
-			   signed-overflow undefinedness.  */
-			|| ((!TYPE_OVERFLOW_WRAPS (TREE_TYPE (arg0))
-			     || !TYPE_OVERFLOW_WRAPS (TREE_TYPE (arg1)))
-			    && (ex_form == PLUS_EXPR
-				|| ex_form == MINUS_EXPR)))
+			|| ex_form == LSHIFT_EXPR)
 		      typex = unsigned_type_for (typex);
 		    else
 		      typex = signed_type_for (typex);
+		    /* Even if the original expression didn't overflow
+		       the one in a different type might, so strip nv
+		       qualification here.  */
+		    ex_form = strip_nv (ex_form);
 		    return convert (type,
 				    fold_build2 (ex_form, typex,
 						 convert (typex, arg0),

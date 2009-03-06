@@ -10333,16 +10333,12 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	    return non_lvalue (fold_convert (type, arg0));
 	}
 
-      /* ???  Auditing required.  */
-      if (code == MINUSNV_EXPR)
-	return NULL_TREE;
-
       /* Pointer simplifications for subtraction, simple reassociations. */
       if (POINTER_TYPE_P (TREE_TYPE (arg1)) && POINTER_TYPE_P (TREE_TYPE (arg0)))
 	{
 	  /* (PTR0 p+ A) - (PTR1 p+ B) -> (PTR0 - PTR1) + (A - B) */
-	  if (TREE_CODE (arg0) == POINTER_PLUS_EXPR
-	      && TREE_CODE (arg1) == POINTER_PLUS_EXPR)
+	  if (POINTER_PLUS_EXPR_P (arg0)
+	      && POINTER_PLUS_EXPR_P (arg1))
 	    {
 	      tree arg00 = fold_convert (type, TREE_OPERAND (arg0, 0));
 	      tree arg01 = fold_convert (type, TREE_OPERAND (arg0, 1));
@@ -10352,16 +10348,23 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 				  fold_build2 (MINUS_EXPR, type, arg00, arg10),
 				  fold_build2 (MINUS_EXPR, type, arg01, arg11));
 	    }
-	  /* (PTR0 p+ A) - PTR1 -> (PTR0 - PTR1) + A, assuming PTR0 - PTR1 simplifies. */
-	  else if (TREE_CODE (arg0) == POINTER_PLUS_EXPR)
+	  /* (PTR0 p+ A) - PTR1 -> (PTR0 - PTR1) + A, assuming
+	     PTR0 - PTR1 simplifies. */
+	  else if (POINTER_PLUS_EXPR_P (arg0))
 	    {
 	      tree arg00 = fold_convert (type, TREE_OPERAND (arg0, 0));
 	      tree arg01 = fold_convert (type, TREE_OPERAND (arg0, 1));
-	      tree tmp = fold_binary (MINUS_EXPR, type, arg00, fold_convert (type, arg1));
+	      tree tmp = fold_binary (MINUS_EXPR, type, arg00,
+				      fold_convert (type, arg1));
 	      if (tmp)
 	        return fold_build2 (PLUS_EXPR, type, tmp, arg01);
 	    }
 	}
+
+      /* ???  Auditing required.  */
+      if (code == MINUSNV_EXPR)
+	return NULL_TREE;
+
       /* A - (-B) -> A + B */
       if (TREE_CODE (arg1) == NEGATE_EXPR)
 	return fold_build2 (PLUS_EXPR, type, op0,
