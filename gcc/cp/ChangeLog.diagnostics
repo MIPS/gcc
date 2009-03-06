@@ -1,4 +1,12 @@
-i2008-12-12  Aldy Hernandez  <aldyh@redhat.com>
+2009-03-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* typeck.c (cp_build_binary_op): Pass location to overflow_warning.
+	(build_modify_expr): New arg.
+	* semantics.c (finish_unary_op_expr): Pass location to
+	overflow_warning.
+	(handle_omp_for_class_iterator): Pass location to build_modify_expr.
+
+2008-12-12  Aldy Hernandez  <aldyh@redhat.com>
 
 	* typeck.c (cxx_sizeof_or_alignof_type): Pass location to
 	c_sizeof_or_alignof_type.

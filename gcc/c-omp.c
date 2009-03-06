@@ -151,7 +151,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code, tree lhs, tree rhs)
   /* There are lots of warnings, errors, and conversions that need to happen
      in the course of interpreting a statement.  Use the normal mechanisms
      to do this, and then take it apart again.  */
-  x = build_modify_expr (input_location, lhs, code, rhs);
+  x = build_modify_expr (input_location, lhs, code, input_location, rhs);
   if (x == error_mark_node)
     return error_mark_node;
   gcc_assert (TREE_CODE (x) == MODIFY_EXPR);  
@@ -273,7 +273,12 @@ c_finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 	      fail = true;
 	    }
 
-	  init = build_modify_expr (elocus, decl, NOP_EXPR, init);
+	  init = build_modify_expr (elocus, decl, NOP_EXPR,
+				    /* FIXME diagnostics: This should
+				       be the location of the
+				       INIT.  */
+				    elocus,
+				    init);
 	}
       gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
       gcc_assert (TREE_OPERAND (init, 0) == decl);

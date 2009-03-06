@@ -1,3 +1,9 @@
+2009-03-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* objc-act.c (finish_var_decl): Pass location to finish_decl.
+	(objc_get_parm_info): Same.
+	(get_super_receiver): Same.
+
 2008-12-12  Aldy Hernandez  <aldyh@redhat.com>
 
 	* objc-act.c (objc_build_component_ref): Pass location to

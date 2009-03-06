@@ -1147,33 +1147,36 @@ constant_expression_error (tree value)
    already overflowed.  */
 
 void
-overflow_warning (tree value)
+overflow_warning (location_t loc, tree value)
 {
   if (skip_evaluation) return;
 
   switch (TREE_CODE (value))
     {
     case INTEGER_CST:
-      warning (OPT_Woverflow, "integer overflow in expression");
+      warning_at (loc, OPT_Woverflow, "integer overflow in expression");
       break;
       
     case REAL_CST:
-      warning (OPT_Woverflow, "floating point overflow in expression");
+      warning_at (loc, OPT_Woverflow,
+		  "floating point overflow in expression");
       break;
       
     case FIXED_CST:
-      warning (OPT_Woverflow, "fixed-point overflow in expression");
+      warning_at (loc, OPT_Woverflow, "fixed-point overflow in expression");
       break;
 
     case VECTOR_CST:
-      warning (OPT_Woverflow, "vector overflow in expression");
+      warning_at (loc, OPT_Woverflow, "vector overflow in expression");
       break;
       
     case COMPLEX_CST:
       if (TREE_CODE (TREE_REALPART (value)) == INTEGER_CST)
-	warning (OPT_Woverflow, "complex integer overflow in expression");
+	warning_at (loc, OPT_Woverflow,
+		    "complex integer overflow in expression");
       else if (TREE_CODE (TREE_REALPART (value)) == REAL_CST)
-	warning (OPT_Woverflow, "complex floating point overflow in expression");
+	warning_at (loc, OPT_Woverflow,
+		    "complex floating point overflow in expression");
       break;
 
     default:

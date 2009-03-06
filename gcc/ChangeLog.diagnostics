@@ -1,3 +1,71 @@
+2009-03-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* common.opt (fshow-column): Enable by default.
+	* tree-vrp.c (check_array_ref): Use warning_at.
+	(check_array_bounds): Use location from call back if expr has no
+	location.
+	* tree.h: Add location argument to maybe_fold_*.
+	* tree-ssa-ccp.c (ccp_fold): Pass location to maybe_fold_*.
+	(maybe_fold_offset_to_array_ref): Add location argument and use it.
+	(maybe_fold_offset_to_component_ref): Same.
+	(maybe_fold_offset_to_reference): Same.
+	(maybe_fold_offset_to_address): Same.
+	(maybe_fold_stmt_indirect): Same.
+	(maybe_fold_stmt_addition): Same.
+	(fold_stmt_r): Pass location to maybe_fold_*.
+	(fold_gimple_assign): Same.
+	* c-tree.h: Add location argument to finish_decl,
+	default_function_array_conversion, store_init_value.
+	* c-decl.c (define_label): Use error_at.
+	(c_make_fname_decl): Pass location to finish_decl.
+	(finish_decl): New location argument.
+	(build_compound_literal): Pass location to store_init_value.
+	(grokdeclarator): Pass location to finish_decl.
+	(grokfield): Same.
+	* c-typeck.c (array_to_pointer_conversion): New location argument.
+	(function_to_pointer_conversion): Same.
+	(default_function_array_conversion): Same.
+	(parser_build_unary_op): Pass location to overflow_warning.
+	(parser_build_binary_op): Same.  Use warning_at.
+	(build_unary_op): Pass location to array_to_pointer_conversion.
+	(build_c_cast): Pass location to digest_init.
+	(build_modify_expr): New location argument.
+	(convert_for_assignment): Same.
+	(store_init_value): Same.
+	(digest_init): Same.
+	(output_init_element): Pass location to digest_init and
+	array_to_pointer_conversion.
+	(c_finish_return): Pass location to convert_for_assignment.
+	* gimplify.c (gimplify_conversion): Pass location to
+	maybe_fold_offset_to_address.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Pass location
+	to maybe_fold_stmt_addition.
+	* c-omp.c (c_finish_omp_atomic): Pass new location to
+	build_modify_expr.
+	(c_finish_omp_for): Same.
+	* c-common.c (overflow_warning): New argument.
+	* c-common.h: New argument to build_modify_expr, overflow_warning.
+	* c-parser.c (c_parser_declaration_or_fndef): Pass location to
+	finish_decl.
+	(c_parser_initializer): Pass location to
+	default_function_array_conversion.
+	(c_parser_initelt): Same.
+	(c_parser_initval): Same.
+	(c_parser_asm_operands): Same.
+	(c_parser_expr_no_commas): Same.  Pass location to build_modify_expr.
+	(c_parser_conditional_expression): Same.
+	(c_parser_binary_expression): Add location info to stack.  Use it.
+	(c_parser_unary_expression): Pass location to
+	default_function_array_conversion, parser_build_unary_op,
+	build_indirect_ref, c_parser_postfix_expression_after_primary.
+	(c_parser_postfix_expression_after_primary): New location argument.
+	Use it.
+	(c_parser_expression_conv): Pass location to
+	default_function_array_conversion.
+	(c_parser_expr_list): Same.
+	(c_parser_omp_atomic): Same.
+	(c_parser_omp_for_loop): Same.
+
 2009-02-11  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-tree.h: (struct c_declarator): Add comment to id_loc.

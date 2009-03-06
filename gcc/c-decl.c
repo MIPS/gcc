@@ -2578,7 +2578,7 @@ define_label (location_t location, tree name)
 	  || (DECL_CONTEXT (label) != current_function_decl
 	      && C_DECLARED_LABEL_FLAG (label))))
     {
-      error ("%Hduplicate label %qD", &location, label);
+      error_at (location, "duplicate label %qD", label);
       locate_old_decl (label);
       return 0;
     }
@@ -2588,10 +2588,10 @@ define_label (location_t location, tree name)
 	 but not defined.  Update its location to point to this
 	 definition.  */
       if (C_DECL_UNDEFINABLE_STMT_EXPR (label))
-	error ("%Jjump into statement expression", label);
+	error_at (location, "jump into statement expression");
       if (C_DECL_UNDEFINABLE_VM (label))
-	error ("%Jjump into scope of identifier with variably modified type",
-	       label);
+	error_at (location,
+		  "jump into scope of identifier with variably modified type");
       DECL_SOURCE_LOCATION (label) = location;
     }
   else
@@ -2605,8 +2605,9 @@ define_label (location_t location, tree name)
     }
 
   if (!in_system_header && lookup_name (name))
-    warning (OPT_Wtraditional, "%Htraditional C lacks a separate namespace "
-	     "for labels, identifier %qE conflicts", &location, name);
+    warning_at (location, OPT_Wtraditional,
+		"traditional C lacks a separate namespace "
+		"for labels, identifier %qE conflicts", name);
 
   nlist_se = XOBNEW (&parser_obstack, struct c_label_list);
   nlist_se->next = label_context_stack_se->labels_def;
@@ -2808,7 +2809,7 @@ c_make_fname_decl (location_t loc, tree id, int type_dep)
 	    /*invisible=*/false, /*nested=*/false);
     }
 
-  finish_decl (decl, init, NULL_TREE);
+  finish_decl (decl, loc, init, NULL_TREE);
 
   return decl;
 }
@@ -3368,10 +3369,12 @@ c_maybe_initialize_eh (void)
 /* Finish processing of a declaration;
    install its initial value.
    If the length of an array type is not known before,
-   it must be determined now, from the initial value, or it is an error.  */
+   it must be determined now, from the initial value, or it is an error.
+
+   INIT_LOC is the location of the initial value.  */
 
 void
-finish_decl (tree decl, tree init, tree asmspec_tree)
+finish_decl (tree decl, location_t init_loc, tree init, tree asmspec_tree)
 {
   tree type;
   int was_incomplete = (DECL_SIZE (decl) == 0);
@@ -3393,7 +3396,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     init = 0;
 
   if (init)
-    store_init_value (decl, init);
+    store_init_value (init_loc, decl, init);
 
   if (c_dialect_objc () && (TREE_CODE (decl) == VAR_DECL
 			    || TREE_CODE (decl) == FUNCTION_DECL
@@ -3695,7 +3698,7 @@ push_parm_decl (const struct c_parm *parm)
 
   decl = pushdecl (decl);
 
-  finish_decl (decl, NULL_TREE, NULL_TREE);
+  finish_decl (decl, input_location, NULL_TREE, NULL_TREE);
 }
 
 /* Mark all the parameter declarations to date as forward decls.
@@ -3744,7 +3747,7 @@ build_compound_literal (location_t loc, tree type, tree init)
   TREE_USED (decl) = 1;
   TREE_TYPE (decl) = type;
   TREE_READONLY (decl) = TYPE_READONLY (type);
-  store_init_value (decl, init);
+  store_init_value (loc, decl, init);
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
     {
@@ -4623,7 +4626,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		tree decl = build_decl (loc, TYPE_DECL, NULL_TREE, type);
 		DECL_ARTIFICIAL (decl) = 1;
 		pushdecl (decl);
-		finish_decl (decl, NULL_TREE, NULL_TREE);
+		finish_decl (decl, loc, NULL_TREE, NULL_TREE);
 		TYPE_NAME (type) = decl;
 	      }
 
@@ -5467,7 +5470,7 @@ grokfield (location_t loc,
 			  width ? &width : NULL, decl_attrs,
 			  DEPRECATED_NORMAL);
 
-  finish_decl (value, NULL_TREE, NULL_TREE);
+  finish_decl (value, loc, NULL_TREE, NULL_TREE);
   DECL_INITIAL (value) = width;
 
   return value;

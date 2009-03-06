@@ -3970,7 +3970,7 @@ cp_build_binary_op (location_t location,
   if (TREE_OVERFLOW_P (result) 
       && !TREE_OVERFLOW_P (op0) 
       && !TREE_OVERFLOW_P (op1))
-    overflow_warning (result);
+    overflow_warning (location, result);
 
   return result;
 }
@@ -5796,7 +5796,8 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
 /* For use from the C common bits.  */
 tree
 build_modify_expr (location_t location ATTRIBUTE_UNUSED,
-		   tree lhs, enum tree_code modifycode, tree rhs)
+		   tree lhs, enum tree_code modifycode,
+		   location_t rhs_location ATTRIBUTE_UNUSED, tree rhs)
 {
   return cp_build_modify_expr (lhs, modifycode, rhs, tf_warning_or_error);
 }

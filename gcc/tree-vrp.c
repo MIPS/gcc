@@ -5035,8 +5035,8 @@ check_array_ref (tree ref, const location_t *location, bool ignore_off_by_one)
           && TREE_CODE (low_sub) == INTEGER_CST
           && tree_int_cst_lt (low_sub, low_bound))
         {
-          warning (OPT_Warray_bounds,
-                   "%Harray subscript is outside array bounds", location);
+          warning_at (*location, OPT_Warray_bounds,
+		      "array subscript is outside array bounds");
           TREE_NO_WARNING (ref) = 1;
         }
     }
@@ -5050,15 +5050,15 @@ check_array_ref (tree ref, const location_t *location, bool ignore_off_by_one)
                                                         0),
                                        up_sub)))
     {
-      warning (OPT_Warray_bounds, "%Harray subscript is above array bounds",
-               location);
+      warning_at (*location, OPT_Warray_bounds,
+		  "array subscript is above array bounds");
       TREE_NO_WARNING (ref) = 1;
     }
   else if (TREE_CODE (low_sub) == INTEGER_CST
            && tree_int_cst_lt (low_sub, low_bound))
     {
-      warning (OPT_Warray_bounds, "%Harray subscript is below array bounds",
-               location);
+      warning_at (*location, OPT_Warray_bounds,
+		  "array subscript is below array bounds");
       TREE_NO_WARNING (ref) = 1;
     }
 }
@@ -5110,16 +5110,24 @@ check_array_bounds (tree *tp, int *walk_subtree, void *data)
 {
   tree t = *tp;
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  const location_t *location = (const location_t *) wi->info;
+  location_t location;
+
+  if (EXPR_HAS_LOCATION (t))
+    location = EXPR_LOCATION (t);
+  else
+    {
+      location_t *locp = (location_t *) wi->info;
+      location = *locp;
+    }
 
   *walk_subtree = TRUE;
 
   if (TREE_CODE (t) == ARRAY_REF)
-    check_array_ref (t, location, false /*ignore_off_by_one*/);
+    check_array_ref (t, &location, false /*ignore_off_by_one*/);
 
   if (TREE_CODE (t) == INDIRECT_REF
       || (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0)))
-    search_for_addr_array (TREE_OPERAND (t, 0), location);
+    search_for_addr_array (TREE_OPERAND (t, 0), &location);
 
   if (TREE_CODE (t) == ADDR_EXPR)
     *walk_subtree = FALSE;

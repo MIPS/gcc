@@ -1833,7 +1833,7 @@ gimplify_conversion (tree *expr_p)
 {
   tree tem;
   gcc_assert (CONVERT_EXPR_P (*expr_p));
-  
+
   /* Then strip away all but the outermost conversion.  */
   STRIP_SIGN_NOPS (TREE_OPERAND (*expr_p, 0));
 
@@ -1848,8 +1848,8 @@ gimplify_conversion (tree *expr_p)
       && POINTER_TYPE_P (TREE_TYPE (*expr_p))
       && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (*expr_p, 0)))
       && (tem = maybe_fold_offset_to_address
-		  (TREE_OPERAND (*expr_p, 0),
-		   integer_zero_node, TREE_TYPE (*expr_p))) != NULL_TREE)
+	  (EXPR_LOCATION (*expr_p), TREE_OPERAND (*expr_p, 0),
+	   integer_zero_node, TREE_TYPE (*expr_p))) != NULL_TREE)
     *expr_p = tem;
 
   /* If we still have a conversion at the toplevel,
@@ -2257,6 +2257,7 @@ gimplify_arg (tree *arg_p, gimple_seq *pre_p, location_t call_location)
   /* If this is a variable sized type, we must remember the size.  */
   maybe_with_size_expr (arg_p);
 
+  /* FIXME diagnostics: This will mess up gcc.dg/Warray-bounds.c.  */
   /* Make sure arguments have the same location as the function call
      itself.  */
   protected_set_expr_location (*arg_p, call_location);
@@ -6741,8 +6742,9 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	   */
 	  if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
 	      && (tmp = maybe_fold_offset_to_address
-			 (TREE_OPERAND (*expr_p, 0), TREE_OPERAND (*expr_p, 1),
-		   	  TREE_TYPE (*expr_p))))
+		  (EXPR_LOCATION (*expr_p),
+		   TREE_OPERAND (*expr_p, 0), TREE_OPERAND (*expr_p, 1),
+		   TREE_TYPE (*expr_p))))
 	    {
 	      *expr_p = tmp;
 	      break;
@@ -6753,10 +6755,11 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p,
 									0),0)))
 	      && (tmp = maybe_fold_offset_to_address
-			 (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0),
-			  TREE_OPERAND (*expr_p, 1),
-		   	  TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p, 0),
-						   0)))))
+		  (EXPR_LOCATION (*expr_p),
+		   TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0),
+		   TREE_OPERAND (*expr_p, 1),
+		   TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p, 0),
+					    0)))))
 	     {
                *expr_p = fold_convert (TREE_TYPE (*expr_p), tmp);
 	       break;

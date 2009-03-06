@@ -356,7 +356,8 @@ extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 extern tree pushdecl_top_level (tree);
 extern tree pushdecl (tree);
-extern tree build_modify_expr (location_t, tree, enum tree_code, tree);
+extern tree build_modify_expr (location_t, tree, enum tree_code,
+			       location_t, tree);
 extern tree build_indirect_ref (location_t, tree, const char *);
 
 extern int c_expand_decl (tree);
@@ -728,7 +729,7 @@ extern void constant_expression_error (tree);
 extern bool strict_aliasing_warning (tree, tree, tree);
 extern void warnings_for_convert_and_check (tree, tree, tree);
 extern tree convert_and_check (tree, tree);
-extern void overflow_warning (tree);
+extern void overflow_warning (location_t, tree);
 extern void warn_logical_operator (enum tree_code, tree, tree);
 extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);

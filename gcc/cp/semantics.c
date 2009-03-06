@@ -2099,7 +2099,7 @@ finish_unary_op_expr (enum tree_code code, tree expr)
       TREE_NEGATED_INT (result) = 1;
     }
   if (TREE_OVERFLOW_P (result) && !TREE_OVERFLOW_P (expr))
-    overflow_warning (result);
+    overflow_warning (input_location, result);
 
   return result;
 }
@@ -4081,7 +4081,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   cond = cp_build_binary_op (elocus,
 			     TREE_CODE (cond), decl, diff,
 			     tf_warning_or_error);
-  incr = build_modify_expr (elocus, decl, PLUS_EXPR, incr);
+  incr = build_modify_expr (elocus, decl, PLUS_EXPR, elocus, incr);
 
   orig_body = *body;
   *body = push_stmt_list ();

@@ -1481,7 +1481,7 @@ start_var_decl (tree type, const char *name)
 static void
 finish_var_decl (tree var, tree initializer)
 {
-  finish_decl (var, initializer, NULL_TREE);
+  finish_decl (var, input_location, initializer, NULL_TREE);
   /* Ensure that the variable actually gets output.  */
   mark_decl_referenced (var);
   /* Mark the decl to avoid "defined but not used" warning.  */
@@ -8392,7 +8392,7 @@ objc_get_parm_info (int have_ellipsis)
 
       TREE_CHAIN (parm_info) = NULL_TREE;
       parm_info = pushdecl (parm_info);
-      finish_decl (parm_info, NULL_TREE, NULL_TREE);
+      finish_decl (parm_info, input_location, NULL_TREE, NULL_TREE);
       parm_info = next;
     }
   arg_info = get_parm_info (have_ellipsis);
@@ -8793,14 +8793,15 @@ get_super_receiver (void)
 	/* This prevents `unused variable' warnings when compiling with -Wall.  */
 	TREE_USED (UOBJC_SUPER_decl) = 1;
 	lang_hooks.decls.pushdecl (UOBJC_SUPER_decl);
-        finish_decl (UOBJC_SUPER_decl, NULL_TREE, NULL_TREE);
+        finish_decl (UOBJC_SUPER_decl, input_location, NULL_TREE, NULL_TREE);
 	UOBJC_SUPER_scope = objc_get_current_scope ();
       }
 
       /* Set receiver to self.  */
       super_expr = objc_build_component_ref (UOBJC_SUPER_decl, self_id);
       super_expr = build_modify_expr (input_location, 
-				      super_expr, NOP_EXPR, self_decl);
+				      super_expr, 
+				      NOP_EXPR, input_location, self_decl);
       super_expr_list = super_expr;
 
       /* Set class to begin searching.  */
@@ -8813,6 +8814,7 @@ get_super_receiver (void)
 	     synth_forward_declarations.  */
 
 	  super_expr = build_modify_expr (input_location, super_expr, NOP_EXPR,
+					  input_location,
 					  ((TREE_CODE (objc_method_context)
 					    == INSTANCE_METHOD_DECL)
 					   ? ucls_super_ref
@@ -8867,6 +8869,7 @@ get_super_receiver (void)
 
 	  super_expr
 	    = build_modify_expr (input_location, super_expr, NOP_EXPR,
+				 input_location,
 				 build_c_cast (input_location, 
 					       TREE_TYPE (super_expr),
 					       super_class));

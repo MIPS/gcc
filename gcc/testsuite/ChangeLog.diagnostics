@@ -1,3 +1,17 @@
+2009-03-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/overflow-warn-1.c: Add column info.
+	* gcc.dg/c99-tag-3.c: Same.
+	* gcc.dg/Wredundant-decls-2.c: Same.
+	* gcc.dg/Warray-bounds.c: Same.
+	* gcc.dg/func-ptr-conv-1.c: Same.
+	* gcc.dg/Wcxx-compat-2.c: Same.
+	* gcc.dg/asm-wide-1.c: Same.
+	* gcc.dg/cast-function-1.c: Same.
+	* gcc.dg/array-10.c: Same.
+	* gcc.dg/c99-vla-jump-1.c: Same.
+	* gcc.dg/Wshadow-3.c: Same.
+
 2008-12-12  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gcc.dg/gomp/pr27415.c: Move firstprivate diagnostics to correct
