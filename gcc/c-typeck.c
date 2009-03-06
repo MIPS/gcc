@@ -3261,7 +3261,7 @@ build_unary_op (location_t location,
   if (argtype == 0)
     argtype = TREE_TYPE (arg);
 
-  if (!flag_wrapv
+  if (!flag_wrapv && flag_strict_overflow
       && TREE_CODE (argtype) == INTEGER_TYPE
       && !TYPE_UNSIGNED (argtype)
       && code == NEGATE_EXPR)
@@ -8575,7 +8575,7 @@ build_binary_op (location_t location, enum tree_code code,
 
   if (TREE_CODE (build_type) == INTEGER_TYPE
       && !TYPE_UNSIGNED (build_type)
-      && !flag_wrapv)
+      && !flag_wrapv && flag_strict_overflow)
     {
       if (resultcode == PLUS_EXPR)
 	resultcode = PLUSNV_EXPR;

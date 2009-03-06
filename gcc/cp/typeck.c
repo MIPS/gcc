@@ -3380,6 +3380,7 @@ cp_build_binary_op (location_t location,
   switch (code)
     {
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       /* Subtraction of two similar pointers.
 	 We must subtract them as integers, then divide by object size.  */
       if (code0 == POINTER_TYPE && code1 == POINTER_TYPE
@@ -3396,6 +3397,7 @@ cp_build_binary_op (location_t location,
       /* The pointer - int case is just like pointer + int; fall
 	 through.  */
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       if ((code0 == POINTER_TYPE || code1 == POINTER_TYPE)
 	  && (code0 == INTEGER_TYPE || code1 == INTEGER_TYPE))
 	{
@@ -3416,6 +3418,7 @@ cp_build_binary_op (location_t location,
       break;
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
       common = 1;
       break;
 
@@ -3897,6 +3900,18 @@ cp_build_binary_op (location_t location,
       return error_mark_node;
     }
 
+  if (TREE_CODE (build_type ? build_type : result_type) == INTEGER_TYPE
+      && !TYPE_UNSIGNED (build_type ? build_type : result_type)
+      && !flag_wrapv && flag_strict_overflow)
+    {
+      if (resultcode == PLUS_EXPR)
+	resultcode = PLUSNV_EXPR;
+      else if (resultcode == MINUS_EXPR)
+	resultcode = MINUSNV_EXPR;
+      else if (resultcode == MULT_EXPR)
+	resultcode = MULTNV_EXPR;
+    }
+
   /* If we're in a template, the only thing we need to know is the
      RESULT_TYPE.  */
   if (processing_template_decl)
@@ -4262,6 +4277,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
     {
     case UNARY_PLUS_EXPR:
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
       {
 	int flags = WANT_ARITH | WANT_ENUM;
 	/* Unary plus (but not unary minus) is allowed on pointers.  */
@@ -4269,7 +4285,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	  flags |= WANT_POINTER;
 	arg = build_expr_type_conversion (flags, arg, true);
 	if (!arg)
-	  errstring = (code == NEGATE_EXPR
+	  errstring = (NEGATE_EXPR_CODE_P (code)
 		       ? "wrong type argument to unary minus"
 		       : "wrong type argument to unary plus");
 	else
@@ -4708,6 +4724,12 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
     default:
       break;
     }
+
+  if (!flag_wrapv && flag_strict_overflow
+      && TREE_CODE (argtype ? argtype : TREE_TYPE (arg)) == INTEGER_TYPE
+      && !TYPE_UNSIGNED (argtype ? argtype : TREE_TYPE (arg))
+      && code == NEGATE_EXPR)
+    code = NEGATENV_EXPR;
 
   if (!errstring)
     {

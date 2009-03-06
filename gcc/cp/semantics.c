@@ -3991,8 +3991,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
     case MODIFY_EXPR:
       if (TREE_OPERAND (incr, 0) != iter)
 	incr = error_mark_node;
-      else if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
-	       || TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR)
+      else if (PLUS_EXPR_P (TREE_OPERAND (incr, 1))
+	       || MINUS_EXPR_P (TREE_OPERAND (incr, 1)))
 	{
 	  tree rhs = TREE_OPERAND (incr, 1);
 	  if (TREE_OPERAND (rhs, 0) == iter)
@@ -4009,7 +4009,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 		    return true;
 		  incr = TREE_OPERAND (rhs, 1);
 		  incr = cp_convert (TREE_TYPE (diff), incr);
-		  if (TREE_CODE (rhs) == MINUS_EXPR)
+		  if (MINUS_EXPR_P (rhs))
 		    {
 		      incr = build1 (NEGATE_EXPR, TREE_TYPE (diff), incr);
 		      incr = fold_if_not_in_template (incr);
@@ -4024,7 +4024,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 	  else if (TREE_OPERAND (rhs, 1) == iter)
 	    {
 	      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (rhs, 0))) != INTEGER_TYPE
-		  || TREE_CODE (rhs) != PLUS_EXPR)
+		  || !PLUS_EXPR_P (rhs))
 		incr = error_mark_node;
 	      else
 		{

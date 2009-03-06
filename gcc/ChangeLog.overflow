@@ -1,5 +1,17 @@
 2009-03-06  Richard Guenther  <rguenther@suse.de>
 
+	* c-typeck.c (build_unary_op): Treat flag_strict_overflow the
+	same as flag_wrapv.
+	(build_binary_op): Likewise.
+
+	cp/
+	* typeck.c (cp_build_binary_op): Deal with *NV_EXPR.  Build
+	*NV_EXPR variants for signed arithmetic with undefined overflow.
+	(cp_build_unary_op): Likewise.
+	* semantics.c (handle_omp_for_class_iterator): Deal with *NV_EXPR.
+
+2009-03-06  Richard Guenther  <rguenther@suse.de>
+
 	* fold-const.c (negate_expr_p): Only do not negate integer
 	constants if overflows on the type trap and the negation
 	might overflow.  Remove superfluous TYPE_OVERFLOW_WRAPS checks.
