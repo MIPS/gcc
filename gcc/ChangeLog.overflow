@@ -1,5 +1,18 @@
 2009-03-06  Richard Guenther  <rguenther@suse.de>
 
+	* fold-const.c (negate_expr_p): Only do not negate integer
+	constants if overflows on the type trap and the negation
+	might overflow.  Remove superfluous TYPE_OVERFLOW_WRAPS checks.
+	Do not negate divisions on integral types.
+	(fold_negate_expr): Do not negate divisions on integral types.
+	(build_range_check): Remove superfluous TYPE_OVERFLOW_WRAPS checks.
+	(extract_muldiv_1): Likewise.
+	(fold_unary): Likewise for (T1)(X * Y) to (T1)X * (T1)Y folding.
+	Adjust folding to also apply to MULTNV_EXPR if NV is dropped
+	on the result.
+
+2009-03-06  Richard Guenther  <rguenther@suse.de>
+
 	* fold-const.c (fold_binary): Enable pointer re-association
 	for POINTER_PLUSNV_EXPR.
 	* gimplify.c (gimplify_expr): Handle POINTER_PLUSNV_EXPR.

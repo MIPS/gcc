@@ -1121,14 +1121,12 @@ negate_expr_p (tree t)
   switch (TREE_CODE (t))
     {
     case INTEGER_CST:
-      if (TYPE_OVERFLOW_WRAPS (type))
-	return true;
+      if (TYPE_OVERFLOW_TRAPS (type))
+	return may_negate_without_overflow_p (t);
+      return true;
 
-      /* Check that -CST will not overflow type.  */
-      return may_negate_without_overflow_p (t);
     case BIT_NOT_EXPR:
-      return (INTEGRAL_TYPE_P (type)
-	      && TYPE_OVERFLOW_WRAPS (type));
+      return INTEGRAL_TYPE_P (type);
 
     case FIXED_CST:
     case REAL_CST:
@@ -1184,11 +1182,8 @@ negate_expr_p (tree t)
     case EXACT_DIV_EXPR:
       /* In general we can't negate A / B, because if A is INT_MIN and
 	 B is 1, we may turn this into INT_MIN / -1 which is undefined
-	 and actually traps on some architectures.  But if overflow is
-	 undefined, we can negate, because - (INT_MIN / 1) is an
-	 overflow.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (t))
-	  && !TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (t)))
+	 and actually traps on some architectures.  */
+      if (INTEGRAL_TYPE_P (TREE_TYPE (t)))
         break;
       return negate_expr_p (TREE_OPERAND (t, 1))
              || negate_expr_p (TREE_OPERAND (t, 0));
@@ -1355,33 +1350,17 @@ fold_negate_expr (tree t)
     case EXACT_DIV_EXPR:
       /* In general we can't negate A / B, because if A is INT_MIN and
 	 B is 1, we may turn this into INT_MIN / -1 which is undefined
-	 and actually traps on some architectures.  But if overflow is
-	 undefined, we can negate, because - (INT_MIN / 1) is an
-	 overflow.  */
-      if (!INTEGRAL_TYPE_P (type) || TYPE_OVERFLOW_UNDEFINED (type))
+	 and actually traps on some architectures.  */
+      if (!INTEGRAL_TYPE_P (type))
         {
-	  const char * const warnmsg = G_("assuming signed overflow does not "
-					  "occur when negating a division");
           tem = TREE_OPERAND (t, 1);
           if (negate_expr_p (tem))
-	    {
-	      if (INTEGRAL_TYPE_P (type)
-		  && (TREE_CODE (tem) != INTEGER_CST
-		      || integer_onep (tem)))
-		fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_MISC);
-	      return fold_build2 (TREE_CODE (t), type,
-				  TREE_OPERAND (t, 0), negate_expr (tem));
-	    }
+	    return fold_build2 (TREE_CODE (t), type,
+				TREE_OPERAND (t, 0), negate_expr (tem));
           tem = TREE_OPERAND (t, 0);
           if (negate_expr_p (tem))
-	    {
-	      if (INTEGRAL_TYPE_P (type)
-		  && (TREE_CODE (tem) != INTEGER_CST
-		      || tree_int_cst_equal (tem, TYPE_MIN_VALUE (type))))
-		fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_MISC);
-	      return fold_build2 (TREE_CODE (t), type,
-				  negate_expr (tem), TREE_OPERAND (t, 1));
-	    }
+	    return fold_build2 (TREE_CODE (t), type,
+				negate_expr (tem), TREE_OPERAND (t, 1));
         }
       break;
 
@@ -4759,27 +4738,6 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
       break;
     }
 
-  /* If we don't have wrap-around arithmetics upfront, try to force it.  */
-  if (TREE_CODE (etype) == INTEGER_TYPE
-      && !TYPE_OVERFLOW_WRAPS (etype))
-    {
-      tree utype, minv, maxv;
-
-      /* Check if (unsigned) INT_MAX + 1 == (unsigned) INT_MIN
-	 for the type in question, as we rely on this here.  */
-      utype = unsigned_type_for (etype);
-      maxv = fold_convert (utype, TYPE_MAX_VALUE (etype));
-      maxv = range_binop (PLUS_EXPR, NULL_TREE, maxv, 1,
-			  integer_one_node, 1);
-      minv = fold_convert (utype, TYPE_MIN_VALUE (etype));
-
-      if (integer_zerop (range_binop (NE_EXPR, integer_type_node,
-				      minv, 1, maxv, 1)))
-	etype = utype;
-      else
-	return 0;
-    }
-
   high = fold_convert (etype, high);
   low = fold_convert (etype, low);
   exp = fold_convert (etype, exp);
@@ -6235,15 +6193,13 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
 	}
 
       /* If it's a multiply or a division/modulus operation of a multiple
-         of our constant, do the operation and verify it doesn't overflow.  */
+         of our constant, do the operation.  */
       if (code == MULT_EXPR
 	  || integer_zerop (const_binop (TRUNC_MOD_EXPR, op1, c, 0)))
 	{
 	  op1 = const_binop (code, fold_convert (ctype, op1),
 			     fold_convert (ctype, c), 0);
-	  /* We allow the constant to overflow with wrapping semantics.  */
-	  if (op1 == 0
-	      || (TREE_OVERFLOW (op1) && !TYPE_OVERFLOW_WRAPS (ctype)))
+	  if (op1 == 0)
 	    break;
 	}
       else
@@ -8355,26 +8311,16 @@ fold_unary (enum tree_code code, tree type, tree op0)
       /* Convert (T1)(X * Y) into (T1)X * (T1)Y if T1 is narrower than the
 	 type of X and Y (integer types only).  */
       if (INTEGRAL_TYPE_P (type)
-	  && TREE_CODE (op0) == MULT_EXPR
+	  && MULT_EXPR_P (op0)
 	  && INTEGRAL_TYPE_P (TREE_TYPE (op0))
 	  && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (op0)))
 	{
-	  /* Be careful not to introduce new overflows.  */
-	  tree mult_type;
-          if (TYPE_OVERFLOW_WRAPS (type))
-	    mult_type = type;
-	  else
-	    mult_type = unsigned_type_for (type);
-
-	  if (TYPE_PRECISION (mult_type) < TYPE_PRECISION (TREE_TYPE (op0)))
-	    {
-	      tem = fold_build2 (MULT_EXPR, mult_type,
-				 fold_convert (mult_type,
-					       TREE_OPERAND (op0, 0)),
-				 fold_convert (mult_type,
-					       TREE_OPERAND (op0, 1)));
-	      return fold_convert (type, tem);
-	    }
+	  /* Be careful to fall back to MULT_EXPR from MULTNV_EXPR.  */
+	  return fold_build2 (MULT_EXPR, type,
+			      fold_convert (type,
+					    TREE_OPERAND (op0, 0)),
+			      fold_convert (type,
+					    TREE_OPERAND (op0, 1)));
 	}
 
       tem = fold_convert_const (code, type, op0);
