@@ -535,6 +535,18 @@ is_base_object_this_pointer (tree base)
     return false;
 }
 
+/* Given a BASE object of a field access (i.e. base->a or base->foo()),
+   this function tells whether BASE is a base class of the current class.  */
+
+static bool
+is_base_object_base_class (tree base)
+{
+  if (TREE_CODE (base) == FIELD_DECL && DECL_FIELD_IS_BASE (base))
+    return true;
+  else
+    return false;
+}
+
 /* Given a CALL gimple statment, check if its function decl is annotated
    with "lock_returned" attribute. If so, return the lock specified in
    the attribute. Otherise, return NULL_TREE.  */
@@ -844,7 +856,8 @@ get_canonical_expr (tree lock, tree base_obj, bool is_temp_expr)
       case COMPONENT_REF:
         {
           /* Handle the case of Foo.mu.Lock() or Foo->mu.Lock().
-             If the base is "this" pointer, get the component only.  */
+             If the base is "this" pointer or a base class, get the component
+             only.  */
           tree base = TREE_OPERAND (lock, 0);
           tree component = TREE_OPERAND (lock, 1);
           tree canon_base;
@@ -853,6 +866,10 @@ get_canonical_expr (tree lock, tree base_obj, bool is_temp_expr)
 
           canon_base = get_canonical_expr (base, base_obj,
                                            true /* is_temp_expr */);
+
+          if (is_base_object_base_class (canon_base))
+            return get_canonical_expr (component, NULL_TREE, is_temp_expr);
+
           if (base != canon_base)
             lock = build3 (COMPONENT_REF, TREE_TYPE (component),
                            canon_base, component, NULL_TREE);
@@ -974,12 +991,14 @@ lock_set_contains (const struct pointer_set_t *lock_set, tree lock,
       && pointer_set_contains (lock_set, error_mark_node))
     return lock;
   
-  /* If the lock is a field and the base is not 'this' pointer, we need to
-     check the lock set with the fully-qualified lock name. Otherwise, we
-     could be confused by the same lock field of a different object.  */
+  /* If the lock is a field and the base is not 'this' pointer nor a base
+     class, we need to check the lock set with the fully-qualified lock name.
+     Otherwise, we could be confused by the same lock field of a different
+     object.  */
   if (leftmost_operand_is_field_decl (lock)
       && base_obj != NULL_TREE
-      && !is_base_object_this_pointer (base_obj))
+      && !is_base_object_this_pointer (base_obj)
+      && !is_base_object_base_class (base_obj))
     {
       /* canonical lock is a fully-qualified name. */
       tree canonical_lock = get_canonical_expr (lock, base_obj,
@@ -2149,6 +2168,29 @@ handle_call_gs (gimple call, struct bb_threadsafe_info *current_bb_info)
       /* A method should have at least one argument, i.e."this" pointer */
       gcc_assert (num_args);
       arg = gimple_call_arg (call, 0);
+
+      /* If the base object (i.e. "this" object) is a SSA name of a temp
+         variable, as shown in the following example (assuming the source
+         code is 'base.method_call()'):
+
+           D.5041_2 = &this_1(D)->base;
+           result.0_3 = method_call (D.5041_2);
+
+         we will need to get the rhs of the SSA def of the temp variable
+         in order for the analysis to work correctly.  */
+      if (TREE_CODE (arg) == SSA_NAME)
+        {
+          tree vdecl = SSA_NAME_VAR (arg);
+          if (DECL_ARTIFICIAL (vdecl)
+              && !gimple_nop_p (SSA_NAME_DEF_STMT (arg)))
+            {
+              gimple def_stmt = SSA_NAME_DEF_STMT (arg);
+              if (is_gimple_assign (def_stmt)
+                  && (get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt))
+                      == GIMPLE_SINGLE_RHS))
+                arg = gimple_assign_rhs1 (def_stmt);
+            }
+        }
 
       /* Analyze the base object ("this").  */
       if (TREE_CODE (arg) == ADDR_EXPR)

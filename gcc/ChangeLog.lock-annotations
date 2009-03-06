@@ -1,3 +1,11 @@
+2009-03-05  Le-Chun Wu  <lcwu@google.com>
+
+	* tree-threadsafe-analyze.c (is_base_object_base_class): New function.
+	(get_canonical_expr): Enhanced to handle base class objects.
+	(lock_set_contains): Likewise.
+	(handle_call_gs): Fix an issue in processing the 'this' object of a
+	method call.
+
 2009-01-20  Le-Chun Wu  <lcwu@google.com>
 
 	* cp/parser.c (cp_parser_init_declarator): Pass both prefix_attributes
