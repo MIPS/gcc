@@ -1,3 +1,10 @@
+2009-03-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/39323
+	* gcc.dg/pr39323-1.c: New.
+	* gcc.dg/pr39323-2.c: Likewise.
+	* gcc.dg/pr39323-3.c: Likewise.
+
 2009-03-03  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 

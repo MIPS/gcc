@@ -1,0 +1,5 @@
+2009-03-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/39323
+	* gcc-interface/utils.c (create_field_decl): Use "unsigned int"
+	on bit_align.
