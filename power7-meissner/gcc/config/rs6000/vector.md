@@ -48,6 +48,13 @@
 			    (V2DF  "DF")
 			    (TI    "TI")])
 
+;; Same size integer type for floating point data
+(define_mode_attr VEC_int [(V4SF  "v4si")
+			   (V2DF  "v2di")])
+
+(define_mode_attr VEC_INT [(V4SF  "V4SI")
+			   (V2DF  "V2DI")])
+
 ;; Vector move instructions.
 (define_expand "mov<mode>"
   [(set (match_operand:VEC_M 0 "nonimmediate_operand" "")
@@ -177,7 +184,7 @@
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "")
 
-(define_insn "ftrunc<mode>2"
+(define_expand "ftrunc<mode>2"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
   	(fix:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
@@ -348,6 +355,59 @@
 		   (match_operand:VEC_L 1 "vlogical_operand" "")))]
   "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
+
+;; Same size conversions
+(define_expand "float<VEC_int><mode>2"
+  [(set (match_operand:VEC_F 0 "vfloat_operand" "")
+	(float:VEC_F (match_operand:<VEC_INT> 1 "vint_operand" "")))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "
+{
+  if (<MODE>mode == V4SFmode && VECTOR_UNIT_ALTIVEC_P (<MODE>mode))
+    {
+      emit_insn (gen_altivec_vcfsx (operands[0], operands[1], const0_rtx));
+      DONE;
+    }
+}")
+
+(define_expand "unsigned_float<VEC_int><mode>2"
+  [(set (match_operand:VEC_F 0 "vfloat_operand" "")
+	(unsigned_float:VEC_F (match_operand:<VEC_INT> 1 "vint_operand" "")))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "
+{
+  if (<MODE>mode == V4SFmode && VECTOR_UNIT_ALTIVEC_P (<MODE>mode))
+    {
+      emit_insn (gen_altivec_vcfux (operands[0], operands[1], const0_rtx));
+      DONE;
+    }
+}")
+
+(define_expand "fix_trunc<mode><VEC_int>2"
+  [(set (match_operand:<VEC_INT> 0 "vint_operand" "")
+	(fix:<VEC_INT> (match_operand:VEC_F 1 "vfloat_operand" "")))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "
+{
+  if (<MODE>mode == V4SFmode && VECTOR_UNIT_ALTIVEC_P (<MODE>mode))
+    {
+      emit_insn (gen_altivec_vctsxs (operands[0], operands[1], const0_rtx));
+      DONE;
+    }
+}")
+
+(define_expand "fixuns_trunc<mode><VEC_int>2"
+  [(set (match_operand:<VEC_INT> 0 "vint_operand" "")
+	(unsigned_fix:<VEC_INT> (match_operand:VEC_F 1 "vfloat_operand" "")))]
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "
+{
+  if (<MODE>mode == V4SFmode && VECTOR_UNIT_ALTIVEC_P (<MODE>mode))
+    {
+      emit_insn (gen_altivec_vctuxs (operands[0], operands[1], const0_rtx));
+      DONE;
+    }
+}")
 
 
 ;; Vector initialization, set, extract

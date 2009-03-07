@@ -117,7 +117,7 @@ Use PowerPC V2.06 popcntd instruction
 
 mvsx
 Target Report Mask(VSX)
-Use vector/scalar (VSX) instructions.
+Use vector/scalar (VSX) instructions
 
 mvsx-vector-memory
 Target Report Var(TARGET_VSX_VECTOR_MEMORY) Init(-1)
@@ -125,15 +125,19 @@ If -mvsx, use VSX vector load/store instructions instead of Altivec instructions
 
 mvsx-vector-float
 Target Report Var(TARGET_VSX_VECTOR_FLOAT) Init(-1)
-If -mvsx, use VSX arithmetic instructions for float vectors
+If -mvsx, use VSX arithmetic instructions for float vectors (on by default)
 
 mvsx-vector-double
 Target Report Var(TARGET_VSX_VECTOR_DOUBLE) Init(-1)
-If -mvsx, use VSX arithmetic instructions for double vectors
+If -mvsx, use VSX arithmetic instructions for double vectors (on by default)
 
 mvsx-scalar-double
 Target Report Var(TARGET_VSX_SCALAR_DOUBLE) Init(-1)
-If -mvsx, use VSX arithmetic instructions for scalar double
+If -mvsx, use VSX arithmetic instructions for scalar double (on by default)
+
+mvsx-scalar-memory
+Target Report Var(TARGET_VSX_SCALAR_MEMORY)
+If -mvsx, use VSX scalar memory reference instructions for scalar double (off by default)
 
 mupdate
 Target Report Var(TARGET_UPDATE) Init(1)

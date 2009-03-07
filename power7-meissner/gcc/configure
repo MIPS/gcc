@@ -23225,7 +23225,7 @@ if test "${gcc_cv_as_powerpc_mfpgpr+set}" = set; then
 else
   gcc_cv_as_powerpc_mfpgpr=no
     if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
   then gcc_cv_as_powerpc_mfpgpr=yes
 fi
   elif test x$gcc_cv_as != x; then
@@ -23321,7 +23321,7 @@ if test "${gcc_cv_as_powerpc_cmpb+set}" = set; then
 else
   gcc_cv_as_powerpc_cmpb=no
     if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
   then gcc_cv_as_powerpc_cmpb=yes
 fi
   elif test x$gcc_cv_as != x; then
@@ -23367,7 +23367,7 @@ if test "${gcc_cv_as_powerpc_dfp+set}" = set; then
 else
   gcc_cv_as_powerpc_dfp=no
     if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
   then gcc_cv_as_powerpc_dfp=yes
 fi
   elif test x$gcc_cv_as != x; then
@@ -23413,7 +23413,7 @@ if test "${gcc_cv_as_powerpc_vsx+set}" = set; then
 else
   gcc_cv_as_powerpc_vsx=no
     if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
   then gcc_cv_as_powerpc_vsx=yes
 fi
   elif test x$gcc_cv_as != x; then
@@ -23459,7 +23459,7 @@ if test "${gcc_cv_as_powerpc_popcntd+set}" = set; then
 else
   gcc_cv_as_powerpc_popcntd=no
     if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 9 \* 1000 \) + 99 \) \* 1000 + 0`
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 19 \) \* 1000 + 2`
   then gcc_cv_as_powerpc_popcntd=yes
 fi
   elif test x$gcc_cv_as != x; then

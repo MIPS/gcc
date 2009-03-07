@@ -1,3 +1,84 @@
+2009-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/invoke.texi (-mvsx-scalar-memory): New switch, to switch to
+	use VSX reg+reg addressing for all scalar double precision
+	floating point.
+	* config/rs6000/rs6000.opt (-vsx-scalar-memory): Ditto.
+	
+	* configure.ac (gcc_cv_as_powerpc_mfpgpr): Set binutils version to
+	2.19.2.
+	(gcc_cv_as_powerpc_cmpb): Ditto.
+	(gcc_cv_as_powerpc_dfp): Ditto.
+	(gcc_cv_as_powerpc_vsx): Ditto.
+	(gcc_cv_as_powerpc_popcntd): Ditto.
+	* configure: Regenerate.
+
+	* config/rs6000/vector.md (VEC_int): New mode attribute for vector
+	conversions.
+	(VEC_INT): Ditto.
+	(ftrunc<mode>2): Make this a define_expand.
+	(float<VEC_int><mode>2): New vector conversion support to add VSX
+	32 bit int/32 bit floating point convert and 64 bit int/64 bit
+	floating point vector instructions.
+	(unsigned_float<VEC_int><mode>2): Ditto.
+	(fix_trunc<mode><VEC_int>2): Ditto.
+	(fixuns_trunc<mode><VEC_int>2): Ditto.
+
+	* config/rs6000/predicates.md (easy_fp_constant): 0.0 is an easy
+	constant under VSX.
+	(indexed_or_indirect_operand): Add VSX load/store with update
+	support.
+
+	* config/rs6000/rs6000.c (rs6000_debug_addr): New global for
+	-mdebug=addr.
+	(rs6000_init_hard_regno_mode_ok): Add -mvsx-scalar-memory
+	support.
+	(rs6000_override_options): Add -mdebug=addr support.
+	(rs6000_builtin_conversion): Add VSX same size conversions.
+	(rs6000_legitimize_address): Add -mdebug=addr support.  Add
+	support for VSX load/store with update instructions.
+	(rs6000_legitimize_reload_address): Ditto.
+	(rs6000_legitimate_address): Ditto.
+	(rs6000_mode_dependent_address): Ditto.
+	(print_operand): Ditto.
+	(bdesc_1arg): Add builtins for conversion that calls either the
+	VSX or Altivec insn pattern.
+	(rs6000_common_init_builtins): Ditto.
+
+	* config/rs6000/vsx.md (VSX_I): Delete, no longer used.
+	(VSi): New mode attribute for conversions.
+	(VSI): Ditto.
+	(VSc): Ditto.
+	(vsx_mov<mode>): Add load/store with update support.
+	(vsx_load<mode>_update*): New insns for load/store with update
+	support.
+	(vsx_store<mode>_update*): Ditto.
+	(vsx_fmadd<mode>4): Generate correct code for V4SF.
+	(vsx_fmsub<mode>4): Ditto.
+	(vsx_fnmadd<mode>4_*): Ditto.
+	(vsx_fnmsub<mode>4_*): Ditto.
+	(vsx_float<VSi><mode>2): New insn for vector conversion.
+	(vsx_floatuns<VSi><mode>2): Ditto.
+	(vsx_fix_trunc<mode><VSi>2): Ditto.
+	(vsx_fixuns_trunc<mode><VSi>2): Ditto.
+	(vsx_xxmrghw): New insn for V4SF interleave.
+	(vsx_xxmrglw): Ditto.
+
+	* config/rs6000/rs6000.h (rs6000_debug_addr): -mdebug=addr
+	support.
+	(TARGET_DEBUG_ADDR): Ditto.
+	(rs6000_builtins): Add VSX instructions for eventual VSX
+	builtins.
+
+	* config/rs6000/altivec.md (altivec_vmrghsf): Don't do the altivec
+	instruction if VSX.
+	(altivec_vmrglsf): Ditto.
+
+	* config/rs6000/rs6000.md (movdf_hardfloat32): Add support for
+	using xxlxor to zero a floating register if VSX.
+	(movdf_hardfloat64_mfpgpr): Ditto.
+	(movdf_hardfloat64): Ditto.
+
 2009-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_xxmrglw): Delete for now, use Altivec.

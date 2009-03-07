@@ -728,7 +728,8 @@ See RS/6000 and PowerPC Options.
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc  -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
 -mdynamic-no-pic  -maltivec -mswdiv -mvsx -mvsx-vector-memory @gol
--mvsx-vector-float -mvsx-vector-double -mvsx-scalar-double @gol
+-mvsx-vector-float -mvsx-vector-double @gol
+-mvsx-scalar-double -mvsx-scalar-memory @gol
 -mprioritize-restricted-insns=@var{priority} @gol
 -msched-costly-dep=@var{dependence_type} @gol
 -minsert-sched-nops=@var{scheme} @gol
@@ -13806,6 +13807,12 @@ compiler, and may not be supported in future versions.
 If @option{-mvsx}, use VSX arithmetic instructions for scalar double.
 This option is a temporary switch to tune the compiler, and may not be
 supported in future versions.
+
+@item -mvsx-scalar-memory
+@itemx -mno-vsx-scalar-memory
+If @option{-mvsx}, use VSX memory reference instructions for scalar
+double.  This option is a temporary switch to tune the compiler, and
+may not be supported in future versions.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs

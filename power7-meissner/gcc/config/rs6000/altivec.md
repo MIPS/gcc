@@ -797,7 +797,7 @@
                                                     (const_int 3)
                                                     (const_int 1)]))
                       (const_int 5)))]
-  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vmrghw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -899,7 +899,7 @@
 				     (const_int 1)
 				     (const_int 3)]))
 	 (const_int 5)))]
-  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
+  "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
   "vmrglw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 

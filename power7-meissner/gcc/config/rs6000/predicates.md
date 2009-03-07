@@ -265,6 +265,10 @@
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[3]) == 1);
 
     case DFmode:
+      /* The constant 0.f is easy under VSX.  */
+      if (op == CONST0_RTX (DFmode) && VECTOR_UNIT_VSX_P (DFmode))
+	return 1;
+
       /* Force constants to memory before reload to utilize
 	 compress_float_constant.
 	 Avoid this when flag_unsafe_math_optimizations is enabled
@@ -427,12 +431,15 @@
   (match_code "mem")
 {
   op = XEXP (op, 0);
-  if (TARGET_ALTIVEC && !TARGET_VSX
-      && ALTIVEC_VECTOR_MODE (mode)
+  if (VECTOR_MEM_ALTIVEC_P (mode)
       && GET_CODE (op) == AND
       && GET_CODE (XEXP (op, 1)) == CONST_INT
       && INTVAL (XEXP (op, 1)) == -16)
     op = XEXP (op, 0);
+
+  else if (VECTOR_MEM_VSX_P (mode)
+	   && GET_CODE (op) == PRE_MODIFY)
+    op = XEXP (op, 1);
 
   return indexed_or_indirect_address (op, mode);
 })
