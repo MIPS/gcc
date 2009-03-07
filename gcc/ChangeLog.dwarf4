@@ -1,5 +1,28 @@
 2009-03-06  Cary Coutant  <ccoutant@google.com>
 
+	* dwarf2out.c (CHECKSUM_STRING): Redefine for DWARF-4 to include
+	trailing NULL byte.
+	(CHECKSUM_SLEB128, CHECKSUM_ULEB128): New macros.
+	(checksum_sleb128, checksum_uleb128): New functions.
+	(loc_checksum_ordered): New function.
+	(attr_checksum_ordered): Use CHECKSUM_SLEB128 and CHECKSUM_ULEB128.
+	(struct checksum_attributes): New structure.
+	(collect_checksum_attributes): New function.
+	(die_checksum_ordered): Call collect_checksum_attributes to get
+	attributes of declaration if necessary. Add some additional
+	attributes to the checksum. Update checksum algorithm to
+	match draft DWARF-4 specification.
+	(generate_type_signature): Include trailing NULL byte in ODR
+	signature.
+	(generate_skeleton): Leave a declaration when moving a nested
+	type into its own type unit.
+	(prune_unused_types_mark): Mark children of type entries when
+	doing DWARF-4 comdat types.
+	(dwarf2out_finish): Add a pointer to the line table from
+	type unit entries so DW_AT_decl_file has meaning.
+
+2009-03-06  Cary Coutant  <ccoutant@google.com>
+
 Merged trunk revision 144679 into dwarf4 branch.
 
 2008-11-17  Cary Coutant  <ccoutant@google.com>

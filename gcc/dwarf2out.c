@@ -5077,7 +5077,12 @@ static dw_die_ref pop_compile_unit (dw_die_ref);
 static void loc_checksum (dw_loc_descr_ref, struct md5_ctx *);
 static void attr_checksum (dw_attr_ref, struct md5_ctx *, int *);
 static void die_checksum (dw_die_ref, struct md5_ctx *, int *);
+static void checksum_sleb128 (HOST_WIDE_INT, struct md5_ctx *);
+static void checksum_uleb128 (unsigned HOST_WIDE_INT, struct md5_ctx *);
+static void loc_checksum_ordered (dw_loc_descr_ref, struct md5_ctx *);
 static void attr_checksum_ordered (dw_attr_ref, struct md5_ctx *, int *);
+struct checksum_attributes;
+static void collect_checksum_attributes (struct checksum_attributes *, dw_die_ref);
 static void die_checksum_ordered (dw_die_ref, struct md5_ctx *, int *);
 static void checksum_die_context (dw_die_ref, struct md5_ctx *);
 static void generate_type_signature (dw_die_ref, comdat_type_node *);
@@ -7097,363 +7102,54 @@ die_checksum (dw_die_ref die, struct md5_ctx *ctx, int *mark)
   FOR_EACH_CHILD (die, c, die_checksum (c, ctx, mark));
 }
 
-/* Calculate the checksum of an attribute.  */
+#undef CHECKSUM
+#undef CHECKSUM_STRING
+
+/* For DWARF-4 types, include the trailing NULL when checksumming strings.  */
+#define CHECKSUM(FOO) md5_process_bytes (&(FOO), sizeof (FOO), ctx)
+#define CHECKSUM_STRING(FOO) md5_process_bytes ((FOO), strlen (FOO) + 1, ctx)
+#define CHECKSUM_SLEB128(FOO) checksum_sleb128 ((FOO), ctx)
+#define CHECKSUM_ULEB128(FOO) checksum_uleb128 ((FOO), ctx)
+#define CHECKSUM_ATTR(FOO) if (FOO) attr_checksum_ordered (FOO, ctx, mark)
+
+/* Calculate the checksum of a number in signed LEB128 format.  */
 
 static void
-attr_checksum_ordered (dw_attr_ref at, struct md5_ctx *ctx, int *mark)
+checksum_sleb128 (HOST_WIDE_INT value, struct md5_ctx *ctx)
 {
-  dw_loc_descr_ref loc;
-  rtx r;
+  unsigned char byte;
+  bool more;
 
-  CHECKSUM (at->dw_attr);
-
-  /* We don't care that this was compiled with a different compiler
-     snapshot; if the output is the same, that's what matters.  */
-  if (at->dw_attr == DW_AT_producer)
-    return;
-
-  switch (AT_class (at))
+  while (1)
     {
-    case dw_val_class_const:
-      CHECKSUM (at->dw_attr_val.v.val_int);
-      break;
-    case dw_val_class_unsigned_const:
-      CHECKSUM (at->dw_attr_val.v.val_unsigned);
-      break;
-    case dw_val_class_long_long:
-      CHECKSUM (at->dw_attr_val.v.val_long_long);
-      break;
-    case dw_val_class_vec:
-      CHECKSUM (at->dw_attr_val.v.val_vec);
-      break;
-    case dw_val_class_flag:
-      CHECKSUM (at->dw_attr_val.v.val_flag);
-      break;
-    case dw_val_class_str:
-      CHECKSUM_STRING (AT_string (at));
-      break;
-
-    case dw_val_class_addr:
-      r = AT_addr (at);
-      gcc_assert (GET_CODE (r) == SYMBOL_REF);
-      CHECKSUM_STRING (XSTR (r, 0));
-      break;
-
-    case dw_val_class_offset:
-      CHECKSUM (at->dw_attr_val.v.val_offset);
-      break;
-
-    case dw_val_class_loc:
-      for (loc = AT_loc (at); loc; loc = loc->dw_loc_next)
-	loc_checksum (loc, ctx);
-      break;
-
-    case dw_val_class_die_ref:
-      die_checksum_ordered (AT_ref (at), ctx, mark);
-      break;
-
-    case dw_val_class_fde_ref:
-    case dw_val_class_lbl_id:
-    case dw_val_class_lineptr:
-    case dw_val_class_macptr:
-      break;
-
-    case dw_val_class_file:
-      CHECKSUM_STRING (AT_file (at)->filename);
-      break;
-
-    case dw_val_class_data8:
-      break;
-
-    default:
-      break;
+      byte = (value & 0x7f);
+      value >>= 7;
+      more = !((value == 0 && (byte & 0x40) == 0)
+		|| (value == -1 && (byte & 0x40) != 0));
+      if (more)
+	byte |= 0x80;
+      CHECKSUM (byte);
+      if (!more)
+	break;
     }
 }
 
-#define CHECKSUM_ATTR(FOO) if (FOO) attr_checksum_ordered (FOO, ctx, mark)
-
-/* Calculate the checksum of a DIE, using an ordered subset of attributes.  */
+/* Calculate the checksum of a number in unsigned LEB128 format.  */
 
 static void
-die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
+checksum_uleb128 (unsigned HOST_WIDE_INT value, struct md5_ctx *ctx)
 {
-  dw_die_ref c;
-  dw_attr_ref a;
-  dw_attr_ref at_name = NULL;
-  dw_attr_ref at_accessibility = NULL;
-  dw_attr_ref at_address_class = NULL;
-  dw_attr_ref at_allocated = NULL;
-  dw_attr_ref at_artificial = NULL;
-  dw_attr_ref at_associated = NULL;
-  dw_attr_ref at_binary_scale = NULL;
-  dw_attr_ref at_bit_offset = NULL;
-  dw_attr_ref at_bit_size = NULL;
-  dw_attr_ref at_bit_stride = NULL;
-  dw_attr_ref at_byte_size = NULL;
-  dw_attr_ref at_byte_stride = NULL;
-  dw_attr_ref at_const_value = NULL;
-  dw_attr_ref at_count = NULL;
-  dw_attr_ref at_data_location = NULL;
-  dw_attr_ref at_data_member_location = NULL;
-  dw_attr_ref at_decimal_scale = NULL;
-  dw_attr_ref at_decimal_sign = NULL;
-  dw_attr_ref at_default_value = NULL;
-  dw_attr_ref at_digit_count = NULL;
-  dw_attr_ref at_discr = NULL;
-  dw_attr_ref at_discr_list = NULL;
-  dw_attr_ref at_discr_value = NULL;
-  dw_attr_ref at_encoding = NULL;
-  dw_attr_ref at_endianity = NULL;
-  dw_attr_ref at_is_optional = NULL;
-  dw_attr_ref at_location = NULL;
-  dw_attr_ref at_lower_bound = NULL;
-  dw_attr_ref at_ordering = NULL;
-  dw_attr_ref at_picture_string = NULL;
-  dw_attr_ref at_prototyped = NULL;
-  dw_attr_ref at_small = NULL;
-  dw_attr_ref at_segment = NULL;
-  dw_attr_ref at_start_scope = NULL;
-  dw_attr_ref at_string_length = NULL;
-  dw_attr_ref at_threads_scaled = NULL;
-  dw_attr_ref at_upper_bound = NULL;
-  dw_attr_ref at_use_location = NULL;
-  dw_attr_ref at_variable_parameter = NULL;
-  dw_attr_ref at_visibility = NULL;
-  dw_attr_ref at_type = NULL;
-  dw_attr_ref at_friend = NULL;
-  unsigned ix;
-
-  /* To avoid infinite recursion.  */
-  if (die->die_mark)
+  while (1)
     {
-      CHECKSUM (die->die_mark);
-      return;
+      unsigned char byte = (value & 0x7f);
+      value >>= 7;
+      if (value != 0)
+	/* More bytes to follow.  */
+	byte |= 0x80;
+      CHECKSUM (byte);
+      if (value == 0)
+	break;
     }
-  die->die_mark = ++(*mark);
-
-  CHECKSUM (die->die_tag);
-
-  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
-    {
-      switch (a->dw_attr)
-        {
-        case DW_AT_name:
-          at_name = a;
-          break;
-        case DW_AT_accessibility:
-          at_accessibility = a;
-          break;
-        case DW_AT_address_class:
-          at_address_class = a;
-          break;
-        case DW_AT_allocated:
-          at_allocated = a;
-          break;
-        case DW_AT_artificial:
-          at_artificial = a;
-          break;
-        case DW_AT_associated:
-          at_associated = a;
-          break;
-        case DW_AT_binary_scale:
-          at_binary_scale = a;
-          break;
-        case DW_AT_bit_offset:
-          at_bit_offset = a;
-          break;
-        case DW_AT_bit_size:
-          at_bit_size = a;
-          break;
-        case DW_AT_bit_stride:
-          at_bit_stride = a;
-          break;
-        case DW_AT_byte_size:
-          at_byte_size = a;
-          break;
-        case DW_AT_byte_stride:
-          at_byte_stride = a;
-          break;
-        case DW_AT_const_value:
-          at_const_value = a;
-          break;
-        case DW_AT_count:
-          at_count = a;
-          break;
-        case DW_AT_data_location:
-          at_data_location = a;
-          break;
-        case DW_AT_data_member_location:
-          at_data_member_location = a;
-          break;
-        case DW_AT_decimal_scale:
-          at_decimal_scale = a;
-          break;
-        case DW_AT_decimal_sign:
-          at_decimal_sign = a;
-          break;
-        case DW_AT_default_value:
-          at_default_value = a;
-          break;
-        case DW_AT_digit_count:
-          at_digit_count = a;
-          break;
-        case DW_AT_discr:
-          at_discr = a;
-          break;
-        case DW_AT_discr_list:
-          at_discr_list = a;
-          break;
-        case DW_AT_discr_value:
-          at_discr_value = a;
-          break;
-        case DW_AT_encoding:
-          at_encoding = a;
-          break;
-        case DW_AT_endianity:
-          at_endianity = a;
-          break;
-        case DW_AT_is_optional:
-          at_is_optional = a;
-          break;
-        case DW_AT_location:
-          at_location = a;
-          break;
-        case DW_AT_lower_bound:
-          at_lower_bound = a;
-          break;
-        case DW_AT_ordering:
-          at_ordering = a;
-          break;
-        case DW_AT_picture_string:
-          at_picture_string = a;
-          break;
-        case DW_AT_prototyped:
-          at_prototyped = a;
-          break;
-        case DW_AT_small:
-          at_small = a;
-          break;
-        case DW_AT_segment:
-          at_segment = a;
-          break;
-        case DW_AT_start_scope:
-          at_start_scope = a;
-          break;
-        case DW_AT_string_length:
-          at_string_length = a;
-          break;
-        case DW_AT_threads_scaled:
-          at_threads_scaled = a;
-          break;
-        case DW_AT_upper_bound:
-          at_upper_bound = a;
-          break;
-        case DW_AT_use_location:
-          at_use_location = a;
-          break;
-        case DW_AT_variable_parameter:
-          at_variable_parameter = a;
-          break;
-        case DW_AT_visibility:
-          at_visibility = a;
-          break;
-        case DW_AT_type:
-          at_type = a;
-          break;
-        case DW_AT_friend:
-          at_friend = a;
-          break;
-        default:
-          break;
-        }
-    }
-
-  CHECKSUM_ATTR (at_name);
-  CHECKSUM_ATTR (at_accessibility);
-  CHECKSUM_ATTR (at_address_class);
-  CHECKSUM_ATTR (at_allocated);
-  CHECKSUM_ATTR (at_artificial);
-  CHECKSUM_ATTR (at_associated);
-  CHECKSUM_ATTR (at_binary_scale);
-  CHECKSUM_ATTR (at_bit_offset);
-  CHECKSUM_ATTR (at_bit_size);
-  CHECKSUM_ATTR (at_bit_stride);
-  CHECKSUM_ATTR (at_byte_size);
-  CHECKSUM_ATTR (at_byte_stride);
-  CHECKSUM_ATTR (at_const_value);
-  CHECKSUM_ATTR (at_count);
-  CHECKSUM_ATTR (at_data_location);
-  CHECKSUM_ATTR (at_data_member_location);
-  CHECKSUM_ATTR (at_decimal_scale);
-  CHECKSUM_ATTR (at_decimal_sign);
-  CHECKSUM_ATTR (at_default_value);
-  CHECKSUM_ATTR (at_digit_count);
-  CHECKSUM_ATTR (at_discr);
-  CHECKSUM_ATTR (at_discr_list);
-  CHECKSUM_ATTR (at_discr_value);
-  CHECKSUM_ATTR (at_encoding);
-  CHECKSUM_ATTR (at_endianity);
-  CHECKSUM_ATTR (at_is_optional);
-  CHECKSUM_ATTR (at_location);
-  CHECKSUM_ATTR (at_lower_bound);
-  CHECKSUM_ATTR (at_ordering);
-  CHECKSUM_ATTR (at_picture_string);
-  CHECKSUM_ATTR (at_prototyped);
-  CHECKSUM_ATTR (at_small);
-  CHECKSUM_ATTR (at_segment);
-  CHECKSUM_ATTR (at_start_scope);
-  CHECKSUM_ATTR (at_string_length);
-  CHECKSUM_ATTR (at_threads_scaled);
-  CHECKSUM_ATTR (at_upper_bound);
-  CHECKSUM_ATTR (at_use_location);
-  CHECKSUM_ATTR (at_variable_parameter);
-  CHECKSUM_ATTR (at_visibility);
-
-  if (die->die_tag == DW_TAG_pointer_type
-      || die->die_tag == DW_TAG_reference_type)
-    {
-      /* For pointer and reference types, we checksum only the name of
-         the target type (if there is a name).  This allows the checksum
-         to remain the same whether the target type is complete or not.  */
-      if (at_type != NULL && AT_class (at_type) == dw_val_class_die_ref)
-        {
-          dw_die_ref type_die = AT_ref (at_type);
-          dw_attr_ref name_attr = get_AT (type_die, DW_AT_name);
-          if (name_attr != NULL)
-            {
-              CHECKSUM_ATTR (name_attr);
-            }
-          else
-            {
-              CHECKSUM_ATTR (at_type);
-            }
-        }
-    }
-  else if (die->die_tag == DW_TAG_friend)
-    {
-      /* For friend entries, we checksum only the name of the target type.  */
-      if (at_friend != NULL && AT_class (at_friend) == dw_val_class_die_ref)
-        {
-          dw_die_ref friend_die = AT_ref (at_friend);
-          dw_attr_ref name_attr = get_AT (friend_die, DW_AT_name);
-          if (name_attr != NULL)
-            {
-              CHECKSUM_ATTR (name_attr);
-            }
-        }
-    }
-  else
-    {
-      CHECKSUM_ATTR (at_type);
-    }
-
-  /* Checksum the child DIEs, except for nested types.  */
-  c = die->die_child;
-  if (c) do {
-    c = c->die_sib;
-    if (! is_type_die (c))
-      die_checksum_ordered (c, ctx, mark);
-  } while (c != die->die_child);
 }
 
 /* Checksum the context of the DIE.  This adds the names of any
@@ -7480,14 +7176,477 @@ checksum_die_context (dw_die_ref die, struct md5_ctx *ctx)
   if (die->die_parent != NULL)
     checksum_die_context (die->die_parent, ctx);
 
-  CHECKSUM (tag);
+  CHECKSUM_ULEB128 (tag);
   if (name != NULL)
     CHECKSUM_STRING (name);
+}
+
+/* Calculate the checksum of a location expression.  */
+
+static inline void
+loc_checksum_ordered (dw_loc_descr_ref loc, struct md5_ctx *ctx)
+{
+  CHECKSUM (loc->dw_loc_opc);
+  CHECKSUM (loc->dw_loc_oprnd1);
+  CHECKSUM (loc->dw_loc_oprnd2);
+}
+
+/* Calculate the checksum of an attribute.  */
+
+static void
+attr_checksum_ordered (dw_attr_ref at, struct md5_ctx *ctx, int *mark)
+{
+  dw_loc_descr_ref loc;
+  rtx r;
+
+  CHECKSUM_ULEB128 (at->dw_attr);
+
+  switch (AT_class (at))
+    {
+    case dw_val_class_const:
+      CHECKSUM_SLEB128 (at->dw_attr_val.v.val_int);
+      break;
+    case dw_val_class_unsigned_const:
+      CHECKSUM_ULEB128 (at->dw_attr_val.v.val_unsigned);
+      break;
+    case dw_val_class_long_long:
+      CHECKSUM (at->dw_attr_val.v.val_long_long);
+      break;
+    case dw_val_class_vec:
+      CHECKSUM (at->dw_attr_val.v.val_vec);
+      break;
+    case dw_val_class_flag:
+      CHECKSUM (at->dw_attr_val.v.val_flag);
+      break;
+    case dw_val_class_str:
+      CHECKSUM_STRING (AT_string (at));
+      break;
+
+    case dw_val_class_addr:
+      r = AT_addr (at);
+      gcc_assert (GET_CODE (r) == SYMBOL_REF);
+      CHECKSUM_STRING (XSTR (r, 0));
+      break;
+
+    case dw_val_class_offset:
+      CHECKSUM_ULEB128 (at->dw_attr_val.v.val_offset);
+      break;
+
+    case dw_val_class_loc:
+      for (loc = AT_loc (at); loc; loc = loc->dw_loc_next)
+	loc_checksum_ordered (loc, ctx);
+      break;
+
+    case dw_val_class_die_ref:
+      die_checksum_ordered (AT_ref (at), ctx, mark);
+      break;
+
+    case dw_val_class_fde_ref:
+    case dw_val_class_lbl_id:
+    case dw_val_class_lineptr:
+    case dw_val_class_macptr:
+      break;
+
+    case dw_val_class_file:
+      CHECKSUM_STRING (AT_file (at)->filename);
+      break;
+
+    case dw_val_class_data8:
+      break;
+
+    default:
+      break;
+    }
+}
+
+struct checksum_attributes
+{
+  dw_attr_ref at_name;
+  dw_attr_ref at_type;
+  dw_attr_ref at_friend;
+  dw_attr_ref at_accessibility;
+  dw_attr_ref at_address_class;
+  dw_attr_ref at_allocated;
+  dw_attr_ref at_artificial;
+  dw_attr_ref at_associated;
+  dw_attr_ref at_binary_scale;
+  dw_attr_ref at_bit_offset;
+  dw_attr_ref at_bit_size;
+  dw_attr_ref at_bit_stride;
+  dw_attr_ref at_byte_size;
+  dw_attr_ref at_byte_stride;
+  dw_attr_ref at_const_value;
+  dw_attr_ref at_containing_type;
+  dw_attr_ref at_count;
+  dw_attr_ref at_data_location;
+  dw_attr_ref at_data_member_location;
+  dw_attr_ref at_decimal_scale;
+  dw_attr_ref at_decimal_sign;
+  dw_attr_ref at_default_value;
+  dw_attr_ref at_digit_count;
+  dw_attr_ref at_discr;
+  dw_attr_ref at_discr_list;
+  dw_attr_ref at_discr_value;
+  dw_attr_ref at_encoding;
+  dw_attr_ref at_endianity;
+  dw_attr_ref at_explicit;
+  dw_attr_ref at_is_optional;
+  dw_attr_ref at_location;
+  dw_attr_ref at_lower_bound;
+  dw_attr_ref at_mutable;
+  dw_attr_ref at_ordering;
+  dw_attr_ref at_picture_string;
+  dw_attr_ref at_prototyped;
+  dw_attr_ref at_small;
+  dw_attr_ref at_segment;
+  dw_attr_ref at_string_length;
+  dw_attr_ref at_threads_scaled;
+  dw_attr_ref at_upper_bound;
+  dw_attr_ref at_use_location;
+  dw_attr_ref at_use_UTF8;
+  dw_attr_ref at_variable_parameter;
+  dw_attr_ref at_virtuality;
+  dw_attr_ref at_visibility;
+  dw_attr_ref at_vtable_elem_location;
+};
+
+/* Collect the attributes that we will want to use for the checksum.  */
+
+static void
+collect_checksum_attributes (struct checksum_attributes *attrs, dw_die_ref die)
+{
+  dw_attr_ref a;
+  unsigned ix;
+
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
+    {
+      switch (a->dw_attr)
+        {
+        case DW_AT_name:
+          attrs->at_name = a;
+          break;
+        case DW_AT_type:
+          attrs->at_type = a;
+          break;
+        case DW_AT_friend:
+          attrs->at_friend = a;
+          break;
+        case DW_AT_accessibility:
+          attrs->at_accessibility = a;
+          break;
+        case DW_AT_address_class:
+          attrs->at_address_class = a;
+          break;
+        case DW_AT_allocated:
+          attrs->at_allocated = a;
+          break;
+        case DW_AT_artificial:
+          attrs->at_artificial = a;
+          break;
+        case DW_AT_associated:
+          attrs->at_associated = a;
+          break;
+        case DW_AT_binary_scale:
+          attrs->at_binary_scale = a;
+          break;
+        case DW_AT_bit_offset:
+          attrs->at_bit_offset = a;
+          break;
+        case DW_AT_bit_size:
+          attrs->at_bit_size = a;
+          break;
+        case DW_AT_bit_stride:
+          attrs->at_bit_stride = a;
+          break;
+        case DW_AT_byte_size:
+          attrs->at_byte_size = a;
+          break;
+        case DW_AT_byte_stride:
+          attrs->at_byte_stride = a;
+          break;
+        case DW_AT_const_value:
+          attrs->at_const_value = a;
+          break;
+        case DW_AT_containing_type:
+          attrs->at_containing_type = a;
+          break;
+        case DW_AT_count:
+          attrs->at_count = a;
+          break;
+        case DW_AT_data_location:
+          attrs->at_data_location = a;
+          break;
+        case DW_AT_data_member_location:
+          attrs->at_data_member_location = a;
+          break;
+        case DW_AT_decimal_scale:
+          attrs->at_decimal_scale = a;
+          break;
+        case DW_AT_decimal_sign:
+          attrs->at_decimal_sign = a;
+          break;
+        case DW_AT_default_value:
+          attrs->at_default_value = a;
+          break;
+        case DW_AT_digit_count:
+          attrs->at_digit_count = a;
+          break;
+        case DW_AT_discr:
+          attrs->at_discr = a;
+          break;
+        case DW_AT_discr_list:
+          attrs->at_discr_list = a;
+          break;
+        case DW_AT_discr_value:
+          attrs->at_discr_value = a;
+          break;
+        case DW_AT_encoding:
+          attrs->at_encoding = a;
+          break;
+        case DW_AT_endianity:
+          attrs->at_endianity = a;
+          break;
+        case DW_AT_explicit:
+          attrs->at_explicit = a;
+          break;
+        case DW_AT_is_optional:
+          attrs->at_is_optional = a;
+          break;
+        case DW_AT_location:
+          attrs->at_location = a;
+          break;
+        case DW_AT_lower_bound:
+          attrs->at_lower_bound = a;
+          break;
+        case DW_AT_mutable:
+          attrs->at_mutable = a;
+          break;
+        case DW_AT_ordering:
+          attrs->at_ordering = a;
+          break;
+        case DW_AT_picture_string:
+          attrs->at_picture_string = a;
+          break;
+        case DW_AT_prototyped:
+          attrs->at_prototyped = a;
+          break;
+        case DW_AT_small:
+          attrs->at_small = a;
+          break;
+        case DW_AT_segment:
+          attrs->at_segment = a;
+          break;
+        case DW_AT_string_length:
+          attrs->at_string_length = a;
+          break;
+        case DW_AT_threads_scaled:
+          attrs->at_threads_scaled = a;
+          break;
+        case DW_AT_upper_bound:
+          attrs->at_upper_bound = a;
+          break;
+        case DW_AT_use_location:
+          attrs->at_use_location = a;
+          break;
+        case DW_AT_use_UTF8:
+          attrs->at_use_UTF8 = a;
+          break;
+        case DW_AT_variable_parameter:
+          attrs->at_variable_parameter = a;
+          break;
+        case DW_AT_virtuality:
+          attrs->at_virtuality = a;
+          break;
+        case DW_AT_visibility:
+          attrs->at_visibility = a;
+          break;
+        case DW_AT_vtable_elem_location:
+          attrs->at_vtable_elem_location = a;
+          break;
+        default:
+          break;
+        }
+    }
+}
+
+/* Calculate the checksum of a DIE, using an ordered subset of attributes.  */
+
+static void
+die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
+{
+  dw_die_ref c;
+  dw_die_ref decl;
+  struct checksum_attributes attrs;
+
+  /* To avoid infinite recursion.  */
+  if (die->die_mark)
+    {
+      CHECKSUM_ULEB128 (die->die_mark);
+      return;
+    }
+  die->die_mark = ++(*mark);
+
+  memset (&attrs, 0, sizeof (attrs));
+
+  decl = get_AT_ref (die, DW_AT_specification);
+  if (decl != NULL)
+    collect_checksum_attributes (&attrs, decl);
+  collect_checksum_attributes (&attrs, die);
+
+  CHECKSUM_ULEB128 (die->die_tag);
+  CHECKSUM_ATTR (attrs.at_name);
+  CHECKSUM_ATTR (attrs.at_accessibility);
+  CHECKSUM_ATTR (attrs.at_address_class);
+  CHECKSUM_ATTR (attrs.at_allocated);
+  CHECKSUM_ATTR (attrs.at_artificial);
+  CHECKSUM_ATTR (attrs.at_associated);
+  CHECKSUM_ATTR (attrs.at_binary_scale);
+  CHECKSUM_ATTR (attrs.at_bit_offset);
+  CHECKSUM_ATTR (attrs.at_bit_size);
+  CHECKSUM_ATTR (attrs.at_bit_stride);
+  CHECKSUM_ATTR (attrs.at_byte_size);
+  CHECKSUM_ATTR (attrs.at_byte_stride);
+  CHECKSUM_ATTR (attrs.at_const_value);
+  CHECKSUM_ATTR (attrs.at_containing_type);
+  CHECKSUM_ATTR (attrs.at_count);
+  CHECKSUM_ATTR (attrs.at_data_location);
+  CHECKSUM_ATTR (attrs.at_data_member_location);
+  CHECKSUM_ATTR (attrs.at_decimal_scale);
+  CHECKSUM_ATTR (attrs.at_decimal_sign);
+  CHECKSUM_ATTR (attrs.at_default_value);
+  CHECKSUM_ATTR (attrs.at_digit_count);
+  CHECKSUM_ATTR (attrs.at_discr);
+  CHECKSUM_ATTR (attrs.at_discr_list);
+  CHECKSUM_ATTR (attrs.at_discr_value);
+  CHECKSUM_ATTR (attrs.at_encoding);
+  CHECKSUM_ATTR (attrs.at_endianity);
+  CHECKSUM_ATTR (attrs.at_explicit);
+  CHECKSUM_ATTR (attrs.at_is_optional);
+  CHECKSUM_ATTR (attrs.at_location);
+  CHECKSUM_ATTR (attrs.at_lower_bound);
+  CHECKSUM_ATTR (attrs.at_mutable);
+  CHECKSUM_ATTR (attrs.at_ordering);
+  CHECKSUM_ATTR (attrs.at_picture_string);
+  CHECKSUM_ATTR (attrs.at_prototyped);
+  CHECKSUM_ATTR (attrs.at_small);
+  CHECKSUM_ATTR (attrs.at_segment);
+  CHECKSUM_ATTR (attrs.at_string_length);
+  CHECKSUM_ATTR (attrs.at_threads_scaled);
+  CHECKSUM_ATTR (attrs.at_upper_bound);
+  CHECKSUM_ATTR (attrs.at_use_location);
+  CHECKSUM_ATTR (attrs.at_use_UTF8);
+  CHECKSUM_ATTR (attrs.at_variable_parameter);
+  CHECKSUM_ATTR (attrs.at_virtuality);
+  CHECKSUM_ATTR (attrs.at_visibility);
+  CHECKSUM_ATTR (attrs.at_vtable_elem_location);
+
+  if (die->die_tag == DW_TAG_pointer_type
+      || die->die_tag == DW_TAG_reference_type
+      || die->die_tag == DW_TAG_ptr_to_member_type)
+    {
+      /* For pointer and reference types, we checksum only the name of
+         the target type (if there is a name).  This allows the checksum
+         to remain the same whether the target type is complete or not.  */
+      if (attrs.at_type != NULL
+          && AT_class (attrs.at_type) == dw_val_class_die_ref)
+        {
+          dw_die_ref type_die = AT_ref (attrs.at_type);
+          dw_attr_ref name_attr = get_AT (type_die, DW_AT_name);
+          dw_die_ref decl = get_AT_ref (type_die, DW_AT_specification);
+          if (decl == NULL)
+            decl = type_die;
+          if (name_attr != NULL)
+            {
+              CHECKSUM_ULEB128 ('N');
+              CHECKSUM_ULEB128 (DW_AT_type);
+              if (decl->die_parent != NULL)
+                checksum_die_context (decl->die_parent, ctx);
+              CHECKSUM_STRING (AT_string (name_attr));
+            }
+          else
+            {
+              if (type_die->die_mark)
+                {
+                  CHECKSUM_ULEB128 ('R');
+                  CHECKSUM_ULEB128 (type_die->die_mark);
+                }
+              else
+                {
+                  CHECKSUM_ULEB128 ('T');
+                  if (decl->die_parent != NULL)
+                    checksum_die_context (decl->die_parent, ctx);
+                  die_checksum_ordered (type_die, ctx, mark);
+                }
+            }
+        }
+    }
+  else if (die->die_tag == DW_TAG_friend)
+    {
+      /* For friend entries, we checksum only the name of the target type.  */
+      if (attrs.at_friend != NULL
+          && AT_class (attrs.at_friend) == dw_val_class_die_ref)
+        {
+          dw_die_ref friend_die = AT_ref (attrs.at_friend);
+          dw_attr_ref name_attr = get_AT (friend_die, DW_AT_name);
+          if (name_attr != NULL)
+            {
+              dw_die_ref decl = get_AT_ref (friend_die, DW_AT_specification);
+              if (decl == NULL)
+                decl = friend_die;
+              CHECKSUM_ULEB128 ('N');
+              CHECKSUM_ULEB128 (DW_AT_friend);
+              if (decl->die_parent != NULL)
+                checksum_die_context (decl->die_parent, ctx);
+              CHECKSUM_STRING (AT_string (name_attr));
+            }
+        }
+    }
+  else if (attrs.at_type != NULL)
+    {
+      dw_die_ref type_die = AT_ref (attrs.at_type);
+      dw_die_ref decl = get_AT_ref (type_die, DW_AT_specification);
+      if (decl == NULL)
+        decl = type_die;
+      if (type_die->die_mark)
+        {
+          CHECKSUM_ULEB128 ('R');
+          CHECKSUM_ULEB128 (type_die->die_mark);
+        }
+      else
+        {
+          CHECKSUM_ULEB128 ('T');
+          if (decl->die_parent != NULL)
+            checksum_die_context (decl->die_parent, ctx);
+          die_checksum_ordered (type_die, ctx, mark);
+        }
+    }
+
+  /* Checksum the child DIEs, except for nested types.  */
+  c = die->die_child;
+  if (c) do {
+    dw_attr_ref name_attr;
+
+    c = c->die_sib;
+    name_attr = get_AT (c, DW_AT_name);
+    if (is_type_die (c) && name_attr != NULL)
+      {
+        CHECKSUM_ULEB128 (c->die_tag);
+        CHECKSUM_STRING (AT_string (name_attr));
+      }
+    else
+      {
+        die_checksum_ordered (c, ctx, mark);
+      }
+  } while (c != die->die_child);
+
+  CHECKSUM_ULEB128 (0);
 }
 
 #undef CHECKSUM
 #undef CHECKSUM_STRING
 #undef CHECKSUM_ATTR
+#undef CHECKSUM_LEB128
+#undef CHECKSUM_ULEB128
 
 /* Generate the type signature for DIE.  This is computed by generating an
    MD5 checksum over the DIE's tag, its relevant attributes, and its
@@ -7522,8 +7681,9 @@ generate_type_signature (dw_die_ref die, comdat_type_node *type_node)
         checksum_die_context (decl->die_parent, &ctx);
 
       md5_process_bytes (&die->die_tag, sizeof (die->die_tag), &ctx);
-      md5_process_bytes (name, strlen (name), &ctx);
+      md5_process_bytes (name, strlen (name) + 1, &ctx);
       md5_finish_ctx (&ctx, checksum);
+
       add_AT_data8 (type_node->root_die, DW_AT_GNU_odr_signature, &checksum[8]);
     }
 
@@ -8278,6 +8438,12 @@ generate_skeleton (dw_die_ref die)
   node.old_die = die;
   node.new_die = NULL;
   node.parent = NULL;
+
+  /* If this type definition is nested inside another type,
+     always leave at least a declaration in its place.  */
+  if (die->die_parent != NULL && is_type_die (die->die_parent))
+    node.new_die = clone_as_declaration (die);
+
   generate_skeleton_bottom_up (&node);
   return node.new_die;
 }
@@ -17460,8 +17626,11 @@ prune_unused_types_mark (dw_die_ref die, int dokids)
       die->die_mark = 2;
 
       /* If this is an array type, we need to make sure our
-	 kids get marked, even if they're types.  */
-      if (die->die_tag == DW_TAG_array_type)
+	 kids get marked, even if they're types.  If we're
+	 breaking out types into comdat sections, do this
+	 for all types.  */
+      if (die->die_tag == DW_TAG_array_type
+          || (use_dwarf4_extensions && is_type_die (die)))
 	FOR_EACH_CHILD (die, c, prune_unused_types_mark (c, 1));
       else
 	FOR_EACH_CHILD (die, c, prune_unused_types_walk (c));
@@ -17953,6 +18122,13 @@ dwarf2out_finish (const char *filename)
       /* Don't output duplicate types.  */
       if (*slot != HTAB_EMPTY_ENTRY)
         continue;
+
+      /* Add a pointer to the line table for the main compilation unit
+         so that the debugger can make sense of DW_AT_decl_file
+         attributes.  */
+      if (debug_info_level >= DINFO_LEVEL_NORMAL)
+        add_AT_lineptr (ctnode->root_die, DW_AT_stmt_list,
+		        debug_line_section_label);
 
       output_comdat_type_unit (ctnode);
       *slot = ctnode;
