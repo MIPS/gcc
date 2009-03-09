@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-common.h"
 
 static void init_attributes (void);
+static void merge_lock_attr_args (tree attr, tree additional_args);
 
 /* Table of the tables of attributes (common, language, format, machine)
    searched.  */
@@ -435,6 +436,13 @@ decl_attributes (tree *node, tree attributes, int flags)
 	    {
 	      if (simple_cst_equal (TREE_VALUE (a), args) == 1)
 		break;
+              /* If a lock attribute of the same kind is already on the decl,
+                 don't add this one again. Instead, merge the arguments.  */
+              if (is_lock_attribute_with_args (name))
+                {
+                  merge_lock_attr_args (a, args);
+                  break;
+                }
 	    }
 
 	  if (a == NULL_TREE)
@@ -560,4 +568,37 @@ extract_lock_attributes (tree attrs)
     }
 
   return lock_attrs;
+}
+
+/* This helper function is called when we see multiple lock attributes of
+   the same kind on a decl. ATTR is the first attribute of this kind we've
+   encountered and ADDITIONAL_ARGS is the args list of another attribute
+   of this kind. This function appends ADDITIONAL_ARGS to the args list
+   of ATTR. Note that we don't allow some of the lock attributes to appear
+   multiple times on a decl (such as 'guarded_by') and would emit a warning
+   if that happens.  */
+
+static void
+merge_lock_attr_args (tree attr, tree additional_args)
+{
+  tree identifier = TREE_PURPOSE (attr);
+
+  if (is_attribute_p ("acquired_after", identifier)
+      || is_attribute_p ("acquired_before", identifier)
+      || is_attribute_p ("exclusive_lock", identifier)
+      || is_attribute_p ("shared_lock", identifier)
+      || is_attribute_p ("exclusive_trylock", identifier)
+      || is_attribute_p ("shared_trylock", identifier)
+      || is_attribute_p ("unlock", identifier)
+      || is_attribute_p ("exclusive_locks_required", identifier)
+      || is_attribute_p ("shared_locks_required", identifier)
+      || is_attribute_p ("locks_excluded", identifier))
+    TREE_VALUE (attr) = chainon (TREE_VALUE (attr), additional_args);
+  /* We don't allow the following lock attributes to appear multiple times
+     on a decl.  */
+  else if (is_attribute_p ("guarded_by", identifier)
+      || is_attribute_p ("point_to_guarded_by", identifier)
+      || is_attribute_p ("lock_returned", identifier))
+    warning (OPT_Wattributes, "Additional %qs attribute ignored",
+             IDENTIFIER_POINTER (identifier));
 }

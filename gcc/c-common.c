@@ -7621,7 +7621,7 @@ check_lock_unlock_attr_args (tree *node, tree name, tree args,
           *no_add_attrs = true;
           return NULL_TREE;
         }
-      args = TREE_CHAIN(args);
+      args = TREE_CHAIN (args);
       if (args == NULL_TREE)
         return NULL_TREE;
     }
@@ -7694,7 +7694,7 @@ check_lock_unlock_attr_args (tree *node, tree name, tree args,
                       /* If an error_mark_node is already in the argument
                          list, simply ignore this unsupported lock.  */
                       TREE_CHAIN (prev_arg) = TREE_CHAIN (curr_arg);
-                      curr_arg = TREE_CHAIN(curr_arg);
+                      curr_arg = TREE_CHAIN (curr_arg);
                       continue;
                     }
                   else
@@ -7711,7 +7711,7 @@ check_lock_unlock_attr_args (tree *node, tree name, tree args,
         }
 
       prev_arg = curr_arg;
-      curr_arg = TREE_CHAIN(curr_arg);
+      curr_arg = TREE_CHAIN (curr_arg);
     }
   while (curr_arg != NULL_TREE);
 

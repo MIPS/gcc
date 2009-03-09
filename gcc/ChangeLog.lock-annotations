@@ -1,3 +1,10 @@
+2009-03-08  Le-Chun Wu  <lcwu@google.com>
+
+	* attribs.c (decl_attributes): Merge the attribute arguments if
+	another attribute of the same kind is already on the decl.
+	(merge_lock_attr_args): New function.
+	* c-common.c (check_lock_unlock_attr_args): Fix coding style issues.
+
 2009-03-05  Le-Chun Wu  <lcwu@google.com>
 
 	* tree-threadsafe-analyze.c (is_base_object_base_class): New function.

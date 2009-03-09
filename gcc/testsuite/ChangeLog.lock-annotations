@@ -1,3 +1,8 @@
+2009-03-08  Le-Chun Wu  <lcwu@google.com>
+
+	* gcc.dg/thread_annot_lock-42.c: New test in C.
+	* g++.dg/thread-ann/thread_annot_lock-42.C: New test in C++.
+
 2009-03-05  Le-Chun Wu  <lcwu@google.com>
 
         * g++.dg/thread-ann/thread_annot_lock-39.C: New test.
