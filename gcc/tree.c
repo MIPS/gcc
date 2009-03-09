@@ -3895,26 +3895,13 @@ free_lang_data_in_type (tree type)
      FIXME lto: This will break debug info generation.  */
   TYPE_CONTEXT (type) = NULL_TREE;
 
-  /* Remove type variants that are the same gimple type as the main
-     variant.  This is both wasteful and it may introduce infinite
-     loops when the types are read from disk (since the variant will
-     be the same type as the main variant, traversing type variants
-     will get into an infinite loop).  */
-  if (TYPE_NEXT_VARIANT (TYPE_MAIN_VARIANT (type)))
-    {
-      tree main_variant = TYPE_MAIN_VARIANT (type);
-      tree *tp = &TYPE_NEXT_VARIANT (main_variant);
-
-      while (*tp)
-	{
-	  /* If *TP is the same GIMPLE type as MAIN_VARIANT, then it's
-	     not necessary to have it in the list of variants.  */
-	  if (gimple_same_type_p (*tp, main_variant))
-	    *tp = TYPE_NEXT_VARIANT (*tp);
-	  else
-	    tp = &TYPE_NEXT_VARIANT (*tp);
-	}
-    }
+  /* Remove type variants other than the main variant.  This is both
+     wasteful and it may introduce infinite loops when the types are
+     read from disk and merged (since the variant will be the same
+     type as the main variant, traversing type variants will get into
+     an infinite loop).  */
+  if (TYPE_MAIN_VARIANT (type))
+    TYPE_NEXT_VARIANT (TYPE_MAIN_VARIANT (type)) = NULL_TREE;
 }
 
 
