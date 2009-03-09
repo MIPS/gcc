@@ -2265,6 +2265,7 @@ get_initial_def_for_reduction (gimple stmt, tree init_val, tree *adjustment_def)
   case WIDEN_SUM_EXPR:
   case DOT_PROD_EXPR:
   case PLUS_EXPR:
+  case PLUSNV_EXPR:
     if (nested_in_vect_loop)
       *adjustment_def = vecdef;
     else
@@ -3921,8 +3922,11 @@ vect_min_worthwhile_factor (enum tree_code code)
   switch (code)
     {
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
       return 4;
 
     case BIT_AND_EXPR:
@@ -4073,7 +4077,7 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
 
   /* For pointer addition, we should use the normal plus for
      the vector addition.  */
-  if (code == POINTER_PLUS_EXPR)
+  if (POINTER_PLUS_EXPR_CODE_P (code))
     code = PLUS_EXPR;
 
   /* Support only unary or binary operations.  */

@@ -211,7 +211,7 @@ vect_recog_dot_prod_pattern (gimple last_stmt, tree *type_in, tree *type_out)
   /* Starting from LAST_STMT, follow the defs of its uses in search
      of the above pattern.  */
 
-  if (gimple_assign_rhs_code (last_stmt) != PLUS_EXPR)
+  if (!PLUS_EXPR_CODE_P (gimple_assign_rhs_code (last_stmt)))
     return NULL;
 
   if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
@@ -263,7 +263,7 @@ vect_recog_dot_prod_pattern (gimple last_stmt, tree *type_in, tree *type_out)
   gcc_assert (stmt_vinfo);
   if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
     return NULL;
-  if (gimple_assign_rhs_code (stmt) != MULT_EXPR)
+  if (!MULT_EXPR_CODE_P (gimple_assign_rhs_code (stmt)))
     return NULL;
   if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
     {
@@ -385,7 +385,7 @@ vect_recog_widen_mult_pattern (gimple last_stmt,
   /* Starting from LAST_STMT, follow the defs of its uses in search
      of the above pattern.  */
 
-  if (gimple_assign_rhs_code (last_stmt) != MULT_EXPR)
+  if (!MULT_EXPR_CODE_P (gimple_assign_rhs_code (last_stmt)))
     return NULL;
 
   oprnd0 = gimple_assign_rhs1 (last_stmt);
@@ -600,7 +600,7 @@ vect_recog_widen_sum_pattern (gimple last_stmt, tree *type_in, tree *type_out)
   /* Starting from LAST_STMT, follow the defs of its uses in search
      of the above pattern.  */
 
-  if (gimple_assign_rhs_code (last_stmt) != PLUS_EXPR)
+  if (!PLUS_EXPR_CODE_P (gimple_assign_rhs_code (last_stmt)))
     return NULL;
 
   if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)

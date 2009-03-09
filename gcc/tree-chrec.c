@@ -68,18 +68,21 @@ chrec_fold_poly_cst (enum tree_code code,
   switch (code)
     {
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       return build_polynomial_chrec 
 	(CHREC_VARIABLE (poly), 
 	 chrec_fold_plus (type, CHREC_LEFT (poly), cst),
 	 CHREC_RIGHT (poly));
       
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       return build_polynomial_chrec 
 	(CHREC_VARIABLE (poly), 
 	 chrec_fold_minus (type, CHREC_LEFT (poly), cst),
 	 CHREC_RIGHT (poly));
       
     case MULT_EXPR:
+    case MULTNV_EXPR:
       return build_polynomial_chrec 
 	(CHREC_VARIABLE (poly), 
 	 chrec_fold_multiply (type, CHREC_LEFT (poly), cst),
@@ -119,7 +122,7 @@ chrec_fold_plus_poly_poly (enum tree_code code,
     {a, +, b}_x + {c, +, d}_x  ->  {a+c, +, b+d}_x.  */
   if (flow_loop_nested_p (loop0, loop1))
     {
-      if (code == PLUS_EXPR || code == POINTER_PLUS_EXPR)
+      if (PLUS_EXPR_CODE_P (code) || POINTER_PLUS_EXPR_CODE_P (code))
 	return build_polynomial_chrec 
 	  (CHREC_VARIABLE (poly1), 
 	   chrec_fold_plus (type, poly0, CHREC_LEFT (poly1)),
@@ -136,7 +139,7 @@ chrec_fold_plus_poly_poly (enum tree_code code,
   
   if (flow_loop_nested_p (loop1, loop0))
     {
-      if (code == PLUS_EXPR || code == POINTER_PLUS_EXPR)
+      if (PLUS_EXPR_CODE_P (code) || POINTER_PLUS_EXPR_CODE_P (code))
 	return build_polynomial_chrec 
 	  (CHREC_VARIABLE (poly0), 
 	   chrec_fold_plus (type, CHREC_LEFT (poly0), poly1),
@@ -152,7 +155,7 @@ chrec_fold_plus_poly_poly (enum tree_code code,
      do not belong to the same loop nest.  */
   gcc_assert (loop0 == loop1);
 
-  if (code == PLUS_EXPR || code == POINTER_PLUS_EXPR)
+  if (PLUS_EXPR_CODE_P (code) || POINTER_PLUS_EXPR_CODE_P (code))
     {
       left = chrec_fold_plus 
 	(type, CHREC_LEFT (poly0), CHREC_LEFT (poly1));
@@ -268,7 +271,7 @@ static tree
 chrec_fold_plus_1 (enum tree_code code, tree type, 
 		   tree op0, tree op1)
 {
-  tree op1_type = code == POINTER_PLUS_EXPR ? sizetype : type;
+  tree op1_type = POINTER_PLUS_EXPR_CODE_P (code) ? sizetype : type;
 
   if (automatically_generated_chrec_p (op0)
       || automatically_generated_chrec_p (op1))
@@ -283,7 +286,7 @@ chrec_fold_plus_1 (enum tree_code code, tree type,
 	  return chrec_fold_plus_poly_poly (code, type, op0, op1);
 
 	default:
-	  if (code == PLUS_EXPR || code == POINTER_PLUS_EXPR)
+	  if (PLUS_EXPR_CODE_P (code) || POINTER_PLUS_EXPR_CODE_P (code))
 	    return build_polynomial_chrec 
 	      (CHREC_VARIABLE (op0), 
 	       chrec_fold_plus (type, CHREC_LEFT (op0), op1),
@@ -299,7 +302,7 @@ chrec_fold_plus_1 (enum tree_code code, tree type,
       switch (TREE_CODE (op1))
 	{
 	case POLYNOMIAL_CHREC:
-	  if (code == PLUS_EXPR || code == POINTER_PLUS_EXPR)
+	  if (PLUS_EXPR_CODE_P (code) || POINTER_PLUS_EXPR_CODE_P (code))
 	    return build_polynomial_chrec 
 	      (CHREC_VARIABLE (op1), 
 	       chrec_fold_plus (type, op0, CHREC_LEFT (op1)),
@@ -1442,10 +1445,15 @@ operator_is_linear (tree scev)
     case INTEGER_CST:
     case POLYNOMIAL_CHREC:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case MULT_EXPR:
+    case MULTNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
     case SSA_NAME:
     case NON_LVALUE_EXPR:
     CASE_CONVERT:

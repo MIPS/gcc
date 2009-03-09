@@ -1,5 +1,30 @@
 2009-03-09  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-loop-niter.c (split_to_var_and_offset): Handle *NV_EXPR.
+	(expand_simple_operations): Likewise.
+	(derive_constant_upper_bound_ops): Likewise.
+	* tree-scalar-evolution.c (add_to_evolution): Handle MINUSNV_EXPR.
+	(follow_ssa_edge_binary): Handle *NV_EXPR.
+	(follow_ssa_edge_expr): Likewise.
+	(interpret_rhs_expr): Likewise.
+	(instantiate_scev_1): Likewise.
+	* tree-chrec.c (chrec_fold_poly_cst): Likewise.
+	(chrec_fold_plus_poly_poly): Likewise.
+	(chrec_fold_plus_1): Likewise.
+	(operator_is_linear): Likewise.
+	* tree-vectorizer.c (reduction_code_for_scalar_code):
+	Handle PLUSNV_EXPR.
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Handle
+	PLUSNV_EXPR.
+	(vect_recog_widen_mult_pattern): Handle MULTNV_EXPR.
+	(vect_recog_widen_sum_pattern): Handle PLUSNV_EXPR.
+	* tree-vect-transform.c (get_initial_def_for_reduction): Handle
+	PLUSNV_EXPR.
+	(vect_min_worthwhile_factor): Handle *NV_EXPR.
+	(vectorizable_operation): Treat POINTER_PLUSNV_EXPR as PLUS_EXPR.
+
+2009-03-09  Richard Guenther  <rguenther@suse.de>
+
 	* tree.h (int_const_binop_1): Declare.
 	* fold-const.c (add_double_with_sign): Fix unsigned overflow
 	detection.

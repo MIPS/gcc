@@ -883,7 +883,7 @@ add_to_evolution (unsigned loop_nb, tree chrec_before, enum tree_code code,
       fprintf (dump_file, ")\n");
     }
 
-  if (code == MINUS_EXPR)
+  if (MINUS_EXPR_CODE_P (code))
     to_add = chrec_fold_multiply (type, to_add, SCALAR_FLOAT_TYPE_P (type)
 				  ? build_real (type, dconstm1)
 				  : build_int_cst_type (type, -1));
@@ -1013,7 +1013,9 @@ follow_ssa_edge_binary (struct loop *loop, gimple at_stmt,
   switch (code)
     {
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       if (TREE_CODE (rhs0) == SSA_NAME)
 	{
 	  if (TREE_CODE (rhs1) == SSA_NAME)
@@ -1099,6 +1101,7 @@ follow_ssa_edge_binary (struct loop *loop, gimple at_stmt,
       break;
       
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       /* This case is under the form "opnd0 = rhs0 - rhs1".  */
       if (TREE_CODE (rhs0) == SSA_NAME)
 	{
@@ -1177,8 +1180,11 @@ follow_ssa_edge_expr (struct loop *loop, gimple at_stmt, tree expr,
       break;
       
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       /* This case is under the form "rhs0 +- rhs1".  */
       rhs0 = TREE_OPERAND (expr, 0);
       rhs1 = TREE_OPERAND (expr, 1);
@@ -1681,6 +1687,7 @@ interpret_rhs_expr (struct loop *loop, gimple at_stmt,
   switch (code)
     {
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
       chrec1 = chrec_convert (type, chrec1, at_stmt);
@@ -1689,6 +1696,7 @@ interpret_rhs_expr (struct loop *loop, gimple at_stmt,
       break;
 
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
       chrec1 = chrec_convert (type, chrec1, at_stmt);
@@ -1697,6 +1705,7 @@ interpret_rhs_expr (struct loop *loop, gimple at_stmt,
       break;
       
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
       chrec1 = chrec_convert (type, chrec1, at_stmt);
@@ -1705,6 +1714,7 @@ interpret_rhs_expr (struct loop *loop, gimple at_stmt,
       break;
 
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec1 = chrec_convert (type, chrec1, at_stmt);
       /* TYPE may be integer, real or complex, so use fold_convert.  */
@@ -1722,6 +1732,7 @@ interpret_rhs_expr (struct loop *loop, gimple at_stmt,
       break;
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
       chrec1 = chrec_convert (type, chrec1, at_stmt);
@@ -2194,7 +2205,9 @@ instantiate_scev_1 (basic_block instantiate_below,
       return chrec;
 
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       op0 = instantiate_scev_1 (instantiate_below, evolution_loop,
 				TREE_OPERAND (chrec, 0), fold_conversions, cache,
 				size_expr);
@@ -2217,6 +2230,7 @@ instantiate_scev_1 (basic_block instantiate_below,
       return chrec;
 
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       op0 = instantiate_scev_1 (instantiate_below, evolution_loop,
 				TREE_OPERAND (chrec, 0), fold_conversions, cache,
 				size_expr);
@@ -2239,6 +2253,7 @@ instantiate_scev_1 (basic_block instantiate_below,
       return chrec;
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
       op0 = instantiate_scev_1 (instantiate_below, evolution_loop,
 				TREE_OPERAND (chrec, 0),
 				fold_conversions, cache, size_expr);

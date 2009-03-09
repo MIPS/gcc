@@ -81,11 +81,14 @@ split_to_var_and_offset (tree expr, tree *var, mpz_t offset)
   switch (TREE_CODE (expr))
     {
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       negate = true;
       /* Fallthru.  */
 
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
       op0 = TREE_OPERAND (expr, 0);
       op1 = TREE_OPERAND (expr, 1);
 
@@ -1457,8 +1460,11 @@ expand_simple_operations (tree expr)
       return fold_build1 (code, TREE_TYPE (expr), ee);
 
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
       /* And increments and decrements by a constant are simple.  */
       e1 = gimple_assign_rhs2 (stmt);
       if (!is_gimple_min_invariant (e1))
@@ -2292,8 +2298,11 @@ derive_constant_upper_bound_ops (tree type, tree op0,
       return bnd;
 
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       if (TREE_CODE (op1) != INTEGER_CST
 	  || !tree_expr_nonnegative_p (op0))
 	return max;
@@ -2303,7 +2312,7 @@ derive_constant_upper_bound_ops (tree type, tree op0,
 	 of the signedness of the type.  */
       cst = tree_to_double_int (op1);
       cst = double_int_sext (cst, TYPE_PRECISION (type));
-      if (code != MINUS_EXPR)
+      if (!MINUS_EXPR_CODE_P (code))
 	cst = double_int_neg (cst);
 
       bnd = derive_constant_upper_bound (op0);

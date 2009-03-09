@@ -2478,6 +2478,7 @@ reduction_code_for_scalar_code (enum tree_code code,
     return true;
 
   case PLUS_EXPR:
+  case PLUSNV_EXPR:
     *reduc_code = REDUC_PLUS_EXPR;
     return true;
 
