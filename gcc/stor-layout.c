@@ -1751,6 +1751,17 @@ layout_type (tree type)
 							    TREE_TYPE (lb),
 							    ub, lb)));
 
+	    /* Strip the overflow flag from the above computation if ub
+	       and lb didn't overflow itself.  */
+	    if (TREE_CODE (length) == INTEGER_CST
+		&& TREE_OVERFLOW (length)
+		&& (TREE_CODE (ub) != INTEGER_CST
+		    || !TREE_OVERFLOW (ub))
+		&& (TREE_CODE (lb) != INTEGER_CST
+		    || !TREE_OVERFLOW (lb)))
+	      length = build_int_cst_wide (sizetype, TREE_INT_CST_LOW (length),
+					   TREE_INT_CST_HIGH (length));
+
 	    /* Special handling for arrays of bits (for Chill).  */
 	    element_size = TYPE_SIZE (element);
 	    if (TYPE_PACKED (type) && INTEGRAL_TYPE_P (element)

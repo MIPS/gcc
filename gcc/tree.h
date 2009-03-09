@@ -4861,6 +4861,8 @@ extern tree fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, const_tree, const_tree, int);
+extern int int_const_binop_1 (enum tree_code, const_tree, const_tree,
+			      unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
 extern tree build_fold_addr_expr (tree);
 extern tree fold_build_cleanup_point_expr (tree type, tree expr);
 extern tree fold_strip_sign_ops (tree);

@@ -1,3 +1,16 @@
+2009-03-09  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (int_const_binop_1): Declare.
+	* fold-const.c (add_double_with_sign): Fix unsigned overflow
+	detection.
+	(int_const_binop_1): Export.  Fix unsigned overflow detection.
+	* stor-layout.c (layout_type): Drop TREE_OVERFLOW on TYPE_SIZE
+	if appropriate.
+	* tree-vrp.c (integral_range_p): New helper.
+	(simplify_unary_for_nonwrapping): Likewise.
+	(simplify_binary_for_nonwrapping): Likewise.
+	(simplify_stmt_using_ranges): Call them.
+
 2009-03-06  Richard Guenther  <rguenther@suse.de>
 
 	* fold-const.c (maybe_canonicalize_comparison_1): Canonicalize

@@ -328,13 +328,17 @@ add_double_with_sign (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
   HOST_WIDE_INT h;
 
   l = l1 + l2;
-  h = h1 + h2 + (l < l1);
+  h = (HOST_WIDE_INT)((unsigned HOST_WIDE_INT)h1
+		      + (unsigned HOST_WIDE_INT)h2
+		      + (l < l1));
 
   *lv = l;
   *hv = h;
 
   if (unsigned_p)
-    return (unsigned HOST_WIDE_INT) h < (unsigned HOST_WIDE_INT) h1;
+    return ((unsigned HOST_WIDE_INT) h < (unsigned HOST_WIDE_INT) h1
+	    || (h == h1
+		&& l < l1));
   else
     return OVERFLOW_SUM_SIGN (h1, h2, h);
 }
@@ -1610,7 +1614,7 @@ int_binop_types_match_p (enum tree_code code, const_tree type1, const_tree type2
    to evaluate CODE at compile-time otherwise return 1 if the
    operation overflowed and 0 if not.  */
 
-static int
+int
 int_const_binop_1 (enum tree_code code, const_tree arg1, const_tree arg2,
 		   unsigned HOST_WIDE_INT *lowp, HOST_WIDE_INT *hip)
 {
@@ -1662,19 +1666,26 @@ int_const_binop_1 (enum tree_code code, const_tree arg1, const_tree arg2,
 
     case PLUS_EXPR:
     case PLUSNV_EXPR:
-      overflow = add_double (int1l, int1h, int2l, int2h, &low, &hi);
+      overflow = add_double_with_sign (int1l, int1h, int2l, int2h,
+				       &low, &hi, uns);
       break;
 
     case MINUS_EXPR:
     case MINUSNV_EXPR:
       neg_double (int2l, int2h, &low, &hi);
       add_double (int1l, int1h, low, hi, &low, &hi);
-      overflow = OVERFLOW_SUM_SIGN (hi, int2h, int1h);
+      if (uns)
+	overflow = ((unsigned HOST_WIDE_INT) hi > (unsigned HOST_WIDE_INT) int1h
+		    || (hi == int1h
+			&& low > int1l));
+      else
+	overflow = OVERFLOW_SUM_SIGN (hi, int2h, int1h);
       break;
 
     case MULT_EXPR:
     case MULTNV_EXPR:
-      overflow = mul_double (int1l, int1h, int2l, int2h, &low, &hi);
+      overflow = mul_double_with_sign (int1l, int1h, int2l, int2h,
+				       &low, &hi, uns);
       break;
 
     case TRUNC_DIV_EXPR:

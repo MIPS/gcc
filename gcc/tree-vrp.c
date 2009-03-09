@@ -6922,6 +6922,132 @@ simplify_switch_using_ranges (gimple stmt)
   return false;
 }
 
+/* Return true if VR is a completely determined value-range with
+   constant bounds.  */
+
+static bool
+integral_range_p (value_range_t *vr)
+{
+  if (vr->type != VR_RANGE
+      || TREE_CODE (vr->min) != INTEGER_CST
+      || TREE_CODE (vr->max) != INTEGER_CST
+      || is_overflow_infinity (vr->min)
+      || is_overflow_infinity (vr->max))
+    return false;
+  return true;
+}
+
+/* Simplify STMT and replace possibly wrapping operation codes with
+   non-wrapping ones if we can proved the operation does not wrap.  */
+
+static bool
+simplify_unary_for_nonwrapping (gimple stmt)
+{
+  value_range_t *vr1 = get_value_range (gimple_assign_rhs1 (stmt));
+  enum tree_code code = gimple_assign_rhs_code (stmt);
+  tree type = gimple_expr_type (stmt);
+  tree tmp;
+
+  switch (code)
+    {
+    case NEGATE_EXPR:
+      /* Unsigned negate always wraps unless it operates on constant zero,
+	 which we better catched elsewhere.  Signed negate does not wrap
+	 if the range it operates on does not include the types minimal
+	 value.  */
+      if (!TYPE_UNSIGNED (type)
+	  && (tmp = compare_range_with_value (NE_EXPR, vr1,
+					      vrp_val_min (type), NULL))
+	  && integer_onep (tmp))
+	{
+	  gimple_assign_set_rhs_code (stmt, NEGATENV_EXPR);
+	  return true;
+	}
+      break;
+
+    default:
+      ;
+    }
+
+  return false;
+}
+
+/* Simplify STMT and replace possibly wrapping operation codes with
+   non-wrapping ones if we can proved the operation does not wrap.  */
+
+static bool
+simplify_binary_for_nonwrapping (gimple stmt)
+{
+  value_range_t dvr;
+  value_range_t *vr1;
+  value_range_t *vr2;
+  enum tree_code code = gimple_assign_rhs_code (stmt);
+  tree type = gimple_expr_type (stmt);
+  unsigned HOST_WIDE_INT low;
+  HOST_WIDE_INT hi;
+
+  if (TREE_CODE (gimple_assign_rhs1 (stmt)) == INTEGER_CST)
+    {
+      dvr.type = VR_RANGE;
+      dvr.min = dvr.max = gimple_assign_rhs1 (stmt);
+      dvr.equiv = NULL;
+      vr1 = &dvr;
+    }
+  else if (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
+    vr1 = get_value_range (gimple_assign_rhs1 (stmt));
+  else
+    return false;
+
+  if (TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST
+      && vr1 != &dvr)
+    {
+      dvr.type = VR_RANGE;
+      dvr.min = dvr.max = gimple_assign_rhs2 (stmt);
+      dvr.equiv = NULL;
+      vr2 = &dvr;
+    }
+  else if (TREE_CODE (gimple_assign_rhs2 (stmt)) == SSA_NAME)
+    vr2 = get_value_range (gimple_assign_rhs2 (stmt));
+  else
+    return false;
+
+  if (!integral_range_p (vr1)
+      || !integral_range_p (vr2))
+    return false;
+
+  switch (code)
+    {
+    case MULT_EXPR:
+    case PLUS_EXPR:
+      if (int_const_binop_1 (code, vr1->min, vr2->min, &low, &hi)
+	  || fit_double_type (low, hi, &low, &hi, type)
+	  || int_const_binop_1 (code, vr1->max, vr2->max, &low, &hi)
+	  || fit_double_type (low, hi, &low, &hi, type))
+	return false;
+      gimple_assign_set_rhs_code (stmt, (code == PLUS_EXPR
+					 ? PLUSNV_EXPR : MULTNV_EXPR));
+      return true;
+
+    case MINUS_EXPR:
+      if (int_const_binop_1 (code, vr1->min, vr2->max, &low, &hi)
+	  || fit_double_type (low, hi, &low, &hi, type)
+	  || int_const_binop_1 (code, vr1->max, vr2->min, &low, &hi)
+	  || fit_double_type (low, hi, &low, &hi, type))
+	return false;
+      gimple_assign_set_rhs_code (stmt, MINUSNV_EXPR);
+      return true;
+
+    case POINTER_PLUS_EXPR:
+      /* FIXME.  */
+      break;
+
+    default:
+      ;
+    }
+
+  return false;
+}
+
 /* Simplify STMT using ranges if possible.  */
 
 bool
@@ -6963,6 +7089,19 @@ simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 	  if (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
 	      && INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (stmt))))
 	    return simplify_abs_using_ranges (stmt);
+	  break;
+
+	case NEGATE_EXPR:
+	  if (INTEGRAL_TYPE_P (gimple_expr_type (stmt)))
+	    return simplify_unary_for_nonwrapping (stmt);
+	  break;
+
+	case PLUS_EXPR:
+	case MINUS_EXPR:
+	case MULT_EXPR:
+	case POINTER_PLUS_EXPR:
+	  if (INTEGRAL_TYPE_P (gimple_expr_type (stmt)))
+	    return simplify_binary_for_nonwrapping (stmt);
 	  break;
 
 	default:
