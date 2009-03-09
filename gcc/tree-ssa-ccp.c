@@ -566,8 +566,11 @@ likely_value (gimple stmt)
 	{
 	/* Unary operators are handled with all_undefined_operands.  */
 	case PLUS_EXPR:
+	case PLUSNV_EXPR:
 	case MINUS_EXPR:
+	case MINUSNV_EXPR:
 	case POINTER_PLUS_EXPR:
+	case POINTER_PLUSNV_EXPR:
 	  /* Not MIN_EXPR, MAX_EXPR.  One VARYING operand may be selected.
 	     Not bitwise operators, one VARYING operand may specify the
 	     result completely.  Not logical operators for the same reason.
@@ -1027,8 +1030,9 @@ ccp_fold (gimple stmt)
                     op1 = val->value;
                 }
 
-	      /* Fold &foo + CST into an invariant reference if possible.  */
-	      if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
+	      /* Fold &foo + CST into an invariant reference if possible.
+		 ???  Should this be done only for POINTER_PLUSNV_EXPR?  */ 
+	      if (POINTER_PLUS_EXPR_CODE_P (gimple_assign_rhs_code (stmt))
 		  && TREE_CODE (op0) == ADDR_EXPR
 		  && TREE_CODE (op1) == INTEGER_CST)
 		{
@@ -1980,7 +1984,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
     return t;
 
   /* Add in any offset from a POINTER_PLUS_EXPR.  */
-  if (TREE_CODE (base) == POINTER_PLUS_EXPR)
+  if (POINTER_PLUS_EXPR_P (base))
     {
       tree offset2;
 
@@ -2262,6 +2266,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       break;
 
     case POINTER_PLUS_EXPR:
+    case POINTER_PLUSNV_EXPR:
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
       if (t)
         return t;
@@ -2710,7 +2715,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 
     case GIMPLE_BINARY_RHS:
       /* Try to fold pointer addition.  */
-      if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+      if (POINTER_PLUS_EXPR_CODE_P (gimple_assign_rhs_code (stmt)))
 	{
 	  tree type = TREE_TYPE (gimple_assign_rhs1 (stmt));
 	  if (TREE_CODE (TREE_TYPE (type)) == ARRAY_TYPE)

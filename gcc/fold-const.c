@@ -7222,7 +7222,7 @@ try_move_mult_to_index (tree addr, tree op1)
 
   /* Canonicalize op1 into a possibly non-constant delta
      and an INTEGER_CST s.  */
-  if (TREE_CODE (op1) == MULT_EXPR)
+  if (TREE_CODE (op1) == MULTNV_EXPR)
     {
       tree arg0 = TREE_OPERAND (op1, 0), arg1 = TREE_OPERAND (op1, 1);
 
@@ -8314,20 +8314,15 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	    }
 	}
 
-      /* Convert (T1)(X p+ Y) into ((T1)X p+ Y), for pointer type,
-         when one of the new casts will fold away. Conservatively we assume
-	 that this happens when X or Y is NOP_EXPR or Y is INTEGER_CST. */
+      /* Convert (T1)(X p+ Y) into ((T1)X p+ Y), for pointer type.  */
       if (POINTER_TYPE_P (type)
-	  && TREE_CODE (arg0) == POINTER_PLUS_EXPR
-	  && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
-	      || TREE_CODE (TREE_OPERAND (arg0, 0)) == NOP_EXPR
-	      || TREE_CODE (TREE_OPERAND (arg0, 1)) == NOP_EXPR))
+	  && POINTER_PLUS_EXPR_P (arg0))
 	{
 	  tree arg00 = TREE_OPERAND (arg0, 0);
 	  tree arg01 = TREE_OPERAND (arg0, 1);
 
-	  return fold_build2 (TREE_CODE (arg0), type, fold_convert (type, arg00),
-			      fold_convert (sizetype, arg01));
+	  return fold_build2 (TREE_CODE (arg0), type,
+			      fold_convert (type, arg00), arg01);
 	}
 
       /* Convert (T1)(~(T2)X) into ~(T1)X if T1 and T2 are integral types
@@ -8408,7 +8403,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
     case ABS_EXPR:
       if (TREE_CODE (arg0) == INTEGER_CST || TREE_CODE (arg0) == REAL_CST)
 	return fold_abs_const (arg0, type);
-      else if (TREE_CODE (arg0) == NEGATE_EXPR)
+      else if (NEGATE_EXPR_P (arg0))
 	return fold_build1 (ABS_EXPR, type, TREE_OPERAND (arg0, 0));
       /* Convert fabs((double)float) into (double)fabsf(float).  */
       else if (TREE_CODE (arg0) == NOP_EXPR
@@ -9823,10 +9818,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
 	return fold_build2 (PLUS_EXPR, type, arg0, fold_convert (type, arg1));
 
-      /* ???  Auditing required.  */
-      if (code == POINTER_PLUSNV_EXPR)
-	return NULL_TREE;
-
       /* INT +p INT -> (PTR)(INT + INT).  Stripping types allows for this. */
       if (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
 	   && INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
@@ -9837,20 +9828,24 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       /* index +p PTR -> PTR +p index */
       if (POINTER_TYPE_P (TREE_TYPE (arg1))
 	  && INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
-        return fold_build2 (POINTER_PLUS_EXPR, type,
+        return fold_build2 (code, type,
 			    fold_convert (type, arg1),
 			    fold_convert (sizetype, arg0));
 
       /* (PTR +p B) +p A -> PTR +p (B + A) */
-      if (TREE_CODE (arg0) == POINTER_PLUS_EXPR)
+      if (POINTER_PLUS_EXPR_P (arg0))
 	{
 	  tree inner;
 	  tree arg01 = fold_convert (sizetype, TREE_OPERAND (arg0, 1));
 	  tree arg00 = TREE_OPERAND (arg0, 0);
+	  enum tree_code ncode = POINTER_PLUS_EXPR;
+	  if (code == POINTER_PLUSNV_EXPR
+	      && TREE_CODE (arg0) == POINTER_PLUSNV_EXPR)
+	    ncode = POINTER_PLUSNV_EXPR;
 	  inner = fold_build2 (PLUS_EXPR, sizetype,
 			       arg01, fold_convert (sizetype, arg1));
 	  return fold_convert (type,
-			       fold_build2 (POINTER_PLUS_EXPR,
+			       fold_build2 (ncode,
 					    TREE_TYPE (arg00), arg00, inner));
 	}
 
@@ -14343,11 +14338,6 @@ tree_unary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
 	 ABS_EXPR<INT_MIN> = INT_MIN.  */
       if (!INTEGRAL_TYPE_P (type))
 	return true;
-      if (TYPE_OVERFLOW_UNDEFINED (type))
-	{
-	  *strict_overflow_p = true;
-	  return true;
-	}
       break;
 
     case NON_LVALUE_EXPR:
@@ -14356,7 +14346,7 @@ tree_unary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
       return tree_expr_nonnegative_warnv_p (op0,
 					    strict_overflow_p);
 
-    case NOP_EXPR:
+    CASE_CONVERT:
       {
 	tree inner_type = TREE_TYPE (op0);
 	tree outer_type = type;
@@ -14408,7 +14398,20 @@ tree_binary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
 
   switch (code)
     {
+    case POINTER_PLUSNV_EXPR:
     case POINTER_PLUS_EXPR:
+      /* Pointers do not have a "sign".  */
+      return false;
+
+    case PLUSNV_EXPR:
+      if (INTEGRAL_TYPE_P (type))
+	{
+	  *strict_overflow_p = true;
+	  return (tree_expr_nonnegative_warnv_p (op0, strict_overflow_p)
+		  && tree_expr_nonnegative_warnv_p (op1, strict_overflow_p));
+	}
+
+      /* Fallthru.  */
     case PLUS_EXPR:
       if (FLOAT_TYPE_P (type))
 	return (tree_expr_nonnegative_warnv_p (op0,
@@ -14434,6 +14437,18 @@ tree_binary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
 	}
       break;
 
+    case MULTNV_EXPR:
+      if (INTEGRAL_TYPE_P (type))
+	{
+	  *strict_overflow_p = true;
+	  /* x * x without overflowing is always non-negative.  */
+	  if (operand_equal_p (op0, op1, 0))
+	    return true;
+	  return (tree_expr_nonnegative_warnv_p (op0, strict_overflow_p)
+		  && tree_expr_nonnegative_warnv_p (op1, strict_overflow_p));
+	}
+
+      /* Fallthru.  */
     case MULT_EXPR:
       if (FLOAT_TYPE_P (type))
 	{

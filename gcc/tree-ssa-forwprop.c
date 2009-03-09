@@ -624,7 +624,7 @@ forward_propagate_addr_into_variable_array_index (tree offset,
   if (integer_onep (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)))))
     {
       if (is_gimple_assign (offset_def)
-	  && gimple_assign_rhs_code (offset_def) == MULT_EXPR)
+	  && MULT_EXPR_CODE_P (gimple_assign_rhs_code (offset_def)))
 	return false;
 
       index = offset;
@@ -637,11 +637,12 @@ forward_propagate_addr_into_variable_array_index (tree offset,
 	return false;
 
       /* The RHS of the statement which defines OFFSET must be a
-	 multiplication of an object by the size of the array elements. 
+	 non-overflowing multiplication of an object by the size of the
+	 array elements. 
 	 This implicitly verifies that the size of the array elements
 	 is constant.  */
      offset = gimple_assign_rhs1 (offset_def);
-     if (gimple_assign_rhs_code (offset_def) != MULT_EXPR
+     if (gimple_assign_rhs_code (offset_def) != MULTNV_EXPR
 	 || TREE_CODE (gimple_assign_rhs2 (offset_def)) != INTEGER_CST
 	 || !simple_cst_equal (gimple_assign_rhs2 (offset_def),
 			       TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)))))
@@ -809,7 +810,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 
   /* If the use of the ADDR_EXPR is not a POINTER_PLUS_EXPR, there
      is nothing to do. */
-  if (gimple_assign_rhs_code (use_stmt) != POINTER_PLUS_EXPR
+  if (!POINTER_PLUS_EXPR_CODE_P (gimple_assign_rhs_code (use_stmt))
       || gimple_assign_rhs1 (use_stmt) != name)
     return false;
 

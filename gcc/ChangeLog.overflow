@@ -1,5 +1,29 @@
 2009-03-09  Richard Guenther  <rguenther@suse.de>
 
+	* fold-const.c (try_move_mult_to_index): Only move idx * size
+	in &x[i] + idx * size into the index if the multiplication
+	does not overflow.
+	(fold_unary): Always fold (T1)(X p+ Y) to ((T1)X p+ Y).
+	Simplify that folding.
+	Fold abs(NEGATENV_EXPR) the same as abs(NEGATE_EXPR).
+	(fold_binary): Audit all pointer-plus folding.  Preserve
+	non-wrapping variants where that is easily correct.
+	(tree_unary_nonnegative_warnv_p): Remove dead TYPE_OVERFLOW_UNDEFINED
+	case.  Handle CONVERT_EXPR the same as NOP_EXPR.
+	(tree_binary_nonnegative_warnv_p): POINTER_PLUS*_EXPR are not
+	handled at all.  Handle PLUSNV_EXPR and MULTNV_EXPR specially.
+	* tree-ssa-ccp.c (likely_value): Handle *NV_EXPR.
+	(ccp_fold): Also fold POINTER_PLUSNV_EXPR.
+	(maybe_fold_stmt_indirect): Also fold POINTER_PLUSNV_EXPR.
+	(fold_stmt_r): Likewise.
+	* tree-ssa-forwprop.c (forward_propagate_addr_into_variable_arr):
+	Only fold non-overflowed multiplications.
+	(forward_propagate_addr_expr_1): Handle POINTER_PLUSNV_EXPR.
+	* tree-vrp.c (supports_overflow_infinity): The assert that the
+	type needs overflow infinity is bogus now.
+
+2009-03-09  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-loop-niter.c (split_to_var_and_offset): Handle *NV_EXPR.
 	(expand_simple_operations): Likewise.
 	(derive_constant_upper_bound_ops): Likewise.
