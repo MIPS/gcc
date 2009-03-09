@@ -1,3 +1,15 @@
+2009-03-09  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_materialize_all_clones): Fix thinko in handling
+	of clones.
+
+	* tree-inline.c (self_inlining_addr_expr): Remove.
+	(argument_set_in_function_p, non_ssa_argument_ok_to_subtitute): New
+	functions.
+	(setup_one_parameter): Use argument_set_in_function_p; remove FN argument.
+	(initialize_inlined_parameters): Update call of setup_one_parameter.
+	(tree_function_versioning): Likewise.
+
 2009-02-21  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline up to last merge point of alias-improvements

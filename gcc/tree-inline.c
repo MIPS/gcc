@@ -1898,22 +1898,6 @@ copy_body (copy_body_data *id, gcov_type count, int frequency,
   return body;
 }
 
-/* Return true if VALUE is an ADDR_EXPR of an automatic variable
-   defined in function FN, or of a data member thereof.  */
-
-static bool
-self_inlining_addr_expr (tree value, tree fn)
-{
-  tree var;
-
-  if (TREE_CODE (value) != ADDR_EXPR)
-    return false;
-
-  var = get_base_address (TREE_OPERAND (value, 0));
-
-  return var && auto_var_in_fn_p (var, fn);
-}
-
 static void
 insert_init_stmt (basic_block bb, gimple init_stmt)
 {
@@ -1945,11 +1929,72 @@ insert_init_stmt (basic_block bb, gimple init_stmt)
     }
 }
 
+/* Return true if PARAM is set in function FUN.  */
+static bool
+argument_set_in_function_p (struct function *fun, tree parm)
+{
+  basic_block bb;
+  gimple_stmt_iterator bsi;
+
+  FOR_EACH_BB_FN (bb, fun)
+    {
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+	if (gimple_stored_syms (gsi_stmt (bsi))
+	    && bitmap_bit_p (gimple_stored_syms (gsi_stmt (bsi)), DECL_UID (parm)))
+	  return true;
+    }
+  return false;
+}
+
+/* See if it is safe to substitte parameter P with VALUE when inlining
+   the function.  P is not gimple register and we are primarily interested
+   in subtituting arguments like structure.substructure where "structure"
+   is not escaping from caller.  */
+static bool
+non_ssa_argument_ok_to_subtitute (copy_body_data *id, tree p, tree value)
+{
+  tree inner_value;
+  int flags;
+
+  if (!value || TREE_SIDE_EFFECTS (value))
+    return false;
+
+  /* First validate argument P.  */
+  if (TREE_ADDRESSABLE (p))
+    return false;
+
+  if (!TREE_READONLY (p)
+      && (!optimize || argument_set_in_function_p (id->src_cfun, p)))
+    return false;
+
+  /* Now see if VALUE is safe, i.e. it is guarnateed to stay constant
+     across execution of inlined function body.  This is easy for
+     constants and local variables of the outer function.   */
+  inner_value = value;
+  while (handled_component_p (inner_value))
+    inner_value = TREE_OPERAND (inner_value, 0);
+
+  if (is_gimple_min_invariant (inner_value))
+    return true;
+
+  flags = flags_from_decl_or_type (id->src_fn);
+  if ((TREE_CODE (inner_value) == PARM_DECL
+       || (TREE_CODE (inner_value) == VAR_DECL
+	   && (!TREE_STATIC (inner_value)
+	       || TREE_READONLY (inner_value)
+	       || (flags & ECF_PURE))))
+      && (!TREE_ADDRESSABLE (inner_value) || (flags & ECF_PURE)))
+    return true;
+  if (TREE_CODE (inner_value) == INDIRECT_REF && (flags & ECF_PURE))
+    return true;
+  return false;
+}
+
 /* Initialize parameter P with VALUE.  If needed, produce init statement
    at the end of BB.  When BB is NULL, we return init statement to be
    output later.  */
 static gimple
-setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
+setup_one_parameter (copy_body_data *id, tree p, tree value, 
 		     basic_block bb, tree *vars)
 {
   gimple init_stmt = NULL;
@@ -1972,31 +2017,12 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	rhs = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (p), value);
     }
 
-  /* If the parameter is never assigned to, has no SSA_NAMEs created,
-     we may not need to create a new variable here at all.  Instead, we may
-     be able to just use the argument value.  */
-  if (TREE_READONLY (p)
-      && !TREE_ADDRESSABLE (p)
-      && value && !TREE_SIDE_EFFECTS (value)
-      && !def)
+  /* Se if we can rewrite non-SSA parameter by its value.
+     This is important to avoid copies of structures.  */
+  if (!def && non_ssa_argument_ok_to_subtitute (id, p, rhs))
     {
-      /* We may produce non-gimple trees by adding NOPs or introduce
-	 invalid sharing when operand is not really constant.
-	 It is not big deal to prohibit constant propagation here as
-	 we will constant propagate in DOM1 pass anyway.  */
-      if (is_gimple_min_invariant (value)
-	  && useless_type_conversion_p (TREE_TYPE (p),
-						 TREE_TYPE (value))
-	  /* We have to be very careful about ADDR_EXPR.  Make sure
-	     the base variable isn't a local variable of the inlined
-	     function, e.g., when doing recursive inlining, direct or
-	     mutually-recursive or whatever, which is why we don't
-	     just test whether fn == current_function_decl.  */
-	  && ! self_inlining_addr_expr (value, fn))
-	{
-	  insert_decl_map (id, p, value);
-	  return NULL;
-	}
+      insert_decl_map (id, p, rhs);
+      return NULL;
     }
 
   /* Make an equivalent VAR_DECL.  Note that we must NOT remap the type
@@ -2116,7 +2142,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
     {
       tree val;
       val = i < gimple_call_num_args (stmt) ? gimple_call_arg (stmt, i) : NULL;
-      setup_one_parameter (id, p, val, fn, bb, &vars);
+      setup_one_parameter (id, p, val, bb, &vars);
     }
 
   /* Initialize the static chain.  */
@@ -2127,7 +2153,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
       /* No static chain?  Seems like a bug in tree-nested.c.  */
       gcc_assert (static_chain);
 
-      setup_one_parameter (id, p, static_chain, fn, bb, &vars);
+      setup_one_parameter (id, p, static_chain, bb, &vars);
     }
 
   declare_inline_vars (id->block, vars);
@@ -4276,7 +4302,7 @@ tree_function_versioning (tree old_decl, tree new_decl, VEC(ipa_replace_map_p,gc
 	      }
 	    gcc_assert (TREE_CODE (replace_info->old_tree) == PARM_DECL);
 	    init = setup_one_parameter (&id, replace_info->old_tree,
-	    			        replace_info->new_tree, id.src_fn,
+	    			        replace_info->new_tree, 
 				        NULL,
 				        &vars);
 	    if (init)

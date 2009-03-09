@@ -1735,7 +1735,8 @@ cgraph_materialize_all_clones (void)
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Updating call sites\n");
   for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && !node->clone_of && gimple_has_body_p (node->decl))
+    if (node->analyzed && gimple_has_body_p (node->decl)
+        && (!node->clone_of || node->clone_of->decl != node->decl))
       {
         struct cgraph_edge *e;
 
