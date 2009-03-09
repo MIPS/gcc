@@ -150,7 +150,7 @@
 	(plus:DI (match_dup 1)
 		 (match_dup 2)))]
   "TARGET_64BIT && TARGET_UPDATE && VECTOR_MEM_VSX_P (<MODE>mode)"
-  "stx<VSm>ux %x3,%0,%1"
+  "stx<VSm>ux %x3,%0,%2"
   [(set_attr "type" "vecstore")])
 
 (define_insn "*vsx_store<mode>_update32"
@@ -161,7 +161,7 @@
 	(plus:SI (match_dup 1)
 		 (match_dup 2)))]
   "TARGET_32BIT && TARGET_UPDATE && VECTOR_MEM_VSX_P (<MODE>mode)"
-  "stx<VSm>ux %x3,%0,%1"
+  "stx<VSm>ux %x3,%0,%2"
   [(set_attr "type" "vecstore")])
 
 (define_insn "*vsx_loaddf_update<VSbit>"
@@ -183,7 +183,7 @@
 	(plus:P (match_dup 1)
 		(match_dup 2)))]
   "TARGET_<VSbit>BIT && TARGET_UPDATE && VECTOR_MEM_VSX_P (DFmode)"
-  "stxsdux %x3,%0,%1"
+  "stxsdux %x3,%0,%2"
   [(set_attr "type" "vecstore")])
 
 ;; We may need to have a varient on the pattern for use in the prologue

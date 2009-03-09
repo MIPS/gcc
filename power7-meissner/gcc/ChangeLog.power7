@@ -1,3 +1,10 @@
+2009-03-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_store<mode>_update64): Use correct
+	registers for store with update.
+	(vsx_store<mode>_update32): Ditto.
+	(vsx_storedf_update<VSbit>): Ditto.
+
 2009-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi (-mvsx-scalar-memory): New switch, to switch to
