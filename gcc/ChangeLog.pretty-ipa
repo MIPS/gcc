@@ -1,5 +1,10 @@
 2009-03-09  Jan Hubicka  <jh@suse.cz>
 
+	* ipa.c (cgraph_remove_unreachable_nodes):  Do not remove edges of
+	functions that are clonned.
+
+2009-03-09  Jan Hubicka  <jh@suse.cz>
+
 	* tree-inline.c (non_ssa_argument_ok_to_subtitute): Update comment,
 	ignore gimple register parameters even if they don't have default def
 	(i.e. unused parameters), skip NOP_EXPR, use get_base_address;

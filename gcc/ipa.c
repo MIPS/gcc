@@ -174,13 +174,18 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	    {
 	      struct cgraph_edge *e;
 
+	      /* See if there is reachable caller.  */
 	      for (e = node->callers; e; e = e->next_caller)
 		if (e->caller->aux)
 		  break;
+
+	      /* If so, we need to keep node in the callgraph.  */
 	      if (e || node->needed)
 		{
 		  struct cgraph_node *clone;
 
+		  /* If there are still clones, we must keep body around.
+		     Otherwise we can just remove the body but keep the clone.  */
 		  for (clone = node->clones; clone;
 		       clone = clone->next_sibling_clone)
 		    if (clone->aux)
@@ -188,11 +193,10 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		  if (!clone)
 		    {
 		      cgraph_release_function_body (node);
+		      cgraph_node_remove_callees (node);
 		      node->analyzed = false;
+		      node->local.inlinable = false;
 		    }
-		  cgraph_node_remove_callees (node);
-		  node->analyzed = false;
-		  node->local.inlinable = false;
 		}
 	      else
 		cgraph_remove_node (node);
