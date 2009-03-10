@@ -1,5 +1,13 @@
 2009-03-09  Jan Hubicka  <jh@suse.cz>
 
+	* tree-inline.c (non_ssa_argument_ok_to_subtitute): Update comment,
+	ignore gimple register parameters even if they don't have default def
+	(i.e. unused parameters), skip NOP_EXPR, use get_base_address;
+	accept const functions too; SSA_NAMEs are safe.
+	(setup_one_parameter): Shortcut unused params.
+
+2009-03-09  Jan Hubicka  <jh@suse.cz>
+
 	* cgraphunit.c (cgraph_materialize_all_clones): Fix thinko in handling
 	of clones.
 

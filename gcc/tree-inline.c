@@ -1949,7 +1949,12 @@ argument_set_in_function_p (struct function *fun, tree parm)
 /* See if it is safe to substitte parameter P with VALUE when inlining
    the function.  P is not gimple register and we are primarily interested
    in subtituting arguments like structure.substructure where "structure"
-   is not escaping from caller.  */
+   is not escaping from caller.  
+
+   Substitution is important for case of structures, since we avoid memory
+   copy that is later difficult to avoid without precise tracking of memory
+   locations.  */
+
 static bool
 non_ssa_argument_ok_to_subtitute (copy_body_data *id, tree p, tree value)
 {
@@ -1957,6 +1962,9 @@ non_ssa_argument_ok_to_subtitute (copy_body_data *id, tree p, tree value)
   int flags;
 
   if (!value || TREE_SIDE_EFFECTS (value))
+    return false;
+
+  if (is_gimple_reg (p) && gimple_in_ssa_p (cfun))
     return false;
 
   /* First validate argument P.  */
@@ -1967,15 +1975,26 @@ non_ssa_argument_ok_to_subtitute (copy_body_data *id, tree p, tree value)
       && (!optimize || argument_set_in_function_p (id->src_cfun, p)))
     return false;
 
+  if (TREE_CODE (value) == NOP_EXPR)
+    value = TREE_OPERAND (value, 0);
+
   /* Now see if VALUE is safe, i.e. it is guarnateed to stay constant
      across execution of inlined function body.  This is easy for
      constants and local variables of the outer function.   */
-  inner_value = value;
-  while (handled_component_p (inner_value))
-    inner_value = TREE_OPERAND (inner_value, 0);
+  if (handled_component_p (value))
+    inner_value = get_base_address (value);
+  else
+    inner_value = value;
 
   if (is_gimple_min_invariant (inner_value))
     return true;
+
+  /* When P is completely dead, we can actually be substituting in SSA_NAME.  */
+  if (TREE_CODE (inner_value) == SSA_NAME)
+    {
+      gcc_assert (is_gimple_reg (p));
+      return true;
+    }
 
   flags = flags_from_decl_or_type (id->src_fn);
   if ((TREE_CODE (inner_value) == PARM_DECL
@@ -1983,9 +2002,11 @@ non_ssa_argument_ok_to_subtitute (copy_body_data *id, tree p, tree value)
 	   && (!TREE_STATIC (inner_value)
 	       || TREE_READONLY (inner_value)
 	       || (flags & ECF_PURE))))
-      && (!TREE_ADDRESSABLE (inner_value) || (flags & ECF_PURE)))
+      && (!TREE_ADDRESSABLE (inner_value)
+          || (flags & (ECF_PURE | ECF_CONST | ECF_LOOPING_CONST_OR_PURE))))
     return true;
-  if (TREE_CODE (inner_value) == INDIRECT_REF && (flags & ECF_PURE))
+  if (TREE_CODE (inner_value) == INDIRECT_REF
+      && (flags & (ECF_PURE | ECF_CONST | ECF_LOOPING_CONST_OR_PURE)))
     return true;
   return false;
 }
@@ -2058,6 +2079,10 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
      assigned to only once.  */
   if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (p)))
     TREE_READONLY (var) = 0;
+
+  /* Shortcut obviously dead arguments on SSA form.  */
+  if (!def && (gimple_in_ssa_p (cfun) && is_gimple_reg (p)))
+    return NULL;
 
   /* If there is no setup required and we are in SSA, take the easy route
      replacing all SSA names representing the function parameter by the
