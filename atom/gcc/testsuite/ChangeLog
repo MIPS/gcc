@@ -1,3 +1,51 @@
+2009-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39371
+	* g++.dg/opt/switch2.C: Add -w to dg-options.
+	* g++.dg/warn/Wswitch-1.C: Adjust expected warnings.
+	* g++.dg/warn/switch1.C: New test.
+	* g++.dg/other/switch3.C: New test.
+
+	PR tree-optimization/39394
+	* gcc.c-torture/compile/pr39394.c: New test.
+
+2009-03-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/20090223-1.c: New testcase.
+
+2009-03-08  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/39402
+	* gfortran.dg/fmt_f0_1.f90: New test.
+
+2009-03-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39060
+	* g++.dg/other/new1.C: Adjusted.
+	* g++.dg/parse/crash40.C: Likewise.
+	* g++.dg/parse/defarg12.C: Likewise.
+	* g++.dg/template/error15.C: Likewise.
+
+	* g++.dg/other/pr39060.C: New.
+
+2009-03-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39367
+	* g++.dg/opt/new1.C: New.
+
+2009-03-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/33492
+	* g++.dg/other/error32.C: New.
+
+2009-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/39360
+	* gcc.c-torture/compile/pr39360.c: New test.
+
+	PR debug/39372
+	* g++.dg/debug/dwarf2/static-local-var-in-ctor.C: New test.
+
 2009-03-05  Jason Merrill  <jason@redhat.com>
 
 	PR c++/38908
@@ -106,7 +154,7 @@
 2009-02-26  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR c++/37789
-	* other/pr37789.C: New.
+	* g++.dg/other/pr37789.C: New.
 
 2009-02-26  Paul Thomas  <pault@gcc.gnu.org>
 
