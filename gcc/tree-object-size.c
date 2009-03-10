@@ -610,7 +610,7 @@ plus_stmt_object_size (struct object_size_info *osi, tree var, gimple stmt)
   unsigned HOST_WIDE_INT bytes;
   tree op0, op1;
 
-  gcc_assert (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR);
+  gcc_assert (POINTER_PLUS_EXPR_CODE_P (gimple_assign_rhs_code (stmt)));
 
   op0 = gimple_assign_rhs1 (stmt);
   op1 = gimple_assign_rhs2 (stmt);
@@ -761,7 +761,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
     {
     case GIMPLE_ASSIGN:
       {
-        if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+        if (POINTER_PLUS_EXPR_CODE_P (gimple_assign_rhs_code (stmt)))
           reexamine = plus_stmt_object_size (osi, var, stmt);
         else if (gimple_assign_single_p (stmt)
                  || gimple_assign_unary_nop_p (stmt))
@@ -906,7 +906,7 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 
             check_for_plus_in_loops_1 (osi, rhs, depth);
           }
-        else if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+        else if (POINTER_PLUS_EXPR_CODE_P (gimple_assign_rhs_code (stmt)))
           {
             tree basevar = gimple_assign_rhs1 (stmt);
             tree cst = gimple_assign_rhs2 (stmt);
@@ -972,7 +972,7 @@ check_for_plus_in_loops (struct object_size_info *osi, tree var)
      is not a valid call operand.  */
 
   if (is_gimple_assign (stmt)
-      && gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+      && POINTER_PLUS_EXPR_CODE_P (gimple_assign_rhs_code (stmt)))
     {
       tree basevar = gimple_assign_rhs1 (stmt);
       tree cst = gimple_assign_rhs2 (stmt);

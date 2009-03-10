@@ -9608,7 +9608,7 @@ string_constant (tree arg, tree *ptr_offset)
       else
 	return 0;
     }
-  else if (TREE_CODE (arg) == PLUS_EXPR || TREE_CODE (arg) == POINTER_PLUS_EXPR)
+  else if (PLUS_EXPR_P (arg) || POINTER_PLUS_EXPR_P (arg))
     {
       tree arg0 = TREE_OPERAND (arg, 0);
       tree arg1 = TREE_OPERAND (arg, 1);

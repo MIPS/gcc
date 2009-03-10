@@ -368,6 +368,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	  break;
 
 	case POINTER_PLUS_EXPR:
+	case POINTER_PLUSNV_EXPR:
 	  /* If sum of pointer + int, restrict our maximum alignment to that
 	     imposed by the integer.  If not, we can't do any better than
 	     ALIGN.  */
@@ -1114,7 +1115,7 @@ get_memory_rtx (tree exp, tree len)
     exp = TREE_OPERAND (exp, 0);
 
   off = 0;
-  if (TREE_CODE (exp) == POINTER_PLUS_EXPR
+  if (POINTER_PLUS_EXPR_P (exp)
       && TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
       && host_integerp (TREE_OPERAND (exp, 1), 0)
       && (off = tree_low_cst (TREE_OPERAND (exp, 1), 0)) > 0)
