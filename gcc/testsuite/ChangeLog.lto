@@ -1,3 +1,12 @@
+2009-03-10  Diego Novillo  <dnovillo@google.com>
+
+	Revert:
+
+	2009-03-09  Simon Baldwin  <simonb@google.com>
+
+		* g++.dg/lto/20090302_0.C: New.
+		* g++.dg/lto/20090302_1.C: New.
+
 2009-03-10  Rafael Avila de Espindola  <espindola@google.com>
 
 	* g++.dg/lto/20090309_0.C: New.

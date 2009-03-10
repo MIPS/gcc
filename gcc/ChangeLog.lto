@@ -1,3 +1,26 @@
+2009-03-10  Diego Novillo  <dnovillo@google.com>
+
+	Revert:
+
+	2009-03-09  Diego Novillo  <dnovillo@google.com>
+
+		* tree.c (free_lang_data_in_type): Remove all variants
+		except the main variant of TYPE.
+		* gimple.c (struct type_pair_d): Define.
+		(type_pair_t): Define.
+		(type_pair_hash): New.
+		(type_pair_eq): New.
+		(lookup_type_pair): New.
+		(gimple_compare_types): Factor out of gimple_types_compatible_p.
+		Compare type sizes, alignment, precision, mode and sign.
+		Compare values for enumeral types.
+		Compare all fields of structures and unions.
+		Fix comparison of TYPE_QUALS.
+		Compare TYPE_IS_SIZETYPE for integer types.
+		(gimple_types_compatible_p): Call gimple_compare_types.
+		(gimple_same_type_p): Remove.  Update all callers.
+		* gimple.h (gimple_same_type_p): Remove.
+
 2009-03-10  Simon Baldwin  <simonb@google.com>
 
 	* lto-opts.c (lto_read_file_options): Corrected function comment.
