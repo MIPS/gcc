@@ -339,7 +339,7 @@ input_options (struct lto_input_block *ib)
     }
 }
 
-/* Write currently held options to an LTO IL section.  */
+/* Read options from an LTO IL section.  */
 
 void
 lto_read_file_options (struct lto_file_decl_data *file_data)

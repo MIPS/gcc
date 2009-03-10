@@ -1454,6 +1454,8 @@ lto_read_all_file_options (void)
 
       lto_elf_file_close (file);
       htab_delete (file_data->section_hash_table);
+      if (file_data->fd != -1)
+	close (file_data->fd);
       free (file_data);
     }
 

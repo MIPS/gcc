@@ -1,3 +1,7 @@
+2009-03-10  Simon Baldwin  <simonb@google.com>
+
+	* lto-opts.c (lto_read_file_options): Corrected function comment.
+
 2009-03-10  Rafael Avila de Espindola  <espindola@google.com>
 
 	* tree-inline.c (expand_call_inline): Handle the case that DEST
