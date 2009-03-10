@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -50,12 +50,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	if (!__caches[__i])
 	  {
 	    __moneypunct_cache<_CharT, _Intl>* __tmp = NULL;
-	    try
+	    __try
 	      {
 		__tmp = new __moneypunct_cache<_CharT, _Intl>;
 		__tmp->_M_cache(__loc);
 	      }
-	    catch(...)
+	    __catch(...)
 	      {
 		delete __tmp;
 		__throw_exception_again;
@@ -81,8 +81,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __mp.grouping().copy(__grouping, _M_grouping_size);
       _M_grouping = __grouping;
       _M_use_grouping = (_M_grouping_size
-			 && static_cast<signed char>(__mp.grouping()[0]) > 0);
-      
+			 && static_cast<signed char>(_M_grouping[0]) > 0
+			 && (_M_grouping[0]
+			     != __gnu_cxx::__numeric_traits<char>::__max));
+
       _M_decimal_point = __mp.decimal_point();
       _M_thousands_sep = __mp.thousands_sep();
       _M_frac_digits = __mp.frac_digits();

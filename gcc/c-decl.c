@@ -1,6 +1,6 @@
 /* Process declarations and variables for C compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -781,14 +781,18 @@ pop_scope (void)
 	      error ("nested function %q+D declared but never defined", p);
 	      undef_nested_function = true;
 	    }
-	  /* C99 6.7.4p6: "a function with external linkage... declared
-	     with an inline function specifier ... shall also be defined in the
-	     same translation unit."  */
 	  else if (DECL_DECLARED_INLINE_P (p)
 		   && TREE_PUBLIC (p)
-		   && !DECL_INITIAL (p)
-		   && !flag_gnu89_inline)
-	    pedwarn (input_location, 0, "inline function %q+D declared but never defined", p);
+		   && !DECL_INITIAL (p))
+	    {
+	      /* C99 6.7.4p6: "a function with external linkage... declared
+		 with an inline function specifier ... shall also be defined
+		 in the same translation unit."  */
+	      if (!flag_gnu89_inline)
+		pedwarn (input_location, 0,
+			 "inline function %q+D declared but never defined", p);
+	      DECL_EXTERNAL (p) = 1;
+	    }
 
 	  goto common_symbol;
 
@@ -1971,6 +1975,67 @@ warn_if_shadowing (tree new_decl)
       }
 }
 
+
+/* Subroutine of pushdecl.
+
+   X is a TYPE_DECL for a typedef statement.  Create a brand new
+   ..._TYPE node (which will be just a variant of the existing
+   ..._TYPE node with identical properties) and then install X
+   as the TYPE_NAME of this brand new (duplicate) ..._TYPE node.
+
+   The whole point here is to end up with a situation where each
+   and every ..._TYPE node the compiler creates will be uniquely
+   associated with AT MOST one node representing a typedef name.
+   This way, even though the compiler substitutes corresponding
+   ..._TYPE nodes for TYPE_DECL (i.e. "typedef name") nodes very
+   early on, later parts of the compiler can always do the reverse
+   translation and get back the corresponding typedef name.  For
+   example, given:
+
+	typedef struct S MY_TYPE;
+	MY_TYPE object;
+
+   Later parts of the compiler might only know that `object' was of
+   type `struct S' if it were not for code just below.  With this
+   code however, later parts of the compiler see something like:
+
+	struct S' == struct S
+	typedef struct S' MY_TYPE;
+	struct S' object;
+
+    And they can then deduce (from the node for type struct S') that
+    the original object declaration was:
+
+		MY_TYPE object;
+
+    Being able to do this is important for proper support of protoize,
+    and also for generating precise symbolic debugging information
+    which takes full account of the programmer's (typedef) vocabulary.
+
+    Obviously, we don't want to generate a duplicate ..._TYPE node if
+    the TYPE_DECL node that we are now processing really represents a
+    standard built-in type.  */
+
+static void
+clone_underlying_type (tree x)
+{
+  if (DECL_IS_BUILTIN (x))
+    {
+      if (TYPE_NAME (TREE_TYPE (x)) == 0)
+	TYPE_NAME (TREE_TYPE (x)) = x;
+    }
+  else if (TREE_TYPE (x) != error_mark_node
+	   && DECL_ORIGINAL_TYPE (x) == NULL_TREE)
+    {
+      tree tt = TREE_TYPE (x);
+      DECL_ORIGINAL_TYPE (x) = tt;
+      tt = build_variant_type_copy (tt);
+      TYPE_NAME (tt) = x;
+      TREE_USED (tt) = TREE_USED (x);
+      TREE_TYPE (x) = tt;
+    }
+}
+
 /* Record a decl-node X as belonging to the current lexical scope.
    Check for errors (such as an incompatible declaration for the same
    name already seen in the same scope).
@@ -2193,7 +2258,7 @@ pushdecl (tree x)
 
  skip_external_and_shadow_checks:
   if (TREE_CODE (x) == TYPE_DECL)
-    set_underlying_type (x);
+    clone_underlying_type (x);
 
   bind (name, x, scope, /*invisible=*/false, nested);
 
@@ -4333,24 +4398,36 @@ grokdeclarator (const struct c_declarator *declarator,
 	      }
 	    else if (decl_context == FIELD)
 	      {
-		if (pedantic && !flag_isoc99 && !in_system_header)
+		bool flexible_array_member = false;
+		if (array_parm_vla_unspec_p)
+		  /* Field names can in fact have function prototype
+		     scope so [*] is disallowed here through making
+		     the field variably modified, not through being
+		     something other than a declaration with function
+		     prototype scope.  */
+		  size_varies = 1;
+		else
+		  {
+		    const struct c_declarator *t = declarator;
+		    while (t->kind == cdk_attrs)
+		      t = t->declarator;
+		    flexible_array_member = (t->kind == cdk_id);
+		  }
+		if (flexible_array_member
+		    && pedantic && !flag_isoc99 && !in_system_header)
 		  pedwarn (input_location, OPT_pedantic,
 			   "ISO C90 does not support flexible array members");
 
 		/* ISO C99 Flexible array members are effectively
 		   identical to GCC's zero-length array extension.  */
-		itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
+		if (flexible_array_member || array_parm_vla_unspec_p)
+		  itype = build_range_type (sizetype, size_zero_node,
+					    NULL_TREE);
 	      }
 	    else if (decl_context == PARM)
 	      {
 		if (array_parm_vla_unspec_p)
 		  {
-		    if (! orig_name)
-		      {
-			/* C99 6.7.5.2p4 */
-			error ("%<[*]%> not allowed in other than a declaration");
-		      }
-
 		    itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
 		    size_varies = 1;
 		  }
@@ -4359,12 +4436,14 @@ grokdeclarator (const struct c_declarator *declarator,
 	      {
 		if (array_parm_vla_unspec_p)
 		  {
-		    /* The error is printed elsewhere.  We use this to
-		       avoid messing up with incomplete array types of
-		       the same type, that would otherwise be modified
-		       below.  */
+		    /* C99 6.7.5.2p4 */
+		    warning (0, "%<[*]%> not in a declaration");
+		    /* We use this to avoid messing up with incomplete
+		       array types of the same type, that would
+		       otherwise be modified below.  */
 		    itype = build_range_type (sizetype, size_zero_node,
 					      NULL_TREE);
+		    size_varies = 1;
 		  }
 	      }
 
@@ -5297,6 +5376,8 @@ start_struct (enum tree_code code, tree name)
 	    error ("redefinition of %<union %E%>", name);
 	  else
 	    error ("redefinition of %<struct %E%>", name);
+	  /* Don't create structures using a name already in use.  */
+	  ref = NULL_TREE;
 	}
       else if (C_TYPE_BEING_DEFINED (ref))
 	{
@@ -5512,9 +5593,6 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 
       DECL_CONTEXT (x) = t;
 
-      if (TYPE_PACKED (t) && TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
-	DECL_PACKED (x) = 1;
-
       /* If any field is const, the structure type is pseudo-const.  */
       if (TREE_READONLY (x))
 	C_TYPE_FIELDS_READONLY (t) = 1;
@@ -5545,6 +5623,11 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  DECL_BIT_FIELD (x) = 1;
 	  SET_DECL_C_BIT_FIELD (x);
 	}
+
+      if (TYPE_PACKED (t)
+	  && (DECL_BIT_FIELD (x)
+	      || TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT))
+	DECL_PACKED (x) = 1;
 
       /* Detect flexible array member in an invalid context.  */
       if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
@@ -7714,6 +7797,8 @@ finish_declspecs (struct c_declspecs *specs)
       if (specs->saturating_p)
 	{
 	  error ("%<_Sat%> is used without %<_Fract%> or %<_Accum%>");
+	  if (!targetm.fixed_point_supported_p ())
+	    error ("fixed-point types not supported for this target");
 	  specs->typespec_word = cts_fract;
 	}
       else if (specs->long_p || specs->short_p
@@ -7836,8 +7921,10 @@ finish_declspecs (struct c_declspecs *specs)
 	specs->type = dfloat128_type_node;
       break;
     case cts_fract:
-       gcc_assert (!specs->complex_p);
-       if (specs->saturating_p)
+      gcc_assert (!specs->complex_p);
+      if (!targetm.fixed_point_supported_p ())
+	specs->type = integer_type_node;
+      else if (specs->saturating_p)
 	{
 	  if (specs->long_long_p)
 	    specs->type = specs->unsigned_p
@@ -7855,7 +7942,7 @@ finish_declspecs (struct c_declspecs *specs)
 	    specs->type = specs->unsigned_p
 			  ? sat_unsigned_fract_type_node
 			  : sat_fract_type_node;
-          }
+	}
       else
 	{
 	  if (specs->long_long_p)
@@ -7874,11 +7961,13 @@ finish_declspecs (struct c_declspecs *specs)
 	    specs->type = specs->unsigned_p
 			  ? unsigned_fract_type_node
 			  : fract_type_node;
-          }
+	}
       break;
     case cts_accum:
-       gcc_assert (!specs->complex_p);
-       if (specs->saturating_p)
+      gcc_assert (!specs->complex_p);
+      if (!targetm.fixed_point_supported_p ())
+	specs->type = integer_type_node;
+      else if (specs->saturating_p)
 	{
 	  if (specs->long_long_p)
 	    specs->type = specs->unsigned_p
@@ -7896,7 +7985,7 @@ finish_declspecs (struct c_declspecs *specs)
 	    specs->type = specs->unsigned_p
 			  ? sat_unsigned_accum_type_node
 			  : sat_accum_type_node;
-          }
+	}
       else
 	{
 	  if (specs->long_long_p)
@@ -7915,7 +8004,7 @@ finish_declspecs (struct c_declspecs *specs)
 	    specs->type = specs->unsigned_p
 			  ? unsigned_accum_type_node
 			  : accum_type_node;
-          }
+	}
       break;
     default:
       gcc_unreachable ();

@@ -1,0 +1,4 @@
+2008-06-17  Le-Chun Wu  <lcwu@google.com>
+	* parser.c (cp_parser_parenthesized_expression_list): Change how C++
+	parser processes the attribute argument list.
+	(cp_parser_class_specifier): Process the thread safety attributes.

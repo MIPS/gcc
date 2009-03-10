@@ -1,6 +1,7 @@
 // Bitmap Allocator. -*- C++ -*-
 
-// Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -549,13 +550,11 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
    */
   class free_list
   {
-  public:
     typedef size_t* 				value_type;
     typedef __detail::__mini_vector<value_type> vector_type;
     typedef vector_type::iterator 		iterator;
     typedef __mutex				__mutex_type;
 
-  private:
     struct _LT_pointer_compare
     {
       bool
@@ -708,7 +707,10 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	};
     };
 
-  /// Primary template
+  /**
+   * @brief Bitmap Allocator, primary template.
+   * @ingroup allocators
+   */
   template<typename _Tp>
     class bitmap_allocator : private free_list
     {

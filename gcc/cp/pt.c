@@ -1,6 +1,7 @@
 /* Handle parameterized types (templates) for GNU C++.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2007, 2008  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -4599,6 +4600,13 @@ convert_nontype_argument (tree type, tree expr)
       expr = convert_nontype_argument_function (type, expr);
       if (!expr || expr == error_mark_node)
 	return expr;
+
+      if (TREE_CODE (expr) != ADDR_EXPR)
+	{
+	  error ("%qE is not a valid template argument for type %qT", expr, type);
+	  error ("it must be the address of a function with external linkage");
+	  return NULL_TREE;
+	}
     }
   /* [temp.arg.nontype]/5, bullet 5
 
@@ -4781,6 +4789,9 @@ coerce_template_template_parms (tree parm_parms,
     {
       parm = TREE_VALUE (TREE_VEC_ELT (parm_parms, nparms - 1));
       
+      if (parm == error_mark_node)
+	return 0;
+
       switch (TREE_CODE (parm))
         {
         case TEMPLATE_DECL:
@@ -7478,31 +7489,6 @@ instantiate_class_template (tree type)
       input_location = saved_location;
     }
 
-  /* Some types referenced from within the template code need to be access
-     checked at template instantiation time, i.e now. These types were
-     added to the template at parsing time. Let's get those and perfom
-     the acces checks then.  */
-  for (t = MEMBER_TYPES_NEEDING_ACCESS_CHECK (templ); t; t = TREE_CHAIN (t))
-    {
-      tree type_decl = TREE_PURPOSE (t);
-      tree type_scope = TREE_VALUE (t);
-
-      if (!type_decl || !type_scope || !CLASS_TYPE_P (type_scope))
-	continue;
-
-      if (uses_template_parms (type_decl))
-	type_decl = tsubst (type_decl, args, tf_error, NULL_TREE);
-
-      if (uses_template_parms (type_scope))
-	type_scope = tsubst (type_scope, args, tf_error, NULL_TREE);
-
-      gcc_assert (type_decl && type_decl != error_mark_node
-		  && type_scope && type_scope != error_mark_node);
-
-      perform_or_defer_access_check (TYPE_BINFO (type_scope), type_decl, type_decl);
-    }
-
-  perform_deferred_access_checks ();
   pop_nested_class ();
   pop_from_top_level ();
   pop_deferring_access_checks ();
@@ -11341,16 +11327,7 @@ tsubst_copy_and_build (tree t,
     case ARRAY_REF:
       op1 = tsubst_non_call_postfix_expression (TREE_OPERAND (t, 0),
 						args, complain, in_decl);
-      return build_x_binary_op (ARRAY_REF, op1,
-				(TREE_NO_WARNING (TREE_OPERAND (t, 0))
-				 ? ERROR_MARK
-				 : TREE_CODE (TREE_OPERAND (t, 0))),
-				RECUR (TREE_OPERAND (t, 1)),
-				(TREE_NO_WARNING (TREE_OPERAND (t, 1))
-				 ? ERROR_MARK
-				 : TREE_CODE (TREE_OPERAND (t, 1))),
-				/*overloaded_p=*/NULL,
-				complain);
+      return build_x_array_ref (op1, RECUR (TREE_OPERAND (t, 1)), complain);
 
     case SIZEOF_EXPR:
       if (PACK_EXPANSION_P (TREE_OPERAND (t, 0)))
@@ -11525,12 +11502,12 @@ tsubst_copy_and_build (tree t,
 		       /*fn_p=*/NULL,
 		       complain));
 	  }
-	/* Pass true for koenig_p so that build_new_function_call will
+	/* Pass -1 for koenig_p so that build_new_function_call will
 	   allow hidden friends found by arg-dependent lookup at template
 	   parsing time.  */
 	return finish_call_expr (function, call_args,
 				 /*disallow_virtual=*/qualified_p,
-				 /*koenig_p*/true,
+				 /*koenig_p*/-1,
 				 complain);
       }
 
@@ -11989,7 +11966,6 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
   tree fndecl;
   tree gen_tmpl;
   tree spec;
-  tree t;
   HOST_WIDE_INT saved_processing_template_decl;
 
   if (tmpl == error_mark_node)
@@ -12068,24 +12044,6 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
   /* Now we know the specialization, compute access previously
      deferred.  */
   push_access_scope (fndecl);
-
-  /* Some types referenced from within the template code need to be access
-     checked at template instantiation time, i.e now. These types were
-     added to the template at parsing time. Let's get those and perfom
-     the acces checks then.  */
-  for (t = MEMBER_TYPES_NEEDING_ACCESS_CHECK (tmpl); t; t = TREE_CHAIN (t))
-    {
-      tree type_decl = TREE_PURPOSE (t);
-      tree type_scope = TREE_VALUE (t);
-
-      if (!type_decl || !type_scope || !CLASS_TYPE_P (type_scope))
-	continue;
-
-      if (uses_template_parms (type_decl))
-	type_decl = tsubst (type_decl, targ_ptr, tf_error, NULL_TREE);
-
-      perform_or_defer_access_check (TYPE_BINFO (type_scope), type_decl, type_decl);
-    }
   perform_deferred_access_checks ();
   pop_access_scope (fndecl);
   pop_deferring_access_checks ();
@@ -13344,9 +13302,18 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 
       FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (arg), i, elt)
 	{
+	  int elt_strict = strict;
 	  if (!BRACE_ENCLOSED_INITIALIZER_P (elt))
-	    elt = TREE_TYPE (elt);
-	  if (unify (tparms, targs, elttype, elt, UNIFY_ALLOW_NONE))
+	    {
+	      tree type = TREE_TYPE (elt);
+	      /* It should only be possible to get here for a call.  */
+	      gcc_assert (elt_strict & UNIFY_ALLOW_OUTER_LEVEL);
+	      elt_strict |= maybe_adjust_types_for_deduction
+		(DEDUCE_CALL, &elttype, &type, elt);
+	      elt = type;
+	    }
+
+	  if (unify (tparms, targs, elttype, elt, elt_strict))
 	    return 1;
 	}
       return 0;
@@ -13597,7 +13564,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	/* Convert the ARG to the type of PARM; the deduced non-type
 	   template argument must exactly match the types of the
 	   corresponding parameter.  */
-	arg = fold (build_nop (TREE_TYPE (parm), arg));
+	arg = fold (build_nop (tparm, arg));
       else if (uses_template_parms (tparm))
 	/* We haven't deduced the type of this parameter yet.  Try again
 	   later.  */
@@ -15423,9 +15390,14 @@ instantiate_decl (tree d, int defer_ok,
   /* In general, we do not instantiate such templates...  */
   if (external_p
       /* ... but we instantiate inline functions so that we can inline
-	 them and ... */
+	 them.  An explicit instantiation declaration prohibits implicit
+	 instantiation of non-inline functions.  With high levels of
+	 optimization, we would normally inline non-inline functions
+	 -- but we're not allowed to do that for "extern template" functions.
+	 Therefore, we check DECL_DECLARED_INLINE_P, rather than
+	 possibly_inlined_p.  And ...  */
       && ! (TREE_CODE (d) == FUNCTION_DECL
-	    && possibly_inlined_p (d))
+	    && DECL_DECLARED_INLINE_P (d))
       /* ... we instantiate static data members whose values are
 	 needed in integral constant expressions.  */
       && ! (TREE_CODE (d) == VAR_DECL
@@ -16190,6 +16162,16 @@ dependent_type_p (tree type)
   return TYPE_DEPENDENT_P (type);
 }
 
+/* Returns TRUE if SCOPE is a dependent scope, in which we can't do any
+   lookup.  In other words, a dependent type that is not the current
+   instantiation.  */
+
+bool
+dependent_scope_p (tree scope)
+{
+  return dependent_type_p (scope) && !currently_open_class (scope);
+}
+
 /* Returns TRUE if EXPRESSION is dependent, according to CRITERION.  */
 
 static bool
@@ -16211,7 +16193,7 @@ dependent_scope_ref_p (tree expression, bool criterion (tree))
      An id-expression is type-dependent if it contains a
      nested-name-specifier that contains a class-name that names a
      dependent type.  */
-  /* The suggested resolution to Core Issue 2 implies that if the
+  /* The suggested resolution to Core Issue 224 implies that if the
      qualifying type is the current class, then we must peek
      inside it.  */
   if (DECL_P (name)
@@ -16772,15 +16754,7 @@ resolve_typename_type (tree type, bool only_current_p)
   gcc_assert (TREE_CODE (type) == TYPENAME_TYPE);
 
   scope = TYPE_CONTEXT (type);
-  /* Usually the non-qualified identifier of a TYPENAME_TYPE is
-     TYPE_IDENTIFIER (type). But when 'type' is a typedef variant of
-     a TYPENAME_TYPE node, then TYPE_NAME (type) is set to the TYPE_DECL representing
-     the typedef. In that case TYPE_IDENTIFIER (type) is not the non-qualified
-     identifier  of the TYPENAME_TYPE anymore.
-     So by getting the TYPE_IDENTIFIER of the _main declaration_ of the
-     TYPENAME_TYPE instead, we avoid messing up with a possible
-     typedef variant case.  */
-  name = TYPE_IDENTIFIER (TYPE_MAIN_VARIANT (type));
+  name = TYPE_IDENTIFIER (type);
 
   /* If the SCOPE is itself a TYPENAME_TYPE, then we need to resolve
      it first before we can figure out what NAME refers to.  */
@@ -17103,47 +17077,6 @@ type_uses_auto (tree type)
 				   (TYPE_PTRMEMFUNC_FN_TYPE (type))));
 
   return NULL_TREE;
-}
-
-/* Append TYPE_DECL to the template TMPL.
-   TMPL is eiter a class type or a FUNCTION_DECL associated
-   to a TEMPLATE_DECL.
-   At TMPL instanciation time, TYPE_DECL will be checked to see
-   if it can be accessed through SCOPE.  */
-void
-append_type_to_template_for_access_check (tree templ,
-                                          tree type_decl,
-					  tree scope)
-{
-  tree node, templ_decl;
-
-  gcc_assert (templ
-	      && get_template_info (templ)
-	      && TI_TEMPLATE (get_template_info (templ))
-	      && type_decl
-	      && (TREE_CODE (type_decl) == TYPE_DECL));
-
-  templ_decl = TI_TEMPLATE (get_template_info (templ));
-  gcc_assert (templ_decl);
-
-  /* Make sure we don't append the type to the template twice.
-     If this appears to be too slow, the
-     MEMBER_TYPE_NEEDING_ACCESS_CHECK property
-     of templ should be a hash table instead.  */
-  for (node = MEMBER_TYPES_NEEDING_ACCESS_CHECK (templ_decl);
-       node;
-       node = TREE_CHAIN (node))
-    {
-      tree decl = TREE_PURPOSE (node);
-      tree type_scope = TREE_VALUE (node);
-
-      if (decl == type_decl && type_scope == scope)
-	return;
-    }
-
-  MEMBER_TYPES_NEEDING_ACCESS_CHECK (templ_decl) =
-    tree_cons (type_decl, scope,
-	       MEMBER_TYPES_NEEDING_ACCESS_CHECK (templ_decl));
 }
 
 #include "gt-cp-pt.h"

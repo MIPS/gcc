@@ -1,6 +1,6 @@
 /* Functions dealing with attribute handling, used by most front ends.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -597,8 +597,8 @@ merge_lock_attr_args (tree attr, tree additional_args)
   /* We don't allow the following lock attributes to appear multiple times
      on a decl.  */
   else if (is_attribute_p ("guarded_by", identifier)
-      || is_attribute_p ("point_to_guarded_by", identifier)
-      || is_attribute_p ("lock_returned", identifier))
+           || is_attribute_p ("point_to_guarded_by", identifier)
+           || is_attribute_p ("lock_returned", identifier))
     warning (OPT_Wattributes, "Additional %qs attribute ignored",
              IDENTIFIER_POINTER (identifier));
 }

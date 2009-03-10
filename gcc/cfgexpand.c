@@ -1,5 +1,6 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1970,7 +1971,7 @@ expand_gimple_basic_block (basic_block bb)
 		    return new_bb;
 		}
 	    }
-	  else
+	  else if (gimple_code (stmt) != GIMPLE_CHANGE_DYNAMIC_TYPE)
 	    {
 	      tree stmt_tree = gimple_to_tree (stmt);
 	      last = get_last_insn ();

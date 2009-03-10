@@ -1,6 +1,7 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -5165,7 +5166,9 @@ handle_packed_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     }
   else if (TREE_CODE (*node) == FIELD_DECL)
     {
-      if (TYPE_ALIGN (TREE_TYPE (*node)) <= BITS_PER_UNIT)
+      if (TYPE_ALIGN (TREE_TYPE (*node)) <= BITS_PER_UNIT
+	  /* Still pack bitfields.  */
+	  && ! DECL_INITIAL (*node))
 	warning (OPT_Wattributes,
 		 "%qE attribute ignored for field of type %qT",
 		 name, TREE_TYPE (*node));
@@ -6065,7 +6068,12 @@ handle_alias_attribute (tree *node, tree name, tree args,
 {
   tree decl = *node;
 
-  if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
+  if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+  else if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
       || (TREE_CODE (decl) != FUNCTION_DECL 
 	  && TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
       /* A static variable declaration is always a tentative definition,
@@ -6294,8 +6302,18 @@ c_determine_visibility (tree decl)
      visibility_specified depending on #pragma GCC visibility.  */
   if (!DECL_VISIBILITY_SPECIFIED (decl))
     {
-      DECL_VISIBILITY (decl) = default_visibility;
-      DECL_VISIBILITY_SPECIFIED (decl) = visibility_options.inpragma;
+      if (visibility_options.inpragma
+	  || DECL_VISIBILITY (decl) != default_visibility)
+	{
+	  DECL_VISIBILITY (decl) = default_visibility;
+	  DECL_VISIBILITY_SPECIFIED (decl) = visibility_options.inpragma;
+	  /* If visibility changed and DECL already has DECL_RTL, ensure
+	     symbol flags are updated.  */
+	  if (((TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+	       || TREE_CODE (decl) == FUNCTION_DECL)
+	      && DECL_RTL_SET_P (decl))
+	    make_decl_rtl (decl);
+	}
     }
   return false;
 }
@@ -6313,7 +6331,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
 
   *no_add_attrs = true;
 
-  if (!DECL_THREAD_LOCAL_P (decl))
+  if (TREE_CODE (decl) != VAR_DECL || !DECL_THREAD_LOCAL_P (decl))
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       return NULL_TREE;
@@ -8512,6 +8530,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	      tree curindex;
 	      unsigned HOST_WIDE_INT cnt;
 	      constructor_elt *ce;
+	      bool fold_p = false;
 
 	      if (VEC_index (constructor_elt, v, 0)->index)
 		maxindex = fold_convert (sizetype,
@@ -8523,14 +8542,20 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 		   VEC_iterate (constructor_elt, v, cnt, ce);
 		   cnt++)
 		{
+		  bool curfold_p = false;
 		  if (ce->index)
-		    curindex = fold_convert (sizetype, ce->index);
+		    curindex = ce->index, curfold_p = true;
 		  else
-		    curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
-
+		    {
+		      if (fold_p)
+		        curindex = fold_convert (sizetype, curindex);
+		      curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
+		    }
 		  if (tree_int_cst_lt (maxindex, curindex))
-		    maxindex = curindex;
+		    maxindex = curindex, fold_p = curfold_p;
 		}
+	       if (fold_p)
+	         maxindex = fold_convert (sizetype, maxindex);
 	    }
 	}
       else
@@ -9151,75 +9176,6 @@ warn_for_sign_compare (location_t location,
         warning_at (location, OPT_Wsign_compare,
                  "comparison of promoted ~unsigned with unsigned");
     }
-}
-
-/* Setup a TYPE_DECL node as a typedef representation.
-
-   X is a TYPE_DECL for a typedef statement.  Create a brand new
-   ..._TYPE node (which will be just a variant of the existing
-   ..._TYPE node with identical properties) and then install X
-   as the TYPE_NAME of this brand new (duplicate) ..._TYPE node.
-
-   The whole point here is to end up with a situation where each
-   and every ..._TYPE node the compiler creates will be uniquely
-   associated with AT MOST one node representing a typedef name.
-   This way, even though the compiler substitutes corresponding
-   ..._TYPE nodes for TYPE_DECL (i.e. "typedef name") nodes very
-   early on, later parts of the compiler can always do the reverse
-   translation and get back the corresponding typedef name.  For
-   example, given:
-
-	typedef struct S MY_TYPE;
-	MY_TYPE object;
-
-   Later parts of the compiler might only know that `object' was of
-   type `struct S' if it were not for code just below.  With this
-   code however, later parts of the compiler see something like:
-
-	struct S' == struct S
-	typedef struct S' MY_TYPE;
-	struct S' object;
-
-    And they can then deduce (from the node for type struct S') that
-    the original object declaration was:
-
-		MY_TYPE object;
-
-    Being able to do this is important for proper support of protoize,
-    and also for generating precise symbolic debugging information
-    which takes full account of the programmer's (typedef) vocabulary.
-
-    Obviously, we don't want to generate a duplicate ..._TYPE node if
-    the TYPE_DECL node that we are now processing really represents a
-    standard built-in type.  */
-
-void
-set_underlying_type (tree x)
-{
-  if (DECL_IS_BUILTIN (x))
-    {
-      if (TYPE_NAME (TREE_TYPE (x)) == 0)
-	TYPE_NAME (TREE_TYPE (x)) = x;
-    }
-  else if (TREE_TYPE (x) != error_mark_node
-	   && DECL_ORIGINAL_TYPE (x) == NULL_TREE)
-    {
-      tree tt = TREE_TYPE (x);
-      DECL_ORIGINAL_TYPE (x) = tt;
-      tt = build_variant_type_copy (tt);
-      TYPE_STUB_DECL (tt) = TYPE_STUB_DECL (DECL_ORIGINAL_TYPE (x));
-      TYPE_NAME (tt) = x;
-      TREE_USED (tt) = TREE_USED (x);
-      TREE_TYPE (x) = tt;
-    }
-}
-
-/* Returns true if X is a typedef type.  */
-bool
-is_typedef_decl (tree x)
-{
-  return (x && TREE_CODE (x) == TYPE_DECL
-          && DECL_ORIGINAL_TYPE (x) != NULL_TREE);
 }
 
 #include "gt-c-common.h"

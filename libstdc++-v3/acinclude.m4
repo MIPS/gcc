@@ -638,7 +638,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
   fi
   
   # Export file names for ABI checking.
-  baseline_dir="$glibcxx_srcdir/config/abi/post/${abi_baseline_pair}\$(MULTISUBDIR)"
+  baseline_dir="$glibcxx_srcdir/config/abi/post/${abi_baseline_pair}"
   AC_SUBST(baseline_dir)
 ])
 
@@ -2728,7 +2728,7 @@ if test x$enable_symvers = xyes ; then
   else
     if test $with_gnu_ld = yes ; then
       case ${target_os} in
-        cygwin* | pe | mingw32*)
+        cygwin* | pe | mingw32* | hpux*)
           enable_symvers=no ;;
         *)
           enable_symvers=gnu ;;
