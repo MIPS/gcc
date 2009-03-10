@@ -1,3 +1,9 @@
+2009-03-10  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* config/t-darwin: Use CXX as compiler.
+	* config/x-darwin: Likewise.
+	* config/i386/x-darwin: Same.
+
 2009-03-06  Ian Lance Taylor  <iant@google.com>
 
 	* toplev.h (floor_log2, exact_log2): Don't define as extern for
