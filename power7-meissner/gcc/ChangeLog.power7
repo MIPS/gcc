@@ -1,3 +1,15 @@
+2009-03-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_concat_v2df): Add explicit 'f'
+	register class for scalar data, correct uses of the xxpermdi
+	instruction.
+	(vsx_set_v2df): Ditto.
+	(vsx_extract_v2df): Ditto.
+	(vsx_xxpermdi): Ditto.
+	(vsx_splatv2df): Ditto.
+	(vsx_xxmrghw): Use wf instead of v constraints.
+	(vsx_xxmrglw): Ditto.
+
 2009-03-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_store<mode>_update64): Use correct

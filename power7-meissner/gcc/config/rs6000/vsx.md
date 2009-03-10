@@ -753,8 +753,8 @@
 (define_insn "vsx_concat_v2df"
   [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?wa")
 	(unspec:V2DF
-	 [(match_operand:DF 1 "vsx_register_operand" "f,wa")
-	  (match_operand:DF 2 "vsx_register_operand" "f,wa")]
+	 [(match_operand:DF 1 "vsx_register_operand" "ws,wa")
+	  (match_operand:DF 2 "vsx_register_operand" "ws,wa")]
 	 UNSPEC_VSX_CONCAT_V2DF))]
   "VECTOR_UNIT_VSX_P (V2DFmode)"
   "xxpermdi %x0,%x1,%x2,0"
@@ -762,32 +762,37 @@
 
 ;; Set a double into one element
 (define_insn "vsx_set_v2df"
-  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd")
+  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?wa")
 	(vec_merge:V2DF
-	 (match_operand:V2DF 1 "vsx_register_operand" "wd")
-	 (vec_duplicate:V2DF (match_operand:DF 2 "vsx_register_operand" "ws"))
-	 (match_operand:QI 3 "u5bit_cint_operand" "i")))]
+	 (match_operand:V2DF 1 "vsx_register_operand" "wd,wa")
+	 (vec_duplicate:V2DF (match_operand:DF 2 "vsx_register_operand" "ws,f"))
+	 (match_operand:QI 3 "u5bit_cint_operand" "i,i")))]
   "VECTOR_UNIT_VSX_P (V2DFmode)"
 {
-  operands[3] = GEN_INT (INTVAL (operands[3]) & 1);
-  return \"xxpermdi %x0,%x1,%x2,%3\";
+  if (INTVAL (operands[3]) == 0)
+    return \"xxpermdi %x0,%x1,%x2,1\";
+  else if (INTVAL (operands[3]) == 1)
+    return \"xxpermdi %x0,%x2,%x1,0\";
+  else
+    gcc_unreachable ();
 }
   [(set_attr "type" "vecperm")])
 
 ;; Extract a DF element from V2DF
 (define_insn "vsx_extract_v2df"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws")
-	(vec_select:DF (match_operand:V2DF 1 "vsx_register_operand" "wd")
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,f,?wa")
+	(vec_select:DF (match_operand:V2DF 1 "vsx_register_operand" "wd,wd,wa")
 		       (parallel
-			[(match_operand:QI 2 "u5bit_cint_operand" "i")])))]
+			[(match_operand:QI 2 "u5bit_cint_operand" "i,i,i")])))]
   "VECTOR_UNIT_VSX_P (V2DFmode)"
 {
-  operands[3] = GEN_INT (INTVAL (operands[2]) & 1);
+  gcc_assert (UINTVAL (operands[2]) <= 1);
+  operands[3] = GEN_INT (INTVAL (operands[2]) << 1);
   return \"xxpermdi %x0,%x1,%x1,%3\";
 }
   [(set_attr "type" "vecperm")])
 
-;; General V2DF permute
+;; General V2DF permute, extract_{high,low,even,odd}
 (define_insn "vsx_xxpermdi"
   [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd")
 	(vec_concat:V2DF
@@ -799,6 +804,7 @@
 			 [(match_operand:QI 4 "u5bit_cint_operand" "i")]))))]
   "VECTOR_UNIT_VSX_P (V2DFmode)"
 {
+  gcc_assert ((UINTVAL (operands[2]) <= 1) && (UINTVAL (operands[4]) <= 1));
   operands[5] = GEN_INT (((INTVAL (operands[2]) & 1) << 1)
 			 | (INTVAL (operands[4]) & 1));
   return \"xxpermdi %x0,%x1,%x3,%5\";
@@ -807,14 +813,15 @@
 
 ;; V2DF splat
 (define_insn "vsx_splatv2df"
-  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,wd")
+  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,wd,wd")
 	(vec_duplicate:V2DF
-	 (match_operand:DF 1 "input_operand" "ws,Z")))]
+	 (match_operand:DF 1 "input_operand" "ws,f,Z")))]
   "VECTOR_UNIT_VSX_P (V2DFmode)"
   "@
    xxpermdi %x0,%x1,%x1,0
+   xxpermdi %x0,%x1,%x1,0
    lxvdsx %x0,%y1"
-  [(set_attr "type" "vecperm,vecload")])
+  [(set_attr "type" "vecperm,vecperm,vecload")])
 
 ;; V4SF splat
 (define_insn "*vsx_xxspltw"
@@ -829,13 +836,13 @@
 
 ;; V4SF interleave
 (define_insn "*vsx_xxmrghw"
-  [(set (match_operand:V4SF 0 "register_operand" "=v")
-        (vec_merge:V4SF (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "v")
+  [(set (match_operand:V4SF 0 "register_operand" "=wf")
+        (vec_merge:V4SF (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "wf")
                                          (parallel [(const_int 0)
                                                     (const_int 2)
                                                     (const_int 1)
                                                     (const_int 3)]))
-                        (vec_select:V4SF (match_operand:V4SF 2 "register_operand" "v")
+                        (vec_select:V4SF (match_operand:V4SF 2 "register_operand" "wf")
                                          (parallel [(const_int 2)
                                                     (const_int 0)
                                                     (const_int 3)
@@ -846,14 +853,14 @@
   [(set_attr "type" "vecperm")])
 
 (define_insn "*vsx_xxmrglw"
-  [(set (match_operand:V4SF 0 "register_operand" "=v")
+  [(set (match_operand:V4SF 0 "register_operand" "=wf")
         (vec_merge:V4SF
-	 (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "v")
+	 (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "wf")
 			  (parallel [(const_int 2)
 				     (const_int 0)
 				     (const_int 3)
 				     (const_int 1)]))
-	 (vec_select:V4SF (match_operand:V4SF 2 "register_operand" "v")
+	 (vec_select:V4SF (match_operand:V4SF 2 "register_operand" "wf")
 			  (parallel [(const_int 0)
 				     (const_int 2)
 				     (const_int 1)
