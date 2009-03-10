@@ -1,5 +1,12 @@
 2009-03-09  Jan Hubicka  <jh@suse.cz>
 
+	* tree-inline.c (non_ssa_argument_ok_to_subtitute): Reorganize for
+	better readability; add debug output; handle volatile flags; handle
+	more special cases.
+	(setup_one_parameter): Add debug output.
+
+2009-03-09  Jan Hubicka  <jh@suse.cz>
+
 	* ipa.c (cgraph_remove_unreachable_nodes):  Do not remove edges of
 	functions that are clonned.
 

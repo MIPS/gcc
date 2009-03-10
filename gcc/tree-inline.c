@@ -1960,55 +1960,146 @@ non_ssa_argument_ok_to_subtitute (copy_body_data *id, tree p, tree value)
 {
   tree inner_value;
   int flags;
+  HOST_WIDE_INT bitsize;
+  HOST_WIDE_INT bitpos;
+  tree offset;
+  enum machine_mode mode;
+  int unsignedp;
+  int volatilep = 0;
+  bool pure_call;
 
-  if (!value || TREE_SIDE_EFFECTS (value))
+  if (!value)
     return false;
 
   if (is_gimple_reg (p) && gimple_in_ssa_p (cfun))
     return false;
 
-  /* First validate argument P.  */
-  if (TREE_ADDRESSABLE (p))
-    return false;
+  if (TREE_SIDE_EFFECTS (value))
+    {
+      if (dump_file)
+        fprintf (dump_file, "Value has side effects\n");
+      return false;
+    }
 
+  /* First validate argument P.
+     TODO: we can handle TREE_ADDRESSABLE if we know that:
+       1) address is never written into (we do this analysis for pure function detection)
+          ... or VALUE dies in caller.
+       2) address of VALUE is not escaping from caller or it can never be compared with
+          address of P.  */
+  if (TREE_ADDRESSABLE (p))
+    {
+      if (dump_file)
+        fprintf (dump_file, "Param is addressable\n");
+      return false;
+    }
+
+  /* TODO: we can handle arguments set in function if we know VALUE
+     dies in caller.  */
   if (!TREE_READONLY (p)
       && (!optimize || argument_set_in_function_p (id->src_cfun, p)))
-    return false;
+    {
+      if (dump_file)
+        fprintf (dump_file, "Param can be set in function\n");
+      return false;
+    }
 
-  if (TREE_CODE (value) == NOP_EXPR)
+  if (TREE_CODE (value) == NOP_EXPR || TREE_CODE (value) == VIEW_CONVERT_EXPR)
     value = TREE_OPERAND (value, 0);
 
   /* Now see if VALUE is safe, i.e. it is guarnateed to stay constant
      across execution of inlined function body.  This is easy for
      constants and local variables of the outer function.   */
-  if (handled_component_p (value))
-    inner_value = get_base_address (value);
-  else
-    inner_value = value;
+ 
+  inner_value = get_inner_reference (value, &bitsize, &bitpos,
+				     &offset,
+				     &mode, &unsignedp, &volatilep,
+				     false);
+
+  if (volatilep)
+    {
+      if (dump_file)
+        fprintf (dump_file, "Value is volatile reference\n");
+      return false;
+    }
 
   if (is_gimple_min_invariant (inner_value))
     return true;
 
-  /* When P is completely dead, we can actually be substituting in SSA_NAME.  */
-  if (TREE_CODE (inner_value) == SSA_NAME)
+  if (!optimize)
     {
-      gcc_assert (is_gimple_reg (p));
-      return true;
+      if (dump_file)
+        fprintf (dump_file, "Value is not constant and not optimizing\n");
+      return false;
     }
 
   flags = flags_from_decl_or_type (id->src_fn);
-  if ((TREE_CODE (inner_value) == PARM_DECL
-       || (TREE_CODE (inner_value) == VAR_DECL
-	   && (!TREE_STATIC (inner_value)
-	       || TREE_READONLY (inner_value)
-	       || (flags & ECF_PURE))))
-      && (!TREE_ADDRESSABLE (inner_value)
-          || (flags & (ECF_PURE | ECF_CONST | ECF_LOOPING_CONST_OR_PURE))))
-    return true;
-  if (TREE_CODE (inner_value) == INDIRECT_REF
-      && (flags & (ECF_PURE | ECF_CONST | ECF_LOOPING_CONST_OR_PURE)))
-    return true;
-  return false;
+  pure_call = flags & (ECF_PURE | ECF_CONST | ECF_LOOPING_CONST_OR_PURE);
+
+  /* When P is completely dead, we can actually be substituting in SSA_NAME.  */
+  switch (TREE_CODE (inner_value))
+    {
+    case SSA_NAME:
+      return true;
+
+    case CONST_DECL:
+      return true;
+
+    case VAR_DECL:
+      if (TREE_STATIC (inner_value))
+        {
+	  if (TREE_THIS_VOLATILE (inner_value))
+	    {
+	      if (dump_file)
+		fprintf (dump_file, "Value is volatile variable\n");
+	      return false;
+	    }
+	  if (!pure_call && !TREE_READONLY (inner_value))
+	    {
+	      if (dump_file)
+		fprintf (dump_file, "Value is static var that might be "
+			 "overwritten by function\n");
+	      return false;
+	    }
+	  return true;
+	}
+
+      /* Fall through. */
+    case PARM_DECL:
+      if (TREE_ADDRESSABLE (inner_value) && !pure_call)
+        {
+	  if (dump_file)
+	    fprintf (dump_file, "Value can be overwritten via pointer\n");
+	  return false;
+	}
+      return true;
+
+    case MISALIGNED_INDIRECT_REF:
+      if (dump_file)
+	fprintf (dump_file, "Value is misaligned indirect ref\n");
+      return false;
+    case ALIGN_INDIRECT_REF:
+    case INDIRECT_REF:
+      if (TREE_THIS_VOLATILE (inner_value))
+        {
+	  if (dump_file)
+	    fprintf (dump_file, "Value is volatile indirect ref\n");
+	  return false;
+	}
+      if (!pure_call)
+        {
+	  if (dump_file)
+	    fprintf (dump_file,
+	    	     "Value is indirect reference that might change\n");
+	  return false;
+	}
+      return true;
+      break;
+
+    default:
+      debug_tree (inner_value);
+      gcc_unreachable ();
+    }
 }
 
 /* Initialize parameter P with VALUE.  If needed, produce init statement
@@ -2037,11 +2128,21 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
 	   to not leak invalid GIMPLE to the following passes.  */
 	rhs = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (p), value);
     }
+  if (dump_file)
+    {
+      fprintf (dump_file, "Setup for argument:");
+      print_generic_decl (dump_file, p, 0);
+      fprintf (dump_file, " value:");
+      print_generic_expr (dump_file, value, 0);
+      fprintf (dump_file, "\n");
+    }
 
   /* Se if we can rewrite non-SSA parameter by its value.
      This is important to avoid copies of structures.  */
   if (!def && non_ssa_argument_ok_to_subtitute (id, p, rhs))
     {
+      if (dump_file)
+        fprintf (dump_file, "non-SSA substitution\n");
       insert_decl_map (id, p, rhs);
       return NULL;
     }
@@ -2080,10 +2181,6 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
   if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (p)))
     TREE_READONLY (var) = 0;
 
-  /* Shortcut obviously dead arguments on SSA form.  */
-  if (!def && (gimple_in_ssa_p (cfun) && is_gimple_reg (p)))
-    return NULL;
-
   /* If there is no setup required and we are in SSA, take the easy route
      replacing all SSA names representing the function parameter by the
      SSA name passed to function.
@@ -2103,6 +2200,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
 	  || is_gimple_min_invariant (rhs))
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
     {
+      if (dump_file)
+        fprintf (dump_file, "SSA substiution\n");
       insert_decl_map (id, def, rhs);
       return NULL;
     }
@@ -2112,6 +2211,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
   if (gimple_in_ssa_p (cfun) && !def && is_gimple_reg (p))
     {
       gcc_assert (!value || !TREE_SIDE_EFFECTS (value));
+      if (dump_file)
+        fprintf (dump_file, "Argument value unused\n");
       return NULL;
     }
 
@@ -2121,6 +2222,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
     {
       if (rhs == error_mark_node)
 	{
+	  if (dump_file)
+	    fprintf (dump_file, "Argument value set to error mark\n");
 	  insert_decl_map (id, p, var);
 	  return NULL;
 	}
@@ -2131,13 +2234,19 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
 	 keep our trees in gimple form.  */
       if (def && gimple_in_ssa_p (cfun) && is_gimple_reg (p))
 	{
+	  if (dump_file)
+	    fprintf (dump_file, "Argument initialized via SSA assignment\n");
 	  def = remap_ssa_name (def, id);
           init_stmt = gimple_build_assign (def, rhs);
 	  SSA_NAME_IS_DEFAULT_DEF (def) = 0;
 	  set_default_def (var, NULL);
 	}
       else
-        init_stmt = gimple_build_assign (var, rhs);
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Argument initialized via non-SSA assignment\n");
+          init_stmt = gimple_build_assign (var, rhs);
+	}
 
       if (bb && init_stmt)
         insert_init_stmt (bb, init_stmt);
