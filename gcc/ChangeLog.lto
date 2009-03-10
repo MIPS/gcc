@@ -1,3 +1,8 @@
+2009-03-10  Rafael Avila de Espindola  <espindola@google.com>
+
+	* tree-inline.c (expand_call_inline): Handle the case that DEST
+	has just been created.
+
 2009-03-09  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (free_lang_data_in_type): Remove all variants

@@ -3133,7 +3133,12 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
          where previous inlining turned indirect call into direct call by
          constant propagating arguments.  In all other cases we hit a bug
          (incorrect node sharing is most common reason for missing edges.  */
-      gcc_assert (dest->needed);
+
+      /* In WPA we do not scan the bodies, so we did not output a node
+	 for this decl if it was only used indirectly. Make sure we mark the
+	 new node as needed. */
+      dest->needed = 1;
+
       cgraph_create_edge (id->dst_node, dest, stmt,
 			  bb->count, CGRAPH_FREQ_BASE,
 			  bb->loop_depth)->inline_failed
