@@ -207,6 +207,8 @@ strip_nv (enum tree_code code)
     {
     case NEGATENV_EXPR:
       return NEGATE_EXPR;
+    case POINTER_PLUSNV_EXPR:
+      return POINTER_PLUS_EXPR;
     case PLUSNV_EXPR:
       return PLUS_EXPR;
     case MINUSNV_EXPR:

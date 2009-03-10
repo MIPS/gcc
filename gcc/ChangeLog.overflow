@@ -1,5 +1,14 @@
 2009-03-10  Richard Guenther  <rguenther@suse.de>
 
+	* fold-const.c (fold_comparison): Adjust address comparison
+	folding.
+	* tree.h (strip_nv): Also strip POINTER_PLUSNV_EXPR.
+	* tree-ssa-dom.c (initialize_hash_element): Treat *NV_EXPR the
+	same as non-NV_EXPR variants for value-numbering.
+	(simple_iv_increment_p): Handle *NV_EXPR.
+
+2009-03-10  Richard Guenther  <rguenther@suse.de>
+
 	* builtins.c (get_pointer_alignment): Handle POINTER_PLUSNV_EXPR.
 	(get_memory_rtx): Likewise.
 	* expr.c (string_constant): Likewise.

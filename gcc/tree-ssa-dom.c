@@ -223,7 +223,7 @@ initialize_hash_element (gimple stmt, tree lhs,
 
   if (code == GIMPLE_ASSIGN)
     {
-      enum tree_code subcode = gimple_assign_rhs_code (stmt);
+      enum tree_code subcode = strip_nv (gimple_assign_rhs_code (stmt));
 
       expr->type = NULL_TREE;
       
@@ -1567,8 +1567,8 @@ simple_iv_increment_p (gimple stmt)
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (gimple_assign_rhs_code (stmt) != PLUS_EXPR
-      && gimple_assign_rhs_code (stmt) != MINUS_EXPR)
+  if (!PLUS_EXPR_CODE_P (gimple_assign_rhs_code (stmt))
+      && !MINUS_EXPR_CODE_P (gimple_assign_rhs_code (stmt)))
     return false;
 
   preinc = gimple_assign_rhs1 (stmt);

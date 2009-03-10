@@ -8946,14 +8946,15 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
   if (POINTER_TYPE_P (TREE_TYPE (arg0))
       && (TREE_CODE (arg0) == ADDR_EXPR
 	  || TREE_CODE (arg1) == ADDR_EXPR
-	  || TREE_CODE (arg0) == POINTER_PLUS_EXPR
-	  || TREE_CODE (arg1) == POINTER_PLUS_EXPR))
+	  || POINTER_PLUS_EXPR_P (arg0)
+	  || POINTER_PLUS_EXPR_P (arg1)))
     {
       tree base0, base1, offset0 = NULL_TREE, offset1 = NULL_TREE;
       HOST_WIDE_INT bitsize, bitpos0 = 0, bitpos1 = 0;
       enum machine_mode mode;
       int volatilep, unsignedp;
       bool indirect_base0 = false, indirect_base1 = false;
+      bool no_overflow = true;
 
       /* Get base and offset for the access.  Strip ADDR_EXPR for
 	 get_inner_reference, but put it back by stripping INDIRECT_REF
@@ -8970,8 +8971,10 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 	  else
 	    indirect_base0 = true;
 	}
-      else if (TREE_CODE (arg0) == POINTER_PLUS_EXPR)
+      else if (POINTER_PLUS_EXPR_P (arg0))
 	{
+	  if (TREE_CODE (arg0) == POINTER_PLUS_EXPR)
+	    no_overflow = false;
 	  base0 = TREE_OPERAND (arg0, 0);
 	  offset0 = TREE_OPERAND (arg0, 1);
 	}
@@ -8987,8 +8990,10 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 	  else
 	    indirect_base1 = true;
 	}
-      else if (TREE_CODE (arg1) == POINTER_PLUS_EXPR)
+      else if (POINTER_PLUS_EXPR_P (arg1))
 	{
+	  if (TREE_CODE (arg1) == POINTER_PLUS_EXPR)
+	    no_overflow = false;
 	  base1 = TREE_OPERAND (arg1, 0);
 	  offset1 = TREE_OPERAND (arg1, 1);
 	}
@@ -9004,8 +9009,7 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 		   && operand_equal_p (offset0, offset1, 0)))
 	      && (code == EQ_EXPR
 		  || code == NE_EXPR
-		  || POINTER_TYPE_OVERFLOW_UNDEFINED))
-		
+		  || no_overflow))
 	    {
 	      if (code != EQ_EXPR
 		  && code != NE_EXPR
@@ -9043,7 +9047,7 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 	     6.5.6/8 and /9 with respect to the signed ptrdiff_t.  */
 	  else if (bitpos0 == bitpos1
 		   && ((code == EQ_EXPR || code == NE_EXPR)
-		       || POINTER_TYPE_OVERFLOW_UNDEFINED))
+		       || no_overflow))
 	    {
 	      tree signed_size_type_node;
 	      signed_size_type_node = signed_type_for (size_type_node);
