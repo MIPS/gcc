@@ -155,23 +155,36 @@ parse_plugin_arg_opt (const char *arg)
   const char *ptr, *name_start = arg, *key_start = NULL, *value_start = NULL;
   char *name, *key, *value;
   void **slot;
+  bool name_parsed = false, key_parsed = false;
 
   /* Iterate over the ARG string and identify the starting character position
      of 'name', 'key', and 'value' and their lengths.  */
   for (ptr = arg; *ptr; ++ptr)
     {
-      if (*ptr == '-')
+      /* Only the first '-' encountered is considered a separator between
+         'name' and 'key'. All the subsequent '-'s are considered part of
+         'key'. For example, given -fplugin-arg-foo-bar-primary-key=value,
+         the plugin name is 'foo' and the key is 'bar-primary-key'.  */
+      if (*ptr == '-' && !name_parsed)
         {
           name_len = len;
           len = 0;
           key_start = ptr + 1;
+          name_parsed = true;
           continue;
         }
       else if (*ptr == '=')
         {
+          if (key_parsed)
+            {
+              error (G_("Malformed option -fplugin-arg-%s"
+                        " (multiple '=' signs)"), arg);
+              return;
+            }
           key_len = len;
           len = 0;
           value_start = ptr + 1;
+          key_parsed = true;
           continue;
         }
       else
