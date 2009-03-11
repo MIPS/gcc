@@ -1,3 +1,8 @@
+2009-03-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* tree.c (free_lang_data_in_decl): Free DECL_INITIAL of DECL_EXTERNAL
+	VAR_DECLs.
+
 2009-03-10  Diego Novillo  <dnovillo@google.com>
 
 	Revert:

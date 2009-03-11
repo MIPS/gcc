@@ -4034,6 +4034,9 @@ free_lang_data_in_decl (tree decl)
 	  && TREE_CODE (expr) == VAR_DECL
 	  && !TREE_STATIC (expr) && !DECL_EXTERNAL (expr))
 	SET_DECL_DEBUG_EXPR (decl, NULL_TREE);
+
+      if (DECL_EXTERNAL (decl))
+	DECL_INITIAL (decl) = NULL_TREE;
     }
   else if (TREE_CODE (decl) == TYPE_DECL)
     {
