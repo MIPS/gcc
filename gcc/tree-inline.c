@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
@@ -104,7 +104,6 @@ eni_weights eni_time_weights;
 static tree declare_return_variable (copy_body_data *, tree, tree, tree *);
 static bool inlinable_function_p (tree);
 static void remap_block (tree *, copy_body_data *);
-static tree remap_decls (tree, copy_body_data *);
 static void copy_bind_expr (tree *, int *, copy_body_data *);
 static tree mark_local_for_remap_r (tree *, int *, void *);
 static void unsave_expr_1 (tree);
@@ -409,8 +408,65 @@ remap_type (tree type, copy_body_data *id)
   return tmp;
 }
 
+/* Return previously remapped type of TYPE in ID.  Return NULL if TYPE
+   is NULL or TYPE has not been remapped before.  */
+
 static tree
-remap_decls (tree decls, copy_body_data *id)
+remapped_type (tree type, copy_body_data *id)
+{
+  tree *node;
+
+  if (type == NULL)
+    return type;
+
+  /* See if we have remapped this type.  */
+  node = (tree *) pointer_map_contains (id->decl_map, type);
+  if (node)
+    return *node;
+  else
+    return NULL;
+}
+
+  /* The type only needs remapping if it's variably modified.  */
+/* Decide if DECL can be put into BLOCK_NONLOCAL_VARs.  */
+  
+static bool
+can_be_nonlocal (tree decl, copy_body_data *id)
+{
+  /* We can not duplicate function decls.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    return true;
+
+  /* Local static vars must be non-local or we get multiple declaration
+     problems.  */
+  if (TREE_CODE (decl) == VAR_DECL
+      && !auto_var_in_fn_p (decl, id->src_fn))
+    return true;
+
+  /* At the moment dwarf2out can handle only these types of nodes.  We
+     can support more later.  */
+  if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != PARM_DECL)
+    return false;
+
+  /* We must use global type.  We call remapped_type instead of
+     remap_type since we don't want to remap this type here if it
+     hasn't been remapped before.  */
+  if (TREE_TYPE (decl) != remapped_type (TREE_TYPE (decl), id))
+    return false;
+
+  /* Wihtout SSA we can't tell if variable is used.  */
+  if (!gimple_in_ssa_p (cfun))
+    return false;
+
+  /* Live variables must be copied so we can attach DECL_RTL.  */
+  if (var_ann (decl))
+    return false;
+
+  return true;
+}
+
+static tree
+remap_decls (tree decls, VEC(tree,gc) **nonlocalized_list, copy_body_data *id)
 {
   tree old_var;
   tree new_decls = NULL_TREE;
@@ -419,16 +475,18 @@ remap_decls (tree decls, copy_body_data *id)
   for (old_var = decls; old_var; old_var = TREE_CHAIN (old_var))
     {
       tree new_var;
+      tree origin_var = DECL_ORIGIN (old_var);
 
-      /* We cannot chain the local static declarations into the local_decls
-	 as we can't duplicate them or break one decl rule.  Go ahead
-	 and link them into local_decls.  */
-
-      if (!auto_var_in_fn_p (old_var, id->src_fn)
-	  && !DECL_EXTERNAL (old_var))
+      if (can_be_nonlocal (old_var, id))
 	{
-	  cfun->local_decls = tree_cons (NULL_TREE, old_var,
-						 cfun->local_decls);
+	  if (TREE_CODE (old_var) == VAR_DECL
+	      && (var_ann (old_var) || !gimple_in_ssa_p (cfun)))
+	    cfun->local_decls = tree_cons (NULL_TREE, old_var,
+						   cfun->local_decls);
+	  if (debug_info_level > DINFO_LEVEL_TERSE
+	      && !DECL_IGNORED_P (old_var)
+	      && nonlocalized_list)
+	    VEC_safe_push (tree, gc, *nonlocalized_list, origin_var);
 	  continue;
 	}
 
@@ -438,8 +496,16 @@ remap_decls (tree decls, copy_body_data *id)
       /* If we didn't remap this variable, we can't mess with its
 	 TREE_CHAIN.  If we remapped this variable to the return slot, it's
 	 already declared somewhere else, so don't declare it here.  */
-      if (!new_var || new_var == id->retvar)
+      
+      if (new_var == id->retvar)
 	;
+      else if (!new_var)
+        {
+	  if (debug_info_level > DINFO_LEVEL_TERSE
+	      && !DECL_IGNORED_P (old_var)
+	      && nonlocalized_list)
+	    VEC_safe_push (tree, gc, *nonlocalized_list, origin_var);
+	}
       else
 	{
 	  gcc_assert (DECL_P (new_var));
@@ -467,10 +533,14 @@ remap_block (tree *block, copy_body_data *id)
   TREE_USED (new_block) = TREE_USED (old_block);
   BLOCK_ABSTRACT_ORIGIN (new_block) = old_block;
   BLOCK_SOURCE_LOCATION (new_block) = BLOCK_SOURCE_LOCATION (old_block);
+  BLOCK_NONLOCALIZED_VARS (new_block)
+    = VEC_copy (tree, gc, BLOCK_NONLOCALIZED_VARS (old_block));
   *block = new_block;
 
   /* Remap its variables.  */
-  BLOCK_VARS (new_block) = remap_decls (BLOCK_VARS (old_block), id);
+  BLOCK_VARS (new_block) = remap_decls (BLOCK_VARS (old_block),
+  					&BLOCK_NONLOCALIZED_VARS (new_block),
+					id);
 
   fn = id->dst_fn;
 
@@ -531,7 +601,7 @@ copy_bind_expr (tree *tp, int *walk_subtrees, copy_body_data *id)
   if (BIND_EXPR_VARS (*tp))
     /* This will remap a lot of the same decls again, but this should be
        harmless.  */
-    BIND_EXPR_VARS (*tp) = remap_decls (BIND_EXPR_VARS (*tp), id);
+    BIND_EXPR_VARS (*tp) = remap_decls (BIND_EXPR_VARS (*tp), NULL, id);
 }
 
 
@@ -577,7 +647,7 @@ copy_gimple_bind (gimple stmt, copy_body_data *id)
      harmless.  */
   new_vars = gimple_bind_vars (stmt);
   if (new_vars)
-    new_vars = remap_decls (new_vars, id);
+    new_vars = remap_decls (new_vars, NULL, id);
 
   new_bind = gimple_build_bind (new_vars, new_body, new_block);
 
@@ -1381,6 +1451,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	  if (is_gimple_call (stmt))
 	    {
 	      struct cgraph_edge *edge = cgraph_edge (id->src_node, orig_stmt);
+	      int flags;
 
 	      switch (id->transform_call_graph_edges)
 		{
@@ -1433,6 +1504,13 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 			      cgraph_node_name (dest));
 		  }
 	      }
+
+	      flags = gimple_call_flags (stmt);
+
+	      if (flags & ECF_MAY_BE_ALLOCA)
+		cfun->calls_alloca = true;
+	      if (flags & ECF_RETURNS_TWICE)
+		cfun->calls_setjmp = true;
 	    }
 
 	  /* If you think we can abort here, you are wrong.
@@ -1749,10 +1827,6 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count,
   gcc_assert (cfun->cfg == NULL);
   gcc_assert (cfun->decl == new_fndecl);
 
-  /* No need to copy; this is initialized later in compilation.  */
-  gcc_assert (!src_cfun->calls_setjmp);
-  gcc_assert (!src_cfun->calls_alloca);
-
   /* Copy items we preserve during clonning.  */
   cfun->static_chain_decl = src_cfun->static_chain_decl;
   cfun->nonlocal_goto_save_area = src_cfun->nonlocal_goto_save_area;
@@ -2066,6 +2140,7 @@ non_ssa_argument_ok_to_subtitute (copy_body_data *id, tree p, tree value)
 
       /* Fall through. */
     case PARM_DECL:
+    case RESULT_DECL:
       if (TREE_ADDRESSABLE (inner_value) && !pure_call)
         {
 	  if (dump_file)
@@ -2188,6 +2263,10 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
      We need to construct map for the variable anyway as it might be used
      in different SSA names when parameter is set in function.
 
+     Do replacement at -O0 for const arguments replaced by constant.
+     This is important for builtin_constant_p and other construct requiring
+     constant argument to be visible in inlined function body.
+
      FIXME: This usually kills the last connection in between inlined
      function parameter and the actual value in debug info.  Can we do
      better here?  If we just inserted the statement, copy propagation
@@ -2196,6 +2275,9 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
      We might want to introduce a notion that single SSA_NAME might
      represent multiple variables for purposes of debugging. */
   if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
+      && (optimize
+          || (TREE_READONLY (p)
+	      && is_gimple_min_invariant (rhs)))
       && (TREE_CODE (rhs) == SSA_NAME
 	  || is_gimple_min_invariant (rhs))
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
@@ -2208,7 +2290,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
 
   /* If the value of argument is never used, don't care about initializing
      it.  */
-  if (gimple_in_ssa_p (cfun) && !def && is_gimple_reg (p))
+  if (optimize && gimple_in_ssa_p (cfun) && !def && is_gimple_reg (p))
     {
       gcc_assert (!value || !TREE_SIDE_EFFECTS (value));
       if (dump_file)
@@ -3449,25 +3531,28 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       DECL_NO_TBAA_P (retvar) = 1;
     }
 
-  /* This is it.  Duplicate the callee body.  Assume callee is
-     pre-gimplified.  Note that we must not alter the caller
-     function in any way before this point, as this CALL_EXPR may be
-     a self-referential call; if we're calling ourselves, we need to
-     duplicate our body before altering anything.  */
-  copy_body (id, bb->count, bb->frequency, bb, return_block);
-
   /* Add local vars in this inlined callee to caller.  */
   t_step = id->src_cfun->local_decls;
   for (; t_step; t_step = TREE_CHAIN (t_step))
     {
       var = TREE_VALUE (t_step);
       if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
-	cfun->local_decls = tree_cons (NULL_TREE, var,
-					       cfun->local_decls);
-      else
+	{
+	  if (var_ann (var) && add_referenced_var (var))
+	    cfun->local_decls = tree_cons (NULL_TREE, var,
+					   cfun->local_decls);
+	}
+      else if (!can_be_nonlocal (var, id))
 	cfun->local_decls = tree_cons (NULL_TREE, remap_decl (var, id),
-					       cfun->local_decls);
+				       cfun->local_decls);
     }
+
+  /* This is it.  Duplicate the callee body.  Assume callee is
+     pre-gimplified.  Note that we must not alter the caller
+     function in any way before this point, as this CALL_EXPR may be
+     a self-referential call; if we're calling ourselves, we need to
+     duplicate our body before altering anything.  */
+  copy_body (id, bb->count, bb->frequency, bb, return_block);
 
   /* Clean up.  */
   pointer_map_destroy (id->decl_map);
@@ -4045,7 +4130,7 @@ replace_locals_stmt (gimple_stmt_iterator *gsip,
       /* This will remap a lot of the same decls again, but this should be
 	 harmless.  */
       if (gimple_bind_vars (stmt))
-	gimple_bind_set_vars (stmt, remap_decls (gimple_bind_vars (stmt), id));
+	gimple_bind_set_vars (stmt, remap_decls (gimple_bind_vars (stmt), NULL, id));
     }
 
   /* Keep iterating.  */
@@ -4280,7 +4365,7 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
         *parg = new_tree;
 	parg = &TREE_CHAIN (new_tree);
       }
-    else
+    else if (!pointer_map_contains (id->decl_map, arg))
       {
 	/* Make an equivalent VAR_DECL.  If the argument was used
 	   as temporary variable later in function, the uses will be
@@ -4360,6 +4445,12 @@ tree_function_versioning (tree old_decl, tree new_decl, VEC(ipa_replace_map_p,gc
   old_version_node = cgraph_node (old_decl);
   new_version_node = cgraph_node (new_decl);
 
+  /* Output the inlining info for this abstract function, since it has been
+     inlined.  If we don't do this now, we can lose the information about the
+     variables in the function when the blocks get blown away as soon as we
+     remove the cgraph node.  */
+  (*debug_hooks->outlining_inline_function) (old_decl);
+
   DECL_ARTIFICIAL (new_decl) = 1;
   DECL_ABSTRACT_ORIGIN (new_decl) = DECL_ORIGIN (old_decl);
 
@@ -4400,16 +4491,6 @@ tree_function_versioning (tree old_decl, tree new_decl, VEC(ipa_replace_map_p,gc
     DECL_STRUCT_FUNCTION (new_decl)->static_chain_decl =
       copy_static_chain (DECL_STRUCT_FUNCTION (old_decl)->static_chain_decl,
 			 &id);
-  /* Copy the function's arguments.  */
-  if (DECL_ARGUMENTS (old_decl) != NULL_TREE)
-    DECL_ARGUMENTS (new_decl) =
-      copy_arguments_for_versioning (DECL_ARGUMENTS (old_decl), &id,
-      				     args_to_skip, &vars);
-  
-  DECL_INITIAL (new_decl) = remap_blocks (DECL_INITIAL (id.src_fn), &id);
-  
-  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
-  number_blocks (id.dst_fn);
   
   /* If there's a tree_map, prepare for substitution.  */
   if (tree_map)
@@ -4443,6 +4524,16 @@ tree_function_versioning (tree old_decl, tree new_decl, VEC(ipa_replace_map_p,gc
 	      VEC_safe_push (gimple, heap, init_stmts, init);
 	  }
       }
+  /* Copy the function's arguments.  */
+  if (DECL_ARGUMENTS (old_decl) != NULL_TREE)
+    DECL_ARGUMENTS (new_decl) =
+      copy_arguments_for_versioning (DECL_ARGUMENTS (old_decl), &id,
+      				     args_to_skip, &vars);
+  
+  DECL_INITIAL (new_decl) = remap_blocks (DECL_INITIAL (id.src_fn), &id);
+  
+  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
+  number_blocks (id.dst_fn);
   
   declare_inline_vars (DECL_INITIAL (new_decl), vars);
   if (DECL_STRUCT_FUNCTION (old_decl)->local_decls != NULL_TREE)
@@ -4453,7 +4544,7 @@ tree_function_versioning (tree old_decl, tree new_decl, VEC(ipa_replace_map_p,gc
 	tree var = TREE_VALUE (t_step);
 	if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
 	  cfun->local_decls = tree_cons (NULL_TREE, var, cfun->local_decls);
-	else
+	else if (!can_be_nonlocal (var, &id))
 	  cfun->local_decls =
 	    tree_cons (NULL_TREE, remap_decl (var, &id),
 		       cfun->local_decls);

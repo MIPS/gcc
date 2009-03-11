@@ -461,7 +461,6 @@ bool cgraph_node_can_be_local_p (struct cgraph_node *);
 bool varpool_assemble_pending_decls (void);
 bool varpool_assemble_decl (struct varpool_node *node);
 bool varpool_analyze_pending_decls (void);
-void varpool_output_debug_info (void);
 void varpool_remove_unreferenced_decls (void);
 void varpool_empty_needed_queue (void);
 
