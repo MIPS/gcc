@@ -1,0 +1,137 @@
+# Hi emacs, use Makefile syntax mode. -*-mode: Makefile; -*-
+
+#   Copyright (C) 2006-2008 Free Software Foundation, Inc.
+#
+# This file is part of GCC.
+#
+# GCC is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free
+# Software Foundation; either version 2, or (at your option) any later
+# version.
+#
+# GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING.  If not, write to the Free
+# Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+#
+# Authors:
+#    Andrea Bona
+#    Andrea Ornstein
+#    Erven Rohou
+#    Roberto Costa
+#    Gabriele Svelto
+#
+# Contact information at STMicroelectronics:
+# Andrea C. Ornstein    <andrea.ornstein@st.com>
+# Erven Rohou           <erven.rohou@st.com>
+
+bit-stream.o: $(srcdir)/config/cil32/bit-stream.c \
+   $(srcdir)/config/cil32/bit-stream.h $(CONFIG_H) $(SYSTEM_H) coretypes.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+cil-refs.o : $(srcdir)/config/cil32/cil-refs.c \
+   $(srcdir)/config/cil32/cil-refs.h $(srcdir)/config/cil32/cil-types.h \
+   $(CONFIG_H) $(FUNCTION_H) $(GGC_H) $(HASHTAB_H) $(SYSTEM_H) $(TM_H) \
+   $(TREE_H) $(TREE_GIMPLE_H) $(TREE_PASS_H) coretypes.h debug.h errors.h \
+   gt-cil-refs.h toplev.h vec.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+$(srcdir)/config/cil32/cil-builtins.h: $(srcdir)/config/cil32/cil-builtins.def
+	#-
+
+cil-builtins.o : $(srcdir)/config/cil32/cil-builtins.c \
+   $(srcdir)/config/cil32/cil-builtins.h $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+   $(srcdir)/config/cil32/cil-builtins.def coretypes.h gt-cil-builtins.h \
+   langhooks.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+emit-hints.o: $(srcdir)/config/cil32/emit-hints.c \
+   $(srcdir)/config/cil32/emit-hints.h $(srcdir)/config/cil32/bit-stream.h \
+   $(CONFIG_H) $(SYSTEM_H) $(TM_H) $(TREE_H) $(TREE_FLOW_H) coretypes.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+cil-stack.o : $(srcdir)/config/cil32/cil-stack.c \
+   $(srcdir)/config/cil32/cil-stack.c $(srcdir)/config/cil32/cil-stack.h \
+   $(srcdir)/config/cil32/cil-stmt.h $(srcdir)/config/cil32/cil-stmt-inline.h \
+   $(srcdir)/config/cil32/cil-types.h $(CONFIG_H) $(GGC_H) $(SYSTEM_H) $(TM_H) \
+   $(TREE_H) $(TREE_FLOW_H) coretypes.h errors.h vec.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+cil-stmt.o : $(srcdir)/config/cil32/cil-stmt.c \
+   $(srcdir)/config/cil32/cil-stmt.h $(srcdir)/config/cil32/cil-stmt-inline.h \
+   $(srcdir)/config/cil32/cil-types.h $(CONFIG_H) $(GGC_H) $(SYSTEM_H) $(TM_H) \
+   $(TREE_H) $(TREE_FLOW_H) coretypes.h errors.h gt-cil-stmt.h input.h \
+   pointer-set.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+gimple-to-cil.o : $(srcdir)/config/cil32/gimple-to-cil.c \
+   $(srcdir)/config/cil32/cil-refs.h $(srcdir)/config/cil32/cil-stmt.h \
+   $(srcdir)/config/cil32/cil-types.h $(CONFIG_H) $(FLAGS_H) $(GGC_H) \
+   $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_PASS_H) \
+   coretypes.h errors.h pointer-set.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+emit-cil.o : $(srcdir)/config/cil32/emit-cil.c \
+   $(srcdir)/config/cil32/emit-cil.h $(srcdir)/config/cil32/emit-hints.h \
+   $(srcdir)/config/cil32/cil-refs.h $(srcdir)/config/cil32/cil-stmt.h \
+   $(srcdir)/config/cil32/cil-stmt-inline.h $(srcdir)/config/cil32/cil-types.h \
+   $(CONFIG_H) $(GGC_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) \
+   $(TREE_FLOW_H) $(TREE_PASS_H) coretypes.h ebitmap.h errors.h langhooks.h \
+   output.h varray.h pointer-set.h real.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+missing-protos.o : $(srcdir)/config/cil32/missing-protos.c \
+   $(srcdir)/config/cil32/cil-refs.h $(srcdir)/config/cil32/cil-stmt.h \
+   $(srcdir)/config/cil32/cil-stmt-inline.h \
+   $(srcdir)/config/cil32/cil-types.h $(CONFIG_H) $(FLAGS_H) $(SYSTEM_H) \
+   $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_PASS_H) coretypes.h errors.h \
+   pointer-set.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+peephole.o : $(srcdir)/config/cil32/peephole.c \
+   $(srcdir)/config/cil32/cil-stmt.h $(srcdir)/config/cil32/cil-stmt-inline.h \
+   $(srcdir)/config/cil32/cil-types.h $(CONFIG_H) $(FLAGS_H) $(SYSTEM_H) \
+   $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_PASS_H) coretypes.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+remove-convs.o : $(srcdir)/config/cil32/remove-convs.c \
+   $(srcdir)/config/cil32/cil-refs.h $(srcdir)/config/cil32/cil-stack.h \
+   $(srcdir)/config/cil32/cil-stmt.h $(srcdir)/config/cil32/cil-stmt-inline.h \
+   $(srcdir)/config/cil32/cil-types.h $(CONFIG_H) $(FLAGS_H) $(SYSTEM_H) \
+   $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_PASS_H) coretypes.h errors.h \
+   pointer-set.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+remove-temps.o : $(srcdir)/config/cil32/remove-temps.c \
+   $(srcdir)/config/cil32/cil-refs.h $(srcdir)/config/cil32/cil-stack.h \
+   $(srcdir)/config/cil32/cil-stmt.h $(srcdir)/config/cil32/cil-stmt-inline.h \
+   $(srcdir)/config/cil32/cil-types.h $(CONFIG_H) $(FLAGS_H) $(SYSTEM_H) \
+   $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_PASS_H) coretypes.h errors.h \
+   pointer-set.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+simp-cond.o : $(srcdir)/config/cil32/simp-cond.c \
+   $(srcdir)/config/cil32/cil-stack.h $(srcdir)/config/cil32/cil-stmt.h \
+   $(srcdir)/config/cil32/cil-stmt-inline.h $(srcdir)/config/cil32/cil-types.h \
+   $(CONFIG_H) $(FLAGS_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) \
+   $(TREE_FLOW_H) $(TREE_PASS_H) coretypes.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+tree-simp-cil-early.o: $(srcdir)/config/cil32/tree-simp-cil-early.c \
+   $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) coretypes.h \
+   toplev.h tree-gimple.h tree-pass.h pointer-set.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+bb-layout.o: $(srcdir)/config/cil32/bb-layout.c \
+   $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_FLOW_H) \
+   coretypes.h tree-pass.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+gt-cil-refs.h : s-gtype ; @true
+gt-cil-stmt.h : s-gtype ; @true
+gt-cil-builtins.h : s-gtype ; @true
