@@ -1,0 +1,94 @@
+
+Defines used in the implementation are of 3 kinds
+        L defined in libstd and exported
+        S static symbols
+        H host methods
+
+they are used in the following macros
+  LIBSTD_[LSH]NAME()       : name of the symbol (function or variable)
+  LIBSTD_[LSH]PROTO()      : prototype of a function
+  LIBSTD_[LSH]PROTO_IMPL() : prototype to be used when implementing the function
+
+--------------------------------------------------------------------------------
+
+Notes on incomplete implementation:
+
+complex.h:
+ - missing support
+
+fcntl.h:
+ - only open and creat implemented
+
+fenv.h:
+ - missing support
+
+float.h:
+ - long double equivalent to double
+ - all definitions should be calls to implementation functions??
+   how to map
+         FLT_RADIX (we assume 2),
+         FLT_EVAL_METHOD(for us 0),
+         DIG, MANT_DIG DECIMAL_DIG MIN_EXP, MIN_10_EXP, MAX_EXP, MAX_10_EXP
+
+libgen.h:
+ - only basename and dirname implemented
+
+locale.h:
+ - supports only "C" locale
+
+malloc.h:
+ - emits warning and includes stdio.h (added to build old benchmarks)
+
+math.h:
+ - long double equivalent to double
+ - missing handling of errno in most functions
+ - missing all complex support
+ - missing implementation (float, double and long double version):
+   acoh, asinh, atanh, erf, arfc, fdim, fma, fmax, fmin, fmod,
+   lgamma, logb, modf, nan, mearbyint, nextafter, nexttoward,
+   remainder, remquo, rint, round, tgamma, trunc, freaxp, ilogb,
+   llrint, llround, lrint 
+
+setjmp.h:
+ - missing support
+
+signal.h:
+ - missing support
+
+stat.h:
+ - implemented only st_size
+
+stdlib.h:
+ - system()
+   when called with a NULL argument, returns 0 if there is no command processor
+   (that is always the case for us at the moment)
+   on cli it may be implemented with System.Diagnostics.Process
+   (the drawback is that it is not part of mscorlib but is defined in System.dll)
+ - atof, strtof, strtold
+   implemented using strtod
+   uses DBL_MIN/MAX_10_EXP, target dependend??
+   atof, strtof should be implemented directly with floats
+ - atoi, atol, strtol, strtoul
+   implemented with __strtolul
+ - atoll, strtoll, strtoull, strtoimax, strtoumax
+   implemented with __strtollull
+
+sys/time.h:
+ - only gettimeofday implemented
+
+tgmath.h:
+ - missing all complex support
+
+time.h:
+ - mktime, localtime, strftime
+   not implemented
+(TODO: to implement ???)
+
+unistd.h:
+ -  only close,read,write,lseek and isatty functions implemented
+
+wchar.h:
+ - missing support
+
+wctype.h:
+ - missing support
