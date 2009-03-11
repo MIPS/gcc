@@ -1,3 +1,8 @@
+2009-03-11  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* config/t-darwin: Use ALL_CXXFLAGS instead of ALL_CFLAGS.
+	* config/x-darwin: Same.
+
 2009-03-10  Tobias Schlüter  <tobi@gcc.gnu.org>
 
 	* config/t-darwin: Use CXX as compiler.
