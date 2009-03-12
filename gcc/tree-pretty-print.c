@@ -453,6 +453,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	{
 	  pp_string (buffer, xloc.file);
 	  pp_string (buffer, " : ");
+	  pp_decimal_int (buffer, xloc.column);
+	  pp_string (buffer, " : ");
 	}
       pp_decimal_int (buffer, xloc.line);
       pp_string (buffer, "] ");

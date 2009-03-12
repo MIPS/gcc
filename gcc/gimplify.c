@@ -4292,7 +4292,10 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       gimple_call_set_lhs (assign, *to_p);
     }
   else
-    assign = gimple_build_assign (*to_p, *from_p);
+    {
+      assign = gimple_build_assign (*to_p, *from_p);
+      gimple_set_location (assign, EXPR_LOCATION (*expr_p));
+    }
 
   gimplify_seq_add_stmt (pre_p, assign);
 

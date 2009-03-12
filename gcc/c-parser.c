@@ -4645,7 +4645,7 @@ c_parser_binary_expression (c_parser *parser, struct c_expr *after)
 					   stack[sp - 1].expr);		      \
     stack[sp].expr							      \
       = default_function_array_conversion (stack[sp].loc, stack[sp].expr);    \
-    stack[sp - 1].expr = parser_build_binary_op (binary_loc,		      \
+    stack[sp - 1].expr = parser_build_binary_op (stack[sp].loc,		      \
 						 stack[sp].op,		      \
 						 stack[sp - 1].expr,	      \
 						 stack[sp].expr);	      \
