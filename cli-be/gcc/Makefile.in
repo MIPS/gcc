@@ -277,10 +277,6 @@ ZLIBINC = @zlibinc@
 GMPLIBS = @GMPLIBS@
 GMPINC = @GMPINC@
 
-MONOLIBS = @MONOLIBS@
-MONOINC = @MONOINC@
-
-
 CPPLIB = ../libcpp/libcpp.a
 CPPINC = -I$(srcdir)/../libcpp/include
 

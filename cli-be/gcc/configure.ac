@@ -3747,9 +3747,6 @@ fi
 AC_ARG_VAR(GMPLIBS,[How to link GMP])
 AC_ARG_VAR(GMPINC,[How to find GMP include files])
 
-AC_ARG_VAR(MONOLIBS,[How to link MONO])
-AC_ARG_VAR(MONOINC,[How to find MONO include files])
-
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)
 

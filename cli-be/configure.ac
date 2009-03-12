@@ -181,7 +181,6 @@ target_libraries="target-libgcc \
 		${libgcj} \
 		target-libobjc \
 		target-libada \
-                target-libcilsupport \
 		target-libgomp"
 
 # these tools are built using the target libraries, and are intended to
@@ -1207,38 +1206,6 @@ fi
 # Flags needed for both GMP and/or MPFR
 AC_SUBST(gmplibs)
 AC_SUBST(gmpinc)
-
-# Check for MONO
-monolibs=
-monoinc=
-have_mono=yes
-
-AC_ARG_WITH(mono, [  --with-mono=PATH         Specify directory for installed MONO library])
-
-if test "x$with_mono" != x; then
-  monolibs="-L$with_mono/lib -Wl,--export-dynamic -pthread -lmono -lpthread -lm -lgmodule-2.0 -ldl -lgthread-2.0 -lglib-2.0"
-  monoinc="-I$with_mono/include/mono-1.0 -D_REENTRANT -pthread -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include"
-else
-  monoinc="$(pkg-config --cflags mono)"
-  monolibs="$(pkg-config --libs mono)"
-fi
-
-saved_CFLAGS="$CFLAGS"
-CFLAGS="$CFLAGS $monoinc"
-saved_LIBS="$LIBS"
-LIBS="$LIBS $monolibs"
-AC_MSG_CHECKING([for correct version of mono.h])
-AC_TRY_LINK([#include "mono/jit/jit.h"],[
-mono_jit_init ("foo");
-], [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no]); have_mono=no])
-CFLAGS="$saved_CFLAGS"
-LIBS="$saved_LIBS"
-
-# Flags needed for both MONO
-AC_SUBST(monolibs)
-AC_SUBST(monoinc)
-
 
 # By default, C is the only stage 1 language.
 stage1_languages=,c,
