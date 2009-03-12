@@ -1,3 +1,7 @@
+2009-03-12  Rafael Avila de Espindola  <espindola@google.com>
+
+	* ipa-cp.c (cgraph_gate_cp): Disable ipcp if in ltrans.
+
 2009-03-11  Rafael Avila de Espindola  <espindola@google.com>
 
 	* tree.c (free_lang_data_in_decl): Free DECL_INITIAL of DECL_EXTERNAL
