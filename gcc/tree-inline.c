@@ -2010,6 +2010,11 @@ argument_set_in_function_p (struct function *fun, tree parm)
   basic_block bb;
   gimple_stmt_iterator bsi;
 
+  /* When profiling, we still do inlining on non-SSA form.   In this case just give up
+     early rather than trying to compute operands.  */
+  if (!gimple_in_ssa_p (cfun))
+    return true;
+
   FOR_EACH_BB_FN (bb, fun)
     {
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
