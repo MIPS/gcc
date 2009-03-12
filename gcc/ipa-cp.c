@@ -1434,7 +1434,7 @@ ipcp_generate_summary (void)
 static bool
 cgraph_gate_cp (void)
 {
-  return flag_ipa_cp;
+  return flag_ipa_cp && !flag_ltrans;
 }
 
 struct ipa_opt_pass pass_ipa_cp = 
