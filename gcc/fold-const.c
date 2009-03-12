@@ -1488,12 +1488,12 @@ split_tree (tree in, enum tree_code code, tree *conp, tree *litp,
 		  though the C standard doesn't say so) for integers because
 		  the value is not affected.  For reals, the value might be
 		  affected, so we can't.  */
-	       && ((code == PLUS_EXPR && TREE_CODE (in) == MINUS_EXPR)
-		   || (code == MINUS_EXPR && TREE_CODE (in) == PLUS_EXPR))))
+	       && ((PLUS_EXPR_CODE_P (code) && MINUS_EXPR_P (in))
+		   || (MINUS_EXPR_CODE_P (code) && PLUS_EXPR_P (in)))))
     {
       tree op0 = TREE_OPERAND (in, 0);
       tree op1 = TREE_OPERAND (in, 1);
-      int neg1_p = TREE_CODE (in) == MINUS_EXPR;
+      int neg1_p = MINUS_EXPR_P (in);
       int neg_litp_p = 0, neg_conp_p = 0, neg_var_p = 0;
 
       /* First see if either of the operands is a literal, then a constant.  */
@@ -1559,31 +1559,32 @@ associate_trees (tree t1, tree t2, enum tree_code code, tree type)
   /* If either input is CODE, a PLUS_EXPR, or a MINUS_EXPR, don't
      try to fold this since we will have infinite recursion.  But do
      deal with any NEGATE_EXPRs.  */
-  if (TREE_CODE (t1) == code || TREE_CODE (t2) == code
-      || TREE_CODE (t1) == MINUS_EXPR || TREE_CODE (t2) == MINUS_EXPR)
+  if (TREE_CODE (t1) == code
+      || TREE_CODE (t2) == code
+      || MINUS_EXPR_P (t1) || MINUS_EXPR_P (t2))
     {
-      if (code == PLUS_EXPR)
+      if (PLUS_EXPR_CODE_P (code))
 	{
-	  if (TREE_CODE (t1) == NEGATE_EXPR)
+	  if (NEGATE_EXPR_P (t1))
 	    return build2 (MINUS_EXPR, type, fold_convert (type, t2),
 			   fold_convert (type, TREE_OPERAND (t1, 0)));
-	  else if (TREE_CODE (t2) == NEGATE_EXPR)
+	  else if (NEGATE_EXPR_P (t2))
 	    return build2 (MINUS_EXPR, type, fold_convert (type, t1),
 			   fold_convert (type, TREE_OPERAND (t2, 0)));
 	  else if (integer_zerop (t2))
 	    return fold_convert (type, t1);
 	}
-      else if (code == MINUS_EXPR)
+      else if (MINUS_EXPR_CODE_P (code))
 	{
 	  if (integer_zerop (t2))
 	    return fold_convert (type, t1);
 	}
 
-      return build2 (code, type, fold_convert (type, t1),
+      return build2 (strip_nv (code), type, fold_convert (type, t1),
 		     fold_convert (type, t2));
     }
 
-  return fold_build2 (code, type, fold_convert (type, t1),
+  return fold_build2 (strip_nv (code), type, fold_convert (type, t1),
 		      fold_convert (type, t2));
 }
 
@@ -7413,7 +7414,7 @@ fold_plusminus_mult_expr (enum tree_code code, tree type, tree arg0, tree arg1)
      but other combinations show up during loop reduction.  Since
      it is not difficult, try all four possibilities.  */
 
-  if (TREE_CODE (arg0) == MULT_EXPR)
+  if (MULT_EXPR_P (arg0))
     {
       arg00 = TREE_OPERAND (arg0, 0);
       arg01 = TREE_OPERAND (arg0, 1);
@@ -7431,7 +7432,7 @@ fold_plusminus_mult_expr (enum tree_code code, tree type, tree arg0, tree arg1)
       arg00 = arg0;
       arg01 = build_one_cst (type);
     }
-  if (TREE_CODE (arg1) == MULT_EXPR)
+  if (MULT_EXPR_P (arg1))
     {
       arg10 = TREE_OPERAND (arg1, 0);
       arg11 = TREE_OPERAND (arg1, 1);
@@ -7443,7 +7444,7 @@ fold_plusminus_mult_expr (enum tree_code code, tree type, tree arg0, tree arg1)
 	 the purpose of this canonicalization.  */
       if (TREE_INT_CST_HIGH (arg1) == -1
 	  && negate_expr_p (arg1)
-	  && code == PLUS_EXPR)
+	  && PLUS_EXPR_CODE_P (code))
 	{
 	  arg11 = negate_expr (arg1);
 	  code = MINUS_EXPR;
@@ -7508,7 +7509,7 @@ fold_plusminus_mult_expr (enum tree_code code, tree type, tree arg0, tree arg1)
 
   if (same)
     return fold_build2 (MULT_EXPR, type,
-			fold_build2 (code, type,
+			fold_build2 (strip_nv (code), type,
 				     fold_convert (type, alt0),
 				     fold_convert (type, alt1)),
 			fold_convert (type, same));
@@ -9825,10 +9826,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (integer_zerop (arg1))
 	return non_lvalue (fold_convert (type, arg0));
 
-      /* PTR_CST +p CST -> CST1 */
-      if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
-	return fold_build2 (PLUS_EXPR, type, arg0, fold_convert (type, arg1));
-
       /* INT +p INT -> (PTR)(INT + INT).  Stripping types allows for this. */
       if (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
 	   && INTEGRAL_TYPE_P (TREE_TYPE (arg0)))
@@ -9860,9 +9857,13 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 					    TREE_TYPE (arg00), arg00, inner));
 	}
 
-     /* Try replacing &a[i1] +p c * i2 with &a[i1 + i2], if c is step
-	of the array.  Loop optimizer sometimes produce this type of
-	expressions.  */
+      /* PTR_CST +p CST -> CST1 */
+      if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
+	return fold_build2 (PLUS_EXPR, type, arg0, fold_convert (type, arg1));
+
+      /* Try replacing &a[i1] +p c * i2 with &a[i1 + i2], if c is step
+	 of the array.  Loop optimizer sometimes produce this type of
+	 expressions.  */
       if (TREE_CODE (arg0) == ADDR_EXPR)
 	{
 	  tem = try_move_mult_to_index (arg0, fold_convert (sizetype, arg1));
@@ -9874,23 +9875,13 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
     case PLUS_EXPR:
     case PLUSNV_EXPR:
-      if (! FLOAT_TYPE_P (type))
-	{
-	  if (integer_zerop (arg1))
-	    return non_lvalue (fold_convert (type, arg0));
-	}
-
-      /* ???  Auditing required.  */
-      if (code == PLUSNV_EXPR)
-	return NULL_TREE;
-
       /* A + (-B) -> A - B */
-      if (TREE_CODE (arg1) == NEGATE_EXPR)
+      if (NEGATE_EXPR_P (arg1))
 	return fold_build2 (MINUS_EXPR, type,
 			    fold_convert (type, arg0),
 			    fold_convert (type, TREE_OPERAND (arg1, 0)));
       /* (-A) + B -> B - A */
-      if (TREE_CODE (arg0) == NEGATE_EXPR
+      if (NEGATE_EXPR_P (arg0)
 	  && reorder_operands_p (TREE_OPERAND (arg0, 0), arg1))
 	return fold_build2 (MINUS_EXPR, type,
 			    fold_convert (type, arg1),
@@ -9933,7 +9924,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	    }
 
 	  /* X + (X / CST) * -CST is X % CST.  */
-	  if (TREE_CODE (arg1) == MULT_EXPR
+	  if (MULT_EXPR_P (arg1)
 	      && TREE_CODE (TREE_OPERAND (arg1, 0)) == TRUNC_DIV_EXPR
 	      && operand_equal_p (arg0,
 				  TREE_OPERAND (TREE_OPERAND (arg1, 0), 0), 0))
@@ -9951,8 +9942,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       /* Handle (A1 * C1) + (A2 * C2) with A1, A2 or C1, C2 being the
 	 same or one.  Make sure type is not saturating.
 	 fold_plusminus_mult_expr will re-associate.  */
-      if ((TREE_CODE (arg0) == MULT_EXPR
-	   || TREE_CODE (arg1) == MULT_EXPR)
+      if ((MULT_EXPR_P (arg0)
+	   || MULT_EXPR_P (arg1))
 	  && !TYPE_SATURATING (type)
 	  && (!FLOAT_TYPE_P (type) || flag_associative_math))
         {
@@ -9963,6 +9954,9 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
       if (! FLOAT_TYPE_P (type))
 	{
+	  if (integer_zerop (arg1))
+	    return non_lvalue (fold_convert (type, arg0));
+
 	  /* If we are adding two BIT_AND_EXPR's, both of which are and'ing
 	     with a constant, and the two constants have no bits in common,
 	     we should treat this as a BIT_IOR_EXPR since this may produce more
@@ -9982,35 +9976,33 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  /* Reassociate (plus (plus (mult) (foo)) (mult)) as
 	     (plus (plus (mult) (mult)) (foo)) so that we can
 	     take advantage of the factoring cases below.  */
-	  if (((TREE_CODE (arg0) == PLUS_EXPR
-		|| TREE_CODE (arg0) == MINUS_EXPR)
-	       && TREE_CODE (arg1) == MULT_EXPR)
-	      || ((TREE_CODE (arg1) == PLUS_EXPR
-		   || TREE_CODE (arg1) == MINUS_EXPR)
-		  && TREE_CODE (arg0) == MULT_EXPR))
+	  if (((PLUS_EXPR_P (arg0) || MINUS_EXPR_P (arg0))
+	       && MULT_EXPR_P (arg1))
+	      || ((PLUS_EXPR_P (arg1) || MINUS_EXPR_P (arg1))
+		  && MULT_EXPR_P (arg0)))
 	    {
 	      tree parg0, parg1, parg, marg;
 	      enum tree_code pcode;
 
-	      if (TREE_CODE (arg1) == MULT_EXPR)
+	      if (MULT_EXPR_P (arg1))
 		parg = arg0, marg = arg1;
 	      else
 		parg = arg1, marg = arg0;
-	      pcode = TREE_CODE (parg);
+	      pcode = strip_nv (TREE_CODE (parg));
 	      parg0 = TREE_OPERAND (parg, 0);
 	      parg1 = TREE_OPERAND (parg, 1);
 	      STRIP_NOPS (parg0);
 	      STRIP_NOPS (parg1);
 
-	      if (TREE_CODE (parg0) == MULT_EXPR
-		  && TREE_CODE (parg1) != MULT_EXPR)
+	      if (MULT_EXPR_P (parg0)
+		  && !MULT_EXPR_P (parg1))
 		return fold_build2 (pcode, type,
 				    fold_build2 (PLUS_EXPR, type,
 						 fold_convert (type, parg0),
 						 fold_convert (type, marg)),
 				    fold_convert (type, parg1));
-	      if (TREE_CODE (parg0) != MULT_EXPR
-		  && TREE_CODE (parg1) == MULT_EXPR)
+	      if (!MULT_EXPR_P (parg0)
+		  && MULT_EXPR_P (parg1))
 		return fold_build2 (PLUS_EXPR, type,
 				    fold_convert (type, parg0),
 				    fold_build2 (pcode, type,
@@ -10160,7 +10152,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		    == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (arg0, 0)))))
 	      return build2 (LROTATE_EXPR, type, TREE_OPERAND (arg0, 0),
 			     code0 == LSHIFT_EXPR ? tree01 : tree11);
-	    else if (code11 == MINUS_EXPR)
+	    else if (MINUS_EXPR_CODE_P (code11))
 	      {
 		tree tree110, tree111;
 		tree110 = TREE_OPERAND (tree11, 0);
@@ -10178,7 +10170,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 				  : RROTATE_EXPR),
 				 type, TREE_OPERAND (arg0, 0), tree01);
 	      }
-	    else if (code01 == MINUS_EXPR)
+	    else if (MINUS_EXPR_CODE_P (code01))
 	      {
 		tree tree010, tree011;
 		tree010 = TREE_OPERAND (tree01, 0);
@@ -10211,7 +10203,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	{
 	  tree var0, con0, lit0, minus_lit0;
 	  tree var1, con1, lit1, minus_lit1;
-	  bool ok = true;
 
 	  /* Split both trees into variables, constants, and literals.  Then
 	     associate each group together, the constants with literals,
@@ -10220,37 +10211,17 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	     expressions for the sum of a constant and literal.  */
 	  var0 = split_tree (arg0, code, &con0, &lit0, &minus_lit0, 0);
 	  var1 = split_tree (arg1, code, &con1, &lit1, &minus_lit1,
-			     code == MINUS_EXPR);
-
-	  /* With undefined overflow we can only associate constants
-	     with one variable.  */
-	  if (((POINTER_TYPE_P (type) && POINTER_TYPE_OVERFLOW_UNDEFINED)
-	       || (INTEGRAL_TYPE_P (type) && !TYPE_OVERFLOW_WRAPS (type)))
-	      && var0 && var1)
-	    {
-	      tree tmp0 = var0;
-	      tree tmp1 = var1;
-
-	      if (TREE_CODE (tmp0) == NEGATE_EXPR)
-	        tmp0 = TREE_OPERAND (tmp0, 0);
-	      if (TREE_CODE (tmp1) == NEGATE_EXPR)
-	        tmp1 = TREE_OPERAND (tmp1, 0);
-	      /* The only case we can still associate with two variables
-		 is if they are the same, modulo negation.  */
-	      if (!operand_equal_p (tmp0, tmp1, 0))
-	        ok = false;
-	    }
+			     MINUS_EXPR_CODE_P (code));
 
 	  /* Only do something if we found more than two objects.  Otherwise,
 	     nothing has changed and we risk infinite recursion.  */
-	  if (ok
-	      && (2 < ((var0 != 0) + (var1 != 0)
-		       + (con0 != 0) + (con1 != 0)
-		       + (lit0 != 0) + (lit1 != 0)
-		       + (minus_lit0 != 0) + (minus_lit1 != 0))))
+	  if (2 < ((var0 != 0) + (var1 != 0)
+		   + (con0 != 0) + (con1 != 0)
+		   + (lit0 != 0) + (lit1 != 0)
+		   + (minus_lit0 != 0) + (minus_lit1 != 0)))
 	    {
 	      /* Recombine MINUS_EXPR operands by using PLUS_EXPR.  */
-	      if (code == MINUS_EXPR)
+	      if (MINUS_EXPR_CODE_P (code))
 		code = PLUS_EXPR;
 
 	      var0 = associate_trees (var0, var1, code, type);
@@ -10306,14 +10277,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
     case MINUS_EXPR:
     case MINUSNV_EXPR:
-      if (! FLOAT_TYPE_P (type))
-	{
-	  if (integer_zerop (arg0))
-	    return negate_expr (fold_convert (type, arg1));
-	  if (integer_zerop (arg1))
-	    return non_lvalue (fold_convert (type, arg0));
-	}
-
       /* Pointer simplifications for subtraction, simple reassociations. */
       if (POINTER_TYPE_P (TREE_TYPE (arg1)) && POINTER_TYPE_P (TREE_TYPE (arg0)))
 	{
@@ -10342,16 +10305,12 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	    }
 	}
 
-      /* ???  Auditing required.  */
-      if (code == MINUSNV_EXPR)
-	return NULL_TREE;
-
       /* A - (-B) -> A + B */
-      if (TREE_CODE (arg1) == NEGATE_EXPR)
+      if (NEGATE_EXPR_P (arg1))
 	return fold_build2 (PLUS_EXPR, type, op0,
 			    fold_convert (type, TREE_OPERAND (arg1, 0)));
       /* (-A) - B -> (-B) - A  where B is easily negated and we can swap.  */
-      if (TREE_CODE (arg0) == NEGATE_EXPR
+      if (NEGATE_EXPR_P (arg0)
 	  && (FLOAT_TYPE_P (type)
 	      || INTEGRAL_TYPE_P (type))
 	  && negate_expr_p (arg1)
@@ -10361,9 +10320,10 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 			    fold_convert (type, TREE_OPERAND (arg0, 0)));
       /* Convert -A - 1 to ~A.  */
       if (INTEGRAL_TYPE_P (type)
-	  && TREE_CODE (arg0) == NEGATE_EXPR
-	  && integer_onep (arg1)
-	  && !TYPE_OVERFLOW_TRAPS (type))
+	  && ((TREE_CODE (arg0) == NEGATE_EXPR
+	       && !TYPE_OVERFLOW_TRAPS (type))
+	      || TREE_CODE (arg0) == NEGATENV_EXPR)
+	  && integer_onep (arg1))
 	return fold_build1 (BIT_NOT_EXPR, type,
 			    fold_convert (type, TREE_OPERAND (arg0, 0)));
 
@@ -10375,7 +10335,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
       /* X - (X / CST) * CST is X % CST.  */
       if (INTEGRAL_TYPE_P (type)
-	  && TREE_CODE (arg1) == MULT_EXPR
+	  && MULT_EXPR_P (arg1)
 	  && TREE_CODE (TREE_OPERAND (arg1, 0)) == TRUNC_DIV_EXPR
 	  && operand_equal_p (arg0,
 			      TREE_OPERAND (TREE_OPERAND (arg1, 0), 0), 0)
@@ -10387,6 +10347,11 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
       if (! FLOAT_TYPE_P (type))
 	{
+	  if (integer_zerop (arg0))
+	    return negate_expr (fold_convert (type, arg1));
+	  if (integer_zerop (arg1))
+	    return non_lvalue (fold_convert (type, arg0));
+
 	  /* Fold A - (A & B) into ~B & A.  */
 	  if (!TREE_SIDE_EFFECTS (arg0)
 	      && TREE_CODE (arg1) == BIT_AND_EXPR)
@@ -10550,8 +10515,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       /* Handle (A1 * C1) - (A2 * C2) with A1, A2 or C1, C2 being the
 	 same or one.  Make sure type is not saturating.
 	 fold_plusminus_mult_expr will re-associate.  */
-      if ((TREE_CODE (arg0) == MULT_EXPR
-	   || TREE_CODE (arg1) == MULT_EXPR)
+      if ((MULT_EXPR_P (arg0)
+	   || MULT_EXPR_P (arg1))
 	  && !TYPE_SATURATING (type)
 	  && (!FLOAT_TYPE_P (type) || flag_associative_math))
         {
@@ -10577,16 +10542,12 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	    return fold_convert (type, negate_expr (op0));
 	}
 
-      /* ???  Auditing required.  */
-      if (code == MULTNV_EXPR)
-	return NULL_TREE;
-
-      /* (-A) * (-B) -> A * B  */
-      if (TREE_CODE (arg0) == NEGATE_EXPR && negate_expr_p (arg1))
+      /* (-A) * (-B) -> A * B.  */
+      if (NEGATE_EXPR_P (arg0) && negate_expr_p (arg1))
 	return fold_build2 (MULT_EXPR, type,
 			    fold_convert (type, TREE_OPERAND (arg0, 0)),
 			    fold_convert (type, negate_expr (arg1)));
-      if (TREE_CODE (arg1) == NEGATE_EXPR && negate_expr_p (arg0))
+      if (NEGATE_EXPR_P (arg1) && negate_expr_p (arg0))
 	return fold_build2 (MULT_EXPR, type,
 			    fold_convert (type, negate_expr (arg0)),
 			    fold_convert (type, TREE_OPERAND (arg1, 0)));
@@ -10613,7 +10574,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 				TREE_OPERAND (arg0, 1));
 
 	  /* (A + A) * C -> A * 2 * C  */
-	  if (TREE_CODE (arg0) == PLUS_EXPR
+	  if (PLUS_EXPR_P (arg0)
 	      && TREE_CODE (arg1) == INTEGER_CST
 	      && operand_equal_p (TREE_OPERAND (arg0, 0),
 			          TREE_OPERAND (arg0, 1), 0))

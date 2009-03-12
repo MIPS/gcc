@@ -1,5 +1,18 @@
 2009-03-12  Richard Guenther  <rguenther@suse.de>
 
+	* fold-const.c (split_tree): Handle *NV_EXPR.
+	(associate_trees): Likewise.
+	(fold_binary): Re-enable reassociation.  Remove restriction
+	for reassociating signed integers or pointers.
+
+2009-03-12  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_plusminus_mult_expr): Handle *NV_EXPR.
+	(fold_binary): Complete PLUS_EXPR, MINUS_EXPR and MULT_EXPR
+	auditing.
+
+2009-03-12  Richard Guenther  <rguenther@suse.de>
+
 	* fold-const.c (may_negate_without_overflow_p): Unsigned zero
 	can be negated without overflow.
 	(negate_expr_p): Handle *NV_EXPR.
