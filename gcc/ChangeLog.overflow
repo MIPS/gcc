@@ -1,3 +1,12 @@
+2009-03-12  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (may_negate_without_overflow_p): Unsigned zero
+	can be negated without overflow.
+	(negate_expr_p): Handle *NV_EXPR.
+	(fold_negate_expr): Likewise.
+	(fold_binary): Avoid loosing non-overflow flag during
+	A - B -> A + (-B) folding with constant B.
+
 2009-03-10  Richard Guenther  <rguenther@suse.de>
 
 	* fold-const.c (fold_comparison): Adjust address comparison

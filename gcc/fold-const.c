@@ -1091,7 +1091,7 @@ may_negate_without_overflow_p (const_tree t)
 
   type = TREE_TYPE (t);
   if (TYPE_UNSIGNED (type))
-    return false;
+    return integer_zerop (t);
 
   prec = TYPE_PRECISION (type);
   if (prec > HOST_BITS_PER_WIDE_INT)
@@ -1135,6 +1135,7 @@ negate_expr_p (tree t)
     case FIXED_CST:
     case REAL_CST:
     case NEGATE_EXPR:
+    case NEGATENV_EXPR:
       return true;
 
     case COMPLEX_CST:
@@ -1149,6 +1150,7 @@ negate_expr_p (tree t)
       return negate_expr_p (TREE_OPERAND (t, 0));
 
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       if (HONOR_SIGN_DEPENDENT_ROUNDING (TYPE_MODE (type))
 	  || HONOR_SIGNED_ZEROS (TYPE_MODE (type)))
 	return false;
@@ -1161,6 +1163,7 @@ negate_expr_p (tree t)
       return negate_expr_p (TREE_OPERAND (t, 0));
 
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       /* We can't turn -(A-B) into B-A when we honor signed zeros.  */
       return !HONOR_SIGN_DEPENDENT_ROUNDING (TYPE_MODE (type))
 	     && !HONOR_SIGNED_ZEROS (TYPE_MODE (type))
@@ -1168,6 +1171,7 @@ negate_expr_p (tree t)
 				    TREE_OPERAND (t, 1));
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
       if (TYPE_UNSIGNED (TREE_TYPE (t)))
         break;
 
@@ -1192,7 +1196,7 @@ negate_expr_p (tree t)
       return negate_expr_p (TREE_OPERAND (t, 1))
              || negate_expr_p (TREE_OPERAND (t, 0));
 
-    case NOP_EXPR:
+    CASE_CONVERT:
       /* Negate -((double)float) as (double)(-float).  */
       if (TREE_CODE (type) == REAL_TYPE)
 	{
@@ -1295,6 +1299,7 @@ fold_negate_expr (tree t)
       return TREE_OPERAND (t, 0);
 
     case PLUS_EXPR:
+    case PLUSNV_EXPR:
       if (!HONOR_SIGN_DEPENDENT_ROUNDING (TYPE_MODE (type))
 	  && !HONOR_SIGNED_ZEROS (TYPE_MODE (type)))
 	{
@@ -1319,6 +1324,7 @@ fold_negate_expr (tree t)
       break;
 
     case MINUS_EXPR:
+    case MINUSNV_EXPR:
       /* - (A - B) -> B - A  */
       if (!HONOR_SIGN_DEPENDENT_ROUNDING (TYPE_MODE (type))
 	  && !HONOR_SIGNED_ZEROS (TYPE_MODE (type))
@@ -1328,6 +1334,7 @@ fold_negate_expr (tree t)
       break;
 
     case MULT_EXPR:
+    case MULTNV_EXPR:
       if (TYPE_UNSIGNED (type))
         break;
 
@@ -1368,7 +1375,7 @@ fold_negate_expr (tree t)
         }
       break;
 
-    case NOP_EXPR:
+    CASE_CONVERT:
       /* Convert -((double)float) into (double)(-float).  */
       if (TREE_CODE (type) == REAL_TYPE)
 	{
@@ -10478,15 +10485,30 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	return fold_convert (type, integer_zero_node);
 
       /* A - B -> A + (-B) if B is easily negatable.  */
-      if (negate_expr_p (arg1)
+      if ((negate_expr_p (arg1)
+	   /* Avoid negating constants if that would change overflow
+	      behavior.  */
+	   && (code == MINUS_EXPR
+	       || TREE_CODE (arg1) != INTEGER_CST
+	       || may_negate_without_overflow_p (arg1)))
 	  && ((FLOAT_TYPE_P (type)
                /* Avoid this transformation if B is a positive REAL_CST.  */
 	       && (TREE_CODE (arg1) != REAL_CST
 		   ||  REAL_VALUE_NEGATIVE (TREE_REAL_CST (arg1))))
 	      || INTEGRAL_TYPE_P (type)))
-	return fold_build2 (PLUS_EXPR, type,
-			    fold_convert (type, arg0),
-			    fold_convert (type, negate_expr (arg1)));
+	{
+	  enum tree_code ncode = PLUS_EXPR;
+	  /* If the original subtraction is signed and did not overflow
+	     so does the new addition if the negation of arg1 does not
+	     overflow (which we know for constants only).  */
+	  if (code == MINUSNV_EXPR
+	      && TREE_CODE (arg1) == INTEGER_CST
+	      && !TYPE_UNSIGNED (type))
+	    ncode = PLUSNV_EXPR;
+	  return fold_build2 (ncode, type,
+			      fold_convert (type, arg0),
+			      fold_convert (type, negate_expr (arg1)));
+	}
 
       /* Try folding difference of addresses.  */
       {
