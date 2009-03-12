@@ -2121,10 +2121,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
       && (sect->common.flags & SECTION_COMMON) == 0)
     globalize_decl (decl);
 
-#if defined(TARGET_DECLARE_VARIABLE)
-  TARGET_DECLARE_VARIABLE(asm_out_file, decl);
-#else /* !defined(TARGET_DECLARE_VARIABLE) */
-
   /* Output any data that we will need to use the address of.  */
   if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
     output_addressed_constants (DECL_INITIAL (decl));
@@ -2150,7 +2146,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (DECL_ALIGN_UNIT (decl)));
       assemble_variable_contents (decl, name, dont_output_data);
     }
-#endif
 }
 
 /* Return 1 if type TYPE contains any pointers.  */

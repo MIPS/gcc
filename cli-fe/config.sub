@@ -4,7 +4,7 @@
 #   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
 #   Inc.
 
-timestamp='2007-04-29'
+timestamp='2009-03-12'
 
 # This file is (in principle) common to ALL GNU software.
 # The presence of a machine in this file suggests that SOME GNU software
@@ -289,9 +289,6 @@ case $basic_machine in
 	| z8k)
 		basic_machine=$basic_machine-unknown
 		;;
-	cil32)
-		basic_machine=$basic_machine-unknown
-		;;
 	m6811 | m68hc11 | m6812 | m68hc12)
 		# Motorola 68HC11/12.
 		basic_machine=$basic_machine-unknown
@@ -375,8 +372,6 @@ case $basic_machine in
 	| xstormy16-* | xtensa-* \
 	| ymp-* \
 	| z8k-*)
-		;;
-	cil32-*)
 		;;
 	# Recognize the various machine names and aliases which stand
 	# for a CPU type and a company and sometimes even an OS.

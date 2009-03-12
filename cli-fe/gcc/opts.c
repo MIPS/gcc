@@ -1797,10 +1797,9 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
 	      write_symbols = DBX_DEBUG;
 #endif
 	    }
-#ifndef DISABLE_RTL_PASSES
+
 	  if (write_symbols == NO_DEBUG)
 	    warning (0, "target system does not support debug output");
-#endif
 	}
     }
   else

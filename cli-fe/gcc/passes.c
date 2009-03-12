@@ -484,9 +484,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_eh);
-#if defined(DISABLE_RTL_PASSES)
-  NEXT_PASS (pass_simp_cil_early);
-#endif
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_lower_vector);
@@ -688,19 +685,6 @@ init_optimization_passes (void)
     }
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_free_datastructures);
-#if defined(DISABLE_RTL_PASSES)
-  NEXT_PASS (pass_bb_layout);
-  NEXT_PASS (pass_gimple_to_cil);
-  NEXT_PASS (pass_missing_protos);
-  NEXT_PASS (pass_cil_peephole);
-  NEXT_PASS (pass_remove_convs);
-  NEXT_PASS (pass_remove_temps);
-  NEXT_PASS (pass_remove_convs);
-  NEXT_PASS (pass_remove_temps);
-  NEXT_PASS (pass_simp_cond);
-  NEXT_PASS (pass_emit_cil_vcg);
-  NEXT_PASS (pass_emit_cil);
-#else /* !defined(DISABLE_RTL_PASSES) */
   NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
@@ -806,7 +790,6 @@ init_optimization_passes (void)
 	}
     }
   NEXT_PASS (pass_clean_state);
-#endif /* DISABLE_RTL_PASSES */
   *p = NULL;
 
 #undef NEXT_PASS
