@@ -1,5 +1,7 @@
 2009-03-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* gcc.target/powerpc/pr39457.c: New test for PR39457.
+
 	* gcc.target/powerpc/vsx-builtin-1.c: New test for builtins.
 	* gcc.target/powerpc/vsx-builtin-2.c: Ditto.
 

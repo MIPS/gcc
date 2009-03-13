@@ -1448,10 +1448,15 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
     return 1;
 
-  /* Don't allow anything but word sized integers (aka pointers) in CTR/LR.  You
-     really don't want to spill your floating point values to those
-     registers.  Also do it for the old MQ register in the power.  */
-  if (regno == CTR_REGNO || regno == LR_REGNO || regno == MQ_REGNO)
+  /* Don't allow anything but word sized integers (aka pointers) in CTR/LR.
+     You really don't want to spill your floating point values to those
+     registers.  Also do it for the old MQ register in the power.
+
+     While this is desirable in theory, disabling float to go in LR/CTR does
+     cause some regressions, so until they are taken care of, revert to the old
+     behavior by default.  */
+  if (TARGET_DISALLOW_FLOAT_IN_LR_CTR
+      && (regno == CTR_REGNO || regno == LR_REGNO || regno == MQ_REGNO))
     return (GET_MODE_CLASS (mode) == MODE_INT
 	    && GET_MODE_SIZE (mode) <= UNITS_PER_WORD);
 

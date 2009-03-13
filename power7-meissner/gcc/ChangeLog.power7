@@ -1,5 +1,14 @@
 2009-03-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	PR target/39457
+	* config/rs6000/rs6000.opt (-mdisallow-float-in-lr-ctr): Add
+	temporary debug switch.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Revert
+	behavior of disallowing 
+
+2009-03-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/vector.md (vec_extract_evenv2df): Delete, insn
 	causes problems in building spec 2006.
 	(vec_extract_oddv2df): Ditto.
