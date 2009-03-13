@@ -140,7 +140,7 @@ Target Report Var(TARGET_VSX_SCALAR_MEMORY)
 If -mvsx, use VSX scalar memory reference instructions for scalar double (off by default)
 
 mdisallow-float-in-lr-ctr
-Target Undocumented Var(TARGET_DISALLOW_FLOAT_IN_LR_CTR)
+Target Undocumented Var(TARGET_DISALLOW_FLOAT_IN_LR_CTR) Init(-1)
 
 mupdate
 Target Report Var(TARGET_UPDATE) Init(1)

@@ -1454,8 +1454,9 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 
      While this is desirable in theory, disabling float to go in LR/CTR does
      cause some regressions, so until they are taken care of, revert to the old
-     behavior by default.  */
-  if (TARGET_DISALLOW_FLOAT_IN_LR_CTR
+     behavior by default for most power systems, but enable it for power7.  */
+  if ((TARGET_DISALLOW_FLOAT_IN_LR_CTR > 0
+       || (TARGET_DISALLOW_FLOAT_IN_LR_CTR < 0 && TARGET_VSX))
       && (regno == CTR_REGNO || regno == LR_REGNO || regno == MQ_REGNO))
     return (GET_MODE_CLASS (mode) == MODE_INT
 	    && GET_MODE_SIZE (mode) <= UNITS_PER_WORD);
