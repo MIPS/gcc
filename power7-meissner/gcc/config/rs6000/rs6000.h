@@ -3388,7 +3388,7 @@ enum rs6000_builtins
   VSX_BUILTIN_XXSPLTW,
   VSX_BUILTIN_XXSWAPD,
 
-  /* Combine VSX/Altivec builtins.  */
+  /* Combined VSX/Altivec builtins.  */
   VECTOR_BUILTIN_FLOAT_V4SI_V4SF,
   VECTOR_BUILTIN_UNSFLOAT_V4SI_V4SF,
   VECTOR_BUILTIN_FIX_V4SF_V4SI,

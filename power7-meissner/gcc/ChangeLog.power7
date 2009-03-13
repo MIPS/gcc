@@ -1,3 +1,72 @@
+2009-03-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_extract_evenv2df): Delete, insn
+	causes problems in building spec 2006.
+	(vec_extract_oddv2df): Ditto.
+	(vec_pack_trunc_v2df): New expanders for VSX vectorized
+	conversions.
+	(vec_pack_sfix_trunc_v2df): Ditto.
+	(vec_pack_ufix_trunc_v2df): Ditto.
+	(vec_unpacks_hi_v4sf): Ditto.
+	(vec_unpacks_lo_v4sf): Ditto.
+	(vec_unpacks_float_hi_v4si): Ditto.
+	(vec_unpacks_float_lo_v4si): Ditto.
+	(vec_unpacku_float_hi_v4si): Ditto.
+	(vec_unpacku_float_lo_v4si): Ditto.
+
+	* config/rs6000/rs6000-protos.h (rs6000_vector_secondary_reload):
+	Declaration for new target hook.
+
+	* config/rs6000/rs6000.c (TARGET_SECONDARY_RELOAD): Add new target
+	hook for eventually fixing up the memory references for Altivec
+	and VSX reloads to be reg+reg instead of reg+offset.  Right now,
+	this is a stub function that prints debug information if
+	-mdebug=addr and then calls default_secondary_reload.
+	(rs6000_secondary_reload): Ditto.
+	(rs6000_vector_secondary_reload): Ditto.
+	(rs6000_builtin_conversion): Add support for V2DI/V2DF
+	conversions.
+	(rs6000_legitimate_offset_address_p): Test for the vector unit
+	doing the memory references.
+	(rs6000_legimize_reload_address): Ditto.
+	(rs6000_legitimize_address): Print extra \n if -mdebug=addr.
+	(rs6000_legitimize_reload_address): Ditto.
+	(rs6000_legitimate_address): Ditto.
+	(rs6000_mode_dependent_address): Ditto.
+	(bdesc_2arg): Add VSX builtins.
+	(bdesc_abs): Ditto.
+	(bdesc_1arg): Ditto.
+	(altivec_init_builtins): Ditto.
+	(rs6000_secondary_memory_needed_rtx): Add debug support if
+	-mdebug=addr.
+	(rs6000_preferred_reload_class): Ditto.
+	(rs6000_secondary_memory_needed): Ditto.
+	(rs6000_secondary_reload_class): Ditto.
+	(rs6000_cannot_change_mode_class): Ditto.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_*): Add unspecs for VSX
+	conversions.
+	(vsx_nabs<mode>): Add generator function.
+	(vsx_float<VSi><mode>2): Ditto.
+	(vsx_floatuns<VSi><mode>2): Ditto.
+	(vsx_xxmrghw): Ditto.
+	(vsx_xxmrglw): Ditto.
+	(vsx_xvcvdpsp): New VSX vector conversion insn.
+	(vsx_xvcvdpsxws): Ditto.
+	(vsx_xvcvdpuxws): Ditto.
+	(vsx_xvcvspdp): Ditto.
+	(vsx_xvcvsxwdp): Ditto.
+	(vsx_xvcvuxwdp): Ditto.
+	(vsx_reload_*): New insns for reload support.
+
+	* config/rs6000/rs6000.h: Fix a comment.
+
+	* config/rs6000/altivec.md (altivec_reload_*): New insns for
+	reload support.
+
+	* config/rs6000/rs6000.md (ptrsize): New mode attribute for the
+	pointer size.
+
 2009-03-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_concat_v2df): Add explicit 'f'

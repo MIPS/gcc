@@ -68,7 +68,13 @@
 			 (DI "64")])
 
 (define_constants
-  [(UNSPEC_VSX_CONCAT_V2DF	500)])
+  [(UNSPEC_VSX_CONCAT_V2DF	500)
+   (UNSPEC_VSX_XVCVDPSP		501)
+   (UNSPEC_VSX_XVCVDPSXWS	502)
+   (UNSPEC_VSX_XVCVDPUXWS	503)
+   (UNSPEC_VSX_XVCVSPDP		504)
+   (UNSPEC_VSX_XVCVSXWDP	505)
+   (UNSPEC_VSX_XVCVUXWDP	506)])
 
 ;; VSX moves
 (define_insn "*vsx_mov<mode>"
@@ -245,7 +251,7 @@
   "xvabs<VSs> %x0,%x1"
   [(set_attr "type" "vecfloat")])
 
-(define_insn "*vsx_nabs<mode>2"
+(define_insn "vsx_nabs<mode>2"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>")
         (neg:VSX_F
 	 (abs:VSX_F
@@ -417,14 +423,14 @@
   "xvr<VSs>piz %x0,%x1"
   [(set_attr "type" "vecperm")])
 
-(define_insn "*vsx_float<VSi><mode>2"
+(define_insn "vsx_float<VSi><mode>2"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>")
 	(float:VSX_F (match_operand:<VSI> 1 "vsx_register_operand" "<VSr>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "xvcvsx<VSc><VSs> %x0,%x1"
   [(set_attr "type" "vecfloat")])
 
-(define_insn "*vsx_floatuns<VSi><mode>2"
+(define_insn "vsx_floatuns<VSi><mode>2"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>")
 	(unsigned_float:VSX_F (match_operand:<VSI> 1 "vsx_register_operand" "<VSr>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
@@ -443,6 +449,62 @@
 	(unsigned_fix:<VSI> (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "xvcv<VSs>ux<VSc>s %x0,%x1"
+  [(set_attr "type" "vecfloat")])
+
+
+;; VSX convert to/from double vector
+
+;; Convert from 64-bit to 32-bit types
+;; Note, favor the Altivec registers since the usual use of these instructions
+;; is in vector converts and we need to use the Altivec vperm instruction.
+
+(define_insn "vsx_xvcvdpsp"
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=v,?wa")
+	(unspec:V4SF [(match_operand:V2DF 1 "vsx_register_operand" "wd,wa")]
+		     UNSPEC_VSX_XVCVDPSP))]
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
+  "xvcvdpsp %x0,%x1"
+  [(set_attr "type" "vecfloat")])
+
+(define_insn "vsx_xvcvdpsxws"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=v,?wa")
+	(unspec:V4SI [(match_operand:V2DF 1 "vsx_register_operand" "wd,wa")]
+		     UNSPEC_VSX_XVCVDPSXWS))]
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
+  "xvcvdpsxws %x0,%x1"
+  [(set_attr "type" "vecfloat")])
+
+(define_insn "vsx_xvcvdpuxws"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=v,?wa")
+	(unspec:V4SI [(match_operand:V2DF 1 "vsx_register_operand" "wd,wa")]
+		     UNSPEC_VSX_XVCVDPUXWS))]
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
+  "xvcvdpuxws %x0,%x1"
+  [(set_attr "type" "vecfloat")])
+
+;; Convert from 32-bit to 64-bit types
+(define_insn "vsx_xvcvspdp"
+  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?wa")
+	(unspec:V2DF [(match_operand:V4SF 1 "vsx_register_operand" "wf,wa")]
+		     UNSPEC_VSX_XVCVSPDP))]
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
+  "xvcvspdp %x0,%x1"
+  [(set_attr "type" "vecfloat")])
+
+(define_insn "vsx_xvcvsxwdp"
+  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?wa")
+	(unspec:V2DF [(match_operand:V4SI 1 "vsx_register_operand" "wf,wa")]
+		     UNSPEC_VSX_XVCVSXWDP))]
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
+  "xvcvsxwdp %x0,%x1"
+  [(set_attr "type" "vecfloat")])
+
+(define_insn "vsx_xvcvuxwdp"
+  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?wa")
+	(unspec:V2DF [(match_operand:V4SI 1 "vsx_register_operand" "wf,wa")]
+		     UNSPEC_VSX_XVCVUXWDP))]
+  "VECTOR_UNIT_VSX_P (V2DFmode)"
+  "xvcvuxwdp %x0,%x1"
   [(set_attr "type" "vecfloat")])
 
 
@@ -835,7 +897,7 @@
   [(set_attr "type" "vecperm")])
 
 ;; V4SF interleave
-(define_insn "*vsx_xxmrghw"
+(define_insn "vsx_xxmrghw"
   [(set (match_operand:V4SF 0 "register_operand" "=wf")
         (vec_merge:V4SF (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "wf")
                                          (parallel [(const_int 0)
@@ -852,7 +914,7 @@
   "xxmrghw %x0,%x1,%x2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "*vsx_xxmrglw"
+(define_insn "vsx_xxmrglw"
   [(set (match_operand:V4SF 0 "register_operand" "=wf")
         (vec_merge:V4SF
 	 (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "wf")
@@ -869,3 +931,26 @@
   "VECTOR_UNIT_VSX_P (V4SFmode)"
   "xxmrglw %x0,%x1,%x2"
   [(set_attr "type" "vecperm")])
+
+
+;; Reload patterns for VSX loads/stores.  We need a scratch register to convert
+;; the stack temporary address from reg+offset to reg+reg addressing.
+(define_expand "vsx_reload_<VSX_L:mode>_<P:ptrsize>_to_mem"
+  [(parallel [(match_operand:VSX_L 0 "memory_operand" "")
+              (match_operand:VSX_L 1 "register_operand" "=wa")
+              (match_operand:P 2 "register_operand" "=&b")])]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+{
+  rs6000_vector_secondary_reload (operands[0], operands[1], operands[2], true);
+  DONE;
+})
+
+(define_expand "vsx_reload_<VSX_L:mode>_<P:ptrsize>_to_reg"
+  [(parallel [(match_operand:VSX_L 0 "register_operand" "=wa")
+              (match_operand:VSX_L 1 "memory_operand" "")
+              (match_operand:P 2 "register_operand" "=&b")])]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+{
+  rs6000_vector_secondary_reload (operands[0], operands[1], operands[2], false);
+  DONE;
+})

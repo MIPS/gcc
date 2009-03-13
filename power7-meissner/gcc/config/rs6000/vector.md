@@ -496,23 +496,122 @@
   "VECTOR_UNIT_VSX_P (V2DFmode)"
   "")
 
-;; For 2 element vectors, even/odd is the same as high/low
-(define_expand "vec_extract_evenv2df"
-  [(set (match_operand:V2DF 0 "vfloat_operand" "")
-	(vec_concat:V2DF
-	 (vec_select:DF (match_operand:V2DF 1 "vfloat_operand" "")
-			(parallel [(const_int 0)]))
-	 (vec_select:DF (match_operand:V2DF 2 "vfloat_operand" "")
-			(parallel [(const_int 0)]))))]
-  "VECTOR_UNIT_VSX_P (V2DFmode)"
-  "")
+
+;; Convert double word types to single word types
+(define_expand "vec_pack_trunc_v2df"
+  [(match_operand:V4SF 0 "vsx_register_operand" "")
+   (match_operand:V2DF 1 "vsx_register_operand" "")
+   (match_operand:V2DF 2 "vsx_register_operand" "")]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
+{
+  rtx r1 = gen_reg_rtx (V4SFmode);
+  rtx r2 = gen_reg_rtx (V4SFmode);
 
-(define_expand "vec_extract_oddv2df"
-  [(set (match_operand:V2DF 0 "vfloat_operand" "")
-	(vec_concat:V2DF
-	 (vec_select:DF (match_operand:V2DF 1 "vfloat_operand" "")
-			(parallel [(const_int 1)]))
-	 (vec_select:DF (match_operand:V2DF 2 "vfloat_operand" "")
-			(parallel [(const_int 1)]))))]
-  "VECTOR_UNIT_VSX_P (V2DFmode)"
-  "")
+  emit_insn (gen_vsx_xvcvdpsp (r1, operands[1]));
+  emit_insn (gen_vsx_xvcvdpsp (r2, operands[2]));
+  emit_insn (gen_vec_extract_evenv4sf (operands[0], r1, r2));
+  DONE;
+})
+
+(define_expand "vec_pack_sfix_trunc_v2df"
+  [(match_operand:V4SI 0 "vsx_register_operand" "")
+   (match_operand:V2DF 1 "vsx_register_operand" "")
+   (match_operand:V2DF 2 "vsx_register_operand" "")]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
+{
+  rtx r1 = gen_reg_rtx (V4SImode);
+  rtx r2 = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_vsx_xvcvdpsxws (r1, operands[1]));
+  emit_insn (gen_vsx_xvcvdpsxws (r2, operands[2]));
+  emit_insn (gen_vec_extract_evenv4si (operands[0], r1, r2));
+  DONE;
+})
+
+(define_expand "vec_pack_ufix_trunc_v2df"
+  [(match_operand:V4SI 0 "vsx_register_operand" "")
+   (match_operand:V2DF 1 "vsx_register_operand" "")
+   (match_operand:V2DF 2 "vsx_register_operand" "")]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
+{
+  rtx r1 = gen_reg_rtx (V4SImode);
+  rtx r2 = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_vsx_xvcvdpuxws (r1, operands[1]));
+  emit_insn (gen_vsx_xvcvdpuxws (r2, operands[2]));
+  emit_insn (gen_vec_extract_evenv4si (operands[0], r1, r2));
+  DONE;
+})
+
+;; Convert single word types to double word
+(define_expand "vec_unpacks_hi_v4sf"
+  [(match_operand:V2DF 0 "vsx_register_operand" "")
+   (match_operand:V4SF 1 "vsx_register_operand" "")]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
+{
+  rtx reg = gen_reg_rtx (V4SFmode);
+
+  emit_insn (gen_vec_interleave_highv4sf (reg, operands[1], operands[1]));
+  emit_insn (gen_vsx_xvcvspdp (operands[0], reg));
+  DONE;
+})
+
+(define_expand "vec_unpacks_lo_v4sf"
+  [(match_operand:V2DF 0 "vsx_register_operand" "")
+   (match_operand:V4SF 1 "vsx_register_operand" "")]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
+{
+  rtx reg = gen_reg_rtx (V4SFmode);
+
+  emit_insn (gen_vec_interleave_lowv4sf (reg, operands[1], operands[1]));
+  emit_insn (gen_vsx_xvcvspdp (operands[0], reg));
+  DONE;
+})
+
+(define_expand "vec_unpacks_float_hi_v4si"
+  [(match_operand:V2DF 0 "vsx_register_operand" "")
+   (match_operand:V4SI 1 "vsx_register_operand" "")]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
+{
+  rtx reg = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_vec_interleave_highv4si (reg, operands[1], operands[1]));
+  emit_insn (gen_vsx_xvcvsxwdp (operands[0], reg));
+  DONE;
+})
+
+(define_expand "vec_unpacks_float_lo_v4si"
+  [(match_operand:V2DF 0 "vsx_register_operand" "")
+   (match_operand:V4SI 1 "vsx_register_operand" "")]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
+{
+  rtx reg = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_vec_interleave_lowv4si (reg, operands[1], operands[1]));
+  emit_insn (gen_vsx_xvcvsxwdp (operands[0], reg));
+  DONE;
+})
+
+(define_expand "vec_unpacku_float_hi_v4si"
+  [(match_operand:V2DF 0 "vsx_register_operand" "")
+   (match_operand:V4SI 1 "vsx_register_operand" "")]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
+{
+  rtx reg = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_vec_interleave_highv4si (reg, operands[1], operands[1]));
+  emit_insn (gen_vsx_xvcvuxwdp (operands[0], reg));
+  DONE;
+})
+
+(define_expand "vec_unpacku_float_lo_v4si"
+  [(match_operand:V2DF 0 "vsx_register_operand" "")
+   (match_operand:V4SI 1 "vsx_register_operand" "")]
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
+{
+  rtx reg = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_vec_interleave_lowv4si (reg, operands[1], operands[1]));
+  emit_insn (gen_vsx_xvcvuxwdp (operands[0], reg));
+  DONE;
+})
