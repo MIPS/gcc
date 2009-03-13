@@ -3206,7 +3206,8 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	if (valid_const_initializer
 	    && num_nonzero_elements > 1
 	    && TREE_READONLY (object)
-	    && TREE_CODE (object) == VAR_DECL)
+	    && TREE_CODE (object) == VAR_DECL
+	    && (flag_merge_constants >= 2 || !TREE_ADDRESSABLE (object)))
 	  {
 	    if (notify_temp_creation)
 	      return GS_ERROR;
@@ -3416,7 +3417,8 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 
 	    if (constant_p)
 	      {
-		TREE_OPERAND (*expr_p, 1) = build_vector_from_ctor (type, elts);
+		GENERIC_TREE_OPERAND (*expr_p, 1)
+		  = build_vector_from_ctor (type, elts);
 		break;
 	      }
 

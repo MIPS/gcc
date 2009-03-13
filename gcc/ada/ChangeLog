@@ -1,3 +1,32 @@
+2009-02-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* Makefile.in (cygwin/mingw): Revert accidental EH_MECHANISM change
+	made on 2007-12-06.
+
+2009-01-24  Release Manager
+
+	* GCC 4.3.3 released.
+
+2009-01-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (gnat_to_gnu_entity) <E_Record_Subtype>: Put the _Tag field
+	before any discriminants in the field list.
+	(components_to_record): Remove obsolete comment.
+
+2008-12-04  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline:
+	2008-10-18  Jakub Jelinek  <jakub@redhat.com>
+	            Janis Johnson  <janis187@us.ibm.com>
+
+	* Make-lang.in (check-ada-subtargets): Depend on
+	check-acats-subtargets and check-gnat-subtargets.
+	(check_acats_targets): New variable.
+	(check-acats-subtargets, check-acats%): New targets.
+	(check-acats): If -j is used and CHAPTERS is empty, run the testing
+	in multiple make goals, possibly parallel, and afterwards run
+	dg-extract-results.sh to merge the sum and log files.
+
 2008-11-15  Bechir Zalila  <bechir.zalila@gmail.com>
             Eric Botcazou  <ebotcazou@adacore.com>
 

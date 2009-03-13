@@ -978,7 +978,6 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	    && targetm.calls.split_complex_arg (argtype))
 	  {
 	    tree subtype = TREE_TYPE (argtype);
-	    arg = save_expr (arg);
 	    args[j].tree_value = build1 (REALPART_EXPR, subtype, arg);
 	    j += inc;
 	    args[j].tree_value = build1 (IMAGPART_EXPR, subtype, arg);
@@ -3678,10 +3677,10 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #ifdef ARGS_GROW_DOWNWARD
 	      /* stack_slot is negative, but we want to index stack_usage_map
 		 with positive values.  */
-	      upper_bound = -argvec[argnum].locate.offset.constant + 1;
+	      upper_bound = -argvec[argnum].locate.slot_offset.constant + 1;
 	      lower_bound = upper_bound - argvec[argnum].locate.size.constant;
 #else
-	      lower_bound = argvec[argnum].locate.offset.constant;
+	      lower_bound = argvec[argnum].locate.slot_offset.constant;
 	      upper_bound = lower_bound + argvec[argnum].locate.size.constant;
 #endif
 

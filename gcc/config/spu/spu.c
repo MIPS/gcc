@@ -155,6 +155,7 @@ static int spu_builtin_vectorization_cost (bool);
 static bool spu_vector_alignment_reachable (const_tree, bool);
 static int spu_sms_res_mii (struct ddg *g);
 static void asm_file_start (void);
+static unsigned int spu_section_type_flags (tree, const char *, int);
 
 extern const char *reg_names[];
 rtx spu_compare_op0, spu_compare_op1, spu_expect_op0, spu_expect_op1;
@@ -233,10 +234,6 @@ static unsigned char spu_addr_space_number (const tree);
 static rtx (* spu_addr_space_conversion_rtl (int, int)) (rtx, rtx);
 #undef TARGET_ADDR_SPACE_CONVERSION_RTL
 #define TARGET_ADDR_SPACE_CONVERSION_RTL spu_addr_space_conversion_rtl
-
-static unsigned int spu_section_type_flags (tree, const char *, int);
-#undef TARGET_SECTION_TYPE_FLAGS
-#define TARGET_SECTION_TYPE_FLAGS spu_section_type_flags
 
 static bool spu_valid_pointer_mode (enum machine_mode mode);
 #undef TARGET_VALID_POINTER_MODE
@@ -363,6 +360,9 @@ const struct attribute_spec spu_attribute_table[];
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START asm_file_start
+
+#undef TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS spu_section_type_flags
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -6690,14 +6690,6 @@ spu_valid_pointer_mode (enum machine_mode mode)
   return (mode == ptr_mode || mode == Pmode || mode == spu_ea_pointer_mode (1));
 }
 
-static unsigned int
-spu_section_type_flags (tree decl, const char *name, int reloc)
-{
-  if (strcmp (name, "._ea") == 0)
-    return SECTION_WRITE | SECTION_DEBUG;
-  return default_section_type_flags (decl, name, reloc);
-}
-
 /* Count the total number of instructions in each pipe and return the
    maximum, which is used as the Minimum Iteration Interval (MII)
    in the modulo scheduler.  get_pipe() will return -2, -1, 0, or 1.
@@ -6782,6 +6774,18 @@ asm_file_start (void)
   flag_var_tracking = 0;
 
   default_file_start ();
+}
+
+/* Implement targetm.section_type_flags.  */
+static unsigned int
+spu_section_type_flags (tree decl, const char *name, int reloc)
+{
+  /* .toe needs to have type @nobits.  */
+  if (strcmp (name, ".toe") == 0)
+    return SECTION_BSS;
+  if (strcmp (name, "._ea") == 0)
+    return SECTION_WRITE | SECTION_DEBUG;
+  return default_section_type_flags (decl, name, reloc);
 }
 
 const char *
