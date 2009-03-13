@@ -2045,6 +2045,15 @@ valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, pre_expr expr,
 	    if (!vro_valid_in_sets (set1, set2, vro))
 	      return false;
 	  }
+	if (ref->vuse)
+	  {
+	    gimple def_stmt = SSA_NAME_DEF_STMT (ref->vuse);
+	    if (!gimple_nop_p (def_stmt)
+		&& gimple_bb (def_stmt) != block
+		&& !dominated_by_p (CDI_DOMINATORS,
+				    block, gimple_bb (def_stmt)))
+	      return false;
+	  }
 	return !value_dies_in_block_x (expr, block);
       }
     default:

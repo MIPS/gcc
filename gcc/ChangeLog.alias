@@ -1,3 +1,11 @@
+2009-03-13  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (valid_in_sets): Check if the VUSE for
+	a REFERENCE is available.
+
+	testsuite/
+	* gcc.c-torture/execute/20090113-3.c: New testcase.
+
 2009-03-02  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r144538.
