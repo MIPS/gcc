@@ -1,3 +1,7 @@
+2009-03-13  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc.dg/lto/20090313_0.c: New.
+
 2009-03-12  Simon Baldwin  <simonb@google.com>
 
 	* gcc.dg/lto/20090312_0.c: New.

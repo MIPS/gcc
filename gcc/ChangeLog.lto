@@ -1,3 +1,9 @@
+2009-03-13  Rafael Avila de Espindola  <espindola@google.com>
+
+	* builtins.c (called_as_built_in): Make it non static.
+	* tree.h (called_as_built_in): New.
+	* varasm.c (incorporeal_function_p): Call called_as_built_in.
+
 2009-03-12  Rafael Avila de Espindola  <espindola@google.com>
 
 	* ipa-cp.c (cgraph_gate_cp): Disable ipcp if in ltrans.

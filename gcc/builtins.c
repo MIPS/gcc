@@ -245,7 +245,8 @@ static tree do_mpfr_lgamma_r (tree, tree, tree);
    of the optimization level.  This means whenever a function is invoked with
    its "internal" name, which normally contains the prefix "__builtin".  */
 
-static bool called_as_built_in (tree node)
+bool
+called_as_built_in (tree node)
 {
   const char *name = IDENTIFIER_POINTER (DECL_NAME (node));
   if (strncmp (name, "__builtin_", 10) == 0)
