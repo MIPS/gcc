@@ -557,6 +557,9 @@ lto_symtab_merge_decl (tree new_decl,
   /* Remember the resolution of this symbol. */
   lto_symtab_set_resolution_and_file_data (new_decl, resolution, file_data);
 
+  /* Ensure DECL_ASSEMBLER_NAME will not set assembler name.  */
+  gcc_assert (DECL_ASSEMBLER_NAME_SET_P (new_decl));
+
   /* Retrieve the previous declaration.  */
   name = DECL_ASSEMBLER_NAME (new_decl);
   old_decl = lto_symtab_get_identifier_decl (name);
@@ -647,6 +650,9 @@ lto_symtab_prevailing_decl (tree decl)
   /* FIXME lto. There should be no DECL_ABSTRACT in the middle end. */
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_ABSTRACT (decl))
     return decl;
+
+  /* Ensure DECL_ASSEMBLER_NAME will not set assembler name.  */
+  gcc_assert (DECL_ASSEMBLER_NAME_SET_P (decl));
 
   ret = lto_symtab_get_identifier_decl (DECL_ASSEMBLER_NAME (decl));
 
