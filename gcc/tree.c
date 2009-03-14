@@ -3825,6 +3825,23 @@ free_lang_data_in_type (tree type)
 	}
     }
 
+  if (TREE_CODE (type) == FUNCTION_TYPE)
+    {
+      /* Remove the const and volatile qualifiers from arguments.  The
+	 C++ front end removes them, but the C front end does not,
+	 leading to false ODR violation errors when merging two
+	 instances of the same function signature compiled by
+	 different front ends.  */
+      tree p;
+
+      for (p = TYPE_ARG_TYPES (type); p; p = TREE_CHAIN (p))
+	{
+	  tree arg_type = TREE_VALUE (p);
+	  TYPE_READONLY (arg_type) = 0;
+	  TYPE_VOLATILE (arg_type) = 0;
+	}
+    }
+	      
   /* Remove members that are not actually FIELD_DECLs from the field
      list of an aggregate.  These occur in C++.  */
   if (TREE_CODE (type) == RECORD_TYPE
@@ -3886,8 +3903,8 @@ free_lang_data_in_type (tree type)
 	TYPE_MIN_VALUE (type) = old_min;
     }
 
+  /* Overloads TYPE_BINFO for non-record, non-union types.  */
   if (TREE_CODE (type) != RECORD_TYPE && TREE_CODE (type) != UNION_TYPE)
-    /* Overloads TYPE_BINFO for non-record, non-union types.  */
     TYPE_LANG_SLOT_1 (type) = NULL_TREE;
 
   /* Clear TYPE_CONTEXT, which reflects source-language
@@ -3895,26 +3912,13 @@ free_lang_data_in_type (tree type)
      FIXME lto: This will break debug info generation.  */
   TYPE_CONTEXT (type) = NULL_TREE;
 
-  /* Remove type variants that are the same gimple type as the main
-     variant.  This is both wasteful and it may introduce infinite
-     loops when the types are read from disk (since the variant will
-     be the same type as the main variant, traversing type variants
-     will get into an infinite loop).  */
-  if (TYPE_NEXT_VARIANT (TYPE_MAIN_VARIANT (type)))
-    {
-      tree main_variant = TYPE_MAIN_VARIANT (type);
-      tree *tp = &TYPE_NEXT_VARIANT (main_variant);
-
-      while (*tp)
-	{
-	  /* If *TP is the same GIMPLE type as MAIN_VARIANT, then it's
-	     not necessary to have it in the list of variants.  */
-	  if (gimple_same_type_p (*tp, main_variant))
-	    *tp = TYPE_NEXT_VARIANT (*tp);
-	  else
-	    tp = &TYPE_NEXT_VARIANT (*tp);
-	}
-    }
+  /* Remove type variants other than the main variant.  This is both
+     wasteful and it may introduce infinite loops when the types are
+     read from disk and merged (since the variant will be the same
+     type as the main variant, traversing type variants will get into
+     an infinite loop).  */
+  if (TYPE_MAIN_VARIANT (type))
+    TYPE_NEXT_VARIANT (TYPE_MAIN_VARIANT (type)) = NULL_TREE;
 }
 
 

@@ -182,7 +182,7 @@ lto_merge_types (tree type_1, tree type_2)
       && TREE_CODE (type_2) == ARRAY_TYPE
       && !TYPE_ATTRIBUTES (type_1)
       && !TYPE_ATTRIBUTES (type_2)
-      && gimple_same_type_p (TREE_TYPE (type_1), TREE_TYPE (type_2)))
+      && gimple_types_compatible_p (TREE_TYPE (type_1), TREE_TYPE (type_2)))
     {
       lto_merge_qualifiers (type_1, type_2);
 
@@ -191,7 +191,7 @@ lto_merge_types (tree type_1, tree type_2)
       else if (COMPLETE_TYPE_P (type_2) && !COMPLETE_TYPE_P (type_1))
 	return type_2;
       else
-	return NULL_TREE;
+	return type_1;
     }
 
   return NULL_TREE;
@@ -255,7 +255,7 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 	}
     }
 
-  if (!gimple_same_type_p (TREE_TYPE (old_decl), TREE_TYPE (new_decl)))
+  if (!gimple_types_compatible_p (TREE_TYPE (old_decl), TREE_TYPE (new_decl)))
     {
       /* Allow an array type with unspecified bounds to
 	 be merged with an array type whose bounds are specified, so
