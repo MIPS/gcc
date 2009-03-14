@@ -191,6 +191,21 @@ DEF_VEC_P(tree);
 DEF_VEC_ALLOC_P(tree,gc);
 DEF_VEC_ALLOC_P(tree,heap);
 
+/* Structure holding info about fully optimized out user declaration.
+   DECL points to DECL_ABSTRACT_ORIGIN of the optimized out declaration,
+   VALUE, if non-NULL, contains expression that can be used to compute
+   value originally hold in DECL same vay as in DECL_VALUDE_EXPR.
+   It is used by debug info output.  */
+
+typedef struct nonlocalized_var GTY(()) 
+{
+  tree decl;
+  tree value;
+} nonlocalized_var;
+
+DEF_VEC_O(nonlocalized_var);
+DEF_VEC_ALLOC_O(nonlocalized_var,gc);
+
 
 /* Classify which part of the compiler has defined a given builtin function.
    Note that we assume below that this is no more than two bits.  */
@@ -1969,8 +1984,9 @@ struct varray_head_tag;
 /* In a BLOCK node.  */
 #define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
 #define BLOCK_NONLOCALIZED_VARS(NODE) (BLOCK_CHECK (NODE)->block.nonlocalized_vars)
-#define BLOCK_NUM_NONLOCALIZED_VARS(NODE) VEC_length (tree, BLOCK_NONLOCALIZED_VARS (NODE))
-#define BLOCK_NONLOCALIZED_VAR(NODE,N) VEC_index (tree, BLOCK_NONLOCALIZED_VARS (NODE), N)
+#define BLOCK_NUM_NONLOCALIZED_VARS(NODE) VEC_length (nonlocalized_var, BLOCK_NONLOCALIZED_VARS (NODE))
+#define BLOCK_NONLOCALIZED_VAR(NODE,N) VEC_index (nonlocalized_var, BLOCK_NONLOCALIZED_VARS (NODE), N)->decl
+#define BLOCK_NONLOCALIZED_VAR_VALUE(NODE,N) VEC_index (nonlocalized_var, BLOCK_NONLOCALIZED_VARS (NODE), N)->value
 #define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->block.subblocks)
 #define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->block.supercontext)
 /* Note: when changing this, make sure to find the places
@@ -2025,7 +2041,7 @@ struct tree_block GTY(())
   location_t locus;
 
   tree vars;
-  VEC(tree,gc) *nonlocalized_vars;
+  VEC(nonlocalized_var,gc) *nonlocalized_vars;
 
   tree subblocks;
   tree supercontext;

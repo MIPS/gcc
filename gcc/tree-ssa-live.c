@@ -459,6 +459,28 @@ mark_scope_block_unused (tree scope)
     mark_scope_block_unused (t);
 }
 
+/* Called via walk_tree. See if expression contains some variable that is
+   no longer used in source function.  */
+static tree
+lookup_dead_vars (tree * tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  if (is_gimple_min_invariant (*tp)
+      || TYPE_P (*tp))
+    {
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+  if (DECL_P (*tp))
+    {
+      *walk_subtrees = 0;
+      if (TREE_CODE (*tp) == VAR_DECL
+	  && (!var_ann (*tp)
+	      || !var_ann (*tp)->used))
+	return *tp;
+    }
+  return NULL_TREE;
+}
+
 /* Look if the block is dead (by possibly eliminating its dead subblocks)
    and return true if so.  
    Block is declared dead if:
@@ -479,6 +501,13 @@ remove_unused_scope_block_p (tree scope)
   bool unused = !TREE_USED (scope);
   var_ann_t ann;
   int nsubblocks = 0;
+  unsigned int i;
+
+  for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (scope); i++)
+    if (BLOCK_NONLOCALIZED_VAR_VALUE (scope, i)
+        && walk_tree (&BLOCK_NONLOCALIZED_VAR_VALUE (scope, i),
+		      lookup_dead_vars, NULL, NULL))
+      BLOCK_NONLOCALIZED_VAR_VALUE (scope, i) = NULL_TREE;
 
   for (t = &BLOCK_VARS (scope); *t; t = next)
     {
@@ -654,6 +683,13 @@ dump_scope_block (FILE *file, int indent, tree scope, int flags)
       fprintf (file, "%*s",indent, "");
       print_generic_decl (file, BLOCK_NONLOCALIZED_VAR (scope, i),
       			  flags);
+      if (BLOCK_NONLOCALIZED_VAR_VALUE (scope, i))
+        {
+          fprintf (file, "replaced by:");
+	  print_generic_expr (file,
+	  		      BLOCK_NONLOCALIZED_VAR_VALUE (scope, i),
+			      flags);
+	}
       fprintf (file, " (nonlocalized)\n");
     }
   for (t = BLOCK_SUBBLOCKS (scope); t ; t = BLOCK_CHAIN (t))

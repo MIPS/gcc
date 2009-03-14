@@ -89,6 +89,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "cgraph.h"
 #include "input.h"
+#include "gimple.h"
 
 #ifdef DWARF2_DEBUGGING_INFO
 static void dwarf2out_source_line (unsigned int, const char *);
@@ -3415,6 +3416,7 @@ DEF_VEC_O(deferred_locations);
 DEF_VEC_ALLOC_O(deferred_locations,gc);
 
 static GTY(()) VEC(deferred_locations, gc) *deferred_locations_list;
+static bool in_deferred_list;
 
 /* Each DIE may have a series of attribute/value pairs.  Values
    can take on several forms.  The forms that are used in this
@@ -5112,14 +5114,13 @@ static HOST_WIDE_INT field_byte_offset (const_tree);
 static void add_AT_location_description	(dw_die_ref, enum dwarf_attribute,
 					 dw_loc_descr_ref);
 static void add_data_member_location_attribute (dw_die_ref, tree);
-static void add_const_value_attribute (dw_die_ref, rtx);
 static void insert_int (HOST_WIDE_INT, unsigned, unsigned char *);
 static HOST_WIDE_INT extract_int (const unsigned char *, unsigned);
 static void insert_float (const_rtx, unsigned char *);
 static rtx rtl_for_decl_location (tree);
-static void add_location_or_const_value_attribute (dw_die_ref, tree,
+static bool add_location_or_const_value_attribute (dw_die_ref, tree,
 						   enum dwarf_attribute);
-static void tree_add_const_value_attribute (dw_die_ref, tree);
+static bool tree_add_const_value_attribute (dw_die_ref, tree);
 static void add_name_attribute (dw_die_ref, const char *);
 static void add_comp_dir_attribute (dw_die_ref);
 static void add_bound_info (dw_die_ref, enum dwarf_attribute, tree);
@@ -5153,11 +5154,11 @@ static void gen_inlined_enumeration_type_die (tree, dw_die_ref);
 static void gen_inlined_structure_type_die (tree, dw_die_ref);
 static void gen_inlined_union_type_die (tree, dw_die_ref);
 static dw_die_ref gen_enumeration_type_die (tree, dw_die_ref);
-static dw_die_ref gen_formal_parameter_die (tree, tree, dw_die_ref);
+static dw_die_ref gen_formal_parameter_die (tree, tree, dw_die_ref, tree);
 static void gen_unspecified_parameters_die (tree, dw_die_ref);
 static void gen_formal_types_die (tree, dw_die_ref);
 static void gen_subprogram_die (tree, dw_die_ref);
-static void gen_variable_die (tree, tree, dw_die_ref);
+static void gen_variable_die (tree, tree, dw_die_ref, tree);
 static void gen_const_die (tree, dw_die_ref);
 static void gen_label_die (tree, dw_die_ref);
 static void gen_lexical_block_die (tree, dw_die_ref, int);
@@ -5177,7 +5178,7 @@ static void gen_block_die (tree, dw_die_ref, int);
 static void decls_for_scope (tree, dw_die_ref, int);
 static int is_redundant_typedef (const_tree);
 static void gen_namespace_die (tree);
-static void gen_decl_die (tree, tree, dw_die_ref);
+static void gen_decl_die (tree, tree, dw_die_ref, tree);
 static dw_die_ref force_decl_die (tree);
 static dw_die_ref force_type_die (tree);
 static dw_die_ref setup_namespace_context (tree, dw_die_ref);
@@ -10079,6 +10080,22 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
       VEC_safe_push (rtx, gc, used_rtx_array, rtl);
       break;
 
+    case CONCAT:
+      {
+        rtx x0 = XEXP (rtl, 0);
+        rtx x1 = XEXP (rtl, 1);
+        dw_loc_descr_ref x0_ref = mem_loc_descriptor (x0, GET_MODE (x0), VAR_INIT_STATUS_INITIALIZED);
+        dw_loc_descr_ref x1_ref = mem_loc_descriptor (x1, GET_MODE (x1), VAR_INIT_STATUS_INITIALIZED);
+	if (x0_ref == 0 || x1_ref == 0)
+	  return 0;
+	mem_loc_result = x0_ref;
+	add_loc_descr_op_piece (&mem_loc_result, GET_MODE_SIZE (GET_MODE (x0)));
+
+	add_loc_descr (&mem_loc_result, x1_ref);
+	add_loc_descr_op_piece (&mem_loc_result, GET_MODE_SIZE (GET_MODE (x1)));
+      }
+      break;
+
     case PRE_MODIFY:
       /* Extract the PLUS expression nested inside and fall into
 	 PLUS code below.  */
@@ -10373,14 +10390,56 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       return 0;
 
     case ADDR_EXPR:
-      /* If we already want an address, there's nothing we can do.  */
+      /* If we already want an address, see if there is INDIRECT_REF inside
+         e.g. for &this->field.  */
       if (want_address)
-	return 0;
+        {
+	  tree obj, offset;
+	  HOST_WIDE_INT bitsize, bitpos;
+	  enum machine_mode mode;
+	  int volatilep;
+	  int unsignedp = TYPE_UNSIGNED (TREE_TYPE (loc));
 
+	  obj = get_inner_reference (TREE_OPERAND (loc, 0),
+	  			     &bitsize, &bitpos, &offset, &mode,
+				     &unsignedp, &volatilep, false);
+	  STRIP_NOPS (obj);
+	  if (INDIRECT_REF_P (obj)
+	      && !bitpos && !offset)
+	    {
+	      ret = loc_descriptor_from_tree_1 (TREE_OPERAND (obj, 0), want_address);
+	      have_address = 1;
+	    }
+	  /* Try luck and perhaps find the address available in constant pool.  */
+	  else if (is_gimple_ip_invariant_address (loc))
+	    goto cst_address;
+	  else
+	    return NULL;
+	}
       /* Otherwise, process the argument and look for the address.  */
-      return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 1);
+      else
+        return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 1);
+      break;
 
     case VAR_DECL:
+      /* We don't know yet if the location will be referenced and output.
+         Give up for the moment. 
+	 
+	 TODO: deferring the expansion up to end of compilation would
+	 result in better debug info.  */
+      if (TREE_STATIC (loc) && optimize && !in_deferred_list
+          && (!DECL_ASSEMBLER_NAME (loc)
+              || !TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (loc))))
+	{
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "Expansion of reference to static var failed."
+		       "Variable might be optimized out ");
+	      print_generic_decl (dump_file, loc, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  return 0;
+	}
       if (DECL_THREAD_LOCAL_P (loc))
 	{
 	  rtx rtl;
@@ -10445,7 +10504,15 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	rtx rtl = rtl_for_decl_location (loc);
 
 	if (rtl == NULL_RTX)
-	  return 0;
+	  {
+	    if (dump_file)
+	      {
+	        fprintf (dump_file, "Expansion for decl failed. No RTL ");
+	  	print_generic_decl (dump_file, loc, 0);
+		fprintf (dump_file, "\n");
+	      }
+	    return 0;
+	  }
 	else if (GET_CODE (rtl) == CONST_INT)
 	  {
 	    HOST_WIDE_INT val = INTVAL (rtl);
@@ -10481,6 +10548,8 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       break;
 
     case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
       ret = loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 0);
       have_address = 1;
       break;
@@ -10498,6 +10567,8 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
     case BIT_FIELD_REF:
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
       {
 	tree obj, offset;
 	HOST_WIDE_INT bitsize, bitpos, bytepos;
@@ -10540,20 +10611,54 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       }
 
     case INTEGER_CST:
+      /* With inlining we tend to create expressions like &0 as variable values
+         (each time we took address of variable, the address operation was optimized out
+	  and variable replaced by constant.) 
+         We might get lucky with constant pool.  */
+      if (want_address)
+	goto cst_address;
       if (host_integerp (loc, 0))
 	ret = int_loc_descriptor (tree_low_cst (loc, 0));
       else
 	return 0;
       break;
 
+    case REAL_CST:
+    case STRING_CST:
+      if (want_address)
+	goto cst_address;
+      /* We can handle STRING CSTs.  */
+      gcc_unreachable ();
+
     case CONSTRUCTOR:
+    cst_address:
       {
 	/* Get an RTL for this, if something has been emitted.  */
 	rtx rtl = lookup_constant_def (loc);
 	enum machine_mode mode;
 
 	if (!rtl || !MEM_P (rtl))
-	  return 0;
+	  {
+	    gcc_assert (!rtl);
+	    if (dump_file)
+	      {
+	        fprintf (dump_file, "Failed to find constant expr in constant pool ");
+	  	print_generic_expr (dump_file, loc, 0);
+		fprintf (dump_file, "\n");
+	      }
+	    return 0;
+	  }
+	gcc_assert (GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF);
+	if (!TREE_ASM_WRITTEN (SYMBOL_REF_DECL (XEXP (rtl, 0))))
+	  {
+	    if (dump_file)
+	      {
+	        fprintf (dump_file, "Found value in constant pool but it is unused ");
+	        print_generic_expr (dump_file, loc, 0);
+	        fprintf (dump_file, "\n");
+	      }
+	    return 0;
+	  }
 	mode = GET_MODE (rtl);
 	rtl = XEXP (rtl, 0);
 	ret = mem_loc_descriptor (rtl, mode, VAR_INIT_STATUS_INITIALIZED);
@@ -10753,6 +10858,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 #ifdef ENABLE_CHECKING
       /* Otherwise this is a generic code; we should just lists all of
 	 these explicitly.  We forgot one.  */
+      debug_tree (loc);
       gcc_unreachable ();
 #else
       /* In a release build, we want to degrade gracefully: better to
@@ -11149,7 +11255,7 @@ insert_float (const_rtx rtl, unsigned char *array)
    to an inlined function.  They can also arise in C++ where declared
    constants do not necessarily get memory "homes".  */
 
-static void
+static bool
 add_const_value_attribute (dw_die_ref die, rtx rtl)
 {
   switch (GET_CODE (rtl))
@@ -11283,13 +11389,14 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	 *value* which the artificial local variable always has during its
 	 lifetime.  We currently have no way to represent such quasi-constant
 	 values in Dwarf, so for now we just punt and generate nothing.  */
+      return false;
       break;
 
     default:
       /* No other kinds of rtx should be possible here.  */
       gcc_unreachable ();
     }
-
+  return true;
 }
 
 /* Determine whether the evaluation of EXPR references any variables
@@ -11736,7 +11843,7 @@ loc_by_reference (dw_loc_descr_ref loc, tree decl)
    pointer.  This can happen for example if an actual argument in an inlined
    function call evaluates to a compile-time constant address.  */
 
-static void
+static bool
 add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 				       enum dwarf_attribute attr)
 {
@@ -11745,7 +11852,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
   var_loc_list *loc_list;
   struct var_loc_node *node;
   if (TREE_CODE (decl) == ERROR_MARK)
-    return;
+    return false;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL
 	      || TREE_CODE (decl) == RESULT_DECL);
@@ -11825,7 +11932,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 
       /* Finally, add the location list to the DIE, and we are done.  */
       add_AT_loc_list (die, attr, list);
-      return;
+      return true;
     }
 
   /* Try to get some constant RTL for this decl, and use that as the value of
@@ -11834,8 +11941,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
   rtl = rtl_for_decl_location (decl);
   if (rtl && (CONSTANT_P (rtl) || GET_CODE (rtl) == CONST_STRING))
     {
-      add_const_value_attribute (die, rtl);
-      return;
+      return add_const_value_attribute (die, rtl);
     }
 
   /* If we have tried to generate the location otherwise, and it
@@ -11851,7 +11957,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 	{
 	  descr = loc_by_reference (descr, decl);
 	  add_AT_location_description (die, attr, descr);
-	  return;
+	  return true;
 	}
     }
 
@@ -11862,11 +11968,11 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
     {
       descr = loc_by_reference (descr, decl);
       add_AT_location_description (die, attr, descr);
-      return;
+      return true;
     }
   /* None of that worked, so it must not really have a location;
      try adding a constant value attribute from the DECL_INITIAL.  */
-  tree_add_const_value_attribute (die, decl);
+  return tree_add_const_value_attribute (die, decl);
 }
 
 /* Add VARIABLE and DIE into deferred locations list.  */
@@ -12027,29 +12133,17 @@ native_encode_initializer (tree init, unsigned char *array, int size)
     }
 }
 
-/* If we don't have a copy of this variable in memory for some reason (such
-   as a C++ member constant that doesn't have an out-of-line definition),
-   we should tell the debugger about the constant value.  */
+/* Try to produce constant value for INIT. Return true if sucesful.  */
 
-static void
-tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
+static bool
+tree_add_const_value_attribute_1 (dw_die_ref var_die, tree type, tree init)
 {
-  tree init;
-  tree type = TREE_TYPE (decl);
-  rtx rtl;
-
-  if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != CONST_DECL)
-    return;
-
-  init = DECL_INITIAL (decl);
-  if (TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl) && init)
-    /* OK */;
-  else
-    return;
-
-  rtl = rtl_for_decl_init (init, type);
+  rtx rtl = rtl_for_decl_init (init, type);
   if (rtl)
-    add_const_value_attribute (var_die, rtl);
+    {
+      add_const_value_attribute (var_die, rtl);
+      return true;
+    }
   /* If the host and target are sane, try harder.  */
   else if (CHAR_BIT == 8 && BITS_PER_UNIT == 8
 	   && initializer_constant_valid_p (init, type))
@@ -12060,9 +12154,211 @@ tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
 	  unsigned char *array = GGC_CNEWVEC (unsigned char, size);
 
 	  if (native_encode_initializer (init, array, size))
-	    add_AT_vec (var_die, DW_AT_const_value, size, 1, array);
+	    {
+	      add_AT_vec (var_die, DW_AT_const_value, size, 1, array);
+	      return true;
+	    }
 	}
     }
+  return false;
+}
+
+/* If we don't have a copy of this variable in memory for some reason (such
+   as a C++ member constant that doesn't have an out-of-line definition),
+   we should tell the debugger about the constant value.  */
+
+static bool
+tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
+{
+  tree init;
+  tree type = TREE_TYPE (decl);
+
+  if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != CONST_DECL)
+    return false;
+
+  init = DECL_INITIAL (decl);
+  if (TREE_READONLY (decl) && ! TREE_THIS_VOLATILE (decl) && init)
+    /* OK */;
+  else
+    return false;
+  return tree_add_const_value_attribute_1 (var_die, type, init);
+}
+
+/* Add into VAR_DIE location information that would be equivalent to 
+   value INIT.  */
+static tree
+add_value (dw_die_ref var_die, tree decl, tree init, dw_die_ref context_die)
+{
+  tree type = TREE_TYPE (decl);
+  dw_loc_descr_ref loc;
+  tree ref_init = NULL;
+  tree old_init = NULL;
+  bool by_reference = false;
+  tree real_type = TREE_TYPE (decl);
+
+  if (!init)
+    return NULL;
+  if (!reload_completed)
+    return NULL;
+  if ((TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == RESULT_DECL)
+      && DECL_BY_REFERENCE (decl))
+    by_reference = true, real_type = TREE_TYPE (decl);
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "Expanding value for decl ");
+      print_generic_decl (dump_file, decl, 0);
+      fprintf (dump_file, " \n replaced by ");
+      print_generic_expr (dump_file, init, 0);
+      fprintf (dump_file, "\n");
+    }
+  init = fold (init);
+
+  /* Until DW_OP_value was added to DWARF4 there was no means of expanding
+     value of variable as an expression based on other variables and still
+     the expressive power is limited to pointer and integer types.
+     
+     We want to find either compile time constant or pointer to the value
+     resisting in meory.  So try to do smart job on variables passed by
+     reference where there is some chance that the address itself is still
+     stored somewhere.  */
+
+  if (by_reference && TREE_CODE (init) == ADDR_EXPR)
+    ref_init = init, init = TREE_OPERAND (init, 0), by_reference = false;
+  if (!by_reference && tree_add_const_value_attribute_1 (var_die, type, init))
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "Expanded as constant\n");
+	  print_die (var_die, dump_file);
+	}
+      return NULL;
+    }
+
+  /* loc_descriptor_from_tree_1 is not able to handle location lists.
+     It is a lot better to try to figure out if the value of variable
+     is exactly same as value of other variable.  In that case
+     we can use location list of that other variable.  */
+  while (old_init != init)
+    {
+      tree obj, offset;
+      HOST_WIDE_INT bitsize, bitpos;
+      enum machine_mode mode;
+      int volatilep;
+      int unsignedp = TYPE_UNSIGNED (TREE_TYPE (init));
+
+      old_init = init;
+
+      STRIP_NOPS (init);
+      init = fold (init);
+      if (by_reference && TREE_CODE (init) == ADDR_EXPR)
+        init = TREE_OPERAND (init, 0), by_reference = false;
+      else if ((TREE_CODE (init) == VAR_DECL || TREE_CODE (init) == PARM_DECL)
+               && DECL_HAS_VALUE_EXPR_P (init))
+        init = DECL_VALUE_EXPR (init);
+      /* If we already want an address, see if there is INDIRECT_REF inside
+	 e.g. for &this->field.  */
+      else if (TREE_CODE (init) == ADDR_EXPR)
+	{
+	  obj = get_inner_reference (TREE_OPERAND (init, 0),
+				     &bitsize, &bitpos, &offset, &mode,
+				     &unsignedp, &volatilep, false);
+	  STRIP_NOPS (obj);
+	  if (INDIRECT_REF_P (obj))
+	    {
+	      if (!bitpos && !offset)
+	        init = TREE_OPERAND (obj, 0);
+	      else if (dump_file)
+                fprintf (dump_file, "Nonzero offset in component reference\n");
+	    }
+	}
+      /* Skip component references that does not change address.  */
+      else if ((obj = get_inner_reference (init,
+				           &bitsize, &bitpos, &offset, &mode,
+				           &unsignedp, &volatilep, false)) != NULL_TREE
+	       && obj != init
+	       && !bitpos && !offset)
+	init = obj;
+      /* See if expression is simple enough so it is equivalent to other variable.
+         We should not output constants here; these would be wrong since we removed
+         casts. */
+      else if ((TREE_CODE (init) == PARM_DECL || TREE_CODE (init) == RESULT_DECL || TREE_CODE (init) == VAR_DECL)
+               && !by_reference
+	       && add_location_or_const_value_attribute (var_die, init, DW_AT_location))
+        {
+	  if (dump_file)
+	    {
+              fprintf (dump_file, "Expanded as direct location\n");
+	      print_die (var_die, dump_file);
+	    }
+	  return NULL;
+	}
+      else if (by_reference)
+         ref_init = init, init = build_fold_indirect_ref (init), by_reference = false;
+      if (dump_file && init != old_init)
+	{
+          fprintf (dump_file, " simplified as ");
+	  print_generic_expr (dump_file, init, 0);
+          fprintf (dump_file, "\n");
+	}
+     }
+  gcc_assert (!by_reference);
+  if (ref_init)
+    loc = loc_descriptor_from_tree_1 (ref_init, 0);
+  else
+    loc = NULL;
+  if (!loc)
+    loc = loc_descriptor_from_tree_1 (init, 2);
+  if (loc)
+    {
+      add_AT_location_description (var_die, DW_AT_location, loc);
+      if (dump_file)
+        {
+          fprintf (dump_file, "Expanded as tree location expression\n");
+	  print_die (var_die, dump_file);
+	}
+      return NULL;
+    }
+
+  /* A grand hack.  We can not find value being readilly in memory, but we still can compute
+     the value.  If the type is pointer or reference, we can simply turn it into the referenced
+     type and get values output in debugger correctly.  */
+  if ((TREE_CODE (real_type) == REFERENCE_TYPE
+       || TREE_CODE (real_type) == POINTER_TYPE)
+      && TREE_CODE (TREE_TYPE (real_type)) != FUNCTION_TYPE
+      && TREE_CODE (TREE_TYPE (real_type)) != METHOD_TYPE)
+    {
+      tree ref = build_fold_indirect_ref (init);
+      bool added = false;
+      if (TREE_CODE (ref) == PARM_DECL || TREE_CODE (ref) == RESULT_DECL || TREE_CODE (ref) == VAR_DECL)
+        added = add_location_or_const_value_attribute (var_die, ref, DW_AT_location);
+      if (!added)
+        loc = loc_descriptor_from_tree_1 (init, 0);
+      else
+	loc = NULL;
+      if (loc || added)
+	{
+	  if (TREE_CODE (real_type) == REFERENCE_TYPE
+	      || TREE_CODE (real_type) == POINTER_TYPE)
+	    {
+	      add_type_attribute (var_die, TREE_TYPE (real_type),
+				  TREE_READONLY (decl),
+				  TREE_THIS_VOLATILE (decl),
+				  context_die);
+	      if (!added)
+                add_AT_location_description (var_die, DW_AT_location, loc);
+	      if (dump_file)
+		fprintf (dump_file, "Dropped reference type and expanded %s\n",
+			 added ? "direct location" : "tree location");
+	      return TREE_TYPE (real_type);
+	    }
+	  else if (dump_file)
+            fprintf (dump_file, "Can expand as expression\n");
+	}
+    }
+  if (dump_file)
+    fprintf (dump_file, "Failed to expand\n");
+  return NULL_TREE;
 }
 
 /* Convert the CFI instructions for the current function into a
@@ -12972,6 +13268,8 @@ descr_info_loc (tree val, tree base_decl)
 	return int_loc_descriptor (tree_low_cst (val, 0));
       break;
     case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
       size = int_size_in_bytes (TREE_TYPE (val));
       if (size < 0)
 	break;
@@ -13294,7 +13592,8 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
    argument type of some subprogram type.  */
 
 static dw_die_ref
-gen_formal_parameter_die (tree node, tree origin, dw_die_ref context_die)
+gen_formal_parameter_die (tree node, tree origin, dw_die_ref context_die,
+			  tree value)
 {
   tree node_or_origin = node ? node : origin;
   dw_die_ref parm_die
@@ -13326,9 +13625,14 @@ gen_formal_parameter_die (tree node, tree origin, dw_die_ref context_die)
       if (node)
         equate_decl_number_to_die (node, parm_die);
       if (! DECL_ABSTRACT (node_or_origin))
-	add_location_or_const_value_attribute (parm_die, node_or_origin,
-					       DW_AT_location);
-
+	{
+	  if (value)
+	    add_value (parm_die, node_or_origin, value, context_die);
+	  else if (TREE_STATIC (node_or_origin) || node)
+	    add_location_or_const_value_attribute (parm_die,
+	    					   node_or_origin,
+					           DW_AT_location);
+	}
       break;
 
     case tcc_type:
@@ -13386,7 +13690,7 @@ gen_formal_types_die (tree function_or_method_type, dw_die_ref context_die)
 	break;
 
       /* Output a (nameless) DIE to represent the formal parameter itself.  */
-      parm_die = gen_formal_parameter_die (formal_type, NULL, context_die);
+      parm_die = gen_formal_parameter_die (formal_type, NULL, context_die, NULL_TREE);
       if ((TREE_CODE (function_or_method_type) == METHOD_TYPE
 	   && link == first_parm_type)
 	  || (arg && DECL_ARTIFICIAL (arg)))
@@ -13446,7 +13750,7 @@ gen_type_die_for_member (tree type, tree member, dw_die_ref context_die)
 	    }
 	}
       else
-	gen_variable_die (member, NULL_TREE, type_die);
+	gen_variable_die (member, NULL_TREE, type_die, NULL_TREE);
 
       pop_decl_scope ();
     }
@@ -13791,7 +14095,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 			    "__builtin_va_alist"))
 	      gen_unspecified_parameters_die (parm, subr_die);
 	    else
-	      gen_decl_die (parm, NULL, subr_die);
+	      gen_decl_die (parm, NULL, subr_die, NULL);
 	  }
 
       /* Decide whether we need an unspecified_parameters DIE at the end.
@@ -13833,7 +14137,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     {
       /* Emit a DW_TAG_variable DIE for a named return value.  */
       if (DECL_NAME (DECL_RESULT (decl)))
-	gen_decl_die (DECL_RESULT (decl), NULL, subr_die);
+	gen_decl_die (DECL_RESULT (decl), NULL, subr_die, NULL);
 
       current_function_has_inlines = 0;
       decls_for_scope (outer_scope, subr_die, 0);
@@ -13879,7 +14183,7 @@ common_block_die_table_eq (const void *x, const void *y)
    Either DECL or ORIGIN must be non-null.  */
 
 static void
-gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
+gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
 {
   HOST_WIDE_INT off;
   tree com_decl;
@@ -14100,7 +14404,9 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
       if (TREE_CODE (decl_or_origin) == VAR_DECL && TREE_STATIC (decl_or_origin)
           && !TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl_or_origin)))
 	defer_location (decl_or_origin, var_die);
-      else
+      else if (value)
+	add_value (var_die, decl_or_origin, value, context_die);
+      else if (TREE_STATIC (decl_or_origin) || decl)
         add_location_or_const_value_attribute (var_die,
 					       decl_or_origin,
 					       DW_AT_location);
@@ -14108,6 +14414,8 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
     }
   else
     tree_add_const_value_attribute (var_die, decl_or_origin);
+  if (value)
+    add_value (var_die, decl_or_origin, value, context_die);
 }
 
 /* Generate a DIE to represent a named constant.  */
@@ -14490,7 +14798,7 @@ gen_member_die (tree type, dw_die_ref context_die)
       if (child)
 	splice_child_die (context_die, child);
       else
-	gen_decl_die (member, NULL, context_die);
+	gen_decl_die (member, NULL, context_die, NULL);
     }
 
   /* Now output info about the function members (if any).  */
@@ -14504,7 +14812,7 @@ gen_member_die (tree type, dw_die_ref context_die)
       if (child)
 	splice_child_die (context_die, child);
       else
-	gen_decl_die (member, NULL, context_die);
+	gen_decl_die (member, NULL, context_die, NULL);
     }
 }
 
@@ -14679,7 +14987,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
       gcc_assert (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) != type);
 
       TREE_ASM_WRITTEN (type) = 1;
-      gen_decl_die (TYPE_NAME (type), NULL, context_die);
+      gen_decl_die (TYPE_NAME (type), NULL, context_die, NULL);
       return;
     }
 
@@ -14949,7 +15257,8 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
 /* Process variable DECL (or variable with origin ORIGIN) within
    block STMT and add it to CONTEXT_DIE.  */
 static void
-process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
+process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die,
+		   tree value)
 {
   dw_die_ref die;
   tree decl_or_origin = decl ? decl : origin;
@@ -14972,7 +15281,7 @@ process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
     dwarf2out_imported_module_or_decl_1 (decl_or_origin, DECL_NAME (decl_or_origin),
 					 stmt, context_die);
   else
-    gen_decl_die (decl, origin, context_die);
+    gen_decl_die (decl, origin, context_die, value);
 }
 
 /* Generate all of the decls declared within a given scope and (recursively)
@@ -14994,10 +15303,10 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
      sub-blocks.  Also, nested function and tag DIEs have been
      generated with a parent of NULL; fix that up now.  */
   for (decl = BLOCK_VARS (stmt); decl != NULL; decl = TREE_CHAIN (decl))
-    process_scope_var (stmt, decl, NULL_TREE, context_die);
+    process_scope_var (stmt, decl, NULL_TREE, context_die, NULL_TREE);
   for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (stmt); i++)
     process_scope_var (stmt, NULL, BLOCK_NONLOCALIZED_VAR (stmt, i),
-    		       context_die);
+    		       context_die, BLOCK_NONLOCALIZED_VAR_VALUE (stmt, i));
 
   /* If we're at -g1, we're not interested in subblocks.  */
   if (debug_info_level <= DINFO_LEVEL_TERSE)
@@ -15080,7 +15389,7 @@ force_decl_die (tree decl)
 	   gen_decl_die() call.  */
 	  saved_external_flag = DECL_EXTERNAL (decl);
 	  DECL_EXTERNAL (decl) = 1;
-	  gen_decl_die (decl, NULL, context_die);
+	  gen_decl_die (decl, NULL, context_die, NULL);
 	  DECL_EXTERNAL (decl) = saved_external_flag;
 	  break;
 
@@ -15163,7 +15472,7 @@ declare_in_namespace (tree thing, dw_die_ref context_die)
       if (is_fortran ())
 	return ns_context;
       if (DECL_P (thing))
-	gen_decl_die (thing, NULL, ns_context);
+	gen_decl_die (thing, NULL, ns_context, NULL);
       else
 	gen_type_die (thing, ns_context);
     }
@@ -15214,7 +15523,7 @@ gen_namespace_die (tree decl)
 /* Generate Dwarf debug information for a decl described by DECL.  */
 
 static void
-gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
+gen_decl_die (tree decl, tree origin, dw_die_ref context_die, tree value)
 {
   tree decl_or_origin = decl ? decl : origin;
   tree class_origin = NULL;
@@ -15366,9 +15675,9 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
       if (!origin)
         origin = decl_ultimate_origin (decl);
       if (origin != NULL_TREE && TREE_CODE (origin) == PARM_DECL)
-	gen_formal_parameter_die (decl, origin, context_die);
+	gen_formal_parameter_die (decl, origin, context_die, value);
       else
-	gen_variable_die (decl, origin, context_die);
+	gen_variable_die (decl, origin, context_die, value);
       break;
 
     case FIELD_DECL:
@@ -15388,7 +15697,7 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 	gen_type_die (TREE_TYPE (TREE_TYPE (decl_or_origin)), context_die);
       else
 	gen_type_die (TREE_TYPE (decl_or_origin), context_die);
-      gen_formal_parameter_die (decl, origin, context_die);
+      gen_formal_parameter_die (decl, origin, context_die, value);
       break;
 
     case NAMESPACE_DECL:
@@ -15682,7 +15991,7 @@ dwarf2out_decl (tree decl)
       return;
     }
 
-  gen_decl_die (decl, NULL, context_die);
+  gen_decl_die (decl, NULL, context_die, NULL);
 }
 
 /* Output a marker (i.e. a label) for the beginning of the generated code for
@@ -16523,6 +16832,7 @@ dwarf2out_finish (const char *filename)
 	add_comp_dir_attribute (comp_unit_die);
     }
 
+  in_deferred_list = true;
   for (i = 0; i < VEC_length (deferred_locations, deferred_locations_list); i++)
     {
       add_location_or_const_value_attribute (

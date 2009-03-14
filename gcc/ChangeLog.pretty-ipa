@@ -1,3 +1,48 @@
+2009-03-14  Jan Hubicka  <jh@suse.cz>
+
+	* tree.h (nonlocalized_var): New struct and vector type.
+	(BLOCK_NUM_NONLOCALIZED_VARS, BLOCK_NONLOCALIZED_VAR): Update.
+	(BLOCK_NONLOCALIZED_VAR_VALUE): New.
+	(struct tree_block): Update.
+	* final.c (pass_final): Add dump file.
+	* dwarf2out.c: Include gimple.h
+	(add_const_value_attribute): Remove.
+	(loc_descriptor_from_tree_1): Work harder on expanding ADDR_EXPR
+	and also using constant pool to look up addresses of constant
+	expressions.
+	(add_const_value_attribute): Return true on sucess.
+	(add_location_or_const_value_attribute): Return true on sucess.
+	(tree_add_const_value_attribute_1): Break out from ...
+	(tree_add_const_value_attribute): ... here; Likewise.
+	(add_value): New.
+	(descr_info_loc): Handle all kinds of INDIRECT_REFs.
+	(gen_formal_parameter_die, gen_variable_die): Add value parameter.
+	(gen_formal_types_die): Update.
+	(gen_subprogram_die): Update.
+	(gen_member_die): Update.
+	(process_scope_var): Add value parameter.
+	(decls_for_scope): Update.
+	(gen_decl_die): Add value parameter.
+	(dwarf2out_decl): Update.
+	(mem_loc_descriptor): Handle CONCAT.
+	* tree-ssa-live.c (lookup_dead_vars): New.
+	(remove_unused_scope_block_p): Prune replacements using dead variables.
+	(dump_scope_block): Dump replacement.
+	* tree-inline.c (remapped_type, can_be_nonlocal): Move up.
+	(remap_decl): Refuse to copy nonlocal var.
+	(simplify_value): New functions.
+	(declare_nonlocalized_var): New functions.
+	(remap_decls): Update replacements.
+	(lookup_dead_vars): New function.
+	(remap_block): Update replacements.
+	(argument_set_in_function_p): Handle non-SSA mode.
+	(setup_one_parameter): Add parameter to nonlozalized list if needed;
+	handle dead arguments; handle full substitution of SSA arguments.
+	(no_sets_of_var_fn): New function.
+	(initialize_inlined_parameters): Update.
+	(copy_arguments_for_versioning): Handle substitution via nonlocalized_vars
+	(tree_function_versioning): Update.
+
 2009-03-11  Jan Hubicka  <jh@suse.cz>
 
 	* tree-inline.c (argument_set_in_function_p): Always return true
