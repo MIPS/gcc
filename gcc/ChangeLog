@@ -1,3 +1,347 @@
+2009-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/39454
+	* cse.c (fold_rtx): Don't modify original const_arg1 when
+	canonicalizing SHIFT_COUNT_TRUNCATED shift count, do it on a
+	separate variable instead.
+	* rtlanal.c (nonzero_bits1) <case ASHIFTRT>: Don't assume anything
+	from out of range shift counts.
+	(num_sign_bit_copies1) <case ASHIFTRT, case ASHIFT>: Similarly.
+
+2008-03-13  Catherine Moore  <clm@codesourcery.com>
+
+	*  gcc/config/i386/x-mingw32 (host-mingw32.o): Replace
+	diagnostic.h with $(DIAGNOSTIC_H).
+
+2008-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39431
+	* config/i386/predicates.md (cmpxchg8b_pic_memory_operand): New
+	predicate.
+	* config/i386/sync.md (sync_compare_and_swap<mode>,
+	sync_compare_and_swap_cc<mode>): For DImode with -m32 -fpic check
+	if operands[1] is cmpxchg8b_pic_memory_operand, if not force address
+	into a register.
+	(sync_double_compare_and_swapdi_pic,
+	sync_double_compare_and_swap_ccdi_pic): Require operand 1 to be
+	cmpxchg8b_pic_memory_operand instead of just memory_operand.
+
+2009-03-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39445
+	* config/i386/i386.c (ix86_expand_push): Don't set memory
+	alignment.
+
+2009-03-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39327
+	* config/i386/sse.md (avx_addsubv8sf3): Correct item bits.
+	(avx_addsubv4df3): Likewise.
+	(*avx_addsubv4sf3): Likewise.
+	(sse3_addsubv4sf3): Likewise.
+
+2009-03-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/38824
+	* config/i386/i386.md: Compare REGNO on the new peephole2
+	patterns.
+
+2009-03-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR debug/39432
+	* ira-int.h (struct allocno): Fix comment for calls_crossed_num.
+	* ira-conflicts.c (ira_build_conflicts): Prohibit call used
+	registers for allocnos created from user-defined variables.
+
+2009-03-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR target/39181
+	* config/spu/spu.c (spu_expand_mov): Handle invalid subregs
+	of non-integer mode as well.
+
+2009-03-11  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gimplify.c (gimplify_call_expr): Don't set CALL_CANNOT_INLINE_P
+	for functions for which the parameter types are unknown.
+
+2009-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39137
+	* cfgexpand.c (get_decl_align_unit): Use LOCAL_DECL_ALIGNMENT
+	macro.
+	* defaults.h (LOCAL_DECL_ALIGNMENT): Define if not yet defined.
+	* config/i386/i386.h (LOCAL_DECL_ALIGNMENT): Define.
+	* config/i386/i386.c (ix86_local_alignment): For
+	-m32 -mpreferred-stack-boundary=2 use 32-bit alignment for
+	long long variables on the stack to avoid dynamic realignment.
+	Allow the first argument to be a decl rather than type.
+	* doc/tm.texi (LOCAL_DECL_ALIGNMENT): Document.
+
+2009-03-11  Nick Clifton  <nickc@redhat.com>
+
+	PR target/5362
+	* config/mcore/mcore.opt: Remove deprecated m4align and m8align
+	options.
+	Add description to mno-lsim option.
+	* config/mcore/mcore.h: Remove comment about deprecated m4align
+	option.
+	(TARGET_DEFAULT): Remove deprecated MASK_M8ALIGN.
+	* doc/invoke.texi: Add description of mno-lsim and
+	mstack-increment options.
+
+	* config/fr30/fr30.opt: Document the -mno-lsim option.
+	* doc/invoke.texi: Add descriptions of the FR30's -msmall-model
+	and -mno-lsim options.
+
+2009-03-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* fold-const.c (fold_comparison): Only call fold_inf_compare
+	if the mode supports infinities.
+
+2009-03-11  Jason Merrill  <jason@redhat.com>
+
+	PR debug/39086
+	* tree-nrv.c (tree_nrv): Don't do this optimization if the front
+	end already did.  Notice GIMPLE_CALL modifications of the result.
+	Don't copy debug information from an ignored decl or a decl from
+	another function.
+
+2009-03-10  Richard Guenther  <rguenther@suse.de>
+	    Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR middle-end/37850
+	* libgcc2.c (__mulMODE3): Use explicit assignments to form the
+	result.
+	(__divMODE3): Likewise.
+
+2009-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/39394
+	* gimplify.c (gimplify_type_sizes): Gimplify DECL_SIZE and
+	DECL_SIZE_UNIT of variable length FIELD_DECLs.
+
+2009-03-09  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* recog.c (verfiy_changes): Disallow renaming of hard regs in
+	inline asms for register asm ("") declarations.
+
+2009-03-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* fold-const.c (fold_unary): Fix comment.
+
+2009-03-07  Jan Hubicka  <jh@suse.cz>
+
+	PR target/39361
+	* tree-inline.c (setup_one_parameter): Do replacement of const argument
+	by constant in SSA form.
+
+2009-03-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR middle-end/38028
+	* function.c (assign_parm_setup_stack): Use STACK_SLOT_ALIGNMENT to
+	determine alignment passed to assign_stack_local.
+	(assign_parms_unsplit_complex): Likewise.
+	* except.c (sjlj_build_landing_pads): Likewise.
+
+2009-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/39360
+	* tree-flow.h (add_referenced_var): Return bool instead of void.
+	* tree-dfa.c (add_referenced_var): Return result of
+	referenced_var_check_and_insert call.
+	* tree-inline.c (expand_call_inline): Call add_referenced_var instead
+	of referenced_var_check_and_insert.
+
+	PR debug/39372
+	* dwarf2out.c (add_abstract_origin_attribute): Return
+	origin_die.
+	(gen_variable_die): Emit DW_AT_location on abstract static variable's
+	DIE, don't emit it if abstract origin already has it.
+	* tree-cfg.c (remove_useless_stmts_bind): GIMPLE_BINDs with any
+	BLOCK_NONLOCALIZED_VARS in its gimple_bind_block aren't useless.
+
+2009-03-06  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* genpreds.c: (needs_variable): Fix parentheses at variable name
+	detection.
+	(write_tm_constrs_h): Indent generated code.
+
+2009-03-06  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* doc/extend.texi (Function Attributes): Add documentation
+	for isr attributes.
+
+2009-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/39387
+	* dwarf2out.c (dwarf2out_imported_module_or_decl_1): For IMPORTED_DECL
+	take locus from its DECL_SOURCE_LOCATION instead of input_location.
+
+2009-03-05  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c (bfin_discover_loop): When retrying fails, mark
+	the loop as bad.
+
+2009-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/39379
+	* tree-cfg.c (remove_useless_stmts_bind): Don't remove GIMPLE_BINDs
+	with blocks containing IMPORTED_DECLs in BLOCK_VARS.
+
+2009-03-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (R8_REG, R9_REG): New constants.
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE): Use named
+	constants instead of magic numbers.
+	(HARD_REGNO_CALLER_SAVE_MODE): Ditto.
+	(QI_REG_P): Ditto.
+	* config/i386/i386.c (x86_64_int_parameter_registers): Ditto.
+	(x86_64_ms_abi_int_parameter_registers): Ditto.
+	(x86_64_int_return_registers): Ditto.
+	(ix86_maybe_switch_abi): Ditto.
+	(ix86_expand_call): Ditto for clobbered_registers array.
+	(ix86_hard_regno_mode_ok): Ditto.
+	(x86_extended_QIreg_mentioned_p): Ditto.
+
+2009-03-05  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	PR tree-optimization/39349
+	* cse.c (cse_insn): Fix loop to stop at VOIDmode.
+
+	* combine.c (gen_lowpart_for_combine): Use omode when generating
+	clobber.
+
+2009-03-04  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	PR rtl-optimization/39235
+	* loop-iv.c (get_simple_loop_desc): Use XCNEW.
+
+2009-03-04  Zdenek Dvorak  <ook@ucw.cz>
+
+	* graphite.c (nb_reductions_in_loop): Update simple_iv arguments.
+
+2009-03-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39362
+	* tree-ssa-sccvn.c (visit_use): Stores and copies from SSA_NAMEs
+	that occur in abnormal PHIs should be varying.
+
+2009-03-04  Zdenek Dvorak  <ook@ucw.cz>
+
+	* tree-scalar-evolution.c (analyze_scalar_evolution_in_loop):
+	Extend comments.
+	(simple_iv):  Take loop as an argument instead of statement.
+	* tree-scalar-evolution.h (simple_iv): Declaration changed.
+	* tree-ssa-loop-niter.c (number_of_iterations_exit): Update calls
+	to simple_iv.
+	* tree-ssa-loop-ivopts.c (determine_biv_step, find_givs_in_stmt_scev):
+	Ditto.
+	* tree-parloops.c (loop_parallel_p, canonicalize_loop_ivs): Ditto.
+	* matrix-reorg.c (analyze_transpose): Ditto.
+	* tree-data-ref.c (dr_analyze_innermost): Ditto.
+	* tree-vect-analyze.c (vect_analyze_data_refs): Ditto.
+	* tree-predcom.c (ref_at_iteration): Ditto.
+	* tree-ssa-loop-prefetch.c (idx_analyze_ref): Ditto.
+
+2009-03-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39358
+	* tree-ssa-structalias.c (do_sd_constraint): Fix check for
+	escaped_id and callused_id.
+	(solve_graph): Likewise.
+
+2009-03-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39339
+	* tree-sra.c (try_instantiate_multiple_fields): Make it
+	no longer ICE on the above.
+
+2009-03-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* emit-rtl.c (adjust_address_1): Reduce offset to a signed value
+	that fits within Pmode.
+
+2009-03-03  Steve Ellcey  <sje@cup.hp.com>
+
+	PR middle-end/10109
+	* tm.texi (LIBCALL_VALUE): Update description.
+
+2009-03-03  Steve Ellcey  <sje@cup.hp.com>
+
+	PR middle-end/34443
+	* doc/extend.texi (section): Update description.
+
+2009-03-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/39345
+	* tree-inline.c (remapped_type): New.
+	(can_be_nonlocal): Call remapped_type instead of remap_type.
+
+2009-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/39354
+	* gimplify.c (goa_stabilize_expr): Handle tcc_comparison,
+	TRUTH_ANDIF_EXPR and TRUTH_ORIF_EXPR.
+
+2009-03-03  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39272
+	* tree.c (tree_nonartificial_location): New function.
+	* tree.h (tree_nonartificial_location): Declare.
+	* builtins.c (expand_builtin_memory_chk): Provide location
+	of the call location for artificial function pieces.
+	(maybe_emit_chk_warning): Likewise.
+	(maybe_emit_sprintf_chk_warning): Likewise.
+	(maybe_emit_free_warning): Likewise.
+	* expr.c (expand_expr_real_1): Likewise.
+
+2009-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/39343
+	* tree-ssa-ccp.c (maybe_fold_offset_to_address): Don't check if
+	COMPONENT_REF t has ARRAY_TYPE.
+
+2009-03-02  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/39335
+	* tree-parloops.c (canonicalize_loop_ivs): Call fold_convert
+	when the type precision of the induction variable should be
+	larger than the type precision of nit.
+	(gen_parallel_loop): Update use of canonicalize_loop_ivs.
+	* graphite.c (graphite_loop_normal_form): Same.
+	* tree-flow.h (canonicalize_loop_ivs): Update declaration.
+
+2009-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (ST?_REG, MM?_REG): New constants.
+	(*call_1_rex64_ms_sysv): Use named constants instead of magic
+	numbers to describe clobbered registers.
+	(*call_value_0_rex64_ms_sysv): Ditto.
+	* config/i386/mmx.md (mmx_emms): Ditto.
+	(mmx_femms): Ditto.
+
+2009-03-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_mdebug_abi_name): Fix the handling
+	of ABI_64.
+
+2009-03-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (TARGET_SECTION_TYPE_FLAGS): Define.
+	(spu_section_type_flags): New function.
+
+2009-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE): Do not copy
+	reg_class_contents of FLOAT_REGS into a temporary.
+
+2009-03-02  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39318
+	* tree-vect-transform.c (vectorizable_call): Transfer the EH region
+	information to the vectorized statement.
+
 2009-03-01  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE): Do not shadow "i"
@@ -182,7 +526,7 @@
 
 	PR tree-optimization/39259
 	* tree-inline.c (initialize_cfun): Remove asserts for calls_setjmp and
-	alls_alloca function flags.
+	calls_alloca function flags.
 	(copy_bb): Set calls_setjmp and alls_alloca function flags if such
 	calls are detected.
 
@@ -575,7 +919,7 @@
 
 	PR target/39149
 	* config/i386/i386.c (override_options): Correct warning
-	messages for -malign-loops,  -malign-jumps and -malign-functions.
+	messages for -malign-loops, -malign-jumps and -malign-functions.
 
 2009-02-13  H.J. Lu  <hongjiu.lu@intel.com>
 
