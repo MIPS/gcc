@@ -987,12 +987,14 @@ walk_non_aliased_vuses (tree ref, tree vuse,
 
    At PHI nodes walk_aliased_vdefs forks into one walk for reach
    PHI argument (but only one walk continues on merge points), the
-   return value is true if any of the walks was successful.  */
+   return value is true if any of the walks was successful.
 
-static void
+   The function returns the number of statements walked.  */
+
+static unsigned int
 walk_aliased_vdefs_1 (tree ref, tree vdef,
 		      bool (*walker)(tree, tree, void *), void *data,
-		      bitmap *visited)
+		      bitmap *visited, unsigned int cnt)
 {
   do
     {
@@ -1000,46 +1002,50 @@ walk_aliased_vdefs_1 (tree ref, tree vdef,
 
       if (*visited
 	  && !bitmap_set_bit (*visited, SSA_NAME_VERSION (vdef)))
-	return;
+	return cnt;
 
       if (gimple_nop_p (def_stmt))
-	return;
+	return cnt;
       else if (gimple_code (def_stmt) == GIMPLE_PHI)
 	{
 	  unsigned i;
 	  if (!*visited)
 	    *visited = BITMAP_ALLOC (NULL);
 	  for (i = 0; i < gimple_phi_num_args (def_stmt); ++i)
-	    walk_aliased_vdefs_1 (ref, gimple_phi_arg_def (def_stmt, i),
-				  walker, data, visited);
-	  return;
+	    cnt += walk_aliased_vdefs_1 (ref, gimple_phi_arg_def (def_stmt, i),
+					 walker, data, visited, 0);
+	  return cnt;
 	}
 
       /* ???  Do we want to account this to TV_ALIAS_STMT_WALK?  */
+      cnt++;
       if ((!ref
 	   || stmt_may_clobber_ref_p (def_stmt, ref))
 	  && (*walker) (ref, vdef, data))
-	return;
+	return cnt;
 
       vdef = gimple_vuse (def_stmt);
     }
   while (1);
 }
 
-void
+unsigned int
 walk_aliased_vdefs (tree ref, tree vdef,
 		    bool (*walker)(tree, tree, void *), void *data,
 		    bitmap *visited)
 {
   bitmap local_visited = NULL;
+  unsigned int ret;
 
   timevar_push (TV_ALIAS_STMT_WALK);
 
-  walk_aliased_vdefs_1 (ref, vdef, walker, data,
-			visited ? visited : &local_visited);
+  ret = walk_aliased_vdefs_1 (ref, vdef, walker, data,
+			      visited ? visited : &local_visited, 0);
   if (local_visited)
     BITMAP_FREE (local_visited);
 
   timevar_pop (TV_ALIAS_STMT_WALK);
+
+  return ret;
 }
 

@@ -233,7 +233,12 @@ mark_operand_necessary (tree op)
 
   ver = SSA_NAME_VERSION (op);
   if (TEST_BIT (processed, ver))
-    return;
+    {
+      stmt = SSA_NAME_DEF_STMT (op);
+      gcc_assert (gimple_nop_p (stmt)
+		  || gimple_plf (stmt, STMT_NECESSARY));
+      return;
+    }
   SET_BIT (processed, ver);
 
   stmt = SSA_NAME_DEF_STMT (op);
@@ -455,6 +460,11 @@ struct ref_data {
   HOST_WIDE_INT max_size;
 };
 
+static bitmap visited = NULL;
+static unsigned int longest_chain = 0;
+static unsigned int total_chain = 0;
+static bool chain_ovfl = false;
+
 /* Worker for the walker that marks reaching definitions of REF,
    which is based on a non-aliased decl, necessary.  It returns
    true whenever the defining statement of the current VDEF is
@@ -462,7 +472,7 @@ struct ref_data {
    anymore.  DATA points to cached get_ref_base_and_extent data for REF.  */
 
 static bool
-mark_nonaliased_loads_necessary_1 (tree ref, tree vdef, void *data)
+mark_aliased_reaching_defs_necessary_1 (tree ref, tree vdef, void *data)
 {
   gimple def_stmt = SSA_NAME_DEF_STMT (vdef);
   struct ref_data *refd = (struct ref_data *)data;
@@ -501,13 +511,19 @@ mark_nonaliased_loads_necessary_1 (tree ref, tree vdef, void *data)
 }
 
 static void
-mark_nonaliased_loads_necessary (gimple stmt, tree ref)
+mark_aliased_reaching_defs_necessary (gimple stmt, tree ref)
 {
   struct ref_data refd;
+  unsigned int chain;
+  gcc_assert (!chain_ovfl);
   refd.base = get_ref_base_and_extent (ref, &refd.offset, &refd.size,
 				       &refd.max_size);
-  walk_aliased_vdefs (ref, gimple_vuse (stmt),
-		      mark_nonaliased_loads_necessary_1, &refd, NULL);
+  chain = walk_aliased_vdefs (ref, gimple_vuse (stmt),
+			      mark_aliased_reaching_defs_necessary_1,
+			      &refd, NULL);
+  if (chain > longest_chain)
+    longest_chain = chain;
+  total_chain += chain;
 }
 
 /* Worker for the walker that marks reaching definitions of REF, which
@@ -517,13 +533,24 @@ mark_nonaliased_loads_necessary (gimple stmt, tree ref)
    a non-aliased decl.  */
 
 static bool
-mark_aliased_loads_necessary_1 (tree ref ATTRIBUTE_UNUSED,
+mark_all_reaching_defs_necessary_1 (tree ref ATTRIBUTE_UNUSED,
 				tree vdef, void *data ATTRIBUTE_UNUSED)
 {
   gimple def_stmt = SSA_NAME_DEF_STMT (vdef);
 
+  /* We have to skip already visited (and thus necessary) statements
+     to make the chaining work after we dropped back to simple mode.  */
+  if (chain_ovfl
+      && TEST_BIT (processed, SSA_NAME_VERSION (vdef)))
+    {
+      gcc_assert (gimple_nop_p (def_stmt)
+		  || gimple_plf (def_stmt, STMT_NECESSARY));
+      return false;
+    }
+
   /* We want to skip stores to non-aliased variables.  */
-  if (gimple_assign_single_p (def_stmt))
+  if (!chain_ovfl
+      && gimple_assign_single_p (def_stmt))
     {
       tree lhs = gimple_assign_lhs (def_stmt);
       if (!ref_may_be_aliased (lhs))
@@ -535,13 +562,11 @@ mark_aliased_loads_necessary_1 (tree ref ATTRIBUTE_UNUSED,
   return true;
 }
 
-static bitmap visited = NULL;
-
 static void
-mark_aliased_loads_necessary (gimple stmt)
+mark_all_reaching_defs_necessary (gimple stmt)
 {
   walk_aliased_vdefs (NULL, gimple_vuse (stmt),
-		      mark_aliased_loads_necessary_1, NULL, &visited);
+		      mark_all_reaching_defs_necessary_1, NULL, &visited);
 }
 
 /* Propagate necessity using the operands of necessary statements.
@@ -635,6 +660,14 @@ propagate_necessity (struct edge_list *el)
 	  if (!use)
 	    continue;
 
+	  /* If we dropped to simple mode make all immediately
+	     reachable definitions necessary.  */
+	  if (chain_ovfl)
+	    {
+	      mark_all_reaching_defs_necessary (stmt);
+	      continue;
+	    }
+
 	  /* For statements that may load from memory (have a VUSE) we
 	     have to mark all reaching (may-)definitions as necessary.
 	     We partition this task into two cases:
@@ -657,7 +690,7 @@ propagate_necessity (struct edge_list *el)
 	      /* Calls implicitly load from memory, their arguments
 	         in addition may explicitly perform memory loads.
 		 This also ensures propagation for case 2 for stores.  */
-	      mark_aliased_loads_necessary (stmt);
+	      mark_all_reaching_defs_necessary (stmt);
 	      for (i = 0; i < gimple_call_num_args (stmt); ++i)
 		{
 		  tree arg = gimple_call_arg (stmt, i);
@@ -665,31 +698,30 @@ propagate_necessity (struct edge_list *el)
 		      || is_gimple_min_invariant (arg))
 		    continue;
 		  if (!ref_may_be_aliased (arg))
-		    mark_nonaliased_loads_necessary (stmt, arg);
+		    mark_aliased_reaching_defs_necessary (stmt, arg);
 		}
 	    }
 	  else if (gimple_assign_single_p (stmt))
 	    {
 	      tree lhs, rhs;
+	      bool rhs_aliased = false;
 	      /* If this is a load mark things necessary.  */
 	      rhs = gimple_assign_rhs1 (stmt);
 	      if (TREE_CODE (rhs) != SSA_NAME
 		  && !is_gimple_min_invariant (rhs))
 		{
 		  if (!ref_may_be_aliased (rhs))
-		    mark_nonaliased_loads_necessary (stmt, rhs);
+		    mark_aliased_reaching_defs_necessary (stmt, rhs);
 		  else
-		    {
-		      mark_aliased_loads_necessary (stmt);
-		      continue;
-		    }
+		    rhs_aliased = true;
 		}
 	      /* If this is an aliased store, mark things necessary.
 		 This is where we make sure to propagate for case 2.  */
 	      lhs = gimple_assign_lhs (stmt);
-	      if (TREE_CODE (lhs) != SSA_NAME
-		  && ref_may_be_aliased (lhs))
-		mark_aliased_loads_necessary (stmt);
+	      if (rhs_aliased
+		  || (TREE_CODE (lhs) != SSA_NAME
+		      && ref_may_be_aliased (lhs)))
+		mark_all_reaching_defs_necessary (stmt);
 	    }
 	  else if (gimple_code (stmt) == GIMPLE_RETURN)
 	    {
@@ -699,18 +731,15 @@ propagate_necessity (struct edge_list *el)
 		  && !is_gimple_min_invariant (rhs))
 		{
 		  if (!ref_may_be_aliased (rhs))
-		    mark_nonaliased_loads_necessary (stmt, rhs);
+		    mark_aliased_reaching_defs_necessary (stmt, rhs);
 		  else
-		    {
-		      mark_aliased_loads_necessary (stmt);
-		      continue;
-		    }
+		    mark_all_reaching_defs_necessary (stmt);
 		}
 	    }
 	  else if (gimple_code (stmt) == GIMPLE_ASM)
 	    {
 	      unsigned i;
-	      mark_aliased_loads_necessary (stmt);
+	      mark_all_reaching_defs_necessary (stmt);
 	      /* Inputs may perform loads.  */
 	      for (i = 0; i < gimple_asm_ninputs (stmt); ++i)
 		{
@@ -718,11 +747,23 @@ propagate_necessity (struct edge_list *el)
 		  if (TREE_CODE (op) != SSA_NAME
 		      && !is_gimple_min_invariant (op)
 		      && !ref_may_be_aliased (op))
-		    mark_nonaliased_loads_necessary (stmt, op);
+		    mark_aliased_reaching_defs_necessary (stmt, op);
 		}
 	    }
 	  else
 	    gcc_unreachable ();
+
+	  /* If we over-used our alias oracle budget drop to simple
+	     mode.  The cost metric allows quadratic behavior up to
+	     a constant maximal chain and after that falls back to
+	     super-linear complexity.  */
+	  if (longest_chain > 256
+	      && total_chain > 256 * longest_chain)
+	    {
+	      chain_ovfl = true;
+	      if (visited)
+		bitmap_clear (visited);
+	    }
 	}
     }
 }
@@ -1077,6 +1118,9 @@ perform_tree_ssa_dce (bool aggressive)
 
   find_obviously_necessary_stmts (el);
 
+  longest_chain = 0;
+  total_chain = 0;
+  chain_ovfl = false;
   propagate_necessity (el);
   BITMAP_FREE (visited);
 

@@ -1,3 +1,29 @@
+2009-03-15  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (walk_aliased_vdefs_1): Return an updated
+	alias query counter.
+	(walk_aliased_vdefs): Return the number of alias queries done.
+	* tree-ssa-alias.h (walk_aliased_vdefs): Update prototype.
+	* tree-ssa-dce.c (mark_operand_necessary): Assert the stmt
+	is necessary if we visited it.
+	(longest_chain, total_chain, chain_ovfl): New global statics.
+	(mark_nonaliased_loads_necessary_1): Rename to ...
+	(mark_aliased_reaching_defs_necessary_1): ... this.
+	(mark_nonaliased_loads_necessary): Rename to ...
+	(mark_aliased_reaching_defs_necessary): ... this.  Assert we
+	are not called in simple mode, account the number of alias
+	queries.
+	(mark_aliased_loads_necessary_1): Rename to ...
+	(mark_all_reaching_defs_necessary_1): ... this.  In simple
+	mode skip already processed stmts and do not skip not aliased
+	stores.
+	(mark_aliased_loads_necessary): Rename to ...
+	(mark_all_reaching_defs_necessary): ... this.
+	(propagate_necessity): In simple mode simply call
+	mark_all_reaching_defs_necessary.  Check alias query accounting
+	and drop back to simple mode if it turns out to be too expensive.
+	(perform_tree_ssa_dce): Initialize alias query accounting vars.
+
 2009-03-14  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r144858.
