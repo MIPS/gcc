@@ -1,11 +1,7 @@
-// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* alpha*-*-osf* mips-sgi-irix6* } }
-// { dg-options " -std=gnu++0x -pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* alpha*-*-osf* mips-sgi-irix6* } }
-// { dg-options " -std=gnu++0x -pthreads" { target *-*-solaris* } }
-// { dg-options " -std=gnu++0x " { target *-*-cygwin *-*-darwin* } }
-// { dg-require-cstdint "" }
-// { dg-require-gthreads "" }
+// { dg-options "-std=gnu++0x" }
+// { dg-do compile }
 
-// Copyright (C) 2009 Free Software Foundation, Inc.
+// Copyright (C) 2009 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -23,12 +19,13 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
-#include <mutex>
-#include <thread/all.h>
+#include <memory>
 
-int main()
-{
-  typedef std::recursive_mutex test_type;
-  __gnu_test::compare_type_to_native_type<test_type>();
-  return 0;
-}
+// libstdc++/39405
+template<typename T>
+  struct foo
+  {
+    std::shared_ptr<foo<T> > m_foo;
+  };
+
+std::shared_ptr<foo<int> > t;
