@@ -3945,11 +3945,12 @@ need_assembler_name_p (tree decl)
       && !DECL_EXTERNAL (decl))
     return false;
 
-  /* For FUNCTION_DECLs, we only are interested in addressable and used
-     functions.  */
+  /* For FUNCTION_DECLs, we only are interested in builtins,
+     addressable and used functions.  */
   if (TREE_CODE (decl) == FUNCTION_DECL
       && !TREE_USED (decl)
-      && !TREE_ADDRESSABLE (decl))
+      && !TREE_ADDRESSABLE (decl)
+      && !DECL_BUILT_IN (decl))
     return false;
 
   return true;
