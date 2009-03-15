@@ -244,7 +244,6 @@ finish_optimization_passes (void)
   char *name;
 
   timevar_push (TV_DUMP);
-#if !defined(DISABLE_RTL_PASSES)
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
       dump_file = dump_begin (pass_profile.static_pass_number, NULL);
@@ -262,7 +261,6 @@ finish_optimization_passes (void)
           dump_end (pass_combine.static_pass_number, dump_file);
 	}
     }
-#endif
 
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)

@@ -2086,9 +2086,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       NIY;
     }
 
-
-
-
   if (is_stmt && is_expr)
     pp_semicolon (buffer);
 
