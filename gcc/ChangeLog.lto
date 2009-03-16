@@ -1,3 +1,9 @@
+2009-03-16  Simon Baldwin  <simonb@google.com>
+
+	* lto-wrapper.c (close_unneeded_fds): New function, close as many
+	file descriptors as possible.
+	(main): Call it.
+
 2009-03-15  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (need_assembler_name_p): Always set assembler
