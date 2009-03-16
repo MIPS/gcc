@@ -156,7 +156,7 @@ may_point_to_global_var (tree ptr)
   if (!pi)
     return true;
 
-  return pi->pt.anything || pi->pt.nonlocal || pi->pt.vars_contains_global;
+  return pt_solution_includes_global (&pi->pt);
 }
 
 /* Return true if PTR may point to DECL.  */

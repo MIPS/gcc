@@ -1,3 +1,14 @@
+2009-03-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (do_sd_constraint): Simplify check
+	for escaped_id.
+	(solve_graph): Do not disable propagation from escaped
+	completely.  Instead properly only propagate escaped_id.
+	(pt_solution_includes_global): New function.
+	* tree-ssa-alias.h (pt_solution_includes_global): Declare.
+	* tree-ssa-alias.c (may_point_to_global_var): Use
+	pt_solution_includes_global.
+
 2009-03-15  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-alias.c (walk_aliased_vdefs_1): Return an updated

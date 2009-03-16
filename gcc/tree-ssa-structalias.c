@@ -1584,7 +1584,7 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
 	  /* Merging the solution from ESCAPED needlessly increases
 	     the set.  Use ESCAPED as representative instead.  */
-	  else if (get_varinfo (t)->id == find (escaped_id))
+	  else if (v->id == escaped_id)
 	    flag |= bitmap_set_bit (sol, escaped_id);
 	  else if (add_graph_edge (graph, lhs, t))
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
@@ -2539,11 +2539,10 @@ solve_graph (constraint_graph_t graph)
 
 	      solution_empty = bitmap_empty_p (solution);
 
-	      if (!solution_empty
-		  /* Do not propagate the ESCAPED solution.  */
-		  && i != find (escaped_id))
+	      if (!solution_empty)
 		{
 		  bitmap_iterator bi;
+		  unsigned eff_escaped_id = find (escaped_id);
 
 		  /* Propagate solution to all successors.  */
 		  EXECUTE_IF_IN_NONNULL_BITMAP (graph->succs[i],
@@ -2560,7 +2559,12 @@ solve_graph (constraint_graph_t graph)
 		      if (to == i)
 			continue;
 
-		      flag = set_union_with_increment (tmp, pts, 0);
+		      /* If we propagate from ESCAPED use ESCAPED as
+		         placeholder.  */
+		      if (i == eff_escaped_id)
+			flag = bitmap_set_bit (tmp, escaped_id);
+		      else
+			flag = set_union_with_increment (tmp, pts, 0);
 
 		      if (flag)
 			{
@@ -4984,6 +4988,23 @@ pt_solution_empty_p (struct pt_solution *pt)
     return false;
 
   return true;
+}
+
+/* Return true if the points-to solution *PT includes global memory.  */
+
+bool
+pt_solution_includes_global (struct pt_solution *pt)
+{
+  if (pt->anything
+      || pt->nonlocal
+      || pt->vars_contains_global)
+    return true;
+
+  if (pt->escaped
+      && pt != &cfun->gimple_df->escaped)
+    return pt_solution_includes_global (&cfun->gimple_df->escaped);
+
+  return false;
 }
 
 /* Return true if the points-to solution *PT includes the variable
