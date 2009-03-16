@@ -1,3 +1,15 @@
+2009-03-16  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.dg/noncompile/920507-1.c: Fixed wrong array index.
+	* gfortran.dg/pr25923.f90: Removed expected warning warning.
+	* gcc.dg/struct/wo_prof_escape_arg_to_local.c: Added -fno-early-ipa-sra
+	compilation switch.
+	* gcc.dg/tree-ssa/ssa-fre-10.c: Added -fno-tree-sra compilation switch.
+	* gcc.dg/tree-ssa/ssa-fre-7.c: Added -fno-tree-sra compilation switch.
+	* gcc.dg/tree-ssa/ssa-fre-8.c: Added -fno-tree-sra compilation switch.
+	* gcc.dg/tree-ssa/ssa-fre-9.c: Added -fno-tree-sra compilation switch.
+	
+	
 2008-11-12  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.dg/ipa/ipa-4.c: Add -fno-early-inlining.

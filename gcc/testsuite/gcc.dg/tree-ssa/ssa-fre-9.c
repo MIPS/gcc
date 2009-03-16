@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O -fdump-tree-fre-stats" } */
+/* { dg-options "-O -fdump-tree-fre-stats -fno-tree-sra" } */
 
 union loc {
     unsigned reg;

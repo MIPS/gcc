@@ -471,6 +471,10 @@ fearly-inlining
 Common Report Var(flag_early_inlining) Init(1) Optimization
 Perform early inlining
 
+fearly-ipa-sra
+Common Report Var(flag_early_ipa_sra) Init(0) Optimization
+Perform early interprocedural reduction of aggregates
+
 feliminate-dwarf2-dups
 Common Report Var(flag_eliminate_dwarf2_dups)
 Perform DWARF2 duplicate elimination

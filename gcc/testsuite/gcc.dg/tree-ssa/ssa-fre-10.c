@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-pre-stats" } */
+/* { dg-options "-O2 -fdump-tree-pre-stats -fno-tree-sra" } */
 
 union loc {  unsigned reg; signed offset; };
 void __frame_state_for (volatile char *state_in, int x)

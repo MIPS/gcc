@@ -1300,6 +1300,7 @@ OBJS-archive = \
 	incpath.o \
 	ipa-cp.o \
 	ipa-inline.o \
+	ipa-sra.o \
 	ipa-prop.o \
 	ipa-pure-const.o \
 	ipa-reference.o \
@@ -2621,6 +2622,11 @@ ipa-inline.o : ipa-inline.c gt-ipa-inline.h $(CONFIG_H) $(SYSTEM_H) coretypes.h 
    $(TREE_H) langhooks.h $(TREE_INLINE_H) $(FLAGS_H) $(CGRAPH_H) intl.h \
    $(DIAGNOSTIC_H) $(FIBHEAP_H) $(PARAMS_H) $(TIMEVAR_H) tree-pass.h \
    $(HASHTAB_H) $(COVERAGE_H) $(GGC_H) $(TREE_FLOW_H) $(RTL_H) $(IPA_PROP_H)
+ipa-sra.o : ipa-sra.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
+   $(GIMPLE_H) $(TREE_INLINE_H) $(FLAGS_H) $(CGRAPH_H) $(TREE_FLOW_H) \
+   $(DIAGNOSTIC_H) $(TREE_DUMP_H) $(IPA_PROP_H) $(TIMEVAR_H) $(TARGET_H) \
+   tree-pass.h $(PARAMS_H)
+
 ipa-utils.o : ipa-utils.c $(IPA_UTILS_H) $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(C_COMMON_H) $(GIMPLE_H) \

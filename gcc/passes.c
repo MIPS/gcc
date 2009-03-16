@@ -556,11 +556,16 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
 	  NEXT_PASS (pass_update_address_taken);
+#if 0   /* !!!!!!!!!!!!! */
 	  NEXT_PASS (pass_sra_early);
+#else
+	  NEXT_PASS (pass_early_new_sra);
+#endif
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_simple_dse);
+	  NEXT_PASS (pass_early_ipa_sra);
 	  NEXT_PASS (pass_tail_recursion);
 	  NEXT_PASS (pass_convert_switch);
           NEXT_PASS (pass_profile);
@@ -623,7 +628,11 @@ init_optimization_passes (void)
       NEXT_PASS (pass_ch);
       NEXT_PASS (pass_stdarg);
       NEXT_PASS (pass_lower_complex);
+#if 0   /* !!!!!!!!!!!!! */
       NEXT_PASS (pass_sra);
+#else
+      NEXT_PASS (pass_new_sra);
+#endif
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after

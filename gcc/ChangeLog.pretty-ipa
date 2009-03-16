@@ -1,3 +1,15 @@
+2009-03-16  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.c (get_ssa_def_if_simple): New function.
+	(determine_cst_member_ptr): Added ability to traverse one more assign.
+	* tree-complex.c (extract_component): Added VIEW_CONVERT_EXPR label.
+	* opts.c (decode_options): Set flag_early_ipa_sra at -O3.
+	* timevar.def (TV_IPA_SRA): New timevar.
+	* passes.c (init_optimization_passes): Switched to new intraprocedural
+	SRAs and added early IPA SRA.
+	* common.opt (fearly-ipa-sra): New option.
+	* ipa-sra.c:  New file.
+	
 2009-03-14  Jan Hubicka  <jh@suse.cz>
 
 	* tree.h (nonlocalized_var): New struct and vector type.

@@ -312,6 +312,8 @@ extern struct gimple_opt_pass pass_fixup_cfg;
 extern struct gimple_opt_pass pass_referenced_vars;
 extern struct gimple_opt_pass pass_sra;
 extern struct gimple_opt_pass pass_sra_early;
+extern struct gimple_opt_pass pass_early_new_sra;
+extern struct gimple_opt_pass pass_new_sra;
 extern struct gimple_opt_pass pass_tail_recursion;
 extern struct gimple_opt_pass pass_tail_calls;
 extern struct gimple_opt_pass pass_tree_loop;
@@ -512,6 +514,7 @@ extern struct gimple_opt_pass pass_release_ssa_names;
 extern struct gimple_opt_pass pass_early_inline;
 extern struct gimple_opt_pass pass_inline_parameters;
 extern struct gimple_opt_pass pass_all_early_optimizations;
+extern struct gimple_opt_pass pass_early_ipa_sra;
 extern struct gimple_opt_pass pass_update_address_taken;
 extern struct gimple_opt_pass pass_convert_switch;
 
