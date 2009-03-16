@@ -1,3 +1,8 @@
+2009-03-16  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary): Fold (T1)X +- (T1)Y to (T1)(X +- Y)
+	if the cast is only a sign change.
+
 2009-03-12  Richard Guenther  <rguenther@suse.de>
 
 	* fold-const.c (split_tree): Handle *NV_EXPR.

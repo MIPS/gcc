@@ -10115,6 +10115,26 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
             }
 	}
 
+      /* Convert (T1)X + (T1)Y to (T1)(X + Y) if (T1)X is only
+         a sign-change.  */
+      if (TREE_CODE (type) == INTEGER_TYPE
+	  && CONVERT_EXPR_P (op0)
+	  && CONVERT_EXPR_P (op1)
+	  && (TREE_TYPE (TREE_OPERAND (op0, 0))
+	      == TREE_TYPE (TREE_OPERAND (op1, 0)))
+	  /* Do not expose arithmetic in Ada subtypes.  */
+	  && !TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 0)))
+	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (op0, 0))) == INTEGER_TYPE
+	  && (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op0, 0)))
+	      != TYPE_UNSIGNED (type))
+	  && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))
+	      == TYPE_PRECISION (type)))
+	return fold_convert (type,
+			     fold_build2 (strip_nv (code),
+					  TREE_TYPE (TREE_OPERAND (op0, 0)),
+					  TREE_OPERAND (op0, 0),
+					  TREE_OPERAND (op1, 0)));
+
      bit_rotate:
       /* (A << C1) + (A >> C2) if A is unsigned and C1+C2 is the size of A
 	 is a rotate of A by C1 bits.  */
@@ -10524,6 +10544,26 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  if (tem)
 	    return tem;
 	}
+
+      /* Convert (T1)X - (T1)Y to (T1)(X - Y) if (T1)X is only
+         a sign-change.  */
+      if (TREE_CODE (type) == INTEGER_TYPE
+	  && CONVERT_EXPR_P (op0)
+	  && CONVERT_EXPR_P (op1)
+	  && (TREE_TYPE (TREE_OPERAND (op0, 0))
+	      == TREE_TYPE (TREE_OPERAND (op1, 0)))
+	  /* Do not expose arithmetic in Ada subtypes.  */
+	  && !TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 0)))
+	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (op0, 0))) == INTEGER_TYPE
+	  && (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op0, 0)))
+	      != TYPE_UNSIGNED (type))
+	  && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))
+	      == TYPE_PRECISION (type)))
+	return fold_convert (type,
+			     fold_build2 (strip_nv (code),
+					  TREE_TYPE (TREE_OPERAND (op0, 0)),
+					  TREE_OPERAND (op0, 0),
+					  TREE_OPERAND (op1, 0)));
 
       goto associate;
 
