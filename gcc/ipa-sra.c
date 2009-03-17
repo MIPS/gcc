@@ -1500,10 +1500,13 @@ compare_access_positions (const void *a, const void *b)
   const access_p f2 = *fp2;
 
   if (f1->offset != f2->offset)
-    return (int) (f1->offset - f2->offset);
-  /* We want the bigger accesses first, thus the opposite order in the next
+    return f1->offset < f2->offset ? -1 : 1;
+
+  if (f1->size == f2->size)
+    return 0;
+  /* We want the bigger accesses first, thus the opposite operator in the next
      line: */
-  return (int) (f2->size - f1->size);
+  return f1->size > f2->size ? -1 : 1;
 }
 
 

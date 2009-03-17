@@ -1,3 +1,8 @@
+2009-03-17  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-sra.c (compare_access_positions): Use comparisons instead of
+	subtractions.
+
 2009-03-16  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-prop.c (get_ssa_def_if_simple): New function.
