@@ -1,3 +1,11 @@
+2009-03-18  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-sra.c (build_access_tree_1): Propagate grp_write flag
+	downwards in the access tree.
+
+	* ipa-sra.c (make_fancy_name_1): Bail out if array_ref index is not an
+	integer constant.
+
 2009-03-17  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-sra.c (compare_access_positions): Use comparisons instead of

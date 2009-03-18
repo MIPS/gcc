@@ -207,7 +207,8 @@ struct access
      always performed when the function is run? */
   unsigned always_safe : 1;
 
-  /* Does this group contain a write access?  */
+  /* Does this group contain a write access?  This flag is propagated down the
+     acess tree.  */
   unsigned grp_write : 1;
   /* Does this group contain a read access?  This flag is propagated down the
      acess tree.  */
@@ -1902,6 +1903,7 @@ static void
 make_fancy_name_1 (tree expr)
 {
   char buffer[32];
+  tree index;
 
   if (DECL_P (expr))
     {
@@ -1920,8 +1922,12 @@ make_fancy_name_1 (tree expr)
     case ARRAY_REF:
       make_fancy_name_1 (TREE_OPERAND (expr, 0));
       obstack_1grow (&name_obstack, '$');
-      sprintf (buffer, HOST_WIDE_INT_PRINT_DEC,
-	       TREE_INT_CST_LOW (TREE_OPERAND (expr, 1)));
+      /* Arrays with only one element may not have a constant as their
+	 index. */
+      index = TREE_OPERAND (expr, 1);
+      if (TREE_CODE (index) != INTEGER_CST)
+	break;
+      sprintf (buffer, HOST_WIDE_INT_PRINT_DEC, TREE_INT_CST_LOW (index));
       obstack_grow (&name_obstack, buffer, strlen (buffer));
 
       break;
@@ -2948,7 +2954,7 @@ enum build_access_tree_result
 
 static enum build_access_tree_result
 build_access_tree_1 (struct access **access, bool allow_replacements,
-		     bool mark_read)
+		     bool mark_read, bool mark_write)
 {
   struct access *root = *access, *last_child = NULL;
   HOST_WIDE_INT limit = root->offset + root->size;
@@ -2960,6 +2966,11 @@ build_access_tree_1 (struct access **access, bool allow_replacements,
     root->grp_read = true;
   else if (root->grp_read)
     mark_read = true;
+
+  if (mark_write)
+    root->grp_write = true;
+  else if (root->grp_write)
+    mark_write = true;
 
   *access = (*access)->next_grp;
   while  (*access && (*access)->offset + (*access)->size <= limit)
@@ -2978,7 +2989,7 @@ build_access_tree_1 (struct access **access, bool allow_replacements,
       last_child = *access;
 
       subres = build_access_tree_1 (access, allow_replacements && !scalar,
-				    mark_read);
+				    mark_read, mark_write);
       if (subres != SRA_BAT_NONE)
 	sth_created = true;
       if (subres != SRA_BAT_SCALAR_COVERADGE)
@@ -3030,7 +3041,8 @@ build_access_tree (struct access *access)
     {
       struct access *root = access;
 
-      ret |= (build_access_tree_1 (&access, true, false) != SRA_BAT_NONE);
+      ret |= (build_access_tree_1 (&access, true, false,
+				   false) != SRA_BAT_NONE);
       root->next_grp = access;
     }
 
