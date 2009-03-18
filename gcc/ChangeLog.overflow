@@ -1,5 +1,19 @@
 2009-03-18  Richard Guenther  <rguenther@suse.de>
 
+	* fold-const.c (extract_muldiv_1): Retain NV arithmetic
+	variants in some cases.
+	* c-common.c (pointer_int_sum): Remove re-association
+	optimization.  Do the multiplication with the element sign
+	with the same sign as the offset expression.
+	* tree-ssa-forwprop.c
+	(forward_propagate_addr_into_variable_array_index): Look
+	through widening conversions.
+
+	testsuite/
+	* gcc.dg/fold-extendmult-1.c: New testcase.
+
+2009-03-18  Richard Guenther  <rguenther@suse.de>
+
 	* fold-const.c (extract_muldiv_1): Handle *NV_EXPR where
 	appropriate.  Remove TYPE_OVERFLOW_* checks.
 

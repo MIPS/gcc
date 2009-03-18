@@ -613,8 +613,14 @@ forward_propagate_addr_into_variable_array_index (tree offset,
   tree index;
   gimple offset_def, use_stmt = gsi_stmt (*use_stmt_gsi);
 
-  /* Get the offset's defining statement.  */
+  /* Get the offset's defining statement looking through extensions.  */
   offset_def = SSA_NAME_DEF_STMT (offset);
+  while (is_gimple_assign (offset_def)
+	 && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (offset_def))
+	 && TREE_CODE (gimple_assign_rhs1 (offset_def)) == SSA_NAME
+	 && (TYPE_PRECISION (gimple_expr_type (offset_def))
+	     >= TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (offset_def)))))
+    offset_def = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (offset_def));
 
   /* Try to find an expression for a proper index.  This is either a
      multiplication expression by the element size or just the ssa name we came

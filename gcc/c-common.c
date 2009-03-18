@@ -3244,43 +3244,12 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      they are really pointers.  */
   fold_defer_overflow_warnings ();
 
-  /* If what we are about to multiply by the size of the elements
-     contains a constant term, apply distributive law
-     and multiply that constant term separately.
-     This helps produce common subexpressions.  */
-  if ((TREE_CODE (intop) == PLUS_EXPR || TREE_CODE (intop) == MINUS_EXPR)
-      && !TREE_CONSTANT (intop)
-      && TREE_CONSTANT (TREE_OPERAND (intop, 1))
-      && TREE_CONSTANT (size_exp)
-      /* If the constant comes from pointer subtraction,
-	 skip this optimization--it would cause an error.  */
-      && TREE_CODE (TREE_TYPE (TREE_OPERAND (intop, 0))) == INTEGER_TYPE
-      /* If the constant is unsigned, and smaller than the pointer size,
-	 then we must skip this optimization.  This is because it could cause
-	 an overflow error if the constant is negative but INTOP is not.  */
-      && (!TYPE_UNSIGNED (TREE_TYPE (intop))
-	  || (TYPE_PRECISION (TREE_TYPE (intop))
-	      == TYPE_PRECISION (TREE_TYPE (ptrop)))))
-    {
-      enum tree_code subcode = resultcode;
-      tree int_type = TREE_TYPE (intop);
-      if (TREE_CODE (intop) == MINUS_EXPR)
-	subcode = (subcode == PLUS_EXPR ? MINUS_EXPR : PLUS_EXPR);
-      /* Convert both subexpression types to the type of intop,
-	 because weird cases involving pointer arithmetic
-	 can result in a sum or difference with different type args.  */
-      ptrop = build_binary_op (EXPR_LOCATION (TREE_OPERAND (intop, 1)),
-			       subcode, ptrop,
-			       convert (int_type, TREE_OPERAND (intop, 1)), 1);
-      intop = convert (int_type, TREE_OPERAND (intop, 0));
-    }
-
   /* Convert the integer argument to a type the same size as sizetype
      so the multiply won't overflow spuriously.  */
-  if (TYPE_PRECISION (TREE_TYPE (intop)) != TYPE_PRECISION (sizetype)
-      || TYPE_UNSIGNED (TREE_TYPE (intop)) != TYPE_UNSIGNED (sizetype))
+  if (TYPE_PRECISION (TREE_TYPE (intop)) != TYPE_PRECISION (sizetype))
     intop = convert (c_common_type_for_size (TYPE_PRECISION (sizetype),
-					     TYPE_UNSIGNED (sizetype)), intop);
+					     TYPE_UNSIGNED (TREE_TYPE (intop))),
+		     intop);
 
   /* Replace the integer argument with a suitable product by the object size.
      Do this multiplication as signed, then convert to the appropriate

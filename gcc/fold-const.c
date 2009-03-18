@@ -6303,15 +6303,17 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
       /* If we can extract our operation from the LHS, do so and return a
 	 new operation.  Likewise for the RHS from a MULT_EXPR.  Otherwise,
 	 do something only if the second operand is a constant.  */
-      if (same_p
+      if (strip_nv (tcode) == strip_nv (code)
 	  && (t1 = extract_muldiv (op0, c, code, wide_type,
 				   strict_overflow_p)) != 0)
-	return fold_build2 (strip_nv (tcode), ctype, fold_convert (ctype, t1),
+	return fold_build2 (same_p ? tcode : strip_nv (tcode),
+			    ctype, fold_convert (ctype, t1),
 			    fold_convert (ctype, op1));
       else if (MULT_EXPR_CODE_P (tcode) && MULT_EXPR_CODE_P (code)
 	       && (t1 = extract_muldiv (op1, c, code, wide_type,
 					strict_overflow_p)) != 0)
-	return fold_build2 (strip_nv (tcode), ctype, fold_convert (ctype, op0),
+	return fold_build2 (same_p ? tcode : strip_nv (tcode),
+			    ctype, fold_convert (ctype, op0),
 			    fold_convert (ctype, t1));
       else if (TREE_CODE (op1) != INTEGER_CST)
 	return 0;
@@ -6328,7 +6330,7 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
 					        && tcode != MULT_EXPR) ? -1 : 1,
 					       TREE_OVERFLOW (t1)))
 	  && !TREE_OVERFLOW (t1))
-	return fold_build2 (strip_nv (tcode), ctype,
+	return fold_build2 (same_p ? tcode : strip_nv (tcode), ctype,
 			    fold_convert (ctype, op0), t1);
 
       /* If these operations "cancel" each other, we have the main
