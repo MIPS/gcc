@@ -1,3 +1,14 @@
+2009-03-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Limit alias
+	oracle use.  Look through PHI nodes into post-dominated
+	regions.
+	(tree_ssa_dse): Compute dominators.
+
+	testsuite/
+	* gcc.dg/tree-ssa/ssa-dce-5.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-dse-12.c: Likewise.
+
 2009-03-16  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-structalias.c (do_sd_constraint): Simplify check

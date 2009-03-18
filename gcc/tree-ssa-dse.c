@@ -153,6 +153,7 @@ static bool
 dse_possible_dead_store_p (gimple stmt, gimple *use_stmt)
 {
   gimple temp;
+  unsigned cnt = 0;
 
   *use_stmt = NULL;
 
@@ -163,35 +164,58 @@ dse_possible_dead_store_p (gimple stmt, gimple *use_stmt)
   temp = stmt;
   do
     {
-      gimple use_stmt;
+      gimple prev, use_stmt;
       imm_use_iterator ui;
       bool fail = false;
       tree defvar;
-      
-      defvar = gimple_vdef (temp);
+
+      /* Limit stmt walking to be linear in the number of possibly
+         dead stores.  */
+      if (++cnt > 256)
+	return false;
+
+      if (gimple_code (temp) == GIMPLE_PHI)
+	defvar = PHI_RESULT (temp);
+      else
+	defvar = gimple_vdef (temp);
+      prev = temp;
       temp = NULL;
       FOR_EACH_IMM_USE_STMT (use_stmt, ui, defvar)
 	{
-	  /* In simple cases we could look through PHI nodes, but we
+	  cnt++;
+
+	  /* In simple cases we can look through PHI nodes, but we
 	     have to be careful with loops and with memory references
 	     containing operands that are also operands of PHI nodes.
 	     See gcc.c-torture/execute/20051110-*.c.  */
 	  if (gimple_code (use_stmt) == GIMPLE_PHI)
 	    {
-	      fail = true;
-	      BREAK_FROM_IMM_USE_STMT (ui);
+	      if (temp
+		  /* We can look through PHIs to post-dominated regions
+		     without worrying if the use not also dominates prev
+		     (in which case it would be a loop PHI with the use
+		     in a latch block).  */
+		  || gimple_bb (prev) == gimple_bb (use_stmt)
+		  || !dominated_by_p (CDI_POST_DOMINATORS,
+				      gimple_bb (prev), gimple_bb (use_stmt))
+		  || dominated_by_p (CDI_DOMINATORS,
+				     gimple_bb (prev), gimple_bb (use_stmt)))
+		{
+		  fail = true;
+		  BREAK_FROM_IMM_USE_STMT (ui);
+		}
+	      temp = use_stmt;
 	    }
-
 	  /* If the statement is a use the store is not dead.  */
-	  if (ref_maybe_used_by_stmt_p (use_stmt, gimple_assign_lhs (stmt)))
+	  else if (ref_maybe_used_by_stmt_p (use_stmt,
+					     gimple_assign_lhs (stmt)))
 	    {
 	      fail = true;
 	      BREAK_FROM_IMM_USE_STMT (ui);
 	    }
-
 	  /* If this is a store, remember it or bail out if we have
 	     multiple ones (the will be in different CFG parts then).  */
-	  if (gimple_vdef (use_stmt))
+	  else if (gimple_vdef (use_stmt))
 	    {
 	      if (temp)
 		{
@@ -219,8 +243,7 @@ dse_possible_dead_store_p (gimple stmt, gimple *use_stmt)
     }
   /* We deliberately stop on clobbering statements and not only on
      killing ones to make walking cheaper.  Otherwise we can just
-     continue walking until both stores have equal reference trees.
-     ???  Maybe rather limit the number of stmts we investigate.  */
+     continue walking until both stores have equal reference trees.  */
   while (!stmt_may_clobber_ref_p (temp, gimple_assign_lhs (stmt)));
 
   if (!is_gimple_assign (temp))
@@ -382,6 +405,7 @@ tree_ssa_dse (void)
      this pass could be seen as an extension of DCE which needs post
      dominators.  */
   calculate_dominance_info (CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
 
   /* Dead store elimination is fundamentally a walk of the post-dominator
      tree and a backwards walk of statements within each block.  */
