@@ -1,3 +1,22 @@
+2009-03-19  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (may_point_to_global_var): Rename to ...
+	(ptr_deref_may_alias_global_p): ... this.
+	(may_point_to_decl): Rename to ...
+	(ptr_deref_may_alias_decl_p): ... this.
+	(may_point_to_same_object): Rename to ...
+	(ptr_derefs_may_alias_p): ... this.
+	(refs_may_alias_p_1): Adjust.
+	* tree-ssa-alias.h (may_point_to_global_var): Rename to ...
+	(ptr_deref_may_alias_global_p): ... this.
+	* tree-ssa-sink.c (is_hidden_global_store): Adjust.
+	* tree-flow.h (struct ptr_info_def): Adjust comment.
+	* tree-ssa-structalias.c (pt_solution_empty_p): Simplify.
+	(pt_solution_includes_global): Likewise.
+	(pt_solution_includes_1): Likewise.
+	(pt_solutions_intersect_1): Likewise.
+	(compute_points_to_sets): Clear ESCAPED in ESCAPED solution.
+
 2009-03-18  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-dse.c (dse_possible_dead_store_p): Limit alias

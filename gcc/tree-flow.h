@@ -129,7 +129,7 @@ struct ptr_info_def GTY(())
   /* Nonzero if this pointer is really dereferenced.  */
   unsigned int is_dereferenced : 1;
 
-  /* The points-to solution.  */
+  /* The points-to solution, TBAA-pruned if the pointer is dereferenced.  */
   struct pt_solution pt;
 };
 

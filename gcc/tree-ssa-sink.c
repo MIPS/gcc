@@ -191,7 +191,7 @@ is_hidden_global_store (gimple stmt)
 
 	}
       else if (INDIRECT_REF_P (lhs))
-	return may_point_to_global_var (TREE_OPERAND (lhs, 0));
+	return ptr_deref_may_alias_global_p (TREE_OPERAND (lhs, 0));
       else
 	gcc_unreachable ();
     }

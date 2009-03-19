@@ -90,10 +90,10 @@ along with GCC; see the file COPYING3.  If not see
 
      This function tries to disambiguate two reference trees.
 
-   bool may_point_to_global_var (tree)
+   bool ptr_deref_may_alias_global_p (tree)
 
-     This function queries if a pointer variable may point to global
-     memory.
+     This function queries if dereferencing a pointer variable may
+     alias global memory.
 
    More low-level disambiguators are available and documented in
    this file.  Low-level disambiguators dealing with points-to
@@ -137,10 +137,10 @@ dump_alias_stats (FILE *s)
 }
 
 
-/* Return true, if PTR may point to a global variable.  */
+/* Return true, if dereferencing PTR may alias with a global variable.  */
 
 bool
-may_point_to_global_var (tree ptr)
+ptr_deref_may_alias_global_p (tree ptr)
 {
   struct ptr_info_def *pi;
 
@@ -159,10 +159,10 @@ may_point_to_global_var (tree ptr)
   return pt_solution_includes_global (&pi->pt);
 }
 
-/* Return true if PTR may point to DECL.  */
+/* Return true if dereferencing PTR may alias DECL.  */
 
 static bool
-may_point_to_decl (tree ptr, tree decl)
+ptr_deref_may_alias_decl_p (tree ptr, tree decl)
 {
   struct ptr_info_def *pi;
 
@@ -191,10 +191,10 @@ may_point_to_decl (tree ptr, tree decl)
   return pt_solution_includes (&pi->pt, decl);
 }
 
-/* Return true if PTR1 and PTR2 may point to the same memory object.  */
+/* Return true if dereferenced PTR1 and PTR2 may alias.  */
 
 static bool
-may_point_to_same_object (tree ptr1, tree ptr2)
+ptr_derefs_may_alias_p (tree ptr1, tree ptr2)
 {
   struct ptr_info_def *pi1, *pi2;
 
@@ -511,7 +511,7 @@ refs_may_alias_p_1 (tree ref1, tree ref2)
       if (max_size1 != -1
 	  && !ranges_overlap_p (0, offset1 + max_size1, offset2, max_size2))
 	return false;
-      if (!may_point_to_decl (TREE_OPERAND (base2, 0), base1))
+      if (!ptr_deref_may_alias_decl_p (TREE_OPERAND (base2, 0), base1))
 	return false;
     }
   else if (SSA_VAR_P (base2)
@@ -520,7 +520,7 @@ refs_may_alias_p_1 (tree ref1, tree ref2)
       if (max_size2 != -1
 	  && !ranges_overlap_p (offset1, max_size1, 0, offset2 + max_size2))
 	return false;
-      if (!may_point_to_decl (TREE_OPERAND (base1, 0), base2))
+      if (!ptr_deref_may_alias_decl_p (TREE_OPERAND (base1, 0), base2))
 	return false;
     }
 
@@ -533,8 +533,8 @@ refs_may_alias_p_1 (tree ref1, tree ref2)
       if (operand_equal_p (TREE_OPERAND (base1, 0),
 			   TREE_OPERAND (base2, 0), 0))
 	return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
-      if (!may_point_to_same_object (TREE_OPERAND (base1, 0),
-				     TREE_OPERAND (base2, 0)))
+      if (!ptr_derefs_may_alias_p (TREE_OPERAND (base1, 0),
+				   TREE_OPERAND (base2, 0)))
 	return false;
     }
 

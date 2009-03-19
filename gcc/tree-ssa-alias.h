@@ -76,7 +76,7 @@ struct pt_solution GTY(())
 
 /* In tree-ssa-alias.c  */
 extern enum escape_type is_escape_site (gimple);
-extern bool may_point_to_global_var (tree);
+extern bool ptr_deref_may_alias_global_p (tree);
 extern bool refs_may_alias_p (tree, tree);
 extern bool ref_maybe_used_by_stmt_p (gimple, tree);
 extern bool stmt_may_clobber_ref_p (gimple, tree);

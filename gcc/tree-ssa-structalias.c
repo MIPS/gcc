@@ -4981,9 +4981,8 @@ pt_solution_empty_p (struct pt_solution *pt)
       && !bitmap_empty_p (pt->vars))
     return false;
 
-  /* If this isn't already the escaped solution, check if that is empty.  */
+  /* If the solution includes ESCAPED, check if that is empty.  */
   if (pt->escaped
-      && &cfun->gimple_df->escaped != pt
       && !pt_solution_empty_p (&cfun->gimple_df->escaped))
     return false;
 
@@ -5000,8 +4999,7 @@ pt_solution_includes_global (struct pt_solution *pt)
       || pt->vars_contains_global)
     return true;
 
-  if (pt->escaped
-      && pt != &cfun->gimple_df->escaped)
+  if (pt->escaped)
     return pt_solution_includes_global (&cfun->gimple_df->escaped);
 
   return false;
@@ -5020,12 +5018,12 @@ pt_solution_includes_1 (struct pt_solution *pt, const_tree decl)
       && is_global_var (decl))
     return true;
 
-  if (bitmap_bit_p (pt->vars, DECL_UID (decl)))
+  if (pt->vars
+      && bitmap_bit_p (pt->vars, DECL_UID (decl)))
     return true;
 
-  /* If this isn't already the escaped solution, union it with that.  */
+  /* If the solution includes ESCAPED, check it.  */
   if (pt->escaped
-      && &cfun->gimple_df->escaped != pt
       && pt_solution_includes_1 (&cfun->gimple_df->escaped, decl))
     return true;
 
@@ -5062,22 +5060,20 @@ pt_solutions_intersect_1 (struct pt_solution *pt1, struct pt_solution *pt2)
     return true;
 
   /* Check the escaped solution if required.  */
-  if ((pt1->escaped || pt1 == &cfun->gimple_df->escaped
-       || pt2->escaped || pt2 == &cfun->gimple_df->escaped)
+  if ((pt1->escaped || pt2->escaped)
       && !pt_solution_empty_p (&cfun->gimple_df->escaped))
     {
       /* If both point to escaped memory and that solution
 	 is not empty they alias.  */
-      if ((pt1->escaped || pt1 == &cfun->gimple_df->escaped)
-	  && (pt2->escaped || pt2 == &cfun->gimple_df->escaped))
+      if (pt1->escaped && pt2->escaped)
 	return true;
 
       /* If either points to escaped memory see if the escaped solution
-	 intersects.  */
-      if (((pt1->escaped || pt1 == &cfun->gimple_df->escaped)
-	   && pt_solutions_intersect_1 (&cfun->gimple_df->escaped, pt1))
-	  || ((pt2->escaped || pt2 == &cfun->gimple_df->escaped)
-	      && pt_solutions_intersect_1 (&cfun->gimple_df->escaped, pt2)))
+	 intersects with the other.  */
+      if ((pt1->escaped
+	   && pt_solutions_intersect_1 (&cfun->gimple_df->escaped, pt2))
+	  || (pt2->escaped
+	      && pt_solutions_intersect_1 (&cfun->gimple_df->escaped, pt1)))
 	return true;
     }
 
@@ -5706,6 +5702,11 @@ compute_points_to_sets (void)
      call-clobber analysis.  */
   find_what_var_points_to (var_escaped, &cfun->gimple_df->escaped, false);
   find_what_var_points_to (var_callused, &cfun->gimple_df->callused, false);
+
+  /* Make sure the ESCAPED solution (which is used as placeholder in
+     other solutions) does not reference itself.  This simplifies
+     points-to solution queries.  */
+  cfun->gimple_df->escaped.escaped = 0;
 
   timevar_pop (TV_TREE_PTA);
 
