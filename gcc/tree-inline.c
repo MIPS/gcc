@@ -712,7 +712,8 @@ remap_decls (tree decls, VEC(nonlocalized_var,gc) **nonlocalized_list, copy_body
 	      && (var_ann (old_var) || !gimple_in_ssa_p (cfun)))
 	    cfun->local_decls = tree_cons (NULL_TREE, old_var,
 						   cfun->local_decls);
-	  declare_nonlocalized_var (nonlocalized_list, old_var, NULL_TREE, id, true);
+	  if (nonlocalized_list != NULL)
+	    declare_nonlocalized_var (nonlocalized_list, old_var, NULL_TREE, id, true);
 	  continue;
 	}
 
@@ -726,7 +727,10 @@ remap_decls (tree decls, VEC(nonlocalized_var,gc) **nonlocalized_list, copy_body
       if (new_var == id->retvar)
 	;
       else if (!new_var)
-	declare_nonlocalized_var (nonlocalized_list, old_var, NULL_TREE, id, true);
+        {
+	  if (nonlocalized_list != NULL)
+	    declare_nonlocalized_var (nonlocalized_list, old_var, NULL_TREE, id, true);
+	}
       else
 	{
 	  gcc_assert (DECL_P (new_var));

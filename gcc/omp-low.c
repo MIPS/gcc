@@ -1899,6 +1899,9 @@ scan_omp_1_op (tree *tp, int *walk_subtrees, void *data)
   switch (TREE_CODE (t))
     {
     case VAR_DECL:
+      if (ctx && auto_var_in_fn_p (*tp, current_function_decl))
+	*tp = remap_decl (t, &ctx->cb);
+      break;
     case PARM_DECL:
     case LABEL_DECL:
     case RESULT_DECL:

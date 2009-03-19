@@ -10421,6 +10421,10 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
         return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 1);
       break;
 
+    case CONST_DECL:
+      return loc_descriptor_from_tree_1 (DECL_INITIAL (loc), want_address);
+      break;
+
     case VAR_DECL:
       /* We don't know yet if the location will be referenced and output.
          Give up for the moment. 
@@ -10625,10 +10629,10 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 
     case REAL_CST:
     case STRING_CST:
-      if (want_address)
-	goto cst_address;
-      /* We can handle STRING CSTs.  */
-      gcc_unreachable ();
+    case COMPLEX_CST:
+      /* TODO: When we don't want address, we can construct small
+         constants here using int_loc_descriptor.  */
+      goto cst_address;
 
     case CONSTRUCTOR:
     cst_address:

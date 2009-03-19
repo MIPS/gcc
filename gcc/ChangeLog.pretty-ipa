@@ -1,3 +1,11 @@
+2009-03-15  Jan Hubicka  <jh@suse.cz>
+
+	* omp-low.c (scan_omp_1_op): Do not duplicate nonlocal vars.
+	* dwarf2out.c (loc_descriptor_from_tree_1): Handle CONST_DECL,
+	COMPLEX_CST and do not abort on address of REAL_CST.
+	* tree-inline.c (remap_decls): Do not push decls to nonlocalized
+	list when it is NULL.
+
 2009-03-19  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-sra.c (sra_aggregate_type_p): Removed.
