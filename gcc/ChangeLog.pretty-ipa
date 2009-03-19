@@ -1,3 +1,13 @@
+2009-03-19  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-sra.c (sra_aggregate_type_p): Removed.
+	(type_internals_preclude_sra_p): Use AGGREGATE_TYPE_P instead of
+	sra_aggregate_type_p.
+	(find_param_candidates): Allow all aggregates to be candidates for
+	IPA-SRA.  Use AGGREGATE_TYPE_P instead of sra_aggregate_type_p.
+	(find_var_candidates): Use AGGREGATE_TYPE_P instead of
+	sra_aggregate_type_p.
+
 2009-03-18  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-sra.c (build_access_tree_1): Propagate grp_write flag

@@ -848,17 +848,6 @@ sra_deinitialize (void)
   pointer_map_destroy (base_access_vec);
 }
 
-/* Return true iff TYPE is one of the types we consider aggregate for SRA
-   tranformations.  */
-
-static inline bool
-sra_aggregate_type_p (tree type)
-{
-  return (TREE_CODE (type) == UNION_TYPE || TREE_CODE (type) == RECORD_TYPE
-	  || TREE_CODE (type) == ARRAY_TYPE
-	  || TREE_CODE (type) == QUAL_UNION_TYPE);
-}
-
 /* Return true iff the type contains a field or element type which dpoes not
    allow scalarization.  */
 
@@ -884,7 +873,7 @@ type_internals_preclude_sra_p (tree type)
 		|| !host_integerp (DECL_SIZE (fld), 1))
 	      return true;
 
-	    if (sra_aggregate_type_p (ft)
+	    if (AGGREGATE_TYPE_P (ft)
 		&& type_internals_preclude_sra_p (ft))
 	      return true;
 	  }
@@ -894,7 +883,7 @@ type_internals_preclude_sra_p (tree type)
     case ARRAY_TYPE:
       et = TREE_TYPE (type);
 
-      if (sra_aggregate_type_p (et))
+      if (AGGREGATE_TYPE_P (et))
 	return type_internals_preclude_sra_p (et);
       else
 	return false;
@@ -923,27 +912,21 @@ find_param_candidates (void)
       tree type;
 
       count++;
-
       if (TREE_THIS_VOLATILE (parm))
 	continue;
 
       type = TREE_TYPE (parm);
-
       if (POINTER_TYPE_P (type))
 	{
 	  type = TREE_TYPE (type);
 
-	  if ((!is_gimple_reg_type (type)
-	       && TREE_CODE (type) != RECORD_TYPE
-	       && TREE_CODE (type) != ARRAY_TYPE)
+	  if ((!is_gimple_reg_type (type) && !AGGREGATE_TYPE_P (type))
 	      || TREE_CODE (type) == FUNCTION_TYPE
 	      || TYPE_VOLATILE (type))
 	    continue;
 	}
-      else if (TREE_CODE (type) != RECORD_TYPE
-	       && TREE_CODE (type) != ARRAY_TYPE)
+      else if (!AGGREGATE_TYPE_P (type))
 	continue;
-
 
       if (!COMPLETE_TYPE_P (type)
 	  || TREE_ADDRESSABLE (type)
@@ -951,7 +934,7 @@ find_param_candidates (void)
           || tree_low_cst (TYPE_SIZE (type), 1) == 0)
 	continue;
 
-      if (sra_aggregate_type_p (type)
+      if (AGGREGATE_TYPE_P (type)
 	  && type_internals_preclude_sra_p (type))
 	continue;
 
@@ -2743,7 +2726,7 @@ find_var_candidates (void)
         continue;
       type = TREE_TYPE (var);
 
-      if (!sra_aggregate_type_p (type)
+      if (!AGGREGATE_TYPE_P (type)
 	  || needs_to_live_in_memory (var)
 	  || TREE_THIS_VOLATILE (var)
 	  || !COMPLETE_TYPE_P (type)
