@@ -1,5 +1,11 @@
 2009-03-15  Jan Hubicka  <jh@suse.cz>
 
+	* cgraph.c (cgraph_make_node_local): Weak functions needs localizing
+	too.
+	* ipa-sra.c (ipa_early_sra): Do not disqualify weak fce.
+
+2009-03-15  Jan Hubicka  <jh@suse.cz>
+
 	* omp-low.c (scan_omp_1_op): Do not duplicate nonlocal vars.
 	* dwarf2out.c (loc_descriptor_from_tree_1): Handle CONST_DECL,
 	COMPLEX_CST and do not abort on address of REAL_CST.
