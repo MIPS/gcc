@@ -688,6 +688,17 @@ dump_replaceable_exprs (FILE *f, gimple *expr)
 	var = ssa_name (x);
 	print_generic_expr (f, var, TDF_SLIM);
 	fprintf (f, " replace with --> ");
+	if ((dump_flags & TDF_LINENO) && gimple_has_location (expr[x]))
+	  {
+	    expanded_location xlc = expand_location (gimple_location (expr[x]));
+	    fprintf (f, "[");
+	    if (xlc.file)
+	      {
+		fprintf (f, "%s", xlc.file);
+		fprintf (f, " :");
+	      }
+	    fprintf (f, "%d]", xlc.line);
+	  }
 	print_gimple_stmt (f, expr[x], 0, TDF_SLIM);
 	fprintf (f, "\n");
       }

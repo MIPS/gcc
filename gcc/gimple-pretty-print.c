@@ -1182,6 +1182,20 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
       pp_character (buffer, '(');
       pp_decimal_int (buffer, gimple_phi_arg_edge (phi, i)->src->index);
       pp_character (buffer, ')');
+      if ((flags & TDF_LINENO) && gimple_phi_arg_has_location (phi, i))
+        {
+	  expanded_location xloc;
+
+	  xloc = expand_location (gimple_phi_arg_location (phi, i));
+	  pp_character (buffer, '[');
+	  if (xloc.file)
+	    {
+	      pp_string (buffer, xloc.file);
+	      pp_string (buffer, " : ");
+	    }
+	  pp_decimal_int (buffer, xloc.line);
+	  pp_string (buffer, "] ");
+	}
       if (i < gimple_phi_num_args (phi) - 1)
 	pp_string (buffer, ", ");
     }

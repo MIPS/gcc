@@ -1385,9 +1385,22 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	   gsi_next (&gsi))
 	{
 	  tree currdef;
+	  gimple stmt;
+
 	  phi = gsi_stmt (gsi);
 	  currdef = get_reaching_def (SSA_NAME_VAR (gimple_phi_result (phi)));
 	  add_phi_arg (phi, currdef, e);
+
+	  /* If there is a source location, add it to the phi argument.  */
+	  stmt = SSA_NAME_DEF_STMT (currdef);
+	  if (gimple_has_location (stmt))
+	    {
+	      use_operand_p use = PHI_ARG_DEF_PTR_FROM_EDGE(phi, e);
+	      int index = PHI_ARG_INDEX_FROM_USE (use);
+	      source_location locus = gimple_location (stmt);
+
+	      gimple_phi_arg_set_location (phi, index, locus);
+	    }
 	}
     }
 }

@@ -231,6 +231,8 @@ make_phi_node (tree var, int len)
   for (i = 0; i < capacity; i++)
     {
       use_operand_p  imm;
+
+      gimple_phi_arg_set_location (phi, i, UNKNOWN_LOCATION);
       imm = gimple_phi_arg_imm_use_ptr (phi, i);
       imm->use = gimple_phi_arg_def_ptr (phi, i);
       imm->prev = NULL;
@@ -299,6 +301,8 @@ resize_phi_node (gimple *phi, size_t len)
   for (i = gimple_phi_num_args (new_phi); i < len; i++)
     {
       use_operand_p imm;
+
+      gimple_phi_arg_set_location (new_phi, i, UNKNOWN_LOCATION);
       imm = gimple_phi_arg_imm_use_ptr (new_phi, i);
       imm->use = gimple_phi_arg_def_ptr (new_phi, i);
       imm->prev = NULL;

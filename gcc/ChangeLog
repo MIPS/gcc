@@ -1,3 +1,24 @@
+2009-03-19  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree.h (struct phi_arg_d): Add location field.
+	* tree-phinodes.c (make_phi_node): Initialize phi arg locations.
+	* gimple-pretty-print.c (dump_gimple_phi): Dump lineno's.
+	* tree-flow-inline.h (gimple_phi_arg_location,
+	gimple_phi_arg_set_location, gimple_phi_arg_has_location): New.
+	* cfgexpand.c (gimple_assign_rhs_to_tree): Copy location to new expr.
+	* tree-ssa-ter.c (dump_replaceable_exprs): Dump expr lineno's.
+	(struct _elim_graph): Add location to the copy and edge lists.
+	(insert_copy_on_edge): Add location to copy statement.
+	(new_elim_graph): Initialize location lists.
+	(clear_elim_graph): Clear edge location list.
+	(delete_elim_graph): Free location lists.
+	(elim_graph_add_edge, elim_graph_remove_succ_edge,
+	FOR_EACH_ELIM_GRAPH_SUCC, FOR_EACH_ELIM_GRAPH_PRED, eliminate_build,
+	elim_forward, elim_unvisited_predecessor, elim_backward, 
+	elim_create): Add location support in elimination graph.
+	(eliminate_phi): Add locations to copies generated.
+	(insert_backedge_copies): Add locations to copies generated.
+
 2009-03-18  Richard Guenther  <rguenther@suse.de>
 
 	* tree-vect-transform.c (vect_loop_versioning): Fold the
