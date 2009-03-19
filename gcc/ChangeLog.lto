@@ -1,3 +1,12 @@
+2009-03-19  Rafael Avila de Espindola  <espindola@google.com>
+
+	* builtins.c (is_builtin_name): New.
+	(called_as_built_in): Use is_builtin_name. Make it static.
+	* tree.h (is_builtin_name): New.
+	(called_as_built_in): Remove.
+	* varasm.c (incorporeal_function_p):
+	Use is_builtin_name.
+
 2009-03-18  Simon Baldwin  <simonb@google.com>
 
 	Revert:

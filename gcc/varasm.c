@@ -2249,11 +2249,16 @@ incorporeal_function_p (tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
     {
+      const char *name;
+
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA)
 	return true;
 
-      if (called_as_built_in (decl))
+      gcc_assert (DECL_ASSEMBLER_NAME_SET_P (decl));
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+
+      if (is_builtin_name (name))
 	return true;
     }
   return false;
