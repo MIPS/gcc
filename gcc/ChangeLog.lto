@@ -1,3 +1,13 @@
+2009-03-18  Simon Baldwin  <simonb@google.com>
+
+	Revert:
+
+	2009-03-16  Simon Baldwin  <simonb@google.com>
+
+		* lto-wrapper.c (close_unneeded_fds): New function, close as
+		many file descriptors as possible.
+		(main): Call it.
+
 2009-03-16  Simon Baldwin  <simonb@google.com>
 
 	* lto-wrapper.c (close_unneeded_fds): New function, close as many

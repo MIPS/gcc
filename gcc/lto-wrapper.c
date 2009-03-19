@@ -42,10 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "libiberty.h"
 
-#ifdef HAVE_SYS_RESOURCE_H
-# include <sys/resource.h>
-#endif
-
 int debug;				/* true if -debug */
 
 enum lto_mode_d {
@@ -345,36 +341,6 @@ process_args (int argc, char *argv[], char *gcc_argv[])
   return j;
 }
 
-/* Close unneeded file descriptors.  The linker has a lot of open files at
-   the point where it execs the wrapper, and only stdin, stdout, and stderr
-   are required.  Closing others here reduces problems with ulimit -n and
-   EMFILE in later phases.  */
-
-static void
-close_unneeded_fds (void)
-{
-  int nofile = 32768;
-  int fd;
-
-#if defined(HAVE_GETRLIMIT)
-  {
-    struct rlimit lim;
-
-    if (getrlimit (RLIMIT_NOFILE, &lim) == 0
-	&& lim.rlim_cur != RLIM_INFINITY
-	&& lim.rlim_cur < INT_MAX)
-      nofile = lim.rlim_cur;
-  }
-#endif
-
-  for (fd = 0; fd < nofile; fd++)
-    {
-      if (fd != fileno (stdin)
-	  && fd != fileno (stdout)
-	  && fd != fileno (stderr))
-        close (fd);
-    }
-}
 
 /* Entry point.  */
 
@@ -383,9 +349,6 @@ main (int argc, char *argv[])
 {
   char **gcc_argv;
   int gcc_argc;
-
-  /* Clean up unneeded file descriptors. */
-  close_unneeded_fds ();
 
   /* We may be called with all the arguments stored in some file and
      passed with @file.  Expand them into argv before processing.  */
