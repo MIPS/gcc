@@ -1,9 +1,332 @@
+2009-03-19  Ozkan Sezer <sezeroz@gmail.com>
+
+	PR target/39063
+	* libgcc2.c (mprotect): Do not use signed arguments for
+	VirtualProtect, use DWORD arguments.  Also fix the 'may
+	be used uninitialized' warning for the np variable.
+
+2009-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39496
+	* config/i386/i386.c (ix86_function_regparm): Don't optimize local
+	functions using regparm calling conventions when not optimizing.
+	(ix86_function_sseregparm): Similarly for sseregparm calling
+	conventions.
+
+2009-03-19  Li Feng  <nemokingdom@gmail.com>
+
+	PR middle-end/39500
+	* tree-data-ref.c (analyze_subscript_affine_affine): There is no
+	dependence if the first conflict is after niter iterations.
+
+2009-03-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/38609
+	* config/cris/cris.h (FRAME_POINTER_REQUIRED): Force for all
+	functions with dynamic stack-pointer adjustments.
+
+2009-03-19  Ben Elliston  <bje@au.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Fix -msdata-data
+	option; change to -msdata=data.
+
+2009-03-18  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* c.opt: Unify help texts for -Wdeprecated, -Wsystem-headers,
+	and -fopenmp.
+
+2009-03-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/35180
+	* config/sparc/sparc.md (do_builtin_setjmp_setup): Prettify asm output.
+
+2009-03-18  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi (Code Gen Options): Expand discussion of
+	-fno-common.
+
+2009-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* dse.c (struct group_info): Reorder fields for 64-bit hosts.
+	* matrix-reorg.c (struct matrix_info): Likewise.
+	* tree-ssa-loop-ivopts.c (struct ivopts_data): Likewise.
+	* rtl.h (struct mem_attrs): Likewise.
+	* df.h (struct df): Likewise.
+	* tree-data-ref.h (struct data_dependence_relation): Likewise.
+	* ira-int.h (struct ira_allocno): Likewise.
+	* df-scan.c (struct df_collection_rec): Likewise.
+	* ira.c (struct equivalence): Likewise.
+	* function.c (struct temp_slot): Likewise.
+	* cfgloop.h (struct loop): Likewise.
+
+	PR debug/39485
+	* function.c (use_register_for_decl): When not optimizing, disregard
+	register keyword for variables with types containing methods.
+
+2009-03-18  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/39447
+	* graphite.c (exclude_component_ref): Renamed contains_component_ref_p.
+	(is_simple_operand): Call contains_component_ref_p before calling data
+	reference analysis that would fail on COMPONENT_REFs.
+
+	* tree-vrp.c (search_for_addr_array): Fix formatting.
+
+2009-03-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vect-transform.c (vect_loop_versioning): Fold the
+	generated comparisons.
+	* tree-vectorizer.c (set_prologue_iterations): Likewise.
+	(slpeel_tree_peel_loop_to_edge): Likewise.
+
+2009-03-17  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR middle-end/37805
+	* opts.c (print_specific_help): In addition to `undocumented',
+	accept `separate' and `joined' flags if passed alone.  Describe
+	output by the first matched one of those.
+	(common_handle_option): Skip over empty strings.
+	* gcc.c (display_help): Fix help string for `--help='.
+	* doc/invoke.texi (Option Summary, Overall Options): With
+	`--help=', classes and qualifiers can both be repeated, but
+	only the latter can be negated.  One should not pass only
+	negated qualifiers.  Fix markup and examples.
+
+	Revert
+	2008-10-14  Jakub Jelinek  <jakub@redhat.com>
+	PR middle-end/37805
+	* opts.c (common_handle_option): Don't ICE on -fhelp=joined
+	and -fhelp=separate.
+
+2009-03-17  Jing Yu  <jingyu@google.com>
+
+	PR middle-end/39378
+	* function.h (struct rtl_data): Move is_thunk from here...
+	(struct function): ...to here.
+	* cp/method.c (use_thunk): Change is_thunk from crtl to cfun.
+	* varasm.c (assemble_start_function): Change is_thunk from crtl to
+	cfun.
+	* config/alpha/alpha.c (alpha_sa_mask): Change is_thunk from crtl to
+	cfun.
+	(alpha_does_function_need_gp, alpha_start_function): Likewise.
+	(alpha_output_function_end_prologue): Likewise.
+	(alpha_end_function, alpha_output_mi_thunk_osf): Likewise.
+	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	* config/arm/arm.h (ARM_DECLARE_FUNCTION_NAME): Likewise.
+
+2009-03-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39482
+	* config/i386/i386.md (*truncdfsf_mixed): Avoid combining registers
+	from different units in a single alternative.
+	(*truncdfsf_i387): Ditto.
+	(*truncxfsf2_mixed): Ditto.
+	(*truncxfdf2_mixed): Ditto.
+
+2009-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf2out_imported_module_or_decl_1): Allow
+	non-NAMESPACE_DECL IMPORTED_DECL_ASSOCIATED_DECL.
+
+	PR debug/39474
+	* tree-ssa-live.c (remove_unused_locals): Don't remove local
+	unused non-artificial variables when not optimizing.
+
+	PR debug/39471
+	* dwarf2out.c (dwarf2out_imported_module_or_decl_1): Emit
+	DW_TAG_imported_module even if decl is IMPORTED_DECL with
+	NAMESPACE_DECL in its DECL_INITIAL.
+
+	PR middle-end/39443
+	* optabs.c (set_user_assembler_libfunc): New function.
+	* expr.h (set_user_assembler_libfunc): New prototype.
+	* c-common.c: Include libfuncs.h.
+	(set_builtin_user_assembler_name): Call set_user_assembler_libfunc
+	for memcmp, memset, memcpy, memmove and abort.
+	* Makefile.in (c-common.o): Depend on libfuncs.h.
+
+	PR debug/39412
+	* dwarf2out.c (gen_inlined_enumeration_type_die,
+	gen_inlined_structure_type_die, gen_inlined_union_type_die,
+	gen_tagged_type_instantiation_die): Removed.
+	(gen_decl_die): For TYPE_DECL_IS_STUB with non-NULL decl_origin
+	do nothing.
+
+2009-03-17  Janis Johnson  <janis187@us.ibm.com>
+
+	PR testsuite/38526
+	* Makefile.in (site.exp): Rename TEST_GCC_EXEC_PREFIX and comment
+	its use.
+	(check-%): Don't set GCC_EXEC_PREFIX when invoking runtest.
+	(check-parallel-%): Ditto.
+	(check-consistency): Ditto.
+
+2009-03-17  Kai Tietz  <kai.tietz@onevision.com>
+
+	* ipa-struct-reorg.c (create_general_new_stmt): Initialize
+	local variable rhs by NULL_TREE.
+
+2009-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39477
+	* doc/extend.texi: Correct register behavior for regparm on Intel 386.
+
+2009-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39476
+	* config/i386/i386.c (ix86_function_regparm): Rewrite for 64bit.
+
+2009-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39473
+	* config/i386/i386.c (ix86_expand_call): Check extra clobbers
+	for ms->sysv ABI calls only in 64bit mode.
+
+	* config/i386/i386.md (untyped_call): Support 32bit.
+
+2009-03-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/extend.texi: Replace x86_65 with x86_64.
+
+2009-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/39455
+	* tree-ssa-loop-niter.c (number_of_iterations_lt_to_ne): Fix types
+	mismatches for POINTER_TYPE_P (type).
+	(number_of_iterations_le): Likewise.
+
+2009-03-16  Hariharan Sandanagobalane <hariharan@picochip.com>
+
+	* config/picochip/picochip.c: Removed profiling support.
+	* config/picochip/picochip.md: Removed profiling instruction.
+	* config/picochip/picochip.h: Removed profiling builtin.
+
+2009-03-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/install.texi (--with-host-libstdcxx): Document.
+
+2009-03-14  Anatoly Sokolov  <aesok@post.ru>
+
+	PR target/34299
+	* config/avr/avr.c (avr_handle_fndecl_attribute): Move code for
+	generate a warning if the function name does not begin with
+	"__vector" and the function has either the 'signal' or 'interrupt'
+	attribute, from here to ...
+	(avr_declare_function_name): ...here. New function.
+	* config/avr/avr.h (ASM_DECLARE_FUNCTION_NAME): Redefine.
+	* config/avr/avr-protos.h (avr_declare_function_name): Declare.
+
+2009-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/39454
+	* cse.c (fold_rtx): Don't modify original const_arg1 when
+	canonicalizing SHIFT_COUNT_TRUNCATED shift count, do it on a
+	separate variable instead.
+	* rtlanal.c (nonzero_bits1) <case ASHIFTRT>: Don't assume anything
+	from out of range shift counts.
+	(num_sign_bit_copies1) <case ASHIFTRT, case ASHIFT>: Similarly.
+
+2008-03-13  Catherine Moore  <clm@codesourcery.com>
+
+	* gcc/config/i386/x-mingw32 (host-mingw32.o): Replace
+	diagnostic.h with $(DIAGNOSTIC_H).
+
+2008-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39431
+	* config/i386/predicates.md (cmpxchg8b_pic_memory_operand): New
+	predicate.
+	* config/i386/sync.md (sync_compare_and_swap<mode>,
+	sync_compare_and_swap_cc<mode>): For DImode with -m32 -fpic check
+	if operands[1] is cmpxchg8b_pic_memory_operand, if not force address
+	into a register.
+	(sync_double_compare_and_swapdi_pic,
+	sync_double_compare_and_swap_ccdi_pic): Require operand 1 to be
+	cmpxchg8b_pic_memory_operand instead of just memory_operand.
+
+2009-03-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39445
+	* config/i386/i386.c (ix86_expand_push): Don't set memory alignment.
+
+2009-03-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39327
+	* config/i386/sse.md (avx_addsubv8sf3): Correct item bits.
+	(avx_addsubv4df3): Likewise.
+	(*avx_addsubv4sf3): Likewise.
+	(sse3_addsubv4sf3): Likewise.
+
+2009-03-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/38824
+	* config/i386/i386.md: Compare REGNO on the new peephole2 patterns.
+
+2009-03-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR debug/39432
+	* ira-int.h (struct allocno): Fix comment for calls_crossed_num.
+	* ira-conflicts.c (ira_build_conflicts): Prohibit call used
+	registers for allocnos created from user-defined variables.
+
+2009-03-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR target/39181
+	* config/spu/spu.c (spu_expand_mov): Handle invalid subregs
+	of non-integer mode as well.
+
+2009-03-11  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gimplify.c (gimplify_call_expr): Don't set CALL_CANNOT_INLINE_P
+	for functions for which the parameter types are unknown.
+
+2009-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39137
+	* cfgexpand.c (get_decl_align_unit): Use LOCAL_DECL_ALIGNMENT macro.
+	* defaults.h (LOCAL_DECL_ALIGNMENT): Define if not yet defined.
+	* config/i386/i386.h (LOCAL_DECL_ALIGNMENT): Define.
+	* config/i386/i386.c (ix86_local_alignment): For
+	-m32 -mpreferred-stack-boundary=2 use 32-bit alignment for
+	long long variables on the stack to avoid dynamic realignment.
+	Allow the first argument to be a decl rather than type.
+	* doc/tm.texi (LOCAL_DECL_ALIGNMENT): Document.
+
+2009-03-11  Nick Clifton  <nickc@redhat.com>
+
+	PR target/5362
+	* config/mcore/mcore.opt: Remove deprecated m4align and m8align
+	options.
+	Add description to mno-lsim option.
+	* config/mcore/mcore.h: Remove comment about deprecated m4align
+	option.
+	(TARGET_DEFAULT): Remove deprecated MASK_M8ALIGN.
+	* doc/invoke.texi: Add description of mno-lsim and
+	mstack-increment options.
+
+	* config/fr30/fr30.opt: Document the -mno-lsim option.
+	* doc/invoke.texi: Add descriptions of the FR30's -msmall-model
+	and -mno-lsim options.
+
+2009-03-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* fold-const.c (fold_comparison): Only call fold_inf_compare
+	if the mode supports infinities.
+
+2009-03-11  Jason Merrill  <jason@redhat.com>
+
+	PR debug/39086
+	* tree-nrv.c (tree_nrv): Don't do this optimization if the front
+	end already did.  Notice GIMPLE_CALL modifications of the result.
+	Don't copy debug information from an ignored decl or a decl from
+	another function.
+
 2009-03-10  Richard Guenther  <rguenther@suse.de>
 	    Nathan Froyd  <froydnj@codesourcery.com>
 
 	PR middle-end/37850
-	* libgcc2.c (__mulMODE3): Use explicit assignments to form the
-	result.
+	* libgcc2.c (__mulMODE3): Use explicit assignments to form the result.
 	(__divMODE3): Likewise.
 
 2009-03-09  Jakub Jelinek  <jakub@redhat.com>
@@ -45,8 +368,7 @@
 	of referenced_var_check_and_insert.
 
 	PR debug/39372
-	* dwarf2out.c (add_abstract_origin_attribute): Return
-	origin_die.
+	* dwarf2out.c (add_abstract_origin_attribute): Return origin_die.
 	(gen_variable_die): Emit DW_AT_location on abstract static variable's
 	DIE, don't emit it if abstract origin already has it.
 	* tree-cfg.c (remove_useless_stmts_bind): GIMPLE_BINDs with any
@@ -277,8 +599,7 @@
 2009-03-01  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* optc-gen.awk: No need to duplicate option flags twice.
-	Reuse help texts for duplicate options which do not have
-	any.
+	Reuse help texts for duplicate options which do not have any.
 
 	* gcc.c (display_help): Document --version.
 

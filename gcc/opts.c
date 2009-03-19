@@ -1397,7 +1397,7 @@ print_specific_help (unsigned int include_flags,
 	default:
 	  if (i >= cl_lang_count)
 	    break;
-	  if ((exclude_flags & ((1U << cl_lang_count) - 1)) != 0)
+	  if (exclude_flags & all_langs_mask)
 	    description = _("The following options are specific to just the language ");
 	  else
 	    description = _("The following options are supported by the language ");
@@ -1410,8 +1410,12 @@ print_specific_help (unsigned int include_flags,
     {
       if (any_flags == 0)
 	{
-	  if (include_flags == CL_UNDOCUMENTED)
+	  if (include_flags & CL_UNDOCUMENTED)
 	    description = _("The following options are not documented");
+	  else if (include_flags & CL_SEPARATE)
+	    description = _("The following options take separate arguments");
+	  else if (include_flags & CL_JOINED)
+	    description = _("The following options take joined arguments");
 	  else
 	    {
 	      internal_error ("unrecognized include_flags 0x%x passed to print_specific_help",
@@ -1516,6 +1520,8 @@ common_handle_option (size_t scode, const char *arg, int value,
 	      { "warnings", CL_WARNING },
 	      { "undocumented", CL_UNDOCUMENTED },
 	      { "params", CL_PARAMS },
+	      { "joined", CL_JOINED },
+	      { "separate", CL_SEPARATE },
 	      { "common", CL_COMMON },
 	      { NULL, 0 }
 	    };
@@ -1538,6 +1544,11 @@ common_handle_option (size_t scode, const char *arg, int value,
 	      len = strlen (a);
 	    else
 	      len = comma - a;
+	    if (len == 0)
+	      {
+		a = comma + 1;
+		continue;
+	      }
 
 	    /* Check to see if the string matches an option class name.  */
 	    for (i = 0, specific_flag = 0; specifics[i].string != NULL; i++)
@@ -1546,7 +1557,7 @@ common_handle_option (size_t scode, const char *arg, int value,
 		  specific_flag = specifics[i].flag;
 		  break;
 		}
-	    
+
 	    /* Check to see if the string matches a language name.
 	       Note - we rely upon the alpha-sorted nature of the entries in
 	       the lang_names array, specifically that shorter names appear

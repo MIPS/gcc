@@ -1,3 +1,7 @@
+2009-03-19  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline.
+
 2009-03-15  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (cgraph_make_node_local): Weak functions needs localizing
