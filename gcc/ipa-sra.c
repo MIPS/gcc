@@ -2627,10 +2627,7 @@ ipa_early_sra (void)
   VEC (new_parm_note_t, heap) *notes;
   int ret = 0;
 
-  /* DECL_WEAK test is required because otherwise we might get $symbolis
-     already defined assembler messages (as we e.g. get for libgomp
-     collapse-2.exe test case (at -O1).  */
-  if (!cgraph_node_can_be_local_p (node) || DECL_WEAK (current_function_decl))
+  if (!cgraph_node_can_be_local_p (node))
     {
       if (dump_file)
 	fprintf (dump_file, "Function not local to this compilation unit.\n");
