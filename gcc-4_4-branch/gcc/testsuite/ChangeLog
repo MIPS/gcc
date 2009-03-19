@@ -1,3 +1,53 @@
+2009-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39495
+	* gcc.dg/gomp/pr39495-1.c: New test.
+	* gcc.dg/gomp/pr39495-2.c: New test.
+	* g++.dg/gomp/pr39495-1.C: New test.
+	* g++.dg/gomp/pr39495-2.C: New test.
+
+	PR target/39496
+	* gcc.target/i386/pr39496.c: New test.
+	* g++.dg/other/pr39496.C: New test.
+
+2009-03-19  Li Feng  <nemokingdom@gmail.com>
+
+	PR middle-end/39500
+	* gcc.dg/autopar/pr39500-1.c: New.
+	* gcc.dg/autopar/pr39500-2.c: New.
+
+2009-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/dg.exp: Prune graphite.
+
+2009-03-18  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/39447
+	* g++.dg/graphite: New.
+	* g++.dg/graphite/graphite.exp: New.
+	* g++.dg/graphite/pr39447.C: New.
+
+2009-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39425
+	* g++.dg/template/pr39425.C: New.
+
+	* g++.dg/template/spec33.C: Updated.
+
+2009-03-17  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/auto6.C, auto12.C: Update mangling.
+
+2009-03-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/39475
+	* g++.dg/ext/unary_trait_incomplete.C: New.
+
+2009-03-17  Jing Yu  <jingyu@google.com>
+
+	PR middle-end/39378
+	* g++.dg/inherit/thunk10.C: New test.
+
 2009-03-17  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/39482
