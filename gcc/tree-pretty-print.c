@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "fixed-value.h"
 #include "value-prof.h"
 #include "predict.h"
+#include "debuglocus.h"
 
 /* Local functions, macros and variables.  */
 static const char *op_symbol (const_tree);
@@ -455,6 +456,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  pp_string (buffer, " : ");
 	}
       pp_decimal_int (buffer, xloc.line);
+      if (xloc.debuglocus != DEBUGLOCUS_NONE)
+	pp_character (buffer, '*');
       pp_string (buffer, "] ");
     }
 

@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "gimple.h"
 #include "value-prof.h"
+#include "debuglocus.h"
 
 #define INDENT(SPACE)							\
   do { int i; for (i = 0; i < SPACE; i++) pp_space (buffer); } while (0)
@@ -1194,6 +1195,8 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
 	      pp_string (buffer, " : ");
 	    }
 	  pp_decimal_int (buffer, xloc.line);
+	  if (xloc.debuglocus != DEBUGLOCUS_NONE)
+	    pp_character (buffer, '*');
 	  pp_string (buffer, "] ");
 	}
       if (i < gimple_phi_num_args (phi) - 1)
@@ -1495,6 +1498,8 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 	  pp_string (buffer, " : ");
 	}
       pp_decimal_int (buffer, xloc.line);
+      if (xloc.debuglocus != DEBUGLOCUS_NONE)
+	pp_character (buffer, '*');
       pp_string (buffer, "] ");
     }
 
@@ -1844,6 +1849,8 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 	      pp_string (buffer, " : ");
 	    }
 	  pp_decimal_int (buffer, goto_xloc.line);
+	  if (goto_xloc.debuglocus != DEBUGLOCUS_NONE)
+	    pp_character (buffer, '*');
 	  pp_string (buffer, "] ");
 	}
 

@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
+#include "debuglocus.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -455,6 +456,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       xloc = expand_location (DECL_SOURCE_LOCATION (node));
       fprintf (file, " file %s line %d col %d", xloc.file, xloc.line,
 	       xloc.column);
+      if (xloc.debuglocus != DEBUGLOCUS_NONE)
+        fprintf (file, "* ");
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{	  

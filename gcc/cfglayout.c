@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "vecprim.h"
+#include "debuglocus.h"
 
 /* Holds the interesting trailing notes for the function.  */
 rtx cfg_layout_function_footer;
@@ -555,6 +556,23 @@ const char *
 insn_file (const_rtx insn)
 {
   return locator_file (INSN_LOCATOR (insn));
+}
+
+/* Return the debuglocus associated with INSN, else return NULL.  */
+struct debuglocus_entry_d *
+insn_debuglocus (const_rtx insn)
+{
+  int loc = INSN_LOCATOR (insn);
+  debuglocus_p ptr = NULL;
+
+  if (loc)
+    {
+      expanded_location xloc;
+      xloc = expand_location (locator_location (loc));
+      if (xloc.debuglocus != DEBUGLOCUS_NONE)
+        ptr = GET_DEBUGLOCUS (xloc.debuglocus);
+    }
+  return ptr;
 }
 
 /* Return true if LOC1 and LOC2 locators have the same location and scope.  */

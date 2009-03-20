@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "pointer-set.h"
 #include "fixed-value.h"
+#include "debuglocus.h"
 
 /* Tree code classes.  */
 
@@ -3565,10 +3566,20 @@ expand_location (source_location loc)
       xloc.line = 0;
       xloc.column = 0;
       xloc.sysp = 0;
+      xloc.debuglocus = DEBUGLOCUS_NONE;
     }
   else
     {
-      const struct line_map *map = linemap_lookup (line_table, loc);
+      const struct line_map *map;
+      /* Look through a debuglocus.  */
+      if (IS_DEBUGLOCUS_P (loc))
+        {
+	  loc = GET_LOCUS_FROM_DEBUGLOCUS (loc);
+	  xloc.debuglocus = DEBUGLOCUS_INDEX (loc);
+	}
+      else
+        xloc.debuglocus = DEBUGLOCUS_NONE;
+      map = linemap_lookup (line_table, loc);
       xloc.file = map->to_file;
       xloc.line = SOURCE_LINE (map, loc);
       xloc.column = SOURCE_COLUMN (map, loc);

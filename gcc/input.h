@@ -44,6 +44,9 @@ typedef struct GTY (())
 
   /* In a system header?. */
   bool sysp;
+
+  /* If this is a debuglocus, set to index, otherwise  DEBUGLOCUS_NONE.  */
+  source_location debuglocus;
 } expanded_location;
 
 extern expanded_location expand_location (source_location);

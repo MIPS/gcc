@@ -1,3 +1,34 @@
+2009-03-20  Andrew MacLeod  <amacleod@redhat.com>
+
+	* debuglocus.c: New file.
+	(init_debuglocus_table): Create and initialize a debuglocus table.
+	(create_debuglocus_table): Create a debugtable for the current func.
+	(destroy_debuglocus_table): Delete a debugtable fro the current func.
+	(get_debuglocus_entry): Get an entry from a debuglocus table.
+	(get_debuglocus): Get an entry from the current function's table.
+	(new_debuglocus_entry): Create a new entry in a table.
+	(create_debuglocus_entry): Create a new entry in cfun's table.
+	(create_duplicate_debuglocus): Do a deep copy of a debuglocus.
+	* debuglocus.h: New file.
+	(struct debuglocus_entry_d): Debuglocus table entry.
+	(struct debuglocus_table_d): Debuglocus table.
+	(copy_debuglocus): Copy a source locus entrypoint.
+	(debuglocus_lookup_locus): Get a locus from a debuglocus.
+	* tree-pretty-print.c (dump_generic_node): Add '*' when debuglocus is
+	present.
+	* tree.c (expand_location): Fill in debuglocus field.
+	* tree.h (COPY_EXPR_LOCATION, COPY_EXPR_LOCUS): Deep copy of source
+	location field if debuglocus is present.
+	* input.h (expanded_location): Add debuglocus index.
+	* gimple-pretty-print.c (dump_gimple_phi, dump_gimple_stmt,
+	dump_implicit_edges): Print '*' if debuglocus is present.
+	* function.h (struct function): Add debuglocus_table to function.
+	* print-rtl.c (print_rtx): Print '*' if insn has a debuglocus.
+	* print-tree.c (print_node): Print '*' if insn has a debuglocus.
+	* cfglayout.c (insn_debuglocus): New. Return debuglocus for insn.
+	* rtl.h (insn_debuglocus): extern decl.
+	* Makefile.in: Add debuglocus.o and debuglocus.h dependancies.
+
 2009-03-19  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree.h (struct phi_arg_d): Add location field.

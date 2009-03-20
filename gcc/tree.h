@@ -1565,11 +1565,19 @@ struct tree_constructor GTY(())
    return nothing.  */
 #define EXPR_LOCATION(NODE) (EXPR_P ((NODE)) ? (NODE)->exp.locus : UNKNOWN_LOCATION)
 #define SET_EXPR_LOCATION(NODE, LOCUS) EXPR_CHECK ((NODE))->exp.locus = (LOCUS)
+/* COPY_EXPR_LOCATION duplicates any debuglocus that may be present. */
+#define COPY_EXPR_LOCATION(NODE, LOCUS) \
+			  SET_EXPR_LOCATION (((NODE), copy_debuglocus (LOCUS))
 #define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
 #define EXPR_LOCUS(NODE) (EXPR_P (NODE) \
 			  ? CONST_CAST (source_location *, &(NODE)->exp.locus) \
 			  : (source_location *) NULL)
 #define SET_EXPR_LOCUS(NODE, FROM) set_expr_locus ((NODE), (FROM))
+/* COPY_EXPR_LOCUS duplicates any debuglocus that may be present. */
+#define COPY_EXPR_LOCUS(NODE, FROM) 					       \
+			    set_expr_locus ((NODE), 			       \
+					    (FROM) ? copy_debuglocus (*(FROM)) \
+						   : (FROM))
 #define EXPR_FILENAME(NODE) LOCATION_FILE (EXPR_CHECK ((NODE))->exp.locus)
 #define EXPR_LINENO(NODE) LOCATION_LINE (EXPR_CHECK (NODE)->exp.locus)
 
