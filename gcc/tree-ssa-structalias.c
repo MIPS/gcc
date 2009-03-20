@@ -4613,66 +4613,19 @@ shared_bitmap_add (bitmap pt_vars)
 }
 
 
-/* Helper for set_uids_in_ptset to do TBAA pruning of points-to sets.
-   Return TRUE if pointer PTR may point to variable VAR.
-   
-   MEM_ALIAS_SET is the alias set for the memory location pointed-to by PTR
-	This is needed because when checking for type conflicts we are
-	interested in the alias set of the memory location pointed-to by
-	PTR.  The alias set of PTR itself is irrelevant.
-   
-   VAR_ALIAS_SET is the alias set for VAR.  */
-
-static bool
-may_alias_p (tree ptr, alias_set_type mem_alias_set,
-	     tree var, alias_set_type var_alias_set)
-{
-  /* If -fargument-noalias-global is > 2, pointer arguments may
-     not point to anything else.  */
-  if (flag_argument_noalias > 2 && TREE_CODE (ptr) == PARM_DECL)
-    return false;
-
-  /* If -fargument-noalias-global is > 1, pointer arguments may
-     not point to global variables.  */
-  if (flag_argument_noalias > 1 && is_global_var (var)
-      && TREE_CODE (ptr) == PARM_DECL)
-    return false;
-
-  /* If the pointed to memory has alias set zero, or the pointer
-     is ref-all, or the pointer decl is marked that no TBAA is to
-     be applied, the MEM can alias VAR.  */
-  if (mem_alias_set == 0
-      || DECL_POINTER_ALIAS_SET (ptr) == 0
-      || TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (ptr))
-      || DECL_NO_TBAA_P (ptr))
-    return true;
-
-  /* If the alias sets don't conflict then MEM cannot alias VAR.  */
-  if (mem_alias_set != var_alias_set
-      && !alias_set_subset_of (mem_alias_set, var_alias_set))
-    return false;
-
-  return true;
-}
-
-/* Set bits in INTO corresponding to the variable uids in solution set
-   FROM, which came from variable PTR.
-   For variables that are actually dereferenced, we also use type
-   based alias analysis to prune the points-to sets.
-   IS_DEREFED is true if PTR was directly dereferenced, which we use to
-   help determine whether we are we are allowed to prune using TBAA.
-   If NO_TBAA_PRUNING is true, we do not perform any TBAA pruning of
-   the from set.  Returns the number of pruned variables.  */
+/* Set bits in INTO corresponding to the variable uids in solution set FROM.
+   If MEM_ALIAS_SET is not zero, we also use type based alias analysis to
+   prune the points-to sets with this alias-set.
+   Returns the number of pruned variables and updates the vars_contains_global
+   member of *PT .  */
 
 static unsigned
-set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
-		   struct pt_solution *pt, bool do_tbaa_pruning)
+set_uids_in_ptset (bitmap into, bitmap from,
+		   alias_set_type mem_alias_set, struct pt_solution *pt)
 {
   unsigned int i;
   bitmap_iterator bi;
   unsigned pruned = 0;
-
-  gcc_assert (POINTER_TYPE_P (TREE_TYPE (ptr)));
 
   EXECUTE_IF_SET_IN_BITMAP (from, 0, i, bi)
     {
@@ -4692,13 +4645,11 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from,
 	     type-based pruning disabled.  */
 	  if (!vi->is_artificial_var
 	      && !vi->no_tbaa_pruning
-	      && do_tbaa_pruning)
+	      && mem_alias_set != 0)
 	    {
-	      alias_set_type var_alias_set, mem_alias_set;
-	      var_alias_set = get_alias_set (vi->decl);
-	      mem_alias_set = get_deref_alias_set (ptr);
-	      if (!may_alias_p (ptr, mem_alias_set,
-				vi->decl, var_alias_set))
+	      alias_set_type var_alias_set = get_alias_set (vi->decl);
+	      if (mem_alias_set != var_alias_set
+		  && !alias_set_subset_of (mem_alias_set, var_alias_set))
 		{
 		  ++pruned;
 		  continue;
@@ -4818,6 +4769,7 @@ find_what_var_points_to (varinfo_t vi, struct pt_solution *pt,
   bitmap finished_solution;
   bitmap result;
   tree ptr = vi->decl;
+  alias_set_type mem_alias_set;
 
   memset (pt, 0, sizeof (struct pt_solution));
 
@@ -4862,8 +4814,16 @@ find_what_var_points_to (varinfo_t vi, struct pt_solution *pt,
 
   if (TREE_CODE (ptr) == SSA_NAME)
     ptr = SSA_NAME_VAR (ptr);
-  pruned = set_uids_in_ptset (ptr, finished_solution, vi->solution,
-			      pt, do_tbaa_pruning && !vi->no_tbaa_pruning);
+
+  /* If the pointer decl is marked that no TBAA is to be applied,
+     do not do tbaa pruning.  */
+  if (!do_tbaa_pruning
+      || DECL_NO_TBAA_P (ptr))
+    mem_alias_set = 0;
+  else
+    mem_alias_set = get_deref_alias_set (ptr);
+  pruned = set_uids_in_ptset (finished_solution, vi->solution,
+			      mem_alias_set, pt);
   result = shared_bitmap_lookup (finished_solution);
   if (!result)
     {
