@@ -936,6 +936,7 @@ decode_options (unsigned int argc, const char **argv)
   flag_tree_pre = opt2;
   flag_tree_switch_conversion = 1;
   flag_ipa_cp = opt2;
+  flag_early_ipa_sra = opt2;
 
   /* Allow more virtual operators to increase alias precision.  */
 
@@ -958,7 +959,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_gcse_after_reload = opt3;
   flag_tree_vectorize = opt3;
   flag_ipa_cp_clone = opt3;
-  flag_early_ipa_sra = opt3;
   if (flag_ipa_cp_clone)
     flag_ipa_cp = 1;
 

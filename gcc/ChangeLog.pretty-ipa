@@ -1,5 +1,9 @@
 2009-03-19  Jan Hubicka  <jh@suse.cz>
 
+	* opts.c (decode_options): Enable ipa-sra at -O2.
+
+2009-03-19  Jan Hubicka  <jh@suse.cz>
+
 	* Merge from mainline.
 
 2009-03-15  Jan Hubicka  <jh@suse.cz>
