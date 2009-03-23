@@ -385,9 +385,6 @@ dump_points_to_info_for (FILE *file, tree ptr)
 
   if (pi)
     {
-      if (pi->is_dereferenced)
-	fprintf (file, ", is dereferenced");
-
       if (pi->pt.anything)
 	fprintf (file, ", points-to anything");
 

@@ -22,5 +22,5 @@ foo(int i, int j, int k, int off)
   return *q;
 }
 
-/* { dg-final { scan-tree-dump "q_., is dereferenced, points-to vars: { i }" "alias" } } */
+/* { dg-final { scan-tree-dump "q_., points-to vars: { i }" "alias" } } */
 /* { dg-final { cleanup-tree-dump "alias" } } */

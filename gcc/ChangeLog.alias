@@ -1,3 +1,23 @@
+2009-03-23  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (struct ptr_info_def): Remove is_dereferenced member.
+	* tree-ssa-alias.c (dump_points_to_info_for): Do not dump it.
+	* tree-ssa-structalias.c (find_what_var_points_to): Adjust
+	comment.  Take is_dereferenced parameter.
+	(compute_points_to_sets): Compute whether a ptr is dereferenced
+	in a local sbitmap.
+
+	testsuite/
+	* gcc.dg/torture/pr39074-2.c: Adjust.
+	* gcc.dg/torture/pta-callused-1.c: Likewise.
+	* gcc.dg/torture/pta-ptrarith-3.c: Likewise.
+	* gcc.dg/torture/pta-structcopy-1.c: Likewise.
+	* gcc.dg/torture/ssa-pta-fn-1.c: Likewise.
+	* gcc.dg/tree-ssa/alias-19.c: Likewise.
+	* gcc.dg/tree-ssa/pta-ptrarith-1.c: Likewise.
+	* gcc.dg/tree-ssa/pta-ptrarith-2.c: Likewise.
+	* gcc.dg/torture/pr39074.c: Likewise.
+
 2009-03-20  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/39506

@@ -4839,19 +4839,11 @@ find_what_var_points_to (varinfo_t vi, struct pt_solution *pt,
   return pruned;
 }
 
-/* Given a pointer variable P, fill in its points-to set, or return
-   false if we can't.
-   Rather than return false for variables that point-to anything, we
-   instead find the corresponding SMT, and merge in its aliases.  In
-   addition to these aliases, we also set the bits for the SMT's
-   themselves and their subsets, as SMT's are still in use by
-   non-SSA_NAME's, and pruning may eliminate every one of their
-   aliases.  In such a case, if we did not include the right set of
-   SMT's in the points-to set of the variable, we'd end up with
-   statements that do not conflict but should.  */
+/* Given a pointer variable P, fill in its points-to set.  Apply
+   type-based pruning if IS_DEREFERENCED is true.  */
 
 static void
-find_what_p_points_to (tree p)
+find_what_p_points_to (tree p, bool is_dereferenced)
 {
   struct ptr_info_def *pi;
   unsigned int pruned;
@@ -4870,12 +4862,12 @@ find_what_p_points_to (tree p)
     return;
 
   pi = get_ptr_info (p);
-  pruned = find_what_var_points_to (vi, &pi->pt, pi->is_dereferenced);
+  pruned = find_what_var_points_to (vi, &pi->pt, is_dereferenced);
 
   if (!(pi->pt.anything || pi->pt.nonlocal || pi->pt.escaped)
       && bitmap_empty_p (pi->pt.vars)
       && pruned > 0
-      && pi->is_dereferenced
+      && is_dereferenced
       && warn_strict_aliasing > 0
       && !SSA_NAME_IS_DEFAULT_DEF (p))
     {
@@ -5527,6 +5519,7 @@ compute_points_to_sets (void)
   struct scc_info *si;
   basic_block bb;
   unsigned i;
+  sbitmap dereferenced_ptrs;
 
   timevar_push (TV_TREE_PTA);
 
@@ -5535,17 +5528,10 @@ compute_points_to_sets (void)
 
   intra_create_variable_infos ();
 
-  /* Reset the is_dereferenced flag for all SSA_NAME pointers as we
-     re-compute that in the following.  In theory this information
-     never becomes incorrect semantically, but better play safe.  */
-  for (i = 1; i < num_ssa_names; i++)
-    {
-      tree name = ssa_name (i);
-      if (name
-	  && POINTER_TYPE_P (TREE_TYPE (name))
-	  && SSA_NAME_PTR_INFO (name))
-	SSA_NAME_PTR_INFO (name)->is_dereferenced = 0;
-    }
+  /* A bitmap of SSA_NAME pointers that are dereferenced.  This is
+     used to track which points-to sets may be TBAA pruned.  */
+  dereferenced_ptrs = sbitmap_alloc (num_ssa_names);
+  sbitmap_zero (dereferenced_ptrs);
 
   /* Now walk all statements and derive aliases.  */
   FOR_EACH_BB (bb)
@@ -5571,19 +5557,16 @@ compute_points_to_sets (void)
 	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	    {
 	      unsigned num_uses, num_loads, num_stores;
-	      struct ptr_info_def *pi;
 	      tree op = USE_FROM_PTR (use_p);
 
 	      if (!POINTER_TYPE_P (TREE_TYPE (op)))
 		continue;
 
-	      pi = get_ptr_info (op);
-
 	      /* Determine whether OP is a dereferenced pointer.  */
 	      count_uses_and_derefs (op, stmt,
 				     &num_uses, &num_loads, &num_stores);
 	      if (num_loads + num_stores > 0)
-		pi->is_dereferenced = 1;
+		SET_BIT (dereferenced_ptrs, SSA_NAME_VERSION (op));
 	    }
 
 	  find_func_aliases (stmt);
@@ -5649,15 +5632,6 @@ compute_points_to_sets (void)
   if (dump_file)
     dump_sa_points_to_info (dump_file);
 
-  /* Compute the points-to sets for pointer SSA_NAMEs.  */
-  for (i = 0; i < num_ssa_names; ++i)
-    {
-      tree ptr = ssa_name (i);
-      if (ptr
-	  && POINTER_TYPE_P (TREE_TYPE (ptr)))
-	find_what_p_points_to (ptr);
-    }
-
   /* Compute the points-to sets for ESCAPED and CALLUSED used for
      call-clobber analysis.  */
   find_what_var_points_to (var_escaped, &cfun->gimple_df->escaped, false);
@@ -5667,6 +5641,16 @@ compute_points_to_sets (void)
      other solutions) does not reference itself.  This simplifies
      points-to solution queries.  */
   cfun->gimple_df->escaped.escaped = 0;
+
+  /* Compute the points-to sets for pointer SSA_NAMEs.  */
+  for (i = 0; i < num_ssa_names; ++i)
+    {
+      tree ptr = ssa_name (i);
+      if (ptr
+	  && POINTER_TYPE_P (TREE_TYPE (ptr)))
+	find_what_p_points_to (ptr, TEST_BIT (dereferenced_ptrs, i));
+    }
+  sbitmap_free (dereferenced_ptrs);
 
   timevar_pop (TV_TREE_PTA);
 

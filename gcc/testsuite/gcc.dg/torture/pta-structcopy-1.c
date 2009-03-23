@@ -30,5 +30,5 @@ int main()
   return 0;
 }
 
-/* { dg-final { scan-tree-dump "is dereferenced, points-to vars: { i }" "alias" } } */
+/* { dg-final { scan-tree-dump "points-to vars: { i }" "alias" } } */
 /* { dg-final { cleanup-tree-dump "alias" } } */
