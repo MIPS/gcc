@@ -1,3 +1,9 @@
+2009-03-23  Andrew MacLeod  <amacleod@redhat.com>
+
+	* include/line-map.h (DEBUGLOCUS_BIT): Declare.
+	* line-map.c (linemap_line_start, linemap_position_for_column): Cut off
+	column support earlier.
+
 2009-02-21  Joseph Myers  <joseph@codesourcery.com>
 
 	* lex.c (lex_string): Return a CPP_LESS token for missing '>' in a

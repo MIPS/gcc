@@ -24,6 +24,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "system.h"
 #include "line-map.h"
 
+#define COLUMN_CUTOFF	0xB0000000
 static void trace_include (const struct line_maps *, const struct line_map *);
 
 /* Initialize a line map set.  */
@@ -203,12 +204,13 @@ linemap_line_start (struct line_maps *set, linenum_type to_line,
   if (add_map)
     {
       int column_bits;
-      if (max_column_hint > 100000 || highest > 0xC0000000)
+      if (max_column_hint > 100000 || highest > COLUMN_CUTOFF)
 	{
 	  /* If the column number is ridiculous or we've allocated a huge
 	     number of source_locations, give up on column numbers. */
 	  max_column_hint = 0;
-	  if (highest >0xF0000000)
+	  /* Arbitrary value to try to prevent overflows.  */
+	  if (highest >= DEBUGLOCUS_BIT - 0xFFFF)
 	    return 0;
 	  column_bits = 0;
 	}
@@ -245,7 +247,7 @@ linemap_position_for_column (struct line_maps *set, unsigned int to_column)
   source_location r = set->highest_line;
   if (to_column >= set->max_column_hint)
     {
-      if (r >= 0xC000000 || to_column > 100000)
+      if (r >= COLUMN_CUTOFF || to_column > 100000)
 	{
 	  /* Running low on source_locations - disable column numbers.  */
 	  return r;

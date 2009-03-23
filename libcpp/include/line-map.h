@@ -42,6 +42,10 @@ typedef unsigned int linenum_type;
    and effectively typedef source_location location_t.  */
 typedef unsigned int source_location;
 
+/* The top bit is hijacked to indicate that its a debug location rather than
+   a source location.  */
+#define DEBUGLOCUS_BIT	0x80000000
+
 /* Memory allocation function typedef.  Works like xrealloc.  */
 typedef void *(*line_map_realloc) (void *, size_t);
 
