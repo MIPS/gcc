@@ -1,3 +1,60 @@
+2009-03-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/linux.h (CRIS_LINK_SUBTARGET_SPEC):
+	Translate -B-options to -rpath-link.  Correct existing
+	rpath-link and conditionalize on !nostdlib.
+
+2009-03-22  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/extend.texi (Function Attributes, Variable Attributes):
+	Fix typos.
+	* doc/invoke.texi (Debugging Options, Optimize Options)
+	(i386 and x86-64 Options, MCore Options): Likewise.
+
+2009-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37890
+	* dwarf2out.c (gen_namespace_die): Add context_die argument and use
+	it for block local namespace aliases.
+	(gen_decl_die): Pass context_die to gen_namespace_die.
+
+2009-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39495
+	* c-omp.c (c_finish_omp_for): Allow NE_EXPR with TREE_TYPE (decl)'s
+	minimum or maximum value.
+
+2009-03-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reginfo.c (globalize_reg): Recompute derived reg sets.
+
+2009-03-19  Ozkan Sezer <sezeroz@gmail.com>
+
+	PR target/39063
+	* libgcc2.c (mprotect): Do not use signed arguments for
+	VirtualProtect, use DWORD arguments.  Also fix the 'may
+	be used uninitialized' warning for the np variable.
+
+2009-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39496
+	* config/i386/i386.c (ix86_function_regparm): Don't optimize local
+	functions using regparm calling conventions when not optimizing.
+	(ix86_function_sseregparm): Similarly for sseregparm calling
+	conventions.
+
+2009-03-19  Li Feng  <nemokingdom@gmail.com>
+
+	PR middle-end/39500
+	* tree-data-ref.c (analyze_subscript_affine_affine): There is no
+	dependence if the first conflict is after niter iterations.
+
+2009-03-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/38609
+	* config/cris/cris.h (FRAME_POINTER_REQUIRED): Force for all
+	functions with dynamic stack-pointer adjustments.
+
 2009-03-19  Ben Elliston  <bje@au.ibm.com>
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Fix -msdata-data

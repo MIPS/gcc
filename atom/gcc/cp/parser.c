@@ -13267,6 +13267,13 @@ cp_parser_direct_declarator (cp_parser* parser,
 						 &non_constant_p);
 	      if (!non_constant_p)
 		bounds = fold_non_dependent_expr (bounds);
+	      else if (processing_template_decl)
+		{
+		  /* Remember this wasn't a constant-expression.  */
+		  bounds = build_nop (TREE_TYPE (bounds), bounds);
+		  TREE_SIDE_EFFECTS (bounds) = 1;
+		}
+
 	      /* Normally, the array bound must be an integral constant
 		 expression.  However, as an extension, we allow VLAs
 		 in function scopes.  */
@@ -21012,7 +21019,7 @@ cp_parser_omp_for_cond (cp_parser *parser, tree decl)
   enum tree_code op;
   cp_token *token;
 
-  if (lhs != decl)
+  if (decl && lhs != decl)
     {
       cp_parser_skip_to_end_of_statement (parser);
       return error_mark_node;
@@ -21414,16 +21421,7 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 
       cond = NULL;
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
-	{
-	  /* If decl is an iterator, preserve LHS and RHS of the relational
-	     expr until finish_omp_for.  */
-	  if (decl
-	      && (type_dependent_expression_p (decl)
-		  || CLASS_TYPE_P (TREE_TYPE (decl))))
-	    cond = cp_parser_omp_for_cond (parser, decl);
-	  else
-	    cond = cp_parser_condition (parser);
-	}
+	cond = cp_parser_omp_for_cond (parser, decl);
       cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 
       incr = NULL;
