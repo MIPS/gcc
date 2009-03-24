@@ -49,14 +49,14 @@ along with GCC; see the file COPYING3.  If not see
       is removed from the bitmap.
 
    3. The pass sorts all accesses for a particular parameter and searches for
-      any overlaps (a pair of accesses which both cover a part of an agregate
+      any overlaps (a pair of accesses which both cover a part of an aggregate
       but at least one also covers a part not covered by the other).  If there
       are any, the parameter is also disqualified.  Otherwise, the pass finds a
       representative access for each combination of offset and size and creates
       a linked list out of these representatives.  In IPA-SRA, accesses are not
       organized into trees since no overlaps are allowed anyway.  If there are
-      any representatives of params which are passed by reference but which are
-      not written to, the optimization walks the function again, trying to
+      any representatives of parameters which are passed by reference but which
+      are not written to, the optimization walks the function again, trying to
       prove that no side effects can modified these accesses and that
       associated parameters are always dereferenced when the function is run.
       Then decisions are made as to what parameters are to be split into what
@@ -141,7 +141,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "ipa-utils.h"
 
-/* Enumeartion of all aggregate reductions we can do.  */
+/* Enumeration of all aggregate reductions we can do.  */
 enum sra_mode {SRA_MODE_EARLY_IPA,
 	       SRA_MODE_EARLY_INTRA,
 	       SRA_MODE_INTRA};
@@ -208,10 +208,10 @@ struct access
   unsigned always_safe : 1;
 
   /* Does this group contain a write access?  This flag is propagated down the
-     acess tree.  */
+     access tree.  */
   unsigned grp_write : 1;
   /* Does this group contain a read access?  This flag is propagated down the
-     acess tree.  */
+     access tree.  */
   unsigned grp_read : 1;
   /* Is the subtree rooted in this access fully covered by scalar
      replacements?  */
@@ -848,7 +848,7 @@ sra_deinitialize (void)
   pointer_map_destroy (base_access_vec);
 }
 
-/* Return true iff the type contains a field or element type which dpoes not
+/* Return true iff the type contains a field or element type which does not
    allow scalarization.  */
 
 static bool
@@ -953,7 +953,7 @@ find_param_candidates (void)
 }
 
 /* If T is an SSA_NAME, return NULL if it is not a default def or return its
-   base variable if it is.  Retrn T if it is not an SSA_NAME.  */
+   base variable if it is.  Return T if it is not an SSA_NAME.  */
 
 static tree
 get_ssa_base_param (tree t)
@@ -1444,7 +1444,7 @@ scan_function (bool (*scan_expr) (tree *, gimple_stmt_iterator *, bool, void *),
 /* Return the representative access for the parameter declaration PARM if it is
    a scalar passed by reference which is not written to and the pointer value
    is not used directly.  Thus, if it is legal to dereference it in the caller
-   and we can rule out modifications through aliases, such parametershould be
+   and we can rule out modifications through aliases, such parameter should be
    turned into one passed by value.  Return NULL otherwise.  */
 
 static struct access *
@@ -2926,11 +2926,12 @@ enum build_access_tree_result
   };
 
 /* Build a subtree of accesses rooted in *ACCESS, and move the pointer in the
-   linked list along the way together with creation of scalar replacements for
-   suitable accesses.  Stop when *ACCESS is NULL or the access pointed to it is
-   not "within" the root.  Only create replacements when ALLOW_REPLACEMENTS is
-   true.  Mar all visited nodes as grp_read if MARK_READ is true.  Return true
-   iff any replacements were created.  */
+   linked list along the way together with deciding whether a scalar
+   replacements should be created for *ACCESS.  Stop when *ACCESS is NULL or
+   the access pointed to it is not "within" the root.  Only allow replacements
+   when ALLOW_REPLACEMENTS is true.  Mark all visited nodes as grp_read if
+   MARK_READ is true, mark all of them as grp_write if MARK_WRITE is true.
+   Return true iff any replacements are to be created.  */
 
 static enum build_access_tree_result
 build_access_tree_1 (struct access **access, bool allow_replacements,
@@ -3009,8 +3010,8 @@ build_access_tree_1 (struct access **access, bool allow_replacements,
 }
 
 /* Build a tree of access representatives, ACCESS is the pointer to the first
-   one, others are linked in a list by the next_grp field.  Create scalar
-   replacements on the way, return true iff any were created.  */
+   one, others are linked in a list by the next_grp field.  Decide about scalar
+   replacements on the way, return true iff any are to be created.  */
 
 static bool
 build_access_tree (struct access *access)
@@ -3064,9 +3065,10 @@ dump_access_tree (struct access *access)
 
 /* Traverse all accesses based on variable var that have been collected during
    the (intraprocedural) analysis stage, see whether they preclude the variable
-   from scalarization because of overlaps, if it is OK, identify representatives
-   and build a tree out of them, creating scalar replacements on the way.
-   Return true iff any scalar replacements were created.  */
+   from scalarization because of overlaps, if it is OK, identify
+   representatives and build a tree out of them, deciding what should be
+   scalarized on the way.  Return true iff any scalar replacements are to be
+   created.  */
 
 static bool
 analyze_variable_accesses (tree var)
@@ -3099,9 +3101,9 @@ analyze_variable_accesses (tree var)
 }
 
 /* Go through all accesses collected throughout the (intraprocedural) analysis
-   stage, exclude overlapping ones, identify representatives and build trees out
-   of them, creating scalar replacements on the way.  Return true iff there are
-   any variables scalarizable variables after this stage. */
+   stage, exclude overlapping ones, identify representatives and build trees
+   out of them, making decisions about scalarization on the way.  Return true
+   iff there are any to-be-scalarized variables after this stage. */
 
 static bool
 analyze_all_variable_accesses (void)
@@ -3188,11 +3190,9 @@ generate_subtree_copies (struct access *access, tree agg,
   while (access);
 }
 
-
-
-/* Assign zero to all scalart replacements in an access subtree.  ACCESS is the
+/* Assign zero to all scalar replacements in an access subtree.  ACCESS is the
    the root of the subtree to be processed.  GSI is the statement iterator used
-   for inserting statements which are added after the curent statement if
+   for inserting statements which are added after the current statement if
    INSERT_AFTER is true or before it otherwise.  */
 static void
 init_subtree_with_zero (struct access *access, gimple_stmt_iterator *gsi,
@@ -3303,6 +3303,12 @@ get_access_for_expr (tree expr)
   return get_var_base_offset_size_access (base, offset, size);
 }
 
+/* Substitute into *EXPR an expression of type TYPE with the value of the
+   replacement of ACCESS.  This is done either by producing a special V_C_E
+   assignment statement converting the replacement to a new temporary of the
+   requested type if TYPE is not TREE_ADDRESSABLE or by going through the base
+   aggregate if it is.  */
+
 static void
 sra_fix_incompatible_types_for_expr (tree *expr, tree type,
 				     struct access *access,
@@ -3410,6 +3416,10 @@ sra_intra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write,
     }
   return true;
 }
+
+/* Store all replacements in the access tree rooted in TOP_RACC either to their
+   base aggregate if there are unscalarized data or directly to LHS
+   otherwise.  */
 
 static void
 handle_unscalarized_data_in_subtree (struct access *top_racc, tree lhs,
@@ -3526,7 +3536,7 @@ sra_intra_modify_constructor_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 		  CONSTRUCTOR_ELTS (gimple_assign_rhs1 (*stmt))) > 0)
     {
       /* I have never seen this code path trigger but if it can happen the
-	 following should hadle it gracefully.  */
+	 following should handle it gracefully.  */
       if (acc && acc->first_child)
 	generate_subtree_copies (acc->first_child, acc->base, 0, 0, 0, gsi,
 				 true, true);
@@ -3608,8 +3618,8 @@ contains_view_convert_expr_p (tree t)
 }
 
 /* Change STMT to assign compatible types by means of adding component or array
-   references or VIRE_CONVERT_EXPRs.  All parameters have the same meaning as
-   variable woth the same names in sra_intra_modify_assign.  This is done in a
+   references or VIEW_CONVERT_EXPRs.  All parameters have the same meaning as
+   variable with the same names in sra_intra_modify_assign.  This is done in a
    such a complicated way in order to make
    testsuite/g++.dg/tree-ssa/ssa-sra-2.C happy and so it helps in at least some
    cases.  */
@@ -3649,8 +3659,6 @@ fix_modified_assign_compatibility (gimple_stmt_iterator *gsi, gimple *stmt,
   gimple_assign_set_rhs_from_tree (gsi, *rhs);
   *stmt = gsi_stmt (*gsi);
 }
-
-
 
 /* Callback of scan_function to process assign statements.  It examines both
    sides of the statement, replaces them with a scalare replacement if there is
@@ -3930,4 +3938,3 @@ struct gimple_opt_pass pass_new_sra =
   TODO_dump_func | TODO_verify_ssa 	/* todo_flags_finish */
  }
 };
-

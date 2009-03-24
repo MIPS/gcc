@@ -1,3 +1,23 @@
+2009-03-23  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-sra.c: Corrected initial file comment, removed some extra
+	newlines.
+	(enum sra_mode): Corrected the comment.
+	(struct access): Corrected comments.
+	(type_internals_preclude_sra_p): Corrected the function comment.
+	(get_ssa_base_param): Corrected the function comment.
+	(unmodified_by_ref_scalar_representative): Corrected the function
+	comment.
+	(build_access_tree_1): Corrected the function comment.
+	(build_access_tree): Corrected the function comment.
+	(analyze_variable_accesses): Corrected the function comment.
+	(analyze_all_variable_accesses): Corrected the function comment.
+	(init_subtree_with_zero): Corrected the function comment.
+	(sra_fix_incompatible_types_for_expr): Added a function comment.
+	(handle_unscalarized_data_in_subtree): Added a function comment.
+	(sra_intra_modify_constructor_assign): Corrected a comment.
+	(fix_modified_assign_compatibility): Corrected the function comment.
+
 2009-03-19  Jan Hubicka  <jh@suse.cz>
 
 	* opts.c (decode_options): Enable ipa-sra at -O2.
