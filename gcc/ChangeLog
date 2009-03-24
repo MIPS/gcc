@@ -1,3 +1,11 @@
+2009-03-24  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfgcleanup.c (remove_forwarder_block): Propagate phi arg locus.
+	* tree-inline.c (copy_phis_for_bb): Copy phi source locations.
+	(setup_one_parameter): Add locus parameter, add to initializer.
+	(initialize_inlined_parameters, tree_function_versioning): Add locus 
+	parameter to setup_one_parameter call.
+
 2009-03-20  Andrew MacLeod  <amacleod@redhat.com>
 
 	* debuglocus.c: New file.

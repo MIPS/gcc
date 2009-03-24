@@ -421,7 +421,9 @@ remove_forwarder_block (basic_block bb)
 	       gsi_next (&gsi))
 	    {
 	      gimple phi = gsi_stmt (gsi);
+	      source_location l = gimple_phi_arg_location (phi, succ->dest_idx);
 	      add_phi_arg (phi, gimple_phi_arg_def (phi, succ->dest_idx), s);
+	      gimple_phi_arg_set_location (phi, s->dest_idx, l);
 	    }
 	}
     }

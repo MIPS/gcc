@@ -1743,6 +1743,7 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
       tree res, new_res;
       gimple new_phi;
       edge new_edge;
+      unsigned x;
 
       phi = gsi_stmt (si);
       res = PHI_RESULT (phi);
@@ -1775,6 +1776,13 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 		}
 	      add_phi_arg (new_phi, new_arg, new_edge);
 	    }
+	  /* Duplicate the locus's on each inlined argument.  */
+	  for (x = 0; x < gimple_phi_num_args (new_phi); x++)
+	    {
+	      source_location locus = gimple_phi_arg_location (phi, x);
+	      gimple_phi_arg_set_location (new_phi, x, locus);
+	    }
+	  
 	}
     }
 }
@@ -2020,7 +2028,7 @@ insert_init_stmt (basic_block bb, gimple init_stmt)
    output later.  */
 static gimple
 setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
-		     basic_block bb, tree *vars)
+		     basic_block bb, tree *vars, source_location call_locus)
 {
   gimple init_stmt = NULL;
   tree var;
@@ -2165,6 +2173,9 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       else
         init_stmt = gimple_build_assign (var, rhs);
 
+      /* Set the source location.  */
+      gimple_set_location (init_stmt, call_locus);
+
       if (bb && init_stmt)
         insert_init_stmt (bb, init_stmt);
     }
@@ -2183,6 +2194,8 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
   tree p;
   tree vars = NULL_TREE;
   tree static_chain = gimple_call_chain (stmt);
+  source_location locus = gimple_location (stmt);
+  
 
   /* Figure out what the parameters are.  */
   parms = DECL_ARGUMENTS (fn);
@@ -2192,8 +2205,9 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
   for (p = parms, i = 0; p; p = TREE_CHAIN (p), i++)
     {
       tree val;
+
       val = i < gimple_call_num_args (stmt) ? gimple_call_arg (stmt, i) : NULL;
-      setup_one_parameter (id, p, val, fn, bb, &vars);
+      setup_one_parameter (id, p, val, fn, bb, &vars, locus);
     }
 
   /* Initialize the static chain.  */
@@ -2204,7 +2218,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
       /* No static chain?  Seems like a bug in tree-nested.c.  */
       gcc_assert (static_chain);
 
-      setup_one_parameter (id, p, static_chain, fn, bb, &vars);
+      setup_one_parameter (id, p, static_chain, fn, bb, &vars, locus);
     }
 
   declare_inline_vars (id->block, vars);
@@ -4378,7 +4392,8 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 	    init = setup_one_parameter (&id, replace_info->old_tree,
 	    			        replace_info->new_tree, id.src_fn,
 				        NULL,
-				        &vars);
+				        &vars,
+					UNKNOWN_LOCATION);
 	    if (init)
 	      VEC_safe_push (gimple, heap, init_stmts, init);
 	  }
