@@ -2634,6 +2634,7 @@ ipa_early_sra (void)
       return 0;
     }
 
+  /* FIXME: Commented out for benchmarking purposes only!
   if ((DECL_COMDAT (node->decl) || DECL_EXTERNAL (node->decl))
       && node->global.size >= MAX_INLINE_INSNS_AUTO)
     {
@@ -2641,6 +2642,7 @@ ipa_early_sra (void)
 	fprintf (dump_file, "Function too big to be made truly local.\n");
       return 0;
     }
+  */
 
   if (!node->callers)
     {
