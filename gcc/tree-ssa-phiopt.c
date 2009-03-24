@@ -513,6 +513,8 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 
   if (!useless_type_conversion_p (TREE_TYPE (result), TREE_TYPE (new_var)))
     {
+      source_location locus_0, locus_1;
+
       new_var2 = create_tmp_var (TREE_TYPE (result), NULL);
       add_referenced_var (new_var2);
       new_stmt = gimple_build_assign_with_ops (CONVERT_EXPR, new_var2,
@@ -521,6 +523,13 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
       gimple_assign_set_lhs (new_stmt, new_var2);
       gsi_insert_before (&gsi, new_stmt, GSI_SAME_STMT);
       new_var = new_var2;
+
+      /* Set the locus to the first argument, unless it doesn't have one.  */
+      locus_0 = gimple_phi_arg_location (phi, 0);
+      locus_1 = gimple_phi_arg_location (phi, 1);
+      if (locus_0 == UNKNOWN_LOCATION)
+        locus_0 = locus_1;
+      gimple_set_location (new_stmt, locus_0);
     }
 
   replace_phi_edge_with_variable (cond_bb, e1, phi, new_var);

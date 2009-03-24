@@ -1,5 +1,10 @@
 2009-03-24  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree-ssa-phiopt.c (conditional_replacement): Preserve locus when
+	merging phi nodes.
+
+2009-03-24  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree-cfgcleanup.c (remove_forwarder_block): Propagate phi arg locus.
 	* tree-inline.c (copy_phis_for_bb): Copy phi source locations.
 	(setup_one_parameter): Add locus parameter, add to initializer.
