@@ -1031,7 +1031,10 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 		    }
 		}
 
-	      if (warn_shadow && !err)
+	      if (warn_shadow && !err
+		  /* Don't complain about the parms we push and then pop
+		     while tentatively parsing a function declarator.  */
+		  && !(TREE_CODE (x) == PARM_DECL && DECL_CONTEXT (x) == NULL_TREE))
 		{
 		  warning (OPT_Wshadow, "declaration of %q#D shadows a parameter", x);
 		  warning (OPT_Wshadow, "%Jshadowed declaration is here", oldlocal);
@@ -3337,7 +3340,8 @@ do_namespace_alias (tree alias, tree name_space)
   pushdecl (alias);
 
   /* Emit debug info for namespace alias.  */
-  (*debug_hooks->global_decl) (alias);
+  if (!building_stmt_tree ())
+    (*debug_hooks->global_decl) (alias);
 }
 
 /* Like pushdecl, only it places X in the current namespace,
@@ -5386,7 +5390,12 @@ cp_emit_debug_info_for_using (tree t, tree context)
   /* FIXME: Handle TEMPLATE_DECLs.  */
   for (t = OVL_CURRENT (t); t; t = OVL_NEXT (t))
     if (TREE_CODE (t) != TEMPLATE_DECL)
-      (*debug_hooks->imported_module_or_decl) (t, NULL_TREE, context, false);
+      {
+	if (building_stmt_tree ())
+	  add_stmt (build_stmt (USING_STMT, t));
+	else
+	  (*debug_hooks->imported_module_or_decl) (t, NULL_TREE, context, false);
+      }
 }
 
 #include "gt-cp-name-lookup.h"
