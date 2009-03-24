@@ -1,3 +1,7 @@
+2009-03-24  Diego Novillo  <dnovillo@google.com>
+
+	* toplev.c (announce_function): Call get_name.
+
 2009-03-19  Rafael Avila de Espindola  <espindola@google.com>
 
 	* builtins.c (is_builtin_name): New.

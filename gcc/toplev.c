@@ -432,7 +432,7 @@ announce_function (tree decl)
 {
   if (!quiet_flag)
     {
-      fprintf (stderr, "%s ", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+      fprintf (stderr, "%s ", get_name (decl));
       fflush (stderr);
       pp_needs_newline (global_dc->printer) = true;
       diagnostic_set_last_function (global_dc, (diagnostic_info *) NULL);

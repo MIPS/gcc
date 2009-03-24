@@ -1,3 +1,8 @@
+2009-03-24  Diego Novillo  <dnovillo@google.com>
+
+	* Make-lang.in (lto-lang.o): Add dependency on TARGET_H and EXPR_H.
+	(lto.o): Add dependency on GIMPLE_H.
+
 2009-03-10  Simon Baldwin  <simonb@google.com>
 
 	* lto.c (lto_read_all_file_options): Close any open file descriptor
