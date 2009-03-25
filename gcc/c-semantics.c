@@ -1,5 +1,7 @@
-/* This file contains subroutine used by the C front-end to construct GENERIC.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007
+/* This file contains the definitions and documentation for the common
+   tree codes used in the GNU C and C++ compilers (see c-common.def
+   for the standard codes).
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Written by Benjamin Chelf (chelf@codesourcery.com).
 

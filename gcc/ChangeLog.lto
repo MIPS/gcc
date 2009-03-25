@@ -1,3 +1,10 @@
+2009-03-25  Rafael Avila de Espindola  <espindola@google.com>
+
+	Mainline merge @144635.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2009-03-23  Rafael Avila de Espindola  <espindola@google.com>
 
 	* gcc.c (LINK_COMMAND_SPEC): Pass the libgcc to the linker.

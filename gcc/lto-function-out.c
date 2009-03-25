@@ -1399,7 +1399,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
     {
       tree lv = TREE_VALUE (t);
 
-      if (TREE_STATIC (lv))
+      if (DECL_CONTEXT (lv) == NULL)
 	{
 	  /* Do not put the static in the chain more than once, even
 	     if it was in the chain more than once to start.  */
