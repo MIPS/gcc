@@ -11061,12 +11061,12 @@ tsubst_copy_and_build (tree t,
 		       qualified_p ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL,
 		       /*fn_p=*/NULL));
 	  }
-	/* Pass true for koenig_p so that build_new_function_call will
+	/* Pass -1 for koenig_p so that build_new_function_call will
 	   allow hidden friends found by arg-dependent lookup at template
 	   parsing time.  */
 	return finish_call_expr (function, call_args,
 				 /*disallow_virtual=*/qualified_p,
-				 /*koenig_p*/true);
+				 /*koenig_p*/-1);
       }
 
     case COND_EXPR:
@@ -13058,7 +13058,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	/* Convert the ARG to the type of PARM; the deduced non-type
 	   template argument must exactly match the types of the
 	   corresponding parameter.  */
-	arg = fold (build_nop (TREE_TYPE (parm), arg));
+	arg = fold (build_nop (tparm, arg));
       else if (uses_template_parms (tparm))
 	/* We haven't deduced the type of this parameter yet.  Try again
 	   later.  */
@@ -15644,6 +15644,16 @@ dependent_type_p (tree type)
   return TYPE_DEPENDENT_P (type);
 }
 
+/* Returns TRUE if SCOPE is a dependent scope, in which we can't do any
+   lookup.  In other words, a dependent type that is not the current
+   instantiation.  */
+
+bool
+dependent_scope_p (tree scope)
+{
+  return dependent_type_p (scope) && !currently_open_class (scope);
+}
+
 /* Returns TRUE if EXPRESSION is dependent, according to CRITERION.  */
 
 static bool
@@ -15665,7 +15675,7 @@ dependent_scope_ref_p (tree expression, bool criterion (tree))
      An id-expression is type-dependent if it contains a
      nested-name-specifier that contains a class-name that names a
      dependent type.  */
-  /* The suggested resolution to Core Issue 2 implies that if the
+  /* The suggested resolution to Core Issue 224 implies that if the
      qualifying type is the current class, then we must peek
      inside it.  */
   if (DECL_P (name)

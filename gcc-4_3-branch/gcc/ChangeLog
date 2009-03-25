@@ -1,3 +1,137 @@
+2009-03-24  Ralf Corsépius <ralf.corsepius@rtems.org>
+
+	* config/m68k/t-rtems: Add m5329 multilib.
+
+2009-03-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-03-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39482
+	* config/i386/i386.md (*truncdfsf_mixed): Avoid combining registers
+	from different units in a single alternative.
+	(*truncdfsf_i387): Ditto.
+	(*truncxfsf2_mixed): Ditto.
+	(*truncxfdf2_mixed): Ditto.
+
+2009-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39477
+	* doc/extend.texi: Correct register behavior for regparm on Intel 386.
+
+2009-03-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-03-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39327
+	* config/i386/sse.md (sse3_addsubv4sf3): Correct item bits.
+	(sse3_addsubv2df3): Likewise.
+
+2009-03-09  Denis Chertykov  <denisc@overta.ru>
+
+	* config/avr/avr.md ("andsi3"): Fix wrong cc attribute.
+
+2009-03-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_mdebug_abi_name): Fix the handling
+	of ABI_64.
+
+2009-03-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (TARGET_SECTION_TYPE_FLAGS): Define.
+	(spu_section_type_flags): New function.
+
+2009-02-28  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline:
+	2008-12-02  Martin Jambor  <mjambor@suse.cz>
+	
+	PR middle-end/37861
+	* tree-ssa-forwprop.c 
+	(forward_propagate_addr_into_variable_array_index): Check that the
+	offset is not computed from a MULT_EXPR if element size is one.
+
+2009-02-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-02-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.h (alpha_expand_mov): Return false if
+	force_const_mem returns NULL_RTX.
+
+2009-02-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/39058
+	* recog.h (asm_operand_ok): Add constraints argument.
+	* recog.c (asm_operand_ok): Likewise.  If it is set, for digits
+	recurse on matching constraint.
+	(check_asm_operands): Pass constraints as 3rd argument to
+	asm_operand_ok.  Don't look up matching constraint here.
+	* stmt.c (expand_asm_operands): Pass NULL as 3rd argument
+	to asm_operand_ok.
+
+2009-02-25  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline:
+	2008-10-29  Joseph Myers  <joseph@codesourcery.com>
+
+	PR middle-end/36578
+	* convert.c (convert_to_real): Do not optimize conversions of
+	binary arithmetic operations between binary and decimal
+	floating-point types.  Consider mode of target type in determining
+	decimal type for arithmetic.  Unless
+	flag_unsafe_math_optimizations, do not optimize binary conversions
+	where this may change rounding behavior.
+	* real.c (real_can_shorten_arithmetic): New.
+	* real.h (real_can_shorten_arithmetic): Declare.
+
+2009-02-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-02-20  Jaka Mocnik  <jaka@xlab.si>
+
+	* calls.c (emit_library_call_value_1): Use slot_offset instead of
+	offset when calculating bounds for indexing stack_usage_map.  Fixes
+	a buffer overflow with certain target setups.
+
+2009-02-20  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/38056
+	* config/ia64/ia64.c (ia64_function_ok_for_sibcall): Check
+	TARGET_CONST_GP.
+
+2009-02-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39228
+	* config/i386/i386.md (isinfxf2): Split from isinf<mode>2.
+	(UNSPEC_FXAM_MEM): New unspec.
+	(fxam<mode>2_i387_with_temp): New insn and split pattern.
+	(isinf<mode>2): Use MODEF mode iterator.  Force operand[1] through
+	memory using fxam<mode>2_i387_with_temp to remove excess precision.
+
+2009-02-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/soft-fp/double.h: Update from glibc CVS.
+
+2009-02-17  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35446
+	* c-parser.c (c_parser_braced_init): Call pop_init_level when
+	skipping until next close brace.
+
+2009-02-13  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35444
+	* c-parser.c (c_parser_parms_list_declarator): Discard pending
+	sizes on syntax error after some arguments have been parsed.
+
 2009-02-11  Uros Bizjak  <ubizjak@gmail.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
@@ -62,7 +196,7 @@
 
 	Backport from mainline
 	2009-02-05  Daniel Berlin  <dberlin@dberlin.org>
-	    Richard Guenther  <rguenther@suse.de>
+		    Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/39100
 	* tree-ssa-structalias.c (do_ds_constraint): Actually do what the

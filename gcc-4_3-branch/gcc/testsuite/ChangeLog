@@ -1,7 +1,143 @@
+2009-03-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-03-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39482
+	* gcc.target/i386/pr39482.c: New test.
+
+2009-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39425
+	* g++.dg/template/pr39425.C: New.
+
+	* g++.dg/template/spec33.C: Updated.
+
+2009-03-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-03-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/39451
+	* gcc.dg/asm-b.c: Use "Q" constraint on %b1/%h1 and "R"
+	constraint on (%2).
+
+2009-03-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* g++.old-deja/g++.jason/thunk2.C: Skip on SPU.
+
+2009-03-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39295
+	* gfortran.dg/interface_25.f90: New test.
+	* gfortran.dg/interface_26.f90: New test.
+
+2009-03-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39292
+	* gfortran.dg/initialization_22.f90: New test.
+
+2009-03-04  Jason Merrill  <jason@redhat.com>
+	    Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/9634
+	PR c++/29469
+	PR c++/29607
+	* g++.dg/template/dependent-name5.C: New test.
+
+2009-02-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2009-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/39058
+	* gcc.target/i386/pr39058.c: New test.
+
+2009-02-25  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline:
+	2008-10-29  Joseph Myers  <joseph@codesourcery.com>
+
+	PR middle-end/36578
+	* gcc.dg/dfp/convert-bfp-13.c, gcc.dg/dfp/convert-bfp-14.c,
+	gcc.dg/dfp/convert-dfp-fold-2.c, gcc.target/i386/pr36578-1.c,
+	gcc.target/i386/pr36578-2.c: New tests.
+
+2009-02-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-02-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/39241
+	* gcc.dg/torture/pr39241.c: New.
+
+2009-02-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc.c-torture/execute/pr39228.x: New.
+
+2009-02-20  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/38056
+	* gcc.target/ia64/sibcall-opt-1.c: New test.
+	* gcc.target/ia64/sibcall-opt-2.c: New test.
+
+2009-02-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39225
+	* g++.dg/parse/dtor15.C: New test.
+
+2009-02-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/39228
+	* gcc.c-torture/execute/pr39228.c: New test.
+
+2009-02-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38852
+	PR fortran/39006
+	Backport from mainline:
+	* gfortran.dg/bound_6.f90: New test.
+
+2009-02-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38950
+	* g++.dg/template/array20.C: New test.
+
+2009-02-17  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35446
+	* gcc.dg/noncompile/init-5.c: New test.
+	* gcc.dg/init-bad-4.c: Adjust expected errors.
+
+2009-02-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/struct/w_prof_single_str_global.c: Mask return value.
+
+	Backport from mainline:
+	2009-01-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/struct/wo_prof_single_str_global.c: Mask return value.
+	* gcc.dg/struct/wo_prof_single_str_local.c: Mask return value.
+	* gcc.dg/struct/wo_prof_single_str_pointer.c: Mask return value.
+
+2009-02-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39070
+	* g++.dg/cpp0x/decltype16.C: New.
+
+2009-02-13  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35444
+	* gcc.dg/noncompile/pr35444-1.c, gcc.dg/noncompile/pr35444-2.c:
+	New tests.
+
 2009-02-10  Steve Ellcey  <sje@cup.hp.com>
 
 	PR c/39084
-	gcc.dg/pr39084.c: New test.
+	* gcc.dg/pr39084.c: New test.
 
 2009-02-09  Janis Johnson  <janis187@us.ibm.com>
 
