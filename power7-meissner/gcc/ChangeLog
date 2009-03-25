@@ -1,3 +1,175 @@
+2009-03-25  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR/39518
+	* doc/invoke.texi (-mconsole): New.
+	(-mcygwin): New.
+	(-mno-cygwin): New.
+	(-mdll): New.
+	(-mnop-fun-dllimport): New.
+	(-mthread): New.
+	(-mwin32): New.
+	(-mwindows): New.
+	(sub section "i386 and x86-64 Windows Options"): New.
+
+2009-03-25  Ralf Corsépius <ralf.corsepius@rtems.org>
+
+	* config/arm/rtems-elf.h: Remove LINK_GCC_C_SEQUENCE_SPEC.
+	* config/rs6000/t-rtems: Remove MULTILIB_EXTRA_OPTS.
+
+2009-03-25  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39497
+	* Makefile.in (dfp.o-warn): Use -fno-strict-aliasing instead
+	of -Wno-error.
+
+2009-03-25  Andrey Belevantsev  <abel@ispras.ru>
+
+	* config/ia64/ia64.c (ia64_set_sched_flags): Zero spec_info->mask when
+	neither of haifa/selective schedulers are working.
+
+2009-03-25  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/invoke.texi (Debugging Options): Fix description of
+	-fno-merge-debug-strings.
+
+2009-03-24  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/libgcc.ver: New version-script.
+	* config/cris/t-linux (SHLIB_MAPFILES): Use it.
+
+	* configure.ac <GAS features, nop mnemonic>: Add pattern
+	crisv32-*-* for "nop".
+	<GAS features, Thread-local storage>: Add item for CRIS and
+	CRIS v32.
+	* configure: Regenerate.
+
+2009-03-24  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39529
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Call
+	mark_sym_for_renaming for the tag copied to the new vector
+	pointer.
+
+2009-03-24  Arthur Loiret  <aloiret@debian.org>
+
+	* config.host (alpha*-*-linux*): Use driver-alpha.o and
+	alpha/x-alpha.
+	* config/alpha/linux.h (host_detect_local_cpu): Declare, add to
+	EXTRA_SPEC_FUNCTIONS.
+	(MCPU_MTUNE_NATIVE_SPECS, DRIVER_SELF_SPECS): New macros.
+	* config/alpha/driver-alpha.c, config/alpha/x-alpha: New.
+	* doc/invoke.texi (DEC Alpha Options): Document 'native' value for
+	-march and -mtune options.
+
+2009-03-24  Ralf Corsépius <ralf.corsepius@rtems.org>
+
+	* config/m68k/t-rtems: Add m5329 multilib.
+
+2009-03-24  Dodji Seketeli  <dodji@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/39524
+	* dwarf2out.c (gen_variable_die): Avoid adding duplicate declaration
+	nodes.
+
+2009-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39495
+	* c-parser.c (c_parser_omp_for_loop): Call c_parser_binary_expression
+	instead of c_parser_expression_conv, if original_code isn't one of the
+	4 allowed comparison codes, fail.
+
+2009-03-23  Richard Guenther  <rguenther@suse.de>
+
+	* cgraph.h (struct cgraph_node): Reorder fields for 64-bit hosts.
+	* tree.h (struct tree_type): Likewise.
+	* reload.h (struct insn_chain): Likewise.
+	* dwarf2out.c (struct dw_loc_descr_struct): Likewise.
+	* function.h (struct function): Likewise.
+	* tree-ssa-structalias.c (struct equiv_class_label): Likewise.
+
+2009-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/39516
+	* lambda-code.c (perfect_nestify): Fix type of the uboundvar variable.
+
+2009-03-23 Bingfeng Mei  <bmei@broadcom.com>
+
+	* config.gcc (need_64bit_hwint): Make clear that need_64bit_hwint 
+	should be set true if BITS_PER_WORD of target is bigger than 32
+
+2009-03-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/linux.h (CRIS_LINK_SUBTARGET_SPEC):
+	Translate -B-options to -rpath-link.  Correct existing
+	rpath-link and conditionalize on !nostdlib.
+
+2009-03-22  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/extend.texi (Function Attributes, Variable Attributes):
+	Fix typos.
+	* doc/invoke.texi (Debugging Options, Optimize Options)
+	(i386 and x86-64 Options, MCore Options): Likewise.
+
+2009-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37890
+	* dwarf2out.c (gen_namespace_die): Add context_die argument and use
+	it for block local namespace aliases.
+	(gen_decl_die): Pass context_die to gen_namespace_die.
+
+2009-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39495
+	* c-omp.c (c_finish_omp_for): Allow NE_EXPR with TREE_TYPE (decl)'s
+	minimum or maximum value.
+
+2009-03-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reginfo.c (globalize_reg): Recompute derived reg sets.
+
+2009-03-19  Ozkan Sezer <sezeroz@gmail.com>
+
+	PR target/39063
+	* libgcc2.c (mprotect): Do not use signed arguments for
+	VirtualProtect, use DWORD arguments.  Also fix the 'may
+	be used uninitialized' warning for the np variable.
+
+2009-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39496
+	* config/i386/i386.c (ix86_function_regparm): Don't optimize local
+	functions using regparm calling conventions when not optimizing.
+	(ix86_function_sseregparm): Similarly for sseregparm calling
+	conventions.
+
+2009-03-19  Li Feng  <nemokingdom@gmail.com>
+
+	PR middle-end/39500
+	* tree-data-ref.c (analyze_subscript_affine_affine): There is no
+	dependence if the first conflict is after niter iterations.
+
+2009-03-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/38609
+	* config/cris/cris.h (FRAME_POINTER_REQUIRED): Force for all
+	functions with dynamic stack-pointer adjustments.
+
+2009-03-19  Ben Elliston  <bje@au.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Fix -msdata-data
+	option; change to -msdata=data.
+
+2009-03-18  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* c.opt: Unify help texts for -Wdeprecated, -Wsystem-headers,
+	and -fopenmp.
+
+2009-03-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/35180
+	* config/sparc/sparc.md (do_builtin_setjmp_setup): Prettify asm output.
+
 2009-03-18  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* doc/invoke.texi (Code Gen Options): Expand discussion of
@@ -59,13 +231,19 @@
 2009-03-17  Jing Yu  <jingyu@google.com>
 
 	PR middle-end/39378
-	* function.h: Move is_thunk from rtl_data structure to function
-	structure.
+	* function.h (struct rtl_data): Move is_thunk from here...
+	(struct function): ...to here.
+	* cp/method.c (use_thunk): Change is_thunk from crtl to cfun.
 	* varasm.c (assemble_start_function): Change is_thunk from crtl to
 	cfun.
-	* config/alpha/alpha.c: Change is_thunk from crtl to cfun.
-	* config/rs6000/rs6000.c: Change is_thunk from crtl to cfun.
-	* config/arm/arm.h: Change is_thunk from crtl to cfun.
+	* config/alpha/alpha.c (alpha_sa_mask): Change is_thunk from crtl to
+	cfun.
+	(alpha_does_function_need_gp, alpha_start_function): Likewise.
+	(alpha_output_function_end_prologue): Likewise.
+	(alpha_end_function, alpha_output_mi_thunk_osf): Likewise.
+	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	* config/arm/arm.h (ARM_DECLARE_FUNCTION_NAME): Likewise.
 
 2009-03-17  Uros Bizjak  <ubizjak@gmail.com>
 
@@ -299,8 +477,8 @@
 2009-03-07  Jan Hubicka  <jh@suse.cz>
 
 	PR target/39361
-	* tree-inline.c (setup_one_parameter): Do replacement of const argument
-	by constant in SSA form.
+	* tree-inline.c (setup_one_parameter): Do replacement of const
+	argument by constant in SSA form.
 
 2009-03-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
