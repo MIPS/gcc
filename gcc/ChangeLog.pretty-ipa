@@ -1,5 +1,14 @@
 2009-03-25  Jan Hubicka  <jh@suse.cz>
 
+	* except.c (duplicate_eh_regions_0): Walk AKA bitmap
+	(duplicate_eh_regions_1): Duplicate AKA bitmap.
+	(duplicate_eh_regions): Verify EH tree; cleanup region array growing;
+	handle AKA bitmaps.
+	(dump_eh_tree): Dump all fields nicely.
+	(verify_eh_tree): Fix bugs in walking.
+
+2009-03-25  Jan Hubicka  <jh@suse.cz>
+
 	* tree-inline.c (remap_gimple_stmt): Do not emit noop move
 	when remaping gimple stmt.
 	(lookup_return_stmt): New function.

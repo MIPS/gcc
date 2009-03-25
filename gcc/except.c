@@ -821,6 +821,18 @@ current_function_has_exception_handlers (void)
 static void
 duplicate_eh_regions_0 (eh_region o, int *min, int *max)
 {
+  unsigned i;
+  bitmap_iterator bi;
+  if (o->aka)
+    {
+      EXECUTE_IF_SET_IN_BITMAP (o->aka, 0, i, bi)
+	{
+	  if (*min > (int)i)
+	    *min = i;
+	  if (*max < (int)i)
+	    *max = i;
+	}
+    }
   if (o->region_number < *min)
     *min = o->region_number;
   if (o->region_number > *max)
@@ -852,7 +864,18 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
   *n = *old;
   n->outer = outer;
   n->next_peer = NULL;
-  gcc_assert (!old->aka);
+  if (old->aka)
+    {
+      unsigned i;
+      bitmap_iterator bi;
+      n->aka = BITMAP_GGC_ALLOC ();
+
+      EXECUTE_IF_SET_IN_BITMAP (old->aka, 0, i, bi)
+	{
+	  bitmap_set_bit (n->aka, i + eh_offset);
+          VEC_replace (eh_region, cfun->eh->region_array, i + eh_offset, n);
+	}
+    }
 
   n->region_number += eh_offset;
   VEC_replace (eh_region, cfun->eh->region_array, n->region_number, n);
@@ -885,6 +908,9 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 
   if (!ifun->eh->region_tree)
     return 0;
+#ifdef ENABLE_CHECKING
+  verify_eh_tree (ifun);
+#endif
 
   /* Find the range of region numbers to be copied.  The interface we 
      provide here mandates a single offset to find new number from old,
@@ -905,17 +931,9 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
   eh_offset = cfun_last_region_number + 1 - min_region;
 
   /* If we've not yet created a region array, do so now.  */
-  VEC_safe_grow (eh_region, gc, cfun->eh->region_array,
-		 cfun_last_region_number + 1 + num_regions);
-  cfun->eh->last_region_number = max_region + eh_offset;
-
-  /* We may have just allocated the array for the first time.
-     Make sure that element zero is null.  */
-  VEC_replace (eh_region, cfun->eh->region_array, 0, 0);
-
-  /* Zero all entries in the range allocated.  */
-  memset (VEC_address (eh_region, cfun->eh->region_array)
-	  + cfun_last_region_number + 1, 0, num_regions * sizeof (eh_region));
+  cfun->eh->last_region_number = cfun_last_region_number + num_regions;
+  VEC_safe_grow_cleared (eh_region, gc, cfun->eh->region_array,
+		         cfun->eh->last_region_number + 1);
 
   /* Locate the spot at which to insert the new tree.  */
   if (outer_region > 0)
@@ -978,7 +996,21 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
   for (i = cfun_last_region_number + 1;
        VEC_iterate (eh_region, cfun->eh->region_array, i, cur); ++i)
     {
+      /* All removed EH that is toplevel in input function is now
+         in outer EH of output function.  */
       if (cur == NULL)
+	{
+	  gcc_assert (VEC_index (eh_region, ifun->eh->region_array, i - eh_offset) == NULL);
+	  if (outer)
+	    {
+	      VEC_replace (eh_region, cfun->eh->region_array, i, outer);
+	      if (outer->aka == NULL)
+		outer->aka = BITMAP_GGC_ALLOC ();
+	      bitmap_set_bit (outer->aka, i);
+	    }
+	  continue;
+	}
+      if (i != cur->region_number)
 	continue;
 
 #define REMAP(REG) \
@@ -1014,6 +1046,9 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 
 #undef REMAP
     }
+#ifdef ENABLE_CHECKING
+  verify_eh_tree (cfun);
+#endif
 
   return eh_offset;
 }
@@ -3818,7 +3853,54 @@ dump_eh_tree (FILE *out, struct function *fun)
           fprintf (out, " tree_label:");
 	  print_generic_expr (out, i->tree_label, 0);
 	}
-      fprintf (out, "\n");
+      switch (i->type)
+	{
+	case ERT_CLEANUP:
+	  if (i->u.cleanup.prev_try)
+	    fprintf (out, " prev try:%i", i->u.cleanup.prev_try->region_number);
+	  break;
+
+	case ERT_TRY:
+	  {
+	    struct eh_region *c;
+	    fprintf (out, " catch regions:");
+	    for (c = i->u.eh_try.eh_catch; c ; c = c->u.eh_catch.next_catch)
+	      fprintf (out, " %i", c->region_number);
+	  }
+	  break;
+
+	case ERT_CATCH:
+	  if (i->u.eh_catch.prev_catch)
+	    fprintf (out, " prev: %i",
+		     i->u.eh_catch.prev_catch->region_number);
+	  if (i->u.eh_catch.next_catch)
+	    fprintf (out, " next %i",
+		     i->u.eh_catch.next_catch->region_number);
+	  break;
+
+	case ERT_ALLOWED_EXCEPTIONS:
+	  fprintf (out, "filter :%i types:", i->u.allowed.filter);
+	  print_generic_expr (out, i->u.allowed.type_list, 0);
+	  break;
+
+	case ERT_THROW:
+	  fprintf (out, "type:");
+	  print_generic_expr (out, i->u.eh_throw.type, 0);
+	  break;
+
+	case ERT_MUST_NOT_THROW:
+	  break;
+
+	case ERT_UNKNOWN:
+	  break;
+	}
+      if (i->aka)
+        {
+          fprintf (out, " also known as:");
+	  dump_bitmap (out, i->aka);
+        }
+      else
+        fprintf (out, "\n");
       /* If there are sub-regions, process them.  */
       if (i->inner)
 	i = i->inner, depth++;
@@ -3851,23 +3933,25 @@ verify_eh_tree (struct function *fun)
   int j;
   int depth = 0;
 
-  i = fun->eh->region_tree;
-  if (! i)
+  if (! fun->eh->region_tree)
     return;
   for (j = fun->eh->last_region_number; j > 0; --j)
-    if ((i = VEC_index (eh_region, cfun->eh->region_array, j)))
+    if ((i = VEC_index (eh_region, fun->eh->region_array, j)))
       {
-	count++;
-	if (i->region_number != j)
+	if (i->region_number == j)
+	  count++;
+	if (i->region_number != j
+	    && (!i->aka || !bitmap_bit_p (i->aka, j)))
 	  {
 	    error ("region_array is corrupted for region %i", i->region_number);
 	    err = true;
 	  }
       }
+  i = fun->eh->region_tree;
 
   while (1)
     {
-      if (VEC_index (eh_region, cfun->eh->region_array, i->region_number) != i)
+      if (VEC_index (eh_region, fun->eh->region_array, i->region_number) != i)
 	{
 	  error ("region_array is corrupted for region %i", i->region_number);
 	  err = true;
