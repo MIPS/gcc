@@ -99,6 +99,8 @@ static unsigned int num_output_files = 0;
 static char **lto_wrapper_argv;
 static int lto_wrapper_num_args;
 
+static char *libgcc_filename = NULL;
+
 static bool debug;
 static bool nop;
 
@@ -467,6 +469,12 @@ all_symbols_read_handler (void)
 
   free (lto_argv);
 
+  if (libgcc_filename)
+    add_input_file (libgcc_filename);
+
+  free (libgcc_filename);
+  libgcc_filename = NULL;
+
   return LDPS_OK;
 }
 
@@ -596,6 +604,8 @@ process_option (const char *option)
     debug = 1;
   else if (strcmp (option, "-nop") == 0)
     nop = 1;
+  else if (!strncmp (option, "-libgcc", strlen("-libgcc")))
+    libgcc_filename = strdup (option + strlen ("-libgcc="));
   else
     {
       int size;

@@ -750,6 +750,7 @@ proper position among the other output files.  */
     -plugin %(linker_plugin_file) \
     -plugin-opt=%(lto_wrapper) \
     -plugin-opt=%(lto_gcc) \
+    %{static|static-libgcc:-plugin-opt=-libgcc=%(lto_libgcc)}	\
     %{O*:-plugin-opt=-O%*} \
     %{w:-plugin-opt=-w} \
     %{f*:-plugin-opt=-f%*} \
@@ -806,6 +807,7 @@ static const char *linker_name_spec = LINKER_NAME;
 static const char *linker_plugin_file_spec = "";
 static const char *lto_wrapper_spec = "";
 static const char *lto_gcc_spec = "";
+static const char *lto_libgcc_spec = "";
 static const char *link_command_spec = LINK_COMMAND_SPEC;
 static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
@@ -1660,6 +1662,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("linker_plugin_file",	&linker_plugin_file_spec),
   INIT_STATIC_SPEC ("lto_wrapper",		&lto_wrapper_spec),
   INIT_STATIC_SPEC ("lto_gcc",			&lto_gcc_spec),
+  INIT_STATIC_SPEC ("lto_libgcc",		&lto_libgcc_spec),
   INIT_STATIC_SPEC ("link_libgcc",		&link_libgcc_spec),
   INIT_STATIC_SPEC ("md_exec_prefix",		&md_exec_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
@@ -7068,6 +7071,11 @@ main (int argc, char **argv)
 						 false);
 	  if (!linker_plugin_file_spec)
 	    fatal ("-use-linker-plugin, but liblto_plugin.so not found.");
+
+	  lto_libgcc_spec = find_a_file (&startfile_prefixes, "libgcc.a",
+					 R_OK, true);
+	  if (!lto_libgcc_spec)
+	    fatal ("could not find libgcc.a.");
 	}
       lto_gcc_spec = argv[0];
 
