@@ -1691,7 +1691,11 @@ static void
 instantiate_decls_1 (tree let)
 {
   tree t;
+  unsigned int i;
 
+  for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (let); i++)
+    walk_tree (&BLOCK_NONLOCALIZED_VAR_VALUE (let, i),
+	       instantiate_expr, NULL, NULL);
   for (t = BLOCK_VARS (let); t; t = TREE_CHAIN (t))
     {
       if (DECL_RTL_SET_P (t))

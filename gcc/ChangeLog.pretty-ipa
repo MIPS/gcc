@@ -1,5 +1,38 @@
 2009-03-25  Jan Hubicka  <jh@suse.cz>
 
+	* dwarf2out.c (dwarf_stack_op_name): Add DW_OP_bit_piece.
+	(size_of_loc_descr): Add DW_OP_bit_piece.
+	(output_loc_descriptor): Add DW_OP_bit_piece.
+	(loc_descriptor_from_tree_1): Rename to ...
+	(loc_list_from_tree): ... this one; rewrite to
+	work on location lists; add handling of some extra
+	special cases of ADDR_EXPR; add debug output; handle
+	CONSTRUCTOR; handle variables with variable lists.
+	(add_loc_descr_op_piece): Add DW_OP_bit_piece.
+	(add_loc_descr_op_bit_piece): New.
+	(tls_mem_loc_descriptor): Use loc_descriptor_from_tree.
+	(mem_loc_descriptor): Add handling of VAR_LOCATION
+	(hidden_reference_p): New.
+	(dw_loc_list): Break out from add_location_or_const_value_attribute.
+	(struct piece): New structure.
+	(single_element_loc_list, single_element_loc_list_p,
+	add_loc_descr_to_each, add_loc_list, compare_pieces,
+	loc_descriptor_from_constructor): New functions.
+	(loc_descriptor_from_tree): Rewrite using loc_list_from_tree.
+	(add_AT_location_description): Support location lists.
+	(add_location_or_const_value_attribute): Simplify
+	using loc_list_from_tree.
+	(add_value): Likewise.
+	(add_bound_info): Use location lists.
+	(gen_array_type_die): Likewise.
+	(gen_formal_parameter_die): Look for VALUE_EXPR if present.
+	(gen_variable_die): Likewise; Do fortran common sections on location
+	lists.
+	(gen_subprogram_die): Use location lists.
+	* function.c (instantiate_decls_1): Instantiate nonlocalized vars.
+
+2009-03-25  Jan Hubicka  <jh@suse.cz>
+
 	* except.c (duplicate_eh_regions_0): Walk AKA bitmap
 	(duplicate_eh_regions_1): Duplicate AKA bitmap.
 	(duplicate_eh_regions): Verify EH tree; cleanup region array growing;

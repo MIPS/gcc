@@ -3835,6 +3835,8 @@ dwarf_stack_op_name (unsigned int op)
       return "DW_OP_GNU_push_tls_address";
     case DW_OP_GNU_uninit:
       return "DW_OP_GNU_uninit";
+    case DW_OP_bit_piece:
+      return "DW_OP_bit_piece";
     default:
       return "OP_<unknown>";
     }
@@ -3983,6 +3985,10 @@ size_of_loc_descr (dw_loc_descr_ref loc)
       break;
     case DW_OP_piece:
       size += size_of_uleb128 (loc->dw_loc_oprnd1.v.val_unsigned);
+      break;
+    case DW_OP_bit_piece:
+      size += size_of_uleb128 (loc->dw_loc_oprnd1.v.val_unsigned);
+      size += size_of_uleb128 (loc->dw_loc_oprnd2.v.val_unsigned);
       break;
     case DW_OP_deref_size:
     case DW_OP_xderef_size:
@@ -4148,6 +4154,10 @@ output_loc_operands (dw_loc_descr_ref loc)
       break;
     case DW_OP_piece:
       dw2_asm_output_data_uleb128 (val1->v.val_unsigned, NULL);
+      break;
+    case DW_OP_bit_piece:
+      dw2_asm_output_data_uleb128 (val1->v.val_unsigned, NULL);
+      dw2_asm_output_data_uleb128 (val2->v.val_unsigned, NULL);
       break;
     case DW_OP_deref_size:
     case DW_OP_xderef_size:
@@ -5103,8 +5113,8 @@ static dw_loc_descr_ref mem_loc_descriptor (rtx, enum machine_mode mode,
 static dw_loc_descr_ref concat_loc_descriptor (rtx, rtx,
 					       enum var_init_status);
 static dw_loc_descr_ref loc_descriptor (rtx, enum var_init_status);
-static dw_loc_descr_ref loc_descriptor_from_tree_1 (tree, int);
-static dw_loc_descr_ref loc_descriptor_from_tree (tree);
+static dw_loc_list_ref loc_list_from_tree (tree, int);
+static dw_loc_descr_ref loc_descriptor_from_tree (tree, int);
 static HOST_WIDE_INT ceiling (HOST_WIDE_INT, unsigned int);
 static tree field_type (const_tree);
 static unsigned int simple_type_align_in_bits (const_tree);
@@ -5112,7 +5122,7 @@ static unsigned int simple_decl_align_in_bits (const_tree);
 static unsigned HOST_WIDE_INT simple_type_size_in_bits (const_tree);
 static HOST_WIDE_INT field_byte_offset (const_tree);
 static void add_AT_location_description	(dw_die_ref, enum dwarf_attribute,
-					 dw_loc_descr_ref);
+					 dw_loc_list_ref);
 static void add_data_member_location_attribute (dw_die_ref, tree);
 static void insert_int (HOST_WIDE_INT, unsigned, unsigned char *);
 static HOST_WIDE_INT extract_int (const unsigned char *, unsigned);
@@ -9628,7 +9638,7 @@ dbx_reg_number (const_rtx rtl)
 
 /* Optionally add a DW_OP_piece term to a location description expression.
    DW_OP_piece is only added if the location description expression already
-   doesn't end with DW_OP_piece.  */
+   doesn't end with DW_OP_piece or DW_OP_bit_piece.  */
 
 static void
 add_loc_descr_op_piece (dw_loc_descr_ref *list_head, int size)
@@ -9641,8 +9651,28 @@ add_loc_descr_op_piece (dw_loc_descr_ref *list_head, int size)
       for (loc = *list_head; loc->dw_loc_next != NULL; loc = loc->dw_loc_next)
 	;
 
-      if (loc->dw_loc_opc != DW_OP_piece)
+      if (loc->dw_loc_opc != DW_OP_piece && loc->dw_loc_opc != DW_OP_bit_piece)
 	loc->dw_loc_next = new_loc_descr (DW_OP_piece, size, 0);
+    }
+}
+
+/* Optionally add a DW_OP_bit_piece term to a location description expression.
+   DW_OP_bit_piece is only added if the location description expression already
+   doesn't end with DW_OP_bit_piece or DW_OP_piece.  */
+
+static void
+add_loc_descr_op_bit_piece (dw_loc_descr_ref *list_head, int size, int offset)
+{
+  dw_loc_descr_ref loc;
+
+  if (*list_head != NULL)
+    {
+      /* Find the end of the chain.  */
+      for (loc = *list_head; loc->dw_loc_next != NULL; loc = loc->dw_loc_next)
+	;
+
+      if (loc->dw_loc_opc != DW_OP_piece && loc->dw_loc_opc != DW_OP_bit_piece)
+	loc->dw_loc_next = new_loc_descr (DW_OP_bit_piece, size, offset);
     }
 }
 
@@ -9922,7 +9952,7 @@ tls_mem_loc_descriptor (rtx mem)
       || !DECL_THREAD_LOCAL_P (base))
     return NULL;
 
-  loc_result = loc_descriptor_from_tree_1 (MEM_EXPR (mem), 2);
+  loc_result = loc_descriptor_from_tree (MEM_EXPR (mem), 2);
   if (loc_result == NULL)
     return NULL;
 
@@ -10184,6 +10214,21 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 						   VAR_INIT_STATUS_INITIALIZED);
       break;
 
+    case VAR_LOCATION:
+      if (GET_CODE (XEXP (rtl, 1)) != PARALLEL)
+	{
+	  mem_loc_result = mem_loc_descriptor (XEXP (XEXP (rtl, 1), 0), mode, initialized);
+	  break;
+	}
+      /* TODO: We can handle this case via OP_piece of dwarf stack machine operatoins.
+	 It should not be common case however.  */
+      if (dump_file)
+	{
+	  fprintf (stderr, "Multipart value can not be used in value expression.\n");
+	}
+      return 0;
+      break;
+
     case UNSPEC:
       /* If delegitimize_address couldn't do anything with the UNSPEC, we
 	 can't express it in the debug info.  This can happen e.g. with some
@@ -10346,16 +10391,429 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
   return loc_result;
 }
 
-/* Similar, but generate the descriptor from trees instead of rtl.  This comes
-   up particularly with variable length arrays.  WANT_ADDRESS is 2 if this is
-   a top-level invocation of loc_descriptor_from_tree; is 1 if this is not a
-   top-level invocation, and we require the address of LOC; is 0 if we require
-   the value of LOC.  */
+/* We need to figure out what section we should use as the base for the
+   address ranges where a given location is valid.
+   1. If this particular DECL has a section associated with it, use that.
+   2. If this function has a section associated with it, use that.
+   3. Otherwise, use the text section.
+   XXX: If you split a variable across multiple sections, we won't notice.  */
+
+static const char *
+secname_for_decl (const_tree decl)
+{
+  const char *secname;
+
+  if (VAR_OR_FUNCTION_DECL_P (decl) && DECL_SECTION_NAME (decl))
+    {
+      tree sectree = DECL_SECTION_NAME (decl);
+      secname = TREE_STRING_POINTER (sectree);
+    }
+  else if (current_function_decl && DECL_SECTION_NAME (current_function_decl))
+    {
+      tree sectree = DECL_SECTION_NAME (current_function_decl);
+      secname = TREE_STRING_POINTER (sectree);
+    }
+  else if (cfun && in_cold_section_p)
+    secname = crtl->subsections.cold_section_label;
+  else
+    secname = text_section_label;
+
+  return secname;
+}
+
+static bool
+hidden_reference_p (tree decl)
+{
+  return ((TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == RESULT_DECL)
+	  && DECL_BY_REFERENCE (decl));
+}
+
+/* Dereference a location expression LOC if DECL is passed by invisible
+   reference.  */
 
 static dw_loc_descr_ref
-loc_descriptor_from_tree_1 (tree loc, int want_address)
+loc_by_reference (dw_loc_descr_ref loc, tree decl)
 {
-  dw_loc_descr_ref ret, ret1;
+  HOST_WIDE_INT size;
+  enum dwarf_location_atom op;
+
+  if (loc == NULL)
+    return NULL;
+
+  if (!hidden_reference_p (decl))
+    return loc;
+
+  size = int_size_in_bytes (TREE_TYPE (decl));
+  if (size > DWARF2_ADDR_SIZE || size == -1)
+    return 0;
+  else if (size == DWARF2_ADDR_SIZE)
+    op = DW_OP_deref;
+  else
+    op = DW_OP_deref_size;
+  add_loc_descr (&loc, new_loc_descr (op, size, 0));
+  return loc;
+}
+
+/* Return dwarf representation of location list representing for
+   LOC_LIST of DECL.  */
+
+static dw_loc_list_ref
+dw_loc_list (var_loc_list * loc_list, tree decl, bool toplevel)
+{
+  const char *endname, *secname;
+  dw_loc_list_ref list;
+  rtx varloc;
+  enum var_init_status initialized;
+  struct var_loc_node *node;
+  dw_loc_descr_ref descr;
+  char label_id[MAX_ARTIFICIAL_LABEL_BYTES];
+
+  bool by_reference = hidden_reference_p (decl);
+
+  /* Now that we know what section we are using for a base,
+     actually construct the list of locations.
+     The first location information is what is passed to the
+     function that creates the location list, and the remaining
+     locations just get added on to that list.
+     Note that we only know the start address for a location
+     (IE location changes), so to build the range, we use
+     the range [current location start, next location start].
+     This means we have to special case the last node, and generate
+     a range of [last location start, end of function label].  */
+
+  node = loc_list->first;
+  varloc = NOTE_VAR_LOCATION (node->var_loc_note);
+  secname = secname_for_decl (decl);
+
+  if (NOTE_VAR_LOCATION_LOC (node->var_loc_note))
+    initialized = NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
+  else
+    initialized = VAR_INIT_STATUS_INITIALIZED;
+
+  if (!toplevel || by_reference)
+    descr = loc_by_reference (mem_loc_descriptor (varloc,
+						  TYPE_MODE (TREE_TYPE (decl)),
+						  initialized),
+			      decl);
+  else
+    descr = loc_by_reference (loc_descriptor (varloc, initialized), decl);
+
+  if (!current_function_decl)
+    endname = text_end_label;
+  else
+    {
+      ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_END_LABEL,
+				   current_function_funcdef_no);
+      endname = ggc_strdup (label_id);
+    }
+  list = new_loc_list (descr, node->label, node->next ? node->next->label : endname, secname, 1);
+  node = node->next;
+
+  if (!node)
+    return NULL;
+
+  for (; node->next; node = node->next)
+    if (NOTE_VAR_LOCATION_LOC (node->var_loc_note) != NULL_RTX)
+      {
+	/* The variable has a location between NODE->LABEL and
+	   NODE->NEXT->LABEL.  */
+	enum var_init_status initialized =
+	  NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
+	varloc = NOTE_VAR_LOCATION (node->var_loc_note);
+	if (!toplevel || by_reference)
+	  descr = mem_loc_descriptor (varloc, TYPE_MODE (TREE_TYPE (decl)), initialized);
+	else
+	  descr = loc_descriptor (varloc, initialized);
+	descr = loc_by_reference (descr, decl);
+	add_loc_descr_to_loc_list (&list, descr,
+				   node->label, node->next->label, secname);
+      }
+
+  /* If the variable has a location at the last label
+     it keeps its location until the end of function.  */
+  if (NOTE_VAR_LOCATION_LOC (node->var_loc_note) != NULL_RTX)
+    {
+      enum var_init_status initialized =
+	NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
+
+      varloc = NOTE_VAR_LOCATION (node->var_loc_note);
+      descr = loc_by_reference (loc_descriptor (varloc, initialized), decl);
+      add_loc_descr_to_loc_list (&list, descr, node->label, endname, secname);
+    }
+  return list;
+}
+
+/* Return single element location list containing loc descr REF.  */
+
+static dw_loc_list_ref
+single_element_loc_list (dw_loc_descr_ref ref)
+{
+  return new_loc_list (ref, NULL, NULL, NULL, 0);
+}
+
+static bool
+single_element_loc_list_p (dw_loc_list_ref list)
+{
+  return (!list->dw_loc_next && !list->begin && !list->end);
+}
+
+/* To each location in list LIST add loc descr REF.  */
+
+static void
+add_loc_descr_to_each (dw_loc_list_ref list, dw_loc_descr_ref ref)
+{
+  dw_loc_descr_ref copy;
+  add_loc_descr (&list->expr, ref);
+  list = list->dw_loc_next;
+  while (list)
+    {
+      copy = GGC_CNEW (dw_loc_descr_node);
+      memcpy (copy, ref, sizeof (dw_loc_descr_node));
+      add_loc_descr (&list->expr, copy);
+      while (copy->dw_loc_next)
+	{
+          dw_loc_descr_ref new_copy = GGC_CNEW (dw_loc_descr_node);
+	  memcpy (new_copy, copy->dw_loc_next, sizeof (dw_loc_descr_node));
+	  copy->dw_loc_next = new_copy;
+	  copy = new_copy;
+	}
+      list = list->dw_loc_next;
+    }
+}
+
+/* Given two lists RET and LIST
+   produce location list that is result of adding expression in LIST
+   to expression in RET on each possition in program.
+   Might be destructive on both RET and LIST.
+
+   TODO: We handle only simple cases of RET or LIST having at most one
+   element. General case would inolve sorting the lists in program order
+   and merging them that will need some additional work.  
+   Adding that will improve quality of debug info especially for SRA-ed
+   structures.  */
+static void
+add_loc_list (dw_loc_list_ref *ret, dw_loc_list_ref list)
+{
+  if (!list)
+    return;
+  if (!*ret)
+    {
+      *ret = list;
+      return;
+    }
+  if (!list->dw_loc_next)
+    {
+      add_loc_descr_to_each (*ret, list->expr);
+      return;
+    }
+  if (!(*ret)->dw_loc_next)
+    {
+      add_loc_descr_to_each (list, (*ret)->expr);
+      *ret = list;
+      return;
+    }
+  if (dump_file)
+    fprintf (dump_file, "Don't know how to merge two location lists with multiple locations.\n");
+  *ret = NULL;
+  return;
+}
+
+/* Represent pieces of constructor.  */
+
+struct piece
+{
+  unsigned HOST_WIDE_INT pos, size;
+  dw_loc_list_ref loc;
+};
+
+/* Compare two pieces by their possition for qsort.  */
+
+static int
+compare_pieces (const void *p1, const void *p2)
+{
+  const struct piece *fp1 = (const struct piece *) p1;
+  const struct piece *fp2 = (const struct piece *) p2;
+  if (fp1->pos < fp2->pos)
+    return -1;
+  if (fp1->pos > fp2->pos)
+    return 1;
+  return 0;
+}
+
+/* LOC is constructor; output location from it using DW_OP_piece.  */
+
+static dw_loc_list_ref
+loc_descriptor_from_constructor (tree loc)
+{
+  tree type = TREE_TYPE (loc);
+  dw_loc_list_ref ret = NULL, val;
+  tree value;
+  unsigned HOST_WIDE_INT idx;
+  struct piece *pieces = (struct piece *) xmalloc (sizeof (struct piece) *
+						   CONSTRUCTOR_NELTS (loc));
+  int nelts = 0;
+  tree el, domain = NULL_TREE, low_bound = NULL_TREE, tree_size = NULL_TREE;
+  unsigned HOST_WIDE_INT lastpos;
+  int i;
+
+
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      domain = TYPE_DOMAIN (type);
+      el = TREE_TYPE (type);
+      tree_size = TYPE_SIZE (el);
+      if (!host_integerp (tree_size, 1))
+	return NULL;
+      low_bound = TYPE_MIN_VALUE (domain);
+    }
+  if (dump_file)
+    {
+      fprintf (dump_file, "Expanding location for constructor: ");
+      print_generic_expr (dump_file, loc, 0);
+      fprintf (dump_file, "\n");
+    }
+  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (loc), idx, value)
+  {
+    tree pos = CONSTRUCTOR_ELT (loc, idx)->index;
+    if (value == error_mark_node)
+      continue;
+    val = loc_list_from_tree (value, 2);
+    if (val)
+      {
+	pieces[nelts].loc = val;
+	pieces[nelts].size = tree_low_cst (TYPE_SIZE (TREE_TYPE (value)), 1);
+
+	if (tree_size)
+	  {
+	    if (!integer_zerop (low_bound))
+	      pos = fold_build2 (MINUS_EXPR, TREE_TYPE (pos), pos, low_bound);
+	    pos = fold_build2 (MINUS_EXPR, TREE_TYPE (pos), pos, low_bound);
+	    pos =
+	      size_binop (MULT_EXPR, fold_convert (sizetype, pos),
+			  fold_convert (sizetype, tree_size));
+	    if (!host_integerp (pos, 1))
+	      {
+	        if (dump_file)
+		  fprintf (dump_file, "  Array offset not host integer.\n");
+	        continue;
+	      }
+	    pieces[nelts].pos = tree_low_cst (pos, 1);
+	    pieces[nelts].size = tree_low_cst (tree_size, 1);
+	  }
+	else
+	  {
+	    pieces[nelts].pos = int_bit_position (pos);
+	    if (!host_integerp (TYPE_SIZE (TREE_TYPE (pos)), 1))
+	      {
+	        if (dump_file)
+		  fprintf (dump_file, "  Field offset not host integer.\n");
+	        continue;
+	      }
+	    pieces[nelts].size =
+	      tree_low_cst (TYPE_SIZE (TREE_TYPE (pos)), 0);
+	  }
+	if (dump_file)
+	  {
+	    fprintf (dump_file, "  expanded pos:%i size:%i value:",
+		     (int) pieces[nelts].pos, (int) pieces[nelts].size);
+	    print_generic_expr (dump_file, value, 0);
+	    fprintf (dump_file, "\n");
+	  }
+	nelts++;
+      }
+    else if (dump_file)
+      {
+	fprintf (dump_file, "  failed to expand value:");
+	print_generic_expr (dump_file, value, 0);
+	fprintf (dump_file, "\n");
+      }
+  }
+  if (!nelts)
+    {
+      if (dump_file)
+        fprintf (dump_file, "No expandable elts.\n");
+      free (pieces);
+      return NULL;
+    }
+  if (nelts == 1 && pieces[0].pos == 0)
+    {
+      if (dump_file)
+        fprintf (dump_file, "Expanded as single etl.\n");
+      free (pieces);
+      return pieces[0].loc;
+    }
+  qsort (pieces, nelts, sizeof (struct piece), compare_pieces);
+  lastpos = 0;
+  for (i = 0; i < nelts; i++)
+    {
+      bool need_bit_pos;
+
+      /* TODO: looking for first initialized field of unions is not quite optimal.
+	 it is possible that multiple fields of unions have constructors assigned
+	 (since SRA don't track what field it uses and it will initialize all matching
+	 subfields of unions) and thus we should merge all the piece lists into
+	 common one.  */
+      while (pieces[i].pos < lastpos && i < nelts)
+	i++;
+      if (i == nelts)
+	break;
+      need_bit_pos = (pieces[i].pos % BITS_PER_UNIT || pieces[i].size % BITS_PER_UNIT
+          	      || lastpos % BITS_PER_UNIT);
+
+      /* DW_OP_piece has two advantages over DW_OP_bit_pieces.  First it
+         encode shorter, second it is better supported by older versions
+         of gdb.  As of writting this comment, gdb still does not understand
+	 DW_OP_bit_piece.  So we give it preferrence even if encoding
+	 of undefined space would actually be shorter via DW_OP_bit_piece
+	 even if bug in gdb makes it to refuse DW_OP_piece with empty top
+	 of stack as well.  Such use of DW_OP_piece is explicitly used
+	 in dwarf3 standard, section 2.6.5 (Example Location Expressions).
+
+	 We might change this behaviour in future to preffer bit_piece
+	 to encode undefined parts of structure.  */
+
+      if (lastpos != pieces[i].pos && !need_bit_pos)
+	{
+	  dw_loc_descr_ref piece = new_loc_descr (DW_OP_piece,
+					          (pieces[i].pos - lastpos)
+					          / BITS_PER_UNIT, 0);
+	  if (ret)
+	    add_loc_descr_to_each (ret, piece);
+	  else
+	    ret = single_element_loc_list (piece);
+	}
+      add_loc_list (&ret, pieces[i].loc);
+      if (!ret)
+	return NULL;
+      for (val = ret; val; val = val->dw_loc_next)
+        {
+          if (need_bit_pos)
+	    add_loc_descr_op_bit_piece (&val->expr, pieces[i].size, pieces[i].pos - lastpos);
+          else
+	    add_loc_descr_op_piece (&val->expr, pieces[i].size / BITS_PER_UNIT);
+        }
+      lastpos = pieces[i].size + pieces[i].pos;
+    }
+  free (pieces);
+  return ret;
+}
+
+/* Generate Dwarf location list representing LOC.
+   If WANT_ADDRESS is 0, expression computing LOC will be computed
+   If WANT_ADDRESS is 1, expression computing address of LOC will be returned
+   if WANT_ADDRESS is 2, expression computing address useable in location
+     will be returned (i.e. DW_OP_reg can be used
+     to refer to register values) 
+   TODO: Dwarf4 adds types to the stack machine that ought to be used here
+   DW_OP_value will help in cases where we fail to find address of the
+   expression.
+ */
+
+static dw_loc_list_ref
+loc_list_from_tree (tree loc, int want_address)
+{
+  dw_loc_descr_ref ret = NULL, ret1 = NULL;
+  dw_loc_list_ref list_ret = NULL, list_ret1 = NULL;
   int have_address = 0;
   enum dwarf_location_atom op;
 
@@ -10366,6 +10824,8 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
   switch (TREE_CODE (loc))
     {
     case ERROR_MARK:
+      if (dump_file)
+	fprintf (dump_file, "ERROR_MARK in the expression\n");
       return 0;
 
     case PLACEHOLDER_EXPR:
@@ -10373,15 +10833,18 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	 position of other fields.  We don't try to encode this here.  The
 	 only user of this is Ada, which encodes the needed information using
 	 the names of types.  */
+      if (dump_file)
+	fprintf (dump_file, "PLACEHOLDER_EXPR in the expression\n");
       return 0;
 
     case CALL_EXPR:
-      return 0;
 
     case PREINCREMENT_EXPR:
     case PREDECREMENT_EXPR:
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
+      if (dump_file)
+	fprintf (dump_file, "CALL_EXPR in the expression\n");
       /* There are no opcodes for these operations.  */
       return 0;
 
@@ -10403,22 +10866,26 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	  if (INDIRECT_REF_P (obj)
 	      && !bitpos && !offset)
 	    {
-	      ret = loc_descriptor_from_tree_1 (TREE_OPERAND (obj, 0), want_address);
+	      list_ret = loc_list_from_tree (TREE_OPERAND (obj, 0), want_address);
 	      have_address = 1;
 	    }
 	  /* Try luck and perhaps find the address available in constant pool.  */
 	  else if (is_gimple_ip_invariant_address (loc))
 	    goto cst_address;
 	  else
-	    return NULL;
+	    {
+	      if (dump_file)
+		fprintf (dump_file, "Failed to expand address of address.\n");
+	      return NULL;
+	    }
 	}
       /* Otherwise, process the argument and look for the address.  */
       else
-        return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 1);
+        return loc_list_from_tree (TREE_OPERAND (loc, 0), 1);
       break;
 
     case CONST_DECL:
-      return loc_descriptor_from_tree_1 (DECL_INITIAL (loc), want_address);
+      return loc_list_from_tree (DECL_INITIAL (loc), want_address);
       break;
 
     case VAR_DECL:
@@ -10493,17 +10960,30 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       /* FALLTHRU */
 
     case PARM_DECL:
+      /* We represend partially decomposed structures by declaration describing
+         the structure itself with DECL_VALUE_EXPR set to constructor containing
+	 references to the structure fields.  Avoid recursion here, second time
+	 we get here we are processing the constructor and we do want to get
+	 only the field reference.  */
       if (DECL_HAS_VALUE_EXPR_P (loc))
-	return loc_descriptor_from_tree_1 (DECL_VALUE_EXPR (loc),
-					   want_address);
+        {
+	  /*DECL_HAS_VALUE_EXPR_P (loc) = 0;*/
+	  return loc_list_from_tree (DECL_VALUE_EXPR (loc),
+					        want_address);
+	  /*DECL_HAS_VALUE_EXPR_P (loc) = 1;*/
+	}
       /* FALLTHRU */
 
     case RESULT_DECL:
     case FUNCTION_DECL:
       {
 	rtx rtl = rtl_for_decl_location (loc);
+	var_loc_list *loc_list = lookup_decl_loc (loc);
 
-	if (rtl == NULL_RTX)
+	if (loc_list && loc_list->first
+	    && (list_ret = dw_loc_list (loc_list, loc, want_address == 2)))
+	  have_address = 1;
+	else if (rtl == NULL_RTX)
 	  {
 	    if (dump_file)
 	      {
@@ -10521,7 +11001,11 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	    ret = int_loc_descriptor (val);
 	  }
 	else if (GET_CODE (rtl) == CONST_STRING)
-	  return 0;
+	  {
+	    if (dump_file)
+	      fprintf (stderr, "Failed to expand CONST_STRING\n");
+	    return 0;
+	  }
 	else if (CONSTANT_P (rtl))
 	  {
 	    ret = new_loc_descr (DW_OP_addr, 0, 0);
@@ -10534,15 +11018,25 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 
 	    /* Certain constructs can only be represented at top-level.  */
 	    if (want_address == 2)
-	      return loc_descriptor (rtl, VAR_INIT_STATUS_INITIALIZED);
-
-	    mode = GET_MODE (rtl);
-	    if (MEM_P (rtl))
 	      {
-		rtl = XEXP (rtl, 0);
+	        ret = loc_descriptor (rtl, VAR_INIT_STATUS_INITIALIZED);
 		have_address = 1;
 	      }
-	    ret = mem_loc_descriptor (rtl, mode, VAR_INIT_STATUS_INITIALIZED);
+	    else
+	      {
+		mode = GET_MODE (rtl);
+		if (MEM_P (rtl))
+		  {
+		    rtl = XEXP (rtl, 0);
+		    have_address = 1;
+		  }
+		ret = mem_loc_descriptor (rtl, mode, VAR_INIT_STATUS_INITIALIZED);
+	      }
+	    if (!ret && dump_file)
+	      {
+	        fprintf (dump_file, "Failed to produce loc descriptor for rtl\n");
+		print_rtl (dump_file, rtl);
+	      }
 	  }
       }
       break;
@@ -10550,18 +11044,18 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
     case INDIRECT_REF:
     case ALIGN_INDIRECT_REF:
     case MISALIGNED_INDIRECT_REF:
-      ret = loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 0);
+      list_ret = loc_list_from_tree (TREE_OPERAND (loc, 0), 0);
       have_address = 1;
       break;
 
     case COMPOUND_EXPR:
-      return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 1), want_address);
+      return loc_list_from_tree (TREE_OPERAND (loc, 1), want_address);
 
     CASE_CONVERT:
     case VIEW_CONVERT_EXPR:
     case SAVE_EXPR:
     case MODIFY_EXPR:
-      return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), want_address);
+      return loc_list_from_tree (TREE_OPERAND (loc, 0), want_address);
 
     case COMPONENT_REF:
     case BIT_FIELD_REF:
@@ -10579,31 +11073,37 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	obj = get_inner_reference (loc, &bitsize, &bitpos, &offset, &mode,
 				   &unsignedp, &volatilep, false);
 
-	if (obj == loc)
-	  return 0;
+	gcc_assert (obj != loc);
 
-	ret = loc_descriptor_from_tree_1 (obj, 1);
-	if (ret == 0
-	    || bitpos % BITS_PER_UNIT != 0 || bitsize % BITS_PER_UNIT != 0)
+	list_ret = loc_list_from_tree (obj, 1);
+	if (list_ret == 0)
 	  return 0;
+	if (bitpos % BITS_PER_UNIT != 0 || bitsize % BITS_PER_UNIT != 0)
+	  {
+	    if (dump_file)
+	      fprintf (stderr, "Can not encode bitfield accesses.\n");
+	    return 0;
+	  }
 
 	if (offset != NULL_TREE)
 	  {
 	    /* Variable offset.  */
-	    ret1 = loc_descriptor_from_tree_1 (offset, 0);
-	    if (ret1 == 0)
+	    list_ret1 = loc_list_from_tree (offset, 0);
+	    if (list_ret1 == 0)
 	      return 0;
-	    add_loc_descr (&ret, ret1);
-	    add_loc_descr (&ret, new_loc_descr (DW_OP_plus, 0, 0));
+	    add_loc_list (&list_ret, list_ret1);
+	    if (!list_ret)
+	      return 0;
+	    add_loc_descr_to_each (list_ret, new_loc_descr (DW_OP_plus, 0, 0));
 	  }
 
 	bytepos = bitpos / BITS_PER_UNIT;
 	if (bytepos > 0)
-	  add_loc_descr (&ret, new_loc_descr (DW_OP_plus_uconst, bytepos, 0));
+	  add_loc_descr_to_each (list_ret, new_loc_descr (DW_OP_plus_uconst, bytepos, 0));
 	else if (bytepos < 0)
 	  {
-	    add_loc_descr (&ret, int_loc_descriptor (bytepos));
-	    add_loc_descr (&ret, new_loc_descr (DW_OP_plus, 0, 0));
+	    add_loc_descr_to_each (list_ret, int_loc_descriptor (bytepos));
+	    add_loc_descr_to_each (list_ret, new_loc_descr (DW_OP_plus, 0, 0));
 	  }
 
 	have_address = 1;
@@ -10620,17 +11120,30 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       if (host_integerp (loc, 0))
 	ret = int_loc_descriptor (tree_low_cst (loc, 0));
       else
-	return 0;
+	{
+	  if (dump_file)
+	    fprintf (stderr, "Integer operand is not host integer.\n");
+	  return 0;
+	}
       break;
+    case CONSTRUCTOR:
+      if (want_address == 2)
+	{
+	  list_ret = loc_descriptor_from_constructor (loc);
+	  if (list_ret)
+	    {
+	      have_address = true;
+	      break;
+	    }
+	}
 
+      /* ... fall through ... */
     case REAL_CST:
     case STRING_CST:
     case COMPLEX_CST:
       /* TODO: When we don't want address, we can construct small
          constants here using int_loc_descriptor.  */
-      goto cst_address;
 
-    case CONSTRUCTOR:
     cst_address:
       {
 	/* Get an RTL for this, if something has been emitted.  */
@@ -10718,12 +11231,12 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       if (TREE_CODE (TREE_OPERAND (loc, 1)) == INTEGER_CST
 	  && host_integerp (TREE_OPERAND (loc, 1), 0))
 	{
-	  ret = loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 0);
-	  if (ret == 0)
+	  list_ret = loc_list_from_tree (TREE_OPERAND (loc, 0), 0);
+	  if (list_ret == 0)
 	    return 0;
 
-	  add_loc_descr (&ret,
-			 new_loc_descr (DW_OP_plus_uconst,
+	  add_loc_descr_to_each (list_ret,
+			 	     new_loc_descr (DW_OP_plus_uconst,
 					tree_low_cst (TREE_OPERAND (loc, 1),
 						      0),
 					0));
@@ -10770,13 +11283,15 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       goto do_binop;
 
     do_binop:
-      ret = loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 0);
-      ret1 = loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 1), 0);
-      if (ret == 0 || ret1 == 0)
+      list_ret = loc_list_from_tree (TREE_OPERAND (loc, 0), 0);
+      list_ret1 = loc_list_from_tree (TREE_OPERAND (loc, 1), 0);
+      if (list_ret == 0 || list_ret1 == 0)
 	return 0;
 
-      add_loc_descr (&ret, ret1);
-      add_loc_descr (&ret, new_loc_descr (op, 0, 0));
+      add_loc_list (&list_ret, list_ret1);
+      if (list_ret == 0)
+	return 0;
+      add_loc_descr_to_each (list_ret, new_loc_descr (op, 0, 0));
       break;
 
     case TRUTH_NOT_EXPR:
@@ -10793,11 +11308,11 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       goto do_unop;
 
     do_unop:
-      ret = loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 0);
-      if (ret == 0)
+      list_ret = loc_list_from_tree (TREE_OPERAND (loc, 0), 0);
+      if (list_ret == 0)
 	return 0;
 
-      add_loc_descr (&ret, new_loc_descr (op, 0, 0));
+      add_loc_descr_to_each (list_ret, new_loc_descr (op, 0, 0));
       break;
 
     case MIN_EXPR:
@@ -10817,29 +11332,29 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
     case COND_EXPR:
       {
 	dw_loc_descr_ref lhs
-	  = loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 1), 0);
-	dw_loc_descr_ref rhs
-	  = loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 2), 0);
+	  = loc_descriptor_from_tree (TREE_OPERAND (loc, 1), 0);
+	dw_loc_list_ref rhs
+	  = loc_list_from_tree (TREE_OPERAND (loc, 2), 0);
 	dw_loc_descr_ref bra_node, jump_node, tmp;
 
-	ret = loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), 0);
-	if (ret == 0 || lhs == 0 || rhs == 0)
+	list_ret = loc_list_from_tree (TREE_OPERAND (loc, 0), 0);
+	if (list_ret == 0 || lhs == 0 || rhs == 0)
 	  return 0;
 
 	bra_node = new_loc_descr (DW_OP_bra, 0, 0);
-	add_loc_descr (&ret, bra_node);
+	add_loc_descr_to_each (list_ret, bra_node);
 
-	add_loc_descr (&ret, rhs);
+	add_loc_list (&list_ret, rhs);
 	jump_node = new_loc_descr (DW_OP_skip, 0, 0);
-	add_loc_descr (&ret, jump_node);
+	add_loc_descr_to_each (list_ret, jump_node);
 
-	add_loc_descr (&ret, lhs);
+	add_loc_descr_to_each (list_ret, lhs);
 	bra_node->dw_loc_oprnd1.val_class = dw_val_class_loc;
 	bra_node->dw_loc_oprnd1.v.val_loc = lhs;
 
 	/* ??? Need a node to point the skip at.  Use a nop.  */
 	tmp = new_loc_descr (DW_OP_nop, 0, 0);
-	add_loc_descr (&ret, tmp);
+	add_loc_descr_to_each (list_ret, tmp);
 	jump_node->dw_loc_oprnd1.val_class = dw_val_class_loc;
 	jump_node->dw_loc_oprnd1.v.val_loc = tmp;
       }
@@ -10853,7 +11368,11 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	 up, for instance, with the C STMT_EXPR.  */
       if ((unsigned int) TREE_CODE (loc)
 	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE)
-	return 0;
+	{
+	  return 0;
+          if (dump_file)
+	    fprintf (dump_file, "language specific tree in the expression\n");
+	}
 
 #ifdef ENABLE_CHECKING
       /* Otherwise this is a generic code; we should just lists all of
@@ -10867,32 +11386,64 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 #endif
     }
 
-  /* Show if we can't fill the request for an address.  */
-  if (want_address && !have_address)
+  if (!ret && !list_ret)
     return 0;
 
+  /* Show if we can't fill the request for an address.  */
+  if (want_address && !have_address)
+    {
+      if (dump_file)
+	fprintf (stderr, "Want address but have only value.\n");
+      return 0;
+    }
+
+  gcc_assert (!ret || !list_ret);
+
   /* If we've got an address and don't want one, dereference.  */
-  if (!want_address && have_address && ret)
+  if (!want_address && have_address)
     {
       HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (loc));
 
       if (size > DWARF2_ADDR_SIZE || size == -1)
-	return 0;
+	{
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "DWARF address size mismatch. %i %i\n",
+		       (int)size, DWARF2_ADDR_SIZE);
+	      print_generic_expr (dump_file, loc, 0);
+	    }
+	  return 0;
+	}
       else if (size == DWARF2_ADDR_SIZE)
 	op = DW_OP_deref;
       else
 	op = DW_OP_deref_size;
 
-      add_loc_descr (&ret, new_loc_descr (op, size, 0));
+      if (ret)
+        add_loc_descr (&ret, new_loc_descr (op, size, 0));
+      else
+	add_loc_descr_to_each (list_ret, new_loc_descr (op, size, 0));
     }
+  if (ret)
+    list_ret = single_element_loc_list (ret);
 
-  return ret;
+  return list_ret;
 }
 
-static inline dw_loc_descr_ref
-loc_descriptor_from_tree (tree loc)
+/* Same as above but return only single location expression.  */
+static dw_loc_descr_ref
+loc_descriptor_from_tree (tree loc, int want_address)
 {
-  return loc_descriptor_from_tree_1 (loc, 2);
+  dw_loc_list_ref ret = loc_list_from_tree (loc, want_address);
+  if (!ret)
+    return NULL;
+  if (ret->dw_loc_next)
+    {
+      if (dump_file)
+        fprintf (dump_file, "Multiple locations needed where only one is assumed\n");
+      return NULL;
+    }
+  return ret->expr;
 }
 
 /* Given a value, round it up to the lowest multiple of `boundary'
@@ -11098,10 +11649,14 @@ field_byte_offset (const_tree decl)
 
 static inline void
 add_AT_location_description (dw_die_ref die, enum dwarf_attribute attr_kind,
-			     dw_loc_descr_ref descr)
+			     dw_loc_list_ref descr)
 {
-  if (descr != 0)
-    add_AT_loc (die, attr_kind, descr);
+  if (descr == 0)
+    return;
+  if (single_element_loc_list_p (descr))
+    add_AT_loc (die, attr_kind, descr->expr);
+  else
+    add_AT_loc_list (die, attr_kind, descr);
 }
 
 /* Attach the specialized form of location attribute used for data members of
@@ -11725,36 +12280,6 @@ rtl_for_decl_location (tree decl)
   return rtl;
 }
 
-/* We need to figure out what section we should use as the base for the
-   address ranges where a given location is valid.
-   1. If this particular DECL has a section associated with it, use that.
-   2. If this function has a section associated with it, use that.
-   3. Otherwise, use the text section.
-   XXX: If you split a variable across multiple sections, we won't notice.  */
-
-static const char *
-secname_for_decl (const_tree decl)
-{
-  const char *secname;
-
-  if (VAR_OR_FUNCTION_DECL_P (decl) && DECL_SECTION_NAME (decl))
-    {
-      tree sectree = DECL_SECTION_NAME (decl);
-      secname = TREE_STRING_POINTER (sectree);
-    }
-  else if (current_function_decl && DECL_SECTION_NAME (current_function_decl))
-    {
-      tree sectree = DECL_SECTION_NAME (current_function_decl);
-      secname = TREE_STRING_POINTER (sectree);
-    }
-  else if (cfun && in_cold_section_p)
-    secname = crtl->subsections.cold_section_label;
-  else
-    secname = text_section_label;
-
-  return secname;
-}
-
 /* Check whether decl is a Fortran COMMON symbol.  If not, NULL_TREE is
    returned.  If so, the decl for the COMMON block is returned, and the
    value is the offset into the common block for the symbol.  */
@@ -11805,33 +12330,6 @@ fortran_common (tree decl, HOST_WIDE_INT *value)
   return cvar;
 }
 
-/* Dereference a location expression LOC if DECL is passed by invisible
-   reference.  */
-
-static dw_loc_descr_ref
-loc_by_reference (dw_loc_descr_ref loc, tree decl)
-{
-  HOST_WIDE_INT size;
-  enum dwarf_location_atom op;
-
-  if (loc == NULL)
-    return NULL;
-
-  if ((TREE_CODE (decl) != PARM_DECL && TREE_CODE (decl) != RESULT_DECL)
-      || !DECL_BY_REFERENCE (decl))
-    return loc;
-
-  size = int_size_in_bytes (TREE_TYPE (decl));
-  if (size > DWARF2_ADDR_SIZE || size == -1)
-    return 0;
-  else if (size == DWARF2_ADDR_SIZE)
-    op = DW_OP_deref;
-  else
-    op = DW_OP_deref_size;
-  add_loc_descr (&loc, new_loc_descr (op, size, 0));
-  return loc;
-}
-
 /* Generate *either* a DW_AT_location attribute or else a DW_AT_const_value
    data attribute for a variable or a parameter.  We generate the
    DW_AT_const_value attribute only in those cases where the given variable
@@ -11847,127 +12345,25 @@ static bool
 add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 				       enum dwarf_attribute attr)
 {
+  dw_loc_list_ref list;
   rtx rtl;
-  dw_loc_descr_ref descr;
-  var_loc_list *loc_list;
-  struct var_loc_node *node;
   if (TREE_CODE (decl) == ERROR_MARK)
     return false;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL
 	      || TREE_CODE (decl) == RESULT_DECL);
 
-  /* See if we possibly have multiple locations for this variable.  */
-  loc_list = lookup_decl_loc (decl);
-
-  /* If it truly has multiple locations, the first and last node will
-     differ.  */
-  if (loc_list && loc_list->first != loc_list->last)
-    {
-      const char *endname, *secname;
-      dw_loc_list_ref list;
-      rtx varloc;
-      enum var_init_status initialized;
-
-      /* Now that we know what section we are using for a base,
-	 actually construct the list of locations.
-	 The first location information is what is passed to the
-	 function that creates the location list, and the remaining
-	 locations just get added on to that list.
-	 Note that we only know the start address for a location
-	 (IE location changes), so to build the range, we use
-	 the range [current location start, next location start].
-	 This means we have to special case the last node, and generate
-	 a range of [last location start, end of function label].  */
-
-      node = loc_list->first;
-      varloc = NOTE_VAR_LOCATION (node->var_loc_note);
-      secname = secname_for_decl (decl);
-
-      if (NOTE_VAR_LOCATION_LOC (node->var_loc_note))
-	initialized = NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
-      else
-	initialized = VAR_INIT_STATUS_INITIALIZED;
-
-      descr = loc_by_reference (loc_descriptor (varloc, initialized), decl);
-      list = new_loc_list (descr, node->label, node->next->label, secname, 1);
-      node = node->next;
-
-      for (; node->next; node = node->next)
-	if (NOTE_VAR_LOCATION_LOC (node->var_loc_note) != NULL_RTX)
-	  {
-	    /* The variable has a location between NODE->LABEL and
-	       NODE->NEXT->LABEL.  */
-	    enum var_init_status initialized =
-	      NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
-	    varloc = NOTE_VAR_LOCATION (node->var_loc_note);
-	    descr = loc_by_reference (loc_descriptor (varloc, initialized),
-				      decl);
-	    add_loc_descr_to_loc_list (&list, descr,
-				       node->label, node->next->label, secname);
-	  }
-
-      /* If the variable has a location at the last label
-	 it keeps its location until the end of function.  */
-      if (NOTE_VAR_LOCATION_LOC (node->var_loc_note) != NULL_RTX)
-	{
-	  char label_id[MAX_ARTIFICIAL_LABEL_BYTES];
-	  enum var_init_status initialized =
-	    NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
-
-	  varloc = NOTE_VAR_LOCATION (node->var_loc_note);
-	  if (!current_function_decl)
-	    endname = text_end_label;
-	  else
-	    {
-	      ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_END_LABEL,
-					   current_function_funcdef_no);
-	      endname = ggc_strdup (label_id);
-	    }
-	  descr = loc_by_reference (loc_descriptor (varloc, initialized),
-				    decl);
-	  add_loc_descr_to_loc_list (&list, descr,
-				     node->label, endname, secname);
-	}
-
-      /* Finally, add the location list to the DIE, and we are done.  */
-      add_AT_loc_list (die, attr, list);
-      return true;
-    }
-
   /* Try to get some constant RTL for this decl, and use that as the value of
      the location.  */
 
   rtl = rtl_for_decl_location (decl);
-  if (rtl && (CONSTANT_P (rtl) || GET_CODE (rtl) == CONST_STRING))
+  if (rtl && (CONSTANT_P (rtl) || GET_CODE (rtl) == CONST_STRING)
+      && add_const_value_attribute (die, rtl))
+    return true;
+  list = loc_list_from_tree (decl, hidden_reference_p (decl) ? 0 : 2);
+  if (list)
     {
-      return add_const_value_attribute (die, rtl);
-    }
-
-  /* If we have tried to generate the location otherwise, and it
-     didn't work out (we wouldn't be here if we did), and we have a one entry
-     location list, try generating a location from that.  */
-  if (loc_list && loc_list->first)
-    {
-      enum var_init_status status;
-      node = loc_list->first;
-      status = NOTE_VAR_LOCATION_STATUS (node->var_loc_note);
-      descr = loc_descriptor (NOTE_VAR_LOCATION (node->var_loc_note), status);
-      if (descr)
-	{
-	  descr = loc_by_reference (descr, decl);
-	  add_AT_location_description (die, attr, descr);
-	  return true;
-	}
-    }
-
-  /* We couldn't get any rtl, so try directly generating the location
-     description from the tree.  */
-  descr = loc_descriptor_from_tree (decl);
-  if (descr)
-    {
-      descr = loc_by_reference (descr, decl);
-      add_AT_location_description (die, attr, descr);
+      add_AT_location_description (die, attr, list);
       return true;
     }
   /* None of that worked, so it must not really have a location;
@@ -12189,10 +12585,7 @@ tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
 static tree
 add_value (dw_die_ref var_die, tree decl, tree init, dw_die_ref context_die)
 {
-  tree type = TREE_TYPE (decl);
-  dw_loc_descr_ref loc;
-  tree ref_init = NULL;
-  tree old_init = NULL;
+  dw_loc_list_ref loc_list;
   bool by_reference = false;
   tree real_type = TREE_TYPE (decl);
 
@@ -12200,8 +12593,7 @@ add_value (dw_die_ref var_die, tree decl, tree init, dw_die_ref context_die)
     return NULL;
   if (!reload_completed)
     return NULL;
-  if ((TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == RESULT_DECL)
-      && DECL_BY_REFERENCE (decl))
+  if (hidden_reference_p (decl))
     by_reference = true, real_type = TREE_TYPE (decl);
 
   if (dump_file)
@@ -12214,18 +12606,11 @@ add_value (dw_die_ref var_die, tree decl, tree init, dw_die_ref context_die)
     }
   init = fold (init);
 
-  /* Until DW_OP_value was added to DWARF4 there was no means of expanding
-     value of variable as an expression based on other variables and still
-     the expressive power is limited to pointer and integer types.
-     
-     We want to find either compile time constant or pointer to the value
-     resisting in meory.  So try to do smart job on variables passed by
-     reference where there is some chance that the address itself is still
-     stored somewhere.  */
-
   if (by_reference && TREE_CODE (init) == ADDR_EXPR)
-    ref_init = init, init = TREE_OPERAND (init, 0), by_reference = false;
-  if (!by_reference && tree_add_const_value_attribute_1 (var_die, type, init))
+    init = TREE_OPERAND (init, 0), by_reference = false;
+
+  /* First see if we can add DW_AT_const_value.  */
+  if (!by_reference && tree_add_const_value_attribute_1 (var_die, real_type, init))
     {
       if (dump_file)
 	{
@@ -12235,83 +12620,10 @@ add_value (dw_die_ref var_die, tree decl, tree init, dw_die_ref context_die)
       return NULL;
     }
 
-  /* loc_descriptor_from_tree_1 is not able to handle location lists.
-     It is a lot better to try to figure out if the value of variable
-     is exactly same as value of other variable.  In that case
-     we can use location list of that other variable.  */
-  while (old_init != init)
+  loc_list = loc_list_from_tree (init, by_reference ? 0 : 2);
+  if (loc_list)
     {
-      tree obj, offset;
-      HOST_WIDE_INT bitsize, bitpos;
-      enum machine_mode mode;
-      int volatilep;
-      int unsignedp = TYPE_UNSIGNED (TREE_TYPE (init));
-
-      old_init = init;
-
-      STRIP_NOPS (init);
-      init = fold (init);
-      if (by_reference && TREE_CODE (init) == ADDR_EXPR)
-        init = TREE_OPERAND (init, 0), by_reference = false;
-      else if ((TREE_CODE (init) == VAR_DECL || TREE_CODE (init) == PARM_DECL)
-               && DECL_HAS_VALUE_EXPR_P (init))
-        init = DECL_VALUE_EXPR (init);
-      /* If we already want an address, see if there is INDIRECT_REF inside
-	 e.g. for &this->field.  */
-      else if (TREE_CODE (init) == ADDR_EXPR)
-	{
-	  obj = get_inner_reference (TREE_OPERAND (init, 0),
-				     &bitsize, &bitpos, &offset, &mode,
-				     &unsignedp, &volatilep, false);
-	  STRIP_NOPS (obj);
-	  if (INDIRECT_REF_P (obj))
-	    {
-	      if (!bitpos && !offset)
-	        init = TREE_OPERAND (obj, 0);
-	      else if (dump_file)
-                fprintf (dump_file, "Nonzero offset in component reference\n");
-	    }
-	}
-      /* Skip component references that does not change address.  */
-      else if ((obj = get_inner_reference (init,
-				           &bitsize, &bitpos, &offset, &mode,
-				           &unsignedp, &volatilep, false)) != NULL_TREE
-	       && obj != init
-	       && !bitpos && !offset)
-	init = obj;
-      /* See if expression is simple enough so it is equivalent to other variable.
-         We should not output constants here; these would be wrong since we removed
-         casts. */
-      else if ((TREE_CODE (init) == PARM_DECL || TREE_CODE (init) == RESULT_DECL || TREE_CODE (init) == VAR_DECL)
-               && !by_reference
-	       && add_location_or_const_value_attribute (var_die, init, DW_AT_location))
-        {
-	  if (dump_file)
-	    {
-              fprintf (dump_file, "Expanded as direct location\n");
-	      print_die (var_die, dump_file);
-	    }
-	  return NULL;
-	}
-      else if (by_reference)
-         ref_init = init, init = build_fold_indirect_ref (init), by_reference = false;
-      if (dump_file && init != old_init)
-	{
-          fprintf (dump_file, " simplified as ");
-	  print_generic_expr (dump_file, init, 0);
-          fprintf (dump_file, "\n");
-	}
-     }
-  gcc_assert (!by_reference);
-  if (ref_init)
-    loc = loc_descriptor_from_tree_1 (ref_init, 0);
-  else
-    loc = NULL;
-  if (!loc)
-    loc = loc_descriptor_from_tree_1 (init, 2);
-  if (loc)
-    {
-      add_AT_location_description (var_die, DW_AT_location, loc);
+      add_AT_location_description (var_die, DW_AT_location, loc_list);
       if (dump_file)
         {
           fprintf (dump_file, "Expanded as tree location expression\n");
@@ -12329,33 +12641,42 @@ add_value (dw_die_ref var_die, tree decl, tree init, dw_die_ref context_die)
       && TREE_CODE (TREE_TYPE (real_type)) != METHOD_TYPE)
     {
       tree ref = build_fold_indirect_ref (init);
-      bool added = false;
-      if (TREE_CODE (ref) == PARM_DECL || TREE_CODE (ref) == RESULT_DECL || TREE_CODE (ref) == VAR_DECL)
-        added = add_location_or_const_value_attribute (var_die, ref, DW_AT_location);
-      if (!added)
-        loc = loc_descriptor_from_tree_1 (init, 0);
-      else
-	loc = NULL;
-      if (loc || added)
+      if (dump_file)
 	{
-	  if (TREE_CODE (real_type) == REFERENCE_TYPE
-	      || TREE_CODE (real_type) == POINTER_TYPE)
-	    {
-	      add_type_attribute (var_die, TREE_TYPE (real_type),
-				  TREE_READONLY (decl),
-				  TREE_THIS_VOLATILE (decl),
-				  context_die);
-	      if (!added)
-                add_AT_location_description (var_die, DW_AT_location, loc);
-	      if (dump_file)
-		fprintf (dump_file, "Dropped reference type and expanded %s\n",
-			 added ? "direct location" : "tree location");
-	      return TREE_TYPE (real_type);
-	    }
-	  else if (dump_file)
-            fprintf (dump_file, "Can expand as expression\n");
+          fprintf (dump_file, "  trying dereferenced expr: ");
+          print_generic_expr (dump_file, ref, 0);
+          fprintf (dump_file, "\n");
 	}
+      if (tree_add_const_value_attribute_1 (var_die, TREE_TYPE (real_type), ref))
+	{
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "Removed reference and expanded as constant\n");
+	      print_die (var_die, dump_file);
+	    }
+	}
+      else if ((loc_list = loc_list_from_tree (ref, 2)) != NULL)
+	{
+	  add_AT_location_description (var_die, DW_AT_location, loc_list);
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "Removed reference and expanded as tree location expression\n");
+	      print_die (var_die, dump_file);
+	    }
+	}
+      else
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Failed to expand\n");
+	  return NULL;
+	}
+      add_type_attribute (var_die, TREE_TYPE (real_type),
+			  TREE_READONLY (decl),
+			  TREE_THIS_VOLATILE (decl),
+			  context_die);
+      return TREE_TYPE (real_type);
     }
+
   if (dump_file)
     fprintf (dump_file, "Failed to expand\n");
   return NULL_TREE;
@@ -12542,7 +12863,7 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
     case RESULT_DECL:
       {
 	dw_die_ref decl_die = lookup_decl_die (bound);
-	dw_loc_descr_ref loc;
+	dw_loc_list_ref loc;
 
 	/* ??? Can this happen, or should the variable have been bound
 	   first?  Probably it can, since I imagine that we try to create
@@ -12553,7 +12874,7 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	  add_AT_die_ref (subrange_die, bound_attr, decl_die);
 	else
 	  {
-	    loc = loc_descriptor_from_tree_1 (bound, 0);
+	    loc = loc_list_from_tree (bound, 0);
 	    add_AT_location_description (subrange_die, bound_attr, loc);
 	  }
 	break;
@@ -12565,10 +12886,10 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	   evaluate the value of the array bound.  */
 
 	dw_die_ref ctx, decl_die;
-	dw_loc_descr_ref loc;
+	dw_loc_list_ref list;
 
-	loc = loc_descriptor_from_tree (bound);
-	if (loc == NULL)
+	list = loc_list_from_tree (bound, 2);
+	if (list == NULL)
 	  break;
 
 	if (current_function_decl == 0)
@@ -12579,7 +12900,10 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	decl_die = new_die (DW_TAG_variable, ctx, bound);
 	add_AT_flag (decl_die, DW_AT_artificial, 1);
 	add_type_attribute (decl_die, TREE_TYPE (bound), 1, 0, ctx);
-	add_AT_loc (decl_die, DW_AT_location, loc);
+	if (list->dw_loc_next)
+	  add_AT_loc_list (decl_die, DW_AT_location, list);
+	else
+	  add_AT_loc (decl_die, DW_AT_location, list->expr);
 
 	add_AT_die_ref (subrange_die, bound_attr, decl_die);
 	break;
@@ -13163,12 +13487,12 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 	       && DECL_P (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))
 	{
 	  tree szdecl = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
-	  dw_loc_descr_ref loc = loc_descriptor_from_tree (szdecl);
+	  dw_loc_list_ref loc = loc_list_from_tree (szdecl, 2);
 
 	  size = int_size_in_bytes (TREE_TYPE (szdecl));
 	  if (loc && size > 0)
 	    {
-	      add_AT_loc (array_die, DW_AT_string_length, loc);
+	      add_AT_location_description (array_die, DW_AT_string_length, loc);
 	      if (size != DWARF2_ADDR_SIZE)
 		add_AT_unsigned (array_die, DW_AT_byte_size, size);
 	    }
@@ -13262,7 +13586,7 @@ descr_info_loc (tree val, tree base_decl)
     CASE_CONVERT:
       return descr_info_loc (TREE_OPERAND (val, 0), base_decl);
     case VAR_DECL:
-      return loc_descriptor_from_tree_1 (val, 0);
+      return loc_descriptor_from_tree (val, 0);
     case INTEGER_CST:
       if (host_integerp (val, 0))
 	return int_loc_descriptor (tree_low_cst (val, 0));
@@ -13562,6 +13886,11 @@ gen_formal_parameter_die (tree node, tree origin, dw_die_ref context_die,
   tree node_or_origin = node ? node : origin;
   dw_die_ref parm_die
     = new_die (DW_TAG_formal_parameter, context_die, node);
+
+  if (!value && (TREE_CODE (node_or_origin) == VAR_DECL 
+		 || TREE_CODE (node_or_origin) == PARM_DECL)
+      && DECL_HAS_VALUE_EXPR_P (node_or_origin))
+    value = DECL_VALUE_EXPR (node_or_origin);
 
   switch (TREE_CODE_CLASS (TREE_CODE (node_or_origin)))
     {
@@ -14022,8 +14351,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       compute_frame_pointer_to_fb_displacement (cfa_fb_offset);
 
       if (cfun->static_chain_decl)
-	add_AT_location_description (subr_die, DW_AT_static_link,
-		 loc_descriptor_from_tree (cfun->static_chain_decl));
+	{
+	  add_AT_location_description (subr_die, DW_AT_static_link,
+		   loc_list_from_tree (cfun->static_chain_decl, 2));
+	}
     }
 
   /* Now output descriptions of the arguments for this function. This gets
@@ -14181,6 +14512,12 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
   if (!origin)
     origin = decl_ultimate_origin (decl);
 
+  if (!value
+      && (TREE_CODE (decl_or_origin) == VAR_DECL
+	  || TREE_CODE (decl_or_origin) == PARM_DECL)
+      && DECL_HAS_VALUE_EXPR_P (decl_or_origin))
+    value = DECL_VALUE_EXPR (decl_or_origin);
+
   com_decl = fortran_common (decl_or_origin, &off);
 
   /* Symbol in common gets emitted as a child of the common block, in the form
@@ -14189,7 +14526,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
     {
       tree field;
       dw_die_ref com_die;
-      dw_loc_descr_ref loc;
+      dw_loc_list_ref loc;
       die_node com_die_arg;
 
       var_die = lookup_decl_die (decl_or_origin);
@@ -14197,24 +14534,25 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
 	{
 	  if (get_AT (var_die, DW_AT_location) == NULL)
 	    {
-	      loc = loc_descriptor_from_tree (com_decl);
+	      loc = loc_list_from_tree (com_decl, off ? 1 : 2);
 	      if (loc)
 		{
 		  if (off)
 		    {
 		      /* Optimize the common case.  */
-		      if (loc->dw_loc_opc == DW_OP_addr
-			  && loc->dw_loc_next == NULL
-			  && GET_CODE (loc->dw_loc_oprnd1.v.val_addr)
+		      if (single_element_loc_list_p (loc)
+			  && loc->expr->dw_loc_opc == DW_OP_addr
+			  && loc->expr->dw_loc_next == NULL
+			  && GET_CODE (loc->expr->dw_loc_oprnd1.v.val_addr)
 			     == SYMBOL_REF)
-			loc->dw_loc_oprnd1.v.val_addr
-			  = plus_constant (loc->dw_loc_oprnd1.v.val_addr, off);
+			loc->expr->dw_loc_oprnd1.v.val_addr
+			  = plus_constant (loc->expr->dw_loc_oprnd1.v.val_addr, off);
 			else
-			  add_loc_descr (&loc,
-					 new_loc_descr (DW_OP_plus_uconst,
-							off, 0));
+			  add_loc_descr_to_each (loc,
+					         new_loc_descr (DW_OP_plus_uconst,
+							        off, 0));
 		    }
-		  add_AT_loc (var_die, DW_AT_location, loc);
+		  add_AT_location_description (var_die, DW_AT_location, loc);
 		  remove_AT (var_die, DW_AT_declaration);
 		}
 	    }
@@ -14230,7 +14568,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
       com_die_arg.decl_id = DECL_UID (com_decl);
       com_die_arg.die_parent = context_die;
       com_die = (dw_die_ref) htab_find (common_block_die_table, &com_die_arg);
-      loc = loc_descriptor_from_tree (com_decl);
+      loc = loc_list_from_tree (com_decl, 2);
       if (com_die == NULL)
 	{
 	  const char *cnam
@@ -14241,10 +14579,10 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
 	  add_name_and_src_coords_attributes (com_die, com_decl);
 	  if (loc)
 	    {
-	      add_AT_loc (com_die, DW_AT_location, loc);
+	      add_AT_location_description (com_die, DW_AT_location, loc);
 	      /* Avoid sharing the same loc descriptor between
 		 DW_TAG_common_block and DW_TAG_variable.  */
-	      loc = loc_descriptor_from_tree (com_decl);
+	      loc = loc_list_from_tree (com_decl, 2);
 	    }
           else if (DECL_EXTERNAL (decl))
 	    add_AT_flag (com_die, DW_AT_declaration, 1);
@@ -14255,8 +14593,8 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
 	}
       else if (get_AT (com_die, DW_AT_location) == NULL && loc)
 	{
-	  add_AT_loc (com_die, DW_AT_location, loc);
-	  loc = loc_descriptor_from_tree (com_decl);
+	  add_AT_location_description (com_die, DW_AT_location, loc);
+	  loc = loc_list_from_tree (com_decl, 2);
 	  remove_AT (com_die, DW_AT_declaration);
 	}
       var_die = new_die (DW_TAG_variable, com_die, decl);
@@ -14269,16 +14607,17 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
 	  if (off)
 	    {
 	      /* Optimize the common case.  */
-	      if (loc->dw_loc_opc == DW_OP_addr
-		  && loc->dw_loc_next == NULL
-		  && GET_CODE (loc->dw_loc_oprnd1.v.val_addr) == SYMBOL_REF)
-		loc->dw_loc_oprnd1.v.val_addr
-		  = plus_constant (loc->dw_loc_oprnd1.v.val_addr, off);
+	      if (single_element_loc_list_p (loc)
+		  && loc->expr->dw_loc_opc == DW_OP_addr
+		  && loc->expr->dw_loc_next == NULL
+		  && GET_CODE (loc->expr->dw_loc_oprnd1.v.val_addr) == SYMBOL_REF)
+		loc->expr->dw_loc_oprnd1.v.val_addr
+		  = plus_constant (loc->expr->dw_loc_oprnd1.v.val_addr, off);
 	      else
-		add_loc_descr (&loc, new_loc_descr (DW_OP_plus_uconst,
-						    off, 0));
+		add_loc_descr_to_each (loc, new_loc_descr (DW_OP_plus_uconst,
+						           off, 0));
 	    }
-	  add_AT_loc (var_die, DW_AT_location, loc);
+	  add_AT_location_description (var_die, DW_AT_location, loc);
 	}
       else if (DECL_EXTERNAL (decl))
 	add_AT_flag (var_die, DW_AT_declaration, 1);
@@ -14327,9 +14666,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
       tree type = TREE_TYPE (decl);
 
       add_name_and_src_coords_attributes (var_die, decl);
-      if ((TREE_CODE (decl) == PARM_DECL
-	   || TREE_CODE (decl) == RESULT_DECL)
-	  && DECL_BY_REFERENCE (decl))
+      if (hidden_reference_p (decl))
 	add_type_attribute (var_die, TREE_TYPE (type), 0, 0, context_die);
       else
 	add_type_attribute (var_die, type, TREE_READONLY (decl),
@@ -14378,8 +14715,6 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die, tree value)
     }
   else
     tree_add_const_value_attribute (var_die, decl_or_origin);
-  if (value)
-    add_value (var_die, decl_or_origin, value, context_die);
 }
 
 /* Generate a DIE to represent a named constant.  */
@@ -15578,8 +15913,7 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die, tree value)
 
       /* Output any DIEs that are needed to specify the type of this data
 	 object.  */
-      if (TREE_CODE (decl_or_origin) == RESULT_DECL
-          && DECL_BY_REFERENCE (decl_or_origin))
+      if (hidden_reference_p (decl_or_origin))
 	gen_type_die (TREE_TYPE (TREE_TYPE (decl_or_origin)), context_die);
       else
 	gen_type_die (TREE_TYPE (decl_or_origin), context_die);
