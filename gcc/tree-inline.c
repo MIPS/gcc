@@ -1368,7 +1368,9 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	 If RETVAL is just the result decl, the result decl has
 	 already been set (e.g. a recent "foo (&result_decl, ...)");
 	 just toss the entire GIMPLE_RETURN.  */
-      if (retval && TREE_CODE (retval) != RESULT_DECL)
+      if (retval && TREE_CODE (retval) != RESULT_DECL
+	  && (TREE_CODE (retval) != VAR_DECL
+	      || id->retvar != remap_decl (retval, id)))
         {
 	  copy = gimple_build_assign (id->retvar, retval);
 	  /* id->retvar is already substituted.  Skip it on later remapping.  */
@@ -2691,6 +2693,25 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
   declare_inline_vars (id->block, vars);
 }
 
+/* Look for return statement in function FUN and return it.
+   Return NULL if not found.  */
+
+static gimple
+lookup_return_stmt (struct function *fun)
+{
+  basic_block bb = EXIT_BLOCK_PTR_FOR_FUNCTION (fun);
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      gimple_stmt_iterator bsi = gsi_last_bb (e->src);
+      gimple stmt = gsi_stmt (bsi);
+      if (gimple_code (stmt) == GIMPLE_RETURN)
+	return stmt;
+    }
+  return NULL;
+}
 
 /* Declare a return variable to replace the RESULT_DECL for the
    function we are calling.  An appropriate DECL_STMT is returned.
@@ -2776,6 +2797,8 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
 	  && DECL_P (var))
 	DECL_GIMPLE_REG_P (var) = 0;
       use = NULL;
+      declare_nonlocalized_var (&BLOCK_NONLOCALIZED_VARS (id->block),
+				result, var, id, true);
       goto done;
     }
 
@@ -2788,21 +2811,40 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
     {
       bool use_it = false;
 
+      if (dump_file)
+	{
+          fprintf (dump_file, "Trying to substitute return value to: ");
+	  print_generic_expr (dump_file, modify_dest, 0);
+          fprintf (dump_file, "\n");
+	}
+
       /* We can't use MODIFY_DEST if there's type promotion involved.  */
       if (!useless_type_conversion_p (callee_type, caller_type))
-	use_it = false;
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Type mismatch.\n");
+	  use_it = false;
+	}
 
       /* ??? If we're assigning to a variable sized type, then we must
 	 reuse the destination variable, because we've no good way to
 	 create variable sized temporaries at this point.  */
       else if (TREE_CODE (TYPE_SIZE_UNIT (caller_type)) != INTEGER_CST)
-	use_it = true;
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "VLA, forcing substitution.\n");
+	  use_it = true;
+	}
 
       /* If the callee cannot possibly modify MODIFY_DEST, then we can
 	 reuse it as the result of the call directly.  Don't do this if
 	 it would promote MODIFY_DEST to addressable.  */
       else if (TREE_ADDRESSABLE (result))
-	use_it = false;
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Result is addressable, not substituting.\n");
+	  use_it = false;
+	}
       else
 	{
 	  tree base_m = get_base_address (modify_dest);
@@ -2810,22 +2852,72 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
 	  /* If the base isn't a decl, then it's a pointer, and we don't
 	     know where that's going to go.  */
 	  if (!DECL_P (base_m))
-	    use_it = false;
+	    {
+	      if (dump_file)
+	         fprintf (dump_file, "Not variable.\n");
+	      use_it = false;
+	    }
 	  else if (is_global_var (base_m))
-	    use_it = false;
+	    {
+	      if (dump_file)
+	         fprintf (dump_file, "Global variable.\n");
+	      use_it = false;
+	    }
 	  else if ((TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
 		    || TREE_CODE (TREE_TYPE (result)) == VECTOR_TYPE)
 		   && !DECL_GIMPLE_REG_P (result)
 		   && DECL_GIMPLE_REG_P (base_m))
-	    use_it = false;
-	  else if (!TREE_ADDRESSABLE (base_m))
-	    use_it = true;
+	    {
+	      if (dump_file)
+	         fprintf (dump_file, "Complex or vector not subtituted.\n");
+	      use_it = false;
+	    }
+	  else if (!TREE_ADDRESSABLE (base_m)
+		   || (flags_from_decl_or_type (id->src_fn)
+		       & (ECF_PURE | ECF_CONST | ECF_LOOPING_CONST_OR_PURE)))
+	    {
+	      if (dump_file)
+	         fprintf (dump_file, "Destination is validated.\n");
+	      use_it = true;
+	    }
+	  else if (dump_file)
+	    fprintf (dump_file, "Destination is addressable.\n");
 	}
 
       if (use_it)
 	{
+	  /* For values return in registers gimplifier always create temporary
+	     variable to store value to avoid extending lifetimes of the
+	     registers.  Inlining such function would lead to unnecesary
+	     copy that is, in case of non-gimple-temporaries, difficult to
+	     optimize later.  */
+	  gimple return_stmt = lookup_return_stmt (id->src_cfun);
+	  if (dump_file)
+	     fprintf (dump_file, "Substituted.\n");
+	  if (return_stmt)
+	    {
+	      tree retval2 = gimple_return_retval (return_stmt);
+
+	      if (retval2
+		  && TREE_CODE (retval2) == VAR_DECL
+		  && !TREE_ADDRESSABLE (retval2)
+		  && !is_global_var (retval2))
+		 {
+		   if (dump_file)
+		     fprintf (dump_file, "Operand of return statement substituted too.\n");
+  	           insert_decl_map (id, retval2, modify_dest);
+		   declare_nonlocalized_var (&BLOCK_NONLOCALIZED_VARS (id->block),
+					     retval2, modify_dest, id, true);
+		 }
+	      else if (dump_file)
+		 fprintf (dump_file, "Operand of return statement not substituted.\n");
+	    }
 	  var = modify_dest;
+	  declare_nonlocalized_var (&BLOCK_NONLOCALIZED_VARS (id->block),
+				    result, var, id, true);
 	  use = NULL;
+
+	  
 	  goto done;
 	}
     }
@@ -3868,8 +3960,12 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 					   cfun->local_decls);
 	}
       else if (!can_be_nonlocal (var, id))
-	cfun->local_decls = tree_cons (NULL_TREE, remap_decl (var, id),
-				       cfun->local_decls);
+        {
+	  var = remap_decl (var, id);
+	  if (DECL_P (var))
+	    cfun->local_decls = tree_cons (NULL_TREE, var,
+					   cfun->local_decls);
+	}
     }
 
   /* This is it.  Duplicate the callee body.  Assume callee is
