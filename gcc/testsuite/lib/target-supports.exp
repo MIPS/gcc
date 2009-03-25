@@ -2832,3 +2832,26 @@ proc check_effective_target_correct_iso_cpp_string_wchar_protos { } {
 	#endif
     }]
 }
+
+# Check if the plugin support is availabe on this host. Return 1 if it is
+# supported, 0 otherwise. We currently only support plugins on ELF hosts.
+
+proc check_plugin_available { } {
+    if { [ishost *-*-elf*]
+	 || [ishost *-*-sysv4*]
+	 || [ishost *-*-unixware*]
+	 || [ishost *-*-eabi*]
+	 || [ishost hppa*64*-*-hpux*]
+	 || [ishost *-*-linux*]
+	 || [ishost frv-*-uclinux*]
+	 || [ishost *-*-irix5*]
+	 || [ishost *-*-irix6*]
+	 || [ishost *-*-netbsd*]
+	 || [ishost *-*-openbsd*]
+	 || [ishost *-*-freebsd*]
+	 || [ishost *-*-solaris2*] } {
+	return 1
+    } else {
+	return 0
+    }
+}

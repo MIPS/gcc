@@ -1,3 +1,7 @@
+2009-03-25  Le-Chun Wu  <lcwu@google.com>
+
+	* gcc-plugin.h: Add a declaration of 'plugin_init'.
+
 2009-03-10  Le-Chun Wu  <lcwu@google.com>
 
 	* plugin.c (parse_plugin_arg_opt): Fix an issue occurring when plugin

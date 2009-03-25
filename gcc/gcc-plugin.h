@@ -68,6 +68,10 @@ struct plugin_pass
 typedef int (*plugin_init_func) (const char *plugin_name,
                                  int argc, struct plugin_argument *argv);
 
+/* Declaration for "plugin_init" function so that it doesn't need to be
+   duplicated in every plugin.  */
+extern int plugin_init (const char *, int, struct plugin_argument *);
+
 /* Function type for a plugin callback routine.
 
    GCC_DATA  - event-specific data provided by GCC
