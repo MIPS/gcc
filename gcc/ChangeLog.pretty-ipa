@@ -1,3 +1,10 @@
+2009-03-25  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-sra.c (splice_param_accesses): Replaced parameter parm_modified
+	with parameter ro_grp.
+	(splice_all_param_accesses): Return UNMODIF_BY_REF_ACCESSES
+	whenever (at least once) returned ro_grp is true.
+
 2009-03-23  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-sra.c: Corrected initial file comment, removed some extra

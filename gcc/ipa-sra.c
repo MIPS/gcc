@@ -1498,10 +1498,12 @@ compare_access_positions (const void *a, const void *b)
    each accessed region and link them together.  Return NULL if there are no
    accesses or if there are different but overlapping accesses, return the
    special ptr value meaning there are no accesses for this parameter if that
-   is the case and return the first representative otherwise.  */
+   is the case and return the first representative otherwise.  If non-NULL, set
+   *RO_GRP if there is a group of accesses with only read (i.e. no write)
+   accesses. */
 
 static struct access *
-splice_param_accesses (tree parm, bool *parm_modified)
+splice_param_accesses (tree parm, bool *ro_grp)
 {
   int i, j, access_count, group_count;
   int agg_size, total_size = 0;
@@ -1564,8 +1566,8 @@ splice_param_accesses (tree parm, bool *parm_modified)
 
       group_count++;
       access->grp_maybe_modified = modification;
-      if (modification && parm_modified)
-	*parm_modified = true;
+      if (!modification && ro_grp)
+	*ro_grp = true;
       *prev_acc_ptr = access;
       prev_acc_ptr = &access->next_grp;
       total_size += access->size;
@@ -1700,15 +1702,15 @@ splice_all_param_accesses (VEC (access_p, heap) **representatives)
 	}
       else if (bitmap_bit_p (candidate_bitmap, DECL_UID (parm)))
 	{
-	  bool modified = false;
-	  repr = splice_param_accesses (parm, &modified);
+	  bool ro_grp = false;
+	  repr = splice_param_accesses (parm, &ro_grp);
 	  VEC_quick_push (access_p, *representatives, repr);
 
 	  if (repr && !no_accesses_p (repr))
 	    {
 	      if (POINTER_TYPE_P (TREE_TYPE (parm)))
 		{
-		  if (!modified)
+		  if (ro_grp)
 		    result = UNMODIF_BY_REF_ACCESSES;
 		  else if (result < MODIF_BY_REF_ACCESSES)
 		    result = MODIF_BY_REF_ACCESSES;
