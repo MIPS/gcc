@@ -1,3 +1,25 @@
+2009-03-26  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-sra.c (dump_access): Also dump to_be_replaced flag.
+	(disqualify_candidate): New function.
+	(create_access): Use disqualify_candidate to disqualify candidates.
+	(disqualify_all): Use disqualify_candidate to disqualify candidates.
+	(disqualify_direct_ptr_params): Use disqualify_candidate to disqualify
+	candidates.
+	(scan_phi_nodes): Use disqualify_candidate to disqualify candidates.
+	(analyze_variable_accesses): Use disqualify_candidate to disqualify
+	candidates.
+
+	* ipa-sra.c (struct access): New flag grp_unscalarizable_region.
+	(dump_access): Dump also grp_unscalarizable_region flag.
+	(create_access): If max_size != size in intra-SRA, do not
+	disqualify the candidate but create a grp_unscalarizable_region
+	access instead.
+	(sort_and_splice_var_accesses): Propagate
+	grp_unscalarizable_region flag to the group representative.
+	(build_access_tree_1): Disallow replacements in a subtree if
+	grp_unscalarizable_region is set.
+
 2009-03-25  Jan Hubicka  <jh@suse.cz>
 
 	* dwarf2out.c (dwarf_stack_op_name): Add DW_OP_bit_piece.

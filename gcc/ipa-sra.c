@@ -216,6 +216,9 @@ struct access
   /* Is the subtree rooted in this access fully covered by scalar
      replacements?  */
   unsigned grp_covered : 1;
+  /* If set to true, this access and all below it in an access tree must not be
+     scalarized.  */
+  unsigned grp_unscalarizable_region : 1;
   /* Whether data have been written to parts of the aggregate covered by this
      access which is not to be scalarized.  This flag is propagated up in the
      access tree.  */
@@ -322,10 +325,12 @@ dump_access (struct access *access, bool grp)
   print_generic_expr (dump_file, access->type, 0);
   if (grp)
     fprintf (dump_file, ", grp_write = %d, grp_read = %d, grp_covered = %d, "
-	     "grp_unscalarized_data = %d, grp_maybe_modified = %d, "
+	     "grp_unscalarizable_region = %d, grp_unscalarized_data = %d, "
+	     "grp_maybe_modified = %d, to_be_replaced = %d, "
 	     "stmt_no = %d, always_safe = %d'\n",
 	     access->grp_write, access->grp_read, access->grp_covered,
-	     access->grp_unscalarized_data, access->grp_maybe_modified,
+	     access->grp_unscalarizable_region, access->grp_unscalarized_data,
+	     access->grp_maybe_modified, access->to_be_replaced,
 	     access->stmt_no, access->always_safe);
   else
     fprintf (dump_file, ", write = %d, stmt_no = %d'\n", access->write,
@@ -848,6 +853,22 @@ sra_deinitialize (void)
   pointer_map_destroy (base_access_vec);
 }
 
+/* Remove DECL from candidates for SRA and write REASON to the dump file if
+   there is one.  */
+static void
+disqualify_candidate (tree decl, const char *reason)
+{
+  bitmap_clear_bit (candidate_bitmap, DECL_UID (decl));
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "! Disqualifying ");
+      print_generic_expr (dump_file, decl, 0);
+      fprintf (dump_file, " - %s\n", reason);
+    }
+}
+
+
 /* Return true iff the type contains a field or element type which does not
    allow scalarization.  */
 
@@ -979,7 +1000,7 @@ create_access (tree expr, bool write)
   VEC (access_p,heap) *vec;
   HOST_WIDE_INT offset, size, max_size;
   tree base = expr;
-  bool ptr = false;
+  bool ptr = false, unscalarizable_region = false;
 
   if (handled_component_p (expr))
     {
@@ -1015,19 +1036,40 @@ create_access (tree expr, bool write)
   if (sra_mode == SRA_MODE_EARLY_IPA)
     base = get_ssa_base_param (base);
 
-  if (!base || !DECL_P (base) || (ptr && TREE_CODE (base) != PARM_DECL))
+  if (!base || !DECL_P (base)
+      || (ptr && TREE_CODE (base) != PARM_DECL)
+      || !bitmap_bit_p (candidate_bitmap, DECL_UID (base)))
     return NULL;
 
-  if (size < 0 || size != max_size
-      || (sra_mode == SRA_MODE_EARLY_IPA
-	  && ((offset % BITS_PER_UNIT) != 0
-	      || (size % BITS_PER_UNIT) != 0)))
+  if (sra_mode == SRA_MODE_EARLY_IPA)
     {
-      bitmap_clear_bit (candidate_bitmap, DECL_UID (base));
-      return NULL;
+      if (size < 0 || size != max_size)
+	{
+	  disqualify_candidate (base, "Encountered a variable sized access.");
+	  return NULL;
+	}
+      else if ((offset % BITS_PER_UNIT) != 0 || (size % BITS_PER_UNIT) != 0)
+	{
+	  disqualify_candidate (base,
+				"Encountered an acces not aligned to a byte.");
+	  return NULL;
+	}
     }
-  if (!bitmap_bit_p (candidate_bitmap, DECL_UID (base)))
-    return NULL;
+  else
+    {
+      if (size != max_size)
+	{
+	  size = max_size;
+	  unscalarizable_region = true;
+	}
+
+      if (size < 0)
+	{
+	  disqualify_candidate (base, "Encountered an ultra variable sized "
+				"access.");
+	  return NULL;
+	}
+    }
 
   access = (struct access *) pool_alloc (access_pool);
   memset (access, 0, sizeof (struct access));
@@ -1040,6 +1082,7 @@ create_access (tree expr, bool write)
   access->write = write;
   access->stmt_no = stmt_no;
   access->bb = current_bb;
+  access->grp_unscalarizable_region = unscalarizable_region;
 
   slot = pointer_map_contains (base_access_vec, base);
   if (slot)
@@ -1070,7 +1113,7 @@ disqualify_all (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
   if (DECL_P (base))
     {
-      bitmap_clear_bit (candidate_bitmap, DECL_UID (base));
+      disqualify_candidate (base, "From within disqualify_all().");
       *walk_subtrees = 0;
     }
   else
@@ -1092,14 +1135,7 @@ disqualify_direct_ptr_params (tree op)
 
   if (op && TREE_CODE (op) == PARM_DECL && POINTER_TYPE_P (TREE_TYPE (op)))
     {
-      bitmap_clear_bit (candidate_bitmap, DECL_UID (op));
-
-      if (dump_file)
-	{
-	  fprintf (dump_file, "Disqualifying ptr param: ");
-	  print_generic_expr (dump_file, op, 0);
-	  fprintf (dump_file, "\n");
-	}
+      disqualify_candidate (op, " Direct use of its pointer value.");
       return true;
     }
   return false;
@@ -1284,7 +1320,8 @@ scan_phi_nodes (basic_block bb, bool analysis_stage,
 	      {
 		op = TREE_OPERAND (op, 0);
 		if (DECL_P (op))
-		  bitmap_clear_bit (candidate_bitmap, DECL_UID (op));
+		  disqualify_candidate (op,
+					"Its address is taken in a phi node.");
 	      }
 	    else
 	      disqualify_direct_ptr_params (op);
@@ -2794,6 +2831,7 @@ sort_and_splice_var_accesses (tree var)
       bool grp_read = !access->write;
       bool grp_bfr_lhs = access->grp_bfr_lhs;
       bool first_scalar = is_sra_scalar_type (access->type);
+      bool unscalarizable_region = access->grp_unscalarizable_region;
 
       if (first || access->offset >= high)
 	{
@@ -2823,6 +2861,7 @@ sort_and_splice_var_accesses (tree var)
 	  modification |= ac2->write;
 	  grp_read |= !ac2->write;
 	  grp_bfr_lhs |= ac2->grp_bfr_lhs;
+	  unscalarizable_region |= ac2->grp_unscalarizable_region;
 
 	  /* If one of the equivalent accesses is scalar, use it as a
 	     representative (this happens when when there is for example on a
@@ -2848,6 +2887,7 @@ sort_and_splice_var_accesses (tree var)
       access->grp_read = grp_read;
       access->grp_maybe_modified = modification;
       access->grp_bfr_lhs = grp_bfr_lhs;
+      access->grp_unscalarizable_region = unscalarizable_region;
       *prev_acc_ptr = access;
       prev_acc_ptr = &access->next_grp;
     }
@@ -2956,6 +2996,9 @@ build_access_tree_1 (struct access **access, bool allow_replacements,
     root->grp_write = true;
   else if (root->grp_write)
     mark_write = true;
+
+  if (root->grp_unscalarizable_region)
+    allow_replacements = false;
 
   *access = (*access)->next_grp;
   while  (*access && (*access)->offset + (*access)->size <= limit)
@@ -3082,13 +3125,13 @@ analyze_variable_accesses (tree var)
   access = sort_and_splice_var_accesses (var);
   if (!access)
     {
-      bitmap_clear_bit (candidate_bitmap, DECL_UID (var));
+      disqualify_candidate (var, "No or inhibitingly overlapping accesses.");
       return false;
     }
 
   if (!build_access_tree (access))
     {
-      bitmap_clear_bit (candidate_bitmap, DECL_UID (var));
+      disqualify_candidate (var, "No scalar replacements to be created.");
       return false;
     }
 
