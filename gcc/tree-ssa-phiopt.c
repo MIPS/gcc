@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "pointer-set.h"
 #include "domwalk.h"
+#include "debuglocus.h"
 
 static unsigned int tree_ssa_phiopt (void);
 static unsigned int tree_ssa_phiopt_worker (bool);
@@ -524,11 +525,26 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
       gsi_insert_before (&gsi, new_stmt, GSI_SAME_STMT);
       new_var = new_var2;
 
-      /* Set the locus to the first argument, unless it doesn't have one.  */
+      /* Attach the debuglocus information for whichever argument has a 
+	 debuglocus.  If both have a debuglocus, merge them.  */
+
       locus_0 = gimple_phi_arg_location (phi, 0);
       locus_1 = gimple_phi_arg_location (phi, 1);
-      if (locus_0 == UNKNOWN_LOCATION)
-        locus_0 = locus_1;
+
+      if (is_debuglocus (locus_1))
+	{
+	 if (is_debuglocus (locus_0))
+	   merge_debuglocus (get_debuglocus (locus_0), 
+			     get_debuglocus (locus_1));
+	 else
+	   /* Only locus_1 is a debuglocus, so use it.  */
+	   locus_0 = locus_1;
+       }
+      else
+        /* Locus_1 isn't a debuglocus, so only use it if locus_0 is unknown.  */
+	if (locus_0 == UNKNOWN_LOCATION)
+	  locus_0 = locus_1;
+
       gimple_set_location (new_stmt, locus_0);
     }
 

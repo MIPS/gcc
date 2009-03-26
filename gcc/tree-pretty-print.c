@@ -457,7 +457,16 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       pp_decimal_int (buffer, xloc.line);
       if (xloc.debuglocus != DEBUGLOCUS_NONE)
-	pp_character (buffer, '*');
+	{
+	  tree decl;
+	  debuglocus_iterator iter;
+
+	  FOR_EACH_DEBUGLOCUS_VAR (xloc.debuglocus, decl, iter)
+	    {
+	      pp_character (buffer, '*');
+	      dump_generic_node (buffer, decl, 0, 0, false);
+	    }
+	}
       pp_string (buffer, "] ");
     }
 

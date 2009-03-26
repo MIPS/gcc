@@ -224,9 +224,15 @@ make_phi_node (tree var, int len)
   phi->gimple_phi.nargs = len;
   phi->gimple_phi.capacity = capacity;
   if (TREE_CODE (var) == SSA_NAME)
-    gimple_phi_set_result (phi, var);
+    {
+      gimple_phi_set_result (phi, var);
+      phi->gimple_phi.original_decl = SSA_NAME_VAR (var); 
+    }
   else
-    gimple_phi_set_result (phi, make_ssa_name (var, phi));
+    {
+      gimple_phi_set_result (phi, make_ssa_name (var, phi));
+      phi->gimple_phi.original_decl = var; 
+    }
 
   for (i = 0; i < capacity; i++)
     {

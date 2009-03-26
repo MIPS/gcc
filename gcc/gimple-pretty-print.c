@@ -1196,7 +1196,16 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
 	    }
 	  pp_decimal_int (buffer, xloc.line);
 	  if (xloc.debuglocus != DEBUGLOCUS_NONE)
-	    pp_character (buffer, '*');
+	    {
+	      tree decl;
+	      debuglocus_iterator iter;
+
+	      FOR_EACH_DEBUGLOCUS_VAR (xloc.debuglocus, decl, iter)
+	        {
+		  pp_character (buffer, '*');
+		  dump_generic_node (buffer, decl, 0, 0, false);
+	        }
+	    }
 	  pp_string (buffer, "] ");
 	}
       if (i < gimple_phi_num_args (phi) - 1)
@@ -1499,7 +1508,16 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 	}
       pp_decimal_int (buffer, xloc.line);
       if (xloc.debuglocus != DEBUGLOCUS_NONE)
-	pp_character (buffer, '*');
+	{
+	  tree decl;
+	  debuglocus_iterator iter;
+
+	  FOR_EACH_DEBUGLOCUS_VAR (xloc.debuglocus, decl, iter)
+	    {
+	      pp_character (buffer, '*');
+	      dump_generic_node (buffer, decl, 0, 0, false);
+	    }
+	}
       pp_string (buffer, "] ");
     }
 
@@ -1850,7 +1868,16 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 	    }
 	  pp_decimal_int (buffer, goto_xloc.line);
 	  if (goto_xloc.debuglocus != DEBUGLOCUS_NONE)
-	    pp_character (buffer, '*');
+	    {
+	      tree decl;
+	      debuglocus_iterator iter;
+
+	      FOR_EACH_DEBUGLOCUS_VAR (goto_xloc.debuglocus, decl, iter)
+		{
+		  pp_character (buffer, '*');
+		  dump_generic_node (buffer, decl, 0, 0, false);
+		}
+	    }
 	  pp_string (buffer, "] ");
 	}
 

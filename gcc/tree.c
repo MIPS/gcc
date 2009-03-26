@@ -3572,10 +3572,10 @@ expand_location (source_location loc)
     {
       const struct line_map *map;
       /* Look through a debuglocus.  */
-      if (IS_DEBUGLOCUS_P (loc))
+      if (is_debuglocus (loc))
         {
-	  loc = GET_LOCUS_FROM_DEBUGLOCUS (loc);
-	  xloc.debuglocus = DEBUGLOCUS_INDEX (loc);
+	  xloc.debuglocus = loc;
+	  loc = locus_from_debuglocus (loc);
 	}
       else
         xloc.debuglocus = DEBUGLOCUS_NONE;

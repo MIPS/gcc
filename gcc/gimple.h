@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "tree-ssa-operands.h"
+#include "debuglocus.h"
 
 DEF_VEC_P(gimple);
 DEF_VEC_ALLOC_P(gimple,heap);
@@ -476,6 +477,10 @@ struct gimple_statement_phi GTY(())
   tree result;
 
   /* [ WORD 7 ]  */
+  /* Original decl for creating debuglocus info during out-of-ssa.  */
+  tree original_decl;
+
+  /* [ WORD 8 ]  */
   struct phi_arg_d GTY ((length ("%h.nargs"))) args[1];
 };
 
@@ -1095,6 +1100,18 @@ static inline location_t
 gimple_location (const_gimple g)
 {
   return g->gsbase.location;
+}
+
+static inline location_t
+gimple_copy_location (const_gimple g)
+{
+  return copy_debuglocus (g->gsbase.location);
+}
+
+static inline location_t
+gimple_source_location (const_gimple g)
+{
+  return locus_from_debuglocus (g->gsbase.location);
 }
 
 /* Return pointer to location information for statement G.  */
@@ -3096,6 +3113,13 @@ gimple_phi_set_result (gimple gs, tree result)
   gs->gimple_phi.result = result;
 }
 
+/* Return the original debug decl for GIMPLE_PHI GS.  */
+static inline tree
+gimple_phi_original_decl (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  return gs->gimple_phi.original_decl;
+}
 
 /* Return the PHI argument corresponding to incoming edge INDEX for
    GIMPLE_PHI GS.  */

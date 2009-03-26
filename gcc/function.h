@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "hashtab.h"
 #include "varray.h"
-#include "debuglocus.h"
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -527,9 +526,6 @@ struct function GTY(())
 
   /* Line number of the end of the function.  */
   location_t function_end_locus;
-
-  /* Debuglocus table.  */
-  struct debuglocus_table_d * GTY ((skip)) debuglocus_table;
 
   /* Properties used by the pass manager.  */
   unsigned int curr_properties;

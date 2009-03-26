@@ -23,14 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 
 /* No entry. Used for terminating lists and returning no matches.  */
 #define DEBUGLOCUS_NONE			0
-#define IS_DEBUGLOCUS_P(LOCUS) 		(((LOCUS) & DEBUGLOCUS_BIT) != 0)
-#define DEBUGLOCUS_INDEX(LOCUS) 	((LOCUS) & ~DEBUGLOCUS_BIT)
-#define GET_DEBUGLOCUS(I)		(get_debuglocus (I))
-#define GET_LOCUS_FROM_DEBUGLOCUS(DL)	(debuglocus_lookup_locus (DL))
 
 struct debuglocus_entry_d GTY((skip)) {
   tree decl;			/* debug decl  */
-  int order;			/* Linear ordering for emission sorting.  */
+  int order;			/* Ordering for emission sorting.  */
   source_location locus;	/* locus of statement.  */
   int prev;			/* prev link for multiple entries on a stmt.  */
   int next;			/* next link for multiple entries on a stmt.  */
@@ -48,27 +44,81 @@ DEF_VEC_ALLOC_P(debuglocus_p, heap);
    memory in use.  The table can never shrink in size.  */
 
 struct debuglocus_table_d GTY((skip)) {
-  int size;			  /* Current number of debuglocus entries.  */
+  unsigned int size;		    /* Current number of debuglocus entries.  */
   VEC(debuglocus_p, heap) *table;   /* list of Table segments.  */
 };
 
 typedef struct debuglocus_table_d debuglocus_table_t;
 
 
-typedef int debuglocus_index;
-
 void create_debuglocus_table(void);
 void destroy_debuglocus_table(void);
 debuglocus_p create_debuglocus_entry (void);
-debuglocus_p get_debuglocus (debuglocus_index);
+debuglocus_p get_debuglocus (source_location locus);
 source_location create_duplicate_debuglocus (source_location locus);
+bool decl_needs_debuglocus_p (tree);
+debuglocus_p create_debuglocus_for_decl (tree);
+source_location create_debuglocus_for_decl_and_locus (tree, source_location);
+void replace_gimple_locus_with_debuglocus (gimple, debuglocus_p);
+void merge_debuglocus (debuglocus_p, debuglocus_p);
+debuglocus_p find_debuglocus (gimple, tree, source_location);
+debuglocus_p find_and_detach_debuglocus (gimple, tree, source_location);
+source_location find_and_detach_or_create_debuglocus (gimple, tree, source_location);
+
+/* Iterate over the different debuglocus's in a single list. No iterations are 
+   performed if ther locus is just a regular source location.  
+
+   usage:
+   source_location locus = gimple_location (stmt);
+   debuglocus_iterator iter;
+   debuglocus_p ptr;
+   FOR_EACH_DEBUGLOCUS (locus, ptr, iter)
+     dump_debuglocus_pointer (ptr);		
+   if (!ptr)
+     printf ("loop was exited early\n");
+     
+   ptr is guaranteed to be NULL if the loop is allowed to execute to the
+   end, otherwise it will have the value when the exits happens.  
+   
+   This is an 'unsafe' iteration, meaning the list cannot be modified on the
+   fly while traversing the list.  */
+
+typedef struct {
+  debuglocus_p start_dlocus;
+  debuglocus_p current_dlocus;
+} debuglocus_iterator;
+
+debuglocus_p debuglocus_iter_start (debuglocus_iterator *, source_location);
+debuglocus_p debuglocus_iter_next (debuglocus_iterator *);
+
+#define FOR_EACH_DEBUGLOCUS(LOCUS, DLOCUS_P, ITER)		\
+  for (DLOCUS_P = debuglocus_iter_start (&(ITER), (LOCUS));	\
+       (ITER).current_dlocus != NULL;				\
+       DLOCUS_P = debuglocus_iter_next (&(ITER)))
+
+tree debuglocus_var_iter_start (debuglocus_iterator *, source_location);
+tree debuglocus_var_iter_next (debuglocus_iterator *);
+
+/* Another iterator, onoly this just returns the DECL in each debuglocus.  */
+#define FOR_EACH_DEBUGLOCUS_VAR(LOCUS, VAR, ITER)		\
+  for (VAR = debuglocus_var_iter_start (&(ITER), (LOCUS));	\
+       (ITER).current_dlocus != NULL;				\
+       VAR = debuglocus_var_iter_next (&(ITER)))
+
+
+/* Return true if LOCUS is a debuglocus.  */
+static inline bool
+is_debuglocus (source_location locus)
+{
+  return (locus & DEBUGLOCUS_BIT) != 0;
+}
 
 
 /* Copy a locus, performing a deep copy if it is a debuglocus.  */
 static inline source_location 
 copy_debuglocus (source_location locus)
 {
-  if (!IS_DEBUGLOCUS_P (locus))
+  if (!is_debuglocus (locus))
     return locus;
   else
     return create_duplicate_debuglocus (locus);
@@ -77,13 +127,14 @@ copy_debuglocus (source_location locus)
 
 /* Return the source locus associated with a debuglocus.  */
 static inline source_location
-debuglocus_lookup_locus (source_location dlocus)
+locus_from_debuglocus (source_location dlocus)
 {
-  debuglocus_p ptr;
-
-  gcc_assert (IS_DEBUGLOCUS_P (dlocus));
-  ptr = get_debuglocus (DEBUGLOCUS_INDEX (dlocus));
-  return ptr->locus;
+  if (is_debuglocus (dlocus))
+    {
+      debuglocus_p ptr = get_debuglocus (dlocus);
+      return ptr->locus;
+    }
+  else
+    return dlocus;
 }
-
 #endif

@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "target.h"
 #include "integrate.h"
+#include "debuglocus.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -1780,6 +1781,8 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 	  for (x = 0; x < gimple_phi_num_args (new_phi); x++)
 	    {
 	      source_location locus = gimple_phi_arg_location (phi, x);
+	      /* Perform a deep copy of any debuglocus's.  */
+	      locus = copy_debuglocus (locus);
 	      gimple_phi_arg_set_location (new_phi, x, locus);
 	    }
 	  
@@ -2194,8 +2197,11 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
   tree p;
   tree vars = NULL_TREE;
   tree static_chain = gimple_call_chain (stmt);
-  source_location locus = gimple_location (stmt);
-  
+  source_location locus;
+
+  /* For now, only copy the actual source location of the param.  This will be
+     used as the locus that the parameter debuglocus's will be attached to.  */
+  locus = gimple_source_location (stmt);
 
   /* Figure out what the parameters are.  */
   parms = DECL_ARGUMENTS (fn);

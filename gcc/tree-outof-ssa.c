@@ -34,9 +34,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "toplev.h"
 
+typedef struct phi_arg_d *phi_arg_ptr;
 
-DEF_VEC_I(source_location);
-DEF_VEC_ALLOC_I(source_location,heap);
+DEF_VEC_P(phi_arg_ptr);
+DEF_VEC_ALLOC_P(phi_arg_ptr,heap);
 
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and
@@ -69,8 +70,8 @@ typedef struct _elim_graph {
   /*  The predecessor and successor edge list.  */
   VEC(int,heap) *edge_list;
 
-  /* Source locus on each edge */
-  VEC(source_location,heap) *edge_locus;
+  /* PHI argument on each edge */
+  VEC(phi_arg_ptr,heap) *edge_arg;
 
   /* Visited vector.  */
   sbitmap visited;
@@ -87,8 +88,8 @@ typedef struct _elim_graph {
   /* List of constant copies to emit.  These are pushed on in pairs.  */
   VEC(tree,heap) *const_copies;
 
-  /* Source locations for any constant copies.  */
-  VEC(source_location,heap) *copy_locus;
+  /* PHI arguement for any constant copies.  */
+  VEC(phi_arg_ptr,heap) *copy_arg;
 } *elim_graph;
 
 
@@ -145,15 +146,27 @@ create_temp (tree t)
 
 
 /* This helper function fill insert a copy from a constant or variable SRC to 
-   variable DEST on edge E.  */
+   variable DEST on edge E.  PHI_ARG provides a source argument for locus
+   information.  NULL means there is no locus info.  */
 
 static void
-insert_copy_on_edge (edge e, tree dest, tree src, source_location locus)
+insert_copy_on_edge (edge e, tree dest, tree src, phi_arg_ptr phi_arg)
 {
   gimple copy;
+  source_location locus = UNKNOWN_LOCATION;
 
   copy = gimple_build_assign (dest, src);
   set_is_used (dest);
+  if (phi_arg)
+    {
+      use_operand_p use_p = &(phi_arg->imm_use);
+      tree decl = gimple_phi_original_decl (USE_STMT (use_p));
+
+      locus = phi_arg->locus;
+      /* Create a debuglocus if one is needed and there isn't one.  */
+      if (!is_debuglocus (locus) && decl_needs_debuglocus_p (decl))
+	locus = create_debuglocus_for_decl_and_locus (decl, locus);
+    }
   gimple_set_location (copy, locus);
 
   if (TREE_CODE (src) == ADDR_EXPR)
@@ -185,9 +198,9 @@ new_elim_graph (int size)
 
   g->nodes = VEC_alloc (tree, heap, 30);
   g->const_copies = VEC_alloc (tree, heap, 20);
-  g->copy_locus = VEC_alloc (source_location, heap, 10);
+  g->copy_arg = VEC_alloc (phi_arg_ptr, heap, 10);
   g->edge_list = VEC_alloc (int, heap, 20);
-  g->edge_locus = VEC_alloc (source_location, heap, 10);
+  g->edge_arg = VEC_alloc (phi_arg_ptr, heap, 10);
   g->stack = VEC_alloc (int, heap, 30);
   
   g->visited = sbitmap_alloc (size);
@@ -203,7 +216,7 @@ clear_elim_graph (elim_graph g)
 {
   VEC_truncate (tree, g->nodes, 0);
   VEC_truncate (int, g->edge_list, 0);
-  VEC_truncate (source_location, g->edge_locus, 0);
+  VEC_truncate (phi_arg_ptr, g->edge_arg, 0);
 }
 
 
@@ -217,8 +230,8 @@ delete_elim_graph (elim_graph g)
   VEC_free (int, heap, g->edge_list);
   VEC_free (tree, heap, g->const_copies);
   VEC_free (tree, heap, g->nodes);
-  VEC_free (source_location, heap, g->copy_locus);
-  VEC_free (source_location, heap, g->edge_locus);
+  VEC_free (phi_arg_ptr, heap, g->copy_arg);
+  VEC_free (phi_arg_ptr, heap, g->edge_arg);
   free (g);
 }
 
@@ -250,11 +263,11 @@ elim_graph_add_node (elim_graph g, tree node)
 /* Add the edge PRED->SUCC to graph G.  */
 
 static inline void
-elim_graph_add_edge (elim_graph g, int pred, int succ, source_location locus)
+elim_graph_add_edge (elim_graph g, int pred, int succ, phi_arg_ptr arg)
 {
   VEC_safe_push (int, heap, g->edge_list, pred);
   VEC_safe_push (int, heap, g->edge_list, succ);
-  VEC_safe_push (source_location, heap, g->edge_locus, locus);
+  VEC_safe_push (phi_arg_ptr, heap, g->edge_arg, arg);
 }
 
 
@@ -262,7 +275,7 @@ elim_graph_add_edge (elim_graph g, int pred, int succ, source_location locus)
    return the successor node.  -1 is returned if there is no such edge.  */
 
 static inline int
-elim_graph_remove_succ_edge (elim_graph g, int node, source_location *locus)
+elim_graph_remove_succ_edge (elim_graph g, int node, phi_arg_ptr *arg)
 {
   int y;
   unsigned x;
@@ -272,11 +285,11 @@ elim_graph_remove_succ_edge (elim_graph g, int node, source_location *locus)
         VEC_replace (int, g->edge_list, x, -1);
 	y = VEC_index (int, g->edge_list, x + 1);
 	VEC_replace (int, g->edge_list, x + 1, -1);
-	*locus = VEC_index (source_location, g->edge_locus, x / 2);
-	VEC_replace (source_location, g->edge_locus, x / 2, UNKNOWN_LOCATION);
+	*arg= VEC_index (phi_arg_ptr, g->edge_arg, x / 2);
+	VEC_replace (phi_arg_ptr, g->edge_arg, x / 2, NULL);
 	return y;
       }
-  *locus = UNKNOWN_LOCATION;
+  *arg = NULL;
   return -1;
 }
 
@@ -285,7 +298,7 @@ elim_graph_remove_succ_edge (elim_graph g, int node, source_location *locus)
    edge list.  VAR will hold the partition number found.  CODE is the
    code fragment executed for every node found.  */
 
-#define FOR_EACH_ELIM_GRAPH_SUCC(GRAPH, NODE, VAR, LOCUS, CODE)		\
+#define FOR_EACH_ELIM_GRAPH_SUCC(GRAPH, NODE, VAR, ARG, CODE)		\
 do {									\
   unsigned x_;								\
   int y_;								\
@@ -295,7 +308,7 @@ do {									\
       if (y_ != (NODE))							\
         continue;							\
       (VAR) = VEC_index (int, (GRAPH)->edge_list, x_ + 1);		\
-      (LOCUS) = VEC_index (source_location, (GRAPH)->edge_locus, x_ / 2); \
+      (ARG) = VEC_index (phi_arg_ptr, (GRAPH)->edge_arg, x_ / 2); \
       CODE;								\
     }									\
 } while (0)
@@ -305,7 +318,7 @@ do {									\
    GRAPH.  VAR will hold the partition number found.  CODE is the
    code fragment executed for every node found.  */
 
-#define FOR_EACH_ELIM_GRAPH_PRED(GRAPH, NODE, VAR, LOCUS, CODE)		\
+#define FOR_EACH_ELIM_GRAPH_PRED(GRAPH, NODE, VAR, ARG, CODE)		\
 do {									\
   unsigned x_;								\
   int y_;								\
@@ -315,7 +328,7 @@ do {									\
       if (y_ != (NODE))							\
         continue;							\
       (VAR) = VEC_index (int, (GRAPH)->edge_list, x_);			\
-      (LOCUS) = VEC_index (source_location, (GRAPH)->edge_locus, x_ / 2); \
+      (ARG) = VEC_index (phi_arg_ptr, (GRAPH)->edge_arg, x_ / 2); \
       CODE;								\
     }									\
 } while (0)
@@ -345,7 +358,7 @@ eliminate_build (elim_graph g, basic_block B)
   for (gsi = gsi_start_phis (B); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
-      source_location locus;
+      phi_arg_ptr arg;
 
       T0 = var_to_partition_to_var (g->map, gimple_phi_result (phi));
       
@@ -354,7 +367,7 @@ eliminate_build (elim_graph g, basic_block B)
 	continue;
 
       Ti = PHI_ARG_DEF (phi, g->e->dest_idx);
-      locus = gimple_phi_arg_location (phi, g->e->dest_idx);
+      arg = gimple_phi_arg (phi, g->e->dest_idx);
 
       /* If this argument is a constant, or a SSA_NAME which is being
 	 left in SSA form, just queue a copy to be emitted on this
@@ -367,7 +380,7 @@ eliminate_build (elim_graph g, basic_block B)
 	     on this edge.  */
 	  VEC_safe_push (tree, heap, g->const_copies, T0);
 	  VEC_safe_push (tree, heap, g->const_copies, Ti);
-	  VEC_safe_push (source_location, heap, g->copy_locus, locus);
+	  VEC_safe_push (phi_arg_ptr, heap, g->copy_arg, arg);
 	}
       else
         {
@@ -378,7 +391,7 @@ eliminate_build (elim_graph g, basic_block B)
 	      eliminate_name (g, Ti);
 	      p0 = var_to_partition (g->map, T0);
 	      pi = var_to_partition (g->map, Ti);
-	      elim_graph_add_edge (g, p0, pi, locus);
+	      elim_graph_add_edge (g, p0, pi, arg);
 	    }
 	}
     }
@@ -391,10 +404,10 @@ static void
 elim_forward (elim_graph g, int T)
 {
   int S;
-  source_location locus;
+  phi_arg_ptr arg;
 
   SET_BIT (g->visited, T);
-  FOR_EACH_ELIM_GRAPH_SUCC (g, T, S, locus,
+  FOR_EACH_ELIM_GRAPH_SUCC (g, T, S, arg,
     {
       if (!TEST_BIT (g->visited, S))
         elim_forward (g, S);
@@ -409,9 +422,9 @@ static int
 elim_unvisited_predecessor (elim_graph g, int T)
 {
   int P;
-  source_location locus;
+  phi_arg_ptr arg;
 
-  FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
+  FOR_EACH_ELIM_GRAPH_PRED (g, T, P, arg,
     {
       if (!TEST_BIT (g->visited, P))
         return 1;
@@ -425,10 +438,10 @@ static void
 elim_backward (elim_graph g, int T)
 {
   int P;
-  source_location locus;
+  phi_arg_ptr arg;
 
   SET_BIT (g->visited, T);
-  FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
+  FOR_EACH_ELIM_GRAPH_PRED (g, T, P, arg,
     {
       if (!TEST_BIT (g->visited, P))
         {
@@ -436,7 +449,7 @@ elim_backward (elim_graph g, int T)
 	  insert_copy_on_edge (g->e, 
 			       partition_to_var (g->map, P), 
 			       partition_to_var (g->map, T),
-			       locus);
+			       arg);
 	}
     });
 }
@@ -449,7 +462,7 @@ elim_create (elim_graph g, int T)
 {
   tree U;
   int P, S;
-  source_location locus;
+  phi_arg_ptr arg;
 
   if (elim_unvisited_predecessor (g, T))
     {
@@ -457,8 +470,8 @@ elim_create (elim_graph g, int T)
       insert_copy_on_edge (g->e, 
 			   U, 
 			   partition_to_var (g->map, T), 
-			   UNKNOWN_LOCATION);
-      FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
+			   NULL);
+      FOR_EACH_ELIM_GRAPH_PRED (g, T, P, arg,
 	{
 	  if (!TEST_BIT (g->visited, P))
 	    {
@@ -466,20 +479,20 @@ elim_create (elim_graph g, int T)
 	      insert_copy_on_edge (g->e, 
 				   partition_to_var (g->map, P), 
 				   U,
-				   locus);
+				   arg);
 	    }
 	});
     }
   else
     {
-      S = elim_graph_remove_succ_edge (g, T, &locus);
+      S = elim_graph_remove_succ_edge (g, T, &arg);
       if (S != -1)
 	{
 	  SET_BIT (g->visited, T);
 	  insert_copy_on_edge (g->e, 
 			       partition_to_var (g->map, T), 
 			       partition_to_var (g->map, S),
-			       locus);
+			       arg);
 	}
     }
   
@@ -495,7 +508,7 @@ eliminate_phi (edge e, elim_graph g)
   basic_block B = e->dest;
 
   gcc_assert (VEC_length (tree, g->const_copies) == 0);
-  gcc_assert (VEC_length (source_location, g->copy_locus) == 0);
+  gcc_assert (VEC_length (phi_arg_ptr, g->copy_arg) == 0);
 
   /* Abnormal edges already have everything coalesced.  */
   if (e->flags & EDGE_ABNORMAL)
@@ -532,12 +545,12 @@ eliminate_phi (edge e, elim_graph g)
   while (VEC_length (tree, g->const_copies) > 0)
     {
       tree src, dest;
-      source_location locus;
+      phi_arg_ptr arg;
 
       src = VEC_pop (tree, g->const_copies);
       dest = VEC_pop (tree, g->const_copies);
-      locus = VEC_pop (source_location, g->copy_locus);
-      insert_copy_on_edge (e, dest, src, locus);
+      arg = VEC_pop (phi_arg_ptr, g->copy_arg);
+      insert_copy_on_edge (e, dest, src, arg);
     }
 }
 

@@ -1,3 +1,70 @@
+2009-03-26  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-into-ssa.c (rewrite_stmt): Add debuglocus to statements.
+	(rewrite_add_phi_arguments): Replicate just source location to phi args.
+	(rewrite_into_ssa): Create debug table if it doesn't exist.
+	* debuglocus.c (DEBUGLOCUS_INDEX): Macro to return index from locus.
+	(init_debuglocus_table): Fix comment.
+	(create_debuglocus_table): Create a single static table.
+	(destroy_debuglocus_table): Delete elements from the table.
+	(current_debuglocus_table): New. Return current table.
+	(get_debuglocus_entry): Remove debuglocus_index type.
+	(get_debuglocus): Always takes a debuglocus source location as a
+	parameter.
+	(create_debuglocus_entry): Use current_debuglocus_table().
+	(create_duplicate_debuglocus): Clean up interface calls.
+	(decl_needs_debuglocus_p): New. check if decl needs debuglocus.
+	(debuglocus_index_from_pointer): New. Get table index.
+	(debuglocus_from_pointer): New. Create locus from pointer.
+	(create_debuglocus_for_decl): New. Create new entry.
+	(create_debuglocus_for_decl_and_locus): New. Create new entry and set
+	the locus field.
+	(replace_gimple_locus_with_debuglocus): New. Replace locus on a stmt
+	with a debuglocus.
+	(merge_debuglocus): New. Merge 2 debuglocus lists.
+	(find_debuglocus): New. Find a debuglocus within a list.
+	(find_and_detach_debuglocus): New. Find and remove locus from a list.
+	(find_and_detach_or_create_debuglocus): New. Find and remove from a
+	list, or create a debuglocus if it isn't there.
+	(debuglocus_iter_start): New. Start iteration over a list.
+	(debuglocus_iter_next): New. Continue iteration over a list.
+	(debuglocus_var_iter_start): New. Start iteration for decls over a list.
+	(debuglocus_var_iter_next): New. Continue iteration.
+	* debuglocus.h (DEBUGLOCUS_INDEX, GET_DEBUGLOCUS, 
+	GET_LOCUS_FROM_DEBUGLOCUS, IS_DEBUGLOCUS_P): Remove.
+	(debuglocus_iterator): New type.
+	(FOR_EACH_DEBUGLOCUS): New iterator macro.
+	(FOR_EACH_DEBUGLOCUS_VAR): New iterator macro.
+	(is_debuglocus): New. Check is source locus is a debuglocus.
+	(copy_debuglocus): Call new is_debuglocus routine.
+	(locus_from_debuglocus): Rename from debuglocus_lookup_locus.
+	* tree-pretty-print.c (dump_generic_node): Show debuglocus decls.
+	* tree.c (expand_location): Use new routines, save debuglocus.
+	* tree-phinodes.c (make_phi_node): Initialize original decl field.
+	* gimple-pretty-print.c (dump_gimple_phi, dump_gimple_stmt,
+	dump_implicit_edges): Show debuglocus decls.
+	* function.h (struct function): Remove debuglocus table.
+	* print-rtl.c (print_rtx): Show debuglocus decls.
+	* tree-ssa-phiopt.c (conditional_replacement): Propagate debuglocus
+	when merging/collapsing PHI nodes.
+	* print-tree.c (print_node): Show debuglocus decls.
+	* cfglayout.c (insn_debuglocus): Use renamed routines.
+	* tree-inline.c (copy_phis_for_bb): Deep copy debuglocus's.
+	(initialize_inlined_parameters): Just copy source locus for now.
+	* tree-outof-ssa.c (struct _elim_graph): Change source_location lists
+	to a phi argument pointer list.
+	(insert_copy_on_edge): Use PhiArg pointer to create a debuglocus.
+	(new_elim_graph, clear_elim_graph, delete_elim_graph,
+	elim_graph_add_edge, elim_graph_remove_succ_edge,
+	FOR_EACH_ELIM_GRAPH_SUCC, FOR_EACH_ELIM_GRAPH_PRED, eliminate_build,
+	elim_forward, elim_unvisited_predecessor, elim_backward, elim_create,
+	eliminate_phi): Work with Phi argument pointer rather than locus.
+	* Makefile.in: Adjust debuglocus.h dependancies.
+	* gimple.h (struct gimple_statement_phi): Add original_decl field.
+	(gimple_copy_location): New. Deep copy of locus field.
+	(gimple_source_location): New. Make debuglocus transparent.
+	(gimple_phi_original_decl): New. Get original decl PHI was created for.
+
 2009-03-24  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-phiopt.c (conditional_replacement): Preserve locus when

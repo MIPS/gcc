@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "params.h"
 #include "vecprim.h"
+#include "debuglocus.h"
 
 
 /* This file builds the SSA form for a function as described in:
@@ -1360,6 +1361,13 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	gcc_assert (DECL_P (var));
 	SET_DEF (def_p, make_ssa_name (var, stmt));
 	register_new_def (DEF_FROM_PTR (def_p), var);
+
+	/* Add a debuglocus if appropriate.  */
+	if (decl_needs_debuglocus_p (var))
+	  {
+	    debuglocus_p dlocus = create_debuglocus_for_decl (var);
+	    replace_gimple_locus_with_debuglocus (stmt, dlocus);
+	  }
       }
 }
 
@@ -1397,8 +1405,11 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	    {
 	      use_operand_p use = PHI_ARG_DEF_PTR_FROM_EDGE(phi, e);
 	      int index = PHI_ARG_INDEX_FROM_USE (use);
-	      source_location locus = gimple_location (stmt);
-
+	      /* Initially, Don't replicate the debuglocus into the arg.  
+		 THe PHI node has a debuglocus for the original variable,
+		 and any copies inserted that do not have a debuglocus on
+		 the argument will have one generated from the PHI node.  */
+	      source_location locus = gimple_source_location (stmt);
 	      gimple_phi_arg_set_location (phi, index, locus);
 	    }
 	}
@@ -2246,6 +2257,9 @@ rewrite_into_ssa (void)
   sbitmap interesting_blocks;
   
   timevar_push (TV_TREE_SSA_OTHER);
+
+  /* Initialize the debuglocus structures.  */
+  create_debuglocus_table ();
 
   /* Initialize operand data structures.  */
   init_ssa_operands ();

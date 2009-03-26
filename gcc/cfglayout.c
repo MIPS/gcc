@@ -570,7 +570,7 @@ insn_debuglocus (const_rtx insn)
       expanded_location xloc;
       xloc = expand_location (locator_location (loc));
       if (xloc.debuglocus != DEBUGLOCUS_NONE)
-        ptr = GET_DEBUGLOCUS (xloc.debuglocus);
+        ptr = get_debuglocus (xloc.debuglocus);
     }
   return ptr;
 }
