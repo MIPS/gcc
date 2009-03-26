@@ -1,3 +1,9 @@
+2009-03-26  Rafael Avila de Espindola  <espindola@google.com>
+
+	PR 39001
+	* dwarf2out.c (dwarf2out_do_cfi_asm): Make the check for
+	current_function_decl being null the first thing in the function.
+
 2009-03-25  Rafael Avila de Espindola  <espindola@google.com>
 
 	Mainline merge @144635.

@@ -139,6 +139,15 @@ int
 dwarf2out_do_cfi_asm (void)
 {
   int enc;
+  tree personality_decl;
+
+  /* FIXME lto: current_function_decl is not set when this function is called,
+     so we cannot find the personality of the current function. For now we
+     return true here to avoid a crash. */
+  if (!current_function_decl)
+    return true;
+
+  personality_decl = DECL_FUNCTION_PERSONALITY (current_function_decl);
 
 #ifdef MIPS_DEBUGGING_INFO
   return false;
@@ -146,11 +155,7 @@ dwarf2out_do_cfi_asm (void)
   if (!flag_dwarf2_cfi_asm || !dwarf2out_do_frame ())
     return false;
 
-  /* FIXME lto: current_function_decl is not set when this function is called,
-     so we cannot find the personality of the current function. For now we
-     use the global eh_personality_decl, but this is probably wrong for the
-     case of a program with decls with different personality functions. */
-  if (saved_do_cfi_asm || !eh_personality_decl || !current_function_decl)
+  if (saved_do_cfi_asm || !personality_decl)
     return true;
 
   if (!HAVE_GAS_CFI_PERSONALITY_DIRECTIVE)
