@@ -2119,7 +2119,8 @@ lto-opts.o: lto-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
    $(TARGET_H) $(TOPLEV_H) $(LTO_SECTION_OUT_H) $(LTO_SECTION_IN_H) \
    lto-utils.h $(LTO_OPTS_H)
 lto-utils.o: lto-utils.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
-   $(TM_H) $(TREE_H) $(BITMAP_H) vec.h lto-header.h lto-utils.h
+   $(TM_H) $(TREE_H) $(BITMAP_H) vec.h lto-header.h lto-utils.h \
+   $(GIMPLE_H)
 lto-wpa-fixup.o: lto-wpa-fixup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
    $(TM_H) $(TOPLEV_H) $(TREE_H) $(EXPR_H) $(FLAGS_H) tree-pass.h \
    $(CGRAPH_H) $(FUNCTION_H) $(DIAGNOSTIC_H) vec.h $(BITMAP_H) $(TIMEVAR_H) \
@@ -2477,7 +2478,7 @@ tree-object-size.o: tree-object-size.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    tree-ssa-propagate.h
 gimple.o : gimple.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
    $(GGC_H) $(GIMPLE_H) $(GIMPLE_H) $(DIAGNOSTIC_H) gt-gimple.h \
-   $(TREE_FLOW_H) value-prof.h $(FLAGS_H)
+   $(TREE_FLOW_H) value-prof.h $(FLAGS_H) $(TARGET_H)
 gimple-pretty-print.o : gimple-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(DIAGNOSTIC_H) $(REAL_H) $(HASHTAB_H) $(TREE_FLOW_H) \
    $(TM_H) coretypes.h tree-pass.h $(GIMPLE_H) value-prof.h

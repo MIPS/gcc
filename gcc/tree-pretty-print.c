@@ -552,14 +552,31 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	    else if (TREE_CODE (node) == VECTOR_TYPE)
 	      {
 		pp_string (buffer, "vector ");
-		dump_generic_node (buffer, TREE_TYPE (node), 
-				   spc, flags, false);
+		dump_generic_node (buffer, TREE_TYPE (node), spc, flags, false);
 	      }
 	    else if (TREE_CODE (node) == INTEGER_TYPE)
 	      {
 		pp_string (buffer, (TYPE_UNSIGNED (node)
 				    ? "<unnamed-unsigned:"
 				    : "<unnamed-signed:"));
+		pp_decimal_int (buffer, TYPE_PRECISION (node));
+		pp_string (buffer, ">");
+	      }
+	    else if (TREE_CODE (node) == COMPLEX_TYPE)
+	      {
+		pp_string (buffer, "__complex__ ");
+		dump_generic_node (buffer, TREE_TYPE (node), spc, flags, false);
+	      }
+	    else if (TREE_CODE (node) == REAL_TYPE)
+	      {
+		pp_string (buffer, "<float:");
+		pp_decimal_int (buffer, TYPE_PRECISION (node));
+		pp_string (buffer, ">");
+	      }
+	    else if (TREE_CODE (node) == FIXED_POINT_TYPE)
+	      {
+		pp_string (buffer, "<fixed-point-");
+		pp_string (buffer, TYPE_SATURATING (node) ? "sat:" : "nonsat:");
 		pp_decimal_int (buffer, TYPE_PRECISION (node));
 		pp_string (buffer, ">");
 	      }
@@ -616,14 +633,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OFFSET_TYPE:
       NIY;
-      break;
-
-    case METHOD_TYPE:
-      if (TYPE_METHOD_BASETYPE (node))
-        dump_decl_name (buffer, TYPE_NAME (TYPE_METHOD_BASETYPE (node)), flags);
-      else
-        pp_string (buffer, "<null method basetype>");
-      pp_string (buffer, "::");
       break;
 
     case TARGET_MEM_REF:
@@ -850,6 +859,23 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case FUNCTION_TYPE:
+    case METHOD_TYPE:
+      dump_generic_node (buffer, TREE_TYPE (node), spc, flags, false);
+      pp_space (buffer);
+      if (TREE_CODE (node) == METHOD_TYPE)
+	{
+	  if (TYPE_METHOD_BASETYPE (node))
+	    dump_decl_name (buffer, TYPE_NAME (TYPE_METHOD_BASETYPE (node)),
+			    flags);
+	  else
+	    pp_string (buffer, "<null method basetype>");
+	  pp_string (buffer, "::");
+	}
+      if (TYPE_NAME (node) && DECL_NAME (TYPE_NAME (node)))
+	dump_decl_name (buffer, TYPE_NAME (node), flags);
+      else
+	pp_printf (buffer, "<T%x>", TYPE_UID (node));
+      dump_function_declaration (buffer, node, spc, flags);
       break;
 
     case FUNCTION_DECL:

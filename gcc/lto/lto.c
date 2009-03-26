@@ -48,6 +48,7 @@ Boston, MA 02110-1301, USA.  */
 #include "ipa-prop.h"
 #include "common.h"
 #include "timevar.h"
+#include "gimple.h"
 
 /* This needs to be included after config.h.  Otherwise, _GNU_SOURCE will not
    be defined in time to set __USE_GNU in the system headers, and strsignal
@@ -201,7 +202,15 @@ lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
       tree *decls = (tree *) xcalloc (size, sizeof (tree));
 
       for (j = 0; j < size; j++)
-        decls[j] = VEC_index (tree, data_in->globals_index, data[j]);
+	{
+	  decls[j] = VEC_index (tree, data_in->globals_index, data[j]);
+
+	  /* Register every type in the global type table.  If the
+	     type existed already, use the existing type.  */
+	  if (TYPE_P (decls[j]))
+	    decls[j] = gimple_register_type (decls[j]);
+	}
+
       state->streams[i].size = size;
       state->streams[i].trees = decls;
       data += size;
@@ -1071,6 +1080,11 @@ no_fixup_p (tree t)
 static void
 lto_fixup_common (tree t, void *data)
 {
+  /* If T has a type, make sure it is registered in the global type
+     table.  If the type existed already, use the existing one.  */
+  if (TREE_TYPE (t))
+    TREE_TYPE (t) = gimple_register_type (TREE_TYPE (t));
+
   LTO_FIXUP_SUBTREE (TREE_TYPE (t));
   /* This is not very efficient because we cannot do tail-recursion with
      a long chain of trees. */
@@ -1647,6 +1661,13 @@ do_whole_program_analysis (void)
   timevar_pop (TV_WHOPR_WPA);
 
   output_files = lto_wpa_write_files ();
+
+  /* Show the LTO report before launching LTRANS.  FIXME lto, this
+     should be done in lto_main, but if LTRANS fails we miss the
+     chance to print the report for WPA.  */
+  if (flag_lto_report)
+    print_lto_report ();
+
   lto_execute_ltrans (output_files);
 
   for (i = 0; output_files[i]; ++i)
@@ -1703,11 +1724,16 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 	  /* Let the middle end know that we have read and merged all of
 	     the input files.  */ 
 	  cgraph_optimize ();
+
+	  /* FIXME lto, if the processes spawned by WPA fail, we miss
+	     the chance to print WPA's report, so WPA will call
+	     print_lto_report before launching LTRANS.  If LTRANS was
+	     launched directly by the driver we would not need to do
+	     this.  */
+	  if (flag_lto_report)
+	    print_lto_report ();
 	}
     }
-
-  if (flag_lto_report)
-    print_lto_report ();
 }
 
 #include "gt-lto-lto.h"

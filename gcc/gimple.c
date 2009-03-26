@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "target.h"
 #include "tree.h"
 #include "ggc.h"
 #include "errors.h"
@@ -33,6 +34,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "value-prof.h"
 #include "flags.h"
+
+/* Global type table.  FIXME lto, it should be possible to re-use some
+   of the type hashing routines in tree.c (type_hash_canon, type_hash_lookup,
+   etc), but those assume that types were built with the various
+   build_*_type routines which is not the case with the streamer.  */
+static htab_t gimple_types;
+static struct pointer_map_t *type_hash_cache;
 
 #define DEFGSCODE(SYM, NAME, STRUCT)	NAME,
 const char *const gimple_code_name[] = {
@@ -3324,8 +3332,7 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
   type_pair_t p = NULL;
 
   /* Check first for the obvious case of pointer identity.  */
-  if (t1 == t2
-      || TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
+  if (t1 == t2)
     goto same_types;
 
   /* Check that we have two types to compare.  */
@@ -3364,6 +3371,9 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 
   /* If their attributes are not the same they can't be the same type.  */
   if (!attribute_list_equal (TYPE_ATTRIBUTES (t1), TYPE_ATTRIBUTES (t2)))
+    goto different_types;
+
+  if (!targetm.comp_type_attributes (t1, t2))
     goto different_types;
 
   /* For numerical types, the bounds must coincide.  */
@@ -3490,6 +3500,15 @@ gimple_compare_types (tree t1, tree t2, htab_t *visited_p)
 		}
 	    }
 	}
+
+    case METHOD_TYPE:
+      /* Method types should belong to the same class.  */
+      if (!gimple_compare_types (TYPE_METHOD_BASETYPE (t1),
+				 TYPE_METHOD_BASETYPE (t2),
+				 visited_p))
+	goto different_types;
+
+      /* Fallthru  */
 
     case FUNCTION_TYPE:
       /* Function types are the same if the return type and arguments types
@@ -3643,5 +3662,189 @@ gimple_types_compatible_p (tree t1, tree t2)
 
   return same_p;
 }
-  
+
+
+/* Returning a hash value for gimple type TYPE combined with VAL.  */
+
+static hashval_t
+iterative_hash_gimple_type (const_tree type, hashval_t val, unsigned level)
+{
+  hashval_t v;
+
+  /* Combine a few common features of types so that types are grouped into
+     smaller sets; when searching for existing matching types to merge,
+     only existing types having the same features as the new type will be
+     checked.  */
+  v = iterative_hash_hashval_t (TREE_CODE (type), val);
+  v = iterative_hash_hashval_t (TYPE_QUALS (type), v);
+  if (TYPE_SIZE (type))
+    v = iterative_hash_host_wide_int (int_cst_value (TYPE_SIZE (type)), v);
+  if (TYPE_SIZE_UNIT (type))
+    v = iterative_hash_hashval_t (int_cst_value (TYPE_SIZE_UNIT (type)), v);
+  v = iterative_hash_hashval_t (TREE_ADDRESSABLE (type), v);
+
+  /* Incorporate common features of numerical types.  */
+  if (INTEGRAL_TYPE_P (type)
+      || SCALAR_FLOAT_TYPE_P (type)
+      || FIXED_POINT_TYPE_P (type))
+    {
+      v = iterative_hash_hashval_t (TYPE_PRECISION (type), v);
+      v = iterative_hash_hashval_t (TYPE_MODE (type), v);
+      v = iterative_hash_hashval_t (TYPE_UNSIGNED (type), v);
+    }
+
+  /* Incorporate function return and argument types.  */
+  if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == METHOD_TYPE)
+    {
+      tree p;
+
+      /* For method types also incorporate their parent class.  */
+      if (TREE_CODE (type) == METHOD_TYPE)
+	v = iterative_hash_gimple_type (TYPE_METHOD_BASETYPE (type), v, level);
+
+      v = iterative_hash_gimple_type (TREE_TYPE (type), v, level);
+
+      for (p = TYPE_ARG_TYPES (type); p; p = TREE_CHAIN (p))
+	v = iterative_hash_gimple_type (TREE_VALUE (p), v, level);
+    }
+
+  /* For pointer and reference types, fold in information about the type
+     pointed to.  */
+  if (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
+    v = iterative_hash_gimple_type (TREE_TYPE (type), v, level);
+
+  /* For aggregate types, incorporate types signatures up to 5 levels
+     (to prevent infinite recursion in self-referential types).  */
+  if (TREE_CODE (type) == RECORD_TYPE
+      || TREE_CODE (type) == UNION_TYPE
+      || TREE_CODE (type) == QUAL_UNION_TYPE)
+    {
+      unsigned nf;
+      tree f;
+
+      for (f = TYPE_FIELDS (type), nf = 0; f; f = TREE_CHAIN (f))
+	{
+	  if (level < 5)
+	    v = iterative_hash_gimple_type (TREE_TYPE (f), v, level + 1);
+	  nf++;
+	}
+
+      v = iterative_hash_hashval_t (nf, v);
+    }
+
+  return v;
+}
+
+
+/* Returns a hash value for P (assumed to be a type).  The hash value
+   is computed using some distinguishing features of the type.  Note
+   that we cannot use pointer hashing here as we may be dealing with
+   two distinct instances of the same type.
+
+   This function should produce the same hash value for two compatible
+   types according to gimple_types_compatible_p.  */
+
+static hashval_t
+gimple_type_hash (const void *p)
+{
+  const_tree type;
+  void **slot;
+  hashval_t v;
+
+  type = (const_tree) p;
+
+  if (type_hash_cache == NULL)
+    {
+      type_hash_cache = pointer_map_create ();
+      slot = NULL;
+    }
+  else
+    slot = pointer_map_contains (type_hash_cache, type);
+
+  if (slot)
+    v = (hashval_t) (size_t) *slot;
+  else
+    {
+      v = iterative_hash_gimple_type (type, 0, 0);
+      *pointer_map_insert (type_hash_cache, type) = (void *) (size_t) v;
+    }
+
+  return v;
+}
+
+
+/* Returns nonzero if P1 and P2 are equal.  */
+
+static int
+gimple_type_eq (const void *p1, const void *p2)
+{
+  const_tree t1 = (const_tree) p1;
+  const_tree t2 = (const_tree) p2;
+  return gimple_types_compatible_p (CONST_CAST_TREE (t1), CONST_CAST_TREE (t2));
+}
+
+
+/* Register type T in the global type table gimple_types.
+   If another type T', compatible with T, already existed in
+   gimple_types then return T', otherwise return T.  This is used by
+   LTO to merge identical types read from different TUs.  */
+
+tree
+gimple_register_type (tree t)
+{
+  void **slot;
+
+  if (gimple_types == NULL)
+    gimple_types = htab_create (100000, gimple_type_hash, gimple_type_eq, 0);
+
+  if (getenv ("MERGE_TYPE_DEBUG"))
+    {
+      fprintf (stderr, "\nRegistering type: %p - ", (void *) t);
+      print_generic_stmt (stderr, t, 0);
+    }
+
+  slot = htab_find_slot (gimple_types, t, INSERT);
+  if (*slot)
+    {
+      tree new_type = (tree) *((tree *) slot);
+
+      /* Do not merge types with different addressability.  */
+      gcc_assert (TREE_ADDRESSABLE (t) == TREE_ADDRESSABLE (new_type));
+
+      if (getenv ("MERGE_TYPE_DEBUG"))
+	{
+	  if (t != new_type)
+	    {
+	      fprintf (stderr, "Merged with existing compatible type: %p - ",
+		  *slot);
+	      print_generic_stmt (stderr, new_type, 0);
+	    }
+	}
+
+      t = new_type;
+    }
+  else
+    *slot = (void *) t;
+
+  return t;
+}
+
+
+/* Show statistics on references to the global type table gimple_types.  */
+
+void
+print_gimple_types_stats (void)
+{
+  if (gimple_types)
+    fprintf (stderr, "GIMPLE type table: size %ld, %ld elements, "
+	     "%ld searches, %ld collisions (ratio: %f)\n",
+	     (long) htab_size (gimple_types),
+	     (long) htab_elements (gimple_types),
+	     (long) gimple_types->searches,
+	     (long) gimple_types->collisions,
+	     htab_collisions (gimple_types));
+  else
+    fprintf (stderr, "GIMPLE type table is empty\n");
+}
+
 #include "gt-gimple.h"

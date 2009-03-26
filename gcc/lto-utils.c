@@ -26,6 +26,7 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "gimple.h"
 #include "bitmap.h"
 #include "vec.h"
 #include "lto-header.h"
@@ -152,6 +153,9 @@ print_lto_report (void)
   fprintf (stderr, "[%s] # of function bodies: "
 	   HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
 	   lto_stats.num_function_bodies);
+
+  fprintf (stderr, "[%s] ", s);
+  print_gimple_types_stats ();
 
   for (i = 0; i < NUM_TREE_CODES; i++)
     if (lto_stats.num_trees[i])

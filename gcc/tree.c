@@ -3669,7 +3669,7 @@ iterative_hash_pointer (const void *ptr, hashval_t val2)
 }
 
 /* Produce good hash value combining VAL and VAL2.  */
-static inline hashval_t
+hashval_t
 iterative_hash_host_wide_int (HOST_WIDE_INT val, hashval_t val2)
 {
   if (sizeof (HOST_WIDE_INT) == sizeof (hashval_t))
@@ -3837,8 +3837,14 @@ free_lang_data_in_type (tree type)
       for (p = TYPE_ARG_TYPES (type); p; p = TREE_CHAIN (p))
 	{
 	  tree arg_type = TREE_VALUE (p);
-	  TYPE_READONLY (arg_type) = 0;
-	  TYPE_VOLATILE (arg_type) = 0;
+
+	  if (TYPE_READONLY (arg_type) || TYPE_VOLATILE (arg_type))
+	    {
+	      int quals = TYPE_QUALS (arg_type)
+			  & ~TYPE_QUAL_CONST
+			  & ~TYPE_QUAL_VOLATILE;
+	      TREE_VALUE (p) = build_qualified_type (arg_type, quals);
+	    }
 	}
     }
 	      

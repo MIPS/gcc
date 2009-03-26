@@ -916,6 +916,8 @@ extern tree get_call_expr_in (tree t);
 
 extern void recalculate_side_effects (tree);
 extern int gimple_types_compatible_p (tree, tree);
+extern tree gimple_register_type (tree);
+extern void print_gimple_types_stats (void);
 
 /* In gimplify.c  */
 extern tree create_tmp_var_raw (tree, const char *);

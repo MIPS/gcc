@@ -1,3 +1,39 @@
+2009-03-26  Diego Novillo  <dnovillo@google.com>
+
+	* tree-pretty-print.c (dump_generic_node): Merge handler
+	for METHOD_TYPE and FUNCTION_TYPE.  Dump type arguments.
+	Handle unnamed COMPLEX_TYPE, REAL_TYPE and
+	FIXED_POINT_TYPE.
+	* tree.c (iterative_hash_host_wide_int): Make extern.
+	(free_lang_data_in_type): Call build_qualified_type to
+	replace 'const' and 'volatile' function argument types.
+	* tree.h (iterative_hash_host_wide_int): Declare extern.
+	* gimple.c (gimple_compare_types): Do not test
+	TYPE_MAIN_VARIANT.
+	if T1 and T2 have different addressability, consider them
+	different.
+
+2009-03-26  Diego Novillo  <dnovillo@google.com>
+	    Simon Baldwin  <simonb@google.com>
+
+	* gimple.c: Include gimple.h.
+	(gimple_compare_types): Do not use TYPE_MAIN_VARIANT to
+	check compatibility.
+	Call targetm.comp_type_attributes.
+	Handle METHOD_TYPE.
+	(gimple_types): New.
+	(type_hash_cache): New.
+	(gimple_type_hash): New.
+	(gimple_type_eq): New.
+	(gimple_register_type): New.
+	(print_gimple_types_stats): New.
+	* gimple.h (gimple_register_type): Declare.
+	(print_gimple_types_stats): Declare.
+	* lto-utils.c: Include gimple.h.
+	(print_lto_report): Call print_gimple_stats.
+	* Makefile.in (lto-utils.o): Add dependency on GIMPLE_H.
+	(gimple.o): Add dependency on TARGET_H.
+
 2009-03-26  Rafael Avila de Espindola  <espindola@google.com>
 
 	PR 39001

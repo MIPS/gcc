@@ -1,3 +1,8 @@
+2009-03-26  Simon Baldwin  <simonb@google.com>
+
+	* g++.dg/lto/20090315_0.C:
+	* g++.dg/lto/20090315_1.C:
+
 2009-03-15  Diego Novillo  <dnovillo@google.com>
 
 	* g++.dg/lto/20090313_0.C: Add -fPIC.

@@ -1,3 +1,14 @@
+2009-03-26  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c: Include gimple.h.
+	(lto_read_in_decl_state): Call gimple_register_type for
+	every type in every stream.
+	(lto_fixup_common): Call gimple_register_type if T has a
+	type.
+	(do_whole_program_analysis): Call print_lto_report.
+	(lto_main): Call print_lto_report after cgraph_optimize.
+	* Make-lang.in (lto.o): Add dependency on GIMPLE_H.
+
 2009-03-24  Diego Novillo  <dnovillo@google.com>
 
 	* Make-lang.in (lto-lang.o): Add dependency on TARGET_H and EXPR_H.
