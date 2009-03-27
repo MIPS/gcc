@@ -1,5 +1,16 @@
 2009-03-26  Jan Hubicka  <jh@suse.cz>
 
+	* except.c (duplicate_eh_regions): Toplevel regionn can be removed.
+	(remove_eh_region): New function
+	(can_throw_internal_1, can_throw_external_1): Toplevel region can be removed.
+	* except.h (remove_eh_region): New.
+	* tree-cfg.c (tree_empty_eh_handler_p): New.
+	(cleanup_empty_eh): New.
+	(cleanup_tree_cfg_1): Perform EH cleanups and re-do
+	unreachable blocks/dominance/ssa update if needed.
+
+2009-03-26  Jan Hubicka  <jh@suse.cz>
+
 	* tree-eh.c (inlinable_call_p): New function.
 	(make_eh_edges): Use it.
 	(verify_eh_edges): Use it.

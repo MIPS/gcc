@@ -939,7 +939,10 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
   if (outer_region > 0)
     {
       outer = VEC_index (eh_region, cfun->eh->region_array, outer_region);
-      splice = &outer->inner;
+      if (outer)
+        splice = &outer->inner;
+      else
+        splice = &cfun->eh->region_tree;
     }
   else
     {
@@ -2306,6 +2309,17 @@ maybe_remove_eh_handler (rtx label)
     remove_eh_handler (region);
 }
 
+/* Remove Eh region R that has turned out to have no code in its handler.  */
+
+void
+remove_eh_region (int r)
+{
+  struct eh_region *region;
+
+  region = VEC_index (eh_region, cfun->eh->region_array, r);
+  remove_eh_handler (region);
+}
+
 /* Invokes CALLBACK for every exception handler label.  Only used by old
    loop hackery; should not be used by new code.  */
 
@@ -2588,6 +2602,9 @@ foreach_reachable_handler (int region_number, bool is_resx, bool inlinable_call,
 
   region = VEC_index (eh_region, cfun->eh->region_array, region_number);
 
+  if (!region)
+    return;
+
   type_thrown = NULL_TREE;
   if (is_resx)
     {
@@ -2678,6 +2695,9 @@ can_throw_internal_1 (int region_number, bool is_resx, bool inlinable_call)
 
   region = VEC_index (eh_region, cfun->eh->region_array, region_number);
 
+  if (!region)
+    return false;
+
   type_thrown = NULL_TREE;
   if (is_resx)
     region = region->outer;
@@ -2738,6 +2758,9 @@ can_throw_external_1 (int region_number, bool is_resx, bool inlinable_call)
   tree type_thrown;
 
   region = VEC_index (eh_region, cfun->eh->region_array, region_number);
+
+  if (!region)
+    return true;
 
   type_thrown = NULL_TREE;
   if (is_resx)

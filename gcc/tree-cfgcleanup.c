@@ -531,6 +531,126 @@ cleanup_omp_return (basic_block bb)
   return true;
 }
 
+/* Pattern match emtpy EH receiver looking like:
+  
+   save_filt.6352_662 = [filter_expr] <<<filter object>>>;
+   save_eptr.6351_663 = [exc_ptr_expr] <<<exception object>>>;
+   <<<exception object>>> = save_eptr.6351_663;
+   <<<filter object>>> = save_filt.6352_662;
+   resx 1
+ */
+
+
+static int
+tree_empty_eh_handler_p (basic_block bb)
+{
+  gimple_stmt_iterator gsi;
+  int region;
+
+  gsi = gsi_last_bb (bb);
+
+  /* RESX  */
+  if (gsi_end_p (gsi))
+    return 0;
+  if (gimple_code (gsi_stmt (gsi)) != GIMPLE_RESX)
+    return 0;
+  region = gimple_resx_region (gsi_stmt (gsi));
+
+  /* filter_object set.  */
+  gsi_prev (&gsi);
+  if (gsi_end_p (gsi))
+    return 0;
+  if (gimple_code (gsi_stmt (gsi)) != GIMPLE_ASSIGN)
+    return 0;
+  if (TREE_CODE (gimple_assign_lhs (gsi_stmt (gsi))) != FILTER_EXPR)
+    return 0;
+
+  /* filter_object set.  */
+  gsi_prev (&gsi);
+  if (gsi_end_p (gsi))
+    return 0;
+  if (gimple_code (gsi_stmt (gsi)) != GIMPLE_ASSIGN)
+    return 0;
+  if (TREE_CODE (gimple_assign_lhs (gsi_stmt (gsi))) != EXC_PTR_EXPR)
+    return 0;
+
+  /* filter_object get.  */
+  gsi_prev (&gsi);
+  if (gsi_end_p (gsi))
+    return 0;
+  if (gimple_code (gsi_stmt (gsi)) != GIMPLE_ASSIGN)
+    return 0;
+  if (TREE_CODE (gimple_assign_rhs1 (gsi_stmt (gsi))) != EXC_PTR_EXPR)
+    return 0;
+
+  /* filter_object get.  */
+  gsi_prev (&gsi);
+  if (gsi_end_p (gsi))
+    return 0;
+  if (gimple_code (gsi_stmt (gsi)) != GIMPLE_ASSIGN)
+    return 0;
+  if (TREE_CODE (gimple_assign_rhs1 (gsi_stmt (gsi))) != FILTER_EXPR)
+    return 0;
+
+  /* label.  */
+  gsi_prev (&gsi);
+  if (gsi_end_p (gsi))
+    return 0;
+  if (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
+    return region;
+  else
+    return 0;
+}
+
+/* Look for basic blocks containing empty exception handler and remove them.
+   This is similar to jump forwarding, just across EH edges.  */
+
+static bool
+cleanup_empty_eh (basic_block bb)
+{
+  int region;
+  /* When handler of EH region winds up to be empty, we can safely
+     remove it.  This leads to inner EH regions to be redirected
+     to outer one, if present in function. So we need to rebuild
+     EH edges in all sources.   */
+  if ((region = tree_empty_eh_handler_p (bb)))
+    {
+      edge_iterator ei;
+      edge e;
+      gimple_stmt_iterator si;
+
+      remove_eh_region (region);
+      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+        mark_sym_for_renaming (SSA_NAME_VAR (PHI_RESULT (gsi_stmt (si))));
+      while ((e = ei_safe_edge (ei_start (bb->preds))))
+	{
+	  basic_block src = e->src;
+	  gcc_assert (e->flags & EDGE_EH);
+          for (ei = ei_start (src->succs); (e = ei_safe_edge (ei));)
+	    {
+	      if (e->flags & EDGE_EH)
+		remove_edge (e);
+	      else
+		ei_next (&ei);
+	    }
+	   make_eh_edges (last_stmt (src));
+  	   FOR_EACH_EDGE (e, ei, src->succs)
+	     if (e->flags & EDGE_EH)
+	       {
+    	         free_dominance_info (CDI_DOMINATORS);
+    	         free_dominance_info (CDI_POST_DOMINATORS);
+                 for (si = gsi_start_phis (e->dest); !gsi_end_p (si); gsi_next (&si))
+                   mark_sym_for_renaming (SSA_NAME_VAR (PHI_RESULT (gsi_stmt (si))));
+	       }
+        }
+      if (dump_file)
+	fprintf (dump_file, "Empty EH handler %i removed\n", region);
+      delete_basic_block (bb);
+      return true;
+    }
+  return false;
+}
+
 /* Tries to cleanup cfg in basic block BB.  Returns true if anything
    changes.  */
 
@@ -573,6 +693,29 @@ cleanup_tree_cfg_1 (void)
   bool retval = false;
   basic_block bb;
   unsigned i, n;
+
+  /* Start by iterating over all basic blocks.  We cannot use FOR_EACH_BB,
+     since the basic blocks may get removed.  */
+  n = last_basic_block;
+  for (i = NUM_FIXED_BLOCKS; i < n; i++)
+    {
+      bb = BASIC_BLOCK (i);
+      if (bb)
+        retval |= cleanup_empty_eh (bb);
+    }
+    
+  /* EH region removal might've invalidated dominator info
+     by redirecting edges from inner exception handlers,
+     get unreachable blocks by removing inner handlers of
+     MUST_NOT_THROW and mark symbols corresponding to PHIs
+     in removed and altered blocks for renaming.  */
+  if (retval)
+    {
+      delete_unreachable_blocks ();
+      calculate_dominance_info (CDI_DOMINATORS);
+      if (gimple_in_ssa_p (cfun) && need_ssa_update_p ())
+        update_ssa (TODO_update_ssa);
+    }
 
   retval |= split_bbs_on_noreturn_calls ();
 
