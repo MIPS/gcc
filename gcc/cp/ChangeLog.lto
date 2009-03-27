@@ -1,3 +1,13 @@
+2009-03-27  Rafael Avila de Espindola  <espindola@google.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_COMDAT_GROUP): Remove.
+	* cp-tree.h (lang_identifier): Add abi_warning.
+	(IDENTIFIER_ABI_WARNING): New.
+	* mangle.c (finish_mangling_internal): Don't print warning.  Set
+	ABI_WARNING if one is needed. Update all callers.
+	(mangle_decl): Set IDENTIFIER_ABI_WARNING.
+	* semantics.c (expand_or_defer_fn): Print warning for ABI changes.
+
 2009-01-26  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (cp_free_lang_data): Rename from cp_reset_lang_specifics.

@@ -3256,6 +3256,11 @@ expand_or_defer_fn (tree fn)
   /* Expand or defer, at the whim of the compilation unit manager.  */
   cgraph_finalize_function (fn, function_depth > 1);
 
+  if (warn_abi && IDENTIFIER_EMIT_ABI_WARNING_P (DECL_ASSEMBLER_NAME (fn)))
+    warning (OPT_Wabi, "the mangled name of %qD will change in a future "
+	     "version of GCC",
+	     fn);
+
   function_depth--;
 }
 
