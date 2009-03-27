@@ -108,10 +108,10 @@ static void dump_string_type (FILE *, tree);
 static void dump_string_decl (FILE *, tree);
 static bool dump_type_promoted_type_def (FILE *, tree);
 
-static void emit_referenced_strings (FILE *);
-static void emit_referenced_types (FILE *);
+static void emit_referenced_strings (void);
+static void emit_referenced_types (void);
 static void emit_pinvoke_function (FILE *, tree);
-static void emit_referenced_pinvokes (FILE *);
+static void emit_referenced_pinvokes (void);
 static void emit_prefixes (FILE *, const_cil_stmt);
 static void emit_ldsfld (FILE *, const_cil_stmt);
 static void emit_ldsflda (FILE *, const_cil_stmt);
@@ -180,9 +180,9 @@ emit_cil_fini (void)
   gcc_assert (init);
 
   create_init_method ();
-  emit_referenced_strings (asm_out_file);
-  emit_referenced_types (asm_out_file);
-  emit_referenced_pinvokes (asm_out_file);
+  emit_referenced_strings ();
+  emit_referenced_types ();
+  emit_referenced_pinvokes ();
 }
 
 void
@@ -984,8 +984,9 @@ dump_type_promoted_type_def (FILE *file, tree node)
 /* Emit all the strings referenced in this compilation unit.  */
 
 static void
-emit_referenced_strings (FILE *file)
+emit_referenced_strings (void)
 {
+  FILE *file = asm_out_file;
   htab_iterator hti;
   str_ref ref;
   tree str;
@@ -1024,10 +1025,32 @@ emit_referenced_strings (FILE *file)
   ebitmap_free (used_stringtypes);
 }
 
+static bool
+emit_incomplete_type (void *elem, void *data)
+{
+  tree type = (tree) elem;
+  tree type_name = TYPE_NAME (type);
+  struct pointer_set_t *emitted_types = data;
+
+  gcc_assert (DECL_P (type_name)
+	      || TREE_CODE (type_name) == IDENTIFIER_NODE);
+
+  if (TREE_CODE (type_name) != IDENTIFIER_NODE)
+      type_name = DECL_NAME (type_name);
+
+  if (!pointer_set_contains (emitted_types, type_name))
+    {
+      emit_incomplete_decl (asm_out_file, type);
+      pointer_set_insert (emitted_types, type_name);
+    }
+
+  return true;
+}
+
 /* Emit the valuetypes referenced by the current function.  */
 
 static void
-emit_referenced_types (FILE *file)
+emit_referenced_types (void)
 {
   /* There may be distinct tree types that correspond to identical types.
      In order not to slow down mark_referenced_type(...) function (which
@@ -1039,6 +1062,7 @@ emit_referenced_types (FILE *file)
      Hence, before emitting a type, make sure no type with the same name
      has already been emitted.  */
 
+  FILE *file = asm_out_file;
   htab_iterator hti;
   tree type;
   struct pointer_set_t *emitted_types = pointer_set_create ();
@@ -1067,31 +1091,7 @@ emit_referenced_types (FILE *file)
     }
 
   /* emit incomplete types */
-  if (TARGET_GCC4NET_LINKER)
-    {
-      struct pointer_set_iter_t it = pointer_set_begin (incomplete_types);
-
-      while (!POINTER_SET_ITER_IS_END (it))
-	{
-	  tree type = (tree)POINTER_SET_ITER_ELEM (it);
-
-	  tree type_name = TYPE_NAME (type);
-	  gcc_assert (DECL_P (type_name)
-		      || TREE_CODE (type_name) == IDENTIFIER_NODE);
-
-	  if (TREE_CODE (type_name) != IDENTIFIER_NODE)
-	    type_name = DECL_NAME (type_name);
-
-	  if (!pointer_set_contains (emitted_types, type_name))
-	    {
-	      emit_incomplete_decl (file, type);
-	      pointer_set_insert (emitted_types, type_name);
-	    }
-
-	  it = pointer_set_next (incomplete_types, it);
-	}
-    }
-
+  pointer_set_traverse (incomplete_types, emit_incomplete_type, emitted_types);
   pointer_set_destroy (incomplete_types);
   pointer_set_destroy (emitted_types);
 }
@@ -1120,8 +1120,9 @@ emit_pinvoke_function (FILE *file, tree fun)
 /* Emit the PINVOKES referenced in this compilation unit.  */
 
 static void
-emit_referenced_pinvokes (FILE *file)
+emit_referenced_pinvokes (void)
 {
+  FILE *file = asm_out_file;
   htab_iterator hti;
   tree pinvoke;
 
