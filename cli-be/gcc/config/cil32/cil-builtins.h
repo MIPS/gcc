@@ -35,7 +35,7 @@ Erven Rohou             <erven.rohou@st.com>
 #include "coretypes.h"
 
 enum cil32_builtin {
-#define DEF_CILBUILTIN(bid, name, ret_type, num_par, ...) \
+#define DEF_CILBUILTIN(bid, name, ret_type, ...) \
     CIL32_##bid,
 #  include "cil-builtins.def"
 #undef DEF_CILBUILTIN

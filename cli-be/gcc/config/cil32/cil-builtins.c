@@ -113,8 +113,8 @@ cil_init_builtins (void)
 
   cil_build_builtin_types ();
 
-#define DEF_CILBUILTIN(bid, name, ret_type, num_par, ...) \
-  cil_add_builtin (CIL32_##bid, name, ret_type, num_par, ## __VA_ARGS__);
+#define DEF_CILBUILTIN(bid, name, ret_type, ...) \
+  cil_add_builtin (CIL32_##bid, name, ret_type, ## __VA_ARGS__);
 #include "cil-builtins.def"
 #undef DEF_CILBUILTIN
 }
