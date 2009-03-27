@@ -301,30 +301,3 @@ void pointer_map_traverse (struct pointer_map_t *pmap,
     if (pmap->keys[i] && !fn (pmap->keys[i], &pmap->values[i], data))
       break;
 }
-
-struct pointer_set_iter_t
-pointer_set_begin (struct pointer_set_t *pset)
-{
-  struct pointer_set_iter_t iter = { 0, -1 };
-
-  return pointer_set_next (pset, iter);
-}
-
-struct pointer_set_iter_t
-pointer_set_next (struct pointer_set_t *pset, struct pointer_set_iter_t it)
-{
-  struct pointer_set_iter_t res = { 0, -1 };
-  size_t pos = (size_t)(it.slot + 1);
-
-  for (; pos < pset->n_slots; ++pos)
-    {
-      if (pset->slots[pos])
-        {
-            res.elem = pset->slots[pos];
-            res.slot = pos;
-            break;
-        }
-    }
-
-  return res;
-}
