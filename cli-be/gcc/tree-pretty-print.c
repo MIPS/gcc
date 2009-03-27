@@ -2086,9 +2086,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       NIY;
     }
 
-
-
-
   if (is_stmt && is_expr)
     pp_semicolon (buffer);
 
@@ -2099,60 +2096,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
   return spc;
 }
-
-
-/* Print out an expression-list; E is expected to be a TREE_LIST.  */
-
-static void
-print_expression_list (pretty_printer *pp, tree e,int spc, int flags)
-{
-  for (; e != NULL_TREE; e = TREE_CHAIN (e))
-    {
-      dump_generic_node (pp, TREE_VALUE (e), spc, flags, false);
-      if (TREE_CHAIN (e))
-	pp_separate_with (pp, ',');
-    }
-}
-
-
-/* print attributes */
-
-static void
-print_attributes (pretty_printer *pp, tree attributes, int spc, int flags)
-{
-  if (attributes == NULL_TREE)
-    return;
-
-  pp_identifier (pp, "__attribute__");
-  pp_left_paren (pp);
-  pp_left_paren (pp);
-  for (; attributes != NULL_TREE; attributes = TREE_CHAIN (attributes))
-    {
-      pp_tree_identifier (pp, TREE_PURPOSE (attributes));
-      if (TREE_VALUE (attributes))
-	{
-	  pp_left_paren (pp);
-	  print_expression_list (pp, TREE_VALUE (attributes), spc, flags);
-	  pp_right_paren (pp);
-	}
-      if (TREE_CHAIN (attributes))
-	pp_separate_with (pp, ',');
-    }
-  pp_right_paren (pp);
-  pp_right_paren (pp);
-}
-
-void
-print_generic_attributes(FILE *file, tree attributes, int flags)
-{
-  maybe_init_pretty_print(file);
-  print_attributes(&buffer, attributes, flags, true);
-
-  if (!(flags & TDF_DIAGNOSTIC))
-    pp_write_text_to_stream (&buffer);
-
-}
-
 
 /* Print the declaration of a variable.  */
 
@@ -2210,12 +2153,6 @@ print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
       /* Print variable's name.  */
       pp_space (buffer);
       dump_generic_node (buffer, t, spc, flags, false);
-
-      if (DECL_ATTRIBUTES (t))
-	{
-	  pp_space(buffer);
-	  print_attributes(buffer, DECL_ATTRIBUTES(t), spc, flags);
-	}
     }
 
   if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
