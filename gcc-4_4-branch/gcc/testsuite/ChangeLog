@@ -1,3 +1,78 @@
+2009-03-27  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/39557
+	* g++.dg/tree-ssa/dom-invalid.C: New test.
+
+2009-03-27  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/39548
+	* g++.dg/tree-ssa/copyprop.C: New test.
+
+2009-03-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c++/38638
+	* g++.dg/template/typename17.C: New testcase.
+	* g++.dg/template/typename18.C: New testcase.
+
+2009-03-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c++/36799
+	* g++.dg/other/var_copy-1.C: New test.
+
+2009-03-27  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/37647
+	* g++.dg/parse/ctor9.C: New test.
+
+2009-03-27  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29727
+	* g++.dg/init/error2.C: New test.
+
+2009-03-27  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35652
+	* gcc.dg/pr35652.C: New.
+	* g++.dg/warn/pr35652.C: New.
+	* gcc.dg/format/plus-1.c: Adjust message.
+
+2009-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39554
+	* gcc.dg/wdisallowed-functions-3.c: New test.
+	* g++.dg/warn/Wdisallowed-functions-3.C: New test.
+
+2009-03-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/inline-33.c: Fix when pic.
+
+2009-03-25  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/ia64/20090324-1.c: New test.
+
+2009-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/27898
+	* gcc.dg/pr27898.c: New test.
+
+	PR tree-optimization/32139
+	* gcc.c-torture/compile/pr32139.c: New test.
+
+2009-03-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28274
+	* g++.dg/parse/defarg14.C: New test.
+
+2009-03-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/39528
+	* gfortran.dg/read_repeat.f90: New test.
+
+2009-03-24  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39529
+	* gcc.dg/vect/pr39529.c: New test.
+
 2009-03-24  Dodji Seketeli  <dodji@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 

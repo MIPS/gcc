@@ -1,3 +1,143 @@
+2009-03-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* DEV-PHASE: Mark "prerelease".
+
+2009-03-27  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/39557
+	* tree-ssa.c (warn_uninitialized_vars): free postdom info.
+
+2009-03-27  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/39548
+	* tree-ssa-copy.c (copy_prop_visit_phi_node): Add copy 
+	candidate check.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* c-common.c (pointer_int_sum): Use %wd on return from
+	tree_low_cst.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* c-common.c (pointer_int_sum): Use HOST_WIDE_INT_PRINT_DEC
+	on return from tree_low_cst.
+
+2009-03-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c++/36799
+	* ginclude/stdarg.h (va_copy): Define also for __GXX_EXPERIMENTAL_CXX0X__.
+
+2009-03-27  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35652
+	* builtins.h (c_strlen): Do not warn here.
+	* c-typeck.c (build_binary_op): Adjust calls to pointer_int_sum.
+	* c-common.c (pointer_int_sum): Take an explicit location.
+	Warn about offsets out of bounds.
+	* c-common.h (pointer_int_sum): Adjust declaration.
+
+2009-03-26  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/invoke.texi (i386 and x86-64 Windows Options): Fix texinfo
+	markup glitch.
+
+2009-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39554
+	* opts.c (warn_if_disallowed_function_p): Don't assume
+	get_callee_fndecl must return non-NULL.
+
+2009-03-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/39522
+	* reload1.c (reload_as_needed): Invalidate reg_last_reload_reg too
+	when reg_reloaded_valid is set.
+
+2009-03-26  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/divv2df3.c: New file.
+	* config/spu/t-spu-elf (LIB2FUNCS_STATIC_EXTRA): Add it.
+	(DPBIT_FUNCS): Filter out _div_df.
+
+2009-03-26  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c (bfin_optimize_loop): If the LSETUP goes before
+	a jump insn, count that jump in the distance to the loop start.
+
+2009-03-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/39523
+	* config/sh/sh.c (calc_live_regs): Fix condition for global
+	registers except PIC_OFFSET_TABLE_REGNUM.
+
+2009-03-25  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR/39518
+	* doc/invoke.texi (-mconsole): New.
+	(-mcygwin): New.
+	(-mno-cygwin): New.
+	(-mdll): New.
+	(-mnop-fun-dllimport): New.
+	(-mthread): New.
+	(-mwin32): New.
+	(-mwindows): New.
+	(sub section "i386 and x86-64 Windows Options"): New.
+
+2009-03-25  Ralf Corsépius <ralf.corsepius@rtems.org>
+
+	* config/arm/rtems-elf.h: Remove LINK_GCC_C_SEQUENCE_SPEC.
+	* config/rs6000/t-rtems: Remove MULTILIB_EXTRA_OPTS.
+
+2009-03-25  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/39497
+	* Makefile.in (dfp.o-warn): Use -fno-strict-aliasing instead
+	of -Wno-error.
+
+2009-03-25  Andrey Belevantsev  <abel@ispras.ru>
+
+	* config/ia64/ia64.c (ia64_set_sched_flags): Zero spec_info->mask when
+	neither of haifa/selective schedulers are working.
+
+2009-03-25  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/invoke.texi (Debugging Options): Fix description of
+	-fno-merge-debug-strings.
+
+2009-03-24  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/libgcc.ver: New version-script.
+	* config/cris/t-linux (SHLIB_MAPFILES): Use it.
+
+	* configure.ac <GAS features, nop mnemonic>: Add pattern
+	crisv32-*-* for "nop".
+	<GAS features, Thread-local storage>: Add item for CRIS and
+	CRIS v32.
+	* configure: Regenerate.
+
+2009-03-24  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39529
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Call
+	mark_sym_for_renaming for the tag copied to the new vector
+	pointer.
+
+2009-03-24  Arthur Loiret  <aloiret@debian.org>
+
+	* config.host (alpha*-*-linux*): Use driver-alpha.o and
+	alpha/x-alpha.
+	* config/alpha/linux.h (host_detect_local_cpu): Declare, add to
+	EXTRA_SPEC_FUNCTIONS.
+	(MCPU_MTUNE_NATIVE_SPECS, DRIVER_SELF_SPECS): New macros.
+	* config/alpha/driver-alpha.c, config/alpha/x-alpha: New.
+	* doc/invoke.texi (DEC Alpha Options): Document 'native' value for
+	-march and -mtune options.
+
+2009-03-24  Ralf Corsépius <ralf.corsepius@rtems.org>
+
+	* config/m68k/t-rtems: Add m5329 multilib.
+
 2009-03-24  Dodji Seketeli  <dodji@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
@@ -410,8 +550,8 @@
 2009-03-07  Jan Hubicka  <jh@suse.cz>
 
 	PR target/39361
-	* tree-inline.c (setup_one_parameter): Do replacement of const argument
-	by constant in SSA form.
+	* tree-inline.c (setup_one_parameter): Do replacement of const
+	argument by constant in SSA form.
 
 2009-03-07  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
