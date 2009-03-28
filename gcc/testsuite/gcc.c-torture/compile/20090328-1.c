@@ -1,6 +1,3 @@
-/* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-pre-stats" } */
-
 union loc {  unsigned reg; signed offset; };
 void __frame_state_for (volatile char *state_in, int x)
 {
@@ -18,9 +15,3 @@ void __frame_state_for (volatile char *state_in, int x)
     }
 }
 
-/* This is a weird testcase.  It should need PPRE to hoist the loop
-   invariants and the volatileness of state_in prevents DSE of the
-   first store.  Thus, this is XFAILed.  */
-
-/* { dg-final { scan-tree-dump "Insertions: 2" "pre" { xfail *-*-* } } } */
-/* { dg-final { cleanup-tree-dump "pre" } } */
