@@ -1,3 +1,35 @@
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/38034
+	* config/ia64/sync.md (cmpxchg_rel_<mode>): Replace input
+	gr_register_operand with gr_reg_or_0_operand.
+	(cmpxchg_rel_di): Likewise.
+	(sync_lock_test_and_set<mode>): Likewise.
+
+2009-03-27  Dodji Seketeli  <dodji@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37959
+	* dwarf2out.c (dwarf_attr_name): Handle DW_AT_explicit attribute.
+	(gen_subprogram_die): When a function is explicit, generate the
+	DW_AT_explicit attribute.
+	* langhooks.h (struct lang_hooks_for_decls): Add
+	function_decl_explicit_p langhook.
+	* langhooks-def.h (LANG_HOOKS_FUNCTION_DECL_EXPLICIT_P): Define.
+	(LANG_HOOKS_DECLS): Add LANG_HOOKS_FUNCTION_DECL_EXPLICIT_P.
+
+2009-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (fold_builtin_memory_op): Optimize memmove
+	into memcpy if we can prove source and destination don't overlap.
+
+	* tree-inline.c: Include gt-tree-inline.h.
+	(clone_fn_id_num): New variable.
+	(clone_function_name): New function.
+	(tree_function_versioning): Use it.
+	* Makefile.in (GTFILES): Add tree-inline.c.
+
 2009-03-27  Mark Mitchell  <mark@codesourcery.com>
 
 	* DEV-PHASE: Mark "prerelease".
