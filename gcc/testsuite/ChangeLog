@@ -1,4 +1,206 @@
+2009-03-28  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37795
+	* gcc.dg/tree-ssa/ssa-ifcombine-7.c: New testcase.
+
+2009-03-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* g++.old-deja/g++.ext/attrib5.C, g++.old-deja/g++.jason/thunk3.C,
+	gcc.c-torture/compile/981006-1.c: Don't XFAIL or add special
+	options for removed targets.
+
+2009-03-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39120
+	* gcc.c-torture/execute/pr39120.c: New testcase.
+
+2009-03-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39120
+	* gcc.dg/torture/pta-callused-1.c: New testcase.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/39315
+	* gcc.target/i386/pr39315-1.c: New.
+	* gcc.target/i386/pr39315-2.c: Likewise.
+	* gcc.target/i386/pr39315-3.c: Likewise.
+	* gcc.target/i386/pr39315-4.c: Likewise.
+	* gcc.target/i386/pr39315-check.c: Likewise.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/39323
+	* gcc.dg/pr39323-1.c: New.
+	* gcc.dg/pr39323-2.c: Likewise.
+	* gcc.dg/pr39323-3.c: Likewise.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/38034
+	* gcc.target/ia64/sync-1.c: New.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39472
+	* gcc.target/x86_64/abi/callabi/func-2a.c: New.
+	* gcc.target/x86_64/abi/callabi/func-2b.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/func-indirect-2a.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/func-indirect-2b.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/vaarg-4a.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/vaarg-4b.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/vaarg-5a.c: Likewise.
+	* gcc.target/x86_64/abi/callabi/vaarg-5b.c: Likewise.
+
+2009-03-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-explog-1.c: Remove tests that aren't true
+	for low precision (i.e. float).
+
+2009-03-27  Dodji Seketeli  <dodji@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37959
+	* g++.dg/debug/dwarf2/explicit-constructor.C: New test.
+
+2009-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/memmove-2.c: New test.
+	* gcc.dg/memmove-3.c: New test.
+
+	* gcc.dg/ipa/ipacost-1.c: Adjust match pattern for change
+	in clone naming.
+
+2009-03-27  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/39557
+	* g++.dg/tree-ssa/dom-invalid.C: New test.
+
+2009-03-27  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/39548
+	* g++.dg/tree-ssa/copyprop.C: New test.
+
+2009-03-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c++/38638
+	* g++.dg/template/typename17.C: New testcase.
+	* g++.dg/template/typename18.C: New testcase.
+
+2009-03-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c++/36799
+	* g++.dg/other/var_copy-1.C: New test.
+
+2009-03-27  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/37647
+	* g++.dg/parse/ctor9.C: New test.
+
+2009-03-27  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29727
+	* g++.dg/init/error2.C: New test.
+
+2009-03-27  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35652
+	* gcc.dg/pr35652.C: New.
+	* g++.dg/warn/pr35652.C: New.
+	* gcc.dg/format/plus-1.c: Adjust message.
+
+2009-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39554
+	* gcc.dg/wdisallowed-functions-3.c: New test.
+	* g++.dg/warn/Wdisallowed-functions-3.C: New test.
+
+2009-03-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/inline-33.c: Fix when pic.
+
+2009-03-25  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/ia64/20090324-1.c: New test.
+
+2009-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/27898
+	* gcc.dg/pr27898.c: New test.
+
+	PR tree-optimization/32139
+	* gcc.c-torture/compile/pr32139.c: New test.
+
+2009-03-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28274
+	* g++.dg/parse/defarg14.C: New test.
+
+2009-03-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/39528
+	* gfortran.dg/read_repeat.f90: New test.
+
+2009-03-24  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39529
+	* gcc.dg/vect/pr39529.c: New test.
+
+2009-03-24  Dodji Seketeli  <dodji@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/39524
+	* g++.dg/debug/dwarf2/imported-decl-1.C: New test.
+
+2009-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39495
+	* gcc.dg/gomp/pr39495-2.c: Remove xfails.
+
+2009-03-23  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/auto12.C: Add variadic test.
+	
+	PR c++/39526
+	* g++.dg/warn/Wshadow-4.C: New test.
+
+2009-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/39516
+	* gfortran.dg/pr39516.f: New test.
+
+2009-03-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* lib/target-libpath.exp (set_ld_library_path_env_vars):
+	Correct TEST_GCC_EXEC_PREFIX test to check existence as a tcl
+	variable, not environment variable.
+
+2009-03-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28879
+	* g++.dg/ext/vla6.C: New test.
+
+2009-03-20  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist5.C: Add additional test.
+
 2009-03-19  Jakub Jelinek  <jakub@redhat.com>
+	    Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/compat.exp (compat-get-options-main, compat-get-options):
+	Handle dg-prune-output in source file.
+	* lib/gcc-defs.exp (${tool}_check_compile): Process prune requests.
+	* gcc.dg/compat/struct-layout-1_main.c: Use dg-prune for warning.
+	* gcc.dg/compat/struct-layout-1_generate.c: Use -Wno-abi, prune
+	two warnings.
+
+2009-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39495
+	* gcc.dg/gomp/pr39495-1.c: New test.
+	* gcc.dg/gomp/pr39495-2.c: New test.
+	* g++.dg/gomp/pr39495-1.C: New test.
+	* g++.dg/gomp/pr39495-2.C: New test.
 
 	PR target/39496
 	* gcc.target/i386/pr39496.c: New test.

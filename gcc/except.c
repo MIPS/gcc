@@ -2562,7 +2562,7 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
          Local landing pads of ERT_MUST_NOT_THROW instructions are reachable
 	 only via locally handled RESX instructions.  
 
-	 When we inline function call, we can bring in new handlers.  In order
+	 When we inline a function call, we can bring in new handlers.  In order
 	 to avoid ERT_MUST_NOT_THROW landing pads from being deleted as unreachable
 	 assume that such handlers exists prior for any inlinable call prior
 	 inlining decisions are fixed.  */

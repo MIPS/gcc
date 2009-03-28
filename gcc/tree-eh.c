@@ -1946,7 +1946,7 @@ make_eh_edge (struct eh_region *region, void *data)
   make_edge (src, dst, EDGE_ABNORMAL | EDGE_EH);
 }
 
-/* See if STMT is call that might be inlinied.  */
+/* See if STMT is call that might be inlined.  */
 
 static bool
 inlinable_call_p (gimple stmt)
@@ -1963,7 +1963,7 @@ inlinable_call_p (gimple stmt)
     return true;
   if (cgraph_function_flags_ready
       && cgraph_function_body_availability (cgraph_node (decl))
-      < AVAIL_AVAILABLE)
+      < AVAIL_OVERWRITABLE)
     return false;
   return !DECL_UNINLINABLE (decl);
 }

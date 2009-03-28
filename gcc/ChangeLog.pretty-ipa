@@ -1,5 +1,9 @@
 2009-03-28  Jan Hubicka  <jh@suse.cz>
 
+	* Merge from mainline.
+
+2009-03-28  Jan Hubicka  <jh@suse.cz>
+
 	* dwarf2out.c (dwarf2out_begin_prologue): Use crtl->nothrow
 	* tree-eh.c (stmt_could_throw_p): Remove check for WEAK decls.
 	* function.h (rtl_data): Add nothrow flag.

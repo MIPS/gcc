@@ -1574,9 +1574,9 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   DECL_STRUCT_FUNCTION (new_decl) = NULL;
 
   /* Generate a new name for the new version. */
-  DECL_NAME (new_decl) =  create_tmp_var_name (NULL);
+  DECL_NAME (new_decl) = clone_function_name (old_decl);
   SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
-  SET_DECL_RTL (new_decl, NULL);
+  SET_DECL_RTL (new_decl, NULL_RTX);
 
   new_node = cgraph_clone_node (old_node, 0, 0, 0, false);
   new_node->decl = new_decl;
