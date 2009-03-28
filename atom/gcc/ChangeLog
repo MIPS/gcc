@@ -1,3 +1,191 @@
+2009-03-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c: Add a new year to the copyright.  Add a new
+	reference.
+	(struct insn_reserv_decl): Add comments for member bypass_list.
+	(find_bypass): Remove.
+	(insert_bypass): New.
+	(process_decls): Use insert_bypass.
+	(output_internal_insn_latency_func): Output all bypasses with the
+	same input insn in one switch case.
+
+	* rtl.def (define_bypass): Describe bypass choice.
+	* doc/md.texi (define_bypass): Ditto.
+
+2009-03-27  Richard Guenther  <rguenther@suse.de>
+
+	* gimplify.c (mark_addressable): Export.
+	* tree-flow.h (mark_addressable): Declare.
+	* tree-ssa-loop-manip.c (create_iv): Mark the base addressable.
+	* tree-ssa.c (verify_phi_args): Verify that address taken
+	variables have TREE_ADDRESSABLE set.
+
+2009-03-27  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (build_fold_addr_expr_with_type_1): Rename back to ...
+	(build_fold_addr_expr_with_type): ... this.  Remove in_fold handling.
+	Do not mark decls TREE_ADDRESSABLE.
+	(build_fold_addr_expr): Adjust.
+	(fold_addr_expr): Remove.
+	(fold_unary): Use build_fold_addr_expr.
+	(fold_comparison): Likewise.
+	(split_address_to_core_and_offset): Likewise.
+	* coverage.c (tree_coverage_counter_addr): Mark the array decl
+	TREE_ADDRESSABLE.
+	* gimplify.c (mark_addressable): Do not exclude RESULT_DECLs.
+	(gimplify_modify_expr_to_memcpy): Mark source and destination
+	addressable.
+	* omp-low.c (create_omp_child_function): Mark the object decl
+	TREE_ADDRESSABLE.
+	(lower_rec_input_clauses): Mark the var we take the address of
+	TREE_ADDRESSABLE.
+	(lower_omp_taskreg): Mark the sender decl TREE_ADDRESSABLE.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/39315
+	* cfgexpand.c (expand_one_stack_var_at): Change alignment
+	limit to MAX_SUPPORTED_STACK_ALIGNMENT.
+
+2009-03-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39120
+	* tree-ssa-structalias.c (handle_rhs_call): Fill out return
+	constraints.
+	(handle_lhs_call): Process return constraints.  Add escape
+	constraints if necessary.
+	(handle_const_call): Fill out return constraints.  Make nested
+	case more precise.  Avoid consttmp if possible.
+	(handle_pure_call): Fill out return constraints.  Avoid
+	callused if possible.
+	(find_func_aliases): Simplify call handling.
+
+2009-03-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39120
+	* tree-ssa-structalias.c (do_sd_constraint): Do not use CALLUSED
+	as a representative.
+	(solve_graph): Do propagate CALLUSED.
+	(handle_pure_call): Use a scalar constraint from CALLUSED for
+	the return value.
+	(find_what_p_points_to): CALLUSED shall not appear in poins-to
+	solutions.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/39323
+	* c-common.c (handle_aligned_attribute): Properly check alignment
+	overflow.  Use (1U << i) instead of (1 << i).
+
+	* emit-rtl.c (get_mem_align_offset): Use "unsigned int" for
+	align.
+
+	* expr.h (get_mem_align_offset): Updated.
+
+	* tree.h (tree_decl_common): Change align to "unsigned int" and
+	move it before pointer_alias_set.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/38034
+	* config/ia64/sync.md (cmpxchg_rel_<mode>): Replace input
+	gr_register_operand with gr_reg_or_0_operand.
+	(cmpxchg_rel_di): Likewise.
+	(sync_lock_test_and_set<mode>): Likewise.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* jump.c (rtx_renumbered_equal_p): Use subreg_get_info.
+	(true_regnum): Likewise.
+
+	* rtlanal.c (subreg_info): Moved to ...
+	* rtl.h (subreg_info): Here.  New.
+	(subreg_get_info): New.
+
+	* rtlanal.c (subreg_get_info): Make it extern.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39472
+	* config/i386/i386.c (ix86_abi): New.
+	(override_options): Handle -mabi=.
+	(ix86_function_arg_regno_p): Replace DEFAULT_ABI with
+	ix86_abi.
+	(ix86_call_abi_override): Likewise.
+	(init_cumulative_args): Likewise.
+	(function_arg_advance): Likewise.
+	(function_arg_64): Likewise.
+	(function_arg): Likewise.
+	(ix86_pass_by_reference): Likewise.
+	(ix86_function_value_regno_p): Likewise.
+	(ix86_build_builtin_va_list_abi): Likewise.
+	(setup_incoming_varargs_64): Likewise.
+	(is_va_list_char_pointer): Likewise.
+	(ix86_init_machine_status): Likewise.
+	(ix86_reg_parm_stack_space): Use enum calling_abi on
+	call_abi.
+	(ix86_function_type_abi): Return enum calling_abi.  Rewrite
+	for 64bit.  Replace DEFAULT_ABI with ix86_abi.
+	(ix86_function_abi): Make it static and return enum
+	calling_abi.
+	(ix86_cfun_abi): Return enum calling_abi.  Replace DEFAULT_ABI
+	with ix86_abi.
+	(ix86_fn_abi_va_list): Updated.
+
+	* config/i386/i386.h (ix86_abi): New.
+	(STACK_BOUNDARY): Replace DEFAULT_ABI with ix86_abi.
+	(CONDITIONAL_REGISTER_USAGE): Likewise.
+	(CUMULATIVE_ARGS): Change call_abi type to enum calling_abi.
+	(machine_function): Likewise.
+
+	* config/i386/i386.md (untyped_call): Replace DEFAULT_ABI
+	with ix86_abi.
+	* config/i386/cygming.h (TARGET_64BIT_MS_ABI): Likewise.
+	(STACK_BOUNDARY): Likewise.
+	* config/i386/mingw32.h (EXTRA_OS_CPP_BUILTINS): Likewise.
+
+	* config/i386/i386.opt (mabi=): New.
+
+	* config/i386/i386-protos.h (ix86_cfun_abi): Changed to
+	return enum calling_abi.
+	(ix86_function_type_abi): Likewise.
+	(ix86_function_abi): Removed.
+
+	* doc/invoke.texi: Document -mabi= option for x86.
+
+2009-03-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (real_dconstp): Delete.
+	(fold_builtin_logarithm): Remove inaccurate log(e) special case.
+
+2009-03-27  Dodji Seketeli  <dodji@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/37959
+	* dwarf2out.c (dwarf_attr_name): Handle DW_AT_explicit attribute.
+	(gen_subprogram_die): When a function is explicit, generate the
+	DW_AT_explicit attribute.
+	* langhooks.h (struct lang_hooks_for_decls): Add
+	function_decl_explicit_p langhook.
+	* langhooks-def.h (LANG_HOOKS_FUNCTION_DECL_EXPLICIT_P): Define.
+	(LANG_HOOKS_DECLS): Add LANG_HOOKS_FUNCTION_DECL_EXPLICIT_P.
+
+2009-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (fold_builtin_memory_op): Optimize memmove
+	into memcpy if we can prove source and destination don't overlap.
+
+	* tree-inline.c: Include gt-tree-inline.h.
+	(clone_fn_id_num): New variable.
+	(clone_function_name): New function.
+	(tree_function_versioning): Use it.
+	* Makefile.in (GTFILES): Add tree-inline.c.
+
+2009-03-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* BASE-VER: Change to 4.5.0.
+
 2009-03-27  Xinliang David Li  <davidxl@google.com>
 
 	PR tree-optimization/39557
