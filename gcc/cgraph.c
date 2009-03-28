@@ -1545,6 +1545,29 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq,
   return new_node;
 }
 
+/* Create a new name for omp child function.  Returns an identifier.  */
+
+static GTY(()) unsigned int clone_fn_id_num;
+
+static tree
+clone_function_name (tree decl)
+{
+  tree name = DECL_ASSEMBLER_NAME (decl);
+  size_t len = IDENTIFIER_LENGTH (name);
+  char *tmp_name, *prefix;
+
+  prefix = XALLOCAVEC (char, len + strlen ("_clone") + 1);
+  memcpy (prefix, IDENTIFIER_POINTER (name), len);
+  strcpy (prefix + len, "_clone");
+#ifndef NO_DOT_IN_LABEL
+  prefix[len] = '.';
+#elif !defined NO_DOLLAR_IN_LABEL
+  prefix[len] = '$';
+#endif
+  ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix, clone_fn_id_num++);
+  return get_identifier (tmp_name);
+}
+
 /* Create callgraph node clone with new declaration.  The actual body will
    be copied later at compilation stage.  
 
@@ -1576,7 +1599,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   /* Generate a new name for the new version. */
   DECL_NAME (new_decl) = clone_function_name (old_decl);
   SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
-  SET_DECL_RTL (new_decl, NULL_RTX);
+  SET_DECL_RTL (new_decl, NULL);
 
   new_node = cgraph_clone_node (old_node, 0, 0, 0, false);
   new_node->decl = new_decl;

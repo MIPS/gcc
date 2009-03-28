@@ -4841,29 +4841,6 @@ tree_versionable_function_p (tree fndecl)
   return true;
 }
 
-/* Create a new name for omp child function.  Returns an identifier.  */
-
-static GTY(()) unsigned int clone_fn_id_num;
-
-static tree
-clone_function_name (tree decl)
-{
-  tree name = DECL_ASSEMBLER_NAME (decl);
-  size_t len = IDENTIFIER_LENGTH (name);
-  char *tmp_name, *prefix;
-
-  prefix = XALLOCAVEC (char, len + strlen ("_clone") + 1);
-  memcpy (prefix, IDENTIFIER_POINTER (name), len);
-  strcpy (prefix + len, "_clone");
-#ifndef NO_DOT_IN_LABEL
-  prefix[len] = '.';
-#elif !defined NO_DOLLAR_IN_LABEL
-  prefix[len] = '$';
-#endif
-  ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix, clone_fn_id_num++);
-  return get_identifier (tmp_name);
-}
-
 /* Create a copy of a function's tree.
    OLD_DECL and NEW_DECL are FUNCTION_DECL tree nodes
    of the original function and the new copied function
@@ -5116,5 +5093,3 @@ tree_can_inline_p (tree caller, tree callee)
   /* Allow the backend to decide if inlining is ok.  */
   return targetm.target_option.can_inline_p (caller, callee);
 }
-
-#include "gt-tree-inline.h"

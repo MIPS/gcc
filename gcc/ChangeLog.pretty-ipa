@@ -1,5 +1,16 @@
 2009-03-28  Jan Hubicka  <jh@suse.cz>
 
+	* cgraph.c (clone_fn_id_num, clone_function_name): Bring here from
+	tree-inline.c
+	(cgraph_create_virtual_clone): Fix creating of new name.
+	* tree-inline.c: Do not include gt-tree-inline.h
+	(clone_fn_id_num, clone_function_name): Move to
+	cgraph.c
+	* tree-ssa-structalias.c (handle_const_call): Silence may be used
+	uninitialized warning.
+
+2009-03-28  Jan Hubicka  <jh@suse.cz>
+
 	* Merge from mainline.
 
 2009-03-28  Jan Hubicka  <jh@suse.cz>
