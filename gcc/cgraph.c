@@ -1687,8 +1687,7 @@ cgraph_function_body_availability (struct cgraph_node *node)
      AVAIL_AVAILABLE here?  That would be good reason to preserve this
      bit.  */
 
-  else if (!(*targetm.binds_local_p) (node->decl)
-	   && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))
+  else if (DECL_REPLACEABLE_P (node->decl) && !DECL_EXTERNAL (node->decl))
     avail = AVAIL_OVERWRITABLE;
   else avail = AVAIL_AVAILABLE;
 
