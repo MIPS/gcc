@@ -2671,10 +2671,9 @@ struct tree_decl_common GTY(())
   unsigned gimple_reg_flag : 1;
   /* In a DECL with pointer type, set if no TBAA should be done.  */
   unsigned no_tbaa_flag : 1;
-  /* Padding so that 'align' can be on a 32-bit boundary.  */
+  /* Padding so that 'off_align' can be on a 32-bit boundary.  */
   unsigned decl_common_unused : 2;
 
-  unsigned int align : 24;
   /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
   unsigned int off_align : 8;
 
@@ -2682,6 +2681,9 @@ struct tree_decl_common GTY(())
   tree initial;
   tree attributes;
   tree abstract_origin;
+
+  /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
+  unsigned int align;
 
   alias_set_type pointer_alias_set;
   /* Points to a structure whose details depend on the language in use.  */
@@ -4794,6 +4796,8 @@ extern bool tree_call_nonnegative_warnv_p (tree, tree, tree, tree, bool *);
 extern bool tree_expr_nonzero_warnv_p (tree, bool *);
 
 extern bool fold_real_zero_addition_p (const_tree, const_tree, int);
+extern tree combine_comparisons (enum tree_code, enum tree_code,
+				 enum tree_code, tree, tree, tree);
 
 /* Return nonzero if CODE is a tree code that represents a truth value.  */
 static inline bool

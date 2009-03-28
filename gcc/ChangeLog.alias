@@ -1,5 +1,9 @@
 2009-03-28  Richard Guenther  <rguenther@suse.de>
 
+	Merge from trunk r145210.
+
+2009-03-28  Richard Guenther  <rguenther@suse.de>
+
 	testsuite/
 	* gcc.c-torture/compile/20090328-1.c: New testcase.
 	* gcc.dg/tree-ssa/ssa-fre-10.c: XFAIL.

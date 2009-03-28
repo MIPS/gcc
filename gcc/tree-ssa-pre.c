@@ -3925,7 +3925,7 @@ eliminate (void)
     {
       gimple_stmt_iterator i;
 
-      for (i = gsi_start_bb (b); !gsi_end_p (i); gsi_next (&i))
+      for (i = gsi_start_bb (b); !gsi_end_p (i);)
 	{
 	  gimple stmt = gsi_stmt (i);
 
@@ -3983,6 +3983,7 @@ eliminate (void)
 		  propagate_tree_value_into_stmt (&i, sprime);
 		  stmt = gsi_stmt (i);
 		  update_stmt (stmt);
+		  gsi_next (&i);
 		  continue;
 		}
 
@@ -4043,6 +4044,35 @@ eliminate (void)
 		    }
 		}
 	    }
+	  /* If the statement is a scalar store, see if the expression
+	     has the same value number as its rhs.  If so, the store is
+	     dead.  */
+	  else if (gimple_assign_single_p (stmt)
+		   && !is_gimple_reg (gimple_assign_lhs (stmt))
+		   && (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
+		       || is_gimple_min_invariant (gimple_assign_rhs1 (stmt))))
+	    {
+	      tree rhs = gimple_assign_rhs1 (stmt);
+	      tree val;
+	      val = vn_reference_lookup (gimple_assign_lhs (stmt),
+					 gimple_vuse (stmt), true, NULL);
+	      if (TREE_CODE (rhs) == SSA_NAME)
+		rhs = VN_INFO (rhs)->valnum;
+	      if (val
+		  && operand_equal_p (val, rhs, 0))
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		      fprintf (dump_file, "Deleted dead store ");
+		      print_gimple_stmt (dump_file, stmt, 0, 0);
+		    }
+
+		  unlink_stmt_vdef (stmt);
+		  gsi_remove (&i, true);
+		  release_defs (stmt);
+		  continue;
+		}
+	    }
 	  /* Visit COND_EXPRs and fold the comparison with the
 	     available value-numbers.  */
 	  else if (gimple_code (stmt) == GIMPLE_COND)
@@ -4067,6 +4097,8 @@ eliminate (void)
 		  todo = TODO_cleanup_cfg;
 		}
 	    }
+
+	  gsi_next (&i);
 	}
     }
 
