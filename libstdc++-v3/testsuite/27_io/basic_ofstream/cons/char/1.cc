@@ -1,6 +1,4 @@
-// 2006-10-12  Paolo Carlini  <pcarlini@suse.de>
-
-// Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation
+// Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,38 +16,36 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
-// { dg-options "-DWIDTH=500000" { target simulator } }
+// 27.8.1.10 ofstream member functions
+// @require@ %-*.tst
+// @diff@ %-*.tst %-*.txt
 
-// 21.3.7.9 inserters and extractors
+// { dg-require-fileio "" }
 
 #include <ostream>
-#include <sstream>
+#include <fstream>
 #include <testsuite_hooks.h>
 
-#ifndef WIDTH
-#define WIDTH 50000000
-#endif
+const char name_02[] = "ofstream_members-1.txt";
 
-// libstdc++/28277
-void test01()
+// http://gcc.gnu.org/ml/libstdc++/2000-07/msg00004.html
+void test02()
 {
-  using namespace std;
   bool test __attribute__((unused)) = true;
-
-  wostringstream oss_01;
-  const wstring str_01(50, L'a');
-
-  oss_01.width(WIDTH);
-  const streamsize width = oss_01.width();
-
-  oss_01 << str_01;
-
-  VERIFY( oss_01.good() );
-  VERIFY( oss_01.str().size() == wstring::size_type(width) );
+  const int more_than_max_open_files = 8200;
+  
+  for(int i = 0; ++i < more_than_max_open_files;)
+    {
+      std::ofstream ifs(name_02);
+      VERIFY( static_cast<bool>(ifs) );
+    }
 }
 
 int main()
 {
-  test01();
+  test02();
   return 0;
 }
+
+
+
