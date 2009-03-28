@@ -105,11 +105,14 @@ altivec_categorize_keyword (const cpp_token *tok)
       if (ident == C_CPP_HASHNODE (vector_keyword))
 	return C_CPP_HASHNODE (__vector_keyword);
 
-      if (ident == C_CPP_HASHNODE (pixel_keyword))
-	return C_CPP_HASHNODE (__pixel_keyword);
+      if (TARGET_ALTIVEC)
+	{
+	  if (ident == C_CPP_HASHNODE (pixel_keyword))
+	    return C_CPP_HASHNODE (__pixel_keyword);
 
-      if (ident == C_CPP_HASHNODE (bool_keyword))
-	return C_CPP_HASHNODE (__bool_keyword);
+	  if (ident == C_CPP_HASHNODE (bool_keyword))
+	    return C_CPP_HASHNODE (__bool_keyword);
+	}
 
       return ident;
     }
@@ -127,20 +130,23 @@ init_vector_keywords (void)
   __vector_keyword = get_identifier ("__vector");
   C_CPP_HASHNODE (__vector_keyword)->flags |= NODE_CONDITIONAL;
 
-  __pixel_keyword = get_identifier ("__pixel");
-  C_CPP_HASHNODE (__pixel_keyword)->flags |= NODE_CONDITIONAL;
-
-  __bool_keyword = get_identifier ("__bool");
-  C_CPP_HASHNODE (__bool_keyword)->flags |= NODE_CONDITIONAL;
-
   vector_keyword = get_identifier ("vector");
   C_CPP_HASHNODE (vector_keyword)->flags |= NODE_CONDITIONAL;
 
-  pixel_keyword = get_identifier ("pixel");
-  C_CPP_HASHNODE (pixel_keyword)->flags |= NODE_CONDITIONAL;
+  if (TARGET_ALTIVEC)
+    {
+      __pixel_keyword = get_identifier ("__pixel");
+      C_CPP_HASHNODE (__pixel_keyword)->flags |= NODE_CONDITIONAL;
 
-  bool_keyword = get_identifier ("bool");
-  C_CPP_HASHNODE (bool_keyword)->flags |= NODE_CONDITIONAL;
+      __bool_keyword = get_identifier ("__bool");
+      C_CPP_HASHNODE (__bool_keyword)->flags |= NODE_CONDITIONAL;
+
+      pixel_keyword = get_identifier ("pixel");
+      C_CPP_HASHNODE (pixel_keyword)->flags |= NODE_CONDITIONAL;
+
+      bool_keyword = get_identifier ("bool");
+      C_CPP_HASHNODE (bool_keyword)->flags |= NODE_CONDITIONAL;
+    }
 }
 
 /* Called to decide whether a conditional macro should be expanded.
@@ -195,7 +201,8 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 	  if (rid_code == RID_UNSIGNED || rid_code == RID_LONG
 	      || rid_code == RID_SHORT || rid_code == RID_SIGNED
 	      || rid_code == RID_INT || rid_code == RID_CHAR
-	      || rid_code == RID_FLOAT)
+	      || rid_code == RID_FLOAT
+	      || (rid_code == RID_DOUBLE && TARGET_VSX))
 	    {
 	      expand_this = C_CPP_HASHNODE (__vector_keyword);
 	      /* If the next keyword is bool or pixel, it
@@ -273,7 +280,6 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__VEC__=10206");
 
       /* Define the AltiVec syntactic elements.  */
-      builtin_define ("__vector=__attribute__((altivec(vector__)))");
       builtin_define ("__pixel=__attribute__((altivec(pixel__))) unsigned short");
       builtin_define ("__bool=__attribute__((altivec(bool__))) unsigned");
 
@@ -282,9 +288,18 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
 	  /* Define this when supporting context-sensitive keywords.  */
 	  builtin_define ("__APPLE_ALTIVEC__");
 	  
-	  builtin_define ("vector=vector");
 	  builtin_define ("pixel=pixel");
 	  builtin_define ("bool=bool");
+	}
+    }
+  if (TARGET_ALTIVEC || TARGET_VSX)
+    {
+      /* Define the AltiVec/VSX syntactic elements.  */
+      builtin_define ("__vector=__attribute__((altivec(vector__)))");
+
+      if (!flag_iso)
+	{
+	  builtin_define ("vector=vector");
 	  init_vector_keywords ();
 
 	  /* Enable context-sensitive macros.  */
@@ -488,6 +503,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_ADD, ALTIVEC_BUILTIN_VADDFP,
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
+  { ALTIVEC_BUILTIN_VEC_ADD, VSX_BUILTIN_XVADDDP,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
   { ALTIVEC_BUILTIN_VEC_VADDFP, ALTIVEC_BUILTIN_VADDFP,
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
   { ALTIVEC_BUILTIN_VEC_VADDUWM, ALTIVEC_BUILTIN_VADDUWM,
@@ -631,6 +648,12 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VEC_AND, ALTIVEC_BUILTIN_VAND,
     RS6000_BTI_V4SF, RS6000_BTI_bool_V4SI, RS6000_BTI_V4SF, 0 },
   { ALTIVEC_BUILTIN_VEC_AND, ALTIVEC_BUILTIN_VAND,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
+  { ALTIVEC_BUILTIN_VEC_AND, ALTIVEC_BUILTIN_VAND,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_bool_V4SI, 0 },
+  { ALTIVEC_BUILTIN_VEC_AND, ALTIVEC_BUILTIN_VAND,
+    RS6000_BTI_V2DF, RS6000_BTI_bool_V4SI, RS6000_BTI_V2DF, 0 },
+  { ALTIVEC_BUILTIN_VEC_AND, ALTIVEC_BUILTIN_VAND,
     RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_AND, ALTIVEC_BUILTIN_VAND,
     RS6000_BTI_V4SI, RS6000_BTI_bool_V4SI, RS6000_BTI_V4SI, 0 },
@@ -678,6 +701,12 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_bool_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_ANDC, ALTIVEC_BUILTIN_VANDC,
     RS6000_BTI_V4SF, RS6000_BTI_bool_V4SI, RS6000_BTI_V4SF, 0 },
+  { ALTIVEC_BUILTIN_VEC_ANDC, ALTIVEC_BUILTIN_VANDC,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
+  { ALTIVEC_BUILTIN_VEC_ANDC, ALTIVEC_BUILTIN_VANDC,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_bool_V4SI, 0 },
+  { ALTIVEC_BUILTIN_VEC_ANDC, ALTIVEC_BUILTIN_VANDC,
+    RS6000_BTI_V2DF, RS6000_BTI_bool_V4SI, RS6000_BTI_V2DF, 0 },
   { ALTIVEC_BUILTIN_VEC_ANDC, ALTIVEC_BUILTIN_VANDC,
     RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_ANDC, ALTIVEC_BUILTIN_VANDC,
@@ -1182,6 +1211,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_V4SI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_MAX, ALTIVEC_BUILTIN_VMAXFP,
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
+  { ALTIVEC_BUILTIN_VEC_MAX, VSX_BUILTIN_XVMAXDP,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
   { ALTIVEC_BUILTIN_VEC_VMAXFP, ALTIVEC_BUILTIN_VMAXFP,
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
   { ALTIVEC_BUILTIN_VEC_VMAXSW, ALTIVEC_BUILTIN_VMAXSW,
@@ -1358,6 +1389,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_V4SI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_MIN, ALTIVEC_BUILTIN_VMINFP,
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
+  { ALTIVEC_BUILTIN_VEC_MIN, VSX_BUILTIN_XVMINDP,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
   { ALTIVEC_BUILTIN_VEC_VMINFP, ALTIVEC_BUILTIN_VMINFP,
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
   { ALTIVEC_BUILTIN_VEC_VMINSW, ALTIVEC_BUILTIN_VMINSW,
@@ -1443,6 +1476,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VEC_NOR, ALTIVEC_BUILTIN_VNOR,
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
   { ALTIVEC_BUILTIN_VEC_NOR, ALTIVEC_BUILTIN_VNOR,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
+  { ALTIVEC_BUILTIN_VEC_NOR, ALTIVEC_BUILTIN_VNOR,
     RS6000_BTI_V4SI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_NOR, ALTIVEC_BUILTIN_VNOR,
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, 0 },
@@ -1466,6 +1501,12 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_bool_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_OR, ALTIVEC_BUILTIN_VOR,
     RS6000_BTI_V4SF, RS6000_BTI_bool_V4SI, RS6000_BTI_V4SF, 0 },
+  { ALTIVEC_BUILTIN_VEC_OR, ALTIVEC_BUILTIN_VOR,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
+  { ALTIVEC_BUILTIN_VEC_OR, ALTIVEC_BUILTIN_VOR,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_bool_V4SI, 0 },
+  { ALTIVEC_BUILTIN_VEC_OR, ALTIVEC_BUILTIN_VOR,
+    RS6000_BTI_V2DF, RS6000_BTI_bool_V4SI, RS6000_BTI_V2DF, 0 },
   { ALTIVEC_BUILTIN_VEC_OR, ALTIVEC_BUILTIN_VOR,
     RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_OR, ALTIVEC_BUILTIN_VOR,
@@ -1924,6 +1965,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_SUB, ALTIVEC_BUILTIN_VSUBFP,
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
+  { ALTIVEC_BUILTIN_VEC_SUB, VSX_BUILTIN_XVSUBDP,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
   { ALTIVEC_BUILTIN_VEC_VSUBFP, ALTIVEC_BUILTIN_VSUBFP,
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
   { ALTIVEC_BUILTIN_VEC_VSUBUWM, ALTIVEC_BUILTIN_VSUBUWM,
@@ -2082,6 +2125,12 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_bool_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_XOR, ALTIVEC_BUILTIN_VXOR,
     RS6000_BTI_V4SF, RS6000_BTI_bool_V4SI, RS6000_BTI_V4SF, 0 },
+  { ALTIVEC_BUILTIN_VEC_XOR, ALTIVEC_BUILTIN_VXOR,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
+  { ALTIVEC_BUILTIN_VEC_XOR, ALTIVEC_BUILTIN_VXOR,
+    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_bool_V4SI, 0 },
+  { ALTIVEC_BUILTIN_VEC_XOR, ALTIVEC_BUILTIN_VXOR,
+    RS6000_BTI_V2DF, RS6000_BTI_bool_V4SI, RS6000_BTI_V2DF, 0 },
   { ALTIVEC_BUILTIN_VEC_XOR, ALTIVEC_BUILTIN_VXOR,
     RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_XOR, ALTIVEC_BUILTIN_VXOR,
@@ -2973,8 +3022,10 @@ altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
   const struct altivec_builtin_types *desc;
   int n;
 
-  if (fcode < ALTIVEC_BUILTIN_OVERLOADED_FIRST
-      || fcode > ALTIVEC_BUILTIN_OVERLOADED_LAST)
+  if ((fcode < ALTIVEC_BUILTIN_OVERLOADED_FIRST
+       || fcode > ALTIVEC_BUILTIN_OVERLOADED_LAST)
+      && (fcode < VSX_BUILTIN_OVERLOADED_FIRST
+	  || fcode > VSX_BUILTIN_OVERLOADED_LAST))
     return NULL_TREE;
 
   /* For now treat vec_splats and vec_promote as the same.  */

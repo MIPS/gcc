@@ -1570,14 +1570,6 @@
   gcc_assert (GET_CODE (operands[1]) == MEM);
 
   addr = XEXP (operands[1], 0);
-  if (VECTOR_MEM_VSX_P (GET_MODE (operands[1])))
-    {
-      /* VSX doesn't and off the bottom address bits, and memory
-	 operations are aligned to the natural data type.  */
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
-      DONE;
-    }
-
   temp = gen_reg_rtx (GET_MODE (addr));
   emit_insn (gen_rtx_SET (VOIDmode, temp, 
 			  gen_rtx_NEG (GET_MODE (addr), addr)));

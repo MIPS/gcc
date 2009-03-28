@@ -444,6 +444,23 @@
   return indexed_or_indirect_address (op, mode);
 })
 
+;; Return 1 if the operand is an indexed or indirect memory operand with an
+;; AND -16 in it, used to recognize when we need to switch to Altivec loads
+;; to realign loops instead of VSX (altivec silently ignores the bottom bits,
+;; while VSX uses the full address and traps)
+(define_predicate "altivec_indexed_or_indirect_operand"
+  (match_code "mem")
+{
+  op = XEXP (op, 0);
+  if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
+      && GET_CODE (op) == AND
+      && GET_CODE (XEXP (op, 1)) == CONST_INT
+      && INTVAL (XEXP (op, 1)) == -16)
+    return indexed_or_indirect_address (XEXP (op, 0), mode);
+
+  return 0;
+})
+
 ;; Return 1 if the operand is an indexed or indirect address.
 (define_special_predicate "indexed_or_indirect_address"
   (and (match_test "REG_P (op)

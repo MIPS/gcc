@@ -226,6 +226,7 @@ int rs6000_debug_stack;		/* debug stack applications */
 int rs6000_debug_arg;		/* debug argument handling */
 int rs6000_debug_reg;		/* debug register classes */
 int rs6000_debug_addr;		/* debug memory addressing */
+int rs6000_debug_cost;		/* debug rtx_costs */
 
 /* Value is TRUE if register/mode pair is acceptable.  */
 bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
@@ -862,7 +863,10 @@ static void rs6000_xcoff_file_end (void);
 #endif
 static int rs6000_variable_issue (FILE *, int, rtx, int);
 static bool rs6000_rtx_costs (rtx, int, int, int *, bool);
+static bool rs6000_debug_rtx_costs (rtx, int, int, int *, bool);
+static int rs6000_debug_address_cost (rtx, bool);
 static int rs6000_adjust_cost (rtx, rtx, rtx, int);
+static int rs6000_debug_adjust_cost (rtx, rtx, rtx, int);
 static void rs6000_sched_init (FILE *, int, int);
 static bool is_microcoded_insn (rtx);
 static bool is_nonpipeline_insn (rtx);
@@ -941,6 +945,7 @@ static rtx altivec_expand_stv_builtin (enum insn_code, tree);
 static rtx altivec_expand_vec_init_builtin (tree, tree, rtx);
 static rtx altivec_expand_vec_set_builtin (tree);
 static rtx altivec_expand_vec_ext_builtin (tree, rtx);
+static rtx vsx_expand_builtin (tree, rtx, bool *);
 static int get_element_number (tree, tree);
 static bool rs6000_handle_option (size_t, const char *, int);
 static void rs6000_parse_tls_size_option (void);
@@ -2076,7 +2081,7 @@ rs6000_override_options (const char *default_cpu)
     {
       if (! strcmp (rs6000_debug_name, "all"))
 	rs6000_debug_stack = rs6000_debug_arg = rs6000_debug_reg
-	  = rs6000_debug_addr = 1;
+	  = rs6000_debug_addr = rs6000_debug_cost = 1;
       else if (! strcmp (rs6000_debug_name, "stack"))
 	rs6000_debug_stack = 1;
       else if (! strcmp (rs6000_debug_name, "arg"))
@@ -2085,8 +2090,20 @@ rs6000_override_options (const char *default_cpu)
 	rs6000_debug_reg = 1;
       else if (! strcmp (rs6000_debug_name, "addr"))
 	rs6000_debug_addr = 1;
+      else if (! strcmp (rs6000_debug_name, "cost"))
+	rs6000_debug_cost = 1;
       else
 	error ("unknown -mdebug-%s switch", rs6000_debug_name);
+
+      /* If -mdebug=cost or -mdebug=all, replace the cost target hooks with
+	 debug versions that call the real version and then prints debugging
+	 information.  */
+      if (TARGET_DEBUG_COST)
+	{
+	  targetm.rtx_costs = rs6000_debug_rtx_costs;
+	  targetm.address_cost = rs6000_debug_address_cost;
+	  targetm.sched.adjust_cost = rs6000_debug_adjust_cost;
+	}
     }
 
   if (rs6000_traceback_name)
@@ -4902,7 +4919,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
   /* Reload an offset address wrapped by an AND that represents the
      masking of the lower bits.  Strip the outer AND and let reload
      convert the offset address into an indirect address.  */
-  else if (VECTOR_MEM_ALTIVEC_P (mode)
+  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
 	   && GET_CODE (x) == AND
 	   && GET_CODE (XEXP (x, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
@@ -4979,8 +4996,8 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
   rtx orig_x = x;
 
   /* If this is an unaligned stvx/ldvx type address, discard the outer AND.  */
-  if (TARGET_ALTIVEC
-      && (ALTIVEC_VECTOR_MODE (mode) || VSX_VECTOR_MODE (mode))
+  if ((TARGET_ALTIVEC || TARGET_VSX)
+      && VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && INTVAL (XEXP (x, 1)) == -16)
@@ -4991,8 +5008,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
   else if (legitimate_indirect_address_p (x, reg_ok_strict))
     ret = 1;
   else if ((GET_CODE (x) == PRE_INC || GET_CODE (x) == PRE_DEC)
-	   && !VECTOR_MEM_ALTIVEC_P (mode)
-	   /* && !VECTOR_MEM_VSX_P (mode) */
+	   && !VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
 	   && (TARGET_SPE && !SPE_VECTOR_MODE (mode))
 	   && mode != TFmode
 	   && mode != TDmode
@@ -7809,6 +7825,16 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_perm", ALTIVEC_BUILTIN_VEC_PERM },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sel", ALTIVEC_BUILTIN_VEC_SEL },
 
+  { MASK_VSX, CODE_FOR_vsx_fmaddv2df4, "__builtin_vsx_xvmadddp", VSX_BUILTIN_XVMADDDP },
+  { MASK_VSX, CODE_FOR_vsx_fmsubv2df4, "__builtin_vsx_xvmsubdp", VSX_BUILTIN_XVMSUBDP },
+  { MASK_VSX, CODE_FOR_vsx_fnmaddv2df4, "__builtin_vsx_xvnmadddp", VSX_BUILTIN_XVNMADDDP },
+  { MASK_VSX, CODE_FOR_vsx_fnmsubv2df4, "__builtin_vsx_xvnmsubdp", VSX_BUILTIN_XVNMSUBDP },
+
+  { MASK_VSX, CODE_FOR_vsx_fmaddv4sf4, "__builtin_vsx_xvmaddsp", VSX_BUILTIN_XVMADDSP },
+  { MASK_VSX, CODE_FOR_vsx_fmsubv4sf4, "__builtin_vsx_xvmsubsp", VSX_BUILTIN_XVMSUBSP },
+  { MASK_VSX, CODE_FOR_vsx_fnmaddv4sf4, "__builtin_vsx_xvnmaddsp", VSX_BUILTIN_XVNMADDSP },
+  { MASK_VSX, CODE_FOR_vsx_fnmsubv4sf4, "__builtin_vsx_xvnmsubsp", VSX_BUILTIN_XVNMSUBSP },
+
   { 0, CODE_FOR_paired_msub, "__builtin_paired_msub", PAIRED_BUILTIN_MSUB },
   { 0, CODE_FOR_paired_madd, "__builtin_paired_madd", PAIRED_BUILTIN_MADD },
   { 0, CODE_FOR_paired_madds0, "__builtin_paired_madds0", PAIRED_BUILTIN_MADDS0 },
@@ -7957,6 +7983,7 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_VSX, CODE_FOR_divv2df3, "__builtin_vsx_xvdivdp", VSX_BUILTIN_XVDIVDP },
   { MASK_VSX, CODE_FOR_sminv2df3, "__builtin_vsx_xvmindp", VSX_BUILTIN_XVMINDP },
   { MASK_VSX, CODE_FOR_smaxv2df3, "__builtin_vsx_xvmaxdp", VSX_BUILTIN_XVMAXDP },
+  { MASK_VSX, CODE_FOR_vsx_tdivv2df3, "__builtin_vsx_xvtdivdp", VSX_BUILTIN_XVTDIVDP },
 
   { MASK_VSX, CODE_FOR_addv4sf3, "__builtin_vsx_xvaddsp", VSX_BUILTIN_XVADDSP },
   { MASK_VSX, CODE_FOR_subv4sf3, "__builtin_vsx_xvsubsp", VSX_BUILTIN_XVSUBSP },
@@ -7964,9 +7991,10 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_VSX, CODE_FOR_divv4sf3, "__builtin_vsx_xvdivsp", VSX_BUILTIN_XVDIVSP },
   { MASK_VSX, CODE_FOR_sminv4sf3, "__builtin_vsx_xvminsp", VSX_BUILTIN_XVMINSP },
   { MASK_VSX, CODE_FOR_smaxv4sf3, "__builtin_vsx_xvmaxsp", VSX_BUILTIN_XVMAXSP },
+  { MASK_VSX, CODE_FOR_vsx_tdivv4sf3, "__builtin_vsx_xvtdivsp", VSX_BUILTIN_XVTDIVSP },
 
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_add", ALTIVEC_BUILTIN_VEC_ADD },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddfp", ALTIVEC_BUILTIN_VEC_VADDFP },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_add", ALTIVEC_BUILTIN_VEC_ADD },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vaddfp", ALTIVEC_BUILTIN_VEC_VADDFP },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduwm", ALTIVEC_BUILTIN_VEC_VADDUWM },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduhm", ALTIVEC_BUILTIN_VEC_VADDUHM },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddubm", ALTIVEC_BUILTIN_VEC_VADDUBM },
@@ -7978,8 +8006,8 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduhs", ALTIVEC_BUILTIN_VEC_VADDUHS },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddsbs", ALTIVEC_BUILTIN_VEC_VADDSBS },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddubs", ALTIVEC_BUILTIN_VEC_VADDUBS },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_and", ALTIVEC_BUILTIN_VEC_AND },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_andc", ALTIVEC_BUILTIN_VEC_ANDC },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_and", ALTIVEC_BUILTIN_VEC_AND },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_andc", ALTIVEC_BUILTIN_VEC_ANDC },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_avg", ALTIVEC_BUILTIN_VEC_AVG },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavgsw", ALTIVEC_BUILTIN_VEC_VAVGSW },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavguw", ALTIVEC_BUILTIN_VEC_VAVGUW },
@@ -8004,8 +8032,8 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtub", ALTIVEC_BUILTIN_VEC_VCMPGTUB },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmple", ALTIVEC_BUILTIN_VEC_CMPLE },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmplt", ALTIVEC_BUILTIN_VEC_CMPLT },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_max", ALTIVEC_BUILTIN_VEC_MAX },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxfp", ALTIVEC_BUILTIN_VEC_VMAXFP },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_max", ALTIVEC_BUILTIN_VEC_MAX },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vmaxfp", ALTIVEC_BUILTIN_VEC_VMAXFP },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxsw", ALTIVEC_BUILTIN_VEC_VMAXSW },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxuw", ALTIVEC_BUILTIN_VEC_VMAXUW },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxsh", ALTIVEC_BUILTIN_VEC_VMAXSH },
@@ -8020,8 +8048,8 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrglw", ALTIVEC_BUILTIN_VEC_VMRGLW },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrglh", ALTIVEC_BUILTIN_VEC_VMRGLH },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrglb", ALTIVEC_BUILTIN_VEC_VMRGLB },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_min", ALTIVEC_BUILTIN_VEC_MIN },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminfp", ALTIVEC_BUILTIN_VEC_VMINFP },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_min", ALTIVEC_BUILTIN_VEC_MIN },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vminfp", ALTIVEC_BUILTIN_VEC_VMINFP },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminsw", ALTIVEC_BUILTIN_VEC_VMINSW },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminuw", ALTIVEC_BUILTIN_VEC_VMINUW },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminsh", ALTIVEC_BUILTIN_VEC_VMINSH },
@@ -8038,8 +8066,8 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulouh", ALTIVEC_BUILTIN_VEC_VMULOUH },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulosb", ALTIVEC_BUILTIN_VEC_VMULOSB },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmuloub", ALTIVEC_BUILTIN_VEC_VMULOUB },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_nor", ALTIVEC_BUILTIN_VEC_NOR },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_or", ALTIVEC_BUILTIN_VEC_OR },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_nor", ALTIVEC_BUILTIN_VEC_NOR },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_or", ALTIVEC_BUILTIN_VEC_OR },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_pack", ALTIVEC_BUILTIN_VEC_PACK },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuwum", ALTIVEC_BUILTIN_VEC_VPKUWUM },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuhum", ALTIVEC_BUILTIN_VEC_VPKUHUM },
@@ -8072,8 +8100,8 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrab", ALTIVEC_BUILTIN_VEC_VSRAB },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_srl", ALTIVEC_BUILTIN_VEC_SRL },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sro", ALTIVEC_BUILTIN_VEC_SRO },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sub", ALTIVEC_BUILTIN_VEC_SUB },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubfp", ALTIVEC_BUILTIN_VEC_VSUBFP },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_sub", ALTIVEC_BUILTIN_VEC_SUB },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vsubfp", ALTIVEC_BUILTIN_VEC_VSUBFP },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuwm", ALTIVEC_BUILTIN_VEC_VSUBUWM },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuhm", ALTIVEC_BUILTIN_VEC_VSUBUHM },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsububm", ALTIVEC_BUILTIN_VEC_VSUBUBM },
@@ -8091,7 +8119,10 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsum4ubs", ALTIVEC_BUILTIN_VEC_VSUM4UBS },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sum2s", ALTIVEC_BUILTIN_VEC_SUM2S },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sums", ALTIVEC_BUILTIN_VEC_SUMS },
-  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_xor", ALTIVEC_BUILTIN_VEC_XOR },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_xor", ALTIVEC_BUILTIN_VEC_XOR },
+
+  { MASK_VSX, CODE_FOR_nothing, "__builtin_vec_mul", VSX_BUILTIN_VEC_MUL },
+  { MASK_VSX, CODE_FOR_nothing, "__builtin_vec_div", VSX_BUILTIN_VEC_DIV },
 
   { 0, CODE_FOR_divv2sf3, "__builtin_paired_divv2sf3", PAIRED_BUILTIN_DIVV2SF3 },
   { 0, CODE_FOR_addv2sf3, "__builtin_paired_addv2sf3", PAIRED_BUILTIN_ADDV2SF3 },
@@ -8368,8 +8399,15 @@ static struct builtin_description bdesc_1arg[] =
 
   { MASK_VSX, CODE_FOR_negv2df2, "__builtin_vsx_xvnegdp", VSX_BUILTIN_XVNEGDP },
   { MASK_VSX, CODE_FOR_sqrtv2df2, "__builtin_vsx_xvsqrtdp", VSX_BUILTIN_XVSQRTDP },
+  { MASK_VSX, CODE_FOR_vsx_rsqrtev2df2, "__builtin_vsx_xvrsqrtedp", VSX_BUILTIN_XVRSQRTEDP },
+  { MASK_VSX, CODE_FOR_vsx_tsqrtv2df2, "__builtin_vsx_xvtsqrtdp", VSX_BUILTIN_XVTSQRTDP },
+  { MASK_VSX, CODE_FOR_vsx_frev2df2, "__builtin_vsx_xvredp", VSX_BUILTIN_XVREDP },
+
   { MASK_VSX, CODE_FOR_negv4sf2, "__builtin_vsx_xvnegsp", VSX_BUILTIN_XVNEGSP },
   { MASK_VSX, CODE_FOR_sqrtv4sf2, "__builtin_vsx_xvsqrtsp", VSX_BUILTIN_XVSQRTSP },
+  { MASK_VSX, CODE_FOR_vsx_rsqrtev4sf2, "__builtin_vsx_xvrsqrtesp", VSX_BUILTIN_XVRSQRTESP },
+  { MASK_VSX, CODE_FOR_vsx_tsqrtv4sf2, "__builtin_vsx_xvtsqrtsp", VSX_BUILTIN_XVTSQRTSP },
+  { MASK_VSX, CODE_FOR_vsx_frev4sf2, "__builtin_vsx_xvresp", VSX_BUILTIN_XVRESP },
 
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_abs", ALTIVEC_BUILTIN_VEC_ABS },
   { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_abss", ALTIVEC_BUILTIN_VEC_ABSS },
@@ -9418,6 +9456,26 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
 /* Expand the builtin in EXP and store the result in TARGET.  Store
    true in *EXPANDEDP if we found a builtin to expand.  */
 static rtx
+vsx_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED, bool *expandedp)
+{
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
+  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+
+  if (fcode >= VSX_BUILTIN_OVERLOADED_FIRST
+      && fcode <= VSX_BUILTIN_OVERLOADED_LAST)
+    {
+      *expandedp = true;
+      error ("unresolved overload for vsx builtin %qF", fndecl);
+      return const0_rtx;
+    }
+
+  *expandedp = false;
+  return NULL_RTX;
+}
+
+/* Expand the builtin in EXP and store the result in TARGET.  Store
+   true in *EXPANDEDP if we found a builtin to expand.  */
+static rtx
 paired_expand_builtin (tree exp, rtx target, bool * expandedp)
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
@@ -9929,6 +9987,13 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       if (success)
 	return ret;
     }
+  if (TARGET_VSX)
+    {
+      ret = vsx_expand_builtin (exp, target, &success);
+
+      if (success)
+	return ret;
+    }
   if (TARGET_SPE)
     {
       ret = spe_expand_builtin (exp, target, &success);
@@ -9944,7 +10009,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	return ret;
     }  
 
-  gcc_assert (TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT);
+  gcc_assert (TARGET_ALTIVEC || TARGET_VSX || TARGET_SPE || TARGET_PAIRED_FLOAT);
 
   /* Handle simple unary operations.  */
   d = (struct builtin_description *) bdesc_1arg;
@@ -13454,7 +13519,7 @@ print_operand (FILE *file, rtx x, int code)
 
 	    /* Fall through.  Must be [reg+reg].  */
 	  }
-	if (VECTOR_MEM_ALTIVEC_P (GET_MODE (x))
+	if (VECTOR_MEM_ALTIVEC_OR_VSX_P (GET_MODE (x))
 	    && GET_CODE (tmp) == AND
 	    && GET_CODE (XEXP (tmp, 1)) == CONST_INT
 	    && INTVAL (XEXP (tmp, 1)) == -16)
@@ -19718,6 +19783,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                  || rs6000_cpu_attr == CPU_PPC7450
                  || rs6000_cpu_attr == CPU_POWER4
                  || rs6000_cpu_attr == CPU_POWER5
+		 || (rs6000_cpu_attr == CPU_POWER7 && TARGET_POWER7_ADJUST_COST)
                  || rs6000_cpu_attr == CPU_CELL)
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0))
@@ -19955,6 +20021,35 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     }
 
   return cost;
+}
+
+/* Debug version of rs6000_adjust_cost.  */
+
+static int
+rs6000_debug_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+{
+  int ret = rs6000_adjust_cost (insn, link, dep_insn, cost);
+
+  if (ret != cost)
+    {
+      const char *dep;
+
+      switch (REG_NOTE_KIND (link))
+	{
+	default:	     dep = "unknown depencency"; break;
+	case REG_DEP_TRUE:   dep = "data dependency";	 break;
+	case REG_DEP_OUTPUT: dep = "output dependency";  break;
+	case REG_DEP_ANTI:   dep = "anti depencency";	 break;
+	}
+
+      fprintf (stderr,
+	       "\nrs6000_adjust_cost, final cost = %d, orig cost = %d, "
+	       "%s, insn:\n", ret, cost, dep);
+
+      debug_rtx (insn);
+    }
+
+  return ret;
 }
 
 /* The function returns a true if INSN is microcoded.
@@ -23073,6 +23168,43 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total,
 
   return false;
 }
+
+/* Debug form of r6000_rtx_costs that is selected if -mdebug=cost.  */
+
+static bool
+rs6000_debug_rtx_costs (rtx x, int code, int outer_code, int *total,
+			bool speed)
+{
+  bool ret = rs6000_rtx_costs (x, code, outer_code, total, speed);
+
+  fprintf (stderr,
+	   "\nrs6000_rtx_costs, return = %s, code = %s, outer_code = %s, "
+	   "total = %d, speed = %s, x:\n",
+	   ret ? "complete" : "scan inner",
+	   GET_RTX_NAME (code),
+	   GET_RTX_NAME (outer_code),
+	   *total,
+	   speed ? "true" : "false");
+
+  debug_rtx (x);
+
+  return ret;
+}
+
+/* Debug form of ADDRESS_COST that is selected if -mdebug=cost.  */
+
+static int
+rs6000_debug_address_cost (rtx x, bool speed)
+{
+  int ret = TARGET_ADDRESS_COST (x, speed);
+
+  fprintf (stderr, "\nrs6000_address_cost, return = %d, speed = %s, x:\n",
+	   ret, speed ? "true" : "false");
+  debug_rtx (x);
+
+  return ret;
+}
+
 
 /* A C expression returning the cost of moving data from a register of class
    CLASS1 to one of CLASS2.  */

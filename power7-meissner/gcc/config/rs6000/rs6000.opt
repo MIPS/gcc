@@ -139,6 +139,9 @@ mvsx-scalar-memory
 Target Report Var(TARGET_VSX_SCALAR_MEMORY)
 If -mvsx, use VSX scalar memory reference instructions for scalar double (off by default)
 
+mpower7-adjust-cost
+Target Undocumented Var(TARGET_POWER7_ADJUST_COST)
+
 mdisallow-float-in-lr-ctr
 Target Undocumented Var(TARGET_DISALLOW_FLOAT_IN_LR_CTR) Init(-1)
 

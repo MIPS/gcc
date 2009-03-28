@@ -1,3 +1,95 @@
+[gcc]
+2009-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39558
+	* macro.c (cpp_get_token): If macro_to_expand returns NULL
+	and used some tokens, add CPP_PADDING before next token.
+
+	* gcc.target/powerpc/altivec-29.c: New test.
+
+2009-03-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR driver/39293
+	* gcc.c (save_temps_flag): Add support for -save-temps=obj.
+	(cpp_options): Ditto.
+	(default_compilers): Ditto.
+	(display_help): Ditto.
+	(process_command): Ditto.
+	(do_spec_1): Ditto.
+	(set_input): Use lbasename instead of duplicate code.
+	(save_temps_prefix): New static for -save-temps=obj.
+	(save_temps_length): Ditto.
+	
+	* doc/invoke.texi (-save-temps=obj): Document new varient to
+	-save-temps switch.
+
+2009-03-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md ("wZ" constraint): New constraint
+	for using Altivec loads/stores under VSX for vector realignment.
+
+	* config/rs6000/predicates.md
+	(altivec_indexed_or_indirect_operand): New predicate to recognize
+	Altivec load/stores with an explicit AND -16.
+
+	* config/rs6000/power7.md: Whitespace change.
+
+	* config/rs6000/rs6000.opt (-mpower7-adjust-cost): New debug
+	switch.
+
+	* config/rs6000/rs6000-c.c (altivec_categorize_keyword): If -mvsx
+	and -mno-altivec, recognize the 'vector' keyword, but do not
+	recognize 'bool' or 'pixel'.  Recognize vector double under VSX.
+	(init_vector_keywords): Ditto.
+	(rs6000_macro_to_expand): Ditto.
+	(altivec_overloaded_builtins): Add VSX overloaded builtins.
+	(altivec_resolve_overloaded_builtin): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_debug_cost): New global for
+	-mdebug=cost.
+	(rs6000_debug_address_cost): New function for printing costs if
+	-mdebug=cost.
+	(rs6000_debug_rtx_costs): Ditto.
+	(rs6000_debug_adjust_cost): Ditto.
+	(rs6000_override_options): Add -mdebug=cost support.
+	(rs6000_legitimize_reload_address): Allow Altivec loads and stores
+	with an explicit AND -16, in VSX for vector realignment.
+	(rs6000_legitimize_reload_address): Ditto.
+	(rs6000_legitimate_address): Ditto.
+	(print_operand): Ditto.
+	(bdesc_3arg): Add VSX builtins.
+	(bdesc_2arg): Ditto.
+	(bdesc_1arg): Ditto.
+	(bdesc_abs): Ditto.
+	(vsx_expand_builtin): Stub function for expanding VSX builtins.
+	(rs6000_expand_builtin): Call vsx_expand_builtin.
+
+	* config/rs6000/vsx.md (most DF insns): Merge DF insns in with
+	V2DF and V4SF insns, rather than duplicating much of the code.
+	(all insns): Go through all insns, and alternatives to address the
+	full VSX register set, as a non-preferred option.
+	(vsx_mod<mode>): Add support for using Altivec load/store with
+	explicit AND -16.  Use xxlor to copy registers, not copy sign.
+	(multiply/add insns): Add an expander and unspec so the insn can
+	be used directly even if -mno-fused-madd.
+	(vsx_tdiv<mode>3): New insn for use as a builtin function.
+	(vsx_tsqrt<mode>2): Ditto.
+	(vsx_rsqrte<mode>2): Ditto.
+
+	* config/rs6000/rs6000.h (rs6000_debug_cost): New for
+	-mdebug=cost.
+	(TARGET_DEBUG_COST): Ditto.
+	(VSX_BUILTIN_*): Merge the two forms of multiply/add instructions
+	into a single insn.  Start to add overloaded VSX builtins.
+
+	* config/rs6000/altivec.md (build_vector_mask_for_load): Delete
+	VSX code.
+
+	* config/rs6000/rs6000.md (btruncsf2): Delete extra space.
+	(movdf_hardfloat32): Use xxlor instead of xscpsgndp to copy data.
+	(movdf_hardfloat64_mfpgpr): Ditto.
+	(movdf_hardfloat64): Ditto.
+
 2009-03-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/39457

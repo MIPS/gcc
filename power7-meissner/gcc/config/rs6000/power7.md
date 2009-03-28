@@ -316,5 +316,3 @@
   (and (eq_attr "type" "vecperm")
        (eq_attr "cpu" "power7"))
   "du2_power7,VSU_power7")
-
-

@@ -69,6 +69,11 @@
 (define_register_constraint "wa" "rs6000_vsx_reg_class"
   "@internal")
 
+;; Altivec style load/store that ignores the bottom bits of the address
+(define_memory_constraint "wZ"
+  "Indexed or indirect memory operand, ignoring the bottom 4 bits"
+  (match_operand 0 "altivec_indexed_or_indirect_operand"))
+
 ;; Integer constraints
 
 (define_constraint "I"
