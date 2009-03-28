@@ -266,18 +266,19 @@ check_call (funct_state local, gimple call, bool ipa)
     {
       unsigned int i;
       for (i = 0; i < gimple_num_ops (call); i++)
-        if (stmt_could_throw_p (call))
+        if (gimple_op (call, i)
+	    && tree_could_throw_p (gimple_op (call, i)))
 	  {
 	    if (possibly_throws && flag_non_call_exceptions)
 	      {
 		if (dump_file)
-		  fprintf (dump_file, "    operand can throw; looping");
+		  fprintf (dump_file, "    operand can throw; looping\n");
 		local->looping = true;
 	      }
 	    if (possibly_throws_externally)
 	      {
 		if (dump_file)
-		  fprintf (dump_file, "    operand can throw externally");
+		  fprintf (dump_file, "    operand can throw externally\n");
 		local->can_throw = true;
 	      }
 	  }
@@ -336,13 +337,19 @@ check_call (funct_state local, gimple call, bool ipa)
       if (possibly_throws && flag_non_call_exceptions)
         {
 	  if (dump_file)
-	    fprintf (dump_file, "    can throw; looping");
+	    fprintf (dump_file, "    can throw; looping\n");
           local->looping = true;
 	}
       if (possibly_throws_externally)
         {
 	  if (dump_file)
-	    fprintf (dump_file, "    can throw externally");
+	    {
+	      fprintf (dump_file, "    can throw externally in region %i\n",
+	      	       lookup_stmt_eh_region (call));
+	      if (callee_t)
+		fprintf (dump_file, "     callee:%s\n",
+			 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (callee_t)));
+	    }
           local->can_throw = true;
 	}
       if (flags & ECF_CONST) 
@@ -473,7 +480,11 @@ analyze_function (struct cgraph_node *fn, bool ipa)
   basic_block this_block;
 
   if (cgraph_function_body_availability (fn) <= AVAIL_OVERWRITABLE)
-    return NULL;
+    {
+      if (dump_file)
+        fprintf (dump_file, "Function is not available or overwrittable; not analyzing.\n");
+      return NULL;
+    }
 
   l = XCNEW (struct funct_state_d);
   l->pure_const_state = IPA_CONST;
@@ -758,6 +769,10 @@ propagate (void)
 	    }
 	  if (!can_throw && !TREE_NOTHROW (w->decl))
 	    {
+	      /* FIXME: TREE_NOTHROW is not set because passmanager will execute
+	         verify_ssa and verify_cfg on every function.  Before fixup_cfg is done,
+	         those functions are going to have NOTHROW calls in EH regions reulting
+	         in ICE.  */
 	      if (dump_file)
 		fprintf (dump_file, "Function found to be nothrow: %s\n",  
 			 cgraph_node_name (w));
@@ -830,23 +845,11 @@ local_pure_const (void)
 {
   bool changed = false;
   funct_state l;
-  struct cgraph_edge *e;
 
   /* Because we do not schedule pass_fixup_cfg over whole program after early optimizations
-     we must not promote functions that are called by already processed functions.  This is
-     hitting only the recursive cases that are not too interesting at first place.  
-     FIXME: there should be more robust way of testing this.  */
+     we must not promote functions that are called by already processed functions.  */
 
-  for (e = cgraph_node (current_function_decl)->callers; e; e = e->next_caller)
-    {
-      if (e->caller->decl == current_function_decl)
-        continue;
-      if (!e->caller->analyzed || !DECL_STRUCT_FUNCTION (e->caller->decl))
-        continue;
-      if (gimple_in_ssa_p (DECL_STRUCT_FUNCTION (e->caller->decl)))
-        break;
-    }
-  if (e)
+  if (function_called_by_processed_nodes_p ())
     {
       if (dump_file)
         fprintf (dump_file, "Function called in recursive cycle; ignoring\n");

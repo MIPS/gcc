@@ -206,8 +206,8 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Set once the function has been instantiated and its callee
      lists created.  */
   unsigned analyzed : 1;
-  /* Set when function is scheduled to be assembled.  */
-  unsigned output : 1;
+  /* Set when function is scheduled to be processed by local passes.  */
+  unsigned process : 1;
   /* Set for aliases once they got through assemble_alias.  */
   unsigned alias : 1;
 
@@ -430,6 +430,7 @@ void cgraph_remove_edge_duplication_hook (struct cgraph_2edge_hook_list *);
 struct cgraph_2node_hook_list *cgraph_add_node_duplication_hook (cgraph_2node_hook, void *);
 void cgraph_remove_node_duplication_hook (struct cgraph_2node_hook_list *);
 void cgraph_materialize_all_clones (void);
+bool function_called_by_processed_nodes_p (void);
 
 /* In cgraphbuild.c  */
 unsigned int rebuild_cgraph_edges (void);
