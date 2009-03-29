@@ -6,6 +6,10 @@ FILES=
 CMD=
 VERBOSE=
 
+if test -n "$CLISTDDIR"; then
+    OPTIONS="$OPTIONS -L$CLISTDDIR" 
+fi
+
 while test -n "$1"; do
   case $1 in
       --verbose)
