@@ -1,3 +1,8 @@
+2009-03-29  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (tree_function_versioning): Do not call update_ssa
+	if we are not updating clones.  Simplify.
+
 2009-03-28  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r145210.

@@ -4462,27 +4462,16 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 
   /* Clean up.  */
   pointer_map_destroy (id.decl_map);
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
   if (!update_clones)
     {
       fold_marked_statements (0, id.statements_to_fold);
       pointer_set_destroy (id.statements_to_fold);
       fold_cond_expr_cond ();
-    }
-  if (gimple_in_ssa_p (cfun))
-    {
-      free_dominance_info (CDI_DOMINATORS);
-      free_dominance_info (CDI_POST_DOMINATORS);
-      if (!update_clones)
-        delete_unreachable_blocks ();
+      delete_unreachable_blocks ();
       update_ssa (TODO_update_ssa);
-      if (!update_clones)
-	{
-	  fold_cond_expr_cond ();
-	  update_ssa (TODO_update_ssa);
-	}
     }
-  free_dominance_info (CDI_DOMINATORS);
-  free_dominance_info (CDI_POST_DOMINATORS);
   VEC_free (gimple, heap, init_stmts);
   pop_cfun ();
   current_function_decl = old_current_function_decl;
