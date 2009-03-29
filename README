@@ -1,6 +1,11 @@
 
-HOW TO Build and Install CIL Backend
+HOW TO Build and Install CIL Backend With DotGnu based binutils
 -----------------------------------
+
+dependencies:
+	- Mono C# compiler (mcs or mcs1)
+	- DotGnu Binutils (ilasm, ilalink and OpenSystem.C.dll)
+	- a CLI framework for the standard libraries (mscorlib.dll, ...)
 
 build directories
 # Sources directory
@@ -14,7 +19,17 @@ mkdir <...>/image
 
 check out components:
 svn co svn://gcc.gnu.org/svn/gcc/branches/st/binutils <...>/gcc-src/binutils
-svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli <...>/gcc-src/gcc
+svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli-be <...>/gcc-src/gcc
+
+set environment variables (examples with bash sintax):
+- if mono c# compiler is not in the path or is different than mcs set MCS
+  export MCS=mcs1
+- add DotGnu binary dir to the PATH
+  export PATH=/home.local/work-gcc/dotgnu/usr/bin/:$PATH
+- define OPENSYSTEM_C_DLL as the library used by the DotGnu linker
+  export OPENSYSTEM_C_DLL=<...>/usr/lib/cscc/lib/OpenSystem.C.dll
+- to specify where to find the runtime libraries (mscorlib.dll, ...) to link with, define CLISTDDIR 
+  export CLISTDDIR=/usr/lib/mono/1.0
 
 build and install binutils:
 cd <...>/gcc-build/binutils
@@ -38,6 +53,9 @@ they are called cil32-mono and cil32-ilrun
 HOW TO Build and Install CIL Frontend
 -----------------------------------
 
+dependencies:
+	- libmono with header files from Mono project
+
 build directories
 # Sources directory
 mkdir <...>/gcc-src
@@ -48,7 +66,7 @@ mkdir <...>/gcc-build/cilfe_build
 mkdir <...>/cilfe_image
 
 check out components:
-svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli <...>/gcc-src/gcc
+svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli-fe <...>/gcc-src/gcc
 
 build and install gcc:
 cd <...>/gcc-build/cilfe_build
