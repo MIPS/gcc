@@ -138,6 +138,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "rtl.h"
 #include "ipa-prop.h"
+#include "except.h"
 
 #define MAX_TIME 1000000000
 
@@ -1702,6 +1703,7 @@ estimate_function_body_sizes (struct cgraph_node *node)
   tree arg;
   int freq;
   tree funtype = TREE_TYPE (node->decl);
+  bitmap must_not_throw = must_not_throw_labels ();
 
   if (dump_file)
     {
@@ -1716,6 +1718,24 @@ estimate_function_body_sizes (struct cgraph_node *node)
 	{
 	  int this_size = estimate_num_insns (gsi_stmt (bsi), &eni_size_weights);
 	  int this_time = estimate_num_insns (gsi_stmt (bsi), &eni_time_weights);
+
+	  /* MUST_NOT_THROW is usually handled by runtime calling terminate and stopping
+	     stacking unwinding.  However when there is local cleanup that can resume
+	     to MUST_NOT_THROW then we generate explicit handler containing
+	     std::terminate () call.
+	     
+	     Because inlining of function can introduce new cleanup region, prior
+	     inlining we keep std::terinate () calls for every MUST_NOT_THROW containing
+	     function call.  Wast majority of these will be eliminated after inlining
+	     and crossjumping will inify possible duplicated calls.  So ignore
+	     the handlers for function body estimates.  */
+	  if (gimple_code (gsi_stmt (bsi)) == GIMPLE_LABEL
+	      && bitmap_bit_p (must_not_throw, 
+	      		       LABEL_DECL_UID (gimple_label_label (gsi_stmt (bsi)))))
+	    {
+	      if (dump_file)
+	        fprintf (dump_file, "  MUST_NOT_THROW landing pad.  Ignoring whole BB.\n");
+	    }
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "  freq:%6i size:%3i time:%3i ", freq, this_size, this_time);
@@ -1772,6 +1792,7 @@ estimate_function_body_sizes (struct cgraph_node *node)
     }
   inline_summary (node)->time_inlining_benefit = time_inlining_benefit;
   inline_summary (node)->size_inlining_benefit = size_inlining_benefit;
+  BITMAP_FREE (must_not_throw);
 }
 
 /* Compute parameters of functions used by inliner.  */

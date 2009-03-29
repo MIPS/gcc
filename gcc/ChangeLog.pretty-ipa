@@ -1,5 +1,12 @@
 2009-03-28  Jan Hubicka  <jh@suse.cz>
 
+	* ipa-inline.c: Include except.h
+	(estimate_function_body_sizes): Ignore MUST_NOT_THROW blocks
+	* except.c (must_not_throw_labels): New function.
+	* except.h (must_not_throw_labels): Declare.
+
+2009-03-28  Jan Hubicka  <jh@suse.cz>
+
 	* Merge from mainline.
 
 2009-03-28  Jan Hubicka  <jh@suse.cz>
