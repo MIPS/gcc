@@ -1,3 +1,80 @@
+2009-03-29  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/28850
+	* tree-pass.h (pass_cleanup_eh): New function.
+	(remove_unreachable_regions): Break code handling RTL
+	to rtl_remove_unreachable_regions; remove ERT_MUST_NOT_THROW
+	that can not be reached by runtime.
+	(can_be_reached_by_runtime): New function.
+	(label_to_region_map): New function.
+	(num_eh_regions): New function.
+	(rtl_remove_unreachable_regions): New function.
+	(convert_from_eh_region_ranges): Call rtl_remove_unreachable_regions.
+	(remove_eh_region): New function.
+	* except.h: Include sbitmap and vecprim.
+	(remove_eh_region, remove_unreachable_regions, label_to_region_map,
+	num_eh_regions): Declare.
+	* passes.c (init_optimization_passes): Schedule cleanup_eh.
+	* Makefile.in (EXCEPT_H): New; replace all uses of except.h
+	by it.
+	* tree-eh.c (tree_remove_unreachable_handlers): New function.
+	(tree_empty_eh_handler_p): New function.
+	(cleanup_empty_eh): New function.
+	(cleanup_eh): New function.
+	(pass_cleanup_eh): New function.
+
+2009-03-29  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (verify_eh_tree): Fix handling of fun!=cfun; be ready
+	for removed regions.
+
+2009-03-29  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (dump_eh_tree): Dump all datastructures.
+
+2009-03-29  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (duplicate_eh_regions_0): Handle AKA bitmap.
+	(duplicate_eh_regions_1): Likewise.
+	(duplicate_eh_regions): Likewise; cleanup code gorwing the region
+	vector; call EH verification.
+	(foreach_reachable_handler, can_throw_internal_1, can_throw_external_1):
+	Be ready for region being removed.
+
+2009-03-29  Jan Hubicka  <jh@suse.cz>
+
+	* bitmap.c (bitmap_last_set_bit): New function.
+	* bitmap.h (bitmap_last_set_bit): Declare.
+
+2009-03-29  David Ayers  <ayers@fsfe.org>
+
+	PR objc/27377
+	* c-typeck.c (build_conditional_expr): Emit ObjC warnings
+	by calling objc_compare_types and surpress warnings about
+	incompatible C pointers that are compatible ObjC pointers.
+	
+2009-03-29  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* cgraphbuild.c (build_cgraph_edges, rebuild_cgraph_edges): Don't
+	call initialize_inline_failed.
+	(initialize_inline_failed): Move it from here ...
+	* cgraph.c (initialize_inline_failed): ... to here.
+	(cgraph_create_edge): Call initialize_inline_failed rather than
+	setting inline_failed directly.
+
+2009-03-29  Ben Elliston  <bje@au.ibm.com>
+
+	PR target/32542
+	* sysv4.opt (msdata): Improve comment.
+	* linux64.h (ASM_SPEC32): Do not pass -memb when -msdata is given.
+	* sysv4.h (SVR4_ASM_SPEC): Likewise.
+
+2009-03-29  Ben Elliston  <bje@au.ibm.com>
+
+	PR target/30451
+	* config/rs6000/rs6000.md (*movti_ppc64): Correct the order of
+	load and store attributes.
+
 2009-03-29  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/i386.c (enum ix86_builtins): Add IX86_BUILTIN_HUGE_VALQ.

@@ -19,6 +19,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "sbitmap.h"
+#include "vecprim.h"
 
 struct function;
 
@@ -175,4 +177,7 @@ struct throw_stmt_node GTY(())
 
 extern struct htab *get_eh_throw_stmt_table (struct function *);
 extern void set_eh_throw_stmt_table (struct function *, struct htab *);
-bitmap must_not_throw_labels (void);
+extern void remove_unreachable_regions (sbitmap, sbitmap);
+extern VEC(int,heap) * label_to_region_map (void);
+extern int num_eh_regions (void);
+extern bitmap must_not_throw_labels (void);

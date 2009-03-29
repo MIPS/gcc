@@ -722,6 +722,26 @@ cgraph_create_edge_including_clones (struct cgraph_node *orig, struct cgraph_nod
       }
 }
 
+/* Give initial reasons why inlining would fail on EDGE.  This gets either
+   nullified or usually overwritten by more precise reasons later.  */
+
+static void
+initialize_inline_failed (struct cgraph_edge *e)
+{
+  struct cgraph_node *callee = e->callee;
+
+  if (!callee->analyzed)
+    e->inline_failed = CIF_BODY_NOT_AVAILABLE;
+  else if (callee->local.redefined_extern_inline)
+    e->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
+  else if (!callee->local.inlinable)
+    e->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
+  else if (gimple_call_cannot_inline_p (e->call_stmt))
+    e->inline_failed = CIF_MISMATCHED_ARGUMENTS;
+  else
+    e->inline_failed = CIF_FUNCTION_NOT_CONSIDERED;
+}
+
 /* Create edge from CALLER to CALLEE in the cgraph.  */
 
 struct cgraph_edge *
@@ -748,15 +768,6 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
       edge = GGC_NEW (struct cgraph_edge);
       edge->uid = cgraph_edge_max_uid++;
     }
-
-  if (!callee->analyzed)
-    edge->inline_failed = CIF_BODY_NOT_AVAILABLE;
-  else if (callee->local.redefined_extern_inline)
-    edge->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
-  else if (callee->local.inlinable)
-    edge->inline_failed = CIF_FUNCTION_NOT_CONSIDERED;
-  else
-    edge->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
 
   edge->aux = NULL;
 
@@ -791,6 +802,9 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
       gcc_assert (!*slot);
       *slot = edge;
     }
+
+  initialize_inline_failed (edge);
+
   return edge;
 }
 
