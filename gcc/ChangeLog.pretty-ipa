@@ -1,3 +1,8 @@
+2009-03-29  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (estimate_num_insns): FILTER_EXPR/EXC_PTR_EXPR
+	are free.
+
 2009-03-28  Jan Hubicka  <jh@suse.cz>
 
 	* ipa-inline.c: Include except.h

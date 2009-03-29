@@ -3488,12 +3488,21 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	 of moving something into "a", which we compute using the function
 	 estimate_move_cost.  */
       lhs = gimple_assign_lhs (stmt);
+      rhs = gimple_assign_rhs1 (stmt);
+
+      /* EH magic stuff is most probably going to be optimized out.
+         We rarely really need to save EH info for unwinding
+         nested exceptions.  */
+      if (TREE_CODE (lhs) == FILTER_EXPR
+	  || TREE_CODE (lhs) == EXC_PTR_EXPR
+          || TREE_CODE (rhs) == FILTER_EXPR
+	  || TREE_CODE (rhs) == EXC_PTR_EXPR)
+	return 0;
       if (is_gimple_reg (lhs))
 	cost = 0;
       else
 	cost = estimate_move_cost (TREE_TYPE (lhs));
 
-      rhs = gimple_assign_rhs1 (stmt);
       if (!is_gimple_reg (rhs) && !is_gimple_min_invariant (rhs))
 	cost += estimate_move_cost (TREE_TYPE (rhs));
 
