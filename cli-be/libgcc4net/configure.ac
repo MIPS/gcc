@@ -37,7 +37,10 @@ AM_INIT_AUTOMAKE([1.9.5 foreign])
 
 AM_MAINTAINER_MODE
 
-AC_PATH_PROG(MCS, mcs, mcs-not-found)
+AC_ARG_WITH(mcs,
+	    AS_HELP_STRING([--with-mcs=mcs_binary_path], [use this mcs]),
+	    MCS=$withval)
+AC_CHECK_PROG(MCS,mcs,mcs,mcs-not-found)
 
 toollibdir='$(libdir)'
 toollib2dir='$(toollibdir)/gcc/$(target_alias)/$(gcc_version)'
