@@ -310,6 +310,7 @@ extern struct gimple_opt_pass pass_early_tree_profile;
 extern struct gimple_opt_pass pass_cleanup_cfg;
 extern struct gimple_opt_pass pass_fixup_cfg;
 extern struct gimple_opt_pass pass_referenced_vars;
+extern struct gimple_opt_pass pass_fixup_cfg;
 extern struct gimple_opt_pass pass_sra;
 extern struct gimple_opt_pass pass_sra_early;
 extern struct gimple_opt_pass pass_early_new_sra;
@@ -529,6 +530,7 @@ extern void execute_pass_list (struct opt_pass *);
 extern void execute_ipa_pass_list (struct opt_pass *);
 extern void print_current_pass (FILE *);
 extern void debug_pass (void);
+extern bool function_called_by_processed_nodes_p (void);
 
 /* Set to true if the pass is called the first time during compilation of the
    current function.  Note that using this information in the optimization

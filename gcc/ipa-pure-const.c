@@ -692,7 +692,8 @@ propagate (void)
 	  if (w_l->looping)
 	    looping = true;
 
-	  if (pure_const_state == IPA_NEITHER) 
+	  if (pure_const_state == IPA_NEITHER
+	      && can_throw)
 	    break;
 
 	  count++;
@@ -709,7 +710,8 @@ propagate (void)
 		  funct_state y_l = get_function_state (y);
 		  if (pure_const_state < y_l->pure_const_state)
 		    pure_const_state = y_l->pure_const_state;
-		  if (pure_const_state == IPA_NEITHER) 
+		  if (pure_const_state == IPA_NEITHER
+		      && can_throw) 
 		    break;
 		  if (y_l->looping)
 		    looping = true;

@@ -1791,31 +1791,4 @@ cgraph_materialize_all_clones (void)
   cgraph_remove_unreachable_nodes (false, cgraph_dump_file);
 }
 
-/* Called by local passes to see if function is called by already processed nodes.
-   Because we process nodes in topological order, this means that function is
-   in recursive cycle or we introduced new direct calls.  */
-bool
-function_called_by_processed_nodes_p (void)
-{
-  struct cgraph_edge *e;
-  for (e = cgraph_node (current_function_decl)->callers; e; e = e->next_caller)
-    {
-      if (e->caller->decl == current_function_decl)
-        continue;
-      if (!e->caller->analyzed || (!e->caller->needed && !e->caller->reachable))
-        continue;
-      if (TREE_ASM_WRITTEN (e->caller->decl))
-        continue;
-      if (!e->caller->process && !e->caller->clone_of
-          && !e->caller->global.inlined_to)
-      	break;
-    }
-  if (dump_file && e)
-    {
-      fprintf (dump_file, "Already processed call to:\n");
-      dump_cgraph_node (dump_file, e->caller);
-    }
-  return e != NULL;
-}
-
 #include "gt-cgraphunit.h"

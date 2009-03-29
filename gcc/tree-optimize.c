@@ -311,7 +311,7 @@ execute_fixup_cfg (void)
 		if (gimple_in_ssa_p (cfun))
 		  {
 		    todo |= TODO_update_ssa | TODO_cleanup_cfg;
-                    mark_symbols_for_renaming (stmt);
+		    mark_symbols_for_renaming (stmt);
 	            update_stmt (stmt);
 		  }
 	      }
@@ -349,7 +349,6 @@ struct gimple_opt_pass pass_fixup_cfg =
   0					/* todo_flags_finish */
  }
 };
-
 
 /* Do the actions required to initialize internal data structures used
    in tree-ssa optimization passes.  */

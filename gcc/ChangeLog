@@ -1,3 +1,137 @@
+2009-03-29  Ben Elliston  <bje@au.ibm.com>
+
+	* config/i386/i386.c (enum ix86_builtins): Add IX86_BUILTIN_HUGE_VALQ.
+	(ix86_init_builtins): Add built-in function __builtin_huge_valq.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_HUGE_VALQ.
+	* doc/extend.texi (X86 Built-in Functions): Add index entries for
+	__builtin_infq and __builtin_huge_valq.
+
+2009-03-28  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.c (avr_mcu_t): Add atmega8c1, atmega16c1 and
+	atmega8m1 devices.
+	* config/avr/avr.h (LINK_SPEC, CRT_BINUTILS_SPECS): (Ditto.).
+	* config/avr/t-avr (MULTILIB_MATCHES): (Ditto.)
+
+2009-03-28  Xinliang David Li  <davidxl@google.com>
+
+	* tree-ssa-ccp.c (ccp_finalize): Add dbg_count support. 
+	(do_dbg_cnt): New function.
+
+2009-03-28  Jan Hubicka  <jh@suse.cz>
+
+	Merge from pretty-ipa:
+
+	2009-03-27  Jan Hubicka  <jh@suse.cz>
+	* cgraph.c (dump_cgraph_node): Add replace output flag by process.
+	* tree-pass.h (function_called_by_processed_nodes_p): Declare.
+	* passes.c (function_called_by_processed_nodes_p): New.
+	* ipa-pure-const.c (check_call): Fix handling of operands.
+	(analyze_function): Dump debug output for skipped bodies.
+	(local_pure_const): Use function_called_by_processed_nodes_p.
+	* dwarf2out.c (reference_to_unused): Use output.
+	* passes.c (do_per_function_toporder): Likewise.
+
+	2008-11-12  Jan Hubicka  <jh@suse.cz>
+
+	* tree-pass.h (pass_fixup_cfg, pass_local_pure_const): Declare.
+	* ipa-pure-const.c (funct_state_d): Add can throw field; make
+	state_set_in_source enum
+	(check_decl): Ignore memory tags; do not set fake looping flags;
+	dump diagnostics.
+	(check_operand, check_tree, check_rhs_var, check_lhs_var,
+	get_asm_expr_operands, scan_function_op, scan_function_stmt): Remove.
+	(check_call, analyze_function): Rewrite.
+	(check_stmt): New.
+	(add_new_function): Update call of analyze_function.
+	(generate_summary): Add call of analyze_function.
+	(propagate): Propagate can_throw; handle state_set_in_source correctly.
+	(local_pure_const): New function.
+	(pass_local_pure_const): New pass.
+	* ipa-inline.c (inline_transform): Set after_inlining.
+	* tree-eh.c (stmt_can_throw_external): New.
+	* tree-optimize.c (execute_fixup_cfg): Do not set after_inlining;
+	work with aliasing built.
+	* tree-flow.h (stmt_can_throw_external): New.
+	* passes.c (init_optimization_passes): Schedule fixup_cfg pass early;
+	and local pure/const pass in early and late optimization queue.
+2009-03-28  Martin Jambor  <mjambor@suse.cz>
+
+	* fold-const.c (get_pointer_modulus_and_residue): New parameter
+	allow_func_align.
+	(fold_binary): Allow function decl aligment consideration is the
+	second argument is integer constant one.
+	* tree-ssa-forwprop.c (simplify_bitwise_and): New function.
+	(tree_ssa_forward_propagate_single_use_vars): Handle assing statements
+	with BIT_AND_EXPR on the RHS by calling simplify_bitwise_and.
+
+2009-03-28  Jan Hubicka  <jh@suse.cz>
+
+	* dwarf2out.c (dwarf2out_begin_prologue): Use crtl->nothrow
+	* tree-eh.c (stmt_could_throw_p): Remove check for WEAK decls.
+	* function.h (rtl_data): Add nothrow flag.
+	* except.c (set_nothrow_function_flags): Use crtl->nothrow;
+	set DECL_NOTHROW for AVAILABLE functions.
+
+2009-03-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): If macro
+	following vector keyword has expansion starting with pixel or bool
+	keyword, expand vector to __vector and pixel or bool to __pixel or
+	__bool.
+
+	PR c++/39554
+	* opts.c (warning_disallowed_functions, warn_disallowed_functions,
+	warn_if_disallowed_function_p): Removed.
+	(common_handle_option): Don't handle OPT_Wdisallowed_function_list_.
+	* c-parser.c (c_parser_postfix_expression_after_primary): Don't call
+	warning_if_disallowed_function_p.
+	* flags.h (warn_if_disallowed_function_p,
+	warn_disallowed_functions): Removed.
+	* common.opt (Wdisallowed-function-list=): Removed.
+	* doc/invoke.texi (-Wdisallowed-function-list=): Removed.
+
+2009-03-28  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38723
+	* tree-ssa-pre.c (compute_avail): Add all default definitions to
+	the entry block.
+
+2009-03-28  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-structalias.c (ipa_pta_execute): Fix bogus node->analyzed
+	test introduced by my previous patch.
+
+2009-03-28  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-copy.c (copy_prop_visit_phi_node): Do not leave
+	the PHIs value undefined.
+
+2009-03-28  Jan Hubicka  <jh@suse.cz>
+
+	* tree-pass.h (pass_fixup_cfg): New pass.
+	* ipa-inline.c (inline_transform): Set
+	always_inline_functions_inlined/after_inlining.
+	* tree-optimize.c (execute_fixup_cfg): Do not set them here.
+	(pass_fixup_cfg): New pass.
+	* passes.c (init_optimization_passes): Add fixup_cfg.
+
+2009-03-28  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38458
+	* tree-ssa-copy.c (copy_prop_visit_phi_node): For the first
+	argument use the arguments copy-of value.
+
+2009-03-28  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38180
+	* tree-ssa-ccp.c (get_default_value): Simplify.
+	(likely_value): Likewise.
+	(surely_varying_stmt_p): Properly handle VOP case.
+	(ccp_initialize): Likewise.
+	(ccp_fold): Handle propagating through *&.
+	(fold_const_aggregate_ref): Also handle decls.
+
 2009-03-28  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (dump_cgraph_node): Add replace output flag by process.

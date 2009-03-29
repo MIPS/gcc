@@ -430,7 +430,6 @@ void cgraph_remove_edge_duplication_hook (struct cgraph_2edge_hook_list *);
 struct cgraph_2node_hook_list *cgraph_add_node_duplication_hook (cgraph_2node_hook, void *);
 void cgraph_remove_node_duplication_hook (struct cgraph_2node_hook_list *);
 void cgraph_materialize_all_clones (void);
-bool function_called_by_processed_nodes_p (void);
 
 /* In cgraphbuild.c  */
 unsigned int rebuild_cgraph_edges (void);

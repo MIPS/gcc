@@ -442,9 +442,9 @@ struct rtl_data GTY(())
   /* True if dbr_schedule has already been called for this function.  */
   bool dbr_scheduled_p;
 
-  /* True if current function can not throw.  Unlike TREE_NOTHROW (current_function_decl)
-     it is set even for overwrittable function where currently compiled version of
-     it is nothrow.  */
+  /* True if current function can not throw.  Unlike
+     TREE_NOTHROW (current_function_decl) it is set even for overwritable
+     function where currently compiled version of it is nothrow.  */
   bool nothrow;
 };
 

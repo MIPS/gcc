@@ -1,3 +1,78 @@
+2009-03-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34656
+	* gfortran.dg/do_check_1.f90: Add test.
+	* gfortran.dg/do_check_2.f90: Add test.
+	* gfortran.dg/do_check_3.f90: Add test.
+	* gfortran.dg/do_check_4.f90: Add test.
+
+2009-03-28  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/attr-noinline.c: Avoid pure-const optimization.
+	* gcc.dg/pr33826.c: Update dump files.
+	* gcc.dg/ipa/ipa-3.c: Avoid pure-const optimization.
+	* gcc.dg/ipa/ipa-5.c: Avoid pure-const optimization.
+
+2009-03-28  Martin Jambor  <mjambor@suse.cz>
+
+	* g++.dg/tree-ssa/fwprop-align.C: New test.
+
+2009-03-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/powerpc/altivec-28.c: New test.
+
+	PR c++/39554
+	* gcc.dg/wdisallowed-functions-1.c: Removed.
+	* gcc.dg/wdisallowed-functions-2.c: Removed.
+	* gcc.dg/wdisallowed-functions-3.c: Removed.
+	* g++.dg/warn/Wdisallowed-functions-1.C: Removed.
+	* g++.dg/warn/Wdisallowed-functions-2.C: Removed.
+	* g++.dg/warn/Wdisallowed-functions-3.C: Removed.
+
+2009-03-28  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38723
+	* gcc.dg/tree-ssa/ssa-fre-22.c: New testcase.
+
+2009-03-28  Paul Thomas  <pault@gcc.gnu.org
+
+        PR fortran/38538
+        * gfortran.dg/char_result_13.f90: New test.
+
+2009-03-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38765
+	* gfortran.dg/alloc_comp_assign_9.f90: New test.
+
+2009-03-28  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.dg/trim_1.f90: New test.
+
+2009-03-28  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/Warray-bounds.c: Do not use redundant stores.
+	* g++.dg/warn/Warray-bounds.C: Likewise.
+
+2009-03-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32626
+	* gfortran.dg/recursive_check_7.f90: New test.
+
+2009-03-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/38432
+	* gfortran.dg/do_check_5.f90: New test.
+	* gfortran.dg/array_constructor_11.f90: Add dg-warning.
+	* gfortran.dg/array_constructor_18.f90: Ditto.
+	* gfortran.dg/array_constructor_22.f90: Ditto.
+	* gfortran.dg/do_3.F90: Ditto.
+	* gfortran.dg/do_1.f90: Ditto.
+
+2009-03-28  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38180
+	* gcc.dg/tree-ssa/ssa-ccp-24.c: New testcase.
+
 2009-03-28  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/38513
