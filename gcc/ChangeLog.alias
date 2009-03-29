@@ -1,5 +1,13 @@
 2009-03-29  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-pre.c (eliminate): Do not remove stmts during elimination,
+	instead queue and remove them afterwards.
+
+	testsuite/
+	* g++.dg/torture/20090329-1.C: New testcase.
+
+2009-03-29  Richard Guenther  <rguenther@suse.de>
+
 	* tree-inline.c (tree_function_versioning): Do not call update_ssa
 	if we are not updating clones.  Simplify.
 

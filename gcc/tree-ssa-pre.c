@@ -3918,16 +3918,18 @@ do_SCCVN_insertion (gimple stmt, tree ssa_vn)
 static unsigned int
 eliminate (void)
 {
+  VEC (gimple, heap) *to_remove = NULL;
   basic_block b;
   unsigned int todo = 0;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  unsigned i;
 
   FOR_EACH_BB (b)
     {
-      gimple_stmt_iterator i;
-
-      for (i = gsi_start_bb (b); !gsi_end_p (i);)
+      for (gsi = gsi_start_bb (b); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (i);
+	  stmt = gsi_stmt (gsi);
 
 	  /* Lookup the RHS of the expression, see if we have an
 	     available computation for it.  If so, replace the RHS with
@@ -3980,10 +3982,9 @@ eliminate (void)
 		      print_gimple_stmt (dump_file, stmt, 0, 0);
 		    }
 		  pre_stats.eliminations++;
-		  propagate_tree_value_into_stmt (&i, sprime);
-		  stmt = gsi_stmt (i);
+		  propagate_tree_value_into_stmt (&gsi, sprime);
+		  stmt = gsi_stmt (gsi);
 		  update_stmt (stmt);
-		  gsi_next (&i);
 		  continue;
 		}
 
@@ -4029,8 +4030,8 @@ eliminate (void)
 		    sprime = fold_convert (gimple_expr_type (stmt), sprime);
 
 		  pre_stats.eliminations++;
-		  propagate_tree_value_into_stmt (&i, sprime);
-		  stmt = gsi_stmt (i);
+		  propagate_tree_value_into_stmt (&gsi, sprime);
+		  stmt = gsi_stmt (gsi);
 		  update_stmt (stmt);
 
 		  /* If we removed EH side effects from the statement, clean
@@ -4063,14 +4064,12 @@ eliminate (void)
 		{
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
-		      fprintf (dump_file, "Deleted dead store ");
+		      fprintf (dump_file, "Deleted redundant store ");
 		      print_gimple_stmt (dump_file, stmt, 0, 0);
 		    }
 
-		  unlink_stmt_vdef (stmt);
-		  gsi_remove (&i, true);
-		  release_defs (stmt);
-		  continue;
+		  /* Queue stmt for removal.  */
+		  VEC_safe_push (gimple, heap, to_remove, stmt);
 		}
 	    }
 	  /* Visit COND_EXPRs and fold the comparison with the
@@ -4097,10 +4096,19 @@ eliminate (void)
 		  todo = TODO_cleanup_cfg;
 		}
 	    }
-
-	  gsi_next (&i);
 	}
     }
+
+  /* We cannot remove stmts during BB walk, especially not release SSA
+     names there as this confuses the VN machinery.  */
+  for (i = 0; VEC_iterate (gimple, to_remove, i, stmt); ++i)
+    {
+      gsi = gsi_for_stmt (stmt);
+      unlink_stmt_vdef (stmt);
+      gsi_remove (&gsi, true);
+      release_defs (stmt);
+    }
+  VEC_free (gimple, heap, to_remove);
 
   return todo;
 }
