@@ -1,3 +1,8 @@
+2009-03-30  Joey Ye  <joey.ye@intel.com>
+
+	* rtlanal.c (reg_mentioned_by_mem_p_1): Removed.
+	(reg_mentioned_by_mem_p): Re-implement with DF.
+
 2009-03-29  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* rtl.h (reg_dep_by_addr_p): Removed.

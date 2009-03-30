@@ -714,90 +714,18 @@ reg_mentioned_p (const_rtx reg, const_rtx in)
   return 0;
 }
 
-static int
-reg_mentioned_by_mem_p_1 (const_rtx reg, const_rtx in,
-			  bool *mem_p)
-{
-  const char *fmt;
-  int i;
-  enum rtx_code code;
 
-  if (in == 0)
-    return 0;
-
-  if (reg == in)
-    return 1;
-
-  if (GET_CODE (in) == LABEL_REF)
-    return reg == XEXP (in, 0);
-
-  code = GET_CODE (in);
-
-  switch (code)
-    {
-      /* Compare registers by number.  */
-    case REG:
-      return REG_P (reg) && REGNO (in) == REGNO (reg);
-
-      /* These codes have no constituent expressions
-	 and are unique.  */
-    case SCRATCH:
-    case CC0:
-    case PC:
-      return 0;
-
-    case CONST_INT:
-    case CONST_VECTOR:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-      /* These are kept unique for a given value.  */
-      return 0;
-
-    default:
-      break;
-    }
-
-  if (GET_CODE (reg) == code && rtx_equal_p (reg, in))
-    return 1;
-
-  fmt = GET_RTX_FORMAT (code);
-
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'E')
-	{
-	  int j;
-	  for (j = XVECLEN (in, i) - 1; j >= 0; j--)
-	    if (reg_mentioned_by_mem_p_1 (reg, XVECEXP (in, i, j), mem_p))
-              {
-                if (code == MEM)
-                  *mem_p = true;
-
-	        return 1;
-              }
-	}
-      else if (fmt[i] == 'e'
-	       && reg_mentioned_by_mem_p_1 (reg, XEXP (in, i), mem_p))
-	{
-	  if (code == MEM)
-	    *mem_p = true;
-
-	  return 1;
-	}
-    }
-  return 0;
-}
-
-/* Similar to the function reg_mentioned_p, return true only when
-   register REG appears in a MEM container of RTX IN.  */
-
+/* Return true if REG is used in an address of a MEM operand in INSN.  */
 bool
 reg_mentioned_by_mem_p (const_rtx reg, const_rtx in)
 {
-  bool mem = false;
-
-  reg_mentioned_by_mem_p_1 (reg, in, &mem);
-  return mem;
+  df_ref *use_rec;
+  for (use_rec = DF_INSN_USES (in); *use_rec; use_rec++)
+    if ((DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_LOAD
+         || DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_STORE)
+        && REGNO (reg) == DF_REF_REGNO (*use_rec))
+      return true;
+  return false;
 }
 
 /* Return 1 if in between BEG and END, exclusive of BEG and END, there is
