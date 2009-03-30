@@ -654,6 +654,10 @@ gen_modify_expr (cil_stmt_iterator *csi, tree lhs, tree rhs)
 	    gen_addr_expr (csi, obj);
 	    gimple_to_cil_node (csi, rhs);
 	    stmt = cil_build_stmt_arg (CIL_STFLD, fld);
+
+	    if (contains_packed_reference (lhs))
+	      cil_set_prefix_unaligned (stmt, 1);
+
 	    cil_set_prefix_volatile (stmt, TREE_THIS_VOLATILE (lhs));
 	    csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
 	  }
@@ -2096,6 +2100,10 @@ gen_comp_ref (cil_stmt_iterator *csi, tree node)
     {
       gen_addr_expr (csi, obj);
       stmt = cil_build_stmt_arg (CIL_LDFLD, fld);
+
+      if (contains_packed_reference (node))
+	cil_set_prefix_unaligned (stmt, 1);
+
       cil_set_prefix_volatile (stmt, TREE_THIS_VOLATILE (node));
       csi_insert_after (csi, stmt, CSI_CONTINUE_LINKING);
     }
