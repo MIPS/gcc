@@ -550,6 +550,7 @@ init_optimization_passes (void)
 	  struct opt_pass **p = &pass_all_early_optimizations.pass.sub;
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
+	  NEXT_PASS (pass_remove_cgraph_callee_edges);
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
@@ -585,6 +586,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_all_optimizations);
     {
       struct opt_pass **p = &pass_all_optimizations.pass.sub;
+      NEXT_PASS (pass_remove_cgraph_callee_edges);
       /* Initial scalar cleanups before alias computation.
 	 They ensure memory accesses are not indirect wherever possible.  */
       NEXT_PASS (pass_strip_predict_hints);
@@ -756,12 +758,12 @@ init_optimization_passes (void)
       NEXT_PASS (pass_reginfo_init);
       NEXT_PASS (pass_inc_dec);
       NEXT_PASS (pass_initialize_regs);
-      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_ud_rtl_dce);
       NEXT_PASS (pass_combine);
       NEXT_PASS (pass_if_after_combine);
       NEXT_PASS (pass_partition_blocks);
       NEXT_PASS (pass_regmove);
+      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_split_all_insns);
       NEXT_PASS (pass_lower_subreg2);
       NEXT_PASS (pass_df_initialize_no_opt);

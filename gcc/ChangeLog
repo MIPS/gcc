@@ -1,3 +1,75 @@
+2009-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/39563
+	* c-decl.c (struct c_binding): Add locus field.
+	(bind): Add locus argument, set locus field from it.
+	(pop_scope): For b->nested VAR_DECL or FUNCTION_DECL,
+	add a DECL_EXTERNAL copy of b->decl to current BLOCK_VARS.
+	(push_file_scope, pushtag, pushdecl, pushdecl_top_level,
+	implicitly_declare, undeclared_variable, lookup_label,
+	declare_label, c_make_fname_decl, c_builtin_function,
+	c_builtin_function_ext_scope, store_parm_decls_newstyle): Adjust
+	bind callers.
+
+2008-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/38781
+	* config/i386/i386.c (classify_argument): Check total size of
+	structure.
+
+2009-03-30  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.h (jump_func_type): Rename IPA_UNKNOWN, IPA_CONST,
+	IPA_CONST_MEMBER_PTR, and IPA_PASS_THROUGH to IPA_JF_UNKNOWN,
+	IPA_JF_CONST, IPA_JF_CONST_MEMBER_PTR, and IPA_JF_PASS_THROUGH
+	respectively.
+
+	* tree-dfa.c (get_ref_base_and_extent): Return -1 maxsize if
+	seen_variable_array_ref while also traversing a union.
+
+	* tree-inline.c (optimize_inline_calls): Do not call
+	cgraph_node_remove_callees.
+	* cgraphbuild.c (remove_cgraph_callee_edges): New function.
+	(pass_remove_cgraph_callee_edges): New variable.
+	* passes.c (init_optimization_passes): Add
+	pass_remove_cgraph_callee_edges after early inlining and before all
+	late intraprocedural passes.
+
+	* omp-low.c (expand_omp_taskreg): Always set current_function_decl.
+
+2009-03-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/sparc/sparc.md (*nand<V64mode>_vis, *nand<V32mode>_vis):
+	Fix typos in names.
+
+2009-03-30  Paolo Bonzini  <bonzini@gnu.org>
+
+        * combine.c (simplify_comparison): Use have_insn_for.
+        * dojump.c (do_jump): Likewise.
+
+2009-03-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/sparc/sparc.c (sparc_compare_emitted): Remove.
+	(gen_compare_reg, emit_v9_brxx_insn): Handle MODE_CC
+	sparc_compare_op0 like sparc_compare_emitted used to be handled.
+	(sparc_expand_compare_and_swap_12): Set sparc_compare_op0
+	instead of sparc_compare_emitted.
+	* config/sparc/sparc.h (sparc_compare_emitted): Remove.
+	* config/sparc/sparc.md (stack_protect_test): Set sparc_compare_op0
+	instead of sparc_compare_emitted.
+
+2009-03-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* bb-reorder.c (partition_hot_cold_basic_blocks): Do not
+	enter/exit cfglayout mode.
+	(pass_partition_block): Require it.
+	* combine.c (find_single_use, reg_dead_at_p): Use CFG.
+	(combine_instructions): Track basic blocks instead of labels.
+	(update_cfg_for_uncondjump): New.
+	(try_combine): Use it.  Update jumps after rescanning.
+	(pass_combine): Require PROP_cfglayout.
+	* passes.c (pass_outof_cfg_layout_mode): Move after regmove.
+
 2009-03-30  Paolo Bonzini  <bonzini@gnu.org>
 
         * cfglayout.c (pass_into_cfg_layout_mode, pass_outof_cfg_layout_mode):

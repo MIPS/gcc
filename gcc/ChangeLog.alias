@@ -1,5 +1,9 @@
 2009-03-30  Richard Guenther  <rguenther@suse.de>
 
+	Merge from trunk r145297.
+
+2009-03-30  Richard Guenther  <rguenther@suse.de>
+
 	* tree-eh.c (cleanup_empty_eh): Do not leave stale SSA_NAMEs
 	and immediate uses in statements.
 
