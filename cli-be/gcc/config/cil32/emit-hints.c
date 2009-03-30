@@ -346,7 +346,7 @@ basic_block_frequency_emit (FILE *file)
   dump_compressed_int (file, emitted_bbs);
   for (tmp_ptr = start_bb_freq_coded; tmp_ptr < bb_freq_coded; ++tmp_ptr)
     fprintf (file, "%02x ", *tmp_ptr);
-  fputs ("00 00, 01 00 ", file);
+  fputs ("00 00/*,*/ 01 00 ", file);
 
   /* Free memory for basic block frequencies bit stream */
   gcc_assert (bb_freq_coded - start_bb_freq_coded <= emitted_bbs);

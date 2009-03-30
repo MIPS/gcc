@@ -42,11 +42,16 @@ Erven Rohou             <erven.rohou@st.com>
 #define TARGET_DECLARE_VARIABLE(STREAM,DECL) emit_cil_decl(STREAM,DECL)
 
 /* Node: Driver */
-
-#define CC1_SPEC "%{!mgcc4net-linker:-mopensystemc}"
+#define CPP_SPEC "%{mthreads:-D_MTHREADS}"
+#if defined(MONO_BINUTILS)
+#define CC1_SPEC "-mgcc4net-linker"
+#define LIBGCC_SPEC ""
+#else
+#define CC1_SPEC "-mopensystemc"
+#define LIBGCC_SPEC "-l gcc4net.dll"
+#endif
 #define LIB_SPEC "-l libstd.dll"
-#define LIBGCC_SPEC "%{!mgcc4net-linker:-l gcc4net.dll}"
-#define LINK_SPEC "%{shared:--shared}"
+#define LINK_SPEC "%{shared:--shared} %{mthreads:-mt}"
 #define STARTFILE_SPEC ""
 #define ENDFILE_SPEC ""
 

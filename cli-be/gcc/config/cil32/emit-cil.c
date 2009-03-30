@@ -349,9 +349,9 @@ dump_valuetype_name (FILE *file, tree t)
   gcc_assert (DECL_P (name) || TREE_CODE (name) == IDENTIFIER_NODE);
 
   if (builtin_p)
-    fprintf (file, "[gcc4net]gcc4net.");
-
-  fputs ("'", file);
+    fprintf (file, "[gcc4net]'gcc4net.");
+  else
+    fputs ("'", file);
 
   if (TREE_CODE (name) == IDENTIFIER_NODE)
     str = IDENTIFIER_POINTER (name);
@@ -1150,7 +1150,7 @@ emit_prefixes (FILE *file, const_cil_stmt stmt)
             || (opcode == CIL_LDFLD) || (opcode == CIL_STFLD))
     {
         if (cil_prefix_unaligned (stmt) != 0)
-            fprintf (file, "\n\tunaligned.%d", cil_prefix_unaligned (stmt));
+            fprintf (file, "\n\tunaligned. %d", cil_prefix_unaligned (stmt));
     }
     else if ((opcode == CIL_CPBLK) || (opcode == CIL_INITBLK)
             || ((opcode >= CIL_LDIND_I1) && (opcode <= CIL_LDIND_I))
@@ -1201,16 +1201,24 @@ emit_ldsflda (FILE *file, const_cil_stmt stmt)
       gcc_assert (TREE_CODE (field) == VAR_DECL);
 
       if (COMPLETE_TYPE_P (TREE_TYPE (field)))
-	dump_type (file, TREE_TYPE (field), true, false);
+	{
+	  dump_type (file, TREE_TYPE (field), true, false);
+
+	  fprintf (file, " ");
+
+	  if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (field) && TREE_PUBLIC (field))
+	    fprintf (file, "[ExternalAssembly]ExternalAssembly::");
+
+	  dump_decl_name (file, field);
+	}
       else
-	fprintf (file, "native int");
-
-      fprintf (file, " ");
-
-      if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (field) && TREE_PUBLIC (field))
-	fprintf (file, "[ExternalAssembly]ExternalAssembly::");
-
-      dump_decl_name (file, field);
+	{
+	  fprintf (file, "native int ");
+	  /* Global Variable with incomplete type, consider it an External definition */
+	  if (TARGET_GCC4NET_LINKER)
+            fprintf (file, "[ExternalAssembly]ExternalAssembly::");
+	  dump_decl_name (file, field);
+	}
     }
 }
 
@@ -1429,7 +1437,10 @@ emit_builtin_call (FILE *file, const_cil_stmt call)
 	  break;
 
 	case BUILT_IN_TRAP:
-	  fprintf (file, "\n\tcall\tvoid 'abort' ()");
+	  if (TARGET_GCC4NET_LINKER)
+	    fprintf (file, "\n\tcall\tvoid [ExternalAssembly]ExternalAssembly::abort ()");
+	  else
+	    fprintf (file, "\n\tcall\tvoid abort ()");
 	  return true;
 
 	default:

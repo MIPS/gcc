@@ -313,6 +313,10 @@ namespace gcc4net {
         public sealed class CDynamicLibrary : Attribute {
             public CDynamicLibrary () { }
         }
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class MultiThreaded : Attribute {
+            public MultiThreaded () { }
+        }
         [AttributeUsage (AttributeTargets.Method)]
         public sealed class Initializer : Attribute {
             public Initializer () { }

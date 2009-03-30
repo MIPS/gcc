@@ -68,3 +68,7 @@ Assume target CPU is configured as big endian
 mlittle-endian
 Target Report RejectNegative Mask(LITTLE_ENDIAN)
 Assume target CPU is configured as little endian
+
+mthreads
+Target Report RejectNegative
+Target supports Threads
