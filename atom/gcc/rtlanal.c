@@ -713,20 +713,6 @@ reg_mentioned_p (const_rtx reg, const_rtx in)
     }
   return 0;
 }
-
-
-/* Return true if REG is used in an address of a MEM operand in INSN.  */
-bool
-reg_mentioned_by_mem_p (const_rtx reg, const_rtx in)
-{
-  df_ref *use_rec;
-  for (use_rec = DF_INSN_USES (in); *use_rec; use_rec++)
-    if ((DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_LOAD
-         || DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_STORE)
-        && REGNO (reg) == DF_REF_REGNO (*use_rec))
-      return true;
-  return false;
-}
 
 /* Return 1 if in between BEG and END, exclusive of BEG and END, there is
    no CODE_LABEL insn.  */

@@ -13068,6 +13068,21 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
   return -1;
 }
 
+/* Return true if REG is used in an address of a MEM operand in INSN.
+   This function can only be called when DF is accurate.  */
+
+static bool
+reg_mentioned_by_mem_p (const_rtx reg, const_rtx in)
+{
+  df_ref *use_rec;
+  for (use_rec = DF_INSN_USES (in); *use_rec; use_rec++)
+    if ((DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_LOAD
+	 || DF_REF_TYPE (*use_rec) == DF_REF_REG_MEM_STORE)
+	&& REGNO (reg) == DF_REF_REGNO (*use_rec))
+      return true;
+  return false;
+}
+
 /* Return the distance between this insn and the next insn that uses 
    result of this insn as memory address. 
    Return -1 if not found such a use within LEA_SEARCH_THRESHOLD. */

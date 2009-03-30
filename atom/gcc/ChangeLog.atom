@@ -1,3 +1,10 @@
+2009-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* rtl.h (reg_mentioned_by_mem_p): Removed.
+
+	* rtlanal.c (reg_mentioned_by_mem_p): Moved ...
+	* config/i386/i386.c (reg_mentioned_by_mem_p): Here.
+
 2009-03-30  Joey Ye  <joey.ye@intel.com>
 
 	* rtlanal.c (reg_mentioned_by_mem_p_1): Removed.
