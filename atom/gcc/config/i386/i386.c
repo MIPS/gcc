@@ -5033,6 +5033,8 @@ classify_argument (enum machine_mode mode, const_tree type,
 		    }
 		  else
 		    {
+		      int pos;
+
 		      type = TREE_TYPE (field);
 
 		      /* Flexible array member is ignored.  */
@@ -5061,13 +5063,10 @@ classify_argument (enum machine_mode mode, const_tree type,
 						+ bit_offset) % 256);
 		      if (!num)
 			return 0;
-		      for (i = 0; i < num; i++)
-			{
-			  int pos =
-			    (int_bit_position (field) + (bit_offset % 64)) / 8 / 8;
-			  classes[i + pos] =
-			    merge_classes (subclasses[i], classes[i + pos]);
-			}
+		      pos = (int_bit_position (field) + (bit_offset % 64)) / 8 / 8;
+		      for (i = 0; i < num && (i + pos) < words; i++)
+			classes[i + pos] =
+			  merge_classes (subclasses[i], classes[i + pos]);
 		    }
 		}
 	    }
