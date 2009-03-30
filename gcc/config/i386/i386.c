@@ -4942,8 +4942,30 @@ classify_argument (enum machine_mode mode, const_tree type,
 		    }
 		  else
 		    {
-		      num = classify_argument (TYPE_MODE (TREE_TYPE (field)),
-					       TREE_TYPE (field), subclasses,
+		      type = TREE_TYPE (field);
+
+		      /* Flexible array member is ignored.  */
+		      if (TYPE_MODE (type) == BLKmode
+			  && TREE_CODE (type) == ARRAY_TYPE
+			  && TYPE_SIZE (type) == NULL_TREE
+			  && TYPE_DOMAIN (type) != NULL_TREE
+			  && (TYPE_MAX_VALUE (TYPE_DOMAIN (type))
+			      == NULL_TREE))
+			{
+			  static bool warned;
+			  
+			  if (!warned && warn_psabi)
+			    {
+			      warned = true;
+			      inform (input_location,
+				      "The ABI of passing struct with"
+				      " a flexible array member has"
+				      " changed in GCC 4.4");
+			    }
+			  continue;
+			}
+		      num = classify_argument (TYPE_MODE (type), type,
+					       subclasses,
 					       (int_bit_position (field)
 						+ bit_offset) % 256);
 		      if (!num)
@@ -19070,41 +19092,21 @@ ix86_flags_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
   return 1;
 }
 
-/* A subroutine of ix86_adjust_cost -- return true iff INSN has a memory
-   address with operands set by DEP_INSN.  */
+/* Return true iff USE_INSN has a memory address with operands set by
+   SET_INSN.  */
 
-static int
-ix86_agi_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
+bool
+ix86_agi_dependent (rtx set_insn, rtx use_insn)
 {
-  rtx addr;
-
-  if (insn_type == TYPE_LEA
-      && TARGET_PENTIUM)
-    {
-      addr = PATTERN (insn);
-
-      if (GET_CODE (addr) == PARALLEL)
-	addr = XVECEXP (addr, 0, 0);
-
-      gcc_assert (GET_CODE (addr) == SET);
-
-      addr = SET_SRC (addr);
-    }
-  else
-    {
-      int i;
-      extract_insn_cached (insn);
-      for (i = recog_data.n_operands - 1; i >= 0; --i)
-	if (MEM_P (recog_data.operand[i]))
-	  {
-	    addr = XEXP (recog_data.operand[i], 0);
-	    goto found;
-	  }
-      return 0;
-    found:;
-    }
-
-  return modified_in_p (addr, dep_insn);
+  int i;
+  extract_insn_cached (use_insn);
+  for (i = recog_data.n_operands - 1; i >= 0; --i)
+    if (MEM_P (recog_data.operand[i]))
+      {
+	rtx addr = XEXP (recog_data.operand[i], 0);
+	return modified_in_p (addr, set_insn) != 0;
+      }
+  return false;
 }
 
 static int
@@ -19132,7 +19134,20 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     {
     case PROCESSOR_PENTIUM:
       /* Address Generation Interlock adds a cycle of latency.  */
-      if (ix86_agi_dependent (insn, dep_insn, insn_type))
+      if (insn_type == TYPE_LEA)
+	{
+	  rtx addr = PATTERN (insn);
+
+	  if (GET_CODE (addr) == PARALLEL)
+	    addr = XVECEXP (addr, 0, 0);
+
+	  gcc_assert (GET_CODE (addr) == SET);
+
+	  addr = SET_SRC (addr);
+	  if (modified_in_p (addr, dep_insn))
+	    cost += 1;
+	}
+      else if (ix86_agi_dependent (dep_insn, insn))
 	cost += 1;
 
       /* ??? Compares pair with jump/setcc.  */
@@ -19142,7 +19157,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
       /* Floating point stores require value to be ready one cycle earlier.  */
       if (insn_type == TYPE_FMOV
 	  && get_attr_memory (insn) == MEMORY_STORE
-	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (dep_insn, insn))
 	cost += 1;
       break;
 
@@ -19165,7 +19180,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (dep_insn, insn))
 	{
 	  /* Claim moves to take one cycle, as core can issue one load
 	     at time and the next load can start cycle later.  */
@@ -19194,7 +19209,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (dep_insn, insn))
 	{
 	  /* Claim moves to take one cycle, as core can issue one load
 	     at time and the next load can start cycle later.  */
@@ -19219,7 +19234,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (dep_insn, insn))
 	{
 	  enum attr_unit unit = get_attr_unit (insn);
 	  int loadcost = 3;
@@ -20225,6 +20240,7 @@ enum ix86_builtins
 
   /* TFmode support builtins.  */
   IX86_BUILTIN_INFQ,
+  IX86_BUILTIN_HUGE_VALQ,
   IX86_BUILTIN_FABSQ,
   IX86_BUILTIN_COPYSIGNQ,
 
@@ -23393,6 +23409,11 @@ ix86_init_builtins (void)
 			       NULL, NULL_TREE);
   ix86_builtins[(int) IX86_BUILTIN_INFQ] = decl;
 
+  decl = add_builtin_function ("__builtin_huge_valq", ftype,
+			       IX86_BUILTIN_HUGE_VALQ, BUILT_IN_MD,
+			       NULL, NULL_TREE);
+  ix86_builtins[(int) IX86_BUILTIN_HUGE_VALQ] = decl;
+
   /* We will expand them to normal call if SSE2 isn't available since
      they are used by libgcc. */
   ftype = build_function_type_list (float128_type_node,
@@ -24848,6 +24869,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       return ix86_expand_vec_set_builtin (exp);
 
     case IX86_BUILTIN_INFQ:
+    case IX86_BUILTIN_HUGE_VALQ:
       {
 	REAL_VALUE_TYPE inf;
 	rtx tmp;

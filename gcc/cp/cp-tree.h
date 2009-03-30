@@ -43,9 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #else
 #define ATTRIBUTE_GCC_CXXDIAG(m, n) ATTRIBUTE_NONNULL(m)
 #endif
-extern void cp_cpp_error			(cpp_reader *, int,
-						 const char *, va_list *)
-     ATTRIBUTE_GCC_CXXDIAG(3,0);
 #ifdef GCC_TOPLEV_H
 #error \
 In order for the format checking to accept the C++ front end diagnostic \
@@ -5053,7 +5050,6 @@ extern bool cp_var_mod_type_p			(tree, tree);
 extern void cxx_initialize_diagnostics		(struct diagnostic_context *);
 extern int cxx_types_compatible_p		(tree, tree);
 extern void init_shadowed_var_for_decl		(void);
-extern tree cxx_staticp                         (tree);
 
 /* in cp-gimplify.c */
 extern int cp_gimplify_expr			(tree *, gimple_seq *,

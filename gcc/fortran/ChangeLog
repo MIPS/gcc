@@ -1,3 +1,78 @@
+2009-03-30  Joseph Myers  <joseph@codesourcery.com>
+
+	PR rtl-optimization/323
+	* options.c (gfc_post_options): Set
+	flag_excess_precision_cmdline.  Give an error for
+	-fexcess-precision=standard for processors where the option is
+	significant.
+
+2009-03-29  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/34695
+	* cpp.c (cb_cpp_error): New.
+	(gfc_cpp_post_options): Don't set cpp_option->inhibit_warnings.
+	Don't check cpp_errors (cpp_in).
+	(gfc_cpp_init_0): Set cb->error.
+
+2009-03-29  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/38823
+	* gfortran.h: Add ARITH_PROHIBIT to arith enum.
+	expr.c (gfc_match_init_expr): Add global variable init_flag to
+	flag matching an initialization expression.
+	(check_intrinsic_op): Move no longer reachable error message to ...
+	* arith.c (arith_power): ... here.  Remove gfc_ prefix in
+	gfc_arith_power.  Use init_flag.  Allow constant folding of x**y
+	when y is REAL or COMPLEX.
+	(eval_intrinsic): Remove restriction that y in x**y must be INTEGER
+	for constant folding.
+	* gfc_power: Update gfc_arith_power to arith_power
+
+2009-03-29  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/37423
+	* gfortran.h (struct gfc_typebound_proc): Added new flag `deferred' and
+	added a comment explaining DEFERRED binding handling.
+	* decl.c (match_binding_attributes): Really match DEFERRED attribute.
+	(match_procedure_in_type): Really match PROCEDURE(interface) syntax
+	and do some validity checks for DEFERRED and this construct.
+	* module.c (binding_overriding): New string constant for DEFERRED.
+	(mio_typebound_proc): Module-IO DEFERRED flag.
+	* resolve.c (check_typebound_override): Ensure that a non-DEFERRED
+	binding is not overridden by a DEFERRED one.
+	(resolve_typebound_procedure): Allow abstract interfaces as targets
+	for DEFERRED bindings.
+	(ensure_not_abstract_walker), (ensure_not_abstract): New methods.
+	(resolve_fl_derived): Use new `ensure_not_abstract' method for
+	non-ABSTRACT types extending ABSTRACT ones to ensure each DEFERRED
+	binding is overridden.
+	(check_typebound_baseobject): New method.
+	(resolve_compcall), (resolve_typebound_call): Check base-object of
+	the type-bound procedure call.
+	* gfc-internals.texi (Type-bound procedures): Document a little bit
+	about internal handling of DEFERRED bindings.
+
+2008-03-29  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/38507
+	* gfortran.h (gfc_st_label): Fix comment.
+	(gfc_exec_op): Add statement code EXEC_END_BLOCK for end of block.
+	* parse.c (accept_statement): Use EXEC_END_BLOCK for END IF and
+	END SELECT with labels.
+	(check_do_closure): Fix formatting.
+	(parse_do_block): Fix typo in error message.
+	* resolve.c (code_stack): Remove tail member.  Update comment to
+	new use of reachable_labels.
+	(reachable_labels): Rename to ...
+	(find_reachable_labels): ... this.  Overhaul.  Update preceding
+	comment.
+	(resolve_branch): Fix comment preceding function.  Rewrite.
+	(resolve_code): Update call to find_reachable_labels.  Add code to
+	deal with EXEC_END_BLOCK.
+	* st.c (gfc_free_statement): Add code to deal with EXEC_END_BLOCK.
+	Add 2009 to copyright years.
+	* trans.c (gfc_trans_code): Likewise on both counts.
+
 2009-03-28  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/34656

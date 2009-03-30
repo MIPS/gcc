@@ -1177,9 +1177,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 #define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->base.public_flag)
 
-/* ??? This is an obsolete synonym for TREE_OVERFLOW.  */
-#define TREE_CONSTANT_OVERFLOW(NODE) TREE_OVERFLOW(NODE)
-
 /* TREE_OVERFLOW can only be true for EXPR of CONSTANT_CLASS_P.  */
 
 #define TREE_OVERFLOW_P(EXPR) \
@@ -1580,6 +1577,12 @@ extern void protected_set_expr_location (tree, location_t);
 #define DECL_EXPR_DECL(NODE)    TREE_OPERAND (DECL_EXPR_CHECK (NODE), 0)
 
 #define EXIT_EXPR_COND(NODE)	     TREE_OPERAND (EXIT_EXPR_CHECK (NODE), 0)
+
+/* COMPOUND_LITERAL_EXPR accessors.  */
+#define COMPOUND_LITERAL_EXPR_DECL_EXPR(NODE)		\
+  TREE_OPERAND (COMPOUND_LITERAL_EXPR_CHECK (NODE), 0)
+#define COMPOUND_LITERAL_EXPR_DECL(NODE)			\
+  DECL_EXPR_DECL (COMPOUND_LITERAL_EXPR_DECL_EXPR (NODE))
 
 /* SWITCH_EXPR accessors. These give access to the condition, body and
    original condition type (before any compiler conversions)
@@ -3977,6 +3980,7 @@ extern bool tree_expr_nonnegative_p (tree);
 extern bool tree_expr_nonnegative_warnv_p (tree, bool *);
 extern bool may_negate_without_overflow_p (const_tree);
 extern tree strip_array_types (tree);
+extern tree excess_precision_type (tree);
 
 /* Construct various nodes representing fract or accum data types.  */
 

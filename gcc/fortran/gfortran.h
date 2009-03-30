@@ -199,7 +199,7 @@ gfc_intrinsic_op;
 /* Arithmetic results.  */
 typedef enum
 { ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
-  ARITH_DIV0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC
+  ARITH_DIV0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC, ARITH_PROHIBIT
 }
 arith;
 
@@ -954,10 +954,9 @@ gfc_omp_clauses;
 #define gfc_get_omp_clauses() XCNEW (gfc_omp_clauses)
 
 
-/* The gfc_st_label structure is a doubly linked list attached to a
-   namespace that records the usage of statement labels within that
-   space.  */
-/* TODO: Make format/statement specifics a union.  */
+/* The gfc_st_label structure is a BBT attached to a namespace that
+   records the usage of statement labels within that space.  */
+
 typedef struct gfc_st_label
 {
   BBT_HEADER(gfc_st_label);
@@ -1020,7 +1019,7 @@ typedef struct gfc_typebound_proc
 
   union
   {
-    struct gfc_symtree* specific;
+    struct gfc_symtree* specific; /* The interface if DEFERRED.  */
     gfc_tbp_generic* generic;
   }
   u;
@@ -1039,6 +1038,7 @@ typedef struct gfc_typebound_proc
 
   unsigned nopass:1; /* Whether we have NOPASS (PASS otherwise).  */
   unsigned non_overridable:1;
+  unsigned deferred:1;
   unsigned is_generic:1;
   unsigned function:1, subroutine:1;
   unsigned error:1; /* Ignore it, when an error occurred during resolution.  */
@@ -1861,7 +1861,8 @@ gfc_forall_iterator;
 /* Executable statements that fill gfc_code structures.  */
 typedef enum
 {
-  EXEC_NOP = 1, EXEC_ASSIGN, EXEC_LABEL_ASSIGN, EXEC_POINTER_ASSIGN,
+  EXEC_NOP = 1, EXEC_END_BLOCK, EXEC_ASSIGN, EXEC_LABEL_ASSIGN,
+  EXEC_POINTER_ASSIGN,
   EXEC_GOTO, EXEC_CALL, EXEC_COMPCALL, EXEC_ASSIGN_CALL, EXEC_RETURN,
   EXEC_ENTRY, EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE, EXEC_INIT_ASSIGN,
   EXEC_IF, EXEC_ARITHMETIC_IF, EXEC_DO, EXEC_DO_WHILE, EXEC_SELECT,
