@@ -1,3 +1,51 @@
+2009-03-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (ira_allocno): Rename left_conflicts_num to
+	left_conflicts_size.
+	(ALLOCNO_LEFT_CONFLICTS_NUM): Rename to
+	ALLOCNO_LEFT_CONFLICTS_SIZE.
+
+	* ira-color.c (allocno_spill_priority, push_allocno_to_stack,
+	remove_allocno_from_bucket_and_push,
+	allocno_spill_priority_compare, push_allocnos_to_stack,
+	setup_allocno_available_regs_num): Use ALLOCNO_LEFT_CONFLICTS_SIZE
+	instead of ALLOCNO_LEFT_CONFLICTS_NUM.
+	(setup_allocno_left_conflicts_num): Ditto.  Rename to
+	setup_allocno_left_conflicts_size.
+	(put_allocno_into_bucket): Use ALLOCNO_LEFT_CONFLICTS_SIZE
+	instead of ALLOCNO_LEFT_CONFLICTS_NUM and
+	setup_allocno_left_conflicts_size instead of
+	setup_allocno_left_conflicts_num.
+
+	* ira-build.c (ira_create_allocno): Use
+	ALLOCNO_LEFT_CONFLICTS_SIZE instead of
+	ALLOCNO_LEFT_CONFLICTS_NUM.
+		
+2009-03-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* reload.c (push_reload, find_dummy_reload): Use df_get_live_out
+	instead of DF_LR_OUT.
+
+	* ira-lives.c (process_bb_node_lives): Ditto.
+
+	* ira-color.c (ira_loop_edge_freq): Use df_get_live_{out,in}
+	instead of DF_LR_{OUT,IN}.
+
+	* ira-emit.c (generate_edge_moves, add_ranges_and_copies): Ditto.
+
+	* ira-build.c (create_bb_allocnos, create_loop_allocnos): Ditto.
+
+2009-03-30  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (label_to_region_map): Fix thinko.
+
+2009-03-30  Steve Ellcey  <sje@cup.hp.com>
+
+	PR middle-end/38237
+	* tree.h (tree_find_value): New declaration.
+	* tree.c (tree_find_value): New function.
+	* varasm.c (assemble_external): Avoid duplicate entries on lists.
+
 2009-03-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/39563
