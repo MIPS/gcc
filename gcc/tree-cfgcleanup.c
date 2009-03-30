@@ -813,6 +813,27 @@ remove_forwarder_block_with_phi (basic_block bb)
   delete_basic_block (bb);
 }
 
+/* Return true if PHI computing RESULT is ok to be merged into PHI
+   in BB DEST.  */
+
+static bool
+result_ok_for_phi_merging (tree result, basic_block dest, int dest_idx)
+{
+  use_operand_p imm_use;
+  gimple use_stmt;
+
+  /* If the PHI's result is never used, then we can just
+     ignore it.  */
+  if (has_zero_uses (result))
+    return true;
+
+  return (single_imm_use (result, &imm_use, &use_stmt)
+	  && gimple_code (use_stmt) == GIMPLE_PHI
+	  && gimple_bb (use_stmt) == dest
+	  && gimple_phi_arg_def (use_stmt, dest_idx) == result);
+}
+
+
 /* This pass merges PHI nodes if one feeds into another.  For example,
    suppose we have the following:
 
@@ -844,6 +865,7 @@ merge_phi_nodes (void)
   basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks);
   basic_block *current = worklist;
   basic_block bb;
+  bool update_ssa = false;
 
   calculate_dominance_info (CDI_DOMINATORS);
 
@@ -883,31 +905,39 @@ merge_phi_nodes (void)
 	     can handle.  If the result of every PHI in BB is used
 	     only by a PHI in DEST, then we can trivially merge the
 	     PHI nodes from BB into DEST.  */
-	  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
-	       gsi_next (&gsi))
+	  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
 	      gimple phi = gsi_stmt (gsi);
 	      tree result = gimple_phi_result (phi);
-	      use_operand_p imm_use;
-	      gimple use_stmt;
-
-	      /* If the PHI's result is never used, then we can just
-		 ignore it.  */
-	      if (has_zero_uses (result))
-		continue;
-
-	      /* Get the single use of the result of this PHI node.  */
-  	      if (!single_imm_use (result, &imm_use, &use_stmt)
-		  || gimple_code (use_stmt) != GIMPLE_PHI
-		  || gimple_bb (use_stmt) != dest
-		  || gimple_phi_arg_def (use_stmt, dest_idx) != result)
+	      if (!result_ok_for_phi_merging (result, dest, dest_idx)
+		  /* Nonoverlapping liveranges can be handled by
+		     re-doing SSA form on them.  This is very common
+		     for abnormal control flows constructed by EH,
+		     like main function of tramp3d benchmark.  */
+		  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (result)
+		  && is_gimple_reg (SSA_NAME_VAR (result)))
 		break;
 	    }
-
 	  /* If the loop above iterated through all the PHI nodes
 	     in BB, then we can merge the PHIs from BB into DEST.  */
 	  if (gsi_end_p (gsi))
-	    *current++ = bb;
+	    {
+	      *current++ = bb;
+	      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);)
+		{
+		  gimple phi = gsi_stmt (gsi);
+		  tree result = gimple_phi_result (phi);
+		  if (!result_ok_for_phi_merging (result, dest, dest_idx))
+		    {
+		      update_ssa = true;
+		      mark_sym_for_renaming (SSA_NAME_VAR
+					     (PHI_RESULT (gsi_stmt (gsi))));
+		      remove_phi_node (&gsi, true);
+		    }
+		  else
+		    gsi_next (&gsi);
+		}
+	    }
 	}
     }
 
@@ -919,7 +949,7 @@ merge_phi_nodes (void)
     }
 
   free (worklist);
-  return 0;
+  return update_ssa ? (TODO_update_ssa | TODO_cleanup_cfg) : 0;
 }
 
 static bool
