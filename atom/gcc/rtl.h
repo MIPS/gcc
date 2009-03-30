@@ -1732,7 +1732,6 @@ extern bool offset_within_block_p (const_rtx, HOST_WIDE_INT);
 extern void split_const (rtx, rtx *, rtx *);
 extern int reg_mentioned_p (const_rtx, const_rtx);
 extern bool reg_mentioned_by_mem_p (const_rtx, const_rtx);
-extern bool reg_dep_by_addr_p (const_rtx, const_rtx);
 extern int count_occurrences (const_rtx, const_rtx, int);
 extern int reg_referenced_p (const_rtx, const_rtx);
 extern int reg_used_between_p (const_rtx, const_rtx, const_rtx);

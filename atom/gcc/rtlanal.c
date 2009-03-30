@@ -799,43 +799,6 @@ reg_mentioned_by_mem_p (const_rtx reg, const_rtx in)
   reg_mentioned_by_mem_p_1 (reg, in, &mem);
   return mem;
 }
-
-/* Return true if dest regsiter in set_insn is used in use_insn as 
-   address calculation.
-   For example, returns true if 
-     set_insn: reg_a = reg_b
-     use_insn: reg_c = (reg_a) # reg_a used in addr calculation
-   False if
-     set_insn: reg_a = reg_b
-     use_insn: (reg_c) = reg_a # reg_a is used, by not as addr.  */
-
-bool
-reg_dep_by_addr_p (const_rtx set_insn, const_rtx use_insn)
-{
-  rtx pattern = PATTERN (set_insn);
-  rtx set_dest = NULL;
-
-  switch (GET_CODE (pattern))
-    {
-      case SET:
-        set_dest = SET_DEST (pattern);
-        break;
-      case PARALLEL:
-        {
-          rtx pattern2 = XVECEXP (PATTERN (set_insn), 0,0);
-  	  if (GET_CODE (pattern2) == SET)
-  	    set_dest = SET_DEST (pattern2);
-          break;
-        }
-      default:
-        set_dest = NULL;
-    }
-
-  /* True if destination of set is reg and used as address.  */
-  return set_dest && REG_P (set_dest) 
-         && reg_mentioned_by_mem_p (set_dest, use_insn);
-}
-
 
 /* Return 1 if in between BEG and END, exclusive of BEG and END, there is
    no CODE_LABEL insn.  */
