@@ -3577,6 +3577,7 @@ build_conditional_expr (tree ifexp, bool ifexp_bcp, tree op1, tree op2)
   tree orig_op1 = op1, orig_op2 = op2;
   bool int_const, op1_int_operands, op2_int_operands, int_operands;
   tree ret;
+  bool objc_ok;
 
   /* Promote both alternatives.  */
 
@@ -3602,6 +3603,8 @@ build_conditional_expr (tree ifexp, bool ifexp_bcp, tree op1, tree op2)
       error ("non-lvalue array in conditional expression");
       return error_mark_node;
     }
+
+  objc_ok = objc_compare_types (type1, type2, -3, NULL_TREE);
 
   if ((TREE_CODE (op1) == EXCESS_PRECISION_EXPR
        || TREE_CODE (op2) == EXCESS_PRECISION_EXPR)
@@ -3739,8 +3742,9 @@ build_conditional_expr (tree ifexp, bool ifexp_bcp, tree op1, tree op2)
 	}
       else
 	{
-	  pedwarn (input_location, 0, 
-		   "pointer type mismatch in conditional expression");
+	  if (!objc_ok)
+	    pedwarn (input_location, 0, 
+		     "pointer type mismatch in conditional expression");
 	  result_type = build_pointer_type (void_type_node);
 	}
     }
@@ -8590,12 +8594,12 @@ build_binary_op (location_t location, enum tree_code code,
       /* Handle the pointer + int case.  */
       if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
-	  ret = pointer_int_sum (PLUS_EXPR, op0, op1);
+	  ret = pointer_int_sum (location, PLUS_EXPR, op0, op1);
 	  goto return_build_binary_op;
 	}
       else if (code1 == POINTER_TYPE && code0 == INTEGER_TYPE)
 	{
-	  ret = pointer_int_sum (PLUS_EXPR, op1, op0);
+	  ret = pointer_int_sum (location, PLUS_EXPR, op1, op0);
 	  goto return_build_binary_op;
 	}
       else
@@ -8614,7 +8618,7 @@ build_binary_op (location_t location, enum tree_code code,
       /* Handle pointer minus int.  Just like pointer plus int.  */
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
-	  ret = pointer_int_sum (MINUS_EXPR, op0, op1);
+	  ret = pointer_int_sum (location, MINUS_EXPR, op0, op1);
 	  goto return_build_binary_op;
 	}
       else

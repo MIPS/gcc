@@ -33,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "varray.h"
 #include "expr.h"
 #include "c-common.h"
-#include "diagnostic.h"
 #include "tm_p.h"
 #include "obstack.h"
 #include "cpplib.h"
@@ -42,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "c-tree.h"
 #include "toplev.h"
+#include "diagnostic.h"
 #include "tree-iterator.h"
 #include "hashtab.h"
 #include "tree-mudflap.h"
@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "gimple.h"
 #include "fixed-value.h"
+#include "libfuncs.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -613,6 +614,10 @@ tree (*make_fname_decl) (tree, int);
 /* Nonzero means the expression being parsed will never be evaluated.
    This is a count, since unevaluated expressions can nest.  */
 int skip_evaluation;
+
+/* Whether lexing has been completed, so subsequent preprocessor
+   errors should use the compiler's input_location.  */
+bool done_lexing = false;
 
 /* Information about how a function name is generated.  */
 struct fname_var_t
@@ -3745,7 +3750,8 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
    of pointer PTROP and integer INTOP.  */
 
 tree
-pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
+pointer_int_sum (location_t location, enum tree_code resultcode,
+		 tree ptrop, tree intop)
 {
   tree size_exp, ret;
 
@@ -3754,19 +3760,19 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 
   if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
     {
-      pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
+      pedwarn (location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
 	       "pointer of type %<void *%> used in arithmetic");
       size_exp = integer_one_node;
     }
   else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE)
     {
-      pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
+      pedwarn (location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
 	       "pointer to a function used in arithmetic");
       size_exp = integer_one_node;
     }
   else if (TREE_CODE (TREE_TYPE (result_type)) == METHOD_TYPE)
     {
-      pedwarn (input_location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
+      pedwarn (location, pedantic ? OPT_pedantic : OPT_Wpointer_arith, 
 	       "pointer to member function used in arithmetic");
       size_exp = integer_one_node;
     }
@@ -3828,6 +3834,31 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
   /* Create the sum or difference.  */
   if (resultcode == MINUS_EXPR)
     intop = fold_build1 (NEGATE_EXPR, sizetype, intop);
+
+  if (TREE_CODE (intop) == INTEGER_CST)
+    {
+      tree offset_node;
+      tree string_cst = string_constant (ptrop, &offset_node);
+
+      if (string_cst != 0 
+	  && !(offset_node && TREE_CODE (offset_node) != INTEGER_CST))
+	{
+	  HOST_WIDE_INT max = TREE_STRING_LENGTH (string_cst);
+	  HOST_WIDE_INT offset;
+	  if (offset_node == 0)
+	    offset = 0;
+	  else if (! host_integerp (offset_node, 0))
+	    offset = -1;
+	  else
+	    offset = tree_low_cst (offset_node, 0);
+
+	  offset = offset + tree_low_cst (intop, 0);
+	  if (offset < 0 || offset > max)
+	    warning_at (location, 0,
+			"offset %<%wd%> outside bounds of constant string",
+			tree_low_cst (intop, 0));
+	}
+    }
 
   ret = fold_build2 (POINTER_PLUS_EXPR, result_type, ptrop, intop);
 
@@ -5047,10 +5078,28 @@ set_builtin_user_assembler_name (tree decl, const char *asmspec)
 
   builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
   set_user_assembler_name (builtin, asmspec);
-  if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMCPY)
-    init_block_move_fn (asmspec);
-  else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
-    init_block_clear_fn (asmspec);
+  switch (DECL_FUNCTION_CODE (decl))
+    {
+    case BUILT_IN_MEMCPY:
+      init_block_move_fn (asmspec);
+      memcpy_libfunc = set_user_assembler_libfunc ("memcpy", asmspec);
+      break;
+    case BUILT_IN_MEMSET:
+      init_block_clear_fn (asmspec);
+      memset_libfunc = set_user_assembler_libfunc ("memset", asmspec);
+      break;
+    case BUILT_IN_MEMMOVE:
+      memmove_libfunc = set_user_assembler_libfunc ("memmove", asmspec);
+      break;
+    case BUILT_IN_MEMCMP:
+      memcmp_libfunc = set_user_assembler_libfunc ("memcmp", asmspec);
+      break;
+    case BUILT_IN_ABORT:
+      abort_libfunc = set_user_assembler_libfunc ("abort", asmspec);
+      break;
+    default:
+      break;
+    }
 }
 
 /* The number of named compound-literals generated thus far.  */
@@ -5627,43 +5676,6 @@ finish_label_address_expr (tree label, location_t loc)
     }
 
   return result;
-}
-
-/* Hook used by expand_expr to expand language-specific tree codes.  */
-/* The only things that should go here are bits needed to expand
-   constant initializers.  Everything else should be handled by the
-   gimplification routines.  */
-
-rtx
-c_expand_expr (tree exp, rtx target, enum machine_mode tmode,
-	       int modifiera /* Actually enum expand_modifier.  */,
-	       rtx *alt_rtl)
-{
-  enum expand_modifier modifier = (enum expand_modifier) modifiera;
-  switch (TREE_CODE (exp))
-    {
-    case COMPOUND_LITERAL_EXPR:
-      {
-	/* Initialize the anonymous variable declared in the compound
-	   literal, then return the variable.  */
-	tree decl = COMPOUND_LITERAL_EXPR_DECL (exp);
-	emit_local_var (decl);
-	return expand_expr_real (decl, target, tmode, modifier, alt_rtl);
-      }
-
-    default:
-      gcc_unreachable ();
-    }
-}
-
-/* Hook used by staticp to handle language-specific tree codes.  */
-
-tree
-c_staticp (tree exp)
-{
-  return (TREE_CODE (exp) == COMPOUND_LITERAL_EXPR
-	  && TREE_STATIC (COMPOUND_LITERAL_EXPR_DECL (exp))
-	  ? exp : NULL);
 }
 
 
@@ -6631,7 +6643,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       error ("requested alignment is not a power of 2");
       *no_add_attrs = true;
     }
-  else if (i > HOST_BITS_PER_INT - 2)
+  else if (i >= HOST_BITS_PER_INT - BITS_PER_UNIT_LOG)
     {
       error ("requested alignment is too large");
       *no_add_attrs = true;
@@ -6653,7 +6665,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       else if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
 	*type = build_variant_type_copy (*type);
 
-      TYPE_ALIGN (*type) = (1 << i) * BITS_PER_UNIT;
+      TYPE_ALIGN (*type) = (1U << i) * BITS_PER_UNIT;
       TYPE_USER_ALIGN (*type) = 1;
     }
   else if (! VAR_OR_FUNCTION_DECL_P (decl)
@@ -6663,7 +6675,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       *no_add_attrs = true;
     }
   else if (TREE_CODE (decl) == FUNCTION_DECL
-	   && DECL_ALIGN (decl) > (1 << i) * BITS_PER_UNIT)
+	   && DECL_ALIGN (decl) > (1U << i) * BITS_PER_UNIT)
     {
       if (DECL_USER_ALIGN (decl))
 	error ("alignment for %q+D was previously specified as %d "
@@ -6676,7 +6688,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
     }
   else
     {
-      DECL_ALIGN (decl) = (1 << i) * BITS_PER_UNIT;
+      DECL_ALIGN (decl) = (1U << i) * BITS_PER_UNIT;
       DECL_USER_ALIGN (decl) = 1;
     }
 
@@ -8201,6 +8213,65 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
       free (message);
     }
 #undef catenate_messages
+}
+
+/* Callback from cpp_error for PFILE to print diagnostics from the
+   preprocessor.  The diagnostic is of type LEVEL, at location
+   LOCATION unless this is after lexing and the compiler's location
+   should be used instead, with column number possibly overridden by
+   COLUMN_OVERRIDE if not zero; MSG is the translated message and AP
+   the arguments.  Returns true if a diagnostic was emitted, false
+   otherwise.  */
+
+bool
+c_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level,
+	     location_t location, unsigned int column_override,
+	     const char *msg, va_list *ap)
+{
+  diagnostic_info diagnostic;
+  diagnostic_t dlevel;
+  int save_warn_system_headers = warn_system_headers;
+  bool ret;
+
+  switch (level)
+    {
+    case CPP_DL_WARNING_SYSHDR:
+      if (flag_no_output)
+	return false;
+      warn_system_headers = 1;
+      /* Fall through.  */
+    case CPP_DL_WARNING:
+      if (flag_no_output)
+	return false;
+      dlevel = DK_WARNING;
+      break;
+    case CPP_DL_PEDWARN:
+      if (flag_no_output && !flag_pedantic_errors)
+	return false;
+      dlevel = DK_PEDWARN;
+      break;
+    case CPP_DL_ERROR:
+      dlevel = DK_ERROR;
+      break;
+    case CPP_DL_ICE:
+      dlevel = DK_ICE;
+      break;
+    case CPP_DL_NOTE:
+      dlevel = DK_NOTE;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  if (done_lexing)
+    location = input_location;
+  diagnostic_set_info_translated (&diagnostic, msg, ap,
+				  location, dlevel);
+  if (column_override)
+    diagnostic_override_column (&diagnostic, column_override);
+  ret = report_diagnostic (&diagnostic);
+  if (level == CPP_DL_WARNING_SYSHDR)
+    warn_system_headers = save_warn_system_headers;
+  return ret;
 }
 
 /* Walk a gimplified function and warn for functions whose return value is

@@ -583,7 +583,7 @@ remove_unused_scope_block_p (tree scope)
    else if (debug_info_level == DINFO_LEVEL_NONE
 	    || debug_info_level == DINFO_LEVEL_TERSE)
      ;
-   else if (BLOCK_VARS (scope))
+   else if (BLOCK_VARS (scope) || BLOCK_NUM_NONLOCALIZED_VARS (scope))
      unused = false;
    /* See if this block is important for representation of inlined function.
       Inlined functions are always represented by block with
@@ -613,6 +613,7 @@ static void
 dump_scope_block (FILE *file, int indent, tree scope, int flags)
 {
   tree var, t;
+  unsigned int i;
 
   fprintf (file, "\n%*s{ Scope block #%i%s%s",indent, "" , BLOCK_NUMBER (scope),
   	   TREE_USED (scope) ? "" : " (unused)",
@@ -647,6 +648,13 @@ dump_scope_block (FILE *file, int indent, tree scope, int flags)
       fprintf (file, "%*s",indent, "");
       print_generic_decl (file, var, flags);
       fprintf (file, "%s\n", used ? "" : " (unused)");
+    }
+  for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (scope); i++)
+    {
+      fprintf (file, "%*s",indent, "");
+      print_generic_decl (file, BLOCK_NONLOCALIZED_VAR (scope, i),
+      			  flags);
+      fprintf (file, " (nonlocalized)\n");
     }
   for (t = BLOCK_SUBBLOCKS (scope); t ; t = BLOCK_CHAIN (t))
     dump_scope_block (file, indent + 2, t, flags);
@@ -732,7 +740,8 @@ remove_unused_locals (void)
 
       if (TREE_CODE (var) != FUNCTION_DECL
 	  && (!(ann = var_ann (var))
-	      || !ann->used))
+	      || !ann->used)
+	  && (optimize || DECL_ARTIFICIAL (var)))
 	{
 	  if (is_global_var (var))
 	    {
@@ -773,8 +782,7 @@ remove_unused_locals (void)
 
 	  if (TREE_CODE (var) == VAR_DECL
 	      && is_global_var (var)
-	      && bitmap_bit_p (global_unused_vars, DECL_UID (var))
-	      && (optimize || DECL_ARTIFICIAL (var)))
+	      && bitmap_bit_p (global_unused_vars, DECL_UID (var)))
 	    *cell = TREE_CHAIN (*cell);
 	  else
 	    cell = &TREE_CHAIN (*cell);

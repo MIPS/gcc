@@ -39,5 +39,5 @@ foo (void)
   ASSERT_NOT_NPC ((void *)(0, ZERO)); /* { dg-bogus "incompatible" "bogus null pointer constant" } */
   ASSERT_NOT_NPC ((void *)(&"Foobar"[0] - &"Foobar"[0])); /* { dg-bogus "incompatible" "bogus null pointer constant" } */
   /* This last one is a null pointer constant in C99 only.  */
-  ASSERT_NOT_NPC ((void *)(1 ? 0 : (0, 0))); /* { dg-bogus "incompatible" "bogus null pointer constant" } */
+  ASSERT_NOT_NPC ((void *)(1 ? ZERO : (0, ZERO))); /* { dg-bogus "incompatible" "bogus null pointer constant" } */
 }

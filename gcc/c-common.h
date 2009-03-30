@@ -1,6 +1,6 @@
 /* Definitions for c-common.c.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -716,6 +716,11 @@ extern int max_tinst_depth;
 
 extern int skip_evaluation;
 
+/* Whether lexing has been completed, so subsequent preprocessor
+   errors should use the compiler's input_location.  */
+
+extern bool done_lexing;
+
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
@@ -807,7 +812,7 @@ extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwis
    and, if so, perhaps change them both back to their original type.  */
 extern tree shorten_compare (tree *, tree *, tree *, enum tree_code *);
 
-extern tree pointer_int_sum (enum tree_code, tree, tree);
+extern tree pointer_int_sum (location_t, enum tree_code, tree, tree);
 
 /* Add qualifiers to a type, in the fashion for C.  */
 extern tree c_build_qualified_type (tree, int);
@@ -854,11 +859,20 @@ extern void finish_file	(void);
 #define STATEMENT_LIST_HAS_LABEL(NODE) \
   TREE_LANG_FLAG_3 (STATEMENT_LIST_CHECK (NODE))
 
-/* COMPOUND_LITERAL_EXPR accessors.  */
-#define COMPOUND_LITERAL_EXPR_DECL_STMT(NODE)		\
-  TREE_OPERAND (COMPOUND_LITERAL_EXPR_CHECK (NODE), 0)
-#define COMPOUND_LITERAL_EXPR_DECL(NODE)			\
-  DECL_EXPR_DECL (COMPOUND_LITERAL_EXPR_DECL_STMT (NODE))
+/* C_MAYBE_CONST_EXPR accessors.  */
+#define C_MAYBE_CONST_EXPR_PRE(NODE)			\
+  TREE_OPERAND (C_MAYBE_CONST_EXPR_CHECK (NODE), 0)
+#define C_MAYBE_CONST_EXPR_EXPR(NODE)			\
+  TREE_OPERAND (C_MAYBE_CONST_EXPR_CHECK (NODE), 1)
+#define C_MAYBE_CONST_EXPR_INT_OPERANDS(NODE)		\
+  TREE_LANG_FLAG_0 (C_MAYBE_CONST_EXPR_CHECK (NODE))
+#define C_MAYBE_CONST_EXPR_NON_CONST(NODE)		\
+  TREE_LANG_FLAG_1 (C_MAYBE_CONST_EXPR_CHECK (NODE))
+#define EXPR_INT_CONST_OPERANDS(EXPR)			\
+  (INTEGRAL_TYPE_P (TREE_TYPE (EXPR))			\
+   && (TREE_CODE (EXPR) == INTEGER_CST			\
+       || (TREE_CODE (EXPR) == C_MAYBE_CONST_EXPR	\
+	   && C_MAYBE_CONST_EXPR_INT_OPERANDS (EXPR))))
 
 /* C_MAYBE_CONST_EXPR accessors.  */
 #define C_MAYBE_CONST_EXPR_PRE(NODE)			\
@@ -883,7 +897,6 @@ extern void finish_file	(void);
 #define CLEAR_DECL_C_BIT_FIELD(NODE) \
   (DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE)) = 0)
 
-extern void emit_local_var (tree);
 extern tree do_case (tree, tree);
 extern tree build_stmt (enum tree_code, ...);
 extern tree build_case_label (tree, tree, tree);
@@ -931,8 +944,6 @@ extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
-
-extern tree c_staticp (tree);
 
 extern void init_c_lex (void);
 
