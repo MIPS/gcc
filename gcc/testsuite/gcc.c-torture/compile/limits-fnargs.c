@@ -7,7 +7,7 @@
 #define PAR5 PAR4, PAR4, PAR4, PAR4, PAR4, PAR4, PAR4, PAR4, PAR4, PAR4
 #define PAR6 PAR5, PAR5, PAR5, PAR5, PAR5, PAR5, PAR5, PAR5, PAR5, PAR5
 
-extern void func (PAR2);
+extern void func (PAR4);
 
 #define ARG1 0,1,2,3,4,5,6,7,8,9
 #define ARG2 ARG1, ARG1, ARG1, ARG1, ARG1, ARG1, ARG1, ARG1, ARG1, ARG1
@@ -18,5 +18,5 @@ extern void func (PAR2);
 
 void caller(void)
 {
-  func (ARG2);
+  func (ARG4);
 }
