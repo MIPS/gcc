@@ -4,7 +4,7 @@ HOW TO Build and Install CIL Backend With DotGnu based binutils
 
 dependencies:
 	- Mono C# compiler (mcs or mcs1)
-	- DotGnu Binutils (ilasm, ilalink and OpenSystem.C.dll)
+	- DotGnu Binutils (ilasm, ilalink and OpenSystem.C.dll) in the path
 	- a CLI framework for the standard libraries (mscorlib.dll, ...)
 
 build directories
@@ -34,6 +34,52 @@ set environment variables (examples with bash sintax):
 build and install binutils:
 cd <...>/gcc-build/binutils
 <...>/gcc-src/binutils/configure --target=cil32 --prefix=<...>/image --with-local-prefix=<...>/image/cil32
+make
+make install
+
+build and install gcc:
+cd <...>/gcc-build/gcc
+<...>/gcc-src/gcc/configure --target=cil32 --enable-languages=c --disable-bootstrap --prefix=<...>/image --with-local-prefix=<...>/image/cil32
+make
+make install
+
+Now in <...>/image/bin you can find all the tools cil32-gcc, cil32-as, ...
+There are also 2 small wrappers to execute code compiled with the toolchain on Mono and DotGnu
+they are called cil32-mono and cil32-ilrun
+
+
+HOW TO Build and Install CIL Backend With Mono based binutils
+-----------------------------------
+
+dependencies:
+	- Mono C# compiler mcs or mcs1
+	- ilasm (from Mono or DotGnu) in the path
+	- a CLI framework for the standard libraries (mscorlib.dll, ...)
+
+build directories
+# Sources directory
+mkdir <...>/gcc-src
+# Build directory
+mkdir <...>/gcc-build
+mkdir <...>/gcc-build/binutils
+mkdir <...>/gcc-build/gcc
+# Install directory
+mkdir <...>/image
+
+check out components:
+svn co svn://gcc.gnu.org/svn/gcc/branches/st/mono-based-binutils <...>/gcc-src/binutils
+svn co svn://anonsvn.mono-project.com/source/trunk/mcs/class/Mono.Cecil@106839 <...>/gcc-src/binutils/tools/Mono.Cecil
+svn co svn://gcc.gnu.org/svn/gcc/branches/st/cli-be <...>/gcc-src/gcc
+
+set environment variables (examples with bash sintax):
+- if mono c# compiler is not in the path or is different than mcs set MCS
+  export MCS=mcs1
+- to specify wich is the runtime (mscorlib.dll, ...) to link to, define CLISTDDIR 
+  export CLISTDDIR=/usr/lib/mono/1.0
+
+build and install binutils:
+cd <...>/gcc-build/binutils
+<...>/gcc-src/binutils/configure --target=cil32 --prefix=<...>/image
 make
 make install
 
