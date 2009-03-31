@@ -1,3 +1,10 @@
+2009-03-31  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/ea/cppdefine32.c: Support -mea32 / -mea64 testsuite runs.
+	* gcc.dg/ea/cppdefine64.c: Likewise.
+	* gcc.dg/ea/cache32.c: Likewise.
+	* gcc.dg/ea/cache64.c: Likewise.
+
 2008-12-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/spu/ea/errors3.c (ea_init): Move tests to errors4.c.

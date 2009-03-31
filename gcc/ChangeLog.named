@@ -1,3 +1,9 @@
+2009-03-31  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/spu/spu-elf.h (DRIVER_SELF_SPECS): Remove.
+	(LIB_SPEC): Handle -mcache-size= and -matomic-updates flags here.
+	* config/spu/spu.opt (-mcache-size=, -matomic-updates): Add flags.
+
 2009-01-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* auto-inc-dec.c (toplevel): Include target.h.

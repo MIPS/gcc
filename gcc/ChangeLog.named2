@@ -373,9 +373,8 @@
 	(TARGET_ADDR_SPACE_KEYWORDS): New macro to define the __ea
 	keyword.
 
-	* config/spu/spu-elf.h (DRIVER_SELF_SPECS): Add support for
+	* config/spu/spu-elf.h (LIB_SPECS): Add support for
 	-mcache-size=, -matomic-updates switches.
-	(LIB_SPEC): Ditto.
 
 	* config/spu/spu.md (to_ea): New expanders for __ea named address
 	space support.
@@ -386,6 +385,8 @@
 
 	* config/spu/spu.opt (-mea32): New switch.
 	(-mea64): Ditto.
+	(-mcache-size=): Ditto.
+	(-matomic-updates): Ditto.
 	(-mno-ea-to-generic-conversion): Ditto.
 	(-mea-to-generic-conversion): Ditto.
 	(-mno-address-space-conversion): Ditto.
