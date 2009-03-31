@@ -48,7 +48,6 @@
 #include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
-#include "tree-ssa-structalias.h"
 #include "cgraph.h"
 #include "alias.h"
 #include "pointer-set.h"
@@ -184,6 +183,9 @@ static bitmap_obstack iteration_obstack;
 static unsigned int create_variable_info_for (tree, const char *);
 typedef struct constraint_graph *constraint_graph_t;
 static void unify_nodes (constraint_graph_t, unsigned int, unsigned int, bool);
+
+struct constraint;
+typedef struct constraint *constraint_t;
 
 DEF_VEC_P(constraint_t);
 DEF_VEC_ALLOC_P(constraint_t,heap);
@@ -562,7 +564,7 @@ new_constraint (const struct constraint_expr lhs,
 
 /* Print out constraint C to FILE.  */
 
-void
+static void
 dump_constraint (FILE *file, constraint_t c)
 {
   if (c->lhs.type == ADDRESSOF)
@@ -587,6 +589,13 @@ dump_constraint (FILE *file, constraint_t c)
   fprintf (file, "\n");
 }
 
+
+void debug_constraint (constraint_t);
+void debug_constraints (void);
+void debug_constraint_graph (void);
+void debug_solution_for_var (unsigned int);
+void debug_sa_points_to_info (void);
+
 /* Print out constraint C to stderr.  */
 
 void
@@ -597,7 +606,7 @@ debug_constraint (constraint_t c)
 
 /* Print out all constraints to FILE */
 
-void
+static void
 dump_constraints (FILE *file)
 {
   int i;
@@ -621,7 +630,7 @@ debug_constraints (void)
    complex with an offset, e.g: a = b + 8, then the label is "+".
    Otherwise the edge has no label.  */
 
-void
+static void
 dump_constraint_edge (FILE *file, constraint_t c)
 {
   if (c->rhs.type != ADDRESSOF)
@@ -649,7 +658,7 @@ dump_constraint_edge (FILE *file, constraint_t c)
 
 /* Print the constraint graph in dot format.  */
 
-void
+static void
 dump_constraint_graph (FILE *file)
 {
   unsigned int i=0, size;
@@ -4410,7 +4419,7 @@ create_variable_info_for (tree decl, const char *name)
 
 /* Print out the points-to solution for VAR to FILE.  */
 
-void
+static void
 dump_solution_for_var (FILE *file, unsigned int var)
 {
   varinfo_t vi = get_varinfo (var);
@@ -5049,7 +5058,7 @@ pt_solutions_intersect (struct pt_solution *pt1, struct pt_solution *pt2)
 
 /* Dump points-to information to OUTFILE.  */
 
-void
+static void
 dump_sa_points_to_info (FILE *outfile)
 {
   unsigned int i;

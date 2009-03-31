@@ -1,3 +1,13 @@
+2009-03-31  Richard Guenther  <rguenther@suse.de>
+
+	* Makefile.in (tree-ssa-structalias.o): Remove tree-ssa-structalias.h
+	dependency.
+	(tree-ssa-alias.o): Likewise.
+	(GTFILES): Remove tree-ssa-structalias.h.
+	* tree-ssa-alias.c: Do not include tree-ssa-structalias.h.
+	* tree-ssa-structalias.c: Likewise.
+	* tree-ssa-structalias.h: Remove file.
+
 2009-03-30  Richard Guenther  <rguenther@suse.de>
 
 	Merge from trunk r145297.

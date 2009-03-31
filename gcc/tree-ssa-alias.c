@@ -40,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
-#include "tree-ssa-structalias.h"
 #include "convert.h"
 #include "params.h"
 #include "ipa-type-escape.h"
