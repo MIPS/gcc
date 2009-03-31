@@ -4240,6 +4240,7 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
 {
   basic_block bb;
   struct function *fn;
+  tree t;
 
   /* Although free_lang_data_in_cgraph will set the assembler name on
      most DECLs, it refuses to do it on unused ones.  For cgraph
@@ -4255,6 +4256,17 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
   gcc_assert (current_function_decl == NULL_TREE && cfun == NULL);
 
   fn = DECL_STRUCT_FUNCTION (n->decl);
+
+  /* Traverse locals. */
+
+  for (t = fn->local_decls; t; t = TREE_CHAIN (t))
+    {
+      tree *tp = &TREE_VALUE (t);
+      tree saved_chain = TREE_CHAIN (*tp);
+      TREE_CHAIN (*tp) = NULL_TREE;
+      walk_tree (tp, find_decls_types_r, fld, fld->pset);
+      TREE_CHAIN (*tp) = saved_chain;
+    }
 
   /* Traverse EH regions in FN.  */
   if (fn->eh->region_array)

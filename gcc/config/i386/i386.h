@@ -791,6 +791,19 @@ enum target_cpu_default
 #define STACK_SLOT_ALIGNMENT(TYPE, MODE, ALIGN) \
   ix86_local_alignment ((TYPE), (MODE), (ALIGN))
 
+/* If defined, a C expression to compute the alignment for a local
+   variable DECL.
+
+   If this macro is not defined, then
+   LOCAL_ALIGNMENT (TREE_TYPE (DECL), DECL_ALIGN (DECL)) will be used.
+
+   One use of this macro is to increase alignment of medium-size
+   data to make it all fit in fewer cache lines.  */
+
+#define LOCAL_DECL_ALIGNMENT(DECL) \
+  ix86_local_alignment ((DECL), VOIDmode, DECL_ALIGN (DECL))
+
+
 /* If defined, a C expression that gives the alignment boundary, in
    bits, of an argument with the specified mode and type.  If it is
    not defined, `PARM_BOUNDARY' is used for all arguments.  */
@@ -938,10 +951,10 @@ do {									\
 	&& ((cfun && cfun->machine->call_abi == MS_ABI)			\
 	    || (!cfun && DEFAULT_ABI == MS_ABI)))			\
       {									\
-	call_used_regs[4 /*RSI*/] = 0;					\
-	call_used_regs[5 /*RDI*/] = 0;					\
-	call_used_regs[27 /*XMM6*/] = 0;				\
-	call_used_regs[28 /*XMM7*/] = 0;				\
+	call_used_regs[SI_REG] = 0;					\
+	call_used_regs[DI_REG] = 0;					\
+	call_used_regs[XMM6_REG] = 0;					\
+	call_used_regs[XMM7_REG] = 0;					\
 	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
 	  call_used_regs[i] = 0;					\
       }									\
@@ -1073,7 +1086,7 @@ do {									\
    : (MODE) == VOIDmode && (NREGS) != 1 ? VOIDmode			\
    : (MODE) == VOIDmode ? choose_hard_reg_mode ((REGNO), (NREGS), false) \
    : (MODE) == HImode && !TARGET_PARTIAL_REG_STALL ? SImode		\
-   : (MODE) == QImode && (REGNO) >= 4 && !TARGET_64BIT ? SImode 	\
+   : (MODE) == QImode && (REGNO) > BX_REG && !TARGET_64BIT ? SImode 	\
    : (MODE))
 
 /* Specify the registers used for certain standard purposes.
@@ -1310,7 +1323,7 @@ enum reg_class
 
 #define SMALL_REGISTER_CLASSES 1
 
-#define QI_REG_P(X) (REG_P (X) && REGNO (X) < 4)
+#define QI_REG_P(X) (REG_P (X) && REGNO (X) <= BX_REG)
 
 #define GENERAL_REGNO_P(N) \
   ((N) <= STACK_POINTER_REGNUM || REX_INT_REGNO_P (N))
@@ -1508,7 +1521,8 @@ enum reg_class
    prologue and apilogue.  This is not possible without
    ACCUMULATE_OUTGOING_ARGS.  */
 
-#define ACCUMULATE_OUTGOING_ARGS (TARGET_ACCUMULATE_OUTGOING_ARGS || ix86_cfun_abi () == MS_ABI)
+#define ACCUMULATE_OUTGOING_ARGS \
+  (TARGET_ACCUMULATE_OUTGOING_ARGS || ix86_cfun_abi () == MS_ABI)
 
 /* If defined, a C expression whose value is nonzero when we want to use PUSH
    instructions to pass outgoing arguments.  */

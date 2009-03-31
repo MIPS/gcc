@@ -1106,7 +1106,7 @@ Optional Packages:
                           use sysroot as the system root during the build
   --with-sysroot=DIR Search for usr/lib, usr/include, et al, within DIR.
   --with-pkgversion=PKG   Use PKG in the version string in place of "lto
-                          merged with rev 144635"
+                          merged with rev 145100"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
@@ -8135,7 +8135,7 @@ echo "$as_me: error: package version not specified" >&2;}
       *)   PKGVERSION="($withval) " ;;
      esac
 else
-  PKGVERSION="(lto merged with rev 144635) "
+  PKGVERSION="(lto merged with rev 145100) "
 
 fi;
 
@@ -22158,6 +22158,17 @@ foo:	.long	25
 	tls_first_minor=13
 	tls_as_opt=--fatal-warnings
 	;;
+  cris-*-*|crisv32-*-*)
+    conftest_s='
+	.section ".tdata","awT",@progbits
+x:      .long   25
+        .text
+	move.d x:IE,$r10
+	nop'
+	tls_first_major=2
+	tls_first_minor=20
+	tls_as_opt=--fatal-warnings
+	;;
   frv*-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
@@ -23842,7 +23853,7 @@ esac
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
   | x86_64*-*-* | hppa*-*-* | arm*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa*-*-* | bfin-*-* | score*-*-* \
+  | xstormy16*-*-* | cris-*-* | crisv32-*-* | xtensa*-*-* | bfin-*-* | score*-*-* \
   | spu-*-* | fido*-*-* | m32c-*-*)
     insn="nop"
     ;;

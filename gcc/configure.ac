@@ -781,7 +781,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([lto merged with rev 144635])
+ACX_PKGVERSION([lto merged with rev 145100])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -2448,6 +2448,17 @@ foo:	.long	25
 	tls_first_minor=13
 	tls_as_opt=--fatal-warnings
 	;;
+  cris-*-*|crisv32-*-*)
+    conftest_s='
+	.section ".tdata","awT",@progbits
+x:      .long   25
+        .text
+	move.d x:IE,$r10
+	nop'
+	tls_first_major=2
+	tls_first_minor=20
+	tls_as_opt=--fatal-warnings
+	;;
   frv*-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
@@ -3217,7 +3228,7 @@ esac
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
   | x86_64*-*-* | hppa*-*-* | arm*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa*-*-* | bfin-*-* | score*-*-* \
+  | xstormy16*-*-* | cris-*-* | crisv32-*-* | xtensa*-*-* | bfin-*-* | score*-*-* \
   | spu-*-* | fido*-*-* | m32c-*-*)
     insn="nop"
     ;;

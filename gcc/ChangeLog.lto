@@ -1,3 +1,10 @@
+2009-03-31  Rafael Avila de Espindola  <espindola@google.com>
+
+	Mainline merge @145100.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2009-03-26  Diego Novillo  <dnovillo@google.com>
 
 	* tree-pretty-print.c (dump_generic_node): Merge handler
