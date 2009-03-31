@@ -141,7 +141,7 @@ parse_table_entry (char *p, struct ld_plugin_symbol *entry, uint32_t *slot)
     p++;
   p++;
 
-  if (strcmp (entry->comdat_key, "") == 0)
+  if (strlen (entry->comdat_key) == 0)
     entry->comdat_key = NULL;
   else
     entry->comdat_key = strdup (entry->comdat_key);

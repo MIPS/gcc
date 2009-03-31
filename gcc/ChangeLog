@@ -1,7 +1,42 @@
+2009-03-27  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/39557
+	* tree-ssa.c (warn_uninitialized_vars): free postdom info.
+
+2009-03-27  Xinliang David Li  <davidxl@google.com>
+
+	PR tree-optimization/39548
+	* tree-ssa-copy.c (copy_prop_visit_phi_node): Add copy 
+	candidate check.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* c-common.c (pointer_int_sum): Use %wd on return from
+	tree_low_cst.
+
+2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* c-common.c (pointer_int_sum): Use HOST_WIDE_INT_PRINT_DEC
+	on return from tree_low_cst.
+
+2009-03-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c++/36799
+	* ginclude/stdarg.h (va_copy): Define also for __GXX_EXPERIMENTAL_CXX0X__.
+
+2009-03-27  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35652
+	* builtins.h (c_strlen): Do not warn here.
+	* c-typeck.c (build_binary_op): Adjust calls to pointer_int_sum.
+	* c-common.c (pointer_int_sum): Take an explicit location.
+	Warn about offsets out of bounds.
+	* c-common.h (pointer_int_sum): Adjust declaration.
+
 2009-03-26  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
-        * doc/invoke.texi (i386 and x86-64 Windows Options): Fix texinfo
-        markup glitch.
+	* doc/invoke.texi (i386 and x86-64 Windows Options): Fix texinfo
+	markup glitch.
 
 2009-03-26  Jakub Jelinek  <jakub@redhat.com>
 
