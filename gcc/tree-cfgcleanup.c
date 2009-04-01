@@ -910,11 +910,10 @@ merge_phi_nodes (void)
 	      gimple phi = gsi_stmt (gsi);
 	      tree result = gimple_phi_result (phi);
 	      if (!result_ok_for_phi_merging (result, dest, dest_idx)
-		  /* Nonoverlapping liveranges can be handled by
+		  /* Virtuals can be handled by
 		     re-doing SSA form on them.  This is very common
 		     for abnormal control flows constructed by EH,
 		     like main function of tramp3d benchmark.  */
-		  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (result)
 		  && is_gimple_reg (SSA_NAME_VAR (result)))
 		break;
 	    }
