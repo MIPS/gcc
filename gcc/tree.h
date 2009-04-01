@@ -4020,7 +4020,6 @@ extern tree build_call_array (tree, tree, int, tree*);
 
 extern tree make_signed_type (int);
 extern tree make_unsigned_type (int);
-extern tree make_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree signed_or_unsigned_type_for (int, tree);
 extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);

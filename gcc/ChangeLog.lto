@@ -1,5 +1,26 @@
 2009-04-01  Rafael Avila de Espindola  <espindola@google.com>
 
+       Revert
+
+	2007-11-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+        	* c-common.c (c_build_bitfield_integer_type): Rename this...
+        	* stor-layout.c (make_bitfield_integer_type): ...to this.
+        	* c-decl.c (finish_struct): Use new name.
+        	* c-common.h (c_build_bitfield_integer_type): Move declaration...
+        	* tree.h (make_bitfield_integer_type): ...here.
+
+	2007-11-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+        	* class.c (layout_class_type): Use make_bitfield_integer_type.
+
+	2007-11-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+        	* lto.c (lto_read_base_type_DIE): Use make_bitfield_integer_type to
+        	construct the integer type for bitfields.
+
+2009-04-01  Rafael Avila de Espindola  <espindola@google.com>
+
 	* gcc.c (lto_single): Remove.
 	(lto_single_spec_function): Remove. Update all uses.
 	(The Specs Language): Remove support for calling functions.

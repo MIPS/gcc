@@ -4981,8 +4981,8 @@ layout_class_type (tree t, tree *virtuals_p)
 	  if (width != TYPE_PRECISION (ftype))
 	    {
 	      TREE_TYPE (field)
-		= make_bitfield_integer_type (width,
-					      TYPE_UNSIGNED (ftype));
+		= c_build_bitfield_integer_type (width,
+						 TYPE_UNSIGNED (ftype));
 	      TREE_TYPE (field)
 		= cp_build_qualified_type (TREE_TYPE (field),
 					   TYPE_QUALS (ftype));
