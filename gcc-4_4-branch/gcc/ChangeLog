@@ -1,3 +1,60 @@
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39226
+	* config/rs6000/rs6000.md (andsi3_internal5_nomc,
+	anddi3_internal2_nomc, anddi3_internal3_nomc): Removed.
+	(booldi3_internal3): Use boolean_or_operator instead of
+	boolean_operator.
+
+	PR c/37772
+	* c-parser.c (c_parser_asm_statement): Skip until close paren and
+	return if c_parser_asm_string_literal returned NULL.
+
+2009-04-01  Kai Tietz  <kai.tietz@onevision.com>
+            Andrey Galkin <agalkin@hypercom.com>
+
+        PR/39492
+        * config/i386/host-mingw32.c (mingw32_gt_pch_use_address):
+        Make object_name unique for each process.
+
+2009-04-01  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.c (avr_override_options): Inform user that
+	-mno-tablejump option is deprecated.
+	* doc/invoke.texi (AVR Options): Update -mno-tablejump.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/39591
+	* omp-low.c (remove_exit_barrier): Don't optimize if there are any
+	addressable variables in the parallel that could go out of scope while
+	running queued tasks.
+
+2009-03-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* doc/invoke.texi (-floop-interchange, -floop-strip-mine,
+	-floop-block): Document dependences on PPL, CLooG and Graphite.
+
+2009-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert
+
+	2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+	* c-common.c (pointer_int_sum): Use %wd on return from
+	tree_low_cst.
+
+	2009-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+	* c-common.c (pointer_int_sum): Use HOST_WIDE_INT_PRINT_DEC
+	on return from tree_low_cst.
+
+	2009-03-27  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+	PR c++/35652
+	* builtins.h (c_strlen): Do not warn here.
+	* c-typeck.c (build_binary_op): Adjust calls to pointer_int_sum.
+	* c-common.c (pointer_int_sum): Take an explicit location.
+	Warn about offsets out of bounds.
+	* c-common.h (pointer_int_sum): Adjust declaration.
+
 2009-03-29  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
