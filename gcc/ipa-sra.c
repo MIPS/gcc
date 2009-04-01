@@ -402,6 +402,64 @@ dump_struct (tree t, int indent)
     dump_struct_1 (type, indent);
 }
 
+/* Return a vector of pointers to accesses for the variable given in BASE or
+   NULL if there is none.  */
+
+static VEC (access_p, heap) *
+get_base_access_vector (tree base)
+{
+  void **slot;
+
+  slot = pointer_map_contains (base_access_vec, base);
+  if (!slot)
+    return NULL;
+  else
+    return *(VEC (access_p, heap) **) slot;
+}
+
+/* Find an access with required OFFSET and SIZE in a subtree of accesses rooted
+   in ACCESS.  Return NULL if it cannot be found.  */
+
+static struct access *
+find_access_in_subtree (struct access *access, HOST_WIDE_INT offset,
+			HOST_WIDE_INT size)
+{
+  while (access && (access->offset != offset || access->size != size))
+    {
+      struct access *child = access->first_child;
+
+      while (child && (child->offset + child->size <= offset))
+	child = child->next_sibling;
+      access = child;
+    }
+
+  return access;
+}
+
+/* Find an access representative for the variable BASE and given OFFSET and
+   SIZE.  Requires that access trees have already been built.  Return NULL if
+   it cannot be found.  */
+
+static struct access *
+get_var_base_offset_size_access (tree base, HOST_WIDE_INT offset,
+				 HOST_WIDE_INT size)
+{
+  VEC (access_p, heap) *access_vec;
+  struct access *access;
+
+  access_vec = get_base_access_vector (base);
+  if (!access_vec)
+    return false;
+
+  access = VEC_index (access_p, access_vec, 0);
+  while (access && (access->offset + access->size <= offset))
+    access = access->next_grp;
+  if (!access)
+    return NULL;
+
+  return find_access_in_subtree (access, offset, size);
+}
+
 /* Mark all virtual operands of a statement STMT for renaming.  */
 
 static void
@@ -623,21 +681,6 @@ analyze_modified_params (VEC (access_p, heap) *representatives)
       }
     stmt_no = -1;
   }
-}
-
-/* Return a vector of pointers to accesses for the variable given in BASE or
-   NULL if there is none.  */
-
-static VEC (access_p, heap) *
-get_base_access_vector (tree base)
-{
-  void **slot;
-
-  slot = pointer_map_contains (base_access_vec, base);
-  if (!slot)
-    return NULL;
-  else
-    return *(VEC (access_p, heap) **) slot;
 }
 
 /* Process BB which is a dominator of EXIT for parameter PARM by searching for
@@ -3264,49 +3307,6 @@ init_subtree_with_zero (struct access *access, gimple_stmt_iterator *gsi,
     init_subtree_with_zero (child, gsi, insert_after);
 }
 
-/* Find an access with required OFFSET and SIZE in a subtree of accesses rooted
-   in ACCESS.  Return NULL if it cannot be found.  */
-
-static struct access *
-find_access_in_subtree (struct access *access, HOST_WIDE_INT offset,
-			HOST_WIDE_INT size)
-{
-  while (access && (access->offset != offset || access->size != size))
-    {
-      struct access *child = access->first_child;
-
-      while (child && (child->offset + child->size <= offset))
-	child = child->next_sibling;
-      access = child;
-    }
-
-  return access;
-}
-
-/* Find an access representative for the variable BASE and given OFFSET and
-   SIZE.  Requires that access trees have already been built.  Return NULL if
-   it cannot be found.  */
-
-static struct access *
-get_var_base_offset_size_access (tree base, HOST_WIDE_INT offset,
-				 HOST_WIDE_INT size)
-{
-  VEC (access_p, heap) *access_vec;
-  struct access *access;
-
-  access_vec = get_base_access_vector (base);
-  if (!access_vec)
-    return false;
-
-  access = VEC_index (access_p, access_vec, 0);
-  while (access && (access->offset + access->size <= offset))
-    access = access->next_grp;
-  if (!access)
-    return NULL;
-
-  return find_access_in_subtree (access, offset, size);
-}
-
 /* Search for an access representative for the given expression EXPR and
    return it or NULL if it cannot be found.  */
 
@@ -3323,7 +3323,8 @@ get_access_for_expr (tree expr)
   if (handled_component_p (expr))
     {
       base = get_ref_base_and_extent (expr, &offset, &size, &max_size);
-      if (size == -1 || max_size == -1 || !base || !DECL_P (base))
+      size = max_size;
+      if (size == -1 || !base || !DECL_P (base))
 	return NULL;
     }
   else if (DECL_P (expr))

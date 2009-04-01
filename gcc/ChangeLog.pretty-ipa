@@ -1,3 +1,10 @@
+2009-04-01  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-sra.c (get_base_access_vector): Moved upwards in the file.
+	(find_access_in_subtree): Moved upwards in the file.
+	(get_var_base_offset_size_access): Moved upwards in the file.
+	(get_access_for_expr): Use max_size rather than size.
+
 2009-03-29  Jan Hubicka  <jh@suse.cz>
 
 	* tree-cfgcleanup.c (result_ok_for_phi_merging): New.
