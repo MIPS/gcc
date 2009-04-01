@@ -731,6 +731,8 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
       new_stmt = gimple_build_call_vec (fn, args);
       gimple_call_set_lhs (new_stmt, lhs);
       move_ssa_defining_stmt_for_defs (new_stmt, stmt);
+      gimple_set_vuse (new_stmt, gimple_vuse (stmt));
+      gimple_set_vdef (new_stmt, gimple_vdef (stmt));
       gimple_set_location (new_stmt, gimple_location (stmt));
       gsi_replace (si_p, new_stmt, false);
       VEC_free (tree, heap, args);
@@ -750,12 +752,16 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
           STRIP_USELESS_TYPE_CONVERSION (expr);
           new_stmt = gimple_build_assign (lhs, expr);
           move_ssa_defining_stmt_for_defs (new_stmt, stmt);
+	  gimple_set_vuse (new_stmt, gimple_vuse (stmt));
+	  gimple_set_vdef (new_stmt, gimple_vdef (stmt));
         }
       else if (!TREE_SIDE_EFFECTS (expr))
         {
           /* No value is expected, and EXPR has no effect.
              Replace it with an empty statement.  */
           new_stmt = gimple_build_nop ();
+	  unlink_stmt_vdef (stmt);
+	  release_defs (stmt);
         }
       else
         {

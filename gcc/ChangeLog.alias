@@ -1,3 +1,20 @@
+2009-04-01  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.h (gimple_p): New typedef.  Define VEC of it.
+	* tree-ssa-operands.c (struct scb_d, scb_t): Remove.
+	(scb_stack): Make it a vector of gimple_p.
+	(init_ssa_operands): Adjust.
+	(fini_ssa_operands): Likewise.
+	(mark_difference_for_renaming): Remove.
+	(push_stmt_changes): Simplify and deprecate.
+	(pop_stmt_changes): Likewise.
+	(discard_stmt_changes): Likewise.
+	* tree-ssa-ccp.c (gimplify_and_update_call_from_tree): Properly
+	update VOPs.
+	* tree-ssa-dom.c (gimple_p): Remove typedef.
+	* tree-ssa-propagate.c (update_call_from_tree): Properly
+	update VOPs.
+
 2009-03-31  Richard Guenther  <rguenther@suse.de>
 
 	* Makefile.in (tree-ssa-structalias.o): Remove tree-ssa-structalias.h

@@ -147,48 +147,11 @@ static void get_expr_operands (gimple, tree *, int);
 /* Number of functions with initialized ssa_operands.  */
 static int n_initialized = 0;
 
-/* Statement change buffer.  Data structure used to record state
-   information for statements.  This is used to determine what needs
-   to be done in order to update the SSA web after a statement is
-   modified by a pass.  If STMT is a statement that has just been
-   created, or needs to be folded via fold_stmt, or anything that
-   changes its physical structure then the pass should:
-
-   1- Call push_stmt_changes (&stmt) to record the current state of
-      STMT before any modifications are made.
-
-   2- Make all appropriate modifications to the statement.
-
-   3- Call pop_stmt_changes (&stmt) to find new symbols that
-      need to be put in SSA form, SSA name mappings for names that
-      have disappeared, recompute invariantness for address
-      expressions, cleanup EH information, etc.
-
-   If it is possible to determine that the statement was not modified,
-   instead of calling pop_stmt_changes it is quicker to call
-   discard_stmt_changes to avoid the expensive and unnecessary operand
-   re-scan and change comparison.  */
-
-struct scb_d
-{
-  /* Pointer to the statement being modified.  */
-  gimple *stmt_p;
-
-  /* If the statement references memory these are the sets of symbols
-     loaded and stored by the statement.  */
-  bitmap loads;
-  bitmap stores;
-};
-
-typedef struct scb_d *scb_t;
-DEF_VEC_P(scb_t);
-DEF_VEC_ALLOC_P(scb_t,heap);
-
-/* Stack of statement change buffers (SCB).  Every call to
-   push_stmt_changes pushes a new buffer onto the stack.  Calls to
-   pop_stmt_changes pop a buffer off of the stack and compute the set
+/* Stack of statements to change.  Every call to
+   push_stmt_changes pushes the stmt onto the stack.  Calls to
+   pop_stmt_changes pop a stmt off of the stack and compute the set
    of changes for the popped statement.  */
-static VEC(scb_t,heap) *scb_stack;
+static VEC(gimple_p,heap) *scb_stack;
 
 /* Return the DECL_UID of the base variable of T.  */
 
@@ -268,7 +231,7 @@ init_ssa_operands (void)
       build_vuse = NULL_TREE;
       build_vdef = NULL_TREE;
       bitmap_obstack_initialize (&operands_bitmap_obstack);
-      scb_stack = VEC_alloc (scb_t, heap, 20);
+      scb_stack = VEC_alloc (gimple_p, heap, 20);
     }
 
   gcc_assert (gimple_ssa_operands (cfun)->operand_memory == NULL);
@@ -296,8 +259,8 @@ fini_ssa_operands (void)
       build_vuse = NULL_TREE;
 
       /* The change buffer stack had better be empty.  */
-      gcc_assert (VEC_length (scb_t, scb_stack) == 0);
-      VEC_free (scb_t, heap, scb_stack);
+      gcc_assert (VEC_length (gimple_p, scb_stack) == 0);
+      VEC_free (gimple_p, heap, scb_stack);
       scb_stack = NULL;
     }
 
@@ -1387,192 +1350,71 @@ debug_immediate_uses_for (tree var)
 }
 
 
-/* Create a new change buffer for the statement pointed by STMT_P and
-   push the buffer into SCB_STACK.  Each change buffer
-   records state information needed to determine what changed in the
-   statement.  Mainly, this keeps track of symbols that may need to be
-   put into SSA form, SSA name replacements and other information
-   needed to keep the SSA form up to date.  */
+/* Push *STMT_P on the SCB_STACK.  This function is deprecated, do not
+   introduce new uses of it.  */
 
 void
 push_stmt_changes (gimple *stmt_p)
 {
-  gimple stmt;
-  scb_t buf;
-
-  stmt = *stmt_p;
+  gimple stmt = *stmt_p;
 
   /* It makes no sense to keep track of PHI nodes.  */
   if (gimple_code (stmt) == GIMPLE_PHI)
     return;
 
-  buf = XNEW (struct scb_d);
-  memset (buf, 0, sizeof *buf);
-
-  buf->stmt_p = stmt_p;
-
-  if (gimple_references_memory_p (stmt))
-    {
-      tree op;
-
-      if ((op = gimple_vuse (stmt)) != NULL_TREE)
-	{
-	  tree sym = TREE_CODE (op) == SSA_NAME ? SSA_NAME_VAR (op) : op;
-	  if (buf->loads == NULL)
-	    buf->loads = BITMAP_ALLOC (NULL);
-	  bitmap_set_bit (buf->loads, DECL_UID (sym));
-	}
-
-      if ((op = gimple_vdef (stmt)) != NULL_TREE)
-	{
-	  tree sym = TREE_CODE (op) == SSA_NAME ? SSA_NAME_VAR (op) : op;
-	  if (buf->stores == NULL)
-	    buf->stores = BITMAP_ALLOC (NULL);
-	  bitmap_set_bit (buf->stores, DECL_UID (sym));
-	}
-    }
-
-  VEC_safe_push (scb_t, heap, scb_stack, buf);
+  VEC_safe_push (gimple_p, heap, scb_stack, stmt_p);
 }
 
-
-/* Given two sets S1 and S2, mark the symbols that differ in S1 and S2
-   for renaming.  The set to mark for renaming is (S1 & ~S2) | (S2 & ~S1).  */
-
-static void
-mark_difference_for_renaming (bitmap s1, bitmap s2)
-{
-  if (s1 == NULL && s2 == NULL)
-    return;
-
-  if (s1 && s2 == NULL)
-    mark_set_for_renaming (s1);
-  else if (s1 == NULL && s2)
-    mark_set_for_renaming (s2);
-  else if (!bitmap_equal_p (s1, s2))
-    {
-      bitmap t1 = BITMAP_ALLOC (NULL);
-      bitmap_xor (t1, s1, s2);
-      mark_set_for_renaming (t1);
-      BITMAP_FREE (t1);
-    }
-}
-
-
-/* Pop the top SCB from SCB_STACK and act on the differences between
+/* Pop the top stmt from SCB_STACK and act on the differences between
    what was recorded by push_stmt_changes and the current state of
-   the statement.  */
+   the statement.  This function is deprecated, do not introduce
+   new uses of it.  */
 
 void
 pop_stmt_changes (gimple *stmt_p)
 {
-  tree op;
-  gimple stmt;
+  gimple *stmt2_p, stmt = *stmt_p;
   ssa_op_iter iter;
-  bitmap loads, stores;
-  scb_t buf;
-
-  stmt = *stmt_p;
+  tree op;
 
   /* It makes no sense to keep track of PHI nodes.  */
   if (gimple_code (stmt) == GIMPLE_PHI)
     return;
 
-  buf = VEC_pop (scb_t, scb_stack);
-  gcc_assert (stmt_p == buf->stmt_p);
+  stmt2_p = VEC_pop (gimple_p, scb_stack);
+  gcc_assert (stmt_p == stmt2_p);
 
   /* Force an operand re-scan on the statement and mark any newly
-     exposed variables.  */
+     exposed variables.  This also will mark the virtual operand
+     for renaming if necessary.  */
   update_stmt (stmt);
 
-  /* Determine whether any memory symbols need to be renamed.  If the
-     sets of loads and stores are different after the statement is
-     modified, then the affected symbols need to be renamed.
-     
-     Note that it may be possible for the statement to not reference
-     memory anymore, but we still need to act on the differences in
-     the sets of symbols.  */
-  loads = stores = NULL;
-  if (gimple_references_memory_p (stmt))
-    {
-      tree op;
-
-      if ((op = gimple_vuse (stmt)) != NULL_TREE)
-	{
-	  tree sym = TREE_CODE (op) == SSA_NAME ? SSA_NAME_VAR (op) : op;
-	  if (loads == NULL)
-	    loads = BITMAP_ALLOC (NULL);
-	  bitmap_set_bit (loads, DECL_UID (sym));
-	}
-
-      if ((op = gimple_vdef (stmt)) != NULL_TREE)
-	{
-	  tree sym = TREE_CODE (op) == SSA_NAME ? SSA_NAME_VAR (op) : op;
-	  if (stores == NULL)
-	    stores = BITMAP_ALLOC (NULL);
-	  bitmap_set_bit (stores, DECL_UID (sym));
-	}
-    }
-
-  /* If LOADS is different from BUF->LOADS, the affected
-     symbols need to be marked for renaming.  */
-  mark_difference_for_renaming (loads, buf->loads);
-
-  /* Similarly for STORES and BUF->STORES.  */
-  mark_difference_for_renaming (stores, buf->stores);
-
-  /* Mark all the naked GIMPLE register operands for renaming.  */
+  /* Mark all the naked GIMPLE register operands for renaming.
+     ???  Especially this is considered bad behavior of the caller,
+     it should have updated SSA form manually.  Even more so as
+     we do not have a way to verify that no SSA names for op are
+     already in use.  */
   FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF|SSA_OP_USE)
     if (DECL_P (op))
       mark_sym_for_renaming (op);
-
-  /* FIXME, need to add more finalizers here.  Cleanup EH info,
-     recompute invariants for address expressions, add
-     SSA replacement mappings, etc.  For instance, given
-     testsuite/gcc.c-torture/compile/pr16808.c, we fold a statement of
-     the form:
-
-	  # SMT.4_20 = VDEF <SMT.4_16>
-	  D.1576_11 = 1.0e+0;
-
-     So, the VDEF will disappear, but instead of marking SMT.4 for
-     renaming it would be far more efficient to establish a
-     replacement mapping that would replace every reference of
-     SMT.4_20 with SMT.4_16.  */
-
-  /* Free memory used by the buffer.  */
-  BITMAP_FREE (buf->loads);
-  BITMAP_FREE (buf->stores);
-  BITMAP_FREE (loads);
-  BITMAP_FREE (stores);
-  buf->stmt_p = NULL;
-  free (buf);
 }
 
-
-/* Discard the topmost change buffer from SCB_STACK.  This is useful
+/* Discard the topmost stmt from SCB_STACK.  This is useful
    when the caller realized that it did not actually modified the
-   statement.  It avoids the expensive operand re-scan.  */
+   statement.  It avoids the expensive operand re-scan.
+   This function is deprecated, do not introduce new uses of it.  */
 
 void
 discard_stmt_changes (gimple *stmt_p)
 {
-  scb_t buf;
-  gimple stmt;
+  gimple *stmt2_p, stmt = *stmt_p;
   
   /* It makes no sense to keep track of PHI nodes.  */
-  stmt = *stmt_p;
   if (gimple_code (stmt) == GIMPLE_PHI)
     return;
 
-  buf = VEC_pop (scb_t, scb_stack);
-  gcc_assert (stmt_p == buf->stmt_p);
-
-  /* Free memory used by the buffer.  */
-  BITMAP_FREE (buf->loads);
-  BITMAP_FREE (buf->stores);
-  buf->stmt_p = NULL;
-  free (buf);
+  stmt2_p = VEC_pop (gimple_p, scb_stack);
+  gcc_assert (stmt_p == stmt2_p);
 }
 
 /* Unlink STMTs virtual definition from the IL by propagating its use.  */

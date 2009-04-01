@@ -34,6 +34,10 @@ DEF_VEC_P(gimple);
 DEF_VEC_ALLOC_P(gimple,heap);
 DEF_VEC_ALLOC_P(gimple,gc);
 
+typedef gimple *gimple_p;
+DEF_VEC_P(gimple_p);
+DEF_VEC_ALLOC_P(gimple_p,heap);
+
 DEF_VEC_P(gimple_seq);
 DEF_VEC_ALLOC_P(gimple_seq,gc);
 DEF_VEC_ALLOC_P(gimple_seq,heap);

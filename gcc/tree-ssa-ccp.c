@@ -3173,10 +3173,16 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
   }
 
   if (lhs == NULL_TREE)
-    new_stmt = gimple_build_nop ();
+    {
+      new_stmt = gimple_build_nop ();
+      unlink_stmt_vdef (stmt);
+      release_defs (stmt);
+    }
   else
     {
       new_stmt = gimple_build_assign (lhs, tmp);
+      gimple_set_vuse (new_stmt, gimple_vuse (stmt));
+      gimple_set_vdef (new_stmt, gimple_vdef (stmt));
       move_ssa_defining_stmt_for_defs (new_stmt, stmt);
     }
 
