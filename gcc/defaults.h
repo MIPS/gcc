@@ -1,6 +1,6 @@
 /* Definitions of various defaults for tm.h macros.
    Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2007, 2008
+   2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -688,8 +688,11 @@ along with GCC; see the file COPYING3.  If not see
 #define FLOAT_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
 #endif
 
-#ifndef TARGET_FLT_EVAL_METHOD
+#ifdef TARGET_FLT_EVAL_METHOD
+#define TARGET_FLT_EVAL_METHOD_NON_DEFAULT 1
+#else
 #define TARGET_FLT_EVAL_METHOD 0
+#define TARGET_FLT_EVAL_METHOD_NON_DEFAULT 0
 #endif
 
 #ifndef TARGET_DEC_EVAL_METHOD
@@ -942,6 +945,11 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef STACK_SLOT_ALIGNMENT
 #define STACK_SLOT_ALIGNMENT(TYPE,MODE,ALIGN) \
   ((TYPE) ? LOCAL_ALIGNMENT ((TYPE), (ALIGN)) : (ALIGN))
+#endif
+
+#ifndef LOCAL_DECL_ALIGNMENT
+#define LOCAL_DECL_ALIGNMENT(DECL) \
+  LOCAL_ALIGNMENT (TREE_TYPE (DECL), DECL_ALIGN (DECL))
 #endif
 
 /* Alignment value for attribute ((aligned)).  */

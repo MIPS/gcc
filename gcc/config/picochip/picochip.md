@@ -1,5 +1,5 @@
 ;; GCC machine description for picochip
-;; Copyright (C) 2008 Free Software Foundation, Inc.
+;; Copyright (C) 2008, 2009 Free Software Foundation, Inc.
 ;; Contributed by picoChip Designs Ltd (http://www.picochip.com)
 ;; Maintained by Daniel Towner (dant@picochip.com) and Hariharan
 ;; Sandanagobalane (hariharan@picochip.com)
@@ -111,9 +111,6 @@
    ; Internal TSTPORT instruction, used to generate a single TSTPORT
    ; instruction for use in the testport branch split.
    (UNSPEC_INTERNAL_TESTPORT        19)
-
-   ; instruction for use in the profile based optimizations.
-   (UNSPEC_INTERNAL_PROFILE        20)
   ]
 )
 
@@ -1154,7 +1151,7 @@
 ;; ALU 1 where it cannot modify CC.
 
 (define_insn "*lea_add"
- [(set (match_operand:HI 0 "register_operand" "=r")
+ [(set (match_operand:HI 0 "nonimmediate_operand" "=r")
        (plus:HI (match_operand:HI 1 "register_operand" "r")
 		(match_operand:HI 2 "immediate_operand" "i")))]
  ""
@@ -1164,8 +1161,8 @@
 ;; "p" constraint cannot be specified for operands other than 
 ;; address_operand, hence the extra pattern below.
 (define_insn "*lea_move"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r")
-        (match_operand:HI 1 "address_operand" "p,b"))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=r")
+        (match_operand:HI 1 "address_operand" "p"))]
   ""
   {
     if (REG == GET_CODE(operands[1]))
@@ -2225,14 +2222,6 @@
 	UNSPEC_HALT)]
   ""
   "HALT\t// (id %0)"
-  [(set_attr "length" "1")
-   (set_attr "type" "unknown")])
-
-(define_insn "profile"
-  [(unspec_volatile [(match_operand:HI 0 "const_int_operand" "i")]
-	UNSPEC_INTERNAL_PROFILE)]
-  ""
-  "PROFILE_DUMMY %0 \t// (profile instruction %0)"
   [(set_attr "length" "1")
    (set_attr "type" "unknown")])
 

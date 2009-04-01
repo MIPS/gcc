@@ -1,5 +1,6 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+;; Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -886,6 +887,34 @@
   return parts.disp != NULL_RTX;
 })
 
+;; Returns 1 if OP is memory operand which will need zero or
+;; one register at most, not counting stack pointer or frame pointer.
+(define_predicate "cmpxchg8b_pic_memory_operand"
+  (match_operand 0 "memory_operand")
+{
+  struct ix86_address parts;
+  int ok;
+
+  ok = ix86_decompose_address (XEXP (op, 0), &parts);
+  gcc_assert (ok);
+  if (parts.base == NULL_RTX
+      || parts.base == arg_pointer_rtx
+      || parts.base == frame_pointer_rtx
+      || parts.base == hard_frame_pointer_rtx
+      || parts.base == stack_pointer_rtx)
+    return 1;
+
+  if (parts.index == NULL_RTX
+      || parts.index == arg_pointer_rtx
+      || parts.index == frame_pointer_rtx
+      || parts.index == hard_frame_pointer_rtx
+      || parts.index == stack_pointer_rtx)
+    return 1;
+
+  return 0;
+})
+
+
 ;; Returns 1 if OP is memory operand that cannot be represented
 ;; by the modRM array.
 (define_predicate "long_memory_operand"
@@ -1049,6 +1078,10 @@
 (define_predicate "arith_or_logical_operator"
   (match_code "plus,mult,and,ior,xor,smin,smax,umin,umax,compare,minus,div,
 	       mod,udiv,umod,ashift,rotate,ashiftrt,lshiftrt,rotatert"))
+
+;; Return true for COMMUTATIVE_P.
+(define_predicate "commutative_operator"
+  (match_code "plus,mult,and,ior,xor,smin,smax,umin,umax"))
 
 ;; Return 1 if OP is a binary operator that can be promoted to wider mode.
 (define_predicate "promotable_binary_operator"

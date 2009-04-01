@@ -916,7 +916,7 @@ static struct c_expr c_parser_postfix_expression_after_primary (c_parser *,
 								struct c_expr);
 static struct c_expr c_parser_expression (c_parser *);
 static struct c_expr c_parser_expression_conv (c_parser *);
-static tree c_parser_expr_list (c_parser *, bool);
+static tree c_parser_expr_list (c_parser *, bool, bool);
 static void c_parser_omp_construct (c_parser *);
 static void c_parser_omp_threadprivate (c_parser *);
 static void c_parser_omp_barrier (c_parser *);
@@ -1456,6 +1456,8 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	      /* For a typedef name, record the meaning, not the name.
 		 In case of 'foo foo, bar;'.  */
 	      t.spec = lookup_name (value);
+	      t.expr = NULL_TREE;
+	      t.expr_const_operands = true;
 	    }
 	  else
 	    {
@@ -1465,6 +1467,8 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	      if (c_parser_next_token_is (parser, CPP_LESS))
 		proto = c_parser_objc_protocol_refs (parser);
 	      t.spec = objc_get_protocol_qualified_type (value, proto);
+	      t.expr = NULL_TREE;
+	      t.expr_const_operands = true;
 	    }
 	  declspecs_add_type (specs, t);
 	  continue;
@@ -1480,6 +1484,8 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	  proto = c_parser_objc_protocol_refs (parser);
 	  t.kind = ctsk_objc;
 	  t.spec = objc_get_protocol_qualified_type (NULL_TREE, proto);
+	  t.expr = NULL_TREE;
+	  t.expr_const_operands = true;
 	  declspecs_add_type (specs, t);
 	  continue;
 	}
@@ -1527,6 +1533,8 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	    parser->objc_need_raw_identifier = true;
 	  t.kind = ctsk_resword;
 	  t.spec = c_parser_peek_token (parser)->value;
+	  t.expr = NULL_TREE;
+	  t.expr_const_operands = true;
 	  declspecs_add_type (specs, t);
 	  c_parser_consume_token (parser);
 	  break;
@@ -1690,6 +1698,8 @@ c_parser_enum_specifier (c_parser *parser)
       ret.spec = finish_enum (type, nreverse (values),
 			      chainon (attrs, postfix_attrs));
       ret.kind = ctsk_tagdef;
+      ret.expr = NULL_TREE;
+      ret.expr_const_operands = true;
       return ret;
     }
   else if (!ident)
@@ -1697,6 +1707,8 @@ c_parser_enum_specifier (c_parser *parser)
       c_parser_error (parser, "expected %<{%>");
       ret.spec = error_mark_node;
       ret.kind = ctsk_tagref;
+      ret.expr = NULL_TREE;
+      ret.expr_const_operands = true;
       return ret;
     }
   ret = parser_xref_tag (ENUMERAL_TYPE, ident);
@@ -1873,6 +1885,8 @@ c_parser_struct_or_union_specifier (c_parser *parser)
       ret.spec = finish_struct (type, nreverse (contents),
 				chainon (attrs, postfix_attrs));
       ret.kind = ctsk_tagdef;
+      ret.expr = NULL_TREE;
+      ret.expr_const_operands = true;
       return ret;
     }
   else if (!ident)
@@ -1880,6 +1894,8 @@ c_parser_struct_or_union_specifier (c_parser *parser)
       c_parser_error (parser, "expected %<{%>");
       ret.spec = error_mark_node;
       ret.kind = ctsk_tagref;
+      ret.expr = NULL_TREE;
+      ret.expr_const_operands = true;
       return ret;
     }
   ret = parser_xref_tag (code, ident);
@@ -2056,6 +2072,8 @@ c_parser_typeof_specifier (c_parser *parser)
   struct c_typespec ret;
   ret.kind = ctsk_typeof;
   ret.spec = error_mark_node;
+  ret.expr = NULL_TREE;
+  ret.expr_const_operands = true;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_TYPEOF));
   c_parser_consume_token (parser);
   skip_evaluation++;
@@ -2073,7 +2091,7 @@ c_parser_typeof_specifier (c_parser *parser)
       in_typeof--;
       if (type != NULL)
 	{
-	  ret.spec = groktypename (type);
+	  ret.spec = groktypename (type, &ret.expr, &ret.expr_const_operands);
 	  pop_maybe_used (variably_modified_type_p (ret.spec, NULL_TREE));
 	}
     }
@@ -2089,22 +2107,10 @@ c_parser_typeof_specifier (c_parser *parser)
 	error_at (here, "%<typeof%> applied to a bit-field");
       ret.spec = TREE_TYPE (expr.value);
       was_vm = variably_modified_type_p (ret.spec, NULL_TREE);
-      /* This should be returned with the type so that when the type
-	 is evaluated, this can be evaluated.  For now, we avoid
-	 evaluation when the context might.  */
-      if (!skip_evaluation && was_vm)
-	{
-	  tree e = expr.value;
-
-	  /* If the expression is not of a type to which we cannot assign a line
-	     number, wrap the thing in a no-op NOP_EXPR.  */
-	  if (DECL_P (e) || CONSTANT_CLASS_P (e))
-	    e = build1 (NOP_EXPR, void_type_node, e);
-
-	  protected_set_expr_location (e, here);
-
-	  add_stmt (e);
-	}
+      /* This is returned with the type so that when the type is
+	 evaluated, this can be evaluated.  */
+      if (was_vm)
+	ret.expr = c_fully_fold (expr.value, false, &ret.expr_const_operands);
       pop_maybe_used (was_vm);
     }
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
@@ -2581,6 +2587,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 			     "expected %<;%>, %<,%> or %<)%>"))
 	{
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
+	  get_pending_sizes ();
 	  return NULL;
 	}
       if (c_parser_next_token_is (parser, CPP_ELLIPSIS))
@@ -2608,6 +2615,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 	    {
 	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 					 "expected %<)%>");
+	      get_pending_sizes ();
 	      return NULL;
 	    }
 	}
@@ -2859,7 +2867,8 @@ c_parser_attributes (c_parser *parser)
 		{
 		  c_parser_consume_token (parser);
 		  attr_args = tree_cons (NULL_TREE, arg1,
-					 c_parser_expr_list (parser, false));
+					 c_parser_expr_list (parser, false,
+							     true));
 		}
 	    }
 	  else
@@ -2867,7 +2876,7 @@ c_parser_attributes (c_parser *parser)
 	      if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 		attr_args = NULL_TREE;
 	      else
-		attr_args = c_parser_expr_list (parser, false);
+		attr_args = c_parser_expr_list (parser, false, true);
 	    }
 	  attr = build_tree_list (attr_name, attr_args);
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
@@ -3037,6 +3046,7 @@ c_parser_braced_init (c_parser *parser, tree type, bool nested_p)
       ret.value = error_mark_node;
       ret.original_code = ERROR_MARK;
       c_parser_skip_until_found (parser, CPP_CLOSE_BRACE, "expected %<}%>");
+      pop_init_level (0);
       return ret;
     }
   c_parser_consume_token (parser);
@@ -3307,7 +3317,13 @@ c_parser_compound_statement (c_parser *parser)
 {
   tree stmt;
   if (!c_parser_require (parser, CPP_OPEN_BRACE, "expected %<{%>"))
-    return error_mark_node;
+    {
+      /* Ensure a scope is entered and left anyway to avoid confusion
+	 if we have just prepared to enter a function body.  */
+      stmt = c_begin_compound_stmt (true);
+      c_end_compound_stmt (stmt, true);
+      return error_mark_node;
+    }
   stmt = c_begin_compound_stmt (true);
   c_parser_compound_statement_nostart (parser);
   return c_end_compound_stmt (stmt, true);
@@ -3742,8 +3758,9 @@ c_parser_statement_after_labels (c_parser *parser)
 	    }
 	  else
 	    {
-	      stmt
-		= objc_build_throw_stmt (c_parser_expression (parser).value);
+	      tree expr = c_parser_expression (parser).value;
+	      expr = c_fully_fold (expr, false, NULL);
+	      stmt = objc_build_throw_stmt (expr);
 	      goto expect_semicolon;
 	    }
 	  break;
@@ -3804,8 +3821,9 @@ c_parser_condition (c_parser *parser)
   location_t loc;
   tree cond;
   loc = c_parser_peek_token (parser)->location;
-  cond = c_objc_common_truthvalue_conversion 
-    (loc, c_parser_expression_conv (parser).value);
+  cond = c_parser_expression_conv (parser).value;
+  cond = c_objc_common_truthvalue_conversion (loc, cond);
+  cond = c_fully_fold (cond, false, NULL);
   protected_set_expr_location (cond, loc);
   if (warn_sequence_point)
     verify_sequence_points (cond);
@@ -4298,6 +4316,7 @@ c_parser_asm_operands (c_parser *parser, bool convert_p)
       expr = c_parser_expression (parser);
       if (convert_p)
 	expr = default_function_array_conversion (expr);
+      expr.value = c_fully_fold (expr.value, false, NULL);
       parser->lex_untranslated_string = true;
       if (!c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
 	{
@@ -4449,10 +4468,18 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after)
   c_parser_consume_token (parser);
   if (c_parser_next_token_is (parser, CPP_COLON))
     {
+      tree eptype = NULL_TREE;
       pedwarn (c_parser_peek_token (parser)->location, OPT_pedantic, 
 	       "ISO C forbids omitting the middle term of a ?: expression");
+      if (TREE_CODE (cond.value) == EXCESS_PRECISION_EXPR)
+	{
+	  eptype = TREE_TYPE (cond.value);
+	  cond.value = TREE_OPERAND (cond.value, 0);
+	}
       /* Make sure first operand is calculated only once.  */
-      exp1.value = save_expr (default_conversion (cond.value));
+      exp1.value = c_save_expr (default_conversion (cond.value));
+      if (eptype)
+	exp1.value = build1 (EXCESS_PRECISION_EXPR, eptype, exp1.value);
       cond.value = c_objc_common_truthvalue_conversion (cond_loc, exp1.value);
       skip_evaluation += cond.value == truthvalue_true_node;
     }
@@ -4476,7 +4503,9 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after)
   exp2 = c_parser_conditional_expression (parser, NULL);
   exp2 = default_function_array_conversion (exp2);
   skip_evaluation -= cond.value == truthvalue_true_node;
-  ret.value = build_conditional_expr (cond.value, exp1.value, exp2.value);
+  ret.value = build_conditional_expr (cond.value,
+				      cond.original_code == C_MAYBE_CONST_EXPR,
+				      exp1.value, exp2.value);
   ret.original_code = ERROR_MARK;
   return ret;
 }
@@ -5006,7 +5035,7 @@ c_parser_alignof_expression (c_parser *parser)
       /* alignof ( type-name ).  */
       skip_evaluation--;
       in_alignof--;
-      ret.value = c_alignof (groktypename (type_name));
+      ret.value = c_alignof (groktypename (type_name, NULL, NULL));
       ret.original_code = ERROR_MARK;
       return ret;
     }
@@ -5194,7 +5223,8 @@ c_parser_postfix_expression (c_parser *parser)
 	  expr = c_parser_expression (parser);
 	  if (TREE_CODE (expr.value) == MODIFY_EXPR)
 	    TREE_NO_WARNING (expr.value) = 1;
-	  expr.original_code = ERROR_MARK;
+	  if (expr.original_code != C_MAYBE_CONST_EXPR)
+	    expr.original_code = ERROR_MARK;
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
 	}
@@ -5220,6 +5250,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      break;
 	    }
 	  e1 = c_parser_expr_no_commas (parser, NULL);
+	  e1.value = c_fully_fold (e1.value, false, NULL);
 	  if (!c_parser_require (parser, CPP_COMMA, "expected %<,%>"))
 	    {
 	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
@@ -5237,7 +5268,17 @@ c_parser_postfix_expression (c_parser *parser)
 	    }
 	  else
 	    {
-	      expr.value = build_va_arg (e1.value, groktypename (t1));
+	      tree type_expr = NULL_TREE;
+	      expr.value = build_va_arg (e1.value, groktypename (t1,
+								 &type_expr,
+								 NULL));
+	      if (type_expr)
+		{
+		  expr.value = build2 (C_MAYBE_CONST_EXPR,
+				       TREE_TYPE (expr.value), type_expr,
+				       expr.value);
+		  C_MAYBE_CONST_EXPR_NON_CONST (expr.value) = true;
+		}
 	      expr.original_code = ERROR_MARK;
 	    }
 	  break;
@@ -5264,7 +5305,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      break;
 	    }
 	  {
-	    tree type = groktypename (t1);
+	    tree type = groktypename (t1, NULL, NULL);
 	    tree offsetof_ref;
 	    if (type == error_mark_node)
 	      offsetof_ref = error_mark_node;
@@ -5313,6 +5354,7 @@ c_parser_postfix_expression (c_parser *parser)
 			loc = c_parser_peek_token (parser)->location;
 			c_parser_consume_token (parser);
 			idx = c_parser_expression (parser).value;
+			idx = c_fully_fold (idx, false, NULL);
 			c_parser_skip_until_found (parser, CPP_CLOSE_SQUARE,
 						   "expected %<]%>");
 			offsetof_ref = build_array_ref (offsetof_ref, idx, loc);
@@ -5359,10 +5401,12 @@ c_parser_postfix_expression (c_parser *parser)
 	    tree c;
 
 	    c = fold (e1.value);
-	    if (TREE_CODE (c) != INTEGER_CST)
+	    if (TREE_CODE (c) != INTEGER_CST
+		|| !INTEGRAL_TYPE_P (TREE_TYPE (c)))
 	      error_at (loc,
 			"first argument to %<__builtin_choose_expr%> not"
 			" a constant");
+	    constant_expression_warning (c);
 	    expr = integer_zerop (c) ? e3 : e2;
 	  }
 	  break;
@@ -5400,8 +5444,8 @@ c_parser_postfix_expression (c_parser *parser)
 	  {
 	    tree e1, e2;
 
-	    e1 = TYPE_MAIN_VARIANT (groktypename (t1));
-	    e2 = TYPE_MAIN_VARIANT (groktypename (t2));
+	    e1 = TYPE_MAIN_VARIANT (groktypename (t1, NULL, NULL));
+	    e2 = TYPE_MAIN_VARIANT (groktypename (t2, NULL, NULL));
 
 	    expr.value = comptypes (e1, e2)
 	      ? build_int_cst (NULL_TREE, 1)
@@ -5473,7 +5517,7 @@ c_parser_postfix_expression (c_parser *parser)
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
 	  {
-	    tree type = groktypename (t1);
+	    tree type = groktypename (t1, NULL, NULL);
 	    expr.value = objc_build_encode_expr (type);
 	    expr.original_code = ERROR_MARK;
 	  }
@@ -5523,10 +5567,13 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
 {
   tree type;
   struct c_expr init;
+  bool non_const;
   struct c_expr expr;
   location_t start_loc;
+  tree type_expr = NULL_TREE;
+  bool type_expr_const = true;
   start_init (NULL_TREE, NULL, 0);
-  type = groktypename (type_name);
+  type = groktypename (type_name, &type_expr, &type_expr_const);
   start_loc = c_parser_peek_token (parser)->location;
   if (type != error_mark_node && C_TYPE_VARIABLE_SIZE (type))
     {
@@ -5539,8 +5586,26 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
 
   if (!flag_isoc99)
     pedwarn (start_loc, OPT_pedantic, "ISO C90 forbids compound literals");
-  expr.value = build_compound_literal (type, init.value);
+  non_const = ((init.value && TREE_CODE (init.value) == CONSTRUCTOR)
+	       ? CONSTRUCTOR_NON_CONST (init.value)
+	       : init.original_code == C_MAYBE_CONST_EXPR);
+  non_const |= !type_expr_const;
+  expr.value = build_compound_literal (type, init.value, non_const);
   expr.original_code = ERROR_MARK;
+  if (type_expr)
+    {
+      if (TREE_CODE (expr.value) == C_MAYBE_CONST_EXPR)
+	{
+	  gcc_assert (C_MAYBE_CONST_EXPR_PRE (expr.value) == NULL_TREE);
+	  C_MAYBE_CONST_EXPR_PRE (expr.value) = type_expr;
+	}
+      else
+	{
+	  gcc_assert (!non_const);
+	  expr.value = build2 (C_MAYBE_CONST_EXPR, type,
+			       type_expr, expr.value);
+	}
+    }
   return c_parser_postfix_expression_after_primary (parser, expr);
 }
 
@@ -5551,6 +5616,7 @@ static struct c_expr
 c_parser_postfix_expression_after_primary (c_parser *parser,
 					   struct c_expr expr)
 {
+  struct c_expr orig_expr;
   tree ident, idx, exprlist;
   location_t loc = c_parser_peek_token (parser)->location;
   while (true)
@@ -5573,13 +5639,17 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 	    exprlist = NULL_TREE;
 	  else
-	    exprlist = c_parser_expr_list (parser, true);
+	    exprlist = c_parser_expr_list (parser, true, false);
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
+	  orig_expr = expr;
 	  expr.value = build_function_call (expr.value, exprlist);
 	  expr.original_code = ERROR_MARK;
-          if (warn_disallowed_functions)
-            warn_if_disallowed_function_p (expr.value);
+	  if (TREE_CODE (expr.value) == INTEGER_CST
+	      && TREE_CODE (orig_expr.value) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (orig_expr.value) == BUILT_IN_NORMAL
+	      && DECL_FUNCTION_CODE (orig_expr.value) == BUILT_IN_CONSTANT_P)
+	    expr.original_code = C_MAYBE_CONST_EXPR;
 	  break;
 	case CPP_DOT:
 	  /* Structure element reference.  */
@@ -5677,7 +5747,7 @@ c_parser_expression_conv (c_parser *parser)
 }
 
 /* Parse a non-empty list of expressions.  If CONVERT_P, convert
-   functions and arrays to pointers.
+   functions and arrays to pointers.  If FOLD_P, fold the expressions.
 
    nonempty-expr-list:
      assignment-expression
@@ -5685,13 +5755,15 @@ c_parser_expression_conv (c_parser *parser)
 */
 
 static tree
-c_parser_expr_list (c_parser *parser, bool convert_p)
+c_parser_expr_list (c_parser *parser, bool convert_p, bool fold_p)
 {
   struct c_expr expr;
   tree ret, cur;
   expr = c_parser_expr_no_commas (parser, NULL);
   if (convert_p)
     expr = default_function_array_conversion (expr);
+  if (fold_p)
+    expr.value = c_fully_fold (expr.value, false, NULL);
   ret = cur = build_tree_list (NULL_TREE, expr.value);
   while (c_parser_next_token_is (parser, CPP_COMMA))
     {
@@ -5699,6 +5771,8 @@ c_parser_expr_list (c_parser *parser, bool convert_p)
       expr = c_parser_expr_no_commas (parser, NULL);
       if (convert_p)
 	expr = default_function_array_conversion (expr);
+      if (fold_p)
+	expr.value = c_fully_fold (expr.value, false, NULL);
       cur = TREE_CHAIN (cur) = build_tree_list (NULL_TREE, expr.value);
     }
   return ret;
@@ -6284,7 +6358,7 @@ c_parser_objc_type_name (c_parser *parser)
   if (c_parser_next_token_starts_typename (parser))
     type_name = c_parser_type_name (parser);
   if (type_name)
-    type = groktypename (type_name);
+    type = groktypename (type_name, NULL, NULL);
   return build_tree_list (quals, type);
 }
 
@@ -6390,6 +6464,7 @@ c_parser_objc_synchronized_statement (c_parser *parser)
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       expr = c_parser_expression (parser).value;
+      expr = c_fully_fold (expr, false, NULL);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
   else
@@ -6525,7 +6600,7 @@ c_parser_objc_receiver (c_parser *parser)
       c_parser_consume_token (parser);
       return objc_get_class_reference (id);
     }
-  return c_parser_expression (parser).value;
+  return c_fully_fold (c_parser_expression (parser).value, false, NULL);
 }
 
 /* Parse objc-message-args.
@@ -6573,7 +6648,7 @@ c_parser_objc_message_args (c_parser *parser)
 static tree
 c_parser_objc_keywordexpr (c_parser *parser)
 {
-  tree list = c_parser_expr_list (parser, true);
+  tree list = c_parser_expr_list (parser, true, true);
   if (TREE_CHAIN (list) == NULL_TREE)
     {
       /* Just return the expression, remove a level of
@@ -7049,6 +7124,7 @@ c_parser_omp_clause_num_threads (c_parser *parser, tree list)
     {
       location_t expr_loc = c_parser_peek_token (parser)->location;
       tree c, t = c_parser_expression (parser).value;
+      t = c_fully_fold (t, false, NULL);
 
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
 
@@ -7227,6 +7303,7 @@ c_parser_omp_clause_schedule (c_parser *parser, tree list)
 
       here = c_parser_peek_token (parser)->location;
       t = c_parser_expr_no_commas (parser, NULL).value;
+      t = c_fully_fold (t, false, NULL);
 
       if (OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_RUNTIME)
 	error_at (here, "schedule %<runtime%> does not take "
@@ -7426,6 +7503,7 @@ c_parser_omp_atomic (c_parser *parser)
   c_parser_skip_to_pragma_eol (parser);
 
   lhs = c_parser_unary_expression (parser).value;
+  lhs = c_fully_fold (lhs, false, NULL);
   switch (TREE_CODE (lhs))
     {
     case ERROR_MARK:
@@ -7487,6 +7565,7 @@ c_parser_omp_atomic (c_parser *parser)
       rhs_expr = c_parser_expression (parser);
       rhs_expr = default_function_array_conversion (rhs_expr);
       rhs = rhs_expr.value;
+      rhs = c_fully_fold (rhs, false, NULL);
       break;
     }
   stmt = c_finish_omp_atomic (code, lhs, rhs);
@@ -7646,9 +7725,24 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
       if (c_parser_next_token_is_not (parser, CPP_SEMICOLON))
 	{
 	  location_t cond_loc = c_parser_peek_token (parser)->location;
+	  struct c_expr cond_expr = c_parser_binary_expression (parser, NULL);
 
-	  cond = c_parser_expression_conv (parser).value;
+	  cond = cond_expr.value;
 	  cond = c_objc_common_truthvalue_conversion (cond_loc, cond);
+	  cond = c_fully_fold (cond, false, NULL);
+	  switch (cond_expr.original_code)
+	    {
+	    case GT_EXPR:
+	    case GE_EXPR:
+	    case LT_EXPR:
+	    case LE_EXPR:
+	      break;
+	    default:
+	      /* Can't be cond = error_mark_node, because we want to preserve
+		 the location until c_finish_omp_for.  */
+	      cond = build1 (NOP_EXPR, boolean_type_node, error_mark_node);
+	      break;
+	    }
 	  protected_set_expr_location (cond, cond_loc);
 	}
       c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");

@@ -1,6 +1,6 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software
-   Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -476,6 +476,21 @@ verify_phi_args (gimple phi, basic_block bb, basic_block *definition_block)
 	  err = verify_ssa_name (op, !is_gimple_reg (gimple_phi_result (phi)));
 	  err |= verify_use (e->src, definition_block[SSA_NAME_VERSION (op)],
 			     op_p, phi, e->flags & EDGE_ABNORMAL, NULL);
+	}
+
+      if (TREE_CODE (op) == ADDR_EXPR)
+	{
+	  tree base = TREE_OPERAND (op, 0);
+	  while (handled_component_p (base))
+	    base = TREE_OPERAND (base, 0);
+	  if ((TREE_CODE (base) == VAR_DECL
+	       || TREE_CODE (base) == PARM_DECL
+	       || TREE_CODE (base) == RESULT_DECL)
+	      && !TREE_ADDRESSABLE (base))
+	    {
+	      error ("address taken, but ADDRESSABLE bit not set");
+	      err = true;
+	    }
 	}
 
       if (e->dest != bb)
@@ -1589,6 +1604,11 @@ warn_uninitialized_vars (bool warn_possibly_uninitialized)
 	  walk_gimple_op (gsi_stmt (gsi), warn_uninitialized_var, &wi);
 	}
     }
+
+  /* Post-dominator information can not be reliably updated. Free it
+     after the use.  */
+
+  free_dominance_info (CDI_POST_DOMINATORS);
   return 0;
 }
 

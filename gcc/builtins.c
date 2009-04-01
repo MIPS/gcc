@@ -469,16 +469,13 @@ c_strlen (tree src, int only_value)
   else
     offset = tree_low_cst (offset_node, 0);
 
-  /* If the offset is known to be out of bounds, warn, and call strlen at
-     runtime.  */
+  /* If the offset is known to be out of bounds, the front-end should
+     have warned already. We call strlen at runtime.  
+
+     ??? Perhaps we should turn this into an assert and force
+     front-ends to define offsets whtin boundaries.  */
   if (offset < 0 || offset > max)
     {
-     /* Suppress multiple warnings for propagated constant strings.  */
-      if (! TREE_NO_WARNING (src))
-        {
-          warning (0, "offset outside bounds of constant string");
-          TREE_NO_WARNING (src) = 1;
-        }
       return NULL_TREE;
     }
 
@@ -4999,6 +4996,9 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	 Call abort to encourage the user to fix the program.  */
       if (warned)
 	inform (input_location, "if this code is reached, the program will abort");
+      /* Before the abort, allow the evaluation of the va_list
+	 expression to exit or longjmp.  */
+      gimplify_and_add (valist, pre_p);
       t = build_call_expr (implicit_built_in_decls[BUILT_IN_TRAP], 0);
       gimplify_and_add (t, pre_p);
 
@@ -7930,7 +7930,7 @@ fold_builtin_sincos (tree arg0, tree arg1, tree arg2)
   call = build_call_expr (fn, 1, arg0);
   call = builtin_save_expr (call);
 
-  return build2 (COMPOUND_EXPR, type,
+  return build2 (COMPOUND_EXPR, void_type_node,
 		 build2 (MODIFY_EXPR, void_type_node,
 			 build_fold_indirect_ref (arg1),
 			 build1 (IMAGPART_EXPR, type, call)),
@@ -8331,21 +8331,6 @@ fold_builtin_bswap (tree fndecl, tree arg)
   return NULL_TREE;
 }
 
-/* Return true if EXPR is the real constant contained in VALUE.  */
-
-static bool
-real_dconstp (tree expr, const REAL_VALUE_TYPE *value)
-{
-  STRIP_NOPS (expr);
-
-  return ((TREE_CODE (expr) == REAL_CST
-	   && !TREE_OVERFLOW (expr)
-	   && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), *value))
-	  || (TREE_CODE (expr) == COMPLEX_CST
-	      && real_dconstp (TREE_REALPART (expr), value)
-	      && real_zerop (TREE_IMAGPART (expr))));
-}
-
 /* A subroutine of fold_builtin to fold the various logarithmic
    functions.  Return NULL_TREE if no simplification can me made.
    FUNC is the corresponding MPFR logarithm function.  */
@@ -8359,17 +8344,6 @@ fold_builtin_logarithm (tree fndecl, tree arg,
       tree type = TREE_TYPE (TREE_TYPE (fndecl));
       tree res;
       const enum built_in_function fcode = builtin_mathfn_code (arg);
-
-      /* Optimize log(e) = 1.0.  We're never passed an exact 'e',
-	 instead we'll look for 'e' truncated to MODE.  So only do
-	 this if flag_unsafe_math_optimizations is set.  */
-      if (flag_unsafe_math_optimizations && func == mpfr_log)
-        {
-	  const REAL_VALUE_TYPE e_truncated =
-	    real_value_truncate (TYPE_MODE (type), dconst_e ());
-	  if (real_dconstp (arg, &e_truncated))
-	    return build_real (type, dconst1);
-	}
 
       /* Calculate the result when the argument is a constant.  */
       if ((res = do_mpfr_arg1 (arg, type, func, &dconst0, NULL, false)))
@@ -8879,16 +8853,75 @@ fold_builtin_memory_op (tree dest, tree src, tree len, tree type, bool ignore, i
 	     really mandatory?
 
 	     If either SRC is readonly or length is 1, we can use memcpy.  */
-	  if (dest_align && src_align
-	      && (readonly_data_expr (src)
-	          || (host_integerp (len, 1)
-		      && (MIN (src_align, dest_align) / BITS_PER_UNIT >=
-			  tree_low_cst (len, 1)))))
+	  if (!dest_align || !src_align)
+	    return NULL_TREE;
+	  if (readonly_data_expr (src)
+	      || (host_integerp (len, 1)
+		  && (MIN (src_align, dest_align) / BITS_PER_UNIT
+		      >= tree_low_cst (len, 1))))
 	    {
 	      tree fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
 	      if (!fn)
 		return NULL_TREE;
               return build_call_expr (fn, 3, dest, src, len);
+	    }
+
+	  /* If *src and *dest can't overlap, optimize into memcpy as well.  */
+	  srcvar = build_fold_indirect_ref (src);
+	  destvar = build_fold_indirect_ref (dest);
+	  if (srcvar
+	      && !TREE_THIS_VOLATILE (srcvar)
+	      && destvar
+	      && !TREE_THIS_VOLATILE (destvar))
+	    {
+	      tree src_base, dest_base, fn;
+	      HOST_WIDE_INT src_offset = 0, dest_offset = 0;
+	      HOST_WIDE_INT size = -1;
+	      HOST_WIDE_INT maxsize = -1;
+
+	      src_base = srcvar;
+	      if (handled_component_p (src_base))
+		src_base = get_ref_base_and_extent (src_base, &src_offset,
+						    &size, &maxsize);
+	      dest_base = destvar;
+	      if (handled_component_p (dest_base))
+		dest_base = get_ref_base_and_extent (dest_base, &dest_offset,
+						     &size, &maxsize);
+	      if (host_integerp (len, 1))
+		{
+		  maxsize = tree_low_cst (len, 1);
+		  if (maxsize
+		      > INTTYPE_MAXIMUM (HOST_WIDE_INT) / BITS_PER_UNIT)
+		    maxsize = -1;
+		  else
+		    maxsize *= BITS_PER_UNIT;
+		}
+	      else
+		maxsize = -1;
+	      if (SSA_VAR_P (src_base)
+		  && SSA_VAR_P (dest_base))
+		{
+		  if (operand_equal_p (src_base, dest_base, 0)
+		      && ranges_overlap_p (src_offset, maxsize,
+					   dest_offset, maxsize))
+		    return NULL_TREE;
+		}
+	      else if (TREE_CODE (src_base) == INDIRECT_REF
+		       && TREE_CODE (dest_base) == INDIRECT_REF)
+		{
+		  if (! operand_equal_p (TREE_OPERAND (src_base, 0),
+					 TREE_OPERAND (dest_base, 0), 0)
+		      || ranges_overlap_p (src_offset, maxsize,
+					   dest_offset, maxsize))
+		    return NULL_TREE;
+		}
+	      else
+		return NULL_TREE;
+
+	      fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+	      if (!fn)
+		return NULL_TREE;
+	      return build_call_expr (fn, 3, dest, src, len);
 	    }
 	  return NULL_TREE;
 	}
@@ -10896,7 +10929,6 @@ fold_call_expr (tree exp, bool ignore)
 		  if (CAN_HAVE_LOCATION_P (realret)
 		      && !EXPR_HAS_LOCATION (realret))
 		    SET_EXPR_LOCATION (realret, EXPR_LOCATION (exp));
-		  return realret;
 		}
 	      return ret;
 	    }
@@ -11962,8 +11994,9 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 
       if (! integer_all_onesp (size) && tree_int_cst_lt (size, len))
 	{
-	  warning (0, "%Kcall to %D will always overflow destination buffer",
-		   exp, get_callee_fndecl (exp));
+	  warning_at (tree_nonartificial_location (exp),
+		      0, "%Kcall to %D will always overflow destination buffer",
+		      exp, get_callee_fndecl (exp));
 	  return NULL_RTX;
 	}
 
@@ -12070,6 +12103,7 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
 {
   int is_strlen = 0;
   tree len, size;
+  location_t loc = tree_nonartificial_location (exp);
 
   switch (fcode)
     {
@@ -12116,8 +12150,8 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
       src = c_strlen (src, 1);
       if (! src || ! host_integerp (src, 1))
 	{
-	  warning (0, "%Kcall to %D might overflow destination buffer",
-		   exp, get_callee_fndecl (exp));
+	  warning_at (loc, 0, "%Kcall to %D might overflow destination buffer",
+		      exp, get_callee_fndecl (exp));
 	  return;
 	}
       else if (tree_int_cst_lt (src, size))
@@ -12126,8 +12160,8 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
   else if (! host_integerp (len, 1) || ! tree_int_cst_lt (size, len))
     return;
 
-  warning (0, "%Kcall to %D will always overflow destination buffer",
-	   exp, get_callee_fndecl (exp));
+  warning_at (loc, 0, "%Kcall to %D will always overflow destination buffer",
+	      exp, get_callee_fndecl (exp));
 }
 
 /* Emit warning if a buffer overflow is detected at compile time
@@ -12184,10 +12218,9 @@ maybe_emit_sprintf_chk_warning (tree exp, enum built_in_function fcode)
     return;
 
   if (! tree_int_cst_lt (len, size))
-    {
-      warning (0, "%Kcall to %D will always overflow destination buffer",
-	       exp, get_callee_fndecl (exp));
-    }
+    warning_at (tree_nonartificial_location (exp),
+		0, "%Kcall to %D will always overflow destination buffer",
+		exp, get_callee_fndecl (exp));
 }
 
 /* Emit warning if a free is called with address of a variable.  */
@@ -12206,9 +12239,11 @@ maybe_emit_free_warning (tree exp)
     return;
 
   if (SSA_VAR_P (arg))
-    warning (0, "%Kattempt to free a non-heap object %qD", exp, arg);
+    warning_at (tree_nonartificial_location (exp),
+		0, "%Kattempt to free a non-heap object %qD", exp, arg);
   else
-    warning (0, "%Kattempt to free a non-heap object", exp);
+    warning_at (tree_nonartificial_location (exp),
+		0, "%Kattempt to free a non-heap object", exp);
 }
 
 /* Fold a call to __builtin_object_size with arguments PTR and OST,

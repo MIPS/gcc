@@ -1,6 +1,6 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation,
-   Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -210,6 +210,7 @@ struct dump_file_info
 #define PROP_rtl		(1 << 7)
 #define PROP_alias		(1 << 8)
 #define PROP_gimple_lomp	(1 << 9)	/* lowered OpenMP directives */
+#define PROP_cfglayout	 	(1 << 10)	/* cfglayout mode on RTL */
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_lomp)
@@ -309,6 +310,8 @@ extern struct gimple_opt_pass pass_tree_profile;
 extern struct gimple_opt_pass pass_early_tree_profile;
 extern struct gimple_opt_pass pass_cleanup_cfg;
 extern struct gimple_opt_pass pass_referenced_vars;
+extern struct gimple_opt_pass pass_cleanup_eh;
+extern struct gimple_opt_pass pass_fixup_cfg;
 extern struct gimple_opt_pass pass_sra;
 extern struct gimple_opt_pass pass_sra_early;
 extern struct gimple_opt_pass pass_tail_recursion;
@@ -386,8 +389,10 @@ extern struct gimple_opt_pass pass_uncprop;
 extern struct gimple_opt_pass pass_return_slot;
 extern struct gimple_opt_pass pass_reassoc;
 extern struct gimple_opt_pass pass_rebuild_cgraph_edges;
+extern struct gimple_opt_pass pass_remove_cgraph_callee_edges;
 extern struct gimple_opt_pass pass_build_cgraph_edges;
 extern struct gimple_opt_pass pass_reset_cc_flags;
+extern struct gimple_opt_pass pass_local_pure_const;
 
 /* IPA Passes */
 extern struct ipa_opt_pass pass_ipa_inline;
@@ -526,6 +531,7 @@ extern void debug_pass (void);
 /* Need to expose this function externally for the plugin pass management
    support to register dump files for new passes.  */
 extern void register_one_dump_file (struct opt_pass *);
+extern bool function_called_by_processed_nodes_p (void);
 
 /* Set to true if the pass is called the first time during compilation of the
    current function.  Note that using this information in the optimization

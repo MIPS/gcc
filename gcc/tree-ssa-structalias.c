@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -230,6 +230,9 @@ struct variable_info
      variable.  This is used for C++ placement new.  */
   unsigned int no_tbaa_pruning : 1;
 
+  /* True if this field may contain pointers.  */
+  unsigned int may_have_pointers : 1;
+
   /* Variable id this was collapsed to due to type unsafety.  Zero if
      this variable was not collapsed.  This should be unused completely
      after build_succ_graph, or something is broken.  */
@@ -297,7 +300,8 @@ get_varinfo_fc (unsigned int n)
 
 /* Static IDs for the special variables.  */
 enum { nothing_id = 0, anything_id = 1, readonly_id = 2,
-       escaped_id = 3, nonlocal_id = 4, callused_id = 5, integer_id = 6 };
+       escaped_id = 3, nonlocal_id = 4, callused_id = 5,
+       storedanything_id = 6, integer_id = 7 };
 
 /* Variable that represents the unknown pointer.  */
 static varinfo_t var_anything;
@@ -322,6 +326,10 @@ static tree nonlocal_tree;
 /* Variable that represents call-used memory.  */
 static varinfo_t var_callused;
 static tree callused_tree;
+
+/* Variable that represents variables that are stored to anything.  */
+static varinfo_t var_storedanything;
+static tree storedanything_tree;
 
 /* Variable that represents integers.  This is used for when people do things
    like &0->a.b.  */
@@ -377,6 +385,7 @@ new_var_info (tree t, unsigned int id, const char *name)
   ret->is_special_var = false;
   ret->is_unknown_size_var = false;
   ret->is_full_var = false;
+  ret->may_have_pointers = true;
   var = t;
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
@@ -1182,7 +1191,7 @@ build_pred_graph (void)
 static void
 build_succ_graph (void)
 {
-  int i;
+  unsigned i, t;
   constraint_t c;
 
   for (i = 0; VEC_iterate (constraint_t, constraints, i, c); i++)
@@ -1222,6 +1231,14 @@ build_succ_graph (void)
 	{
 	  add_graph_edge (graph, lhsvar, rhsvar);
 	}
+    }
+
+  /* Add edges from STOREDANYTHING to all non-direct nodes.  */
+  t = find (storedanything_id);
+  for (i = integer_id + 1; i < FIRST_REF_NODE; ++i)
+    {
+      if (!TEST_BIT (graph->direct_nodes, i))
+	add_graph_edge (graph, find (i), t);
     }
 }
 
@@ -1507,8 +1524,8 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
      of a variable can also reach all other fields of the variable
      we simply have to expand the solution to contain all sub-fields
      if one sub-field is contained.  */
-  if (c->rhs.var == escaped_id
-      || c->rhs.var == callused_id)
+  if (c->rhs.var == find (escaped_id)
+      || c->rhs.var == find (callused_id))
     {
       bitmap vars = NULL;
       /* In a first pass record all variables we need to add all
@@ -1575,11 +1592,9 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	  if (get_varinfo (t)->is_special_var)
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
 	  /* Merging the solution from ESCAPED needlessly increases
-	     the set.  Use ESCAPED as representative instead.
-	     Same for CALLUSED.  */
-	  else if (get_varinfo (t)->id == escaped_id
-		   || get_varinfo (t)->id == callused_id)
-	    flag |= bitmap_set_bit (sol, get_varinfo (t)->id);
+	     the set.  Use ESCAPED as representative instead.  */
+	  else if (get_varinfo (t)->id == find (escaped_id))
+	    flag |= bitmap_set_bit (sol, escaped_id);
 	  else if (add_graph_edge (graph, lhs, t))
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
 	}
@@ -1608,35 +1623,33 @@ do_ds_constraint (constraint_t c, bitmap delta)
   unsigned int j;
   bitmap_iterator bi;
 
- if (bitmap_bit_p (sol, anything_id))
-   {
-     EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
-       {
-	 varinfo_t jvi = get_varinfo (j);
-	 unsigned int t;
-	 unsigned int loff = c->lhs.offset;
-	 unsigned HOST_WIDE_INT fieldoffset = jvi->offset + loff;
-	 varinfo_t v;
+  /* Our IL does not allow this.  */
+  gcc_assert (c->rhs.offset == 0);
 
-	 v = get_varinfo (j);
-	 if (!v->is_full_var)
-	   {
-	     v = first_vi_for_offset (v, fieldoffset);
-	     /* If the access is outside of the variable we can ignore it.  */
-	     if (!v)
-	       continue;
-	   }
-	 t = find (v->id);
+  /* If the solution of y contains ANYTHING simply use the ANYTHING
+     solution.  This avoids needlessly increasing the points-to sets.  */
+  if (bitmap_bit_p (sol, anything_id))
+    sol = get_varinfo (find (anything_id))->solution;
 
-	 if (bitmap_set_bit (get_varinfo (t)->solution, anything_id)
-	     && !TEST_BIT (changed, t))
-	   {
-	     SET_BIT (changed, t);
-	     changed_count++;
-	   }
-       }
-     return;
-   }
+  /* If the solution for x contains ANYTHING we have to merge the
+     solution of y into all pointer variables which we do via
+     STOREDANYTHING.  */
+  if (bitmap_bit_p (delta, anything_id))
+    {
+      unsigned t = find (storedanything_id);
+      if (add_graph_edge (graph, t, rhs))
+	{
+	  if (bitmap_ior_into (get_varinfo (t)->solution, sol))
+	    {
+	      if (!TEST_BIT (changed, t))
+		{
+		  SET_BIT (changed, t);
+		  changed_count++;
+		}
+	    }
+	}
+      return;
+    }
 
   /* For each member j of delta (Sol(x)), add an edge from y to j and
      union Sol(y) into Sol(j) */
@@ -1648,26 +1661,27 @@ do_ds_constraint (constraint_t c, bitmap delta)
 	  varinfo_t v;
 	  unsigned int t;
 	  unsigned HOST_WIDE_INT fieldoffset = get_varinfo (j)->offset + loff;
-	  bitmap tmp;
 
 	  v = first_vi_for_offset (get_varinfo (j), fieldoffset);
 	  /* If the access is outside of the variable we can ignore it.  */
 	  if (!v)
 	    continue;
-	  t = find (v->id);
-	  tmp = get_varinfo (t)->solution;
 
-            if (add_graph_edge (graph, t, rhs))
+	  if (v->may_have_pointers)
 	    {
-                if (bitmap_ior_into (get_varinfo (t)->solution, sol))
+	      t = find (v->id);
+	      if (add_graph_edge (graph, t, rhs))
 		{
-                    if (t == rhs)
-                      sol = get_varinfo (rhs)->solution;
-                    if (!TEST_BIT (changed, t))
-                      {
-                        SET_BIT (changed, t);
-                        changed_count++;
-                      }
+		  if (bitmap_ior_into (get_varinfo (t)->solution, sol))
+		    {
+		      if (t == rhs)
+			sol = get_varinfo (rhs)->solution;
+		      if (!TEST_BIT (changed, t))
+			{
+			  SET_BIT (changed, t);
+			  changed_count++;
+			}
+		    }
 		}
 	    }
 	}
@@ -1800,9 +1814,9 @@ compute_topo_order (constraint_graph_t graph,
 
 typedef struct equiv_class_label
 {
+  hashval_t hashcode;
   unsigned int equivalence_class;
   bitmap labels;
-  hashval_t hashcode;
 } *equiv_class_label_t;
 typedef const struct equiv_class_label *const_equiv_class_label_t;
 
@@ -2499,9 +2513,8 @@ solve_graph (constraint_graph_t graph)
 	      solution_empty = bitmap_empty_p (solution);
 
 	      if (!solution_empty
-		  /* Do not propagate the ESCAPED/CALLUSED solutions.  */
-		  && i != escaped_id
-		  && i != callused_id)
+		  /* Do not propagate the ESCAPED solutions.  */
+		  && i != find (escaped_id))
 		{
 		  bitmap_iterator bi;
 
@@ -2740,19 +2753,27 @@ process_constraint (constraint_t t)
     }
 }
 
+/* Return true if T is a type that could contain pointers.  */
+
+static bool
+type_could_have_pointers (tree type)
+{
+  if (POINTER_TYPE_P (type))
+    return true;
+
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    return type_could_have_pointers (TREE_TYPE (type));
+
+  return AGGREGATE_TYPE_P (type);
+}
+
 /* Return true if T is a variable of a type that could contain
    pointers.  */
 
 static bool
 could_have_pointers (tree t)
 {
-  tree type = TREE_TYPE (t);
-
-  if (POINTER_TYPE_P (type)
-      || AGGREGATE_TYPE_P (type))
-    return true;
-
-  return false;
+  return type_could_have_pointers (TREE_TYPE (t));
 }
 
 /* Return the position, in bits, of FIELD_DECL from the beginning of its
@@ -3405,8 +3426,8 @@ do_structure_copy (tree lhsop, tree rhsop)
 	{
 	  if (!do_simple_structure_copy (lhs, rhs, MIN (lhssize, rhssize)))
 	    {
-	      lhs.var = collapse_rest_of_var (lhs.var);
-	      rhs.var = collapse_rest_of_var (rhs.var);
+	      lhs.var = collapse_rest_of_var (get_varinfo_fc (lhs.var)->id);
+	      rhs.var = collapse_rest_of_var (get_varinfo_fc (rhs.var)->id);
 	      lhs.offset = 0;
 	      rhs.offset = 0;
 	      lhs.type = SCALAR;
@@ -3463,8 +3484,9 @@ make_escape_constraint (tree op)
    RHS.  */
 
 static void
-handle_rhs_call (gimple stmt)
+handle_rhs_call (gimple stmt, VEC(ce_s, heap) **results)
 {
+  struct constraint_expr rhsc;
   unsigned i;
 
   for (i = 0; i < gimple_call_num_args (stmt); ++i)
@@ -3480,6 +3502,12 @@ handle_rhs_call (gimple stmt)
   /* The static chain escapes as well.  */
   if (gimple_call_chain (stmt))
     make_escape_constraint (gimple_call_chain (stmt));
+
+  /* Regular functions return escaped addresses.  */
+  rhsc.var = escaped_id;
+  rhsc.offset = 0;
+  rhsc.type = ADDRESSOF;
+  VEC_safe_push (ce_s, heap, *results, &rhsc);
 }
 
 /* For non-IPA mode, generate constraints necessary for a call
@@ -3487,10 +3515,9 @@ handle_rhs_call (gimple stmt)
    the LHS point to global and escaped variables.  */
 
 static void
-handle_lhs_call (tree lhs, int flags)
+handle_lhs_call (tree lhs, int flags, VEC(ce_s, heap) *rhsc)
 {
   VEC(ce_s, heap) *lhsc = NULL;
-  struct constraint_expr rhsc;
   unsigned int j;
   struct constraint_expr *lhsp;
 
@@ -3498,6 +3525,7 @@ handle_lhs_call (tree lhs, int flags)
 
   if (flags & ECF_MALLOC)
     {
+      struct constraint_expr rhsc;
       tree heapvar = heapvar_lookup (lhs);
       varinfo_t vi;
 
@@ -3516,17 +3544,35 @@ handle_lhs_call (tree lhs, int flags)
       vi = get_varinfo (rhsc.var);
       vi->is_artificial_var = 1;
       vi->is_heap_var = 1;
+      vi->is_unknown_size_var = true;
+      vi->fullsize = ~0;
+      vi->size = ~0;
       rhsc.type = ADDRESSOF;
       rhsc.offset = 0;
+      for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
+	process_constraint (new_constraint (*lhsp, rhsc));
     }
-  else
+  else if (VEC_length (ce_s, rhsc) > 0)
     {
-      rhsc.var = escaped_id;
-      rhsc.offset = 0;
-      rhsc.type = ADDRESSOF;
+      struct constraint_expr *lhsp, *rhsp;
+      unsigned int i, j;
+      /* If the store is to a global decl make sure to
+	 add proper escape constraints.  */
+      lhs = get_base_address (lhs);
+      if (lhs
+	  && DECL_P (lhs)
+	  && is_global_var (lhs))
+	{
+	  struct constraint_expr tmpc;
+	  tmpc.var = escaped_id;
+	  tmpc.offset = 0;
+	  tmpc.type = SCALAR;
+	  VEC_safe_push (ce_s, heap, lhsc, &tmpc);
+	}
+      for (i = 0; VEC_iterate (ce_s, lhsc, i, lhsp); ++i)
+	for (j = 0; VEC_iterate (ce_s, rhsc, j, rhsp); ++j)
+	  process_constraint (new_constraint (*lhsp, *rhsp));
     }
-  for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
-    process_constraint (new_constraint (*lhsp, rhsc));
   VEC_free (ce_s, heap, lhsc);
 }
 
@@ -3534,42 +3580,22 @@ handle_lhs_call (tree lhs, int flags)
    const function that returns a pointer in the statement STMT.  */
 
 static void
-handle_const_call (gimple stmt)
+handle_const_call (gimple stmt, VEC(ce_s, heap) **results)
 {
-  tree lhs = gimple_call_lhs (stmt);
-  VEC(ce_s, heap) *lhsc = NULL;
-  struct constraint_expr rhsc;
-  unsigned int j, k;
-  struct constraint_expr *lhsp;
-  tree tmpvar;
-  struct constraint_expr tmpc;
+  struct constraint_expr rhsc, tmpc;
+  tree tmpvar = NULL_TREE;
+  unsigned int k;
 
-  get_constraint_for (lhs, &lhsc);
-
-  /* If this is a nested function then it can return anything.  */
+  /* Treat nested const functions the same as pure functions as far
+     as the static chain is concerned.  */
   if (gimple_call_chain (stmt))
     {
-      rhsc.var = anything_id;
+      make_constraint_to (callused_id, gimple_call_chain (stmt));
+      rhsc.var = callused_id;
       rhsc.offset = 0;
-      rhsc.type = ADDRESSOF;
-      for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
-	process_constraint (new_constraint (*lhsp, rhsc));
-      VEC_free (ce_s, heap, lhsc);
-      return;
+      rhsc.type = SCALAR;
+      VEC_safe_push (ce_s, heap, *results, &rhsc);
     }
-
-  /* We always use a temporary here, otherwise we end up with a quadratic
-     amount of constraints for
-       large_struct = const_call (large_struct);
-     in field-sensitive PTA.  */
-  tmpvar = create_tmp_var_raw (ptr_type_node, "consttmp");
-  tmpc = get_constraint_exp_for_temp (tmpvar);
-
-  /* May return addresses of globals.  */
-  rhsc.var = nonlocal_id;
-  rhsc.offset = 0;
-  rhsc.type = ADDRESSOF;
-  process_constraint (new_constraint (tmpc, rhsc));
 
   /* May return arguments.  */
   for (k = 0; k < gimple_call_num_args (stmt); ++k)
@@ -3582,26 +3608,41 @@ handle_const_call (gimple stmt)
 	  struct constraint_expr *argp;
 	  int i;
 
+	  /* We always use a temporary here, otherwise we end up with
+	     a quadratic amount of constraints for
+	       large_struct = const_call (large_struct);
+	     with field-sensitive PTA.  */
+	  if (tmpvar == NULL_TREE)
+	    {
+	      tmpvar = create_tmp_var_raw (ptr_type_node, "consttmp");
+	      tmpc = get_constraint_exp_for_temp (tmpvar);
+	    }
+
 	  get_constraint_for (arg, &argc);
 	  for (i = 0; VEC_iterate (ce_s, argc, i, argp); i++)
 	    process_constraint (new_constraint (tmpc, *argp));
 	  VEC_free (ce_s, heap, argc);
 	}
     }
+  if (tmpvar != NULL_TREE)
+    VEC_safe_push (ce_s, heap, *results, &tmpc);
 
-  for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
-    process_constraint (new_constraint (*lhsp, tmpc));
-
-  VEC_free (ce_s, heap, lhsc);
+  /* May return addresses of globals.  */
+  rhsc.var = nonlocal_id;
+  rhsc.offset = 0;
+  rhsc.type = ADDRESSOF;
+  VEC_safe_push (ce_s, heap, *results, &rhsc);
 }
 
 /* For non-IPA mode, generate constraints necessary for a call to a
    pure function in statement STMT.  */
 
 static void
-handle_pure_call (gimple stmt)
+handle_pure_call (gimple stmt, VEC(ce_s, heap) **results)
 {
+  struct constraint_expr rhsc;
   unsigned i;
+  bool need_callused = false;
 
   /* Memory reached from pointer arguments is call-used.  */
   for (i = 0; i < gimple_call_num_args (stmt); ++i)
@@ -3609,48 +3650,31 @@ handle_pure_call (gimple stmt)
       tree arg = gimple_call_arg (stmt, i);
 
       if (could_have_pointers (arg))
-	make_constraint_to (callused_id, arg);
+	{
+	  make_constraint_to (callused_id, arg);
+	  need_callused = true;
+	}
     }
 
   /* The static chain is used as well.  */
   if (gimple_call_chain (stmt))
-    make_constraint_to (callused_id, gimple_call_chain (stmt));
-
-  /* If the call returns a pointer it may point to reachable memory
-     from the arguments.  Not so for malloc functions though.  */
-  if (gimple_call_lhs (stmt)
-      && could_have_pointers (gimple_call_lhs (stmt))
-      && !(gimple_call_flags (stmt) & ECF_MALLOC))
     {
-      tree lhs = gimple_call_lhs (stmt);
-      VEC(ce_s, heap) *lhsc = NULL;
-      struct constraint_expr rhsc;
-      struct constraint_expr *lhsp;
-      unsigned j;
+      make_constraint_to (callused_id, gimple_call_chain (stmt));
+      need_callused = true;
+    }
 
-      get_constraint_for (lhs, &lhsc);
-
-      /* If this is a nested function then it can return anything.  */
-      if (gimple_call_chain (stmt))
-	{
-	  rhsc.var = anything_id;
-	  rhsc.offset = 0;
-	  rhsc.type = ADDRESSOF;
-	  for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
-	    process_constraint (new_constraint (*lhsp, rhsc));
-	  VEC_free (ce_s, heap, lhsc);
-	  return;
-	}
-
-      /* Else just add the call-used memory here.  Escaped variables
-         and globals will be dealt with in handle_lhs_call.  */
+  /* Pure functions may return callused and escaped memory.  */
+  if (need_callused)
+    {
       rhsc.var = callused_id;
       rhsc.offset = 0;
-      rhsc.type = ADDRESSOF;
-      for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
-	process_constraint (new_constraint (*lhsp, rhsc));
-      VEC_free (ce_s, heap, lhsc);
+      rhsc.type = SCALAR;
+      VEC_safe_push (ce_s, heap, *results, &rhsc);
     }
+  rhsc.var = escaped_id;
+  rhsc.offset = 0;
+  rhsc.type = ADDRESSOF;
+  VEC_safe_push (ce_s, heap, *results, &rhsc);
 }
 
 /* Walk statement T setting up aliasing constraints according to the
@@ -3715,33 +3739,28 @@ find_func_aliases (gimple origt)
     {
       if (!in_ipa_mode)
 	{
+	  VEC(ce_s, heap) *rhsc = NULL;
 	  int flags = gimple_call_flags (t);
 
 	  /* Const functions can return their arguments and addresses
 	     of global memory but not of escaped memory.  */
-	  if (flags & ECF_CONST)
+	  if (flags & (ECF_CONST|ECF_NOVOPS))
 	    {
 	      if (gimple_call_lhs (t)
 		  && could_have_pointers (gimple_call_lhs (t)))
-		handle_const_call (t);
+		handle_const_call (t, &rhsc);
 	    }
 	  /* Pure functions can return addresses in and of memory
 	     reachable from their arguments, but they are not an escape
 	     point for reachable memory of their arguments.  */
-	  else if (flags & ECF_PURE)
-	    {
-	      handle_pure_call (t);
-	      if (gimple_call_lhs (t)
-		  && could_have_pointers (gimple_call_lhs (t)))
-		handle_lhs_call (gimple_call_lhs (t), flags);
-	    }
+	  else if (flags & (ECF_PURE|ECF_LOOPING_CONST_OR_PURE))
+	    handle_pure_call (t, &rhsc);
 	  else
-	    {
-	      handle_rhs_call (t);
-	      if (gimple_call_lhs (t)
-		  && could_have_pointers (gimple_call_lhs (t)))
-		handle_lhs_call (gimple_call_lhs (t), flags);
-	    }
+	    handle_rhs_call (t, &rhsc);
+	  if (gimple_call_lhs (t)
+	      && could_have_pointers (gimple_call_lhs (t)))
+	    handle_lhs_call (gimple_call_lhs (t), flags, rhsc);
+	  VEC_free (ce_s, heap, rhsc);
 	}
       else
 	{
@@ -4356,6 +4375,7 @@ create_variable_info_for (tree decl, const char *name)
   vi = new_var_info (decl, index, name);
   vi->decl = decl;
   vi->offset = 0;
+  vi->may_have_pointers = could_have_pointers (decl);
   if (!declsize
       || !host_integerp (declsize, 1))
     {
@@ -4372,7 +4392,7 @@ create_variable_info_for (tree decl, const char *name)
   insert_vi_for_tree (vi->decl, vi);
   VEC_safe_push (varinfo_t, heap, varmap, vi);
   if (is_global && (!flag_whole_program || !in_ipa_mode)
-      && could_have_pointers (decl))
+      && vi->may_have_pointers)
     {
       if (var_ann (decl)
 	  && var_ann (decl)->noalias_state == NO_ALIAS_ANYTHING)
@@ -4433,6 +4453,7 @@ create_variable_info_for (tree decl, const char *name)
 
       vi->size = fo->size;
       vi->offset = fo->offset;
+      vi->may_have_pointers = fo->may_have_pointers;
       for (i = VEC_length (fieldoff_s, fieldstack) - 1;
 	   i >= 1 && VEC_iterate (fieldoff_s, fieldstack, i, fo);
 	   i--)
@@ -4454,10 +4475,11 @@ create_variable_info_for (tree decl, const char *name)
 	  newvi->offset = fo->offset;
 	  newvi->size = fo->size;
 	  newvi->fullsize = vi->fullsize;
+	  newvi->may_have_pointers = fo->may_have_pointers;
 	  insert_into_field_list (vi, newvi);
 	  VEC_safe_push (varinfo_t, heap, varmap, newvi);
 	  if (is_global && (!flag_whole_program || !in_ipa_mode)
-	      && fo->may_have_pointers)
+	      && newvi->may_have_pointers)
 	    make_constraint_from (newvi, escaped_id);
 
 	  stats.total_vars++;
@@ -4541,7 +4563,7 @@ intra_create_variable_infos (void)
 	  if (heapvar == NULL_TREE)
 	    {
 	      var_ann_t ann;
-	      heapvar = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (t)),
+	      heapvar = create_tmp_var_raw (ptr_type_node,
 					    "PARM_NOALIAS");
 	      DECL_EXTERNAL (heapvar) = 1;
 	      if (gimple_referenced_vars (cfun))
@@ -4564,6 +4586,9 @@ intra_create_variable_infos (void)
 	  vi = get_vi_for_tree (heapvar);
 	  vi->is_artificial_var = 1;
 	  vi->is_heap_var = 1;
+	  vi->is_unknown_size_var = true;
+	  vi->fullsize = ~0;
+	  vi->size = ~0;
 	  rhs.var = vi->id;
 	  rhs.type = ADDRESSOF;
 	  rhs.offset = 0;
@@ -4891,9 +4916,10 @@ find_what_p_points_to (tree p)
 		    pi->pt_null = 1;
 		  else if (vi->id == anything_id
 			   || vi->id == nonlocal_id
-			   || vi->id == escaped_id
-			   || vi->id == callused_id)
+			   || vi->id == escaped_id)
 		    was_pt_anything = 1;
+		  else if (vi->id == callused_id)
+		    gcc_unreachable ();
 		  else if (vi->id == readonly_id)
 		    was_pt_anything = 1;
 		  else if (vi->id == integer_id)
@@ -4935,6 +4961,7 @@ find_what_p_points_to (tree p)
 	    {
 	      pi->pt_vars = NULL;
 	      if (pruned > 0
+		  && !pi->pt_null
 		  && pi->is_dereferenced
 		  && warn_strict_aliasing > 0
 		  && !SSA_NAME_IS_DEFAULT_DEF (p))
@@ -5238,6 +5265,19 @@ init_base_vars (void)
   rhs.offset = 0;
   process_constraint (new_constraint (lhs, rhs));
 
+  /* Create the STOREDANYTHING variable, used to represent the set of
+     variables stored to *ANYTHING.  */
+  storedanything_tree = create_tmp_var_raw (ptr_type_node, "STOREDANYTHING");
+  var_storedanything = new_var_info (storedanything_tree, storedanything_id,
+				     "STOREDANYTHING");
+  insert_vi_for_tree (storedanything_tree, var_storedanything);
+  var_storedanything->is_artificial_var = 1;
+  var_storedanything->offset = 0;
+  var_storedanything->size = ~0;
+  var_storedanything->fullsize = ~0;
+  var_storedanything->is_special_var = 0;
+  VEC_safe_push (varinfo_t, heap, varmap, var_storedanything);
+
   /* Create the INTEGER variable, used to represent that a variable points
      to an INTEGER.  */
   integer_tree = create_tmp_var_raw (void_type_node, "INTEGER");
@@ -5536,9 +5576,9 @@ compute_points_to_sets (void)
     fprintf (dump_file, "Rewriting constraints and unifying "
 	     "variables\n");
   rewrite_constraints (graph, si);
-  free_var_substitution_info (si);
 
   build_succ_graph ();
+  free_var_substitution_info (si);
 
   if (dump_file && (dump_flags & TDF_GRAPH))
     dump_constraint_graph (dump_file);
@@ -5629,23 +5669,20 @@ ipa_pta_execute (void)
 
   for (node = cgraph_nodes; node; node = node->next)
     {
-      if (!node->analyzed || cgraph_is_master_clone (node))
-	{
-	  unsigned int varid;
+      unsigned int varid;
 
-	  varid = create_function_info_for (node->decl,
-					    cgraph_node_name (node));
-	  if (node->local.externally_visible)
-	    {
-	      varinfo_t fi = get_varinfo (varid);
-	      for (; fi; fi = fi->next)
-		make_constraint_from (fi, anything_id);
-	    }
+      varid = create_function_info_for (node->decl,
+					cgraph_node_name (node));
+      if (node->local.externally_visible)
+	{
+	  varinfo_t fi = get_varinfo (varid);
+	  for (; fi; fi = fi->next)
+	    make_constraint_from (fi, anything_id);
 	}
     }
   for (node = cgraph_nodes; node; node = node->next)
     {
-      if (node->analyzed && cgraph_is_master_clone (node))
+      if (node->analyzed)
 	{
 	  struct function *func = DECL_STRUCT_FUNCTION (node->decl);
 	  basic_block bb;
@@ -5697,9 +5734,9 @@ ipa_pta_execute (void)
   build_pred_graph ();
   si = perform_var_substitution (graph);
   rewrite_constraints (graph, si);
-  free_var_substitution_info (si);
 
   build_succ_graph ();
+  free_var_substitution_info (si);
   move_complex_constraints (graph);
   unite_pointer_equivalences (graph);
   find_indirect_cycles (graph);

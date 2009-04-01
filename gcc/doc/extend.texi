@@ -1,5 +1,6 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001,
-@c 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+@c Free Software Foundation, Inc.
 
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -662,6 +663,10 @@ A @code{typeof}-construct can be used anywhere a typedef name could be
 used.  For example, you can use it in a declaration, in a cast, or inside
 of @code{sizeof} or @code{typeof}.
 
+The operand of @code{typeof} is evaluated for its side effects if and
+only if it is an expression of variably modified type or the name of
+such a type.
+
 @code{typeof} is often useful in conjunction with the
 statements-within-expressions feature.  Here is how the two together can
 be used to define a safe ``maximum'' macro that operates on any
@@ -930,7 +935,7 @@ is supported on x86_64 and ia64 targets.
 @cindex @code{DL} integer suffix
 
 As an extension, the GNU C compiler supports decimal floating types as
-defined in the N1176 draft of ISO/IEC WDTR24732.  Support for decimal
+defined in the N1312 draft of ISO/IEC WDTR24732.  Support for decimal
 floating types in GCC will evolve as the draft technical report changes.
 Calling conventions for any target might also change.  Not all targets
 support decimal floating types.
@@ -953,12 +958,21 @@ is incomplete:
 
 @itemize @bullet
 @item
-Translation time data type (TTDT) is not supported.
+Pragma @code{FLOAT_CONST_DECIMAL64} is not supported, nor is the @samp{d}
+suffix for literal constants of type @code{double}.
 
 @item
 When the value of a decimal floating type cannot be represented in the
 integer type to which it is being converted, the result is undefined
 rather than the result value specified by the draft technical report.
+
+@item
+GCC does not provide the C library functionality associated with
+@file{math.h}, @file{fenv.h}, @file{stdio.h}, @file{stdlib.h}, and
+@file{wchar.h}, which must come from a separate C library implementation.
+Because of this the GNU C compiler does not define macro
+@code{__STDC_DEC_FP__} to indicate that the implementation conforms to
+the technical report.
 @end itemize
 
 Types @code{_Decimal32}, @code{_Decimal64}, and @code{_Decimal128}
@@ -1069,45 +1083,64 @@ The fixed-point types are
 @code{_Sat unsigned _Accum},
 @code{_Sat unsigned long _Accum},
 @code{_Sat unsigned long long _Accum}.
+
 Fixed-point data values contain fractional and optional integral parts.
 The format of fixed-point data varies and depends on the target machine.
 
-Support for fixed-point types includes prefix and postfix increment
-and decrement operators (@code{++}, @code{--}); unary arithmetic operators
-(@code{+}, @code{-}, @code{!}); binary arithmetic operators (@code{+},
-@code{-}, @code{*}, @code{/}); binary shift operators (@code{<<}, @code{>>});
-relational operators (@code{<}, @code{<=}, @code{>=}, @code{>});
-equality operators (@code{==}, @code{!=}); assignment operators
-(@code{+=}, @code{-=}, @code{*=}, @code{/=}, @code{<<=}, @code{>>=});
-and conversions to and from integer, floating-point, or fixed-point types.
+Support for fixed-point types includes:
+@itemize @bullet
+@item
+prefix and postfix increment and decrement operators (@code{++}, @code{--})
+@item
+unary arithmetic operators (@code{+}, @code{-}, @code{!})
+@item
+binary arithmetic operators (@code{+}, @code{-}, @code{*}, @code{/})
+@item
+binary shift operators (@code{<<}, @code{>>})
+@item
+relational operators (@code{<}, @code{<=}, @code{>=}, @code{>})
+@item
+equality operators (@code{==}, @code{!=})
+@item
+assignment operators (@code{+=}, @code{-=}, @code{*=}, @code{/=},
+@code{<<=}, @code{>>=})
+@item
+conversions to and from integer, floating-point, or fixed-point types
+@end itemize
 
-Use a suffix @samp{hr} or @samp{HR} in a literal constant of type
-@code{short _Fract} and @code{_Sat short _Fract},
-@samp{r} or @samp{R} for @code{_Fract} and @code{_Sat _Fract},
-@samp{lr} or @samp{LR} for @code{long _Fract} and @code{_Sat long _Fract},
-@samp{llr} or @samp{LLR} for @code{long long _Fract} and
-@code{_Sat long long _Fract},
-@samp{uhr} or @samp{UHR} for @code{unsigned short _Fract} and
-@code{_Sat unsigned short _Fract},
-@samp{ur} or @samp{UR} for @code{unsigned _Fract} and
-@code{_Sat unsigned _Fract},
-@samp{ulr} or @samp{ULR} for @code{unsigned long _Fract} and
-@code{_Sat unsigned long _Fract},
-@samp{ullr} or @samp{ULLR} for @code{unsigned long long _Fract}
-and @code{_Sat unsigned long long _Fract},
-@samp{hk} or @samp{HK} for @code{short _Accum} and @code{_Sat short _Accum},
-@samp{k} or @samp{K} for @code{_Accum} and @code{_Sat _Accum},
-@samp{lk} or @samp{LK} for @code{long _Accum} and @code{_Sat long _Accum},
-@samp{llk} or @samp{LLK} for @code{long long _Accum} and
-@code{_Sat long long _Accum},
-@samp{uhk} or @samp{UHK} for @code{unsigned short _Accum} and
-@code{_Sat unsigned short _Accum},
-@samp{uk} or @samp{UK} for @code{unsigned _Accum} and
-@code{_Sat unsigned _Accum},
-@samp{ulk} or @samp{ULK} for @code{unsigned long _Accum} and
-@code{_Sat unsigned long _Accum},
-and @samp{ullk} or @samp{ULLK} for @code{unsigned long long _Accum}
-and @code{_Sat unsigned long long _Accum}.
+Use a suffix in a fixed-point literal constant:
+@itemize
+@item @samp{hr} or @samp{HR} for @code{short _Fract} and
+@code{_Sat short _Fract}
+@item @samp{r} or @samp{R} for @code{_Fract} and @code{_Sat _Fract}
+@item @samp{lr} or @samp{LR} for @code{long _Fract} and
+@code{_Sat long _Fract}
+@item @samp{llr} or @samp{LLR} for @code{long long _Fract} and
+@code{_Sat long long _Fract}
+@item @samp{uhr} or @samp{UHR} for @code{unsigned short _Fract} and
+@code{_Sat unsigned short _Fract}
+@item @samp{ur} or @samp{UR} for @code{unsigned _Fract} and
+@code{_Sat unsigned _Fract}
+@item @samp{ulr} or @samp{ULR} for @code{unsigned long _Fract} and
+@code{_Sat unsigned long _Fract}
+@item @samp{ullr} or @samp{ULLR} for @code{unsigned long long _Fract}
+and @code{_Sat unsigned long long _Fract}
+@item @samp{hk} or @samp{HK} for @code{short _Accum} and
+@code{_Sat short _Accum}
+@item @samp{k} or @samp{K} for @code{_Accum} and @code{_Sat _Accum}
+@item @samp{lk} or @samp{LK} for @code{long _Accum} and
+@code{_Sat long _Accum}
+@item @samp{llk} or @samp{LLK} for @code{long long _Accum} and
+@code{_Sat long long _Accum}
+@item @samp{uhk} or @samp{UHK} for @code{unsigned short _Accum} and
+@code{_Sat unsigned short _Accum}
+@item @samp{uk} or @samp{UK} for @code{unsigned _Accum} and
+@code{_Sat unsigned _Accum}
+@item @samp{ulk} or @samp{ULK} for @code{unsigned long _Accum} and
+@code{_Sat unsigned long _Accum}
+@item @samp{ullk} or @samp{ULLK} for @code{unsigned long long _Accum}
+and @code{_Sat unsigned long long _Accum}
+@end itemize
 
 GCC support of fixed-point types as specified by the draft technical report
 is incomplete:
@@ -2407,6 +2440,11 @@ to run as a thread.  The compiler omits generate prologue/epilogue
 sequences and replaces the return instruction with a @code{sleep}
 instruction.  This attribute is available only on fido.
 
+@item isr
+@cindex interrupt service routines on ARM
+Use this attribute on ARM to write Interrupt Service Routines. This is an
+alias to the @code{interrupt} attribute above.
+
 @item kspisusp
 @cindex User stack pointer in interrupts on the Blackfin
 When used together with @code{interrupt_handler}, @code{exception_handler}
@@ -2519,7 +2557,7 @@ defined by shared libraries.
 @cindex @code{ms_abi} attribute
 @cindex @code{sysv_abi} attribute
 
-On 64-bit x86_65-*-* targets, you can use an ABI attribute to indicate
+On 64-bit x86_64-*-* targets, you can use an ABI attribute to indicate
 which calling convention should be used for a function.  The @code{ms_abi}
 attribute tells the compiler to use the Microsoft ABI, while the
 @code{sysv_abi} attribute tells the compiler to use the ABI used on
@@ -2758,7 +2796,7 @@ default).  Lazy binding will send the first call via resolving code in
 the loader, which might assume EAX, EDX and ECX can be clobbered, as
 per the standard calling conventions.  Solaris 8 is affected by this.
 GNU systems with GLIBC 2.1 or higher, and FreeBSD, are believed to be
-safe since the loaders there save all registers.  (Lazy binding can be
+safe since the loaders there save EAX, EDX and ECX.  (Lazy binding can be
 disabled with the linker or the loader if desired, to avoid the
 problem.)
 
@@ -3035,7 +3073,7 @@ Do/do not align destination of inlined string operations.
 @itemx no-recip
 @cindex @code{target("recip")} attribute
 Enable/disable the generation of RCPSS, RCPPS, RSQRTSS and RSQRTPS
-instructions followed an additional Newton-Rhapson step instead of
+instructions followed an additional Newton-Raphson step instead of
 doing a floating point division.
 
 @item arch=@var{ARCH}
@@ -3827,7 +3865,7 @@ struct foo
 @emph{Note:} The 4.1, 4.2 and 4.3 series of GCC ignore the
 @code{packed} attribute on bit-fields of type @code{char}.  This has
 been fixed in GCC 4.4 but the change can lead to differences in the
-structure layout.  See the documention of
+structure layout.  See the documentation of
 @option{-Wpacked-bitfield-compat} for more information.
 
 @item section ("@var{section-name}")
@@ -3843,7 +3881,7 @@ section.  For example, this small program uses several specific section names:
 struct duart a __attribute__ ((section ("DUART_A"))) = @{ 0 @};
 struct duart b __attribute__ ((section ("DUART_B"))) = @{ 0 @};
 char stack[10000] __attribute__ ((section ("STACK"))) = @{ 0 @};
-int init_data __attribute__ ((section ("INITDATA"))) = 0;
+int init_data __attribute__ ((section ("INITDATA")));
 
 main()
 @{
@@ -3860,18 +3898,19 @@ main()
 @end smallexample
 
 @noindent
-Use the @code{section} attribute with an @emph{initialized} definition
-of a @emph{global} variable, as shown in the example.  GCC issues
-a warning and otherwise ignores the @code{section} attribute in
-uninitialized variable declarations.
+Use the @code{section} attribute with
+@emph{global} variables and not @emph{local} variables,
+as shown in the example.
 
-You may only use the @code{section} attribute with a fully initialized
-global definition because of the way linkers work.  The linker requires
+You may use the @code{section} attribute with initialized or
+uninitialized global variables but the linker requires
 each object be defined once, with the exception that uninitialized
 variables tentatively go in the @code{common} (or @code{bss}) section
-and can be multiply ``defined''.  You can force a variable to be
-initialized with the @option{-fno-common} flag or the @code{nocommon}
-attribute.
+and can be multiply ``defined''.  Using the @code{section} attribute
+will change what section the variable goes into and may cause the
+linker to issue an error if an uninitialized variable has multiple
+definitions.  You can force a variable to be initialized with the
+@option{-fno-common} flag or the @code{nocommon} attribute.
 
 Some file formats do not support arbitrary sections so the @code{section}
 attribute is not available on all platforms.
@@ -6600,9 +6639,8 @@ depending on the arguments' types.  For example:
 
 You can use the built-in function @code{__builtin_choose_expr} to
 evaluate code depending on the value of a constant expression.  This
-built-in function returns @var{exp1} if @var{const_exp}, which is a
-constant expression that must be able to be determined at compile time,
-is nonzero.  Otherwise it returns 0.
+built-in function returns @var{exp1} if @var{const_exp}, which is an
+integer constant expression, is nonzero.  Otherwise it returns 0.
 
 This built-in function is analogous to the @samp{? :} operator in C,
 except that the expression returned has its type unaltered by promotion
@@ -6681,7 +6719,11 @@ static const int table[] = @{
 
 @noindent
 This is an acceptable initializer even if @var{EXPRESSION} is not a
-constant expression.  GCC must be more conservative about evaluating the
+constant expression, including the case where
+@code{__builtin_constant_p} returns 1 because @var{EXPRESSION} can be
+folded to a constant but @var{EXPRESSION} contains operands that would
+not otherwize be permitted in a static initializer (for example,
+@code{0 && foo ()}).  GCC must be more conservative about evaluating the
 built-in in this case, because it has no opportunity to perform
 optimization.
 
@@ -7745,6 +7787,11 @@ The following floating point built-in functions are made available in the
 @table @code
 @item __float128 __builtin_infq (void)
 Similar to @code{__builtin_inf}, except the return type is @code{__float128}.
+@findex __builtin_infq
+
+@item __float128 __builtin_huge_valq (void)
+Similar to @code{__builtin_huge_val}, except the return type is @code{__float128}.
+@findex __builtin_huge_valq
 @end table
 
 The following built-in functions are made available by @option{-mmmx}.

@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2009, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -337,8 +337,18 @@ gnat_init_options (unsigned int argc, const char **argv)
 bool
 gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 {
+  /* Excess precision other than "fast" requires front-end
+     support.  */
+  if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
+      && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
+    sorry ("-fexcess-precision=standard for Ada");
+  flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+
   /* ??? The warning machinery is outsmarted by Ada.  */
   warn_unused_parameter = 0;
+
+  /* No psABI change warnings for Ada.  */
+  warn_psabi = 0;
 
   /* Force eliminate_unused_debug_types to 0 unless an explicit positive
      -f has been passed.  This forces the default to 0 for Ada, which might

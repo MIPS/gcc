@@ -768,7 +768,7 @@ extern void dump_referenced_vars (FILE *);
 extern void dump_variable (FILE *, tree);
 extern void debug_variable (tree);
 extern tree get_virtual_var (tree);
-extern void add_referenced_var (tree);
+extern bool add_referenced_var (tree);
 extern void remove_referenced_var (tree);
 extern void mark_symbols_for_renaming (gimple);
 extern void find_new_referenced_vars (gimple);
@@ -991,7 +991,7 @@ unsigned int tree_ssa_prefetch_arrays (void);
 unsigned int remove_empty_loops (void);
 void tree_ssa_iv_optimize (void);
 unsigned tree_predictive_commoning (void);
-tree canonicalize_loop_ivs (struct loop *, htab_t, tree);
+tree canonicalize_loop_ivs (struct loop *, htab_t, tree *);
 bool parallelize_loops (void);
 
 bool loop_only_exit_p (const struct loop *, const_edge);
@@ -1077,6 +1077,7 @@ extern bool operation_could_trap_p (enum tree_code, bool, bool, tree);
 extern bool stmt_could_throw_p (gimple);
 extern bool tree_could_throw_p (tree);
 extern bool stmt_can_throw_internal (gimple);
+extern bool stmt_can_throw_external (gimple);
 extern void add_stmt_to_eh_region (gimple, int);
 extern bool remove_stmt_from_eh_region (gimple);
 extern bool maybe_clean_or_replace_eh_stmt (gimple, gimple);
@@ -1145,6 +1146,7 @@ tree force_gimple_operand (tree, gimple_seq *, bool, tree);
 tree force_gimple_operand_gsi (gimple_stmt_iterator *, tree, bool, tree,
 			       bool, enum gsi_iterator_update);
 tree gimple_fold_indirect_ref (tree);
+void mark_addressable (tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
@@ -1153,6 +1155,7 @@ void compute_call_used_vars (void);
 
 /* In tree-ssa-live.c */
 extern void remove_unused_locals (void);
+extern void dump_scope_blocks (FILE *, int);
 
 /* In tree-ssa-address.c  */
 

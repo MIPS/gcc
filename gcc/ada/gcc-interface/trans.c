@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2009, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -3594,7 +3594,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	   gnu_max_expr = protect_multiple_eval (gnu_max_expr);
 
 	    /* Derive a good type to convert everything to.  */
-	    gnu_expr_type = get_base_type (TREE_TYPE (gnu_index_type));
+	    gnu_expr_type = get_base_type (gnu_index_type);
 
 	    /* Test whether the minimum slice value is too small.  */
 	    gnu_expr_l = build_binary_op (LT_EXPR, integer_type_node,
@@ -4940,8 +4940,9 @@ gnat_to_gnu (Node_Id gnat_node)
 			!= TYPE_DUMMY_P (gnu_target_desig_type))
 		    || (TYPE_DUMMY_P (gnu_source_desig_type)
 			&& gnu_source_desig_type != gnu_target_desig_type)
-		    || (get_alias_set (gnu_source_desig_type)
-			!= get_alias_set (gnu_target_desig_type))))
+		    || !alias_sets_conflict_p
+			(get_alias_set (gnu_source_desig_type),
+			 get_alias_set (gnu_target_desig_type))))
 	      {
 		post_error_ne
 		  ("?possible aliasing problem for type&",
@@ -4973,8 +4974,9 @@ gnat_to_gnu (Node_Id gnat_node)
 			!= TYPE_DUMMY_P (gnu_target_array_type))
 		    || (TYPE_DUMMY_P (gnu_source_array_type)
 			&& gnu_source_array_type != gnu_target_array_type)
-		    || (get_alias_set (gnu_source_array_type)
-			!= get_alias_set (gnu_target_array_type))))
+		    || !alias_sets_conflict_p
+			(get_alias_set (gnu_source_array_type),
+			 get_alias_set (gnu_target_array_type))))
 	      {
 		post_error_ne
 		  ("?possible aliasing problem for type&",

@@ -1,6 +1,7 @@
 ;; Machine description for SPARC chip for GCC
 ;;  Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003, 2004, 2005,2006, 2007 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+;;  Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -7081,10 +7082,10 @@
   [(unspec_volatile [(const_int 0)] UNSPECV_SETJMP)]
   ""
 {
-  if (! cfun->calls_alloca)
+  if (!cfun->calls_alloca)
     return "";
-  if (! TARGET_V9)
-    return "\tta\t3\n";
+  if (!TARGET_V9)
+    return "ta\t3";
   fputs ("\tflushw\n", asm_out_file);
   if (flag_pic)
     fprintf (asm_out_file, "\tst%c\t%%l7, [%%sp+%d]\n",
@@ -8075,9 +8076,8 @@
   else
     {
       emit_insn (gen_stack_protect_testsi (operands[0], operands[1]));
-      sparc_compare_op0 = operands[0];
-      sparc_compare_op1 = operands[1];
-      sparc_compare_emitted = gen_rtx_REG (CCmode, SPARC_ICC_REG);
+      sparc_compare_op0 = gen_rtx_REG (CCmode, SPARC_ICC_REG);
+      sparc_compare_op1 = const0_rtx;
     }
   emit_jump_insn (gen_beq (operands[2]));
   DONE;
@@ -8172,7 +8172,7 @@
 
 ;; (ior (not (op1)) (not (op2))) is the canonical form of NAND.
 
-(define_insn "*nand<V64mode>_vis"
+(define_insn "*nand<V64:mode>_vis"
   [(set (match_operand:V64 0 "register_operand" "=e")
 	(ior:V64 (not:V64 (match_operand:V64 1 "register_operand" "e"))
 		 (not:V64 (match_operand:V64 2 "register_operand" "e"))))]
@@ -8181,7 +8181,7 @@
   [(set_attr "type" "fga")
    (set_attr "fptype" "double")])
 
-(define_insn "*nand<V32mode>_vis"
+(define_insn "*nand<V32:mode>_vis"
   [(set (match_operand:V32 0 "register_operand" "=f")
 	 (ior:V32 (not:V32 (match_operand:V32 1 "register_operand" "f"))
 		  (not:V32 (match_operand:V32 2 "register_operand" "f"))))]

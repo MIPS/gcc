@@ -1595,6 +1595,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
       DECL_ARG_TYPE (t) = ptr_type_node;
       DECL_CONTEXT (t) = current_function_decl;
       TREE_USED (t) = 1;
+      TREE_ADDRESSABLE (t) = 1;
       TREE_CHAIN (t) = DECL_ARGUMENTS (decl);
       DECL_ARGUMENTS (decl) = t;
     }
@@ -2316,6 +2317,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  x = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (new_var)),
 					  name);
 		  gimple_add_tmp_var (x);
+		  TREE_ADDRESSABLE (x) = 1;
 		  x = build_fold_addr_expr_with_type (x, TREE_TYPE (new_var));
 		}
 	      else
@@ -2821,7 +2823,14 @@ lower_send_shared_vars (gimple_seq *ilist, gimple_seq *olist, omp_context *ctx)
 	  x = build_sender_ref (ovar, ctx);
 	  gimplify_assign (x, var, ilist);
 
-	  if (!TREE_READONLY (var))
+	  if (!TREE_READONLY (var)
+	      /* We don't need to receive a new reference to a result
+	         or parm decl.  In fact we may not store to it as we will
+		 invalidate any pending RSO and generate wrong gimple
+		 during inlining.  */
+	      && !((TREE_CODE (var) == RESULT_DECL
+		    || TREE_CODE (var) == PARM_DECL)
+		   && DECL_BY_REFERENCE (var)))
 	    {
 	      x = build_sender_ref (ovar, ctx);
 	      gimplify_assign (var, x, olist);
@@ -3235,6 +3244,7 @@ expand_omp_taskreg (struct omp_region *region)
   basic_block entry_bb, exit_bb, new_bb;
   struct function *child_cfun;
   tree child_fn, block, t, ws_args, *tp;
+  tree save_current;
   gimple_stmt_iterator gsi;
   gimple entry_stmt, stmt;
   edge e;
@@ -3420,6 +3430,8 @@ expand_omp_taskreg (struct omp_region *region)
       /* Fix the callgraph edges for child_cfun.  Those for cfun will be
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
+      save_current = current_function_decl;
+      current_function_decl = child_fn;
       if (optimize)
 	optimize_omp_library_calls (entry_stmt);
       rebuild_cgraph_edges ();
@@ -3431,16 +3443,14 @@ expand_omp_taskreg (struct omp_region *region)
       if (flag_exceptions)
 	{
 	  basic_block bb;
-	  tree save_current = current_function_decl;
 	  bool changed = false;
 
-	  current_function_decl = child_fn;
 	  FOR_EACH_BB (bb)
 	    changed |= gimple_purge_dead_eh_edges (bb);
 	  if (changed)
 	    cleanup_tree_cfg ();
-	  current_function_decl = save_current;
 	}
+      current_function_decl = save_current;
       pop_cfun ();
     }
   
@@ -6337,6 +6347,7 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       ctx->sender_decl
 	= create_tmp_var (ctx->srecord_type ? ctx->srecord_type
 			  : ctx->record_type, ".omp_data_o");
+      TREE_ADDRESSABLE (ctx->sender_decl) = 1;
       gimple_omp_taskreg_set_data_arg (stmt, ctx->sender_decl);
     }
 

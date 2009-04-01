@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2009, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -115,7 +115,15 @@ static VEC (tree,heap) *defer_finalize_list;
 static GTY ((if_marked ("tree_int_map_marked_p"),
 	     param_is (struct tree_int_map))) htab_t annotate_value_cache;
 
-static void copy_alias_set (tree, tree);
+enum alias_set_op
+{
+  ALIAS_SET_COPY,
+  ALIAS_SET_SUBSET,
+  ALIAS_SET_SUPERSET
+};
+
+static void relate_alias_sets (tree, tree, enum alias_set_op);
+
 static tree substitution_list (Entity_Id, Entity_Id, tree, bool);
 static bool allocatable_size_p (tree, bool);
 static void prepend_one_attribute_to (struct attrib **,
@@ -1632,7 +1640,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       /* Inherit our alias set from what we're a subtype of.  Subtypes
 	 are not different types and a pointer can designate any instance
 	 within a subtype hierarchy.  */
-      copy_alias_set (gnu_type, TREE_TYPE (gnu_type));
+      relate_alias_sets (gnu_type, TREE_TYPE (gnu_type), ALIAS_SET_COPY);
 
       /* If the type we are dealing with is to represent a packed array,
 	 we need to have the bits left justified on big-endian targets
@@ -1674,7 +1682,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  TYPE_JUSTIFIED_MODULAR_P (gnu_type) = 1;
 	  SET_TYPE_ADA_SIZE (gnu_type, bitsize_int (esize));
 
-	  copy_alias_set (gnu_type, gnu_field_type);
+	  relate_alias_sets (gnu_type, gnu_field_type, ALIAS_SET_COPY);
 	}
 
       /* If the type we are dealing with has got a smaller alignment than the
@@ -1709,7 +1717,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  TYPE_IS_PADDING_P (gnu_type) = 1;
 	  SET_TYPE_ADA_SIZE (gnu_type, bitsize_int (esize));
 
-	  copy_alias_set (gnu_type, gnu_field_type);
+	  relate_alias_sets (gnu_type, gnu_field_type, ALIAS_SET_COPY);
 	}
 
       /* Otherwise reset the alignment lest we computed it above.  */
@@ -1784,7 +1792,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	/* Inherit our alias set from what we're a subtype of, as for
 	   integer subtypes.  */
-	copy_alias_set (gnu_type, TREE_TYPE (gnu_type));
+	relate_alias_sets (gnu_type, TREE_TYPE (gnu_type), ALIAS_SET_COPY);
       }
     break;
 
@@ -1950,6 +1958,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    && !Has_Aliased_Components (gnat_entity)
 	    && !Strict_Alignment (Component_Type (gnat_entity))
 	    && TREE_CODE (tem) == RECORD_TYPE
+	    && !TYPE_IS_FAT_POINTER_P (tem)
 	    && host_integerp (TYPE_SIZE (tem), 1))
 	  tem = make_packable_type (tem, false);
 
@@ -2318,6 +2327,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  && !Has_Aliased_Components (gnat_entity)
 		  && !Strict_Alignment (Component_Type (gnat_entity))
 		  && TREE_CODE (gnu_type) == RECORD_TYPE
+		  && !TYPE_IS_FAT_POINTER_P (gnu_type)
 		  && host_integerp (TYPE_SIZE (gnu_type), 1))
 		gnu_type = make_packable_type (gnu_type, false);
 
@@ -2477,7 +2487,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	  /* Set our alias set to that of our base type.  This gives all
 	     array subtypes the same alias set.  */
-	  copy_alias_set (gnu_type, gnu_base_type);
+	  relate_alias_sets (gnu_type, gnu_base_type, ALIAS_SET_COPY);
 	}
 
       /* If this is a packed type, make this type the same as the packed
@@ -2615,7 +2625,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	gnu_type
 	  = build_array_type (gnat_to_gnu_type (Component_Type (gnat_entity)),
 			      gnu_index_type);
-	copy_alias_set (gnu_type,  gnu_string_type);
+	if (array_type_has_nonaliased_component (gnat_entity, gnu_type))
+	  TYPE_NONALIASED_COMPONENT (gnu_type) = 1;
+	relate_alias_sets (gnu_type, gnu_string_type, ALIAS_SET_COPY);
       }
       break;
 
@@ -2878,14 +2890,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	if (Is_Tagged_Type (gnat_entity) || Is_Limited_Record (gnat_entity))
 	  SET_TYPE_MODE (gnu_type, BLKmode);
 
-	/* If this is a derived type, we must make the alias set of this type
-	   the same as that of the type we are derived from.  We assume here
-	   that the other type is already frozen.  */
-	if (Etype (gnat_entity) != gnat_entity
-	    && !(Is_Private_Type (Etype (gnat_entity))
-		 && Full_View (Etype (gnat_entity)) == gnat_entity))
-	  copy_alias_set (gnu_type, gnat_to_gnu_type (Etype (gnat_entity)));
-
 	/* Fill in locations of fields.  */
 	annotate_rep (gnat_entity, gnu_type);
 
@@ -3001,7 +3005,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      TYPE_SIZE_UNIT (gnu_type) = TYPE_SIZE_UNIT (gnu_base_type);
 	      SET_TYPE_ADA_SIZE (gnu_type, TYPE_ADA_SIZE (gnu_base_type));
 	      TYPE_ALIGN (gnu_type) = TYPE_ALIGN (gnu_base_type);
-	      copy_alias_set (gnu_type, gnu_base_type);
+	      relate_alias_sets (gnu_type, gnu_base_type, ALIAS_SET_COPY);
 
 	      if (CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_type)))
 		for (gnu_temp = gnu_subst_list;
@@ -3080,8 +3084,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			        == INTEGER_CST)
 		      {
 			gnu_size = DECL_SIZE (gnu_old_field);
-			if (TYPE_MODE (gnu_field_type) == BLKmode
-			    && TREE_CODE (gnu_field_type) == RECORD_TYPE
+			if (TREE_CODE (gnu_field_type) == RECORD_TYPE
+			    && !TYPE_IS_FAT_POINTER_P (gnu_field_type)
 			    && host_integerp (TYPE_SIZE (gnu_field_type), 1))
 			  gnu_field_type
 			    = make_packable_type (gnu_field_type, true);
@@ -4529,6 +4533,49 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
     {
       gnu_type = TREE_TYPE (gnu_decl);
 
+      /* If this is a derived type, relate its alias set to that of its parent
+	 to avoid troubles when a call to an inherited primitive is inlined in
+	 a context where a derived object is accessed.  The inlined code works
+	 on the parent view so the resulting code may access the same object
+	 using both the parent and the derived alias sets, which thus have to
+	 conflict.  As the same issue arises with component references, the
+	 parent alias set also has to conflict with composite types enclosing
+	 derived components.  For instance, if we have:
+
+	    type D is new T;
+	    type R is record
+	       Component : D;
+	    end record;
+
+	 we want T to conflict with both D and R, in addition to R being a
+	 superset of D by record/component construction.
+
+	 One way to achieve this is to perform an alias set copy from the
+	 parent to the derived type.  This is not quite appropriate, though,
+	 as we don't want separate derived types to conflict with each other:
+
+	    type I1 is new Integer;
+	    type I2 is new Integer;
+
+	 We want I1 and I2 to both conflict with Integer but we do not want
+	 I1 to conflict with I2, and an alias set copy on derivation would
+	 have that effect.
+
+	 The option chosen is to make the alias set of the derived type a
+	 superset of that of its parent type.  It trivially fulfills the
+	 simple requirement for the Integer derivation example above, and
+	 the component case as well by superset transitivity:
+
+		   superset      superset
+		R ----------> D ----------> T
+
+	 The language rules ensure the parent type is already frozen here.  */
+      if (Is_Derived_Type (gnat_entity))
+	{
+	  tree gnu_parent_type = gnat_to_gnu_type (Etype (gnat_entity));
+	  relate_alias_sets (gnu_type, gnu_parent_type, ALIAS_SET_SUPERSET);
+	}
+
       /* Back-annotate the Alignment of the type if not already in the
 	 tree.  Likewise for sizes.  */
       if (Unknown_Alignment (gnat_entity))
@@ -5156,11 +5203,16 @@ mark_out_of_scope (Entity_Id gnat_entity)
     }
 }
 
-/* Set the alias set of GNU_NEW_TYPE to be that of GNU_OLD_TYPE.  If this
-   is a multi-dimensional array type, do this recursively.  */
+/* Relate the alias sets of GNU_NEW_TYPE and GNU_OLD_TYPE according to OP.
+   If this is a multi-dimensional array type, do this recursively.
+
+   OP may be
+   - ALIAS_SET_COPY:     the new set is made a copy of the old one.
+   - ALIAS_SET_SUPERSET: the new set is made a superset of the old one.
+   - ALIAS_SET_SUBSET:   the new set is made a subset of the old one.  */
 
 static void
-copy_alias_set (tree gnu_new_type, tree gnu_old_type)
+relate_alias_sets (tree gnu_new_type, tree gnu_old_type, enum alias_set_op op)
 {
   /* Remove any padding from GNU_OLD_TYPE.  It doesn't matter in the case
      of a one-dimensional array, since the padding has the same alias set
@@ -5171,19 +5223,60 @@ copy_alias_set (tree gnu_new_type, tree gnu_old_type)
 	     || TYPE_IS_PADDING_P (gnu_old_type)))
     gnu_old_type = TREE_TYPE (TYPE_FIELDS (gnu_old_type));
 
-  /* We need to be careful here in case GNU_OLD_TYPE is an unconstrained
-     array.  In that case, it doesn't have the same shape as GNU_NEW_TYPE,
-     so we need to go down to what does.  */
+  /* Unconstrained array types are deemed incomplete and would thus be given
+     alias set 0.  Retrieve the underlying array type.  */
   if (TREE_CODE (gnu_old_type) == UNCONSTRAINED_ARRAY_TYPE)
     gnu_old_type
       = TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_old_type))));
+  if (TREE_CODE (gnu_new_type) == UNCONSTRAINED_ARRAY_TYPE)
+    gnu_new_type
+      = TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_new_type))));
 
   if (TREE_CODE (gnu_new_type) == ARRAY_TYPE
       && TREE_CODE (TREE_TYPE (gnu_new_type)) == ARRAY_TYPE
       && TYPE_MULTI_ARRAY_P (TREE_TYPE (gnu_new_type)))
-    copy_alias_set (TREE_TYPE (gnu_new_type), TREE_TYPE (gnu_old_type));
+    relate_alias_sets (TREE_TYPE (gnu_new_type), TREE_TYPE (gnu_old_type), op);
 
-  TYPE_ALIAS_SET (gnu_new_type) = get_alias_set (gnu_old_type);
+  switch (op)
+    {
+    case ALIAS_SET_COPY:
+      /* The alias set shouldn't be copied between array types with different
+	 aliasing settings because this can break the aliasing relationship
+	 between the array type and its element type.  */
+#ifndef ENABLE_CHECKING
+      if (flag_strict_aliasing)
+#endif
+	gcc_assert (!(TREE_CODE (gnu_new_type) == ARRAY_TYPE
+		      && TREE_CODE (gnu_old_type) == ARRAY_TYPE
+		      && TYPE_NONALIASED_COMPONENT (gnu_new_type)
+			 != TYPE_NONALIASED_COMPONENT (gnu_old_type)));
+
+      TYPE_ALIAS_SET (gnu_new_type) = get_alias_set (gnu_old_type);
+      break;
+
+    case ALIAS_SET_SUBSET:
+    case ALIAS_SET_SUPERSET:
+      {
+	alias_set_type old_set = get_alias_set (gnu_old_type);
+	alias_set_type new_set = get_alias_set (gnu_new_type);
+
+	/* Do nothing if the alias sets conflict.  This ensures that we
+	   never call record_alias_subset several times for the same pair
+	   or at all for alias set 0.  */
+	if (!alias_sets_conflict_p (old_set, new_set))
+	  {
+	    if (op == ALIAS_SET_SUBSET)
+	      record_alias_subset (old_set, new_set);
+	    else
+	      record_alias_subset (new_set, old_set);
+	  }
+      }
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
   record_component_aliases (gnu_new_type);
 }
 
@@ -5587,7 +5680,7 @@ make_aligning_type (tree type, unsigned int align, tree size,
 
   SET_TYPE_MODE (record_type, BLKmode);
 
-  copy_alias_set (record_type, type);
+  relate_alias_sets (record_type, type, ALIAS_SET_COPY);
   return record_type;
 }
 
@@ -5606,8 +5699,8 @@ round_up_to_align (unsigned HOST_WIDE_INT t, unsigned int align)
    as the field type of a packed record if IN_RECORD is true, or as the
    component type of a packed array if IN_RECORD is false.  See if we can
    rewrite it either as a type that has a non-BLKmode, which we can pack
-   tighter in the packed record case, or as a smaller type with BLKmode.
-   If so, return the new type.  If not, return the original type.  */
+   tighter in the packed record case, or as a smaller type.  If so, return
+   the new type.  If not, return the original type.  */
 
 static tree
 make_packable_type (tree type, bool in_record)
@@ -5669,10 +5762,10 @@ make_packable_type (tree type, bool in_record)
       tree new_field_type = TREE_TYPE (old_field);
       tree new_field, new_size;
 
-      if (TYPE_MODE (new_field_type) == BLKmode
-	  && (TREE_CODE (new_field_type) == RECORD_TYPE
-	      || TREE_CODE (new_field_type) == UNION_TYPE
-	      || TREE_CODE (new_field_type) == QUAL_UNION_TYPE)
+      if ((TREE_CODE (new_field_type) == RECORD_TYPE
+	   || TREE_CODE (new_field_type) == UNION_TYPE
+	   || TREE_CODE (new_field_type) == QUAL_UNION_TYPE)
+	  && !TYPE_IS_FAT_POINTER_P (new_field_type)
 	  && host_integerp (TYPE_SIZE (new_field_type), 1))
 	new_field_type = make_packable_type (new_field_type, true);
 
@@ -5709,7 +5802,7 @@ make_packable_type (tree type, bool in_record)
     }
 
   finish_record_type (new_type, nreverse (field_list), 2, true);
-  copy_alias_set (new_type, type);
+  relate_alias_sets (new_type, type, ALIAS_SET_COPY);
 
   /* If this is a padding record, we never want to make the size smaller
      than what was specified.  For QUAL_UNION_TYPE, also copy the size.  */
@@ -5856,7 +5949,7 @@ maybe_pad_type (tree type, tree size, unsigned int align,
       && TREE_CODE (type) == RECORD_TYPE
       && TYPE_MODE (type) == BLKmode
       && TREE_CODE (orig_size) == INTEGER_CST
-      && !TREE_CONSTANT_OVERFLOW (orig_size)
+      && !TREE_OVERFLOW (orig_size)
       && compare_tree_int (orig_size, MAX_FIXED_MODE_SIZE) <= 0
       && (!size
 	  || (TREE_CODE (size) == INTEGER_CST
@@ -6116,11 +6209,10 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
     gnu_size = NULL_TREE;
 
   /* If we have a specified size that's smaller than that of the field type,
-     or a position is specified, and the field type is also a record that's
-     BLKmode, see if we can get either an integral mode form of the type or
-     a smaller BLKmode form.  If we can, show a size was specified for the
-     field if there wasn't one already, so we know to make this a bitfield
-     and avoid making things wider.
+     or a position is specified, and the field type is a record, see if we can
+     get either an integral mode form of the type or a smaller form.  If we
+     can, show a size was specified for the field if there wasn't one already,
+     so we know to make this a bitfield and avoid making things wider.
 
      Doing this is first useful if the record is packed because we may then
      place the field at a non-byte-aligned position and so achieve tighter
@@ -6140,7 +6232,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
      from a component clause.  */
 
   if (TREE_CODE (gnu_field_type) == RECORD_TYPE
-      && TYPE_MODE (gnu_field_type) == BLKmode
+      && !TYPE_IS_FAT_POINTER_P (gnu_field_type)
       && host_integerp (TYPE_SIZE (gnu_field_type), 1)
       && (packed == 1
 	  || (gnu_size
@@ -7509,6 +7601,7 @@ substitute_in_type (tree t, tree f, tree r)
 
 	new = build_array_type (component, domain);
 	TYPE_SIZE (new) = 0;
+	TYPE_NONALIASED_COMPONENT (new) = TYPE_NONALIASED_COMPONENT (t);
 	TYPE_MULTI_ARRAY_P (new) = TYPE_MULTI_ARRAY_P (t);
 	TYPE_CONVENTION_FORTRAN_P (new) = TYPE_CONVENTION_FORTRAN_P (t);
 	layout_type (new);

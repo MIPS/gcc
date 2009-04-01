@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -536,6 +536,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_early_local_passes);
     {
       struct opt_pass **p = &pass_early_local_passes.pass.sub;
+      NEXT_PASS (pass_fixup_cfg);
       NEXT_PASS (pass_tree_profile);
       NEXT_PASS (pass_cleanup_cfg);
       NEXT_PASS (pass_init_datastructures);
@@ -550,6 +551,7 @@ init_optimization_passes (void)
 	  struct opt_pass **p = &pass_all_early_optimizations.pass.sub;
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
+	  NEXT_PASS (pass_remove_cgraph_callee_edges);
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
@@ -561,7 +563,9 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_tail_recursion);
 	  NEXT_PASS (pass_convert_switch);
+          NEXT_PASS (pass_cleanup_eh);
           NEXT_PASS (pass_profile);
+          NEXT_PASS (pass_local_pure_const);
 	}
       NEXT_PASS (pass_release_ssa_names);
       NEXT_PASS (pass_rebuild_cgraph_edges);
@@ -584,9 +588,11 @@ init_optimization_passes (void)
   NEXT_PASS (pass_all_optimizations);
     {
       struct opt_pass **p = &pass_all_optimizations.pass.sub;
+      NEXT_PASS (pass_remove_cgraph_callee_edges);
       /* Initial scalar cleanups before alias computation.
 	 They ensure memory accesses are not indirect wherever possible.  */
       NEXT_PASS (pass_strip_predict_hints);
+      NEXT_PASS (pass_cleanup_eh);
       NEXT_PASS (pass_update_address_taken);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_complete_unrolli);
@@ -684,6 +690,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phi_only_cprop);
       NEXT_PASS (pass_cd_dce);
       NEXT_PASS (pass_tracer);
+      NEXT_PASS (pass_cleanup_eh);
 
       /* FIXME: If DCE is not run before checking for uninitialized uses,
 	 we may get false warnings (e.g., testsuite/gcc.dg/uninit-5.c).
@@ -701,6 +708,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_tail_calls);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_uncprop);
+      NEXT_PASS (pass_local_pure_const);
     }
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
@@ -752,12 +760,12 @@ init_optimization_passes (void)
       NEXT_PASS (pass_reginfo_init);
       NEXT_PASS (pass_inc_dec);
       NEXT_PASS (pass_initialize_regs);
-      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_ud_rtl_dce);
       NEXT_PASS (pass_combine);
       NEXT_PASS (pass_if_after_combine);
       NEXT_PASS (pass_partition_blocks);
       NEXT_PASS (pass_regmove);
+      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_split_all_insns);
       NEXT_PASS (pass_lower_subreg2);
       NEXT_PASS (pass_df_initialize_no_opt);
@@ -878,11 +886,14 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
       order = GGC_NEWVEC (struct cgraph_node *, cgraph_n_nodes);
       nnodes = cgraph_postorder (order);
       for (i = nnodes - 1; i >= 0; i--)
+        order[i]->process = 1;
+      for (i = nnodes - 1; i >= 0; i--)
 	{
 	  struct cgraph_node *node = order[i];
 
 	  /* Allow possibly removed nodes to be garbage collected.  */
 	  order[i] = NULL;
+	  node->process = 0;
 	  if (node->analyzed && (node->needed || node->reachable))
 	    {
 	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
@@ -1367,6 +1378,32 @@ execute_ipa_pass_list (struct opt_pass *pass)
       pass = pass->next;
     }
   while (pass);
+}
+
+/* Called by local passes to see if function is called by already processed nodes.
+   Because we process nodes in topological order, this means that function is
+   in recursive cycle or we introduced new direct calls.  */
+bool
+function_called_by_processed_nodes_p (void)
+{
+  struct cgraph_edge *e;
+  for (e = cgraph_node (current_function_decl)->callers; e; e = e->next_caller)
+    {
+      if (e->caller->decl == current_function_decl)
+        continue;
+      if (!e->caller->analyzed || (!e->caller->needed && !e->caller->reachable))
+        continue;
+      if (TREE_ASM_WRITTEN (e->caller->decl))
+        continue;
+      if (!e->caller->process && !e->caller->global.inlined_to)
+      	break;
+    }
+  if (dump_file && e)
+    {
+      fprintf (dump_file, "Already processed call to:\n");
+      dump_cgraph_node (dump_file, e->caller);
+    }
+  return e != NULL;
 }
 
 #include "gt-passes.h"

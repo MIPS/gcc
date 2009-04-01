@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1186,18 +1186,15 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 #define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->base.public_flag)
 
-/* ??? This is an obsolete synonym for TREE_OVERFLOW.  */
-#define TREE_CONSTANT_OVERFLOW(NODE) TREE_OVERFLOW(NODE)
-
 /* TREE_OVERFLOW can only be true for EXPR of CONSTANT_CLASS_P.  */
 
 #define TREE_OVERFLOW_P(EXPR) \
  (CONSTANT_CLASS_P (EXPR) && TREE_OVERFLOW (EXPR))
 
 /* In a VAR_DECL, FUNCTION_DECL, NAMESPACE_DECL or TYPE_DECL,
-   nonzero means name is to be accessible from outside this module.
+   nonzero means name is to be accessible from outside this translation unit.
    In an IDENTIFIER_NODE, nonzero means an external declaration
-   accessible from outside this module was previously seen
+   accessible from outside this translation unit was previously seen
    for this name in an inner scope.  */
 #define TREE_PUBLIC(NODE) ((NODE)->base.public_flag)
 
@@ -1324,8 +1321,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* Used in classes in C++.  */
 #define TREE_PRIVATE(NODE) ((NODE)->base.private_flag)
-/* Used in classes in C++.
-   In a BLOCK node, this is BLOCK_HANDLER_BLOCK.  */
+/* Used in classes in C++. */
 #define TREE_PROTECTED(NODE) ((NODE)->base.protected_flag)
 
 /* Nonzero in a _DECL if the use of the name is defined as a
@@ -1590,6 +1586,12 @@ extern void protected_set_expr_location (tree, location_t);
 #define DECL_EXPR_DECL(NODE)    TREE_OPERAND (DECL_EXPR_CHECK (NODE), 0)
 
 #define EXIT_EXPR_COND(NODE)	     TREE_OPERAND (EXIT_EXPR_CHECK (NODE), 0)
+
+/* COMPOUND_LITERAL_EXPR accessors.  */
+#define COMPOUND_LITERAL_EXPR_DECL_EXPR(NODE)		\
+  TREE_OPERAND (COMPOUND_LITERAL_EXPR_CHECK (NODE), 0)
+#define COMPOUND_LITERAL_EXPR_DECL(NODE)			\
+  DECL_EXPR_DECL (COMPOUND_LITERAL_EXPR_DECL_EXPR (NODE))
 
 /* SWITCH_EXPR accessors. These give access to the condition, body and
    original condition type (before any compiler conversions)
@@ -1969,6 +1971,9 @@ struct varray_head_tag;
 
 /* In a BLOCK node.  */
 #define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
+#define BLOCK_NONLOCALIZED_VARS(NODE) (BLOCK_CHECK (NODE)->block.nonlocalized_vars)
+#define BLOCK_NUM_NONLOCALIZED_VARS(NODE) VEC_length (tree, BLOCK_NONLOCALIZED_VARS (NODE))
+#define BLOCK_NONLOCALIZED_VAR(NODE,N) VEC_index (tree, BLOCK_NONLOCALIZED_VARS (NODE), N)
 #define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->block.subblocks)
 #define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->block.supercontext)
 /* Note: when changing this, make sure to find the places
@@ -1976,11 +1981,6 @@ struct varray_head_tag;
 #define BLOCK_CHAIN(NODE) TREE_CHAIN (BLOCK_CHECK (NODE))
 #define BLOCK_ABSTRACT_ORIGIN(NODE) (BLOCK_CHECK (NODE)->block.abstract_origin)
 #define BLOCK_ABSTRACT(NODE) (BLOCK_CHECK (NODE)->block.abstract_flag)
-
-/* Nonzero means that this block is prepared to handle exceptions
-   listed in the BLOCK_VARS slot.  */
-#define BLOCK_HANDLER_BLOCK(NODE) \
-  (BLOCK_CHECK (NODE)->block.handler_block_flag)
 
 /* An index number for this block.  These values are not guaranteed to
    be unique across functions -- whether or not they are depends on
@@ -2022,13 +2022,14 @@ struct tree_block GTY(())
 {
   struct tree_common common;
 
-  unsigned handler_block_flag : 1;
   unsigned abstract_flag : 1;
-  unsigned block_num : 30;
+  unsigned block_num : 31;
 
   location_t locus;
 
   tree vars;
+  VEC(tree,gc) *nonlocalized_vars;
+
   tree subblocks;
   tree supercontext;
   tree abstract_origin;
@@ -2288,6 +2289,7 @@ struct tree_type GTY(())
   unsigned user_align : 1;
 
   unsigned int align;
+  alias_set_type alias_set;
   tree pointer_to;
   tree reference_to;
   union tree_type_symtab {
@@ -2304,7 +2306,6 @@ struct tree_type GTY(())
   tree binfo;
   tree context;
   tree canonical;
-  alias_set_type alias_set;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_type *lang_specific;
 };
@@ -2728,10 +2729,9 @@ struct tree_decl_common GTY(())
   unsigned gimple_reg_flag : 1;
   /* In a DECL with pointer type, set if no TBAA should be done.  */
   unsigned no_tbaa_flag : 1;
-  /* Padding so that 'align' can be on a 32-bit boundary.  */
+  /* Padding so that 'off_align' can be on a 32-bit boundary.  */
   unsigned decl_common_unused : 2;
 
-  unsigned int align : 24;
   /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
   unsigned int off_align : 8;
 
@@ -2739,6 +2739,9 @@ struct tree_decl_common GTY(())
   tree initial;
   tree attributes;
   tree abstract_origin;
+
+  /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
+  unsigned int align;
 
   alias_set_type pointer_alias_set;
   /* Points to a structure whose details depend on the language in use.  */
@@ -2925,11 +2928,6 @@ struct tree_parm_decl GTY(())
   /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.weak_flag)
 
-/* Internal to the gimplifier.  Indicates that the value is a formal
-   temporary controlled by the gimplifier.  */
-#define DECL_GIMPLE_FORMAL_TEMP_P(DECL) \
-  DECL_WITH_VIS_CHECK (DECL)->decl_with_vis.gimple_formal_temp
-
 /* Used to indicate that the DECL is a dllimport.  */
 #define DECL_DLLIMPORT_P(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.dllimport_flag)
 
@@ -3041,7 +3039,6 @@ struct tree_decl_with_vis GTY(())
  unsigned thread_local:1;
  unsigned common_flag:1;
  unsigned in_text_section : 1;
- unsigned gimple_formal_temp : 1;
  unsigned dllimport_flag : 1;
  unsigned based_on_restrict_p : 1;
  /* Used by C++.  Might become a generic decl flag.  */
@@ -3059,7 +3056,7 @@ struct tree_decl_with_vis GTY(())
 
  /* Belongs to VAR_DECL exclusively.  */
  ENUM_BITFIELD(tls_model) tls_model : 3;
- /* 12 unused bits. */
+ /* 13 unused bits. */
 };
 
 /* In a VAR_DECL that's static,
@@ -4034,6 +4031,7 @@ extern bool tree_expr_nonnegative_p (tree);
 extern bool tree_expr_nonnegative_warnv_p (tree, bool *);
 extern bool may_negate_without_overflow_p (const_tree);
 extern tree strip_array_types (tree);
+extern tree excess_precision_type (tree);
 
 /* Construct various nodes representing fract or accum data types.  */
 
@@ -4380,6 +4378,10 @@ extern tree tree_cons_stat (tree, tree, tree MEM_STAT_DECL);
 
 extern tree tree_last (tree);
 
+/* Return the node in a chain whose TREE_VALUE is x, NULL if not found.  */
+
+extern tree tree_find_value (tree, tree);
+
 /* Reverse the order of elements in a chain, and return the new head.  */
 
 extern tree nreverse (tree);
@@ -4657,6 +4659,14 @@ function_args_iter_next (function_args_iterator *i)
   i->next = TREE_CHAIN (i->next);
 }
 
+/* We set BLOCK_SOURCE_LOCATION only to inlined function entry points.  */
+
+static inline bool
+inlined_function_outer_scope_p (const_tree block)
+{
+ return BLOCK_SOURCE_LOCATION (block) != UNKNOWN_LOCATION;
+}
+
 /* Loop over all function arguments of FNTYPE.  In each iteration, PTR is set
    to point to the next tree element.  ITER is an instance of
    function_args_iterator used to iterate the arguments.  */
@@ -4710,7 +4720,6 @@ extern void expand_goto (tree);
 extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
 extern void expand_return (tree);
-extern int is_body_block (const_tree);
 
 /* In tree-eh.c */
 extern void using_eh_for_cleanups (void);
@@ -4823,6 +4832,7 @@ extern tree build_fold_indirect_ref (tree);
 extern tree fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
 extern tree build_low_bits_mask (tree, unsigned);
+extern tree div_if_zero_remainder (enum tree_code, const_tree, const_tree);
 
 extern bool tree_swap_operands_p (const_tree, const_tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
@@ -4846,6 +4856,8 @@ extern bool tree_call_nonnegative_warnv_p (tree, tree, tree, tree, bool *);
 extern bool tree_expr_nonzero_warnv_p (tree, bool *);
 
 extern bool fold_real_zero_addition_p (const_tree, const_tree, int);
+extern tree combine_comparisons (enum tree_code, enum tree_code,
+				 enum tree_code, tree, tree, tree);
 
 /* Return nonzero if CODE is a tree code that represents a truth value.  */
 static inline bool
@@ -4941,6 +4953,7 @@ extern void set_expr_locus (tree, source_location *);
 
 extern tree *tree_block (tree);
 extern location_t *block_nonartificial_location (tree);
+extern location_t tree_nonartificial_location (tree);
 
 /* In function.c */
 extern void expand_main_function (void);
@@ -5022,6 +5035,7 @@ extern bool gimple_alloca_call_p (const_gimple);
 extern bool alloca_call_p (const_tree);
 extern bool must_pass_in_stack_var_size (enum machine_mode, const_tree);
 extern bool must_pass_in_stack_var_size_or_pad (enum machine_mode, const_tree);
+extern tree block_ultimate_origin (const_tree);
 
 /* In attribs.c.  */
 

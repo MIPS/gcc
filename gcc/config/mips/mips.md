@@ -1,6 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+;;  1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 ;;  Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
@@ -404,7 +404,7 @@
 	 (eq_attr "move_type" "andi") (const_string "logical")
 
 	 ;; These types of move are always split.
-	 (eq_attr "move_type" "constN,lui_movf,shift_shift")
+	 (eq_attr "move_type" "constN,shift_shift")
 	   (const_string "multi")
 
 	 ;; These types of move are split for doubleword modes only.
@@ -413,6 +413,8 @@
 	   (const_string "multi")
 	 (eq_attr "move_type" "move") (const_string "move")
 	 (eq_attr "move_type" "const") (const_string "const")]
+	;; We classify "lui_movf" as "unknown" rather than "multi"
+	;; because we don't split it.  FIXME: we should split instead.
 	(const_string "unknown")))
 
 ;; Mode for conversion types (fcvt)

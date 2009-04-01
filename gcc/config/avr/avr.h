@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 
-   2008 Free Software Foundation, Inc.
+   2008, 2009 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
 This file is part of GCC.
@@ -590,10 +590,7 @@ do {									\
    specific tm.h file (depending upon the particulars of your assembler).  */
 
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)		\
-do {								\
-     ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");	\
-     ASM_OUTPUT_LABEL (FILE, NAME);				\
-} while (0)
+avr_asm_declare_function_name ((FILE), (NAME), (DECL))
 
 #define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)			\
   do {									\
@@ -826,6 +823,7 @@ mmcu=*:-mmcu=%*}"
   mmcu=at90s8*|\
   mmcu=at90c8*|\
   mmcu=at86rf401|\
+  mmcu=ata6289|\
   mmcu=attiny13*|\
   mmcu=attiny2313|\
   mmcu=attiny24|\
@@ -892,14 +890,18 @@ mmcu=*:-mmcu=%*}"
   mmcu=attiny327|\
   mmcu=at90can*|\
   mmcu=at90pwm*|\
+  mmcu=atmega8c1|\
+  mmcu=atmega16c1|\
   mmcu=atmega32c1|\
   mmcu=atmega64c1|\
+  mmcu=atmega8m1|\
   mmcu=atmega16m1|\
   mmcu=atmega32m1|\
   mmcu=atmega64m1|\
   mmcu=atmega16u4|\
   mmcu=atmega32u*|\
   mmcu=at90scr100|\
+  mmcu=ata6289|\
   mmcu=at90usb*: -Tdata 0x800100}\
 %{mmcu=atmega640|\
   mmcu=atmega1280|\
@@ -957,6 +959,7 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=attiny87:crttn87.o%s} \
 %{mmcu=attiny48:crttn48.o%s} \
 %{mmcu=attiny88:crttn88.o%s} \
+%{mmcu=ata6289:crta6289.o%s} \
 %{mmcu=at43usb355|mmcu=avr3:crt43355.o%s} \
 %{mmcu=at76c711:crt76711.o%s} \
 %{mmcu=atmega103|mmcu=avr31:crtm103.o%s} \
@@ -972,6 +975,8 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega88p:crtm88p.o%s} \
 %{mmcu=atmega8515:crtm8515.o%s} \
 %{mmcu=atmega8535:crtm8535.o%s} \
+%{mmcu=atmega8c1:crtm8c1.o%s} \
+%{mmcu=atmega8m1:crtm8m1.o%s} \
 %{mmcu=at90pwm1:crt90pwm1.o%s} \
 %{mmcu=at90pwm2:crt90pwm2.o%s} \
 %{mmcu=at90pwm2b:crt90pwm2b.o%s} \
@@ -1020,6 +1025,7 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=at90can64:crtcan64.o%s} \
 %{mmcu=at90pwm216:crt90pwm216.o%s} \
 %{mmcu=at90pwm316:crt90pwm316.o%s} \
+%{mmcu=atmega16c1:crtm16c1.o%s} \
 %{mmcu=atmega32c1:crtm32c1.o%s} \
 %{mmcu=atmega64c1:crtm64c1.o%s} \
 %{mmcu=atmega16m1:crtm16m1.o%s} \

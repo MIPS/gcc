@@ -1,5 +1,5 @@
 /* Control flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -221,6 +221,11 @@ execute_build_cfg (void)
 
   build_gimple_cfg (body);
   gimple_set_body (current_function_decl, NULL);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Scope blocks:\n");
+      dump_scope_blocks (dump_file, dump_flags);
+    }
   return 0;
 }
 
@@ -1791,9 +1796,21 @@ remove_useless_stmts_bind (gimple_stmt_iterator *gsi, struct rus_data *data ATTR
 	  || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
 	      != FUNCTION_DECL)))
     {
-      gsi_insert_seq_before (gsi, body_seq, GSI_SAME_STMT);
-      gsi_remove (gsi, false);
-      data->repeat = true;
+      tree var = NULL_TREE;
+      /* Even if there are no gimple_bind_vars, there might be other
+	 decls in BLOCK_VARS rendering the GIMPLE_BIND not useless.  */
+      if (block && !BLOCK_NUM_NONLOCALIZED_VARS (block))
+	for (var = BLOCK_VARS (block); var; var = TREE_CHAIN (var))
+	  if (TREE_CODE (var) == IMPORTED_DECL)
+	    break;
+      if (var || (block && BLOCK_NUM_NONLOCALIZED_VARS (block)))
+	gsi_next (gsi);
+      else
+	{
+	  gsi_insert_seq_before (gsi, body_seq, GSI_SAME_STMT);
+	  gsi_remove (gsi, false);
+	  data->repeat = true;
+	}
     }
   else
     gsi_next (gsi);
@@ -2867,6 +2884,11 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	if (!TREE_ADDRESSABLE (x))
 	  {
 	    error ("address taken, but ADDRESSABLE bit not set");
+	    return x;
+	  }
+	if (DECL_GIMPLE_REG_P (x))
+	  {
+	    error ("DECL_GIMPLE_REG_P set on a variable with address taken");
 	    return x;
 	  }
 

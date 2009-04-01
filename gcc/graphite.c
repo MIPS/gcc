@@ -1058,31 +1058,24 @@ loop_affine_expr (basic_block scop_entry, struct loop *loop, tree expr)
 	  || evolution_function_is_affine_multivariate_p (scev, n));
 }
 
-/* Return false if the tree_code of the operand OP or any of its operands
-   is component_ref.  */
+/* Return true if REF or any of its subtrees contains a
+   component_ref.  */
 
 static bool
-exclude_component_ref (tree op) 
+contains_component_ref_p (tree ref)
 {
-  int i;
-  int len;
+  if (!ref)
+    return false;
 
-  if (op)
+  while (handled_component_p (ref))
     {
-      if (TREE_CODE (op) == COMPONENT_REF)
-	return false;
-      else
-	{
-	  len = TREE_OPERAND_LENGTH (op);	  
-	  for (i = 0; i < len; ++i)
-	    {
-	      if (!exclude_component_ref (TREE_OPERAND (op, i)))
-		return false;
-	    }
-	}
+      if (TREE_CODE (ref) == COMPONENT_REF)
+	return true;
+
+      ref = TREE_OPERAND (ref, 0);
     }
 
-  return true;
+  return false;
 }
 
 /* Return true if the operand OP is simple.  */
@@ -1094,13 +1087,15 @@ is_simple_operand (loop_p loop, gimple stmt, tree op)
   if (DECL_P (op)
       /* or a structure,  */
       || AGGREGATE_TYPE_P (TREE_TYPE (op))
+      /* or a COMPONENT_REF,  */
+      || contains_component_ref_p (op)
       /* or a memory access that cannot be analyzed by the data
 	 reference analysis.  */
       || ((handled_component_p (op) || INDIRECT_REF_P (op))
 	  && !stmt_simple_memref_p (loop, stmt, op)))
     return false;
 
-  return exclude_component_ref (op);
+  return true;
 }
 
 /* Return true only when STMT is simple enough for being handled by
@@ -1209,10 +1204,22 @@ static gimple
 harmful_stmt_in_bb (basic_block scop_entry, basic_block bb)
 {
   gimple_stmt_iterator gsi;
+  gimple stmt;
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     if (!stmt_simple_for_scop_p (scop_entry, gsi_stmt (gsi)))
       return gsi_stmt (gsi);
+
+  stmt = last_stmt (bb);
+  if (stmt && gimple_code (stmt) == GIMPLE_COND)
+    {
+      tree lhs = gimple_cond_lhs (stmt);
+      tree rhs = gimple_cond_rhs (stmt);
+
+      if (TREE_CODE (TREE_TYPE (lhs)) == REAL_TYPE
+	  || TREE_CODE (TREE_TYPE (rhs)) == REAL_TYPE)
+	return stmt;
+    }
 
   return NULL;
 }
@@ -2352,7 +2359,7 @@ nb_reductions_in_loop (loop_p loop)
 
       scev = analyze_scalar_evolution (loop, PHI_RESULT (phi));
       scev = instantiate_parameters (loop, scev);
-      if (!simple_iv (loop, phi, PHI_RESULT (phi), &iv, true))
+      if (!simple_iv (loop, loop, PHI_RESULT (phi), &iv, true))
 	res++;
     }
 
@@ -2370,8 +2377,10 @@ graphite_loop_normal_form (loop_p loop)
   tree nit;
   gimple_seq stmts;
   edge exit = single_dom_exit (loop);
+  bool known_niter = number_of_iterations_exit (loop, exit, &niter, false);
 
-  gcc_assert (number_of_iterations_exit (loop, exit, &niter, false));
+  gcc_assert (known_niter);
+
   nit = force_gimple_operand (unshare_expr (niter.niter), &stmts, true,
 			      NULL_TREE);
   if (stmts)
@@ -2381,7 +2390,7 @@ graphite_loop_normal_form (loop_p loop)
   if (nb_reductions_in_loop (loop) > 0)
     return NULL_TREE;
 
-  return canonicalize_loop_ivs (loop, NULL, nit);
+  return canonicalize_loop_ivs (loop, NULL, &nit);
 }
 
 /* Record LOOP as occuring in SCOP.  Returns true when the operation
@@ -3410,9 +3419,9 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
   bool res = true;
   int i, j;
   graphite_bb_p gbb;
-  gimple_stmt_iterator gsi;
   basic_block bb_child, bb_iter;
   VEC (basic_block, heap) *dom;
+  gimple stmt;
   
   /* Make sure we are in the SCoP.  */
   if (!bb_in_sese_p (bb, SCOP_REGION (scop)))
@@ -3430,9 +3439,9 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
 
   dom = get_dominated_by (CDI_DOMINATORS, bb);
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  stmt = last_stmt (bb);
+  if (stmt)
     {
-      gimple stmt = gsi_stmt (gsi);
       VEC (edge, gc) *edges;
       edge e;
 
@@ -5024,6 +5033,7 @@ if_region_set_false_region (ifsese if_region, sese region)
 {
   basic_block condition = if_region_get_condition_block (if_region);
   edge false_edge = get_false_edge_from_guard_bb (condition);
+  basic_block dummy = false_edge->dest;
   edge entry_region = SESE_ENTRY (region);
   edge exit_region = SESE_EXIT (region);
   basic_block before_region = entry_region->src;
@@ -5038,11 +5048,13 @@ if_region_set_false_region (ifsese if_region, sese region)
   redirect_edge_pred (entry_region, condition);
   redirect_edge_pred (exit_region, before_region);
   redirect_edge_pred (false_edge, last_in_region);
+  redirect_edge_succ (false_edge, single_succ (dummy));
+  delete_basic_block (dummy);
 
   exit_region->flags = EDGE_FALLTHRU;
   recompute_all_dominators ();
 
-  SESE_EXIT (region) = single_succ_edge (false_edge->dest);
+  SESE_EXIT (region) = false_edge;
   if_region->false_region = region;
 
   if (slot)
@@ -5435,16 +5447,6 @@ gloog (scop_p scop, struct clast_stmt *stmt)
 						     10);
   loop_p context_loop;
   ifsese if_region = NULL;
-
-  /* To maintain the loop closed SSA form, we have to keep the phi
-     nodes after the last loop in the scop.  */
-  if (loop_depth (SESE_EXIT (SCOP_REGION (scop))->dest->loop_father)
-      != loop_depth (SESE_EXIT (SCOP_REGION (scop))->src->loop_father))
-    {
-      basic_block bb = SESE_EXIT (SCOP_REGION (scop))->dest;
-      SESE_EXIT (SCOP_REGION (scop)) = split_block_after_labels (bb);
-      pointer_set_insert (SESE_REGION_BBS (SCOP_REGION (scop)), bb);
-    }
 
   recompute_all_dominators ();
   graphite_verify ();
@@ -5884,7 +5886,7 @@ graphite_trans_loop_block (VEC (graphite_bb_p, heap) *bbs, int loops)
   bool transform_done = false;
 
   /* TODO: - Calculate the stride size automatically.  */
-  int stride_size = 64;
+  int stride_size = 51;
 
   for (i = 0; VEC_iterate (graphite_bb_p, bbs, i, gb); i++)
     transform_done |= graphite_trans_bb_block (gb, stride_size, loops);
