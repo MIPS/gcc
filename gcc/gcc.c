@@ -229,13 +229,6 @@ static int combine_flag = 0;
 
 static int use_pipes;
 
-/* Nonzero means we are running in lto-single mode, and each object file
-   resulting from a compilation should be immediately recompiled using
-   the LTO back end.  This makes it easy to exercise the LTO by adding
-   a single switch to existing makefiles.  */
-
-static int lto_single;
-
 /* The compiler version.  */
 
 static const char *compiler_version;
@@ -380,7 +373,6 @@ static const char *replace_outfile_spec_function (int, const char **);
 static const char *version_compare_spec_function (int, const char **);
 static const char *include_spec_function (int, const char **);
 static const char *print_asm_header_spec_function (int, const char **);
-static const char *lto_single_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -538,16 +530,7 @@ or with constant text in a single argument.
  %{!.S:X} substitutes X, if NOT processing a file with suffix S.
  %{,S:X}  substitutes X, if processing a file which will use spec S.
  %{!,S:X} substitutes X, if NOT processing a file which will use spec S.
-
- %{?function(args):X}
-  	  Call the named function FUNCTION, passing it ARGS.  ARGS is
-	  first processed as a nested spec string, then split into an
-	  argument vector in the usual fashion.  If the function
-	  returns a non-empty string, substitute X.
- %{!?function(args):X}
- 	  substitutes X, if FUNCTION returns an empty string.  ARGS is
-          processed as in the previous case.
-
+	  
  %{S|T:X} substitutes X if either -S or -T was given to CC.  This may be
 	  combined with '!', '.', ',', and '*' as above binding stronger
 	  than the OR.
@@ -872,20 +855,6 @@ static const char *cc1_options =
  %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
  %{coverage:-fprofile-arcs -ftest-coverage}";
 
-/* Do we need to preserve any assembler options here?
-   Note that we are going to ignore the object code, as
-   we are only interested in the .lto_info sections.  */
-static const char *invoke_lto_single =
-#ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
-"%{?lto-single(): -flto -o %|.lto.s |\n\
- as %(asm_options) %|.lto.s -o %g.lto.o \n\
- lto1 %(cc1_options) %g.lto.o }";
-#else
-"%{?lto-single(): -flto -o %|.lto.s |\n\
- as %(asm_options) %m.lto.s -o %g.lto.o \n\
- lto1 %(cc1_options) %g.lto.o }";
-#endif
-
 static const char *asm_options =
 "%{--target-help:%:print-asm-header()} "
 #if HAVE_GNU_AS
@@ -1050,13 +1019,13 @@ static const struct compiler default_compilers[] =
 			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)}}}\
-          %{!fsyntax-only:%(invoke_lto_single) %(invoke_as)}} \
+          %{!fsyntax-only:%(invoke_as)}} \
       %{combine:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i}}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)}}\
-                %{!fsyntax-only:%(invoke_lto_single) %(invoke_as)}}}}}}", 0, 1, 1},
+                %{!fsyntax-only:%(invoke_as)}}}}}}", 0, 1, 1},
   {"-",
    "%{!E:%e-E or -x required when input is from standard input}\
     %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0, 0, 0},
@@ -1078,8 +1047,7 @@ static const struct compiler default_compilers[] =
                     %W{o*:--output-pch=%*}%V}}}}}}", 0, 0, 0},
   {".i", "@cpp-output", 0, 1, 0},
   {"@cpp-output",
-   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) \
-%{!fsyntax-only:%(invoke_lto_single) %(invoke_as)}}}}", 0, 1, 0},
+   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0, 1, 0},
   {".s", "@assembler", 0, 1, 0},
   {"@assembler",
    "%{!M:%{!MM:%{!E:%{!S:as %(asm_debug) %(asm_options) %i %A }}}}", 0, 1, 0},
@@ -1630,7 +1598,6 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("asm_final",		&asm_final_spec),
   INIT_STATIC_SPEC ("asm_options",		&asm_options),
   INIT_STATIC_SPEC ("invoke_as",		&invoke_as),
-  INIT_STATIC_SPEC ("invoke_lto_single",	&invoke_lto_single),
   INIT_STATIC_SPEC ("cpp",			&cpp_spec),
   INIT_STATIC_SPEC ("cpp_options",		&cpp_options),
   INIT_STATIC_SPEC ("cpp_debug_options",	&cpp_debug_options),
@@ -1701,7 +1668,6 @@ static const struct spec_function static_spec_functions[] =
   { "version-compare",		version_compare_spec_function },
   { "include",			include_spec_function },
   { "print-asm-header",		print_asm_header_spec_function },
-  { "lto-single",		lto_single_spec_function },
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -3898,8 +3864,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  n_switches++;
 	  n_switches++;
         }
-      else if (strcmp (argv[i], "-flto-single") == 0)
-	lto_single = 1;
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -4274,8 +4238,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strncmp (argv[i], "-specs=", 7) == 0)
 	;
       else if (strcmp (argv[i], "-time") == 0)
-	;
-      else if (strcmp (argv[i], "-flto-single") == 0)
 	;
       else if (strcmp (argv[i], "-###") == 0)
 	;
@@ -5766,73 +5728,6 @@ handle_spec_function (const char *p)
   return p;
 }
 
-/* Handle a spec predicate call in braces, i.e., %{?test-foo(): foobar }.
-
-   ARGS is processed as a spec in a separate context and split into an
-   argument vector in the normal fashion.  The predicate is a normal
-   spec function that returns an empty string (or NULL) if the predicate
-   is false, and some  other non-empty string value if true.  This allows
-   us to reuse existing machinery for evaluating the functions, and opens
-   the possibility of predicates that return useful values.
-
-   This function substantially duplicates handle_spec_function() above,
-   but note that the parsing of the function name differs slightly.
-   Maximal sharing would come at the expense of better error diagnostics
-   for non-predicate function calls.  */
-
-static const char *
-handle_spec_predicate (const char *p, bool *result)
-{
-  char *func, *args;
-  const char *endp, *funcval;
-  int count;
-
-  processing_spec_function++;
-
-  /* Get the function name.  */
-  for (endp = p; *endp != '\0'; endp++)
-    {
-      /* Only allow [A-Za-z0-9], -, and _ in function names.  */
-      if (!ISALNUM (*endp) && !(*endp == '-' || *endp == '_'))
-	  break;
-    }
-  if (*endp != '(')		/* ) */
-    fatal ("no arguments for spec function");
-  func = save_string (p, endp - p);
-  p = ++endp;
-
-  /* Get the arguments.  */
-  for (count = 0; *endp != '\0'; endp++)
-    {
-      /* ( */
-      if (*endp == ')')
-	{
-	  if (count == 0)
-	    break;
-	  count--;
-	}
-      else if (*endp == '(')	/* ) */
-	count++;
-    }
-  /* ( */
-  if (*endp != ')')
-    fatal ("malformed spec function arguments");
-  args = save_string (p, endp - p);
-  p = ++endp;
-
-  /* p now points to just past the end of the spec function expression.  */
-
-  funcval = eval_spec_function (func, args);
-  *result = ((funcval != NULL) && (funcval[0] != '\0'));
-
-  free (func);
-  free (args);
-
-  processing_spec_function--;
-
-  return p;
-}
-
 /* Inline subroutine of handle_braces.  Returns true if the current
    input suffix matches the atom bracketed by ATOM and END_ATOM.  */
 static inline bool
@@ -5920,7 +5815,6 @@ handle_braces (const char *p)
 
   bool a_is_suffix;
   bool a_is_spectype;
-  bool a_is_predicate;
   bool a_is_starred;
   bool a_is_negated;
   bool a_matched;
@@ -5933,8 +5827,6 @@ handle_braces (const char *p)
   bool n_way_choice   = false;
   bool n_way_matched  = false;
 
-  bool pred_result    = false;
-
 #define SKIP_WHITE() do { while (*p == ' ' || *p == '\t') p++; } while (0)
 
   do
@@ -5943,44 +5835,31 @@ handle_braces (const char *p)
 	goto invalid;
 
       /* Scan one "atom" (S in the description above of %{}, possibly
-	 with '!', '.', '@', ',', '?', or '*' modifiers).  */
+	 with '!', '.', '@', ',', or '*' modifiers).  */
       a_matched = false;
       a_is_suffix = false;
       a_is_starred = false;
       a_is_negated = false;
       a_is_spectype = false;
-      a_is_predicate = false;
 
       SKIP_WHITE();
       if (*p == '!')
 	p++, a_is_negated = true;
 
       SKIP_WHITE();
-      if (*p == '?')
-	{
-	  /* The atom is taken to be the text of the function
-	     call itself.  This is done pro-forma only, and we
-	     do not expect the atom to be used.  */
-	  p++;
-	  atom = p;
-	  p = handle_spec_predicate(p, &pred_result);
-	  end_atom = p;
-	  a_is_predicate = true;
-	} else {
-	  if (*p == '.')
-	    p++, a_is_suffix = true;
-	  else if (*p == ',')
-	    p++, a_is_spectype = true;
+      if (*p == '.')
+	p++, a_is_suffix = true;
+      else if (*p == ',')
+	p++, a_is_spectype = true;
 
-	  atom = p;
-	  while (ISIDNUM(*p) || *p == '-' || *p == '+' || *p == '='
-		 || *p == ',' || *p == '.' || *p == '?' || *p == '@')
-	    p++;
-	  end_atom = p;
+      atom = p;
+      while (ISIDNUM(*p) || *p == '-' || *p == '+' || *p == '='
+	     || *p == ',' || *p == '.' || *p == '@')
+	p++;
+      end_atom = p;
 
-	  if (*p == '*')
-	    p++, a_is_starred = 1;
-	}
+      if (*p == '*')
+	p++, a_is_starred = 1;
 
       SKIP_WHITE();
       switch (*p)
@@ -5989,7 +5868,7 @@ handle_braces (const char *p)
 	  /* Substitute the switch(es) indicated by the current atom.  */
 	  ordered_set = true;
 	  if (disjunct_set || n_way_choice || a_is_negated || a_is_suffix
-	      || a_is_spectype || a_is_predicate || atom == end_atom)
+	      || a_is_spectype || atom == end_atom)
 	    goto invalid;
 
 	  mark_matching_switches (atom, end_atom, a_is_starred);
@@ -6008,8 +5887,8 @@ handle_braces (const char *p)
 	  if (atom == end_atom)
 	    {
 	      if (!n_way_choice || disj_matched || *p == '|'
-		  || a_is_negated || a_is_suffix || a_is_spectype
-		  || a_is_predicate || a_is_starred)
+		  || a_is_negated || a_is_suffix || a_is_spectype 
+		  || a_is_starred)
 		goto invalid;
 
 	      /* An empty term may appear as the last choice of an
@@ -6020,7 +5899,7 @@ handle_braces (const char *p)
 	    }
 	  else
 	    {
-	      if ((a_is_suffix || a_is_spectype || a_is_predicate) && a_is_starred)
+	      if ((a_is_suffix || a_is_spectype) && a_is_starred)
 		goto invalid;
 	      
 	      if (!a_is_starred)
@@ -6034,9 +5913,7 @@ handle_braces (const char *p)
 		    a_matched = input_suffix_matches (atom, end_atom);
 		  else if (a_is_spectype)
 		    a_matched = input_spec_matches (atom, end_atom);
-		  else if (a_is_predicate)
-		    a_matched = pred_result;
-                  else
+		  else
 		    a_matched = switch_matches (atom, end_atom, a_is_starred);
 		  
 		  if (a_matched != a_is_negated)
@@ -8301,17 +8178,4 @@ print_asm_header_spec_function (int arg ATTRIBUTE_UNUSED,
   printf (_("Use \"-Wa,OPTION\" to pass \"OPTION\" to the assembler.\n\n"));
   fflush (stdout);
   return NULL;
-}
-
-/* ?lto-single() spec predicate.  Return true, i.e., a non-empty string,
-   if the -flto-single switch was given to 'gcc'.  */
-
-static const char *
-lto_single_spec_function (int argc,
-                          const char **argv ATTRIBUTE_UNUSED)
-{
-  if (argc != 0)
-    abort ();
-
-  return ((lto_single) ? "lto-single" : NULL);
 }

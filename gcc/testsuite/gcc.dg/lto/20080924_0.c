@@ -1,5 +1,5 @@
 /* { dg-do compile }  */
-/* { dg-options "{-O2 -flto-single -funsigned-char}" }  */ 
+/* { dg-options "{-O2 -flto -funsigned-char}" }  */ 
 typedef unsigned int size_t;
 foo (const char *src, unsigned char *dst, size_t size)
 {

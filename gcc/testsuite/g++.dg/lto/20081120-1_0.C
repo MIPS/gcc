@@ -1,5 +1,5 @@
 // { dg-do link }
-// { dg-options "{-flto-single -shared}" }
+// { dg-options "{-flto -shared}" }
 extern "C"
 {
  extern __inline __attribute__((__gnu_inline__)) int pthread_equal(int, int)

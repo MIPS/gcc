@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "{-O2 -flto-single -fno-strict-aliasing}" }
+// { dg-options "{-O2 -flto -fno-strict-aliasing}" }
 
 namespace ns
 {

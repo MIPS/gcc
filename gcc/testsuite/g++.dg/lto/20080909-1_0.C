@@ -1,3 +1,3 @@
 // { dg-do compile }
-// { dg-options "-flto-single" }
+// { dg-options "-flto" }
 int *i = (int[]) {0};

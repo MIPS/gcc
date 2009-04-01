@@ -1,3 +1,13 @@
+2009-04-01  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc.c (lto_single): Remove.
+	(lto_single_spec_function): Remove. Update all uses.
+	(The Specs Language): Remove support for calling functions.
+	(invoke_lto_single): Remove. Update all uses.
+	(process_command): Don't handle -flto-single.
+	(handle_spec_predicate): Remove. Update all uses.
+	(lto_single_spec_function): Remove.
+
 2009-03-31  Rafael Avila de Espindola  <espindola@google.com>
 
 	Mainline merge @145119.

@@ -1,3 +1,7 @@
+2009-04-01  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lang-specs.h: Remove uses of invoke_lto_single.
+
 2009-03-27  Rafael Avila de Espindola  <espindola@google.com>
 
 	* cp-objcp-common.h (LANG_HOOKS_COMDAT_GROUP): Remove.

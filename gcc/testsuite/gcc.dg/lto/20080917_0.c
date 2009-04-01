@@ -1,5 +1,5 @@
 /* { dg-do compile }  */
-/* { dg-options "{-O2 -flto-single -funsigned-char}" }  */ 
+/* { dg-options "{-O2 -funsigned-char}" }  */ 
 int
 foo (char *s, int flag)
 {

@@ -1,5 +1,5 @@
 /* { dg-do link } */
-/* { dg-options "{-flto-single -shared}" } */
+/* { dg-options "{-flto -shared}" } */
 extern int stat(void) __asm__("" "stat64");
 extern inline int stat(void) { }
 static void foo(void) { stat(); }

@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-flto-single" }
+// { dg-options "-flto" }
 
 struct Foo
 {
