@@ -634,6 +634,9 @@ EXTRA_GCC_OBJS =@extra_gcc_objs@
 # List of additional header files to install.
 EXTRA_HEADERS =@extra_headers_list@
 
+# How to handle <stdint.h>.
+USE_GCC_STDINT = @use_gcc_stdint@
+
 # The configure script will set this to collect2$(exeext), except on a
 # (non-Unix) host which can not build collect2, for which it will be
 # set to empty.
@@ -1167,7 +1170,6 @@ OBJS-common = \
 	reorg.o \
 	resource.o \
 	rtl-error.o \
-	rtl-factoring.o \
 	rtl.o \
 	rtlanal.o \
 	rtlhooks.o \
@@ -2191,10 +2193,6 @@ tree-cfgcleanup.o : tree-cfgcleanup.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_DUMP_H) $(EXCEPT_H) langhooks.h $(CFGLOOP_H) tree-pass.h \
    $(CFGLAYOUT_H) $(BASIC_BLOCK_H) hard-reg-set.h $(HASHTAB_H) $(TOPLEV_H) \
    tree-ssa-propagate.h tree-scalar-evolution.h
-rtl-factoring.o : rtl-factoring.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
-   coretypes.h $(TM_H) $(BASIC_BLOCK_H) $(RESOURCE_H) $(GGC_H) $(REGS_H) \
-   $(PARAMS_H) $(EXPR_H) addresses.h $(TM_P_H) tree-pass.h $(TREE_FLOW_H) \
-   $(TIMEVAR_H) output.h $(DF_H)
 tree-tailcall.o : tree-tailcall.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(FUNCTION_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) $(DIAGNOSTIC_H) $(EXCEPT_H) tree-pass.h $(FLAGS_H) langhooks.h \
@@ -3536,6 +3534,14 @@ stmp-int-hdrs: $(STMP_FIXINC) $(USER_H) $(UNWIND_H) fixinc_list
 	done
 	rm -f include/unwind.h
 	cp $(UNWIND_H) include/unwind.h
+	rm -f include/stdint.h
+	if [ $(USE_GCC_STDINT) = wrap ]; then \
+	  rm -f include/stdint-gcc.h; \
+	  cp $(srcdir)/ginclude/stdint-gcc.h include/stdint-gcc.h; \
+	  cp $(srcdir)/ginclude/stdint-wrap.h include/stdint.h; \
+	elif [ $(USE_GCC_STDINT) = provide ]; then \
+	  cp $(srcdir)/ginclude/stdint-gcc.h include/stdint.h; \
+	fi
 	set -e; for ml in `cat fixinc_list`; do \
 	  sysroot_headers_suffix=`echo $${ml} | sed -e 's/;.*$$//'`; \
 	  multi_dir=`echo $${ml} | sed -e 's/^[^;]*;//'`; \

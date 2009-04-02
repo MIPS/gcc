@@ -2873,11 +2873,6 @@ struct tree_parm_decl GTY(())
   /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.weak_flag)
 
-/* Internal to the gimplifier.  Indicates that the value is a formal
-   temporary controlled by the gimplifier.  */
-#define DECL_GIMPLE_FORMAL_TEMP_P(DECL) \
-  DECL_WITH_VIS_CHECK (DECL)->decl_with_vis.gimple_formal_temp
-
 /* Used to indicate that the DECL is a dllimport.  */
 #define DECL_DLLIMPORT_P(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.dllimport_flag)
 
@@ -2989,7 +2984,6 @@ struct tree_decl_with_vis GTY(())
  unsigned thread_local:1;
  unsigned common_flag:1;
  unsigned in_text_section : 1;
- unsigned gimple_formal_temp : 1;
  unsigned dllimport_flag : 1;
  unsigned based_on_restrict_p : 1;
  /* Used by C++.  Might become a generic decl flag.  */
@@ -3007,7 +3001,7 @@ struct tree_decl_with_vis GTY(())
 
  /* Belongs to VAR_DECL exclusively.  */
  ENUM_BITFIELD(tls_model) tls_model : 3;
- /* 12 unused bits. */
+ /* 13 unused bits. */
 };
 
 /* In a VAR_DECL that's static,
@@ -4327,6 +4321,10 @@ extern tree tree_cons_stat (tree, tree, tree MEM_STAT_DECL);
 
 extern tree tree_last (tree);
 
+/* Return the node in a chain whose TREE_VALUE is x, NULL if not found.  */
+
+extern tree tree_find_value (tree, tree);
+
 /* Reverse the order of elements in a chain, and return the new head.  */
 
 extern tree nreverse (tree);
@@ -4777,6 +4775,7 @@ extern tree build_fold_indirect_ref (tree);
 extern tree fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
 extern tree build_low_bits_mask (tree, unsigned);
+extern tree div_if_zero_remainder (enum tree_code, const_tree, const_tree);
 
 extern bool tree_swap_operands_p (const_tree, const_tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);

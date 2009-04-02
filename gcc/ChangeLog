@@ -1,3 +1,581 @@
+2009-04-02  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/26693
+	* c-decl.c: (clone_underlying_type): Move this ...
+	* c-common.c (set_underlying_type): ... here.
+	Also, make sure the function properly sets TYPE_STUB_DECL() on
+	the newly created typedef variant type.
+	* c-common.h (is_typedef_decl, set_underlying_type): Declare ...
+	* c-common.c (is_typedef_decl, set_underlying_type): ... new entry points.
+
+2009-04-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37221
+	* tree-flow.h (degenerate_phi_result): Declare.
+	* tree-ssa-dom.c (degenerate_phi_result): Export.
+	* tree-scalar-evolution.c (analyze_initial_condition): If
+	the initial condition is defined by a degenerate PHI node
+	use the degenerate value.
+
+2009-04-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/39588
+	* combine.c (merge_outer_ops): Do not set the constant when this
+	is not necessary.
+	(simplify_shift_const_1): Do not modify it either in this case.
+
+2009-04-01  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/ia64/ia64.c (ia64_handle_option): Inform user that Itanium1
+	tuning is deprecated if -mtune value is set to an Itanium1 variant.
+
+2009-04-01  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/29027
+	* c-lex.c (interpret_float): Default (no suffix) is double.
+
+2009-04-1  Xinliang David Li  <davidxl@google.com>
+
+	* config/i386/i386.c (legitimate_constant_p): Recognize
+	all one vector constant.
+
+2009-04-01	Jan-Benedict Glaw <jbglaw@jbglaw-dev.homezone.telefonica.de>
+
+	* gcc/config/vax/vax.c: Add #includes to silence warnings.
+	Change #include order to silence two warnings.
+
+2009-04-01	Jan-Benedict Glaw <jbglaw@jbglaw-dev.homezone.telefonica.de>
+
+	* gcc/config/vax/linux.h (TARGET_DEFAULT): Add the MASK_QMATH flag bit.
+	(ASM_SPEC): Pass -k to the assembler for PIC code.
+
+2009-04-01	Jan-Benedict Glaw <jbglaw@jbglaw-dev.homezone.telefonica.de>
+
+	* gcc/config.gcc: Add vax-*-linux* to the switch.
+	* gcc/config/vax/linux.h: New file. (TARGET_VERSION,
+	TARGET_OS_CPP_BUILTINS, TARGET_DEFAULT, CPP_SPEC, LINK_SPEC): Define.
+
+2009-04-01	Jan-Benedict Glaw <jbglaw@jbglaw-dev.homezone.telefonica.de>
+
+	* gcc/config/vax/vax.c (vax_output_int_move, adjacent_operands_p):
+	Use predicate macros instead of GET_CODE() == foo.
+	* gcc/config/vax/vax.md (movsi_2, movstrictqi, and<mode>3, ashrsi3,
+	ashlsi3, rotrsi3, <unnamed>): Likewise.
+
+2009-04-01	Jan-Benedict Glaw <jbglaw@jbglaw-dev.homezone.telefonica.de>
+
+	* gcc/config/vax/builtins.md (jbbssiqi, jbbssihi, jbbssisi, jbbcciqi,
+	jbbccihi, jbbccisi): Remova trailing whitespace.
+	* gcc/config/vax/constraints.md: Likewise.
+	* gcc/config/vax/elf.h: (ASM_PREFERRED_EH_DATA_FORMAT): Likewise.
+	* gcc/config/vax/openbsd1.h (OBSD_OLD_GAS): Likewise.
+	* gcc/config/vax/predicates.md: Likewise.
+	* gcc/config/vax/vax.c (print_operand_address, vax_output_int_move,
+	vax_expand_addsub_di_operands, adjacent_operands_p): Likewise.
+	* gcc/config/vax/vax.h: Likewise.
+	* gcc/config/vax/vax.md (nonlocal_goto): Likewise.
+
+2009-04-01	Jan-Benedict Glaw <jbglaw@jbglaw-dev.homezone.telefonica.de>
+
+	* gcc/config/vax/vax.c (vax_float_literal, vax_output_int_move)
+	(indirectable_address_p, adjacent_operands_p): Add spaces around
+	braces.
+	* gcc/config/vax/vax-protos.h (adjacent_operands_p): Likewise.
+
+2009-04-01	Jan-Benedict Glaw <jbglaw@jbglaw-dev.homezone.telefonica.de>
+
+	* gcc/config/vax/vax.c (legitimate_constant_address_p,
+	legitimate_constant_p, indirectable_address_p, nonindexed_address_p,
+	index_term_p, reg_plus_index_p, legitimate_address_p,
+	vax_mode_dependent_address_p): Update comments to match functions
+	modified by the recent int->bool conversion.
+
+2009-04-01	Jan-Benedict Glaw <jbglaw@jbglaw-dev.homezone.telefonica.de>
+
+	* gcc/config/vax/builtins.md: Update copyright message.
+	* gcc/config/vax/constraints.md: Likewise.
+	* gcc/config/vax/netbsd-elf.h: Likewise.
+	* gcc/config/vax/predicates.md: Likewise.
+	* gcc/config/vax/vax-protos.h: Likewise.
+	* gcc/config/vax/vax.c: Likewise.
+	* gcc/config/vax/vax.h: Likewise.
+	* gcc/config/vax/vax.md: Likewise.
+	* gcc/config/vax/vax.opt: Likewise.
+
+2009-04-01	Jan-Benedict Glaw <jbglaw@jbglaw-dev.homezone.telefonica.de>
+
+	* gcc/config/vax/builtins.md (ffssi2, ffssi2_internal,
+	sync_lock_test_and_set<mode>, sync_lock_release<mode>): Fix indention.
+	* gcc/config/vax/constraints.md (B, R): Likewise.
+	* gcc/config/vax/predicates.md (external_memory_operand,
+	nonimmediate_addsub_di_operand): Likewise.
+	* gcc/config/vax/vax.c (vax_output_int_add): Likewise.
+	* gcc/config/vax/vax.md (movsi, movsi_2, mov<mode>, call_value,
+	untyped_call): Likewise.
+
+2009-04-01	Matt Thomas <matt@3am-software.com>
+
+	* config/vax/predicates.md: New file. (symbolic_operand,
+	local_symbolic_operand, external_symbolic_operand,
+	external_const_operand, nonsymbolic_operand, external_memory_operand,
+	indirect_memory_operand, indexed_memory_operand,
+	illegal_blk_memory_operand, illegal_addsub_di_memory_operand,
+	nonimmediate_addsub_di_operand, general_addsub_di_operand): New
+	predicate.
+	* config/vax/constraints.md: New file. (Z0, U06,  U08, U16, CN6, S08,
+	S16, I, J, K, L, M, N, O, G, Q, B, R, T): New constraint.
+	* config/vax/builtins.md: New file. (ffssi2, ffssi2_internal,
+	sync_lock_test_and_set<mode>, jbbssiqi, jbbssihi, jbbssisi,
+	sync_lock_release<mode>, jbbcciqi, jbbccihi, jbbccisi): Define.
+	* config/vax/vax.opt (mqmath): Add option.
+	* config/vax/vax.md (isfx): Extend with DI.
+	(VAXintQH, VAXintQHSD): Define.
+	(tst<mode>, cmp<mode>, *bit<mode>, movmemhi1, truncsiqi2, truncsihi2,
+	mulsidi3, add<mode>3, sub<mode>, mul<mode>3, div<mode>3, and<mode>,
+	and<mode>_const_int, ior<mode>3, xor<mode>3, neg<mode>2,
+	one_cmpl<mode>2, ashlsi3, lshrsi3, rotlsi3): Update constraints.
+	(movdi): Update constraints and use vax_output_int_move().
+	(movsi, movsi_2, pushlclsymreg, pushextsymreg, movlclsymreg,
+	movextsymreg, adddi3, adcdi3, subdi3, sbcdi3, pushextsym, movextsym,
+	pushlclsym, movlclsym, movaddr<mode>, pushaddr<mode>,
+	nonlocal_goto): New.
+	(mov<mode>): Extend accepted operand types.
+	(subdi3_old): Rename from subdi3, change update constraints and use
+	a new implementation.
+	* gcc/config/vax/vax.h (PCC_BITFIELD_TYPE_MATTERS): Add space.
+	(FRAME_POINTER_CFA_OFFSET, IRA_COVER_CLASSES, CLASS_MAX_NREGS,
+	MOVE_RATIO, CLEAR_RATIO): Define.
+	(REG_CLASS_FROM_LETTER, CONST_OK_FOR_LETTER_P,
+	CONST_DOUBLE_OK_FOR_LETTER_P, EXTRA_CONSTRAINT): Delete.
+	(PRINT_OPERAND): Redefine using a function instead of inlined code.
+	* gcc/config/vax/vax.c (TARGET_BUILTIN_SETJMP_FRAME_VALUE): Define.
+	(split_quadword_operands): Make static and really allow variable
+	splitting.
+	(print_operand_address): Update for PIC generation.
+	(print_operand, vax_builtin_setjmp_frame_value, vax_output_int_subtract,
+	indexable_address_p, fixup_mathdi_operand,
+	vax_expand_addsub_di_operands, adjacent_operands_p): New.
+	(vax_float_literal, legitimate_constant_p,
+	indirectable_constant_address_p, index_term_p,
+	reg_plus_index_p): Return bool instead of int.
+	(vax_rtx_costs): Fix cost for CONST_INT, indent and use HOST_WIDE_INT
+	where needed.
+	(vax_output_int_move, vax_output_int_add): Extend to allow PIC
+	generation.
+	(vax_output_conditional_branch): Indent.
+	(legitimate_constant_address_p, indirectable_constant_address_p,
+	indirectable_address_p, nonindexed_address_p, legitimate_address_p,
+	vax_mode_dependent_address_p): Return bool instead of int, update for
+	PIC generation.
+	* config/vax/vax-protos.h (legitimate_constant_address_p,
+	legitimate_constant_p, legitimate_address_p,
+	vax_mode_dependent_address_p): Change declaration to bool.
+	(legitimate_pic_operand_p, adjacent_operands_p, print_operand,
+	vax_expand_addsub_di_operands, vax_output_int_subtract,
+	vax_output_movmemsi): Declare.
+	(split_quadword_operands, vax_float_literal): Delete declaration.
+	* config/vax/netbsd-elf.h (CC1_SPEC, CC1PLUS_SPEC) Define.
+	* config/vax/elf.h (NO_EXTERNAL_INDIRECT_ADDRESS,
+	VAX_CC1_AND_CC1PLUS_SPEC, ASM_PREFERRED_EH_DATA_FORMAT,
+	ASM_OUTPUT_DWARF_PCREL): Define.
+	(ASM_SPEC): Change definition to allow PIC generation.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39226
+	* config/rs6000/rs6000.md (andsi3_internal5_nomc,
+	anddi3_internal2_nomc, anddi3_internal3_nomc): Removed.
+	(booldi3_internal3): Use boolean_or_operator instead of
+	boolean_operator.
+
+2009-04-01  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39605
+	* c-decl.c (grokdeclarator): Pedwarn for file-scope array
+	declarator whose size is not an integer constant expression but
+	folds to an integer constant, then treat it as a constant
+	subsequently.
+
+2009-04-01  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_plusminus_mult_expr): Do not fold
+	i * 4 + 2 to (i * 2 + 1) * 2.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/37772
+	* c-parser.c (c_parser_asm_statement): Skip until close paren and
+	return if c_parser_asm_string_literal returned NULL.
+
+2009-04-01  Nick Clifton  <nickc@redhat.com>
+
+	* config/m32c/m32c.h (LIBGCC2_UNITS_PER_WORD): Define if not
+	already defined.
+	* config/m32c/t-m32c (LIB2FUNCS_EXTRA): Add m32c-lib2-trapv.c.
+	* config/m32c/m32c-lib2.c: Remove unused typedefs.  Rename the
+	other typedefs to avoid conflicts with libgcc2.c.  Define labels
+	to gain 16-bit bit-manipulation functions from libgcc2.c and then
+	include it.
+	* config/m32c/m32c-lib2-trapv.c: New file.  Define labels
+	to gain 16-bit trapping arithmetic functions from libgcc2.c and
+	then include it.
+
+2009-04-01  Rafael Avila de Espindola  <espindola@google.com>
+
+       * varasm.c (default_function_rodata_section): Declare DOT as const char*.
+
+2009-04-01  Kai Tietz  <kai.tietz@onevision.com>
+	    Andrey Galkin <agalkin@hypercom.com>
+
+	PR/39492
+	* config/i386/host-mingw32.c (mingw32_gt_pch_use_address):
+	Make object_name unique for each process.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/39591
+	* omp-low.c (remove_exit_barrier): Don't optimize if there are any
+	addressable variables in the parallel that could go out of scope while
+	running queued tasks.
+
+2009-04-01  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.h (avr_case_values_threshold): Remove declaration.
+	(CASE_VALUES_THRESHOLD): Redefine.
+	* config/avr/avr.c (avr_override_options): Remove initialization of
+	avr_case_values_threshold variable.
+	(avr_case_values_threshold): Remove variable. Add new function.
+	* config/avr/avr-protos.h (avr_case_values_threshold): Declare.
+	* config/avr/avr.opt (mno-tablejump): Remove option.
+	* doc/invoke.texi (AVR Options): Remove -mno-tablejump.
+
+2009-04-01  DJ Delorie  <dj@redhat.com>
+
+	* varasm.c (default_function_rodata_section): Don't assume
+	anything about where the first '.' in the section name is.
+
+2009-04-01  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_emit_stack_reset): Delete redundant
+	rs6000_emit_stack_tie.
+
+2009-03-31  Ian Lance Taylor  <iant@google.com>
+
+	* tree-eh.c (tree_remove_unreachable_handlers): Compare
+	gimple_code with GIMPLE_RESX, not RESX.
+
+2009-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-common.c (c_get_ident): New.
+	(c_common_nodes_and_builtins): Call it for type names that may be
+	NULL.
+
+2009-04-01  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/sysv4.opt (msdata): Improve option description.
+
+2009-03-31  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.md (divsf3_internal_lat): Remove.
+	(divdf3_internal_lat): Remove.
+	(divxf3_internal_lat): Remove.
+	(divxf3_internal_thr): Remove.
+	(divxf): Use divxf3_internal.
+	* config/ia64/div.md (divsf3_internal_lat): New.
+	(divdf3_internal_lat): New.
+	(divxf3_internal): New.
+
+2009-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/448
+	* Makefile.in (USE_GCC_STDINT): Define.
+	(stmp-int-hdrs): Install stdint.h if applicable.
+	* c-common.c (CHAR16_TYPE): Define in terms of UINT_LEAST16_TYPE
+	if known.
+	(CHAR32_TYPE): Define in terms of UINT_LEAST32_TYPE if known.
+	(SIG_ATOMIC_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE,
+	UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE,
+	INT_LEAST8_TYPE, INT_LEAST16_TYPE, INT_LEAST32_TYPE,
+	INT_LEAST64_TYPE, UINT_LEAST8_TYPE, UINT_LEAST16_TYPE,
+	UINT_LEAST32_TYPE, UINT_LEAST64_TYPE, INT_FAST8_TYPE,
+	INT_FAST16_TYPE, INT_FAST32_TYPE, INT_FAST64_TYPE,
+	UINT_FAST8_TYPE, UINT_FAST16_TYPE, UINT_FAST32_TYPE,
+	UINT_FAST64_TYPE, INTPTR_TYPE, UINTPTR_TYPE): Define.
+	(c_common_nodes_and_builtins): Initialize
+	underlying_wchar_type_node.  Do not initialize
+	signed_wchar_type_node or unsigned_wchar_type_node.  Initialize
+	nodes for new types.
+	(c_stddef_cpp_builtins): Define macros for new types.
+	* c-common.h (CTI_SIGNED_WCHAR_TYPE, CTI_UNSIGNED_WCHAR_TYPE):
+	Remove.
+	(CTI_UNDERLYING_WCHAR_TYPE, CTI_SIG_ATOMIC_TYPE, CTI_INT8_TYPE,
+	CTI_INT16_TYPE, CTI_INT32_TYPE, CTI_INT64_TYPE, CTI_UINT8_TYPE,
+	CTI_UINT16_TYPE, CTI_UINT32_TYPE, CTI_UINT64_TYPE,
+	CTI_INT_LEAST8_TYPE, CTI_INT_LEAST16_TYPE, CTI_INT_LEAST32_TYPE,
+	CTI_INT_LEAST64_TYPE, CTI_UINT_LEAST8_TYPE, CTI_UINT_LEAST16_TYPE,
+	CTI_UINT_LEAST32_TYPE, CTI_UINT_LEAST64_TYPE, CTI_INT_FAST8_TYPE,
+	CTI_INT_FAST16_TYPE, CTI_INT_FAST32_TYPE, CTI_INT_FAST64_TYPE,
+	CTI_UINT_FAST8_TYPE, CTI_UINT_FAST16_TYPE, CTI_UINT_FAST32_TYPE,
+	CTI_UINT_FAST64_TYPE, CTI_INTPTR_TYPE, CTI_UINTPTR_TYPE): Define.
+	(signed_wchar_type_node, unsigned_wchar_type_node): Remove.
+	(underlying_wchar_type_node, sig_atomic_type_node, int8_type_node,
+	int16_type_node, int32_type_node, int64_type_node,
+	uint8_type_node, uint16_type_node, c_uint32_type_node,
+	c_uint64_type_node, int_least8_type_node, int_least16_type_node,
+	int_least32_type_node, int_least64_type_node,
+	uint_least8_type_node, uint_least16_type_node,
+	uint_least32_type_node, uint_least64_type_node,
+	int_fast8_type_node, int_fast16_type_node, int_fast32_type_node,
+	int_fast64_type_node, uint_fast8_type_node, uint_fast16_type_node,
+	uint_fast32_type_node, uint_fast64_type_node, intptr_type_node,
+	uintptr_type_node): Define.
+	* c-cppbuiltin.c (builtin_define_constants,
+	builtin_define_type_minmax): New.
+	(builtin_define_stdint_macros): Define more macros.
+	(c_cpp_builtins): Define more limit macros.
+	(type_suffix): New.
+	(builtin_define_type_max): Define in terms of
+	builtin_define_type_minmax.  Remove is_long parameter.  All
+	callers changed.
+	* config.gcc (use_gcc_stdint): Define.
+	(tm_file): Add glibc-stdint.h for targets using glibc or uClibc.
+	Add newlib-stdint.h for generic targets.
+	* config/glibc-stdint.h, config/newlib-stdint.h,
+	ginclude/stdint-gcc.h, ginclude/stdint-wrap.h: New.
+	* config/m32c/m32c.h (UINTPTR_TYPE): Define.
+	* config/score/score.h (UINTPTR_TYPE): Define.
+	* config/sol2.h (SIG_ATOMIC_TYPE, INT8_TYPE, INT16_TYPE,
+	INT32_TYPE, INT64_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE,
+	UINT64_TYPE, INT_LEAST8_TYPE, INT_LEAST16_TYPE, INT_LEAST32_TYPE,
+	INT_LEAST64_TYPE, UINT_LEAST8_TYPE, UINT_LEAST16_TYPE,
+	UINT_LEAST32_TYPE, UINT_LEAST64_TYPE, INT_FAST8_TYPE,
+	INT_FAST16_TYPE, INT_FAST32_TYPE, INT_FAST64_TYPE,
+	UINT_FAST8_TYPE, UINT_FAST16_TYPE, UINT_FAST32_TYPE,
+	UINT_FAST64_TYPE, INTPTR_TYPE, UINTPTR_TYPE): Define.
+	* config/spu/spu.h (STDINT_LONG32): Define.
+	* configure.ac (use_gcc_stdint): Substitute.
+	* configure: Regenerate.
+	* doc/cpp.texi (__SIG_ATOMIC_TYPE__, __INT8_TYPE__,
+	__INT16_TYPE__, __INT32_TYPE__, __INT64_TYPE__, __UINT8_TYPE__,
+	__UINT16_TYPE__, __UINT32_TYPE__, __UINT64_TYPE__,
+	__INT_LEAST8_TYPE__, __INT_LEAST16_TYPE__, __INT_LEAST32_TYPE__,
+	__INT_LEAST64_TYPE__, __UINT_LEAST8_TYPE__, __UINT_LEAST16_TYPE__,
+	__UINT_LEAST32_TYPE_, __UINT_LEAST64_TYPE__, __INT_FAST8_TYPE__,
+	__INT_FAST16_TYPE__, __INT_FAST32_TYPE__, __INT_FAST64_TYPE__,
+	__UINT_FAST8_TYPE__, __UINT_FAST16_TYPE__, __UINT_FAST32_TYPE__,
+	__UINT_FAST64_TYPE__, __INTPTR_TYPE__, __UINTPTR_TYPE__,
+	__WINT_MAX__, __SIZE_MAX__, __PTRDIFF_MAX__, __UINTMAX_MAX__,
+	__SIG_ATOMIC_MAX__, __INT8_MAX__, __INT16_MAX__, __INT32_MAX__,
+	__INT64_MAX__, __UINT8_MAX__, __UINT16_MAX__, __UINT32_MAX__,
+	__UINT64_MAX__, __INT_LEAST8_MAX__, __INT_LEAST16_MAX__,
+	__INT_LEAST32_MAX__, __INT_LEAST64_MAX__, __UINT_LEAST8_MAX__,
+	__UINT_LEAST16_MAX__, __UINT_LEAST32_MAX__, __UINT_LEAST64_MAX__,
+	__INT_FAST8_MAX__, __INT_FAST16_MAX__, __INT_FAST32_MAX__,
+	__INT_FAST64_MAX__, __UINT_FAST8_MAX__, __UINT_FAST16_MAX__,
+	__UINT_FAST32_MAX__, __UINT_FAST64_MAX__, __INTPTR_MAX__,
+	__UINTPTR_MAX__, __WCHAR_MIN__, __WINT_MIN__, __SIG_ATOMIC_MIN__,
+	__INT8_C, __INT16_C, __INT32_C, __INT64_C, __UINT8_C, __UINT16_C,
+	__UINT32_C, __UINT64_C, __INTMAX_C, __UINTMAX_C): Document.
+	* doc/tm.texi (SIG_ATOMIC_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE,
+	INT64_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE,
+	INT_LEAST8_TYPE, INT_LEAST16_TYPE, INT_LEAST32_TYPE,
+	INT_LEAST64_TYPE, UINT_LEAST8_TYPE, UINT_LEAST16_TYPE,
+	UINT_LEAST32_TYPE, UINT_LEAST64_TYPE, INT_FAST8_TYPE,
+	INT_FAST16_TYPE, INT_FAST32_TYPE, INT_FAST64_TYPE,
+	UINT_FAST8_TYPE, UINT_FAST16_TYPE, UINT_FAST32_TYPE,
+	UINT_FAST64_TYPE, INTPTR_TYPE, UINTPTR_TYPE): Document.
+
+2009-03-31  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* loop-iv.c (suitable_set_for_replacement): Renamed from
+	simplify_using_assignment; changed to return bool and to accept new
+	args DEST and SRC.  Return true iff we find a source/destination pair
+	that can be used to make a replacement, and fill SRC and DEST if so.
+	Remove arg ALTERED.  Don't deal with altered regs here.  All callers
+	changed.
+	(simplify_using_initial_values): Deal with altered regs here and track
+	more precisely the effect they have on the validity of our expression.
+
+	* loop-iv.c (simplify_using_condition): A condition of the form
+	(EQ REG CONST) can be used to simply make a substitution.
+	(simplify_using_initial_values): Keep track of conditions we have seen
+	and keep using them to simplify new expressions, while applying the
+	same substitutions to them as to the expression.
+
+	* simplify-rtx.c (simplify_relational_operation_1): Simplify
+	(LTU (PLUS a C) C) or (LTU (PLUS a C) a) to (GEU a -C); likewise with
+	GEU/LTU reversed.
+
+	* loop-iv.c (determine_max_iter): New arg OLD_NITER.  All callers
+	changed.  Use this when trying to improve the upper bound.
+	Generate the comparison by using simplify_gen_relational.
+
+	* loop-iv.c (simple_rhs_p): Allow more kinds of expressions.
+
+	* loop-iv.c (replace_single_def_regs, replace_in_expr): New static
+	functions.
+	(simplify_using_assignment, simplify_using_initial_values): Call 
+	replace_in_expr to make replacements.  Call replace_single_def_regs
+	once on the initial version of the expression.
+
+2009-03-31  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+        PR target/27237
+	* doc/invoke.texi (ARM Options): Update documentation for -mthumb.
+	
+2009-03-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/31029
+	* fold-const.c (fold_binary): Fold X +- Y CMP X to Y CMP 0 for
+	equality comparisons.  Fold C - X CMP X if C % 2 == 1.
+
+2009-03-31  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (div_if_zero_remainder): Declare.
+	* fold-const.c (div_if_zero_remainder): Export.
+	* tree-ssa-forwprop.c
+	(forward_propagate_addr_into_variable_array_index): Handle
+	constant array index addition outside of the variable index.
+
+2009-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/39592
+	* config/i386/i386.md (*floatunssi<mode>2_1, two unnamed
+	define_splits, floatunssi<mode>2): Require x87 conversions from
+	DImode to be permitted.
+
+2009-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/15638
+	* c-common.c (c_cpp_error): Handle CPP_DL_FATAL.
+
+2009-03-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/23401
+	PR middle-end/27810
+	* tree.h (DECL_GIMPLE_FORMAL_TEMP_P): Remove.
+	(struct tree_decl_with_vis): Remove gimple_formal_temp member.
+	* tree-eh.c (lower_eh_constructs_2): Move LHS assignment to
+	a separate statement.
+	* gimplify.c (pop_gimplify_context): Remove formal temp handling.
+	(lookup_tmp_var): Likewise.
+	(is_gimple_formal_tmp_or_call_rhs): Remove.
+	(is_gimple_reg_or_call_rhs): Rename to ...
+	(is_gimple_reg_rhs_or_call): ... this.
+	(is_gimple_mem_or_call_rhs): Rename to ...
+	(is_gimple_mem_rhs_or_call): ... this.
+	(internal_get_tmp_var): Use is_gimple_reg_rhs_or_call.  Set
+	DECL_GIMPLE_REG_P only if is_formal is true.
+	(gimplify_compound_lval): Use is_gimple_reg.  Remove workaround
+	for non-proper post-modify expression gimplification.
+	(gimplify_self_mod_expr): For post-modify expressions gimplify
+	the lvalue to a minimal lvalue.
+	(rhs_predicate_for): Remove formal temp case.
+	(gimplify_modify_expr_rhs): Likewise.
+	(gimplify_addr_expr): Use is_gimple_reg.
+	(gimplify_expr): Remove formal temp cases.
+	(gimple_regimplify_operands): Likewise.
+	* tree-ssa-pre.c (get_or_alloc_expr_for): Treat EXC_PTR_EXPR
+	and FILTER_EXPR like constants.
+	* gimple.c (walk_gimple_op): Fix val_only initialization, use
+	is_gimple_reg.
+	(is_gimple_formal_tmp_rhs): Remove.
+	(is_gimple_reg_rhs): Remove special casing.
+	(is_gimple_mem_rhs): Fix.
+	(is_gimple_reg): Move DECL_GIMPLE_REG_P handling earlier.
+	(is_gimple_formal_tmp_var): Remove.
+	(is_gimple_formal_tmp_reg): Likewise.
+	(is_gimple_min_lval): Allow invariant component ref parts.
+	* gimple.h (is_gimple_formal_tmp_rhs, is_gimple_formal_tmp_var,
+	is_gimple_formal_tmp_reg): Remove declarations.
+	* tree-cfg.c (verify_expr): Verify that variables with address
+	taken do not have DECL_GIMPLE_REG_P set.
+	* tree-mudflap.c (mf_build_check_statement_for): Use
+	force_gimple_operand instead of gimplify_expr.
+
+2009-03-31  Ayal Zaks  <zaks@il.ibm.com>
+
+	* modulo-sched.c (sms_schedule_by_order): Pass the actual
+	schedulable rows to compute_split_row.
+
+2009-03-31  Ben Elliston  <bje@au.ibm.com>
+
+	PR target/31635
+	* config/rs6000/rs6000.c (rs6000_handle_option): Handle
+	OPT_mvrsave.
+
+2009-03-31  Alan Modra  <amodra@bigpond.net.au>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options):Document mtls-markers.
+	* configure.ac (HAVE_AS_TLS_MARKERS): New gas feature check.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/rs6000/rs6000.opt (mtls-markers): Add.
+	* config/rs6000/rs6000.h (TARGET_TLS_MARKERS): Define.
+	* config/rs6000/rs6000.md (tls_gd_aix, tls_gd_sysv): Add splitter.
+	(tls_ld_aix, tls_ld_sysv): Likewise.
+	(tls_gd, tls_gd_call_aix, tls_gd_call_sysv): New insns.
+	(tls_ld, tls_ld_call_aix, tls_ld_call_sysv): Likewise.
+
+2009-03-31  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/spu/spu.c (spu_expand_prologue): Delete redundant code.
+
+2009-03-30  Jan Hubicka  <jh@suse.cz>
+
+	* tree-eh.c (make_eh_edges): Set probability 100% to first edge
+	out of RESX.
+	(tree_remove_unreachable_handlers): Cleanup EH predecestor
+	detection and label handling.
+
+2009-03-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (ira_allocno): Rename left_conflicts_num to
+	left_conflicts_size.
+	(ALLOCNO_LEFT_CONFLICTS_NUM): Rename to
+	ALLOCNO_LEFT_CONFLICTS_SIZE.
+
+	* ira-color.c (allocno_spill_priority, push_allocno_to_stack,
+	remove_allocno_from_bucket_and_push,
+	allocno_spill_priority_compare, push_allocnos_to_stack,
+	setup_allocno_available_regs_num): Use ALLOCNO_LEFT_CONFLICTS_SIZE
+	instead of ALLOCNO_LEFT_CONFLICTS_NUM.
+	(setup_allocno_left_conflicts_num): Ditto.  Rename to
+	setup_allocno_left_conflicts_size.
+	(put_allocno_into_bucket): Use ALLOCNO_LEFT_CONFLICTS_SIZE
+	instead of ALLOCNO_LEFT_CONFLICTS_NUM and
+	setup_allocno_left_conflicts_size instead of
+	setup_allocno_left_conflicts_num.
+
+	* ira-build.c (ira_create_allocno): Use
+	ALLOCNO_LEFT_CONFLICTS_SIZE instead of
+	ALLOCNO_LEFT_CONFLICTS_NUM.
+		
+2009-03-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* reload.c (push_reload, find_dummy_reload): Use df_get_live_out
+	instead of DF_LR_OUT.
+
+	* ira-lives.c (process_bb_node_lives): Ditto.
+
+	* ira-color.c (ira_loop_edge_freq): Use df_get_live_{out,in}
+	instead of DF_LR_{OUT,IN}.
+
+	* ira-emit.c (generate_edge_moves, add_ranges_and_copies): Ditto.
+
+	* ira-build.c (create_bb_allocnos, create_loop_allocnos): Ditto.
+
+2009-03-30  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (label_to_region_map): Fix thinko.
+
+2009-03-30  Steve Ellcey  <sje@cup.hp.com>
+
+	PR middle-end/38237
+	* tree.h (tree_find_value): New declaration.
+	* tree.c (tree_find_value): New function.
+	* varasm.c (assemble_external): Avoid duplicate entries on lists.
+
 2009-03-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/39563

@@ -1823,6 +1823,25 @@ lower_eh_constructs_2 (struct leh_state *state, gimple_stmt_iterator *gsi)
     {
     case GIMPLE_CALL:
     case GIMPLE_ASSIGN:
+      /* If the stmt can throw use a new temporary for the assignment
+         to a LHS.  This makes sure the old value of the LHS is
+	 available on the EH edge.  */
+      if (stmt_could_throw_p (stmt)
+	  && gimple_has_lhs (stmt)
+	  && !tree_could_throw_p (gimple_get_lhs (stmt))
+	  && is_gimple_reg_type (TREE_TYPE (gimple_get_lhs (stmt))))
+	{
+	  tree lhs = gimple_get_lhs (stmt);
+	  tree tmp = create_tmp_var (TREE_TYPE (lhs), NULL);
+	  gimple s = gimple_build_assign (lhs, tmp);
+	  gimple_set_location (s, gimple_location (stmt));
+	  gimple_set_block (s, gimple_block (stmt));
+	  gimple_set_lhs (stmt, tmp);
+	  if (TREE_CODE (TREE_TYPE (tmp)) == COMPLEX_TYPE
+	      || TREE_CODE (TREE_TYPE (tmp)) == VECTOR_TYPE)
+	    DECL_GIMPLE_REG_P (tmp) = 1;
+	  gsi_insert_after (gsi, s, GSI_SAME_STMT);
+	}
       /* Look for things that can throw exceptions, and record them.  */
       if (state->cur_region && stmt_could_throw_p (stmt))
 	{
@@ -1974,6 +1993,7 @@ make_eh_edges (gimple stmt)
   int region_nr;
   bool is_resx;
   bool inlinable = false;
+  basic_block bb;
 
   if (gimple_code (stmt) == GIMPLE_RESX)
     {
@@ -1990,6 +2010,13 @@ make_eh_edges (gimple stmt)
     }
 
   foreach_reachable_handler (region_nr, is_resx, inlinable, make_eh_edge, stmt);
+
+  /* Make CFG profile more consistent assuming that exception will resume to first
+     available EH handler.  In practice this makes little difference, but we get
+     fewer consistency errors in the dumps.  */
+  bb = gimple_bb (stmt);
+  if (is_resx && EDGE_COUNT (bb->succs))
+    EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
 }
 
 static bool mark_eh_edge_found_error;
@@ -2659,12 +2686,7 @@ tree_remove_unreachable_handlers (void)
   {
     gimple_stmt_iterator gsi;
     int region;
-    bool has_eh_preds = false;
-    edge e;
-    edge_iterator ei;
-
-    FOR_EACH_EDGE (e, ei, bb->preds) if (e->flags & EDGE_EH)
-      has_eh_preds = true;
+    bool has_eh_preds = bb_has_eh_pred (bb);
 
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
@@ -2673,13 +2695,10 @@ tree_remove_unreachable_handlers (void)
 	if (gimple_code (stmt) == GIMPLE_LABEL && has_eh_preds)
 	  {
 	    int uid = LABEL_DECL_UID (gimple_label_label (stmt));
-	    if (uid <= cfun->cfg->last_label_uid)
-	      {
-		int region = VEC_index (int, label_to_region, uid);
-		SET_BIT (reachable, region);
-	      }
+	    int region = VEC_index (int, label_to_region, uid);
+	    SET_BIT (reachable, region);
 	  }
-	if (gimple_code (stmt) == RESX)
+	if (gimple_code (stmt) == GIMPLE_RESX)
 	  SET_BIT (reachable, gimple_resx_region (stmt));
 	if ((region = lookup_stmt_eh_region (stmt)) >= 0)
 	  SET_BIT (contains_stmt, region);

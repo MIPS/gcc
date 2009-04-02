@@ -1582,12 +1582,19 @@ find_noncopying_intrinsics (gfc_symbol *fnsym, gfc_actual_arglist *actual)
    reference being resolved must correspond to the type of gsymbol.
    Otherwise, the new symbol is equipped with the attributes of the
    reference.  The corresponding code that is called in creating
-   global entities is parse.c.  */
+   global entities is parse.c.
+
+   In addition, for all but -std=legacy, the gsymbols are used to
+   check the interfaces of external procedures from the same file.
+   The namespace of the gsymbol is resolved and then, once this is
+   done the interface is checked.  */
 
 static void
-resolve_global_procedure (gfc_symbol *sym, locus *where, int sub)
+resolve_global_procedure (gfc_symbol *sym, locus *where,
+			  gfc_actual_arglist **actual, int sub)
 {
   gfc_gsymbol * gsym;
+  gfc_namespace *ns;
   unsigned int type;
 
   type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
@@ -1596,6 +1603,32 @@ resolve_global_procedure (gfc_symbol *sym, locus *where, int sub)
 
   if ((gsym->type != GSYM_UNKNOWN && gsym->type != type))
     gfc_global_used (gsym, where);
+
+  if (gfc_option.flag_whole_file
+	&& gsym->type != GSYM_UNKNOWN
+	&& gsym->ns
+	&& gsym->ns->proc_name
+	&& gsym->ns->proc_name->formal)
+    {
+      /* Make sure that translation for the gsymbol occurs before
+	 the procedure currently being resolved.  */
+      ns = gsym->ns->resolved ? NULL : gfc_global_ns_list;
+      for (; ns && ns != gsym->ns; ns = ns->sibling)
+	{
+	  if (ns->sibling == gsym->ns)
+	    {
+	      ns->sibling = gsym->ns->sibling;
+	      gsym->ns->sibling = gfc_global_ns_list;
+	      gfc_global_ns_list = gsym->ns;
+	      break;
+	    }
+	}
+
+      if (!gsym->ns->resolved)
+	gfc_resolve (gsym->ns);
+
+      gfc_procedure_use (gsym->ns->proc_name, actual, where);
+    }
 
   if (gsym->type == GSYM_UNKNOWN)
     {
@@ -2001,16 +2034,16 @@ is_scalar_expr_ptr (gfc_expr *expr)
 		    }
 		  else
 		    {
-                  /* We have constant lower and upper bounds.  If the
-                     difference between is 1, it can be considered a
-                     scalar.  */
-                  start = (int) mpz_get_si
-                                (ref->u.ar.as->lower[0]->value.integer);
-                  end = (int) mpz_get_si
-                              (ref->u.ar.as->upper[0]->value.integer);
-                  if (end - start + 1 != 1)
-                    retval = FAILURE;
-                }
+		      /* We have constant lower and upper bounds.  If the
+			 difference between is 1, it can be considered a
+			 scalar.  */
+		      start = (int) mpz_get_si
+				(ref->u.ar.as->lower[0]->value.integer);
+		      end = (int) mpz_get_si
+				(ref->u.ar.as->upper[0]->value.integer);
+		      if (end - start + 1 != 1)
+			retval = FAILURE;
+		   }
                 }
               else
                 retval = FAILURE;
@@ -2310,10 +2343,6 @@ resolve_function (gfc_expr *expr)
       return FAILURE;
     }
 
-  /* If the procedure is external, check for usage.  */
-  if (sym && is_external_proc (sym))
-    resolve_global_procedure (sym, &expr->where, 0);
-
   /* Switch off assumed size checking and do this again for certain kinds
      of procedure, once the procedure itself is resolved.  */
   need_full_assumed_size++;
@@ -2341,6 +2370,11 @@ resolve_function (gfc_expr *expr)
   
   /* Resume assumed_size checking.  */
   need_full_assumed_size--;
+
+  /* If the procedure is external, check for usage.  */
+  if (sym && is_external_proc (sym))
+    resolve_global_procedure (sym, &expr->where,
+			      &expr->value.function.actual, 0);
 
   if (sym && sym->ts.type == BT_CHARACTER
       && sym->ts.cl
@@ -2931,10 +2965,6 @@ resolve_call (gfc_code *c)
 	}
     }
 
-  /* If external, check for usage.  */
-  if (csym && is_external_proc (csym))
-    resolve_global_procedure (csym, &c->loc, 1);
-
   /* Subroutines without the RECURSIVE attribution are not allowed to
    * call themselves.  */
   if (csym && is_illegal_recursion (csym, gfc_current_ns))
@@ -2964,6 +2994,10 @@ resolve_call (gfc_code *c)
 
   /* Resume assumed_size checking.  */
   need_full_assumed_size--;
+
+  /* If external, check for usage.  */
+  if (csym && is_external_proc (csym))
+    resolve_global_procedure (csym, &c->loc, &c->ext.actual, 1);
 
   t = SUCCESS;
   if (c->resolved_sym == NULL)
@@ -5147,8 +5181,8 @@ resolve_deallocate_expr (gfc_expr *e)
   if (allocatable == 0 && attr.pointer == 0)
     {
     bad:
-      gfc_error ("Expression in DEALLOCATE statement at %L must be "
-		 "ALLOCATABLE or a POINTER", &e->where);
+      gfc_error ("Allocate-object at %L must be ALLOCATABLE or a POINTER",
+		 &e->where);
     }
 
   if (check_intent_in
@@ -5233,11 +5267,6 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
   if (gfc_resolve_expr (e) == FAILURE)
     return FAILURE;
 
-  if (code->expr && code->expr->expr_type == EXPR_VARIABLE)
-    sym = code->expr->symtree->n.sym;
-  else
-    sym = NULL;
-
   /* Make sure the expression is allocatable or a pointer.  If it is
      pointer, the next-to-last reference must be a pointer.  */
 
@@ -5255,14 +5284,6 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
       allocatable = e->symtree->n.sym->attr.allocatable;
       pointer = e->symtree->n.sym->attr.pointer;
       dimension = e->symtree->n.sym->attr.dimension;
-
-      if (sym == e->symtree->n.sym && sym->ts.type != BT_DERIVED)
-	{
-	  gfc_error ("The STAT variable '%s' in an ALLOCATE statement must "
-		     "not be allocated in the same statement at %L",
-		      sym->name, &e->where);
-	  return FAILURE;
-	}
 
       for (ref = e->ref; ref; ref2 = ref, ref = ref->next)
 	{
@@ -5294,8 +5315,8 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 
   if (allocatable == 0 && pointer == 0)
     {
-      gfc_error ("Expression in ALLOCATE statement at %L must be "
-		 "ALLOCATABLE or a POINTER", &e->where);
+      gfc_error ("Allocate-object at %L must be ALLOCATABLE or a POINTER",
+		 &e->where);
       return FAILURE;
     }
 
@@ -5390,26 +5411,83 @@ check_symbols:
 static void
 resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 {
-  gfc_symbol *s = NULL;
-  gfc_alloc *a;
+  gfc_expr *stat, *errmsg, *pe, *qe;
+  gfc_alloc *a, *p, *q;
 
-  if (code->expr)
-    s = code->expr->symtree->n.sym;
+  stat = code->expr ? code->expr : NULL;
 
-  if (s)
+  errmsg = code->expr2 ? code->expr2 : NULL;
+
+  /* Check the stat variable.  */
+  if (stat)
     {
-      if (s->attr.intent == INTENT_IN)
-	gfc_error ("STAT variable '%s' of %s statement at %C cannot "
-		   "be INTENT(IN)", s->name, fcn);
+      if (stat->symtree->n.sym->attr.intent == INTENT_IN)
+	gfc_error ("Stat-variable '%s' at %L cannot be INTENT(IN)",
+		   stat->symtree->n.sym->name, &stat->where);
 
-      if (gfc_pure (NULL) && gfc_impure_variable (s))
-	gfc_error ("Illegal STAT variable in %s statement at %C "
-		   "for a PURE procedure", fcn);
+      if (gfc_pure (NULL) && gfc_impure_variable (stat->symtree->n.sym))
+	gfc_error ("Illegal stat-variable at %L for a PURE procedure",
+		   &stat->where);
+
+      if (stat->ts.type != BT_INTEGER
+	  && !(stat->ref && (stat->ref->type == REF_ARRAY
+	       || stat->ref->type == REF_COMPONENT)))
+	gfc_error ("Stat-variable at %L must be a scalar INTEGER "
+		   "variable", &stat->where);
+
+      for (p = code->ext.alloc_list; p; p = p->next)
+	if (p->expr->symtree->n.sym->name == stat->symtree->n.sym->name)
+	  gfc_error ("Stat-variable at %L shall not be %sd within "
+		     "the same %s statement", &stat->where, fcn, fcn);
     }
 
-  if (s && code->expr->ts.type != BT_INTEGER)
-	gfc_error ("STAT tag in %s statement at %L must be "
-		       "of type INTEGER", fcn, &code->expr->where);
+  /* Check the errmsg variable.  */
+  if (errmsg)
+    {
+      if (!stat)
+	gfc_warning ("ERRMSG at %L is useless without a STAT tag",
+		     &errmsg->where);
+
+      if (errmsg->symtree->n.sym->attr.intent == INTENT_IN)
+	gfc_error ("Errmsg-variable '%s' at %L cannot be INTENT(IN)",
+		   errmsg->symtree->n.sym->name, &errmsg->where);
+
+      if (gfc_pure (NULL) && gfc_impure_variable (errmsg->symtree->n.sym))
+	gfc_error ("Illegal errmsg-variable at %L for a PURE procedure",
+		   &errmsg->where);
+
+      if (errmsg->ts.type != BT_CHARACTER
+	  && !(errmsg->ref
+	       && (errmsg->ref->type == REF_ARRAY
+	  	   || errmsg->ref->type == REF_COMPONENT)))
+	gfc_error ("Errmsg-variable at %L must be a scalar CHARACTER "
+		   "variable", &errmsg->where);
+
+      for (p = code->ext.alloc_list; p; p = p->next)
+	if (p->expr->symtree->n.sym->name == errmsg->symtree->n.sym->name)
+	  gfc_error ("Errmsg-variable at %L shall not be %sd within "
+		     "the same %s statement", &errmsg->where, fcn, fcn);
+    }
+
+  /* Check that an allocate-object appears only once in the statement.  
+     FIXME: Checking derived types is disabled.  */
+  for (p = code->ext.alloc_list; p; p = p->next)
+    {
+      pe = p->expr;
+      if ((pe->ref && pe->ref->type != REF_COMPONENT)
+	   && (pe->symtree->n.sym->ts.type != BT_DERIVED))
+	{
+	  for (q = p->next; q; q = q->next)
+	    {
+	      qe = q->expr;
+	      if ((qe->ref && qe->ref->type != REF_COMPONENT)
+		  && (qe->symtree->n.sym->ts.type != BT_DERIVED)
+		  && (pe->symtree->n.sym->name == qe->symtree->n.sym->name))
+		gfc_error ("Allocate-object at %L also appears at %L",
+			   &pe->where, &qe->where);
+	    }
+	}
+    }
 
   if (strcmp (fcn, "ALLOCATE") == 0)
     {
@@ -5422,6 +5500,7 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 	resolve_deallocate_expr (a->expr);
     }
 }
+
 
 /************ SELECT CASE resolution subroutines ************/
 
@@ -9568,6 +9647,8 @@ check_data_variable (gfc_data_variable *var, locus *where)
   mpz_t section_index[GFC_MAX_DIMENSIONS];
   gfc_ref *ref;
   gfc_array_ref *ar;
+  gfc_symbol *sym;
+  int has_pointer;
 
   if (gfc_resolve_expr (var->expr) == FAILURE)
     return FAILURE;
@@ -9579,21 +9660,39 @@ check_data_variable (gfc_data_variable *var, locus *where)
   if (e->expr_type != EXPR_VARIABLE)
     gfc_internal_error ("check_data_variable(): Bad expression");
 
-  if (e->symtree->n.sym->ns->is_block_data
-      && !e->symtree->n.sym->attr.in_common)
+  sym = e->symtree->n.sym;
+
+  if (sym->ns->is_block_data && !sym->attr.in_common)
     {
       gfc_error ("BLOCK DATA element '%s' at %L must be in COMMON",
-		 e->symtree->n.sym->name, &e->symtree->n.sym->declared_at);
+		 sym->name, &sym->declared_at);
     }
 
-  if (e->ref == NULL && e->symtree->n.sym->as)
+  if (e->ref == NULL && sym->as)
     {
       gfc_error ("DATA array '%s' at %L must be specified in a previous"
-		 " declaration", e->symtree->n.sym->name, where);
+		 " declaration", sym->name, where);
       return FAILURE;
     }
 
-  if (e->rank == 0)
+  has_pointer = sym->attr.pointer;
+
+  for (ref = e->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_COMPONENT && ref->u.c.component->attr.pointer)
+	has_pointer = 1;
+
+      if (has_pointer
+	    && ref->type == REF_ARRAY
+	    && ref->u.ar.type != AR_FULL)
+	  {
+	    gfc_error ("DATA element '%s' at %L is a pointer and so must "
+			"be a full array", sym->name, where);
+	    return FAILURE;
+	  }
+    }
+
+  if (e->rank == 0 || has_pointer)
     {
       mpz_init_set_ui (size, 1);
       ref = NULL;
@@ -10559,6 +10658,7 @@ static void
 resolve_codes (gfc_namespace *ns)
 {
   gfc_namespace *n;
+  bitmap_obstack old_obstack;
 
   for (n = ns->contained; n; n = n->sibling)
     resolve_codes (n);
@@ -10568,9 +10668,13 @@ resolve_codes (gfc_namespace *ns)
   /* Set to an out of range value.  */
   current_entry_id = -1;
 
+  old_obstack = labels_obstack;
   bitmap_obstack_initialize (&labels_obstack);
+
   resolve_code (ns->code, ns);
+
   bitmap_obstack_release (&labels_obstack);
+  labels_obstack = old_obstack;
 }
 
 
@@ -10585,10 +10689,14 @@ gfc_resolve (gfc_namespace *ns)
 {
   gfc_namespace *old_ns;
 
+  if (ns->resolved)
+    return;
+
   old_ns = gfc_current_ns;
 
   resolve_types (ns);
   resolve_codes (ns);
 
   gfc_current_ns = old_ns;
+  ns->resolved = 1;
 }

@@ -1,3 +1,191 @@
+2009-04-02  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/26693
+	* g++.dg/template/typedef11.C: New test.
+	* g++.dg/template/typedef12.C: Likewise.
+	* g++.dg/template/typedef13.C: Likewise.
+	* g++.dg/template/typedef14.C: Likewise.
+	* g++.dg/template/typedef15.C: Likewise.
+	* g++.dg/template/typedef16.C: Likewise.
+	* g++.dg/template/sfinae3.C: Compile this pedantically.
+	The only errors expected should be the one saying the typedef is ill
+	formed.
+	* g++.old-deja/g++.pt/typename8.C: Likewise.
+	* g++.dg/template/access11.C: Update this.
+
+2009-04-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37221
+	* gcc.c-torture/compile/20090331-1.c: New testcase.
+
+2009-04-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20090401-1.c: New test.
+
+2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/4926
+	* g++.dg/template/pr4926-1.C: New.
+
+2009-04-01  Xinliang David Li  <davidxl@google.com>
+
+	* gcc.target/i386/all_one_m128i.c: New test.
+
+2009-04-01  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39027
+	* gcc.dg/fltconst-1.c: Don't error for use of d or D in suffix.
+	* gcc.dg/fltconst-2.c: New test.
+	* gcc.dg/fltconst-double-pedantic-1.c: New test.
+	* gcc.dg/fltconst-double-pedantic-2.c: New test.
+
+	PR c/33466
+	* gcc.dg/cpp/pr33466.c: New test.
+	* gcc.dg/dfp/pr33466.c: New test.
+	* gcc.dg/fixed-point/pr33466.c: New test.
+
+2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/35011
+	* g++.dg/other/pr35011.C: New.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39226
+	* gcc.dg/pr39226.c: New test.
+
+2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/35240
+	* g++.dg/template/pr35240.C: New.
+
+2009-04-01  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39605
+	* gcc.dg/vla-17.c, gcc.dg/vla-18.c: New tests.
+	* gcc.dg/pr25682.c: Update expected diagnostics.
+
+2009-04-01  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/fold-plusmult-2.c: New testcase.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/37772
+	* gcc.dg/pr37772.c: New test.
+	* g++.dg/ext/asm11.C: New test.
+
+2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* lib/target-libpath.exp (restore_ld_library_path_env_vars): Always
+	restore GCC_EXEC_PREFIX to its original value, or unset if it was not
+	defined.
+
+2009-03-31  Jason Merrill  <jason@redhat.com>
+
+	* g++.old-deja/g++.other/using9.C: Add expected errors.
+
+2009-03-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.c-torture/compile/pr33009.c: Removed.
+
+2009-03-31  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.c-torture/compile/pr33009.c: Delete.
+	* gcc.c-torture/compile/pr11832.c: Likewise.
+
+2009-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/448
+	* lib/target-supports.exp (check_effective_target_stdint_types):
+	Update comment.
+	(check_effective_target_inttypes_types): New.
+	* gcc.dg/c99-stdint-1.c, gcc.dg/c99-stdint-2.c,
+	gcc.dg/c99-stdint-3.c, gcc.dg/c99-stdint-4.c,
+	gcc.dg/c99-stdint-5.c, gcc.dg/c99-stdint-6.c: New tests.
+
+2009-03-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38917
+	PR fortran/38918
+	* gfortran.dg/data_pointer_1.f90: New test.
+
+2009-03-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38915
+	* gfortran.dg/char_length_15.f90: New test.
+
+2009-03-31  Jason Merrill  <jason@redhat.com>
+
+	C++ DR 613
+	* g++.old-deja/g++.dg/cpp0x/decltype3.C: Remove expected errors.
+	* g++.old-deja/g++.ext/typeof2.C: Remove expected errors.
+	* g++.old-deja/g++.other/sizeof2.C: Remove some expected errors,
+	xfail others.
+
+	* g++.dg/other/typedef2.C: New test.
+
+	PR c++/37806
+	* g++.dg/template/typedef17.C: New test.
+
+	* g++.dg/cpp0x/auto6.C: Adjust expected mangling.
+	* g++.dg/cpp0x/auto12.C: Likewise.
+
+2009-03-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/31029
+	* gcc.dg/fold-compare-4.c: New testcase.
+	* gcc.dg/fold-compare-5.c: Likewise.
+
+2009-03-31  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/forwprop-12.c: New testcase.
+
+2009-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/39592
+	* gcc.target/i386/pr39592-1.c: New test.
+
+2009-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/15638
+	* gcc.dg/cpp/missing-header-1.c: New test.
+	* gcc.dg/cpp/include2.c: Only test #include <>.  Expect
+	"compilation terminated" message.
+	* gcc.dg/cpp/include2a.c: New test.  Copy of include2.c but only
+	test #include "".
+	* gcc.dg/pch/counter-2.c, gcc.dg/pch/valid-1.c,
+	gcc.dg/pch/valid-2.c, gcc.dg/pch/warn-1.c: Expect "compilation
+	terminated" message.
+
+2009-03-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/23401
+	PR middle-end/27810
+	* gcc.dg/tree-ssa/pr23401.c: New testcase.
+	* gcc.dg/tree-ssa/pr27810.c: Likewise.
+
+2009-03-30  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/38389
+	* gfortran.dg/alloc_alloc_expr_1.f90: Adjust for new error message.
+	* gfortran.dg/allocate_alloc_opt_1.f90: New test.
+	* gfortran.dg/allocate_alloc_opt_2.f90: Ditto.
+	* gfortran.dg/allocate_alloc_opt_3.f90: Ditto.
+	* gfortran.dg/deallocate_alloc_opt_1.f90: Ditto.
+	* gfortran.dg/deallocate_alloc_opt_2.f90: Ditto.
+	* gfortran.dg/deallocate_alloc_opt_3.f90: Ditto.
+
+2009-03-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/22571
+	* gfortran.dg/whole_file_1.f90: New test.
+	PR fortran/26227
+	* gfortran.dg/whole_file_2.f90: New test.
+	* gfortran.dg/whole_file_3.f90: New test.
+	PR fortran/24886
+	* gfortran.dg/whole_file_4.f90: New test.
+
 2009-03-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.dg/bind_c_usage_19.f90: New test.

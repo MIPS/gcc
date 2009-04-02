@@ -1,3 +1,7 @@
+2009-04-02  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r145440.
+
 2009-04-01  Richard Guenther  <rguenther@suse.de>
 
 	* gimple.h (gimple_p): New typedef.  Define VEC of it.

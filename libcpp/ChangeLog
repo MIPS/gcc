@@ -1,3 +1,35 @@
+2009-04-01  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39027
+	* include/cpplib.h (CPP_N_DEFAULT): Define.
+	* expr.c (interpret_float_suffix): Recognize d or D for double,
+	return new value for default.
+	(cpp_classify_number): Issue pedwarn for use of d or D in suffix.
+
+	PR c/33466
+	* expr.c (interpret_float_suffix): Reject invalid suffix that uses
+	letters from decimal float and fixed-point suffixes.
+
+2009-03-31  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/15638
+	* files.c (_cpp_find_file): Call open_file_failed after diagnosing
+	invalid PCH.
+	(open_file_failed): Make error for missing file fatal.
+	* include/cpplib.h (CPP_DL_FATAL): Define.
+
+2009-03-30  Sergiy Vyshnevetskiy  <serg@vostok.net>
+
+	PR preprocessor/31932:
+	* internal.h: Don't mention HAVE_ICONV_H.
+	* configure, config.in: Rebuild.
+	* configure.ac: Don't check for iconv.h.
+
+2009-03-30  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/39512:
+	* line-map.c (linemap_init): Initialize 'reallocator' field.
+
 2009-03-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/39558
