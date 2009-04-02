@@ -1,3 +1,17 @@
+2009-03-31  Ben Elliston  <bje@au.ibm.com>
+
+	PR libmudflap/38462
+	* testsuite/libmudflap.c/fail27-frag.c: Match `mudflap dead
+	object', not `mudflap object'.
+
+2009-03-01  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure: Regenerate.
+
+2009-02-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* mf-runtime.c (__mf_usage): Update copyright notice dates.
+
 2009-01-23  Jie Zhang  <jie.zhang@analog.com>
 
 	* mf-impl.h (__mf_get_state, __mf_set_state): Don't use

@@ -1,7 +1,7 @@
 // Locale support -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007, 2008
+// 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -62,12 +62,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	if (!__caches[__i])
 	  {
 	    __numpunct_cache<_CharT>* __tmp = NULL;
-	    try
+	    __try
 	      {
 		__tmp = new __numpunct_cache<_CharT>;
 		__tmp->_M_cache(__loc);
 	      }
-	    catch(...)
+	    __catch(...)
 	      {
 		delete __tmp;
 		__throw_exception_again;
@@ -91,7 +91,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __np.grouping().copy(__grouping, _M_grouping_size);
       _M_grouping = __grouping;
       _M_use_grouping = (_M_grouping_size
-			 && static_cast<signed char>(__np.grouping()[0]) > 0);
+			 && static_cast<signed char>(_M_grouping[0]) > 0
+			 && (_M_grouping[0]
+			     != __gnu_cxx::__numeric_traits<char>::__max));
 
       _M_truename_size = __np.truename().size();
       _CharT* __truename = new _CharT[_M_truename_size];
@@ -1232,7 +1234,8 @@ _GLIBCXX_END_LDBL_NAMESPACE
       size_t __ctr = 0;
 
       while (__last - __first > __gbeg[__idx]
-	     && static_cast<signed char>(__gbeg[__idx]) > 0)
+	     && static_cast<signed char>(__gbeg[__idx]) > 0
+	     && __gbeg[__idx] != __gnu_cxx::__numeric_traits<char>::__max)
 	{
 	  __last -= __gbeg[__idx];
 	  __idx < __gsize - 1 ? ++__idx : ++__ctr;

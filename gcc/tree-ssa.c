@@ -1,6 +1,6 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software
-   Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -476,6 +476,21 @@ verify_phi_args (gimple phi, basic_block bb, basic_block *definition_block)
 	  err = verify_ssa_name (op, !is_gimple_reg (gimple_phi_result (phi)));
 	  err |= verify_use (e->src, definition_block[SSA_NAME_VERSION (op)],
 			     op_p, phi, e->flags & EDGE_ABNORMAL, NULL);
+	}
+
+      if (TREE_CODE (op) == ADDR_EXPR)
+	{
+	  tree base = TREE_OPERAND (op, 0);
+	  while (handled_component_p (base))
+	    base = TREE_OPERAND (base, 0);
+	  if ((TREE_CODE (base) == VAR_DECL
+	       || TREE_CODE (base) == PARM_DECL
+	       || TREE_CODE (base) == RESULT_DECL)
+	      && !TREE_ADDRESSABLE (base))
+	    {
+	      error ("address taken, but ADDRESSABLE bit not set");
+	      err = true;
+	    }
 	}
 
       if (e->dest != bb)
@@ -1504,9 +1519,13 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data_)
             || !gimple_aliases_computed_p (cfun))
 	  return NULL_TREE;
 
+	/* If the load happens as part of a call do not warn about it.  */
+	if (is_gimple_call (data->stmt))
+	  return NULL_TREE;
+
 	vuse = SINGLE_SSA_USE_OPERAND (data->stmt, SSA_OP_VUSE);
 	if (vuse == NULL_USE_OPERAND_P)
-	    return NULL_TREE;
+	  return NULL_TREE;
 
 	op = USE_FROM_PTR (vuse);
 	if (t != SSA_NAME_VAR (op) 
@@ -1593,6 +1612,11 @@ warn_uninitialized_vars (bool warn_possibly_uninitialized)
 	  walk_gimple_op (gsi_stmt (gsi), warn_uninitialized_var, &wi);
 	}
     }
+
+  /* Post-dominator information can not be reliably updated. Free it
+     after the use.  */
+
+  free_dominance_info (CDI_POST_DOMINATORS);
   return 0;
 }
 
@@ -1739,7 +1763,12 @@ execute_update_addresses_taken (void)
 	  || bitmap_bit_p (addresses_taken, DECL_UID (var)))
 	continue;
 	
-      if (TREE_ADDRESSABLE (var))
+      if (TREE_ADDRESSABLE (var)
+	  /* Do not change TREE_ADDRESSABLE if we need to preserve var as
+	     a non-register.  Otherwise we are confused and forget to
+	     add virtual operands for it.  */
+	  && (!is_gimple_reg_type (TREE_TYPE (var))
+	      || !bitmap_bit_p (not_reg_needs, DECL_UID (var))))
 	{
 	  TREE_ADDRESSABLE (var) = 0;
 	  if (is_gimple_reg (var))

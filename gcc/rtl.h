@@ -1,6 +1,6 @@
 /* Register Transfer Language (RTL) definitions for GCC
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -141,11 +141,11 @@ typedef struct
    stricter alignment; OFFSET is the offset of the MEM within that object.  */
 typedef struct mem_attrs GTY(())
 {
-  alias_set_type alias;		/* Memory alias set.  */
-  unsigned int align;		/* Alignment of MEM in bits.  */
   tree expr;			/* expr corresponding to MEM.  */
   rtx offset;			/* Offset from start of DECL, as CONST_INT.  */
   rtx size;			/* Size in bytes, as a CONST_INT.  */
+  alias_set_type alias;		/* Memory alias set.  */
+  unsigned int align;		/* Alignment of MEM in bits.  */
   unsigned char addrspace;	/* Address space (0 for generic).  */
 } mem_attrs;
 
@@ -1701,7 +1701,7 @@ extern rtx simplify_rtx (const_rtx);
 extern rtx avoid_constant_pool_reference (rtx);
 extern bool mode_signbit_p (enum machine_mode, const_rtx);
 
-/* In regclass.c  */
+/* In reginfo.c  */
 extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int,
 					       bool);
 
@@ -1772,7 +1772,6 @@ extern int volatile_refs_p (const_rtx);
 extern int volatile_insn_p (const_rtx);
 extern int may_trap_p_1 (const_rtx, unsigned);
 extern int may_trap_p (const_rtx);
-extern int may_trap_after_code_motion_p (const_rtx);
 extern int may_trap_or_fault_p (const_rtx);
 extern int inequality_comparisons_p (const_rtx);
 extern rtx replace_rtx (rtx, rtx, rtx);
@@ -1812,6 +1811,22 @@ extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx, int, int);
    being made.  */
 extern rtx get_condition (rtx, rtx *, int, int);
 
+/* Information about a subreg of a hard register.  */
+struct subreg_info
+{
+  /* Offset of first hard register involved in the subreg.  */
+  int offset;
+  /* Number of hard registers involved in the subreg.  */
+  int nregs;
+  /* Whether this subreg can be represented as a hard reg with the new
+     mode.  */
+  bool representable_p;
+};
+
+extern void subreg_get_info (unsigned int, enum machine_mode,
+			     unsigned int, enum machine_mode,
+			     struct subreg_info *);
+
 /* lists.c */
 
 extern void free_EXPR_LIST_list		(rtx *);
@@ -1826,7 +1841,7 @@ extern rtx remove_free_INSN_LIST_node (rtx *);
 extern rtx remove_free_EXPR_LIST_node (rtx *);
 
 
-/* regclass.c */
+/* reginfo.c */
 
 /* Initialize may_move_cost and friends for mode M.  */
 extern void init_move_cost (enum machine_mode);
@@ -2217,19 +2232,13 @@ extern void expand_dec (rtx, rtx);
 extern bool can_copy_p (enum machine_mode);
 extern rtx fis_get_condition (rtx);
 
-/* In global.c */
+/* In ira.c */
 #ifdef HARD_CONST
 extern HARD_REG_SET eliminable_regset;
 #endif
 extern void mark_elimination (int, int);
-extern void dump_global_regs (FILE *);
-#ifdef HARD_CONST
-/* Yes, this ifdef is silly, but HARD_REG_SET is not always defined.  */
-extern void retry_global_alloc (int, HARD_REG_SET);
-#endif
-extern void build_insn_chain (void);
 
-/* In regclass.c */
+/* In reginfo.c */
 extern int reg_classes_intersect_p (enum reg_class, enum reg_class);
 extern int reg_class_subset_p (enum reg_class, enum reg_class);
 extern void globalize_reg (int);
@@ -2251,10 +2260,6 @@ extern bool invalid_mode_change_p (unsigned int, enum reg_class,
 
 /* In reorg.c */
 extern void dbr_schedule (rtx);
-
-/* In local-alloc.c */
-extern void dump_local_alloc (FILE *);
-extern int update_equiv_regs (void);
 
 /* In reload1.c */
 extern int function_invariant_p (const_rtx);

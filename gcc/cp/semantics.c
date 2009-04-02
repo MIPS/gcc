@@ -4,7 +4,7 @@
    and during the instantiation of template functions.
 
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-		 2008 Free Software Foundation, Inc.
+		 2008, 2009 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.
 
@@ -945,8 +945,6 @@ finish_switch_cond (tree cond, tree switch_stmt)
   tree orig_type = NULL;
   if (!processing_template_decl)
     {
-      tree index;
-
       /* Convert the condition to an integer or enumeration type.  */
       cond = build_expr_type_conversion (WANT_INT | WANT_ENUM, cond, true);
       if (cond == NULL_TREE)
@@ -962,18 +960,6 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	     Integral promotions are performed.  */
 	  cond = perform_integral_promotions (cond);
 	  cond = maybe_cleanup_point_expr (cond);
-	}
-
-      if (cond != error_mark_node)
-	{
-	  index = get_unwidened (cond, NULL_TREE);
-	  /* We can't strip a conversion from a signed type to an unsigned,
-	     because if we did, int_fits_type_p would do the wrong thing
-	     when checking case values for being in range,
-	     and it's too hard to do the right thing.  */
-	  if (TYPE_UNSIGNED (TREE_TYPE (cond))
-	      == TYPE_UNSIGNED (TREE_TYPE (index)))
-	    cond = index;
 	}
     }
   if (check_for_bare_parameter_packs (cond))
@@ -1436,6 +1422,16 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 {
   gcc_assert (TREE_CODE (decl) == FIELD_DECL);
 
+  if (!object && skip_evaluation)
+    {
+      /* DR 613: Can use non-static data members without an associated
+         object in sizeof/decltype/alignof.  */
+      tree scope = qualifying_scope;
+      if (scope == NULL_TREE)
+	scope = context_for_name_lookup (decl);
+      object = maybe_dummy_object (scope, NULL);
+    }
+
   if (!object)
     {
       if (current_function_decl
@@ -1447,7 +1443,8 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
       return error_mark_node;
     }
-  TREE_USED (current_class_ptr) = 1;
+  if (current_class_ptr)
+    TREE_USED (current_class_ptr) = 1;
   if (processing_template_decl && !qualifying_scope)
     {
       tree type = TREE_TYPE (decl);
@@ -1457,7 +1454,9 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
       else
 	{
 	  /* Set the cv qualifiers.  */
-	  int quals = cp_type_quals (TREE_TYPE (current_class_ref));
+	  int quals = (current_class_ref
+		       ? cp_type_quals (TREE_TYPE (current_class_ref))
+		       : TYPE_UNQUALIFIED);
 
 	  if (DECL_MUTABLE_P (decl))
 	    quals &= ~TYPE_QUAL_CONST;
@@ -1801,6 +1800,13 @@ perform_koenig_lookup (tree fn, tree args)
 {
   tree identifier = NULL_TREE;
   tree functions = NULL_TREE;
+  tree tmpl_args = NULL_TREE;
+
+  if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+    {
+      tmpl_args = TREE_OPERAND (fn, 1);
+      fn = TREE_OPERAND (fn, 0);
+    }
 
   /* Find the name of the overloaded function.  */
   if (TREE_CODE (fn) == IDENTIFIER_NODE)
@@ -1820,7 +1826,8 @@ perform_koenig_lookup (tree fn, tree args)
 
      Do Koenig lookup -- unless any of the arguments are
      type-dependent.  */
-  if (!any_type_dependent_arguments_p (args))
+  if (!any_type_dependent_arguments_p (args)
+      && !any_dependent_template_arguments_p (tmpl_args))
     {
       fn = lookup_arg_dependent (identifier, functions, args);
       if (!fn)
@@ -1828,6 +1835,9 @@ perform_koenig_lookup (tree fn, tree args)
 	fn = unqualified_fn_lookup_error (identifier);
     }
 
+  if (fn && tmpl_args)
+    fn = build_nt (TEMPLATE_ID_EXPR, fn, tmpl_args);
+  
   return fn;
 }
 
@@ -1981,9 +1991,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
   if (processing_template_decl)
     {
       result = build_call_list (TREE_TYPE (result), orig_fn, orig_args);
-      /* Don't repeat arg-dependent lookup at instantiation time if this call
-         is not type-dependent.  */
-      KOENIG_LOOKUP_P (result) = 0;
+      KOENIG_LOOKUP_P (result) = koenig_p;
     }
   return result;
 }
@@ -3125,6 +3133,15 @@ simplify_aggr_init_expr (tree *tp)
       call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
     }
 
+  if (AGGR_INIT_ZERO_FIRST (aggr_init_expr))
+    {
+      tree init = build_zero_init (type, NULL_TREE,
+				   /*static_storage_p=*/false);
+      init = build2 (INIT_EXPR, void_type_node, slot, init);
+      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (call_expr),
+			  init, call_expr);
+    }
+
   *tp = call_expr;
 }
 
@@ -3911,6 +3928,9 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
     case GE_EXPR:
     case LT_EXPR:
     case LE_EXPR:
+      if (TREE_OPERAND (cond, 1) == iter)
+	cond = build2 (swap_tree_comparison (TREE_CODE (cond)),
+		       TREE_TYPE (cond), iter, TREE_OPERAND (cond, 0));
       if (TREE_OPERAND (cond, 0) != iter)
 	cond = error_mark_node;
       else
@@ -4575,8 +4595,6 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
 	      break;
 	    }
 	}
-      else
-	type = describable_type (expr);
 
       if (type && !type_uses_auto (type))
 	return type;
@@ -4892,6 +4910,24 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
     }
 }
 
+/* Returns true if TYPE is a complete type, an array of unknown bound,
+   or (possibly cv-qualified) void, returns false otherwise.  */
+
+static bool
+check_trait_type (tree type)
+{
+  if (COMPLETE_TYPE_P (type))
+    return true;
+
+  if (TREE_CODE (type) == ARRAY_TYPE && !TYPE_DOMAIN (type))
+    return true;
+
+  if (VOID_TYPE_P (type))
+    return true;
+
+  return false;
+}
+
 /* Process a trait expression.  */
 
 tree
@@ -4940,14 +4976,45 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
   if (type2)
     complete_type (type2);
 
-  /* The only required diagnostic.  */
-  if (kind == CPTK_IS_BASE_OF
-      && NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
-      && !same_type_ignoring_top_level_qualifiers_p (type1, type2)
-      && !COMPLETE_TYPE_P (type2))
+  switch (kind)
     {
-      error ("incomplete type %qT not allowed", type2);
-      return error_mark_node;
+    case CPTK_HAS_NOTHROW_ASSIGN:
+    case CPTK_HAS_TRIVIAL_ASSIGN:
+    case CPTK_HAS_NOTHROW_CONSTRUCTOR:
+    case CPTK_HAS_TRIVIAL_CONSTRUCTOR:
+    case CPTK_HAS_NOTHROW_COPY:
+    case CPTK_HAS_TRIVIAL_COPY:
+    case CPTK_HAS_TRIVIAL_DESTRUCTOR:
+    case CPTK_HAS_VIRTUAL_DESTRUCTOR:
+    case CPTK_IS_ABSTRACT:
+    case CPTK_IS_EMPTY:
+    case CPTK_IS_POD:
+    case CPTK_IS_POLYMORPHIC:
+      if (!check_trait_type (type1))
+	{
+	  error ("incomplete type %qT not allowed", type1);
+	  return error_mark_node;
+	}
+      break;
+
+    case CPTK_IS_BASE_OF:
+      if (NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
+	  && !same_type_ignoring_top_level_qualifiers_p (type1, type2)
+	  && !COMPLETE_TYPE_P (type2))
+	{
+	  error ("incomplete type %qT not allowed", type2);
+	  return error_mark_node;
+	}
+      break;
+
+    case CPTK_IS_CLASS:
+    case CPTK_IS_ENUM:
+    case CPTK_IS_UNION:
+      break;
+    
+    case CPTK_IS_CONVERTIBLE_TO:
+    default:
+      gcc_unreachable ();
     }
 
   return (trait_expr_value (kind, type1, type2)

@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler, for Sun SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997, 1998, 1999
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -1557,12 +1558,10 @@ function_arg_padding ((MODE), (TYPE))
  ? 128 : PARM_BOUNDARY)
 
 /* Define the information needed to generate branch and scc insns.  This is
-   stored from the compare operation.  Note that we can't use "rtx" here
-   since it hasn't been defined!  */
+   stored from the compare operation.  */
 
 extern GTY(()) rtx sparc_compare_op0;
 extern GTY(()) rtx sparc_compare_op1;
-extern GTY(()) rtx sparc_compare_emitted;
 
 
 /* Generate the special assembly code needed to tell the assembler whatever

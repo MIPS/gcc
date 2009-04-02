@@ -1,5 +1,6 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001,
-@c 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+@c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -7504,6 +7505,11 @@ two insns as parameters.  If the function returns zero the bypass will
 be ignored for this case.  The additional guard is necessary to
 recognize complicated bypasses, e.g.@: when the consumer is only an address
 of insn @samp{store} (not a stored value).
+
+If there are more one bypass with the same output and input insns, the
+chosen bypass is the first bypass with a guard in description whose
+guard function returns nonzero.  If there is no such bypass, then
+bypass without the guard function is chosen.
 
 @findex exclusion_set
 @findex presence_set

@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -1364,6 +1364,7 @@ finish_anon_union (tree anon_union_decl)
     {
       /* Use main_decl to set the mangled name.  */
       DECL_NAME (anon_union_decl) = DECL_NAME (main_decl);
+      maybe_commonize_var (anon_union_decl);
       mangle_decl (anon_union_decl);
       DECL_NAME (anon_union_decl) = NULL_TREE;
     }
@@ -1921,6 +1922,8 @@ determine_visibility (tree decl)
 {
   tree class_type = NULL_TREE;
   bool use_template;
+  bool orig_visibility_specified;
+  enum symbol_visibility orig_visibility;
 
   /* Remember that all decls get VISIBILITY_DEFAULT when built.  */
 
@@ -1932,6 +1935,9 @@ determine_visibility (tree decl)
      the underlying function.  That should be set up in
      maybe_clone_body.  */
   gcc_assert (!DECL_CLONED_FUNCTION_P (decl));
+
+  orig_visibility_specified = DECL_VISIBILITY_SPECIFIED (decl);
+  orig_visibility = DECL_VISIBILITY (decl);
 
   if (TREE_CODE (decl) == TYPE_DECL)
     {
@@ -2061,6 +2067,15 @@ determine_visibility (tree decl)
 	  || ! DECL_VISIBILITY_SPECIFIED (decl))
 	constrain_visibility (decl, tvis);
     }
+
+  /* If visibility changed and DECL already has DECL_RTL, ensure
+     symbol flags are updated.  */
+  if ((DECL_VISIBILITY (decl) != orig_visibility
+       || DECL_VISIBILITY_SPECIFIED (decl) != orig_visibility_specified)
+      && ((TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+	  || TREE_CODE (decl) == FUNCTION_DECL)
+      && DECL_RTL_SET_P (decl))
+    make_decl_rtl (decl);
 }
 
 /* By default, static data members and function members receive
@@ -3487,7 +3502,7 @@ cp_write_global_declarations (void)
       for (i = 0; VEC_iterate (tree, deferred_fns, i, decl); ++i)
 	{
 	  /* Does it need synthesizing?  */
-	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
+	  if (DECL_DEFAULTED_FN (decl) && ! DECL_INITIAL (decl)
 	      && (! DECL_REALLY_EXTERN (decl) || possibly_inlined_p (decl)))
 	    {
 	      /* Even though we're already at the top-level, we push
@@ -3757,7 +3772,7 @@ possibly_inlined_p (tree decl)
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
   if (DECL_UNINLINABLE (decl))
     return false;
-  if (!optimize)
+  if (!optimize || pragma_java_exceptions)
     return DECL_DECLARED_INLINE_P (decl);
   /* When optimizing, we might inline everything when flatten
      attribute or heuristics inlining for size or autoinlining
@@ -3890,6 +3905,29 @@ mark_used (tree decl)
 		      /*expl_inst_class_mem_p=*/false);
 
   processing_template_decl = saved_processing_template_decl;
+}
+
+/* Given function PARM_DECL PARM, return its index in the function's list
+   of parameters, beginning with 1.  */
+
+int
+parm_index (tree parm)
+{
+  int index;
+  tree arg;
+
+  for (index = 1, arg = DECL_ARGUMENTS (DECL_CONTEXT (parm));
+       arg;
+       ++index, arg = TREE_CHAIN (arg))
+    {
+      if (DECL_NAME (parm) == DECL_NAME (arg))
+	break;
+      if (DECL_ARTIFICIAL (arg))
+	--index;
+    }
+
+  gcc_assert (arg);
+  return index;
 }
 
 #include "gt-cp-decl2.h"

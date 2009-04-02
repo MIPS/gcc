@@ -1,5 +1,5 @@
 /* SCC value numbering for trees
-   Copyright (C) 2006, 2007, 2008
+   Copyright (C) 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
@@ -316,6 +316,9 @@ vn_constant_eq (const void *p1, const void *p2)
   const struct vn_constant_s *vc1 = (const struct vn_constant_s *) p1;
   const struct vn_constant_s *vc2 = (const struct vn_constant_s *) p2;
 
+  if (vc1->hashcode != vc2->hashcode)
+    return false;
+
   return vn_constant_eq_with_type (vc1->constant, vc2->constant);
 }
 
@@ -386,6 +389,7 @@ vn_reference_op_eq (const void *p1, const void *p2)
 {
   const_vn_reference_op_t const vro1 = (const_vn_reference_op_t) p1;
   const_vn_reference_op_t const vro2 = (const_vn_reference_op_t) p2;
+
   return vro1->opcode == vro2->opcode
     && types_compatible_p (vro1->type, vro2->type)
     && expressions_equal_p (vro1->op0, vro2->op0)
@@ -398,9 +402,14 @@ vn_reference_op_eq (const void *p1, const void *p2)
 static hashval_t
 vn_reference_op_compute_hash (const vn_reference_op_t vro1)
 {
-  return iterative_hash_expr (vro1->op0, vro1->opcode)
-    + iterative_hash_expr (vro1->op1, vro1->opcode)
-    + iterative_hash_expr (vro1->op2, vro1->opcode);
+  hashval_t result = 0;
+  if (vro1->op0)
+    result += iterative_hash_expr (vro1->op0, vro1->opcode);
+  if (vro1->op1)
+    result += iterative_hash_expr (vro1->op1, vro1->opcode);
+  if (vro1->op2)
+    result += iterative_hash_expr (vro1->op2, vro1->opcode);
+  return result;
 }
 
 /* Return the hashcode for a given reference operation P1.  */
@@ -442,6 +451,8 @@ vn_reference_eq (const void *p1, const void *p2)
 
   const_vn_reference_t const vr1 = (const_vn_reference_t) p1;
   const_vn_reference_t const vr2 = (const_vn_reference_t) p2;
+  if (vr1->hashcode != vr2->hashcode)
+    return false;
 
   if (vr1->vuses == vr2->vuses
       && vr1->operands == vr2->operands)
@@ -647,6 +658,8 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	case CONST_DECL:
 	case RESULT_DECL:
 	case SSA_NAME:
+	case EXC_PTR_EXPR:
+	case FILTER_EXPR:
 	  temp.op0 = ref;
 	  break;
 	case ADDR_EXPR:
@@ -739,6 +752,8 @@ get_ref_from_reference_ops (VEC(vn_reference_op_s, heap) *ops)
 	case CONST_DECL:
 	case RESULT_DECL:
 	case SSA_NAME:
+	case FILTER_EXPR:
+	case EXC_PTR_EXPR:
 	  *op0_p = op->op0;
 	  break;
 
@@ -1183,6 +1198,9 @@ vn_nary_op_eq (const void *p1, const void *p2)
   const_vn_nary_op_t const vno2 = (const_vn_nary_op_t) p2;
   unsigned i;
 
+  if (vno1->hashcode != vno2->hashcode)
+    return false;
+
   if (vno1->opcode != vno2->opcode
       || !types_compatible_p (vno1->type, vno2->type))
     return false;
@@ -1449,6 +1467,9 @@ vn_phi_eq (const void *p1, const void *p2)
   const_vn_phi_t const vp1 = (const_vn_phi_t) p1;
   const_vn_phi_t const vp2 = (const_vn_phi_t) p2;
 
+  if (vp1->hashcode != vp2->hashcode)
+    return false;
+
   if (vp1->block == vp2->block)
     {
       int i;
@@ -1481,7 +1502,7 @@ static VEC(tree, heap) *shared_lookup_phiargs;
    value number if it exists in the hash table.  Return NULL_TREE if
    it does not exist in the hash table. */
 
-tree
+static tree
 vn_phi_lookup (gimple phi)
 {
   void **slot;
@@ -2350,14 +2371,19 @@ visit_use (tree use)
 	      VN_INFO (lhs)->expr = NULL_TREE;
 	    }
 
-	  if (TREE_CODE (lhs) == SSA_NAME
-	      /* We can substitute SSA_NAMEs that are live over
-		 abnormal edges with their constant value.  */
-	      && !(gimple_assign_copy_p (stmt)
-		   && is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))
-	      && !(simplified
-		   && is_gimple_min_invariant (simplified))
-	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
+	  if ((TREE_CODE (lhs) == SSA_NAME
+	       /* We can substitute SSA_NAMEs that are live over
+		  abnormal edges with their constant value.  */
+	       && !(gimple_assign_copy_p (stmt)
+		    && is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))
+	       && !(simplified
+		    && is_gimple_min_invariant (simplified))
+	       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
+	      /* Stores or copies from SSA_NAMEs that are live over
+		 abnormal edges are a problem.  */
+	      || (gimple_assign_single_p (stmt)
+		  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
+		  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_assign_rhs1 (stmt))))
 	    changed = defs_to_varying (stmt);
 	  else if (REFERENCE_CLASS_P (lhs) || DECL_P (lhs))
 	    {

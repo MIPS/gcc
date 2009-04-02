@@ -1,3 +1,79 @@
+2009-03-25  Erven Rohou <erven.rohou@inria.fr>
+
+        * MAINTAINERS:  Update my email address.
+
+2009-03-18  Tom Tromey  <tromey@redhat.com>
+
+        * configure: Rebuild.
+        * configure.ac (host_libs): Add libiconv.
+        * Makefile.in: Rebuild.
+        * Makefile.def (host_modules): Add libiconv.
+        (configure-gdb, all-gdb): Depend on libiconv.
+
+2009-03-16  Tristan Gingold  <gingold@adacore.com>
+
+	* configure.ac: Treat gdb as supported on x86_64-darwin.
+	* configure: Regenerate.
+
+2009-03-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* configure.ac (--with-host-libstdcxx): New option.
+	* configure: Regenerate.
+
+2009-03-12  Joern Rennecke <joern.rennecke@arc.com>
+
+	* MAINTAINERS:  Move myself into the write after approval list.
+
+2009-03-11  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* MAINTAINERS: Update e-mail address.
+	
+2009-03-11  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* MAINTAINERS: Remove myself as auto-vectorizer maintainer.
+
+2009-03-10  Ira Rosen <irar@il.ibm.com>
+
+	* MAINTAINERS: Add myself as auto-vectorizer maintainer.
+
+2009-03-01  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	Backport from git Libtool:
+
+	2009-01-19  Robert Millan  <rmh@aybabtu.com>
+	Support GNU/kOpenSolaris.
+	* libltdl/m4/libtool.m4 (_LT_SYS_DYNAMIC_LINKER)
+	(_LT_CHECK_MAGIC_METHOD, _LT_COMPILER_PIC, _LT_LINKER_SHLIBS)
+	(_LT_LANG_CXX_CONFIG) [kopensolaris*-gnu]: Recognize
+	GNU/kOpenSolaris.
+
+2009-02-27  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* MAINTAINERS: Update e-mail address.
+
+2009-02-24  Michael Eager  <eager@eagercon.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2009-02-18  Bingfeng Mei  <bmei@broadcom.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2009-02-05  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.tpl (stage_last): Define $r and $s before using
+	$(RECURSE_FLAGS_TO_PASS).
+	* Makefile.in: Regenerate
+
+2009-01-30  Ian Lance Taylor  <iant@google.com>
+
+	* MAINTAINERS: Move myself to the Global Reviewers list.
+
+2009-01-29  Robert Millan  <rmh@aybabtu.com>
+
+	* configure.ac: Recognize GNU/kOpenSolaris (*-*-kopensolaris*-gnu).
+	* configure: Regenerate.
+
 2009-01-17  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* MAINTAINERS: Make whitespace consistent.
@@ -73,8 +149,8 @@
 
 2008-12-04  Jack Howarth  <howarth@bromo.med.uc.edu>
 
-        * configure.ac: Add double brackets on darwin[912].
-        * configure: Regenerate.
+	* configure.ac: Add double brackets on darwin[912].
+	* configure: Regenerate.
 
 2008-12-03  Daniel Kraft  <d@domob.eu>
 

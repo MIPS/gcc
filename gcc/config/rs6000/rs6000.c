@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -1987,6 +1987,13 @@ rs6000_override_options (const char *default_cpu)
       rs6000_single_float = rs6000_double_float = 1;
   }
 
+  /* If not explicitly specified via option, decide whether to generate indexed
+     load/store instructions.  */
+  if (TARGET_AVOID_XFORM == -1)
+    /* Avoid indexed addressing when targeting Power6 in order to avoid
+     the DERAT mispredict penalty.  */
+    TARGET_AVOID_XFORM = (rs6000_cpu == PROCESSOR_POWER6 && TARGET_CMPB);
+
   rs6000_init_hard_regno_mode_ok ();
 }
 
@@ -2317,6 +2324,11 @@ rs6000_handle_option (size_t code, const char *arg, int value)
     case OPT_maix_struct_return:
     case OPT_msvr4_struct_return:
       rs6000_explicit_options.aix_struct_ret = true;
+      break;
+
+    case OPT_mvrsave:
+      rs6000_explicit_options.vrsave = true;
+      TARGET_ALTIVEC_VRSAVE = value;
       break;
 
     case OPT_mvrsave_:
@@ -3704,6 +3716,14 @@ legitimate_indexed_address_p (rtx x, int strict)
 		  && INT_REG_OK_FOR_INDEX_P (op0, strict))));
 }
 
+bool
+avoiding_indexed_address_p (enum machine_mode mode)
+{
+  /* Avoid indexed addressing for modes that have non-indexed
+     load/store instruction forms.  */
+  return TARGET_AVOID_XFORM && !ALTIVEC_VECTOR_MODE (mode);
+}
+
 inline bool
 legitimate_indirect_address_p (rtx x, int strict)
 {
@@ -3830,6 +3850,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	       || ((mode != DImode && mode != DFmode && mode != DDmode)
 		   || (TARGET_E500_DOUBLE && mode != DDmode)))
 	   && (TARGET_POWERPC64 || mode != DImode)
+	   && !avoiding_indexed_address_p (mode)
 	   && mode != TImode
 	   && mode != TFmode
 	   && mode != TDmode)
@@ -4441,6 +4462,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
 	  || (mode != DFmode && mode != DDmode)
 	  || (TARGET_E500_DOUBLE && mode != DDmode))
       && (TARGET_POWERPC64 || mode != DImode)
+      && !avoiding_indexed_address_p (mode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
   if (GET_CODE (x) == PRE_MODIFY
@@ -4459,7 +4481,8 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && TARGET_UPDATE
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict)
       && (rs6000_legitimate_offset_address_p (mode, XEXP (x, 1), reg_ok_strict)
-	  || legitimate_indexed_address_p (XEXP (x, 1), reg_ok_strict))
+	  || (!avoiding_indexed_address_p (mode)
+	      && legitimate_indexed_address_p (XEXP (x, 1), reg_ok_strict)))
       && rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)))
     return 1;
   if (legitimate_lo_sum_address_p (mode, x, reg_ok_strict))
@@ -15236,7 +15259,7 @@ rs6000_ra_ever_killed (void)
   rtx reg;
   rtx insn;
 
-  if (crtl->is_thunk)
+  if (cfun->is_thunk)
     return 0;
 
   /* regs_ever_live has LR marked as used if any sibcalls are present,
@@ -15524,6 +15547,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12, int copy_r11)
   rtx stack_reg = gen_rtx_REG (Pmode, STACK_POINTER_REGNUM);
   rtx tmp_reg = gen_rtx_REG (Pmode, 0);
   rtx todec = gen_int_mode (-size, Pmode);
+  rtx par, set, mem;
 
   if (INTVAL (todec) != -size)
     {
@@ -15567,54 +15591,39 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12, int copy_r11)
 	warning (0, "stack limit expression is not supported");
     }
 
-  if (copy_r12 || copy_r11 || ! TARGET_UPDATE)
+  if (copy_r12 || copy_r11)
     emit_move_insn (copy_r11
                     ? gen_rtx_REG (Pmode, 11)
                     : gen_rtx_REG (Pmode, 12),
                     stack_reg);
 
-  if (TARGET_UPDATE)
+  if (size > 32767)
     {
-      rtx par, set, mem;
-
-      if (size > 32767)
-	{
-	  /* Need a note here so that try_split doesn't get confused.  */
-	  if (get_last_insn () == NULL_RTX)
-	    emit_note (NOTE_INSN_DELETED);
-	  insn = emit_move_insn (tmp_reg, todec);
-	  try_split (PATTERN (insn), insn, 0);
-	  todec = tmp_reg;
-	}
-
-      insn = emit_insn (TARGET_32BIT
-			? gen_movsi_update (stack_reg, stack_reg,
-					    todec, stack_reg)
-			: gen_movdi_di_update (stack_reg, stack_reg,
-					    todec, stack_reg));
-      /* Since we didn't use gen_frame_mem to generate the MEM, grab
-	 it now and set the alias set/attributes. The above gen_*_update
-	 calls will generate a PARALLEL with the MEM set being the first
-	 operation. */
-      par = PATTERN (insn);
-      gcc_assert (GET_CODE (par) == PARALLEL);
-      set = XVECEXP (par, 0, 0);
-      gcc_assert (GET_CODE (set) == SET);
-      mem = SET_DEST (set);
-      gcc_assert (MEM_P (mem));
-      MEM_NOTRAP_P (mem) = 1;
-      set_mem_alias_set (mem, get_frame_alias_set ());
+      /* Need a note here so that try_split doesn't get confused.  */
+      if (get_last_insn () == NULL_RTX)
+	emit_note (NOTE_INSN_DELETED);
+      insn = emit_move_insn (tmp_reg, todec);
+      try_split (PATTERN (insn), insn, 0);
+      todec = tmp_reg;
     }
-  else
-    {
-      insn = emit_insn (TARGET_32BIT
-			? gen_addsi3 (stack_reg, stack_reg, todec)
-			: gen_adddi3 (stack_reg, stack_reg, todec));
-      emit_move_insn (gen_frame_mem (Pmode, stack_reg),
-		      copy_r11
-                      ? gen_rtx_REG (Pmode, 11)
-                      : gen_rtx_REG (Pmode, 12));
-    }
+  
+  insn = emit_insn (TARGET_32BIT
+		    ? gen_movsi_update_stack (stack_reg, stack_reg,
+					todec, stack_reg)
+		    : gen_movdi_di_update_stack (stack_reg, stack_reg,
+					   todec, stack_reg));
+  /* Since we didn't use gen_frame_mem to generate the MEM, grab
+     it now and set the alias set/attributes. The above gen_*_update
+     calls will generate a PARALLEL with the MEM set being the first
+     operation. */
+  par = PATTERN (insn);
+  gcc_assert (GET_CODE (par) == PARALLEL);
+  set = XVECEXP (par, 0, 0);
+  gcc_assert (GET_CODE (set) == SET);
+  mem = SET_DEST (set);
+  gcc_assert (MEM_P (mem));
+  MEM_NOTRAP_P (mem) = 1;
+  set_mem_alias_set (mem, get_frame_alias_set ());
 
   RTX_FRAME_RELATED_P (insn) = 1;
   REG_NOTES (insn) =
@@ -15929,7 +15938,6 @@ rs6000_emit_stack_reset (rs6000_stack_t *info,
   
   if (frame_reg_rtx != sp_reg_rtx)
     {
-      rs6000_emit_stack_tie ();
       if (sp_offset != 0)
 	emit_insn (gen_addsi3 (sp_reg_rtx, frame_reg_rtx,
 			       GEN_INT (sp_offset)));
@@ -17552,7 +17560,7 @@ rs6000_output_function_epilogue (FILE *file,
      System V.4 Powerpc's (and the embedded ABI derived from it) use a
      different traceback table.  */
   if (DEFAULT_ABI == ABI_AIX && ! flag_inhibit_size_directive
-      && rs6000_traceback != traceback_none && !crtl->is_thunk)
+      && rs6000_traceback != traceback_none && !cfun->is_thunk)
     {
       const char *fname = NULL;
       const char *language_string = lang_hooks.name;

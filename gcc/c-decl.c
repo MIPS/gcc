@@ -1,6 +1,6 @@
 /* Process declarations and variables for C compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -210,6 +210,7 @@ struct c_binding GTY((chain_next ("%h.prev")))
   BOOL_BITFIELD nested : 1;     /* do not set DECL_CONTEXT when popping */
   BOOL_BITFIELD inner_comp : 1; /* incomplete array completed in inner scope */
   /* one free bit */
+  location_t locus;		/* location for nested bindings */
 };
 #define B_IN_SCOPE(b1, b2) ((b1)->depth == (b2)->depth)
 #define B_IN_CURRENT_SCOPE(b) ((b)->depth == current_scope->depth)
@@ -411,8 +412,8 @@ static tree lookup_name_in_scope (tree, struct c_scope *);
 static tree c_make_fname_decl (tree, int);
 static tree grokdeclarator (const struct c_declarator *,
 			    struct c_declspecs *,
-			    enum decl_context, bool, tree *, tree *,
-			    enum deprecated_states);
+			    enum decl_context, bool, tree *, tree *, tree *,
+			    bool *, enum deprecated_states);
 static tree grokparms (struct c_arg_info *, bool);
 static void layout_array_type (tree);
 
@@ -461,7 +462,8 @@ c_print_identifier (FILE *file, tree node, int indent)
    which may be any of several kinds of DECL or TYPE or error_mark_node,
    in the scope SCOPE.  */
 static void
-bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested)
+bind (tree name, tree decl, struct c_scope *scope, bool invisible,
+      bool nested, location_t locus)
 {
   struct c_binding *b, **here;
 
@@ -480,6 +482,7 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested)
   b->invisible = invisible;
   b->nested = nested;
   b->inner_comp = 0;
+  b->locus = locus;
 
   b->type = 0;
 
@@ -782,14 +785,18 @@ pop_scope (void)
 	      error ("nested function %q+D declared but never defined", p);
 	      undef_nested_function = true;
 	    }
-	  /* C99 6.7.4p6: "a function with external linkage... declared
-	     with an inline function specifier ... shall also be defined in the
-	     same translation unit."  */
 	  else if (DECL_DECLARED_INLINE_P (p)
 		   && TREE_PUBLIC (p)
-		   && !DECL_INITIAL (p)
-		   && !flag_gnu89_inline)
-	    pedwarn (input_location, 0, "inline function %q+D declared but never defined", p);
+		   && !DECL_INITIAL (p))
+	    {
+	      /* C99 6.7.4p6: "a function with external linkage... declared
+		 with an inline function specifier ... shall also be defined
+		 in the same translation unit."  */
+	      if (!flag_gnu89_inline)
+		pedwarn (input_location, 0,
+			 "inline function %q+D declared but never defined", p);
+	      DECL_EXTERNAL (p) = 1;
+	    }
 
 	  goto common_symbol;
 
@@ -820,6 +827,29 @@ pop_scope (void)
 	    {
 	      TREE_CHAIN (p) = BLOCK_VARS (block);
 	      BLOCK_VARS (block) = p;
+	    }
+	  else if (VAR_OR_FUNCTION_DECL_P (p))
+	    {
+	      /* For block local externs add a special
+		 DECL_EXTERNAL decl for debug info generation.  */
+	      tree extp = copy_node (p);
+
+	      DECL_EXTERNAL (extp) = 1;
+	      TREE_STATIC (extp) = 0;
+	      TREE_PUBLIC (extp) = 1;
+	      DECL_INITIAL (extp) = NULL_TREE;
+	      DECL_LANG_SPECIFIC (extp) = NULL;
+	      DECL_CONTEXT (extp) = current_function_decl;
+	      if (TREE_CODE (p) == FUNCTION_DECL)
+		{
+		  DECL_RESULT (extp) = NULL_TREE;
+		  DECL_SAVED_TREE (extp) = NULL_TREE;
+		  DECL_STRUCT_FUNCTION (extp) = NULL;
+		}
+	      if (b->locus != UNKNOWN_LOCATION)
+		DECL_SOURCE_LOCATION (extp) = b->locus;
+	      TREE_CHAIN (extp) = BLOCK_VARS (block);
+	      BLOCK_VARS (block) = extp;
 	    }
 	  /* If this is the file scope, and we are processing more
 	     than one translation unit in this compilation, set
@@ -902,7 +932,7 @@ push_file_scope (void)
 
   for (decl = visible_builtins; decl; decl = TREE_CHAIN (decl))
     bind (DECL_NAME (decl), decl, file_scope,
-	  /*invisible=*/false, /*nested=*/true);
+	  /*invisible=*/false, /*nested=*/true, DECL_SOURCE_LOCATION (decl));
 }
 
 void
@@ -948,7 +978,8 @@ pushtag (tree name, tree type)
   /* Record the identifier as the type's name if it has none.  */
   if (name && !TYPE_NAME (type))
     TYPE_NAME (type) = name;
-  bind (name, type, current_scope, /*invisible=*/false, /*nested=*/false);
+  bind (name, type, current_scope, /*invisible=*/false, /*nested=*/false,
+	UNKNOWN_LOCATION);
 
   /* Create a fake NULL-named TYPE_DECL node whose TREE_TYPE will be the
      tagged type we just added to the current scope.  This fake
@@ -2075,6 +2106,7 @@ pushdecl (tree x)
   struct c_scope *scope = current_scope;
   struct c_binding *b;
   bool nested = false;
+  location_t locus = DECL_SOURCE_LOCATION (x);
 
   /* Must set DECL_CONTEXT for everything not at file scope or
      DECL_FILE_SCOPE_P won't work.  Local externs don't count
@@ -2093,7 +2125,8 @@ pushdecl (tree x)
   /* Anonymous decls are just inserted in the scope.  */
   if (!name)
     {
-      bind (name, x, scope, /*invisible=*/false, /*nested=*/false);
+      bind (name, x, scope, /*invisible=*/false, /*nested=*/false,
+	    locus);
       return x;
     }
 
@@ -2253,7 +2286,8 @@ pushdecl (tree x)
 	      = build_type_attribute_variant (thistype,
 					      TYPE_ATTRIBUTES (b->type));
 	  TREE_TYPE (b->decl) = thistype;
-	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true);
+	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true,
+		locus);
 	  return b->decl;
 	}
       else if (TREE_PUBLIC (x))
@@ -2271,7 +2305,7 @@ pushdecl (tree x)
 	  else
 	    {
 	      bind (name, x, external_scope, /*invisible=*/true,
-		    /*nested=*/false);
+		    /*nested=*/false, locus);
 	      nested = true;
 	    }
 	}
@@ -2284,7 +2318,7 @@ pushdecl (tree x)
   if (TREE_CODE (x) == TYPE_DECL)
     clone_underlying_type (x);
 
-  bind (name, x, scope, /*invisible=*/false, nested);
+  bind (name, x, scope, /*invisible=*/false, nested, locus);
 
   /* If x's type is incomplete because it's based on a
      structure or union which has not yet been fully declared,
@@ -2333,11 +2367,12 @@ pushdecl_top_level (tree x)
 
   if (TREE_PUBLIC (x))
     {
-      bind (name, x, external_scope, /*invisible=*/true, /*nested=*/false);
+      bind (name, x, external_scope, /*invisible=*/true, /*nested=*/false,
+	    UNKNOWN_LOCATION);
       nested = true;
     }
   if (file_scope)
-    bind (name, x, file_scope, /*invisible=*/false, nested);
+    bind (name, x, file_scope, /*invisible=*/false, nested, UNKNOWN_LOCATION);
 
   return x;
 }
@@ -2392,7 +2427,8 @@ implicitly_declare (tree functionid)
       if (!DECL_BUILT_IN (decl) && DECL_IS_BUILTIN (decl))
 	{
 	  bind (functionid, decl, file_scope,
-		/*invisible=*/false, /*nested=*/true);
+		/*invisible=*/false, /*nested=*/true,
+		DECL_SOURCE_LOCATION (decl));
 	  return decl;
 	}
       else
@@ -2433,7 +2469,8 @@ implicitly_declare (tree functionid)
 	  b->type = TREE_TYPE (decl);
 	  TREE_TYPE (decl) = newtype;
 	  bind (functionid, decl, current_scope,
-		/*invisible=*/false, /*nested=*/true);
+		/*invisible=*/false, /*nested=*/true,
+		DECL_SOURCE_LOCATION (decl));
 	  return decl;
 	}
     }
@@ -2496,7 +2533,8 @@ undeclared_variable (tree id, location_t loc)
 	 will be nonnull but current_function_scope will be null.  */
       scope = current_function_scope ? current_function_scope : current_scope;
     }
-  bind (id, error_mark_node, scope, /*invisible=*/false, /*nested=*/false);
+  bind (id, error_mark_node, scope, /*invisible=*/false, /*nested=*/false,
+	UNKNOWN_LOCATION);
 }
 
 /* Subroutine of lookup_label, declare_label, define_label: construct a
@@ -2550,7 +2588,7 @@ lookup_label (tree name)
 
   /* Ordinary labels go in the current function scope.  */
   bind (name, label, current_function_scope,
-	/*invisible=*/false, /*nested=*/false);
+	/*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
   return label;
 }
 
@@ -2580,7 +2618,7 @@ declare_label (tree name)
 
   /* Declared labels go in the current scope.  */
   bind (name, label, current_scope,
-	/*invisible=*/false, /*nested=*/false);
+	/*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
   return label;
 }
 
@@ -2627,7 +2665,7 @@ define_label (location_t location, tree name)
 
       /* Ordinary labels go in the current function scope.  */
       bind (name, label, current_function_scope,
-	    /*invisible=*/false, /*nested=*/false);
+	    /*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
     }
 
   if (!in_system_header && lookup_name (name))
@@ -2830,7 +2868,7 @@ c_make_fname_decl (tree id, int type_dep)
     {
       DECL_CONTEXT (decl) = current_function_decl;
       bind (id, decl, current_function_scope,
-	    /*invisible=*/false, /*nested=*/false);
+	    /*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
     }
 
   finish_decl (decl, init, NULL_TREE);
@@ -2850,7 +2888,8 @@ c_builtin_function (tree decl)
   /* Should never be called on a symbol with a preexisting meaning.  */
   gcc_assert (!I_SYMBOL_BINDING (id));
 
-  bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false);
+  bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false,
+	UNKNOWN_LOCATION);
 
   /* Builtins in the implementation namespace are made visible without
      needing to be explicitly declared.  See push_file_scope.  */
@@ -2875,7 +2914,8 @@ c_builtin_function_ext_scope (tree decl)
   /* Should never be called on a symbol with a preexisting meaning.  */
   gcc_assert (!I_SYMBOL_BINDING (id));
 
-  bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false);
+  bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false,
+	UNKNOWN_LOCATION);
 
   /* Builtins in the implementation namespace are made visible without
      needing to be explicitly declared.  See push_file_scope.  */
@@ -3155,10 +3195,15 @@ add_flexible_array_elts_to_size (tree decl, tree init)
     }
 }
 
-/* Decode a "typename", such as "int **", returning a ..._TYPE node.  */
+/* Decode a "typename", such as "int **", returning a ..._TYPE node.
+   Set *EXPR, if EXPR not NULL, to any expression to be evaluated
+   before the type name, and set *EXPR_CONST_OPERANDS, if
+   EXPR_CONST_OPERANDS not NULL, to indicate whether the type name may
+   appear in a constant expression.  */
 
 tree
-groktypename (struct c_type_name *type_name)
+groktypename (struct c_type_name *type_name, tree *expr,
+	      bool *expr_const_operands)
 {
   tree type;
   tree attrs = type_name->specs->attrs;
@@ -3166,7 +3211,8 @@ groktypename (struct c_type_name *type_name)
   type_name->specs->attrs = NULL_TREE;
 
   type = grokdeclarator (type_name->declarator, type_name->specs, TYPENAME,
-			 false, NULL, &attrs, DEPRECATED_NORMAL);
+			 false, NULL, &attrs, expr, expr_const_operands,
+			 DEPRECATED_NORMAL);
 
   /* Apply attributes.  */
   decl_attributes (&type, attrs, 0);
@@ -3195,6 +3241,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 {
   tree decl;
   tree tem;
+  tree expr = NULL_TREE;
   enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
   addr_space_t addrspace;
 
@@ -3204,10 +3251,13 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
     deprecated_state = DEPRECATED_SUPPRESS;
 
   decl = grokdeclarator (declarator, declspecs,
-			 NORMAL, initialized, NULL, &attributes,
+			 NORMAL, initialized, NULL, &attributes, &expr, NULL,
 			 deprecated_state);
   if (!decl)
     return 0;
+
+  if (expr)
+    add_stmt (expr);
 
   if (TREE_CODE (decl) != FUNCTION_DECL && MAIN_NAME_P (DECL_NAME (decl)))
     warning (OPT_Wmain, "%q+D is usually a function", decl);
@@ -3707,7 +3757,7 @@ grokparm (const struct c_parm *parm)
 {
   tree attrs = parm->attrs;
   tree decl = grokdeclarator (parm->declarator, parm->specs, PARM, false,
-			      NULL, &attrs, DEPRECATED_NORMAL);
+			      NULL, &attrs, NULL, NULL, DEPRECATED_NORMAL);
 
   decl_attributes (&decl, attrs, 0);
 
@@ -3724,7 +3774,7 @@ push_parm_decl (const struct c_parm *parm)
   tree decl;
 
   decl = grokdeclarator (parm->declarator, parm->specs, PARM, false, NULL,
-			 &attrs, DEPRECATED_NORMAL);
+			 &attrs, NULL, NULL, DEPRECATED_NORMAL);
   decl_attributes (&decl, attrs, 0);
 
   decl = pushdecl (decl);
@@ -3755,10 +3805,11 @@ mark_forward_parm_decls (void)
 /* Build a COMPOUND_LITERAL_EXPR.  TYPE is the type given in the compound
    literal, which may be an incomplete array type completed by the
    initializer; INIT is a CONSTRUCTOR that initializes the compound
-   literal.  */
+   literal.  NON_CONST is true if the initializers contain something
+   that cannot occur in a constant expression.  */
 
 tree
-build_compound_literal (tree type, tree init)
+build_compound_literal (tree type, tree init, bool non_const)
 {
   /* We do not use start_decl here because we have a type, not a declarator;
      and do not use finish_decl because the decl should be stored inside
@@ -3809,6 +3860,12 @@ build_compound_literal (tree type, tree init)
       DECL_IGNORED_P (decl) = 1;
       pushdecl (decl);
       rest_of_decl_compilation (decl, 1, 0);
+    }
+
+  if (non_const)
+    {
+      complit = build2 (C_MAYBE_CONST_EXPR, type, NULL, complit);
+      C_MAYBE_CONST_EXPR_NON_CONST (complit) = 1;
     }
 
   return complit;
@@ -3997,6 +4054,11 @@ warn_variable_length_array (const char *name, tree size)
    DECL_ATTRS points to the list of attributes that should be added to this
      decl.  Any nested attributes that belong on the decl itself will be
      added to this list.
+   If EXPR is not NULL, any expressions that need to be evaluated as
+     part of evaluating variably modified types will be stored in *EXPR.
+   If EXPR_CONST_OPERANDS is not NULL, *EXPR_CONST_OPERANDS will be
+     set to indicate whether operands in *EXPR can be used in constant
+     expressions.
    DEPRECATED_STATE is a deprecated_states value indicating whether
    deprecation warnings should be suppressed.
 
@@ -4011,7 +4073,8 @@ static tree
 grokdeclarator (const struct c_declarator *declarator,
 		struct c_declspecs *declspecs,
 		enum decl_context decl_context, bool initialized, tree *width,
-		tree *decl_attrs, enum deprecated_states deprecated_state)
+		tree *decl_attrs, tree *expr, bool *expr_const_operands,
+		enum deprecated_states deprecated_state)
 {
   tree type = declspecs->type;
   bool threadp = declspecs->thread_p;
@@ -4034,6 +4097,16 @@ grokdeclarator (const struct c_declarator *declarator,
   tree element_type;
   struct c_arg_info *arg_info = 0;
   addr_space_t as1, as2, address_space;
+  tree expr_dummy;
+  bool expr_const_operands_dummy;
+
+  if (expr == NULL)
+    expr = &expr_dummy;
+  if (expr_const_operands == NULL)
+    expr_const_operands = &expr_const_operands_dummy;
+
+  *expr = declspecs->expr;
+  *expr_const_operands = declspecs->expr_const_operands;
 
   if (decl_context == FUNCDEF)
     funcdef_flag = true, decl_context = NORMAL;
@@ -4366,6 +4439,11 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	    if (size)
 	      {
+		bool size_maybe_const = true;
+		bool size_int_const = (TREE_CODE (size) == INTEGER_CST
+				       && !TREE_OVERFLOW (size));
+		bool this_size_varies = false;
+
 		/* Strip NON_LVALUE_EXPRs since we aren't using as an
 		   lvalue.  */
 		STRIP_TYPE_NOPS (size);
@@ -4376,17 +4454,36 @@ grokdeclarator (const struct c_declarator *declarator,
 		    size = integer_one_node;
 		  }
 
-		if (pedantic && integer_zerop (size))
+		size = c_fully_fold (size, false, &size_maybe_const);
+
+		if (pedantic && size_maybe_const && integer_zerop (size))
 		  pedwarn (input_location, OPT_pedantic,
 			   "ISO C forbids zero-size array %qs", name);
 
-		if (TREE_CODE (size) == INTEGER_CST)
+		if (TREE_CODE (size) == INTEGER_CST && size_maybe_const)
 		  {
 		    constant_expression_warning (size);
 		    if (tree_int_cst_sgn (size) < 0)
 		      {
 			error ("size of array %qs is negative", name);
 			size = integer_one_node;
+		      }
+		    /* Handle a size folded to an integer constant but
+		       not an integer constant expression.  */
+		    if (!size_int_const)
+		      {
+			/* If this is a file scope declaration of an
+			   ordinary identifier, this is invalid code;
+			   diagnosing it here and not subsequently
+			   treating the type as variable-length avoids
+			   more confusing diagnostics later.  */
+			if ((decl_context == NORMAL || decl_context == FIELD)
+			    && current_scope == file_scope)
+			  pedwarn (input_location, 0,
+				   "variably modified %qs at file scope", name);
+			else
+			  this_size_varies = size_varies = 1;
+			warn_variable_length_array (orig_name, size);
 		      }
 		  }
 		else if ((decl_context == NORMAL || decl_context == FIELD)
@@ -4400,11 +4497,11 @@ grokdeclarator (const struct c_declarator *declarator,
 		    /* Make sure the array size remains visibly
 		       nonconstant even if it is (eg) a const variable
 		       with known value.  */
-		    size_varies = 1;
+		    this_size_varies = size_varies = 1;
 		    warn_variable_length_array (orig_name, size);
 		  }
 
-		if (integer_zerop (size))
+		if (integer_zerop (size) && !this_size_varies)
 		  {
 		    /* A zero-length array cannot be represented with
 		       an unsigned index type, which is what we'll
@@ -4419,6 +4516,9 @@ grokdeclarator (const struct c_declarator *declarator,
 		       with the +1 that happens when building TYPE_SIZE.  */
 		    if (size_varies)
 		      size = variable_size (size);
+		    if (this_size_varies && TREE_CODE (size) == INTEGER_CST)
+		      size = build2 (COMPOUND_EXPR, TREE_TYPE (size),
+				     integer_zero_node, size);
 
 		    /* Compute the maximum valid index, that is, size
 		       - 1.  Do the calculation in index_type, so that
@@ -4446,27 +4546,48 @@ grokdeclarator (const struct c_declarator *declarator,
 
 		    itype = build_index_type (itype);
 		  }
+		if (this_size_varies)
+		  {
+		    if (*expr)
+		      *expr = build2 (COMPOUND_EXPR, TREE_TYPE (size),
+				      *expr, size);
+		    else
+		      *expr = size;
+		    *expr_const_operands &= size_maybe_const;
+		  }
 	      }
 	    else if (decl_context == FIELD)
 	      {
-		if (pedantic && !flag_isoc99 && !in_system_header)
+		bool flexible_array_member = false;
+		if (array_parm_vla_unspec_p)
+		  /* Field names can in fact have function prototype
+		     scope so [*] is disallowed here through making
+		     the field variably modified, not through being
+		     something other than a declaration with function
+		     prototype scope.  */
+		  size_varies = 1;
+		else
+		  {
+		    const struct c_declarator *t = declarator;
+		    while (t->kind == cdk_attrs)
+		      t = t->declarator;
+		    flexible_array_member = (t->kind == cdk_id);
+		  }
+		if (flexible_array_member
+		    && pedantic && !flag_isoc99 && !in_system_header)
 		  pedwarn (input_location, OPT_pedantic,
 			   "ISO C90 does not support flexible array members");
 
 		/* ISO C99 Flexible array members are effectively
 		   identical to GCC's zero-length array extension.  */
-		itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
+		if (flexible_array_member || array_parm_vla_unspec_p)
+		  itype = build_range_type (sizetype, size_zero_node,
+					    NULL_TREE);
 	      }
 	    else if (decl_context == PARM)
 	      {
 		if (array_parm_vla_unspec_p)
 		  {
-		    if (! orig_name)
-		      {
-			/* C99 6.7.5.2p4 */
-			error ("%<[*]%> not allowed in other than a declaration");
-		      }
-
 		    itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
 		    size_varies = 1;
 		  }
@@ -4475,12 +4596,14 @@ grokdeclarator (const struct c_declarator *declarator,
 	      {
 		if (array_parm_vla_unspec_p)
 		  {
-		    /* The error is printed elsewhere.  We use this to
-		       avoid messing up with incomplete array types of
-		       the same type, that would otherwise be modified
-		       below.  */
+		    /* C99 6.7.5.2p4 */
+		    warning (0, "%<[*]%> not in a declaration");
+		    /* We use this to avoid messing up with incomplete
+		       array types of the same type, that would
+		       otherwise be modified below.  */
 		    itype = build_range_type (sizetype, size_zero_node,
 					      NULL_TREE);
+		    size_varies = 1;
 		  }
 	      }
 
@@ -5392,10 +5515,15 @@ struct c_typespec
 parser_xref_tag (enum tree_code code, tree name)
 {
   struct c_typespec ret;
+  tree ref;
+
+  ret.expr = NULL_TREE;
+  ret.expr_const_operands = true;
+
   /* If a cross reference is requested, look up the type
      already defined for this tag and return it.  */
 
-  tree ref = lookup_tag (code, name, 0);
+  ref = lookup_tag (code, name, 0);
   /* If this is the right type of tag, return what we found.
      (This reference will be shadowed by shadow_tag later if appropriate.)
      If this is the wrong type of tag, do not return it.  If it was the
@@ -5471,6 +5599,8 @@ start_struct (enum tree_code code, tree name)
 	    error ("redefinition of %<union %E%>", name);
 	  else
 	    error ("redefinition of %<struct %E%>", name);
+	  /* Don't create structures using a name already in use.  */
+	  ref = NULL_TREE;
 	}
       else if (C_TYPE_BEING_DEFINED (ref))
 	{
@@ -5562,7 +5692,7 @@ grokfield (location_t loc,
     }
 
   value = grokdeclarator (declarator, declspecs, FIELD, false,
-			  width ? &width : NULL, decl_attrs,
+			  width ? &width : NULL, decl_attrs, NULL, NULL,
 			  DEPRECATED_NORMAL);
 
   finish_decl (value, NULL_TREE, NULL_TREE);
@@ -6221,7 +6351,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   c_break_label = c_cont_label = size_zero_node;
 
   decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, true, NULL,
-			  &attributes, DEPRECATED_NORMAL);
+			  &attributes, NULL, NULL, DEPRECATED_NORMAL);
 
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
@@ -6450,7 +6580,8 @@ store_parm_decls_newstyle (tree fndecl, const struct c_arg_info *arg_info)
       if (DECL_NAME (decl))
 	{
 	  bind (DECL_NAME (decl), decl, current_scope,
-		/*invisible=*/false, /*nested=*/false);
+		/*invisible=*/false, /*nested=*/false,
+		UNKNOWN_LOCATION);
 	  if (!TREE_USED (decl))
 	    warn_if_shadowing (decl);
 	}
@@ -6467,14 +6598,14 @@ store_parm_decls_newstyle (tree fndecl, const struct c_arg_info *arg_info)
       DECL_CONTEXT (decl) = current_function_decl;
       if (DECL_NAME (decl))
 	bind (DECL_NAME (decl), decl, current_scope,
-	      /*invisible=*/false, /*nested=*/false);
+	      /*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
     }
 
   /* And all the tag declarations.  */
   for (decl = arg_info->tags; decl; decl = TREE_CHAIN (decl))
     if (TREE_PURPOSE (decl))
       bind (TREE_PURPOSE (decl), TREE_VALUE (decl), current_scope,
-	    /*invisible=*/false, /*nested=*/false);
+	    /*invisible=*/false, /*nested=*/false, UNKNOWN_LOCATION);
 }
 
 /* Subroutine of store_parm_decls which handles old-style function
@@ -7234,10 +7365,12 @@ build_null_declspecs (void)
 {
   struct c_declspecs *ret = XOBNEW (&parser_obstack, struct c_declspecs);
   ret->type = 0;
+  ret->expr = 0;
   ret->decl_attr = 0;
   ret->attrs = 0;
   ret->typespec_word = cts_none;
   ret->storage_class = csc_none;
+  ret->expr_const_operands = true;
   ret->declspecs_seen_p = false;
   ret->type_seen_p = false;
   ret->non_sc_seen_p = false;
@@ -7778,7 +7911,18 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
       if (spec.kind == ctsk_tagdef || spec.kind == ctsk_tagfirstref)
 	specs->tag_defined_p = true;
       if (spec.kind == ctsk_typeof)
-	specs->typedef_p = true;
+	{
+	  specs->typedef_p = true;
+	  if (spec.expr)
+	    {
+	      if (specs->expr)
+		specs->expr = build2 (COMPOUND_EXPR, TREE_TYPE (spec.expr),
+				      specs->expr, spec.expr);
+	      else
+		specs->expr = spec.expr;
+	      specs->expr_const_operands &= spec.expr_const_operands;
+	    }
+	}
       specs->type = type;
     }
 
@@ -7909,6 +8053,8 @@ finish_declspecs (struct c_declspecs *specs)
       if (specs->saturating_p)
 	{
 	  error ("%<_Sat%> is used without %<_Fract%> or %<_Accum%>");
+	  if (!targetm.fixed_point_supported_p ())
+	    error ("fixed-point types not supported for this target");
 	  specs->typespec_word = cts_fract;
 	}
       else if (specs->long_p || specs->short_p
@@ -8031,8 +8177,10 @@ finish_declspecs (struct c_declspecs *specs)
 	specs->type = dfloat128_type_node;
       break;
     case cts_fract:
-       gcc_assert (!specs->complex_p);
-       if (specs->saturating_p)
+      gcc_assert (!specs->complex_p);
+      if (!targetm.fixed_point_supported_p ())
+	specs->type = integer_type_node;
+      else if (specs->saturating_p)
 	{
 	  if (specs->long_long_p)
 	    specs->type = specs->unsigned_p
@@ -8050,7 +8198,7 @@ finish_declspecs (struct c_declspecs *specs)
 	    specs->type = specs->unsigned_p
 			  ? sat_unsigned_fract_type_node
 			  : sat_fract_type_node;
-          }
+	}
       else
 	{
 	  if (specs->long_long_p)
@@ -8069,11 +8217,13 @@ finish_declspecs (struct c_declspecs *specs)
 	    specs->type = specs->unsigned_p
 			  ? unsigned_fract_type_node
 			  : fract_type_node;
-          }
+	}
       break;
     case cts_accum:
-       gcc_assert (!specs->complex_p);
-       if (specs->saturating_p)
+      gcc_assert (!specs->complex_p);
+      if (!targetm.fixed_point_supported_p ())
+	specs->type = integer_type_node;
+      else if (specs->saturating_p)
 	{
 	  if (specs->long_long_p)
 	    specs->type = specs->unsigned_p
@@ -8091,7 +8241,7 @@ finish_declspecs (struct c_declspecs *specs)
 	    specs->type = specs->unsigned_p
 			  ? sat_unsigned_accum_type_node
 			  : sat_accum_type_node;
-          }
+	}
       else
 	{
 	  if (specs->long_long_p)
@@ -8110,7 +8260,7 @@ finish_declspecs (struct c_declspecs *specs)
 	    specs->type = specs->unsigned_p
 			  ? unsigned_accum_type_node
 			  : accum_type_node;
-          }
+	}
       break;
     default:
       gcc_unreachable ();
@@ -8186,7 +8336,7 @@ c_write_global_declarations (void)
 
   /* Don't waste time on further processing if -fsyntax-only or we've
      encountered errors.  */
-  if (flag_syntax_only || errorcount || sorrycount || cpp_errors (parse_in))
+  if (flag_syntax_only || errorcount || sorrycount)
     return;
 
   /* Close the external scope.  */

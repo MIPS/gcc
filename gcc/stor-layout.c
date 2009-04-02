@@ -1,6 +1,6 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -963,7 +963,7 @@ place_field (record_layout_info rli, tree field)
 	{
 	  if (DECL_PACKED (field))
 	    {
-	      if (warn_packed_bitfield_compat)
+	      if (warn_packed_bitfield_compat == 1)
 		inform
 		  (input_location,
 		   "Offset of packed bit-field %qD has changed in GCC 4.4",

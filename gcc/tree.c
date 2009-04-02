@@ -1797,6 +1797,18 @@ tree_last (tree chain)
   return chain;
 }
 
+/* Return the node in a chain of nodes whose value is x, NULL if not found.  */
+
+tree
+tree_find_value (tree chain, tree x)
+{
+  tree list;
+  for (list = chain; list; list = TREE_CHAIN (list))
+    if (TREE_VALUE (list) == x)
+	return list;
+  return NULL;
+}
+
 /* Reverse the order of elements in the chain T,
    and return the new head of the chain (old last element).  */
 
@@ -2093,8 +2105,7 @@ staticp (tree arg)
     case COMPONENT_REF:
       /* If the thing being referenced is not a field, then it is
 	 something language specific.  */
-      if (TREE_CODE (TREE_OPERAND (arg, 1)) != FIELD_DECL)
-	return (*lang_hooks.staticp) (arg);
+      gcc_assert (TREE_CODE (TREE_OPERAND (arg, 1)) == FIELD_DECL);
 
       /* If we are referencing a bitfield, we can't evaluate an
 	 ADDR_EXPR at compile time and so it isn't a constant.  */
@@ -2117,14 +2128,13 @@ staticp (tree arg)
 	  && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST)
 	return staticp (TREE_OPERAND (arg, 0));
       else
-	return false;
+	return NULL;
+
+    case COMPOUND_LITERAL_EXPR:
+      return TREE_STATIC (COMPOUND_LITERAL_EXPR_DECL (arg)) ? arg : NULL;
 
     default:
-      if ((unsigned int) TREE_CODE (arg)
-	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE)
-	return lang_hooks.staticp (arg);
-      else
-	return NULL;
+      return NULL;
     }
 }
 
@@ -6277,6 +6287,61 @@ build_complex_type (tree component_type)
 
   return build_qualified_type (t, TYPE_QUALS (component_type));
 }
+
+/* If TYPE is a real or complex floating-point type and the target
+   does not directly support arithmetic on TYPE then return the wider
+   type to be used for arithmetic on TYPE.  Otherwise, return
+   NULL_TREE.  */
+
+tree
+excess_precision_type (tree type)
+{
+  if (flag_excess_precision != EXCESS_PRECISION_FAST)
+    {
+      int flt_eval_method = TARGET_FLT_EVAL_METHOD;
+      switch (TREE_CODE (type))
+	{
+	case REAL_TYPE:
+	  switch (flt_eval_method)
+	    {
+	    case 1:
+	      if (TYPE_MODE (type) == TYPE_MODE (float_type_node))
+		return double_type_node;
+	      break;
+	    case 2:
+	      if (TYPE_MODE (type) == TYPE_MODE (float_type_node)
+		  || TYPE_MODE (type) == TYPE_MODE (double_type_node))
+		return long_double_type_node;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	  break;
+	case COMPLEX_TYPE:
+	  if (TREE_CODE (TREE_TYPE (type)) != REAL_TYPE)
+	    return NULL_TREE;
+	  switch (flt_eval_method)
+	    {
+	    case 1:
+	      if (TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (float_type_node))
+		return complex_double_type_node;
+	      break;
+	    case 2:
+	      if (TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (float_type_node)
+		  || (TYPE_MODE (TREE_TYPE (type))
+		      == TYPE_MODE (double_type_node)))
+		return complex_long_double_type_node;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	  break;
+	default:
+	  break;
+	}
+    }
+  return NULL_TREE;
+}
 
 /* Return OP, stripped of any conversions to wider types as much as is safe.
    Converting the value back to OP's type makes a value equivalent to OP.
@@ -9100,6 +9165,42 @@ block_nonartificial_location (tree block)
   return ret;
 }
 
+
+/* If EXP is inlined from an __attribute__((__artificial__))
+   function, return the location of the original call expression.  */
+
+location_t
+tree_nonartificial_location (tree exp)
+{
+  tree block = TREE_BLOCK (exp);
+
+  while (block
+	 && TREE_CODE (block) == BLOCK
+	 && BLOCK_ABSTRACT_ORIGIN (block))
+    {
+      tree ao = BLOCK_ABSTRACT_ORIGIN (block);
+
+      do
+	{
+	  if (TREE_CODE (ao) == FUNCTION_DECL
+	      && DECL_DECLARED_INLINE_P (ao)
+	      && lookup_attribute ("artificial", DECL_ATTRIBUTES (ao)))
+	    return BLOCK_SOURCE_LOCATION (block);
+	  else if (TREE_CODE (ao) == BLOCK
+		   && BLOCK_SUPERCONTEXT (ao) != ao)
+	    ao = BLOCK_SUPERCONTEXT (ao);
+	  else
+	    break;
+	}
+      while (ao);
+
+      block = BLOCK_SUPERCONTEXT (block);
+    }
+
+  return EXPR_LOCATION (exp);
+}
+
+
 /* These are the hash table functions for the hash table of OPTIMIZATION_NODEq
    nodes.  */
 
@@ -9265,6 +9366,51 @@ int_or_pointer_precision (const_tree type)
 #else
   return TYPE_PRECISION (type);
 #endif
+}
+
+/* Determine the "ultimate origin" of a block.  The block may be an inlined
+   instance of an inlined instance of a block which is local to an inline
+   function, so we have to trace all of the way back through the origin chain
+   to find out what sort of node actually served as the original seed for the
+   given block.  */
+
+tree
+block_ultimate_origin (const_tree block)
+{
+  tree immediate_origin = BLOCK_ABSTRACT_ORIGIN (block);
+
+  /* output_inline_function sets BLOCK_ABSTRACT_ORIGIN for all the
+     nodes in the function to point to themselves; ignore that if
+     we're trying to output the abstract instance of this function.  */
+  if (BLOCK_ABSTRACT (block) && immediate_origin == block)
+    return NULL_TREE;
+
+  if (immediate_origin == NULL_TREE)
+    return NULL_TREE;
+  else
+    {
+      tree ret_val;
+      tree lookahead = immediate_origin;
+
+      do
+	{
+	  ret_val = lookahead;
+	  lookahead = (TREE_CODE (ret_val) == BLOCK
+		       ? BLOCK_ABSTRACT_ORIGIN (ret_val) : NULL);
+	}
+      while (lookahead != NULL && lookahead != ret_val);
+
+      /* The block's abstract origin chain may not be the *ultimate* origin of
+	 the block. It could lead to a DECL that has an abstract origin set.
+	 If so, we want that DECL's abstract origin (which is what DECL_ORIGIN
+	 will give us if it has one).  Note that DECL's abstract origins are
+	 supposed to be the most distant ancestor (or so decl_ultimate_origin
+	 claims), so we don't need to loop following the DECL origins.  */
+      if (DECL_P (ret_val))
+	return DECL_ORIGIN (ret_val);
+
+      return ret_val;
+    }
 }
 
 #include "gt-tree.h"

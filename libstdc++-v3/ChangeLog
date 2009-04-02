@@ -1,3 +1,759 @@
+2009-03-31  Jason Merrill  <jason@redhat.com>
+
+	* libsupc++/unwind-cxx.h: Correct __cxa_call_terminate prototype.
+
+	PR libstdc++/39310
+	* include/tr1_impl/type_traits (is_function): Add partial
+	specializations with function cv-quals.
+	(__is_function_helper): Remove.
+	(is_member_pointer): Don't define in terms of is_member_*_pointer.
+
+2009-03-30  Ian Lance Taylor  <iant@google.com>
+
+	* include/backward/hashtable.h (clear): Return quickly if the
+	table is empty.
+
+2009-03-27  Ian Lance Taylor  <iant@google.com>
+
+	* include/backward/hashtable.h (_S_num_primes): Change to 29.
+	(__stl_prime_list): Add 5 at the start of the list.
+
+2009-03-25  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/std/fstream (basic_filebuf<>::open(const std::string&,
+	ios_base::openmode), basic_ifstream<>::basic_ifstream(const
+	std::string&, ios_base::openmode), basic_ifstream<>::
+	open(const std::string&, ios_base::openmode), basic_ofstream<>::
+	basic_ofstream(const std::string&, ios_base::openmode),
+	basic_ofstream<>::open(const std::string&, ios_base::openmode),
+	basic_fstream<>::basic_fstream(const std::string&, ios_base::openmode),
+	basic_fstream<>::open(const std::string&, ios_base::openmode)):
+	Add in C++0x mode.
+	* testsuite/27_io/basic_ofstream/open/char/2.cc: New.
+	* testsuite/27_io/basic_ofstream/cons/char/2.cc: Likewise.
+	* testsuite/27_io/basic_fstream/open/char/1.cc: Likewise.
+	* testsuite/27_io/basic_fstream/cons/char/1.cc: Likewise.
+	* testsuite/27_io/basic_ifstream/open/char/2.cc: Likewise.
+	* testsuite/27_io/basic_ifstream/cons/char/2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/open/char/5.cc: Likewise.
+
+2009-03-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/27_io/basic_ofstream/cons/char/2.cc: Rename to...
+	* testsuite/27_io/basic_ofstream/cons/char/1.cc: ... this.    
+	* testsuite/27_io/basic_fstream/cons/3.cc: Rename to...
+	* testsuite/27_io/basic_fstream/cons/1.cc: ... this.
+
+2009-03-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/forward_list.h (_Fwd_list_node_base<>::
+	_M_transfer_after, _M_reverse_after): Move out of line...
+	* include/bits/forward_list.tcc: ... here.
+	(forward_list<>::reverse): Move inline...
+	* include/bits/forward_list.h: ... here; minor cosmetic changes.
+
+2009-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/21_strings/basic_string/inserters_extractors/wchar_t/
+	28277.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/wchar_t/28277-3.cc:
+	Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/wchar_t/28277-4.cc:
+	Likewise.
+	* testsuite/ext/vstring/inserters_extractors/wchar_t/28277.cc:
+	Likewise.
+
+2009-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/25_algorithms/search_n/iterator.cc: Update copyright
+	year(s).
+	* testsuite/25_algorithms/heap/moveable.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/char/28277.cc
+	Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/char/28277-3.cc:
+	Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/char/28277-4.cc:
+	Likewise.
+	* testsuite/ext/vstring/inserters_extractors/char/28277.cc: Likewise.
+
+2009-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/25_algorithms/search_n/iterator.cc: Condition
+	iterations for simulators.
+	* testsuite/25_algorithms/heap/moveable.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/char/28277.cc
+	Condition stream width for simulators.
+	* testsuite/27_io/basic_ostream/inserters_character/char/28277-3.cc:
+	Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/char/28277-4.cc:
+	Likewise.
+	* testsuite/ext/vstring/inserters_extractors/char/28277.cc: Likewise.
+
+2009-03-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* doc/xml/manual/appendix_contributing.xml: Add docbook style
+	sheet version information. Table-ize docbook element examples.
+	* doc/xml/manual/using.xml: Human-readable header
+	markup. Alphabetized. Add new headers.
+	* doc/html: Regenerate.
+
+2009-03-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* doc/xml/faq.xml: Fix link to setup documentation.
+
+2009-03-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/type_traits (__add_lvalue_reference_helper,
+	__add_rvalue_reference_helper): As an optimization, rewrite
+	condition (avoid is_function).
+
+2009-03-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/39405
+	* testsuite/20_util/shared_ptr/cons/39405.cc: New.
+	* testsuite/tr1/2_general_utilities/shared_ptr/cons/39405.cc: Likewise.
+
+2009-03-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/30_threads/condition_variable_any/native_handle/
+	typesizes.cc: Include tweaks.
+	* testsuite/30_threads/mutex/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/timed_mutex/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/thread/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/recursive_mutex/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/condition_variable/native_handle/
+	typesizes.cc: Same.
+
+2009-03-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/shared_ptr.h: Add include guards.
+	* include/tr1/shared_ptr.h: Likewise.
+
+2009-03-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/iostream: Fix doxygen link.
+	* include/bits/forward_list.h: Fix doxygen markup.
+	* include/ext/vstring.h: Escape backslash in doxygen comment.
+	* include/bits/basic_string.h: Likewise.
+
+2009-03-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* doc/xml/faq.xml: Fix links to implementation status pages.
+
+2009-03-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/complex (operator+(const complex<>&, const _Tp&),
+	operator+(const _Tp&, const complex<>&),
+	operator-(const complex<>&, const _Tp&),
+	operator-(const _Tp&, const complex<>&)): Do not assume real()
+	returns a reference (against DR 387).
+	* testsuite/26_numerics/complex/dr387_2.cc: New.
+
+2009-03-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/thread/pthread4.cc: Move...
+	* testsuite/21_strings/basic_string/pthread4.cc: ...here.
+	* testsuite/thread/pthread5.cc: Move...
+	* testsuite/23_containers/list/pthread5.cc: ...here.
+	* testsuite/thread/pthread6.cc: Move...
+	* testsuite/23_containers/map/pthread6.cc: ...here.
+	* testsuite/thread/pthread7-rope.cc: Move...
+	* testsuite/ext/rope/pthread7-rope.cc: ...here.
+	* testsuite/thread/guard.cc: Move...
+	* testsuite/18_support/pthread_guard.cc: ...here.
+	* testsuite/thread/18185.cc: Move...
+	* testsuite/21_strings/basic_string/pthread18185.cc: ...here.
+	* testsuite/thread/pthread1.cc: Move...
+	* testsuite/23_containers/list/pthread1.cc: ...here.
+	* testsuite/thread/pthread2.cc: Move...
+	* testsuite/27_io/basic_ofstream/pthread2.cc: ...here.
+	* testsuite/thread/pthread3.cc: Move...
+	* testsuite/27_io/basic_ostringstream/pthread3.cc: ...here.
+
+	* testsuite/libstdc++-dg/conformance.exp: Remove thread directory.
+	* testsuite/thread: Remove.
+
+2009-03-01  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure: Regenerate.
+
+2009-02-23  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* testsuite/libstdc++-abi/abi.exp: Add multilib support.
+	* acinclude.m4 (GLIBCXX_CONFIGURE_TESTSUITE): Remove MULTISUBDIR
+	from baseline_dir.
+	* configure: Regenerate.
+	* testsuite/Makefile.am (baseline_file): Remove variable.
+	(site.exp): Set baseline_dir rather than baseline_file.
+	(check-abi): Pass AM_RUNTESTFLAGS and RUNTESTFLAGS to runtest.
+	* testsuite/Makefile.in: Regenerate.
+
+2009-02-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/30_threads/thread/this_thread: Move...
+	* testsuite/30_threads/this_thread: ...here.
+	* testsuite/20_util/unique_ptr/assign/assign.cc: Move...
+	* testsuite/20_util/unique_ptr/assign/assign_neg.cc: ...here.
+	* testsuite/20_util/ratio/cons/cons_overflow.cc: Move...
+	* testsuite/20_util/ratio/cons/cons_overflow_neg.cc: ...here.
+	* testsuite/20_util/ratio/operations/ops_overflow.cc: Move...
+	* testsuite/20_util/ratio/operations/ops_overflow_neg.cc: ...here.
+
+2009-02-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* doc/doxygen/user.cfg.in: Tweaks.
+	* doc/doxygen/doxygroups.cc: Prefer markup that can be elsewhere,
+	be elsewhere.
+
+	* include/tr1_impl/unordered_map: Just use most specialized
+	container module.
+	* include/tr1_impl/unordered_set: Same.
+	* include/tr1_impl/array: Same.
+	* include/bits/stl_list.h: Same.
+	* include/bits/stl_map.h: Same.
+	* include/bits/stl_queue.h: Same.
+	* include/bits/stl_set.h: Same.
+	* include/bits/stl_stack.h: Same.
+	* include/bits/forward_list.h: Same.
+	* include/bits/basic_string.h: Same.
+	* include/bits/stl_multimap.h: Same.
+	* include/bits/stl_vector.h: Same.
+	* include/bits/stl_deque.h: Same.
+	* include/bits/stl_multiset.h: Same.
+	* include/bits/stl_bvector.h: Same.
+
+	* include/backward/binders.h: Change binder module to binders.
+
+	* include/std/complex: Add complex_numers module.
+	* include/tr1_impl/complex: Same.
+
+	* include/std/valarray: Add numeric_arrays module.
+	* include/bits/gslice_array.h: Same.
+	* include/bits/gslice.h: Same.
+	* include/bits/mask_array.h: Same.
+	* include/bits/slice_array.h: Same.
+	* include/bits/indirect_array.h: Same.
+
+	* include/bits/allocator.h: Add allocators module.
+	* include/ext/throw_allocator.h
+	* include/ext/pool_allocator.h
+	* include/ext/bitmap_allocator.h
+	* include/ext/new_allocator.h
+	* include/ext/malloc_allocator.h
+	* include/ext/array_allocator.h
+	* include/ext/mt_allocator.h
+	* include/ext/debug_allocator.h
+	* include/ext/extptr_allocator.h
+
+	* include/tr1_impl/functional: Move namespace markup here.
+	* include/tr1_impl/regex: Same.
+
+	* include/tr1_impl/type_traits: Add metaprogramming module.
+	* include/std/type_traits: Same.
+
+	* include/std/memory: Add memory module.
+
+	* include/std/ratio: Add ratio module.
+
+	* include/std/chrono: Move namespace markup here, add time module.
+
+	* include/std/thread: Move namespace markup here, add concurrency
+	module.
+	* include/std/mutex: Use concurrency module.
+	* include/std/condition_variable: Same.
+
+
+	* include/bits/ios_base.h: Refine io module.
+	* include/bits/basic_ios.h: Same.
+	* include/std/fstream: Same.
+	* include/std/istream: Same.
+	* include/std/ostream: Same.
+	* include/std/sstream: Same.
+
+	* include/ext/vstring.h: Correct parameter markup.
+
+	* include/bits/shared_ptr.h: Add pointer_abstractions module.
+	* include/bits/unique_ptr.h: Same.
+
+	* include/bits/algorithmfwd.h: Add mutating_algorithms,
+        non_mutating_algorithms, sorting_algorithms. Adjust nesting.
+	* include/bits/stl_heap.h: Add markup for new groupings.
+	* include/bits/stl_algobase.h: Same.
+	* include/bits/stl_algo.h: Same.
+
+	* include/c_compatibility/stdatomic.h: Add atomics module.
+	* include/c_global/cstdatomic: Same.
+
+	* libsupc++/exception: Add exceptions module.
+	* libsupc++/typeinfo: Same.
+	* libsupc++/new: Same.
+	* libsupc++/exception_ptr.h: Same.
+	* include/std/system_error: Same.
+	* include/std/stdexcept: Same.
+
+	* libsupc++/cxxabi.h: Move doxygroups.cc markup here.
+	* libsupc++/cxxabi-forced.h: Same.
+
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Fix up line numbers.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/condition_variable_any/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/condition_variable_any/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/mutex/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/mutex/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/timed_mutex/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/timed_mutex/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/thread/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/thread/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/recursive_mutex/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/recursive_mutex/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/condition_variable/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/condition_variable/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/recursive_timed_mutex/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/recursive_timed_mutex/cons/copy_neg.cc: Same.
+	* testsuite/29_atomics/atomic/cons/assign_neg.cc: Same.
+	* testsuite/29_atomics/atomic/cons/copy_neg.cc: Same.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc: Same.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc: Same.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Same.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Same.
+	* testsuite/23_containers/deque/requirements/dr438/assign_neg.cc: Same.
+	* testsuite/23_containers/deque/requirements/dr438/insert_neg.cc: Same.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_1_neg.cc: Same.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_2_neg.cc: Same.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc: Same.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc: Same.
+	* testsuite/23_containers/list/requirements/dr438/
+	constructor_1_neg.cc: Same.
+	* testsuite/23_containers/list/requirements/dr438/
+	constructor_2_neg.cc: Same.
+	* testsuite/20_util/duration/cons/1_neg.cc: Same.
+	* testsuite/20_util/duration/requirements/typedefs_neg1.cc: Same.
+	* testsuite/20_util/duration/requirements/typedefs_neg2.cc: Same.
+	* testsuite/20_util/duration/requirements/typedefs_neg3.cc: Same.
+	* testsuite/20_util/unique_ptr/modifiers/reset_neg.cc: Same.
+	* testsuite/20_util/unique_ptr/assign/assign.cc: Same.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Same.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc: Same.
+	* testsuite/20_util/ratio/cons/cons_overflow.cc: Same.
+	* testsuite/20_util/ratio/operations/ops_overflow.cc: Same.
+
+2009-02-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* doc/doxygen/doxygroups.cc: Move algorithm groups into algorithmfwd.h.
+	* doc/doxygen/user.cfg.in: Update.
+	* scripts/run_doxygen: Adjust for new group names.
+
+	* include/tr1_impl/random: Update doxygen group markup.
+	* include/tr1_impl/unordered_map: Same.
+	* include/tr1_impl/unordered_set: Same.
+	* include/tr1_impl/array: Same.
+	* include/std/numeric: Same.
+	* include/std/utility: Same.
+	* include/std/bitset: Same.
+	* include/std/iosfwd: Same.
+	* include/bits/stl_list.h: Same.
+	* include/bits/stl_map.h: Same.
+	* include/bits/stl_algobase.h: Same.
+	* include/bits/stl_queue.h: Same.
+	* include/bits/stl_set.h: Same.
+	* include/bits/stl_stack.h: Same.
+	* include/bits/stl_iterator_base_types.h: Same.
+	* include/bits/forward_list.h: Same.
+	* include/bits/basic_string.h: Same.
+	* include/bits/stl_multimap.h: Same.
+	* include/bits/stl_vector.h: Same.
+	* include/bits/stl_deque.h: Same.
+	* include/bits/stl_multiset.h: Same.
+	* include/bits/stl_algo.h: Same.
+	* include/bits/stl_bvector.h: Same.
+	* include/bits/algorithmfwd.h: Same.
+	* include/bits/stl_function.h: Same.
+	* include/tr1/cmath: Same.
+	* include/backward/binders.h: Same.
+
+2009-02-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/system_error (system_category): To system_category().
+	(generic_category): To generic_category. DR 890.
+	* src/system_error.cc: Define.
+	* include/bits/functexcept.h: Only one __throw_system_error.
+	* src/functexcept.cc: Same.
+	* include/std/mutex: Fixup for changes above.
+	* testsuite/19_diagnostics/error_condition/cons/1.cc: Same.
+	* testsuite/19_diagnostics/error_code/cons/1.cc: Same.
+	* testsuite/19_diagnostics/system_error/cons-1.cc: Same.
+	* config/abi/pre/gnu.ver: Clean up exports.
+
+2009-02-17  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/thread: Fix typo.
+	* src/thread.cc (thread::join): Use NULL.
+
+2009-02-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/39168
+	* src/locale_facets.cc (__verify_grouping(const char*, size_t,
+	const string&)): Also check that the value != CHAR_MAX.
+	* include/bits/locale_facets.tcc (__numpunct_cache<>::
+	_M_cache(const locale&), __add_grouping(_CharT*, _CharT,
+	const char*, size_t, const _CharT*, const _CharT*)): Likewise.
+	* include/bits/locale_facets_nonio.tcc (__moneypunct_cache<>::
+	_M_cache(const locale&)): Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/39168.cc: New.
+	* testsuite/22_locale/money_put/put/char/39168.cc: Likewise.
+	* testsuite/22_locale/money_get/get/wchar_t/39168.cc: Likewise.
+	* testsuite/22_locale/money_get/get/char/39168.cc: Likewise.
+	* testsuite/22_locale/num_get/get/wchar_t/39168.cc: Likewise.
+	* testsuite/22_locale/num_get/get/char/39168.cc: Likewise.
+
+2009-02-13  Chris Fairles  <cfairles@gcc.gnu.org>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/thread (_Impl_base): Move _M_id out and into ...
+	(thread): ...here. Call _M_make_routine in body of constructors.
+	Adjust data member usage to reflect changes.
+	(_M_make_routine): From _M_make_shared_data.
+	(_M_start_thread): Add __shared_base_type argument.
+	* src/thread.cc: Fixups for above.
+	* config/abi/pre/gnu.ver: Adjust exports.
+	* testsuite/30_threads/thread/native_handle/typesizes.cc: Enable.
+	* testsuite/30_threads/thread/cons/assign_neg.cc: Adjust line numbers.
+	* testsuite/30_threads/thread/cons/copy_neg.cc: Same.
+
+2009-02-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/thread/all.h (compare_type_to_native_type_sizes): To...
+	(compare_type_to_native_type): ...this, add alignment check.
+	* testsuite/30_threads/condition_variable_any/native_handle/
+	typesizes.cc: Modify as above.
+	* testsuite/30_threads/mutex/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/timed_mutex/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/thread/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/recursive_mutex/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/condition_variable/native_handle/
+	typesizes.cc: Same.
+	* testsuite/30_threads/recursive_timed_mutex/native_handle/
+	typesizes.cc: Same.
+
+	* testsuite/30_threads/thread/cons/1.cc: Add comments.
+	* testsuite/30_threads/thread/cons/2.cc: Same.
+	* testsuite/30_threads/thread/cons/3.cc: Same.
+	* testsuite/30_threads/thread/cons/4.cc: Same.
+	* testsuite/30_threads/thread/cons/5.cc: Same.
+	* testsuite/30_threads/thread/cons/6.cc: Same.
+	* testsuite/30_threads/thread/cons/7.cc: Same.
+	* testsuite/30_threads/thread/cons/8.cc: Same.
+
+	* testsuite/30_threads/thread/cons/9.cc: New.
+	* testsuite/30_threads/thread/cons/moveable.cc: New.
+
+	* src/condition_variable.cc: Clean up whitespace.
+	* include/std/condition_variable: Same.
+
+2009-02-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/condition_variable (condition_variable): Remove
+	_M_internal_mutex. Add private __native_type typedef.
+	* src/condition_variable.cc (condition_variable::notify_one):
+	Remove _M_internal_mutex use. Use typedef.
+	(condition_variable::notify_all): Same.
+	* include/std/mutex (mutex): Add private __native_type typedef. Use it.
+	(recursive_mutex): Same.
+	(timed_mutex): Same.
+	(recursive_timed_mutex): Same.
+	(once_flag): Make __native_type typedef private.
+
+	* include/std/thread (this_thread): Add minimal markup.
+
+	* testsuite/30_threads/condition_variable_any/cons/assign_neg.cc:
+	Adjust line numbers.
+	* testsuite/30_threads/condition_variable_any/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/mutex/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/mutex/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/timed_mutex/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/timed_mutex/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/thread/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/thread/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/recursive_mutex/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/recursive_mutex/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/condition_variable/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/condition_variable/cons/copy_neg.cc: Same.
+	* testsuite/30_threads/recursive_timed_mutex/cons/assign_neg.cc: Same.
+	* testsuite/30_threads/recursive_timed_mutex/cons/copy_neg.cc: Same.
+
+	* testsuite/util/thread/all.h: Testsuite utilities for testing thread.
+	* testsuite/30_threads/condition_variable_any/native_handle/
+	typesizes.cc: New.
+	* testsuite/30_threads/mutex/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/timed_mutex/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/thread/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/recursive_mutex/native_handle/typesizes.cc: Same.
+	* testsuite/30_threads/condition_variable/native_handle/
+	typesizes.cc: Same.
+	* testsuite/30_threads/recursive_timed_mutex/native_handle/
+	typesizes.cc: Same.
+
+2009-02-09  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR testsuite/33300
+	* libstdc++-v3/testsuite/27_io/ios_base/storage/2.cc: Skip
+	on darwin for lp64.
+
+2009-02-09  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* configure.host: Set abi_baseline_pair for mips64*-linux.
+	* config/abi/post/mips64-linux-gnu/baseline_symbols.txt: New file.
+
+2009-02-08  Chris Fairles  <cfairles@gcc.gnu.org>
+
+	* include/std/thread (this_thread::get_id): Inline.
+
+2009-02-08  Chris Fairles  <cfairles@gcc.gnu.org>
+
+	* include/std/thread (thread<>::thread(_Callable)): Explicitly use
+	_Callable as template argument for _M_make_shared_data.
+	* testsuite/30_threads/thread/cons/6.cc: New.
+	* testsuite/30_threads/thread/cons/7.cc: New.
+	* testsuite/30_threads/thread/cons/8.cc: New.
+
+2009-02-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/30_threads/thread/member: To..
+	* testsuite/30_threads/thread/members: ...this.
+	* testsuite/30_threads/condition_variable/member: To...
+	* testsuite/30_threads/condition_variable/members: ...this.
+
+2009-02-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/thread (thread::id): Move definition inside thread.
+	Use native_handle_type. Remove this_thread::get_id friend.
+	Change __thread_data_ptr to __shared_base_ptr.
+	(thread::id::id(native_handle_type): Make public. Still explicit.
+	Use native_handle_type. Change _M_thread_id to _M_thread.
+	(thread::__thread_data_base): Rename to _Impl_base. Use id, change
+	_M_thread_handle to _M_id.
+	(thread::__thread_data): Rename to _Impl.
+	Fixup for renames.
+	(thread::_M_make_thread_data): Return derived type.
+	(thread::hardware_concurrency): Add definition for default case.
+	(thread::get_id): Now can define inline.
+	(thread): Change _M_thread_data to _M_data.
+	(this_thread::get_id): Now can define inline.
+	* src/thread.cc (__thread_proxy): Rename to
+	execute_native_thread_routine.
+	Fixup for other renames.
+	* testsuite/30_threads/thread/cons/assign_neg.cc: New.
+	* testsuite/30_threads/thread/cons/copy_neg.cc: New.
+	* testsuite/30_threads/thread/algorithm: Move to..
+	* testsuite/30_threads/thread/swap: ...this.
+	* testsuite/30_threads/thread/member/hardware_concurrency.cc: Add.
+	* testsuite/30_threads/thread/id/operators.cc: New.
+
+2009-02-05  Chris Fairles  <cfairles@gcc.gnu.org>
+
+	* include/std/tuple (_Head_base<>::_Head_base(_UHead&&)): Formatting.
+	(_Head_base<>::__swap_impl): Rename to _M_swap_impl.
+	(_Tuple_impl<>::__swap_impl): Likewise and make protected to avoid
+	exposing it in public std::tuple interface.
+
+2009-02-05  Chris Fairles  <cfairles@gcc.gnu.org>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/thread (__thread_data_base): Nest class in std::thread.
+	(__thread_data): Likewise.
+	(__thread_data_ptr): Nest typedef in std::thread.
+	* src/thread.cc (__thread_proxy): Qualify the above names.
+	* config/abi/pre/gnu.ver: Remove unused exports.
+
+2009-02-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/unique_ptr.h: Remove private __this_type typedef.
+	* include/bits/stl_vector.h: Remove private vector_type typedef.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Fix line numbers.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc: Same.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Same.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Same.
+	* testsuite/20_util/unique_ptr/modifiers/reset_neg.cc: Same.
+	* testsuite/20_util/unique_ptr/assign/assign.cc: Same.
+
+2009-02-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/25191
+	* libsupc++/exception_defines.h: Depending on __EXCEPTIONS,
+	deal consistently with __try and __catch too.
+	* src/localename.cc: Replace try -> __try, catch -> __catch.
+	* src/ios.cc: Likewise.
+	* src/locale.cc: Likewise.
+	* src/istream.cc: Likewise.
+	* src/thread.cc: Likewise.
+	* src/compatibility.cc: Likewise.
+	* src/bitmap_allocator.cc: Likewise.
+	* src/ios_init.cc: Likewise.
+	* include/debug/deque: Likewise.
+	* include/debug/list: Likewise.
+	* include/tr1_impl/hashtable: Likewise.
+	* include/std/bitset: Likewise.
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_load_check_resize_trigger_imp.hpp: Likewise.
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_standard_resize_policy_imp.hpp: Likewise.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/
+	resize_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/
+	constructor_destructor_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/pat_trie_/
+	split_join_branch_bag.hpp: Likewise.
+	* include/ext/pb_ds/detail/pat_trie_/
+	constructors_destructor_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/bin_search_tree_/
+	constructors_destructor_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/
+	resize_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/
+	constructor_destructor_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/binary_heap_/
+	constructors_destructor_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/binary_heap_/
+	erase_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/binary_heap_/
+	split_join_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/left_child_next_sibling_heap_/
+	constructors_destructor_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/debug_map_base.hpp: Likewise.
+	* include/ext/pb_ds/detail/list_update_map_/
+	constructor_destructor_fn_imps.hpp: Likewise.
+	* include/ext/slist: Likewise.
+	* include/ext/memory: Likewise.
+	* include/ext/rc_string_base.h: Likewise.
+	* include/ext/ropeimpl.h: Likewise.
+	* include/ext/vstring.tcc: Likewise.
+	* include/ext/rope: Likewise.
+	* include/ext/sso_string_base.h: Likewise.
+	* include/bits/shared_ptr.h: Likewise.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/locale_classes.tcc: Likewise.
+	* include/bits/locale_facets.tcc: Likewise.
+	* include/bits/locale_classes.h: Likewise.
+	* include/bits/forward_list.h: Likewise.
+	* include/bits/stl_vector.h: Likewise.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/istream.tcc: Likewise.
+	* include/bits/stl_uninitialized.h: Likewise.
+	* include/bits/ostream.tcc: Likewise.
+	* include/bits/vector.tcc: Likewise.
+	* include/bits/stl_tempbuf.h: Likewise.
+	* include/bits/deque.tcc: Likewise.
+	* include/bits/basic_string.tcc: Likewise.
+	* include/bits/ostream_insert.h: Likewise.
+	* include/bits/locale_facets_nonio.tcc: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+	* include/bits/fstream.tcc: Likewise.
+	* include/tr1/shared_ptr.h: Likewise.
+	* include/tr1/hypergeometric.tcc: Likewise.
+	* include/backward/hashtable.h: Likewise.
+	* libsupc++/exception_ptr.h: Likewise.
+	* libsupc++/eh_personality.cc: Likewise.
+	* libsupc++/eh_call.cc: Likewise.
+	* config/locale/gnu/monetary_members.cc: Likewise.
+	* config/locale/gnu/time_members.h: Likewise.
+	* config/locale/generic/time_members.h: Likewise.
+
+2009-02-03  Johannes Singler  <singler@ira.uka.de>
+
+	* include/parallel/algorithmfwd.h:
+	Add parallelism default for many declarations.
+	* include/parallel/numericfwd.h: Likewise.
+	* include/parallel/iterator.h: Use iterator_traits as usual.
+	* include/parallel/par_loop.h:
+	Include equally_split.h.
+	(for_each_template_random_access_ed):
+	Avoid calling the Result default constructor.
+	* include/parallel/numeric: Replace
+	for_each_template_random_access by
+	for_each_template_random_access_ed in numeric functions.
+
+2009-02-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/os/gnu-linux/os_defines.h: Remove superfluous
+	__NO_STRING_INLINES.
+
+2009-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/21_strings/c_strings/char/3.cc: New test.
+	* testsuite/21_strings/c_strings/wchar_t/3.cc: New test.
+
+2009-01-30  Ulrich Drepper  <drepper@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/30928 (partial, works together with recent glibcs)
+	* include/c_std/cstring (memchr, strchr, strpbrk, strrchr, strstr):
+	Provide inlines only if __CORRECT_ISO_CPP_STRING_H_PROTO is not
+	defined.
+	* include/c_std/cwchar (wcschr, wcspbrk, wcsrchr, wcsstr, wmemchr):
+	Provide inlines only if __CORRECT_ISO_CPP_WCHAR_H_PROTO is not
+	defined.
+	* include/c_global/cstring (memchr, strchr, strpbrk, strrchr, strstr):
+	Provide inlines only if __CORRECT_ISO_CPP_STRING_H_PROTO is not
+	defined.
+	* include/c_global/cwchar (wcschr, wcspbrk, wcsrchr, wcsstr, wmemchr):
+	Provide inlines only if __CORRECT_ISO_CPP_WCHAR_H_PROTO is not
+	defined.
+	* testsuite/21_strings/c_strings/char_t/2.cc (test02): If first
+	argument is const char *, assign result to const char * var, not
+	char *.
+	* testsuite/21_strings/c_strings/wchar_t/2.cc (test02): If first
+	argument is const wchar_t *, assign result to const wchar_t * var, not
+	wchar_t *.
+
+2009-01-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/thread: Remove unused headers.
+	(__thread_data_base): Remove unused mutex and base.
+	(thread::~thread): Only detach if joinable.
+	(thread::joinable): Test if thread data ptr is empty.
+	(thread::_M_thread_data_mutex): Remove.
+	(thread::_M_get_thread_data): Remove.
+	(thread::_M_make_thread_data): Remove overload, use make_shared.
+	(thread::id::id): Make constructor explicit.
+	* src/thread.cc (thread::join,thread::detach): Throw if not joinable.
+	(thread::_M_start_thread): Break shared_ptr cycle on error.
+	(__thread_proxy): Use shared_ptr swap instead of copy and reset.
+	* testsuite/30_threads/thread/member/4.cc: New.
+	* testsuite/30_threads/thread/member/5.cc: New.
+
+2009-01-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_common_types.h (has_trivial_cons_dtor): New.
+	(standard_layout): Just use !has_virtual_destructor for now.
+	* testsuite/30_threads/mutex/requirements/standard_layout.cc: New.
+	* testsuite/30_threads/timed_mutex/requirements/standard_layout.cc: New.
+	* testsuite/30_threads/recursive_mutex/requirements/
+	standard_layout.cc: New.
+	* testsuite/30_threads/condition_variable/requirements/
+	standard_layout.cc: New.
+	* testsuite/29_atomics/atomic_address/requirements/
+	standard_layout.cc: Adjust.
+	* testsuite/29_atomics/atomic_flag/requirements/
+	standard_layout.cc: Same.
+	* testsuite/29_atomics/atomic_address/requirements/trivial.cc: New.
+	* testsuite/29_atomics/atomic_integral/requirements/trivial.cc: Same.
+	* testsuite/29_atomics/atomic_flag/requirements/trivial.cc: Same.
+	* testsuite/30_threads/condition_variable/requirements/typedefs.cc: New.
+	* testsuite/29_atomics/atomic_integral/cons/assign_neg.cc: Adjust
+	line numbers.
+	* testsuite/29_atomics/atomic_integral/cons/copy_neg.cc: Same.
+	* testsuite/29_atomics/atomic/cons/assign_neg.cc: Same.
+	* testsuite/29_atomics/atomic/cons/copy_neg.cc: Same.
+	* testsuite/29_atomics/atomic/requirements/standard_layout.cc:
+	Remove, not required.
+
 2009-01-22  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	* include/std/thread (__thread_data_base, thread): Rename member
@@ -37,7 +793,7 @@
 	* config/os/gnu-linux/ldbl-extra.ver: Tweak.
 
 2009-01-20  Benjamin Kosnik  <bkoz@redhat.com>
-            Rainer Emrich  <r.emrich@de.tecosim.com>
+	    Rainer Emrich  <r.emrich@de.tecosim.com>
 
 	PR libstdc++/38919
 	* crossconfig.m4: Use GLIBCXX_CHECK_MATH_SUPPORT and

@@ -1,5 +1,5 @@
 /* SSA-PRE for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org> and Steven Bosscher
    <stevenb@suse.de>
@@ -216,11 +216,11 @@ pre_expr_hash (const void *p1)
     case CONSTANT:
       return vn_hash_constant_with_type (PRE_EXPR_CONSTANT (e));
     case NAME:
-      return iterative_hash_expr (PRE_EXPR_NAME (e), 0);
+      return iterative_hash_hashval_t (SSA_NAME_VERSION (PRE_EXPR_NAME (e)), 0);
     case NARY:
-      return vn_nary_op_compute_hash (PRE_EXPR_NARY (e));
+      return PRE_EXPR_NARY (e)->hashcode;
     case REFERENCE:
-      return vn_reference_compute_hash (PRE_EXPR_REFERENCE (e));
+      return PRE_EXPR_REFERENCE (e)->hashcode;
     default:
       abort ();
     }
@@ -337,6 +337,9 @@ typedef struct bitmap_set
 #define FOR_EACH_EXPR_ID_IN_SET(set, id, bi)		\
   EXECUTE_IF_SET_IN_BITMAP((set)->expressions, 0, (id), (bi))
 
+#define FOR_EACH_VALUE_ID_IN_SET(set, id, bi)		\
+  EXECUTE_IF_SET_IN_BITMAP((set)->values, 0, (id), (bi))
+
 /* Mapping from value id to expressions with that value_id.  */
 DEF_VEC_P (bitmap_set_t);
 DEF_VEC_ALLOC_P (bitmap_set_t, heap);
@@ -434,6 +437,7 @@ static tree create_expression_by_pieces (basic_block, pre_expr, gimple_seq *,
 					 gimple, tree);
 static tree find_or_generate_expression (basic_block, pre_expr, gimple_seq *,
 					 gimple);
+static unsigned int get_expr_value_id (pre_expr);
 
 /* We can add and remove elements and entries to and from sets
    and hash tables, so we use alloc pools for them.  */
@@ -559,6 +563,8 @@ add_to_value (unsigned int v, pre_expr e)
 {
   bitmap_set_t set;
 
+  gcc_assert (get_expr_value_id (e) == v);
+
   if (v >= VEC_length (bitmap_set_t, value_expressions))
     {
       VEC_safe_grow_cleared (bitmap_set_t, heap, value_expressions,
@@ -669,33 +675,34 @@ bitmap_set_free (bitmap_set_t set)
 }
 
 
-/* A comparison function for use in qsort to top sort a bitmap set.  Simply
-   subtracts value ids, since they are created with leaves before
-   their parent users (IE topological order).  */
-
-static int
-value_id_compare (const void *pa, const void *pb)
-{
-  const unsigned int vha = get_expr_value_id (*((const pre_expr *)pa));
-  const unsigned int vhb = get_expr_value_id (*((const pre_expr *)pb));
-
-  return vha - vhb;
-}
-
 /* Generate an topological-ordered array of bitmap set SET.  */
 
 static VEC(pre_expr, heap) *
 sorted_array_from_bitmap_set (bitmap_set_t set)
 {
-  unsigned int i;
-  bitmap_iterator bi;
+  unsigned int i, j;
+  bitmap_iterator bi, bj;
   VEC(pre_expr, heap) *result = NULL;
 
-  FOR_EACH_EXPR_ID_IN_SET (set, i, bi)
-    VEC_safe_push (pre_expr, heap, result, expression_for_id (i));
+  FOR_EACH_VALUE_ID_IN_SET (set, i, bi)
+    {
+      /* The number of expressions having a given value is usually
+	 relatively small.  Thus, rather than making a vector of all
+	 the expressions and sorting it by value-id, we walk the values
+	 and check in the reverse mapping that tells us what expressions
+	 have a given value, to filter those in our set.  As a result,
+	 the expressions are inserted in value-id order, which means
+	 topological order.
 
-  qsort (VEC_address (pre_expr, result), VEC_length (pre_expr, result),
-	 sizeof (pre_expr), value_id_compare);
+	 If this is somehow a significant lose for some cases, we can
+	 choose which set to walk based on the set size.  */
+      bitmap_set_t exprset = VEC_index (bitmap_set_t, value_expressions, i);
+      FOR_EACH_EXPR_ID_IN_SET (exprset, j, bj)
+	{
+	  if (bitmap_bit_p (set->expressions, j))
+	    VEC_safe_push (pre_expr, heap, result, expression_for_id (j));
+        }
+    }
 
   return result;
 }
@@ -1044,7 +1051,9 @@ get_or_alloc_expr_for (tree t)
 {
   if (TREE_CODE (t) == SSA_NAME)
     return get_or_alloc_expr_for_name (t);
-  else if (is_gimple_min_invariant (t))
+  else if (is_gimple_min_invariant (t)
+	   || TREE_CODE (t) == EXC_PTR_EXPR
+	   || TREE_CODE (t) == FILTER_EXPR)
     return get_or_alloc_expr_for_constant (t);
   else
     {
@@ -1699,6 +1708,9 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 	  {
 	    tree def = PHI_ARG_DEF (phi, e->dest_idx);
 	    pre_expr newexpr;
+
+	    if (TREE_CODE (def) == SSA_NAME)
+	      def = VN_INFO (def)->valnum;
 
 	    /* Handle constant. */
 	    if (is_gimple_min_invariant (def))
@@ -2975,7 +2987,7 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
   pre_expr eprime;
   edge_iterator ei;
   tree type = get_expr_type (expr);
-  tree temp, res;
+  tree temp;
   gimple phi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3131,8 +3143,12 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
   if (TREE_CODE (type) == COMPLEX_TYPE
       || TREE_CODE (type) == VECTOR_TYPE)
     DECL_GIMPLE_REG_P (temp) = 1;
-
   phi = create_phi_node (temp, block);
+
+  gimple_set_plf (phi, NECESSARY, false);
+  VN_INFO_GET (gimple_phi_result (phi))->valnum = gimple_phi_result (phi);
+  VN_INFO (gimple_phi_result (phi))->value_id = val;
+  VEC_safe_push (gimple, heap, inserted_exprs, phi);
   FOR_EACH_EDGE (pred, ei, block->preds)
     {
       pre_expr ae = avail[pred->src->index];
@@ -3143,20 +3159,6 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
       else
 	add_phi_arg (phi, PRE_EXPR_NAME (avail[pred->src->index]), pred);
     }
-  /* If the PHI node is already available, use it.  */
-  if ((res = vn_phi_lookup (phi)) != NULL_TREE)
-    {
-      gimple_stmt_iterator gsi = gsi_for_stmt (phi);
-      remove_phi_node (&gsi, true);
-      release_defs (phi);
-      add_to_value (val, get_or_alloc_expr_for_name (res));
-      return false;
-    }
-
-  gimple_set_plf (phi, NECESSARY, false);
-  VN_INFO_GET (gimple_phi_result (phi))->valnum = gimple_phi_result (phi);
-  VN_INFO (gimple_phi_result (phi))->value_id = val;
-  VEC_safe_push (gimple, heap, inserted_exprs, phi);
 
   newphi = get_or_alloc_expr_for_name (gimple_phi_result (phi));
   add_to_value (val, newphi);
@@ -3330,7 +3332,7 @@ do_regular_insertion (basic_block block, basic_block dom)
 			  pre_stats.constified++;
 			}
 		      else
-			info->valnum = PRE_EXPR_NAME (edoubleprime);
+			info->valnum = VN_INFO (PRE_EXPR_NAME (edoubleprime))->valnum;
 		      info->value_id = new_val;
 		    }
 		}
@@ -3564,46 +3566,28 @@ compute_avail (void)
   basic_block block, son;
   basic_block *worklist;
   size_t sp = 0;
-  tree param;
+  unsigned i;
 
-  /* For arguments with default definitions, we pretend they are
-     defined in the entry block.  */
-  for (param = DECL_ARGUMENTS (current_function_decl);
-       param;
-       param = TREE_CHAIN (param))
+  /* We pretend that default definitions are defined in the entry block.
+     This includes function arguments and the static chain decl.  */
+  for (i = 1; i < num_ssa_names; ++i)
     {
-      if (gimple_default_def (cfun, param) != NULL)
+      tree name = ssa_name (i);
+      pre_expr e;
+      if (!name
+	  || !SSA_NAME_IS_DEFAULT_DEF (name)
+	  || has_zero_uses (name)
+	  || !is_gimple_reg (name))
+	continue;
+
+      e = get_or_alloc_expr_for_name (name);
+      add_to_value (get_expr_value_id (e), e);
+      if (!in_fre)
 	{
-	  tree def = gimple_default_def (cfun, param);
-	  pre_expr e = get_or_alloc_expr_for_name (def);
-
-	  add_to_value (get_expr_value_id (e), e);
-	  if (!in_fre)
-	    {
-	      bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), e);
-	      bitmap_value_insert_into_set (maximal_set, e);
-	    }
-	  bitmap_value_insert_into_set (AVAIL_OUT (ENTRY_BLOCK_PTR), e);
+	  bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), e);
+	  bitmap_value_insert_into_set (maximal_set, e);
 	}
-    }
-
-  /* Likewise for the static chain decl. */
-  if (cfun->static_chain_decl)
-    {
-      param = cfun->static_chain_decl;
-      if (gimple_default_def (cfun, param) != NULL)
-	{
-	  tree def = gimple_default_def (cfun, param);
-	  pre_expr e = get_or_alloc_expr_for_name (def);
-
-	  add_to_value (get_expr_value_id (e), e);
-	  if (!in_fre)
-	    {
-	      bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), e);
-	      bitmap_value_insert_into_set (maximal_set, e);
-	    }
-	  bitmap_value_insert_into_set (AVAIL_OUT (ENTRY_BLOCK_PTR), e);
-	}
+      bitmap_value_insert_into_set (AVAIL_OUT (ENTRY_BLOCK_PTR), e);
     }
 
   /* Allocate the worklist.  */
@@ -3857,7 +3841,7 @@ eliminate (void)
     {
       gimple_stmt_iterator i;
 
-      for (i = gsi_start_bb (b); !gsi_end_p (i); gsi_next (&i))
+      for (i = gsi_start_bb (b); !gsi_end_p (i);)
 	{
 	  gimple stmt = gsi_stmt (i);
 
@@ -3915,6 +3899,7 @@ eliminate (void)
 		  propagate_tree_value_into_stmt (&i, sprime);
 		  stmt = gsi_stmt (i);
 		  update_stmt (stmt);
+		  gsi_next (&i);
 		  continue;
 		}
 
@@ -3975,6 +3960,58 @@ eliminate (void)
 		    }
 		}
 	    }
+	  /* If the statement is a scalar store, see if the expression
+	     has the same value number as its rhs.  If so, the store is
+	     dead.  */
+	  else if (gimple_assign_single_p (stmt)
+		   && !is_gimple_reg (gimple_assign_lhs (stmt))
+		   && (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
+		       || is_gimple_min_invariant (gimple_assign_rhs1 (stmt))))
+	    {
+	      tree rhs = gimple_assign_rhs1 (stmt);
+	      tree val;
+	      val = vn_reference_lookup (gimple_assign_lhs (stmt),
+					 shared_vuses_from_stmt (stmt),
+					 true, NULL);
+	      if (TREE_CODE (rhs) == SSA_NAME)
+		rhs = VN_INFO (rhs)->valnum;
+	      if (val
+		  && operand_equal_p (val, rhs, 0))
+		{
+		  def_operand_p def;
+		  use_operand_p use;
+		  vuse_vec_p usevec;
+		  ssa_op_iter oi;
+		  imm_use_iterator ui;
+		  gimple use_stmt;
+
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		      fprintf (dump_file, "Deleted dead store ");
+		      print_gimple_stmt (dump_file, stmt, 0, 0);
+		    }
+
+		  /* Propagate all may-uses to the uses of their defs.  */
+		  FOR_EACH_SSA_VDEF_OPERAND (def, usevec, stmt, oi)
+		    {
+		      tree vuse = VUSE_ELEMENT_VAR (*usevec, 0);
+		      tree vdef = DEF_FROM_PTR (def);
+
+		      /* If the vdef is used in an abnormal PHI node we
+		         have to propagate that flag to the vuse as well.  */
+		      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (vdef))
+			SSA_NAME_OCCURS_IN_ABNORMAL_PHI (vuse) = 1;
+
+		      FOR_EACH_IMM_USE_STMT (use_stmt, ui, vdef)
+			FOR_EACH_IMM_USE_ON_STMT (use, ui)
+			  SET_USE (use, vuse);
+		    }
+
+		  gsi_remove (&i, true);
+		  release_defs (stmt);
+		  continue;
+		}
+	    }
 	  /* Visit COND_EXPRs and fold the comparison with the
 	     available value-numbers.  */
 	  else if (gimple_code (stmt) == GIMPLE_COND)
@@ -3999,6 +4036,8 @@ eliminate (void)
 		  todo = TODO_cleanup_cfg;
 		}
 	    }
+
+	  gsi_next (&i);
 	}
     }
 

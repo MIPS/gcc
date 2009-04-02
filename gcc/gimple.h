@@ -1,6 +1,6 @@
 /* Gimple IR definitions.
 
-   Copyright 2007, 2008 Free Software Foundation, Inc.
+   Copyright 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -859,10 +859,6 @@ extern bool is_gimple_stmt (tree);
 extern bool is_gimple_reg_type (tree);
 /* Returns true iff T is a scalar register variable.  */
 extern bool is_gimple_reg (tree);
-/* Returns true if T is a GIMPLE temporary variable, false otherwise.  */
-extern bool is_gimple_formal_tmp_var (tree);
-/* Returns true if T is a GIMPLE temporary register variable.  */
-extern bool is_gimple_formal_tmp_reg (tree);
 /* Returns true iff T is any sort of variable.  */
 extern bool is_gimple_variable (tree);
 /* Returns true iff T is any sort of symbol.  */
@@ -894,7 +890,6 @@ extern bool is_gimple_asm_val (tree);
 /* Returns true iff T is a valid rhs for a MODIFY_EXPR where the LHS is a
    GIMPLE temporary, a renamed user variable, or something else,
    respectively.  */
-extern bool is_gimple_formal_tmp_rhs (tree);
 extern bool is_gimple_reg_rhs (tree);
 extern bool is_gimple_mem_rhs (tree);
 

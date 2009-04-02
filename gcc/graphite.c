@@ -69,6 +69,147 @@ gmp_cst_to_tree (tree type, Value v)
   return build_int_cst (type, value_get_si (v));
 }
 
+/* Returns true when BB is in REGION.  */
+
+static bool
+bb_in_sese_p (basic_block bb, sese region)
+{
+  return pointer_set_contains (SESE_REGION_BBS (region), bb);
+}
+
+/* Returns true when LOOP is in the SESE region R.  */
+
+static inline bool 
+loop_in_sese_p (struct loop *loop, sese r)
+{
+  return (bb_in_sese_p (loop->header, r)
+	  && bb_in_sese_p (loop->latch, r));
+}
+
+/* For a USE in BB, if BB is outside REGION, mark the USE in the
+   SESE_LIVEIN and SESE_LIVEOUT sets.  */
+
+static void
+sese_build_livein_liveouts_use (sese region, basic_block bb, tree use)
+{
+  unsigned ver;
+  basic_block def_bb;
+
+  if (TREE_CODE (use) != SSA_NAME)
+    return;
+
+  ver = SSA_NAME_VERSION (use);
+  def_bb = gimple_bb (SSA_NAME_DEF_STMT (use));
+  if (!def_bb
+      || !bb_in_sese_p (def_bb, region)
+      || bb_in_sese_p (bb, region))
+    return;
+
+  if (!SESE_LIVEIN_VER (region, ver))
+    SESE_LIVEIN_VER (region, ver) = BITMAP_ALLOC (NULL);
+
+  bitmap_set_bit (SESE_LIVEIN_VER (region, ver), bb->index);
+  bitmap_set_bit (SESE_LIVEOUT (region), ver);
+}
+
+/* Marks for rewrite all the SSA_NAMES defined in REGION and that are
+   used in BB that is outside of the REGION.  */
+
+static void
+sese_build_livein_liveouts_bb (sese region, basic_block bb)
+{
+  gimple_stmt_iterator bsi;
+  edge e;
+  edge_iterator ei;
+  ssa_op_iter iter;
+  tree var;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    for (bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi); gsi_next (&bsi))
+      sese_build_livein_liveouts_use (region, bb,
+				      PHI_ARG_DEF_FROM_EDGE (gsi_stmt (bsi), e));
+
+  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+    FOR_EACH_SSA_TREE_OPERAND (var, gsi_stmt (bsi), iter, SSA_OP_ALL_USES)
+      sese_build_livein_liveouts_use (region, bb, var);
+}
+
+/* Build the SESE_LIVEIN and SESE_LIVEOUT for REGION.  */
+
+void
+sese_build_livein_liveouts (sese region)
+{
+  basic_block bb;
+
+  SESE_LIVEOUT (region) = BITMAP_ALLOC (NULL);
+  SESE_NUM_VER (region) = num_ssa_names;
+  SESE_LIVEIN (region) = XCNEWVEC (bitmap, SESE_NUM_VER (region));
+
+  FOR_EACH_BB (bb)
+    sese_build_livein_liveouts_bb (region, bb);
+}
+
+/* Register basic blocks belonging to a region in a pointer set.  */
+
+static void
+register_bb_in_sese (basic_block entry_bb, basic_block exit_bb, sese region)
+{
+  edge_iterator ei;
+  edge e;
+  basic_block bb = entry_bb;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    {
+      if (!pointer_set_contains (SESE_REGION_BBS (region), e->dest) &&
+	  e->dest->index != exit_bb->index)
+	{	
+	  pointer_set_insert (SESE_REGION_BBS (region), e->dest);
+	  register_bb_in_sese (e->dest, exit_bb, region);
+	}
+    }
+}
+
+/* Builds a new SESE region from edges ENTRY and EXIT.  */
+
+sese
+new_sese (edge entry, edge exit)
+{
+  sese res = XNEW (struct sese);
+
+  SESE_ENTRY (res) = entry;
+  SESE_EXIT (res) = exit;
+  SESE_REGION_BBS (res) = pointer_set_create ();
+  register_bb_in_sese (entry->dest, exit->dest, res);
+
+  SESE_LIVEOUT (res) = NULL;
+  SESE_NUM_VER (res) = 0;
+  SESE_LIVEIN (res) = NULL;
+
+  return res;
+}
+
+/* Deletes REGION.  */
+
+void
+free_sese (sese region)
+{
+  int i;
+
+  for (i = 0; i < SESE_NUM_VER (region); i++)
+    BITMAP_FREE (SESE_LIVEIN_VER (region, i));
+
+  if (SESE_LIVEIN (region))
+    free (SESE_LIVEIN (region));
+
+  if (SESE_LIVEOUT (region))
+    BITMAP_FREE (SESE_LIVEOUT (region));
+
+  pointer_set_destroy (SESE_REGION_BBS (region));
+  XDELETE (region);
+}
+
+
+
 /* Debug the list of old induction variables for this SCOP.  */
 
 void
@@ -701,7 +842,7 @@ dot_scop_1 (FILE *file, scop_p scop)
       if (bb == exit)
 	fprintf (file, "%d [shape=box];\n", bb->index);
 
-      if (bb_in_scop_p (bb, scop)) 
+      if (bb_in_sese_p (bb, SCOP_REGION (scop))) 
 	fprintf (file, "%d [color=red];\n", bb->index);
 
       FOR_EACH_EDGE (e, ei, bb->succs)
@@ -755,7 +896,7 @@ dot_all_scops_1 (FILE *file)
 
       /* Select color for SCoP.  */
       for (i = 0; VEC_iterate (scop_p, current_scops, i, scop); i++)
-	if (bb_in_scop_p (bb, scop)
+	if (bb_in_sese_p (bb, SCOP_REGION (scop))
 	    || (SCOP_EXIT (scop) == bb)
 	    || (SCOP_ENTRY (scop) == bb))
 	  {
@@ -818,7 +959,7 @@ dot_all_scops_1 (FILE *file)
 
 	    fprintf (file, "    <TR><TD WIDTH=\"50\" BGCOLOR=\"%s\">", color);
         
-	    if (!bb_in_scop_p (bb, scop))
+	    if (!bb_in_sese_p (bb, SCOP_REGION (scop)))
 	      fprintf (file, " ("); 
 
 	    if (bb == SCOP_ENTRY (scop)
@@ -831,7 +972,7 @@ dot_all_scops_1 (FILE *file)
 	    else
 	      fprintf (file, " %d ", bb->index);
 
-	    if (!bb_in_scop_p (bb, scop))
+	    if (!bb_in_sese_p (bb, SCOP_REGION (scop)))
 	      fprintf (file, ")");
 
 	    fprintf (file, "</TD></TR>\n");
@@ -887,7 +1028,8 @@ outermost_loop_in_scop (scop_p scop, basic_block bb)
   struct loop *nest;
 
   nest = bb->loop_father;
-  while (loop_outer (nest) && loop_in_scop_p (loop_outer (nest), scop))
+  while (loop_outer (nest)
+	 && loop_in_sese_p (loop_outer (nest), SCOP_REGION (scop)))
     nest = loop_outer (nest);
 
   return nest;
@@ -916,31 +1058,24 @@ loop_affine_expr (basic_block scop_entry, struct loop *loop, tree expr)
 	  || evolution_function_is_affine_multivariate_p (scev, n));
 }
 
-/* Return false if the tree_code of the operand OP or any of its operands
-   is component_ref.  */
+/* Return true if REF or any of its subtrees contains a
+   component_ref.  */
 
 static bool
-exclude_component_ref (tree op) 
+contains_component_ref_p (tree ref)
 {
-  int i;
-  int len;
+  if (!ref)
+    return false;
 
-  if (op)
+  while (handled_component_p (ref))
     {
-      if (TREE_CODE (op) == COMPONENT_REF)
-	return false;
-      else
-	{
-	  len = TREE_OPERAND_LENGTH (op);	  
-	  for (i = 0; i < len; ++i)
-	    {
-	      if (!exclude_component_ref (TREE_OPERAND (op, i)))
-		return false;
-	    }
-	}
+      if (TREE_CODE (ref) == COMPONENT_REF)
+	return true;
+
+      ref = TREE_OPERAND (ref, 0);
     }
 
-  return true;
+  return false;
 }
 
 /* Return true if the operand OP is simple.  */
@@ -952,13 +1087,15 @@ is_simple_operand (loop_p loop, gimple stmt, tree op)
   if (DECL_P (op)
       /* or a structure,  */
       || AGGREGATE_TYPE_P (TREE_TYPE (op))
+      /* or a COMPONENT_REF,  */
+      || contains_component_ref_p (op)
       /* or a memory access that cannot be analyzed by the data
 	 reference analysis.  */
       || ((handled_component_p (op) || INDIRECT_REF_P (op))
 	  && !stmt_simple_memref_p (loop, stmt, op)))
     return false;
 
-  return exclude_component_ref (op);
+  return true;
 }
 
 /* Return true only when STMT is simple enough for being handled by
@@ -1067,10 +1204,22 @@ static gimple
 harmful_stmt_in_bb (basic_block scop_entry, basic_block bb)
 {
   gimple_stmt_iterator gsi;
+  gimple stmt;
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     if (!stmt_simple_for_scop_p (scop_entry, gsi_stmt (gsi)))
       return gsi_stmt (gsi);
+
+  stmt = last_stmt (bb);
+  if (stmt && gimple_code (stmt) == GIMPLE_COND)
+    {
+      tree lhs = gimple_cond_lhs (stmt);
+      tree rhs = gimple_cond_rhs (stmt);
+
+      if (TREE_CODE (TREE_TYPE (lhs)) == REAL_TYPE
+	  || TREE_CODE (TREE_TYPE (rhs)) == REAL_TYPE)
+	return stmt;
+    }
 
   return NULL;
 }
@@ -1132,8 +1281,6 @@ new_graphite_bb (scop_p scop, basic_block bb)
   VEC (data_reference_p, heap) *drs = VEC_alloc (data_reference_p, heap, 5);
   struct loop *nest = outermost_loop_in_scop (scop, bb);
   gimple_stmt_iterator gsi;
-
-  bitmap_set_bit (SCOP_BBS_B (scop), bb->index);
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     find_data_references_in_stmt (nest, gsi_stmt (gsi), &drs);
@@ -1273,138 +1420,6 @@ get_new_name_from_old_name (htab_t map, tree old_name)
 
 
 
-/* Returns true when BB is in REGION.  */
-
-static bool
-bb_in_sese_p (basic_block bb, sese region)
-{
-  return pointer_set_contains (SESE_REGION_BBS (region), bb);
-}
-
-/* For a USE in BB, if BB is outside REGION, mark the USE in the
-   SESE_LIVEIN and SESE_LIVEOUT sets.  */
-
-static void
-sese_build_livein_liveouts_use (sese region, basic_block bb, tree use)
-{
-  unsigned ver;
-  basic_block def_bb;
-
-  if (TREE_CODE (use) != SSA_NAME)
-    return;
-
-  ver = SSA_NAME_VERSION (use);
-  def_bb = gimple_bb (SSA_NAME_DEF_STMT (use));
-  if (!def_bb
-      || !bb_in_sese_p (def_bb, region)
-      || bb_in_sese_p (bb, region))
-    return;
-
-  if (!SESE_LIVEIN_VER (region, ver))
-    SESE_LIVEIN_VER (region, ver) = BITMAP_ALLOC (NULL);
-
-  bitmap_set_bit (SESE_LIVEIN_VER (region, ver), bb->index);
-  bitmap_set_bit (SESE_LIVEOUT (region), ver);
-}
-
-/* Marks for rewrite all the SSA_NAMES defined in REGION and that are
-   used in BB that is outside of the REGION.  */
-
-static void
-sese_build_livein_liveouts_bb (sese region, basic_block bb)
-{
-  gimple_stmt_iterator bsi;
-  edge e;
-  edge_iterator ei;
-  ssa_op_iter iter;
-  tree var;
-
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    for (bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi); gsi_next (&bsi))
-      sese_build_livein_liveouts_use (region, bb,
-				      PHI_ARG_DEF_FROM_EDGE (gsi_stmt (bsi), e));
-
-  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
-    FOR_EACH_SSA_TREE_OPERAND (var, gsi_stmt (bsi), iter, SSA_OP_ALL_USES)
-      sese_build_livein_liveouts_use (region, bb, var);
-}
-
-/* Build the SESE_LIVEIN and SESE_LIVEOUT for REGION.  */
-
-void
-sese_build_livein_liveouts (sese region)
-{
-  basic_block bb;
-
-  SESE_LIVEOUT (region) = BITMAP_ALLOC (NULL);
-  SESE_NUM_VER (region) = num_ssa_names;
-  SESE_LIVEIN (region) = XCNEWVEC (bitmap, SESE_NUM_VER (region));
-
-  FOR_EACH_BB (bb)
-    sese_build_livein_liveouts_bb (region, bb);
-}
-
-/* Register basic blocks belonging to a region in a pointer set.  */
-
-static void
-register_bb_in_sese (basic_block entry_bb, basic_block exit_bb, sese region)
-{
-  edge_iterator ei;
-  edge e;
-  basic_block bb = entry_bb;
-
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (!pointer_set_contains (SESE_REGION_BBS (region), e->dest) &&
-	  e->dest->index != exit_bb->index)
-	{	
-	  pointer_set_insert (SESE_REGION_BBS (region), e->dest);
-	  register_bb_in_sese (e->dest, exit_bb, region);
-	}
-    }
-}
-
-/* Builds a new SESE region from edges ENTRY and EXIT.  */
-
-sese
-new_sese (edge entry, edge exit)
-{
-  sese res = XNEW (struct sese);
-
-  SESE_ENTRY (res) = entry;
-  SESE_EXIT (res) = exit;
-  SESE_REGION_BBS (res) = pointer_set_create ();
-  register_bb_in_sese (entry->dest, exit->dest, res);
-
-  SESE_LIVEOUT (res) = NULL;
-  SESE_NUM_VER (res) = 0;
-  SESE_LIVEIN (res) = NULL;
-
-  return res;
-}
-
-/* Deletes REGION.  */
-
-void
-free_sese (sese region)
-{
-  int i;
-
-  for (i = 0; i < SESE_NUM_VER (region); i++)
-    BITMAP_FREE (SESE_LIVEIN_VER (region, i));
-
-  if (SESE_LIVEIN (region))
-    free (SESE_LIVEIN (region));
-
-  if (SESE_LIVEOUT (region))
-    BITMAP_FREE (SESE_LIVEOUT (region));
-
-  pointer_set_destroy (SESE_REGION_BBS (region));
-  XDELETE (region);
-}
-
-
-
 /* Creates a new scop starting with ENTRY.  */
 
 static scop_p
@@ -1417,7 +1432,6 @@ new_scop (edge entry, edge exit)
   SCOP_REGION (scop) = new_sese (entry, exit);
   SCOP_BBS (scop) = VEC_alloc (graphite_bb_p, heap, 3);
   SCOP_OLDIVS (scop) = VEC_alloc (name_tree, heap, 3);
-  SCOP_BBS_B (scop) = BITMAP_ALLOC (NULL);
   SCOP_LOOPS (scop) = BITMAP_ALLOC (NULL);
   SCOP_LOOP_NEST (scop) = VEC_alloc (loop_p, heap, 3);
   SCOP_ADD_PARAMS (scop) = true;
@@ -1446,7 +1460,6 @@ free_scop (scop_p scop)
     free_graphite_bb (gb);
 
   VEC_free (graphite_bb_p, heap, SCOP_BBS (scop));
-  BITMAP_FREE (SCOP_BBS_B (scop));
   BITMAP_FREE (SCOP_LOOPS (scop));
   VEC_free (loop_p, heap, SCOP_LOOP_NEST (scop));
 
@@ -1632,6 +1645,12 @@ scopdet_basic_block_info (basic_block bb, VEC (sd_region, heap) **scops,
       result.next = NULL;
       result.exits = false;
       result.last = bb;
+
+      /* Mark bbs terminating a SESE region difficult, if they start
+	 a condition.  */
+      if (VEC_length (edge, bb->succs) > 1)
+	result.difficult = true; 
+
       break;
 
     case GBB_SIMPLE:
@@ -2178,6 +2197,7 @@ graphite_verify (void)
   verify_dominators (CDI_DOMINATORS);
   verify_dominators (CDI_POST_DOMINATORS);
   verify_ssa (false);
+  verify_loop_closed_ssa ();
 #endif
 }
 
@@ -2339,7 +2359,7 @@ nb_reductions_in_loop (loop_p loop)
 
       scev = analyze_scalar_evolution (loop, PHI_RESULT (phi));
       scev = instantiate_parameters (loop, scev);
-      if (!simple_iv (loop, phi, PHI_RESULT (phi), &iv, true))
+      if (!simple_iv (loop, loop, PHI_RESULT (phi), &iv, true))
 	res++;
     }
 
@@ -2357,8 +2377,10 @@ graphite_loop_normal_form (loop_p loop)
   tree nit;
   gimple_seq stmts;
   edge exit = single_dom_exit (loop);
+  bool known_niter = number_of_iterations_exit (loop, exit, &niter, false);
 
-  gcc_assert (number_of_iterations_exit (loop, exit, &niter, false));
+  gcc_assert (known_niter);
+
   nit = force_gimple_operand (unshare_expr (niter.niter), &stmts, true,
 			      NULL_TREE);
   if (stmts)
@@ -2368,7 +2390,7 @@ graphite_loop_normal_form (loop_p loop)
   if (nb_reductions_in_loop (loop) > 0)
     return NULL_TREE;
 
-  return canonicalize_loop_ivs (loop, NULL, nit);
+  return canonicalize_loop_ivs (loop, NULL, &nit);
 }
 
 /* Record LOOP as occuring in SCOP.  Returns true when the operation
@@ -2409,13 +2431,13 @@ build_scop_loop_nests (scop_p scop)
   struct loop *loop0, *loop1;
 
   FOR_EACH_BB (bb)
-    if (bb_in_scop_p (bb, scop))
+    if (bb_in_sese_p (bb, SCOP_REGION (scop)))
       {
 	struct loop *loop = bb->loop_father;
 
 	/* Only add loops if they are completely contained in the SCoP.  */
 	if (loop->header == bb
-	    && bb_in_scop_p (loop->latch, scop))
+	    && bb_in_sese_p (loop->latch, SCOP_REGION (scop)))
 	  {
 	    if (!scop_record_loop (scop, loop))
 	      return false;
@@ -2439,6 +2461,40 @@ build_scop_loop_nests (scop_p scop)
     }
 
   return true;
+}
+
+/* Calculate the number of loops around LOOP in the SCOP.  */
+
+static inline int
+nb_loops_around_loop_in_scop (struct loop *l, scop_p scop)
+{
+  int d = 0;
+
+  for (; loop_in_sese_p (l, SCOP_REGION (scop)); d++, l = loop_outer (l));
+
+  return d;
+}
+
+/* Calculate the number of loops around GB in the current SCOP.  */
+
+int
+nb_loops_around_gb (graphite_bb_p gb)
+{
+  return nb_loops_around_loop_in_scop (gbb_loop (gb), GBB_SCOP (gb));
+}
+
+/* Returns the dimensionality of an enclosing loop iteration domain
+   with respect to enclosing SCoP for a given data reference REF.  The
+   returned dimensionality is homogeneous (depth of loop nest + number
+   of SCoP parameters + const).  */
+
+int
+ref_nb_loops (data_reference_p ref)
+{
+  loop_p loop = loop_containing_stmt (DR_STMT (ref));
+  scop_p scop = DR_SCOP (ref);
+
+  return nb_loops_around_loop_in_scop (loop, scop) + scop_nb_params (scop) + 2;
 }
 
 /* Build dynamic schedules for all the BBs. */
@@ -3085,13 +3141,14 @@ build_loop_iteration_domains (scop_p scop, struct loop *loop,
   else
     gcc_unreachable ();
 
-  if (loop->inner && loop_in_scop_p (loop->inner, scop))
+  if (loop->inner && loop_in_sese_p (loop->inner, SCOP_REGION (scop)))
     build_loop_iteration_domains (scop, loop->inner, cstr, nb_outer_loops + 1);
 
   /* Only go to the next loops, if we are not at the outermost layer.  These
      have to be handled seperately, as we can be sure, that the chain at this
      layer will be connected.  */
-  if (nb_outer_loops != 0 && loop->next && loop_in_scop_p (loop->next, scop))
+  if (nb_outer_loops != 0 && loop->next && loop_in_sese_p (loop->next,
+							   SCOP_REGION (scop)))
     build_loop_iteration_domains (scop, loop->next, outer_cstr, nb_outer_loops);
 
   for (i = 0; VEC_iterate (graphite_bb_p, SCOP_BBS (scop), i, gb); i++)
@@ -3362,12 +3419,12 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
   bool res = true;
   int i, j;
   graphite_bb_p gbb;
-  gimple_stmt_iterator gsi;
   basic_block bb_child, bb_iter;
   VEC (basic_block, heap) *dom;
+  gimple stmt;
   
   /* Make sure we are in the SCoP.  */
-  if (!bb_in_scop_p (bb, scop))
+  if (!bb_in_sese_p (bb, SCOP_REGION (scop)))
     return true;
 
   if (bb_contains_non_iv_scalar_phi_nodes (bb))
@@ -3382,9 +3439,9 @@ build_scop_conditions_1 (VEC (gimple, heap) **conditions,
 
   dom = get_dominated_by (CDI_DOMINATORS, bb);
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  stmt = last_stmt (bb);
+  if (stmt)
     {
-      gimple stmt = gsi_stmt (gsi);
       VEC (edge, gc) *edges;
       edge e;
 
@@ -3561,7 +3618,7 @@ build_scop_iteration_domain (scop_p scop)
   /* Build cloog loop for all loops, that are in the uppermost loop layer of
      this SCoP.  */
   for (i = 0; VEC_iterate (loop_p, SCOP_LOOP_NEST (scop), i, loop); i++)
-    if (!loop_in_scop_p (loop_outer (loop), scop))
+    if (!loop_in_sese_p (loop_outer (loop), SCOP_REGION (scop)))
       {
         /* The outermost constraints is a matrix that has:
            -first column: eq/ineq boolean
@@ -4137,7 +4194,7 @@ expand_scalar_variables_ssa_name (tree op0, basic_block bb,
   else
     {
       if (gimple_code (def_stmt) != GIMPLE_ASSIGN
-	  || !bb_in_scop_p (gimple_bb (def_stmt), scop))
+	  || !bb_in_sese_p (gimple_bb (def_stmt), SCOP_REGION (scop)))
 	return get_new_name_from_old_name (map, op0);
 
       var0 = gimple_assign_rhs1 (def_stmt);
@@ -4976,6 +5033,7 @@ if_region_set_false_region (ifsese if_region, sese region)
 {
   basic_block condition = if_region_get_condition_block (if_region);
   edge false_edge = get_false_edge_from_guard_bb (condition);
+  basic_block dummy = false_edge->dest;
   edge entry_region = SESE_ENTRY (region);
   edge exit_region = SESE_EXIT (region);
   basic_block before_region = entry_region->src;
@@ -4990,11 +5048,13 @@ if_region_set_false_region (ifsese if_region, sese region)
   redirect_edge_pred (entry_region, condition);
   redirect_edge_pred (exit_region, before_region);
   redirect_edge_pred (false_edge, last_in_region);
+  redirect_edge_succ (false_edge, single_succ (dummy));
+  delete_basic_block (dummy);
 
   exit_region->flags = EDGE_FALLTHRU;
   recompute_all_dominators ();
 
-  SESE_EXIT (region) = single_succ_edge (false_edge->dest);
+  SESE_EXIT (region) = false_edge;
   if_region->false_region = region;
 
   if (slot)
@@ -5141,7 +5201,7 @@ get_vdef_before_scop (scop_p scop, tree name, sbitmap visited)
   basic_block def_bb = gimple_bb (def_stmt);
 
   if (!def_bb
-      || !bb_in_scop_p (def_bb, scop))
+      || !bb_in_sese_p (def_bb, SCOP_REGION (scop)))
     return name;
 
   if (TEST_BIT (visited, def_bb->index))
@@ -5229,7 +5289,8 @@ scop_adjust_phis_for_liveouts (scop_p scop, basic_block bb, edge false_e,
 
   for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
     {
-      unsigned i, false_i;
+      unsigned i;
+      unsigned false_i = 0;
       gimple phi = gsi_stmt (si);
 
       if (!is_gimple_reg (PHI_RESULT (phi)))
@@ -5376,9 +5437,9 @@ compute_cloog_iv_types (struct clast_stmt *stmt)
 }
 
 /* GIMPLE Loop Generator: generates loops from STMT in GIMPLE form for
-   the given SCOP.  */
+   the given SCOP.  Return true if code generation succeeded.  */
 
-static void
+static bool
 gloog (scop_p scop, struct clast_stmt *stmt)
 {
   edge new_scop_exit_edge = NULL;
@@ -5387,6 +5448,8 @@ gloog (scop_p scop, struct clast_stmt *stmt)
   loop_p context_loop;
   ifsese if_region = NULL;
 
+  recompute_all_dominators ();
+  graphite_verify ();
   if_region = move_sese_in_condition (SCOP_REGION (scop));
   sese_build_livein_liveouts (SCOP_REGION (scop));
   scop_insert_phis_for_liveouts (SCOP_REGION (scop),
@@ -5412,6 +5475,7 @@ gloog (scop_p scop, struct clast_stmt *stmt)
 
   recompute_all_dominators ();
   graphite_verify ();
+  return true;
 }
 
 /* Returns the number of data references in SCOP.  */
@@ -5822,7 +5886,7 @@ graphite_trans_loop_block (VEC (graphite_bb_p, heap) *bbs, int loops)
   bool transform_done = false;
 
   /* TODO: - Calculate the stride size automatically.  */
-  int stride_size = 64;
+  int stride_size = 51;
 
   for (i = 0; VEC_iterate (graphite_bb_p, bbs, i, gb); i++)
     transform_done |= graphite_trans_bb_block (gb, stride_size, loops);
@@ -6015,7 +6079,7 @@ limit_scops (void)
 	continue;
 
       for (j = 0; VEC_iterate (loop_p, SCOP_LOOP_NEST (scop), j, loop); j++) 
-        if (!loop_in_scop_p (loop_outer (loop), scop))
+        if (!loop_in_sese_p (loop_outer (loop), SCOP_REGION (scop)))
           {
 	    sd_region open_scop;
 	    open_scop.entry = loop->header;
@@ -6040,6 +6104,7 @@ graphite_transform_loops (void)
 {
   int i;
   scop_p scop;
+  bool transform_done = false;
 
   if (number_of_loops () <= 1)
     return;
@@ -6098,7 +6163,7 @@ graphite_transform_loops (void)
 	}
 
       if (graphite_apply_transformations (scop))
-        gloog (scop, find_transform (scop));
+        transform_done = gloog (scop, find_transform (scop));
 #ifdef ENABLE_CHECKING
       else
 	{
@@ -6109,7 +6174,9 @@ graphite_transform_loops (void)
     }
 
   /* Cleanup.  */
-  cleanup_tree_cfg ();
+  if (transform_done)
+    cleanup_tree_cfg ();
+
   free_scops (current_scops);
   cloog_finalize ();
   free_original_copy_tables ();

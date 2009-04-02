@@ -1,5 +1,5 @@
 /* IRA processing allocno lives to build allocno live ranges.
-   Copyright (C) 2006, 2007, 2008
+   Copyright (C) 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -838,7 +838,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  high_pressure_start_point[ira_reg_class_cover[i]] = -1;
 	}
       curr_bb_node = loop_tree_node;
-      reg_live_out = DF_LR_OUT (bb);
+      reg_live_out = df_get_live_out (bb);
       sparseset_clear (allocnos_live);
       REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_out);
       AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
