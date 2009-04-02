@@ -5186,7 +5186,7 @@ input source file with the same extension as an intermediate file.
 The corresponding intermediate file may be obtained by renaming the
 source file before using @option{-save-temps}.
 
-If you invokve GCC in parallel, compiling several different source
+If you invoke GCC in parallel, compiling several different source
 files that share a common base name in different subdirectories or the
 same source file compiled for multiple output destinations, it is
 likely that the different parallel compilers will interfere with each
@@ -5198,7 +5198,7 @@ gcc -save-temps -o outdir2/foo.o indir2/foo.c&
 @end smallexample
 
 may result in @file{foo.i} and @file{foo.o} being written to
-simulataneously by both compilers.
+simultaneously by both compilers.
 
 @item -save-temps=obj
 @opindex save-temps=obj
