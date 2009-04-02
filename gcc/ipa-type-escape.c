@@ -1988,7 +1988,7 @@ type_escape_execute (void)
   */
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed 
-	&& (cgraph_is_master_clone (node, true)
+	&& (cgraph_is_master_clone (node)
 	    || (cgraph_function_body_availability (node) == AVAIL_OVERWRITABLE)))
       analyze_function (node);
 

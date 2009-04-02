@@ -408,8 +408,8 @@ void cgraph_unnest_node (struct cgraph_node *);
 
 enum availability cgraph_function_body_availability (struct cgraph_node *);
 bool cgraph_is_clone_node (struct cgraph_node *);
-bool cgraph_is_master_clone (struct cgraph_node *, bool);
-struct cgraph_node *cgraph_master_clone (struct cgraph_node *, bool);
+bool cgraph_is_master_clone (struct cgraph_node *);
+struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
 void cgraph_add_new_function (tree, bool);
 
 cgraph_node_set cgraph_node_set_new (void);

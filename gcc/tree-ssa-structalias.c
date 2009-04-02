@@ -5677,7 +5677,7 @@ ipa_pta_execute (void)
 
   for (node = cgraph_nodes; node; node = node->next)
     {
-      if (!node->analyzed || cgraph_is_master_clone (node, true))
+      if (!node->analyzed || cgraph_is_master_clone (node))
 	{
 	  unsigned int varid;
 
@@ -5693,7 +5693,7 @@ ipa_pta_execute (void)
     }
   for (node = cgraph_nodes; node; node = node->next)
     {
-      if (node->analyzed && cgraph_is_master_clone (node, true))
+      if (node->analyzed && cgraph_is_master_clone (node))
 	{
 	  struct function *func = DECL_STRUCT_FUNCTION (node->decl);
 	  basic_block bb;

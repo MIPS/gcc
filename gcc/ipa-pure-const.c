@@ -750,7 +750,7 @@ write_summary (cgraph_node_set set)
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-      if (node->analyzed && cgraph_is_master_clone (node, true)
+      if (node->analyzed && cgraph_is_master_clone (node)
 	  && get_function_state (node) != NULL)
 	count++;
     }
@@ -761,7 +761,7 @@ write_summary (cgraph_node_set set)
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
-      if (node->analyzed && cgraph_is_master_clone (node, true)
+      if (node->analyzed && cgraph_is_master_clone (node)
 	  && get_function_state (node) != NULL)
 	{
 	  unsigned HOST_WIDEST_INT flags = 0;

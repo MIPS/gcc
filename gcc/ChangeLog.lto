@@ -1,3 +1,18 @@
+2009-04-02  Rafael Avila de Espindola  <espindola@google.com>
+
+	* cgraph.c (cgraph_is_master_clone): Remove check_overwrite.
+	(cgraph_master_clone): Remove check_overwrite.
+	* cgraph.h (cgraph_is_master_clone): Remove check_overwrite.
+	(cgraph_master_clone): Remove check_overwrite.
+	* ipa-pure-const.c(write_summary): Update calls to
+	cgraph_is_master_clone.
+	* ipa-reference.c (write_node_summary_p): Update call to
+	cgraph_is_master_clone.
+	* ipa-type-escape.c (type_escape_execute): Update call to
+	cgraph_is_master_clone.
+	* tree-ssa-structalias.c (ipa_pta_execute): Update calls
+	cgraph_is_master_clone.
+
 2009-04-01  Rafael Avila de Espindola  <espindola@google.com>
 
        Revert
