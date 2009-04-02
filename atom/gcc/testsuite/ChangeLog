@@ -1,3 +1,95 @@
+2009-04-02  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39595
+	* gfortran.dg/vect/O3-pr39595.f: New test.
+
+2009-04-02  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/26693
+	* g++.dg/template/typedef11.C: New test.
+	* g++.dg/template/typedef12.C: Likewise.
+	* g++.dg/template/typedef13.C: Likewise.
+	* g++.dg/template/typedef14.C: Likewise.
+	* g++.dg/template/typedef15.C: Likewise.
+	* g++.dg/template/typedef16.C: Likewise.
+	* g++.dg/template/sfinae3.C: Compile this pedantically.
+	The only errors expected should be the one saying the typedef is ill
+	formed.
+	* g++.old-deja/g++.pt/typename8.C: Likewise.
+	* g++.dg/template/access11.C: Update this.
+
+2009-04-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37221
+	* gcc.c-torture/compile/20090331-1.c: New testcase.
+
+2009-04-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20090401-1.c: New test.
+
+2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/4926
+	* g++.dg/template/pr4926-1.C: New.
+
+2009-04-01  Xinliang David Li  <davidxl@google.com>
+
+	* gcc.target/i386/all_one_m128i.c: New test.
+
+2009-04-01  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39027
+	* gcc.dg/fltconst-1.c: Don't error for use of d or D in suffix.
+	* gcc.dg/fltconst-2.c: New test.
+	* gcc.dg/fltconst-double-pedantic-1.c: New test.
+	* gcc.dg/fltconst-double-pedantic-2.c: New test.
+
+	PR c/33466
+	* gcc.dg/cpp/pr33466.c: New test.
+	* gcc.dg/dfp/pr33466.c: New test.
+	* gcc.dg/fixed-point/pr33466.c: New test.
+
+2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/35011
+	* g++.dg/other/pr35011.C: New.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39226
+	* gcc.dg/pr39226.c: New test.
+
+2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/35240
+	* g++.dg/template/pr35240.C: New.
+
+2009-04-01  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39605
+	* gcc.dg/vla-17.c, gcc.dg/vla-18.c: New tests.
+	* gcc.dg/pr25682.c: Update expected diagnostics.
+
+2009-04-01  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/fold-plusmult-2.c: New testcase.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/37772
+	* gcc.dg/pr37772.c: New test.
+	* g++.dg/ext/asm11.C: New test.
+
+2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* lib/target-libpath.exp (restore_ld_library_path_env_vars): Always
+	restore GCC_EXEC_PREFIX to its original value, or unset if it was not
+	defined.
+
+2009-03-31  Jason Merrill  <jason@redhat.com>
+
+	* g++.old-deja/g++.other/using9.C: Add expected errors.
+
 2009-03-31  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.c-torture/compile/pr33009.c: Removed.

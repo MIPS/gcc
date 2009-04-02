@@ -4641,6 +4641,16 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
     mudflap_init ();
 }
 
+/* Like get_identifier, but avoid warnings about null arguments when
+   the argument may be NULL for targets where GCC lacks stdint.h type
+   information.  */
+
+static inline tree
+c_get_ident (const char *id)
+{
+  return get_identifier (id);
+}
+
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 
@@ -4936,85 +4946,85 @@ c_common_nodes_and_builtins (void)
 
   if (SIG_ATOMIC_TYPE)
     sig_atomic_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (SIG_ATOMIC_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (SIG_ATOMIC_TYPE)));
   if (INT8_TYPE)
     int8_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT8_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT8_TYPE)));
   if (INT16_TYPE)
     int16_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT16_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT16_TYPE)));
   if (INT32_TYPE)
     int32_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT32_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT32_TYPE)));
   if (INT64_TYPE)
     int64_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT64_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT64_TYPE)));
   if (UINT8_TYPE)
     uint8_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT8_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT8_TYPE)));
   if (UINT16_TYPE)
     uint16_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT16_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT16_TYPE)));
   if (UINT32_TYPE)
     c_uint32_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT32_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT32_TYPE)));
   if (UINT64_TYPE)
     c_uint64_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT64_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT64_TYPE)));
   if (INT_LEAST8_TYPE)
     int_least8_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT_LEAST8_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST8_TYPE)));
   if (INT_LEAST16_TYPE)
     int_least16_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT_LEAST16_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST16_TYPE)));
   if (INT_LEAST32_TYPE)
     int_least32_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT_LEAST32_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST32_TYPE)));
   if (INT_LEAST64_TYPE)
     int_least64_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT_LEAST64_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST64_TYPE)));
   if (UINT_LEAST8_TYPE)
     uint_least8_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT_LEAST8_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST8_TYPE)));
   if (UINT_LEAST16_TYPE)
     uint_least16_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT_LEAST16_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST16_TYPE)));
   if (UINT_LEAST32_TYPE)
     uint_least32_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT_LEAST32_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST32_TYPE)));
   if (UINT_LEAST64_TYPE)
     uint_least64_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT_LEAST64_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST64_TYPE)));
   if (INT_FAST8_TYPE)
     int_fast8_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT_FAST8_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST8_TYPE)));
   if (INT_FAST16_TYPE)
     int_fast16_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT_FAST16_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST16_TYPE)));
   if (INT_FAST32_TYPE)
     int_fast32_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT_FAST32_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST32_TYPE)));
   if (INT_FAST64_TYPE)
     int_fast64_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INT_FAST64_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST64_TYPE)));
   if (UINT_FAST8_TYPE)
     uint_fast8_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT_FAST8_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST8_TYPE)));
   if (UINT_FAST16_TYPE)
     uint_fast16_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT_FAST16_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST16_TYPE)));
   if (UINT_FAST32_TYPE)
     uint_fast32_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT_FAST32_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST32_TYPE)));
   if (UINT_FAST64_TYPE)
     uint_fast64_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINT_FAST64_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST64_TYPE)));
   if (INTPTR_TYPE)
     intptr_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (INTPTR_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (INTPTR_TYPE)));
   if (UINTPTR_TYPE)
     uintptr_type_node =
-      TREE_TYPE (identifier_global_value (get_identifier (UINTPTR_TYPE)));
+      TREE_TYPE (identifier_global_value (c_get_ident (UINTPTR_TYPE)));
 
   default_function_type = build_function_type (integer_type_node, NULL_TREE);
   ptrdiff_type_node
@@ -9160,6 +9170,78 @@ warn_for_sign_compare (location_t location,
         warning_at (location, OPT_Wsign_compare,
                  "comparison of promoted ~unsigned with unsigned");
     }
+}
+
+/* Setup a TYPE_DECL node as a typedef representation.
+
+   X is a TYPE_DECL for a typedef statement.  Create a brand new
+   ..._TYPE node (which will be just a variant of the existing
+   ..._TYPE node with identical properties) and then install X
+   as the TYPE_NAME of this brand new (duplicate) ..._TYPE node.
+
+   The whole point here is to end up with a situation where each
+   and every ..._TYPE node the compiler creates will be uniquely
+   associated with AT MOST one node representing a typedef name.
+   This way, even though the compiler substitutes corresponding
+   ..._TYPE nodes for TYPE_DECL (i.e. "typedef name") nodes very
+   early on, later parts of the compiler can always do the reverse
+   translation and get back the corresponding typedef name.  For
+   example, given:
+
+	typedef struct S MY_TYPE;
+	MY_TYPE object;
+
+   Later parts of the compiler might only know that `object' was of
+   type `struct S' if it were not for code just below.  With this
+   code however, later parts of the compiler see something like:
+
+	struct S' == struct S
+	typedef struct S' MY_TYPE;
+	struct S' object;
+
+    And they can then deduce (from the node for type struct S') that
+    the original object declaration was:
+
+		MY_TYPE object;
+
+    Being able to do this is important for proper support of protoize,
+    and also for generating precise symbolic debugging information
+    which takes full account of the programmer's (typedef) vocabulary.
+
+    Obviously, we don't want to generate a duplicate ..._TYPE node if
+    the TYPE_DECL node that we are now processing really represents a
+    standard built-in type.  */
+
+void
+set_underlying_type (tree x)
+{
+  if (x == error_mark_node)
+    return;
+  if (DECL_IS_BUILTIN (x))
+    {
+      if (TYPE_NAME (TREE_TYPE (x)) == 0)
+	TYPE_NAME (TREE_TYPE (x)) = x;
+    }
+  else if (TREE_TYPE (x) != error_mark_node
+	   && DECL_ORIGINAL_TYPE (x) == NULL_TREE)
+    {
+      tree tt = TREE_TYPE (x);
+      DECL_ORIGINAL_TYPE (x) = tt;
+      tt = build_variant_type_copy (tt);
+      TYPE_STUB_DECL (tt) = TYPE_STUB_DECL (DECL_ORIGINAL_TYPE (x));
+      TYPE_NAME (tt) = x;
+      TREE_USED (tt) = TREE_USED (x);
+      TREE_TYPE (x) = tt;
+    }
+}
+
+/* Returns true if X is a typedef decl.  */
+
+bool
+is_typedef_decl (tree x)
+{
+  return (x && TREE_CODE (x) == TYPE_DECL
+          && DECL_ORIGINAL_TYPE (x) != NULL_TREE);
 }
 
 #include "gt-c-common.h"
