@@ -1,3 +1,15 @@
+2009-04-01  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39027
+	* include/cpplib.h (CPP_N_DEFAULT): Define.
+	* expr.c (interpret_float_suffix): Recognize d or D for double,
+	return new value for default.
+	(cpp_classify_number): Issue pedwarn for use of d or D in suffix.
+
+	PR c/33466
+	* expr.c (interpret_float_suffix): Reject invalid suffix that uses
+	letters from decimal float and fixed-point suffixes.
+
 2009-03-31  Joseph Myers  <joseph@codesourcery.com>
 
 	PR preprocessor/15638
