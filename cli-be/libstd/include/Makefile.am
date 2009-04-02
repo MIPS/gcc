@@ -53,4 +53,5 @@ noinst_HEADERS = \
 	__ctype.h \
 	__host.h \
 	__io.h \
-	__libinfo.h
+	__libinfo.h \
+	__libstd_initfini.h
