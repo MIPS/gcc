@@ -1,3 +1,8 @@
+2009-04-02  Le-Chun Wu  <lcwu@google.com>
+
+	* lib/plugin-support.exp (plugin-test-execute): Add '-fPIC' flag in
+	plugin build command-line.
+
 2009-03-25  Le-Chun Wu  <lcwu@google.com>
 
 	* lib/plugin-support.exp: New file containing support procs for
