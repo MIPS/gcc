@@ -1,3 +1,16 @@
+2009-04-02  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-sra.c (sra_ipa_modify_expr): Use useless_type_conversion_p
+	instead of types_compatible_p.
+	(build_access_expr_1): Use useless_type_conversion_p instead of
+	types_compatible_p.
+	(sra_intra_modify_expr): Use useless_type_conversion_p instead of
+	types_compatible_p.
+	(load_assign_lhs_subreplacements): Use useless_type_conversion_p
+	instead of types_compatible_p.
+	(sra_intra_modify_assign): Use useless_type_conversion_p instead of
+	types_compatible_p.
+
 2009-04-01  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-sra.c (get_base_access_vector): Moved upwards in the file.

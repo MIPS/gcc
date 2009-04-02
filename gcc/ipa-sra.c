@@ -2338,7 +2338,7 @@ sra_ipa_modify_expr (tree *expr, gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED,
       fprintf (dump_file, "\n");
     }
 
-  if (!types_compatible_p (cand->type, TREE_TYPE (*expr)))
+  if (!useless_type_conversion_p (TREE_TYPE (*expr), cand->type))
     {
       tree vce = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (*expr), src);
       *expr = vce;
@@ -2381,7 +2381,8 @@ build_access_expr_1 (tree *res, tree type, HOST_WIDE_INT offset, tree exp_type)
       tree tr_size, index;
       HOST_WIDE_INT el_size;
 
-      if (offset == 0 && exp_type && types_compatible_p (type, exp_type))
+      if (offset == 0 && exp_type
+	  && useless_type_conversion_p (exp_type, type))
 	return true;
 
       switch (TREE_CODE (type))
@@ -3437,7 +3438,7 @@ sra_intra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write,
       gimple *stmt = gsi_stmt_ptr (gsi);
 
       push_stmt_changes (stmt);
-      if (!types_compatible_p (type, access->type))
+      if (!useless_type_conversion_p (type, access->type))
 	sra_fix_incompatible_types_for_expr (expr, type, access, gsi, write);
       else
 	*expr = get_access_replacement (access);
@@ -3507,7 +3508,7 @@ load_assign_lhs_subreplacements (struct access *lacc, struct access *top_racc,
 	    {
 	      gimple stmt;
 
-	      if (types_compatible_p (lacc->type, racc->type))
+	      if (useless_type_conversion_p (lacc->type, racc->type))
 		stmt = gimple_build_assign (get_access_replacement (lacc),
 					    get_access_replacement (racc));
 	      else
@@ -3783,7 +3784,7 @@ sra_intra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi,
     {
       pop_stmt_changes (stmt);
 
-      if (!types_compatible_p (ltype, rtype))
+      if (!useless_type_conversion_p (ltype, rtype))
 	fix_modified_assign_compatibility (gsi, stmt, lacc, racc,
 					   lhs, &rhs, ltype, rtype);
     }
