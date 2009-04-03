@@ -1,0 +1,6 @@
+MULTILIB_OPTIONS=mA6/mARC700 mmul64/mmul32x16 mnorm EL/EB
+MULTILIB_DIRNAMES=arcompact arc700 mul64 mul32x16 norm le be
+MULTILIB_MATCHES=mA6=mARC600 mARC700=mA7 EB=mbig-endian
+MULTILIB_EXCEPTIONS=mARC700/mmul64* mARC700*/mmul32x16* mnorm*
+MULTILIB_EXCLUSIONS=mmul64/!mnorm mmul32x16/!mnorm mARC700/!mnorm
+PROFILE_OSDEP = $(T)prof-freq-stub.o $(T)profil.o
