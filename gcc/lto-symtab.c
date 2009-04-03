@@ -266,19 +266,6 @@ lto_symtab_compatible (tree old_decl, tree new_decl)
 				       TREE_TYPE (new_decl));
       else if (TREE_CODE (new_decl) == FUNCTION_DECL)
 	{
-	  if (DECL_IS_BUILTIN (old_decl) || DECL_IS_BUILTIN (new_decl))
-	    {
-	      tree candidate;
-	      
-	      candidate = match_builtin_function_types (TREE_TYPE (new_decl),
-							TREE_TYPE (old_decl));
-
-	      /* We don't really have source location information at this
-		 point, so the above matching was a bit of a gamble.  */
-	      if (candidate)
-		merged_type = candidate;
-	    }
-
 	  if (!merged_type
 	      /* We want either of the types to have argument types,
 		 but not both.  */

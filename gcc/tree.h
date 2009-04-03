@@ -4967,7 +4967,6 @@ extern void stack_protect_epilogue (void);
 extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool needs_to_live_in_memory (const_tree);
 extern tree reconstruct_complex_type (tree, tree);
-extern tree match_builtin_function_types (tree, tree);
 
 extern int real_onep (const_tree);
 extern int real_twop (const_tree);

@@ -1,3 +1,12 @@
+2009-04-03  Rafael Avila de Espindola  <espindola@google.com>
+
+	* c-decl.c (match_builtin_function_types): Moved from tree.c
+	(merge_decls): Initialize olddecl_arguments.
+	* lto-symtab.c (lto_symtab_compatible): Remove special case for
+	builtin functions.
+	* tree.c (match_builtin_function_types): Move to c-decl.c.
+	* tree.h (match_builtin_function_types): Remove.
+
 2009-04-02  Rafael Avila de Espindola  <espindola@google.com>
 
 	* cgraph.c (cgraph_is_master_clone): Remove check_overwrite.

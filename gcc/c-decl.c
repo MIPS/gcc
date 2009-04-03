@@ -967,6 +967,46 @@ pushtag (tree name, tree type)
   TYPE_CONTEXT (type) = DECL_CONTEXT (TYPE_STUB_DECL (type));
 }
 
+/* Subroutine of compare_decls.  Allow harmless mismatches in return
+   and argument types provided that the type modes match.  This function
+   return a unified type given a suitable match, and 0 otherwise.  */
+
+static tree
+match_builtin_function_types (tree newtype, tree oldtype)
+{
+  tree newrettype, oldrettype;
+  tree newargs, oldargs;
+  tree trytype, tryargs;
+
+  /* Accept the return type of the new declaration if same modes.  */
+  oldrettype = TREE_TYPE (oldtype);
+  newrettype = TREE_TYPE (newtype);
+
+  if (TYPE_MODE (oldrettype) != TYPE_MODE (newrettype))
+    return 0;
+
+  oldargs = TYPE_ARG_TYPES (oldtype);
+  newargs = TYPE_ARG_TYPES (newtype);
+  tryargs = newargs;
+
+  while (oldargs || newargs)
+    {
+      if (!oldargs
+	  || !newargs
+	  || !TREE_VALUE (oldargs)
+	  || !TREE_VALUE (newargs)
+	  || TYPE_MODE (TREE_VALUE (oldargs))
+	     != TYPE_MODE (TREE_VALUE (newargs)))
+	return 0;
+
+      oldargs = TREE_CHAIN (oldargs);
+      newargs = TREE_CHAIN (newargs);
+    }
+
+  trytype = build_function_type (newrettype, tryargs);
+  return build_type_attribute_variant (trytype, TYPE_ATTRIBUTES (oldtype));
+}
+
 /* Subroutine of diagnose_mismatched_decls.  Check for function type
    mismatch involving an empty arglist vs a nonempty one and give clearer
    diagnostics.  */
@@ -1818,7 +1858,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   {
     unsigned olddecl_uid = DECL_UID (olddecl);
     tree olddecl_context = DECL_CONTEXT (olddecl);
-    tree olddecl_arguments;
+    tree olddecl_arguments = NULL_TREE;
     if (TREE_CODE (olddecl) == FUNCTION_DECL)
       olddecl_arguments = DECL_ARGUMENTS (olddecl);
 
