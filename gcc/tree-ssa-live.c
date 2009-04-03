@@ -740,7 +740,8 @@ remove_unused_locals (void)
 
       if (TREE_CODE (var) != FUNCTION_DECL
 	  && (!(ann = var_ann (var))
-	      || !ann->used))
+	      || !ann->used)
+	  && (optimize || DECL_ARTIFICIAL (var)))
 	{
 	  if (is_global_var (var))
 	    {
@@ -781,8 +782,7 @@ remove_unused_locals (void)
 
 	  if (TREE_CODE (var) == VAR_DECL
 	      && is_global_var (var)
-	      && bitmap_bit_p (global_unused_vars, DECL_UID (var))
-	      && (optimize || DECL_ARTIFICIAL (var)))
+	      && bitmap_bit_p (global_unused_vars, DECL_UID (var)))
 	    *cell = TREE_CHAIN (*cell);
 	  else
 	    cell = &TREE_CHAIN (*cell);
@@ -797,11 +797,9 @@ remove_unused_locals (void)
      pass is performed.  */
   FOR_EACH_REFERENCED_VAR (t, rvi)
     if (!is_global_var (t)
-	&& !MTAG_P (t)
 	&& TREE_CODE (t) != PARM_DECL
 	&& TREE_CODE (t) != RESULT_DECL
 	&& !(ann = var_ann (t))->used
-	&& !ann->symbol_mem_tag
 	&& !TREE_ADDRESSABLE (t)
 	&& (optimize || DECL_ARTIFICIAL (t)))
       remove_referenced_var (t);

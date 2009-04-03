@@ -495,8 +495,6 @@ static void
 finalize_var_creation (tree new_decl)
 {
   add_referenced_var (new_decl);  
-  if (is_global_var (new_decl))
-    mark_call_clobbered (new_decl, ESCAPE_UNKNOWN);
   mark_sym_for_renaming (new_decl); 
 }
 
@@ -1249,11 +1247,18 @@ create_general_new_stmt (struct access_site *acc, tree new_type)
   gimple new_stmt = gimple_copy (old_stmt);
   unsigned i;
 
+  /* We are really building a new stmt, clear the virtual operands.  */
+  if (gimple_has_mem_ops (new_stmt))
+    {
+      gimple_set_vuse (new_stmt, NULL_TREE);
+      gimple_set_vdef (new_stmt, NULL_TREE);
+    }
+
   for (i = 0; VEC_iterate (tree, acc->vars, i, var); i++)
     {
       tree *pos;
       tree new_var = find_new_var_of_type (var, new_type);
-      tree lhs, rhs;
+      tree lhs, rhs = NULL_TREE;
 
       gcc_assert (new_var);
       finalize_var_creation (new_var);

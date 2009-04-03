@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
@@ -1297,6 +1297,14 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   else
     walk_gimple_op (copy, remap_gimple_op_r, &wi); 
 
+  /* Clear the copied virtual operands.  We are not remapping them here
+     but are going to recreate them from scratch.  */
+  if (gimple_has_mem_ops (copy))
+    {
+      gimple_set_vdef (copy, NULL_TREE);
+      gimple_set_vuse (copy, NULL_TREE);
+    }
+
   /* We have to handle EH region remapping of GIMPLE_RESX specially because
      the region number is not an operand.  */
   if (gimple_code (stmt) == GIMPLE_RESX && id->eh_region_offset)
@@ -2110,6 +2118,10 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
      We need to construct map for the variable anyway as it might be used
      in different SSA names when parameter is set in function.
 
+     Do replacement at -O0 for const arguments replaced by constant.
+     This is important for builtin_constant_p and other construct requiring
+     constant argument to be visible in inlined function body.
+
      FIXME: This usually kills the last connection in between inlined
      function parameter and the actual value in debug info.  Can we do
      better here?  If we just inserted the statement, copy propagation
@@ -2118,7 +2130,9 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
      We might want to introduce a notion that single SSA_NAME might
      represent multiple variables for purposes of debugging. */
   if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
-      && optimize
+      && (optimize
+          || (TREE_READONLY (p)
+	      && is_gimple_min_invariant (rhs)))
       && (TREE_CODE (rhs) == SSA_NAME
 	  || is_gimple_min_invariant (rhs))
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
@@ -3152,7 +3166,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   tree modify_dest;
   location_t saved_location;
   struct cgraph_edge *cg_edge;
-  const char *reason;
+  cgraph_inline_failed_t reason;
   basic_block return_block;
   edge e;
   gimple_stmt_iterator gsi, stmt_gsi;
@@ -3217,7 +3231,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       cgraph_create_edge (id->dst_node, dest, stmt,
 			  bb->count, CGRAPH_FREQ_BASE,
 			  bb->loop_depth)->inline_failed
-	= N_("originally indirect function call not considered for inlining");
+	= CIF_ORIGINALLY_INDIRECT_CALL;
       if (dump_file)
 	{
 	   fprintf (dump_file, "Created new direct edge to %s",
@@ -3240,18 +3254,19 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 	  /* Avoid warnings during early inline pass. */
 	  && cgraph_global_info_ready)
 	{
-	  sorry ("inlining failed in call to %q+F: %s", fn, reason);
+	  sorry ("inlining failed in call to %q+F: %s", fn,
+		 cgraph_inline_failed_string (reason));
 	  sorry ("called from here");
 	}
       else if (warn_inline && DECL_DECLARED_INLINE_P (fn)
 	       && !DECL_IN_SYSTEM_HEADER (fn)
-	       && strlen (reason)
+	       && reason != CIF_UNSPECIFIED
 	       && !lookup_attribute ("noinline", DECL_ATTRIBUTES (fn))
 	       /* Avoid warnings during early inline pass. */
 	       && cgraph_global_info_ready)
 	{
 	  warning (OPT_Winline, "inlining failed in call to %q+F: %s",
-		   fn, reason);
+		   fn, cgraph_inline_failed_string (reason));
 	  warning (OPT_Winline, "called from here");
 	}
       goto egress;
@@ -3388,7 +3403,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       var = TREE_VALUE (t_step);
       if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
 	{
-	  if (var_ann (var) && referenced_var_check_and_insert (var))
+	  if (var_ann (var) && add_referenced_var (var))
 	    cfun->local_decls = tree_cons (NULL_TREE, var,
 					   cfun->local_decls);
 	}
@@ -3408,6 +3423,9 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   pointer_map_destroy (id->decl_map);
   id->decl_map = st;
 
+  /* Unlink the calls virtual operands before replacing it.  */
+  unlink_stmt_vdef (stmt);
+
   /* If the inlined function returns a result that we care about,
      substitute the GIMPLE_CALL with an assignment of the return
      variable to the LHS of the call.  That is, if STMT was
@@ -3418,10 +3436,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       stmt = gimple_build_assign (gimple_call_lhs (stmt), use_retvar);
       gsi_replace (&stmt_gsi, stmt, false);
       if (gimple_in_ssa_p (cfun))
-	{
-          update_stmt (stmt);
-          mark_symbols_for_renaming (stmt);
-	}
+	mark_symbols_for_renaming (stmt);
       maybe_clean_or_replace_eh_stmt (old_stmt, stmt);
     }
   else
@@ -3441,7 +3456,6 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 		 undefined via a move.  */
 	      stmt = gimple_build_assign (gimple_call_lhs (stmt), def);
 	      gsi_replace (&stmt_gsi, stmt, true);
-	      update_stmt (stmt);
 	    }
 	  else
 	    {
@@ -3636,10 +3650,6 @@ optimize_inline_calls (tree fn)
   compact_blocks ();
   /* Renumber the lexical scoping (non-code) blocks consecutively.  */
   number_blocks (fn);
-
-  /* We are not going to maintain the cgraph edges up to date.
-     Kill it so it won't confuse us.  */
-  cgraph_node_remove_callees (id.dst_node);
 
   fold_cond_expr_cond ();
 
@@ -4267,6 +4277,29 @@ tree_versionable_function_p (tree fndecl)
   return true;
 }
 
+/* Create a new name for omp child function.  Returns an identifier.  */
+
+static GTY(()) unsigned int clone_fn_id_num;
+
+static tree
+clone_function_name (tree decl)
+{
+  tree name = DECL_ASSEMBLER_NAME (decl);
+  size_t len = IDENTIFIER_LENGTH (name);
+  char *tmp_name, *prefix;
+
+  prefix = XALLOCAVEC (char, len + strlen ("_clone") + 1);
+  memcpy (prefix, IDENTIFIER_POINTER (name), len);
+  strcpy (prefix + len, "_clone");
+#ifndef NO_DOT_IN_LABEL
+  prefix[len] = '.';
+#elif !defined NO_DOLLAR_IN_LABEL
+  prefix[len] = '$';
+#endif
+  ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix, clone_fn_id_num++);
+  return get_identifier (tmp_name);
+}
+
 /* Create a copy of a function's tree.
    OLD_DECL and NEW_DECL are FUNCTION_DECL tree nodes
    of the original function and the new copied function
@@ -4314,7 +4347,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
   /* Generate a new name for the new version. */
   if (!update_clones)
     {
-      DECL_NAME (new_decl) =  create_tmp_var_name (NULL);
+      DECL_NAME (new_decl) = clone_function_name (old_decl);
       SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
       SET_DECL_RTL (new_decl, NULL_RTX);
       id.statements_to_fold = pointer_set_create ();
@@ -4430,28 +4463,16 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 
   /* Clean up.  */
   pointer_map_destroy (id.decl_map);
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
   if (!update_clones)
     {
       fold_marked_statements (0, id.statements_to_fold);
       pointer_set_destroy (id.statements_to_fold);
       fold_cond_expr_cond ();
-    }
-  if (gimple_in_ssa_p (cfun))
-    {
-      free_dominance_info (CDI_DOMINATORS);
-      free_dominance_info (CDI_POST_DOMINATORS);
-      if (!update_clones)
-        delete_unreachable_blocks ();
+      delete_unreachable_blocks ();
       update_ssa (TODO_update_ssa);
-      if (!update_clones)
-	{
-	  fold_cond_expr_cond ();
-	  if (need_ssa_update_p ())
-	    update_ssa (TODO_update_ssa);
-	}
     }
-  free_dominance_info (CDI_DOMINATORS);
-  free_dominance_info (CDI_POST_DOMINATORS);
   VEC_free (gimple, heap, init_stmts);
   pop_cfun ();
   current_function_decl = old_current_function_decl;
@@ -4519,3 +4540,5 @@ tree_can_inline_p (tree caller, tree callee)
   /* Allow the backend to decide if inlining is ok.  */
   return targetm.target_option.can_inline_p (caller, callee);
 }
+
+#include "gt-tree-inline.h"

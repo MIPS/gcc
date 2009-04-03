@@ -852,11 +852,10 @@ cp_build_qualified_type_real (tree type,
     }
 
   /* A restrict-qualified type must be a pointer (or reference)
-     to object or incomplete type, or a function type. */
+     to object or incomplete type. */
   if ((type_quals & TYPE_QUAL_RESTRICT)
       && TREE_CODE (type) != TEMPLATE_TYPE_PARM
       && TREE_CODE (type) != TYPENAME_TYPE
-      && TREE_CODE (type) != FUNCTION_TYPE
       && !POINTER_TYPE_P (type))
     {
       bad_quals |= TYPE_QUAL_RESTRICT;
@@ -1881,9 +1880,8 @@ cp_tree_equal (tree t1, tree t2)
     case PARM_DECL:
       /* For comparing uses of parameters in late-specified return types
 	 with an out-of-class definition of the function.  */
-      if ((!DECL_CONTEXT (t1) || !DECL_CONTEXT (t2))
-	  && same_type_p (TREE_TYPE (t1), TREE_TYPE (t2))
-	  && DECL_NAME (t1) == DECL_NAME (t2))
+      if (same_type_p (TREE_TYPE (t1), TREE_TYPE (t2))
+	  && parm_index (t1) == parm_index (t2))
 	return true;
       else
 	return false;

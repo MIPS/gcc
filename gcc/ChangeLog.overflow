@@ -1,3 +1,7 @@
+2009-04-03  Richard Guenther  <rguenther@suse.de>
+
+	Merge from trunk r145507.
+
 2009-03-18  Richard Guenther  <rguenther@suse.de>
 
 	* fold-const.c (extract_muldiv_1): Retain NV arithmetic

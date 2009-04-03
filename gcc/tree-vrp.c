@@ -5068,7 +5068,7 @@ check_array_ref (tree ref, const location_t *location, bool ignore_off_by_one)
    address of an ARRAY_REF, and call check_array_ref on it.  */
 
 static void
-search_for_addr_array(tree t, const location_t *location)
+search_for_addr_array (tree t, const location_t *location)
 {
   while (TREE_CODE (t) == SSA_NAME)
     {
@@ -5077,8 +5077,8 @@ search_for_addr_array(tree t, const location_t *location)
       if (gimple_code (g) != GIMPLE_ASSIGN)
 	return;
 
-      if (get_gimple_rhs_class (gimple_assign_rhs_code (g)) !=
-	  GIMPLE_SINGLE_RHS)
+      if (get_gimple_rhs_class (gimple_assign_rhs_code (g)) 
+	  != GIMPLE_SINGLE_RHS)
 	return;
 
       t = gimple_assign_rhs1 (g);
@@ -5095,7 +5095,7 @@ search_for_addr_array(tree t, const location_t *location)
       if (TREE_CODE (t) == ARRAY_REF)
 	check_array_ref (t, location, true /*ignore_off_by_one*/);
 
-      t = TREE_OPERAND(t,0);
+      t = TREE_OPERAND (t, 0);
     }
   while (handled_component_p (t));
 }
@@ -5279,7 +5279,7 @@ stmt_interesting_for_vrp (gimple stmt)
 	  && ((is_gimple_call (stmt)
 	       && gimple_call_fndecl (stmt) != NULL_TREE
 	       && DECL_IS_BUILTIN (gimple_call_fndecl (stmt)))
-	      || ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS)))
+	      || !gimple_vuse (stmt)))
 	return true;
     }
   else if (gimple_code (stmt) == GIMPLE_COND
@@ -6098,7 +6098,7 @@ vrp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
       if ((is_gimple_call (stmt)
 	   && gimple_call_fndecl (stmt) != NULL_TREE
 	   && DECL_IS_BUILTIN (gimple_call_fndecl (stmt)))
-	  || ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
+	  || !gimple_vuse (stmt))
 	return vrp_visit_assignment_or_call (stmt, output_p);
     }
   else if (gimple_code (stmt) == GIMPLE_COND)
