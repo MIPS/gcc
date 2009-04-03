@@ -1,3 +1,8 @@
+2009-04-03  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* longlong.h [__ARC700__] (umul_ppmm): Add earlyclobber
+	constraint modifier for operand 1.
+
 2009-02-24  J"orn Rennecke  <joern.rennecke@arc.com>
 
 	* loop-doloop.c (doloop_valid_p): Rename to:

@@ -208,7 +208,7 @@ extern UDItype __udiv_qrnnd (UDItype *, UDItype, UDItype, UDItype);
   __asm__ (								\
        "mpyu\t%1,%2,%3\n\tmpyhu\t%0,%2,%3"				\
 	   : "=r" ((USItype)(w1)),					\
-	     "=r" ((USItype)(w0))					\
+	     "=&r" ((USItype)(w0))					\
 	   : "r" ((USItype)(u)),					\
 	     "r" ((USItype)(v)))
 #define UMUL_TIME 7
