@@ -2,6 +2,10 @@
 
 	Merge from mainline.
 
+2009-04-02  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline.
+
 2009-04-02  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-sra.c (sra_ipa_modify_expr): Use useless_type_conversion_p
