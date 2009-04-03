@@ -1546,6 +1546,14 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   else
     walk_gimple_op (copy, remap_gimple_op_r, &wi); 
 
+  /* Clear the copied virtual operands.  We are not remapping them here
+     but are going to recreate them from scratch.  */
+  if (gimple_has_mem_ops (copy))
+    {
+      gimple_set_vdef (copy, NULL_TREE);
+      gimple_set_vuse (copy, NULL_TREE);
+    }
+
   /* We have to handle EH region remapping of GIMPLE_RESX specially because
      the region number is not an operand.  */
   if (gimple_code (stmt) == GIMPLE_RESX && id->eh_region_offset)
@@ -2276,6 +2284,7 @@ argument_set_in_function_p (struct function *fun, tree parm)
 {
   basic_block bb;
   gimple_stmt_iterator bsi;
+  unsigned int i;
 
   /* When profiling, we still do inlining on non-SSA form.   In this case just give up
      early rather than trying to compute operands.  */
@@ -2285,9 +2294,21 @@ argument_set_in_function_p (struct function *fun, tree parm)
   FOR_EACH_BB_FN (bb, fun)
     {
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
-	if (gimple_stored_syms (gsi_stmt (bsi))
-	    && bitmap_bit_p (gimple_stored_syms (gsi_stmt (bsi)), DECL_UID (parm)))
-	  return true;
+	{
+	  gimple stmt = gsi_stmt (bsi);
+          if (gimple_has_lhs (stmt))
+	    {
+	      tree lhs = get_base_address (gimple_get_lhs (stmt));
+	      if (lhs && lhs == parm)
+	        return true;
+	    }
+	  if (gimple_code (stmt) == GIMPLE_ASM)
+	    {
+	      tree op = get_base_address (TREE_VALUE (gimple_asm_output_op (stmt, i)));
+	      if (op && op == parm)
+	        return true;
+	    }
+	}
     }
   return false;
 }
@@ -3988,6 +4009,9 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   pointer_map_destroy (id->decl_map);
   id->decl_map = st;
 
+  /* Unlink the calls virtual operands before replacing it.  */
+  unlink_stmt_vdef (stmt);
+
   /* If the inlined function returns a result that we care about,
      substitute the GIMPLE_CALL with an assignment of the return
      variable to the LHS of the call.  That is, if STMT was
@@ -3998,10 +4022,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       stmt = gimple_build_assign (gimple_call_lhs (stmt), use_retvar);
       gsi_replace (&stmt_gsi, stmt, false);
       if (gimple_in_ssa_p (cfun))
-	{
-          update_stmt (stmt);
-          mark_symbols_for_renaming (stmt);
-	}
+	mark_symbols_for_renaming (stmt);
       maybe_clean_or_replace_eh_stmt (old_stmt, stmt);
     }
   else
@@ -4021,7 +4042,6 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 		 undefined via a move.  */
 	      stmt = gimple_build_assign (gimple_call_lhs (stmt), def);
 	      gsi_replace (&stmt_gsi, stmt, true);
-	      update_stmt (stmt);
 	    }
 	  else
 	    {
@@ -5013,28 +5033,16 @@ tree_function_versioning (tree old_decl, tree new_decl, VEC(ipa_replace_map_p,gc
 
   /* Clean up.  */
   pointer_map_destroy (id.decl_map);
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
   if (!update_clones)
     {
       fold_marked_statements (0, id.statements_to_fold);
       pointer_set_destroy (id.statements_to_fold);
       fold_cond_expr_cond ();
-    }
-  if (gimple_in_ssa_p (cfun))
-    {
-      free_dominance_info (CDI_DOMINATORS);
-      free_dominance_info (CDI_POST_DOMINATORS);
-      if (!update_clones)
-        delete_unreachable_blocks ();
+      delete_unreachable_blocks ();
       update_ssa (TODO_update_ssa);
-      if (!update_clones)
-	{
-	  fold_cond_expr_cond ();
-	  if (need_ssa_update_p ())
-	    update_ssa (TODO_update_ssa);
-	}
     }
-  free_dominance_info (CDI_DOMINATORS);
-  free_dominance_info (CDI_POST_DOMINATORS);
   VEC_free (gimple, heap, init_stmts);
   pop_cfun ();
   current_function_decl = old_current_function_decl;

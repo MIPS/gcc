@@ -617,27 +617,21 @@ check_stmt_modifications (gimple_stmt_iterator *gsip,
 			  VEC (access_p, heap) *representatives)
 {
   gimple stmt = gsi_stmt (*gsip);
-  unsigned int i = 0;
-  bitmap_iterator bi;
+  unsigned int i;
 
   if (dump_file)
     {
       fprintf (dump_file, "  scanning for references: ");
       print_gimple_stmt (dump_file, stmt, 0, 0);
     }
-  if (gimple_stored_syms (stmt))
-    EXECUTE_IF_SET_IN_BITMAP (gimple_stored_syms (stmt), 0, i, bi)
-      check_op_modifications (representatives, referenced_var_lookup (i));
 
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
       check_op_modifications (representatives, gimple_assign_lhs (stmt));
-      i = 1;
       break;
     case GIMPLE_CALL:
       check_op_modifications (representatives, gimple_call_lhs (stmt));
-      i = 1;
       check_call (representatives, stmt);
       break;
     case GIMPLE_ASM:
