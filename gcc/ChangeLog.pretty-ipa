@@ -1,5 +1,18 @@
 2009-04-03  Jan Hubicka  <jh@suse.cz>
 
+	* cgraph.c (cgraph_remove_node_and_inline_clones): New function.
+	* cgraph.h (cgraph_remove_node_and_inline_clones): Declare.
+	* cgraphunit.c (cgraph_materialize_clone): Initialize bitmap obstacks.
+	(cgraph_matherialize_clone): Update SSA.
+	* tree-inline.c (delete_unreachable_blocks_update_callgraph): New
+	function.
+	(tree_function_versioning): Rebuild SSA always and update cgraph
+	accordingly.
+	* passes.c: Temporarily switch back to original SRA.
+	* tree-cfgcleanup.c (merge_phi_nodes): Do not delete live SSA name.
+
+2009-04-03  Jan Hubicka  <jh@suse.cz>
+
 	Merge from mainline.
 
 2009-04-02  Jan Hubicka  <jh@suse.cz>

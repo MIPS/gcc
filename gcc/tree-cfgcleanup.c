@@ -928,6 +928,20 @@ merge_phi_nodes (void)
 		  tree result = gimple_phi_result (phi);
 		  if (!result_ok_for_phi_merging (result, dest, dest_idx))
 		    {
+	   	      imm_use_iterator iter;
+	  	      use_operand_p use_p;
+		      gimple stmt;
+
+		      /* As we are going to delete this block we will release all
+			 defs which makes the immediate uses on use stmts invalid.
+			 Avoid that by replacing all uses with the bare variable
+			 and updating the stmts.  */
+		      FOR_EACH_IMM_USE_STMT (stmt, iter, result)
+			{
+			  FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+			    SET_USE (use_p, SSA_NAME_VAR (result));
+			  update_stmt (stmt);
+			}
 		      update_ssa = true;
 		      mark_sym_for_renaming (SSA_NAME_VAR
 					     (PHI_RESULT (gsi_stmt (gsi))));

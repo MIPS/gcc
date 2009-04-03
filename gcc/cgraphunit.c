@@ -1674,6 +1674,7 @@ save_inline_function_body (struct cgraph_node *node)
 static void
 cgraph_materialize_clone (struct cgraph_node *node)
 {
+  bitmap_obstack_initialize (NULL);
   /* Copy the OLD_VERSION_NODE function tree to the new version.  */
   tree_function_versioning (node->clone_of->decl, node->decl,
   			    node->clone.tree_map, true,
@@ -1689,6 +1690,7 @@ cgraph_materialize_clone (struct cgraph_node *node)
   node->next_sibling_clone = NULL;
   node->prev_sibling_clone = NULL;
   node->clone_of = NULL;
+  bitmap_obstack_release (NULL);
 }
 
 /* Once all functions from compilation unit are in memory, produce all clones
@@ -1763,6 +1765,9 @@ cgraph_materialize_all_clones (void)
 							 e->callee->clone.args_to_skip);
 		else
 		  new_stmt = e->call_stmt;
+		if (gimple_vdef (new_stmt)
+		    && TREE_CODE (gimple_vdef (new_stmt)) == SSA_NAME)
+		  SSA_NAME_DEF_STMT (gimple_vdef (new_stmt)) = new_stmt;
                 gimple_call_set_fndecl (new_stmt, e->callee->decl);
 
 		gsi = gsi_for_stmt (e->call_stmt);

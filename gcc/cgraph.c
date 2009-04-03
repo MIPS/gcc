@@ -1199,6 +1199,20 @@ cgraph_remove_node (struct cgraph_node *node)
   free_nodes = node;
 }
 
+/* Remove the node from cgraph.  */
+
+void
+cgraph_remove_node_and_inline_clones (struct cgraph_node *node)
+{
+  struct cgraph_edge *e, *next;
+  for (e = node->callees; e; e = next)
+    {
+      next = e->next_callee;
+      if (!e->inline_failed)
+        cgraph_remove_node_and_inline_clones (e->callee);
+    }
+}
+
 /* Notify finalize_compilation_unit that given node is reachable.  */
 
 void
