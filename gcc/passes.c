@@ -597,7 +597,6 @@ init_optimization_passes (void)
       /* Initial scalar cleanups before alias computation.
 	 They ensure memory accesses are not indirect wherever possible.  */
       NEXT_PASS (pass_strip_predict_hints);
-      NEXT_PASS (pass_cleanup_eh);
       NEXT_PASS (pass_update_address_taken);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_complete_unrolli);
@@ -699,7 +698,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phi_only_cprop);
       NEXT_PASS (pass_cd_dce);
       NEXT_PASS (pass_tracer);
-      NEXT_PASS (pass_cleanup_eh);
 
       /* FIXME: If DCE is not run before checking for uninitialized uses,
 	 we may get false warnings (e.g., testsuite/gcc.dg/uninit-5.c).
@@ -769,12 +767,12 @@ init_optimization_passes (void)
       NEXT_PASS (pass_reginfo_init);
       NEXT_PASS (pass_inc_dec);
       NEXT_PASS (pass_initialize_regs);
-      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_ud_rtl_dce);
       NEXT_PASS (pass_combine);
       NEXT_PASS (pass_if_after_combine);
       NEXT_PASS (pass_partition_blocks);
       NEXT_PASS (pass_regmove);
+      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_split_all_insns);
       NEXT_PASS (pass_lower_subreg2);
       NEXT_PASS (pass_df_initialize_no_opt);
@@ -796,7 +794,6 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_branch_target_load_optimize1);
 	  NEXT_PASS (pass_thread_prologue_and_epilogue);
 	  NEXT_PASS (pass_rtl_dse2);
-	  NEXT_PASS (pass_rtl_seqabstr);
 	  NEXT_PASS (pass_stack_adjustments);
 	  NEXT_PASS (pass_peephole2);
 	  NEXT_PASS (pass_if_after_reload);
