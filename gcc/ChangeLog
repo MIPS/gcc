@@ -1,3 +1,144 @@
+2009-04-03  Alan Modra  <amodra@bigpond.net.au>
+
+	* config.gcc (powerpc-*-linux*): Merge variants.
+
+2009-04-02  Chao-ying Fu  <fu@mips.com>
+	    James Grosbach <james.grosbach@microchip.com>
+
+	* config/mips/mips.c (mips_frame_info): Add acc_mask, num_acc,
+	num_cop0_regs, acc_save_offset, cop0_save_offset, acc_sp_offset,
+	cop0_sp_offset.
+	(machine_function): Add interrupt_handler_p, use_shadow_register_set_p,
+	keep_interrupts_masked_p, use_debug_exception_return_p.
+	(mips_attribute_table): Add interrupt, use_shadow_register_set,
+	keep_interrupts_masked, use_debug_exception_return.
+	(mips_interrupt_type_p, mips_use_shadow_register_set_p,
+	mips_keep_interrupts_masked_p, mips_use_debug_exception_return_p):
+	New functions.
+	(mips_function_ok_for_sibcall): Return false for interrupt handlers.
+	(mips_print_operand): Process COP0 registers to print $0 .. $31
+	correctly for GAS to process.
+	(mips_interrupt_extra_call_saved_reg_p): New function.
+	(mips_cfun_call_saved_reg_p): For interrupt handlers, we need to check
+	extra registers.
+	(mips_cfun_might_clobber_call_saved_reg_p): Likewise.
+	(mips_compute_frame_info): Add supports for interrupt context that
+	includes doubleword accumulators and COP0 registers.
+	(mips_for_each_saved_acc): New function.
+	(mips_for_each_saved_gpr_and_fpr): Change the function name from
+	mips_for_each_saved_reg.
+	(mips_save_reg): Save accumulators.
+	(mips_kernel_reg_p): A new for_each_rtx callback.
+	(mips_expand_prologue): Support interrupt handlers.
+	(mips_restore_reg): Restore accumulators.
+	(mips_expand_epilogue): Support interrupt handlers.
+	(mips_can_use_return_insn): Return false for interrupt handlers.
+	(mips_epilogue_uses): New function.
+	* config/mips/mips.md (UNSPEC_ERET, UNSPEC_DERET, UNSPEC_DI,
+	UNSPEC_EHB, UNSPEC_RDPGPR, UNSPEC_COP0): New UNSPEC.
+	(mips_eret, mips_deret, mips_di, mips_ehb, mips_rdpgpr,
+	cop0_move): New instructions.
+	* config/mips/mips-protos.h (mips_epilogue_uses): Declare.
+	* config/mips/mips.h (K0_REG_NUM, K1_REG_NUM, KERNEL_REG_P): New
+	defines.
+	(COP0_STATUS_REG_NUM, COP0_CAUSE_REG_NUM, COP0_EPC_REG_NUM):
+	New defines.
+	(CAUSE_IPL, SR_IPL, SR_EXL, SR_IE): New defines.
+	(MIPS_PROLOGUE_TEMP_REGNUM, MIPS_EPILOGUE_TEMP_REGNUM): For
+	interrupt handlers, we use K0 as the temporary register.
+	(EPILOGUE_USES): Change to a function call.
+	* config/mips/sde.h (MIPS_EPILOGUE_TEMP_REGNUM): For interrupt
+	handlers, we use K0 as the temporary register.
+	
+	* doc/extend.texi (Function Attributes): Document interrupt,
+	use_shadow_register_set, keep_interrupts_masked,
+	use_debug_exception_return for MIPS attributes.
+
+2009-04-03  Alan Modra  <amodra@bigpond.net.au>
+
+	* config.gcc (powerpc64-*-gnu*): Add rs6000/default64.h to tm_file.
+	Remove a number of t-files from tmake_file.
+	* config/rs6000/sysv4.opt (mprototype): Name variable target_prototype.
+	* config/rs6000/sysv4.h (TARGET_PROTOTYPE): Define.
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Set
+	target_prototype, not TARGET_PROTOTYPE.
+	(LINK_OS_GNU_SPEC): Define.
+	* config/rs6000/t-linux64 (LIB2FUNCS_EXTRA): Delete tramp.S
+	and darwin-ldoubdle.c.
+
+2009-04-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR driver/39293
+	* gcc.c (save_temps_flag): Add support for -save-temps=obj.
+	(cpp_options): Ditto.
+	(default_compilers): Ditto.
+	(display_help): Ditto.
+	(process_command): Ditto.
+	(do_spec_1): Ditto.
+	(set_input): Use lbasename instead of duplicate code.
+	(save_temps_prefix): New static for -save-temps=obj.
+	(save_temps_length): Ditto.
+	
+	* doc/invoke.texi (-save-temps=obj): Document new variant to
+	-save-temps switch.
+
+2009-04-02  Jeff Law  <law@redhat.com>
+
+	* reload1.c (fixup_eh_region_notes): Remove write-only "trap_count"
+	variable.
+
+2009-04-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac: Support -Bstatic/-Bdynamic for linker version > 2.
+	* configure: Regenerated.
+
+2009-04-02  Rafael Avila de Espindola  <espindola@google.com>
+
+	* c-decl.c (merge_decls): Make sure newdecl and olddecl don't
+	share the argument list.
+
+2009-04-02  Rafael Avila de Espindola  <espindola@google.com>
+
+	Merge
+
+	2009-02-12  Diego Novillo  <dnovillo@google.com>
+
+	* varpool.c (debug_varpool): New.
+	* cgraph.h (debug_varpool): Declare.
+
+2009-04-02  Jan Hubicka  <jh@suse.cz>
+
+	* passes.c (init_optimization_passes): Remove two copies of ehcleanup
+	pass.
+
+2009-04-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_abi): Move initialization to ...
+	(override_options): Here.
+
+2009-04-02  Christian Bruel  <christian.bruel@st.com>
+
+	* config/sh/sh.c (sh_dwarf_register_span): New function.
+	(TARGET_DWARF_REGISTER_SPAN): Define.
+	* config/sh/sh-protos.h (sh_dwarf_register_span): Declare.
+	
+2009-04-02  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39595
+	* tree-vect-slp.c (vect_build_slp_tree): Check that the size of 
+	interleaved loads group is not  greater than the SLP group size.
+
+2009-04-02  Rafael Avila de Espindola  <espindola@google.com>
+
+	* builtins.c (is_builtin_name): New.
+	(called_as_built_in): Use is_builtin_name.
+	* tree.h (is_builtin_name): New.
+	* varasm.c (incorporeal_function_p): Use is_builtin_name
+
+2009-04-02  Andrew Stubbs  <ams@codesourcery.com>
+
+	* config/sh/linux-unwind.h: Disable when inhibit_libc is defined.
+
 2009-04-02  Dodji Seketeli  <dodji@redhat.com>
 
 	PR c++/26693
