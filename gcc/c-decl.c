@@ -4714,7 +4714,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	       for the pointer.  */
 
 	    if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
-		&& CLEAR_QUAL_ADDR_SPACE (type_quals))
+		&& type_quals)
 	      pedwarn (input_location, OPT_pedantic,
 		       "ISO C forbids qualified function types");
 	    if (type_quals)
@@ -4837,7 +4837,7 @@ grokdeclarator (const struct c_declarator *declarator,
     {
       tree decl;
       if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
-	  && CLEAR_QUAL_ADDR_SPACE (type_quals))
+	  && type_quals)
 	pedwarn (input_location, OPT_pedantic,
 		 "ISO C forbids qualified function types");
       if (type_quals)
@@ -4861,7 +4861,7 @@ grokdeclarator (const struct c_declarator *declarator,
       gcc_assert (storage_class == csc_none && !threadp
 		  && !declspecs->inline_p);
       if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
-	  && CLEAR_QUAL_ADDR_SPACE (type_quals))
+	  && type_quals)
 	pedwarn (input_location, OPT_pedantic,
 		 "ISO C forbids const or volatile function types");
       if (type_quals)
@@ -4927,7 +4927,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 	else if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {
-	    if (CLEAR_QUAL_ADDR_SPACE (type_quals))
+	    if (type_quals)
 	      pedwarn (input_location, OPT_pedantic,
 		       "ISO C forbids qualified function types");
 	    if (type_quals)
@@ -5016,8 +5016,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	DECL_SOURCE_LOCATION (decl) = declarator->id_loc;
 	decl = build_decl_attribute_variant (decl, decl_attr);
 
-	if (pedantic && CLEAR_QUAL_ADDR_SPACE (type_quals)
-	    && !DECL_IN_SYSTEM_HEADER (decl))
+	if (pedantic && type_quals && !DECL_IN_SYSTEM_HEADER (decl))
 	  pedwarn (input_location, OPT_pedantic,
 		   "ISO C forbids qualified function types");
 

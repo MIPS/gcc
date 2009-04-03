@@ -1,3 +1,8 @@
+2009-04-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-decl.c (grokdeclarator): Undo clearing the named address space
+	qualifiers when checking whether a function has type qualifiers.
+
 2009-03-31  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* config/spu/spu-elf.h (DRIVER_SELF_SPECS): Remove.
