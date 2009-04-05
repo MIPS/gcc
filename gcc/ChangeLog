@@ -1,3 +1,157 @@
+2009-04-04  Richard Guenther  <rguenther@suse.de>
+
+	* Makefile.in (tree-ssa-copy.o): Add $(CFGLOOP_H) dependency.
+	* tree-ssa-copy.c (init_copy_prop): Do not propagate through
+	single-argument PHIs if we are in loop-closed SSA form.
+	* tree-vect-loop-manip.c (slpeel_add_loop_guard): Pass extra guards
+	for the pre-condition.
+	(slpeel_tree_peel_loop_to_edge): Likewise.
+	(vect_build_loop_niters): Take an optional sequence to append stmts.
+	(vect_generate_tmps_on_preheader): Likewise.
+	(vect_do_peeling_for_loop_bound): Take extra guards for the
+	pre-condition.
+	(vect_do_peeling_for_alignment): Adjust.  Unconditionally apply
+	the cost model check.
+	(vect_loop_versioning): Take stmt and stmt list to put pre-condition
+	guards if we are going to peel.  Do not apply versioning in that
+	case.
+	* tree-vectorizer.h (vect_loop_versioning): Adjust declaration.
+	(vect_do_peeling_for_loop_bound): Likewise.
+	* tree-vect-loop.c (vect_transform_loop): If we are peeling for
+	loop bound only record extra pre-conditions, do not apply loop
+	versioning.
+
+2009-04-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-operands.c (pop_stmt_changes): Remove automatic
+	renaming code.
+
+2009-04-04  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-uncprop.c (associate_equivalences_with_edges): Use
+	last_basic_block for size of bb->index indexed array.
+	* bt-load.c (compute_defs_uses_and_gen, compute_kill,
+	compute_out, link_btr_uses, build_btr_def_use_webs,
+	build_btr_def_use_webs, migrate_btr_defs): Likewise.
+
+2009-04-04  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (remove_eh_handler_and_replace): Break out from ...
+	(remove_eh_handler): ... here.
+	(bring_to_root): New function.
+	(remove_unreachable_regions): Collect MUST_NOT_THROW, unify runtime
+	handled ones, bring others to root of tree.
+
+2009-04-04  Jan Hubicka  <jh@suse.cz>
+
+	* tree-eh.c (tree_empty_eh_handler_p): Pattern match more curefully.
+	(all_phis_safe_to_merge): New function.
+	(update_info): New structure.
+	(make_eh_edge_and_update_phi, update_eh_edges): New functions.
+	(cleanup_empty_eh): Update SSA if possible.
+
+2009-04-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa.c (verify_ssa): With -O0 we do not need VOPs.
+	* tree-ssa-operands.c (append_vdef): Do not append VOPs at -O0.
+	(append_vuse): Likewise.
+
+2009-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* unwind-dw2.h (_Unwind_FrameState): Add REG_UNDEFINED enum value.
+	* unwind-dw2.c (execute_cfa_program): Set how to REG_UNDEFINED
+	instead of REG_UNSAVED for DW_CFA_undefined.
+	(uw_update_context_1): Handle REG_UNDEFINED the same as REG_UNSAVED.
+	(uw_update_context): If RA column is REG_UNDEFINED, mark it as
+	outermost frame.
+
+2009-04-04  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/39501
+	* arm.md (movsfcc): Disable if not TARGET_HARD_FLOAT.
+	* testsuite/gcc.c-torture/execute/pr39501.c: New file.
+	* testsuite/gcc.c-torture/execute/pr39501.x: New file.
+
+2009-04-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/8781
+	PR tree-optimization/37892
+	* tree-ssa-sccvn.h (vn_reference_fold_indirect): Declare.
+	* tree-ssa-sccvn.c (vn_reference_fold_indirect): New function.
+	(valueize_refs): Call it for *& valueizations.
+	(shared_reference_ops_from_ref): Rename to ...
+	(valueize_shared_reference_ops_from_ref): ... this and valueize.
+	(shared_reference_ops_from_call): Rename to ...
+	(valueize_shared_reference_ops_from_call): ... this and valueize.
+	(vn_reference_lookup): Update.
+	(visit_reference_op_call): Likewise.
+	* tree-ssa-pre.c (phi_translate_1): Fold *&.
+	(eliminate): Value-replace the call address in call statements.
+
+2009-04-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39636
+	* tree-ssa-forwprop.c
+	(forward_propagate_addr_into_variable_array_index): Check for
+	GIMPLE_ASSIGN before accessing the rhs code.
+
+2009-04-03  Jason Merrill  <jason@redhat.com>
+
+	* stor-layout.c (set_sizetype): Set TYPE_CANONICAL.
+
+2009-04-03  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.md (extendsfdf2, extendsfxf2, extenddfxf2,
+	truncdfsf2, truncxfsf2, truncxfdf2, floatdixf2, fix_truncsfdi2,
+	fix_truncdfdi2, fix_truncxfdi2, fix_truncxfdi2_alts, floatunsdisf2,
+	floatunsdidf2, floatunsdixf2, fixuns_truncsfdi2, fixuns_truncdfdi2,
+	fixuns_truncxfdi2, fixuns_truncxfdi2_alts, divsi3_internal,
+	smuldi3_highpart, umuldi3_highpart, ctzdi2, *getf_exp_xf,
+	divdi3_internal_lat, divdi3_internal_thr, mulditi3, *mulditi3_internal,
+	umulditi3, *umulditi3_internal, addsf3, mulsf3, abssf2, negsf2,
+	*nabssf2, sminsf3, smaxsf3, *maddsf4, *msubsf4, *nmulsf3, *nmaddsf4,
+	*nmaddsf4_alts, divsf3, *sqrt_approx, sqrtsf2, sqrtsf2_internal_thr,
+	adddf3, *adddf3_trunc, muldf3, *muldf3_trunc, absdf2, negdf2, *nabsdf2,
+	smindf3, smaxdf3, *madddf4, *madddf4_trunc, *msubdf4, *msubdf4_trunc,
+	*nmuldf3, *nmuldf3_trunc, *nmadddf4, *nmadddf4_alts, *nmadddf4_truncsf,
+	*nmadddf4_truncsf_alts, divdf3, sqrtdf2, sqrtdf2_internal_thr, divxf3,
+	sqrtxf2, sqrtxf2_internal_thr, *recip_approx):
+	Use fr_reg_or_fp01_operand instead of fr_register_operand
+
+	* config/ia64/div.md (extend<mode>rf2, truncrf<mode>2,
+	recip_approx_rf, divsf3_internal_thr, divsf3_internal_lat,
+	divdf3_internal_thr, divdf3_internal_lat divxf3_internal): Ditto.
+
+2009-04-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/39607
+	PR rtl-optimization/39631
+	Revert
+	2009-03-30  Vladimir Makarov  <vmakarov@redhat.com>
+	* reload.c (push_reload, find_dummy_reload): Use df_get_live_out
+	instead of DF_LR_OUT.
+	* ira-lives.c (process_bb_node_lives): Ditto.
+	* ira-color.c (ira_loop_edge_freq): Use df_get_live_{out,in}
+	instead of DF_LR_{OUT,IN}.
+	* ira-emit.c (generate_edge_moves, add_ranges_and_copies): Ditto.
+	* ira-build.c (create_bb_allocnos, create_loop_allocnos): Ditto.
+
+2009-04-03  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* omp-low.c (pass_expand_omp): Don't claim to provide PROP_gimple_lomp.
+	(execute_lower_omp): Always run but take the short way out if -fopenmp
+	is not given.
+	(gate_lower_omp): Remove, forcing the pass manager to always run the
+	pass and always set PROP_gimple_lomp.
+	(pass_lower_omp): Remove gate function.
+	* matrix-reorg.c (pass_ipa_matrix_reorg): Don't claim to provide
+	PROP_trees.  Instead, require it.
+	* ipa-cp.c (pass_ipa_cp): Likewise.
+	* ipa-inline.c (pass_early_inline): Don't claim to provide PROP_cfg.
+	(pass_ipa_early_inline, pass_inline_parameters, pass_ipa_inline): Idem.
+	* tree-profile.c (pass_tree_profile): Don't claim to provide PROP_cfg
+	and PROP_gimple_leh.
+
 2009-04-03  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/13146

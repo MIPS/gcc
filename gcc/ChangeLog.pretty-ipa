@@ -1,3 +1,7 @@
+2009-04-04  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline.
+
 2009-04-03  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (cgraph_remove_node_and_inline_clones): New function.
