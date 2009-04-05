@@ -124,6 +124,8 @@ struct eh_region GTY(())
   struct eh_region *inner;
   struct eh_region *next_peer;
 
+  struct eh_region *next_region_sharing_label;
+
   /* An identifier for this region.  */
   int region_number;
 
@@ -866,11 +868,12 @@ remove_unreachable_regions (sbitmap reachable, sbitmap contains_stmt)
 /* Return array mapping LABEL_DECL_UID to region such that region's tree_label
    is identical to label.  */
 
-VEC(int,heap) *
+VEC (int, heap) *
 label_to_region_map (void)
 {
-  VEC(int,heap) * label_to_region = NULL;
+  VEC (int, heap) * label_to_region = NULL;
   int i;
+  int idx;
 
   VEC_safe_grow_cleared (int, heap, label_to_region,
 			 cfun->cfg->last_label_uid + 1);
@@ -878,8 +881,14 @@ label_to_region_map (void)
     {
       struct eh_region *r = VEC_index (eh_region, cfun->eh->region_array, i);
       if (r && r->region_number == i
-      	  && r->tree_label && LABEL_DECL_UID (r->tree_label) >= 0)
+	  && r->tree_label && LABEL_DECL_UID (r->tree_label) >= 0)
 	{
+	  if ((idx = VEC_index (int, label_to_region,
+				LABEL_DECL_UID (r->tree_label))) != 0)
+	      r->next_region_sharing_label =
+	      VEC_index (eh_region, cfun->eh->region_array, idx);
+	  else
+	    r->next_region_sharing_label = NULL;
 	  VEC_replace (int, label_to_region, LABEL_DECL_UID (r->tree_label),
 		       i);
 	}
@@ -892,6 +901,18 @@ int
 num_eh_regions (void)
 {
   return cfun->eh->last_region_number + 1;
+}
+
+int
+get_next_region_sharing_label (int region)
+{
+  struct eh_region *r;
+  if (!region)
+    return 0;
+  r = VEC_index (eh_region, cfun->eh->region_array, region);
+  if (!r || !r->next_region_sharing_label)
+    return 0;
+  return r->next_region_sharing_label->region_number;
 }
 
 /* Remove all regions whose labels are not reachable from insns.  */
@@ -910,9 +931,11 @@ rtl_remove_unreachable_regions (rtx insns)
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
+      int id;
       r = VEC_index (eh_region, cfun->eh->region_array, i);
       if (!r || r->region_number != i)
 	continue;
+      r->next_region_sharing_label = NULL;
 
       if (r->resume)
 	{
@@ -921,13 +944,32 @@ rtl_remove_unreachable_regions (rtx insns)
 	}
       if (r->label)
 	{
-	  gcc_assert (!uid_region_num[INSN_UID (r->label)]);
+	  id = uid_region_num[INSN_UID (r->label)];
+	  if (id != 0)
+	     r->next_region_sharing_label = VEC_index (eh_region,
+						       cfun->eh->region_array,
+						       id);
 	  uid_region_num[INSN_UID (r->label)] = i;
 	}
     }
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
-    SET_BIT (reachable, uid_region_num[INSN_UID (insn)]);
+    {
+      int region;
+      SET_BIT (reachable, uid_region_num[INSN_UID (insn)]);
+      if (GET_CODE (insn) == CODE_LABEL)
+	{
+	  region = get_next_region_sharing_label (uid_region_num[INSN_UID (insn)]);
+	  while (region)
+	    {
+	      SET_BIT (reachable, region);
+	      region = get_next_region_sharing_label (region);
+	    }
+	}
+      if (GET_CODE (insn) == JUMP_INSN
+	  && GET_CODE (PATTERN (insn)) == RESX)
+        SET_BIT (reachable, XINT (PATTERN (insn), 0));
+    }
 
   remove_unreachable_regions (reachable, NULL);
 
@@ -2615,6 +2657,19 @@ remove_eh_region (int r)
 
   region = VEC_index (eh_region, cfun->eh->region_array, r);
   remove_eh_handler (region);
+}
+
+/* Remove Eh region R that has turned out to have no code in its handler
+   and replace in by R2.  */
+
+void
+remove_eh_region_and_replace (int r, int r2)
+{
+  struct eh_region *region, *region2;
+
+  region = VEC_index (eh_region, cfun->eh->region_array, r);
+  region2 = VEC_index (eh_region, cfun->eh->region_array, r2);
+  remove_eh_handler_and_replace (region, region2);
 }
 
 /* Invokes CALLBACK for every exception handler label.  Only used by old

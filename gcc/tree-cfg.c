@@ -4741,9 +4741,6 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
   if (e->dest == dest)
     return NULL;
 
-  if (e->flags & EDGE_EH)
-    return redirect_eh_edge (e, dest);
-
   gsi = gsi_last_bb (bb);
   stmt = gsi_end_p (gsi) ? NULL : gsi_stmt (gsi);
 

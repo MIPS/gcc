@@ -2695,8 +2695,11 @@ tree_remove_unreachable_handlers (void)
 	if (gimple_code (stmt) == GIMPLE_LABEL && has_eh_preds)
 	  {
 	    int uid = LABEL_DECL_UID (gimple_label_label (stmt));
-	    int region = VEC_index (int, label_to_region, uid);
-	    SET_BIT (reachable, region);
+	    int region;
+
+	    for (region = VEC_index (int, label_to_region, uid);
+		 region; region = get_next_region_sharing_label (region))
+	      SET_BIT (reachable, region);
 	  }
 	if (gimple_code (stmt) == GIMPLE_RESX)
 	  SET_BIT (reachable, gimple_resx_region (stmt));
@@ -2743,6 +2746,8 @@ tree_empty_eh_handler_p (basic_block bb)
 {
   gimple_stmt_iterator gsi;
   int region;
+  edge_iterator ei;
+  edge e;
   use_operand_p imm_use;
   gimple use_stmt;
 
@@ -2815,6 +2820,17 @@ tree_empty_eh_handler_p (basic_block bb)
       if (gsi_end_p (gsi))
 	return 0;
     }
+
+  /* Splitting critical edges might create handler with non-EH predecestors.
+     Do not care about it: if we end up putting nothing on those critical
+     edges, the handlers will be merged again.  If not, we will end up with
+     extra EH landing pad doing nothing.  Not terribly bad given the fact
+     that outer block of that EH landing pad is anyway reachable from
+     the split critical edge with non-trivial cleanup.  */
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    if (!(e->flags & EDGE_EH))
+      return 0;
+
   while (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
     {
       if (gimple_label_label (gsi_stmt (gsi))
@@ -3017,7 +3033,7 @@ update_eh_edges (gimple stmt, basic_block bb_to_remove, edge edge_to_remove)
    This is similar to jump forwarding, just across EH edges.  */
 
 static bool
-cleanup_empty_eh (basic_block bb)
+cleanup_empty_eh (basic_block bb, VEC(int,heap) * label_to_region)
 {
   int region;
   gimple_stmt_iterator si;
@@ -3030,7 +3046,34 @@ cleanup_empty_eh (basic_block bb)
       && all_phis_safe_to_merge (bb))
     {
       edge e;
+      bool found = false;
+      gimple_stmt_iterator gsi;
 
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+        if (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
+	  {
+	    int uid = LABEL_DECL_UID (gimple_label_label (gsi_stmt (gsi)));
+	    int r = VEC_index (int, label_to_region, uid);
+	    int next;
+
+	    while (r)
+	      {
+		next = get_next_region_sharing_label (r);
+		if (r == region)
+		  found = true;
+		else
+		  {
+		     remove_eh_region_and_replace (r, region);
+		     if (dump_file)
+		       fprintf (dump_file, "Empty EH handler %i removed and "
+		       		"replaced by %i\n", r, region);
+		  }
+		r = next;
+	      }
+	  }
+	else
+	  break;
+      gcc_assert (found);
       remove_eh_region (region);
 
       while ((e = ei_safe_edge (ei_start (bb->preds))))
@@ -3041,8 +3084,6 @@ cleanup_empty_eh (basic_block bb)
 	    update_eh_edges (last_stmt (src), bb, e);
 	  remove_edge (e);
 	}
-      if (dump_file)
-	fprintf (dump_file, "Empty EH handler %i removed\n", region);
 
       /* Verify that we eliminated all uses of PHI we are going to remove.
          If we didn't, rebuild SSA on affected variable (this is allowed only
@@ -3111,6 +3152,7 @@ cleanup_eh (void)
 {
   bool changed = false;
   basic_block bb;
+  VEC(int,heap) * label_to_region;
   int i;
 
   if (!cfun->eh)
@@ -3121,14 +3163,16 @@ cleanup_eh (void)
       dump_eh_tree (dump_file, cfun);
     }
 
+  label_to_region = label_to_region_map ();
   dominance_info_invalidated = false;
   /* We cannot use FOR_EACH_BB, since the basic blocks may get removed.  */
   for (i = NUM_FIXED_BLOCKS; i < last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
       if (bb)
-	changed |= cleanup_empty_eh (bb);
+	changed |= cleanup_empty_eh (bb, label_to_region);
     }
+  VEC_free (int, heap, label_to_region);
   if (dominance_info_invalidated)
     {
       free_dominance_info (CDI_DOMINATORS);

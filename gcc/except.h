@@ -64,6 +64,7 @@ extern void init_eh_for_function (void);
 extern rtx reachable_handlers (rtx);
 extern void maybe_remove_eh_handler (rtx);
 void remove_eh_region (int);
+void remove_eh_region_and_replace (int, int);
 
 extern void convert_from_eh_region_ranges (void);
 extern unsigned int convert_to_eh_region_ranges (void);
@@ -182,3 +183,4 @@ extern void remove_unreachable_regions (sbitmap, sbitmap);
 extern VEC(int,heap) * label_to_region_map (void);
 extern int num_eh_regions (void);
 extern bitmap must_not_throw_labels (void);
+extern int get_next_region_sharing_label (int);
