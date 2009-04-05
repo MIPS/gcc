@@ -932,6 +932,7 @@ merge_phi_nodes (void)
 	  	      use_operand_p use_p;
 		      gimple stmt;
 
+		      gcc_assert (!is_gimple_reg (result));
 		      /* As we are going to delete this block we will release all
 			 defs which makes the immediate uses on use stmts invalid.
 			 Avoid that by replacing all uses with the bare variable

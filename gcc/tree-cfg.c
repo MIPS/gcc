@@ -1190,7 +1190,7 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
   if (!single_succ_p (a))
     return false;
 
-  if (single_succ_edge (a)->flags & EDGE_ABNORMAL)
+  if (single_succ_edge (a)->flags & (EDGE_ABNORMAL | EDGE_EH))
     return false;
 
   if (single_succ (a) != b)
@@ -4741,6 +4741,9 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
   if (e->dest == dest)
     return NULL;
 
+  if (e->flags & EDGE_EH)
+    return redirect_eh_edge (e, dest);
+
   gsi = gsi_last_bb (bb);
   stmt = gsi_end_p (gsi) ? NULL : gsi_stmt (gsi);
 
@@ -4833,7 +4836,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 static bool
 gimple_can_remove_branch_p (const_edge e)
 {
-  if (e->flags & EDGE_ABNORMAL)
+  if (e->flags & (EDGE_ABNORMAL | EDGE_EH))
     return false;
 
   return true;
@@ -6947,10 +6950,31 @@ split_critical_edges (void)
   FOR_ALL_BB (bb)
     {
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
-	  {
+        {
+	  if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
 	    split_edge (e);
-	  }
+	  /* PRE inserts statements to edes and expect that 
+	     since split_critical_edges was done beforehand, commiting edge
+	     insertions will not split more edges.  In addition to critical
+	     edges we must split edges that has mulptiple succestors and
+	     ends by control flow statement, such as RESX. 
+	     Go ahead and split them too.  This match logic in
+	     gimple_find_edge_insert_loc.  */
+	  else if ((!single_pred_p (e->dest)
+	            || phi_nodes (e->dest)
+	            || e->dest == EXIT_BLOCK_PTR)
+		   && e->src != ENTRY_BLOCK_PTR
+	           && !(e->flags & EDGE_ABNORMAL))
+	    {
+	      gimple_stmt_iterator gsi;
+
+	      gsi = gsi_last_bb (e->src);
+	      if (!gsi_end_p (gsi)
+		  && stmt_ends_bb_p (gsi_stmt (gsi))
+		  && gimple_code (gsi_stmt (gsi)) != GIMPLE_RETURN)
+		split_edge (e);
+	    }
+	}
     }
   end_recording_case_labels ();
   return 0;

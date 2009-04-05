@@ -1,5 +1,18 @@
 2009-04-04  Jan Hubicka  <jh@suse.cz>
 
+	* tree-ssa-propagate.c (simulate_block): Insert EH egdges too;
+	update comment.
+	* tree-cfgcleanup.c (merge_phi_nodes): Assert that we mark for
+	renaming only virtuals.
+	* tree-inline.c (update_ssa_across_abnormal_edges): Do handle
+	updating of non-abnormal EH edges.
+	* tree-cfg.c (gimple_can_merge_blocks_p): EH edges are unmergable.
+	(gimple_can_remove_branch_p): EH edges are unremovable by redirection.
+	(split_critical_edges): Split also edges where emitting code on them
+	will lead to splitting later.
+
+2009-04-04  Jan Hubicka  <jh@suse.cz>
+
 	Merge from mainline.
 
 2009-04-03  Jan Hubicka  <jh@suse.cz>

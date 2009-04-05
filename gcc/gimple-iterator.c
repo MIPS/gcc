@@ -667,6 +667,9 @@ restart:
       if (!stmt_ends_bb_p (tmp))
 	return true;
 
+      /* It would be tempting to handle GIMPLE_RESX here too, but
+         we would have to verify that the sequence inserted is not
+	 setting FILTER_EXPR and EXC_PTR_EXPR used implicitly by RESX.  */
       if (gimple_code (tmp) == GIMPLE_RETURN)
         {
 	  gsi_prev (gsi);
