@@ -31,7 +31,11 @@ namespace gcc4cli.objcopy {
         void Run ()
         {
             try {
-                CFile ofile = CFileFactory.LoadCFile (m_inputFile);
+                CFile cfile = CFileFactory.LoadCFile (m_inputFile);
+                if (cfile is CStaticLibrary)
+                    Error (prog_name + " cannot handle Static Libraries");
+                    
+                CFileModifier ofile = cfile as CFileModifier;
                 if (   !keepSymbols.IsEmpty
                     || !stripSymbols.IsEmpty
                     || !stripUnnededSymbols.IsEmpty

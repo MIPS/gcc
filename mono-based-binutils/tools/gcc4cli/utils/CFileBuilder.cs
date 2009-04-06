@@ -8,7 +8,7 @@ using Mono.Cecil.Cil;
 
 namespace gcc4cli.util {
 
-    public abstract class CFileBuilder : CFile, ICFileBuilder {
+    public abstract class CFileBuilder : CFileModifier, ICFileBuilder {
 
         bool building = false;
         bool filesAdded = false;

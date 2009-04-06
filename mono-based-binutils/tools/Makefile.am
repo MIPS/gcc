@@ -38,6 +38,7 @@ UTILS_SRC = \
 	gcc4cli/utils/CFileBuilderWithRuntime.cs \
 	gcc4cli/utils/CFileException.cs \
 	gcc4cli/utils/CFileFactory.cs \
+	gcc4cli/utils/CFileModifier.cs \
 	gcc4cli/utils/CObject.cs \
 	gcc4cli/utils/CStaticLibrary.cs \
 	gcc4cli/utils/CodeFixer.cs \
@@ -46,6 +47,7 @@ UTILS_SRC = \
 	gcc4cli/utils/TypeMismatchException.cs \
 	gcc4cli/utils/WrongFileFormatException.cs \
 	gcc4cli/utils/ICFileBuilder.cs \
+	gcc4cli/utils/ICFileModifier.cs \
 	gcc4cli/utils/IReferenceGetters.cs \
 	gcc4cli/utils/ReferenceGetters.cs \
 	gcc4cli/utils/ReferenceGettersCached.cs \
