@@ -1,3 +1,56 @@
+2009-04-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-06  Joey Ye  <joey.ye@intel.com>
+		    Xuepeng Guo <xuepeng.guo@intel.com>
+		    H.J. Lu  <hongjiu.lu@intel.com>
+
+	Atom pipeline model, tuning and insn selection.
+	* config.gcc (atom): Add atom config options and target.
+
+	* config/i386/atom.md: New.
+
+	* config/i386/i386.c (atom_cost): New cost.
+	(m_ATOM): New macro flag.
+	(initial_ix86_tune_features): Set m_ATOM.
+	(x86_accumulate_outgoing_args): Likewise.
+	(x86_arch_always_fancy_math_387): Likewise.
+	(processor_target): Add Atom cost.
+	(cpu_names): Add Atom cpu name.
+	(override_options): Set Atom ISA.
+	(ix86_issue_rate): New case PROCESSOR_ATOM.
+	(ix86_adjust_cost): Likewise.
+
+	* config/i386/i386.h (TARGET_ATOM): New target macro.
+	(ix86_tune_indices): Add X86_TUNE_OPT_AGU.
+	(TARGET_OPT_AGU): New target option.
+	(target_cpu_default): Add TARGET_CPU_DEFAULT_atom.
+	(processor_type): Add PROCESSOR_ATOM.
+
+	* config/i386/i386.md (cpu): Add new value "atom".
+	(use_carry, movu): New attr.
+	(atom.md): Include atom.md.
+	(adddi3_carry_rex64): Set attr "use_carry".
+	(addqi3_carry): Likewise.
+	(addhi3_carry): Likewise.
+	(addsi3_carry): Likewise.
+	(*addsi3_carry_zext): Likewise.
+	(subdi3_carry_rex64): Likewise.
+	(subqi3_carry): Likewise.
+	(subhi3_carry): Likewise.
+	(subsi3_carry): Likewise.
+	(x86_movdicc_0_m1_rex64): Likewise.
+	(*x86_movdicc_0_m1_se): Likewise.
+	(x86_movsicc_0_m1): Likewise.
+	(*x86_movsicc_0_m1_se): Likewise.
+	(*adddi_1_rex64): Emit add insn as much as possible.
+	(*addsi_1): Likewise.
+	(return_internal): Set atom_unit.
+	(return_internal_long): Likewise.
+	(return_pop_internal): Likewise.
+	(*rcpsf2_sse): Set atom_sse_attr attr.
+	(*qrt<mode>2_sse): Likewise.
+
 2009-04-02  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
