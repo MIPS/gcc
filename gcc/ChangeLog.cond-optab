@@ -1,5 +1,65 @@
 2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
+        * dojump.c (compare_from_rtx): Delete.
+        * expmed.c (emit_store_flag): Only try cstore_optab.  Canonicalize
+        any MODE_CC mode to the cstorecc4 pattern.  Use prepare_operand, fail
+	if the comparison does not satisfy the predicate; test predicates for
+	operands 2 and 3 of a cstore pattern.  Don't try cstore optab
+	further if one existing pattern fails.
+        * expr.h (compare_from_rtx): Delete.
+	(prepare_operand): Declare it.
+        * optabs.c (bcc_gen_fctn, setcc_gen_code, trap_rtx,
+        emit_cmp_insn): Delete.
+        (can_compare_p): Delete cmp_optab case.
+	(prepare_float_lib_cmp): Return an rtx and a machine mode.
+        Accept other parameters by value.
+        (prepare_operand): Make non-static.
+        (prepare_cmp_insn): Return an rtx and a machine mode.  Accept
+        other parameters by value.  Try to widen operands here based on
+        an optab_methods argument and looking at cbranch_optab.
+        (emit_cmp_and_jump_insn_1): Accept test and mode, remove widening loop.
+	Use cbranch_optab directly.
+        (emit_cmp_and_jump_insns): Fix comment.  Adjust call to prepare_cmp_insn
+	and emit_cmp_and_jump_insn_1, remove obsolete assertion.
+        (emit_conditional_move, emit_conditional_add): Inline what's needed
+        of compare_from_rtx, using new prepare_cmp_insn for the rest.
+	(gen_cond_trap): Use prepare_cmp_insn.
+        (init_optabs): Init cmp_optab with UNKNOWN, cbranch_optab
+        with COMPARE.  Move cmov_optab and cstore_optab above
+        with cbranch_optab, move cmp_optab down with ucmp_optab,
+        remove tst_otpab.  Do not initialize trap_rtx.
+        (gen_cond_trap): Do it here.  Use ctrap_optab.  Test predicate
+	for trap code.
+        * optabs.h (OTI_cmp): Mark as used only for libcalls.
+        (OTI_ctrap, ctrap_optab): New.
+        (tst_optab): Delete.
+        (bcc_gen_fctn, setcc_gen_code, emit_cmp_insn): Delete.
+        * ifcvt.c (find_if_header): Replace HAVE_conditional_trap
+        with lookup of ctrap_optab.
+        * genopinit.c (cmp_optab, tst_optab, bcc_gen_fctn,
+        setcc_gen_code): Delete.
+        (ctrap_optab): New.
+
+        * combine.c (combine_simplify_rtx, simplify_set): Do not
+        special case comparing against zero for cc0 machines.
+
+        * doc/md.texi (bCC, sCC, tstMM, cmpMM): Delete.
+        (cstoreMM4): Document.
+	(conditional_trap): Document ctrapMM4 instead.
+        (sync_compare_and_swapMM): Refer to cbranchcc4.
+	(Dependent Patterns): Eliminate obsolete information referring to
+	the old jump optimization phase.
+        (Canonicalization): Include cbranchcc4 case, omit canonicalization
+	of compares with 0 on cc0 machines.
+	(Jump Patterns): Refer to MODE_CC jump patterns preferably,
+	avoiding references to cc0.  Remove text about storing operands
+	in cmpMM.
+	* doc/tm.texi (Condition Codes): Include blurb on different
+	condition code representations, separate into subsections for
+	CC0, MODE_CC and conditional execution.
+
+2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
+
         * recog.c (ordered_comparison_operator): New.
         * gensupport.c (std_preds): Add it.
 
