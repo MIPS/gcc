@@ -1,5 +1,9 @@
 2009-04-04  Jan Hubicka  <jh@suse.cz>
 
+	* Merge from mainline.
+
+2009-04-04  Jan Hubicka  <jh@suse.cz>
+
 	* tree-eh.c (tree_remove_unreachable_handlers): Handle shared labels.
 	(tree_empty_eh_handler_p): Verify that there are no non-EH predecestors
 	(cleanup_empty_eh): Get label to region map; handle regions sharing

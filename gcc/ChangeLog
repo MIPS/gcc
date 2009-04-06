@@ -1,3 +1,27 @@
+2009-04-06  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config.gcc (mingw32 tm_file):  Add mingw-stdint.h.
+	(mingw32 tm clause use_gcc_stdint):  Set to wrap.
+	* config/i386/mingw-stdint.h:  New file.
+
+2009-04-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39648
+	* tree-ssa-sccvn.c (vn_reference_fold_indirect): Work around
+	our &A vs. &A[0] IL deficiencies.
+
+2009-04-04  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (sjlj_find_directly_reachable_regions): Be ready for
+	removed toplevel regions.
+	(sjlj_mark_call_sites): Likewise.
+
+2009-04-04  Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	* config.gcc (cygwin tm_file):  Add cygwin-stdint.h.
+	(cygwin tm clause use_gcc_stdint):  Set to wrap.
+	* config/i386/cygwin-stdint.h:  New file.
+
 2009-04-04  Richard Guenther  <rguenther@suse.de>
 
 	* Makefile.in (tree-ssa-copy.o): Add $(CFGLOOP_H) dependency.
