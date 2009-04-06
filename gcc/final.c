@@ -2316,6 +2316,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		&& GET_CODE (SET_DEST (set)) == CC0
 		&& insn != last_ignored_compare)
 	      {
+		rtx src = SET_SRC (set);
 		if (GET_CODE (SET_SRC (set)) == SUBREG)
 		  SET_SRC (set) = alter_subreg (&SET_SRC (set));
 		else if (GET_CODE (SET_SRC (set)) == COMPARE)
@@ -2326,11 +2327,14 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		    if (GET_CODE (XEXP (SET_SRC (set), 1)) == SUBREG)
 		      XEXP (SET_SRC (set), 1)
 			= alter_subreg (&XEXP (SET_SRC (set), 1));
+		    if (XEXP (SET_SRC (set), 1)
+			== CONST0_RTX (GET_MODE (XEXP (SET_SRC (set), 0))))
+		      src = XEXP (SET_SRC (set), 0);
 		  }
 		if ((cc_status.value1 != 0
-		     && rtx_equal_p (SET_SRC (set), cc_status.value1))
+		     && rtx_equal_p (src, cc_status.value1))
 		    || (cc_status.value2 != 0
-			&& rtx_equal_p (SET_SRC (set), cc_status.value2)))
+			&& rtx_equal_p (src, cc_status.value2)))
 		  {
 		    /* Don't delete insn if it has an addressing side-effect.  */
 		    if (! FIND_REG_INC_NOTE (insn, NULL_RTX)

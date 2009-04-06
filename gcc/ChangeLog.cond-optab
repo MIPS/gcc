@@ -1,3 +1,8 @@
+2008-04-06  Paolo Bonzini  <bonzini@gnu.org>
+
+        * final.c (final_scan_insn): Compare cc_status values
+        against LHS of a (compare FOO (const_int 0)) cc0 source.
+
 2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
         * gcc/optabs.c (can_compare_p): Test the predicate of a
