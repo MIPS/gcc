@@ -619,8 +619,3 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
       }                                                                   \
   } while (0)
 
-/* These are set by the cmp patterns and used while expanding
-   conditional branches. */
-extern GTY(()) rtx spu_compare_op0;
-extern GTY(()) rtx spu_compare_op1;
-
