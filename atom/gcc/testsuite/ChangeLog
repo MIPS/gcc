@@ -1,3 +1,66 @@
+2009-04-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35146
+	* g++.dg/template/fnspec1.C: New.
+
+2009-04-06  Laurent GUERBY  <laurent@guerby.net>
+
+        * lib/gnat.exp: Handle multilib.
+	
+2009-04-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38863
+	* gfortran.dg/dependency_23.f90: New test.
+
+2009-04-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/28868
+	* gcc.dg/tree-ssa/ssa-fre-21.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-sccvn-1.c: Adjust.
+	* gcc.dg/tree-ssa/ssa-sccvn-2.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-sccvn-4.c: Likewise.
+
+2009-04-06  Andrew Stubbs  <ams@codesourcery.com>
+
+	* gcc.dg/pragma-isr-trapa2.c: Skip test for FPU-less architectures.
+
+2009-04-06  Andrew Stubbs  <ams@codesourcery.com>
+
+	* gcc.target/sh/sh4a-memmovua.c: Include string.h instead of stdlib.h.
+
+2009-04-06  Andrew Stubbs  <ams@codesourcery.com>
+
+	* gcc.target/sh/sh4a-bitmovua.c (y0): Rename to y_0 to avoid a clash
+	with the built-in y0, and the subsequent warning.
+	(y1): Likewise, rename to y_1.
+
+2009-04-06  Janus Weil  <janus@gcc.gnu.org>
+
+       PR fortran/39414
+       * gfortran.dg/proc_decl_21.f90: New.
+
+2009-04-06  Paul Thomas  <pault@gcc.gnu.org>
+
+        PR fortran/36091
+        * gfortran.dg/forall_13.f90: Add -fbounds-check option.
+
+2009-04-06  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gfortran.dg/namelist_51.f90, gfortran.dg/utf8_2.f03,
+	gfortran.dg/namelist_48.f90, gfortran.dg/read_repeat.f90,
+	gfortran.dg/streamio_9.f90, gfortran.dg/widechar_IO_1.f90,
+	gfortran.dg/namelist_50.f90, gfortran.dg/namelist_52.f90,
+	gfortran.dg/utf8_1.f03, gfortran.dg/namelist_56.f90,
+	gfortran.dg/namelist_49.f90: Gate test on effective_target
+	fd_truncate.
+	* gfortran.dg/widechar_IO_3.f90: Ditto.  Fix typo in comment.
+
+2009-04-05  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/38654
+	* gfortran.dg/read_float_2.f03
+	* gfortran.dg/read_float_3.f90
+
 2009-04-05  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/39648

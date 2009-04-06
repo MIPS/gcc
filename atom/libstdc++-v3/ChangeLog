@@ -1,3 +1,26 @@
+2009-04-06  Andrew Stubbs  <ams@codesourcery.com>
+
+	* config/cpu/sh/atomicity.h: Put the SH4A specific functions in the
+	__gnu_cxx namespace.  Remove "static inline".
+
+2009-04-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/random.tcc (linear_congruential_engine<>::
+	seed(seed_seq&)): Fix typo in last fix for __m == 0.
+
+2009-04-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/random.h (operator==): Mark all inline.
+	(mersenne_twister_engine): Enable #if 0 checks.
+
+	* include/bits/random.h: Formatting tweaks.
+
+2009-04-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/random.tcc (piecewise_linear_distribution<>::
+	operator()(_UniformRandomNumberGenerator&, const param_type&)):
+	Remove spurious closed parenthesis.
+
 2009-04-05  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR libstdc++/39644 (partial)
