@@ -1830,7 +1830,7 @@ static unsigned int ix86_default_incoming_stack_boundary;
 unsigned int ix86_incoming_stack_boundary;
 
 /* The abi used by target.  */
-enum calling_abi ix86_abi = DEFAULT_ABI;
+enum calling_abi ix86_abi;
 
 /* Values 1-5: see jump.c */
 int ix86_branch_cost;
@@ -2823,6 +2823,8 @@ override_options (bool main_args_p)
 	error ("unknown ABI (%s) for %sabi=%s %s",
 	       ix86_abi_string, prefix, suffix, sw);
     }
+  else
+    ix86_abi = DEFAULT_ABI;
 
   if (ix86_cmodel_string != 0)
     {
