@@ -55,24 +55,11 @@ namespace gcc4cli.util {
             return mr;
         }
 
-        public virtual TypeReference GetTypeReference (TypeReference type)
+        TypeReference module_GetTypeReference (TypeReference type)
         {
-            if (type == null)
-                return null;
-
-            if (type is SentinelType) {
-                type = (type as SentinelType).ElementType;
-            }
-
             TypeReference result = null;
-            string fullname = type.FullName;
 
-            Tracer.Trace (2,"Searching:      " + fullname);
-
-            if (m_cfile != null
-                && (type.Name == "<Module>" || type.Name == ExternalAssemblyName)) {
-                result = m_cfile.MainType;
-            } else if (type is FunctionPointerType) {
+            if (type is FunctionPointerType) {
                 FunctionPointerType fpt = type as FunctionPointerType;
                 fpt.ElementType = GetTypeReference (fpt.ElementType);
                 fpt.ReturnType.ReturnType = GetTypeReference (fpt.ReturnType.ReturnType);
@@ -90,10 +77,34 @@ namespace gcc4cli.util {
                 spec.ElementType = GetTypeReference (spec.ElementType);
                 result = spec;
             } else {
+                string fullname = type.FullName;
                 if (m_module.Types.Contains (fullname))
                     result = m_module.Types[fullname];
                 else if (m_module.TypeReferences.Contains (fullname))
                     result = m_module.TypeReferences[fullname];
+            }
+
+            return result;
+        }
+
+        public virtual TypeReference GetTypeReference (TypeReference type)
+        {
+            if (type == null)
+                return null;
+
+            if (type is SentinelType) {
+                type = (type as SentinelType).ElementType;
+            }
+
+            TypeReference result = null;
+
+            Tracer.Trace (2,"Searching:      " + type.FullName);
+
+            if (m_cfile != null
+                && (type.Name == "<Module>" || type.Name == ExternalAssemblyName)) {
+                result = m_cfile.MainType;
+            } else {
+                result = module_GetTypeReference (type);
             }
 
             if (result == null)
@@ -152,18 +163,67 @@ namespace gcc4cli.util {
             return result;
         }
 
+        protected MethodReference module_GetMethodReference (MethodReference method)
+        {
+            MethodReference result = null;
+
+            TypeReference type = GetTypeReference (method.DeclaringType);
+
+            if (type is TypeDefinition) {
+                TypeDefinition td = type as TypeDefinition;
+                if (method is MethodDefinition) {
+                    MethodDefinition md = method as MethodDefinition;
+                    if (md.IsConstructor)
+                        result = td.Constructors.GetConstructor (md.IsStatic, md.Parameters);
+                    else
+                        result =  td.Methods.GetMethod (md.Name, md.Parameters);
+                } else {
+                    if (method.Name == MethodDefinition.Ctor || method.Name == MethodDefinition.Cctor)
+                        result = td.Constructors.GetConstructor (!method.HasThis, method.Parameters);
+                    else if (MethodIsVarArg (method)) {
+                        MethodReference base_method = null;
+                        MethodReference []methods = td.Methods.GetMethod (method.Name);
+                        if (methods.Length != 1) {
+                            throw new NotFoundException (method);
+                        }
+                        base_method = methods[0];
+                        if (base_method != null) {
+                            result = duplicate_VarargMethodReference (method, base_method);
+                        }
+                    }
+                    else
+                        result =  td.Methods.GetMethod (method.Name, method.Parameters);
+                }
+            } else {
+                result =  (MethodReference) GetMemberReference (method);
+            }
+
+            return result;
+        }
+
+        TypeReference GetExternalTypeDef ()
+        {
+            if (m_module.TypeReferences [ExternalTypeName] == null) {
+                AssemblyNameReference asm = AssemblyNameReference.Parse (ExternalAssemblyName);
+                m_module.AssemblyReferences.Add(asm);
+                TypeReference type = new TypeReference (ExternalTypeName, "", asm, false);
+                m_module.TypeReferences.Add (type);
+            }
+            return m_module.TypeReferences [ExternalTypeName];
+        }
+
         public virtual MethodReference GetMethodReference (MethodReference method)
         {
             if (method == null)
                 return null;
 
             MethodReference result = null;
-            string name = method.Name;
-            string fullname = method.ToString ();
 
-            Tracer.Trace(2,"Searching:      " + fullname);
+            Tracer.Trace(2,"Searching:      " + method.ToString ());
+
             if (m_cfile != null
                 && GetTypeReference (method.DeclaringType) == m_cfile.MainType) {
+                string name = method.Name;
                 MethodReference base_method = null;
 
                 if (m_cfile.DefinedSymbolsTable.Contains (name))
@@ -179,36 +239,7 @@ namespace gcc4cli.util {
                     }
                 }
             } else {
-                TypeReference type = GetTypeReference (method.DeclaringType);
-
-                if (type is TypeDefinition) {
-                    TypeDefinition td = type as TypeDefinition;
-                    if (method is MethodDefinition) {
-                        MethodDefinition md = method as MethodDefinition;
-                        if (md.IsConstructor)
-                            result = td.Constructors.GetConstructor (md.IsStatic, md.Parameters);
-                        else
-                            result =  td.Methods.GetMethod (md.Name, md.Parameters);
-                    } else {
-                        if (method.Name == MethodDefinition.Ctor || method.Name == MethodDefinition.Cctor)
-                            result = td.Constructors.GetConstructor (!method.HasThis, method.Parameters);
-                        else if (MethodIsVarArg (method)) {
-                            MethodReference base_method = null;
-                            MethodReference []methods = td.Methods.GetMethod (method.Name);
-                            if (methods.Length != 1) {
-                                throw new NotFoundException (method);
-                            }
-                            base_method = methods[0];
-                            if (base_method != null) {
-                                result = duplicate_VarargMethodReference (method, base_method);
-                            }
-                        }
-                        else
-                            result =  td.Methods.GetMethod (method.Name, method.Parameters);
-                    }
-                } else {
-                    result =  (MethodReference) GetMemberReference (method);
-                }
+                result = module_GetMethodReference (method);
             }
 
             if  (result != null) {
@@ -220,15 +251,13 @@ namespace gcc4cli.util {
                     if (tp is SentinelType)
                         parameter.ParameterType = new SentinelType (parameter.ParameterType);
                 }
-            } else if (m_aea && method.DeclaringType.Name == ExternalTypeName) {
-                if (m_module.TypeReferences [ExternalTypeName] == null) {
-                    AssemblyNameReference asm = AssemblyNameReference.Parse (ExternalAssemblyName);
-                    m_module.AssemblyReferences.Add(asm);
-                    TypeReference type = new TypeReference (ExternalTypeName, "", asm, false);
-                    m_module.TypeReferences.Add (type);
-                }
+            }
+
+            if (result == null
+                && m_aea
+                && method.DeclaringType.Name == ExternalTypeName) {
 		result = new MethodReference (method.Name,
-                                              m_module.TypeReferences [ExternalTypeName],
+                                              GetExternalTypeDef (),
                                               GetTypeReference (method.ReturnType.ReturnType),
                                               method.HasThis,
                                               method.ExplicitThis,
@@ -241,7 +270,9 @@ namespace gcc4cli.util {
                     result.Parameters.Add (new ParameterDefinition (tp));
                 }
                 m_module.MemberReferences.Add (result);
-            } else {
+            }
+
+            if (result == null) {
                 throw new NotFoundException (method);
             }
 
@@ -249,44 +280,50 @@ namespace gcc4cli.util {
             return result;
         }
 
+        protected FieldReference module_GetFieldReference (FieldReference field)
+        {
+            FieldReference result = null;
+
+            TypeReference type = GetTypeReference (field.DeclaringType);
+            if (type is TypeDefinition) {
+                TypeDefinition td = type as TypeDefinition;
+                result = td.Fields.GetField (field.Name);
+            } else {
+                result = (FieldReference) GetMemberReference (field);
+            }
+
+            return result;
+        }
+
         public virtual FieldReference GetFieldReference (FieldReference field)
         {
             FieldReference result = null;
-            string name = field.Name;
-            string fullname = field.ToString ();
 
-            Tracer.Trace(2,"Searching:      " + fullname);
+            Tracer.Trace(2,"Searching:      " + field.ToString ());
+
             if (m_cfile != null
                 && (field.DeclaringType.Name == "<MODULE>"
                     || field.DeclaringType == m_cfile.MainType
                     || field.DeclaringType.Name == ExternalAssemblyName)) {
+                string name = field.Name;
                 if (m_cfile.DefinedSymbolsTable.Contains (name))
                     result = (FieldReference) m_cfile.DefinedSymbolsTable[name];
                 else if (m_cfile.PrivateSymbolsTable.Contains (name))
                     result = (FieldReference) m_cfile.PrivateSymbolsTable[name];
             } else {
-                TypeReference type = GetTypeReference (field.DeclaringType);
-                if (type is TypeDefinition) {
-                    TypeDefinition td = type as TypeDefinition;
-                    result = td.Fields.GetField (field.Name);
-                } else {
-                    result = (FieldReference) GetMemberReference (field);
-                }
+                result = module_GetFieldReference (field);
+            }
+
+            if (result == null
+                && m_aea
+                && field.DeclaringType.Name == ExternalTypeName) {
+                result = new FieldReference (field.Name,
+                                             GetExternalTypeDef (),
+                                             GetTypeReference (field.FieldType));
+                m_module.MemberReferences.Add (result);
             }
 
             if (result == null) {
-                if (m_aea && field.DeclaringType.Name == ExternalTypeName) {
-                    if (m_module.TypeReferences [ExternalTypeName] == null) {
-                        AssemblyNameReference asm = AssemblyNameReference.Parse (ExternalAssemblyName);
-                        m_module.AssemblyReferences.Add(asm);
-                        TypeReference type = new TypeReference (ExternalTypeName, "", asm, false);
-                        m_module.TypeReferences.Add (type);
-                    }
-                    result = new FieldReference (field.Name,
-                                                 m_module.TypeReferences [ExternalTypeName],
-                                                 GetTypeReference (field.FieldType));
-                    m_module.MemberReferences.Add (result);
-                } else
                     throw new NotFoundException (field);
             }
 
