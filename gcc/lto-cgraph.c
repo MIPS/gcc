@@ -201,21 +201,24 @@ output_edge (struct lto_simple_output_block *ob,
 }
 
 
-/* Output the cgraph NODE to OB. ENCODER is used to find the reference
-   number of NODE->inlined_to. SET is the set of nodes we are writting to
-   the current file. WROTE_MASTER is a bitmap with which nodes had
-   a master (from ltrans perspective) written to the current file. */
+/* Output the cgraph NODE to OB.  ENCODER is used to find the
+   reference number of NODE->inlined_to.  SET is the set of nodes we
+   are writting to the current file.  If NODE is not in SET, then NODE
+   is a boundary of a cgraph_node_set and we pretend NODE just has a
+   decl and no callees.  WRITTEN_DECLS is the set of FUNCTION_DECLs
+   that have had their callgraph node written so far.  This is used to
+   determine if NODE is a clone of a previously written node.  */
 
 static void
 output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 	     lto_cgraph_encoder_t encoder, cgraph_node_set set,
-	     bitmap wrote_master)
+	     bitmap written_decls)
 {
   unsigned int tag;
   unsigned HOST_WIDEST_INT flags = 0;
   unsigned local, externally_visible, inlinable;
   bool boundary_p = !cgraph_node_in_set_p (node, set);
-  bool wrote_master_p = bitmap_bit_p (wrote_master, DECL_UID (node->decl));
+  bool wrote_decl_p = bitmap_bit_p (written_decls, DECL_UID (node->decl));
   intptr_t ref;
 
   switch (cgraph_function_body_availability (node))
@@ -234,7 +237,7 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       break;
       
     default:
-    gcc_unreachable();
+      gcc_unreachable();
     }
  
   if (boundary_p)
@@ -270,11 +273,11 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       inlinable = 1;
     }
 
-  LTO_DEBUG_TOKEN ("wrote_master_p");
-  lto_output_uleb128_stream (ob->main_stream, wrote_master_p);
+  LTO_DEBUG_TOKEN ("clone_p");
+  lto_output_uleb128_stream (ob->main_stream, wrote_decl_p);
 
-  if (!wrote_master_p)
-    bitmap_set_bit (wrote_master, DECL_UID (node->decl));
+  if (!wrote_decl_p)
+    bitmap_set_bit (written_decls, DECL_UID (node->decl));
 
   lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
 
@@ -338,31 +341,6 @@ output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 #endif
 }
 
-#ifdef ENABLE_CHECKING
-/* Just a little sanity check to keep the cgraph machinery.  At the
-   point where we stream out the functions there must only be
-   master_clone nodes or nodes that have no function bodies.  */
-
-static void
-output_cgraph_verify_node (struct cgraph_node *node)
-{
-  switch (cgraph_function_body_availability (node))
-    {
-    case AVAIL_UNSET:
-      fprintf (stderr, "found unset function\n.");
-      gcc_assert (0);
-      break;
-
-    case AVAIL_NOT_AVAILABLE:
-      break;
-
-    case AVAIL_OVERWRITABLE:
-    case AVAIL_AVAILABLE:
-    case AVAIL_LOCAL:
-      break;
-    }
-}
-#endif
 
 /* Output the part of the cgraph in SET.  This is a little tricky now as we
    need to handle clones as well.  To simplify things we first write the nodes
@@ -378,12 +356,12 @@ output_cgraph (cgraph_node_set set)
   struct cgraph_edge *edge;
   lto_cgraph_encoder_t encoder = lto_cgraph_encoder_new ();
   int i, n_nodes;
+  bitmap written_decls;
 
-  /* The decls for which we have written a master node. Note the the node
-     we select as master might not be the current master. In fact, the
-     current master might not be in the current file at all! That is
-     not a problem, since any of the clones can be the master. */
-  bitmap wrote_master = lto_bitmap_alloc ();
+  /* The FUNCTION_DECLs for which we have written a node.  The first
+     node found is written as the "original" node, the remaining nodes
+     are considered its clones.  */
+  written_decls = lto_bitmap_alloc ();
 
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.tag_names = LTO_cgraph_tag_names;
@@ -397,7 +375,8 @@ output_cgraph (cgraph_node_set set)
       lto_cgraph_encoder_encode (encoder, node);
     }
 
-  /* Go over all the nodes again to include callees that are not in SET. */
+  /* Go over all the nodes again to include callees that are not in
+     SET.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
@@ -406,7 +385,7 @@ output_cgraph (cgraph_node_set set)
 	  struct cgraph_node *callee = edge->callee;
 	  if (!cgraph_node_in_set_p (callee, set))
 	    {
-	      /* We moved all the inlines. */
+	      /* We moved all the inlines.  */
 	      gcc_assert (!callee->global.inlined_to);
 	      lto_cgraph_encoder_encode (encoder, callee);
 	    }
@@ -418,12 +397,10 @@ output_cgraph (cgraph_node_set set)
   for (i = 0; i < n_nodes; i++)
     {
       node = lto_cgraph_encoder_deref (encoder, i);
-#ifdef ENABLE_CHECKING
-      output_cgraph_verify_node (node);
-#endif
-      output_node (ob, node, encoder, set, wrote_master);
+      output_node (ob, node, encoder, set, written_decls);
     }
-  lto_bitmap_free (wrote_master);
+
+  lto_bitmap_free (written_decls);
 
   /* Go over the nodes in SET again to write edges.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
@@ -477,8 +454,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
 }
 
 /* Read a node from input_block IB.  TAG is the node's tag just read. 
-   Return the node read or overwriten.  NODES points to a vector of nodes
-   read so far.  */
+   Return the node read or overwriten.  */
  
 static struct cgraph_node *
 input_node (struct lto_file_decl_data* file_data,
@@ -486,12 +462,12 @@ input_node (struct lto_file_decl_data* file_data,
 	    enum LTO_cgraph_tags tag)
 {
   tree fn_decl;
-  struct cgraph_node *node, *master_clone;
+  struct cgraph_node *node;
   unsigned int flags;
   int stack_size = 0;
   int self_insns = 0;
   unsigned decl_index;
-  bool wrote_master_p;
+  bool clone_p;
   int estimated_stack_size = 0;
   int stack_frame_offset = 0;
   int ref = LCC_NOT_FOUND;
@@ -499,20 +475,14 @@ input_node (struct lto_file_decl_data* file_data,
   int estimated_growth = 0;
   bool inlined = false;
 
-  LTO_DEBUG_TOKEN ("wrote_master_p");
-  wrote_master_p = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("clone_p");
+  clone_p = (lto_input_uleb128 (ib) != 0);
 
   decl_index = lto_input_uleb128 (ib);
   fn_decl = lto_file_decl_data_get_fn_decl (file_data, decl_index);
 
-  if (wrote_master_p)
-    {
-      /* Cannot use cgraph_master_clone in here. Fails assert that
-	 cgraph_function_flags_ready is true. */
-      master_clone = cgraph_node (fn_decl)->master_clone;
-      gcc_assert (master_clone);
-      node = cgraph_clone_input_node (master_clone);
-    }
+  if (clone_p)
+    node = cgraph_clone_input_node (cgraph_node (fn_decl));
   else
     node = cgraph_node (fn_decl);
 
@@ -714,7 +684,7 @@ input_cgraph_1 (struct lto_file_decl_data* file_data,
     }
 
   for (i = 0; VEC_iterate (cgraph_node_ptr, nodes, i, node); i++)
-    if (node && cgraph_decide_is_function_needed (node))
+    if (node && cgraph_decide_is_function_needed (node, node->decl))
       cgraph_mark_needed_node (node);
 
   VEC_free (cgraph_node_ptr, heap, nodes);
@@ -784,4 +754,3 @@ struct ipa_opt_pass pass_ipa_lto_cgraph =
  NULL,			                /* function_transform */
  NULL					/* variable_transform */
 };
-

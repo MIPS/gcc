@@ -312,10 +312,8 @@ cgraph_build_cdtor_fns (void)
    configury.  */
 
 bool
-cgraph_decide_is_function_needed (struct cgraph_node *node)
+cgraph_decide_is_function_needed (struct cgraph_node *node, tree decl)
 {
-  tree decl = node->decl;
-
   if (MAIN_NAME_P (DECL_NAME (decl))
       && TREE_PUBLIC (decl))
     {
@@ -429,7 +427,7 @@ cgraph_process_new_functions (void)
 	case CGRAPH_STATE_EXPANSION:
 	  /* Functions created during expansion shall be compiled
 	     directly.  */
-	  node->output = 0;
+	  node->process = 0;
 	  cgraph_expand_function (node);
 	  break;
 
@@ -455,12 +453,12 @@ cgraph_process_new_functions (void)
 static void
 cgraph_reset_node (struct cgraph_node *node)
 {
-  /* If node->output is set, then we have already begun whole-unit analysis.
+  /* If node->process is set, then we have already begun whole-unit analysis.
      This is *not* testing for whether we've already emitted the function.
      That case can be sort-of legitimately seen with real function redefinition
      errors.  I would argue that the front end should never present us with
      such a case, but don't enforce that for now.  */
-  gcc_assert (!node->output);
+  gcc_assert (!node->process);
 
   /* Reset our data structures so we can analyze the function again.  */
   memset (&node->local, 0, sizeof (node->local));
@@ -513,24 +511,12 @@ cgraph_finalize_function (tree decl, bool nested)
   notice_global_symbol (decl);
   node->local.finalized = true;
   node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
-  if (node->lowered)
-    {
-      tree old_decl = current_function_decl;
-      current_function_decl = decl;
-      push_cfun (DECL_STRUCT_FUNCTION (decl));
-      build_cgraph_edges ();
-      pop_cfun ();
-      DECL_STRUCT_FUNCTION (decl)->curr_properties
-	|= (PROP_gimple_leh | PROP_cfg | PROP_referenced_vars 
-	    | PROP_gimple_lomp | PROP_gimple_any | PROP_gimple_lcf);
-      current_function_decl = old_decl;
-    }
   record_cdtor_fn (node->decl);
   if (node->nested)
     lower_nested_functions (decl);
   gcc_assert (!node->nested);
 
-  if (cgraph_decide_is_function_needed (node))
+  if (cgraph_decide_is_function_needed (node, decl))
     cgraph_mark_needed_node (node);
 
   /* Since we reclaim unreachable nodes at the end of every language
@@ -559,7 +545,7 @@ void
 cgraph_mark_if_needed (tree decl)
 {
   struct cgraph_node *node = cgraph_node (decl);
-  if (node->local.finalized && cgraph_decide_is_function_needed (node))
+  if (node->local.finalized && cgraph_decide_is_function_needed (node, decl))
     cgraph_mark_needed_node (node);
 }
 
@@ -911,7 +897,7 @@ cgraph_analyze_functions (void)
 #endif
 
       if (!node->analyzed)
-        cgraph_analyze_function (node);
+	cgraph_analyze_function (node);
 
       for (edge = node->callees; edge; edge = edge->next_callee)
 	if (!edge->callee->reachable)
@@ -1013,7 +999,7 @@ cgraph_mark_functions_to_output (void)
       tree decl = node->decl;
       struct cgraph_edge *e;
 
-      gcc_assert (!node->output);
+      gcc_assert (!node->process);
 
       for (e = node->callers; e; e = e->next_caller)
 	if (e->inline_failed)
@@ -1028,7 +1014,7 @@ cgraph_mark_functions_to_output (void)
 	      || (e && node->reachable))
 	  && !TREE_ASM_WRITTEN (decl)
 	  && !DECL_EXTERNAL (decl))
-	node->output = 1;
+	node->process = 1;
       else
 	{
 	  /* We should've reclaimed all functions that are not needed.  */
@@ -1061,6 +1047,7 @@ cgraph_expand_function (struct cgraph_node *node)
   gcc_assert (!node->global.inlined_to);
 
   announce_function (decl);
+  node->process = 0;
 
   gcc_assert (node->lowered);
 
@@ -1114,16 +1101,16 @@ cgraph_expand_all_functions (void)
   /* Garbage collector may remove inline clones we eliminate during
      optimization.  So we must be sure to not reference them.  */
   for (i = 0; i < order_pos; i++)
-    if (order[i]->output)
+    if (order[i]->process)
       order[new_order_pos++] = order[i];
 
   for (i = new_order_pos - 1; i >= 0; i--)
     {
       node = order[i];
-      if (node->output)
+      if (node->process)
 	{
 	  gcc_assert (node->reachable);
-	  node->output = 0;
+	  node->process = 0;
 	  cgraph_expand_function (node);
 	}
     }
@@ -1172,7 +1159,7 @@ cgraph_output_in_order (void)
 
   for (pf = cgraph_nodes; pf; pf = pf->next)
     {
-      if (pf->output)
+      if (pf->process)
 	{
 	  i = pf->order;
 	  gcc_assert (nodes[i].kind == ORDER_UNDEFINED);
@@ -1212,7 +1199,7 @@ cgraph_output_in_order (void)
       switch (nodes[i].kind)
 	{
 	case ORDER_FUNCTION:
-	  nodes[i].u.f->output = 0;
+	  nodes[i].u.f->process = 0;
 	  cgraph_expand_function (nodes[i].u.f);
 	  break;
 

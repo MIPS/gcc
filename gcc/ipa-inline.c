@@ -419,7 +419,7 @@ cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
 
 /* Return true when function N is small enough to be inlined.  */
 
-bool
+static bool
 cgraph_default_inline_p (struct cgraph_node *n, cgraph_inline_failed_t *reason)
 {
   tree decl = n->decl;
@@ -982,7 +982,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	}
       if (!tree_can_inline_p (edge->caller->decl, edge->callee->decl))
 	{
-	  edge->call_stmt_cannot_inline_p = true;
+	  gimple_call_set_cannot_inline (edge->call_stmt, true);
 	  edge->inline_failed = CIF_TARGET_OPTION_MISMATCH;
 	  if (dump_file)
 	    fprintf (dump_file, " inline_failed:%s.\n",
@@ -1768,6 +1768,8 @@ inline_transform (struct cgraph_node *node)
       todo = optimize_inline_calls (current_function_decl);
       timevar_pop (TV_INTEGRATION);
     }
+  cfun->always_inline_functions_inlined = true;
+  cfun->after_inlining = true;
   return todo | execute_fixup_cfg ();
 }
 

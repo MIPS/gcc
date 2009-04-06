@@ -355,6 +355,7 @@ choose_personality_routine (enum languages lang)
 
     case lang_java:
       state = chose_java;
+      terminate_node = built_in_decls [BUILT_IN_ABORT];
       eh_personality_decl
 	= build_personality_function (USING_SJLJ_EXCEPTIONS
 				      ? "__gcj_personality_sj0"

@@ -464,8 +464,6 @@ cgraph_node (tree decl)
   if (*slot)
     {
       node = *slot;
-      if (!node->master_clone)
-	node->master_clone = node;
       return node;
     }
 
@@ -477,7 +475,6 @@ cgraph_node (tree decl)
       node->origin = cgraph_node (DECL_CONTEXT (decl));
       node->next_nested = node->origin->nested;
       node->origin->nested = node;
-      node->master_clone = node;
     }
   if (assembler_name_hash)
     {
@@ -655,6 +652,26 @@ cgraph_set_call_stmt (struct cgraph_edge *e, gimple new_stmt)
     }
 }
 
+/* Give initial reasons why inlining would fail on EDGE.  This gets either
+   nullified or usually overwritten by more precise reasons later.  */
+
+static void
+initialize_inline_failed (struct cgraph_edge *e)
+{
+  struct cgraph_node *callee = e->callee;
+
+  if (!callee->analyzed)
+    e->inline_failed = CIF_BODY_NOT_AVAILABLE;
+  else if (callee->local.redefined_extern_inline)
+    e->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
+  else if (!callee->local.inlinable)
+    e->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
+  else if (e->call_stmt && gimple_call_cannot_inline_p (e->call_stmt))
+    e->inline_failed = CIF_MISMATCHED_ARGUMENTS;
+  else
+    e->inline_failed = CIF_FUNCTION_NOT_CONSIDERED;
+}
+
 /* Create edge from CALLER to CALLEE in the cgraph.  */
 
 struct cgraph_edge *
@@ -673,7 +690,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
      hashtable.  */
   gcc_assert (!cgraph_edge (caller, call_stmt));
 #endif
-      
+
       gcc_assert (is_gimple_call (call_stmt));
     }
 
@@ -687,15 +704,6 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
       edge = GGC_NEW (struct cgraph_edge);
       edge->uid = cgraph_edge_max_uid++;
     }
-
-  if (!callee->analyzed)
-    edge->inline_failed = CIF_BODY_NOT_AVAILABLE;
-  else if (callee->local.redefined_extern_inline)
-    edge->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
-  else if (callee->local.inlinable)
-    edge->inline_failed = CIF_FUNCTION_NOT_CONSIDERED;
-  else
-    edge->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
 
   edge->aux = NULL;
 
@@ -721,7 +729,6 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   edge->indirect_call = 0;
   edge->call_stmt_cannot_inline_p =
     (call_stmt ? gimple_call_cannot_inline_p (call_stmt) : false);
-  edge->uid = cgraph_edge_max_uid++;
   if (call_stmt && caller->call_site_hash)
     {
       void **slot;
@@ -733,6 +740,9 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
       gcc_assert (!*slot);
       *slot = edge;
     }
+
+  initialize_inline_failed (edge);
+
   return edge;
 }
 
@@ -993,11 +1003,6 @@ cgraph_remove_node (struct cgraph_node *node)
       if (node->next_clone)
       {
 	struct cgraph_node *new_node = node->next_clone;
-	struct cgraph_node *n;
-
-	/* Make the next clone be the master clone */
-	for (n = new_node; n; n = n->next_clone)
-	  n->master_clone = new_node;
 
 	*slot = new_node;
 	node->next_clone->prev_clone = NULL;
@@ -1121,6 +1126,24 @@ cgraph_rtl_info (tree decl)
   return &node->rtl;
 }
 
+/* Return a string describing the failure REASON.  */
+
+const char*
+cgraph_inline_failed_string (cgraph_inline_failed_t reason)
+{
+#undef DEFCIFCODE
+#define DEFCIFCODE(code, string)	string,
+
+  static const char *cif_string_table[CIF_N_REASONS] = {
+#include "cif-code.def"
+  };
+
+  /* Signedness of an enum type is implementation defined, so cast it
+     to unsigned before testing. */
+  gcc_assert ((unsigned) reason < CIF_N_REASONS);
+  return cif_string_table[reason];
+}
+
 /* Return name of the node used in debug output.  */
 const char *
 cgraph_node_name (struct cgraph_node *node)
@@ -1148,8 +1171,6 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   if (cgraph_function_flags_ready)
     fprintf (f, " availability:%s",
 	     cgraph_availability_names [cgraph_function_body_availability (node)]);
-  if (node->master_clone && node->master_clone->uid != node->uid)
-    fprintf (f, "(%i)", node->master_clone->uid);
   if (node->count)
     fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
 	     (HOST_WIDEST_INT)node->count);
@@ -1170,8 +1191,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " reachable");
   if (gimple_has_body_p (node->decl))
     fprintf (f, " body");
-  if (node->output)
-    fprintf (f, " output");
+  if (node->process)
+    fprintf (f, " process");
   if (node->local.local)
     fprintf (f, " local");
   if (node->local.externally_visible)
@@ -1359,7 +1380,6 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq,
   new_node->local = n->local;
   new_node->global = n->global;
   new_node->rtl = n->rtl;
-  new_node->master_clone = n->master_clone;
   new_node->count = count;
   if (n->count)
     {
@@ -1411,7 +1431,6 @@ cgraph_clone_input_node (struct cgraph_node *n)
   new_node->local = n->local;
   new_node->global = n->global;
   new_node->rtl = n->rtl;
-  new_node->master_clone = n->master_clone;
 
   new_node->next_clone = n->next_clone;
   new_node->prev_clone = n;
@@ -1428,32 +1447,6 @@ bool
 cgraph_is_clone_node (struct cgraph_node *n)
 {
   return n->next_clone || n->prev_clone;
-}
-
-/* Return true if N is an master_clone, (see cgraph_master_clone).  */
-
-bool
-cgraph_is_master_clone (struct cgraph_node *n)
-{
-  return (n == cgraph_master_clone (n));
-}
-
-
-/* Return the master clone node of N if it is available and if
-   CHECK_OVERWRITE is true, not overwritable.  */ 
-
-struct cgraph_node *
-cgraph_master_clone (struct cgraph_node *n)
-{
-  enum availability avail = cgraph_function_body_availability (n);
-
-  if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITABLE)
-    return NULL;
-
-  if (!n->master_clone)
-    n->master_clone = cgraph_node (n->decl);
-
-  return n->master_clone;
 }
 
 /* NODE is no longer nested function; update cgraph accordingly.  */
@@ -1482,6 +1475,11 @@ cgraph_function_body_availability (struct cgraph_node *node)
     avail = AVAIL_LOCAL;
   else if (!node->local.externally_visible)
     avail = AVAIL_AVAILABLE;
+  /* Inline functions are safe to be analyzed even if their sybol can
+     be overwritten at runtime.  It is not meaningful to enfore any sane
+     behaviour on replacing inline function by different body.  */
+  else if (DECL_DECLARED_INLINE_P (node->decl))
+    avail = AVAIL_AVAILABLE;
 
   /* If the function can be overwritten, return OVERWRITABLE.  Take
      care at least of two notable extensions - the COMDAT functions
@@ -1491,15 +1489,9 @@ cgraph_function_body_availability (struct cgraph_node *node)
 
      ??? Does the C++ one definition rule allow us to always return
      AVAIL_AVAILABLE here?  That would be good reason to preserve this
-     hook Similarly deal with extern inline functions - this is again
-     necessary to get C++ shared functions having keyed templates
-     right and in the C extension documentation we probably should
-     document the requirement of both versions of function (extern
-     inline and offline) having same side effect characteristics as
-     good optimization is what this optimization is about.  */
+     bit.  */
 
-  else if (!(*targetm.binds_local_p) (node->decl)
-	   && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))
+  else if (DECL_REPLACEABLE_P (node->decl) && !DECL_EXTERNAL (node->decl))
     avail = AVAIL_OVERWRITABLE;
   else avail = AVAIL_AVAILABLE;
 
@@ -1726,24 +1718,6 @@ cgraph_node_set_find (cgraph_node_set set, struct cgraph_node *node)
   csi.set = set;
 
   return csi;
-}
-
-/* Return a string describing the failure REASON.  */
-
-const char*
-cgraph_inline_failed_string (cgraph_inline_failed_t reason)
-{
-#undef DEFCIFCODE
-#define DEFCIFCODE(code, string)	string,
-
-  static const char *cif_string_table[CIF_N_REASONS] = {
-#include "cif-code.def"
-  };
-
-  /* Signedness of an enum type is implementation defined, so cast it
-     to unsigned before testing. */
-  gcc_assert ((unsigned) reason < CIF_N_REASONS);
-  return cif_string_table[reason];
 }
 
 /* Dump content of SET to file F. */

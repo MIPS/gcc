@@ -1,3 +1,50 @@
+2009-04-06  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.in (lto-cgraph.o): Add dependency on lto-utils.h.
+	* cgraph.c (initialize_inline_failed): Check that E has a call
+	* except.c (debug_eh_tree): New.
+	* except.h (debug_eh_tree): Declare.
+	* lto-function-in.c (input_bitmap): New.
+	(input_eh_region): Handle LTO_eh_table_shared_region.  Return
+	a previously created EH region corresponding to the number
+	read.
+	(fixup_eh_region_pointers): Remove argument LAST_REGION.
+	Change type of ROOT_REGION to HOST_WIDE_INT.
+	Update all users.
+	Handle shared and NULL regions.
+	(input_eh_regions): Read size of EH region table before
+	reading the array.
+	(input_bb): Assert that CFUN is properly set.
+	(input_node): Rename WROTE_MASTER_P to CLONE_P.
+	(input_function): Look for the first clone in NODE's list
+	of clones.
+	* lto-cgraph.c (output_node): Rename WROTE_MASTER to
+	WRITTEN_DECLS.
+	(output_cgraph_verify_node): Remove.
+	(output_cgraph): Rename WROTE_MASTER to WRITTEN_DECLS.
+	* lto-function-out.c (output_bitmap): New.
+	(output_eh_region): For shared regions, output the marker
+	LTO_eh_table_shared_region and the region number of the shared
+	region.
+	(output_eh_regions): Output the AKA bitmap.
+	If there is no EH region tree, output -1 to mark its absence.
+	Call output_eh_region for every region, even NULL ones.
+	(output_parm_decl): Only check DECL_CONTEXT of DECL if FN has
+	a gimple body.
+	* lto-tags.h (enum LTO_tags): Add LTO_eh_table_shared_region.
+	* tree.c (free_lang_data_in_type): After building a qualified
+	type for an argument type, call free_lang_data_in_type on the
+	new type.
+	(free_lang_data_in_decl): Only reset DECL_CONTEXT on
+	FUNCTION_DECL arguments when the function has a gimple body.
+
+2009-04-06  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @145453.
+
+	* configure.ac (acx_pkgversion): update revision merge string.
+	* configure: regenerate.
+
 2009-04-03  Rafael Avila de Espindola  <espindola@google.com>
 
 	* c-decl.c (match_builtin_function_types): Moved from tree.c

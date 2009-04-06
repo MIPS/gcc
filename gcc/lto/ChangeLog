@@ -1,3 +1,9 @@
+2009-04-06  Diego Novillo  <dnovillo@google.com>
+
+	* lto-lang.c (lto_post_options): Set flag_excess_precision_cmdline.
+	* lto.c (read_cgraph_and_symbols): Set cgraph_function_flags_ready.
+	(lto_add_all_inlinees): Tidy.
+
 2009-03-26  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c: Include gimple.h.

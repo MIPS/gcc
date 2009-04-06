@@ -163,9 +163,6 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Pointer to the next clone.  */
   struct cgraph_node *next_clone;
   struct cgraph_node *prev_clone;
-  /* Pointer to a single unique cgraph node for this function.  If the
-     function is to be output, this is the copy that will survive.  */
-  struct cgraph_node *master_clone;
   /* For functions with many calls sites it holds map from call expression
      to the edge to speed up cgraph_edge function.  */
   htab_t GTY((param_is (struct cgraph_edge))) call_site_hash;
@@ -201,8 +198,8 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Set once the function has been instantiated and its callee
      lists created.  */
   unsigned analyzed : 1;
-  /* Set when function is scheduled to be assembled.  */
-  unsigned output : 1;
+  /* Set when function is scheduled to be processed by local passes.  */
+  unsigned process : 1;
   /* Set for aliases once they got through assemble_alias.  */
   unsigned alias : 1;
 
@@ -239,7 +236,7 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_call
   unsigned int lto_stmt_uid;
   PTR GTY ((skip (""))) aux;
   /* When equal to CIF_OK, inline this call.  Otherwise, points to the
-     explanation why the function was not inlined.  */
+     explanation why function was not inlined.  */
   cgraph_inline_failed_t inline_failed;
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -248,7 +245,7 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_call
      per function call.  The range is 0 to CGRAPH_FREQ_MAX.  */
   int frequency;
   /* Depth of loop nest, 1 means no loop nest.  */
-  unsigned int loop_nest : 30;
+  unsigned int loop_nest : 31;
   /* Whether this edge describes a call that was originally indirect.  */
   unsigned int indirect_call : 1;
   /* True if the corresponding CALL stmt cannot be inlined.  */
@@ -408,9 +405,8 @@ void cgraph_unnest_node (struct cgraph_node *);
 
 enum availability cgraph_function_body_availability (struct cgraph_node *);
 bool cgraph_is_clone_node (struct cgraph_node *);
-bool cgraph_is_master_clone (struct cgraph_node *);
-struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
 void cgraph_add_new_function (tree, bool);
+const char* cgraph_inline_failed_string (cgraph_inline_failed_t);
 
 cgraph_node_set cgraph_node_set_new (void);
 cgraph_node_set_iterator cgraph_node_set_find (cgraph_node_set set,
@@ -498,7 +494,7 @@ struct cgraph_node *save_inline_function_body (struct cgraph_node *);
 void record_references_in_initializer (tree);
 bool cgraph_process_new_functions (void);
 
-bool cgraph_decide_is_function_needed (struct cgraph_node *);
+bool cgraph_decide_is_function_needed (struct cgraph_node *, tree);
 
 typedef void (*cgraph_edge_hook)(struct cgraph_edge *, void *);
 typedef void (*cgraph_node_hook)(struct cgraph_node *, void *);
@@ -595,7 +591,6 @@ varpool_next_static_initializer (struct varpool_node *node)
 
 /* In ipa-inline.c  */
 void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool, bool);
-bool cgraph_default_inline_p (struct cgraph_node *, cgraph_inline_failed_t *);
 unsigned int build_cgraph_edges (void);
 unsigned int compute_inline_parameters (struct cgraph_node *);
 

@@ -2882,6 +2882,11 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    error ("address taken, but ADDRESSABLE bit not set");
 	    return x;
 	  }
+	if (DECL_GIMPLE_REG_P (x))
+	  {
+	    error ("DECL_GIMPLE_REG_P set on a variable with address taken");
+	    return x;
+	  }
 
 	break;
       }

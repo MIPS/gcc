@@ -589,13 +589,12 @@ lto_add_inline_clones (cgraph_node_set set, struct cgraph_node *node,
      {
 	callee = edge->callee;
 	if (callee->global.inlined_to != NULL)
-	  lto_add_inline_clones (set, callee, original_decls,
-				 inlined_decls);
+	  lto_add_inline_clones (set, callee, original_decls, inlined_decls);
      }
 }
 
 /* Compute the transitive closure of inlining of SET based on the
-   information in the call-graph.  Returns a bitmap of decls indexed
+   information in the callgraph.  Returns a bitmap of decls indexed
    by UID.  */
 
 static bitmap
@@ -608,7 +607,7 @@ lto_add_all_inlinees (cgraph_node_set set)
   bitmap inlined_decls = lto_bitmap_alloc();
   bool changed;
 
-  /* We are going to iterate SET will adding to it, mark all original
+  /* We are going to iterate SET while adding to it, mark all original
      nodes so that we only add node inlined to original nodes.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
@@ -616,7 +615,8 @@ lto_add_all_inlinees (cgraph_node_set set)
       bitmap_set_bit (original_decls, DECL_UID (csi_node (csi)->decl));
     }
 
-  /* Some of the original nodes might not be needed anymore.  Remove them. */
+  /* Some of the original nodes might not be needed anymore.  
+     Remove them.  */
   do
     {
       changed = false;
@@ -625,13 +625,13 @@ lto_add_all_inlinees (cgraph_node_set set)
 	  struct cgraph_node *inlined_to;
 	  node = csi_node (csi);
 
-	  /* NODE was not inlined. We still need it. */
+	  /* NODE was not inlined.  We still need it.  */
 	  if (!node->global.inlined_to)
 	    continue;
 
 	  inlined_to = node->global.inlined_to;
 
-	  /* NODE should have only one caller */
+	  /* NODE should have only one caller.  */
 	  gcc_assert (!node->callers->next_caller);
 
 	  if (!bitmap_bit_p (original_nodes, inlined_to->uid))
@@ -641,7 +641,8 @@ lto_add_all_inlinees (cgraph_node_set set)
 	      changed = true;
 	    }
 	}
-    } while (changed);
+    }
+  while (changed);
 
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
@@ -652,6 +653,7 @@ lto_add_all_inlinees (cgraph_node_set set)
 
   lto_bitmap_free (original_nodes);
   lto_bitmap_free (original_decls);
+
   return inlined_decls;
 }
 
@@ -780,7 +782,7 @@ lto_scan_statics_in_cgraph_node (struct cgraph_node *node,
 {
   struct lto_in_decl_state *state;
   
-  /* Return if NODE has no function body or is not the master clone. */
+  /* Do nothing if NODE has no function body.  */
   if (!node->analyzed)
     return;
   
@@ -1558,6 +1560,9 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 	struct lto_file_decl_data *file_data = all_file_decl_data [i];
 	lto_materialize_constructors_and_inits (file_data);
       }
+
+  /* Indicate that the cgraph is built and ready.  */
+  cgraph_function_flags_ready = true;
 
   timevar_pop (TV_IPA_LTO_DECL_IO);
 }

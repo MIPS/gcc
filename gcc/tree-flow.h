@@ -921,6 +921,7 @@ bool simplify_stmt_using_ranges (gimple_stmt_iterator *);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
 int loop_depth_of_name (tree);
+tree degenerate_phi_result (gimple);
 
 /* In tree-ssa-copy.c  */
 extern void merge_alias_info (tree, tree);
@@ -1079,6 +1080,7 @@ extern bool operation_could_trap_p (enum tree_code, bool, bool, tree);
 extern bool stmt_could_throw_p (gimple);
 extern bool tree_could_throw_p (tree);
 extern bool stmt_can_throw_internal (gimple);
+extern bool stmt_can_throw_external (gimple);
 extern void add_stmt_to_eh_region (gimple, int);
 extern bool remove_stmt_from_eh_region (gimple);
 extern bool maybe_clean_or_replace_eh_stmt (gimple, gimple);
@@ -1147,6 +1149,7 @@ tree force_gimple_operand (tree, gimple_seq *, bool, tree);
 tree force_gimple_operand_gsi (gimple_stmt_iterator *, tree, bool, tree,
 			       bool, enum gsi_iterator_update);
 tree gimple_fold_indirect_ref (tree);
+void mark_addressable (tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);

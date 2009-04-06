@@ -111,7 +111,9 @@ mark_addressable (tree x)
 {
   while (handled_component_p (x))
     x = TREE_OPERAND (x, 0);
-  if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
+  if (TREE_CODE (x) != VAR_DECL
+      && TREE_CODE (x) != PARM_DECL
+      && TREE_CODE (x) != RESULT_DECL)
     return ;
   TREE_ADDRESSABLE (x) = 1;
 }
@@ -211,15 +213,11 @@ void
 pop_gimplify_context (gimple body)
 {
   struct gimplify_ctx *c = gimplify_ctxp;
-  tree t;
 
   gcc_assert (c && (c->bind_expr_stack == NULL
 		    || VEC_empty (gimple, c->bind_expr_stack)));
   VEC_free (gimple, heap, c->bind_expr_stack);
   gimplify_ctxp = c->prev_context;
-
-  for (t = c->temps; t ; t = TREE_CHAIN (t))
-    DECL_GIMPLE_FORMAL_TEMP_P (t) = 0;
 
   if (body)
     declare_vars (c->temps, body, false);
@@ -606,9 +604,6 @@ lookup_tmp_var (tree val, bool is_formal)
 	}
     }
 
-  if (is_formal)
-    DECL_GIMPLE_FORMAL_TEMP_P (ret) = 1;
-
   return ret;
 }
 
@@ -619,32 +614,10 @@ lookup_tmp_var (tree val, bool is_formal)
    gimplify_modify_expr.  */
 
 static bool
-is_gimple_formal_tmp_or_call_rhs (tree t)
+is_gimple_reg_rhs_or_call (tree t)
 {
-  return TREE_CODE (t) == CALL_EXPR || is_gimple_formal_tmp_rhs (t);
-}
-
-/* Returns true iff T is a valid RHS for an assignment to a renamed
-   user -- or front-end generated artificial -- variable.  */
-
-static bool
-is_gimple_reg_or_call_rhs (tree t)
-{
-  /* If the RHS of the MODIFY_EXPR may throw or make a nonlocal goto
-     and the LHS is a user variable, then we need to introduce a formal
-     temporary.  This way the optimizers can determine that the user
-     variable is only modified if evaluation of the RHS does not throw.
-
-     Don't force a temp of a non-renamable type; the copy could be
-     arbitrarily expensive.  Instead we will generate a VDEF for
-     the assignment.  */
-
-  if (is_gimple_reg_type (TREE_TYPE (t))
-      && ((TREE_CODE (t) == CALL_EXPR && TREE_SIDE_EFFECTS (t))
-	  || tree_could_throw_p (t)))
-    return false;
-
-  return is_gimple_formal_tmp_or_call_rhs (t);
+  return (get_gimple_rhs_class (TREE_CODE (t)) != GIMPLE_INVALID_RHS
+	  || TREE_CODE (t) == CALL_EXPR);
 }
 
 /* Return true if T is a valid memory RHS or a CALL_EXPR.  Note that
@@ -652,28 +625,18 @@ is_gimple_reg_or_call_rhs (tree t)
    rationale for this in gimplify_modify_expr.  */
 
 static bool
-is_gimple_mem_or_call_rhs (tree t)
+is_gimple_mem_rhs_or_call (tree t)
 {
   /* If we're dealing with a renamable type, either source or dest must be
      a renamed variable.  */
   if (is_gimple_reg_type (TREE_TYPE (t)))
     return is_gimple_val (t);
   else
-    return is_gimple_formal_tmp_or_call_rhs (t);
+    return (is_gimple_val (t) || is_gimple_lvalue (t)
+	    || TREE_CODE (t) == CALL_EXPR);
 }
 
-
-/* Returns a formal temporary variable initialized with VAL.  PRE_P is as
-   in gimplify_expr.  Only use this function if:
-
-   1) The value of the unfactored expression represented by VAL will not
-      change between the initialization and use of the temporary, and
-   2) The temporary will not be otherwise modified.
-
-   For instance, #1 means that this is inappropriate for SAVE_EXPR temps,
-   and #2 means it is inappropriate for && temps.
-
-   For other cases, use get_initialized_tmp_var instead.  */
+/* Helper for get_formal_tmp_var and get_initialized_tmp_var.  */
 
 static tree
 internal_get_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p,
@@ -683,7 +646,7 @@ internal_get_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p,
 
   /* Notice that we explicitly allow VAL to be a CALL_EXPR so that we
      can create an INIT_EXPR and convert it into a GIMPLE_CALL below.  */
-  gimplify_expr (&val, pre_p, post_p, is_gimple_formal_tmp_or_call_rhs,
+  gimplify_expr (&val, pre_p, post_p, is_gimple_reg_rhs_or_call,
 		 fb_rvalue);
 
   t = lookup_tmp_var (val, is_formal);
@@ -704,11 +667,11 @@ internal_get_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p,
 	      SET_DECL_RESTRICT_BASE (t, u);
 	    }
 	}
-    }
 
-  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
-      || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
-    DECL_GIMPLE_REG_P (t) = 1;
+      if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
+	  || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+	DECL_GIMPLE_REG_P (t) = 1;
+    }
 
   mod = build2 (INIT_EXPR, TREE_TYPE (t), t, unshare_expr (val));
 
@@ -732,9 +695,17 @@ internal_get_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p,
   return t;
 }
 
-/* Returns a formal temporary variable initialized with VAL.  PRE_P
-   points to a sequence where side-effects needed to compute VAL should be
-   stored.  */
+/* Returns a formal temporary variable initialized with VAL.  PRE_P is as
+   in gimplify_expr.  Only use this function if:
+
+   1) The value of the unfactored expression represented by VAL will not
+      change between the initialization and use of the temporary, and
+   2) The temporary will not be otherwise modified.
+
+   For instance, #1 means that this is inappropriate for SAVE_EXPR temps,
+   and #2 means it is inappropriate for && temps.
+
+   For other cases, use get_initialized_tmp_var instead.  */
 
 tree
 get_formal_tmp_var (tree val, gimple_seq *pre_p)
@@ -2003,7 +1974,7 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		{
 		  TREE_OPERAND (t, 2) = low;
 		  tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p,
-					post_p, is_gimple_formal_tmp_reg,
+					post_p, is_gimple_reg,
 					fb_rvalue);
 		  ret = MIN (ret, tret);
 		}
@@ -2023,7 +1994,7 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		{
 		  TREE_OPERAND (t, 3) = elmt_size;
 		  tret = gimplify_expr (&TREE_OPERAND (t, 3), pre_p,
-					post_p, is_gimple_formal_tmp_reg,
+					post_p, is_gimple_reg,
 					fb_rvalue);
 		  ret = MIN (ret, tret);
 		}
@@ -2046,7 +2017,7 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		{
 		  TREE_OPERAND (t, 2) = offset;
 		  tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p,
-					post_p, is_gimple_formal_tmp_reg,
+					post_p, is_gimple_reg,
 					fb_rvalue);
 		  ret = MIN (ret, tret);
 		}
@@ -2069,19 +2040,11 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
-	  /* Gimplify the dimension.
-	     Temporary fix for gcc.c-torture/execute/20040313-1.c.
-	     Gimplify non-constant array indices into a temporary
-	     variable.
-	     FIXME - The real fix is to gimplify post-modify
-	     expressions into a minimal gimple lvalue.  However, that
-	     exposes bugs in alias analysis.  The alias analyzer does
-	     not handle &PTR->FIELD very well.  Will fix after the
-	     branch is merged into mainline (dnovillo 2004-05-03).  */
+	  /* Gimplify the dimension.  */
 	  if (!is_gimple_min_invariant (TREE_OPERAND (t, 1)))
 	    {
 	      tret = gimplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p,
-				    is_gimple_formal_tmp_reg, fb_rvalue);
+				    is_gimple_val, fb_rvalue);
 	      ret = MIN (ret, tret);
 	    }
 	}
@@ -2173,9 +2136,18 @@ gimplify_self_mod_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   rhs = TREE_OPERAND (*expr_p, 1);
 
   /* For postfix operator, we evaluate the LHS to an rvalue and then use
-     that as the result value and in the postqueue operation.  */
+     that as the result value and in the postqueue operation.  We also
+     make sure to make lvalue a minimal lval, see
+     gcc.c-torture/execute/20040313-1.c for an example where this matters.  */
   if (postfix)
     {
+      if (!is_gimple_min_lval (lvalue))
+	{
+	  mark_addressable (lvalue);
+	  lvalue = build_fold_addr_expr (lvalue);
+	  gimplify_expr (&lvalue, pre_p, post_p, is_gimple_val, fb_rvalue);
+	  lvalue = build_fold_indirect_ref (lvalue);
+	}
       ret = gimplify_expr (&lhs, pre_p, post_p, is_gimple_val, fb_rvalue);
       if (ret == GS_ERROR)
 	return ret;
@@ -3055,9 +3027,11 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
   to = TREE_OPERAND (*expr_p, 0);
   from = TREE_OPERAND (*expr_p, 1);
 
+  mark_addressable (from);
   from_ptr = build_fold_addr_expr (from);
   gimplify_arg (&from_ptr, seq_p, EXPR_LOCATION (*expr_p));
 
+  mark_addressable (to);
   to_ptr = build_fold_addr_expr (to);
   gimplify_arg (&to_ptr, seq_p, EXPR_LOCATION (*expr_p));
 
@@ -3443,12 +3417,10 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 gimple_predicate
 rhs_predicate_for (tree lhs)
 {
-  if (is_gimple_formal_tmp_var (lhs))
-    return is_gimple_formal_tmp_or_call_rhs;
-  else if (is_gimple_reg (lhs))
-    return is_gimple_reg_or_call_rhs;
+  if (is_gimple_reg (lhs))
+    return is_gimple_reg_rhs_or_call;
   else
-    return is_gimple_mem_or_call_rhs;
+    return is_gimple_mem_rhs_or_call;
 }
 
 /* Gimplify a C99 compound literal expression.  This just means adding
@@ -4115,11 +4087,6 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 		     || (DECL_P (*to_p) && DECL_REGISTER (*to_p)))
 	      /* Don't force regs into memory.  */
 	      use_target = false;
-	    else if (TREE_CODE (*to_p) == VAR_DECL
-		     && DECL_GIMPLE_FORMAL_TEMP_P (*to_p))
-	      /* Don't use the original target if it's a formal temp; we
-		 don't want to take their addresses.  */
-	      use_target = false;
 	    else if (TREE_CODE (*expr_p) == INIT_EXPR)
 	      /* It's OK to use the target directly if it's being
 		 initialized. */
@@ -4639,7 +4606,7 @@ gimplify_addr_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	 This mostly happens if the frontend passed us something that
 	 it could not mark addressable yet, like a fortran
 	 pass-by-reference parameter (int) floatvar.  */
-      if (is_gimple_formal_tmp_var (TREE_OPERAND (expr, 0)))
+      if (is_gimple_reg (TREE_OPERAND (expr, 0)))
 	TREE_OPERAND (expr, 0)
 	  = get_initialized_tmp_var (TREE_OPERAND (expr, 0), pre_p, post_p);
 
@@ -6311,16 +6278,12 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   if (gimple_test_f == is_gimple_reg)
     gcc_assert (fallback & (fb_rvalue | fb_lvalue));
   else if (gimple_test_f == is_gimple_val
-           || gimple_test_f == is_gimple_formal_tmp_rhs
-           || gimple_test_f == is_gimple_formal_tmp_or_call_rhs
-           || gimple_test_f == is_gimple_formal_tmp_reg
-           || gimple_test_f == is_gimple_formal_tmp_var
            || gimple_test_f == is_gimple_call_addr
            || gimple_test_f == is_gimple_condexpr
            || gimple_test_f == is_gimple_mem_rhs
-           || gimple_test_f == is_gimple_mem_or_call_rhs
+           || gimple_test_f == is_gimple_mem_rhs_or_call
            || gimple_test_f == is_gimple_reg_rhs
-           || gimple_test_f == is_gimple_reg_or_call_rhs
+           || gimple_test_f == is_gimple_reg_rhs_or_call
            || gimple_test_f == is_gimple_asm_val)
     gcc_assert (fallback & fb_rvalue);
   else if (gimple_test_f == is_gimple_min_lval
@@ -7123,7 +7086,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       gimplify_expr (&tmp, pre_p, post_p, is_gimple_reg, fb_rvalue);
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
     }
-  else if ((fallback & fb_rvalue) && is_gimple_formal_tmp_or_call_rhs (*expr_p))
+  else if ((fallback & fb_rvalue) && is_gimple_reg_rhs_or_call (*expr_p))
     {
       /* An rvalue will do.  Assign the gimplified expression into a
 	 new temporary TMP and replace the original expression with
@@ -7138,9 +7101,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	*expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
       else
 	*expr_p = get_formal_tmp_var (*expr_p, pre_p);
-
-      if (TREE_CODE (*expr_p) != SSA_NAME)
-	DECL_GIMPLE_FORMAL_TEMP_P (*expr_p) = 1;
     }
   else
     {
@@ -7592,7 +7552,7 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
       lhs = gimple_get_lhs (stmt);
       /* If the LHS changed it in a way that requires a simple RHS,
 	 create temporary.  */
-      if (lhs && !is_gimple_formal_tmp_var (lhs))
+      if (lhs && !is_gimple_reg (lhs))
 	{
 	  bool need_temp = false;
 
@@ -7641,7 +7601,6 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 	    {
 	      tree temp = create_tmp_var (TREE_TYPE (lhs), NULL);
 
-	      DECL_GIMPLE_FORMAL_TEMP_P (temp) = 1;
 	      if (TREE_CODE (TREE_TYPE (lhs)) == COMPLEX_TYPE
 		  || TREE_CODE (TREE_TYPE (lhs)) == VECTOR_TYPE)
 		DECL_GIMPLE_REG_P (temp) = 1;

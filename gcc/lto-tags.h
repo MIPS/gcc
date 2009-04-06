@@ -494,6 +494,7 @@ enum LTO_tags {
   LTO_eh_table_must_not_throw1,
   LTO_eh_table_throw0,
   LTO_eh_table_throw1,
+  LTO_eh_table_shared_region,
 
 /* Base info, e.g., for C++ */
   LTO_tree_binfo,

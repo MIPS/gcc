@@ -169,6 +169,36 @@ input_string_cst (struct data_in *data_in, struct lto_input_block *ib)
   return build_string (len, ptr);
 }
 
+
+/* Read a bitmap from input block IB. If GC_P is true, allocate the
+   bitmap in GC memory.  Otherwise,  allocate it on OBSTACK.  If
+   OBSTACK is NULL, it is allocated in the default bitmap obstack.  */
+
+static bitmap
+input_bitmap (struct lto_input_block *ib, bitmap_obstack *obstack, bool gc_p)
+{
+  unsigned long num_bits, i;
+  bitmap b;
+
+  num_bits = lto_input_uleb128 (ib);
+  if (num_bits == 0)
+    return NULL;
+
+  if (gc_p)
+    b = BITMAP_GGC_ALLOC ();
+  else
+    b = BITMAP_ALLOC (obstack);
+
+  for (i = 0; i < num_bits; i++)
+    {
+      unsigned long bit = lto_input_uleb128 (ib);
+      bitmap_set_bit (b, bit);
+    }
+
+  return b;
+}
+
+
 /* Read an IDENTIFIER from the string table in DATA_IN.  */
 
 static tree
@@ -1350,13 +1380,32 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
   enum LTO_tags tag;
   eh_region r;
 
-  r = GGC_CNEW (struct eh_region);
-  r->region_number = region_number;
-
   /* Read the region header.  */
   tag = input_record_start (ib);
+  if (tag == 0)
+    return NULL;
 
+  /* If TAG indicates that this is a shared region, then return the
+     original region read earlier.  */
+  if (tag == LTO_eh_table_shared_region)
+    {
+      eh_region orig;
+      int orig_rn;
+      
+      orig_rn = lto_input_sleb128 (ib);
+      orig = VEC_index (eh_region, fn->eh->region_array, orig_rn);
+
+      /* The region that we are trying to read must exist in the AKA
+	 set of the original EH region.  */
+      gcc_assert (orig->aka && bitmap_bit_p (orig->aka, region_number));
+
+      return orig;
+    }
+
+  r = GGC_CNEW (struct eh_region);
   r->region_number = lto_input_sleb128 (ib);
+  r->aka = input_bitmap (ib, NULL, true);
+
   gcc_assert (r->region_number == region_number);
 
   /* Read all the region pointers as region numbers.  We'll fix up
@@ -1444,23 +1493,38 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
 
 /* After reading the EH regions, pointers to peer and children regions
    are region numbers.  This converts all these region numbers into
-   real pointers into the rematerialized regions for FN.  */
+   real pointers into the rematerialized regions for FN.  ROOT_REGION
+   is the region number for the root EH region in FN.  */
 
 static void
-fixup_eh_region_pointers (struct function *fn, unsigned root_region,
-			  unsigned last_region)
+fixup_eh_region_pointers (struct function *fn, HOST_WIDE_INT root_region)
 {
   unsigned i;
   VEC(eh_region,gc) *array = fn->eh->region_array;
+  eh_region r;
 
 #define fixup_region(r) (r) = VEC_index (eh_region, array, \
 					 (HOST_WIDE_INT) (intptr_t) (r))
 
-  fn->eh->region_tree = VEC_index (eh_region, array, root_region);
+  gcc_assert (array);
 
-  for (i = 1; i <= last_region; i++)
+  /* A root region with value -1 means that there is not a region tree
+     for this function.  However, we may still have an EH table with
+     statements in it.  FIXME, this is a bug in the generic EH code.  */
+  if (root_region >= 0)
+    fn->eh->region_tree = VEC_index (eh_region, array, root_region);
+
+  for (i = 0; VEC_iterate (eh_region, array, i, r); i++)
     {
-      eh_region r = VEC_index (eh_region, array, i);
+      if (r == NULL)
+	continue;
+
+      /* If R is a shared EH region, then its region number will be
+	 that of its original EH region.  Skip these, since they only
+	 need to be fixed up when processing the original region.  */
+      if (i != (unsigned) r->region_number)
+	continue;
+
       fixup_region (r->outer);
       fixup_region (r->inner);
       fixup_region (r->next_peer);
@@ -1529,7 +1593,7 @@ static void
 input_eh_regions (struct lto_input_block *ib, struct data_in *data_in,
 		  struct function *fn)
 {
-  HOST_WIDE_INT i, last_region, root_region;
+  HOST_WIDE_INT i, last_region, root_region, len;
   enum LTO_tags tag;
   
   tag = input_record_start (ib);
@@ -1549,26 +1613,30 @@ input_eh_regions (struct lto_input_block *ib, struct data_in *data_in,
       gcc_assert (fn->eh);
 
       last_region = lto_input_sleb128 (ib);
-      VEC_safe_grow (eh_region, gc, fn->eh->region_array, last_region + 1);
       fn->eh->last_region_number = last_region;
-      VEC_replace (eh_region, fn->eh->region_array, 0, NULL);
 
       root_region = lto_input_sleb128 (ib);
 
       /* Fill in the EH region array.  */
-      for (i = 1; i <= last_region; i++)
+      len = lto_input_sleb128 (ib);
+      if (len > 0)
 	{
-	  eh_region r = input_eh_region (ib, data_in, fn, i);
-	  VEC_replace (eh_region, fn->eh->region_array, i, r);
-	}
+	  VEC_safe_grow (eh_region, gc, fn->eh->region_array, len);
+	  for (i = 0; i < len; i++)
+	    {
+	      eh_region r = input_eh_region (ib, data_in, fn, i);
+	      VEC_replace (eh_region, fn->eh->region_array, i, r);
+	    }
 
-      /* Reconstruct the EH region tree by fixing up the peer/children
-	 pointers.  */
-      fixup_eh_region_pointers (fn, root_region, last_region);
+	  /* Reconstruct the EH region tree by fixing up the
+	     peer/children pointers.  */
+	  fixup_eh_region_pointers (fn, root_region);
+	}
 
       LTO_DEBUG_UNDENT ();
 
-      input_record_start (ib);
+      tag = input_record_start (ib);
+      gcc_assert (tag == LTO_null);
     }
 }
 
@@ -1857,6 +1925,10 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   gimple_stmt_iterator bsi;
   HOST_WIDE_INT curr_eh_region;
 
+  /* This routine assumes that CFUN is set to FN, as it needs to call
+     basic GIMPLE routines that use CFUN.  */
+  gcc_assert (cfun == fn);
+
   LTO_DEBUG_TOKEN ("bbindex");
   index = lto_input_uleb128 (ib);
   bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
@@ -1894,7 +1966,10 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
 	}
 
       if (curr_eh_region >= 0)
-	add_stmt_to_eh_region (stmt, curr_eh_region);
+	{
+	  gcc_assert (curr_eh_region <= num_eh_regions ());
+	  add_stmt_to_eh_region (stmt, curr_eh_region);
+	}
 
       LTO_DEBUG_INDENT_TOKEN ("stmt");
       tag = input_record_start (ib);
@@ -1925,7 +2000,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   gimple *stmts;
   struct cgraph_edge *cedge; 
   basic_block bb;
-  struct cgraph_node *master_clone, *node;
+  struct cgraph_node *node;
 
   DECL_INITIAL (fn_decl) = DECL_SAVED_TREE (fn_decl) = make_node (BLOCK);
   BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
@@ -1980,12 +2055,13 @@ input_function (tree fn_decl, struct data_in *data_in,
   fprintf (stderr, "%s\n", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn_decl)));
 #endif
 
-  /* We need to go through all the clones to fix up call-stmts in
+  /* We need to go through all NODE's clones to fix up call-stmts in
      edges.  */
   node = cgraph_node (fn_decl);
-  master_clone = node->master_clone ? node->master_clone : node;
+  while (node->prev_clone)
+    node = node->prev_clone;
 
-  for (node = master_clone; node; node = node->next_clone)
+  for (; node; node = node->next_clone)
     for (cedge = node->callees; cedge; cedge = cedge->next_callee)
       {
 	cedge->call_stmt = stmts[cedge->lto_stmt_uid];

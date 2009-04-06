@@ -106,6 +106,9 @@ lhd_return_null_const_tree (const_tree ARG_UNUSED (t))
 bool
 lhd_post_options (const char ** ARG_UNUSED (pfilename))
 {
+  /* Excess precision other than "fast" requires front-end
+     support.  */
+  flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
   return false;
 }
 
@@ -116,14 +119,6 @@ lhd_print_tree_nothing (FILE * ARG_UNUSED (file),
 			tree ARG_UNUSED (node),
 			int ARG_UNUSED (indent))
 {
-}
-
-/* Called from staticp.  */
-
-tree
-lhd_staticp (tree ARG_UNUSED (exp))
-{
-  return NULL;
 }
 
 /* Called from check_global_declarations.  */

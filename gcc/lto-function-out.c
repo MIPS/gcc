@@ -255,8 +255,6 @@ destroy_output_block (struct output_block * ob)
   free (ob);
 }
 
-
-
 /* Output STRING of LEN characters to the string
    table in OB. The string might or might not include a trailing '\0'.
    Then put the index onto the INDEX_STREAM.  */
@@ -433,6 +431,31 @@ static void
 output_integer (struct output_block *ob, tree t)
 {
   lto_output_integer_stream (ob->main_stream, t);
+}
+
+
+/* Output bitmap B to OB.  */
+
+static void
+output_bitmap (struct output_block *ob, bitmap b)
+{
+  bitmap_iterator bi;
+  unsigned i;
+
+  if (b == NULL)
+    {
+      output_zero (ob);
+      return;
+    }
+
+  /* Indicate how many set bits B has.  */
+  output_uleb128 (ob, bitmap_count_bits (b));
+
+  /* FIXME lto.  For now, emit a sequence of all the bit positions
+     that are set in B.  This could be compacted by packing multiple
+     bits in one word.  */
+  EXECUTE_IF_SET_IN_BITMAP (b, 0, i, bi)
+    output_uleb128 (ob, i);
 }
 
 
@@ -740,12 +763,37 @@ output_record_start (struct output_block *ob, tree expr,
 }
 
 
-/* Output EH region R to OB.  */
+/* Output EH region R in function FN to OB.  CURR_RN is the slot index
+   that is being emitted in FN->EH->REGION_ARRAY.  This is used to
+   detect EH region sharing.  */
 
 static void
-output_eh_region (struct output_block *ob, eh_region r)
+output_eh_region (struct output_block *ob, struct function *fn,
+		  eh_region r, int curr_rn)
 {
   enum LTO_tags tag;
+
+  if (r == NULL)
+    {
+      output_zero (ob);
+      return;
+    }
+
+  /* If R has a different region number than CURR_RN it means that
+     CURR_RN is an alias for the original region R.  In this case,
+     instead of wasting space emitting all of R again, only emit the
+     integer R->REGION_NUMBER so that we can share the EH array slots
+     on the reading side.  */
+  if (r->region_number != curr_rn)
+    {
+      /* Make sure the EH regions are indeed shared.  */
+      gcc_assert (VEC_index (eh_region, fn->eh->region_array, r->region_number)
+		  == VEC_index (eh_region, fn->eh->region_array, curr_rn));
+
+      output_record_start (ob, NULL, NULL, LTO_eh_table_shared_region);
+      output_sleb128 (ob, r->region_number);
+      return;
+    }
 
   if (r->type == ERT_CLEANUP)
     tag = LTO_eh_table_cleanup0;
@@ -768,6 +816,7 @@ output_eh_region (struct output_block *ob, eh_region r)
 
   output_record_start (ob, NULL, NULL, tag);
   output_sleb128 (ob, r->region_number);
+  output_bitmap (ob, r->aka);
   if (r->outer)
     output_uleb128 (ob, r->outer->region_number);
   else
@@ -864,17 +913,25 @@ output_eh_regions (struct output_block *ob, struct function *fn)
 {
   eh_region curr;
 
-  if (fn->eh->region_array)
+  if (fn->eh)
     {
       unsigned i;
 
       output_record_start (ob, NULL, NULL, LTO_eh_table);
       output_sleb128 (ob, fn->eh->last_region_number);
-      output_sleb128 (ob, fn->eh->region_tree->region_number);
 
+      /* If the EH regions were optimized, there may not be a region
+	 tree.  FIXME, if there is no region tree we should not be
+	 removing all statements from the EH tables.  This is a bug in
+	 the generic EH code.  */
+      if (fn->eh->region_tree)
+	output_sleb128 (ob, fn->eh->region_tree->region_number);
+      else
+	output_sleb128 (ob, -1);
+
+      output_sleb128 (ob, VEC_length (eh_region, fn->eh->region_array));
       for (i = 0; VEC_iterate (eh_region, fn->eh->region_array, i, curr); i++)
-	if (curr)
-	  output_eh_region (ob, curr);
+	output_eh_region (ob, fn, curr, i);
 
       LTO_DEBUG_UNDENT ();
     }
@@ -2276,6 +2333,7 @@ lto_output (cgraph_node_set set)
 
   lto_static_init_local ();
 
+  /* Process only the functions with bodies.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
     {
       node = csi_node (csi);
@@ -2680,7 +2738,17 @@ output_parm_decl (struct output_block *ob, tree decl, tree fn)
 
   /* uid and locus are handled specially */
   output_tree (ob, decl->decl_minimal.name);
-  gcc_assert (decl->decl_minimal.context == fn);
+
+  /* If FN has a gimple body, DECL's context must bu FN.  Otherwise,
+     it doesn't really matter, as we will not be emitting any code for
+     FN.  In general, there may be other instances of FN created by
+     the front end and since PARM_DECLs are generally shared, their
+     DECL_CONTEXT changes as the replicas of FN are created.  The only
+     time where DECL_CONTEXT is important is for the FNs that have a
+     gimple body (since the PARM_DECL will be used in the function's
+     body).  */
+  if (gimple_has_body_p (fn))
+    gcc_assert (DECL_CONTEXT (decl) == fn);
 
   output_tree (ob, decl->common.type);
 

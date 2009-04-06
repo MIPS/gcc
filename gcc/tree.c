@@ -1812,6 +1812,18 @@ tree_last (tree chain)
   return chain;
 }
 
+/* Return the node in a chain of nodes whose value is x, NULL if not found.  */
+
+tree
+tree_find_value (tree chain, tree x)
+{
+  tree list;
+  for (list = chain; list; list = TREE_CHAIN (list))
+    if (TREE_VALUE (list) == x)
+	return list;
+  return NULL;
+}
+
 /* Reverse the order of elements in the chain T,
    and return the new head of the chain (old last element).  */
 
@@ -2108,8 +2120,7 @@ staticp (tree arg)
     case COMPONENT_REF:
       /* If the thing being referenced is not a field, then it is
 	 something language specific.  */
-      if (TREE_CODE (TREE_OPERAND (arg, 1)) != FIELD_DECL)
-	return (*lang_hooks.staticp) (arg);
+      gcc_assert (TREE_CODE (TREE_OPERAND (arg, 1)) == FIELD_DECL);
 
       /* If we are referencing a bitfield, we can't evaluate an
 	 ADDR_EXPR at compile time and so it isn't a constant.  */
@@ -2138,11 +2149,7 @@ staticp (tree arg)
       return TREE_STATIC (COMPOUND_LITERAL_EXPR_DECL (arg)) ? arg : NULL;
 
     default:
-      if ((unsigned int) TREE_CODE (arg)
-	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE)
-	return lang_hooks.staticp (arg);
-      else
-	return NULL;
+      return NULL;
     }
 }
 
@@ -3844,6 +3851,7 @@ free_lang_data_in_type (tree type)
 			  & ~TYPE_QUAL_CONST
 			  & ~TYPE_QUAL_VOLATILE;
 	      TREE_VALUE (p) = build_qualified_type (arg_type, quals);
+	      free_lang_data_in_type (TREE_VALUE (p));
 	    }
 	}
     }
@@ -4035,8 +4043,19 @@ free_lang_data_in_decl (tree decl)
 
       if (context && TREE_CODE (context) == FUNCTION_DECL)
 	DECL_CONTEXT (decl) = NULL_TREE;
-      for (t = DECL_ARGUMENTS (decl); t ; t = TREE_CHAIN (t))
-	DECL_CONTEXT (t) = decl;
+
+      /* If DECL has a gimple body, then the context for its arguments
+	 must be DECL.  Otherwise, it doesn't really matter, as we
+	 will not be emitting any code for DECL.  In general, there
+	 may be other instances of DECL created by the front end and
+	 since PARM_DECLs are generally shared, their DECL_CONTEXT
+	 changes as the replicas of DECL are created.  The only time
+	 where DECL_CONTEXT is important is for the FUNCTION_DECLs
+	 that have a gimple body (since the PARM_DECL will be used in
+	 the function's body).  */
+      if (gimple_has_body_p (decl))
+	for (t = DECL_ARGUMENTS (decl); t ; t = TREE_CHAIN (t))
+	  DECL_CONTEXT (t) = decl;
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
@@ -4258,7 +4277,6 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
   fn = DECL_STRUCT_FUNCTION (n->decl);
 
   /* Traverse locals. */
-
   for (t = fn->local_decls; t; t = TREE_CHAIN (t))
     {
       tree *tp = &TREE_VALUE (t);
@@ -6938,6 +6956,61 @@ build_complex_type (tree component_type)
     }
 
   return build_qualified_type (t, TYPE_QUALS (component_type));
+}
+
+/* If TYPE is a real or complex floating-point type and the target
+   does not directly support arithmetic on TYPE then return the wider
+   type to be used for arithmetic on TYPE.  Otherwise, return
+   NULL_TREE.  */
+
+tree
+excess_precision_type (tree type)
+{
+  if (flag_excess_precision != EXCESS_PRECISION_FAST)
+    {
+      int flt_eval_method = TARGET_FLT_EVAL_METHOD;
+      switch (TREE_CODE (type))
+	{
+	case REAL_TYPE:
+	  switch (flt_eval_method)
+	    {
+	    case 1:
+	      if (TYPE_MODE (type) == TYPE_MODE (float_type_node))
+		return double_type_node;
+	      break;
+	    case 2:
+	      if (TYPE_MODE (type) == TYPE_MODE (float_type_node)
+		  || TYPE_MODE (type) == TYPE_MODE (double_type_node))
+		return long_double_type_node;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	  break;
+	case COMPLEX_TYPE:
+	  if (TREE_CODE (TREE_TYPE (type)) != REAL_TYPE)
+	    return NULL_TREE;
+	  switch (flt_eval_method)
+	    {
+	    case 1:
+	      if (TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (float_type_node))
+		return complex_double_type_node;
+	      break;
+	    case 2:
+	      if (TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (float_type_node)
+		  || (TYPE_MODE (TREE_TYPE (type))
+		      == TYPE_MODE (double_type_node)))
+		return complex_long_double_type_node;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	  break;
+	default:
+	  break;
+	}
+    }
+  return NULL_TREE;
 }
 
 /* Return OP, stripped of any conversions to wider types as much as is safe.
@@ -9749,6 +9822,7 @@ block_nonartificial_location (tree block)
     }
   return ret;
 }
+
 
 /* If EXP is inlined from an __attribute__((__artificial__))
    function, return the location of the original call expression.  */
