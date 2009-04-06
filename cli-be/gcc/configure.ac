@@ -3337,6 +3337,20 @@ if test x$with_sysroot = x && test x$host = x$target \
 [Define to PREFIX/include if cpp should also search that directory.])
 fi
 
+case "$target" in
+   cil32-*-*)
+     if ${gcc_cv_ld} -h | grep "GCC4CLI" > /dev/null; then
+       tm_defines="${tm_defines} MONO_BINUTILS=1"
+     else
+       if ${gcc_cv_ld} -h | grep "Southern Storm Software" > /dev/null; then
+         tm_defines="${tm_defines} DOTGNU_BINUTILS=1"
+       else
+         AC_MSG_ERROR([Unrecognized binutils: impossible to choose default compiler driver arguments])
+       fi
+     fi
+   ;;
+esac
+
 # Test for stack protector support in target C library.
 AC_CACHE_CHECK(__stack_chk_fail in target C library,
       gcc_cv_libc_provides_ssp,

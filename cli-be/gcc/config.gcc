@@ -859,9 +859,6 @@ cil32-*-*)
 	extra_objs="bb-layout.o bit-stream.o cil-refs.o cil-stack.o cil-stmt.o emit-cil.o emit-hints.o gimple-to-cil.o missing-protos.o peephole.o remove-convs.o remove-temps.o simp-cond.o tree-simp-cil-early.o cil-builtins.o"
 	tm_file="${tm_file} cil32/cil-types.h"
 	target_gtfiles="\$(srcdir)/config/cil32/cil-builtins.c \$(srcdir)/config/cil32/cil-refs.c \$(srcdir)/config/cil32/cil-stmt.c"
-	if ${gcc_cv_ld} -h | grep GCC4CLI > /dev/null; then
-	   tm_defines="${tm_defines} MONO_BINUTILS=1"
-	fi
 	;;
 cris-*-aout)
 	tm_file="dbxelf.h ${tm_file} cris/aout.h"

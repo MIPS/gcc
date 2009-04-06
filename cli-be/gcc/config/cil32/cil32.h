@@ -46,9 +46,11 @@ Erven Rohou             <erven.rohou@st.com>
 #if defined(MONO_BINUTILS)
 #define CC1_SPEC "-mgcc4net-linker"
 #define LIBGCC_SPEC ""
-#else
+#elif defined(DOTGNU_BINUTILS)
 #define CC1_SPEC "-mopensystemc"
 #define LIBGCC_SPEC "-l gcc4net.dll"
+#else
+#error "Unrecognized binutils: impossible to choose default compiler driver arguments"
 #endif
 #define LIB_SPEC "-l libstd.dll"
 #define LINK_SPEC "%{shared:--shared} %{mthreads:-mt}"
