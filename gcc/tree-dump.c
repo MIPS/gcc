@@ -815,13 +815,14 @@ static const struct dump_option_value_info dump_options[] =
   {"blocks", TDF_BLOCKS},
   {"vops", TDF_VOPS},
   {"lineno", TDF_LINENO},
+  {"debuglocus", TDF_DEBUGLOCUS},
   {"uid", TDF_UID},
   {"stmtaddr", TDF_STMTADDR},
   {"memsyms", TDF_MEMSYMS},
   {"verbose", TDF_VERBOSE},
   {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA 
 	    | TDF_STMTADDR | TDF_GRAPH | TDF_DIAGNOSTIC | TDF_VERBOSE
-	    | TDF_RHS_ONLY)},
+	    | TDF_RHS_ONLY | TDF_DEBUGLOCUS)},
   {NULL, 0}
 };
 

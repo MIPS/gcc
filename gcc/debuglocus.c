@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "debuglocus.h"
 #include "hashtab.h"
+#include "input.h"
 
 
 /* This file contains data and functions required to implement debuglocus 
@@ -512,5 +513,244 @@ debuglocus_var_iter_next (debuglocus_iterator * iter)
     return next->decl;
   return NULL;
 }
+
+/* Debuglocus verification routines.  */
 
 
+/* Debuglocus bitmap for entire translation unit.  */
+bitmap_head global_dl_bitmap;
+
+/* Callback WI info for the walkers.  */
+struct dlb_info
+{
+  /* The bitmap.  */
+  bitmap bits;
+  /* DUMPFILE to dump errors out to.  */
+  FILE *dumpfile;
+  /* TRUE if BITS is the bitmap for BEFORE the pass ran.  */
+  bool before_pass_p;
+};
+
+/* If the given LOCUS is a debuglocus, set the corresponding bit in
+   bitmap B.  Complain about shared debuglocus entries.
+
+   DUMPFILE is the dump file to output errors to.
+
+   BEFORE_PASS_P is true if this is the bitmap before the pass ran,
+   or false if the bitmap is for after the pass completed.  */
+static void
+debuglocus_bitmap_populate_helper (bitmap b, location_t locus,
+				   FILE *dumpfile, bool before_pass_p)
+{
+  if (is_debuglocus (locus))
+    {
+      unsigned int i = DEBUGLOCUS_INDEX (locus);
+
+      if (bitmap_bit_p (b, i))
+	fprintf (dumpfile, "Duplicated debuglocus %s this pass: %u\n",
+		 before_pass_p ? "before" : "after", i);
+      else
+	bitmap_set_bit (b, (int) i);
+    }
+}
+
+/* Callback to walk gimple statements.  Populate debuglocus bitmap
+   with each statement's debuglocus.  */
+static tree
+debuglocus_bitmap_populate_gimple (gimple_stmt_iterator *gsi,
+				   bool *handled_ops ATTRIBUTE_UNUSED,
+				   struct walk_stmt_info *wi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  struct dlb_info *dlb = (struct dlb_info *)wi->info;
+
+  debuglocus_bitmap_populate_helper (dlb->bits, gimple_location (stmt),
+				     dlb->dumpfile, dlb->before_pass_p);
+  return NULL_TREE;
+}
+
+/* Same, but for gimple operands (trees).  */
+static tree
+debuglocus_bitmap_populate_tree (tree *tp,
+				 int *walk_subtrees ATTRIBUTE_UNUSED,
+				 void *data)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  struct dlb_info *dlb = (struct dlb_info *)wi->info;
+
+  if (CAN_HAVE_LOCATION_P (*tp))
+    debuglocus_bitmap_populate_helper (dlb->bits, EXPR_LOCATION (*tp),
+				       dlb->dumpfile, dlb->before_pass_p);
+  return NULL_TREE;
+}
+
+/* Initialize and populate a bitmap of debuglocus entries.
+   B is the bitmap to populate.
+   DUMPFILE is the file to dump errors out to.
+   BEFORE_PASS_P is true if this is the bitmap for before the pass ran.  */
+void
+debuglocus_bitmap_populate (bitmap b, FILE *dumpfile, bool before_pass_p)
+{
+  debuglocus_table_t *tab = current_debuglocus_table ();
+  tree func;
+  struct walk_stmt_info wi;
+  struct dlb_info dlb;
+
+  bitmap_initialize (b, NULL);
+
+  if (!tab || !cfun)
+    return;
+
+  func = cfun->decl;
+
+  dlb.bits = b;
+  dlb.dumpfile = dumpfile;
+  dlb.before_pass_p = before_pass_p;
+  memset (&wi, 0, sizeof (wi));
+  wi.info = (void *)&dlb;
+
+  /* If we haven't lowered to gimple, ignore this pass.  */
+  if (DECL_SAVED_TREE (func) != NULL)
+    return;
+
+  if (bitmap_empty_p (&global_dl_bitmap))
+    bitmap_initialize (&global_dl_bitmap, NULL);
+
+  /* If the CFG has been built, traverse the CFG.  */
+  if (cfun->cfg && basic_block_info)
+    {
+      basic_block bb;
+      gimple_stmt_iterator gsi;
+
+      FOR_EACH_BB (bb)
+	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	  {
+	    walk_gimple_stmt (&gsi,
+			      debuglocus_bitmap_populate_gimple,
+			      debuglocus_bitmap_populate_tree,
+			      &wi);
+	  }
+    }
+  else
+    {
+      /* Otherwise, plain gimple.  Traverse the sequence of
+	 statements.  */
+      walk_gimple_seq (gimple_body (func),
+		       debuglocus_bitmap_populate_gimple,
+		       debuglocus_bitmap_populate_tree,
+		       &wi);
+    }
+
+  /* If the pass has already run, update the global debugloc
+     bitmap.  */
+  if (before_pass_p == false)
+    bitmap_ior_into (&global_dl_bitmap, b);
+}
+
+/* Dump the contents of debuglocus entry DL.
+   F is the dumpfile.  DL is the debuglocus entry.
+   INDEX is the debuglocus index for the entry.  */
+static void
+dump_debuglocus_entry (FILE *f, debuglocus_p dl, unsigned int index)
+{
+  expanded_location xloc = expand_location (dl->locus);
+
+  fprintf (f, "index #%u\n", index);
+  fputs   ("decl  = [", f);
+  print_generic_decl (f, dl->decl, /*flags=*/0);
+  fputs ("]\n", f);
+  fprintf (f, "order = %d\n", dl->order);
+  fprintf (f, "locus = %u {file='%s', line=%d, col=%d}\n",
+	   (unsigned int) dl->locus, xloc.file, xloc.line, xloc.column);
+  fprintf (f, "prev  = %d\n", dl->prev);
+  fprintf (f, "next  = %d\n", dl->next);
+}
+
+/* Dump the entire contents of the debuglocus table.
+   F is the dumpfile.  TAB is the table.  */
+static void
+dump_debuglocus_table (FILE *f, debuglocus_table_t *tab)
+{
+  unsigned int i;
+  debuglocus_p d;
+
+  if (!tab || tab->size <= 1)
+    return;
+
+  fputs ("\ndebuglocus table contents after pass executed\n", f);
+  fputs ("-----------------------------------------------\n", f);
+  fprintf (f, "number of elements=%d\n", tab->size);
+  for (i = 1; i < tab->size; ++i)
+    {
+      d = get_debuglocus_entry (tab, i);
+      dump_debuglocus_entry (f, d, i);
+    }
+  fputs ("-------------------------\n", f);
+}
+
+/* Verify the debuglocus entries created by the current pass.
+
+   BEFORE is the debuglocus bitmap before the pass.  AFTER is the
+   debuglocus bitmap after the pass.  F is the dumpfile to dump the
+   verification information.  FLAGS is are the TDF dump flags from the
+   pass.  */
+void
+debuglocus_bitmap_verify (FILE *f, bitmap before, bitmap after,
+			  unsigned int flags)
+{
+  const char *comma;
+  unsigned i;
+  bitmap_iterator bi;
+  bool first = true;
+  debuglocus_table_t *tab = current_debuglocus_table ();
+
+  if (tab && flags & TDF_DETAILS)
+    dump_debuglocus_table (f, tab);
+
+  /* Dump new debuglocus entries generated in this pass.  */
+  comma = "";
+  EXECUTE_IF_SET_IN_BITMAP (after, 0, i, bi)
+    {
+      if (!bitmap_bit_p (before, i))
+	{
+	  if (first)
+	    {
+	      fputs ("new debuglocus entries in this pass\n", f);
+	      first = false;
+	    }
+	  fprintf (f, "%s%u", comma, i);
+	  comma = ", ";
+	}
+    }
+  if (!first)
+    fputc ('\n', f);
+
+  /* Dump debuglocus entries that went missing in this pass.  */
+  first  = true;
+  comma = "";
+  EXECUTE_IF_SET_IN_BITMAP (before, 0, i, bi)
+    {
+      if (!bitmap_bit_p (after, i))
+	{
+	  if (first)
+	    {
+	      fputs ("deleted debuglocus entries in this pass:\n", f);
+	      first = false;
+	    }
+	  fprintf (f, "%s%u", comma, i);
+	  comma = ", ";
+	}
+    }
+  if (!first)
+    fputc ('\n', f);
+
+
+  if (tab)
+    {
+      /* Dump debuglocus entries that are no longer referenced after this
+	 pass.  */
+      for (i = 1; i < tab->size; ++i)
+	if (!bitmap_bit_p (&global_dl_bitmap, i))
+	  fprintf (f, "debuglocus: orphaned debuglocus entry: %u\n", i);
+    }
+}

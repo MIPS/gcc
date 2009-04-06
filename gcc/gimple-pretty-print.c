@@ -1183,7 +1183,9 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
       pp_character (buffer, '(');
       pp_decimal_int (buffer, gimple_phi_arg_edge (phi, i)->src->index);
       pp_character (buffer, ')');
-      if ((flags & TDF_LINENO) && gimple_phi_arg_has_location (phi, i))
+      if (((flags & TDF_LINENO)
+	   || (flags & TDF_DEBUGLOCUS))
+	  && gimple_phi_arg_has_location (phi, i))
         {
 	  expanded_location xloc;
 
@@ -1195,7 +1197,7 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
 	      pp_string (buffer, " : ");
 	    }
 	  pp_decimal_int (buffer, xloc.line);
-	  if (xloc.debuglocus != DEBUGLOCUS_NONE)
+	  if ((flags & TDF_DEBUGLOCUS) && xloc.debuglocus != DEBUGLOCUS_NONE)
 	    {
 	      tree decl;
 	      debuglocus_iterator iter;
@@ -1497,7 +1499,9 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (flags & TDF_STMTADDR)
     pp_printf (buffer, "<&%p> ", (void *) gs);
 
-  if ((flags & TDF_LINENO) && gimple_has_location (gs))
+  if (((flags & TDF_LINENO)
+       || (flags & TDF_DEBUGLOCUS))
+      && gimple_has_location (gs))
     {
       expanded_location xloc = expand_location (gimple_location (gs));
       pp_character (buffer, '[');
@@ -1507,7 +1511,7 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 	  pp_string (buffer, " : ");
 	}
       pp_decimal_int (buffer, xloc.line);
-      if (xloc.debuglocus != DEBUGLOCUS_NONE)
+      if ((flags & TDF_DEBUGLOCUS) && xloc.debuglocus != DEBUGLOCUS_NONE)
 	{
 	  tree decl;
 	  debuglocus_iterator iter;
@@ -1854,7 +1858,7 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
     {
       INDENT (indent);
 
-      if ((flags & TDF_LINENO)
+      if (((flags & TDF_LINENO) || (flags & TDF_DEBUGLOCUS))
 	  && e->goto_locus != UNKNOWN_LOCATION
 	  )
 	{
@@ -1867,7 +1871,8 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 	      pp_string (buffer, " : ");
 	    }
 	  pp_decimal_int (buffer, goto_xloc.line);
-	  if (goto_xloc.debuglocus != DEBUGLOCUS_NONE)
+	  if ((flags & TDF_DEBUGLOCUS)
+	      && goto_xloc.debuglocus != DEBUGLOCUS_NONE)
 	    {
 	      tree decl;
 	      debuglocus_iterator iter;

@@ -1,3 +1,23 @@
+2009-04-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* debuglocus.c (debuglocus_bitmap_populate_helper): New.
+	(debuglocus_bitmap_populate_gimple): New.
+	(debuglocus_bitmap_populate_tree): New.
+	(debuglocus_bitmap_populate): New.
+	(dump_debuglocus_entry): New.
+	(dump_debuglocus_table): New.
+	(debuglocus_bitmap_verify): New.
+	* debuglocus.h: Fix typo.
+	* tree-dump.c (dump_option_value_in): Add TDF_DEBUGLOCUS.
+	* tree-pass.h (TDF_DEBUGLOCUS): New.
+	* gimple-pretty-print.c (dump_gimple_phi): Only dump debuglocus
+	info when TDF_DEBUGLOCUS.
+	(dump_gimple_stmt): Same.
+	(dump_implicit_edges): Same.
+	* Makefile.in (debuglocus.o): Depend on INPUT_H.
+	* passes.c (execute_one_pass): Verify debuglocus entries before
+	and after pass.
+
 2009-03-26  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-into-ssa.c (rewrite_stmt): Add debuglocus to statements.

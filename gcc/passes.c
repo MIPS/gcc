@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "df.h"
 #include "predict.h"
+#include "debuglocus.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -1218,6 +1219,7 @@ execute_one_pass (struct opt_pass *pass)
 {
   bool initializing_dump;
   unsigned int todo_after = 0;
+  bitmap_head debuglocus_before, debuglocus_after;
 
   /* IPA passes are executed on whole program, so cfun should be NULL.
      Other passes need function context set.  */
@@ -1267,6 +1269,12 @@ execute_one_pass (struct opt_pass *pass)
 
   initializing_dump = pass_init_dump_file (pass);
 
+  if ((dump_flags & TDF_DEBUGLOCUS)
+      && (pass->todo_flags_finish & TODO_dump_func)
+      && dump_file)
+    debuglocus_bitmap_populate (&debuglocus_before, dump_file,
+				/*before_pass_p=*/true);
+
   /* If a timevar is present, start it.  */
   if (pass->tv_id)
     timevar_push (pass->tv_id);
@@ -1281,6 +1289,18 @@ execute_one_pass (struct opt_pass *pass)
   /* Stop timevar.  */
   if (pass->tv_id)
     timevar_pop (pass->tv_id);
+
+  if ((dump_flags & TDF_DEBUGLOCUS)
+      && (pass->todo_flags_finish & TODO_dump_func)
+      && dump_file)
+    {
+      debuglocus_bitmap_populate (&debuglocus_after, dump_file,
+				  /*before_pass_p=*/false);
+
+      debuglocus_bitmap_verify (dump_file,
+				&debuglocus_before, &debuglocus_after,
+				dump_flags);
+    }
 
   do_per_function (update_properties_after_pass, pass);
 

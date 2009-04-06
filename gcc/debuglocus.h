@@ -64,9 +64,12 @@ void merge_debuglocus (debuglocus_p, debuglocus_p);
 debuglocus_p find_debuglocus (gimple, tree, source_location);
 debuglocus_p find_and_detach_debuglocus (gimple, tree, source_location);
 source_location find_and_detach_or_create_debuglocus (gimple, tree, source_location);
+bitmap current_debuglocus_bitmap (void);
+void debuglocus_bitmap_populate (bitmap, FILE *, bool);
+void debuglocus_bitmap_verify (FILE *, bitmap, bitmap, unsigned int);
 
 /* Iterate over the different debuglocus's in a single list. No iterations are 
-   performed if ther locus is just a regular source location.  
+   performed if their locus is just a regular source location.  
 
    usage:
    source_location locus = gimple_location (stmt);
