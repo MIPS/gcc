@@ -1,0 +1,6 @@
+2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
+
+        * java/builtins.c (compareAndSwapLong_builtin,
+        compareAndSwapInt_builtin, compareAndSwapObject_builtin,
+        VMSupportsCS8_builtin): Do not look at sync_compare_and_swap_cc.
+

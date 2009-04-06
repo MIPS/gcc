@@ -838,8 +838,8 @@ s390_emit_compare (enum rtx_code code, rtx op0, rtx op1)
 static rtx
 s390_emit_compare_and_swap (enum rtx_code code, rtx old, rtx mem, rtx cmp, rtx new_rtx)
 {
-  emit_insn (gen_sync_compare_and_swap_ccsi (old, mem, cmp, new_rtx));
-  return s390_emit_compare (code, s390_compare_op0, s390_compare_op1);
+  emit_insn (gen_sync_compare_and_swapsi (old, mem, cmp, new_rtx));
+  return s390_emit_compare (code, gen_rtx_REG (CCZ1mode, CC_REGNUM), const0_rtx);
 }
 
 /* Emit a jump instruction to TARGET.  If COND is NULL_RTX, emit an
