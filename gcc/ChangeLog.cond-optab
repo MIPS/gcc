@@ -1,5 +1,10 @@
 2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
+        * genoutput.c (validate_optab_operands): New.
+        (gen_insn, gen_expand): Call it.
+
+2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
+
         * genflags.c (gen_insn): Detect misused iterators.
         (main): Pass line_no to gen_insn, exit with status 1 on error.
 
