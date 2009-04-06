@@ -1,5 +1,10 @@
 2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
+        * genflags.c (gen_insn): Detect misused iterators.
+        (main): Pass line_no to gen_insn, exit with status 1 on error.
+
+2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
+
         * genextract.c (line_no): Make global.
         (VEC_safe_set_locstr): Change assertion to error message.
         (main): Exit with status 1 on error.
