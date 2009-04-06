@@ -1,3 +1,82 @@
+2009-04-05  Jason Merrill  <jason@redhat.com>
+
+	C++ DR 613
+	* g++.old-deja/g++.dg/cpp0x/decltype3.C: Remove expected errors.
+	* g++.old-deja/g++.ext/typeof2.C: Remove expected errors.
+	* g++.old-deja/g++.other/sizeof2.C: Remove some expected errors,
+	xfail others.
+
+2009-04-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39648
+	* gcc.c-torture/compile/pr39648.c: New testcase.
+
+2009-04-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline:
+	PR fortran/39519
+	* gfortran.dg/alloc_comp_assign_9.f90: New test.
+
+2009-04-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/39607
+	* g++.dg/opt/pr39607.C: New.
+
+2009-04-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39594
+	* gfortran.dg/common_12.f90: New.
+
+2009-04-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39608
+	* g++.dg/template/const2.C: New test.
+
+2009-04-02  David Ayers  <ayers@fsfe.org>
+
+	PR objc/18456
+	* objc.dg/bad-receiver-type-2.m: New test contributed by
+	Alexander Mamberg.
+
+2009-04-02  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/auto6.C: Adjust expected mangling.
+	* g++.dg/cpp0x/auto12.C: Likewise.
+
+2009-04-02  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39595
+	* gfortran.dg/vect/O3-pr39595.f: New test.
+
+2009-04-02  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/tree-ssa/vrp47.c: XFAIL two dump scans for powerpc.
+
+	* gcc.dg/memcpy-1.c: Add compiler option.
+
+	* gcc.dg/and-1.c: Restrict the targets for which the test is run
+	and XFAIL for powerpc and spu.
+
+	* gcc.target/powerpc/ppc64-double-1.c: XFAIL for lp64.
+
+2009-04-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20090401-1.c: New test.
+
+2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/4926
+	* g++.dg/template/pr4926-1.C: New.
+
 2009-04-01  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
