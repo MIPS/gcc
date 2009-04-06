@@ -57,6 +57,7 @@
 	(cpu_names): Add Atom cpu name.
 	(override_options): Set Atom ISA.
 	(LEA_SEARCH_THRESHOLD): New macro.
+	(IX86_LEA_PRIORITY): Likewise.
 	(distance_non_agu_define): New function.
 	(distance_agu_use): Likewise.
 	(ix86_lea_for_add_ok): Likewise.
