@@ -1,5 +1,10 @@
 2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
+        * expr.c (convert_move): Use emit_store_flag instead of
+        "emulating" it.
+
+2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
+
         * config/s390/s390.c (s390_compare_emitted): Remove.
         (s390_emit_compare): Handle MODE_CC s390_compare_op0 like
         s390_compare_emitted used to be handled.  Assert that modes match.
