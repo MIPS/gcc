@@ -1,5 +1,11 @@
 2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
+        * genextract.c (line_no): Make global.
+        (VEC_safe_set_locstr): Change assertion to error message.
+        (main): Exit with status 1 on error.
+
+2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
+
         * config/i386/i386.md (cmpcc): New.
         * config/i386/sync.md (sync_compare_and_swap*): Set FLAGS_REG.
         (sync_compare_and_swap_cc*): Delete.
