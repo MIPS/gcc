@@ -1,5 +1,11 @@
 2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
+        * expr.c (do_store_flag): Remove last argument.  Simplify code
+        to avoid duplication of tests already done by can_compare_p.
+        (expand_expr_real_1): Adjust caller.
+
+2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
+
         * config/alpha/alpha-protos.h (alpha_emit_conditional_branch,
         alpha_emit_setcc): Accept operands and a machine mode.
         * config/alpha/alpha.c (alpha_emit_conditional_branch):
