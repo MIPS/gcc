@@ -1,3 +1,7 @@
+2009-04-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/atom.md: Updated to GPL v3.
+
 2009-03-30  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* rtl.h (reg_mentioned_by_mem_p): Removed.
