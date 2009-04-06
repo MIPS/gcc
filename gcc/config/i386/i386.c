@@ -1616,7 +1616,6 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
 
 rtx ix86_compare_op0 = NULL_RTX;
 rtx ix86_compare_op1 = NULL_RTX;
-rtx ix86_compare_emitted = NULL_RTX;
 
 /* Define parameter passing and return registers.  */
 
@@ -14180,11 +14179,9 @@ ix86_expand_compare (enum rtx_code code, rtx *second_test, rtx *bypass_test)
   if (bypass_test)
     *bypass_test = NULL_RTX;
 
-  if (ix86_compare_emitted)
-    {
-      ret = gen_rtx_fmt_ee (code, VOIDmode, ix86_compare_emitted, const0_rtx);
-      ix86_compare_emitted = NULL_RTX;
-    }
+  if (GET_MODE_CLASS (GET_MODE (ix86_compare_op0)) == MODE_CC)
+    ret = gen_rtx_fmt_ee (code, VOIDmode, ix86_compare_op0, ix86_compare_op1);
+
   else if (SCALAR_FLOAT_MODE_P (GET_MODE (op0)))
     {
       gcc_assert (!DECIMAL_FLOAT_MODE_P (GET_MODE (op0)));
@@ -14212,12 +14209,6 @@ void
 ix86_expand_branch (enum rtx_code code, rtx label)
 {
   rtx tmp;
-
-  /* If we have emitted a compare insn, go straight to simple.
-     ix86_expand_compare won't emit anything if ix86_compare_emitted
-     is non NULL.  */
-  if (ix86_compare_emitted)
-    goto simple;
 
   switch (GET_MODE (ix86_compare_op0))
     {
@@ -14419,7 +14410,11 @@ ix86_expand_branch (enum rtx_code code, rtx label)
       }
 
     default:
-      gcc_unreachable ();
+      /* If we have already emitted a compare insn, go straight to simple.
+         ix86_expand_compare won't emit anything if ix86_compare_emitted
+         is non NULL.  */
+      gcc_assert (GET_MODE_CLASS (GET_MODE (ix86_compare_op0)) == MODE_CC);
+      goto simple;
     }
 }
 
