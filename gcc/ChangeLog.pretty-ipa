@@ -1,3 +1,64 @@
+2009-04-07  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-ssa-alias.c (refs_may_alias_p_1): Check for
+	is_gimple_min_invariant rather than CONSTANT_CLASS_P so that invariant
+	ADDR_EXPRS are include too.
+
+	* ipa-sra.c (update_all_vops): Removed.
+	(scan_function): Set delete when a statement is deleted and not when it
+	is not.
+	(convert_call): Update SSA and free dominance info.
+	(ipa_early_sra): Exclude virtual methods.
+	(sort_and_splice_var_accesses): Remove writing to dump_file.
+	(build_access_tree_result): Removed.
+	(build_access_tree_1): Return bool, find about children coverage from
+	their flags.
+	(build_access_tree): Check whether build_access_tree_1 returnedf true.
+	(generate_subtree_copies): Do not call update_all_vops.
+	(load_assign_lhs_subreplacements): Likewise.
+	(sra_intra_modify_constructor_assign): Call unlink_stmt_vdef.
+	(sra_intra_modify_assign): Do not call push_stmt_changes and
+	pop_stmt_changes, call unlink_stmt_vdef.
+
+	* ipa-sra.c: Include flags.h
+	(create_debug_constructor): New function.
+	(access_tree_debug_search): New function.
+	(intra_remap_nonlocalized_vars): New function.
+	(intra_store_all_debug_information): New function.
+	(perform_new_intra_sra): Call intra_store_all_debug_information.
+
+	* ipa-sra.c (struct new_parm_note): Removed.
+	(dump_struct_1): Moved to ipa-prop.c.
+	(dump_struct): Moved to ipa-prop.c.
+	(dump_param_notes): Removed.
+	(get_param_index): New function.
+	(turn_representatives_into_notes): Use new notes.
+	(modify_parameters): Removed.
+	(get_replaced_param_substitute): Use new notes.
+	(replace_removed_params_ssa_names): Use new notes.
+	(sra_ipa_modify_expr): Use new notes.
+	(build_access_expr_1): Renamed to build_ref_for_offset_1.
+	(build_access_expr): Renamed to build_ref_for_offset.
+	(convert_call): Removed.
+	(check_callers): Removed.
+	(convert_callers): Use new notes and ipa_modify_call_arguments.
+	(modify_function): Use new notes.
+	(ipa_early_sra): Use new notes.
+	* ipa-prop.h (struct ipa_parm_note): New type.
+	(ipa_modify_formal_parameters): Declare.
+	(ipa_modify_call_arguments): Declare.
+	(ipa_combine_notes): Declare.
+	(ipa_dump_param_notes): Declare.
+	(build_ref_for_offset): Declare.
+	* ipa-prop.c (dump_aggregate_1): Moved here from ipa-sra.c.
+	(dump_aggregate): Moved here from ipa-sra.c.
+	(count_formal_parameters): New function.
+	(ipa_get_vector_of_formal_parms): New function.
+	(get_vector_of_formal_parm_types): New function.
+	(ipa_modify_formal_parameters): New function.
+	(ipa_modify_call_arguments): New function.
+	(ipa_dump_param_notes): New function.
+	
 2009-04-04  Jan Hubicka  <jh@suse.cz>
 
 	* cfgexpand.c (expand_one_var): DECL_HAS_VALUE_EXPR_P vars can still

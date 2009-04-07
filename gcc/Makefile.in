@@ -2625,7 +2625,7 @@ ipa-inline.o : ipa-inline.c gt-ipa-inline.h $(CONFIG_H) $(SYSTEM_H) coretypes.h 
 ipa-sra.o : ipa-sra.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(GIMPLE_H) $(TREE_INLINE_H) $(FLAGS_H) $(CGRAPH_H) $(TREE_FLOW_H) \
    $(DIAGNOSTIC_H) $(TREE_DUMP_H) $(IPA_PROP_H) $(TIMEVAR_H) $(TARGET_H) \
-   tree-pass.h $(PARAMS_H)
+   tree-pass.h $(PARAMS_H) $(FLAGS_H)
 
 ipa-utils.o : ipa-utils.c $(IPA_UTILS_H) $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \

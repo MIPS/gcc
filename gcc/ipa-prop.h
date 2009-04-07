@@ -389,4 +389,69 @@ void ipa_print_all_params (FILE *);
 void ipa_print_node_jump_functions (FILE *f, struct cgraph_node *node);
 void ipa_print_all_jump_functions (FILE * f);
 
+
+/* Structure do describe transformations of formal parameters and actual
+   arguments.  Each instance describes one new parameter and they are meant to
+   be stored in a vector.  Additionally, most users will probably want to store
+   notes about parameters that are being removed altogether so that SSA names
+   belonging to them can be replaced by SSA names of an artificial
+   variable.  */
+struct ipa_parm_note
+{
+  tree base;			/* The original PARM_DECL itself, helpful for
+				   processing of the body of the function
+				   itself.  Intended for traversing function
+				   bodies.  ipa_modify_formal_parameters,
+				   ipa_modify_call_arguments and
+				   ipa_combine_notes ignore this and use
+				   base_index.  ipa_modify_formal_parameters
+				   actually sets this.  */
+  tree type;			/* Type of the new parameter.  However, if
+				   by_ref is true, the real type will be a
+				   pointer to this type.  */
+  tree reduction;		/* The new declaration.  !!! */
+  tree new_ssa_base;		/* New declaration of a substitute variable
+				   that we may use to replace all
+				   non-default-def ssa names when a parm decl
+				   is going away.  */
+  tree nonlocal_value;		/* If non-NULL and the original parameter is to
+				   be removed (copy_param below is NULL), this
+				   is going to be its nonlocalized vars
+				   value.  */
+  HOST_WIDE_INT offset;		/* Offset into the original parameter (for the
+				   cases when the new parameter is a component
+				   of an original one).  */
+  int base_index;		/* Zero based index of the original parameter
+				   this one is based on.  (ATM there is no way
+				   to insert a new parameter out of the blue
+				   because there is no need but if it arises
+				   the code can be easily exteded to do
+				   so.)  */
+  unsigned copy_param : 1; 	/* This new parameter is an unmodified
+				   parameter at index base_index. */
+  unsigned remove_param : 1;	/* This note describes a parameter that is
+				   about to be removed completely.  Most users
+				   will probably need to book keep those so
+				   that they don't leave behinfd any non
+				   default def ssa names belonging to them.  */
+  unsigned by_ref : 1;		/* The parameter is to be passed by
+				   reference.  */
+};
+
+typedef struct ipa_parm_note ipa_parm_note_t;
+DEF_VEC_O (ipa_parm_note_t);
+DEF_VEC_ALLOC_O (ipa_parm_note_t, heap);
+
+VEC(tree, heap) *ipa_get_vector_of_formal_parms (tree fndecl);
+void ipa_modify_formal_parameters (tree fndecl, VEC (ipa_parm_note_t, heap) *,
+				   const char *);
+void ipa_modify_call_arguments (struct cgraph_edge *, gimple,
+				VEC (ipa_parm_note_t, heap) *);
+VEC (ipa_parm_note_t, heap) *ipa_combine_notes (VEC (ipa_parm_note_t, heap) *,
+						VEC (ipa_parm_note_t, heap) *);
+void ipa_dump_param_notes (FILE *, VEC (ipa_parm_note_t, heap) *, tree);
+
+/* From ipa-sra.c:  */
+bool build_ref_for_offset (tree *, tree, HOST_WIDE_INT, tree, bool);
+
 #endif /* IPA_PROP_H */

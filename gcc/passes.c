@@ -555,7 +555,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
 	  NEXT_PASS (pass_update_address_taken);
-#if 1   /* !!!!!!!!!!!!! */
+#if 0   /* !!!!!!!!!!!!! */
 	  NEXT_PASS (pass_sra_early);
 #else
 	  NEXT_PASS (pass_early_new_sra);
@@ -637,7 +637,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_ch);
       NEXT_PASS (pass_stdarg);
       NEXT_PASS (pass_lower_complex);
-#if 1   /* !!!!!!!!!!!!! */
+#if 0   /* !!!!!!!!!!!!! */
       NEXT_PASS (pass_sra);
 #else
       NEXT_PASS (pass_new_sra);
