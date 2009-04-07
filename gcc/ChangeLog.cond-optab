@@ -1,3 +1,9 @@
+2009-04-07  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/mips/mips.c (mips_emit_compare, mips_emit_scc): Adjust
+	comment.
+	(mips_expand_conditional_trap): Get operand order right.
+
 2009-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
         * expr.c (do_store_flag): Remove last argument.  Simplify code

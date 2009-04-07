@@ -4226,8 +4226,8 @@ mips_reversed_fp_cond (enum rtx_code *code)
 }
 
 /* Convert a comparison into something that can be used in a branch or
-   conditional move.  cmp_operands[0] and cmp_operands[1] are the values
-   being compared and *CODE is the code used to compare them.
+   conditional move.  On entry, *OP0 and *OP1 are the values being
+   compared and *CODE is the code used to compare them.
 
    Update *CODE, *OP0 and *OP1 so that they describe the final comparison.
    If NEED_EQ_NE_P, then only EQ or NE comparisons against zero are possible,
@@ -4295,10 +4295,11 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
     }
 }
 
-/* Try comparing cmp_operands[0] and cmp_operands[1] using rtl code CODE.
-   Store the result in TARGET and return true if successful.
+/* Try performing the comparison in OPERANDS[1], whose arms are OPERANDS[2]
+   and OPERAND[3].  Store the result in OPERANDS[0].
 
-   On 64-bit targets, TARGET may be narrower than cmp_operands[0].  */
+   On 64-bit targets, the mode of the comparison and target will always be
+   SImode, thus possibly narrower than that of the comparison's operands.  */
 
 void
 mips_expand_scc (rtx operands[])
@@ -4402,13 +4403,13 @@ mips_expand_conditional_trap (rtx comparison)
     case GTU:
     case LEU:
       code = swap_condition (code);
-      op0 = XEXP (comparison, 0);
-      op1 = XEXP (comparison, 1);
+      op0 = XEXP (comparison, 1);
+      op1 = XEXP (comparison, 0);
       break;
 
     default:
-      op0 = XEXP (comparison, 1);
-      op1 = XEXP (comparison, 0);
+      op0 = XEXP (comparison, 0);
+      op1 = XEXP (comparison, 1);
       break;
     }
 
