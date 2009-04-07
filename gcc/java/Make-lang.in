@@ -59,13 +59,13 @@ JAVA_TARGET_INDEPENDENT_BIN_TOOLS = jcf-dump
 jvspec.o: $(srcdir)/java/jvspec.c $(SYSTEM_H) coretypes.h $(TM_H) \
   $(GCC_H) $(CONFIG_H) java/jcf.h java/javaop.h
 	(SHLIB_LINK='$(SHLIB_LINK)'; \
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
+	$(CXX) -x c++ -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
 		$(INCLUDES) $(srcdir)/java/jvspec.c $(OUTPUT_OPTION))
 
 # Create the compiler driver for $(GCJ).
 $(GCJ)$(exeext): $(GCC_OBJS) jvspec.o java/jcf-path.o version.o \
 	   prefix.o intl.o $(LIBDEPS) $(EXTRA_GCC_OBJS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GCC_OBJS) jvspec.o \
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ $(GCC_OBJS) jvspec.o \
 	  java/jcf-path.o prefix.o intl.o \
 	  version.o $(EXTRA_GCC_OBJS) $(LIBS)
 
@@ -100,17 +100,17 @@ jvspec.o-warn = -Wno-error
 
 jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS) attribs.o
 	rm -f $@
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ \
 		$(JAVA_OBJS) $(BACKEND) $(ZLIB) $(LIBICONV) $(LIBS) attribs.o $(BACKENDLIBS)
 
 jcf-dump$(exeext): $(JCFDUMP_OBJS) $(LIBDEPS)
 	rm -f $@
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(JCFDUMP_OBJS) \
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ $(JCFDUMP_OBJS) \
 		$(CPPLIBS) $(ZLIB) $(LDEXP_LIB) $(LIBS)
 
 jvgenmain$(exeext): $(JVGENMAIN_OBJS) $(LIBDEPS)
 	rm -f $@
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(JVGENMAIN_OBJS) $(LIBS)
+	$(CXX) $(ALL_CXXFLAGS) $(LDFLAGS) -o $@ $(JVGENMAIN_OBJS) $(LIBS)
 
 #
 # Build hooks:
@@ -305,13 +305,13 @@ java/java-gimplify.o: java/java-gimplify.c $(CONFIG_H) $(SYSTEM_H) \
 # jcf-io.o needs $(ZLIBINC) added to cflags.
 java/jcf-io.o: java/jcf-io.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   $(JAVA_TREE_H) java/zipfile.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(ZLIBINC) \
-		$(srcdir)/java/jcf-io.c $(OUTPUT_OPTION)
+	$(CXX) -x c++ -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) \
+		$(INCLUDES) $(ZLIBINC) $(srcdir)/java/jcf-io.c $(OUTPUT_OPTION)
 
 # jcf-path.o needs a -D.
 java/jcf-path.o: java/jcf-path.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   java/jcf.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	$(CXX) -xc++ -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DLIBGCJ_ZIP_FILE='"$(datadir)/java/libgcj-$(version).jar"' \
 	  -DDEFAULT_TARGET_VERSION=\"$(version)\" \
 	  $(srcdir)/java/jcf-path.c $(OUTPUT_OPTION)

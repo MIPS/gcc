@@ -538,7 +538,7 @@ dump_file (const char *name, FILE *to)
 static symkind
 is_ctor_dtor (const char *s)
 {
-  struct names { const char *const name; const int len; const int ret;
+  struct names { const char *const name; const int len; const symkind ret;
     const int two_underscores; };
 
   const struct names *p;
@@ -857,9 +857,9 @@ main (int argc, char **argv)
   /* Do not invoke xcalloc before this point, since locale needs to be
      set first, in case a diagnostic is issued.  */
 
-  ld1 = (const char **)(ld1_argv = XCNEWVEC (char *, argc+4));
-  ld2 = (const char **)(ld2_argv = XCNEWVEC (char *, argc+11));
-  object = (const char **)(object_lst = XCNEWVEC (char *, argc));
+  ld1 = CONST_CAST (const char **, (ld1_argv = XCNEWVEC (char *, argc+4)));
+  ld2 = CONST_CAST (const char **, (ld2_argv = XCNEWVEC (char *, argc+11)));
+  object = CONST_CAST (const char **, (object_lst = XCNEWVEC (char *, argc)));
 
 #ifdef DEBUG
   debug = 1;
@@ -904,7 +904,7 @@ main (int argc, char **argv)
      -fno-exceptions -w */
   num_c_args += 5;
 
-  c_ptr = (const char **) (c_argv = XCNEWVEC (char *, num_c_args));
+  c_ptr = CONST_CAST (const char **, (c_argv = XCNEWVEC (char *, num_c_args)));
 
   if (argc < 2)
     fatal ("no arguments");
@@ -1406,7 +1406,8 @@ main (int argc, char **argv)
       if (strip_flag)
 	{
 	  char **real_strip_argv = XCNEWVEC (char *, 3);
-	  const char ** strip_argv = (const char **) real_strip_argv;
+	  const char ** strip_argv = CONST_CAST (const char **,
+						 real_strip_argv);
 
 	  strip_argv[0] = strip_file_name;
 	  strip_argv[1] = output_file;
@@ -2090,7 +2091,7 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
   void (*quit_handler) (int);
 #endif
   char *real_nm_argv[4];
-  const char **nm_argv = (const char **) real_nm_argv;
+  const char **nm_argv = CONST_CAST (const char **, real_nm_argv);
   int argc = 0;
   struct pex_obj *pex;
   const char *errmsg;

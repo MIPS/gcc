@@ -363,7 +363,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
   sri.icode = CODE_FOR_nothing;
   sri.prev_sri = prev_sri;
   rclass = targetm.secondary_reload (in_p, x, reload_class, reload_mode, &sri);
-  icode = sri.icode;
+  icode = (enum insn_code) sri.icode;
 
   /* If we don't need any secondary registers, done.  */
   if (rclass == NO_REGS && icode == CODE_FOR_nothing)
@@ -525,7 +525,7 @@ secondary_reload_class (bool in_p, enum reg_class rclass,
   sri.icode = CODE_FOR_nothing;
   sri.prev_sri = NULL;
   rclass = targetm.secondary_reload (in_p, x, rclass, mode, &sri);
-  icode = sri.icode;
+  icode = (enum insn_code) sri.icode;
 
   /* If there are no secondary reloads at all, we return NO_REGS.
      If an intermediate register is needed, we return its class.  */
@@ -685,15 +685,16 @@ find_valid_class (enum machine_mode outer ATTRIBUTE_UNUSED,
 
       if (bad || !good)
 	continue;
-      cost = REGISTER_MOVE_COST (outer, rclass, dest_class);
+      cost = REGISTER_MOVE_COST (outer, (enum reg_class) rclass, dest_class);
 
       if ((reg_class_size[rclass] > best_size
 	   && (best_cost < 0 || best_cost >= cost))
 	  || best_cost > cost)
 	{
-	  best_class = rclass;
+	  best_class = (enum reg_class) rclass;
 	  best_size = reg_class_size[rclass];
-	  best_cost = REGISTER_MOVE_COST (outer, rclass, dest_class);
+	  best_cost = REGISTER_MOVE_COST (outer, (enum reg_class) rclass,
+					  dest_class);
 	}
     }
 
@@ -1516,7 +1517,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	 value for the incoming operand (same as outgoing one).  */
       if (rld[i].reg_rtx == out
 	  && (REG_P (in) || CONSTANT_P (in))
-	  && 0 != find_equiv_reg (in, this_insn, 0, REGNO (out),
+	  && 0 != find_equiv_reg (in, this_insn, NO_REGS, REGNO (out),
 				  static_reload_reg_p, i, inmode))
 	rld[i].in = out;
     }
@@ -3186,7 +3187,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 					   recog_data.operand_loc[loc1],
 					   recog_data.operand_loc[loc2],
 					   operand_mode[i], operand_mode[m],
-					   this_alternative[m], -1,
+					   (enum reg_class) this_alternative[m],
+					   -1,
 					   this_alternative_earlyclobber[m]);
 
 		    if (value != 0)
@@ -3438,7 +3440,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  break;
 		winreg = 1;
 		if (REG_P (operand)
-		    && reg_fits_class_p (operand, this_alternative[i],
+		    && reg_fits_class_p (operand,
+					 (enum reg_class) this_alternative[i],
 					 offset, GET_MODE (recog_data.operand[i])))
 		  win = 1;
 		break;
@@ -3573,7 +3576,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      && reg_class_size [(int) preferred_class[i]] > 0
 	      && ! SMALL_REGISTER_CLASS_P (preferred_class[i]))
 	    {
-	      if (! reg_class_subset_p (this_alternative[i],
+	      if (! reg_class_subset_p ((enum reg_class) this_alternative[i],
 					preferred_class[i]))
 		{
 		  /* Since we don't have a way of forming the intersection,
@@ -3581,7 +3584,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		     is a subset of the class we have; that's the most
 		     common case anyway.  */
 		  if (reg_class_subset_p (preferred_class[i],
-					  this_alternative[i]))
+					  (enum reg_class) this_alternative[i]))
 		    this_alternative[i] = (int) preferred_class[i];
 		  else
 		    reject += (2 + 2 * pref_or_nothing[i]);
@@ -4564,7 +4567,8 @@ alternative_allows_const_pool_ref (rtx mem, const char *constraint, int altnum)
   /* Skip alternatives before the one requested.  */
   while (altnum > 0)
     {
-      while (*constraint++ != ',');
+      while (*constraint++ != ',')
+	;
       altnum--;
     }
   /* Scan the requested alternative for TARGET_MEM_CONSTRAINT or 'o'.
@@ -4767,7 +4771,8 @@ make_memloc (rtx ad, int regno)
   /* We must rerun eliminate_regs, in case the elimination
      offsets have changed.  */
   rtx tem
-    = XEXP (eliminate_regs (reg_equiv_memory_loc[regno], 0, NULL_RTX), 0);
+    = XEXP (eliminate_regs (reg_equiv_memory_loc[regno], VOIDmode, NULL_RTX),
+	    0);
 
   /* If TEM might contain a pseudo, we must copy it to avoid
      modifying it when we do the substitution for the reload.  */

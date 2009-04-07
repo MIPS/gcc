@@ -504,7 +504,7 @@ static void
 setup_class_subset_and_memory_move_costs (void)
 {
   int cl, cl2;
-  enum machine_mode mode;
+  int mode;
   HARD_REG_SET temp_hard_regset2;
 
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
@@ -515,8 +515,12 @@ setup_class_subset_and_memory_move_costs (void)
       if (cl != (int) NO_REGS)
 	for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	  {
-	    ira_memory_move_cost[mode][cl][0] = MEMORY_MOVE_COST (mode, cl, 0);
-	    ira_memory_move_cost[mode][cl][1] = MEMORY_MOVE_COST (mode, cl, 1);
+	    ira_memory_move_cost[mode][cl][0] =
+	      MEMORY_MOVE_COST ((enum machine_mode) mode,
+				(enum reg_class) cl, 0);
+	    ira_memory_move_cost[mode][cl][1] =
+	      MEMORY_MOVE_COST ((enum machine_mode) mode,
+				(enum reg_class) cl, 1);
 	    /* Costs for NO_REGS are used in cost calculation on the
 	       1st pass when the preferred register classes are not
 	       known yet.  In this case we take the best scenario.  */
@@ -727,7 +731,7 @@ setup_cover_and_important_classes (void)
 {
   int i, j, n;
   bool set_p, eq_p;
-  enum reg_class cl;
+  int cl;
   const enum reg_class *cover_classes;
   HARD_REG_SET temp_hard_regset2;
   static enum reg_class classes[LIM_REG_CLASSES + 1];
@@ -741,7 +745,7 @@ setup_cover_and_important_classes (void)
   else
     {
       for (i = 0; (cl = cover_classes[i]) != LIM_REG_CLASSES; i++)
-	classes[i] = cl;
+	classes[i] = (enum reg_class) cl;
       classes[i] = LIM_REG_CLASSES;
     }
 
@@ -776,7 +780,7 @@ setup_cover_and_important_classes (void)
 		    break;
 	    }
 	  if (j >= i)
-	    classes[n++] = i;
+	    classes[n++] = (enum reg_class) i;
 	}
       classes[n] = LIM_REG_CLASSES;
     }
@@ -786,12 +790,13 @@ setup_cover_and_important_classes (void)
     {
       for (j = 0; j < i; j++)
 	if (flag_ira_algorithm != IRA_ALGORITHM_PRIORITY
-	    && reg_classes_intersect_p (cl, classes[j]))
+	    && reg_classes_intersect_p ((enum reg_class) cl, classes[j]))
 	  gcc_unreachable ();
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
       AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
       if (! hard_reg_set_empty_p (temp_hard_regset))
-	ira_reg_class_cover[ira_reg_class_cover_size++] = cl;
+	ira_reg_class_cover[ira_reg_class_cover_size++] =
+	  (enum reg_class) cl;
     }
   ira_important_classes_num = 0;
   for (cl = 0; cl < N_REG_CLASSES; cl++)
@@ -824,7 +829,8 @@ setup_cover_and_important_classes (void)
 	  if (set_p && ! eq_p)
 	    {
 	      ira_important_class_nums[cl] = ira_important_classes_num;
-	      ira_important_classes[ira_important_classes_num++] = cl;
+	      ira_important_classes[ira_important_classes_num++] =
+		(enum reg_class) cl;
 	    }
 	}
     }
@@ -839,8 +845,8 @@ enum reg_class ira_class_translate[N_REG_CLASSES];
 static void
 setup_class_translate (void)
 {
-  enum reg_class cl, cover_class, best_class, *cl_ptr;
-  enum machine_mode mode;
+  int cl, mode;
+  enum reg_class cover_class, best_class, *cl_ptr;
   int i, cost, min_cost, best_cost;
 
   for (cl = 0; cl < N_REG_CLASSES; cl++)
@@ -981,8 +987,9 @@ setup_reg_class_relations (void)
 		  if (cl3 == LIM_REG_CLASSES)
 		    break;
 		  if (reg_class_subset_p (ira_reg_class_intersect[cl1][cl2],
-					  cl3))
-		    ira_reg_class_intersect[cl1][cl2] = cl3;
+					  (enum reg_class) cl3))
+		    ira_reg_class_intersect[cl1][cl2] =
+		      (enum reg_class) cl3;
 		}
 	      ira_reg_class_union[cl1][cl2] = reg_class_subunion[cl1][cl2];
 	      continue;
@@ -1134,13 +1141,14 @@ static void
 setup_reg_class_nregs (void)
 {
   int m;
-  enum reg_class cl;
+  int cl;
 
   ira_max_nregs = -1;
   for (cl = 0; cl < N_REG_CLASSES; cl++)
     for (m = 0; m < MAX_MACHINE_MODE; m++)
       {
-	ira_reg_class_nregs[cl][m] = CLASS_MAX_NREGS (cl, m);
+	ira_reg_class_nregs[cl][m] = CLASS_MAX_NREGS ((enum reg_class) cl,
+						      (enum machine_mode) m);
 	if (ira_max_nregs < ira_reg_class_nregs[cl][m])
 	  ira_max_nregs = ira_reg_class_nregs[cl][m];
       }
@@ -1169,7 +1177,7 @@ setup_prohibited_class_mode_regs (void)
 	  for (k = ira_class_hard_regs_num[cl] - 1; k >= 0; k--)
 	    {
 	      hard_regno = ira_class_hard_regs[cl][k];
-	      if (! HARD_REGNO_MODE_OK (hard_regno, j))
+	      if (! HARD_REGNO_MODE_OK (hard_regno, (enum machine_mode) j))
 		SET_HARD_REG_BIT (prohibited_class_mode_regs[cl][j],
 				  hard_regno);
 	    }
@@ -1223,7 +1231,7 @@ ira_init_register_move_cost (enum machine_mode mode)
 void
 ira_init_once (void)
 {
-  enum machine_mode mode;
+  int mode;
 
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
     {
@@ -1239,7 +1247,7 @@ ira_init_once (void)
 static void
 free_register_move_costs (void)
 {
-  enum machine_mode mode;
+  int mode;
 
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
     {
@@ -1306,12 +1314,12 @@ setup_prohibited_mode_move_regs (void)
       SET_HARD_REG_SET (ira_prohibited_mode_move_regs[i]);
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	{
-	  if (! HARD_REGNO_MODE_OK (j, i))
+	  if (! HARD_REGNO_MODE_OK (j, (enum machine_mode) i))
 	    continue;
 	  SET_REGNO (test_reg1, j);
-	  PUT_MODE (test_reg1, i);
+	  PUT_MODE (test_reg1, (enum machine_mode) i);
 	  SET_REGNO (test_reg2, j);
-	  PUT_MODE (test_reg2, i);
+	  PUT_MODE (test_reg2, (enum machine_mode) i);
 	  INSN_CODE (move_insn) = -1;
 	  recog_memoized (move_insn);
 	  if (INSN_CODE (move_insn) < 0)
@@ -3320,7 +3328,7 @@ struct rtl_opt_pass pass_ira =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,		                        /* tv_id */
+  TV_NONE,				/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

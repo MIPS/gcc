@@ -1316,7 +1316,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
   return add_stmt (r);
 }
 
-/* Finish a label with the indicated NAME.  */
+/* Finish a label with the indicated NAME.  Returns the new label.  */
 
 tree
 finish_label_stmt (tree name)
@@ -1326,7 +1326,9 @@ finish_label_stmt (tree name)
   if (decl  == error_mark_node)
     return error_mark_node;
 
-  return add_stmt (build_stmt (LABEL_EXPR, decl));
+  add_stmt (build_stmt (LABEL_EXPR, decl));
+
+  return decl;
 }
 
 /* Finish a series of declarations for local labels.  G++ allows users
@@ -1840,7 +1842,7 @@ perform_koenig_lookup (tree fn, tree args)
 
 tree
 finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
-		  tsubst_flags_t complain)
+		  int complain)
 {
   tree result;
   tree orig_fn;
@@ -3602,7 +3604,7 @@ finish_omp_clauses (tree clauses)
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
-      enum tree_code c_kind = OMP_CLAUSE_CODE (c);
+      enum omp_clause_code c_kind = OMP_CLAUSE_CODE (c);
       bool remove = false;
       bool need_complete_non_reference = false;
       bool need_default_ctor = false;

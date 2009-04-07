@@ -1108,7 +1108,7 @@ hash_with_unspec_callback (const_rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
       && targetm.sched.skip_rtx_p (x))
     {
       *nx = XVECEXP (x, 0 ,0);
-      *nmode = 0;
+      *nmode = VOIDmode;
       return 1;
     }
   

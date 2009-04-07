@@ -1150,7 +1150,7 @@ vn_reference_insert_pieces (VEC (tree, gc) *vuses,
 
 /* Compute and return the hash value for nary operation VBO1.  */
 
-inline hashval_t
+hashval_t
 vn_nary_op_compute_hash (const vn_nary_op_t vno1)
 {
   hashval_t hash = 0;

@@ -11066,7 +11066,7 @@ validate_arg (const_tree arg, enum tree_code code)
 bool
 validate_gimple_arglist (const_gimple call, ...)
 {
-  enum tree_code code;
+  int code;
   bool res = 0;
   va_list ap;
   const_tree arg;
@@ -11077,8 +11077,8 @@ validate_gimple_arglist (const_gimple call, ...)
 
   do
     {
-      code = va_arg (ap, enum tree_code);
-      switch (code)
+      code = va_arg (ap, int);
+      switch ((enum tree_code) code)
 	{
 	case 0:
 	  /* This signifies an ellipses, any further arguments are all ok.  */
@@ -11094,7 +11094,7 @@ validate_gimple_arglist (const_gimple call, ...)
 	     match the specified code, return false.  Otherwise continue
 	     checking any remaining arguments.  */
 	  arg = gimple_call_arg (call, i++);
-	  if (!validate_arg (arg, code))
+	  if (!validate_arg (arg, (enum tree_code) code))
 	    goto end;
 	  break;
 	}
@@ -11128,7 +11128,7 @@ validate_arglist (const_tree callexpr, ...)
 
   do
     {
-      code = va_arg (ap, enum tree_code);
+      code = (enum tree_code) va_arg (ap, int);
       switch (code)
 	{
 	case 0:

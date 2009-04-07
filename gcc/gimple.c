@@ -45,6 +45,9 @@ const char *const gimple_code_name[] = {
    operands vector the size of the structure minus the size of the 1
    element tree array at the end (see gimple_ops).  */
 #define DEFGSCODE(SYM, NAME, STRUCT)	(sizeof (STRUCT) - sizeof (tree)),
+#ifdef __cplusplus
+extern
+#endif
 const size_t gimple_ops_offset_[] = {
 #include "gimple.def"
 };
@@ -271,7 +274,7 @@ gimple_build_with_ops_stat (enum gimple_code code, enum tree_code subcode,
 gimple
 gimple_build_return (tree retval)
 {
-  gimple s = gimple_build_with_ops (GIMPLE_RETURN, 0, 1);
+  gimple s = gimple_build_with_ops (GIMPLE_RETURN, ERROR_MARK, 1);
   if (retval)
     gimple_return_set_retval (s, retval);
   return s;
@@ -284,7 +287,7 @@ gimple_build_return (tree retval)
 static inline gimple
 gimple_build_call_1 (tree fn, unsigned nargs)
 {
-  gimple s = gimple_build_with_ops (GIMPLE_CALL, 0, nargs + 3);
+  gimple s = gimple_build_with_ops (GIMPLE_CALL, ERROR_MARK, nargs + 3);
   if (TREE_CODE (fn) == FUNCTION_DECL)
     fn = build_fold_addr_expr (fn);
   gimple_set_op (s, 1, fn);
@@ -451,7 +454,7 @@ gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
 
    This function returns the newly created GIMPLE_ASSIGN tuple.  */
 
-inline gimple
+gimple
 gimplify_assign (tree dst, tree src, gimple_seq *seq_p)
 { 
   tree t = build2 (MODIFY_EXPR, TREE_TYPE (dst), dst, src);
@@ -544,7 +547,7 @@ gimple_cond_set_condition_from_tree (gimple stmt, tree cond)
 gimple
 gimple_build_label (tree label)
 {
-  gimple p = gimple_build_with_ops (GIMPLE_LABEL, 0, 1);
+  gimple p = gimple_build_with_ops (GIMPLE_LABEL, ERROR_MARK, 1);
   gimple_label_set_label (p, label);
   return p;
 }
@@ -554,7 +557,7 @@ gimple_build_label (tree label)
 gimple
 gimple_build_goto (tree dest)
 {
-  gimple p = gimple_build_with_ops (GIMPLE_GOTO, 0, 1);
+  gimple p = gimple_build_with_ops (GIMPLE_GOTO, ERROR_MARK, 1);
   gimple_goto_set_dest (p, dest);
   return p;
 }
@@ -600,7 +603,8 @@ gimple_build_asm_1 (const char *string, unsigned ninputs, unsigned noutputs,
   gimple p;
   int size = strlen (string);
 
-  p = gimple_build_with_ops (GIMPLE_ASM, 0, ninputs + noutputs + nclobbers);
+  p = gimple_build_with_ops (GIMPLE_ASM, ERROR_MARK,
+			     ninputs + noutputs + nclobbers);
 
   p->gimple_asm.ni = ninputs;
   p->gimple_asm.no = noutputs;
@@ -776,7 +780,7 @@ static inline gimple
 gimple_build_switch_1 (unsigned nlabels, tree index, tree default_label)
 {
   /* nlabels + 1 default label + 1 index.  */
-  gimple p = gimple_build_with_ops (GIMPLE_SWITCH, 0, nlabels + 1 + 1);
+  gimple p = gimple_build_with_ops (GIMPLE_SWITCH, ERROR_MARK, nlabels + 1 + 1);
   gimple_switch_set_index (p, index);
   gimple_switch_set_default_label (p, default_label);
   return p;
@@ -1046,7 +1050,7 @@ gimple_build_omp_single (gimple_seq body, tree clauses)
 gimple
 gimple_build_cdt (tree type, tree ptr)
 {
-  gimple p = gimple_build_with_ops (GIMPLE_CHANGE_DYNAMIC_TYPE, 0, 2);
+  gimple p = gimple_build_with_ops (GIMPLE_CHANGE_DYNAMIC_TYPE, ERROR_MARK, 2);
   gimple_cdt_set_new_type (p, type);
   gimple_cdt_set_location (p, ptr);
 
@@ -1117,6 +1121,41 @@ gimple_check_failed (const_gimple gs, const char *file, int line,
 		    : "",
 		  function, trim_filename (file), line);
 }
+
+/* Similar to gimple_check_failed, except that instead of specifying a
+   dozen codes, use the knowledge that they're all sequential.  */
+
+void
+gimple_range_check_failed (const_gimple gs, const char *file, int line,
+		           const char *function, enum gimple_code c1,
+		           enum gimple_code c2)
+{
+  char *buffer;
+  unsigned length = 0;
+  int c;
+
+  for (c = c1; c <= c2; ++c)
+    length += 4 + strlen (gimple_code_name[c]);
+
+  length += strlen ("expected ");
+  buffer = XALLOCAVAR (char, length);
+  length = 0;
+
+  for (c = c1; c <= c2; ++c)
+    {
+      const char *prefix = length ? " or " : "expected ";
+
+      strcpy (buffer + length, prefix);
+      length += strlen (prefix);
+      strcpy (buffer + length, gimple_code_name[c]);
+      length += strlen (gimple_code_name[c]);
+    }
+
+  internal_error ("gimple check: %s, have %s in %s, at %s:%d",
+		  buffer, gimple_code_name[gimple_code (gs)],
+		  function, trim_filename (file), line);
+}
+
 #endif /* ENABLE_GIMPLE_CHECKING */
 
 

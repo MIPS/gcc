@@ -1637,6 +1637,9 @@ write_length_unit_log (void)
       for (length_unit_log = 0; length_or & 1; length_or >>= 1)
 	length_unit_log++;
     }
+  puts ("#ifdef __cplusplus");
+  puts ("extern");
+  puts ("#endif");
   printf ("const int length_unit_log = %u;\n", length_unit_log);
 }
 

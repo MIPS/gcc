@@ -209,7 +209,7 @@ struct gimple_opt_pass pass_lower_cf =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   PROP_gimple_any,			/* properties_required */
   PROP_gimple_lcf,			/* properties_provided */
   0,					/* properties_destroyed */
@@ -829,7 +829,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
 
   /* Build 'goto CONT_LABEL' and insert.  */
   g = gimple_build_goto (cont_label);
-  gsi_insert_before (gsi, g, TSI_SAME_STMT);
+  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'NEXT_LABEL:' and insert.  */
   g = gimple_build_label (next_label);
@@ -950,7 +950,7 @@ struct gimple_opt_pass pass_mark_used_blocks =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

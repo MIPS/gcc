@@ -558,7 +558,7 @@ static inline int VEC_OP (T,base,iterate)			  	  \
     }									  \
   else									  \
     {									  \
-      *ptr = 0;								  \
+      *ptr = (T) 0;							  \
       return 0;								  \
     }									  \
 }									  \

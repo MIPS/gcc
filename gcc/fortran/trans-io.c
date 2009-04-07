@@ -107,7 +107,7 @@ static GTY(()) gfc_st_parameter_field st_parameter_field[] =
   { #name, mask, IOPARM_ptype_##param_type, IOPARM_type_##type, NULL, NULL },
 #include "ioparm.def"
 #undef IOPARM
-  { NULL, 0, 0, 0, NULL, NULL }
+  { NULL, 0, (enum ioparam_type) 0, (enum iofield_type) 0, NULL, NULL }
 };
 
 /* Library I/O subroutines */
@@ -155,7 +155,7 @@ static stmtblock_t *dt_post_end_block;
 static void
 gfc_build_st_parameter (enum ioparam_type ptype, tree *types)
 {
-  enum iofield type;
+  int type;
   gfc_st_parameter_field *p;
   char name[64];
   size_t len;
@@ -281,7 +281,7 @@ gfc_build_io_library_fndecls (void)
   tree gfc_intio_type_node;
   tree parm_type, dt_parm_type;
   HOST_WIDE_INT pad_size;
-  enum ioparam_type ptype;
+  int ptype;
 
   types[IOPARM_type_int4] = gfc_int4_type_node = gfc_get_int_type (4);
   types[IOPARM_type_intio] = gfc_intio_type_node
@@ -304,7 +304,7 @@ gfc_build_io_library_fndecls (void)
 		     TYPE_ALIGN (gfc_get_int_type (gfc_intio_kind)));
 
   for (ptype = IOPARM_ptype_common; ptype < IOPARM_ptype_num; ptype++)
-    gfc_build_st_parameter (ptype, types);
+    gfc_build_st_parameter ((enum ioparam_type) ptype, types);
 
   /* Define the transfer functions.  */
 

@@ -88,7 +88,7 @@ dbg_cnt_set_limit_by_name (const char *name, int len, int value)
   if (i < 0)
     return false;
 
-  dbg_cnt_set_limit_by_index (i, value);
+  dbg_cnt_set_limit_by_index ((enum debug_counter) i, value);
   return true;
 }
 

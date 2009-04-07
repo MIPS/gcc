@@ -2750,8 +2750,9 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
   unsigned int i;
   VEC (gimple, heap) *stmts = SLP_TREE_SCALAR_STMTS (*node);
   gimple stmt = VEC_index (gimple, stmts, 0);
-  enum vect_def_type first_stmt_dt0 = 0, first_stmt_dt1 = 0;
-  enum tree_code first_stmt_code = 0, rhs_code;
+  enum vect_def_type first_stmt_dt0 = vect_unknown_def_type;
+  enum vect_def_type first_stmt_dt1 = vect_unknown_def_type;
+  enum tree_code first_stmt_code = ERROR_MARK, rhs_code;
   tree first_stmt_def1_type = NULL_TREE, first_stmt_def0_type = NULL_TREE;
   tree lhs;
   bool stop_recursion = false, need_same_oprnds = false;

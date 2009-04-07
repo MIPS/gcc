@@ -1,6 +1,6 @@
 /* Hash tables for the CPP library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2007, 2008 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -28,12 +28,12 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "cpplib.h"
 #include "internal.h"
 
-static hashnode alloc_node (hash_table *);
+static hashnode alloc_node (cpp_hash_table *);
 
 /* Return an identifier node for hashtable.c.  Used by cpplib except
    when integrated with the C front ends.  */
 static hashnode
-alloc_node (hash_table *table)
+alloc_node (cpp_hash_table *table)
 {
   cpp_hashnode *node;
 
@@ -45,7 +45,7 @@ alloc_node (hash_table *table)
 /* Set up the identifier hash table.  Use TABLE if non-null, otherwise
    create our own.  */
 void
-_cpp_init_hashtable (cpp_reader *pfile, hash_table *table)
+_cpp_init_hashtable (cpp_reader *pfile, cpp_hash_table *table)
 {
   struct spec_nodes *s;
 

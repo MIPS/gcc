@@ -10,4 +10,4 @@ i386-c.o: $(srcdir)/config/i386/i386-c.c \
   $(srcdir)/config/i386/i386-protos.h $(CONFIG_H) $(SYSTEM_H) coretypes.h \
   $(TM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(FLAGS_H) $(C_COMMON_H) $(GGC_H) \
   $(TARGET_H) $(TARGET_DEF_H) $(CPPLIB_H) $(C_PRAGMA_H)
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(srcdir)/config/i386/i386-c.c
+	$(CXX) -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(srcdir)/config/i386/i386-c.c

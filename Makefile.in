@@ -214,7 +214,26 @@ POSTSTAGE1_HOST_EXPORTS = \
 	  $$r/$(HOST_SUBDIR)/prev-gcc/xgcc$(exeext) \
 	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ \
 	  -B$(build_tooldir)/bin/"; export CC_FOR_BUILD; \
-	LDFLAGS="$(BOOT_LDFLAGS)"; export LDFLAGS;
+	CXX="$(STAGE_CC_WRAPPER) $$r/$(HOST_SUBDIR)/prev-gcc/g++$(exeext) \
+	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ -B$(build_tooldir)/bin/ \
+	  -nostdinc++ \
+	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include/$(TARGET_SUBDIR) \
+	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include \
+	  -I$$r/$(srcdir)/libstdc++-v3/libsupc++ \
+	  -L$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs"; export CXX; \
+	CXX_FOR_BUILD="$(STAGE_CC_WRAPPER) \
+	  $$r/$(HOST_SUBDIR)/prev-gcc/g++$(exeext) \
+	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ \
+	  -B$(build_tooldir)/bin/ \
+	  -nostdinc++ \
+	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include/$(TARGET_SUBDIR) \
+	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include \
+	  -I$$r/$(srcdir)/libstdc++-v3/libsupc++ \
+	  -L$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs"; \
+	  export CXX_FOR_BUILD; \
+	LDFLAGS="$(BOOT_LDFLAGS)"; export LDFLAGS; \
+	$(RPATH_ENVVAR)=`echo "$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$$(RPATH_ENVVAR)"| sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; \
+	export $(RPATH_ENVVAR);
 
 # Target libraries are put under this directory:
 TARGET_SUBDIR = @target_subdir@
@@ -625,6 +644,7 @@ X11_FLAGS_TO_PASS = \
 
 POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
+	CXX="$${CXX}" CXX_FOR_BUILD="$${CXX_FOR_BUILD}" \
 	GNATBIND="$$r/$(HOST_SUBDIR)/prev-gcc/gnatbind" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
 	"`echo 'ADAFLAGS=$(BOOT_ADAFLAGS)' | sed -e s'/[^=][^=]*=$$/XFOO=/'`"
@@ -909,7 +929,9 @@ all-host: maybe-all-gnattools
 
 .PHONY: all-target
 
+@if target-libstdc++-v3-no-bootstrap
 all-target: maybe-all-target-libstdc++-v3
+@endif target-libstdc++-v3-no-bootstrap
 all-target: maybe-all-target-libmudflap
 all-target: maybe-all-target-libssp
 all-target: maybe-all-target-newlib
@@ -43068,7 +43090,6 @@ configure-target-libstdc++-v3: stage_current
 @if target-libstdc++-v3
 maybe-configure-target-libstdc++-v3: configure-target-libstdc++-v3
 configure-target-libstdc++-v3: 
-	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	echo "Checking multilib configuration for libstdc++-v3..."; \
@@ -43105,6 +43126,351 @@ configure-target-libstdc++-v3:
 
 
 
+.PHONY: configure-stage1-target-libstdc++-v3 maybe-configure-stage1-target-libstdc++-v3
+maybe-configure-stage1-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-configure-stage1-target-libstdc++-v3: configure-stage1-target-libstdc++-v3
+configure-stage1-target-libstdc++-v3:
+	@[ $(current_stage) = stage1 ] || $(MAKE) stage1-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	echo "Checking multilib configuration for libstdc++-v3..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp 2> /dev/null ; \
+	if test -r $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile; \
+	    mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || exit 0; \
+	$(RAW_CXX_TARGET_EXPORTS)  \
+	CFLAGS="$(STAGE1_LIBCFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE1_LIBCFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS;  \
+	echo Configuring stage 1 in $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libstdc++-v3/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libstdc++-v3"; \
+	libsrcdir="$$s/libstdc++-v3"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	   \
+	  --disable-intermodule $(STAGE1_CHECKING) 	  --disable-coverage --enable-languages="$(STAGE1_LANGUAGES)" 
+@endif target-libstdc++-v3-bootstrap
+
+.PHONY: configure-stage2-target-libstdc++-v3 maybe-configure-stage2-target-libstdc++-v3
+maybe-configure-stage2-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-configure-stage2-target-libstdc++-v3: configure-stage2-target-libstdc++-v3
+configure-stage2-target-libstdc++-v3:
+	@[ $(current_stage) = stage2 ] || $(MAKE) stage2-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	echo "Checking multilib configuration for libstdc++-v3..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp 2> /dev/null ; \
+	if test -r $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile; \
+	    mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || exit 0; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	  \
+	CFLAGS="$(STAGE2_LIBCFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE2_LIBCFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS;  \
+	echo Configuring stage 2 in $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libstdc++-v3/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libstdc++-v3"; \
+	libsrcdir="$$s/libstdc++-v3"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif target-libstdc++-v3-bootstrap
+
+.PHONY: configure-stageb2g0-target-libstdc++-v3 maybe-configure-stageb2g0-target-libstdc++-v3
+maybe-configure-stageb2g0-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-configure-stageb2g0-target-libstdc++-v3: configure-stageb2g0-target-libstdc++-v3
+configure-stageb2g0-target-libstdc++-v3:
+	@[ $(current_stage) = stageb2g0 ] || $(MAKE) stageb2g0-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	echo "Checking multilib configuration for libstdc++-v3..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp 2> /dev/null ; \
+	if test -r $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile; \
+	    mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || exit 0; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	  \
+	CFLAGS="$(STAGE2_LIBCFLAGS) -g0 $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE2_LIBCFLAGS) -g0 $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS;  \
+	echo Configuring stage b2g0 in $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libstdc++-v3/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libstdc++-v3"; \
+	libsrcdir="$$s/libstdc++-v3"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif target-libstdc++-v3-bootstrap
+
+.PHONY: configure-stage3-target-libstdc++-v3 maybe-configure-stage3-target-libstdc++-v3
+maybe-configure-stage3-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-configure-stage3-target-libstdc++-v3: configure-stage3-target-libstdc++-v3
+configure-stage3-target-libstdc++-v3:
+	@[ $(current_stage) = stage3 ] || $(MAKE) stage3-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	echo "Checking multilib configuration for libstdc++-v3..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp 2> /dev/null ; \
+	if test -r $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile; \
+	    mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || exit 0; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	  \
+	CFLAGS="$(STAGE3_LIBCFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE3_LIBCFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS;  \
+	echo Configuring stage 3 in $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libstdc++-v3/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libstdc++-v3"; \
+	libsrcdir="$$s/libstdc++-v3"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif target-libstdc++-v3-bootstrap
+
+.PHONY: configure-stageb3g2-target-libstdc++-v3 maybe-configure-stageb3g2-target-libstdc++-v3
+maybe-configure-stageb3g2-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-configure-stageb3g2-target-libstdc++-v3: configure-stageb3g2-target-libstdc++-v3
+configure-stageb3g2-target-libstdc++-v3:
+	@[ $(current_stage) = stageb3g2 ] || $(MAKE) stageb3g2-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	echo "Checking multilib configuration for libstdc++-v3..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp 2> /dev/null ; \
+	if test -r $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile; \
+	    mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || exit 0; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	  \
+	CFLAGS="$(STAGE3_LIBCFLAGS) -g2 $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE3_LIBCFLAGS) -g2 $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS;  \
+	echo Configuring stage b3g2 in $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libstdc++-v3/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libstdc++-v3"; \
+	libsrcdir="$$s/libstdc++-v3"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif target-libstdc++-v3-bootstrap
+
+.PHONY: configure-stage4-target-libstdc++-v3 maybe-configure-stage4-target-libstdc++-v3
+maybe-configure-stage4-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-configure-stage4-target-libstdc++-v3: configure-stage4-target-libstdc++-v3
+configure-stage4-target-libstdc++-v3:
+	@[ $(current_stage) = stage4 ] || $(MAKE) stage4-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	echo "Checking multilib configuration for libstdc++-v3..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp 2> /dev/null ; \
+	if test -r $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile; \
+	    mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || exit 0; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	  \
+	CFLAGS="$(STAGE4_CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS;  \
+	echo Configuring stage 4 in $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libstdc++-v3/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libstdc++-v3"; \
+	libsrcdir="$$s/libstdc++-v3"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif target-libstdc++-v3-bootstrap
+
+.PHONY: configure-stageprofile-target-libstdc++-v3 maybe-configure-stageprofile-target-libstdc++-v3
+maybe-configure-stageprofile-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-configure-stageprofile-target-libstdc++-v3: configure-stageprofile-target-libstdc++-v3
+configure-stageprofile-target-libstdc++-v3:
+	@[ $(current_stage) = stageprofile ] || $(MAKE) stageprofile-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	echo "Checking multilib configuration for libstdc++-v3..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp 2> /dev/null ; \
+	if test -r $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile; \
+	    mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || exit 0; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	  \
+	CFLAGS="$(STAGE2_LIBCFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE2_LIBCFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS;  \
+	echo Configuring stage profile in $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libstdc++-v3/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libstdc++-v3"; \
+	libsrcdir="$$s/libstdc++-v3"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif target-libstdc++-v3-bootstrap
+
+.PHONY: configure-stagefeedback-target-libstdc++-v3 maybe-configure-stagefeedback-target-libstdc++-v3
+maybe-configure-stagefeedback-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-configure-stagefeedback-target-libstdc++-v3: configure-stagefeedback-target-libstdc++-v3
+configure-stagefeedback-target-libstdc++-v3:
+	@[ $(current_stage) = stagefeedback ] || $(MAKE) stagefeedback-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	echo "Checking multilib configuration for libstdc++-v3..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp 2> /dev/null ; \
+	if test -r $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile; \
+	    mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libstdc++-v3/multilib.tmp $(TARGET_SUBDIR)/libstdc++-v3/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || exit 0; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	  \
+	CFLAGS="$(STAGE3_LIBCFLAGS) -fprofile-use $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE3_LIBCFLAGS) -fprofile-use $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS;  \
+	echo Configuring stage feedback in $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libstdc++-v3 ; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libstdc++-v3/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libstdc++-v3"; \
+	libsrcdir="$$s/libstdc++-v3"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif target-libstdc++-v3-bootstrap
+
+
+
 
 
 .PHONY: all-target-libstdc++-v3 maybe-all-target-libstdc++-v3
@@ -43116,7 +43482,6 @@ all-target-libstdc++-v3: stage_current
 TARGET-target-libstdc++-v3=all
 maybe-all-target-libstdc++-v3: all-target-libstdc++-v3
 all-target-libstdc++-v3: configure-target-libstdc++-v3
-	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(RAW_CXX_TARGET_EXPORTS) \
@@ -43124,6 +43489,310 @@ all-target-libstdc++-v3: configure-target-libstdc++-v3
 	  $(MAKE) $(BASE_FLAGS_TO_PASS) $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  \
 		$(TARGET-target-libstdc++-v3))
 @endif target-libstdc++-v3
+
+
+
+.PHONY: all-stage1-target-libstdc++-v3 maybe-all-stage1-target-libstdc++-v3
+.PHONY: clean-stage1-target-libstdc++-v3 maybe-clean-stage1-target-libstdc++-v3
+maybe-all-stage1-target-libstdc++-v3:
+maybe-clean-stage1-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-all-stage1-target-libstdc++-v3: all-stage1-target-libstdc++-v3
+all-stage1: all-stage1-target-libstdc++-v3
+TARGET-stage1-target-libstdc++-v3 = $(TARGET-target-libstdc++-v3)
+all-stage1-target-libstdc++-v3: configure-stage1-target-libstdc++-v3
+	@[ $(current_stage) = stage1 ] || $(MAKE) stage1-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE1_CFLAGS)" CXXFLAGS="$(STAGE1_CFLAGS)" \
+		LIBCFLAGS="$(STAGE1_LIBCFLAGS)" \
+		CFLAGS_FOR_TARGET="$(STAGE1_LIBCFLAGS)" \
+		CXXFLAGS_FOR_TARGET="$(STAGE1_LIBCFLAGS)" $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'   \
+		$(TARGET-stage1-target-libstdc++-v3)
+
+maybe-clean-stage1-target-libstdc++-v3: clean-stage1-target-libstdc++-v3
+clean-stage1: clean-stage1-target-libstdc++-v3
+clean-stage1-target-libstdc++-v3:
+	@if [ $(current_stage) = stage1 ]; then \
+	  [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stage1-libstdc++-v3/Makefile ] || exit 0; \
+	  $(MAKE) stage1-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  \
+		 clean
+@endif target-libstdc++-v3-bootstrap
+
+
+.PHONY: all-stage2-target-libstdc++-v3 maybe-all-stage2-target-libstdc++-v3
+.PHONY: clean-stage2-target-libstdc++-v3 maybe-clean-stage2-target-libstdc++-v3
+maybe-all-stage2-target-libstdc++-v3:
+maybe-clean-stage2-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-all-stage2-target-libstdc++-v3: all-stage2-target-libstdc++-v3
+all-stage2: all-stage2-target-libstdc++-v3
+TARGET-stage2-target-libstdc++-v3 = $(TARGET-target-libstdc++-v3)
+all-stage2-target-libstdc++-v3: configure-stage2-target-libstdc++-v3
+	@[ $(current_stage) = stage2 ] || $(MAKE) stage2-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	 \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE2_CFLAGS)" CXXFLAGS="$(STAGE2_CFLAGS)" \
+		LIBCFLAGS="$(STAGE2_LIBCFLAGS)" \
+		CFLAGS_FOR_TARGET="$(STAGE2_LIBCFLAGS)" \
+		CXXFLAGS_FOR_TARGET="$(STAGE2_LIBCFLAGS)" $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'   \
+		$(TARGET-stage2-target-libstdc++-v3)
+
+maybe-clean-stage2-target-libstdc++-v3: clean-stage2-target-libstdc++-v3
+clean-stage2: clean-stage2-target-libstdc++-v3
+clean-stage2-target-libstdc++-v3:
+	@if [ $(current_stage) = stage2 ]; then \
+	  [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stage2-libstdc++-v3/Makefile ] || exit 0; \
+	  $(MAKE) stage2-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  \
+		  \
+		 clean
+@endif target-libstdc++-v3-bootstrap
+
+
+.PHONY: all-stageb2g0-target-libstdc++-v3 maybe-all-stageb2g0-target-libstdc++-v3
+.PHONY: clean-stageb2g0-target-libstdc++-v3 maybe-clean-stageb2g0-target-libstdc++-v3
+maybe-all-stageb2g0-target-libstdc++-v3:
+maybe-clean-stageb2g0-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-all-stageb2g0-target-libstdc++-v3: all-stageb2g0-target-libstdc++-v3
+all-stageb2g0: all-stageb2g0-target-libstdc++-v3
+TARGET-stageb2g0-target-libstdc++-v3 = $(TARGET-target-libstdc++-v3)
+all-stageb2g0-target-libstdc++-v3: configure-stageb2g0-target-libstdc++-v3
+	@[ $(current_stage) = stageb2g0 ] || $(MAKE) stageb2g0-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	 \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE2_CFLAGS) -g0" CXXFLAGS="$(STAGE2_CFLAGS) -g0" \
+		LIBCFLAGS="$(STAGE2_LIBCFLAGS) -g0" \
+		CFLAGS_FOR_TARGET="$(STAGE2_LIBCFLAGS) -g0" \
+		CXXFLAGS_FOR_TARGET="$(STAGE2_LIBCFLAGS) -g0" $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'   \
+		$(TARGET-stageb2g0-target-libstdc++-v3)
+
+maybe-clean-stageb2g0-target-libstdc++-v3: clean-stageb2g0-target-libstdc++-v3
+clean-stageb2g0: clean-stageb2g0-target-libstdc++-v3
+clean-stageb2g0-target-libstdc++-v3:
+	@if [ $(current_stage) = stageb2g0 ]; then \
+	  [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stageb2g0-libstdc++-v3/Makefile ] || exit 0; \
+	  $(MAKE) stageb2g0-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  \
+		  \
+		 clean
+@endif target-libstdc++-v3-bootstrap
+
+
+.PHONY: all-stage3-target-libstdc++-v3 maybe-all-stage3-target-libstdc++-v3
+.PHONY: clean-stage3-target-libstdc++-v3 maybe-clean-stage3-target-libstdc++-v3
+maybe-all-stage3-target-libstdc++-v3:
+maybe-clean-stage3-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-all-stage3-target-libstdc++-v3: all-stage3-target-libstdc++-v3
+all-stage3: all-stage3-target-libstdc++-v3
+TARGET-stage3-target-libstdc++-v3 = $(TARGET-target-libstdc++-v3)
+all-stage3-target-libstdc++-v3: configure-stage3-target-libstdc++-v3
+	@[ $(current_stage) = stage3 ] || $(MAKE) stage3-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	 \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE3_CFLAGS)" CXXFLAGS="$(STAGE3_CFLAGS)" \
+		LIBCFLAGS="$(STAGE3_LIBCFLAGS)" \
+		CFLAGS_FOR_TARGET="$(STAGE3_LIBCFLAGS)" \
+		CXXFLAGS_FOR_TARGET="$(STAGE3_LIBCFLAGS)" $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'   \
+		$(TARGET-stage3-target-libstdc++-v3)
+
+maybe-clean-stage3-target-libstdc++-v3: clean-stage3-target-libstdc++-v3
+clean-stage3: clean-stage3-target-libstdc++-v3
+clean-stage3-target-libstdc++-v3:
+	@if [ $(current_stage) = stage3 ]; then \
+	  [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stage3-libstdc++-v3/Makefile ] || exit 0; \
+	  $(MAKE) stage3-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  \
+		  \
+		 clean
+@endif target-libstdc++-v3-bootstrap
+
+
+.PHONY: all-stageb3g2-target-libstdc++-v3 maybe-all-stageb3g2-target-libstdc++-v3
+.PHONY: clean-stageb3g2-target-libstdc++-v3 maybe-clean-stageb3g2-target-libstdc++-v3
+maybe-all-stageb3g2-target-libstdc++-v3:
+maybe-clean-stageb3g2-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-all-stageb3g2-target-libstdc++-v3: all-stageb3g2-target-libstdc++-v3
+all-stageb3g2: all-stageb3g2-target-libstdc++-v3
+TARGET-stageb3g2-target-libstdc++-v3 = $(TARGET-target-libstdc++-v3)
+all-stageb3g2-target-libstdc++-v3: configure-stageb3g2-target-libstdc++-v3
+	@[ $(current_stage) = stageb3g2 ] || $(MAKE) stageb3g2-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	 \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE3_CFLAGS) -g2" CXXFLAGS="$(STAGE3_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE3_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE3_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE3_LIBCFLAGS) -g2" $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'   \
+		$(TARGET-stageb3g2-target-libstdc++-v3)
+
+maybe-clean-stageb3g2-target-libstdc++-v3: clean-stageb3g2-target-libstdc++-v3
+clean-stageb3g2: clean-stageb3g2-target-libstdc++-v3
+clean-stageb3g2-target-libstdc++-v3:
+	@if [ $(current_stage) = stageb3g2 ]; then \
+	  [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stageb3g2-libstdc++-v3/Makefile ] || exit 0; \
+	  $(MAKE) stageb3g2-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  \
+		  \
+		 clean
+@endif target-libstdc++-v3-bootstrap
+
+
+.PHONY: all-stage4-target-libstdc++-v3 maybe-all-stage4-target-libstdc++-v3
+.PHONY: clean-stage4-target-libstdc++-v3 maybe-clean-stage4-target-libstdc++-v3
+maybe-all-stage4-target-libstdc++-v3:
+maybe-clean-stage4-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-all-stage4-target-libstdc++-v3: all-stage4-target-libstdc++-v3
+all-stage4: all-stage4-target-libstdc++-v3
+TARGET-stage4-target-libstdc++-v3 = $(TARGET-target-libstdc++-v3)
+all-stage4-target-libstdc++-v3: configure-stage4-target-libstdc++-v3
+	@[ $(current_stage) = stage4 ] || $(MAKE) stage4-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	 \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS)" CXXFLAGS="$(STAGE4_CFLAGS)" \
+		LIBCFLAGS="$(STAGE4_CFLAGS)" \
+		CFLAGS_FOR_TARGET="$(STAGE4_CFLAGS)" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_CFLAGS)" $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'   \
+		$(TARGET-stage4-target-libstdc++-v3)
+
+maybe-clean-stage4-target-libstdc++-v3: clean-stage4-target-libstdc++-v3
+clean-stage4: clean-stage4-target-libstdc++-v3
+clean-stage4-target-libstdc++-v3:
+	@if [ $(current_stage) = stage4 ]; then \
+	  [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stage4-libstdc++-v3/Makefile ] || exit 0; \
+	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  \
+		  \
+		 clean
+@endif target-libstdc++-v3-bootstrap
+
+
+.PHONY: all-stageprofile-target-libstdc++-v3 maybe-all-stageprofile-target-libstdc++-v3
+.PHONY: clean-stageprofile-target-libstdc++-v3 maybe-clean-stageprofile-target-libstdc++-v3
+maybe-all-stageprofile-target-libstdc++-v3:
+maybe-clean-stageprofile-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-all-stageprofile-target-libstdc++-v3: all-stageprofile-target-libstdc++-v3
+all-stageprofile: all-stageprofile-target-libstdc++-v3
+TARGET-stageprofile-target-libstdc++-v3 = $(TARGET-target-libstdc++-v3)
+all-stageprofile-target-libstdc++-v3: configure-stageprofile-target-libstdc++-v3
+	@[ $(current_stage) = stageprofile ] || $(MAKE) stageprofile-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	 \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE2_CFLAGS) -fprofile-generate" CXXFLAGS="$(STAGE2_CFLAGS) -fprofile-generate" \
+		LIBCFLAGS="$(STAGE2_LIBCFLAGS)" \
+		CFLAGS_FOR_TARGET="$(STAGE2_LIBCFLAGS)" \
+		CXXFLAGS_FOR_TARGET="$(STAGE2_LIBCFLAGS)" $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'   \
+		$(TARGET-stageprofile-target-libstdc++-v3)
+
+maybe-clean-stageprofile-target-libstdc++-v3: clean-stageprofile-target-libstdc++-v3
+clean-stageprofile: clean-stageprofile-target-libstdc++-v3
+clean-stageprofile-target-libstdc++-v3:
+	@if [ $(current_stage) = stageprofile ]; then \
+	  [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stageprofile-libstdc++-v3/Makefile ] || exit 0; \
+	  $(MAKE) stageprofile-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  \
+		  \
+		 clean
+@endif target-libstdc++-v3-bootstrap
+
+
+.PHONY: all-stagefeedback-target-libstdc++-v3 maybe-all-stagefeedback-target-libstdc++-v3
+.PHONY: clean-stagefeedback-target-libstdc++-v3 maybe-clean-stagefeedback-target-libstdc++-v3
+maybe-all-stagefeedback-target-libstdc++-v3:
+maybe-clean-stagefeedback-target-libstdc++-v3:
+@if target-libstdc++-v3-bootstrap
+maybe-all-stagefeedback-target-libstdc++-v3: all-stagefeedback-target-libstdc++-v3
+all-stagefeedback: all-stagefeedback-target-libstdc++-v3
+TARGET-stagefeedback-target-libstdc++-v3 = $(TARGET-target-libstdc++-v3)
+all-stagefeedback-target-libstdc++-v3: configure-stagefeedback-target-libstdc++-v3
+	@[ $(current_stage) = stagefeedback ] || $(MAKE) stagefeedback-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	 \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE3_CFLAGS) -fprofile-use" CXXFLAGS="$(STAGE3_CFLAGS) -fprofile-use" \
+		LIBCFLAGS="$(STAGE3_LIBCFLAGS) -fprofile-use" \
+		CFLAGS_FOR_TARGET="$(STAGE3_LIBCFLAGS) -fprofile-use" \
+		CXXFLAGS_FOR_TARGET="$(STAGE3_LIBCFLAGS) -fprofile-use" $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'   \
+		$(TARGET-stagefeedback-target-libstdc++-v3)
+
+maybe-clean-stagefeedback-target-libstdc++-v3: clean-stagefeedback-target-libstdc++-v3
+clean-stagefeedback: clean-stagefeedback-target-libstdc++-v3
+clean-stagefeedback-target-libstdc++-v3:
+	@if [ $(current_stage) = stagefeedback ]; then \
+	  [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stagefeedback-libstdc++-v3/Makefile ] || exit 0; \
+	  $(MAKE) stagefeedback-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	$(MAKE) $(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  \
+		  \
+		 clean
+@endif target-libstdc++-v3-bootstrap
+
 
 
 
@@ -55269,7 +55938,14 @@ restrap:: all
 
 # Generic dependencies for target modules on host stuff, especially gcc
 @if gcc-bootstrap
-configure-target-libstdc++-v3: stage_last
+configure-stage1-target-libstdc++-v3: maybe-all-stage1-gcc
+configure-stage2-target-libstdc++-v3: maybe-all-stage2-gcc
+configure-stageb2g0-target-libstdc++-v3: maybe-all-stageb2g0-gcc
+configure-stage3-target-libstdc++-v3: maybe-all-stage3-gcc
+configure-stageb3g2-target-libstdc++-v3: maybe-all-stageb3g2-gcc
+configure-stage4-target-libstdc++-v3: maybe-all-stage4-gcc
+configure-stageprofile-target-libstdc++-v3: maybe-all-stageprofile-gcc
+configure-stagefeedback-target-libstdc++-v3: maybe-all-stagefeedback-gcc
 configure-target-libmudflap: stage_last
 configure-target-libssp: stage_last
 configure-target-newlib: stage_last
@@ -56142,6 +56818,14 @@ all-target-winsup: maybe-all-target-libtermcap
 
 
 @if gcc-bootstrap
+configure-stage1-target-libstdc++-v3: maybe-all-stage1-target-libgcc
+configure-stage2-target-libstdc++-v3: maybe-all-stage2-target-libgcc
+configure-stageb2g0-target-libstdc++-v3: maybe-all-stageb2g0-target-libgcc
+configure-stage3-target-libstdc++-v3: maybe-all-stage3-target-libgcc
+configure-stageb3g2-target-libstdc++-v3: maybe-all-stageb3g2-target-libgcc
+configure-stage4-target-libstdc++-v3: maybe-all-stage4-target-libgcc
+configure-stageprofile-target-libstdc++-v3: maybe-all-stageprofile-target-libgcc
+configure-stagefeedback-target-libstdc++-v3: maybe-all-stagefeedback-target-libgcc
 @endif gcc-bootstrap
 
 @if gcc-no-bootstrap

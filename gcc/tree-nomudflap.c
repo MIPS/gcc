@@ -100,7 +100,7 @@ struct gimple_opt_pass pass_mudflap_1 =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -119,7 +119,7 @@ struct gimple_opt_pass pass_mudflap_2 =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_NONE,				/* tv_id */
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -133,6 +133,9 @@ struct gimple_opt_pass pass_mudflap_2 =
 We prepare a little dummy struct here.
 */
 
+#ifdef __cplusplus
+extern
+#endif
 const struct ggc_root_tab gt_ggc_r_gt_tree_mudflap_h[] = {
   LAST_GGC_ROOT_TAB
 };

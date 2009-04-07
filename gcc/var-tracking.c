@@ -871,13 +871,13 @@ var_reg_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
   set_variable_part (set, loc, decl, offset, initialized, set_src);
 }
 
-static int
+static enum var_init_status
 get_init_value (dataflow_set *set, rtx loc, tree decl)
 {
   void **slot;
   variable var;
   int i;
-  int ret_val = VAR_INIT_STATUS_UNKNOWN;
+  enum var_init_status ret_val = VAR_INIT_STATUS_UNKNOWN;
 
   if (! flag_var_tracking_uninit)
     return VAR_INIT_STATUS_INITIALIZED;

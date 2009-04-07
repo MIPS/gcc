@@ -23,6 +23,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef LIBCPP_LINE_MAP_H
 #define LIBCPP_LINE_MAP_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef GTY
 #define GTY(x) /* nothing */
 #endif
@@ -191,4 +195,9 @@ extern void linemap_print_containing_files (struct line_maps *,
 
 extern source_location
 linemap_position_for_column (struct line_maps *set, unsigned int to_column);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* !LIBCPP_LINE_MAP_H  */

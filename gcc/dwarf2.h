@@ -584,11 +584,11 @@ enum dwarf_type
     DW_ATE_HP_complex_float128   = 0x83, /* Complex floating-point (128 bit).  */
     DW_ATE_HP_floathpintel       = 0x84, /* Floating-point (82 bit IA64).  */
     DW_ATE_HP_imaginary_float80  = 0x85,
-    DW_ATE_HP_imaginary_float128 = 0x86
-  };
+    DW_ATE_HP_imaginary_float128 = 0x86,
 
-#define	DW_ATE_lo_user 0x80
-#define	DW_ATE_hi_user 0xff
+    DW_ATE_lo_user = 0x80,
+    DW_ATE_hi_user = 0xff
+  };
 
 /* Decimal sign encodings.  */
 enum dwarf_decimal_sign_encoding

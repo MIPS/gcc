@@ -883,8 +883,8 @@ extern const char * const reg_note_name[];
 /* Initialization status of the variable in the location.  Status
    can be unknown, uninitialized or initialized.  See enumeration
    type below.  */
-#define NOTE_VAR_LOCATION_STATUS(INSN)  (XCINT (XCEXP (INSN, 4, NOTE), \
-						2, VAR_LOCATION))
+#define NOTE_VAR_LOCATION_STATUS(INSN)					\
+  ((enum var_init_status) (XCINT (XCEXP (INSN, 4, NOTE), 2, VAR_LOCATION)))
 
 /* Possible initialization status of a variable.   When requested
    by the user, this information is tracked and recorded in the DWARF
@@ -1117,7 +1117,7 @@ do {									\
 } while (0)
 #define SUBREG_PROMOTED_UNSIGNED_P(RTX)	\
   ((RTL_FLAG_CHECK1("SUBREG_PROMOTED_UNSIGNED_P", (RTX), SUBREG)->volatil) \
-     ? -1 : (RTX)->unchanging)
+   ? -1 : (int) (RTX)->unchanging)
 
 /* Access various components of an ASM_OPERANDS rtx.  */
 
@@ -1760,6 +1760,7 @@ extern rtx find_constant_src (const_rtx);
 extern int find_reg_fusage (const_rtx, enum rtx_code, const_rtx);
 extern int find_regno_fusage (const_rtx, enum rtx_code, unsigned int);
 extern void add_reg_note (rtx, enum reg_note, rtx);
+extern rtx alloc_reg_note (enum reg_note, rtx, rtx);
 extern void remove_note (rtx, const_rtx);
 extern void remove_reg_equal_equiv_notes (rtx);
 extern int side_effects_p (const_rtx);

@@ -1261,7 +1261,8 @@ create_general_new_stmt (struct access_site *acc, tree new_type)
       if (is_gimple_assign (new_stmt))
 	{
 	  lhs = gimple_assign_lhs (new_stmt);
-	  
+	  rhs = NULL_TREE;
+
 	  if (TREE_CODE (lhs) == SSA_NAME)
 	    lhs = SSA_NAME_VAR (lhs);
 	  if (gimple_assign_rhs_code (new_stmt) == SSA_NAME)
