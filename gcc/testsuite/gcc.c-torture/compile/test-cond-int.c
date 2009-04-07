@@ -4,6 +4,9 @@ extern int g ();
 extern void f ();
 
 extern char ch;
+extern float flt;
+extern double dbl;
+extern long double ldbl;
 
 int x;
 
