@@ -1,0 +1,8 @@
+2009-04-07  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.c-torture/compile/test-cond-fp1.c: New.
+	* gcc.c-torture/compile/test-cond-fp2.c: New.
+	* gcc.c-torture/compile/test-cond-int.c: New.
+	* gcc.c-torture/compile/ieee/ieee.exp: New.
+	* gcc.c-torture/compile/ieee/test-cond-fp1.c: New.
+	* gcc.c-torture/compile/ieee/test-cond-fp2.c: New.
