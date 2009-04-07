@@ -1,3 +1,7 @@
+2009-04-07  J"orn Rennecke  <joern.rennecke@arc.com>
+
+	* cp/pt.c (tsubst_decl): Adjust forward declaration.
+
 2009-03-25  Jerry Quinn  <jlquinn@cerberus.qb5.org>
 
 	* config/i386/i386.c (ix86_function_specific_save): Don't check
