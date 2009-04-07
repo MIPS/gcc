@@ -460,10 +460,47 @@ mark_scope_block_unused (tree scope)
 }
 
 /* Called via walk_tree. See if expression contains some variable that is
-   no longer used in source function.  */
+   no longer used in source function and try to replace them by their
+   VALUE_EXPRs.  If that fails and substitution is no longer useful,
+   return non-NULL_TREE.  */
+
 static tree
-lookup_dead_vars (tree * tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+lookup_dead_vars (tree * tp, int *walk_subtrees, void *data)
 {
+  bool *fold_p = (bool *)data;
+
+  if (TREE_CODE (*tp) == CONSTRUCTOR)
+    {
+      unsigned HOST_WIDE_INT idx;
+      tree value;
+      bool found = false;
+      *walk_subtrees = 0;
+
+      FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (*tp), idx, value)
+        {
+	  if (value != error_mark_node)
+	    {
+              bool fold_field_p = false;
+
+              if (walk_tree (&value, lookup_dead_vars, &fold_field_p, NULL))
+		value = error_mark_node;
+	      if (value != error_mark_node)
+		{
+	          found = true;
+		  if (fold_field_p)
+		    {
+		      value = fold (value);
+		      *fold_p = true;
+		    }
+		}
+	      CONSTRUCTOR_ELT (*tp, idx)->value = value;
+	    }
+	}
+      if (found)
+        return NULL_TREE;
+      return *tp;
+    }
+
   if (is_gimple_min_invariant (*tp)
       || TYPE_P (*tp))
     {
@@ -473,10 +510,37 @@ lookup_dead_vars (tree * tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   if (DECL_P (*tp))
     {
       *walk_subtrees = 0;
-      if (TREE_CODE (*tp) == VAR_DECL
+
+      if ((TREE_CODE (*tp) == VAR_DECL
+	   || TREE_CODE (*tp) == PARM_DECL)
 	  && (!var_ann (*tp)
 	      || !var_ann (*tp)->used))
-	return *tp;
+	{
+	  /* If this is dead variable but we have subtitution for it, go ahead and use it.
+	     Watch for recusive cases!  */
+	  if (DECL_HAS_VALUE_EXPR_P (*tp))
+	    {
+	      tree value;
+	      tree decl = *tp;
+
+	      *fold_p = true;
+	      DECL_HAS_VALUE_EXPR_P (decl) = 0;
+	      value = DECL_VALUE_EXPR (decl);
+	      if (value != *tp)
+		{
+		  *tp = unshare_expr (value);
+		  value = walk_tree (tp, lookup_dead_vars, data, NULL);
+		}
+	      DECL_HAS_VALUE_EXPR_P (decl) = 1;
+	      return value;
+	    }
+
+	  /* Function parameters and static vars might survive even if
+	     they are unused.  */
+	  if (TREE_CODE (*tp) == VAR_DECL
+	      && !TREE_STATIC (*tp))
+	    return *tp;
+	}
     }
   return NULL_TREE;
 }
@@ -504,14 +568,44 @@ remove_unused_scope_block_p (tree scope)
   unsigned int i;
 
   for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (scope); i++)
-    if (BLOCK_NONLOCALIZED_VAR_VALUE (scope, i)
-        && walk_tree (&BLOCK_NONLOCALIZED_VAR_VALUE (scope, i),
-		      lookup_dead_vars, NULL, NULL))
-      BLOCK_NONLOCALIZED_VAR_VALUE (scope, i) = NULL_TREE;
+    {
+      bool fold_p = false;
+
+      if (BLOCK_NONLOCALIZED_VAR_VALUE (scope, i)
+	  && walk_tree (&BLOCK_NONLOCALIZED_VAR_VALUE (scope, i),
+			lookup_dead_vars, &fold_p, NULL))
+	BLOCK_NONLOCALIZED_VAR_VALUE (scope, i) = NULL_TREE;
+      if (fold_p)
+	BLOCK_NONLOCALIZED_VAR_VALUE (scope, i)
+	  = fold (BLOCK_NONLOCALIZED_VAR_VALUE (scope, i));
+    }
 
   for (t = &BLOCK_VARS (scope); *t; t = next)
     {
       next = &TREE_CHAIN (*t);
+
+      if ((TREE_CODE (*t) == VAR_DECL || TREE_CODE (*t) == PARM_DECL)
+	  && DECL_HAS_VALUE_EXPR_P (*t))
+	{
+	  tree value = DECL_VALUE_EXPR (*t);
+	  bool fold_p = false;
+
+	  DECL_HAS_VALUE_EXPR_P (*t) = 0;
+	  if (walk_tree (&value, lookup_dead_vars, &fold_p, NULL))
+	    value = error_mark_node;
+	  else if (fold_p)
+	    value = fold (value);
+	  if (value == error_mark_node)
+	    {
+	      SET_DECL_VALUE_EXPR (*t, NULL_TREE);
+	      DECL_HAS_VALUE_EXPR_P (*t) = 0;
+	    }
+	  else
+	    {
+	      SET_DECL_VALUE_EXPR (*t, value);
+	      DECL_HAS_VALUE_EXPR_P (*t) = 1;
+	    }
+	}
 
       /* Debug info of nested function refers to the block of the
 	 function.  We might stil call it even if all statements
@@ -676,6 +770,15 @@ dump_scope_block (FILE *file, int indent, tree scope, int flags)
 
       fprintf (file, "%*s",indent, "");
       print_generic_decl (file, var, flags);
+      if ((TREE_CODE (var) == VAR_DECL || TREE_CODE (var) == PARM_DECL)
+          && DECL_HAS_VALUE_EXPR_P (var))
+        {
+          fprintf (file, " [value_expr: ");
+	  print_generic_expr (file,
+	  		      DECL_VALUE_EXPR (var),
+			      flags);
+          fprintf (file, " ]");
+        }
       fprintf (file, "%s\n", used ? "" : " (unused)");
     }
   for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (scope); i++)
@@ -685,10 +788,11 @@ dump_scope_block (FILE *file, int indent, tree scope, int flags)
       			  flags);
       if (BLOCK_NONLOCALIZED_VAR_VALUE (scope, i))
         {
-          fprintf (file, "replaced by:");
+          fprintf (file, " [value-expr: ");
 	  print_generic_expr (file,
 	  		      BLOCK_NONLOCALIZED_VAR_VALUE (scope, i),
 			      flags);
+          fprintf (file, " ]");
 	}
       fprintf (file, " (nonlocalized)\n");
     }
@@ -713,6 +817,9 @@ remove_unused_locals (void)
   referenced_var_iterator rvi;
   var_ann_t ann;
   bitmap global_unused_vars = NULL;
+
+  if (!gimple_in_ssa_p (cfun))
+    return;
 
   mark_scope_block_unused (DECL_INITIAL (current_function_decl));
 

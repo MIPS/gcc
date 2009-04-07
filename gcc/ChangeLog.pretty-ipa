@@ -1,5 +1,24 @@
 2009-04-04  Jan Hubicka  <jh@suse.cz>
 
+	* cfgexpand.c (expand_one_var): DECL_HAS_VALUE_EXPR_P vars can still
+	be live.
+	* tree-ssa-live.c (lookup_dead_vars): Use VALUE_EXPR to fix replacement
+	of dead vars; constructors are live as long as at least one field is.
+	(remove_unused_scope_block_p): Update replacement of VALUE_EXPRs too;
+	fold result after substituting.
+	(dump_scope_block): Dump VALUE_EXPR; use syntax same as elsewhere.
+	(remove_unused_locals): Dont do the job when outside SSA.  Flow info
+	is not accurate then.
+	* tree-inline.c (remap_value): New function.
+	(remap_decl): Remap value.
+	(remap_decls): Ue remap_value.
+	(lookup_dead_vars): Kill.
+	(remap_block): Use remap_value.
+	* passes.c (init_optimization_passes): Schedule pass_rename_ssa_copies after
+	early SRA too.
+
+2009-04-04  Jan Hubicka  <jh@suse.cz>
+
 	* Merge from mainline. 
 
 2009-04-04  Jan Hubicka  <jh@suse.cz>

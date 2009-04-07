@@ -1096,11 +1096,11 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
     ;
   else if (DECL_EXTERNAL (var))
     ;
-  else if (DECL_HAS_VALUE_EXPR_P (var))
-    ;
   else if (TREE_STATIC (var))
     ;
   else if (DECL_RTL_SET_P (var))
+    ;
+  else if (TREE_CODE (DECL_SIZE_UNIT (var)) != INTEGER_CST)
     ;
   else if (TREE_TYPE (var) == error_mark_node)
     {

@@ -104,6 +104,7 @@ eni_weights eni_time_weights;
 static tree declare_return_variable (copy_body_data *, tree, tree, tree *);
 static bool inlinable_function_p (tree);
 static void remap_block (tree *, copy_body_data *);
+static tree remap_value (tree, copy_body_data *);
 static void copy_bind_expr (tree *, int *, copy_body_data *);
 static tree mark_local_for_remap_r (tree *, int *, void *);
 static void unsave_expr_1 (tree);
@@ -307,6 +308,18 @@ remap_decl (tree decl, copy_body_data *id)
 	  walk_tree (&DECL_FIELD_OFFSET (t), copy_tree_body_r, id, NULL);
 	  if (TREE_CODE (DECL_CONTEXT (t)) == QUAL_UNION_TYPE)
 	    walk_tree (&DECL_QUALIFIER (t), copy_tree_body_r, id, NULL);
+	}
+      if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
+	  && DECL_HAS_VALUE_EXPR_P (decl))
+	{
+	  tree value = remap_value (DECL_VALUE_EXPR (t), id);
+	  if (value)
+	    {
+	      DECL_HAS_VALUE_EXPR_P (t) = 1;
+	      SET_DECL_VALUE_EXPR (t, value);
+	    }
+	  else
+	    DECL_HAS_VALUE_EXPR_P (t) = 0;
 	}
 
       if (cfun && gimple_in_ssa_p (cfun)
@@ -657,6 +670,18 @@ simplify_value (tree value, tree fn, bool only_address)
   return NULL;
 }
 
+/* Remap VALUE from inlined function to the callee.  */
+static tree
+remap_value (tree value, copy_body_data *id)
+{
+  if (!value)
+    return NULL;
+  walk_tree (&value, copy_tree_body_r, id, NULL);
+  /* Replacing declarations might've introduced new simplifiable
+     expressions.  */
+  return simplify_value (fold (value), id->src_fn, false);
+}
+
 /* DECL is not going to be copied into function body.  Declare it in NONLOCALIZED_LIST
    and if possible note it being replaced by value.  */
 static void
@@ -713,7 +738,13 @@ remap_decls (tree decls, VEC(nonlocalized_var,gc) **nonlocalized_list, copy_body
 	    cfun->local_decls = tree_cons (NULL_TREE, old_var,
 						   cfun->local_decls);
 	  if (nonlocalized_list != NULL)
-	    declare_nonlocalized_var (nonlocalized_list, old_var, NULL_TREE, id, true);
+	    {
+	      tree value = NULL;
+	      if ((TREE_CODE (old_var) == VAR_DECL || TREE_CODE (old_var) == PARM_DECL)
+	          && DECL_HAS_VALUE_EXPR_P (old_var))
+		value = remap_value (old_var, id);
+	      declare_nonlocalized_var (nonlocalized_list, old_var, value, id, true);
+	    }
 	  continue;
 	}
 
@@ -729,7 +760,13 @@ remap_decls (tree decls, VEC(nonlocalized_var,gc) **nonlocalized_list, copy_body
       else if (!new_var)
         {
 	  if (nonlocalized_list != NULL)
-	    declare_nonlocalized_var (nonlocalized_list, old_var, NULL_TREE, id, true);
+	    {
+	      tree value = NULL;
+	      if ((TREE_CODE (old_var) == VAR_DECL || TREE_CODE (old_var) == PARM_DECL)
+	          && DECL_HAS_VALUE_EXPR_P (old_var))
+		value = remap_value (old_var, id);
+	      declare_nonlocalized_var (nonlocalized_list, old_var, value, id, true);
+	    }
 	}
       else
 	{
@@ -740,27 +777,6 @@ remap_decls (tree decls, VEC(nonlocalized_var,gc) **nonlocalized_list, copy_body
     }
 
   return nreverse (new_decls);
-}
-
-/* Called via walk_tree. See if expression contains some variable that is
-   no longer used in source function.  */
-static tree
-lookup_dead_vars (tree * tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
-{
-  if (is_gimple_min_invariant (*tp)
-      || TYPE_P (*tp))
-    {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
-  if (DECL_P (*tp))
-    {
-      *walk_subtrees = 0;
-      if (TREE_CODE (*tp) == VAR_DECL
-	  && !var_ann (*tp))
-	return *tp;
-    }
-  return NULL_TREE;
 }
 
 /* Copy the BLOCK to contain remapped versions of the variables
@@ -782,20 +798,7 @@ remap_block (tree *block, copy_body_data *id)
   BLOCK_SOURCE_LOCATION (new_block) = BLOCK_SOURCE_LOCATION (old_block);
   for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (old_block); i++)
     {
-      tree value = BLOCK_NONLOCALIZED_VAR_VALUE (old_block, i);
-
-      /* Copy value only if it still contains only live variables.  It makes
-         no sense doing so otherwise and copy_body_r would also insert dead
-	 variables back to referenced vars.  */
-      if (value && !walk_tree (&value, lookup_dead_vars, id, NULL))
-	{
-	  walk_tree (&value, copy_tree_body_r, id, NULL);
-	  /* Replacing declarations might've introduced new simplifiable
-	     expressions.  */
-	  value = simplify_value (fold (value), id->src_fn, false);
-	}
-      else if (value)
-	value = NULL;
+      tree value = remap_value (BLOCK_NONLOCALIZED_VAR_VALUE (old_block, i), id);
       declare_nonlocalized_var (&BLOCK_NONLOCALIZED_VARS (new_block),
 				BLOCK_NONLOCALIZED_VAR (old_block, i),
 				value, id, false);
