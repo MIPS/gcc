@@ -1,3 +1,10 @@
+2009-04-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.texi: Document Atom support.
+
 2009-04-06  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.md: Revert 2 accidental checkins.
