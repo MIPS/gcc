@@ -101,11 +101,6 @@ static rtx expand_unop_direct (enum machine_mode, optab, rtx, rtx, int);
 /* Debug facility for use in GDB.  */
 void debug_optab_libfuncs (void);
 
-#ifndef HAVE_conditional_trap
-#define HAVE_conditional_trap 0
-#define gen_conditional_trap(a,b) (gcc_unreachable (), NULL_RTX)
-#endif
-
 /* Prefixes for the current version of decimal floating point (BID vs. DPD) */
 #if ENABLE_DECIMAL_BID_FORMAT
 #define DECIMAL_PREFIX "bid_"
@@ -6702,9 +6697,6 @@ gen_cond_trap (enum rtx_code code, rtx op1, rtx op2, rtx tcode)
   enum insn_code icode;
   rtx insn;
   rtx trap_rtx;
-
-  if (!HAVE_conditional_trap)
-    return 0;
 
   if (mode == VOIDmode)
     return 0;
