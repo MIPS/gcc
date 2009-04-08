@@ -39,6 +39,9 @@
 ;; Vector comparison modes
 (define_mode_iterator VEC_C [V16QI V8HI V4SI V4SF V2DF])
 
+;; Vector reload iterator
+(define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF DF TI])
+
 ;; Base type from vector mode
 (define_mode_attr VEC_base [(V16QI "QI")
 			    (V8HI  "HI")
@@ -61,15 +64,16 @@
 	(match_operand:VEC_M 1 "any_operand" ""))]
   "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
-  /* modes without special handling just generate the normal SET operation.  */
-  if (<MODE>mode != TImode && <MODE>mode != V2DImode && <MODE>mode != V2DFmode)
+  if (can_create_pseudo_p ())
     {
-      rs6000_emit_move (operands[0], operands[1], <MODE>mode);
-      DONE;
+      if (CONSTANT_P (operands[1])
+	  && !easy_vector_constant (operands[1], <MODE>mode))
+	operands[1] = force_const_mem (<MODE>mode, operands[1]);
+
+      else if (!vlogical_operand (operands[0], <MODE>mode)
+	       && !vlogical_operand (operands[1], <MODE>mode))
+	operands[1] = force_reg (<MODE>mode, operands[1]);
     }
-  else if (!vlogical_operand (operands[0], <MODE>mode)
-	   && !vlogical_operand (operands[1], <MODE>mode))
-    operands[1] = force_reg (<MODE>mode, operands[1]);
 })
 
 ;; Generic vector floating point load/store instructions.  These will match
@@ -99,6 +103,49 @@
   DONE;
 })
 
+
+;; Reload patterns for vector operations.  We may need an addtional base
+;; register to convert the reg+offset addressing to reg+reg for vector
+;; registers and reg+reg or (reg+reg)&(-16) addressing to just an index
+;; register for gpr registers.
+(define_expand "reload_<VEC_R:mode>_<P:mptrsize>_store"
+  [(parallel [(match_operand:VEC_R 0 "memory_operand" "m")
+              (match_operand:VEC_R 1 "gpc_reg_operand" "r")
+              (match_operand:P 2 "register_operand" "=&b")])]
+  "<P:tptrsize>"
+{
+  rs6000_secondary_reload_inner (operands[1], operands[0], operands[2], true);
+  DONE;
+})
+
+(define_expand "reload_<VEC_R:mode>_<P:mptrsize>_load"
+  [(parallel [(match_operand:VEC_R 0 "gpc_reg_operand" "=&r")
+              (match_operand:VEC_R 1 "memory_operand" "m")
+              (match_operand:P 2 "register_operand" "=&b")])]
+  "<P:tptrsize>"
+{
+  rs6000_secondary_reload_inner (operands[0], operands[1], operands[2], false);
+  DONE;
+})
+
+;; Reload sometimes tries to move the address to a GPR, and can generate
+;; invalid RTL for addresses involving AND -16.
+
+(define_insn_and_split "*vec_reload_and_plus_<mptrsize>"
+  [(set (match_operand:P 0 "gpc_reg_operand" "=b")
+	(and:P (plus:P (match_operand:P 1 "gpc_reg_operand" "r")
+		       (match_operand:P 2 "gpc_reg_operand" "r"))
+	       (const_int -16)))]
+  "TARGET_ALTIVEC || TARGET_VSX"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0)
+	(plus:P (match_dup 1)
+		(match_dup 2)))
+   (parallel [(set (match_dup 0)
+		   (and:P (match_dup 0)
+			  (const_int -16)))
+	      (clobber:CC (scratch:CC))])])
 
 ;; Generic floating point vector arithmetic support
 (define_expand "add<mode>3"

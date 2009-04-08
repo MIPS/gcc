@@ -2677,27 +2677,3 @@
   emit_insn (gen_altivec_vcfux (operands[0], tmp, const0_rtx));
   DONE;
 }")
-
-
-;; Reload patterns for Altivec loads/stores.  We need a scratch register to
-;; convert the stack temporary address from reg+offset to reg+reg addressing.
-
-(define_expand "altivec_reload_<V:mode>_<P:ptrsize>_to_mem"
-  [(parallel [(match_operand:V 0 "memory_operand" "")
-              (match_operand:V 1 "register_operand" "=v")
-              (match_operand:P 2 "register_operand" "=&b")])]
-  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
-{
-  rs6000_vector_secondary_reload (operands[0], operands[1], operands[2], true);
-  DONE;
-})
-
-(define_expand "altivec_reload_<V:mode>_<P:ptrsize>_to_reg"
-  [(parallel [(match_operand:V 0 "register_operand" "=v")
-              (match_operand:V 1 "memory_operand" "")
-              (match_operand:P 2 "register_operand" "=&b")])]
-  "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
-{
-  rs6000_vector_secondary_reload (operands[0], operands[1], operands[2], false);
-  DONE;
-})

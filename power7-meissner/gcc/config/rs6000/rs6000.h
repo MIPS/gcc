@@ -1314,24 +1314,16 @@ enum reg_class
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-#define REGNO_REG_CLASS(REGNO)			\
- ((REGNO) == 0 ? GENERAL_REGS			\
-  : (REGNO) < 32 ? BASE_REGS			\
-  : FP_REGNO_P (REGNO) ? FLOAT_REGS		\
-  : ALTIVEC_REGNO_P (REGNO) ? ALTIVEC_REGS	\
-  : (REGNO) == CR0_REGNO ? CR0_REGS		\
-  : CR_REGNO_P (REGNO) ? CR_REGS		\
-  : (REGNO) == MQ_REGNO ? MQ_REGS		\
-  : (REGNO) == LR_REGNO ? LINK_REGS		\
-  : (REGNO) == CTR_REGNO ? CTR_REGS		\
-  : (REGNO) == ARG_POINTER_REGNUM ? BASE_REGS	\
-  : (REGNO) == XER_REGNO ? XER_REGS		\
-  : (REGNO) == VRSAVE_REGNO ? VRSAVE_REGS	\
-  : (REGNO) == VSCR_REGNO ? VRSAVE_REGS		\
-  : (REGNO) == SPE_ACC_REGNO ? SPE_ACC_REGS	\
-  : (REGNO) == SPEFSCR_REGNO ? SPEFSCR_REGS	\
-  : (REGNO) == FRAME_POINTER_REGNUM ? BASE_REGS	\
-  : NO_REGS)
+extern enum reg_class rs6000_regno_regclass[FIRST_PSEUDO_REGISTER];
+
+#if ENABLE_CHECKING
+#define REGNO_REG_CLASS(REGNO) 						\
+  (gcc_assert (IN_RANGE ((REGNO), 0, FIRST_PSEUDO_REGISTER-1)),		\
+   rs6000_regno_regclass[(REGNO)])
+
+#else
+#define REGNO_REG_CLASS(REGNO) rs6000_regno_regclass[(REGNO)]
+#endif
 
 /* VSX register classes.  */
 extern enum reg_class rs6000_vector_reg_class[];

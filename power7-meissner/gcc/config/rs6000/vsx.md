@@ -28,6 +28,9 @@
 ;; Iterator for logical types supported by VSX
 (define_mode_iterator VSX_L [V16QI V8HI V4SI V2DI V4SF V2DF TI])
 
+;; Iterator for types for load/store with update
+(define_mode_iterator VSX_U [V16QI V8HI V4SI V2DI V4SF V2DF TI DF])
+
 ;; Map into the appropriate load/store name based on the type
 (define_mode_attr VSm  [(V16QI "vw4")
 			(V8HI  "vw4")
@@ -68,17 +71,17 @@
 			 (DF    "!f#r")])
 
 ;; Same size integer type for floating point data
-(define_mode_attr VSi [(V2DF  "v2di")
-		       (V4SF  "v4si")
+(define_mode_attr VSi [(V4SF  "v4si")
+		       (V2DF  "v2di")
 		       (DF    "di")])
 
-(define_mode_attr VSI [(V2DF  "V2DI")
-		       (V4SF  "V4SI")
+(define_mode_attr VSI [(V4SF  "V4SI")
+		       (V2DF  "V2DI")
 		       (DF    "DI")])
 
 ;; Word size for same size conversion
-(define_mode_attr VSc [(V2DF "d")
-		       (V4SF "w")
+(define_mode_attr VSc [(V4SF "w")
+		       (V2DF "d")
 		       (DF   "d")])
 
 ;; Bitsize for DF load with update
@@ -87,9 +90,14 @@
 
 ;; Map into either s or v, depending on whether this is a scalar or vector
 ;; operation
-(define_mode_attr VSv	[(V2DF "v")
-			 (V4SF "v")
-			 (DF   "s")])
+(define_mode_attr VSv	[(V16QI "v")
+			 (V8HI  "v")
+			 (V4SI  "v")
+			 (V4SF  "v")
+			 (V2DI  "v")
+			 (V2DF  "v")
+			 (TI    "v")
+			 (DF    "s")])
 
 ;; Appropriate type for add ops (and other simple FP ops)
 (define_mode_attr VStype_simple	[(V2DF "vecfloat")
@@ -128,6 +136,26 @@
 (define_mode_attr VSfptype_sqrt	[(V2DF "fp_sqrt_d")
 				 (V4SF "fp_sqrt_s")
 				 (DF   "fp_sqrt_d")])
+
+;; Appropriate type for load + update
+(define_mode_attr VStype_load_update [(V16QI "vecload")
+				      (V8HI  "vecload")
+				      (V4SI  "vecload")
+				      (V4SF  "vecload")
+				      (V2DI  "vecload")
+				      (V2DF  "vecload")
+				      (TI    "vecload")
+				      (DF    "fpload")])
+
+;; Appropriate type for store + update
+(define_mode_attr VStype_store_update [(V16QI "vecstore")
+				       (V8HI  "vecstore")
+				       (V4SI  "vecstore")
+				       (V4SF  "vecstore")
+				       (V2DI  "vecstore")
+				       (V2DF  "vecstore")
+				       (TI    "vecstore")
+				       (DF    "fpstore")])
 
 ;; Constants for creating unspecs
 (define_constants
@@ -190,7 +218,7 @@
       gcc_unreachable ();
     }
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,vecstore,vecload,vecsimple,store,load,*,vecsimple,vecsimple,*,vecstore,vecload")])
+  [(set_attr "type" "vecstore,vecload,vecsimple,vecstore,vecload,vecsimple,*,*,*,vecsimple,vecsimple,*,vecstore,vecload")])
 
 ;; Load/store with update
 ;; Define insns that do load or store with update.  Because VSX only has
@@ -202,71 +230,27 @@
 ;; tie and these are the pair most likely to be tieable (and the ones
 ;; that will benefit the most).
 
-(define_insn "*vsx_load<mode>_update64"
-  [(set (match_operand:VSX_L 3 "vsx_register_operand" "=<VSr>,?wa")
-	(mem:VSX_L (plus:DI (match_operand:DI 1 "gpc_reg_operand" "0,0")
-			    (match_operand:DI 2 "gpc_reg_operand" "r,r"))))
-   (set (match_operand:DI 0 "gpc_reg_operand" "=b,b")
-	(plus:DI (match_dup 1)
-		 (match_dup 2)))]
-  "TARGET_64BIT && TARGET_UPDATE && VECTOR_MEM_VSX_P (<MODE>mode)"
-  "lx<VSm>ux %x3,%0,%2"
-  [(set_attr "type" "vecload")])
-
-(define_insn "*vsx_load<mode>_update32"
-  [(set (match_operand:VSX_L 3 "vsx_register_operand" "=<VSr>,?wa")
-	(mem:VSX_L (plus:SI (match_operand:SI 1 "gpc_reg_operand" "0,0")
-			    (match_operand:SI 2 "gpc_reg_operand" "r,r"))))
-   (set (match_operand:SI 0 "gpc_reg_operand" "=b,b")
-	(plus:SI (match_dup 1)
-		 (match_dup 2)))]
-  "TARGET_32BIT && TARGET_UPDATE && VECTOR_MEM_VSX_P (<MODE>mode)"
-  "lx<VSm>ux %x3,%0,%2"
-  [(set_attr "type" "vecload")])
-
-(define_insn "*vsx_store<mode>_update64"
-  [(set (mem:VSX_L (plus:DI (match_operand:DI 1 "gpc_reg_operand" "0,0")
-			    (match_operand:DI 2 "gpc_reg_operand" "r,r")))
-	(match_operand:VSX_L 3 "gpc_reg_operand" "<VSr>,?wa"))
-   (set (match_operand:DI 0 "gpc_reg_operand" "=b,b")
-	(plus:DI (match_dup 1)
-		 (match_dup 2)))]
-  "TARGET_64BIT && TARGET_UPDATE && VECTOR_MEM_VSX_P (<MODE>mode)"
-  "stx<VSm>ux %x3,%0,%2"
-  [(set_attr "type" "vecstore")])
-
-(define_insn "*vsx_store<mode>_update32"
-  [(set (mem:VSX_L (plus:SI (match_operand:SI 1 "gpc_reg_operand" "0,0")
-			    (match_operand:SI 2 "gpc_reg_operand" "r,r")))
-	(match_operand:VSX_L 3 "gpc_reg_operand" "<VSr>,?wa"))
-   (set (match_operand:SI 0 "gpc_reg_operand" "=b,b")
-	(plus:SI (match_dup 1)
-		 (match_dup 2)))]
-  "TARGET_32BIT && TARGET_UPDATE && VECTOR_MEM_VSX_P (<MODE>mode)"
-  "stx<VSm>ux %x3,%0,%2"
-  [(set_attr "type" "vecstore")])
-
-(define_insn "*vsx_loaddf_update<VSbit>"
-  [(set (match_operand:DF 3 "vsx_register_operand" "=ws,?wa")
-	(mem:DF (plus:P (match_operand:P 1 "gpc_reg_operand" "0,0")
-			(match_operand:P 2 "gpc_reg_operand" "r,r"))))
+(define_insn "*vsx_load<VSX_U:mode>_update_<P:mptrsize>"
+  [(set (match_operand:VSX_U 3 "vsx_register_operand" "=<VSr>,?wa")
+	(mem:VSX_U (plus:P (match_operand:P 1 "gpc_reg_operand" "0,0")
+			   (match_operand:P 2 "gpc_reg_operand" "r,r"))))
    (set (match_operand:P 0 "gpc_reg_operand" "=b,b")
 	(plus:P (match_dup 1)
 		(match_dup 2)))]
-  "TARGET_<VSbit>BIT && TARGET_UPDATE && VECTOR_MEM_VSX_P (DFmode)"
-  "lxsdux %x3,%0,%2"
-  [(set_attr "type" "vecload")])
+  "<P:tptrsize> && TARGET_UPDATE && VECTOR_MEM_VSX_P (<MODE>mode)"
+  "lx<VSm>ux %x3,%0,%2"
+  [(set_attr "type" "<VSX_U:VStype_load_update>")])
 
-(define_insn "*vsx_storedf_update<VSbit>"
-  [(set (mem:DF (plus:P (match_operand:P 1 "gpc_reg_operand" "0,0")
-			(match_operand:P 2 "gpc_reg_operand" "r,r")))
-	(match_operand:DF 3 "gpc_reg_operand" "ws,?wa"))
+(define_insn "*vsx_store<mode>_update_<P:mptrsize>"
+  [(set (mem:VSX_U (plus:P (match_operand:P 1 "gpc_reg_operand" "0,0")
+			   (match_operand:P 2 "gpc_reg_operand" "r,r")))
+	(match_operand:VSX_U 3 "gpc_reg_operand" "<VSr>,?wa"))
    (set (match_operand:P 0 "gpc_reg_operand" "=b,b")
 	(plus:P (match_dup 1)
 		(match_dup 2)))]
-  "TARGET_<VSbit>BIT && TARGET_UPDATE && VECTOR_MEM_VSX_P (DFmode)"
-  "stxsdux %x3,%0,%2"
-  [(set_attr "type" "vecstore")])
+  "<P:tptrsize> && TARGET_UPDATE && VECTOR_MEM_VSX_P (<MODE>mode)"
+  "stx<VSm>ux %x3,%0,%2"
+  [(set_attr "type" "<VSX_U:VStype_store_update>")])
 
 ;; We may need to have a varient on the pattern for use in the prologue
 ;; that doesn't depend on TARGET_UPDATE.
@@ -1018,26 +1002,3 @@
   "VECTOR_UNIT_VSX_P (V4SFmode)"
   "xxmrglw %x0,%x1,%x2"
   [(set_attr "type" "vecperm")])
-
-
-;; Reload patterns for VSX loads/stores.  We need a scratch register to convert
-;; the stack temporary address from reg+offset to reg+reg addressing.
-(define_expand "vsx_reload_<VSX_L:mode>_<P:ptrsize>_to_mem"
-  [(parallel [(match_operand:VSX_L 0 "memory_operand" "")
-              (match_operand:VSX_L 1 "register_operand" "=wa")
-              (match_operand:P 2 "register_operand" "=&b")])]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
-{
-  rs6000_vector_secondary_reload (operands[0], operands[1], operands[2], true);
-  DONE;
-})
-
-(define_expand "vsx_reload_<VSX_L:mode>_<P:ptrsize>_to_reg"
-  [(parallel [(match_operand:VSX_L 0 "register_operand" "=wa")
-              (match_operand:VSX_L 1 "memory_operand" "")
-              (match_operand:P 2 "register_operand" "=&b")])]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
-{
-  rs6000_vector_secondary_reload (operands[0], operands[1], operands[2], false);
-  DONE;
-})

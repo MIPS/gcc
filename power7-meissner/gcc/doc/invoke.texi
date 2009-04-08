@@ -729,9 +729,7 @@ See RS/6000 and PowerPC Options.
 -mstrict-align  -mno-strict-align  -mrelocatable @gol
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc  -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
--mdynamic-no-pic  -maltivec -mswdiv -mvsx -mvsx-vector-memory @gol
--mvsx-vector-float -mvsx-vector-double @gol
--mvsx-scalar-double -mvsx-scalar-memory @gol
+-mdynamic-no-pic  -maltivec -mswdiv @gol
 -mprioritize-restricted-insns=@var{priority} @gol
 -msched-costly-dep=@var{dependence_type} @gol
 -minsert-sched-nops=@var{scheme} @gol
@@ -13894,36 +13892,6 @@ This option has been deprecated.  Use @option{-mspe} and
 Generate code that uses (does not use) vector/scalar (VSX)
 instructions, and also enable the use of built-in functions that allow
 more direct access to the VSX instruction set.
-
-@item -mvsx-vector-memory
-@itemx -mno-vsx-vector-memory
-If @option{-mvsx}, use VSX memory reference instructions for vectors
-instead of the Altivec instructions This option is a temporary switch
-to tune the compiler, and may not be supported in future versions.
-
-@item -mvsx-vector-float
-@itemx -mno-vsx-vector-float
-If @option{-mvsx}, use VSX arithmetic instructions for float vectors.
-This option is a temporary switch to tune the compiler, and may not be
-supported in future versions.
-
-@item -mvsx-vector-double
-@itemx -mno-vsx-vector-double
-If @option{-mvsx}, use VSX arithmetic instructions for double
-vectors.  This option is a temporary switch to tune the
-compiler, and may not be supported in future versions.
-
-@item -mvsx-scalar-double
-@itemx -mno-vsx-scalar-double
-If @option{-mvsx}, use VSX arithmetic instructions for scalar double.
-This option is a temporary switch to tune the compiler, and may not be
-supported in future versions.
-
-@item -mvsx-scalar-memory
-@itemx -mno-vsx-scalar-memory
-If @option{-mvsx}, use VSX memory reference instructions for scalar
-double.  This option is a temporary switch to tune the compiler, and
-may not be supported in future versions.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs

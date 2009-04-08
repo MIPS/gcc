@@ -72,7 +72,7 @@ extern bool rs6000_secondary_memory_needed (enum reg_class, enum reg_class,
 extern bool rs6000_cannot_change_mode_class (enum machine_mode,
 					     enum machine_mode,
 					     enum reg_class);
-extern void rs6000_vector_secondary_reload (rtx, rtx, rtx, bool);
+extern void rs6000_secondary_reload_inner (rtx, rtx, rtx, bool);
 extern int paired_emit_vector_cond_expr (rtx, rtx, rtx,
                                          rtx, rtx, rtx);
 extern void paired_expand_vector_move (rtx operands[]);
