@@ -175,6 +175,7 @@ struct throw_stmt_node GTY(())
   gimple stmt;
   int region_nr;
 };
+struct edge_def;
 
 extern struct htab *get_eh_throw_stmt_table (struct function *);
 extern void set_eh_throw_stmt_table (struct function *, struct htab *);
@@ -182,4 +183,5 @@ extern void remove_unreachable_regions (sbitmap, sbitmap);
 extern VEC(int,heap) * label_to_region_map (void);
 extern int num_eh_regions (void);
 extern bitmap must_not_throw_labels (void);
+extern struct eh_region *redirect_eh_edge_to_label (struct edge_def *, tree, bool, bool, int);
 extern int get_next_region_sharing_label (int);

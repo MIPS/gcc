@@ -877,6 +877,7 @@ static inline bool array_ref_contains_indirect_ref (const_tree);
 
 /* In tree-eh.c  */
 extern void make_eh_edges (gimple);
+extern edge redirect_eh_edge (edge, basic_block);
 extern bool tree_could_trap_p (tree);
 extern bool operation_could_trap_helper_p (enum tree_code, bool, bool, bool,
 					   bool, tree, bool *);

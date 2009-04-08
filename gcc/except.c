@@ -77,6 +77,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tree-pass.h"
 #include "timevar.h"
+#include "tree-flow.h"
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -1267,6 +1268,240 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 #endif
 
   return eh_offset;
+}
+
+/* Return new copy of eh region OLD inside region NEW_OUTER.
+   Do not care about updating the tree otherwise.  */
+
+static struct eh_region *
+copy_eh_region_1 (struct eh_region *old, struct eh_region *new_outer)
+{
+  struct eh_region *new_eh = gen_eh_region (old->type, new_outer);
+  new_eh->u = old->u;
+  new_eh->tree_label = old->tree_label;
+  new_eh->may_contain_throw = old->may_contain_throw;
+  VEC_safe_grow (eh_region, gc, cfun->eh->region_array,
+		 cfun->eh->last_region_number + 1);
+  VEC_replace (eh_region, cfun->eh->region_array, new_eh->region_number, new_eh);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Copying region %i to %i\n", old->region_number, new_eh->region_number);
+  return new_eh;
+}
+
+/* Return new copy of eh region OLD inside region NEW_OUTER.  
+  
+   Copy whole catch-try chain if neccesary and update cleanup region prev_try
+   pointers.
+
+   PREV_TRY_MAP points to outer TRY region if it was copied in trace already.  */
+
+static struct eh_region *
+copy_eh_region (struct eh_region *old, struct eh_region *new_outer,
+		struct eh_region *prev_try_map)
+{
+  struct eh_region *r, *n, *old_try, *new_try, *ret = NULL;
+  VEC(eh_region,heap) *catch_list = NULL;
+
+  if (old->type != ERT_CATCH)
+    {
+      gcc_assert (old->type != ERT_TRY);
+      r = copy_eh_region_1 (old, new_outer);
+      if (r->type == ERT_CLEANUP && prev_try_map)
+        {
+	  gcc_assert (r->u.cleanup.prev_try);
+          r->u.cleanup.prev_try = prev_try_map;
+	}
+      return r;
+    }
+
+  /* Locate and copy corresponding TRY.  */
+  for (old_try = old->next_peer; old_try->type == ERT_CATCH; old_try = old_try->next_peer)
+    continue;
+  gcc_assert (old_try->type == ERT_TRY);
+  new_try = gen_eh_region_try (new_outer);
+  new_try->tree_label = old_try->tree_label;
+  new_try->may_contain_throw = old_try->may_contain_throw;
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Copying try-catch regions. Try: %i to %i\n",
+    	     old_try->region_number, new_try->region_number);
+  VEC_safe_grow (eh_region, gc, cfun->eh->region_array,
+		 cfun->eh->last_region_number + 1);
+  VEC_replace (eh_region, cfun->eh->region_array, new_try->region_number, new_try);
+
+  /* In order to keep CATCH list in order, we need to copy in reverse order.  */
+  for (r = old_try->u.eh_try.last_catch; r->type == ERT_CATCH; r = r->next_peer)
+    VEC_safe_push (eh_region, heap, catch_list, r);
+
+  while (VEC_length (eh_region, catch_list))
+    {
+      r = VEC_pop (eh_region, catch_list);
+
+      /* Duplicate CATCH.  */
+      n = gen_eh_region_catch (new_try, r->u.eh_catch.type_list);
+      n->tree_label = r->tree_label;
+      n->may_contain_throw = r->may_contain_throw;
+      VEC_safe_grow (eh_region, gc, cfun->eh->region_array,
+		     cfun->eh->last_region_number + 1);
+      VEC_replace (eh_region, cfun->eh->region_array, n->region_number, n);
+      n->tree_label = r->tree_label;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "Copying try-catch regions. Catch: %i to %i\n",
+	         r->region_number, n->region_number);
+      if (r == old)
+	ret = n;
+    }
+  VEC_free (eh_region, heap, catch_list);
+#ifdef ENABLE_CHECKING
+  verify_eh_tree (cfun);
+#endif
+  gcc_assert (ret);
+  return ret;
+}
+
+/* Callback for forach_reachable_handler that push REGION into single VECtor DATA.  */
+static void
+push_reachable_handler (struct eh_region *region, void *data)
+{
+  VEC(eh_region,heap) **trace = (VEC(eh_region,heap) **) data;
+  VEC_safe_push (eh_region, heap, *trace, region);
+}
+
+/* Redirect EH edge E that to NEW_DEST_LABEL.
+   IS_RESX, INLINABLE_CALL and REGION_NMUBER match the parameter of
+   foreach_reachable_handler.  */
+
+struct eh_region *
+redirect_eh_edge_to_label (edge e, tree new_dest_label, bool is_resx,
+			   bool inlinable_call, int region_number)
+{
+  struct eh_region *outer, *prev_try_map = NULL;
+  struct eh_region *region;
+  VEC (eh_region, heap) * trace = NULL;
+  int i;
+  int start_here = -1;
+  basic_block old_bb = e->dest;
+  struct eh_region *old, *r = NULL;
+  bool update_inplace = true;
+  edge_iterator ei;
+  edge e2;
+
+  /* If there is only one EH edge, we don't need to duplicate;
+     just update labels in the tree.  */
+  FOR_EACH_EDGE (e2, ei, old_bb->preds)
+    if ((e2->flags & EDGE_EH) && e2 != e)
+      {
+        update_inplace = false;
+        break;
+      }
+
+  region = VEC_index (eh_region, cfun->eh->region_array, region_number);
+  gcc_assert (region);
+
+  foreach_reachable_handler (region_number, is_resx, inlinable_call,
+			     push_reachable_handler, &trace);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      dump_eh_tree (dump_file, cfun);
+      fprintf (dump_file, "Trace: ");
+      for (i = 0; i < (int) VEC_length (eh_region, trace); i++)
+	fprintf (dump_file, " %i", VEC_index (eh_region, trace, i)->region_number);
+      fprintf (dump_file, " inplace: %i\n", update_inplace);
+    }
+
+  if (update_inplace)
+    {
+      /* In easy route just walk trace and update all occurences of the label.  */
+      for (i = 0; i < (int) VEC_length (eh_region, trace); i++)
+	{
+	  r = VEC_index (eh_region, trace, i);
+	  if (r->tree_label && label_to_block (r->tree_label) == old_bb)
+	    {
+	      r->tree_label = new_dest_label;
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "Updating label for region %i\n",
+			 r->region_number);
+	    }
+	}
+      r = region;
+    }
+  else
+    {
+      /* Now look for outermost handler that reffers to the basic block in question.
+         We start our duplication there.  */
+      for (i = 0; i < (int) VEC_length (eh_region, trace); i++)
+	{
+	  r = VEC_index (eh_region, trace, i);
+	  if (r->tree_label && label_to_block (r->tree_label) == old_bb)
+	    start_here = i;
+	}
+      outer = VEC_index (eh_region, trace, start_here)->outer;
+      gcc_assert (start_here >= 0);
+
+      /* And now do the dirty job!  */
+      for (i = start_here; i >= 0; i--)
+	{
+	  old = VEC_index (eh_region, trace, i);
+	  gcc_assert (!outer || old->outer != outer->outer);
+
+	  /* Copy region and update label.  */
+	  r = copy_eh_region (old, outer, prev_try_map);
+	  VEC_replace (eh_region, trace, i, r);
+	  if (r->tree_label && label_to_block (r->tree_label) == old_bb)
+	    {
+	      r->tree_label = new_dest_label;
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "Updating label for region %i\n",
+			 r->region_number);
+	    }
+
+	  /* We got into copying CATCH.  copy_eh_region already did job
+	     of copying all catch blocks corresponding to the try.  Now
+	     we need to update labels in all of them and see trace.
+
+	     We continue nesting into TRY region corresponding to CATCH:
+	     When duplicating EH tree contaiing subregions of CATCH,
+	     the CATCH region itself is never inserted to trace so we
+	     never get here anyway.  */
+	  if (r->type == ERT_CATCH)
+	    {
+	      /* Walk other catch regions we copied and update labels as needed.  */
+	      for (r = r->next_peer; r->type == ERT_CATCH; r = r->next_peer)
+		if (r->tree_label && label_to_block (r->tree_label) == old_bb)
+		  {
+		    r->tree_label = new_dest_label;
+		    if (dump_file && (dump_flags & TDF_DETAILS))
+		      fprintf (dump_file, "Updating label for region %i\n",
+			       r->region_number);
+		  }
+	       gcc_assert (r->type == ERT_TRY);
+
+	       /* Skip sibling catch regions from the trace.
+		  They are already updated.  */
+	       while (i > 0 && VEC_index (eh_region, trace, i - 1)->outer == old->outer)
+		 {
+		   gcc_assert (VEC_index (eh_region, trace, i - 1)->type == ERT_CATCH);
+		   i--;
+		 }
+	     }
+
+	  /* Cleanup regions points to outer TRY blocks.  */
+	  if (r->type == ERT_TRY)
+	    prev_try_map = r;
+	  outer = r;
+	}
+        
+      if (is_resx || region->type == ERT_THROW)
+	r = copy_eh_region (region, outer, prev_try_map);
+    }
+
+  VEC_free (eh_region, heap, trace);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      dump_eh_tree (dump_file, cfun);
+      fprintf (dump_file, "New region: %i\n", r->region_number);
+    }
+  return r;
 }
 
 /* Return true if REGION_A is outer to REGION_B in IFUN.  */

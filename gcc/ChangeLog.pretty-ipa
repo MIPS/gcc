@@ -1,3 +1,16 @@
+2009-04-08  Jan Hubicka  <jh@suse.cz>
+
+	* tree-eh.c (make_eh_edge): EH edges are not ABNORMAL.
+	(redirect_eh_edge): New function.
+	(update_eh_edge): EH edges are not abnormal.
+	* except.c: Include tree-flow.h
+	(copy_eh_region_1, copy_eh_region, push_reachable_handler):
+	New static functions.
+	(redirect_eh_edge_to_label): New global function.
+	* except.h (redirect_eh_edge_to_label): Declare.
+	* tree-flow.h (redirect_eh_edge): Declare.
+	* tree-cfg.c (redirect_edge_and_branch): Use it.
+
 2009-04-07  Martin Jambor  <mjambor@suse.cz>
 
 	* tree-ssa-alias.c (refs_may_alias_p_1): Check for
