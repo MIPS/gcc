@@ -1,3 +1,38 @@
+2009-04-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (${pch1a_output}): Use gnu++0x flags instead
+	of debug.
+	* include/Makefile.in: Regenerate.
+	* include/precompiled/stdc++.h: Add.
+
+	* doc/xml/api.xml: Add gcc-4.4 link.
+	* doc/html/api.html: Regenerate.
+
+2009-04-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/random.h: Adjust doxygen markup.
+	* doc/doxygen/user.cfg.in: Prefer C++0x to tr1 includes.
+
+	* testsuite/26_numerics/random/piecewise_linear_distribution/
+	operators/serialize.cc: Use typedefs.
+
+2009-04-06  Andrew Stubbs  <ams@codesourcery.com>
+
+	* config/cpu/sh/atomicity.h: Put the SH4A specific functions in the
+	__gnu_cxx namespace.  Remove "static inline".
+
+2009-04-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/random.tcc (linear_congruential_engine<>::
+	seed(seed_seq&)): Fix typo in last fix for __m == 0.
+
+2009-04-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/random.h (operator==): Mark all inline.
+	(mersenne_twister_engine): Enable #if 0 checks.
+
+	* include/bits/random.h: Formatting tweaks.
+
 2009-04-05  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* include/bits/random.tcc (piecewise_linear_distribution<>::
@@ -53,6 +88,11 @@
 	* include/tr1/random: Likewise.
 	* include/tr1/random.tcc: Likewise.
 	* include/tr1/random.h: Likewise.
+
+2009-04-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* doc/xml/api.xml: Add gcc-4.4.0 doxygen link.
+	* doc/html/api.html: Regenerate.
 
 2009-04-02  Benjamin Kosnik  <bkoz@redhat.com>
 

@@ -696,7 +696,7 @@ package Prj is
       Object_Exists       : Boolean               := True;
       --  True if an object file exists
 
-      Object_Linked          : Boolean               := True;
+      Object_Linked          : Boolean            := True;
       --  False if the object file is not use to link executables or included
       --  in libraries.
 
@@ -725,7 +725,8 @@ package Prj is
       --  Dependency file time stamp
 
       Switches            : File_Name_Type        := No_File;
-      --  File name of the switches file
+      --  File name of the switches file. For all languages, this is a file
+      --  that ends with the .cswi extension.
 
       Switches_Path       : Path_Name_Type        := No_Path;
       --  Path name of the switches file
@@ -802,6 +803,14 @@ package Prj is
       Hash       => Hash,
       Equal      => "=");
    --  Mapping of source paths to source ids
+
+   package Unit_Sources_Htable is new Simple_HTable
+     (Header_Num => Header_Num,
+      Element    => Source_Id,
+      No_Element => No_Source,
+      Key        => Name_Id,
+      Hash       => Hash,
+      Equal      => "=");
 
    type Verbosity is (Default, Medium, High);
    --  Verbosity when parsing GNAT Project Files
@@ -1463,6 +1472,7 @@ package Prj is
          Units_HT          : Units_Htable.Instance;
          Files_HT          : Files_Htable.Instance;
          Source_Paths_HT   : Source_Paths_Htable.Instance;
+         Unit_Sources_HT   : Unit_Sources_Htable.Instance;
 
          --  Private part
 

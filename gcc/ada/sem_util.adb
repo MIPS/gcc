@@ -2963,7 +2963,8 @@ package body Sem_Util is
                elsif Is_Entity_Name (Choice)
                  and then Is_Type (Entity (Choice))
                then
-                  exit Search when Is_In_Range (Expr, Etype (Choice));
+                  exit Search when Is_In_Range (Expr, Etype (Choice),
+                                                Assume_Valid => False);
 
                --  Choice is a subtype indication
 
@@ -4830,7 +4831,7 @@ package body Sem_Util is
                return True;
             end if;
 
-            Comp := Next_Component (Typ);
+            Next_Component (Comp);
          end loop;
 
          return False;
@@ -6382,8 +6383,8 @@ package body Sem_Util is
    -- Is_Protected_Self_Reference --
    ---------------------------------
 
-   function Is_Protected_Self_Reference (N : Node_Id) return Boolean
-   is
+   function Is_Protected_Self_Reference (N : Node_Id) return Boolean is
+
       function In_Access_Definition (N : Node_Id) return Boolean;
       --  Returns true if N belongs to an access definition
 
@@ -6391,24 +6392,34 @@ package body Sem_Util is
       -- In_Access_Definition --
       --------------------------
 
-      function In_Access_Definition (N : Node_Id) return Boolean
-      is
-         P : Node_Id := Parent (N);
+      function In_Access_Definition (N : Node_Id) return Boolean is
+         P : Node_Id;
+
       begin
+         P := Parent (N);
          while Present (P) loop
             if Nkind (P) = N_Access_Definition then
                return True;
             end if;
+
             P := Parent (P);
          end loop;
+
          return False;
       end In_Access_Definition;
 
    --  Start of processing for Is_Protected_Self_Reference
 
    begin
+      --  Verify that prefix is analyzed and has the proper form. Note that
+      --  the attributes Elab_Spec, Elab_Body, and UET_Address, which also
+      --  produce the address of an entity, do not analyze their prefix
+      --  because they denote entities that are not necessarily visible.
+      --  Neither of them can apply to a protected type.
+
       return Ada_Version >= Ada_05
         and then Is_Entity_Name (N)
+        and then Present (Entity (N))
         and then Is_Protected_Type (Entity (N))
         and then In_Open_Scopes (Entity (N))
         and then not In_Access_Definition (N);
@@ -6801,10 +6812,16 @@ package body Sem_Util is
         and then Present (Etype (Orig_Node))
         and then Is_Access_Type (Etype (Orig_Node))
       then
-         return Is_Variable_Prefix (Original_Node (Prefix (N)))
+         --  Note that if the prefix is an explicit dereference that does not
+         --  come from source, we must check for a rewritten function call in
+         --  prefixed notation before other forms of rewriting, to prevent a
+         --  compiler crash.
+
+         return
+           (Nkind (Orig_Node) = N_Function_Call
+             and then not Is_Access_Constant (Etype (Prefix (N))))
            or else
-             (Nkind (Orig_Node) = N_Function_Call
-               and then not Is_Access_Constant (Etype (Prefix (N))));
+             Is_Variable_Prefix (Original_Node (Prefix (N)));
 
       --  A function call is never a variable
 
