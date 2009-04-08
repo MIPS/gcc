@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -60,12 +60,13 @@
 --  reasonable to include this case for consistency. In addition, we recognize
 --  any of these sequences in any of the operating systems, for better
 --  behavior in treating foreign files (e.g. a Unix file with LF terminators
---  transferred to a DOS system). Finally, wide character codes in cagtegories
+--  transferred to a DOS system). Finally, wide character codes in categories
 --  Separator, Line and Separator, Paragraph are considered to be physical
 --  line terminators.
 
 with Alloc;
 with Casing; use Casing;
+with Namet;  use Namet;
 with Table;
 with Types;  use Types;
 
@@ -161,7 +162,7 @@ package Sinput is
 
    --  Note: fields marked read-only are set by Sinput or one of its child
    --  packages when a source file table entry is created, and cannot be
-   --  subsqently modified, or alternatively are set only by very special
+   --  subsequently modified, or alternatively are set only by very special
    --  circumstances, documented in the comments.
 
    --  File_Name : File_Name_Type (read-only)
@@ -235,7 +236,7 @@ package Sinput is
    --    later on in this spec for a description of the checksum algorithm.
 
    --  Last_Source_Line : Physical_Line_Number;
-   --    Physical line number of last source line. Whlie a file is being
+   --    Physical line number of last source line. While a file is being
    --    read, this refers to the last line scanned. Once a file has been
    --    completely scanned, it is the number of the last line in the file,
    --    and hence also gives the number of source lines in the file.
@@ -322,6 +323,9 @@ package Sinput is
 
    procedure Lock;
    --  Lock internal tables
+
+   procedure Unlock;
+   --  Unlock internal tables
 
    Main_Source_File : Source_File_Index := No_Source_File;
    --  This is set to the source file index of the main unit
@@ -461,13 +465,13 @@ package Sinput is
    --  that there definitely is a previous line in the source buffer.
 
    procedure Build_Location_String (Loc : Source_Ptr);
-   --  This function builds a string literal of the form "name:line",
-   --  where name is the file name corresponding to Loc, and line is
-   --  the line number. In the event that instantiations are involved,
-   --  additional suffixes of the same form are appended after the
-   --  separating string " instantiated at ". The returned string is
-   --  stored in Name_Buffer, terminated by ASCII.Nul, with Name_Length
-   --  indicating the length not including the terminating Nul.
+   --  This function builds a string literal of the form "name:line", where
+   --  name is the file name corresponding to Loc, and line is the line number.
+   --  In the event that instantiations are involved, additional suffixes of
+   --  the same form are appended after the separating string " instantiated at
+   --  ". The returned string is appended to the Name_Buffer, terminated by
+   --  ASCII.NUL, with Name_Length indicating the length not including the
+   --  terminating Nul.
 
    function Get_Column_Number (P : Source_Ptr) return Column_Number;
    --  The ones-origin column number of the specified Source_Ptr value is
@@ -513,12 +517,12 @@ package Sinput is
 
    function Num_Source_Lines (S : Source_File_Index) return Nat;
    --  Returns the number of source lines (this is equivalent to reading
-   --  the value of Last_Source_Line, but returns Nat rathern than a
+   --  the value of Last_Source_Line, but returns Nat rather than a
    --  physical line number.
 
    procedure Register_Source_Ref_Pragma
-     (File_Name          : Name_Id;
-      Stripped_File_Name : Name_Id;
+     (File_Name          : File_Name_Type;
+      Stripped_File_Name : File_Name_Type;
       Mapped_Line        : Nat;
       Line_After_Pragma  : Physical_Line_Number);
    --  Register a source reference pragma, the parameter File_Name is the
@@ -561,12 +565,12 @@ package Sinput is
    procedure Skip_Line_Terminators
      (P        : in out Source_Ptr;
       Physical : out Boolean);
-   --  On entry, P points to a line terminator that has been encountered,
-   --  which is one of FF,LF,VT,CR or a wide character sequence whose value is
-   --  in category Separator,Line or Separator,Paragraph. The purpose of this
-   --  P points just past the character that was scanned. The purpose of this
-   --  routine is to distinguish physical and logical line endings. A physical
-   --  line ending is one of:
+   --  On entry, P points to a line terminator that has been encountered, which
+   --  is one of FF,LF,VT,CR or a wide character sequence whose value is in
+   --  category Separator,Line or Separator,Paragraph. P points just past the
+   --  character that was scanned. The purpose of this routine is to
+   --  distinguish physical and logical line endings. A physical line ending is
+   --  one of:
    --
    --     CR on its own (MAC System 7)
    --     LF on its own (Unix and unix-like systems)
@@ -670,29 +674,28 @@ private
    --  See earlier descriptions for meanings of public fields
 
    type Source_File_Record is record
-
       File_Name         : File_Name_Type;
-      File_Type         : Type_Of_File;
       Reference_Name    : File_Name_Type;
       Debug_Source_Name : File_Name_Type;
       Full_Debug_Name   : File_Name_Type;
       Full_File_Name    : File_Name_Type;
       Full_Ref_Name     : File_Name_Type;
-      Inlined_Body      : Boolean;
-      License           : License_Type;
       Num_SRef_Pragmas  : Nat;
       First_Mapped_Line : Logical_Line_Number;
       Source_Text       : Source_Buffer_Ptr;
       Source_First      : Source_Ptr;
       Source_Last       : Source_Ptr;
-      Time_Stamp        : Time_Stamp_Type;
       Source_Checksum   : Word;
       Last_Source_Line  : Physical_Line_Number;
-      Keyword_Casing    : Casing_Type;
-      Identifier_Casing : Casing_Type;
       Instantiation     : Source_Ptr;
       Template          : Source_File_Index;
       Unit              : Unit_Number_Type;
+      Time_Stamp        : Time_Stamp_Type;
+      File_Type         : Type_Of_File;
+      Inlined_Body      : Boolean;
+      License           : License_Type;
+      Keyword_Casing    : Casing_Type;
+      Identifier_Casing : Casing_Type;
 
       --  The following fields are for internal use only (i.e. only in the
       --  body of Sinput or its children, with no direct access by clients).
@@ -700,7 +703,7 @@ private
       Sloc_Adjust : Source_Ptr;
       --  A value to be added to Sloc values for this file to reference the
       --  corresponding lines table. This is zero for the non-instantiation
-      --  case, and set so that the adition references the ultimate template
+      --  case, and set so that the addition references the ultimate template
       --  for the instantiation case. See Sinput-L for further details.
 
       Lines_Table : Lines_Table_Ptr;
@@ -721,6 +724,48 @@ private
       --  maximum allocated value.
 
    end record;
+
+   --  The following representation clause ensures that the above record
+   --  has no holes. We do this so that when instances of this record are
+   --  written by Tree_Gen, we do not write uninitialized values to the file.
+
+   AS : constant Pos := Standard'Address_Size;
+
+   for Source_File_Record use record
+      File_Name           at  0 range 0 .. 31;
+      Reference_Name      at  4 range 0 .. 31;
+      Debug_Source_Name   at  8 range 0 .. 31;
+      Full_Debug_Name     at 12 range 0 .. 31;
+      Full_File_Name      at 16 range 0 .. 31;
+      Full_Ref_Name       at 20 range 0 .. 31;
+      Num_SRef_Pragmas    at 24 range 0 .. 31;
+      First_Mapped_Line   at 28 range 0 .. 31;
+      Source_First        at 32 range 0 .. 31;
+      Source_Last         at 36 range 0 .. 31;
+      Source_Checksum     at 40 range 0 .. 31;
+      Last_Source_Line    at 44 range 0 .. 31;
+      Instantiation       at 48 range 0 .. 31;
+      Template            at 52 range 0 .. 31;
+      Unit                at 56 range 0 .. 31;
+      Time_Stamp          at 60 range 0 .. 8 * Time_Stamp_Length - 1;
+      File_Type           at 74 range 0 .. 7;
+      Inlined_Body        at 75 range 0 .. 7;
+      License             at 76 range 0 .. 7;
+      Keyword_Casing      at 77 range 0 .. 7;
+      Identifier_Casing   at 78 range 0 .. 15;
+      Sloc_Adjust         at 80 range 0 .. 31;
+      Lines_Table_Max     at 84 range 0 .. 31;
+
+      --  The following fields are pointers, so we have to specialize their
+      --  lengths using pointer size, obtained above as Standard'Address_Size.
+
+      Source_Text         at 88 range 0      .. AS - 1;
+      Lines_Table         at 88 range AS     .. AS * 2 - 1;
+      Logical_Lines_Table at 88 range AS * 2 .. AS * 3 - 1;
+   end record;
+
+   for Source_File_Record'Size use 88 * 8 + AS * 3;
+   --  This ensures that we did not leave out any fields
 
    package Source_File is new Table.Table (
      Table_Component_Type => Source_File_Record,

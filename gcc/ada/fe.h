@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -46,10 +46,7 @@ extern char Fold_Lower[], Fold_Upper[];
 
 /* debug: */
 
-#define Debug_Flag_XX debug__debug_flag_xx
 #define Debug_Flag_NN debug__debug_flag_nn
-
-extern Boolean Debug_Flag_XX;
 extern Boolean Debug_Flag_NN;
 
 /* einfo: We will be setting Esize for types, Component_Bit_Offset for fields,
@@ -99,6 +96,14 @@ extern void Set_Identifier_Casing (Char *, Char *);
 extern Entity_Id             Error_Msg_Node_2;
 extern Uint                  Error_Msg_Uint_1;
 extern Uint                  Error_Msg_Uint_2;
+
+/* exp_ch11:  */
+
+#define Get_Local_Raise_Call_Entity exp_ch11__get_local_raise_call_entity
+#define Get_RT_Exception_Entity exp_ch11__get_rt_exception_entity
+
+extern Entity_Id Get_Local_Raise_Call_Entity (void);
+extern Entity_Id Get_RT_Exception_Entity (int);
 
 /* exp_code:  */
 
@@ -167,10 +172,12 @@ extern Boolean Back_Annotate_Rep_Info;
 #define No_Exception_Handlers_Set      restrict__no_exception_handlers_set
 #define Check_No_Implicit_Heap_Alloc   restrict__check_no_implicit_heap_alloc
 #define Check_Elaboration_Code_Allowed restrict__check_elaboration_code_allowed
+#define Check_Implicit_Dynamic_Code_Allowed restrict__check_implicit_dynamic_code_allowed
 
 extern Boolean No_Exception_Handlers_Set   (void);
 extern void Check_No_Implicit_Heap_Alloc   (Node_Id);
 extern void Check_Elaboration_Code_Allowed (Node_Id);
+extern void Check_Implicit_Dynamic_Code_Allowed (Node_Id);
 
 /* sem_elim: */
 
@@ -212,6 +219,10 @@ extern void Set_Has_No_Elaboration_Code	(Node_Id, Boolean);
 
 /* targparm: */
 
+#define Backend_Overflow_Checks_On_Target targparm__backend_overflow_checks_on_target
 #define Stack_Check_Probes_On_Target targparm__stack_check_probes_on_target
+#define Stack_Check_Limits_On_Target targparm__stack_check_limits_on_target
 
+extern Boolean Backend_Overflow_Checks_On_Target;
 extern Boolean Stack_Check_Probes_On_Target;
+extern Boolean Stack_Check_Limits_On_Target;

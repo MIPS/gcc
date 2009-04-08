@@ -6,8 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1998-2006, Free Software Foundation, Inc.         --
---                                                                          --
+--          Copyright (C) 1998-2008, Free Software Foundation, Inc.         --
+--                                                                         --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
 -- ware  Foundation;  either version 2,  or (at your option) any later ver- --
@@ -31,9 +31,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Exceptions;
 with Ada.IO_Exceptions;
 with Ada.Streams;
+with Ada.Streams.Stream_IO;
 
 with System.Global_Locks;
 with System.Soft_Links;
@@ -43,8 +43,8 @@ with System.File_Control_Block;
 with System.File_IO;
 with System.HTable;
 
-with Unchecked_Deallocation;
-with Unchecked_Conversion;
+with Ada.Unchecked_Deallocation;
+with Ada.Unchecked_Conversion;
 
 package body System.Shared_Storage is
 
@@ -56,8 +56,10 @@ package body System.Shared_Storage is
 
    package SFI renames System.File_IO;
 
+   package SIO renames Ada.Streams.Stream_IO;
+
    type String_Access is access String;
-   procedure Free is new Unchecked_Deallocation
+   procedure Free is new Ada.Unchecked_Deallocation
      (Object => String, Name => String_Access);
 
    Dir : String_Access;
@@ -106,16 +108,16 @@ package body System.Shared_Storage is
       --  Links for LRU chain
    end record;
 
-   procedure Free is new Unchecked_Deallocation
+   procedure Free is new Ada.Unchecked_Deallocation
      (Object => Shared_Var_File_Entry,
       Name   => Shared_Var_File_Entry_Ptr);
 
-   procedure Free is new Unchecked_Deallocation
+   procedure Free is new Ada.Unchecked_Deallocation
      (Object => File_Stream_Type'Class,
       Name   => File_Stream_Access);
 
    function To_AFCB_Ptr is
-     new Unchecked_Conversion (SIO.File_Type, FCB.AFCB_Ptr);
+     new Ada.Unchecked_Conversion (SIO.File_Type, FCB.AFCB_Ptr);
 
    LRU_Head : Shared_Var_File_Entry_Ptr;
    LRU_Tail : Shared_Var_File_Entry_Ptr;
@@ -168,6 +170,26 @@ package body System.Shared_Storage is
    --  the file is currently open. If so, then a pointer to the already
    --  created entry is returned, after first moving it to the head of
    --  the LRU chain. If not, then null is returned.
+
+   function Shared_Var_ROpen (Var : String) return SIO.Stream_Access;
+   --  As described above, this routine returns null if the
+   --  corresponding shared storage does not exist, and otherwise, if
+   --  the storage does exist, a Stream_Access value that references
+   --  the shared storage, ready to read the current value.
+
+   function Shared_Var_WOpen (Var : String) return SIO.Stream_Access;
+   --  As described above, this routine returns a Stream_Access value
+   --  that references the shared storage, ready to write the new
+   --  value. The storage is created by this call if it does not
+   --  already exist.
+
+   procedure Shared_Var_Close (Var : SIO.Stream_Access);
+   --  This routine signals the end of a read/assign operation. It can
+   --  be useful to embrace a read/write operation between a call to
+   --  open and a call to close which protect the whole operation.
+   --  Otherwise, two simultaneous operations can result in the
+   --  raising of exception Data_Error by setting the access mode of
+   --  the variable in an incorrect mode.
 
    ---------------
    -- Enter_SFE --
@@ -365,6 +387,43 @@ package body System.Shared_Storage is
    end Shared_Var_Lock;
 
    ----------------------
+   -- Shared_Var_Procs --
+   ----------------------
+
+   package body Shared_Var_Procs is
+
+      use type SIO.Stream_Access;
+
+      ----------
+      -- Read --
+      ----------
+
+      procedure Read is
+         S : SIO.Stream_Access := null;
+      begin
+         S := Shared_Var_ROpen (Full_Name);
+         if S /= null then
+            Typ'Read (S, V);
+            Shared_Var_Close (S);
+         end if;
+      end Read;
+
+      ------------
+      -- Write --
+      ------------
+
+      procedure Write is
+         S : SIO.Stream_Access := null;
+      begin
+         S := Shared_Var_WOpen (Full_Name);
+         Typ'Write (S, V);
+         Shared_Var_Close (S);
+         return;
+      end Write;
+
+   end Shared_Var_Procs;
+
+   ----------------------
    -- Shared_Var_ROpen --
    ----------------------
 
@@ -483,10 +542,8 @@ package body System.Shared_Storage is
                   --  Error if we cannot create the file
 
                   when others =>
-                     Ada.Exceptions.Raise_Exception
-                       (Program_Error'Identity,
-                        "Cannot create shared variable file for """ &
-                        S & '"'); -- "
+                     raise Program_Error with
+                        "Cannot create shared variable file for """ & S & '"';
                end;
          end;
 

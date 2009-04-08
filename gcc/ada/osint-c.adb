@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -25,7 +24,6 @@
 ------------------------------------------------------------------------------
 
 with Hostparm;
-with Namet;    use Namet;
 with Opt;      use Opt;
 with Tree_IO;  use Tree_IO;
 
@@ -45,14 +43,14 @@ package body Osint.C is
       Suffix : String) return File_Name_Type;
    --  Common processing for Create_List_File, Create_Repinfo_File and
    --  Create_Debug_File. Src is the file name used to create the required
-   --  output file and Suffix is the desired suffic (dg/rep/xxx for debug/
+   --  output file and Suffix is the desired suffix (dg/rep/xxx for debug/
    --  repinfo/list file where xxx is specified extension.
 
    procedure Set_Library_Info_Name;
-   --  Sets a default ali file name from the main compiler source name.
+   --  Sets a default ALI file name from the main compiler source name.
    --  This is used by Create_Output_Library_Info, and by the version of
    --  Read_Library_Info that takes a default file name. The name is in
-   --  Name_Buffer (with length in Name_Len) on return from the call
+   --  Name_Buffer (with length in Name_Len) on return from the call.
 
    ----------------------
    -- Close_Debug_File --
@@ -190,6 +188,7 @@ package body Osint.C is
    begin
       if S (S'First) = '.' then
          F := Create_Auxiliary_File (Current_Main, S (S'First + 1 .. S'Last));
+
       else
          Name_Buffer (1 .. S'Length) := S;
          Name_Len := S'Length + 1;
@@ -212,10 +211,13 @@ package body Osint.C is
    -- Create_Repinfo_File --
    -------------------------
 
-   procedure Create_Repinfo_File (Src : File_Name_Type) is
-      S : constant File_Name_Type := Create_Auxiliary_File (Src, "rep");
-      pragma Warnings (Off, S);
+   procedure Create_Repinfo_File (Src : String) is
+      Discard : File_Name_Type;
+      pragma Warnings (Off, Discard);
    begin
+      Name_Buffer (1 .. Src'Length) := Src;
+      Name_Len := Src'Length;
+      Discard := Create_Auxiliary_File (Name_Find, "rep");
       return;
    end Create_Repinfo_File;
 
@@ -313,14 +315,21 @@ package body Osint.C is
          --  Remove extension preparing to replace it
 
          declare
-            Name : constant String  := Name_Buffer (1 .. Dot_Index);
-            Len  : constant Natural := Dot_Index;
+            Name  : String  := Name_Buffer (1 .. Dot_Index);
+            First : Positive;
 
          begin
             Name_Buffer (1 .. Output_Object_File_Name'Length) :=
               Output_Object_File_Name.all;
-            Dot_Index := 0;
 
+            --  Put two names in canonical case, to allow object file names
+            --  with upper-case letters on Windows.
+
+            Canonical_Case_File_Name (Name);
+            Canonical_Case_File_Name
+              (Name_Buffer (1 .. Output_Object_File_Name'Length));
+
+            Dot_Index := 0;
             for J in reverse Output_Object_File_Name'Range loop
                if Name_Buffer (J) = '.' then
                   Dot_Index := J;
@@ -328,13 +337,24 @@ package body Osint.C is
                end if;
             end loop;
 
-            --  Dot_Index should be zero now (we check for extension elsewhere)
+            --  Dot_Index should not be zero now (we check for extension
+            --  elsewhere).
 
             pragma Assert (Dot_Index /= 0);
 
+            --  Look for first character of file name
+
+            First := Dot_Index;
+            while First > 1
+              and then Name_Buffer (First - 1) /= Directory_Separator
+              and then Name_Buffer (First - 1) /= '/'
+            loop
+               First := First - 1;
+            end loop;
+
             --  Check name of object file is what we expect
 
-            if Name /= Name_Buffer (Dot_Index - Len + 1 .. Dot_Index) then
+            if Name /= Name_Buffer (First .. Dot_Index) then
                Fail ("incorrect object file name");
             end if;
          end;
@@ -419,7 +439,7 @@ package body Osint.C is
 
       pragma Assert (Dot_Index /= 0);
 
-      --  Change exctension to adt
+      --  Change extension to adt
 
       Name_Buffer (Dot_Index) := '.';
       Name_Buffer (Dot_Index + 1) := 'a';
@@ -471,5 +491,4 @@ begin
    Opt.Close_List_File_Access  := Close_List_File'Access;
 
    Set_Program (Compiler);
-
 end Osint.C;

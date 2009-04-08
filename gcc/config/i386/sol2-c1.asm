@@ -1,6 +1,6 @@
 ! crt1.s for Solaris 2, x86
 
-!   Copyright (C) 1993, 1998 Free Software Foundation, Inc.
+!   Copyright (C) 1993, 1998, 2008 Free Software Foundation, Inc.
 !   Written By Fred Fish, Nov 1992
 ! 
 ! This file is free software; you can redistribute it and/or modify it
@@ -41,7 +41,6 @@
 ! information obtained by single stepping executables on other i386 SVR4
 ! implementations.  This file is the first thing linked into any executable.
 
-	.file	"crt1.s"
 	.ident	"GNU C crt1.s"
 	.weak	_cleanup
 	.weak	_DYNAMIC

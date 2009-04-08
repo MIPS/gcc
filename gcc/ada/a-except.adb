@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,8 +39,12 @@
 --  builds may be done with bootstrap compilers that cannot handle these
 --  additions. The full version of Ada.Exceptions can be found in the files
 --  a-except-2005.ads/adb, and is used for all other builds where full Ada
---  2005 functionality is required. in particular, it is used for building
+--  2005 functionality is required. In particular, it is used for building
 --  run times on all targets.
+
+pragma Warnings (Off);
+pragma Compiler_Unit;
+pragma Warnings (On);
 
 pragma Style_Checks (All_Checks);
 --  No subprogram ordering check, due to logical grouping
@@ -50,6 +54,7 @@ pragma Polling (Off);
 --  elaboration circularities with System.Exception_Tables.
 
 with System;                  use System;
+with System.Exceptions;       use System.Exceptions;
 with System.Standard_Library; use System.Standard_Library;
 with System.Soft_Links;       use System.Soft_Links;
 
@@ -348,7 +353,7 @@ package body Ada.Exceptions is
    --  is deferred before the reraise operation.
 
    --  Save_Occurrence variations: As the management of the private data
-   --  attached to occurrences is delicate, wether or not pointers to such
+   --  attached to occurrences is delicate, whether or not pointers to such
    --  data has to be copied in various situations is better made explicit.
    --  The following procedures provide an internal interface to help making
    --  this explicit.
@@ -372,11 +377,11 @@ package body Ada.Exceptions is
    -- Run-Time Check Routines --
    -----------------------------
 
-   --  These routines are called from the runtime to raise a specific
-   --  exception with a reason message attached. The parameters are
-   --  the file name and line number in each case. The names are keyed
-   --  to the codes defined in Types.ads and a-types.h (for example,
-   --  the name Rcheck_05 refers to the Reason whose Pos code is 5).
+   --  These routines raise a specific exception with a reason message
+   --  attached. The parameters are the file name and line number in each
+   --  case. The names are keyed to the codes defined in types.ads and
+   --  a-types.h (for example, the name Rcheck_05 refers to the Reason
+   --  RT_Exception_Code'Val (5)).
 
    procedure Rcheck_00 (File : System.Address; Line : Integer);
    procedure Rcheck_01 (File : System.Address; Line : Integer);
@@ -521,8 +526,8 @@ package body Ada.Exceptions is
    Rmsg_25 : constant String := "potentially blocking operation"   & NUL;
    Rmsg_26 : constant String := "stubbed subprogram called"        & NUL;
    Rmsg_27 : constant String := "unchecked union restriction"      & NUL;
-   Rmsg_28 : constant String := "illegal use of remote access-to-" &
-                                "class-wide type, see RM E.4(18)"  & NUL;
+   Rmsg_28 : constant String := "actual/returned class-wide value "
+                                & "not transportable"              & NUL;
    Rmsg_29 : constant String := "empty storage pool"               & NUL;
    Rmsg_30 : constant String := "explicit raise"                   & NUL;
    Rmsg_31 : constant String := "infinite recursion"               & NUL;
@@ -690,16 +695,6 @@ package body Ada.Exceptions is
    --  in case we do not want any exception tracing support. This is
    --  why this package is separated.
 
-   -----------------
-   -- Local_Raise --
-   -----------------
-
-   procedure Local_Raise (Excep : Exception_Id) is
-      pragma Warnings (Off, Excep);
-   begin
-      return;
-   end Local_Raise;
-
    -----------------------
    -- Stream Attributes --
    -----------------------
@@ -800,6 +795,7 @@ package body Ada.Exceptions is
       --  pragma Volatile is peculiar!
 
    begin
+      Debug_Raise_Exception (E => SSL.Exception_Data_Ptr (E));
       Process_Raise_Exception (E);
    end Raise_Current_Excep;
 
@@ -811,16 +807,20 @@ package body Ada.Exceptions is
      (E       : Exception_Id;
       Message : String := "")
    is
+      EF : Exception_Id := E;
+
    begin
-      if E /= null then
-         Exception_Data.Set_Exception_Msg (E, Message);
-         Abort_Defer.all;
-         Raise_Current_Excep (E);
+      --  Raise CE if E = Null_ID (AI-446)
+
+      if E = null then
+         EF := Constraint_Error'Identity;
       end if;
 
-      --  Note: if E is null then just return (Ada 95 semantics)
+      --  Go ahead and raise appropriate exception
 
-      return;
+      Exception_Data.Set_Exception_Msg (EF, Message);
+      Abort_Defer.all;
+      Raise_Current_Excep (EF);
    end Raise_Exception;
 
    ----------------------------
@@ -836,6 +836,46 @@ package body Ada.Exceptions is
       Abort_Defer.all;
       Raise_Current_Excep (E);
    end Raise_Exception_Always;
+
+   -------------------------------------
+   -- Raise_From_Controlled_Operation --
+   -------------------------------------
+
+   procedure Raise_From_Controlled_Operation
+     (X : Ada.Exceptions.Exception_Occurrence)
+   is
+      Prefix   : constant String := "adjust/finalize raised ";
+      Orig_Msg : constant String := Exception_Message (X);
+      New_Msg  : constant String := Prefix & Exception_Name (X);
+
+   begin
+      if Orig_Msg'Length >= Prefix'Length
+        and then
+          Orig_Msg (Orig_Msg'First .. Orig_Msg'First + Prefix'Length - 1) =
+                                                                     Prefix
+      then
+         --  Message already has proper prefix, just re-reraise PROGRAM_ERROR
+
+         Raise_Exception_No_Defer
+           (E       => Program_Error'Identity,
+            Message => Orig_Msg);
+
+      elsif Orig_Msg = "" then
+
+         --  No message present: just provide our own
+
+         Raise_Exception_No_Defer
+           (E       => Program_Error'Identity,
+            Message => New_Msg);
+
+      else
+         --  Message present, add informational prefix
+
+         Raise_Exception_No_Defer
+           (E       => Program_Error'Identity,
+            Message => New_Msg & ": " & Orig_Msg);
+      end if;
+   end Raise_From_Controlled_Operation;
 
    -------------------------------
    -- Raise_From_Signal_Handler --

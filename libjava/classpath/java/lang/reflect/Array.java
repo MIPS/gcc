@@ -147,8 +147,7 @@ public final class Array
   {
     if (dimensions.length <= 0)
       throw new IllegalArgumentException ("Empty dimensions array.");
-    return createMultiArray(componentType, dimensions,
-                                  dimensions.length - 1);
+    return createMultiArray(componentType, dimensions, 0);
   }
 
   /**
@@ -210,19 +209,19 @@ public final class Array
     if (array instanceof boolean[])
       return ((boolean[]) array)[index] ? Boolean.TRUE : Boolean.FALSE;
     if (array instanceof byte[])
-      return new Byte(((byte[]) array)[index]);
+      return Byte.valueOf(((byte[]) array)[index]);
     if (array instanceof char[])
-      return new Character(((char[]) array)[index]);
+      return Character.valueOf(((char[]) array)[index]);
     if (array instanceof short[])
-      return new Short(((short[]) array)[index]);
+      return Short.valueOf(((short[]) array)[index]);
     if (array instanceof int[])
-      return new Integer(((int[]) array)[index]);
+      return Integer.valueOf(((int[]) array)[index]);
     if (array instanceof long[])
-      return new Long(((long[]) array)[index]);
+      return Long.valueOf(((long[]) array)[index]);
     if (array instanceof float[])
-      return new Float(((float[]) array)[index]);
+      return Float.valueOf(((float[]) array)[index]);
     if (array instanceof double[])
-      return new Double(((double[]) array)[index]);
+      return Double.valueOf(((double[]) array)[index]);
     if (array == null)
       throw new NullPointerException();
     throw new IllegalArgumentException();
@@ -638,10 +637,10 @@ public final class Array
   private static Object createMultiArray(Class type, int[] dimensions,
                                          int index)
   {
-    if (index == 0)
-      return newInstance(type, dimensions[0]);
+    if (index == dimensions.length - 1)
+      return newInstance(type, dimensions[index]);
 
-    Object toAdd = createMultiArray(type, dimensions, index - 1);
+    Object toAdd = createMultiArray(type, dimensions, index + 1);
     Class thisType = toAdd.getClass();
     Object[] retval
       = (Object[]) VMArray.createObjectArray(thisType, dimensions[index]);
@@ -649,7 +648,7 @@ public final class Array
       retval[0] = toAdd;
     int i = dimensions[index];
     while (--i > 0)
-      retval[i] = createMultiArray(type, dimensions, index - 1);
+      retval[i] = createMultiArray(type, dimensions, index + 1);
     return retval;
   }
 

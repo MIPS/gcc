@@ -1,13 +1,13 @@
 /* Exception Handling interface routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+   2007, 2008  Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,10 +16,11 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
+#include "sbitmap.h"
+#include "vecprim.h"
 
 struct function;
 
@@ -36,7 +37,6 @@ extern int doing_eh (int);
 /* Note that the current EH region (if any) may contain a throw, or a
    call to a function which itself may contain a throw.  */
 extern void note_eh_region_may_contain_throw (struct eh_region *);
-extern void note_current_region_may_contain_throw (void);
 
 /* Invokes CALLBACK for every exception handler label.  Only used by old
    loop hackery; should not be used by new code.  */
@@ -46,10 +46,10 @@ extern void for_each_eh_label (void (*) (rtx));
 extern void for_each_eh_region (void (*) (struct eh_region *));
 
 /* Determine if the given INSN can throw an exception.  */
-extern bool can_throw_internal_1 (int, bool);
-extern bool can_throw_internal (rtx);
-extern bool can_throw_external_1 (int, bool);
-extern bool can_throw_external (rtx);
+extern bool can_throw_internal_1 (int, bool, bool);
+extern bool can_throw_internal (const_rtx);
+extern bool can_throw_external_1 (int, bool, bool);
+extern bool can_throw_external (const_rtx);
 
 /* Set TREE_NOTHROW and cfun->all_throwers_are_sibcalls.  */
 extern unsigned int set_nothrow_function_flags (void);
@@ -63,6 +63,7 @@ extern void init_eh_for_function (void);
 
 extern rtx reachable_handlers (rtx);
 extern void maybe_remove_eh_handler (rtx);
+void remove_eh_region (int);
 
 extern void convert_from_eh_region_ranges (void);
 extern unsigned int convert_to_eh_region_ranges (void);
@@ -79,8 +80,8 @@ extern rtx expand_builtin_dwarf_sp_column (void);
 extern void expand_builtin_eh_return (tree, tree);
 extern void expand_eh_return (void);
 extern rtx expand_builtin_extend_pointer (tree);
-extern rtx get_exception_pointer (struct function *);
-extern rtx get_exception_filter (struct function *);
+extern rtx get_exception_pointer (void);
+extern rtx get_exception_filter (void);
 typedef tree (*duplicate_eh_regions_map) (tree, void *);
 extern int duplicate_eh_regions (struct function *, duplicate_eh_regions_map,
 				 void *, int, int);
@@ -96,10 +97,11 @@ extern struct eh_region *gen_eh_region_allowed (struct eh_region *, tree);
 extern struct eh_region *gen_eh_region_must_not_throw (struct eh_region *);
 extern int get_eh_region_number (struct eh_region *);
 extern bool get_eh_region_may_contain_throw (struct eh_region *);
+extern tree get_eh_region_no_tree_label (int);
 extern tree get_eh_region_tree_label (struct eh_region *);
 extern void set_eh_region_tree_label (struct eh_region *, tree);
 
-extern void foreach_reachable_handler (int, bool,
+extern void foreach_reachable_handler (int, bool, bool,
 				       void (*) (struct eh_region *, void *),
 				       void *);
 
@@ -110,20 +112,13 @@ extern void dump_eh_tree (FILE *, struct function *);
 extern bool eh_region_outer_p (struct function *, int, int);
 extern int eh_region_outermost (struct function *, int, int);
 
-/* tree-eh.c */
-extern void add_stmt_to_eh_region_fn (struct function *, tree, int);
-extern bool remove_stmt_from_eh_region_fn (struct function *, tree);
-extern int lookup_stmt_eh_region_fn (struct function *, tree);
-extern int lookup_stmt_eh_region (tree);
-extern bool verify_eh_edges (tree);
-
 /* If non-NULL, this is a function that returns an expression to be
    executed if an unhandled exception is propagated out of a cleanup
    region.  For example, in C++, an exception thrown by a destructor
    during stack unwinding is required to result in a call to
    `std::terminate', so the C++ version of this function returns a
    CALL_EXPR for `std::terminate'.  */
-extern tree (*lang_protect_cleanup_actions) (void);
+extern gimple (*lang_protect_cleanup_actions) (void);
 
 /* Return true if type A catches type B.  */
 extern int (*lang_eh_type_covers) (tree a, tree b);
@@ -137,14 +132,14 @@ extern tree (*lang_eh_runtime_type) (tree);
    has appropriate support.  */
 
 #ifndef MUST_USE_SJLJ_EXCEPTIONS
-# if !(defined (EH_RETURN_DATA_REGNO)			\
+# if defined (EH_RETURN_DATA_REGNO)			\
        && (defined (TARGET_UNWIND_INFO)			\
 	   || (DWARF2_UNWIND_INFO			\
 	       && (defined (EH_RETURN_HANDLER_RTX)	\
-		   || defined (HAVE_eh_return)))))
-#  define MUST_USE_SJLJ_EXCEPTIONS	1
-# else
+		   || defined (HAVE_eh_return))))
 #  define MUST_USE_SJLJ_EXCEPTIONS	0
+# else
+#  define MUST_USE_SJLJ_EXCEPTIONS	1
 # endif
 #endif
 
@@ -154,14 +149,21 @@ extern tree (*lang_eh_runtime_type) (tree);
 # endif
 # if CONFIG_SJLJ_EXCEPTIONS == 0
 #  define USING_SJLJ_EXCEPTIONS		0
-#  ifndef EH_RETURN_DATA_REGNO
+#  if !defined(EH_RETURN_DATA_REGNO)
     #error "EH_RETURN_DATA_REGNO required"
 #  endif
-#  if !defined(EH_RETURN_HANDLER_RTX) && !defined(HAVE_eh_return)
+#  if ! (defined(TARGET_UNWIND_INFO) || DWARF2_UNWIND_INFO)
+    #error "{DWARF2,TARGET}_UNWIND_INFO required"
+#  endif
+#  if !defined(TARGET_UNWIND_INFO) \
+	&& !(defined(EH_RETURN_HANDLER_RTX) || defined(HAVE_eh_return))
     #error "EH_RETURN_HANDLER_RTX or eh_return required"
 #  endif
-#  if !defined(DWARF2_UNWIND_INFO) && !defined(TARGET_UNWIND_INFO)
-    #error "{DWARF2,TARGET}_UNWIND_INFO required"
+/* Usually the above error checks will have already triggered an
+   error, but backends may set MUST_USE_SJLJ_EXCEPTIONS for their own
+   reasons.  */
+#  if MUST_USE_SJLJ_EXCEPTIONS
+    #error "Must use SJLJ exceptions but configured not to"
 #  endif
 # endif
 #else
@@ -170,9 +172,12 @@ extern tree (*lang_eh_runtime_type) (tree);
 
 struct throw_stmt_node GTY(())
 {
-  tree stmt;
+  gimple stmt;
   int region_nr;
 };
 
 extern struct htab *get_eh_throw_stmt_table (struct function *);
 extern void set_eh_throw_stmt_table (struct function *, struct htab *);
+extern void remove_unreachable_regions (sbitmap, sbitmap);
+extern VEC(int,heap) * label_to_region_map (void);
+extern int num_eh_regions (void);

@@ -17,7 +17,6 @@ MANUALS="cpp
   gcc
   gccint
   gcj
-  g77
   gfortran
   gfc-internals
   gnat_ug_unx
@@ -146,16 +145,18 @@ fi
       echo "@clear DEVELOPMENT"
    fi
    echo "@set srcdir $WORKDIR/gcc/gcc"
+   echo "@set VERSION_PACKAGE (GCC)"
+   echo "@set BUGURL @uref{http://gcc.gnu.org/bugs.html}"
 ) > $includedir/gcc-vers.texi
 
 # Now convert the relevant files from texi to HTML, PDF and PostScript.
 for file in $MANUALS; do
   filename=`find . -name ${file}.texi`
   if [ "${filename}" ]; then
-    makeinfo --html -I ${includedir} -I `dirname ${filename}` ${filename}
+    makeinfo --html -I ${includedir} -I `dirname ${filename}` -o ${file} ${filename}
     tar cf ${file}-html.tar ${file}/*.html
-    texi2dvi -I ${includedir} ${filename} </dev/null && dvips -o ${file}.ps ${file}.dvi
-    texi2pdf -I ${includedir} ${filename} </dev/null
+    texi2dvi -I ${includedir} -o ${file}.dvi ${filename} </dev/null && dvips -o ${file}.ps ${file}.dvi
+    texi2pdf -I ${includedir} -o ${file}.pdf ${filename} </dev/null
     mkdir -p $DOCSDIR/$file
   fi
 done

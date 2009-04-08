@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,28 +32,20 @@
 ------------------------------------------------------------------------------
 
 pragma Style_Checks (All_Checks);
---  Turn off subprogram alpha ordering check, since we group soft link
---  bodies and dummy soft link bodies together separately in this unit.
+--  Turn off subprogram alpha ordering check, since we group soft link bodies
+--  and dummy soft link bodies together separately in this unit.
 
 pragma Polling (Off);
---  Turn polling off for this package. We don't need polling during any
---  of the routines in this package, and more to the point, if we try
---  to poll it can cause infinite loops.
-
-with System.Task_Primitives.Operations;
---  Used for Self
---           Timed_Delay
-
-with System.Tasking;
---  Used for Task_Id
---           Cause_Of_Termination
+--  Turn polling off for this package. We don't need polling during any of the
+--  routines in this package, and more to the point, if we try to poll it can
+--  cause infinite loops.
 
 with Ada.Exceptions;
---  Used for Exception_Id
---           Exception_Occurrence
---           Save_Occurrence
-
 with Ada.Exceptions.Is_Null_Occurrence;
+
+with System.Task_Primitives.Operations;
+with System.Tasking;
+with System.Stack_Checking;
 
 package body System.Soft_Links.Tasking is
 
@@ -85,23 +77,18 @@ package body System.Soft_Links.Tasking is
    procedure Set_Sec_Stack_Addr (Addr : Address);
    --  Get/Set location of current task's secondary stack
 
-   function Get_Current_Excep return SSL.EOA;
-   --  Task-safe version of SSL.Get_Current_Excep
-
    procedure Timed_Delay_T (Time : Duration; Mode : Integer);
    --  Task-safe version of SSL.Timed_Delay
 
    procedure Task_Termination_Handler_T  (Excep : SSL.EO);
    --  Task-safe version of the task termination procedure
 
+   function Get_Stack_Info return Stack_Checking.Stack_Access;
+   --  Get access to the current task's Stack_Info
+
    --------------------------
    -- Soft-Link Get Bodies --
    --------------------------
-
-   function Get_Current_Excep return SSL.EOA is
-   begin
-      return STPO.Self.Common.Compiler_Data.Current_Excep'Access;
-   end Get_Current_Excep;
 
    function Get_Jmpbuf_Address return  Address is
    begin
@@ -112,6 +99,11 @@ package body System.Soft_Links.Tasking is
    begin
       return STPO.Self.Common.Compiler_Data.Sec_Stack_Addr;
    end Get_Sec_Stack_Addr;
+
+   function Get_Stack_Info return Stack_Checking.Stack_Access is
+   begin
+      return STPO.Self.Common.Compiler_Data.Pri_Stack_Info'Access;
+   end Get_Stack_Info;
 
    --------------------------
    -- Soft-Link Set Bodies --
@@ -216,8 +208,8 @@ package body System.Soft_Links.Tasking is
          SSL.Get_Jmpbuf_Address       := Get_Jmpbuf_Address'Access;
          SSL.Set_Jmpbuf_Address       := Set_Jmpbuf_Address'Access;
          SSL.Get_Sec_Stack_Addr       := Get_Sec_Stack_Addr'Access;
+         SSL.Get_Stack_Info           := Get_Stack_Info'Access;
          SSL.Set_Sec_Stack_Addr       := Set_Sec_Stack_Addr'Access;
-         SSL.Get_Current_Excep        := Get_Current_Excep'Access;
          SSL.Timed_Delay              := Timed_Delay_T'Access;
          SSL.Task_Termination_Handler := Task_Termination_Handler_T'Access;
 

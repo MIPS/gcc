@@ -1,22 +1,11 @@
 /* { dg-do run } */
-/* { dg-options "-O2 -funsafe-math-optimizations -fno-finite-math-only" } */
-/* { dg-options "-mieee -O2 -funsafe-math-optimizations -fno-finite-math-only" { target alpha*-*-* } } */
+/* { dg-options "-O2 -funsafe-math-optimizations -fno-finite-math-only -DUNSAFE" } */
+/* { dg-options "-mieee -O2 -funsafe-math-optimizations -fno-finite-math-only -DUNSAFE" { target alpha*-*-* } } */
+/* { dg-skip-if "No Inf/NaN support" { spu-*-* } } */
 
-extern void abort (void);
+#include "tg-tests.h"
 
-void foo(float f)
+int main(void)
 {
-  if (__builtin_isunordered (f, f) != 1)
-    abort ();
-  if (__builtin_isnan (f) != 1)
-    abort ();
-  if (__builtin_finite (f) != 0)
-    abort ();
-}
-
-int main()
-{
-  float f = __builtin_nanf("");
-  foo(f);
-  return 0;
+  return main_tests ();
 }

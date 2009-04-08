@@ -1,10 +1,11 @@
-/* { dg-do run { target powerpc*-*-* } } */
+/* { dg-skip-if "powerpc and integer vectorization only" { ! { powerpc*-*-* && vect_int } } { "*" } { "" }  } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
 
 #define N 16
  
+__attribute__ ((noinline))
 int main1 ()
 {  
   long long unsigned int ca[N];

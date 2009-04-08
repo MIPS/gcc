@@ -1,12 +1,12 @@
 /* Prototypes for pa.c functions used in the md file & elsewhere.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation,
    Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,23 +15,20 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifdef RTX_CODE
 /* Prototype function used in various macros.  */
 extern int symbolic_operand (rtx, enum machine_mode);
 extern int tls_symbolic_operand (rtx);
+extern rtx pa_eh_return_handler_rtx (void);
 
 /* Used in insn-*.c.  */
 extern int following_call (rtx);
 extern int function_label_operand (rtx, enum machine_mode);
 extern int lhs_lshift_cint_operand (rtx, enum machine_mode);
 
-#ifdef TREE_CODE
-extern void hppa_va_start (tree, rtx);
-#endif /* TREE_CODE */
 extern rtx hppa_legitimize_address (rtx, rtx, enum machine_mode);
 
 /* Define functions in pa.c and used in insn-output.c.  */
@@ -124,7 +121,7 @@ extern int pc_or_label_operand (rtx, enum machine_mode);
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
 #ifdef TREE_CODE
-extern enum direction function_arg_padding (enum machine_mode, tree);
+extern enum direction function_arg_padding (enum machine_mode, const_tree);
 #endif
 #endif /* ARGS_SIZE_RTX */
 extern int non_hard_reg_operand (rtx, enum machine_mode);
@@ -144,7 +141,6 @@ extern int and_mask_p (unsigned HOST_WIDE_INT);
 extern int cint_ok_for_move (HOST_WIDE_INT);
 extern void hppa_expand_prologue (void);
 extern void hppa_expand_epilogue (void);
-extern int hppa_can_use_return_insn_p (void);
 extern int ior_mask_p (unsigned HOST_WIDE_INT);
 extern void compute_zdepdi_operands (unsigned HOST_WIDE_INT,
 				     unsigned *);
@@ -161,9 +157,9 @@ extern int reloc_needed (tree);
 #ifdef RTX_CODE
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode,
 			 tree, int);
-extern rtx function_value (tree, tree);
+extern rtx function_value (const_tree, const_tree);
 #endif
-extern bool pa_return_in_memory (tree, tree);
+extern bool pa_return_in_memory (const_tree, const_tree);
 #endif /* TREE_CODE */
 
 extern void pa_asm_output_aligned_bss (FILE *, const char *,
@@ -176,6 +172,9 @@ extern void pa_asm_output_aligned_local (FILE *, const char *,
 					 unsigned HOST_WIDE_INT,
 					 unsigned int);
 extern void pa_hpux_asm_output_external (FILE *, tree, const char *);
+extern bool pa_cannot_change_mode_class (enum machine_mode, enum machine_mode,
+					 enum reg_class);
+extern bool pa_modes_tieable_p (enum machine_mode, enum machine_mode);
 
 extern const int magic_milli[];
 extern int shadd_constant_p (int);

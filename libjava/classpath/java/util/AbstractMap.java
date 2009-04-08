@@ -39,6 +39,8 @@ exception statement from your version. */
 
 package java.util;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.io.Serializable;
 
 /**
@@ -69,10 +71,23 @@ import java.io.Serializable;
  */
 public abstract class AbstractMap<K, V> implements Map<K, V>
 {
-  /** @since 1.6 */
+  /** 
+   * A class containing an immutable key and value.  The
+   * implementation of {@link Entry#setValue(V)} for this class
+   * simply throws an {@link UnsupportedOperationException},
+   * thus preventing changes being made.  This is useful when
+   * a static thread-safe view of a map is required.
+   *
+   * @since 1.6 
+   */
   public static class SimpleImmutableEntry<K, V>
     implements Entry<K, V>, Serializable
   {
+    /**
+     * Compatible with JDK 1.6
+     */
+    private static final long serialVersionUID = 7138329143949025153L;
+
     K key;
     V value;
 
@@ -511,7 +526,7 @@ public abstract class AbstractMap<K, V> implements Map<K, V>
   public String toString()
   {
     Iterator<Map.Entry<K, V>> entries = entrySet().iterator();
-    StringBuffer r = new StringBuffer("{");
+    CPStringBuilder r = new CPStringBuilder("{");
     for (int pos = size(); pos > 0; pos--)
       {
         Map.Entry<K, V> entry = entries.next();
@@ -670,6 +685,12 @@ public abstract class AbstractMap<K, V> implements Map<K, V>
    */
   public static class SimpleEntry<K, V> implements Entry<K, V>, Serializable
   {
+
+    /**
+     * Compatible with JDK 1.6
+     */
+    private static final long serialVersionUID = -8499721149061103585L;
+
     /**
      * The key. Package visible for direct manipulation.
      */
@@ -730,7 +751,7 @@ public abstract class AbstractMap<K, V> implements Map<K, V>
      *
      * @return the key
      */
-    public final K getKey()
+    public K getKey()
     {
       return key;
     }
@@ -741,7 +762,7 @@ public abstract class AbstractMap<K, V> implements Map<K, V>
      *
      * @return the value
      */
-    public final V getValue()
+    public V getValue()
     {
       return value;
     }
@@ -755,7 +776,7 @@ public abstract class AbstractMap<K, V> implements Map<K, V>
      *
      * @return the hash code
      */
-    public final int hashCode()
+    public int hashCode()
     {
       return (AbstractMap.hashCode(key) ^ AbstractMap.hashCode(value));
     }
@@ -788,7 +809,7 @@ public abstract class AbstractMap<K, V> implements Map<K, V>
      *
      * @return the string representation
      */
-    public final String toString()
+    public String toString()
     {
       return key + "=" + value;
     }

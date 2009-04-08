@@ -1,6 +1,6 @@
 /* Target definitions for Darwin (Mac OS X) systems.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007
+   2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -258,6 +258,7 @@ extern GTY(()) int darwin_ms_struct;
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
    %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
+   %{static|static-libgfortran:%:replace-outfile(-lgfortran libgfortran.a%s)}\
    %{!Zdynamiclib: \
      %{Zforce_cpusubtype_ALL:-arch %(darwin_arch) -force_cpusubtype_ALL} \
      %{!Zforce_cpusubtype_ALL:-arch %(darwin_subarch)} \
@@ -307,6 +308,7 @@ extern GTY(()) int darwin_ms_struct;
      %:version-compare(< 10.5 mmacosx-version-min= -multiply_defined) \
      %:version-compare(< 10.5 mmacosx-version-min= suppress)}} \
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
+   %{fpie:-pie} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
    %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
@@ -524,6 +526,9 @@ extern GTY(()) int darwin_ms_struct;
 
 #define USER_LABEL_PREFIX "_"
 
+/* A dummy symbol that will be replaced with the function base name.  */
+#define MACHOPIC_FUNCTION_BASE_NAME "<pic base>"
+
 /* Don't output a .file directive.  That is only used by the assembler for
    error reporting.  */
 #undef	TARGET_ASM_FILE_START_FILE_DIRECTIVE
@@ -608,7 +613,7 @@ extern GTY(()) int darwin_ms_struct;
 #define ASM_OUTPUT_LABELREF(FILE,NAME)					     \
   do {									     \
        const char *xname = (NAME);					     \
-       if (! strcmp (xname, "<pic base>"))				     \
+       if (! strcmp (xname, MACHOPIC_FUNCTION_BASE_NAME))		     \
          machopic_output_function_base_name(FILE);                           \
        else if (xname[0] == '&' || xname[0] == '*')			     \
          {								     \
@@ -891,7 +896,9 @@ enum machopic_addr_class {
 
 #define DARWIN_REGISTER_TARGET_PRAGMAS()			\
   do {								\
-    c_register_pragma (0, "mark", darwin_pragma_ignore);	\
+    if (!flag_preprocess_only)					\
+      cpp_register_pragma (parse_in, NULL, "mark",		\
+			   darwin_pragma_ignore, false);	\
     c_register_pragma (0, "options", darwin_pragma_options);	\
     c_register_pragma (0, "segment", darwin_pragma_ignore);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
@@ -984,5 +991,15 @@ extern int flag_apple_kext;
 #define TARGET_KEXTABI flag_apple_kext
 
 #define TARGET_HAS_TARGETCM 1
+
+#ifndef CROSS_DIRECTORY_STRUCTURE
+extern void darwin_default_min_version (int * argc, char *** argv);
+#define GCC_DRIVER_HOST_INITIALIZATION \
+  darwin_default_min_version (&argc, &argv)
+#endif /* CROSS_DIRECTORY_STRUCTURE */
+
+/* The Apple assembler and linker do not support constructor priorities.  */
+#undef SUPPORTS_INIT_PRIORITY
+#define SUPPORTS_INIT_PRIORITY 0
 
 #endif /* CONFIG_DARWIN_H */

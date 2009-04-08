@@ -1,5 +1,5 @@
 /* CompositeData.java -- A composite data structure implementation.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -68,7 +68,7 @@ public class CompositeDataSupport
    *
    * @serial the map of field names to values.
    */
-  private SortedMap contents;
+  private SortedMap<String, Object> contents;
 
   /**
    * The composite type which represents this composite data instance.
@@ -106,11 +106,11 @@ public class CompositeDataSupport
    *                             {@link java.lang.String} (thus calling a failure
    *                             in converting the keys to an array of strings).
    */
-  public CompositeDataSupport(CompositeType type, Map items)
+  public CompositeDataSupport(CompositeType type, Map<String, ?> items)
     throws OpenDataException
   {
     this(type, 
-	 (String[]) items.keySet().toArray(new String[items.size()]),
+	 items.keySet().toArray(new String[items.size()]),
 	 items.values().toArray());
   }
 
@@ -154,11 +154,11 @@ public class CompositeDataSupport
       throw new IllegalArgumentException("The values array is null.");
     if (names.length != values.length)
       throw new IllegalArgumentException("The sizes of the arrays differ.");
-    Set typeKeys = type.keySet();
+    Set<String> typeKeys = type.keySet();
     if (typeKeys.size() != names.length)
       throw new OpenDataException("The number of field names does not match " +
 				  "the type description.");
-    contents = new TreeMap();
+    contents = new TreeMap<String, Object>();
     for (int a = 0; a < names.length; ++a)
       {
 	if (names[a] == null)
@@ -227,10 +227,8 @@ public class CompositeDataSupport
     CompositeData data = (CompositeData) obj;
     if (!(data.getCompositeType().equals(compositeType)))
       return false;
-    Iterator it = contents.keySet().iterator();
-    while (it.hasNext())
+    for (String key : contents.keySet())
       {
-	String key = (String) it.next();
 	if (!(data.containsKey(key)))
 	  return false;
 	if (!(data.get(key).equals(contents.get(key))))
@@ -308,9 +306,8 @@ public class CompositeDataSupport
   public int hashCode()
   {
     int code = compositeType.hashCode();
-    Iterator it = values().iterator();
-    while (it.hasNext())
-      code += it.next().hashCode();
+    for (Object o : contents.values())
+      code += o.hashCode();
     return code;
   }
 
@@ -340,7 +337,7 @@ public class CompositeDataSupport
    *
    * @return the values of this instance.
    */
-  public Collection values()
+  public Collection<?> values()
   {
     return Collections.unmodifiableCollection(contents.values());
   }

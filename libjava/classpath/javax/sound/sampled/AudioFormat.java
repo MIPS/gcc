@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package javax.sound.sampled;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -133,7 +135,7 @@ public class AudioFormat
    */
   protected int sampleSizeInBits;
 
-  private Map properties;
+  private Map<String, Object> properties;
 
   /**
    * Create a new audio format, given various attributes of it.
@@ -158,7 +160,7 @@ public class AudioFormat
     this.frameSize = frameSize;
     this.frameRate = frameRate;
     this.bigEndian = bigEndian;
-    this.properties = Collections.EMPTY_MAP;
+    this.properties = Collections.<String, Object> emptyMap();
   }
 
   /**
@@ -186,7 +188,7 @@ public class AudioFormat
     this.frameSize = frameSize;
     this.frameRate = frameRate;
     this.bigEndian = bigEndian;
-    this.properties = Collections.unmodifiableMap(new HashMap(properties));
+    this.properties = Collections.unmodifiableMap(new HashMap<String, Object>(properties));
   }
 
   /**
@@ -218,7 +220,7 @@ public class AudioFormat
       this.frameSize = (sampleSizeInBits + 7) / 8 * channels;
     this.frameRate = sampleRate;
     this.bigEndian = bigEndian;
-    this.properties = Collections.EMPTY_MAP;
+    this.properties = Collections.<String, Object> emptyMap();
   }
 
   /**
@@ -329,17 +331,36 @@ public class AudioFormat
    */
   public String toString()
   {
-    StringBuffer result = new StringBuffer();
+    CPStringBuilder result = new CPStringBuilder();
+    
+    // usually at least encoding should be somewhat specified
     result.append(encoding);
-    result.append(" ");
-    result.append(sampleRate);
-    result.append(" Hz ");
-    result.append(sampleSizeInBits);
-    result.append(" bits ");
-    result.append(channels);
-    result.append(" channels");
+    
+    if (sampleRate != AudioSystem.NOT_SPECIFIED)
+      {
+        result.append(" ");
+        result.append(sampleRate);
+        result.append(" Hz");
+      }
+    
+    if (sampleSizeInBits != AudioSystem.NOT_SPECIFIED)
+      {
+        result.append(" ");
+        result.append(sampleSizeInBits);
+        result.append(" bits");
+      }
+    
+    if (channels != AudioSystem.NOT_SPECIFIED)
+      {
+        result.append(" ");
+        result.append(channels);
+        result.append(" channel");
+        if (channels > 1) result.append("s");
+      }
+    
     if (sampleSizeInBits > 8)
       result.append(bigEndian ? " big endian" : " little endian");
+    
     return result.toString();
   }
 }

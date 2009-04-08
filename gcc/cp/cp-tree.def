@@ -2,14 +2,15 @@
    additional tree codes used in the GNU C++ compiler (see tree.def
    for the standard codes).
    Copyright (C) 1987, 1988, 1990, 1993, 1997, 1998, 2003, 2004, 2005,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -18,9 +19,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* An OFFSET_REF is used in two situations:
@@ -311,17 +311,6 @@ DEFTREECODE (EXPR_STMT, "expr_stmt", tcc_expression, 1)
 
 DEFTREECODE (TAG_DEFN, "tag_defn", tcc_expression, 0)
 
-/* Template instantiation level node.
-
-   TINST_DECL contains the original DECL node.
-   TINST_LOCATION contains the location where the template is instantiated.
-   TINST_IN_SYSTEM_HEADER_P is true if the location is in a system header.
-
-   A stack of template instantiation nodes is kept through the TREE_CHAIN
-   fields of these nodes.  */
-
-DEFTREECODE (TINST_LEVEL, "TINST_LEVEL", tcc_exceptional, 0)
-
 /* Represents an 'offsetof' expression during template expansion.  */
 DEFTREECODE (OFFSETOF_EXPR, "offsetof_expr", tcc_expression, 1)
 
@@ -426,6 +415,13 @@ DEFTREECODE (ARGUMENT_PACK_SELECT, "argument_pack_select", tcc_exceptional, 0)
 
 /* Represents a trait expression during template expansion.  */
 DEFTREECODE (TRAIT_EXPR, "trait_expr", tcc_exceptional, 0)
+
+/* The declared type of an expression.  This is a C++0x extension.
+   DECLTYPE_TYPE_EXPR is the expression whose type we are computing.
+   DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P states whether the
+   expression was parsed as an id-expression or a member access
+   expression. When false, it was parsed as a full expression.  */
+DEFTREECODE (DECLTYPE_TYPE, "decltype_type", tcc_type, 0)
 
 /*
 Local variables:

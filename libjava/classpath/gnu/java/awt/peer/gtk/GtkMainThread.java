@@ -40,8 +40,6 @@ package gnu.java.awt.peer.gtk;
 
 import gnu.java.awt.peer.NativeEventLoopRunningEvent;
 
-import java.awt.AWTEvent;
-
 /**
  * The Java thread representing the native GTK main loop, that is,
  * GtkMainThread.mainThread, terminates when GtkToolkit.gtkMain()
@@ -136,7 +134,7 @@ public class GtkMainThread extends Thread
                   }
               }
             GtkGenericPeer.q()
-              .postEvent(new NativeEventLoopRunningEvent(new Boolean(true)));
+              .postEvent(new NativeEventLoopRunningEvent(Boolean.TRUE));
           }
       }
   }
@@ -163,7 +161,7 @@ public class GtkMainThread extends Thread
                   }
               }
             GtkGenericPeer.q()
-              .postEvent(new NativeEventLoopRunningEvent(new Boolean(false)));
+              .postEvent(new NativeEventLoopRunningEvent(Boolean.FALSE));
             }
       }
   }
@@ -172,9 +170,9 @@ public class GtkMainThread extends Thread
   {
     synchronized (nWindowsLock)
       {
-	if (numberOfWindows == 0)
-	  startMainThread();
-	numberOfWindows++;
+        if (numberOfWindows == 0)
+          startMainThread();
+        numberOfWindows++;
       }
   }
 
@@ -182,9 +180,9 @@ public class GtkMainThread extends Thread
   {
     synchronized (nWindowsLock)
       {
-	numberOfWindows--;
-	if (numberOfWindows == 0)
-	  endMainThread();
+        numberOfWindows--;
+        if (numberOfWindows == 0)
+          endMainThread();
       }
   }
 }

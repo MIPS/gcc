@@ -1,6 +1,6 @@
 // Reference-counted versatile string base -*- C++ -*-
 
-// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,11 +37,11 @@
 #define _RC_STRING_BASE_H 1
 
 #include <ext/atomicity.h>
+#include <bits/stl_iterator_base_funcs.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
   /**
-   *  @if maint
    *  Documentation?  What's that?
    *  Nathan Myers <ncm@cantrip.org>.
    *
@@ -81,7 +81,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
    *
    *  All but the last paragraph is considered pretty conventional
    *  for a C++ string implementation.
-   *  @endif
   */
  template<typename _CharT, typename _Traits, typename _Alloc>
     class __rc_string_base
@@ -179,7 +178,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // (NB: last two terms for rounding reasons, see _M_create below)
       // Solving for m:
       // m = ((npos - 2 * sizeof(_Rep) + 1) / sizeof(_CharT)) - 1
-      // In addition, this implementation halfs this amount.
+      // In addition, this implementation halves this amount.
       enum { _S_max_size = (((static_cast<size_type>(-1) - 2 * sizeof(_Rep)
 			      + 1) / sizeof(_CharT)) - 1) / 2 };
 
@@ -300,11 +299,17 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       { _M_rep()->_M_set_length(__n); }
 
       __rc_string_base()
-      : _M_dataplus(_Alloc(), _S_empty_rep._M_refcopy()) { }
+      : _M_dataplus(_S_empty_rep._M_refcopy()) { }
 
       __rc_string_base(const _Alloc& __a);
 
       __rc_string_base(const __rc_string_base& __rcs);
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      __rc_string_base(__rc_string_base&& __rcs)
+      : _M_dataplus(__rcs._M_get_allocator(), __rcs._M_data())
+      { __rcs._M_data(_S_empty_rep._M_refcopy()); }
+#endif
 
       __rc_string_base(size_type __n, _CharT __c, const _Alloc& __a);
 
@@ -510,7 +515,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	  }
 	_Rep* __r = _Rep::_S_create(__len, size_type(0), __a);
 	_S_copy(__r->_M_refdata(), __buf, __len);
-	try
+	__try
 	  {
 	    while (__beg != __end)
 	      {
@@ -526,7 +531,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 		++__beg;
 	      }
 	  }
-	catch(...)
+	__catch(...)
 	  {
 	    __r->_M_destroy(__a);
 	    __throw_exception_again;
@@ -554,9 +559,9 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 								      __end));
 	// Check for out_of_range and length_error exceptions.
 	_Rep* __r = _Rep::_S_create(__dnew, size_type(0), __a);
-	try
+	__try
 	  { _S_copy_chars(__r->_M_refdata(), __beg, __end); }
-	catch(...)
+	__catch(...)
 	  {
 	    __r->_M_destroy(__a);
 	    __throw_exception_again;

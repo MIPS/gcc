@@ -41,6 +41,8 @@ package java.io;
 
 import gnu.classpath.SystemProperties;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -158,9 +160,32 @@ public class File implements Serializable, Comparable<File>
       return false;
 
     if (VMFile.isDirectory(path))
-      return VMFile.canWriteDirectory(this);
+      return VMFile.canWriteDirectory(path);
     else
       return VMFile.canWrite(path);
+  }
+
+  /**
+   * This method tests whether or not the current thread is allowed to
+   * to execute the file pointed to by this object. This will be true if and
+   * and only if 1) the file exists and 2) the <code>SecurityManager</code>
+   * (if any) allows access to the file via it's <code>checkExec</code>
+   * method 3) the file is executable.
+   *
+   * @return <code>true</code> if execution is allowed, 
+   * <code>false</code> otherwise
+   *
+   * @exception SecurityException If the <code>SecurityManager</code> 
+   * does not allow access to the file
+   */
+  public boolean canExecute()
+  {
+    if (!VMFile.exists(path))
+      return false;
+
+    checkExec();
+    
+    return VMFile.canExecute(path);
   }
 
   /**
@@ -294,7 +319,7 @@ public class File implements Serializable, Comparable<File>
 	  return p;
       }
     
-    StringBuffer newpath = new StringBuffer(plen);
+    CPStringBuilder newpath = new CPStringBuilder(plen);
     int last = 0;
     while (dupIndex != -1)
       {
@@ -1123,6 +1148,220 @@ public class File implements Serializable, Comparable<File>
   }
 
   /**
+   * This method sets the owner's read permission for the File represented by
+   * this object.
+   * 
+   * It is the same as calling <code>setReadable(readable, true)</code>.
+   * 
+   * @param <code>readable</code> <code>true</code> to set read permission,
+   * <code>false</code> to unset the read permission.
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setReadable(boolean, boolean)
+   * @since 1.6
+   */
+  public boolean setReadable(boolean readable)
+  {
+    return setReadable(readable, true);
+  }
+  
+  /**
+   * This method sets the read permissions for the File represented by
+   * this object.
+   * 
+   * If <code>ownerOnly</code> is set to <code>true</code> then only the
+   * read permission bit for the owner of the file is changed.
+   * 
+   * If <code>ownerOnly</code> is set to <code>false</code>, the file
+   * permissions are changed so that the file can be read by everyone.
+   * 
+   * On unix like systems this sets the <code>user</code>, <code>group</code>
+   * and <code>other</code> read bits and is equal to call
+   * <code>chmod a+r</code> on the file.
+   * 
+   * @param <code>readable</code> <code>true</code> to set read permission,
+   * <code>false</code> to unset the read permission.
+   * @param <code>ownerOnly</code> <code>true</code> to set read permission
+   * for owner only, <code>false</code> for all.
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setReadable(boolean)
+   * @since 1.6
+   */
+  public boolean setReadable(boolean readable, boolean ownerOnly)
+  {
+    checkWrite();
+    return VMFile.setReadable(path, readable, ownerOnly);
+  }
+  
+  /**
+   * This method sets the owner's write permission for the File represented by
+   * this object.
+   * 
+   * It is the same as calling <code>setWritable(readable, true)</code>. 
+   * 
+   * @param <code>writable</code> <code>true</code> to set write permission,
+   * <code>false</code> to unset write permission.
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setWritable(boolean, boolean)
+   * @since 1.6
+   */
+  public boolean setWritable(boolean writable)
+  {
+    return setWritable(writable, true);
+  }
+  
+  /**
+   * This method sets the write permissions for the File represented by
+   * this object.
+   * 
+   * If <code>ownerOnly</code> is set to <code>true</code> then only the
+   * write permission bit for the owner of the file is changed.
+   * 
+   * If <code>ownerOnly</code> is set to <code>false</code>, the file
+   * permissions are changed so that the file can be written by everyone.
+   * 
+   * On unix like systems this set the <code>user</code>, <code>group</code>
+   * and <code>other</code> write bits and is equal to call
+   * <code>chmod a+w</code> on the file.
+   * 
+   * @param <code>writable</code> <code>true</code> to set write permission,
+   * <code>false</code> to unset write permission.
+   * @param <code>ownerOnly</code> <code>true</code> to set write permission
+   * for owner only, <code>false</code> for all. 
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setWritable(boolean)
+   * @since 1.6
+   */
+  public boolean setWritable(boolean writable, boolean ownerOnly)
+  {
+    checkWrite();
+    return VMFile.setWritable(path, writable, ownerOnly);
+  }
+  
+  /**
+   * This method sets the owner's execute permission for the File represented
+   * by this object.
+   * 
+   * It is the same as calling <code>setExecutable(readable, true)</code>. 
+   * 
+   * @param <code>executable</code> <code>true</code> to set execute permission,
+   * <code>false</code> to unset execute permission.
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setExecutable(boolean, boolean)
+   * @since 1.6
+   */
+  public boolean setExecutable(boolean executable) 
+  {
+    return setExecutable(executable, true);
+  }
+  
+  /**
+   * This method sets the execute permissions for the File represented by
+   * this object.
+   * 
+   * If <code>ownerOnly</code> is set to <code>true</code> then only the
+   * execute permission bit for the owner of the file is changed.
+   * 
+   * If <code>ownerOnly</code> is set to <code>false</code>, the file
+   * permissions are changed so that the file can be executed by everyone.
+   * 
+   * On unix like systems this set the <code>user</code>, <code>group</code>
+   * and <code>other</code> write bits and is equal to call
+   * <code>chmod a+x</code> on the file.
+   * 
+   * @param <code>executable</code> <code>true</code> to set write permission,
+   * <code>false</code> to unset write permission.
+   * @param <code>ownerOnly</code> <code>true</code> to set write permission
+   * for owner only, <code>false</code> for all. 
+   * @return <code>true</code> if the file permissions are changed,
+   * <code>false</code> otherwise.
+   * @exception SecurityException If write access of the file is not permitted.
+   * @see #setExecutable(boolean)
+   * @since 1.6
+   */
+  public boolean setExecutable(boolean executable, boolean ownerOnly)
+  {
+    checkWrite();
+    return VMFile.setExecutable(path, executable, ownerOnly);
+  }
+
+  /**
+   * Get the total space for the partition pointed by this file path, in bytes.
+   * 
+   * @return the total number of bytes in this partition. 
+   * @since 1.6
+   */
+  public long getTotalSpace()
+  {
+    // check security manager.
+    SecurityManager s = System.getSecurityManager();
+    if (s != null)
+      s.checkPermission(new RuntimePermission("getFileSystemAttributes"));
+    checkRead();
+    
+    return VMFile.getTotalSpace(path);
+  }
+  
+  /**
+   * Get the free space in the partition pointed by this file path, in bytes.
+   * 
+   * @return the number of free bytes in this partition. 
+   * @since 1.6
+   */
+  public long getFreeSpace()
+  {
+    // check security manager.
+    SecurityManager s = System.getSecurityManager();
+    if (s != null)
+      s.checkPermission(new RuntimePermission("getFileSystemAttributes"));
+    checkRead();
+    
+    return VMFile.getFreeSpace(path);
+  }
+  
+  /**
+   * Get the usable space in the partition pointed by this file path, in bytes.
+   * This is not necessarily the same as the number returned by
+   * {@link #getFreeSpace()}.
+   * 
+   * <strong>Implementation note</strong>: Unlike the RI, on Linux and UNIX
+   * like systems this methods take into account the reserved space for the
+   * "root" user. This means that the returned results will be a little
+   * different if a normal user or root perform the query.
+   * 
+   * Also, the bytes returned should be interpreted as an hint, and may be
+   * different at each call of this method or even right after the method
+   * returns.
+   * 
+   * @return the number of usable bytes in this partition. 
+   * @since 1.6
+   */
+  public long getUsableSpace()
+  {
+    // check security manager.
+    SecurityManager s = System.getSecurityManager();
+    if (s != null)
+      s.checkPermission(new RuntimePermission("getFileSystemAttributes"));
+    checkRead();
+    
+    // root users can use the reserved extra space
+    String user = System.getProperty("user.name");
+    if (user != null && user.equals("root"))
+      return VMFile.getFreeSpace(path);
+    
+    return VMFile.getUsableSpace(path);
+  }
+  
+  /**
    * This method sets the file represented by this object to be read only.
    * A read only file or directory cannot be modified.  Please note that 
    * GNU systems allow read only files to be deleted if the directory it
@@ -1315,6 +1554,15 @@ public class File implements Serializable, Comparable<File>
       s.checkRead(path);
   }
 
+  private void checkExec()
+  {
+    // Check the SecurityManager
+    SecurityManager s = System.getSecurityManager();
+    
+    if (s != null)
+      s.checkExec(path);
+  }
+  
   /** 
    * Calling this method requests that the file represented by this object
    * be deleted when the virtual machine exits.  Note that this request cannot

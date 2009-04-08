@@ -1,13 +1,12 @@
 /* Subroutines used for code generation on the Argonaut ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
+   2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* ??? This is an old port, and is undoubtedly suffering from bit rot.  */
 
@@ -91,14 +89,15 @@ static void arc_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void arc_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arc_file_start (void);
 static void arc_internal_label (FILE *, const char *, unsigned long);
+static void arc_va_start (tree, rtx);
 static void arc_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int *, int);
-static bool arc_rtx_costs (rtx, int, int, int *);
-static int arc_address_cost (rtx);
+static bool arc_rtx_costs (rtx, int, int, int *, bool);
+static int arc_address_cost (rtx, bool);
 static void arc_external_libcall (rtx);
-static bool arc_return_in_memory (tree, tree);
+static bool arc_return_in_memory (const_tree, const_tree);
 static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				   tree, bool);
+				   const_tree, bool);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -130,11 +129,11 @@ static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_ADDRESS_COST arc_address_cost
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY arc_return_in_memory
@@ -145,6 +144,9 @@ static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS arc_setup_incoming_varargs
+
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START arc_va_start
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -171,11 +173,11 @@ arc_init (void)
   char *tmp;
   
   /* Set the pseudo-ops for the various standard sections.  */
-  arc_text_section = tmp = xmalloc (strlen (arc_text_string) + sizeof (ARC_SECTION_FORMAT) + 1);
+  arc_text_section = tmp = XNEWVEC (char, strlen (arc_text_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_text_string);
-  arc_data_section = tmp = xmalloc (strlen (arc_data_string) + sizeof (ARC_SECTION_FORMAT) + 1);
+  arc_data_section = tmp = XNEWVEC (char, strlen (arc_data_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_data_string);
-  arc_rodata_section = tmp = xmalloc (strlen (arc_rodata_string) + sizeof (ARC_SECTION_FORMAT) + 1);
+  arc_rodata_section = tmp = XNEWVEC (char, strlen (arc_rodata_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_rodata_string);
 
   arc_init_reg_tables ();
@@ -828,7 +830,8 @@ arc_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-arc_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
+arc_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total,
+	       bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -882,7 +885,7 @@ arc_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
    If ADDR is not a valid address, its cost is irrelevant.  */
 
 static int
-arc_address_cost (rtx addr)
+arc_address_cost (rtx addr, bool speed ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (addr))
     {
@@ -1057,9 +1060,9 @@ arc_compute_function_type (tree decl)
    Don't consider them here.  */
 #define MUST_SAVE_REGISTER(regno, interrupt_p) \
 ((regno) != RETURN_ADDR_REGNUM && (regno) != FRAME_POINTER_REGNUM \
- && (regs_ever_live[regno] && (!call_used_regs[regno] || interrupt_p)))
+ && (df_regs_ever_live_p (regno) && (!call_used_regs[regno] || interrupt_p)))
 
-#define MUST_SAVE_RETURN_ADDR (regs_ever_live[RETURN_ADDR_REGNUM])
+#define MUST_SAVE_RETURN_ADDR (df_regs_ever_live_p (RETURN_ADDR_REGNUM))
 
 /* Return the bytes needed to compute the frame pointer from the current
    stack pointer.
@@ -1077,11 +1080,11 @@ arc_compute_frame_size (int size /* # of var. bytes allocated.  */)
   int interrupt_p;
 
   var_size	= size;
-  args_size	= current_function_outgoing_args_size;
-  pretend_size	= current_function_pretend_args_size;
+  args_size	= crtl->outgoing_args_size;
+  pretend_size	= crtl->args.pretend_args_size;
   extra_size	= FIRST_PARM_OFFSET (0);
   total_size	= extra_size + pretend_size + args_size + var_size;
-  reg_offset	= FIRST_PARM_OFFSET(0) + current_function_outgoing_args_size;
+  reg_offset	= FIRST_PARM_OFFSET(0) + crtl->outgoing_args_size;
   reg_size	= 0;
   gmask		= 0;
 
@@ -1252,7 +1255,7 @@ arc_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 static void
 arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 {
-  rtx epilogue_delay = current_function_epilogue_delay_list;
+  rtx epilogue_delay = crtl->epilogue_delay_list;
   int noepilogue = FALSE;
   enum arc_function_type fn_type = arc_compute_function_type (current_function_decl);
 
@@ -1281,7 +1284,7 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
       unsigned int pretend_size = current_frame_info.pretend_size;
       unsigned int frame_size = size - pretend_size;
       int restored, fp_restored_p;
-      int can_trust_sp_p = !current_function_calls_alloca;
+      int can_trust_sp_p = !cfun->calls_alloca;
       const char *sp_str = reg_names[STACK_POINTER_REGNUM];
       const char *fp_str = reg_names[FRAME_POINTER_REGNUM];
 
@@ -2276,12 +2279,12 @@ arc_ccfsm_record_branch_deleted (void)
   current_insn_set_cc_p = last_insn_set_cc_p;
 }
 
-void
+static void
 arc_va_start (tree valist, rtx nextarg)
 {
   /* See arc_setup_incoming_varargs for reasons for this oddity.  */
-  if (current_function_args_info < 8
-      && (current_function_args_info & 1))
+  if (crtl->args.info < 8
+      && (crtl->args.info & 1))
     nextarg = plus_constant (nextarg, UNITS_PER_WORD);
 
   std_expand_builtin_va_start (valist, nextarg);
@@ -2318,7 +2321,7 @@ arc_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-arc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+arc_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   if (AGGREGATE_TYPE_P (type))
     return true;
@@ -2334,7 +2337,7 @@ arc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 
 static bool
 arc_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
-		       enum machine_mode mode, tree type,
+		       enum machine_mode mode, const_tree type,
 		       bool named ATTRIBUTE_UNUSED)
 {
   unsigned HOST_WIDE_INT size;

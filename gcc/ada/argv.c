@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *         Copyright (C) 1992-2003 Free Software Foundation, Inc.           *
+ *         Copyright (C) 1992-2008, Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -61,7 +61,7 @@ int gnat_argc = 0;
 const char **gnat_argv = (const char **) 0;
 const char **gnat_envp = (const char **) 0;
 
-#ifdef _WIN32
+#if defined (_WIN32) && !defined (RTX)
 /* Note that on Windows environment the environ point to a buffer that could
    be reallocated if needed. It means that gnat_envp needs to be updated
    before using gnat_envp to point to the right environment space */
@@ -79,13 +79,17 @@ __gnat_arg_count (void)
 int
 __gnat_len_arg (int arg_num)
 {
-  return strlen (gnat_argv[arg_num]);
+  if (gnat_argv != NULL)
+    return strlen (gnat_argv[arg_num]);
+  else
+    return 0;
 }
 
 void
 __gnat_fill_arg (char *a, int i)
 {
-  strncpy (a, gnat_argv[i], strlen(gnat_argv[i]));
+  if (gnat_argv != NULL)
+    strncpy (a, gnat_argv[i], strlen(gnat_argv[i]));
 }
 
 int
@@ -101,11 +105,15 @@ __gnat_env_count (void)
 int
 __gnat_len_env (int env_num)
 {
-  return strlen (gnat_envp[env_num]);
+  if (gnat_envp != NULL)
+    return strlen (gnat_envp[env_num]);
+  else
+    return 0;
 }
 
 void
 __gnat_fill_env (char *a, int i)
 {
-  strncpy (a, gnat_envp[i], strlen (gnat_envp[i]));
+  if (gnat_envp != NULL)
+    strncpy (a, gnat_envp[i], strlen (gnat_envp[i]));
 }

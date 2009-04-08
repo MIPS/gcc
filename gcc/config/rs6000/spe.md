@@ -1,5 +1,5 @@
 ;; e500 SPE description
-;; Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+;; Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
 ;; Free Software Foundation, Inc.
 ;; Contributed by Aldy Hernandez (aldy@quesejoda.com)
 
@@ -7,7 +7,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,15 +16,11 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-;; MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 (define_constants
-  [(SPE_ACC_REGNO	111)
-   (SPEFSCR_REGNO	112)
-
-   (CMPDFEQ_GPR		1006)
+  [(CMPDFEQ_GPR		1006)
    (TSTDFEQ_GPR		1007)
    (CMPDFGT_GPR		1008)
    (TSTDFGT_GPR		1009)
@@ -40,13 +36,13 @@
    ])
 
 ;; Modes using a 64-bit register.
-(define_mode_macro SPE64 [DF V4HI V2SF V1DI V2SI])
+(define_mode_iterator SPE64 [DF V4HI V2SF V1DI V2SI])
 
 ;; Likewise, but allow TFmode (two registers) as well.
-(define_mode_macro SPE64TF [DF V4HI V2SF V1DI V2SI TF])
+(define_mode_iterator SPE64TF [DF V4HI V2SF V1DI V2SI TF])
 
 ;; DImode and TImode.
-(define_mode_macro DITI [DI TI])
+(define_mode_iterator DITI [DI TI])
 
 (define_insn "*negsf2_gpr"
   [(set (match_operand:SF 0 "gpc_reg_operand" "=r")
@@ -2319,7 +2315,7 @@
 
 (define_insn "*frob_ti_tf_2"
   [(set (subreg:TF (match_operand:TI 0 "gpc_reg_operand" "=&r") 0)
-	(match_operand:TF 1 "gpc_reg_operand" "r"))]
+	(match_operand:TF 1 "input_operand" "r"))]
   "TARGET_E500_DOUBLE"
   "evmergehi %0,%1,%1\;mr %L0,%1\;evmergehi %Y0,%L1,%L1\;mr %Z0,%L1"
   [(set_attr "length" "16")])
@@ -2682,7 +2678,7 @@
 (define_expand "movv2sf"
   [(set (match_operand:V2SF 0 "nonimmediate_operand" "")
 	(match_operand:V2SF 1 "any_operand" ""))]
-  "TARGET_SPE"
+  "TARGET_SPE || TARGET_PAIRED_FLOAT"
   "{ rs6000_emit_move (operands[0], operands[1], V2SFmode); DONE; }")
 
 (define_insn "*movv2sf_internal"
@@ -2937,7 +2933,8 @@
 	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
 			(match_operand:SF 2 "gpc_reg_operand" "r"))]
 	 1000))]
-  "TARGET_HARD_FLOAT && !TARGET_FPRS && !flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && !TARGET_FPRS
+   && !(flag_finite_math_only && !flag_trapping_math)"
   "efscmpeq %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -2947,7 +2944,8 @@
 	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
 			(match_operand:SF 2 "gpc_reg_operand" "r"))]
 	 1001))]
-  "TARGET_HARD_FLOAT && !TARGET_FPRS && flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && !TARGET_FPRS
+   && flag_finite_math_only && !flag_trapping_math"
   "efststeq %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
@@ -2957,7 +2955,8 @@
 	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
 			(match_operand:SF 2 "gpc_reg_operand" "r"))]
 	 1002))]
-  "TARGET_HARD_FLOAT && !TARGET_FPRS && !flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && !TARGET_FPRS
+   && !(flag_finite_math_only && !flag_trapping_math)"
   "efscmpgt %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -2967,7 +2966,8 @@
 	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
 			(match_operand:SF 2 "gpc_reg_operand" "r"))]
 	 1003))]
-  "TARGET_HARD_FLOAT && !TARGET_FPRS && flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && !TARGET_FPRS
+   && flag_finite_math_only && !flag_trapping_math"
   "efststgt %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
@@ -2977,7 +2977,8 @@
 	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
 			(match_operand:SF 2 "gpc_reg_operand" "r"))]
 	 1004))]
-  "TARGET_HARD_FLOAT && !TARGET_FPRS && !flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && !TARGET_FPRS
+   && !(flag_finite_math_only && !flag_trapping_math)"
   "efscmplt %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -2987,7 +2988,8 @@
 	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
 			(match_operand:SF 2 "gpc_reg_operand" "r"))]
 	 1005))]
-  "TARGET_HARD_FLOAT && !TARGET_FPRS && flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && !TARGET_FPRS
+   && flag_finite_math_only && !flag_trapping_math"
   "efststlt %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
@@ -2999,7 +3001,8 @@
 	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
 			(match_operand:DF 2 "gpc_reg_operand" "r"))]
 	 CMPDFEQ_GPR))]
-  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && !flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE
+   && !(flag_finite_math_only && !flag_trapping_math)"
   "efdcmpeq %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -3009,7 +3012,8 @@
 	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
 			(match_operand:DF 2 "gpc_reg_operand" "r"))]
 	 TSTDFEQ_GPR))]
-  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE
+   && flag_finite_math_only && !flag_trapping_math"
   "efdtsteq %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
@@ -3019,7 +3023,8 @@
 	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
 			(match_operand:DF 2 "gpc_reg_operand" "r"))]
 	 CMPDFGT_GPR))]
-  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && !flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE
+   && !(flag_finite_math_only && !flag_trapping_math)"
   "efdcmpgt %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -3029,7 +3034,8 @@
 	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
 			(match_operand:DF 2 "gpc_reg_operand" "r"))]
 	 TSTDFGT_GPR))]
-  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE
+   && flag_finite_math_only && !flag_trapping_math"
   "efdtstgt %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
@@ -3039,7 +3045,8 @@
 	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
 			(match_operand:DF 2 "gpc_reg_operand" "r"))]
 	 CMPDFLT_GPR))]
-  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && !flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE
+   && !(flag_finite_math_only && !flag_trapping_math)"
   "efdcmplt %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
@@ -3049,7 +3056,8 @@
 	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
 			(match_operand:DF 2 "gpc_reg_operand" "r"))]
 	 TSTDFLT_GPR))]
-  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && flag_unsafe_math_optimizations"
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE
+   && flag_finite_math_only && !flag_trapping_math"
   "efdtstlt %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
@@ -3063,7 +3071,7 @@
 	 CMPTFEQ_GPR))]
   "!TARGET_IEEEQUAD
    && TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && TARGET_LONG_DOUBLE_128
-   && !flag_unsafe_math_optimizations"
+   && !(flag_finite_math_only && !flag_trapping_math)"
   "efdcmpeq %0,%1,%2\;bng %0,$+8\;efdcmpeq %0,%L1,%L2"
   [(set_attr "type" "veccmp")
    (set_attr "length" "12")])
@@ -3076,7 +3084,7 @@
 	 TSTTFEQ_GPR))]
   "!TARGET_IEEEQUAD
    && TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && TARGET_LONG_DOUBLE_128
-   && flag_unsafe_math_optimizations"
+   && flag_finite_math_only && !flag_trapping_math"
   "efdtsteq %0,%1,%2\;bng %0,$+8\;efdtsteq %0,%L1,%L2"
   [(set_attr "type" "veccmpsimple")
    (set_attr "length" "12")])
@@ -3089,7 +3097,7 @@
 	 CMPTFGT_GPR))]
   "!TARGET_IEEEQUAD
    && TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && TARGET_LONG_DOUBLE_128
-   && !flag_unsafe_math_optimizations"
+   && !(flag_finite_math_only && !flag_trapping_math)"
   "efdcmpgt %0,%1,%2\;bgt %0,$+16\;efdcmpeq %0,%1,%2\;bng %0,$+8\;efdcmpgt %0,%L1,%L2"
   [(set_attr "type" "veccmp")
    (set_attr "length" "20")])
@@ -3102,7 +3110,7 @@
 	 TSTTFGT_GPR))]
   "!TARGET_IEEEQUAD
    && TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && TARGET_LONG_DOUBLE_128
-   && flag_unsafe_math_optimizations"
+   && flag_finite_math_only && !flag_trapping_math"
   "efdtstgt %0,%1,%2\;bgt %0,$+16\;efdtsteq %0,%1,%2\;bng %0,$+8\;efdtstgt %0,%L1,%L2"
   [(set_attr "type" "veccmpsimple")
    (set_attr "length" "20")])
@@ -3115,7 +3123,7 @@
 	 CMPTFLT_GPR))]
   "!TARGET_IEEEQUAD
    && TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && TARGET_LONG_DOUBLE_128
-   && !flag_unsafe_math_optimizations"
+   && !(flag_finite_math_only && !flag_trapping_math)"
   "efdcmplt %0,%1,%2\;bgt %0,$+16\;efdcmpeq %0,%1,%2\;bng %0,$+8\;efdcmplt %0,%L1,%L2"
   [(set_attr "type" "veccmp")
    (set_attr "length" "20")])
@@ -3128,7 +3136,7 @@
 	 TSTTFLT_GPR))]
   "!TARGET_IEEEQUAD
    && TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && TARGET_LONG_DOUBLE_128
-   && flag_unsafe_math_optimizations"
+   && flag_finite_math_only && !flag_trapping_math"
   "efdtstlt %0,%1,%2\;bgt %0,$+16\;efdtsteq %0,%1,%2\;bng %0,$+8\;efdtstlt %0,%L1,%L2"
   [(set_attr "type" "veccmpsimple")
    (set_attr "length" "20")])
@@ -3139,6 +3147,44 @@
 	(unspec:CCFP [(match_operand 1 "cc_reg_operand" "y")
 		      (match_operand 2 "cc_reg_operand" "y")]
 		     E500_CR_IOR_COMPARE))]
-  "TARGET_E500"
+  "TARGET_HARD_FLOAT && !TARGET_FPRS"
   "cror 4*%0+gt,4*%1+gt,4*%2+gt"
   [(set_attr "type" "cr_logical")])
+
+;; Out-of-line prologues and epilogues.
+(define_insn "*save_gpregs_spe"
+  [(match_parallel 0 "any_parallel_operand"
+		   [(clobber (reg:P 65))
+		    (use (match_operand:P 1 "symbol_ref_operand" "s"))
+		    (use (match_operand:P 2 "gpc_reg_operand" "r"))
+		    (set (match_operand:V2SI 3 "memory_operand" "=m")
+			 (match_operand:V2SI 4 "gpc_reg_operand" "r"))])]
+  "TARGET_SPE_ABI"
+  "bl %z1"
+  [(set_attr "type" "branch")
+   (set_attr "length" "4")])
+
+(define_insn "*restore_gpregs_spe"
+ [(match_parallel 0 "any_parallel_operand"
+		  [(clobber (reg:P 65))
+		   (use (match_operand:P 1 "symbol_ref_operand" "s"))
+		   (use (match_operand:P 2 "gpc_reg_operand" "r"))
+		   (set (match_operand:V2SI 3 "gpc_reg_operand" "=r")
+			(match_operand:V2SI 4 "memory_operand" "m"))])]
+ "TARGET_SPE_ABI"
+ "bl %z1"
+ [(set_attr "type" "branch")
+  (set_attr "length" "4")])
+
+(define_insn "*return_and_restore_gpregs_spe"
+ [(match_parallel 0 "any_parallel_operand"
+		  [(return)
+		   (clobber (reg:P 65))
+		   (use (match_operand:P 1 "symbol_ref_operand" "s"))
+		   (use (match_operand:P 2 "gpc_reg_operand" "r"))
+		   (set (match_operand:V2SI 3 "gpc_reg_operand" "=r")
+			(match_operand:V2SI 4 "memory_operand" "m"))])]
+ "TARGET_SPE_ABI"
+ "b %z1"
+ [(set_attr "type" "branch")
+  (set_attr "length" "4")])

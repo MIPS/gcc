@@ -1,8 +1,17 @@
-/* { dg-do run { target { { i?86-*-* x86_64-*-* } && lp64 } } } */
+/* { dg-do run } */
+/* { dg-require-effective-target lp64 } */
 /* { dg-require-effective-target sse4 } */
 /* { dg-options "-O2 -msse4.1" } */
 
-#include "sse4_1-check.h"
+#ifndef CHECK_H
+#define CHECK_H "sse4_1-check.h"
+#endif
+
+#ifndef TEST
+#define TEST sse4_1_test
+#endif
+
+#include CHECK_H
 
 #include <smmintrin.h>
 #include <string.h>
@@ -11,7 +20,8 @@
 #define msk1 0x01
 
 static void
-sse4_1_test (void)
+__attribute__((noinline))
+TEST (void)
 {
   union
     {

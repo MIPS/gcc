@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -47,6 +47,7 @@ typedef long OS_Time; /* Type corresponding to GNAT.OS_Lib.OS_Time */
 
 extern int    __gnat_max_path_len;
 extern OS_Time __gnat_current_time		   (void);
+extern void   __gnat_current_time_string           (char *);
 extern void   __gnat_to_gm_time			   (OS_Time *, int *, int *,
 				                    int *, int *,
 				                    int *, int *);
@@ -100,9 +101,12 @@ extern int    __gnat_is_absolute_path              (char *,int);
 extern int    __gnat_is_directory		   (char *);
 extern int    __gnat_is_writable_file		   (char *);
 extern int    __gnat_is_readable_file		   (char *name);
-extern void   __gnat_set_readonly                  (char *name);
+extern int    __gnat_is_executable_file            (char *name);
+extern void   __gnat_set_non_writable              (char *name);
 extern void   __gnat_set_writable                  (char *name);
 extern void   __gnat_set_executable                (char *name);
+extern void   __gnat_set_readable                  (char *name);
+extern void   __gnat_set_non_readable              (char *name);
 extern int    __gnat_is_symbolic_link		   (char *name);
 extern int    __gnat_portable_spawn                (char *[]);
 extern int    __gnat_portable_no_block_spawn       (char *[]);
@@ -168,7 +172,7 @@ extern int    __gnat_dup2			   (int, int);
 extern void   __gnat_os_filename                   (char *, char *, char *,
 						    int *, char *, int *);
 
-#ifdef __MINGW32__
+#if defined (__MINGW32__) && !defined (RTX)
 extern void   __gnat_plist_init                    (void);
 #endif
 

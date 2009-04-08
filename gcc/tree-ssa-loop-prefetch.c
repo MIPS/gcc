@@ -1,11 +1,11 @@
 /* Array prefetching.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -47,6 +46,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "tree-data-ref.h"
+#include "optabs.h"
 
 /* This pass inserts prefetch instructions to optimize cache usage during
    accesses to arrays in loops.  It processes loops sequentially and:
@@ -156,7 +156,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* In some cases we are only able to determine that there is a certain
    probability that the two accesses hit the same cache line.  In this
    case, we issue the prefetches for both of them if this probability
-   is less then (1000 - ACCEPTABLE_MISS_RATE) promile.  */
+   is less then (1000 - ACCEPTABLE_MISS_RATE) per thousand.  */
 
 #ifndef ACCEPTABLE_MISS_RATE
 #define ACCEPTABLE_MISS_RATE 50
@@ -166,9 +166,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define HAVE_prefetch 0
 #endif
 
-#define L1_CACHE_SIZE_BYTES ((unsigned) (L1_CACHE_SIZE * L1_CACHE_LINE_SIZE))
-/* TODO:  Add parameter to specify L2 cache size.  */
-#define L2_CACHE_SIZE_BYTES (8 * L1_CACHE_SIZE_BYTES)
+#define L1_CACHE_SIZE_BYTES ((unsigned) (L1_CACHE_SIZE * 1024))
+#define L2_CACHE_SIZE_BYTES ((unsigned) (L2_CACHE_SIZE * 1024))
 
 /* We consider a memory access nontemporal if it is not reused sooner than
    after L2_CACHE_SIZE_BYTES of memory are accessed.  However, we ignore
@@ -176,6 +175,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    so that we use nontemporal prefetches e.g. if single memory location
    is accessed several times in a single iteration of the loop.  */
 #define NONTEMPORAL_FRACTION 16
+
+/* In case we have to emit a memory fence instruction after the loop that
+   uses nontemporal stores, this defines the builtin to use.  */
+
+#ifndef FENCE_FOLLOWING_MOVNT
+#define FENCE_FOLLOWING_MOVNT NULL_TREE
+#endif
 
 /* The group of references between that reuse may occur.  */
 
@@ -195,10 +201,9 @@ struct mem_ref_group
 
 struct mem_ref
 {
-  tree stmt;			/* Statement in that the reference appears.  */
+  gimple stmt;			/* Statement in that the reference appears.  */
   tree mem;			/* The reference.  */
   HOST_WIDE_INT delta;		/* Constant offset of the reference.  */
-  bool write_p;			/* Is it a write?  */
   struct mem_ref_group *group;	/* The group of references it belongs to.  */
   unsigned HOST_WIDE_INT prefetch_mod;
 				/* Prefetch only each PREFETCH_MOD-th
@@ -208,8 +213,13 @@ struct mem_ref
 				   iterations.  */
   unsigned reuse_distance;	/* The amount of data accessed before the first
 				   reuse of this value.  */
-  bool issue_prefetch_p;	/* Should we really issue the prefetch?  */
   struct mem_ref *next;		/* The next reference in the group.  */
+  unsigned write_p : 1;		/* Is it a write?  */
+  unsigned independent_p : 1;	/* True if the reference is independent on
+				   all other references inside the loop.  */
+  unsigned issue_prefetch_p : 1;	/* Should we really issue the prefetch?  */
+  unsigned storent_p : 1;	/* True if we changed the store to a
+				   nontemporal one.  */
 };
 
 /* Dumps information about reference REF to FILE.  */
@@ -268,7 +278,7 @@ find_or_create_group (struct mem_ref_group **groups, tree base,
    WRITE_P.  The reference occurs in statement STMT.  */
 
 static void
-record_ref (struct mem_ref_group *group, tree stmt, tree mem,
+record_ref (struct mem_ref_group *group, gimple stmt, tree mem,
 	    HOST_WIDE_INT delta, bool write_p)
 {
   struct mem_ref **aref;
@@ -302,6 +312,8 @@ record_ref (struct mem_ref_group *group, tree stmt, tree mem,
   (*aref)->issue_prefetch_p = false;
   (*aref)->group = group;
   (*aref)->next = NULL;
+  (*aref)->independent_p = false;
+  (*aref)->storent_p = false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_mem_ref (dump_file, *aref);
@@ -332,7 +344,7 @@ release_mem_refs (struct mem_ref_group *groups)
 struct ar_data
 {
   struct loop *loop;			/* Loop of the reference.  */
-  tree stmt;				/* Statement of the reference.  */
+  gimple stmt;				/* Statement of the reference.  */
   HOST_WIDE_INT *step;			/* Step of the memory reference.  */
   HOST_WIDE_INT *delta;			/* Offset of the memory reference.  */
 };
@@ -343,7 +355,7 @@ struct ar_data
 static bool
 idx_analyze_ref (tree base, tree *index, void *data)
 {
-  struct ar_data *ar_data = data;
+  struct ar_data *ar_data = (struct ar_data *) data;
   tree ibase, step, stepsize;
   HOST_WIDE_INT istep, idelta = 0, imult = 1;
   affine_iv iv;
@@ -352,7 +364,8 @@ idx_analyze_ref (tree base, tree *index, void *data)
       || TREE_CODE (base) == ALIGN_INDIRECT_REF)
     return false;
 
-  if (!simple_iv (ar_data->loop, ar_data->stmt, *index, &iv, false))
+  if (!simple_iv (ar_data->loop, loop_containing_stmt (ar_data->stmt),
+		  *index, &iv, false))
     return false;
   ibase = iv.base;
   step = iv.step;
@@ -361,7 +374,7 @@ idx_analyze_ref (tree base, tree *index, void *data)
     return false;
   istep = int_cst_value (step);
 
-  if (TREE_CODE (ibase) == PLUS_EXPR
+  if (TREE_CODE (ibase) == POINTER_PLUS_EXPR
       && cst_and_fits_in_hwi (TREE_OPERAND (ibase, 1)))
     {
       idelta = int_cst_value (TREE_OPERAND (ibase, 1));
@@ -399,7 +412,7 @@ idx_analyze_ref (tree base, tree *index, void *data)
 static bool
 analyze_ref (struct loop *loop, tree *ref_p, tree *base,
 	     HOST_WIDE_INT *step, HOST_WIDE_INT *delta,
-	     tree stmt)
+	     gimple stmt)
 {
   struct ar_data ar_data;
   tree off;
@@ -434,36 +447,46 @@ analyze_ref (struct loop *loop, tree *ref_p, tree *base,
 }
 
 /* Record a memory reference REF to the list REFS.  The reference occurs in
-   LOOP in statement STMT and it is write if WRITE_P.  */
+   LOOP in statement STMT and it is write if WRITE_P.  Returns true if the
+   reference was recorded, false otherwise.  */
 
-static void
+static bool
 gather_memory_references_ref (struct loop *loop, struct mem_ref_group **refs,
-			      tree ref, bool write_p, tree stmt)
+			      tree ref, bool write_p, gimple stmt)
 {
   tree base;
   HOST_WIDE_INT step, delta;
   struct mem_ref_group *agrp;
 
+  if (get_base_address (ref) == NULL)
+    return false;
+
   if (!analyze_ref (loop, &ref, &base, &step, &delta, stmt))
-    return;
+    return false;
 
   /* Now we know that REF = &BASE + STEP * iter + DELTA, where DELTA and STEP
      are integer constants.  */
   agrp = find_or_create_group (refs, base, step);
   record_ref (agrp, stmt, ref, delta, write_p);
+
+  return true;
 }
 
-/* Record the suitable memory references in LOOP.  */
+/* Record the suitable memory references in LOOP.  NO_OTHER_REFS is set to
+   true if there are no other memory references inside the loop.  */
 
 static struct mem_ref_group *
-gather_memory_references (struct loop *loop)
+gather_memory_references (struct loop *loop, bool *no_other_refs)
 {
   basic_block *body = get_loop_body_in_dom_order (loop);
   basic_block bb;
   unsigned i;
-  block_stmt_iterator bsi;
-  tree stmt, lhs, rhs;
+  gimple_stmt_iterator bsi;
+  gimple stmt;
+  tree lhs, rhs;
   struct mem_ref_group *refs = NULL;
+
+  *no_other_refs = true;
 
   /* Scan the loop body in order, so that the former references precede the
      later ones.  */
@@ -473,19 +496,28 @@ gather_memory_references (struct loop *loop)
       if (bb->loop_father != loop)
 	continue;
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  stmt = bsi_stmt (bsi);
-	  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
-	    continue;
+	  stmt = gsi_stmt (bsi);
 
-	  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-	  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+	  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+	    {
+	      if (gimple_vuse (stmt)
+		  || (is_gimple_call (stmt)
+		      && !(gimple_call_flags (stmt) & ECF_CONST)))
+		*no_other_refs = false;
+	      continue;
+	    }
+
+	  lhs = gimple_assign_lhs (stmt);
+	  rhs = gimple_assign_rhs1 (stmt);
 
 	  if (REFERENCE_CLASS_P (rhs))
-	    gather_memory_references_ref (loop, &refs, rhs, false, stmt);
+	    *no_other_refs &= gather_memory_references_ref (loop, &refs,
+							    rhs, false, stmt);
 	  if (REFERENCE_CLASS_P (lhs))
-	    gather_memory_references_ref (loop, &refs, lhs, true, stmt);
+	    *no_other_refs &= gather_memory_references_ref (loop, &refs,
+							    lhs, true, stmt);
 	}
     }
   free (body);
@@ -746,6 +778,10 @@ should_issue_prefetch_p (struct mem_ref *ref)
   if (ref->prefetch_before != PREFETCH_ALL)
     return false;
 
+  /* Do not prefetch nontemporal stores.  */
+  if (ref->storent_p)
+    return false;
+
   return true;
 }
 
@@ -834,8 +870,9 @@ static void
 issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
 {
   HOST_WIDE_INT delta;
-  tree addr, addr_base, prefetch, write_p, local;
-  block_stmt_iterator bsi;
+  tree addr, addr_base, write_p, local;
+  gimple prefetch;
+  gimple_stmt_iterator bsi;
   unsigned n_prefetches, ap;
   bool nontemporal = ref->reuse_distance >= L2_CACHE_SIZE_BYTES;
 
@@ -844,12 +881,13 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
 	     nontemporal ? " nontemporal" : "",
 	     (void *) ref);
 
-  bsi = bsi_for_stmt (ref->stmt);
+  bsi = gsi_for_stmt (ref->stmt);
 
   n_prefetches = ((unroll_factor + ref->prefetch_mod - 1)
 		  / ref->prefetch_mod);
   addr_base = build_fold_addr_expr_with_type (ref->mem, ptr_type_node);
-  addr_base = force_gimple_operand_bsi (&bsi, unshare_expr (addr_base), true, NULL);
+  addr_base = force_gimple_operand_gsi (&bsi, unshare_expr (addr_base),
+					true, NULL, true, GSI_SAME_STMT);
   write_p = ref->write_p ? integer_one_node : integer_zero_node;
   local = build_int_cst (integer_type_node, nontemporal ? 0 : 3);
 
@@ -857,14 +895,15 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
     {
       /* Determine the address to prefetch.  */
       delta = (ahead + ap * ref->prefetch_mod) * ref->group->step;
-      addr = fold_build2 (PLUS_EXPR, ptr_type_node,
-			  addr_base, build_int_cst (ptr_type_node, delta));
-      addr = force_gimple_operand_bsi (&bsi, unshare_expr (addr), true, NULL);
+      addr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
+			  addr_base, size_int (delta));
+      addr = force_gimple_operand_gsi (&bsi, unshare_expr (addr), true, NULL,
+				       true, GSI_SAME_STMT);
 
       /* Create the prefetch instruction.  */
-      prefetch = build_call_expr (built_in_decls[BUILT_IN_PREFETCH],
-				  3, addr, write_p, local);
-      bsi_insert_before (&bsi, prefetch, BSI_SAME_STMT);
+      prefetch = gimple_build_call (built_in_decls[BUILT_IN_PREFETCH],
+				    3, addr, write_p, local);
+      gsi_insert_before (&bsi, prefetch, GSI_SAME_STMT);
     }
 }
 
@@ -882,6 +921,130 @@ issue_prefetches (struct mem_ref_group *groups,
     for (ref = groups->refs; ref; ref = ref->next)
       if (ref->issue_prefetch_p)
 	issue_prefetch_ref (ref, unroll_factor, ahead);
+}
+
+/* Returns true if REF is a memory write for that a nontemporal store insn
+   can be used.  */
+
+static bool
+nontemporal_store_p (struct mem_ref *ref)
+{
+  enum machine_mode mode;
+  enum insn_code code;
+
+  /* REF must be a write that is not reused.  We require it to be independent
+     on all other memory references in the loop, as the nontemporal stores may
+     be reordered with respect to other memory references.  */
+  if (!ref->write_p
+      || !ref->independent_p
+      || ref->reuse_distance < L2_CACHE_SIZE_BYTES)
+    return false;
+
+  /* Check that we have the storent instruction for the mode.  */
+  mode = TYPE_MODE (TREE_TYPE (ref->mem));
+  if (mode == BLKmode)
+    return false;
+
+  code = optab_handler (storent_optab, mode)->insn_code;
+  return code != CODE_FOR_nothing;
+}
+
+/* If REF is a nontemporal store, we mark the corresponding modify statement
+   and return true.  Otherwise, we return false.  */
+
+static bool
+mark_nontemporal_store (struct mem_ref *ref)
+{
+  if (!nontemporal_store_p (ref))
+    return false;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Marked reference %p as a nontemporal store.\n",
+	     (void *) ref);
+
+  gimple_assign_set_nontemporal_move (ref->stmt, true);
+  ref->storent_p = true;
+
+  return true;
+}
+
+/* Issue a memory fence instruction after LOOP.  */
+
+static void
+emit_mfence_after_loop (struct loop *loop)
+{
+  VEC (edge, heap) *exits = get_loop_exit_edges (loop);
+  edge exit;
+  gimple call;
+  gimple_stmt_iterator bsi;
+  unsigned i;
+
+  for (i = 0; VEC_iterate (edge, exits, i, exit); i++)
+    {
+      call = gimple_build_call (FENCE_FOLLOWING_MOVNT, 0);
+
+      if (!single_pred_p (exit->dest)
+	  /* If possible, we prefer not to insert the fence on other paths
+	     in cfg.  */
+	  && !(exit->flags & EDGE_ABNORMAL))
+	split_loop_exit_edge (exit);
+      bsi = gsi_after_labels (exit->dest);
+
+      gsi_insert_before (&bsi, call, GSI_NEW_STMT);
+      mark_virtual_ops_for_renaming (call);
+    }
+
+  VEC_free (edge, heap, exits);
+  update_ssa (TODO_update_ssa_only_virtuals);
+}
+
+/* Returns true if we can use storent in loop, false otherwise.  */
+
+static bool
+may_use_storent_in_loop_p (struct loop *loop)
+{
+  bool ret = true;
+
+  if (loop->inner != NULL)
+    return false;
+
+  /* If we must issue a mfence insn after using storent, check that there
+     is a suitable place for it at each of the loop exits.  */
+  if (FENCE_FOLLOWING_MOVNT != NULL_TREE)
+    {
+      VEC (edge, heap) *exits = get_loop_exit_edges (loop);
+      unsigned i;
+      edge exit;
+
+      for (i = 0; VEC_iterate (edge, exits, i, exit); i++)
+	if ((exit->flags & EDGE_ABNORMAL)
+	    && exit->dest == EXIT_BLOCK_PTR)
+	  ret = false;
+
+      VEC_free (edge, heap, exits);
+    }
+
+  return ret;
+}
+
+/* Marks nontemporal stores in LOOP.  GROUPS contains the description of memory
+   references in the loop.  */
+
+static void
+mark_nontemporal_stores (struct loop *loop, struct mem_ref_group *groups)
+{
+  struct mem_ref *ref;
+  bool any = false;
+
+  if (!may_use_storent_in_loop_p (loop))
+    return;
+
+  for (; groups; groups = groups->next)
+    for (ref = groups->refs; ref; ref = ref->next)
+      any |= mark_nontemporal_store (ref);
+
+  if (any && FENCE_FOLLOWING_MOVNT != NULL_TREE)
+    emit_mfence_after_loop (loop);
 }
 
 /* Determines whether we can profitably unroll LOOP FACTOR times, and if
@@ -1115,16 +1278,18 @@ self_reuse_distance (data_reference_p dr, unsigned *loop_sizes, unsigned n,
 }
 
 /* Determines the distance till the first reuse of each reference in REFS
-   in the loop nest of LOOP.  */
+   in the loop nest of LOOP.  NO_OTHER_REFS is true if there are no other
+   memory references in the loop.  */
 
 static void
-determine_loop_nest_reuse (struct loop *loop, struct mem_ref_group *refs)
+determine_loop_nest_reuse (struct loop *loop, struct mem_ref_group *refs,
+			   bool no_other_refs)
 {
   struct loop *nest, *aloop;
   VEC (data_reference_p, heap) *datarefs = NULL;
   VEC (ddr_p, heap) *dependences = NULL;
   struct mem_ref_group *gr;
-  struct mem_ref *ref;
+  struct mem_ref *ref, *refb;
   VEC (loop_p, heap) *vloops = NULL;
   unsigned *loop_data_size;
   unsigned i, j, n;
@@ -1174,7 +1339,7 @@ determine_loop_nest_reuse (struct loop *loop, struct mem_ref_group *refs)
     }
 
   /* Prepare the references in the form suitable for data dependence
-     analysis.  We ignore unanalysable data references (the results
+     analysis.  We ignore unanalyzable data references (the results
      are used just as a heuristics to estimate temporality of the
      references, hence we do not need to worry about correctness).  */
   for (gr = refs; gr; gr = gr->next)
@@ -1188,14 +1353,19 @@ determine_loop_nest_reuse (struct loop *loop, struct mem_ref_group *refs)
 	    dr->aux = ref;
 	    VEC_safe_push (data_reference_p, heap, datarefs, dr);
 	  }
+	else
+	  no_other_refs = false;
       }
 
   for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
     {
       dist = self_reuse_distance (dr, loop_data_size, n, loop);
-      ref = dr->aux;
+      ref = (struct mem_ref *) dr->aux;
       if (ref->reuse_distance > dist)
 	ref->reuse_distance = dist;
+
+      if (no_other_refs)
+	ref->independent_p = true;
     }
 
   compute_all_dependences (datarefs, &dependences, vloops, true);
@@ -1205,16 +1375,22 @@ determine_loop_nest_reuse (struct loop *loop, struct mem_ref_group *refs)
       if (DDR_ARE_DEPENDENT (dep) == chrec_known)
 	continue;
 
+      ref = (struct mem_ref *) DDR_A (dep)->aux;
+      refb = (struct mem_ref *) DDR_B (dep)->aux;
+
       if (DDR_ARE_DEPENDENT (dep) == chrec_dont_know
 	  || DDR_NUM_DIST_VECTS (dep) == 0)
 	{
-	  /* If the dependence cannot be analysed, assume that there might be
+	  /* If the dependence cannot be analyzed, assume that there might be
 	     a reuse.  */
 	  dist = 0;
+      
+	  ref->independent_p = false;
+	  refb->independent_p = false;
 	}
       else
 	{
-	  /* The distance vectors are normalised to be always lexicographically
+	  /* The distance vectors are normalized to be always lexicographically
 	     positive, hence we cannot tell just from them whether DDR_A comes
 	     before DDR_B or vice versa.  However, it is not important,
 	     anyway -- if DDR_A is close to DDR_B, then it is either reused in
@@ -1227,6 +1403,18 @@ determine_loop_nest_reuse (struct loop *loop, struct mem_ref_group *refs)
 	    {
 	      adist = volume_of_dist_vector (DDR_DIST_VECT (dep, j),
 					     loop_data_size, n);
+
+	      /* If this is a dependence in the innermost loop (i.e., the
+		 distances in all superloops are zero) and it is not
+		 the trivial self-dependence with distance zero, record that
+		 the references are not completely independent.  */
+	      if (lambda_vector_zerop (DDR_DIST_VECT (dep, j), n - 1)
+		  && (ref != refb
+		      || DDR_DIST_VECT (dep, j)[n-1] != 0))
+		{
+		  ref->independent_p = false;
+		  refb->independent_p = false;
+		}
 
 	      /* Ignore accesses closer than
 		 L1_CACHE_SIZE_BYTES / NONTEMPORAL_FRACTION,
@@ -1241,12 +1429,10 @@ determine_loop_nest_reuse (struct loop *loop, struct mem_ref_group *refs)
 	    }
 	}
 
-      ref = DDR_A (dep)->aux;
       if (ref->reuse_distance > dist)
 	ref->reuse_distance = dist;
-      ref = DDR_B (dep)->aux;
-      if (ref->reuse_distance > dist)
-	ref->reuse_distance = dist;
+      if (refb->reuse_distance > dist)
+	refb->reuse_distance = dist;
     }
 
   free_dependence_relations (dependences);
@@ -1273,9 +1459,9 @@ loop_prefetch_arrays (struct loop *loop)
   unsigned ahead, ninsns, time, unroll_factor;
   HOST_WIDE_INT est_niter;
   struct tree_niter_desc desc;
-  bool unrolled = false;
+  bool unrolled = false, no_other_refs;
 
-  if (!maybe_hot_bb_p (loop->header))
+  if (optimize_loop_nest_for_size_p (loop))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "  ignored (cold area)\n");
@@ -1283,7 +1469,7 @@ loop_prefetch_arrays (struct loop *loop)
     }
 
   /* Step 1: gather the memory references.  */
-  refs = gather_memory_references (loop);
+  refs = gather_memory_references (loop, &no_other_refs);
 
   /* Step 2: estimate the reuse effects.  */
   prune_by_reuse (refs);
@@ -1291,7 +1477,7 @@ loop_prefetch_arrays (struct loop *loop)
   if (!anything_to_prefetch_p (refs))
     goto fail;
 
-  determine_loop_nest_reuse (loop, refs);
+  determine_loop_nest_reuse (loop, refs, no_other_refs);
 
   /* Step 3: determine the ahead and unroll factor.  */
 
@@ -1312,6 +1498,8 @@ loop_prefetch_arrays (struct loop *loop)
 		 (int) est_niter);
       goto fail;
     }
+
+  mark_nontemporal_stores (loop, refs);
 
   ninsns = tree_num_loop_insns (loop, &eni_size_weights);
   unroll_factor = determine_unroll_factor (loop, refs, ninsns, &desc,
@@ -1365,10 +1553,10 @@ tree_ssa_prefetch_arrays (void)
 	       SIMULTANEOUS_PREFETCHES);
       fprintf (dump_file, "    prefetch latency: %d\n", PREFETCH_LATENCY);
       fprintf (dump_file, "    prefetch block size: %d\n", PREFETCH_BLOCK);
-      fprintf (dump_file, "    L1 cache size: %d lines, %d bytes\n",
-	       L1_CACHE_SIZE, L1_CACHE_SIZE_BYTES);
+      fprintf (dump_file, "    L1 cache size: %d lines, %d kB\n",
+	       L1_CACHE_SIZE_BYTES / L1_CACHE_LINE_SIZE, L1_CACHE_SIZE);
       fprintf (dump_file, "    L1 cache line size: %d\n", L1_CACHE_LINE_SIZE);
-      fprintf (dump_file, "    L2 cache size: %d bytes\n", L2_CACHE_SIZE_BYTES);
+      fprintf (dump_file, "    L2 cache size: %d kB\n", L2_CACHE_SIZE);
       fprintf (dump_file, "\n");
     }
 

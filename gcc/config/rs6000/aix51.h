@@ -1,13 +1,14 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX V5.
-   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +17,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -119,6 +119,12 @@ do {									\
 #undef PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT PROCESSOR_PPC604e
 
+/* AIX does not support Altivec.  */
+#undef  TARGET_ALTIVEC
+#define TARGET_ALTIVEC 0
+#undef  TARGET_ALTIVEC_ABI
+#define TARGET_ALTIVEC_ABI 0
+
 /* Define this macro as a C expression for the initializer of an
    array of string to tell the driver program which options are
    defaults for this target and thus do not need to be handled
@@ -180,3 +186,8 @@ do {									\
 
 /* This target uses the aix64.opt file.  */
 #define TARGET_USES_AIX64_OPT 1
+
+/* This target defines SUPPORTS_WEAK and TARGET_ASM_NAMED_SECTION,
+   but does not have crtbegin/end.  */
+
+#define TARGET_USE_JCR_SECTION 0

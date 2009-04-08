@@ -1,12 +1,12 @@
 /* Sign extension elimination optimization for GNU compiler.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Leehod Baruch <leehod@il.ibm.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
--Software Foundation; either version 2, or (at your option) any later
+-Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Problem description:
 --------------------
@@ -479,6 +478,7 @@ The implementation consists of four data structures:
 #include "regs.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "dce.h"
 
 /* Used to classify defs and uses according to relevancy.  */
 enum entry_type {
@@ -611,9 +611,6 @@ struct see_mentioned_reg_data
   bool mentioned;
 };
 
-/* A data flow object that will be created once and used throughout the
-   optimization.  */
-static struct df *df = NULL;
 /* An array of web_entries.  The i'th definition in the df object is associated
    with def_entry[i]  */
 static struct web_entry *def_entry = NULL;
@@ -715,13 +712,13 @@ see_get_extension_reg (rtx extension, bool return_dest_reg)
     Otherwise, set SOURCE_MODE to be the mode of the extended expr and return
     the rtx code of the extension.  */
 
-static enum rtx_code
+static enum entry_type
 see_get_extension_data (rtx extension, enum machine_mode *source_mode)
 {
   rtx rhs, lhs, set;
 
   if (!extension || !INSN_P (extension))
-    return UNKNOWN;
+    return NOT_RELEVANT;
 
   /* Parallel pattern for extension not supported for the moment.  */
   if (GET_CODE (PATTERN (extension)) == PARALLEL)
@@ -735,22 +732,22 @@ see_get_extension_data (rtx extension, enum machine_mode *source_mode)
 
   /* Don't handle extensions to something other then register or
      subregister.  */
-  if (!REG_P (lhs) && !SUBREG_REG (lhs))
-    return UNKNOWN;
+  if (!REG_P (lhs) && GET_CODE (lhs) != SUBREG)
+    return NOT_RELEVANT;
 
   if (GET_CODE (rhs) != SIGN_EXTEND && GET_CODE (rhs) != ZERO_EXTEND)
-    return UNKNOWN;
+    return NOT_RELEVANT;
 
   if (!REG_P (XEXP (rhs, 0))
       && !(GET_CODE (XEXP (rhs, 0)) == SUBREG
 	   && REG_P (SUBREG_REG (XEXP (rhs, 0)))))
-    return UNKNOWN;
+    return NOT_RELEVANT;
 
   *source_mode = GET_MODE (XEXP (rhs, 0));
 
   if (GET_CODE (rhs) == SIGN_EXTEND)
-    return SIGN_EXTEND;
-  return ZERO_EXTEND;
+    return SIGN_EXTENDED_DEF;
+  return ZERO_EXTENDED_DEF;
 }
 
 
@@ -763,7 +760,7 @@ see_get_extension_data (rtx extension, enum machine_mode *source_mode)
    Otherwise, return the generated instruction.  */
 
 static rtx
-see_gen_normalized_extension (rtx reg, enum rtx_code extension_code,
+see_gen_normalized_extension (rtx reg, enum entry_type extension_code,
    			      enum machine_mode mode)
 {
   rtx subreg, insn;
@@ -771,11 +768,12 @@ see_gen_normalized_extension (rtx reg, enum rtx_code extension_code,
 
   if (!reg
       || !REG_P (reg)
-      || (extension_code != SIGN_EXTEND && extension_code != ZERO_EXTEND))
+      || (extension_code != SIGN_EXTENDED_DEF
+          && extension_code != ZERO_EXTENDED_DEF))
     return NULL;
 
   subreg = gen_lowpart_SUBREG (mode, reg);
-  if (extension_code == SIGN_EXTEND)
+  if (extension_code == SIGN_EXTENDED_DEF)
     extension = gen_rtx_SIGN_EXTEND (GET_MODE (reg), subreg);
   else
     extension = gen_rtx_ZERO_EXTEND (GET_MODE (reg), subreg);
@@ -810,8 +808,10 @@ see_gen_normalized_extension (rtx reg, enum rtx_code extension_code,
 static int
 eq_descriptor_pre_extension (const void *p1, const void *p2)
 {
-  const struct see_pre_extension_expr *extension1 = p1;
-  const struct see_pre_extension_expr *extension2 = p2;
+  const struct see_pre_extension_expr *const extension1 =
+    (const struct see_pre_extension_expr *) p1;
+  const struct see_pre_extension_expr *const extension2 =
+    (const struct see_pre_extension_expr *) p2;
   rtx set1 = single_set (extension1->se_insn);
   rtx set2 = single_set (extension2->se_insn);
   rtx rhs1, rhs2;
@@ -831,7 +831,8 @@ eq_descriptor_pre_extension (const void *p1, const void *p2)
 static hashval_t
 hash_descriptor_pre_extension (const void *p)
 {
-  const struct see_pre_extension_expr *extension = p;
+  const struct see_pre_extension_expr *const extension =
+    (const struct see_pre_extension_expr *) p;
   rtx set = single_set (extension->se_insn);
   rtx rhs;
 
@@ -849,7 +850,8 @@ hash_descriptor_pre_extension (const void *p)
 static void
 hash_del_pre_extension (void *p)
 {
-  struct see_pre_extension_expr *extension = p;
+  struct see_pre_extension_expr *const extension =
+    (struct see_pre_extension_expr *) p;
   struct see_occr *curr_occr = extension->antic_occr;
   struct see_occr *next_occr = NULL;
 
@@ -887,8 +889,10 @@ hash_del_pre_extension (void *p)
 static int
 eq_descriptor_properties (const void *p1, const void *p2)
 {
-  const struct see_register_properties *curr_prop1 = p1;
-  const struct see_register_properties *curr_prop2 = p2;
+  const struct see_register_properties *const curr_prop1 =
+    (const struct see_register_properties *) p1;
+  const struct see_register_properties *const curr_prop2 =
+    (const struct see_register_properties *) p2;
 
   return curr_prop1->regno == curr_prop2->regno;
 }
@@ -900,7 +904,8 @@ eq_descriptor_properties (const void *p1, const void *p2)
 static hashval_t
 hash_descriptor_properties (const void *p)
 {
-  const struct see_register_properties *curr_prop = p;
+  const struct see_register_properties *const curr_prop =
+    (const struct see_register_properties *) p;
   return curr_prop->regno;
 }
 
@@ -909,7 +914,8 @@ hash_descriptor_properties (const void *p)
 static void
 hash_del_properties (void *p)
 {
-  struct see_register_properties *curr_prop = p;
+  struct see_register_properties *const curr_prop =
+    (struct see_register_properties *) p;
   free (curr_prop);
 }
 
@@ -935,12 +941,12 @@ hash_del_properties (void *p)
 static int
 eq_descriptor_extension (const void *p1, const void *p2)
 {
-  const rtx insn = (rtx) p1;
-  const rtx element = (rtx) p2;
+  const_rtx const insn = (const_rtx) p1;
+  const_rtx const element = (const_rtx) p2;
   rtx set1 = single_set (insn);
   rtx dest_reg1;
   rtx set2 = NULL;
-  rtx dest_reg2 = NULL;
+  const_rtx dest_reg2 = NULL;
 
   gcc_assert (set1 && element && (REG_P (element) || INSN_P (element)));
 
@@ -964,7 +970,7 @@ eq_descriptor_extension (const void *p1, const void *p2)
 static hashval_t
 hash_descriptor_extension (const void *p)
 {
-  const rtx r = (rtx) p;
+  const_rtx const r = (const_rtx) p;
   rtx set, lhs;
 
   if (r && REG_P (r))
@@ -1014,14 +1020,14 @@ see_seek_pre_extension_expr (rtx extension, enum extension_type type)
 {
   struct see_pre_extension_expr **slot_pre_exp, temp_pre_exp;
   rtx dest_extension_reg = see_get_extension_reg (extension, 1);
-  enum rtx_code extension_code;
+  enum entry_type extension_code;
   enum machine_mode source_extension_mode;
 
   if (type == DEF_EXTENSION)
     {
       extension_code = see_get_extension_data (extension,
 					       &source_extension_mode);
-      gcc_assert (extension_code != UNKNOWN);
+      gcc_assert (extension_code != NOT_RELEVANT);
       extension =
 	see_gen_normalized_extension (dest_extension_reg, extension_code,
 				      source_extension_mode);
@@ -1034,7 +1040,7 @@ see_seek_pre_extension_expr (rtx extension, enum extension_type type)
     /* This is the first time this extension instruction is encountered.  Store
        it in the hash.  */
     {
-      (*slot_pre_exp) = xmalloc (sizeof (struct see_pre_extension_expr));
+      (*slot_pre_exp) = XNEW (struct see_pre_extension_expr);
       (*slot_pre_exp)->se_insn = extension;
       (*slot_pre_exp)->bitmap_index =
 	(htab_elements (see_pre_extension_hash) - 1);
@@ -1256,7 +1262,7 @@ see_update_leader_extra_info (struct web_entry *first, struct web_entry *second)
 	}
       break;
     default:
-      /* Unknown patern type.  */
+      /* Unknown pattern type.  */
       gcc_unreachable ();
     }
 
@@ -1330,33 +1336,41 @@ see_free_data_structures (void)
 static void
 see_initialize_data_structures (void)
 {
+  unsigned int max_reg = max_reg_num ();
+  unsigned int i;
+
   /* Build the df object. */
-  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES | DF_SUBREGS);
-  df_rd_add_problem (df, 0);
-  df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
-  df_analyze (df);
+  df_set_flags (DF_EQ_NOTES);
+  df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
+  df_analyze ();
+  df_set_flags (DF_DEFER_INSN_RESCAN);
 
   if (dump_file)
-    df_dump (df, dump_file);
+    df_dump (dump_file);
 
   /* Record the last basic block at the beginning of the optimization.  */
   last_bb = last_basic_block;
-  /* Record the number of uses at the beginning of the optimization.  */
-  uses_num = DF_USES_SIZE (df);
-  /* Record the number of definitions at the beginning of the optimization.  */
-  defs_num = DF_DEFS_SIZE (df);
+
+  /* Record the number of uses and defs at the beginning of the optimization.  */
+  uses_num = 0;
+  defs_num = 0;
+  for (i = 0; i < max_reg; i++) 
+    {
+      uses_num += DF_REG_USE_COUNT (i) + DF_REG_EQ_USE_COUNT (i);
+      defs_num += DF_REG_DEF_COUNT (i);
+    }
 
   /*  Allocate web entries array for the union-find data structure.  */
-  def_entry = xcalloc (defs_num, sizeof (struct web_entry));
-  use_entry = xcalloc (uses_num, sizeof (struct web_entry));
+  def_entry = XCNEWVEC (struct web_entry, defs_num);
+  use_entry = XCNEWVEC (struct web_entry, uses_num);
 
   /*  Allocate an array of splay trees.
       One splay tree for each basic block.  */
-  see_bb_splay_ar = xcalloc (last_bb, sizeof (splay_tree));
+  see_bb_splay_ar = XCNEWVEC (splay_tree, last_bb);
 
   /*  Allocate an array of hashes.
       One hash for each basic block.  */
-  see_bb_hash_ar = xcalloc (last_bb, sizeof (htab_t));
+  see_bb_hash_ar = XCNEWVEC (htab_t, last_bb);
 
   /*  Allocate the extension hash.  It will hold the extensions that we want
       to PRE.  */
@@ -1473,7 +1487,8 @@ see_want_to_be_merged_with_extension (rtx ref, rtx extension,
 static int
 see_print_register_properties (void **slot, void *b ATTRIBUTE_UNUSED)
 {
-  struct see_register_properties *prop = *slot;
+  const struct see_register_properties *const prop =
+    (const struct see_register_properties *) *slot;
 
   gcc_assert (prop);
   fprintf (dump_file, "Property found for register %d\n", prop->regno);
@@ -1490,7 +1505,8 @@ see_print_register_properties (void **slot, void *b ATTRIBUTE_UNUSED)
 static int
 see_print_pre_extension_expr (void **slot, void *b ATTRIBUTE_UNUSED)
 {
-  struct see_pre_extension_expr *pre_extension = *slot;
+  const struct see_pre_extension_expr *const pre_extension =
+    (const struct see_pre_extension_expr *) *slot;
 
   gcc_assert (pre_extension
   	      && pre_extension->se_insn
@@ -1515,7 +1531,7 @@ see_print_pre_extension_expr (void **slot, void *b ATTRIBUTE_UNUSED)
 static int
 see_delete_merged_def_extension (void **slot, void *b ATTRIBUTE_UNUSED)
 {
-  rtx def_se = *slot;
+  rtx def_se = (rtx) *slot;
 
   if (dump_file)
     {
@@ -1543,7 +1559,7 @@ see_delete_merged_def_extension (void **slot, void *b ATTRIBUTE_UNUSED)
 static int
 see_delete_unmerged_def_extension (void **slot, void *b ATTRIBUTE_UNUSED)
 {
-  rtx def_se = *slot;
+  rtx def_se = (rtx) *slot;
 
   if (dump_file)
     {
@@ -1566,7 +1582,7 @@ see_delete_unmerged_def_extension (void **slot, void *b ATTRIBUTE_UNUSED)
 static int
 see_emit_use_extension (void **slot, void *b)
 {
-  rtx use_se = *slot;
+  rtx use_se = (rtx) *slot;
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
 
   if (INSN_DELETED_P (use_se))
@@ -1580,7 +1596,7 @@ see_emit_use_extension (void **slot, void *b)
       print_rtl_single (dump_file, use_se);
     }
 
-  add_insn_before (use_se, curr_ref_s->insn);
+  add_insn_before (use_se, curr_ref_s->insn, NULL);
 
   return 1;
 }
@@ -1681,7 +1697,7 @@ see_pre_insert_extensions (struct see_pre_extension_expr **index_map)
 		edge eg = INDEX_EDGE (edge_list, e);
 
 		start_sequence ();
-		emit_insn (PATTERN (expr->se_insn));
+		emit_insn (copy_insn (PATTERN (expr->se_insn)));
 		se_insn = get_insns ();
 		end_sequence ();
 
@@ -1732,7 +1748,8 @@ see_pre_insert_extensions (struct see_pre_extension_expr **index_map)
 static int
 see_pre_delete_extension (void **slot, void *b ATTRIBUTE_UNUSED)
 {
-  struct see_pre_extension_expr *expr = *slot;
+  struct see_pre_extension_expr *const expr =
+    (struct see_pre_extension_expr *) *slot;
   struct see_occr *occr;
   int indx = expr->bitmap_index;
 
@@ -1763,8 +1780,9 @@ see_pre_delete_extension (void **slot, void *b ATTRIBUTE_UNUSED)
 static int
 see_map_extension (void **slot, void *b)
 {
-  struct see_pre_extension_expr *expr = *slot;
-  struct see_pre_extension_expr **index_map =
+  struct see_pre_extension_expr *const expr =
+    (struct see_pre_extension_expr *) *slot;
+  struct see_pre_extension_expr **const index_map =
     (struct see_pre_extension_expr **) b;
 
   index_map[expr->bitmap_index] = expr;
@@ -1787,8 +1805,7 @@ see_commit_changes (void)
   bool did_insert = false;
   int i;
 
-  index_map = xcalloc (pre_extension_num,
-  		       sizeof (struct see_pre_extension_expr *));
+  index_map = XCNEWVEC (struct see_pre_extension_expr *, pre_extension_num);
 
   if (dump_file)
     fprintf (dump_file,
@@ -1800,11 +1817,6 @@ see_commit_changes (void)
   /* Delete redundant extension.  This will prevent them from been emitted in
      the first place.  */
   htab_traverse (see_pre_extension_hash, see_pre_delete_extension, NULL);
-
-  /* At this point, we must free the DF object, since the number of basic blocks
-     may change.  */
-  df_finish (df);
-  df = NULL;
 
   /* Insert extensions on edges, according to the LCM result.  */
   did_insert = see_pre_insert_extensions (index_map);
@@ -1842,7 +1854,7 @@ see_commit_changes (void)
 static int
 see_analyze_merged_def_local_prop (void **slot, void *b)
 {
-  rtx def_se = *slot;
+  rtx def_se = (rtx) *slot;
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
   rtx ref = curr_ref_s->insn;
   struct see_pre_extension_expr *extension_expr;
@@ -1875,12 +1887,12 @@ see_analyze_merged_def_local_prop (void **slot, void *b)
   /* Reset the killed bit.  */
   RESET_BIT (ae_kill[bb_num], indx);
 
-  if (curr_prop->first_se_after_last_def == DF_INSN_LUID (df, ref))
+  if (curr_prop->first_se_after_last_def == DF_INSN_LUID (ref))
     {
       /* Set the available bit.  */
       SET_BIT (comp[bb_num], indx);
       /* Record the available occurrence.  */
-      curr_occr = xmalloc (sizeof (struct see_occr));
+      curr_occr = XNEW (struct see_occr);
       curr_occr->next = NULL;
       curr_occr->insn = def_se;
       curr_occr->block_num = bb_num;
@@ -1910,7 +1922,7 @@ see_analyze_merged_def_local_prop (void **slot, void *b)
 static int
 see_analyze_unmerged_def_local_prop (void **slot, void *b)
 {
-  rtx def_se = *slot;
+  rtx def_se = (rtx) *slot;
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
   rtx ref = curr_ref_s->insn;
   struct see_pre_extension_expr *extension_expr;
@@ -1945,7 +1957,7 @@ see_analyze_unmerged_def_local_prop (void **slot, void *b)
 }
 
 
-/* Analyze the properties of a use extension for the LCM and record anic and
+/* Analyze the properties of a use extension for the LCM and record any and
    avail occurrences.
 
    This is a subroutine of see_analyze_ref_local_prop called
@@ -1958,7 +1970,7 @@ static int
 see_analyze_use_local_prop (void **slot, void *b)
 {
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
-  rtx use_se = *slot;
+  rtx use_se = (rtx) *slot;
   rtx ref = curr_ref_s->insn;
   rtx dest_extension_reg = see_get_extension_reg (use_se, 1);
   struct see_pre_extension_expr *extension_expr;
@@ -1985,12 +1997,12 @@ see_analyze_use_local_prop (void **slot, void *b)
 
   indx = extension_expr->bitmap_index;
 
-  if (curr_prop->first_se_before_any_def == DF_INSN_LUID (df, ref))
+  if (curr_prop->first_se_before_any_def == DF_INSN_LUID (ref))
     {
       /* Set the anticipatable bit.  */
       SET_BIT (antloc[bb_num], indx);
       /* Record the anticipatable occurrence.  */
-      curr_occr = xmalloc (sizeof (struct see_occr));
+      curr_occr = XNEW (struct see_occr);
       curr_occr->next = NULL;
       curr_occr->insn = use_se;
       curr_occr->block_num = bb_num;
@@ -2008,7 +2020,7 @@ see_analyze_use_local_prop (void **slot, void *b)
 	  /* Set the available bit.  */
 	  SET_BIT (comp[bb_num], indx);
 	  /* Record the available occurrence.  */
-	  curr_occr = xmalloc (sizeof (struct see_occr));
+	  curr_occr = XNEW (struct see_occr);
 	  curr_occr->next = NULL;
 	  curr_occr->insn = use_se;
 	  curr_occr->block_num = bb_num;
@@ -2025,14 +2037,14 @@ see_analyze_use_local_prop (void **slot, void *b)
       /* Note: there is no need to reset the killed bit since it must be zero at
 	 this point.  */
     }
-  else if (curr_prop->first_se_after_last_def == DF_INSN_LUID (df, ref))
+  else if (curr_prop->first_se_after_last_def == DF_INSN_LUID (ref))
     {
       /* Set the available bit.  */
       SET_BIT (comp[bb_num], indx);
       /* Reset the killed bit.  */
       RESET_BIT (ae_kill[bb_num], indx);
       /* Record the available occurrence.  */
-      curr_occr = xmalloc (sizeof (struct see_occr));
+      curr_occr = XNEW (struct see_occr);
       curr_occr->next = NULL;
       curr_occr->insn = use_se;
       curr_occr->block_num = bb_num;
@@ -2155,7 +2167,7 @@ see_execute_LCM (void)
 static int
 see_set_prop_merged_def (void **slot, void *b)
 {
-  rtx def_se = *slot;
+  rtx def_se = (rtx) *slot;
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
   rtx insn = curr_ref_s->insn;
   rtx dest_extension_reg = see_get_extension_reg (def_se, 1);
@@ -2163,7 +2175,7 @@ see_set_prop_merged_def (void **slot, void *b)
   struct see_register_properties *curr_prop = NULL;
   struct see_register_properties **slot_prop;
   struct see_register_properties temp_prop;
-  int ref_luid = DF_INSN_LUID (df, insn);
+  int ref_luid = DF_INSN_LUID (insn);
 
   curr_bb_hash = see_bb_hash_ar[BLOCK_NUM (curr_ref_s->insn)];
   if (!curr_bb_hash)
@@ -2194,7 +2206,7 @@ see_set_prop_merged_def (void **slot, void *b)
   else
     {
       /* Property doesn't exist yet.  */
-      curr_prop = xmalloc (sizeof (struct see_register_properties));
+      curr_prop = XNEW (struct see_register_properties);
       curr_prop->regno = REGNO (dest_extension_reg);
       curr_prop->last_def = ref_luid;
       curr_prop->first_se_before_any_def = -1;
@@ -2226,7 +2238,7 @@ see_set_prop_merged_def (void **slot, void *b)
 static int
 see_set_prop_unmerged_def (void **slot, void *b)
 {
-  rtx def_se = *slot;
+  rtx def_se = (rtx) *slot;
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
   rtx insn = curr_ref_s->insn;
   rtx dest_extension_reg = see_get_extension_reg (def_se, 1);
@@ -2234,7 +2246,7 @@ see_set_prop_unmerged_def (void **slot, void *b)
   struct see_register_properties *curr_prop = NULL;
   struct see_register_properties **slot_prop;
   struct see_register_properties temp_prop;
-  int ref_luid = DF_INSN_LUID (df, insn);
+  int ref_luid = DF_INSN_LUID (insn);
 
   curr_bb_hash = see_bb_hash_ar[BLOCK_NUM (curr_ref_s->insn)];
   if (!curr_bb_hash)
@@ -2265,7 +2277,7 @@ see_set_prop_unmerged_def (void **slot, void *b)
   else
     {
       /* Property doesn't exist yet.  */
-      curr_prop = xmalloc (sizeof (struct see_register_properties));
+      curr_prop = XNEW (struct see_register_properties);
       curr_prop->regno = REGNO (dest_extension_reg);
       curr_prop->last_def = ref_luid;
       curr_prop->first_se_before_any_def = -1;
@@ -2299,7 +2311,7 @@ see_set_prop_unmerged_def (void **slot, void *b)
 static int
 see_set_prop_unmerged_use (void **slot, void *b)
 {
-  rtx use_se = *slot;
+  rtx use_se = (rtx) *slot;
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
   rtx insn = curr_ref_s->insn;
   rtx dest_extension_reg = see_get_extension_reg (use_se, 1);
@@ -2308,7 +2320,7 @@ see_set_prop_unmerged_use (void **slot, void *b)
   struct see_register_properties **slot_prop;
   struct see_register_properties temp_prop;
   bool locally_redundant = false;
-  int ref_luid = DF_INSN_LUID (df, insn);
+  int ref_luid = DF_INSN_LUID (insn);
 
   curr_bb_hash = see_bb_hash_ar[BLOCK_NUM (curr_ref_s->insn)];
   if (!curr_bb_hash)
@@ -2359,7 +2371,7 @@ see_set_prop_unmerged_use (void **slot, void *b)
   else
     {
       /* Property doesn't exist yet.  Create a new one.  */
-      curr_prop = xmalloc (sizeof (struct see_register_properties));
+      curr_prop = XNEW (struct see_register_properties);
       curr_prop->regno = REGNO (dest_extension_reg);
       curr_prop->last_def = -1;
       curr_prop->first_se_before_any_def = ref_luid;
@@ -2389,7 +2401,7 @@ see_set_prop_unmerged_use (void **slot, void *b)
 static int
 see_print_one_extension (void **slot, void *b ATTRIBUTE_UNUSED)
 {
-  rtx def_se = *slot;
+  rtx def_se = (rtx) *slot;
 
   gcc_assert (def_se && INSN_P (def_se));
   print_rtl_single (dump_file, def_se);
@@ -2409,6 +2421,41 @@ see_replace_src (rtx *x, void *data)
     = (struct see_replace_data *) data;
 
   *x = replace_rtx (*x, d->from, d->to);
+}
+
+
+static rtx
+see_copy_insn (rtx insn)
+{
+  rtx pat = copy_insn (PATTERN (insn)), ret;
+
+  if (NONJUMP_INSN_P (insn))
+    ret = make_insn_raw (pat);
+  else if (JUMP_P (insn))
+    ret = make_jump_insn_raw (pat);
+  else if (CALL_P (insn))
+    {
+      start_sequence ();
+      ret = emit_call_insn (pat);
+      end_sequence ();
+      if (CALL_INSN_FUNCTION_USAGE (insn))
+	CALL_INSN_FUNCTION_USAGE (ret)
+	  = copy_rtx (CALL_INSN_FUNCTION_USAGE (insn));
+      SIBLING_CALL_P (ret) = SIBLING_CALL_P (insn);
+      RTL_CONST_CALL_P (ret) = RTL_CONST_CALL_P (insn);
+      RTL_PURE_CALL_P (ret) = RTL_PURE_CALL_P (insn);
+      RTL_LOOPING_CONST_OR_PURE_CALL_P (ret) 
+	= RTL_LOOPING_CONST_OR_PURE_CALL_P (insn);
+    }
+  else
+    gcc_unreachable ();
+  if (REG_NOTES (insn))
+    REG_NOTES (ret) = copy_rtx (REG_NOTES (insn));
+  INSN_LOCATOR (ret) = INSN_LOCATOR (insn);
+  RTX_FRAME_RELATED_P (ret) = RTX_FRAME_RELATED_P (insn);
+  PREV_INSN (ret) = NULL_RTX;
+  NEXT_INSN (ret) = NULL_RTX;
+  return ret;
 }
 
 
@@ -2443,14 +2490,13 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
   struct see_replace_data d;
   /* If the original insn was already merged with an extension before,
      take the merged one.  */
-  rtx ref = (curr_ref_s->merged_insn) ? curr_ref_s->merged_insn :
-					curr_ref_s->insn;
-  rtx merged_ref_next = (curr_ref_s->merged_insn) ?
-  			NEXT_INSN (curr_ref_s->merged_insn): NULL_RTX;
-  rtx ref_copy = copy_rtx (ref);
+  rtx ref = curr_ref_s->merged_insn
+	    ? curr_ref_s->merged_insn : curr_ref_s->insn;
+  rtx merged_ref_next = curr_ref_s->merged_insn
+			? NEXT_INSN (curr_ref_s->merged_insn) : NULL_RTX;
+  rtx ref_copy = see_copy_insn (ref);
   rtx source_extension_reg = see_get_extension_reg (def_se, 0);
   rtx dest_extension_reg = see_get_extension_reg (def_se, 1);
-  rtx move_insn = NULL;
   rtx set, rhs;
   rtx dest_reg, dest_real_reg;
   rtx new_pseudo_reg, subreg;
@@ -2477,7 +2523,7 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
   d.to = new_pseudo_reg;
   note_uses (&PATTERN (ref_copy), see_replace_src, &d);
   /* Step b: Replace every instance of dest_reg with the subreg.  */
-  ref_copy = replace_rtx (ref_copy, dest_reg, subreg);
+  ref_copy = replace_rtx (ref_copy, dest_reg, copy_rtx (subreg));
 
   /* Step c: Replace every use of the new pseudo register back to
      dest_real_reg.  */
@@ -2489,25 +2535,22 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
       || insn_invalid_p (ref_copy))
     {
       /* The manipulation failed.  */
+      df_insn_delete (NULL, INSN_UID (ref_copy));
 
       /* Create a new copy.  */
-      ref_copy = copy_rtx (ref);
+      ref_copy = see_copy_insn (ref);
+
+      if (curr_ref_s->merged_insn)
+        df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
 
       /* Create a simple move instruction that will replace the def_se.  */
       start_sequence ();
+      emit_insn (ref_copy);
       emit_move_insn (subreg, dest_reg);
-      move_insn = get_insns ();
-      end_sequence ();
-
-      /* Link the manipulated instruction to the newly created move instruction
-	 and to the former created move instructions.  */
-      PREV_INSN (ref_copy) = NULL_RTX;
-      NEXT_INSN (ref_copy) = move_insn;
-      PREV_INSN (move_insn) = ref_copy;
-      NEXT_INSN (move_insn) = merged_ref_next;
       if (merged_ref_next != NULL_RTX)
-	PREV_INSN (merged_ref_next) = move_insn;
-      curr_ref_s->merged_insn = ref_copy;
+	emit_insn (merged_ref_next);
+      curr_ref_s->merged_insn = get_insns ();
+      end_sequence ();
 
       if (dump_file)
 	{
@@ -2516,31 +2559,38 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
 	  fprintf (dump_file, "Original ref:\n");
 	  print_rtl_single (dump_file, ref);
 	  fprintf (dump_file, "Move insn that was added:\n");
-	  print_rtl_single (dump_file, move_insn);
+	  print_rtl_single (dump_file, NEXT_INSN (curr_ref_s->merged_insn));
 	}
       return;
     }
 
   /* The manipulation succeeded.  Store the new manipulated reference.  */
 
+  /* It is possible for dest_reg to appear multiple times in ref_copy. In this
+     case, ref_copy now has invalid sharing. Copying solves the problem.
+     We don't use copy_rtx as an optimization for the common case (no sharing).
+     We can't just use copy_rtx_if_shared since it does nothing on INSNs.
+     Another possible solution would be to make validate_replace_rtx_1
+     public and use it instead of replace_rtx. */
+  reset_used_flags (PATTERN (ref_copy));
+  reset_used_flags (REG_NOTES (ref_copy));
+  PATTERN (ref_copy) = copy_rtx_if_shared (PATTERN (ref_copy));
+  REG_NOTES (ref_copy) = copy_rtx_if_shared (REG_NOTES (ref_copy));
+
   /* Try to simplify the new manipulated insn.  */
   validate_simplify_insn (ref_copy);
 
+  if (curr_ref_s->merged_insn)
+    df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
+
   /* Create a simple move instruction to assure the correctness of the code.  */
   start_sequence ();
+  emit_insn (ref_copy);
   emit_move_insn (dest_reg, subreg);
-  move_insn = get_insns ();
-  end_sequence ();
-
-  /* Link the manipulated instruction to the newly created move instruction and
-     to the former created move instructions.  */
-  PREV_INSN (ref_copy) = NULL_RTX;
-  NEXT_INSN (ref_copy) = move_insn;
-  PREV_INSN (move_insn) = ref_copy;
-  NEXT_INSN (move_insn) = merged_ref_next;
   if (merged_ref_next != NULL_RTX)
-    PREV_INSN (merged_ref_next) = move_insn;
-  curr_ref_s->merged_insn = ref_copy;
+    emit_insn (merged_ref_next);
+  curr_ref_s->merged_insn = get_insns ();
+  end_sequence ();
 
   if (dump_file)
     {
@@ -2548,9 +2598,9 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
       fprintf (dump_file, "Original ref:\n");
       print_rtl_single (dump_file, ref);
       fprintf (dump_file, "Transformed ref:\n");
-      print_rtl_single (dump_file, ref_copy);
+      print_rtl_single (dump_file, curr_ref_s->merged_insn);
       fprintf (dump_file, "Move insn that was added:\n");
-      print_rtl_single (dump_file, move_insn);
+      print_rtl_single (dump_file, NEXT_INSN (curr_ref_s->merged_insn));
     }
 }
 
@@ -2581,12 +2631,12 @@ static int
 see_merge_one_use_extension (void **slot, void *b)
 {
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
-  rtx use_se = *slot;
-  rtx ref = (curr_ref_s->merged_insn) ? curr_ref_s->merged_insn :
-					curr_ref_s->insn;
-  rtx merged_ref_next = (curr_ref_s->merged_insn) ?
-  			NEXT_INSN (curr_ref_s->merged_insn): NULL_RTX;
-  rtx ref_copy = copy_rtx (ref);
+  rtx use_se = (rtx) *slot;
+  rtx ref = curr_ref_s->merged_insn
+	    ? curr_ref_s->merged_insn : curr_ref_s->insn;
+  rtx merged_ref_next = curr_ref_s->merged_insn
+			? NEXT_INSN (curr_ref_s->merged_insn) : NULL_RTX;
+  rtx ref_copy = see_copy_insn (ref);
   rtx extension_set = single_set (use_se);
   rtx extension_rhs = NULL;
   rtx dest_extension_reg = see_get_extension_reg (use_se, 1);
@@ -2626,6 +2676,7 @@ see_merge_one_use_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, use_se);
 	  print_rtl_single (dump_file, ref);
 	}
+      df_insn_delete (NULL, INSN_UID (ref_copy));
       /* Don't remove the current use_se from the use_se_hash and continue to
 	 the next extension.  */
       return 1;
@@ -2644,11 +2695,20 @@ see_merge_one_use_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, ref);
 	}
       htab_clear_slot (curr_ref_s->use_se_hash, (PTR *)slot);
-      PREV_INSN (ref_copy) = NULL_RTX;
-      NEXT_INSN (ref_copy) = merged_ref_next;
+
+      if (curr_ref_s->merged_insn)
+	df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
+
       if (merged_ref_next != NULL_RTX)
-	PREV_INSN (merged_ref_next) = ref_copy;
-      curr_ref_s->merged_insn = ref_copy;
+	{
+	  start_sequence ();
+	  emit_insn (ref_copy);
+	  emit_insn (merged_ref_next);
+	  curr_ref_s->merged_insn = get_insns ();
+	  end_sequence ();
+	}
+      else
+	curr_ref_s->merged_insn = ref_copy;
       return 1;
     }
 
@@ -2662,6 +2722,7 @@ see_merge_one_use_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, use_se);
 	  print_rtl_single (dump_file, ref);
 	}
+      df_insn_delete (NULL, INSN_UID (ref_copy));
       /* Don't remove the current use_se from the use_se_hash and continue to
 	 the next extension.  */
       return 1;
@@ -2672,11 +2733,19 @@ see_merge_one_use_extension (void **slot, void *b)
   /* Try to simplify the new merged insn.  */
   validate_simplify_insn (ref_copy);
 
-  PREV_INSN (ref_copy) = NULL_RTX;
-  NEXT_INSN (ref_copy) = merged_ref_next;
+  if (curr_ref_s->merged_insn)
+    df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
+
   if (merged_ref_next != NULL_RTX)
-    PREV_INSN (merged_ref_next) = ref_copy;
-  curr_ref_s->merged_insn = ref_copy;
+    {
+      start_sequence ();
+      emit_insn (ref_copy);
+      emit_insn (merged_ref_next);
+      curr_ref_s->merged_insn = get_insns ();
+      end_sequence ();
+    }
+  else
+    curr_ref_s->merged_insn = ref_copy;
 
   if (dump_file)
     {
@@ -2685,7 +2754,7 @@ see_merge_one_use_extension (void **slot, void *b)
       print_rtl_single (dump_file, use_se);
       print_rtl_single (dump_file, ref);
       fprintf (dump_file, "Merged instruction:\n");
-      print_rtl_single (dump_file, ref_copy);
+      print_rtl_single (dump_file, curr_ref_s->merged_insn);
     }
 
   /* Remove the current use_se from the use_se_hash.  This will prevent it from
@@ -2723,25 +2792,25 @@ static int
 see_merge_one_def_extension (void **slot, void *b)
 {
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
-  rtx def_se = *slot;
+  rtx def_se = (rtx) *slot;
   /* If the original insn was already merged with an extension before,
      take the merged one.  */
-  rtx ref = (curr_ref_s->merged_insn) ? curr_ref_s->merged_insn :
-					curr_ref_s->insn;
-  rtx merged_ref_next = (curr_ref_s->merged_insn) ?
-  			NEXT_INSN (curr_ref_s->merged_insn): NULL_RTX;
-  rtx ref_copy = copy_rtx (ref);
+  rtx ref = curr_ref_s->merged_insn
+	    ? curr_ref_s->merged_insn : curr_ref_s->insn;
+  rtx merged_ref_next = curr_ref_s->merged_insn
+			? NEXT_INSN (curr_ref_s->merged_insn) : NULL_RTX;
+  rtx ref_copy = see_copy_insn (ref);
   rtx new_set = NULL;
   rtx source_extension_reg = see_get_extension_reg (def_se, 0);
   rtx dest_extension_reg = see_get_extension_reg (def_se, 1);
-  rtx move_insn, *rtx_slot, subreg;
+  rtx *rtx_slot, subreg;
   rtx temp_extension = NULL;
   rtx simplified_temp_extension = NULL;
   rtx *pat;
   enum rtx_code code;
-  enum rtx_code extension_code;
+  enum entry_type extension_code;
   enum machine_mode source_extension_mode;
-  enum machine_mode source_mode;
+  enum machine_mode source_mode = VOIDmode;
   enum machine_mode dest_extension_mode;
   bool merge_success = false;
   int i;
@@ -2763,6 +2832,7 @@ see_merge_one_def_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, def_se);
 	}
 
+      df_insn_delete (NULL, INSN_UID (ref_copy));
       see_def_extension_not_merged (curr_ref_s, def_se);
       /* Continue to the next extension.  */
       return 1;
@@ -2797,7 +2867,7 @@ see_merge_one_def_extension (void **slot, void *b)
 	    {
 	      rtx orig_src = SET_SRC (*sub);
 
-	      if (extension_code == SIGN_EXTEND)
+	      if (extension_code == SIGN_EXTENDED_DEF)
 		temp_extension = gen_rtx_SIGN_EXTEND (dest_extension_mode,
 						      orig_src);
 	      else
@@ -2829,7 +2899,7 @@ see_merge_one_def_extension (void **slot, void *b)
     {
       rtx orig_src = SET_SRC (*pat);
 
-      if (extension_code == SIGN_EXTEND)
+      if (extension_code == SIGN_EXTENDED_DEF)
 	temp_extension = gen_rtx_SIGN_EXTEND (dest_extension_mode, orig_src);
       else
 	temp_extension = gen_rtx_ZERO_EXTEND (dest_extension_mode, orig_src);
@@ -2851,29 +2921,25 @@ see_merge_one_def_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, def_se);
 	}
 
+      df_insn_delete (NULL, INSN_UID (ref_copy));
       see_def_extension_not_merged (curr_ref_s, def_se);
       /* Continue to the next extension.  */
       return 1;
     }
 
   /* The merge succeeded!  */
+  if (curr_ref_s->merged_insn)
+    df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
 
   /* Create a simple move instruction to assure the correctness of the code.  */
   subreg = gen_lowpart_SUBREG (source_extension_mode, dest_extension_reg);
   start_sequence ();
+  emit_insn (ref_copy);
   emit_move_insn (source_extension_reg, subreg);
-  move_insn = get_insns ();
-  end_sequence ();
-
-  /* Link the merged instruction to the newly created move instruction and
-     to the former created move instructions.  */
-  PREV_INSN (ref_copy) = NULL_RTX;
-  NEXT_INSN (ref_copy) = move_insn;
-  PREV_INSN (move_insn) = ref_copy;
-  NEXT_INSN (move_insn) = merged_ref_next;
   if (merged_ref_next != NULL_RTX)
-    PREV_INSN (merged_ref_next) = move_insn;
-  curr_ref_s->merged_insn = ref_copy;
+    emit_insn (merged_ref_next);
+  curr_ref_s->merged_insn = get_insns ();
+  end_sequence ();
 
   if (dump_file)
     {
@@ -2882,9 +2948,9 @@ see_merge_one_def_extension (void **slot, void *b)
       print_rtl_single (dump_file, ref);
       print_rtl_single (dump_file, def_se);
       fprintf (dump_file, "Merged instruction:\n");
-      print_rtl_single (dump_file, ref_copy);
+      print_rtl_single (dump_file, curr_ref_s->merged_insn);
       fprintf (dump_file, "Move instruction that was added:\n");
-      print_rtl_single (dump_file, move_insn);
+      print_rtl_single (dump_file, NEXT_INSN (curr_ref_s->merged_insn));
     }
 
   /* Remove the current def_se from the unmerged_def_se_hash and insert it to
@@ -3057,7 +3123,7 @@ see_store_reference_and_extension (rtx ref_insn, rtx se_insn,
        in it.  */
     {
       stn = splay_tree_lookup (see_bb_splay_ar[curr_bb_num],
-			       DF_INSN_LUID (df, ref_insn));
+			       DF_INSN_LUID (ref_insn));
       if (stn)
 	switch (type)
 	  {
@@ -3106,8 +3172,8 @@ see_store_reference_and_extension (rtx ref_insn, rtx se_insn,
      tree.  */
   if (!stn)
     {
-      ref_s = xmalloc (sizeof (struct see_ref_s));
-      ref_s->luid = DF_INSN_LUID (df, ref_insn);
+      ref_s = XNEW (struct see_ref_s);
+      ref_s->luid = DF_INSN_LUID (ref_insn);
       ref_s->insn = ref_insn;
       ref_s->merged_insn = NULL;
 
@@ -3160,7 +3226,7 @@ see_store_reference_and_extension (rtx ref_insn, rtx se_insn,
   /* If this is a new reference, insert it into the splay_tree.  */
   if (!stn)
     splay_tree_insert (see_bb_splay_ar[curr_bb_num],
-		       DF_INSN_LUID (df, ref_insn), (splay_tree_value) ref_s);
+		       DF_INSN_LUID (ref_insn), (splay_tree_value) ref_s);
   return true;
 }
 
@@ -3176,84 +3242,67 @@ see_store_reference_and_extension (rtx ref_insn, rtx se_insn,
    happened and the optimization should be aborted.  */
 
 static int
-see_handle_relevant_defs (void)
+see_handle_relevant_defs (df_ref ref, rtx insn)
 {
-  rtx insn = NULL;
-  rtx se_insn = NULL;
-  rtx reg = NULL;
-  rtx ref_insn = NULL;
   struct web_entry *root_entry = NULL;
-  unsigned int i;
-  int num_relevant_defs = 0;
-  enum rtx_code extension_code;
+  rtx se_insn = NULL;
+  enum entry_type extension_code;
+  rtx reg = DF_REF_REAL_REG (ref);
+  rtx ref_insn = NULL;
+  unsigned int i = DF_REF_ID (ref);
 
-  for (i = 0; i < defs_num; i++)
+  root_entry = unionfind_root (&def_entry[DF_REF_ID (ref)]);
+
+  if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
+      && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)
+    /* The current web is not relevant.  Continue to the next def.  */
+    return 0;
+  
+  if (root_entry->reg)
+    /* It isn't possible to have two different register for the same
+       web.  */
+    gcc_assert (rtx_equal_p (root_entry->reg, reg));
+  else
+    root_entry->reg = reg;
+  
+  /* The current definition is an EXTENDED_DEF or a definition that its
+     source_mode is narrower then its web's source_mode.
+     This means that we need to generate the implicit extension explicitly
+     and store it in the current reference's merged_def_se_hash.  */
+  if (ENTRY_EI (&def_entry[i])->local_relevancy == EXTENDED_DEF
+      || (ENTRY_EI (&def_entry[i])->local_source_mode <
+	  ENTRY_EI (root_entry)->source_mode))
     {
-      insn = DF_REF_INSN (DF_DEFS_GET (df, i));
-      reg = DF_REF_REAL_REG (DF_DEFS_GET (df, i));
-
-      if (!insn)
-	continue;
-
-      if (!INSN_P (insn))
-	continue;
-
-      root_entry = unionfind_root (&def_entry[i]);
-
-      if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
-	  && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)
-	/* The current web is not relevant.  Continue to the next def.  */
-	continue;
-
-      if (root_entry->reg)
-	/* It isn't possible to have two different register for the same
-	   web.  */
-	gcc_assert (rtx_equal_p (root_entry->reg, reg));
+      
+      if (ENTRY_EI (root_entry)->relevancy == SIGN_EXTENDED_DEF)
+	extension_code = SIGN_EXTENDED_DEF;
       else
-	root_entry->reg = reg;
-
-      /* The current definition is an EXTENDED_DEF or a definition that its
-	 source_mode is narrower then its web's source_mode.
-	 This means that we need to generate the implicit extension explicitly
-	 and store it in the current reference's merged_def_se_hash.  */
-      if (ENTRY_EI (&def_entry[i])->local_relevancy == EXTENDED_DEF
-	  || (ENTRY_EI (&def_entry[i])->local_source_mode <
-	      ENTRY_EI (root_entry)->source_mode))
-	{
-	  num_relevant_defs++;
-
-	  if (ENTRY_EI (root_entry)->relevancy == SIGN_EXTENDED_DEF)
-	    extension_code = SIGN_EXTEND;
-	  else
-	    extension_code = ZERO_EXTEND;
-
-	  se_insn =
-	    see_gen_normalized_extension (reg, extension_code,
-	    				  ENTRY_EI (root_entry)->source_mode);
-
-	  /* This is a dummy extension, mark it as deleted.  */
-	  INSN_DELETED_P (se_insn) = 1;
-
-	  if (!see_store_reference_and_extension (insn, se_insn,
-	  					  IMPLICIT_DEF_EXTENSION))
-	    /* Something bad happened.  Abort the optimization.  */
-	    return -1;
-	  continue;
-	}
-
-      ref_insn = PREV_INSN (insn);
-      gcc_assert (BLOCK_NUM (ref_insn) == BLOCK_NUM (insn));
-
-      num_relevant_defs++;
-
-      if (!see_store_reference_and_extension (ref_insn, insn,
-      					      EXPLICIT_DEF_EXTENSION))
+	extension_code = ZERO_EXTENDED_DEF;
+      
+      se_insn =
+	see_gen_normalized_extension (reg, extension_code,
+				      ENTRY_EI (root_entry)->source_mode);
+      
+      /* This is a dummy extension, mark it as deleted.  */
+      INSN_DELETED_P (se_insn) = 1;
+      
+      if (!see_store_reference_and_extension (insn, se_insn,
+					      IMPLICIT_DEF_EXTENSION))
 	/* Something bad happened.  Abort the optimization.  */
 	return -1;
+      return 1;
     }
-   return num_relevant_defs;
-}
+  
+  ref_insn = PREV_INSN (insn);
+  gcc_assert (BLOCK_NUM (ref_insn) == BLOCK_NUM (insn));
+  
+  if (!see_store_reference_and_extension (ref_insn, insn,
+					  EXPLICIT_DEF_EXTENSION))
+    /* Something bad happened.  Abort the optimization.  */
+    return -1;
 
+  return 0;
+}
 
 /* Go over all the uses, for each use in relevant web store its instruction as
    a reference and generate an extension before it.
@@ -3262,120 +3311,122 @@ see_handle_relevant_defs (void)
    happened and the optimization should be aborted.  */
 
 static int
-see_handle_relevant_uses (void)
+see_handle_relevant_uses (df_ref ref, rtx insn)
 {
-  rtx insn = NULL;
-  rtx reg = NULL;
   struct web_entry *root_entry = NULL;
   rtx se_insn = NULL;
-  unsigned int i;
-  int num_relevant_uses = 0;
-  enum rtx_code extension_code;
+  enum entry_type extension_code;
+  rtx reg = DF_REF_REAL_REG (ref);
 
-  for (i = 0; i < uses_num; i++)
+  root_entry = unionfind_root (&use_entry[DF_REF_ID (ref)]);
+  
+  if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
+      && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)
+    /* The current web is not relevant.  Continue to the next use.  */
+    return 0;
+  
+  if (root_entry->reg)
+    /* It isn't possible to have two different register for the same
+       web.  */
+    gcc_assert (rtx_equal_p (root_entry->reg, reg));
+  else
+    root_entry->reg = reg;
+  
+  /* Generate the use extension.  */
+  if (ENTRY_EI (root_entry)->relevancy == SIGN_EXTENDED_DEF)
+    extension_code = SIGN_EXTENDED_DEF;
+  else
+    extension_code = ZERO_EXTENDED_DEF;
+  
+  se_insn =
+    see_gen_normalized_extension (reg, extension_code,
+				  ENTRY_EI (root_entry)->source_mode);
+  if (!se_insn)
+    /* This is very bad, abort the transformation.  */
+    return -1;
+  
+  if (!see_store_reference_and_extension (insn, se_insn,
+					  USE_EXTENSION))
+    /* Something bad happened.  Abort the optimization.  */
+    return -1;
+  return 1;
+}
+
+static int
+see_handle_relevant_refs (void)
+{
+  int num_relevant_refs = 0;
+  basic_block bb;
+
+  FOR_ALL_BB (bb)
     {
-      insn = DF_REF_INSN (DF_USES_GET (df, i));
-      reg = DF_REF_REAL_REG (DF_USES_GET (df, i));
+      rtx insn;
+      FOR_BB_INSNS (bb, insn)
+	{
+	  unsigned int uid = INSN_UID (insn);
 
-      if (!insn)
-	continue;
-
-      if (!INSN_P (insn))
-	continue;
-
-      root_entry = unionfind_root (&use_entry[i]);
-
-      if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
-	  && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)
-	/* The current web is not relevant.  Continue to the next use.  */
-	continue;
-
-      if (root_entry->reg)
-	/* It isn't possible to have two different register for the same
-	   web.  */
-	gcc_assert (rtx_equal_p (root_entry->reg, reg));
-      else
-	root_entry->reg = reg;
-
-      /* Generate the use extension.  */
-      if (ENTRY_EI (root_entry)->relevancy == SIGN_EXTENDED_DEF)
-	extension_code = SIGN_EXTEND;
-      else
-	extension_code = ZERO_EXTEND;
-
-      se_insn =
-	see_gen_normalized_extension (reg, extension_code,
-				      ENTRY_EI (root_entry)->source_mode);
-      if (!se_insn)
-	/* This is very bad, abort the transformation.  */
-	return -1;
-
-      num_relevant_uses++;
-
-      if (!see_store_reference_and_extension (insn, se_insn,
-      					      USE_EXTENSION))
-	/* Something bad happened.  Abort the optimization.  */
-	return -1;
+	  if (INSN_P (insn))
+	    {
+	      df_ref *use_rec;
+	      df_ref *def_rec;
+	      
+	      for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+		{
+		  df_ref use = *use_rec;
+		  int result = see_handle_relevant_uses (use, insn);
+		  if (result == -1)
+		    return -1;
+		  num_relevant_refs += result;
+		}
+	      for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
+		{
+		  df_ref use = *use_rec;
+		  int result = see_handle_relevant_uses (use, insn);
+		  if (result == -1)
+		    return -1;
+		  num_relevant_refs += result;
+		}
+	      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+		{
+		  df_ref def = *def_rec;
+		  int result = see_handle_relevant_defs (def, insn);
+		  if (result == -1)
+		    return -1;
+		  num_relevant_refs += result;
+		}
+	    }
+	}
     }
-
-  return num_relevant_uses;
+   return num_relevant_refs;
 }
 
 
-/* Updates the relevancy of all the uses.
-   The information of the i'th use is stored in use_entry[i].
-   Currently all the uses are relevant for the optimization except for uses that
-   are in LIBCALL or RETVAL instructions.  */
+/* Initialized the use_entry field for REF in INSN at INDEX with ET.  */
 
 static void
-see_update_uses_relevancy (void)
+see_update_uses_relevancy (rtx insn, df_ref ref, 
+			   enum entry_type et, unsigned int index)
 {
-  rtx insn = NULL;
-  rtx reg = NULL;
   struct see_entry_extra_info *curr_entry_extra_info;
-  enum entry_type et;
-  unsigned int i;
 
-  if (!df || !use_entry)
-    return;
-
-  for (i = 0; i < uses_num; i++)
+  if (dump_file)
     {
-
-      insn = DF_REF_INSN (DF_USES_GET (df, i));
-      reg = DF_REF_REAL_REG (DF_USES_GET (df, i));
-
-      et = RELEVANT_USE;
-
-      if (insn) 
-	{
-	  if (!INSN_P (insn))
-	    et = NOT_RELEVANT;
-	  if (insn && find_reg_note (insn, REG_LIBCALL, NULL_RTX))
-	    et = NOT_RELEVANT;
-	  if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
-	    et = NOT_RELEVANT;
-	}
+      rtx reg = DF_REF_REAL_REG (ref);
+      fprintf (dump_file, "u%i insn %i reg %i ", 
+	       index, (insn ? INSN_UID (insn) : -1), REGNO (reg));
+      if (et == NOT_RELEVANT)
+	fprintf (dump_file, "NOT RELEVANT \n");
       else
-	et = NOT_RELEVANT;
-
-      if (dump_file)
-	{
-	  fprintf (dump_file, "u%i insn %i reg %i ", 
-          i, (insn ? INSN_UID (insn) : -1), REGNO (reg));
-	  if (et == NOT_RELEVANT)
-	    fprintf (dump_file, "NOT RELEVANT \n");
-	  else
-	    fprintf (dump_file, "RELEVANT USE \n");
-	}
-
-      curr_entry_extra_info = xmalloc (sizeof (struct see_entry_extra_info));
-      curr_entry_extra_info->relevancy = et;
-      curr_entry_extra_info->local_relevancy = et;
-      use_entry[i].extra_info = curr_entry_extra_info;
-      use_entry[i].reg = NULL;
-      use_entry[i].pred = NULL;
+	fprintf (dump_file, "RELEVANT USE \n");
     }
+
+  DF_REF_ID (ref) = index;
+  curr_entry_extra_info = XNEW (struct see_entry_extra_info);
+  curr_entry_extra_info->relevancy = et;
+  curr_entry_extra_info->local_relevancy = et;
+  use_entry[index].extra_info = curr_entry_extra_info;
+  use_entry[index].reg = NULL;
+  use_entry[index].pred = NULL;
 }
 
 
@@ -3418,7 +3469,7 @@ static enum entry_type
 see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
 		     enum machine_mode *source_mode_unsigned)
 {
-  enum rtx_code extension_code;
+  enum entry_type extension_code;
   rtx rhs = NULL;
   rtx lhs = NULL;
   rtx set = NULL;
@@ -3434,17 +3485,11 @@ see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
   *source_mode = MAX_MACHINE_MODE;
   *source_mode_unsigned = MAX_MACHINE_MODE;
 
-  if (!insn)
-    return NOT_RELEVANT;
-
-  if (!INSN_P (insn))
-    return NOT_RELEVANT;
-
   extension_code = see_get_extension_data (insn, source_mode);
   switch (extension_code)
     {
-    case SIGN_EXTEND:
-    case ZERO_EXTEND:
+    case SIGN_EXTENDED_DEF:
+    case ZERO_EXTENDED_DEF:
       source_register = see_get_extension_reg (insn, 0);
       /* FIXME: This restriction can be relaxed.  The only thing that is
 	 important is that the reference would be inside the same basic block
@@ -3454,12 +3499,6 @@ see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
 	return NOT_RELEVANT;
 
       if (!reg_set_between_p (source_register, PREV_INSN (prev_insn), insn))
-	return NOT_RELEVANT;
-
-      if (find_reg_note (prev_insn, REG_LIBCALL, NULL_RTX))
-	return NOT_RELEVANT;
-
-      if (find_reg_note (prev_insn, REG_RETVAL, NULL_RTX))
 	return NOT_RELEVANT;
 
       /* If we can't use copy_rtx on the reference it can't be a reference.  */
@@ -3483,12 +3522,9 @@ see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
 	    return NOT_RELEVANT;
 	}
 
-      if (extension_code == SIGN_EXTEND)
-	return SIGN_EXTENDED_DEF;
-      else
-	return ZERO_EXTENDED_DEF;
+      return extension_code;
 
-    case UNKNOWN:
+    case NOT_RELEVANT:
       /* This may still be an EXTENDED_DEF.  */
 
       /* FIXME: This restriction can be relaxed.  It is possible to handle
@@ -3501,7 +3537,7 @@ see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
 
       /* Don't handle extensions to something other then register or
 	 subregister.  */
-      if (!REG_P (lhs) && !SUBREG_REG (lhs))
+      if (!REG_P (lhs) && GET_CODE (lhs) != SUBREG)
 	return NOT_RELEVANT;
 
       switch (GET_CODE (rhs))
@@ -3546,92 +3582,157 @@ see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
 }
 
 
-/* Updates the relevancy and source_mode of all the definitions.
-   The information of the i'th definition is stored in def_entry[i].  */
+/* Initialized the def_entry field for REF in INSN at INDEX with ET.  */
 
 static void
-see_update_defs_relevancy (void)
+see_update_defs_relevancy (rtx insn, df_ref ref,
+			   enum entry_type et,
+			   enum machine_mode source_mode,
+			   enum machine_mode source_mode_unsigned,
+			   unsigned int index)
 {
-  struct see_entry_extra_info *curr_entry_extra_info;
-  unsigned int i;
-  rtx insn = NULL;
-  rtx reg = NULL;
-  enum entry_type et;
-  enum machine_mode source_mode;
-  enum machine_mode source_mode_unsigned;
+  struct see_entry_extra_info *curr_entry_extra_info 
+    = XNEW (struct see_entry_extra_info);
+  curr_entry_extra_info->relevancy = et;
+  curr_entry_extra_info->local_relevancy = et;
 
-  if (!df || !def_entry)
-    return;
+  DF_REF_ID (ref) = index;
 
-  for (i = 0; i < defs_num; i++)
+  if (et != EXTENDED_DEF)
     {
-      insn = DF_REF_INSN (DF_DEFS_GET (df, i));
-      reg = DF_REF_REAL_REG (DF_DEFS_GET (df, i));
-
-      et = see_analyze_one_def (insn, &source_mode, &source_mode_unsigned);
-
-      curr_entry_extra_info = xmalloc (sizeof (struct see_entry_extra_info));
-      curr_entry_extra_info->relevancy = et;
-      curr_entry_extra_info->local_relevancy = et;
-      if (et != EXTENDED_DEF)
+      curr_entry_extra_info->source_mode = source_mode;
+      curr_entry_extra_info->local_source_mode = source_mode;
+    }
+  else
+    {
+      curr_entry_extra_info->source_mode_signed = source_mode;
+      curr_entry_extra_info->source_mode_unsigned = source_mode_unsigned;
+    }
+  def_entry[index].extra_info = curr_entry_extra_info;
+  def_entry[index].reg = NULL;
+  def_entry[index].pred = NULL;
+  
+  if (dump_file)
+    {
+      rtx reg = DF_REF_REAL_REG (ref);
+      if (et == NOT_RELEVANT)
 	{
-	  curr_entry_extra_info->source_mode = source_mode;
-	  curr_entry_extra_info->local_source_mode = source_mode;
+	  fprintf (dump_file, "d%i insn %i reg %i ",
+		   index, (insn ? INSN_UID (insn) : -1), REGNO (reg));
+	  fprintf (dump_file, "NOT RELEVANT \n");
 	}
       else
 	{
-	  curr_entry_extra_info->source_mode_signed = source_mode;
-	  curr_entry_extra_info->source_mode_unsigned = source_mode_unsigned;
-	}
-      def_entry[i].extra_info = curr_entry_extra_info;
-      def_entry[i].reg = NULL;
-      def_entry[i].pred = NULL;
-
-      if (dump_file)
-	{
-	  if (et == NOT_RELEVANT)
+	  fprintf (dump_file, "d%i insn %i reg %i ",
+		   index, INSN_UID (insn), REGNO (reg));
+	  fprintf (dump_file, "RELEVANT - ");
+	  switch (et)
 	    {
-	      fprintf (dump_file, "d%i insn %i reg %i ",
-              i, (insn ? INSN_UID (insn) : -1), REGNO (reg));
-	      fprintf (dump_file, "NOT RELEVANT \n");
-	    }
-	  else
-	    {
-	      fprintf (dump_file, "d%i insn %i reg %i ",
-		       i ,INSN_UID (insn), REGNO (reg));
-	      fprintf (dump_file, "RELEVANT - ");
-	      switch (et)
+	    case SIGN_EXTENDED_DEF :
+	      fprintf (dump_file, "SIGN_EXTENDED_DEF, source_mode = %s\n",
+		       GET_MODE_NAME (source_mode));
+	      break;
+	    case ZERO_EXTENDED_DEF :
+	      fprintf (dump_file, "ZERO_EXTENDED_DEF, source_mode = %s\n",
+		       GET_MODE_NAME (source_mode));
+	      break;
+	    case EXTENDED_DEF :
+	      fprintf (dump_file, "EXTENDED_DEF, ");
+	      if (source_mode != MAX_MACHINE_MODE
+		  && source_mode_unsigned != MAX_MACHINE_MODE)
 		{
-		case SIGN_EXTENDED_DEF :
-		  fprintf (dump_file, "SIGN_EXTENDED_DEF, source_mode = %s\n",
+		  fprintf (dump_file, "positive const, ");
+		  fprintf (dump_file, "source_mode_signed = %s, ",
 			   GET_MODE_NAME (source_mode));
-		  break;
-		case ZERO_EXTENDED_DEF :
-		  fprintf (dump_file, "ZERO_EXTENDED_DEF, source_mode = %s\n",
-			   GET_MODE_NAME (source_mode));
-		  break;
-		case EXTENDED_DEF :
-		  fprintf (dump_file, "EXTENDED_DEF, ");
-		  if (source_mode != MAX_MACHINE_MODE
-		      && source_mode_unsigned != MAX_MACHINE_MODE)
-		    {
-		      fprintf (dump_file, "positive const, ");
-		      fprintf (dump_file, "source_mode_signed = %s, ",
-			       GET_MODE_NAME (source_mode));
-		      fprintf (dump_file, "source_mode_unsigned = %s\n",
-			       GET_MODE_NAME (source_mode_unsigned));
-		    }
-		  else if (source_mode != MAX_MACHINE_MODE)
-		    fprintf (dump_file, "source_mode_signed = %s\n",
-			     GET_MODE_NAME (source_mode));
-		  else
-		    fprintf (dump_file, "source_mode_unsigned = %s\n",
-			     GET_MODE_NAME (source_mode_unsigned));
-		  break;
-		default :
-		  gcc_unreachable ();
+		  fprintf (dump_file, "source_mode_unsigned = %s\n",
+			   GET_MODE_NAME (source_mode_unsigned));
+		}
+	      else if (source_mode != MAX_MACHINE_MODE)
+		fprintf (dump_file, "source_mode_signed = %s\n",
+			 GET_MODE_NAME (source_mode));
+	      else
+		fprintf (dump_file, "source_mode_unsigned = %s\n",
+			 GET_MODE_NAME (source_mode_unsigned));
+	      break;
+	    default :
+	      gcc_unreachable ();
+	    }
+	}
+    }
+}
+
+
+/* Updates the relevancy of all the uses and all defs.  
+
+   The information of the u'th use is stored in use_entry[u] and the
+   information of the d'th definition is stored in def_entry[d].
+
+   Currently all the uses are relevant for the optimization except for
+   uses that are in LIBCALL or RETVAL instructions.  */
+
+static void
+see_update_relevancy (void)
+{
+  unsigned int d = 0;
+  unsigned int u = 0;
+  enum entry_type et;
+  enum machine_mode source_mode;
+  enum machine_mode source_mode_unsigned;
+  basic_block bb;
+
+  if (!def_entry)
+    return;
+
+  FOR_ALL_BB (bb)
+    {
+      df_ref *use_rec;
+      df_ref *def_rec;
+      rtx insn;
+      FOR_BB_INSNS (bb, insn)
+	{
+	  unsigned int uid = INSN_UID (insn);
+	  if (INSN_P (insn))
+	    {
+	      et = RELEVANT_USE;
+
+	      for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+		{
+		  df_ref use = *use_rec;
+		  see_update_uses_relevancy (insn, use, et, u);
+		  u++;
+		}
+	      
+	      for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
+		{
+		  df_ref use = *use_rec;
+		  see_update_uses_relevancy (insn, use, et, u);
+		  u++;
+		}
+
+	      et = see_analyze_one_def (insn, &source_mode, &source_mode_unsigned);
+	      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+		{
+		  df_ref def = *def_rec;
+		  see_update_defs_relevancy (insn, def, et, source_mode, 
+					       source_mode_unsigned, d);
+		  d++;
 		}
 	    }
+	}
+      
+      for (use_rec = df_get_artificial_uses (bb->index); *use_rec; use_rec++)
+	{
+	  df_ref use = *use_rec;
+	  see_update_uses_relevancy (NULL, use, NOT_RELEVANT, u);
+	  u++;
+	}
+
+      for (def_rec = df_get_artificial_defs (bb->index); *def_rec; def_rec++)
+	{
+	  df_ref def = *def_rec;
+	  see_update_defs_relevancy (NULL, def, NOT_RELEVANT, 
+				       MAX_MACHINE_MODE, MAX_MACHINE_MODE, d);
+	  d++;
 	}
     }
 }
@@ -3648,41 +3749,56 @@ see_update_defs_relevancy (void)
 static bool
 see_propagate_extensions_to_uses (void)
 {
-  unsigned int i = 0;
-  int num_relevant_uses;
-  int num_relevant_defs;
+  int num_relevant_refs;
+  basic_block bb;
 
   if (dump_file)
     fprintf (dump_file,
       "* Phase 1: Propagate extensions to uses.  *\n");
 
   /* Update the relevancy of references using the DF object.  */
-  see_update_defs_relevancy ();
-  see_update_uses_relevancy ();
+  see_update_relevancy ();
 
   /* Produce the webs and update the extra_info of the root.
      In general, a web is relevant if all its definitions and uses are relevant
      and there is at least one definition that was marked as SIGN_EXTENDED_DEF
      or ZERO_EXTENDED_DEF.  */
-  for (i = 0; i < uses_num; i++)
-    union_defs (df, DF_USES_GET (df, i), def_entry, use_entry,
-		see_update_leader_extra_info);
+  FOR_ALL_BB (bb)
+    {
+      rtx insn;
+      df_ref *use_rec;
+
+      FOR_BB_INSNS (bb, insn)
+	{
+	  unsigned int uid = INSN_UID (insn);
+	  if (INSN_P (insn))
+	    {
+	      for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+		{
+		  df_ref use = *use_rec;
+		  union_defs (use, def_entry, use_entry, see_update_leader_extra_info);
+		}
+	      
+	      for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
+		{
+		  df_ref use = *use_rec;
+		  union_defs (use, def_entry, use_entry, see_update_leader_extra_info);
+		}
+	    }
+	}
+
+      for (use_rec = df_get_artificial_uses (bb->index); *use_rec; use_rec++)
+	{
+	  df_ref use = *use_rec;
+	  union_defs (use, def_entry, use_entry, see_update_leader_extra_info);
+	}
+    }
 
   /* Generate use extensions for references and insert these
      references to see_bb_splay_ar data structure.    */
-  num_relevant_uses = see_handle_relevant_uses ();
+  num_relevant_refs = see_handle_relevant_refs ();
 
-  if (num_relevant_uses < 0)
-    return false;
-
-  /* Store the def extensions in their references structures and insert these
-     references to see_bb_splay_ar data structure.    */
-  num_relevant_defs = see_handle_relevant_defs ();
-
-  if (num_relevant_defs < 0)
-    return false;
-
- return num_relevant_uses > 0 || num_relevant_defs > 0;
+  return num_relevant_refs > 0;
 }
 
 
@@ -3749,23 +3865,17 @@ gate_handle_see (void)
 static unsigned int
 rest_of_handle_see (void)
 {
-  int no_new_pseudos_bcp = no_new_pseudos;
-
-  no_new_pseudos = 0;
   see_main ();
-  no_new_pseudos = no_new_pseudos_bcp;
-  
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES, 
-  				    (PROP_DEATH_NOTES));
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-  reg_scan (get_insns (), max_reg_num ());
-
+  df_clear_flags (DF_DEFER_INSN_RESCAN);
+  df_process_deferred_rescans ();
+  run_fast_dce ();
   return 0;
 }
 
-struct tree_opt_pass pass_see =
+struct rtl_opt_pass pass_see =
 {
+ {
+  RTL_PASS,
   "see",				/* name */
   gate_handle_see,			/* gate */
   rest_of_handle_see,			/* execute */
@@ -3777,7 +3887,8 @@ struct tree_opt_pass pass_see =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  'u'					/* letter */
+  TODO_df_verify |
+  TODO_df_finish | TODO_verify_rtl_sharing |
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
-

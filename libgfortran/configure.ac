@@ -21,6 +21,18 @@ AC_ARG_ENABLE(version-specific-runtime-libs,
 [version_specific_libs=no])
 AC_MSG_RESULT($version_specific_libs)
 
+# Build with intermodule optimisations
+AC_MSG_CHECKING([for --enable-intermodule])
+AC_ARG_ENABLE(intermodule,
+[  --enable-intermodule    build the library in one step],
+[case "$enable_intermodule" in
+  yes) onestep="-onestep";;
+    *) onestep="";;
+esac],
+[onestep=""])
+AC_MSG_RESULT($enable_intermodule)
+AM_CONDITIONAL(onestep,[test x$onestep = x-onestep])
+AC_SUBST(onestep)
 
 # Gets build, host, target, *_vendor, *_cpu, *_os, etc.
 #
@@ -111,7 +123,7 @@ m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
 # Add -Wall -fno-repack-arrays -fno-underscoring if we are using GCC.
 if test "x$GCC" = "xyes"; then
-  AM_FCFLAGS="-I . -Wall -fno-repack-arrays -fno-underscoring"
+  AM_FCFLAGS="-I . -Wall -Werror -fimplicit-none -fno-repack-arrays -fno-underscoring"
   ## We like to use C99 routines when available.  This makes sure that
   ## __STDC_VERSION__ is set such that libc includes make them available.
   AM_CFLAGS="-std=gnu99 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
@@ -121,6 +133,7 @@ if test "x$GCC" = "xyes"; then
 fi
 AC_SUBST(AM_FCFLAGS)
 AC_SUBST(AM_CFLAGS)
+AC_SUBST(CFLAGS)
 
 # Check for symbol versioning (copied from libssp).
 AC_MSG_CHECKING([whether symbol versioning is supported])
@@ -175,7 +188,7 @@ AC_TYPE_OFF_T
 # check header files
 AC_STDC_HEADERS
 AC_HEADER_TIME
-AC_HAVE_HEADERS(stdlib.h string.h unistd.h signal.h)
+AC_HAVE_HEADERS(stdio.h stdlib.h string.h unistd.h signal.h stdarg.h)
 AC_CHECK_HEADERS(time.h sys/time.h sys/times.h sys/resource.h)
 AC_CHECK_HEADERS(sys/types.h sys/stat.h sys/wait.h floatingpoint.h ieeefp.h)
 AC_CHECK_HEADERS(fenv.h fptrap.h float.h execinfo.h pwd.h)
@@ -191,13 +204,14 @@ AC_CHECK_FUNCS(getrusage times mkstemp strtof strtold snprintf ftruncate chsize)
 AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
 AC_CHECK_FUNCS(sleep time ttyname signal alarm ctime clock access fork execl)
 AC_CHECK_FUNCS(wait setmode execvp pipe dup2 close fdopen strcasestr getrlimit)
-AC_CHECK_FUNCS(gettimeofday stat fstat lstat getpwuid)
+AC_CHECK_FUNCS(gettimeofday stat fstat lstat getpwuid vsnprintf dup getcwd)
 
 # Check for glibc backtrace functions
 AC_CHECK_FUNCS(backtrace backtrace_symbols)
 
 # Check for types
 AC_CHECK_TYPES([intptr_t])
+AC_CHECK_TYPES([uintptr_t])
 
 # Check libc for getgid, getpid, getuid
 AC_CHECK_LIB([c],[getgid],[AC_DEFINE([HAVE_GETGID],[1],[libc includes getgid])])
@@ -300,6 +314,12 @@ AC_CHECK_LIB([m],[cpowl],[AC_DEFINE([HAVE_CPOWL],[1],[libm includes cpowl])])
 AC_CHECK_LIB([m],[roundf],[AC_DEFINE([HAVE_ROUNDF],[1],[libm includes roundf])])
 AC_CHECK_LIB([m],[round],[AC_DEFINE([HAVE_ROUND],[1],[libm includes round])])
 AC_CHECK_LIB([m],[roundl],[AC_DEFINE([HAVE_ROUNDL],[1],[libm includes roundl])])
+AC_CHECK_LIB([m],[lroundf],[AC_DEFINE([HAVE_LROUNDF],[1],[libm includes lroundf])])
+AC_CHECK_LIB([m],[lround],[AC_DEFINE([HAVE_LROUND],[1],[libm includes lround])])
+AC_CHECK_LIB([m],[lroundl],[AC_DEFINE([HAVE_LROUNDL],[1],[libm includes lroundl])])
+AC_CHECK_LIB([m],[llroundf],[AC_DEFINE([HAVE_LLROUNDF],[1],[libm includes llroundf])])
+AC_CHECK_LIB([m],[llround],[AC_DEFINE([HAVE_LLROUND],[1],[libm includes llround])])
+AC_CHECK_LIB([m],[llroundl],[AC_DEFINE([HAVE_LLROUNDL],[1],[libm includes llroundl])])
 AC_CHECK_LIB([m],[scalbnf],[AC_DEFINE([HAVE_SCALBNF],[1],[libm includes scalbnf])])
 AC_CHECK_LIB([m],[scalbn],[AC_DEFINE([HAVE_SCALBN],[1],[libm includes scalbn])])
 AC_CHECK_LIB([m],[scalbnl],[AC_DEFINE([HAVE_SCALBNL],[1],[libm includes scalbnl])])
@@ -360,6 +380,12 @@ AC_CHECK_LIB([m],[y1l],[AC_DEFINE([HAVE_Y1L],[1],[libm includes y1l])])
 AC_CHECK_LIB([m],[ynf],[AC_DEFINE([HAVE_YNF],[1],[libm includes ynf])])
 AC_CHECK_LIB([m],[yn],[AC_DEFINE([HAVE_YN],[1],[libm includes yn])])
 AC_CHECK_LIB([m],[ynl],[AC_DEFINE([HAVE_YNL],[1],[libm includes ynl])])
+AC_CHECK_LIB([m],[tgamma],[AC_DEFINE([HAVE_TGAMMA],[1],[libm includes tgamma])])
+AC_CHECK_LIB([m],[tgammaf],[AC_DEFINE([HAVE_TGAMMAF],[1],[libm includes tgammaf])])
+AC_CHECK_LIB([m],[tgammal],[AC_DEFINE([HAVE_TGAMMAL],[1],[libm includes tgammal])])
+AC_CHECK_LIB([m],[lgamma],[AC_DEFINE([HAVE_LGAMMA],[1],[libm includes lgamma])])
+AC_CHECK_LIB([m],[lgammaf],[AC_DEFINE([HAVE_LGAMMAF],[1],[libm includes lgammaf])])
+AC_CHECK_LIB([m],[lgammal],[AC_DEFINE([HAVE_LGAMMAL],[1],[libm includes lgammal])])
 
 # On AIX, clog is present in libm as __clog
 AC_CHECK_LIB([m],[__clog],[AC_DEFINE([HAVE_CLOG],[1],[libm includes clog])])
@@ -375,6 +401,12 @@ LIBGFOR_CHECK_FOR_BROKEN_FPCLASSIFY
 
 # Check whether the system has a working stat()
 LIBGFOR_CHECK_WORKING_STAT
+
+# Check whether __mingw_snprintf() is present
+LIBGFOR_CHECK_MINGW_SNPRINTF
+
+# Check for a broken powf implementation
+LIBGFOR_CHECK_FOR_BROKEN_POWF
 
 # Check for GNU libc feenableexcept
 AC_CHECK_LIB([m],[feenableexcept],[have_feenableexcept=yes AC_DEFINE([HAVE_FEENABLEEXCEPT],[1],[libm includes feenableexcept])])
@@ -393,10 +425,6 @@ AC_CHECK_FUNC([fp_enable],[have_fp_enable=yes AC_DEFINE([HAVE_FP_ENABLE],[1],[fp
 AC_MSG_NOTICE([FPU dependent file will be ${fpu_host}.h])
 FPU_HOST_HEADER=config/${fpu_host}.h
 AC_SUBST(FPU_HOST_HEADER)
-
-# Attempt to assert that the target is of common type in case we don't
-# have C99 integer types at all.
-LIBGFOR_TARGET_ILP32
 
 # Check out attribute support.
 LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY

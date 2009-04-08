@@ -2,14 +2,14 @@
    Register Transfer Expressions (rtx's) that make up the
    Register Transfer Language (rtl) used in the Back End of the GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2004,
-   2005, 2006, 2007
+   2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -18,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Expression definitions and descriptions for all targets are in this file.
@@ -113,26 +112,26 @@ DEF_RTL_EXPR(ADDRESS, "address", "e", RTX_MATCH)
    ---------------------------------------------------------------------- */
 
 /* An instruction that cannot jump.  */
-DEF_RTL_EXPR(INSN, "insn", "iuuBieiee", RTX_INSN)
+DEF_RTL_EXPR(INSN, "insn", "iuuBieie", RTX_INSN)
 
 /* An instruction that can possibly jump.
    Fields ( rtx->u.fld[] ) have exact same meaning as INSN's.  */
-DEF_RTL_EXPR(JUMP_INSN, "jump_insn", "iuuBieiee0", RTX_INSN)
+DEF_RTL_EXPR(JUMP_INSN, "jump_insn", "iuuBieie0", RTX_INSN)
 
 /* An instruction that can possibly call a subroutine
    but which will not change which instruction comes next
    in the current function.
-   Field ( rtx->u.fld[9] ) is CALL_INSN_FUNCTION_USAGE.
+   Field ( rtx->u.fld[8] ) is CALL_INSN_FUNCTION_USAGE.
    All other fields ( rtx->u.fld[] ) have exact same meaning as INSN's.  */
-DEF_RTL_EXPR(CALL_INSN, "call_insn", "iuuBieieee", RTX_INSN)
+DEF_RTL_EXPR(CALL_INSN, "call_insn", "iuuBieiee", RTX_INSN)
 
 /* A marker that indicates that control will not flow through.  */
-DEF_RTL_EXPR(BARRIER, "barrier", "iuu000000", RTX_EXTRA)
+DEF_RTL_EXPR(BARRIER, "barrier", "iuu00000", RTX_EXTRA)
 
 /* Holds a label that is followed by instructions.
    Operand:
    4: is used in jump.c for the use-count of the label.
-   5: is used in flow.c to point to the chain of label_ref's to this label.
+   5: is used in the sh backend.
    6: is a number that is unique in the entire compilation.
    7: is the user-given name of the label, if any.  */
 DEF_RTL_EXPR(CODE_LABEL, "code_label", "iuuB00is", RTX_EXTRA)
@@ -140,9 +139,9 @@ DEF_RTL_EXPR(CODE_LABEL, "code_label", "iuuB00is", RTX_EXTRA)
 /* Say where in the code a source line starts, for symbol table's sake.
    Operand:
    4: note-specific data
-   5: unused (memory layout has to match code_label above)
-   6: unique number if line number == note_insn_deleted_label.  */
-DEF_RTL_EXPR(NOTE, "note", "iuuB00i", RTX_EXTRA)
+   5: enum insn_note
+   6: unique number if insn_note == note_insn_deleted_label.  */
+DEF_RTL_EXPR(NOTE, "note", "iuuB0ni", RTX_EXTRA)
 
 /* ----------------------------------------------------------------------
    Top level constituents of INSN, JUMP_INSN and CALL_INSN.
@@ -160,7 +159,6 @@ DEF_RTL_EXPR(COND_EXEC, "cond_exec", "ee", RTX_EXTRA)
 /* Several operations to be done in parallel (perhaps under COND_EXEC).  */
 DEF_RTL_EXPR(PARALLEL, "parallel", "E", RTX_EXTRA)
 
-#ifdef USE_MAPPED_LOCATION
 /* A string that is passed through to the assembler as input.
      One can obviously pass comments through by using the
      assembler comment syntax.
@@ -181,29 +179,6 @@ DEF_RTL_EXPR(ASM_INPUT, "asm_input", "si", RTX_EXTRA)
      and whose mode indicates the mode of the input operand.
    6th is the source line number.  */
 DEF_RTL_EXPR(ASM_OPERANDS, "asm_operands", "ssiEEi", RTX_EXTRA)
-#else
-/* A string that is passed through to the assembler as input.
-     One can obviously pass comments through by using the
-     assembler comment syntax.
-     These occur in an insn all by themselves as the PATTERN.
-     They also appear inside an ASM_OPERANDS
-     as a convenient way to hold a string.  */
-DEF_RTL_EXPR(ASM_INPUT, "asm_input", "ssi", RTX_EXTRA)
-
-/* An assembler instruction with operands.
-   1st operand is the instruction template.
-   2nd operand is the constraint for the output.
-   3rd operand is the number of the output this expression refers to.
-     When an insn stores more than one value, a separate ASM_OPERANDS
-     is made for each output; this integer distinguishes them.
-   4th is a vector of values of input operands.
-   5th is a vector of modes and constraints for the input operands.
-     Each element is an ASM_INPUT containing a constraint string
-     and whose mode indicates the mode of the input operand.
-   6th is the name of the containing source file.
-   7th is the source line number.  */
-DEF_RTL_EXPR(ASM_OPERANDS, "asm_operands", "ssiEEsi", RTX_EXTRA)
-#endif
 
 /* A machine-specific operation.
    1st operand is a vector of operands being used by the operation so that
@@ -212,8 +187,15 @@ DEF_RTL_EXPR(ASM_OPERANDS, "asm_operands", "ssiEEsi", RTX_EXTRA)
      operations is to be performed.
    (Note that the vector must be the first operand because of the way that
    genrecog.c record positions within an insn.)
-   This can occur all by itself in a PATTERN, as a component of a PARALLEL,
-   or inside an expression.  */
+
+   UNSPEC can occur all by itself in a PATTERN, as a component of a PARALLEL,
+   or inside an expression.  
+   UNSPEC by itself or as a component of a PARALLEL
+   is currently considered not deletable.
+
+   FIXME: Replace all uses of UNSPEC that appears by itself or as a component
+   of a PARALLEL with USE.
+   */
 DEF_RTL_EXPR(UNSPEC, "unspec", "Ei", RTX_EXTRA)
 
 /* Similar, but a volatile operation and one which may trap.  */
@@ -273,12 +255,20 @@ DEF_RTL_EXPR(SET, "set", "ee", RTX_EXTRA)
 
 /* Indicate something is used in a way that we don't want to explain.
    For example, subroutine calls will use the register
-   in which the static chain is passed.  */
+   in which the static chain is passed.  
+
+   USE can not appear as an operand of other rtx except for PARALLEL.
+   USE is not deletable, as it indicates that the operand
+   is used in some unknown way.  */
 DEF_RTL_EXPR(USE, "use", "e", RTX_EXTRA)
 
 /* Indicate something is clobbered in a way that we don't want to explain.
    For example, subroutine calls will clobber some physical registers
-   (the ones that are by convention not saved).  */
+   (the ones that are by convention not saved).  
+
+   CLOBBER can not appear as an operand of other rtx except for PARALLEL.
+   CLOBBER of a hard register appearing by itself (not within PARALLEL)
+   is considered undeletable before reload.  */
 DEF_RTL_EXPR(CLOBBER, "clobber", "e", RTX_EXTRA)
 
 /* Call a subroutine.
@@ -308,6 +298,9 @@ DEF_RTL_EXPR(RESX, "resx", "i", RTX_EXTRA)
 
 /* numeric integer constant */
 DEF_RTL_EXPR(CONST_INT, "const_int", "w", RTX_CONST_OBJ)
+
+/* fixed-point constant */
+DEF_RTL_EXPR(CONST_FIXED, "const_fixed", "www", RTX_CONST_OBJ)
 
 /* numeric floating point constant.
    Operands hold the value.  They are all 'w' and there may be from 2 to 6;
@@ -354,14 +347,8 @@ DEF_RTL_EXPR(REG, "reg", "i00", RTX_OBJ)
    marked as having one operand so it can be turned into a REG.  */
 DEF_RTL_EXPR(SCRATCH, "scratch", "0", RTX_OBJ)
 
-/* One word of a multi-word value.
-   The first operand is the complete value; the second says which word.
-   The WORDS_BIG_ENDIAN flag controls whether word number 0
-   (as numbered in a SUBREG) is the most or least significant word.
-
-   This is also used to refer to a value in a different machine mode.
-   For example, it can be used to refer to a SImode value as if it were
-   Qimode, or vice versa.  Then the word number is always 0.  */
+/* A reference to a part of another value.  The first operand is the
+   complete value and the second is the byte offset of the selected part.   */
 DEF_RTL_EXPR(SUBREG, "subreg", "ei", RTX_EXTRA)
 
 /* This one-argument rtx is used for move instructions
@@ -438,8 +425,18 @@ DEF_RTL_EXPR(NEG, "neg", "e", RTX_UNARY)
 
 DEF_RTL_EXPR(MULT, "mult", "ee", RTX_COMM_ARITH)
 
+/* Multiplication with signed saturation */
+DEF_RTL_EXPR(SS_MULT, "ss_mult", "ee", RTX_COMM_ARITH)
+/* Multiplication with unsigned saturation */
+DEF_RTL_EXPR(US_MULT, "us_mult", "ee", RTX_COMM_ARITH)
+
 /* Operand 0 divided by operand 1.  */
 DEF_RTL_EXPR(DIV, "div", "ee", RTX_BIN_ARITH)
+/* Division with signed saturation */
+DEF_RTL_EXPR(SS_DIV, "ss_div", "ee", RTX_BIN_ARITH)
+/* Division with unsigned saturation */
+DEF_RTL_EXPR(US_DIV, "us_div", "ee", RTX_BIN_ARITH)
+
 /* Remainder of operand 0 divided by operand 1.  */
 DEF_RTL_EXPR(MOD, "mod", "ee", RTX_BIN_ARITH)
 
@@ -562,6 +559,37 @@ DEF_RTL_EXPR(UNSIGNED_FLOAT, "unsigned_float", "e", RTX_UNARY)
    Value is defined only when the operand's value is an integer.  */
 DEF_RTL_EXPR(UNSIGNED_FIX, "unsigned_fix", "e", RTX_UNARY)
 
+/* Conversions involving fractional fixed-point types without saturation,
+   including:
+     fractional to fractional (of different precision),
+     signed integer to fractional,
+     fractional to signed integer,
+     floating point to fractional,
+     fractional to floating point.
+   NOTE: fractional can be either signed or unsigned for conversions.  */
+DEF_RTL_EXPR(FRACT_CONVERT, "fract_convert", "e", RTX_UNARY)
+
+/* Conversions involving fractional fixed-point types and unsigned integer
+   without saturation, including:
+     unsigned integer to fractional,
+     fractional to unsigned integer.
+   NOTE: fractional can be either signed or unsigned for conversions.  */
+DEF_RTL_EXPR(UNSIGNED_FRACT_CONVERT, "unsigned_fract_convert", "e", RTX_UNARY)
+
+/* Conversions involving fractional fixed-point types with saturation,
+   including:
+     fractional to fractional (of different precision),
+     signed integer to fractional,
+     floating point to fractional.
+   NOTE: fractional can be either signed or unsigned for conversions.  */
+DEF_RTL_EXPR(SAT_FRACT, "sat_fract", "e", RTX_UNARY)
+
+/* Conversions involving fractional fixed-point types and unsigned integer
+   with saturation, including:
+     unsigned integer to fractional.
+   NOTE: fractional can be either signed or unsigned for conversions.  */
+DEF_RTL_EXPR(UNSIGNED_SAT_FRACT, "unsigned_sat_fract", "e", RTX_UNARY)
+
 /* Absolute value */
 DEF_RTL_EXPR(ABS, "abs", "e", RTX_UNARY)
 
@@ -648,12 +676,17 @@ DEF_RTL_EXPR(SS_MINUS, "ss_minus", "ee", RTX_BIN_ARITH)
 
 /* Negation with signed saturation.  */
 DEF_RTL_EXPR(SS_NEG, "ss_neg", "e", RTX_UNARY)
+/* Negation with unsigned saturation.  */
+DEF_RTL_EXPR(US_NEG, "us_neg", "e", RTX_UNARY)
 
 /* Absolute value with signed saturation.  */
 DEF_RTL_EXPR(SS_ABS, "ss_abs", "e", RTX_UNARY)
 
 /* Shift left with signed saturation.  */
 DEF_RTL_EXPR(SS_ASHIFT, "ss_ashift", "ee", RTX_BIN_ARITH)
+
+/* Shift left with unsigned saturation.  */
+DEF_RTL_EXPR(US_ASHIFT, "us_ashift", "ee", RTX_BIN_ARITH)
 
 /* Operand 0 minus operand 1, with unsigned saturation.  */
 DEF_RTL_EXPR(US_MINUS, "us_minus", "ee", RTX_BIN_ARITH)
@@ -665,7 +698,9 @@ DEF_RTL_EXPR(SS_TRUNCATE, "ss_truncate", "e", RTX_UNARY)
 DEF_RTL_EXPR(US_TRUNCATE, "us_truncate", "e", RTX_UNARY)
 
 /* Information about the variable and its location.  */
-DEF_RTL_EXPR(VAR_LOCATION, "var_location", "te", RTX_EXTRA)
+/* Changed 'te' to 'tei'; the 'i' field is for recording
+   initialization status of variables.  */
+DEF_RTL_EXPR(VAR_LOCATION, "var_location", "tei", RTX_EXTRA)
 
 /* All expressions from this point forward appear only in machine
    descriptions.  */
@@ -1053,7 +1088,11 @@ DEF_RTL_EXPR(FINAL_ABSENCE_SET, "final_absence_set", "ss", RTX_EXTRA)
    guard for the bypass.  The function will get the two insns as
    parameters.  If the function returns zero the bypass will be
    ignored for this case.  Additional guard is necessary to recognize
-   complicated bypasses, e.g. when consumer is load address.  */
+   complicated bypasses, e.g. when consumer is load address.  If there
+   are more one bypass with the same output and input insns, the
+   chosen bypass is the first bypass with a guard in description whose
+   guard function returns nonzero.  If there is no such bypass, then
+   bypass without the guard function is chosen.  */
 DEF_RTL_EXPR(DEFINE_BYPASS, "define_bypass", "issS", RTX_EXTRA)
 
 /* (define_automaton string) describes names of automata generated and

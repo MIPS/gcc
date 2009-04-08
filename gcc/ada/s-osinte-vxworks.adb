@@ -6,7 +6,7 @@
 --                                                                          --
 --                                   B o d y                                --
 --                                                                          --
---         Copyright (C) 1997-2006, Free Software Foundation, Inc.          --
+--         Copyright (C) 1997-2008, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,12 +33,12 @@
 
 --  This is the VxWorks version
 
---  This package encapsulates all direct interfaces to OS services
---  that are needed by children of System.
+--  This package encapsulates all direct interfaces to OS services that are
+--  needed by children of System.
 
 pragma Polling (Off);
---  Turn off polling, we do not want ATC polling to take place during
---  tasking operations. It causes infinite loops and other problems.
+--  Turn off polling, we do not want ATC polling to take place during tasking
+--  operations. It causes infinite loops and other problems.
 
 package body System.OS_Interface is
 
@@ -47,39 +47,14 @@ package body System.OS_Interface is
    Low_Priority : constant := 255;
    --  VxWorks native (default) lowest scheduling priority
 
-   ------------
-   -- getpid --
-   ------------
-
-   function getpid return t_id is
-   begin
-      --  VxWorks 5 (and VxWorks 6 in kernel mode) does not have a getpid
-      --  function. taskIdSelf is the equivalent routine.
-
-      return taskIdSelf;
-   end getpid;
-
    ----------
    -- kill --
    ----------
 
    function kill (pid : t_id; sig : Signal) return int is
-      function c_kill (pid : t_id; sig : Signal) return int;
-      pragma Import (C, c_kill, "kill");
    begin
-      return c_kill (pid, sig);
+      return System.VxWorks.Ext.kill (pid, int (sig));
    end kill;
-
-   --------------------
-   -- Set_Time_Slice --
-   --------------------
-
-   function Set_Time_Slice (ticks : int) return int is
-      function kernelTimeSlice (ticks : int) return int;
-      pragma Import (C, kernelTimeSlice, "kernelTimeSlice");
-   begin
-      return kernelTimeSlice (ticks);
-   end Set_Time_Slice;
 
    -------------
    -- sigwait --
@@ -143,7 +118,7 @@ package body System.OS_Interface is
    -- To_VxWorks_Priority --
    -------------------------
 
-   function To_VxWorks_Priority (Priority : in int) return int is
+   function To_VxWorks_Priority (Priority : int) return int is
    begin
       return Low_Priority - Priority;
    end To_VxWorks_Priority;
@@ -194,5 +169,74 @@ package body System.OS_Interface is
 
       return int (Ticks);
    end To_Clock_Ticks;
+
+   -----------------------------
+   -- Binary_Semaphore_Create --
+   -----------------------------
+
+   function Binary_Semaphore_Create return Binary_Semaphore_Id is
+   begin
+      return Binary_Semaphore_Id (semBCreate (SEM_Q_FIFO, SEM_EMPTY));
+   end Binary_Semaphore_Create;
+
+   -----------------------------
+   -- Binary_Semaphore_Delete --
+   -----------------------------
+
+   function Binary_Semaphore_Delete (ID : Binary_Semaphore_Id) return int is
+   begin
+      return semDelete (SEM_ID (ID));
+   end Binary_Semaphore_Delete;
+
+   -----------------------------
+   -- Binary_Semaphore_Obtain --
+   -----------------------------
+
+   function Binary_Semaphore_Obtain (ID : Binary_Semaphore_Id) return int is
+   begin
+      return semTake (SEM_ID (ID), WAIT_FOREVER);
+   end Binary_Semaphore_Obtain;
+
+   ------------------------------
+   -- Binary_Semaphore_Release --
+   ------------------------------
+
+   function Binary_Semaphore_Release (ID : Binary_Semaphore_Id) return int is
+   begin
+      return semGive (SEM_ID (ID));
+   end Binary_Semaphore_Release;
+
+   ----------------------------
+   -- Binary_Semaphore_Flush --
+   ----------------------------
+
+   function Binary_Semaphore_Flush (ID : Binary_Semaphore_Id) return int is
+   begin
+      return semFlush (SEM_ID (ID));
+   end Binary_Semaphore_Flush;
+
+   -----------------------
+   -- Interrupt_Connect --
+   -----------------------
+
+   function Interrupt_Connect
+     (Vector    : Interrupt_Vector;
+      Handler   : Interrupt_Handler;
+      Parameter : System.Address := System.Null_Address) return int
+   is
+      pragma Unreferenced (Vector, Handler, Parameter);
+   begin
+      return 0;
+   end Interrupt_Connect;
+
+   --------------------------------
+   -- Interrupt_Number_To_Vector --
+   --------------------------------
+
+   function Interrupt_Number_To_Vector
+     (intNum : int) return Interrupt_Vector is
+   begin
+      return Interrupt_Vector (intNum);
+   end Interrupt_Number_To_Vector;
 
 end System.OS_Interface;

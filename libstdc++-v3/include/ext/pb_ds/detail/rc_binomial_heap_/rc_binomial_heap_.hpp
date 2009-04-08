@@ -54,7 +54,7 @@
 #include <ext/pb_ds/detail/rc_binomial_heap_/rc.hpp>
 #include <debug/debug.h>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace detail
   {
@@ -112,7 +112,7 @@ namespace pb_ds
 
       typedef typename base_type::cmp_fn cmp_fn;
 
-      typedef typename base_type::allocator allocator;
+      typedef typename base_type::allocator_type allocator_type;
 
     public:
 
@@ -201,4 +201,4 @@ namespace pb_ds
 
 #undef PB_DS_RC_C_DEC
   } // namespace detail
-} // namespace pb_ds
+} // namespace __gnu_pbds

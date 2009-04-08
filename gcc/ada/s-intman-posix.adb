@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -58,6 +58,8 @@
 --                all the threads. SIGADAABORT is unmasked by
 --                default
 --      Reserved: the OS specific set of signals that are reserved.
+
+with System.Task_Primitives;
 
 package body System.Interrupt_Management is
 
@@ -113,28 +115,17 @@ package body System.Interrupt_Management is
    is
       pragma Unreferenced (siginfo);
 
-      --  The GCC unwinder requires adjustments to the signal's machine context
-      --  to be able to properly unwind through the signal handler. This is
-      --  achieved by the target specific subprogram below, provided by init.c
-      --  to be usable by the non-tasking handler also.
-
-      procedure Adjust_Context_For_Raise
-        (signo    : Signal;
-         ucontext : System.Address);
-      pragma Import
-        (C, Adjust_Context_For_Raise, "__gnat_adjust_context_for_raise");
-
       Result : Interfaces.C.int;
 
    begin
       --  With the __builtin_longjmp, the signal mask is not restored, so we
-      --  need to restore it explicitely.
+      --  need to restore it explicitly.
 
       Result := pthread_sigmask (SIG_UNBLOCK, Signal_Mask'Access, null);
       pragma Assert (Result = 0);
 
-      --  Perform the necessary context adjustments required by the GCC/ZCX
-      --  unwinder, harmless in the SJLJ case.
+      --  Perform the necessary context adjustments prior to a raise
+      --  from a signal handler.
 
       Adjust_Context_For_Raise (signo, ucontext);
 
@@ -166,6 +157,10 @@ package body System.Interrupt_Management is
       old_act : aliased struct_sigaction;
       Result  : System.OS_Interface.int;
 
+      Use_Alternate_Stack : constant Boolean :=
+                              System.Task_Primitives.Alternate_Stack_Size /= 0;
+      --  Whether to use an alternate signal stack for stack overflows
+
    begin
       if Initialized then
          return;
@@ -181,8 +176,6 @@ package body System.Interrupt_Management is
       Abort_Task_Interrupt := SIGADAABORT;
 
       act.sa_handler := Notify_Exception'Address;
-
-      act.sa_flags := SA_SIGINFO;
 
       --  Setting SA_SIGINFO asks the kernel to pass more than just the signal
       --  number argument to the handler when it is called. The set of extra
@@ -202,7 +195,7 @@ package body System.Interrupt_Management is
       --  fix should be made in sigsetjmp so that we save the Signal_Set and
       --  restore it after a longjmp.
 
-      --  Since SA_NODEFER is obsolete, instead we reset explicitely the mask
+      --  Since SA_NODEFER is obsolete, instead we reset explicitly the mask
       --  in the exception handler.
 
       Result := sigemptyset (Signal_Mask'Access);
@@ -231,10 +224,18 @@ package body System.Interrupt_Management is
             Reserve (Exception_Interrupts (J)) := True;
 
             if State (Exception_Interrupts (J)) /= Default then
+               act.sa_flags := SA_SIGINFO;
+
+               if Use_Alternate_Stack
+                 and then Exception_Interrupts (J) = SIGSEGV
+               then
+                  act.sa_flags := act.sa_flags + SA_ONSTACK;
+               end if;
+
                Result :=
                  sigaction
-                 (Signal (Exception_Interrupts (J)), act'Unchecked_Access,
-                  old_act'Unchecked_Access);
+                   (Signal (Exception_Interrupts (J)), act'Unchecked_Access,
+                    old_act'Unchecked_Access);
                pragma Assert (Result = 0);
             end if;
          end if;
@@ -246,7 +247,7 @@ package body System.Interrupt_Management is
       end if;
 
       --  Set SIGINT to unmasked state as long as it is not in "User" state.
-      --  Check for Unreserve_All_Interrupts last
+      --  Check for Unreserve_All_Interrupts last.
 
       if State (SIGINT) /= User then
          Keep_Unmasked (SIGINT) := True;
@@ -254,7 +255,7 @@ package body System.Interrupt_Management is
       end if;
 
       --  Check all signals for state that requires keeping them unmasked and
-      --  reserved
+      --  reserved.
 
       for J in Interrupt_ID'Range loop
          if State (J) = Default or else State (J) = Runtime then

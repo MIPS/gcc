@@ -2,11 +2,11 @@
 --                                                                          --
 --                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
---                       SYSTEM.GENERIC_COMPLEX_BLAS                        --
+--           S Y S T E M . G E N E R I C _ C O M P L E X _ B L A S          --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 2006, Free Software Foundation, Inc.            --
+--         Copyright (C) 2006-2007, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -73,7 +73,7 @@ package System.Generic_Complex_BLAS is
      (Trans : access constant Character;
       M     : Natural := 0;
       N     : Natural := 0;
-      Alpha : Complex := (1.0, 1.0);
+      Alpha : Complex := (1.0, 0.0);
       A     : Complex_Matrix;
       Ld_A  : Positive;
       X     : Complex_Vector;
@@ -92,7 +92,7 @@ package System.Generic_Complex_BLAS is
       M       : Positive;
       N       : Positive;
       K       : Positive;
-      Alpha   : Complex := (1.0, 1.0);
+      Alpha   : Complex := (1.0, 0.0);
       A       : Complex_Matrix;
       Ld_A    : Integer;
       B       : Complex_Matrix;

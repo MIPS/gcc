@@ -1,5 +1,5 @@
 /* Build executable statement trees.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Executable statements are strung together into a singly linked list
    of code structures.  These structures are later translated into GCC
@@ -49,7 +48,7 @@ gfc_get_code (void)
 {
   gfc_code *c;
 
-  c = gfc_getmem (sizeof (gfc_code));
+  c = XCNEW (gfc_code);
   c->loc = gfc_current_locus;
   return c;
 }
@@ -59,20 +58,20 @@ gfc_get_code (void)
    its tail, returning a pointer to the new tail.  */
 
 gfc_code *
-gfc_append_code (gfc_code *tail, gfc_code *new)
+gfc_append_code (gfc_code *tail, gfc_code *new_code)
 {
   if (tail != NULL)
     {
       while (tail->next != NULL)
 	tail = tail->next;
 
-      tail->next = new;
+      tail->next = new_code;
     }
 
-  while (new->next != NULL)
-    new = new->next;
+  while (new_code->next != NULL)
+    new_code = new_code->next;
 
-  return new;
+  return new_code;
 }
 
 
@@ -89,6 +88,7 @@ gfc_free_statement (gfc_code *p)
   switch (p->op)
     {
     case EXEC_NOP:
+    case EXEC_END_BLOCK:
     case EXEC_ASSIGN:
     case EXEC_INIT_ASSIGN:
     case EXEC_GOTO:
@@ -109,6 +109,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_ARITHMETIC_IF:
       break;
 
+    case EXEC_COMPCALL:
     case EXEC_CALL:
     case EXEC_ASSIGN_CALL:
       gfc_free_actual_arglist (p->ext.actual);
@@ -147,6 +148,10 @@ gfc_free_statement (gfc_code *p)
       gfc_free_inquire (p->ext.inquire);
       break;
 
+    case EXEC_WAIT:
+      gfc_free_wait (p->ext.wait);
+      break;
+
     case EXEC_READ:
     case EXEC_WRITE:
       gfc_free_dt (p->ext.dt);
@@ -168,13 +173,14 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OMP_PARALLEL_SECTIONS:
     case EXEC_OMP_SECTIONS:
     case EXEC_OMP_SINGLE:
+    case EXEC_OMP_TASK:
     case EXEC_OMP_WORKSHARE:
     case EXEC_OMP_PARALLEL_WORKSHARE:
       gfc_free_omp_clauses (p->ext.omp_clauses);
       break;
 
     case EXEC_OMP_CRITICAL:
-      gfc_free ((char *) p->ext.omp_name);
+      gfc_free (CONST_CAST (char *, p->ext.omp_name));
       break;
 
     case EXEC_OMP_FLUSH:
@@ -186,6 +192,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OMP_MASTER:
     case EXEC_OMP_ORDERED:
     case EXEC_OMP_END_NOWAIT:
+    case EXEC_OMP_TASKWAIT:
       break;
 
     default:

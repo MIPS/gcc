@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -63,14 +63,14 @@ package Alloc is
    Elmts_Initial                    : constant := 1_200;   -- Elists
    Elmts_Increment                  : constant := 100;
 
-   Entity_Suppress_Initial          : constant := 100;     -- Sem
-   Entity_Suppress_Increment        : constant := 200;
-
    Inlined_Bodies_Initial           : constant := 50;      -- Inline
    Inlined_Bodies_Increment         : constant := 200;
 
    Inlined_Initial                  : constant := 100;     -- Inline
    Inlined_Increment                : constant := 100;
+
+   In_Out_Warnings_Initial          : constant := 100;     -- Sem_Warn
+   In_Out_Warnings_Increment        : constant := 100;
 
    Interp_Map_Initial               : constant := 200;     -- Sem_Type
    Interp_Map_Increment             : constant := 100;
@@ -98,6 +98,9 @@ package Alloc is
 
    Nodes_Initial                    : constant := 50_000;  -- Atree
    Nodes_Increment                  : constant := 100;
+
+   Obsolescent_Warnings_Initial     : constant := 50;      -- Sem_Prag
+   Obsolescent_Warnings_Increment   : constant := 200;
 
    Orig_Nodes_Initial               : constant := 50_000;  -- Atree
    Orig_Nodes_Increment             : constant := 100;
@@ -140,6 +143,9 @@ package Alloc is
 
    Unreferenced_Entities_Initial    : constant := 1_000;   -- Sem_Warn
    Unreferenced_Entities_Increment  : constant := 100;
+
+   Warnings_Off_Pragmas_Initial     : constant := 500;     -- Sem_Warn
+   Warnings_Off_Pragmas_Increment   : constant := 100;
 
    With_List_Initial                : constant := 10;      -- Features
    With_List_Increment              : constant := 300;

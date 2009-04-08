@@ -87,6 +87,7 @@ public class DomDocument
   private final DOMImplementation implementation;
   private boolean checkingCharacters = true;
   boolean checkingWellformedness = true;
+  private boolean defaultAttributes = true;
 
   boolean building; // if true, skip mutation events in the tree
   
@@ -155,7 +156,15 @@ public class DomDocument
   public void setCheckingCharacters(boolean flag)
   {
     checkingCharacters = flag;
-  }  
+  }
+
+  /**
+   * Sets whether to default attributes for new elements.
+   */
+  public void setDefaultAttributes(boolean flag)
+  {
+    defaultAttributes = flag;
+  }
   
   /**
    * <b>DOM L1</b>
@@ -588,6 +597,8 @@ public class DomDocument
   /**
    * <b>DOM L1</b>
    * Returns a newly created element with the specified name.
+   * The node name of the created element will be equal to {@code name}.
+   * The namespace, prefix and local name will all be {@code null}.
    */
   public Element createElement(String name)
   {
@@ -603,11 +614,11 @@ public class DomDocument
       }
     else
       {
-        DomElement domElement = new DomElement(this, null, name);
-        domElement.localName = null;
+        DomElement domElement = new DomElement(this, null, name, null, null);
         element = domElement;
       }
-    defaultAttributes(element, name);
+    if (defaultAttributes)
+      setDefaultAttributes(element, name);
     return element;
   }
 
@@ -652,11 +663,12 @@ public class DomDocument
       }
     
     Element  element = new DomElement(this, namespaceURI, name);
-    defaultAttributes(element, name);
+    if (defaultAttributes)
+      setDefaultAttributes(element, name);
     return element;
   }
   
-  private void defaultAttributes(Element element, String name)
+  private void setDefaultAttributes(Element element, String name)
   {
     DomDoctype doctype = (DomDoctype) getDoctype();
     if (doctype == null)
@@ -671,9 +683,11 @@ public class DomDocument
         for (Iterator i = info.attributes(); i != null && i.hasNext(); )
           {
             DTDAttributeTypeInfo attr = (DTDAttributeTypeInfo) i.next();
+            String value = attr.value;
+            if ("#IMPLIED".equals(attr.mode) && value == null)
+              continue;
             DomAttr node = (DomAttr) createAttribute(attr.name);
             
-            String value = attr.value;
             if (value == null)
               {
                 value = "";
@@ -800,8 +814,7 @@ public class DomDocument
       }
     else
       {
-        DomAttr ret = new DomAttr(this, null, name);
-        ret.localName = null;
+        DomAttr ret = new DomAttr(this, null, name, null, null);
         return ret;
       }
   }

@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                      A D A . C O N T A I N E R S .                       --
---               I N D E F I N I T E _ H A S H E D _ M A P S                --
+--                  ADA.CONTAINERS.INDEFINITE_HASHED_MAPS                   --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -568,6 +567,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       New_Item  : Element_Type)
    is
       Position : Cursor;
+      pragma Unreferenced (Position);
+
       Inserted : Boolean;
 
    begin
@@ -966,8 +967,10 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          declare
             K : Key_Type renames Position.Node.Key.all;
             E : Element_Type renames Position.Node.Element.all;
+
          begin
             Process (K, E);
+
          exception
             when others =>
                L := L - 1;

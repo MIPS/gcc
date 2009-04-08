@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -28,6 +27,8 @@
 
 with GNAT.Dynamic_HTables;
 with GNAT.Dynamic_Tables;
+
+with Table;
 
 with Prj.Attr; use Prj.Attr;
 
@@ -62,7 +63,7 @@ package Prj.Tree is
    --  N_Variable_Reference.
 
    subtype Package_Declaration_Id is Project_Node_Id;
-   --  Used to designate a node whose expected kind is N_Proect_Declaration
+   --  Used to designate a node whose expected kind is N_Project_Declaration
 
    type Project_Node_Kind is
      (N_Project,
@@ -88,6 +89,14 @@ package Prj.Tree is
    --  Each node in the tree is of a Project_Node_Kind. For the signification
    --  of the fields in each node of Project_Node_Kind, look at package
    --  Tree_Private_Part.
+
+   function Present (Node : Project_Node_Id) return Boolean;
+   pragma Inline (Present);
+   --  Return True iff Node /= Empty_Node
+
+   function No (Node : Project_Node_Id) return Boolean;
+   pragma Inline (No);
+   --  Return True iff Node = Empty_Node
 
    procedure Initialize (Tree : Project_Node_Tree_Ref);
    --  Initialize the Project File tree: empty the Project_Nodes table
@@ -196,8 +205,11 @@ package Prj.Tree is
    --  The following query functions are part of the abstract interface
    --  of the Project File tree. They provide access to fields of a project.
 
-   --  In the following, there are "valid if" comments, but no indication
-   --  of what happens if they are called with invalid arguments ???
+   --  The access functions should be called only with valid arguments.
+   --  For each function the condition of validity is specified. If an access
+   --  function is called with invalid arguments, then exception
+   --  Assertion_Error is raised if assertions are enabled, otherwise the
+   --  behaviour is not defined and may result in a crash.
 
    function Name_Of
      (Node    : Project_Node_Id;
@@ -258,15 +270,20 @@ package Prj.Tree is
       In_Tree : Project_Node_Tree_Ref) return Boolean;
    --  Valid only for N_Comment nodes
 
+   function Parent_Project_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref) return Project_Node_Id;
+   pragma Inline (Parent_Project_Of);
+   --  Valid only for N_Project nodes
+
    function Project_File_Includes_Unkept_Comments
      (Node    : Project_Node_Id;
-      In_Tree : Project_Node_Tree_Ref)
-      return Boolean;
+      In_Tree : Project_Node_Tree_Ref) return Boolean;
    --  Valid only for N_Project nodes
 
    function Directory_Of
      (Node    : Project_Node_Id;
-      In_Tree : Project_Node_Tree_Ref) return Name_Id;
+      In_Tree : Project_Node_Tree_Ref) return Path_Name_Type;
    pragma Inline (Directory_Of);
    --  Only valid for N_Project nodes
 
@@ -310,7 +327,7 @@ package Prj.Tree is
 
    function Path_Name_Of
      (Node    : Project_Node_Id;
-      In_Tree : Project_Node_Tree_Ref) return Name_Id;
+      In_Tree : Project_Node_Tree_Ref) return Path_Name_Type;
    pragma Inline (Path_Name_Of);
    --  Only valid for N_Project and N_With_Clause nodes
 
@@ -340,6 +357,12 @@ package Prj.Tree is
    pragma Inline (Project_Declaration_Of);
    --  Only valid for N_Project nodes
 
+   function Project_Qualifier_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref) return Project_Qualifier;
+   pragma Inline (Project_Qualifier_Of);
+   --  Only valid for N_Project nodes
+
    function Extending_Project_Of
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref) return Project_Node_Id;
@@ -354,7 +377,7 @@ package Prj.Tree is
 
    function Extended_Project_Path_Of
      (Node    : Project_Node_Id;
-      In_Tree : Project_Node_Tree_Ref) return Name_Id;
+      In_Tree : Project_Node_Tree_Ref) return Path_Name_Type;
    pragma Inline (Extended_Project_Path_Of);
    --  Only valid for N_With_Clause nodes
 
@@ -621,6 +644,11 @@ package Prj.Tree is
       To      : Project_Node_Id);
    pragma Inline (Set_Next_Comment);
 
+   procedure Set_Parent_Project_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref;
+      To      : Project_Node_Id);
+
    procedure Set_Project_File_Includes_Unkept_Comments
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref;
@@ -629,7 +657,7 @@ package Prj.Tree is
    procedure Set_Directory_Of
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref;
-      To      : Name_Id);
+      To      : Path_Name_Type);
    pragma Inline (Set_Directory_Of);
 
    procedure Set_Expression_Kind_Of
@@ -669,7 +697,7 @@ package Prj.Tree is
    procedure Set_Path_Name_Of
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref;
-      To      : Name_Id);
+      To      : Path_Name_Type);
    pragma Inline (Set_Path_Name_Of);
 
    procedure Set_String_Value_Of
@@ -690,6 +718,12 @@ package Prj.Tree is
       To      : Project_Node_Id);
    pragma Inline (Set_Project_Declaration_Of);
 
+   procedure Set_Project_Qualifier_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref;
+      To      : Project_Qualifier);
+   pragma Inline (Set_Project_Qualifier_Of);
+
    procedure Set_Extending_Project_Of
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref;
@@ -705,7 +739,7 @@ package Prj.Tree is
    procedure Set_Extended_Project_Path_Of
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref;
-      To      : Name_Id);
+      To      : Path_Name_Type);
    pragma Inline (Set_Extended_Project_Path_Of);
 
    procedure Set_Project_Node_Of
@@ -900,16 +934,19 @@ package Prj.Tree is
 
    package Tree_Private_Part is
 
-      --  This is conceptually in the private part.
-      --  However, for efficiency, some packages are accessing it directly.
+      --  This is conceptually in the private part
+
+      --  However, for efficiency, some packages are accessing it directly
 
       type Project_Node_Record is record
 
          Kind : Project_Node_Kind;
 
+         Qualifier : Project_Qualifier := Unspecified;
+
          Location : Source_Ptr := No_Location;
 
-         Directory : Name_Id       := No_Name;
+         Directory : Path_Name_Type := No_Path;
          --  Only for N_Project
 
          Expr_Kind : Variable_Kind := Undefined;
@@ -936,9 +973,9 @@ package Prj.Tree is
 
          Src_Index : Int := 0;
          --  Index of a unit in a multi-unit source.
-         --  Onli for some N_Attribute_Declaration and N_Literal_String.
+         --  Only for some N_Attribute_Declaration and N_Literal_String.
 
-         Path_Name : Name_Id := No_Name;
+         Path_Name : Path_Name_Type := No_Path;
          --  See below for what Project_Node_Kind it is used
 
          Value : Name_Id := No_Name;
@@ -953,9 +990,12 @@ package Prj.Tree is
          Field3 : Project_Node_Id := Empty_Node;
          --  See below the meaning for each Project_Node_Kind
 
+         Field4 : Project_Node_Id := Empty_Node;
+         --  See below the meaning for each Project_Node_Kind
+
          Flag1 : Boolean := False;
          --  This flag is significant only for:
-         --    N_Attribute_Declaration and N_Atribute_Reference
+         --    N_Attribute_Declaration and N_Attribute_Reference
          --      It indicates for an associative array attribute, that the
          --      index is case insensitive.
          --    N_Comment - it indicates that the comment is preceded by an
@@ -1000,6 +1040,7 @@ package Prj.Tree is
       --    --  Field1:    first with clause
       --    --  Field2:    project declaration
       --    --  Field3:    first string type
+      --    --  Field4:    parent project, if any
       --    --  Value:     extended project path name (if any)
 
       --    N_With_Clause,
@@ -1009,6 +1050,7 @@ package Prj.Tree is
       --    --  Field1:    project node
       --    --  Field2:    next with clause
       --    --  Field3:    project node or empty if "limited with"
+      --    --  Field4:    not used
       --    --  Value:     literal string withed
 
       --    N_Project_Declaration,
@@ -1018,6 +1060,7 @@ package Prj.Tree is
       --    --  Field1:    first declarative item
       --    --  Field2:    extended project
       --    --  Field3:    extending project
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_Declarative_Item,
@@ -1027,6 +1070,7 @@ package Prj.Tree is
       --    --  Field1:    current item node
       --    --  Field2:    next declarative item
       --    --  Field3:    not used
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_Package_Declaration,
@@ -1036,6 +1080,7 @@ package Prj.Tree is
       --    --  Field1:    project of renamed package (if any)
       --    --  Field2:    first declarative item
       --    --  Field3:    next package in project
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_String_Type_Declaration,
@@ -1045,6 +1090,7 @@ package Prj.Tree is
       --    --  Field1:    first literal string
       --    --  Field2:    next string type
       --    --  Field3:    not used
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_Literal_String,
@@ -1054,6 +1100,7 @@ package Prj.Tree is
       --    --  Field1:    next literal string
       --    --  Field2:    not used
       --    --  Field3:    not used
+      --    --  Field4:    not used
       --    --  Value:     string value
 
       --    N_Attribute_Declaration,
@@ -1063,6 +1110,7 @@ package Prj.Tree is
       --    --  Field1:    expression
       --    --  Field2:    project of full associative array
       --    --  Field3:    package of full associative array
+      --    --  Field4:    not used
       --    --  Value:     associative array index
       --    --             (if an associative array element)
 
@@ -1073,6 +1121,7 @@ package Prj.Tree is
       --    --  Field1:    expression
       --    --  Field2:    type of variable (N_String_Type_Declaration)
       --    --  Field3:    next variable
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_Variable_Declaration,
@@ -1086,6 +1135,7 @@ package Prj.Tree is
       --    --             N_Variable_Declaration and
       --    --             N_Typed_Variable_Declaration
       --    --  Field3:    next variable
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_Expression,
@@ -1104,6 +1154,7 @@ package Prj.Tree is
       --    --  Field1:    current term
       --    --  Field2:    next term in the expression
       --    --  Field3:    not used
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_Literal_String_List,
@@ -1116,6 +1167,7 @@ package Prj.Tree is
       --    --  Field1:    first expression
       --    --  Field2:    not used
       --    --  Field3:    not used
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_Variable_Reference,
@@ -1125,6 +1177,7 @@ package Prj.Tree is
       --    --  Field1:    project (if specified)
       --    --  Field2:    package (if specified)
       --    --  Field3:    type of variable (N_String_Type_Declaration), if any
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_External_Value,
@@ -1143,6 +1196,7 @@ package Prj.Tree is
       --    --  Field1:    project
       --    --  Field2:    package (if attribute of a package)
       --    --  Field3:    not used
+      --    --  Field4:    not used
       --    --  Value:     associative array index
       --    --             (if an associative array element)
 
@@ -1153,6 +1207,7 @@ package Prj.Tree is
       --    --  Field1:    case variable reference
       --    --  Field2:    first case item
       --    --  Field3:    not used
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_Case_Item
@@ -1163,6 +1218,7 @@ package Prj.Tree is
       --    --             for when others
       --    --  Field2:    first declarative item
       --    --  Field3:    next case item
+      --    --  Field4:    not used
       --    --  Value:     not used
 
       --    N_Comment_zones
@@ -1173,6 +1229,7 @@ package Prj.Tree is
       --    --  Field2:    comment after the construct
       --    --  Field3:    comment before the "end" of the construct
       --    --  Value:     end of line comment
+      --    --  Field4:    not used
       --    --  Comments:  comment after the "end" of the construct
 
       --    N_Comment
@@ -1182,6 +1239,7 @@ package Prj.Tree is
       --    --  Field1:    not used
       --    --  Field2:    not used
       --    --  Field3:    not used
+      --    --  Field4:    not used
       --    --  Value:     comment
       --    --  Flag1:     comment is preceded by an empty line
       --    --  Flag2:     comment is followed by an empty line
@@ -1204,18 +1262,23 @@ package Prj.Tree is
          Node : Project_Node_Id;
          --  Node of the project in table Project_Nodes
 
-         Canonical_Path : Name_Id;
-         --  Resolved and canonical path of the project file
+         Canonical_Path : Path_Name_Type;
+         --  Resolved and canonical path of a real project file.
+         --  No_Name in case of virtual projects.
 
          Extended : Boolean;
          --  True when the project is being extended by another project
+
+         Proj_Qualifier : Project_Qualifier;
+         --  The project qualifier of the project, if any
       end record;
 
       No_Project_Name_And_Node : constant Project_Name_And_Node :=
         (Name           => No_Name,
          Node           => Empty_Node,
-         Canonical_Path => No_Name,
-         Extended       => True);
+         Canonical_Path => No_Path,
+         Extended       => True,
+         Proj_Qualifier => Unspecified);
 
       package Projects_Htable is new GNAT.Dynamic_HTables.Simple_HTable
         (Header_Num => Header_Num,
@@ -1226,9 +1289,8 @@ package Prj.Tree is
          Equal      => "=");
       --  This hash table contains a mapping of project names to project nodes.
       --  Note that this hash table contains only the nodes whose Kind is
-      --  N_Project. It is used to find the node of a project from its
-      --  name, and to verify if a project has already been parsed, knowing
-      --  its name.
+      --  N_Project. It is used to find the node of a project from its name,
+      --  and to verify if a project has already been parsed, knowing its name.
 
    end Tree_Private_Part;
 

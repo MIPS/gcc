@@ -41,8 +41,7 @@ check_PROGRAMS = gctest$(EXEEXT)
 DIST_COMMON = $(srcdir)/../config.guess $(srcdir)/../config.sub \
 	ChangeLog $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/configure $(am__configure_deps) \
-	$(srcdir)/../mkinstalldirs $(srcdir)/../compile \
-	$(srcdir)/../compile $(srcdir)/../compile $(srcdir)/../compile \
+	$(srcdir)/../mkinstalldirs $(srcdir)/threads.mk.in \
 	$(srcdir)/../compile $(srcdir)/../compile $(srcdir)/../compile \
 	$(srcdir)/../compile $(srcdir)/../compile $(srcdir)/../compile \
 	$(srcdir)/../compile $(srcdir)/../compile $(srcdir)/../compile \
@@ -72,16 +71,18 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/multi.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
+	$(top_srcdir)/../config/override.m4 \
+	$(top_srcdir)/../config/proginstall.m4 \
 	$(top_srcdir)/../libtool.m4 $(top_srcdir)/../ltoptions.m4 \
 	$(top_srcdir)/../ltsugar.m4 $(top_srcdir)/../ltversion.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/../lt~obsolete.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
 CONFIG_HEADER = $(top_builddir)/include/gc_config.h \
 	$(top_builddir)/include/gc_ext_config.h
-CONFIG_CLEAN_FILES =
+CONFIG_CLEAN_FILES = threads.mk
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 @POWERPC_DARWIN_TRUE@am__objects_1 = powerpc_darwin_mach_dep.lo
@@ -89,8 +90,7 @@ am_libgcjgc_la_OBJECTS = allchblk.lo alloc.lo blacklst.lo checksums.lo \
 	dbg_mlc.lo dyn_load.lo finalize.lo gc_dlopen.lo gcj_mlc.lo \
 	headers.lo malloc.lo mallocx.lo mark.lo mark_rts.lo misc.lo \
 	new_hblk.lo obj_map.lo os_dep.lo pcr_interface.lo ptr_chck.lo \
-	real_malloc.lo reclaim.lo solaris_pthreads.lo \
-	solaris_threads.lo specific.lo stubborn.lo typd_mlc.lo \
+	real_malloc.lo reclaim.lo specific.lo stubborn.lo typd_mlc.lo \
 	backgraph.lo win32_threads.lo pthread_support.lo \
 	pthread_stop_world.lo darwin_stop_world.lo $(am__objects_1)
 libgcjgc_la_OBJECTS = $(am_libgcjgc_la_OBJECTS)
@@ -98,8 +98,7 @@ am__objects_2 = allchblk.lo alloc.lo blacklst.lo checksums.lo \
 	dbg_mlc.lo dyn_load.lo finalize.lo gc_dlopen.lo gcj_mlc.lo \
 	headers.lo malloc.lo mallocx.lo mark.lo mark_rts.lo misc.lo \
 	new_hblk.lo obj_map.lo os_dep.lo pcr_interface.lo ptr_chck.lo \
-	real_malloc.lo reclaim.lo solaris_pthreads.lo \
-	solaris_threads.lo specific.lo stubborn.lo typd_mlc.lo \
+	real_malloc.lo reclaim.lo specific.lo stubborn.lo typd_mlc.lo \
 	backgraph.lo win32_threads.lo pthread_support.lo \
 	pthread_stop_world.lo darwin_stop_world.lo $(am__objects_1)
 am_libgcjgc_convenience_la_OBJECTS = $(am__objects_2)
@@ -108,7 +107,8 @@ libgcjgc_convenience_la_OBJECTS =  \
 am__dirstamp = $(am__leading_dot)dirstamp
 am_gctest_OBJECTS = tests/test.$(OBJEXT)
 gctest_OBJECTS = $(am_gctest_OBJECTS)
-gctest_DEPENDENCIES = ./libgcjgc.la $(am__DEPENDENCIES_1)
+gctest_DEPENDENCIES = ./libgcjgc.la $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/include -I$(top_builddir)/include
 depcomp =
 am__depfiles_maybe =
@@ -162,6 +162,7 @@ CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
@@ -181,6 +182,7 @@ LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
@@ -189,7 +191,11 @@ MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKEINFO = @MAKEINFO@
 MY_CFLAGS = @MY_CFLAGS@
 NM = @NM@
+NMEDIT = @NMEDIT@
+OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -210,7 +216,13 @@ ac_ct_AR = @ac_ct_AR@
 ac_ct_AS = @ac_ct_AS@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
+ac_ct_DSYMUTIL = @ac_ct_DSYMUTIL@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
+ac_ct_LIPO = @ac_ct_LIPO@
+ac_ct_NMEDIT = @ac_ct_NMEDIT@
+ac_ct_OBJDUMP = @ac_ct_OBJDUMP@
+ac_ct_OTOOL = @ac_ct_OTOOL@
+ac_ct_OTOOL64 = @ac_ct_OTOOL64@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
 addincludes = @addincludes@
@@ -276,7 +288,7 @@ libgcjgc_la_SOURCES = allchblk.c alloc.c blacklst.c checksums.c dbg_mlc.c \
 dyn_load.c finalize.c gc_dlopen.c gcj_mlc.c headers.c \
 malloc.c mallocx.c mark.c mark_rts.c misc.c new_hblk.c \
 obj_map.c os_dep.c pcr_interface.c ptr_chck.c real_malloc.c reclaim.c \
-solaris_pthreads.c solaris_threads.c specific.c stubborn.c typd_mlc.c \
+specific.c stubborn.c typd_mlc.c \
 backgraph.c win32_threads.c \
 pthread_support.c pthread_stop_world.c darwin_stop_world.c \
 $(asm_libgcjgc_sources)
@@ -298,14 +310,15 @@ libgcjgc_convenience_la_DEPENDENCIES = @addobjs@
 AM_CXXFLAGS = @GC_CFLAGS@
 AM_CFLAGS = @GC_CFLAGS@
 gctest_SOURCES = tests/test.c
-gctest_LDADD = ./libgcjgc.la $(THREADDLLIBS) $(UNWINDLIBS) $(EXTRA_TEST_LIBS)
+gctest_LDADD = ./libgcjgc.la $(THREADLIBS) $(UNWINDLIBS) $(EXTRA_TEST_LIBS)
 gctest_LDFLAGS = -shared-libgcc
 TESTS_ENVIRONMENT = LD_LIBRARY_PATH=../../$(MULTIBUILDTOP)gcc
 TESTS = gctest
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(AM_CPPFLAGS) $(CPPFLAGS) \
 	$(AM_CFLAGS) $(MY_CFLAGS) $(GC_CFLAGS) 
 
-LINK = $(LIBTOOL) --mode=link $(CC) $(AM_CFLAGS) $(MY_CFLAGS) $(LDFLAGS) -o $@
+LTLDFLAGS = $(shell $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
+LINK = $(LIBTOOL) --mode=link $(CC) $(AM_CFLAGS) $(MY_CFLAGS) $(LTLDFLAGS) -o $@
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
@@ -387,6 +400,8 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(srcdir) && $(AUTOCONF)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
+threads.mk: $(top_builddir)/config.status $(srcdir)/threads.mk.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
 
 clean-noinstLTLIBRARIES:
 	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)

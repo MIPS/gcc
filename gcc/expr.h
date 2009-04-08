@@ -1,13 +1,13 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_EXPR_H
 #define GCC_EXPR_H
@@ -37,7 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* The default branch cost is 1.  */
 #ifndef BRANCH_COST
-#define BRANCH_COST 1
+#define BRANCH_COST(speed_p, predictable_p) 1
 #endif
 
 /* This is the 4th arg to `expand_expr'.
@@ -67,10 +66,10 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
 
 #ifndef MOVE_RATIO
 #if defined (HAVE_movmemqi) || defined (HAVE_movmemhi) || defined (HAVE_movmemsi) || defined (HAVE_movmemdi) || defined (HAVE_movmemti)
-#define MOVE_RATIO 2
+#define MOVE_RATIO(speed) 2
 #else
 /* If we are optimizing for space (-Os), cut down the default move ratio.  */
-#define MOVE_RATIO (optimize_size ? 3 : 15)
+#define MOVE_RATIO(speed) ((speed) ? 15 : 3)
 #endif
 #endif
 
@@ -79,11 +78,18 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
 
 #ifndef CLEAR_RATIO
 #if defined (HAVE_setmemqi) || defined (HAVE_setmemhi) || defined (HAVE_setmemsi) || defined (HAVE_setmemdi) || defined (HAVE_setmemti)
-#define CLEAR_RATIO 2
+#define CLEAR_RATIO(speed) 2
 #else
 /* If we are optimizing for space, cut down the default clear ratio.  */
-#define CLEAR_RATIO (optimize_size ? 3 : 15)
+#define CLEAR_RATIO(speed) ((speed) ? 15 :3)
 #endif
+#endif
+
+/* If a memory set (to value other than zero) operation would take
+   SET_RATIO or more simple move-instruction sequences, we will do a movmem
+   or libcall instead.  */
+#ifndef SET_RATIO
+#define SET_RATIO(speed) MOVE_RATIO(speed)
 #endif
 
 enum direction {none, upward, downward};
@@ -202,8 +208,14 @@ do {								\
 
 /* Provide default values for the macros controlling stack checking.  */
 
+/* The default is neither full builtin stack checking...  */
 #ifndef STACK_CHECK_BUILTIN
 #define STACK_CHECK_BUILTIN 0
+#endif
+
+/* ...nor static builtin stack checking.  */
+#ifndef STACK_CHECK_STATIC_BUILTIN
+#define STACK_CHECK_STATIC_BUILTIN 0
 #endif
 
 /* The default interval is one page.  */
@@ -216,9 +228,24 @@ do {								\
 #define STACK_CHECK_PROBE_LOAD 0
 #endif
 
-/* This value is arbitrary, but should be sufficient for most machines.  */
+/* This is a kludge to try to capture the discrepancy between the old
+   mechanism (generic stack checking) and the new mechanism (static
+   builtin stack checking).  STACK_CHECK_PROTECT needs to be bumped
+   for the latter because part of the protection area is effectively
+   included in STACK_CHECK_MAX_FRAME_SIZE for the former.  */
+#ifdef STACK_CHECK_PROTECT
+#define STACK_OLD_CHECK_PROTECT STACK_CHECK_PROTECT
+#else
+#define STACK_OLD_CHECK_PROTECT \
+ (USING_SJLJ_EXCEPTIONS ? 75 * UNITS_PER_WORD : 8 * 1024)
+#endif
+
+/* Minimum amount of stack required to recover from an anticipated stack
+   overflow detection.  The default value conveys an estimate of the amount
+   of stack required to propagate an exception.  */
 #ifndef STACK_CHECK_PROTECT
-#define STACK_CHECK_PROTECT (75 * UNITS_PER_WORD)
+#define STACK_CHECK_PROTECT \
+ (USING_SJLJ_EXCEPTIONS ? 75 * UNITS_PER_WORD : 12 * 1024)
 #endif
 
 /* Make the maximum frame size be the largest we can and still only need
@@ -336,18 +363,22 @@ extern rtx emit_store_flag_force (rtx, enum rtx_code, rtx, rtx,
 /* Functions from builtins.c:  */
 extern rtx expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern tree std_build_builtin_va_list (void);
+extern tree std_fn_abi_va_list (tree);
+extern tree std_canonical_va_list_type (tree);
+
 extern void std_expand_builtin_va_start (tree, rtx);
 extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
 extern void expand_builtin_setjmp_receiver (rtx);
 extern rtx expand_builtin_saveregs (void);
 extern void expand_builtin_trap (void);
+extern rtx builtin_strncpy_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 
 /* Functions from expr.c:  */
 
-/* This is run once per compilation to set up which modes can be used
-   directly in memory and to initialize the block move optab.  */
-extern void init_expr_once (void);
+/* This is run during target initialization to set up which modes can be 
+   used directly in memory and to initialize the block move optab.  */
+extern void init_expr_target (void);
 
 /* This is run at the start of compiling a function.  */
 extern void init_expr (void);
@@ -373,6 +404,7 @@ enum block_op_methods
   BLOCK_OP_TAILCALL
 };
 
+extern GTY(()) tree block_clear_fn;
 extern void init_block_move_fn (const char *);
 extern void init_block_clear_fn (const char *);
 
@@ -444,20 +476,23 @@ extern int can_move_by_pieces (unsigned HOST_WIDE_INT, unsigned int);
    CONSTFUN with several move instructions by store_by_pieces
    function.  CONSTFUNDATA is a pointer which will be passed as argument
    in every CONSTFUN call.
-   ALIGN is maximum alignment we can assume.  */
+   ALIGN is maximum alignment we can assume.
+   MEMSETP is true if this is a real memset/bzero, not a copy
+   of a const string.  */
 extern int can_store_by_pieces (unsigned HOST_WIDE_INT,
 				rtx (*) (void *, HOST_WIDE_INT,
 					 enum machine_mode),
-				void *, unsigned int);
+				void *, unsigned int, bool);
 
 /* Generate several move instructions to store LEN bytes generated by
    CONSTFUN to block TO.  (A MEM rtx with BLKmode).  CONSTFUNDATA is a
    pointer which will be passed as argument in every CONSTFUN call.
    ALIGN is maximum alignment we can assume.
+   MEMSETP is true if this is a real memset/bzero, not a copy.
    Returns TO + LEN.  */
 extern rtx store_by_pieces (rtx, unsigned HOST_WIDE_INT,
 			    rtx (*) (void *, HOST_WIDE_INT, enum machine_mode),
-			    void *, unsigned int, int);
+			    void *, unsigned int, bool, int);
 
 /* Emit insns to set X from Y.  */
 extern rtx emit_move_insn (rtx, rtx);
@@ -477,13 +512,13 @@ extern void emit_push_insn (rtx, enum machine_mode, tree, rtx, unsigned int,
 			    int, rtx, int, rtx, rtx, int, rtx);
 
 /* Expand an assignment that stores the value of FROM into TO.  */
-extern void expand_assignment (tree, tree);
+extern void expand_assignment (tree, tree, bool);
 
 /* Generate code for computing expression EXP,
    and storing the value into TARGET.
    If SUGGEST_REG is nonzero, copy the value through a register
    and return that register, if that is possible.  */
-extern rtx store_expr (tree, rtx, int);
+extern rtx store_expr (tree, rtx, int, bool);
 
 /* Given an rtx that may include add and multiply operations,
    generate them as insns and return a pseudo-reg containing the value.
@@ -509,8 +544,6 @@ expand_normal (tree exp)
 {
   return expand_expr_real (exp, NULL_RTX, VOIDmode, EXPAND_NORMAL, NULL);
 }
-
-extern void expand_var (tree);
 
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
@@ -547,7 +580,7 @@ extern void do_compare_rtx_and_jump (rtx, rtx, enum rtx_code, int,
 				     enum machine_mode, rtx, rtx, rtx);
 
 /* Two different ways of generating switch statements.  */
-extern int try_casesi (tree, tree, tree, tree, rtx, rtx);
+extern int try_casesi (tree, tree, tree, tree, rtx, rtx, rtx);
 extern int try_tablejump (tree, tree, tree, tree, rtx, rtx);
 
 /* Smallest number of adjacent cases before we use a jump table.
@@ -568,7 +601,7 @@ extern HOST_WIDE_INT int_expr_size (tree);
 
 /* Return an rtx that refers to the value returned by a function
    in its original home.  This becomes invalid if any more code is emitted.  */
-extern rtx hard_function_value (tree, tree, tree, int);
+extern rtx hard_function_value (const_tree, const_tree, const_tree, int);
 
 extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
 
@@ -605,9 +638,6 @@ extern rtx eliminate_constant_term (rtx, rtx *);
 /* Convert arg to a valid memory address for specified machine mode,
    by emitting insns to perform arithmetic if nec.  */
 extern rtx memory_address (enum machine_mode, rtx);
-
-/* Like `memory_address' but pretend `flag_force_addr' is 0.  */
-extern rtx memory_address_noforce (enum machine_mode, rtx);
 
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address changed to ADDR.
@@ -666,6 +696,11 @@ extern void set_mem_attributes (rtx, tree, int);
    expecting that it'll be added back in later.  */
 extern void set_mem_attributes_minus_bitpos (rtx, tree, int, HOST_WIDE_INT);
 
+/* Return OFFSET if XEXP (MEM, 0) - OFFSET is known to be ALIGN
+   bits aligned for 0 <= OFFSET < ALIGN / BITS_PER_UNIT, or
+   -1 if not known.  */
+extern int get_mem_align_offset (rtx, unsigned int);
+
 /* Assemble the static constant template for function entry trampolines.  */
 extern rtx assemble_trampoline_template (void);
 
@@ -689,7 +724,7 @@ extern rtx force_reg (enum machine_mode, rtx);
 extern rtx force_not_mem (rtx);
 
 /* Return mode and signedness to use when object is promoted.  */
-extern enum machine_mode promote_mode (tree, enum machine_mode, int *, int);
+extern enum machine_mode promote_mode (const_tree, enum machine_mode, int *, int);
 
 /* Remove some bytes from the stack.  An rtx says how many.  */
 extern void adjust_stack (rtx);
@@ -732,16 +767,17 @@ enum extraction_pattern { EP_insv, EP_extv, EP_extzv };
 extern enum machine_mode
 mode_for_extraction (enum extraction_pattern, int);
 
-extern rtx store_bit_field (rtx, unsigned HOST_WIDE_INT,
-			    unsigned HOST_WIDE_INT, enum machine_mode, rtx);
+extern void store_bit_field (rtx, unsigned HOST_WIDE_INT,
+			     unsigned HOST_WIDE_INT, enum machine_mode, rtx);
 extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
 			      unsigned HOST_WIDE_INT, int, rtx,
 			      enum machine_mode, enum machine_mode);
+extern rtx extract_low_bits (enum machine_mode, enum machine_mode, rtx);
 extern rtx expand_mult (enum machine_mode, rtx, rtx, rtx, int);
 extern rtx expand_mult_highpart_adjust (enum machine_mode, rtx, rtx, rtx, rtx, int);
 
 extern rtx assemble_static_space (unsigned HOST_WIDE_INT);
-extern int safe_from_p (rtx, tree, int);
+extern int safe_from_p (const_rtx, tree, int);
 
 /* Call this once to initialize the contents of the optabs
    appropriately for the current target machine.  */
@@ -750,6 +786,7 @@ extern void init_all_optabs (void);
 
 /* Call this to initialize an optab function entry.  */
 extern rtx init_one_libfunc (const char *);
+extern rtx set_user_assembler_libfunc (const char *, const char *);
 
 extern int vector_mode_valid_p (enum machine_mode);
 

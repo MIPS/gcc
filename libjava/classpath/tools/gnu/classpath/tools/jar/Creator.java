@@ -1,5 +1,5 @@
 /* Creator.java - create a new jar file
- Copyright (C) 2006 Free Software Foundation, Inc.
+ Copyright (C) 2006, 2008 Free Software Foundation, Inc.
 
  This file is part of GNU Classpath.
 
@@ -49,7 +49,7 @@ import java.io.OutputStream;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
+import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
@@ -60,7 +60,7 @@ public class Creator
     extends Action
 {
   JarOutputStream outputStream;
-  HashSet writtenItems = new HashSet();
+  HashSet<String> writtenItems = new HashSet<String>();
   // The manifest to use, or null if we don't want a manifest.
   Manifest manifest;
 
@@ -150,13 +150,13 @@ public class Creator
       }
     else
       {
-	InputStream inputStream = new FileInputStream(file);
-	writeFile(isDirectory, inputStream, filename, verbose);
-	inputStream.close();
+        InputStream inputStream = new FileInputStream(file);
+        writeFile(isDirectory, inputStream, filename, verbose);
+        inputStream.close();
       }
   }
 
-  private void addEntries(ArrayList result, Entry entry)
+  private void addEntries(ArrayList<Entry> result, Entry entry)
   {
     if (entry.file.isDirectory())
       {
@@ -176,15 +176,11 @@ public class Creator
       result.add(entry);
   }
 
-  private ArrayList getAllEntries(Main parameters)
+  private ArrayList<Entry> getAllEntries(Main parameters)
   {
-    Iterator it = parameters.entries.iterator();
-    ArrayList allEntries = new ArrayList();
-    while (it.hasNext())
-      {
-        Entry entry = (Entry) it.next();
-        addEntries(allEntries, entry);
-      }
+    ArrayList<Entry> allEntries = new ArrayList<Entry>();
+    for (Entry entry : parameters.entries)
+      addEntries(allEntries, entry);
     return allEntries;
   }
 
@@ -195,13 +191,9 @@ public class Creator
     writtenItems.add("META-INF/"); //$NON-NLS-1$
     writtenItems.add(JarFile.MANIFEST_NAME);
 
-    ArrayList allEntries = getAllEntries(parameters);
-    Iterator it = allEntries.iterator();
-    while (it.hasNext())
-      {
-        Entry entry = (Entry) it.next();
-        writeFile(entry.file, entry.name, parameters.verbose);
-      }
+    ArrayList<Entry> allEntries = getAllEntries(parameters);
+    for (Entry entry : allEntries)
+      writeFile(entry.file, entry.name, parameters.verbose);
   }
 
   protected Manifest createManifest(Main parameters)
@@ -222,9 +214,15 @@ public class Creator
     throws IOException
   {
     manifest = createManifest(parameters);
+    /* If no version is specified, provide the same manifest version default
+     * as Sun's jar tool */
+    Attributes attr = manifest.getMainAttributes();
+    if (attr.getValue(Attributes.Name.MANIFEST_VERSION) == null)
+      attr.putValue(Attributes.Name.MANIFEST_VERSION.toString(), "1.0");
+    attr.putValue("Created-By", System.getProperty("java.version") +
+		  " (" + System.getProperty("java.vendor") + ")");
     outputStream = new JarOutputStream(os, manifest);
-    // FIXME: in Classpath this sets the method too late for the
-    // manifest file.
+    // FIXME: this sets the method too late for the manifest file.
     outputStream.setMethod(parameters.storageMode);
     writeCommandLineEntries(parameters);
   }

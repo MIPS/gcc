@@ -1,9 +1,9 @@
 # Expect driver script for GCC Regression Tests
-# Copyright (C) 2003 Free Software Foundation
+# Copyright (C) 2003, 2007, 2008 Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -12,8 +12,8 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA. 
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 # These tests come from many different contributors.
 
@@ -23,6 +23,10 @@ if $tracelevel then {
 
 # load support procs
 load_lib fortran-torture.exp
+load_lib torture-options.exp
+
+torture-init
+set-torture-options [get-fortran-torture-options]
 
 foreach testcase [lsort [glob -nocomplain $srcdir/$subdir/*.f]] {
     # If we're only testing specific files and this isn't one of them, skip it.
@@ -46,7 +50,21 @@ foreach testcase [lsort [glob -nocomplain $srcdir/$subdir/*.f90]] {
     fortran-torture $testcase
 }
 
+foreach testcase [lsort [glob -nocomplain $srcdir/$subdir/*.F90]] {
+    if ![runtest_file_p $runtests $testcase] then {
+	continue
+    }
+    fortran-torture $testcase
+}
+
 foreach testcase [lsort [glob -nocomplain $srcdir/$subdir/*.f95]] {
+    if ![runtest_file_p $runtests $testcase] then {
+	continue
+    }
+    fortran-torture $testcase
+}
+
+foreach testcase [lsort [glob -nocomplain $srcdir/$subdir/*.F95]] {
     if ![runtest_file_p $runtests $testcase] then {
 	continue
     }
@@ -59,3 +77,26 @@ foreach testcase [lsort [glob -nocomplain $srcdir/$subdir/*.f03]] {
     }
     fortran-torture $testcase
 }
+
+foreach testcase [lsort [glob -nocomplain $srcdir/$subdir/*.F03]] {
+    if ![runtest_file_p $runtests $testcase] then {
+	continue
+    }
+    fortran-torture $testcase
+}
+
+foreach testcase [lsort [glob -nocomplain $srcdir/$subdir/*.f08]] {
+    if ![runtest_file_p $runtests $testcase] then {
+	continue
+    }
+    fortran-torture $testcase
+}
+
+foreach testcase [lsort [glob -nocomplain $srcdir/$subdir/*.F08]] {
+    if ![runtest_file_p $runtests $testcase] then {
+	continue
+    }
+    fortran-torture $testcase
+}
+
+torture-finish

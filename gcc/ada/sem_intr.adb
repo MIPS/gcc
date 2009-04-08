@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -133,7 +132,7 @@ package body Sem_Intr is
          end if;
 
       --  Check for the case of freeing a non-null object which will raise
-      --  Constaint_Error. Issue warning here, do the expansion in Exp_Intr.
+      --  Constraint_Error. Issue warning here, do the expansion in Exp_Intr.
 
       elsif Cnam = Name_Free
         and then Can_Never_Be_Null (Etype (Arg1))
@@ -159,7 +158,7 @@ package body Sem_Intr is
       T2  : Entity_Id;
 
    begin
-      --  Aritnmetic operators
+      --  Arithmetic operators
 
       if Nam = Name_Op_Add
            or else
@@ -305,7 +304,7 @@ package body Sem_Intr is
          Errint ("unrecognized intrinsic subprogram", E, N);
 
       --  We always allow intrinsic specifications in language defined units
-      --  and in expanded code. We assume that the GNAT implemetors know what
+      --  and in expanded code. We assume that the GNAT implementors know what
       --  they are doing, and do not write or generate junk use of intrinsic!
 
       elsif not Comes_From_Source (E)
@@ -419,9 +418,7 @@ package body Sem_Intr is
              Ptyp1, N);
          return;
 
-      elsif Is_Modular_Integer_Type (Typ1)
-        and then Non_Binary_Modulus (Typ1)
-      then
+      elsif Non_Binary_Modulus (Typ1) then
          Errint
            ("shifts not allowed for non-binary modular types",
             Ptyp1, N);

@@ -1,5 +1,5 @@
 /* Implementation of the RESHAPE
-   Copyright 2002, 2006 Free Software Foundation, Inc.
+   Copyright 2002, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -28,10 +28,10 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "libgfortran.h"
 #include <stdlib.h>
 #include <assert.h>
-#include "libgfortran.h"
+
 
 #if defined (HAVE_GFC_INTEGER_4)
 
@@ -81,16 +81,32 @@ reshape_4 (gfc_array_i4 * const restrict ret,
   const GFC_INTEGER_4 *src;
   int n;
   int dim;
-  int sempty, pempty;
+  int sempty, pempty, shape_empty;
+  index_type shape_data[GFC_MAX_DIMENSIONS];
+
+  rdim = shape->dim[0].ubound - shape->dim[0].lbound + 1;
+  if (rdim != GFC_DESCRIPTOR_RANK(ret))
+    runtime_error("rank of return array incorrect in RESHAPE intrinsic");
+
+  shape_empty = 0;
+
+  for (n = 0; n < rdim; n++)
+    {
+      shape_data[n] = shape->data[n * shape->dim[0].stride];
+      if (shape_data[n] <= 0)
+      {
+        shape_data[n] = 0;
+	shape_empty = 1;
+      }
+    }
 
   if (ret->data == NULL)
     {
-      rdim = shape->dim[0].ubound - shape->dim[0].lbound + 1;
       rs = 1;
       for (n = 0; n < rdim; n++)
 	{
 	  ret->dim[n].lbound = 0;
-	  rex = shape->data[n * shape->dim[0].stride];
+	  rex = shape_data[n];
 	  ret->dim[n].ubound =  rex - 1;
 	  ret->dim[n].stride = rs;
 	  rs *= rex;
@@ -99,53 +115,9 @@ reshape_4 (gfc_array_i4 * const restrict ret,
       ret->data = internal_malloc_size ( rs * sizeof (GFC_INTEGER_4));
       ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
     }
-  else
-    {
-      rdim = GFC_DESCRIPTOR_RANK (ret);
-    }
 
-  rsize = 1;
-  for (n = 0; n < rdim; n++)
-    {
-      if (order)
-        dim = order->data[n * order->dim[0].stride] - 1;
-      else
-        dim = n;
-
-      rcount[n] = 0;
-      rstride[n] = ret->dim[dim].stride;
-      rextent[n] = ret->dim[dim].ubound + 1 - ret->dim[dim].lbound;
-
-      if (rextent[n] != shape->data[dim * shape->dim[0].stride])
-        runtime_error ("shape and target do not conform");
-
-      if (rsize == rstride[n])
-        rsize *= rextent[n];
-      else
-        rsize = 0;
-      if (rextent[n] <= 0)
-        return;
-    }
-
-  sdim = GFC_DESCRIPTOR_RANK (source);
-  ssize = 1;
-  sempty = 0;
-  for (n = 0; n < sdim; n++)
-    {
-      scount[n] = 0;
-      sstride[n] = source->dim[n].stride;
-      sextent[n] = source->dim[n].ubound + 1 - source->dim[n].lbound;
-      if (sextent[n] <= 0)
-	{
-	  sempty = 1;
-	  sextent[n] = 0;
-	}
-
-      if (ssize == sstride[n])
-        ssize *= sextent[n];
-      else
-        ssize = 0;
-    }
+  if (shape_empty)
+    return;
 
   if (pad)
     {
@@ -178,6 +150,106 @@ reshape_4 (gfc_array_i4 * const restrict ret,
       pptr = NULL;
     }
 
+  if (unlikely (compile_options.bounds_check))
+    {
+      index_type ret_extent, source_extent;
+
+      rs = 1;
+      for (n = 0; n < rdim; n++)
+	{
+	  rs *= shape_data[n];
+	  ret_extent = ret->dim[n].ubound + 1 - ret->dim[n].lbound;
+	  if (ret_extent != shape_data[n])
+	    runtime_error("Incorrect extent in return value of RESHAPE"
+			  " intrinsic in dimension %ld: is %ld,"
+			  " should be %ld", (long int) n+1,
+			  (long int) ret_extent, (long int) shape_data[n]);
+	}
+
+      source_extent = 1;
+      sdim = GFC_DESCRIPTOR_RANK (source);
+      for (n = 0; n < sdim; n++)
+	{
+	  index_type se;
+	  se = source->dim[n].ubound + 1 - source->dim[0].lbound;
+	  source_extent *= se > 0 ? se : 0;
+	}
+
+      if (rs > source_extent && (!pad || pempty))
+	runtime_error("Incorrect size in SOURCE argument to RESHAPE"
+		      " intrinsic: is %ld, should be %ld",
+		      (long int) source_extent, (long int) rs);
+
+      if (order)
+	{
+	  int seen[GFC_MAX_DIMENSIONS];
+	  index_type v;
+
+	  for (n = 0; n < rdim; n++)
+	    seen[n] = 0;
+
+	  for (n = 0; n < rdim; n++)
+	    {
+	      v = order->data[n * order->dim[0].stride] - 1;
+
+	      if (v < 0 || v >= rdim)
+		runtime_error("Value %ld out of range in ORDER argument"
+			      " to RESHAPE intrinsic", (long int) v + 1);
+
+	      if (seen[v] != 0)
+		runtime_error("Duplicate value %ld in ORDER argument to"
+			      " RESHAPE intrinsic", (long int) v + 1);
+		
+	      seen[v] = 1;
+	    }
+	}
+    }
+
+  rsize = 1;
+  for (n = 0; n < rdim; n++)
+    {
+      if (order)
+        dim = order->data[n * order->dim[0].stride] - 1;
+      else
+        dim = n;
+
+      rcount[n] = 0;
+      rstride[n] = ret->dim[dim].stride;
+      rextent[n] = ret->dim[dim].ubound + 1 - ret->dim[dim].lbound;
+      if (rextent[n] < 0)
+        rextent[n] = 0;
+
+      if (rextent[n] != shape_data[dim])
+        runtime_error ("shape and target do not conform");
+
+      if (rsize == rstride[n])
+        rsize *= rextent[n];
+      else
+        rsize = 0;
+      if (rextent[n] <= 0)
+        return;
+    }
+
+  sdim = GFC_DESCRIPTOR_RANK (source);
+  ssize = 1;
+  sempty = 0;
+  for (n = 0; n < sdim; n++)
+    {
+      scount[n] = 0;
+      sstride[n] = source->dim[n].stride;
+      sextent[n] = source->dim[n].ubound + 1 - source->dim[n].lbound;
+      if (sextent[n] <= 0)
+	{
+	  sempty = 1;
+	  sextent[n] = 0;
+	}
+
+      if (ssize == sstride[n])
+        ssize *= sextent[n];
+      else
+        ssize = 0;
+    }
+
   if (rsize != 0 && ssize != 0 && psize != 0)
     {
       rsize *= sizeof (GFC_INTEGER_4);
@@ -197,16 +269,16 @@ reshape_4 (gfc_array_i4 * const restrict ret,
 
   if (sempty)
     {
-      /* Switch immediately to the pad array.  */
+      /* Pretend we are using the pad array the first time around, too.  */
       src = pptr;
-      sptr = NULL;
+      sptr = pptr;
       sdim = pdim;
       for (dim = 0; dim < pdim; dim++)
 	{
 	  scount[dim] = pcount[dim];
 	  sextent[dim] = pextent[dim];
 	  sstride[dim] = pstride[dim];
-	  sstride0 = sstride[0] * sizeof (GFC_INTEGER_4);
+	  sstride0 = pstride[0];
 	}
     }
 

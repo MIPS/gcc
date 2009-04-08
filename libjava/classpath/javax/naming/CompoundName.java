@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package javax.naming;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -68,14 +70,14 @@ public class CompoundName implements Name, Cloneable, Serializable
 
   private CompoundName (Properties syntax)
   {
-    elts = new Vector ();
+    elts = new Vector<String> ();
     mySyntax = syntax;
     initializeSyntax ();
   }
 
   protected CompoundName (Enumeration<String> comps, Properties syntax)
   {
-    elts = new Vector ();
+    elts = new Vector<String> ();
     mySyntax = syntax;
     initializeSyntax ();
     try
@@ -91,11 +93,11 @@ public class CompoundName implements Name, Cloneable, Serializable
   public CompoundName (String n, Properties syntax)
     throws InvalidNameException
   {
-    elts = new Vector ();
+    elts = new Vector<String> ();
     mySyntax = syntax;
     initializeSyntax ();
 
-    StringBuffer new_element = new StringBuffer ();
+    StringBuilder new_element = new StringBuilder ();
     int i = 0;
     // QUOTE==null means no quoting right now.  When it is set it is
     // the value of the closing quote.
@@ -186,7 +188,7 @@ public class CompoundName implements Name, Cloneable, Serializable
 	int len = elts.size ();
 	for (i = 0; i < len / 2; ++i)
 	  {
-	    Object t = elts.set (i, elts.get (len - i - 1));
+	    String t = elts.set (i, elts.get (len - i - 1));
 	    elts.set (len - i - 1, t);
 	  }
       }
@@ -210,7 +212,7 @@ public class CompoundName implements Name, Cloneable, Serializable
 
   public Name addAll (int posn, Name n) throws InvalidNameException
   {
-    Enumeration e = n.getAll ();
+    Enumeration<String> e = n.getAll ();
     try
       {
 	while (e.hasMoreElements ())
@@ -227,7 +229,7 @@ public class CompoundName implements Name, Cloneable, Serializable
 
   public Name addAll (Name suffix) throws InvalidNameException
   {
-    Enumeration e = suffix.getAll ();
+    Enumeration<String> e = suffix.getAll ();
     try
       {
 	while (e.hasMoreElements ())
@@ -252,8 +254,8 @@ public class CompoundName implements Name, Cloneable, Serializable
     int last = Math.min (cn.elts.size (), elts.size ());
     for (int i = 0; i < last; ++i)
       {
-	String f = canonicalize ((String) elts.get (i));
-	int comp = f.compareTo (canonicalize ((String) cn.elts.get (i)));
+	String f = canonicalize (elts.get (i));
+	int comp = f.compareTo (canonicalize (cn.elts.get (i)));
 	if (comp != 0)
 	  return comp;
       }
@@ -270,8 +272,8 @@ public class CompoundName implements Name, Cloneable, Serializable
     int delta = elts.size () - cn.elts.size ();
     for (int i = 0; i < cn.elts.size (); ++i)
       {
-	String f = canonicalize ((String) elts.get (delta + i));
-	if (! f.equals (canonicalize ((String) cn.elts.get (i))))
+	String f = canonicalize (elts.get (delta + i));
+	if (! f.equals (canonicalize (cn.elts.get (i))))
 	  return false;
       }
     return true;
@@ -286,7 +288,7 @@ public class CompoundName implements Name, Cloneable, Serializable
 
   public String get (int posn)
   {
-    return (String) elts.get (posn);
+    return elts.get (posn);
   }
 
   public Enumeration<String> getAll ()
@@ -316,7 +318,7 @@ public class CompoundName implements Name, Cloneable, Serializable
   {
     int h = 0;
     for (int i = 0; i < elts.size (); ++i)
-      h += canonicalize ((String) elts.get (i)).hashCode ();
+      h += canonicalize (elts.get (i)).hashCode ();
     return h;
   }
 
@@ -344,8 +346,8 @@ public class CompoundName implements Name, Cloneable, Serializable
       return false;
     for (int i = 0; i < cn.elts.size (); ++i)
       {
-	String f = canonicalize ((String) elts.get (i));
-	if (! f.equals (canonicalize ((String) cn.elts.get (i))))
+	String f = canonicalize (elts.get (i));
+	if (! f.equals (canonicalize (cn.elts.get (i))))
 	  return false;
       }
     return true;
@@ -376,14 +378,14 @@ public class CompoundName implements Name, Cloneable, Serializable
 
   public String toString ()
   {
-    StringBuffer result = new StringBuffer ();
+    CPStringBuilder result = new CPStringBuilder ();
     int size = elts.size ();
     for (int i = 0; i < size; ++i)
       {
 	// Find the appropriate element.  FIXME: not clear what FLAT
 	// means.
 	int offset = (direction == RIGHT_TO_LEFT) ? (size - i - 1) : i;
-	String element = (String) elts.get (offset);
+	String element = elts.get (offset);
 	if (i > 0
 	    || (i == size - 1 && element.equals ("")))
 	  result.append (separator);
@@ -478,7 +480,7 @@ public class CompoundName implements Name, Cloneable, Serializable
   {
     mySyntax = (Properties) s.readObject();
     int count = s.readInt();
-    elts = new Vector(count);
+    elts = new Vector<String>(count);
     for (int i = 0; i < count; i++)
       elts.addElement((String) s.readObject());
   }
@@ -499,7 +501,7 @@ public class CompoundName implements Name, Cloneable, Serializable
   protected transient Properties mySyntax;
 
   // The actual elements.
-  private transient Vector elts;
+  private transient Vector<String> elts;
 
   // The following are all used for syntax.
   private transient int direction;

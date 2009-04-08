@@ -1,8 +1,8 @@
-/* Copyright (C) 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option) 
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -11,9 +11,8 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this file; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 
 /* Run-time Target */
@@ -32,9 +31,27 @@
 extern int target_flags;
 extern const char *spu_fixed_range_string;
 
+/* Which processor to generate code or schedule for.  */
+enum processor_type
+{
+  PROCESSOR_CELL,
+  PROCESSOR_CELLEDP
+};
+
+extern GTY(()) int spu_arch;
+extern GTY(()) int spu_tune;
+
+/* Support for a compile-time default architecture and tuning.  The rules are:
+   --with-arch is ignored if -march is specified.
+   --with-tune is ignored if -mtune is specified.  */
+#define OPTION_DEFAULT_SPECS \
+  {"arch", "%{!march=*:-march=%(VALUE)}" }, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }
+
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_ERROR_RELOC | MASK_SAFE_DMA | MASK_BRANCH_HINTS)
+#define TARGET_DEFAULT (MASK_ERROR_RELOC | MASK_SAFE_DMA | MASK_BRANCH_HINTS \
+			| MASK_SAFE_HINTS)
 #endif
 
 
@@ -108,34 +125,6 @@ extern const char *spu_fixed_range_string;
 
 #define STACK_SIZE_MODE SImode
 
-/* #define TARGET_FLOAT_FORMAT     	SPU_FLOAT_FORMAT */
-
-#ifndef MODE_HAS_NANS
-#define MODE_HAS_NANS(MODE)                                     \
-  (FLOAT_MODE_P (MODE) 						\
-   && MODE != SFmode						\
-   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
-#endif
-                                                                              
-#ifndef MODE_HAS_INFINITIES
-#define MODE_HAS_INFINITIES(MODE)                               \
-  (FLOAT_MODE_P (MODE) 						\
-   && MODE != SFmode                                            \
-   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
-#endif
-                                                                              
-#ifndef MODE_HAS_SIGN_DEPENDENT_ROUNDING
-#define MODE_HAS_SIGN_DEPENDENT_ROUNDING(MODE)                  \
-  (FLOAT_MODE_P (MODE)                                          \
-    && MODE != SFmode                                           \
-   && !ROUND_TOWARDS_ZERO)
-#endif
-
-#define ROUND_TOWARDS_ZERO 1
-
-/* This is certainly true.  Should it be defined?  (It wasn't before.) */
-/* #define LARGEST_EXPONENT_IS_NORMAL(size) (size != 32) */
-
 
 /* Type Layout */
 
@@ -152,6 +141,8 @@ extern const char *spu_fixed_range_string;
 #define LONG_DOUBLE_TYPE_SIZE 64
 
 #define DEFAULT_SIGNED_CHAR 0
+
+#define STDINT_LONG32 0
 
 
 /* Register Basics */
@@ -208,6 +199,9 @@ enum reg_class {
    LIM_REG_CLASSES 
 };
 
+/* SPU is simple, it really only has one class of registers.  */
+#define IRA_COVER_CLASSES { GENERAL_REGS, LIM_REG_CLASSES }
+
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
 #define REG_CLASS_NAMES \
@@ -247,6 +241,7 @@ enum reg_class {
    only true for SPU. */
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
         ((GET_MODE_SIZE (FROM) > 4 || GET_MODE_SIZE (TO) > 4) \
+	 && (GET_MODE_SIZE (FROM) < 16 || GET_MODE_SIZE (TO) < 16) \
 	 && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
 
 #define REGISTER_TARGET_PRAGMAS() do {					\
@@ -257,6 +252,8 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 /* Frame Layout */
 
 #define STACK_GROWS_DOWNWARD
+
+#define FRAME_GROWS_DOWNWARD 1
 
 #define STARTING_FRAME_OFFSET (0)
 
@@ -272,6 +269,8 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 /* #define RETURN_ADDR_IN_PREVIOUS_FRAME */
 
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG(Pmode, LINK_REGISTER_REGNUM)
+
+#define DWARF_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (LINK_REGISTER_REGNUM)
 
 #define ARG_POINTER_CFA_OFFSET(FNDECL) (-STACK_POINTER_OFFSET)
 
@@ -317,8 +316,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define FRAME_POINTER_REQUIRED 0
 
-#define INITIAL_FRAME_POINTER_OFFSET(DEPTH) ((DEPTH) = 0)
-
 #define ELIMINABLE_REGS  \
   {{ARG_POINTER_REGNUM,	 STACK_POINTER_REGNUM},				\
   {ARG_POINTER_REGNUM,	 HARD_FRAME_POINTER_REGNUM},			\
@@ -337,7 +334,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define REG_PARM_STACK_SPACE(FNDECL) 0
 
-#define OUTGOING_REG_PARM_STACK_SPACE 1
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) (0)
 
@@ -359,16 +356,19 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
          : (MODE) == VOIDmode ? 1 \
 	 : HARD_REGNO_NREGS(CUM,MODE))
 
+
+/* The SPU ABI wants 32/64-bit types at offset 0 in the quad-word on the
+   stack.  8/16-bit types should be at offsets 3/2 respectively.  */
+#define FUNCTION_ARG_OFFSET(MODE, TYPE)					\
+(((TYPE) && INTEGRAL_TYPE_P (TYPE) && GET_MODE_SIZE (MODE) < 4)		\
+ ? (4 - GET_MODE_SIZE (MODE))						\
+ : 0)
+
 #define FUNCTION_ARG_PADDING(MODE,TYPE) upward
 
 #define PAD_VARARGS_DOWN 0
 
 #define FUNCTION_ARG_REGNO_P(N) ((N) >= (FIRST_ARG_REGNUM) && (N) <= (LAST_ARG_REGNUM))
-
-/* Undocumented */
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  spu_va_start (valist, nextarg)
-
 
 /* Scalar Return */
 
@@ -445,11 +445,11 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 /* Costs */
 
-#define BRANCH_COST spu_branch_cost
+#define BRANCH_COST(speed_p, predictable_p) spu_branch_cost
 
 #define SLOW_BYTE_ACCESS 0
 
-#define MOVE_RATIO 32
+#define MOVE_RATIO(speed) 32
 
 #define NO_FUNCTION_CSE
 
@@ -499,10 +499,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 #define ASM_OUTPUT_LABELREF(FILE, NAME) \
   asm_fprintf (FILE, "%U%s", default_strip_name_encoding (NAME))
 
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 
 /* Instruction Output */
 #define REGISTER_NAMES \
@@ -542,6 +538,57 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
   do { if (LOG!=0) fprintf (FILE, "\t.align\t%d\n", (LOG)); } while (0)
 
 
+/* Model costs for the vectorizer.  */
+
+/* Cost of conditional branch.  */
+#ifndef TARG_COND_BRANCH_COST
+#define TARG_COND_BRANCH_COST        6
+#endif
+
+/* Cost of any scalar operation, excluding load and store.  */
+#ifndef TARG_SCALAR_STMT_COST
+#define TARG_SCALAR_STMT_COST        1
+#endif
+
+/* Cost of scalar load. */
+#undef TARG_SCALAR_LOAD_COST
+#define TARG_SCALAR_LOAD_COST        2 /* load + rotate */
+
+/* Cost of scalar store.  */
+#undef TARG_SCALAR_STORE_COST
+#define TARG_SCALAR_STORE_COST       10
+
+/* Cost of any vector operation, excluding load, store,
+   or vector to scalar operation.  */
+#undef TARG_VEC_STMT_COST
+#define TARG_VEC_STMT_COST           1
+
+/* Cost of vector to scalar operation.  */
+#undef TARG_VEC_TO_SCALAR_COST
+#define TARG_VEC_TO_SCALAR_COST      1
+
+/* Cost of scalar to vector operation.  */
+#undef TARG_SCALAR_TO_VEC_COST
+#define TARG_SCALAR_TO_VEC_COST      1
+
+/* Cost of aligned vector load.  */
+#undef TARG_VEC_LOAD_COST
+#define TARG_VEC_LOAD_COST           1
+
+/* Cost of misaligned vector load.  */
+#undef TARG_VEC_UNALIGNED_LOAD_COST
+#define TARG_VEC_UNALIGNED_LOAD_COST 2
+
+/* Cost of vector store.  */
+#undef TARG_VEC_STORE_COST
+#define TARG_VEC_STORE_COST          1
+
+/* Cost of vector permutation.  */
+#ifndef TARG_VEC_PERMUTE_COST
+#define TARG_VEC_PERMUTE_COST        1 
+#endif
+
+
 /* Misc */
 
 #define CASE_VECTOR_MODE SImode
@@ -559,7 +606,18 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 #define NO_IMPLICIT_EXTERN_C 1
 
 #define HANDLE_PRAGMA_PACK_PUSH_POP 1
-
+
+/* Canonicalize a comparison from one we don't have to one we do have.  */
+#define CANONICALIZE_COMPARISON(CODE,OP0,OP1) \
+  do {                                                                    \
+    if (((CODE) == LE || (CODE) == LT || (CODE) == LEU || (CODE) == LTU)) \
+      {                                                                   \
+        rtx tem = (OP0);                                                  \
+        (OP0) = (OP1);                                                    \
+        (OP1) = tem;                                                      \
+        (CODE) = swap_condition (CODE);                                   \
+      }                                                                   \
+  } while (0)
 
 /* These are set by the cmp patterns and used while expanding
    conditional branches. */

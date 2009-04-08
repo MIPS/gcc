@@ -1,12 +1,12 @@
 /* Structure layout test generator.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,9 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 
 /* Compile with gcc -o struct-layout-1_generate{,.c} generate_random{,_r}.c */
 
@@ -35,6 +35,22 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #if LLONG_MAX != 9223372036854775807LL && __LONG_LONG_MAX__ != 9223372036854775807LL
 # error Need 64-bit long long
 #endif
+
+#if defined __MSVCRT__ 
+#define COMPAT_PRLL "I64"
+#else 
+#define COMPAT_PRLL "ll"
+#endif
+
+const char *dg_options[] = {
+"/* { dg-options \"%s-I%s\" } */\n",
+"/* { dg-options \"%s-I%s -mno-mmx -Wno-abi\" { target i?86-*-* x86_64-*-* } } */\n",
+"/* { dg-options \"%s-I%s -fno-common\" { target hppa*-*-hpux* powerpc*-*-darwin* *-*-mingw32* *-*-cygwin* } } */\n",
+"/* { dg-options \"%s-I%s -mno-mmx -fno-common -Wno-abi\" { target i?86-*-darwin* x86_64-*-darwin* } } */\n",
+"/* { dg-options \"%s-I%s -mno-base-addresses\" { target mmix-*-* } } */\n",
+"/* { dg-options \"%s-I%s -mlongcalls -mtext-section-literals\" { target xtensa*-*-* } } */\n"
+#define NDG_OPTIONS (sizeof (dg_options) / sizeof (dg_options[0]))
+};
 
 typedef unsigned int hashval_t;
 
@@ -481,6 +497,7 @@ static struct entry *hash_table[HASH_SIZE];
 static int idx, limidx, output_one, short_enums;
 static const char *destdir;
 static const char *srcdir;
+static const char *srcdir_safe;
 FILE *outfile;
 
 void
@@ -488,6 +505,8 @@ switchfiles (int fields)
 {
   static int filecnt;
   static char *destbuf, *destptr;
+  int i;
+
   ++filecnt;
   if (outfile)
     fclose (outfile);
@@ -515,10 +534,9 @@ switchfiles (int fields)
       fputs ("failed to create test files\n", stderr);
       exit (1);
     }
-  fprintf (outfile, "\
-/* { dg-options \"-I%s\" } */\n\
-/* { dg-options \"-I%s -fno-common\" { target hppa*-*-hpux* } } */\n\
-/* { dg-options \"-I%s -mno-base-addresses\" { target mmix-*-* } } */\n\
+  for (i = 0; i < NDG_OPTIONS; i++)
+    fprintf (outfile, dg_options[i], "", srcdir_safe);
+  fprintf (outfile, "\n\
 #include \"struct-layout-1.h\"\n\
 \n\
 #define TX(n, type, attrs, fields, ops) extern void test##n (void);\n\
@@ -536,33 +554,31 @@ int main (void)\n\
       abort ();\n\
     }\n\
   exit (0);\n\
-}\n", srcdir, srcdir, srcdir, filecnt, filecnt);
+}\n", filecnt, filecnt);
   fclose (outfile);
   sprintf (destptr, "t%03d_x.C", filecnt);
   outfile = fopen (destbuf, "w");
   if (outfile == NULL)
     goto fail;
-  fprintf (outfile, "\
-/* { dg-options \"-w -I%s\" } */\n\
-/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* } } */\n\
-/* { dg-options \"-w -I%s -mno-base-addresses\" { target mmix-*-* } } */\n\
+  for (i = 0; i < NDG_OPTIONS; i++)
+    fprintf (outfile, dg_options[i], "-w ", srcdir_safe);
+  fprintf (outfile, "\n\
 #include \"struct-layout-1_x1.h\"\n\
 #include \"t%03d_test.h\"\n\
 #include \"struct-layout-1_x2.h\"\n\
-#include \"t%03d_test.h\"\n", srcdir, srcdir, srcdir, filecnt, filecnt);
+#include \"t%03d_test.h\"\n", filecnt, filecnt);
   fclose (outfile);
   sprintf (destptr, "t%03d_y.C", filecnt);
   outfile = fopen (destbuf, "w");
   if (outfile == NULL)
     goto fail;
-  fprintf (outfile, "\
-/* { dg-options \"-w -I%s\" } */\n\
-/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* } } */\n\
-/* { dg-options \"-w -I%s -mno-base-addresses\" { target mmix-*-* } } */\n\
+  for (i = 0; i < NDG_OPTIONS; i++)
+    fprintf (outfile, dg_options[i], "-w ", srcdir_safe);
+  fprintf (outfile, "\n\
 #include \"struct-layout-1_y1.h\"\n\
 #include \"t%03d_test.h\"\n\
 #include \"struct-layout-1_y2.h\"\n\
-#include \"t%03d_test.h\"\n", srcdir, srcdir, srcdir, filecnt, filecnt);
+#include \"t%03d_test.h\"\n", filecnt, filecnt);
   fclose (outfile);
   sprintf (destptr, "t%03d_test.h", filecnt);
   outfile = fopen (destbuf, "w");
@@ -778,7 +794,7 @@ output_FNB (char mode, struct entry *e)
 	m &= e->len > 1 ? (1ULL << (e->len - 1)) - 1 : 1;
       l1 &= m;
       l2 &= m;
-      fprintf (outfile, "%s%llu%s,%s%llu%s",
+      fprintf (outfile, "%s%" COMPAT_PRLL "u%s,%s%" COMPAT_PRLL "u%s",
 	       (signs & 1) ? "-" : "", l1, l1 > 2147483647 ? "LL" : "",
 	       (signs & 2) ? "-" : "", l2, l2 > 2147483647 ? "LL" : "");
       break;
@@ -788,7 +804,8 @@ output_FNB (char mode, struct entry *e)
 	m &= (1ULL << e->len) - 1;
       l1 &= m;
       l2 &= m;
-      fprintf (outfile, "%lluU%s,%lluU%s", l1, l1 > 4294967295U ? "LL" : "",
+      fprintf (outfile,"%" COMPAT_PRLL "uU%s,%" COMPAT_PRLL "uU%s",
+	       l1, l1 > 4294967295U ? "LL" : "",
 	       l2, l2 > 4294967295U ? "LL" : "");
       break;
     case TYPE_FLOAT:
@@ -802,7 +819,8 @@ output_FNB (char mode, struct entry *e)
       if (e->type->maxval == 0)
 	fputs ("e0_0,e0_0", outfile);
       else if (e->type->maxval == 1)
-	fprintf (outfile, "e1_%lld,e1_%lld", l1 & 1, l2 & 1);
+	fprintf (outfile, "e1_%" COMPAT_PRLL "d,e1_%" COMPAT_PRLL "d",
+		 l1 & 1, l2 & 1);
       else
 	{
 	  p = strchr (e->type->name, '\0');
@@ -814,7 +832,8 @@ output_FNB (char mode, struct entry *e)
 	    l1 += e->type->maxval - 6;
 	  if (l2 > 3)
 	    l2 += e->type->maxval - 6;
-	  fprintf (outfile, "e%s_%lld,e%s_%lld", p, l1, p, l2);
+	  fprintf (outfile, "e%s_%" COMPAT_PRLL "d,e%s_%" COMPAT_PRLL "d",
+		   p, l1, p, l2);
 	}
       break;
     case TYPE_SENUM:
@@ -823,7 +842,7 @@ output_FNB (char mode, struct entry *e)
       p++;
       l1 %= 7;
       l2 %= 7;
-      fprintf (outfile, "e%s_%s%lld,e%s_%s%lld",
+      fprintf (outfile, "e%s_%s%" COMPAT_PRLL "d,e%s_%s%" COMPAT_PRLL "d",
 	       p, l1 < 3 ? "m" : "",
 	       l1 == 3 ? 0LL : e->type->maxval - (l1 & 3),
 	       p, l2 < 3 ? "m" : "",
@@ -832,13 +851,15 @@ output_FNB (char mode, struct entry *e)
     case TYPE_PTR:
       l1 %= 256;
       l2 %= 256;
-      fprintf (outfile, "(%s)&intarray[%lld],(%s)&intarray[%lld]",
+      fprintf (outfile,
+	      "(%s)&intarray[%" COMPAT_PRLL "d], (%s)&intarray[%" COMPAT_PRLL "d]",
 	       e->type->name, l1, e->type->name, l2);
       break;
     case TYPE_FNPTR:
       l1 %= 10;
       l2 %= 10;
-      fprintf (outfile, "fn%lld,fn%lld", l1, l2);
+      fprintf (outfile,
+	       "fn%" COMPAT_PRLL "d,fn%" COMPAT_PRLL "d", l1, l2);
       break;
     default:
       abort ();
@@ -1570,6 +1591,22 @@ Either -s srcdir -d destdir or -i idx must be used\n", argv[0]);
 
   if (srcdir == NULL && !output_one)
     goto usage;
+
+  if (srcdir != NULL)
+    {
+      const char *s = srcdir;
+      char *ss, *t;
+      t = ss = malloc (strlen (srcdir) + 1);
+      if (!ss)
+	abort ();
+      do {
+	if (*s == '\\')
+	  *t++ = '/';
+	else
+	  *t++ = *s;
+      } while (*s++);
+      srcdir_safe = ss;
+    }
 
   for (i = 0; i < NTYPES2; ++i)
     if (base_types[i].bitfld)

@@ -1,7 +1,7 @@
 // Position types -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007
+// 2006, 2007, 2008
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -46,15 +46,37 @@
 
 #include <cwchar> // For mbstate_t
 
-#ifdef _GLIBCXX_HAVE_STDINT_H
+// XXX If <stdint.h> is really needed, make sure to define the macros
+// before including it, in order not to break <tr1/cstdint> (and <cstdint>
+// in C++0x).  Reconsider all this as soon as possible...
+#if (defined(_GLIBCXX_HAVE_INT64_T) && !defined(_GLIBCXX_HAVE_INT64_T_LONG) \
+     && !defined(_GLIBCXX_HAVE_INT64_T_LONG_LONG))
+
+#ifndef __STDC_LIMIT_MACROS
+# define _UNDEF__STDC_LIMIT_MACROS
+# define __STDC_LIMIT_MACROS
+#endif
+#ifndef __STDC_CONSTANT_MACROS
+# define _UNDEF__STDC_CONSTANT_MACROS
+# define __STDC_CONSTANT_MACROS
+#endif
 #include <stdint.h> // For int64_t
+#ifdef _UNDEF__STDC_LIMIT_MACROS
+# undef __STDC_LIMIT_MACROS
+# undef _UNDEF__STDC_LIMIT_MACROS
+#endif
+#ifdef _UNDEF__STDC_CONSTANT_MACROS
+# undef __STDC_CONSTANT_MACROS
+# undef _UNDEF__STDC_CONSTANT_MACROS
+#endif
+
 #endif
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // The types streamoff, streampos and wstreampos and the class
   // template fpos<> are described in clauses 21.1.2, 21.1.3, 27.1.2,
-  // 27.2, 27.4.1, 27.4.3 and D.6. Despite all this verbage, the
+  // 27.2, 27.4.1, 27.4.3 and D.6. Despite all this verbiage, the
   // behaviour of these types is mostly implementation defined or
   // unspecified. The behaviour in this implementation is as noted
   // below.
@@ -62,14 +84,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   /**
    *  @brief  Type used by fpos, char_traits<char>, and char_traits<wchar_t>.
    *
-   *  @if maint
    *  In clauses 21.1.3.1 and 27.4.1 streamoff is described as an
    *  implementation defined type.
    *  Note: In versions of GCC up to and including GCC 3.3, streamoff
    *  was typedef long.
-   *  @endif
   */  
-#ifdef _GLIBCXX_HAVE_INT64_T
+#ifdef _GLIBCXX_HAVE_INT64_T_LONG
+  typedef long          streamoff;
+#elif defined(_GLIBCXX_HAVE_INT64_T_LONG_LONG)
+  typedef long long     streamoff;
+#elif defined(_GLIBCXX_HAVE_INT64_T) 
   typedef int64_t       streamoff;
 #else
   typedef long long     streamoff;
@@ -128,7 +152,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       { return _M_state; }
 
       // The standard requires that this operator must be defined, but
-      // gives no semantics. In this implemenation it just adds it's
+      // gives no semantics. In this implementation it just adds its
       // argument to the stored offset and returns *this.
       /// Add offset to this position.
       fpos&
@@ -139,8 +163,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       }
 
       // The standard requires that this operator must be defined, but
-      // gives no semantics. In this implemenation it just subtracts
-      // it's argument from the stored offset and returns *this.
+      // gives no semantics. In this implementation it just subtracts
+      // its argument from the stored offset and returns *this.
       /// Subtract offset from this position.
       fpos&
       operator-=(streamoff __off)
@@ -150,7 +174,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       }
 
       // The standard requires that this operator must be defined, but
-      // defines it's semantics only in terms of operator-. In this
+      // defines its semantics only in terms of operator-. In this
       // implementation it constructs a copy of *this, adds the
       // argument to that copy using operator+= and then returns the
       // copy.
@@ -164,7 +188,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       }
 
       // The standard requires that this operator must be defined, but
-      // defines it's semantics only in terms of operator+. In this
+      // defines its semantics only in terms of operator+. In this
       // implementation it constructs a copy of *this, subtracts the
       // argument from that copy using operator-= and then returns the
       // copy.
@@ -178,7 +202,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       }
 
       // The standard requires that this operator must be defined, but
-      // defines it's semantics only in terms of operator+. In this
+      // defines its semantics only in terms of operator+. In this
       // implementation it returns the difference between the offset
       // stored in *this and in the argument.
       /// Subtract position to return offset.
@@ -209,6 +233,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   typedef fpos<mbstate_t> streampos;
   /// File position for wchar_t streams.
   typedef fpos<mbstate_t> wstreampos;
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  /// File position for char16_t streams.
+  typedef fpos<mbstate_t> u16streampos;
+  /// File position for char32_t streams.
+  typedef fpos<mbstate_t> u32streampos;
+#endif
 
 _GLIBCXX_END_NAMESPACE
 

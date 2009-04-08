@@ -32,12 +32,14 @@ prefix = @prefix@
 
 exec_prefix = @exec_prefix@
 libdir = @libdir@
+shlib_slibdir = @slibdir@
 
 SHELL = @SHELL@
 
 enable_shared = @enable_shared@
 decimal_float = @decimal_float@
 enable_decimal_float = @enable_decimal_float@
+fixed_point = @fixed_point@
 
 host_noncanonical = @host_noncanonical@
 
@@ -98,7 +100,7 @@ all: all-multi
 	# them back to the GCC directory.  Too many things (other
 	# in-tree libraries, and DejaGNU) know about the layout
 	# of the build tree, for now.
-	$(MAKE) install DESTDIR=$(gcc_objdir) \
+	$(MAKE) install-leaf DESTDIR=$(gcc_objdir) \
 	  slibdir= libsubdir= MULTIOSDIR=$(MULTIDIR)
 
 .PHONY: all-multi
@@ -136,7 +138,7 @@ config.h: stamp-h ; @true
 stamp-h: $(srcdir)/config.in config.status Makefile
 	CONFIG_FILES= CONFIG_HEADERS=config.h:$(srcdir)/config.in $(SHELL) ./config.status
 
-config.status: $(srcdir)/configure
+config.status: $(srcdir)/configure $(srcdir)/config.host
 	$(SHELL) ./config.status --recheck
 
 include $(gcc_objdir)/libgcc.mvars
@@ -185,9 +187,12 @@ export slibdir
 version := $(shell $(CC) -dumpversion)
 
 ifeq ($(decimal_float),yes)
+ifeq ($(enable_decimal_float),bid)
+DECNUMINC = -I$(srcdir)/config/libbid -DENABLE_DECIMAL_BID_FORMAT
+else
 DECNUMINC = -I$(srcdir)/../libdecnumber/$(enable_decimal_float) \
-	    -I$(srcdir)/../libdecnumber \
-	    -I$(MULTIBUILDTOP)../../libdecnumber
+	    -I$(srcdir)/../libdecnumber
+endif
 else
 DECNUMINC =
 endif
@@ -210,7 +215,8 @@ override CFLAGS := $(filter-out -fprofile-generate -fprofile-use,$(CFLAGS))
 # options in LIBGCC2_CFLAGS.  But LIBGCC2_CFLAGS may contain -g0, and CFLAGS
 # will usually contain -g, so for the moment CFLAGS goes first.  We must
 # include CFLAGS - that's where multilib options live.
-INTERNAL_CFLAGS = $(CFLAGS) $(LIBGCC2_CFLAGS) $(HOST_LIBGCC2_CFLAGS) $(INCLUDES)
+INTERNAL_CFLAGS = $(CFLAGS) $(LIBGCC2_CFLAGS) $(HOST_LIBGCC2_CFLAGS) \
+		  $(INCLUDES) @set_have_cc_tls@
 
 MULTIDIR := $(shell $(CC) $(CFLAGS) -print-multi-directory)
 MULTIOSDIR := $(shell $(CC) $(CFLAGS) -print-multi-os-directory)
@@ -259,7 +265,9 @@ ASM_HIDDEN_OP = @asm_hidden_op@
 
 define gen-hide-list
 $(NM) -pg $< | \
-  $(AWK) 'NF == 3 && $$2 !~ /^[UN]$$/ { print "\t$(ASM_HIDDEN_OP)", $$3 }' > $@T
+  $(AWK) 'NF == 3 && $$2 !~ /^[UN]$$/ && $$3 !~ /.*_compat/ \
+         && $$3 !~ /.*@.*/ \
+	 { print "\t$(ASM_HIDDEN_OP)", $$3 }' > $@T
 mv -f $@T $@
 endef
 else
@@ -469,17 +477,36 @@ D64PBIT = 1
 D128PBIT = 1
 endif
 
-dec-filenames =
+dfp-filenames =
 ifneq ($(D32PBIT)$(D64PBIT)$(D128PBIT),)
-dec-filenames += decContext decNumber decExcept decRound decLibrary decUtility
+ifeq ($(enable_decimal_float),bid)
+dfp-filenames += bid_decimal_globals bid_decimal_data \
+		 bid_binarydecimal bid_convert_data \
+		 _isinfd32 _isinfd64 _isinfd128 bid64_noncomp \
+		 bid128_noncomp bid128_fma bid_round bid_from_int \
+		 bid64_add bid128_add bid64_div bid128_div \
+		 bid64_mul bid128_mul bid64_compare bid128_compare \
+		 bid128 bid32_to_bid64 bid32_to_bid128 bid64_to_bid128 \
+		 bid64_to_int32 bid64_to_int64 \
+		 bid64_to_uint32 bid64_to_uint64 \
+		 bid128_to_int32 bid128_to_int64 \
+		 bid128_to_uint32 bid128_to_uint64
+else
+dfp-filenames += decContext decNumber decExcept decRound decLibrary decDouble decPacked decQuad decSingle
+endif
 endif
 
-dec-objects = $(patsubst %,%$(objext),$(dec-filenames))
-$(dec-objects): %$(objext): $(srcdir)/../libdecnumber/%.c
+dfp-objects = $(patsubst %,%$(objext),$(dfp-filenames))
+ifeq ($(enable_decimal_float),bid)
+$(dfp-objects): %$(objext): $(srcdir)/config/libbid/%.c
+else
+$(dfp-objects): %$(objext): $(srcdir)/../libdecnumber/%.c
+endif
 	$(gcc_compile) -c $<
-libgcc-objects += $(dec-objects)
+libgcc-objects += $(dfp-objects)
 
 decbits-filenames =
+ifneq ($(enable_decimal_float),bid)
 ifneq ($(D32PBIT),)
 decbits-filenames += decimal32
 endif
@@ -491,36 +518,153 @@ endif
 ifneq ($(D128PBIT),)
 decbits-filenames += decimal128
 endif
-
-ifeq ($(enable_decimal_float),bid)
-decbits-filenames += bid2dpd_dpd2bid
 endif
 
 decbits-objects = $(patsubst %,%$(objext),$(decbits-filenames))
+ifeq ($(enable_decimal_float),bid)
+$(decbits-objects): %$(objext): $(srcdir)/config/libbid/%.c
+else
 $(decbits-objects): %$(objext): $(srcdir)/../libdecnumber/$(enable_decimal_float)/%.c
+endif
 	$(gcc_compile) -c $<
 libgcc-objects += $(decbits-objects)
 
 # Next build individual support functions.
+ifeq ($(enable_decimal_float),bid)
+ifneq ($(D32PBIT),)
+D32PBIT_FUNCS:=$(filter-out _plus_sd _minus_sd _conv_sd, $(D32PBIT_FUNCS))
+endif
+
+ifneq ($(D64PBIT),)
+D64PBIT_FUNCS:=$(filter-out _plus_dd _minus_dd _conv_dd, $(D64PBIT_FUNCS))
+endif
+
+ifneq ($(D128PBIT),)
+D128PBIT_FUNCS:=$(filter-out _plus_td _minus_td _conv_td, $(D128PBIT_FUNCS))
+endif
+endif
+
 ifneq ($(D32PBIT),)
 d32pbit-o = $(patsubst %,%$(objext),$(D32PBIT_FUNCS))
+ifeq ($(enable_decimal_float),bid)
+$(d32pbit-o): %$(objext): $(srcdir)/config/libbid/%.c
+else
 $(d32pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
+endif
 	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -DWIDTH=32 -c $<
 libgcc-objects += $(d32pbit-o)
 endif
 
 ifneq ($(D64PBIT),)
 d64pbit-o = $(patsubst %,%$(objext),$(D64PBIT_FUNCS))
+ifeq ($(enable_decimal_float),bid)
+$(d64pbit-o): %$(objext): $(srcdir)/config/libbid/%.c
+else
 $(d64pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
+endif
 	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -DWIDTH=64 -c $<
 libgcc-objects += $(d64pbit-o)
 endif
 
 ifneq ($(D128PBIT),)
 d128pbit-o = $(patsubst %,%$(objext),$(D128PBIT_FUNCS))
+ifeq ($(enable_decimal_float),bid)
+$(d128pbit-o): %$(objext): $(srcdir)/config/libbid/%.c
+else
 $(d128pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
+endif
 	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -DWIDTH=128 -c $<
 libgcc-objects += $(d128pbit-o)
+endif
+
+endif
+
+ifeq ($(LIBGCC_SYNC),yes)
+libgcc-sync-size-funcs := $(foreach op, add sub or and xor nand, \
+			    sync_fetch_and_$(op) \
+			    sync_$(op)_and_fetch) \
+			  sync_bool_compare_and_swap \
+			  sync_val_compare_and_swap \
+			  sync_lock_test_and_set
+
+libgcc-sync-size-funcs := $(foreach prefix, $(libgcc-sync-size-funcs), \
+			    $(foreach suffix, 1 2 4 8 16, \
+			      $(prefix)_$(suffix)))
+
+libgcc-sync-size-funcs-o = $(patsubst %,%$(objext),$(libgcc-sync-size-funcs))
+$(libgcc-sync-size-funcs-o): %$(objext): $(gcc_srcdir)/config/sync.c
+	$(gcc_compile) $(LIBGCC_SYNC_CFLAGS) \
+	  -DFN=`echo "$*" | sed 's/_[^_]*$$//'` \
+	  -DSIZE=`echo "$*" | sed 's/.*_//'` \
+	  -c $(gcc_srcdir)/config/sync.c $(vis_hide)
+libgcc-objects += $(libgcc-sync-size-funcs-o)
+
+libgcc-sync-funcs := sync_synchronize
+
+libgcc-sync-funcs-o = $(patsubst %,%$(objext),$(libgcc-sync-funcs))
+$(libgcc-sync-funcs-o): %$(objext): $(gcc_srcdir)/config/sync.c
+	$(gcc_compile) $(LIBGCC_SYNC_CFLAGS) \
+	  -DL$* \
+	  -c $(gcc_srcdir)/config/sync.c $(vis_hide)
+libgcc-objects += $(libgcc-sync-funcs-o)
+
+ifeq ($(enable_shared),yes)
+libgcc-sync-size-funcs-s-o = $(patsubst %,%_s$(objext), \
+			       $(libgcc-sync-size-funcs))
+$(libgcc-sync-size-funcs-s-o): %_s$(objext): $(gcc_srcdir)/config/sync.c
+	$(gcc_s_compile) $(LIBGCC_SYNC_CFLAGS) \
+	  -DFN=`echo "$*" | sed 's/_[^_]*$$//'` \
+	  -DSIZE=`echo "$*" | sed 's/.*_//'` \
+	  -c $(gcc_srcdir)/config/sync.c
+libgcc-s-objects += $(libgcc-sync-size-funcs-s-o)
+
+libgcc-sync-funcs-s-o = $(patsubst %,%_s$(objext),$(libgcc-sync-funcs))
+$(libgcc-sync-funcs-s-o): %_s$(objext): $(gcc_srcdir)/config/sync.c
+	$(gcc_s_compile) $(LIBGCC_SYNC_CFLAGS) \
+	  -DL$*	\
+	  -c $(gcc_srcdir)/config/sync.c
+libgcc-s-objects += $(libgcc-sync-funcs-s-o)
+endif
+endif
+
+# Build fixed-point support.
+ifeq ($(fixed_point),yes)
+
+# Generate permutations of function name and mode
+fixed-labels := $(shell $(SHELL) $(srcdir)/gen-fixed.sh arith labels)
+fixed-funcs := $(shell $(SHELL) $(srcdir)/gen-fixed.sh arith funcs)
+fixed-modes := $(shell $(SHELL) $(srcdir)/gen-fixed.sh arith modes)
+
+# Generate the rules for each arithmetic function
+iter-items := $(fixed-funcs)
+iter-labels := $(fixed-labels)
+iter-from := $(fixed-modes)
+iter-to := $(fixed-modes)
+include $(srcdir)/empty.mk $(patsubst %,$(srcdir)/fixed-obj.mk,$(iter-items))
+
+# Add arithmetic functions to list of objects to be built
+libgcc-objects += $(patsubst %,%$(objext),$(fixed-funcs))
+ifeq ($(enable_shared),yes)
+libgcc-s-objects += $(patsubst %,%_s$(objext),$(fixed-funcs))
+endif
+
+# Convert from or to fractional
+fixed-conv-funcs := $(shell $(SHELL) $(srcdir)/gen-fixed.sh conv funcs)
+fixed-conv-labels := $(shell $(SHELL) $(srcdir)/gen-fixed.sh conv labels)
+fixed-conv-from := $(shell $(SHELL) $(srcdir)/gen-fixed.sh conv from)
+fixed-conv-to :=  $(shell $(SHELL) $(srcdir)/gen-fixed.sh conv to)
+
+# Generate the make rules for each conversion function
+iter-items := $(fixed-conv-funcs)
+iter-labels := $(fixed-conv-labels)
+iter-from := $(fixed-conv-from)
+iter-to := $(fixed-conv-to)
+include $(srcdir)/empty.mk $(patsubst %,$(srcdir)/fixed-obj.mk,$(iter-items))
+
+# Add conversion functions to list of objects to be built
+libgcc-objects += $(patsubst %,%$(objext),$(fixed-conv-funcs))
+ifeq ($(enable_shared),yes)
+libgcc-s-objects += $(patsubst %,%_s$(objext),$(fixed-conv-funcs))
 endif
 
 endif
@@ -645,7 +789,8 @@ libgcc_s$(SHLIB_EXT): $(libgcc-s-objects) $(extra-parts)
 		@shlib_objs@,$(objects),$(subst \
 		@shlib_base_name@,libgcc_s,$(subst \
 		@shlib_map_file@,$(mapfile),$(subst \
-		@shlib_slibdir_qual@,$(MULTIOSSUBDIR),$(SHLIB_LINK)))))))
+		@shlib_slibdir_qual@,$(MULTIOSSUBDIR),$(subst \
+		@shlib_slibdir@,$(shlib_slibdir),$(SHLIB_LINK))))))))
 
 libunwind$(SHLIB_EXT): $(libunwind-s-objects) $(extra-parts)
 	# @multilib_flags@ is still needed because this may use
@@ -788,7 +933,7 @@ install-shared:
 		@shlib_base_name@,libgcc_s,$(subst \
 		@shlib_slibdir_qual@,$(MULTIOSSUBDIR),$(SHLIB_INSTALL))))
 
-install: $(install-shared) $(install-libunwind)
+install-leaf: $(install-shared) $(install-libunwind)
 	$(mkinstalldirs) $(DESTDIR)$(inst_libdir)
 
 	$(INSTALL_DATA) libgcc.a $(DESTDIR)$(inst_libdir)/
@@ -804,6 +949,7 @@ install: $(install-shared) $(install-libunwind)
 	  $(INSTALL_DATA) $$file $(DESTDIR)$(inst_libdir)/;	\
 	done
 
+install: install-leaf
 	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
 
 .PHONY: install install-shared install-libunwind

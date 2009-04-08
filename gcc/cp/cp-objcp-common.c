@@ -1,12 +1,12 @@
 /* Some code common to C++ and ObjC++ front ends.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -36,7 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Special routine to get the alias set for C++.  */
 
-HOST_WIDE_INT
+alias_set_type
 cxx_get_alias_set (tree t)
 {
   if (IS_FAKE_BASE_TYPE (t))
@@ -45,7 +44,9 @@ cxx_get_alias_set (tree t)
     return get_alias_set (TYPE_CONTEXT (t));
 
   /* Punt on PMFs until we canonicalize functions properly.  */
-  if (TYPE_PTRMEMFUNC_P (t))
+  if (TYPE_PTRMEMFUNC_P (t)
+      || (POINTER_TYPE_P (t)
+	  && TYPE_PTRMEMFUNC_P (TREE_TYPE (t))))
     return 0;
 
   return c_common_get_alias_set (t);
@@ -54,7 +55,7 @@ cxx_get_alias_set (tree t)
 /* Called from check_global_declarations.  */
 
 bool
-cxx_warn_unused_global_decl (tree decl)
+cxx_warn_unused_global_decl (const_tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
     return false;
@@ -73,7 +74,7 @@ cxx_warn_unused_global_decl (tree decl)
    might have allocated something there.  */
 
 tree
-cp_expr_size (tree exp)
+cp_expr_size (const_tree exp)
 {
   tree type = TREE_TYPE (exp);
 
@@ -100,7 +101,7 @@ cp_expr_size (tree exp)
 	     constructed, this is a valid transformation.  */
 	  || CP_AGGREGATE_TYPE_P (type))
 	/* This would be wrong for a type with virtual bases.  */
-	return (is_empty_class (type)
+	return (is_really_empty_class (type)
 		? size_zero_node
 		: CLASSTYPE_SIZE_UNIT (type));
       else
@@ -117,7 +118,6 @@ cp_tree_size (enum tree_code code)
 {
   switch (code)
     {
-    case TINST_LEVEL:		return sizeof (struct tinst_level_s);
     case PTRMEM_CST:		return sizeof (struct ptrmem_cst);
     case BASELINK:		return sizeof (struct tree_baselink);
     case TEMPLATE_PARM_INDEX:	return sizeof (template_parm_index);
@@ -185,34 +185,17 @@ cxx_initialize_diagnostics (diagnostic_context *context)
 int
 cxx_types_compatible_p (tree x, tree y)
 {
-  if (same_type_ignoring_top_level_qualifiers_p (x, y))
-    return 1;
-
-  /* Once we get to the middle-end, references and pointers are
-     interchangeable.  FIXME should we try to replace all references with
-     pointers?  */
-  if (POINTER_TYPE_P (x) && POINTER_TYPE_P (y)
-      && TYPE_MODE (x) == TYPE_MODE (y)
-      && TYPE_REF_CAN_ALIAS_ALL (x) == TYPE_REF_CAN_ALIAS_ALL (y)
-      && same_type_p (TREE_TYPE (x), TREE_TYPE (y)))
-    return 1;
-
-  return 0;
+  return same_type_ignoring_top_level_qualifiers_p (x, y);
 }
 
-tree
-cxx_staticp (tree arg)
-{
-  switch (TREE_CODE (arg))
-    {
-    case BASELINK:
-      return staticp (BASELINK_FUNCTIONS (arg));
+/* Return true if DECL is explicit member function.  */
 
-    default:
-      break;
-    }
-  
-  return NULL_TREE;
+bool
+cp_function_decl_explicit_p (tree decl)
+{
+  return (decl
+	  && FUNCTION_FIRST_USER_PARMTYPE (decl) != void_list_node
+	  && DECL_NONCONVERTING_P (decl));
 }
 
 /* Stubs to keep c-opts.c happy.  */
@@ -228,7 +211,7 @@ pop_file_scope (void)
 
 /* c-pragma.c needs to query whether a decl has extern "C" linkage.  */
 bool
-has_c_linkage (tree decl)
+has_c_linkage (const_tree decl)
 {
   return DECL_EXTERN_C_P (decl);
 }

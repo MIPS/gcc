@@ -1,8 +1,8 @@
-/* Copyright (C) 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option) 
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -11,9 +11,8 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this file; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef OBJECT_FORMAT_ELF
  #error elf.h included before elfos.h
@@ -25,6 +24,23 @@
             asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
 
 
+/* The following macros define "native" directory locations; on the SPU,
+   these are used only when building the compiler with --with-sysroot.
+   This can be used to build a pair of PPU and SPU cross-compilers with
+   a common sysroot; the SPU compiler will search for its files in
+   ${sysroot}/include and ${sysroot}/lib.  */
+
+/* STANDARD_STARTFILE_PREFIX_1 is "/lib", which we keep.
+   STANDARD_STARTFILE_PREFIX_2 is "/usr/lib" -- we remove this.  */
+#undef STANDARD_STARTFILE_PREFIX_2
+#define STANDARD_STARTFILE_PREFIX_2 ""
+
+/* Use "/include" instead of "/usr/include".  */
+#undef STANDARD_INCLUDE_DIR
+#define STANDARD_INCLUDE_DIR "/include"
+
+/* We do not provide any "/usr/local/include" directory on SPU.  */
+#undef LOCAL_INCLUDE_DIR
 
 /* Provide a STARTFILE_SPEC appropriate for GNU/Linux.  Here we add
    the GNU/Linux magical crtbegin.o file (see crtstuff.c) which

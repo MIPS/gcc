@@ -1,12 +1,12 @@
 /* Handle the constant pool of the Java(TM) Virtual Machine.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006,
+   2007, 2008  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA. 
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>. 
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -45,9 +44,8 @@ set_constant_entry (CPool *cpool, int index, int tag, jword value)
   if (cpool->data == NULL)
     {
       cpool->capacity = 100;
-      cpool->tags = ggc_alloc_cleared (sizeof(uint8) * cpool->capacity);
-      cpool->data = ggc_alloc_cleared (sizeof(union cpool_entry)
-				       * cpool->capacity);
+      cpool->tags = GGC_CNEWVEC (uint8, cpool->capacity);
+      cpool->data = GGC_CNEWVEC (union cpool_entry, cpool->capacity);
       cpool->count = 1;
     }
   if (index >= cpool->capacity)
@@ -56,10 +54,9 @@ set_constant_entry (CPool *cpool, int index, int tag, jword value)
       cpool->capacity *= 2;
       if (index >= cpool->capacity)
 	cpool->capacity = index + 10;
-      cpool->tags = ggc_realloc (cpool->tags, 
-				 sizeof(uint8) * cpool->capacity);
-      cpool->data = ggc_realloc (cpool->data,
-				 sizeof(union cpool_entry) * cpool->capacity);
+      cpool->tags = GGC_RESIZEVEC (uint8, cpool->tags, cpool->capacity);
+      cpool->data = GGC_RESIZEVEC (union cpool_entry, cpool->data,
+				   cpool->capacity);
 
       /* Make sure GC never sees uninitialized tag values.  */
       memset (cpool->tags + old_cap, 0, cpool->capacity - old_cap);
@@ -330,14 +327,14 @@ get_tag_node (int tag)
 /* Given a class, return its constant pool, creating one if necessary.  */
 
 CPool *
-cpool_for_class (tree class)
+cpool_for_class (tree klass)
 {
-  CPool *cpool = TYPE_CPOOL (class);
+  CPool *cpool = TYPE_CPOOL (klass);
 
   if (cpool == NULL)
     {
-      cpool = ggc_alloc_cleared (sizeof (struct CPool));
-      TYPE_CPOOL (class) = cpool;
+      cpool = GGC_CNEW (struct CPool);
+      TYPE_CPOOL (klass) = cpool;
     }
   return cpool;
 }
@@ -373,13 +370,13 @@ find_name_and_type_constant_tree (CPool *cpool, tree name, tree type)
 }
 
 /* Look for a field ref that matches DECL in the constant pool of
-   CLASS.  
+   KLASS.  
    Return the index of the entry.  */
 
 int
-alloc_constant_fieldref (tree class, tree decl)
+alloc_constant_fieldref (tree klass, tree decl)
 {
-  CPool *outgoing_cpool = cpool_for_class (class);
+  CPool *outgoing_cpool = cpool_for_class (klass);
   int class_index 
     = find_tree_constant (outgoing_cpool, CONSTANT_Class, 
 			  DECL_NAME (TYPE_NAME (DECL_CONTEXT (decl))));
@@ -446,27 +443,30 @@ build_constant_data_ref (bool indirect)
       TREE_THIS_NOTRAP (klass) = 1;
       data = fold_convert (build_pointer_type (cpool_type), data);
       d = build1 (INDIRECT_REF, cpool_type, data);
-      TREE_INVARIANT (d) = 1;
 
       return d;
     }
   else
     {
-      tree type, decl;
       tree decl_name = mangled_classname ("_CD_", output_class);
+      tree decl = IDENTIFIER_GLOBAL_VALUE (decl_name);
 
-      /* Build a type with unspecified bounds.  The will make sure
-	 that targets do the right thing with whatever size we end
-	 up with at the end.  Using bounds that are too small risks
-	 assuming the data is in the small data section.  */
-      type = build_array_type (ptr_type_node, NULL_TREE);
+      if (! decl)
+	{
+	  /* Build a type with unspecified bounds.  The will make sure
+	     that targets do the right thing with whatever size we end
+	     up with at the end.  Using bounds that are too small risks
+	     assuming the data is in the small data section.  */
+	  tree type = build_array_type (ptr_type_node, NULL_TREE);
 
-      /* We need to lay out the type ourselves, since build_array_type
-	 thinks the type is incomplete.  */
-      layout_type (type);
+	  /* We need to lay out the type ourselves, since build_array_type
+	     thinks the type is incomplete.  */
+	  layout_type (type);
 
-      decl = build_decl (VAR_DECL, decl_name, type);
-      TREE_STATIC (decl) = 1;
+	  decl = build_decl (VAR_DECL, decl_name, type);
+	  TREE_STATIC (decl) = 1;
+	  IDENTIFIER_GLOBAL_VALUE (decl_name) = decl;
+	}
 
       return decl;
     }
@@ -486,7 +486,6 @@ build_ref_from_constant_pool (int index)
   i = build_int_cst (NULL_TREE, index);
   d = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (d)), d, i,
 		 NULL_TREE, NULL_TREE);
-  TREE_INVARIANT (d) = 1;
   return d;
 }
 
@@ -519,13 +518,13 @@ build_constants_constructor (void)
 	{
 	  unsigned HOST_WIDE_INT temp = outgoing_cpool->data[i].w;
 
-	  /* Make sure that on a 64-bit big-endian machine this
-	     32-bit jint appears in the first word.  
+	  /* Make sure that on a big-endian machine with 64-bit
+	     pointers this 32-bit jint appears in the first word.
 	     FIXME: This is a kludge.  The field we're initializing is
 	     not a scalar but a union, and that's how we should
 	     represent it in the compiler.  We should fix this.  */
-	  if (BYTES_BIG_ENDIAN && BITS_PER_WORD > 32)
-	    temp <<= BITS_PER_WORD - 32;
+	  if (BYTES_BIG_ENDIAN && POINTER_SIZE > 32)
+	    temp <<= POINTER_SIZE - 32;
 
 	  tags_list
 	    = tree_cons (NULL_TREE, get_tag_node (outgoing_cpool->tags[i]),

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,15 +36,12 @@
 --  This package provides low-level support for most tasking features
 
 pragma Polling (Off);
---  Turn off polling, we do not want ATC polling to take place during
---  tasking operations. It causes infinite loops and other problems.
+--  Turn off polling, we do not want ATC polling to take place during tasking
+--  operations. It causes infinite loops and other problems.
+
+with Ada.Unchecked_Conversion;
 
 with System.OS_Interface;
---  used for mutex_t
---           cond_t
---           thread_t
-
-with Unchecked_Conversion;
 
 package System.Task_Primitives is
    pragma Preelaborate;
@@ -59,7 +56,8 @@ package System.Task_Primitives is
    --  and the RTS_Lock is that the later one serves only as a semaphore so
    --  that do not check for ceiling violations.
 
-   function To_Lock_Ptr is new Unchecked_Conversion (RTS_Lock_Ptr, Lock_Ptr);
+   function To_Lock_Ptr is
+     new Ada.Unchecked_Conversion (RTS_Lock_Ptr, Lock_Ptr);
 
    type Suspension_Object is limited private;
    --  Should be used for the implementation of Ada.Synchronous_Task_Control
@@ -72,6 +70,18 @@ package System.Task_Primitives is
    --  Any information that the GNULLI needs maintained on a per-task basis.
    --  A component of this type is guaranteed to be included in the
    --  Ada_Task_Control_Block.
+
+   subtype Task_Address is System.Address;
+   --  In some versions of Task_Primitives, notably for VMS, Task_Address is
+   --  the short version of address defined in System.Aux_DEC. To avoid
+   --  dragging Aux_DEC into tasking packages a tasking specific subtype is
+   --  defined here.
+
+   Task_Address_Size : constant := Standard'Address_Size;
+   --  The size of Task_Address
+
+   Alternate_Stack_Size : constant := 0;
+   --  No alternate signal stack is used on this platform
 
 private
 
@@ -86,7 +96,7 @@ private
    type Owner_ID is access all Owner_Int;
 
    function To_Owner_ID is
-     new Unchecked_Conversion (System.Address, Owner_ID);
+     new Ada.Unchecked_Conversion (System.Address, Owner_ID);
 
    type Lock is record
       L              : aliased Base_Lock;

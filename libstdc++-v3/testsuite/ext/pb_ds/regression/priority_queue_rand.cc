@@ -45,11 +45,14 @@
  * Contains a random-operation test for priority queues.
  */
 
+// { dg-require-time "" }
+
 #include <regression/rand/priority_queue/rand_regression_test.hpp>
-#include <regression/priority_queue/common_type.hpp>
+#include <regression/common_type.hpp>
 
 // This can take long on simulators, timing out the test.
 // { dg-options "-DPB_DS_REGRESSION -DITERATIONS=5" { target simulator } }
+// { dg-timeout-factor 2.0 }
 #ifndef ITERATIONS
 #define ITERATIONS 5000
 #endif
@@ -59,9 +62,9 @@
 int
 main(int argc, char* a_p_argv[])
 {
-  using namespace pb_ds::test;
+  using namespace __gnu_pbds::test;
   return rand_regression_test(ITERATIONS, KEYS,
-			      "tree_no_data_map_rand_regression_test", 
+			      "pq_no_data_map_rand_regression_test", 
 			      pq_tl_t());
 }
 

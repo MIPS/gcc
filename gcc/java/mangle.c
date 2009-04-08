@@ -1,13 +1,13 @@
 /* Functions related to mangling class names for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2006, 2007
+   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA. 
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>. 
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -240,9 +239,6 @@ cxx_keyword_p (const char *name, int length)
 void
 java_mangle_decl (tree decl)
 {
-  if (TREE_CODE (decl) == RECORD_TYPE)
-    mangle_type (decl);
-
   /* A copy of the check from the beginning of lhd_set_decl_assembler_name.
      Only FUNCTION_DECLs and VAR_DECLs for variables with static storage
      duration need a real DECL_ASSEMBLER_NAME.  */
@@ -749,27 +745,21 @@ set_type_package_list (tree type)
 {
   int i;
   const char *type_string = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
-  char *ptr;
+  const char *ptr;
   int qualifications;
   tree list = NULL_TREE, elt;
 
-  for (ptr = (char *)type_string, qualifications = 0; *ptr; ptr++)
+  for (ptr = type_string, qualifications = 0; *ptr; ptr++)
     if (*ptr == '.')
       qualifications += 1;
 
-  for (ptr = (char *)type_string, i = 0; i < qualifications; ptr++)
+  for (ptr = type_string, i = 0; i < qualifications; ptr++)
     {
       if (ptr [0] == '.')
 	{
-	  char c;
-	  tree identifier;
+	  tree const identifier
+	    = get_identifier_with_length (type_string, ptr - type_string);
 
-	  /* Can't use an obstack, we're already using it to
-	     accumulate the mangling. */
-	  c = ptr [0];
-	  ptr [0] = '\0';
-	  identifier = get_identifier (type_string);
-	  ptr [0] = c;
 	  elt = build_tree_list (identifier, identifier);
 	  TREE_CHAIN (elt) = list;
 	  list = elt;
@@ -792,15 +782,68 @@ compression_table_add (tree type)
 {
   if (compression_next == TREE_VEC_LENGTH (compression_table))
     {
-      tree new = make_tree_vec (2*compression_next);
+      tree new_table = make_tree_vec (2*compression_next);
       int i;
 
       for (i = 0; i < compression_next; i++)
-	TREE_VEC_ELT (new, i) = TREE_VEC_ELT (compression_table, i);
+	TREE_VEC_ELT (new_table, i) = TREE_VEC_ELT (compression_table, i);
 
-      compression_table = new;
+      compression_table = new_table;
     }
   TREE_VEC_ELT (compression_table, compression_next++) = type;
+}
+
+/* Mangle an embedded resource file name.  "_ZGr" is the prefix.  A
+   '_' is prepended to the name so that names starting with a digit
+   can be demangled.  The length and then the resulting name itself
+   are appended while escaping '$', '.', and '/' to: "$$", "$_", and
+   "$S".  */
+
+tree
+java_mangle_resource_name (const char *name)
+{
+  int len = strlen (name);
+  char *buf = (char *) alloca (2 * len + 1);
+  char *pos;
+  const unsigned char *w1 = (const unsigned char *) name;
+  const unsigned char *w2;
+  const unsigned char *limit = w1 + len;
+
+  pos = buf;
+
+  init_mangling ();
+  MANGLE_RAW_STRING ("Gr");
+
+  *pos++ = '_';
+  while (w1 < limit)
+    {
+      int ch;
+      w2 = w1;
+      ch = UTF8_GET (w1, limit);
+      gcc_assert (ch > 0);
+      switch (ch)
+	{
+	case '$':
+	  *pos++ = '$';
+	  *pos++ = '$';
+	  break;
+	case '.':
+	  *pos++ = '$';
+	  *pos++ = '_';
+	  break;
+	case '/':
+	  *pos++ = '$';
+	  *pos++ = 'S';
+	  break;
+	default:
+	  memcpy (pos, w2, w1 - w2);
+	  pos += w1 - w2;
+	  break;
+	}
+    }
+  append_gpp_mangled_name (buf, pos - buf);
+
+  return finish_mangling ();
 }
 
 /* Mangling initialization routine.  */

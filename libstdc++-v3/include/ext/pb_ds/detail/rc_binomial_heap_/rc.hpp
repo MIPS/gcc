@@ -47,7 +47,7 @@
 #ifndef PB_DS_RC_HPP
 #define PB_DS_RC_HPP
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace detail
   {
@@ -62,24 +62,24 @@ namespace pb_ds
     class rc
     {
     private:
-      typedef Allocator allocator;
+      typedef Allocator allocator_type;
 
-      typedef typename allocator::size_type size_type;
+      typedef typename allocator_type::size_type size_type;
 
       typedef Node node;
 
       typedef
-      typename allocator::template rebind<
+      typename allocator_type::template rebind<
 	node>::other::pointer
       node_pointer;
 
       typedef
-      typename allocator::template rebind<
+      typename allocator_type::template rebind<
 	node_pointer>::other::pointer
       entry_pointer;
 
       typedef
-      typename allocator::template rebind<
+      typename allocator_type::template rebind<
 	node_pointer>::other::const_pointer
       const_entry_pointer;
 
@@ -263,6 +263,6 @@ namespace pb_ds
 #undef PB_DS_CLASS_C_DEC
 
 } // namespace detail
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif 

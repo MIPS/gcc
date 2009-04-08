@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -140,7 +140,7 @@ PB_DS_CLASS_T_DEC
 PB_DS_CLASS_C_DEC::
 PB_DS_CLASS_NAME(const PB_DS_CLASS_C_DEC& other) :
 #ifdef _GLIBCXX_DEBUG
-  map_debug_base(other),
+  debug_base(other),
 #endif 
   hash_eq_fn_base(other),
   resize_base(other),
@@ -152,7 +152,7 @@ PB_DS_CLASS_NAME(const PB_DS_CLASS_C_DEC& other) :
   for (size_type i = 0; i < m_num_e; ++i)
     m_entries[i].m_stat = (entry_status)empty_entry_status;
 
-  try
+  __try
     {
       for (size_type i = 0; i < m_num_e; ++i)
         {
@@ -161,7 +161,7 @@ PB_DS_CLASS_NAME(const PB_DS_CLASS_C_DEC& other) :
 	    new (m_entries + i) entry(other.m_entries[i]);
         }
     }
-  catch(...)
+  __catch(...)
     {
       deallocate_all();
       __throw_exception_again;
@@ -187,7 +187,7 @@ swap(PB_DS_CLASS_C_DEC& other)
   ranged_probe_fn_base::swap(other);
   hash_eq_fn_base::swap(other);
   resize_base::swap(other);
-  _GLIBCXX_DEBUG_ONLY(map_debug_base::swap(other));
+  _GLIBCXX_DEBUG_ONLY(debug_base::swap(other));
   _GLIBCXX_DEBUG_ONLY(assert_valid());
   _GLIBCXX_DEBUG_ONLY(other.assert_valid());
 }

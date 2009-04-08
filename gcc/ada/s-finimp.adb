@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,7 +36,6 @@ with Ada.Tags;
 
 with System.Soft_Links;
 
-with Unchecked_Conversion;
 with System.Restrictions;
 
 package body System.Finalization_Implementation is
@@ -55,17 +54,17 @@ package body System.Finalization_Implementation is
    type RC_Ptr is access all Record_Controller;
 
    function To_RC_Ptr is
-     new Unchecked_Conversion (Address, RC_Ptr);
+     new Ada.Unchecked_Conversion (Address, RC_Ptr);
 
-   procedure Raise_Exception_No_Defer
-     (E       : Exception_Id;
-      Message : String := "");
-   pragma Import (Ada, Raise_Exception_No_Defer,
-     "ada__exceptions__raise_exception_no_defer");
-   pragma No_Return (Raise_Exception_No_Defer);
-   --  Raise an exception without deferring abort. Note that we have to
-   --  use this rather kludgy Ada Import interface, since this subprogram
-   --  is not available in the visible spec of Ada.Exceptions.
+   procedure Raise_From_Controlled_Operation (X : Exception_Occurrence);
+   pragma Import
+     (Ada, Raise_From_Controlled_Operation,
+      "ada__exceptions__raise_from_controlled_operation");
+   pragma No_Return (Raise_From_Controlled_Operation);
+   --  Raise Program_Error from an exception that occurred during an Adjust or
+   --  Finalize operation. We use this rather kludgy Ada Import interface
+   --  because this procedure is not available in the visible part of the
+   --  Ada.Exceptions spec.
 
    procedure Raise_From_Finalize
      (L          : Finalizable_Ptr;
@@ -101,7 +100,7 @@ package body System.Finalization_Implementation is
       --  Subtract the offset to the pointer
 
       procedure Reverse_Adjust (P : Finalizable_Ptr);
-      --  Ajust the components in the reverse order in which they are stored
+      --  Adjust the components in the reverse order in which they are stored
       --  on the finalization list. (Adjust and Finalization are not done in
       --  the same order)
 
@@ -140,7 +139,7 @@ package body System.Finalization_Implementation is
 
       First_Comp := Object.F;
       Object.F := null;               --  nothing adjusted yet.
-      Ptr_Adjust (First_Comp);        --  set addresss of first component.
+      Ptr_Adjust (First_Comp);        --  set address of first component.
       Reverse_Adjust (First_Comp);
 
       --  Then Adjust the controller itself
@@ -259,7 +258,7 @@ package body System.Finalization_Implementation is
    -----------------------------
 
    --  We know that the detach object is neither at the beginning nor at the
-   --  end of the list, thank's to the dummy First and Last Elements but the
+   --  end of the list, thanks to the dummy First and Last Elements, but the
    --  object may not be attached at all if it is Finalize_Storage_Only
 
    procedure Detach_From_Final_List (Obj : in out Finalizable) is
@@ -274,6 +273,13 @@ package body System.Finalization_Implementation is
          SSL.Lock_Task.all;
          Obj.Next.Prev := Obj.Prev;
          Obj.Prev.Next := Obj.Next;
+
+         --  Reset the pointers so that a new finalization of the same object
+         --  has no effect on the finalization list.
+
+         Obj.Next := null;
+         Obj.Prev := null;
+
          SSL.Unlock_Task.all;
       end if;
 
@@ -335,7 +341,7 @@ package body System.Finalization_Implementation is
       type Ptr is access all Fake_Exception_Occurence;
 
       function To_Ptr is new
-        Unchecked_Conversion (Exception_Occurrence_Access, Ptr);
+        Ada.Unchecked_Conversion (Exception_Occurrence_Access, Ptr);
 
       X :  Exception_Id := Null_Id;
 
@@ -406,7 +412,7 @@ package body System.Finalization_Implementation is
       --  At this stage, we know that the controller is part of the
       --  ancestor corresponding to the tag "The_Tag" and that its parent
       --  is variable sized. We assume that the _controller is the first
-      --  compoment right after the parent.
+      --  component right after the parent.
 
       --  ??? note that it may not be true if there are new discriminants
 
@@ -437,7 +443,7 @@ package body System.Finalization_Implementation is
 
             type Obj_Ptr is access all Faked_Type_Of_Obj;
             function To_Obj_Ptr is
-              new Unchecked_Conversion (Address, Obj_Ptr);
+              new Ada.Unchecked_Conversion (Address, Obj_Ptr);
 
          begin
             return To_RC_Ptr (To_Obj_Ptr (Obj).Controller'Address);
@@ -497,7 +503,6 @@ package body System.Finalization_Implementation is
       From_Abort : Boolean;
       E_Occ      : Exception_Occurrence)
    is
-      Msg : constant String := Exception_Message (E_Occ);
       P   : Finalizable_Ptr := L;
       Q   : Finalizable_Ptr;
 
@@ -517,24 +522,15 @@ package body System.Finalization_Implementation is
          P := Q;
       end loop;
 
-      --  If finalization from an Abort, then nothing to do
-
       if From_Abort then
+         --  If finalization from an Abort, then nothing to do
+
          null;
 
-      --  If no message, then add our own message saying what happened
-
-      elsif Msg = "" then
-         Raise_Exception_No_Defer
-           (E       => Program_Error'Identity,
-            Message => "exception " &
-                       Exception_Name (E_Occ) &
-                       " raised during finalization");
-
-      --  If there was a message, pass it on
-
       else
-         Raise_Exception_No_Defer (Program_Error'Identity, Msg);
+         --  Else raise Program_Error with an appropriate message
+
+         Raise_From_Controlled_Operation (E_Occ);
       end if;
    end Raise_From_Finalize;
 

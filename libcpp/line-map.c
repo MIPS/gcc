@@ -1,5 +1,5 @@
 /* Map logical line numbers to (source file, line number) pairs.
-   Copyright (C) 2001, 2003, 2004
+   Copyright (C) 2001, 2003, 2004, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -41,6 +41,7 @@ linemap_init (struct line_maps *set)
   set->highest_location = 0;
   set->highest_line = 0;
   set->max_column_hint = 0;
+  set->reallocator = 0;
 }
 
 /* Check for and warn about line_maps entered but not exited.  */
@@ -81,12 +82,11 @@ linemap_free (struct line_maps *set)
 
    FROM_LINE should be monotonic increasing across calls to this
    function.  A call to this function can relocate the previous set of
-   A call to this function can relocate the previous set of
    maps, so any stored line_map pointers should not be used.  */
 
 const struct line_map *
 linemap_add (struct line_maps *set, enum lc_reason reason,
-	     unsigned int sysp, const char *to_file, unsigned int to_line)
+	     unsigned int sysp, const char *to_file, linenum_type to_line)
 {
   struct line_map *map;
   source_location start_location = set->highest_location + 1;
@@ -96,8 +96,15 @@ linemap_add (struct line_maps *set, enum lc_reason reason,
 
   if (set->used == set->allocated)
     {
+      line_map_realloc reallocator
+	= set->reallocator ? set->reallocator : xrealloc;
       set->allocated = 2 * set->allocated + 256;
-      set->maps = XRESIZEVEC (struct line_map, set->maps, set->allocated);
+      set->maps
+	= (struct line_map *) (*reallocator) (set->maps,
+					      set->allocated
+					      * sizeof (struct line_map));
+      memset (&set->maps[set->used], 0, ((set->allocated - set->used)
+					 * sizeof (struct line_map)));
     }
 
   map = &set->maps[set->used];
@@ -176,13 +183,13 @@ linemap_add (struct line_maps *set, enum lc_reason reason,
 }
 
 source_location
-linemap_line_start (struct line_maps *set, unsigned int to_line,
+linemap_line_start (struct line_maps *set, linenum_type to_line,
 		    unsigned int max_column_hint)
 {
   struct line_map *map = &set->maps[set->used - 1];
   source_location highest = set->highest_location;
   source_location r;
-  unsigned int last_line = SOURCE_LINE (map, set->highest_line);
+  linenum_type last_line = SOURCE_LINE (map, set->highest_line);
   int line_delta = to_line - last_line;
   bool add_map = false;
   if (line_delta < 0
@@ -218,8 +225,8 @@ linemap_line_start (struct line_maps *set, unsigned int to_line,
       if (line_delta < 0
 	  || last_line != map->to_line
 	  || SOURCE_COLUMN (map, highest) >= (1U << column_bits))
-	map = (struct line_map*) linemap_add (set, LC_RENAME, map->sysp,
-				      map->to_file, to_line);
+	map = (struct line_map *) linemap_add (set, LC_RENAME, map->sysp,
+					       map->to_file, to_line);
       map->column_bits = column_bits;
       r = map->start_location + ((to_line - map->to_line) << column_bits);
     }
@@ -294,45 +301,6 @@ linemap_lookup (struct line_maps *set, source_location line)
 
   set->cache = mn;
   return &set->maps[mn];
-}
-
-/* Print the file names and line numbers of the #include commands
-   which led to the map MAP, if any, to stderr.  Nothing is output if
-   the most recently listed stack is the same as the current one.  */
-
-void
-linemap_print_containing_files (struct line_maps *set,
-				const struct line_map *map)
-{
-  if (MAIN_FILE_P (map) || set->last_listed == map->included_from)
-    return;
-
-  set->last_listed = map->included_from;
-  map = INCLUDED_FROM (set, map);
-
-  fprintf (stderr,  _("In file included from %s:%u"),
-	   map->to_file, LAST_SOURCE_LINE (map));
-
-  while (! MAIN_FILE_P (map))
-    {
-      map = INCLUDED_FROM (set, map);
-      /* Translators note: this message is used in conjunction
-	 with "In file included from %s:%ld" and some other
-	 tricks.  We want something like this:
-
-	 | In file included from sys/select.h:123,
-	 |                  from sys/types.h:234,
-	 |                  from userfile.c:31:
-	 | bits/select.h:45: <error message here>
-
-	 with all the "from"s lined up.
-	 The trailing comma is at the beginning of this message,
-	 and the trailing colon is not translated.  */
-      fprintf (stderr, _(",\n                 from %s:%u"),
-	       map->to_file, LAST_SOURCE_LINE (map));
-    }
-
-  fputs (":\n", stderr);
 }
 
 /* Print an include trace, for e.g. the -H option of the preprocessor.  */

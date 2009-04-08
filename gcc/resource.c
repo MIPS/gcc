@@ -1,12 +1,12 @@
 /* Definitions for computing resource usage of specific insns.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -35,6 +34,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "except.h"
 #include "insn-attr.h"
 #include "params.h"
+#include "df.h"
 
 /* This structure is used to record liveness information at the targets or
    fallthrough insns of branches.  We will most likely need the information
@@ -78,7 +78,7 @@ static HARD_REG_SET current_live_regs;
 
 static HARD_REG_SET pending_dead_regs;
 
-static void update_live_status (rtx, rtx, void *);
+static void update_live_status (rtx, const_rtx, void *);
 static int find_basic_block (rtx, int);
 static rtx next_insn_no_annul (rtx);
 static rtx find_dead_or_set_registers (rtx, struct resources*,
@@ -89,7 +89,7 @@ static rtx find_dead_or_set_registers (rtx, struct resources*,
    It deadens any CLOBBERed registers and livens any SET registers.  */
 
 static void
-update_live_status (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
+update_live_status (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
 {
   int first_regno, last_regno;
   int i;
@@ -222,6 +222,7 @@ mark_referenced_resources (rtx x, struct resources *res,
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case SYMBOL_REF:
@@ -265,12 +266,9 @@ mark_referenced_resources (rtx x, struct resources *res,
       return;
 
     case UNSPEC_VOLATILE:
+    case TRAP_IF:
     case ASM_INPUT:
       /* Traditional asm's are always volatile.  */
-      res->volatil = 1;
-      return;
-
-    case TRAP_IF:
       res->volatil = 1;
       break;
 
@@ -638,6 +636,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
     case USE:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case LABEL_REF:
     case SYMBOL_REF:
@@ -661,9 +660,8 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 	  rtx link;
 
 	  res->cc = res->memory = 1;
-	  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-	    if (call_used_regs[r] || global_regs[r])
-	      SET_HARD_REG_BIT (res->regs, r);
+
+	  IOR_HARD_REG_SET (res->regs, regs_invalidated_by_call);
 
 	  for (link = CALL_INSN_FUNCTION_USAGE (x);
 	       link; link = XEXP (link, 1))
@@ -823,7 +821,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 /* Return TRUE if INSN is a return, possibly with a filled delay slot.  */
 
 static bool
-return_insn_p (rtx insn)
+return_insn_p (const_rtx insn)
 {
   if (JUMP_P (insn) && GET_CODE (PATTERN (insn)) == RETURN)
     return true;
@@ -956,9 +954,8 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
      TARGET.  Otherwise, we must assume everything is live.  */
   if (b != -1)
     {
-      regset regs_live = BASIC_BLOCK (b)->il.rtl->global_live_at_start;
+      regset regs_live = DF_LR_IN (BASIC_BLOCK (b));
       rtx start_insn, stop_insn;
-      reg_set_iterator rsi;
 
       /* Compute hard regs live at start of block -- this is the real hard regs
 	 marked live, plus live pseudo regs that have been renumbered to
@@ -966,16 +963,10 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 
       REG_SET_TO_HARD_REG_SET (current_live_regs, regs_live);
 
-      EXECUTE_IF_SET_IN_REG_SET (regs_live, FIRST_PSEUDO_REGISTER, i, rsi)
-	{
-	  if (reg_renumber[i] >= 0)
-	    add_to_hard_reg_set (&current_live_regs, PSEUDO_REGNO_MODE (i),
-				reg_renumber[i]);
-	}
-
       /* Get starting and ending insn, handling the case where each might
 	 be a SEQUENCE.  */
-      start_insn = (b == 0 ? insns : BB_HEAD (BASIC_BLOCK (b)));
+      start_insn = (b == ENTRY_BLOCK_PTR->next_bb->index ? 
+		    insns : BB_HEAD (BASIC_BLOCK (b)));
       stop_insn = target;
 
       if (NONJUMP_INSN_P (start_insn)
@@ -1156,8 +1147,8 @@ init_resource_info (rtx epilogue_insn)
   else
     SET_HARD_REG_BIT (end_of_function_needs.regs, STACK_POINTER_REGNUM);
 
-  if (current_function_return_rtx != 0)
-    mark_referenced_resources (current_function_return_rtx,
+  if (crtl->return_rtx != 0)
+    mark_referenced_resources (crtl->return_rtx,
 			       &end_of_function_needs, 1);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)

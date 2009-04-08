@@ -1,11 +1,11 @@
 /* Definitions for transformations based on profile information for values.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_VALUE_PROF_H
 #define GCC_VALUE_PROF_H
@@ -47,7 +46,7 @@ struct histogram_value_t
   struct
     {
       tree value;		/* The value to profile.  */
-      tree stmt;		/* Insn containing the value.  */
+      gimple stmt;		/* Insn containing the value.  */
       gcov_type *counters;		        /* Pointer to first counter.  */
       struct histogram_value_t *next;		/* Linked list pointer.  */
     } hvalue;
@@ -64,6 +63,7 @@ struct histogram_value_t
 };
 
 typedef struct histogram_value_t *histogram_value;
+typedef const struct histogram_value_t *const_histogram_value;
 
 DEF_VEC_P(histogram_value);
 DEF_VEC_ALLOC_P(histogram_value,heap);
@@ -71,7 +71,7 @@ DEF_VEC_ALLOC_P(histogram_value,heap);
 typedef VEC(histogram_value,heap) *histogram_values;
 
 /* Hooks registration.  */
-extern void tree_register_value_prof_hooks (void);
+extern void gimple_register_value_prof_hooks (void);
 
 /* IR-independent entry points.  */
 extern void find_values_to_profile (histogram_values *);
@@ -109,17 +109,19 @@ struct profile_hooks {
   void (*gen_ior_profiler) (histogram_value, unsigned, unsigned);
 };
 
-histogram_value gimple_histogram_value (struct function *, tree);
-histogram_value gimple_histogram_value_of_type (struct function *, tree, enum hist_type);
-void gimple_add_histogram_value (struct function *, tree, histogram_value);
-void gimple_remove_histogram_value (struct function *, tree, histogram_value);
-void dump_histograms_for_stmt (struct function *, FILE *, tree);
-void gimple_remove_histogram_value (struct function *, tree, histogram_value);
-void gimple_remove_stmt_histograms (struct function *, tree);
-void gimple_duplicate_stmt_histograms (struct function *, tree, struct function *, tree);
+histogram_value gimple_histogram_value (struct function *, gimple);
+histogram_value gimple_histogram_value_of_type (struct function *, gimple,
+						enum hist_type);
+void gimple_add_histogram_value (struct function *, gimple, histogram_value);
+void dump_histograms_for_stmt (struct function *, FILE *, gimple);
+void gimple_remove_histogram_value (struct function *, gimple, histogram_value);
+void gimple_remove_stmt_histograms (struct function *, gimple);
+void gimple_duplicate_stmt_histograms (struct function *, gimple,
+				       struct function *, gimple);
+void gimple_move_stmt_histograms (struct function *, gimple, gimple);
 void verify_histograms (void);
 void free_histograms (void);
-void stringop_block_profile (tree, unsigned int *, HOST_WIDE_INT *);
+void stringop_block_profile (gimple, unsigned int *, HOST_WIDE_INT *);
 
 /* In profile.c.  */
 extern void init_branch_prob (void);

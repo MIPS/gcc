@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1998-2006, Free Software Foundation, Inc.          --
+--         Copyright (C) 1998-2008, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,46 +35,17 @@ pragma Polling (Off);
 --  Turn off polling, we do not want ATC polling to take place during
 --  tasking operations. It causes infinite loops and other problems.
 
-with Ada.Exceptions;
---  Used for Raise_Exception
+with Ada.Unchecked_Conversion;
+with Ada.Task_Identification;
 
 with System.Task_Primitives.Operations;
---  Used for Write_Lock,
---           Unlock,
---           Self,
---           Monotonic_Clock,
---           Self,
---           Timed_Sleep,
---           Wakeup,
---           Yield
-
 with System.Tasking.Utilities;
---  Used for Make_Independent
-
 with System.Tasking.Initialization;
---  Used for Defer_Abort
---           Undefer_Abort
-
 with System.Tasking.Debug;
---  Used for Trace
-
 with System.OS_Primitives;
---  used for Max_Sensible_Delay
-
-with Ada.Task_Identification;
---  used for Task_Id type
-
 with System.Interrupt_Management.Operations;
---  used for Setup_Interrupt_Mask
-
 with System.Parameters;
---  used for Single_Lock
---           Runtime_Traces
-
 with System.Traces.Tasking;
---  used for Send_Trace_Info
-
-with Unchecked_Conversion;
 
 package body System.Tasking.Async_Delays is
 
@@ -88,7 +59,7 @@ package body System.Tasking.Async_Delays is
    use System.Traces;
    use System.Traces.Tasking;
 
-   function To_System is new Unchecked_Conversion
+   function To_System is new Ada.Unchecked_Conversion
      (Ada.Task_Identification.Task_Id, Task_Id);
 
    Timer_Server_ID : ST.Task_Id;
@@ -228,8 +199,7 @@ package body System.Tasking.Async_Delays is
         "async delay from within abort-deferred region");
 
       if Self_Id.ATC_Nesting_Level = ATC_Level'Last then
-         Ada.Exceptions.Raise_Exception (Storage_Error'Identity,
-           "not enough ATC nesting levels");
+         raise Storage_Error with "not enough ATC nesting levels";
       end if;
 
       Self_Id.ATC_Nesting_Level := Self_Id.ATC_Nesting_Level + 1;
@@ -304,7 +274,7 @@ package body System.Tasking.Async_Delays is
    task body Timer_Server is
       function Get_Next_Wakeup_Time return Duration;
       --  Used to initialize Next_Wakeup_Time, but also to ensure that
-      --  Make_Independent is called during the elaboration of this task
+      --  Make_Independent is called during the elaboration of this task.
 
       --------------------------
       -- Get_Next_Wakeup_Time --
@@ -316,12 +286,16 @@ package body System.Tasking.Async_Delays is
          return Duration'Last;
       end Get_Next_Wakeup_Time;
 
+      --  Local Declarations
+
       Next_Wakeup_Time : Duration := Get_Next_Wakeup_Time;
       Timedout         : Boolean;
       Yielded          : Boolean;
       Now              : Duration;
       Dequeued         : Delay_Block_Access;
       Dequeued_Task    : Task_Id;
+
+      pragma Unreferenced (Timedout, Yielded);
 
    begin
       Timer_Server_ID := STPO.Self;
@@ -376,7 +350,6 @@ package body System.Tasking.Async_Delays is
          Timer_Attention := False;
 
          Now := STPO.Monotonic_Clock;
-
          while Timer_Queue.Succ.Resume_Time <= Now loop
 
             --  Dequeue the waiting task from the front of the queue
@@ -434,8 +407,8 @@ package body System.Tasking.Async_Delays is
    ------------------------------
 
 begin
-   Timer_Queue.Succ := Timer_Queue'Unchecked_Access;
-   Timer_Queue.Pred := Timer_Queue'Unchecked_Access;
+   Timer_Queue.Succ := Timer_Queue'Access;
+   Timer_Queue.Pred := Timer_Queue'Access;
    Timer_Queue.Resume_Time := Duration'Last;
    Timer_Server_ID := To_System (Timer_Server'Identity);
 end System.Tasking.Async_Delays;

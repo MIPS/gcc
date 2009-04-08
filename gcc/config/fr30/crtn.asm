@@ -1,6 +1,6 @@
 # crtn.asm for ELF 
 
-#   Copyright (C) 1992, 1999 Free Software Foundation, Inc.
+#   Copyright (C) 1992, 1999, 2008 Free Software Foundation, Inc.
 #   Written By David Vinayak Henkel-Wallace, June 1992
 # 
 # This file is free software; you can redistribute it and/or modify it
@@ -36,8 +36,6 @@
 # This file just makes sure that the .fini and .init sections do in
 # fact return.  Users may put any desired instructions in those sections.
 # This file is the last thing linked into any executable.
-
-	.file		"crtn.s"
 
 	.section	".init"
 	.align		4

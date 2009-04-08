@@ -1,12 +1,13 @@
 /* Top-level control of tree optimizations.
-   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -62,8 +62,10 @@ gate_all_optimizations (void)
 	  && (!(errorcount || sorrycount) || gimple_in_ssa_p (cfun)));
 }
 
-struct tree_opt_pass pass_all_optimizations =
+struct gimple_opt_pass pass_all_optimizations =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   gate_all_optimizations,		/* gate */
   NULL,					/* execute */
@@ -75,8 +77,8 @@ struct tree_opt_pass pass_all_optimizations =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };
 
 /* Gate: execute, or not, all of the non-trivial optimizations.  */
@@ -88,8 +90,10 @@ gate_all_early_local_passes (void)
   return (!errorcount && !sorrycount);
 }
 
-struct tree_opt_pass pass_early_local_passes =
+struct simple_ipa_opt_pass pass_early_local_passes =
 {
+ {
+  SIMPLE_IPA_PASS,
   "early_local_cleanups",		/* name */
   gate_all_early_local_passes,		/* gate */
   NULL,					/* execute */
@@ -101,14 +105,18 @@ struct tree_opt_pass pass_early_local_passes =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_remove_functions,		/* todo_flags_finish */
-  0					/* letter */
+  TODO_remove_functions	 		/* todo_flags_finish */
+ }
 };
 
 static unsigned int
 execute_early_local_optimizations (void)
 {
-  if (flag_unit_at_a_time)
+  /* First time we start with early optimization we need to advance
+     cgraph state so newly inserted functions are also early optimized.
+     However we execute early local optimizations for lately inserted
+     functions, in that case don't reset cgraph state back to IPA_SSA.  */
+  if (cgraph_state < CGRAPH_STATE_IPA_SSA)
     cgraph_state = CGRAPH_STATE_IPA_SSA;
   return 0;
 }
@@ -123,8 +131,10 @@ gate_all_early_optimizations (void)
 	  && !(errorcount || sorrycount));
 }
 
-struct tree_opt_pass pass_all_early_optimizations =
+struct gimple_opt_pass pass_all_early_optimizations =
 {
+ {
+  GIMPLE_PASS,
   "early_optimizations",		/* name */
   gate_all_early_optimizations,		/* gate */
   execute_early_local_optimizations,	/* execute */
@@ -136,8 +146,8 @@ struct tree_opt_pass pass_all_early_optimizations =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };
 
 /* Pass: cleanup the CFG just before expanding trees to RTL.
@@ -152,8 +162,10 @@ execute_cleanup_cfg_pre_ipa (void)
   return 0;
 }
 
-struct tree_opt_pass pass_cleanup_cfg =
+struct gimple_opt_pass pass_cleanup_cfg =
 {
+ {
+  GIMPLE_PASS,
   "cleanup_cfg",			/* name */
   NULL,					/* gate */
   execute_cleanup_cfg_pre_ipa,		/* execute */
@@ -165,8 +177,8 @@ struct tree_opt_pass pass_cleanup_cfg =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,					/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 
 
@@ -185,8 +197,10 @@ execute_cleanup_cfg_post_optimizing (void)
   return 0;
 }
 
-struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
+struct gimple_opt_pass pass_cleanup_cfg_post_optimizing =
 {
+ {
+  GIMPLE_PASS,
   "final_cleanup",			/* name */
   NULL,					/* gate */
   execute_cleanup_cfg_post_optimizing,	/* execute */
@@ -198,8 +212,8 @@ struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,					/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 
 /* Pass: do the actions required to finish with tree-ssa optimization
@@ -217,8 +231,10 @@ execute_free_datastructures (void)
   return 0;
 }
 
-struct tree_opt_pass pass_free_datastructures =
+struct gimple_opt_pass pass_free_datastructures =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   NULL,					/* gate */
   execute_free_datastructures,			/* execute */
@@ -230,8 +246,8 @@ struct tree_opt_pass pass_free_datastructures =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };
 /* Pass: free cfg annotations.  */
 
@@ -244,8 +260,10 @@ execute_free_cfg_annotations (void)
   return 0;
 }
 
-struct tree_opt_pass pass_free_cfg_annotations =
+struct gimple_opt_pass pass_free_cfg_annotations =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   NULL,					/* gate */
   execute_free_cfg_annotations,		/* execute */
@@ -257,8 +275,8 @@ struct tree_opt_pass pass_free_cfg_annotations =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };
 
 /* Pass: fixup_cfg.  IPA passes, compilation of earlier functions or inlining
@@ -272,45 +290,65 @@ unsigned int
 execute_fixup_cfg (void)
 {
   basic_block bb;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   int todo = gimple_in_ssa_p (cfun) ? TODO_verify_ssa : 0;
-
-  cfun->after_inlining = true;
 
   if (cfun->eh)
     FOR_EACH_BB (bb)
       {
-	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  {
-	    tree stmt = bsi_stmt (bsi);
-	    tree call = get_call_expr_in (stmt);
-	    tree decl = call ? get_callee_fndecl (call) : NULL;
+	    gimple stmt = gsi_stmt (gsi);
+	    tree decl = is_gimple_call (stmt)
+	                ? gimple_call_fndecl (stmt)
+			: NULL;
 
-	    if (decl && call_expr_flags (call) & (ECF_CONST | ECF_PURE)
-		&& TREE_SIDE_EFFECTS (call))
+	    if (decl
+		&& gimple_call_flags (stmt) & (ECF_CONST
+					       | ECF_PURE 
+					       | ECF_LOOPING_CONST_OR_PURE))
 	      {
 		if (gimple_in_ssa_p (cfun))
 		  {
 		    todo |= TODO_update_ssa | TODO_cleanup_cfg;
+		    mark_symbols_for_renaming (stmt);
 	            update_stmt (stmt);
 		  }
-	        TREE_SIDE_EFFECTS (call) = 0;
 	      }
-	    if (decl && TREE_NOTHROW (decl))
-	      TREE_NOTHROW (call) = 1;
-	    if (!tree_could_throw_p (stmt) && lookup_stmt_eh_region (stmt))
+
+	    if (!stmt_could_throw_p (stmt) && lookup_stmt_eh_region (stmt))
 	      remove_stmt_from_eh_region (stmt);
 	  }
-	if (tree_purge_dead_eh_edges (bb))
+
+	if (gimple_purge_dead_eh_edges (bb))
           todo |= TODO_cleanup_cfg;
       }
 
   /* Dump a textual representation of the flowgraph.  */
   if (dump_file)
-    dump_tree_cfg (dump_file, dump_flags);
+    gimple_dump_cfg (dump_file, dump_flags);
 
   return todo;
 }
+
+struct gimple_opt_pass pass_fixup_cfg =
+{
+ {
+  GIMPLE_PASS,
+  NULL,					/* name */
+  NULL,					/* gate */
+  execute_fixup_cfg,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+ }
+};
 
 /* Do the actions required to initialize internal data structures used
    in tree-ssa optimization passes.  */
@@ -319,22 +357,16 @@ static unsigned int
 execute_init_datastructures (void)
 {
   /* Allocate hash tables, arrays and other structures.  */
-  init_tree_ssa ();
+  init_tree_ssa (cfun);
   return 0;
 }
 
-/* Gate: initialize or not the SSA datastructures.  */
-
-static bool
-gate_init_datastructures (void)
+struct gimple_opt_pass pass_init_datastructures =
 {
-  return (optimize >= 1);
-}
-
-struct tree_opt_pass pass_init_datastructures =
-{
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
-  gate_init_datastructures,		/* gate */
+  NULL,					/* gate */
   execute_init_datastructures,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */
@@ -344,8 +376,8 @@ struct tree_opt_pass pass_init_datastructures =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };
 
 void
@@ -355,11 +387,11 @@ tree_lowering_passes (tree fn)
 
   current_function_decl = fn;
   push_cfun (DECL_STRUCT_FUNCTION (fn));
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
   bitmap_obstack_initialize (NULL);
   execute_pass_list (all_lowering_passes);
   if (optimize && cgraph_global_info_ready)
-    execute_pass_list (pass_early_local_passes.sub);
+    execute_pass_list (pass_early_local_passes.pass.sub);
   free_dominance_info (CDI_POST_DOMINATORS);
   free_dominance_info (CDI_DOMINATORS);
   compact_blocks ();
@@ -379,7 +411,7 @@ tree_rest_of_compilation (tree fndecl)
 
   timevar_push (TV_EXPAND);
 
-  gcc_assert (!flag_unit_at_a_time || cgraph_global_info_ready);
+  gcc_assert (cgraph_global_info_ready);
 
   node = cgraph_node (fndecl);
 
@@ -388,7 +420,6 @@ tree_rest_of_compilation (tree fndecl)
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
-  cfun = DECL_STRUCT_FUNCTION (fndecl);
   saved_loc = input_location;
   input_location = DECL_SOURCE_LOCATION (fndecl);
   init_function_start (fndecl);
@@ -397,9 +428,9 @@ tree_rest_of_compilation (tree fndecl)
      call expand_expr to calculate the size of a variable-sized array.
      We haven't necessarily assigned RTL to all variables yet, so it's
      not safe to try to expand expressions involving them.  */
-  cfun->x_dont_save_pending_sizes_p = 1;
+  cfun->dont_save_pending_sizes_p = 1;
   
-  tree_register_cfg_hooks ();
+  gimple_register_cfg_hooks ();
 
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
   /* Perform all tree transforms and optimizations.  */
@@ -410,8 +441,7 @@ tree_rest_of_compilation (tree fndecl)
   /* Release the default bitmap obstack.  */
   bitmap_obstack_release (NULL);
   
-  DECL_SAVED_TREE (fndecl) = NULL;
-  cfun = 0;
+  set_cfun (NULL);
 
   /* If requested, warn about function definitions where the function will
      return a value (usually of some struct or union type) which itself will
@@ -429,28 +459,25 @@ tree_rest_of_compilation (tree fndecl)
 	    = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (ret_type));
 
 	  if (compare_tree_int (TYPE_SIZE_UNIT (ret_type), size_as_int) == 0)
-	    warning (0, "size of return value of %q+D is %u bytes",
+	    warning (OPT_Wlarger_than_eq, "size of return value of %q+D is %u bytes",
                      fndecl, size_as_int);
 	  else
-	    warning (0, "size of return value of %q+D is larger than %wd bytes",
+	    warning (OPT_Wlarger_than_eq, "size of return value of %q+D is larger than %wd bytes",
                      fndecl, larger_than_size);
 	}
     }
 
-  if (!flag_inline_trees)
+  gimple_set_body (fndecl, NULL);
+  if (DECL_STRUCT_FUNCTION (fndecl) == 0
+      && !cgraph_node (fndecl)->origin)
     {
-      DECL_SAVED_TREE (fndecl) = NULL;
-      if (DECL_STRUCT_FUNCTION (fndecl) == 0
-	  && !cgraph_node (fndecl)->origin)
-	{
-	  /* Stop pointing to the local nodes about to be freed.
-	     But DECL_INITIAL must remain nonzero so we know this
-	     was an actual function definition.
-	     For a nested function, this is done in c_pop_function_context.
-	     If rest_of_compilation set this to 0, leave it 0.  */
-	  if (DECL_INITIAL (fndecl) != 0)
-	    DECL_INITIAL (fndecl) = error_mark_node;
-	}
+      /* Stop pointing to the local nodes about to be freed.
+	 But DECL_INITIAL must remain nonzero so we know this
+	 was an actual function definition.
+	 For a nested function, this is done in c_pop_function_context.
+	 If rest_of_compilation set this to 0, leave it 0.  */
+      if (DECL_INITIAL (fndecl) != 0)
+	DECL_INITIAL (fndecl) = error_mark_node;
     }
 
   input_location = saved_loc;

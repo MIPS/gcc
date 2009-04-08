@@ -37,10 +37,8 @@ exception statement from your version. */
 
 #include "jcl.h"
 #include "gtkpeer.h"
-#include <gdk/gdkx.h>
 #include <gdk/gdktypes.h>
 #include <gdk/gdkprivate.h>
-#include <gdk/gdkx.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk-pixbuf/gdk-pixdata.h>
 
@@ -65,7 +63,7 @@ Java_gnu_java_awt_peer_gtk_GtkVolatileImage_init (JNIEnv *env,
 
   if( peer != NULL )
     {
-      ptr = NSA_GET_PTR (env, peer);
+      ptr = gtkpeer_get_widget (env, peer);
       g_assert (ptr != NULL);
       
       widget = GTK_WIDGET (ptr);

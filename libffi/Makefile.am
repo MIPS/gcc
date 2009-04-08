@@ -84,11 +84,8 @@ libffi_la_SOURCES = src/debug.c src/prep_cif.c src/types.c \
 
 nodist_libffi_la_SOURCES =
 
-if MIPS_IRIX
+if MIPS
 nodist_libffi_la_SOURCES += src/mips/ffi.c src/mips/o32.S src/mips/n32.S
-endif
-if MIPS_LINUX
-nodist_libffi_la_SOURCES += src/mips/ffi.c src/mips/o32.S
 endif
 if X86
 nodist_libffi_la_SOURCES += src/x86/ffi.c src/x86/sysv.S
@@ -159,7 +156,9 @@ nodist_libffi_convenience_la_SOURCES = $(nodist_libffi_la_SOURCES)
 
 AM_CFLAGS = -Wall -g -fexceptions
 
-libffi_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
+
+libffi_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LTLDFLAGS)
 
 AM_CPPFLAGS = -I. -I$(top_srcdir)/include -Iinclude -I$(top_srcdir)/src
 AM_CCASFLAGS = $(AM_CPPFLAGS)

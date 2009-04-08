@@ -1,4 +1,4 @@
-!{ dg-do run }
+!{ dg-do run { target fd_truncate } }
 ! Tests various combinations of intrinsic types, derived types, arrays,
 ! dummy arguments and common to check nml_get_addr_expr in trans-io.c.
 ! See comments below for selection.
@@ -6,6 +6,7 @@
 
 module global
   type             ::  mt
+    sequence
     integer        ::  ii(4)
   end type mt
 end module global

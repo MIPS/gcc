@@ -1,6 +1,7 @@
 /* Perform instruction reorganizations for delay slot filling.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu).
    Hacked by Michael Tiemann (tiemann@cygnus.com).
 
@@ -8,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Instruction reorganization pass.
 
@@ -211,7 +211,8 @@ static void update_reg_dead_notes (rtx, rtx);
 static void fix_reg_dead_note (rtx, rtx);
 static void update_reg_unused_notes (rtx, rtx);
 static void fill_simple_delay_slots (int);
-static rtx fill_slots_from_thread (rtx, rtx, rtx, rtx, int, int, int, int,
+static rtx fill_slots_from_thread (rtx, rtx, rtx, rtx,
+				   int, int, int, int,
 				   int *, rtx);
 static void fill_eager_delay_slots (void);
 static void relax_delay_slots (rtx);
@@ -427,7 +428,7 @@ find_end_label (void)
 	     epilogue has filled delay-slots; we would have to try and
 	     move the delay-slot fillers to the delay-slots for the new
 	     return insn or in front of the new return insn.  */
-	  if (current_function_epilogue_delay_list == NULL
+	  if (crtl->epilogue_delay_list == NULL
 	      && HAVE_return)
 	    {
 	      /* The return we make may have delay slots too.  */
@@ -511,6 +512,8 @@ emit_delay_sequence (rtx insn, rtx list, int length)
   INSN_DELETED_P (delay_insn) = 0;
   PREV_INSN (delay_insn) = PREV_INSN (seq_insn);
 
+  INSN_LOCATOR (seq_insn) = INSN_LOCATOR (delay_insn);
+
   for (li = list; li; li = XEXP (li, 1), i++)
     {
       rtx tem = XEXP (li, 0);
@@ -540,7 +543,8 @@ emit_delay_sequence (rtx insn, rtx list, int length)
 	      remove_note (tem, note);
 	      break;
 
-	    case REG_LABEL:
+	    case REG_LABEL_OPERAND:
+	    case REG_LABEL_TARGET:
 	      /* Keep the label reference count up to date.  */
 	      if (LABEL_P (XEXP (note, 0)))
 		LABEL_NUSES (XEXP (note, 0)) ++;
@@ -638,7 +642,7 @@ delete_from_delay_slot (rtx insn)
   prev = PREV_INSN (seq_insn);
   trial = XVECEXP (seq, 0, 0);
   delete_related_insns (seq_insn);
-  add_insn_after (trial, prev);
+  add_insn_after (trial, prev, NULL);
 
   /* If there was a barrier after the old SEQUENCE, remit it.  */
   if (had_barrier)
@@ -788,7 +792,7 @@ optimize_skip (rtx insn)
      In both of these cases, inverting the jump and annulling the delay
      slot give the same effect in fewer insns.  */
   if ((next_trial == next_active_insn (JUMP_LABEL (insn))
-       && ! (next_trial == 0 && current_function_epilogue_delay_list != 0))
+       && ! (next_trial == 0 && crtl->epilogue_delay_list != 0))
       || (next_trial != 0
 	  && JUMP_P (next_trial)
 	  && JUMP_LABEL (insn) == JUMP_LABEL (next_trial)
@@ -1525,12 +1529,12 @@ try_merge_delay_insns (rtx insn, rtx thread)
 	    {
 	      if (! annul_p)
 		{
-		  rtx new;
+		  rtx new_rtx;
 
 		  update_block (dtrial, thread);
-		  new = delete_from_delay_slot (dtrial);
+		  new_rtx = delete_from_delay_slot (dtrial);
 	          if (INSN_DELETED_P (thread))
-		    thread = new;
+		    thread = new_rtx;
 		  INSN_FROM_TARGET_P (next_to_match) = 0;
 		}
 	      else
@@ -1563,12 +1567,12 @@ try_merge_delay_insns (rtx insn, rtx thread)
 	{
 	  if (GET_MODE (merged_insns) == SImode)
 	    {
-	      rtx new;
+	      rtx new_rtx;
 
 	      update_block (XEXP (merged_insns, 0), thread);
-	      new = delete_from_delay_slot (XEXP (merged_insns, 0));
+	      new_rtx = delete_from_delay_slot (XEXP (merged_insns, 0));
 	      if (INSN_DELETED_P (thread))
-		thread = new;
+		thread = new_rtx;
 	    }
 	  else
 	    {
@@ -2406,7 +2410,7 @@ fill_simple_delay_slots (int non_jumps_p)
      The only thing we can do is scan backwards from the end of the
      function.  If we did this in a previous pass, it is incorrect to do it
      again.  */
-  if (current_function_epilogue_delay_list)
+  if (crtl->epilogue_delay_list)
     return;
 
   slots_to_fill = DELAY_SLOTS_FOR_EPILOGUE;
@@ -2466,9 +2470,9 @@ fill_simple_delay_slots (int non_jumps_p)
 	      /* Here as well we are searching backward, so put the
 		 insns we find on the head of the list.  */
 
-	      current_function_epilogue_delay_list
+	      crtl->epilogue_delay_list
 		= gen_rtx_INSN_LIST (VOIDmode, trial,
-				     current_function_epilogue_delay_list);
+				     crtl->epilogue_delay_list);
 	      mark_end_of_function_resources (trial, 1);
 	      update_block (trial, trial);
 	      delete_related_insns (trial);
@@ -2735,15 +2739,41 @@ fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
 		      /* We are moving this insn, not deleting it.  We must
 			 temporarily increment the use count on any referenced
 			 label lest it be deleted by delete_related_insns.  */
-		      note = find_reg_note (trial, REG_LABEL, 0);
-		      /* REG_LABEL could be NOTE_INSN_DELETED_LABEL too.  */
-		      if (note && LABEL_P (XEXP (note, 0)))
-			LABEL_NUSES (XEXP (note, 0))++;
+		      for (note = REG_NOTES (trial);
+			   note != NULL_RTX;
+			   note = XEXP (note, 1))
+			if (REG_NOTE_KIND (note) == REG_LABEL_OPERAND
+			    || REG_NOTE_KIND (note) == REG_LABEL_TARGET)
+			  {
+			    /* REG_LABEL_OPERAND could be
+			       NOTE_INSN_DELETED_LABEL too.  */
+			    if (LABEL_P (XEXP (note, 0)))
+			      LABEL_NUSES (XEXP (note, 0))++;
+			    else
+			      gcc_assert (REG_NOTE_KIND (note)
+					  == REG_LABEL_OPERAND);
+			  }
+		      if (JUMP_P (trial) && JUMP_LABEL (trial))
+			LABEL_NUSES (JUMP_LABEL (trial))++;
 
 		      delete_related_insns (trial);
 
-		      if (note && LABEL_P (XEXP (note, 0)))
-			LABEL_NUSES (XEXP (note, 0))--;
+		      for (note = REG_NOTES (trial);
+			   note != NULL_RTX;
+			   note = XEXP (note, 1))
+			if (REG_NOTE_KIND (note) == REG_LABEL_OPERAND
+			    || REG_NOTE_KIND (note) == REG_LABEL_TARGET)
+			  {
+			    /* REG_LABEL_OPERAND could be
+			       NOTE_INSN_DELETED_LABEL too.  */
+			    if (LABEL_P (XEXP (note, 0)))
+			      LABEL_NUSES (XEXP (note, 0))--;
+			    else
+			      gcc_assert (REG_NOTE_KIND (note)
+					  == REG_LABEL_OPERAND);
+			  }
+		      if (JUMP_P (trial) && JUMP_LABEL (trial))
+			LABEL_NUSES (JUMP_LABEL (trial))--;
 		    }
 		  else
 		    new_thread = next_active_insn (trial);
@@ -3125,7 +3155,7 @@ delete_prior_computation (rtx note, rtx insn)
       /* If we reach a CALL which is not calling a const function
 	 or the callee pops the arguments, then give up.  */
       if (CALL_P (our_prev)
-	  && (! CONST_OR_PURE_CALL_P (our_prev)
+	  && (! RTL_CONST_CALL_P (our_prev)
 	      || GET_CODE (pat) != SET || GET_CODE (SET_SRC (pat)) != CALL))
 	break;
 
@@ -3187,9 +3217,7 @@ delete_prior_computation (rtx note, rtx insn)
 		{
 		  int i;
 
-		  REG_NOTES (our_prev)
-		    = gen_rtx_EXPR_LIST (REG_UNUSED, reg,
-					 REG_NOTES (our_prev));
+		  add_reg_note (our_prev, REG_UNUSED, reg);
 
 		  for (i = dest_regno; i < dest_endregno; i++)
 		    if (! find_regno_note (our_prev, REG_UNUSED, i))
@@ -3251,8 +3279,7 @@ delete_computation (rtx insn)
 	    delete_computation (prev);
 	  else
 	    /* Otherwise, show that cc0 won't be used.  */
-	    REG_NOTES (prev) = gen_rtx_EXPR_LIST (REG_UNUSED,
-						  cc0_rtx, REG_NOTES (prev));
+	    add_reg_note (prev, REG_UNUSED, cc0_rtx);
 	}
     }
 #endif
@@ -3412,7 +3439,7 @@ relax_delay_slots (rtx first)
 
 	 Only do so if optimizing for size since this results in slower, but
 	 smaller code.  */
-      if (optimize_size
+      if (optimize_function_for_size_p (cfun)
 	  && GET_CODE (PATTERN (delay_insn)) == RETURN
 	  && next
 	  && JUMP_P (next)
@@ -3440,7 +3467,7 @@ relax_delay_slots (rtx first)
 	  for (i = 0; i < XVECLEN (pat, 0); i++)
 	    {
 	      rtx this_insn = XVECEXP (pat, 0, i);
-	      add_insn_after (this_insn, after);
+	      add_insn_after (this_insn, after, NULL);
 	      after = this_insn;
 	    }
 	  delete_scheduled_jump (delay_insn);
@@ -3558,7 +3585,7 @@ relax_delay_slots (rtx first)
 	  for (i = 0; i < XVECLEN (pat, 0); i++)
 	    {
 	      rtx this_insn = XVECEXP (pat, 0, i);
-	      add_insn_after (this_insn, after);
+	      add_insn_after (this_insn, after, NULL);
 	      after = this_insn;
 	    }
 	  delete_scheduled_jump (delay_insn);
@@ -3665,7 +3692,7 @@ make_return_insns (rtx first)
      delay slot filler insns.  It is also unknown whether such a
      transformation would actually be profitable.  Note that the existing
      code only cares for branches with (some) filled delay slots.  */
-  if (current_function_epilogue_delay_list != NULL)
+  if (crtl->epilogue_delay_list != NULL)
     return;
 #endif
 
@@ -3804,7 +3831,7 @@ dbr_schedule (rtx first)
 	epilogue_insn = insn;
     }
 
-  uid_to_ruid = xmalloc ((max_uid + 1) * sizeof (int));
+  uid_to_ruid = XNEWVEC (int, max_uid + 1);
   for (i = 0, insn = first; insn; i++, insn = NEXT_INSN (insn))
     uid_to_ruid[INSN_UID (insn)] = i;
 
@@ -3812,7 +3839,7 @@ dbr_schedule (rtx first)
   if (unfilled_firstobj == 0)
     {
       gcc_obstack_init (&unfilled_slots_obstack);
-      unfilled_firstobj = obstack_alloc (&unfilled_slots_obstack, 0);
+      unfilled_firstobj = XOBNEWVAR (&unfilled_slots_obstack, rtx, 0);
     }
 
   for (insn = next_active_insn (first); insn; insn = next_active_insn (insn))
@@ -3862,17 +3889,6 @@ dbr_schedule (rtx first)
       relax_delay_slots (first);
     }
 
-  /* Delete any USE insns made by update_block; subsequent passes don't need
-     them or know how to deal with them.  */
-  for (insn = first; insn; insn = next)
-    {
-      next = NEXT_INSN (insn);
-
-      if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == USE
-	  && INSN_P (XEXP (PATTERN (insn), 0)))
-	next = delete_related_insns (insn);
-    }
-
   /* If we made an end of function label, indicate that it is now
      safe to delete it by undoing our prior adjustment to LABEL_NUSES.
      If it is now unused, delete it.  */
@@ -3884,10 +3900,21 @@ dbr_schedule (rtx first)
     make_return_insns (first);
 #endif
 
+  /* Delete any USE insns made by update_block; subsequent passes don't need
+     them or know how to deal with them.  */
+  for (insn = first; insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+
+      if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == USE
+	  && INSN_P (XEXP (PATTERN (insn), 0)))
+	next = delete_related_insns (insn);
+    }
+
   obstack_free (&unfilled_slots_obstack, unfilled_firstobj);
 
   /* It is not clear why the line below is needed, but it does seem to be.  */
-  unfilled_firstobj = obstack_alloc (&unfilled_slots_obstack, 0);
+  unfilled_firstobj = XOBNEWVAR (&unfilled_slots_obstack, rtx, 0);
 
   if (dump_file)
     {
@@ -3994,9 +4021,7 @@ dbr_schedule (rtx first)
 	continue;
 
       pred_flags = get_jump_flags (insn, JUMP_LABEL (insn));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_BR_PRED,
-					    GEN_INT (pred_flags),
-					    REG_NOTES (insn));
+      add_reg_note (insn, REG_BR_PRED, GEN_INT (pred_flags));
     }
   free_resource_info ();
   free (uid_to_ruid);
@@ -4006,12 +4031,14 @@ dbr_schedule (rtx first)
   {
     rtx link;
 
-    for (link = current_function_epilogue_delay_list;
+    for (link = crtl->epilogue_delay_list;
          link;
          link = XEXP (link, 1))
       INSN_LOCATOR (XEXP (link, 0)) = 0;
   }
+
 #endif
+  crtl->dbr_scheduled_p = true;
 }
 #endif /* DELAY_SLOTS */
 
@@ -4019,8 +4046,9 @@ static bool
 gate_handle_delay_slots (void)
 {
 #ifdef DELAY_SLOTS
-  return flag_delayed_branch;
-#else 
+  /* At -O0 dataflow info isn't updated after RA.  */
+  return optimize > 0 && flag_delayed_branch && !crtl->dbr_scheduled_p;
+#else
   return 0;
 #endif
 }
@@ -4033,10 +4061,12 @@ rest_of_handle_delay_slots (void)
   dbr_schedule (get_insns ());
 #endif
   return 0;
-}   
+}
 
-struct tree_opt_pass pass_delay_slots =
+struct rtl_opt_pass pass_delay_slots =
 {
+ {
+  RTL_PASS,
   "dbr",                                /* name */
   gate_handle_delay_slots,              /* gate */
   rest_of_handle_delay_slots,           /* execute */
@@ -4049,8 +4079,8 @@ struct tree_opt_pass pass_delay_slots =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'd'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 /* Machine dependent reorg pass.  */
@@ -4068,8 +4098,10 @@ rest_of_handle_machine_reorg (void)
   return 0;
 }
 
-struct tree_opt_pass pass_machine_reorg =
+struct rtl_opt_pass pass_machine_reorg =
 {
+ {
+  RTL_PASS,
   "mach",                               /* name */
   gate_handle_machine_reorg,            /* gate */
   rest_of_handle_machine_reorg,         /* execute */
@@ -4082,7 +4114,6 @@ struct tree_opt_pass pass_machine_reorg =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'M'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
-

@@ -55,6 +55,11 @@ public class MBeanAttributeInfo
 {
 
   /**
+   * Compatible with JDK 1.6
+   */
+  private static final long serialVersionUID = 8644704819898565848L;
+
+  /**
    * The type of the attribute.
    *
    * @serial the attribute type.
@@ -112,7 +117,7 @@ public class MBeanAttributeInfo
       {
 	Type t = setter.getGenericParameterTypes()[0];
 	if (t instanceof Class)
-	  attributeType = ((Class) t).getName();
+	  attributeType = ((Class<?>) t).getName();
 	else
 	  attributeType = t.toString();
 	isRead = false;
@@ -122,7 +127,7 @@ public class MBeanAttributeInfo
       {
 	Type t = getter.getGenericReturnType();
 	if (t instanceof Class)
-	  attributeType = ((Class) t).getName();
+	  attributeType = ((Class<?>) t).getName();
 	else
 	  attributeType = t.toString();
 	isRead = true;

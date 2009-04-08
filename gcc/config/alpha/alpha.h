@@ -1,13 +1,13 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()			\
@@ -245,10 +244,6 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 
 /* Define the size of `long long'.  The default is the twice the word size.  */
 #define LONG_LONG_TYPE_SIZE 64
-
-/* We're IEEE unless someone says to use VAX.  */
-#define TARGET_FLOAT_FORMAT \
-  (TARGET_FLOAT_VAX ? VAX_FLOAT_FORMAT : IEEE_FLOAT_FORMAT)
 
 /* The two floating-point formats we support are S-floating, which is
    4 bytes, and T-floating, which is 8 bytes.  `float' is S and `double'
@@ -558,6 +553,19 @@ enum reg_class {
   {0x00000000, 0x7fffffff},	/* FLOAT_REGS */	\
   {0xffffffff, 0xffffffff} }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, FLOAT_REGS, LIM_REG_CLASSES				     \
+}
+
 /* The same information, inverted:
    Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
@@ -632,7 +640,7 @@ extern int alpha_memory_latency;
 #define MEMORY_MOVE_COST(MODE,CLASS,IN)  (2*alpha_memory_latency)
 
 /* Provide the cost of a branch.  Exact meaning under development.  */
-#define BRANCH_COST 5
+#define BRANCH_COST(speed_p, predictable_p) 5
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -663,7 +671,7 @@ extern int alpha_memory_latency;
 
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
-   found in the variable current_function_outgoing_args_size.  */
+   found in the variable crtl->outgoing_args_size.  */
 #define ACCUMULATE_OUTGOING_ARGS 1
 
 /* Offset of first parameter from the argument pointer register value.  */
@@ -916,7 +924,7 @@ do {						\
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, 28)
 #define EH_RETURN_HANDLER_RTX \
   gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx, \
-				     current_function_outgoing_args_size))
+				     crtl->outgoing_args_size))
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1071,7 +1079,7 @@ do {									     \
    Without byte/word accesses, we want no more than four instructions;
    with, several single byte accesses are better.  */
 
-#define MOVE_RATIO  (TARGET_BWX ? 7 : 2)
+#define MOVE_RATIO(speed)  (TARGET_BWX ? 7 : 2)
 
 /* Largest number of bytes of an object that can be placed in a register.
    On the Alpha we have plenty of registers, so use TImode.  */
@@ -1335,10 +1343,6 @@ do {						\
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) \
   print_operand_address((FILE), (ADDR))
-
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  alpha_va_start (valist, nextarg)
 
 /* Tell collect that the object format is ECOFF.  */
 #define OBJECT_FORMAT_COFF

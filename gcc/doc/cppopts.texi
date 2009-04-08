@@ -1,4 +1,4 @@
-@c Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+@c Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
 @c Free Software Foundation, Inc.
 @c This is part of the CPP and GCC manuals.
 @c For copying conditions, see the file gcc.texi.
@@ -114,10 +114,6 @@ equivalent, and problematic constructs which should be avoided.
 @ifset cppmanual
 @xref{Traditional Mode}.
 @end ifset
-
-@item -Wimport
-@opindex Wimport
-Warn the first time @samp{#import} is used.
 
 @item -Wundef
 @opindex Wundef
@@ -518,12 +514,34 @@ Search @var{dir} only for header files requested with
 If @var{dir} begins with @code{=}, then the @code{=} will be replaced
 by the sysroot prefix; see @option{--sysroot} and @option{-isysroot}.
 
+@item -fdirectives-only
+@opindex fdirectives-only
+When preprocessing, handle directives, but do not expand macros.
+
+The option's behavior depends on the @option{-E} and @option{-fpreprocessed}
+options.
+
+With @option{-E}, preprocessing is limited to the handling of directives
+such as @code{#define}, @code{#ifdef}, and @code{#error}.  Other
+preprocessor operations, such as macro expansion and trigraph
+conversion are not performed.  In addition, the @option{-dD} option is
+implicitly enabled.
+
+With @option{-fpreprocessed}, predefinition of command line and most
+builtin macros is disabled.  Macros such as @code{__LINE__}, which are
+contextually dependent, are handled normally.  This enables compilation of
+files previously preprocessed with @code{-E -fdirectives-only}.
+
+With both @option{-E} and @option{-fpreprocessed}, the rules for
+@option{-fpreprocessed} take precedence.  This enables full preprocessing of
+files previously preprocessed with @code{-E -fdirectives-only}.
+
 @item -fdollars-in-identifiers
 @opindex fdollars-in-identifiers
 @anchor{fdollars-in-identifiers}
 Accept @samp{$} in identifiers.
 @ifset cppmanual
-  @xref{Identifier characters}.
+@xref{Identifier characters}.
 @end ifset
 
 @item -fextended-identifiers
@@ -611,7 +629,7 @@ Make an assertion with the predicate @var{predicate} and answer
 @var{predicate}(@var{answer})}, which is still supported, because
 it does not use shell special characters.
 @ifset cppmanual
-@xref{Assertions}.
+@xref{Obsolete Features}.
 @end ifset
 
 @item -A -@var{predicate}=@var{answer}
@@ -641,6 +659,10 @@ touch foo.h; cpp -dM foo.h
 @noindent
 will show all the predefined macros.
 
+If you use @option{-dM} without the @option{-E} option, @option{-dM} is
+interpreted as a synonym for @option{-fdump-rtl-mach}.
+@xref{Debugging Options, , ,gcc}.
+
 @item D
 @opindex dD
 Like @samp{M} except in two respects: it does @emph{not} include the
@@ -656,6 +678,14 @@ Like @samp{D}, but emit only the macro names, not their expansions.
 @opindex dI
 Output @samp{#include} directives in addition to the result of
 preprocessing.
+
+@item U
+@opindex dU
+Like @samp{D} except that only macros that are expanded, or whose
+definedness is tested in preprocessor directives, are output; the
+output is delayed until the use or test of the macro; and
+@samp{#undef} directives are also output for macros tested but
+undefined at the time.
 @end table
 
 @item -P

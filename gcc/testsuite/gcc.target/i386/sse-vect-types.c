@@ -1,4 +1,4 @@
-/* { dg-do compile { target i?86-*-* x86_64-*-* } } */
+/* { dg-do compile } */
 /* { dg-options "-O0 -msse2" } */
 
 #include <xmmintrin.h>
@@ -10,3 +10,4 @@ __m128d foo1(__m128d z, __m128d  a, int N) {
   }
   return a;
 }
+/* { dg-message "note: expected '\[^'\n\]*' but argument is of type '\[^'\n\]*'" "note: expected" { target *-*-* } 0 } */

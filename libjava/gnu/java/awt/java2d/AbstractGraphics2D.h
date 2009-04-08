@@ -20,7 +20,10 @@ extern "Java"
         namespace java2d
         {
             class AbstractGraphics2D;
+            class ScanlineConverter;
+            class ScanlineCoverage;
             class ShapeCache;
+            class TextCacheKey;
         }
       }
     }
@@ -29,6 +32,7 @@ extern "Java"
   {
     namespace awt
     {
+        class BasicStroke;
         class Color;
         class Composite;
         class Font;
@@ -50,7 +54,6 @@ extern "Java"
       namespace geom
       {
           class AffineTransform;
-          class Rectangle2D;
       }
       namespace image
       {
@@ -165,22 +168,17 @@ public:
 public: // actually protected
   virtual void fillShape(::java::awt::Shape *, jboolean);
   virtual ::java::awt::image::ColorModel * getColorModel() = 0;
-  virtual ::java::awt::Rectangle * getDeviceBounds();
+  virtual ::java::awt::Rectangle * getDeviceBounds() = 0;
   virtual void rawDrawLine(jint, jint, jint, jint);
   virtual void rawDrawRect(jint, jint, jint, jint);
-  virtual void rawDrawString(::java::lang::String *, jint, jint);
   virtual void rawClearRect(jint, jint, jint, jint);
   virtual void rawFillRect(jint, jint, jint, jint);
   virtual jboolean rawDrawImage(::java::awt::Image *, jint, jint, ::java::awt::image::ImageObserver *);
   virtual void rawCopyArea(jint, jint, jint, jint, jint, jint);
 private:
   void copyAreaImpl(jint, jint, jint, jint, jint, jint);
-  void fillShapeImpl(::java::util::ArrayList *, ::java::awt::geom::Rectangle2D *, ::java::awt::geom::Rectangle2D *, ::java::awt::geom::Rectangle2D *);
-public: // actually protected
-  virtual void fillScanline(::java::awt::PaintContext *, jint, jint, jint);
-private:
-  void fillShapeAntialias(::java::util::ArrayList *, ::java::awt::geom::Rectangle2D *, ::java::awt::geom::Rectangle2D *, ::java::awt::geom::Rectangle2D *);
-  void fillScanlineAA(JArray< jint > *, jint, jint, jint, ::java::awt::PaintContext *, jint);
+public:
+  virtual void renderScanline(jint, ::gnu::java::awt::java2d::ScanlineCoverage *);
 public: // actually protected
   virtual void init();
   virtual ::java::awt::image::WritableRaster * getDestinationRaster();
@@ -189,24 +187,38 @@ private:
   void updateOptimization();
   static ::java::awt::Rectangle * computeIntersection(jint, jint, jint, jint, ::java::awt::Rectangle *);
   void updateClip(::java::awt::geom::AffineTransform *);
-  ::java::util::ArrayList * getSegments(::java::awt::Shape *, ::java::awt::geom::AffineTransform *, ::java::awt::geom::Rectangle2D *, jboolean);
-  ::gnu::java::awt::java2d::ShapeCache * getShapeCache();
-  static const jint AA_SAMPLING = 8;
-  static ::java::lang::ThreadLocal * shapeCache;
+  ::gnu::java::awt::java2d::ScanlineConverter * getScanlineConverter();
+  void freeScanlineConverter(::gnu::java::awt::java2d::ScanlineConverter *);
+  ::java::awt::PaintContext * getPaintContext();
+public:
+  static ::java::awt::Image * prepareImage(::java::awt::Image *, jint, jint);
+public: // actually protected
+  static ::java::util::WeakHashMap * imageCache;
+private:
+  static jboolean DEFAULT_TEXT_AA;
+  static ::java::awt::Font * FONT;
+  static const jint GV_CACHE_SIZE = 50;
+  static ::gnu::java::awt::java2d::ShapeCache * shapeCache;
+  static ::java::util::LinkedList * scanlineConverters;
+  static ::java::util::Map * gvCache;
+  static ::gnu::java::awt::java2d::TextCacheKey * searchTextKey;
 public: // actually protected
   ::java::awt::geom::AffineTransform * __attribute__((aligned(__alignof__( ::java::awt::Graphics2D)))) transform__;
 private:
   ::java::awt::Paint * paint;
+  ::java::awt::PaintContext * paintContext;
   ::java::awt::Color * background;
+  ::java::awt::Color * foreground;
+  jboolean isForegroundColorNull;
   ::java::awt::Font * font;
   ::java::awt::Composite * composite;
   ::java::awt::Stroke * stroke;
   ::java::awt::Shape * clip__;
   ::java::awt::RenderingHints * renderingHints;
   ::java::awt::image::WritableRaster * destinationRaster;
-  JArray< jint > * alpha;
-  JArray< ::java::util::ArrayList * > * edgeTable;
   jboolean isOptimized;
+  static ::java::awt::BasicStroke * STANDARD_STROKE;
+  static ::java::util::HashMap * STANDARD_HINTS;
 public:
   static ::java::lang::Class class$;
 };

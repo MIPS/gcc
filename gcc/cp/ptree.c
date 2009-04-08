@@ -1,13 +1,14 @@
 /* Prints out trees in human readable form.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -44,7 +44,23 @@ cxx_print_decl (FILE *file, tree node, int indent)
   if (!CODE_CONTAINS_STRUCT (TREE_CODE (node), TS_DECL_COMMON)
       || !DECL_LANG_SPECIFIC (node))
     return;
+  if (TREE_CODE (node) == FUNCTION_DECL)
+    {
+      int flags = TFF_DECL_SPECIFIERS|TFF_RETURN_TYPE
+	|TFF_FUNCTION_DEFAULT_ARGUMENTS|TFF_EXCEPTION_SPECIFICATION ;
+      indent_to (file, indent + 3);
+      fprintf (file, " full-name \"%s\"", decl_as_string (node, flags));
+    }
+  else if (TREE_CODE (node) == TEMPLATE_DECL)
+    {
+      indent_to (file, indent + 3);
+      fprintf (file, " full-name \"%s\"",
+	       decl_as_string (node, TFF_TEMPLATE_HEADER));
+    }
+
   indent_to (file, indent + 3);
+  if (DECL_EXTERNAL (node) && DECL_NOT_REALLY_EXTERN (node))
+    fprintf (file, " not-really-extern");
   if (TREE_CODE (node) == FUNCTION_DECL
       && DECL_PENDING_INLINE_INFO (node))
     fprintf (file, " pending-inline-info %p",
@@ -81,6 +97,9 @@ cxx_print_type (FILE *file, tree node, int indent)
 
     case RECORD_TYPE:
     case UNION_TYPE:
+      indent_to (file, indent + 4);
+      fprintf (file, "full-name \"%s\"",
+	       type_as_string (node, TFF_CLASS_KEY_OR_ENUM));
       break;
 
     default:
@@ -97,7 +116,7 @@ cxx_print_type (FILE *file, tree node, int indent)
   indent_to (file, indent + 3);
 
   if (TYPE_NEEDS_CONSTRUCTING (node))
-    fputs ( "needs-constructor", file);
+    fputs ( " needs-constructor", file);
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (node))
     fputs (" needs-destructor", file);
   if (TYPE_HAS_DEFAULT_CONSTRUCTOR (node))

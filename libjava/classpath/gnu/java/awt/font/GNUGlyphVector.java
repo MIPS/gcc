@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package gnu.java.awt.font;
 
+import gnu.java.awt.java2d.ShapeWrapper;
+
 import java.awt.Font;
 import java.awt.font.FontRenderContext;
 import java.awt.font.GlyphMetrics;
@@ -82,6 +84,10 @@ public class GNUGlyphVector
   private AffineTransform[] transforms;
   private int layoutFlags;
 
+  /**
+   * The cached non-transformed outline of this glyph vector.
+   */
+  private Shape cleanOutline;
 
   /**
    * Constructs a new GNUGlyphVector.
@@ -164,7 +170,9 @@ public class GNUGlyphVector
                               renderContext.usesFractionalMetrics(),
                               /* horizontal */ true,
                               advance);
-      pos[p] = x += advance.x;
+      // FIXME: We shouldn't round here, but instead hint the metrics
+      // correctly.
+      pos[p] = x += Math.round(advance.x);
       pos[p + 1] = y += advance.y;
     }
     valid = true;
@@ -255,7 +263,6 @@ public class GNUGlyphVector
    */
   public Shape getOutline()
   {
-    validate();
     return getOutline(0.0f, 0.0f);
   }
 
@@ -271,11 +278,45 @@ public class GNUGlyphVector
   {
     validate();
 
+    Shape outline;
+    if (cleanOutline == null)
+      {
+        GeneralPath path = new GeneralPath();
+        int len = glyphs.length;
+        for (int i = 0; i < len; i++)
+          {
+            GeneralPath p = new GeneralPath(getGlyphOutline(i));
+            path.append(p, false);
+          }
+        // Protect the cached instance from beeing modified by application
+        // code.
+        cleanOutline = new ShapeWrapper(path);
+        outline = cleanOutline;
+      }
+    else
+      {
+        outline = cleanOutline;
+      }
+    if (x != 0 || y != 0)
+      {
+        GeneralPath path = new GeneralPath(outline);
+        AffineTransform t = new AffineTransform();
+        t.translate(x, y);
+        path.transform(t);
+        outline = path;
+      }
+    return outline;
+  }
+
+  public Shape getOutline(float x, float y, int type)
+  {
+    validate();
+
     GeneralPath outline = new GeneralPath();
     int len = glyphs.length;
     for (int i = 0; i < len; i++)
       {
-        GeneralPath p = new GeneralPath(getGlyphOutline(i));
+        GeneralPath p = new GeneralPath(getGlyphOutline(i, type));
         outline.append(p, false);
       }
     AffineTransform t = new AffineTransform();
@@ -283,7 +324,6 @@ public class GNUGlyphVector
     outline.transform(t);
     return outline;
   }
-
 
   /**
    * Determines the shape of the specified glyph.
@@ -309,7 +349,8 @@ public class GNUGlyphVector
 
     path = fontDelegate.getGlyphOutline(glyphs[glyphIndex], fontSize, tx,
                                         renderContext.isAntiAliased(),
-                                        renderContext.usesFractionalMetrics());
+                                        renderContext.usesFractionalMetrics(),
+                                        FontDelegate.FLAG_FITTED);
 
     tx = new AffineTransform();
     tx.translate(pos[glyphIndex * 2], pos[glyphIndex * 2 + 1]);
@@ -317,6 +358,32 @@ public class GNUGlyphVector
     return path;
   }
 
+  public Shape getGlyphOutline(int glyphIndex, int type)
+  {
+    AffineTransform tx, glyphTx;
+    GeneralPath path;
+
+    validate();
+
+    if ((transforms != null)
+        && ((glyphTx = transforms[glyphIndex]) != null))
+    {
+      tx =  new AffineTransform(transform);
+      tx.concatenate(glyphTx);
+    }
+    else
+      tx = transform;
+
+    path = fontDelegate.getGlyphOutline(glyphs[glyphIndex], fontSize, tx,
+                                        renderContext.isAntiAliased(),
+                                        renderContext.usesFractionalMetrics(),
+                                        type);
+
+    tx = new AffineTransform();
+    tx.translate(pos[glyphIndex * 2], pos[glyphIndex * 2 + 1]);
+    path.transform(tx);
+    return path;
+  }
 
   /**
    * Determines the position of the specified glyph, or the

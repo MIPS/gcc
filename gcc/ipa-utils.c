@@ -1,12 +1,12 @@
 /* Utilities for ipa analysis.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,10 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  
-*/
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -34,7 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ipa-utils.h"
 #include "ipa-reference.h"
 #include "c-common.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "cgraph.h"
 #include "output.h"
 #include "flags.h"
@@ -78,7 +76,7 @@ struct searchc_env {
    has been customized for cgraph_nodes.  The env parameter is because
    it is recursive and there are no nested functions here.  This
    function should only be called from itself or
-   cgraph_reduced_inorder.  ENV is a stack env and would be
+   ipa_utils_reduced_inorder.  ENV is a stack env and would be
    unnecessary if C had nested functions.  V is the node to start
    searching from.  */
 
@@ -86,10 +84,10 @@ static void
 searchc (struct searchc_env* env, struct cgraph_node *v) 
 {
   struct cgraph_edge *edge;
-  struct ipa_dfs_info *v_info = v->aux;
+  struct ipa_dfs_info *v_info = (struct ipa_dfs_info *) v->aux;
   
   /* mark node as old */
-  v_info->new = false;
+  v_info->new_node = false;
   splay_tree_remove (env->nodes_marked_new, v->uid);
   
   v_info->dfn_number = env->count;
@@ -102,13 +100,11 @@ searchc (struct searchc_env* env, struct cgraph_node *v)
     {
       struct ipa_dfs_info * w_info;
       struct cgraph_node *w = edge->callee;
-      /* Bypass the clones and only look at the master node.  Skip
-	 external and other bogus nodes.  */
-      w = cgraph_master_clone (w);
-      if (w && w->aux) 
+
+      if (w->aux && cgraph_function_body_availability (edge->callee) > AVAIL_OVERWRITABLE)
 	{
-	  w_info = w->aux;
-	  if (w_info->new) 
+	  w_info = (struct ipa_dfs_info *) w->aux;
+	  if (w_info->new_node) 
 	    {
 	      searchc (env, w);
 	      v_info->low_link =
@@ -132,7 +128,7 @@ searchc (struct searchc_env* env, struct cgraph_node *v)
       struct ipa_dfs_info *x_info;
       do {
 	x = env->stack[--(env->stack_size)];
-	x_info = x->aux;
+	x_info = (struct ipa_dfs_info *) x->aux;
 	x_info->on_stack = false;
 	
 	if (env->reduce) 
@@ -170,27 +166,29 @@ ipa_utils_reduced_inorder (struct cgraph_node **order,
   env.reduce = reduce;
   
   for (node = cgraph_nodes; node; node = node->next) 
-    if ((node->analyzed)
-	&& (cgraph_is_master_clone (node) 
-	 || (allow_overwritable 
-	     && (cgraph_function_body_availability (node) == 
-		 AVAIL_OVERWRITABLE))))
-      {
-	/* Reuse the info if it is already there.  */
-	struct ipa_dfs_info *info = node->aux;
-	if (!info)
-	  info = xcalloc (1, sizeof (struct ipa_dfs_info));
-	info->new = true;
-	info->on_stack = false;
-	info->next_cycle = NULL;
-	node->aux = info;
-	
-	splay_tree_insert (env.nodes_marked_new,
-			   (splay_tree_key)node->uid, 
-			   (splay_tree_value)node);
-      } 
-    else 
-      node->aux = NULL;
+    {
+      enum availability avail = cgraph_function_body_availability (node);
+
+      if (avail > AVAIL_OVERWRITABLE
+	  || (allow_overwritable 
+	      && (avail == AVAIL_OVERWRITABLE)))
+	{
+	  /* Reuse the info if it is already there.  */
+	  struct ipa_dfs_info *info = (struct ipa_dfs_info *) node->aux;
+	  if (!info)
+	    info = XCNEW (struct ipa_dfs_info);
+	  info->new_node = true;
+	  info->on_stack = false;
+	  info->next_cycle = NULL;
+	  node->aux = info;
+	  
+	  splay_tree_insert (env.nodes_marked_new,
+			     (splay_tree_key)node->uid, 
+			     (splay_tree_value)node);
+	} 
+      else 
+	node->aux = NULL;
+    }
   result = splay_tree_min (env.nodes_marked_new);
   while (result)
     {

@@ -67,6 +67,13 @@ extern "Java"
       }
     }
   }
+  namespace sun
+  {
+    namespace awt
+    {
+        class CausedFocusEvent$Cause;
+    }
+  }
 }
 
 class gnu::java::awt::peer::gtk::GtkComponentPeer : public ::gnu::java::awt::peer::gtk::GtkGenericPeer
@@ -80,7 +87,9 @@ public: // actually package-private
   virtual void gtkWidgetGetDimensions(JArray< jint > *);
   virtual void gtkWidgetGetPreferredDimensions(JArray< jint > *);
   virtual void gtkWindowGetLocationOnScreen(JArray< jint > *);
+  virtual void gtkWindowGetLocationOnScreenUnlocked(JArray< jint > *);
   virtual void gtkWidgetGetLocationOnScreen(JArray< jint > *);
+  virtual void gtkWidgetGetLocationOnScreenUnlocked(JArray< jint > *);
   virtual void gtkWidgetSetCursor(jint, ::gnu::java::awt::peer::gtk::GtkImage *, jint, jint);
   virtual void gtkWidgetSetCursorUnlocked(jint, ::gnu::java::awt::peer::gtk::GtkImage *, jint, jint);
   virtual void gtkWidgetSetBackground(jint, jint, jint);
@@ -182,6 +191,7 @@ public:
   virtual void setBounds(jint, jint, jint, jint, jint);
   virtual jboolean isReparentSupported();
   virtual void layout();
+  virtual jboolean requestFocus(::java::awt::Component *, jboolean, jboolean, jlong, ::sun::awt::CausedFocusEvent$Cause *);
 public: // actually package-private
   ::java::awt::image::VolatileImage * __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::gtk::GtkGenericPeer)))) backBuffer;
   ::java::awt::BufferCapabilities * caps;

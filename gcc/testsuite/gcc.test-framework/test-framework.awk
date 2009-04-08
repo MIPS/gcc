@@ -3,11 +3,12 @@
 # of passing tests.
 #
 #
-# Copyright (c) 2004, 2005, 2006 Free Software Foundation, Inc.
+# Copyright (c) 2004, 2005, 2006, 2007, 2008, 2009
+# Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -15,9 +16,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# For a copy of the GNU General Public License, write the the
-# Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-# Boston, MA 02110-1301, USA.
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 function pass(msg)	{
 			  passes++;
@@ -47,10 +48,14 @@ BEGIN			{ skip = 1; passes = 0; fails = 0; }
 /dg-outexists.*\(test for excess errors)/ { ignore(); next }
 /dg-outexists.*\(test for warnings/ { ignore(); next }
 /dg-outexists.*\(test for errors/ { ignore(); next }
+# ignore compile step for dg-xfail-run-if tests.
+/run-xrif.*\(test for excess errors)/ { ignore(); next }
 # The other dox tests pass the compile step; ignore that message.
 /^PASS.*dox.*\(test for excess errors\)/ { ignore(); next }
 # The sf tests pass the compile step; ignore that message.
 /^PASS.*sf.*\(test for excess errors\)/ { ignore(); next }
+# Ignore passing compile step for scan tests.
+/^PASS.*scan.*\(test for excess errors\)/ { ignore(); next }
 # Ignore lines that begin with comma.
 /^,/			{ ignore(); next }
 # For tests of dg-output, ignore successful compilation.

@@ -36,6 +36,11 @@ proc verbose {text} {
 #         objects in this package are not used.  Note however that
 #         most ignored files are actually handled by listing them in
 #         'standard.omit'
+# * interpreter
+#         objects in this package (and possibly sub-packages,
+#         if they do not appear in the map) are only compiled if
+#         the interpreter is enabled.  They are compiled as with the
+#         'package' specifier.
 #
 # If a package does not appear in the map, the default is 'package'.
 global package_map
@@ -68,17 +73,29 @@ set package_map(gnu/java/awt/peer/qt) bc
 set package_map(gnu/java/awt/peer/x) bc
 set package_map(gnu/java/util/prefs/gconf) bc
 set package_map(gnu/javax/sound/midi) bc
+set package_map(gnu/javax/sound/sampled/gstreamer) ignore
 set package_map(org/xml) bc
 set package_map(org/w3c) bc
 set package_map(org/relaxng) bc
 set package_map(javax/rmi) bc
-set package_map(org/omg) bc
+set package_map(org/omg/IOP) bc
+set package_map(org/omg/PortableServer) bc
+set package_map(org/omg/CosNaming) bc
+set package_map(org/omg/CORBA_2_3) bc
+set package_map(org/omg/Messaging) bc
+set package_map(org/omg/stub) bc
+set package_map(org/omg/CORBA) bc
+set package_map(org/omg/PortableInterceptor) bc
+set package_map(org/omg/DynamicAny) bc
+set package_map(org/omg/SendingContext) bc
+set package_map(org/omg/Dynamic) bc
 set package_map(gnu/CORBA) bc
 set package_map(gnu/javax/rmi) bc
 set package_map(gnu/java/lang/management) bcheaders
 set package_map(java/lang/management) bc
 set package_map(gnu/classpath/management) bc
 set package_map(gnu/javax/management) bc
+set package_map(gnu/java/math) bc
 
 # parser/HTML_401F.class is really big, and there have been complaints
 # about this package requiring too much memory to build.  So, we
@@ -92,6 +109,19 @@ set package_map(gnu/javax/swing/text/html/parser/support) package
 # Note that if we BC-compile AWT we must update these as well.
 set package_map(gnu/gcj/xlib) package
 set package_map(gnu/awt/xlib) package
+
+# These packages should only be included if the interpreter is
+# enabled.
+set package_map(gnu/classpath/jdwp) interpreter
+set package_map(gnu/classpath/jdwp/event) interpreter
+set package_map(gnu/classpath/jdwp/event/filters) interpreter
+set package_map(gnu/classpath/jdwp/exception) interpreter
+set package_map(gnu/classpath/jdwp/id) interpreter
+set package_map(gnu/classpath/jdwp/processor) interpreter
+set package_map(gnu/classpath/jdwp/transport) interpreter
+set package_map(gnu/classpath/jdwp/util) interpreter
+set package_map(gnu/classpath/jdwp/value) interpreter
+set package_map(gnu/gcj/jvmti) interpreter
 
 # Some BC ABI packages have classes which must not be compiled BC.
 # This maps such packages to a grep expression for excluding such
@@ -120,8 +150,6 @@ makearray properties_map
 
 # logging.properties is installed and is editable.
 set properties_map(java/util/logging) _
-# We haven't merged locale resources yet.
-set properties_map(gnu/java/locale) _
 
 # We want to be able to load xerces if it is on the class path.  So,
 # we have to avoid compiling in the XML-related service files.
@@ -131,6 +159,9 @@ set properties_map(META-INF/services/javax.xml.parsers.TransformerFactory) _
 set properties_map(META-INF/services/org.relaxng.datatype.DatatypeLibraryFactory) _
 set properties_map(META-INF/services/org.w3c.dom.DOMImplementationSourceList) _
 set properties_map(META-INF/services/org.xml.sax.driver) _
+set properties_map(META-INF/services/javax.sound.sampled.spi.AudioFileReader.in) ignore
+set properties_map(META-INF/services/javax.sound.sampled.spi.MixerProvider) ignore
+set properties_map(META-INF/services/javax.sound.sampled.spi.MixerProvider.in) ignore
 
 # List of all properties files.
 set properties_files {}
@@ -138,8 +169,15 @@ set properties_files {}
 # List of all '@' files that we are going to compile.
 set package_files {}
 
+# List of all '@' files that we are going to compile if the
+# interpreter is enabled.
+set interpreter_package_files {}
+
 # List of all header file variables.
 set header_vars {}
+
+# List of all header file variables for interpreter packages.
+set interpreter_header_vars {}
 
 # List of all BC object files.
 set bc_objects {}
@@ -288,7 +326,9 @@ proc emit_bc_rule {package} {
   if {$package_map($package) == "bc"} {
     puts -nonewline "-fjni "
   }
-  puts "-findirect-dispatch -fno-indirect-classes -c -o $loname @$tname"
+  # Unless bc is disabled with --disable-libgcj-bc, $(LIBGCJ_BC_FLAGS) is:
+  #   -findirect-dispatch -fno-indirect-classes
+  puts "\$(LIBGCJ_BC_FLAGS) -c -o $loname @$tname"
   puts "\t@rm -f $tname"
   puts ""
 
@@ -300,8 +340,8 @@ proc emit_bc_rule {package} {
 }
 
 # Emit a rule for a 'package' package.
-proc emit_package_rule {package} {
-  global package_map exclusion_map package_files
+proc emit_package_rule_to_list {package package_files_list} {
+  global package_map exclusion_map $package_files_list
 
   if {$package == "."} {
     set pkgname ordinary
@@ -333,8 +373,18 @@ proc emit_package_rule {package} {
 
   if {$pkgname != "gnu/gcj/xlib" && $pkgname != "gnu/awt/xlib"
       && $pkgname != "gnu/gcj/tools/gcj_dbtool"} {
-    lappend package_files $lname
+    lappend  $package_files_list $lname
   }
+}
+
+proc emit_package_rule {package} {
+  global package_files
+  emit_package_rule_to_list $package package_files
+}
+
+proc emit_interpreter_rule {package} {
+  global interpreter_package_files
+  emit_package_rule_to_list $package interpreter_package_files
 }
 
 # Emit a rule to build a package full of 'ordinary' files, that is,
@@ -382,7 +432,7 @@ proc emit_process_package_rule {platform} {
 # Emit a source file variable for a package, and corresponding header
 # file variable, if needed.
 proc emit_source_var {package} {
-  global package_map name_map dir_map header_vars
+  global package_map name_map dir_map header_vars interpreter_header_vars
 
   if {$package == "."} {
     set pkgname ordinary
@@ -428,7 +478,11 @@ proc emit_source_var {package} {
     puts "${uname}_header_files = $result"
     puts ""
     if {$pkgname != "gnu/gcj/xlib" && $pkgname != "gnu/awt/xlib"} {
-      lappend header_vars "${uname}_header_files"
+	if {$package_map($package) == "interpreter"} {
+          lappend interpreter_header_vars "${uname}_header_files"
+	} else {
+          lappend header_vars "${uname}_header_files"
+	}
     }
   }
 }
@@ -467,6 +521,7 @@ scan_packages .
 # Files created by the build.
 classify_source_file classpath gnu/java/locale/LocaleData.java
 classify_source_file classpath gnu/java/security/Configuration.java
+classify_source_file classpath gnu/classpath/Configuration.java
 
 puts "## This file was automatically generated by scripts/makemake.tcl"
 puts "## Do not edit!"
@@ -490,6 +545,8 @@ foreach package [lsort [array names package_map]] {
     emit_ordinary_rule $package
   } elseif {$package_map($package) == "package"} {
     emit_package_rule $package
+  } elseif {$package_map($package) == "interpreter"} {
+    emit_interpreter_rule $package
   } else {
     error "unrecognized type: $package_map($package)"
   }
@@ -498,6 +555,21 @@ foreach package [lsort [array names package_map]] {
 emit_process_package_rule Ecos
 emit_process_package_rule Win32
 emit_process_package_rule Posix
+
+puts "if INTERPRETER"
+pp_var interpreter_packages_source_files $interpreter_package_files
+pp_var interpreter_header_files $interpreter_header_vars "\$(" ")"
+puts ""
+puts "else"
+puts ""
+puts "interpreter_packages_source_files="
+puts ""
+puts "interpreter_header_files="
+puts ""
+puts "endif"
+
+lappend package_files {$(interpreter_packages_source_files)}
+lappend header_vars interpreter_header_files
 
 pp_var all_packages_source_files $package_files
 pp_var ordinary_header_files $header_vars "\$(" ")"

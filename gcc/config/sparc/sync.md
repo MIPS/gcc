@@ -1,12 +1,12 @@
 ;; GCC machine description for SPARC synchronization instructions.
-;; Copyright (C) 2005
+;; Copyright (C) 2005, 2007, 2009
 ;; Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -15,46 +15,37 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
-(define_mode_macro I12MODE [QI HI])
-(define_mode_macro I24MODE [HI SI])
-(define_mode_macro I48MODE [SI (DI "TARGET_ARCH64 || TARGET_V8PLUS")])
+(define_mode_iterator I12MODE [QI HI])
+(define_mode_iterator I24MODE [HI SI])
+(define_mode_iterator I48MODE [SI (DI "TARGET_ARCH64 || TARGET_V8PLUS")])
 (define_mode_attr modesuffix [(SI "") (DI "x")])
 
 (define_expand "memory_barrier"
-  [(set (mem:BLK (match_dup 0))
-	(unspec_volatile:BLK [(mem:BLK (match_dup 0)) (match_dup 1)]
-			     UNSPECV_MEMBAR))]
+  [(set (match_dup 0)
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMBAR))]
   "TARGET_V8 || TARGET_V9"
 {
-  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (DImode));
+  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (Pmode));
   MEM_VOLATILE_P (operands[0]) = 1;
-  if (TARGET_V9)
-    /* member #StoreStore | #LoadStore | #StoreLoad | #LoadLoad */
-    operands[1] = GEN_INT (15);
-  else
-    /* stbar */
-    operands[1] = GEN_INT (8);
+
 })
 
 (define_insn "*stbar"
   [(set (match_operand:BLK 0 "" "")
-	(unspec_volatile:BLK [(match_operand:BLK 1 "" "")
-			      (const_int 8)] UNSPECV_MEMBAR))]
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMBAR))]
   "TARGET_V8"
   "stbar"
   [(set_attr "type" "multi")])
 
+;; membar #StoreStore | #LoadStore | #StoreLoad | #LoadLoad
 (define_insn "*membar"
   [(set (match_operand:BLK 0 "" "")
-	(unspec_volatile:BLK [(match_operand:BLK 1 "" "")
-			      (match_operand:SI 2 "immediate_operand" "I")]
-			      UNSPECV_MEMBAR))]
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMBAR))]
   "TARGET_V9"
-  "membar\t%2"
+  "membar\t15"
   [(set_attr "type" "multi")])
 
 (define_expand "sync_compare_and_swap<mode>"

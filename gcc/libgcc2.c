@@ -1,7 +1,8 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -84,7 +85,7 @@ __negdi2 (DWtype u)
 Wtype
 __addvSI3 (Wtype a, Wtype b)
 {
-  const Wtype w = a + b;
+  const Wtype w = (UWtype) a + (UWtype) b;
 
   if (b >= 0 ? w < a : w > a)
     abort ();
@@ -95,7 +96,7 @@ __addvSI3 (Wtype a, Wtype b)
 SItype
 __addvsi3 (SItype a, SItype b)
 {
-  const SItype w = a + b;
+  const SItype w = (USItype) a + (USItype) b;
 
   if (b >= 0 ? w < a : w > a)
     abort ();
@@ -109,7 +110,7 @@ __addvsi3 (SItype a, SItype b)
 DWtype
 __addvDI3 (DWtype a, DWtype b)
 {
-  const DWtype w = a + b;
+  const DWtype w = (UDWtype) a + (UDWtype) b;
 
   if (b >= 0 ? w < a : w > a)
     abort ();
@@ -122,7 +123,7 @@ __addvDI3 (DWtype a, DWtype b)
 Wtype
 __subvSI3 (Wtype a, Wtype b)
 {
-  const Wtype w = a - b;
+  const Wtype w = (UWtype) a - (UWtype) b;
 
   if (b >= 0 ? w > a : w < a)
     abort ();
@@ -133,7 +134,7 @@ __subvSI3 (Wtype a, Wtype b)
 SItype
 __subvsi3 (SItype a, SItype b)
 {
-  const SItype w = a - b;
+  const SItype w = (USItype) a - (USItype) b;
 
   if (b >= 0 ? w > a : w < a)
     abort ();
@@ -147,7 +148,7 @@ __subvsi3 (SItype a, SItype b)
 DWtype
 __subvDI3 (DWtype a, DWtype b)
 {
-  const DWtype w = a - b;
+  const DWtype w = (UDWtype) a - (UDWtype) b;
 
   if (b >= 0 ? w > a : w < a)
     abort ();
@@ -187,7 +188,7 @@ __mulvsi3 (SItype a, SItype b)
 Wtype
 __negvSI2 (Wtype a)
 {
-  const Wtype w = -a;
+  const Wtype w = -(UWtype) a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
@@ -198,7 +199,7 @@ __negvSI2 (Wtype a)
 SItype
 __negvsi2 (SItype a)
 {
-  const SItype w = -a;
+  const SItype w = -(USItype) a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
@@ -212,7 +213,7 @@ __negvsi2 (SItype a)
 DWtype
 __negvDI2 (DWtype a)
 {
-  const DWtype w = -a;
+  const DWtype w = -(UDWtype) a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
@@ -231,7 +232,7 @@ __absvSI2 (Wtype a)
 #ifdef L_negvsi2
     w = __negvSI2 (a);
 #else
-    w = -a;
+    w = -(UWtype) a;
 
   if (w < 0)
     abort ();
@@ -249,7 +250,7 @@ __absvsi2 (SItype a)
 #ifdef L_negvsi2
     w = __negvsi2 (a);
 #else
-    w = -a;
+    w = -(USItype) a;
 
   if (w < 0)
     abort ();
@@ -270,7 +271,7 @@ __absvDI2 (DWtype a)
 #ifdef L_negvdi2
     w = __negvDI2 (a);
 #else
-    w = -a;
+    w = -(UDWtype) a;
 
   if (w < 0)
     abort ();
@@ -406,16 +407,16 @@ __mulvDI3 (DWtype u, DWtype v)
 
 
 /* Unless shift functions are defined with full ANSI prototypes,
-   parameter b will be promoted to int if word_type is smaller than an int.  */
+   parameter b will be promoted to int if shift_count_type is smaller than an int.  */
 #ifdef L_lshrdi3
 DWtype
-__lshrdi3 (DWtype u, word_type b)
+__lshrdi3 (DWtype u, shift_count_type b)
 {
   if (b == 0)
     return u;
 
   const DWunion uu = {.ll = u};
-  const word_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
+  const shift_count_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   DWunion w;
 
   if (bm <= 0)
@@ -437,13 +438,13 @@ __lshrdi3 (DWtype u, word_type b)
 
 #ifdef L_ashldi3
 DWtype
-__ashldi3 (DWtype u, word_type b)
+__ashldi3 (DWtype u, shift_count_type b)
 {
   if (b == 0)
     return u;
 
   const DWunion uu = {.ll = u};
-  const word_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
+  const shift_count_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   DWunion w;
 
   if (bm <= 0)
@@ -465,13 +466,13 @@ __ashldi3 (DWtype u, word_type b)
 
 #ifdef L_ashrdi3
 DWtype
-__ashrdi3 (DWtype u, word_type b)
+__ashrdi3 (DWtype u, shift_count_type b)
 {
   if (b == 0)
     return u;
 
   const DWunion uu = {.ll = u};
-  const word_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
+  const shift_count_type bm = (sizeof (Wtype) * BITS_PER_UNIT) - b;
   DWunion w;
 
   if (bm <= 0)
@@ -1082,7 +1083,7 @@ __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
 DWtype
 __divdi3 (DWtype u, DWtype v)
 {
-  word_type c = 0;
+  Wtype c = 0;
   DWunion uu = {.ll = u};
   DWunion vv = {.ll = v};
   DWtype w;
@@ -1106,7 +1107,7 @@ __divdi3 (DWtype u, DWtype v)
 DWtype
 __moddi3 (DWtype u, DWtype v)
 {
-  word_type c = 0;
+  Wtype c = 0;
   DWunion uu = {.ll = u};
   DWunion vv = {.ll = v};
   DWtype w;
@@ -1146,7 +1147,7 @@ __udivdi3 (UDWtype n, UDWtype d)
 #endif
 
 #ifdef L_cmpdi2
-word_type
+cmp_return_type
 __cmpdi2 (DWtype a, DWtype b)
 {
   const DWunion au = {.ll = a};
@@ -1165,7 +1166,7 @@ __cmpdi2 (DWtype a, DWtype b)
 #endif
 
 #ifdef L_ucmpdi2
-word_type
+cmp_return_type
 __ucmpdi2 (DWtype a, DWtype b)
 {
   const DWunion au = {.ll = a};
@@ -1184,7 +1185,7 @@ __ucmpdi2 (DWtype a, DWtype b)
 #endif
 
 #if defined(L_fixunstfdi) && LIBGCC2_HAS_TF_MODE
-DWtype
+UDWtype
 __fixunstfDI (TFtype a)
 {
   if (a < 0)
@@ -1220,7 +1221,7 @@ __fixtfdi (TFtype a)
 #endif
 
 #if defined(L_fixunsxfdi) && LIBGCC2_HAS_XF_MODE
-DWtype
+UDWtype
 __fixunsxfDI (XFtype a)
 {
   if (a < 0)
@@ -1256,7 +1257,7 @@ __fixxfdi (XFtype a)
 #endif
 
 #if defined(L_fixunsdfdi) && LIBGCC2_HAS_DF_MODE
-DWtype
+UDWtype
 __fixunsdfDI (DFtype a)
 {
   /* Get high part of result.  The division here will just moves the radix
@@ -1285,7 +1286,7 @@ __fixdfdi (DFtype a)
 #endif
 
 #if defined(L_fixunssfdi) && LIBGCC2_HAS_SF_MODE
-DWtype
+UDWtype
 __fixunssfDI (SFtype a)
 {
 #if LIBGCC2_HAS_DF_MODE
@@ -1780,7 +1781,11 @@ NAME (TYPE x, int m)
 # define MTYPE	TFtype
 # define CTYPE	TCtype
 # define MODE	tc
-# define CEXT	l
+# if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
+#  define CEXT l
+# else
+#  define CEXT LIBGCC2_TF_CEXT
+# endif
 # define NOTRUNC 1
 #else
 # error
@@ -1802,7 +1807,7 @@ NAME (TYPE x, int m)
 #define isfinite(x)	__builtin_expect (!isnan((x) - (x)), 1)
 #define isinf(x)	__builtin_expect (!isnan(x) & !isfinite(x), 0)
 
-#define INFINITY	CONCAT2(__builtin_inf, CEXT) ()
+#define INFINITY	CONCAT2(__builtin_huge_val, CEXT) ()
 #define I		1i
 
 /* Helpers to make the following code slightly less gross.  */
@@ -1826,6 +1831,7 @@ CTYPE
 CONCAT3(__mul,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 {
   MTYPE ac, bd, ad, bc, x, y;
+  CTYPE res;
 
   ac = a * c;
   bd = b * d;
@@ -1882,7 +1888,9 @@ CONCAT3(__mul,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 	}
     }
 
-  return x + I * y;
+  __real__ res = x;
+  __imag__ res = y;
+  return res;
 }
 #endif /* complex multiply */
 
@@ -1893,6 +1901,7 @@ CTYPE
 CONCAT3(__div,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 {
   MTYPE denom, ratio, x, y;
+  CTYPE res;
 
   /* ??? We can get better behavior from logarithmic scaling instead of
      the division.  But that would mean starting to link libgcc against
@@ -1938,7 +1947,9 @@ CONCAT3(__div,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 	}
     }
 
-  return x + I * y;
+  __real__ res = x;
+  __imag__ res = y;
+  return res;
 }
 #endif /* complex divide */
 
@@ -2042,7 +2053,7 @@ __enable_execute_stack (void *addr __attribute__((__unused__)))
 
 /* Jump to a trampoline, loading the static chain address.  */
 
-#if defined(WINNT) && ! defined(__CYGWIN__) && ! defined (_UWIN)
+#if defined(WINNT) && ! defined(__CYGWIN__)
 
 int
 getpagesize (void)
@@ -2054,14 +2065,10 @@ getpagesize (void)
 #endif
 }
 
-#ifdef __i386__
-extern int VirtualProtect (char *, int, int, int *) __attribute__((stdcall));
-#endif
-
 int
 mprotect (char *addr, int len, int prot)
 {
-  int np, op;
+  DWORD np, op;
 
   if (prot == 7)
     np = 0x40;
@@ -2075,6 +2082,8 @@ mprotect (char *addr, int len, int prot)
     np = 0x02;
   else if (prot == 0)
     np = 0x01;
+  else
+    return -1;
 
   if (VirtualProtect (addr, len, np, &op))
     return 0;
@@ -2082,7 +2091,7 @@ mprotect (char *addr, int len, int prot)
     return -1;
 }
 
-#endif /* WINNT && ! __CYGWIN__ && ! _UWIN */
+#endif /* WINNT && ! __CYGWIN__ */
 
 #ifdef TRANSFER_FROM_TRAMPOLINE
 TRANSFER_FROM_TRAMPOLINE

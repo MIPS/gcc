@@ -41,7 +41,7 @@
 
 /**
  * @file erase_if_fn.hpp
- * Containsert traits for a random regression test
+ * Contains traits for a random regression test
  *    for a specific container type.
  */
 
@@ -50,7 +50,7 @@
 
 #include <functional>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace test
   {
@@ -90,6 +90,6 @@ namespace pb_ds
       };
     } // namespace detail
   } // namespace test
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif 

@@ -1,4 +1,4 @@
-#   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+#   Copyright (C) 2000, 2001, 2008 Free Software Foundation, Inc.
 #   Written By Timothy Wall
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -34,8 +34,6 @@
 # This file just make a stack frame for the contents of the .fini and
 # .init sections.  Users may put any desired instructions in those
 # sections.
-
-	.file		"crti.asm"
 
 	.section	".init"
 	.align 16

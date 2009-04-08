@@ -1,6 +1,6 @@
 // <memory> -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -56,7 +56,6 @@
 #include <bits/stl_construct.h>
 #include <bits/stl_uninitialized.h>
 #include <bits/stl_tempbuf.h>
-#include <bits/stl_auto_ptr.h>
 #include <bits/stl_raw_storage_iter.h>
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
@@ -64,29 +63,43 @@
 #    error C++0x header cannot be included from TR1 header
 #  endif
 #  include <exception>        	  // std::exception
-#  include <new>              	  // std::bad_alloc
 #  include <typeinfo>         	  // std::type_info in get_deleter
-#  include <bits/stl_algobase.h>  // std::swap
 #  include <iosfwd>           	  // std::basic_ostream
 #  include <ext/atomicity.h>
 #  include <ext/concurrence.h>
 #  include <bits/functexcept.h>
 #  include <bits/stl_function.h>  // std::less
+#  include <bits/unique_ptr.h>
 #  include <debug/debug.h>
 #  include <type_traits>
+#  include <functional>
+#  if _GLIBCXX_DEPRECATED
+#    include <backward/auto_ptr.h>
+#  endif
 #  if defined(_GLIBCXX_INCLUDE_AS_CXX0X)
-#    include <tr1_impl/boost_shared_ptr.h>
+#    include <tr1_impl/boost_sp_counted_base.h>
+#    include <bits/shared_ptr.h>
 #  else
 #    define _GLIBCXX_INCLUDE_AS_CXX0X
 #    define _GLIBCXX_BEGIN_NAMESPACE_TR1
 #    define _GLIBCXX_END_NAMESPACE_TR1
 #    define _GLIBCXX_TR1
-#    include <tr1_impl/boost_shared_ptr.h>
+#    include <tr1_impl/boost_sp_counted_base.h>
+#    include <bits/shared_ptr.h>
 #    undef _GLIBCXX_TR1
 #    undef _GLIBCXX_END_NAMESPACE_TR1
 #    undef _GLIBCXX_BEGIN_NAMESPACE_TR1
 #    undef _GLIBCXX_INCLUDE_AS_CXX0X
 #  endif
+#else
+#  include <backward/auto_ptr.h>
 #endif
+
+/**
+ * @defgroup memory Memory
+ * @ingroup utilities
+ *
+ * Components for memory allocation, deallocation, and management.
+ */
 
 #endif /* _GLIBCXX_MEMORY */

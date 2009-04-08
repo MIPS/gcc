@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -28,11 +27,13 @@ with Binderr;  use Binderr;
 with Butil;    use Butil;
 with Debug;    use Debug;
 with Fname;    use Fname;
-with Lib;      use Lib;
 with Namet;    use Namet;
 with Opt;      use Opt;
+with Osint;
 with Output;   use Output;
 with Targparm; use Targparm;
+
+with System.Case_Util; use System.Case_Util;
 
 package body Binde is
 
@@ -266,7 +267,7 @@ package body Binde is
 
    procedure Elab_Error_Msg (S : Successor_Id);
    --  Given a successor link, outputs an error message of the form
-   --  "& must be elaborated before & ..." where ... is the reason.
+   --  "$ must be elaborated before $ ..." where ... is the reason.
 
    procedure Gather_Dependencies;
    --  Compute dependencies, building the Succ and UNR tables
@@ -864,18 +865,71 @@ package body Binde is
         Units.Table (Before).First_With .. Units.Table (Before).Last_With
       loop
          --  Skip if this with is an interface to a stand-alone library.
-         --  Skip also if no ALI file for this with, happens with certain
-         --  specialized generic files that do not get compiled.
+         --  Skip also if no ALI file for this WITH, happens for language
+         --  defined generics while bootstrapping the compiler (see body of
+         --  Lib.Writ.Write_With_Lines). Finally, skip if it is a limited
+         --  with clause, which does not impose an elaboration link.
 
          if not Withs.Table (W).SAL_Interface
            and then Withs.Table (W).Afile /= No_File
-           and then Generic_Separately_Compiled (Withs.Table (W).Sfile)
+           and then not Withs.Table (W).Limited_With
          then
-            Elab_All_Links
-              (Unit_Id_Of (Withs.Table (W).Uname),
-               After,
-               Reason,
-               Make_Elab_Entry (Withs.Table (W).Uname, Link));
+            declare
+               Info : constant Int :=
+                        Get_Name_Table_Info
+                          (Withs.Table (W).Uname);
+
+            begin
+               --  If the unit is unknown, for some unknown reason, fail
+               --  graciously explaining that the unit is unknown. Without
+               --  this check, gnatbind will crash in Unit_Id_Of.
+
+               if Info = 0 or else Unit_Id (Info) = No_Unit_Id then
+                  declare
+                     Withed       : String :=
+                                      Get_Name_String (Withs.Table (W).Uname);
+                     Last_Withed  : Natural := Withed'Last;
+                     Withing      : String :=
+                                      Get_Name_String
+                                        (Units.Table (Before).Uname);
+                     Last_Withing : Natural := Withing'Last;
+                     Spec_Body    : String  := " (Spec)";
+
+                  begin
+                     To_Mixed (Withed);
+                     To_Mixed (Withing);
+
+                     if Last_Withed > 2 and then
+                       Withed (Last_Withed - 1) = '%'
+                     then
+                        Last_Withed := Last_Withed - 2;
+                     end if;
+
+                     if Last_Withing > 2 and then
+                       Withing (Last_Withing - 1) = '%'
+                     then
+                        Last_Withing := Last_Withing - 2;
+                     end if;
+
+                     if Units.Table (Before).Utype = Is_Body or else
+                       Units.Table (Before).Utype = Is_Body_Only
+                     then
+                        Spec_Body := " (Body)";
+                     end if;
+
+                     Osint.Fail
+                       ("could not find unit ",
+                        Withed (Withed'First .. Last_Withed) & " needed by " &
+                        Withing (Withing'First .. Last_Withing) & Spec_Body);
+                  end;
+               end if;
+
+               Elab_All_Links
+                 (Unit_Id_Of (Withs.Table (W).Uname),
+                  After,
+                  Reason,
+                  Make_Elab_Entry (Withs.Table (W).Uname, Link));
+            end;
          end if;
       end loop;
 
@@ -911,17 +965,17 @@ package body Binde is
 
       --  Here we want to generate output
 
-      Error_Msg_Name_1 := Units.Table (SL.Before).Uname;
+      Error_Msg_Unit_1 := Units.Table (SL.Before).Uname;
 
       if SL.Elab_Body then
-         Error_Msg_Name_2 := Units.Table (Corresponding_Body (SL.After)).Uname;
+         Error_Msg_Unit_2 := Units.Table (Corresponding_Body (SL.After)).Uname;
       else
-         Error_Msg_Name_2 := Units.Table (SL.After).Uname;
+         Error_Msg_Unit_2 := Units.Table (SL.After).Uname;
       end if;
 
-      Error_Msg_Output ("  & must be elaborated before &", Info => True);
+      Error_Msg_Output ("  $ must be elaborated before $", Info => True);
 
-      Error_Msg_Name_1 := Units.Table (SL.Reason_Unit).Uname;
+      Error_Msg_Unit_1 := Units.Table (SL.Reason_Unit).Uname;
 
       case SL.Reason is
          when Withed =>
@@ -931,30 +985,30 @@ package body Binde is
 
          when Elab =>
             Error_Msg_Output
-              ("     reason: pragma Elaborate in unit &",
+              ("     reason: pragma Elaborate in unit $",
                Info => True);
 
          when Elab_All =>
             Error_Msg_Output
-              ("     reason: pragma Elaborate_All in unit &",
+              ("     reason: pragma Elaborate_All in unit $",
                Info => True);
 
          when Elab_All_Desirable =>
             Error_Msg_Output
-              ("     reason: implicit Elaborate_All in unit &",
+              ("     reason: implicit Elaborate_All in unit $",
                Info => True);
 
             Error_Msg_Output
-              ("     recompile & with -gnatwl for full details",
+              ("     recompile $ with -gnatwl for full details",
                Info => True);
 
          when Elab_Desirable =>
             Error_Msg_Output
-              ("     reason: implicit Elaborate in unit &",
+              ("     reason: implicit Elaborate in unit $",
                Info => True);
 
             Error_Msg_Output
-              ("     recompile & with -gnatwl for full details",
+              ("     recompile $ with -gnatwl for full details",
                Info => True);
 
          when Spec_First =>
@@ -966,19 +1020,21 @@ package body Binde is
       Write_Elab_All_Chain (S);
 
       if SL.Elab_Body then
-         Error_Msg_Name_1 := Units.Table (SL.Before).Uname;
-         Error_Msg_Name_2 := Units.Table (SL.After).Uname;
+         Error_Msg_Unit_1 := Units.Table (SL.Before).Uname;
+         Error_Msg_Unit_2 := Units.Table (SL.After).Uname;
          Error_Msg_Output
-           ("  & must therefore be elaborated before &",
+           ("  $ must therefore be elaborated before $",
             True);
 
-         Error_Msg_Name_1 := Units.Table (SL.After).Uname;
+         Error_Msg_Unit_1 := Units.Table (SL.After).Uname;
          Error_Msg_Output
-           ("     (because & has a pragma Elaborate_Body)",
+           ("     (because $ has a pragma Elaborate_Body)",
             True);
       end if;
 
-      Write_Eol;
+      if not Zero_Formatting then
+         Write_Eol;
+      end if;
    end Elab_Error_Msg;
 
    ---------------------
@@ -1155,9 +1211,9 @@ package body Binde is
                   --  obsolete unit with's a previous (now disappeared) spec.
 
                   if Get_Name_Table_Info (Withs.Table (W).Uname) = 0 then
-                     Error_Msg_Name_1 := Units.Table (U).Sfile;
-                     Error_Msg_Name_2 := Withs.Table (W).Uname;
-                     Error_Msg ("% depends on & which no longer exists");
+                     Error_Msg_File_1 := Units.Table (U).Sfile;
+                     Error_Msg_Unit_1 := Withs.Table (W).Uname;
+                     Error_Msg ("{ depends on $ which no longer exists");
                      goto Next_With;
                   end if;
 
@@ -1183,8 +1239,8 @@ package body Binde is
                         Make_Elab_Entry
                           (Withs.Table (W).Uname, No_Elab_All_Link));
 
-                     --  Elaborate_All_Desirable case, for this we establish
-                     --  the same links as above, but with a different reason.
+                  --  Elaborate_All_Desirable case, for this we establish the
+                  --  same links as above, but with a different reason.
 
                   elsif Withs.Table (W).Elab_All_Desirable then
 
@@ -1202,15 +1258,15 @@ package body Binde is
                         Make_Elab_Entry
                           (Withs.Table (W).Uname, No_Elab_All_Link));
 
-                     --  Pragma Elaborate case. We must build a link for the
-                     --  withed unit itself, and also the corresponding body
-                     --  if there is one.
+                  --  Pragma Elaborate case. We must build a link for the
+                  --  withed unit itself, and also the corresponding body if
+                  --  there is one.
 
-                     --  However, skip this processing if there is no ALI file
-                     --  for the WITH entry, because this means it is a
-                     --  generic (even when we fix the generics so that an ALI
-                     --  file is present, we probably still will have no ALI
-                     --  file for unchecked and other special cases).
+                  --  However, skip this processing if there is no ALI file for
+                  --  the WITH entry, because this means it is a generic (even
+                  --  when we fix the generics so that an ALI file is present,
+                  --  we probably still will have no ALI file for unchecked and
+                  --  other special cases).
 
                   elsif Withs.Table (W).Elaborate
                     and then Withs.Table (W).Afile /= No_File
@@ -1222,8 +1278,8 @@ package body Binde is
                           (Corresponding_Body (Withed_Unit), U, Elab);
                      end if;
 
-                     --  Elaborate_Desirable case, for this we establish
-                     --  the same links as above, but with a different reason.
+                  --  Elaborate_Desirable case, for this we establish
+                  --  the same links as above, but with a different reason.
 
                   elsif Withs.Table (W).Elab_Desirable then
                      Build_Link (Withed_Unit, U, Withed);
@@ -1234,8 +1290,14 @@ package body Binde is
                            U, Elab_Desirable);
                      end if;
 
-                     --  Case of normal WITH with no elaboration pragmas, just
-                     --  build the single link to the directly referenced unit
+                  --  A limited_with does not establish an elaboration
+                  --  dependence (that's the whole point!).
+
+                  elsif Withs.Table (W).Limited_With then
+                     null;
+
+                  --  Case of normal WITH with no elaboration pragmas, just
+                  --  build the single link to the directly referenced unit
 
                   else
                      Build_Link (Withed_Unit, U, Withed);
@@ -1403,11 +1465,12 @@ package body Binde is
 
    procedure Write_Dependencies is
    begin
-      Write_Eol;
-      Write_Str
-        ("                 ELABORATION ORDER DEPENDENCIES");
-      Write_Eol;
-      Write_Eol;
+      if not Zero_Formatting then
+         Write_Eol;
+         Write_Str ("                 ELABORATION ORDER DEPENDENCIES");
+         Write_Eol;
+         Write_Eol;
+      end if;
 
       Info_Prefix_Suppress := True;
 
@@ -1416,7 +1479,10 @@ package body Binde is
       end loop;
 
       Info_Prefix_Suppress := False;
-      Write_Eol;
+
+      if not Zero_Formatting then
+         Write_Eol;
+      end if;
    end Write_Dependencies;
 
    --------------------------
@@ -1437,8 +1503,8 @@ package body Binde is
          L := ST.Elab_All_Link;
          while L /= No_Elab_All_Link loop
             Nam := Elab_All_Entries.Table (L).Needed_By;
-            Error_Msg_Name_1 := Nam;
-            Error_Msg_Output ("        &", Info => True);
+            Error_Msg_Unit_1 := Nam;
+            Error_Msg_Output ("        $", Info => True);
 
             Get_Name_String (Nam);
 
@@ -1473,8 +1539,8 @@ package body Binde is
             L := Elab_All_Entries.Table (L).Next_Elab;
          end loop;
 
-         Error_Msg_Name_1 := After;
-         Error_Msg_Output ("        &", Info => True);
+         Error_Msg_Unit_1 := After;
+         Error_Msg_Output ("        $", Info => True);
       end if;
    end Write_Elab_All_Chain;
 

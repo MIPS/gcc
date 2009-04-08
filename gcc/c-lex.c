@@ -1,13 +1,13 @@
 /* Mainly the interface between cpplib and the C front ends.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -41,6 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "splay-tree.h"
 #include "debug.h"
+#include "target.h"
 
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
@@ -49,23 +49,14 @@ static splay_tree file_info_tree;
 int pending_lang_change; /* If we need to switch languages - C++ only */
 int c_header_level;	 /* depth in C headers - C++ only */
 
-/* If we need to translate characters received.  This is tri-state:
-   0 means use only the untranslated string; 1 means use only
-   the translated string; -1 means chain the translated string
-   to the untranslated one.  */
-int c_lex_string_translate = 1;
-
-/* True if strings should be passed to the caller of c_lex completely
-   unmolested (no concatenation, no translation).  */
-bool c_lex_return_raw_strings = false;
-
 static tree interpret_integer (const cpp_token *, unsigned int);
 static tree interpret_float (const cpp_token *, unsigned int);
+static tree interpret_fixed (const cpp_token *, unsigned int);
 static enum integer_type_kind narrowest_unsigned_type
 	(unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT, unsigned int);
 static enum integer_type_kind narrowest_signed_type
 	(unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT, unsigned int);
-static enum cpp_ttype lex_string (const cpp_token *, tree *, bool);
+static enum cpp_ttype lex_string (const cpp_token *, tree *, bool, bool);
 static tree lex_charconst (const cpp_token *);
 static void update_header_times (const char *);
 static int dump_one_header (splay_tree_node, void *);
@@ -183,10 +174,10 @@ cb_ident (cpp_reader * ARG_UNUSED (pfile),
     {
       /* Convert escapes in the string.  */
       cpp_string cstr = { 0, 0 };
-      if (cpp_interpret_string (pfile, str, 1, &cstr, false))
+      if (cpp_interpret_string (pfile, str, 1, &cstr, CPP_STRING))
 	{
 	  ASM_OUTPUT_IDENT (asm_out_file, (const char *) cstr.text);
-	  free ((void *) cstr.text);
+	  free (CONST_CAST (unsigned char *, cstr.text));
 	}
     }
 #endif
@@ -199,15 +190,7 @@ cb_line_change (cpp_reader * ARG_UNUSED (pfile), const cpp_token *token,
 		int parsing_args)
 {
   if (token->type != CPP_EOF && !parsing_args)
-#ifdef USE_MAPPED_LOCATION
     input_location = token->src_loc;
-#else
-    {
-      source_location loc = token->src_loc;
-      const struct line_map *map = linemap_lookup (&line_table, loc);
-      input_line = SOURCE_LINE (map, loc);
-    }
-#endif
 }
 
 void
@@ -222,18 +205,13 @@ fe_file_change (const struct line_map *new_map)
 	 we already did in compile_file.  */
       if (!MAIN_FILE_P (new_map))
 	{
-#ifdef USE_MAPPED_LOCATION
-	  int included_at = LAST_SOURCE_LINE_LOCATION (new_map - 1);
+	  unsigned int included_at = LAST_SOURCE_LINE_LOCATION (new_map - 1);
+	  int line = 0;
+	  if (included_at > BUILTINS_LOCATION)
+	    line = SOURCE_LINE (new_map - 1, included_at);
 
-	  input_location = included_at;
-	  push_srcloc (new_map->start_location);
-#else
-	  int included_at = LAST_SOURCE_LINE (new_map - 1);
-
-	  input_line = included_at;
-	  push_srcloc (new_map->to_file, 1);
-#endif
-	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
+	  input_location = new_map->start_location;
+	  (*debug_hooks->start_source_file) (line, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
 	    ++c_header_level;
@@ -255,19 +233,13 @@ fe_file_change (const struct line_map *new_map)
 	  --pending_lang_change;
 	}
 #endif
-      pop_srcloc ();
+      input_location = new_map->start_location;
 
       (*debug_hooks->end_source_file) (new_map->to_line);
     }
 
   update_header_times (new_map->to_file);
-  in_system_header = new_map->sysp != 0;
-#ifdef USE_MAPPED_LOCATION
   input_location = new_map->start_location;
-#else
-  input_filename = new_map->to_file;
-  input_line = new_map->to_line;
-#endif
 }
 
 static void
@@ -280,14 +252,7 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
     {
       const unsigned char *space, *name;
       const cpp_token *s;
-#ifndef USE_MAPPED_LOCATION
-      location_t fe_loc;
-      const struct line_map *map = linemap_lookup (&line_table, loc);
-      fe_loc.file = map->to_file;
-      fe_loc.line = SOURCE_LINE (map, loc);
-#else
       location_t fe_loc = loc;
-#endif
 
       space = name = (const unsigned char *) "";
       s = cpp_get_token (pfile);
@@ -308,7 +273,7 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
 static void
 cb_define (cpp_reader *pfile, source_location loc, cpp_hashnode *node)
 {
-  const struct line_map *map = linemap_lookup (&line_table, loc);
+  const struct line_map *map = linemap_lookup (line_table, loc);
   (*debug_hooks->define) (SOURCE_LINE (map, loc),
 			  (const char *) cpp_macro_definition (pfile, node));
 }
@@ -318,7 +283,7 @@ static void
 cb_undef (cpp_reader * ARG_UNUSED (pfile), source_location loc,
 	  cpp_hashnode *node)
 {
-  const struct line_map *map = linemap_lookup (&line_table, loc);
+  const struct line_map *map = linemap_lookup (line_table, loc);
   (*debug_hooks->undef) (SOURCE_LINE (map, loc),
 			 (const char *) NODE_NAME (node));
 }
@@ -328,7 +293,8 @@ cb_undef (cpp_reader * ARG_UNUSED (pfile), source_location loc,
    non-NULL.  */
 
 enum cpp_ttype
-c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
+c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
+		  int lex_flags)
 {
   static bool no_more_pch;
   const cpp_token *tok;
@@ -337,15 +303,10 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 
   timevar_push (TV_CPP);
  retry:
-  tok = cpp_get_token (parse_in);
+  tok = cpp_get_token_with_location (parse_in, loc);
   type = tok->type;
 
  retry_after_at:
-#ifdef USE_MAPPED_LOCATION
-  *loc = tok->src_loc;
-#else
-  *loc = input_location;
-#endif
   switch (type)
     {
     case CPP_PADDING:
@@ -389,10 +350,11 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
       /* An @ may give the next token special significance in Objective-C.  */
       if (c_dialect_objc ())
 	{
-	  location_t atloc = input_location;
+	  location_t atloc = *loc;
+	  location_t newloc;
 
 	retry_at:
-	  tok = cpp_get_token (parse_in);
+	  tok = cpp_get_token_with_location (parse_in, &newloc);
 	  type = tok->type;
 	  switch (type)
 	    {
@@ -401,7 +363,9 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 
 	    case CPP_STRING:
 	    case CPP_WSTRING:
-	      type = lex_string (tok, value, true);
+	    case CPP_STRING16:
+	    case CPP_STRING32:
+	      type = lex_string (tok, value, true, true);
 	      break;
 
 	    case CPP_NAME:
@@ -416,6 +380,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 	    default:
 	      /* ... or not.  */
 	      error ("%Hstray %<@%> in program", &atloc);
+	      *loc = newloc;
 	      goto retry_after_at;
 	    }
 	  break;
@@ -449,17 +414,22 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 
     case CPP_CHAR:
     case CPP_WCHAR:
+    case CPP_CHAR16:
+    case CPP_CHAR32:
       *value = lex_charconst (tok);
       break;
 
     case CPP_STRING:
     case CPP_WSTRING:
-      if (!c_lex_return_raw_strings)
+    case CPP_STRING16:
+    case CPP_STRING32:
+      if ((lex_flags & C_LEX_RAW_STRINGS) == 0)
 	{
-	  type = lex_string (tok, value, false);
+	  type = lex_string (tok, value, false,
+			     (lex_flags & C_LEX_STRING_NO_TRANSLATE) == 0);
 	  break;
 	}
-      *value = build_string (tok->val.str.len, (char *) tok->val.str.text);
+      *value = build_string (tok->val.str.len, (const char *) tok->val.str.text);
       break;
       
     case CPP_PRAGMA:
@@ -500,7 +470,7 @@ narrowest_unsigned_type (unsigned HOST_WIDE_INT low,
 			 unsigned HOST_WIDE_INT high,
 			 unsigned int flags)
 {
-  enum integer_type_kind itk;
+  int itk;
 
   if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
     itk = itk_unsigned_int;
@@ -516,7 +486,7 @@ narrowest_unsigned_type (unsigned HOST_WIDE_INT low,
       if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) > high
 	  || ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) == high
 	      && TREE_INT_CST_LOW (upper) >= low))
-	return itk;
+	return (enum integer_type_kind) itk;
     }
 
   return itk_none;
@@ -527,7 +497,7 @@ static enum integer_type_kind
 narrowest_signed_type (unsigned HOST_WIDE_INT low,
 		       unsigned HOST_WIDE_INT high, unsigned int flags)
 {
-  enum integer_type_kind itk;
+  int itk;
 
   if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
     itk = itk_int;
@@ -544,7 +514,7 @@ narrowest_signed_type (unsigned HOST_WIDE_INT low,
       if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) > high
 	  || ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (upper) == high
 	      && TREE_INT_CST_LOW (upper) >= low))
-	return itk;
+	return (enum integer_type_kind) itk;
     }
 
   return itk_none;
@@ -617,7 +587,7 @@ interpret_integer (const cpp_token *token, unsigned int flags)
   if (itk > itk_unsigned_long
       && (flags & CPP_N_WIDTH) != CPP_N_LARGE
       && !in_system_header && !flag_isoc99)
-    pedwarn ("integer constant is too large for %qs type",
+    pedwarn (input_location, 0, "integer constant is too large for %qs type",
 	     (flags & CPP_N_UNSIGNED) ? "unsigned long" : "long");
 
   value = build_int_cst_wide (type, integer.low, integer.high);
@@ -635,10 +605,23 @@ static tree
 interpret_float (const cpp_token *token, unsigned int flags)
 {
   tree type;
+  tree const_type;
   tree value;
   REAL_VALUE_TYPE real;
+  REAL_VALUE_TYPE real_trunc;
   char *copy;
   size_t copylen;
+
+  /* Default (no suffix) is double.  */
+  if (flags & CPP_N_DEFAULT)
+    {
+      flags ^= CPP_N_DEFAULT;
+      flags |= CPP_N_MEDIUM;
+    }
+
+  /* Decode _Fract and _Accum.  */
+  if (flags & CPP_N_FRACT || flags & CPP_N_ACCUM)
+    return interpret_fixed (token, flags);
 
   /* Decode type based on width and properties. */
   if (flags & CPP_N_DFLOAT)
@@ -649,13 +632,41 @@ interpret_float (const cpp_token *token, unsigned int flags)
     else
       type = dfloat64_type_node;
   else
-    if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+    if (flags & CPP_N_WIDTH_MD)
+      {
+	char suffix;
+	enum machine_mode mode;
+
+	if ((flags & CPP_N_WIDTH_MD) == CPP_N_MD_W)
+	  suffix = 'w';
+	else
+	  suffix = 'q';
+
+	mode = targetm.c.mode_for_suffix (suffix);
+	if (mode == VOIDmode)
+	  {
+	    error ("unsupported non-standard suffix on floating constant");
+	    errorcount++;
+
+	    return error_mark_node;
+	  }
+	else
+	  pedwarn (input_location, OPT_pedantic, "non-standard suffix on floating constant");
+
+	type = c_common_type_for_mode (mode, 0);
+	gcc_assert (type);
+      }
+    else if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
       type = long_double_type_node;
     else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL
 	     || flag_single_precision_constant)
       type = float_type_node;
     else
       type = double_type_node;
+
+  const_type = excess_precision_type (type);
+  if (!const_type)
+    const_type = type;
 
   /* Copy the constant to a nul-terminated buffer.  If the constant
      has any suffixes, cut them off; REAL_VALUE_ATOF/ REAL_VALUE_HTOF
@@ -666,7 +677,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
   else 
     {
       if ((flags & CPP_N_WIDTH) != CPP_N_MEDIUM)
-	/* Must be an F or L suffix.  */
+	/* Must be an F or L or machine defined suffix.  */
 	copylen--;
       if (flags & CPP_N_IMAGINARY)
 	/* I or J suffix.  */
@@ -677,21 +688,30 @@ interpret_float (const cpp_token *token, unsigned int flags)
   memcpy (copy, token->val.str.text, copylen);
   copy[copylen] = '\0';
 
-  real_from_string3 (&real, copy, TYPE_MODE (type));
+  real_from_string3 (&real, copy, TYPE_MODE (const_type));
+  if (const_type != type)
+    /* Diagnosing if the result of converting the value with excess
+       precision to the semantic type would overflow (with associated
+       double rounding) is more appropriate than diagnosing if the
+       result of converting the string directly to the semantic type
+       would overflow.  */
+    real_convert (&real_trunc, TYPE_MODE (type), &real);
 
   /* Both C and C++ require a diagnostic for a floating constant
      outside the range of representable values of its type.  Since we
      have __builtin_inf* to produce an infinity, this is now a
      mandatory pedwarn if the target does not support infinities.  */
-  if (REAL_VALUE_ISINF (real)) 
+  if (REAL_VALUE_ISINF (real)
+      || (const_type != type && REAL_VALUE_ISINF (real_trunc)))
     {
       if (!MODE_HAS_INFINITIES (TYPE_MODE (type)))
-	pedwarn ("floating constant exceeds range of %qT", type);
+	pedwarn (input_location, 0, "floating constant exceeds range of %qT", type);
       else
 	warning (OPT_Woverflow, "floating constant exceeds range of %qT", type);
     }
   /* We also give a warning if the value underflows.  */
-  else if (REAL_VALUES_EQUAL (real, dconst0))
+  else if (REAL_VALUES_EQUAL (real, dconst0)
+	   || (const_type != type && REAL_VALUES_EQUAL (real_trunc, dconst0)))
     {
       REAL_VALUE_TYPE realvoidmode;
       int overflow = real_from_string (&realvoidmode, copy);
@@ -700,19 +720,148 @@ interpret_float (const cpp_token *token, unsigned int flags)
     }
 
   /* Create a node with determined type and value.  */
-  value = build_real (type, real);
+  value = build_real (const_type, real);
   if (flags & CPP_N_IMAGINARY)
-    value = build_complex (NULL_TREE, convert (type, integer_zero_node), value);
+    value = build_complex (NULL_TREE, convert (const_type, integer_zero_node),
+			   value);
+
+  if (type != const_type)
+    value = build1 (EXCESS_PRECISION_EXPR, type, value);
 
   return value;
 }
 
-/* Convert a series of STRING and/or WSTRING tokens into a tree,
-   performing string constant concatenation.  TOK is the first of
-   these.  VALP is the location to write the string into.  OBJC_STRING
-   indicates whether an '@' token preceded the incoming token.
+/* Interpret TOKEN, a fixed-point number with FLAGS as classified
+   by cpplib.  */
+
+static tree
+interpret_fixed (const cpp_token *token, unsigned int flags)
+{
+  tree type;
+  tree value;
+  FIXED_VALUE_TYPE fixed;
+  char *copy;
+  size_t copylen;
+
+  copylen = token->val.str.len;
+
+  if (flags & CPP_N_FRACT) /* _Fract.  */
+    {
+      if (flags & CPP_N_UNSIGNED) /* Unsigned _Fract.  */
+	{
+	  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+	    {
+	      type = unsigned_long_long_fract_type_node;
+	      copylen -= 4;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+	    {
+	      type = unsigned_long_fract_type_node;
+	      copylen -= 3;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+	    {
+	      type = unsigned_short_fract_type_node;
+	      copylen -= 3;
+	    }
+          else
+	    {
+	      type = unsigned_fract_type_node;
+	      copylen -= 2;
+	    }
+	}
+      else /* Signed _Fract.  */
+	{
+	  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+	    {
+	      type = long_long_fract_type_node;
+	      copylen -= 3;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+	    {
+	      type = long_fract_type_node;
+	      copylen -= 2;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+	    {
+	      type = short_fract_type_node;
+	      copylen -= 2;
+	    }
+          else
+	    {
+	      type = fract_type_node;
+	      copylen --;
+	    }
+	  }
+    }
+  else /* _Accum.  */
+    {
+      if (flags & CPP_N_UNSIGNED) /* Unsigned _Accum.  */
+	{
+	  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+	    {
+	      type = unsigned_long_long_accum_type_node;
+	      copylen -= 4;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+	    {
+	      type = unsigned_long_accum_type_node;
+	      copylen -= 3;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+	    {
+	      type = unsigned_short_accum_type_node;
+	      copylen -= 3;
+	     }
+	  else
+	    {
+	      type = unsigned_accum_type_node;
+	      copylen -= 2;
+	    }
+	}
+      else /* Signed _Accum.  */
+        {
+	  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+	    {
+	      type = long_long_accum_type_node;
+	      copylen -= 3;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+	    {
+	      type = long_accum_type_node;
+	      copylen -= 2;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+	    {
+	      type = short_accum_type_node;
+	      copylen -= 2;
+	    }
+	  else
+	    {
+	      type = accum_type_node;
+	      copylen --;
+	    }
+	}
+    }
+
+  copy = (char *) alloca (copylen + 1);
+  memcpy (copy, token->val.str.text, copylen);
+  copy[copylen] = '\0';
+
+  fixed_from_string (&fixed, copy, TYPE_MODE (type));
+
+  /* Create a node with determined type and value.  */
+  value = build_fixed (type, fixed);
+
+  return value;
+}
+
+/* Convert a series of STRING, WSTRING, STRING16 and/or STRING32 tokens
+   into a tree, performing string constant concatenation.  TOK is the
+   first of these.  VALP is the location to write the string into.
+   OBJC_STRING indicates whether an '@' token preceded the incoming token.
    Returns the CPP token type of the result (CPP_STRING, CPP_WSTRING,
-   or CPP_OBJC_STRING).
+   CPP_STRING32, CPP_STRING16, or CPP_OBJC_STRING).
 
    This is unfortunately more work than it should be.  If any of the
    strings in the series has an L prefix, the result is a wide string
@@ -724,21 +873,18 @@ interpret_float (const cpp_token *token, unsigned int flags)
    we must arrange to provide.  */
 
 static enum cpp_ttype
-lex_string (const cpp_token *tok, tree *valp, bool objc_string)
+lex_string (const cpp_token *tok, tree *valp, bool objc_string, bool translate)
 {
   tree value;
-  bool wide = false;
   size_t concats = 0;
   struct obstack str_ob;
   cpp_string istr;
+  enum cpp_ttype type = tok->type;
 
   /* Try to avoid the overhead of creating and destroying an obstack
      for the common case of just one string.  */
   cpp_string str = tok->val.str;
   cpp_string *strs = &str;
-
-  if (tok->type == CPP_WSTRING)
-    wide = true;
 
  retry:
   tok = cpp_get_token (parse_in);
@@ -758,8 +904,15 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
       break;
 
     case CPP_WSTRING:
-      wide = true;
-      /* FALLTHROUGH */
+    case CPP_STRING16:
+    case CPP_STRING32:
+      if (type != tok->type)
+	{
+	  if (type == CPP_STRING)
+	    type = tok->type;
+	  else
+	    error ("unsupported non-standard concatenation of string literals");
+	}
 
     case CPP_STRING:
       if (!concats)
@@ -782,56 +935,64 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
     warning (OPT_Wtraditional,
 	     "traditional C rejects string constant concatenation");
 
-  if ((c_lex_string_translate
+  if ((translate
        ? cpp_interpret_string : cpp_interpret_string_notranslate)
-      (parse_in, strs, concats + 1, &istr, wide))
+      (parse_in, strs, concats + 1, &istr, type))
     {
-      value = build_string (istr.len, (char *) istr.text);
-      free ((void *) istr.text);
-
-      if (c_lex_string_translate == -1)
-	{
-	  int xlated = cpp_interpret_string_notranslate (parse_in, strs,
-							 concats + 1,
-							 &istr, wide);
-	  /* Assume that, if we managed to translate the string above,
-	     then the untranslated parsing will always succeed.  */
-	  gcc_assert (xlated);
-
-	  if (TREE_STRING_LENGTH (value) != (int) istr.len
-	      || 0 != strncmp (TREE_STRING_POINTER (value), (char *) istr.text,
-			       istr.len))
-	    {
-	      /* Arrange for us to return the untranslated string in
-		 *valp, but to set up the C type of the translated
-		 one.  */
-	      *valp = build_string (istr.len, (char *) istr.text);
-	      valp = &TREE_CHAIN (*valp);
-	    }
-	  free ((void *) istr.text);
-	}
+      value = build_string (istr.len, (const char *) istr.text);
+      free (CONST_CAST (unsigned char *, istr.text));
     }
   else
     {
       /* Callers cannot generally handle error_mark_node in this context,
 	 so return the empty string instead.  cpp_interpret_string has
 	 issued an error.  */
-      if (wide)
-	value = build_string (TYPE_PRECISION (wchar_type_node)
-			      / TYPE_PRECISION (char_type_node),
-			      "\0\0\0");  /* widest supported wchar_t
-					     is 32 bits */
-      else
-	value = build_string (1, "");
+      switch (type)
+	{
+	default:
+	case CPP_STRING:
+	  value = build_string (1, "");
+	  break;
+	case CPP_STRING16:
+	  value = build_string (TYPE_PRECISION (char16_type_node)
+				/ TYPE_PRECISION (char_type_node),
+				"\0");  /* char16_t is 16 bits */
+	  break;
+	case CPP_STRING32:
+	  value = build_string (TYPE_PRECISION (char32_type_node)
+				/ TYPE_PRECISION (char_type_node),
+				"\0\0\0");  /* char32_t is 32 bits */
+	  break;
+	case CPP_WSTRING:
+	  value = build_string (TYPE_PRECISION (wchar_type_node)
+				/ TYPE_PRECISION (char_type_node),
+				"\0\0\0");  /* widest supported wchar_t
+					       is 32 bits */
+	  break;
+        }
     }
 
-  TREE_TYPE (value) = wide ? wchar_array_type_node : char_array_type_node;
+  switch (type)
+    {
+    default:
+    case CPP_STRING:
+      TREE_TYPE (value) = char_array_type_node;
+      break;
+    case CPP_STRING16:
+      TREE_TYPE (value) = char16_array_type_node;
+      break;
+    case CPP_STRING32:
+      TREE_TYPE (value) = char32_array_type_node;
+      break;
+    case CPP_WSTRING:
+      TREE_TYPE (value) = wchar_array_type_node;
+    }
   *valp = fix_string_type (value);
 
   if (concats)
     obstack_free (&str_ob, 0);
 
-  return objc_string ? CPP_OBJC_STRING : wide ? CPP_WSTRING : CPP_STRING;
+  return objc_string ? CPP_OBJC_STRING : type;
 }
 
 /* Converts a (possibly wide) character constant token into a tree.  */
@@ -841,13 +1002,17 @@ lex_charconst (const cpp_token *token)
   cppchar_t result;
   tree type, value;
   unsigned int chars_seen;
-  int unsignedp;
+  int unsignedp = 0;
 
   result = cpp_interpret_charconst (parse_in, token,
 				    &chars_seen, &unsignedp);
 
   if (token->type == CPP_WCHAR)
     type = wchar_type_node;
+  else if (token->type == CPP_CHAR32)
+    type = char32_type_node;
+  else if (token->type == CPP_CHAR16)
+    type = char16_type_node;
   /* In C, a character constant has type 'int'.
      In C++ 'char', but multi-char charconsts have type 'int'.  */
   else if (!c_dialect_cxx () || chars_seen > 1)

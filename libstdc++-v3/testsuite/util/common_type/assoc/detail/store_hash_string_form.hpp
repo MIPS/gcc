@@ -51,7 +51,7 @@
 #include <common_type/assoc/template_policy.hpp>
 #include <io/xml.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
 
   namespace test
@@ -65,39 +65,28 @@ namespace pb_ds
       {
 	static std::string
         name()
-	{
-	  return ("sth_");
-	}
+	{ return ("sth_"); }
 
 	static std::string
         desc()
-	{
-	  return (make_xml_tag(            "Store_Hash", "value", "true"));
-	}
+	{ return (make_xml_tag("Store_Hash", "value", "true")); }
       };
 
       template<>
-      struct store_hash_string_form<
-        false>
+      struct store_hash_string_form<false>
       {
 	static std::string
 	name()
-        {
-	  return ("nsth_");
-	}
+        { return ("nsth_"); }
 
 	static std::string
         desc()
-        {
-	  return (make_xml_tag(                "Store_Hash",  "value",  "false"));
-        }
+        { return (make_xml_tag("Store_Hash",  "value",  "false")); }
       };
 
     } // namespace detail
-
   } // namespace test
-
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif // #ifndef PB_DS_STORE_HASH_STRING_FORM_HPP
 

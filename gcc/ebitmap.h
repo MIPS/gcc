@@ -1,11 +1,11 @@
 /* Sparse array based bitmaps.
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_EBITMAP_H
 #define GCC_EBITMAP_H
@@ -96,7 +95,13 @@ ebitmap_iter_init (ebitmap_iterator *i, ebitmap bmp, unsigned int min)
 		     min / EBITMAP_ELT_BITS);
   i->size = bmp->numwords;
   if (i->size == 0)
-    return;
+    {
+      i->ptr = NULL;
+      i->eltnum = 0;
+      i->bit_num = 0;
+      i->word = 0;
+      return;
+    }
   i->ptr = bmp->elts;
   i->bit_num = min;
   i->eltnum = 0;
@@ -122,7 +127,7 @@ ebitmap_iter_init (ebitmap_iterator *i, ebitmap bmp, unsigned int min)
 static inline bool
 ebitmap_iter_cond (ebitmap_iterator *i, unsigned int *n)
 {
-  unsigned int ourn;
+  unsigned int ourn = 0;
 
   if (i->size == 0)
     return false;

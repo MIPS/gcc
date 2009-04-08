@@ -63,7 +63,9 @@ public:
   virtual ::java::awt::geom::Rectangle2D * getVisualBounds();
   virtual ::java::awt::Shape * getOutline();
   virtual ::java::awt::Shape * getOutline(jfloat, jfloat);
+  virtual ::java::awt::Shape * getOutline(jfloat, jfloat, jint);
   virtual ::java::awt::Shape * getGlyphOutline(jint);
+  virtual ::java::awt::Shape * getGlyphOutline(jint, jint);
   virtual ::java::awt::geom::Point2D * getGlyphPosition(jint);
   virtual void setGlyphPosition(jint, ::java::awt::geom::Point2D *);
   virtual ::java::awt::geom::AffineTransform * getGlyphTransform(jint);
@@ -91,6 +93,7 @@ private:
   JArray< jfloat > * pos;
   JArray< ::java::awt::geom::AffineTransform * > * transforms;
   jint layoutFlags;
+  ::java::awt::Shape * cleanOutline;
 public:
   static ::java::lang::Class class$;
 };

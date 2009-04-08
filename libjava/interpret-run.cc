@@ -29,6 +29,10 @@ details.  */
   _Jv_InterpFrame frame_desc (meth, thread);
 #endif
 
+#ifdef DIRECT_THREADED
+  ThreadCountAdjuster adj (meth, &frame_desc);
+#endif // DIRECT_THREADED
+
   _Jv_word stack[meth->max_stack];
   _Jv_word *sp = stack;
 
@@ -361,20 +365,29 @@ details.  */
     }									\
   while (0)
 
+// We fail to rewrite a breakpoint if there is another thread
+// currently executing this method.  This is a bug, but there's
+// nothing else we can do that doesn't cause a data race.
 #undef REWRITE_INSN
 #define REWRITE_INSN(INSN,SLOT,VALUE)					\
-  do {									\
-    if (pc[-2].insn == breakpoint_insn->insn)				\
-      {									\
-	using namespace ::gnu::gcj::jvmti;				\
-	jlocation location = meth->insn_index (pc - 2);			\
-	_Jv_RewriteBreakpointInsn (meth->self, location, (pc_t) INSN);	\
-      }									\
-    else								\
-      pc[-2].insn = INSN;						\
+  do									\
+    {									\
+      _Jv_MutexLock (&rewrite_insn_mutex);				\
+      if (meth->thread_count <= 1)					\
+	{								\
+	  if (pc[-2].insn == breakpoint_insn->insn)			\
+	    {								\
+	      using namespace ::gnu::gcj::jvmti;			\
+	      jlocation location = meth->insn_index (pc - 2);		\
+	      _Jv_RewriteBreakpointInsn (meth->self, location, (pc_t) INSN); \
+	    }								\
+	  else								\
+	    pc[-2].insn = INSN;						\
 									\
-    pc[-1].SLOT = VALUE;						\
-  }									\
+	  pc[-1].SLOT = VALUE;						\
+	}								\
+      _Jv_MutexUnlock (&rewrite_insn_mutex);				\
+    }									\
   while (0)
 
 #undef INTERP_REPORT_EXCEPTION
@@ -382,10 +395,22 @@ details.  */
 #else // !DEBUG
 #undef NEXT_INSN
 #define NEXT_INSN goto *((pc++)->insn)
+
+// Rewriting a multi-word instruction in the presence of multiple
+// threads is a data race if a thread reads part of an instruction
+// while some other thread is rewriting that instruction.  We detect
+// more than one thread executing a method and don't rewrite the
+// instruction.  A thread entering a method blocks on
+// rewrite_insn_mutex until the write is complete.
 #define REWRITE_INSN(INSN,SLOT,VALUE)		\
   do {						\
-    pc[-2].insn = INSN;				\
-    pc[-1].SLOT = VALUE;			\
+    _Jv_MutexLock (&rewrite_insn_mutex);	\
+    if (meth->thread_count <= 1)		\
+      {						\
+	pc[-2].insn = INSN;			\
+	pc[-1].SLOT = VALUE;			\
+      }						\
+    _Jv_MutexUnlock (&rewrite_insn_mutex);	\
   }						\
   while (0)
 
@@ -563,6 +588,7 @@ details.  */
 	  }
 	else
 	  {
+	    NULLCHECK (sp[0].o);
 	    jobject rcv = sp[0].o;
 	    _Jv_VTable *table = *(_Jv_VTable**) rcv;
 	    fun = (void (*)()) table->get_method (rmeth->method->index);
@@ -575,7 +601,7 @@ details.  */
       {
 	/* here goes the magic again... */
 	ffi_cif *cif = &rmeth->cif;
-	ffi_raw *raw = (ffi_raw*) sp;
+	INTERP_FFI_RAW_TYPE *raw = (INTERP_FFI_RAW_TYPE *) sp;
 
 	_Jv_value rvalue;
 
@@ -2619,26 +2645,21 @@ details.  */
 
     insn_breakpoint:
       {
-	JvAssert (JVMTI_REQUESTED_EVENT (Breakpoint));
-
-	// Send JVMTI notification
 	using namespace ::java::lang;
 	jmethodID method = meth->self;
 	jlocation location = meth->insn_index (pc - 1);
-	Thread *thread = Thread::currentThread ();
-	JNIEnv *jni_env = _Jv_GetCurrentJNIEnv ();
 
-	// Save the insn here since the breakpoint could be removed
-	// before the JVMTI notification returns.
 	using namespace gnu::gcj::jvmti;
 	Breakpoint *bp
 	  = BreakpointManager::getBreakpoint (reinterpret_cast<jlong> (method),
 					      location);
 	JvAssert (bp != NULL);
+
+	// Save the insn here since the breakpoint could be removed
+	// before the JVMTI notification returns.
 	pc_t opc = reinterpret_cast<pc_t> (bp->getInsn ());
 
-	_Jv_JVMTI_PostEvent (JVMTI_EVENT_BREAKPOINT, thread, jni_env,
-			     method, location);
+	bp->execute ();
 
 	// Continue execution
 #ifdef DIRECT_THREADED

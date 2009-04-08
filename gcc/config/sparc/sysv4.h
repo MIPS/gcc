@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for SPARC running System V.4
-   Copyright (C) 1991, 1992, 1995, 1996, 1997, 1998, 2000, 2002
+   Copyright (C) 1991, 1992, 1995, 1996, 1997, 1998, 2000, 2002, 2007, 2009
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (sparc ELF)"); 
@@ -93,22 +92,6 @@ do { ASM_OUTPUT_ALIGN ((FILE), Pmode == SImode ? 2 : 3);		\
 	assemble_name (FILE, LABEL2);					\
 	fprintf (FILE, "\n");						\
   } while (0)
-
-/* Define how the SPARC registers should be numbered for Dwarf output.
-   The numbering provided here should be compatible with the native
-   svr4 SDB debugger in the SPARC/svr4 reference port.  The numbering
-   is as follows:
-
-   Assembly name	gcc internal regno	Dwarf regno
-   ----------------------------------------------------------
-   g0-g7		0-7			0-7
-   o0-o7		8-15			8-15
-   l0-l7		16-23			16-23
-   i0-i7		24-31			24-31
-   f0-f31		32-63			40-71
-*/
-
-#define DBX_REGISTER_NUMBER(REGNO) ((REGNO) < 32 ? (REGNO) : (REGNO) + 8)
 
 /* A set of symbol definitions for assembly pseudo-ops which will
    get us switched to various sections of interest.  These are used

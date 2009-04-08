@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -164,7 +164,7 @@ private package Ada.Text_IO.Generic_Aux is
    procedure Store_Char
      (File : File_Type;
       ch   : Integer;
-      Buf  : out String;
+      Buf  : in out String;
       Ptr  : in out Integer);
    --  Store a single character in buffer, checking for overflow and
    --  adjusting the column number in the file to reflect the fact
@@ -178,7 +178,7 @@ private package Ada.Text_IO.Generic_Aux is
    procedure String_Skip (Str : String; Ptr : out Integer);
    --  Used in the Get from string procedures to skip leading blanks in the
    --  string. Ptr is set to the index of the first non-blank. If the string
-   --  is all blanks, then the excption End_Error is raised, Note that blank
+   --  is all blanks, then the exception End_Error is raised, Note that blank
    --  is defined as a space or horizontal tab (RM A.10.6(5)).
 
    procedure Ungetc (ch : Integer; File : File_Type);

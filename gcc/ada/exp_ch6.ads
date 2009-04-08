@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -42,7 +41,7 @@ package Exp_Ch6 is
 
    procedure Freeze_Subprogram (N : Node_Id);
    --  generate the appropriate expansions related to Subprogram freeze
-   --  nodes (e. g. the filling of the corresponding Dispatch Table for
+   --  nodes (e.g. the filling of the corresponding Dispatch Table for
    --  Primitive Operations)
 
    --  The following type defines the various forms of allocation used for the
@@ -61,18 +60,18 @@ package Exp_Ch6 is
    --  enumeration literals matches the order in which the formals are
    --  declared. See Sem_Ch6.Create_Extra_Formals.
      (BIP_Alloc_Form,
-      --  Present if result subtype is unconstrained. Indicates whether the
-      --  return object is allocated by the caller or callee, and if the
-      --  callee, whether to use the secondary stack or the heap. See
-      --  Create_Extra_Formals.
+      --  Present if result subtype is unconstrained, or if the result type
+      --  is tagged. Indicates whether the return object is allocated by the
+      --  caller or callee, and if the callee, whether to use the secondary
+      --  stack or the heap. See Create_Extra_Formals.
       BIP_Final_List,
-      --  Present if result type has controlled parts. Pointer to caller's
+      --  Present if result type needs finalization. Pointer to caller's
       --  finalization list.
       BIP_Master,
       --  Present if result type contains tasks. Master associated with
       --  calling context.
       BIP_Activation_Chain,
-      --  Present if result type contains tasks. Caller's activation chain.
+      --  Present if result type contains tasks. Caller's activation chain
       BIP_Object_Access);
       --  Present for all build-in-place functions. Address at which to place
       --  the return object, or null if BIP_Alloc_Form indicates
@@ -114,9 +113,9 @@ package Exp_Ch6 is
    --  expression applied to such a call; otherwise returns False.
 
    function Is_Build_In_Place_Function_Return (N : Node_Id) return Boolean;
-   --  Ada 2005 (AI-318-02): Returns True if N is an N_Return_Statement or
-   --  N_Extended_Return_Statement and it applies to a build-in-place function
-   --  or generic function.
+   --  Ada 2005 (AI-318-02): Returns True if N is an N_Simple_Return_Statement
+   --  or N_Extended_Return_Statement and it applies to a build-in-place
+   --  function or generic function.
 
    procedure Make_Build_In_Place_Call_In_Allocator
      (Allocator     : Node_Id;
@@ -162,10 +161,9 @@ package Exp_Ch6 is
    --  for which Is_Build_In_Place_Call is True, or an N_Qualified_Expression
    --  node applied to such a function call.
 
-   procedure Register_Interface_DT_Entry
-     (Related_Nod : Node_Id;
-      Prim        : Entity_Id);
-   --  Ada 2005 (AI-251): Register a primitive in a secondary dispatch table.
-   --  Related_Nod is the node after which the expanded code will be inserted.
+   function Needs_BIP_Final_List (E : Entity_Id) return Boolean;
+   --  ???pragma Precondition (Is_Build_In_Place_Function (E));
+   --  Ada 2005 (AI-318-02): Returns True if the function needs the
+   --  BIP_Final_List implicit parameter.
 
 end Exp_Ch6;

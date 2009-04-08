@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -53,7 +53,9 @@ package Ada.Calendar is
 
    function Clock return Time;
    --  The returned time value is the number of nanoseconds since the start
-   --  of Ada time (1901-1-1 0.0 GMT).
+   --  of Ada time (1901-01-01 00:00:00.0 UTC). If leap seconds are enabled,
+   --  the result will contain all elapsed leap seconds since the start of
+   --  Ada time until now.
 
    function Year    (Date : Time) return Year_Number;
    function Month   (Date : Time) return Month_Number;
@@ -68,8 +70,8 @@ package Ada.Calendar is
       Seconds : out Day_Duration);
    --  Break down a time value into its date components set in the current
    --  time zone. If Split is called on a time value created using Ada 2005
-   --  Time_Of in some arbitrary time zone, the input value always will be
-   --  interpreted as some point in time relative to the local time zone.
+   --  Time_Of in some arbitrary time zone, the input value will always be
+   --  interpreted as relative to the local time zone.
 
    function Time_Of
      (Year    : Year_Number;
@@ -96,8 +98,8 @@ package Ada.Calendar is
    function "-" (Left : Time;     Right : Duration) return Time;
    function "-" (Left : Time;     Right : Time)     return Duration;
    --  The first three functions will raise Time_Error if the resulting time
-   --  value is less than the start of Ada time in GMT or greater than the
-   --  end of Ada time in GMT. The last function will raise Time_Error if the
+   --  value is less than the start of Ada time in UTC or greater than the
+   --  end of Ada time in UTC. The last function will raise Time_Error if the
    --  resulting difference cannot fit into a duration value.
 
    function "<"  (Left, Right : Time) return Boolean;
@@ -135,16 +137,16 @@ private
    -- Implementation of Time --
    ----------------------------
 
-   --  Time is represented as an unsigned 64 bit integer count of nanoseconds
-   --  since the start of Ada time (1901-1-1 0.0 GMT). Time values produced
-   --  by Time_Of are internaly normalized to GMT regardless of their local
-   --  time zone. This representation ensures correct handling of leap seconds
-   --  as well as performing arithmetic. In Ada 95, Split will treat a time
-   --  value as being in the local time zone and break it down accordingly.
-   --  In Ada 2005, Split will treat a time value as being in the designated
-   --  time zone by the corresponding formal parameter or in GMT by default.
-   --  The size of the type is large enough to cover the Ada 2005 range of
-   --  time (1901-1-1 0.0 GMT - 2399-12-31-86_399.999999999 GMT).
+   --  Time is represented as a signed 64 bit integer count of nanoseconds
+   --  since the start of Ada time (1901-01-01 00:00:00.0 UTC). Time values
+   --  produced by Time_Of are internally normalized to UTC regardless of their
+   --  local time zone. This representation ensures correct handling of leap
+   --  seconds as well as performing arithmetic. In Ada 95, Split and Time_Of
+   --  will treat a time value as being in the local time zone, in Ada 2005,
+   --  Split and Time_Of will treat a time value as being in the designated
+   --  time zone by the formal parameter or in UTC by default. The size of the
+   --  type is large enough to cover the Ada 2005 range of time (1901-01-01
+   --  00:00:00.0 UTC - 2399-12-31-23:59:59.999999999 UTC).
 
    ------------------
    -- Leap seconds --
@@ -153,72 +155,52 @@ private
    --  Due to Earth's slowdown, the astronomical time is not as precise as the
    --  International Atomic Time. To compensate for this inaccuracy, a single
    --  leap second is added after the last day of June or December. The count
-   --  of seconds during those occurences becomes:
+   --  of seconds during those occurrences becomes:
 
-   --    ... 58, 59, leap second 60, 1, 2 ...
+   --    ... 58, 59, leap second 60, 0, 1, 2 ...
 
    --  Unlike leap days, leap seconds occur simultaneously around the world.
-   --  In other words, if a leap second occurs at 23:59:60 GMT, it also occurs
-   --  on 18:59:60 -5 or 2:59:60 +2 on the next day.
+   --  In other words, if a leap second occurs at 23:59:60 UTC, it also occurs
+   --  on 18:59:60 -5 the same day or 2:59:60 +2 on the next day.
+
    --  Leap seconds do not follow a formula. The International Earth Rotation
    --  and Reference System Service decides when to add one. Leap seconds are
    --  included in the representation of time in Ada 95 mode. As a result,
-   --  the following two time values will conceptually differ by two seconds:
+   --  the following two time values will differ by two seconds:
 
-   --    Time_Of (1972, 7, 1, 0.0) - Time_Of (1972, 6, 30, 86_399.0) = 2 secs
+   --    1972-06-30 23:59:59.0
+   --    1972-07-01 00:00:00.0
 
-   --  When a new leap second is added, the following steps must be carried
-   --  out:
+   --  When a new leap second is introduced, the following steps must be
+   --  carried out:
 
-   --     1) Increment Leap_Seconds_Count by one
-   --     2) Add an entry to the end of table Leap_Second_Dates
+   --     1) Increment Leap_Seconds_Count in a-calend.adb by one
+   --     2) Increment LS_Count in xleaps.adb by one
+   --     3) Add the new date to the aggregate of array LS_Dates in
+   --        xleaps.adb
+   --     4) Compile and execute xleaps
+   --     5) Replace the values of Leap_Second_Times in a-calend.adb with the
+   --        aggregate generated by xleaps
 
    --  The algorithms that build the actual leap second values and discover
-   --  how many leap seconds have occured between two dates do not need any
+   --  how many leap seconds have occurred between two dates do not need any
    --  modification.
 
    ------------------------------
-   -- Non-leap centenial years --
+   -- Non-leap centennial years --
    ------------------------------
 
-   --  Over the range of Ada time, centenial years 2100, 2200 and 2300 are
+   --  Over the range of Ada time, centennial years 2100, 2200 and 2300 are
    --  non-leap. As a consequence, seven non-leap years occur over the period
-   --  of year - 4 to year + 4. Internaly, routines Split and Time_Of add or
+   --  of year - 4 to year + 4. Internally, routines Split and Time_Of add or
    --  subtract a "fake" February 29 to facilitate the arithmetic involved.
-   --  This small "cheat" remains hidden and the following calculations do
-   --  produce the correct difference.
 
-   --    Time_Of (2100, 3, 1, 0.0) - Time_Of (2100,  2, 28, 0.0) = 1 day
-   --    Time_Of (2101, 1, 1, 0.0) - Time_Of (2100, 12, 31, 0.0) = 1 day
+   --  The underlying type of Time has been chosen to be a 64 bit signed
+   --  integer number since it allows for easier processing of sub seconds
+   --  and arithmetic.
 
-   type Time_Rep is mod 2 ** 64;
+   type Time_Rep is range -2 ** 63 .. +2 ** 63 - 1;
    type Time is new Time_Rep;
-
-   --  Due to boundary time values and time zones, two days of buffer space
-   --  are set aside at both end points of Ada time:
-
-   --    Abs zero  Hard low     Soft low          Soft high    Hard high
-   --    +---------+============+#################+============+----------->
-   --                 Buffer 1     Real Ada time     Buffer 2
-
-   --  A time value in a any time zone may not excede the hard bounds of Ada
-   --  time, while a value in GMT may not go over the soft bounds.
-
-   Buffer_D : constant Duration := 2.0 * Secs_In_Day;
-   Buffer_N : constant Time     := 2   * Nanos_In_Day;
-
-   --  Lower and upper bound of Ada time shifted by two days from the absolute
-   --  zero. Note that the upper bound includes the non-leap centenial years.
-
-   Ada_Low  : constant Time := Buffer_N;
-   Ada_High : constant Time := (121 * 366 + 378 * 365) * Nanos_In_Day +
-                                  Buffer_N;
-
-   --  Both of these hard bounds are 28 hours before and after their regular
-   --  counterpart. The value of 28 is taken from Ada.Calendar.Time_Zones.
-
-   Hard_Ada_Low  : constant Time := Ada_Low  - 100_800 * Nano;
-   Hard_Ada_High : constant Time := Ada_High + 100_800 * Nano;
 
    Days_In_Month : constant array (Month_Number) of Day_Number :=
                      (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31);
@@ -230,11 +212,17 @@ private
    --  Determine whether a given year is leap
 
    --  The following packages provide a target independent interface to the
-   --  children of Calendar - Arithmetic, Delays, Formatting and Time_Zones.
+   --  children of Calendar - Arithmetic, Conversions, Delays, Formatting and
+   --  Time_Zones.
+
+   ---------------------------
+   -- Arithmetic_Operations --
+   ---------------------------
 
    package Arithmetic_Operations is
+
       function Add (Date : Time; Days : Long_Integer) return Time;
-      --  Add X number of days to a time value
+      --  Add a certain number of days to a time value
 
       procedure Difference
         (Left         : Time;
@@ -248,33 +236,93 @@ private
       --  values are positive, negative otherwise.
 
       function Subtract (Date : Time; Days : Long_Integer) return Time;
-      --  Subtract X number of days from a time value
+      --  Subtract a certain number of days from a time value
+
    end Arithmetic_Operations;
 
-   package Delays_Operations is
-      function To_Duration (Ada_Time : Time) return Duration;
+   ---------------------------
+   -- Conversion_Operations --
+   ---------------------------
+
+   package Conversion_Operations is
+
+      function To_Ada_Time (Unix_Time : Long_Integer) return Time;
+      --  Unix to Ada Epoch conversion
+
+      function To_Ada_Time
+        (tm_year  : Integer;
+         tm_mon   : Integer;
+         tm_day   : Integer;
+         tm_hour  : Integer;
+         tm_min   : Integer;
+         tm_sec   : Integer;
+         tm_isdst : Integer) return Time;
+      --  Struct tm to Ada Epoch conversion
+
+      function To_Duration
+        (tv_sec  : Long_Integer;
+         tv_nsec : Long_Integer) return Duration;
+      --  Struct timespec to Duration conversion
+
+      procedure To_Struct_Timespec
+        (D       : Duration;
+         tv_sec  : out Long_Integer;
+         tv_nsec : out Long_Integer);
+      --  Duration to struct timespec conversion
+
+      procedure To_Struct_Tm
+        (T       : Time;
+         tm_year : out Integer;
+         tm_mon  : out Integer;
+         tm_day  : out Integer;
+         tm_hour : out Integer;
+         tm_min  : out Integer;
+         tm_sec  : out Integer);
+      --  Time to struct tm conversion
+
+      function To_Unix_Time (Ada_Time : Time) return Long_Integer;
+      --  Ada to Unix Epoch conversion
+
+   end Conversion_Operations;
+
+   ----------------------
+   -- Delay_Operations --
+   ----------------------
+
+   package Delay_Operations is
+
+      function To_Duration (Date : Time) return Duration;
       --  Given a time value in nanoseconds since 1901, convert it into a
       --  duration value giving the number of nanoseconds since the Unix Epoch.
-   end Delays_Operations;
+
+   end Delay_Operations;
+
+   ---------------------------
+   -- Formatting_Operations --
+   ---------------------------
 
    package Formatting_Operations is
+
       function Day_Of_Week (Date : Time) return Integer;
       --  Determine which day of week Date falls on. The returned values are
       --  within the range of 0 .. 6 (Monday .. Sunday).
 
       procedure Split
-        (Date       : Time;
-         Year       : out Year_Number;
-         Month      : out Month_Number;
-         Day        : out Day_Number;
-         Day_Secs   : out Day_Duration;
-         Hour       : out Integer;
-         Minute     : out Integer;
-         Second     : out Integer;
-         Sub_Sec    : out Duration;
-         Leap_Sec   : out Boolean;
-         Time_Zone  : Long_Integer);
-      --  Split a time value into its components
+        (Date      : Time;
+         Year      : out Year_Number;
+         Month     : out Month_Number;
+         Day       : out Day_Number;
+         Day_Secs  : out Day_Duration;
+         Hour      : out Integer;
+         Minute    : out Integer;
+         Second    : out Integer;
+         Sub_Sec   : out Duration;
+         Leap_Sec  : out Boolean;
+         Is_Ada_05 : Boolean;
+         Time_Zone : Long_Integer);
+      --  Split a time value into its components. Set Is_Ada_05 to use the
+      --  local time zone (the value in Time_Zone is ignored) when splitting
+      --  a time value.
 
       function Time_Of
         (Year         : Year_Number;
@@ -285,20 +333,28 @@ private
          Minute       : Integer;
          Second       : Integer;
          Sub_Sec      : Duration;
-         Leap_Sec     : Boolean;
-         Leap_Checks  : Boolean;
-         Use_Day_Secs : Boolean;
-         Time_Zone    : Long_Integer) return Time;
+         Leap_Sec     : Boolean := False;
+         Use_Day_Secs : Boolean := False;
+         Is_Ada_05    : Boolean := False;
+         Time_Zone    : Long_Integer := 0) return Time;
       --  Given all the components of a date, return the corresponding time
       --  value. Set Use_Day_Secs to use the value in Day_Secs, otherwise the
       --  day duration will be calculated from Hour, Minute, Second and Sub_
-      --  Sec. Set flag Leap_Checks to verify the validity of a leap second.
+      --  Sec. Set Is_Ada_05 to use the local time zone (the value in formal
+      --  Time_Zone is ignored) when building a time value and to verify the
+      --  validity of a requested leap second.
 
    end Formatting_Operations;
 
+   ---------------------------
+   -- Time_Zones_Operations --
+   ---------------------------
+
    package Time_Zones_Operations is
+
       function UTC_Time_Offset (Date : Time) return Long_Integer;
-      --  Return the offset in seconds from GMT
+      --  Return the offset in seconds from UTC
+
    end Time_Zones_Operations;
 
 end Ada.Calendar;

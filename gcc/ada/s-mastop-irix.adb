@@ -7,7 +7,7 @@
 --                                 B o d y                                  --
 --                         (Version for IRIX/MIPS)                          --
 --                                                                          --
---          Copyright (C) 1999-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,13 +39,13 @@
 with System.Machine_Code; use System.Machine_Code;
 with System.Memory;
 with System.Soft_Links; use System.Soft_Links;
-with Unchecked_Conversion;
+with Ada.Unchecked_Conversion;
 
 package body System.Machine_State_Operations is
 
    use System.Storage_Elements;
 
-   --  The exc_unwind function in libexc operats on a Sigcontext
+   --  The exc_unwind function in libexc operates on a Sigcontext
 
    --  Type sigcontext_t is defined in /usr/include/sys/signal.h.
    --  We define an equivalent Ada type here. From the comments in
@@ -92,16 +92,19 @@ package body System.Machine_State_Operations is
    --  within the Sigcontext.
 
    function To_Sigcontext_Ptr is
-     new Unchecked_Conversion (Machine_State, Sigcontext_Ptr);
+     new Ada.Unchecked_Conversion (Machine_State, Sigcontext_Ptr);
 
    type Addr_Int is mod 2 ** Long_Integer'Size;
    --  An unsigned integer type whose size is the same as System.Address.
    --  We rely on the fact that Long_Integer'Size = System.Address'Size in
    --  all ABIs.  Type Addr_Int can be converted to Uns64.
 
-   function To_Code_Loc is new Unchecked_Conversion (Addr_Int, Code_Loc);
-   function To_Addr_Int is new Unchecked_Conversion (System.Address, Addr_Int);
-   function To_Uns32_Ptr is new Unchecked_Conversion (Addr_Int, Uns32_Ptr);
+   function To_Code_Loc is
+     new Ada.Unchecked_Conversion (Addr_Int, Code_Loc);
+   function To_Addr_Int is
+     new Ada.Unchecked_Conversion (System.Address, Addr_Int);
+   function To_Uns32_Ptr is
+     new Ada.Unchecked_Conversion (Addr_Int, Uns32_Ptr);
 
    --------------------------------
    -- ABI-Dependent Declarations --
@@ -112,7 +115,7 @@ package body System.Machine_State_Operations is
    o32n : constant Natural := Boolean'Pos (o32);
    n32n : constant Natural := Boolean'Pos (n32);
    --  Flags to indicate which ABI is in effect for this compilation. For the
-   --  purposes of this unit, the n32 and n64 ABI's are identical.
+   --  purposes of this unit, the n32 and n64 ABIs are identical.
 
    LSC : constant Character := Character'Val (o32n * Character'Pos ('w') +
                                               n32n * Character'Pos ('d'));
@@ -157,7 +160,7 @@ package body System.Machine_State_Operations is
 
       type Address_Int is mod 2 ** Standard'Address_Size;
       function To_I_Type_Ptr is new
-        Unchecked_Conversion (Address_Int, I_Type_Ptr);
+        Ada.Unchecked_Conversion (Address_Int, I_Type_Ptr);
 
       Ret_Ins : constant I_Type_Ptr := To_I_Type_Ptr (Address_Int (Scp.SC_PC));
       GP_Ptr  : Uns32_Ptr;

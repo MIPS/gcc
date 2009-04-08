@@ -96,7 +96,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifdef L_mulsi3
 	.align	4
 	.global	__mulsi3
-	.type	__mulsi3,@function
+	.type	__mulsi3, @function
 __mulsi3:
 	leaf_entry sp, 16
 
@@ -195,23 +195,34 @@ __mulsi3:
 #endif /* !MUL32 && !MUL16 && !MAC16 */
 
 	leaf_return
-	.size	__mulsi3,.-__mulsi3
+	.size	__mulsi3, . - __mulsi3
 
 #endif /* L_mulsi3 */
 
 
 #ifdef L_umulsidi3
+
+#if !XCHAL_HAVE_MUL16 && !XCHAL_HAVE_MUL32 && !XCHAL_HAVE_MAC16
+#define XCHAL_NO_MUL 1
+#endif
+
 	.align	4
 	.global	__umulsidi3
-	.type	__umulsidi3,@function
+	.type	__umulsidi3, @function
 __umulsidi3:
-	leaf_entry sp, 32
 #if __XTENSA_CALL0_ABI__
+	leaf_entry sp, 32
 	addi	sp, sp, -32
 	s32i	a12, sp, 16
 	s32i	a13, sp, 20
 	s32i	a14, sp, 24
 	s32i	a15, sp, 28
+#elif XCHAL_NO_MUL
+	/* This is not really a leaf function; allocate enough stack space
+	   to allow CALL12s to a helper function.  */
+	leaf_entry sp, 48
+#else
+	leaf_entry sp, 16
 #endif
 
 #ifdef __XTENSA_EB__
@@ -232,7 +243,7 @@ __umulsidi3:
 
 #else /* ! MUL32_HIGH */
 
-#if !XCHAL_HAVE_MUL16 && !XCHAL_HAVE_MUL32 && !XCHAL_HAVE_MAC16
+#if __XTENSA_CALL0_ABI__ && XCHAL_NO_MUL
 	/* a0 and a8 will be clobbered by calling the multiply function
 	   but a8 is not used here and need not be saved.  */
 	s32i	a0, sp, 0
@@ -284,18 +295,27 @@ __umulsidi3:
 	rsr	dst, ACCLO
 
 #else /* no multiply hardware */
-	
+
 #define set_arg_l(dst, src) \
 	extui	dst, src, 0, 16
 #define set_arg_h(dst, src) \
 	srli	dst, src, 16
 
+#if __XTENSA_CALL0_ABI__
 #define do_mul(dst, xreg, xhalf, yreg, yhalf) \
 	set_arg_ ## xhalf (a13, xreg); \
 	set_arg_ ## yhalf (a14, yreg); \
 	call0	.Lmul_mulsi3; \
 	mov	dst, a12
-#endif
+#else
+#define do_mul(dst, xreg, xhalf, yreg, yhalf) \
+	set_arg_ ## xhalf (a14, xreg); \
+	set_arg_ ## yhalf (a15, yreg); \
+	call12	.Lmul_mulsi3; \
+	mov	dst, a14
+#endif /* __XTENSA_CALL0_ABI__ */
+
+#endif /* no multiply hardware */
 
 	/* Add pp1 and pp2 into a6 with carry-out in a9.  */
 	do_mul(a6, a2, l, a3, h)	/* pp 1 */
@@ -324,7 +344,7 @@ __umulsidi3:
 
 #endif /* !MUL32_HIGH */
 
-#if !XCHAL_HAVE_MUL16 && !XCHAL_HAVE_MUL32 && !XCHAL_HAVE_MAC16
+#if __XTENSA_CALL0_ABI__ && XCHAL_NO_MUL
 	/* Restore the original return address.  */
 	l32i	a0, sp, 0
 #endif
@@ -337,40 +357,49 @@ __umulsidi3:
 #endif
 	leaf_return
 
-#if !XCHAL_HAVE_MUL16 && !XCHAL_HAVE_MUL32 && !XCHAL_HAVE_MAC16
-	
+#if XCHAL_NO_MUL
+
 	/* For Xtensa processors with no multiply hardware, this simplified
 	   version of _mulsi3 is used for multiplying 16-bit chunks of
-	   the floating-point mantissas.  It uses a custom ABI:	the inputs
-	   are passed in a13 and a14, the result is returned in a12, and
-	   a8 and a15 are clobbered.  */
+	   the floating-point mantissas.  When using CALL0, this function
+	   uses a custom ABI: the inputs are passed in a13 and a14, the
+	   result is returned in a12, and a8 and a15 are clobbered.  */
 	.align	4
 .Lmul_mulsi3:
-	movi	a12, 0
-.Lmul_mult_loop:
-	add	a15, a14, a12
-	extui	a8, a13, 0, 1
-	movnez	a12, a15, a8
+	leaf_entry sp, 16
+	.macro mul_mulsi3_body dst, src1, src2, tmp1, tmp2
+	movi	\dst, 0
+1:	add	\tmp1, \src2, \dst
+	extui	\tmp2, \src1, 0, 1
+	movnez	\dst, \tmp1, \tmp2
 
-	do_addx2 a15, a14, a12, a15
-	extui	a8, a13, 1, 1
-	movnez	a12, a15, a8
+	do_addx2 \tmp1, \src2, \dst, \tmp1
+	extui	\tmp2, \src1, 1, 1
+	movnez	\dst, \tmp1, \tmp2
 
-	do_addx4 a15, a14, a12, a15
-	extui	a8, a13, 2, 1
-	movnez	a12, a15, a8
+	do_addx4 \tmp1, \src2, \dst, \tmp1
+	extui	\tmp2, \src1, 2, 1
+	movnez	\dst, \tmp1, \tmp2
 
-	do_addx8 a15, a14, a12, a15
-	extui	a8, a13, 3, 1
-	movnez	a12, a15, a8
+	do_addx8 \tmp1, \src2, \dst, \tmp1
+	extui	\tmp2, \src1, 3, 1
+	movnez	\dst, \tmp1, \tmp2
 
-	srli	a13, a13, 4
-	slli	a14, a14, 4
-	bnez	a13, .Lmul_mult_loop
-	ret
-#endif /* !MUL16 && !MUL32 && !MAC16 */
+	srli	\src1, \src1, 4
+	slli	\src2, \src2, 4
+	bnez	\src1, 1b
+	.endm
+#if __XTENSA_CALL0_ABI__
+	mul_mulsi3_body a12, a13, a14, a15, a8
+#else
+	/* The result will be written into a2, so save that argument in a4.  */
+	mov	a4, a2
+	mul_mulsi3_body a2, a4, a3, a5, a6
+#endif
+	leaf_return
+#endif /* XCHAL_NO_MUL */
 
-	.size	__umulsidi3,.-__umulsidi3
+	.size	__umulsidi3, . - __umulsidi3
 
 #endif /* L_umulsidi3 */
 
@@ -390,12 +419,12 @@ __umulsidi3:
 	bnez	\tmp, 0f
 	movi	\cnt, 16
 	slli	\a, \a, 16
-0:	
+0:
 	extui	\tmp, \a, 24, 8
 	bnez	\tmp, 1f
 	addi	\cnt, \cnt, 8
 	slli	\a, \a, 8
-1:	
+1:
 	movi	\tmp, __nsau_data
 	extui	\a, \a, 24, 8
 	add	\tmp, \tmp, \a
@@ -408,8 +437,8 @@ __umulsidi3:
 	.section .rodata
 	.align	4
 	.global	__nsau_data
-	.type	__nsau_data,@object
-__nsau_data:	
+	.type	__nsau_data, @object
+__nsau_data:
 #if !XCHAL_HAVE_NSA
 	.byte	8, 7, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4
 	.byte	3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
@@ -428,7 +457,7 @@ __nsau_data:
 	.byte	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	.byte	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #endif /* !XCHAL_HAVE_NSA */
-	.size	__nsau_data,.-__nsau_data
+	.size	__nsau_data, . - __nsau_data
 	.hidden	__nsau_data
 #endif /* L_clz */
 
@@ -436,12 +465,12 @@ __nsau_data:
 #ifdef L_clzsi2
 	.align	4
 	.global	__clzsi2
-	.type	__clzsi2,@function
+	.type	__clzsi2, @function
 __clzsi2:
 	leaf_entry sp, 16
 	do_nsau	a2, a2, a3, a4
 	leaf_return
-	.size	__clzsi2,.-__clzsi2
+	.size	__clzsi2, . - __clzsi2
 
 #endif /* L_clzsi2 */
 
@@ -449,7 +478,7 @@ __clzsi2:
 #ifdef L_ctzsi2
 	.align	4
 	.global	__ctzsi2
-	.type	__ctzsi2,@function
+	.type	__ctzsi2, @function
 __ctzsi2:
 	leaf_entry sp, 16
 	neg	a3, a2
@@ -458,7 +487,7 @@ __ctzsi2:
 	neg	a2, a2
 	addi	a2, a2, 31
 	leaf_return
-	.size	__ctzsi2,.-__ctzsi2
+	.size	__ctzsi2, . - __ctzsi2
 
 #endif /* L_ctzsi2 */
 
@@ -466,7 +495,7 @@ __ctzsi2:
 #ifdef L_ffssi2
 	.align	4
 	.global	__ffssi2
-	.type	__ffssi2,@function
+	.type	__ffssi2, @function
 __ffssi2:
 	leaf_entry sp, 16
 	neg	a3, a2
@@ -475,7 +504,7 @@ __ffssi2:
 	neg	a2, a2
 	addi	a2, a2, 32
 	leaf_return
-	.size	__ffssi2,.-__ffssi2
+	.size	__ffssi2, . - __ffssi2
 
 #endif /* L_ffssi2 */
 
@@ -483,9 +512,12 @@ __ffssi2:
 #ifdef L_udivsi3
 	.align	4
 	.global	__udivsi3
-	.type	__udivsi3,@function
+	.type	__udivsi3, @function
 __udivsi3:
 	leaf_entry sp, 16
+#if XCHAL_HAVE_DIV32
+	quou	a2, a2, a3
+#else
 	bltui	a3, 2, .Lle_one	/* check if the divisor <= 1 */
 
 	mov	a6, a2		/* keep dividend in a6 */
@@ -539,8 +571,9 @@ __udivsi3:
 
 .Lreturn0:
 	movi	a2, 0
+#endif /* XCHAL_HAVE_DIV32 */
 	leaf_return
-	.size	__udivsi3,.-__udivsi3
+	.size	__udivsi3, . - __udivsi3
 
 #endif /* L_udivsi3 */
 
@@ -548,9 +581,12 @@ __udivsi3:
 #ifdef L_divsi3
 	.align	4
 	.global	__divsi3
-	.type	__divsi3,@function
+	.type	__divsi3, @function
 __divsi3:
 	leaf_entry sp, 16
+#if XCHAL_HAVE_DIV32
+	quos	a2, a2, a3
+#else
 	xor	a7, a2, a3	/* sign = dividend ^ divisor */
 	do_abs	a6, a2, a4	/* udividend = abs (dividend) */
 	do_abs	a3, a3, a4	/* udivisor = abs (divisor) */
@@ -610,8 +646,9 @@ __divsi3:
 
 .Lreturn0:
 	movi	a2, 0
+#endif /* XCHAL_HAVE_DIV32 */
 	leaf_return
-	.size	__divsi3,.-__divsi3
+	.size	__divsi3, . - __divsi3
 
 #endif /* L_divsi3 */
 
@@ -619,9 +656,12 @@ __divsi3:
 #ifdef L_umodsi3
 	.align	4
 	.global	__umodsi3
-	.type	__umodsi3,@function
+	.type	__umodsi3, @function
 __umodsi3:
 	leaf_entry sp, 16
+#if XCHAL_HAVE_DIV32
+	remu	a2, a2, a3
+#else
 	bltui	a3, 2, .Lle_one	/* check if the divisor is <= 1 */
 
 	do_nsau	a5, a2, a6, a7	/* dividend_shift = nsau (dividend) */
@@ -664,8 +704,9 @@ __umodsi3:
 
 .Lreturn0:
 	movi	a2, 0
+#endif /* XCHAL_HAVE_DIV32 */
 	leaf_return
-	.size	__umodsi3,.-__umodsi3
+	.size	__umodsi3, . - __umodsi3
 
 #endif /* L_umodsi3 */
 
@@ -673,9 +714,12 @@ __umodsi3:
 #ifdef L_modsi3
 	.align	4
 	.global	__modsi3
-	.type	__modsi3,@function
+	.type	__modsi3, @function
 __modsi3:
 	leaf_entry sp, 16
+#if XCHAL_HAVE_DIV32
+	rems	a2, a2, a3
+#else
 	mov	a7, a2		/* save original (signed) dividend */
 	do_abs	a2, a2, a4	/* udividend = abs (dividend) */
 	do_abs	a3, a3, a4	/* udivisor = abs (divisor) */
@@ -709,7 +753,7 @@ __modsi3:
 .Lreturn:
 	bgez	a7, .Lpositive
 	neg	a2, a2		/* if (dividend < 0), return -udividend */
-.Lpositive:	
+.Lpositive:
 	leaf_return
 
 .Lle_one:
@@ -723,10 +767,84 @@ __modsi3:
 
 .Lreturn0:
 	movi	a2, 0
+#endif /* XCHAL_HAVE_DIV32 */
 	leaf_return
-	.size	__modsi3,.-__modsi3
+	.size	__modsi3, . - __modsi3
 
 #endif /* L_modsi3 */
+
+
+#ifdef __XTENSA_EB__
+#define uh a2
+#define ul a3
+#else
+#define uh a3
+#define ul a2
+#endif /* __XTENSA_EB__ */
+
+
+#ifdef L_ashldi3
+	.align	4
+	.global	__ashldi3
+	.type	__ashldi3, @function
+__ashldi3:
+	leaf_entry sp, 16
+	ssl	a4
+	bgei	a4, 32, .Llow_only
+	src	uh, uh, ul
+	sll	ul, ul
+	leaf_return
+
+.Llow_only:
+	sll	uh, ul
+	movi	ul, 0
+	leaf_return
+	.size	__ashldi3, . - __ashldi3
+
+#endif /* L_ashldi3 */
+
+
+#ifdef L_ashrdi3
+	.align	4
+	.global	__ashrdi3
+	.type	__ashrdi3, @function
+__ashrdi3:
+	leaf_entry sp, 16
+	ssr	a4
+	bgei	a4, 32, .Lhigh_only
+	src	ul, uh, ul
+	sra	uh, uh
+	leaf_return
+
+.Lhigh_only:
+	sra	ul, uh
+	srai	uh, uh, 31
+	leaf_return
+	.size	__ashrdi3, . - __ashrdi3
+
+#endif /* L_ashrdi3 */
+
+
+#ifdef L_lshrdi3
+	.align	4
+	.global	__lshrdi3
+	.type	__lshrdi3, @function
+__lshrdi3:
+	leaf_entry sp, 16
+	ssr	a4
+	bgei	a4, 32, .Lhigh_only1
+	src	ul, uh, ul
+	srl	uh, uh
+	leaf_return
+
+.Lhigh_only1:
+	srl	ul, uh
+	movi	uh, 0
+	leaf_return
+	.size	__lshrdi3, . - __lshrdi3
+
+#endif /* L_lshrdi3 */
+
 
 #include "ieee754-df.S"
 #include "ieee754-sf.S"

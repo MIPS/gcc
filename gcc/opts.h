@@ -1,11 +1,12 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_OPTS_H
 #define GCC_OPTS_H
@@ -65,13 +65,12 @@ extern const struct cl_option cl_options[];
 extern const unsigned int cl_options_count;
 extern const char *const lang_names[];
 extern const unsigned int cl_lang_count;
-extern bool no_unit_at_a_time_default;
 
-#define CL_PARAMS               (1 << 18) /* Fake entry.  Used to display --param info with --help.  */
-#define CL_WARNING		(1 << 19) /* Enables an (optional) warning message.  */
-#define CL_OPTIMIZATION		(1 << 20) /* Enables an (optional) optimization.  */
-#define CL_TARGET		(1 << 21) /* Target-specific option.  */
-#define CL_COMMON		(1 << 22) /* Language-independent.  */
+#define CL_PARAMS               (1 << 17) /* Fake entry.  Used to display --param info with --help.  */
+#define CL_WARNING		(1 << 18) /* Enables an (optional) warning message.  */
+#define CL_OPTIMIZATION		(1 << 19) /* Enables an (optional) optimization.  */
+#define CL_TARGET		(1 << 20) /* Target-specific option.  */
+#define CL_COMMON		(1 << 21) /* Language-independent.  */
 
 #define CL_MIN_OPTION_CLASS	CL_PARAMS
 #define CL_MAX_OPTION_CLASS	CL_COMMON
@@ -81,6 +80,7 @@ extern bool no_unit_at_a_time_default;
    This distinction is important because --help will not list options
    which only have these higher bits set.  */
 
+#define CL_SAVE			(1 << 22) /* Target-specific option for attribute.  */
 #define CL_DISABLED		(1 << 23) /* Disabled in this configuration.  */
 #define CL_REPORT		(1 << 24) /* Report argument with -fverbose-asm  */
 #define CL_JOINED		(1 << 25) /* If takes joined argument.  */
@@ -106,4 +106,5 @@ extern bool get_option_state (int, struct cl_option_state *);
 
 extern void enable_warning_as_error (const char *arg, int value,
 				     unsigned int lang_mask);
+extern void print_ignored_options (void);
 #endif

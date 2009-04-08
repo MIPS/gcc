@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -130,7 +130,7 @@ PB_DS_CLASS_T_DEC
 PB_DS_CLASS_C_DEC::
 PB_DS_CLASS_NAME(const PB_DS_CLASS_C_DEC& other) :
 #ifdef _GLIBCXX_DEBUG
-  map_debug_base(other),
+  debug_base(other),
 #endif 
   PB_DS_HASH_EQ_FN_C_DEC(other),
   resize_base(other), ranged_hash_fn_base(other),
@@ -139,11 +139,11 @@ PB_DS_CLASS_NAME(const PB_DS_CLASS_C_DEC& other) :
 {
   initialize();
   _GLIBCXX_DEBUG_ONLY(PB_DS_CLASS_C_DEC::assert_valid();)
-    try
+    __try
       {
         copy_from_range(other.begin(), other.end());
       }
-    catch(...)
+    __catch(...)
       {
         deallocate_all();
         __throw_exception_again;
@@ -171,7 +171,7 @@ swap(PB_DS_CLASS_C_DEC& other)
   hash_eq_fn_base::swap(other);
   resize_base::swap(other);
 
-  _GLIBCXX_DEBUG_ONLY(map_debug_base::swap(other));
+  _GLIBCXX_DEBUG_ONLY(debug_base::swap(other));
   _GLIBCXX_DEBUG_ONLY(assert_valid());
   _GLIBCXX_DEBUG_ONLY(other.assert_valid());
 }

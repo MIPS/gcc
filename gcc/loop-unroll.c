@@ -1,11 +1,12 @@
 /* Loop unrolling and peeling.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -270,7 +270,7 @@ decide_unrolling_and_peeling (int flags)
 	fprintf (dump_file, "\n;; *** Considering loop %d ***\n", loop->num);
 
       /* Do not peel cold areas.  */
-      if (!maybe_hot_bb_p (loop->header))
+      if (optimize_loop_for_size_p (loop))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, ";; Not considering loop, cold area\n");
@@ -369,7 +369,7 @@ decide_peel_completely (struct loop *loop, int flags ATTRIBUTE_UNUSED)
     }
 
   /* Do not peel cold areas.  */
-  if (!maybe_hot_bb_p (loop->header))
+  if (optimize_loop_for_size_p (loop))
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not considering loop, cold area\n");
@@ -953,8 +953,8 @@ unroll_loop_runtime_iterations (struct loop *loop)
 {
   rtx old_niter, niter, init_code, branch_code, tmp;
   unsigned i, j, p;
-  basic_block preheader, *body, *dom_bbs, swtch, ezc_swtch;
-  unsigned n_dom_bbs;
+  basic_block preheader, *body, swtch, ezc_swtch;
+  VEC (basic_block, heap) *dom_bbs;
   sbitmap wont_exit;
   int may_exit_copy;
   unsigned n_peel;
@@ -972,21 +972,20 @@ unroll_loop_runtime_iterations (struct loop *loop)
     opt_info = analyze_insns_in_loop (loop);
   
   /* Remember blocks whose dominators will have to be updated.  */
-  dom_bbs = XCNEWVEC (basic_block, n_basic_blocks);
-  n_dom_bbs = 0;
+  dom_bbs = NULL;
 
   body = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
     {
-      unsigned nldom;
-      basic_block *ldom;
+      VEC (basic_block, heap) *ldom;
+      basic_block bb;
 
-      nldom = get_dominated_by (CDI_DOMINATORS, body[i], &ldom);
-      for (j = 0; j < nldom; j++)
-	if (!flow_bb_inside_loop_p (loop, ldom[j]))
-	  dom_bbs[n_dom_bbs++] = ldom[j];
+      ldom = get_dominated_by (CDI_DOMINATORS, body[i]);
+      for (j = 0; VEC_iterate (basic_block, ldom, j, bb); j++)
+	if (!flow_bb_inside_loop_p (loop, bb))
+	  VEC_safe_push (basic_block, heap, dom_bbs, bb);
 
-      free (ldom);
+      VEC_free (basic_block, heap, ldom);
     }
   free (body);
 
@@ -1026,6 +1025,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
   init_code = get_insns ();
   end_sequence ();
+  unshare_all_rtl_in_chain (init_code);
 
   /* Precondition the loop.  */
   split_edge_and_insert (loop_preheader_edge (loop), init_code);
@@ -1105,7 +1105,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
     }
 
   /* Recount dominators for outer blocks.  */
-  iterate_fix_dominators (CDI_DOMINATORS, dom_bbs, n_dom_bbs);
+  iterate_fix_dominators (CDI_DOMINATORS, dom_bbs, false);
 
   /* And unroll loop.  */
 
@@ -1177,8 +1177,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	     "in runtime, %i insns\n",
 	     max_unroll, num_loop_insns (loop));
 
-  if (dom_bbs)
-    free (dom_bbs);
+  VEC_free (basic_block, heap, dom_bbs);
 }
 
 /* Decide whether to simply peel LOOP and how much.  */
@@ -1485,7 +1484,7 @@ unroll_loop_stupid (struct loop *loop)
 static hashval_t
 si_info_hash (const void *ivts)
 {
-  return (hashval_t) INSN_UID (((struct iv_to_split *) ivts)->insn);
+  return (hashval_t) INSN_UID (((const struct iv_to_split *) ivts)->insn);
 }
 
 /* An equality functions for information about insns to split.  */
@@ -1493,8 +1492,8 @@ si_info_hash (const void *ivts)
 static int
 si_info_eq (const void *ivts1, const void *ivts2)
 {
-  const struct iv_to_split *i1 = ivts1;
-  const struct iv_to_split *i2 = ivts2;
+  const struct iv_to_split *const i1 = (const struct iv_to_split *) ivts1;
+  const struct iv_to_split *const i2 = (const struct iv_to_split *) ivts2;
 
   return i1->insn == i2->insn;
 }
@@ -1504,7 +1503,7 @@ si_info_eq (const void *ivts1, const void *ivts2)
 static hashval_t
 ve_info_hash (const void *ves)
 {
-  return (hashval_t) INSN_UID (((struct var_to_expand *) ves)->insn);
+  return (hashval_t) INSN_UID (((const struct var_to_expand *) ves)->insn);
 }
 
 /* Return true if IVTS1 and IVTS2 (which are really both of type 
@@ -1513,8 +1512,8 @@ ve_info_hash (const void *ves)
 static int
 ve_info_eq (const void *ivts1, const void *ivts2)
 {
-  const struct var_to_expand *i1 = ivts1;
-  const struct var_to_expand *i2 = ivts2;
+  const struct var_to_expand *const i1 = (const struct var_to_expand *) ivts1;
+  const struct var_to_expand *const i2 = (const struct var_to_expand *) ivts2;
   
   return i1->insn == i2->insn;
 }
@@ -1633,7 +1632,7 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
   mode2 = GET_MODE (something);
   if ((FLOAT_MODE_P (mode1) 
        || FLOAT_MODE_P (mode2)) 
-      && !flag_unsafe_math_optimizations) 
+      && !flag_associative_math) 
     return NULL;
 
   if (dump_file)
@@ -1869,7 +1868,7 @@ get_ivts_expr (rtx expr, struct iv_to_split *ivts)
 static int
 allocate_basic_variable (void **slot, void *data ATTRIBUTE_UNUSED)
 {
-  struct iv_to_split *ivts = *slot;
+  struct iv_to_split *ivts = (struct iv_to_split *) *slot;
   rtx expr = *get_ivts_expr (single_set (ivts->insn), ivts);
 
   ivts->base_var = gen_reg_rtx (GET_MODE (expr));
@@ -2042,7 +2041,7 @@ expand_var_during_unrolling (struct var_to_expand *ve, rtx insn)
 static int
 insert_var_expansion_initialization (void **slot, void *place_p)
 {
-  struct var_to_expand *ve = *slot;
+  struct var_to_expand *ve = (struct var_to_expand *) *slot;
   basic_block place = (basic_block)place_p;
   rtx seq, var, zero_init, insn;
   unsigned i;
@@ -2090,7 +2089,7 @@ insert_var_expansion_initialization (void **slot, void *place_p)
 static int
 combine_var_copies_in_loop_exit (void **slot, void *place_p)
 {
-  struct var_to_expand *ve = *slot;
+  struct var_to_expand *ve = (struct var_to_expand *) *slot;
   basic_block place = (basic_block)place_p;
   rtx sum = ve->reg;
   rtx expr, seq, var, insn;
@@ -2183,7 +2182,8 @@ apply_opt_in_copies (struct opt_info *opt_info,
           /* Apply splitting iv optimization.  */
           if (opt_info->insns_to_split)
             {
-              ivts = htab_find (opt_info->insns_to_split, &ivts_templ);
+              ivts = (struct iv_to_split *)
+		htab_find (opt_info->insns_to_split, &ivts_templ);
               
               if (ivts)
                 {
@@ -2198,7 +2198,8 @@ apply_opt_in_copies (struct opt_info *opt_info,
           /* Apply variable expansion optimization.  */
           if (unrolling && opt_info->insns_with_var_to_expand)
             {
-              ves = htab_find (opt_info->insns_with_var_to_expand, &ve_templ);
+              ves = (struct var_to_expand *)
+		htab_find (opt_info->insns_with_var_to_expand, &ve_templ);
               if (ves)
                 { 
 		  gcc_assert (GET_CODE (PATTERN (insn))
@@ -2248,7 +2249,8 @@ apply_opt_in_copies (struct opt_info *opt_info,
           ivts_templ.insn = orig_insn;
           if (opt_info->insns_to_split)
             {
-              ivts = htab_find (opt_info->insns_to_split, &ivts_templ);
+              ivts = (struct iv_to_split *)
+		htab_find (opt_info->insns_to_split, &ivts_templ);
               if (ivts)
                 {
                   if (!delta)
@@ -2268,7 +2270,7 @@ apply_opt_in_copies (struct opt_info *opt_info,
 static int
 release_var_copies (void **slot, void *data ATTRIBUTE_UNUSED)
 {
-  struct var_to_expand *ve = *slot;
+  struct var_to_expand *ve = (struct var_to_expand *) *slot;
   
   VEC_free (rtx, heap, ve->var_expansions);
   

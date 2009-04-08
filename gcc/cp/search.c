@@ -1,14 +1,15 @@
 /* Breadth-first and depth-first routines for
    searching multiple-inheritance lattice for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +18,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* High-level class interface.  */
 
@@ -34,6 +34,7 @@ Boston, MA 02110-1301, USA.  */
 #include "rtl.h"
 #include "output.h"
 #include "toplev.h"
+#include "target.h"
 
 static int is_subobject_of_p (tree, tree);
 static tree dfs_lookup_base (tree, void *);
@@ -720,20 +721,13 @@ protected_accessible_p (tree decl, tree derived, tree binfo)
 
        m as a member of N is protected, and the reference occurs in a
        member or friend of class N, or in a member or friend of a
-       class P derived from N, where m as a member of P is private or
-       protected.
+       class P derived from N, where m as a member of P is public, private
+       or protected.
 
-    Here DERIVED is a possible P and DECL is m.  accessible_p will
-    iterate over various values of N, but the access to m in DERIVED
-    does not change.
+    Here DERIVED is a possible P, DECL is m and BINFO_TYPE (binfo) is N.  */
 
-    Note that I believe that the passage above is wrong, and should read
-    "...is private or protected or public"; otherwise you get bizarre results
-    whereby a public using-decl can prevent you from accessing a protected
-    member of a base.  (jason 2000/02/28)  */
-
-  /* If DERIVED isn't derived from m's class, then it can't be a P.  */
-  if (!DERIVED_FROM_P (context_for_name_lookup (decl), derived))
+  /* If DERIVED isn't derived from N, then it can't be a P.  */
+  if (!DERIVED_FROM_P (BINFO_TYPE (binfo), derived))
     return 0;
 
   access = access_in_type (derived, decl);
@@ -1200,6 +1194,9 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
 
   const char *errstr = 0;
 
+  if (name == error_mark_node)
+    return NULL_TREE;
+
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
 
   if (TREE_CODE (xbasetype) == TREE_BINFO)
@@ -1209,7 +1206,7 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
     }
   else
     {
-      if (!IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)))
+      if (!RECORD_OR_UNION_CODE_P (TREE_CODE (xbasetype)))
 	return NULL_TREE;
       type = xbasetype;
       xbasetype = NULL_TREE;
@@ -1899,6 +1896,29 @@ check_final_overrider (tree overrider, tree basefn)
       return 0;
     }
 
+  /* Check for conflicting type attributes.  */
+  if (!targetm.comp_type_attributes (over_type, base_type))
+    {
+      error ("conflicting type attributes specified for %q+#D", overrider);
+      error ("  overriding %q+#D", basefn);
+      DECL_INVALID_OVERRIDER_P (overrider) = 1;
+      return 0;
+    }
+
+  if (DECL_DELETED_FN (basefn) != DECL_DELETED_FN (overrider))
+    {
+      if (DECL_DELETED_FN (overrider))
+	{
+	  error ("deleted function %q+D", overrider);
+	  error ("overriding non-deleted function %q+D", basefn);
+	}
+      else
+	{
+	  error ("non-deleted function %q+D", overrider);
+	  error ("overriding deleted function %q+D", basefn);
+	}
+      return 0;
+    }
   return 1;
 }
 

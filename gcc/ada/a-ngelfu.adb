@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -73,7 +73,7 @@ package body Ada.Numerics.Generic_Elementary_Functions is
      (Y    : Float_Type'Base;
       X    : Float_Type'Base := 1.0)
       return Float_Type'Base;
-   --  Common code for arc tangent after cyele reduction
+   --  Common code for arc tangent after cycle reduction
 
    ----------
    -- "**" --

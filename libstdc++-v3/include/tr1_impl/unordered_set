@@ -1,6 +1,6 @@
 // TR1 unordered_set -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -85,6 +85,11 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 		__detail::_Default_ranged_hash(), __eql,
 		std::_Identity<_Value>(), __a)
         { }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      __unordered_set(__unordered_set&& __x)
+      : _Base(std::forward<_Base>(__x)) { }
+#endif
     };
 
   template<class _Value,
@@ -135,15 +140,18 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 		__detail::_Default_ranged_hash(), __eql,
 		std::_Identity<_Value>(), __a)
         { }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      __unordered_multiset(__unordered_multiset&& __x)
+      : _Base(std::forward<_Base>(__x)) { }
+#endif
     };
 
   template<class _Value, class _Hash, class _Pred, class _Alloc,
 	   bool __cache_hash_code>
     inline void
-    swap (__unordered_set<_Value, _Hash, _Pred,
-	  _Alloc, __cache_hash_code>& __x,
-	  __unordered_set<_Value, _Hash, _Pred,
-	  _Alloc, __cache_hash_code>& __y)
+    swap(__unordered_set<_Value, _Hash, _Pred, _Alloc, __cache_hash_code>& __x,
+	 __unordered_set<_Value, _Hash, _Pred, _Alloc, __cache_hash_code>& __y)
     { __x.swap(__y); }
 
   template<class _Value, class _Hash, class _Pred, class _Alloc,
@@ -156,6 +164,21 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
     { __x.swap(__y); }
 
 
+  /**
+   *  @brief A standard container composed of unique keys (containing
+   *  at most one of each key value) in which the elements' keys are
+   *  the elements themselves.
+   *
+   *  @ingroup unordered_associative_containers
+   *
+   *  Meets the requirements of a <a href="tables.html#65">container</a>, and
+   *  <a href="tables.html#xx">unordered associative container</a>
+   *
+   *  @param  Value  Type of key objects.
+   *  @param  Hash  Hashing function object type, defaults to hash<Value>.
+   *  @param  Pred  Predicate function object type, defaults to equal_to<Value>.
+   *  @param  Alloc  Allocator type, defaults to allocator<Key>.
+   */
   template<class _Value,
 	   class _Hash = hash<_Value>,
 	   class _Pred = std::equal_to<_Value>,
@@ -166,6 +189,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       typedef __unordered_set<_Value, _Hash, _Pred, _Alloc>  _Base;
 
     public:
+      typedef typename _Base::value_type      value_type;
       typedef typename _Base::size_type       size_type;
       typedef typename _Base::hasher          hasher;
       typedef typename _Base::key_equal       key_equal;
@@ -187,8 +211,53 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 		      const allocator_type& __a = allocator_type())
 	: _Base(__f, __l, __n, __hf, __eql, __a)
         { }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      unordered_set(unordered_set&& __x)
+      : _Base(std::forward<_Base>(__x)) { }
+
+      unordered_set(initializer_list<value_type> __l,
+		    size_type __n = 10,
+		    const hasher& __hf = hasher(),
+		    const key_equal& __eql = key_equal(),
+		    const allocator_type& __a = allocator_type())
+	: _Base(__l.begin(), __l.end(), __n, __hf, __eql, __a)
+      { }
+
+      unordered_set&
+      operator=(unordered_set&& __x)
+      {
+	// NB: DR 675.
+	this->clear();
+	this->swap(__x); 
+	return *this;	
+      }
+
+      unordered_set&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->clear();
+	this->insert(__l.begin(), __l.end());
+	return *this;
+      }
+#endif
     };
 
+  /**
+   *  @brief A standard container composed of equivalent keys
+   *  (possibly containing multiple of each key value) in which the
+   *  elements' keys are the elements themselves.
+   *
+   *  @ingroup unordered_associative_containers
+   *
+   *  Meets the requirements of a <a href="tables.html#65">container</a>, and
+   *  <a href="tables.html#xx">unordered associative container</a>
+   *
+   *  @param  Value  Type of key objects.
+   *  @param  Hash  Hashing function object type, defaults to hash<Value>.
+   *  @param  Pred  Predicate function object type, defaults to equal_to<Value>.
+   *  @param  Alloc  Allocator type, defaults to allocator<Key>.
+   */
   template<class _Value,
 	   class _Hash = hash<_Value>,
 	   class _Pred = std::equal_to<_Value>,
@@ -199,6 +268,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       typedef __unordered_multiset<_Value, _Hash, _Pred, _Alloc>  _Base;
 
     public:
+      typedef typename _Base::value_type      value_type;
       typedef typename _Base::size_type       size_type;
       typedef typename _Base::hasher          hasher;
       typedef typename _Base::key_equal       key_equal;
@@ -221,7 +291,75 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 			   const allocator_type& __a = allocator_type())
 	: _Base(__f, __l, __n, __hf, __eql, __a)
         { }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      unordered_multiset(unordered_multiset&& __x)
+      : _Base(std::forward<_Base>(__x)) { }
+
+      unordered_multiset(initializer_list<value_type> __l,
+			 size_type __n = 10,
+			 const hasher& __hf = hasher(),
+			 const key_equal& __eql = key_equal(),
+			 const allocator_type& __a = allocator_type())
+	: _Base(__l.begin(), __l.end(), __n, __hf, __eql, __a)
+      { }
+
+      unordered_multiset&
+      operator=(unordered_multiset&& __x)
+      {
+	// NB: DR 675.
+	this->clear();
+	this->swap(__x); 
+	return *this;	
+      }
+
+      unordered_multiset&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->clear();
+	this->insert(__l.begin(), __l.end());
+	return *this;
+      }
+#endif
     };
+
+  template<class _Value, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_set<_Value, _Hash, _Pred, _Alloc>& __x,
+	 unordered_set<_Value, _Hash, _Pred, _Alloc>& __y)
+    { __x.swap(__y); }
+
+  template<class _Value, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_multiset<_Value, _Hash, _Pred, _Alloc>& __x,
+	 unordered_multiset<_Value, _Hash, _Pred, _Alloc>& __y)
+    { __x.swap(__y); }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+  template<class _Value, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_set<_Value, _Hash, _Pred, _Alloc>&& __x,
+	 unordered_set<_Value, _Hash, _Pred, _Alloc>& __y)
+    { __x.swap(__y); }
+
+  template<class _Value, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_set<_Value, _Hash, _Pred, _Alloc>& __x,
+	 unordered_set<_Value, _Hash, _Pred, _Alloc>&& __y)
+    { __x.swap(__y); }
+
+  template<class _Value, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_multiset<_Value, _Hash, _Pred, _Alloc>&& __x,
+	 unordered_multiset<_Value, _Hash, _Pred, _Alloc>& __y)
+    { __x.swap(__y); }
+
+  template<class _Value, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_multiset<_Value, _Hash, _Pred, _Alloc>& __x,
+	 unordered_multiset<_Value, _Hash, _Pred, _Alloc>&& __y)
+    { __x.swap(__y); }
+#endif
 
 _GLIBCXX_END_NAMESPACE_TR1
 }

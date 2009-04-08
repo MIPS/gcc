@@ -1,8 +1,8 @@
 // javaprims.h - Main external header file for libgcj.  -*- c++ -*-
 
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
-   Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+   2008, 2009 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -142,6 +142,7 @@ extern "Java"
     namespace lang
     {
       class AbstractMethodError;
+      class AbstractStringBuffer;
       class Appendable;
       class ArithmeticException;
       class ArrayIndexOutOfBoundsException;
@@ -155,6 +156,7 @@ extern "Java"
       class Character$UnicodeBlock;
       class Character$UnicodeBlock$NameType;
       class Class;
+      class Class$1;
       class ClassCastException;
       class ClassCircularityError;
       class ClassFormatError;
@@ -238,6 +240,8 @@ extern "Java"
       class ThreadDeath;
       class ThreadGroup;
       class ThreadLocal;
+      class ThreadLocalMap;
+      class ThreadLocalMap$Entry;
       class Throwable;
       class Throwable$StaticData;
       class TypeNotPresentException;
@@ -284,7 +288,9 @@ extern "Java"
         class ClassLoadingMXBean;
         class CompilationMXBean;
         class GarbageCollectorMXBean;
+        class LockInfo;
         class ManagementFactory;
+        class ManagementFactory$ManagementInvocationHandler;
         class ManagementPermission;
         class MemoryMXBean;
         class MemoryManagerMXBean;
@@ -292,6 +298,7 @@ extern "Java"
         class MemoryPoolMXBean;
         class MemoryType;
         class MemoryUsage;
+        class MonitorInfo;
         class OperatingSystemMXBean;
         class RuntimeMXBean;
         class ThreadInfo;
@@ -392,6 +399,8 @@ extern "Java"
       class Collections$EmptyList;
       class Collections$EmptyMap;
       class Collections$EmptySet;
+      class Collections$LIFOQueue;
+      class Collections$MapSet;
       class Collections$ReverseComparator;
       class Collections$SingletonList;
       class Collections$SingletonMap;
@@ -434,6 +443,7 @@ extern "Java"
       class EnumMap$7;
       class EnumSet;
       class EnumSet$1;
+      class EnumSet$2;
       class Enumeration;
       class EventListener;
       class EventListenerProxy;
@@ -483,6 +493,7 @@ extern "Java"
       class LinkedHashMap$LinkedHashEntry;
       class LinkedHashSet;
       class LinkedList;
+      class LinkedList$1;
       class LinkedList$Entry;
       class LinkedList$LinkedListItr;
       class List;
@@ -511,6 +522,10 @@ extern "Java"
       class ResourceBundle;
       class ResourceBundle$1;
       class ResourceBundle$BundleKey;
+      class Scanner;
+      class ServiceConfigurationError;
+      class ServiceLoader;
+      class ServiceLoader$1;
       class Set;
       class SimpleTimeZone;
       class SortedMap;
@@ -531,8 +546,19 @@ extern "Java"
       class TreeMap$4;
       class TreeMap$5;
       class TreeMap$6;
+      class TreeMap$7;
+      class TreeMap$DescendingMap;
+      class TreeMap$DescendingSet;
+      class TreeMap$EntrySet;
+      class TreeMap$KeySet;
+      class TreeMap$NavigableEntrySet;
+      class TreeMap$NavigableKeySet;
       class TreeMap$Node;
       class TreeMap$SubMap;
+      class TreeMap$SubMap$EntrySet;
+      class TreeMap$SubMap$KeySet;
+      class TreeMap$SubMap$NavigableEntrySet;
+      class TreeMap$SubMap$NavigableKeySet;
       class TreeMap$TreeIterator;
       class TreeSet;
       class UUID;
@@ -593,6 +619,11 @@ extern "Java"
         class ConcurrentSkipListMap$Values;
         class ConcurrentSkipListSet;
         class CopyOnWriteArrayList;
+        class CopyOnWriteArrayList$1;
+        class CopyOnWriteArrayList$2;
+        class CopyOnWriteArrayList$3;
+        class CopyOnWriteArrayList$RandomAccessSubList;
+        class CopyOnWriteArrayList$SubList;
         class CopyOnWriteArraySet;
         class CountDownLatch;
         class CountDownLatch$Sync;
@@ -789,6 +820,14 @@ extern "Java"
         class PatternSyntaxException;
       }
 
+      namespace spi
+      {
+        class CurrencyNameProvider;
+        class LocaleNameProvider;
+        class LocaleServiceProvider;
+        class TimeZoneNameProvider;
+      }
+
       namespace zip
       {
         class Adler32;
@@ -815,6 +854,7 @@ extern "Java"
       }
     }
   }
+  // end of output of the `classes.pl' script.
 }
   
 typedef struct java::lang::Object* jobject;
@@ -879,7 +919,7 @@ struct _Jv_VMInitArgs
   jboolean ignoreUnrecognized;
 };
 
-extern jint _Jv_CreateJavaVM (struct _Jv_VMInitArgs*);
+extern "C" jint _Jv_CreateJavaVM (struct _Jv_VMInitArgs*);
 
 void
 _Jv_ThreadRun (java::lang::Thread* thread);

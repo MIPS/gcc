@@ -1,6 +1,6 @@
 /* File format for coverage information
-   Copyright (C) 1996, 1997, 1998, 2000, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 2000, 2002, 2003, 2004, 2005, 2007,
+   2008  Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Routines declared in gcov-io.h.  This file should be #included by
    another source file, after having #included gcov-io.h.  */
@@ -197,7 +196,7 @@ gcov_allocate (unsigned length)
   new_size *= 2;
   
   gcov_var.alloc = new_size;
-  gcov_var.buffer = xrealloc (gcov_var.buffer, new_size << 2);
+  gcov_var.buffer = XRESIZEVAR (gcov_unsigned_t, gcov_var.buffer, new_size << 2);
 }
 #endif
 
@@ -508,7 +507,7 @@ gcov_sync (gcov_position_t base, gcov_unsigned_t length)
 #endif
 
 #if IN_LIBGCOV
-/* Move to the a set position in a gcov file.  */
+/* Move to a given position in a gcov file.  */
 
 GCOV_LINKAGE void
 gcov_seek (gcov_position_t base)

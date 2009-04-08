@@ -1,12 +1,12 @@
 ;; Itanium2 DFA descriptions for insn scheduling and bundling.
-;; Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
+;; Copyright (C) 2002, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 ;; Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.  */
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.  */
 ;;
 
 /* This is description of pipeline hazards based on DFA.  The
@@ -1073,14 +1072,13 @@
 (define_bypass  3 "2_ialu" "2_mmalua,2_mmmul,2_mmshf")
 (define_bypass  3 "2_mmalua,2_mmmul,2_mmshf" "2_ialu,2_ilog,2_ishf,2_st,2_ld,2_ldc")
 (define_bypass  6 "2_tofr"  "2_frfr,2_stf")
-(define_bypass  7 "2_fmac"  "2_frfr,2_stf")
 
 ;; We don't use here fcmp because scall may be predicated.
 (define_bypass  0 "2_fcvtfx,2_fld,2_flda,2_fldc,2_fmac,2_fmisc,2_frar_i,2_frar_m,\
                    2_frbr,2_frfr,2_frpr,2_ialu,2_ilog,2_ishf,2_ld,2_ldc,2_long_i,\
-                   2_mmalua,2_mmmul,2_mmshf,2_mmshfi,2_toar_m,2_tofr,\
+                   2_mmalua,2_mmmul,2_mmshf,2_mmshfi,2_toar_m,2_tobr,2_tofr,\
 		   2_xmpy,2_xtd"
-                  "2_scall")
+                  "2_br,2_scall")
 
 (define_bypass  0 "2_unknown,2_ignore,2_stop_bit,2_br,2_fcmp,2_fcvtfx,2_fld,2_flda,2_fldc,\
                    2_fmac,2_fmisc,2_frar_i,2_frar_m,2_frbr,2_frfr,2_frpr,\

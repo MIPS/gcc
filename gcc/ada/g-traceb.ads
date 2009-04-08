@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                     Copyright (C) 1999-2005, AdaCore                     --
+--                     Copyright (C) 1999-2008, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -43,7 +43,7 @@
 --  using the external addr2line utility, or from within GDB.
 
 --  In order to use this facility, in some cases the binder must be invoked
---  with -E switch (store the backtrace with exception occurence). Please
+--  with -E switch (store the backtrace with exception occurrence). Please
 --  refer to gnatbind documentation for more information.
 
 --  To analyze the code locations later using addr2line or gdb, the necessary
@@ -59,14 +59,22 @@
 
 --  This capability is currently supported on the following targets:
 
---     All x86 ports
 --     AiX PowerPC
 --     HP-UX
---     Irix
+--     GNU/Linux x86
+--     Irix MIPS
+--     LynxOS x86
+--     Solaris x86
 --     Solaris sparc
---     Tru64
+--     Tru64 alpha
+--     OpenVMS/Alpha
+--     OpenVMS/ia64
 --     VxWorks PowerPC
---     VxWorks Alpha
+--     VxWorks x86
+--     Windows NT/XP
+
+--  Note: see also GNAT.Traceback.Symbolic, a child unit in file g-trasym.ads
+--  providing symbolic trace back capability for a subset of the above targets.
 
 with System;
 with Ada.Exceptions.Traceback;

@@ -1,5 +1,6 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
    Splay Tree code originally by Mark Mitchell <mark@markmitchell.com>,
@@ -177,7 +178,7 @@ struct __mf_options __mf_opts;
 int __mf_starting_p = 1;
 
 #ifdef LIBMUDFLAPTH
-#ifdef HAVE_TLS
+#if defined(HAVE_TLS) && !defined(USE_EMUTLS)
 __thread enum __mf_state_enum __mf_state_1 = reentrant;
 #endif
 #else
@@ -444,7 +445,7 @@ __mf_usage ()
 
   fprintf (stderr,
            "This is a %s%sGCC \"mudflap\" memory-checked binary.\n"
-           "Mudflap is Copyright (C) 2002-2004 Free Software Foundation, Inc.\n"
+           "Mudflap is Copyright (C) 2002-2009 Free Software Foundation, Inc.\n"
            "\n"
            "The mudflap code can be controlled by an environment variable:\n"
            "\n"

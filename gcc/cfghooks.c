@@ -1,12 +1,13 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation,
+   Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -51,9 +51,21 @@ cfg_layout_rtl_register_cfg_hooks (void)
 /* Initialization of functions specific to the tree IR.  */
 
 void
-tree_register_cfg_hooks (void)
+gimple_register_cfg_hooks (void)
 {
-  cfg_hooks = &tree_cfg_hooks;
+  cfg_hooks = &gimple_cfg_hooks;
+}
+
+struct cfg_hooks
+get_cfg_hooks (void)
+{
+  return *cfg_hooks;
+}
+
+void
+set_cfg_hooks (struct cfg_hooks new_cfg_hooks)
+{
+  *cfg_hooks = new_cfg_hooks;
 }
 
 /* Returns current ir type.  */
@@ -61,7 +73,7 @@ tree_register_cfg_hooks (void)
 enum ir_type
 current_ir_type (void)
 {
-  if (cfg_hooks == &tree_cfg_hooks)
+  if (cfg_hooks == &gimple_cfg_hooks)
     return IR_GIMPLE;
   else if (cfg_hooks == &rtl_cfg_hooks)
     return IR_RTL_CFGRTL;
@@ -259,7 +271,7 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   edge_iterator ei;
   char *s_indent;
 
-  s_indent = alloca ((size_t) indent + 1);
+  s_indent = (char *) alloca ((size_t) indent + 1);
   memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
@@ -291,7 +303,7 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   putc ('\n', outf);
 
   if (cfg_hooks->dump_bb)
-    cfg_hooks->dump_bb (bb, outf, indent);
+    cfg_hooks->dump_bb (bb, outf, indent, 0);
 }
 
 /* Redirect edge E to the given basic block DEST and update underlying program
@@ -310,10 +322,10 @@ redirect_edge_and_branch (edge e, basic_block dest)
 
   ret = cfg_hooks->redirect_edge_and_branch (e, dest);
 
-  /* If RET != E, then the edge E was removed since RET already lead to the
-     same destination.  */
-  if (ret != NULL && current_loops != NULL)
-    rescan_loop_exit (e, false, ret != e);
+  /* If RET != E, then either the redirection failed, or the edge E
+     was removed since RET already lead to the same destination.  */
+  if (current_loops != NULL && ret == e)
+    rescan_loop_exit (e, false, false);
 
   return ret;
 }
@@ -322,7 +334,7 @@ redirect_edge_and_branch (edge e, basic_block dest)
    to the destination of the other edge going from its source.  */
 
 bool
-can_remove_branch_p (edge e)
+can_remove_branch_p (const_edge e)
 {
   if (!cfg_hooks->can_remove_branch_p)
     internal_error ("%s does not support can_remove_branch_p",
@@ -350,14 +362,22 @@ remove_branch (edge e)
   other = EDGE_SUCC (src, EDGE_SUCC (src, 0) == e);
   irr = other->flags & EDGE_IRREDUCIBLE_LOOP;
 
-  if (current_loops != NULL)
-    rescan_loop_exit (e, false, true);
-
   e = redirect_edge_and_branch (e, other->dest);
   gcc_assert (e != NULL);
 
   e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
   e->flags |= irr;
+}
+
+/* Removes edge E from cfg.  Unlike remove_branch, it does not update IL.  */
+
+void
+remove_edge (edge e)
+{
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
+  remove_edge_raw (e);
 }
 
 /* Redirect the edge E to basic block DEST even if it requires creating
@@ -405,6 +425,7 @@ edge
 split_block (basic_block bb, void *i)
 {
   basic_block new_bb;
+  edge res;
 
   if (!cfg_hooks->split_block)
     internal_error ("%s does not support split_block", cfg_hooks->name);
@@ -424,9 +445,21 @@ split_block (basic_block bb, void *i)
     }
 
   if (current_loops != NULL)
-    add_bb_to_loop (new_bb, bb->loop_father);
+    {
+      add_bb_to_loop (new_bb, bb->loop_father);
+      if (bb->loop_father->latch == bb)
+	bb->loop_father->latch = new_bb;
+    }
 
-  return make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
+  res = make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
+
+  if (bb->flags & BB_IRREDUCIBLE_LOOP)
+    {
+      new_bb->flags |= BB_IRREDUCIBLE_LOOP;
+      res->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
+
+  return res;
 }
 
 /* Splits block BB just after labels.  The newly created edge is returned.  */
@@ -627,7 +660,7 @@ predict_edge (edge e, enum br_predictor predictor, int probability)
 }
 
 bool
-predicted_by_p (basic_block bb, enum br_predictor predictor)
+predicted_by_p (const_basic_block bb, enum br_predictor predictor)
 {
   if (!cfg_hooks->predict_edge)
     internal_error ("%s does not support predicted_by_p", cfg_hooks->name);
@@ -646,10 +679,10 @@ merge_blocks (basic_block a, basic_block b)
   if (!cfg_hooks->merge_blocks)
     internal_error ("%s does not support merge_blocks", cfg_hooks->name);
 
+  cfg_hooks->merge_blocks (a, b);
+
   if (current_loops != NULL)
     remove_bb_from_loops (b);
-
-  cfg_hooks->merge_blocks (a, b);
 
   /* Normally there should only be one successor of A and that is B, but
      partway though the merge of blocks for conditional_execution we'll
@@ -657,11 +690,7 @@ merge_blocks (basic_block a, basic_block b)
      whole lot of them and hope the caller knows what they're doing.  */
 
   while (EDGE_COUNT (a->succs) != 0)
-    {
-      if (current_loops != NULL)
-	rescan_loop_exit (EDGE_SUCC (a, 0), false, true);
-      remove_edge (EDGE_SUCC (a, 0));
-    }
+    remove_edge (EDGE_SUCC (a, 0));
 
   /* Adjust the edges out of B for the new owner.  */
   FOR_EACH_EDGE (e, ei, b->succs)
@@ -711,6 +740,8 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
   /* Redirect back edges we want to keep.  */
   for (ei = ei_start (dummy->preds); (e = ei_safe_edge (ei)); )
     {
+      basic_block e_src;
+
       if (redirect_edge_p (e))
 	{
 	  ei_next (&ei);
@@ -727,19 +758,30 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
       if (fallthru->count < 0)
 	fallthru->count = 0;
 
+      e_src = e->src;
       jump = redirect_edge_and_branch_force (e, bb);
-      if (jump != NULL
-	  && new_bb_cbk != NULL)
-	new_bb_cbk (jump);
+      if (jump != NULL)
+        {
+          /* If we redirected the loop latch edge, the JUMP block now acts like
+             the new latch of the loop.  */
+          if (current_loops != NULL
+              && dummy->loop_father != NULL
+              && dummy->loop_father->header == dummy
+              && dummy->loop_father->latch == e_src)
+            dummy->loop_father->latch = jump;
+          
+          if (new_bb_cbk != NULL)
+            new_bb_cbk (jump);
+        }
     }
 
   if (dom_info_available_p (CDI_DOMINATORS))
     {
-      basic_block doms_to_fix[2];
-
-      doms_to_fix[0] = dummy;
-      doms_to_fix[1] = bb;
-      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, 2);
+      VEC (basic_block, heap) *doms_to_fix = VEC_alloc (basic_block, heap, 2);
+      VEC_quick_push (basic_block, doms_to_fix, dummy);
+      VEC_quick_push (basic_block, doms_to_fix, bb);
+      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, false);
+      VEC_free (basic_block, heap, doms_to_fix);
     }
 
   if (current_loops != NULL)
@@ -832,21 +874,13 @@ tidy_fallthru_edges (void)
 /* Returns true if we can duplicate basic block BB.  */
 
 bool
-can_duplicate_block_p (basic_block bb)
+can_duplicate_block_p (const_basic_block bb)
 {
-  edge e;
-
   if (!cfg_hooks->can_duplicate_block_p)
     internal_error ("%s does not support can_duplicate_block_p",
 		    cfg_hooks->name);
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
-    return false;
-
-  /* Duplicating fallthru block to exit would require adding a jump
-     and splitting the real last BB.  */
-  e = find_edge (bb, EXIT_BLOCK_PTR);
-  if (e && (e->flags & EDGE_FALLTHRU))
     return false;
 
   return cfg_hooks->can_duplicate_block_p (bb);
@@ -950,7 +984,7 @@ block_ends_with_call_p (basic_block bb)
 /* Return 1 if BB ends with a conditional branch, 0 otherwise.  */
 
 bool
-block_ends_with_condjump_p (basic_block bb)
+block_ends_with_condjump_p (const_basic_block bb)
 {
   if (!cfg_hooks->block_ends_with_condjump_p)
     internal_error ("%s does not support block_ends_with_condjump_p",
@@ -1030,7 +1064,7 @@ cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
 /* Conditional jumps are represented differently in trees and RTL,
    this hook takes a basic block that is known to have a cond jump
-   at its end and extracts the taken and not taken eges out of it
+   at its end and extracts the taken and not taken edges out of it
    and store it in E1 and E2 respectively.  */
 void
 extract_cond_bb_edges (basic_block b, edge *e1, edge *e2)
@@ -1043,10 +1077,10 @@ extract_cond_bb_edges (basic_block b, edge *e1, edge *e2)
    new condition basic block that guards the versioned loop.  */
 void
 lv_adjust_loop_header_phi (basic_block first, basic_block second,
-			   basic_block new, edge e)
+			   basic_block new_block, edge e)
 {
   if (cfg_hooks->lv_adjust_loop_header_phi)
-    cfg_hooks->lv_adjust_loop_header_phi (first, second, new, e);
+    cfg_hooks->lv_adjust_loop_header_phi (first, second, new_block, e);
 }
 
 /* Conditions in trees and RTL are different so we need
@@ -1054,8 +1088,8 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
    versioning code.  */
 void
 lv_add_condition_to_bb (basic_block first, basic_block second,
-			basic_block new, void *cond)
+			basic_block new_block, void *cond)
 {
   gcc_assert (cfg_hooks->lv_add_condition_to_bb);
-  cfg_hooks->lv_add_condition_to_bb (first, second, new, cond);
+  cfg_hooks->lv_add_condition_to_bb (first, second, new_block, cond);
 }

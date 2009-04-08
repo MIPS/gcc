@@ -1,5 +1,5 @@
 ;; Machine Descriptions for R8C/M16C/M32C
-;; Copyright (C) 2005
+;; Copyright (C) 2005, 2007, 2008
 ;; Free Software Foundation, Inc.
 ;; Contributed by Red Hat.
 ;;
@@ -7,7 +7,7 @@
 ;;
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
 ;; License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; move, push, extend, etc.
 
@@ -339,6 +338,16 @@
   [(set_attr "flags" "x")]
   )
 
+(define_insn "extendhipsi2"
+  [(set (match_operand:PSI 0 "register_operand" "=R03")
+	(sign_extend:PSI (match_operand:HI 1 "register_operand" "0")))]
+  ""
+  "*
+   if (REGNO(operands[0]) == 0) return \"exts.w\t%1\";
+   else return \"mov.w r1,r3 | sha.w #-8,r3 | sha.w #-7,r3\";"
+  [(set_attr "flags" "x")]
+  )
+
 (define_insn "extendpsisi2"
   [(set (match_operand:SI 0 "mr_operand" "=R03Sd*Rmm")
 	(sign_extend:SI (match_operand:PSI 1 "mr_operand" "0")))]
@@ -372,7 +381,7 @@
   )
 
 (define_insn "zero_extendqihi2"
-  [(set (match_operand:HI 0 "m32c_nonimmediate_operand" "=Rhl,RhiSd*Rmm")
+  [(set (match_operand:HI 0 "m32c_nonimmediate_operand" "=?Rhl,RhiSd*Rmm")
 	(zero_extend:HI (match_operand:QI 1 "nonimmediate_operand" "0,0")))]
   ""
   "@

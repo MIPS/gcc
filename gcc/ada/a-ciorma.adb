@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                      A D A . C O N T A I N E R S .                       --
---             I N D E F I N I T E _ O R D E R E D _ M A P S                --
+--                 ADA.CONTAINERS.INDEFINITE_ORDERED_MAPS                   --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -707,8 +706,9 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
       Key       : Key_Type;
       New_Item  : Element_Type)
    is
-
       Position : Cursor;
+      pragma Unreferenced (Position);
+
       Inserted : Boolean;
 
    begin
@@ -1305,6 +1305,7 @@ package body Ada.Containers.Indefinite_Ordered_Maps is
 
          begin
             Process (K, E);
+
          exception
             when others =>
                L := L - 1;

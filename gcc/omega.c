@@ -5,14 +5,15 @@
    This code has no license restrictions, and is considered public
    domain.
 
-   Changes copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Changes copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation,
+   Inc.
    Contributed by Sebastian Pop <sebastian.pop@inria.fr>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -21,9 +22,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* For a detailed description, see "Constraint-Based Array Dependence
    Analysis" William Pugh, David Wonnacott, TOPLAS'98 and David
@@ -2434,7 +2434,7 @@ smooth_weird_equations (omega_pb pb)
 		if (dump_file && (dump_flags & TDF_DETAILS))
 		  {
 		    fprintf (dump_file,
-			     "Smoothing wierd equations; adding:\n");
+			     "Smoothing weird equations; adding:\n");
 		    omega_print_geq (dump_file, pb, &pb->geqs[e3]);
 		    fprintf (dump_file, "\nto:\n");
 		    omega_print_problem (dump_file, pb);
@@ -2454,7 +2454,7 @@ coalesce (omega_pb pb)
 {
   int e, e2;
   int colors = 0;
-  bool *is_dead = XNEWVEC (bool, OMEGA_MAX_GEQS);
+  bool *is_dead;
   int found_something = 0;
 
   for (e = 0; e < pb->num_geqs; e++)
@@ -2463,6 +2463,8 @@ coalesce (omega_pb pb)
 
   if (colors < 2)
     return;
+
+  is_dead = XNEWVEC (bool, OMEGA_MAX_GEQS);
 
   for (e = 0; e < pb->num_geqs; e++)
     is_dead[e] = false;

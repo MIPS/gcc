@@ -1,4 +1,4 @@
-#   Copyright (C) 2001, 2004 Free Software Foundation, Inc.
+#   Copyright (C) 2001, 2004, 2008 Free Software Foundation, Inc.
 #   Written By Nick Clifton
 # 
 # This file is free software; you can redistribute it and/or modify it
@@ -72,8 +72,6 @@
 .endm
 		
 	
-	.file		"crtn.asm"
-
 	.section	".init"
 	;;
 	FUNC_END

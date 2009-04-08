@@ -44,7 +44,6 @@ import java.awt.Canvas;
 import java.awt.Checkbox;
 import java.awt.CheckboxMenuItem;
 import java.awt.Choice;
-import java.awt.Component;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.EventQueue;
@@ -52,8 +51,10 @@ import java.awt.FileDialog;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Frame;
+import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.HeadlessException;
 import java.awt.Image;
 import java.awt.Label;
 import java.awt.List;
@@ -69,6 +70,8 @@ import java.awt.TextArea;
 import java.awt.TextField;
 import java.awt.Transparency;
 import java.awt.Window;
+import java.awt.Dialog.ModalExclusionType;
+import java.awt.Dialog.ModalityType;
 import java.awt.datatransfer.Clipboard;
 import java.awt.dnd.DragGestureEvent;
 import java.awt.dnd.peer.DragSourceContextPeer;
@@ -88,7 +91,6 @@ import java.awt.peer.FileDialogPeer;
 import java.awt.peer.FontPeer;
 import java.awt.peer.FramePeer;
 import java.awt.peer.LabelPeer;
-import java.awt.peer.LightweightPeer;
 import java.awt.peer.ListPeer;
 import java.awt.peer.MenuBarPeer;
 import java.awt.peer.MenuItemPeer;
@@ -117,11 +119,18 @@ import javax.imageio.ImageIO;
 import gnu.classpath.SystemProperties;
 import gnu.java.awt.ClasspathToolkit;
 import gnu.java.awt.EmbeddedWindow;
+import gnu.java.awt.font.OpenTypeFontPeer;
+import gnu.java.awt.image.ImageConverter;
+import gnu.java.awt.java2d.AbstractGraphics2D;
 import gnu.java.awt.peer.ClasspathFontPeer;
 import gnu.java.awt.peer.EmbeddedWindowPeer;
+import gnu.java.awt.peer.swing.SwingButtonPeer;
 import gnu.java.awt.peer.swing.SwingCanvasPeer;
+import gnu.java.awt.peer.swing.SwingCheckboxPeer;
 import gnu.java.awt.peer.swing.SwingLabelPeer;
 import gnu.java.awt.peer.swing.SwingPanelPeer;
+import gnu.java.awt.peer.swing.SwingTextAreaPeer;
+import gnu.java.awt.peer.swing.SwingTextFieldPeer;
 
 public class XToolkit
   extends ClasspathToolkit
@@ -155,7 +164,8 @@ public class XToolkit
   /**
    * The cached fonts.
    */
-  private WeakHashMap fontCache = new WeakHashMap();
+  private WeakHashMap<String,ClasspathFontPeer> fontCache =
+    new WeakHashMap<String,ClasspathFontPeer>();
 
   public XToolkit()
   {
@@ -179,21 +189,32 @@ public class XToolkit
    */
   public ClasspathFontPeer getClasspathFontPeer(String name, Map attrs)
   {
-    String canonical = XFontPeer.encodeFont(name, attrs);
     ClasspathFontPeer font;
-    if (!fontCache.containsKey(canonical))
+    if ("true".equals(System.getProperty("escherpeer.usexfonts")))
       {
-        String graphics2d =
-          SystemProperties.getProperty("gnu.xawt.graphics2d");
-        if (graphics2d != null && graphics2d.equals("gl"))
-          font = new XFontPeer2(name, attrs);
+        String canonical = XFontPeer.encodeFont(name, attrs);
+        if (!fontCache.containsKey(canonical))
+          {
+            font = new XFontPeer(name, attrs);
+            fontCache.put(canonical, font);
+          }
         else
-          font = new XFontPeer(name, attrs);
-        fontCache.put(canonical, font);
+          {
+            font = fontCache.get(canonical);
+          }
       }
     else
       {
-        font = (ClasspathFontPeer) fontCache.get(canonical);
+        String canonical = OpenTypeFontPeer.encodeFont(name, attrs);
+        if (!fontCache.containsKey(canonical))
+          {
+            font = new OpenTypeFontPeer(name, attrs);
+            fontCache.put(canonical, font);
+          }
+        else
+          {
+            font = fontCache.get(canonical);
+          }
       }
     return font;
   }
@@ -217,18 +238,24 @@ public class XToolkit
 
   protected ButtonPeer createButton(Button target)
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    checkHeadLess("No ButtonPeer can be created in an headless" +
+    		      "graphics environment.");
+    
+    return new SwingButtonPeer(target);
   }
 
   protected TextFieldPeer createTextField(TextField target)
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    checkHeadLess("No TextFieldPeer can be created in an headless " +
+    		      "graphics environment.");
+    
+    return new SwingTextFieldPeer(target);
   }
 
   protected LabelPeer createLabel(Label target)
   {
+    checkHeadLess("No LabelPeer can be created in an headless graphics " +
+    		      "environment.");
     return new SwingLabelPeer(target);
   }
 
@@ -240,8 +267,10 @@ public class XToolkit
 
   protected CheckboxPeer createCheckbox(Checkbox target)
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    checkHeadLess("No CheckboxPeer can be created in an headless graphics " +
+                  "environment.");
+    
+    return new SwingCheckboxPeer(target);
   }
 
   protected ScrollbarPeer createScrollbar(Scrollbar target)
@@ -258,8 +287,10 @@ public class XToolkit
 
   protected TextAreaPeer createTextArea(TextArea target)
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    checkHeadLess("No TextAreaPeer can be created in an headless graphics " +
+    		      "environment.");
+    
+    return new SwingTextAreaPeer(target);
   }
 
   protected ChoicePeer createChoice(Choice target)
@@ -338,14 +369,22 @@ public class XToolkit
 
   public Dimension getScreenSize()
   {
-    // FIXME: This is only a hack to get some apps working.
-    return new Dimension(1024, 768);
+    GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+    GraphicsDevice gd = ge.getDefaultScreenDevice();
+    GraphicsConfiguration gc = gd.getDefaultConfiguration();
+    XGraphicsConfiguration xgc = (XGraphicsConfiguration) gc;
+
+    return xgc.getSize();
   }
 
   public int getScreenResolution()
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+    GraphicsDevice gd = ge.getDefaultScreenDevice();
+    GraphicsConfiguration gc = gd.getDefaultConfiguration();
+    XGraphicsConfiguration xgc = (XGraphicsConfiguration) gc;
+
+    return xgc.getResolution();
   }
 
   /**
@@ -363,8 +402,8 @@ public class XToolkit
 
   public String[] getFontList()
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+    return ge.getAvailableFontFamilyNames();
   }
 
   public FontMetrics getFontMetrics(Font name)
@@ -491,21 +530,21 @@ public class XToolkit
 
   public boolean prepareImage(Image image, int width, int height, ImageObserver observer)
   {
-    // Images are loaded synchronously, so we don't bother and return true.
-    return true;
+    Image scaled = AbstractGraphics2D.prepareImage(image, width, height);
+    return checkImage(image, width, height, observer) == ImageObserver.ALLBITS;
   }
 
   public int checkImage(Image image, int width, int height, ImageObserver observer)
   {
-    // TODO: Implement this.
-    throw new UnsupportedOperationException("Not yet implemented.");
+    // Images are loaded synchronously, so we don't bother and return true.
+    return ImageObserver.ALLBITS;
   }
 
   public Image createImage(ImageProducer producer)
   {
     ImageConverter conv = new ImageConverter();
     producer.startProduction(conv);
-    Image image = conv.getXImage();
+    Image image = conv.getImage();
     return image;
   }
 
@@ -601,8 +640,28 @@ public class XToolkit
     return (XGraphicsDevice) env.getDefaultScreenDevice();
   }
 
-  protected LightweightPeer createComponent(Component c)
+  @Override
+  public boolean isModalExclusionTypeSupported(ModalExclusionType modalExclusionType)
   {
-    return new XLightweightPeer(c);
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public boolean isModalityTypeSupported(ModalityType modalityType)
+  {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  private void checkHeadLess(String message) throws HeadlessException
+  {
+    if(GraphicsEnvironment.isHeadless())
+      {
+        if(message == null)
+          message = "This method cannot be called in headless mode.";
+      
+        throw new HeadlessException(message);
+      }
   }
 }

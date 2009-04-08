@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -176,8 +175,10 @@ package body Styleg.C is
 
       --  Case of definition in package Standard
 
-      elsif Sdef = Standard_Location then
-
+      elsif Sdef = Standard_Location
+              or else
+            Sdef = Standard_ASCII_Location
+      then
          --  Check case of identifiers in Standard
 
          if Style_Check_Standard then
@@ -191,19 +192,14 @@ package body Styleg.C is
             --  Otherwise determine required casing of Standard entity
 
             else
-               --  ASCII entities are in all upper case
+               --  ASCII is all upper case
 
                if Entity (Ref) = Standard_ASCII then
                   Cas := All_Upper_Case;
 
                --  Special names in ASCII are also all upper case
 
-               elsif Entity (Ref) in SE (S_LC_A) .. SE (S_LC_Z)
-                       or else
-                     Entity (Ref) in SE (S_NUL) .. SE (S_US)
-                       or else
-                     Entity (Ref) = SE (S_DEL)
-               then
+               elsif Sdef = Standard_ASCII_Location then
                   Cas := All_Upper_Case;
 
                --  All other entities are in mixed case
@@ -227,12 +223,29 @@ package body Styleg.C is
                   Set_Casing (Cas);
                   Error_Msg_Name_1 := Name_Enter;
                   Error_Msg_N
-                    ("(style) bad casing of { declared in Standard", Ref);
+                    ("(style) bad casing of %% declared in Standard", Ref);
                end if;
             end if;
          end if;
       end if;
    end Check_Identifier;
+
+   ------------------------
+   -- Missing_Overriding --
+   ------------------------
+
+   procedure Missing_Overriding (N : Node_Id; E : Entity_Id) is
+   begin
+      if Style_Check_Missing_Overriding and then Comes_From_Source (N) then
+         if Nkind (N) = N_Subprogram_Body then
+            Error_Msg_N
+              ("(style) missing OVERRIDING indicator in body of&", E);
+         else
+            Error_Msg_N
+              ("(style) missing OVERRIDING indicator in declaration of&", E);
+         end if;
+      end if;
+   end Missing_Overriding;
 
    -----------------------------------
    -- Subprogram_Not_In_Alpha_Order --

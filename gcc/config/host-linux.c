@@ -1,11 +1,11 @@
 /* Linux host-specific hook definitions.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -85,6 +84,8 @@
 # define TRY_EMPTY_VM_SPACE	0x8000000000
 #elif defined(__sparc__)
 # define TRY_EMPTY_VM_SPACE	0x60000000
+#elif defined(__mc68000__)
+# define TRY_EMPTY_VM_SPACE	0x40000000
 #else
 # define TRY_EMPTY_VM_SPACE	0
 #endif

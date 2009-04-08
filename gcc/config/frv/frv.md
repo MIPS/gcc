@@ -1,13 +1,13 @@
 ;; Frv Machine Description
-;; Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation,
-;; Inc.
+;; Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2007, 2008
+;; Free Software Foundation, Inc.
 ;; Contributed by Red Hat, Inc.
 
 ;; This file is part of GCC.
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -87,7 +86,7 @@
    (FDPIC_REG			15)
    ])
 
-(define_mode_macro IMODE [QI HI SI DI])
+(define_mode_iterator IMODE [QI HI SI DI])
 (define_mode_attr IMODEsuffix [(QI "b") (HI "h") (SI "") (DI "d")])
 (define_mode_attr BREADsuffix [(QI "ub") (HI "uh") (SI "") (DI "d")])
 
@@ -1180,6 +1179,18 @@
 (define_cpu_unit "fr550_f0,fr550_f1,fr550_f2,fr550_f3" "fr550_float_media")
 (define_cpu_unit "fr550_m0,fr550_m1,fr550_m2,fr550_m3" "fr550_float_media")
 (exclusion_set "fr550_f1,fr550_f2,fr550_f3" "fr550_m1,fr550_m2,fr550_m3")
+(exclusion_set "fr550_m0" "fr550_f1,fr550_f2,fr550_f3")
+;; FIXME: This next exclusion set should be defined as well, so that we do
+;; not get a packet containing multiple media instructions plus a single
+;; floating point instruction.  At the moment we can get away with not
+;; defining it because gcc does not seem to generate such packets.
+;;
+;; If we do enable the exclusion however the insertion of fnop insns into
+;; a packet containing media instructions will stop working, because the
+;; fnop insn counts as a floating point instruction.  The correct solution
+;; is to fix the reservation for the fnop insn so that it does not have the
+;; same restrictions as ordinary floating point insns.
+;;(exclusion_set "fr550_f0" "fr550_m1,fr550_m2,fr550_m3")
 
 (define_reservation "fr550_float" "fr550_f0|fr550_f1|fr550_f2|fr550_f3")
 (define_reservation "fr550_media" "fr550_m0|fr550_m1|fr550_m2|fr550_m3")
@@ -2093,8 +2104,8 @@
     }
   else
     {
-      operands[4] = GEN_INT ((((unsigned HOST_WIDE_INT)INTVAL (op1) >> 16)
-			      >> 16) ^ ((unsigned HOST_WIDE_INT)1 << 31)
+      operands[4] = GEN_INT (((((unsigned HOST_WIDE_INT)INTVAL (op1) >> 16)
+			      >> 16) ^ ((unsigned HOST_WIDE_INT)1 << 31))
 			     - ((unsigned HOST_WIDE_INT)1 << 31));
       operands[5] = GEN_INT (trunc_int_for_mode (INTVAL (op1), SImode));
     }
@@ -7874,7 +7885,7 @@
   ""
   "
 {
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     operands[6] = operands[5] = operands[0];
   else
     {
@@ -7902,7 +7913,7 @@
   ""
   "
 {
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     operands[6] = operands[5] = operands[0];
   else
     {
@@ -7950,7 +7961,7 @@
 {
   rtx insn;
 
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     operands[4] = operands[0];
   else
     operands[4] = gen_reg_rtx (SImode);
@@ -7976,7 +7987,7 @@
 {
   rtx insn;
 
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     {
       emit_insn (gen_symGOT2reg (operands[0], operands[1], operands[2],
 				 GEN_INT (R_FRV_GOT12)));

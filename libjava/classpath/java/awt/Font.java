@@ -170,6 +170,31 @@ public class Font implements Serializable
   public static final int LAYOUT_NO_LIMIT_CONTEXT = 4;
 
   /**
+   * @since 1.6
+   */
+  public static final String DIALOG = "Dialog";
+
+  /**
+   * @since 1.6
+   */
+  public static final String DIALOG_INPUT = "DialogInput";
+
+  /**
+   * @since 1.6
+   */
+  public static final String MONOSPACED = "Monospaced";
+
+  /**
+   * @since 1.6
+   */
+  public static final String SANS_SERIF = "SansSerif";
+
+  /**
+   * @since 1.6
+   */
+  public static final String SERIF = "Serif";
+
+  /**
    * The logical name of this font.
    *
    * @since 1.0
@@ -204,6 +229,11 @@ public class Font implements Serializable
   // The ClasspathToolkit-provided peer which implements this font
   private transient ClasspathFontPeer peer;
 
+  /**
+   * The cached hashcode. A value of 0 (default initialized) means that the
+   * hashcode is not computed yet.
+   */
+  private transient int hashCode;
 
   /**
    * Creates a <code>Font</code> object from the specified string, which
@@ -328,6 +358,11 @@ public class Font implements Serializable
   public static Font getFont(String propname)
   {
     return getFont(propname, (Font) null);
+  }
+
+  protected Font(Font font)
+  {
+    this(font.getName(), font.getAttributes());
   }
 
   /**
@@ -491,7 +526,12 @@ public class Font implements Serializable
    */
   public boolean canDisplay(char c)
   {
-    return peer.canDisplay(this, c);    
+    return canDisplay((int) c);
+  }
+
+  public boolean canDisplay(int codePoint)
+  {
+    return peer.canDisplay(this, codePoint);
   }
 
   /**
@@ -1283,7 +1323,21 @@ public class Font implements Serializable
    */
   public int hashCode()
   {
-    return this.toString().hashCode();
+    // We cache the hashcode. This makes sense, because the font wouldn't
+    // change the relevant properties.
+    if (hashCode == 0)
+      {
+        hashCode = getName().hashCode() ^ getTransform().hashCode() ^ getSize()
+                   ^ getStyle();
+        // In the rare case when the above yields 0, we set this to some other
+        // value to avoid recomputing over and over again. This is still
+        // conform to the specification of hashCode().
+        if (hashCode == 0)
+          {
+            hashCode = -1;
+          }
+      }
+    return hashCode;
   }
 
 
@@ -1371,6 +1425,12 @@ public class Font implements Serializable
   public LineMetrics getLineMetrics(String str, FontRenderContext frc)
   {
     return getLineMetrics(str, 0, str.length() - 1, frc);
+  }
+
+  public boolean hasLayoutAttributes()
+  {
+    // TODO: Implement properly.
+    return false;
   }
 
   /**

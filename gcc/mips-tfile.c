@@ -3,14 +3,15 @@
    in the form of comments (the mips assembler does not support
    assembly access to debug information).
    Copyright (C) 1991, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -19,9 +20,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Here is a brief description of the MIPS ECOFF symbol table.  The
@@ -57,7 +57,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    The auxiliary table is a series of 32 bit integers, that are
    referenced as needed from the local symbol table.  Unlike standard
-   COFF, the aux.  information does not follow the symbol that uses
+   COFF, the aux. information does not follow the symbol that uses
    it, but rather is a separate table.  In theory, this would allow
    the MIPS compilers to collapse duplicate aux. entries, but I've not
    noticed this happening with the 1.31 compiler suite.  The different
@@ -2856,7 +2856,8 @@ parse_def (const char *name_start)
 	{
 	  int ch2;
 	  arg_number = strtol (arg_start, (char **) &arg_end_p1, 0);
-	  if (arg_end_p1 != arg_start || ((ch2 = *arg_end_p1) != ';') || ch2 != ',')
+	  /* It's only a number if followed by ';' or ','. */
+	  if (arg_end_p1 != arg_start && (((ch2 = *arg_end_p1) == ';') || ch2 == ','))
 	    arg_was_number++;
 	}
 
@@ -2912,7 +2913,7 @@ parse_def (const char *name_start)
 		    {
 		      int ch2;
 		      arg_number = strtol (arg_start, (char **) &arg_end_p1, 0);
-		      if (arg_end_p1 != arg_start || ((ch2 = *arg_end_p1) != ';') || ch2 != ',')
+		      if (arg_end_p1 != arg_start && (((ch2 = *arg_end_p1) == ';') || ch2 == ','))
 			arg_was_number++;
 
 		      if (t_ptr == &temp_array[0])
@@ -2986,7 +2987,7 @@ parse_def (const char *name_start)
 		    {
 		      int ch2;
 		      arg_number = strtol (arg_start, (char **) &arg_end_p1, 0);
-		      if (arg_end_p1 != arg_start || ((ch2 = *arg_end_p1) != ';') || ch2 != ',')
+		      if (arg_end_p1 != arg_start && (((ch2 = *arg_end_p1) == ';') || ch2 == ','))
 			arg_was_number++;
 
 		      if (t_ptr == &temp_array[0])
@@ -4470,7 +4471,7 @@ copy_object (void)
      (in case there are duplicate filenames, we collapse them into one
      file section, the MIPS assembler may or may not collapse them).  */
 
-  remap_file_number = alloca (sizeof (int) * orig_sym_hdr.ifdMax);
+  remap_file_number = (int *) alloca (sizeof (int) * orig_sym_hdr.ifdMax);
 
   for (fd = delete_ifd; fd < orig_sym_hdr.ifdMax; fd++)
     {
@@ -4779,8 +4780,8 @@ main (int argc, char **argv)
 
   if (version)
     {
-      printf (_("mips-tfile (GCC) %s\n"), version_string);
-      fputs ("Copyright (C) 2006 Free Software Foundation, Inc.\n", stdout);
+      printf (_("mips-tfile %s%s\n"), pkgversion_string, version_string);
+      fputs ("Copyright (C) 2009 Free Software Foundation, Inc.\n", stdout);
       fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
 	     stdout);

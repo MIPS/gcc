@@ -1,12 +1,13 @@
 /* Darwin support needed only by C/C++ frontends.
-   Copyright (C) 2001, 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -27,7 +27,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree.h"
 #include "c-pragma.h"
 #include "c-tree.h"
-#include "c-incpath.h"
+#include "incpath.h"
 #include "c-common.h"
 #include "toplev.h"
 #include "flags.h"
@@ -180,7 +180,7 @@ darwin_pragma_ms_struct (cpp_reader *pfile ATTRIBUTE_UNUSED)
     BAD ("junk at end of '#pragma ms_struct'");
 }
 
-static struct {
+static struct frameworks_in_use {
   size_t len;
   const char *name;
   cpp_dir* dir;
@@ -212,8 +212,8 @@ add_framework (const char *name, size_t len, cpp_dir *dir)
     {
       max_frameworks = i*2;
       max_frameworks += i == 0;
-      frameworks_in_use = xrealloc (frameworks_in_use,
-				    max_frameworks*sizeof(*frameworks_in_use));
+      frameworks_in_use = XRESIZEVEC (struct frameworks_in_use,
+				      frameworks_in_use, max_frameworks);
     }
   dir_name = XNEWVEC (char, len + 1);
   memcpy (dir_name, name, len);
@@ -567,8 +567,8 @@ find_subframework_header (cpp_reader *pfile, const char *header, cpp_dir **dirp)
 
 /* Return the value of darwin_macosx_version_min suitable for the
    __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ macro,
-   so '10.4.2' becomes 1042.
-   Print a warning if the version number is not known.  */
+   so '10.4.2' becomes 1040.  The lowest digit is always zero.
+   Print a warning if the version number can't be understood.  */
 static const char *
 version_as_macro (void)
 {
@@ -579,18 +579,9 @@ version_as_macro (void)
   if (! ISDIGIT (darwin_macosx_version_min[3]))
     goto fail;
   result[2] = darwin_macosx_version_min[3];
-  if (darwin_macosx_version_min[4] != '\0')
-    {
-      if (darwin_macosx_version_min[4] != '.')
-	goto fail;
-      if (! ISDIGIT (darwin_macosx_version_min[5]))
-	goto fail;
-      if (darwin_macosx_version_min[6] != '\0')
-	goto fail;
-      result[3] = darwin_macosx_version_min[5];
-    }
-  else
-    result[3] = '0';
+  if (darwin_macosx_version_min[4] != '\0'
+      && darwin_macosx_version_min[4] != '.')
+    goto fail;
 
   return result;
 

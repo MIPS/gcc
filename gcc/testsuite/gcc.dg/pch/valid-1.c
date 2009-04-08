@@ -1,5 +1,8 @@
 /* { dg-options "-I. -Winvalid-pch -g" } */
 
-#include "valid-1.h"/* { dg-error "created with -gnone, but used with -g|No such file|they were invalid" } */
+#include "valid-1.h"/* { dg-warning "created with -gnone, but used with -g" } */
+/* { dg-error "No such file" "no such file" { target *-*-* } 3 } */
+/* { dg-error "they were invalid" "invalid files" { target *-*-* } 3 } */
+/* { dg-message "terminated" "" { target *-*-* } 0 } */
 
 int x;

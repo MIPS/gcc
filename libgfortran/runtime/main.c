@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2003, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Andy Vaught and Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -27,13 +27,11 @@ along with libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
-#include <stdio.h>
+#include "libgfortran.h"
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 
-#include "libgfortran.h"
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -47,10 +45,9 @@ stupid_function_name_for_static_linking (void)
   return;
 }
 
-/* This is the offset (in bytes) required to cast from logical(8)* to
-   logical(4)*. and still get the same result.  Will be 0 for little-endian
-   machines and 4 for big-endian machines.  */
-int l8_to_l4_offset = 0;
+/* This will be 0 for little-endian
+   machines and 1 for big-endian machines.  */
+int big_endian = 0;
 
 
 /* Figure out endianness for this machine.  */
@@ -66,9 +63,9 @@ determine_endianness (void)
 
   u.l8 = 1;
   if (u.l4[0])
-    l8_to_l4_offset = 0;
+    big_endian = 0;
   else if (u.l4[1])
-    l8_to_l4_offset = 1;
+    big_endian = 1;
   else
     runtime_error ("Unable to determine machine endianness");
 }
@@ -114,7 +111,8 @@ store_exe_path (const char * argv0)
 
   char buf[PATH_MAX], *cwd, *path;
 
-  if (argv0[0] == '/')
+  /* On the simulator argv is not set.  */
+  if (argv0 == NULL || argv0[0] == '/')
     {
       exe_path = argv0;
       please_free_exe_path_when_done = 0;
@@ -122,11 +120,15 @@ store_exe_path (const char * argv0)
     }
 
   memset (buf, 0, sizeof (buf));
+#ifdef HAVE_GETCWD
   cwd = getcwd (buf, sizeof (buf));
+#else
+  cwd = "";
+#endif
 
   /* exe_path will be cwd + "/" + argv[0] + "\0" */
   path = malloc (strlen (cwd) + 1 + strlen (argv0) + 1);
-  st_sprintf (path, "%s%c%s", cwd, DIR_SEPARATOR, argv0);
+  sprintf (path, "%s%c%s", cwd, DIR_SEPARATOR, argv0);
   exe_path = path;
   please_free_exe_path_when_done = 1;
 }
@@ -162,7 +164,7 @@ init (void)
   /* if (argc > 1 && strcmp(argv[1], "--resume") == 0) resume();  */
 #endif
 
-  random_seed(NULL,NULL,NULL);
+  random_seed_i4 (NULL, NULL, NULL);
 }
 
 
@@ -174,5 +176,5 @@ cleanup (void)
   close_units ();
   
   if (please_free_exe_path_when_done)
-    free (exe_path);
+    free ((char *) exe_path);
 }

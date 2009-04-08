@@ -48,6 +48,9 @@ exception statement from your version. */
 #define CPFILE_FLAG_BINARY   0x0020
 #define CPFILE_FLAG_READ     0x0040
 #define CPFILE_FLAG_WRITE    0x0080
+#define CPFILE_FLAG_EXEC     0x0100
+#define CPFILE_FLAG_USR      0x0400
+#define CPFILE_FLAG_OFF      0x0800
 
 #define CPFILE_PERMISSION_NORMAL 1
 
@@ -70,6 +73,8 @@ JNIEXPORT int cpio_closeOnExec(int fd);
 #define CPFILE_DIRECTORY 1
 
 JNIEXPORT int cpio_setFileReadonly (const char *filename);
+JNIEXPORT int cpio_chmod (const char *filename, int permissions);
+JNIEXPORT int cpio_checkAccess (const char *filename, unsigned int flag);
 JNIEXPORT int cpio_isFileExists (const char *filename);
 JNIEXPORT int cpio_checkType (const char *filename, jint *entryType);
 JNIEXPORT int cpio_getModificationTime (const char *filename, jlong *mtime);
@@ -77,6 +82,15 @@ JNIEXPORT int cpio_setModificationTime (const char *filename, jlong mtime);
 JNIEXPORT int cpio_removeFile (const char *filename);
 JNIEXPORT int cpio_mkdir (const char *filename);
 JNIEXPORT int cpio_rename (const char *old_name, const char *new_name);
+
+/* to be used with cpio_df */
+typedef enum {
+  TOTAL = 0,
+  FREE,
+  USABLE
+} CPFILE_DF_TYPE;
+
+JNIEXPORT long long cpio_df (const char *path, CPFILE_DF_TYPE type);
 
 JNIEXPORT int cpio_openDir (const char *dirname, void **handle);
 JNIEXPORT int cpio_closeDir (void *handle);

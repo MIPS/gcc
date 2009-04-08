@@ -53,7 +53,7 @@
 #include <common_type/assoc/template_policy.hpp>
 #include <io/xml.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
 
   namespace test
@@ -67,36 +67,31 @@ namespace pb_ds
 
       template<typename Allocator>
       struct size_policy_string_form<
-	pb_ds::test::hash_exponential_size_policy_t_<
-        Allocator> >
+	__gnu_pbds::test::hash_exponential_size_policy_t_<Allocator> >
       {
 	static std::string
         name()
-	{
-	  return ("exp_");
-	}
+	{ return ("exp_"); }
 
 	static std::string
         desc()
 	{
-	  return (make_xml_tag(            "Size_Policy", "value", "hash_exponential_size_policy"));
+	  return (make_xml_tag("Size_Policy", "value", "hash_exponential_size_policy"));
 	}
       };
 
       template<>
       struct size_policy_string_form<
-	pb_ds::test::hash_prime_size_policy_t_>
+	__gnu_pbds::test::hash_prime_size_policy_t_>
       {
 	static std::string
         name()
-	{
-	  return ("prime_");
-	}
+	{ return ("prime_"); }
 
 	static std::string
         desc()
 	{
-	  return (make_xml_tag(            "Size_Policy", "value", "hash_prime_size_policy"));
+	  return (make_xml_tag("Size_Policy", "value", "hash_prime_size_policy"));
 	}
       };
 
@@ -104,7 +99,7 @@ namespace pb_ds
 
   } // namespace test
 
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif // #ifndef PB_DS_SIZE_POLICY_STRING_FORM_HPP
 

@@ -53,7 +53,7 @@
 #include <common_type/assoc/template_policy.hpp>
 #include <io/xml.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
 
   namespace test
@@ -70,11 +70,8 @@ namespace pb_ds
 	       bool External_Size_Access,
 	       typename Size_Type>
       struct resize_policy_string_form<
-	pb_ds::hash_standard_resize_policy<
-        Size_Policy,
-        Trigger_Policy,
-        External_Size_Access,
-        Size_Type> >
+	__gnu_pbds::hash_standard_resize_policy<
+        Size_Policy, Trigger_Policy, External_Size_Access, Size_Type> >
       {
 	static std::string
         name()
@@ -92,7 +89,7 @@ namespace pb_ds
 	  const std::string trigger_policy_string_form_desc =
             trigger_policy_string_form<Trigger_Policy>::desc();
 
-	  return (make_xml_tag(            "Resize_Policy", "value", "hash_standard_resize_policy", size_policy_string_form_desc + trigger_policy_string_form_desc));
+	  return (make_xml_tag("Resize_Policy", "value", "hash_standard_resize_policy", size_policy_string_form_desc + trigger_policy_string_form_desc));
 	}
       };
 
@@ -100,7 +97,7 @@ namespace pb_ds
 
   } // namespace test
 
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif // #ifndef PB_DS_RESIZE_POLICY_STRING_FORM_HPP
 

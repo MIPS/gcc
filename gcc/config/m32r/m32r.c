@@ -1,12 +1,12 @@
 /* Subroutines used for code generation on the Renesas M32R cpu.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2007 Free Software Foundation, Inc.
+   2005, 2007, 2008 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -42,6 +41,7 @@
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+#include "tm-constrs.h"
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -80,14 +80,14 @@ static int    m32r_adjust_priority (rtx, int);
 static int    m32r_issue_rate (void);
 
 static void m32r_encode_section_info (tree, rtx, int);
-static bool m32r_in_small_data_p (tree);
-static bool m32r_return_in_memory (tree, tree);
+static bool m32r_in_small_data_p (const_tree);
+static bool m32r_return_in_memory (const_tree, const_tree);
 static void m32r_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static void init_idents (void);
-static bool m32r_rtx_costs (rtx, int, int, int *);
+static bool m32r_rtx_costs (rtx, int, int, int *, bool speed);
 static bool m32r_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				    tree, bool);
+				    const_tree, bool);
 static int m32r_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				   tree, bool);
 
@@ -126,10 +126,10 @@ static int m32r_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 #undef  TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS m32r_rtx_costs
 #undef  TARGET_ADDRESS_COST
-#define TARGET_ADDRESS_COST hook_int_rtx_0
+#define TARGET_ADDRESS_COST hook_int_rtx_bool_0
 
 #undef  TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 #undef  TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY m32r_return_in_memory
 #undef  TARGET_SETUP_INCOMING_VARARGS
@@ -445,9 +445,9 @@ m32r_encode_section_info (tree decl, rtx rtl, int first)
    the object doesn't fit the linker will give an error.  */
 
 static bool
-m32r_in_small_data_p (tree decl)
+m32r_in_small_data_p (const_tree decl)
 {
-  tree section;
+  const_tree section;
 
   if (TREE_CODE (decl) != VAR_DECL)
     return false;
@@ -458,7 +458,7 @@ m32r_in_small_data_p (tree decl)
   section = DECL_SECTION_NAME (decl);
   if (section)
     {
-      char *name = (char *) TREE_STRING_POINTER (section);
+      const char *const name = TREE_STRING_POINTER (section);
       if (strcmp (name, ".sdata") == 0 || strcmp (name, ".sbss") == 0)
 	return true;
     }
@@ -508,8 +508,7 @@ small_data_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   if (GET_CODE (op) == CONST
       && GET_CODE (XEXP (op, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (op, 0), 0)) == SYMBOL_REF
-      && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT
-      && INT16_P (INTVAL (XEXP (XEXP (op, 0), 1))))
+      && satisfies_constraint_J (XEXP (XEXP (op, 0), 1)))
     return SYMBOL_REF_SMALL_P (XEXP (XEXP (op, 0), 0));
 
   return 0;
@@ -533,8 +532,7 @@ addr24_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   else if (GET_CODE (op) == CONST
 	   && GET_CODE (XEXP (op, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (op, 0), 0)) == SYMBOL_REF
-	   && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT
-	   && UINT24_P (INTVAL (XEXP (XEXP (op, 0), 1))))
+	   && satisfies_constraint_M (XEXP (XEXP (op, 0), 1)))
     sym = XEXP (XEXP (op, 0), 0);
   else
     return 0;
@@ -641,7 +639,7 @@ memreg_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 
 static bool
 m32r_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
-			enum machine_mode mode, tree type,
+			enum machine_mode mode, const_tree type,
 			bool named ATTRIBUTE_UNUSED)
 {
   int size;
@@ -691,8 +689,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
       switch (compare_code)
 	{
 	case EQ:
-	  if (GET_CODE (y) == CONST_INT
-	      && CMP_INT16_P (INTVAL (y))		/* Reg equal to small const.  */
+	  if (satisfies_constraint_P (y)		/* Reg equal to small const.  */
 	      && y != const0_rtx)
 	    {
 	      rtx tmp = gen_reg_rtx (SImode);
@@ -718,7 +715,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 
 	case LT:
 	  if (register_operand (y, SImode)
-	      || (GET_CODE (y) == CONST_INT && CMP_INT16_P (INTVAL (y))))
+	      || satisfies_constraint_P (y))
 	    {
 	      rtx tmp = gen_reg_rtx (SImode);	      /* Reg compared to reg.  */
 
@@ -758,7 +755,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 
 	case LTU:
 	  if (register_operand (y, SImode)
-	      || (GET_CODE (y) == CONST_INT && CMP_INT16_P (INTVAL (y))))
+	      || satisfies_constraint_P (y))
 	    {
 	      rtx tmp = gen_reg_rtx (SImode);	      /* Reg (unsigned) compared to reg.  */
 
@@ -814,8 +811,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 
       /* Reg/smallconst equal comparison.  */
       if (compare_code == EQ
-	  && GET_CODE (y) == CONST_INT
-	  && CMP_INT16_P (INTVAL (y)))
+	  && satisfies_constraint_P (y))
 	{
 	  rtx tmp = gen_reg_rtx (SImode);
 
@@ -1010,7 +1006,7 @@ m32r_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-m32r_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+m32r_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   return m32r_pass_by_reference (NULL, TYPE_MODE (type), type, false);
 }
@@ -1096,7 +1092,8 @@ m32r_issue_rate (void)
 /* Cost functions.  */
 
 static bool
-m32r_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
+m32r_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total,
+		bool speed ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -1254,10 +1251,10 @@ static struct m32r_frame_info zero_frame_info;
    Don't consider them here.  */
 #define MUST_SAVE_REGISTER(regno, interrupt_p) \
   ((regno) != RETURN_ADDR_REGNUM && (regno) != FRAME_POINTER_REGNUM \
-  && (regs_ever_live[regno] && (!call_really_used_regs[regno] || interrupt_p)))
+   && (df_regs_ever_live_p (regno) && (!call_really_used_regs[regno] || interrupt_p)))
 
-#define MUST_SAVE_FRAME_POINTER (regs_ever_live[FRAME_POINTER_REGNUM])
-#define MUST_SAVE_RETURN_ADDR   (regs_ever_live[RETURN_ADDR_REGNUM] || current_function_profile)
+#define MUST_SAVE_FRAME_POINTER (df_regs_ever_live_p (FRAME_POINTER_REGNUM))
+#define MUST_SAVE_RETURN_ADDR   (df_regs_ever_live_p (RETURN_ADDR_REGNUM) || crtl->profile)
 
 #define SHORT_INSN_SIZE 2	/* Size of small instructions.  */
 #define LONG_INSN_SIZE 4	/* Size of long instructions.  */
@@ -1276,12 +1273,12 @@ m32r_compute_frame_size (int size)	/* # of var. bytes allocated.  */
   unsigned int gmask;
   enum m32r_function_type fn_type;
   int interrupt_p;
-  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
-                                  | current_function_profile);
+  int pic_reg_used = flag_pic && (crtl->uses_pic_offset_table
+                                  | crtl->profile);
 
   var_size	= M32R_STACK_ALIGN (size);
-  args_size	= M32R_STACK_ALIGN (current_function_outgoing_args_size);
-  pretend_size	= current_function_pretend_args_size;
+  args_size	= M32R_STACK_ALIGN (crtl->outgoing_args_size);
+  pretend_size	= crtl->args.pretend_args_size;
   extra_size	= FIRST_PARM_OFFSET (0);
   total_size	= extra_size + pretend_size + args_size + var_size;
   reg_size	= 0;
@@ -1353,7 +1350,7 @@ m32r_reload_lr (rtx sp, int size)
       emit_insn (gen_movsi (lr, gen_frame_mem (Pmode, tmp)));
     }
 
-  emit_insn (gen_rtx_USE (VOIDmode, lr));
+  emit_use (lr);
 }
 
 void
@@ -1365,7 +1362,7 @@ m32r_load_pic_register (void)
 
   /* Need to emit this whether or not we obey regdecls,
      since setjmp/longjmp can cause life info to screw up.  */
-  emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+  emit_use (pic_offset_table_rtx);
 }
 
 /* Expand the m32r prologue as a series of insns.  */
@@ -1376,8 +1373,8 @@ m32r_expand_prologue (void)
   int regno;
   int frame_size;
   unsigned int gmask;
-  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
-                                  | current_function_profile);
+  int pic_reg_used = flag_pic && (crtl->uses_pic_offset_table
+                                  | crtl->profile);
 
   if (! current_frame_info.initialized)
     m32r_compute_frame_size (get_frame_size ());
@@ -1438,7 +1435,7 @@ m32r_expand_prologue (void)
   if (frame_pointer_needed)
     emit_insn (gen_movsi (frame_pointer_rtx, stack_pointer_rtx));
 
-  if (current_function_profile)
+  if (crtl->profile)
     /* Push lr for mcount (form_pc, x).  */
     emit_insn (gen_movsi_push (stack_pointer_rtx,
                                gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM)));
@@ -1447,10 +1444,10 @@ m32r_expand_prologue (void)
     {
       m32r_load_pic_register ();
       m32r_reload_lr (stack_pointer_rtx,
-                      (current_function_profile ? 0 : frame_size));
+                      (crtl->profile ? 0 : frame_size));
     }
 
-  if (current_function_profile && !pic_reg_used)
+  if (crtl->profile && !pic_reg_used)
     emit_insn (gen_blockage ());
 }
 
@@ -1523,7 +1520,7 @@ m32r_expand_epilogue (void)
       unsigned int var_size = current_frame_info.var_size;
       unsigned int args_size = current_frame_info.args_size;
       unsigned int gmask = current_frame_info.gmask;
-      int can_trust_sp_p = !current_function_calls_alloca;
+      int can_trust_sp_p = !cfun->calls_alloca;
 
       if (flag_exceptions)
         emit_insn (gen_blockage ());
@@ -1668,7 +1665,7 @@ m32r_legitimize_pic_address (rtx orig, rtx reg)
       else
         address = reg;
 
-      current_function_uses_pic_offset_table = 1;
+      crtl->uses_pic_offset_table = 1;
 
       if (GET_CODE (orig) == LABEL_REF
           || (GET_CODE (orig) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (orig)))
@@ -2449,7 +2446,7 @@ m32r_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
 {
   /* Interrupt routines can't clobber any register that isn't already used.  */
   if (lookup_attribute ("interrupt", DECL_ATTRIBUTES (current_function_decl))
-      && !regs_ever_live[new_reg])
+      && !df_regs_ever_live_p (new_reg))
     return 0;
 
   return 1;

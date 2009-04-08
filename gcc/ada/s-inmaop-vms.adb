@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,25 +31,18 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is a OpenVMS/Alpha version of this package.
+--  This is a OpenVMS/Alpha version of this package
 
 with System.OS_Interface;
---  used for various type, constant, and operations
-
 with System.Aux_DEC;
---  used for Short_Address
-
 with System.Parameters;
-
 with System.Tasking;
-
 with System.Tasking.Initialization;
-
+with System.Task_Primitives;
 with System.Task_Primitives.Operations;
-
 with System.Task_Primitives.Operations.DEC;
 
-with Unchecked_Conversion;
+with Ada.Unchecked_Conversion;
 
 package body System.Interrupt_Management.Operations is
 
@@ -58,7 +51,10 @@ package body System.Interrupt_Management.Operations is
    use System.Tasking;
    use type unsigned_short;
 
-   function To_Address is new Unchecked_Conversion (Task_Id, System.Address);
+   function To_Address is
+     new Ada.Unchecked_Conversion
+       (Task_Id, System.Task_Primitives.Task_Address);
+
    package POP renames System.Task_Primitives.Operations;
 
    ----------------------------
@@ -116,7 +112,7 @@ package body System.Interrupt_Management.Operations is
    --------------------
 
    function To_unsigned_long is new
-     Unchecked_Conversion (System.Aux_DEC.Short_Address, unsigned_long);
+     Ada.Unchecked_Conversion (System.Aux_DEC.Short_Address, unsigned_long);
 
    function Interrupt_Wait (Mask : access Interrupt_Mask)
      return Interrupt_ID
@@ -280,6 +276,8 @@ package body System.Interrupt_Management.Operations is
          Func   => IO_WRITEVBLK,
          P1     => To_unsigned_long (Interrupt'Address),
          P2     => Interrupt_ID'Size / 8);
+
+      --  The following could use a comment ???
 
       pragma Assert ((Status and 1) = 1);
    end Interrupt_Self_Process;

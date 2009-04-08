@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +31,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Exceptions;       use Ada.Exceptions;
 with Ada.Streams;          use Ada.Streams;
 with Interfaces.C_Streams; use Interfaces.C_Streams;
 
@@ -40,8 +39,8 @@ with System.File_IO;
 with System.WCh_Cnv;       use System.WCh_Cnv;
 with System.WCh_Con;       use System.WCh_Con;
 
-with Unchecked_Conversion;
-with Unchecked_Deallocation;
+with Ada.Unchecked_Conversion;
+with Ada.Unchecked_Deallocation;
 
 pragma Elaborate_All (System.File_IO);
 --  Needed because of calls to Chain_File in package body elaboration
@@ -52,8 +51,8 @@ package body Ada.Wide_Text_IO is
 
    subtype AP is FCB.AFCB_Ptr;
 
-   function To_FCB is new Unchecked_Conversion (File_Mode, FCB.File_Mode);
-   function To_TIO is new Unchecked_Conversion (FCB.File_Mode, File_Mode);
+   function To_FCB is new Ada.Unchecked_Conversion (File_Mode, FCB.File_Mode);
+   function To_TIO is new Ada.Unchecked_Conversion (FCB.File_Mode, File_Mode);
    use type FCB.File_Mode;
 
    use type System.CRTL.size_t;
@@ -76,9 +75,9 @@ package body Ada.Wide_Text_IO is
    --  done in Get_Immediate mode (i.e. without waiting for a line return).
 
    procedure Set_WCEM (File : in out File_Type);
-   --  Called by Open and Create to set the wide character encoding method
-   --  for the file, processing a WCEM form parameter if one is present.
-   --  File is IN OUT because it may be closed in case of an error.
+   --  Called by Open and Create to set the wide character encoding method for
+   --  the file, processing a WCEM form parameter if one is present. File is
+   --  IN OUT because it may be closed in case of an error.
 
    -------------------
    -- AFCB_Allocate --
@@ -122,7 +121,8 @@ package body Ada.Wide_Text_IO is
       type FCB_Ptr is access all Wide_Text_AFCB;
       FT : FCB_Ptr := FCB_Ptr (File);
 
-      procedure Free is new Unchecked_Deallocation (Wide_Text_AFCB, FCB_Ptr);
+      procedure Free is
+        new Ada.Unchecked_Deallocation (Wide_Text_AFCB, FCB_Ptr);
 
    begin
       Free (FT);
@@ -134,7 +134,7 @@ package body Ada.Wide_Text_IO is
 
    procedure Close (File : in out File_Type) is
    begin
-      FIO.Close (AP (File));
+      FIO.Close (AP (File)'Unrestricted_Access);
    end Close;
 
    ---------
@@ -180,6 +180,8 @@ package body Ada.Wide_Text_IO is
                 Amethod   => 'W',
                 Creat     => True,
                 Text      => True);
+
+      File.Self := File;
       Set_WCEM (File);
    end Create;
 
@@ -194,7 +196,7 @@ package body Ada.Wide_Text_IO is
 
    function Current_Error return File_Access is
    begin
-      return Current_Err'Access;
+      return Current_Err.Self'Access;
    end Current_Error;
 
    -------------------
@@ -208,7 +210,7 @@ package body Ada.Wide_Text_IO is
 
    function Current_Input return File_Access is
    begin
-      return Current_In'Access;
+      return Current_In.Self'Access;
    end Current_Input;
 
    --------------------
@@ -222,7 +224,7 @@ package body Ada.Wide_Text_IO is
 
    function Current_Output return File_Access is
    begin
-      return Current_Out'Access;
+      return Current_Out.Self'Access;
    end Current_Output;
 
    ------------
@@ -231,7 +233,7 @@ package body Ada.Wide_Text_IO is
 
    procedure Delete (File : in out File_Type) is
    begin
-      FIO.Delete (AP (File));
+      FIO.Delete (AP (File)'Unrestricted_Access);
    end Delete;
 
    -----------------
@@ -248,7 +250,6 @@ package body Ada.Wide_Text_IO is
          return False;
 
       elsif File.Before_LM then
-
          if File.Before_LM_PM then
             return Nextc (File) = EOF;
          end if;
@@ -419,6 +420,8 @@ package body Ada.Wide_Text_IO is
          File.Before_Wide_Character := False;
          Item := File.Saved_Wide_Character;
 
+      --  Ada.Text_IO checks Before_LM_PM here, shouldn't we do the same???
+
       else
          Get_Character (File, C);
          Item := Get_Wide_Char (C, File);
@@ -554,6 +557,8 @@ package body Ada.Wide_Text_IO is
          Item := Wide_Character'Val (LM);
 
       else
+         --  Shouldn't we use getc_immediate_nowait here, like Text_IO???
+
          ch := Getc_Immed (File);
 
          if ch = EOF then
@@ -748,9 +753,10 @@ package body Ada.Wide_Text_IO is
          end if;
       end In_Char;
 
-   --  Start of processing for In_Char
+   --  Start of processing for Get_Wide_Char
 
    begin
+      FIO.Check_Read_Status (AP (File));
       return WC_In (C, File.WC_Method);
    end Get_Wide_Char;
 
@@ -785,6 +791,7 @@ package body Ada.Wide_Text_IO is
    --  Start of processing for Get_Wide_Char_Immed
 
    begin
+      FIO.Check_Read_Status (AP (File));
       return WC_In (C, File.WC_Method);
    end Get_Wide_Char_Immed;
 
@@ -903,7 +910,7 @@ package body Ada.Wide_Text_IO is
          End_Of_Line := True;
          Item := Wide_Character'Val (0);
 
-      --  If we are before a wide character, just return it (this happens
+      --  If we are before a wide character, just return it (this can happen
       --  if there are two calls to Look_Ahead in a row).
 
       elsif File.Before_Wide_Character then
@@ -923,19 +930,21 @@ package body Ada.Wide_Text_IO is
             Ungetc (ch, File);
             Item := Wide_Character'Val (0);
 
-         --  If the character is in the range 16#0000# to 16#007F# it stands
-         --  for itself and occupies a single byte, so we can unget it with
+         --  Case where character obtained does not represent the start of an
+         --  encoded sequence so it stands for itself and we can unget it with
          --  no difficulty.
 
-         elsif ch <= 16#0080# then
+         elsif not Is_Start_Of_Encoding
+                     (Character'Val (ch), File.WC_Method)
+         then
             End_Of_Line := False;
             Ungetc (ch, File);
             Item := Wide_Character'Val (ch);
 
-         --  For a character above this range, we read the character, using
-         --  the Get_Wide_Char routine. It may well occupy more than one byte
-         --  so we can't put it back with ungetc. Instead we save it in the
-         --  control block, setting a flag that everyone interested in reading
+         --  For the start of an encoding, we read the character using the
+         --  Get_Wide_Char routine. It will occupy more than one byte so we
+         --  can't put it back with ungetc. Instead we save it in the control
+         --  block, setting a flag that everyone interested in reading
          --  characters must test before reading the stream.
 
          else
@@ -1084,6 +1093,8 @@ package body Ada.Wide_Text_IO is
                 Amethod   => 'W',
                 Creat     => False,
                 Text      => True);
+
+      File.Self := File;
       Set_WCEM (File);
    end Open;
 
@@ -1133,6 +1144,7 @@ package body Ada.Wide_Text_IO is
       --  Procedure to output one character of a wide character sequence
 
       procedure WC_Out is new Wide_Char_To_Char_Sequence (Out_Char);
+
       --------------
       -- Out_Char --
       --------------
@@ -1145,6 +1157,7 @@ package body Ada.Wide_Text_IO is
    --  Start of processing for Put
 
    begin
+      FIO.Check_Write_Status (AP (File));
       WC_Out (Item, File.WC_Method);
       File.Col := File.Col + 1;
    end Put;
@@ -1307,7 +1320,7 @@ package body Ada.Wide_Text_IO is
       end if;
 
       Terminate_Line (File);
-      FIO.Reset (AP (File), To_FCB (Mode));
+      FIO.Reset (AP (File)'Unrestricted_Access, To_FCB (Mode));
       File.Page := 1;
       File.Line := 1;
       File.Col  := 1;
@@ -1320,7 +1333,7 @@ package body Ada.Wide_Text_IO is
    procedure Reset (File : in out File_Type) is
    begin
       Terminate_Line (File);
-      FIO.Reset (AP (File));
+      FIO.Reset (AP (File)'Unrestricted_Access);
       File.Page := 1;
       File.Line := 1;
       File.Col  := 1;
@@ -1539,7 +1552,7 @@ package body Ada.Wide_Text_IO is
       if Start = 0 then
          File.WC_Method := WCEM_Brackets;
 
-      elsif Start /= 0 then
+      else
          if Stop = Start then
             for J in WC_Encoding_Letters'Range loop
                if File.Form (Start) = WC_Encoding_Letters (J) then
@@ -1550,7 +1563,7 @@ package body Ada.Wide_Text_IO is
          end if;
 
          Close (File);
-         Raise_Exception (Use_Error'Identity, "invalid WCEM form parameter");
+         raise Use_Error with "invalid WCEM form parameter";
       end if;
    end Set_WCEM;
 
@@ -1636,7 +1649,6 @@ package body Ada.Wide_Text_IO is
                Ungetc (ch, File);
             end if;
          end if;
-
       end loop;
 
       File.Before_Wide_Character := False;
@@ -1805,6 +1817,9 @@ package body Ada.Wide_Text_IO is
      (File : in out Wide_Text_AFCB;
       Item : Stream_Element_Array)
    is
+      pragma Warnings (Off, File);
+      --  Because in this implementation we don't need IN OUT, we only read
+
       Siz : constant size_t := Item'Length;
 
    begin
@@ -1833,9 +1848,9 @@ package body Ada.Wide_Text_IO is
    --  a null character in the runtime, here the null characters are added
    --  just to have a correct filename length.
 
-   Err_Name : aliased String := "*stderr" & ASCII.Nul;
-   In_Name  : aliased String := "*stdin" & ASCII.Nul;
-   Out_Name : aliased String := "*stdout" & ASCII.Nul;
+   Err_Name : aliased String := "*stderr" & ASCII.NUL;
+   In_Name  : aliased String := "*stdin" & ASCII.NUL;
+   Out_Name : aliased String := "*stdout" & ASCII.NUL;
 
 begin
    -------------------------------
@@ -1861,18 +1876,20 @@ begin
    Standard_Err.Is_System_File    := True;
    Standard_Err.Is_Text_File      := True;
    Standard_Err.Access_Method     := 'T';
+   Standard_Err.Self              := Standard_Err;
    Standard_Err.WC_Method         := Default_WCEM;
 
-   Standard_In.Stream            := stdin;
-   Standard_In.Name              := In_Name'Access;
-   Standard_In.Form              := Null_Str'Unrestricted_Access;
-   Standard_In.Mode              := FCB.In_File;
-   Standard_In.Is_Regular_File   := is_regular_file (fileno (stdin)) /= 0;
-   Standard_In.Is_Temporary_File := False;
-   Standard_In.Is_System_File    := True;
-   Standard_In.Is_Text_File      := True;
-   Standard_In.Access_Method     := 'T';
-   Standard_In.WC_Method         := Default_WCEM;
+   Standard_In.Stream             := stdin;
+   Standard_In.Name               := In_Name'Access;
+   Standard_In.Form               := Null_Str'Unrestricted_Access;
+   Standard_In.Mode               := FCB.In_File;
+   Standard_In.Is_Regular_File    := is_regular_file (fileno (stdin)) /= 0;
+   Standard_In.Is_Temporary_File  := False;
+   Standard_In.Is_System_File     := True;
+   Standard_In.Is_Text_File       := True;
+   Standard_In.Access_Method      := 'T';
+   Standard_In.Self               := Standard_In;
+   Standard_In.WC_Method          := Default_WCEM;
 
    Standard_Out.Stream            := stdout;
    Standard_Out.Name              := Out_Name'Access;
@@ -1883,6 +1900,7 @@ begin
    Standard_Out.Is_System_File    := True;
    Standard_Out.Is_Text_File      := True;
    Standard_Out.Access_Method     := 'T';
+   Standard_Out.Self              := Standard_Out;
    Standard_Out.WC_Method         := Default_WCEM;
 
    FIO.Chain_File (AP (Standard_In));

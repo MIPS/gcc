@@ -1,12 +1,12 @@
 ;; Predicate definitions for ARM and Thumb
-;; Copyright (C) 2004, 2007 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2007, 2008 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 (define_predicate "s_register_operand"
   (match_code "reg,subreg")
@@ -234,6 +233,10 @@
   (and (match_operand 0 "memory_operand")
        (match_test "arm_legitimate_address_p (mode, XEXP (op, 0), SIGN_EXTEND,
 					      0)")))
+
+(define_special_predicate "arm_reg_or_extendqisi_mem_op"
+  (ior (match_operand 0 "arm_extendqisi_mem_op")
+       (match_operand 0 "s_register_operand")))
 
 (define_predicate "power_of_two_operand"
   (match_code "const_int")
@@ -469,4 +472,44 @@
   (and (match_code "const_int")
        (match_test "((unsigned HOST_WIDE_INT) INTVAL (op)) < 64")))
 
+
+;; Neon predicates
+
+(define_predicate "const_multiple_of_8_operand"
+  (match_code "const_int")
+{
+  unsigned HOST_WIDE_INT val = INTVAL (op);
+  return (val & 7) == 0;
+})
+
+(define_predicate "imm_for_neon_mov_operand"
+  (match_code "const_vector")
+{
+  return neon_immediate_valid_for_move (op, mode, NULL, NULL);
+})
+
+(define_predicate "imm_for_neon_logic_operand"
+  (match_code "const_vector")
+{
+  return neon_immediate_valid_for_logic (op, mode, 0, NULL, NULL);
+})
+
+(define_predicate "imm_for_neon_inv_logic_operand"
+  (match_code "const_vector")
+{
+  return neon_immediate_valid_for_logic (op, mode, 1, NULL, NULL);
+})
+
+(define_predicate "neon_logic_op2"
+  (ior (match_operand 0 "imm_for_neon_logic_operand")
+       (match_operand 0 "s_register_operand")))
+
+(define_predicate "neon_inv_logic_op2"
+  (ior (match_operand 0 "imm_for_neon_inv_logic_operand")
+       (match_operand 0 "s_register_operand")))
+
+;; TODO: We could check lane numbers more precisely based on the mode.
+(define_predicate "neon_lane_number"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 7")))
 

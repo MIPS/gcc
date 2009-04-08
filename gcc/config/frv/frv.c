@@ -1,12 +1,12 @@
-/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007,
+   2008  Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -51,6 +50,7 @@ Boston, MA 02110-1301, USA.  */
 #include "targhooks.h"
 #include "integrate.h"
 #include "langhooks.h"
+#include "df.h"
 
 #ifndef FRV_INLINE
 #define FRV_INLINE inline
@@ -270,7 +270,7 @@ frv_cpu_t frv_cpu_type = CPU_TYPE;	/* value of -mcpu= */
 
 static bool frv_handle_option			(size_t, const char *, int);
 static int frv_default_flags_for_cpu		(void);
-static int frv_string_begins_with		(tree, const char *);
+static int frv_string_begins_with		(const_tree, const char *);
 static FRV_INLINE bool frv_small_data_reloc_p	(rtx, int);
 static void frv_print_operand_memory_reference_reg
 						(FILE *, rtx);
@@ -330,7 +330,7 @@ static int frv_cond_flags 			(rtx);
 static bool frv_regstate_conflict_p 		(regstate_t, regstate_t);
 static int frv_registers_conflict_p_1 		(rtx *, void *);
 static bool frv_registers_conflict_p 		(rtx);
-static void frv_registers_update_1 		(rtx, rtx, void *);
+static void frv_registers_update_1 		(rtx, const_rtx, void *);
 static void frv_registers_update 		(rtx);
 static void frv_start_packet 			(void);
 static void frv_start_packet_block 		(void);
@@ -358,14 +358,15 @@ static bool frv_assemble_integer		(rtx, unsigned, int);
 static void frv_init_builtins			(void);
 static rtx frv_expand_builtin			(tree, rtx, rtx, enum machine_mode, int);
 static void frv_init_libfuncs			(void);
-static bool frv_in_small_data_p			(tree);
+static bool frv_in_small_data_p			(const_tree);
 static void frv_asm_output_mi_thunk
   (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree);
 static void frv_setup_incoming_varargs		(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int *, int);
 static rtx frv_expand_builtin_saveregs		(void);
-static bool frv_rtx_costs			(rtx, int, int, int*);
+static void frv_expand_builtin_va_start		(tree, rtx);
+static bool frv_rtx_costs			(rtx, int, int, int*, bool);
 static void frv_asm_out_constructor		(rtx, int);
 static void frv_asm_out_destructor		(rtx, int);
 static bool frv_function_symbol_referenced_p	(rtx);
@@ -375,11 +376,14 @@ static void frv_output_const_unspec		(FILE *,
 						 const struct frv_unspec *);
 static bool frv_function_ok_for_sibcall		(tree, tree);
 static rtx frv_struct_value_rtx			(tree, int);
-static bool frv_must_pass_in_stack (enum machine_mode mode, tree type);
+static bool frv_must_pass_in_stack (enum machine_mode mode, const_tree type);
 static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
 static void frv_output_dwarf_dtprel		(FILE *, int, rtx)
   ATTRIBUTE_UNUSED;
+static bool frv_secondary_reload                (bool, rtx, enum reg_class,
+						 enum machine_mode,
+						 secondary_reload_info *);
 
 /* Allow us to easily change the default for -malloc-cc.  */
 #ifndef DEFAULT_NO_ALLOC_CC
@@ -453,10 +457,16 @@ static void frv_output_dwarf_dtprel		(FILE *, int, rtx)
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG frv_reorg
 
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START frv_expand_builtin_va_start
+
 #if HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL frv_output_dwarf_dtprel
 #endif
+
+#undef  TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD frv_secondary_reload
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -647,83 +657,83 @@ frv_override_options (void)
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     {
-      enum reg_class class;
+      enum reg_class rclass;
 
       if (GPR_P (regno))
 	{
 	  int gpr_reg = regno - GPR_FIRST;
 
 	  if (gpr_reg == GR8_REG)
-	    class = GR8_REGS;
+	    rclass = GR8_REGS;
 
 	  else if (gpr_reg == GR9_REG)
-	    class = GR9_REGS;
+	    rclass = GR9_REGS;
 
 	  else if (gpr_reg == GR14_REG)
-	    class = FDPIC_FPTR_REGS;
+	    rclass = FDPIC_FPTR_REGS;
 
 	  else if (gpr_reg == FDPIC_REGNO)
-	    class = FDPIC_REGS;
+	    rclass = FDPIC_REGS;
 
 	  else if ((gpr_reg & 3) == 0)
-	    class = QUAD_REGS;
+	    rclass = QUAD_REGS;
 
 	  else if ((gpr_reg & 1) == 0)
-	    class = EVEN_REGS;
+	    rclass = EVEN_REGS;
 
 	  else
-	    class = GPR_REGS;
+	    rclass = GPR_REGS;
 	}
 
       else if (FPR_P (regno))
 	{
 	  int fpr_reg = regno - GPR_FIRST;
 	  if ((fpr_reg & 3) == 0)
-	    class = QUAD_FPR_REGS;
+	    rclass = QUAD_FPR_REGS;
 
 	  else if ((fpr_reg & 1) == 0)
-	    class = FEVEN_REGS;
+	    rclass = FEVEN_REGS;
 
 	  else
-	    class = FPR_REGS;
+	    rclass = FPR_REGS;
 	}
 
       else if (regno == LR_REGNO)
-	class = LR_REG;
+	rclass = LR_REG;
 
       else if (regno == LCR_REGNO)
-	class = LCR_REG;
+	rclass = LCR_REG;
 
       else if (ICC_P (regno))
-	class = ICC_REGS;
+	rclass = ICC_REGS;
 
       else if (FCC_P (regno))
-	class = FCC_REGS;
+	rclass = FCC_REGS;
 
       else if (ICR_P (regno))
-	class = ICR_REGS;
+	rclass = ICR_REGS;
 
       else if (FCR_P (regno))
-	class = FCR_REGS;
+	rclass = FCR_REGS;
 
       else if (ACC_P (regno))
 	{
 	  int r = regno - ACC_FIRST;
 	  if ((r & 3) == 0)
-	    class = QUAD_ACC_REGS;
+	    rclass = QUAD_ACC_REGS;
 	  else if ((r & 1) == 0)
-	    class = EVEN_ACC_REGS;
+	    rclass = EVEN_ACC_REGS;
 	  else
-	    class = ACC_REGS;
+	    rclass = ACC_REGS;
 	}
 
       else if (ACCG_P (regno))
-	class = ACCG_REGS;
+	rclass = ACCG_REGS;
 
       else
-	class = NO_REGS;
+	rclass = NO_REGS;
 
-      regno_reg_class[regno] = class;
+      regno_reg_class[regno] = rclass;
     }
 
   /* Check for small data option */
@@ -833,9 +843,9 @@ frv_optimization_options (int level, int size ATTRIBUTE_UNUSED)
 /* Return true if NAME (a STRING_CST node) begins with PREFIX.  */
 
 static int
-frv_string_begins_with (tree name, const char *prefix)
+frv_string_begins_with (const_tree name, const char *prefix)
 {
-  int prefix_len = strlen (prefix);
+  const int prefix_len = strlen (prefix);
 
   /* Remember: NAME's length includes the null terminator.  */
   return (TREE_STRING_LENGTH (name) > prefix_len
@@ -1167,11 +1177,11 @@ frv_stack_info (void)
 	default:
 	  for (regno = first; regno <= last; regno++)
 	    {
-	      if ((regs_ever_live[regno] && !call_used_regs[regno])
-		  || (current_function_calls_eh_return
+	      if ((df_regs_ever_live_p (regno) && !call_used_regs[regno])
+		  || (crtl->calls_eh_return
 		      && (regno >= FIRST_EH_REGNUM && regno <= LAST_EH_REGNUM))
 		  || (!TARGET_FDPIC && flag_pic
-		      && cfun->uses_pic_offset_table && regno == PIC_REGNO))
+		      && crtl->uses_pic_offset_table && regno == PIC_REGNO))
 		{
 		  info_ptr->save_p[regno] = REG_SAVE_1WORD;
 		  size_1word += UNITS_PER_WORD;
@@ -1185,13 +1195,13 @@ frv_stack_info (void)
 	  break;
 
 	case STACK_REGS_LR:
-	  if (regs_ever_live[LR_REGNO]
+	  if (df_regs_ever_live_p (LR_REGNO)
               || profile_flag
 	      /* This is set for __builtin_return_address, etc.  */
 	      || cfun->machine->frame_needed
               || (TARGET_LINKED_FP && frame_pointer_needed)
               || (!TARGET_FDPIC && flag_pic
-		  && cfun->uses_pic_offset_table))
+		  && crtl->uses_pic_offset_table))
 	    {
 	      info_ptr->save_p[LR_REGNO] = REG_SAVE_1WORD;
 	      size_1word += UNITS_PER_WORD;
@@ -1204,7 +1214,7 @@ frv_stack_info (void)
 	      /* If this is a stdarg function with a non varardic
 		 argument split between registers and the stack,
 		 adjust the saved registers downward.  */
-	      last -= (ADDR_ALIGN (cfun->pretend_args_size, UNITS_PER_WORD)
+	      last -= (ADDR_ALIGN (crtl->args.pretend_args_size, UNITS_PER_WORD)
 		       / UNITS_PER_WORD);
 
 	      for (regno = first; regno <= last; regno++)
@@ -1264,13 +1274,13 @@ frv_stack_info (void)
      be used, or the size of a word otherwise.  */
   alignment = (TARGET_DWORD? 2 * UNITS_PER_WORD : UNITS_PER_WORD);
 
-  info_ptr->parameter_size = ADDR_ALIGN (cfun->outgoing_args_size, alignment);
+  info_ptr->parameter_size = ADDR_ALIGN (crtl->outgoing_args_size, alignment);
   info_ptr->regs_size = ADDR_ALIGN (info_ptr->regs_size_2words
 				    + info_ptr->regs_size_1word,
 				    alignment);
   info_ptr->vars_size = ADDR_ALIGN (get_frame_size (), alignment);
 
-  info_ptr->pretend_size = cfun->pretend_args_size;
+  info_ptr->pretend_size = crtl->args.pretend_args_size;
 
   /* Work out the size of the frame, excluding the header.  Both the frame
      body and register parameter area will be dword-aligned.  */
@@ -1498,7 +1508,7 @@ frv_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       rtx insn;
 
       /* Just to check that the above comment is true.  */
-      gcc_assert (!regs_ever_live[GPR_FIRST + 3]);
+      gcc_assert (!df_regs_ever_live_p (GPR_FIRST + 3));
 
       /* Generate the instruction that saves the link register.  */
       fprintf (file, "\tmovsg lr,gr3\n");
@@ -1518,7 +1528,7 @@ frv_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	      {
 		rtx address = XEXP (XVECEXP (pattern, 0, 1), 0);
 		if (GET_CODE (address) == REG && REGNO (address) == LR_REGNO)
-		  REGNO (address) = GPR_FIRST + 3;
+		  SET_REGNO (address, GPR_FIRST + 3);
 	      }
 	  }
     }
@@ -1535,14 +1545,14 @@ frv_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 static rtx
 frv_alloc_temp_reg (
      frv_tmp_reg_t *info,	/* which registers are available */
-     enum reg_class class,	/* register class desired */
+     enum reg_class rclass,	/* register class desired */
      enum machine_mode mode,	/* mode to allocate register with */
      int mark_as_used,		/* register not available after allocation */
      int no_abort)		/* return NULL instead of aborting */
 {
-  int regno = info->next_reg[ (int)class ];
+  int regno = info->next_reg[ (int)rclass ];
   int orig_regno = regno;
-  HARD_REG_SET *reg_in_class = &reg_class_contents[ (int)class ];
+  HARD_REG_SET *reg_in_class = &reg_class_contents[ (int)rclass ];
   int i, nr;
 
   for (;;)
@@ -1561,7 +1571,7 @@ frv_alloc_temp_reg (
     }
 
   nr = HARD_REGNO_NREGS (regno, mode);
-  info->next_reg[ (int)class ] = regno + nr;
+  info->next_reg[ (int)rclass ] = regno + nr;
 
   if (mark_as_used)
     for (i = 0; i < nr; i++)
@@ -1678,7 +1688,7 @@ frv_frame_access (frv_frame_accessor_t *accessor, rtx reg, int stack_offset)
 	}
       else
 	emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
-      emit_insn (gen_rtx_USE (VOIDmode, reg));
+      emit_use (reg);
     }
   else
     {
@@ -1860,7 +1870,7 @@ frv_expand_prologue (void)
     emit_insn (gen_blockage ());
 
   /* Set up pic register/small data register for this function.  */
-  if (!TARGET_FDPIC && flag_pic && cfun->uses_pic_offset_table)
+  if (!TARGET_FDPIC && flag_pic && crtl->uses_pic_offset_table)
     emit_insn (gen_pic_prologue (gen_rtx_REG (Pmode, PIC_REGNO),
 				 gen_rtx_REG (Pmode, LR_REGNO),
 				 gen_rtx_REG (SImode, OFFSET_REGNO)));
@@ -1942,7 +1952,7 @@ frv_expand_epilogue (bool emit_return)
   if (frame_pointer_needed)
     {
       emit_insn (gen_rtx_SET (VOIDmode, fp, gen_rtx_MEM (Pmode, fp)));
-      emit_insn (gen_rtx_USE (VOIDmode, fp));
+      emit_use (fp);
     }
 
   /* Deallocate the stack frame.  */
@@ -1953,7 +1963,7 @@ frv_expand_epilogue (bool emit_return)
     }
 
   /* If this function uses eh_return, add the final stack adjustment now.  */
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     emit_insn (gen_stack_adjust (sp, sp, EH_RETURN_STACKADJ_RTX));
 
   if (emit_return)
@@ -1968,7 +1978,7 @@ frv_expand_epilogue (bool emit_return)
 	  emit_move_insn (lr, return_addr);
 	}
 
-      emit_insn (gen_rtx_USE (VOIDmode, lr));
+      emit_use (lr);
     }
 }
 
@@ -2106,7 +2116,7 @@ frv_frame_pointer_required (void)
   if (!current_function_sp_is_unchanging)
     return TRUE;
 
-  if (!TARGET_FDPIC && flag_pic && cfun->uses_pic_offset_table)
+  if (!TARGET_FDPIC && flag_pic && crtl->uses_pic_offset_table)
     return TRUE;
 
   if (profile_flag)
@@ -2186,11 +2196,11 @@ frv_expand_builtin_saveregs (void)
 
 /* Expand __builtin_va_start to do the va_start macro.  */
 
-void
+static void
 frv_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   tree t;
-  int num = cfun->args_info - FIRST_ARG_REGNUM - FRV_NUM_ARG_REGS;
+  int num = crtl->args.info - FIRST_ARG_REGNUM - FRV_NUM_ARG_REGS;
 
   nextarg = gen_rtx_PLUS (Pmode, virtual_incoming_args_rtx,
 			  GEN_INT (UNITS_PER_WORD * num));
@@ -2198,13 +2208,14 @@ frv_expand_builtin_va_start (tree valist, rtx nextarg)
   if (TARGET_DEBUG_ARG)
     {
       fprintf (stderr, "va_start: args_info = %d, num = %d\n",
-	       cfun->args_info, num);
+	       crtl->args.info, num);
 
       debug_rtx (nextarg);
     }
 
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist,
-	      make_tree (ptr_type_node, nextarg));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
+	      fold_convert (TREE_TYPE (valist),
+			    make_tree (sizetype, nextarg)));
   TREE_SIDE_EFFECTS (t) = 1;
 
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -2772,7 +2783,7 @@ frv_print_operand (FILE * file, rtx x, int code)
   HOST_WIDE_INT value;
   int offset;
 
-  if (code != 0 && !isalpha (code))
+  if (code != 0 && !ISALPHA (code))
     value = 0;
 
   else if (GET_CODE (x) == CONST_INT)
@@ -3113,7 +3124,7 @@ frv_init_cumulative_args (CUMULATIVE_ARGS *cum,
    in registers.  */
 
 static bool
-frv_must_pass_in_stack (enum machine_mode mode, tree type)
+frv_must_pass_in_stack (enum machine_mode mode, const_tree type)
 {
   if (mode == BLKmode)
     return true;
@@ -3794,7 +3805,7 @@ frv_expand_fdpic_call (rtx *operands, bool ret_value, bool sibcall)
 	x = gen_symGOTOFF2reg (dest, addr, OUR_FDPIC_REG,
 			       GEN_INT (R_FRV_FUNCDESC_GOTOFF12));
       emit_insn (x);
-      cfun->uses_pic_offset_table = TRUE;
+      crtl->uses_pic_offset_table = TRUE;
       addr = dest;
     }
   else if (GET_CODE (addr) == SYMBOL_REF)
@@ -4155,7 +4166,7 @@ frv_emit_movsi (rtx dest, rtx src)
 					   gen_rtx_REG (Pmode, base_regno),
 					   GEN_INT (R_FRV_GPREL12)));
       if (base_regno == PIC_REGNO)
-	cfun->uses_pic_offset_table = TRUE;
+	crtl->uses_pic_offset_table = TRUE;
       return TRUE;
     }
 
@@ -4199,7 +4210,7 @@ frv_emit_movsi (rtx dest, rtx src)
 	  break;
 	}
       emit_insn (x);
-      cfun->uses_pic_offset_table = TRUE;
+      crtl->uses_pic_offset_table = TRUE;
       return TRUE;
     }
 
@@ -5293,15 +5304,15 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
       for (j = CC_FIRST; j <= CC_LAST; j++)
 	if (TEST_HARD_REG_BIT (tmp_reg->regs, j))
 	  {
-	    if (REGNO_REG_SET_P (then_bb->il.rtl->global_live_at_start, j))
+	    if (REGNO_REG_SET_P (df_get_live_in (then_bb), j))
 	      continue;
 
 	    if (else_bb
-		&& REGNO_REG_SET_P (else_bb->il.rtl->global_live_at_start, j))
+		&& REGNO_REG_SET_P (df_get_live_in (else_bb), j))
 	      continue;
 
 	    if (join_bb
-		&& REGNO_REG_SET_P (join_bb->il.rtl->global_live_at_start, j))
+		&& REGNO_REG_SET_P (df_get_live_in (join_bb), j))
 	      continue;
 
 	    SET_HARD_REG_BIT (frv_ifcvt.nested_cc_ok_rewrite, j);
@@ -5323,7 +5334,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 
       /* Remove anything live at the beginning of the join block from being
          available for allocation.  */
-      EXECUTE_IF_SET_IN_REG_SET (join_bb->il.rtl->global_live_at_start, 0, regno, rsi)
+      EXECUTE_IF_SET_IN_REG_SET (df_get_live_in (join_bb), 0, regno, rsi)
 	{
 	  if (regno < FIRST_PSEUDO_REGISTER)
 	    CLEAR_HARD_REG_BIT (tmp_reg->regs, regno);
@@ -5367,7 +5378,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 
       /* Anything live at the beginning of the block is obviously unavailable
          for allocation.  */
-      EXECUTE_IF_SET_IN_REG_SET (bb[j]->il.rtl->global_live_at_start, 0, regno, rsi)
+      EXECUTE_IF_SET_IN_REG_SET (df_get_live_in (bb[j]), 0, regno, rsi)
 	{
 	  if (regno < FIRST_PSEUDO_REGISTER)
 	    CLEAR_HARD_REG_BIT (tmp_reg->regs, regno);
@@ -5994,7 +6005,7 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
 		goto fail;
 	    }
 
-	  frv_ifcvt_add_insn (gen_rtx_USE (VOIDmode, dest), insn, FALSE);
+	  frv_ifcvt_add_insn (gen_use (dest), insn, FALSE);
 	}
 
       /* If we are just loading a constant created for a nested conditional
@@ -6020,17 +6031,15 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
 		  limit scheduling of the combined block quite
 		  severely.  */
 	       && ce_info->join_bb
-	       && ! (REGNO_REG_SET_P
-		     (ce_info->join_bb->il.rtl->global_live_at_start,
-		      REGNO (SET_DEST (set))))
+	       && ! (REGNO_REG_SET_P (df_get_live_in (ce_info->join_bb),
+				      REGNO (SET_DEST (set))))
 	       /* Similarly, we must not unconditionally set a reg
 		  used as scratch in the THEN branch if the same reg
 		  is live in the ELSE branch.  */
 	       && (! ce_info->else_bb
 		   || BLOCK_FOR_INSN (insn) == ce_info->else_bb
-		   || ! (REGNO_REG_SET_P
-			 (ce_info->else_bb->il.rtl->global_live_at_start,
-			  REGNO (SET_DEST (set))))))
+		   || ! (REGNO_REG_SET_P (df_get_live_in (ce_info->else_bb),
+					  REGNO (SET_DEST (set))))))
 	pattern = set;
 
       else if (mode == QImode || mode == HImode || mode == SImode
@@ -6297,11 +6306,11 @@ frv_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
    You should define these macros to indicate to the reload phase that it may
    need to allocate at least one register for a reload in addition to the
    register to contain the data.  Specifically, if copying X to a register
-   CLASS in MODE requires an intermediate register, you should define
+   RCLASS in MODE requires an intermediate register, you should define
    `SECONDARY_INPUT_RELOAD_CLASS' to return the largest register class all of
    whose registers can be used as intermediate registers or scratch registers.
 
-   If copying a register CLASS in MODE to X requires an intermediate or scratch
+   If copying a register RCLASS in MODE to X requires an intermediate or scratch
    register, `SECONDARY_OUTPUT_RELOAD_CLASS' should be defined to return the
    largest register class required.  If the requirements for input and output
    reloads are the same, the macro `SECONDARY_RELOAD_CLASS' should be used
@@ -6309,7 +6318,7 @@ frv_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
 
    The values returned by these macros are often `GENERAL_REGS'.  Return
    `NO_REGS' if no spare register is needed; i.e., if X can be directly copied
-   to or from a register of CLASS in MODE without requiring a scratch register.
+   to or from a register of RCLASS in MODE without requiring a scratch register.
    Do not define this macro if it would always return `NO_REGS'.
 
    If a scratch register is required (either with or without an intermediate
@@ -6320,7 +6329,7 @@ frv_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
 
    Define constraints for the reload register and scratch register that contain
    a single register class.  If the original reload register (whose class is
-   CLASS) can meet the constraint given in the pattern, the value returned by
+   RCLASS) can meet the constraint given in the pattern, the value returned by
    these macros is used for the class of the scratch register.  Otherwise, two
    additional reload registers are required.  Their classes are obtained from
    the constraints in the insn pattern.
@@ -6338,14 +6347,13 @@ frv_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
    This case often occurs between floating-point and general registers.  */
 
 enum reg_class
-frv_secondary_reload_class (enum reg_class class,
+frv_secondary_reload_class (enum reg_class rclass,
                             enum machine_mode mode ATTRIBUTE_UNUSED,
-                            rtx x,
-                            int in_p ATTRIBUTE_UNUSED)
+                            rtx x)
 {
   enum reg_class ret;
 
-  switch (class)
+  switch (rclass)
     {
     default:
       ret = NO_REGS;
@@ -6388,7 +6396,7 @@ frv_secondary_reload_class (enum reg_class class,
       ret = GPR_REGS;
       break;
 
-      /* The accumulators need fpr registers */
+      /* The accumulators need fpr registers.  */
     case ACC_REGS:
     case EVEN_ACC_REGS:
     case QUAD_ACC_REGS:
@@ -6400,12 +6408,48 @@ frv_secondary_reload_class (enum reg_class class,
   return ret;
 }
 
+/* This hook exists to catch the case where secondary_reload_class() is
+   called from init_reg_autoinc() in regclass.c - before the reload optabs
+   have been initialised.  */
+   
+static bool
+frv_secondary_reload (bool in_p, rtx x, enum reg_class reload_class,
+		      enum machine_mode reload_mode,
+		      secondary_reload_info * sri)
+{
+  enum reg_class rclass = NO_REGS;
+
+  if (sri->prev_sri && sri->prev_sri->t_icode != CODE_FOR_nothing)
+    {
+      sri->icode = sri->prev_sri->t_icode;
+      return NO_REGS;
+    }
+
+  rclass = frv_secondary_reload_class (reload_class, reload_mode, x);
+
+  if (rclass != NO_REGS)
+    {
+      enum insn_code icode = (in_p ? reload_in_optab[(int) reload_mode]
+			      : reload_out_optab[(int) reload_mode]);
+      if (icode == 0)
+	{
+	  /* This happens when then the reload_[in|out]_optabs have
+	     not been initialised.  */
+	  sri->t_icode = CODE_FOR_nothing;
+	  return rclass;
+	}
+    }
+
+  /* Fall back to the default secondary reload handler.  */
+  return default_secondary_reload (in_p, x, reload_class, reload_mode, sri);
+
+}
 
 /* A C expression whose value is nonzero if pseudos that have been assigned to
-   registers of class CLASS would likely be spilled because registers of CLASS
+   registers of class RCLASS would likely be spilled because registers of RCLASS
    are needed for spill registers.
 
-   The default value of this macro returns 1 if CLASS has exactly one register
+   The default value of this macro returns 1 if RCLASS has exactly one register
    and zero otherwise.  On most machines, this default should be used.  Only
    define this macro to some other expression if pseudo allocated by
    `local-alloc.c' end up in memory because their hard registers were needed
@@ -6417,9 +6461,9 @@ frv_secondary_reload_class (enum reg_class class,
    register allocation.  */
 
 int
-frv_class_likely_spilled_p (enum reg_class class)
+frv_class_likely_spilled_p (enum reg_class rclass)
 {
-  switch (class)
+  switch (rclass)
     {
     default:
       break;
@@ -6683,11 +6727,11 @@ frv_hard_regno_nregs (int regno, enum machine_mode mode)
 
 
 /* A C expression for the maximum number of consecutive registers of
-   class CLASS needed to hold a value of mode MODE.
+   class RCLASS needed to hold a value of mode MODE.
 
    This is closely related to the macro `HARD_REGNO_NREGS'.  In fact, the value
-   of the macro `CLASS_MAX_NREGS (CLASS, MODE)' should be the maximum value of
-   `HARD_REGNO_NREGS (REGNO, MODE)' for all REGNO values in the class CLASS.
+   of the macro `CLASS_MAX_NREGS (RCLASS, MODE)' should be the maximum value of
+   `HARD_REGNO_NREGS (REGNO, MODE)' for all REGNO values in the class RCLASS.
 
    This macro helps control the handling of multiple-word values in
    the reload pass.
@@ -6695,9 +6739,9 @@ frv_hard_regno_nregs (int regno, enum machine_mode mode)
    This declaration is required.  */
 
 int
-frv_class_max_nregs (enum reg_class class, enum machine_mode mode)
+frv_class_max_nregs (enum reg_class rclass, enum machine_mode mode)
 {
-  if (class == ACCG_REGS)
+  if (rclass == ACCG_REGS)
     /* An N-byte value requires N accumulator guards.  */
     return GET_MODE_SIZE (mode);
   else
@@ -6947,7 +6991,7 @@ frv_assemble_integer (rtx value, unsigned int size, int aligned_p)
 static struct machine_function *
 frv_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return GGC_CNEW (struct machine_function);
 }
 
 /* Implement TARGET_SCHED_ISSUE_RATE.  */
@@ -7215,7 +7259,7 @@ frv_registers_conflict_p (rtx x)
    under which X is modified.  Update FRV_PACKET accordingly.  */
 
 static void
-frv_registers_update_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+frv_registers_update_1 (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
   unsigned int regno;
 
@@ -7522,7 +7566,8 @@ frv_sort_insn_group_1 (enum frv_insn_group group,
 static int
 frv_compare_insns (const void *first, const void *second)
 {
-  const rtx *insn1 = first, *insn2 = second;
+  const rtx *const insn1 = (rtx const *) first,
+    *const insn2 = (rtx const *) second;
   return frv_insn_unit (*insn1) - frv_insn_unit (*insn2);
 }
 
@@ -7641,7 +7686,7 @@ frv_reorder_packet (void)
   for (from = 0; from < to - 1; from++)
     {
       remove_insn (insns[from]);
-      add_insn_before (insns[from], insns[to - 1]);
+      add_insn_before (insns[from], insns[to - 1], NULL);
       SET_PACKING_FLAG (insns[from]);
     }
 }
@@ -7753,9 +7798,9 @@ frv_extract_membar (struct frv_io *io, rtx insn)
    if X is a register and *DATA depends on X.  */
 
 static void
-frv_io_check_address (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+frv_io_check_address (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  rtx *other = data;
+  rtx *other = (rtx *) data;
 
   if (REG_P (x) && *other != 0 && reg_overlap_mentioned_p (x, *other))
     *other = 0;
@@ -7765,9 +7810,9 @@ frv_io_check_address (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
    Remove every modified register from the set.  */
 
 static void
-frv_io_handle_set (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+frv_io_handle_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  HARD_REG_SET *set = data;
+  HARD_REG_SET *set = (HARD_REG_SET *) data;
   unsigned int regno;
 
   if (REG_P (x))
@@ -7781,7 +7826,7 @@ frv_io_handle_set (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 static int
 frv_io_handle_use_1 (rtx *x, void *data)
 {
-  HARD_REG_SET *set = data;
+  HARD_REG_SET *set = (HARD_REG_SET *) data;
   unsigned int regno;
 
   if (REG_P (*x))
@@ -8002,8 +8047,8 @@ frv_optimize_membar (void)
   rtx *last_membar;
 
   compute_bb_for_insn ();
-  first_io = xcalloc (last_basic_block, sizeof (struct frv_io));
-  last_membar = xcalloc (last_basic_block, sizeof (rtx));
+  first_io = XCNEWVEC (struct frv_io, last_basic_block);
+  last_membar = XCNEWVEC (rtx, last_basic_block);
 
   FOR_EACH_BB (bb)
     frv_optimize_membar_local (bb, &first_io[bb->index],
@@ -8632,7 +8677,7 @@ frv_int_to_acc (enum insn_code icode, int opnum, rtx opval)
   reg = gen_rtx_REG (insn_data[icode].operand[opnum].mode,
 		     ACC_FIRST + INTVAL (opval));
   if (! (*insn_data[icode].operand[opnum].predicate) (reg, VOIDmode))
-    REGNO (reg) = ACCG_FIRST + INTVAL (opval);
+    SET_REGNO (reg, ACCG_FIRST + INTVAL (opval));
 
   if (! (*insn_data[icode].operand[opnum].predicate) (reg, VOIDmode))
     {
@@ -9096,8 +9141,8 @@ frv_expand_mdpackh_builtin (tree call, rtx target)
 
   /* The high half of each word is not explicitly initialized, so indicate
      that the input operands are not live before this point.  */
-  emit_insn (gen_rtx_CLOBBER (DImode, op0));
-  emit_insn (gen_rtx_CLOBBER (DImode, op1));
+  emit_clobber (op0);
+  emit_clobber (op1);
 
   /* Move each argument into the low half of its associated input word.  */
   emit_move_insn (simplify_gen_subreg (HImode, op0, DImode, 2), arg1);
@@ -9431,10 +9476,10 @@ frv_expand_builtin (tree exp,
 }
 
 static bool
-frv_in_small_data_p (tree decl)
+frv_in_small_data_p (const_tree decl)
 {
   HOST_WIDE_INT size;
-  tree section_name;
+  const_tree section_name;
 
   /* Don't apply the -G flag to internal compiler structures.  We
      should leave such structures in the main data section, partly
@@ -9467,7 +9512,8 @@ static bool
 frv_rtx_costs (rtx x,
                int code ATTRIBUTE_UNUSED,
                int outer_code ATTRIBUTE_UNUSED,
-               int *total)
+               int *total,
+	       bool speed ATTRIBUTE_UNUSED)
 {
   if (outer_code == MEM)
     {

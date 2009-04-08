@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2002-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2002-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +31,11 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Unchecked_Conversion;
+pragma Warnings (Off);
+pragma Compiler_Unit;
+pragma Warnings (On);
+
+with Ada.Unchecked_Conversion;
 
 package body System.String_Compare is
 
@@ -40,6 +44,7 @@ package body System.String_Compare is
 
    type Big_Words is array (Natural) of Word;
    type Big_Words_Ptr is access Big_Words;
+   for Big_Words_Ptr'Storage_Size use 0;
    --  Array type used to access by words
 
    type Byte is mod 2 ** 8;
@@ -47,13 +52,14 @@ package body System.String_Compare is
 
    type Big_Bytes is array (Natural) of Byte;
    type Big_Bytes_Ptr is access Big_Bytes;
+   for Big_Bytes_Ptr'Storage_Size use 0;
    --  Array type used to access by bytes
 
    function To_Big_Words is new
-     Unchecked_Conversion (System.Address, Big_Words_Ptr);
+     Ada.Unchecked_Conversion (System.Address, Big_Words_Ptr);
 
    function To_Big_Bytes is new
-     Unchecked_Conversion (System.Address, Big_Bytes_Ptr);
+     Ada.Unchecked_Conversion (System.Address, Big_Bytes_Ptr);
 
    -----------------
    -- Str_Compare --
@@ -63,8 +69,7 @@ package body System.String_Compare is
      (Left      : System.Address;
       Right     : System.Address;
       Left_Len  : Natural;
-      Right_Len : Natural)
-      return      Integer
+      Right_Len : Natural) return Integer
    is
       Compare_Len : constant Natural := Natural'Min (Left_Len, Right_Len);
 
@@ -109,8 +114,7 @@ package body System.String_Compare is
      (Left      : System.Address;
       Right     : System.Address;
       Left_Len  : Natural;
-      Right_Len : Natural)
-      return      Integer
+      Right_Len : Natural) return Integer
    is
       Compare_Len : constant Natural := Natural'Min (Left_Len, Right_Len);
 

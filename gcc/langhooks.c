@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -28,7 +27,7 @@ Boston, MA 02110-1301, USA.  */
 #include "toplev.h"
 #include "tree.h"
 #include "tree-inline.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"
@@ -77,14 +76,6 @@ lhd_do_nothing_f (struct function * ARG_UNUSED (f))
 {
 }
 
-/* Do nothing (return the tree node passed).  */
-
-tree
-lhd_return_tree (tree t)
-{
-  return t;
-}
-
 /* Do nothing (return NULL_TREE).  */
 
 tree
@@ -101,11 +92,22 @@ lhd_return_null_tree (tree ARG_UNUSED (t))
   return NULL_TREE;
 }
 
+/* Do nothing (return NULL_TREE).  */
+
+tree
+lhd_return_null_const_tree (const_tree ARG_UNUSED (t))
+{
+  return NULL_TREE;
+}
+
 /* The default post options hook.  */
 
 bool
 lhd_post_options (const char ** ARG_UNUSED (pfilename))
 {
+  /* Excess precision other than "fast" requires front-end
+     support.  */
+  flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
   return false;
 }
 
@@ -118,23 +120,15 @@ lhd_print_tree_nothing (FILE * ARG_UNUSED (file),
 {
 }
 
-/* Called from staticp.  */
-
-tree
-lhd_staticp (tree ARG_UNUSED (exp))
-{
-  return NULL;
-}
-
 /* Called from check_global_declarations.  */
 
 bool
-lhd_warn_unused_global_decl (tree decl)
+lhd_warn_unused_global_decl (const_tree decl)
 {
   /* This is what used to exist in check_global_declarations.  Probably
      not many of these actually apply to non-C languages.  */
 
-  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
     return false;
   if (TREE_CODE (decl) == VAR_DECL && TREE_READONLY (decl))
     return false;
@@ -202,7 +196,7 @@ lhd_register_builtin_type (tree ARG_UNUSED (type),
 
 /* Invalid use of an incomplete type.  */
 void
-lhd_incomplete_type_error (tree ARG_UNUSED (value), tree type)
+lhd_incomplete_type_error (const_tree ARG_UNUSED (value), const_tree type)
 {
   gcc_assert (TREE_CODE (type) == ERROR_MARK);
   return;
@@ -211,33 +205,10 @@ lhd_incomplete_type_error (tree ARG_UNUSED (value), tree type)
 /* Provide a default routine for alias sets that always returns -1.  This
    is used by languages that don't need to do anything special.  */
 
-HOST_WIDE_INT
+alias_set_type
 lhd_get_alias_set (tree ARG_UNUSED (t))
 {
   return -1;
-}
-
-/* This is the default expand_expr function.  */
-
-rtx
-lhd_expand_expr (tree ARG_UNUSED (t), rtx ARG_UNUSED (r),
-		 enum machine_mode ARG_UNUSED (mm),
-		 int ARG_UNUSED (em),
-		 rtx * ARG_UNUSED (a))
-{
-  gcc_unreachable ();
-}
-
-/* The default language-specific function for expanding a decl.  After
-   the language-independent cases are handled, this function will be
-   called.  If this function is not defined, it is assumed that
-   declarations other than those for variables and labels do not require
-   any RTL generation.  */
-
-int
-lhd_expand_decl (tree ARG_UNUSED (t))
-{
-  return 0;
 }
 
 /* This is the default decl_printable_name function.  */
@@ -269,79 +240,6 @@ lhd_types_compatible_p (tree x, tree y)
   return TYPE_MAIN_VARIANT (x) == TYPE_MAIN_VARIANT (y);
 }
 
-/* lang_hooks.tree_inlining.walk_subtrees is called by walk_tree()
-   after handling common cases, but before walking code-specific
-   sub-trees.  If this hook is overridden for a language, it should
-   handle language-specific tree codes, as well as language-specific
-   information associated to common tree codes.  If a tree node is
-   completely handled within this function, it should set *SUBTREES to
-   0, so that generic handling isn't attempted.  The generic handling
-   cannot deal with language-specific tree codes, so make sure it is
-   set properly.  Both SUBTREES and *SUBTREES is guaranteed to be
-   nonzero when the function is called.  */
-
-tree
-lhd_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
-				 int *subtrees ATTRIBUTE_UNUSED,
-				 walk_tree_fn func ATTRIBUTE_UNUSED,
-				 void *data ATTRIBUTE_UNUSED,
-				 struct pointer_set_t *pset ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-/* lang_hooks.tree_inlining.cannot_inline_tree_fn is called to
-   determine whether there are language-specific reasons for not
-   inlining a given function.  */
-
-int
-lhd_tree_inlining_cannot_inline_tree_fn (tree *fnp)
-{
-  if (flag_really_no_inline
-      && lookup_attribute ("always_inline", DECL_ATTRIBUTES (*fnp)) == NULL)
-    return 1;
-
-  return 0;
-}
-
-/* lang_hooks.tree_inlining.disregard_inline_limits is called to
-   determine whether a function should be considered for inlining even
-   if it would exceed inlining limits.  */
-
-int
-lhd_tree_inlining_disregard_inline_limits (tree fn)
-{
-  if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
-    return 1;
-
-  return 0;
-}
-
-/* lang_hooks.tree_inlining.auto_var_in_fn_p is called to determine
-   whether VT is an automatic variable defined in function FT.  */
-
-int
-lhd_tree_inlining_auto_var_in_fn_p (tree var, tree fn)
-{
-  return (DECL_P (var) && DECL_CONTEXT (var) == fn
-	  && (((TREE_CODE (var) == VAR_DECL || TREE_CODE (var) == PARM_DECL)
-	       && ! TREE_STATIC (var))
-	      || TREE_CODE (var) == LABEL_DECL
-	      || TREE_CODE (var) == RESULT_DECL));
-}
-
-/* lang_hooks.tree_inlining.convert_parm_for_inlining performs any
-   language-specific conversion before assigning VALUE to PARM.  */
-
-tree
-lhd_tree_inlining_convert_parm_for_inlining (tree parm ATTRIBUTE_UNUSED,
-					     tree value,
-					     tree fndecl ATTRIBUTE_UNUSED,
-					     int argnum ATTRIBUTE_UNUSED)
-{
-  return value;
-}
-
 /* lang_hooks.tree_dump.dump_tree:  Dump language-specific parts of tree
    nodes.  Returns nonzero if it does not want the usual dumping of the
    second argument.  */
@@ -356,7 +254,7 @@ lhd_tree_dump_dump_tree (void *di ATTRIBUTE_UNUSED, tree t ATTRIBUTE_UNUSED)
    language-specific way.  */
 
 int
-lhd_tree_dump_type_quals (tree t)
+lhd_tree_dump_type_quals (const_tree t)
 {
   return TYPE_QUALS (t);
 }
@@ -365,7 +263,7 @@ lhd_tree_dump_type_quals (tree t)
    in a language-specific way.  Returns a tree for the size in bytes.  */
 
 tree
-lhd_expr_size (tree exp)
+lhd_expr_size (const_tree exp)
 {
   if (DECL_P (exp)
       && DECL_SIZE_UNIT (exp) != 0)
@@ -377,8 +275,9 @@ lhd_expr_size (tree exp)
 /* lang_hooks.gimplify_expr re-writes *EXPR_P into GIMPLE form.  */
 
 int
-lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED, tree *pre_p ATTRIBUTE_UNUSED,
-		   tree *post_p ATTRIBUTE_UNUSED)
+lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED,
+		   gimple_seq *pre_p ATTRIBUTE_UNUSED,
+		   gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   return GS_UNHANDLED;
 }
@@ -396,7 +295,7 @@ lhd_tree_size (enum tree_code c ATTRIBUTE_UNUSED)
    sibcall.  */
 
 bool
-lhd_decl_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED)
+lhd_decl_ok_for_sibcall (const_tree decl ATTRIBUTE_UNUSED)
 {
   return true;
 }
@@ -447,12 +346,15 @@ lhd_initialize_diagnostics (struct diagnostic_context *ctx ATTRIBUTE_UNUSED)
 /* The default function to print out name of current function that caused
    an error.  */
 void
-lhd_print_error_function (diagnostic_context *context, const char *file)
+lhd_print_error_function (diagnostic_context *context, const char *file,
+			  diagnostic_info *diagnostic)
 {
-  if (diagnostic_last_function_changed (context))
+  if (diagnostic_last_function_changed (context, diagnostic))
     {
       const char *old_prefix = context->printer->prefix;
-      char *new_prefix = file ? file_name_as_prefix (file) : NULL;
+      tree abstract_origin = diagnostic->abstract_origin;
+      char *new_prefix = (file && abstract_origin == NULL)
+			 ? file_name_as_prefix (file) : NULL;
 
       pp_set_prefix (context->printer, new_prefix);
 
@@ -460,17 +362,97 @@ lhd_print_error_function (diagnostic_context *context, const char *file)
 	pp_printf (context->printer, _("At top level:"));
       else
 	{
-	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
+	  tree fndecl, ao;
+
+	  if (abstract_origin)
+	    {
+	      ao = BLOCK_ABSTRACT_ORIGIN (abstract_origin);
+	      while (TREE_CODE (ao) == BLOCK
+		     && BLOCK_ABSTRACT_ORIGIN (ao)
+		     && BLOCK_ABSTRACT_ORIGIN (ao) != ao)
+		ao = BLOCK_ABSTRACT_ORIGIN (ao);
+	      gcc_assert (TREE_CODE (ao) == FUNCTION_DECL);
+	      fndecl = ao;
+	    }
+	  else
+	    fndecl = current_function_decl;
+
+	  if (TREE_CODE (TREE_TYPE (fndecl)) == METHOD_TYPE)
 	    pp_printf
-	      (context->printer, _("In member function %qs:"),
-	       lang_hooks.decl_printable_name (current_function_decl, 2));
+	      (context->printer, _("In member function %qs"),
+	       lang_hooks.decl_printable_name (fndecl, 2));
 	  else
 	    pp_printf
-	      (context->printer, _("In function %qs:"),
-	       lang_hooks.decl_printable_name (current_function_decl, 2));
+	      (context->printer, _("In function %qs"),
+	       lang_hooks.decl_printable_name (fndecl, 2));
+
+	  while (abstract_origin)
+	    {
+	      location_t *locus;
+	      tree block = abstract_origin;
+
+	      locus = &BLOCK_SOURCE_LOCATION (block);
+	      fndecl = NULL;
+	      block = BLOCK_SUPERCONTEXT (block);
+	      while (block && TREE_CODE (block) == BLOCK
+		     && BLOCK_ABSTRACT_ORIGIN (block))
+		{
+		  ao = BLOCK_ABSTRACT_ORIGIN (block);
+
+		  while (TREE_CODE (ao) == BLOCK
+			 && BLOCK_ABSTRACT_ORIGIN (ao)
+			 && BLOCK_ABSTRACT_ORIGIN (ao) != ao)
+		    ao = BLOCK_ABSTRACT_ORIGIN (ao);
+
+		  if (TREE_CODE (ao) == FUNCTION_DECL)
+		    {
+		      fndecl = ao;
+		      break;
+		    }
+		  else if (TREE_CODE (ao) != BLOCK)
+		    break;
+
+		  block = BLOCK_SUPERCONTEXT (block);
+		}
+	      if (fndecl)
+		abstract_origin = block;
+	      else
+		{
+		  while (block && TREE_CODE (block) == BLOCK)
+		    block = BLOCK_SUPERCONTEXT (block);
+
+		  if (block && TREE_CODE (block) == FUNCTION_DECL)
+		    fndecl = block;
+		  abstract_origin = NULL;
+		}
+	      if (fndecl)
+		{
+		  expanded_location s = expand_location (*locus);
+		  pp_character (context->printer, ',');
+		  pp_newline (context->printer);
+		  if (s.file != NULL)
+		    {
+		      if (flag_show_column && s.column != 0)
+			pp_printf (context->printer,
+				   _("    inlined from %qs at %s:%d:%d"),
+				   lang_hooks.decl_printable_name (fndecl, 2),
+				   s.file, s.line, s.column);
+		      else
+			pp_printf (context->printer,
+				   _("    inlined from %qs at %s:%d"),
+				   lang_hooks.decl_printable_name (fndecl, 2),
+				   s.file, s.line);
+
+		    }
+		  else
+		    pp_printf (context->printer, _("    inlined from %qs"),
+			       lang_hooks.decl_printable_name (fndecl, 2));
+		}
+	    }
+	  pp_character (context->printer, ':');
 	}
 
-      diagnostic_set_last_function (context);
+      diagnostic_set_last_function (context, diagnostic);
       pp_flush (context->printer);
       context->printer->prefix = old_prefix;
       free ((char*) new_prefix);
@@ -479,8 +461,7 @@ lhd_print_error_function (diagnostic_context *context, const char *file)
 
 tree
 lhd_callgraph_analyze_expr (tree *tp ATTRIBUTE_UNUSED,
-			    int *walk_subtrees ATTRIBUTE_UNUSED,
-			    tree decl ATTRIBUTE_UNUSED)
+			    int *walk_subtrees ATTRIBUTE_UNUSED)
 {
   return NULL;
 }
@@ -498,8 +479,7 @@ lhd_to_target_charset (HOST_WIDE_INT c)
 }
 
 tree
-lhd_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
-		  bool *ti ATTRIBUTE_UNUSED, bool *se ATTRIBUTE_UNUSED)
+lhd_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED, bool *se ATTRIBUTE_UNUSED)
 {
   return expr;
 }
@@ -520,7 +500,7 @@ lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
 tree
 lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
 {
-  return build_gimple_modify_stmt (dst, src);
+  return build2 (MODIFY_EXPR, TREE_TYPE (dst), dst, src);
 }
 
 /* Register language specific type size variables as potentially OpenMP
@@ -532,13 +512,16 @@ lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 {
 }
 
-tree
-add_builtin_function (const char *name,
-		      tree type,
-		      int function_code,
-		      enum built_in_class cl,
-		      const char *library_name,
-		      tree attrs)
+/* Common function for add_builtin_function and
+   add_builtin_function_ext_scope.  */
+static tree
+add_builtin_function_common (const char *name,
+			     tree type,
+			     int function_code,
+			     enum built_in_class cl,
+			     const char *library_name,
+			     tree attrs,
+			     tree (*hook) (tree))
 {
   tree   id = get_identifier (name);
   tree decl = build_decl (FUNCTION_DECL, id, type);
@@ -546,6 +529,9 @@ add_builtin_function (const char *name,
   TREE_PUBLIC (decl)         = 1;
   DECL_EXTERNAL (decl)       = 1;
   DECL_BUILT_IN_CLASS (decl) = cl;
+
+  DECL_FUNCTION_CODE (decl)  = -1;
+  gcc_assert (DECL_FUNCTION_CODE (decl) >= function_code);
   DECL_FUNCTION_CODE (decl)  = function_code;
 
   if (library_name)
@@ -560,8 +546,43 @@ add_builtin_function (const char *name,
   else
     decl_attributes (&decl, NULL_TREE, 0);
 
-  return lang_hooks.builtin_function (decl);
+  return hook (decl);
 
+}
+
+/* Create a builtin function.  */
+
+tree
+add_builtin_function (const char *name,
+		      tree type,
+		      int function_code,
+		      enum built_in_class cl,
+		      const char *library_name,
+		      tree attrs)
+{
+  return add_builtin_function_common (name, type, function_code, cl,
+				      library_name, attrs,
+				      lang_hooks.builtin_function);
+}
+
+/* Like add_builtin_function, but make sure the scope is the external scope.
+   This is used to delay putting in back end builtin functions until the ISA
+   that defines the builtin is declared via function specific target options,
+   which can save memory for machines like the x86_64 that have multiple ISAs.
+   If this points to the same function as builtin_function, the backend must
+   add all of the builtins at program initialization time.  */
+
+tree
+add_builtin_function_ext_scope (const char *name,
+				tree type,
+				int function_code,
+				enum built_in_class cl,
+				const char *library_name,
+				tree attrs)
+{
+  return add_builtin_function_common (name, type, function_code, cl,
+				      library_name, attrs,
+				      lang_hooks.builtin_function_ext_scope);
 }
 
 tree
@@ -569,25 +590,4 @@ lhd_builtin_function (tree decl)
 {
   lang_hooks.decls.pushdecl (decl);
   return decl;
-}
-
-/* If TYPE is an integral type, return an equivalent type which is
-    unsigned iff UNSIGNEDP is true.  If TYPE is not an integral type,
-    return TYPE itself.  */
-
-tree
-get_signed_or_unsigned_type (int unsignedp, tree type)
-{
-  return lang_hooks.types.signed_or_unsigned_type(unsignedp, type);
-}
-
-/* Default implementation of the signed_or_unsigned_type language hook */
-
-tree
-lhd_signed_or_unsigned_type (int unsignedp, tree type)
-{
-  if (!INTEGRAL_TYPE_P (type) || TYPE_UNSIGNED (type) == unsignedp)
-    return type;
-
-  return lang_hooks.types.type_for_size (TYPE_PRECISION (type), unsignedp);
 }

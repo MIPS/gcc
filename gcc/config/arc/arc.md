@@ -1,12 +1,12 @@
 ;; Machine description of the Argonaut ARC cpu for GNU C compiler
-;; Copyright (C) 1994, 1997, 1998, 1999, 2000, 2004, 2005
+;; Copyright (C) 1994, 1997, 1998, 1999, 2000, 2004, 2005, 2007, 2008
 ;; Free Software Foundation, Inc.
 
 ;; This file is part of GCC.
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -314,7 +313,7 @@
 ;{
 ;  /* Flow doesn't understand that this is effectively a DFmode move.
 ;     It doesn't know that all of `operands[0]' is set.  */
-;  emit_insn (gen_rtx_CLOBBER (VOIDmode, operands[0]));
+;  emit_clobber (operands[0]);
 ;
 ;  /* Emit insns that movsi_insn can handle.  */
 ;  emit_insn (gen_movsi (operand_subword (operands[0], 0, 0, DImode),
@@ -407,7 +406,7 @@
 ;{
 ;  /* Flow doesn't understand that this is effectively a DFmode move.
 ;     It doesn't know that all of `operands[0]' is set.  */
-;  emit_insn (gen_rtx_CLOBBER (VOIDmode, operands[0]));
+;  emit_clobber (operands[0]);
 ;
 ;  /* Emit insns that movsi_insn can handle.  */
 ;  emit_insn (gen_movsi (operand_subword (operands[0], 0, 0, DFmode),

@@ -6,7 +6,7 @@
  *                                                                          *
  *              Auxiliary C functions for Interfaces.C.Streams              *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -156,7 +156,18 @@ __gnat_constant_stdout (void)
 char *
 __gnat_full_name (char *nam, char *buffer)
 {
-#if defined(__EMX__) || defined (__MINGW32__)
+#ifdef RTSS
+  /* RTSS applications have no current-directory notion, so RTSS file I/O
+     requests must use fully qualified path names, such as:
+       c:\temp\MyFile.txt (for a file system object)
+       \\.\MyDevice0 (for a device object)
+   */
+  if (nam[1] == ':' || nam[0] == '\\')
+    strcpy (buffer, nam);
+  else
+    buffer[0] = '\0';
+
+#elif defined(__EMX__) || defined (__MINGW32__)
   /* If this is a device file return it as is; under Windows NT and
      OS/2 a device file end with ":".  */
   if (nam[strlen (nam) - 1] == ':')
@@ -200,6 +211,25 @@ __gnat_full_name (char *nam, char *buffer)
       strncpy (buffer, __gnat_to_host_file_spec (buffer), __gnat_max_path_len);
     }
 
+#elif defined (__vxworks)
+
+  /* On VxWorks systems, an absolute path can be represented (depending on
+     the host platform) as either /dir/file, or device:/dir/file, or
+     device:drive_letter:/dir/file. Use the __gnat_is_absolute_path
+     to verify it. */
+
+  int length;
+
+  if (__gnat_is_absolute_path (nam, strlen (nam)))
+    strcpy (buffer, nam);
+
+  else
+    {
+      length = __gnat_max_path_len;
+      __gnat_get_current_dir (buffer, &length);
+      strncat (buffer, nam, __gnat_max_path_len - length - 1);
+    }
+
 #else
   if (nam[0] != '/')
     {
@@ -211,20 +241,11 @@ __gnat_full_name (char *nam, char *buffer)
 	  return 0;
 	}
 
-#ifdef __vxworks
-      /* On VxWorks, getcwd always returns an absolute path. But this path
-         can be also a device name like "serial:". In this case '/' should not
-         be appended. As on VxWorks 6.x the returned path can starts with
-         the device name (ex: machine:/directory), we need to test if the last
-         character of the path is ':' to know if '/' should be appended. */
-      if (buffer[strlen (buffer) - 1] != ':')
-         strcat (buffer, "/");
-#else
+
       /* If the name returned is an absolute path, it is safe to append '/'
 	 to the path and concatenate the name of the file. */
       if (buffer[0] == '/')
 	strcat (buffer, "/");
-#endif
 
       strcat (buffer, nam);
     }

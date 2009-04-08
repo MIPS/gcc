@@ -1,5 +1,5 @@
 /* VMNetworkInterface.c - Native methods for NetworkInterface class
-   Copyright (C) 2003, 2005, 2006  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005, 2006, 2008 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -50,11 +50,24 @@ exception statement from your version. */
 #include <stdio.h>
 #include <string.h>
 
+#include <net/if.h>
+#include <sys/ioctl.h>
+/* Required on Solaris. */
+#include <unistd.h>
+
+#ifdef HAVE_SYS_SOCKIO_H
+# include <sys/sockio.h>
+#endif
+
 #include <jni.h>
 #include <jcl.h>
 
+#include <cpnative.h>
+#include <cpnet.h>
+
 #include "java_net_VMNetworkInterface.h"
 
+int iff_flags(JNIEnv *, jstring, jint *);
 
 static jmethodID java_net_VMNetworkInterface_init;
 static jmethodID java_net_VMNetworkInterface_addAddress;
@@ -96,6 +109,7 @@ struct netif_entry
   struct netif_entry *next;
 };
 
+#if defined (HAVE_IFADDRS_H) && defined (HAVE_GETIFADDRS)
 static void
 free_netif_list (JNIEnv *env, struct netif_entry *list)
 {
@@ -106,12 +120,14 @@ free_netif_list (JNIEnv *env, struct netif_entry *list)
       list = e;
     }
 }
+#endif
 
 /*
  * Returns all local network interfaces as an array.
  */
 JNIEXPORT jobjectArray JNICALL
-Java_java_net_VMNetworkInterface_getVMInterfaces (JNIEnv * env, jclass clazz)
+Java_java_net_VMNetworkInterface_getVMInterfaces (JNIEnv * env,
+                                                  jclass clazz UNUSED)
 {
 #if defined (HAVE_IFADDRS_H) && defined (HAVE_GETIFADDRS)
   struct ifaddrs *ifaddrs, *i;
@@ -245,7 +261,139 @@ Java_java_net_VMNetworkInterface_getVMInterfaces (JNIEnv * env, jclass clazz)
 #else
   JCL_ThrowException (env, "java/net/SocketException", "getifaddrs not supported");
   return NULL;
-#endif /* HAVE_GETIFADDRS */
+#endif /* HAVE_IFADDRS_H && HAVE_GETIFADDRS */
+}
+
+int iff_flags(JNIEnv *env, jstring name, jint *flags)
+{
+  struct ifreq iff;
+  const char *iff_name;
+  jint socket;
+  int error, retval;
+
+  if ((error = cpnet_openSocketDatagram(env, &socket, AF_INET)))
+  {
+    return error;
+  }
+
+  iff_name = JCL_jstring_to_cstring(env, name);
+  memset(&iff, 0, sizeof(iff));
+  strcpy(iff.ifr_name, iff_name);
+ 
+  if (ioctl(socket, SIOCGIFFLAGS, &iff) >= 0)
+  {
+    *flags = (jint) iff.ifr_flags;
+
+    retval = 0;
+  }
+  else
+  {
+    retval = errno;
+  }
+
+  cpnet_close(env, socket);
+
+  JCL_free_cstring(env, name, iff_name);
+
+  return retval;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_java_net_VMNetworkInterface_isUp (JNIEnv *env, jclass class UNUSED,
+                                       jstring name)
+{
+  jint flags;
+  int error;
+  jboolean retval;
+
+  if ((error = iff_flags(env, name, &flags)))
+  {
+    JCL_ThrowException(env, "java/net/SocketException",
+                       cpnative_getErrorString(error));
+
+    retval = JNI_FALSE;
+  }
+  else
+  {
+    retval = (flags & (IFF_UP | IFF_RUNNING))
+             ? JNI_TRUE
+             : JNI_FALSE;
+  }
+
+  return retval;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_java_net_VMNetworkInterface_isPointToPoint (JNIEnv *env,
+                                                 jclass class UNUSED,
+                                                 jstring name)
+{
+  jint flags;
+  int error;
+  jboolean retval;
+
+  if ((error = iff_flags(env, name, &flags)))
+  {
+    JCL_ThrowException(env, "java/net/SocketException",
+                       cpnative_getErrorString(error));
+
+    retval = JNI_FALSE;
+  }
+  else
+  {
+    retval = (flags & IFF_POINTOPOINT) ? JNI_TRUE
+                                       : JNI_FALSE;
+  }
+
+  return retval;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_java_net_VMNetworkInterface_isLoopback (JNIEnv *env,
+                                             jclass class UNUSED,
+                                             jstring name)
+{
+  jint flags;
+  int error;
+  jboolean retval;
+
+  if ((error = iff_flags(env, name, &flags)))
+  {
+    JCL_ThrowException(env, "java/net/SocketException",
+                       cpnative_getErrorString(error));
+
+    retval = JNI_FALSE;
+  }
+  else
+  {
+    retval = (flags & IFF_LOOPBACK) ? JNI_TRUE : JNI_FALSE;
+  }
+
+  return retval;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_java_net_VMNetworkInterface_supportsMulticast (JNIEnv *env,
+                                                    jclass class UNUSED,
+                                                    jstring name)
+{
+  jint flags;
+  int error;
+  jboolean retval;
+
+  if ((error = iff_flags(env, name, &flags)))
+  {
+    JCL_ThrowException(env, "java/net/SocketException",
+                       cpnative_getErrorString(error));
+
+    retval = JNI_FALSE;
+  }
+  else
+  {
+    retval = (flags & IFF_MULTICAST) ? JNI_TRUE : JNI_FALSE;
+  }
+
+  return retval;
 }
 
 /* end of file */

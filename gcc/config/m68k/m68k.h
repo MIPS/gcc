@@ -1,12 +1,12 @@
 /* Definitions of target machine for GCC for Motorola 680x0/ColdFire.
    Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* We need to have MOTOROLA always defined (either 0 or 1) because we use
    if-statements and ?: on it.  This way we have compile-time error checking
@@ -107,6 +106,10 @@ Boston, MA 02110-1301, USA.  */
 	  builtin_define_std ("mc68332");				\
 	  builtin_define_std ("mcpu32");				\
 	  builtin_define_std ("mc68020");				\
+	  break;							\
+									\
+	case ucfv1:							\
+	  builtin_define ("__mcfv1__");					\
 	  break;							\
 									\
 	case ucfv2:							\
@@ -245,6 +248,10 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_ISAB		((m68k_cpu_flags & FL_ISA_B) != 0)
 #define TARGET_ISAC		((m68k_cpu_flags & FL_ISA_C) != 0)
 
+/* Some instructions are common to more than one ISA.  */
+#define ISA_HAS_MVS_MVZ	(TARGET_ISAB || TARGET_ISAC)
+#define ISA_HAS_FF1	(TARGET_ISAAPLUS || TARGET_ISAC)
+
 #define TUNE_68000	(m68k_tune == u68000)
 #define TUNE_68010	(m68k_tune == u68010)
 #define TUNE_68000_10	(TUNE_68000 || TUNE_68010)
@@ -257,7 +264,13 @@ Boston, MA 02110-1301, USA.  */
 #define TUNE_68060	(m68k_tune == u68060 || m68k_tune == u68020_60)
 #define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
 #define TUNE_CPU32	(m68k_tune == ucpu32)
+#define TUNE_CFV1       (m68k_tune == ucfv1)
 #define TUNE_CFV2	(m68k_tune == ucfv2)
+#define TUNE_CFV3       (m68k_tune == ucfv3)
+#define TUNE_CFV4       (m68k_tune == ucfv4 || m68k_tune == ucfv4e)
+
+#define TUNE_MAC	((m68k_tune_flags & FL_CF_MAC) != 0)
+#define TUNE_EMAC	((m68k_tune_flags & FL_CF_EMAC) != 0)
 
 #define OVERRIDE_OPTIONS   override_options()
 
@@ -302,11 +315,13 @@ Boston, MA 02110-1301, USA.  */
 /* No data type wants to be aligned rounder than this.
    Most published ABIs say that ints should be aligned on 16-bit
    boundaries, but CPUs with 32-bit busses get better performance
-   aligned on 32-bit boundaries.  ColdFires without a misalignment
-   module require 32-bit alignment.  */
+   aligned on 32-bit boundaries.  */
 #define BIGGEST_ALIGNMENT (TARGET_ALIGN_INT ? 32 : 16)
 
 #define STRICT_ALIGNMENT (TARGET_STRICT_ALIGNMENT)
+#define M68K_HONOR_TARGET_STRICT_ALIGNMENT 1
+
+#define DWARF_CIE_DATA_ALIGNMENT -2
 
 #define INT_TYPE_SIZE (TARGET_SHORT ? 16 : 32)
 
@@ -501,6 +516,11 @@ extern enum reg_class regno_reg_class[];
 /* Moves between fp regs and other regs are two insns.  */
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2)	\
   ((((CLASS1) == FP_REGS) != ((CLASS2) == FP_REGS)) ? 4 : 2)
+
+#define IRA_COVER_CLASSES						\
+{									\
+  ALL_REGS, LIM_REG_CLASSES						\
+}
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -658,16 +678,16 @@ __transfer_from_trampoline ()					\
 /* Macros to check register numbers against specific register classes.  */
 
 /* True for data registers, D0 through D7.  */
-#define DATA_REGNO_P(REGNO) ((unsigned int) (REGNO) < 8)
+#define DATA_REGNO_P(REGNO)	IN_RANGE (REGNO, 0, 7)
 
 /* True for address registers, A0 through A7.  */
-#define ADDRESS_REGNO_P(REGNO) (((unsigned int) (REGNO) - 8) < 8)
+#define ADDRESS_REGNO_P(REGNO)	IN_RANGE (REGNO, 8, 15)
 
 /* True for integer registers, D0 through D7 and A0 through A7.  */
-#define INT_REGNO_P(REGNO) ((unsigned int) (REGNO) < 16)
+#define INT_REGNO_P(REGNO)	IN_RANGE (REGNO, 0, 15)
 
 /* True for floating point registers, FP0 through FP7.  */
-#define FP_REGNO_P(REGNO) (((unsigned int) (REGNO) - 16) < 8)
+#define FP_REGNO_P(REGNO)	IN_RANGE (REGNO, 16, 23)
 
 #define REGNO_OK_FOR_INDEX_P(REGNO)			\
   (INT_REGNO_P (REGNO)					\
@@ -677,13 +697,15 @@ __transfer_from_trampoline ()					\
   (ADDRESS_REGNO_P (REGNO)				\
    || ADDRESS_REGNO_P (reg_renumber[REGNO]))
 
-#define REGNO_OK_FOR_DATA_P(REGNO)			\
-  (DATA_REGNO_P (REGNO)					\
-   || DATA_REGNO_P (reg_renumber[REGNO]))
+#define REGNO_OK_FOR_INDEX_NONSTRICT_P(REGNO)		\
+  (INT_REGNO_P (REGNO)					\
+   || REGNO == ARG_POINTER_REGNUM			\
+   || REGNO >= FIRST_PSEUDO_REGISTER)
 
-#define REGNO_OK_FOR_FP_P(REGNO)			\
-  (FP_REGNO_P (REGNO)					\
-   || FP_REGNO_P (reg_renumber[REGNO]))
+#define REGNO_OK_FOR_BASE_NONSTRICT_P(REGNO)		\
+  (ADDRESS_REGNO_P (REGNO)				\
+   || REGNO == ARG_POINTER_REGNUM			\
+   || REGNO >= FIRST_PSEUDO_REGISTER)
 
 /* Now macros that check whether X is a register and also,
    strictly, whether it is in a specified class.
@@ -693,13 +715,13 @@ __transfer_from_trampoline ()					\
    define_optimization.  */
 
 /* 1 if X is a data register.  */
-#define DATA_REG_P(X) (REG_P (X) && REGNO_OK_FOR_DATA_P (REGNO (X)))
+#define DATA_REG_P(X)	(REG_P (X) && DATA_REGNO_P (REGNO (X)))
 
 /* 1 if X is an fp register.  */
-#define FP_REG_P(X) (REG_P (X) && REGNO_OK_FOR_FP_P (REGNO (X)))
+#define FP_REG_P(X)	(REG_P (X) && FP_REGNO_P (REGNO (X)))
 
 /* 1 if X is an address register  */
-#define ADDRESS_REG_P(X) (REG_P (X) && REGNO_OK_FOR_BASE_P (REGNO (X)))
+#define ADDRESS_REG_P(X) (REG_P (X) && ADDRESS_REGNO_P (REGNO (X)))
 
 /* True if SYMBOL + OFFSET constants must refer to something within
    SYMBOL's section.  */
@@ -745,9 +767,7 @@ __transfer_from_trampoline ()					\
     }									\
   while (0)
 
-/* Don't call memory_address_noforce for the address to fetch
-   the switch offset.  This address is ok as it stands,
-   but memory_address_noforce would alter it.  */
+/* This address is OK as it stands.  */
 #define PIC_CASE_VECTOR_ADDRESS(index) index
 
 /* For the 68000, we handle X+REG by loading X into a register R and
@@ -834,6 +854,14 @@ __transfer_from_trampoline ()					\
    possibly invalid to use the saved cc's.  In those cases we clear out
    some or all of the saved cc's so they won't be used.  */
 #define NOTICE_UPDATE_CC(EXP,INSN) notice_update_cc (EXP, INSN)
+
+/* The shift instructions always clear the overflow bit.  */
+#define CC_OVERFLOW_UNUSABLE 01000
+
+/* The shift instructions use the carry bit in a way not compatible with
+   conditional branches.  conditions.h uses CC_NO_OVERFLOW for this purpose.
+   Rename it to something more understandable.  */
+#define CC_NO_CARRY CC_NO_OVERFLOW
 
 #define OUTPUT_JUMP(NORMAL, FLOAT, NO_OV)  \
 do { if (cc_prev_status.flags & CC_IN_68881)			\
@@ -1000,40 +1028,6 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
 
-/* Output a float value (represented as a C double) as an immediate operand.
-   This macro is m68k-specific.  */
-#define ASM_OUTPUT_FLOAT_OPERAND(CODE,FILE,VALUE)		\
- do {								\
-      if (CODE == 'f')						\
-        {							\
-          char dstr[30];					\
-	  real_to_decimal (dstr, &(VALUE), sizeof (dstr), 9, 0); \
-          asm_fprintf ((FILE), "%I0r%s", dstr);			\
-        }							\
-      else							\
-        {							\
-          long l;						\
-          REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);		\
-          asm_fprintf ((FILE), "%I0x%lx", l);			\
-        }							\
-     } while (0)
-
-/* Output a double value (represented as a C double) as an immediate operand.
-   This macro is m68k-specific.  */
-#define ASM_OUTPUT_DOUBLE_OPERAND(FILE,VALUE)				\
- do { char dstr[30];							\
-      real_to_decimal (dstr, &(VALUE), sizeof (dstr), 0, 1);		\
-      asm_fprintf (FILE, "%I0r%s", dstr);				\
-    } while (0)
-
-/* Note, long double immediate operands are not actually
-   generated by m68k.md.  */
-#define ASM_OUTPUT_LONG_DOUBLE_OPERAND(FILE,VALUE)			\
- do { char dstr[30];							\
-      real_to_decimal (dstr, &(VALUE), sizeof (dstr), 0, 1);		\
-      asm_fprintf (FILE, "%I0r%s", dstr);				\
-    } while (0)
-
 /* On the 68000, we use several CODE characters:
    '.' for dot needed in Motorola-style opcode names.
    '-' for an operand pushing on the stack:
@@ -1067,6 +1061,12 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
+#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)		\
+do {							\
+  if (! m68k_output_addr_const_extra (FILE, (X)))	\
+    goto FAIL;						\
+} while (0);
+
 /* Values used in the MICROARCH argument to M68K_DEVICE.  */
 enum uarch_type
 {
@@ -1079,6 +1079,7 @@ enum uarch_type
   u68040,
   u68060,
   ucpu32,
+  ucfv1,
   ucfv2,
   ucfv3,
   ucfv4,
@@ -1118,5 +1119,27 @@ extern enum target_device m68k_cpu;
 extern enum uarch_type m68k_tune;
 extern enum fpu_type m68k_fpu;
 extern unsigned int m68k_cpu_flags;
+extern unsigned int m68k_tune_flags;
 extern const char *m68k_symbolic_call;
 extern const char *m68k_symbolic_jump;
+
+enum M68K_SYMBOLIC_CALL { M68K_SYMBOLIC_CALL_NONE, M68K_SYMBOLIC_CALL_JSR,
+			  M68K_SYMBOLIC_CALL_BSR_C, M68K_SYMBOLIC_CALL_BSR_P };
+
+extern enum M68K_SYMBOLIC_CALL m68k_symbolic_call_var;
+
+/* ??? HOST_WIDE_INT is not being defined for auto-generated files.
+   Workaround that.  */
+#ifdef HOST_WIDE_INT
+typedef enum { MOVL, SWAP, NEGW, NOTW, NOTB, MOVQ, MVS, MVZ }
+  M68K_CONST_METHOD;
+
+extern M68K_CONST_METHOD m68k_const_method (HOST_WIDE_INT);
+#endif
+
+extern void m68k_emit_move_double (rtx [2]);
+
+extern int m68k_sched_address_bypass_p (rtx, rtx);
+extern int m68k_sched_indexed_address_bypass_p (rtx, rtx);
+
+#define CPU_UNITS_QUERY 1

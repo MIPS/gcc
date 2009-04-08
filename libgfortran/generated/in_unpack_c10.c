@@ -1,5 +1,5 @@
 /* Helper function for repacking arrays.
-   Copyright 2003, 2006 Free Software Foundation, Inc.
+   Copyright 2003, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -28,11 +28,11 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "libgfortran.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-#include "libgfortran.h"
+
 
 #if defined (HAVE_GFC_COMPLEX_10)
 
@@ -45,7 +45,7 @@ internal_unpack_c10 (gfc_array_c10 * d, const GFC_COMPLEX_10 * src)
   index_type stride0;
   index_type dim;
   index_type dsize;
-  GFC_COMPLEX_10 *dest;
+  GFC_COMPLEX_10 * restrict dest;
   int n;
 
   dest = d->data;
@@ -60,12 +60,12 @@ internal_unpack_c10 (gfc_array_c10 * d, const GFC_COMPLEX_10 * src)
       stride[n] = d->dim[n].stride;
       extent[n] = d->dim[n].ubound + 1 - d->dim[n].lbound;
       if (extent[n] <= 0)
-        abort ();
+	return;
 
       if (dsize == stride[n])
-        dsize *= extent[n];
+	dsize *= extent[n];
       else
-        dsize = 0;
+	dsize = 0;
     }
 
   if (dsize != 0)
@@ -109,3 +109,4 @@ internal_unpack_c10 (gfc_array_c10 * d, const GFC_COMPLEX_10 * src)
 }
 
 #endif
+

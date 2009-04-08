@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1992-2006 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,13 +31,11 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is the VxWorks version of this package.
+--  This is the VxWorks version of this package
 
---  Make a careful study of all signals available under the OS,
---  to see which need to be reserved, kept always unmasked,
---  or kept always unmasked.
---  Be on the lookout for special signals that
---  may be used by the thread library.
+--  Make a careful study of all signals available under the OS, to see which
+--  need to be reserved, kept always unmasked, or kept always unmasked. Be on
+--  the lookout for special signals that may be used by the thread library.
 
 package body System.Interrupt_Management is
 
@@ -51,8 +49,11 @@ package body System.Interrupt_Management is
    Exception_Action : aliased struct_sigaction;
    --  Keep this variable global so that it is initialized only once
 
-   procedure Map_And_Raise_Exception (signo : Signal);
-   pragma Import (C, Map_And_Raise_Exception, "__gnat_map_signal");
+   procedure Notify_Exception
+     (signo      : Signal;
+      siginfo    : System.Address;
+      sigcontext : System.Address);
+   pragma Import (C, Notify_Exception, "__gnat_error_handler");
    --  Map signal to Ada exception and raise it.  Different versions
    --  of VxWorks need different mappings.
 
@@ -62,9 +63,8 @@ package body System.Interrupt_Management is
 
    function State (Int : Interrupt_ID) return Character;
    pragma Import (C, State, "__gnat_get_interrupt_state");
-   --  Get interrupt state.  Defined in init.c
-   --  The input argument is the interrupt number,
-   --  and the result is one of the following:
+   --  Get interrupt state. Defined in init.c The input argument is the
+   --  interrupt number, and the result is one of the following:
 
    Runtime : constant Character := 'r';
    Default : constant Character := 's';
@@ -73,28 +73,6 @@ package body System.Interrupt_Management is
    --    'r'   Interrupt_State pragma set state to Runtime
    --    's'   Interrupt_State pragma set state to System (use "default"
    --           system handler)
-
-   procedure Notify_Exception (signo : Signal);
-   --  Identify the Ada exception to be raised using
-   --  the information when the system received a synchronous signal.
-
-   ----------------------
-   -- Notify_Exception --
-   ----------------------
-
-   procedure Notify_Exception (signo : Signal) is
-      Mask   : aliased sigset_t;
-
-      Result : int;
-      pragma Unreferenced (Result);
-
-   begin
-      Result := pthread_sigmask (SIG_SETMASK, null, Mask'Unchecked_Access);
-      Result := sigdelset (Mask'Access, signo);
-      Result := pthread_sigmask (SIG_SETMASK, Mask'Unchecked_Access, null);
-
-      Map_And_Raise_Exception (signo);
-   end Notify_Exception;
 
    ---------------------------
    -- Initialize_Interrupts --
@@ -121,10 +99,12 @@ package body System.Interrupt_Management is
    ----------------
 
    Initialized : Boolean := False;
+   --  Set to True once Initialize is called, further calls have no effect
 
    procedure Initialize is
       mask   : aliased sigset_t;
       Result : int;
+
    begin
       if Initialized then
          return;
@@ -135,10 +115,10 @@ package body System.Interrupt_Management is
       --  Change this if you want to use another signal for task abort.
       --  SIGTERM might be a good one.
 
-      Abort_Task_Signal := SIGABRT;
+      Abort_Task_Interrupt := SIGABRT;
 
       Exception_Action.sa_handler := Notify_Exception'Address;
-      Exception_Action.sa_flags := SA_ONSTACK;
+      Exception_Action.sa_flags := SA_ONSTACK + SA_SIGINFO;
       Result := sigemptyset (mask'Access);
       pragma Assert (Result = 0);
 
@@ -169,7 +149,7 @@ package body System.Interrupt_Management is
 
       --  The abort signal must also be unmasked
 
-      Keep_Unmasked (Abort_Task_Signal) := True;
+      Keep_Unmasked (Abort_Task_Interrupt) := True;
    end Initialize;
 
 end System.Interrupt_Management;

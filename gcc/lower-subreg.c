@@ -1,5 +1,5 @@
 /* Decompose multiword subregs.
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 		  Ian Lance Taylor <iant@google.com>
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "except.h"
 #include "regs.h"
 #include "tree-pass.h"
+#include "df.h"
 
 #ifdef STACK_GROWS_DOWNWARD
 # undef STACK_GROWS_DOWNWARD
@@ -225,11 +225,9 @@ enum classify_move_insn
 {
   /* Not a simple move from one location to another.  */
   NOT_SIMPLE_MOVE,
-  /* A simple move from one pseudo-register to another with no
-     REG_RETVAL note.  */
+  /* A simple move from one pseudo-register to another.  */
   SIMPLE_PSEUDO_REG_MOVE,
-  /* A simple move involving a non-pseudo-register, or from one
-     pseudo-register to another with a REG_RETVAL note.  */
+  /* A simple move involving a non-pseudo-register.  */
   SIMPLE_MOVE
 };
 
@@ -281,6 +279,18 @@ find_decomposable_subregs (rtx *px, void *data)
 	  bitmap_set_bit (decomposable_context, regno);
 	  return -1;
 	}
+
+      /* If this is a cast from one mode to another, where the modes
+	 have the same size, and they are not tieable, then mark this
+	 register as non-decomposable.  If we decompose it we are
+	 likely to mess up whatever the backend is trying to do.  */
+      if (outer_words > 1
+	  && outer_size == inner_size
+	  && !MODES_TIEABLE_P (GET_MODE (x), GET_MODE (inner)))
+	{
+	  bitmap_set_bit (non_decomposable_context, regno);
+	  return -1;
+	}
     }
   else if (REG_P (x))
     {
@@ -292,10 +302,10 @@ find_decomposable_subregs (rtx *px, void *data)
 
 	 If this is not a simple copy from one location to another,
 	 then we can not decompose this register.  If this is a simple
-	 copy from one pseudo-register to another, with no REG_RETVAL
-	 note, and the mode is right, then we mark the register as
-	 decomposable.  Otherwise we don't say anything about this
-	 register--it could be decomposed, but whether that would be
+	 copy from one pseudo-register to another, and the mode is right
+	 then we mark the register as decomposable.
+	 Otherwise we don't say anything about this register --
+	 it could be decomposed, but whether that would be
 	 profitable depends upon how it is used elsewhere.
 
 	 We only set bits in the bitmap for multi-word
@@ -351,7 +361,6 @@ decompose_register (unsigned int regno)
   reg = regno_reg_rtx[regno];
 
   regno_reg_rtx[regno] = NULL_RTX;
-  clear_reg_info_regno (regno);
 
   words = GET_MODE_SIZE (GET_MODE (reg));
   words = (words + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -514,8 +523,8 @@ resolve_subreg_use (rtx *px, void *data)
     {
       /* Return 1 to the caller to indicate that we found a direct
 	 reference to a register which is being decomposed.  This can
-	 happen inside notes.  */
-      gcc_assert (!insn);
+	 happen inside notes, multiword shift or zero-extend
+	 instructions.  */
       return 1;
     }
 
@@ -542,62 +551,7 @@ move_eh_region_note (rtx insn, rtx insns)
 	  || (flag_non_call_exceptions
 	      && INSN_P (p)
 	      && may_trap_p (PATTERN (p))))
-	REG_NOTES (p) = gen_rtx_EXPR_LIST (REG_EH_REGION, XEXP (note, 0),
-					   REG_NOTES (p));
-    }
-}
-
-/* If there is a REG_LIBCALL note on OLD_START, move it to NEW_START,
-   and link the corresponding REG_RETVAL note to NEW_START.  */
-
-static void
-move_libcall_note (rtx old_start, rtx new_start)
-{
-  rtx note0, note1, end;
-
-  note0 = find_reg_note (old_start, REG_LIBCALL, NULL);
-  if (note0 == NULL_RTX)
-    return;
-
-  remove_note (old_start, note0);
-  end = XEXP (note0, 0);
-  note1 = find_reg_note (end, REG_RETVAL, NULL);
-
-  XEXP (note0, 1) = REG_NOTES (new_start);
-  REG_NOTES (new_start) = note0;
-  XEXP (note1, 0) = new_start;
-}
-
-/* Remove any REG_RETVAL note, the corresponding REG_LIBCALL note, and
-   any markers for a no-conflict block.  We have decomposed the
-   registers so the non-conflict is now obvious.  */
-
-static void
-remove_retval_note (rtx insn1)
-{
-  rtx note0, insn0, note1, insn;
-
-  note1 = find_reg_note (insn1, REG_RETVAL, NULL);
-  if (note1 == NULL_RTX)
-    return;
-
-  insn0 = XEXP (note1, 0);
-  note0 = find_reg_note (insn0, REG_LIBCALL, NULL);
-
-  remove_note (insn0, note0);
-  remove_note (insn1, note1);
-
-  for (insn = insn0; insn != insn1; insn = NEXT_INSN (insn))
-    {
-      while (1)
-	{
-	  rtx note;
-
-	  note = find_reg_note (insn, REG_NO_CONFLICT, NULL);
-	  if (note == NULL_RTX)
-	    break;
-	  remove_note (insn, note);
-	}
+	add_reg_note (p, REG_EH_REGION, XEXP (note, 0));
     }
 }
 
@@ -612,31 +566,33 @@ resolve_reg_notes (rtx insn)
   note = find_reg_equal_equiv_note (insn);
   if (note)
     {
+      int old_count = num_validated_changes ();
       if (for_each_rtx (&XEXP (note, 0), resolve_subreg_use, NULL))
-	{
-	  remove_note (insn, note);
-	  remove_retval_note (insn);
-	}
+	remove_note (insn, note);
+      else
+	if (old_count != num_validated_changes ())
+	  df_notes_rescan (insn);
     }
 
   pnote = &REG_NOTES (insn);
   while (*pnote != NULL_RTX)
     {
-      bool delete = false;
+      bool del = false;
 
       note = *pnote;
       switch (REG_NOTE_KIND (note))
 	{
-	case REG_NO_CONFLICT:
+	case REG_DEAD:
+	case REG_UNUSED:
 	  if (resolve_reg_p (XEXP (note, 0)))
-	    delete = true;
+	    del = true;
 	  break;
 
 	default:
 	  break;
 	}
 
-      if (delete)
+      if (del)
 	*pnote = XEXP (note, 1);
       else
 	pnote = &XEXP (note, 1);
@@ -833,7 +789,7 @@ resolve_simple_move (rtx set, rtx insn)
       unsigned int i;
 
       if (REG_P (dest) && !HARD_REGISTER_NUM_P (REGNO (dest)))
-	emit_insn (gen_rtx_CLOBBER (VOIDmode, dest));
+	emit_clobber (dest);
 
       for (i = 0; i < words; ++i)
 	emit_move_insn (simplify_gen_subreg_concatn (word_mode, dest,
@@ -867,8 +823,6 @@ resolve_simple_move (rtx set, rtx insn)
 
   emit_insn_before (insns, insn);
 
-  move_libcall_note (insn, insns);
-  remove_retval_note (insn);
   delete_insn (insn);
 
   return insns;
@@ -897,6 +851,7 @@ resolve_clobber (rtx pat, rtx insn)
 			 simplify_gen_subreg_concatn (word_mode, reg,
 						      orig_mode, 0),
 			 0);
+  df_insn_rescan (insn);
   gcc_assert (ret != 0);
 
   for (i = words - 1; i > 0; --i)
@@ -908,6 +863,8 @@ resolve_clobber (rtx pat, rtx insn)
       x = gen_rtx_CLOBBER (VOIDmode, x);
       emit_insn_after (x, insn);
     }
+
+  resolve_reg_notes (insn);
 
   return true;
 }
@@ -923,7 +880,160 @@ resolve_use (rtx pat, rtx insn)
       delete_insn (insn);
       return true;
     }
+
+  resolve_reg_notes (insn);
+
   return false;
+}
+
+/* Checks if INSN is a decomposable multiword-shift or zero-extend and
+   sets the decomposable_context bitmap accordingly.  A non-zero value
+   is returned if a decomposable insn has been found.  */
+
+static int
+find_decomposable_shift_zext (rtx insn)
+{
+  rtx set;
+  rtx op;
+  rtx op_operand;
+
+  set = single_set (insn);
+  if (!set)
+    return 0;
+
+  op = SET_SRC (set);
+  if (GET_CODE (op) != ASHIFT
+      && GET_CODE (op) != LSHIFTRT
+      && GET_CODE (op) != ZERO_EXTEND)
+    return 0;
+
+  op_operand = XEXP (op, 0);
+  if (!REG_P (SET_DEST (set)) || !REG_P (op_operand)
+      || HARD_REGISTER_NUM_P (REGNO (SET_DEST (set)))
+      || HARD_REGISTER_NUM_P (REGNO (op_operand))
+      || !SCALAR_INT_MODE_P (GET_MODE (op)))
+    return 0;
+
+  if (GET_CODE (op) == ZERO_EXTEND)
+    {
+      if (GET_MODE (op_operand) != word_mode
+	  || GET_MODE_BITSIZE (GET_MODE (op)) != 2 * BITS_PER_WORD)
+	return 0;
+    }
+  else /* left or right shift */
+    {
+      if (GET_CODE (XEXP (op, 1)) != CONST_INT
+	  || INTVAL (XEXP (op, 1)) < BITS_PER_WORD
+	  || GET_MODE_BITSIZE (GET_MODE (op_operand)) != 2 * BITS_PER_WORD)
+	return 0;
+    }
+
+  bitmap_set_bit (decomposable_context, REGNO (SET_DEST (set)));
+
+  if (GET_CODE (op) != ZERO_EXTEND)
+    bitmap_set_bit (decomposable_context, REGNO (op_operand));
+
+  return 1;
+}
+
+/* Decompose a more than word wide shift (in INSN) of a multiword
+   pseudo or a multiword zero-extend of a wordmode pseudo into a move
+   and 'set to zero' insn.  Return a pointer to the new insn when a
+   replacement was done.  */
+
+static rtx
+resolve_shift_zext (rtx insn)
+{
+  rtx set;
+  rtx op;
+  rtx op_operand;
+  rtx insns;
+  rtx src_reg, dest_reg, dest_zero;
+  int src_reg_num, dest_reg_num, offset1, offset2, src_offset;
+
+  set = single_set (insn);
+  if (!set)
+    return NULL_RTX;
+
+  op = SET_SRC (set);
+  if (GET_CODE (op) != ASHIFT
+      && GET_CODE (op) != LSHIFTRT
+      && GET_CODE (op) != ZERO_EXTEND)
+    return NULL_RTX;
+
+  op_operand = XEXP (op, 0);
+
+  if (!resolve_reg_p (SET_DEST (set)) && !resolve_reg_p (op_operand))
+    return NULL_RTX;
+
+  /* src_reg_num is the number of the word mode register which we
+     are operating on.  For a left shift and a zero_extend on little
+     endian machines this is register 0.  */
+  src_reg_num = GET_CODE (op) == LSHIFTRT ? 1 : 0;
+
+  if (WORDS_BIG_ENDIAN
+      && GET_MODE_SIZE (GET_MODE (op_operand)) > UNITS_PER_WORD)
+    src_reg_num = 1 - src_reg_num;
+
+  if (GET_CODE (op) == ZERO_EXTEND)
+    dest_reg_num = WORDS_BIG_ENDIAN ? 1 : 0;
+  else
+    dest_reg_num = 1 - src_reg_num;
+
+  offset1 = UNITS_PER_WORD * dest_reg_num;
+  offset2 = UNITS_PER_WORD * (1 - dest_reg_num);
+  src_offset = UNITS_PER_WORD * src_reg_num;
+
+  if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
+    {
+      offset1 += UNITS_PER_WORD - 1;
+      offset2 += UNITS_PER_WORD - 1;
+      src_offset += UNITS_PER_WORD - 1;
+    }
+
+  start_sequence ();
+
+  dest_reg = simplify_gen_subreg_concatn (word_mode, SET_DEST (set),
+                                          GET_MODE (SET_DEST (set)),
+                                          offset1);
+  dest_zero = simplify_gen_subreg_concatn (word_mode, SET_DEST (set),
+                                           GET_MODE (SET_DEST (set)),
+                                           offset2);
+  src_reg = simplify_gen_subreg_concatn (word_mode, op_operand,
+                                         GET_MODE (op_operand),
+                                         src_offset);
+  if (GET_CODE (op) != ZERO_EXTEND)
+    {
+      int shift_count = INTVAL (XEXP (op, 1));
+      if (shift_count > BITS_PER_WORD)
+	src_reg = expand_shift (GET_CODE (op) == ASHIFT ?
+				LSHIFT_EXPR : RSHIFT_EXPR,
+				word_mode, src_reg,
+				build_int_cst (NULL_TREE,
+					       shift_count - BITS_PER_WORD),
+				dest_reg, 1);
+    }
+
+  if (dest_reg != src_reg)
+    emit_move_insn (dest_reg, src_reg);
+  emit_move_insn (dest_zero, CONST0_RTX (word_mode));
+  insns = get_insns ();
+
+  end_sequence ();
+
+  emit_insn_before (insns, insn);
+
+  if (dump_file)
+    {
+      rtx in;
+      fprintf (dump_file, "; Replacing insn: %d with insns: ", INSN_UID (insn));
+      for (in = insns; in != insn; in = NEXT_INSN (in))
+	fprintf (dump_file, "%d ", INSN_UID (in));
+      fprintf (dump_file, "\n");
+    }
+
+  delete_insn (insn);
+  return insns;
 }
 
 /* Look for registers which are always accessed via word-sized SUBREGs
@@ -931,10 +1041,13 @@ resolve_use (rtx pat, rtx insn)
    pseudo-registers.  */
 
 static void
-decompose_multiword_subregs (bool update_life)
+decompose_multiword_subregs (void)
 {
   unsigned int max;
   basic_block bb;
+
+  if (df)
+    df_set_flags (DF_DEFER_INSN_RESCAN);
 
   max = max_reg_num ();
 
@@ -982,6 +1095,9 @@ decompose_multiword_subregs (bool update_life)
 	      || GET_CODE (PATTERN (insn)) == USE)
 	    continue;
 
+	  if (find_decomposable_shift_zext (insn))
+	    continue;
+
 	  recog_memoized (insn);
 	  extract_insn (insn);
 
@@ -991,34 +1107,8 @@ decompose_multiword_subregs (bool update_life)
 	    cmi = NOT_SIMPLE_MOVE;
 	  else
 	    {
-	      bool retval;
-
-	      retval = find_reg_note (insn, REG_RETVAL, NULL_RTX) != NULL_RTX;
-
-	      if (find_pseudo_copy (set) && !retval)
+	      if (find_pseudo_copy (set))
 		cmi = SIMPLE_PSEUDO_REG_MOVE;
-	      else if (retval
-		       && REG_P (SET_SRC (set))
-		       && HARD_REGISTER_P (SET_SRC (set)))
-		{
-		  rtx note;
-
-		  /* We don't want to decompose an assignment which
-		     copies the value returned by a libcall to a
-		     pseudo-register.  Doing that will lose the RETVAL
-		     note with no real gain.  */
-		  cmi = NOT_SIMPLE_MOVE;
-
-		  /* If we have a RETVAL note, there should be an
-		     EQUAL note.  We don't want to decompose any
-		     registers which that EQUAL note refers to
-		     directly.  If we do, we will no longer know the
-		     value of the libcall.  */
-		  note = find_reg_equal_equiv_note (insn);
-		  if (note != NULL_RTX)
-		    for_each_rtx (&XEXP (note, 0), find_decomposable_subregs,
-				  &cmi);
-		}
 	      else
 		cmi = SIMPLE_MOVE;
 	    }
@@ -1048,9 +1138,6 @@ decompose_multiword_subregs (bool update_life)
   bitmap_and_compl_into (decomposable_context, non_decomposable_context);
   if (!bitmap_empty_p (decomposable_context))
     {
-      int hold_no_new_pseudos = no_new_pseudos;
-      int max_regno = max_reg_num ();
-      sbitmap life_blocks;
       sbitmap sub_blocks;
       unsigned int i;
       sbitmap_iterator sbi;
@@ -1059,9 +1146,6 @@ decompose_multiword_subregs (bool update_life)
 
       propagate_pseudo_copies ();
 
-      no_new_pseudos = 0;
-      life_blocks = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (life_blocks);
       sub_blocks = sbitmap_alloc (last_basic_block);
       sbitmap_zero (sub_blocks);
 
@@ -1075,25 +1159,17 @@ decompose_multiword_subregs (bool update_life)
 	  FOR_BB_INSNS (bb, insn)
 	    {
 	      rtx next, pat;
-	      bool changed;
 
 	      if (!INSN_P (insn))
 		continue;
 
 	      next = NEXT_INSN (insn);
-	      changed = false;
 
 	      pat = PATTERN (insn);
 	      if (GET_CODE (pat) == CLOBBER)
-		{
-		  if (resolve_clobber (pat, insn))
-		    changed = true;
-		}
+		resolve_clobber (pat, insn);
 	      else if (GET_CODE (pat) == USE)
-		{
-		  if (resolve_use (pat, insn))
-		    changed = true;
-		}
+		resolve_use (pat, insn);
 	      else
 		{
 		  rtx set;
@@ -1126,15 +1202,23 @@ decompose_multiword_subregs (bool update_life)
 		      insn = resolve_simple_move (set, insn);
 		      if (insn != orig_insn)
 			{
-			  changed = true;
-
-			  remove_retval_note (insn);
-
 			  recog_memoized (insn);
 			  extract_insn (insn);
 
 			  if (cfi)
 			    SET_BIT (sub_blocks, bb->index);
+			}
+		    }
+		  else
+		    {
+		      rtx decomposed_shift;
+
+		      decomposed_shift = resolve_shift_zext (insn);
+		      if (decomposed_shift != NULL_RTX)
+			{
+			  insn = decomposed_shift;
+			  recog_memoized (insn);
+			  extract_insn (insn);
 			}
 		    }
 
@@ -1153,31 +1237,15 @@ decompose_multiword_subregs (bool update_life)
 			  int dup_num = recog_data.dup_num[i];
 			  rtx *px = recog_data.operand_loc[dup_num];
 
-			  validate_change (insn, pl, *px, 1);
+			  validate_unshare_change (insn, pl, *px, 1);
 			}
 
 		      i = apply_change_group ();
 		      gcc_assert (i);
-
-		      remove_retval_note (insn);
-
-		      changed = true;
 		    }
-		}
-
-	      if (changed)
-		{
-		  SET_BIT (life_blocks, bb->index);
-		  reg_scan_update (insn, next, max_regno);
 		}
 	    }
 	}
-
-      no_new_pseudos = hold_no_new_pseudos;
-
-      if (update_life)
-	update_life_info (life_blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
-			  PROP_DEATH_NOTES);
 
       /* If we had insns to split that caused control flow insns in the middle
 	 of a basic block, split those blocks now.  Note that we only handle
@@ -1209,7 +1277,6 @@ decompose_multiword_subregs (bool update_life)
 	    }
 	}
 
-      sbitmap_free (life_blocks);
       sbitmap_free (sub_blocks);
     }
 
@@ -1241,7 +1308,7 @@ gate_handle_lower_subreg (void)
 static unsigned int
 rest_of_handle_lower_subreg (void)
 {
-  decompose_multiword_subregs (false);
+  decompose_multiword_subregs ();
   return 0;
 }
 
@@ -1250,13 +1317,15 @@ rest_of_handle_lower_subreg (void)
 static unsigned int
 rest_of_handle_lower_subreg2 (void)
 {
-  decompose_multiword_subregs (true);
+  decompose_multiword_subregs ();
   return 0;
 }
 
-struct tree_opt_pass pass_lower_subreg =
+struct rtl_opt_pass pass_lower_subreg =
 {
-  "subreg",	                        /* name */
+ {
+  RTL_PASS,
+  "subreg1",	                        /* name */
   gate_handle_lower_subreg,             /* gate */
   rest_of_handle_lower_subreg,          /* execute */
   NULL,                                 /* sub */
@@ -1269,12 +1338,14 @@ struct tree_opt_pass pass_lower_subreg =
   0,                                    /* todo_flags_start */
   TODO_dump_func |
   TODO_ggc_collect |
-  TODO_verify_flow,                     /* todo_flags_finish */
-  'u'                                   /* letter */
+  TODO_verify_flow                      /* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_lower_subreg2 =
+struct rtl_opt_pass pass_lower_subreg2 =
 {
+ {
+  RTL_PASS,
   "subreg2",	                        /* name */
   gate_handle_lower_subreg,             /* gate */
   rest_of_handle_lower_subreg2,          /* execute */
@@ -1286,8 +1357,9 @@ struct tree_opt_pass pass_lower_subreg2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect |
-  TODO_verify_flow,                     /* todo_flags_finish */
-  'U'                                   /* letter */
+  TODO_verify_flow                      /* todo_flags_finish */
+ }
 };

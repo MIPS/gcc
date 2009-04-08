@@ -1,12 +1,13 @@
 /* Definitions for C parsing and type checking.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_C_TREE_H
 #define GCC_C_TREE_H
@@ -146,15 +146,21 @@ struct lang_type GTY(())
    without prototypes.  */
 #define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_LANG_SLOT_1 (NODE)
 
+/* For a CONSTRUCTOR, whether some initializer contains a
+   subexpression meaning it is not a constant expression.  */
+#define CONSTRUCTOR_NON_CONST(EXPR) TREE_LANG_FLAG_1 (CONSTRUCTOR_CHECK (EXPR))
+
 /* Record parser information about an expression that is irrelevant
    for code generation alongside a tree representing its value.  */
 struct c_expr
 {
   /* The value of the expression.  */
   tree value;
-  /* Record the original binary operator of an expression, which may
+  /* Record the original unary/binary operator of an expression, which may
      have been changed by fold, STRING_CST for unparenthesized string
-     constants, or ERROR_MARK for other expressions (including
+     constants, C_MAYBE_CONST_EXPR for __builtin_constant_p calls
+     (even if parenthesized), for subexpressions, and for non-constant
+     initializers, or ERROR_MARK for other expressions (including
      parenthesized expressions).  */
   enum tree_code original_code;
 };
@@ -190,6 +196,18 @@ struct c_typespec {
   enum c_typespec_kind kind;
   /* The specifier itself.  */
   tree spec;
+  /* An expression to be evaluated before the type specifier, in the
+     case of typeof specifiers, or NULL otherwise or if no such
+     expression is required for a particular typeof specifier.  In
+     particular, when typeof is applied to an expression of variably
+     modified type, that expression must be evaluated in order to
+     determine array sizes that form part of the type, but the
+     expression itself (as opposed to the array sizes) forms no part
+     of the type and so needs to be recorded separately.  */
+  tree expr;
+  /* Whether the expression has operands suitable for use in constant
+     expressions.  */
+  bool expr_const_operands;
 };
 
 /* A storage class specifier.  */
@@ -203,7 +221,8 @@ enum c_storage_class {
 };
 
 /* A type specifier keyword "void", "_Bool", "char", "int", "float",
-   "double", or none of these.  */
+   "double", "_Decimal32", "_Decimal64", "_Decimal128", "_Fract", "_Accum",
+   or none of these.  */
 enum c_typespec_keyword {
   cts_none,
   cts_void,
@@ -214,7 +233,9 @@ enum c_typespec_keyword {
   cts_double,
   cts_dfloat32,
   cts_dfloat64,
-  cts_dfloat128
+  cts_dfloat128,
+  cts_fract,
+  cts_accum
 };
 
 /* A sequence of declaration specifiers in C.  */
@@ -224,6 +245,9 @@ struct c_declspecs {
      whole type, or NULL_TREE if none or a keyword such as "void" or
      "char" is used.  Does not include qualifiers.  */
   tree type;
+  /* Any expression to be evaluated before the type, from a typeof
+     specifier.  */
+  tree expr;
   /* The attributes from a typedef decl.  */
   tree decl_attr;
   /* When parsing, the attributes.  Outside the parser, this will be
@@ -235,6 +259,9 @@ struct c_declspecs {
   enum c_typespec_keyword typespec_word;
   /* The storage class specifier, or csc_none if none.  */
   enum c_storage_class storage_class;
+  /* Whether any expressions in typeof specifiers may appear in
+     constant expressions.  */
+  BOOL_BITFIELD expr_const_operands : 1;
   /* Whether any declaration specifiers have been seen at all.  */
   BOOL_BITFIELD declspecs_seen_p : 1;
   /* Whether a type specifier has been seen.  */
@@ -282,6 +309,8 @@ struct c_declspecs {
   BOOL_BITFIELD volatile_p : 1;
   /* Whether "restrict" was specified.  */
   BOOL_BITFIELD restrict_p : 1;
+  /* Whether "_Sat" was specified.  */
+  BOOL_BITFIELD saturating_p : 1;
 };
 
 /* The various kinds of declarators in C.  */
@@ -425,6 +454,17 @@ struct c_label_context_vm
   struct c_label_context_vm *next;
 };
 
+/* Used when parsing an enum.  Initialized by start_enum.  */
+struct c_enum_contents
+{
+  /* While defining an enum type, this is 1 plus the last enumerator
+     constant value.  */
+  tree enum_next_value;
+
+  /* Nonzero means that there was overflow computing enum_next_value.  */
+  int enum_overflow;
+};
+
 
 /* in c-parser.c */
 extern void c_parse_init (void);
@@ -440,7 +480,6 @@ extern tree c_cont_label;
 extern int global_bindings_p (void);
 extern void push_scope (void);
 extern tree pop_scope (void);
-extern void insert_block (tree);
 
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
@@ -448,7 +487,7 @@ extern void c_print_identifier (FILE *, tree, int);
 extern int quals_from_declspecs (const struct c_declspecs *);
 extern struct c_declarator *build_array_declarator (tree, struct c_declspecs *,
 						    bool, bool);
-extern tree build_enumerator (tree, tree);
+extern tree build_enumerator (struct c_enum_contents *, tree, tree, location_t);
 extern tree check_for_loop_decls (void);
 extern void mark_forward_parm_decls (void);
 extern void declare_parm_level (void);
@@ -461,22 +500,23 @@ extern tree finish_enum (tree, tree, tree);
 extern void finish_function (void);
 extern tree finish_struct (tree, tree, tree);
 extern struct c_arg_info *get_parm_info (bool);
-extern tree grokfield (struct c_declarator *, struct c_declspecs *, tree);
-extern tree groktypename (struct c_type_name *);
+extern tree grokfield (location_t, struct c_declarator *,
+		       struct c_declspecs *, tree, tree *);
+extern tree groktypename (struct c_type_name *, tree *, bool *);
 extern tree grokparm (const struct c_parm *);
 extern tree implicitly_declare (tree);
 extern void keep_next_level (void);
 extern void pending_xref_error (void);
-extern void c_push_function_context (struct function *);
-extern void c_pop_function_context (struct function *);
+extern void c_push_function_context (void);
+extern void c_pop_function_context (void);
 extern void push_parm_decl (const struct c_parm *);
 extern struct c_declarator *set_array_declarator_inner (struct c_declarator *,
-							struct c_declarator *,
-							bool);
+							struct c_declarator *);
 extern tree c_builtin_function (tree);
+extern tree c_builtin_function_ext_scope (tree);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
-extern tree start_enum (tree);
+extern tree start_enum (struct c_enum_contents *, tree);
 extern int  start_function (struct c_declspecs *, struct c_declarator *, tree);
 extern tree start_decl (struct c_declarator *, struct c_declspecs *, bool,
 			tree);
@@ -504,12 +544,9 @@ extern struct c_declspecs *declspecs_add_attrs (struct c_declspecs *, tree);
 extern struct c_declspecs *finish_declspecs (struct c_declspecs *);
 
 /* in c-objc-common.c */
-extern int c_disregard_inline_limits (tree);
-extern int c_cannot_inline_tree_fn (tree *);
 extern bool c_objc_common_init (void);
 extern bool c_missing_noreturn_ok_p (tree);
-extern tree c_objc_common_truthvalue_conversion (tree expr);
-extern bool c_warn_unused_global_decl (tree);
+extern bool c_warn_unused_global_decl (const_tree);
 extern void c_initialize_diagnostics (diagnostic_context *);
 extern bool c_vla_unspec_p (tree x, tree fn);
 
@@ -519,6 +556,7 @@ extern bool c_vla_unspec_p (tree x, tree fn);
 			  ((VOLATILE_P) ? TYPE_QUAL_VOLATILE : 0))
 
 /* in c-typeck.c */
+extern bool in_late_binary_op;
 extern int in_alignof;
 extern int in_sizeof;
 extern int in_typeof;
@@ -527,31 +565,34 @@ extern struct c_switch *c_switch_stack;
 extern struct c_label_context_se *label_context_stack_se;
 extern struct c_label_context_vm *label_context_stack_vm;
 
+extern tree c_objc_common_truthvalue_conversion (location_t, tree);
 extern tree require_complete_type (tree);
-extern int same_translation_unit_p (tree, tree);
+extern int same_translation_unit_p (const_tree, const_tree);
 extern int comptypes (tree, tree);
-extern bool c_vla_type_p (tree);
+extern bool c_vla_type_p (const_tree);
 extern bool c_mark_addressable (tree);
-extern void c_incomplete_type_error (tree, tree);
+extern void c_incomplete_type_error (const_tree, const_tree);
 extern tree c_type_promotes_to (tree);
 extern struct c_expr default_function_array_conversion (struct c_expr);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (tree, tree);
-extern tree build_array_ref (tree, tree);
+extern tree build_array_ref (tree, tree, location_t);
 extern tree build_external_ref (tree, int, location_t);
 extern void pop_maybe_used (bool);
 extern struct c_expr c_expr_sizeof_expr (struct c_expr);
 extern struct c_expr c_expr_sizeof_type (struct c_type_name *);
-extern struct c_expr parser_build_unary_op (enum tree_code, struct c_expr);
-extern struct c_expr parser_build_binary_op (enum tree_code, struct c_expr,
+extern struct c_expr parser_build_unary_op (enum tree_code, struct c_expr,
+    					    location_t);
+extern struct c_expr parser_build_binary_op (location_t, 
+    					     enum tree_code, struct c_expr,
 					     struct c_expr);
-extern tree build_conditional_expr (tree, tree, tree);
+extern tree build_conditional_expr (tree, bool, tree, tree);
 extern tree build_compound_expr (tree, tree);
 extern tree c_cast_expr (struct c_type_name *, tree);
 extern tree build_c_cast (tree, tree);
 extern void store_init_value (tree, tree);
 extern void error_init (const char *);
-extern void pedwarn_init (const char *);
+extern void pedwarn_init (location_t, int opt, const char *);
 extern void maybe_warn_string_init (tree, struct c_expr);
 extern void start_init (tree, tree, int);
 extern void finish_init (void);
@@ -560,13 +601,12 @@ extern void push_init_level (int);
 extern struct c_expr pop_init_level (int);
 extern void set_init_index (tree, tree);
 extern void set_init_label (tree);
-extern void process_init_element (struct c_expr);
-extern tree build_compound_literal (tree, tree);
+extern void process_init_element (struct c_expr, bool);
+extern tree build_compound_literal (tree, tree, bool);
 extern tree c_start_case (tree);
 extern void c_finish_case (tree);
 extern tree build_asm_expr (tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
-extern tree c_convert_parm_for_inlining (tree, tree, tree, int);
 extern int c_types_compatible_p (tree, tree);
 extern tree c_begin_compound_stmt (bool);
 extern tree c_end_compound_stmt (tree, bool);
@@ -582,9 +622,11 @@ extern tree c_finish_goto_label (tree);
 extern tree c_finish_goto_ptr (tree);
 extern void c_begin_vm_scope (unsigned int);
 extern void c_end_vm_scope (unsigned int);
-extern tree c_expr_to_decl (tree, bool *, bool *, bool *);
+extern tree c_expr_to_decl (tree, bool *, bool *);
 extern tree c_begin_omp_parallel (void);
 extern tree c_finish_omp_parallel (tree, tree);
+extern tree c_begin_omp_task (void);
+extern tree c_finish_omp_task (tree, tree);
 extern tree c_finish_omp_clauses (tree);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
@@ -627,7 +669,11 @@ extern void c_write_global_declarations (void);
 #define ATTRIBUTE_GCC_CDIAG(m, n) ATTRIBUTE_NONNULL(m)
 #endif
 
-extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2);
-extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2);
+extern void pedwarn_c90 (location_t, int opt, const char *, ...) ATTRIBUTE_GCC_CDIAG(3,4);
+extern void pedwarn_c99 (location_t, int opt, const char *, ...) ATTRIBUTE_GCC_CDIAG(3,4);
+
+extern bool c_cpp_error (cpp_reader *, int, location_t, unsigned int,
+			 const char *, va_list *)
+     ATTRIBUTE_GCC_CDIAG(5,0);
 
 #endif /* ! GCC_C_TREE_H */

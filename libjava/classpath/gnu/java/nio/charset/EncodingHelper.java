@@ -57,10 +57,10 @@ public class EncodingHelper
      * Contains the mapping from java.io canonical names 
      * to java.nio canonical names.
      */
-    private static HashMap canonicalNames;
+    private static final HashMap<String,String> canonicalNames;
 
     static {
-	canonicalNames = new HashMap();
+	canonicalNames = new HashMap<String,String>();
 	canonicalNames.put("US-ASCII", "ASCII");
 	canonicalNames.put("windows-1250", "Cp1250");
 	canonicalNames.put("windows-1251", "Cp1251");
@@ -94,7 +94,6 @@ public class EncodingHelper
      */
     public static String getDefaultEncoding()
     {
-	String encoding;
 	try 
 	    {
 		return System.getProperty("file.encoding");
@@ -148,6 +147,17 @@ public class EncodingHelper
        throw new UnsupportedEncodingException("Charset "+name+" not found.");
      }
    }
+
+  /**
+   * Returns the default charset without throwing any exceptions. The default
+   * charset is UTF8.
+   *
+   * @return the default charset
+   */
+  public static Charset getDefaultCharset()
+  {
+    return new UTF_8();
+  }
 }
 
 

@@ -1,5 +1,6 @@
 // -*- C++ -*- The GNU C++ exception personality routine.
-// Copyright (C) 2001, 2002, 2003, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+// Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -377,7 +378,7 @@ PERSONALITY_FUNCTION (int version,
   const unsigned char *p;
   _Unwind_Ptr landing_pad, ip;
   int handler_switch_value;
-  void* thrown_ptr = ue_header + 1;
+  void* thrown_ptr = 0;
   bool foreign_exception;
   int ip_before_insn = 0;
 
@@ -446,7 +447,7 @@ PERSONALITY_FUNCTION (int version,
   // Parse the LSDA header.
   p = parse_lsda_header (context, language_specific_data, &info);
   info.ttype_base = base_of_encoded_value (info.ttype_encoding, context);
-#ifdef HAVE_GETIPINFO
+#ifdef _GLIBCXX_HAVE_GETIPINFO
   ip = _Unwind_GetIPInfo (context, &ip_before_insn);
 #else
   ip = _Unwind_GetIP (context);
@@ -542,24 +543,34 @@ PERSONALITY_FUNCTION (int version,
       bool saw_cleanup = false;
       bool saw_handler = false;
 
+#ifdef __ARM_EABI_UNWINDER__
+      // ??? How does this work - more importantly, how does it interact with
+      // dependent exceptions?
+      throw_type = ue_header;
+      if (actions & _UA_FORCE_UNWIND)
+	{
+	  __GXX_INIT_FORCED_UNWIND_CLASS(ue_header->exception_class);
+	}
+      else if (!foreign_exception)
+	thrown_ptr = __get_object_from_ue (ue_header);
+#else
       // During forced unwinding, match a magic exception type.
       if (actions & _UA_FORCE_UNWIND)
 	{
 	  throw_type = &typeid(abi::__forced_unwind);
-	  thrown_ptr = 0;
 	}
       // With a foreign exception class, there's no exception type.
       // ??? What to do about GNU Java and GNU Ada exceptions?
       else if (foreign_exception)
 	{
 	  throw_type = &typeid(abi::__foreign_exception);
-	  thrown_ptr = 0;
 	}
       else
-#ifdef __ARM_EABI_UNWINDER__
-	throw_type = ue_header;
-#else
-	throw_type = xh->exceptionType;
+        {
+          thrown_ptr = __get_object_from_ue (ue_header);
+          throw_type = __get_exception_header_from_obj
+            (thrown_ptr)->exceptionType;
+        }
 #endif
 
       while (1)
@@ -654,9 +665,9 @@ PERSONALITY_FUNCTION (int version,
 	std::terminate ();
       else if (handler_switch_value < 0)
 	{
-	  try 
+	  __try 
 	    { std::unexpected (); } 
-	  catch(...) 
+	  __catch(...) 
 	    { std::terminate (); }
 	}
     }
@@ -743,21 +754,22 @@ __cxa_call_unexpected (void *exc_obj_in)
   xh_terminate_handler = xh->terminateHandler;
   info.ttype_base = (_Unwind_Ptr) xh->catchTemp;
 
-  try 
+  __try 
     { __unexpected (xh->unexpectedHandler); } 
-  catch(...) 
+  __catch(...) 
     {
       // Get the exception thrown from unexpected.
 
       __cxa_eh_globals *globals = __cxa_get_globals_fast ();
       __cxa_exception *new_xh = globals->caughtExceptions;
-      void *new_ptr = new_xh + 1;
+      void *new_ptr = __get_object_from_ambiguous_exception (new_xh);
 
       // We don't quite have enough stuff cached; re-parse the LSDA.
       parse_lsda_header (0, xh_lsda, &info);
 
       // If this new exception meets the exception spec, allow it.
-      if (check_exception_spec (&info, new_xh->exceptionType,
+      if (check_exception_spec (&info, __get_exception_header_from_obj
+                                  (new_ptr)->exceptionType,
 				new_ptr, xh_switch_value))
 	__throw_exception_again;
 

@@ -1,5 +1,5 @@
 /* Implementation of the TRANSPOSE intrinsic
-   Copyright 2003, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2003, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Tobias Schlüter
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -28,9 +28,9 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
-#include <assert.h>
 #include "libgfortran.h"
+#include <assert.h>
+
 
 #if defined (HAVE_GFC_COMPLEX_16)
 
@@ -44,7 +44,7 @@ transpose_c16 (gfc_array_c16 * const restrict ret,
 {
   /* r.* indicates the return array.  */
   index_type rxstride, rystride;
-  GFC_COMPLEX_16 *rptr;
+  GFC_COMPLEX_16 * restrict rptr;
   /* s.* indicates the source array.  */
   index_type sxstride, systride;
   const GFC_COMPLEX_16 *sptr;
@@ -69,6 +69,28 @@ transpose_c16 (gfc_array_c16 * const restrict ret,
 
       ret->data = internal_malloc_size (sizeof (GFC_COMPLEX_16) * size0 ((array_t *) ret));
       ret->offset = 0;
+    } else if (unlikely (compile_options.bounds_check))
+    {
+      index_type ret_extent, src_extent;
+
+      ret_extent = ret->dim[0].ubound + 1 - ret->dim[0].lbound;
+      src_extent = source->dim[1].ubound + 1 - source->dim[1].lbound;
+
+      if (src_extent != ret_extent)
+	runtime_error ("Incorrect extent in return value of TRANSPOSE"
+		       " intrinsic in dimension 1: is %ld,"
+		       " should be %ld", (long int) src_extent,
+		       (long int) ret_extent);
+
+      ret_extent = ret->dim[1].ubound + 1 - ret->dim[1].lbound;
+      src_extent = source->dim[0].ubound + 1 - source->dim[0].lbound;
+
+      if (src_extent != ret_extent)
+	runtime_error ("Incorrect extent in return value of TRANSPOSE"
+		       " intrinsic in dimension 2: is %ld,"
+		       " should be %ld", (long int) src_extent,
+		       (long int) ret_extent);
+
     }
 
   sxstride = source->dim[0].stride;

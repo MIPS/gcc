@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,7 +36,7 @@
 --  The goal of this debug pool is to detect incorrect uses of memory
 --  (multiple deallocations, access to invalid memory,...). Errors are reported
 --  in one of two ways: either by immediately raising an exception, or by
---  printing a message on standard output.
+--  printing a message on standard output or standard error.
 
 --  You need to instrument your code to use this package: for each access type
 --  you want to monitor, you need to add a clause similar to:
@@ -102,6 +102,8 @@ package GNAT.Debug_Pools is
    Default_Raise_Exceptions  : constant Boolean := True;
    Default_Advanced_Scanning : constant Boolean := False;
    Default_Min_Freed         : constant SSC     := 0;
+   Default_Errors_To_Stdout  : constant Boolean := True;
+   Default_Low_Level_Traces  : constant Boolean := False;
    --  The above values are constants used for the parameters to Configure
    --  if not overridden in the call. See description of Configure for full
    --  details on these parameters. If these defaults are not satisfactory,
@@ -114,7 +116,9 @@ package GNAT.Debug_Pools is
       Minimum_To_Free                : SSC     := Default_Min_Freed;
       Reset_Content_On_Free          : Boolean := Default_Reset_Content;
       Raise_Exceptions               : Boolean := Default_Raise_Exceptions;
-      Advanced_Scanning              : Boolean := Default_Advanced_Scanning);
+      Advanced_Scanning              : Boolean := Default_Advanced_Scanning;
+      Errors_To_Stdout               : Boolean := Default_Errors_To_Stdout;
+      Low_Level_Traces               : Boolean := Default_Low_Level_Traces);
    --  Subprogram used to configure the debug pool.
    --
    --    Stack_Trace_Depth. This parameter controls the maximum depth of stack
@@ -143,7 +147,8 @@ package GNAT.Debug_Pools is
    --
    --    Raise_Exceptions: If true, the exceptions below will be raised every
    --    time an error is detected. If you set this to False, then the action
-   --    is to generate output on standard error, noting the errors, but to
+   --    is to generate output on standard error or standard output, depending
+   --    on Errors_To_Stdout, noting the errors, but to
    --    keep running if possible (of course if storage is badly damaged, this
    --    attempt may fail. This helps to detect more than one error in a run.
    --
@@ -152,6 +157,17 @@ package GNAT.Debug_Pools is
    --    reference to a logically free block will prevent its deallocation.
    --    Note that this algorithm is approximate, and it is recommended
    --    that you set Minimum_To_Free to a non-zero value to save time.
+   --
+   --    Errors_To_Stdout: Errors messages will be displayed on stdout if
+   --    this parameter is True, or to stderr otherwise.
+   --
+   --    Low_Level_Traces: Traces all allocation and deallocations on the
+   --    stream specified by Errors_To_Stdout. This can be used for
+   --    post-processing by your own application, or to debug the
+   --    debug_pool itself. The output indicates the size of the allocated
+   --    block both as requested by the application and as physically
+   --    allocated to fit the additional information needed by the debug
+   --    pool.
    --
    --  All instantiations of this pool use the same internal tables. However,
    --  they do not store the same amount of information for the tracebacks,
@@ -237,7 +253,7 @@ package GNAT.Debug_Pools is
    --  the Debug_Pool).
    --
    --  The information includes the stacktrace for the allocation or
-   --  deallocation of that memory chunck, its current status (allocated or
+   --  deallocation of that memory chunk, its current status (allocated or
    --  logically freed), etc.
 
 private
@@ -272,7 +288,7 @@ private
       Storage_Address          : System.Address;
       Size_In_Storage_Elements : Storage_Count;
       Alignment                : Storage_Count);
-   --  Check whether a derefence statement is valid, ie whether the pointer
+   --  Check whether a dereference statement is valid, i.e. whether the pointer
    --  was allocated through Pool. As documented above, errors will be
    --  reported either by a special error message or an exception, depending
    --  on the setup of the storage pool.
@@ -280,7 +296,7 @@ private
 
    type Byte_Count is mod System.Max_Binary_Modulus;
    --  Type used for maintaining byte counts, needs to be large enough
-   --  to accomodate counts allowing for repeated use of the same memory.
+   --  to accommodate counts allowing for repeated use of the same memory.
 
    type Debug_Pool is new System.Checked_Pools.Checked_Pool with record
       Stack_Trace_Depth              : Natural := Default_Stack_Trace_Depth;
@@ -289,6 +305,8 @@ private
       Raise_Exceptions               : Boolean := Default_Raise_Exceptions;
       Minimum_To_Free                : SSC     := Default_Min_Freed;
       Advanced_Scanning              : Boolean := Default_Advanced_Scanning;
+      Errors_To_Stdout               : Boolean := Default_Errors_To_Stdout;
+      Low_Level_Traces               : Boolean := Default_Low_Level_Traces;
 
       Allocated : Byte_Count := 0;
       --  Total number of bytes allocated in this pool
@@ -297,14 +315,14 @@ private
       --  Total number of bytes logically deallocated in this pool. This is the
       --  memory that the application has released, but that the pool has not
       --  yet physically released through a call to free(), to detect later
-      --  accesed to deallocated memory.
+      --  accessed to deallocated memory.
 
       Physically_Deallocated : Byte_Count := 0;
       --  Total number of bytes that were free()-ed
 
       Marked_Blocks_Deallocated : Boolean := False;
       --  Set to true if some mark blocks had to be deallocated in the advanced
-      --  scanning scheme. Since this is potentially dangereous, this is
+      --  scanning scheme. Since this is potentially dangerous, this is
       --  reported to the user, who might want to rerun his program with a
       --  lower Minimum_To_Free value.
 

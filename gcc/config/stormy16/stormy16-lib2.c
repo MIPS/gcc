@@ -4,7 +4,7 @@
    files.  On this glorious day maybe this code can be integrated into
    it too.  */
 
-/* Copyright (C) 2005  Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -42,6 +42,23 @@
 #else
 #define ATTRIBUTE_HIDDEN
 #endif
+
+#ifndef MIN_UNITS_PER_WORD
+#define MIN_UNITS_PER_WORD UNITS_PER_WORD
+#endif
+
+#ifndef LIBGCC2_UNITS_PER_WORD
+# if MIN_UNITS_PER_WORD > 4
+#  define LIBGCC2_UNITS_PER_WORD 8
+# elif (MIN_UNITS_PER_WORD > 2 \
+        || (MIN_UNITS_PER_WORD > 1 && LONG_LONG_TYPE_SIZE > 32))
+#  define LIBGCC2_UNITS_PER_WORD 4
+# else
+#  define LIBGCC2_UNITS_PER_WORD MIN_UNITS_PER_WORD
+# endif
+#endif
+
+#define word_type Wtype
 
 #include "libgcc2.h"
 #undef int

@@ -5,7 +5,7 @@
 
 #define N 16
  
-int main1 ()
+__attribute__ ((noinline)) int main1 ()
 {  
   unsigned int arr1[N];
   unsigned short arr2[N];
@@ -40,5 +40,5 @@ int main (void)
   return main1 ();
 } 
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_pack_trunc } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

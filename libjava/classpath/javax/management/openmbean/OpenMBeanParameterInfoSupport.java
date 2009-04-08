@@ -1,5 +1,5 @@
 /* OpenMBeanParameterInfoSupport.java -- Open typed info about a parameter.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -63,7 +63,7 @@ public class OpenMBeanParameterInfoSupport
   /**
    * The open type of the parameter.
    */
-  private OpenType openType;
+  private OpenType<?> openType;
 
   /**
    * The default value of the parameter (may be <code>null</code>).
@@ -73,17 +73,17 @@ public class OpenMBeanParameterInfoSupport
   /**
    * The possible legal values of the parameter (may be <code>null</code>).
    */
-  private Set legalValues;
+  private Set<?> legalValues;
 
   /**
    * The minimum value of the parameter (may be <code>null</code>).
    */
-  private Comparable minValue;
+  private Comparable<?> minValue;
 
   /**
    * The maximum value of the parameter (may be <code>null</code>).
    */
-  private Comparable maxValue;
+  private Comparable<?> maxValue;
 
   /**
    * The hash code of this instance.
@@ -109,7 +109,7 @@ public class OpenMBeanParameterInfoSupport
    *                                  or the name or description are
    *                                  the empty string.
    */
-  public OpenMBeanParameterInfoSupport(String name, String desc, OpenType type)
+  public OpenMBeanParameterInfoSupport(String name, String desc, OpenType<?> type)
   {
     super(name, type == null ? null : type.getClassName(), desc);
     if (name == null)
@@ -149,8 +149,8 @@ public class OpenMBeanParameterInfoSupport
    *                           open type or the open type is an instance
    *                           of {@link ArrayType} or {@link TabularType}.
    */
-  public OpenMBeanParameterInfoSupport(String name, String desc, OpenType type,
-				       Object defaultValue)
+  public <T> OpenMBeanParameterInfoSupport(String name, String desc, OpenType<T> type,
+					   T defaultValue)
     throws OpenDataException
   {
     this(name, desc, type, defaultValue, null);
@@ -190,9 +190,10 @@ public class OpenMBeanParameterInfoSupport
    *                                  the empty string.
    * @throws OpenDataException if any condition in the list above is broken.
    */
-  public OpenMBeanParameterInfoSupport(String name, String desc, OpenType type,
-				       Object defaultValue, Comparable minimumValue,
-				       Comparable maximumValue)
+  @SuppressWarnings("unchecked")
+  public <T> OpenMBeanParameterInfoSupport(String name, String desc, OpenType<T> type,
+					   T defaultValue, Comparable<T> minimumValue,
+					   Comparable<T> maximumValue)
     throws OpenDataException
   {
     this(name, desc, type);
@@ -209,16 +210,16 @@ public class OpenMBeanParameterInfoSupport
 				 type instanceof TabularType))
       throw new OpenDataException("Default values are not applicable for " +
 				  "array or tabular types.");
-    if (minValue != null && maxValue != null 
-	&& minValue.compareTo(maxValue) > 0)
+    if (minimumValue != null && maximumValue != null 
+	&& minimumValue.compareTo((T) maximumValue) > 0)
       throw new OpenDataException("The minimum value is greater than the " +
 				  "maximum.");
-    if (minValue != null && defaultValue != null 
-	&& minValue.compareTo(defaultValue) > 0)
+    if (minimumValue != null && defaultValue != null 
+	&& minimumValue.compareTo(defaultValue) > 0)
       throw new OpenDataException("The minimum value is greater than the " +
 				  "default.");
-    if (defaultValue != null && maxValue != null
-	&& maxValue.compareTo(defaultValue) < 0)
+    if (defaultValue != null && maximumValue != null
+	&& maximumValue.compareTo(defaultValue) < 0)
       throw new OpenDataException("The default value is greater than the " +
 				  "maximum.");
     
@@ -261,8 +262,8 @@ public class OpenMBeanParameterInfoSupport
    *                                  the empty string.
    * @throws OpenDataException if any condition in the list above is broken.
    */
-  public OpenMBeanParameterInfoSupport(String name, String desc, OpenType type,
-				       Object defaultValue, Object[] legalValues)
+  public <T> OpenMBeanParameterInfoSupport(String name, String desc, OpenType<T> type,
+					   T defaultValue, T[] legalValues)
     throws OpenDataException
   {
     this(name, desc, type);
@@ -279,7 +280,7 @@ public class OpenMBeanParameterInfoSupport
 				  "array or tabular types.");
     if (legalValues != null && legalValues.length > 0)
       {
-	Set lv = new HashSet(legalValues.length);
+	Set<T> lv = new HashSet<T>(legalValues.length);
 	for (int a = 0; a < legalValues.length; ++a)
 	  {
 	    if (legalValues[a] != null && 
@@ -351,7 +352,7 @@ public class OpenMBeanParameterInfoSupport
    * @return a set of legal values, or <code>null</code> if no such
    *         set exists.
    */
-  public Set getLegalValues()
+  public Set<?> getLegalValues()
   {
     return legalValues;
   }
@@ -362,7 +363,7 @@ public class OpenMBeanParameterInfoSupport
    *
    * @return the maximum value, or <code>null</code> if none exists.
    */
-  public Comparable getMaxValue()
+  public Comparable<?> getMaxValue()
   {
     return maxValue;
   }
@@ -373,7 +374,7 @@ public class OpenMBeanParameterInfoSupport
    *
    * @return the minimum value, or <code>null</code> if none exists.
    */
-  public Comparable getMinValue()
+  public Comparable<?> getMinValue()
   {
     return minValue;
   }
@@ -384,7 +385,7 @@ public class OpenMBeanParameterInfoSupport
    *
    * @return the open type of this parameter.
    */
-  public OpenType getOpenType()
+  public OpenType<?> getOpenType()
   {
     return openType;
   }

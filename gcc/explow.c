@@ -1,13 +1,13 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
    Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -30,6 +29,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree.h"
 #include "tm_p.h"
 #include "flags.h"
+#include "except.h"
 #include "function.h"
 #include "expr.h"
 #include "optabs.h"
@@ -248,7 +248,7 @@ expr_size (tree exp)
     {
       size = lang_hooks.expr_size (exp);
       gcc_assert (size);
-      size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (size, exp);
+      gcc_assert (size == SUBSTITUTE_PLACEHOLDER_IN_EXPR (size, exp));
     }
 
   return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), EXPAND_NORMAL);
@@ -306,7 +306,7 @@ break_out_memory_refs (rtx x)
       rtx op1 = break_out_memory_refs (XEXP (x, 1));
 
       if (op0 != XEXP (x, 0) || op1 != XEXP (x, 1))
-	x = gen_rtx_fmt_ee (GET_CODE (x), Pmode, op0, op1);
+	x = simplify_gen_binary (GET_CODE (x), Pmode, op0, op1);
     }
 
   return x;
@@ -432,18 +432,21 @@ memory_address (enum machine_mode mode, rtx x)
 
       /* At this point, any valid address is accepted.  */
       if (memory_address_p (mode, x))
-	goto win;
+	goto done;
 
       /* If it was valid before but breaking out memory refs invalidated it,
 	 use it the old way.  */
       if (memory_address_p (mode, oldx))
-	goto win2;
+	{
+	  x = oldx;
+	  goto done;
+	}
 
       /* Perform machine-dependent transformations on X
 	 in certain cases.  This is not necessary since the code
 	 below can handle all possible cases, but machine-dependent
 	 transformations can make better code.  */
-      LEGITIMIZE_ADDRESS (x, oldx, mode, win);
+      LEGITIMIZE_ADDRESS (x, oldx, mode, done);
 
       /* PLUS and MULT can appear in special ways
 	 as the result of attempts to make an address usable for indexing.
@@ -483,21 +486,11 @@ memory_address (enum machine_mode mode, rtx x)
 	 the register is a valid address.  */
       else
 	x = force_reg (Pmode, x);
-
-      goto done;
-
-    win2:
-      x = oldx;
-    win:
-      if (flag_force_addr && ! cse_not_expected && !REG_P (x))
-	{
-	  x = force_operand (x, NULL_RTX);
-	  x = force_reg (Pmode, x);
-	}
     }
 
  done:
 
+  gcc_assert (memory_address_p (mode, x));
   /* If we didn't change the address, we are done.  Otherwise, mark
      a reg as a pointer if we have REG or REG + CONST_INT.  */
   if (oldx == x)
@@ -516,20 +509,6 @@ memory_address (enum machine_mode mode, rtx x)
   return x;
 }
 
-/* Like `memory_address' but pretend `flag_force_addr' is 0.  */
-
-rtx
-memory_address_noforce (enum machine_mode mode, rtx x)
-{
-  int ambient_force_addr = flag_force_addr;
-  rtx val;
-
-  flag_force_addr = 0;
-  val = memory_address (mode, x);
-  flag_force_addr = ambient_force_addr;
-  return val;
-}
-
 /* Convert a mem ref into one with a valid memory address.
    Pass through anything else unchanged.  */
 
@@ -539,8 +518,7 @@ validize_mem (rtx ref)
   if (!MEM_P (ref))
     return ref;
   ref = use_anchored_address (ref);
-  if (! (flag_force_addr && CONSTANT_ADDRESS_P (XEXP (ref, 0)))
-      && memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
     return ref;
 
   /* Don't alter REF itself, since that is probably a stack slot.  */
@@ -720,10 +698,8 @@ force_reg (enum machine_mode mode, rtx x)
 
 	align = MIN (sa, ca);
       }
-    else if (MEM_P (x) && MEM_POINTER (x))
-      align = MEM_ALIGN (x);
 
-    if (align)
+    if (align || (MEM_P (x) && MEM_POINTER (x)))
       mark_reg_pointer (temp, align);
   }
 
@@ -779,10 +755,10 @@ copy_to_suggested_reg (rtx x, rtx target, enum machine_mode mode)
 #endif
 
 enum machine_mode
-promote_mode (tree type, enum machine_mode mode, int *punsignedp,
+promote_mode (const_tree type, enum machine_mode mode, int *punsignedp,
 	      int for_call ATTRIBUTE_UNUSED)
 {
-  enum tree_code code = TREE_CODE (type);
+  const enum tree_code code = TREE_CODE (type);
   int unsignedp = *punsignedp;
 
 #ifndef PROMOTE_MODE
@@ -794,7 +770,7 @@ promote_mode (tree type, enum machine_mode mode, int *punsignedp,
     {
 #ifdef PROMOTE_FUNCTION_MODE
     case INTEGER_TYPE:   case ENUMERAL_TYPE:   case BOOLEAN_TYPE:
-    case REAL_TYPE:      case OFFSET_TYPE:
+    case REAL_TYPE:      case OFFSET_TYPE:     case FIXED_POINT_TYPE:
 #ifdef PROMOTE_MODE
       if (for_call)
 	{
@@ -897,10 +873,10 @@ round_push (rtx size)
 
   if (GET_CODE (size) == CONST_INT)
     {
-      HOST_WIDE_INT new = (INTVAL (size) + align - 1) / align * align;
+      HOST_WIDE_INT new_size = (INTVAL (size) + align - 1) / align * align;
 
-      if (INTVAL (size) != new)
-	size = GEN_INT (new);
+      if (INTVAL (size) != new_size)
+	size = GEN_INT (new_size);
     }
   else
     {
@@ -1039,11 +1015,8 @@ emit_stack_restore (enum save_level save_level, rtx sa, rtx after)
       /* These clobbers prevent the scheduler from moving
 	 references to variable arrays below the code
 	 that deletes (pops) the arrays.  */
-      emit_insn (gen_rtx_CLOBBER (VOIDmode,
-		    gen_rtx_MEM (BLKmode,
-			gen_rtx_SCRATCH (VOIDmode))));
-      emit_insn (gen_rtx_CLOBBER (VOIDmode,
-		    gen_rtx_MEM (BLKmode, stack_pointer_rtx)));
+      emit_clobber (gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode)));
+      emit_clobber (gen_rtx_MEM (BLKmode, stack_pointer_rtx));
     }
 
   discard_pending_stack_adjust ();
@@ -1104,7 +1077,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
     return virtual_stack_dynamic_rtx;
 
   /* Otherwise, show we're calling alloca or equivalent.  */
-  current_function_calls_alloca = 1;
+  cfun->calls_alloca = 1;
 
   /* Ensure the size is in the proper mode.  */
   if (GET_MODE (size) != VOIDmode && GET_MODE (size) != Pmode)
@@ -1113,7 +1086,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
   /* We can't attempt to minimize alignment necessary, because we don't
      know the final value of preferred_stack_boundary yet while executing
      this code.  */
-  cfun->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+  crtl->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
 
   /* We will need to ensure that the address we return is aligned to
      BIGGEST_ALIGNMENT.  If STACK_DYNAMIC_OFFSET is defined, we don't
@@ -1152,7 +1125,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
      would use reg notes to store the "optimized" size and fix things
      up later.  These days we know this information before we ever
      start building RTL so the reg notes are unnecessary.  */
-  if (!current_function_calls_setjmp)
+  if (!cfun->calls_setjmp)
     {
       int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
 
@@ -1162,10 +1135,10 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
 
       if (GET_CODE (size) == CONST_INT)
 	{
-	  HOST_WIDE_INT new = INTVAL (size) / align * align;
+	  HOST_WIDE_INT new_size = INTVAL (size) / align * align;
 
-	  if (INTVAL (size) != new)
-	    size = GEN_INT (new);
+	  if (INTVAL (size) != new_size)
+	    size = GEN_INT (new_size);
 	}
       else
 	{
@@ -1216,10 +1189,13 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
   gcc_assert (!(stack_pointer_delta
 		% (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)));
 
-  /* If needed, check that we have the required amount of stack.  Take into
-     account what has already been checked.  */
-  if (flag_stack_check && ! STACK_CHECK_BUILTIN)
-    probe_stack_range (STACK_CHECK_MAX_FRAME_SIZE + STACK_CHECK_PROTECT, size);
+  /* If needed, check that we have the required amount of stack.
+     Take into account what has already been checked.  */
+  if (flag_stack_check == GENERIC_STACK_CHECK)
+    probe_stack_range (STACK_OLD_CHECK_PROTECT + STACK_CHECK_MAX_FRAME_SIZE,
+		       size);
+  else if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    probe_stack_range (STACK_CHECK_PROTECT, size);
 
   /* Don't use a TARGET that isn't a pseudo or is the wrong mode.  */
   if (target == 0 || !REG_P (target)
@@ -1259,7 +1235,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
 #endif
 
       /* Check stack bounds if necessary.  */
-      if (current_function_limit_stack)
+      if (crtl->limit_stack)
 	{
 	  rtx available;
 	  rtx space_available = gen_label_rtx ();
@@ -1477,7 +1453,7 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
    and 0 otherwise.  */
 
 rtx
-hard_function_value (tree valtype, tree func, tree fntype,
+hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 		     int outgoing ATTRIBUTE_UNUSED)
 {
   rtx val;

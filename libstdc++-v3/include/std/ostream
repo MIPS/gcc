@@ -1,7 +1,7 @@
 // Output streams -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007
+// 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -50,6 +50,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // [27.6.2.1] Template class basic_ostream
   /**
    *  @brief  Controlling output.
+   *  @ingroup io
    *
    *  This is the base class for all output streams.  It provides text
    *  formatting of all builtin types, and communicates with any class
@@ -104,7 +105,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Interface for manipulators.
        *
-       *  Manuipulators such as @c std::endl and @c std::hex use these
+       *  Manipulators such as @c std::endl and @c std::hex use these
        *  functions in constructs like "std::cout << std::endl".  For more
        *  information, see the iomanip header.
       */
@@ -362,8 +363,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       seekp(off_type, ios_base::seekdir);
       
     protected:
-      explicit 
-      basic_ostream() { }
+      basic_ostream()
+      { this->init(0); }
 
       template<typename _ValueT>
         __ostream_type&
@@ -375,10 +376,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *
    *  Objects of this class are created before all of the standard
    *  inserters are run.  It is responsible for "exception-safe prefix and
-   *  suffix operations."  Additional actions may be added by the
-   *  implementation, and we list them in
-   *  http://gcc.gnu.org/onlinedocs/libstdc++/17_intro/howto.html#5
-   *  under [27.6] notes.
+   *  suffix operations." 
   */
   template <typename _CharT, typename _Traits>
     class basic_ostream<_CharT, _Traits>::sentry
@@ -412,7 +410,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       ~sentry()
       {
 	// XXX MT
-	if (_M_os.flags() & ios_base::unitbuf && !uncaught_exception())
+	if (bool(_M_os.flags() & ios_base::unitbuf) && !uncaught_exception())
 	  {
 	    // Can't call flush directly or else will get into recursive lock.
 	    if (_M_os.rdbuf() && _M_os.rdbuf()->pubsync() == -1)
@@ -506,7 +504,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     basic_ostream<_CharT, _Traits> &
     operator<<(basic_ostream<_CharT, _Traits>& __out, const char* __s);
 
-  // Partial specializationss
+  // Partial specializations
   template<class _Traits>
     inline basic_ostream<char, _Traits>&
     operator<<(basic_ostream<char, _Traits>& __out, const char* __s)

@@ -1,12 +1,12 @@
 ; Options for the SH port of the compiler.
 
-; Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+; Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
 ; GCC is free software; you can redistribute it and/or modify it under
 ; the terms of the GNU General Public License as published by the Free
-; Software Foundation; either version 2, or (at your option) any later
+; Software Foundation; either version 3, or (at your option) any later
 ; version.
 ;
 ; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@
 ; for more details.
 ;
 ; You should have received a copy of the GNU General Public License
-; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-; 02110-1301, USA.
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
 
 ;; Used for various architecture options.
 Mask(SH_E)
@@ -213,6 +212,10 @@ mbigtable
 Target Report RejectNegative Mask(BIGTABLE)
 Generate 32-bit offsets in switch tables
 
+mbitops
+Target Report RejectNegative Mask(BITOPS)
+Generate bit instructions
+
 mbranch-cost=
 Target RejectNegative Joined UInteger Var(sh_branch_cost) Init(-1)
 Cost to assume for a branch insn
@@ -244,6 +247,10 @@ Division strategy, one of: call, call2, fp, inv, inv:minlat, inv20u, inv20l, inv
 mdivsi3_libfunc=
 Target RejectNegative Joined Var(sh_divsi3_libfunc) Init("")
 Specify name for 32 bit signed division function
+
+mfixed-range=
+Target RejectNegative Joined Var(sh_fixed_range_str)
+Specify range of registers to make fixed
 
 mfmovd
 Target RejectNegative Mask(FMOVD) Undocumented

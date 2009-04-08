@@ -59,7 +59,7 @@
 #include <ext/pb_ds/detail/left_child_next_sibling_heap_/null_metadata.hpp>
 #include <debug/debug.h>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace detail
   {
@@ -137,7 +137,7 @@ namespace pb_ds
 
       typedef Cmp_Fn cmp_fn;
 
-      typedef Allocator allocator;
+      typedef Allocator allocator_type;
 
     public:
 
@@ -352,6 +352,6 @@ namespace pb_ds
 #undef PB_DS_BASE_C_DEC
 
   } // namespace detail
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif 

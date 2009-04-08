@@ -1,5 +1,5 @@
 ;; Machine Descriptions for R8C/M16C/M32C
-;; Copyright (C) 2005
+;; Copyright (C) 2005, 2007, 2008
 ;; Free Software Foundation, Inc.
 ;; Contributed by Red Hat.
 ;;
@@ -7,7 +7,7 @@
 ;;
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
 ;; License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; jump, conditionals, calls, etc
 
@@ -112,3 +111,23 @@ switch (which_alternative) {
 }"
   [(set_attr "flags" "x,x,x")]
   )
+
+(define_expand "untyped_call"
+  [(parallel [(call (match_operand 0 "" "")
+                    (const_int 0))
+              (match_operand 1 "" "")
+              (match_operand 2 "" "")])]
+  ""
+  "
+{
+  int i;
+
+  emit_call_insn (gen_call (operands[0], const0_rtx, const0_rtx));
+
+  for (i = 0; i < XVECLEN (operands[2], 0); i++)
+    {
+      rtx set = XVECEXP (operands[2], 0, i);
+      emit_move_insn (SET_DEST (set), SET_SRC (set));
+    }
+  DONE;
+}")

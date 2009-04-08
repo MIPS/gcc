@@ -44,14 +44,14 @@
  * Contains common types.
  */
 
-#ifndef PB_DS_COMMON_TYPES_HPP
-#define PB_DS_COMMON_TYPES_HPP
+#ifndef PB_DS_COMMON_TYPES_PQ_HPP
+#define PB_DS_COMMON_TYPES_PQ_HPP
 
 #include <ext/pb_ds/detail/type_utils.hpp>
 #include <ext/pb_ds/priority_queue.hpp>
 #include <ext/typelist.h>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace test
   {
@@ -60,17 +60,15 @@ namespace pb_ds
     struct pq_common_types
     {
     private:
-      //    typedef typename Allocator::size_type size_type;
+      typedef __gnu_pbds::priority_queue<Value_Type, Cmp_Fn, __gnu_pbds::pairing_heap_tag, Allocator> pairing_heap_t;
 
-      typedef pb_ds::priority_queue<Value_Type, Cmp_Fn, pb_ds::pairing_heap_tag, Allocator> pairing_heap_t;
+      typedef __gnu_pbds::priority_queue<Value_Type, Cmp_Fn, __gnu_pbds::binomial_heap_tag, Allocator> binomial_heap_t;
 
-      typedef pb_ds::priority_queue<Value_Type, Cmp_Fn, pb_ds::binomial_heap_tag, Allocator> binomial_heap_t;
+      typedef __gnu_pbds::priority_queue<Value_Type, Cmp_Fn, __gnu_pbds::rc_binomial_heap_tag, Allocator> rc_binomial_heap_t;
 
-      typedef pb_ds::priority_queue<Value_Type, Cmp_Fn, pb_ds::rc_binomial_heap_tag, Allocator> rc_binomial_heap_t;
+      typedef __gnu_pbds::priority_queue<Value_Type, Cmp_Fn, __gnu_pbds::binary_heap_tag, Allocator> binary_heap_t;
 
-      typedef pb_ds::priority_queue<Value_Type, Cmp_Fn, pb_ds::binary_heap_tag, Allocator> binary_heap_t;
-
-      typedef pb_ds::priority_queue<Value_Type, Cmp_Fn, pb_ds::thin_heap_tag, Allocator> thin_heap_t;
+      typedef __gnu_pbds::priority_queue<Value_Type, Cmp_Fn, __gnu_pbds::thin_heap_tag, Allocator> thin_heap_t;
 
       typedef typename __gnu_cxx::typelist::create5<thin_heap_t, pairing_heap_t, binomial_heap_t, rc_binomial_heap_t, binary_heap_t>::type all_tl;
 
@@ -82,6 +80,6 @@ namespace pb_ds
     };
 
   } // namespace test
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
-#endif // #ifndef PB_DS_COMMON_TYPES_HPP
+#endif // #ifndef PB_DS_COMMON_TYPES_PQ_HPP

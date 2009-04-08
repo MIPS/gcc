@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -25,7 +24,6 @@
 ------------------------------------------------------------------------------
 
 with Err_Vars; use Err_Vars;
-with Namet;    use Namet;
 with Opt;      use Opt;
 with Osint;    use Osint;
 with Output;   use Output;
@@ -41,7 +39,7 @@ with Table;
 with Ada.Characters.Handling;    use Ada.Characters.Handling;
 with Ada.Exceptions;             use Ada.Exceptions;
 
-with GNAT.Directory_Operations;  use GNAT.Directory_Operations;
+with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
 with System.HTable;              use System.HTable;
 
@@ -50,12 +48,7 @@ package body Prj.Part is
    Buffer      : String_Access;
    Buffer_Last : Natural := 0;
 
-   Dir_Sep  : Character renames GNAT.OS_Lib.Directory_Separator;
-
-   type Extension_Origin is (None, Extending_Simple, Extending_All);
-   --  Type of parameter From_Extended for procedures Parse_Single_Project and
-   --  Post_Parse_Context_Clause. Extending_All means that we are parsing the
-   --  tree rooted at an extending all project.
+   Dir_Sep : Character renames GNAT.OS_Lib.Directory_Separator;
 
    ------------------------------------
    -- Local Packages and Subprograms --
@@ -65,7 +58,7 @@ package body Prj.Part is
    No_With : constant With_Id := 0;
 
    type With_Record is record
-      Path         : Name_Id;
+      Path         : Path_Name_Type;
       Location     : Source_Ptr;
       Limited_With : Boolean;
       Node         : Project_Node_Id;
@@ -81,13 +74,16 @@ package body Prj.Part is
       Table_Increment      => 100,
       Table_Name           => "Prj.Part.Withs");
    --  Table used to store temporarily paths and locations of imported
-   --  projects. These imported projects will be effectively parsed after the
-   --  name of the current project has been extablished.
+   --  projects. These imported projects will be effectively parsed later: just
+   --  before parsing the current project for the non limited withed projects,
+   --  after getting its name; after complete parsing of the current project
+   --  for the limited withed projects.
 
    type Names_And_Id is record
-      Path_Name           : Name_Id;
-      Canonical_Path_Name : Name_Id;
+      Path_Name           : Path_Name_Type;
+      Canonical_Path_Name : Path_Name_Type;
       Id                  : Project_Node_Id;
+      Limited_With        : Boolean;
    end record;
 
    package Project_Stack is new Table.Table
@@ -123,6 +119,15 @@ package body Prj.Part is
    --  need to have a virtual extending project, to avoid processing the same
    --  project twice.
 
+   package Projects_Paths is new System.HTable.Simple_HTable
+     (Header_Num => Header_Num,
+      Element    => Path_Name_Type,
+      No_Element => No_Path,
+      Key        => Name_Id,
+      Hash       => Hash,
+      Equal      => "=");
+   --  Hash table to cache project path to avoid looking for them on the path
+
    procedure Create_Virtual_Extending_Project
      (For_Project  : Project_Node_Id;
       Main_Project : Project_Node_Id;
@@ -144,26 +149,10 @@ package body Prj.Part is
    --  does not (because it is already extended), but other projects that it
    --  imports may need to be virtually extended.
 
-   procedure Pre_Parse_Context_Clause
-     (In_Tree        : Project_Node_Tree_Ref;
-      Context_Clause : out With_Id);
-   --  Parse the context clause of a project.
-   --  Store the paths and locations of the imported projects in table Withs.
-   --  Does nothing if there is no context clause (if the current
-   --  token is not "with" or "limited" followed by "with").
-
-   procedure Post_Parse_Context_Clause
-     (Context_Clause    : With_Id;
-      In_Tree           : Project_Node_Tree_Ref;
-      Imported_Projects : out Project_Node_Id;
-      Project_Directory : Name_Id;
-      From_Extended     : Extension_Origin;
-      In_Limited        : Boolean;
-      Packages_To_Check : String_List_Access);
-   --  Parse the imported projects that have been stored in table Withs,
-   --  if any. From_Extended is used for the call to Parse_Single_Project
-   --  below. When In_Limited is True, the importing path includes at least
-   --  one "limited with".
+   type Extension_Origin is (None, Extending_Simple, Extending_All);
+   --  Type of parameter From_Extended for procedures Parse_Single_Project and
+   --  Post_Parse_Context_Clause. Extending_All means that we are parsing the
+   --  tree rooted at an extending all project.
 
    procedure Parse_Single_Project
      (In_Tree           : Project_Node_Tree_Ref;
@@ -173,13 +162,41 @@ package body Prj.Part is
       Extended          : Boolean;
       From_Extended     : Extension_Origin;
       In_Limited        : Boolean;
-      Packages_To_Check : String_List_Access);
-   --  Parse a project file.
-   --  Recursive procedure: it calls itself for imported and extended
-   --  projects. When From_Extended is not None, if the project has already
-   --  been parsed and is an extended project A, return the ultimate
-   --  (not extended) project that extends A. When In_Limited is True,
-   --  the importing path includes at least one "limited with".
+      Packages_To_Check : String_List_Access;
+      Depth             : Natural;
+      Current_Dir       : String);
+   --  Parse a project file. This is a recursive procedure: it calls itself for
+   --  imported and extended projects. When From_Extended is not None, if the
+   --  project has already been parsed and is an extended project A, return the
+   --  ultimate (not extended) project that extends A. When In_Limited is True,
+   --  the importing path includes at least one "limited with". When parsing
+   --  configuration projects, do not allow a depth > 1.
+
+   procedure Pre_Parse_Context_Clause
+     (In_Tree        : Project_Node_Tree_Ref;
+      Context_Clause : out With_Id);
+   --  Parse the context clause of a project. Store the paths and locations of
+   --  the imported projects in table Withs. Does nothing if there is no
+   --  context clause (if the current token is not "with" or "limited" followed
+   --  by "with").
+
+   procedure Post_Parse_Context_Clause
+     (Context_Clause    : With_Id;
+      In_Tree           : Project_Node_Tree_Ref;
+      Limited_Withs     : Boolean;
+      Imported_Projects : in out Project_Node_Id;
+      Project_Directory : Path_Name_Type;
+      From_Extended     : Extension_Origin;
+      In_Limited        : Boolean;
+      Packages_To_Check : String_List_Access;
+      Depth             : Natural;
+      Current_Dir       : String);
+   --  Parse the imported projects that have been stored in table Withs, if
+   --  any. From_Extended is used for the call to Parse_Single_Project below.
+   --  When In_Limited is True, the importing path includes at least one
+   --  "limited with". When Limited_Withs is False, only non limited withed
+   --  projects are parsed. When Limited_Withs is True, only limited withed
+   --  projects are parsed.
 
    function Project_Path_Name_Of
      (Project_File_Name : String;
@@ -187,7 +204,8 @@ package body Prj.Part is
    --  Returns the path name of a project file. Returns an empty string
    --  if project file cannot be found.
 
-   function Immediate_Directory_Of (Path_Name : Name_Id) return Name_Id;
+   function Immediate_Directory_Of
+     (Path_Name : Path_Name_Type) return Path_Name_Type;
    --  Get the directory of the file with the specified path name.
    --  This includes the directory separator as the last character.
    --  Returns "./" if Path_Name contains no directory separator.
@@ -215,11 +233,11 @@ package body Prj.Part is
       Virtual_Name_Id : Name_Id;
       --  Virtual extending project name id
 
-      Virtual_Path_Id : Name_Id;
+      Virtual_Path_Id : Path_Name_Type;
       --  Fake path name of the virtual extending project. The directory is
       --  the same directory as the extending all project.
 
-      Virtual_Dir_Id  : constant Name_Id :=
+      Virtual_Dir_Id  : constant Path_Name_Type :=
         Immediate_Directory_Of (Path_Name_Of (Main_Project, In_Tree));
       --  The directory of the extending all project
 
@@ -339,15 +357,18 @@ package body Prj.Part is
          K => Virtual_Name_Id,
          E => (Name           => Virtual_Name_Id,
                Node           => Virtual_Project,
-               Canonical_Path => No_Name,
-               Extended       => False));
+               Canonical_Path => No_Path,
+               Extended       => False,
+               Proj_Qualifier => Unspecified));
    end Create_Virtual_Extending_Project;
 
    ----------------------------
    -- Immediate_Directory_Of --
    ----------------------------
 
-   function Immediate_Directory_Of (Path_Name : Name_Id) return Name_Id is
+   function Immediate_Directory_Of
+     (Path_Name : Path_Name_Type) return Path_Name_Type
+   is
    begin
       Get_Name_String (Path_Name);
 
@@ -384,7 +405,6 @@ package body Prj.Part is
      (Proj                : Project_Node_Id;
       In_Tree             : Project_Node_Tree_Ref;
       Potentially_Virtual : Boolean)
-
    is
       Declaration : Project_Node_Id := Empty_Node;
       --  Node for the project declaration of Proj
@@ -402,21 +422,21 @@ package body Prj.Part is
       --  Nothing to do if Proj is not defined or if it has already been
       --  processed.
 
-      if Proj /= Empty_Node and then not Processed_Hash.Get (Proj) then
+      if Present (Proj) and then not Processed_Hash.Get (Proj) then
          --  Make sure the project will not be processed again
 
          Processed_Hash.Set (Proj, True);
 
          Declaration := Project_Declaration_Of (Proj, In_Tree);
 
-         if Declaration /= Empty_Node then
+         if Present (Declaration) then
             Extended := Extended_Project_Of (Declaration, In_Tree);
          end if;
 
          --  If this is a project that may need a virtual extending project
          --  and it is not itself an extending project, put it in the list.
 
-         if Potentially_Virtual and then Extended = Empty_Node then
+         if Potentially_Virtual and then No (Extended) then
             Virtual_Hash.Set (Proj, Proj);
          end if;
 
@@ -424,10 +444,10 @@ package body Prj.Part is
 
          With_Clause := First_With_Clause_Of (Proj, In_Tree);
 
-         while With_Clause /= Empty_Node loop
+         while Present (With_Clause) loop
             Imported := Project_Node_Of (With_Clause, In_Tree);
 
-            if Imported /= Empty_Node then
+            if Present (Imported) then
                Look_For_Virtual_Projects_For
                  (Imported, In_Tree, Potentially_Virtual => True);
             end if;
@@ -454,10 +474,11 @@ package body Prj.Part is
       Project_File_Name      : String;
       Always_Errout_Finalize : Boolean;
       Packages_To_Check      : String_List_Access := All_Packages;
-      Store_Comments         : Boolean := False)
+      Store_Comments         : Boolean := False;
+      Current_Directory      : String := "")
    is
-      Current_Directory : constant String := Get_Current_Dir;
       Dummy : Boolean;
+      pragma Warnings (Off, Dummy);
 
       Real_Project_File_Name : String_Access :=
                                  Osint.To_Canonical_File_Spec
@@ -470,8 +491,10 @@ package body Prj.Part is
 
       Project := Empty_Node;
 
+      Projects_Paths.Reset;
+
       if Current_Verbosity >= Medium then
-         Write_Str ("ADA_PROJECT_PATH=""");
+         Write_Str ("GPR_PROJECT_PATH=""");
          Write_Str (Project_Path);
          Write_Line ("""");
       end if;
@@ -492,7 +515,9 @@ package body Prj.Part is
 
          if Path_Name = "" then
             Prj.Com.Fail
-              ("project file """, Project_File_Name, """ not found");
+              ("project file """,
+               Project_File_Name,
+               """ not found in " & Project_Path);
             Project := Empty_Node;
             return;
          end if;
@@ -505,13 +530,15 @@ package body Prj.Part is
             Extended          => False,
             From_Extended     => None,
             In_Limited        => False,
-            Packages_To_Check => Packages_To_Check);
+            Packages_To_Check => Packages_To_Check,
+            Depth             => 0,
+            Current_Dir       => Current_Directory);
 
          --  If Project is an extending-all project, create the eventual
          --  virtual extending projects and check that there are no illegally
          --  imported projects.
 
-         if Project /= Empty_Node
+         if Present (Project)
            and then Is_Extending_All (Project, In_Tree)
          then
             --  First look for projects that potentially need a virtual
@@ -548,10 +575,10 @@ package body Prj.Part is
 
             begin
                With_Clause := First_With_Clause_Of (Project, In_Tree);
-               while With_Clause /= Empty_Node loop
+               while Present (With_Clause) loop
                   Imported := Project_Node_Of (With_Clause, In_Tree);
 
-                  if Imported /= Empty_Node then
+                  if Present (Imported) then
                      Declaration := Project_Declaration_Of (Imported, In_Tree);
 
                      if Extended_Project_Of (Declaration, In_Tree) /=
@@ -560,7 +587,7 @@ package body Prj.Part is
                         loop
                            Imported :=
                              Extended_Project_Of (Declaration, In_Tree);
-                           exit when Imported = Empty_Node;
+                           exit when No (Imported);
                            Virtual_Hash.Remove (Imported);
                            Declaration :=
                              Project_Declaration_Of (Imported, In_Tree);
@@ -577,7 +604,7 @@ package body Prj.Part is
             declare
                Proj : Project_Node_Id := Virtual_Hash.Get_First;
             begin
-               while Proj /= Empty_Node loop
+               while Present (Proj) loop
                   Create_Virtual_Extending_Project (Proj, Project, In_Tree);
                   Proj := Virtual_Hash.Get_Next;
                end loop;
@@ -591,7 +618,7 @@ package body Prj.Part is
             Project := Empty_Node;
          end if;
 
-         if Project = Empty_Node or else Always_Errout_Finalize then
+         if No (Project) or else Always_Errout_Finalize then
             Prj.Err.Finalize;
          end if;
       end;
@@ -616,12 +643,10 @@ package body Prj.Part is
      (In_Tree        : Project_Node_Tree_Ref;
       Context_Clause : out With_Id)
    is
-      Current_With_Clause    : With_Id := No_With;
-      Limited_With           : Boolean         := False;
-
-      Current_With : With_Record;
-
-      Current_With_Node : Project_Node_Id := Empty_Node;
+      Current_With_Clause : With_Id := No_With;
+      Limited_With        : Boolean := False;
+      Current_With        : With_Record;
+      Current_With_Node   : Project_Node_Id := Empty_Node;
 
    begin
       --  Assume no context clause
@@ -637,6 +662,13 @@ package body Prj.Part is
            Default_Project_Node (Of_Kind => N_With_Clause, In_Tree => In_Tree);
          Limited_With := Token = Tok_Limited;
 
+         if In_Configuration then
+            Error_Msg
+              ("configuration project cannot import " &
+               "other configuration projects",
+               Token_Ptr);
+         end if;
+
          if Limited_With then
             Scan (In_Tree);  --  scan past LIMITED
             Expect (Tok_With, "WITH");
@@ -645,7 +677,7 @@ package body Prj.Part is
 
          Comma_Loop :
          loop
-            Scan (In_Tree); -- scan past WITH or ","
+            Scan (In_Tree); -- past WITH or ","
 
             Expect (Tok_String_Literal, "literal string");
 
@@ -656,7 +688,7 @@ package body Prj.Part is
             --  Store path and location in table Withs
 
             Current_With :=
-              (Path         => Token_Name,
+              (Path         => Path_Name_Type (Token_Name),
                Location     => Token_Ptr,
                Limited_With => Limited_With,
                Node         => Current_With_Node,
@@ -682,7 +714,7 @@ package body Prj.Part is
 
                --  End of (possibly multiple) with clause;
 
-               Scan (In_Tree); -- scan past the semicolon.
+               Scan (In_Tree); -- past the semicolon
                exit Comma_Loop;
 
             elsif Token = Tok_Comma then
@@ -707,15 +739,18 @@ package body Prj.Part is
    procedure Post_Parse_Context_Clause
      (Context_Clause    : With_Id;
       In_Tree           : Project_Node_Tree_Ref;
-      Imported_Projects : out Project_Node_Id;
-      Project_Directory : Name_Id;
+      Limited_Withs     : Boolean;
+      Imported_Projects : in out Project_Node_Id;
+      Project_Directory : Path_Name_Type;
       From_Extended     : Extension_Origin;
       In_Limited        : Boolean;
-      Packages_To_Check : String_List_Access)
+      Packages_To_Check : String_List_Access;
+      Depth             : Natural;
+      Current_Dir       : String)
    is
       Current_With_Clause : With_Id := Context_Clause;
 
-      Current_Project  : Project_Node_Id := Empty_Node;
+      Current_Project  : Project_Node_Id := Imported_Projects;
       Previous_Project : Project_Node_Id := Empty_Node;
       Next_Project     : Project_Node_Id := Empty_Node;
 
@@ -723,159 +758,177 @@ package body Prj.Part is
                                  Get_Name_String (Project_Directory);
 
       Current_With : With_Record;
-      Limited_With : Boolean := False;
       Extends_All  : Boolean := False;
 
    begin
-      Imported_Projects := Empty_Node;
+      --  Set Current_Project to the last project in the current list, if the
+      --  list is not empty.
+
+      if Present (Current_Project) then
+         while
+           Present (Next_With_Clause_Of (Current_Project, In_Tree))
+         loop
+            Current_Project := Next_With_Clause_Of (Current_Project, In_Tree);
+         end loop;
+      end if;
 
       while Current_With_Clause /= No_With loop
          Current_With := Withs.Table (Current_With_Clause);
          Current_With_Clause := Current_With.Next;
 
-         Limited_With := In_Limited or Current_With.Limited_With;
+         if Limited_Withs = Current_With.Limited_With then
+            declare
+               Original_Path : constant String :=
+                                 Get_Name_String (Current_With.Path);
 
-         declare
-            Original_Path : constant String :=
-                              Get_Name_String (Current_With.Path);
+               Imported_Path_Name : constant String :=
+                                      Project_Path_Name_Of
+                                        (Original_Path,
+                                         Project_Directory_Path);
 
-            Imported_Path_Name : constant String :=
-                                   Project_Path_Name_Of
-                                     (Original_Path, Project_Directory_Path);
+               Resolved_Path : constant String :=
+                                 Normalize_Pathname
+                                   (Imported_Path_Name,
+                                    Directory      => Current_Dir,
+                                    Resolve_Links  =>
+                                      Opt.Follow_Links_For_Files,
+                                    Case_Sensitive => True);
 
-            Resolved_Path : constant String :=
-                              Normalize_Pathname
-                                (Imported_Path_Name,
-                                 Resolve_Links => True,
-                                 Case_Sensitive => True);
+               Withed_Project : Project_Node_Id := Empty_Node;
 
-            Withed_Project : Project_Node_Id := Empty_Node;
+            begin
+               if Imported_Path_Name = "" then
 
-         begin
-            if Imported_Path_Name = "" then
+                  --  The project file cannot be found
 
-               --  The project file cannot be found
+                  Error_Msg_File_1 := File_Name_Type (Current_With.Path);
+                  Error_Msg
+                    ("unknown project file: {", Current_With.Location);
 
-               Error_Msg_Name_1 := Current_With.Path;
+                  --  If this is not imported by the main project file, display
+                  --  the import path.
 
-               Error_Msg ("unknown project file: {", Current_With.Location);
-
-               --  If this is not imported by the main project file,
-               --  display the import path.
-
-               if Project_Stack.Last > 1 then
-                  for Index in reverse 1 .. Project_Stack.Last loop
-                     Error_Msg_Name_1 := Project_Stack.Table (Index).Path_Name;
-                     Error_Msg ("\imported by {", Current_With.Location);
-                  end loop;
-               end if;
-
-            else
-               --  New with clause
-
-               Previous_Project := Current_Project;
-
-               if Current_Project = Empty_Node then
-
-                  --  First with clause of the context clause
-
-                  Current_Project := Current_With.Node;
-                  Imported_Projects := Current_Project;
-
-               else
-                  Next_Project := Current_With.Node;
-                  Set_Next_With_Clause_Of
-                    (Current_Project, In_Tree, Next_Project);
-                  Current_Project := Next_Project;
-               end if;
-
-               Set_String_Value_Of
-                 (Current_Project, In_Tree, Current_With.Path);
-               Set_Location_Of
-                 (Current_Project, In_Tree, Current_With.Location);
-
-               --  If this is a "limited with", check if we have a circularity.
-               --  If we have one, get the project id of the limited imported
-               --  project file, and do not parse it.
-
-               if Limited_With and then Project_Stack.Last > 1 then
-                  declare
-                     Canonical_Path_Name : Name_Id;
-
-                  begin
-                     Name_Len := Resolved_Path'Length;
-                     Name_Buffer (1 .. Name_Len) := Resolved_Path;
-                     Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
-                     Canonical_Path_Name := Name_Find;
-
-                     for Index in 1 .. Project_Stack.Last loop
-                        if Project_Stack.Table (Index).Canonical_Path_Name =
-                             Canonical_Path_Name
-                        then
-                           --  We have found the limited imported project,
-                           --  get its project id, and do not parse it.
-
-                           Withed_Project := Project_Stack.Table (Index).Id;
-                           exit;
-                        end if;
+                  if Project_Stack.Last > 1 then
+                     for Index in reverse 1 .. Project_Stack.Last loop
+                        Error_Msg_File_1 :=
+                          File_Name_Type
+                            (Project_Stack.Table (Index).Path_Name);
+                        Error_Msg
+                          ("\imported by {", Current_With.Location);
                      end loop;
-                  end;
-               end if;
-
-               --  Parse the imported project, if its project id is unknown
-
-               if Withed_Project = Empty_Node then
-                  Parse_Single_Project
-                    (In_Tree           => In_Tree,
-                     Project           => Withed_Project,
-                     Extends_All       => Extends_All,
-                     Path_Name         => Imported_Path_Name,
-                     Extended          => False,
-                     From_Extended     => From_Extended,
-                     In_Limited        => Limited_With,
-                     Packages_To_Check => Packages_To_Check);
+                  end if;
 
                else
-                  Extends_All := Is_Extending_All (Withed_Project, In_Tree);
-               end if;
+                  --  New with clause
 
-               if Withed_Project = Empty_Node then
-                  --  If parsing was not successful, remove the
-                  --  context clause.
+                  Previous_Project := Current_Project;
 
-                  Current_Project := Previous_Project;
+                  if No (Current_Project) then
 
-                  if Current_Project = Empty_Node then
-                     Imported_Projects := Empty_Node;
+                     --  First with clause of the context clause
+
+                     Current_Project := Current_With.Node;
+                     Imported_Projects := Current_Project;
 
                   else
+                     Next_Project := Current_With.Node;
                      Set_Next_With_Clause_Of
-                       (Current_Project, In_Tree, Empty_Node);
+                       (Current_Project, In_Tree, Next_Project);
+                     Current_Project := Next_Project;
                   end if;
-               else
-                  --  If parsing was successful, record project name
-                  --  and path name in with clause
 
-                  Set_Project_Node_Of
-                    (Node         => Current_Project,
-                     In_Tree      => In_Tree,
-                     To           => Withed_Project,
-                     Limited_With => Current_With.Limited_With);
-                  Set_Name_Of
+                  Set_String_Value_Of
                     (Current_Project,
                      In_Tree,
-                     Name_Of (Withed_Project, In_Tree));
+                     Name_Id (Current_With.Path));
+                  Set_Location_Of
+                    (Current_Project, In_Tree, Current_With.Location);
 
-                  Name_Len := Resolved_Path'Length;
-                  Name_Buffer (1 .. Name_Len) := Resolved_Path;
-                  Set_Path_Name_Of (Current_Project, In_Tree, Name_Find);
+                  --  If it is a limited with, check if we have a circularity.
+                  --  If we have one, get the project id of the limited
+                  --  imported project file, and do not parse it.
 
-                  if Extends_All then
-                     Set_Is_Extending_All (Current_Project, In_Tree);
+                  if Limited_Withs and then Project_Stack.Last > 1 then
+                     declare
+                        Canonical_Path_Name : Path_Name_Type;
+
+                     begin
+                        Name_Len := Resolved_Path'Length;
+                        Name_Buffer (1 .. Name_Len) := Resolved_Path;
+                        Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
+                        Canonical_Path_Name := Name_Find;
+
+                        for Index in 1 .. Project_Stack.Last loop
+                           if Project_Stack.Table (Index).Canonical_Path_Name =
+                             Canonical_Path_Name
+                           then
+                              --  We have found the limited imported project,
+                              --  get its project id, and do not parse it.
+
+                              Withed_Project := Project_Stack.Table (Index).Id;
+                              exit;
+                           end if;
+                        end loop;
+                     end;
+                  end if;
+
+                  --  Parse the imported project, if its project id is unknown
+
+                  if No (Withed_Project) then
+                     Parse_Single_Project
+                       (In_Tree           => In_Tree,
+                        Project           => Withed_Project,
+                        Extends_All       => Extends_All,
+                        Path_Name         => Imported_Path_Name,
+                        Extended          => False,
+                        From_Extended     => From_Extended,
+                        In_Limited        => Limited_Withs,
+                        Packages_To_Check => Packages_To_Check,
+                        Depth             => Depth,
+                        Current_Dir       => Current_Dir);
+
+                  else
+                     Extends_All := Is_Extending_All (Withed_Project, In_Tree);
+                  end if;
+
+                  if No (Withed_Project) then
+
+                     --  If parsing unsuccessful, remove the context clause
+
+                     Current_Project := Previous_Project;
+
+                     if No (Current_Project) then
+                        Imported_Projects := Empty_Node;
+
+                     else
+                        Set_Next_With_Clause_Of
+                          (Current_Project, In_Tree, Empty_Node);
+                     end if;
+                  else
+                     --  If parsing was successful, record project name and
+                     --  path name in with clause
+
+                     Set_Project_Node_Of
+                       (Node         => Current_Project,
+                        In_Tree      => In_Tree,
+                        To           => Withed_Project,
+                        Limited_With => Current_With.Limited_With);
+                     Set_Name_Of
+                       (Current_Project,
+                        In_Tree,
+                        Name_Of (Withed_Project, In_Tree));
+
+                     Name_Len := Resolved_Path'Length;
+                     Name_Buffer (1 .. Name_Len) := Resolved_Path;
+                     Set_Path_Name_Of (Current_Project, In_Tree, Name_Find);
+
+                     if Extends_All then
+                        Set_Is_Extending_All (Current_Project, In_Tree);
+                     end if;
                   end if;
                end if;
-            end if;
-         end;
+            end;
+         end if;
       end loop;
    end Post_Parse_Context_Clause;
 
@@ -891,43 +944,53 @@ package body Prj.Part is
       Extended          : Boolean;
       From_Extended     : Extension_Origin;
       In_Limited        : Boolean;
-      Packages_To_Check : String_List_Access)
+      Packages_To_Check : String_List_Access;
+      Depth             : Natural;
+      Current_Dir       : String)
    is
-      Normed_Path_Name    : Name_Id;
-      Canonical_Path_Name : Name_Id;
-      Project_Directory   : Name_Id;
+      Normed_Path_Name    : Path_Name_Type;
+      Canonical_Path_Name : Path_Name_Type;
+      Project_Directory   : Path_Name_Type;
       Project_Scan_State  : Saved_Project_Scan_State;
       Source_Index        : Source_File_Index;
 
       Extending : Boolean := False;
 
-      Extended_Project    : Project_Node_Id := Empty_Node;
+      Extended_Project : Project_Node_Id := Empty_Node;
 
       A_Project_Name_And_Node : Tree_Private_Part.Project_Name_And_Node :=
                                   Tree_Private_Part.Projects_Htable.Get_First
                                     (In_Tree.Projects_HT);
 
-      Name_From_Path : constant Name_Id := Project_Name_From (Path_Name);
-
+      Name_From_Path  : constant Name_Id := Project_Name_From (Path_Name);
       Name_Of_Project : Name_Id := No_Name;
 
-      First_With : With_Id;
+      Duplicated : Boolean := False;
+
+      First_With        : With_Id;
+      Imported_Projects : Project_Node_Id := Empty_Node;
 
       use Tree_Private_Part;
 
       Project_Comment_State : Tree.Comment_State;
+
+      Proj_Qualifier     : Project_Qualifier := Unspecified;
+      Qualifier_Location : Source_Ptr;
 
    begin
       Extends_All := False;
 
       declare
          Normed_Path    : constant String := Normalize_Pathname
-                            (Path_Name, Resolve_Links => False,
-                             Case_Sensitive           => True);
+                            (Path_Name,
+                             Directory      => Current_Dir,
+                             Resolve_Links  => False,
+                             Case_Sensitive => True);
          Canonical_Path : constant String := Normalize_Pathname
-                            (Normed_Path, Resolve_Links => True,
-                             Case_Sensitive             => False);
-
+                            (Normed_Path,
+                             Directory      => Current_Dir,
+                             Resolve_Links  => Opt.Follow_Links_For_Files,
+                             Case_Sensitive => False);
       begin
          Name_Len := Normed_Path'Length;
          Name_Buffer (1 .. Name_Len) := Normed_Path;
@@ -939,25 +1002,28 @@ package body Prj.Part is
 
       --  Check for a circular dependency
 
-      for Index in 1 .. Project_Stack.Last loop
+      for Index in reverse 1 .. Project_Stack.Last loop
+         exit when Project_Stack.Table (Index).Limited_With;
+
          if Canonical_Path_Name =
               Project_Stack.Table (Index).Canonical_Path_Name
          then
             Error_Msg ("circular dependency detected", Token_Ptr);
-            Error_Msg_Name_1 := Normed_Path_Name;
-            Error_Msg ("\  { is imported by", Token_Ptr);
+            Error_Msg_Name_1 := Name_Id (Normed_Path_Name);
+            Error_Msg ("\  %% is imported by", Token_Ptr);
 
             for Current in reverse 1 .. Project_Stack.Last loop
-               Error_Msg_Name_1 := Project_Stack.Table (Current).Path_Name;
+               Error_Msg_Name_1 :=
+                 Name_Id (Project_Stack.Table (Current).Path_Name);
 
                if Project_Stack.Table (Current).Canonical_Path_Name /=
                     Canonical_Path_Name
                then
                   Error_Msg
-                    ("\  { which itself is imported by", Token_Ptr);
+                    ("\  %% which itself is imported by", Token_Ptr);
 
                else
-                  Error_Msg ("\  {", Token_Ptr);
+                  Error_Msg ("\  %%", Token_Ptr);
                   exit;
                end if;
             end loop;
@@ -969,10 +1035,11 @@ package body Prj.Part is
 
       --  Put the new path name on the stack
 
-      Project_Stack.Increment_Last;
-      Project_Stack.Table (Project_Stack.Last).Path_Name := Normed_Path_Name;
-      Project_Stack.Table (Project_Stack.Last).Canonical_Path_Name :=
-        Canonical_Path_Name;
+      Project_Stack.Append
+        ((Path_Name           => Normed_Path_Name,
+          Canonical_Path_Name => Canonical_Path_Name,
+          Id                  => Empty_Node,
+          Limited_With        => In_Limited));
 
       --  Check if the project file has already been parsed
 
@@ -983,9 +1050,11 @@ package body Prj.Part is
             if Extended then
 
                if A_Project_Name_And_Node.Extended then
-                  Error_Msg
-                    ("cannot extend the same project file several times",
-                     Token_Ptr);
+                  if A_Project_Name_And_Node.Proj_Qualifier /= Dry then
+                     Error_Msg
+                       ("cannot extend the same project file several times",
+                        Token_Ptr);
+                  end if;
                else
                   Error_Msg
                     ("cannot extend an already imported project file",
@@ -996,9 +1065,9 @@ package body Prj.Part is
                Extends_All :=
                  Is_Extending_All (A_Project_Name_And_Node.Node, In_Tree);
 
-               --  If the imported project is an extended project A,
-               --  and we are in an extended project, replace A with the
-               --  ultimate project extending A.
+               --  If the imported project is an extended project A, and we are
+               --  in an extended project, replace A with the ultimate project
+               --  extending A.
 
                if From_Extended /= None then
                   declare
@@ -1035,8 +1104,8 @@ package body Prj.Part is
            Tree_Private_Part.Projects_Htable.Get_Next (In_Tree.Projects_HT);
       end loop;
 
-      --  We never encountered this project file
-      --  Save the scan state, load the project file and start to scan it.
+      --  We never encountered this project file. Save the scan state, load the
+      --  project file and start to scan it.
 
       Save_Project_Scan_State (Project_Scan_State);
       Source_Index := Load_Project_File (Path_Name);
@@ -1054,12 +1123,12 @@ package body Prj.Part is
       Tree.Reset_State;
       Scan (In_Tree);
 
-      if Name_From_Path = No_Name then
+      if not In_Configuration and then Name_From_Path = No_Name then
 
-         --  The project file name is not correct (no or bad extension,
-         --  or not following Ada identifier's syntax).
+         --  The project file name is not correct (no or bad extension, or not
+         --  following Ada identifier's syntax).
 
-         Error_Msg_Name_1 := Canonical_Path_Name;
+         Error_Msg_File_1 := File_Name_Type (Canonical_Path_Name);
          Error_Msg ("?{ is not a valid path name for a project file",
                     Token_Ptr);
       end if;
@@ -1071,16 +1140,73 @@ package body Prj.Part is
          Write_Eol;
       end if;
 
+      Project_Directory := Immediate_Directory_Of (Normed_Path_Name);
+
       --  Is there any imported project?
 
-      Pre_Parse_Context_Clause (In_Tree, First_With);
+      Pre_Parse_Context_Clause
+        (In_Tree        => In_Tree,
+         Context_Clause => First_With);
 
-      Project_Directory := Immediate_Directory_Of (Normed_Path_Name);
       Project := Default_Project_Node
                    (Of_Kind => N_Project, In_Tree => In_Tree);
       Project_Stack.Table (Project_Stack.Last).Id := Project;
       Set_Directory_Of (Project, In_Tree, Project_Directory);
       Set_Path_Name_Of (Project, In_Tree,  Normed_Path_Name);
+
+      --  Check if there is a qualifier before the reserved word "project"
+
+      Qualifier_Location := Token_Ptr;
+
+      if Token = Tok_Abstract then
+         Proj_Qualifier := Dry;
+         Scan (In_Tree);
+
+      elsif Token = Tok_Identifier then
+         case Token_Name is
+            when Snames.Name_Standard =>
+               Proj_Qualifier := Standard;
+               Scan (In_Tree);
+
+            when Snames.Name_Aggregate =>
+               Proj_Qualifier := Aggregate;
+               Scan (In_Tree);
+
+               if Token = Tok_Identifier and then
+                 Token_Name = Snames.Name_Library
+               then
+                  Proj_Qualifier := Aggregate_Library;
+                  Scan (In_Tree);
+               end if;
+
+            when Snames.Name_Library =>
+               Proj_Qualifier := Library;
+               Scan (In_Tree);
+
+            when Snames.Name_Configuration =>
+               if not In_Configuration then
+                  Error_Msg ("configuration projects cannot belong to a user" &
+                             " project tree",
+                             Token_Ptr);
+               end if;
+
+               Scan (In_Tree);
+
+            when others =>
+               null;
+         end case;
+      end if;
+
+      if Proj_Qualifier /= Unspecified then
+         if In_Configuration then
+            Error_Msg ("a configuration project cannot be qualified except " &
+                       "as configuration project",
+                       Qualifier_Location);
+         end if;
+
+         Set_Project_Qualifier_Of (Project, In_Tree, Proj_Qualifier);
+      end if;
+
       Set_Location_Of (Project, In_Tree, Token_Ptr);
 
       Expect (Tok_Project, "PROJECT");
@@ -1088,7 +1214,7 @@ package body Prj.Part is
       --  Mark location of PROJECT token if present
 
       if Token = Tok_Project then
-         Scan (In_Tree); -- scan past PROJECT
+         Scan (In_Tree); -- past PROJECT
          Set_Location_Of (Project, In_Tree, Token_Ptr);
       end if;
 
@@ -1115,7 +1241,7 @@ package body Prj.Part is
 
          Scan (In_Tree);
 
-         --  If we have a dot, add a dot the the Buffer and look for the next
+         --  If we have a dot, add a dot to the Buffer and look for the next
          --  identifier.
 
          exit when Token /= Tok_Dot;
@@ -1130,6 +1256,11 @@ package body Prj.Part is
 
       if Token = Tok_Extends then
 
+         if In_Configuration then
+            Error_Msg
+              ("extending configuration project not allowed", Token_Ptr);
+         end if;
+
          --  Make sure that gnatmake will use mapping files
 
          Create_Mapping_File := True;
@@ -1138,7 +1269,7 @@ package body Prj.Part is
 
          Extending := True;
 
-         Scan (In_Tree); -- scan past EXTENDS
+         Scan (In_Tree); -- past EXTENDS
 
          if Token = Tok_All then
             Extends_All := True;
@@ -1173,22 +1304,31 @@ package body Prj.Part is
 
          declare
             Expected_Name : constant Name_Id := Name_Find;
+            Extension     : String_Access;
 
          begin
             --  Output a warning if the actual name is not the expected name
 
-            if Name_From_Path /= No_Name
+            if not In_Configuration
+              and then (Name_From_Path /= No_Name)
               and then Expected_Name /= Name_From_Path
             then
                Error_Msg_Name_1 := Expected_Name;
-               Error_Msg ("?file name does not match unit name, " &
-                          "should be `{" & Project_File_Extension & "`",
+
+               if In_Configuration then
+                  Extension := new String'(Config_Project_File_Extension);
+
+               else
+                  Extension := new String'(Project_File_Extension);
+               end if;
+
+               Error_Msg ("?file name does not match project name, " &
+                          "should be `%%" & Extension.all & "`",
                           Token_Ptr);
             end if;
          end;
 
          declare
-            Imported_Projects : Project_Node_Id := Empty_Node;
             From_Ext : Extension_Origin := None;
 
          begin
@@ -1207,57 +1347,51 @@ package body Prj.Part is
             Post_Parse_Context_Clause
               (In_Tree           => In_Tree,
                Context_Clause    => First_With,
+               Limited_Withs     => False,
                Imported_Projects => Imported_Projects,
                Project_Directory => Project_Directory,
                From_Extended     => From_Ext,
                In_Limited        => In_Limited,
-               Packages_To_Check => Packages_To_Check);
+               Packages_To_Check => Packages_To_Check,
+               Depth             => Depth + 1,
+               Current_Dir       => Current_Dir);
             Set_First_With_Clause_Of (Project, In_Tree, Imported_Projects);
          end;
 
-         declare
-            Name_And_Node : Tree_Private_Part.Project_Name_And_Node :=
-              Tree_Private_Part.Projects_Htable.Get_First
-                (In_Tree.Projects_HT);
-            Project_Name : Name_Id := Name_And_Node.Name;
+         if not In_Configuration then
+            declare
+               Name_And_Node : Tree_Private_Part.Project_Name_And_Node :=
+                                 Tree_Private_Part.Projects_Htable.Get_First
+                                   (In_Tree.Projects_HT);
+               Project_Name  : Name_Id := Name_And_Node.Name;
 
-         begin
-            --  Check if we already have a project with this name
+            begin
+               --  Check if we already have a project with this name
 
-            while Project_Name /= No_Name
-              and then Project_Name /= Name_Of_Project
-            loop
-               Name_And_Node :=
-                 Tree_Private_Part.Projects_Htable.Get_Next
-                   (In_Tree.Projects_HT);
-               Project_Name := Name_And_Node.Name;
-            end loop;
+               while Project_Name /= No_Name
+                 and then Project_Name /= Name_Of_Project
+               loop
+                  Name_And_Node :=
+                    Tree_Private_Part.Projects_Htable.Get_Next
+                      (In_Tree.Projects_HT);
+                  Project_Name := Name_And_Node.Name;
+               end loop;
 
-            --  Report an error if we already have a project with this name
+               --  Report an error if we already have a project with this name
 
-            if Project_Name /= No_Name then
-               Error_Msg_Name_1 := Project_Name;
-               Error_Msg
-                 ("duplicate project name {", Location_Of (Project, In_Tree));
-               Error_Msg_Name_1 :=
-                 Path_Name_Of (Name_And_Node.Node, In_Tree);
-               Error_Msg
-                 ("\already in {", Location_Of (Project, In_Tree));
-
-            else
-               --  Otherwise, add the name of the project to the hash table, so
-               --  that we can check that no other subsequent project will have
-               --  the same name.
-
-               Tree_Private_Part.Projects_Htable.Set
-                 (T => In_Tree.Projects_HT,
-                  K => Name_Of_Project,
-                  E => (Name           => Name_Of_Project,
-                        Node           => Project,
-                        Canonical_Path => Canonical_Path_Name,
-                        Extended       => Extended));
-            end if;
-         end;
+               if Project_Name /= No_Name then
+                  Duplicated := True;
+                  Error_Msg_Name_1 := Project_Name;
+                  Error_Msg
+                    ("duplicate project name %%",
+                     Location_Of (Project, In_Tree));
+                  Error_Msg_Name_1 :=
+                    Name_Id (Path_Name_Of (Name_And_Node.Node, In_Tree));
+                  Error_Msg
+                    ("\already in %%", Location_Of (Project, In_Tree));
+               end if;
+            end;
+         end if;
 
       end if;
 
@@ -1265,7 +1399,10 @@ package body Prj.Part is
          Expect (Tok_String_Literal, "literal string");
 
          if Token = Tok_String_Literal then
-            Set_Extended_Project_Path_Of (Project, In_Tree, Token_Name);
+            Set_Extended_Project_Path_Of
+              (Project,
+               In_Tree,
+               Path_Name_Type (Token_Name));
 
             declare
                Original_Path_Name : constant String :=
@@ -1284,20 +1421,22 @@ package body Prj.Part is
 
                   Error_Msg_Name_1 := Token_Name;
 
-                  Error_Msg ("unknown project file: {", Token_Ptr);
+                  Error_Msg ("unknown project file: %%", Token_Ptr);
 
                   --  If we are not in the main project file, display the
                   --  import path.
 
                   if Project_Stack.Last > 1 then
                      Error_Msg_Name_1 :=
-                       Project_Stack.Table (Project_Stack.Last).Path_Name;
-                     Error_Msg ("\extended by {", Token_Ptr);
+                       Name_Id
+                         (Project_Stack.Table (Project_Stack.Last).Path_Name);
+                     Error_Msg ("\extended by %%", Token_Ptr);
 
                      for Index in reverse 1 .. Project_Stack.Last - 1 loop
                         Error_Msg_Name_1 :=
-                          Project_Stack.Table (Index).Path_Name;
-                        Error_Msg ("\imported by {", Token_Ptr);
+                          Name_Id
+                            (Project_Stack.Table (Index).Path_Name);
+                        Error_Msg ("\imported by %%", Token_Ptr);
                      end loop;
                   end if;
 
@@ -1318,21 +1457,38 @@ package body Prj.Part is
                         Extended          => True,
                         From_Extended     => From_Ext,
                         In_Limited        => In_Limited,
-                        Packages_To_Check => Packages_To_Check);
+                        Packages_To_Check => Packages_To_Check,
+                        Depth             => Depth + 1,
+                        Current_Dir       => Current_Dir);
                   end;
 
-                  --  A project that extends an extending-all project is also
-                  --  an extending-all project.
+                  if Present (Extended_Project) then
 
-                  if Extended_Project /= Empty_Node
-                    and then Is_Extending_All (Extended_Project, In_Tree)
-                  then
-                     Set_Is_Extending_All (Project, In_Tree);
+                     --  A project that extends an extending-all project is
+                     --  also an extending-all project.
+
+                     if Is_Extending_All (Extended_Project, In_Tree) then
+                        Set_Is_Extending_All (Project, In_Tree);
+                     end if;
+
+                     --  An abstract project can only extend an abstract
+                     --  project, otherwise we may have an abstract project
+                     --  with sources, if it inherits sources from the project
+                     --  it extends.
+
+                     if Proj_Qualifier = Dry and then
+                       Project_Qualifier_Of (Extended_Project, In_Tree) /= Dry
+                     then
+                        Error_Msg
+                          ("an abstract project can only extend " &
+                           "another abstract project",
+                           Qualifier_Location);
+                     end if;
                   end if;
                end if;
             end;
 
-            Scan (In_Tree); -- scan past the extended project path
+            Scan (In_Tree); -- past the extended project path
          end if;
       end if;
 
@@ -1347,12 +1503,12 @@ package body Prj.Part is
 
          begin
             With_Clause_Loop :
-            while With_Clause /= Empty_Node loop
+            while Present (With_Clause) loop
                Imported := Project_Node_Of (With_Clause, In_Tree);
 
                if Is_Extending_All (With_Clause, In_Tree) then
                   Error_Msg_Name_1 := Name_Of (Imported, In_Tree);
-                  Error_Msg ("cannot import extending-all project {",
+                  Error_Msg ("cannot import extending-all project %%",
                              Token_Ptr);
                   exit With_Clause_Loop;
                end if;
@@ -1387,13 +1543,15 @@ package body Prj.Part is
          declare
             Parent_Name  : constant Name_Id := Name_Find;
             Parent_Found : Boolean := False;
+            Parent_Node  : Project_Node_Id := Empty_Node;
             With_Clause  : Project_Node_Id :=
                              First_With_Clause_Of (Project, In_Tree);
 
          begin
             --  If there is an extended project, check its name
 
-            if Extended_Project /= Empty_Node then
+            if Present (Extended_Project) then
+               Parent_Node := Extended_Project;
                Parent_Found :=
                  Name_Of (Extended_Project, In_Tree) = Parent_Name;
             end if;
@@ -1401,19 +1559,21 @@ package body Prj.Part is
             --  If the parent project is not the extended project,
             --  check each imported project until we find the parent project.
 
-            while not Parent_Found and then With_Clause /= Empty_Node loop
-               Parent_Found :=
-                 Name_Of (Project_Node_Of (With_Clause, In_Tree), In_Tree) =
-                    Parent_Name;
+            while not Parent_Found and then Present (With_Clause) loop
+               Parent_Node := Project_Node_Of (With_Clause, In_Tree);
+               Parent_Found := Name_Of (Parent_Node, In_Tree) = Parent_Name;
                With_Clause := Next_With_Clause_Of (With_Clause, In_Tree);
             end loop;
 
-            --  If the parent project was not found, report an error
+            if Parent_Found then
+               Set_Parent_Project_Of (Project, In_Tree, To => Parent_Node);
 
-            if not Parent_Found then
+            else
+               --  If the parent project was not found, report an error
+
                Error_Msg_Name_1 := Name_Of_Project;
                Error_Msg_Name_2 := Parent_Name;
-               Error_Msg ("project { does not import or extend project {",
+               Error_Msg ("project %% does not import or extend project %%",
                           Location_Of (Project, In_Tree));
             end if;
          end;
@@ -1438,7 +1598,9 @@ package body Prj.Part is
             Packages_To_Check => Packages_To_Check);
          Set_Project_Declaration_Of (Project, In_Tree, Project_Declaration);
 
-         if Extended_Project /= Empty_Node then
+         if Present (Extended_Project)
+           and then Project_Qualifier_Of (Extended_Project, In_Tree) /= Dry
+         then
             Set_Extending_Project_Of
               (Project_Declaration_Of (Extended_Project, In_Tree), In_Tree,
                To => Project);
@@ -1513,6 +1675,51 @@ package body Prj.Part is
          end if;
       end if;
 
+      if not Duplicated and then Name_Of_Project /= No_Name then
+
+         --  Add the name of the project to the hash table, so that we can
+         --  check that no other subsequent project will have the same name.
+
+         Tree_Private_Part.Projects_Htable.Set
+           (T => In_Tree.Projects_HT,
+            K => Name_Of_Project,
+            E => (Name           => Name_Of_Project,
+                  Node           => Project,
+                  Canonical_Path => Canonical_Path_Name,
+                  Extended       => Extended,
+                  Proj_Qualifier => Proj_Qualifier));
+      end if;
+
+      declare
+         From_Ext : Extension_Origin := None;
+
+      begin
+         --  Extending_All is always propagated
+
+         if From_Extended = Extending_All or else Extends_All then
+            From_Ext := Extending_All;
+
+            --  Otherwise, From_Extended is set to Extending_Single if the
+            --  current project is an extending project.
+
+         elsif Extended then
+            From_Ext := Extending_Simple;
+         end if;
+
+         Post_Parse_Context_Clause
+           (In_Tree           => In_Tree,
+            Context_Clause    => First_With,
+            Limited_Withs     => True,
+            Imported_Projects => Imported_Projects,
+            Project_Directory => Project_Directory,
+            From_Extended     => From_Ext,
+            In_Limited        => In_Limited,
+            Packages_To_Check => Packages_To_Check,
+            Depth             => Depth + 1,
+            Current_Dir       => Current_Dir);
+         Set_First_With_Clause_Of (Project, In_Tree, Imported_Projects);
+      end;
+
       --  Restore the scan state, in case we are not the main project
 
       Restore_Project_Scan_State (Project_Scan_State);
@@ -1539,9 +1746,9 @@ package body Prj.Part is
 
    function Project_Name_From (Path_Name : String) return Name_Id is
       Canonical : String (1 .. Path_Name'Length) := Path_Name;
-      First : Natural := Canonical'Last;
-      Last  : Natural := First;
-      Index : Positive;
+      First     : Natural := Canonical'Last;
+      Last      : Natural := First;
+      Index     : Positive;
 
    begin
       if Current_Verbosity = High then
@@ -1570,14 +1777,19 @@ package body Prj.Part is
       --  If we have a dot, check that it is followed by the correct extension
 
       if First > 0 and then Canonical (First) = '.' then
-         if Canonical (First .. Last) = Project_File_Extension
-           and then First /= 1
+         if (not In_Configuration
+              and then Canonical (First .. Last) = Project_File_Extension
+              and then First /= 1)
+           or else
+             (In_Configuration
+               and then
+                 Canonical (First .. Last) = Config_Project_File_Extension
+               and then First /= 1)
          then
             --  Look for the last directory separator, if any
 
             First := First - 1;
             Last := First;
-
             while First > 0
               and then Canonical (First) /= '/'
               and then Canonical (First) /= Dir_Sep
@@ -1667,7 +1879,85 @@ package body Prj.Part is
      (Project_File_Name : String;
       Directory         : String) return String
    is
-      Result : String_Access;
+
+      function Try_Path_Name (Path : String) return String_Access;
+      pragma Inline (Try_Path_Name);
+      --  Try the specified Path
+
+      -------------------
+      -- Try_Path_Name --
+      -------------------
+
+      function Try_Path_Name (Path : String) return String_Access is
+         Prj_Path : constant String := Project_Path;
+         First    : Natural;
+         Last     : Natural;
+         Result   : String_Access := null;
+
+      begin
+         if Current_Verbosity = High then
+            Write_Str  ("   Trying ");
+            Write_Line (Path);
+         end if;
+
+         if Is_Absolute_Path (Path) then
+            if Is_Regular_File (Path) then
+               Result := new String'(Path);
+            end if;
+
+         else
+            --  Because we don't want to resolve symbolic links, we cannot use
+            --  Locate_Regular_File. So, we try each possible path
+            --  successively.
+
+            First := Prj_Path'First;
+            while First <= Prj_Path'Last loop
+               while First <= Prj_Path'Last
+                 and then Prj_Path (First) = Path_Separator
+               loop
+                  First := First + 1;
+               end loop;
+
+               exit when First > Prj_Path'Last;
+
+               Last := First;
+               while Last < Prj_Path'Last
+                 and then Prj_Path (Last + 1) /= Path_Separator
+               loop
+                  Last := Last + 1;
+               end loop;
+
+               Name_Len := 0;
+
+               if not Is_Absolute_Path (Prj_Path (First .. Last)) then
+                  Add_Str_To_Name_Buffer (Get_Current_Dir);
+                  Add_Char_To_Name_Buffer (Directory_Separator);
+               end if;
+
+               Add_Str_To_Name_Buffer (Prj_Path (First .. Last));
+               Add_Char_To_Name_Buffer (Directory_Separator);
+               Add_Str_To_Name_Buffer (Path);
+
+               if Is_Regular_File (Name_Buffer (1 .. Name_Len)) then
+                  Result := new String'(Name_Buffer (1 .. Name_Len));
+                  exit;
+               end if;
+
+               First := Last + 1;
+            end loop;
+         end if;
+
+         return Result;
+      end Try_Path_Name;
+
+      --  Local Declarations
+
+      Result    : String_Access;
+      Result_Id : Path_Name_Type;
+      Has_Dot   : Boolean := False;
+      Key       : Name_Id;
+
+   --  Start of processing for Project_Path_Name_Of
 
    begin
       if Current_Verbosity = High then
@@ -1678,70 +1968,60 @@ package body Prj.Part is
          Write_Line (""");");
       end if;
 
-      if not Is_Absolute_Path (Project_File_Name) then
-         --  First we try <directory>/<file_name>.<extension>
+      --  Check the project cache
 
-         if Current_Verbosity = High then
-            Write_Str  ("   Trying ");
-            Write_Str  (Directory);
-            Write_Char (Directory_Separator);
-            Write_Str (Project_File_Name);
-            Write_Line (Project_File_Extension);
+      Name_Len := Project_File_Name'Length;
+      Name_Buffer (1 .. Name_Len) := Project_File_Name;
+      Key := Name_Find;
+      Result_Id := Projects_Paths.Get (Key);
+
+      if Result_Id /= No_Path then
+         return Get_Name_String (Result_Id);
+      end if;
+
+      --  Check if Project_File_Name contains an extension (a dot before a
+      --  directory separator). If it is the case we do not try project file
+      --  with an added extension as it is not possible to have multiple dots
+      --  on a project file name.
+
+      Check_Dot : for K in reverse Project_File_Name'Range loop
+         if Project_File_Name (K) = '.' then
+            Has_Dot := True;
+            exit Check_Dot;
          end if;
 
-         Result :=
-           Locate_Regular_File
-           (File_Name => Directory & Directory_Separator &
-              Project_File_Name & Project_File_Extension,
-            Path      => Project_Path);
+         exit Check_Dot when Project_File_Name (K) = Directory_Separator
+           or else Project_File_Name (K) = '/';
+      end loop Check_Dot;
+
+      if not Is_Absolute_Path (Project_File_Name) then
+
+         --  First we try <directory>/<file_name>.<extension>
+
+         if not Has_Dot then
+            Result := Try_Path_Name
+              (Directory & Directory_Separator &
+               Project_File_Name & Project_File_Extension);
+         end if;
 
          --  Then we try <directory>/<file_name>
 
          if Result = null then
-            if Current_Verbosity = High then
-               Write_Str  ("   Trying ");
-               Write_Str  (Directory);
-               Write_Char (Directory_Separator);
-               Write_Line (Project_File_Name);
-            end if;
-
-            Result :=
-              Locate_Regular_File
-              (File_Name => Directory & Directory_Separator &
-                 Project_File_Name,
-               Path      => Project_Path);
+            Result := Try_Path_Name
+              (Directory & Directory_Separator & Project_File_Name);
          end if;
       end if;
 
-      if Result = null then
+      --  Then we try <file_name>.<extension>
 
-         --  Then we try <file_name>.<extension>
-
-         if Current_Verbosity = High then
-            Write_Str  ("   Trying ");
-            Write_Str (Project_File_Name);
-            Write_Line (Project_File_Extension);
-         end if;
-
-         Result :=
-           Locate_Regular_File
-           (File_Name => Project_File_Name & Project_File_Extension,
-            Path      => Project_Path);
+      if Result = null and then not Has_Dot then
+         Result := Try_Path_Name (Project_File_Name & Project_File_Extension);
       end if;
 
+      --  Then we try <file_name>
+
       if Result = null then
-
-         --  Then we try <file_name>
-
-         if Current_Verbosity = High then
-            Write_Str  ("   Trying ");
-            Write_Line  (Project_File_Name);
-         end if;
-
-         Result :=
-           Locate_Regular_File
-           (File_Name => Project_File_Name,
-            Path      => Project_Path);
+         Result := Try_Path_Name (Project_File_Name);
       end if;
 
       --  If we cannot find the project file, we return an empty string
@@ -1754,10 +2034,16 @@ package body Prj.Part is
             Final_Result : constant String :=
                              GNAT.OS_Lib.Normalize_Pathname
                                (Result.all,
+                                Directory      => Directory,
                                 Resolve_Links  => False,
                                 Case_Sensitive => True);
          begin
             Free (Result);
+            Name_Len := Final_Result'Length;
+            Name_Buffer (1 .. Name_Len) := Final_Result;
+            Result_Id := Name_Find;
+
+            Projects_Paths.Set (Key, Result_Id);
             return Final_Result;
          end;
       end if;

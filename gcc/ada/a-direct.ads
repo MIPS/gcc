@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived for use with GNAT from AI-00248,  which is --
 -- expected to be a part of a future expected revised Ada Reference Manual. --
@@ -76,9 +76,6 @@ with Ada.IO_Exceptions;
 with Ada.Strings.Unbounded;
 
 package Ada.Directories is
-
-   pragma Ada_05;
-   --  To be removed later ???
 
    -----------------------------------
    -- Directory and File Operations --
@@ -320,9 +317,9 @@ package Ada.Directories is
    procedure End_Search (Search : in out Search_Type);
    --  Ends the search represented by Search. After a successful call on
    --  End_Search, the object Search will have no entries available. Note
-   --  that is is not necessary to call End_Search if the call to Start_Search
+   --  that it is not necessary to call End_Search if the call to Start_Search
    --  was unsuccessful and raised an exception (but it is harmless to make
-   --  the call in this case)>
+   --  the call in this case).
 
    function More_Entries (Search : Search_Type) return Boolean;
    --  Returns True if more entries are available to be returned by a call

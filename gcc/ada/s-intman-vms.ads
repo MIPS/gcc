@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 1991-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1991-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -48,8 +48,6 @@
 --  implemented as visible arrays rather than functions.)
 
 with System.OS_Interface;
---  used for Signal
---           sigset_t
 
 package System.Interrupt_Management is
    pragma Preelaborate;
@@ -67,11 +65,9 @@ package System.Interrupt_Management is
    --  all systems, but is always reserved when it is defined. If we have the
    --  convention that ID zero is not used for any "real" signals, and SIGRARE
    --  = 0 when SIGRARE is not one of the locally supported signals, we can
-   --  write
-
+   --  write:
    --     Reserved (SIGRARE) := true;
-
-   --  Then the initialization code will be portable
+   --  Then the initialization code will be portable.
 
    Abort_Task_Interrupt : Interrupt_ID;
    --  The interrupt that is used to implement task abort, if an interrupt is

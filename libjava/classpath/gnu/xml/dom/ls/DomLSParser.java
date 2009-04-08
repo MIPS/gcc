@@ -1,5 +1,5 @@
 /* DomLSParser.java -- 
-   Copyright (C) 1999,2000,2001 Free Software Foundation, Inc.
+   Copyright (C) 1999,2000,2001,2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -253,7 +253,7 @@ public class DomLSParser
     eventSink = (filter == null) ? new SAXEventSink() :
       new FilteredSAXEventSink(filter);
     // configure sink
-    eventSink.namespaceAware = namespaceAware;
+    eventSink.setNamespaceAware(namespaceAware);
     eventSink.ignoreWhitespace = ignoreWhitespace;
     eventSink.expandEntityReferences = expandEntityReferences;
     eventSink.ignoreComments = ignoreComments;
@@ -275,6 +275,15 @@ public class DomLSParser
                           true);
         reader.setFeature("http://xml.org/sax/features/validation",
                           validating);
+        try
+          {
+            reader.setFeature("http://gnu.org/sax/features/coalescing",
+                              coalescing);
+          }
+        catch (SAXNotRecognizedException e)
+          {
+            // ignore
+          } 
         try
           {
             reader.setFeature("http://xml.org/sax/features/use-attributes2",

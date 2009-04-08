@@ -89,7 +89,7 @@ public class SAXEventSink
     PREDEFINED_ENTITIES.add("apos");
   }
 
-  boolean namespaceAware;
+  private boolean namespaceAware;
   boolean ignoreWhitespace;
   boolean expandEntityReferences;
   boolean ignoreComments;
@@ -128,6 +128,11 @@ public class SAXEventSink
     this.locator = locator;
   }
 
+  public void setNamespaceAware(boolean namespaceAware)
+  {
+    this.namespaceAware = namespaceAware;
+  }
+
   public void startDocument()
     throws SAXException
   {
@@ -138,6 +143,7 @@ public class SAXEventSink
     doc = new DomDocument();
     doc.setStrictErrorChecking(false);
     doc.setBuilding(true);
+    doc.setDefaultAttributes(false);
     ctx = doc;
 
     final String FEATURES = "http://xml.org/sax/features/";
@@ -185,6 +191,7 @@ public class SAXEventSink
   {
     doc.setStrictErrorChecking(true);
     doc.setBuilding(false);
+    doc.setDefaultAttributes(true);
     DomDoctype doctype = (DomDoctype) doc.getDoctype();
     if (doctype != null)
       {

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,9 +31,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Namet; use Namet;
 with Opt;   use Opt;
 with Table;
+with Types; use Types;
 
 package body Snames is
 
@@ -78,8 +78,11 @@ package body Snames is
      "_local_final_list#" &
      "_master#" &
      "_object#" &
+     "_postconditions#" &
      "_priority#" &
      "_process_atsd#" &
+     "_relative_deadline#" &
+     "_result#" &
      "_secondary_stack#" &
      "_service#" &
      "_size#" &
@@ -93,16 +96,14 @@ package body Snames is
      "_disp_asynchronous_select#" &
      "_disp_conditional_select#" &
      "_disp_get_prim_op_kind#" &
-     "_disp_timed_select#" &
      "_disp_get_task_id#" &
+     "_disp_requeue#" &
+     "_disp_timed_select#" &
      "initialize#" &
      "adjust#" &
      "finalize#" &
      "next#" &
      "prev#" &
-     "_typecode#" &
-     "_from_any#" &
-     "_to_any#" &
      "allocate#" &
      "deallocate#" &
      "dereference#" &
@@ -118,9 +119,11 @@ package body Snames is
      "put#" &
      "put_line#" &
      "to#" &
+     "exception_traces#" &
      "finalization#" &
      "finalization_root#" &
      "interfaces#" &
+     "most_recent_exception#" &
      "standard#" &
      "system#" &
      "text_io#" &
@@ -142,7 +145,6 @@ package body Snames is
      "_call#" &
      "rci_name#" &
      "receiver#" &
-     "result#" &
      "rpc#" &
      "subp_id#" &
      "operation#" &
@@ -177,9 +179,13 @@ package body Snames is
      "ada_05#" &
      "ada_2005#" &
      "assertion_policy#" &
+     "assume_no_invalid_values#" &
      "c_pass_by_copy#" &
+     "check_name#" &
+     "check_policy#" &
      "compile_time_error#" &
      "compile_time_warning#" &
+     "compiler_unit#" &
      "component_alignment#" &
      "convention_identifier#" &
      "debug_policy#" &
@@ -187,11 +193,12 @@ package body Snames is
      "discard_names#" &
      "elaboration_checks#" &
      "eliminate#" &
-     "explicit_overriding#" &
      "extend_system#" &
      "extensions_allowed#" &
      "external_name_casing#" &
+     "favor_top_level#" &
      "float_representation#" &
+     "implicit_packing#" &
      "initialize_scalars#" &
      "interrupt_state#" &
      "license#" &
@@ -200,8 +207,9 @@ package body Snames is
      "no_run_time#" &
      "no_strict_aliasing#" &
      "normalize_scalars#" &
-     "polling#" &
+     "optimize_alignment#" &
      "persistent_bss#" &
+     "polling#" &
      "priority_specific_dispatching#" &
      "profile#" &
      "profile_warnings#" &
@@ -232,6 +240,8 @@ package body Snames is
      "atomic#" &
      "atomic_components#" &
      "attach_handler#" &
+     "check#" &
+     "cil_constructor#" &
      "comment#" &
      "common_object#" &
      "complete_representation#" &
@@ -256,6 +266,7 @@ package body Snames is
      "external#" &
      "finalize_storage_only#" &
      "ident#" &
+     "implemented_by_entry#" &
      "import#" &
      "import_exception#" &
      "import_function#" &
@@ -283,13 +294,15 @@ package body Snames is
      "main#" &
      "main_storage#" &
      "memory_size#" &
+     "no_body#" &
      "no_return#" &
      "obsolescent#" &
      "optimize#" &
-     "optional_overriding#" &
      "pack#" &
      "page#" &
      "passive#" &
+     "postcondition#" &
+     "precondition#" &
      "preelaborable_initialization#" &
      "preelaborate#" &
      "preelaborate_05#" &
@@ -297,12 +310,14 @@ package body Snames is
      "pure#" &
      "pure_05#" &
      "pure_function#" &
+     "relative_deadline#" &
      "remote_call_interface#" &
      "remote_types#" &
      "share_generic#" &
      "shared#" &
      "shared_passive#" &
      "source_reference#" &
+     "static_elaboration_desired#" &
      "stream_convert#" &
      "subtitle#" &
      "suppress_all#" &
@@ -312,11 +327,12 @@ package body Snames is
      "task_info#" &
      "task_name#" &
      "task_storage#" &
-     "thread_body#" &
      "time_slice#" &
      "title#" &
      "unchecked_union#" &
      "unimplemented_unit#" &
+     "universal_aliasing#" &
+     "unmodified#" &
      "unreferenced#" &
      "unreferenced_objects#" &
      "unreserve_all_interrupts#" &
@@ -325,6 +341,7 @@ package body Snames is
      "weak_external#" &
      "ada#" &
      "assembler#" &
+     "cil#" &
      "cobol#" &
      "cpp#" &
      "fortran#" &
@@ -339,10 +356,10 @@ package body Snames is
      "dll#" &
      "win32#" &
      "as_is#" &
+     "assertion#" &
      "attribute_name#" &
      "body_file_name#" &
      "boolean_entry_barriers#" &
-     "check#" &
      "casing#" &
      "code#" &
      "component#" &
@@ -395,6 +412,7 @@ package body Snames is
      "secondary_stack_size#" &
      "section#" &
      "semaphore#" &
+     "short_descriptor#" &
      "simple_barriers#" &
      "spec_file_name#" &
      "state#" &
@@ -444,19 +462,24 @@ package body Snames is
      "digits#" &
      "elaborated#" &
      "emax#" &
+     "enabled#" &
      "enum_rep#" &
+     "enum_val#" &
      "epsilon#" &
      "exponent#" &
      "external_tag#" &
+     "fast_math#" &
      "first#" &
      "first_bit#" &
      "fixed_value#" &
      "fore#" &
      "has_access_values#" &
      "has_discriminants#" &
+     "has_tagged_values#" &
      "identity#" &
      "img#" &
      "integer_value#" &
+     "invalid_value#" &
      "large#" &
      "last#" &
      "last_bit#" &
@@ -482,6 +505,7 @@ package body Snames is
      "modulus#" &
      "null_parameter#" &
      "object_size#" &
+     "old#" &
      "partition_id#" &
      "passed_by_reference#" &
      "pool_address#" &
@@ -490,6 +514,7 @@ package body Snames is
      "priority#" &
      "range#" &
      "range_length#" &
+     "result#" &
      "round#" &
      "safe_emax#" &
      "safe_first#" &
@@ -530,6 +555,7 @@ package body Snames is
      "copy_sign#" &
      "floor#" &
      "fraction#" &
+     "from_any#" &
      "image#" &
      "input#" &
      "machine#" &
@@ -540,7 +566,9 @@ package body Snames is
      "remainder#" &
      "rounding#" &
      "succ#" &
+     "to_any#" &
      "truncation#" &
+     "typecode#" &
      "value#" &
      "wide_image#" &
      "wide_wide_image#" &
@@ -665,41 +693,42 @@ package body Snames is
      "tagged#" &
      "raise_exception#" &
      "ada_roots#" &
+     "aggregate#" &
      "archive_builder#" &
+     "archive_builder_append_option#" &
      "archive_indexer#" &
      "archive_suffix#" &
      "binder#" &
-     "binder_driver#" &
+     "binder_prefix#" &
      "body_suffix#" &
      "builder#" &
      "builder_switches#" &
      "compiler#" &
-     "compiler_driver#" &
      "compiler_kind#" &
-     "compiler_minimum_options#" &
-     "compiler_pic_option#" &
-     "compute_dependency#" &
      "config_body_file_name#" &
      "config_body_file_name_pattern#" &
      "config_file_switches#" &
      "config_file_unique#" &
      "config_spec_file_name#" &
      "config_spec_file_name_pattern#" &
+     "configuration#" &
      "cross_reference#" &
-     "default_builder_switches#" &
-     "default_global_compiler_switches#" &
      "default_language#" &
-     "default_linker#" &
      "default_switches#" &
+     "dependency_driver#" &
      "dependency_file_kind#" &
-     "dependency_option#" &
+     "dependency_switches#" &
+     "driver#" &
+     "excluded_source_dirs#" &
+     "excluded_source_files#" &
+     "excluded_source_list_file#" &
      "exec_dir#" &
      "executable#" &
      "executable_suffix#" &
      "extends#" &
      "externally_built#" &
      "finder#" &
-     "global_compiler_switches#" &
+     "global_compilation_switches#" &
      "global_configuration_pragmas#" &
      "global_config_file#" &
      "gnatls#" &
@@ -707,12 +736,14 @@ package body Snames is
      "implementation#" &
      "implementation_exceptions#" &
      "implementation_suffix#" &
-     "include_option#" &
+     "include_switches#" &
      "include_path#" &
      "include_path_file#" &
+     "inherit_source_path#" &
      "language_kind#" &
      "language_processing#" &
      "languages#" &
+     "library#" &
      "library_ali_dir#" &
      "library_auto_init#" &
      "library_auto_init_supported#" &
@@ -724,13 +755,14 @@ package body Snames is
      "library_name#" &
      "library_major_minor_id_supported#" &
      "library_options#" &
+     "library_partial_linker#" &
      "library_reference_symbol_file#" &
      "library_src_dir#" &
      "library_support#" &
      "library_symbol_file#" &
      "library_symbol_policy#" &
      "library_version#" &
-     "library_version_options#" &
+     "library_version_switches#" &
      "linker#" &
      "linker_executable_option#" &
      "linker_lib_dir_option#" &
@@ -738,21 +770,27 @@ package body Snames is
      "local_config_file#" &
      "local_configuration_pragmas#" &
      "locally_removed_files#" &
+     "map_file_option#" &
      "mapping_file_switches#" &
      "mapping_spec_suffix#" &
      "mapping_body_suffix#" &
      "metrics#" &
-     "minimum_binder_options#" &
      "naming#" &
+     "object_generated#" &
+     "objects_linked#" &
      "objects_path#" &
      "objects_path_file#" &
      "object_dir#" &
+     "path_syntax#" &
+     "pic_option#" &
      "pretty_printer#" &
+     "prefix#" &
      "project#" &
      "roots#" &
+     "required_switches#" &
      "run_path_option#" &
      "runtime_project#" &
-     "shared_library_minimum_options#" &
+     "shared_library_minimum_switches#" &
      "shared_library_prefix#" &
      "shared_library_suffix#" &
      "separate_suffix#" &
@@ -767,7 +805,11 @@ package body Snames is
      "stack#" &
      "switches#" &
      "symbolic_link_supported#" &
+     "sync#" &
+     "synchronize#" &
+     "toolchain_description#" &
      "toolchain_version#" &
+     "runtime_library_dir#" &
      "unaligned_valid#" &
      "interface#" &
      "overriding#" &
@@ -845,15 +887,6 @@ package body Snames is
       return Attribute_Id'Val (N - First_Attribute_Name);
    end Get_Attribute_Id;
 
-   ------------------
-   -- Get_Check_Id --
-   ------------------
-
-   function Get_Check_Id (N : Name_Id) return Check_Id is
-   begin
-      return Check_Id'Val (N - First_Check_Name);
-   end Get_Check_Id;
-
    -----------------------
    -- Get_Convention_Id --
    -----------------------
@@ -864,6 +897,7 @@ package body Snames is
          when Name_Ada        => return Convention_Ada;
          when Name_Assembler  => return Convention_Assembler;
          when Name_C          => return Convention_C;
+         when Name_CIL        => return Convention_CIL;
          when Name_COBOL      => return Convention_COBOL;
          when Name_CPP        => return Convention_CPP;
          when Name_Fortran    => return Convention_Fortran;
@@ -896,6 +930,7 @@ package body Snames is
          when Convention_Ada       => return Name_Ada;
          when Convention_Assembler => return Name_Assembler;
          when Convention_C         => return Name_C;
+         when Convention_CIL       => return Name_CIL;
          when Convention_COBOL     => return Name_COBOL;
          when Convention_CPP       => return Name_CPP;
          when Convention_Entry     => return Name_Entry;
@@ -925,10 +960,14 @@ package body Snames is
    begin
       if N = Name_AST_Entry then
          return Pragma_AST_Entry;
+      elsif N = Name_Fast_Math then
+         return Pragma_Fast_Math;
       elsif N = Name_Interface then
          return Pragma_Interface;
       elsif N = Name_Priority then
          return Pragma_Priority;
+      elsif N = Name_Relative_Deadline then
+         return Pragma_Relative_Deadline;
       elsif N = Name_Storage_Size then
          return Pragma_Storage_Size;
       elsif N = Name_Storage_Unit then
@@ -953,8 +992,9 @@ package body Snames is
    -- Get_Task_Dispatching_Policy_Id --
    ------------------------------------
 
-   function Get_Task_Dispatching_Policy_Id (N : Name_Id)
-     return Task_Dispatching_Policy_Id is
+   function Get_Task_Dispatching_Policy_Id
+     (N : Name_Id) return Task_Dispatching_Policy_Id
+   is
    begin
       return Task_Dispatching_Policy_Id'Val
         (N - First_Task_Dispatching_Policy_Name);
@@ -970,10 +1010,8 @@ package body Snames is
 
    begin
       P_Index := Preset_Names'First;
-
       loop
          Name_Len := 0;
-
          while Preset_Names (P_Index) /= '#' loop
             Name_Len := Name_Len + 1;
             Name_Buffer (Name_Len) := Preset_Names (P_Index);
@@ -1022,14 +1060,15 @@ package body Snames is
       return N in First_Attribute_Name .. Last_Attribute_Name;
    end Is_Attribute_Name;
 
-   -------------------
-   -- Is_Check_Name --
-   -------------------
+   ----------------------------------
+   -- Is_Configuration_Pragma_Name --
+   ----------------------------------
 
-   function Is_Check_Name (N : Name_Id) return Boolean is
+   function Is_Configuration_Pragma_Name (N : Name_Id) return Boolean is
    begin
-      return N in First_Check_Name .. Last_Check_Name;
-   end Is_Check_Name;
+      return N in First_Pragma_Name .. Last_Configuration_Pragma_Name
+        or else N = Name_Fast_Math;
+   end Is_Configuration_Pragma_Name;
 
    ------------------------
    -- Is_Convention_Name --
@@ -1116,7 +1155,9 @@ package body Snames is
    begin
       return N in First_Pragma_Name .. Last_Pragma_Name
         or else N = Name_AST_Entry
+        or else N = Name_Fast_Math
         or else N = Name_Interface
+        or else N = Name_Relative_Deadline
         or else N = Name_Priority
         or else N = Name_Storage_Size
         or else N = Name_Storage_Unit;

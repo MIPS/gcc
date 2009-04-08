@@ -6,18 +6,17 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -26,6 +25,8 @@
 
 with Osint;  use Osint;
 with Output; use Output;
+
+with System.WCh_Con; use System.WCh_Con;
 
 package body Bindusg is
 
@@ -52,6 +53,11 @@ package body Bindusg is
       Write_Char (' ');
       Write_Str ("switches lfile");
       Write_Eol;
+      Write_Eol;
+
+      --  Line for @response_file
+
+      Write_Line ("  @<resp_file> Get arguments from response file");
       Write_Eol;
 
       --  Line for -aO switch
@@ -176,6 +182,11 @@ package body Bindusg is
       Write_Line ("  -r        List restrictions that could be applied " &
                   "to this partition");
 
+      --  Line for -R switch
+
+      Write_Line
+        ("  -R        List sources referenced in closure (implies -c)");
+
       --  Line for -s switch
 
       Write_Line ("  -s        Require all source files to be present");
@@ -213,19 +224,39 @@ package body Bindusg is
       Write_Line ("  -v        Verbose mode. Error messages, " &
                   "header, summary output to stdout");
 
-      --  Lines for -w switch
+      --  Line for -w switch
 
       Write_Line ("  -wx       Warning mode. (x=s/e for " &
                   "suppress/treat as error)");
+
+      --  Line for -W switch
+
+      Write_Str  ("  -W?       Wide character encoding method (");
+
+      for J in WC_Encoding_Method loop
+         Write_Char (WC_Encoding_Letters (J));
+
+         if J = WC_Encoding_Method'Last then
+            Write_Char (')');
+         else
+            Write_Char ('/');
+         end if;
+      end loop;
+
+      Write_Eol;
 
       --  Line for -x switch
 
       Write_Line ("  -x        Exclude source files (check object " &
                   "consistency only)");
 
-      --  Line for X switch
+      --  Line for -X switch
 
       Write_Line ("  -Xnnn     Default exit status value = nnn");
+
+      --  Line for -y switch
+
+      Write_Line ("  -y        Enable leap seconds");
 
       --  Line for -z switch
 
@@ -233,7 +264,14 @@ package body Bindusg is
 
       --  Line for --RTS
 
-      Write_Line ("  --RTS=dir specify the default source and " &
+      --  Line for -Z switch
+
+      Write_Line ("  -Z        " &
+                  "Zero formatting in auxiliary outputs (-e, -K, -l, -R)");
+
+      --  Line for --RTS
+
+      Write_Line ("  --RTS=dir Specify the default source and " &
                   "object search path");
 
       --  Line for sfile

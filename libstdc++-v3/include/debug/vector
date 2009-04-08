@@ -1,6 +1,6 @@
 // Debugging vector implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005
+// Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -47,10 +47,10 @@ namespace __debug
   template<typename _Tp,
 	   typename _Allocator = std::allocator<_Tp> >
     class vector
-    : public _GLIBCXX_STD::vector<_Tp, _Allocator>,
+    : public _GLIBCXX_STD_D::vector<_Tp, _Allocator>,
       public __gnu_debug::_Safe_sequence<vector<_Tp, _Allocator> >
     {
-      typedef _GLIBCXX_STD::vector<_Tp, _Allocator> _Base;
+      typedef _GLIBCXX_STD_D::vector<_Tp, _Allocator> _Base;
       typedef __gnu_debug::_Safe_sequence<vector>              _Safe_base;
 
       typedef typename _Base::const_iterator _Base_const_iterator;
@@ -91,23 +91,58 @@ namespace __debug
 	  _M_guaranteed_capacity(0)
         { _M_update_guaranteed_capacity(); }
 
-      vector(const vector<_Tp,_Allocator>& __x)
+      vector(const vector& __x)
       : _Base(__x), _Safe_base(), _M_guaranteed_capacity(__x.size()) { }
 
       /// Construction from a release-mode vector
       vector(const _Base& __x)
       : _Base(__x), _Safe_base(), _M_guaranteed_capacity(__x.size()) { }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      vector(vector&& __x)
+      : _Base(std::forward<vector>(__x)), _Safe_base(),
+	_M_guaranteed_capacity(this->size())
+      {
+	this->_M_swap(__x);
+	__x._M_guaranteed_capacity = 0;
+      }
+
+      vector(initializer_list<value_type> __l,
+	     const allocator_type& __a = allocator_type())
+      : _Base(__l, __a), _Safe_base(),
+	_M_guaranteed_capacity(__l.size()) { }
+#endif
+
       ~vector() { }
 
-      vector<_Tp,_Allocator>&
-      operator=(const vector<_Tp,_Allocator>& __x)
+      vector&
+      operator=(const vector& __x)
       {
 	static_cast<_Base&>(*this) = __x;
 	this->_M_invalidate_all();
 	_M_update_guaranteed_capacity();
 	return *this;
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      vector&
+      operator=(vector&& __x)
+      {
+        // NB: DR 675.
+	clear();
+	swap(__x);
+	return *this;
+      }
+
+      vector&
+      operator=(initializer_list<value_type> __l)
+      {
+	static_cast<_Base&>(*this) = __l;
+	this->_M_invalidate_all();
+	_M_update_guaranteed_capacity();
+	return *this;
+      }
+#endif
 
       template<typename _InputIterator>
         void
@@ -126,6 +161,16 @@ namespace __debug
 	this->_M_invalidate_all();
 	_M_update_guaranteed_capacity();
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      assign(initializer_list<value_type> __l)
+      {
+	_Base::assign(__l);
+	this->_M_invalidate_all();
+	_M_update_guaranteed_capacity();
+      }
+#endif
 
       using _Base::get_allocator;
 
@@ -162,6 +207,24 @@ namespace __debug
       rend() const
       { return const_reverse_iterator(begin()); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      const_iterator
+      cbegin() const
+      { return const_iterator(_Base::begin(), this); }
+
+      const_iterator
+      cend() const
+      { return const_iterator(_Base::end(), this); }
+
+      const_reverse_iterator
+      crbegin() const
+      { return const_reverse_iterator(end()); }
+
+      const_reverse_iterator
+      crend() const
+      { return const_reverse_iterator(begin()); }
+#endif
+
       // 23.2.4.2 capacity:
       using _Base::size;
       using _Base::max_size;
@@ -177,7 +240,16 @@ namespace __debug
 	  this->_M_invalidate_all();
       }
 
-      using _Base::capacity;
+      size_type
+      capacity() const
+      {
+#ifdef _GLIBCXX_DEBUG_PEDANTIC
+	return _M_guaranteed_capacity;
+#else
+	return _Base::capacity();
+#endif
+      }
+
       using _Base::empty;
 
       void
@@ -251,6 +323,25 @@ namespace __debug
 	_M_update_guaranteed_capacity();
       }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename _Up = _Tp>
+        typename __gnu_cxx::__enable_if<!std::__are_same<_Up, bool>::__value,
+					void>::__type
+        push_back(_Tp&& __x)
+	{ emplace_back(std::move(__x)); }
+
+      template<typename... _Args>
+        void
+        emplace_back(_Args&&... __args)
+	{
+	  bool __realloc = _M_requires_reallocation(this->size() + 1);
+	  _Base::emplace_back(std::forward<_Args>(__args)...);
+	  if (__realloc)
+	    this->_M_invalidate_all();
+	  _M_update_guaranteed_capacity();
+	}
+#endif
+
       void
       pop_back()
       {
@@ -259,6 +350,25 @@ namespace __debug
 	__victim._M_invalidate();
 	_Base::pop_back();
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename... _Args>
+        iterator
+        emplace(iterator __position, _Args&&... __args)
+	{
+	  __glibcxx_check_insert(__position);
+	  bool __realloc = _M_requires_reallocation(this->size() + 1);
+	  difference_type __offset = __position - begin();
+	  typename _Base::iterator __res = _Base::emplace(__position.base(),
+					    std::forward<_Args>(__args)...);
+	  if (__realloc)
+	    this->_M_invalidate_all();
+	  else
+	    this->_M_invalidate_if(_After_nth(__offset, _M_base().begin()));
+	  _M_update_guaranteed_capacity();
+	  return iterator(__res, this);
+	}
+#endif
 
       iterator
       insert(iterator __position, const _Tp& __x)
@@ -274,6 +384,18 @@ namespace __debug
 	_M_update_guaranteed_capacity();
 	return iterator(__res, this);
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename _Up = _Tp>
+        typename __gnu_cxx::__enable_if<!std::__are_same<_Up, bool>::__value,
+					iterator>::__type
+        insert(iterator __position, _Tp&& __x)
+        { return emplace(__position, std::move(__x)); }
+
+      void
+      insert(iterator __position, initializer_list<value_type> __l)
+      { this->insert(__position, __l.begin(), __l.end()); }
+#endif
 
       void
       insert(iterator __position, size_type __n, const _Tp& __x)
@@ -335,7 +457,11 @@ namespace __debug
       }
 
       void
-      swap(vector<_Tp,_Allocator>& __x)
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      swap(vector&& __x)
+#else
+      swap(vector& __x)
+#endif
       {
 	_Base::swap(__x);
 	this->_M_swap(__x);
@@ -361,13 +487,7 @@ namespace __debug
 
       bool
       _M_requires_reallocation(size_type __elements)
-      {
-#ifdef _GLIBCXX_DEBUG_PEDANTIC
-	return __elements > this->capacity();
-#else
-	return __elements > _M_guaranteed_capacity;
-#endif
-      }
+      { return __elements > this->capacity(); }
 
       void
       _M_update_guaranteed_capacity()
@@ -417,6 +537,19 @@ namespace __debug
     inline void
     swap(vector<_Tp, _Alloc>& __lhs, vector<_Tp, _Alloc>& __rhs)
     { __lhs.swap(__rhs); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _Tp, typename _Alloc>
+    inline void
+    swap(vector<_Tp, _Alloc>&& __lhs, vector<_Tp, _Alloc>& __rhs)
+    { __lhs.swap(__rhs); }
+
+  template<typename _Tp, typename _Alloc>
+    inline void
+    swap(vector<_Tp, _Alloc>& __lhs, vector<_Tp, _Alloc>&& __rhs)
+    { __lhs.swap(__rhs); }
+#endif
+
 } // namespace __debug
 } // namespace std
 

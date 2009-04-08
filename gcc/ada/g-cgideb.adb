@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2000-2006, AdaCore                     --
+--                     Copyright (C) 2000-2008, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,7 +41,7 @@ package body GNAT.CGI.Debug is
    --  To create a new IO mode you must:
    --     1. create a new package spec
    --     2. create a new type derived from IO.Format
-   --     3. implement all the abstract rountines in IO
+   --     3. implement all the abstract routines in IO
 
    package IO is
 
@@ -131,12 +131,11 @@ package body GNAT.CGI.Debug is
          Result : Unbounded_String;
 
       begin
-         Result := Result
-           & Title (Mode, "CGI complete runtime environment");
-
-         Result := Result
-           & Header (Mode, "CGI parameters:")
-           & New_Line (Mode);
+         Result :=
+           To_Unbounded_String
+             (Title (Mode, "CGI complete runtime environment")
+              & Header (Mode, "CGI parameters:")
+              & New_Line (Mode));
 
          for K in 1 .. Argument_Count loop
             Result := Result

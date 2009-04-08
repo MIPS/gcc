@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1998-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1998-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -40,7 +40,6 @@ with System.OS_Interface;
 --  create a dependency on libgnarl in libgnat, which is not desirable.
 
 with Interfaces.C;
---  used for type int
 
 package body System.OS_Primitives is
 
@@ -96,9 +95,6 @@ package body System.OS_Primitives is
    function Clock return Duration is
       TS     : aliased timespec;
       Result : int;
-
-      use type Interfaces.C.int;
-
    begin
       Result := clock_gettime (CLOCK_REALTIME, TS'Unchecked_Access);
       pragma Assert (Result = 0);
@@ -121,7 +117,8 @@ package body System.OS_Primitives is
    is
       Rel_Time   : Duration;
       Abs_Time   : Duration;
-      Check_Time : Duration := Clock;
+      Base_Time  : constant Duration := Clock;
+      Check_Time : Duration := Base_Time;
       Ticks      : int;
 
       Result     : int;
@@ -151,7 +148,7 @@ package body System.OS_Primitives is
             Result := taskDelay (Ticks);
             Check_Time := Clock;
 
-            exit when Abs_Time <= Check_Time;
+            exit when Abs_Time <= Check_Time or else Check_Time < Base_Time;
 
             Rel_Time := Abs_Time - Check_Time;
          end loop;

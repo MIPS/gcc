@@ -1,11 +1,11 @@
 /* Operations with affine combinations of trees.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Affine combination of trees.  We keep track of at most MAX_AFF_ELTS elements
    to make things simpler; this is sufficient in most cases.  */
@@ -54,7 +53,8 @@ typedef struct affine_tree_combination
   struct aff_comb_elt elts[MAX_AFF_ELTS];
 
   /* Remainder of the expression.  Usually NULL, used only if there are more
-     than MAX_AFF_ELTS elements.  Type of REST must be TYPE.  */
+     than MAX_AFF_ELTS elements.  Type of REST will be either sizetype for 
+     TYPE of POINTER_TYPEs or TYPE.  */
   tree rest;
 } aff_tree;
 
@@ -71,6 +71,12 @@ void tree_to_aff_combination (tree, tree, aff_tree *);
 tree aff_combination_to_tree (aff_tree *);
 void unshare_aff_combination (aff_tree *);
 bool aff_combination_constant_multiple_p (aff_tree *, aff_tree *, double_int *);
+void aff_combination_expand (aff_tree *, struct pointer_map_t **);
 void tree_to_aff_combination_expand (tree, tree, aff_tree *,
 				     struct pointer_map_t **);
+void get_inner_reference_aff (tree, aff_tree *, double_int *);
 void free_affine_expand_cache (struct pointer_map_t **);
+
+/* Debugging functions.  */
+void print_aff (FILE *, aff_tree *);
+void debug_aff (aff_tree *);

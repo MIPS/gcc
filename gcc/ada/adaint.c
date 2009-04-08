@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -76,23 +76,56 @@
 #include "version.h"
 #endif
 
-#ifdef __MINGW32__
+#if defined (RTX)
+#include <windows.h>
+#include <Rtapi.h>
+#include <sys/utime.h>
+
+#elif defined (__MINGW32__)
+
 #include "mingw32.h"
 #include <sys/utime.h>
+
+/* For isalpha-like tests in the compiler, we're expected to resort to
+   safe-ctype.h/ISALPHA.  This isn't available for the runtime library
+   build, so we fallback on ctype.h/isalpha there.  */
+
+#ifdef IN_RTS
 #include <ctype.h>
-#else
-#ifndef VMS
-#include <utime.h>
-#endif
+#define ISALPHA isalpha
 #endif
 
+#elif defined (__Lynx__)
+
+/* Lynx utime.h only defines the entities of interest to us if
+   defined (VMOS_DEV), so ... */
+#define VMOS_DEV
+#include <utime.h>
+#undef VMOS_DEV
+
+#elif !defined (VMS)
+#include <utime.h>
+#endif
+
+/* wait.h processing */
 #ifdef __MINGW32__
 #if OLD_MINGW
 #include <sys/wait.h>
 #endif
 #elif defined (__vxworks) && defined (__RTP__)
 #include <wait.h>
+#elif defined (__Lynx__)
+/* ??? We really need wait.h and it includes resource.h on Lynx.  GCC
+   has a resource.h header as well, included instead of the lynx
+   version in our setup, causing lots of errors.  We don't really need
+   the lynx contents of this file, so just workaround the issue by
+   preventing the inclusion of the GCC header from doing anything.  */
+#define GCC_RESOURCE_H
+#include <sys/wait.h>
+#elif defined (__nucleus__)
+/* No wait() or waitpid() calls available */
 #else
+/* Default case */
 #include <sys/wait.h>
 #endif
 
@@ -101,6 +134,7 @@
 
 /* Header files and definitions for __gnat_set_file_time_name.  */
 
+#define __NEW_STARLET 1
 #include <vms/rms.h>
 #include <vms/atrdef.h>
 #include <vms/fibdef.h>
@@ -119,17 +153,18 @@
     Y = tmptime * 10000000 + reftime; }
 
 /* descrip.h doesn't have everything ... */
+typedef struct fibdef* __fibdef_ptr32 __attribute__ (( mode (SI) ));
 struct dsc$descriptor_fib
 {
-  unsigned long fib$l_len;
-  struct fibdef *fib$l_addr;
+  unsigned int fib$l_len;
+  __fibdef_ptr32 fib$l_addr;
 };
 
 /* I/O Status Block.  */
 struct IOSB
 {
   unsigned short status, count;
-  unsigned long devdep;
+  unsigned int devdep;
 };
 
 static char *tryfile;
@@ -152,6 +187,8 @@ struct vstring
 #if defined (_WIN32)
 #include <dir.h>
 #include <windows.h>
+#include <accctrl.h>
+#include <aclapi.h>
 #undef DIR_SEPARATOR
 #define DIR_SEPARATOR '\\'
 #endif
@@ -257,7 +294,7 @@ const int __gnat_vmsp = 0;
 #elif defined (VMS)
 #define GNAT_MAX_PATH_LEN 256 /* PATH_MAX */
 
-#elif defined (__vxworks) || defined (__OPENNT)
+#elif defined (__vxworks) || defined (__OPENNT) || defined(__nucleus__)
 #define GNAT_MAX_PATH_LEN PATH_MAX
 
 #else
@@ -332,6 +369,30 @@ __gnat_current_time
   return (OS_Time) res;
 }
 
+/* Return the current local time as a string in the ISO 8601 format of
+   "YYYY-MM-DD HH:MM:SS.SS". The returned string is 22 + 1 (NULL) characters
+   long. */
+
+void
+__gnat_current_time_string
+  (char *result)
+{
+  const char *format = "%Y-%m-%d %H:%M:%S";
+  /* Format string necessary to describe the ISO 8601 format */
+
+  const time_t t_val = time (NULL);
+
+  strftime (result, 22, format, localtime (&t_val));
+  /* Convert the local time into a string following the ISO format, copying
+     at most 22 characters into the result string. */
+
+  result [19] = '.';
+  result [20] = '0';
+  result [21] = '0';
+  /* The sub-seconds are manually set to zero since type time_t lacks the
+     precision necessary for nanoseconds. */
+}
+
 void
 __gnat_to_gm_time
   (OS_Time *p_time,
@@ -373,38 +434,32 @@ __gnat_to_gm_time
 
 /* Place the contents of the symbolic link named PATH in the buffer BUF,
    which has size BUFSIZ.  If PATH is a symbolic link, then return the number
-   of characters of its content in BUF.  Otherwise, return -1.  For Windows,
-   OS/2 and vxworks, always return -1.  */
+   of characters of its content in BUF.  Otherwise, return -1.
+   For systems not supporting symbolic links, always return -1.  */
 
 int
 __gnat_readlink (char *path ATTRIBUTE_UNUSED,
 		 char *buf ATTRIBUTE_UNUSED,
 		 size_t bufsiz ATTRIBUTE_UNUSED)
 {
-#if defined (MSDOS) || defined (_WIN32) || defined (__EMX__)
-  return -1;
-#elif defined (__INTERIX) || defined (VMS)
-  return -1;
-#elif defined (__vxworks)
+#if defined (MSDOS) || defined (_WIN32) || defined (__EMX__) \
+  || defined (VMS) || defined(__vxworks) || defined (__nucleus__)
   return -1;
 #else
   return readlink (path, buf, bufsiz);
 #endif
 }
 
-/* Creates a symbolic link named NEWPATH which contains the string OLDPATH.  If
-   NEWPATH exists it will NOT be overwritten.  For Windows, OS/2, VxWorks,
-   Interix and VMS, always return -1. */
+/* Creates a symbolic link named NEWPATH which contains the string OLDPATH.
+   If NEWPATH exists it will NOT be overwritten.
+   For systems not supporting symbolic links, always return -1.  */
 
 int
 __gnat_symlink (char *oldpath ATTRIBUTE_UNUSED,
 		char *newpath ATTRIBUTE_UNUSED)
 {
-#if defined (MSDOS) || defined (_WIN32) || defined (__EMX__)
-  return -1;
-#elif defined (__INTERIX) || defined (VMS)
-  return -1;
-#elif defined (__vxworks)
+#if defined (MSDOS) || defined (_WIN32) || defined (__EMX__) \
+  || defined (VMS) || defined(__vxworks) || defined (__nucleus__)
   return -1;
 #else
   return symlink (oldpath, newpath);
@@ -413,7 +468,8 @@ __gnat_symlink (char *oldpath ATTRIBUTE_UNUSED,
 
 /* Try to lock a file, return 1 if success.  */
 
-#if defined (__vxworks) || defined (MSDOS) || defined (_WIN32)
+#if defined (__vxworks) || defined (__nucleus__) || defined (MSDOS) \
+  || defined (_WIN32)
 
 /* Version that does not use link. */
 
@@ -622,9 +678,9 @@ __gnat_get_debuggable_suffix_ptr (int *len, const char **value)
 /* Returns the OS filename and corresponding encoding.  */
 
 void
-__gnat_os_filename (char *filename, char *w_filename,
+__gnat_os_filename (char *filename, char *w_filename ATTRIBUTE_UNUSED,
 		    char *os_name, int *o_length,
-		    char *encoding, int *e_length)
+		    char *encoding ATTRIBUTE_UNUSED, int *e_length)
 {
 #if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
   WS2SU (os_name, (TCHAR *)w_filename, o_length);
@@ -639,7 +695,7 @@ __gnat_os_filename (char *filename, char *w_filename,
 }
 
 FILE *
-__gnat_fopen (char *path, char *mode, int encoding)
+__gnat_fopen (char *path, char *mode, int encoding ATTRIBUTE_UNUSED)
 {
 #if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
   TCHAR wpath[GNAT_MAX_PATH_LEN];
@@ -661,7 +717,7 @@ __gnat_fopen (char *path, char *mode, int encoding)
 }
 
 FILE *
-__gnat_freopen (char *path, char *mode, FILE *stream, int encoding)
+__gnat_freopen (char *path, char *mode, FILE *stream, int encoding ATTRIBUTE_UNUSED)
 {
 #if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
   TCHAR wpath[GNAT_MAX_PATH_LEN];
@@ -866,10 +922,13 @@ __gnat_open_new_temp (char *path, int fmode)
 
   strcpy (path, "GNAT-XXXXXX");
 
-#if (defined (__FreeBSD__) || defined (linux)) && !defined (__vxworks)
+#if (defined (__FreeBSD__) || defined (__NetBSD__) || defined (__OpenBSD__) \
+  || defined (linux) || defined(__GLIBC__)) && !defined (__vxworks)
   return mkstemp (path);
 #elif defined (__Lynx__)
   mktemp (path);
+#elif defined (__nucleus__)
+  return -1;
 #else
   if (mktemp (path) == NULL)
     return -1;
@@ -925,7 +984,15 @@ __gnat_named_file_length (char *name)
 void
 __gnat_tmp_name (char *tmp_filename)
 {
-#ifdef __MINGW32__
+#ifdef RTX
+  /* Variable used to create a series of unique names */
+  static int counter = 0;
+
+  /* RTX in RTSS mode does not support tempnam nor tmpnam so we emulate it */
+  strcpy (tmp_filename, "c:\\WINDOWS\\Temp\\gnat-");
+  sprintf (&tmp_filename[strlen (tmp_filename)], "%d\0", counter++);
+
+#elif defined (__MINGW32__)
   {
     char *pname;
 
@@ -956,7 +1023,8 @@ __gnat_tmp_name (char *tmp_filename)
     free (pname);
   }
 
-#elif defined (linux) || defined (__FreeBSD__)
+#elif defined (linux) || defined (__FreeBSD__) || defined (__NetBSD__) \
+  || defined (__OpenBSD__) || defined(__GLIBC__)
 #define MAX_SAFE_PATH 1000
   char *tmpdir = getenv ("TMPDIR");
 
@@ -977,7 +1045,12 @@ __gnat_tmp_name (char *tmp_filename)
 
 DIR* __gnat_opendir (char *name)
 {
-#ifdef __MINGW32__
+#if defined (RTX)
+  /* Not supported in RTX */
+
+  return NULL;
+
+#elif defined (__MINGW32__)
   TCHAR wname[GNAT_MAX_PATH_LEN];
 
   S2WSU (wname, name, GNAT_MAX_PATH_LEN);
@@ -994,7 +1067,12 @@ DIR* __gnat_opendir (char *name)
 char *
 __gnat_readdir (DIR *dirp, char *buffer, int *len)
 {
-#if defined (__MINGW32__)
+#if defined (RTX)
+  /* Not supported in RTX */
+
+  return NULL;
+
+#elif defined (__MINGW32__)
   struct _tdirent *dirent = _treaddir ((_TDIR*)dirp);
 
   if (dirent != NULL)
@@ -1036,7 +1114,12 @@ __gnat_readdir (DIR *dirp, char *buffer, int *len)
 
 int __gnat_closedir (DIR *dirp)
 {
-#ifdef __MINGW32__
+#if defined (RTX)
+  /* Not supported in RTX */
+
+  return 0;
+
+#elif defined (__MINGW32__)
   return _tclosedir ((_TDIR*)dirp);
 
 #else
@@ -1056,7 +1139,7 @@ __gnat_readdir_is_thread_safe (void)
 #endif
 }
 
-#ifdef _WIN32
+#if defined (_WIN32) && !defined (RTX)
 /* Number of seconds between <Jan 1st 1601> and <Jan 1st 1970>.  */
 static const unsigned long long w32_epoch_offset = 11644473600ULL;
 
@@ -1096,7 +1179,7 @@ __gnat_file_time_name (char *name)
   close (fd);
   return (OS_Time)ret;
 
-#elif defined (_WIN32)
+#elif defined (_WIN32) && !defined (RTX)
   time_t ret = -1;
   TCHAR wname[GNAT_MAX_PATH_LEN];
 
@@ -1199,7 +1282,7 @@ __gnat_file_time_fd (int fd)
   tot_secs += file_tsec * 2;
   return (OS_Time) tot_secs;
 
-#elif defined (_WIN32)
+#elif defined (_WIN32) && !defined (RTX)
   HANDLE h = (HANDLE) _get_osfhandle (fd);
   time_t ret = win32_filetime (h);
   return (OS_Time) ret;
@@ -1229,7 +1312,7 @@ __gnat_set_file_time_name (char *name, time_t time_stamp)
 
 /* Code to implement __gnat_set_file_time_name for these systems.  */
 
-#elif defined (_WIN32)
+#elif defined (_WIN32) && !defined (RTX)
   union
   {
     FILETIME ft_time;
@@ -1261,7 +1344,7 @@ __gnat_set_file_time_name (char *name, time_t time_stamp)
   struct
     {
       unsigned long long backup, create, expire, revise;
-      unsigned long uic;
+      unsigned int uic;
       union
 	{
 	  unsigned short value;
@@ -1431,10 +1514,6 @@ __gnat_set_file_time_name (char *name, time_t time_stamp)
 #endif
 }
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 /* Get the list of installed standard libraries from the
    HKEY_LOCAL_MACHINE\SOFTWARE\Ada Core Technologies\GNAT\Standard Libraries
    key.  */
@@ -1444,7 +1523,7 @@ __gnat_get_libraries_from_registry (void)
 {
   char *result = (char *) "";
 
-#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
+#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE) && ! defined (RTX)
 
   HKEY reg_key;
   DWORD name_size, value_size;
@@ -1552,12 +1631,36 @@ __gnat_file_exists (char *name)
 int
 __gnat_is_absolute_path (char *name, int length)
 {
+#ifdef __vxworks
+  /* On VxWorks systems, an absolute path can be represented (depending on
+     the host platform) as either /dir/file, or device:/dir/file, or
+     device:drive_letter:/dir/file. */
+
+  int index;
+
+  if (name[0] == '/')
+    return 1;
+
+  for (index = 0; index < length; index++)
+    {
+      if (name[index] == ':' &&
+          ((name[index + 1] == '/') ||
+           (isalpha (name[index + 1]) && index + 2 <= length &&
+            name[index + 2] == '/')))
+        return 1;
+
+      else if (name[index] == '/')
+        return 0;
+    }
+  return 0;
+#else
   return (length != 0) &&
      (*name == '/' || *name == DIR_SEPARATOR
 #if defined (__EMX__) || defined (MSDOS) || defined (WINNT)
-      || (length > 1 && isalpha (name[0]) && name[1] == ':')
+      || (length > 1 && ISALPHA (name[0]) && name[1] == ':')
 #endif
 	  );
+#endif
 }
 
 int
@@ -1580,76 +1683,302 @@ __gnat_is_directory (char *name)
   return (!ret && S_ISDIR (statbuf.st_mode));
 }
 
+#if defined (_WIN32) && !defined (RTX)
+/*  This MingW section contains code to work with ACL. */
+static int
+__gnat_check_OWNER_ACL
+(TCHAR *wname,
+ DWORD CheckAccessDesired,
+ GENERIC_MAPPING CheckGenericMapping)
+{
+  DWORD dwAccessDesired, dwAccessAllowed;
+  PRIVILEGE_SET PrivilegeSet;
+  DWORD dwPrivSetSize = sizeof (PRIVILEGE_SET);
+  BOOL fAccessGranted = FALSE;
+  HANDLE hToken;
+  DWORD nLength;
+  SECURITY_DESCRIPTOR* pSD = NULL;
+
+  GetFileSecurity
+    (wname, OWNER_SECURITY_INFORMATION |
+     GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+     NULL, 0, &nLength);
+
+  if ((pSD = (PSECURITY_DESCRIPTOR) HeapAlloc
+       (GetProcessHeap (), HEAP_ZERO_MEMORY, nLength)) == NULL)
+    return 0;
+
+  /* Obtain the security descriptor. */
+
+  if (!GetFileSecurity
+      (wname, OWNER_SECURITY_INFORMATION |
+       GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+       pSD, nLength, &nLength))
+    return 0;
+
+  if (!ImpersonateSelf (SecurityImpersonation))
+    return 0;
+
+  if (!OpenThreadToken
+      (GetCurrentThread(), TOKEN_DUPLICATE | TOKEN_QUERY, FALSE, &hToken))
+    return 0;
+
+  /*  Undoes the effect of ImpersonateSelf. */
+
+  RevertToSelf ();
+
+  /*  We want to test for write permissions. */
+
+  dwAccessDesired = CheckAccessDesired;
+
+  MapGenericMask (&dwAccessDesired, &CheckGenericMapping);
+
+  if (!AccessCheck
+      (pSD ,                 /* security descriptor to check */
+       hToken,               /* impersonation token */
+       dwAccessDesired,      /* requested access rights */
+       &CheckGenericMapping, /* pointer to GENERIC_MAPPING */
+       &PrivilegeSet,        /* receives privileges used in check */
+       &dwPrivSetSize,       /* size of PrivilegeSet buffer */
+       &dwAccessAllowed,     /* receives mask of allowed access rights */
+       &fAccessGranted))
+    return 0;
+
+  return fAccessGranted;
+}
+
+static void
+__gnat_set_OWNER_ACL
+(TCHAR *wname,
+ DWORD AccessMode,
+ DWORD AccessPermissions)
+{
+  ACL* pOldDACL = NULL;
+  ACL* pNewDACL = NULL;
+  SECURITY_DESCRIPTOR* pSD = NULL;
+  EXPLICIT_ACCESS ea;
+  TCHAR username [100];
+  DWORD unsize = 100;
+
+  /*  Get current user, he will act as the owner */
+
+  if (!GetUserName (username, &unsize))
+    return;
+
+  if (GetNamedSecurityInfo
+      (wname,
+       SE_FILE_OBJECT,
+       DACL_SECURITY_INFORMATION,
+       NULL, NULL, &pOldDACL, NULL, &pSD) != ERROR_SUCCESS)
+    return;
+
+  BuildExplicitAccessWithName
+    (&ea, username, AccessPermissions, AccessMode, NO_INHERITANCE);
+
+  if (AccessMode == SET_ACCESS)
+    {
+      /*  SET_ACCESS, we want to set an explicte set of permissions, do not
+	  merge with current DACL.  */
+      if (SetEntriesInAcl (1, &ea, NULL, &pNewDACL) != ERROR_SUCCESS)
+	return;
+    }
+  else
+    if (SetEntriesInAcl (1, &ea, pOldDACL, &pNewDACL) != ERROR_SUCCESS)
+      return;
+
+  if (SetNamedSecurityInfo
+      (wname, SE_FILE_OBJECT,
+       DACL_SECURITY_INFORMATION, NULL, NULL, pNewDACL, NULL) != ERROR_SUCCESS)
+    return;
+
+  LocalFree (pSD);
+  LocalFree (pNewDACL);
+}
+#endif /* defined (_WIN32) && !defined (RTX) */
+
 int
 __gnat_is_readable_file (char *name)
 {
+#if defined (_WIN32) && !defined (RTX)
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+  GENERIC_MAPPING GenericMapping;
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+
+  ZeroMemory (&GenericMapping, sizeof (GENERIC_MAPPING));
+  GenericMapping.GenericRead = GENERIC_READ;
+
+  return __gnat_check_OWNER_ACL (wname, FILE_READ_DATA, GenericMapping);
+#else
   int ret;
   int mode;
   struct stat statbuf;
 
-  ret = __gnat_stat (name, &statbuf);
+  ret = stat (name, &statbuf);
   mode = statbuf.st_mode & S_IRUSR;
   return (!ret && mode);
+#endif
 }
 
 int
 __gnat_is_writable_file (char *name)
 {
+#if defined (_WIN32) && !defined (RTX)
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+  GENERIC_MAPPING GenericMapping;
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+
+  ZeroMemory (&GenericMapping, sizeof (GENERIC_MAPPING));
+  GenericMapping.GenericWrite = GENERIC_WRITE;
+
+  return __gnat_check_OWNER_ACL
+    (wname, FILE_WRITE_DATA | FILE_APPEND_DATA, GenericMapping)
+    && !(GetFileAttributes (wname) & FILE_ATTRIBUTE_READONLY);
+#else
   int ret;
   int mode;
   struct stat statbuf;
 
-  ret = __gnat_stat (name, &statbuf);
+  ret = stat (name, &statbuf);
   mode = statbuf.st_mode & S_IWUSR;
   return (!ret && mode);
+#endif
+}
+
+int
+__gnat_is_executable_file (char *name)
+{
+#if defined (_WIN32) && !defined (RTX)
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+  GENERIC_MAPPING GenericMapping;
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+
+  ZeroMemory (&GenericMapping, sizeof (GENERIC_MAPPING));
+  GenericMapping.GenericExecute = GENERIC_EXECUTE;
+
+  return __gnat_check_OWNER_ACL (wname, FILE_EXECUTE, GenericMapping);
+#else
+  int ret;
+  int mode;
+  struct stat statbuf;
+
+  ret = stat (name, &statbuf);
+  mode = statbuf.st_mode & S_IXUSR;
+  return (!ret && mode);
+#endif
 }
 
 void
 __gnat_set_writable (char *name)
 {
-#ifndef __vxworks
+#if defined (_WIN32) && !defined (RTX)
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+
+  __gnat_set_OWNER_ACL (wname, GRANT_ACCESS, FILE_GENERIC_WRITE);
+  SetFileAttributes
+    (wname, GetFileAttributes (wname) & ~FILE_ATTRIBUTE_READONLY);
+#elif ! defined (__vxworks) && ! defined(__nucleus__)
   struct stat statbuf;
 
   if (stat (name, &statbuf) == 0)
-  {
-    statbuf.st_mode = statbuf.st_mode | S_IWUSR;
-    chmod (name, statbuf.st_mode);
-  }
+    {
+      statbuf.st_mode = statbuf.st_mode | S_IWUSR;
+      chmod (name, statbuf.st_mode);
+    }
 #endif
 }
 
 void
 __gnat_set_executable (char *name)
 {
-#ifndef __vxworks
+#if defined (_WIN32) && !defined (RTX)
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+
+  __gnat_set_OWNER_ACL (wname, GRANT_ACCESS, FILE_GENERIC_EXECUTE);
+#elif ! defined (__vxworks) && ! defined(__nucleus__)
   struct stat statbuf;
 
   if (stat (name, &statbuf) == 0)
-  {
-    statbuf.st_mode = statbuf.st_mode | S_IXUSR;
-    chmod (name, statbuf.st_mode);
-  }
+    {
+      statbuf.st_mode = statbuf.st_mode | S_IXUSR;
+      chmod (name, statbuf.st_mode);
+    }
 #endif
 }
 
 void
-__gnat_set_readonly (char *name)
+__gnat_set_non_writable (char *name)
 {
-#ifndef __vxworks
+#if defined (_WIN32) && !defined (RTX)
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+
+  __gnat_set_OWNER_ACL
+    (wname, DENY_ACCESS,
+     FILE_WRITE_DATA | FILE_APPEND_DATA |
+     FILE_WRITE_EA | FILE_WRITE_ATTRIBUTES);
+  SetFileAttributes
+    (wname, GetFileAttributes (wname) | FILE_ATTRIBUTE_READONLY);
+#elif ! defined (__vxworks) && ! defined(__nucleus__)
   struct stat statbuf;
 
   if (stat (name, &statbuf) == 0)
-  {
-    statbuf.st_mode = statbuf.st_mode & 07577;
-    chmod (name, statbuf.st_mode);
-  }
+    {
+      statbuf.st_mode = statbuf.st_mode & 07577;
+      chmod (name, statbuf.st_mode);
+    }
+#endif
+}
+
+void
+__gnat_set_readable (char *name)
+{
+#if defined (_WIN32) && !defined (RTX)
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+
+  __gnat_set_OWNER_ACL (wname, GRANT_ACCESS, FILE_GENERIC_READ);
+#elif ! defined (__vxworks) && ! defined(__nucleus__)
+  struct stat statbuf;
+
+  if (stat (name, &statbuf) == 0)
+    {
+      chmod (name, statbuf.st_mode | S_IREAD);
+    }
+#endif
+}
+
+void
+__gnat_set_non_readable (char *name)
+{
+#if defined (_WIN32) && !defined (RTX)
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+
+  __gnat_set_OWNER_ACL (wname, DENY_ACCESS, FILE_GENERIC_READ);
+#elif ! defined (__vxworks) && ! defined(__nucleus__)
+  struct stat statbuf;
+
+  if (stat (name, &statbuf) == 0)
+    {
+      chmod (name, statbuf.st_mode & (~S_IREAD));
+    }
 #endif
 }
 
 int
 __gnat_is_symbolic_link (char *name ATTRIBUTE_UNUSED)
 {
-#if defined (__vxworks)
+#if defined (__vxworks) || defined (__nucleus__)
   return 0;
 
 #elif defined (_AIX) || defined (__APPLE__) || defined (__unix__)
@@ -1678,7 +2007,10 @@ __gnat_portable_spawn (char *args[])
   int finished ATTRIBUTE_UNUSED;
   int pid ATTRIBUTE_UNUSED;
 
-#if defined (MSDOS) || defined (_WIN32)
+#if defined (__vxworks) || defined(__nucleus__) || defined(RTX)
+  return -1;
+
+#elif defined (MSDOS) || defined (_WIN32)
   /* args[0] must be quotes as it could contain a full pathname with spaces */
   char *args_0 = args[0];
   args[0] = (char *)xmalloc (strlen (args_0) + 3);
@@ -1697,8 +2029,6 @@ __gnat_portable_spawn (char *args[])
   else
     return status;
 
-#elif defined (__vxworks)
-  return -1;
 #else
 
 #ifdef __EMX__
@@ -1767,29 +2097,30 @@ __gnat_dup2 (int oldfd, int newfd)
 
 /* WIN32 code to implement a wait call that wait for any child process.  */
 
-#ifdef _WIN32
+#if defined (_WIN32) && !defined (RTX)
 
 /* Synchronization code, to be thread safe.  */
 
-static CRITICAL_SECTION plist_cs;
+#ifdef CERT
 
-void
-__gnat_plist_init (void)
-{
-  InitializeCriticalSection (&plist_cs);
-}
+/* For the Cert run times on native Windows we use dummy functions
+   for locking and unlocking tasks since we do not support multiple
+   threads on this configuration (Cert run time on native Windows). */
 
-static void
-plist_enter (void)
-{
-  EnterCriticalSection (&plist_cs);
-}
+void dummy (void) {}
 
-static void
-plist_leave (void)
-{
-  LeaveCriticalSection (&plist_cs);
-}
+void (*Lock_Task) ()   = &dummy;
+void (*Unlock_Task) () = &dummy;
+
+#else
+
+#define Lock_Task system__soft_links__lock_task
+extern void (*Lock_Task) (void);
+
+#define Unlock_Task system__soft_links__unlock_task
+extern void (*Unlock_Task) (void);
+
+#endif
 
 typedef struct _process_list
 {
@@ -1808,16 +2139,16 @@ add_handle (HANDLE h)
 
   pl = (Process_List *) xmalloc (sizeof (Process_List));
 
-  plist_enter();
-
   /* -------------------- critical section -------------------- */
+  (*Lock_Task) ();
+
   pl->h = h;
   pl->next = PLIST;
   PLIST = pl;
   ++plist_length;
-  /* -------------------- critical section -------------------- */
 
-  plist_leave();
+  (*Unlock_Task) ();
+  /* -------------------- critical section -------------------- */
 }
 
 static void
@@ -1826,9 +2157,9 @@ remove_handle (HANDLE h)
   Process_List *pl;
   Process_List *prev = NULL;
 
-  plist_enter();
-
   /* -------------------- critical section -------------------- */
+  (*Lock_Task) ();
+
   pl = PLIST;
   while (pl)
     {
@@ -1849,9 +2180,9 @@ remove_handle (HANDLE h)
     }
 
   --plist_length;
-  /* -------------------- critical section -------------------- */
 
-  plist_leave();
+  (*Unlock_Task) ();
+  /* -------------------- critical section -------------------- */
 }
 
 static int
@@ -1936,6 +2267,7 @@ win32_wait (int *status)
   DWORD res;
   int k;
   Process_List *pl;
+  int hl_len;
 
   if (plist_length == 0)
     {
@@ -1943,23 +2275,26 @@ win32_wait (int *status)
       return -1;
     }
 
-  hl = (HANDLE *) xmalloc (sizeof (HANDLE) * plist_length);
-
   k = 0;
-  plist_enter();
 
   /* -------------------- critical section -------------------- */
+  (*Lock_Task) ();
+
+  hl_len = plist_length;
+
+  hl = (HANDLE *) xmalloc (sizeof (HANDLE) * hl_len);
+
   pl = PLIST;
   while (pl)
     {
       hl[k++] = pl->h;
       pl = pl->next;
     }
+
+  (*Unlock_Task) ();
   /* -------------------- critical section -------------------- */
 
-  plist_leave();
-
-  res = WaitForMultipleObjects (plist_length, hl, FALSE, INFINITE);
+  res = WaitForMultipleObjects (hl_len, hl, FALSE, INFINITE);
   h = hl[res - WAIT_OBJECT_0];
   free (hl);
 
@@ -1979,7 +2314,10 @@ __gnat_portable_no_block_spawn (char *args[])
 {
   int pid = 0;
 
-#if defined (__EMX__) || defined (MSDOS)
+#if defined (__vxworks) || defined (__nucleus__) || defined (RTX)
+  return -1;
+
+#elif defined (__EMX__) || defined (MSDOS)
 
   /* ??? For PC machines I (Franco) don't know the system calls to implement
      this routine. So I'll fake it as follows. This routine will behave
@@ -1996,9 +2334,6 @@ __gnat_portable_no_block_spawn (char *args[])
 
   pid = win32_no_block_spawn (args[0], args);
   return pid;
-
-#elif defined (__vxworks)
-  return -1;
 
 #else
   pid = fork ();
@@ -2025,16 +2360,17 @@ __gnat_portable_wait (int *process_status)
   int status = 0;
   int pid = 0;
 
-#if defined (_WIN32)
+#if defined (__vxworks) || defined (__nucleus__) || defined (RTX)
+  /* Not sure what to do here, so do same as __EMX__ case, i.e., nothing but
+     return zero.  */
+
+#elif defined (_WIN32)
 
   pid = win32_wait (&status);
 
 #elif defined (__EMX__) || defined (MSDOS)
   /* ??? See corresponding comment in portable_no_block_spawn.  */
 
-#elif defined (__vxworks)
-  /* Not sure what to do here, so do same as __EMX__ case, i.e., nothing but
-     return zero.  */
 #else
 
   pid = waitpid (-1, &status, 0);
@@ -2057,7 +2393,7 @@ char *
 __gnat_locate_regular_file (char *file_name, char *path_val)
 {
   char *ptr;
-  char *file_path = alloca (strlen (file_name) + 1);
+  char *file_path = (char *) alloca (strlen (file_name) + 1);
   int absolute;
 
   /* Return immediately if file_name is empty */
@@ -2106,7 +2442,7 @@ __gnat_locate_regular_file (char *file_name, char *path_val)
 
   {
     /* The result has to be smaller than path_val + file_name.  */
-    char *file_path = alloca (strlen (path_val) + strlen (file_name) + 2);
+    char *file_path = (char *) alloca (strlen (path_val) + strlen (file_name) + 2);
 
     for (;;)
       {
@@ -2155,7 +2491,7 @@ __gnat_locate_exec (char *exec_name, char *path_val)
   if (!strstr (exec_name, HOST_EXECUTABLE_SUFFIX))
     {
       char *full_exec_name
-        = alloca (strlen (exec_name) + strlen (HOST_EXECUTABLE_SUFFIX) + 1);
+        = (char *) alloca (strlen (exec_name) + strlen (HOST_EXECUTABLE_SUFFIX) + 1);
 
       strcpy (full_exec_name, exec_name);
       strcat (full_exec_name, HOST_EXECUTABLE_SUFFIX);
@@ -2176,7 +2512,7 @@ __gnat_locate_exec_on_path (char *exec_name)
 {
   char *apath_val;
 
-#ifdef _WIN32
+#if defined (_WIN32) && !defined (RTX)
   TCHAR *wpath_val = _tgetenv (_T("PATH"));
   TCHAR *wapath_val;
   /* In Win32 systems we expand the PATH as for XP environment
@@ -2208,7 +2544,7 @@ __gnat_locate_exec_on_path (char *exec_name)
   char *path_val = getenv ("PATH");
 #endif
   if (path_val == NULL) return NULL;
-  apath_val = alloca (strlen (path_val) + 1);
+  apath_val = (char *) alloca (strlen (path_val) + 1);
   strcpy (apath_val, path_val);
   return __gnat_locate_exec (exec_name, apath_val);
 #endif
@@ -2330,6 +2666,137 @@ __gnat_to_canonical_file_list_free ()
   new_canonical_filelist = 0;
 }
 
+/* The functional equivalent of decc$translate_vms routine.
+   Designed to produce the same output, but is protected against
+   malformed paths (original version ACCVIOs in this case) and
+   does not require VMS-specific DECC RTL */
+
+#define NAM$C_MAXRSS 1024
+
+char *
+__gnat_translate_vms (char *src)
+{
+  static char retbuf [NAM$C_MAXRSS+1];
+  char *srcendpos, *pos1, *pos2, *retpos;
+  int disp, path_present = 0;
+
+  if (!src) return NULL;
+
+  srcendpos = strchr (src, '\0');
+  retpos = retbuf;
+
+  /* Look for the node and/or device in front of the path */
+  pos1 = src;
+  pos2 = strchr (pos1, ':');
+
+  if (pos2 && (pos2 < srcendpos) && (*(pos2 + 1) == ':')) {
+    /* There is a node name. "node_name::" becomes "node_name!" */
+    disp = pos2 - pos1;
+    strncpy (retbuf, pos1, disp);
+    retpos [disp] = '!';
+    retpos = retpos + disp + 1;
+    pos1 = pos2 + 2;
+    pos2 = strchr (pos1, ':');
+  }
+
+  if (pos2) {
+    /* There is a device name. "dev_name:" becomes "/dev_name/" */
+    *(retpos++) = '/';
+    disp = pos2 - pos1;
+    strncpy (retpos, pos1, disp);
+    retpos = retpos + disp;
+    pos1 = pos2 + 1;
+    *(retpos++) = '/';
+  }
+  else
+    /* No explicit device; we must look ahead and prepend /sys$disk/ if
+       the path is absolute */
+    if ((*pos1 == '[' || *pos1 == '<') && (pos1 < srcendpos)
+        && !strchr (".-]>", *(pos1 + 1))) {
+      strncpy (retpos, "/sys$disk/", 10);
+      retpos += 10;
+    }
+
+  /* Process the path part */
+  while (*pos1 == '[' || *pos1 == '<') {
+    path_present++;
+    pos1++;
+    if (*pos1 == ']' || *pos1 == '>') {
+      /* Special case, [] translates to '.' */
+      *(retpos++) = '.';
+      pos1++;
+    }
+    else {
+      /* '[000000' means root dir. It can be present in the middle of
+         the path due to expansion of logical devices, in which case
+         we skip it */
+      if (!strncmp (pos1, "000000", 6) && path_present > 1 &&
+         (*(pos1 + 6) == ']' || *(pos1 + 6) == '>' || *(pos1 + 6) == '.')) {
+          pos1 += 6;
+          if (*pos1 == '.') pos1++;
+        }
+      else if (*pos1 == '.') {
+        /* Relative path */
+        *(retpos++) = '.';
+      }
+
+      /* There is a qualified path */
+      while (*pos1 && *pos1 != ']' && *pos1 != '>') {
+        switch (*pos1) {
+          case '.':
+            /* '.' is used to separate directories. Replace it with '/' but
+               only if there isn't already '/' just before */
+            if (*(retpos - 1) != '/') *(retpos++) = '/';
+            pos1++;
+            if (pos1 + 1 < srcendpos && *pos1 == '.' && *(pos1 + 1) == '.') {
+              /* ellipsis refers to entire subtree; replace with '**' */
+              *(retpos++) = '*'; *(retpos++) = '*'; *(retpos++) = '/';
+              pos1 += 2;
+            }
+            break;
+          case '-' :
+            /* When after '.' '[' '<' is equivalent to Unix ".." but there
+            may be several in a row */
+            if (*(pos1 - 1) == '.' || *(pos1 - 1) == '[' ||
+                *(pos1 - 1) == '<') {
+              while (*pos1 == '-') {
+                pos1++;
+                *(retpos++) = '.'; *(retpos++) = '.'; *(retpos++) = '/';
+              }
+              retpos--;
+              break;
+            }
+            /* otherwise fall through to default */
+          default:
+            *(retpos++) = *(pos1++);
+        }
+      }
+      pos1++;
+    }
+  }
+
+  if (pos1 < srcendpos) {
+    /* Now add the actual file name, until the version suffix if any */
+    if (path_present) *(retpos++) = '/';
+    pos2 = strchr (pos1, ';');
+    disp = pos2? (pos2 - pos1) : (srcendpos - pos1);
+    strncpy (retpos, pos1, disp);
+    retpos += disp;
+    if (pos2 && pos2 < srcendpos) {
+      /* There is a non-empty version suffix. ";<ver>" becomes ".<ver>" */
+      *retpos++ = '.';
+      disp = srcendpos - pos2 - 1;
+      strncpy (retpos, pos2 + 1, disp);
+      retpos += disp;
+    }
+  }
+
+  *retpos = '\0';
+
+  return retbuf;
+
+}
+
 /* Translate a VMS syntax directory specification in to Unix syntax.  If
    PREFIXFLAG is set, append an underscore "/". If no indicators of VMS syntax
    found, return input string. Also translate a dirname that contains no
@@ -2348,13 +2815,13 @@ __gnat_to_canonical_dir_spec (char *dirspec, int prefixflag)
       if (strchr (dirspec, ']') || strchr (dirspec, ':'))
 	{
 	  strncpy (new_canonical_dirspec,
-		   (char *) decc$translate_vms (dirspec),
+		   __gnat_translate_vms (dirspec),
 		   MAXPATH);
 	}
       else if (!strchr (dirspec, '/') && (dirspec1 = getenv (dirspec)) != 0)
 	{
 	  strncpy (new_canonical_dirspec,
-		  (char *) decc$translate_vms (dirspec1),
+		  __gnat_translate_vms (dirspec1),
 		  MAXPATH);
 	}
       else
@@ -2388,7 +2855,7 @@ __gnat_to_canonical_file_spec (char *filespec)
 
   if (strchr (filespec, ']') || strchr (filespec, ':'))
     {
-      char *tspec = (char *) decc$translate_vms (filespec);
+      char *tspec = (char *) __gnat_translate_vms (filespec);
 
       if (tspec != (char *) -1)
 	strncpy (new_canonical_filespec, tspec, MAXPATH);
@@ -2397,7 +2864,7 @@ __gnat_to_canonical_file_spec (char *filespec)
 	    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"))
 	&& (filespec1 = getenv (filespec)))
     {
-      char *tspec = (char *) decc$translate_vms (filespec1);
+      char *tspec = (char *) __gnat_translate_vms (filespec1);
 
       if (tspec != (char *) -1)
 	strncpy (new_canonical_filespec, tspec, MAXPATH);
@@ -2661,6 +3128,7 @@ _flush_cache()
       && defined (__SVR4)) \
       && ! (defined (linux) && (defined (i386) || defined (__x86_64__))) \
       && ! (defined (linux) && defined (__ia64__)) \
+      && ! (defined (linux) && defined (powerpc)) \
       && ! defined (__FreeBSD__) \
       && ! defined (__hpux__) \
       && ! defined (__APPLE__) \
@@ -2724,7 +3192,7 @@ char __gnat_environment_char = '$';
 int
 __gnat_copy_attribs (char *from, char *to, int mode)
 {
-#if defined (VMS) || defined (__vxworks)
+#if defined (VMS) || defined (__vxworks) || defined (__nucleus__)
   return -1;
 #else
   struct stat fbuf;
@@ -2774,7 +3242,7 @@ get_gcc_version (void)
 
 int
 __gnat_set_close_on_exec (int fd ATTRIBUTE_UNUSED,
-                        int close_on_exec_p ATTRIBUTE_UNUSED)
+                          int close_on_exec_p ATTRIBUTE_UNUSED)
 {
 #if defined (F_GETFD) && defined (FD_CLOEXEC) && ! defined (__vxworks)
   int flags = fcntl (fd, F_GETFD, 0);
@@ -2785,12 +3253,17 @@ __gnat_set_close_on_exec (int fd ATTRIBUTE_UNUSED,
   else
     flags &= ~FD_CLOEXEC;
   return fcntl (fd, F_SETFD, flags | FD_CLOEXEC);
+#elif defined(_WIN32)
+  HANDLE h = (HANDLE) _get_osfhandle (fd);
+  if (h == (HANDLE) -1)
+    return -1;
+  if (close_on_exec_p)
+    return ! SetHandleInformation (h, HANDLE_FLAG_INHERIT, 0);
+  return ! SetHandleInformation (h, HANDLE_FLAG_INHERIT, 
+    HANDLE_FLAG_INHERIT);
 #else
+  /* TODO: Unimplemented. */
   return -1;
-  /* For the Windows case, we should use SetHandleInformation to remove
-     the HANDLE_INHERIT property from fd. This is not implemented yet,
-     but for our purposes (support of GNAT.Expect) this does not matter,
-     as by default handles are *not* inherited. */
 #endif
 }
 
@@ -2817,3 +3290,59 @@ __gnat_sals_init_using_constructors ()
    return 1;
 #endif
 }
+
+#ifdef RTX
+
+/* In RTX mode, the procedure to get the time (as file time) is different
+   in RTSS mode and Win32 mode. In order to avoid duplicating an Ada file,
+   we introduce an intermediate procedure to link against the corresponding
+   one in each situation. */
+
+extern void GetTimeAsFileTime(LPFILETIME pTime);
+
+void GetTimeAsFileTime(LPFILETIME pTime)
+{
+#ifdef RTSS
+  RtGetRtssTimeAsFileTime (pTime); /* RTSS interface */
+#else
+  GetSystemTimeAsFileTime (pTime); /* w32 interface */
+#endif
+}
+
+#ifdef RTSS
+/* Add symbol that is required to link. It would otherwise be taken from
+   libgcc.a and it would try to use the gcc constructors that are not
+   supported by Microsoft linker. */
+
+extern void __main (void);
+
+void __main (void) {}
+#endif
+#endif
+
+#if defined (linux) || defined(__GLIBC__)
+/* pthread affinity support */
+
+int __gnat_pthread_setaffinity_np (pthread_t th,
+			           size_t cpusetsize,
+			           const void *cpuset);
+
+#ifdef CPU_SETSIZE
+#include <pthread.h>
+int
+__gnat_pthread_setaffinity_np (pthread_t th,
+			       size_t cpusetsize,
+			       const cpu_set_t *cpuset)
+{
+  return pthread_setaffinity_np (th, cpusetsize, cpuset);
+}
+#else
+int
+__gnat_pthread_setaffinity_np (pthread_t th ATTRIBUTE_UNUSED,
+			       size_t cpusetsize ATTRIBUTE_UNUSED,
+			       const void *cpuset ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+#endif
+#endif

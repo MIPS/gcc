@@ -1,13 +1,13 @@
 /* Frv prototypes.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* CPU type.  This must be identical to the cpu enumeration in frv.md.  */
 typedef enum frv_cpu
@@ -65,8 +64,6 @@ extern rtx frv_function_arg			(CUMULATIVE_ARGS *,
 extern void frv_function_arg_advance		(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int);
-
-extern void frv_expand_builtin_va_start		(tree, rtx);
 #endif /* TREE_CODE */
 
 extern int frv_expand_block_move		(rtx *);
@@ -107,13 +104,12 @@ extern void frv_ifcvt_modify_cancel	(ce_if_block_t *);
 extern int frv_trampoline_size		(void);
 extern void frv_initialize_trampoline	(rtx, rtx, rtx);
 extern enum reg_class frv_secondary_reload_class
-					(enum reg_class class,
-					 enum machine_mode mode,
-					 rtx x, int);
-extern int frv_class_likely_spilled_p	(enum reg_class class);
+					(enum reg_class,
+					 enum machine_mode, rtx);
+extern int frv_class_likely_spilled_p	(enum reg_class rclass);
 extern int frv_hard_regno_mode_ok	(int, enum machine_mode);
 extern int frv_hard_regno_nregs		(int, enum machine_mode);
-extern int frv_class_max_nregs		(enum reg_class class,
+extern int frv_class_max_nregs		(enum reg_class rclass,
 					 enum machine_mode mode);
 extern int frv_legitimate_constant_p	(rtx);
 extern enum machine_mode frv_select_cc_mode (enum rtx_code, rtx, rtx);

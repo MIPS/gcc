@@ -1,11 +1,12 @@
 /* Simple bitmaps.
-   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -51,7 +51,7 @@ static unsigned long sbitmap_elt_popcount (SBITMAP_ELT_TYPE);
    if there is a cached value. */
 
 void
-sbitmap_verify_popcount (sbitmap a)
+sbitmap_verify_popcount (const_sbitmap a)
 {
   unsigned ix;
   unsigned int lastword;
@@ -79,7 +79,7 @@ sbitmap_alloc (unsigned int n_elms)
   bytes = size * sizeof (SBITMAP_ELT_TYPE);
   amt = (sizeof (struct simple_bitmap_def)
 	 + bytes - sizeof (SBITMAP_ELT_TYPE));
-  bmap = xmalloc (amt);
+  bmap = (sbitmap) xmalloc (amt);
   bmap->n_bits = n_elms;
   bmap->size = size;
   bmap->popcount = NULL;
@@ -91,10 +91,8 @@ sbitmap_alloc (unsigned int n_elms)
 sbitmap
 sbitmap_alloc_with_popcount (unsigned int n_elms)
 {
-  sbitmap bmap;
-  
-  bmap = sbitmap_alloc (n_elms);  
-  bmap->popcount = xmalloc (bmap->size * sizeof (unsigned char));
+  sbitmap const bmap = sbitmap_alloc (n_elms);  
+  bmap->popcount = XNEWVEC (unsigned char, bmap->size);
   return bmap;
 }
 
@@ -114,10 +112,9 @@ sbitmap_resize (sbitmap bmap, unsigned int n_elms, int def)
     {
       amt = (sizeof (struct simple_bitmap_def)
 	    + bytes - sizeof (SBITMAP_ELT_TYPE));
-      bmap = xrealloc (bmap, amt);
+      bmap = (sbitmap) xrealloc (bmap, amt);
       if (bmap->popcount)
-	bmap->popcount = xrealloc (bmap->popcount,
-				   size * sizeof (unsigned char));
+	bmap->popcount = XRESIZEVEC (unsigned char, bmap->popcount, size);
     }
 
   if (n_elms > bmap->n_bits)
@@ -220,7 +217,7 @@ sbitmap_vector_alloc (unsigned int n_vecs, unsigned int n_elms)
   }
 
   amt = vector_bytes + (n_vecs * elm_bytes);
-  bitmap_vector = xmalloc (amt);
+  bitmap_vector = (sbitmap *) xmalloc (amt);
 
   for (i = 0, offset = vector_bytes; i < n_vecs; i++, offset += elm_bytes)
     {
@@ -238,7 +235,7 @@ sbitmap_vector_alloc (unsigned int n_vecs, unsigned int n_elms)
 /* Copy sbitmap SRC to DST.  */
 
 void
-sbitmap_copy (sbitmap dst, sbitmap src)
+sbitmap_copy (sbitmap dst, const_sbitmap src)
 {
   memcpy (dst->elms, src->elms, sizeof (SBITMAP_ELT_TYPE) * dst->size);
   if (dst->popcount)
@@ -248,7 +245,7 @@ sbitmap_copy (sbitmap dst, sbitmap src)
 /* Copy the first N elements of sbitmap SRC to DST.  */
 
 void
-sbitmap_copy_n (sbitmap dst, sbitmap src, unsigned int n)
+sbitmap_copy_n (sbitmap dst, const_sbitmap src, unsigned int n)
 {
   memcpy (dst->elms, src->elms, sizeof (SBITMAP_ELT_TYPE) * n);  
   if (dst->popcount)
@@ -257,10 +254,74 @@ sbitmap_copy_n (sbitmap dst, sbitmap src, unsigned int n)
 
 /* Determine if a == b.  */
 int
-sbitmap_equal (sbitmap a, sbitmap b)
+sbitmap_equal (const_sbitmap a, const_sbitmap b)
 {
   return !memcmp (a->elms, b->elms, sizeof (SBITMAP_ELT_TYPE) * a->size);
 }
+
+/* Return true if the bitmap is empty.  */
+
+bool
+sbitmap_empty_p (const_sbitmap bmap)
+{
+  unsigned int i;
+  for (i=0; i<bmap->size; i++)
+    if (bmap->elms[i])
+      return false;
+
+  return true;
+}
+
+/* Return false if any of the N bits are set in MAP starting at
+   START.  */
+
+bool 
+sbitmap_range_empty_p (const_sbitmap bmap, unsigned int start, unsigned int n)
+{
+  unsigned int i = start / SBITMAP_ELT_BITS;
+  SBITMAP_ELT_TYPE elm;
+  unsigned int shift = start % SBITMAP_ELT_BITS;
+
+  gcc_assert (bmap->n_bits >= start + n);
+
+  elm = bmap->elms[i];
+  elm = elm >> shift;
+
+  if (shift + n <= SBITMAP_ELT_BITS)
+    {
+      /* The bits are totally contained in a single element.  */
+      if (shift + n < SBITMAP_ELT_BITS)
+        elm &= ((1 << n) - 1);
+      return (elm == 0);
+    }
+
+  if (elm) 
+    return false;
+
+  n -= SBITMAP_ELT_BITS - shift;
+  i++;
+
+  /* Deal with full elts.  */
+  while (n >= SBITMAP_ELT_BITS)
+    {
+      if (bmap->elms[i])
+	return false;
+      i++;
+      n -= SBITMAP_ELT_BITS;
+    }
+
+  /* The leftover bits.  */
+  if (n)
+    {
+      elm = bmap->elms[i];
+      elm &= ((1 << n) - 1);
+      return (elm == 0);
+    }  
+
+  return true;
+}
+
+
 
 /* Zero all elements in a bitmap.  */
 
@@ -321,20 +382,20 @@ sbitmap_vector_ones (sbitmap *bmap, unsigned int n_vecs)
    Returns true if any change is made.  */
 
 bool
-sbitmap_union_of_diff_cg (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
+sbitmap_union_of_diff_cg (sbitmap dst, const_sbitmap a, const_sbitmap b, const_sbitmap c)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
-  sbitmap_ptr cp = c->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr cp = c->elms;
   SBITMAP_ELT_TYPE changed = 0;
 
   gcc_assert (!dst->popcount);
   
   for (i = 0; i < n; i++)
     {
-      SBITMAP_ELT_TYPE tmp = *ap++ | (*bp++ & ~*cp++);
+      const SBITMAP_ELT_TYPE tmp = *ap++ | (*bp++ & ~*cp++);
       changed |= *dstp ^ tmp;
       *dstp++ = tmp;
     }
@@ -343,13 +404,13 @@ sbitmap_union_of_diff_cg (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
 }
 
 void
-sbitmap_union_of_diff (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
+sbitmap_union_of_diff (sbitmap dst, const_sbitmap a, const_sbitmap b, const_sbitmap c)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
-  sbitmap_ptr cp = c->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr cp = c->elms;
 
   gcc_assert (!dst->popcount && !a->popcount
 	      && !b->popcount && !c->popcount);
@@ -361,11 +422,11 @@ sbitmap_union_of_diff (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
 /* Set bitmap DST to the bitwise negation of the bitmap SRC.  */
 
 void
-sbitmap_not (sbitmap dst, sbitmap src)
+sbitmap_not (sbitmap dst, const_sbitmap src)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr srcp = src->elms;
+  const_sbitmap_ptr srcp = src->elms;
   unsigned int last_bit;
 
   gcc_assert (!dst->popcount);  
@@ -384,13 +445,13 @@ sbitmap_not (sbitmap dst, sbitmap src)
    in A and the bits in B. i.e. dst = a & (~b).  */
 
 void
-sbitmap_difference (sbitmap dst, sbitmap a, sbitmap b)
+sbitmap_difference (sbitmap dst, const_sbitmap a, const_sbitmap b)
 {
   unsigned int i, dst_size = dst->size;
   unsigned int min_size = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
 
   gcc_assert (!dst->popcount);
 
@@ -413,10 +474,10 @@ sbitmap_difference (sbitmap dst, sbitmap a, sbitmap b)
    Return false otherwise.  */
 
 bool
-sbitmap_any_common_bits (sbitmap a, sbitmap b)
+sbitmap_any_common_bits (const_sbitmap a, const_sbitmap b)
 {
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
   unsigned int i, n;
 
   n = MIN (a->size, b->size);
@@ -431,19 +492,19 @@ sbitmap_any_common_bits (sbitmap a, sbitmap b)
    Return nonzero if any change is made.  */
 
 bool
-sbitmap_a_and_b_cg (sbitmap dst, sbitmap a, sbitmap b)
+sbitmap_a_and_b_cg (sbitmap dst, const_sbitmap a, const_sbitmap b)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
   SBITMAP_ELT_TYPE changed = 0;
 
   gcc_assert (!dst->popcount);
 
   for (i = 0; i < n; i++)
     {
-      SBITMAP_ELT_TYPE tmp = *ap++ & *bp++;
+      const SBITMAP_ELT_TYPE tmp = *ap++ & *bp++;
       changed |= *dstp ^ tmp;
       *dstp++ = tmp;
     }
@@ -452,18 +513,18 @@ sbitmap_a_and_b_cg (sbitmap dst, sbitmap a, sbitmap b)
 }
 
 void
-sbitmap_a_and_b (sbitmap dst, sbitmap a, sbitmap b)
+sbitmap_a_and_b (sbitmap dst, const_sbitmap a, const_sbitmap b)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
   bool has_popcount = dst->popcount != NULL;
   unsigned char *popcountp = dst->popcount;
 
   for (i = 0; i < n; i++)
     {
-      SBITMAP_ELT_TYPE tmp = *ap++ & *bp++;
+      const SBITMAP_ELT_TYPE tmp = *ap++ & *bp++;
       if (has_popcount)
 	{
 	  bool wordchanged = (*dstp ^ tmp) != 0;
@@ -483,19 +544,19 @@ sbitmap_a_and_b (sbitmap dst, sbitmap a, sbitmap b)
    Return nonzero if any change is made.  */
 
 bool
-sbitmap_a_xor_b_cg (sbitmap dst, sbitmap a, sbitmap b)
+sbitmap_a_xor_b_cg (sbitmap dst, const_sbitmap a, const_sbitmap b)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
   SBITMAP_ELT_TYPE changed = 0;
   
   gcc_assert (!dst->popcount);
 
   for (i = 0; i < n; i++)
     {
-      SBITMAP_ELT_TYPE tmp = *ap++ ^ *bp++;
+      const SBITMAP_ELT_TYPE tmp = *ap++ ^ *bp++;
       changed |= *dstp ^ tmp;
       *dstp++ = tmp;
     }
@@ -504,18 +565,18 @@ sbitmap_a_xor_b_cg (sbitmap dst, sbitmap a, sbitmap b)
 }
 
 void
-sbitmap_a_xor_b (sbitmap dst, sbitmap a, sbitmap b)
+sbitmap_a_xor_b (sbitmap dst, const_sbitmap a, const_sbitmap b)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
   bool has_popcount = dst->popcount != NULL;
   unsigned char *popcountp = dst->popcount;
 
   for (i = 0; i < n; i++)
     {
-      SBITMAP_ELT_TYPE tmp = *ap++ ^ *bp++;
+      const SBITMAP_ELT_TYPE tmp = *ap++ ^ *bp++;
       if (has_popcount)
 	{
 	  bool wordchanged = (*dstp ^ tmp) != 0;
@@ -535,19 +596,19 @@ sbitmap_a_xor_b (sbitmap dst, sbitmap a, sbitmap b)
    Return nonzero if any change is made.  */
 
 bool
-sbitmap_a_or_b_cg (sbitmap dst, sbitmap a, sbitmap b)
+sbitmap_a_or_b_cg (sbitmap dst, const_sbitmap a, const_sbitmap b)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
   SBITMAP_ELT_TYPE changed = 0;
 
   gcc_assert (!dst->popcount);
 
   for (i = 0; i < n; i++)
     {
-      SBITMAP_ELT_TYPE tmp = *ap++ | *bp++;
+      const SBITMAP_ELT_TYPE tmp = *ap++ | *bp++;
       changed |= *dstp ^ tmp;
       *dstp++ = tmp;
     }
@@ -556,18 +617,18 @@ sbitmap_a_or_b_cg (sbitmap dst, sbitmap a, sbitmap b)
 }
 
 void
-sbitmap_a_or_b (sbitmap dst, sbitmap a, sbitmap b)
+sbitmap_a_or_b (sbitmap dst, const_sbitmap a, const_sbitmap b)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
   bool has_popcount = dst->popcount != NULL;
   unsigned char *popcountp = dst->popcount;
 
   for (i = 0; i < n; i++)
     {
-      SBITMAP_ELT_TYPE tmp = *ap++ | *bp++;
+      const SBITMAP_ELT_TYPE tmp = *ap++ | *bp++;
       if (has_popcount)
 	{
 	  bool wordchanged = (*dstp ^ tmp) != 0;
@@ -586,10 +647,10 @@ sbitmap_a_or_b (sbitmap dst, sbitmap a, sbitmap b)
 /* Return nonzero if A is a subset of B.  */
 
 bool
-sbitmap_a_subset_b_p (sbitmap a, sbitmap b)
+sbitmap_a_subset_b_p (const_sbitmap a, const_sbitmap b)
 {
   unsigned int i, n = a->size;
-  sbitmap_ptr ap, bp;
+  const_sbitmap_ptr ap, bp;
 
   for (ap = a->elms, bp = b->elms, i = 0; i < n; i++, ap++, bp++)
     if ((*ap | *bp) != *bp)
@@ -602,20 +663,20 @@ sbitmap_a_subset_b_p (sbitmap a, sbitmap b)
    Return nonzero if any change is made.  */
 
 bool
-sbitmap_a_or_b_and_c_cg (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
+sbitmap_a_or_b_and_c_cg (sbitmap dst, const_sbitmap a, const_sbitmap b, const_sbitmap c)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
-  sbitmap_ptr cp = c->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr cp = c->elms;
   SBITMAP_ELT_TYPE changed = 0;
 
   gcc_assert (!dst->popcount);
 
   for (i = 0; i < n; i++)
     {
-      SBITMAP_ELT_TYPE tmp = *ap++ | (*bp++ & *cp++);
+      const SBITMAP_ELT_TYPE tmp = *ap++ | (*bp++ & *cp++);
       changed |= *dstp ^ tmp;
       *dstp++ = tmp;
     }
@@ -624,13 +685,13 @@ sbitmap_a_or_b_and_c_cg (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
 }
 
 void
-sbitmap_a_or_b_and_c (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
+sbitmap_a_or_b_and_c (sbitmap dst, const_sbitmap a, const_sbitmap b, const_sbitmap c)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
-  sbitmap_ptr cp = c->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr cp = c->elms;
 
   gcc_assert (!dst->popcount);
 
@@ -642,20 +703,20 @@ sbitmap_a_or_b_and_c (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
    Return nonzero if any change is made.  */
 
 bool
-sbitmap_a_and_b_or_c_cg (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
+sbitmap_a_and_b_or_c_cg (sbitmap dst, const_sbitmap a, const_sbitmap b, const_sbitmap c)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
-  sbitmap_ptr cp = c->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr cp = c->elms;
   SBITMAP_ELT_TYPE changed = 0;
 
   gcc_assert (!dst->popcount);
 
   for (i = 0; i < n; i++)
     {
-      SBITMAP_ELT_TYPE tmp = *ap++ & (*bp++ | *cp++);
+      const SBITMAP_ELT_TYPE tmp = *ap++ & (*bp++ | *cp++);
       changed |= *dstp ^ tmp;
       *dstp++ = tmp;
     }
@@ -664,13 +725,13 @@ sbitmap_a_and_b_or_c_cg (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
 }
 
 void
-sbitmap_a_and_b_or_c (sbitmap dst, sbitmap a, sbitmap b, sbitmap c)
+sbitmap_a_and_b_or_c (sbitmap dst, const_sbitmap a, const_sbitmap b, const_sbitmap c)
 {
   unsigned int i, n = dst->size;
   sbitmap_ptr dstp = dst->elms;
-  sbitmap_ptr ap = a->elms;
-  sbitmap_ptr bp = b->elms;
-  sbitmap_ptr cp = c->elms;
+  const_sbitmap_ptr ap = a->elms;
+  const_sbitmap_ptr bp = b->elms;
+  const_sbitmap_ptr cp = c->elms;
 
   for (i = 0; i < n; i++)
     *dstp++ = *ap++ & (*bp++ | *cp++);
@@ -849,7 +910,7 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
 /* Return number of first bit set in the bitmap, -1 if none.  */
 
 int
-sbitmap_first_set_bit (sbitmap bmap)
+sbitmap_first_set_bit (const_sbitmap bmap)
 {
   unsigned int n = 0;
   sbitmap_iterator sbi;
@@ -862,14 +923,14 @@ sbitmap_first_set_bit (sbitmap bmap)
 /* Return number of last bit set in the bitmap, -1 if none.  */
 
 int
-sbitmap_last_set_bit (sbitmap bmap)
+sbitmap_last_set_bit (const_sbitmap bmap)
 {
   int i;
-  SBITMAP_ELT_TYPE *ptr = bmap->elms;
+  const SBITMAP_ELT_TYPE *const ptr = bmap->elms;
 
   for (i = bmap->size - 1; i >= 0; i--)
     {
-      SBITMAP_ELT_TYPE word = ptr[i];
+      const SBITMAP_ELT_TYPE word = ptr[i];
 
       if (word != 0)
 	{
@@ -892,7 +953,7 @@ sbitmap_last_set_bit (sbitmap bmap)
 }
 
 void
-dump_sbitmap (FILE *file, sbitmap bmap)
+dump_sbitmap (FILE *file, const_sbitmap bmap)
 {
   unsigned int i, n, j;
   unsigned int set_size = bmap->size;
@@ -913,7 +974,7 @@ dump_sbitmap (FILE *file, sbitmap bmap)
 }
 
 void
-dump_sbitmap_file (FILE *file, sbitmap bmap)
+dump_sbitmap_file (FILE *file, const_sbitmap bmap)
 {
   unsigned int i, pos;
 
@@ -936,7 +997,7 @@ dump_sbitmap_file (FILE *file, sbitmap bmap)
 }
 
 void
-debug_sbitmap (sbitmap bmap)
+debug_sbitmap (const_sbitmap bmap)
 {
   dump_sbitmap_file (stderr, bmap);
 }
@@ -959,7 +1020,7 @@ dump_sbitmap_vector (FILE *file, const char *title, const char *subtitle,
 
 #if GCC_VERSION < 3400
 /* Table of number of set bits in a character, indexed by value of char.  */
-static unsigned char popcount_table[] =
+static const unsigned char popcount_table[] =
 {
     0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
     1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
@@ -992,7 +1053,7 @@ sbitmap_elt_popcount (SBITMAP_ELT_TYPE a)
 /* Count the number of bits in SBITMAP a, up to bit MAXBIT.  */
 
 unsigned long
-sbitmap_popcount (sbitmap a, unsigned long maxbit)
+sbitmap_popcount (const_sbitmap a, unsigned long maxbit)
 {
   unsigned long count = 0;
   unsigned ix;

@@ -1,7 +1,5 @@
-/* This file contains the definitions and documentation for the common
-   tree codes used in the GNU C and C++ compilers (see c-common.def
-   for the standard codes).
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+/* This file contains subroutine used by the C front-end to construct GENERIC.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Written by Benjamin Chelf (chelf@codesourcery.com).
 
@@ -9,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -18,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -44,7 +41,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "predict.h"
 #include "tree-inline.h"
-#include "tree-gimple.h"
+#include "gimple.h"
+#include "tree-iterator.h"
 #include "langhooks.h"
 
 /* Create an empty statement tree rooted at T.  */
@@ -143,23 +141,6 @@ build_stmt (enum tree_code code, ...)
 
   va_end (p);
   return ret;
-}
-
-/* Let the back-end know about DECL.  */
-
-void
-emit_local_var (tree decl)
-{
-  /* Create RTL for this variable.  */
-  if (!DECL_RTL_SET_P (decl))
-    {
-      if (DECL_HARD_REGISTER (decl))
-	/* The user specified an assembler name for this variable.
-	   Set that up now.  */
-	rest_of_decl_compilation (decl, 0, 0);
-      else
-	expand_decl (decl);
-    }
 }
 
 /* Create a CASE_LABEL_EXPR tree node and return it.  */

@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package java.util;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -722,7 +724,7 @@ public class Date
     boolean localTimezone = true;
 
     // Trim out any nested stuff in parentheses now to make parsing easier.
-    StringBuffer buf = new StringBuffer();
+    CPStringBuilder buf = new CPStringBuilder();
     int parenNesting = 0;
     int len = string.length();
     for (int i = 0;  i < len;  i++)
@@ -856,7 +858,7 @@ public class Date
 		  hour += 12;
 	      }
 	    else if (parseDayOfWeek(tok))
-	      ; // Ignore it; throw the token away.
+	      { /* Ignore it; throw the token away. */ }
 	    else if (tok.equals("UT") || tok.equals("UTC") || tok.equals("GMT"))
 	      localTimezone = false;
 	    else if (tok.startsWith("UT") || tok.startsWith("GMT"))

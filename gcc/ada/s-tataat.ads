@@ -7,7 +7,7 @@
 --                                  S p e c                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---                     Copyright (C) 1995-2005, AdaCore                     --
+--                     Copyright (C) 1995-2008, AdaCore                     --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,10 +35,8 @@
 --  This package provides support for the body of Ada.Task_Attributes
 
 with Ada.Finalization;
---  Used for Limited_Controlled
 
 with System.Storage_Elements;
---  Used for Integer_Address
 
 package System.Tasking.Task_Attributes is
 
@@ -50,7 +48,7 @@ package System.Tasking.Task_Attributes is
    type Access_Node is access all Node;
    --  This needs comments ???
 
-   function To_Access_Node is new Unchecked_Conversion
+   function To_Access_Node is new Ada.Unchecked_Conversion
      (Access_Address, Access_Node);
    --  Used to fetch pointer to indirect attribute list. Declaration is in
    --  spec to avoid any problems with aliasing assumptions.

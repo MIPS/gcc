@@ -1,6 +1,6 @@
 // TR1 unordered_map -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -85,6 +85,11 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 		__detail::_Default_ranged_hash(),
 		__eql, std::_Select1st<std::pair<const _Key, _Tp> >(), __a)
 	{ }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      __unordered_map(__unordered_map&& __x)
+      : _Base(std::forward<_Base>(__x)) { }
+#endif
     };
   
   template<class _Key, class _Tp,
@@ -137,6 +142,11 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 		__detail::_Default_ranged_hash(),
 		__eql, std::_Select1st<std::pair<const _Key, _Tp> >(), __a)
         { }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      __unordered_multimap(__unordered_multimap&& __x)
+      : _Base(std::forward<_Base>(__x)) { }
+#endif
     };
 
   template<class _Key, class _Tp, class _Hash, class _Pred, class _Alloc,
@@ -158,6 +168,24 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
     { __x.swap(__y); }
 
 
+  /**
+   *  @brief A standard container composed of unique keys (containing
+   *  at most one of each key value) that associates values of another type
+   *  with the keys.
+   *
+   *  @ingroup unordered_associative_containers
+   *
+   *  Meets the requirements of a <a href="tables.html#65">container</a>, and
+   *  <a href="tables.html#xx">unordered associative container</a>
+   *
+   *  @param  Key  Type of key objects.
+   *  @param  Tp  Type of mapped objects.
+   *  @param  Hash  Hashing function object type, defaults to hash<Value>.
+   *  @param  Pred  Predicate function object type, defaults to equal_to<Value>.
+   *  @param  Alloc  Allocator type, defaults to allocator<Key>.
+   *
+   * The resulting value type of the container is std::pair<const Key, Tp>.
+   */
   template<class _Key, class _Tp,
 	   class _Hash = hash<_Key>,
 	   class _Pred = std::equal_to<_Key>,
@@ -168,6 +196,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       typedef __unordered_map<_Key, _Tp, _Hash, _Pred, _Alloc>  _Base;
 
     public:
+      typedef typename _Base::value_type      value_type;
       typedef typename _Base::size_type       size_type;
       typedef typename _Base::hasher          hasher;
       typedef typename _Base::key_equal       key_equal;
@@ -189,8 +218,56 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 		      const allocator_type& __a = allocator_type())
 	: _Base(__f, __l, __n, __hf, __eql, __a)
         { }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      unordered_map(unordered_map&& __x)
+      : _Base(std::forward<_Base>(__x)) { }
+
+      unordered_map(initializer_list<value_type> __l,
+		    size_type __n = 10,
+		    const hasher& __hf = hasher(),
+		    const key_equal& __eql = key_equal(),
+		    const allocator_type& __a = allocator_type())
+	: _Base(__l.begin(), __l.end(), __n, __hf, __eql, __a)
+      { }
+
+      unordered_map&
+      operator=(unordered_map&& __x)
+      {
+	// NB: DR 675.
+	this->clear();
+	this->swap(__x); 
+	return *this;	
+      }
+
+      unordered_map&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->clear();
+	this->insert(__l.begin(), __l.end());
+	return *this;
+      }
+#endif
     };
   
+  /**
+   *  @brief A standard container composed of equivalent keys
+   *  (possibly containing multiple of each key value) that associates
+   *  values of another type with the keys.
+   *
+   *  @ingroup unordered_associative_containers
+   *
+   *  Meets the requirements of a <a href="tables.html#65">container</a>, and
+   *  <a href="tables.html#xx">unordered associative container</a>
+   *
+   *  @param  Key  Type of key objects.
+   *  @param  Tp  Type of mapped objects.
+   *  @param  Hash  Hashing function object type, defaults to hash<Value>.
+   *  @param  Pred  Predicate function object type, defaults to equal_to<Value>.
+   *  @param  Alloc  Allocator type, defaults to allocator<Key>.
+   *
+   * The resulting value type of the container is std::pair<const Key, Tp>.
+   */
   template<class _Key, class _Tp,
 	   class _Hash = hash<_Key>,
 	   class _Pred = std::equal_to<_Key>,
@@ -201,6 +278,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       typedef __unordered_multimap<_Key, _Tp, _Hash, _Pred, _Alloc>  _Base;
 
     public:
+      typedef typename _Base::value_type      value_type;
       typedef typename _Base::size_type       size_type;
       typedef typename _Base::hasher          hasher;
       typedef typename _Base::key_equal       key_equal;
@@ -223,7 +301,75 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 			   const allocator_type& __a = allocator_type())
 	: _Base(__f, __l, __n, __hf, __eql, __a)
         { }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      unordered_multimap(unordered_multimap&& __x)
+      : _Base(std::forward<_Base>(__x)) { }
+
+      unordered_multimap(initializer_list<value_type> __l,
+			 size_type __n = 10,
+			 const hasher& __hf = hasher(),
+			 const key_equal& __eql = key_equal(),
+			 const allocator_type& __a = allocator_type())
+	: _Base(__l.begin(), __l.end(), __n, __hf, __eql, __a)
+      { }
+
+      unordered_multimap&
+      operator=(unordered_multimap&& __x)
+      {
+	// NB: DR 675.
+	this->clear();
+	this->swap(__x); 
+	return *this;	
+      }
+
+      unordered_multimap&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->clear();
+	this->insert(__l.begin(), __l.end());
+	return *this;
+      }
+#endif
     };
+
+  template<class _Key, class _Tp, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_map<_Key, _Tp, _Hash, _Pred, _Alloc>& __x,
+	 unordered_map<_Key, _Tp, _Hash, _Pred, _Alloc>& __y)
+    { __x.swap(__y); }
+
+  template<class _Key, class _Tp, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_multimap<_Key, _Tp, _Hash, _Pred, _Alloc>& __x,
+	 unordered_multimap<_Key, _Tp, _Hash, _Pred, _Alloc>& __y)
+    { __x.swap(__y); }
+
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+  template<class _Key, class _Tp, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_map<_Key, _Tp, _Hash, _Pred, _Alloc>&& __x,
+	 unordered_map<_Key, _Tp, _Hash, _Pred, _Alloc>& __y)
+    { __x.swap(__y); }
+
+  template<class _Key, class _Tp, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_map<_Key, _Tp, _Hash, _Pred, _Alloc>& __x,
+	 unordered_map<_Key, _Tp, _Hash, _Pred, _Alloc>&& __y)
+    { __x.swap(__y); }
+
+  template<class _Key, class _Tp, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_multimap<_Key, _Tp, _Hash, _Pred, _Alloc>&& __x,
+	 unordered_multimap<_Key, _Tp, _Hash, _Pred, _Alloc>& __y)
+    { __x.swap(__y); }
+
+  template<class _Key, class _Tp, class _Hash, class _Pred, class _Alloc>
+    inline void
+    swap(unordered_multimap<_Key, _Tp, _Hash, _Pred, _Alloc>& __x,
+	 unordered_multimap<_Key, _Tp, _Hash, _Pred, _Alloc>&& __y)
+    { __x.swap(__y); }
+#endif
 
 _GLIBCXX_END_NAMESPACE_TR1
 }

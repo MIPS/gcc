@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2006, Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,41 +33,29 @@
 
 --  This is a NT (native) version of this package
 
---  This package contains all the GNULL primitives that interface directly
---  with the underlying OS.
+--  This package contains all the GNULL primitives that interface directly with
+--  the underlying OS.
 
 pragma Polling (Off);
---  Turn off polling, we do not want ATC polling to take place during
---  tasking operations. It causes infinite loops and other problems.
+--  Turn off polling, we do not want ATC polling to take place during tasking
+--  operations. It causes infinite loops and other problems.
 
-with System.Tasking.Debug;
---  used for Known_Tasks
-
-with System.OS_Primitives;
---  used for Delay_Modes
+with Ada.Unchecked_Deallocation;
 
 with Interfaces.C;
---  used for int
---           size_t
-
 with Interfaces.C.Strings;
---  used for Null_Ptr
 
+with System.Tasking.Debug;
+with System.OS_Primitives;
 with System.Task_Info;
---  used for Unspecified_Task_Info
-
 with System.Interrupt_Management;
---  used for Initialize
+with System.Win32.Ext;
 
 with System.Soft_Links;
---  used for Abort_Defer/Undefer
-
---  We use System.Soft_Links instead of System.Tasking.Initialization
---  because the later is a higher level package that we shouldn't depend on.
---  For example when using the restricted run time, it is replaced by
+--  We use System.Soft_Links instead of System.Tasking.Initialization because
+--  the later is a higher level package that we shouldn't depend on. For
+--  example when using the restricted run time, it is replaced by
 --  System.Tasking.Restricted.Stages.
-
-with Unchecked_Deallocation;
 
 package body System.Task_Primitives.Operations is
 
@@ -80,6 +68,9 @@ package body System.Task_Primitives.Operations is
    use System.OS_Interface;
    use System.Parameters;
    use System.OS_Primitives;
+   use System.Task_Info;
+   use System.Win32;
+   use System.Win32.Ext;
 
    pragma Link_With ("-Xlinker --stack=0x200000,0x1000");
    --  Change the default stack size (2 MB) for tasking programs on Windows.
@@ -87,6 +78,30 @@ package body System.Task_Primitives.Operations is
    --  we set the stack size for non tasking programs on System unit.
    --  Also note that under Windows XP, we use a Windows XP extension to
    --  specify the stack size on a per task basis, as done under other OSes.
+
+   ---------------------
+   -- Local Functions --
+   ---------------------
+
+   procedure InitializeCriticalSection (pCriticalSection : access RTS_Lock);
+   procedure InitializeCriticalSection
+     (pCriticalSection : access CRITICAL_SECTION);
+   pragma Import
+     (Stdcall, InitializeCriticalSection, "InitializeCriticalSection");
+
+   procedure EnterCriticalSection (pCriticalSection : access RTS_Lock);
+   procedure EnterCriticalSection
+     (pCriticalSection : access CRITICAL_SECTION);
+   pragma Import (Stdcall, EnterCriticalSection, "EnterCriticalSection");
+
+   procedure LeaveCriticalSection (pCriticalSection : access RTS_Lock);
+   procedure LeaveCriticalSection (pCriticalSection : access CRITICAL_SECTION);
+   pragma Import (Stdcall, LeaveCriticalSection, "LeaveCriticalSection");
+
+   procedure DeleteCriticalSection (pCriticalSection : access RTS_Lock);
+   procedure DeleteCriticalSection
+     (pCriticalSection : access CRITICAL_SECTION);
+   pragma Import (Stdcall, DeleteCriticalSection, "DeleteCriticalSection");
 
    ----------------
    -- Local Data --
@@ -112,6 +127,9 @@ package body System.Task_Primitives.Operations is
 
    Foreign_Task_Elaborated : aliased Boolean := True;
    --  Used to identified fake tasks (i.e., non-Ada Threads)
+
+   Annex_D : Boolean := False;
+   --  Set to True if running with Annex-D semantics
 
    ------------------------------------
    -- The thread local storage index --
@@ -149,7 +167,7 @@ package body System.Task_Primitives.Operations is
          Succeeded : BOOL;
       begin
          Succeeded := TlsSetValue (TlsIndex, To_Address (Self_Id));
-         pragma Assert (Succeeded = True);
+         pragma Assert (Succeeded = Win32.TRUE);
       end Set;
 
    end Specific;
@@ -200,9 +218,8 @@ package body System.Task_Primitives.Operations is
 
    procedure Initialize_Cond (Cond : not null access Condition_Variable) is
       hEvent : HANDLE;
-
    begin
-      hEvent := CreateEvent (null, True, False, Null_Ptr);
+      hEvent := CreateEvent (null, Win32.TRUE, Win32.FALSE, Null_Ptr);
       pragma Assert (hEvent /= 0);
       Cond.all := Condition_Variable (hEvent);
    end Initialize_Cond;
@@ -218,7 +235,7 @@ package body System.Task_Primitives.Operations is
       Result : BOOL;
    begin
       Result := CloseHandle (HANDLE (Cond.all));
-      pragma Assert (Result = True);
+      pragma Assert (Result = Win32.TRUE);
    end Finalize_Cond;
 
    -----------------
@@ -229,17 +246,17 @@ package body System.Task_Primitives.Operations is
       Result : BOOL;
    begin
       Result := SetEvent (HANDLE (Cond.all));
-      pragma Assert (Result = True);
+      pragma Assert (Result = Win32.TRUE);
    end Cond_Signal;
 
    ---------------
    -- Cond_Wait --
    ---------------
 
-   --  Pre-assertion: Cond is posted
+   --  Pre-condition: Cond is posted
    --                 L is locked.
 
-   --  Post-assertion: Cond is posted
+   --  Post-condition: Cond is posted
    --                  L is locked.
 
    procedure Cond_Wait
@@ -253,8 +270,8 @@ package body System.Task_Primitives.Operations is
       --  Must reset Cond BEFORE L is unlocked
 
       Result_Bool := ResetEvent (HANDLE (Cond.all));
-      pragma Assert (Result_Bool = True);
-      Unlock (L);
+      pragma Assert (Result_Bool = Win32.TRUE);
+      Unlock (L, Global_Lock => True);
 
       --  No problem if we are interrupted here: if the condition is signaled,
       --  WaitForSingleObject will simply not block
@@ -262,17 +279,17 @@ package body System.Task_Primitives.Operations is
       Result := WaitForSingleObject (HANDLE (Cond.all), Wait_Infinite);
       pragma Assert (Result = 0);
 
-      Write_Lock (L);
+      Write_Lock (L, Global_Lock => True);
    end Cond_Wait;
 
    ---------------------
    -- Cond_Timed_Wait --
    ---------------------
 
-   --  Pre-assertion: Cond is posted
+   --  Pre-condition: Cond is posted
    --                 L is locked.
 
-   --  Post-assertion: Cond is posted
+   --  Post-condition: Cond is posted
    --                  L is locked.
 
    procedure Cond_Timed_Wait
@@ -283,19 +300,18 @@ package body System.Task_Primitives.Operations is
       Status    : out Integer)
    is
       Time_Out_Max : constant DWORD := 16#FFFF0000#;
-      --  NT 4 cannot handle timeout values that are too large,
-      --  e.g. DWORD'Last - 1
+      --  NT 4 can't handle excessive timeout values (e.g. DWORD'Last - 1)
 
-      Time_Out     : DWORD;
-      Result       : BOOL;
-      Wait_Result  : DWORD;
+      Time_Out    : DWORD;
+      Result      : BOOL;
+      Wait_Result : DWORD;
 
    begin
       --  Must reset Cond BEFORE L is unlocked
 
       Result := ResetEvent (HANDLE (Cond.all));
-      pragma Assert (Result = True);
-      Unlock (L);
+      pragma Assert (Result = Win32.TRUE);
+      Unlock (L, Global_Lock => True);
 
       --  No problem if we are interrupted here: if the condition is signaled,
       --  WaitForSingleObject will simply not block
@@ -321,13 +337,13 @@ package body System.Task_Primitives.Operations is
          end if;
       end if;
 
-      Write_Lock (L);
+      Write_Lock (L, Global_Lock => True);
 
       --  Ensure post-condition
 
       if Timed_Out then
          Result := SetEvent (HANDLE (Cond.all));
-         pragma Assert (Result = True);
+         pragma Assert (Result = Win32.TRUE);
       end if;
 
       Status := Integer (Wait_Result);
@@ -337,14 +353,12 @@ package body System.Task_Primitives.Operations is
    -- Stack_Guard  --
    ------------------
 
-   --  The underlying thread system sets a guard page at the
-   --  bottom of a thread stack, so nothing is needed.
+   --  The underlying thread system sets a guard page at the bottom of a thread
+   --  stack, so nothing is needed.
    --  ??? Check the comment above
 
    procedure Stack_Guard (T : ST.Task_Id; On : Boolean) is
-      pragma Warnings (Off, T);
-      pragma Warnings (Off, On);
-
+      pragma Unreferenced (T, On);
    begin
       null;
    end Stack_Guard;
@@ -376,12 +390,11 @@ package body System.Task_Primitives.Operations is
    -- Initialize_Lock --
    ---------------------
 
-   --  Note: mutexes and cond_variables needed per-task basis are
-   --  initialized in Intialize_TCB and the Storage_Error is handled.
-   --  Other mutexes (such as RTS_Lock, Memory_Lock...) used in
-   --  the RTS is initialized before any status change of RTS.
-   --  Therefore raising Storage_Error in the following routines
-   --  should be able to be handled safely.
+   --  Note: mutexes and cond_variables needed per-task basis are initialized
+   --  in Initialize_TCB and the Storage_Error is handled. Other mutexes (such
+   --  as RTS_Lock, Memory_Lock...) used in the RTS is initialized before any
+   --  status change of RTS. Therefore raising Storage_Error in the following
+   --  routines should be able to be handled safely.
 
    procedure Initialize_Lock
      (Prio : System.Any_Priority;
@@ -398,7 +411,7 @@ package body System.Task_Primitives.Operations is
    is
       pragma Unreferenced (Level);
    begin
-      InitializeCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
+      InitializeCriticalSection (L);
    end Initialize_Lock;
 
    -------------------
@@ -412,7 +425,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Finalize_Lock (L : not null access RTS_Lock) is
    begin
-      DeleteCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
+      DeleteCriticalSection (L);
    end Finalize_Lock;
 
    ----------------
@@ -440,15 +453,14 @@ package body System.Task_Primitives.Operations is
    is
    begin
       if not Single_Lock or else Global_Lock then
-         EnterCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
+         EnterCriticalSection (L);
       end if;
    end Write_Lock;
 
    procedure Write_Lock (T : Task_Id) is
    begin
       if not Single_Lock then
-         EnterCriticalSection
-           (CRITICAL_SECTION (T.Common.LL.L)'Unrestricted_Access);
+         EnterCriticalSection (T.Common.LL.L'Access);
       end if;
    end Write_Lock;
 
@@ -475,17 +487,31 @@ package body System.Task_Primitives.Operations is
      (L : not null access RTS_Lock; Global_Lock : Boolean := False) is
    begin
       if not Single_Lock or else Global_Lock then
-         LeaveCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
+         LeaveCriticalSection (L);
       end if;
    end Unlock;
 
    procedure Unlock (T : Task_Id) is
    begin
       if not Single_Lock then
-         LeaveCriticalSection
-           (CRITICAL_SECTION (T.Common.LL.L)'Unrestricted_Access);
+         LeaveCriticalSection (T.Common.LL.L'Access);
       end if;
    end Unlock;
+
+   -----------------
+   -- Set_Ceiling --
+   -----------------
+
+   --  Dynamic priority ceilings are not supported by the underlying system
+
+   procedure Set_Ceiling
+     (L    : not null access Lock;
+      Prio : System.Any_Priority)
+   is
+      pragma Unreferenced (L, Prio);
+   begin
+      null;
+   end Set_Ceiling;
 
    -----------
    -- Sleep --
@@ -518,9 +544,8 @@ package body System.Task_Primitives.Operations is
    -- Timed_Sleep --
    -----------------
 
-   --  This is for use within the run-time system, so abort is
-   --  assumed to be already deferred, and the caller should be
-   --  holding its own ATCB lock.
+   --  This is for use within the run-time system, so abort is assumed to be
+   --  already deferred, and the caller should be holding its own ATCB lock.
 
    procedure Timed_Sleep
      (Self_ID  : Task_Id;
@@ -534,7 +559,9 @@ package body System.Task_Primitives.Operations is
       Check_Time : Duration := Monotonic_Clock;
       Rel_Time   : Duration;
       Abs_Time   : Duration;
-      Result     : Integer;
+
+      Result : Integer;
+      pragma Unreferenced (Result);
 
       Local_Timedout : Boolean;
 
@@ -552,15 +579,18 @@ package body System.Task_Primitives.Operations is
 
       if Rel_Time > 0.0 then
          loop
-            exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level
-              or else Self_ID.Pending_Priority_Change;
+            exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level;
 
             if Single_Lock then
-               Cond_Timed_Wait (Self_ID.Common.LL.CV'Access,
-                 Single_RTS_Lock'Access, Rel_Time, Local_Timedout, Result);
+               Cond_Timed_Wait
+                 (Self_ID.Common.LL.CV'Access,
+                  Single_RTS_Lock'Access,
+                  Rel_Time, Local_Timedout, Result);
             else
-               Cond_Timed_Wait (Self_ID.Common.LL.CV'Access,
-                 Self_ID.Common.LL.L'Access, Rel_Time, Local_Timedout, Result);
+               Cond_Timed_Wait
+                 (Self_ID.Common.LL.CV'Access,
+                  Self_ID.Common.LL.L'Access,
+                  Rel_Time, Local_Timedout, Result);
             end if;
 
             Check_Time := Monotonic_Clock;
@@ -591,10 +621,10 @@ package body System.Task_Primitives.Operations is
       Check_Time : Duration := Monotonic_Clock;
       Rel_Time   : Duration;
       Abs_Time   : Duration;
-      Timedout   : Boolean;
 
-      Result : Integer;
-      pragma Warnings (Off, Integer);
+      Timedout : Boolean;
+      Result   : Integer;
+      pragma Unreferenced (Timedout, Result);
 
    begin
       if Single_Lock then
@@ -615,22 +645,18 @@ package body System.Task_Primitives.Operations is
          Self_ID.Common.State := Delay_Sleep;
 
          loop
-            if Self_ID.Pending_Priority_Change then
-               Self_ID.Pending_Priority_Change := False;
-               Self_ID.Common.Base_Priority := Self_ID.New_Base_Priority;
-               Set_Priority (Self_ID, Self_ID.Common.Base_Priority);
-            end if;
-
             exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level;
 
             if Single_Lock then
-               Cond_Timed_Wait (Self_ID.Common.LL.CV'Access,
-                                Single_RTS_Lock'Access,
-                                Rel_Time, Timedout, Result);
+               Cond_Timed_Wait
+                 (Self_ID.Common.LL.CV'Access,
+                  Single_RTS_Lock'Access,
+                  Rel_Time, Timedout, Result);
             else
-               Cond_Timed_Wait (Self_ID.Common.LL.CV'Access,
-                                Self_ID.Common.LL.L'Access,
-                                Rel_Time, Timedout, Result);
+               Cond_Timed_Wait
+                 (Self_ID.Common.LL.CV'Access,
+                  Self_ID.Common.LL.L'Access,
+                  Rel_Time, Timedout, Result);
             end if;
 
             Check_Time := Monotonic_Clock;
@@ -668,7 +694,17 @@ package body System.Task_Primitives.Operations is
    procedure Yield (Do_Yield : Boolean := True) is
    begin
       if Do_Yield then
-         Sleep (0);
+         SwitchToThread;
+
+      elsif Annex_D then
+         --  If running with Annex-D semantics we need a delay
+         --  above 0 milliseconds here otherwise processes give
+         --  enough time to the other tasks to have a chance to
+         --  run.
+         --
+         --  This makes cxd8002 ACATS pass on Windows.
+
+         Sleep (1);
       end if;
    end Yield;
 
@@ -697,7 +733,7 @@ package body System.Task_Primitives.Operations is
    begin
       Res := SetThreadPriority
         (T.Common.LL.Thread, Interfaces.C.int (Underlying_Priorities (Prio)));
-      pragma Assert (Res = True);
+      pragma Assert (Res = Win32.TRUE);
 
       if Dispatching_Policy = 'F' or else Get_Policy (Prio) = 'F' then
 
@@ -748,11 +784,11 @@ package body System.Task_Primitives.Operations is
    --  1) from System.Task_Primitives.Operations.Initialize
    --  2) from System.Tasking.Stages.Task_Wrapper
 
-   --  The thread initialisation has to be done only for the first case.
+   --  The thread initialisation has to be done only for the first case
 
    --  This is because the GetCurrentThread NT call does not return the real
    --  thread handler but only a "pseudo" one. It is not possible to release
-   --  the thread handle and free the system ressources from this "pseudo"
+   --  the thread handle and free the system resources from this "pseudo"
    --  handle. So we really want to keep the real thread handle set in
    --  System.Task_Primitives.Operations.Create_Task during thread creation.
 
@@ -764,6 +800,13 @@ package body System.Task_Primitives.Operations is
    begin
       Specific.Set (Self_ID);
       Init_Float;
+
+      if Self_ID.Common.Task_Info /= null
+        and then
+          Self_ID.Common.Task_Info.CPU >= CPU_Number (Number_Of_Processors)
+      then
+         raise Invalid_CPU_Number;
+      end if;
 
       Self_ID.Common.LL.Thread_Id := GetCurrentThreadId;
 
@@ -851,7 +894,7 @@ package body System.Task_Primitives.Operations is
 
       hTask          : HANDLE;
       TaskId         : aliased DWORD;
-      pTaskParameter : System.OS_Interface.PVOID;
+      pTaskParameter : Win32.PVOID;
       Result         : DWORD;
       Entry_Point    : PTHREAD_START_ROUTINE;
 
@@ -882,7 +925,8 @@ package body System.Task_Primitives.Operations is
       --  Step 1: Create the thread in blocked mode
 
       if hTask = 0 then
-         raise Storage_Error;
+         Succeeded := False;
+         return;
       end if;
 
       --  Step 2: set its TCB
@@ -901,10 +945,19 @@ package body System.Task_Primitives.Operations is
          --  boost. A priority boost is temporarily given by the system to a
          --  thread when it is taken out of a wait state.
 
-         SetThreadPriorityBoost (hTask, DisablePriorityBoost => True);
+         SetThreadPriorityBoost (hTask, DisablePriorityBoost => Win32.TRUE);
       end if;
 
-      --  Step 4: Now, start it for good:
+      --  Step 4: Handle Task_Info
+
+      if T.Common.Task_Info /= null then
+         if T.Common.Task_Info.CPU /= Task_Info.Any_CPU then
+            Result := SetThreadIdealProcessor (hTask, T.Common.Task_Info.CPU);
+            pragma Assert (Result = 1);
+         end if;
+      end if;
+
+      --  Step 5: Now, start it for good:
 
       Result := ResumeThread (hTask);
       pragma Assert (Result = 1);
@@ -923,7 +976,7 @@ package body System.Task_Primitives.Operations is
       Is_Self   : constant Boolean := T = Self;
 
       procedure Free is new
-        Unchecked_Deallocation (Ada_Task_Control_Block, Task_Id);
+        Ada.Unchecked_Deallocation (Ada_Task_Control_Block, Task_Id);
 
    begin
       if not Single_Lock then
@@ -939,12 +992,12 @@ package body System.Task_Primitives.Operations is
       if Self_ID.Common.LL.Thread /= 0 then
 
          --  This task has been activated. Wait for the thread to terminate
-         --  then close it. this is needed to release system ressources.
+         --  then close it. This is needed to release system resources.
 
          Result := WaitForSingleObject (T.Common.LL.Thread, Wait_Infinite);
          pragma Assert (Result /= WAIT_FAILED);
          Succeeded := CloseHandle (T.Common.LL.Thread);
-         pragma Assert (Succeeded = True);
+         pragma Assert (Succeeded = Win32.TRUE);
       end if;
 
       Free (Self_ID);
@@ -1014,19 +1067,13 @@ package body System.Task_Primitives.Operations is
       Interrupt_Management.Initialize;
 
       if Time_Slice_Val = 0 or else Dispatching_Policy = 'F' then
-
          --  Here we need Annex D semantics, switch the current process to the
-         --  High_Priority_Class.
+         --  Realtime_Priority_Class.
 
-         Discard :=
-           OS_Interface.SetPriorityClass
-             (GetCurrentProcess, High_Priority_Class);
+         Discard := OS_Interface.SetPriorityClass
+                      (GetCurrentProcess, Realtime_Priority_Class);
 
-         --  ??? In theory it should be possible to use the priority class
-         --  Realtime_Priority_Class but we suspect a bug in the NT scheduler
-         --  which prevents (in some obscure cases) a thread to get on top of
-         --  the running queue by another thread of lower priority. For
-         --  example cxd8002 ACATS test freeze.
+         Annex_D := True;
       end if;
 
       TlsIndex := TlsAlloc;
@@ -1073,7 +1120,7 @@ package body System.Task_Primitives.Operations is
 
       --  Initialize internal condition variable
 
-      S.CV := CreateEvent (null, True, False, Null_Ptr);
+      S.CV := CreateEvent (null, Win32.TRUE, Win32.FALSE, Null_Ptr);
       pragma Assert (S.CV /= 0);
    end Initialize;
 
@@ -1091,7 +1138,7 @@ package body System.Task_Primitives.Operations is
       --  Destroy internal condition variable
 
       Result := CloseHandle (S.CV);
-      pragma Assert (Result = True);
+      pragma Assert (Result = Win32.TRUE);
    end Finalize;
 
    -------------------
@@ -1144,7 +1191,7 @@ package body System.Task_Primitives.Operations is
          S.State := False;
 
          Result := SetEvent (S.CV);
-         pragma Assert (Result = True);
+         pragma Assert (Result = Win32.TRUE);
       else
          S.State := True;
       end if;
@@ -1193,7 +1240,7 @@ package body System.Task_Primitives.Operations is
             --  Must reset CV BEFORE L is unlocked
 
             Result_Bool := ResetEvent (S.CV);
-            pragma Assert (Result_Bool = True);
+            pragma Assert (Result_Bool = Win32.TRUE);
 
             LeaveCriticalSection (S.L'Access);
 
@@ -1259,5 +1306,34 @@ package body System.Task_Primitives.Operations is
          return True;
       end if;
    end Resume_Task;
+
+   --------------------
+   -- Stop_All_Tasks --
+   --------------------
+
+   procedure Stop_All_Tasks is
+   begin
+      null;
+   end Stop_All_Tasks;
+
+   ---------------
+   -- Stop_Task --
+   ---------------
+
+   function Stop_Task (T : ST.Task_Id) return Boolean is
+      pragma Unreferenced (T);
+   begin
+      return False;
+   end Stop_Task;
+
+   -------------------
+   -- Continue_Task --
+   -------------------
+
+   function Continue_Task (T : ST.Task_Id) return Boolean is
+      pragma Unreferenced (T);
+   begin
+      return False;
+   end Continue_Task;
 
 end System.Task_Primitives.Operations;

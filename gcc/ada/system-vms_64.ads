@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                (OpenVMS 64bit GCC_ZCX DEC Threads Version)               --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -51,7 +51,7 @@ package System is
    Max_Int               : constant := Long_Long_Integer'Last;
 
    Max_Binary_Modulus    : constant := 2 ** Long_Long_Integer'Size;
-   Max_Nonbinary_Modulus : constant := Integer'Last;
+   Max_Nonbinary_Modulus : constant := 2 ** Integer'Size - 1;
 
    Max_Base_Digits       : constant := Long_Long_Float'Digits;
    Max_Digits            : constant := Long_Long_Float'Digits;
@@ -71,8 +71,7 @@ package System is
    --  literals with this type (use To_Address to convert integer literals).
    --
    --  Conversion to and from Short_Address is however freely permitted, and
-   --  is indeed the reason that Address is declared as an integer type. See
-   --
+   --  is indeed the reason that Address is declared as an integer type.
 
    Storage_Unit : constant := 8;
    Word_Size    : constant := 64;
@@ -135,11 +134,9 @@ private
    --  whose source should be consulted for more detailed descriptions
    --  of the individual switch values.
 
-   AAMP                      : constant Boolean := False;
    Backend_Divide_Checks     : constant Boolean := False;
    Backend_Overflow_Checks   : constant Boolean := False;
    Command_Line_Args         : constant Boolean := True;
-   Compiler_System_Version   : constant Boolean := False;
    Configurable_Run_Time     : constant Boolean := False;
    Denorm                    : constant Boolean := False;
    Duration_32_Bits          : constant Boolean := False;
@@ -153,21 +150,17 @@ private
    Signed_Zeros              : constant Boolean := True;
    Stack_Check_Default       : constant Boolean := True;
    Stack_Check_Probes        : constant Boolean := True;
+   Stack_Check_Limits        : constant Boolean := False;
    Support_64_Bit_Divides    : constant Boolean := True;
    Support_Aggregates        : constant Boolean := True;
    Support_Composite_Assign  : constant Boolean := True;
    Support_Composite_Compare : constant Boolean := True;
    Support_Long_Shifts       : constant Boolean := True;
+   Always_Compatible_Rep     : constant Boolean := True;
    Suppress_Standard_Library : constant Boolean := False;
    Use_Ada_Main_Program_Name : constant Boolean := False;
    ZCX_By_Default            : constant Boolean := True;
    GCC_ZCX_Support           : constant Boolean := True;
-   Front_End_ZCX_Support     : constant Boolean := False;
-
-   --  Obsolete entries, to be removed eventually (bootstrap issues!)
-
-   High_Integrity_Mode       : constant Boolean := False;
-   Long_Shifts_Inlined       : constant Boolean := False;
 
    --------------------------
    -- Underlying Priorities --
@@ -257,7 +250,7 @@ private
 
    ADA_GNAT : constant Boolean := True;
    pragma Export_Object (ADA_GNAT, "ADA$GNAT");
-   --  Uniquitous global symbol identifing a GNAT compiled image to VMS Debug.
+   --  Ubiquitous global symbol identifying a GNAT compiled image to VMS Debug.
    --  Do not remove!
 
 end System;

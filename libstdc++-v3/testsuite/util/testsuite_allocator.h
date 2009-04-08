@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Testing allocator for the C++ library testsuite.
 //
-// Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -39,12 +39,13 @@
 #include <cstddef>
 #include <tr1/unordered_map>
 #include <cassert>
+#include <bits/move.h>
 
 namespace 
 {
   bool new_called = false;
   bool delete_called = false;
-};
+}
 
 namespace __gnu_test
 {
@@ -153,9 +154,19 @@ namespace __gnu_test
     void
     construct(pointer p, const T& value)
     {
-      new (p) T(value);
+      ::new ((void *)p) T(value);
       counter_type::construct();
     }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename... Args>
+        void
+        construct(pointer p, Args&&... args) 
+	{
+	  ::new((void *)p) T(std::forward<Args>(args)...);
+	  counter_type::construct();
+	}
+#endif
 
     void
     destroy(pointer p)
@@ -338,8 +349,15 @@ namespace __gnu_test
       
       void 
       construct(pointer p, const Tp& val) 
-      { ::new(p) Tp(val); }
-    
+      { ::new((void *)p) Tp(val); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename... Args>
+        void
+        construct(pointer p, Args&&... args) 
+	{ ::new((void *)p) Tp(std::forward<Args>(args)...); }
+#endif
+
       void 
       destroy(pointer p) { p->~Tp(); }
 
@@ -365,6 +383,6 @@ namespace __gnu_test
       
       int personality;
     };
-}; // namespace __gnu_test
+} // namespace __gnu_test
 
 #endif // _GLIBCXX_TESTSUITE_ALLOCATOR_H

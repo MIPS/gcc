@@ -1,11 +1,11 @@
 ;; Constraint definitions for IA-32 and x86-64.
-;; Copyright (C) 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -14,12 +14,11 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;;; Unused letters:
-;;;     B     H           TU W   
+;;;     B     H           TU W
 ;;;           h jk          vw  z
 
 ;; Integer register constraints.
@@ -84,9 +83,13 @@
  "Any SSE register.")
 
 ;; We use the Y prefix to denote any number of conditional register sets:
+;;  z	First SSE register.
 ;;  2	SSE2 enabled
 ;;  i	SSE2 inter-unit moves enabled
 ;;  m	MMX inter-unit moves enabled
+
+(define_register_constraint "Yz" "TARGET_SSE ? SSE_FIRST_REG : NO_REGS"
+ "First SSE register (@code{%xmm0}).")
 
 (define_register_constraint "Y2" "TARGET_SSE2 ? SSE_REGS : NO_REGS"
  "@internal Any SSE register, when SSE2 is enabled.")
@@ -126,7 +129,7 @@
        (match_test "IN_RANGE (ival, 0, 3)")))
 
 (define_constraint "N"
-  "Unsigned 8-bit integer constant (for @code{in} and @code{out} 
+  "Unsigned 8-bit integer constant (for @code{in} and @code{out}
    instructions)."
   (and (match_code "const_int")
        (match_test "IN_RANGE (ival, 0, 255)")))

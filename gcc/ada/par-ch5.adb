@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -204,13 +203,12 @@ package body Ch5 is
       Statement_Required := SS_Flags.Sreq;
 
       loop
-         while Token = Tok_Semicolon loop
-            Error_Msg_SC ("unexpected semicolon ignored");
-            Scan; -- past junk semicolon
-         end loop;
+         Ignore (Tok_Semicolon);
 
          begin
-            if Style_Check then Style.Check_Indentation; end if;
+            if Style_Check then
+               Style.Check_Indentation;
+            end if;
 
             --  Deal with reserved identifier (in assignment or call)
 
@@ -564,10 +562,7 @@ package body Ch5 is
 
                      --  Skip junk right parens in this context
 
-                     while Token = Tok_Right_Paren loop
-                        Error_Msg_SC ("extra right paren");
-                        Scan; -- past )
-                     end loop;
+                     Ignore (Tok_Right_Paren);
 
                      --  Check context following call
 
@@ -602,8 +597,8 @@ package body Ch5 is
                         Statement_Required := False;
 
                      --  A slash following an identifier or a selected
-                     --  component in this situation is most likely a
-                     --  period (have a look at the keyboard :-)
+                     --  component in this situation is most likely a period
+                     --  (see location of keys on keyboard).
 
                      elsif Token = Tok_Slash
                        and then (Nkind (Name_Node) = N_Identifier
@@ -989,7 +984,7 @@ package body Ch5 is
 
    --  LABEL ::= <<label_STATEMENT_IDENTIFIER>>
 
-   --  STATEMENT_INDENTIFIER ::= DIRECT_NAME
+   --  STATEMENT_IDENTIFIER ::= DIRECT_NAME
 
    --  The IDENTIFIER of a STATEMENT_IDENTIFIER shall be an identifier
    --  (not an OPERATOR_SYMBOL)
@@ -1072,7 +1067,7 @@ package body Ch5 is
       --  scanned out and is in Prev_Token.
 
       procedure Check_If_Column;
-      --  An internal procedure used to check that THEN, ELSE ELSE, or ELSIF
+      --  An internal procedure used to check that THEN, ELSE, or ELSIF
       --  appear in the right place if column checking is enabled (i.e. if
       --  they are the first token on the line, then they must appear in
       --  the same column as the opening IF).
@@ -1121,7 +1116,10 @@ package body Ch5 is
       begin
          if Token_Is_At_Start_Of_Line and then Token = Tok_Then then
             Check_If_Column;
-            if Style_Check then Style.Check_Then (Loc); end if;
+
+            if Style_Check then
+               Style.Check_Then (Loc);
+            end if;
          end if;
       end Check_Then_Column;
 
@@ -1397,7 +1395,10 @@ package body Ch5 is
       Case_Alt_Node : Node_Id;
 
    begin
-      if Style_Check then Style.Check_Indentation; end if;
+      if Style_Check then
+         Style.Check_Indentation;
+      end if;
+
       Case_Alt_Node := New_Node (N_Case_Statement_Alternative, Token_Ptr);
       T_When; -- past WHEN (or give error in OTHERS case)
       Set_Discrete_Choices (Case_Alt_Node, P_Discrete_Choice_List);
@@ -2069,7 +2070,9 @@ package body Ch5 is
          Set_Declarations (Parent, Decls);
 
          if Token = Tok_Begin then
-            if Style_Check then Style.Check_Indentation; end if;
+            if Style_Check then
+               Style.Check_Indentation;
+            end if;
 
             Error_Msg_Col := Scope.Table (Scope.Last).Ecol;
 
@@ -2191,7 +2194,7 @@ package body Ch5 is
       --  What we are interested in is whether it was a case of a bad IS.
 
       if Scope.Table (Scope.Last + 1).Etyp = E_Bad_Is then
-         Error_Msg ("IS should be "";""", Scope.Table (Scope.Last + 1).S_Is);
+         Error_Msg ("|IS should be "";""", Scope.Table (Scope.Last + 1).S_Is);
          Set_Bad_Is_Detected (Parent, True);
       end if;
 
@@ -2226,7 +2229,7 @@ package body Ch5 is
 
       if Token = Tok_And or else Token = Tok_Or then
          Error_Msg_SC ("unexpected logical operator");
-         Scan;
+         Scan; -- past logical operator
 
          if (Prev_Token = Tok_And and then Token = Tok_Then)
               or else

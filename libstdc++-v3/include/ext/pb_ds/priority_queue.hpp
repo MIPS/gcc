@@ -51,7 +51,7 @@
 #include <ext/pb_ds/detail/priority_queue_base_dispatch.hpp>
 #include <ext/pb_ds/detail/standard_policies.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   // A priority queue.
   template<typename Value_Type, 
@@ -59,7 +59,7 @@ namespace pb_ds
 	   typename Tag = pairing_heap_tag,
 	   typename Allocator = std::allocator<char> >
   class priority_queue 
-    : public detail::priority_queue_base_dispatch<Value_Type,Cmp_Fn,Tag,Allocator>::type
+  : public detail::priority_queue_base_dispatch<Value_Type,Cmp_Fn,Tag,Allocator>::type
   {
   private:
     typedef typename detail::priority_queue_base_dispatch<Value_Type,Cmp_Fn,Tag,Allocator>::type base_type;
@@ -68,11 +68,11 @@ namespace pb_ds
     typedef Value_Type 					value_type;
     typedef Cmp_Fn 					cmp_fn;
     typedef Tag 					container_category;
-    typedef Allocator 					allocator;
-    typedef typename allocator::size_type 		size_type;
-    typedef typename allocator::difference_type 	difference_type;
+    typedef Allocator 					allocator_type;
+    typedef typename allocator_type::size_type 		size_type;
+    typedef typename allocator_type::difference_type 	difference_type;
 
-    typedef typename allocator::template rebind<value_type>::other value_rebind;
+    typedef typename allocator_type::template rebind<value_type>::other value_rebind;
     typedef typename value_rebind::reference 		reference;
     typedef typename value_rebind::const_reference 	const_reference;
     typedef typename value_rebind::pointer 	   	pointer;
@@ -114,7 +114,7 @@ namespace pb_ds
     priority_queue& 
     operator=(const priority_queue& other)
     {
-      if (this !=& other)
+      if (this != &other)
 	{
 	  priority_queue tmp(other);
 	  swap(tmp);
@@ -126,6 +126,6 @@ namespace pb_ds
     swap(priority_queue& other)
     { base_type::swap(other); }
   };
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif 

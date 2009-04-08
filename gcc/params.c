@@ -1,12 +1,13 @@
 /* params.c - Run-time parameters.
-   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,11 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.
-
-*/
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -43,8 +41,8 @@ void
 add_params (const param_info params[], size_t n)
 {
   /* Allocate enough space for the new parameters.  */
-  compiler_params = xrealloc (compiler_params,
-			      (num_compiler_params + n) * sizeof (param_info));
+  compiler_params = XRESIZEVEC (param_info, compiler_params,
+				num_compiler_params + n);
   /* Copy them into the table.  */
   memcpy (compiler_params + num_compiler_params,
 	  params,

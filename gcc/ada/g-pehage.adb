@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2002-2006, AdaCore                     --
+--                     Copyright (C) 2002-2008, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,10 +31,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Exceptions;    use Ada.Exceptions;
 with Ada.IO_Exceptions; use Ada.IO_Exceptions;
 
-with GNAT.Heap_Sort_A; use GNAT.Heap_Sort_A;
+with GNAT.Heap_Sort_G;
 with GNAT.OS_Lib;      use GNAT.OS_Lib;
 with GNAT.Table;
 
@@ -50,10 +49,10 @@ package body GNAT.Perfect_Hash_Generators is
 
    --             h (w) = (g (f1 (w)) + g (f2 (w))) mod m
 
-   --  where f1 and f2 are functions that map strings into integers, and g is a
-   --  function that maps integers into [0, m-1]. h can be order preserving.
-   --  For instance, let W = {w_0, ..., w_i, ...,
-   --  w_m-1}, h can be defined such that h (w_i) = i.
+   --  where f1 and f2 are functions that map strings into integers, and g is
+   --  a function that maps integers into [0, m-1]. h can be order preserving.
+   --  For instance, let W = {w_0, ..., w_i, ..., w_m-1}, h can be defined
+   --  such that h (w_i) = i.
 
    --  This algorithm defines two possible constructions of f1 and f2. Method
    --  b) stores the hash function in less memory space at the expense of
@@ -75,7 +74,7 @@ package body GNAT.Perfect_Hash_Generators is
 
    --  Random graphs are frequently used to solve difficult problems that do
    --  not have polynomial solutions. This algorithm is based on a weighted
-   --  undirected graph. It comprises two steps: mapping and assigment.
+   --  undirected graph. It comprises two steps: mapping and assignment.
 
    --  In the mapping step, a graph G = (V, E) is constructed, where = {0, 1,
    --  ..., n-1} and E = {(for w in W) (f1 (w), f2 (w))}. In order for the
@@ -83,10 +82,10 @@ package body GNAT.Perfect_Hash_Generators is
    --  probability of generating an acyclic graph, n >= 2m. If it is not
    --  acyclic, Tk have to be regenerated.
 
-   --  In the assignment step, the algorithm builds function g. As is acyclic,
-   --  there is a vertex v1 with only one neighbor v2. Let w_i be the word such
-   --  that v1 = f1 (w_i) and v2 = f2 (w_i). Let g (v1) = 0 by construction and
-   --  g (v2) = (i - g (v1)) mod n (or to be general, (h (i) - g (v1) mod n).
+   --  In the assignment step, the algorithm builds function g. As G is
+   --  acyclic, there is a vertex v1 with only one neighbor v2. Let w_i be
+   --  the word such that v1 = f1 (w_i) and v2 = f2 (w_i). Let g (v1) = 0 by
+   --  construction and g (v2) = (i - g (v1)) mod n (or h (i) - g (v1) mod n).
    --  If word w_j is such that v2 = f1 (w_j) and v3 = f2 (w_j), g (v3) = (j -
    --  g (v2)) mod (or to be general, (h (j) - g (v2)) mod n). If w_i has no
    --  neighbor, then another vertex is selected. The algorithm traverses G to
@@ -103,11 +102,12 @@ package body GNAT.Perfect_Hash_Generators is
    No_Edge   : constant Edge_Id   := -1;
    No_Table  : constant Table_Id  := -1;
 
-   Max_Word_Length : constant := 32;
-   subtype Word_Type is String (1 .. Max_Word_Length);
-   Null_Word : constant Word_Type := (others => ASCII.NUL);
-   --  Store keyword in a word. Note that the length of word is limited to 32
-   --  characters.
+   type Word_Type is new String_Access;
+   procedure Free_Word (W : in out Word_Type);
+   function New_Word (S : String) return Word_Type;
+
+   procedure Resize_Word (W : in out Word_Type; Len : Natural);
+   --  Resize string W to have a length Len
 
    type Key_Type is record
       Edge : Edge_Id;
@@ -131,8 +131,12 @@ package body GNAT.Perfect_Hash_Generators is
 
    package WT is new GNAT.Table (Word_Type, Word_Id, 0, 32, 32);
    package IT is new GNAT.Table (Integer, Integer, 0, 32, 32);
-   --  The two main tables. IT is used to store several tables of components
-   --  containing only integers.
+   --  The two main tables. WT is used to store the words in their initial
+   --  version and in their reduced version (that is words reduced to their
+   --  significant characters). As an instance of GNAT.Table, WT does not
+   --  initialize string pointers to null. This initialization has to be done
+   --  manually when the table is allocated. IT is used to store several
+   --  tables of components containing only integers.
 
    function Image (Int : Integer; W : Natural := 0) return String;
    function Image (Str : String;  W : Natural := 0) return String;
@@ -172,18 +176,13 @@ package body GNAT.Perfect_Hash_Generators is
    --  writes it into file F. When the array is completed, the routine adds
    --  semi-colon and writes the line into file F.
 
-   procedure New_Line
-     (File : File_Descriptor);
+   procedure New_Line (File : File_Descriptor);
    --  Simulate Ada.Text_IO.New_Line with GNAT.OS_Lib
 
-   procedure Put
-     (File : File_Descriptor;
-      Str  : String);
+   procedure Put (File : File_Descriptor; Str : String);
    --  Simulate Ada.Text_IO.Put with GNAT.OS_Lib
 
-   procedure Put_Used_Char_Set
-     (File  : File_Descriptor;
-      Title : String);
+   procedure Put_Used_Char_Set (File : File_Descriptor; Title : String);
    --  Output a title and a used character set
 
    procedure Put_Int_Vector
@@ -202,24 +201,16 @@ package body GNAT.Perfect_Hash_Generators is
    --  Output a title and a matrix. When the matrix has only one non-empty
    --  dimension (Len_2 = 0), output a vector.
 
-   procedure Put_Edges
-     (File  : File_Descriptor;
-      Title : String);
+   procedure Put_Edges (File : File_Descriptor; Title : String);
    --  Output a title and an edge table
 
-   procedure Put_Initial_Keys
-     (File  : File_Descriptor;
-      Title : String);
+   procedure Put_Initial_Keys (File : File_Descriptor; Title : String);
    --  Output a title and a key table
 
-   procedure Put_Reduced_Keys
-     (File  : File_Descriptor;
-      Title : String);
+   procedure Put_Reduced_Keys (File : File_Descriptor; Title : String);
    --  Output a title and a key table
 
-   procedure Put_Vertex_Table
-     (File  : File_Descriptor;
-      Title : String);
+   procedure Put_Vertex_Table (File : File_Descriptor; Title : String);
    --  Output a title and a vertex table
 
    ----------------------------------
@@ -311,9 +302,6 @@ package body GNAT.Perfect_Hash_Generators is
 
    function Allocate (N : Natural; S : Natural := 1) return Table_Id;
    --  Allocate N * S ints from IT table
-
-   procedure Free_Tmp_Tables;
-   --  Deallocate the tables used by the algorithm (but not the keys table)
 
    ----------
    -- Keys --
@@ -422,7 +410,7 @@ package body GNAT.Perfect_Hash_Generators is
    --  Optimization mode (memory vs CPU)
 
    Max_Key_Len : Natural := 0;
-   Min_Key_Len : Natural := Max_Word_Length;
+   Min_Key_Len : Natural := 0;
    --  Maximum and minimum of all the word length
 
    S : Natural;
@@ -438,9 +426,7 @@ package body GNAT.Perfect_Hash_Generators is
    function Acyclic return Boolean is
       Marks : array (0 .. NV - 1) of Vertex_Id := (others => No_Vertex);
 
-      function Traverse
-        (Edge : Edge_Id;
-         Mark : Vertex_Id) return Boolean;
+      function Traverse (Edge : Edge_Id; Mark : Vertex_Id) return Boolean;
       --  Propagate Mark from X to Y. X is already marked. Mark Y and propagate
       --  it to the edges of Y except the one representing the same key. Return
       --  False when Y is marked with Mark.
@@ -449,10 +435,7 @@ package body GNAT.Perfect_Hash_Generators is
       -- Traverse --
       --------------
 
-      function Traverse
-        (Edge : Edge_Id;
-         Mark : Vertex_Id) return Boolean
-      is
+      function Traverse (Edge : Edge_Id; Mark : Vertex_Id) return Boolean is
          E : constant Edge_Type := Get_Edges (Edge);
          K : constant Key_Id    := E.Key;
          Y : constant Vertex_Id := E.Y;
@@ -549,26 +532,27 @@ package body GNAT.Perfect_Hash_Generators is
 
    procedure Apply_Position_Selection is
    begin
-      WT.Set_Last (2 * NK);
       for J in 0 .. NK - 1 loop
          declare
-            I_Word : constant Word_Type := WT.Table (Initial (J));
-            R_Word : Word_Type := Null_Word;
-            Index  : Natural   := I_Word'First - 1;
+            IW : constant String := WT.Table (Initial (J)).all;
+            RW : String (1 .. IW'Length) := (others => ASCII.NUL);
+            N  : Natural := IW'First - 1;
 
          begin
             --  Select the characters of Word included in the position
             --  selection.
 
             for C in 0 .. Char_Pos_Set_Len - 1 loop
-               exit when I_Word (Get_Char_Pos (C)) = ASCII.NUL;
-               Index := Index + 1;
-               R_Word (Index) := I_Word (Get_Char_Pos (C));
+               exit when IW (Get_Char_Pos (C)) = ASCII.NUL;
+               N := N + 1;
+               RW (N) := IW (Get_Char_Pos (C));
             end loop;
 
-            --  Build the new table with the reduced word
+            --  Build the new table with the reduced word. Be careful
+            --  to deallocate the old version to avoid memory leaks.
 
-            WT.Table (Reduced (J)) := R_Word;
+            Free_Word (WT.Table (Reduced (J)));
+            WT.Table (Reduced (J)) := New_Word (RW);
             Set_Key (J, (Edge => No_Edge));
          end;
       end loop;
@@ -579,7 +563,7 @@ package body GNAT.Perfect_Hash_Generators is
    -------------------------------
 
    procedure Assign_Values_To_Vertices is
-      X  : Vertex_Id;
+      X : Vertex_Id;
 
       procedure Assign (X : Vertex_Id);
       --  Execute assignment on X's neighbors except the vertex that we are
@@ -589,13 +573,14 @@ package body GNAT.Perfect_Hash_Generators is
       -- Assign --
       ------------
 
-      procedure Assign (X : Vertex_Id)
-      is
+      procedure Assign (X : Vertex_Id) is
          E : Edge_Type;
          V : constant Vertex_Type := Get_Vertices (X);
+
       begin
          for J in V.First .. V.Last loop
             E := Get_Edges (J);
+
             if Get_Graph (E.Y) = -1 then
                Set_Graph (E.Y, (E.Key - Get_Graph (X)) mod NK);
                Assign (E.Y);
@@ -606,7 +591,7 @@ package body GNAT.Perfect_Hash_Generators is
    --  Start of processing for Assign_Values_To_Vertices
 
    begin
-      --  Value -1 denotes an unitialized value as it is supposed to
+      --  Value -1 denotes an uninitialized value as it is supposed to
       --  be in the range 0 .. NK.
 
       if G = No_Table then
@@ -642,15 +627,13 @@ package body GNAT.Perfect_Hash_Generators is
    -- Compute --
    -------------
 
-   procedure Compute
-     (Position : String := Default_Position)
-   is
+   procedure Compute (Position : String := Default_Position) is
       Success : Boolean := False;
 
    begin
-      NV := Natural (K2V * Float (NK));
-
-      Keys := Allocate (NK);
+      if NK = 0 then
+         raise Program_Error with "keywords set cannot be empty";
+      end if;
 
       if Verbose then
          Put_Initial_Keys (Output, "Initial Key Table");
@@ -715,7 +698,7 @@ package body GNAT.Perfect_Hash_Generators is
 
       procedure Move (From : Natural; To : Natural);
       function Lt (L, R : Natural) return Boolean;
-      --  Subprograms needed for GNAT.Heap_Sort_A
+      --  Subprograms needed for GNAT.Heap_Sort_G
 
       --------
       -- Lt --
@@ -737,11 +720,13 @@ package body GNAT.Perfect_Hash_Generators is
          Set_Edges (To, Get_Edges (From));
       end Move;
 
+      package Sorting is new GNAT.Heap_Sort_G (Move, Lt);
+
    --  Start of processing for Compute_Edges_And_Vertices
 
    begin
       --  We store edges from 1 to 2 * NK and leave zero alone in order to use
-      --  GNAT.Heap_Sort_A.
+      --  GNAT.Heap_Sort_G.
 
       Edges_Len := 2 * NK + 1;
 
@@ -799,10 +784,7 @@ package body GNAT.Perfect_Hash_Generators is
          --  is sorted by X and then Y. To compute the neighbor list, sort the
          --  edges.
 
-         Sort
-           (Edges_Len - 1,
-            Move'Unrestricted_Access,
-            Lt'Unrestricted_Access);
+         Sorting.Sort (Edges_Len - 1);
 
          if Verbose then
             Put_Edges      (Output, "Sorted Edge Table");
@@ -882,23 +864,16 @@ package body GNAT.Perfect_Hash_Generators is
 
    procedure Finalize is
    begin
-      Free_Tmp_Tables;
+      --  Deallocate all the WT components (both initial and reduced
+      --  ones) to avoid memory leaks.
 
+      for W in 0 .. WT.Last loop
+         Free_Word (WT.Table (W));
+      end loop;
       WT.Release;
       IT.Release;
 
-      NK := 0;
-      Max_Key_Len := 0;
-      Min_Key_Len := Max_Word_Length;
-   end Finalize;
-
-   ---------------------
-   -- Free_Tmp_Tables --
-   ---------------------
-
-   procedure Free_Tmp_Tables is
-   begin
-      IT.Init;
+      --  Reset all variables for next usage
 
       Keys := No_Table;
 
@@ -922,7 +897,22 @@ package body GNAT.Perfect_Hash_Generators is
 
       Vertices := No_Table;
       NV       := 0;
-   end Free_Tmp_Tables;
+
+      NK := 0;
+      Max_Key_Len := 0;
+      Min_Key_Len := 0;
+   end Finalize;
+
+   ---------------
+   -- Free_Word --
+   ---------------
+
+   procedure Free_Word (W : in out Word_Type) is
+   begin
+      if W /= null then
+         Free (W);
+      end if;
+   end Free_Word;
 
    ----------------------------
    -- Generate_Mapping_Table --
@@ -1151,51 +1141,94 @@ package body GNAT.Perfect_Hash_Generators is
       Tries  : Positive     := Default_Tries)
    is
    begin
-      --  Free previous tables (the settings may have changed between two runs)
+      --  Deallocate the part of the table concerning the reduced words.
+      --  Initial words are already present in the table. We may have reduced
+      --  words already there because a previous computation failed. We are
+      --  currently retrying and the reduced words have to be deallocated.
 
-      Free_Tmp_Tables;
+      for W in NK .. WT.Last loop
+         Free_Word (WT.Table (W));
+      end loop;
+      IT.Init;
 
-      if K_To_V <= 2.0 then
-         Put (Output, "K to V ratio cannot be lower than 2.0");
-         New_Line (Output);
-         raise Program_Error;
-      end if;
+      --  Initialize of computation variables
+
+      Keys := No_Table;
+
+      Char_Pos_Set     := No_Table;
+      Char_Pos_Set_Len := 0;
+
+      Used_Char_Set     := No_Table;
+      Used_Char_Set_Len := 0;
+
+      T1 := No_Table;
+      T2 := No_Table;
+
+      T1_Len := 0;
+      T2_Len := 0;
+
+      G     := No_Table;
+      G_Len := 0;
+
+      Edges     := No_Table;
+      Edges_Len := 0;
+
+      Vertices := No_Table;
+      NV       := 0;
 
       S    := Seed;
       K2V  := K_To_V;
       Opt  := Optim;
       NT   := Tries;
+
+      if K2V <= 2.0 then
+         raise Program_Error with "K to V ratio cannot be lower than 2.0";
+      end if;
+
+      --  Do not accept a value of K2V too close to 2.0 such that once
+      --  rounded up, NV = 2 * NK because the algorithm would not converge.
+
+      NV := Natural (Float (NK) * K2V);
+      if NV <= 2 * NK then
+         NV := 2 * NK + 1;
+      end if;
+
+      Keys := Allocate (NK);
+
+      --  Resize initial words to have all of them at the same size
+      --  (so the size of the largest one).
+
+      for K in 0 .. NK - 1 loop
+         Resize_Word (WT.Table (Initial (K)), Max_Key_Len);
+      end loop;
+
+      --  Allocated the table to store the reduced words. As WT is a
+      --  GNAT.Table (using C memory management), pointers have to be
+      --  explicitly initialized to null.
+
+      WT.Set_Last (Reduced (NK - 1));
+      for W in 0 .. NK - 1 loop
+         WT.Table (Reduced (W)) := null;
+      end loop;
    end Initialize;
 
    ------------
    -- Insert --
    ------------
 
-   procedure Insert
-     (Value : String)
-   is
-      Word : Word_Type := Null_Word;
+   procedure Insert (Value : String) is
       Len  : constant Natural := Value'Length;
 
    begin
-      Word (1 .. Len) := Value (Value'First .. Value'First + Len - 1);
       WT.Set_Last (NK);
-      WT.Table (NK) := Word;
+      WT.Table (NK) := New_Word (Value);
       NK := NK + 1;
-      NV := Natural (Float (NK) * K2V);
-
-      --  Do not accept a value of K2V too close to 2.0 such that once rounded
-      --  up, NV = 2 * NK because the algorithm would not converge.
-
-      if NV <= 2 * NK then
-         NV := 2 * NK + 1;
-      end if;
 
       if Max_Key_Len < Len then
          Max_Key_Len := Len;
       end if;
 
-      if Len < Min_Key_Len then
+      if Min_Key_Len = 0 or else Len < Min_Key_Len then
          Min_Key_Len := Len;
       end if;
    end Insert;
@@ -1210,6 +1243,15 @@ package body GNAT.Perfect_Hash_Generators is
          raise Program_Error;
       end if;
    end New_Line;
+
+   --------------
+   -- New_Word --
+   --------------
+
+   function New_Word (S : String) return Word_Type is
+   begin
+      return new String'(S);
+   end New_Word;
 
    ------------------------------
    -- Parse_Position_Selection --
@@ -1240,8 +1282,7 @@ package body GNAT.Perfect_Hash_Generators is
          end if;
 
          if C not in '0' .. '9' then
-            Raise_Exception
-              (Program_Error'Identity, "cannot read position argument");
+            raise Program_Error with "cannot read position argument";
          end if;
 
          while C in '0' .. '9' loop
@@ -1257,7 +1298,6 @@ package body GNAT.Perfect_Hash_Generators is
    --  Start of processing for Parse_Position_Selection
 
    begin
-
       --  Empty specification means all the positions
 
       if L < N then
@@ -1294,8 +1334,7 @@ package body GNAT.Perfect_Hash_Generators is
             exit when L < N;
 
             if Argument (N) /= ',' then
-               Raise_Exception
-                 (Program_Error'Identity, "cannot read position argument");
+               raise Program_Error with "cannot read position argument";
             end if;
 
             N := N + 1;
@@ -1330,7 +1369,7 @@ package body GNAT.Perfect_Hash_Generators is
    -------------
 
    procedure Produce (Pkg_Name  : String := Default_Pkg_Name) is
-      File     : File_Descriptor;
+      File : File_Descriptor;
 
       Status : Boolean;
       --  For call to Close
@@ -1442,7 +1481,8 @@ package body GNAT.Perfect_Hash_Generators is
 
       FName (PLen + 1 .. PLen + 4) := ".ads";
 
-      File := Create_File (FName, Text);
+      File := Create_File (FName, Binary);
+
       Put      (File, "package ");
       Put      (File, Pkg_Name);
       Put      (File, " is");
@@ -1461,7 +1501,8 @@ package body GNAT.Perfect_Hash_Generators is
 
       FName (PLen + 4) := 'b';
 
-      File := Create_File (FName, Text);
+      File := Create_File (FName, Binary);
+
       Put      (File, "with Interfaces; use Interfaces;");
       New_Line (File);
       New_Line (File);
@@ -1641,7 +1682,6 @@ package body GNAT.Perfect_Hash_Generators is
 
    procedure Put (File : File_Descriptor; Str : String) is
       Len : constant Natural := Str'Length;
-
    begin
       if Write (File, Str'Address, Len) /= Len then
          raise Program_Error;
@@ -1696,9 +1736,11 @@ package body GNAT.Perfect_Hash_Generators is
          if F1 <= L1 then
             if C1 = F1 and then C2 = F2 then
                Add ('(');
+
                if F1 = L1 then
                   Add ("0 .. 0 => ");
                end if;
+
             else
                Add (' ');
             end if;
@@ -1707,9 +1749,11 @@ package body GNAT.Perfect_Hash_Generators is
 
       if C2 = F2 then
          Add ('(');
+
          if F2 = L2 then
             Add ("0 .. 0 => ");
          end if;
+
       else
          Add (' ');
       end if;
@@ -1723,9 +1767,11 @@ package body GNAT.Perfect_Hash_Generators is
          if F1 > L1 then
             Add (';');
             Flush;
+
          elsif C1 /= L1 then
             Add (',');
             Flush;
+
          else
             Add (')');
             Add (';');
@@ -1741,10 +1787,7 @@ package body GNAT.Perfect_Hash_Generators is
    -- Put_Edges --
    ---------------
 
-   procedure Put_Edges
-     (File  : File_Descriptor;
-      Title : String)
-   is
+   procedure Put_Edges (File  : File_Descriptor; Title : String) is
       E  : Edge_Type;
       F1 : constant Natural := 1;
       L1 : constant Natural := Edges_Len - 1;
@@ -1769,10 +1812,7 @@ package body GNAT.Perfect_Hash_Generators is
    -- Put_Initial_Keys --
    ----------------------
 
-   procedure Put_Initial_Keys
-     (File  : File_Descriptor;
-      Title : String)
-   is
+   procedure Put_Initial_Keys (File : File_Descriptor; Title : String) is
       F1 : constant Natural := 0;
       L1 : constant Natural := NK - 1;
       M  : constant Natural := Max / 5;
@@ -1786,7 +1826,7 @@ package body GNAT.Perfect_Hash_Generators is
          K := Get_Key (J);
          Put (File, Image (J, M),           F1, L1, J, 1, 3, 1);
          Put (File, Image (K.Edge, M),      F1, L1, J, 1, 3, 2);
-         Put (File, WT.Table (Initial (J)), F1, L1, J, 1, 3, 3);
+         Put (File, WT.Table (Initial (J)).all, F1, L1, J, 1, 3, 3);
       end loop;
    end Put_Initial_Keys;
 
@@ -1805,7 +1845,7 @@ package body GNAT.Perfect_Hash_Generators is
       L1 : constant Integer := Len_1 - 1;
       F2 : constant Integer := 0;
       L2 : constant Integer := Len_2 - 1;
-      I  : Natural;
+      Ix : Natural;
 
    begin
       Put (File, Title);
@@ -1813,15 +1853,15 @@ package body GNAT.Perfect_Hash_Generators is
 
       if Len_2 = 0 then
          for J in F1 .. L1 loop
-            I := IT.Table (Table + J);
-            Put (File, Image (I), 1, 0, 1, F1, L1, J);
+            Ix := IT.Table (Table + J);
+            Put (File, Image (Ix), 1, 0, 1, F1, L1, J);
          end loop;
 
       else
          for J in F1 .. L1 loop
             for K in F2 .. L2 loop
-               I := IT.Table (Table + J + K * Len_1);
-               Put (File, Image (I), F1, L1, J, F2, L2, K);
+               Ix := IT.Table (Table + J + K * Len_1);
+               Put (File, Image (Ix), F1, L1, J, F2, L2, K);
             end loop;
          end loop;
       end if;
@@ -1853,10 +1893,7 @@ package body GNAT.Perfect_Hash_Generators is
    -- Put_Reduced_Keys --
    ----------------------
 
-   procedure Put_Reduced_Keys
-     (File  : File_Descriptor;
-      Title : String)
-   is
+   procedure Put_Reduced_Keys (File : File_Descriptor; Title : String) is
       F1 : constant Natural := 0;
       L1 : constant Natural := NK - 1;
       M  : constant Natural := Max / 5;
@@ -1870,7 +1907,7 @@ package body GNAT.Perfect_Hash_Generators is
          K := Get_Key (J);
          Put (File, Image (J, M),           F1, L1, J, 1, 3, 1);
          Put (File, Image (K.Edge, M),      F1, L1, J, 1, 3, 2);
-         Put (File, WT.Table (Reduced (J)), F1, L1, J, 1, 3, 3);
+         Put (File, WT.Table (Reduced (J)).all, F1, L1, J, 1, 3, 3);
       end loop;
    end Put_Reduced_Keys;
 
@@ -1878,10 +1915,7 @@ package body GNAT.Perfect_Hash_Generators is
    -- Put_Used_Char_Set --
    -----------------------
 
-   procedure Put_Used_Char_Set
-     (File  : File_Descriptor;
-      Title : String)
-   is
+   procedure Put_Used_Char_Set (File : File_Descriptor; Title : String) is
       F : constant Natural := Character'Pos (Character'First);
       L : constant Natural := Character'Pos (Character'Last);
 
@@ -1899,10 +1933,7 @@ package body GNAT.Perfect_Hash_Generators is
    -- Put_Vertex_Table --
    ----------------------
 
-   procedure Put_Vertex_Table
-     (File  : File_Descriptor;
-      Title : String)
-   is
+   procedure Put_Vertex_Table (File : File_Descriptor; Title : String) is
       F1 : constant Natural := 0;
       L1 : constant Natural := NV - 1;
       M  : constant Natural := Max / 4;
@@ -1924,8 +1955,8 @@ package body GNAT.Perfect_Hash_Generators is
    -- Random --
    ------------
 
-   procedure Random (Seed : in out Natural)
-   is
+   procedure Random (Seed : in out Natural) is
+
       --  Park & Miller Standard Minimal using Schrage's algorithm to avoid
       --  overflow: Xn+1 = 16807 * Xn mod (2 ** 31 - 1)
 
@@ -1953,6 +1984,22 @@ package body GNAT.Perfect_Hash_Generators is
    begin
       return K + NK + 1;
    end Reduced;
+
+   -----------------
+   -- Resize_Word --
+   -----------------
+
+   procedure Resize_Word (W : in out Word_Type; Len : Natural) is
+      S1 : constant String := W.all;
+      S2 : String (1 .. Len) := (others => ASCII.NUL);
+      L  : constant Natural := S1'Length;
+   begin
+      if L /= Len then
+         Free_Word (W);
+         S2 (1 .. L) := S1;
+         W := New_Word (S2);
+      end if;
+   end Resize_Word;
 
    --------------------------
    -- Select_Char_Position --
@@ -2006,7 +2053,7 @@ package body GNAT.Perfect_Hash_Generators is
 
          function Lt (L, R : Natural) return Boolean;
          procedure Move (From : Natural; To : Natural);
-         --  Subprograms needed by GNAT.Heap_Sort_A
+         --  Subprograms needed by GNAT.Heap_Sort_G
 
          --------
          -- Lt --
@@ -2019,11 +2066,11 @@ package body GNAT.Perfect_Hash_Generators is
 
          begin
             if L = 0 then
-               Left  := Reduced (0) - 1;
+               Left  := NK;
                Right := Offset + R;
             elsif R = 0 then
                Left  := Offset + L;
-               Right := Reduced (0) - 1;
+               Right := NK;
             else
                Left  := Offset + L;
                Right := Offset + R;
@@ -2041,20 +2088,23 @@ package body GNAT.Perfect_Hash_Generators is
 
          begin
             if From = 0 then
-               Source := Reduced (0) - 1;
+               Source := NK;
                Target := Offset + To;
             elsif To = 0 then
                Source := Offset + From;
-               Target := Reduced (0) - 1;
+               Target := NK;
             else
                Source := Offset + From;
                Target := Offset + To;
             end if;
 
             WT.Table (Target) := WT.Table (Source);
+            WT.Table (Source) := null;
          end Move;
 
-         --  Start of processing for Build_Identical_Key_Sets
+         package Sorting is new GNAT.Heap_Sort_G (Move, Lt);
+
+      --  Start of processing for Build_Identical_Key_Sets
 
       begin
          Last := 0;
@@ -2071,10 +2121,7 @@ package body GNAT.Perfect_Hash_Generators is
 
             else
                Offset := Reduced (S (J).First) - 1;
-               Sort
-                 (S (J).Last - S (J).First + 1,
-                  Move'Unrestricted_Access,
-                  Lt'Unrestricted_Access);
+               Sorting.Sort (S (J).Last - S (J).First + 1);
 
                F := S (J).First;
                L := F;
@@ -2155,9 +2202,8 @@ package body GNAT.Perfect_Hash_Generators is
    begin
       --  Initialize the reduced words set
 
-      WT.Set_Last (2 * NK);
       for K in 0 .. NK - 1 loop
-         WT.Table (Reduced (K)) := WT.Table (Initial (K));
+         WT.Table (Reduced (K)) := New_Word (WT.Table (Initial (K)).all);
       end loop;
 
       declare
@@ -2179,7 +2225,7 @@ package body GNAT.Perfect_Hash_Generators is
          loop
             --  Preserve maximum number of different keys and check later on
             --  that this value is strictly incrementing. Otherwise, it means
-            --  that two keys are stricly identical.
+            --  that two keys are strictly identical.
 
             Old_Differences := Max_Differences;
 
@@ -2216,8 +2262,7 @@ package body GNAT.Perfect_Hash_Generators is
             end loop;
 
             if Old_Differences = Max_Differences then
-               Raise_Exception
-                 (Program_Error'Identity, "some keys are identical");
+               raise Program_Error with "some keys are identical";
             end if;
 
             --  Insert selected position and sort Sel_Position table
@@ -2256,7 +2301,7 @@ package body GNAT.Perfect_Hash_Generators is
                     Same_Keys_Sets_Table (J).First ..
                     Same_Keys_Sets_Table (J).Last
                   loop
-                     Put (Output, WT.Table (Reduced (K)));
+                     Put (Output, WT.Table (Reduced (K)).all);
                      New_Line (Output);
                   end loop;
                   Put (Output, "--");
@@ -2278,8 +2323,7 @@ package body GNAT.Perfect_Hash_Generators is
    -- Select_Character_Set --
    --------------------------
 
-   procedure Select_Character_Set
-   is
+   procedure Select_Character_Set is
       Last : Natural := 0;
       Used : array (Character) of Boolean := (others => False);
       Char : Character;

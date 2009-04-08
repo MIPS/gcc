@@ -1,5 +1,6 @@
-/* Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -27,11 +28,9 @@ along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "io.h"
 #include <stdlib.h>
 #include <string.h>
-#include "libgfortran.h"
-#include "io.h"
 
 
 /* IO locking rules:
@@ -83,6 +82,12 @@ __gthread_mutex_t unit_lock = __GTHREAD_MUTEX_INIT;
 #else
 __gthread_mutex_t unit_lock;
 #endif
+
+/* We use these filenames for error reporting.  */
+
+static char stdin_name[] = "stdin";
+static char stdout_name[] = "stdout";
+static char stderr_name[] = "stderr";
 
 /* This implementation is based on Stefan Nilsson's article in the
  * July 1997 Doctor Dobb's Journal, "Treaps in Java". */
@@ -197,6 +202,16 @@ insert_unit (int n)
   u->priority = pseudo_random ();
   unit_root = insert (u, unit_root);
   return u;
+}
+
+
+/* destroy_unit_mutex()-- Destroy the mutex and free memory of unit.  */
+
+static void
+destroy_unit_mutex (gfc_unit * u)
+{
+  __gthread_mutex_destroy (&u->lock);
+  free_mem (u);
 }
 
 
@@ -337,7 +352,7 @@ found:
 	  __gthread_mutex_lock (&unit_lock);
 	  __gthread_mutex_unlock (&p->lock);
 	  if (predec_waiting_locked (p) == 0)
-	    free_mem (p);
+	    destroy_unit_mutex (p);
 	  goto retry;
 	}
 
@@ -365,13 +380,14 @@ gfc_unit *
 get_internal_unit (st_parameter_dt *dtp)
 {
   gfc_unit * iunit;
+  gfc_offset start_record = 0;
 
   /* Allocate memory for a unit structure.  */
 
   iunit = get_mem (sizeof (gfc_unit));
   if (iunit == NULL)
     {
-      generate_error (&dtp->common, ERROR_INTERNAL_UNIT, NULL);
+      generate_error (&dtp->common, LIBERROR_INTERNAL_UNIT, NULL);
       return NULL;
     }
 
@@ -401,31 +417,38 @@ get_internal_unit (st_parameter_dt *dtp)
       iunit->ls = (array_loop_spec *)
 	get_mem (iunit->rank * sizeof (array_loop_spec));
       dtp->internal_unit_len *=
-	init_loop_spec (dtp->internal_unit_desc, iunit->ls);
+	init_loop_spec (dtp->internal_unit_desc, iunit->ls, &start_record);
+
+      start_record *= iunit->recl;
     }
 
   /* Set initial values for unit parameters.  */
 
-  iunit->s = open_internal (dtp->internal_unit, dtp->internal_unit_len);
+  iunit->s = open_internal (dtp->internal_unit - start_record,
+			    dtp->internal_unit_len, -start_record);
   iunit->bytes_left = iunit->recl;
   iunit->last_record=0;
   iunit->maxrec=0;
   iunit->current_record=0;
   iunit->read_bad = 0;
+  iunit->endfile = NO_ENDFILE;
 
   /* Set flags for the internal unit.  */
 
   iunit->flags.access = ACCESS_SEQUENTIAL;
   iunit->flags.action = ACTION_READWRITE;
+  iunit->flags.blank = BLANK_NULL;
   iunit->flags.form = FORM_FORMATTED;
   iunit->flags.pad = PAD_YES;
   iunit->flags.status = STATUS_UNSPECIFIED;
-  iunit->endfile = NO_ENDFILE;
+  iunit->flags.sign = SIGN_SUPPRESS;
+  iunit->flags.decimal = DECIMAL_POINT;
+  iunit->flags.encoding = ENCODING_DEFAULT;
+  iunit->flags.async = ASYNC_NO;
 
   /* Initialize the data transfer parameters.  */
 
   dtp->u.p.advance_status = ADVANCE_YES;
-  dtp->u.p.blank_status = BLANK_UNSPECIFIED;
   dtp->u.p.seen_dollar = 0;
   dtp->u.p.skips = 0;
   dtp->u.p.pending_spaces = 0;
@@ -447,14 +470,18 @@ free_internal_unit (st_parameter_dt *dtp)
   if (!is_internal_unit (dtp))
     return;
 
-  if (dtp->u.p.current_unit->ls != NULL)
-      free_mem (dtp->u.p.current_unit->ls);
-  
-  sclose (dtp->u.p.current_unit->s);
-
   if (dtp->u.p.current_unit != NULL)
-    free_mem (dtp->u.p.current_unit);
+    {
+      if (dtp->u.p.current_unit->ls != NULL)
+	free_mem (dtp->u.p.current_unit->ls);
+  
+      if (dtp->u.p.current_unit->s)
+	free_mem (dtp->u.p.current_unit->s);
+  
+      destroy_unit_mutex (dtp->u.p.current_unit);
+    }
 }
+      
 
 
 /* get_unit()-- Returns the unit structure associated with the integer
@@ -502,10 +529,20 @@ init_units (void)
       u->flags.blank = BLANK_NULL;
       u->flags.pad = PAD_YES;
       u->flags.position = POSITION_ASIS;
-
+      u->flags.sign = SIGN_SUPPRESS;
+      u->flags.decimal = DECIMAL_POINT;
+      u->flags.encoding = ENCODING_DEFAULT;
+      u->flags.async = ASYNC_NO;
+     
       u->recl = options.default_recl;
       u->endfile = NO_ENDFILE;
 
+      u->file_len = strlen (stdin_name);
+      u->file = get_mem (u->file_len);
+      memmove (u->file, stdin_name, u->file_len);
+
+      fbuf_init (u, 0);
+    
       __gthread_mutex_unlock (&u->lock);
     }
 
@@ -521,9 +558,19 @@ init_units (void)
       u->flags.status = STATUS_OLD;
       u->flags.blank = BLANK_NULL;
       u->flags.position = POSITION_ASIS;
+      u->flags.sign = SIGN_SUPPRESS;
+      u->flags.decimal = DECIMAL_POINT;
+      u->flags.encoding = ENCODING_DEFAULT;
+      u->flags.async = ASYNC_NO;
 
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;
+    
+      u->file_len = strlen (stdout_name);
+      u->file = get_mem (u->file_len);
+      memmove (u->file, stdout_name, u->file_len);
+      
+      fbuf_init (u, 0);
 
       __gthread_mutex_unlock (&u->lock);
     }
@@ -540,9 +587,20 @@ init_units (void)
       u->flags.status = STATUS_OLD;
       u->flags.blank = BLANK_NULL;
       u->flags.position = POSITION_ASIS;
+      u->flags.sign = SIGN_SUPPRESS;
+      u->flags.decimal = DECIMAL_POINT;
+      u->flags.encoding = ENCODING_DEFAULT;
+      u->flags.async = ASYNC_NO;
 
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;
+
+      u->file_len = strlen (stderr_name);
+      u->file = get_mem (u->file_len);
+      memmove (u->file, stderr_name, u->file_len);
+      
+      fbuf_init (u, 256);  /* 256 bytes should be enough, probably not doing
+                              any kind of exotic formatting to stderr.  */
 
       __gthread_mutex_unlock (&u->lock);
     }
@@ -562,30 +620,11 @@ static int
 close_unit_1 (gfc_unit *u, int locked)
 {
   int i, rc;
-
+  
   /* If there are previously written bytes from a write with ADVANCE="no"
      Reposition the buffer before closing.  */
-  if (u->saved_pos > 0)
-    {
-      char *p;
-
-      p = salloc_w (u->s, &u->saved_pos);
-
-      if (!(u->unit_number == options.stdout_unit
-	    || u->unit_number == options.stderr_unit))
-	{
-	  size_t len;
-
-	  const char crlf[] = "\r\n";
-#ifdef HAVE_CRLF
-	  len = 2;
-#else
-	  len = 1;
-#endif
-	  if (swrite (u->s, &crlf[2-len], &len) != 0)
-	    os_error ("Close after ADVANCE_NO failed");
-	}
-    }
+  if (u->previous_nonadvancing_write)
+    finish_last_advance_record (u);
 
   rc = (u->s == NULL) ? 0 : sclose (u->s) == FAILURE;
 
@@ -604,6 +643,9 @@ close_unit_1 (gfc_unit *u, int locked)
   u->file = NULL;
   u->file_len = 0;
 
+  free_format_hash_table (u);  
+  fbuf_destroy (u);
+
   if (!locked)
     __gthread_mutex_unlock (&u->lock);
 
@@ -611,7 +653,7 @@ close_unit_1 (gfc_unit *u, int locked)
      avoid freeing the memory, the last such thread will free it
      instead.  */
   if (u->waiting == 0)
-    free_mem (u);
+    destroy_unit_mutex (u);
 
   if (!locked)
     __gthread_mutex_unlock (&unit_lock);
@@ -658,10 +700,121 @@ close_units (void)
 void
 update_position (gfc_unit *u)
 {
-  if (file_position (u->s) == 0)
+  if (stell (u->s) == 0)
     u->flags.position = POSITION_REWIND;
-  else if (file_length (u->s) == file_position (u->s))
+  else if (file_length (u->s) == stell (u->s))
     u->flags.position = POSITION_APPEND;
   else
     u->flags.position = POSITION_ASIS;
 }
+
+
+/* High level interface to truncate a file safely, i.e. flush format
+   buffers, check that it's a regular file, and generate error if that
+   occurs.  Just like POSIX ftruncate, returns 0 on success, -1 on
+   failure.  */
+
+int
+unit_truncate (gfc_unit * u, gfc_offset pos, st_parameter_common * common)
+{
+  int ret;
+
+  /* Make sure format buffer is flushed.  */
+  if (u->flags.form == FORM_FORMATTED)
+    {
+      if (u->mode == READING)
+	pos += fbuf_reset (u);
+      else
+	fbuf_flush (u, u->mode);
+    }
+  
+  /* Don't try to truncate a special file, just pretend that it
+     succeeds.  */
+  if (is_special (u->s) || !is_seekable (u->s))
+    {
+      sflush (u->s);
+      return 0;
+    }
+
+  /* struncate() should flush the stream buffer if necessary, so don't
+     bother calling sflush() here.  */
+  ret = struncate (u->s, pos);
+
+  if (ret != 0)
+    {
+      generate_error (common, LIBERROR_OS, NULL);
+      u->endfile = NO_ENDFILE;
+      u->flags.position = POSITION_ASIS;
+    }
+  else
+    {
+      u->endfile = AT_ENDFILE;
+      u->flags.position = POSITION_APPEND;
+    }
+
+  return ret;
+}
+
+
+/* filename_from_unit()-- If the unit_number exists, return a pointer to the
+   name of the associated file, otherwise return the empty string.  The caller
+   must free memory allocated for the filename string.  */
+
+char *
+filename_from_unit (int n)
+{
+  char *filename;
+  gfc_unit *u;
+  int c;
+
+  /* Find the unit.  */
+  u = unit_root;
+  while (u != NULL)
+    {
+      c = compare (n, u->unit_number);
+      if (c < 0)
+	u = u->left;
+      if (c > 0)
+	u = u->right;
+      if (c == 0)
+	break;
+    }
+
+  /* Get the filename.  */
+  if (u != NULL)
+    {
+      filename = (char *) get_mem (u->file_len + 1);
+      unpack_filename (filename, u->file, u->file_len);
+      return filename;
+    }
+  else
+    return (char *) NULL;
+}
+
+void
+finish_last_advance_record (gfc_unit *u)
+{
+  
+  if (u->saved_pos > 0)
+    fbuf_seek (u, u->saved_pos, SEEK_CUR);
+
+  if (!(u->unit_number == options.stdout_unit
+	|| u->unit_number == options.stderr_unit))
+    {
+#ifdef HAVE_CRLF
+      const int len = 2;
+#else
+      const int len = 1;
+#endif
+      char *p = fbuf_alloc (u, len);
+      if (!p)
+	os_error ("Completing record after ADVANCE_NO failed");
+#ifdef HAVE_CRLF
+      *(p++) = '\r';
+#endif
+      *p = '\n';
+    }
+
+  fbuf_flush (u, u->mode);
+}
+

@@ -1,5 +1,5 @@
 /* Target definitions for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 1997, 2000, 2001, 2003, 2004, 2005, 2006
+   Copyright (C) 1997, 2000, 2001, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #undef  TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (Darwin/PowerPC)");
@@ -91,6 +90,7 @@
    the kernel or some such.  */
 
 #define CC1_SPEC "\
+  %(cc1_cpu) \
   %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
   %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
   %{!mmacosx-version-min=*:-mmacosx-version-min=%(darwin_minversion)} \
@@ -173,12 +173,12 @@
 #define STARTING_FRAME_OFFSET						\
   (FRAME_GROWS_DOWNWARD							\
    ? 0									\
-   : (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
+   : (RS6000_ALIGN (crtl->outgoing_args_size, 16)		\
       + RS6000_SAVE_AREA))
 
 #undef STACK_DYNAMIC_OFFSET
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
-  (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
+  (RS6000_ALIGN (crtl->outgoing_args_size, 16)		\
    + (STACK_POINTER_OFFSET))
 
 /* These are used by -fbranch-probabilities */
@@ -191,6 +191,8 @@
 
 #undef	FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
+#undef GP_SAVE_INLINE
+#define GP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 32)
 
 /* Darwin uses a function call if everything needs to be saved/restored.  */
 #undef WORLD_SAVE_P
@@ -405,7 +407,7 @@
 #include <stdbool.h>
 #endif
 
-#ifndef __LP64__
+#if !defined(__LP64__) && !defined(DARWIN_LIBSYSTEM_HAS_UNWIND)
 #define MD_UNWIND_SUPPORT "config/rs6000/darwin-unwind.h"
 #endif
 
@@ -432,3 +434,6 @@
 /* When generating kernel code or kexts, we don't use Altivec by
    default, as kernel code doesn't save/restore those registers.  */
 #define OS_MISSING_ALTIVEC (flag_mkernel || flag_apple_kext)
+
+/* Darwin has to rename some of the long double builtins.  */
+#define SUBTARGET_INIT_BUILTINS darwin_patch_builtins ()

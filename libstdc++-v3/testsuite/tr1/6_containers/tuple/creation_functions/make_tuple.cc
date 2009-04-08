@@ -24,12 +24,13 @@
 #include <tr1/functional>
 #include <testsuite_hooks.h>
 
-using namespace std;
-using namespace tr1;
+using namespace std::tr1;
 
 int
 main()
 {
+  bool test __attribute__((unused)) = true;
+
   int i=0;
   make_tuple(1,2,4.0);
   make_tuple(ref(i)) = tuple<int>(1);

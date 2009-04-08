@@ -359,6 +359,8 @@ _Jv_DefineClass (jclass klass, jbyteArray data, jint offset, jint length,
 #define MINOR_1_4  0
 #define MAJOR_1_5 49
 #define MINOR_1_5  0
+#define MAJOR_1_6 50
+#define MINOR_1_6  0
 
 void
 _Jv_ClassReader::parse ()
@@ -369,10 +371,10 @@ _Jv_ClassReader::parse ()
 
   int minor_version = read2u ();
   int major_version = read2u ();
-  if (major_version < MAJOR_1_1 || major_version > MAJOR_1_5
-      || (major_version == MAJOR_1_5 && minor_version > MINOR_1_5))
+  if (major_version < MAJOR_1_1 || major_version > MAJOR_1_6
+      || (major_version == MAJOR_1_6 && minor_version > MINOR_1_6))
     throw_class_format_error ("unrecognized class file version");
-  is_15 = (major_version == MAJOR_1_5);
+  is_15 = (major_version >= MAJOR_1_5);
 
   pool_count = read2u ();
 
@@ -1009,11 +1011,10 @@ void _Jv_ClassReader::read_one_code_attribute (int method_index)
                                
       for (int i = 0; i < table_len; i++)
         {
-          table[i].bytecode_start_pc = read2u ();
+          table[i].bytecode_pc = read2u ();
           table[i].length = read2u ();
-          int len;
-          len = pool_Utf8_to_char_arr (read2u (), &table[i].name);
-          len = pool_Utf8_to_char_arr (read2u (), &table[i].descriptor);
+          pool_Utf8_to_char_arr (read2u (), &table[i].name);
+          pool_Utf8_to_char_arr (read2u (), &table[i].descriptor);
           table[i].slot = read2u ();
           
           if (table[i].slot > method->max_locals || table[i].slot < 0)
@@ -1681,7 +1682,9 @@ void _Jv_ClassReader::handleCodeAttribute
   method->prepared       = NULL;
   method->line_table_len = 0;
   method->line_table     = NULL;
-
+#ifdef DIRECT_THREADED
+  method->thread_count   = 0;
+#endif
 
   // grab the byte code!
   memcpy ((void*) method->bytecode (),

@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2002-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2002-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -26,7 +25,6 @@
 
 with Csets;    use Csets;
 with Err_Vars; use Err_Vars;
-with Namet;    use Namet;
 with Opt;      use Opt;
 with Osint;    use Osint;
 with Output;   use Output;
@@ -191,7 +189,9 @@ package body Prep is
    function Deleting return Boolean;
    --  Return True if code should be deleted or commented out
 
-   function Expression (Evaluate_It : Boolean) return Boolean;
+   function Expression
+     (Evaluate_It  : Boolean;
+      Complemented : Boolean := False) return Boolean;
    --  Evaluate a condition in an #if or an #elsif statement.
    --  If Evaluate_It is False, the condition is effectively evaluated,
    --  otherwise, only the syntax is checked.
@@ -361,7 +361,6 @@ package body Prep is
 
       if Pp_States.Last = Ground then
          return False;
-
       else
          return Pp_States.Table (Pp_States.Last).Deleting;
       end if;
@@ -371,7 +370,10 @@ package body Prep is
    -- Expression --
    ----------------
 
-   function Expression (Evaluate_It : Boolean) return Boolean is
+   function Expression
+     (Evaluate_It  : Boolean;
+      Complemented : Boolean := False) return Boolean
+   is
       Evaluation : Boolean := Evaluate_It;
       --  Is set to False after an "or else" when left term is True and
       --  after an "and then" when left term is False.
@@ -420,7 +422,8 @@ package body Prep is
                --  not expression
 
                Scan.all;
-               Current_Result := not Expression (Evaluation);
+               Current_Result :=
+                 not Expression (Evaluation, Complemented => True);
 
             when Tok_Identifier =>
                Symbol_Name1 := Token_Name;
@@ -601,7 +604,12 @@ package body Prep is
          --  Check the next operator
 
          if Token = Tok_And then
-            if Current_Operator = Op_Or then
+            if Complemented then
+               Error_Msg
+                ("mixing NOT and AND is not allowed, parentheses are required",
+                 Token_Ptr);
+
+            elsif Current_Operator = Op_Or then
                Error_Msg ("mixing OR and AND is not allowed", Token_Ptr);
             end if;
 
@@ -617,7 +625,12 @@ package body Prep is
             end if;
 
          elsif Token = Tok_Or then
-            if Current_Operator = Op_And then
+            if Complemented then
+               Error_Msg
+                 ("mixing NOT and OR is not allowed, parentheses are required",
+                  Token_Ptr);
+
+            elsif Current_Operator = Op_And then
                Error_Msg ("mixing AND and OR is not allowed", Token_Ptr);
             end if;
 
@@ -719,7 +732,7 @@ package body Prep is
    procedure List_Symbols (Foreword : String) is
       Order : array (0 ..  Integer (Symbol_Table.Last (Mapping)))
                  of Symbol_Id;
-      --  After alphabetical sorting, this array stores thehe indices of
+      --  After alphabetical sorting, this array stores the indices of
       --  the symbols in the order they are displayed.
 
       function Lt (Op1, Op2 : Natural) return Boolean;
@@ -1030,10 +1043,12 @@ package body Prep is
    -- Preprocess --
    ----------------
 
-   procedure Preprocess is
+   procedure Preprocess (Source_Modified : out Boolean) is
       Start_Of_Processing : Source_Ptr;
       Cond                : Boolean;
       Preprocessor_Line   : Boolean := False;
+      No_Error_Found      : Boolean := True;
+      Modified            : Boolean := False;
 
       procedure Output (From, To : Source_Ptr);
       --  Output the characters with indices From .. To in the buffer
@@ -1105,75 +1120,21 @@ package body Prep is
             --  Preprocessor line
 
             if Token = Tok_Special and then Special_Character = '#' then
-                  Preprocessor_Line := True;
-                  Scan.all;
+               Modified := True;
+               Preprocessor_Line := True;
+               Scan.all;
 
-                  case Token is
+               case Token is
 
-                     --  #if
+                  --  #if
 
-                     when Tok_If =>
-                        declare
-                           If_Ptr : constant Source_Ptr := Token_Ptr;
+                  when Tok_If =>
+                     declare
+                        If_Ptr : constant Source_Ptr := Token_Ptr;
 
-                        begin
-                           Scan.all;
-                           Cond := Expression (not Deleting);
-
-                           --  Check for an eventual "then"
-
-                           if Token = Tok_Then then
-                              Scan.all;
-                           end if;
-
-                           --  It is an error to have trailing characters after
-                           --  the condition or "then".
-
-                           if Token /= Tok_End_Of_Line
-                             and then Token /= Tok_EOF
-                           then
-                              Error_Msg
-                                ("extraneous text on preprocessor line",
-                                 Token_Ptr);
-                              Go_To_End_Of_Line;
-                           end if;
-
-                           declare
-                              --  Set the initial state of this new "#if".
-                              --  This must be done before incrementing the
-                              --  Last of the table, otherwise function
-                              --  Deleting does not report the correct value.
-
-                              New_State : constant Pp_State :=
-                                (If_Ptr     => If_Ptr,
-                                 Else_Ptr   => 0,
-                                 Deleting   => Deleting or (not Cond),
-                                 Match_Seen => Deleting or Cond);
-
-                           begin
-                              Pp_States.Increment_Last;
-                              Pp_States.Table (Pp_States.Last) := New_State;
-                           end;
-                        end;
-
-                     --  #elsif
-
-                     when Tok_Elsif =>
-                        Cond := False;
-
-                        if Pp_States.Last = 0
-                          or else Pp_States.Table (Pp_States.Last).Else_Ptr
-                                                                        /= 0
-                        then
-                           Error_Msg ("no IF for this ELSIF", Token_Ptr);
-
-                        else
-                           Cond :=
-                             not Pp_States.Table (Pp_States.Last).Match_Seen;
-                        end if;
-
+                     begin
                         Scan.all;
-                        Cond := Expression (Cond);
+                        Cond := Expression (not Deleting);
 
                         --  Check for an eventual "then"
 
@@ -1190,136 +1151,201 @@ package body Prep is
                            Error_Msg
                              ("extraneous text on preprocessor line",
                               Token_Ptr);
-
+                           No_Error_Found := False;
                            Go_To_End_Of_Line;
                         end if;
 
-                        --  Depending on the value of the condition, set the
-                        --  new values of Deleting and Match_Seen.
-                        if Pp_States.Last > 0 then
-                           if Pp_States.Table (Pp_States.Last).Match_Seen then
-                              Pp_States.Table (Pp_States.Last).Deleting :=
-                                True;
-                           else
-                              if Cond then
-                                 Pp_States.Table (Pp_States.Last).Match_Seen :=
-                                   True;
-                                 Pp_States.Table (Pp_States.Last).Deleting :=
-                                   False;
-                              end if;
-                           end if;
-                        end if;
+                        declare
+                           --  Set the initial state of this new "#if". This
+                           --  must be done before incrementing the Last of
+                           --  the table, otherwise function Deleting does
+                           --  not report the correct value.
 
-                     --  #else
+                           New_State : constant Pp_State :=
+                                         (If_Ptr     => If_Ptr,
+                                          Else_Ptr   => 0,
+                                          Deleting   => Deleting or (not Cond),
+                                          Match_Seen => Deleting or Cond);
 
-                     when Tok_Else =>
-                        if Pp_States.Last = 0 then
-                           Error_Msg ("no IF for this ELSE", Token_Ptr);
+                        begin
+                           Pp_States.Increment_Last;
+                           Pp_States.Table (Pp_States.Last) := New_State;
+                        end;
+                     end;
 
-                        elsif
-                           Pp_States.Table (Pp_States.Last).Else_Ptr /= 0
-                        then
-                           Error_Msg ("duplicate ELSE line", Token_Ptr);
-                        end if;
+                  --  #elsif
 
-                        --  Set the possibly new values of Deleting and
-                        --  Match_Seen.
+                  when Tok_Elsif =>
+                     Cond := False;
 
-                        if Pp_States.Last > 0 then
-                           if Pp_States.Table (Pp_States.Last).Match_Seen then
-                              Pp_States.Table (Pp_States.Last).Deleting :=
-                                True;
+                     if Pp_States.Last = 0
+                       or else Pp_States.Table (Pp_States.Last).Else_Ptr /= 0
+                     then
+                        Error_Msg ("no IF for this ELSIF", Token_Ptr);
+                        No_Error_Found := False;
 
-                           else
+                     else
+                        Cond :=
+                          not Pp_States.Table (Pp_States.Last).Match_Seen;
+                     end if;
+
+                     Scan.all;
+                     Cond := Expression (Cond);
+
+                     --  Check for an eventual "then"
+
+                     if Token = Tok_Then then
+                        Scan.all;
+                     end if;
+
+                     --  It is an error to have trailing characters after
+                     --  the condition or "then".
+
+                     if Token /= Tok_End_Of_Line
+                       and then Token /= Tok_EOF
+                     then
+                        Error_Msg
+                          ("extraneous text on preprocessor line",
+                           Token_Ptr);
+                        No_Error_Found := False;
+
+                        Go_To_End_Of_Line;
+                     end if;
+
+                     --  Depending on the value of the condition, set the
+                     --  new values of Deleting and Match_Seen.
+                     if Pp_States.Last > 0 then
+                        if Pp_States.Table (Pp_States.Last).Match_Seen then
+                           Pp_States.Table (Pp_States.Last).Deleting := True;
+                        else
+                           if Cond then
                               Pp_States.Table (Pp_States.Last).Match_Seen :=
                                 True;
                               Pp_States.Table (Pp_States.Last).Deleting :=
                                 False;
                            end if;
+                        end if;
+                     end if;
 
-                           --  Set the Else_Ptr to check for illegal #elsif
-                           --  later.
+                  --  #else
 
-                           Pp_States.Table (Pp_States.Last).Else_Ptr :=
-                             Token_Ptr;
+                  when Tok_Else =>
+                     if Pp_States.Last = 0 then
+                        Error_Msg ("no IF for this ELSE", Token_Ptr);
+                        No_Error_Found := False;
+
+                     elsif
+                       Pp_States.Table (Pp_States.Last).Else_Ptr /= 0
+                     then
+                        Error_Msg ("duplicate ELSE line", Token_Ptr);
+                        No_Error_Found := False;
+                     end if;
+
+                     --  Set the possibly new values of Deleting and
+                     --  Match_Seen.
+
+                     if Pp_States.Last > 0 then
+                        if Pp_States.Table (Pp_States.Last).Match_Seen then
+                           Pp_States.Table (Pp_States.Last).Deleting :=
+                             True;
+
+                        else
+                           Pp_States.Table (Pp_States.Last).Match_Seen :=
+                             True;
+                           Pp_States.Table (Pp_States.Last).Deleting :=
+                             False;
                         end if;
 
+                        --  Set the Else_Ptr to check for illegal #elsif
+                        --  later.
+
+                        Pp_States.Table (Pp_States.Last).Else_Ptr :=
+                          Token_Ptr;
+                     end if;
+
+                     Scan.all;
+
+                     --  It is an error to have characters after "#else"
+                     if Token /= Tok_End_Of_Line
+                       and then Token /= Tok_EOF
+                     then
+                        Error_Msg
+                          ("extraneous text on preprocessor line",
+                           Token_Ptr);
+                        No_Error_Found := False;
+                        Go_To_End_Of_Line;
+                     end if;
+
+                  --  #end if;
+
+                  when Tok_End =>
+                     if Pp_States.Last = 0 then
+                        Error_Msg ("no IF for this END", Token_Ptr);
+                        No_Error_Found := False;
+                     end if;
+
+                     Scan.all;
+
+                     if Token /= Tok_If then
+                        Error_Msg ("IF expected", Token_Ptr);
+                        No_Error_Found := False;
+
+                     else
                         Scan.all;
 
-                        --  It is an error to have characters after "#else"
-                        if Token /= Tok_End_Of_Line
-                          and then Token /= Tok_EOF
-                        then
-                           Error_Msg
-                             ("extraneous text on preprocessor line",
-                              Token_Ptr);
-                           Go_To_End_Of_Line;
-                        end if;
-
-                     --  #end if;
-
-                     when Tok_End =>
-                        if Pp_States.Last = 0 then
-                           Error_Msg ("no IF for this END", Token_Ptr);
-                        end if;
-
-                        Scan.all;
-
-                        if Token /= Tok_If then
-                           Error_Msg ("IF expected", Token_Ptr);
+                        if Token /= Tok_Semicolon then
+                           Error_Msg ("`;` Expected", Token_Ptr);
+                           No_Error_Found := False;
 
                         else
                            Scan.all;
 
-                           if Token /= Tok_Semicolon then
-                              Error_Msg ("`;` Expected", Token_Ptr);
-
-                           else
-                              Scan.all;
-
-                              --  It is an error to have character after
-                              --  "#end if;".
-                              if Token /= Tok_End_Of_Line
-                                and then Token /= Tok_EOF
-                              then
-                                 Error_Msg
-                                   ("extraneous text on preprocessor line",
-                                    Token_Ptr);
-                              end if;
+                           --  It is an error to have character after
+                           --  "#end if;".
+                           if Token /= Tok_End_Of_Line
+                             and then Token /= Tok_EOF
+                           then
+                              Error_Msg
+                                ("extraneous text on preprocessor line",
+                                 Token_Ptr);
+                              No_Error_Found := False;
                            end if;
                         end if;
+                     end if;
 
-                        --  In case of one of the errors above, skip the tokens
-                        --  until the end of line is reached.
+                     --  In case of one of the errors above, skip the tokens
+                     --  until the end of line is reached.
 
-                        Go_To_End_Of_Line;
+                     Go_To_End_Of_Line;
 
-                        --  Decrement the depth of the #if stack
+                     --  Decrement the depth of the #if stack
 
-                        if Pp_States.Last > 0 then
-                           Pp_States.Decrement_Last;
-                        end if;
+                     if Pp_States.Last > 0 then
+                        Pp_States.Decrement_Last;
+                     end if;
 
-                     --  Illegal preprocessor line
+                  --  Illegal preprocessor line
 
-                     when others =>
-                        if Pp_States.Last = 0 then
-                           Error_Msg ("IF expected", Token_Ptr);
+                  when others =>
+                     No_Error_Found := False;
 
-                        elsif
-                          Pp_States.Table (Pp_States.Last).Else_Ptr = 0
-                        then
-                           Error_Msg ("IF, ELSIF, ELSE, or `END IF` expected",
-                                      Token_Ptr);
+                     if Pp_States.Last = 0 then
+                        Error_Msg ("IF expected", Token_Ptr);
 
-                        else
-                           Error_Msg ("IF or `END IF` expected", Token_Ptr);
-                        end if;
+                     elsif
+                       Pp_States.Table (Pp_States.Last).Else_Ptr = 0
+                     then
+                        Error_Msg ("IF, ELSIF, ELSE, or `END IF` expected",
+                                   Token_Ptr);
 
-                        --  Skip to the end of this illegal line
+                     else
+                        Error_Msg ("IF or `END IF` expected", Token_Ptr);
+                     end if;
 
-                        Go_To_End_Of_Line;
-                  end case;
+                     --  Skip to the end of this illegal line
+
+                     Go_To_End_Of_Line;
+               end case;
 
             --  Not a preprocessor line
 
@@ -1339,6 +1365,8 @@ package body Prep is
                      if Token = Tok_Special
                        and then Special_Character = '$'
                      then
+                        Modified := True;
+
                         declare
                            Dollar_Ptr : constant Source_Ptr := Token_Ptr;
                            Symbol     : Symbol_Id;
@@ -1425,7 +1453,7 @@ package body Prep is
          end if;
 
          --  Now, scan the first token of the next line. If the token is EOF,
-         --  the scan ponter will not move, and the token will still be EOF.
+         --  the scan pointer will not move, and the token will still be EOF.
 
          Set_Ignore_Errors (To => True);
          Scan.all;
@@ -1436,7 +1464,10 @@ package body Prep is
 
       for Level in reverse 1 .. Pp_States.Last loop
          Error_Msg ("no `END IF` for this IF", Pp_States.Table (Level).If_Ptr);
+         No_Error_Found := False;
       end loop;
+
+      Source_Modified := No_Error_Found and Modified;
    end Preprocess;
 
 end Prep;

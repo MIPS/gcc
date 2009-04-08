@@ -37,23 +37,35 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 subdir = doc
-DIST_COMMON = $(cp_tools_TEXINFOS) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in texinfo.tex
+DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in texinfo.tex
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../../config/depstand.m4 \
 	$(top_srcdir)/../../config/lead-dot.m4 \
 	$(top_srcdir)/../../config/multi.m4 \
 	$(top_srcdir)/../../config/no-executables.m4 \
-	$(top_srcdir)/../../libtool.m4 $(top_srcdir)/m4/acattribute.m4 \
-	$(top_srcdir)/m4/accross.m4 $(top_srcdir)/m4/acinclude.m4 \
+	$(top_srcdir)/../../config/override.m4 \
+	$(top_srcdir)/../../config/proginstall.m4 \
+	$(top_srcdir)/../../libtool.m4 \
+	$(top_srcdir)/../../ltoptions.m4 \
+	$(top_srcdir)/../../ltsugar.m4 \
+	$(top_srcdir)/../../ltversion.m4 \
+	$(top_srcdir)/../../lt~obsolete.m4 \
+	$(top_srcdir)/m4/ac_prog_antlr.m4 \
+	$(top_srcdir)/m4/ac_prog_java.m4 \
+	$(top_srcdir)/m4/ac_prog_java_works.m4 \
+	$(top_srcdir)/m4/ac_prog_javac.m4 \
+	$(top_srcdir)/m4/ac_prog_javac_works.m4 \
+	$(top_srcdir)/m4/acattribute.m4 $(top_srcdir)/m4/accross.m4 \
+	$(top_srcdir)/m4/acinclude.m4 \
 	$(top_srcdir)/m4/ax_create_stdint_h.m4 \
+	$(top_srcdir)/m4/ax_func_which_gethostbyname_r.m4 \
 	$(top_srcdir)/m4/gcc_attribute.m4 $(top_srcdir)/m4/iconv.m4 \
 	$(top_srcdir)/m4/lib-ld.m4 $(top_srcdir)/m4/lib-link.m4 \
 	$(top_srcdir)/m4/lib-prefix.m4 $(top_srcdir)/m4/pkg.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(SHELL) $(top_srcdir)/../../mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES =
 SOURCES =
@@ -88,12 +100,17 @@ ACLOCAL = @ACLOCAL@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
+ANTLR = @ANTLR@
+ANTLR_JAR = @ANTLR_JAR@
+AR = @AR@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BUILD_CLASS_FILES_FALSE = @BUILD_CLASS_FILES_FALSE@
 BUILD_CLASS_FILES_TRUE = @BUILD_CLASS_FILES_TRUE@
+CAIRO_CFLAGS = @CAIRO_CFLAGS@
+CAIRO_LIBS = @CAIRO_LIBS@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -116,6 +133,14 @@ CREATE_DSSI_LIBRARIES_FALSE = @CREATE_DSSI_LIBRARIES_FALSE@
 CREATE_DSSI_LIBRARIES_TRUE = @CREATE_DSSI_LIBRARIES_TRUE@
 CREATE_GCONF_PEER_LIBRARIES_FALSE = @CREATE_GCONF_PEER_LIBRARIES_FALSE@
 CREATE_GCONF_PEER_LIBRARIES_TRUE = @CREATE_GCONF_PEER_LIBRARIES_TRUE@
+CREATE_GJDOC_FALSE = @CREATE_GJDOC_FALSE@
+CREATE_GJDOC_PARSER_FALSE = @CREATE_GJDOC_PARSER_FALSE@
+CREATE_GJDOC_PARSER_TRUE = @CREATE_GJDOC_PARSER_TRUE@
+CREATE_GJDOC_TRUE = @CREATE_GJDOC_TRUE@
+CREATE_GMPBI_LIBRARY_FALSE = @CREATE_GMPBI_LIBRARY_FALSE@
+CREATE_GMPBI_LIBRARY_TRUE = @CREATE_GMPBI_LIBRARY_TRUE@
+CREATE_GSTREAMER_PEER_LIBRARIES_FALSE = @CREATE_GSTREAMER_PEER_LIBRARIES_FALSE@
+CREATE_GSTREAMER_PEER_LIBRARIES_TRUE = @CREATE_GSTREAMER_PEER_LIBRARIES_TRUE@
 CREATE_GTK_PEER_LIBRARIES_FALSE = @CREATE_GTK_PEER_LIBRARIES_FALSE@
 CREATE_GTK_PEER_LIBRARIES_TRUE = @CREATE_GTK_PEER_LIBRARIES_TRUE@
 CREATE_JNI_HEADERS_FALSE = @CREATE_JNI_HEADERS_FALSE@
@@ -139,10 +164,11 @@ DATE = @DATE@
 DEFAULT_PREFS_PEER = @DEFAULT_PREFS_PEER@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DSYMUTIL = @DSYMUTIL@
+DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
-ECJ = @ECJ@
 ECJ_JAR = @ECJ_JAR@
 EGREP = @EGREP@
 ENABLE_LOCAL_SOCKETS_FALSE = @ENABLE_LOCAL_SOCKETS_FALSE@
@@ -150,24 +176,13 @@ ENABLE_LOCAL_SOCKETS_TRUE = @ENABLE_LOCAL_SOCKETS_TRUE@
 ERROR_CFLAGS = @ERROR_CFLAGS@
 EXAMPLESDIR = @EXAMPLESDIR@
 EXEEXT = @EXEEXT@
-FASTJAR = @FASTJAR@
+EXTRA_CFLAGS = @EXTRA_CFLAGS@
+FGREP = @FGREP@
 FIND = @FIND@
-FOUND_CACAO_FALSE = @FOUND_CACAO_FALSE@
-FOUND_CACAO_TRUE = @FOUND_CACAO_TRUE@
-FOUND_ECJ_FALSE = @FOUND_ECJ_FALSE@
-FOUND_ECJ_TRUE = @FOUND_ECJ_TRUE@
-FOUND_GCJX_FALSE = @FOUND_GCJX_FALSE@
-FOUND_GCJX_TRUE = @FOUND_GCJX_TRUE@
-FOUND_GCJ_FALSE = @FOUND_GCJ_FALSE@
-FOUND_GCJ_TRUE = @FOUND_GCJ_TRUE@
-FOUND_JIKES_FALSE = @FOUND_JIKES_FALSE@
-FOUND_JIKES_TRUE = @FOUND_JIKES_TRUE@
-FOUND_KJC_FALSE = @FOUND_KJC_FALSE@
-FOUND_KJC_TRUE = @FOUND_KJC_TRUE@
 FREETYPE2_CFLAGS = @FREETYPE2_CFLAGS@
 FREETYPE2_LIBS = @FREETYPE2_LIBS@
-GCJ = @GCJ@
-GCJX = @GCJX@
+GCJ_JAVAC_FALSE = @GCJ_JAVAC_FALSE@
+GCJ_JAVAC_TRUE = @GCJ_JAVAC_TRUE@
 GCONF_CFLAGS = @GCONF_CFLAGS@
 GCONF_LIBS = @GCONF_LIBS@
 GDK_CFLAGS = @GDK_CFLAGS@
@@ -177,9 +192,23 @@ GENINSRC_TRUE = @GENINSRC_TRUE@
 GJDOC = @GJDOC@
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_LIBS = @GLIB_LIBS@
+GMP_CFLAGS = @GMP_CFLAGS@
+GMP_LIBS = @GMP_LIBS@
+GREP = @GREP@
+GSTREAMER_BASE_CFLAGS = @GSTREAMER_BASE_CFLAGS@
+GSTREAMER_BASE_LIBS = @GSTREAMER_BASE_LIBS@
+GSTREAMER_CFLAGS = @GSTREAMER_CFLAGS@
+GSTREAMER_FILE_READER = @GSTREAMER_FILE_READER@
+GSTREAMER_LIBS = @GSTREAMER_LIBS@
+GSTREAMER_MIXER_PROVIDER = @GSTREAMER_MIXER_PROVIDER@
+GSTREAMER_PLUGINS_BASE_CFLAGS = @GSTREAMER_PLUGINS_BASE_CFLAGS@
+GSTREAMER_PLUGINS_BASE_LIBS = @GSTREAMER_PLUGINS_BASE_LIBS@
+GST_PLUGIN_LDFLAGS = @GST_PLUGIN_LDFLAGS@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
 INIT_LOAD_LIBRARY = @INIT_LOAD_LIBRARY@
+INSTALL_BINARIES_FALSE = @INSTALL_BINARIES_FALSE@
+INSTALL_BINARIES_TRUE = @INSTALL_BINARIES_TRUE@
 INSTALL_CLASS_FILES_FALSE = @INSTALL_CLASS_FILES_FALSE@
 INSTALL_CLASS_FILES_TRUE = @INSTALL_CLASS_FILES_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
@@ -188,15 +217,17 @@ INSTALL_GLIBJ_ZIP_TRUE = @INSTALL_GLIBJ_ZIP_TRUE@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+JAR = @JAR@
+JAVA = @JAVA@
+JAVAC = @JAVAC@
+JAVAC_IS_GCJ = @JAVAC_IS_GCJ@
+JAVAC_MEM_OPT = @JAVAC_MEM_OPT@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAVA_MAINTAINER_MODE_FALSE = @JAVA_MAINTAINER_MODE_FALSE@
 JAVA_MAINTAINER_MODE_TRUE = @JAVA_MAINTAINER_MODE_TRUE@
 JAY = @JAY@
 JAY_SKELETON = @JAY_SKELETON@
-JIKES = @JIKES@
-JIKESENCODING = @JIKESENCODING@
-JIKESWARNINGS = @JIKESWARNINGS@
-KJC = @KJC@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBDEBUG = @LIBDEBUG@
 LIBICONV = @LIBICONV@
@@ -205,6 +236,7 @@ LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIBVERSION = @LIBVERSION@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBICONV = @LTLIBICONV@
 LTLIBOBJS = @LTLIBOBJS@
@@ -216,7 +248,12 @@ MKDIR = @MKDIR@
 MOC = @MOC@
 MOZILLA_CFLAGS = @MOZILLA_CFLAGS@
 MOZILLA_LIBS = @MOZILLA_LIBS@
+NM = @NM@
+NMEDIT = @NMEDIT@
+OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -237,23 +274,22 @@ RANLIB = @RANLIB@
 REGEN_PARSERS_FALSE = @REGEN_PARSERS_FALSE@
 REGEN_PARSERS_TRUE = @REGEN_PARSERS_TRUE@
 REMOVE = @REMOVE@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRICT_WARNING_CFLAGS = @STRICT_WARNING_CFLAGS@
 STRIP = @STRIP@
-USER_CLASSLIB = @USER_CLASSLIB@
+TOOLSDIR = @TOOLSDIR@
 USER_JAVAH = @USER_JAVAH@
-USER_SPECIFIED_CLASSLIB_FALSE = @USER_SPECIFIED_CLASSLIB_FALSE@
-USER_SPECIFIED_CLASSLIB_TRUE = @USER_SPECIFIED_CLASSLIB_TRUE@
-USER_SPECIFIED_JAVAH_FALSE = @USER_SPECIFIED_JAVAH_FALSE@
-USER_SPECIFIED_JAVAH_TRUE = @USER_SPECIFIED_JAVAH_TRUE@
 USE_ESCHER_FALSE = @USE_ESCHER_FALSE@
 USE_ESCHER_TRUE = @USE_ESCHER_TRUE@
 USE_PREBUILT_GLIBJ_ZIP_FALSE = @USE_PREBUILT_GLIBJ_ZIP_FALSE@
 USE_PREBUILT_GLIBJ_ZIP_TRUE = @USE_PREBUILT_GLIBJ_ZIP_TRUE@
 VERSION = @VERSION@
-VM_BINARY = @VM_BINARY@
+WANT_NATIVE_BIG_INTEGER = @WANT_NATIVE_BIG_INTEGER@
 WARNING_CFLAGS = @WARNING_CFLAGS@
+WITH_JAR_FALSE = @WITH_JAR_FALSE@
+WITH_JAR_TRUE = @WITH_JAR_TRUE@
 XML_CFLAGS = @XML_CFLAGS@
 XML_LIBS = @XML_LIBS@
 XSLT_CFLAGS = @XSLT_CFLAGS@
@@ -264,8 +300,17 @@ X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
 X_PRE_LIBS = @X_PRE_LIBS@
 ZIP = @ZIP@
+ac_ct_ANTLR = @ac_ct_ANTLR@
+ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
+ac_ct_DSYMUTIL = @ac_ct_DSYMUTIL@
+ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
+ac_ct_LIPO = @ac_ct_LIPO@
+ac_ct_NMEDIT = @ac_ct_NMEDIT@
+ac_ct_OBJDUMP = @ac_ct_OBJDUMP@
+ac_ct_OTOOL = @ac_ct_OTOOL@
+ac_ct_OTOOL64 = @ac_ct_OTOOL64@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
@@ -298,6 +343,7 @@ install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 multi_basedir = @multi_basedir@
@@ -314,12 +360,12 @@ target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
 toolexeclibdir = @toolexeclibdir@
+uudecode = @uudecode@
 vm_classes = @vm_classes@
 SUBDIRS = api
-EXTRA_DIST = README.jaxp $(man_MANS)
+EXTRA_DIST = README.jaxp texi2pod.pl $(man_MANS)
 TEXINFO_TEX = ../../gcc/doc/include/texinfo.tex
 info_TEXINFOS = cp-tools.texinfo
-cp_tools_TEXINFOS = gcc-vers.texi
 man_MANS = $(TOOLS_MANFILES)
 TOOLS_MANFILES = \
 	gappletviewer.1 \
@@ -333,14 +379,16 @@ TOOLS_MANFILES = \
 	grmid.1 \
 	grmiregistry.1 \
 	gserialver.1 \
-	gtnameserv.1
+	gtnameserv.1 \
+	gjdoc.1
 
-BASEVER = $(top_srcdir)/../../gcc/BASE-VER
-DEVPHASE = $(top_srcdir)/../../gcc/DEV-PHASE
-POD2MAN = pod2man --center="GNU" --release="gcc-$(shell cat $(BASEVER))"
-TEXI2POD = perl $(top_srcdir)/../../contrib/texi2pod.pl
+POD2MAN = pod2man --center="GNU" --release="$(VERSION)"
+TEXI2POD = perl $(srcdir)/texi2pod.pl
 STAMP = echo timestamp >
 @GENINSRC_FALSE@STAMP_GENINSRC = 
+
+# GCJ LOCAL CHANGE
+#CLEANFILES = $(TOOLS_MANFILES)
 
 # GCJ LOCAL CHANGE
 # The following commands allow us to release tarballs with the man pages
@@ -353,6 +401,7 @@ MAINTAINERCLEANFILES = \
 		$(srcdir)/gjar.1 \
 		$(srcdir)/gjarsigner.1 \
 		$(srcdir)/gjavah.1 \
+		$(srcdir)/gjdoc.1 \
 		$(srcdir)/gkeytool.1 \
 		$(srcdir)/gnative2ascii.1 \
 		$(srcdir)/gorbd.1 \
@@ -365,7 +414,7 @@ MAINTAINERCLEANFILES = \
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .dvi .ps
+.SUFFIXES: .1 .dvi .pod .ps .texinfo
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -405,7 +454,7 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 
-cp-tools.info: cp-tools.texinfo $(cp_tools_TEXINFOS)
+cp-tools.info: cp-tools.texinfo 
 	restore=: && backupdir="$(am__leading_dot)am$$$$" && \
 	rm -rf $$backupdir && mkdir $$backupdir && \
 	if ($(MAKEINFO) --version) >/dev/null 2>&1; then \
@@ -423,17 +472,17 @@ cp-tools.info: cp-tools.texinfo $(cp_tools_TEXINFOS)
 	fi; \
 	rm -rf $$backupdir; exit $$rc
 
-cp-tools.dvi: cp-tools.texinfo $(cp_tools_TEXINFOS) 
+cp-tools.dvi: cp-tools.texinfo  
 	TEXINPUTS="$(am__TEXINFO_TEX_DIR)$(PATH_SEPARATOR)$$TEXINPUTS" \
 	MAKEINFO='$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -I $(srcdir)' \
 	$(TEXI2DVI) -o $@ `test -f 'cp-tools.texinfo' || echo '$(srcdir)/'`cp-tools.texinfo
 
-cp-tools.pdf: cp-tools.texinfo $(cp_tools_TEXINFOS) 
+cp-tools.pdf: cp-tools.texinfo  
 	TEXINPUTS="$(am__TEXINFO_TEX_DIR)$(PATH_SEPARATOR)$$TEXINPUTS" \
 	MAKEINFO='$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -I $(srcdir)' \
 	$(TEXI2PDF) -o $@ `test -f 'cp-tools.texinfo' || echo '$(srcdir)/'`cp-tools.texinfo
 
-cp-tools.html: cp-tools.texinfo $(cp_tools_TEXINFOS) 
+cp-tools.html: cp-tools.texinfo  
 	rm -rf $(@:.html=.htp)
 	if $(MAKEINFOHTML) $(AM_MAKEINFOHTMLFLAGS) $(MAKEINFOFLAGS) -I $(srcdir) \
 	 -o $(@:.html=.htp) `test -f 'cp-tools.texinfo' || echo '$(srcdir)/'`cp-tools.texinfo; \
@@ -446,9 +495,6 @@ cp-tools.html: cp-tools.texinfo $(cp_tools_TEXINFOS)
 	    rm -rf $(@:.html=); else rm -Rf $(@:.html=.htp) $@; fi; \
 	  exit 1; \
 	fi
-.dvi.ps:
-	TEXINPUTS="$(am__TEXINFO_TEX_DIR)$(PATH_SEPARATOR)$$TEXINPUTS" \
-	$(DVIPS) -o $@ $<
 
 uninstall-info-am:
 	@$(PRE_UNINSTALL)
@@ -778,7 +824,7 @@ info: info-recursive
 
 info-am: $(INFO_DEPS)
 
-install-data-am: install-data-local install-info-am install-man
+install-data-am: install-info-am install-man
 
 install-exec-am:
 
@@ -847,36 +893,26 @@ uninstall-man: uninstall-man1
 	ctags ctags-recursive dist-info distclean distclean-generic \
 	distclean-libtool distclean-recursive distclean-tags distdir \
 	dvi dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-data-local install-exec \
-	install-exec-am install-info install-info-am install-man \
-	install-man1 install-strip installcheck installcheck-am \
-	installdirs installdirs-am maintainer-clean \
-	maintainer-clean-aminfo maintainer-clean-generic \
-	maintainer-clean-recursive mostlyclean mostlyclean-aminfo \
-	mostlyclean-generic mostlyclean-libtool mostlyclean-recursive \
-	pdf pdf-am ps ps-am tags tags-recursive uninstall uninstall-am \
-	uninstall-info-am uninstall-man uninstall-man1
+	install-data install-data-am install-exec install-exec-am \
+	install-info install-info-am install-man install-man1 \
+	install-strip installcheck installcheck-am installdirs \
+	installdirs-am maintainer-clean maintainer-clean-aminfo \
+	maintainer-clean-generic maintainer-clean-recursive \
+	mostlyclean mostlyclean-aminfo mostlyclean-generic \
+	mostlyclean-libtool mostlyclean-recursive pdf pdf-am ps ps-am \
+	tags tags-recursive uninstall uninstall-am uninstall-info-am \
+	uninstall-man uninstall-man1
 
 
-%.dvi : %.texinfo
+.texinfo.dvi:
 	texi2dvi $<
 
-%.ps : %.dvi
+.dvi.ps:
 	dvips -o $@ $<
 
-docs: cp-hacking.ps cp-vmintegration.ps cp-tools.ps
-install-data-local: install-info
+docs: cp-hacking.ps cp-vmintegration.ps cp-tools.ps $(TOOLS_MANFILES)
 
-# gcc-vers.texi is generated from the version files.
-gcc-vers.texi: $(BASEVER) $(DEVPHASE)
-	(echo "@set version-GCC $(shell cat $(BASEVER))"; \
-	 if [ "$(shell cat $(DEVPHASE))" = "experimental" ]; \
-	 then echo "@set DEVELOPMENT"; \
-	 else echo "@clear DEVELOPMENT"; \
-	 fi) > $@T
-	mv -f $@T $@
-
-%.1: %.pod
+.pod.1:
 	$(STAMP) $@
 	-($(POD2MAN) --section=1 $< > $(@).T$$$$ && \
 		mv -f $(@).T$$$$ $@) || \
@@ -884,7 +920,7 @@ gcc-vers.texi: $(BASEVER) $(DEVPHASE)
 
 .INTERMEDIATE: gappletviewer.pod gjarsigner.pod gjar.pod gjavah.pod \
 	gkeytool.pod gnative2ascii.pod gorbd.pod grmid.pod grmiregistry.pod \
-	gserialver.pod gtnameserv.pod gcjh.pod
+	gserialver.pod gtnameserv.pod gcjh.pod gjdoc.pod
 
 gappletviewer.pod: $(srcdir)/cp-tools.texinfo
 	-$(TEXI2POD) -D gappletviewer < $< > $@
@@ -926,6 +962,9 @@ gserialver.pod: $(srcdir)/cp-tools.texinfo
 gtnameserv.pod: $(srcdir)/cp-tools.texinfo
 	-$(TEXI2POD) -D gtnameserv < $< > $@
 
+gjdoc.pod: $(srcdir)/cp-tools.texinfo
+	-$(TEXI2POD) -D gjdoc < $< > $@
+
 all-local: $(STAMP_GENINSRC) 
 
 stamp-geninsrc: $(TOOLS_MANFILES) cp-tools.info
@@ -933,6 +972,7 @@ stamp-geninsrc: $(TOOLS_MANFILES) cp-tools.info
 	-cp -p gjar.1 $(srcdir)/gjar.1
 	-cp -p gjarsigner.1 $(srcdir)/gjarsigner.1
 	-cp -p gjavah.1 $(srcdir)/gjavah.1
+	-cp -p gjdoc.1 $(srcdir)/gjdoc.1
 	-cp -p gkeytool.1 $(srcdir)/gkeytool.1
 	-cp -p gnative2ascii.1 $(srcdir)/gnative2ascii.1
 	-cp -p gorbd.1 $(srcdir)/gorbd.1

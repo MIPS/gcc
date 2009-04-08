@@ -1,3 +1,74 @@
+2007-11-26  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 34081/C++
+	* treetree.c (tree_code_create_function_wrapup): Pass 'false' 
+	for the new allocate_struct_function parameter.
+
+2007-09-12  Jan Hubicka  <jh@suse.cz>
+
+	* treetree.c (LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION): Kill.
+	(treelang_expand_function): Kill.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* tree1.c (treelang_init): Update.
+	(treelang_parse_file): Update.
+	(treelang_parse_file): Update.
+	(treelang_parse_file): Update.
+	* lex.l: Update.
+	(update_lineno_charno): Likewise.
+
+2007-09-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* treetree.c (tree_code_create_function_wrapup):  Use set_cfun.
+
+2007-08-21  Paul Brook  <paul@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* tree1.c (treelang_handle_option): Use pkgversion_string.
+	* treelang.texi (which-treelang): Define to use VERSION_PACKAGE.
+
+2007-07-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* lex.l (update_yylval): Constify.
+	* treelang.h (struct token_part, struct parameter_part):
+	Likewise.
+	* treetree.c (tree_code_create_function_prototype,
+	tree_code_create_variable, tree_code_get_integer_value):
+	Likewise.
+	* treetree.h (tree_code_get_integer_value,
+	tree_code_create_function_prototype, tree_code_create_variable):
+	Likewise.
+
+2007-07-25  Richard Guenther  <rguenther@suse.de>
+
+	* treetree.c (tree_code_generate_return): RETURN_EXPRs
+	have volatile type.
+
+2007-07-17  Nick Clifton  <nickc@redhat.com>
+
+	* parse.y: Change copyright header to refer to version 3 of the
+	GNU General Public License and to point readers at the COPYING3
+	file.
+	* lex.l: Likewise.
+	* lang.opt: Likewise.
+	* lang-specs.h: Likewise.
+	* treelang.h: Likewise.
+	* config-lang.in: Likewise.
+	* tree-convert.c: Likewise.
+	* treetree.c: Likewise.
+	* tree1.c: Likewise.
+	* Make-lang.in: Likewise.
+	* treetree.h: Likewise.
+	* spec.c: Likewise.
+
+2007-06-11  Rafael Avila de Espindola  <espindola@google.com>
+
+	* treetree.c (tree_lang_signed_type): Remove.
+	(LANG_HOOKS_SIGNED_TYPE): Remove.
+
 2007-05-14  Rafael Avila de Espindola  <espindola@google.com>
 
 	* treetree.c (tree_lang_unsigned_type): Remove.

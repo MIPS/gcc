@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package gnu.xml.dom;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -1108,25 +1110,46 @@ public abstract class DomNode
    */
   public Node cloneNode(boolean deep)
   {
-    DomNode node = (DomNode) clone();
-    
     if (deep)
       {
-        DomDocument doc = (nodeType == DOCUMENT_NODE) ?
-          (DomDocument) node : node.owner;
-        boolean building = doc.building;
+        return cloneNodeDeepInternal(true, null);
+      }
+
+    DomNode node = (DomNode) clone();
+    if (nodeType == ENTITY_REFERENCE_NODE)
+      {
+        node.makeReadonly();
+      }
+    notifyUserDataHandlers(UserDataHandler.NODE_CLONED, this, node);
+    return node;
+  }
+
+  /**
+   * Returns a deep clone of this node.
+   */
+  private DomNode cloneNodeDeepInternal(boolean root, DomDocument doc)
+  {
+    DomNode node = (DomNode) clone();
+    boolean building = false; // Never used unless root is true
+    if (root)
+      {
+        doc = (nodeType == DOCUMENT_NODE) ? (DomDocument) node : node.owner;
+        building = doc.building;
         doc.building = true; // Permit certain structural rules
-        for (DomNode ctx = first; ctx != null; ctx = ctx.next)
-          {
-            DomNode newChild = (DomNode) ctx.cloneNode(deep);
-            newChild.setOwner(doc);
-            node.appendChild(newChild);
-          }
-        doc.building = building;
+      }
+    node.owner = doc;
+    for (DomNode ctx = first; ctx != null; ctx = ctx.next)
+      {
+        DomNode newChild = ctx.cloneNodeDeepInternal(false, doc);
+        node.appendChild(newChild);
       }
     if (nodeType == ENTITY_REFERENCE_NODE)
       {
         node.makeReadonly();
+      }
+    if (root)
+      {
+        doc.building = building;
       }
     notifyUserDataHandlers(UserDataHandler.NODE_CLONED, this, node);
     return node;
@@ -1918,7 +1941,7 @@ public abstract class DomNode
       case ENTITY_NODE:
       case ENTITY_REFERENCE_NODE:
       case DOCUMENT_FRAGMENT_NODE:
-        StringBuffer buffer = new StringBuffer();
+        CPStringBuilder buffer = new CPStringBuilder();
         for (DomNode ctx = first; ctx != null; ctx = ctx.next)
           {
             String textContent = ctx.getTextContent(false);
@@ -2103,7 +2126,7 @@ public abstract class DomNode
   {
     String nodeName = getNodeName();
     String nodeValue = getNodeValue();
-    StringBuffer buf = new StringBuffer(getClass().getName());
+    CPStringBuilder buf = new CPStringBuilder(getClass().getName());
     buf.append('[');
     if (nodeName != null)
       {
@@ -2125,7 +2148,7 @@ public abstract class DomNode
   
   String encode(String value)
   {
-    StringBuffer buf = null;
+    CPStringBuilder buf = null;
     int len = value.length();
     for (int i = 0; i < len; i++)
       {
@@ -2134,7 +2157,7 @@ public abstract class DomNode
           {
             if (buf == null)
               {
-                buf = new StringBuffer(value.substring(0, i));
+                buf = new CPStringBuilder(value.substring(0, i));
               }
             buf.append("\\n");
           }
@@ -2142,7 +2165,7 @@ public abstract class DomNode
           {
             if (buf == null)
               {
-                buf = new StringBuffer(value.substring(0, i));
+                buf = new CPStringBuilder(value.substring(0, i));
               }
             buf.append("\\r");
           }

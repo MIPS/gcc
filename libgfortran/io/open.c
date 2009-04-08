@@ -1,6 +1,7 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2007
+/* Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -28,13 +29,10 @@ along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "io.h"
 #include <unistd.h>
-#include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include "libgfortran.h"
-#include "io.h"
 
 
 static const st_option access_opt[] = {
@@ -100,15 +98,54 @@ static const st_option pad_opt[] =
   { NULL, 0}
 };
 
-static const st_option convert_opt[] =
+static const st_option decimal_opt[] =
 {
-  { "native", CONVERT_NATIVE},
-  { "swap", CONVERT_SWAP},
-  { "big_endian", CONVERT_BIG},
-  { "little_endian", CONVERT_LITTLE},
+  { "point", DECIMAL_POINT},
+  { "comma", DECIMAL_COMMA},
   { NULL, 0}
 };
 
+static const st_option encoding_opt[] =
+{
+  { "utf-8", ENCODING_UTF8},
+  { "default", ENCODING_DEFAULT},
+  { NULL, 0}
+};
+
+static const st_option round_opt[] =
+{
+  { "up", ROUND_UP},
+  { "down", ROUND_DOWN},
+  { "zero", ROUND_ZERO},
+  { "nearest", ROUND_NEAREST},
+  { "compatible", ROUND_COMPATIBLE},
+  { "processor_defined", ROUND_PROCDEFINED},
+  { NULL, 0}
+};
+
+static const st_option sign_opt[] =
+{
+  { "plus", SIGN_PLUS},
+  { "suppress", SIGN_SUPPRESS},
+  { "processor_defined", SIGN_PROCDEFINED},
+  { NULL, 0}
+};
+
+static const st_option convert_opt[] =
+{
+  { "native", GFC_CONVERT_NATIVE},
+  { "swap", GFC_CONVERT_SWAP},
+  { "big_endian", GFC_CONVERT_BIG},
+  { "little_endian", GFC_CONVERT_LITTLE},
+  { NULL, 0}
+};
+
+static const st_option async_opt[] =
+{
+  { "yes", ASYNC_YES},
+  { "no", ASYNC_NO},
+  { NULL, 0}
+};
 
 /* Given a unit, test to see if the file is positioned at the terminal
    point, and if so, change state from NO_ENDFILE flag to AT_ENDFILE.
@@ -118,7 +155,7 @@ static const st_option convert_opt[] =
 static void
 test_endfile (gfc_unit * u)
 {
-  if (u->endfile == NO_ENDFILE && file_length (u->s) == file_position (u->s))
+  if (u->endfile == NO_ENDFILE && file_length (u->s) == stell (u->s))
     u->endfile = AT_ENDFILE;
 }
 
@@ -133,24 +170,24 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 
   if (flags->status != STATUS_UNSPECIFIED && flags->status != STATUS_OLD && 
       u->flags.status != flags->status)
-    generate_error (&opp->common, ERROR_BAD_OPTION,
+    generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		    "Cannot change STATUS parameter in OPEN statement");
 
   if (flags->access != ACCESS_UNSPECIFIED && u->flags.access != flags->access)
-    generate_error (&opp->common, ERROR_BAD_OPTION,
+    generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		    "Cannot change ACCESS parameter in OPEN statement");
 
   if (flags->form != FORM_UNSPECIFIED && u->flags.form != flags->form)
-    generate_error (&opp->common, ERROR_BAD_OPTION,
+    generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		    "Cannot change FORM parameter in OPEN statement");
 
   if ((opp->common.flags & IOPARM_OPEN_HAS_RECL_IN)
       && opp->recl_in != u->recl)
-    generate_error (&opp->common, ERROR_BAD_OPTION,
+    generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		    "Cannot change RECL parameter in OPEN statement");
 
   if (flags->action != ACTION_UNSPECIFIED && u->flags.action != flags->action)
-    generate_error (&opp->common, ERROR_BAD_OPTION,
+    generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		    "Cannot change ACTION parameter in OPEN statement");
 
   /* Status must be OLD if present.  */
@@ -162,25 +199,45 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 	notify_std (&opp->common, GFC_STD_GNU,
 		    "OPEN statement must have a STATUS of OLD or UNKNOWN");
       else
-	generate_error (&opp->common, ERROR_BAD_OPTION,
+	generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		    "OPEN statement must have a STATUS of OLD or UNKNOWN");
     }
 
   if (u->flags.form == FORM_UNFORMATTED)
     {
       if (flags->delim != DELIM_UNSPECIFIED)
-	generate_error (&opp->common, ERROR_OPTION_CONFLICT,
+	generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
 			"DELIM parameter conflicts with UNFORMATTED form in "
 			"OPEN statement");
 
       if (flags->blank != BLANK_UNSPECIFIED)
-	generate_error (&opp->common, ERROR_OPTION_CONFLICT,
+	generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
 			"BLANK parameter conflicts with UNFORMATTED form in "
 			"OPEN statement");
 
       if (flags->pad != PAD_UNSPECIFIED)
-	generate_error (&opp->common, ERROR_OPTION_CONFLICT,
+	generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
 			"PAD parameter conflicts with UNFORMATTED form in "
+			"OPEN statement");
+
+      if (flags->decimal != DECIMAL_UNSPECIFIED)
+	generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
+			"DECIMAL parameter conflicts with UNFORMATTED form in "
+			"OPEN statement");
+
+      if (flags->encoding != ENCODING_UNSPECIFIED)
+	generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
+			"ENCODING parameter conflicts with UNFORMATTED form in "
+			"OPEN statement");
+
+      if (flags->round != ROUND_UNSPECIFIED)
+	generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
+			"ROUND parameter conflicts with UNFORMATTED form in "
+			"OPEN statement");
+
+      if (flags->sign != SIGN_UNSPECIFIED)
+	generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
+			"SIGN parameter conflicts with UNFORMATTED form in "
 			"OPEN statement");
     }
 
@@ -193,6 +250,16 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 	u->flags.delim = flags->delim;
       if (flags->pad != PAD_UNSPECIFIED)
 	u->flags.pad = flags->pad;
+      if (flags->decimal != DECIMAL_UNSPECIFIED)
+	u->flags.decimal = flags->decimal;
+      if (flags->encoding != ENCODING_UNSPECIFIED)
+	u->flags.encoding = flags->encoding;
+      if (flags->async != ASYNC_UNSPECIFIED)
+	u->flags.async = flags->async;
+      if (flags->round != ROUND_UNSPECIFIED)
+	u->flags.round = flags->round;
+      if (flags->sign != SIGN_UNSPECIFIED)
+	u->flags.sign = flags->sign;
     }
 
   /* Reposition the file if necessary.  */
@@ -204,7 +271,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       break;
 
     case POSITION_REWIND:
-      if (sseek (u->s, 0) == FAILURE)
+      if (sseek (u->s, 0, SEEK_SET) != 0)
 	goto seek_error;
 
       u->current_record = 0;
@@ -214,7 +281,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       break;
 
     case POSITION_APPEND:
-      if (sseek (u->s, file_length (u->s)) == FAILURE)
+      if (sseek (u->s, 0, SEEK_END) < 0)
 	goto seek_error;
 
       if (flags->access != ACCESS_STREAM)
@@ -224,7 +291,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       break;
 
     seek_error:
-      generate_error (&opp->common, ERROR_OS, NULL);
+      generate_error (&opp->common, LIBERROR_OS, NULL);
       break;
     }
 
@@ -252,6 +319,13 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
     flags->form = (flags->access == ACCESS_SEQUENTIAL)
       ? FORM_FORMATTED : FORM_UNFORMATTED;
 
+  if (flags->async == ASYNC_UNSPECIFIED)
+    flags->async = ASYNC_NO;
+
+  if (flags->status == STATUS_UNSPECIFIED)
+    flags->status = STATUS_UNKNOWN;
+
+  /* Checks.  */
 
   if (flags->delim == DELIM_UNSPECIFIED)
     flags->delim = DELIM_NONE;
@@ -259,7 +333,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
     {
       if (flags->form == FORM_UNFORMATTED)
 	{
-	  generate_error (&opp->common, ERROR_OPTION_CONFLICT,
+	  generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
 			  "DELIM parameter conflicts with UNFORMATTED form in "
 			  "OPEN statement");
 	  goto fail;
@@ -272,7 +346,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
     {
       if (flags->form == FORM_UNFORMATTED)
 	{
-	  generate_error (&opp->common, ERROR_OPTION_CONFLICT,
+	  generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
 			  "BLANK parameter conflicts with UNFORMATTED form in "
 			  "OPEN statement");
 	  goto fail;
@@ -285,8 +359,64 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
     {
       if (flags->form == FORM_UNFORMATTED)
 	{
-	  generate_error (&opp->common, ERROR_OPTION_CONFLICT,
+	  generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
 			  "PAD parameter conflicts with UNFORMATTED form in "
+			  "OPEN statement");
+	  goto fail;
+	}
+    }
+
+  if (flags->decimal == DECIMAL_UNSPECIFIED)
+    flags->decimal = DECIMAL_POINT;
+  else
+    {
+      if (flags->form == FORM_UNFORMATTED)
+	{
+	  generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
+			  "DECIMAL parameter conflicts with UNFORMATTED form "
+			  "in OPEN statement");
+	  goto fail;
+	}
+    }
+
+  if (flags->encoding == ENCODING_UNSPECIFIED)
+    flags->encoding = ENCODING_DEFAULT;
+  else
+    {
+      if (flags->form == FORM_UNFORMATTED)
+	{
+	  generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
+			  "ENCODING parameter conflicts with UNFORMATTED form in "
+			  "OPEN statement");
+	  goto fail;
+	}
+    }
+
+  /* NB: the value for ROUND when it's not specified by the user does not
+         have to be PROCESSOR_DEFINED; the standard says that it is
+	 processor dependent, and requires that it is one of the
+	 possible value (see F2003, 9.4.5.13).  */
+  if (flags->round == ROUND_UNSPECIFIED)
+    flags->round = ROUND_PROCDEFINED;
+  else
+    {
+      if (flags->form == FORM_UNFORMATTED)
+	{
+	  generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
+			  "ROUND parameter conflicts with UNFORMATTED form in "
+			  "OPEN statement");
+	  goto fail;
+	}
+    }
+
+  if (flags->sign == SIGN_UNSPECIFIED)
+    flags->sign = SIGN_PROCDEFINED;
+  else
+    {
+      if (flags->form == FORM_UNFORMATTED)
+	{
+	  generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
+			  "SIGN parameter conflicts with UNFORMATTED form in "
 			  "OPEN statement");
 	  goto fail;
 	}
@@ -294,7 +424,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 
   if (flags->position != POSITION_ASIS && flags->access == ACCESS_DIRECT)
    {
-     generate_error (&opp->common, ERROR_OPTION_CONFLICT,
+     generate_error (&opp->common, LIBERROR_OPTION_CONFLICT,
                      "ACCESS parameter conflicts with SEQUENTIAL access in "
                      "OPEN statement");
      goto fail;
@@ -303,23 +433,17 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
    if (flags->position == POSITION_UNSPECIFIED)
      flags->position = POSITION_ASIS;
 
-
-  if (flags->status == STATUS_UNSPECIFIED)
-    flags->status = STATUS_UNKNOWN;
-
-  /* Checks.  */
-
   if (flags->access == ACCESS_DIRECT
       && (opp->common.flags & IOPARM_OPEN_HAS_RECL_IN) == 0)
     {
-      generate_error (&opp->common, ERROR_MISSING_OPTION,
+      generate_error (&opp->common, LIBERROR_MISSING_OPTION,
 		      "Missing RECL parameter in OPEN statement");
       goto fail;
     }
 
   if ((opp->common.flags & IOPARM_OPEN_HAS_RECL_IN) && opp->recl_in <= 0)
     {
-      generate_error (&opp->common, ERROR_BAD_OPTION,
+      generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		      "RECL parameter is non-positive in OPEN statement");
       goto fail;
     }
@@ -333,7 +457,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 	  break;
 	}
 
-      generate_error (&opp->common, ERROR_BAD_OPTION,
+      generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		      "FILE parameter must not be present in OPEN statement");
       goto fail;
 
@@ -369,7 +493,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
       && (options.stderr_unit < 0 || u2->unit_number != options.stderr_unit))
     {
       unlock_unit (u2);
-      generate_error (&opp->common, ERROR_ALREADY_OPEN, NULL);
+      generate_error (&opp->common, LIBERROR_ALREADY_OPEN, NULL);
       goto cleanup;
     }
 
@@ -389,26 +513,26 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
       switch (errno)
 	{
 	case ENOENT: 
-	  st_sprintf (msg, "File '%s' does not exist", path);
+	  sprintf (msg, "File '%s' does not exist", path);
 	  break;
 
 	case EEXIST:
-	  st_sprintf (msg, "File '%s' already exists", path);
+	  sprintf (msg, "File '%s' already exists", path);
 	  break;
 
 	case EACCES:
-	  st_sprintf (msg, "Permission denied trying to open file '%s'", path);
+	  sprintf (msg, "Permission denied trying to open file '%s'", path);
 	  break;
 
 	case EISDIR:
-	  st_sprintf (msg, "'%s' is a directory", path);
+	  sprintf (msg, "'%s' is a directory", path);
 	  break;
 
 	default:
 	  msg = NULL;
 	}
 
-      generate_error (&opp->common, ERROR_OS, msg);
+      generate_error (&opp->common, LIBERROR_OS, msg);
       goto cleanup;
     }
 
@@ -433,8 +557,8 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 
   if (flags->position == POSITION_APPEND)
     {
-      if (sseek (u->s, file_length (u->s)) == FAILURE)
-	generate_error (&opp->common, ERROR_OS, NULL);
+      if (sseek (u->s, 0, SEEK_END) < 0)
+	generate_error (&opp->common, LIBERROR_OS, NULL);
       u->endfile = AT_ENDFILE;
     }
 
@@ -487,7 +611,8 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
     {
       u->maxrec = max_offset;
       u->recl = 1;
-      u->strm_pos = 1;
+      u->bytes_left = 1;
+      u->strm_pos = stell (u->s) + 1;
     }
 
   memmove (u->file, opp->file, opp->file_len);
@@ -502,6 +627,19 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 
   if (flags->status == STATUS_SCRATCH && opp->file != NULL)
     free_mem (opp->file);
+    
+  if (flags->form == FORM_FORMATTED)
+    {
+      if ((opp->common.flags & IOPARM_OPEN_HAS_RECL_IN))
+        fbuf_init (u, u->recl);
+      else
+        fbuf_init (u, 0);
+    }
+  else
+    u->fbuf = NULL;
+
+    
+    
   return u;
 
  cleanup:
@@ -547,7 +685,7 @@ already_open (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       if (sclose (u->s) == FAILURE)
 	{
 	  unlock_unit (u);
-	  generate_error (&opp->common, ERROR_OS,
+	  generate_error (&opp->common, LIBERROR_OS,
 			  "Error closing file in OPEN statement");
 	  return;
 	}
@@ -610,6 +748,26 @@ st_open (st_parameter_open *opp)
     find_option (&opp->common, opp->pad, opp->pad_len,
 		 pad_opt, "Bad PAD parameter in OPEN statement");
 
+  flags.decimal = !(cf & IOPARM_OPEN_HAS_DECIMAL) ? DECIMAL_UNSPECIFIED :
+    find_option (&opp->common, opp->decimal, opp->decimal_len,
+		 decimal_opt, "Bad DECIMAL parameter in OPEN statement");
+
+  flags.encoding = !(cf & IOPARM_OPEN_HAS_ENCODING) ? ENCODING_UNSPECIFIED :
+    find_option (&opp->common, opp->encoding, opp->encoding_len,
+		 encoding_opt, "Bad ENCODING parameter in OPEN statement");
+
+  flags.async = !(cf & IOPARM_OPEN_HAS_ASYNCHRONOUS) ? ASYNC_UNSPECIFIED :
+    find_option (&opp->common, opp->asynchronous, opp->asynchronous_len,
+		 async_opt, "Bad ASYNCHRONOUS parameter in OPEN statement");
+
+  flags.round = !(cf & IOPARM_OPEN_HAS_ROUND) ? ROUND_UNSPECIFIED :
+    find_option (&opp->common, opp->round, opp->round_len,
+		 round_opt, "Bad ROUND parameter in OPEN statement");
+
+  flags.sign = !(cf & IOPARM_OPEN_HAS_SIGN) ? SIGN_UNSPECIFIED :
+    find_option (&opp->common, opp->sign, opp->sign_len,
+		 sign_opt, "Bad SIGN parameter in OPEN statement");
+
   flags.form = !(cf & IOPARM_OPEN_HAS_FORM) ? FORM_UNSPECIFIED :
     find_option (&opp->common, opp->form, opp->form_len,
 		 form_opt, "Bad FORM parameter in OPEN statement");
@@ -627,7 +785,7 @@ st_open (st_parameter_open *opp)
 
   conv = get_unformatted_convert (opp->common.unit);
 
-  if (conv == CONVERT_NONE)
+  if (conv == GFC_CONVERT_NONE)
     {
       /* Nothing has been set by environment variable, check the convert tag.  */
       if (cf & IOPARM_OPEN_HAS_CONVERT)
@@ -638,20 +796,20 @@ st_open (st_parameter_open *opp)
 	conv = compile_options.convert;
     }
   
-  /* We use l8_to_l4_offset, which is 0 on little-endian machines
+  /* We use big_endian, which is 0 on little-endian machines
      and 1 on big-endian machines.  */
   switch (conv)
     {
-    case CONVERT_NATIVE:
-    case CONVERT_SWAP:
+    case GFC_CONVERT_NATIVE:
+    case GFC_CONVERT_SWAP:
       break;
       
-    case CONVERT_BIG:
-      conv = l8_to_l4_offset ? CONVERT_NATIVE : CONVERT_SWAP;
+    case GFC_CONVERT_BIG:
+      conv = big_endian ? GFC_CONVERT_NATIVE : GFC_CONVERT_SWAP;
       break;
       
-    case CONVERT_LITTLE:
-      conv = l8_to_l4_offset ? CONVERT_SWAP : CONVERT_NATIVE;
+    case GFC_CONVERT_LITTLE:
+      conv = big_endian ? GFC_CONVERT_SWAP : GFC_CONVERT_NATIVE;
       break;
       
     default:
@@ -662,19 +820,19 @@ st_open (st_parameter_open *opp)
   flags.convert = conv;
 
   if (opp->common.unit < 0)
-    generate_error (&opp->common, ERROR_BAD_OPTION,
+    generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		    "Bad unit number in OPEN statement");
 
   if (flags.position != POSITION_UNSPECIFIED
       && flags.access == ACCESS_DIRECT)
-    generate_error (&opp->common, ERROR_BAD_OPTION,
+    generate_error (&opp->common, LIBERROR_BAD_OPTION,
 		    "Cannot use POSITION with direct access files");
 
   if (flags.access == ACCESS_APPEND)
     {
       if (flags.position != POSITION_UNSPECIFIED
 	  && flags.position != POSITION_APPEND)
-	generate_error (&opp->common, ERROR_BAD_OPTION,
+	generate_error (&opp->common, LIBERROR_BAD_OPTION,
 			"Conflicting ACCESS and POSITION flags in"
 			" OPEN statement");
 

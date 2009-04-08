@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -74,14 +73,14 @@ package Validsw is
    --  Controls the validity checking of IN OUT parameters. If this switch
    --  is set to True using -gnatVm or a 'm' in the argument of a pragma
    --  Validity_Checks, then the initial value of all IN OUT parameters
-   --  will be checked at the point of call of a procecure. Note that the
+   --  will be checked at the point of call of a procedure. Note that the
    --  character 'm' here stands for modified (parameters).
 
    Validity_Check_In_Params : Boolean := False;
    --  Controls the validity checking of IN parameters. If this switch is
    --  set to True using -gnatVm or an 'i' in the argument of a pragma
    --  Validity_Checks, then the initial value of all IN parameters
-   --  will be checked at the point of call of a procecure or function.
+   --  will be checked at the point of call of a procedure or function.
 
    Validity_Check_Operands : Boolean := False;
    --  Controls validity checking of operands. If this switch is set to
@@ -146,7 +145,7 @@ package Validsw is
 
    procedure Set_Validity_Check_Options (Options : String);
    --  Like the above procedure, except that the call is simply ignored if
-   --  there are any error conditions, this is for example appopriate for
+   --  there are any error conditions, this is for example appropriate for
    --  calls where the string is known to be valid, e.g. because it was
    --  obtained by Save_Validity_Check_Options.
 

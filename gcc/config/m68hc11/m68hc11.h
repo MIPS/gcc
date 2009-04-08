@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Note:
    A first 68HC11 port was made by Otto Lind (otto@coactive.com)
@@ -1068,18 +1067,15 @@ extern enum reg_class m68hc11_index_reg_class;
    local-alloc.c.  */
 
 
-/* Internal macro, return 1 if REGNO is a valid base register.  */
-#define REG_VALID_P(REGNO) ((REGNO) >= 0)
-
 extern unsigned char m68hc11_reg_valid_for_base[FIRST_PSEUDO_REGISTER];
 #define REG_VALID_FOR_BASE_P(REGNO) \
-    (REG_VALID_P (REGNO) && (REGNO) < FIRST_PSEUDO_REGISTER \
+    ((REGNO) < FIRST_PSEUDO_REGISTER \
      && m68hc11_reg_valid_for_base[REGNO])
 
 /* Internal macro, return 1 if REGNO is a valid index register.  */
 extern unsigned char m68hc11_reg_valid_for_index[FIRST_PSEUDO_REGISTER];
 #define REG_VALID_FOR_INDEX_P(REGNO) \
-    (REG_VALID_P (REGNO) >= 0 && (REGNO) < FIRST_PSEUDO_REGISTER \
+    ((REGNO) < FIRST_PSEUDO_REGISTER \
      && m68hc11_reg_valid_for_index[REGNO])
 
 /* Internal macro, the nonstrict definition for REGNO_OK_FOR_BASE_P.  */
@@ -1267,7 +1263,7 @@ extern unsigned char m68hc11_reg_valid_for_index[FIRST_PSEUDO_REGISTER];
 
    Pretend branches are cheap because GCC generates sub-optimal code
    for the default value.  */
-#define BRANCH_COST 0
+#define BRANCH_COST(speed_p, predictable_p) 0
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS	0
@@ -1408,6 +1404,7 @@ do {                                                                    \
 /* Output #ident as a .ident.  */
 
 /* output external reference */
+#undef ASM_OUTPUT_EXTERNAL
 #define ASM_OUTPUT_EXTERNAL(FILE,DECL,NAME) \
   {fputs ("\t; extern\t", FILE); \
   assemble_name (FILE, NAME); \
@@ -1508,7 +1505,7 @@ do {                                                                    \
 /* MOVE_RATIO is the number of move instructions that is better than a
    block move.  Make this small on 6811, since the code size grows very
    large with each move.  */
-#define MOVE_RATIO		3
+#define MOVE_RATIO(speed)	3
 
 /* Define if shifts truncate the shift count which implies one can omit
    a sign-extension or zero-extension of a shift count.  */

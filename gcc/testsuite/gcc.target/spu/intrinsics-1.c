@@ -13,5 +13,7 @@ void f(void)
   gt = spu_cmpgt(a, a1); /* { dg-error "integer from pointer without a cast" } */
   gt = spu_cmpgt(a, b); /* { dg-error "parameter list" } */
   gt = spu_cmpgt(a, a);
-  a = spu_cmpgt(a, a); /* { dg-error "" } */
+  a = spu_cmpgt(a, a); /* { dg-message "note: use -flax-vector-conversions to permit conversions between vectors with differing element types or numbers of subparts" } */ 
+/* { dg-message "note: expected 'int'" "" { target *-*-* } 13 } */
+/* { dg-error "incompatible types when assigning" "" { target *-*-* } 16 } */
 }

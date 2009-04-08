@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2004, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -50,14 +50,14 @@
 /*  link_max is a conservative system specific threshold (in bytes) of the  */
 /*  argument length passed to the linker which will trigger a file being    */
 /*  used instead of the command line directly. If the argument length is    */
-/*  greater than this threshhold, then an objlist_file will be generated    */
+/*  greater than this threshold, then an objlist_file will be generated     */
 /*  and object_file_option and objlist_file_supported must be set. If       */
 /*  objlist_file_supported is set to 0 (unsupported), then link_max is      */
 /*  set to 2**31-1 so that the limit will never be exceeded.                */
 
 /*  run_path_option is the system dependent linker option which specifies   */
 /*  the run time path to use when loading dynamic libraries. This should    */
-/*  be set to the null string if the system does not support dynmamic       */
+/*  be set to the null string if the system does not support dynamic        */
 /*  loading of libraries.                                                   */
 
 /*  shared_libgnat_default gives the system dependent link method that      */
@@ -108,15 +108,6 @@ char __gnat_shared_libgnat_default = STATIC;
 unsigned char __gnat_using_gnu_linker = 1;
 const char *__gnat_object_library_extension = ".a";
 
-#elif defined (__INTERIX)
-const char *__gnat_object_file_option = "";
-const char *__gnat_run_path_option = "";
-int __gnat_link_max = 5000;
-unsigned char __gnat_objlist_file_supported = 1;
-char __gnat_shared_libgnat_default = STATIC;
-unsigned char __gnat_using_gnu_linker = 1;
-const char *__gnat_object_library_extension = ".a";
-
 #elif defined (__hpux__)
 const char *__gnat_object_file_option = "-Wl,-c,";
 const char *__gnat_run_path_option = "-Wl,+b,";
@@ -154,15 +145,15 @@ unsigned char __gnat_using_gnu_linker = 0;
 const char *__gnat_object_library_extension = ".a";
 
 #elif defined (__FreeBSD__)
-char *__gnat_object_file_option = "";
-char *__gnat_run_path_option = "-Wl,-rpath,";
+const char *__gnat_object_file_option = "";
+const char *__gnat_run_path_option = "-Wl,-rpath,";
 char __gnat_shared_libgnat_default = STATIC;
 int __gnat_link_max = 8192;
 unsigned char __gnat_objlist_file_supported = 1;
 unsigned char __gnat_using_gnu_linker = 1;
-char *__gnat_object_library_extension = ".a";
+const char *__gnat_object_library_extension = ".a";
 
-#elif defined (linux)
+#elif defined (linux) || defined(__GLIBC__)
 const char *__gnat_object_file_option = "";
 const char *__gnat_run_path_option = "-Wl,-rpath,";
 char __gnat_shared_libgnat_default = STATIC;

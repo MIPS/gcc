@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -44,8 +43,8 @@ with System.WCh_Con; use System.WCh_Con;
 separate (Par)
 
 function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
-   Pragma_Name : constant Name_Id    := Chars (Pragma_Node);
-   Prag_Id     : constant Pragma_Id  := Get_Pragma_Id (Pragma_Name);
+   Prag_Name   : constant Name_Id    := Pragma_Name (Pragma_Node);
+   Prag_Id     : constant Pragma_Id  := Get_Pragma_Id (Prag_Name);
    Pragma_Sloc : constant Source_Ptr := Sloc (Pragma_Node);
    Arg_Count   : Nat;
    Arg_Node    : Node_Id;
@@ -235,17 +234,18 @@ function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
          elsif Id = Name_No_Dependence then
             Set_Restriction_No_Dependence
               (Unit => Expr,
-               Warn => Prag_Id = Pragma_Restriction_Warnings);
+               Warn => Prag_Id = Pragma_Restriction_Warnings
+                         or else Treat_Restrictions_As_Warnings);
          end if;
 
          Next (Arg);
       end loop;
    end Process_Restrictions_Or_Restriction_Warnings;
 
---  Start if processing for Prag
+--  Start of processing for Prag
 
 begin
-   Error_Msg_Name_1 := Pragma_Name;
+   Error_Msg_Name_1 := Prag_Name;
 
    --  Ignore unrecognized pragma. We let Sem post the warning for this, since
    --  it is a semantic error, not a syntactic one (we have already checked
@@ -518,7 +518,7 @@ begin
             Expr  : Node_Id;
             Index : Nat;
 
-            function Get_Fname (Arg : Node_Id) return Name_Id;
+            function Get_Fname (Arg : Node_Id) return File_Name_Type;
             --  Process file name from unit name form of pragma
 
             function Get_String_Argument (Arg : Node_Id) return String_Ptr;
@@ -528,13 +528,13 @@ begin
             --  Process Casing argument of pattern form of pragma
 
             procedure Process_Dot_Replacement (Arg : Node_Id);
-            --  Process Dot_Replacement argument of patterm form of pragma
+            --  Process Dot_Replacement argument of pattern form of pragma
 
             ---------------
             -- Get_Fname --
             ---------------
 
-            function Get_Fname (Arg : Node_Id) return Name_Id is
+            function Get_Fname (Arg : Node_Id) return File_Name_Type is
             begin
                String_To_Name_Buffer (Strval (Expression (Arg)));
 
@@ -627,7 +627,7 @@ begin
          --  Source_File_Name_Project pragmas.
 
          begin
-            if Get_Pragma_Id (Pragma_Name) = Pragma_Source_File_Name then
+            if Prag_Id = Pragma_Source_File_Name then
                if Project_File_In_Use = In_Use then
                   Error_Msg
                     ("pragma Source_File_Name cannot be used " &
@@ -803,7 +803,7 @@ begin
       --  turn off semantic checking anyway if any parse errors are found.
 
       when Pragma_Source_Reference => Source_Reference : declare
-         Fname : Name_Id;
+         Fname : File_Name_Type;
 
       begin
          if Arg_Count /= 1 then
@@ -833,7 +833,7 @@ begin
                   Pragma_Sloc);
                raise Error_Resync;
             else
-               Fname := No_Name;
+               Fname := No_File;
             end if;
 
          --  File name present
@@ -1029,8 +1029,12 @@ begin
             end;
 
          else
-               raise Constraint_Error;
+            raise Constraint_Error;
          end if;
+
+         Upper_Half_Encoding :=
+           Wide_Character_Encoding_Method in
+             WC_Upper_Half_Encoding_Method;
 
       exception
          when Constraint_Error =>
@@ -1046,6 +1050,7 @@ begin
 
       when Pragma_Abort_Defer                   |
            Pragma_Assertion_Policy              |
+           Pragma_Assume_No_Invalid_Values      |
            Pragma_AST_Entry                     |
            Pragma_All_Calls_Remote              |
            Pragma_Annotate                      |
@@ -1054,8 +1059,13 @@ begin
            Pragma_Atomic                        |
            Pragma_Atomic_Components             |
            Pragma_Attach_Handler                |
+           Pragma_Check                         |
+           Pragma_Check_Name                    |
+           Pragma_Check_Policy                  |
+           Pragma_CIL_Constructor               |
            Pragma_Compile_Time_Error            |
            Pragma_Compile_Time_Warning          |
+           Pragma_Compiler_Unit                 |
            Pragma_Convention_Identifier         |
            Pragma_CPP_Class                     |
            Pragma_CPP_Constructor               |
@@ -1077,7 +1087,6 @@ begin
            Pragma_Elaborate_All                 |
            Pragma_Elaborate_Body                |
            Pragma_Elaboration_Checks            |
-           Pragma_Explicit_Overriding           |
            Pragma_Export                        |
            Pragma_Export_Exception              |
            Pragma_Export_Function               |
@@ -1088,9 +1097,13 @@ begin
            Pragma_Extend_System                 |
            Pragma_External                      |
            Pragma_External_Name_Casing          |
+           Pragma_Favor_Top_Level               |
+           Pragma_Fast_Math                     |
            Pragma_Finalize_Storage_Only         |
            Pragma_Float_Representation          |
            Pragma_Ident                         |
+           Pragma_Implemented_By_Entry          |
+           Pragma_Implicit_Packing              |
            Pragma_Import                        |
            Pragma_Import_Exception              |
            Pragma_Import_Function               |
@@ -1123,18 +1136,21 @@ begin
            Pragma_Main                          |
            Pragma_Main_Storage                  |
            Pragma_Memory_Size                   |
+           Pragma_No_Body                       |
            Pragma_No_Return                     |
            Pragma_Obsolescent                   |
            Pragma_No_Run_Time                   |
            Pragma_No_Strict_Aliasing            |
            Pragma_Normalize_Scalars             |
            Pragma_Optimize                      |
-           Pragma_Optional_Overriding           |
+           Pragma_Optimize_Alignment            |
            Pragma_Pack                          |
            Pragma_Passive                       |
            Pragma_Preelaborable_Initialization  |
            Pragma_Polling                       |
            Pragma_Persistent_BSS                |
+           Pragma_Postcondition                 |
+           Pragma_Precondition                  |
            Pragma_Preelaborate                  |
            Pragma_Preelaborate_05               |
            Pragma_Priority                      |
@@ -1147,6 +1163,7 @@ begin
            Pragma_Pure_05                       |
            Pragma_Pure_Function                 |
            Pragma_Queuing_Policy                |
+           Pragma_Relative_Deadline             |
            Pragma_Remote_Call_Interface         |
            Pragma_Remote_Types                  |
            Pragma_Restricted_Run_Time           |
@@ -1157,6 +1174,7 @@ begin
            Pragma_Shared_Passive                |
            Pragma_Storage_Size                  |
            Pragma_Storage_Unit                  |
+           Pragma_Static_Elaboration_Desired    |
            Pragma_Stream_Convert                |
            Pragma_Subtitle                      |
            Pragma_Suppress                      |
@@ -1169,12 +1187,13 @@ begin
            Pragma_Task_Info                     |
            Pragma_Task_Name                     |
            Pragma_Task_Storage                  |
-           Pragma_Thread_Body                   |
            Pragma_Time_Slice                    |
            Pragma_Title                         |
            Pragma_Unchecked_Union               |
            Pragma_Unimplemented_Unit            |
+           Pragma_Universal_Aliasing            |
            Pragma_Universal_Data                |
+           Pragma_Unmodified                    |
            Pragma_Unreferenced                  |
            Pragma_Unreferenced_Objects          |
            Pragma_Unreserve_All_Interrupts      |

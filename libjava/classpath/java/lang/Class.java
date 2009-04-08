@@ -1,5 +1,5 @@
 /* Class.java -- Representation of a Java class.
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation
 
 This file is part of GNU Classpath.
@@ -45,6 +45,7 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Inherited;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -65,7 +66,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 
 
 /**
@@ -595,7 +596,7 @@ public final class Class<T>
    */
   private Field[] internalGetFields()
   {
-    HashSet<Field> set = new HashSet<Field>();
+    LinkedHashSet<Field> set = new LinkedHashSet<Field>();
     set.addAll(Arrays.asList(getDeclaredFields(true)));
     Class[] interfaces = getInterfaces();
     for (int i = 0; i < interfaces.length; i++)
@@ -1126,15 +1127,7 @@ public final class Class<T>
 	if (!Modifier.isPublic(constructor.getModifiers())
             || !Modifier.isPublic(VMClass.getModifiers(this, true)))
 	  {
-	    final Constructor finalConstructor = constructor;
-	    AccessController.doPrivileged(new PrivilegedAction()
-	      {
-		public Object run()
-	        {
-		  finalConstructor.setAccessible(true);
-		  return null;
-		}
-	      });
+	    setAccessible(constructor);
 	  }
 	synchronized(this)
 	  {
@@ -1158,7 +1151,7 @@ public final class Class<T>
       }
     try
       {
-        return constructor.newInstance(null);
+        return constructor.newInstance();
       }
     catch (InvocationTargetException e)
       {
@@ -1397,7 +1390,9 @@ public final class Class<T>
       {
 	try
 	  {
-	    return (T[]) getMethod("values").invoke(null);
+            Method m = getMethod("values");
+            setAccessible(m);
+	    return (T[]) m.invoke(null);
 	  }
 	catch (NoSuchMethodException exception)
 	  {
@@ -1787,5 +1782,18 @@ public final class Class<T>
     return VMClass.isMemberClass(this);
   }
 
-
+  /**
+   * Utility method for use by classes in this package.
+   */
+  static void setAccessible(final AccessibleObject obj)
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public Object run()
+          {
+            obj.setAccessible(true);
+            return null;
+          }
+      });
+  }
 }

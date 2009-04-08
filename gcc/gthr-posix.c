@@ -1,6 +1,6 @@
 /* POSIX threads dummy routines for systems without weak definitions.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,6 +28,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "tconfig.h"
 #include "tm.h"
+# define __gthrw_pragma(pragma) _Pragma (#pragma)
 /* Define so we provide weak definitions of functions used by libobjc only.  */
 #define _LIBOBJC_WEAK
 #include "gthr.h"
@@ -74,8 +75,26 @@ pthread_create (pthread_t *thread ATTRIBUTE_UNUSED,
   return 0;
 }
 
+int 
+pthread_join (pthread_t thread ATTRIBUTE_UNUSED, 
+	      void **value_ptr ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+void
+pthread_exit (void *value_ptr ATTRIBUTE_UNUSED)
+{
+}
+
+int 
+pthread_detach (pthread_t thread ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
 int
-pthread_cancel(pthread_t thread ATTRIBUTE_UNUSED)
+pthread_cancel (pthread_t thread ATTRIBUTE_UNUSED)
 {
   return 0;
 }
@@ -91,6 +110,17 @@ pthread_mutex_trylock (pthread_mutex_t *mutex ATTRIBUTE_UNUSED)
 {
   return 0;
 }
+
+#ifdef _POSIX_TIMEOUTS
+#if _POSIX_TIMEOUTS >= 0
+int
+pthread_mutex_timedlock (pthread_mutex_t *mutex ATTRIBUTE_UNUSED,
+			 const struct timespec *abs_timeout ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+#endif
+#endif /* _POSIX_TIMEOUTS */
 
 int
 pthread_mutex_unlock (pthread_mutex_t *mutex ATTRIBUTE_UNUSED)
@@ -149,9 +179,12 @@ pthread_cond_wait (pthread_cond_t *cond ATTRIBUTE_UNUSED,
   return 0;
 }
 
-void
-pthread_exit (void *value_ptr ATTRIBUTE_UNUSED)
+int
+pthread_cond_timedwait (pthread_cond_t *cond ATTRIBUTE_UNUSED, 
+			pthread_mutex_t *mutex ATTRIBUTE_UNUSED, 
+			const struct timespec *abstime ATTRIBUTE_UNUSED)
 {
+  return 0;
 }
 
 int
@@ -172,6 +205,7 @@ pthread_self (void)
 {
   return (pthread_t) 0;
 }
+
 #ifdef _POSIX_PRIORITY_SCHEDULING
 #ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
 int

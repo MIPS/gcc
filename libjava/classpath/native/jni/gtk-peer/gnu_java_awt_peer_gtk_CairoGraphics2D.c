@@ -1,5 +1,5 @@
 /* gnu_java_awt_peer_gtk_CairoGraphics2d.c
-   Copyright (C) 2006  Free Software Foundation, Inc.
+   Copyright (C) 2006, 2008  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
    
@@ -41,10 +41,8 @@ exception statement from your version. */
 #include "gnu_java_awt_peer_gtk_CairoGraphics2D.h"
 #include <gdk/gdktypes.h>
 #include <gdk/gdkprivate.h>
-#include <gdk/gdkx.h>
 
 #include <cairo-ft.h>
-#include <cairo-xlib.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -312,9 +310,8 @@ Java_gnu_java_awt_peer_gtk_CairoGraphics2D_cairoDrawGlyphVector
  jobject font,
  jfloat x, jfloat y, jint n,
  jintArray java_codes,
- jfloatArray java_positions)
+ jfloatArray java_positions, jlongArray java_fontset)
 {
-  
   struct cairographics2d *gr = NULL;
   struct peerfont *pfont = NULL;
   cairo_glyph_t *glyphs = NULL;
@@ -328,7 +325,7 @@ Java_gnu_java_awt_peer_gtk_CairoGraphics2D_cairoDrawGlyphVector
   gr = JLONG_TO_PTR(struct cairographics2d, pointer);
   g_assert (gr != NULL);
 
-  pfont = (struct peerfont *)NSA_GET_FONT_PTR (env, font);
+  pfont = (struct peerfont *) gtkpeer_get_font(env, font);
   g_assert (pfont != NULL);
 
   glyphs = g_malloc( sizeof(cairo_glyph_t) * n);
@@ -337,6 +334,7 @@ Java_gnu_java_awt_peer_gtk_CairoGraphics2D_cairoDrawGlyphVector
   native_codes = (*env)->GetIntArrayElements (env, java_codes, NULL);
   native_positions = (*env)->GetFloatArrayElements (env, java_positions, NULL);
   
+  /* Set up glyphs and layout */
   for (i = 0; i < n; ++i)
     {
       glyphs[i].index = native_codes[i];
@@ -347,12 +345,34 @@ Java_gnu_java_awt_peer_gtk_CairoGraphics2D_cairoDrawGlyphVector
   (*env)->ReleaseFloatArrayElements (env, java_positions, native_positions, 0);
   (*env)->ReleaseIntArrayElements (env, java_codes, native_codes, 0);
 
-  gdk_threads_enter ();
-  pango_fc_font_lock_face( (PangoFcFont *)pfont->font );
-  cairo_show_glyphs (gr->cr, glyphs, n);
-  pango_fc_font_unlock_face( (PangoFcFont *)pfont->font );
-  gdk_threads_leave ();
+  /* Iterate through glyphs and draw */
+  jlong* fonts = (*env)->GetLongArrayElements (env, java_fontset, NULL);
+  gdk_threads_enter();
+  for (i = 0; i < n; i++)
+    {
+      PangoFcFont *font = JLONG_TO_PTR(PangoFcFont, fonts[i]);
 
+      /* Draw as many glyphs as possible with the current font */
+      int length = 0;
+      while (i < n-1 && fonts[i] == fonts[i+1])
+        {
+          length++;
+          i++;
+        }
+    
+      FT_Face face = pango_fc_font_lock_face( font );
+      cairo_font_face_t *ft = cairo_ft_font_face_create_for_ft_face (face, 0);
+      g_assert (ft != NULL);
+
+      cairo_set_font_face (gr->cr, ft);
+      cairo_show_glyphs (gr->cr, &glyphs[i-length], length+1);
+                       
+      cairo_font_face_destroy (ft);
+      pango_fc_font_unlock_face(font);
+    }
+  gdk_threads_leave();
+    
+  (*env)->ReleaseLongArrayElements (env, java_fontset, fonts, 0);
   g_free(glyphs);
 }
 
@@ -370,7 +390,7 @@ Java_gnu_java_awt_peer_gtk_CairoGraphics2D_cairoSetFont
   gr = JLONG_TO_PTR(struct cairographics2d, pointer);
   g_assert (gr != NULL);
   
-  pfont = (struct peerfont *)NSA_GET_FONT_PTR (env, font);
+  pfont = (struct peerfont *) gtkpeer_get_font(env, font);
   g_assert (pfont != NULL);
 
   gdk_threads_enter();
@@ -486,7 +506,7 @@ Java_gnu_java_awt_peer_gtk_CairoGraphics2D_cairoSetFillRule
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_CairoGraphics2D_cairoSetLine
 (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)),
- jlong pointer, jdouble width, int cap, int join, double miterLimit)
+ jlong pointer, jdouble width, jint cap, jint join, jdouble miterLimit)
 {
   struct cairographics2d *gr = JLONG_TO_PTR(struct cairographics2d, pointer);
   g_assert (gr != NULL);
@@ -698,6 +718,20 @@ Java_gnu_java_awt_peer_gtk_CairoGraphics2D_cairoResetClip
   g_assert (gr != NULL);
 
   cairo_reset_clip( gr->cr );
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_CairoGraphics2D_cairoSetAntialias
+(JNIEnv *env __attribute__ ((unused)), jobject obj __attribute__ ((unused)),
+ jlong pointer, jboolean aa)
+{
+  struct cairographics2d *gr = JLONG_TO_PTR(struct cairographics2d, pointer);
+  g_assert (gr != NULL);
+
+  if (aa)
+    cairo_set_antialias(gr->cr, CAIRO_ANTIALIAS_GRAY);
+  else
+    cairo_set_antialias(gr->cr, CAIRO_ANTIALIAS_NONE);
 }
 
 static void 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -46,12 +46,16 @@
 --  package and the packages it references are included in all Ada programs,
 --  together with the included data.
 
+pragma Warnings (Off);
+pragma Compiler_Unit;
+pragma Warnings (On);
+
 pragma Polling (Off);
 --  We must turn polling off for this unit, because otherwise we get
 --  elaboration circularities with Ada.Exceptions if polling is on.
 
 with System;
-with Unchecked_Conversion;
+with Ada.Unchecked_Conversion;
 
 package System.Standard_Library is
    pragma Warnings (Off);
@@ -59,10 +63,11 @@ package System.Standard_Library is
    pragma Warnings (On);
 
    type Big_String_Ptr is access all String (Positive);
+   for Big_String_Ptr'Storage_Size use 0;
    --  A non-fat pointer type for null terminated strings
 
    function To_Ptr is
-     new Unchecked_Conversion (System.Address, Big_String_Ptr);
+     new Ada.Unchecked_Conversion (System.Address, Big_String_Ptr);
 
    ---------------------------------------------
    -- Type For Enumeration Image Index Tables --
@@ -111,7 +116,7 @@ package System.Standard_Library is
 
    --  The following record defines the underlying representation of exceptions
 
-   --  WARNING! Any changes to this may need to be reflectd in the following
+   --  WARNING! Any changes to this may need to be reflected in the following
    --  locations in the compiler and runtime code:
 
    --    1. The Internal_Exception routine in s-exctab.adb
@@ -160,7 +165,7 @@ package System.Standard_Library is
 
    --  Definitions for standard predefined exceptions defined in Standard,
 
-   --  Why are the Nul's necessary here, seems like they should not be
+   --  Why are the NULs necessary here, seems like they should not be
    --  required, since Gigi is supposed to add a Nul to each name ???
 
    Constraint_Error_Name : constant String := "CONSTRAINT_ERROR" & ASCII.NUL;

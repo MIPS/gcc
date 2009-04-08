@@ -1,11 +1,12 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
+; Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
 ; GCC is free software; you can redistribute it and/or modify it under
 ; the terms of the GNU General Public License as published by the Free
-; Software Foundation; either version 2, or (at your option) any later
+; Software Foundation; either version 3, or (at your option) any later
 ; version.
 ;
 ; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +15,8 @@
 ; for more details.
 ;
 ; You should have received a copy of the GNU General Public License
-; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-; 02110-1301, USA.
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
 
 ; See the GCC internals manual for a description of this file's format.
 
@@ -113,8 +113,11 @@ C ObjC C++ ObjC++ Joined Separate
 -U<macro>	Undefine <macro>
 
 Wabi
-C++ ObjC++ Var(warn_abi) Warning
+C ObjC C++ ObjC++ Var(warn_abi) Warning
 Warn about things that will change when compiling with an ABI-compliant compiler
+
+Wpsabi
+C ObjC C++ ObjC++ Var(warn_psabi) Init(1) Undocumented
 
 Waddress
 C ObjC C++ ObjC++ Var(warn_address) Warning
@@ -124,10 +127,6 @@ Wall
 C ObjC C++ ObjC++ Warning
 Enable most warning messages
 
-Wtype-limits
-C ObjC C++ ObjC++ Var(warn_type_limits) Init(-1) Warning
-Warn if a comparison is always true or always false due to the limited range of the data type
-
 Wassign-intercept
 ObjC ObjC++ Var(warn_assign_intercept) Warning
 Warn whenever an Objective-C assignment is being intercepted by the garbage collector
@@ -135,6 +134,10 @@ Warn whenever an Objective-C assignment is being intercepted by the garbage coll
 Wbad-function-cast
 C ObjC Var(warn_bad_function_cast) Warning
 Warn about casting functions to incompatible types
+
+Wbuiltin-macro-redefined
+C ObjC C++ ObjC++ Warning
+Warn when a built-in preprocessor macro is undefined or redefined
 
 Wc++-compat
 C ObjC Var(warn_cxx_compat) Warning
@@ -181,8 +184,8 @@ C ObjC Var(warn_declaration_after_statement) Warning
 Warn when a declaration is found after a statement
 
 Wdeprecated
-C++ ObjC++ Var(warn_deprecated) Init(1) Warning
-Warn about deprecated compiler features
+C C++ ObjC ObjC++ Var(warn_deprecated) Init(1) Warning
+Warn if a deprecated compiler feature, class, method, or field is used
 
 Wdiv-by-zero
 C ObjC C++ ObjC++ Var(warn_div_by_zero) Init(1) Warning
@@ -199,6 +202,10 @@ Warn about an empty body in an if or else statement
 Wendif-labels
 C ObjC C++ ObjC++ Warning
 Warn about stray tokens after #elif and #endif
+
+Wenum-compare
+C++ ObjC++ Var(warn_enum_compare) Init(1) Warning
+Warn about comparison of different enum types
 
 Werror
 C ObjC C++ ObjC++
@@ -243,6 +250,10 @@ Warn about zero-length formats
 Wformat=
 C ObjC C++ ObjC++ Joined Warning
 
+Wignored-qualifiers
+C C++ Var(warn_ignored_qualifiers) Init(-1) Warning
+Warn whenever type qualifiers are ignored.
+
 Winit-self
 C ObjC C++ ObjC++ Var(warn_init_self) Warning
 Warn about variables which are initialized to themselves
@@ -259,8 +270,7 @@ C ObjC Var(warn_implicit_int) Warning
 Warn when a declaration does not specify a type
 
 Wimport
-C ObjC C++ ObjC++
-Deprecated.  This switch has no effect
+C ObjC C++ ObjC++ Undocumented
 
 Wint-to-pointer-cast
 C ObjC Var(warn_int_to_pointer_cast) Init(1) Warning
@@ -279,7 +289,7 @@ C ObjC C++ ObjC++ Var(warn_long_long) Init(1) Warning
 Do not warn about using \"long long\" when -pedantic
 
 Wmain
-C ObjC C++ ObjC++ Warning
+C ObjC C++ ObjC++ Var(warn_main) Init(-1) Warning
 Warn about suspicious declarations of \"main\"
 
 Wmissing-braces
@@ -358,6 +368,10 @@ Woverride-init
 C ObjC Var(warn_override_init) Init(-1) Warning
 Warn about overriding initializers without side effects
 
+Wpacked-bitfield-compat
+C ObjC C++ ObjC++ Var(warn_packed_bitfield_compat) Init(-1) Warning
+Warn about packed bit-fields whose offset changed in GCC 4.4
+
 Wparentheses
 C ObjC C++ ObjC++ Var(warn_parentheses) Warning
 Warn about possibly missing parentheses
@@ -422,13 +436,17 @@ Wstrict-selector-match
 ObjC ObjC++ Var(warn_strict_selector_match) Warning
 Warn if type signatures of candidate methods do not match exactly
 
+Wsync-nand
+C C++ Var(warn_sync_nand) Init(1) Warning
+Warn when __sync_fetch_and_nand and __sync_nand_and_fetch built-in functions are used
+
 Wsynth
 C++ ObjC++ Var(warn_synth) Warning
-Warn when synthesis behavior differs from Cfront
+Deprecated.  This switch has no effect
 
 Wsystem-headers
 C ObjC C++ ObjC++ Warning
-Do not suppress warnings from system headers
+; Documented in common.opt
 
 Wtraditional
 C ObjC Var(warn_traditional) Warning
@@ -465,6 +483,10 @@ Do not warn about using variadic macros when -pedantic
 Wvla
 C ObjC C++ ObjC++ Var(warn_vla) Init(-1) Warning
 Warn if a variable length array is used
+
+Wvolatile-register-var
+C ObjC C++ ObjC++ Var(warn_volatile_register_var) Warning
+Warn when a register variable is declared volatile
 
 Wwrite-strings
 C ObjC C++ ObjC++ Var(warn_write_strings) Warning
@@ -523,6 +545,10 @@ ObjC ObjC++ Joined
 fdefault-inline
 C++ ObjC++
 Inline member functions by default
+
+fdirectives-only
+C ObjC C++ ObjC++
+Preprocess directives only.
 
 fdollars-in-identifiers
 C ObjC C++ ObjC++
@@ -665,11 +691,11 @@ Enable Objective-C setjmp exception handling runtime
 
 fopenmp
 C ObjC C++ ObjC++ Var(flag_openmp)
-Enable OpenMP
+Enable OpenMP (implies -frecursive in Fortran)
 
 foperator-names
 C++ ObjC++
-Recognize C++ kewords like \"compl\" and \"xor\"
+Recognize C++ keywords like \"compl\" and \"xor\"
 
 foptional-diags
 C++ ObjC++
@@ -767,6 +793,10 @@ fvisibility-inlines-hidden
 C++ ObjC++
 Marks all inlined methods as having hidden visibility
 
+fvisibility-ms-compat
+C++ ObjC++ Var(flag_visibility_ms_compat)
+Changes visibility to match Microsoft Visual Studio by default
+
 fvtable-gc
 C++ ObjC++
 Discard unused virtual functions
@@ -852,9 +882,6 @@ C ObjC C++ ObjC++ Joined Separate
 -iwithprefixbefore <dir>	Add <dir> to the end of the main include path
 
 lang-asm
-C Undocumented
-
-lang-fortran
 C Undocumented
 
 lang-objc
@@ -967,7 +994,7 @@ C ObjC C++ ObjC++
 Do not predefine system-specific and GCC-specific macros
 
 v
-C ObjC C++ ObjC++
+Common C ObjC C++ ObjC++
 Enable verbose output
 
 w

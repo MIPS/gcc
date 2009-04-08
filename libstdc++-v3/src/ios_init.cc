@@ -1,6 +1,7 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -39,7 +40,7 @@
 #include <ext/stdio_filebuf.h>
 #include <ext/stdio_sync_filebuf.h>
 
-namespace __gnu_internal _GLIBCXX_VISIBILITY(hidden)
+namespace __gnu_internal _GLIBCXX_VISIBILITY_ATTR(hidden)
 {
   using namespace __gnu_cxx;
 
@@ -129,7 +130,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     if (__gnu_cxx::__exchange_and_add_dispatch(&_S_refcount, -1) == 2)
       {
 	// Catch any exceptions thrown by basic_ostream::flush()
-	try
+	__try
 	  { 
 	    // Flush standard output streams as required by 27.4.2.1.6
 	    cout.flush();
@@ -142,7 +143,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    wclog.flush();    
 #endif
 	  }
-	catch(...)
+	__catch(...)
 	  { }
       }
   } 

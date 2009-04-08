@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2006 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +31,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is the OpenVMS/Alpha version.
+--  This is the OpenVMS/Alpha version
 
 with System; use System;
 
@@ -149,7 +149,7 @@ package body System.AST_Handling is
 
    --  Note: When we say it works fine, there is one delicate point, which
    --  is that the code for the AST procedure itself requires the original
-   --  descriptor address.  We handle this by saving the orignal descriptor
+   --  descriptor address.  We handle this by saving the original descriptor
    --  address in this structure and restoring in Process_AST.
 
    type AST_Handler_Data is record
@@ -205,7 +205,7 @@ package body System.AST_Handling is
    end record;
 
    AST_Vector_Init : AST_Vector_Ptr;
-   --  Initial value, treated as constant, Vector will be null.
+   --  Initial value, treated as constant, Vector will be null
 
    package AST_Attribute is new Ada.Task_Attributes
      (Attribute     => AST_Vector_Ptr,
@@ -237,11 +237,11 @@ package body System.AST_Handling is
    --  number of AST instances that can be stored in the buffer. Since
    --  these entries are immediately serviced by the high priority server
    --  task that does the actual entry queuing, it is very unusual to have
-   --  any significant number of entries simulaneously queued.
+   --  any significant number of entries simultaneously queued.
 
    AST_Service_Queue : array (AST_Service_Queue_Index) of AST_Instance;
    pragma Volatile_Components (AST_Service_Queue);
-   --  The circular buffer used to store active AST requests.
+   --  The circular buffer used to store active AST requests
 
    AST_Service_Queue_Put : AST_Service_Queue_Index := 0;
    AST_Service_Queue_Get : AST_Service_Queue_Index := 0;
@@ -545,16 +545,16 @@ package body System.AST_Handling is
       --  from which we can obtain the task and entry number information.
 
       function To_Address is new Ada.Unchecked_Conversion
-        (ST.Task_Id, System.Address);
+        (ST.Task_Id, System.Task_Primitives.Task_Address);
 
    begin
       System.Machine_Code.Asm
-        (Template => "addl $27,0,%0",
+        (Template => "addq $27,0,%0",
          Outputs  => AST_Handler_Data_Ref'Asm_Output ("=r", Handler_Data_Ptr),
          Volatile => True);
 
       System.Machine_Code.Asm
-        (Template => "ldl $27,%0",
+        (Template => "ldq $27,%0",
          Inputs  => Descriptor_Ref'Asm_Input
            ("m", Handler_Data_Ptr.Original_Descriptor_Ref),
          Volatile => True);
@@ -583,7 +583,7 @@ package body System.AST_Handling is
          if Is_Waiting (J) then
             Is_Waiting (J) := False;
 
-            --  Sleeps are handled by ASTs on VMS, so don't call Wakeup.
+            --  Sleeps are handled by ASTs on VMS, so don't call Wakeup
 
             STPOD.Interrupt_AST_Handler (To_Address (AST_Task_Ids (J)));
             exit;

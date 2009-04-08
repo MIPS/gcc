@@ -45,12 +45,19 @@ exception statement from your version.  */
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
 #include <stdio.h>
+
+#if defined(HAVE_SYS_IOCTL_H)
+#define BSD_COMP /* Get FIONREAD on Solaris2 */
+#include <sys/ioctl.h>
+#endif
+#if defined(HAVE_SYS_FILIO_H) /* Get FIONREAD on Solaris 2.5 */
+#include <sys/filio.h>
+#endif
 
 #include "local.h"
 
@@ -66,27 +73,18 @@ local_create (int stream)
   return socket (PF_UNIX, stream ? SOCK_STREAM : SOCK_DGRAM, 0);
 }
 
-static int gcc_sucks = 0;
-
 int
 local_bind (int fd, const char *addr)
 {
   struct sockaddr_un saddr;
 
-  /* For some reason, GCC 4.0.1 on Darwin/x86 MODIFIES the `addr'
-     pointer in the CALLER's STACK FRAME after calling this function,
-     but if we add this statement below, it doesn't!  */
-  if (gcc_sucks)
-    fprintf (stderr, "bind %p\n", addr);
-
-  if (strlen (addr) > sizeof (saddr.sun_path))
+  if (strlen (addr) >= sizeof (saddr.sun_path))
     {
       errno = ENAMETOOLONG;
       return -1;
     }
 
-  strncpy (saddr.sun_path, addr, sizeof (saddr.sun_path));
-  saddr.sun_path[sizeof (saddr.sun_path)] = '\0';
+  strcpy (saddr.sun_path, addr);
   saddr.sun_family = AF_LOCAL;
 
   return bind (fd, (struct sockaddr *) &saddr, SUN_LEN (&saddr));

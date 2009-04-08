@@ -1,11 +1,12 @@
 /* Thread edges through blocks and update the control flow and SSA graphs.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -72,7 +72,7 @@ Boston, MA 02110-1301, USA.  */
      7. Put the duplicated resources in B and all the B' blocks into SSA form.
 
    Note that block duplication can be minimized by first collecting the
-   the set of unique destination blocks that the incoming edges should
+   set of unique destination blocks that the incoming edges should
    be threaded to.  Block duplication can be further minimized by using
    B instead of creating B' for one destination if all edges into B are
    going to be threaded to a successor of B.
@@ -169,23 +169,23 @@ struct thread_stats_d thread_stats;
 static void
 remove_ctrl_stmt_and_useless_edges (basic_block bb, basic_block dest_bb)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   edge e;
   edge_iterator ei;
 
-  bsi = bsi_last (bb);
+  gsi = gsi_last_bb (bb);
 
   /* If the duplicate ends with a control statement, then remove it.
 
      Note that if we are duplicating the template block rather than the
      original basic block, then the duplicate might not have any real
      statements in it.  */
-  if (!bsi_end_p (bsi)
-      && bsi_stmt (bsi)
-      && (TREE_CODE (bsi_stmt (bsi)) == COND_EXPR
-	  || TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
-	  || TREE_CODE (bsi_stmt (bsi)) == SWITCH_EXPR))
-    bsi_remove (&bsi, true);
+  if (!gsi_end_p (gsi)
+      && gsi_stmt (gsi)
+      && (gimple_code (gsi_stmt (gsi)) == GIMPLE_COND
+	  || gimple_code (gsi_stmt (gsi)) == GIMPLE_GOTO
+	  || gimple_code (gsi_stmt (gsi)) == GIMPLE_SWITCH))
+    gsi_remove (&gsi, true);
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
@@ -223,15 +223,15 @@ create_block_for_threading (basic_block bb, struct redirection_data *rd)
 static hashval_t
 redirection_data_hash (const void *p)
 {
-  edge e = ((struct redirection_data *)p)->outgoing_edge;
+  edge e = ((const struct redirection_data *)p)->outgoing_edge;
   return e->dest->index;
 }
 
 static int
 redirection_data_eq (const void *p1, const void *p2)
 {
-  edge e1 = ((struct redirection_data *)p1)->outgoing_edge;
-  edge e2 = ((struct redirection_data *)p2)->outgoing_edge;
+  edge e1 = ((const struct redirection_data *)p1)->outgoing_edge;
+  edge e2 = ((const struct redirection_data *)p2)->outgoing_edge;
 
   return e1 == e2;
 }
@@ -311,8 +311,9 @@ static void
 create_edge_and_update_destination_phis (struct redirection_data *rd)
 {
   edge e = make_edge (rd->dup_block, rd->outgoing_edge->dest, EDGE_FALLTHRU);
-  tree phi;
+  gimple_stmt_iterator gsi;
 
+  rescan_loop_exit (e, true, false);
   e->probability = REG_BR_PROB_BASE;
   e->count = rd->dup_block->count;
   e->aux = rd->outgoing_edge->aux;
@@ -321,10 +322,12 @@ create_edge_and_update_destination_phis (struct redirection_data *rd)
      from the duplicate block, then we will need to add a new argument
      to them.  The argument should have the same value as the argument
      associated with the outgoing edge stored in RD.  */
-  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
+  for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
+      gimple phi = gsi_stmt (gsi);
+
       int indx = rd->outgoing_edge->dest_idx;
-      add_phi_arg (phi, PHI_ARG_DEF (phi, indx), e);
+      add_phi_arg (phi, gimple_phi_arg_def (phi, indx), e);
     }
 }
 
@@ -442,10 +445,14 @@ redirect_edges (void **slot, void *data)
 	  remove_ctrl_stmt_and_useless_edges (local_info->bb,
 					      rd->outgoing_edge->dest);
 
-	  /* And fixup the flags on the single remaining edge.  */
+	  /* Fixup the flags on the single remaining edge.  */
 	  single_succ_edge (local_info->bb)->flags
 	    &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE | EDGE_ABNORMAL);
 	  single_succ_edge (local_info->bb)->flags |= EDGE_FALLTHRU;
+
+	  /* And adjust count and frequency on BB.  */
+	  local_info->bb->count = e->count;
+	  local_info->bb->frequency = EDGE_FREQUENCY (e);
 	}
     }
 
@@ -463,24 +470,24 @@ redirect_edges (void **slot, void *data)
 static bool
 redirection_block_p (basic_block bb)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
 
   /* Advance to the first executable statement.  */
-  bsi = bsi_start (bb);
-  while (!bsi_end_p (bsi)
-          && (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR
-              || IS_EMPTY_STMT (bsi_stmt (bsi))))
-    bsi_next (&bsi);
-
+  gsi = gsi_start_bb (bb);
+  while (!gsi_end_p (gsi)
+         && (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL
+             || gimple_nop_p (gsi_stmt (gsi))))
+    gsi_next (&gsi);
+  
   /* Check if this is an empty block.  */
-  if (bsi_end_p (bsi))
+  if (gsi_end_p (gsi))
     return true;
 
   /* Test that we've reached the terminating control statement.  */
-  return bsi_stmt (bsi)
-	 && (TREE_CODE (bsi_stmt (bsi)) == COND_EXPR
-	     || TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
-	     || TREE_CODE (bsi_stmt (bsi)) == SWITCH_EXPR);
+  return gsi_stmt (gsi)
+         && (gimple_code (gsi_stmt (gsi)) == GIMPLE_COND
+             || gimple_code (gsi_stmt (gsi)) == GIMPLE_GOTO
+             || gimple_code (gsi_stmt (gsi)) == GIMPLE_SWITCH);
 }
 
 /* BB is a block which ends with a COND_EXPR or SWITCH_EXPR and when BB
@@ -533,7 +540,7 @@ thread_block (basic_block bb, bool noloop_only)
   if (loop->header == bb)
     {
       e = loop_latch_edge (loop);
-      e2 = e->aux;
+      e2 = (edge) e->aux;
 
       if (e2 && loop_exit_edge_p (loop, e2))
 	{
@@ -546,7 +553,7 @@ thread_block (basic_block bb, bool noloop_only)
      efficient lookups.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
-      e2 = e->aux;
+      e2 = (edge) e->aux;
 
       if (!e2
 	  /* If NOLOOP_ONLY is true, we only allow threading through the
@@ -560,7 +567,7 @@ thread_block (basic_block bb, bool noloop_only)
 	}
 
       update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
-				       e->count, e->aux);
+				       e->count, (edge) e->aux);
 
       /* Insert the outgoing edge into the hash table if it is not
 	 already in the hash table.  */
@@ -573,9 +580,12 @@ thread_block (basic_block bb, bool noloop_only)
      DO_NOT_DUPLICATE attribute.  */
   if (all)
     {
-      edge e = EDGE_PRED (bb, 0)->aux;
+      edge e = (edge) EDGE_PRED (bb, 0)->aux;
       lookup_redirection_data (e, NULL, NO_INSERT)->do_not_duplicate = true;
     }
+
+  /* We do not update dominance info.  */
+  free_dominance_info (CDI_DOMINATORS);
 
   /* Now create duplicates of BB.
 
@@ -620,7 +630,7 @@ static basic_block
 thread_single_edge (edge e)
 {
   basic_block bb = e->dest;
-  edge eto = e->aux;
+  edge eto = (edge) e->aux;
   struct redirection_data rd;
   struct local_info local_info;
 
@@ -633,6 +643,11 @@ thread_single_edge (edge e)
       /* If BB has just a single predecessor, we should only remove the
 	 control statements at its end, and successors except for ETO.  */
       remove_ctrl_stmt_and_useless_edges (bb, eto->dest);
+
+      /* And fixup the flags on the single remaining edge.  */
+      eto->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE | EDGE_ABNORMAL);
+      eto->flags |= EDGE_FALLTHRU;
+
       return bb;
     }
 
@@ -663,9 +678,9 @@ thread_single_edge (edge e)
 
 static basic_block dbds_ce_stop;
 static bool
-dbds_continue_enumeration_p (basic_block bb, void *stop)
+dbds_continue_enumeration_p (const_basic_block bb, const void *stop)
 {
-  return (bb != (basic_block) stop
+  return (bb != (const_basic_block) stop
 	  && bb != dbds_ce_stop);
 }
 
@@ -819,7 +834,7 @@ thread_through_loop_header (struct loop *loop, bool may_peel_loop_headers)
 
   if (latch->aux)
     {
-      tgt_edge = latch->aux;
+      tgt_edge = (edge) latch->aux;
       tgt_bb = tgt_edge->dest;
     }
   else if (!may_peel_loop_headers
@@ -842,7 +857,7 @@ thread_through_loop_header (struct loop *loop, bool may_peel_loop_headers)
 	      goto fail;
 	    }
 
-	  tgt_edge = e->aux;
+	  tgt_edge = (edge) e->aux;
 	  atgt_bb = tgt_edge->dest;
 	  if (!tgt_bb)
 	    tgt_bb = atgt_bb;
@@ -979,7 +994,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 
   /* If optimizing for size, only thread through block if we don't have
      to duplicate it or it's an otherwise empty redirection block.  */
-  if (optimize_size)
+  if (optimize_function_for_size_p (cfun))
     {
       EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, bi)
 	{
@@ -1057,12 +1072,8 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       retval |= thread_through_loop_header (loop, may_peel_loop_headers);
     }
 
-  if (retval)
-    free_dominance_info (CDI_DOMINATORS);
-
-  if (dump_file && (dump_flags & TDF_STATS))
-    fprintf (dump_file, "\nJumps threaded: %lu\n",
-	     thread_stats.num_threaded_edges);
+  statistics_counter_event (cfun, "Jumps threaded",
+			    thread_stats.num_threaded_edges);
 
   free_original_copy_tables ();
 
@@ -1071,6 +1082,9 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   VEC_free (edge, heap, threaded_edges);
   threaded_edges = NULL;
 
+  if (retval)
+    loops_state_set (LOOPS_NEED_FIXUP);
+
   return retval;
 }
 
@@ -1078,7 +1092,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
    threading opportunities discovered by a pass and update the CFG
    and SSA form all at once.
 
-   E is the edge we can thread, E2 is the new target edge.  ie, we
+   E is the edge we can thread, E2 is the new target edge, i.e., we
    are effectively recording that E->dest can be changed to E2->dest
    after fixing the SSA graph.  */
 

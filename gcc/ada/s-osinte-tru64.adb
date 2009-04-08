@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1998-2006, Free Software Foundation, Inc.          --
+--         Copyright (C) 1998-2007, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -83,7 +83,7 @@ package body System.OS_Interface is
    -- Hide_Yellow_Zone --
    ----------------------
 
-   procedure Hide_Yellow_Zone is
+   procedure Hide_Unhide_Yellow_Zone (Hide : Boolean) is
       type Teb_Ptr is access all pthread_teb_t;
       Teb : Teb_Ptr;
       Res : Interfaces.C.int;
@@ -101,9 +101,13 @@ package body System.OS_Interface is
       --  Stick a guard page right above the Yellow Zone if it exists
 
       if Teb.all.stack_yellow /= Teb.all.stack_guard then
-         Res := mprotect (Teb.all.stack_yellow, Get_Page_Size, PROT_ON);
+         if Hide then
+            Res := mprotect (Teb.all.stack_yellow, Get_Page_Size, PROT_ON);
+         else
+            Res := mprotect (Teb.all.stack_yellow, Get_Page_Size, PROT_OFF);
+         end if;
       end if;
-   end Hide_Yellow_Zone;
+   end Hide_Unhide_Yellow_Zone;
 
    -----------------
    -- To_Duration --
@@ -112,11 +116,6 @@ package body System.OS_Interface is
    function To_Duration (TS : timespec) return Duration is
    begin
       return Duration (TS.tv_sec) + Duration (TS.tv_nsec) / 10#1#E9;
-   end To_Duration;
-
-   function To_Duration (TV : struct_timeval) return Duration is
-   begin
-      return Duration (TV.tv_sec) + Duration (TV.tv_usec) / 10#1#E6;
    end To_Duration;
 
    -----------------
@@ -142,31 +141,5 @@ package body System.OS_Interface is
       return timespec'(tv_sec => S,
                        tv_nsec => long (Long_Long_Integer (F * 10#1#E9)));
    end To_Timespec;
-
-   ----------------
-   -- To_Timeval --
-   ----------------
-
-   function To_Timeval (D : Duration) return struct_timeval is
-      S : time_t;
-      F : Duration;
-
-   begin
-      S := time_t (Long_Long_Integer (D));
-      F := D - Duration (S);
-
-      --  If F has negative value due to a round-up, adjust for positive F
-      --  value.
-
-      if F < 0.0 then
-         S := S - 1;
-         F := F + 1.0;
-      end if;
-
-      return
-        struct_timeval'
-          (tv_sec => S,
-           tv_usec => time_t (Long_Long_Integer (F * 10#1#E6)));
-   end To_Timeval;
 
 end System.OS_Interface;

@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.x;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.awt.AWTError;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -77,7 +79,7 @@ public class XFontPeer
   static
   {
     fontProperties = new Properties();
-    InputStream in = XFontPeer.class.getResourceAsStream("fonts.properties");
+    InputStream in = XFontPeer.class.getResourceAsStream("xfonts.properties");
     try
       {
         fontProperties.load(in);
@@ -134,7 +136,7 @@ public class XFontPeer
     {
       super(font);
       metricsCache = new HashMap();
-      Fontable.FontReply info = getXFont().info();
+      Fontable.FontInfo info = getXFont().info();
       ascent = info.font_ascent();
       descent = info.font_descent();
       maxAdvance = info.max_bounds().character_width();
@@ -152,7 +154,7 @@ public class XFontPeer
      *
      * @param info the font info reply
      */
-    private void readCharWidthsLinear(Fontable.FontReply info)
+    private void readCharWidthsLinear(Fontable.FontInfo info)
     {
       int startIndex = info.min_char_or_byte2();
       int endIndex = info.max_char_or_byte2();
@@ -164,17 +166,15 @@ public class XFontPeer
         }
       // All the other character info is fetched from the font info.
       int index = startIndex;
-      Iterator charInfos = info.char_infos().iterator();
-      while (charInfos.hasNext())
+      Fontable.FontInfo.CharInfo[] charInfos = info.char_infos();
+      for (Fontable.FontInfo.CharInfo charInfo : charInfos)
         {
-          Fontable.FontReply.CharInfo charInfo =
-            (Fontable.FontReply.CharInfo) charInfos.next();
           charWidths[index] = charInfo.character_width();
           index++;
         }
     }
 
-    private void readCharWidthsNonLinear(Fontable.FontReply info)
+    private void readCharWidthsNonLinear(Fontable.FontInfo info)
     {
       // TODO: Implement.
       throw new UnsupportedOperationException("Not yet implemented");
@@ -286,7 +286,7 @@ public class XFontPeer
             }
           else
             {
-              Fontable.TextExtentReply extents = getXFont().text_extent(s);
+              Fontable.TextExtentInfo extents = getXFont().text_extent(s);
               /*
                System.err.println("string: '" + s + "' : ");
                System.err.println("ascent: " + extents.getAscent());
@@ -474,6 +474,10 @@ public class XFontPeer
    */
   private void init(String name, int style, int size)
   {
+    if (name == null)
+      {
+        name = "SansSerif";
+      }
     GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
     GraphicsDevice dev = env.getDefaultScreenDevice();
     if (dev instanceof XGraphicsDevice)
@@ -490,7 +494,7 @@ public class XFontPeer
       }
   }
 
-  public boolean canDisplay(Font font, char c)
+  public boolean canDisplay(Font font, int c)
   {
     // TODO: Implement this.
     throw new UnsupportedOperationException("Not yet implemented.");
@@ -608,6 +612,13 @@ public class XFontPeer
     throw new UnsupportedOperationException("Not yet implemented.");
   }
 
+  public Rectangle2D getStringBounds(Font font, CharacterIterator ci,
+                                     int begin, int limit, FontRenderContext frc)
+  {
+    // TODO: Implement this.
+    throw new UnsupportedOperationException("Not yet implemented.");
+  }
+
   /**
    * Encodes a font name + style + size specification into a X logical font
    * description (XLFD) as described here:
@@ -646,7 +657,7 @@ public class XFontPeer
     if (weight != null && weight.compareTo(TextAttribute.WEIGHT_REGULAR) > 0)
       style |= Font.BOLD;
 
-    return encodeFont(name, style, size);
+    return encodeFont(family, style, size);
   }
 
   /**
@@ -666,7 +677,7 @@ public class XFontPeer
    */
   static String encodeFont(String name, int style, int size)
   {
-    StringBuilder key = new StringBuilder();
+    CPStringBuilder key = new CPStringBuilder();
     key.append(validName(name));
     key.append('.');
     switch (style)
@@ -688,7 +699,7 @@ public class XFontPeer
 
     String protoType = fontProperties.getProperty(key.toString());
     int s = validSize(size);
-    return protoType.replaceFirst("%d", String.valueOf(s * 10));
+    return protoType.replaceFirst("%d", String.valueOf(s));
   }
 
   /**

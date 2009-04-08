@@ -1,5 +1,6 @@
 ! { dg-do run }
 ! { dg-options "-fno-range-check" }
+! { dg-options "-fno-range-check -mieee" { target alpha*-*-* } } */
 module mod_check
   implicit none
 
@@ -65,7 +66,7 @@ program test
   TEST(3_8,43_8,i8)
   TEST(-3_8,43_8,i8)
 
-  TEST(17_8,int(huge(0),kind=8)+1,i8)
+  TEST(17_8,int(huge(0_4),kind=8)+1,i8)
 
 !!!!! REAL BASE !!!!!
   TEST(0.0,-1,r4)

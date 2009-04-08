@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1999-2006, Free Software Foundation, Inc.          --
+--         Copyright (C) 1999-2008, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -46,31 +46,18 @@ pragma Polling (Off);
 --  tasking operations. It causes infinite loops and other problems.
 
 with Ada.Exceptions;
---  used for Exception_Occurrence
 
 with System.Task_Primitives.Operations;
---  used for Enter_Task
---           Write_Lock
---           Unlock
---           Wakeup
---           Get_Priority
+with System.Soft_Links.Tasking;
+with System.Secondary_Stack;
+with System.Storage_Elements;
 
 with System.Soft_Links;
---  used for the non-tasking routines (*_NT) that refer to global data.
---  They are needed here before the tasking run time has been elaborated.
---  used for Create_TSD
---  This package also provides initialization routines for task specific data.
---  The GNARL must call these to be sure that all non-tasking
+--  Used for the non-tasking routines (*_NT) that refer to global data. They
+--  are needed here before the tasking run time has been elaborated. used for
+--  Create_TSD This package also provides initialization routines for task
+--  specific data. The GNARL must call these to be sure that all non-tasking
 --  Ada constructs will work.
-
-with System.Soft_Links.Tasking;
---  Used for Init_Tasking_Soft_Links
-
-with System.Secondary_Stack;
---  used for SS_Init;
-
-with System.Storage_Elements;
---  used for Storage_Array;
 
 package body System.Tasking.Restricted.Stages is
 
@@ -92,6 +79,9 @@ package body System.Tasking.Restricted.Stages is
    -----------------------------------------------------------------
    -- Tasking versions of services needed by non-tasking programs --
    -----------------------------------------------------------------
+
+   function Get_Current_Excep return SSL.EOA;
+   --  Task-safe version of SSL.Get_Current_Excep
 
    procedure Task_Lock;
    --  Locks out other tasks. Preceding a section of code by Task_Lock and
@@ -125,6 +115,15 @@ package body System.Tasking.Restricted.Stages is
    --  It consists of initializing the environment task, global locks, and
    --  installing tasking versions of certain operations used by the compiler.
    --  Init_RTS is called during elaboration.
+
+   -----------------------
+   -- Get_Current_Excep --
+   -----------------------
+
+   function Get_Current_Excep return SSL.EOA is
+   begin
+      return STPO.Self.Common.Compiler_Data.Current_Excep'Access;
+   end Get_Current_Excep;
 
    ---------------
    -- Task_Lock --
@@ -183,7 +182,6 @@ package body System.Tasking.Restricted.Stages is
       --
       --  DO NOT delete ID. As noted, it is needed on some targets.
 
-      use type System.Parameters.Size_Type;
       use type SSE.Storage_Offset;
 
       Secondary_Stack : aliased SSE.Storage_Array
@@ -202,7 +200,7 @@ package body System.Tasking.Restricted.Stages is
       --  a task terminating due to completing the last statement of its body.
       --  If the task terminates because of an exception raised by the
       --  execution of its task body, then Cause is set to Unhandled_Exception.
-      --  Aborts are not allowed in the restriced profile to which this file
+      --  Aborts are not allowed in the restricted profile to which this file
       --  belongs.
 
       EO : Exception_Occurrence;
@@ -616,9 +614,10 @@ package body System.Tasking.Restricted.Stages is
       --  Notify that the tasking run time has been elaborated so that
       --  the tasking version of the soft links can be used.
 
-      SSL.Lock_Task   := Task_Lock'Access;
-      SSL.Unlock_Task := Task_Unlock'Access;
-      SSL.Adafinal    := Finalize_Global_Tasks'Access;
+      SSL.Lock_Task         := Task_Lock'Access;
+      SSL.Unlock_Task       := Task_Unlock'Access;
+      SSL.Adafinal          := Finalize_Global_Tasks'Access;
+      SSL.Get_Current_Excep := Get_Current_Excep'Access;
 
       --  Initialize the tasking soft links (if not done yet) that are common
       --  to the full and the restricted run times.

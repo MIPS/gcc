@@ -2,11 +2,11 @@
 --                                                                          --
 --                    GNAT RUN-TIME LIBRARY COMPONENTS                      --
 --                                                                          --
---        S Y S T E M . C O M P A R E _ A R R A Y _ S I G N E D _ 16        --
+--       S Y S T E M . C O M P A R E _ A R R A Y _ S I G N E D _ 1 6        --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2002-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2002-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,7 +33,7 @@
 
 with System.Address_Operations; use System.Address_Operations;
 
-with Unchecked_Conversion;
+with Ada.Unchecked_Conversion;
 
 package body System.Compare_Array_Signed_16 is
 
@@ -44,10 +44,7 @@ package body System.Compare_Array_Signed_16 is
    for Half'Size use 16;
    --  Used to process operands by half words
 
-   type Uhalf is record
-      H : Half;
-   end record;
-   pragma Pack (Uhalf);
+   type Uhalf is new Half;
    for Uhalf'Alignment use 1;
    --  Used to process operands when unaligned
 
@@ -55,9 +52,9 @@ package body System.Compare_Array_Signed_16 is
    type HP is access Half;
    type UP is access Uhalf;
 
-   function W is new Unchecked_Conversion (Address, WP);
-   function H is new Unchecked_Conversion (Address, HP);
-   function U is new Unchecked_Conversion (Address, UP);
+   function W is new Ada.Unchecked_Conversion (Address, WP);
+   function H is new Ada.Unchecked_Conversion (Address, HP);
+   function U is new Ada.Unchecked_Conversion (Address, UP);
 
    -----------------------
    -- Compare_Array_S16 --
@@ -110,8 +107,8 @@ package body System.Compare_Array_Signed_16 is
 
       else
          while Clen /= 0 loop
-            if U (L).H /= U (R).H then
-               if U (L).H > U (R).H then
+            if U (L).all /= U (R).all then
+               if U (L).all > U (R).all then
                   return +1;
                else
                   return -1;

@@ -1,12 +1,12 @@
 /* Functions related to building resource files.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+   2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -52,14 +51,10 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 /* A list of all the resources files.  */
 static GTY(()) tree resources = NULL;
 
-/* Count of all the resources compiled in this invocation.  */
-static int Jr_count = 0;
-
 void
 compile_resource_data (const char *name, const char *buffer, int length)
 {
   tree rtype, field = NULL_TREE, data_type, rinit, data, decl;
-  char buf[60];
 
   data_type = build_prim_array_type (unsigned_byte_type_node,
 				     strlen (name) + length);
@@ -78,13 +73,11 @@ compile_resource_data (const char *name, const char *buffer, int length)
   PUSH_FIELD_VALUE (rinit, "data", data);
   FINISH_RECORD_CONSTRUCTOR (rinit);
   TREE_CONSTANT (rinit) = 1;
-  TREE_INVARIANT (rinit) = 1;
 
-  /* Generate a unique-enough identifier.  */
-  sprintf (buf, "_Jr%d", ++Jr_count);
-
-  decl = build_decl (VAR_DECL, get_identifier (buf), rtype);
+  decl = build_decl (VAR_DECL, java_mangle_resource_name (name), rtype);
   TREE_STATIC (decl) = 1;
+  TREE_PUBLIC (decl) = 1;
+  java_hide_decl (decl);
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
   TREE_READONLY (decl) = 1;

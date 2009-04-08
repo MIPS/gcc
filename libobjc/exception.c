@@ -1,5 +1,5 @@
 /* The implementation of exception handling primitives for Objective-C.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,16 +31,25 @@ Boston, MA 02110-1301, USA.  */
 #include "unwind-pe.h"
 
 
+#ifdef __ARM_EABI_UNWINDER__
+
+const _Unwind_Exception_Class __objc_exception_class
+  = {'G', 'N', 'U', 'C', 'O', 'B', 'J', 'C'};
+  
+#else
+
 /* This is the exception class we report -- "GNUCOBJC".  */
-#define __objc_exception_class			\
-  ((((((((_Unwind_Exception_Class) 'G'		\
-         << 8 | (_Unwind_Exception_Class) 'N')	\
-        << 8 | (_Unwind_Exception_Class) 'U')	\
-       << 8 | (_Unwind_Exception_Class) 'C')	\
-      << 8 | (_Unwind_Exception_Class) 'O')	\
-     << 8 | (_Unwind_Exception_Class) 'B')	\
-    << 8 | (_Unwind_Exception_Class) 'J')	\
-   << 8 | (_Unwind_Exception_Class) 'C')
+static const _Unwind_Exception_Class __objc_exception_class
+  = ((((((((_Unwind_Exception_Class) 'G'
+            << 8 | (_Unwind_Exception_Class) 'N')
+           << 8 | (_Unwind_Exception_Class) 'U')
+          << 8 | (_Unwind_Exception_Class) 'C')
+         << 8 | (_Unwind_Exception_Class) 'O')
+        << 8 | (_Unwind_Exception_Class) 'B')
+       << 8 | (_Unwind_Exception_Class) 'J')
+      << 8 | (_Unwind_Exception_Class) 'C');
+
+#endif
 
 /* This is the object that is passed around by the Objective C runtime
    to represent the exception in flight.  */
@@ -50,12 +59,18 @@ struct ObjcException
   /* This bit is needed in order to interact with the unwind runtime.  */
   struct _Unwind_Exception base;
 
-  /* The actual object we want to throw.  */
+  /* The actual object we want to throw. Note: must come immediately after
+     unwind header.  */
   id value;
 
+#ifdef __ARM_EABI_UNWINDER__
+  /* Note: we use the barrier cache defined in the unwind control block for
+     ARM EABI.  */
+#else
   /* Cache some internal unwind data between phase 1 and phase 2.  */
   _Unwind_Ptr landingPad;
   int handlerSwitchValue;
+#endif
 };
 
 
@@ -71,11 +86,16 @@ struct lsda_header_info
   unsigned char call_site_encoding;
 };
 
+/* This hook allows libraries to sepecify special actions when an
+   exception is thrown without a handler in place.
+ */
+void (*_objc_unexpected_exception) (id exception); /* !T:SAFE */
+
 static const unsigned char *
 parse_lsda_header (struct _Unwind_Context *context, const unsigned char *p,
 		   struct lsda_header_info *info)
 {
-  _Unwind_Word tmp;
+  _uleb128_t tmp;
   unsigned char lpstart_encoding;
 
   info->Start = (context ? _Unwind_GetRegionStart (context) : 0);
@@ -106,6 +126,24 @@ parse_lsda_header (struct _Unwind_Context *context, const unsigned char *p,
   return p;
 }
 
+#ifdef __ARM_EABI_UNWINDER__
+
+static Class
+get_ttype_entry (struct lsda_header_info *info, _uleb128_t i)
+{
+  _Unwind_Ptr ptr;
+  
+  ptr = (_Unwind_Ptr) (info->TType - (i * 4));
+  ptr = _Unwind_decode_target2 (ptr);
+  
+  if (ptr)
+    return objc_get_class ((const char *) ptr);
+  else
+    return 0;
+}
+
+#else
+
 static Class
 get_ttype_entry (struct lsda_header_info *info, _Unwind_Word i)
 {
@@ -121,6 +159,8 @@ get_ttype_entry (struct lsda_header_info *info, _Unwind_Word i)
   else
     return 0;
 }
+
+#endif
 
 /* Like unto the method of the same name on Object, but takes an id.  */
 /* ??? Does this bork the meta-type system?  Can/should we look up an
@@ -150,12 +190,32 @@ isKindOf (id value, Class target)
 #define PERSONALITY_FUNCTION	__gnu_objc_personality_v0
 #endif
 
+#ifdef __ARM_EABI_UNWINDER__
+
+#define CONTINUE_UNWINDING \
+  do								\
+    {								\
+      if (__gnu_unwind_frame(ue_header, context) != _URC_OK)	\
+	return _URC_FAILURE;					\
+      return _URC_CONTINUE_UNWIND;				\
+    }								\
+  while (0)
+
+_Unwind_Reason_Code
+PERSONALITY_FUNCTION (_Unwind_State state,
+		      struct _Unwind_Exception *ue_header,
+		      struct _Unwind_Context *context)
+#else
+
+#define CONTINUE_UNWINDING return _URC_CONTINUE_UNWIND
+
 _Unwind_Reason_Code
 PERSONALITY_FUNCTION (int version,
 		      _Unwind_Action actions,
 		      _Unwind_Exception_Class exception_class,
 		      struct _Unwind_Exception *ue_header,
 		      struct _Unwind_Context *context)
+#endif
 {
   struct ObjcException *xh = (struct ObjcException *) ue_header;
 
@@ -165,19 +225,65 @@ PERSONALITY_FUNCTION (int version,
   const unsigned char *p;
   _Unwind_Ptr landing_pad, ip;
   int handler_switch_value;
-  int saw_cleanup = 0, saw_handler;
+  int saw_cleanup = 0, saw_handler, foreign_exception;
   void *return_object;
+  int ip_before_insn = 0;
 
+#ifdef __ARM_EABI_UNWINDER__
+  _Unwind_Action actions;
+  
+  switch (state & _US_ACTION_MASK)
+    {
+    case _US_VIRTUAL_UNWIND_FRAME:
+      actions = _UA_SEARCH_PHASE;
+      break;
+
+    case _US_UNWIND_FRAME_STARTING:
+      actions = _UA_CLEANUP_PHASE;
+      if (!(state & _US_FORCE_UNWIND)
+	  && ue_header->barrier_cache.sp == _Unwind_GetGR (context, 13))
+	actions |= _UA_HANDLER_FRAME;
+      break;
+
+    case _US_UNWIND_FRAME_RESUME:
+      CONTINUE_UNWINDING;
+      break;
+
+    default:
+      abort();
+    }
+  actions |= state & _US_FORCE_UNWIND;
+
+  /* TODO: Foreign exceptions need some attention (e.g. rethrowing doesn't
+     work).  */
+  foreign_exception = 0;
+
+  /* The dwarf unwinder assumes the context structure holds things like the
+     function and LSDA pointers.  The ARM implementation caches these in
+     the exception header (UCB).  To avoid rewriting everything we make the
+     virtual IP register point at the UCB.  */
+  ip = (_Unwind_Ptr) ue_header;
+  _Unwind_SetGR (context, 12, ip);
+
+#else  /* !__ARM_EABI_UNWINDER.  */
   /* Interface version check.  */
   if (version != 1)
     return _URC_FATAL_PHASE1_ERROR;
+  
+  foreign_exception = (exception_class != __objc_exception_class);
+#endif
 
   /* Shortcut for phase 2 found handler for domestic exception.  */
   if (actions == (_UA_CLEANUP_PHASE | _UA_HANDLER_FRAME)
-      && exception_class == __objc_exception_class)
+      && !foreign_exception)
     {
+#ifdef __ARM_EABI_UNWINDER__
+      handler_switch_value = (int) ue_header->barrier_cache.bitpattern[1];
+      landing_pad = (_Unwind_Ptr) ue_header->barrier_cache.bitpattern[3];
+#else
       handler_switch_value = xh->handlerSwitchValue;
       landing_pad = xh->landingPad;
+#endif
       goto install_context;
     }
 
@@ -186,12 +292,18 @@ PERSONALITY_FUNCTION (int version,
 
   /* If no LSDA, then there are no handlers or cleanups.  */
   if (! language_specific_data)
-    return _URC_CONTINUE_UNWIND;
+    CONTINUE_UNWINDING;
 
   /* Parse the LSDA header.  */
   p = parse_lsda_header (context, language_specific_data, &info);
   info.ttype_base = base_of_encoded_value (info.ttype_encoding, context);
-  ip = _Unwind_GetIP (context) - 1;
+#ifdef HAVE_GETIPINFO
+  ip = _Unwind_GetIPInfo (context, &ip_before_insn);
+#else
+  ip = _Unwind_GetIP (context);
+#endif
+  if (!ip_before_insn)
+    --ip;
   landing_pad = 0;
   action_record = 0;
   handler_switch_value = 0;
@@ -205,7 +317,7 @@ PERSONALITY_FUNCTION (int version,
     return _URC_CONTINUE_UNWIND;
   else
     {
-      _Unwind_Word cs_lp, cs_action;
+      _uleb128_t cs_lp, cs_action;
       do
 	{
 	  p = read_uleb128 (p, &cs_lp);
@@ -225,7 +337,7 @@ PERSONALITY_FUNCTION (int version,
   while (p < info.action_table)
     {
       _Unwind_Ptr cs_start, cs_len, cs_lp;
-      _Unwind_Word cs_action;
+      _uleb128_t cs_action;
 
       /* Note that all call-site encodings are "absolute" displacements.  */
       p = read_encoded_value (0, info.call_site_encoding, p, &cs_start);
@@ -250,7 +362,7 @@ PERSONALITY_FUNCTION (int version,
   /* If ip is not present in the table, C++ would call terminate.  */
   /* ??? As with Java, it's perhaps better to tweek the LSDA to
      that no-action is mapped to no-entry.  */
-  return _URC_CONTINUE_UNWIND;
+  CONTINUE_UNWINDING;
 
  found_something:
   saw_cleanup = 0;
@@ -271,7 +383,7 @@ PERSONALITY_FUNCTION (int version,
   else
     {
       /* Otherwise we have a catch handler.  */
-      _Unwind_Sword ar_filter, ar_disp;
+      _sleb128_t ar_filter, ar_disp;
 
       while (1)
 	{
@@ -287,8 +399,7 @@ PERSONALITY_FUNCTION (int version,
 
 	  /* During forced unwinding, we only run cleanups.  With a
 	     foreign exception class, we have no class info to match.  */
-	  else if ((actions & _UA_FORCE_UNWIND)
-		   || exception_class != __objc_exception_class)
+	  else if ((actions & _UA_FORCE_UNWIND) || foreign_exception)
 	    ;
 
 	  else if (ar_filter > 0)
@@ -318,18 +429,24 @@ PERSONALITY_FUNCTION (int version,
     }
 
   if (! saw_handler && ! saw_cleanup)
-    return _URC_CONTINUE_UNWIND;
+    CONTINUE_UNWINDING;
 
   if (actions & _UA_SEARCH_PHASE)
     {
       if (!saw_handler)
-	return _URC_CONTINUE_UNWIND;
+	CONTINUE_UNWINDING;
 
       /* For domestic exceptions, we cache data from phase 1 for phase 2.  */
-      if (exception_class == __objc_exception_class)
+      if (!foreign_exception)
         {
+#ifdef __ARM_EABI_UNWINDER__
+	  ue_header->barrier_cache.sp = _Unwind_GetGR (context, 13);
+	  ue_header->barrier_cache.bitpattern[1] = (_uw) handler_switch_value;
+	  ue_header->barrier_cache.bitpattern[3] = (_uw) landing_pad;
+#else
           xh->handlerSwitchValue = handler_switch_value;
           xh->landingPad = landing_pad;
+#endif
 	}
       return _URC_HANDLER_FOUND;
     }
@@ -361,7 +478,9 @@ void
 objc_exception_throw (id value)
 {
   struct ObjcException *header = calloc (1, sizeof (*header));
-  header->base.exception_class = __objc_exception_class;
+  
+  memcpy (&header->base.exception_class, &__objc_exception_class,
+	  sizeof (__objc_exception_class));
   header->base.exception_cleanup = __objc_exception_cleanup;
   header->value = value;
 
@@ -372,5 +491,9 @@ objc_exception_throw (id value)
 #endif
 
   /* Some sort of unwinding error.  */
+  if (_objc_unexpected_exception != 0)
+    {
+      (*_objc_unexpected_exception) (value);
+    }
   abort ();
 }

@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -219,7 +218,7 @@ package Exp_Pakd is
    --  Note: although this routine is included in the expander package for
    --  packed types, it is actually called unconditionally from Freeze,
    --  whether or not expansion (and code generation) is enabled. We do this
-   --  since we want gigi to be able to properly compute type charactersitics
+   --  since we want gigi to be able to properly compute type characteristics
    --  (for the Data Decomposition Annex of ASIS, and possible other future
    --  uses) even if code generation is not active. Strictly this means that
    --  this procedure is not part of the expander, but it seems appropriate
@@ -264,7 +263,7 @@ package Exp_Pakd is
    function Involves_Packed_Array_Reference (N : Node_Id) return Boolean;
    --  N is the node for a name. This function returns true if the name
    --  involves a packed array reference. A node involves a packed array
-   --  reference if it is itself an indexed compoment referring to a bit-
+   --  reference if it is itself an indexed component referring to a bit-
    --  packed array, or it is a selected component whose prefix involves
    --  a packed array reference.
 

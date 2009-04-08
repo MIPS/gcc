@@ -28,13 +28,14 @@ extern "Java"
   {
     namespace management
     {
+        class MBeanConstructorInfo;
         class MBeanInfo;
+        class MBeanOperationInfo;
         class MBeanParameterInfo;
       namespace openmbean
       {
           class OpenMBeanInfo;
           class OpenMBeanParameterInfo;
-          class OpenType;
       }
     }
   }
@@ -52,12 +53,14 @@ public:
   virtual ::java::lang::Object * getAttribute(::java::lang::String *);
 public: // actually protected
   virtual ::javax::management::MBeanInfo * getCachedMBeanInfo();
+  virtual ::java::lang::String * getDescription(::javax::management::MBeanConstructorInfo *, ::javax::management::MBeanParameterInfo *, jint);
+  virtual ::java::lang::String * getDescription(::javax::management::MBeanOperationInfo *, ::javax::management::MBeanParameterInfo *, jint);
+  virtual ::java::lang::String * getParameterName(::javax::management::MBeanConstructorInfo *, ::javax::management::MBeanParameterInfo *, jint);
+  virtual ::java::lang::String * getParameterName(::javax::management::MBeanOperationInfo *, ::javax::management::MBeanParameterInfo *, jint);
 public:
   virtual ::javax::management::MBeanInfo * getMBeanInfo();
 private:
-  ::javax::management::openmbean::OpenType * getTypeFromClass(::java::lang::Class *);
   JArray< ::javax::management::openmbean::OpenMBeanParameterInfo * > * translateSignature(JArray< ::javax::management::MBeanParameterInfo * > *);
-  ::javax::management::openmbean::OpenMBeanParameterInfo * translate(::java::lang::String *);
   ::javax::management::openmbean::OpenMBeanInfo * __attribute__((aligned(__alignof__( ::javax::management::StandardMBean)))) openInfo;
 public:
   static ::java::lang::Class class$;

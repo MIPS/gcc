@@ -1,13 +1,13 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This is the top level of cc1/c++.
    It parses command args, opens files, invokes the various passes
@@ -67,6 +66,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "params.h"
 #include "reload.h"
+#include "ira.h"
 #include "dwarf2asm.h"
 #include "integrate.h"
 #include "real.h"
@@ -83,6 +83,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "alloc-pool.h"
 #include "tree-mudflap.h"
 #include "tree-pass.h"
+#include "gimple.h"
+#include "tree-ssa-alias.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -135,10 +137,6 @@ static const char **save_argv;
 
 const char *main_input_filename;
 
-#ifndef USE_MAPPED_LOCATION
-location_t unknown_location = { NULL, 0 };
-#endif
-
 /* Used to enable -fvar-tracking, -fweb and -frename-registers according
    to optimize and default_debug_hooks in process_options ().  */
 #define AUTODETECT_VALUE 2
@@ -147,27 +145,7 @@ location_t unknown_location = { NULL, 0 };
 
 location_t input_location;
 
-struct line_maps line_table;
-
-/* Nonzero if it is unsafe to create any new pseudo registers.  */
-int no_new_pseudos;
-
-/* Stack of currently pending input files.  */
-
-struct file_stack *input_file_stack;
-
-/* Incremented on each change to input_file_stack.  */
-int input_file_stack_tick;
-
-/* Record of input_file_stack at each tick.  */
-typedef struct file_stack *fs_p;
-DEF_VEC_P(fs_p);
-DEF_VEC_ALLOC_P(fs_p,heap);
-static VEC(fs_p,heap) *input_file_stack_history;
-
-/* Whether input_file_stack has been restored to a previous state (in
-   which case there should be no more pushing).  */
-static bool input_file_stack_restored;
+struct line_maps *line_table;
 
 /* Name to use as base of names for dump output files.  */
 
@@ -177,11 +155,8 @@ const char *dump_base_name;
 
 const char *aux_base_name;
 
-/* Bit flags that specify the machine subtype we are compiling for.
-   Bits are tested using macros TARGET_... defined in the tm.h file
-   and set by `-m...' switches.  Must be defined in rtlanal.c.  */
-
-extern int target_flags;
+/* Prefix for profile data files */
+const char *profile_data_prefix;
 
 /* A mask of target_flags that includes bit X if X was set or cleared
    on the command line.  */
@@ -230,11 +205,6 @@ tree current_function_decl;
    if none.  */
 const char * current_function_func_begin_label;
 
-/* Temporarily suppress certain warnings.
-   This is set while reading code from a system header file.  */
-
-int in_system_header = 0;
-
 /* Nonzero means to collect statistics which might be expensive
    and to print them when we are done.  */
 int flag_detailed_statistics = 0;
@@ -277,11 +247,6 @@ int flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
 
 int flag_complex_method = 1;
 
-/* Nonzero means that we don't want inlining by virtue of -fno-inline,
-   not just because the tree inliner turned us off.  */
-
-int flag_really_no_inline = 2;
-
 /* Nonzero means we should be saving declaration info into a .X file.  */
 
 int flag_gen_aux_info = 0;
@@ -307,10 +272,29 @@ int flag_next_runtime = 0;
 
 enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
 
+/* Set the default region and algorithm for the integrated register
+   allocator.  */
+
+enum ira_algorithm flag_ira_algorithm = IRA_ALGORITHM_CB;
+enum ira_region flag_ira_region = IRA_REGION_MIXED;
+
+/* Set the default value for -fira-verbose.  */
+
+unsigned int flag_ira_verbose = 5;
+
+/* Set the default for excess precision.  */
+
+enum excess_precision flag_excess_precision_cmdline = EXCESS_PRECISION_DEFAULT;
+enum excess_precision flag_excess_precision = EXCESS_PRECISION_DEFAULT;
+
 /* Nonzero means change certain warnings into errors.
    Usually these are warnings about failure to conform to some standard.  */
 
 int flag_pedantic_errors = 0;
+
+/* Nonzero means make permerror produce warnings instead of errors.  */
+
+int flag_permissive = 0;
 
 /* -dA causes debug commentary information to be produced in
    the generated assembly code (to make it more readable).  This option
@@ -339,6 +323,9 @@ rtx stack_limit_rtx;
    to optimize, debug_info_level and debug_hooks in process_options ().  */
 int flag_var_tracking = AUTODETECT_VALUE;
 
+/* Type of stack check.  */
+enum stack_check_type flag_stack_check = NO_STACK_CHECK;
+
 /* True if the user has tagged the function with the 'section'
    attribute.  */
 
@@ -356,10 +343,6 @@ int align_jumps_max_skip;
 int align_labels_log;
 int align_labels_max_skip;
 int align_functions_log;
-
-/* Like align_functions_log above, but used by front-ends to force the
-   minimum function alignment.  Zero means no alignment is forced.  */
-int force_align_functions_log;
 
 typedef struct
 {
@@ -448,7 +431,7 @@ announce_function (tree decl)
 	fprintf (stderr, " %s", lang_hooks.decl_printable_name (decl, 2));
       fflush (stderr);
       pp_needs_newline (global_dc->printer) = true;
-      diagnostic_set_last_function (global_dc);
+      diagnostic_set_last_function (global_dc, (diagnostic_info *) NULL);
     }
 }
 
@@ -702,6 +685,8 @@ output_file_directive (FILE *asm_file, const char *input_name)
 
   if (input_name == NULL)
     input_name = "<stdin>";
+  else
+    input_name = remap_debug_filename (input_name);
 
   len = strlen (input_name);
   na = input_name + len;
@@ -856,9 +841,9 @@ check_global_declaration_1 (tree decl)
 	  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
     {
       if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-	pedwarn ("%q+F used but never defined", decl);
+	pedwarn (input_location, 0, "%q+F used but never defined", decl);
       else
-	warning (0, "%q+F declared %<static%> but never defined", decl);
+	warning (OPT_Wunused_function, "%q+F declared %<static%> but never defined", decl);
       /* This symbol is effectively an "extern" declaration now.  */
       TREE_PUBLIC (decl) = 1;
       assemble_external (decl);
@@ -883,7 +868,10 @@ check_global_declaration_1 (tree decl)
       && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
       /* Otherwise, ask the language.  */
       && lang_hooks.decls.warn_unused_global (decl))
-    warning (0, "%q+D defined but not used", decl);
+    warning ((TREE_CODE (decl) == FUNCTION_DECL) 
+	     ? OPT_Wunused_function 
+             : OPT_Wunused_variable, 
+	     "%q+D defined but not used", decl);
 }
 
 /* Issue appropriate warnings for the global declarations in VEC (of
@@ -966,72 +954,6 @@ warn_deprecated_use (tree node)
     }
 }
 
-/* Save the current INPUT_LOCATION on the top entry in the
-   INPUT_FILE_STACK.  Push a new entry for FILE and LINE, and set the
-   INPUT_LOCATION accordingly.  */
-
-void
-#ifdef USE_MAPPED_LOCATION
-push_srcloc (location_t fline)
-#else
-push_srcloc (const char *file, int line)
-#endif
-{
-  struct file_stack *fs;
-
-  gcc_assert (!input_file_stack_restored);
-  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
-    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
-
-  fs = XNEW (struct file_stack);
-  fs->location = input_location;
-  fs->next = input_file_stack;
-#ifdef USE_MAPPED_LOCATION
-  input_location = fline;
-#else
-  input_filename = file;
-  input_line = line;
-#endif
-  input_file_stack = fs;
-  input_file_stack_tick++;
-  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
-}
-
-/* Pop the top entry off the stack of presently open source files.
-   Restore the INPUT_LOCATION from the new topmost entry on the
-   stack.  */
-
-void
-pop_srcloc (void)
-{
-  struct file_stack *fs;
-
-  gcc_assert (!input_file_stack_restored);
-  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
-    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
-
-  fs = input_file_stack;
-  input_location = fs->location;
-  input_file_stack = fs->next;
-  input_file_stack_tick++;
-  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
-}
-
-/* Restore the input file stack to its state as of TICK, for the sake
-   of diagnostics after processing the whole input.  Once this has
-   been called, push_srcloc and pop_srcloc may no longer be
-   called.  */
-void
-restore_input_file_stack (int tick)
-{
-  if (tick == 0)
-    input_file_stack = NULL;
-  else
-    input_file_stack = VEC_index (fs_p, input_file_stack_history, tick - 1);
-  input_file_stack_tick = tick;
-  input_file_stack_restored = true;
-}
-
 /* Compile an entire translation unit.  Write a file of assembly
    output and various debugging dumps.  */
 
@@ -1040,9 +962,12 @@ compile_file (void)
 {
   /* Initialize yet another pass.  */
 
+  ggc_protect_identifiers = true;
+
   init_cgraph ();
   init_final (main_input_filename);
   coverage_init (aux_base_name);
+  statistics_init ();
 
   timevar_push (TV_PARSE);
 
@@ -1050,16 +975,14 @@ compile_file (void)
      rest_of_compilation for each function).  */
   lang_hooks.parse_file (set_yydebug);
 
-  /* In case there were missing block closers,
-     get us back to the global binding level.  */
-  lang_hooks.clear_binding_stack ();
-
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
   timevar_pop (TV_PARSE);
 
   if (flag_syntax_only)
     return;
+
+  ggc_protect_identifiers = false;
 
   lang_hooks.decls.final_write_globals ();
 
@@ -1111,8 +1034,14 @@ compile_file (void)
      string is patterned after the ones produced by native SVR4 compilers.  */
 #ifdef IDENT_ASM_OP
   if (!flag_no_ident)
-    fprintf (asm_out_file, "%s\"GCC: (GNU) %s\"\n",
-	     IDENT_ASM_OP, version_string);
+    {
+      const char *pkg_version = "(GNU) ";
+
+      if (strcmp ("(GCC) ", pkgversion_string))
+	pkg_version = pkgversion_string;
+      fprintf (asm_out_file, "%s\"GCC: %s%s\"\n",
+	       IDENT_ASM_OP, pkg_version, version_string);
+    }
 #endif
 
   /* This must be at the end.  Some target ports emit end of file directives
@@ -1152,14 +1081,18 @@ decode_d_option (const char *arg)
 	break;
       case 'D':	/* These are handled by the preprocessor.  */
       case 'I':
+      case 'M':
+      case 'N':
+      case 'U':
 	break;
       case 'H':
 	setup_core_dumping();
 	break;
-
       case 'a':
+	enable_rtl_dump_file ();
+	break;
+
       default:
-	if (!enable_rtl_dump_file (c))
 	  warning (0, "unrecognized gcc debugging option: %c", c);
 	break;
       }
@@ -1180,15 +1113,15 @@ print_version (FILE *file, const char *indent)
 {
   static const char fmt1[] =
 #ifdef __GNUC__
-    N_("%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s, ")
+    N_("%s%s%s %sversion %s (%s)\n%s\tcompiled by GNU C version %s, ")
 #else
-    N_("%s%s%s version %s (%s) compiled by CC, ")
+    N_("%s%s%s %sversion %s (%s) compiled by CC, ")
 #endif
     ;
   static const char fmt2[] =
     N_("GMP version %s, MPFR version %s.\n");
   static const char fmt3[] =
-    N_("warning: %s header version %s differs from library version %s.\n");
+    N_("%s%swarning: %s header version %s differs from library version %s.\n");
   static const char fmt4[] =
     N_("%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n");
 #ifndef __VERSION__
@@ -1197,7 +1130,7 @@ print_version (FILE *file, const char *indent)
   fprintf (file,
 	   file == stderr ? _(fmt1) : fmt1,
 	   indent, *indent != 0 ? " " : "",
-	   lang_hooks.name, version_string, TARGET_NAME,
+	   lang_hooks.name, pkgversion_string, version_string, TARGET_NAME,
 	   indent, __VERSION__);
 
   /* We need to stringify the GMP macro values.  Ugh, gmp_version has
@@ -1218,10 +1151,12 @@ print_version (FILE *file, const char *indent)
   if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
+	     indent, *indent != 0 ? " " : "",
 	     "GMP", GCC_GMP_STRINGIFY_VERSION, gmp_version);
   if (strcmp (MPFR_VERSION_STRING, mpfr_get_version ()))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
+	     indent, *indent != 0 ? " " : "",
 	     "MPFR", MPFR_VERSION_STRING, mpfr_get_version ());
   fprintf (file,
 	   file == stderr ? _(fmt4) : fmt4,
@@ -1432,7 +1367,7 @@ init_asm_output (const char *name)
 						   NULL);
 	    }
 	  else
-	    inform ("-frecord-gcc-switches is not supported by the current target");
+	    inform (input_location, "-frecord-gcc-switches is not supported by the current target");
 	}
 
 #ifdef ASM_COMMENT_START
@@ -1601,6 +1536,14 @@ default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
   return true;
 }
 
+/* A helper function; used as the reallocator function for cpp's line
+   table.  */
+static void *
+realloc_for_line_map (void *ptr, size_t len)
+{
+  return ggc_realloc (ptr, len);
+}
+
 /* Initialization of the front end environment, before command line
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
@@ -1657,7 +1600,9 @@ general_init (const char *argv0)
      table.  */
   init_ggc ();
   init_stringpool ();
-  linemap_init (&line_table);
+  line_table = GGC_NEW (struct line_maps);
+  linemap_init (line_table);
+  line_table->reallocator = realloc_for_line_map;
   init_ttree ();
 
   /* Initialize register usage now so switches may override.  */
@@ -1669,6 +1614,7 @@ general_init (const char *argv0)
   /* This must be done after add_params but before argument processing.  */
   init_ggc_heuristics();
   init_optimization_passes ();
+  statistics_early_init ();
 }
 
 /* Return true if the current target supports -fsection-anchors.  */
@@ -1685,6 +1631,31 @@ target_supports_section_anchors_p (void)
   return true;
 }
 
+/* Default the align_* variables to 1 if they're still unset, and
+   set up the align_*_log variables.  */
+static void
+init_alignments (void)
+{
+  if (align_loops <= 0)
+    align_loops = 1;
+  if (align_loops_max_skip > align_loops)
+    align_loops_max_skip = align_loops - 1;
+  align_loops_log = floor_log2 (align_loops * 2 - 1);
+  if (align_jumps <= 0)
+    align_jumps = 1;
+  if (align_jumps_max_skip > align_jumps)
+    align_jumps_max_skip = align_jumps - 1;
+  align_jumps_log = floor_log2 (align_jumps * 2 - 1);
+  if (align_labels <= 0)
+    align_labels = 1;
+  align_labels_log = floor_log2 (align_labels * 2 - 1);
+  if (align_labels_max_skip > align_labels)
+    align_labels_max_skip = align_labels - 1;
+  if (align_functions <= 0)
+    align_functions = 1;
+  align_functions_log = floor_log2 (align_functions * 2 - 1);
+}
+
 /* Process the options that have been parsed.  */
 static void
 process_options (void)
@@ -1693,14 +1664,24 @@ process_options (void)
      This can happen with incorrect pre-processed input. */
   debug_hooks = &do_nothing_debug_hooks;
 
+  /* This replaces set_Wunused.  */
+  if (warn_unused_function == -1)
+    warn_unused_function = warn_unused;
+  if (warn_unused_label == -1)
+    warn_unused_label = warn_unused;
+  /* Wunused-parameter is enabled if both -Wunused -Wextra are enabled.  */
+  if (warn_unused_parameter == -1)
+    warn_unused_parameter = (warn_unused && extra_warnings);
+  if (warn_unused_variable == -1)
+    warn_unused_variable = warn_unused;
+  if (warn_unused_value == -1)
+    warn_unused_value = warn_unused;
+
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
      so we can correctly initialize debug output.  */
   no_backend = lang_hooks.post_options (&main_input_filename);
-#ifndef USE_MAPPED_LOCATION
-  input_filename = main_input_filename;
-#endif
 
 #ifdef OVERRIDE_OPTIONS
   /* Some machines may reject certain combinations of options.  */
@@ -1730,22 +1711,14 @@ process_options (void)
   else
     aux_base_name = "gccaux";
 
-  /* Set up the align_*_log variables, defaulting them to 1 if they
-     were still unset.  */
-  if (align_loops <= 0) align_loops = 1;
-  if (align_loops_max_skip > align_loops || !align_loops)
-    align_loops_max_skip = align_loops - 1;
-  align_loops_log = floor_log2 (align_loops * 2 - 1);
-  if (align_jumps <= 0) align_jumps = 1;
-  if (align_jumps_max_skip > align_jumps || !align_jumps)
-    align_jumps_max_skip = align_jumps - 1;
-  align_jumps_log = floor_log2 (align_jumps * 2 - 1);
-  if (align_labels <= 0) align_labels = 1;
-  align_labels_log = floor_log2 (align_labels * 2 - 1);
-  if (align_labels_max_skip > align_labels || !align_labels)
-    align_labels_max_skip = align_labels - 1;
-  if (align_functions <= 0) align_functions = 1;
-  align_functions_log = floor_log2 (align_functions * 2 - 1);
+#ifndef HAVE_cloog
+  if (flag_graphite
+      || flag_loop_block
+      || flag_loop_interchange
+      || flag_loop_strip_mine
+      || flag_graphite_identity)
+    sorry ("Graphite loop optimizations cannot be used");
+#endif
 
   /* Unrolling all loops implies that standard loop unrolling must also
      be done.  */
@@ -1766,14 +1739,6 @@ process_options (void)
     flag_asynchronous_unwind_tables = 1;
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
-
-  /* Disable unit-at-a-time mode for frontends not supporting callgraph
-     interface.  */
-  if (flag_unit_at_a_time && ! lang_hooks.callgraph.expand_function)
-    flag_unit_at_a_time = 0;
-
-  if (!flag_unit_at_a_time)
-    flag_section_anchors = 0;
 
   if (flag_value_profile_transformations)
     flag_profile_values = 1;
@@ -1881,7 +1846,8 @@ process_options (void)
   if (debug_info_level < DINFO_LEVEL_NORMAL
       || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
     {
-      if (flag_var_tracking == 1)
+      if (flag_var_tracking == 1
+	  || flag_var_tracking_uninit == 1)
         {
 	  if (debug_info_level < DINFO_LEVEL_NORMAL)
 	    warning (0, "variable tracking requested, but useless unless "
@@ -1891,6 +1857,7 @@ process_options (void)
 		     "by this debug format");
 	}
       flag_var_tracking = 0;
+      flag_var_tracking_uninit = 0;
     }
 
   if (flag_rename_registers == AUTODETECT_VALUE)
@@ -1899,6 +1866,19 @@ process_options (void)
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  if (flag_tree_cselim == AUTODETECT_VALUE)
+#ifdef HAVE_conditional_move
+    flag_tree_cselim = 1;
+#else
+    flag_tree_cselim = 0;
+#endif
+
+  /* If the user specifically requested variable tracking with tagging
+     uninitialized variables, we need to turn on variable tracking.
+     (We already determined above that variable tracking is feasible.)  */
+  if (flag_var_tracking_uninit)
+    flag_var_tracking = 1;
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -1952,20 +1932,24 @@ process_options (void)
       flag_prefetch_loop_arrays = 0;
     }
 
-#ifndef OBJECT_FORMAT_ELF
-#ifndef OBJECT_FORMAT_MACHO
-  if (flag_function_sections && write_symbols != NO_DEBUG)
-    warning (0, "-ffunction-sections may affect debugging on some targets");
-#endif
-#endif
-
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
   if (flag_signaling_nans)
     flag_trapping_math = 1;
 
+  /* We cannot reassociate if we want traps or signed zeros.  */
+  if (flag_associative_math && (flag_trapping_math || flag_signed_zeros))
+    {
+      warning (0, "-fassociative-math disabled; other options take precedence");
+      flag_associative_math = 0;
+    }
+
   /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
   if (flag_cx_limited_range)
     flag_complex_method = 0;
+
+  /* With -fcx-fortran-rules, we do something in-between cheap and C99.  */
+  if (flag_cx_fortran_rules)
+    flag_complex_method = 1;
 
   /* Targets must be able to place spill slots at lower addresses.  If the
      target already uses a soft frame pointer, the transition is trivial.  */
@@ -1984,13 +1968,56 @@ process_options (void)
   if (flag_unwind_tables && !ACCUMULATE_OUTGOING_ARGS
       && flag_omit_frame_pointer)
     {
-      warning (0, "unwind tables currently requires a frame pointer "
+      warning (0, "unwind tables currently require a frame pointer "
 	       "for correctness");
       flag_omit_frame_pointer = 0;
     }
 }
 
-/* Initialize the compiler back end.  */
+/* This function can be called multiple times to reinitialize the compiler
+   back end when register classes or instruction sets have changed,
+   before each function.  */
+static void
+backend_init_target (void)
+{
+  /* Initialize alignment variables.  */
+  init_alignments ();
+
+  /* This reinitializes hard_frame_pointer, and calls init_reg_modes_target()
+     to initialize reg_raw_mode[].  */
+  init_emit_regs ();
+
+  /* This invokes target hooks to set fixed_reg[] etc, which is
+     mode-dependent.  */
+  init_regs ();
+
+  /* This depends on stack_pointer_rtx.  */
+  init_fake_stack_mems ();
+
+  /* Sets static_base_value[HARD_FRAME_POINTER_REGNUM], which is
+     mode-dependent.  */
+  init_alias_target ();
+
+  /* Depends on HARD_FRAME_POINTER_REGNUM.  */
+  init_reload ();
+
+  /* The following initialization functions need to generate rtl, so
+     provide a dummy function context for them.  */
+  init_dummy_function_start ();
+
+  /* rtx_cost is mode-dependent, so cached values need to be recomputed
+     on a mode change.  */
+  init_expmed ();
+
+  /* We may need to recompute regno_save_code[] and regno_restore_code[]
+     after a mode change as well.  */
+  if (flag_caller_saves)
+    init_caller_save ();
+  expand_dummy_function_end ();
+}
+
+/* Initialize the compiler back end.  This function is called only once,
+   when starting the compiler.  */
 static void
 backend_init (void)
 {
@@ -2003,19 +2030,77 @@ backend_init (void)
 		    || flag_test_coverage);
 
   init_rtlanal ();
-  init_regs ();
-  init_fake_stack_mems ();
-  init_alias_once ();
   init_inline_once ();
-  init_reload ();
   init_varasm_once ();
+  save_register_info ();
+
+  /* Initialize the target-specific back end pieces.  */
+  ira_init_once ();
+  backend_init_target ();
+}
+
+/* Initialize excess precision settings.  */
+static void
+init_excess_precision (void)
+{
+  /* Adjust excess precision handling based on the target options.  If
+     the front end cannot handle it, flag_excess_precision_cmdline
+     will already have been set accordingly in the post_options
+     hook.  */
+  gcc_assert (flag_excess_precision_cmdline != EXCESS_PRECISION_DEFAULT);
+  flag_excess_precision = flag_excess_precision_cmdline;
+  if (flag_unsafe_math_optimizations)
+    flag_excess_precision = EXCESS_PRECISION_FAST;
+  if (flag_excess_precision == EXCESS_PRECISION_STANDARD)
+    {
+      int flt_eval_method = TARGET_FLT_EVAL_METHOD;
+      switch (flt_eval_method)
+	{
+	case -1:
+	case 0:
+	  /* Either the target acts unpredictably (-1) or has all the
+	     operations required not to have excess precision (0).  */
+	  flag_excess_precision = EXCESS_PRECISION_FAST;
+	  break;
+	case 1:
+	case 2:
+	  /* In these cases, predictable excess precision makes
+	     sense.  */
+	  break;
+	default:
+	  /* Any other implementation-defined FLT_EVAL_METHOD values
+	     require the compiler to handle the associated excess
+	     precision rules in excess_precision_type.  */
+	  gcc_unreachable ();
+	}
+    }
+}
+
+/* Initialize things that are both lang-dependent and target-dependent.
+   This function can be called more than once if target parameters change.  */
+static void
+lang_dependent_init_target (void)
+{
+  /* This determines excess precision settings.  */
+  init_excess_precision ();
+
+  /* This creates various _DECL nodes, so needs to be called after the
+     front end is initialized.  It also depends on the HAVE_xxx macros
+     generated from the target machine description.  */
+  init_optabs ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */
   init_dummy_function_start ();
-  init_expmed ();
-  if (flag_caller_saves)
-    init_caller_save ();
+
+  /* Do the target-specific parts of expr initialization.  */
+  init_expr_target ();
+
+  /* Although the actions of these functions are language-independent,
+     they use optabs, so we cannot call them from backend_init.  */
+  init_set_costs ();
+  ira_init ();
+
   expand_dummy_function_end ();
 }
 
@@ -2028,33 +2113,19 @@ lang_dependent_init (const char *name)
     dump_base_name = name && name[0] ? name : "gccdump";
 
   /* Other front-end initialization.  */
-#ifdef USE_MAPPED_LOCATION
   input_location = BUILTINS_LOCATION;
-#else
-  input_filename = "<built-in>";
-  input_line = 0;
-#endif
   if (lang_hooks.init () == 0)
     return 0;
   input_location = save_loc;
 
   init_asm_output (name);
 
-  /* These create various _DECL nodes, so need to be called after the
+  /* This creates various _DECL nodes, so needs to be called after the
      front end is initialized.  */
   init_eh ();
-  init_optabs ();
 
-  /* The following initialization functions need to generate rtl, so
-     provide a dummy function context for them.  */
-  init_dummy_function_start ();
-  init_expr_once ();
-
-  /* Although the actions of init_set_costs are language-independent,
-     it uses optabs, so we cannot call it from backend_init.  */
-  init_set_costs ();
-
-  expand_dummy_function_end ();
+  /* Do the target-specific parts of the initialization.  */
+  lang_dependent_init_target ();
 
   /* If dbx symbol table desired, initialize writing it and output the
      predefined types.  */
@@ -2074,17 +2145,34 @@ lang_dependent_init (const char *name)
   return 1;
 }
 
+
+/* Reinitialize everything when target parameters, such as register usage,
+   have changed.  */
+void
+target_reinit (void)
+{
+  /* Reinitialize RTL backend.  */
+  backend_init_target ();
+
+  /* Reinitialize lang-dependent parts.  */
+  lang_dependent_init_target ();
+}
+
 void
 dump_memory_report (bool final)
 {
   ggc_print_statistics ();
   stringpool_statistics ();
   dump_tree_statistics ();
+  dump_gimple_statistics ();
   dump_rtx_statistics ();
   dump_varray_statistics ();
   dump_alloc_pool_statistics ();
   dump_bitmap_statistics ();
+  dump_vec_loc_statistics ();
   dump_ggc_loc_statistics (final);
+  dump_alias_stats (stderr);
+  dump_pta_stats (stderr);
 }
 
 /* Clean up: close opened files, etc.  */
@@ -2112,13 +2200,13 @@ finalize (void)
 	fatal_error ("error closing %s: %m", asm_file_name);
     }
 
+  statistics_fini ();
   finish_optimization_passes ();
+
+  ira_finish_once ();
 
   if (mem_report)
     dump_memory_report (true);
-
-  /* Free up memory for the benefit of leak detectors.  */
-  free_reg_info ();
 
   /* Language-specific end of compilation actions.  */
   lang_hooks.finish ();
@@ -2183,6 +2271,9 @@ toplev_main (unsigned int argc, const char **argv)
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
     do_compile ();
+
+  if (warningcount || errorcount) 
+    print_ignored_options ();
 
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);

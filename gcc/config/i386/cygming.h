@@ -1,14 +1,14 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005, 2007
+   2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,33 +17,27 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
-
-#if TARGET_64BIT_DEFAULT
-#ifndef DWARF2_DEBUGGING_INFO
-#define DWARF2_DEBUGGING_INFO 1
-#endif
-#ifndef DWARF2_UNWIND_INFO
-#define DWARF2_UNWIND_INFO 1
-#endif
-#endif
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #define DBX_DEBUGGING_INFO 1
 #define SDB_DEBUGGING_INFO 1
+#if TARGET_64BIT_DEFAULT || defined (HAVE_GAS_PE_SECREL32_RELOC)
+#define DWARF2_DEBUGGING_INFO 1
+#endif
+
 #undef PREFERRED_DEBUGGING_TYPE
-#if TARGET_64BIT_DEFAULT
+#if (DWARF2_DEBUGGING_INFO)
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 #else
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 #endif
 
 #undef TARGET_64BIT_MS_ABI
-#define TARGET_64BIT_MS_ABI TARGET_64BIT
+#define TARGET_64BIT_MS_ABI (!cfun ? ix86_abi == MS_ABI : TARGET_64BIT && cfun->machine->call_abi == MS_ABI)
 
-#ifdef HAVE_GAS_PE_SECREL32_RELOC
-#define DWARF2_DEBUGGING_INFO 1
+#undef DEFAULT_ABI
+#define DEFAULT_ABI (TARGET_64BIT ? MS_ABI : SYSV_ABI)
 
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(n)				\
@@ -51,12 +45,20 @@ Boston, MA 02110-1301, USA.  */
    : (write_symbols == DWARF2_DEBUG			\
       ? svr4_dbx_register_map[n] : dbx_register_map[n]))
 
+/* Map gcc register number to DWARF 2 CFA column number. For 32 bit
+   target, always use the svr4_dbx_register_map for DWARF .eh_frame
+   even if we don't use DWARF .debug_frame. */
+#undef DWARF_FRAME_REGNUM
+#define DWARF_FRAME_REGNUM(n) TARGET_64BIT \
+	? dbx64_register_map[(n)] : svr4_dbx_register_map[(n)] 
+
+#ifdef HAVE_GAS_PE_SECREL32_RELOC
 /* Use section relative relocations for debugging offsets.  Unlike
    other targets that fake this by putting the section VMA at 0, PE
    won't allow it.  */
 #define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, SECTION)	\
   do {								\
-    if (SIZE != 4)						\
+    if (SIZE != 4 && (!TARGET_64BIT || SIZE != 8))		\
       abort ();							\
 								\
     fputs ("\t.secrel32\t", FILE);				\
@@ -67,8 +69,6 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_EXECUTABLE_SUFFIX ".exe"
 
 #include <stdio.h>
-
-#define MAYBE_UWIN_CPP_BUILTINS() /* Nothing.  */
 
 #define TARGET_OS_CPP_BUILTINS()					\
   do									\
@@ -88,7 +88,6 @@ Boston, MA 02110-1301, USA.  */
 	    to compare typeinfo symbols across dll boundaries.  */	\
 	builtin_define ("__GXX_MERGED_TYPEINFO_NAMES=0");		\
 	builtin_define ("__GXX_TYPEINFO_EQUALITY_INLINE=0");		\
-	MAYBE_UWIN_CPP_BUILTINS ();					\
 	EXTRA_OS_CPP_BUILTINS ();					\
   }									\
   while (0)
@@ -123,18 +122,6 @@ Boston, MA 02110-1301, USA.  */
 /* Windows64 continues to use a 32-bit long type.  */
 #undef LONG_TYPE_SIZE
 #define LONG_TYPE_SIZE 32
-
-#undef REG_PARM_STACK_SPACE
-#define REG_PARM_STACK_SPACE(FNDECL) (TARGET_64BIT_MS_ABI ? 32 : 0)
-
-#undef OUTGOING_REG_PARM_STACK_SPACE
-#define OUTGOING_REG_PARM_STACK_SPACE (TARGET_64BIT_MS_ABI ? 1 : 0)
-
-#undef REGPARM_MAX
-#define REGPARM_MAX (TARGET_64BIT_MS_ABI ? 4 : 3)
-
-#undef SSE_REGPARM_MAX
-#define SSE_REGPARM_MAX (TARGET_64BIT_MS_ABI ? 4 : TARGET_SSE ? 3 : 0)
 
 /* Enable parsing of #pragma pack(push,<n>) and #pragma pack(pop).  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP 1
@@ -184,8 +171,6 @@ do {									\
    Note that we can be called twice on the same decl.  */
 
 #define SUBTARGET_ENCODE_SECTION_INFO  i386_pe_encode_section_info
-#undef  TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING  i386_pe_strip_name_encoding_full
 
 /* Output a common block.  */
 #undef ASM_OUTPUT_ALIGNED_DECL_COMMON
@@ -200,13 +185,24 @@ do {							\
   ASM_OUTPUT_LABEL ((STREAM), (NAME));			\
 } while (0)
 
+/* Output a reference to a label. Fastcall function symbols
+   keep their '@' prefix, while other symbols are prefixed
+   with user_label_prefix.  */
+#undef ASM_OUTPUT_LABELREF
+#define  ASM_OUTPUT_LABELREF(STREAM, NAME)	\
+do {						\
+  if ((NAME)[0] != FASTCALL_PREFIX)		\
+    fputs (user_label_prefix, (STREAM));	\
+  fputs ((NAME), (STREAM));			\
+} while (0)
+
 
 /* Emit code to check the stack when allocating more than 4000
    bytes in one go.  */
 #define CHECK_STACK_LIMIT 4000
 
 #undef STACK_BOUNDARY
-#define STACK_BOUNDARY	(TARGET_64BIT_MS_ABI ? 128 : BITS_PER_WORD)
+#define STACK_BOUNDARY	(ix86_abi == MS_ABI ? 128 : BITS_PER_WORD)
 
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    returns float values in the 387 and needs stack probes.
@@ -216,6 +212,10 @@ do {							\
 #define TARGET_SUBTARGET_DEFAULT \
 	(MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS \
 	 | MASK_STACK_PROBE | MASK_ALIGN_DOUBLE)
+
+#undef TARGET_SUBTARGET64_DEFAULT
+#define TARGET_SUBTARGET64_DEFAULT \
+	MASK_128BIT_LONG_DOUBLE
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -279,11 +279,16 @@ do {							\
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START " #"
 
-/* DWARF2 Unwinding doesn't work with exception handling yet.  To make
-   it work, we need to build a libgcc_s.dll, and dcrt0.o should be
-   changed to call __register_frame_info/__deregister_frame_info.  */
 #ifndef DWARF2_UNWIND_INFO
+/* If configured with --disable-sjlj-exceptions, use DWARF2, else
+   default to SJLJ.  */
+#if  (defined (CONFIG_SJLJ_EXCEPTIONS) && !CONFIG_SJLJ_EXCEPTIONS)
+/* The logic of this #if must be kept synchronised with the logic
+   for selecting the tmake_eh_file fragment in config.gcc.  */
+#define DWARF2_UNWIND_INFO 1
+#else
 #define DWARF2_UNWIND_INFO 0
+#endif
 #endif
 
 /* Don't assume anything about the header files.  */
@@ -316,10 +321,6 @@ do {							\
 #undef MS_AGGREGATE_RETURN
 #define MS_AGGREGATE_RETURN 1
 
-/* No data type wants to be aligned rounder than this.  */
-#undef	BIGGEST_ALIGNMENT
-#define BIGGEST_ALIGNMENT 128
-
 /* Biggest alignment supported by the object file format of this
    machine.  Use this macro to limit the alignment which can be
    specified using the `__attribute__ ((aligned (N)))' construct.  If
@@ -330,9 +331,13 @@ do {							\
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT (8192 * 8)
 
-/* Native complier aligns internal doubles in structures on dword boundaries.  */
+/* BIGGEST_FIELD_ALIGNMENT macro is used directly by libobjc, There, we
+   align internal doubles in structures on dword boundaries. Otherwise,
+   support vector modes using ADJUST_FIELD_ALIGN, defined in i386.h.  */
+#ifdef IN_TARGET_LIBS
 #undef	BIGGEST_FIELD_ALIGNMENT
 #define BIGGEST_FIELD_ALIGNMENT 64
+#endif
 
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #undef PCC_BITFIELD_TYPE_MATTERS

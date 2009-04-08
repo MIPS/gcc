@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2006, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2008, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,40 +31,20 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package provides RTS Internal Declarations.
+--  This package provides RTS Internal Declarations
+
 --  These declarations are not part of the GNARLI
 
 pragma Polling (Off);
---  Turn off polling, we do not want ATC polling to take place during
---  tasking operations. It causes infinite loops and other problems.
+--  Turn off polling, we do not want ATC polling to take place during tasking
+--  operations. It causes infinite loops and other problems.
 
 with System.Tasking.Debug;
---  used for Known_Tasks
-
 with System.Task_Primitives.Operations;
---  used for Write_Lock
---           Set_Priority
---           Wakeup
---           Unlock
---           Sleep
---           Abort_Task
---           Lock/Unlock_RTS
-
 with System.Tasking.Initialization;
---  Used for Defer_Abort
---           Undefer_Abort
---           Locked_Abort_To_Level
-
 with System.Tasking.Queuing;
---  used for Dequeue_Call
---           Dequeue_Head
-
 with System.Parameters;
---  used for Single_Lock
---           Runtime_Traces
-
 with System.Traces.Tasking;
---  used for Send_Trace_Info
 
 package body System.Tasking.Utilities is
 
@@ -130,8 +110,7 @@ package body System.Tasking.Utilities is
       if System.Tasking.Detect_Blocking
         and then Self_Id.Common.Protected_Action_Nesting > 0
       then
-         Ada.Exceptions.Raise_Exception
-           (Program_Error'Identity, "potentially blocking operation");
+         raise Program_Error with "potentially blocking operation";
       end if;
 
       Initialization.Defer_Abort_Nestable (Self_Id);
@@ -382,7 +361,7 @@ package body System.Tasking.Utilities is
             --  Our parent should wait in Phase 1 of Complete_Master.
 
             Master_Completion_Phase := 1;
-            pragma Assert (Self_ID.Awake_Count = 1);
+            pragma Assert (Self_ID.Awake_Count >= 1);
          end if;
 
       --  We are accepting with a terminate alternative
@@ -454,8 +433,6 @@ package body System.Tasking.Utilities is
             Write_Lock (C);
          end loop;
 
-         pragma Assert (P.Awake_Count /= 0);
-
          if P.Common.State = Master_Phase_2_Sleep
            and then C.Master_of_Task = P.Master_Within
          then
@@ -478,7 +455,6 @@ package body System.Tasking.Utilities is
       C.Awake_Count := C.Awake_Count - 1;
 
       if Task_Completed then
-         pragma Assert (Self_ID.Awake_Count = 0);
          C.Alive_Count := C.Alive_Count - 1;
       end if;
 
@@ -499,7 +475,9 @@ package body System.Tasking.Utilities is
       loop
          --  Notify P that C has gone passive
 
-         P.Awake_Count := P.Awake_Count - 1;
+         if P.Awake_Count > 0 then
+            P.Awake_Count := P.Awake_Count - 1;
+         end if;
 
          if Task_Completed and then C.Alive_Count = 0 then
             P.Alive_Count := P.Alive_Count - 1;

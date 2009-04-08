@@ -1,6 +1,6 @@
 ;; Machine description for the TMS320C[34]x for GCC
 ;; Copyright (C) 1994, 1995, 1996, 1997, 1998,
-;; 1999, 2000, 2002, 2004, 2005 Free Software Foundation, Inc.
+;; 1999, 2000, 2002, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 ;; Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
 ;;            and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl)
@@ -9,7 +9,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -18,9 +18,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;
 ; TODO :
@@ -2086,7 +2085,7 @@
                                           operands[2]));
             DONE;
          }
-       c4x_emit_libcall3 (smul_optab->handlers[(int) QImode].libfunc,
+       c4x_emit_libcall3 (optab_libfunc (smul_optab, QImode),
 			  MULT, QImode, operands);
        DONE;
      }
@@ -7158,7 +7157,7 @@
                             (match_operand:HI 2 "src_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall3 (smul_optab->handlers[(int) HImode].libfunc,
+  "c4x_emit_libcall3 (optab_libfunc (smul_optab, HImode),
 		      MULT, HImode, operands);
    DONE;")
 

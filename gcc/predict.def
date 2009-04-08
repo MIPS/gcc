@@ -1,11 +1,11 @@
 /* Definitions for the branch prediction routines in the GNU compiler.
-   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Before including this file, you should define a macro:
 
@@ -67,14 +66,14 @@ DEF_PREDICTOR (PRED_LOOP_ITERATIONS_GUESSED, "guessed loop iterations",
 	       PROB_ALWAYS, PRED_FLAG_FIRST_MATCH)
 
 /* Branch containing goto is probably not taken.  */
-DEF_PREDICTOR (PRED_CONTINUE, "continue", HITRATE (56), 0)
+DEF_PREDICTOR (PRED_CONTINUE, "continue", HITRATE (50), 0)
 
 /* Branch to basic block containing call marked by noreturn attribute.  */
-DEF_PREDICTOR (PRED_NORETURN, "noreturn call", HITRATE (99),
+DEF_PREDICTOR (PRED_NORETURN, "noreturn call", PROB_VERY_LIKELY,
 	       PRED_FLAG_FIRST_MATCH)
 
 /* Branch to basic block containing call marked by cold function attribute.  */
-DEF_PREDICTOR (PRED_COLD_FUNCTION, "cold function call", HITRATE (99),
+DEF_PREDICTOR (PRED_COLD_FUNCTION, "cold function call", PROB_VERY_LIKELY,
 	       PRED_FLAG_FIRST_MATCH)
 
 /* Loopback edge is taken.  */
@@ -93,15 +92,15 @@ DEF_PREDICTOR (PRED_TREE_POINTER, "pointer (on trees)", HITRATE (85), 0)
 DEF_PREDICTOR (PRED_OPCODE_POSITIVE, "opcode values positive", HITRATE (79), 0)
 DEF_PREDICTOR (PRED_OPCODE_NONEQUAL, "opcode values nonequal", HITRATE (71), 0)
 DEF_PREDICTOR (PRED_FPOPCODE, "fp_opcode", HITRATE (90), 0)
-DEF_PREDICTOR (PRED_TREE_OPCODE_POSITIVE, "opcode values positive (on trees)", HITRATE (70), 0)
-DEF_PREDICTOR (PRED_TREE_OPCODE_NONEQUAL, "opcode values nonequal (on trees)", HITRATE (69), 0)
+DEF_PREDICTOR (PRED_TREE_OPCODE_POSITIVE, "opcode values positive (on trees)", HITRATE (73), 0)
+DEF_PREDICTOR (PRED_TREE_OPCODE_NONEQUAL, "opcode values nonequal (on trees)", HITRATE (72), 0)
 DEF_PREDICTOR (PRED_TREE_FPOPCODE, "fp_opcode (on trees)", HITRATE (90), 0)
 
 /* Branch guarding call is probably taken.  */
-DEF_PREDICTOR (PRED_CALL, "call", HITRATE (69), 0)
+DEF_PREDICTOR (PRED_CALL, "call", HITRATE (71), 0)
 
 /* Branch causing function to terminate is probably not taken.  */
-DEF_PREDICTOR (PRED_TREE_EARLY_RETURN, "early return (on trees)", HITRATE (54), 0)
+DEF_PREDICTOR (PRED_TREE_EARLY_RETURN, "early return (on trees)", HITRATE (61), 0)
 
 /* Branch containing goto is probably not taken.  */
 DEF_PREDICTOR (PRED_GOTO, "goto", HITRATE (70), 0)
@@ -113,7 +112,7 @@ DEF_PREDICTOR (PRED_CONST_RETURN, "const return", HITRATE (67), 0)
 DEF_PREDICTOR (PRED_NEGATIVE_RETURN, "negative return", HITRATE (96), 0)
 
 /* Branch ending with return; is probably not taken */
-DEF_PREDICTOR (PRED_NULL_RETURN, "null return", HITRATE (96), 0)
+DEF_PREDICTOR (PRED_NULL_RETURN, "null return", HITRATE (90), 0)
 
 /* Branches to a mudflap bounds check are extremely unlikely.  */
 DEF_PREDICTOR (PRED_MUDFLAP, "mudflap check", PROB_VERY_LIKELY, 0)

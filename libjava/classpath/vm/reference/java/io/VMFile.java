@@ -58,10 +58,10 @@ final class VMFile
   {
     if (Configuration.INIT_LOAD_LIBRARY)
       {
-	System.loadLibrary("javaio");
+        System.loadLibrary("javaio");
       }
   }
-
+  
   /*
    * This native method does the actual work of getting the last file
    * modification time.  It also does the existence check to avoid the
@@ -80,10 +80,10 @@ final class VMFile
   static native boolean create(String path) throws IOException;
 
   /*
-   * This native function actually produces the list of file in this
+   * This native function actually produces the list of files in this
    * directory
    */
-  static native String[] list(String dirpath);
+  static native synchronized String[] list(String dirpath);
 
   /*
    * This native method actually performs the rename.
@@ -116,6 +116,42 @@ final class VMFile
    */
   static native boolean mkdir(String dirpath);
 
+  /**
+   * Gets the total bytes of the filesystem named by path.
+   */
+  public static native long getTotalSpace(String path);
+  
+  /**
+   * Gets the total free bytes of the filesystem named by path.
+   */
+  public static native long getFreeSpace(String path);
+  
+  /**
+   * Gets the available bytes of the filesystem named by path.
+   */
+  public static native long getUsableSpace(String path);
+  
+  /**
+   * Set the read permission of the file.
+   */
+  public static synchronized native boolean setReadable(String path,
+                                           		boolean readable,
+                                           		boolean ownerOnly);
+  
+  /**
+   * Set the write permission of the file.
+   */
+  public static synchronized native boolean setWritable(String path,
+                                                        boolean writable,
+                                                        boolean ownerOnly);
+  
+  /**
+   * Set the execute permission of the file.
+   */
+  public static synchronized native boolean setExecutable(String path,
+                                                          boolean executable,
+                                                          boolean ownerOnly);
+  
   /*
    * This native method does the actual check of whether or not a file
    * is a plain file or not.  It also handles the existence check to
@@ -127,29 +163,22 @@ final class VMFile
    * This native method checks file permissions for writing
    */
   static synchronized native boolean canWrite(String path);
-
+  
   /**
    * This methods checks if a directory can be written to.
    */
-  static boolean canWriteDirectory(File dir)
-  {
-    try
-      {
-        String filename = IS_DOS_8_3 ? "tst" : "test-dir-write";
-        File test = File.createTempFile(filename, null, dir);
-        return (test != null && test.delete());
-      }
-    catch (IOException ioe)
-      {
-        return false;
-      }
-  }
+  static native boolean canWriteDirectory(String path);
 
   /**
    * This native method checks file permissions for reading
    */
   static synchronized native boolean canRead(String path);
 
+  /**
+   * This native method checks file permissions for execution
+   */
+  static synchronized native boolean canExecute(String path);
+  
   /*
    * This method does the actual check of whether or not a file is a
    * directory or not.  It also handle the existence check to eliminate
@@ -157,6 +186,14 @@ final class VMFile
    */
   static native boolean isDirectory(String dirpath);
 
+  /**
+   * This methods checks if a directory can be written to.
+   */
+  static boolean canWriteDirectory(File path)
+  {
+    return canWriteDirectory(path.getAbsolutePath());
+  }
+  
   /**
    * This method returns an array of filesystem roots.  Some operating systems
    * have volume oriented filesystem.  This method provides a mechanism for

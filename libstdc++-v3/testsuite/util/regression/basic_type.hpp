@@ -41,7 +41,7 @@
 
 /**
  * @file basic_type.hpp
- * Containsert a type used for regression tests' key and data.
+ * Contains a type used for regression tests' key and data.
  */
 
 #ifndef PB_DS_BASIC_TYPE_HPP
@@ -50,7 +50,7 @@
 #include <string>
 #include <ext/throw_allocator.h>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
 namespace test
 {
@@ -99,6 +99,6 @@ namespace test
 #undef PB_DS_BASE_C_DEC
 
 } // namespace test
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif 

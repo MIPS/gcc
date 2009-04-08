@@ -55,7 +55,7 @@
 #include <ext/pb_ds/detail/type_utils.hpp>
 #include <ext/pb_ds/detail/binomial_heap_base_/binomial_heap_base_.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace detail
   {
@@ -93,7 +93,7 @@ namespace pb_ds
       typedef typename base_type::const_iterator const_iterator;
       typedef typename base_type::iterator iterator;
       typedef typename base_type::cmp_fn cmp_fn;
-      typedef typename base_type::allocator allocator;
+      typedef typename base_type::allocator_type allocator_type;
 
       binomial_heap_();
 
@@ -119,4 +119,4 @@ namespace pb_ds
 
 #undef PB_DS_BASE_C_DEC
   } // namespace detail
-} // namespace pb_ds
+} // namespace __gnu_pbds

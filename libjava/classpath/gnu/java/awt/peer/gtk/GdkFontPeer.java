@@ -38,9 +38,14 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
+import gnu.classpath.Configuration;
+import gnu.classpath.Pointer;
+
 import gnu.java.awt.ClasspathToolkit;
 import gnu.java.awt.peer.ClasspathFontPeer;
 import gnu.java.awt.font.opentype.NameDecoder;
+
+import gnu.java.lang.CPStringBuilder;
 
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -67,7 +72,7 @@ public class GdkFontPeer extends ClasspathFontPeer
    * The size of the cache has been chosen so that relativly large GUIs with
    * text documents are still efficient.
    */
-  HashMap textLayoutCache = new GtkToolkit.LRUCache(500);
+  HashMap<String,TextLayout> textLayoutCache = new GtkToolkit.LRUCache<String,TextLayout>(500);
 
   private class GdkFontMetrics extends FontMetrics
   {
@@ -79,7 +84,7 @@ public class GdkFontPeer extends ClasspathFontPeer
 
     public int stringWidth (String str)
     {
-      TextLayout tl = (TextLayout) textLayoutCache.get(str);
+      TextLayout tl = textLayoutCache.get(str);
       if (tl == null)
         {
           tl = new TextLayout(str, font, DEFAULT_CTX);
@@ -140,7 +145,7 @@ public class GdkFontPeer extends ClasspathFontPeer
   /**
    * Cache GlyphMetrics objects.
    */
-  private HashMap metricsCache;
+  private HashMap<Integer,GlyphMetrics> metricsCache;
 
   private static final int FONT_METRICS_ASCENT = 0;
   private static final int FONT_METRICS_MAX_ASCENT = 1;
@@ -164,13 +169,24 @@ public class GdkFontPeer extends ClasspathFontPeer
 
   static 
   {
-    System.loadLibrary("gtkpeer");
+    if (true) // GCJ LOCAL
+      {
+        System.loadLibrary("gtkpeer");
+      }
 
     initStaticState ();
 
   }
 
   private ByteBuffer nameTable = null;
+
+  /**
+   * The pointer to the native font data.
+   *
+   * This field is manipulated by native code. Don't change or remove
+   * without adjusting the native code.
+   */
+  private Pointer nativeFont;
 
   private native void initState ();
   private native void dispose ();
@@ -197,7 +213,7 @@ public class GdkFontPeer extends ClasspathFontPeer
 
   private String buildString(CharacterIterator iter)
   {
-    StringBuffer sb = new StringBuffer();
+    CPStringBuilder sb = new CPStringBuilder();
     for(char c = iter.first(); c != CharacterIterator.DONE; c = iter.next()) 
       sb.append(c);
     return sb.toString();
@@ -205,7 +221,7 @@ public class GdkFontPeer extends ClasspathFontPeer
 
   private String buildString(CharacterIterator iter, int begin, int limit)
   {
-    StringBuffer sb = new StringBuffer();
+    CPStringBuilder sb = new CPStringBuilder();
     int i = 0;
     for(char c = iter.first(); c != CharacterIterator.DONE; c = iter.next(), i++) 
       {
@@ -235,7 +251,7 @@ public class GdkFontPeer extends ClasspathFontPeer
     super(name, style, size);    
     initState ();
     setFont (this.familyName, this.style, (int)this.size);
-    metricsCache = new HashMap();
+    metricsCache = new HashMap<Integer,GlyphMetrics>();
     setupMetrics();
   }
 
@@ -244,7 +260,7 @@ public class GdkFontPeer extends ClasspathFontPeer
     super(name, attributes);
     initState ();
     setFont (this.familyName, this.style, (int)this.size);
-    metricsCache = new HashMap();
+    metricsCache = new HashMap<Integer,GlyphMetrics>();
     setupMetrics();
   }
 
@@ -261,9 +277,9 @@ public class GdkFontPeer extends ClasspathFontPeer
       return font;
     else
       {
-      ClasspathToolkit toolkit;
-      toolkit = (ClasspathToolkit) Toolkit.getDefaultToolkit();
-      return toolkit.getFont(font.getName(), font.getAttributes());
+        ClasspathToolkit toolkit;
+        toolkit = (ClasspathToolkit) Toolkit.getDefaultToolkit();
+        return toolkit.getFont(font.getName(), font.getAttributes());
       }
   }
 
@@ -294,9 +310,9 @@ public class GdkFontPeer extends ClasspathFontPeer
     name = getName(NameDecoder.NAME_SUBFAMILY, locale);
     if (name == null)
       {
-	name = getName(NameDecoder.NAME_SUBFAMILY, Locale.ENGLISH);
-	if ("Regular".equals(name))
-	  name = null;
+        name = getName(NameDecoder.NAME_SUBFAMILY, Locale.ENGLISH);
+        if ("Regular".equals(name))
+          name = null;
       }
 
     return name;
@@ -340,18 +356,18 @@ public class GdkFontPeer extends ClasspathFontPeer
   {
     if (nameTable == null)
       {
-	byte[] data = getTrueTypeTable((byte)'n', (byte) 'a', 
-				       (byte) 'm', (byte) 'e');
-	if( data == null )
-	  return null;
+        byte[] data = getTrueTypeTable((byte)'n', (byte) 'a', 
+                                       (byte) 'm', (byte) 'e');
+        if( data == null )
+          return null;
 
-	nameTable = ByteBuffer.wrap( data );
+        nameTable = ByteBuffer.wrap( data );
       }
 
     return NameDecoder.getName(nameTable, name, locale);
   }
 
-  public boolean canDisplay (Font font, char c)
+  public boolean canDisplay (Font font, int c)
   {
     // FIXME: inquire with pango
     return true;
@@ -492,8 +508,8 @@ public class GdkFontPeer extends ClasspathFontPeer
                                         char[] chars, int start, int limit, 
                                         int flags)
   {
-    return new FreetypeGlyphVector( font, chars, start, limit - start,
-				    frc, flags);
+    return new FreetypeGlyphVector(font, chars, start, limit - start,
+                                   frc, flags);
   }
 
   public LineMetrics getLineMetrics (Font font, String str, 
@@ -515,13 +531,13 @@ public class GdkFontPeer extends ClasspathFontPeer
    */
   GlyphMetrics getGlyphMetrics( int glyphCode )
   {
-    return (GlyphMetrics)metricsCache.get( new Integer( glyphCode ) );
+    return metricsCache.get(new Integer(glyphCode));
   }
 
   /**
    * Put a GlyphMetrics object in the cache.
    */ 
-  void putGlyphMetrics( int glyphCode, Object metrics )
+  void putGlyphMetrics( int glyphCode, GlyphMetrics metrics )
   {
     metricsCache.put( new Integer( glyphCode ), metrics );
   }

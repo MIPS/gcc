@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,7 +38,7 @@
 
 with Interfaces; use Interfaces;
 with System;     use System;
-with Unchecked_Conversion;
+with Ada.Unchecked_Conversion;
 
 package body Interfaces.COBOL is
 
@@ -52,22 +52,22 @@ package body Interfaces.COBOL is
    subtype B8 is Byte_Array (1 .. 8);
    --  Representations for 1,2,4,8 byte binary values
 
-   function To_B1 is new Unchecked_Conversion (Integer_8,  B1);
-   function To_B2 is new Unchecked_Conversion (Integer_16, B2);
-   function To_B4 is new Unchecked_Conversion (Integer_32, B4);
-   function To_B8 is new Unchecked_Conversion (Integer_64, B8);
+   function To_B1 is new Ada.Unchecked_Conversion (Integer_8,  B1);
+   function To_B2 is new Ada.Unchecked_Conversion (Integer_16, B2);
+   function To_B4 is new Ada.Unchecked_Conversion (Integer_32, B4);
+   function To_B8 is new Ada.Unchecked_Conversion (Integer_64, B8);
    --  Conversions from native binary to external binary
 
-   function From_B1 is new Unchecked_Conversion (B1, Integer_8);
-   function From_B2 is new Unchecked_Conversion (B2, Integer_16);
-   function From_B4 is new Unchecked_Conversion (B4, Integer_32);
-   function From_B8 is new Unchecked_Conversion (B8, Integer_64);
+   function From_B1 is new Ada.Unchecked_Conversion (B1, Integer_8);
+   function From_B2 is new Ada.Unchecked_Conversion (B2, Integer_16);
+   function From_B4 is new Ada.Unchecked_Conversion (B4, Integer_32);
+   function From_B8 is new Ada.Unchecked_Conversion (B8, Integer_64);
    --  Conversions from external binary to signed native binary
 
-   function From_B1U is new Unchecked_Conversion (B1, Unsigned_8);
-   function From_B2U is new Unchecked_Conversion (B2, Unsigned_16);
-   function From_B4U is new Unchecked_Conversion (B4, Unsigned_32);
-   function From_B8U is new Unchecked_Conversion (B8, Unsigned_64);
+   function From_B1U is new Ada.Unchecked_Conversion (B1, Unsigned_8);
+   function From_B2U is new Ada.Unchecked_Conversion (B2, Unsigned_16);
+   function From_B4U is new Ada.Unchecked_Conversion (B4, Unsigned_32);
+   function From_B8U is new Ada.Unchecked_Conversion (B8, Unsigned_64);
    --  Conversions from external binary to unsigned native binary
 
    -----------------------
@@ -337,7 +337,7 @@ package body Interfaces.COBOL is
       --  Here a swap is needed
 
       declare
-         Len  : constant Natural := B'Length;
+         Len : constant Natural := B'Length;
 
       begin
          for J in 1 .. Len / 2 loop
@@ -452,10 +452,15 @@ package body Interfaces.COBOL is
       --  Used for the nonseparate formats to embed the appropriate sign
       --  at the specified location (i.e. at Result (Loc))
 
+      -------------
+      -- Convert --
+      -------------
+
       procedure Convert (First, Last : Natural) is
-         J : Natural := Last;
+         J : Natural;
 
       begin
+         J := Last;
          while J >= First loop
             Result (J) :=
               COBOL_Character'Val
@@ -477,6 +482,10 @@ package body Interfaces.COBOL is
 
          raise Conversion_Error;
       end Convert;
+
+      ----------------
+      -- Embed_Sign --
+      ----------------
 
       procedure Embed_Sign (Loc : Natural) is
          Digit : Natural range 0 .. 9;
@@ -558,6 +567,10 @@ package body Interfaces.COBOL is
       --  Convert the number in Val into a sequence of Decimal_Element values,
       --  storing the result in Result (First .. Last). Raise Conversion_Error
       --  if the value is too large to fit.
+
+      -------------
+      -- Convert --
+      -------------
 
       procedure Convert (First, Last : Natural) is
          J : Natural := Last;

@@ -7,7 +7,7 @@
 --                                  B o d y                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---                     Copyright (C) 1995-2006, AdaCore                     --
+--                     Copyright (C) 1995-2008, AdaCore                     --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,23 +32,17 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Unchecked_Conversion;
+
 with System.Task_Primitives.Operations;
---  used for Write_Lock
---           Unlock
---           Lock/Unlock_RTS
-
 with System.Tasking.Initialization;
---  used for Defer_Abort
---           Undefer_Abort
-
-with Unchecked_Conversion;
 
 package body System.Tasking.Task_Attributes is
 
    use Task_Primitives.Operations;
    use Tasking.Initialization;
 
-   function To_Access_Address is new Unchecked_Conversion
+   function To_Access_Address is new Ada.Unchecked_Conversion
      (Access_Node, Access_Address);
    --  Store pointer to indirect attribute list
 
@@ -61,10 +55,15 @@ package body System.Tasking.Task_Attributes is
       Self_Id        : constant Task_Id := Self;
 
    begin
-      Defer_Abort (Self_Id);
+      --  Defer abort. Note that we use the nestable versions of Defer_Abort
+      --  and Undefer_Abort, because abort can already deferred when this is
+      --  called during finalization, which would cause an assert failure
+      --  in Defer_Abort.
+
+      Defer_Abort_Nestable (Self_Id);
       Lock_RTS;
 
-      --  Remove this instantiation from the list of all instantiations.
+      --  Remove this instantiation from the list of all instantiations
 
       declare
          P : Access_Instance;
@@ -85,7 +84,8 @@ package body System.Tasking.Task_Attributes is
       end;
 
       if X.Index /= 0 then
-         --  Free location of this attribute, for reuse.
+
+         --  Free location of this attribute, for reuse
 
          In_Use := In_Use and not (2**Natural (X.Index));
 
@@ -140,7 +140,7 @@ package body System.Tasking.Task_Attributes is
          X.Deallocate.all (Q);
       end loop;
 
-      Undefer_Abort (Self_Id);
+      Undefer_Abort_Nestable (Self_Id);
 
    exception
       when others =>

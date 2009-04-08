@@ -69,7 +69,7 @@
 #include <assert.h>
 #include <debug/debug.h>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace detail
   {
@@ -124,7 +124,7 @@ namespace pb_ds
 
     public:
       typedef Cmp_Fn cmp_fn;
-      typedef Allocator allocator;
+      typedef Allocator allocator_type;
       typedef typename Allocator::size_type size_type;
       typedef typename Allocator::difference_type difference_type;
       typedef typename base_type::key_type key_type;
@@ -282,5 +282,5 @@ namespace pb_ds
 #undef PB_DS_V2S
 
   } // namespace detail
-} // namespace pb_ds
+} // namespace __gnu_pbds
 

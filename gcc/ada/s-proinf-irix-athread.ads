@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1997-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,23 +31,22 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package contains the definitions and routines used as parameters
---  to the run-time system at program startup for the SGI implementation.
+--  This package contains the definitions and routines used as parameters to
+--  the run-time system at program startup for the SGI implementation.
 
 package System.Program_Info is
    pragma Preelaborate;
 
    function Initial_Sproc_Count return Integer;
-   --  The number of sproc created at program startup for scheduling
-   --  threads.
+   --  The number of sproc created at program startup for scheduling threads
 
    function Max_Sproc_Count return Integer;
-   --  The maximum number of sprocs that can be created by the program
-   --  for servicing threads.  This limit includes both the pre-created
-   --  sprocs and those explicitly created under program control.
+   --  The maximum number of sprocs that can be created by the program for
+   --  servicing threads. This limit includes both the pre-created sprocs and
+   --  those explicitly created under program control.
 
    function Sproc_Stack_Size return Integer;
-   --  The size, in bytes, of the sproc's initial stack.
+   --  The size, in bytes, of the sproc's initial stack
 
    function Default_Time_Slice  return Duration;
    --  The default time quanta for round-robin scheduling of threads of
@@ -56,9 +55,9 @@ package System.Program_Info is
    --  Task_Info pragma. See s-tasinf.ads for more information.
 
    function Default_Task_Stack return Integer;
-   --  The default stack size for each created thread.  This default value
-   --  can be overriden on a per-task basis by the language-defined
-   --  Storage_Size pragma.
+   --  The default stack size for each created thread. This default value can
+   --  be overridden on a per-task basis by the language-defined Storage_Size
+   --  pragma.
 
    function Stack_Guard_Pages return Integer;
    --  The number of non-writable, guard pages to append to the bottom of

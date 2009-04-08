@@ -1,13 +1,13 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file contains optimizer of the control flow.  The main entry point is
    cleanup_cfg.  Following optimizations are performed:
@@ -54,11 +53,18 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "expr.h"
+#include "df.h"
+#include "dce.h"
+#include "dbgcnt.h"
 
 #define FORWARDER_BLOCK_P(BB) ((BB)->flags & BB_FORWARDER_BLOCK)
 
 /* Set to true when we are running first pass of try_optimize_cfg loop.  */
 static bool first_pass;
+
+/* Set to true if crossjumps occured in the latest run of try_optimize_cfg.  */
+static bool crossjumps_occured;
+
 static bool try_crossjump_to_edge (int, edge, edge);
 static bool try_crossjump_bb (int, basic_block);
 static bool outgoing_edges_match (int, basic_block, basic_block);
@@ -70,7 +76,7 @@ static void merge_blocks_move_successor_nojumps (basic_block, basic_block);
 static bool try_optimize_cfg (int);
 static bool try_simplify_condjump (basic_block);
 static bool try_forward_edges (int, basic_block);
-static edge thread_jump (int, edge, basic_block);
+static edge thread_jump (edge, basic_block);
 static bool mark_effect (rtx, bitmap);
 static void notice_new_block (basic_block);
 static void update_forwarder_flag (basic_block);
@@ -260,7 +266,7 @@ mentions_nonequal_regs (rtx *x, void *data)
    if exist, NULL otherwise.  */
 
 static edge
-thread_jump (int mode, edge e, basic_block b)
+thread_jump (edge e, basic_block b)
 {
   rtx set1, set2, cond1, cond2, insn;
   enum rtx_code code1, code2, reversed_code2;
@@ -380,11 +386,6 @@ thread_jump (int mode, edge e, basic_block b)
   if (for_each_rtx (&cond2, mentions_nonequal_regs, nonequal))
     goto failed_exit;
 
-  /* In case liveness information is available, we need to prove equivalence
-     only of the live values.  */
-  if (mode & CLEANUP_UPDATE_LIFE)
-    AND_REG_SET (nonequal, b->il.rtl->global_live_at_end);
-
   EXECUTE_IF_SET_IN_REG_SET (nonequal, 0, i, rsi)
     goto failed_exit;
 
@@ -417,8 +418,8 @@ try_forward_edges (int mode, basic_block b)
      and cold sections.
 
      Basic block partitioning may result in some jumps that appear to
-     be optimizable (or blocks that appear to be mergeable), but which really m
-     ust be left untouched (they are required to make it safely across
+     be optimizable (or blocks that appear to be mergeable), but which really
+     must be left untouched (they are required to make it safely across
      partition boundaries).  See the comments at the top of
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
@@ -428,10 +429,10 @@ try_forward_edges (int mode, basic_block b)
   for (ei = ei_start (b->succs); (e = ei_safe_edge (ei)); )
     {
       basic_block target, first;
-      int counter;
+      int counter, goto_locus;
       bool threaded = false;
       int nthreaded_edges = 0;
-      bool may_thread = first_pass | (b->flags & BB_DIRTY);
+      bool may_thread = first_pass | df_get_bb_dirty (b);
 
       /* Skip complex edges because we don't know how to update them.
 
@@ -446,6 +447,7 @@ try_forward_edges (int mode, basic_block b)
 
       target = first = e->dest;
       counter = NUM_FIXED_BLOCKS;
+      goto_locus = e->goto_locus;
 
       /* If we are partitioning hot/cold basic_blocks, we don't want to mess
 	 up jumps that cross between hot/cold sections.
@@ -465,7 +467,7 @@ try_forward_edges (int mode, basic_block b)
 	{
 	  basic_block new_target = NULL;
 	  bool new_target_threaded = false;
-	  may_thread |= target->flags & BB_DIRTY;
+	  may_thread |= df_get_bb_dirty (target);
 
 	  if (FORWARDER_BLOCK_P (target)
 	      && !(single_succ_edge (target)->flags & EDGE_CROSSING)
@@ -475,13 +477,35 @@ try_forward_edges (int mode, basic_block b)
 	      new_target = single_succ (target);
 	      if (target == new_target)
 		counter = n_basic_blocks;
+	      else if (!optimize)
+		{
+		  /* When not optimizing, ensure that edges or forwarder
+		     blocks with different locus are not optimized out.  */
+		  int locus = single_succ_edge (target)->goto_locus;
+
+		  if (locus && goto_locus && !locator_eq (locus, goto_locus))
+		    counter = n_basic_blocks;
+		  else if (locus)
+		    goto_locus = locus;
+
+		  if (INSN_P (BB_END (target)))
+		    {
+		      locus = INSN_LOCATOR (BB_END (target));
+
+		      if (locus && goto_locus
+			  && !locator_eq (locus, goto_locus))
+			counter = n_basic_blocks;
+		      else if (locus)
+			goto_locus = locus;
+		    }
+		}
 	    }
 
 	  /* Allow to thread only over one edge at time to simplify updating
 	     of probabilities.  */
 	  else if ((mode & CLEANUP_THREADING) && may_thread)
 	    {
-	      edge t = thread_jump (mode, e, target);
+	      edge t = thread_jump (e, target);
 	      if (t)
 		{
 		  if (!threaded_edges)
@@ -537,6 +561,8 @@ try_forward_edges (int mode, basic_block b)
 	  int edge_probability = e->probability;
 	  int edge_frequency;
 	  int n = 0;
+
+	  e->goto_locus = goto_locus;
 
 	  /* Don't force if target is exit block.  */
 	  if (threaded && target != EXIT_BLOCK_PTR)
@@ -644,7 +670,7 @@ merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
   /* Scramble the insn chain.  */
   if (BB_END (a) != PREV_INSN (BB_HEAD (b)))
     reorder_insns_nobb (BB_HEAD (a), BB_END (a), PREV_INSN (BB_HEAD (b)));
-  a->flags |= BB_DIRTY;
+  df_set_bb_dirty (a);
 
   if (dump_file)
     fprintf (dump_file, "Moved block %d before %d and merged.\n",
@@ -1133,134 +1159,6 @@ flow_find_cross_jump (int mode ATTRIBUTE_UNUSED, basic_block bb1,
   return ninsns;
 }
 
-/* Return true iff the condbranches at the end of BB1 and BB2 match.  */
-bool
-condjump_equiv_p (struct equiv_info *info, bool call_init)
-{
-  basic_block bb1 = info->x_block;
-  basic_block bb2 = info->y_block;
-  edge b1 = BRANCH_EDGE (bb1);
-  edge b2 = BRANCH_EDGE (bb2);
-  edge f1 = FALLTHRU_EDGE (bb1);
-  edge f2 = FALLTHRU_EDGE (bb2);
-  bool reverse, match;
-  rtx set1, set2, cond1, cond2;
-  rtx src1, src2;
-  enum rtx_code code1, code2;
-
-  /* Get around possible forwarders on fallthru edges.  Other cases
-     should be optimized out already.  */
-  if (FORWARDER_BLOCK_P (f1->dest))
-    f1 = single_succ_edge (f1->dest);
-
-  if (FORWARDER_BLOCK_P (f2->dest))
-    f2 = single_succ_edge (f2->dest);
-
-  /* To simplify use of this function, return false if there are
-     unneeded forwarder blocks.  These will get eliminated later
-     during cleanup_cfg.  */
-  if (FORWARDER_BLOCK_P (f1->dest)
-      || FORWARDER_BLOCK_P (f2->dest)
-      || FORWARDER_BLOCK_P (b1->dest)
-      || FORWARDER_BLOCK_P (b2->dest))
-    return false;
-
-  if (f1->dest == f2->dest && b1->dest == b2->dest)
-    reverse = false;
-  else if (f1->dest == b2->dest && b1->dest == f2->dest)
-    reverse = true;
-  else
-    return false;
-
-  set1 = pc_set (BB_END (bb1));
-  set2 = pc_set (BB_END (bb2));
-  if ((XEXP (SET_SRC (set1), 1) == pc_rtx)
-      != (XEXP (SET_SRC (set2), 1) == pc_rtx))
-    reverse = !reverse;
-
-  src1 = SET_SRC (set1);
-  src2 = SET_SRC (set2);
-  cond1 = XEXP (src1, 0);
-  cond2 = XEXP (src2, 0);
-  code1 = GET_CODE (cond1);
-  if (reverse)
-    code2 = reversed_comparison_code (cond2, BB_END (bb2));
-  else
-    code2 = GET_CODE (cond2);
-
-  if (code2 == UNKNOWN)
-    return false;
-
-  if (call_init && !struct_equiv_init (STRUCT_EQUIV_START | info->mode, info))
-    gcc_unreachable ();
-  /* Make the sources of the pc sets unreadable so that when we call
-     insns_match_p it won't process them.
-     The death_notes_match_p from insns_match_p won't see the local registers
-     used for the pc set, but that could only cause missed optimizations when
-     there are actually condjumps that use stack registers.  */
-  SET_SRC (set1) = pc_rtx;
-  SET_SRC (set2) = pc_rtx;
-  /* Verify codes and operands match.  */
-  if (code1 == code2)
-    {
-      match = (insns_match_p (BB_END (bb1), BB_END (bb2), info)
-	       && rtx_equiv_p (&XEXP (cond1, 0), XEXP (cond2, 0), 1, info)
-	       && rtx_equiv_p (&XEXP (cond1, 1), XEXP (cond2, 1), 1, info));
-
-    }
-  else if (code1 == swap_condition (code2))
-    {
-      match = (insns_match_p (BB_END (bb1), BB_END (bb2), info)
-	       && rtx_equiv_p (&XEXP (cond1, 1), XEXP (cond2, 0), 1, info)
-	       && rtx_equiv_p (&XEXP (cond1, 0), XEXP (cond2, 1), 1, info));
-
-    }
-  else
-    match = false;
-  SET_SRC (set1) = src1;
-  SET_SRC (set2) = src2;
-  match &= verify_changes (0);
-
-  /* If we return true, we will join the blocks.  Which means that
-     we will only have one branch prediction bit to work with.  Thus
-     we require the existing branches to have probabilities that are
-     roughly similar.  */
-  if (match
-      && !optimize_size
-      && maybe_hot_bb_p (bb1)
-      && maybe_hot_bb_p (bb2))
-    {
-      int prob2;
-
-      if (b1->dest == b2->dest)
-	prob2 = b2->probability;
-      else
-	/* Do not use f2 probability as f2 may be forwarded.  */
-	prob2 = REG_BR_PROB_BASE - b2->probability;
-
-      /* Fail if the difference in probabilities is greater than 50%.
-	 This rules out two well-predicted branches with opposite
-	 outcomes.  */
-      if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 2)
-	{
-	  if (dump_file)
-	    fprintf (dump_file,
-		     "Outcomes of branch in bb %i and %i differ too much (%i %i)\n",
-		     bb1->index, bb2->index, b1->probability, prob2);
-
-	  match = false;
-	}
-    }
-
-  if (dump_file && match)
-    fprintf (dump_file, "Conditionals in bb %i and %i match.\n",
-	     bb1->index, bb2->index);
-
-  if (!match)
-    cancel_changes (0);
-  return match;
-}
-
 /* Return true iff outgoing edges of BB1 and BB2 match, together with
    the branch instruction.  This means that if we commonize the control
    flow before end of the basic block, the semantic remains unchanged.
@@ -1362,9 +1260,8 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	 we require the existing branches to have probabilities that are
 	 roughly similar.  */
       if (match
-	  && !optimize_size
-	  && maybe_hot_bb_p (bb1)
-	  && maybe_hot_bb_p (bb2))
+	  && optimize_bb_for_speed_p (bb1)
+	  && optimize_bb_for_speed_p (bb2))
 	{
 	  int prob2;
 
@@ -1590,7 +1487,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
      partition boundaries).  See the comments at the top of
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (flag_reorder_blocks_and_partition && no_new_pseudos)
+  if (flag_reorder_blocks_and_partition && reload_completed)
     return false;
 
   /* Search backward through forwarder blocks.  We don't need to worry
@@ -1704,10 +1601,8 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 	     "Cross jumping from bb %i to bb %i; %i common insns\n",
 	     src1->index, src2->index, nmatch);
 
-  redirect_to->count += src1->count;
-  redirect_to->frequency += src1->frequency;
   /* We may have some registers visible through the block.  */
-  redirect_to->flags |= BB_DIRTY;
+  df_set_bb_dirty (redirect_to);
 
   /* Recompute the frequencies and counts of outgoing edges.  */
   FOR_EACH_EDGE (s, ei, redirect_to->succs)
@@ -1762,6 +1657,14 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 	     / (redirect_to->frequency + src1->frequency));
     }
 
+  /* Adjust count and frequency for the block.  An earlier jump
+     threading pass may have left the profile in an inconsistent
+     state (see update_bb_profile_for_threading) so we must be
+     prepared for overflows.  */
+  redirect_to->count += src1->count;
+  redirect_to->frequency += src1->frequency;
+  if (redirect_to->frequency > BB_FREQ_MAX)
+    redirect_to->frequency = BB_FREQ_MAX;
   update_br_prob_note (redirect_to);
 
   /* Edit SRC1 to go to REDIRECT_TO at NEWPOS1.  */
@@ -1805,7 +1708,7 @@ try_crossjump_bb (int mode, basic_block bb)
 
   /* Don't crossjump if this block ends in a computed jump,
      unless we are optimizing for size.  */
-  if (!optimize_size
+  if (optimize_bb_for_size_p (bb)
       && bb != EXIT_BLOCK_PTR
       && computed_jump_p (BB_END (bb)))
     return false;
@@ -1837,7 +1740,10 @@ try_crossjump_bb (int mode, basic_block bb)
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
       if (e->flags & EDGE_FALLTHRU)
-	fallthru = e;
+	{
+	  fallthru = e;
+	  break;
+	}
     }
 
   changed = false;
@@ -1846,7 +1752,8 @@ try_crossjump_bb (int mode, basic_block bb)
       e = EDGE_PRED (ev, ix);
       ix++;
 
-      /* As noted above, first try with the fallthru predecessor.  */
+      /* As noted above, first try with the fallthru predecessor (or, a
+	 fallthru predecessor if we are in cfglayout mode).  */
       if (fallthru)
 	{
 	  /* Don't combine the fallthru edge into anything else.
@@ -1856,8 +1763,8 @@ try_crossjump_bb (int mode, basic_block bb)
 	  /* If nothing changed since the last attempt, there is nothing
 	     we can do.  */
 	  if (!first_pass
-	      && (!(e->src->flags & BB_DIRTY)
-		  && !(fallthru->src->flags & BB_DIRTY)))
+	      && (!(df_get_bb_dirty (e->src))
+		  && !(df_get_bb_dirty (fallthru->src))))
 	    continue;
 
 	  if (try_crossjump_to_edge (mode, e, fallthru))
@@ -1906,8 +1813,8 @@ try_crossjump_bb (int mode, basic_block bb)
 	  /* If nothing changed since the last attempt, there is nothing
 	     we can do.  */
 	  if (!first_pass
-	      && (!(e->src->flags & BB_DIRTY)
-		  && !(e2->src->flags & BB_DIRTY)))
+	      && (!(df_get_bb_dirty (e->src))
+		  && !(df_get_bb_dirty (e2->src))))
 	    continue;
 
 	  if (try_crossjump_to_edge (mode, e, e2))
@@ -1919,6 +1826,9 @@ try_crossjump_bb (int mode, basic_block bb)
 	    }
 	}
     }
+
+  if (changed)
+    crossjumps_occured = true;
 
   return changed;
 }
@@ -1934,11 +1844,10 @@ try_optimize_cfg (int mode)
   int iterations = 0;
   basic_block bb, b, next;
 
-  if (mode & CLEANUP_CROSSJUMP)
-    add_noreturn_fake_exit_edges ();
-
-  if (mode & (CLEANUP_UPDATE_LIFE | CLEANUP_CROSSJUMP | CLEANUP_THREADING))
+  if (mode & (CLEANUP_CROSSJUMP | CLEANUP_THREADING))
     clear_bb_flags ();
+
+  crossjumps_occured = false;
 
   FOR_EACH_BB (bb)
     update_forwarder_flag (bb);
@@ -1999,8 +1908,8 @@ try_optimize_cfg (int mode)
 		{
 		  rtx label = BB_HEAD (b);
 
-		  delete_insn_chain (label, label);
-		  /* In the case label is undeletable, move it after the
+		  delete_insn_chain (label, label, false);
+		  /* If the case label is undeletable, move it after the
 		     BASIC_BLOCK note.  */
 		  if (NOTE_KIND (BB_HEAD (b)) == NOTE_INSN_DELETED_LABEL)
 		    {
@@ -2130,9 +2039,6 @@ try_optimize_cfg (int mode)
       while (changed);
     }
 
-  if (mode & CLEANUP_CROSSJUMP)
-    remove_fake_exit_edges ();
-
   FOR_ALL_BB (b)
     b->flags &= ~(BB_FORWARDER_BLOCK | BB_NONTHREADABLE_BLOCK);
 
@@ -2166,6 +2072,47 @@ delete_unreachable_blocks (void)
     tidy_fallthru_edges ();
   return changed;
 }
+
+/* Delete any jump tables never referenced.  We can't delete them at the
+   time of removing tablejump insn as they are referenced by the preceding
+   insns computing the destination, so we delay deleting and garbagecollect
+   them once life information is computed.  */
+void
+delete_dead_jumptables (void)
+{
+  basic_block bb;
+
+  /* A dead jump table does not belong to any basic block.  Scan insns
+     between two adjacent basic blocks.  */
+  FOR_EACH_BB (bb)
+    {
+      rtx insn, next;
+
+      for (insn = NEXT_INSN (BB_END (bb));
+	   insn && !NOTE_INSN_BASIC_BLOCK_P (insn);
+	   insn = next)
+	{
+	  next = NEXT_INSN (insn);
+	  if (LABEL_P (insn)
+	      && LABEL_NUSES (insn) == LABEL_PRESERVE_P (insn)
+	      && JUMP_P (next)
+	      && (GET_CODE (PATTERN (next)) == ADDR_VEC
+		  || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
+	    {
+	      rtx label = insn, jump = next;
+
+	      if (dump_file)
+		fprintf (dump_file, "Dead jumptable %i removed\n",
+			 INSN_UID (insn));
+
+	      next = NEXT_INSN (next);
+	      delete_insn (jump);
+	      delete_insn (label);
+	    }
+	}
+    }
+}
+
 
 /* Tidy the CFG by deleting unreachable code and whatnot.  */
 
@@ -2186,48 +2133,62 @@ cleanup_cfg (int mode)
       changed = true;
       /* We've possibly created trivially dead code.  Cleanup it right
 	 now to introduce more opportunities for try_optimize_cfg.  */
-      if (!(mode & (CLEANUP_NO_INSN_DEL | CLEANUP_UPDATE_LIFE))
+      if (!(mode & (CLEANUP_NO_INSN_DEL))
 	  && !reload_completed)
 	delete_trivially_dead_insns (get_insns (), max_reg_num ());
     }
 
   compact_blocks ();
 
+  /* To tail-merge blocks ending in the same noreturn function (e.g.
+     a call to abort) we have to insert fake edges to exit.  Do this
+     here once.  The fake edges do not interfere with any other CFG
+     cleanups.  */
+  if (mode & CLEANUP_CROSSJUMP)
+    add_noreturn_fake_exit_edges ();
+
+  if (!dbg_cnt (cfg_cleanup))
+    return changed;
+
   while (try_optimize_cfg (mode))
     {
       delete_unreachable_blocks (), changed = true;
-      if (mode & CLEANUP_UPDATE_LIFE)
+      if (!(mode & CLEANUP_NO_INSN_DEL))
 	{
-	  /* Cleaning up CFG introduces more opportunities for dead code
-	     removal that in turn may introduce more opportunities for
-	     cleaning up the CFG.  */
-	  if (!update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-						 PROP_DEATH_NOTES
-						 | PROP_SCAN_DEAD_CODE
-						 | PROP_KILL_DEAD_CODE
-						 | ((mode & CLEANUP_LOG_LINKS)
-						    ? PROP_LOG_LINKS : 0)))
+	  /* Try to remove some trivially dead insns when doing an expensive
+	     cleanup.  But delete_trivially_dead_insns doesn't work after
+	     reload (it only handles pseudos) and run_fast_dce is too costly
+	     to run in every iteration.
+
+	     For effective cross jumping, we really want to run a fast DCE to
+	     clean up any dead conditions, or they get in the way of performing
+	     useful tail merges.
+
+	     Other transformations in cleanup_cfg are not so sensitive to dead
+	     code, so delete_trivially_dead_insns or even doing nothing at all
+	     is good enough.  */
+	  if ((mode & CLEANUP_EXPENSIVE) && !reload_completed
+	      && !delete_trivially_dead_insns (get_insns (), max_reg_num ()))
 	    break;
-	}
-      else if (!(mode & CLEANUP_NO_INSN_DEL)
-	       && (mode & CLEANUP_EXPENSIVE)
-	       && !reload_completed)
-	{
-	  if (!delete_trivially_dead_insns (get_insns (), max_reg_num ()))
-	    break;
+	  else if ((mode & CLEANUP_CROSSJUMP)
+		   && crossjumps_occured)
+	    run_fast_dce ();
 	}
       else
 	break;
-
-      /* Don't call delete_dead_jumptables in cfglayout mode, because
-	 that function assumes that jump tables are in the insns stream.
-	 But we also don't _have_ to delete dead jumptables in cfglayout
-	 mode because we shouldn't even be looking at things that are
-	 not in a basic block.  Dead jumptables are cleaned up when
-	 going out of cfglayout mode.  */
-      if (!(mode & CLEANUP_CFGLAYOUT))
-	delete_dead_jumptables ();
     }
+
+  if (mode & CLEANUP_CROSSJUMP)
+    remove_fake_exit_edges ();
+
+  /* Don't call delete_dead_jumptables in cfglayout mode, because
+     that function assumes that jump tables are in the insns stream.
+     But we also don't _have_ to delete dead jumptables in cfglayout
+     mode because we shouldn't even be looking at things that are
+     not in a basic block.  Dead jumptables are cleaned up when
+     going out of cfglayout mode.  */
+  if (!(mode & CLEANUP_CFGLAYOUT))
+    delete_dead_jumptables ();
 
   timevar_pop (TV_CLEANUP_CFG);
 
@@ -2239,13 +2200,15 @@ rest_of_handle_jump (void)
 {
   delete_unreachable_blocks ();
 
-  if (cfun->tail_call_emit)
+  if (crtl->tail_call_emit)
     fixup_tail_calls ();
   return 0;
 }
 
-struct tree_opt_pass pass_jump =
+struct rtl_opt_pass pass_jump =
 {
+ {
+  RTL_PASS,
   "sibling",                            /* name */
   NULL,                                 /* gate */
   rest_of_handle_jump,			/* execute */
@@ -2257,9 +2220,8 @@ struct tree_opt_pass pass_jump =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_ggc_collect,                     /* todo_flags_start */
-  TODO_dump_func |
   TODO_verify_flow,                     /* todo_flags_finish */
-  'i'                                   /* letter */
+ }
 };
 
 
@@ -2267,7 +2229,6 @@ static unsigned int
 rest_of_handle_jump2 (void)
 {
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
@@ -2276,8 +2237,10 @@ rest_of_handle_jump2 (void)
 }
 
 
-struct tree_opt_pass pass_jump2 =
+struct rtl_opt_pass pass_jump2 =
 {
+ {
+  RTL_PASS,
   "jump",                               /* name */
   NULL,                                 /* gate */
   rest_of_handle_jump2,			/* execute */
@@ -2289,8 +2252,8 @@ struct tree_opt_pass pass_jump2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_ggc_collect,                     /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'j'                                   /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing,/* todo_flags_finish */
+ }
 };
 
 

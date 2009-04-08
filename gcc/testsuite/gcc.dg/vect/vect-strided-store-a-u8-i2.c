@@ -10,7 +10,7 @@ typedef struct {
    unsigned char b;
 } s;
 
-int
+__attribute__ ((noinline)) int
 main1 ()
 {
   s arr[N];
@@ -24,8 +24,8 @@ main1 ()
     {
       a[i] = i;
       b[i] = i * 2;
-      if (a[i] == 178)
-         abort();
+      if (i%3 == 0)
+        a[i] = 10; 
     }
 
   for (i = 0; i < N; i++)

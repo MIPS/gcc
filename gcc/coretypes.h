@@ -1,11 +1,11 @@
 /* GCC core type declarations.
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Provide forward declarations of core types which are referred to by
    most of the compiler.  This allows header files to use these types
@@ -39,14 +38,29 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 struct bitmap_head_def;
 typedef struct bitmap_head_def *bitmap;
+typedef const struct bitmap_head_def *const_bitmap;
 struct rtx_def;
 typedef struct rtx_def *rtx;
+typedef const struct rtx_def *const_rtx;
 struct rtvec_def;
 typedef struct rtvec_def *rtvec;
+typedef const struct rtvec_def *const_rtvec;
 union tree_node;
 typedef union tree_node *tree;
+union gimple_statement_d;
+typedef union gimple_statement_d *gimple;
+typedef const union tree_node *const_tree;
+typedef const union gimple_statement_d *const_gimple;
 union section;
 typedef union section section;
+struct cl_target_option;
+struct cl_optimization;
+struct gimple_seq_d;
+typedef struct gimple_seq_d *gimple_seq;
+typedef const struct gimple_seq_d *const_gimple_seq;
+struct gimple_seq_node_d;
+typedef struct gimple_seq_node_d *gimple_seq_node;
+typedef const struct gimple_seq_node_d *const_gimple_seq_node;
 
 /* The major intermediate representations of GCC.  */
 enum ir_type {
@@ -57,16 +71,20 @@ enum ir_type {
 
 /* Provide forward struct declaration so that we don't have to include
    all of cpplib.h whenever a random prototype includes a pointer.
-   Note that the cpp_reader typedef remains part of cpplib.h.  */
+   Note that the cpp_reader and cpp_token typedefs remain part of
+   cpplib.h.  */
 
 struct cpp_reader;
+struct cpp_token;
 
 /* The thread-local storage model associated with a given VAR_DECL
    or SYMBOL_REF.  This isn't used much, but both trees and RTL refer
    to it, so it's here.  */
 enum tls_model {
   TLS_MODEL_NONE,
-  TLS_MODEL_GLOBAL_DYNAMIC,
+  TLS_MODEL_EMULATED,
+  TLS_MODEL_REAL,
+  TLS_MODEL_GLOBAL_DYNAMIC = TLS_MODEL_REAL,
   TLS_MODEL_LOCAL_DYNAMIC,
   TLS_MODEL_INITIAL_EXEC,
   TLS_MODEL_LOCAL_EXEC
@@ -78,8 +96,11 @@ struct _dont_use_rtx_here_;
 struct _dont_use_rtvec_here_;
 union _dont_use_tree_here_;
 #define rtx struct _dont_use_rtx_here_ *
+#define const_rtx struct _dont_use_rtx_here_ *
 #define rtvec struct _dont_use_rtvec_here *
+#define const_rtvec struct _dont_use_rtvec_here *
 #define tree union _dont_use_tree_here_ *
+#define const_tree union _dont_use_tree_here_ *
 
 #endif
 

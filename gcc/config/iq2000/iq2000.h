@@ -1,12 +1,13 @@
 /* Definitions of target machine for GNU compiler.  
    Vitesse IQ2000 processors
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* Driver configuration.  */
 
@@ -129,8 +129,6 @@
 
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 
 /* Layout of Source Language Data Types.  */
 
@@ -203,6 +201,11 @@ enum reg_class
 #define GENERAL_REGS GR_REGS
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
+
+#define IRA_COVER_CLASSES	\
+{				\
+  GR_REGS, LIM_REG_CLASSES	\
+}
 
 #define REG_CLASS_NAMES						\
 {								\
@@ -304,7 +307,7 @@ enum reg_class
 #define FRAME_GROWS_DOWNWARD 0
 
 #define STARTING_FRAME_OFFSET						\
-  (current_function_outgoing_args_size)
+  (crtl->outgoing_args_size)
 
 /* Use the default value zero.  */
 /* #define STACK_POINTER_OFFSET 0 */
@@ -375,7 +378,7 @@ enum reg_class
 
 #define REG_PARM_STACK_SPACE(FNDECL) 0
 
-#define OUTGOING_REG_PARM_STACK_SPACE 1
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) 0
 
@@ -475,12 +478,6 @@ typedef struct iq2000_args
   fprintf (FILE, "\t.set\treorder\n");					\
   fprintf (FILE, "\t.set\tat\n");					\
 }
-
-
-/* Implementing the Varargs Macros.  */
-
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  iq2000_va_start (valist, nextarg)
 
 
 /* Trampolines for Nested Functions.  */
@@ -627,7 +624,7 @@ typedef struct iq2000_args
 #define MEMORY_MOVE_COST(MODE,CLASS,TO_P)	\
   (TO_P ? 2 : 16)
 
-#define BRANCH_COST 2
+#define BRANCH_COST(speed_p, predictable_p) 2
 
 #define SLOW_BYTE_ACCESS 1
 
@@ -757,7 +754,8 @@ while (0)
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(STREAM,SIZE)					\
-  fprintf (STREAM, "\t.space\t%u\n", (SIZE))
+  fprintf (STREAM, "\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED "\n",	\
+           (unsigned HOST_WIDE_INT)(SIZE))
 
 #define ASM_OUTPUT_ALIGN(STREAM,LOG)					\
   if ((LOG) != 0)                       				\
@@ -974,9 +972,9 @@ enum processor_type
 /* Tell prologue and epilogue if register REGNO should be saved / restored.  */
 
 #define MUST_SAVE_REGISTER(regno) \
- ((regs_ever_live[regno] && !call_used_regs[regno])			\
+  ((df_regs_ever_live_p (regno) && !call_used_regs[regno])		\
   || (regno == HARD_FRAME_POINTER_REGNUM && frame_pointer_needed)	\
-  || (regno == (GP_REG_FIRST + 31) && regs_ever_live[GP_REG_FIRST + 31]))
+   || (regno == (GP_REG_FIRST + 31) && df_regs_ever_live_p (GP_REG_FIRST + 31)))
 
 /* ALIGN FRAMES on double word boundaries */
 #ifndef IQ2000_STACK_ALIGN

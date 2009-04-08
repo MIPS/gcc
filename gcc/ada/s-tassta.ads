@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,14 +37,14 @@
 
 --  Note: Only the compiler is allowed to use this interface, by generating
 --  direct calls to it, via Rtsfind.
+
 --  Any changes to this interface may require corresponding compiler changes
 --  in exp_ch9.adb and possibly exp_ch7.adb
 
 with System.Task_Info;
---  used for Task_Info_Type
-
 with System.Parameters;
---  used for Size_Type
+
+with Ada.Real_Time;
 
 package System.Tasking.Stages is
    pragma Elaborate_Body;
@@ -83,8 +83,8 @@ package System.Tasking.Stages is
    --         _init.discr := discr;
    --         _init._task_id := null;
    --         create_task (unspecified_priority, tZ,
-   --           unspecified_task_info, 0, _master,
-   --           task_procedure_access!(tB'address),
+   --           unspecified_task_info, ada__real_time__time_span_zero, 0,
+   --           _master, task_procedure_access!(tB'address),
    --           _init'address, tE'unchecked_access, _chain, _task_id, _init.
    --           _task_id);
    --         return;
@@ -169,17 +169,19 @@ package System.Tasking.Stages is
    --  now in order to wake up the activator (the environment task).
 
    procedure Create_Task
-     (Priority      : Integer;
-      Size          : System.Parameters.Size_Type;
-      Task_Info     : System.Task_Info.Task_Info_Type;
-      Num_Entries   : Task_Entry_Index;
-      Master        : Master_Level;
-      State         : Task_Procedure_Access;
-      Discriminants : System.Address;
-      Elaborated    : Access_Boolean;
-      Chain         : in out Activation_Chain;
-      Task_Image    : String;
-      Created_Task  : out Task_Id);
+     (Priority          : Integer;
+      Size              : System.Parameters.Size_Type;
+      Task_Info         : System.Task_Info.Task_Info_Type;
+      Relative_Deadline : Ada.Real_Time.Time_Span;
+      Num_Entries       : Task_Entry_Index;
+      Master            : Master_Level;
+      State             : Task_Procedure_Access;
+      Discriminants     : System.Address;
+      Elaborated        : Access_Boolean;
+      Chain             : in out Activation_Chain;
+      Task_Image        : String;
+      Created_Task      : out Task_Id;
+      Build_Entry_Names : Boolean);
    --  Compiler interface only. Do not call from within the RTS.
    --  This must be called to create a new task.
    --
@@ -188,12 +190,14 @@ package System.Tasking.Stages is
    --  Size is the stack size of the task to create
    --  Task_Info is the task info associated with the created task, or
    --   Unspecified_Task_Info if none.
+   --  Relative_Deadline is the relative deadline associated with the created
+   --   task by means of a pragma Relative_Deadline, or 0.0 if none.
    --  State is the compiler generated task's procedure body
    --  Discriminants is a pointer to a limited record whose discriminants
    --   are those of the task to create. This parameter should be passed as
    --   the single argument to State.
    --  Elaborated is a pointer to a Boolean that must be set to true on exit
-   --   if the task could be sucessfully elaborated.
+   --   if the task could be successfully elaborated.
    --  Chain is a linked list of task that needs to be created. On exit,
    --   Created_Task.Activation_Link will be Chain.T_ID, and Chain.T_ID
    --   will be Created_Task (e.g the created task will be linked at the front
@@ -202,6 +206,8 @@ package System.Tasking.Stages is
    --   run time can store to ease the debugging and the
    --   Ada.Task_Identification facility.
    --  Created_Task is the resulting task.
+   --  Build_Entry_Names is a flag which controls the allocation of the data
+   --   structure which stores all entry names.
    --
    --  This procedure can raise Storage_Error if the task creation failed.
 
@@ -272,6 +278,13 @@ package System.Tasking.Stages is
    --  chain, and change their master to the one passed in by the caller. If
    --  that doesn't happen, they will never be activated, and will become
    --  terminated on leaving the return statement.
+
+   procedure Set_Entry_Name
+     (T   : Task_Id;
+      Pos : Task_Entry_Index;
+      Val : String_Access);
+   --  This is called by the compiler to map a string which denotes an entry
+   --  name to a task entry index.
 
    function Terminated (T : Task_Id) return Boolean;
    --  This is called by the compiler to implement the 'Terminated attribute.

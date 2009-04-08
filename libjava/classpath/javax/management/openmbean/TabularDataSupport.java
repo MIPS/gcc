@@ -1,5 +1,5 @@
 /* TabularDataSupport.java -- Tables of composite data structures.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -55,7 +55,7 @@ import java.util.Set;
  * @since 1.5
  */
 public class TabularDataSupport
-  implements TabularData, Serializable, Cloneable, Map
+  implements TabularData, Serializable, Cloneable, Map<Object,Object>
 {
 
   /**
@@ -68,7 +68,7 @@ public class TabularDataSupport
    *
    * @serial the map of rows to column values.
    */
-  private Map dataMap;
+  private HashMap<Object,Object> dataMap;
 
   /**
    * The tabular type which represents this tabular data instance.
@@ -113,7 +113,7 @@ public class TabularDataSupport
     if (type == null)
       throw new IllegalArgumentException("The type may not be null.");
     tabularType = type;
-    dataMap = new HashMap(cap, lf);
+    dataMap = new HashMap<Object,Object>(cap, lf);
   }
    
   /**
@@ -141,14 +141,10 @@ public class TabularDataSupport
       throw new InvalidOpenTypeException("The type of the given value " +
 					 "does not match the row type " +
 					 "of this instance.");
-    List indexNames = tabularType.getIndexNames();
-    List matchingIndicies = new ArrayList(indexNames.size());
-    Iterator it = indexNames.iterator();
-    while (it.hasNext())
-      {
-	String name = (String) it.next();
-	matchingIndicies.add(val.get(name));
-      }
+    List<String> indexNames = tabularType.getIndexNames();
+    List<String> matchingIndicies = new ArrayList<String>(indexNames.size());
+    for (String name : indexNames)
+      matchingIndicies.add(val.get(name).toString());
     return matchingIndicies.toArray();
   }
 
@@ -167,13 +163,14 @@ public class TabularDataSupport
    *
    * @return a shallow clone of this {@link TabularDataSupport}.
    */
+  @SuppressWarnings("unchecked")
   public Object clone()
   {
     TabularDataSupport clone = null;
     try
       {
 	clone = (TabularDataSupport) super.clone();
-	clone.setMap((HashMap) ((HashMap) dataMap).clone());
+	clone.setMap((HashMap<Object,Object>) dataMap.clone());
       }
     catch (CloneNotSupportedException e)
       {
@@ -279,7 +276,7 @@ public class TabularDataSupport
    * @return the set view of all mapping entries
    * @see java.util.Map.Entry
    */
-  public Set entrySet()
+  public Set<Map.Entry<Object,Object>> entrySet()
   {
     return dataMap.entrySet();
   }
@@ -390,11 +387,11 @@ public class TabularDataSupport
    */
   private boolean isKeyValid(Object[] key)
   {
-    Iterator it = tabularType.getIndexNames().iterator();
+    Iterator<String> it = tabularType.getIndexNames().iterator();
     CompositeType rowType = tabularType.getRowType();
     for (int a = 0; it.hasNext(); ++a)
       {
-	OpenType type = rowType.getType((String) it.next());
+	OpenType<?> type = rowType.getType(it.next());
 	if (!(type.isValue(key[a])))
 	  return false;
       }
@@ -413,7 +410,7 @@ public class TabularDataSupport
    *
    * @return the set view of all keys
    */
-  public Set keySet()
+  public Set<Object> keySet()
   {
     return dataMap.keySet();
   }
@@ -496,7 +493,7 @@ public class TabularDataSupport
   {
     if (vals == null || vals.length == 0)
       return;
-    Map mapToAdd = new HashMap(vals.length);
+    Map<Object,Object> mapToAdd = new HashMap<Object,Object>(vals.length);
     for (int a = 0; a < vals.length; ++a)
       {
 	Object[] key = calculateIndex(vals[a]);
@@ -535,13 +532,13 @@ public class TabularDataSupport
    *                                   of one of the other
    *                                   specified values.
    */
-  public void putAll(Map m)
+  public void putAll(Map<?,?> m)
   {
     if (m == null || m.size() == 0)
       return;
-    Collection vals = m.values();
+    Collection<?> vals = m.values();
     CompositeData[] data = new CompositeData[vals.size()];
-    Iterator it = vals.iterator();
+    Iterator<?> it = vals.iterator();
     for (int a = 0; it.hasNext(); ++a)
       {
 	data[a] = (CompositeData) it.next();
@@ -591,12 +588,12 @@ public class TabularDataSupport
   }
 
   /**
-   * Package-private method to set the internal {@link java.util.Map}
+   * Private method to set the internal {@link java.util.Map}
    * instance (used in cloning).
    *
    * @param map the new map used.
    */
-  void setMap(Map map)
+  private void setMap(HashMap<Object,Object> map)
   {
     dataMap = map;
   }
@@ -643,7 +640,7 @@ public class TabularDataSupport
    *
    * @return the collection view of all values
    */
-  public Collection values()
+  public Collection<Object> values()
   {
     return dataMap.values();
   }

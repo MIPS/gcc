@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -37,7 +36,7 @@ package Erroutc is
    --  type, and is used by Add_Class to insert 'Class at the proper point
 
    Continuation : Boolean := False;
-   --  Indicates if current message is a continuation. Intialized from the
+   --  Indicates if current message is a continuation. Initialized from the
    --  Msg_Cont parameter in Error_Msg_Internal and then set True if a \
    --  insertion character is encountered.
 
@@ -53,6 +52,7 @@ package Erroutc is
 
    Is_Style_Msg : Boolean := False;
    --  Set True to indicate if the current message is a style message
+   --  (i.e. a message whose text starts with the characters "(style)").
 
    Is_Serious_Error : Boolean := False;
    --  Set by Set_Msg_Text to indicate if current message is serious error
@@ -82,9 +82,9 @@ package Erroutc is
 
    Max_Msg_Length : constant := 1024 + 2 * Int (Column_Number'Last);
    --  Maximum length of error message. The addition of 2 * Column_Number'Last
-   --  ensures that two insertion tokens of maximum length can be accomodated.
+   --  ensures that two insertion tokens of maximum length can be accommodated.
    --  The value of 1024 is an arbitrary value that should be more than long
-   --  enough to accomodate any reasonable message (and for that matter, some
+   --  enough to accommodate any reasonable message (and for that matter, some
    --  pretty unreasonable messages!)
 
    Msg_Buffer : String (1 .. Max_Msg_Length);
@@ -116,7 +116,7 @@ package Erroutc is
 
    No_Error_Msg : constant Error_Msg_Id := 0;
    --  A constant which is different from any value returned by Get_Error_Id.
-   --  Typically used by a client to indicate absense of a saved Id value.
+   --  Typically used by a client to indicate absence of a saved Id value.
 
    Cur_Msg : Error_Msg_Id := No_Error_Msg;
    --  Id of most recently posted error message
@@ -236,7 +236,7 @@ package Erroutc is
    --  end of the current source file. A subsequent pragma Warnings (On)
    --  adjusts the end point of this entry appropriately.
 
-   --  If all warnings are suppressed by comamnd switch, then there is a
+   --  If all warnings are suppressed by command switch, then there is a
    --  dummy entry (put there by Errout.Initialize) at the start of the
    --  table which covers all possible Source_Ptr values. Note that the
    --  source pointer values in this table always reference the original
@@ -263,31 +263,21 @@ package Erroutc is
       Start : Source_Ptr;
       Stop  : Source_Ptr;
       --  Starting and ending source pointers for the range. These are always
-      --  from the same source file. Start is set to No_Location for the case
-      --  of a configuration pragma.
+      --  from the same source file.
 
       Msg : String_Ptr;
       --  Message from pragma Warnings (Off, string)
 
-      Pattern : String_Ptr;
-      --  Same as Msg, excluding initial and final asterisks if present. The
-      --  lower bound of this string is always one.
-
-      Patlen : Natural;
-      --  Length of pattern string (excluding initial/final asterisks)
-
       Open : Boolean;
-      --  Set to True if OFF has been encountered with no matchin ON
+      --  Set to True if OFF has been encountered with no matching ON
 
       Used : Boolean;
       --  Set to True if entry has been used to suppress a warning
 
-      Star_Start : Boolean;
-      --  True if given pattern had * at start
-
-      Star_End : Boolean;
-      --  True if given pattern had * at end
-
+      Config : Boolean;
+      --  True if pragma is configuration pragma (in which case no matching
+      --  Off pragma is required, and it is not required that a specific
+      --  warning be suppressed).
    end record;
 
    package Specific_Warnings is new Table.Table (
@@ -297,6 +287,23 @@ package Erroutc is
      Table_Initial        => 100,
      Table_Increment      => 200,
      Table_Name           => "Specific_Warnings");
+
+   --  Note on handling configuration case versus specific case. A complication
+   --  arises from this example:
+
+   --     pragma Warnings (Off, "not referenced*");
+   --     procedure Mumble (X : Integer) is
+   --     pragma Warnings (On, "not referenced*");
+   --     begin
+   --        null;
+   --     end Mumble;
+
+   --  The trouble is that the first pragma is technically a configuration
+   --  pragma, and yet it is clearly being used in the context of thinking
+   --  of it as a specific case. To deal with this, what we do is that the
+   --  On entry can match a configuration pragma from the same file, and if
+   --  we find such an On entry, we cancel the indication of it being the
+   --  configuration case. This seems to handle all cases we run into ok.
 
    -----------------
    -- Subprograms --
@@ -381,6 +388,8 @@ package Erroutc is
    --  location to be referenced, and Flag is the location at which the
    --  flag is posted (used to determine whether to add "in file xxx")
 
+   procedure Set_Msg_Insertion_Name_Literal;
+
    procedure Set_Msg_Insertion_Name;
    --  Handle name insertion (% insertion character)
 
@@ -428,23 +437,28 @@ package Erroutc is
    --  the input value of E was either already No_Error_Msg, or was the
    --  last non-deleted message.
 
-   procedure Set_Specific_Warning_Off (Loc : Source_Ptr; Msg : String);
+   procedure Set_Specific_Warning_Off
+     (Loc    : Source_Ptr;
+      Msg    : String;
+      Config : Boolean);
    --  This is called in response to the two argument form of pragma Warnings
-   --  where the first argument is OFF, and the second argument is the prefix
-   --  of a specific warning to be suppressed. The first argument is the start
-   --  of the suppression range, and the second argument is the string from
-   --  the pragma. Loc is set to No_Location for the configuration pragma case.
+   --  where the first argument is OFF, and the second argument is a string
+   --  which identifies a specific warning to be suppressed. The first argument
+   --  is the start of the suppression range, and the second argument is the
+   --  string from the pragma. Loc is the location of the pragma (which is the
+   --  start of the range to suppress). Config is True for the configuration
+   --  pragma case (where there is no requirement for a matching OFF pragma).
 
    procedure Set_Specific_Warning_On
      (Loc : Source_Ptr;
       Msg : String;
       Err : out Boolean);
    --  This is called in response to the two argument form of pragma Warnings
-   --  where the first argument is ON, and the second argument is the prefix
-   --  of a specific warning to be suppressed. The first argument is the end
-   --  of the suppression range, and the second argument is the string from
-   --  the pragma. Err is set to True on return to report the error of no
-   --  matching Warnings Off pragma preceding this one.
+   --  where the first argument is ON, and the second argument is a string
+   --  which identifies a specific warning to be suppressed. The first argument
+   --  is the end of the suppression range, and the second argument is the
+   --  string from the pragma. Err is set to True on return to report the error
+   --  of no matching Warnings Off pragma preceding this one.
 
    procedure Set_Warnings_Mode_Off (Loc : Source_Ptr);
    --  Called in response to a pragma Warnings (Off) to record the source
@@ -456,12 +470,12 @@ package Erroutc is
 
    procedure Test_Style_Warning_Serious_Msg (Msg : String);
    --  Sets Is_Warning_Msg true if Msg is a warning message (contains a
-   --  question mark character), and False otherwise. Sets Is_Style_Msg
-   --  true if Msg is a style message (starts with "(style)"). Sets
-   --  Is_Serious_Error True unless the message is a warning or style
-   --  message or contains the character | indicating a non-serious
-   --  error message. Note that the call has no effect for continuation
-   --  messages (those whose first character is \).
+   --  question mark character), and False otherwise. Is_Style_Msg is set true
+   --  if Msg is a style message (starts with "(style)". Sets Is_Serious_Error
+   --  True unless the message is a warning or style/info message or contains
+   --  the character | indicating a non-serious error message. Note that the
+   --  call has no effect for continuation messages (those whose first
+   --  character is '\').
 
    function Warnings_Suppressed (Loc : Source_Ptr) return Boolean;
    --  Determines if given location is covered by a warnings off suppression

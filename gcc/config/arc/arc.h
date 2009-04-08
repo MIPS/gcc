@@ -1,12 +1,12 @@
 /* Definitions of target machine for GNU compiler, Argonaut ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005,
+   2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* ??? This is an old port, and is undoubtedly suffering from bit rot.  */
 
@@ -521,7 +520,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    frame pointer.  This expression is evaluated in the reload pass.
    If its value is nonzero the function will have a frame pointer.  */
 #define FRAME_POINTER_REQUIRED \
-(current_function_calls_alloca)
+(cfun->calls_alloca)
 
 /* C statement to store the difference between the frame pointer
    and the stack pointer values immediately after the function prologue.  */
@@ -532,7 +531,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 /* If defined, the maximum amount of space required for outgoing
    arguments will be computed and placed into the variable
-   `current_function_outgoing_args_size'.  No space will be pushed
+   `crtl->outgoing_args_size'.  No space will be pushed
    onto the stack for each call; instead, the function prologue should
    increase the stack frame size by this amount.  */
 #define ACCUMULATE_OUTGOING_ARGS 1
@@ -825,7 +824,7 @@ arc_select_cc_mode (OP, X, Y)
 /* The cost of a branch insn.  */
 /* ??? What's the right value here?  Branches are certainly more
    expensive than reg->reg moves.  */
-#define BRANCH_COST 2
+#define BRANCH_COST(speed_p, predictable_p) 2
 
 /* Nonzero if access to memory by bytes is slow and undesirable.
    For RISC chips, it means that access to memory by bytes is no
@@ -1087,8 +1086,3 @@ enum arc_function_type {
 #define ARC_INTERRUPT_P(TYPE) \
 ((TYPE) == ARC_FUNCTION_ILINK1 || (TYPE) == ARC_FUNCTION_ILINK2)
 /* Compute the type of a function from its DECL.  */
-
-
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  arc_va_start (valist, nextarg)

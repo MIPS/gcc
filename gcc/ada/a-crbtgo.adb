@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---        A D A . C O N T A I N E R S . R E D _ B L A C K _ T R E E S .     --
---                    G E N E R I C _ O P E R A T I O N S                   --
+--             ADA.CONTAINERS.RED_BLACK_TREES.GENERIC_OPERATIONS            --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -598,6 +597,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
 
    procedure Generic_Delete_Tree (X : in out Node_Access) is
       Y : Node_Access;
+      pragma Warnings (Off, Y);
    begin
       while X /= null loop
          Y := Right (X);

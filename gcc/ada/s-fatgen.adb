@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -54,7 +54,7 @@ package body System.Fat_Gen is
    Invrad : constant T := 1.0 / Rad;
 
    subtype Expbits is Integer range 0 .. 6;
-   --  2 ** (2 ** 7) might overflow.  how big can radix-16 exponents get?
+   --  2 ** (2 ** 7) might overflow.  How big can radix-16 exponents get?
 
    Log_Power : constant array (Expbits) of Integer := (1, 2, 4, 8, 16, 32, 64);
 
@@ -129,6 +129,7 @@ package body System.Fat_Gen is
    function Compose (Fraction : T; Exponent : UI) return T is
       Arg_Frac : T;
       Arg_Exp  : UI;
+      pragma Unreferenced (Arg_Exp);
    begin
       Decompose (Fraction, Arg_Frac, Arg_Exp);
       return Scaling (Arg_Frac, Exponent);
@@ -251,6 +252,7 @@ package body System.Fat_Gen is
    function Exponent (X : T) return UI is
       X_Frac : T;
       X_Exp  : UI;
+      pragma Unreferenced (X_Frac);
    begin
       Decompose (X, X_Frac, X_Exp);
       return X_Exp;
@@ -279,6 +281,7 @@ package body System.Fat_Gen is
    function Fraction (X : T) return T is
       X_Frac : T;
       X_Exp  : UI;
+      pragma Unreferenced (X_Exp);
    begin
       Decompose (X, X_Frac, X_Exp);
       return X_Frac;
@@ -451,7 +454,6 @@ package body System.Fat_Gen is
       B        : T;
       Arg      : T;
       P        : T;
-      Arg_Frac : T;
       P_Frac   : T;
       Sign_X   : T;
       IEEE_Rem : T;
@@ -459,6 +461,9 @@ package body System.Fat_Gen is
       P_Exp    : UI;
       K        : UI;
       P_Even   : Boolean;
+
+      Arg_Frac : T;
+      pragma Unreferenced (Arg_Frac);
 
    begin
       if Y = 0.0 then
@@ -564,7 +569,7 @@ package body System.Fat_Gen is
          return X;
       end if;
 
-      --  Nonzero x. essentially, just multiply repeatedly by Rad ** (+-2**n)
+      --  Nonzero x essentially, just multiply repeatedly by Rad ** (+-2**n)
 
       declare
          Y  : T  := X;
@@ -655,7 +660,7 @@ package body System.Fat_Gen is
          --  since the exponent is going to be reduced.
 
          --  Note that X_Frac has the same sign as X, so if X_Frac is -0.5,
-         --  then we know that we have a ngeative number (and hence a
+         --  then we know that we have a negative number (and hence a
          --  negative power of 2).
 
          if X_Frac = -0.5 then
@@ -804,14 +809,14 @@ package body System.Fat_Gen is
       --  entire floating-point value. Do not take into account excessive
       --  padding, as occurs on IA-64 where 80 bits floats get padded to 128
       --  bits. In general, the exponent field cannot be larger than 15 bits,
-      --  even for 128-bit floating-poin t types, so the final format size
+      --  even for 128-bit floating-point types, so the final format size
       --  won't be larger than T'Mantissa + 16.
 
       type Float_Rep is
          array (Rep_Index range 0 .. Rep_Index (Rep_Words - 1)) of Float_Word;
 
       pragma Suppress_Initialization (Float_Rep);
-      --  This pragma supresses the generation of an initialization procedure
+      --  This pragma suppresses the generation of an initialization procedure
       --  for type Float_Rep when operating in Initialize/Normalize_Scalars
       --  mode. This is not just a matter of efficiency, but of functionality,
       --  since Valid has a pragma Inline_Always, which is not permitted if
@@ -868,8 +873,8 @@ package body System.Fat_Gen is
    begin
       if T'Denorm then
 
-         --  All denormalized numbers are valid, so only invalid numbers are
-         --  overflows and NaN's, both with exponent = Emax + 1.
+         --  All denormalized numbers are valid, so the only invalid numbers
+         --  are overflows and NaNs, both with exponent = Emax + 1.
 
          return E /= IEEE_Emax + 1;
 

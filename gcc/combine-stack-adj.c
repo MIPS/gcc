@@ -1,12 +1,13 @@
 /* Combine stack adjustments.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Track stack adjustments and stack memory references.  Attempt to
    reduce the number of stack adjustments by back-propagating across
@@ -55,6 +55,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "function.h"
 #include "expr.h"
 #include "basic-block.h"
+#include "df.h"
 #include "except.h"
 #include "toplev.h"
 #include "reload.h"
@@ -142,14 +143,14 @@ single_set_for_csa (rtx insn)
 
   for (i = 1; i < XVECLEN (tmp, 0); ++i)
     {
-      rtx this = XVECEXP (tmp, 0, i);
+      rtx this_rtx = XVECEXP (tmp, 0, i);
 
       /* The special case is allowing a no-op set.  */
-      if (GET_CODE (this) == SET
-	  && SET_SRC (this) == SET_DEST (this))
+      if (GET_CODE (this_rtx) == SET
+	  && SET_SRC (this_rtx) == SET_DEST (this_rtx))
 	;
-      else if (GET_CODE (this) != CLOBBER
-	       && GET_CODE (this) != USE)
+      else if (GET_CODE (this_rtx) != CLOBBER
+	       && GET_CODE (this_rtx) != USE)
 	return NULL_RTX;
     }
 
@@ -271,6 +272,72 @@ record_stack_memrefs (rtx *xp, void *data)
   return 0;
 }
 
+/* Adjust or create REG_FRAME_RELATED_EXPR note when merging a stack
+   adjustment into a frame related insn.  */
+
+static void
+adjust_frame_related_expr (rtx last_sp_set, rtx insn,
+			   HOST_WIDE_INT this_adjust)
+{
+  rtx note = find_reg_note (last_sp_set, REG_FRAME_RELATED_EXPR, NULL_RTX);
+  rtx new_expr = NULL_RTX;
+
+  if (note == NULL_RTX && RTX_FRAME_RELATED_P (insn))
+    return;
+
+  if (note
+      && GET_CODE (XEXP (note, 0)) == SEQUENCE
+      && XVECLEN (XEXP (note, 0), 0) >= 2)
+    {
+      rtx expr = XEXP (note, 0);
+      rtx last = XVECEXP (expr, 0, XVECLEN (expr, 0) - 1);
+      int i;
+
+      if (GET_CODE (last) == SET
+	  && RTX_FRAME_RELATED_P (last) == RTX_FRAME_RELATED_P (insn)
+	  && SET_DEST (last) == stack_pointer_rtx
+	  && GET_CODE (SET_SRC (last)) == PLUS
+	  && XEXP (SET_SRC (last), 0) == stack_pointer_rtx
+	  && GET_CODE (XEXP (SET_SRC (last), 1)) == CONST_INT)
+	{
+	  XEXP (SET_SRC (last), 1)
+	    = GEN_INT (INTVAL (XEXP (SET_SRC (last), 1)) + this_adjust);
+	  return;
+	}
+
+      new_expr = gen_rtx_SEQUENCE (VOIDmode,
+				   rtvec_alloc (XVECLEN (expr, 0) + 1));
+      for (i = 0; i < XVECLEN (expr, 0); i++)
+	XVECEXP (new_expr, 0, i) = XVECEXP (expr, 0, i);
+    }
+  else
+    {
+      new_expr = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (2));
+      if (note)
+	XVECEXP (new_expr, 0, 0) = XEXP (note, 0);
+      else
+	{
+	  rtx expr = copy_rtx (single_set_for_csa (last_sp_set));
+
+	  XEXP (SET_SRC (expr), 1)
+	    = GEN_INT (INTVAL (XEXP (SET_SRC (expr), 1)) - this_adjust);
+	  RTX_FRAME_RELATED_P (expr) = 1;
+	  XVECEXP (new_expr, 0, 0) = expr;
+	}
+    }
+
+  XVECEXP (new_expr, 0, XVECLEN (new_expr, 0) - 1)
+    = copy_rtx (single_set_for_csa (insn));
+  RTX_FRAME_RELATED_P (XVECEXP (new_expr, 0, XVECLEN (new_expr, 0) - 1))
+    = RTX_FRAME_RELATED_P (insn);
+  if (note)
+    XEXP (note, 0) = new_expr;
+  else
+    REG_NOTES (last_sp_set)
+      = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, new_expr,
+			   REG_NOTES (last_sp_set));
+}
+
 /* Subroutine of combine_stack_adjustments, called for each basic block.  */
 
 static void
@@ -342,6 +409,9 @@ combine_stack_adjustments_for_block (basic_block bb)
 						  last_sp_adjust + this_adjust,
 						  this_adjust))
 		    {
+		      if (RTX_FRAME_RELATED_P (last_sp_set))
+			adjust_frame_related_expr (last_sp_set, insn,
+						   this_adjust);
 		      /* It worked!  */
 		      delete_insn (insn);
 		      last_sp_adjust += this_adjust;
@@ -372,7 +442,7 @@ combine_stack_adjustments_for_block (basic_block bb)
 		 deallocation+allocation conspired to cancel, we can
 		 delete the old deallocation insn.  */
 	      if (last_sp_set && last_sp_adjust == 0)
-		delete_insn (insn);
+		delete_insn (last_sp_set);
 	      free_csa_memlist (memlist);
 	      memlist = NULL;
 	      last_sp_set = insn;
@@ -454,9 +524,7 @@ gate_handle_stack_adjustments (void)
 static unsigned int
 rest_of_handle_stack_adjustments (void)
 {
-  life_analysis (PROP_POSTRELOAD);
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-               | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+  cleanup_cfg (flag_crossjumping ? CLEANUP_CROSSJUMP : 0);
 
   /* This is kind of a heuristic.  We need to run combine_stack_adjustments
      even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -465,12 +533,18 @@ rest_of_handle_stack_adjustments (void)
 #ifndef PUSH_ROUNDING
   if (!ACCUMULATE_OUTGOING_ARGS)
 #endif
-    combine_stack_adjustments ();
+    {
+      df_note_add_problem ();
+      df_analyze ();
+      combine_stack_adjustments ();
+    }
   return 0;
 }
 
-struct tree_opt_pass pass_stack_adjustments =
+struct rtl_opt_pass pass_stack_adjustments =
 {
+ {
+  RTL_PASS,
   "csa",                                /* name */
   gate_handle_stack_adjustments,        /* gate */
   rest_of_handle_stack_adjustments,     /* execute */
@@ -482,8 +556,9 @@ struct tree_opt_pass pass_stack_adjustments =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
-  0                                     /* letter */
+ }
 };
 

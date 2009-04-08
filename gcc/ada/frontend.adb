@@ -6,25 +6,24 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with GNAT.Strings; use GNAT.Strings;
+with System.Strings; use System.Strings;
 
 with Atree;    use Atree;
 with Checks;
@@ -34,7 +33,6 @@ with Elists;
 with Exp_Dbug;
 with Fmap;
 with Fname.UF;
-with Hostparm; use Hostparm;
 with Inline;   use Inline;
 with Lib;      use Lib;
 with Lib.Load; use Lib.Load;
@@ -49,6 +47,7 @@ with Rtsfind;
 with Sprint;
 with Scn;      use Scn;
 with Sem;      use Sem;
+with Sem_Aux;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Elab; use Sem_Elab;
 with Sem_Prag; use Sem_Prag;
@@ -56,12 +55,13 @@ with Sem_Warn; use Sem_Warn;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
 with Sinput.L; use Sinput.L;
+with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Types;    use Types;
 
 procedure Frontend is
-      Config_Pragmas : List_Id;
-      --  Gather configuration pragmas
+   Config_Pragmas : List_Id;
+   --  Gather configuration pragmas
 
 begin
    --  Carry out package initializations. These are initializations which
@@ -76,9 +76,12 @@ begin
    Nlists.Initialize;
    Elists.Initialize;
    Lib.Load.Initialize;
+   Sem_Aux.Initialize;
    Sem_Ch8.Initialize;
+   Sem_Prag.Initialize;
    Fname.UF.Initialize;
    Checks.Initialize;
+   Sem_Warn.Initialize;
 
    --  Create package Standard
 
@@ -103,9 +106,15 @@ begin
    end if;
 
    --  Now that the preprocessing situation is established, we are able to
-   --  load the main source (this is no longer done by Lib.Load.Initalize).
+   --  load the main source (this is no longer done by Lib.Load.Initialize).
 
    Lib.Load.Load_Main_Source;
+
+   --  Return immediately if the main source could not be parsed
+
+   if Sinput.Main_Source_File = No_Source_File then
+      return;
+   end if;
 
    --  Read and process configuration pragma files if present
 
@@ -202,11 +211,25 @@ begin
       Fmap.Initialize (Mapping_File_Name.all);
    end if;
 
+   --  Adjust Optimize_Alignment mode from debug switches if necessary
+
+   if Debug_Flag_Dot_SS then
+      Optimize_Alignment := 'S';
+   elsif Debug_Flag_Dot_TT then
+      Optimize_Alignment := 'T';
+   end if;
+
    --  We have now processed the command line switches, and the gnat.adc
    --  file, so this is the point at which we want to capture the values
    --  of the configuration switches (see Opt for further details).
 
    Opt.Register_Opt_Config_Switches;
+
+   --  Check for file which contains No_Body pragma
+
+   if Source_File_Is_No_Body (Source_Index (Main_Unit)) then
+      Change_Main_Unit_To_Spec;
+   end if;
 
    --  Initialize the scanner. Note that we do this after the call to
    --  Create_Standard, which uses the scanner in its processing of
@@ -310,19 +333,21 @@ begin
             Lib.List;
          end if;
 
-         --  Output any messages for unreferenced entities
+         --  Output waiting warning messages
 
-         Output_Unreferenced_Messages;
+         Sem_Warn.Output_Non_Modifed_In_Out_Warnings;
+         Sem_Warn.Output_Unreferenced_Messages;
          Sem_Warn.Check_Unused_Withs;
+         Sem_Warn.Output_Unused_Warnings_Off_Warnings;
       end if;
    end if;
 
    --  Qualify all entity names in inner packages, package bodies, etc.,
-   --  except when compiling for the JVM back end, which depends on
+   --  except when compiling for the VM back-ends, which depend on
    --  having unqualified names in certain cases and handles the
    --  generation of qualified names when needed.
 
-   if not Java_VM then
+   if VM_Target = No_VM then
       Exp_Dbug.Qualify_All_Entity_Names;
    end if;
 
@@ -333,7 +358,7 @@ begin
    Sprint.Source_Dump;
 
    --  If a mapping file has been specified by a -gnatem switch, update
-   --  it if there has been some sourcs that were not in the mappings.
+   --  it if there has been some sources that were not in the mappings.
 
    if Mapping_File_Name /= null then
       Fmap.Update_Mapping_File (Mapping_File_Name.all);

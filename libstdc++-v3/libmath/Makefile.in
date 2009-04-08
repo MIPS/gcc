@@ -41,6 +41,7 @@ subdir = libmath
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/enable.m4 \
+	$(top_srcdir)/../config/futex.m4 \
 	$(top_srcdir)/../config/iconv.m4 \
 	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/lib-ld.m4 \
@@ -48,6 +49,9 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/enable.m4 \
 	$(top_srcdir)/../config/lib-prefix.m4 \
 	$(top_srcdir)/../config/multi.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
+	$(top_srcdir)/../config/override.m4 \
+	$(top_srcdir)/../config/proginstall.m4 \
+	$(top_srcdir)/../config/stdint.m4 \
 	$(top_srcdir)/../config/unwind_ipinfo.m4 \
 	$(top_srcdir)/../libtool.m4 $(top_srcdir)/../ltoptions.m4 \
 	$(top_srcdir)/../ltsugar.m4 $(top_srcdir)/../ltversion.m4 \
@@ -86,6 +90,7 @@ AMTAR = @AMTAR@
 AR = @AR@
 AS = @AS@
 ATOMICITY_SRCDIR = @ATOMICITY_SRCDIR@
+ATOMIC_FLAGS = @ATOMIC_FLAGS@
 ATOMIC_WORD_SRCDIR = @ATOMIC_WORD_SRCDIR@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
@@ -123,6 +128,8 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ENABLE_PARALLEL_FALSE = @ENABLE_PARALLEL_FALSE@
+ENABLE_PARALLEL_TRUE = @ENABLE_PARALLEL_TRUE@
 ENABLE_SYMVERS_DARWIN_FALSE = @ENABLE_SYMVERS_DARWIN_FALSE@
 ENABLE_SYMVERS_DARWIN_TRUE = @ENABLE_SYMVERS_DARWIN_TRUE@
 ENABLE_SYMVERS_FALSE = @ENABLE_SYMVERS_FALSE@
@@ -133,6 +140,7 @@ ENABLE_SYMVERS_GNU_TRUE = @ENABLE_SYMVERS_GNU_TRUE@
 ENABLE_SYMVERS_TRUE = @ENABLE_SYMVERS_TRUE@
 ENABLE_VISIBILITY_FALSE = @ENABLE_VISIBILITY_FALSE@
 ENABLE_VISIBILITY_TRUE = @ENABLE_VISIBILITY_TRUE@
+ERROR_CONSTANTS_SRCDIR = @ERROR_CONSTANTS_SRCDIR@
 EXEEXT = @EXEEXT@
 EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
 FGREP = @FGREP@

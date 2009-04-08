@@ -1,12 +1,13 @@
 /* ARM CPU Cores
-   Copyright (C) 2003, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Written by CodeSourcery, LLC
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but
@@ -15,9 +16,8 @@
    General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* Before using #include to read this file, define a macro:
 
@@ -103,6 +103,7 @@ ARM_CORE("arm1020e",      arm1020e,	5TE,				 FL_LDSCHED, fastmul)
 ARM_CORE("arm1022e",      arm1022e,	5TE,				 FL_LDSCHED, fastmul)
 ARM_CORE("xscale",        xscale,	5TE,	                         FL_LDSCHED | FL_STRONG | FL_XSCALE, xscale)
 ARM_CORE("iwmmxt",        iwmmxt,	5TE,	                         FL_LDSCHED | FL_STRONG | FL_XSCALE | FL_IWMMXT, xscale)
+ARM_CORE("iwmmxt2",       iwmmxt2,	5TE,	                         FL_LDSCHED | FL_STRONG | FL_XSCALE | FL_IWMMXT, xscale)
 
 /* V5TEJ Architecture Processors */
 ARM_CORE("arm926ej-s",    arm926ejs,	5TEJ,	                         FL_LDSCHED, 9e)
@@ -117,5 +118,8 @@ ARM_CORE("mpcorenovfp",	  mpcorenovfp,	6K,				 FL_LDSCHED, 9e)
 ARM_CORE("mpcore",	  mpcore,	6K,				 FL_LDSCHED | FL_VFPV2, 9e)
 ARM_CORE("arm1156t2-s",	  arm1156t2s,	6T2,				 FL_LDSCHED, 9e)
 ARM_CORE("cortex-a8",	  cortexa8,	7A,				 FL_LDSCHED, 9e)
+ARM_CORE("cortex-a9",	  cortexa9,	7A,				 FL_LDSCHED, 9e)
 ARM_CORE("cortex-r4",	  cortexr4,	7R,				 FL_LDSCHED, 9e)
+ARM_CORE("cortex-r4f",	  cortexr4f,	7R,				 FL_LDSCHED, 9e)
 ARM_CORE("cortex-m3",	  cortexm3,	7M,				 FL_LDSCHED, 9e)
+ARM_CORE("cortex-m1",	  cortexm1,	6M,				 FL_LDSCHED, 9e)

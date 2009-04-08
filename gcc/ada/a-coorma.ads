@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -33,9 +33,9 @@
 -- This unit was originally developed by Matthew J Heaney.                  --
 ------------------------------------------------------------------------------
 
-with Ada.Containers.Red_Black_Trees;
-with Ada.Finalization;
-with Ada.Streams;
+private with Ada.Containers.Red_Black_Trees;
+private with Ada.Finalization;
+private with Ada.Streams;
 
 generic
    type Key_Type is private;
@@ -46,6 +46,7 @@ generic
 
 package Ada.Containers.Ordered_Maps is
    pragma Preelaborate;
+   pragma Remote_Types;
 
    function Equivalent_Keys (Left, Right : Key_Type) return Boolean;
 
@@ -181,6 +182,9 @@ package Ada.Containers.Ordered_Maps is
 
 private
 
+   pragma Inline (Next);
+   pragma Inline (Previous);
+
    type Node_Type;
    type Node_Access is access Node_Type;
 
@@ -201,8 +205,10 @@ private
       Tree : Tree_Types.Tree_Type;
    end record;
 
+   overriding
    procedure Adjust (Container : in out Map);
 
+   overriding
    procedure Finalize (Container : in out Map) renames Clear;
 
    use Red_Black_Trees;

@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -27,7 +26,7 @@
 with Nlists; use Nlists;
 with Types;  use Types;
 
-package Sem_Ch3  is
+package Sem_Ch3 is
    procedure Analyze_Component_Declaration         (N : Node_Id);
    procedure Analyze_Incomplete_Type_Decl          (N : Node_Id);
    procedure Analyze_Itype_Reference               (N : Node_Id);
@@ -72,14 +71,6 @@ package Sem_Ch3  is
    procedure Analyze_Interface_Declaration (T : Entity_Id; Def : Node_Id);
    --  Analyze an interface declaration or a formal interface declaration
 
-   procedure Analyze_Per_Use_Expression (N : Node_Id; T : Entity_Id);
-   --  Default and per object expressions do not freeze their components,
-   --  and must be analyzed and resolved accordingly. The analysis is
-   --  done by calling the Pre_Analyze_And_Resolve routine and setting
-   --  the global In_Default_Expression flag. See the documentation section
-   --  entitled "Handling of Default and Per-Object Expressions" in sem.ads
-   --  for details. N is the expression to be analyzed, T is the expected type.
-
    procedure Array_Type_Declaration (T : in out Entity_Id; Def : Node_Id);
    --  Process an array type declaration. If the array is constrained, we
    --  create an implicit parent array type, with the same index types and
@@ -121,21 +112,26 @@ package Sem_Ch3  is
    --  subprogram of the parent type.
 
    procedure Derive_Subprograms
-     (Parent_Type           : Entity_Id;
-      Derived_Type          : Entity_Id;
-      Generic_Actual        : Entity_Id := Empty);
+     (Parent_Type    : Entity_Id;
+      Derived_Type   : Entity_Id;
+      Generic_Actual : Entity_Id := Empty);
    --  To complete type derivation, collect/retrieve the primitive operations
    --  of the parent type, and replace the subsidiary subtypes with the derived
    --  type, to build the specs of the inherited ops. For generic actuals, the
    --  mapping of the primitive operations to those of the parent type is also
    --  done by rederiving the operations within the instance. For tagged types,
    --  the derived subprograms are aliased to those of the actual, not those of
-   --  the ancestor. The last two params are used in case of derivation from
-   --  abstract interface types: No_Predefined_Prims is used to avoid the
-   --  derivation of predefined primitives from an abstract interface.
+   --  the ancestor.
    --
    --  Note: one might expect this to be private to the package body, but
    --  there is one rather unusual usage in package Exp_Dist.
+
+   function Find_Hidden_Interface
+     (Src  : Elist_Id;
+      Dest : Elist_Id) return Entity_Id;
+   --  Ada 2005: Determine whether the interfaces in list Src are all present
+   --  in the list Dest. Return the first differing interface, or Empty
+   --  otherwise.
 
    function Find_Type_Of_Subtype_Indic (S : Node_Id) return Entity_Id;
    --  Given a subtype indication S (which is really an N_Subtype_Indication
@@ -175,6 +171,7 @@ package Sem_Ch3  is
    --  family declaration or a loop iteration. The index is given by an
    --  index declaration (a 'box'), or by a discrete range. The later can
    --  be the name of a discrete type, or a subtype indication.
+   --
    --  Related_Nod is the node where the potential generated implicit types
    --  will be inserted. The 2 last parameters are used for creating the name.
 
@@ -183,7 +180,7 @@ package Sem_Ch3  is
    --  attributes of a class wide type are inherited from those of the type T.
    --  If T is introduced by a private declaration, the corresponding class
    --  wide type is created at the same time, and therefore there is a private
-   --  and a full declaration for the class wide type type as well.
+   --  and a full declaration for the class wide type as well.
 
    function OK_For_Limited_Init_In_05 (Exp : Node_Id) return Boolean;
    --  Presuming Exp is an expression of an inherently limited type, returns
@@ -199,6 +196,14 @@ package Sem_Ch3  is
    function OK_For_Limited_Init (Exp : Node_Id) return Boolean;
    --  Always False in Ada 95 mode. Equivalent to OK_For_Limited_Init_In_05 in
    --  Ada 2005 mode.
+
+   procedure Preanalyze_Spec_Expression (N : Node_Id; T : Entity_Id);
+   --  Default and per object expressions do not freeze their components, and
+   --  must be analyzed and resolved accordingly. The analysis is done by
+   --  calling the Preanalyze_And_Resolve routine and setting the global
+   --  In_Default_Expression flag. See the documentation section entitled
+   --  "Handling of Default and Per-Object Expressions" in sem.ads for full
+   --  details. N is the expression to be analyzed, T is the expected type.
 
    procedure Process_Full_View (N : Node_Id; Full_T, Priv_T : Entity_Id);
    --  Process some semantic actions when the full view of a private type is

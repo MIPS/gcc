@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                     Copyright (C) 2001-2006, AdaCore                     --
+--                     Copyright (C) 2001-2008, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -30,8 +29,8 @@
 package MLib.Utl is
 
    procedure Delete_File (Filename : String);
-   --  Delete the file Filename
-   --  Why is this different from the standard OS_Lib routine???
+   --  Delete the file Filename and output the name of the deleted file in
+   --  verbose mode.
 
    procedure Gcc
      (Output_File : String;
@@ -48,12 +47,21 @@ package MLib.Utl is
    procedure Ar
      (Output_File : String;
       Objects     : Argument_List);
-   --  Run ar to move all the binaries inside the archive. If ranlib is on the
-   --  path, run it also. Output_File is the path name of the archive to
+   --  Run ar to move all the binaries inside the archive. If ranlib is on
+   --  the path, run it also. Output_File is the path name of the archive to
    --  create. Objects is the list of the path names of the object files to be
-   --  put in the archive.
+   --  put in the archive. This procedure currently assumes that it is always
+   --  called in the context of gnatmake. If other executables start using this
+   --  procedure, an additional parameter would need to be added, and calls to
+   --  Osint.Program_Name updated accordingly in the body.
 
    function Lib_Directory return String;
    --  Return the directory containing libgnat
+
+   procedure Specify_Adalib_Dir (Path : String);
+   --  Specify the path of the GNAT adalib directory, to be returned by
+   --  function Lib_Directory without looking for it. This is used only in
+   --  gprlib, because we cannot rely on the search in Lib_Directory, as the
+   --  GNAT version may be different for gprbuild/gprlib and the compiler.
 
 end MLib.Utl;

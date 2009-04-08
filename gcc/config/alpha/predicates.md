@@ -1,11 +1,11 @@
 ;; Predicate definitions for DEC Alpha.
-;; Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Return 1 if OP is the zero constant for MODE.
 (define_predicate "const0_operand"
@@ -269,7 +268,7 @@
   tree op_decl, cfun_sec, op_sec;
 
   /* If profiling is implemented via linker tricks, we can't jump
-     to the nogp alternate entry point.  Note that current_function_profile
+     to the nogp alternate entry point.  Note that crtl->profile
      would not be correct, since that doesn't indicate if the target
      function uses profiling.  */
   /* ??? TARGET_PROFILING_NEEDS_GP isn't really the right test,
@@ -391,7 +390,8 @@
   (ior (match_code "symbol_ref,label_ref")
        (and (match_code "const")
 	    (match_test "GET_CODE (XEXP (op,0)) == PLUS
-			 && GET_CODE (XEXP (XEXP (op,0), 0)) == SYMBOL_REF
+			 && (GET_CODE (XEXP (XEXP (op,0), 0)) == SYMBOL_REF
+			     || GET_CODE (XEXP (XEXP (op,0), 0)) == LABEL_REF)
 			 && GET_CODE (XEXP (XEXP (op,0), 1)) == CONST_INT"))))
 
 ;; Return true if OP is valid for 16-bit DTP relative relocations.

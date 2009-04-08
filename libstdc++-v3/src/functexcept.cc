@@ -1,4 +1,4 @@
-// Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2005, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include <exception>
 #include <stdexcept>
+#include <system_error>
 #include <new>
 #include <typeinfo>
 #include <ios>
@@ -98,6 +99,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   void
   __throw_ios_failure(const char* __s)
   { throw ios_base::failure(_(__s)); }
+
+  void
+  __throw_system_error(int __i)
+  { throw system_error(error_code(__i, generic_category())); }
 #else
   void
   __throw_bad_exception(void)
@@ -153,6 +158,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   void
   __throw_ios_failure(const char*)
+  { std::abort(); }
+
+  void
+  __throw_system_error(int __i)
   { std::abort(); }
 #endif //__EXCEPTIONS
 

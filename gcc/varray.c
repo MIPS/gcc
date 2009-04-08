@@ -1,5 +1,5 @@
 /* Virtual array support.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2006
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -50,13 +49,13 @@ static htab_t varray_hash;
 static hashval_t
 hash_descriptor (const void *p)
 {
-  const struct varray_descriptor *d = p;
+  const struct varray_descriptor *d = (const struct varray_descriptor *) p;
   return htab_hash_pointer (d->name);
 }
 static int
 eq_descriptor (const void *p1, const void *p2)
 {
-  const struct varray_descriptor *d = p1;
+  const struct varray_descriptor *d = (const struct varray_descriptor *) p1;
   return d->name == p2;
 }
 
@@ -75,7 +74,7 @@ varray_descriptor (const char *name)
 			      1);
   if (*slot)
     return *slot;
-  *slot = xcalloc (sizeof (**slot), 1);
+  *slot = XCNEW (struct varray_descriptor);
   (*slot)->name = name;
   return *slot;
 }
@@ -127,9 +126,9 @@ varray_init (size_t num_elements, enum varray_data_enum element_kind,
   desc->allocated += data_size + VARRAY_HDR_SIZE;
 #endif
   if (element[element_kind].uses_ggc)
-    ptr = ggc_alloc_cleared (VARRAY_HDR_SIZE + data_size);
+    ptr = GGC_CNEWVAR (struct varray_head_tag, VARRAY_HDR_SIZE + data_size);
   else
-    ptr = xcalloc (VARRAY_HDR_SIZE + data_size, 1);
+    ptr = XCNEWVAR (struct varray_head_tag, VARRAY_HDR_SIZE + data_size);
 
   ptr->num_elements = num_elements;
   ptr->elements_used = 0;
@@ -160,9 +159,11 @@ varray_grow (varray_type va, size_t n)
 
 
       if (element[va->type].uses_ggc)
-	va = ggc_realloc (va, VARRAY_HDR_SIZE + data_size);
+	va = GGC_RESIZEVAR (struct varray_head_tag, va,
+			    VARRAY_HDR_SIZE + data_size);
       else
-	va = xrealloc (va, VARRAY_HDR_SIZE + data_size);
+	va = XRESIZEVAR (struct varray_head_tag, va,
+			 VARRAY_HDR_SIZE + data_size);
       va->num_elements = n;
       if (n > old_elements)
 	memset (&va->data.vdt_c[old_data_size], 0, data_size - old_data_size);

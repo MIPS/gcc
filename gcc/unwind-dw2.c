@@ -1,6 +1,6 @@
 /* DWARF2 exception handling and frame unwind runtime interface routines.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+   2008, 2009  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -494,6 +494,14 @@ execute_stack_op (const unsigned char *op_ptr, const unsigned char *op_end,
 	  op_ptr += sizeof (void *);
 	  break;
 
+	case DW_OP_GNU_encoded_addr:
+	  {
+	    _Unwind_Ptr presult;
+	    op_ptr = read_encoded_value (context, *op_ptr, op_ptr+1, &presult);
+	    result = presult;
+	  }
+	  break;
+
 	case DW_OP_const1u:
 	  result = read_1u (op_ptr);
 	  op_ptr += 1;
@@ -935,10 +943,14 @@ execute_cfa_program (const unsigned char *insn_ptr,
 	  fs->regs.reg[DWARF_REG_TO_UNWIND_COLUMN(reg)].how = REG_UNSAVED;
 	  break;
 
-	case DW_CFA_undefined:
 	case DW_CFA_same_value:
 	  insn_ptr = read_uleb128 (insn_ptr, &reg);
 	  fs->regs.reg[DWARF_REG_TO_UNWIND_COLUMN(reg)].how = REG_UNSAVED;
+	  break;
+
+	case DW_CFA_undefined:
+	  insn_ptr = read_uleb128 (insn_ptr, &reg);
+	  fs->regs.reg[DWARF_REG_TO_UNWIND_COLUMN(reg)].how = REG_UNDEFINED;
 	  break;
 
 	case DW_CFA_nop:
@@ -1141,11 +1153,11 @@ uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
     return _URC_FATAL_PHASE1_ERROR;
 
   /* First decode all the insns in the CIE.  */
-  end = (unsigned char *) next_fde ((struct dwarf_fde *) cie);
+  end = (const unsigned char *) next_fde ((const struct dwarf_fde *) cie);
   execute_cfa_program (insn, end, context, fs);
 
   /* Locate augmentation for the fde.  */
-  aug = (unsigned char *) fde + sizeof (*fde);
+  aug = (const unsigned char *) fde + sizeof (*fde);
   aug += 2 * size_of_encoded_value (fs->fde_encoding);
   insn = NULL;
   if (fs->saw_z)
@@ -1165,7 +1177,7 @@ uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
   /* Then the insns in the FDE up to our target PC.  */
   if (insn == NULL)
     insn = aug;
-  end = (unsigned char *) next_fde (fde);
+  end = (const unsigned char *) next_fde (fde);
   execute_cfa_program (insn, end, context, fs);
 
   return _URC_NO_REASON;
@@ -1311,6 +1323,7 @@ uw_update_context_1 (struct _Unwind_Context *context, _Unwind_FrameState *fs)
     switch (fs->regs.reg[i].how)
       {
       case REG_UNSAVED:
+      case REG_UNDEFINED:
 	break;
 
       case REG_SAVED_OFFSET:
@@ -1379,10 +1392,22 @@ uw_update_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 {
   uw_update_context_1 (context, fs);
 
-  /* Compute the return address now, since the return address column
-     can change from frame to frame.  */
-  context->ra = __builtin_extract_return_addr
-    (_Unwind_GetPtr (context, fs->retaddr_column));
+  /* In general this unwinder doesn't make any distinction between
+     undefined and same_value rule.  Call-saved registers are assumed
+     to have same_value rule by default and explicit undefined
+     rule is handled like same_value.  The only exception is
+     DW_CFA_undefined on retaddr_column which is supposed to
+     mark outermost frame in DWARF 3.  */
+  if (fs->regs.reg[DWARF_REG_TO_UNWIND_COLUMN (fs->retaddr_column)].how
+      == REG_UNDEFINED)
+    /* uw_frame_state_for uses context->ra == 0 check to find outermost
+       stack frame.  */
+    context->ra = 0;
+  else
+    /* Compute the return address now, since the return address column
+       can change from frame to frame.  */
+    context->ra = __builtin_extract_return_addr
+      (_Unwind_GetPtr (context, fs->retaddr_column));
 }
 
 static void

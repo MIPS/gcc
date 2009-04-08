@@ -1,12 +1,12 @@
 /* Language-level data type conversion for GNU C.
-   Copyright (C) 1987, 1988, 1991, 1998, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1998, 2002, 2003, 2004, 2005, 2007, 2008,
+   2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file contains the functions for converting C expressions
@@ -87,6 +86,8 @@ convert (tree type, tree expr)
   if (type == TREE_TYPE (expr))
     return expr;
 
+  STRIP_TYPE_NOPS (e);
+
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (expr)))
     return fold_convert (type, expr);
   if (TREE_CODE (TREE_TYPE (expr)) == ERROR_MARK)
@@ -101,11 +102,14 @@ convert (tree type, tree expr)
   if (code == INTEGER_TYPE || code == ENUMERAL_TYPE)
     return fold (convert_to_integer (type, e));
   if (code == BOOLEAN_TYPE)
-    return fold_convert (type, c_objc_common_truthvalue_conversion (expr));
+    return fold_convert 
+      (type, c_objc_common_truthvalue_conversion (input_location, expr));
   if (code == POINTER_TYPE || code == REFERENCE_TYPE)
     return fold (convert_to_pointer (type, e));
   if (code == REAL_TYPE)
     return fold (convert_to_real (type, e));
+  if (code == FIXED_POINT_TYPE)
+    return fold (convert_to_fixed (type, e));
   if (code == COMPLEX_TYPE)
     return fold (convert_to_complex (type, e));
   if (code == VECTOR_TYPE)

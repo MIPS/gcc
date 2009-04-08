@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -104,7 +103,7 @@ package body Exp_Fixd is
    function Build_Multiply (N : Node_Id; L, R : Node_Id) return Node_Id;
    --  Builds an N_Op_Multiply node from the given left and right operand
    --  expressions, using the source location from Sloc (N). The operands are
-   --  either both Universal_Real, in which case Build_Divide differs from
+   --  either both Universal_Real, in which case Build_Multiply differs from
    --  Make_Op_Multiply only in that the Etype of the resulting node is set (to
    --  Universal_Real), or they can be integer types. In this case the integer
    --  types need not be the same, and Build_Multiply chooses a type long
@@ -183,13 +182,17 @@ package body Exp_Fixd is
    --  The expression returned is neither analyzed and resolved. The Etype
    --  of the result is properly set (to Universal_Real).
 
-   function Integer_Literal (N : Node_Id; V : Uint) return Node_Id;
+   function Integer_Literal
+     (N        : Node_Id;
+      V        : Uint;
+      Negative : Boolean := False) return Node_Id;
    --  Given a non-negative universal integer value, build a typed integer
    --  literal node, using the smallest applicable standard integer type. If
-   --  the value exceeds 2**63-1, the largest value allowed for perfect result
-   --  set scaling factors (see RM G.2.3(22)), then Empty is returned. The
-   --  node N provides the Sloc value for the constructed literal. The Etype
-   --  of the resulting literal is correctly set, and it is marked as analyzed.
+   --  and only if Negative is true a negative literal is built. If V exceeds
+   --  2**63-1, the largest value allowed for perfect result set scaling
+   --  factors (see RM G.2.3(22)), then Empty is returned. The node N provides
+   --  the Sloc value for the constructed literal. The Etype of the resulting
+   --  literal is correctly set, and it is marked as analyzed.
 
    function Real_Literal (N : Node_Id; V : Ureal) return Node_Id;
    --  Build a real literal node from the given value, the Etype of the
@@ -202,14 +205,14 @@ package body Exp_Fixd is
 
    procedure Set_Result (N : Node_Id; Expr : Node_Id; Rchk : Boolean := False);
    --  N is the node for the current conversion, division or multiplication
-   --  operation, and Expr is an expression representing the result. Expr
-   --  may be of floating-point or integer type. If the operation result
-   --  is fixed-point, then the value of Expr is in units of small of the
-   --  result type (i.e. small's have already been dealt with). The result
-   --  of the call is to replace N by an appropriate conversion to the
-   --  result type, dealing with rounding for the decimal types case. The
-   --  node is then analyzed and resolved using the result type. If Rchk
-   --  is True, then Do_Range_Check is set in the resulting conversion.
+   --  operation, and Expr is an expression representing the result. Expr may
+   --  be of floating-point or integer type. If the operation result is fixed-
+   --  point, then the value of Expr is in units of small of the result type
+   --  (i.e. small's have already been dealt with). The result of the call is
+   --  to replace N by an appropriate conversion to the result type, dealing
+   --  with rounding for the decimal types case. The node is then analyzed and
+   --  resolved using the result type. If Rchk is True, then Do_Range_Check is
+   --  set in the resulting conversion.
 
    ----------------------
    -- Build_Conversion --
@@ -412,6 +415,8 @@ package body Exp_Fixd is
             Qnn  : Entity_Id;
             Rnn  : Entity_Id;
             Code : List_Id;
+
+            pragma Warnings (Off, Rnn);
 
          begin
             Build_Double_Divide_Code (N, X, Y, Z, Qnn, Rnn, Code);
@@ -618,25 +623,17 @@ package body Exp_Fixd is
          --  the effective size of an operand is the RM_Size of the operand.
          --  But a special case arises with operands whose size is known at
          --  compile time. In this case, we can use the actual value of the
-         --  operand to get its size if it would fit in 8 or 16 bits.
-
-         --  Note: if both operands are known at compile time (can that
-         --  happen?) and both were equal to the power of 2, then we would
-         --  be one bit off in this test, so for the left operand, we only
-         --  go up to the power of 2 - 1. This ensures that we do not get
-         --  this anomolous case, and in practice the right operand is by
-         --  far the more likely one to be the constant.
+         --  operand to get its size if it would fit signed in 8 or 16 bits.
 
          Left_Size := UI_To_Int (RM_Size (Left_Type));
 
          if Compile_Time_Known_Value (L) then
             declare
                Val : constant Uint := Expr_Value (L);
-
             begin
-               if Val < Int'(2 ** 8) then
+               if Val < Int'(2 ** 7) then
                   Left_Size := 8;
-               elsif Val < Int'(2 ** 16) then
+               elsif Val < Int'(2 ** 15) then
                   Left_Size := 16;
                end if;
             end;
@@ -647,18 +644,17 @@ package body Exp_Fixd is
          if Compile_Time_Known_Value (R) then
             declare
                Val : constant Uint := Expr_Value (R);
-
             begin
-               if Val <= Int'(2 ** 8) then
+               if Val <= Int'(2 ** 7) then
                   Right_Size := 8;
-               elsif Val <= Int'(2 ** 16) then
+               elsif Val <= Int'(2 ** 15) then
                   Right_Size := 16;
                end if;
             end;
          end if;
 
          --  Now the result size must be at least twice the longer of
-         --  the two sizes, to accomodate all possible results.
+         --  the two sizes, to accommodate all possible results.
 
          Rsize := 2 * Int'Max (Left_Size, Right_Size);
 
@@ -799,6 +795,8 @@ package body Exp_Fixd is
             Qnn  : Entity_Id;
             Rnn  : Entity_Id;
             Code : List_Id;
+
+            pragma Warnings (Off, Rnn);
 
          begin
             Build_Scaled_Divide_Code (N, X, Y, Z, Qnn, Rnn, Code);
@@ -1019,7 +1017,7 @@ package body Exp_Fixd is
       --  would lose precision).
 
       if Frac_Den = 1 then
-         Lit_Int := Integer_Literal (N, Frac_Num);
+         Lit_Int := Integer_Literal (N, Frac_Num); -- always positive
 
          if Present (Lit_Int) then
             Set_Result (N, Build_Scaled_Divide (N, Left, Lit_Int, Right));
@@ -1035,7 +1033,7 @@ package body Exp_Fixd is
       --  divisions), and we don't get inaccuracies from double rounding.
 
       elsif Frac_Num = 1 then
-         Lit_Int := Integer_Literal (N, Frac_Den);
+         Lit_Int := Integer_Literal (N, Frac_Den); -- always positive
 
          if Present (Lit_Int) then
             Set_Result (N, Build_Double_Divide (N, Left, Right, Lit_Int));
@@ -1128,7 +1126,7 @@ package body Exp_Fixd is
       --  where the result can be obtained by dividing by this integer value.
 
       if Frac_Num = 1 then
-         Lit_Int := Integer_Literal (N, Frac_Den);
+         Lit_Int := Integer_Literal (N, Frac_Den, UR_Is_Negative (Frac));
 
          if Present (Lit_Int) then
             Set_Result (N, Build_Divide (N, Left, Lit_Int));
@@ -1143,8 +1141,8 @@ package body Exp_Fixd is
       --  would lose precision).
 
       else
-         Lit_Int := Integer_Literal (N, Frac_Num);
-         Lit_K   := Integer_Literal (N, Frac_Den);
+         Lit_Int := Integer_Literal (N, Frac_Num, UR_Is_Negative (Frac));
+         Lit_K   := Integer_Literal (N, Frac_Den, False);
 
          if Present (Lit_Int) and then Present (Lit_K) then
             Set_Result (N, Build_Scaled_Divide (N, Left, Lit_Int, Lit_K));
@@ -1246,7 +1244,7 @@ package body Exp_Fixd is
       --  can be obtained by dividing this integer by the right operand.
 
       if Frac_Den = 1 then
-         Lit_Int := Integer_Literal (N, Frac_Num);
+         Lit_Int := Integer_Literal (N, Frac_Num, UR_Is_Negative (Frac));
 
          if Present (Lit_Int) then
             Set_Result (N, Build_Divide (N, Lit_Int, Right));
@@ -1261,8 +1259,8 @@ package body Exp_Fixd is
       --  is important (if we divided first, we would lose precision).
 
       else
-         Lit_Int := Integer_Literal (N, Frac_Den);
-         Lit_K   := Integer_Literal (N, Frac_Num);
+         Lit_Int := Integer_Literal (N, Frac_Den, UR_Is_Negative (Frac));
+         Lit_K   := Integer_Literal (N, Frac_Num, False);
 
          if Present (Lit_Int) and then Present (Lit_K) then
             Set_Result (N, Build_Double_Divide (N, Lit_K, Right, Lit_Int));
@@ -1337,7 +1335,7 @@ package body Exp_Fixd is
       --  the operands, and then multiplying the result by the integer value.
 
       if Frac_Den = 1 then
-         Lit_Int := Integer_Literal (N, Frac_Num);
+         Lit_Int := Integer_Literal (N, Frac_Num); -- always positive
 
          if Present (Lit_Int) then
             Set_Result (N,
@@ -1352,7 +1350,7 @@ package body Exp_Fixd is
       --  divided first, we would lose precision.
 
       elsif Frac_Num = 1 then
-         Lit_Int := Integer_Literal (N, Frac_Den);
+         Lit_Int := Integer_Literal (N, Frac_Den); -- always positive
 
          if Present (Lit_Int) then
             Set_Result (N, Build_Scaled_Divide (N, Left, Right, Lit_Int));
@@ -1448,7 +1446,7 @@ package body Exp_Fixd is
       --  be obtained by multiplying by this integer value.
 
       if Frac_Den = 1 then
-         Lit_Int := Integer_Literal (N, Frac_Num);
+         Lit_Int := Integer_Literal (N, Frac_Num, UR_Is_Negative (Frac));
 
          if Present (Lit_Int) then
             Set_Result (N, Build_Multiply (N, Left, Lit_Int));
@@ -1462,7 +1460,7 @@ package body Exp_Fixd is
       --  dividing by the integer value.
 
       else
-         Lit_Int := Integer_Literal (N, Frac_Den);
+         Lit_Int := Integer_Literal (N, Frac_Den, UR_Is_Negative (Frac));
          Lit_K   := Integer_Literal (N, Frac_Num);
 
          if Present (Lit_Int) and then Present (Lit_K) then
@@ -2116,7 +2114,7 @@ package body Exp_Fixd is
 
       if Etype (Left) = Universal_Real then
          if Nkind (Left) = N_Real_Literal then
-            Do_Multiply_Fixed_Universal (N, Right, Left);
+            Do_Multiply_Fixed_Universal (N, Left => Right, Right => Left);
 
          elsif Nkind (Left) = N_Type_Conversion then
             Rewrite_Non_Static_Universal (Left);
@@ -2207,7 +2205,7 @@ package body Exp_Fixd is
       Right : constant Node_Id := Right_Opnd (N);
    begin
       if Etype (Left) = Universal_Real then
-         Do_Multiply_Fixed_Universal (N, Right, Left);
+         Do_Multiply_Fixed_Universal (N, Left => Right, Right => Left);
       elsif Etype (Right) = Universal_Real then
          Do_Multiply_Fixed_Universal (N, Left, Right);
       else
@@ -2265,7 +2263,11 @@ package body Exp_Fixd is
    -- Integer_Literal --
    ---------------------
 
-   function Integer_Literal (N : Node_Id; V : Uint) return Node_Id is
+   function Integer_Literal
+     (N        : Node_Id;
+      V        : Uint;
+      Negative : Boolean := False) return Node_Id
+   is
       T : Entity_Id;
       L : Node_Id;
 
@@ -2286,7 +2288,11 @@ package body Exp_Fixd is
          return Empty;
       end if;
 
-      L := Make_Integer_Literal (Sloc (N), V);
+      if Negative then
+         L := Make_Integer_Literal (Sloc (N), UI_Negate (V));
+      else
+         L := Make_Integer_Literal (Sloc (N), V);
+      end if;
 
       --  Set type of result in case used elsewhere (see note at start)
 

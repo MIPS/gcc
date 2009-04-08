@@ -1,5 +1,5 @@
 ;; GCC machine description for Tensilica's Xtensa architecture.
-;; Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;; Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 ;; Free Software Foundation, Inc.
 ;; Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
@@ -7,7 +7,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 
 (define_constants [
@@ -30,13 +29,25 @@
   (UNSPEC_NOP		2)
   (UNSPEC_PLT		3)
   (UNSPEC_RET_ADDR	4)
+  (UNSPEC_TPOFF		5)
+  (UNSPEC_DTPOFF	6)
+  (UNSPEC_TLS_FUNC	7)
+  (UNSPEC_TLS_ARG	8)
+  (UNSPEC_TLS_CALL	9)
+  (UNSPEC_TP		10)
+  (UNSPEC_MEMW		11)
+
   (UNSPECV_SET_FP	1)
   (UNSPECV_ENTRY	2)
+  (UNSPECV_S32RI	4)
+  (UNSPECV_S32C1I	5)
+  (UNSPECV_EH_RETURN	6)
+  (UNSPECV_SET_TP	7)
 ])
 
-;; This code macro allows signed and unsigned widening multiplications
+;; This code iterator allows signed and unsigned widening multiplications
 ;; to use the same template.
-(define_code_macro any_extend [sign_extend zero_extend])
+(define_code_iterator any_extend [sign_extend zero_extend])
 
 ;; <u> expands to an empty string when doing a signed operation and
 ;; "u" when doing an unsigned operation.
@@ -45,29 +56,43 @@
 ;; <su> is like <u>, but the signed form expands to "s" rather than "".
 (define_code_attr su [(sign_extend "s") (zero_extend "u")])
 
-;; This code macro allows four integer min/max operations to be
+;; This code iterator allows four integer min/max operations to be
 ;; generated from one template.
-(define_code_macro any_minmax [smin umin smax umax])
+(define_code_iterator any_minmax [smin umin smax umax])
 
 ;; <minmax> expands to the opcode name for any_minmax operations.
 (define_code_attr minmax [(smin "min") (umin "minu")
 			  (smax "max") (umax "maxu")])
 
-;; This code macro allows all branch instructions to be generated from
+;; This code iterator allows all branch instructions to be generated from
 ;; a single define_expand template.
-(define_code_macro any_cond [eq ne gt ge lt le gtu geu ltu leu])
+(define_code_iterator any_cond [eq ne gt ge lt le gtu geu ltu leu
+				uneq ltgt ungt unge unlt unle
+				unordered ordered])
 
-;; This code macro is for setting a register from a comparison.
-(define_code_macro any_scc [eq ne gt ge lt le])
+;; This code iterator is for setting a register from a comparison.
+(define_code_iterator any_scc [eq ne gt ge lt le])
 
-;; This code macro is for floating-point comparisons.
-(define_code_macro any_scc_sf [eq lt le])
+;; This code iterator is for floating-point comparisons.
+(define_code_iterator any_scc_sf [eq lt le uneq unlt unle unordered])
+(define_code_attr scc_sf [(eq "oeq") (lt "olt") (le "ole") 
+			  (uneq "ueq") (unlt "ult") (unle "ule")
+			  (unordered "un")])
+
+;; This iterator and attribute allow to combine most atomic operations.
+(define_code_iterator ATOMIC [and ior xor plus minus mult])
+(define_code_attr atomic [(and "and") (ior "ior") (xor "xor") 
+			  (plus "add") (minus "sub") (mult "nand")])
+
+;; This mode iterator allows the HI and QI patterns to be defined from
+;; the same template.
+(define_mode_iterator HQI [HI QI])
 
 
 ;; Attributes.
 
 (define_attr "type"
-  "unknown,jump,call,load,store,move,arith,multi,nop,farith,fmadd,fdiv,fsqrt,fconv,fload,fstore,mul16,mul32,div32,mac16,rsr,wsr"
+  "unknown,jump,call,load,store,move,arith,multi,nop,farith,fmadd,fdiv,fsqrt,fconv,fload,fstore,mul16,mul32,div32,mac16,rsr,wsr,entry"
   (const_string "unknown"))
 
 (define_attr "mode"
@@ -204,10 +229,11 @@
 		 (any_extend:DI (match_operand:SI 2 "register_operand"))))]
   "TARGET_MUL32_HIGH"
 {
-  emit_insn (gen_mulsi3 (gen_lowpart (SImode, operands[0]),
-			 operands[1], operands[2]));
+  rtx temp = gen_reg_rtx (SImode);
+  emit_insn (gen_mulsi3 (temp, operands[1], operands[2]));
   emit_insn (gen_<u>mulsi3_highpart (gen_highpart (SImode, operands[0]),
 				     operands[1], operands[2]));
+  emit_insn (gen_movsi (gen_lowpart (SImode, operands[0]), temp));
   DONE;
 })
 
@@ -861,6 +887,40 @@
    (set_attr "mode"	"QI")
    (set_attr "length"	"2,2,3,3,3,3,3,3")])
 
+;; Sub-word reloads from the constant pool.
+
+(define_expand "reload<mode>_literal"
+  [(parallel [(match_operand:HQI 0 "register_operand" "=r")
+	      (match_operand:HQI 1 "constantpool_operand" "")
+	      (match_operand:SI 2 "register_operand" "=&r")])]
+  ""
+{
+  rtx lit, scratch;
+  unsigned word_off, byte_off;
+
+  if (MEM_P (operands[1]))
+    {
+      lit = operands[1];
+      word_off = 0;
+      byte_off = 0;
+    }
+  else
+    {
+      gcc_assert (GET_CODE (operands[1]) == SUBREG);
+      lit = SUBREG_REG (operands[1]);
+      word_off = SUBREG_BYTE (operands[1]) & ~(UNITS_PER_WORD - 1);
+      byte_off = SUBREG_BYTE (operands[1]) - word_off;
+    }
+
+  lit = adjust_address (lit, SImode, word_off);
+  scratch = operands[2];
+  emit_insn (gen_movsi (scratch, lit));
+  emit_insn (gen_mov<mode> (operands[0],
+			    gen_rtx_SUBREG (<MODE>mode, scratch, byte_off)));
+
+  DONE;
+})
+
 ;; 32-bit floating point moves
 
 (define_expand "movsf"
@@ -915,7 +975,7 @@
 	(plus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_HARD_FLOAT"
 {
-  if (volatile_refs_p (PATTERN (insn)))
+  if (TARGET_SERIALIZE_VOLATILE && volatile_refs_p (PATTERN (insn)))
     output_asm_insn ("memw", operands);
   return "lsiu\t%0, %1, %2";
 }
@@ -931,7 +991,7 @@
 	(plus:SI (match_dup 0) (match_dup 1)))]
   "TARGET_HARD_FLOAT"
 {
-  if (volatile_refs_p (PATTERN (insn)))
+  if (TARGET_SERIALIZE_VOLATILE && volatile_refs_p (PATTERN (insn)))
     output_asm_insn ("memw", operands);
   return "ssiu\t%2, %0, %1";
 }
@@ -1402,7 +1462,7 @@
 	(any_scc_sf:CC (match_operand:SF 1 "register_operand" "f")
 		       (match_operand:SF 2 "register_operand" "f")))]
   "TARGET_HARD_FLOAT"
-  "o<code>.s\t%0, %1, %2"
+  "<scc_sf>.s\t%0, %1, %2"
   [(set_attr "type"	"farith")
    (set_attr "mode"	"BL")
    (set_attr "length"	"3")])
@@ -1516,9 +1576,9 @@
 })
 
 (define_insn "call_value_internal"
-   [(set (match_operand 0 "register_operand" "=a")
-         (call (mem (match_operand:SI 1 "call_insn_operand" "nir"))
-               (match_operand 2 "" "i")))]
+  [(set (match_operand 0 "register_operand" "=a")
+        (call (mem (match_operand:SI 1 "call_insn_operand" "nir"))
+              (match_operand 2 "" "i")))]
   ""
 {
   return xtensa_emit_call (1, operands);
@@ -1529,12 +1589,11 @@
 
 (define_insn "entry"
   [(set (reg:SI A1_REG)
-	(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "i")
-			     (match_operand:SI 1 "const_int_operand" "i")]
+	(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "i")]
 			    UNSPECV_ENTRY))]
   ""
-  "entry\tsp, %1"
-  [(set_attr "type"	"move")
+  "entry\tsp, %0"
+  [(set_attr "type"	"entry")
    (set_attr "mode"	"SI")
    (set_attr "length"	"3")])
 
@@ -1589,6 +1648,26 @@
   DONE;
 })
 
+;; Stuff an address into the return address register along with the window
+;; size in the high bits.  Because we don't have the window size of the
+;; previous frame, assume the function called out with a CALL8 since that
+;; is what compilers always use.  Note: __builtin_frob_return_addr has
+;; already been applied to the handler, but the generic version doesn't
+;; allow us to frob it quite enough, so we just frob here.
+
+(define_insn_and_split "eh_return"
+  [(set (reg:SI A0_REG)
+	(unspec_volatile:SI [(match_operand:SI 0 "register_operand" "r")]
+			    UNSPECV_EH_RETURN))
+   (clobber (match_scratch:SI 1 "=r"))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup 1) (ashift:SI (match_dup 0) (const_int 2)))
+   (set (match_dup 1) (plus:SI (match_dup 1) (const_int 2)))
+   (set (reg:SI A0_REG) (rotatert:SI (match_dup 1) (const_int 2)))]
+  "")
+
 ;; Setting up a frame pointer is tricky for Xtensa because GCC doesn't
 ;; know if a frame pointer is required until the reload pass, and
 ;; because there may be an incoming argument value in the hard frame
@@ -1634,20 +1713,68 @@
    (set_attr "mode"	"none")
    (set_attr "length"	"0")])
 
-;; The fix_return_addr pattern sets the high 2 bits of an address in a
-;; register to match the high bits of the current PC.
-(define_insn "fix_return_addr"
-  [(set (match_operand:SI 0 "register_operand" "=a")
-	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
-		   UNSPEC_RET_ADDR))
-   (clobber (match_scratch:SI 2 "=r"))
-   (clobber (match_scratch:SI 3 "=r"))]
+
+;; TLS support
+
+(define_expand "sym_TPOFF"
+  [(const (unspec [(match_operand:SI 0 "" "")] UNSPEC_TPOFF))]
   ""
-  "mov\t%2, a0\;call0\t0f\;.align\t4\;0:\;mov\t%3, a0\;mov\ta0, %2\;\
-srli\t%3, %3, 30\;slli\t%0, %1, 2\;ssai\t2\;src\t%0, %3, %0"
-  [(set_attr "type"	"multi")
+  "")
+
+(define_expand "sym_DTPOFF"
+  [(const (unspec [(match_operand:SI 0 "" "")] UNSPEC_DTPOFF))]
+  ""
+  "")
+
+(define_insn "load_tp"
+  [(set (match_operand:SI 0 "register_operand" "=a")
+	(unspec:SI [(const_int 0)] UNSPEC_TP))]
+  "TARGET_THREADPTR"
+  "rur\t%0, THREADPTR"
+  [(set_attr "type"	"rsr")
    (set_attr "mode"	"SI")
-   (set_attr "length"	"24")])
+   (set_attr "length"	"3")])
+
+(define_insn "set_tp"
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")]
+		    UNSPECV_SET_TP)]
+  "TARGET_THREADPTR"
+  "wur\t%0, THREADPTR"
+  [(set_attr "type"	"wsr")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"3")])
+
+(define_insn "tls_func"
+  [(set (match_operand:SI 0 "register_operand" "=a")
+	(unspec:SI [(match_operand:SI 1 "tls_symbol_operand" "")]
+		   UNSPEC_TLS_FUNC))]
+  "TARGET_THREADPTR && HAVE_AS_TLS"
+  "movi\t%0, %1@TLSFUNC"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"3")])
+
+(define_insn "tls_arg"
+  [(set (match_operand:SI 0 "register_operand" "=a")
+	(unspec:SI [(match_operand:SI 1 "tls_symbol_operand" "")]
+		   UNSPEC_TLS_ARG))]
+  "TARGET_THREADPTR && HAVE_AS_TLS"
+  "movi\t%0, %1@TLSARG"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"3")])
+
+(define_insn "tls_call"
+  [(set (match_operand:SI 0 "register_operand" "=a")
+	(call (mem:SI (unspec:SI [(match_operand:SI 1 "register_operand" "r")
+				  (match_operand:SI 2 "tls_symbol_operand" "")]
+				  UNSPEC_TLS_CALL))
+	      (match_operand 3 "" "i")))]
+  "TARGET_THREADPTR && HAVE_AS_TLS"
+  "callx8.tls %1, %2@TLSCALL"
+  [(set_attr "type"	"call")
+   (set_attr "mode"	"none")
+   (set_attr "length"	"3")])
 
 
 ;; Instructions for the Xtensa "boolean" option.
@@ -1687,3 +1814,113 @@ srli\t%3, %3, 30\;slli\t%0, %1, 2\;ssai\t2\;src\t%0, %3, %0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
    (set_attr "length"	"3")])
+
+
+;; Atomic operations
+
+(define_expand "memory_barrier"
+  [(set (match_dup 0)
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMW))]
+  ""
+{
+  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (Pmode));
+  MEM_VOLATILE_P (operands[0]) = 1;
+})
+
+(define_insn "*memory_barrier"
+  [(set (match_operand:BLK 0 "" "")
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMW))]
+  ""
+  "memw"
+  [(set_attr "type"	"unknown")
+   (set_attr "mode"	"none")
+   (set_attr "length"	"3")])
+
+;; sync_lock_release is only implemented for SImode.
+;; For other modes, just use the default of a store with a memory_barrier.
+(define_insn "sync_lock_releasesi"
+  [(set (match_operand:SI 0 "mem_operand" "=U")
+	(unspec_volatile:SI
+	  [(match_operand:SI 1 "register_operand" "r")]
+	  UNSPECV_S32RI))]
+  "TARGET_RELEASE_SYNC"
+  "s32ri\t%1, %0"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"3")])
+
+(define_insn "sync_compare_and_swapsi"
+  [(parallel
+    [(set (match_operand:SI 0 "register_operand" "=a")
+	  (match_operand:SI 1 "mem_operand" "+U"))
+     (set (match_dup 1)
+	  (unspec_volatile:SI
+	    [(match_dup 1)
+	     (match_operand:SI 2 "register_operand" "r")
+	     (match_operand:SI 3 "register_operand" "0")]
+	    UNSPECV_S32C1I))])]
+  "TARGET_S32C1I"
+  "wsr\t%2, SCOMPARE1\;s32c1i\t%3, %1"
+  [(set_attr "type"	"multi")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"6")])
+
+(define_expand "sync_compare_and_swap<mode>"
+  [(parallel
+    [(set (match_operand:HQI 0 "register_operand" "")
+	  (match_operand:HQI 1 "mem_operand" ""))
+     (set (match_dup 1)
+	  (unspec_volatile:HQI
+	    [(match_dup 1)
+	     (match_operand:HQI 2 "register_operand" "")
+	     (match_operand:HQI 3 "register_operand" "")]
+	    UNSPECV_S32C1I))])]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_compare_and_swap (operands[0], operands[1],
+				  operands[2], operands[3]);
+  DONE;
+})
+
+(define_expand "sync_lock_test_and_set<mode>"
+  [(match_operand:HQI 0 "register_operand")
+   (match_operand:HQI 1 "memory_operand")
+   (match_operand:HQI 2 "register_operand")]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_atomic (SET, operands[0], operands[1], operands[2], false);
+  DONE;
+})
+
+(define_expand "sync_<atomic><mode>"
+  [(set (match_operand:HQI 0 "memory_operand")
+	(ATOMIC:HQI (match_dup 0)
+		    (match_operand:HQI 1 "register_operand")))]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_atomic (<CODE>, NULL_RTX, operands[0], operands[1], false);
+  DONE;
+})
+
+(define_expand "sync_old_<atomic><mode>"
+  [(set (match_operand:HQI 0 "register_operand")
+	(match_operand:HQI 1 "memory_operand"))
+   (set (match_dup 1)
+	(ATOMIC:HQI (match_dup 1)
+		    (match_operand:HQI 2 "register_operand")))]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_atomic (<CODE>, operands[0], operands[1], operands[2], false);
+  DONE;
+})
+
+(define_expand "sync_new_<atomic><mode>"
+  [(set (match_operand:HQI 0 "register_operand")
+	(ATOMIC:HQI (match_operand:HQI 1 "memory_operand")
+		    (match_operand:HQI 2 "register_operand"))) 
+   (set (match_dup 1) (ATOMIC:HQI (match_dup 1) (match_dup 2)))]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_atomic (<CODE>, operands[0], operands[1], operands[2], true);
+  DONE;
+})

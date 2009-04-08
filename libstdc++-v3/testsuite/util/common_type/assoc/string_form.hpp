@@ -51,17 +51,17 @@
 #include <sstream>
 #include <ext/pb_ds/detail/type_utils.hpp>
 #include <ext/pb_ds/tag_and_trait.hpp>
-#include <native_type/assoc/native_hash_map.hpp>
-#include <native_type/assoc/native_hash_set.hpp>
-#include <native_type/assoc/native_multimap.hpp>
-#include <native_type/assoc/native_hash_multimap.hpp>
-#include <native_type/assoc/native_set.hpp>
+#include <native_type/native_hash_map.hpp>
+#include <native_type/native_hash_set.hpp>
+#include <native_type/native_multimap.hpp>
+#include <native_type/native_hash_multimap.hpp>
+#include <native_type/native_set.hpp>
 #include <common_type/assoc/template_policy.hpp>
 #include <common_type/assoc/detail/ds_string_form.hpp>
 #include <regression/basic_type.hpp>
 #include <io/xml.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace test
   {
@@ -119,11 +119,11 @@ namespace pb_ds
 	  { return (""); }
 
 	  static std::string
-	  name(pb_ds::null_mapped_type)
+	  name(__gnu_pbds::null_mapped_type)
 	  { return ("set"); }
 
 	  static std::string
-	  desc(pb_ds::null_mapped_type)
+	  desc(__gnu_pbds::null_mapped_type)
 	  { return (""); }
 
 	public:
@@ -183,7 +183,7 @@ namespace pb_ds
 					    typename Cntnr::container_category>
     { };
   } // namespace test
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif
 

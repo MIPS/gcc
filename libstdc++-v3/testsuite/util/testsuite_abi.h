@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License as
@@ -31,9 +31,9 @@
 
 #include <string>
 #include <stdexcept>
-#include <deque>
+#include <vector>
 #include <locale>
-#include <ext/hash_map>
+#include <tr1/unordered_map>
 #include <cxxabi.h>
 
 // Encapsulates symbol characteristics.
@@ -75,11 +75,8 @@ struct symbol
   init(std::string& data);
 };
 
-typedef __gnu_cxx::hash_map<std::string, symbol> 	symbol_objects;
-
-typedef std::deque<std::string>				symbol_names;
-
-typedef std::pair<symbol_names, symbol_objects>		symbols;
+// Map type between symbol names and full symbol info.
+typedef std::tr1::unordered_map<std::string, symbol> 	symbols;
 
 
 // Check.
@@ -94,7 +91,7 @@ check_compatible(symbol& lhs, symbol& rhs, bool verbose = false);
 bool
 has_symbol(const std::string& mangled, const symbols& list) throw();
 
-symbol&
+const symbol&
 get_symbol(const std::string& mangled, const symbols& list);
 
 extern "C" void
@@ -110,20 +107,3 @@ create_symbols(const char* file);
 
 const char*
 demangle(const std::string& mangled);
-
-
-// Specialization.
-namespace __gnu_cxx
-{
-  using namespace std;
-
-  template<> 
-    struct hash<string>
-    {
-      size_t operator()(const string& s) const 
-      { 
-	const collate<char>& c = use_facet<collate<char> >(locale::classic());
-	return c.hash(s.c_str(), s.c_str() + s.size());
-      }
-    }; 
-}

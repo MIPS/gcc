@@ -1,4 +1,5 @@
 // { dg-do compile }
+// { dg-options "-std=gnu++98" }
 
 // Copyright (C) 2007 Free Software Foundation, Inc.
 //
@@ -18,7 +19,7 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
-#include <tuple>  // { dg-excess-errors "In file included from" }
+#include <random>  // { dg-excess-errors "In file included from" }
 
 // { dg-error "upcoming ISO" "" { target *-*-* } 36 } 
 

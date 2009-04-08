@@ -2,11 +2,11 @@
 --                                                                          --
 --                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
---                        SYSTEM.GENERIC_REAL_LAPACK                        --
+--           S Y S T E M . G E N E R I C _ R E A L _ L A P A C K            --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 2006, Free Software Foundation, Inc.            --
+--          Copyright (C) 2006-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -94,7 +94,7 @@ package System.Generic_Real_LAPACK is
       N      : Natural;
       A      : in out Real_Matrix;
       Ld_A   : Positive;
-      Tau    : in Real_Vector;
+      Tau    : Real_Vector;
       Work   : out Real_Vector;
       L_Work : Integer;
       Info   : access Integer);

@@ -51,7 +51,9 @@ exception statement from your version. */
 #endif
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#ifdef HAVE_NET_IF_H
 #include <net/if.h>
+#endif
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -69,6 +71,7 @@ exception statement from your version. */
 #include "gnu_java_net_VMPlainSocketImpl.h"
 
 #define THROW_NO_NETWORK(env) JCL_ThrowException (env, "java/lang/InternalError", "this platform not configured for network support")
+#define THROW_NO_IPV6(env)    JCL_ThrowException (env, "java/lang/InternalError", "IPv6 support not available")
 
 /*
  * Class:     gnu_java_net_VMPlainSocketImpl
@@ -120,7 +123,7 @@ Java_gnu_java_net_VMPlainSocketImpl_bind6 (JNIEnv *env,
                                            jclass c __attribute__((unused)),
                                            jint fd, jbyteArray addr, jint port)
 {
-  /* FIXME! Add check if we have IPv6! */
+#ifdef HAVE_INET6
   struct sockaddr_in6 sockaddr;
   jbyte *elems;
   int ret;
@@ -141,6 +144,9 @@ Java_gnu_java_net_VMPlainSocketImpl_bind6 (JNIEnv *env,
 
   if (-1 == ret)
     JCL_ThrowException (env, IO_EXCEPTION, strerror (errno));
+#else
+  THROW_NO_IPV6(env);
+#endif
 }
 
 
@@ -412,7 +418,7 @@ Java_gnu_java_net_VMPlainSocketImpl_setMulticastInterface6 (JNIEnv *env,
 #ifdef HAVE_INET6	
   int result;
   const char *str_ifname = JCL_jstring_to_cstring (env, ifname);
-  u_int if_index;
+  unsigned int if_index;
 
   if ((*env)->ExceptionOccurred (env))
     {
@@ -429,7 +435,7 @@ Java_gnu_java_net_VMPlainSocketImpl_setMulticastInterface6 (JNIEnv *env,
     }
 
   result = setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
-                      (u_int *) &if_index, sizeof(if_index));
+                      (unsigned int *) &if_index, sizeof(if_index));
 
   JCL_free_cstring(env, ifname, str_ifname);
   
@@ -442,8 +448,7 @@ Java_gnu_java_net_VMPlainSocketImpl_setMulticastInterface6 (JNIEnv *env,
 #endif /* HAVE_INET6 */
 #else
   (void) fd;
-  JCL_ThrowException (env, "java/lang/InternalError",
-                      "socket options not supported");
+  THROW_NO_IPV6(env);
 #endif /* HAVE_SETSOCKOPT */
 }
 
@@ -582,8 +587,7 @@ Java_gnu_java_net_VMPlainSocketImpl_join6 (JNIEnv *env,
 #else
   (void) fd;
   (void) addr;
-  JCL_ThrowException (env, "java/lang/InternalError",
-                      "IPv6 support not available");
+  THROW_NO_IPV6(env);
 #endif /* HAVE_INET6 */
 #else
   (void) fd;
@@ -657,8 +661,7 @@ Java_gnu_java_net_VMPlainSocketImpl_leave6 (JNIEnv *env,
 #else
   (void) fd;
   (void) addr;
-  JCL_ThrowException (env, "java/lang/InternalError",
-                      "IPv6 support not available");
+  THROW_NO_IPV6(env);
 #endif /* HAVE_INET6 */
 #else
   (void) fd;
@@ -763,8 +766,7 @@ Java_gnu_java_net_VMPlainSocketImpl_joinGroup6 (JNIEnv *env,
 #else
   (void) fd;
   (void) addr;
-  JCL_ThrowException (env, "java/lang/InternalError",
-                      "IPv6 support not available");
+  THROW_NO_IPV6(env);
 #endif /* HAVE_INET6 */
 #else
   (void) fd;
@@ -865,8 +867,7 @@ Java_gnu_java_net_VMPlainSocketImpl_leaveGroup6 (JNIEnv *env,
 #else
   (void) fd;
   (void) addr;
-  JCL_ThrowException (env, "java/lang/InternalError",
-                      "IPv6 support not available");
+  THROW_NO_IPV6(env);
 #endif /* HAVE_INET6 */
 #else
   (void) fd;

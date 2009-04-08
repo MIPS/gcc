@@ -1,6 +1,6 @@
 /* Function declarations for libiberty.
 
-   Copyright 2001, 2002, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2005, 2007 Free Software Foundation, Inc.
    
    Note - certain prototypes declared in this header file are for
    functions whoes implementation copyright does not belong to the
@@ -320,26 +320,34 @@ extern double physmem_available (void);
 
 /* Scalar allocators.  */
 
+#define XALLOCA(T)		((T *) alloca (sizeof (T)))
 #define XNEW(T)			((T *) xmalloc (sizeof (T)))
 #define XCNEW(T)		((T *) xcalloc (1, sizeof (T)))
+#define XDUP(T, P)		((T *) xmemdup ((P), sizeof (T), sizeof (T)))
 #define XDELETE(P)		free ((void*) (P))
 
 /* Array allocators.  */
 
+#define XALLOCAVEC(T, N)	((T *) alloca (sizeof (T) * (N)))
 #define XNEWVEC(T, N)		((T *) xmalloc (sizeof (T) * (N)))
 #define XCNEWVEC(T, N)		((T *) xcalloc ((N), sizeof (T)))
+#define XDUPVEC(T, P, N)	((T *) xmemdup ((P), sizeof (T) * (N), sizeof (T) * (N)))
 #define XRESIZEVEC(T, P, N)	((T *) xrealloc ((void *) (P), sizeof (T) * (N)))
 #define XDELETEVEC(P)		free ((void*) (P))
 
 /* Allocators for variable-sized structures and raw buffers.  */
 
+#define XALLOCAVAR(T, S)	((T *) alloca ((S)))
 #define XNEWVAR(T, S)		((T *) xmalloc ((S)))
 #define XCNEWVAR(T, S)		((T *) xcalloc (1, (S)))
+#define XDUPVAR(T, P, S1, S2)	((T *) xmemdup ((P), (S1), (S2)))
 #define XRESIZEVAR(T, P, S)	((T *) xrealloc ((P), (S)))
 
 /* Type-safe obstack allocator.  */
 
 #define XOBNEW(O, T)		((T *) obstack_alloc ((O), sizeof (T)))
+#define XOBNEWVEC(O, T, N)	((T *) obstack_alloc ((O), sizeof (T) * (N)))
+#define XOBNEWVAR(O, T, S)	((T *) obstack_alloc ((O), (S)))
 #define XOBFINISH(O, T)         ((T) obstack_finish ((O)))
 
 /* hex character manipulation routines */
@@ -541,7 +549,8 @@ struct pex_time
 extern int pex_get_times (struct pex_obj *, int count,
 			  struct pex_time *vector);
 
-/* Clean up a pex_obj.  */
+/* Clean up a pex_obj.  If you have not called pex_get_times or
+   pex_get_status, this will try to kill the subprocesses.  */
 
 extern void pex_free (struct pex_obj *);
 

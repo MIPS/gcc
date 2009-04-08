@@ -1,12 +1,13 @@
 /* Definitions of target machine for GNU compiler, for CRX.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_CRX_H
 #define GCC_CRX_H
@@ -165,7 +165,7 @@ do {								\
 /* Interrupt functions can only use registers that have already been saved by
  * the prologue, even if they would normally be call-clobbered. */
 #define HARD_REGNO_RENAME_OK(SRC, DEST)	\
-	(!crx_interrupt_function_p () || regs_ever_live[DEST])
+  (!crx_interrupt_function_p () || df_regs_ever_live_p (DEST))
 
 #define MODES_TIEABLE_P(MODE1, MODE2)  1
 
@@ -182,6 +182,19 @@ enum reg_class
 };
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
+
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES         \
+{                                 \
+   GENERAL_REGS, LIM_REG_CLASSES  \
+} 
 
 #define REG_CLASS_NAMES \
   {			\
@@ -278,7 +291,7 @@ enum reg_class
 
 #define FIRST_PARM_OFFSET(FNDECL)  0
 
-#define FRAME_POINTER_REQUIRED (current_function_calls_alloca)
+#define FRAME_POINTER_REQUIRED (cfun->calls_alloca)
 
 #define ELIMINABLE_REGS \
   { \
@@ -421,7 +434,7 @@ struct cumulative_args
 /* Moving to processor register flushes pipeline - thus asymmetric */
 #define REGISTER_MOVE_COST(MODE, FROM, TO) ((TO != GENERAL_REGS) ? 8 : 2)
 /* Assume best case (branch predicted) */
-#define BRANCH_COST 2
+#define BRANCH_COST(speed_p, predictable_p) 2
 
 #define SLOW_BYTE_ACCESS  1
 

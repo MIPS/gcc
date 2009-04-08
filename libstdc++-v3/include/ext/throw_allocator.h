@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -39,16 +39,12 @@
 // purpose. It is provided "as is" without express or implied
 // warranty.
 
-/** @file ext/vstring.h
+/** @file ext/throw_allocator.h
  *  This file is a GNU extension to the Standard C++ Library.
  *
  *  Contains an exception-throwing allocator, useful for testing
  *  exception safety. In addition, allocation addresses are stored and
  *  sanity checked.
- */
-
-/**
- * @file throw_allocator.h 
  */
 
 #ifndef _THROW_ALLOCATOR_H
@@ -63,29 +59,45 @@
 #include <stdexcept>
 #include <utility>
 #include <tr1/random>
+#include <bits/functexcept.h>
+#include <bits/move.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
   class twister_rand_gen
-  {
+  {    
+  private:
+    std::tr1::mt19937 _M_generator;
+
   public:
-    twister_rand_gen(unsigned int seed = 
-		     static_cast<unsigned int>(std::time(0)));
+    twister_rand_gen(unsigned int s = static_cast<unsigned int>(std::time(0)));
     
     void
     init(unsigned int);
     
     double
     get_prob();
-    
-  private:
-    std::tr1::mt19937 _M_generator;
   };
 
-
+  /** 
+   *  @brief Thown by throw_allocator.
+   *  @ingroup exceptions
+   */
   struct forced_exception_error : public std::exception
   { };
 
+  // Substitute for concurrence_error object in the case of -fno-exceptions.
+  inline void
+  __throw_forced_exception_error()
+  {
+#if __EXCEPTIONS
+    throw forced_exception_error();
+#else
+    __builtin_abort();
+#endif
+  }
+
+  /// Base class.
   class throw_allocator_base
   {
   public:
@@ -106,8 +118,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
     struct group_throw_prob_adjustor
     {
-      group_throw_prob_adjustor(size_t size) 
-      : _M_throw_prob_orig(_S_throw_prob)
+      group_throw_prob_adjustor(size_t size) : _M_throw_prob_orig(_S_throw_prob)
       {
 	_S_throw_prob =
 	  1 - std::pow(double(1 - _S_throw_prob), double(0.5 / (size + 1)));
@@ -176,7 +187,10 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     static size_t 		_S_label;
   };
 
-
+  /** 
+   *  @brief Allocator class with logging and exception control.
+   *  @ingroup allocators
+   */
   template<typename T>
     class throw_allocator : public throw_allocator_base
     {
@@ -224,6 +238,16 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       void
       construct(pointer __p, const T& val)
       { return std::allocator<value_type>().construct(__p, val); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename... _Args>
+        void
+        construct(pointer __p, _Args&&... __args)
+	{ 
+	  return std::allocator<value_type>().
+	    construct(__p, std::forward<_Args>(__args)...);
+	}
+#endif
 
       void
       destroy(pointer __p)
@@ -277,21 +301,17 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   twister_rand_gen::
   get_prob()
   {
-    const double eng_min = _M_generator.min();
-    const double eng_range =
-      static_cast<const double>(_M_generator.max() - eng_min);
-
-    const double eng_res =
-      static_cast<const double>(_M_generator() - eng_min);
-
-    const double ret = eng_res / eng_range;
+    const double min = _M_generator.min();
+    const double res = static_cast<const double>(_M_generator() - min);
+    const double range = static_cast<const double>(_M_generator.max() - min);
+    const double ret = res / range;
     _GLIBCXX_DEBUG_ASSERT(ret >= 0 && ret <= 1);
     return ret;
   }
 
   twister_rand_gen throw_allocator_base::_S_g;
 
-  throw_allocator_base::map_type
+  throw_allocator_base::map_type 
   throw_allocator_base::_S_map;
 
   double throw_allocator_base::_S_throw_prob;
@@ -329,7 +349,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	error += '\n';
 	print_to_string(error, make_entry(p, size));
 	print_to_string(error, *found_it);
-	throw std::logic_error(error);
+	std::__throw_logic_error(error.c_str());
       }
     _S_map.insert(make_entry(p, size));
   }
@@ -355,7 +375,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	error += "null erase!";
 	error += '\n';
 	print_to_string(error, make_entry(p, size));
-	throw std::logic_error(error);
+	std::__throw_logic_error(error.c_str());
       }
 
     if (found_it->second.second != size)
@@ -365,7 +385,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	error += '\n';
 	print_to_string(error, make_entry(p, size));
 	print_to_string(error, *found_it);
-	throw std::logic_error(error);
+	std::__throw_logic_error(error.c_str());
       }
   }
 
@@ -377,7 +397,9 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     while (it != _S_map.end())
       {
 	if (it->second.first == label)
-	  print_to_string(found, *it);
+	  {
+	    print_to_string(found, *it);
+	  }
 	++it;
       }
 
@@ -386,7 +408,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	std::string error("throw_allocator_base::check_allocated by label ");
 	error += '\n';
 	error += found;
-	throw std::logic_error(error);
+	std::__throw_logic_error(error.c_str());
       }	
   }
 
@@ -394,7 +416,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   throw_allocator_base::throw_conditionally()
   {
     if (_S_g.get_prob() < _S_throw_prob)
-      throw forced_exception_error();
+      __throw_forced_exception_error();
   }
 
   void
@@ -412,15 +434,17 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     char buf[40];
     const char tab('\t');
     s += "address: ";
-    sprintf(buf, "%p", ref.first);
+    __builtin_sprintf(buf, "%p", ref.first);
     s += buf;
     s += tab;
     s += "label: ";
-    sprintf(buf, "%u", ref.second.first);
+    unsigned long l = static_cast<unsigned long>(ref.second.first);
+    __builtin_sprintf(buf, "%lu", l);
     s += buf;
     s += tab;
     s += "size: ";
-    sprintf(buf, "%u", ref.second.second);
+    l = static_cast<unsigned long>(ref.second.second);
+    __builtin_sprintf(buf, "%lu", l);
     s += buf;
     s += '\n';
   }

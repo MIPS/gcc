@@ -1,6 +1,6 @@
 # Makefile for GNU Objective C runtime library.
 # Copyright 1993, 1995, 1996, 1997, 1998, 1999, 2001, 2002, 2003, 2004,
-# 2005, 2006 Free Software Foundation, Inc.
+# 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -42,10 +42,13 @@ toolexecdir = @toolexecdir@
 toolexeclibdir = @toolexeclibdir@
 
 includedirname = @includedirname@
+libsuffix = @libsuffix@
 
 extra_ldflags_libobjc = @extra_ldflags_libobjc@
 
 top_builddir = .
+
+-include ../boehm-gc/threads.mk
 
 libdir = $(exec_prefix)/lib
 libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
@@ -94,6 +97,7 @@ OBJC_GCFLAGS=-DOBJC_WITH_GC=1
 OBJC_THREAD_FILE=thr-objc
 OBJC_BOEHM_GC=@OBJC_BOEHM_GC@
 OBJC_BOEHM_GC_INCLUDES=@OBJC_BOEHM_GC_INCLUDES@
+OBJC_BOEHM_GC_LIBS=../boehm-gc/libgcjgc_convenience.la $(thread_libs_and_flags)
 
 INCLUDES = -I$(srcdir)/objc  -I$(srcdir)/$(MULTISRCTOP)../gcc \
   -I$(srcdir)/$(MULTISRCTOP)../gcc/config \
@@ -136,7 +140,7 @@ FLAGS_TO_PASS = \
 	"libsubdir=$(libsubdir)" \
 	"tooldir=$(tooldir)"
 
-all: libobjc.la $(OBJC_BOEHM_GC)
+all: libobjc$(libsuffix).la $(OBJC_BOEHM_GC)
 	: $(MAKE) ; exec $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all
 
 # User-visible header files.
@@ -269,19 +273,24 @@ exception_gc.lo: exception.c
 doc: info dvi pdf html
 
 # No install-html or install-pdf support
-.PHONY: install-html install-pdf
+.PHONY: install-html install-pdf install-info
 install-html:
 install-pdf:
+install-info:
 
-libobjc.la: $(OBJS)
+LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
+
+libobjc$(libsuffix).la: $(OBJS)
 	$(LIBTOOL_LINK) $(CC) -o $@ $(OBJS) \
 		-rpath $(toolexeclibdir) \
-		-version-info $(LIBOBJC_VERSION) $(extra_ldflags_libobjc)
+		-version-info $(LIBOBJC_VERSION) $(extra_ldflags_libobjc) \
+		$(LTLDFLAGS)
 
-libobjc_gc.la: $(OBJS_GC)
-	$(LIBTOOL_LINK) $(CC) -o $@ $(OBJS_GC) \
+libobjc_gc$(libsuffix).la: $(OBJS_GC)
+	$(LIBTOOL_LINK) $(CC) -o $@ $(OBJS_GC) $(OBJC_BOEHM_GC_LIBS) \
 		-rpath $(toolexeclibdir) \
-		-version-info $(LIBOBJC_GC_VERSION) $(extra_ldflags_libobjc)
+		-version-info $(LIBOBJC_GC_VERSION) $(extra_ldflags_libobjc) \
+		$(LTLDFLAGS)
 
 #
 # FIXME -- The following part does not fit in the libtool context. 
@@ -333,9 +342,9 @@ install: install-libs install-headers
 
 install-libs: installdirs
 	$(SHELL) $(multi_basedir)/mkinstalldirs $(DESTDIR)$(toolexeclibdir)
-	$(LIBTOOL_INSTALL) $(INSTALL) libobjc.la $(DESTDIR)$(toolexeclibdir);
+	$(LIBTOOL_INSTALL) $(INSTALL) libobjc$(libsuffix).la $(DESTDIR)$(toolexeclibdir);
 	if [ "$(OBJC_BOEHM_GC)" ]; then \
-	  $(LIBTOOL_INSTALL) $(INSTALL) libobjc_gc.la \
+	  $(LIBTOOL_INSTALL) $(INSTALL) libobjc_gc$(libsuffix).la \
 				$(DESTDIR)$(toolexeclibdir);\
 	fi
 	$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO="$@"
@@ -352,7 +361,7 @@ install-headers:
 check uninstall install-strip dist installcheck installdirs:
 
 mostlyclean:
-	-$(LIBTOOL_CLEAN) rm -f libobjc.la libobjc_gc.la *.lo
+	-$(LIBTOOL_CLEAN) rm -f libobjc$(libsuffix).la libobjc_gc$(libsuffix).la *.lo
 	-rm -f runtime-info.h tmp-runtime.s *.o *.lo libobjc* xforward \
 		fflags *.aux *.cp *.dvi *.pdf *.fn *.info *.ky *.log *.pg \
 		*.toc *.tp *.vr *.html libobj.exp

@@ -1,8 +1,8 @@
-;; Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 ;; This file is free software; you can redistribute it and/or modify it under
 ;; the terms of the GNU General Public License as published by the Free
-;; Software Foundation; either version 2 of the License, or (at your option) 
+;; Software Foundation; either version 3 of the License, or (at your option) 
 ;; any later version.
 
 ;; This file is distributed in the hope that it will be useful, but WITHOUT
@@ -11,9 +11,8 @@
 ;; for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this file; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -29,6 +28,7 @@
 (define_attr "length" ""
 		(const_int 4))
 
+(define_attr "tune" "cell,celledp" (const (symbol_ref "spu_tune")))
 ;; Processor type -- this attribute must exactly match the processor_type
 ;; enumeration in spu.h.
 
@@ -59,8 +59,16 @@
 ;; for 6 cycles and the rest of the operation pipelines for
 ;; 7 cycles.  The simplest way to model this is to simply ignore
 ;; the 6 cyle stall.
-(define_insn_reservation "FPD" 7 (eq_attr "type" "fpd")
+(define_insn_reservation "FPD" 7 
+  (and (eq_attr "tune" "cell")
+       (eq_attr "type" "fpd"))
     "pipe0 + pipe1, fp, nothing*5")
+
+;; Tune for CELLEDP, 9 cycles, dual-issuable, fully pipelined
+(define_insn_reservation "FPD_CELLEDP" 9
+  (and (eq_attr "tune" "celledp")
+       (eq_attr "type" "fpd"))
+  "pipe0 + fp, nothing*8")
 
 (define_insn_reservation "LNOP" 1 (eq_attr "type" "lnop")
     "pipe1")
@@ -144,15 +152,20 @@
  (UNSPEC_WRCH           48)
  (UNSPEC_SPU_REALIGN_LOAD 49)
  (UNSPEC_SPU_MASK_FOR_LOAD 50)
+ (UNSPEC_DFTSV		 51)
+ (UNSPEC_FLOAT_EXTEND	 52)
+ (UNSPEC_FLOAT_TRUNCATE	 53)
+ (UNSPEC_SP_SET         54)
+ (UNSPEC_SP_TEST        55) 
 ])
 
 (include "predicates.md")
 (include "constraints.md")
 
 
-;; Mode macros
+;; Mode iterators
 
-(define_mode_macro ALL [QI V16QI
+(define_mode_iterator ALL [QI V16QI
 			HI V8HI
 			SI V4SI
 			DI V2DI
@@ -162,35 +175,48 @@
 
 ; Everything except DI and TI which are handled separately because
 ; they need different constraints to correctly test VOIDmode constants
-(define_mode_macro MOV [QI V16QI
+(define_mode_iterator MOV [QI V16QI
 			HI V8HI
 			SI V4SI
 			V2DI
                         SF V4SF
                         DF V2DF])
 
-(define_mode_macro DTI  [DI TI])
+(define_mode_iterator DTI  [DI TI])
 
-(define_mode_macro VINT [QI V16QI
+(define_mode_iterator VINT [QI V16QI
 			 HI V8HI
 			 SI V4SI
 			 DI V2DI
 			 TI])
 
-(define_mode_macro VQHSI [QI V16QI
+(define_mode_iterator VQHSI [QI V16QI
 			  HI V8HI
 			  SI V4SI])
 
-(define_mode_macro VHSI [HI V8HI
+(define_mode_iterator VHSI [HI V8HI
 			 SI V4SI])
 
-(define_mode_macro VSDF [SF V4SF
+(define_mode_iterator VSDF [SF V4SF
                          DF V2DF])
 
-(define_mode_macro VSI [SI V4SI])
-(define_mode_macro VDI [DI V2DI])
-(define_mode_macro VSF [SF V4SF])
-(define_mode_macro VDF [DF V2DF])
+(define_mode_iterator VSI [SI V4SI])
+(define_mode_iterator VDI [DI V2DI])
+(define_mode_iterator VSF [SF V4SF])
+(define_mode_iterator VDF [DF V2DF])
+
+(define_mode_iterator VCMP [V16QI
+			 V8HI
+			 V4SI
+                         V4SF
+                         V2DF])
+
+(define_mode_iterator VCMPU [V16QI
+			  V8HI
+			  V4SI])
+
+(define_mode_attr v	 [(V8HI  "v") (V4SI  "v")
+			  (HI    "") (SI    "")])
 
 (define_mode_attr bh  [(QI "b")  (V16QI "b")
 		       (HI "h")  (V8HI "h")
@@ -200,8 +226,13 @@
                        (DF "d")  (V2DF "d")])
 (define_mode_attr d6  [(SF "6")  (V4SF "6")
                        (DF "d")  (V2DF "d")])
-(define_mode_attr f2i [(SF "SI") (V4SF "V4SI")
+
+(define_mode_attr f2i [(SF "si") (V4SF "v4si")
+                       (DF "di") (V2DF "v2di")])
+(define_mode_attr F2I [(SF "SI") (V4SF "V4SI")
                        (DF "DI") (V2DF "V2DI")])
+
+(define_mode_attr DF2I [(DF "SI") (V2DF "V2DI")])
 
 (define_mode_attr umask  [(HI "f")  (V8HI "f")
 		          (SI "g")  (V4SI "g")])
@@ -209,10 +240,10 @@
 		          (SI "G")  (V4SI "G")])
 
 ;; Used for carry and borrow instructions.
-(define_mode_macro CBOP  [SI DI V4SI V2DI])
+(define_mode_iterator CBOP  [SI DI V4SI V2DI])
 
 ;; Used in vec_set and vec_extract
-(define_mode_macro V [V2DI V4SI V8HI V16QI V2DF V4SF])
+(define_mode_iterator V [V2DI V4SI V8HI V16QI V2DF V4SF])
 (define_mode_attr inner  [(V16QI "QI")
 			  (V8HI  "HI")
 			  (V4SI  "SI")
@@ -621,17 +652,78 @@
 
 (define_insn "extendsfdf2"
   [(set (match_operand:DF 0 "spu_reg_operand" "=r")
-	(float_extend:DF (match_operand:SF 1 "spu_reg_operand" "r")))]
+	(unspec:DF [(match_operand:SF 1 "spu_reg_operand" "r")]
+                   UNSPEC_FLOAT_EXTEND))]
   ""
   "fesd\t%0,%1"
   [(set_attr "type" "fpd")])
 
 (define_insn "truncdfsf2"
   [(set (match_operand:SF 0 "spu_reg_operand" "=r")
-	(float_truncate:SF (match_operand:DF 1 "spu_reg_operand" "r")))]
+	(unspec:SF [(match_operand:DF 1 "spu_reg_operand" "r")]
+                   UNSPEC_FLOAT_TRUNCATE))]
   ""
   "frds\t%0,%1"
   [(set_attr "type" "fpd")])
+
+(define_expand "floatdisf2"
+  [(set (match_operand:SF 0 "register_operand" "")
+	(float:SF (match_operand:DI 1 "register_operand" "")))]
+  ""
+  {
+    rtx c0 = gen_reg_rtx (SImode);
+    rtx r0 = gen_reg_rtx (DImode);
+    rtx r1 = gen_reg_rtx (SFmode);
+    rtx r2 = gen_reg_rtx (SImode);
+    rtx setneg = gen_reg_rtx (SImode);
+    rtx isneg = gen_reg_rtx (SImode);
+    rtx neg = gen_reg_rtx (DImode);
+    rtx mask = gen_reg_rtx (DImode);
+
+    emit_move_insn (c0, GEN_INT (-0x80000000ll));
+
+    emit_insn (gen_negdi2 (neg, operands[1]));
+    emit_insn (gen_cgt_di_m1 (isneg, operands[1]));
+    emit_insn (gen_extend_compare (mask, isneg));
+    emit_insn (gen_selb (r0, neg, operands[1], mask));
+    emit_insn (gen_andc_si (setneg, c0, isneg));
+
+    emit_insn (gen_floatunsdisf2 (r1, r0));
+
+    emit_insn (gen_iorsi3 (r2, gen_rtx_SUBREG (SImode, r1, 0), setneg));
+    emit_move_insn (operands[0], gen_rtx_SUBREG (SFmode, r2, 0));
+    DONE;
+  })
+
+(define_insn_and_split "floatunsdisf2"
+  [(set (match_operand:SF 0 "register_operand" "=r")
+        (unsigned_float:SF (match_operand:DI 1 "register_operand" "r")))
+   (clobber (match_scratch:SF 2 "=r"))
+   (clobber (match_scratch:SF 3 "=r"))
+   (clobber (match_scratch:SF 4 "=r"))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup:SF 0)
+        (unsigned_float:SF (match_dup:DI 1)))]
+  {
+    rtx op1_v4si = gen_rtx_REG (V4SImode, REGNO (operands[1]));
+    rtx op2_v4sf = gen_rtx_REG (V4SFmode, REGNO (operands[2]));
+    rtx op2_ti = gen_rtx_REG (TImode, REGNO (operands[2]));
+    rtx op3_ti = gen_rtx_REG (TImode, REGNO (operands[3]));
+
+    REAL_VALUE_TYPE scale;
+    real_2expN (&scale, 32, SFmode);
+
+    emit_insn (gen_floatunsv4siv4sf2 (op2_v4sf, op1_v4si));
+    emit_insn (gen_shlqby_ti (op3_ti, op2_ti, GEN_INT (4)));
+
+    emit_move_insn (operands[4],
+		    CONST_DOUBLE_FROM_REAL_VALUE (scale, SFmode));
+    emit_insn (gen_fma_sf (operands[0],
+			   operands[2], operands[4], operands[3]));
+    DONE;
+  })
 
 ;; Do (double)(operands[1]+0x80000000u)-(double)0x80000000
 (define_expand "floatsidf2"
@@ -639,7 +731,6 @@
 	(float:DF (match_operand:SI 1 "register_operand" "")))]
   ""
   {
-    rtx value, insns;
     rtx c0 = gen_reg_rtx (SImode);
     rtx c1 = gen_reg_rtx (DFmode);
     rtx r0 = gen_reg_rtx (SImode);
@@ -647,28 +738,79 @@
 
     emit_move_insn (c0, GEN_INT (-0x80000000ll));
     emit_move_insn (c1, spu_float_const ("2147483648", DFmode));
-
     emit_insn (gen_xorsi3 (r0, operands[1], c0));
-
-    start_sequence ();
-    value =
-      emit_library_call_value (ufloat_optab->handlers[DFmode][SImode].libfunc,
-			       NULL_RTX, LCT_NORMAL, DFmode, 1, r0, SImode);
-    insns = get_insns ();
-    end_sequence ();
-    emit_libcall_block (insns, r1, value,
-			gen_rtx_UNSIGNED_FLOAT (DFmode, r0));
-
+    emit_insn (gen_floatunssidf2 (r1, r0));
     emit_insn (gen_subdf3 (operands[0], r1, c1));
     DONE;
   })
+
+(define_expand "floatunssidf2"
+  [(set (match_operand:DF 0 "register_operand"  "=r")
+        (unsigned_float:DF (match_operand:SI 1 "register_operand"   "r")))]
+  ""
+  "{
+    rtx value, insns;
+    rtx c0 = spu_const_from_ints (V16QImode, 0x02031011, 0x12138080, 
+                                             0x06071415, 0x16178080);
+    rtx r0 = gen_reg_rtx (V16QImode);
+
+    if (optimize_size)
+    {
+       start_sequence ();
+       value =
+         emit_library_call_value (convert_optab_libfunc (ufloat_optab,
+                                                         DFmode, SImode),
+                   NULL_RTX, LCT_NORMAL, DFmode, 1, operands[1], SImode);
+       insns = get_insns ();
+       end_sequence ();
+       emit_libcall_block (insns, operands[0], value,
+                           gen_rtx_UNSIGNED_FLOAT (DFmode, operands[1]));
+     }
+     else
+     {
+      emit_move_insn (r0, c0);
+      emit_insn (gen_floatunssidf2_internal (operands[0], operands[1], r0));
+     }
+    DONE;
+  }")
+
+(define_insn_and_split "floatunssidf2_internal"
+  [(set (match_operand:DF 0 "register_operand"  "=r")
+        (unsigned_float:DF (match_operand:SI 1 "register_operand"   "r")))
+   (use (match_operand:V16QI 2 "register_operand" "r"))
+   (clobber (match_scratch:V4SI 3 "=&r"))
+   (clobber (match_scratch:V4SI 4 "=&r"))
+   (clobber (match_scratch:V4SI 5 "=&r"))
+   (clobber (match_scratch:V4SI 6 "=&r"))]
+  ""
+  "clz\t%3,%1\;il\t%6,1023+31\;shl\t%4,%1,%3\;ceqi\t%5,%3,32\;sf\t%6,%3,%6\;a\t%4,%4,%4\;andc\t%6,%6,%5\;shufb\t%6,%6,%4,%2\;shlqbii\t%0,%6,4"
+  "reload_completed"
+  [(set (match_dup:DF 0)
+        (unsigned_float:DF (match_dup:SI 1)))]
+ "{
+    rtx *ops = operands;
+    rtx op1_v4si = gen_rtx_REG(V4SImode, REGNO(ops[1]));
+    rtx op0_ti = gen_rtx_REG (TImode, REGNO (ops[0]));
+    rtx op2_ti = gen_rtx_REG (TImode, REGNO (ops[2]));
+    rtx op6_ti = gen_rtx_REG (TImode, REGNO (ops[6]));
+    emit_insn (gen_clzv4si2 (ops[3],op1_v4si));
+    emit_move_insn (ops[6], spu_const (V4SImode, 1023+31));
+    emit_insn (gen_vashlv4si3 (ops[4],op1_v4si,ops[3]));
+    emit_insn (gen_ceq_v4si (ops[5],ops[3],spu_const (V4SImode, 32)));
+    emit_insn (gen_subv4si3 (ops[6],ops[6],ops[3]));
+    emit_insn (gen_addv4si3 (ops[4],ops[4],ops[4]));
+    emit_insn (gen_andc_v4si  (ops[6],ops[6],ops[5]));
+    emit_insn (gen_shufb (ops[6],ops[6],ops[4],op2_ti));
+    emit_insn (gen_shlqbi_ti (op0_ti,op6_ti,GEN_INT(4)));
+    DONE;
+  }"
+ [(set_attr "length" "32")])
 
 (define_expand "floatdidf2"
   [(set (match_operand:DF 0 "register_operand" "")
 	(float:DF (match_operand:DI 1 "register_operand" "")))]
   ""
   {
-    rtx value, insns;
     rtx c0 = gen_reg_rtx (DImode);
     rtx r0 = gen_reg_rtx (DImode);
     rtx r1 = gen_reg_rtx (DFmode);
@@ -686,20 +828,81 @@
     emit_insn (gen_selb (r0, neg, operands[1], mask));
     emit_insn (gen_andc_di (setneg, c0, mask));
 
-
-    start_sequence ();
-    value =
-      emit_library_call_value (ufloat_optab->handlers[DFmode][DImode].libfunc,
-			       NULL_RTX, LCT_NORMAL, DFmode, 1, r0, DImode);
-    insns = get_insns ();
-    end_sequence ();
-    emit_libcall_block (insns, r1, value,
-			gen_rtx_UNSIGNED_FLOAT (DFmode, r0));
+    emit_insn (gen_floatunsdidf2 (r1, r0));
 
     emit_insn (gen_iordi3 (r2, gen_rtx_SUBREG (DImode, r1, 0), setneg));
     emit_move_insn (operands[0], gen_rtx_SUBREG (DFmode, r2, 0));
     DONE;
   })
+
+(define_expand "floatunsdidf2"
+  [(set (match_operand:DF 0 "register_operand"  "=r")
+        (unsigned_float:DF (match_operand:DI 1 "register_operand"   "r")))]
+  ""
+  "{
+    rtx value, insns;
+    rtx c0 = spu_const_from_ints (V16QImode, 0x02031011, 0x12138080, 
+                                             0x06071415, 0x16178080);
+    rtx c1 = spu_const_from_ints (V4SImode, 1023+63, 1023+31, 0, 0);
+    rtx r0 = gen_reg_rtx (V16QImode);
+    rtx r1 = gen_reg_rtx (V4SImode);
+
+    if (optimize_size)
+    {      
+      start_sequence ();
+      value =
+         emit_library_call_value (convert_optab_libfunc (ufloat_optab,
+                                                         DFmode, DImode),
+                   NULL_RTX, LCT_NORMAL, DFmode, 1, operands[1], DImode);
+      insns = get_insns ();
+      end_sequence ();
+      emit_libcall_block (insns, operands[0], value,
+                          gen_rtx_UNSIGNED_FLOAT (DFmode, operands[1]));
+    }
+    else
+    {
+      emit_move_insn (r1, c1);
+      emit_move_insn (r0, c0);
+      emit_insn (gen_floatunsdidf2_internal (operands[0], operands[1], r0, r1));
+    }
+    DONE;
+  }")
+
+(define_insn_and_split "floatunsdidf2_internal"
+  [(set (match_operand:DF 0 "register_operand"  "=r")
+        (unsigned_float:DF (match_operand:DI 1 "register_operand"   "r")))
+   (use (match_operand:V16QI 2 "register_operand" "r"))
+   (use (match_operand:V4SI 3 "register_operand" "r"))
+   (clobber (match_scratch:V4SI 4 "=&r"))
+   (clobber (match_scratch:V4SI 5 "=&r"))
+   (clobber (match_scratch:V4SI 6 "=&r"))]
+  ""
+  "clz\t%4,%1\;shl\t%5,%1,%4\;ceqi\t%6,%4,32\;sf\t%4,%4,%3\;a\t%5,%5,%5\;andc\t%4,%4,%6\;shufb\t%4,%4,%5,%2\;shlqbii\t%4,%4,4\;shlqbyi\t%5,%4,8\;dfa\t%0,%4,%5"
+  "reload_completed"
+  [(set (match_operand:DF 0 "register_operand"  "=r")
+        (unsigned_float:DF (match_operand:DI 1 "register_operand"   "r")))]
+  "{
+    rtx *ops = operands;
+    rtx op1_v4si = gen_rtx_REG (V4SImode, REGNO(ops[1]));
+    rtx op2_ti = gen_rtx_REG (TImode, REGNO(ops[2]));
+    rtx op4_ti = gen_rtx_REG (TImode, REGNO(ops[4]));
+    rtx op5_ti = gen_rtx_REG (TImode, REGNO(ops[5]));
+    rtx op4_df = gen_rtx_REG (DFmode, REGNO(ops[4]));
+    rtx op5_df = gen_rtx_REG (DFmode, REGNO(ops[5]));
+    emit_insn (gen_clzv4si2 (ops[4],op1_v4si));
+    emit_insn (gen_vashlv4si3 (ops[5],op1_v4si,ops[4]));
+    emit_insn (gen_ceq_v4si (ops[6],ops[4],spu_const (V4SImode, 32)));
+    emit_insn (gen_subv4si3 (ops[4],ops[3],ops[4]));
+    emit_insn (gen_addv4si3 (ops[5],ops[5],ops[5]));
+    emit_insn (gen_andc_v4si (ops[4],ops[4],ops[6]));
+    emit_insn (gen_shufb (ops[4],ops[4],ops[5],op2_ti));
+    emit_insn (gen_shlqbi_ti (op4_ti,op4_ti,GEN_INT(4)));
+    emit_insn (gen_shlqby_ti (op5_ti,op4_ti,GEN_INT(8)));
+    emit_insn (gen_adddf3 (ops[0],op4_df,op5_df));
+    DONE;
+  }"
+  [(set_attr "length" "40")])
+
 
 ;; add
 
@@ -912,19 +1115,25 @@
 		  (match_operand:TI 2 "spu_reg_operand" "r")))
    (clobber (match_scratch:TI 3 "=&r"))
    (clobber (match_scratch:TI 4 "=&r"))
-   (clobber (match_scratch:TI 5 "=&r"))]
+   (clobber (match_scratch:TI 5 "=&r"))
+   (clobber (match_scratch:TI 6 "=&r"))]
   ""
-  "bg\t%3,%1,%2\n\\
+  "il\t%6,1\n\\
+   bg\t%3,%2,%1\n\\
+   xor\t%3,%3,%6\n\\
    sf\t%4,%2,%1\n\\
    shlqbyi\t%5,%3,4\n\\
-   bg\t%3,%4,%5\n\\
+   bg\t%3,%5,%4\n\\
+   xor\t%3,%3,%6\n\\
    sf\t%4,%5,%4\n\\
    shlqbyi\t%5,%3,4\n\\
-   bg\t%3,%4,%5\n\\
-   shlqbyi\t%0,%3,4\n\\
-   sfx\t%0,%5,%4"
+   bg\t%3,%5,%4\n\\
+   xor\t%3,%3,%6\n\\
+   sf\t%4,%5,%4\n\\
+   shlqbyi\t%5,%3,4\n\\
+   sf\t%0,%5,%4"
   [(set_attr "type" "multi0")
-   (set_attr "length" "36")])
+   (set_attr "length" "56")])
 
 (define_insn "sub<mode>3"
   [(set (match_operand:VSF 0 "spu_reg_operand" "=r")
@@ -969,7 +1178,7 @@
   {
     rtx zero = gen_reg_rtx(DImode);
     emit_move_insn(zero, GEN_INT(0));
-    emit_insn(gen_subdi3(operands[0], zero, operands[1]));
+    emit_insn (gen_subdi3(operands[0], zero, operands[1]));
     DONE;
   })
 
@@ -980,7 +1189,7 @@
   {
     rtx zero = gen_reg_rtx(TImode);
     emit_move_insn(zero, GEN_INT(0));
-    emit_insn(gen_subti3(operands[0], zero, operands[1]));
+    emit_insn (gen_subti3(operands[0], zero, operands[1]));
     DONE;
   })
 
@@ -990,8 +1199,8 @@
 	  (neg:VSF (match_operand:VSF 1 "spu_reg_operand" "")))
      (use (match_dup 2))])]
   ""
-  "operands[2] = gen_reg_rtx (<f2i>mode);
-   emit_move_insn (operands[2], spu_const (<f2i>mode, -0x80000000ull));")
+  "operands[2] = gen_reg_rtx (<F2I>mode);
+   emit_move_insn (operands[2], spu_const (<F2I>mode, -0x80000000ull));")
 
 (define_expand "neg<mode>2"
   [(parallel
@@ -999,22 +1208,22 @@
 	  (neg:VDF (match_operand:VDF 1 "spu_reg_operand" "")))
      (use (match_dup 2))])]
   ""
-  "operands[2] = gen_reg_rtx (<f2i>mode);
-   emit_move_insn (operands[2], spu_const (<f2i>mode, -0x8000000000000000ull));")
+  "operands[2] = gen_reg_rtx (<F2I>mode);
+   emit_move_insn (operands[2], spu_const (<F2I>mode, -0x8000000000000000ull));")
 
 (define_insn_and_split "_neg<mode>2"
   [(set (match_operand:VSDF 0 "spu_reg_operand" "=r")
 	(neg:VSDF (match_operand:VSDF 1 "spu_reg_operand" "r")))
-   (use (match_operand:<f2i> 2 "spu_reg_operand" "r"))]
+   (use (match_operand:<F2I> 2 "spu_reg_operand" "r"))]
   ""
   "#"
   ""
-  [(set (match_dup:<f2i> 3)
-	(xor:<f2i> (match_dup:<f2i> 4)
-		   (match_dup:<f2i> 2)))]
+  [(set (match_dup:<F2I> 3)
+	(xor:<F2I> (match_dup:<F2I> 4)
+		   (match_dup:<F2I> 2)))]
   {
-    operands[3] = spu_gen_subreg (<f2i>mode, operands[0]);
-    operands[4] = spu_gen_subreg (<f2i>mode, operands[1]);
+    operands[3] = spu_gen_subreg (<F2I>mode, operands[0]);
+    operands[4] = spu_gen_subreg (<F2I>mode, operands[1]);
   })
 
 
@@ -1026,8 +1235,8 @@
 	  (abs:VSF (match_operand:VSF 1 "spu_reg_operand" "")))
      (use (match_dup 2))])]
   ""
-  "operands[2] = gen_reg_rtx (<f2i>mode);
-   emit_move_insn (operands[2], spu_const (<f2i>mode, 0x7fffffffull));")
+  "operands[2] = gen_reg_rtx (<F2I>mode);
+   emit_move_insn (operands[2], spu_const (<F2I>mode, 0x7fffffffull));")
 
 (define_expand "abs<mode>2"
   [(parallel
@@ -1035,22 +1244,22 @@
 	  (abs:VDF (match_operand:VDF 1 "spu_reg_operand" "")))
      (use (match_dup 2))])]
   ""
-  "operands[2] = gen_reg_rtx (<f2i>mode);
-   emit_move_insn (operands[2], spu_const (<f2i>mode, 0x7fffffffffffffffull));")
+  "operands[2] = gen_reg_rtx (<F2I>mode);
+   emit_move_insn (operands[2], spu_const (<F2I>mode, 0x7fffffffffffffffull));")
 
 (define_insn_and_split "_abs<mode>2"
   [(set (match_operand:VSDF 0 "spu_reg_operand" "=r")
 	(abs:VSDF (match_operand:VSDF 1 "spu_reg_operand" "r")))
-   (use (match_operand:<f2i> 2 "spu_reg_operand" "r"))]
+   (use (match_operand:<F2I> 2 "spu_reg_operand" "r"))]
   ""
   "#"
   ""
-  [(set (match_dup:<f2i> 3)
-	(and:<f2i> (match_dup:<f2i> 4)
-		   (match_dup:<f2i> 2)))]
+  [(set (match_dup:<F2I> 3)
+	(and:<F2I> (match_dup:<F2I> 4)
+		   (match_dup:<F2I> 2)))]
   {
-    operands[3] = spu_gen_subreg (<f2i>mode, operands[0]);
-    operands[4] = spu_gen_subreg (<f2i>mode, operands[1]);
+    operands[3] = spu_gen_subreg (<F2I>mode, operands[0]);
+    operands[4] = spu_gen_subreg (<F2I>mode, operands[1]);
   })
 
 
@@ -1081,7 +1290,7 @@
     emit_move_insn (mask, spu_const (V4SImode, 0x0000ffff));
     emit_insn (gen_spu_mpyhh (high, operands[1], operands[2]));
     emit_insn (gen_spu_mpy (low, operands[1], operands[2]));
-    emit_insn (gen_ashlv4si3 (shift, high, spu_const(V4SImode, 16)));
+    emit_insn (gen_vashlv4si3 (shift, high, spu_const(V4SImode, 16)));
     emit_insn (gen_selb (result, shift, low, mask));
     DONE;
    }")
@@ -1131,22 +1340,22 @@
       }
     if (val && (val & 0xffff) == 0)
       {
-	emit_insn(gen_mpyh_si(operands[0], operands[2], operands[1]));
+	emit_insn (gen_mpyh_si(operands[0], operands[2], operands[1]));
       }
     else if (val > 0 && val < 0x10000)
       {
 	rtx cst = satisfies_constraint_K (GEN_INT (val)) ? GEN_INT(val) : d;
-	emit_insn(gen_mpyh_si(a, operands[1], operands[2]));
-	emit_insn(gen_mpyu_si(c, operands[1], cst));
-	emit_insn(gen_addsi3(operands[0], a, c));
+	emit_insn (gen_mpyh_si(a, operands[1], operands[2]));
+	emit_insn (gen_mpyu_si(c, operands[1], cst));
+	emit_insn (gen_addsi3(operands[0], a, c));
       }
     else
       {
-	emit_insn(gen_mpyh_si(a, operands[1], operands[2]));
-	emit_insn(gen_mpyh_si(b, operands[2], operands[1]));
-	emit_insn(gen_mpyu_si(c, operands[1], operands[2]));
-	emit_insn(gen_addsi3(d, a, b));
-	emit_insn(gen_addsi3(operands[0], d, c));
+	emit_insn (gen_mpyh_si(a, operands[1], operands[2]));
+	emit_insn (gen_mpyh_si(b, operands[2], operands[1]));
+	emit_insn (gen_mpyu_si(c, operands[1], operands[2]));
+	emit_insn (gen_addsi3(d, a, b));
+	emit_insn (gen_addsi3(operands[0], d, c));
       }
     DONE;
    })
@@ -1172,11 +1381,11 @@
     rtx d = operands[6];
     rtx op1 = simplify_gen_subreg (V8HImode, operands[1], V4SImode, 0);
     rtx op2 = simplify_gen_subreg (V8HImode, operands[2], V4SImode, 0);
-    emit_insn(gen_spu_mpyh(a, op1, op2));
-    emit_insn(gen_spu_mpyh(b, op2, op1));
-    emit_insn(gen_spu_mpyu(c, op1, op2));
-    emit_insn(gen_addv4si3(d, a, b));
-    emit_insn(gen_addv4si3(operands[0], d, c));
+    emit_insn (gen_spu_mpyh(a, op1, op2));
+    emit_insn (gen_spu_mpyh(b, op2, op1));
+    emit_insn (gen_spu_mpyu(c, op1, op2));
+    emit_insn (gen_addv4si3(d, a, b));
+    emit_insn (gen_addv4si3(operands[0], d, c));
     DONE;
    })
 
@@ -1577,26 +1786,83 @@
   [(set_attr "type" "multi0")
    (set_attr "length" "80")])
 
-(define_insn_and_split "div<mode>3"
+(define_expand "div<mode>3"
+  [(parallel
+    [(set (match_operand:VSF 0 "spu_reg_operand" "")	
+	  (div:VSF (match_operand:VSF 1 "spu_reg_operand" "")
+		   (match_operand:VSF 2 "spu_reg_operand" "")))
+     (clobber (match_scratch:VSF 3 ""))
+     (clobber (match_scratch:VSF 4 ""))
+     (clobber (match_scratch:VSF 5 ""))])]
+  ""
+  "")
+
+(define_insn_and_split "*div<mode>3_fast"
   [(set (match_operand:VSF 0 "spu_reg_operand" "=r")
 	(div:VSF (match_operand:VSF 1 "spu_reg_operand" "r")
 		 (match_operand:VSF 2 "spu_reg_operand" "r")))
    (clobber (match_scratch:VSF 3 "=&r"))
-   (clobber (match_scratch:VSF 4 "=&r"))]
-  ""
+   (clobber (match_scratch:VSF 4 "=&r"))
+   (clobber (scratch:VSF))]
+  "flag_unsafe_math_optimizations"
   "#"
   "reload_completed"
   [(set (match_dup:VSF 0)
 	(div:VSF (match_dup:VSF 1)
 		 (match_dup:VSF 2)))
    (clobber (match_dup:VSF 3))
-   (clobber (match_dup:VSF 4))]
+   (clobber (match_dup:VSF 4))
+   (clobber (scratch:VSF))]
   {
-    emit_insn(gen_frest_<mode>(operands[3], operands[2]));
-    emit_insn(gen_fi_<mode>(operands[3], operands[2], operands[3]));
-    emit_insn(gen_mul<mode>3(operands[4], operands[1], operands[3]));
-    emit_insn(gen_fnms_<mode>(operands[0], operands[4], operands[2], operands[1]));
-    emit_insn(gen_fma_<mode>(operands[0], operands[0], operands[3], operands[4]));
+    emit_insn (gen_frest_<mode>(operands[3], operands[2]));
+    emit_insn (gen_fi_<mode>(operands[3], operands[2], operands[3]));
+    emit_insn (gen_mul<mode>3(operands[4], operands[1], operands[3]));
+    emit_insn (gen_fnms_<mode>(operands[0], operands[4], operands[2], operands[1]));
+    emit_insn (gen_fma_<mode>(operands[0], operands[0], operands[3], operands[4]));
+    DONE;
+  })
+
+(define_insn_and_split "*div<mode>3_adjusted"
+  [(set (match_operand:VSF 0 "spu_reg_operand" "=r")
+	(div:VSF (match_operand:VSF 1 "spu_reg_operand" "r")
+		 (match_operand:VSF 2 "spu_reg_operand" "r")))
+   (clobber (match_scratch:VSF 3 "=&r"))
+   (clobber (match_scratch:VSF 4 "=&r"))
+   (clobber (match_scratch:VSF 5 "=&r"))]
+  "!flag_unsafe_math_optimizations"
+  "#"
+  "reload_completed"
+  [(set (match_dup:VSF 0)
+	(div:VSF (match_dup:VSF 1)
+		 (match_dup:VSF 2)))
+   (clobber (match_dup:VSF 3))
+   (clobber (match_dup:VSF 4))
+   (clobber (match_dup:VSF 5))]
+  {
+    emit_insn (gen_frest_<mode> (operands[3], operands[2]));
+    emit_insn (gen_fi_<mode> (operands[3], operands[2], operands[3]));
+    emit_insn (gen_mul<mode>3 (operands[4], operands[1], operands[3]));
+    emit_insn (gen_fnms_<mode> (operands[5], operands[4], operands[2], operands[1]));
+    emit_insn (gen_fma_<mode> (operands[3], operands[5], operands[3], operands[4]));
+
+   /* Due to truncation error, the quotient result may be low by 1 ulp.
+      Conditionally add one if the estimate is too small in magnitude.  */
+
+    emit_move_insn (gen_lowpart (<F2I>mode, operands[4]),
+		    spu_const (<F2I>mode, 0x80000000ULL));
+    emit_move_insn (gen_lowpart (<F2I>mode, operands[5]),
+		    spu_const (<F2I>mode, 0x3f800000ULL));
+    emit_insn (gen_selb (operands[5], operands[5], operands[1], operands[4]));
+
+    emit_insn (gen_add<f2i>3 (gen_lowpart (<F2I>mode, operands[4]),
+			      gen_lowpart (<F2I>mode, operands[3]),
+			      spu_const (<F2I>mode, 1)));
+    emit_insn (gen_fnms_<mode> (operands[0], operands[2], operands[4], operands[1]));
+    emit_insn (gen_mul<mode>3 (operands[0], operands[0], operands[5]));
+    emit_insn (gen_cgt_<f2i> (gen_lowpart (<F2I>mode, operands[0]),
+			      gen_lowpart (<F2I>mode, operands[0]),
+			      spu_const (<F2I>mode, -1)));
+    emit_insn (gen_selb (operands[0], operands[3], operands[4], operands[0]));
     DONE;
   })
 
@@ -1622,12 +1888,12 @@
   {
     emit_move_insn (operands[3],spu_float_const(\"0.5\",SFmode));
     emit_move_insn (operands[4],spu_float_const(\"1.00000011920928955078125\",SFmode));
-    emit_insn(gen_frsqest_sf(operands[2],operands[1]));
-    emit_insn(gen_fi_sf(operands[2],operands[1],operands[2]));
-    emit_insn(gen_mulsf3(operands[5],operands[2],operands[1]));
-    emit_insn(gen_mulsf3(operands[3],operands[5],operands[3]));
-    emit_insn(gen_fnms_sf(operands[4],operands[2],operands[5],operands[4]));
-    emit_insn(gen_fma_sf(operands[0],operands[4],operands[3],operands[5]));
+    emit_insn (gen_frsqest_sf(operands[2],operands[1]));
+    emit_insn (gen_fi_sf(operands[2],operands[1],operands[2]));
+    emit_insn (gen_mulsf3(operands[5],operands[2],operands[1]));
+    emit_insn (gen_mulsf3(operands[3],operands[5],operands[3]));
+    emit_insn (gen_fnms_sf(operands[4],operands[2],operands[5],operands[4]));
+    emit_insn (gen_fma_sf(operands[0],operands[4],operands[3],operands[5]));
     DONE;
   })
 
@@ -1907,9 +2173,9 @@
   [(set_attr "type" "fxb")])
 
 
-;; ashl
+;; ashl, vashl
 
-(define_insn "ashl<mode>3"
+(define_insn "<v>ashl<mode>3"
   [(set (match_operand:VHSI 0 "spu_reg_operand" "=r,r")
 	(ashift:VHSI (match_operand:VHSI 1 "spu_reg_operand" "r,r")
 		     (match_operand:VHSI 2 "spu_nonmem_operand" "r,W")))]
@@ -1962,7 +2228,7 @@
   ""
   "if (GET_CODE (operands[2]) == CONST_INT)
     {
-      emit_insn(gen_ashlti3_imm(operands[0], operands[1], operands[2]));
+      emit_insn (gen_ashlti3_imm(operands[0], operands[1], operands[2]));
       DONE;
     }
    operands[3] = gen_reg_rtx (TImode);")
@@ -2041,9 +2307,9 @@
   [(set_attr "type" "shuf,shuf")])
 
 
-;; lshr
+;; lshr, vlshr
 
-(define_insn_and_split "lshr<mode>3"
+(define_insn_and_split "<v>lshr<mode>3"
   [(set (match_operand:VHSI 0 "spu_reg_operand" "=r,r")
 	(lshiftrt:VHSI (match_operand:VHSI 1 "spu_reg_operand" "r,r")
 		       (match_operand:VHSI 2 "spu_nonmem_operand" "r,W")))
@@ -2082,7 +2348,7 @@
   ""
   "if (GET_CODE (operands[2]) == CONST_INT)
     {
-      emit_insn(gen_lshr<mode>3_imm(operands[0], operands[1], operands[2]));
+      emit_insn (gen_lshr<mode>3_imm(operands[0], operands[1], operands[2]));
       DONE;
     }
    operands[3] = gen_reg_rtx (<MODE>mode);
@@ -2131,9 +2397,30 @@
 					     (const_int -8)))
 			     (const_int -8))))]
   {
-    emit_insn(gen_subsi3(operands[4], GEN_INT(0), operands[2]));
-    emit_insn(gen_subsi3(operands[5], GEN_INT(7), operands[2]));
+    emit_insn (gen_subsi3(operands[4], GEN_INT(0), operands[2]));
+    emit_insn (gen_subsi3(operands[5], GEN_INT(7), operands[2]));
   })
+
+(define_insn_and_split "shrqbybi_<mode>"
+  [(set (match_operand:DTI 0 "spu_reg_operand" "=r,r")
+	(lshiftrt:DTI (match_operand:DTI 1 "spu_reg_operand" "r,r")
+		      (and:SI (match_operand:SI 2 "spu_nonmem_operand" "r,I")
+			      (const_int -8))))
+   (clobber (match_scratch:SI 3 "=&r,X"))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup:DTI 0)
+	(lshiftrt:DTI (match_dup:DTI 1)
+		      (and:SI (neg:SI (and:SI (match_dup:SI 3) (const_int -8)))
+			      (const_int -8))))]
+  {
+    if (GET_CODE (operands[2]) == CONST_INT)
+      operands[3] = GEN_INT (7 - INTVAL (operands[2]));
+    else
+      emit_insn (gen_subsi3 (operands[3], GEN_INT (7), operands[2]));
+  }
+  [(set_attr "type" "shuf")])
 
 (define_insn "rotqmbybi_<mode>"
   [(set (match_operand:DTI 0 "spu_reg_operand" "=r,r")
@@ -2147,6 +2434,26 @@
    rotqmbyi\t%0,%1,-%H2"
   [(set_attr "type" "shuf")])
 
+(define_insn_and_split "shrqbi_<mode>"
+  [(set (match_operand:DTI 0 "spu_reg_operand" "=r,r")
+	(lshiftrt:DTI (match_operand:DTI 1 "spu_reg_operand" "r,r")
+		      (and:SI (match_operand:SI 2 "spu_nonmem_operand" "r,I")
+			      (const_int 7))))
+   (clobber (match_scratch:SI 3 "=&r,X"))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup:DTI 0)
+	(lshiftrt:DTI (match_dup:DTI 1)
+		      (and:SI (neg:SI (match_dup:SI 3)) (const_int 7))))]
+  {
+    if (GET_CODE (operands[2]) == CONST_INT)
+      operands[3] = GEN_INT (-INTVAL (operands[2]));
+    else
+      emit_insn (gen_subsi3 (operands[3], GEN_INT (0), operands[2]));
+  }
+  [(set_attr "type" "shuf")])
+
 (define_insn "rotqmbi_<mode>"
   [(set (match_operand:DTI 0 "spu_reg_operand" "=r,r")
 	(lshiftrt:DTI (match_operand:DTI 1 "spu_reg_operand" "r,r")
@@ -2156,6 +2463,26 @@
   "@
    rotqmbi\t%0,%1,%2
    rotqmbii\t%0,%1,-%E2"
+  [(set_attr "type" "shuf")])
+
+(define_insn_and_split "shrqby_<mode>"
+  [(set (match_operand:DTI 0 "spu_reg_operand" "=r,r")
+	(lshiftrt:DTI (match_operand:DTI 1 "spu_reg_operand" "r,r")
+		      (mult:SI (match_operand:SI 2 "spu_nonmem_operand" "r,I")
+			       (const_int 8))))
+   (clobber (match_scratch:SI 3 "=&r,X"))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup:DTI 0)
+	(lshiftrt:DTI (match_dup:DTI 1)
+		      (mult:SI (neg:SI (match_dup:SI 3)) (const_int 8))))]
+  {
+    if (GET_CODE (operands[2]) == CONST_INT)
+      operands[3] = GEN_INT (-INTVAL (operands[2]));
+    else
+      emit_insn (gen_subsi3 (operands[3], GEN_INT (0), operands[2]));
+  }
   [(set_attr "type" "shuf")])
 
 (define_insn "rotqmby_<mode>"
@@ -2170,9 +2497,9 @@
   [(set_attr "type" "shuf")])
 
 
-;; ashr
+;; ashr, vashr
 
-(define_insn_and_split "ashr<mode>3"
+(define_insn_and_split "<v>ashr<mode>3"
   [(set (match_operand:VHSI 0 "spu_reg_operand" "=r,r")
 	(ashiftrt:VHSI (match_operand:VHSI 1 "spu_reg_operand" "r,r")
 		       (match_operand:VHSI 2 "spu_nonmem_operand" "r,W")))
@@ -2237,7 +2564,7 @@
 	emit_insn (gen_lshrti3 (op0, op1, GEN_INT (32)));
 	emit_insn (gen_spu_xswd (op0d, op0v));
         if (val > 32)
-	  emit_insn (gen_ashrv4si3 (op0v, op0v, spu_const (V4SImode, val - 32)));
+	  emit_insn (gen_vashrv4si3 (op0v, op0v, spu_const (V4SImode, val - 32)));
       }
     else
       {
@@ -2286,7 +2613,7 @@
     rtx op1_v4si = spu_gen_subreg (V4SImode, operands[1]);
     rtx t = gen_reg_rtx (TImode);
     emit_insn (gen_subsi3 (sign_shift, GEN_INT (128), force_reg (SImode, operands[2])));
-    emit_insn (gen_ashrv4si3 (sign_mask_v4si, op1_v4si, spu_const (V4SImode, 31)));
+    emit_insn (gen_vashrv4si3 (sign_mask_v4si, op1_v4si, spu_const (V4SImode, 31)));
     emit_insn (gen_fsm_ti (sign_mask, sign_mask));
     emit_insn (gen_ashlti3 (sign_mask, sign_mask, sign_shift));
     emit_insn (gen_lshrti3 (t, operands[1], operands[2]));
@@ -2303,9 +2630,9 @@
   [(set_attr "type" "shuf")])
 
 
-;; rotl
+;; vrotl, rotl
 
-(define_insn "rotl<mode>3"
+(define_insn "<v>rotl<mode>3"
   [(set (match_operand:VHSI 0 "spu_reg_operand" "=r,r")
 	(rotate:VHSI (match_operand:VHSI 1 "spu_reg_operand" "r,r")
 		     (match_operand:VHSI 2 "spu_nonmem_operand" "r,W")))]
@@ -2493,27 +2820,211 @@
    (set_attr "length" "12")])
 
 (define_insn "ceq_<mode>"
-  [(set (match_operand:<f2i> 0 "spu_reg_operand" "=r")
-	(eq:<f2i> (match_operand:VSF 1 "spu_reg_operand" "r")
+  [(set (match_operand:<F2I> 0 "spu_reg_operand" "=r")
+	(eq:<F2I> (match_operand:VSF 1 "spu_reg_operand" "r")
 		  (match_operand:VSF 2 "spu_reg_operand" "r")))]
   ""
   "fceq\t%0,%1,%2")
 
 (define_insn "cmeq_<mode>"
-  [(set (match_operand:<f2i> 0 "spu_reg_operand" "=r")
-	(eq:<f2i> (abs:VSF (match_operand:VSF 1 "spu_reg_operand" "r"))
+  [(set (match_operand:<F2I> 0 "spu_reg_operand" "=r")
+	(eq:<F2I> (abs:VSF (match_operand:VSF 1 "spu_reg_operand" "r"))
 	          (abs:VSF (match_operand:VSF 2 "spu_reg_operand" "r"))))]
   ""
   "fcmeq\t%0,%1,%2")
 
-(define_insn "ceq_vec"
+;; These implementations will ignore checking of NaN or INF if
+;; compiled with option -ffinite-math-only.
+(define_expand "ceq_df"
   [(set (match_operand:SI 0 "spu_reg_operand" "=r")
-	(eq:SI (match_operand 1 "spu_reg_operand" "r")
-	       (match_operand 2 "spu_reg_operand" "r")))]
-  "VECTOR_MODE_P(GET_MODE(operands[1]))
-   && GET_MODE(operands[1]) == GET_MODE(operands[2])"
-  "ceq\t%0,%1,%2\;gb\t%0,%0\;ceqi\t%0,%0,15"
-  [(set_attr "length" "12")])
+        (eq:SI (match_operand:DF 1 "spu_reg_operand" "r")
+               (match_operand:DF 2 "const_zero_operand" "i")))]
+  ""
+{
+  if (spu_arch == PROCESSOR_CELL)
+      {
+        rtx ra = gen_reg_rtx (V4SImode);
+        rtx rb = gen_reg_rtx (V4SImode);
+        rtx temp = gen_reg_rtx (TImode);
+        rtx temp_v4si = spu_gen_subreg (V4SImode, temp);
+        rtx temp2 = gen_reg_rtx (V4SImode);
+        rtx biteq = gen_reg_rtx (V4SImode);
+        rtx ahi_inf = gen_reg_rtx (V4SImode);
+        rtx a_nan = gen_reg_rtx (V4SImode);
+        rtx a_abs = gen_reg_rtx (V4SImode);
+        rtx b_abs = gen_reg_rtx (V4SImode);
+        rtx iszero = gen_reg_rtx (V4SImode);
+        rtx sign_mask = gen_reg_rtx (V4SImode);
+        rtx nan_mask = gen_reg_rtx (V4SImode);
+        rtx hihi_promote = gen_reg_rtx (TImode);
+        rtx pat = spu_const_from_ints (V4SImode, 0x7FFFFFFF, 0xFFFFFFFF,
+                                                 0x7FFFFFFF, 0xFFFFFFFF);
+
+        emit_move_insn (sign_mask, pat);
+        pat = spu_const_from_ints (V4SImode, 0x7FF00000, 0x0,
+                                             0x7FF00000, 0x0);
+        emit_move_insn (nan_mask, pat);
+        pat = spu_const_from_ints (TImode, 0x00010203, 0x10111213,
+                                           0x08090A0B, 0x18191A1B);
+        emit_move_insn (hihi_promote, pat);
+
+        emit_insn (gen_spu_convert (ra, operands[1]));
+        emit_insn (gen_spu_convert (rb, operands[2]));
+        emit_insn (gen_ceq_v4si (biteq, ra, rb));
+        emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, biteq),
+				GEN_INT (4 * 8)));
+        emit_insn (gen_andv4si3 (biteq, biteq, temp_v4si));
+
+        emit_insn (gen_andv4si3 (a_abs, ra, sign_mask));
+        emit_insn (gen_andv4si3 (b_abs, rb, sign_mask));
+	if (!flag_finite_math_only)
+          {
+            emit_insn (gen_clgt_v4si (a_nan, a_abs, nan_mask));
+            emit_insn (gen_ceq_v4si (ahi_inf, a_abs, nan_mask));
+            emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, a_nan),
+                                   GEN_INT (4 * 8)));
+            emit_insn (gen_andv4si3 (temp2, temp_v4si, ahi_inf));
+            emit_insn (gen_iorv4si3 (a_nan, a_nan, temp2));
+	  }
+        emit_insn (gen_iorv4si3 (temp2, a_abs, b_abs));
+        emit_insn (gen_ceq_v4si (iszero, temp2, CONST0_RTX (V4SImode)));
+        emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, iszero),
+				GEN_INT (4 * 8)));
+        emit_insn (gen_andv4si3 (iszero, iszero, temp_v4si));
+        emit_insn (gen_iorv4si3 (temp2, biteq, iszero));
+	if (!flag_finite_math_only)
+          {
+            emit_insn (gen_andc_v4si (temp2, temp2, a_nan));
+	  }
+        emit_insn (gen_shufb (operands[0], temp2, temp2, hihi_promote));
+        DONE;
+      }
+})
+
+(define_insn "ceq_<mode>_celledp"
+  [(set (match_operand:<DF2I> 0 "spu_reg_operand" "=r")
+        (eq:<DF2I> (match_operand:VDF 1 "spu_reg_operand" "r")
+                   (match_operand:VDF 2 "spu_reg_operand" "r")))]
+  "spu_arch == PROCESSOR_CELLEDP"
+  "dfceq\t%0,%1,%2"
+  [(set_attr "type" "fpd")])
+
+(define_insn "cmeq_<mode>_celledp"
+  [(set (match_operand:<DF2I> 0 "spu_reg_operand" "=r")
+        (eq:<DF2I> (abs:VDF (match_operand:VDF 1 "spu_reg_operand" "r"))
+                   (abs:VDF (match_operand:VDF 2 "spu_reg_operand" "r"))))]
+  "spu_arch == PROCESSOR_CELLEDP"
+  "dfcmeq\t%0,%1,%2"
+  [(set_attr "type" "fpd")])
+
+(define_expand "ceq_v2df"
+  [(set (match_operand:V2DI 0 "spu_reg_operand" "=r")
+        (eq:V2DI (match_operand:V2DF 1 "spu_reg_operand" "r")
+                 (match_operand:V2DF 2 "spu_reg_operand" "r")))]
+  ""
+{
+  if (spu_arch == PROCESSOR_CELL)
+    {
+      rtx ra = spu_gen_subreg (V4SImode, operands[1]);
+      rtx rb = spu_gen_subreg (V4SImode, operands[2]);
+      rtx temp = gen_reg_rtx (TImode);
+      rtx temp_v4si = spu_gen_subreg (V4SImode, temp);
+      rtx temp2 = gen_reg_rtx (V4SImode);
+      rtx biteq = gen_reg_rtx (V4SImode);
+      rtx ahi_inf = gen_reg_rtx (V4SImode);
+      rtx a_nan = gen_reg_rtx (V4SImode);
+      rtx a_abs = gen_reg_rtx (V4SImode);
+      rtx b_abs = gen_reg_rtx (V4SImode);
+      rtx iszero = gen_reg_rtx (V4SImode);
+      rtx pat = spu_const_from_ints (V4SImode, 0x7FFFFFFF, 0xFFFFFFFF,
+                                               0x7FFFFFFF, 0xFFFFFFFF);
+      rtx sign_mask = gen_reg_rtx (V4SImode);
+      rtx nan_mask = gen_reg_rtx (V4SImode);
+      rtx hihi_promote = gen_reg_rtx (TImode);
+
+      emit_move_insn (sign_mask, pat);
+      pat = spu_const_from_ints (V4SImode, 0x7FF00000, 0x0, 
+					     0x7FF00000, 0x0);
+      emit_move_insn (nan_mask, pat);
+      pat = spu_const_from_ints (TImode, 0x00010203, 0x10111213, 
+					   0x08090A0B, 0x18191A1B);
+      emit_move_insn (hihi_promote, pat);
+
+      emit_insn (gen_ceq_v4si (biteq, ra, rb));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, biteq), 
+                              GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (biteq, biteq, temp_v4si));
+      emit_insn (gen_andv4si3 (a_abs, ra, sign_mask));
+      emit_insn (gen_andv4si3 (b_abs, rb, sign_mask));
+      emit_insn (gen_clgt_v4si (a_nan, a_abs, nan_mask));
+      emit_insn (gen_ceq_v4si (ahi_inf, a_abs, nan_mask));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, a_nan), 
+                              GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (temp2, temp_v4si, ahi_inf));
+      emit_insn (gen_iorv4si3 (a_nan, a_nan, temp2));
+      emit_insn (gen_iorv4si3 (temp2, a_abs, b_abs));
+      emit_insn (gen_ceq_v4si (iszero, temp2, CONST0_RTX (V4SImode)));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, iszero), 
+                              GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (iszero, iszero, temp_v4si));
+      emit_insn (gen_iorv4si3 (temp2, biteq, iszero));
+      emit_insn (gen_andc_v4si (temp2, temp2, a_nan));
+      emit_insn (gen_shufb (operands[0], temp2, temp2, hihi_promote));
+      DONE;
+  }
+})
+
+(define_expand "cmeq_v2df"
+  [(set (match_operand:V2DI 0 "spu_reg_operand" "=r")
+        (eq:V2DI (abs:V2DF (match_operand:V2DF 1 "spu_reg_operand" "r"))
+                 (abs:V2DF (match_operand:V2DF 2 "spu_reg_operand" "r"))))]
+  ""
+{
+  if (spu_arch == PROCESSOR_CELL)
+    {
+      rtx ra = spu_gen_subreg (V4SImode, operands[1]);
+      rtx rb = spu_gen_subreg (V4SImode, operands[2]);
+      rtx temp = gen_reg_rtx (TImode);
+      rtx temp_v4si = spu_gen_subreg (V4SImode, temp);
+      rtx temp2 = gen_reg_rtx (V4SImode);
+      rtx biteq = gen_reg_rtx (V4SImode);
+      rtx ahi_inf = gen_reg_rtx (V4SImode);
+      rtx a_nan = gen_reg_rtx (V4SImode);
+      rtx a_abs = gen_reg_rtx (V4SImode);
+      rtx b_abs = gen_reg_rtx (V4SImode);
+
+      rtx pat = spu_const_from_ints (V4SImode, 0x7FFFFFFF, 0xFFFFFFFF, 
+                                               0x7FFFFFFF, 0xFFFFFFFF);
+      rtx sign_mask = gen_reg_rtx (V4SImode);
+      rtx nan_mask = gen_reg_rtx (V4SImode);
+      rtx hihi_promote = gen_reg_rtx (TImode);
+
+      emit_move_insn (sign_mask, pat);
+
+      pat = spu_const_from_ints (V4SImode, 0x7FF00000, 0x0, 
+                                           0x7FF00000, 0x0);
+      emit_move_insn (nan_mask, pat);
+      pat = spu_const_from_ints (TImode, 0x00010203, 0x10111213, 
+                                         0x08090A0B, 0x18191A1B);
+      emit_move_insn (hihi_promote, pat);
+
+      emit_insn (gen_andv4si3 (a_abs, ra, sign_mask));
+      emit_insn (gen_andv4si3 (b_abs, rb, sign_mask));
+      emit_insn (gen_ceq_v4si (biteq, a_abs, b_abs));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, biteq), 
+                                                    GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (biteq, biteq, temp_v4si));
+      emit_insn (gen_clgt_v4si (a_nan, a_abs, nan_mask));
+      emit_insn (gen_ceq_v4si (ahi_inf, a_abs, nan_mask));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, a_nan), 
+                                                    GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (temp2, temp_v4si, ahi_inf));
+      emit_insn (gen_iorv4si3 (a_nan, a_nan, temp2));
+      emit_insn (gen_andc_v4si (temp2, biteq, a_nan));
+      emit_insn (gen_shufb (operands[0], temp2, temp2, hihi_promote));
+      DONE;
+  }
+})
 
 
 ;; cgt
@@ -2584,18 +3095,290 @@ selb\t%0,%5,%0,%3"
    (set_attr "length" "36")])
 
 (define_insn "cgt_<mode>"
-  [(set (match_operand:<f2i> 0 "spu_reg_operand" "=r")
-	(gt:<f2i> (match_operand:VSF 1 "spu_reg_operand" "r")
+  [(set (match_operand:<F2I> 0 "spu_reg_operand" "=r")
+	(gt:<F2I> (match_operand:VSF 1 "spu_reg_operand" "r")
 		  (match_operand:VSF 2 "spu_reg_operand" "r")))]
   ""
   "fcgt\t%0,%1,%2")
 
 (define_insn "cmgt_<mode>"
-  [(set (match_operand:<f2i> 0 "spu_reg_operand" "=r")
-	(gt:<f2i> (abs:VSF (match_operand:VSF 1 "spu_reg_operand" "r"))
+  [(set (match_operand:<F2I> 0 "spu_reg_operand" "=r")
+	(gt:<F2I> (abs:VSF (match_operand:VSF 1 "spu_reg_operand" "r"))
 		  (abs:VSF (match_operand:VSF 2 "spu_reg_operand" "r"))))]
   ""
   "fcmgt\t%0,%1,%2")
+
+(define_expand "cgt_df"
+  [(set (match_operand:SI 0 "spu_reg_operand" "=r")
+        (gt:SI (match_operand:DF 1 "spu_reg_operand" "r")
+               (match_operand:DF 2 "const_zero_operand" "i")))]
+  ""
+{
+  if (spu_arch == PROCESSOR_CELL)
+    {
+      rtx ra = gen_reg_rtx (V4SImode);
+      rtx rb = gen_reg_rtx (V4SImode);
+      rtx zero = gen_reg_rtx (V4SImode);
+      rtx temp = gen_reg_rtx (TImode);
+      rtx temp_v4si = spu_gen_subreg (V4SImode, temp);
+      rtx temp2 = gen_reg_rtx (V4SImode);
+      rtx hi_inf = gen_reg_rtx (V4SImode);
+      rtx a_nan = gen_reg_rtx (V4SImode);
+      rtx b_nan = gen_reg_rtx (V4SImode);
+      rtx a_abs = gen_reg_rtx (V4SImode);
+      rtx b_abs = gen_reg_rtx (V4SImode);
+      rtx asel = gen_reg_rtx (V4SImode);
+      rtx bsel = gen_reg_rtx (V4SImode);
+      rtx abor = gen_reg_rtx (V4SImode);
+      rtx bbor = gen_reg_rtx (V4SImode);
+      rtx gt_hi = gen_reg_rtx (V4SImode);
+      rtx gt_lo = gen_reg_rtx (V4SImode);
+      rtx sign_mask = gen_reg_rtx (V4SImode);
+      rtx nan_mask = gen_reg_rtx (V4SImode);
+      rtx hi_promote = gen_reg_rtx (TImode);
+      rtx borrow_shuffle = gen_reg_rtx (TImode);
+
+      rtx pat = spu_const_from_ints (V4SImode, 0x7FFFFFFF, 0xFFFFFFFF,
+                                               0x7FFFFFFF, 0xFFFFFFFF);
+      emit_move_insn (sign_mask, pat);
+      pat = spu_const_from_ints (V4SImode, 0x7FF00000, 0x0,
+                                             0x7FF00000, 0x0);
+      emit_move_insn (nan_mask, pat);
+      pat = spu_const_from_ints (TImode, 0x00010203, 0x00010203,
+                                         0x08090A0B, 0x08090A0B);
+      emit_move_insn (hi_promote, pat);
+      pat = spu_const_from_ints (TImode, 0x04050607, 0xC0C0C0C0,
+                                         0x0C0D0E0F, 0xC0C0C0C0);
+      emit_move_insn (borrow_shuffle, pat);
+
+      emit_insn (gen_spu_convert (ra, operands[1]));
+      emit_insn (gen_spu_convert (rb, operands[2]));
+      emit_insn (gen_andv4si3 (a_abs, ra, sign_mask));
+      emit_insn (gen_andv4si3 (b_abs, rb, sign_mask));
+
+      if (!flag_finite_math_only)
+	{
+	  /* check if ra is NaN  */
+          emit_insn (gen_ceq_v4si (hi_inf, a_abs, nan_mask));
+          emit_insn (gen_clgt_v4si (a_nan, a_abs, nan_mask));
+          emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, a_nan),
+                                  GEN_INT (4 * 8)));
+          emit_insn (gen_andv4si3 (temp2, temp_v4si, hi_inf));
+          emit_insn (gen_iorv4si3 (a_nan, a_nan, temp2));
+          emit_insn (gen_shufb (a_nan, a_nan, a_nan, hi_promote));
+
+	  /* check if rb is NaN  */
+          emit_insn (gen_ceq_v4si (hi_inf, b_abs, nan_mask));
+          emit_insn (gen_clgt_v4si (b_nan, b_abs, nan_mask));
+          emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, b_nan),
+                                  GEN_INT (4 * 8)));
+          emit_insn (gen_andv4si3 (temp2, temp_v4si, hi_inf));
+          emit_insn (gen_iorv4si3 (b_nan, b_nan, temp2));
+          emit_insn (gen_shufb (b_nan, b_nan, b_nan, hi_promote));
+
+	  /* check if ra or rb is NaN  */
+          emit_insn (gen_iorv4si3 (a_nan, a_nan, b_nan));
+	}
+      emit_move_insn (zero, CONST0_RTX (V4SImode));
+      emit_insn (gen_vashrv4si3 (asel, ra, spu_const (V4SImode, 31)));
+      emit_insn (gen_shufb (asel, asel, asel, hi_promote));
+      emit_insn (gen_bg_v4si (abor, zero, a_abs));
+      emit_insn (gen_shufb (abor, abor, abor, borrow_shuffle));
+      emit_insn (gen_sfx_v4si (abor, zero, a_abs, abor));
+      emit_insn (gen_selb (abor, a_abs, abor, asel));
+
+      emit_insn (gen_vashrv4si3 (bsel, rb, spu_const (V4SImode, 31)));
+      emit_insn (gen_shufb (bsel, bsel, bsel, hi_promote));
+      emit_insn (gen_bg_v4si (bbor, zero, b_abs));
+      emit_insn (gen_shufb (bbor, bbor, bbor, borrow_shuffle));
+      emit_insn (gen_sfx_v4si (bbor, zero, b_abs, bbor));
+      emit_insn (gen_selb (bbor, b_abs, bbor, bsel));
+
+      emit_insn (gen_cgt_v4si (gt_hi, abor, bbor));
+      emit_insn (gen_clgt_v4si (gt_lo, abor, bbor));
+      emit_insn (gen_ceq_v4si (temp2, abor, bbor));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, gt_lo),
+                                GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (temp2, temp2, temp_v4si));
+      emit_insn (gen_iorv4si3 (temp2, gt_hi, temp2));
+      emit_insn (gen_shufb (temp2, temp2, temp2, hi_promote));
+      if (!flag_finite_math_only)
+        {
+	  /* correct for NaNs  */
+          emit_insn (gen_andc_v4si (temp2, temp2, a_nan));
+	}
+      emit_insn (gen_spu_convert (operands[0], temp2));
+      DONE;
+    }
+})
+
+(define_insn "cgt_<mode>_celledp"
+  [(set (match_operand:<DF2I> 0 "spu_reg_operand" "=r")
+        (gt:<DF2I> (match_operand:VDF 1 "spu_reg_operand" "r")
+                   (match_operand:VDF 2 "spu_reg_operand" "r")))]
+  "spu_arch == PROCESSOR_CELLEDP"
+  "dfcgt\t%0,%1,%2"
+  [(set_attr "type" "fpd")])
+
+(define_insn "cmgt_<mode>_celledp"
+  [(set (match_operand:<DF2I> 0 "spu_reg_operand" "=r")
+        (gt:<DF2I> (abs:VDF (match_operand:VDF 1 "spu_reg_operand" "r"))
+                   (abs:VDF (match_operand:VDF 2 "spu_reg_operand" "r"))))]
+  "spu_arch == PROCESSOR_CELLEDP"
+  "dfcmgt\t%0,%1,%2"
+  [(set_attr "type" "fpd")])
+
+(define_expand "cgt_v2df"
+  [(set (match_operand:V2DI 0 "spu_reg_operand" "=r")
+        (gt:V2DI (match_operand:V2DF 1 "spu_reg_operand" "r")
+                 (match_operand:V2DF 2 "spu_reg_operand" "r")))]
+  ""
+{
+  if (spu_arch == PROCESSOR_CELL)
+    {
+      rtx ra = spu_gen_subreg (V4SImode, operands[1]);
+      rtx rb = spu_gen_subreg (V4SImode, operands[2]);
+      rtx zero = gen_reg_rtx (V4SImode);
+      rtx temp = gen_reg_rtx (TImode);
+      rtx temp_v4si = spu_gen_subreg (V4SImode, temp);
+      rtx temp2 = gen_reg_rtx (V4SImode);
+      rtx hi_inf = gen_reg_rtx (V4SImode);
+      rtx a_nan = gen_reg_rtx (V4SImode);
+      rtx b_nan = gen_reg_rtx (V4SImode);
+      rtx a_abs = gen_reg_rtx (V4SImode);
+      rtx b_abs = gen_reg_rtx (V4SImode);
+      rtx asel = gen_reg_rtx (V4SImode);
+      rtx bsel = gen_reg_rtx (V4SImode);
+      rtx abor = gen_reg_rtx (V4SImode);
+      rtx bbor = gen_reg_rtx (V4SImode);
+      rtx gt_hi = gen_reg_rtx (V4SImode);
+      rtx gt_lo = gen_reg_rtx (V4SImode);
+      rtx sign_mask = gen_reg_rtx (V4SImode);
+      rtx nan_mask = gen_reg_rtx (V4SImode);
+      rtx hi_promote = gen_reg_rtx (TImode);
+      rtx borrow_shuffle = gen_reg_rtx (TImode);
+      rtx pat = spu_const_from_ints (V4SImode, 0x7FFFFFFF, 0xFFFFFFFF, 
+                                               0x7FFFFFFF, 0xFFFFFFFF);
+      emit_move_insn (sign_mask, pat);
+      pat = spu_const_from_ints (V4SImode, 0x7FF00000, 0x0, 
+                                           0x7FF00000, 0x0);
+      emit_move_insn (nan_mask, pat);
+      pat = spu_const_from_ints (TImode, 0x00010203, 0x00010203, 
+                                         0x08090A0B, 0x08090A0B);
+      emit_move_insn (hi_promote, pat);
+      pat = spu_const_from_ints (TImode, 0x04050607, 0xC0C0C0C0, 
+                                         0x0C0D0E0F, 0xC0C0C0C0);
+      emit_move_insn (borrow_shuffle, pat);
+
+      emit_insn (gen_andv4si3 (a_abs, ra, sign_mask));
+      emit_insn (gen_ceq_v4si (hi_inf, a_abs, nan_mask));
+      emit_insn (gen_clgt_v4si (a_nan, a_abs, nan_mask));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, a_nan), 
+                                                    GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (temp2, temp_v4si, hi_inf));
+      emit_insn (gen_iorv4si3 (a_nan, a_nan, temp2));
+      emit_insn (gen_shufb (a_nan, a_nan, a_nan, hi_promote));
+      emit_insn (gen_andv4si3 (b_abs, rb, sign_mask));
+      emit_insn (gen_ceq_v4si (hi_inf, b_abs, nan_mask));
+      emit_insn (gen_clgt_v4si (b_nan, b_abs, nan_mask));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, b_nan), 
+                                                    GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (temp2, temp_v4si, hi_inf));
+      emit_insn (gen_iorv4si3 (b_nan, b_nan, temp2));
+      emit_insn (gen_shufb (b_nan, b_nan, b_nan, hi_promote));
+      emit_insn (gen_iorv4si3 (a_nan, a_nan, b_nan));
+      emit_move_insn (zero, CONST0_RTX (V4SImode));
+      emit_insn (gen_vashrv4si3 (asel, ra, spu_const (V4SImode, 31)));
+      emit_insn (gen_shufb (asel, asel, asel, hi_promote));
+      emit_insn (gen_bg_v4si (abor, zero, a_abs));
+      emit_insn (gen_shufb (abor, abor, abor, borrow_shuffle));
+      emit_insn (gen_sfx_v4si (abor, zero, a_abs, abor));
+      emit_insn (gen_selb (abor, a_abs, abor, asel));
+      emit_insn (gen_vashrv4si3 (bsel, rb, spu_const (V4SImode, 31)));
+      emit_insn (gen_shufb (bsel, bsel, bsel, hi_promote));
+      emit_insn (gen_bg_v4si (bbor, zero, b_abs));
+      emit_insn (gen_shufb (bbor, bbor, bbor, borrow_shuffle));
+      emit_insn (gen_sfx_v4si (bbor, zero, b_abs, bbor));
+      emit_insn (gen_selb (bbor, b_abs, bbor, bsel));
+      emit_insn (gen_cgt_v4si (gt_hi, abor, bbor));
+      emit_insn (gen_clgt_v4si (gt_lo, abor, bbor));
+      emit_insn (gen_ceq_v4si (temp2, abor, bbor));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, gt_lo), 
+                                                    GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (temp2, temp2, temp_v4si));
+      emit_insn (gen_iorv4si3 (temp2, gt_hi, temp2));
+
+      emit_insn (gen_shufb (temp2, temp2, temp2, hi_promote));
+      emit_insn (gen_andc_v4si (temp2, temp2, a_nan));
+      emit_move_insn (operands[0], spu_gen_subreg (V2DImode, temp2));
+      DONE;
+    } 
+})
+
+(define_expand "cmgt_v2df"
+  [(set (match_operand:V2DI 0 "spu_reg_operand" "=r")
+        (gt:V2DI (abs:V2DF (match_operand:V2DF 1 "spu_reg_operand" "r"))
+                 (abs:V2DF (match_operand:V2DF 2 "spu_reg_operand" "r"))))]
+  ""
+{
+  if (spu_arch == PROCESSOR_CELL)
+    {
+      rtx ra = spu_gen_subreg (V4SImode, operands[1]);
+      rtx rb = spu_gen_subreg (V4SImode, operands[2]);
+      rtx temp = gen_reg_rtx (TImode);
+      rtx temp_v4si = spu_gen_subreg (V4SImode, temp);
+      rtx temp2 = gen_reg_rtx (V4SImode);
+      rtx hi_inf = gen_reg_rtx (V4SImode);
+      rtx a_nan = gen_reg_rtx (V4SImode);
+      rtx b_nan = gen_reg_rtx (V4SImode);
+      rtx a_abs = gen_reg_rtx (V4SImode);
+      rtx b_abs = gen_reg_rtx (V4SImode);
+      rtx gt_hi = gen_reg_rtx (V4SImode);
+      rtx gt_lo = gen_reg_rtx (V4SImode);
+      rtx sign_mask = gen_reg_rtx (V4SImode);
+      rtx nan_mask = gen_reg_rtx (V4SImode);
+      rtx hi_promote = gen_reg_rtx (TImode);
+      rtx pat = spu_const_from_ints (V4SImode, 0x7FFFFFFF, 0xFFFFFFFF, 
+                                               0x7FFFFFFF, 0xFFFFFFFF);
+      emit_move_insn (sign_mask, pat);
+      pat = spu_const_from_ints (V4SImode, 0x7FF00000, 0x0, 
+                                           0x7FF00000, 0x0);
+      emit_move_insn (nan_mask, pat);
+      pat = spu_const_from_ints (TImode, 0x00010203, 0x00010203, 
+                                         0x08090A0B, 0x08090A0B);
+      emit_move_insn (hi_promote, pat);
+
+      emit_insn (gen_andv4si3 (a_abs, ra, sign_mask));
+      emit_insn (gen_ceq_v4si (hi_inf, a_abs, nan_mask));
+      emit_insn (gen_clgt_v4si (a_nan, a_abs, nan_mask));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, a_nan), 
+                                                    GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (temp2, temp_v4si, hi_inf));
+      emit_insn (gen_iorv4si3 (a_nan, a_nan, temp2));
+      emit_insn (gen_shufb (a_nan, a_nan, a_nan, hi_promote));
+      emit_insn (gen_andv4si3 (b_abs, rb, sign_mask));
+      emit_insn (gen_ceq_v4si (hi_inf, b_abs, nan_mask));
+      emit_insn (gen_clgt_v4si (b_nan, b_abs, nan_mask));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, b_nan), 
+                                                    GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (temp2, temp_v4si, hi_inf));
+      emit_insn (gen_iorv4si3 (b_nan, b_nan, temp2));
+      emit_insn (gen_shufb (b_nan, b_nan, b_nan, hi_promote));
+      emit_insn (gen_iorv4si3 (a_nan, a_nan, b_nan));
+
+      emit_insn (gen_clgt_v4si (gt_hi, a_abs, b_abs));
+      emit_insn (gen_clgt_v4si (gt_lo, a_abs, b_abs));
+      emit_insn (gen_ceq_v4si (temp2, a_abs, b_abs));
+      emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, gt_lo), 
+                                                    GEN_INT (4 * 8)));
+      emit_insn (gen_andv4si3 (temp2, temp2, temp_v4si));
+      emit_insn (gen_iorv4si3 (temp2, gt_hi, temp2));
+      emit_insn (gen_shufb (temp2, temp2, temp2, hi_promote));
+      emit_insn (gen_andc_v4si (temp2, temp2, a_nan));
+      emit_move_insn (operands[0], spu_gen_subreg (V2DImode, temp2));
+      DONE;
+    }
+})
 
 
 ;; clgt
@@ -2656,6 +3439,152 @@ selb\t%0,%4,%0,%3"
    (set_attr "length" "32")])
 
 
+;; dftsv
+(define_insn "dftsv_celledp"
+  [(set (match_operand:V2DI 0 "spu_reg_operand" "=r")
+        (unspec:V2DI [(match_operand:V2DF 1 "spu_reg_operand"  "r")
+		      (match_operand:SI   2 "const_int_operand" "i")]
+		      UNSPEC_DFTSV))]
+  "spu_arch == PROCESSOR_CELLEDP"
+  "dftsv\t%0,%1,%2"
+  [(set_attr "type" "fpd")])
+
+(define_expand "dftsv"
+  [(set (match_operand:V2DI 0 "spu_reg_operand" "=r")
+        (unspec:V2DI [(match_operand:V2DF 1 "spu_reg_operand" "r")
+		      (match_operand:SI   2 "const_int_operand" "i")]
+		      UNSPEC_DFTSV))]
+  ""
+{
+  if (spu_arch == PROCESSOR_CELL)
+    {
+      rtx result = gen_reg_rtx (V4SImode);
+      emit_move_insn (result, CONST0_RTX (V4SImode));
+
+      if (INTVAL (operands[2]))
+        {
+          rtx ra = spu_gen_subreg (V4SImode, operands[1]);
+          rtx abs = gen_reg_rtx (V4SImode);
+          rtx sign = gen_reg_rtx (V4SImode);
+          rtx temp = gen_reg_rtx (TImode);
+          rtx temp_v4si = spu_gen_subreg (V4SImode, temp);
+          rtx temp2 = gen_reg_rtx (V4SImode);
+          rtx pat = spu_const_from_ints (V4SImode, 0x7FFFFFFF, 0xFFFFFFFF, 
+                                                   0x7FFFFFFF, 0xFFFFFFFF);
+          rtx sign_mask = gen_reg_rtx (V4SImode);
+          rtx hi_promote = gen_reg_rtx (TImode);
+          emit_move_insn (sign_mask, pat);
+          pat = spu_const_from_ints (TImode, 0x00010203, 0x00010203, 
+                                             0x08090A0B, 0x08090A0B);
+          emit_move_insn (hi_promote, pat);
+
+          emit_insn (gen_vashrv4si3 (sign, ra, spu_const (V4SImode, 31)));
+          emit_insn (gen_shufb (sign, sign, sign, hi_promote));
+          emit_insn (gen_andv4si3 (abs, ra, sign_mask));
+
+          /* NaN  or +inf or -inf */
+          if (INTVAL (operands[2]) & 0x70)
+            {
+              rtx nan_mask = gen_reg_rtx (V4SImode);
+              rtx isinf = gen_reg_rtx (V4SImode);
+              pat = spu_const_from_ints (V4SImode, 0x7FF00000, 0x0, 
+		   			           0x7FF00000, 0x0);
+              emit_move_insn (nan_mask, pat);
+              emit_insn (gen_ceq_v4si (isinf, abs, nan_mask));
+
+              /* NaN  */
+              if (INTVAL (operands[2]) & 0x40)
+                {
+                  rtx isnan = gen_reg_rtx (V4SImode);
+                  emit_insn (gen_clgt_v4si (isnan, abs, nan_mask));
+                  emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, isnan), 
+                                                             GEN_INT (4 * 8)));
+                  emit_insn (gen_andv4si3 (temp2, temp_v4si, isinf));
+                  emit_insn (gen_iorv4si3 (isnan, isnan, temp2));
+                  emit_insn (gen_shufb (isnan, isnan, isnan, hi_promote));
+                  emit_insn (gen_iorv4si3 (result, result, isnan));
+                }
+              /* +inf or -inf  */
+              if (INTVAL (operands[2]) & 0x30)
+                {
+                  emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, isinf), 
+                                                             GEN_INT (4 * 8)));
+                  emit_insn (gen_andv4si3 (isinf, isinf, temp_v4si));
+                  emit_insn (gen_shufb (isinf, isinf, isinf, hi_promote));
+
+                  /* +inf  */
+                  if (INTVAL (operands[2]) & 0x20)
+                    {
+                      emit_insn (gen_andc_v4si (temp2, isinf, sign));
+                      emit_insn (gen_iorv4si3 (result, result, temp2));
+                    }
+                  /* -inf  */
+                  if (INTVAL (operands[2]) & 0x10)
+                    {
+                      emit_insn (gen_andv4si3 (temp2, isinf, sign));
+                      emit_insn (gen_iorv4si3 (result, result, temp2));
+                    }
+                }
+            }
+
+          /* 0 or denorm  */
+          if (INTVAL (operands[2]) & 0xF)
+            {
+              rtx iszero = gen_reg_rtx (V4SImode);
+              emit_insn (gen_ceq_v4si (iszero, abs, CONST0_RTX (V4SImode)));
+              emit_insn (gen_rotlti3 (temp, spu_gen_subreg (TImode, iszero), 
+                                                          GEN_INT (4 * 8)));
+              emit_insn (gen_andv4si3 (iszero, iszero, temp_v4si));
+
+              /* denorm  */
+              if (INTVAL (operands[2]) & 0x3)
+                {
+                  rtx isdenorm = gen_reg_rtx (V4SImode);
+                  rtx denorm_mask = gen_reg_rtx (V4SImode);
+                  emit_move_insn (denorm_mask, spu_const (V4SImode, 0xFFFFF));
+                  emit_insn (gen_clgt_v4si (isdenorm, abs, denorm_mask));
+                  emit_insn (gen_nor_v4si (isdenorm, isdenorm, iszero));
+                  emit_insn (gen_shufb (isdenorm, isdenorm, 
+                                        isdenorm, hi_promote));
+                  /* +denorm  */
+                  if (INTVAL (operands[2]) & 0x2)
+                    {
+                      emit_insn (gen_andc_v4si (temp2, isdenorm, sign));
+                      emit_insn (gen_iorv4si3 (result, result, temp2));
+                    }
+                  /* -denorm  */
+                  if (INTVAL (operands[2]) & 0x1)
+                    {
+                      emit_insn (gen_andv4si3 (temp2, isdenorm, sign));
+                      emit_insn (gen_iorv4si3 (result, result, temp2));
+                    }
+                }
+
+              /* 0  */
+              if (INTVAL (operands[2]) & 0xC)
+                {
+                  emit_insn (gen_shufb (iszero, iszero, iszero, hi_promote));
+                  /* +0  */
+                  if (INTVAL (operands[2]) & 0x8)
+                    {
+                      emit_insn (gen_andc_v4si (temp2, iszero, sign));
+                      emit_insn (gen_iorv4si3 (result, result, temp2));
+                    }
+                  /* -0  */
+                  if (INTVAL (operands[2]) & 0x4)
+                    {
+                      emit_insn (gen_andv4si3 (temp2, iszero, sign));
+                      emit_insn (gen_iorv4si3 (result, result, temp2));
+                    }
+                }
+             }
+          }
+      emit_move_insn (operands[0], spu_gen_subreg (V2DImode, result));
+      DONE;
+    }
+})
+
+
 ;; branches
 
 (define_insn ""
@@ -2747,6 +3676,52 @@ selb\t%0,%4,%0,%3"
     DONE;
   })
 
+(define_expand "cmpdf"
+  [(set (cc0)
+        (compare (match_operand:DF 0 "register_operand" "")
+                 (match_operand:DF 1 "register_operand" "")))]
+  ""
+  "{
+  spu_compare_op0 = operands[0];
+  spu_compare_op1 = operands[1];
+  DONE;
+}")
+
+;; vector conditional compare patterns
+(define_expand "vcond<mode>"
+  [(set (match_operand:VCMP 0 "spu_reg_operand" "=r")
+        (if_then_else:VCMP
+          (match_operator 3 "comparison_operator"
+            [(match_operand:VCMP 4 "spu_reg_operand" "r")
+             (match_operand:VCMP 5 "spu_reg_operand" "r")])
+          (match_operand:VCMP 1 "spu_reg_operand" "r")
+          (match_operand:VCMP 2 "spu_reg_operand" "r")))]
+  ""
+  {
+    if (spu_emit_vector_cond_expr (operands[0], operands[1], operands[2],
+                                   operands[3], operands[4], operands[5]))
+    DONE;
+    else
+    FAIL;
+  })
+
+(define_expand "vcondu<mode>"
+  [(set (match_operand:VCMPU 0 "spu_reg_operand" "=r")
+        (if_then_else:VCMPU
+          (match_operator 3 "comparison_operator"
+            [(match_operand:VCMPU 4 "spu_reg_operand" "r")
+             (match_operand:VCMPU 5 "spu_reg_operand" "r")])
+          (match_operand:VCMPU 1 "spu_reg_operand" "r")
+          (match_operand:VCMPU 2 "spu_reg_operand" "r")))]
+  ""
+  {
+    if (spu_emit_vector_cond_expr (operands[0], operands[1], operands[2],
+                                   operands[3], operands[4], operands[5]))
+    DONE;
+    else
+    FAIL;
+  })
+	
 
 ;; branch on condition
 
@@ -3288,11 +4263,22 @@ selb\t%0,%4,%0,%3"
   "lnop"
   [(set_attr "type" "lnop")])
 
+;; The operand is so we know why we generated this hbrp.
+;; We clobber mem to make sure it isn't moved over any
+;; loads, stores or calls while scheduling.
 (define_insn "iprefetch"
-  [(unspec [(const_int 0)] UNSPEC_IPREFETCH)]
+  [(unspec [(match_operand:SI 0 "const_int_operand" "n")] UNSPEC_IPREFETCH)
+   (clobber (mem:BLK (scratch)))]
   ""
-  "hbrp"
+  "hbrp\t# %0"
   [(set_attr "type" "iprefetch")])
+
+;; A non-volatile version so it gets scheduled
+(define_insn "nopn_nv"
+  [(unspec [(match_operand:SI 0 "register_operand" "r")] UNSPEC_NOP)]
+  ""
+  "nop\t%0"
+  [(set_attr "type" "nop")])
 
 (define_insn "hbr"
   [(set (reg:SI 130)
@@ -3328,6 +4314,49 @@ selb\t%0,%4,%0,%3"
   [(set_attr "type" "br")])
 
 
+
+ ;; Define the subtract-one-and-jump insns so loop.c
+ ;; knows what to generate.
+ (define_expand "doloop_end"
+   [(use (match_operand 0 "" ""))      ; loop pseudo
+    (use (match_operand 1 "" ""))      ; iterations; zero if unknown
+    (use (match_operand 2 "" ""))      ; max iterations
+    (use (match_operand 3 "" ""))      ; loop level
+    (use (match_operand 4 "" ""))]     ; label
+   ""
+   "
+ {
+   /* Currently SMS relies on the do-loop pattern to recognize loops
+      where (1) the control part comprises of all insns defining and/or
+      using a certain 'count' register and (2) the loop count can be
+      adjusted by modifying this register prior to the loop.
+.     ??? The possible introduction of a new block to initialize the
+      new IV can potentially effects branch optimizations.  */
+   if (optimize > 0 && flag_modulo_sched)
+   {
+     rtx s0;
+     rtx bcomp;
+     rtx loc_ref;
+
+     /* Only use this on innermost loops.  */
+     if (INTVAL (operands[3]) > 1)
+       FAIL;
+     if (GET_MODE (operands[0]) != SImode)
+       FAIL;
+
+     s0 = operands [0];
+     emit_move_insn (s0, gen_rtx_PLUS (SImode, s0, GEN_INT (-1)));
+     bcomp = gen_rtx_NE(SImode, s0, const0_rtx);
+     loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands [4]);
+     emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+                                  gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
+                                                        loc_ref, pc_rtx)));
+
+     DONE;
+   }else
+      FAIL;
+ }")
+
 ;; convert between any two modes, avoiding any GCC assumptions
 (define_expand "spu_convert"
   [(set (match_operand 0 "spu_reg_operand" "")
@@ -3376,7 +4405,7 @@ selb\t%0,%4,%0,%3"
 
 (define_expand "sminv4sf3"
   [(set (match_operand:V4SF 0 "register_operand" "=r")
-        (smax:V4SF (match_operand:V4SF 1 "register_operand" "r")
+        (smin:V4SF (match_operand:V4SF 1 "register_operand" "r")
                  (match_operand:V4SF 2 "register_operand" "r")))]
   ""
   "
@@ -3387,6 +4416,34 @@ selb\t%0,%4,%0,%3"
   emit_insn (gen_selb (operands[0], operands[1], operands[2], mask));
   DONE;
 }") 
+
+(define_expand "smaxv2df3"
+  [(set (match_operand:V2DF 0 "register_operand" "=r")
+        (smax:V2DF (match_operand:V2DF 1 "register_operand" "r")
+                 (match_operand:V2DF 2 "register_operand" "r")))]
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (V2DImode);
+  emit_insn (gen_cgt_v2df (mask, operands[1], operands[2]));
+  emit_insn (gen_selb (operands[0], operands[2], operands[1], 
+		       spu_gen_subreg (V4SImode, mask)));
+  DONE;
+}")
+
+(define_expand "sminv2df3"
+  [(set (match_operand:V2DF 0 "register_operand" "=r")
+        (smin:V2DF (match_operand:V2DF 1 "register_operand" "r")
+                 (match_operand:V2DF 2 "register_operand" "r")))]
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (V2DImode);
+  emit_insn (gen_cgt_v2df (mask, operands[1], operands[2]));
+  emit_insn (gen_selb (operands[0], operands[1], operands[2], 
+		       spu_gen_subreg (V4SImode, mask)));
+  DONE;
+}")
 
 (define_expand "vec_widen_umult_hi_v8hi"
   [(set (match_operand:V4SI 0 "register_operand"   "=r")
@@ -3549,3 +4606,696 @@ selb\t%0,%4,%0,%3"
 
   DONE;
 }")
+
+(define_expand "vec_unpacku_hi_v8hi"
+  [(set (match_operand:V4SI 0 "spu_reg_operand" "=r")
+        (zero_extend:V4SI 
+          (vec_select:V4HI
+            (match_operand:V8HI 1 "spu_reg_operand" "r")
+            (parallel [(const_int 0)(const_int 1)(const_int 2)(const_int 3)]))))]
+  ""
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x80, 0x80, 0x00, 0x01, 0x80, 0x80, 0x02, 0x03,
+    0x80, 0x80, 0x04, 0x05, 0x80, 0x80, 0x06, 0x07};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[1], mask));
+
+  DONE;
+})
+
+(define_expand "vec_unpacku_lo_v8hi"
+  [(set (match_operand:V4SI 0 "spu_reg_operand" "=r")
+         (zero_extend:V4SI
+          (vec_select:V4HI
+            (match_operand:V8HI 1 "spu_reg_operand" "r")
+            (parallel [(const_int 4)(const_int 5)(const_int 6)(const_int 7)]))))]
+""
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x80, 0x80, 0x08, 0x09, 0x80, 0x80, 0x0A, 0x0B,
+    0x80, 0x80, 0x0C, 0x0D, 0x80, 0x80, 0x0E, 0x0F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[1], mask));
+  
+  DONE;
+})
+
+(define_expand "vec_unpacks_hi_v8hi"
+  [(set (match_operand:V4SI 0 "spu_reg_operand" "=r")
+         (sign_extend:V4SI
+          (vec_select:V4HI
+            (match_operand:V8HI 1 "spu_reg_operand" "r")
+            (parallel [(const_int 0)(const_int 1)(const_int 2)(const_int 3)]))))]
+  ""
+{
+  rtx tmp1 = gen_reg_rtx (V8HImode);
+  rtx tmp2 = gen_reg_rtx (V4SImode);
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x80, 0x80, 0x00, 0x01, 0x80, 0x80, 0x02, 0x03,
+    0x80, 0x80, 0x04, 0x05, 0x80, 0x80, 0x06, 0x07};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (tmp1, operands[1], operands[1], mask));
+  emit_insn (gen_spu_xshw (tmp2, tmp1)); 
+  emit_move_insn (operands[0], tmp2);
+
+  DONE;
+})
+
+(define_expand "vec_unpacks_lo_v8hi"
+  [(set (match_operand:V4SI 0 "spu_reg_operand" "=r")
+         (sign_extend:V4SI
+          (vec_select:V4HI
+            (match_operand:V8HI 1 "spu_reg_operand" "r")
+            (parallel [(const_int 4)(const_int 5)(const_int 6)(const_int 7)]))))]
+""
+{
+  rtx tmp1 = gen_reg_rtx (V8HImode);
+  rtx tmp2 = gen_reg_rtx (V4SImode);
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x80, 0x80, 0x08, 0x09, 0x80, 0x80, 0x0A, 0x0B,
+    0x80, 0x80, 0x0C, 0x0D, 0x80, 0x80, 0x0E, 0x0F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (tmp1, operands[1], operands[1], mask));
+  emit_insn (gen_spu_xshw (tmp2, tmp1)); 
+  emit_move_insn (operands[0], tmp2);
+
+DONE;
+})
+
+(define_expand "vec_unpacku_hi_v16qi"
+  [(set (match_operand:V8HI 0 "spu_reg_operand" "=r")
+        (zero_extend:V8HI
+          (vec_select:V8QI
+            (match_operand:V16QI 1 "spu_reg_operand" "r")
+            (parallel [(const_int 0)(const_int 1)(const_int 2)(const_int 3)
+                       (const_int 4)(const_int 5)(const_int 6)(const_int 7)]))))]
+  ""
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x80, 0x00, 0x80, 0x01, 0x80, 0x02, 0x80, 0x03,
+    0x80, 0x04, 0x80, 0x05, 0x80, 0x06, 0x80, 0x07};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[1], mask));
+
+  DONE;
+})
+
+(define_expand "vec_unpacku_lo_v16qi"
+  [(set (match_operand:V8HI 0 "spu_reg_operand" "=r")
+          (zero_extend:V8HI
+          (vec_select:V8QI
+            (match_operand:V16QI 1 "spu_reg_operand" "r")
+            (parallel [(const_int 8)(const_int 9)(const_int 10)(const_int 11)
+                       (const_int 12)(const_int 13)(const_int 14)(const_int 15)]))))]
+""
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x80, 0x08, 0x80, 0x09, 0x80, 0x0A, 0x80, 0x0B,
+    0x80, 0x0C, 0x80, 0x0D, 0x80, 0x0E, 0x80, 0x0F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[1], mask));
+
+  DONE;
+})
+
+(define_expand "vec_unpacks_hi_v16qi"
+  [(set (match_operand:V8HI 0 "spu_reg_operand" "=r")
+         (sign_extend:V8HI
+          (vec_select:V8QI
+            (match_operand:V16QI 1 "spu_reg_operand" "r")
+            (parallel [(const_int 0)(const_int 1)(const_int 2)(const_int 3)
+                       (const_int 4)(const_int 5)(const_int 6)(const_int 7)]))))]
+""
+{
+  rtx tmp1 = gen_reg_rtx (V16QImode);
+  rtx tmp2 = gen_reg_rtx (V8HImode);
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x80, 0x00, 0x80, 0x01, 0x80, 0x02, 0x80, 0x03,
+    0x80, 0x04, 0x80, 0x05, 0x80, 0x06, 0x80, 0x07};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (tmp1, operands[1], operands[1], mask));
+  emit_insn (gen_spu_xsbh (tmp2, tmp1));
+  emit_move_insn (operands[0], tmp2);
+
+  DONE;
+})
+
+(define_expand "vec_unpacks_lo_v16qi"
+  [(set (match_operand:V8HI 0 "spu_reg_operand" "=r")
+         (sign_extend:V8HI
+          (vec_select:V8QI
+            (match_operand:V16QI 1 "spu_reg_operand" "r")
+            (parallel [(const_int 8)(const_int 9)(const_int 10)(const_int 11)
+                       (const_int 12)(const_int 13)(const_int 14)(const_int 15)]))))]
+""
+{
+  rtx tmp1 = gen_reg_rtx (V16QImode);
+  rtx tmp2 = gen_reg_rtx (V8HImode);
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x80, 0x08, 0x80, 0x09, 0x80, 0x0A, 0x80, 0x0B,
+    0x80, 0x0C, 0x80, 0x0D, 0x80, 0x0E, 0x80, 0x0F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (tmp1, operands[1], operands[1], mask));
+  emit_insn (gen_spu_xsbh (tmp2, tmp1));
+  emit_move_insn (operands[0], tmp2);
+
+DONE;
+})
+
+
+(define_expand "vec_extract_evenv4si"
+ [(set (match_operand:V4SI 0 "spu_reg_operand" "=r")
+       (vec_concat:V4SI
+         (vec_select:V2SI
+	   (match_operand:V4SI 1 "spu_reg_operand" "r")
+	   (parallel [(const_int 0)(const_int 2)]))
+         (vec_select:V2SI
+	   (match_operand:V4SI 2 "spu_reg_operand" "r")
+	   (parallel [(const_int 0)(const_int 2)]))))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+	0x00, 0x01, 0x02, 0x03,
+ 	0x08, 0x09, 0x0A, 0x0B,
+ 	0x10, 0x11, 0x12, 0x13,
+ 	0x18, 0x19, 0x1A, 0x1B};	
+ 
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+
+ 
+(define_expand "vec_extract_evenv4sf"
+ [(set (match_operand:V4SF 0 "spu_reg_operand" "=r")
+       (vec_concat:V4SF
+         (vec_select:V2SF
+	   (match_operand:V4SF 1 "spu_reg_operand" "r")
+	   (parallel [(const_int 0)(const_int 2)]))
+         (vec_select:V2SF
+	   (match_operand:V4SF 2 "spu_reg_operand" "r")
+	   (parallel [(const_int 0)(const_int 2)]))))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x00, 0x01, 0x02, 0x03,
+        0x08, 0x09, 0x0A, 0x0B,
+        0x10, 0x11, 0x12, 0x13,
+        0x18, 0x19, 0x1A, 0x1B};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_extract_evenv8hi"
+ [(set (match_operand:V8HI 0 "spu_reg_operand" "=r")
+       (vec_concat:V8HI
+         (vec_select:V4HI
+	   (match_operand:V8HI 1 "spu_reg_operand" "r")
+	   (parallel [(const_int 0)(const_int 2)(const_int 4)(const_int 6)]))
+         (vec_select:V4HI
+	   (match_operand:V8HI 2 "spu_reg_operand" "r")
+	   (parallel [(const_int 0)(const_int 2)(const_int 4)(const_int 6)]))))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x00, 0x01, 0x04, 0x05,
+        0x08, 0x09, 0x0C, 0x0D,
+        0x10, 0x11, 0x14, 0x15,
+        0x18, 0x19, 0x1C, 0x1D};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_extract_evenv16qi"
+ [(set (match_operand:V16QI 0 "spu_reg_operand" "=r")
+       (vec_concat:V16QI
+         (vec_select:V8QI
+	   (match_operand:V16QI 1 "spu_reg_operand" "r")
+	   (parallel [(const_int 0)(const_int 2)(const_int 4)(const_int 6)
+		      (const_int 8)(const_int 10)(const_int 12)(const_int 14)]))
+         (vec_select:V8QI
+	   (match_operand:V16QI 2 "spu_reg_operand" "r")
+	   (parallel [(const_int 0)(const_int 2)(const_int 4)(const_int 6)
+		      (const_int 8)(const_int 10)(const_int 12)(const_int 14)]))))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x00, 0x02, 0x04, 0x06,
+        0x08, 0x0A, 0x0C, 0x0E,
+        0x10, 0x12, 0x14, 0x16,
+        0x18, 0x1A, 0x1C, 0x1E};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_extract_oddv4si"
+ [(set (match_operand:V4SI 0 "spu_reg_operand" "=r")
+       (vec_concat:V4SI
+         (vec_select:V2SI
+	   (match_operand:V4SI 1 "spu_reg_operand" "r")
+	   (parallel [(const_int 1)(const_int 3)]))
+         (vec_select:V2SI
+	   (match_operand:V4SI 2 "spu_reg_operand" "r")
+	   (parallel [(const_int 1)(const_int 3)]))))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x04, 0x05, 0x06, 0x07,
+        0x0C, 0x0D, 0x0E, 0x0F,
+        0x14, 0x15, 0x16, 0x17,
+        0x1C, 0x1D, 0x1E, 0x1F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_extract_oddv4sf"
+ [(set (match_operand:V4SF 0 "spu_reg_operand" "=r")
+       (vec_concat:V4SF
+         (vec_select:V2SF
+	   (match_operand:V4SF 1 "spu_reg_operand" "r")
+	   (parallel [(const_int 1)(const_int 3)]))
+         (vec_select:V2SF
+	   (match_operand:V4SF 2 "spu_reg_operand" "r")
+	   (parallel [(const_int 1)(const_int 3)]))))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x04, 0x05, 0x06, 0x07,
+        0x0C, 0x0D, 0x0E, 0x0F,
+        0x14, 0x15, 0x16, 0x17,
+        0x1C, 0x1D, 0x1E, 0x1F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+
+(define_expand "vec_extract_oddv8hi"
+ [(set (match_operand:V8HI 0 "spu_reg_operand" "=r")
+       (vec_concat:V8HI
+         (vec_select:V4HI
+	   (match_operand:V8HI 1 "spu_reg_operand" "r")
+	   (parallel [(const_int 1)(const_int 3)(const_int 5)(const_int 7)]))
+         (vec_select:V4HI
+	   (match_operand:V8HI 2 "spu_reg_operand" "r")
+	   (parallel [(const_int 1)(const_int 3)(const_int 5)(const_int 7)]))))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x02, 0x03, 0x06, 0x07,
+        0x0A, 0x0B, 0x0E, 0x0F,
+        0x12, 0x13, 0x16, 0x17,
+        0x1A, 0x1B, 0x1E, 0x1F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_extract_oddv16qi"
+ [(set (match_operand:V16QI 0 "spu_reg_operand" "=r")
+       (vec_concat:V16QI
+         (vec_select:V8QI
+	   (match_operand:V16QI 1 "spu_reg_operand" "r")
+	   (parallel [(const_int 1)(const_int 3)(const_int 5)(const_int 7)
+		      (const_int 9)(const_int 11)(const_int 13)(const_int 15)]))
+         (vec_select:V8QI
+	   (match_operand:V16QI 2 "spu_reg_operand" "r")
+	   (parallel [(const_int 1)(const_int 3)(const_int 5)(const_int 7)
+		      (const_int 9)(const_int 11)(const_int 13)(const_int 15)]))))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x01, 0x03, 0x05, 0x07,
+        0x09, 0x0B, 0x0D, 0x0F,
+        0x11, 0x13, 0x15, 0x17,
+        0x19, 0x1B, 0x1D, 0x1F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_interleave_highv4sf"
+ [(set (match_operand:V4SF 0 "spu_reg_operand" "=r")
+       (vec_select:V4SF
+         (vec_concat:V4SF
+           (vec_select:V2SF
+	     (match_operand:V4SF 1 "spu_reg_operand" "r")
+	     (parallel [(const_int 0)(const_int 1)]))
+           (vec_select:V2SF
+	     (match_operand:V4SF 2 "spu_reg_operand" "r")
+	     (parallel [(const_int 0)(const_int 1)])))
+	 (parallel [(const_int 0)(const_int 2)(const_int 1)(const_int 3)])))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x00, 0x01, 0x02, 0x03,
+        0x10, 0x11, 0x12, 0x13,
+        0x04, 0x05, 0x06, 0x07,
+        0x14, 0x15, 0x16, 0x17};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+
+(define_expand "vec_interleave_lowv4sf"
+ [(set (match_operand:V4SF 0 "spu_reg_operand" "=r")
+       (vec_select:V4SF
+         (vec_concat:V4SF
+           (vec_select:V2SF
+	     (match_operand:V4SF 1 "spu_reg_operand" "r")
+	     (parallel [(const_int 2)(const_int 3)]))
+           (vec_select:V2SF
+	     (match_operand:V4SF 2 "spu_reg_operand" "r")
+	     (parallel [(const_int 2)(const_int 3)])))
+	 (parallel [(const_int 0)(const_int 2)(const_int 1)(const_int 3)])))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x08, 0x09, 0x0A, 0x0B,
+        0x18, 0x19, 0x1A, 0x1B,
+        0x0C, 0x0D, 0x0E, 0x0F,
+        0x1C, 0x1D, 0x1E, 0x1F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_interleave_highv4si"
+ [(set (match_operand:V4SI 0 "spu_reg_operand" "=r")
+       (vec_select:V4SI
+         (vec_concat:V4SI
+           (vec_select:V2SI
+	     (match_operand:V4SI 1 "spu_reg_operand" "r")
+	     (parallel [(const_int 0)(const_int 1)]))
+           (vec_select:V2SI
+	     (match_operand:V4SI 2 "spu_reg_operand" "r")
+	     (parallel [(const_int 0)(const_int 1)])))
+	 (parallel [(const_int 0)(const_int 2)(const_int 1)(const_int 3)])))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+	0x00, 0x01, 0x02, 0x03,
+	0x10, 0x11, 0x12, 0x13,
+ 	0x04, 0x05, 0x06, 0x07,
+ 	0x14, 0x15, 0x16, 0x17};
+ 
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+
+(define_expand "vec_interleave_lowv4si"
+ [(set (match_operand:V4SI 0 "spu_reg_operand" "=r")
+       (vec_select:V4SI
+         (vec_concat:V4SI
+           (vec_select:V2SI
+	     (match_operand:V4SI 1 "spu_reg_operand" "r")
+	     (parallel [(const_int 2)(const_int 3)]))
+           (vec_select:V2SI
+	     (match_operand:V4SI 2 "spu_reg_operand" "r")
+	     (parallel [(const_int 2)(const_int 3)])))
+	 (parallel [(const_int 0)(const_int 2)(const_int 1)(const_int 3)])))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x08, 0x09, 0x0A, 0x0B,
+        0x18, 0x19, 0x1A, 0x1B,
+        0x0C, 0x0D, 0x0E, 0x0F,
+        0x1C, 0x1D, 0x1E, 0x1F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_interleave_highv8hi"
+ [(set (match_operand:V8HI 0 "spu_reg_operand" "=r")
+       (vec_select:V8HI
+         (vec_concat:V8HI
+           (vec_select:V4HI
+	     (match_operand:V8HI 1 "spu_reg_operand" "r")
+	     (parallel [(const_int 0)(const_int 1)(const_int 2)(const_int 3)]))
+           (vec_select:V4HI
+	     (match_operand:V8HI 2 "spu_reg_operand" "r")
+	     (parallel [(const_int 0)(const_int 1)(const_int 2)(const_int 3)])))
+	 (parallel [(const_int 0)(const_int 4)(const_int 1)(const_int 5)
+		    (const_int 2)(const_int 6)(const_int 3)(const_int 7)])))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x00, 0x01, 0x10, 0x11,
+        0x02, 0x03, 0x12, 0x13,
+        0x04, 0x05, 0x14, 0x15,
+        0x06, 0x07, 0x16, 0x17};
+ 
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+ }")
+ 
+(define_expand "vec_interleave_lowv8hi"
+ [(set (match_operand:V8HI 0 "spu_reg_operand" "=r")
+       (vec_select:V8HI
+         (vec_concat:V8HI
+           (vec_select:V4HI
+	     (match_operand:V8HI 1 "spu_reg_operand" "r")
+	     (parallel [(const_int 4)(const_int 5)(const_int 6)(const_int 7)]))
+           (vec_select:V4HI
+	     (match_operand:V8HI 2 "spu_reg_operand" "r")
+	     (parallel [(const_int 4)(const_int 5)(const_int 6)(const_int 7)])))
+	 (parallel [(const_int 0)(const_int 4)(const_int 1)(const_int 5)
+		    (const_int 2)(const_int 6)(const_int 3)(const_int 7)])))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x08, 0x09, 0x18, 0x19,
+        0x0A, 0x0B, 0x1A, 0x1B,
+        0x0C, 0x0D, 0x1C, 0x1D,
+        0x0E, 0x0F, 0x1E, 0x1F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_interleave_highv16qi"
+ [(set (match_operand:V16QI 0 "spu_reg_operand" "=r")
+       (vec_select:V16QI
+         (vec_concat:V16QI
+           (vec_select:V8QI
+	     (match_operand:V16QI 1 "spu_reg_operand" "r")
+	     (parallel [(const_int 0)(const_int 1)(const_int 2)(const_int 3)
+		        (const_int 4)(const_int 5)(const_int 6)(const_int 7)]))
+           (vec_select:V8QI
+	     (match_operand:V16QI 2 "spu_reg_operand" "r")
+	     (parallel [(const_int 0)(const_int 1)(const_int 2)(const_int 3)
+		        (const_int 4)(const_int 5)(const_int 6)(const_int 7)])))
+	 (parallel [(const_int 0)(const_int 8)(const_int 1)(const_int 9)
+		    (const_int 2)(const_int 10)(const_int 3)(const_int 11)
+		    (const_int 4)(const_int 12)(const_int 5)(const_int 13)
+		    (const_int 6)(const_int 14)(const_int 7)(const_int 15)])))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+        0x00, 0x10, 0x01, 0x11,
+        0x02, 0x12, 0x03, 0x13,
+        0x04, 0x14, 0x05, 0x15,
+        0x06, 0x16, 0x07, 0x17};
+ 
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+ 
+(define_expand "vec_interleave_lowv16qi"
+ [(set (match_operand:V16QI 0 "spu_reg_operand" "=r")
+       (vec_select:V16QI
+         (vec_concat:V16QI
+           (vec_select:V8QI
+	     (match_operand:V16QI 1 "spu_reg_operand" "r")
+	     (parallel [(const_int 8)(const_int 9)(const_int 10)(const_int 11)
+		        (const_int 12)(const_int 13)(const_int 14)(const_int 15)]))
+           (vec_select:V8QI
+	     (match_operand:V16QI 2 "spu_reg_operand" "r")
+	     (parallel [(const_int 8)(const_int 9)(const_int 10)(const_int 11)
+		        (const_int 12)(const_int 13)(const_int 14)(const_int 15)])))
+	 (parallel [(const_int 0)(const_int 8)(const_int 1)(const_int 9)
+		    (const_int 2)(const_int 10)(const_int 3)(const_int 11)
+		    (const_int 4)(const_int 12)(const_int 5)(const_int 13)
+		    (const_int 6)(const_int 14)(const_int 7)(const_int 15)])))]
+ 
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+         0x08, 0x18, 0x09, 0x19,
+         0x0A, 0x1A, 0x0B, 0x1B,
+         0x0C, 0x1C, 0x0D, 0x1D,
+         0x0E, 0x1E, 0x0F, 0x1F};
+ 
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+  DONE;
+}")
+
+(define_expand "vec_pack_trunc_v8hi"
+  [(set (match_operand:V16QI 0 "spu_reg_operand" "=r")
+	(vec_concat:V16QI
+          (truncate:V8QI (match_operand:V8HI 1 "spu_reg_operand" "r"))
+          (truncate:V8QI (match_operand:V8HI 2 "spu_reg_operand" "r"))))]
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x01, 0x03, 0x05, 0x07, 0x09, 0x0B, 0x0D, 0x0F,
+    0x11, 0x13, 0x15, 0x17, 0x19, 0x1B, 0x1D, 0x1F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+
+  DONE;
+}")
+
+(define_expand "vec_pack_trunc_v4si"
+  [(set (match_operand:V8HI 0 "spu_reg_operand" "=r")
+	(vec_concat:V8HI
+          (truncate:V4HI (match_operand:V4SI 1 "spu_reg_operand" "r"))
+          (truncate:V4HI (match_operand:V4SI 2 "spu_reg_operand" "r"))))]
+  ""
+  "
+{
+  rtx mask = gen_reg_rtx (TImode);
+  unsigned char arr[16] = {
+    0x02, 0x03, 0x06, 0x07, 0x0A, 0x0B, 0x0E, 0x0F,
+    0x12, 0x13, 0x16, 0x17, 0x1A, 0x1B, 0x1E, 0x1F};
+
+  emit_move_insn (mask, array_to_constant (TImode, arr));
+  emit_insn (gen_shufb (operands[0], operands[1], operands[2], mask));
+
+  DONE;
+}")
+
+(define_insn "stack_protect_set"
+  [(set (match_operand:SI 0 "spu_mem_operand" "=m")
+        (unspec:SI [(match_operand:SI 1 "spu_mem_operand" "m")] UNSPEC_SP_SET))
+   (set (match_scratch:SI 2 "=&r") (const_int 0))]
+  ""
+  "lq%p1\t%2,%1\;stq%p0\t%2,%0\;xor\t%2,%2,%2"
+  [(set_attr "length" "12")
+   (set_attr "type" "multi1")]
+)
+
+(define_expand "stack_protect_test"
+  [(match_operand 0 "spu_mem_operand" "")
+   (match_operand 1 "spu_mem_operand" "")
+   (match_operand 2 "" "")]
+  ""
+{
+  rtx compare_result;
+  rtx bcomp, loc_ref;
+
+  compare_result = gen_reg_rtx (SImode);
+
+  emit_insn (gen_stack_protect_test_si (compare_result,
+                                        operands[0],
+                                        operands[1]));
+
+  bcomp = gen_rtx_NE (SImode, compare_result, const0_rtx);
+
+  loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands[2]);
+
+  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+                                   gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
+                                                         loc_ref, pc_rtx)));
+
+  DONE;
+})
+
+(define_insn "stack_protect_test_si"
+  [(set (match_operand:SI 0 "spu_reg_operand" "=&r")
+        (unspec:SI [(match_operand:SI 1 "spu_mem_operand" "m")
+                    (match_operand:SI 2 "spu_mem_operand" "m")]
+                   UNSPEC_SP_TEST))
+   (set (match_scratch:SI 3 "=&r") (const_int 0))]
+  ""
+  "lq%p1\t%0,%1\;lq%p2\t%3,%2\;ceq\t%0,%0,%3\;xor\t%3,%3,%3"
+  [(set_attr "length" "16")
+   (set_attr "type" "multi1")]
+)
+

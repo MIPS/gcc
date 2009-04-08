@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -27,6 +26,8 @@
 with Debug;    use Debug;
 with Osint;    use Osint;
 with Opt;      use Opt;
+with Prj;      use Prj;
+with Prj.Ext;  use Prj.Ext;
 with Table;
 
 package body Switch.M is
@@ -118,9 +119,7 @@ package body Switch.M is
          --  Add a new component in the table.
 
          Switches (Last) := new String'(S);
-         Normalized_Switches.Increment_Last;
-         Normalized_Switches.Table (Normalized_Switches.Last) :=
-           Switches (Last);
+         Normalized_Switches.Append (Switches (Last));
       end Add_Switch_Component;
 
    --  Start of processing for Normalize_Compiler_Switches
@@ -152,17 +151,59 @@ package body Switch.M is
             when False =>
 
                --  All switches that don't start with -gnat stay as is,
-               --  except -v and -pg
+               --  except -pg, -Wall, -k8, -w
 
-               if Switch_Chars = "-pg" then
+               if Switch_Chars = "-pg" or else Switch_Chars = "-p" then
 
                   --  The gcc driver converts -pg to -p, so that is what
                   --  is stored in the ALI file.
 
                   Add_Switch_Component ("-p");
 
-               elsif C /= 'v' then
+               elsif Switch_Chars = "-Wall" then
+
+                  --  The gcc driver adds -gnatwa when -Wall is used
+
+                  Add_Switch_Component ("-gnatwa");
+                  Add_Switch_Component ("-Wall");
+
+               elsif Switch_Chars = "-k8" then
+
+                  --  The gcc driver transforms -k8 into -gnatk8
+
+                  Add_Switch_Component ("-gnatk8");
+
+               elsif Switch_Chars = "-w" then
+
+                  --  The gcc driver adds -gnatws when -w is used
+
+                  Add_Switch_Component ("-gnatws");
+                  Add_Switch_Component ("-w");
+
+               elsif Switch_Chars'Length > 6
+                 and then
+                   Switch_Chars (Switch_Chars'First .. Switch_Chars'First + 5)
+                                                             = "--RTS="
+               then
                   Add_Switch_Component (Switch_Chars);
+
+                  --  When --RTS=mtp is used, the gcc driver adds -mrtp
+
+                  if Switch_Chars = "--RTS=mtp" then
+                     Add_Switch_Component ("-mrtp");
+                  end if;
+
+               --  Take only into account switches that are transmitted to
+               --  gnat1 by the gcc driver and stored by gnat1 in the ALI file.
+
+               else
+                  case C is
+                     when 'O' | 'W' | 'w' | 'f' | 'd' | 'g' | 'm' =>
+                        Add_Switch_Component (Switch_Chars);
+
+                     when others =>
+                        null;
+                  end case;
                end if;
 
                return;
@@ -226,14 +267,16 @@ package body Switch.M is
 
                   when 'e' =>
 
-                     --  Only -gnateD and -gnatep= need storing in ALI file
+                     --  Store -gnateD, -gnatep= and -gnateG in the ALI file.
+                     --  The other -gnate switches do not need to be stored.
 
                      Storing (First_Stored) := 'e';
                      Ptr := Ptr + 1;
 
                      if Ptr > Max
                        or else (Switch_Chars (Ptr) /= 'D'
-                                  and then Switch_Chars (Ptr) /= 'p')
+                                 and then Switch_Chars (Ptr) /= 'G'
+                                 and then Switch_Chars (Ptr) /= 'p')
                      then
                         Last := 0;
                         return;
@@ -251,7 +294,7 @@ package body Switch.M is
 
                      --  Processing for -gnatep=
 
-                     else
+                     elsif Switch_Chars (Ptr) = 'p' then
                         Ptr := Ptr + 1;
 
                         if Ptr = Max then
@@ -275,6 +318,9 @@ package body Switch.M is
                              Switch_Chars (Ptr .. Max);
                            Add_Switch_Component (To_Store);
                         end;
+
+                     elsif Switch_Chars (Ptr) = 'G' then
+                        Add_Switch_Component ("-gnateG");
                      end if;
 
                      return;
@@ -331,7 +377,8 @@ package body Switch.M is
                            Ptr := Ptr + 1;
 
                            if Ptr <= Max
-                             and then Switch_Chars (Ptr) = 's' then
+                             and then Switch_Chars (Ptr) = 's'
+                           then
                               Last_Stored := Last_Stored + 1;
                               Storing (Last_Stored) := 's';
                               Ptr := Ptr + 1;
@@ -365,12 +412,9 @@ package body Switch.M is
 
                         --  -gnatyMxxx
 
-                        if C = 'M' and then
-                          Storing (First_Stored) = 'y'
-                        then
+                        if C = 'M' and then Storing (First_Stored) = 'y' then
                            Last_Stored := First_Stored + 1;
                            Storing (Last_Stored) := 'M';
-
                            while Ptr <= Max loop
                               C := Switch_Chars (Ptr);
                               exit when C not in '0' .. '9';
@@ -516,6 +560,28 @@ package body Switch.M is
          if Switch_Chars = "--create-missing-dirs" then
             Setup_Projects := True;
 
+         elsif Switch_Chars'Length > Subdirs_Option'Length
+           and then
+             Switch_Chars
+               (Switch_Chars'First ..
+                Switch_Chars'First + Subdirs_Option'Length - 1) =
+                                                            Subdirs_Option
+         then
+            Subdirs :=
+              new String'
+                (Switch_Chars
+                  (Switch_Chars'First + Subdirs_Option'Length ..
+                   Switch_Chars'Last));
+
+         elsif Switch_Chars (Ptr) = '-' then
+            Bad_Switch (Switch_Chars);
+
+         elsif Switch_Chars'Length > 3
+           and then Switch_Chars (Ptr .. Ptr + 1) = "aP"
+         then
+            Add_Search_Project_Directory
+              (Switch_Chars (Ptr + 2 .. Switch_Chars'Last));
+
          elsif C = 'v' and then Switch_Chars'Length = 3 then
             Ptr := Ptr + 1;
             Verbose_Mode := True;
@@ -577,7 +643,7 @@ package body Switch.M is
                      Bad_Switch (Switch_Chars);
 
                   else
-                     Follow_Links := True;
+                     Follow_Links_For_Files := True;
                   end if;
 
                --  Processing for eS switch

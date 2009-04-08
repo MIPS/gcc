@@ -1,5 +1,5 @@
 /* Definitions for non-Linux based ARM systems using ELF
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Catherine Moore <clm@cygnus.com>
 
@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* elfos.h should have already been included.  Now just override
    any conflicting definitions and add any extras.  */
@@ -34,11 +33,15 @@
 #endif
 
 /* Now we define the strings used to build the spec file.  */
+#define UNKNOWN_ELF_STARTFILE_SPEC	" crti%O%s crtbegin%O%s crt0%O%s"
+
 #undef  STARTFILE_SPEC
-#define STARTFILE_SPEC	" crti%O%s crtbegin%O%s crt0%O%s"
+#define STARTFILE_SPEC	UNKNOWN_ELF_STARTFILE_SPEC
+
+#define UNKNOWN_ELF_ENDFILE_SPEC	"crtend%O%s crtn%O%s"
 
 #undef  ENDFILE_SPEC
-#define ENDFILE_SPEC	"crtend%O%s crtn%O%s"
+#define ENDFILE_SPEC	UNKNOWN_ELF_ENDFILE_SPEC
 
 /* The __USES_INITFINI__ define is tested in newlib/libc/sys/arm/crt0.S
    to see if it needs to invoked _init() and _fini().  */

@@ -1,8 +1,8 @@
-#   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2002, 2003, 2007, 2008 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 # 
 # This program is distributed in the hope that it will be useful,
@@ -11,8 +11,8 @@
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 # Various utilities for scanning assembler output, used by gcc-dg.exp and
 # g++-dg.exp.
@@ -67,6 +67,7 @@ proc dg-scan { name positive testcase output_file orig_args } {
 
 proc scan-assembler { args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     dg-scan "scan-assembler" 1 $testcase $output_file $args
@@ -77,6 +78,7 @@ proc scan-assembler { args } {
 
 proc scan-assembler-not { args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     dg-scan "scan-assembler-not" 0 $testcase $output_file $args
@@ -102,6 +104,7 @@ proc hidden-scan-for { symbol } {
 
 proc scan-hidden { args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     set symbol [lindex $args 0]
@@ -118,6 +121,7 @@ proc scan-hidden { args } {
 
 proc scan-not-hidden { args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
     set symbol [lindex $args 0]
@@ -132,6 +136,7 @@ proc scan-not-hidden { args } {
 
 proc scan-file { output_file args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     dg-scan "scan-file" 1 $testcase $output_file $args
 }
 
@@ -140,6 +145,7 @@ proc scan-file { output_file args } {
 
 proc scan-file-not { output_file args } {
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     dg-scan "scan-file-not" 0 $testcase $output_file $args
 }
 
@@ -166,6 +172,7 @@ proc scan-assembler-times { args } {
     # it still stores the filename of the testcase in a local variable "name".
     # A cleaner solution would require a new dejagnu release.
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
 
     # This must match the rule in gcc-dg.exp.
     set output_file "[file rootname [file tail $testcase]].s"
@@ -215,11 +222,11 @@ proc scan-assembler-dem { args } {
     }
 
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
-    set fd [open "| $cxxfilt < $output_file" r]
-    set text [read $fd]
-    close $fd
+    set output [remote_exec host "$cxxfilt" "" "$output_file"]
+    set text [lindex $output 1]
 
     if [regexp -- [lindex $args 0] $text] {
 	pass "$testcase scan-assembler-dem [lindex $args 0]"
@@ -261,11 +268,11 @@ proc scan-assembler-dem-not { args } {
     }
 
     upvar 2 name testcase
+    set testcase [lindex $testcase 0]
     set output_file "[file rootname [file tail $testcase]].s"
 
-    set fd [open "| $cxxfilt < $output_file" r]
-    set text [read $fd]
-    close $fd
+    set output [remote_exec host "$cxxfilt" "" "$output_file"]
+    set text [lindex $output 1]
 
     if ![regexp -- [lindex $args 0] $text] {
 	pass "$testcase scan-assembler-dem-not [lindex $args 0]"

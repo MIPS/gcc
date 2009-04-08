@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -93,11 +92,18 @@ package Sem_Res is
    --  is not present, then the Etype of the expression after the Analyze
    --  call is used for the Resolve.
 
+   procedure Ambiguous_Character (C : Node_Id);
+   --  Give list of candidate interpretations when a character literal cannot
+   --  be resolved, for example in a (useless) comparison such as 'A' = 'B'.
+   --  In Ada95 the literals in question can be of type Character or Wide_
+   --  Character. In Ada2005 Wide_Wide_Character is also a candidate. The
+   --  node may also be overloaded with user-defined character types.
+
    procedure Check_Parameterless_Call (N : Node_Id);
    --  Several forms of names can denote calls to entities without para-
    --  meters. The context determines whether the name denotes the entity
    --  or a call to it. When it is a call, the node must be rebuilt
-   --  accordingly and renalyzed to obtain possible interpretations.
+   --  accordingly and reanalyzed to obtain possible interpretations.
    --
    --  The name may be that of an overloadable construct, or it can be an
    --  explicit dereference of a prefix that denotes an access to subprogram.
@@ -107,13 +113,13 @@ package Sem_Res is
    --
    --  The parameter T is the Typ for the corresponding resolve call.
 
-   procedure Pre_Analyze_And_Resolve (N : Node_Id; T : Entity_Id);
-   --  Performs a pre-analysis of expression node N. During pre-analysis
+   procedure Preanalyze_And_Resolve (N : Node_Id; T : Entity_Id);
+   --  Performs a pre-analysis of expression node N. During pre-analysis,
    --  N is analyzed and then resolved against type T, but no expansion
    --  is carried out for N or its children. For more info on pre-analysis
    --  read the spec of Sem.
 
-   procedure Pre_Analyze_And_Resolve (N : Node_Id);
+   procedure Preanalyze_And_Resolve (N : Node_Id);
    --  Same, but use type of node because context does not impose a single type
 
 private

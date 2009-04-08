@@ -1,11 +1,12 @@
 /* Loop optimizer initialization routines and RTL loop optimization passes.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
+#include "df.h"
 #include "ggc.h"
 
 
@@ -59,14 +60,21 @@ loop_optimizer_init (unsigned flags)
 	 passes may want.  */
       gcc_assert ((flags & ~(LOOPS_MAY_HAVE_MULTIPLE_LATCHES
 			     | LOOPS_HAVE_RECORDED_EXITS)) == 0);
-      current_loops->state = LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
+      loops_state_set (LOOPS_MAY_HAVE_MULTIPLE_LATCHES);
     }
   else
     disambiguate_loops_with_multiple_latches ();
 
   /* Create pre-headers.  */
   if (flags & LOOPS_HAVE_PREHEADERS)
-    create_preheaders (CP_SIMPLE_PREHEADERS);
+    {
+      int cp_flags = CP_SIMPLE_PREHEADERS;
+
+      if (flags & LOOPS_HAVE_FALLTHRU_PREHEADERS)
+        cp_flags |= CP_FALLTHRU_PREHEADERS;
+      
+      create_preheaders (cp_flags);
+    }
 
   /* Force all latches to have only single successor.  */
   if (flags & LOOPS_HAVE_SIMPLE_LATCHES)
@@ -105,7 +113,7 @@ loop_optimizer_finalize (void)
     }
 
   /* Clean up.  */
-  if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
+  if (loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS))
     release_recorded_exits ();
   flow_loops_free (current_loops);
   ggc_free (current_loops);
@@ -118,7 +126,10 @@ loop_optimizer_finalize (void)
 
   /* Checking.  */
 #ifdef ENABLE_CHECKING
-  verify_flow_info ();
+  /* FIXME: no point to verify flow info after bundling on ia64.  Use this 
+     hack for achieving this.  */
+  if (!reload_completed)
+    verify_flow_info ();
 #endif
 }
 
@@ -140,8 +151,10 @@ gate_handle_loop2 (void)
 	      ));
 }
 
-struct tree_opt_pass pass_loop2 =
+struct rtl_opt_pass pass_loop2 =
 {
+ {
+  RTL_PASS,
   "loop2",                              /* name */
   gate_handle_loop2, 		        /* gate */
   NULL,                                 /* execute */
@@ -154,8 +167,8 @@ struct tree_opt_pass pass_loop2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'L'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 
@@ -172,8 +185,10 @@ rtl_loop_init (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_loop_init =
+struct rtl_opt_pass pass_rtl_loop_init =
 {
+ {
+  RTL_PASS,
   "loop2_init",                           /* name */
   NULL,                                 /* gate */
   rtl_loop_init,                        /* execute */
@@ -185,8 +200,8 @@ struct tree_opt_pass pass_rtl_loop_init =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'L'                                   /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
+ }
 };
 
 
@@ -198,17 +213,17 @@ rtl_loop_done (void)
   loop_optimizer_finalize ();
   free_dominance_info (CDI_DOMINATORS);
 
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  reg_scan (get_insns (), max_reg_num ());
+  cleanup_cfg (0);
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
 
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_loop_done =
+struct rtl_opt_pass pass_rtl_loop_done =
 {
+ {
+  RTL_PASS,
   "loop2_done",                          /* name */
   NULL,                                 /* gate */
   rtl_loop_done,                        /* execute */
@@ -220,8 +235,8 @@ struct tree_opt_pass pass_rtl_loop_done =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'L'                                   /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
+ }
 };
 
 
@@ -240,9 +255,11 @@ rtl_move_loop_invariants (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_move_loop_invariants =
+struct rtl_opt_pass pass_rtl_move_loop_invariants =
 {
-  "loop2_invariant",                     /* name */
+ {
+  RTL_PASS,
+  "loop2_invariant",                    /* name */
   gate_rtl_move_loop_invariants,        /* gate */
   rtl_move_loop_invariants,             /* execute */
   NULL,                                 /* sub */
@@ -252,9 +269,11 @@ struct tree_opt_pass pass_rtl_move_loop_invariants =
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'L'                                   /* letter */
+  0,                                    /* todo_flags_start */ 
+  TODO_df_verify |
+  TODO_df_finish | TODO_verify_rtl_sharing |
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 
@@ -273,8 +292,10 @@ rtl_unswitch (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_unswitch =
+struct rtl_opt_pass pass_rtl_unswitch =
 {
+ {
+  RTL_PASS,
   "loop2_unswitch",                      /* name */
   gate_rtl_unswitch,                    /* gate */
   rtl_unswitch,                         /* execute */
@@ -286,8 +307,8 @@ struct tree_opt_pass pass_rtl_unswitch =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'L'                                   /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing, /* todo_flags_finish */
+ }
 };
 
 
@@ -304,6 +325,8 @@ rtl_unroll_and_peel_loops (void)
   if (number_of_loops () > 1)
     {
       int flags = 0;
+      if (dump_file)
+	df_dump (dump_file);
 
       if (flag_peel_loops)
 	flags |= UAP_PEEL;
@@ -317,8 +340,10 @@ rtl_unroll_and_peel_loops (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_unroll_and_peel_loops =
+struct rtl_opt_pass pass_rtl_unroll_and_peel_loops =
 {
+ {
+  RTL_PASS,
   "loop2_unroll",                        /* name */
   gate_rtl_unroll_and_peel_loops,       /* gate */
   rtl_unroll_and_peel_loops,            /* execute */
@@ -330,8 +355,8 @@ struct tree_opt_pass pass_rtl_unroll_and_peel_loops =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'L'                                   /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing, /* todo_flags_finish */
+ }
 };
 
 
@@ -356,8 +381,10 @@ rtl_doloop (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_doloop =
+struct rtl_opt_pass pass_rtl_doloop =
 {
+ {
+  RTL_PASS,
   "loop2_doloop",                        /* name */
   gate_rtl_doloop,                      /* gate */
   rtl_doloop,                           /* execute */
@@ -369,7 +396,7 @@ struct tree_opt_pass pass_rtl_doloop =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'L'                                   /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
+ }
 };
 

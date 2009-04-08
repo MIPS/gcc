@@ -1,5 +1,5 @@
 ;; Constraints definitions belonging to the gcc backend for IBM S/390.
-;; Copyright (C) 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 ;; Written by Wolfgang Gellerich, using code and information found in
 ;; files s390.md, s390.h, and s390.c.
 ;;
@@ -7,7 +7,7 @@
 ;;
 ;; GCC is free software; you can redistribute it and/or modify it under
 ;; the terms of the GNU General Public License as published by the Free
-;; Software Foundation; either version 2, or (at your option) any later
+;; Software Foundation; either version 3, or (at your option) any later
 ;; version.
 ;;
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,19 +16,22 @@
 ;; for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 
 ;;
 ;; Special constraints for s/390 machine description:
 ;;
 ;;    a -- Any address register from 1 to 15.
+;;    b -- Memory operand whose address is a symbol reference or a symbol
+;;         reference + constant which can be proven to be naturally aligned.
 ;;    c -- Condition code register 33.
 ;;    d -- Any register from 0 to 15.
 ;;    f -- Floating point registers.
 ;;    t -- Access registers 36 and 37.
+;;    C -- A signed 8-bit constant (-128..127)
+;;    D -- An unsigned 16-bit constant (0..65535)
 ;;    G -- Const double zero operand
 ;;    I -- An 8-bit constant (0..255).
 ;;    J -- A 12-bit constant (0..4095).
@@ -50,7 +53,7 @@
 ;;    O -- Multiple letter constraint followed by 1 parameter.
 ;;         s:  Signed extended immediate value (-2G .. 2G-1).
 ;;         p:  Positive extended immediate value (0 .. 4G-1).
-;;         n:  Negative extended immediate value (-4G .. -1).
+;;         n:  Negative extended immediate value (-4G+1 .. -1).
 ;;         These constraints do not accept any operand if the machine does
 ;;         not provide the extended-immediate facility.
 ;;    P -- Any integer constant that can be loaded without literal pool.
@@ -103,6 +106,19 @@
 ;;  General constraints for constants.
 ;;
 
+(define_constraint "C"
+  "@internal
+   An 8-bit signed immediate constant (-128..127)"
+  (and (match_code "const_int")
+       (match_test "ival >= -128 && ival <= 127")))
+
+
+(define_constraint "D"
+  "An unsigned 16-bit constant (0..65535)"
+  (and (match_code "const_int")
+       (match_test "ival >= 0 && ival <= 65535")))
+
+
 (define_constraint "G"
   "@internal
    Const double zero operand"
@@ -126,7 +142,6 @@
   "A 16-bit constant (-32768..32767)"
   (and (match_code "const_int")
        (match_test "ival >= -32768 && ival <= 32767")))
-
 
 
 (define_constraint "L"
@@ -338,7 +353,7 @@
 
 (define_constraint "On"
   "@internal
-   Negative extended immediate value (-4G .. -1).
+   Negative extended immediate value (-4G+1 .. -1).
    This constraint will only match if the machine provides
    the extended-immediate facility."
   (and (match_code "const_int")
@@ -356,7 +371,6 @@
   (match_test "s390_mem_constraint (\"Q\", op)"))
 
 
-
 (define_memory_constraint "R"
   "Memory reference with index register and short displacement"
   (match_test "s390_mem_constraint (\"R\", op)"))
@@ -372,6 +386,27 @@
   (match_test "s390_mem_constraint (\"T\", op)"))
 
 
+(define_memory_constraint "b"
+  "Memory reference whose address is a naturally aligned symbol reference."
+  (match_test "MEM_P (op)
+               && s390_check_symref_alignment (XEXP (op, 0),
+                                               GET_MODE_SIZE (GET_MODE (op)))"))
+
+(define_memory_constraint "e"
+  "Matches all memory references available on the current architecture
+level.  This constraint will never be used and using it in an inline
+assembly is *always* a bug since there is no instruction accepting all
+those addresses.  It just serves as a placeholder for a generic memory
+constraint."
+  (match_test "legitimate_address_p (GET_MODE (op), op, 1)"))
+
+; This defines 'm' as normal memory constraint.  This is only possible
+; since the standard memory constraint is re-defined in s390.h using
+; the TARGET_MEM_CONSTRAINT macro.
+(define_memory_constraint "m"
+  "Matches the most general memory address for pre-z10 machines."
+  (match_test "s390_mem_constraint (\"R\", op)
+               || s390_mem_constraint (\"T\", op)"))
 
 (define_memory_constraint "AQ"
   "@internal 
@@ -424,7 +459,6 @@
    Memory reference with index register and long displacement that
    does *not* refer to a literal pool entry. "
   (match_test "s390_mem_constraint (\"BT\", op)"))
-
 
 
 (define_address_constraint "U"

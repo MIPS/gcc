@@ -1,9 +1,9 @@
 ; Options for the SPU port of the compiler
-; Copyright (C) 2006 Free Software Foundation, Inc.
+; Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 
 ; This file is free software; you can redistribute it and/or modify it under
 ; the terms of the GNU General Public License as published by the Free
-; Software Foundation; either version 2 of the License, or (at your option)
+; Software Foundation; either version 3 of the License, or (at your option)
 ; any later version.
 
 ; This file is distributed in the hope that it will be useful, but WITHOUT
@@ -12,9 +12,8 @@
 ; for more details.
 ;
 ; You should have received a copy of the GNU General Public License
-; along with this file; see the file COPYING.  If not, write to the Free
-; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-; 02110-1301, USA.
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
 
 mwarn-reloc
 Target Report Mask(WARN_RELOC)
@@ -36,6 +35,14 @@ munsafe-dma
 Target Report RejectNegative InverseMask(SAFE_DMA)
 volatile must be specified on any memory that is effected by DMA
 
+mdual-nops
+Target Report Var(spu_dual_nops,10) Init(10)
+Insert nops when it might improve performance by allowing dual issue (default)
+
+mdual-nops=
+Target RejectNegative Joined UInteger Var(spu_dual_nops)
+Insert nops when it might improve performance by allowing dual issue (default)
+
 mstdmain
 Target Report Mask(STD_MAIN)
 Use standard main function as entry for startup
@@ -43,6 +50,14 @@ Use standard main function as entry for startup
 mbranch-hints
 Target Report Mask(BRANCH_HINTS)
 Generate branch hints for branches
+
+mhint-max-nops=
+Target RejectNegative Joined UInteger Var(spu_max_nops) Init(2)
+Maximum number of nops to insert for a hint (Default 2)
+
+mhint-max-distance=
+Target RejectNegative Joined Var(spu_max_distance_str)
+Approximate maximum number of instructions to allow between a hint and its branch [125]
 
 msmall-mem
 Target Report RejectNegative InverseMask(LARGE_MEM)
@@ -55,3 +70,15 @@ Generate code for 32 bit addressing
 mfixed-range=
 Target RejectNegative Joined Var(spu_fixed_range_string)
 Specify range of registers to make fixed
+
+msafe-hints
+Target Report Mask(SAFE_HINTS)
+Insert hbrp instructions after hinted branch targets to avoid the SPU hang issue
+
+march=
+Target RejectNegative Joined Var(spu_arch_string)
+Generate code for given CPU
+
+mtune=
+Target RejectNegative Joined Var(spu_tune_string)
+Schedule code for given CPU

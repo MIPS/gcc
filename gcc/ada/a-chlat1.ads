@@ -13,6 +13,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+pragma Warnings (Off);
+pragma Compiler_Unit;
+pragma Warnings (On);
+
 package Ada.Characters.Latin_1 is
    pragma Pure;
 
@@ -84,7 +88,6 @@ package Ada.Characters.Latin_1 is
    Equals_Sign          : constant Character := '=';  -- Character'Val(61)
    Greater_Than_Sign    : constant Character := '>';  -- Character'Val(62)
    Question             : constant Character := '?';  -- Character'Val(63)
-
    Commercial_At        : constant Character := '@';  -- Character'Val(64)
 
    --  Letters 'A' through 'Z' are at positions 65 through 90

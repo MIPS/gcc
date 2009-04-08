@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package gnu.java.awt.font.opentype.truetype;
 
+import gnu.java.lang.CPStringBuilder;
 
 /**
  * A utility class for fixed-point arithmetics, where numbers are
@@ -48,7 +49,7 @@ package gnu.java.awt.font.opentype.truetype;
  *
  * @author Sascha Brawer (brawer@dandelis.ch)
  */
-final class Fixed
+public final class Fixed
 {
   public static final int ONE = 1<<6;
 
@@ -69,14 +70,21 @@ final class Fixed
     return (int) ((((long) a) * b) >> 6);
   }
 
+  public static int mul16(int a, int b)
+  {
+    return (int) ((((long) a) * b) >> 16);
+  }
 
   public static int div(int a, int b)
   {
     return (int) ((((long) a) << 6) / b);
   }
 
+  public static int div16(int a, int b)
+  {
+    return (int) ((((long) a) << 16) / b);
+  }
 
-  
   public static int ceil(int a)
   {
     return (a + 63) & -64;
@@ -119,7 +127,10 @@ final class Fixed
   {
     return ((float) f) / 64;
   }
-
+  public static float floatValue16(int f)
+  {
+    return ((float) f) / 65536;
+  }
 
   public static double doubleValue(int f)
   {
@@ -138,6 +149,10 @@ final class Fixed
     return (int) (d * 64);
   }
 
+  public static int valueOf16(double d)
+  {
+    return (int) (d * (1 << 16));
+  }
 
   /**
    * Makes a string representation of a fixed-point number.
@@ -150,7 +165,7 @@ final class Fixed
 
   public static String toString(int x, int y)
   {
-    StringBuffer sbuf = new StringBuffer(40);
+    CPStringBuilder sbuf = new CPStringBuilder(40);
     sbuf.append('(');
     sbuf.append(((float) x) / 64);
     sbuf.append(", ");

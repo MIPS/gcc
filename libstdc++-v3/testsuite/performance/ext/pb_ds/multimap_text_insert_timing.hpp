@@ -47,10 +47,10 @@
 #include <ext/typelist.h>
 #include <io/text_populate.hpp>
 #include <performance/io/xml_formatter.hpp>
-#include <native_type/assoc/native_hash_multimap.hpp>
-#include <native_type/assoc/native_multimap.hpp>
+#include <native_type/native_hash_multimap.hpp>
+#include <native_type/native_multimap.hpp>
 #include <io/verified_cmd_line_input.hpp>
-#include <rng/twister_rand_gen.hpp>
+#include <testsuite_rng.h>
 #include <common_type/assoc/common_type.hpp>
 #include <performance/assoc/timing/multimap_insert_test.hpp>
 #include <performance/assoc/multimap_common_type.hpp>
@@ -67,7 +67,7 @@ set_test_parameters(size_t& n, size_t&s, size_t& m, size_t& prm);
 int
 main(int argc, char* a_p_argv[])
 {
-  using namespace pb_ds::test;
+  using namespace __gnu_pbds::test;
 
   std::string f_name = "thirty_years_among_the_dead_preproc.txt";
   size_t prm;

@@ -1,12 +1,12 @@
 /* Java(TM) language-specific utility routines.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -55,57 +54,19 @@ static bool java_post_options (const char **);
 static int java_handle_option (size_t scode, const char *arg, int value);
 static void put_decl_string (const char *, int);
 static void put_decl_node (tree);
-static void java_print_error_function (diagnostic_context *, const char *);
-static tree java_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
-					      void *, struct pointer_set_t *);
+static void java_print_error_function (diagnostic_context *, const char *,
+				       diagnostic_info *);
 static int merge_init_test_initialization (void * *, void *);
 static int inline_init_test_initialization (void * *, void *);
 static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
-static bool java_decl_ok_for_sibcall (tree);
-static tree java_get_callee_fndecl (tree);
-static void java_clear_binding_stack (void);
+static bool java_decl_ok_for_sibcall (const_tree);
+
+static enum classify_record java_classify_record (tree type);
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
 #endif
-
-/* Table indexed by tree code giving a string containing a character
-   classifying the tree code.  Possibilities are
-   t, d, s, c, r, <, 1 and 2.  See java/java-tree.def for details.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
-
-const enum tree_code_class tree_code_type[] = {
-#include "tree.def"
-  tcc_exceptional,
-#include "java-tree.def"
-};
-#undef DEFTREECODE
-
-/* Table indexed by tree code giving number of expression
-   operands beyond the fixed part of the node structure.
-   Not used for types or decls.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
-
-const unsigned char tree_code_length[] = {
-#include "tree.def"
-  0,
-#include "java-tree.def"
-};
-#undef DEFTREECODE
-
-/* Names of tree components.
-   Used for printing out the tree and error messages.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
-
-const char *const tree_code_name[] = {
-#include "tree.def"
-  "@@dummy",
-#include "java-tree.def"
-};
-#undef DEFTREECODE
 
 /* Table of machine-independent attributes.  */
 const struct attribute_spec java_attribute_table[] =
@@ -182,8 +143,8 @@ struct language_function GTY(())
 #define LANG_HOOKS_TYPE_FOR_MODE java_type_for_mode
 #undef LANG_HOOKS_TYPE_FOR_SIZE
 #define LANG_HOOKS_TYPE_FOR_SIZE java_type_for_size
-#undef LANG_HOOKS_SIGNED_TYPE
-#define LANG_HOOKS_SIGNED_TYPE java_signed_type
+#undef LANG_HOOKS_CLASSIFY_RECORD
+#define LANG_HOOKS_CLASSIFY_RECORD java_classify_record
 
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN java_dump_tree
@@ -191,20 +152,8 @@ struct language_function GTY(())
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR java_gimplify_expr
 
-#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
-#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES java_tree_inlining_walk_subtrees
-
 #undef LANG_HOOKS_DECL_OK_FOR_SIBCALL
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL java_decl_ok_for_sibcall
-
-#undef LANG_HOOKS_GET_CALLEE_FNDECL
-#define LANG_HOOKS_GET_CALLEE_FNDECL java_get_callee_fndecl
-
-#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
-#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION java_expand_body
-
-#undef LANG_HOOKS_CLEAR_BINDING_STACK
-#define LANG_HOOKS_CLEAR_BINDING_STACK java_clear_binding_stack
 
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME java_mangle_decl
@@ -268,7 +217,7 @@ java_handle_option (size_t scode, const char *arg, int value)
       flag_wall = value;
       /* When -Wall given, enable -Wunused.  We do this because the C
 	 compiler does it, and people expect it.  */
-      set_Wunused (value);
+      warn_unused = value;
       break;
 
     case OPT_fenable_assertions_:
@@ -357,13 +306,6 @@ java_init (void)
   if (!flag_indirect_dispatch)
     flag_indirect_classes = false;
 
-  /* Force minimum function alignment if g++ uses the least significant
-     bit of function pointers to store the virtual bit. This is required
-     to keep vtables compatible.  */
-  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
-      && force_align_functions_log < 1)
-    force_align_functions_log = 1;
-
   jcf_path_seal (v_flag);
 
   java_init_decl_processing ();
@@ -406,7 +348,7 @@ put_decl_string (const char *str, int len)
       else
 	{
 	  decl_buflen *= 2;
-	  decl_buf = xrealloc (decl_buf, decl_buflen);
+	  decl_buf = XRESIZEVAR (char, decl_buf, decl_buflen);
 	}
     }
   strcpy (decl_buf + decl_bufpos, str);
@@ -507,7 +449,8 @@ static GTY(()) tree last_error_function_context;
 static GTY(()) tree last_error_function;
 static void
 java_print_error_function (diagnostic_context *context ATTRIBUTE_UNUSED,
-			   const char *file)
+			   const char *file,
+			   diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
 {
   /* Don't print error messages with bogus function prototypes.  */
   if (inhibit_error_function_printing)
@@ -574,10 +517,6 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   /* Java requires left-to-right evaluation of subexpressions.  */
   flag_evaluation_order = 1;
 
-  /* Unit at a time is disabled for Java because it is considered
-     too expensive.  */
-  no_unit_at_a_time_default = 1;
-
   jcf_path_init ();
 
   return CL_Java;
@@ -589,11 +528,12 @@ java_post_options (const char **pfilename)
 {
   const char *filename = *pfilename;
 
-  /* Use tree inlining.  */
-  if (!flag_no_inline)
-    flag_no_inline = 1;
-  if (flag_inline_functions)
-    flag_inline_trees = 2;
+  /* Excess precision other than "fast" requires front-end
+     support.  */
+  if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
+      && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
+    sorry ("-fexcess-precision=standard for Java");
+  flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
 
   /* An absolute requirement: if we're not using indirect dispatch, we
      must always verify everything.  */
@@ -667,10 +607,8 @@ java_post_options (const char **pfilename)
 	    }
 	}
     }
-#ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_ENTER, false, filename, 0);
-  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
-#endif
+  linemap_add (line_table, LC_ENTER, false, filename, 0);
+  linemap_add (line_table, LC_RENAME, false, "<built-in>", 0);
 
   /* Initialize the compiler back end.  */
   return false;
@@ -696,49 +634,6 @@ decl_constant_value (tree decl)
       && TREE_CODE (DECL_INITIAL (decl)) != CONSTRUCTOR)
     return DECL_INITIAL (decl);
   return decl;
-}
-
-/* Walk the language specific tree nodes during inlining.  */
-
-static tree
-java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
-				  int *subtrees ATTRIBUTE_UNUSED,
-				  walk_tree_fn func ATTRIBUTE_UNUSED,
-				  void *data ATTRIBUTE_UNUSED,
-				  struct pointer_set_t *pset ATTRIBUTE_UNUSED)
-{
-  enum tree_code code;
-  tree result;
-
-#define WALK_SUBTREE(NODE)				\
-  do							\
-    {							\
-      result = walk_tree (&(NODE), func, data, pset);	\
-      if (result)					\
-	return result;					\
-    }							\
-  while (0)
-
-  tree t = *tp;
-  if (!t)
-    return NULL_TREE;
-
-  code = TREE_CODE (t);
-  switch (code)
-    {
-    case BLOCK:
-      WALK_SUBTREE (BLOCK_EXPR_BODY (t));
-      return NULL_TREE;
-
-    case EXIT_BLOCK_EXPR:
-      *subtrees = 0;
-      return NULL_TREE;
-
-    default:
-      return NULL_TREE;
-    }
-
-  #undef WALK_SUBTREE
 }
 
 /* Every call to a static constructor has an associated boolean
@@ -897,8 +792,6 @@ java_dump_tree (void *dump_info, tree t)
 	dump_string (di, "extern");
       else
 	dump_string (di, "static");
-      if (DECL_LANG_SPECIFIC (t))
-	dump_child ("body", DECL_FUNCTION_BODY (t));
       if (DECL_LANG_SPECIFIC (t) && !dump_flag (di, TDF_SLIM, t))
 	dump_child ("inline body", DECL_SAVED_TREE (t));
       return true;
@@ -913,15 +806,6 @@ java_dump_tree (void *dump_info, tree t)
 
     case LABEL_EXPR:
       dump_child ("label", TREE_OPERAND (t, 0));
-      return true;
-
-    case LABELED_BLOCK_EXPR:
-      dump_child ("label", LABELED_BLOCK_LABEL (t));
-      dump_child ("block", LABELED_BLOCK_BODY (t));
-      return true;
-
-    case EXIT_BLOCK_EXPR:
-      dump_child ("block", EXIT_BLOCK_LABELED_BLOCK (t));
       return true;
 
     case BLOCK:
@@ -961,68 +845,24 @@ java_dump_tree (void *dump_info, tree t)
    SecurityManager.getClassContext().  */
 
 static bool
-java_decl_ok_for_sibcall (tree decl)
+java_decl_ok_for_sibcall (const_tree decl)
 {
   return (decl != NULL && DECL_CONTEXT (decl) == output_class
-	  && DECL_INLINE (decl));
+          && !DECL_UNINLINABLE (decl));
 }
 
-/* Given a call_expr, try to figure out what its target might be.  In
-   the case of an indirection via the atable, search for the decl.  If
-   the decl is external, we return NULL.  If we don't, the optimizer
-   will replace the indirection with a direct call, which undoes the
-   purpose of the atable indirection.  */
-static tree
-java_get_callee_fndecl (tree call_expr)
+static enum classify_record
+java_classify_record (tree type)
 {
-  tree method, table, element, atable_methods;
+  if (! CLASS_P (type))
+    return RECORD_IS_STRUCT;
 
-  HOST_WIDE_INT index;
+  /* ??? GDB does not support DW_TAG_interface_type as of December,
+     2007.  Re-enable this at a later time.  */
+  if (0 && CLASS_INTERFACE (TYPE_NAME (type)))
+    return RECORD_IS_INTERFACE;
 
-  /* FIXME: This is disabled because we end up passing calls through
-     the PLT, and we do NOT want to do that.  */
-  return NULL;
-
-  if (TREE_CODE (call_expr) != CALL_EXPR)
-    return NULL;
-  method = CALL_EXPR_FN (call_expr);
-  STRIP_NOPS (method);
-  if (TREE_CODE (method) != ARRAY_REF)
-    return NULL;
-  table = TREE_OPERAND (method, 0);
-  if (! DECL_LANG_SPECIFIC(table)
-      || !DECL_OWNER (table)
-      || TYPE_ATABLE_DECL (DECL_OWNER (table)) != table)
-    return NULL;
-
-  atable_methods = TYPE_ATABLE_METHODS (DECL_OWNER (table));
-  index = TREE_INT_CST_LOW (TREE_OPERAND (method, 1));
-
-  /* FIXME: Replace this for loop with a hash table lookup.  */
-  for (element = atable_methods; element; element = TREE_CHAIN (element))
-    {
-      if (index == 1)
-	{
-	  tree purpose = TREE_PURPOSE (element);
-	  if (TREE_CODE (purpose) == FUNCTION_DECL
-	      && ! DECL_EXTERNAL (purpose))
-	    return purpose;
-	  else
-	    return NULL;
-	}
-      --index;
-    }
-
-  return NULL;
-}
-
-
-/* Clear the binding stack.  */
-static void
-java_clear_binding_stack (void)
-{
-  while (!global_bindings_p ())
-    poplevel (0, 0, 0);
+  return RECORD_IS_CLASS;
 }
 
 #include "gt-java-lang.h"

@@ -1,11 +1,11 @@
 ;; Constraint definitions for MIPS.
-;; Copyright (C) 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Register constraints
 
@@ -30,20 +29,24 @@
 (define_register_constraint "f" "TARGET_HARD_FLOAT ? FP_REGS : NO_REGS"
   "A floating-point register (if available).")
 
-(define_register_constraint "h" "HI_REG"
-  "The @code{hi} register.")
+(define_register_constraint "h" "NO_REGS"
+  "Formerly the @code{hi} register.  This constraint is no longer supported.")
 
-(define_register_constraint "l" "LO_REG"
-  "The @code{lo} register.")
+(define_register_constraint "l" "TARGET_BIG_ENDIAN ? MD1_REG : MD0_REG"
+  "The @code{lo} register.  Use this register to store values that are
+   no bigger than a word.")
 
 (define_register_constraint "x" "MD_REGS"
-  "The @code{hi} and @code{lo} registers.")
+  "The concatenated @code{hi} and @code{lo} registers.  Use this register
+   to store doubleword values.")
 
 (define_register_constraint "b" "ALL_REGS"
   "@internal")
 
-(define_register_constraint "c" "TARGET_USE_PIC_FN_ADDR_REG ? PIC_FN_ADDR_REG
-				 : TARGET_MIPS16 ? M16_NA_REGS
+;; MIPS16 code always calls through a MIPS16 register; see mips_emit_call_insn
+;; for details.
+(define_register_constraint "c" "TARGET_MIPS16 ? M16_REGS
+				 : TARGET_USE_PIC_FN_ADDR_REG ? PIC_FN_ADDR_REG
 				 : GR_REGS"
   "A register suitable for use in an indirect jump.  This will always be
    @code{$25} for @option{-mabicalls}.")
@@ -54,8 +57,11 @@
 (define_register_constraint "j" "PIC_FN_ADDR_REG"
   "@internal")
 
+;; Don't use this constraint in gcc code!  It runs the risk of
+;; introducing a spill failure; see tls_get_tp_<mode>.
 (define_register_constraint "v" "V1_REG"
-  "@internal")
+  "Register @code{$3}.  Do not use this constraint in new code;
+   it is retained only for compatibility with glibc.")
 
 (define_register_constraint "y" "GR_REGS"
   "Equivalent to @code{r}; retained for backwards compatibility.")
@@ -81,7 +87,18 @@
 ;; Registers that can be used as the target of multiply-accumulate
 ;; instructions.  The core MIPS32 ISA provides a hi/lo madd,
 ;; but the DSPr2 version allows any accumulator target.
-(define_register_constraint "ka" "TARGET_DSPR2 ? ACC_REGS : MD_REGS")
+(define_register_constraint "ka" "ISA_HAS_DSPR2 ? ACC_REGS : MD_REGS")
+
+(define_constraint "kf"
+  "@internal"
+  (match_operand 0 "force_to_mem_operand"))
+
+;; This is a normal rather than a register constraint because we can
+;; never use the stack pointer as a reload register.
+(define_constraint "ks"
+  "@internal"
+  (and (match_code "reg")
+       (match_test "REGNO (op) == STACK_POINTER_REGNUM")))
 
 ;; Integer constraints
 
@@ -145,7 +162,7 @@
 (define_memory_constraint "R"
   "An address that can be used in a non-macro load or store."
   (and (match_code "mem")
-       (match_test "mips_fetch_insns (op) == 1")))
+       (match_test "mips_address_insns (XEXP (op, 0), mode, false) == 1")))
 
 (define_constraint "S"
   "@internal

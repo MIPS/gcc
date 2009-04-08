@@ -1,5 +1,5 @@
 `/* Helper function for repacking arrays.
-   Copyright 2003, 2006 Free Software Foundation, Inc.
+   Copyright 2003, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -28,11 +28,11 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "libgfortran.h"
 #include <stdlib.h>
 #include <assert.h>
-#include <string.h>
-#include "libgfortran.h"'
+#include <string.h>'
+
 include(iparm.m4)dnl
 
 `#if defined (HAVE_'rtype_name`)'
@@ -48,7 +48,7 @@ internal_unpack_'rtype_ccode` ('rtype` * d, const 'rtype_name` * src)
   index_type stride0;
   index_type dim;
   index_type dsize;
-  'rtype_name` *dest;
+  'rtype_name` * restrict dest;
   int n;
 
   dest = d->data;
@@ -63,12 +63,12 @@ internal_unpack_'rtype_ccode` ('rtype` * d, const 'rtype_name` * src)
       stride[n] = d->dim[n].stride;
       extent[n] = d->dim[n].ubound + 1 - d->dim[n].lbound;
       if (extent[n] <= 0)
-        abort ();
+	return;
 
       if (dsize == stride[n])
-        dsize *= extent[n];
+	dsize *= extent[n];
       else
-        dsize = 0;
+	dsize = 0;
     }
 
   if (dsize != 0)

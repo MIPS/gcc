@@ -180,6 +180,22 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     };
 # endif
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<>
+    struct __is_integer<char16_t>
+    {
+      enum { __value = 1 };
+      typedef __true_type __type;
+    };
+
+  template<>
+    struct __is_integer<char32_t>
+    {
+      enum { __value = 1 };
+      typedef __true_type __type;
+    };
+#endif
+
   template<>
     struct __is_integer<short>
     {
@@ -347,6 +363,56 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 #ifdef _GLIBCXX_USE_WCHAR_T
   template<>
     struct __is_char<wchar_t>
+    {
+      enum { __value = 1 };
+      typedef __true_type __type;
+    };
+#endif
+
+  template<typename _Tp>
+    struct __is_byte
+    {
+      enum { __value = 0 };
+      typedef __false_type __type;
+    };
+
+  template<>
+    struct __is_byte<char>
+    {
+      enum { __value = 1 };
+      typedef __true_type __type;
+    };
+
+  template<>
+    struct __is_byte<signed char>
+    {
+      enum { __value = 1 };
+      typedef __true_type __type;
+    };
+
+  template<>
+    struct __is_byte<unsigned char>
+    {
+      enum { __value = 1 };
+      typedef __true_type __type;
+    };
+
+  //
+  // Move iterator type
+  //
+  template<typename _Tp>
+    struct __is_move_iterator
+    {
+      enum { __value = 0 };
+      typedef __false_type __type;
+    };
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _Iterator>
+    class move_iterator;
+
+  template<typename _Iterator>
+    struct __is_move_iterator< move_iterator<_Iterator> >
     {
       enum { __value = 1 };
       typedef __true_type __type;

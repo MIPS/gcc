@@ -103,7 +103,7 @@ public abstract class Activatable
    * @throws ActivationException if the activation failed
    * @throws RemoteException if the remote call failed.
    */
-  protected Activatable(String codebase, MarshalledObject data,
+  protected Activatable(String codebase, MarshalledObject<?> data,
                         boolean restart, int port) throws ActivationException,
       RemoteException
   {
@@ -133,7 +133,7 @@ public abstract class Activatable
    * @throws ActivationException if the activation failed
    * @throws RemoteException if the remote call failed.
    */
-  protected Activatable(String codebase, MarshalledObject data,
+  protected Activatable(String codebase, MarshalledObject<?> data,
                         boolean restart, int port, RMIClientSocketFactory csf,
                         RMIServerSocketFactory ssf) throws ActivationException,
       RemoteException
@@ -314,7 +314,7 @@ public abstract class Activatable
    * @throws RemoteException if the registration or export fails
    */
   public static ActivationID exportObject(Remote obj, String location,
-                                          MarshalledObject data,
+                                          MarshalledObject<?> data,
                                           boolean restart, int port)
       throws ActivationException, RemoteException
   {
@@ -462,8 +462,8 @@ public abstract class Activatable
    *          means anonymous port.
    * @param serverSocketFactory the server socket factory
    */
-  public static Remote export(ActivationID id, Remote obj, int port,
-                              RMIServerSocketFactory serverSocketFactory)
+  private static Remote export(ActivationID id, Remote obj, int port,
+			       RMIServerSocketFactory serverSocketFactory)
       throws RemoteException
   {
     ActivatableServerRef sref = null;
@@ -479,7 +479,7 @@ public abstract class Activatable
    * 
    * @return the object id
    */
-  public static ObjID makeId(ActivationID aid)
+  private static ObjID makeId(ActivationID aid)
   {
     ObjID id = new ObjID(0);
     

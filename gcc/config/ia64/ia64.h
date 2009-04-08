@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* ??? Look at ABI group documents for list of preprocessor macros and
    other features required for ABI compliance.  */
@@ -285,6 +284,9 @@ while (0)
 
 /* We always want the XFmode operations from libgcc2.c.  */
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
+
+/* On HP-UX, we use the l suffix for TFmode in libgcc2.c.  */
+#define LIBGCC2_TF_CEXT l
 
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -642,6 +644,7 @@ while (0)
    : PR_REGNO_P (REGNO) && (MODE) == BImode ? 2				\
    : PR_REGNO_P (REGNO) && (MODE) == CCImode ? 1			\
    : FR_REGNO_P (REGNO) && (MODE) == XFmode ? 1				\
+   : FR_REGNO_P (REGNO) && (MODE) == RFmode ? 1				\
    : FR_REGNO_P (REGNO) && (MODE) == XCmode ? 2				\
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
@@ -657,7 +660,7 @@ while (0)
    : PR_REGNO_P (REGNO) ?					\
      (MODE) == BImode || GET_MODE_CLASS (MODE) == MODE_CC	\
    : GR_REGNO_P (REGNO) ?					\
-     (MODE) != CCImode && (MODE) != XFmode && (MODE) != XCmode	\
+     (MODE) != CCImode && (MODE) != XFmode && (MODE) != XCmode && (MODE) != RFmode \
    : AR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : BR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : 0)
@@ -674,15 +677,15 @@ while (0)
    we can't tie it with any other modes.  */
 #define MODES_TIEABLE_P(MODE1, MODE2)			\
   (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)	\
-   && ((((MODE1) == XFmode) || ((MODE1) == XCmode))	\
-       == (((MODE2) == XFmode) || ((MODE2) == XCmode)))	\
+   && ((((MODE1) == XFmode) || ((MODE1) == XCmode) || ((MODE1) == RFmode))	\
+       == (((MODE2) == XFmode) || ((MODE2) == XCmode) || ((MODE2) == RFmode)))	\
    && (((MODE1) == BImode) == ((MODE2) == BImode)))
 
 /* Specify the modes required to caller save a given hard regno.
    We need to ensure floating pt regs are not saved as DImode.  */
 
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
-  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? XFmode        \
+  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? RFmode        \
    : choose_hard_reg_mode ((REGNO), (NREGS), false))
 
 /* Handling Leaf Functions */
@@ -797,6 +800,19 @@ enum reg_class
     0xFFFFFFFF, 0xFFFFFFFF, 0x3FFF },			\
 }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  PR_REGS, BR_REGS, AR_M_REGS, AR_I_REGS, GR_REGS, FR_REGS, LIM_REG_CLASSES  \
+}
+
 /* A C expression whose value is a register class containing hard register
    REGNO.  In general there is more than one such class; choose a class which
    is "minimal", meaning that no smaller class also contains the register.  */
@@ -880,15 +896,20 @@ enum reg_class
 #define CLASS_MAX_NREGS(CLASS, MODE) \
   ((MODE) == BImode && (CLASS) == PR_REGS ? 2			\
    : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XFmode) ? 1 \
+   : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == RFmode) ? 1 \
    : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XCmode) ? 2 \
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* In FP regs, we can't change FP values to integer values and vice versa,
+/* In BR regs, we can't change the DImode at all.
+   In FP regs, we can't change FP values to integer values and vice versa,
    but we can change e.g. DImode to SImode, and V2SFmode into DImode.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 		\
-  (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
-   ? reg_classes_intersect_p (CLASS, FR_REGS) : 0)
+  (reg_classes_intersect_p (CLASS, BR_REGS)			\
+   ? (FROM) != (TO)						\
+   : (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
+      ? reg_classes_intersect_p (CLASS, FR_REGS)		\
+      : 0))
 
 /* Basic Stack Layout */
 
@@ -932,18 +953,6 @@ enum reg_class
    unwind info for C++ EH.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (VOIDmode, BR_REG (0))
 
-/* ??? This is not defined because of three problems.
-   1) dwarf2out.c assumes that DWARF_FRAME_RETURN_COLUMN fits in one byte.
-   The default value is FIRST_PSEUDO_REGISTER which doesn't.  This can be
-   worked around by setting PC_REGNUM to FR_REG (0) which is an otherwise
-   unused register number.
-   2) dwarf2out_frame_debug core dumps while processing prologue insns.  We
-   need to refine which insns have RTX_FRAME_RELATED_P set and which don't.
-   3) It isn't possible to turn off EH frame info by defining DWARF2_UNIND_INFO
-   to zero, despite what the documentation implies, because it is tested in
-   a few places with #ifdef instead of #if.  */
-#undef INCOMING_RETURN_ADDR_RTX
-
 /* A C expression whose value is an integer giving the offset, in bytes, from
    the value of the stack pointer register to the top of the stack frame at the
    beginning of any function, before the prologue.  The top of the frame is
@@ -985,7 +994,8 @@ enum reg_class
    pointer is not 16-byte aligned like the stack pointer.  */
 #define INIT_EXPANDERS					\
   do {							\
-    if (cfun && cfun->emit->regno_pointer_align)	\
+    ia64_init_expanders ();                             \
+    if (crtl->emit.regno_pointer_align)	\
       REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) = 64;	\
   } while (0)
 
@@ -1032,7 +1042,7 @@ enum reg_class
 
 /* If defined, the maximum amount of space required for outgoing arguments will
    be computed and placed into the variable
-   `current_function_outgoing_args_size'.  */
+   `crtl->outgoing_args_size'.  */
 
 #define ACCUMULATE_OUTGOING_ARGS 1
 
@@ -1374,7 +1384,7 @@ do {									\
    many additional insn groups we run into, vs how good the dynamic
    branch predictor is.  */
 
-#define BRANCH_COST 6
+#define BRANCH_COST(speed_p, predictable_p) 6
 
 /* Define this macro as a C expression which is nonzero if accessing less than
    a word of memory (i.e. a `char' or a `short') is no faster than accessing a

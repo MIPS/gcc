@@ -1,13 +1,13 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -50,6 +49,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "version.h"
 #include "tree-iterator.h"
 #include "langhooks.h"
+#include "cgraph.h"
 
 #if defined (DEBUG_JAVA_BINDING_LEVELS)
 extern void indent (void);
@@ -738,7 +738,6 @@ java_init_decl_processing (void)
   void_signature_node = get_identifier ("()V");
   finalize_identifier_node = get_identifier ("finalize");
   this_identifier_node = get_identifier ("this");
-  classdollar_identifier_node = get_identifier ("class$");
 
   java_lang_cloneable_identifier_node = get_identifier ("java.lang.Cloneable");
   java_io_serializable_identifier_node =
@@ -908,7 +907,7 @@ java_init_decl_processing (void)
     = add_builtin_function ("_Jv_ResolvePoolEntry",
 			    build_function_type (ptr_type_node, t),
 			    0,NOT_BUILT_IN, NULL, NULL_TREE);
-  DECL_IS_PURE (soft_resolvepoolentry_node) = 1;
+  DECL_PURE_P (soft_resolvepoolentry_node) = 1;
   throw_node = add_builtin_function ("_Jv_Throw",
 				     build_function_type (void_type_node, t),
 				     0, NOT_BUILT_IN, NULL, NULL_TREE);
@@ -1002,7 +1001,7 @@ java_init_decl_processing (void)
     = add_builtin_function ("_Jv_IsInstanceOf",
 			    build_function_type (boolean_type_node, t),
 			    0, NOT_BUILT_IN, NULL, NULL_TREE);
-  DECL_IS_PURE (soft_instanceof_node) = 1;
+  DECL_PURE_P (soft_instanceof_node) = 1;
   t = tree_cons (NULL_TREE, object_ptr_type_node,
 		 tree_cons (NULL_TREE, object_ptr_type_node, endlink));
   soft_checkarraystore_node
@@ -1016,7 +1015,7 @@ java_init_decl_processing (void)
     = add_builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			    build_function_type (ptr_type_node, t),
 			    0, NOT_BUILT_IN, NULL, NULL_TREE);
-  DECL_IS_PURE (soft_lookupinterfacemethod_node) = 1;
+  DECL_PURE_P (soft_lookupinterfacemethod_node) = 1;
   t = tree_cons (NULL_TREE, ptr_type_node,
 		 tree_cons (NULL_TREE, ptr_type_node,
 			    tree_cons (NULL_TREE, ptr_type_node, endlink)));
@@ -1077,7 +1076,10 @@ java_init_decl_processing (void)
   eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
                                              ? "__gcj_personality_sj0"
                                              : "__gcj_personality_v0");
-  default_init_unwind_resume_libfunc ();
+  if (targetm.arm_eabi_unwinder)
+    unwind_resume_libfunc = init_one_libfunc ("__cxa_end_cleanup");
+  else
+    default_init_unwind_resume_libfunc ();
 
   lang_eh_runtime_type = do_nothing;
 
@@ -1124,41 +1126,6 @@ lookup_name_current_level (tree name)
       break;
 
   return t;
-}
-
-/* Use a binding level to record a labeled block declaration */
-
-void
-push_labeled_block (tree lb)
-{
-  tree name = DECL_NAME (LABELED_BLOCK_LABEL (lb));
-  struct binding_level *b = current_binding_level;
-  tree oldlocal = IDENTIFIER_LOCAL_VALUE (name);
-  if (oldlocal != 0)
-      b->shadowed = tree_cons (name, oldlocal, b->shadowed);
-  TREE_CHAIN (lb) = b->names;
-  b->names = lb;
-  IDENTIFIER_LOCAL_VALUE (name) = lb;
-}
-
-/* Pop the current binding level, reinstalling values for the previous
-   labeled block */
-
-void
-pop_labeled_block (void)
-{
-  struct binding_level *b = current_binding_level;
-  tree label =  b->names;
-  IDENTIFIER_LOCAL_VALUE (DECL_NAME (LABELED_BLOCK_LABEL (label))) = 
-    NULL_TREE;
-  if (b->shadowed)
-    IDENTIFIER_LOCAL_VALUE (TREE_PURPOSE (b->shadowed)) = 
-      TREE_VALUE (b->shadowed);
-
-  /* Pop the current level, and free the structure for reuse.  */
-  current_binding_level = current_binding_level->level_chain;
-  b->level_chain = free_binding_level;
-  free_binding_level = b;
 }
 
 /* Record a decl-node X as belonging to the current lexical scope.
@@ -1288,7 +1255,7 @@ static struct binding_level *
 make_binding_level (void)
 {
   /* NOSTRICT */
-  return ggc_alloc_cleared (sizeof (struct binding_level));
+  return GGC_CNEW (struct binding_level);
 }
 
 void
@@ -1615,18 +1582,6 @@ force_poplevels (int start_pc)
     }
 }
 
-/* Insert BLOCK at the end of the list of subblocks of the
-   current binding level.  This is used when a BIND_EXPR is expanded,
-   to handle the BLOCK node inside the BIND_EXPR.  */
-
-void
-insert_block (tree block)
-{
-  TREE_USED (block) = 1;
-  current_binding_level->blocks
-    = chainon (current_binding_level->blocks, block);
-}
-
 /* integrate_decl_tree calls this function. */
 
 void
@@ -1639,7 +1594,7 @@ java_dup_lang_specific_decl (tree node)
     return;
 
   lang_decl_size = sizeof (struct lang_decl);
-  x = ggc_alloc (lang_decl_size);
+  x = GGC_NEW (struct lang_decl);
   memcpy (x, DECL_LANG_SPECIFIC (node), lang_decl_size);
   DECL_LANG_SPECIFIC (node) = x;
 }
@@ -1739,10 +1694,6 @@ build_result_decl (tree fndecl)
   tree result = DECL_RESULT (fndecl);
   if (! result)
     {
-      /* To be compatible with C_PROMOTING_INTEGER_TYPE_P in cc1/cc1plus. */
-      if (INTEGRAL_TYPE_P (restype)
-	  && TYPE_PRECISION (restype) < TYPE_PRECISION (integer_type_node))
-	restype = integer_type_node;
       result = build_decl (RESULT_DECL, NULL_TREE, restype);
       DECL_ARTIFICIAL (result) = 1;
       DECL_IGNORED_P (result) = 1;
@@ -1766,7 +1717,7 @@ start_java_method (tree fndecl)
   i = DECL_MAX_LOCALS(fndecl) + DECL_MAX_STACK(fndecl);
   decl_map = make_tree_vec (i);
   base_decl_map = make_tree_vec (i);
-  type_map = xrealloc (type_map, i * sizeof (tree));
+  type_map = XRESIZEVEC (tree, type_map, i);
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   fprintf (stderr, "%s:\n", lang_printable_name (fndecl, 2));
@@ -1843,14 +1794,6 @@ end_java_method (void)
 
   finish_method (fndecl);
 
-  if (! flag_unit_at_a_time)
-    {
-      /* Nulling these fields when we no longer need them saves
-	 memory.  */
-      DECL_SAVED_TREE (fndecl) = NULL;
-      DECL_STRUCT_FUNCTION (fndecl) = NULL;
-      DECL_INITIAL (fndecl) = NULL_TREE;
-    }
   current_function_decl = NULL_TREE;
 }
 
@@ -1882,26 +1825,13 @@ finish_method (tree fndecl)
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
   if (DECL_STRUCT_FUNCTION (fndecl))
-    cfun = DECL_STRUCT_FUNCTION (fndecl);
+    set_cfun (DECL_STRUCT_FUNCTION (fndecl));
   else
-    allocate_struct_function (fndecl);
-#ifdef USE_MAPPED_LOCATION
+    allocate_struct_function (fndecl, false);
   cfun->function_end_locus = DECL_FUNCTION_LAST_LINE (fndecl);
-#else
-  cfun->function_end_locus.file = DECL_SOURCE_FILE (fndecl);
-  cfun->function_end_locus.line = DECL_FUNCTION_LAST_LINE (fndecl);
-#endif
 
   /* Defer inlining and expansion to the cgraph optimizers.  */
   cgraph_finalize_function (fndecl, false);
-}
-
-/* Optimize and expand a function's entire body.  */
-
-void
-java_expand_body (tree fndecl)
-{
-  tree_rest_of_compilation (fndecl);
 }
 
 /* We pessimistically marked all methods and fields external until we
@@ -1913,15 +1843,12 @@ java_mark_decl_local (tree decl)
 {
   DECL_EXTERNAL (decl) = 0;
 
-  /* If we've already constructed DECL_RTL, give encode_section_info
-     a second chance, now that we've changed the flags.  */
-  /* ??? Ideally, we'd have flag_unit_at_a_time set, and not have done
-     anything that would have referenced DECL_RTL so far.  But at the
-     moment we force flag_unit_at_a_time off due to excessive memory
-     consumption when compiling large jar files.  Which probably means
-     that we need to re-order how we process jar files...  */
-  if (DECL_RTL_SET_P (decl))
-    make_decl_rtl (decl);
+#ifdef ENABLE_CHECKING
+  /* Double check that we didn't pass the function to the callgraph early.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    gcc_assert (!cgraph_node (decl)->local.finalized);
+#endif
+  gcc_assert (!DECL_RTL_SET_P (decl));
 }
 
 /* Given appropriate target support, G++ will emit hidden aliases for native
@@ -1932,32 +1859,41 @@ java_mark_decl_local (tree decl)
 static void
 java_mark_cni_decl_local (tree decl)
 {
-  /* Setting DECL_LOCAL_CNI_METHOD_P changes the behavior of the mangler.
-     We expect that we should not yet have referenced this decl in a 
-     context that requires it.  Check this invariant even if we don't have
-     support for hidden aliases.  */
-  gcc_assert (!DECL_ASSEMBLER_NAME_SET_P (decl));
-
 #if !defined(HAVE_GAS_HIDDEN) || !defined(ASM_OUTPUT_DEF)
   return;
 #endif
 
   DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
   DECL_LOCAL_CNI_METHOD_P (decl) = 1;
+
+  /* Setting DECL_LOCAL_CNI_METHOD_P changes the behavior of the
+     mangler.  We might have already referenced this native method and
+     therefore created its name, but even if we have it won't hurt.
+     We'll just go via its externally visible name, rather than its
+     hidden alias.  However, we must force things so that the correct
+     mangling is done.  */
+
+  if (DECL_ASSEMBLER_NAME_SET_P (decl))
+    java_mangle_decl (decl);
+  if (DECL_RTL_SET_P (decl))
+    {
+      SET_DECL_RTL (decl, 0);
+      make_decl_rtl (decl);
+    }
 }
 
 /* Use the preceding two functions and mark all members of the class.  */
 
 void
-java_mark_class_local (tree class)
+java_mark_class_local (tree klass)
 {
   tree t;
 
-  for (t = TYPE_FIELDS (class); t ; t = TREE_CHAIN (t))
+  for (t = TYPE_FIELDS (klass); t ; t = TREE_CHAIN (t))
     if (FIELD_STATIC (t))
       java_mark_decl_local (t);
 
-  for (t = TYPE_METHODS (class); t ; t = TREE_CHAIN (t))
+  for (t = TYPE_METHODS (klass); t ; t = TREE_CHAIN (t))
     if (!METHOD_ABSTRACT (t))
       {
 	if (METHOD_NATIVE (t) && !flag_jni)

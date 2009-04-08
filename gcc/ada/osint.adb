@@ -6,39 +6,37 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Fmap;     use Fmap;
-with Gnatvsn;  use Gnatvsn;
-with Hostparm;
-with Namet;    use Namet;
-with Opt;      use Opt;
-with Output;   use Output;
-with Sdefault; use Sdefault;
-with Table;
-with Targparm; use Targparm;
+with Unchecked_Conversion;
 
 with System.Case_Util; use System.Case_Util;
 
-with Unchecked_Conversion;
-
 with GNAT.HTable;
+
+with Fmap;             use Fmap;
+with Gnatvsn;          use Gnatvsn;
+with Hostparm;
+with Opt;              use Opt;
+with Output;           use Output;
+with Sdefault;         use Sdefault;
+with Table;
+with Targparm;         use Targparm;
 
 package body Osint is
 
@@ -62,21 +60,21 @@ package body Osint is
    -------------------------------------
 
    --  This package creates a number of source, ALI and object file names
-   --  that are used to locate the actual file and for the purpose of
-   --  message construction. These names need not be accessible by Name_Find,
-   --  and can be therefore created by using routine Name_Enter. The files in
-   --  question are file names with a prefix directory (ie the files not
-   --  in the current directory). File names without a prefix directory are
-   --  entered with Name_Find because special values might be attached to
-   --  the various Info fields of the corresponding name table entry.
+   --  that are used to locate the actual file and for the purpose of message
+   --  construction. These names need not be accessible by Name_Find, and can
+   --  be therefore created by using routine Name_Enter. The files in question
+   --  are file names with a prefix directory (i.e., the files not in the
+   --  current directory). File names without a prefix directory are entered
+   --  with Name_Find because special values might be attached to the various
+   --  Info fields of the corresponding name table entry.
 
    -----------------------
    -- Local Subprograms --
    -----------------------
 
    function Append_Suffix_To_File_Name
-     (Name   : Name_Id;
-      Suffix : String) return Name_Id;
+     (Name   : File_Name_Type;
+      Suffix : String) return File_Name_Type;
    --  Appends Suffix to Name and returns the new name
 
    function OS_Time_To_GNAT_Time (T : OS_Time) return Time_Stamp_Type;
@@ -84,11 +82,10 @@ package body Osint is
 
    function Executable_Prefix return String_Ptr;
    --  Returns the name of the root directory where the executable is stored.
-   --  The executable must be located in a directory called "bin", or
-   --  under root/lib/gcc-lib/..., or under root/libexec/gcc/... Thus, if
-   --  the executable is stored in directory "/foo/bar/bin", this routine
-   --  returns "/foo/bar/".  Return "" if the location is not recognized
-   --  as described above.
+   --  The executable must be located in a directory called "bin", or under
+   --  root/lib/gcc-lib/..., or under root/libexec/gcc/... For example, if
+   --  executable is stored in directory "/foo/bar/bin", this routine returns
+   --  "/foo/bar/". Return "" if location is not recognized as described above.
 
    function Update_Path (Path : String_Ptr) return String_Ptr;
    --  Update the specified path to replace the prefix with the location
@@ -99,20 +96,20 @@ package body Osint is
       T    : File_Type;
       Dir  : Natural;
       Name : String) return File_Name_Type;
-   --  See if the file N whose name is Name exists in directory Dir. Dir is
-   --  an index into the Lib_Search_Directories table if T = Library.
-   --  Otherwise if T = Source, Dir is an index into the
-   --  Src_Search_Directories table. Returns the File_Name_Type of the
-   --  full file name if file found, or No_File if not found.
+   --  See if the file N whose name is Name exists in directory Dir. Dir is an
+   --  index into the Lib_Search_Directories table if T = Library. Otherwise
+   --  if T = Source, Dir is an index into the Src_Search_Directories table.
+   --  Returns the File_Name_Type of the full file name if file found, or
+   --  No_File if not found.
 
    function C_String_Length (S : Address) return Integer;
-   --  Returns length of a C string. Returns zero for a null address
+   --  Returns length of a C string (zero for a null address)
 
    function To_Path_String_Access
      (Path_Addr : Address;
       Path_Len  : Integer) return String_Access;
-   --  Converts a C String to an Ada String. Are we doing this to avoid
-   --  withing Interfaces.C.Strings ???
+   --  Converts a C String to an Ada String. Are we doing this to avoid withing
+   --  Interfaces.C.Strings ???
 
    ------------------------------
    -- Other Local Declarations --
@@ -122,15 +119,13 @@ package body Osint is
    --  End of line character
 
    Number_File_Names : Int := 0;
-   --  The total number of file names found on command line and placed in
-   --  File_Names.
+   --  Number of file names found on command line and placed in File_Names
 
    Look_In_Primary_Directory_For_Current_Main : Boolean := False;
-   --  When this variable is True, Find_File will only look in
-   --  the Primary_Directory for the Current_Main file.
-   --  This variable is always True for the compiler.
-   --  It is also True for gnatmake, when the soucr name given
-   --  on the command line has directory information.
+   --  When this variable is True, Find_File only looks in Primary_Directory
+   --  for the Current_Main file. This variable is always set to True for the
+   --  compiler. It is also True for gnatmake, when the source name given on
+   --  the command line has directory information.
 
    Current_Full_Source_Name  : File_Name_Type  := No_File;
    Current_Full_Source_Stamp : Time_Stamp_Type := Empty_Time_Stamp;
@@ -138,9 +133,9 @@ package body Osint is
    Current_Full_Lib_Stamp    : Time_Stamp_Type := Empty_Time_Stamp;
    Current_Full_Obj_Name     : File_Name_Type  := No_File;
    Current_Full_Obj_Stamp    : Time_Stamp_Type := Empty_Time_Stamp;
-   --  Respectively full name (with directory info) and time stamp of
-   --  the latest source, library and object files opened by Read_Source_File
-   --  and Read_Library_Info.
+   --  Respectively full name (with directory info) and time stamp of the
+   --  latest source, library and object files opened by Read_Source_File and
+   --  Read_Library_Info.
 
    ------------------
    -- Search Paths --
@@ -148,13 +143,13 @@ package body Osint is
 
    Primary_Directory : constant := 0;
    --  This is index in the tables created below for the first directory to
-   --  search in for source or library information files. This is the
-   --  directory containing the latest main input file (a source file for
-   --  the compiler or a library file for the binder).
+   --  search in for source or library information files. This is the directory
+   --  containing the latest main input file (a source file for the compiler or
+   --  a library file for the binder).
 
    package Src_Search_Directories is new Table.Table (
      Table_Component_Type => String_Ptr,
-     Table_Index_Type     => Natural,
+     Table_Index_Type     => Integer,
      Table_Low_Bound      => Primary_Directory,
      Table_Initial        => 10,
      Table_Increment      => 100,
@@ -165,7 +160,7 @@ package body Osint is
 
    package Lib_Search_Directories is new Table.Table (
      Table_Component_Type => String_Ptr,
-     Table_Index_Type     => Natural,
+     Table_Index_Type     => Integer,
      Table_Low_Bound      => Primary_Directory,
      Table_Initial        => 10,
      Table_Increment      => 100,
@@ -182,13 +177,12 @@ package body Osint is
    --  The file hash table is provided to free the programmer from any
    --  efficiency concern when retrieving full file names or time stamps of
    --  source files. If the programmer calls Source_File_Data (Cache => True)
-   --  he is guaranteed that the price to retrieve the full name (ie with
-   --  directory info) or time stamp of the file will be payed only once,
-   --  the first time the full name is actually searched (or the first time
-   --  the time stamp is actually retrieved). This is achieved by employing
-   --  a hash table that stores as a key the File_Name_Type of the file and
-   --  associates to that File_Name_Type the full file name of the file and its
-   --  time stamp.
+   --  he is guaranteed that the price to retrieve the full name (i.e. with
+   --  directory info) or time stamp of the file will be payed only once, the
+   --  first time the full name is actually searched (or the first time the
+   --  time stamp is actually retrieved). This is achieved by employing a hash
+   --  table that stores as a key the File_Name_Type of the file and associates
+   --  to that File_Name_Type the full file name and time stamp of the file.
 
    File_Cache_Enabled : Boolean := False;
    --  Set to true if you want the enable the file data caching mechanism
@@ -224,11 +218,10 @@ package body Osint is
    function Smart_File_Stamp
      (N : File_Name_Type;
       T : File_Type) return Time_Stamp_Type;
-   --  Takes the same parameter as the routine above (N is a file name
-   --  without any prefix directory information) and behaves like File_Stamp
-   --  except that if File_Cache_Enabled is True this routine looks first in
-   --  the hash table to see if the file stamp of the file is already
-   --  available.
+   --  Takes the same parameter as the routine above (N is a file name without
+   --  any prefix directory information) and behaves like File_Stamp except
+   --  that if File_Cache_Enabled is True this routine looks first in the hash
+   --  table to see if the file stamp of the file is already available.
 
    -----------------------------
    -- Add_Default_Search_Dirs --
@@ -257,7 +250,11 @@ package body Osint is
       --
       --  HKEY_LOCAL_MACHINE\SOFTWARE\Ada Core Technologies\
       --                             GNAT\Standard Libraries
-      --  Return an empty string on other systems
+      --  Return an empty string on other systems.
+      --
+      --  Note that this is an undocumented legacy feature, and that it
+      --  works only when using the default runtime library (i.e. no --RTS=
+      --  command line switch).
 
       --------------------
       -- Add_Search_Dir --
@@ -302,6 +299,7 @@ package body Osint is
          Ch         : Character;
 
          Status : Boolean;
+         pragma Warnings (Off, Status);
          --  For the call to Close
 
       begin
@@ -327,17 +325,15 @@ package body Osint is
             Curr := Curr + Actual_Len;
          end loop;
 
-         --  We are done with the file, so we close it
+         --  We are done with the file, so we close it (ignore any error on
+         --  the close, since we have successfully read the file).
 
          Close (File_FD, Status);
-         --  We ignore any error here, because we have successfully read the
-         --  file.
 
          --  Now, we read line by line
 
          First := 1;
          Curr := 0;
-
          while Curr < Len loop
             Ch := S (Curr + 1);
 
@@ -451,8 +447,8 @@ package body Osint is
       --  For the compiler, if --RTS= was specified, add the runtime
       --  directories.
 
-      if RTS_Src_Path_Name /= null and then
-         RTS_Lib_Path_Name /= null
+      if RTS_Src_Path_Name /= null
+        and then RTS_Lib_Path_Name /= null
       then
          Add_Search_Dirs (RTS_Src_Path_Name, Include);
          Add_Search_Dirs (RTS_Lib_Path_Name, Objects);
@@ -515,9 +511,8 @@ package body Osint is
    begin
       Number_File_Names := Number_File_Names + 1;
 
-      --  As Add_File may be called for mains specified inside
-      --  a project file, File_Names may be too short and needs
-      --  to be extended.
+      --  As Add_File may be called for mains specified inside a project file,
+      --  File_Names may be too short and needs to be extended.
 
       if Number_File_Names > File_Names'Last then
          File_Names := new File_Name_Array'(File_Names.all & File_Names.all);
@@ -589,8 +584,8 @@ package body Osint is
    --------------------------------
 
    function Append_Suffix_To_File_Name
-     (Name   : Name_Id;
-      Suffix : String) return Name_Id
+     (Name   : File_Name_Type;
+      Suffix : String) return File_Name_Type
    is
    begin
       Get_Name_String (Name);
@@ -722,6 +717,7 @@ package body Osint is
 
    function Executable_Name (Name : File_Name_Type) return File_Name_Type is
       Exec_Suffix : String_Access;
+
    begin
       if Name = No_File then
          return No_File;
@@ -741,13 +737,12 @@ package body Osint is
             Buffer : String := Name_Buffer (1 .. Name_Len);
 
          begin
-            --  Get the file name in canonical case to accept as is
-            --  names ending with ".EXE" on VMS and Windows.
+            --  Get the file name in canonical case to accept as is names
+            --  ending with ".EXE" on VMS and Windows.
 
             Canonical_Case_File_Name (Buffer);
 
-            --  If the Executable does not end with the executable
-            --  suffix, add it.
+            --  If Executable does not end with the executable suffix, add it
 
             if Buffer'Length <= Exec_Suffix'Length
               or else
@@ -810,8 +805,9 @@ package body Osint is
    -----------------------
 
    function Executable_Prefix return String_Ptr is
+
       function Get_Install_Dir (Exec : String) return String_Ptr;
-      --  S is the executable name preceeded by the absolute or relative
+      --  S is the executable name preceded by the absolute or relative
       --  path, e.g. "c:\usr\bin\gcc.exe" or "..\bin\gcc".
 
       ---------------------
@@ -865,8 +861,7 @@ package body Osint is
       --  If we come here, the user has typed the executable name with no
       --  directory prefix.
 
-      return Get_Install_Dir
-        (GNAT.OS_Lib.Locate_Exec_On_Path (Exec_Name.all).all);
+      return Get_Install_Dir (Locate_Exec_On_Path (Exec_Name.all).all);
    end Executable_Prefix;
 
    ------------------
@@ -950,6 +945,11 @@ package body Osint is
       end if;
    end File_Stamp;
 
+   function File_Stamp (Name : Path_Name_Type) return Time_Stamp_Type is
+   begin
+      return File_Stamp (File_Name_Type (Name));
+   end File_Stamp;
+
    ---------------
    -- Find_File --
    ---------------
@@ -970,7 +970,7 @@ package body Osint is
          --  If we are looking for a config file, look only in the current
          --  directory, i.e. return input argument unchanged. Also look
          --  only in the current directory if we are looking for a .dg
-         --  file (happens in -gnatD mode)
+         --  file (happens in -gnatD mode).
 
          if T = Config
            or else (Debug_Generated_Code
@@ -1002,10 +1002,11 @@ package body Osint is
             --  corresponding path name
 
             if File /= No_File then
+
                --  For locally removed file, Error_Name is returned; then
                --  return No_File, indicating the file is not a source.
 
-               if File = Error_Name then
+               if File = Error_File_Name then
                   return No_File;
 
                else
@@ -1051,11 +1052,16 @@ package body Osint is
 
    procedure Find_Program_Name is
       Command_Name : String (1 .. Len_Arg (0));
-      Cindex1 : Integer := Command_Name'First;
-      Cindex2 : Integer := Command_Name'Last;
+      Cindex1      : Integer := Command_Name'First;
+      Cindex2      : Integer := Command_Name'Last;
 
    begin
       Fill_Arg (Command_Name'Address, 0);
+
+      if Command_Name = "" then
+         Name_Len := 0;
+         return;
+      end if;
 
       --  The program name might be specified by a full path name. However,
       --  we don't want to print that all out in an error message, so the
@@ -1276,10 +1282,8 @@ package body Osint is
          --  We first verify if there is a directory Include_Search_Dir
          --  containing default search directories
 
-         Result_Search_Dir
-           := Read_Default_Search_Dirs (Norm_Search_Dir,
-                                        Search_File,
-                                        null);
+         Result_Search_Dir :=
+           Read_Default_Search_Dirs (Norm_Search_Dir, Search_File, null);
          Default_Search_Dir :=
            new String'(Norm_Search_Dir.all & Default_Suffix_Dir.all);
          Free (Norm_Search_Dir);
@@ -1421,12 +1425,11 @@ package body Osint is
       Suppress_Options := (others => False);
 
       --  Reserve the first slot in the search paths table. This is the
-      --  directory of the main source file or main library file and is
-      --  filled in by each call to Next_Main_Source/Next_Main_Lib_File with
-      --  the directory specified for this main source or library file. This
-      --  is the directory which is searched first by default. This default
-      --  search is inhibited by the option -I- for both source and library
-      --  files.
+      --  directory of the main source file or main library file and is filled
+      --  in by each call to Next_Main_Source/Next_Main_Lib_File with the
+      --  directory specified for this main source or library file. This is the
+      --  directory which is searched first by default. This default search is
+      --  inhibited by the option -I- for both source and library files.
 
       Src_Search_Directories.Set_Last (Primary_Directory);
       Src_Search_Directories.Table (Primary_Directory) := new String'("");
@@ -1687,7 +1690,7 @@ package body Osint is
       Name_Len := File_Name'Last - Fptr + 1;
       Name_Buffer (1 .. Name_Len) := File_Name (Fptr .. File_Name'Last);
       Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
-      Current_Main := File_Name_Type (Name_Find);
+      Current_Main := Name_Find;
 
       --  In the gnatmake case, the main file may have not have the
       --  extension. Try ".adb" first then ".ads"
@@ -1698,7 +1701,8 @@ package body Osint is
 
          begin
             if Strip_Suffix (Orig_Main) = Orig_Main then
-               Current_Main := Append_Suffix_To_File_Name (Orig_Main, ".adb");
+               Current_Main :=
+                 Append_Suffix_To_File_Name (Orig_Main, ".adb");
 
                if Full_Source_Name (Current_Main) = No_File then
                   Current_Main :=
@@ -1828,6 +1832,16 @@ package body Osint is
       return Name_Enter;
    end Object_File_Name;
 
+   -------------------------------
+   -- OS_Exit_Through_Exception --
+   -------------------------------
+
+   procedure OS_Exit_Through_Exception (Status : Integer) is
+   begin
+      Current_Exit_Status := Status;
+      raise Types.Terminate_Program;
+   end OS_Exit_Through_Exception;
+
    --------------------------
    -- OS_Time_To_GNAT_Time --
    --------------------------
@@ -1860,42 +1874,77 @@ package body Osint is
    -- Program_Name --
    ------------------
 
-   function Program_Name (Nam : String) return String_Access is
-      Res : String_Access;
+   function Program_Name (Nam : String; Prog : String) return String_Access is
+      End_Of_Prefix   : Natural := 0;
+      Start_Of_Prefix : Positive := 1;
+      Start_Of_Suffix : Positive;
 
    begin
+      --  GNAAMP tool names require special treatment
+
+      if AAMP_On_Target then
+
+         --  The name "gcc" is mapped to "gnaamp" (the compiler driver)
+
+         if Nam = "gcc" then
+            return new String'("gnaamp");
+
+         --  Tool names starting with "gnat" are mapped by substituting the
+         --  string "gnaamp" for "gnat" (for example, "gnatpp" => "gnaamppp").
+
+         elsif Nam'Length >= 4
+           and then Nam (Nam'First .. Nam'First + 3) = "gnat"
+         then
+            return new String'("gnaamp" & Nam (Nam'First + 4 .. Nam'Last));
+
+         --  No other mapping rules, so we continue and handle any other forms
+         --  of tool names the same as on other targets.
+
+         else
+            null;
+         end if;
+      end if;
+
       --  Get the name of the current program being executed
 
       Find_Program_Name;
 
-      --  Find the target prefix if any, for the cross compilation case
-      --  for instance in "alpha-dec-vxworks-gcc" the target prefix is
-      --  "alpha-dec-vxworks-"
+      Start_Of_Suffix := Name_Len + 1;
 
-      while Name_Len > 0  loop
+      --  Find the target prefix if any, for the cross compilation case.
+      --  For instance in "powerpc-elf-gcc" the target prefix is
+      --  "powerpc-elf-"
+      --  Ditto for suffix, e.g. in "gcc-4.1", the suffix is "-4.1"
 
-         --  All done if we find the last hyphen
-
-         if Name_Buffer (Name_Len) = '-' then
-            exit;
-
-         --  If directory separator found, we don't want to look further
-         --  since in this case, no prefix has been found.
-
-         elsif Is_Directory_Separator (Name_Buffer (Name_Len)) then
-            Name_Len := 0;
+      for J in reverse 1 .. Name_Len loop
+         if Name_Buffer (J) = '/'
+           or else Name_Buffer (J) = Directory_Separator
+           or else Name_Buffer (J) = ':'
+         then
+            Start_Of_Prefix := J + 1;
             exit;
          end if;
-
-         Name_Len := Name_Len - 1;
       end loop;
+
+      --  Find End_Of_Prefix
+
+      for J in Start_Of_Prefix .. Name_Len - Prog'Length + 1 loop
+         if Name_Buffer (J .. J + Prog'Length - 1) = Prog then
+            End_Of_Prefix := J - 1;
+            exit;
+         end if;
+      end loop;
+
+      if End_Of_Prefix > 1 then
+         Start_Of_Suffix := End_Of_Prefix + Prog'Length + 1;
+      end if;
 
       --  Create the new program name
 
-      Res := new String (1 .. Name_Len + Nam'Length);
-      Res.all (1 .. Name_Len) := Name_Buffer (1 .. Name_Len);
-      Res.all (Name_Len + 1 .. Name_Len + Nam'Length) := Nam;
-      return Res;
+      return new String'
+        (Name_Buffer (Start_Of_Prefix .. End_Of_Prefix)
+         & Nam
+         & Name_Buffer (Start_Of_Suffix .. Name_Len));
    end Program_Name;
 
    ------------------------------
@@ -1966,20 +2015,30 @@ package body Osint is
          Curr := Curr + Actual_Len;
       end loop;
 
-      --  Process the file, translating line and file ending
-      --  control characters to a path separator character.
+      --  Process the file, dealing with path separators
 
       Prev_Was_Separator := True;
       Nb_Relative_Dir := 0;
       for J in 1 .. Len loop
-         if S (J) in ASCII.NUL .. ASCII.US
-           or else S (J) = ' '
-         then
+
+         --  Treat any control character as a path separator. Note that we do
+         --  not treat space as a path separator (we used to treat space as a
+         --  path separator in an earlier version). That way space can appear
+         --  as a legitimate character in a path name.
+
+         --  Why do we treat all control characters as path separators???
+
+         if S (J) in ASCII.NUL .. ASCII.US then
             S (J) := Path_Separator;
          end if;
 
+         --  Test for explicit path separator (or control char as above)
+
          if S (J) = Path_Separator then
             Prev_Was_Separator := True;
+
+         --  If not path separator, register use of relative directory
+
          else
             if Prev_Was_Separator and then Is_Relative (S.all, J) then
                Nb_Relative_Dir := Nb_Relative_Dir + 1;
@@ -2034,6 +2093,7 @@ package body Osint is
       --  Allocated text buffer
 
       Status : Boolean;
+      pragma Warnings (Off, Status);
       --  For the calls to Close
 
    begin
@@ -2076,8 +2136,7 @@ package body Osint is
 
          if Current_Full_Obj_Stamp (1) = ' ' then
 
-            --  When the library is readonly, always assume that
-            --  the object is consistent.
+            --  When the library is readonly always assume object is consistent
 
             if Is_Readonly_Library (Current_Full_Lib_Name) then
                Current_Full_Obj_Stamp := Current_Full_Lib_Stamp;
@@ -2085,6 +2144,7 @@ package body Osint is
             elsif Fatal_Err then
                Get_Name_String (Current_Full_Obj_Name);
                Close (Lib_FD, Status);
+
                --  No need to check the status, we fail anyway
 
                Fail ("Cannot find: ", Name_Buffer (1 .. Name_Len));
@@ -2166,6 +2226,7 @@ package body Osint is
       Actual_Len : Integer;
 
       Status : Boolean;
+      pragma Warnings (Off, Status);
       --  For the call to Close
 
    begin
@@ -2174,8 +2235,8 @@ package body Osint is
 
       if Current_Full_Source_Name = No_File then
 
-         --  If we were trying to access the main file and we could not
-         --  find it we have an error.
+         --  If we were trying to access the main file and we could not find
+         --  it, we have an error.
 
          if N = Current_Main then
             Get_Name_String (N);
@@ -2545,7 +2606,7 @@ package body Osint is
          Canonical_File_Len  : Integer;
 
       begin
-         --  Retrieve the expanded directoy names and build the list
+         --  Retrieve the expanded directory names and build the list
 
          for J in 1 .. Num_Files loop
             Canonical_File_Addr := To_Canonical_File_List_Next;
@@ -2573,7 +2634,7 @@ package body Osint is
       pragma Import
         (C, To_Canonical_File_Spec, "__gnat_to_canonical_file_spec");
 
-      C_Host_File      : String (1 .. Host_File'Length + 1);
+      C_Host_File         : String (1 .. Host_File'Length + 1);
       Canonical_File_Addr : Address;
       Canonical_File_Len  : Integer;
 
@@ -2749,8 +2810,7 @@ package body Osint is
    begin
       In_String (1 .. In_Length) := Path.all;
       In_String (In_Length + 1) := ASCII.NUL;
-      Result_Ptr := C_Update_Path (In_String'Address,
-                                   Component_Name'Address);
+      Result_Ptr := C_Update_Path (In_String'Address, Component_Name'Address);
       Result_Length := Strlen (Result_Ptr);
 
       Out_String := new String (1 .. Result_Length);
@@ -2804,6 +2864,7 @@ package body Osint is
 
    procedure Write_With_Check (A  : Address; N  : Integer) is
       Ignore : Boolean;
+      pragma Warnings (Off, Ignore);
 
    begin
       if N = Write (Output_FD, A, N) then

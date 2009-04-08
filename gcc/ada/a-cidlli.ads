@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                      A D A . C O N T A I N E R S .                       --
---        I N D E F I N I T E _ D O U B L Y _ L I N K E D _ L I S T S       --
+--               ADA.CONTAINERS.INDEFINITE_DOUBLY_LINKED_LISTS              --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -34,8 +33,8 @@
 -- This unit was originally developed by Matthew J Heaney.                  --
 ------------------------------------------------------------------------------
 
-with Ada.Finalization;
-with Ada.Streams;
+private with Ada.Finalization;
+private with Ada.Streams;
 
 generic
    type Element_Type (<>) is private;
@@ -45,6 +44,7 @@ generic
 
 package Ada.Containers.Indefinite_Doubly_Linked_Lists is
    pragma Preelaborate;
+   pragma Remote_Types;
 
    type List is tagged private;
    pragma Preelaborable_Initialization (List);
@@ -195,6 +195,10 @@ package Ada.Containers.Indefinite_Doubly_Linked_Lists is
    end Generic_Sorting;
 
 private
+
+   pragma Inline (Next);
+   pragma Inline (Previous);
+
    type Node_Type;
    type Node_Access is access Node_Type;
 
@@ -218,8 +222,10 @@ private
         Lock   : Natural := 0;
      end record;
 
+   overriding
    procedure Adjust (Container : in out List);
 
+   overriding
    procedure Finalize (Container : in out List) renames Clear;
 
    use Ada.Streams;
@@ -235,8 +241,6 @@ private
       Item   : List);
 
    for List'Write use Write;
-
-   Empty_List : constant List := List'(Controlled with null, null, 0, 0, 0);
 
    type List_Access is access constant List;
    for List_Access'Storage_Size use 0;
@@ -258,6 +262,8 @@ private
       Item   : Cursor);
 
    for Cursor'Write use Write;
+
+   Empty_List : constant List := List'(Controlled with null, null, 0, 0, 0);
 
    No_Element : constant Cursor := Cursor'(null, null);
 

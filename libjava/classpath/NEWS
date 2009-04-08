@@ -1,9 +1,159 @@
-New in release 0.94 (UNRELEASED)
+New in release 0.98 (Feb 05, 2009)
 
-* The ASM library is now included.  A separate copy is no longer needed.
+* Native support for BigInteger is now provided using the GMP
+library.  A new option, --enable/disable-gmp is provided, and
+the option is enabled by default if GMP is found.
+* Classpath now makes use of a new StringBuilder implementation
+internally called CPStringBuilder.  In addition to being
+unsynchronised, like StringBuilder, this also avoids copying the
+array when toString or substring is called.  While StringBuffer/Builder
+always retain their own array, which is only altered during resizing,
+CPStringBuilder gives away its array when the result is generated
+by toString()/substring() and starts afresh.  The default capacity of
+CPStringBuilder can also be configured using the
+gnu.classpath.cpstringbuilder.capacity property. (PR21869)
+* gjdoc is now built as part of tools.zip.
+* Import of the Java Activation Framework from ClasspathX to provide
+javax.activation (part of 1.6).
+* Preliminary version of java.util.Scanner (PR30436)
+* Reduce cost of ThreadLocal(s) to improve Jython performance (PR33690)
+* Updated to use CLDR 1.5.1 (PR35237)
+* Many bug fixes including:
+  - PR22851: zoneStrings in gnu/java/locale/LocaleInformation*
+  - PR31895: setCurrency(Currency) does not actually change the currency.
+  - PR32028: Make fails at gjdoc
+  - PR34840: Mismatch between Sun and Classpath's java.lang.Appendable
+  - PR35487: gcj causes ConcurrentModificationException during tomcat5
+  - PR35690: javax.tools.FileObject.toUri is in wrong case
+  - PR36085: java.util.regex escape-sequence handling 
+  - PR36147: Apache Tomcat fails to read descriptors using GNU XML
+  - PR36219: gnu.xml.transform.SortKey isn't subclass
+  - PR36220: NPEs in gnu.xml.transform.* clone methods 
+  - PR36221: DomDOMException running SPEC jvm 2008 xml.transform
+  - PR36477: OOME in CPStringBuilder when running Eclipse
+  - PR36522: Policy file is not read at all
+  - PR36636: gjar -u doesn't work
+  - PR36637: --without-fastjar doesn't wor
+  - PR36677: Omission bug in JDWP VirtualMachineCommandSet 
+  - PR38417: gnu.java.security.util.PRNG produces easily predictable values
+  - PR38473: Segmentation fault in retrieving font outline decomposition 
+  - PR38861: Support XULRunner 1.9.1.
+  - PR38912: XMLParser not interning element names 
 
+Runtime interface changes:
+
+  * VMSecureRandom has moved to gnu.java.security.jce.prng.VMSecureRandom
+  as part of the fix for PR38417.
+  * gnu.java.lang.VMCPStringBuilder has been added and should be added to
+  avoid the inefficency of reflection when creating non-copied String objects.
+
+Bug fixes in release 0.97.2 (Jun 06, 2007)
+
+* Include headers in the release tarball.
+* Allow the building of tools to be optional.
+* Only check for a Java compiler when required.
+* Allow VMOperatingSystemMXBeanImpl to compile on Solaris.
+* Documentation typo fixes
+* Fix memory leak in native/jni/classpath/jcl.c
+* Web page updates (PR classpath/22883)
+* Fixes to pass the JSR166 TCK
+* Use awk to construct the classlist on building
+* Fix deadlock in Logger (PR classpath/35974)
+* Fix regression in java.lang.String (PR classpath/35482)
+* Allow Classpath tools to handle @file options.
+* Allow parseInt to handle a + prefix correctly.
+* Remove use of 1.5 language constructs in the VM layer.
+
+Bug fixes in release 0.97.1 (Mar 11, 2007)
+
+* Include documentation for JSR166 (java.util.concurrent)
+* Fix STaX API compatability.
+* Include the tools properties file in the release tarball.
+
+New in release 0.97 (Feb 22, 2007)
+
+Build changes:
+
+* A copy of javah (to produce C header files from Java source code)
+is now required to generate the files in include.
+* The javac check has been changed so that it attempts to find ecj,
+javac and gcj (in that order).  You may override this by using
+JAVAC=<preferred javac>
+
+Runtime interface changes:
+
+* Removed VMFloat.floatToIntBits amd VMDouble.doubleToLongBits.
+* Added new getParameterAnnotations() methods in Constructor and Method.
+
+New in release 0.96.1 (Oct 16, 2007)
+
+* Small compile, configure and build fixes.
+
+New in release 0.96 (Oct 15, 2007)
+
+* New experimental GStreamer javax.sound peer (see README.gstreamer)
+* The JNI interface has been updated to 1.6
+* Better support for the OpenJDK javac compiler
+* Support for using javah via tools.zip and com.sun.tools.javah.Main
+* Much improved Escher AWT peers
+* Many bug fixes including improvements to AWT and Swing support
+
+Runtime interface changes:
+
+* Add VMFloat.toString(float) and VMFloat.parseFloat(String). Default
+  implementations are the same as previous behavior.
+* Add new default implementations of VMMemoryMXBean.getHeapUsage()
+  and VMMemoryMXBean.getNonHeapUsage() via iteration over the memory
+  pools of the appropriate type.
+
+New in release 0.95 (Apr 23, 2007)
+
+* Full merge of 1.5 generics work.
+* Added 1.6 java.util.ServiceLoader support.
+* The ASM library is now included.  A separate copy is no longer
+  needed.  gjavah works out of the box now.
 * The setReadTimeout and getReadTimeout methods have been added to
-  java.net.URLConnection.  They are now fully implemented for http URLs.  
+  java.net.URLConnection.  They are now fully implemented for http URLs.
+* The java.lang.management implementation now includes the new features
+  added in 1.6
+* java.util.TimeZone now reads time zone information from the system
+  zoneinfo files (see also runtime interface changes below).
+* The collection classes have been updated to support all the 1.6
+  additions.
+* java.util.spi 1.6 package has been added and is used in java.text.
+* Bootstrappable with OpenJDK javac compiler
+  (use configure --with-javac).
+* Large speedups (and locking behaviour updated) in Graphics2D cairo
+  and freetype support.
+* Better detection of browser plugin mechanism for mozilla, iceweasel,
+  firefox on various platforms.
+* Inclusion of generic javadoc classes in tools.zip to support more
+  javadoc processing tools.
+* Added documentation for command lines options for the included GNU
+  Classpath Tools gjar, gjavah, gnative2ascii, gorbd, grmid,
+  grmiregistry, gserialver and gtnameserv.
+
+Runtime interface changes:
+
+* gnu.java.lang.management.VMThreadMXBeanImpl has gained three new
+  optional native methods to allow the 1.6 version of the threading
+  bean to be supported.  One (getMonitorInfo) fills in information
+  about object monitor locks held by a thread and is only required
+  if the monitoring of object monitor locks is supported by the VM.
+  The other two (findDeadlockedThreads and getLockInfo) are related
+  to ownable synchronizers (part of the java.util.concurrent suite)
+  and only required if monitoring of locks relating to these is
+  supported by the VM.
+* java.util.VMTimeZone and java.util.TimeZone have been refactored
+  to simplify the reference implementation.  VMTimeZone.readtzFile()
+  and VMTimeZone.skipFully() have been removed, and a new method
+  VMTimeZone.readSysconfigClockFile() has been introduced.
+* VMs need to set the system property "gnu.java.util.zoneinfo.dir"
+  to point to the directory where zoneinfo files live.  In libgcj
+  this is set to the value of the TZDATA environment variable, or
+  "/usr/share/zoneinfo" if this is not set.
+* VMFile has been extended to support new 1.6 methods (canExecute,
+  setReadable, setWritable, setExecutable).
 
 New in release 0.93 (Dec 8, 2006)
 

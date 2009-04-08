@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -65,7 +64,8 @@ package Sem_Ch13 is
    --  the given type, of the size the type would have if it were biased. If
    --  the type is already biased, then Minimum_Size returns the biased size,
    --  regardless of the setting of Biased. Also, fixed-point types are never
-   --  biased in the current implementation.
+   --  biased in the current implementation. If the size is not known at
+   --  compile time, this function returns 0.
 
    procedure Check_Constant_Address_Clause (Expr : Node_Id; U_Ent : Entity_Id);
    --  Expr is an expression for an address clause. This procedure checks
@@ -100,7 +100,7 @@ package Sem_Ch13 is
    function Rep_Item_Too_Early (T : Entity_Id; N : Node_Id) return Boolean;
    --  Called at the start of processing a representation clause or a
    --  representation pragma. Used to check that the representation item
-   --  is not being applied to an incompleted type or to a generic formal
+   --  is not being applied to an incomplete type or to a generic formal
    --  type or a type derived from a generic formal type. Returns False if
    --  no such error occurs. If this error does occur, appropriate error
    --  messages are posted on node N, and True is returned.
@@ -122,7 +122,8 @@ package Sem_Ch13 is
    --  stream attributes, which, although certainly not subtype related
    --  attributes, clearly should not be subject to the para 10 restrictions
    --  (see AI95-00137). Similarly, we also skip the para 10 restrictions for
-   --  the Storage_Size case where they also clearly do not apply.
+   --  the Storage_Size case where they also clearly do not apply, and for
+   --  Stream_Convert which is in the same category as the stream attributes.
    --
    --  If the rep item is too late, an appropriate message is output and
    --  True is returned, which is a signal that the caller should abandon
@@ -150,7 +151,7 @@ package Sem_Ch13 is
       Act_Unit : Entity_Id);
    --  Validate a call to unchecked conversion. N is the node for the actual
    --  instantiation, which is used only for error messages. Act_Unit is the
-   --  entity for the instantiation, from which the actual types etc for this
+   --  entity for the instantiation, from which the actual types etc. for this
    --  instantiation can be determined. This procedure makes an entry in a
    --  table and/or generates an N_Validate_Unchecked_Conversion node. The
    --  actual checking is done in Validate_Unchecked_Conversions or in the
@@ -161,5 +162,11 @@ package Sem_Ch13 is
    --  unchecked conversions for size and alignment appropriateness.
    --  The reason it is called that late is to take advantage of any
    --  back-annotation of size and alignment performed by the backend.
+
+   procedure Validate_Address_Clauses;
+   --  This is called after the back end has been called (and thus after the
+   --  alignments of objects have been back annotated). It goes through the
+   --  table of saved address clauses checking for suspicious alignments and
+   --  if necessary issuing warnings.
 
 end Sem_Ch13;

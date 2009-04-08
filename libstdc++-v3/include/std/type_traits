@@ -1,6 +1,6 @@
-// <type_traits> -*- C++ -*-
+// C++0x type_traits -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,14 +31,14 @@
  *  This is a Standard C++ Library header.
  */
 
-#ifndef _GLIBCXX_CXX0X_TYPE_TRAITS
-#define _GLIBCXX_CXX0X_TYPE_TRAITS 1
+#ifndef _GLIBCXX_TYPE_TRAITS
+#define _GLIBCXX_TYPE_TRAITS 1
 
 #pragma GCC system_header
 
 #ifndef __GXX_EXPERIMENTAL_CXX0X__
 # include <c++0x_warning.h>
-#endif
+#else
 
 #if defined(_GLIBCXX_INCLUDE_AS_TR1)
 #  error C++0x header cannot be included from TR1 header
@@ -62,6 +62,91 @@
 
 namespace std
 {
+  /** @addtogroup metaprogramming
+   * @{
+   */
+
+  // Primary classification traits.
+
+  /// is_lvalue_reference
+  template<typename>
+    struct is_lvalue_reference
+    : public false_type { };
+
+  template<typename _Tp>
+    struct is_lvalue_reference<_Tp&>
+    : public true_type { };
+
+  /// is_rvalue_reference
+  template<typename>
+    struct is_rvalue_reference
+    : public false_type { };
+
+  template<typename _Tp>
+    struct is_rvalue_reference<_Tp&&>
+    : public true_type { };
+
+  // Secondary classification traits.
+
+  /// is_reference
+  template<typename _Tp>
+    struct is_reference
+    : public integral_constant<bool, (is_lvalue_reference<_Tp>::value
+				      || is_rvalue_reference<_Tp>::value)>
+    { };
+
+  // Reference transformations.
+
+  /// remove_reference
+  template<typename _Tp>
+    struct remove_reference
+    { typedef _Tp   type; };
+
+  template<typename _Tp>
+    struct remove_reference<_Tp&>
+    { typedef _Tp   type; };
+
+  template<typename _Tp>
+    struct remove_reference<_Tp&&>
+    { typedef _Tp   type; };
+
+  template<typename _Tp,
+	   bool = !is_reference<_Tp>::value && !is_void<_Tp>::value,
+	   bool = is_rvalue_reference<_Tp>::value>
+    struct __add_lvalue_reference_helper
+    { typedef _Tp   type; };
+
+  template<typename _Tp>
+    struct __add_lvalue_reference_helper<_Tp, true, false>
+    { typedef _Tp&   type; };
+
+  template<typename _Tp>
+    struct __add_lvalue_reference_helper<_Tp, false, true>
+    { typedef typename remove_reference<_Tp>::type&   type; };
+
+  /// add_lvalue_reference
+  template<typename _Tp>
+    struct add_lvalue_reference
+    : public __add_lvalue_reference_helper<_Tp>
+    { };
+
+  template<typename _Tp,
+	   bool = !is_reference<_Tp>::value && !is_void<_Tp>::value>
+    struct __add_rvalue_reference_helper
+    { typedef _Tp   type; };
+
+  template<typename _Tp>
+    struct __add_rvalue_reference_helper<_Tp, true>
+    { typedef _Tp&&   type; };
+
+  /// add_rvalue_reference
+  template<typename _Tp>
+    struct add_rvalue_reference
+    : public __add_rvalue_reference_helper<_Tp>
+    { };
+
+  // Scalar properties and transformations.
+
   template<typename _Tp,
 	   bool = is_integral<_Tp>::value,
 	   bool = is_floating_point<_Tp>::value>
@@ -77,64 +162,76 @@ namespace std
     : public integral_constant<bool, _Tp(-1) < _Tp(0)>
     { };
 
+  /// is_signed
   template<typename _Tp>
     struct is_signed
     : public integral_constant<bool, __is_signed_helper<_Tp>::value>
     { };
 
+  /// is_unsigned
   template<typename _Tp>
     struct is_unsigned
     : public integral_constant<bool, (is_arithmetic<_Tp>::value
 				      && !is_signed<_Tp>::value)>
     { };
 
+  // Member introspection.
+
+  /// is_pod
   template<typename _Tp>
     struct is_pod
     : public integral_constant<bool, __is_pod(_Tp)>
     { };
 
+  /// has_trivial_default_constructor
   template<typename _Tp>
     struct has_trivial_default_constructor
     : public integral_constant<bool, __has_trivial_constructor(_Tp)>
     { };
 
+  /// has_trivial_copy_constructor
   template<typename _Tp>
     struct has_trivial_copy_constructor
     : public integral_constant<bool, __has_trivial_copy(_Tp)>
     { };
 
+  /// has_trivial_assign
   template<typename _Tp>
     struct has_trivial_assign
     : public integral_constant<bool, __has_trivial_assign(_Tp)>
     { };
 
+  /// has_trivial_destructor
   template<typename _Tp>
     struct has_trivial_destructor
     : public integral_constant<bool, __has_trivial_destructor(_Tp)>
     { };
 
+  /// has_nothrow_default_constructor
   template<typename _Tp>
     struct has_nothrow_default_constructor
     : public integral_constant<bool, __has_nothrow_constructor(_Tp)>
     { };
 
+  /// has_nothrow_copy_constructor
   template<typename _Tp>
     struct has_nothrow_copy_constructor
     : public integral_constant<bool, __has_nothrow_copy(_Tp)>
     { };
 
+  /// has_nothrow_assign
   template<typename _Tp>
     struct has_nothrow_assign
     : public integral_constant<bool, __has_nothrow_assign(_Tp)>
     { };
 
+  /// is_base_of
   template<typename _Base, typename _Derived>
     struct is_base_of
     : public integral_constant<bool, __is_base_of(_Base, _Derived)>
     { };
 
-  // XXX FIXME
-  // The C++0x specifications are different, see N2255.
+  // Relationships between types.
   template<typename _From, typename _To>
     struct __is_convertible_simple
     : public __sfinae_types
@@ -161,7 +258,7 @@ namespace std
   template<typename _From, typename _To,
 	   bool = (is_void<_From>::value || is_void<_To>::value
 		   || is_function<_To>::value || is_array<_To>::value
-		   // This special case is here only to avoid warnings.		   
+		   // This special case is here only to avoid warnings.
 		   || (is_floating_point<typename
 		       remove_reference<_From>::type>::value
 		       && __is_int_or_cref<_To>::__value))>
@@ -169,7 +266,8 @@ namespace std
     {
       // "An imaginary lvalue of type From...".
       static const bool __value = (__is_convertible_simple<typename
-				   add_reference<_From>::type, _To>::__value);
+				   add_lvalue_reference<_From>::type,
+				   _To>::__value);
     };
 
   template<typename _From, typename _To>
@@ -178,29 +276,68 @@ namespace std
 				   || (__is_int_or_cref<_To>::__value
 				       && !is_void<_From>::value)); };
 
+  // XXX FIXME
+  // The C++0x specifications are different, see N2255.
+  /// is_convertible
   template<typename _From, typename _To>
     struct is_convertible
     : public integral_constant<bool,
 			       __is_convertible_helper<_From, _To>::__value>
     { };
 
+  template<std::size_t _Len>
+    struct __aligned_storage_msa
+    { 
+      union __type
+      {
+	unsigned char __data[_Len];
+	struct __attribute__((__aligned__)) { } __align; 
+      };
+    };
+
+  /**
+   *  @brief Alignment type.
+   *
+   *  The value of _Align is a default-alignment which shall be the
+   *  most stringent alignment requirement for any C++ object type
+   *  whose size is no greater than _Len (3.9). The member typedef
+   *  type shall be a POD type suitable for use as uninitialized
+   *  storage for any object whose size is at most _Len and whose
+   *  alignment is a divisor of _Align.
+  */
+  template<std::size_t _Len, std::size_t _Align =
+	   __alignof__(typename __aligned_storage_msa<_Len>::__type)>
+    struct aligned_storage
+    { 
+      union type
+      {
+	unsigned char __data[_Len];
+	struct __attribute__((__aligned__((_Align)))) { } __align; 
+      };
+    };
+
 
   // Define a nested type if some predicate holds.
+  // Primary template.
+  /// enable_if
   template<bool, typename _Tp = void>
     struct enable_if 
     { };
 
+  // Partial specialization for true.
   template<typename _Tp>
     struct enable_if<true, _Tp>
     { typedef _Tp type; };
 
 
-  // Like a conditional expression, but for types. If true, first, if
-  // false, second.
+  // A conditional expression, but for types. If true, first, if false, second.
+  // Primary template.
+  /// conditional
   template<bool _Cond, typename _Iftrue, typename _Iffalse>
     struct conditional
     { typedef _Iftrue type; };
 
+  // Partial specialization for false.
   template<typename _Iftrue, typename _Iffalse>
     struct conditional<false, _Iftrue, _Iffalse>
     { typedef _Iffalse type; };
@@ -213,21 +350,22 @@ namespace std
 	   bool _IsFunction = is_function<_Up>::value> 
     struct __decay_selector;
 
+  // NB: DR 705.
   template<typename _Up> 
     struct __decay_selector<_Up, false, false>
-    { typedef _Up __type; };
+    { typedef typename remove_cv<_Up>::type __type; };
 
   template<typename _Up> 
     struct __decay_selector<_Up, true, false>
     { typedef typename remove_extent<_Up>::type* __type; };
 
-
   template<typename _Up> 
     struct __decay_selector<_Up, false, true>
     { typedef typename add_pointer<_Up>::type __type; };
 
+  /// decay
   template<typename _Tp> 
-  struct decay 
+    struct decay 
     { 
     private:
       typedef typename remove_reference<_Tp>::type __remove_type;
@@ -284,10 +422,6 @@ namespace std
     { typedef unsigned char __type; };
 
   template<>
-    struct __make_unsigned<wchar_t>
-    { typedef unsigned wchar_t __type; };
-
-  template<>
     struct __make_unsigned<short>
     { typedef unsigned short __type; };
 
@@ -326,20 +460,24 @@ namespace std
     struct __make_unsigned_selector<_Tp, false, true>
     {
     private:
-      // GNU enums start with sizeof short.
-      typedef unsigned short __smallest;
-      static const bool __b1 = sizeof(_Tp) <= sizeof(__smallest);
+      // With -fshort-enums, an enum may be as small as a char.
+      typedef unsigned char __smallest;
+      static const bool __b0 = sizeof(_Tp) <= sizeof(__smallest);
+      static const bool __b1 = sizeof(_Tp) <= sizeof(unsigned short);
       static const bool __b2 = sizeof(_Tp) <= sizeof(unsigned int);
-      typedef conditional<__b2, unsigned int, unsigned long> __cond;
-      typedef typename __cond::type __cond_type;
+      typedef conditional<__b2, unsigned int, unsigned long> __cond2;
+      typedef typename __cond2::type __cond2_type;
+      typedef conditional<__b1, unsigned short, __cond2_type> __cond1;
+      typedef typename __cond1::type __cond1_type;
 
     public:
-      typedef typename conditional<__b1, __smallest, __cond_type>::type __type;
+      typedef typename conditional<__b0, __smallest, __cond1_type>::type __type;
     };
 
-  // Primary class template.
   // Given an integral/enum type, return the corresponding unsigned
   // integer type.
+  // Primary template.
+  /// make_unsigned
   template<typename _Tp>
     struct make_unsigned 
     { typedef typename __make_unsigned_selector<_Tp>::__type type; };
@@ -361,10 +499,6 @@ namespace std
   template<>
     struct __make_signed<unsigned char>
     { typedef signed char __type; };
-
-  template<>
-    struct __make_signed<wchar_t>
-    { typedef signed wchar_t __type; };
 
   template<>
     struct __make_signed<unsigned short>
@@ -405,20 +539,24 @@ namespace std
     struct __make_signed_selector<_Tp, false, true>
     {
     private:
-      // GNU enums start with sizeof short.
-      typedef signed short __smallest;
-      static const bool __b1 = sizeof(_Tp) <= sizeof(__smallest);
+      // With -fshort-enums, an enum may be as small as a char.
+      typedef signed char __smallest;
+      static const bool __b0 = sizeof(_Tp) <= sizeof(__smallest);
+      static const bool __b1 = sizeof(_Tp) <= sizeof(signed short);
       static const bool __b2 = sizeof(_Tp) <= sizeof(signed int);
-      typedef conditional<__b2, signed int, signed long> __cond;
-      typedef typename __cond::type __cond_type;
+      typedef conditional<__b2, signed int, signed long> __cond2;
+      typedef typename __cond2::type __cond2_type;
+      typedef conditional<__b1, signed short, __cond2_type> __cond1;
+      typedef typename __cond1::type __cond1_type;
 
     public:
-      typedef typename conditional<__b1, __smallest, __cond_type>::type __type;
+      typedef typename conditional<__b0, __smallest, __cond1_type>::type __type;
     };
 
-  // Primary class template.
   // Given an integral/enum type, return the corresponding signed
   // integer type.
+  // Primary template.
+  /// make_signed
   template<typename _Tp>
     struct make_signed 
     { typedef typename __make_signed_selector<_Tp>::__type type; };
@@ -426,7 +564,47 @@ namespace std
   // Integral, but don't define.
   template<>
     struct make_signed<bool>;
+
+  /// common_type
+  template<typename... _Tp>
+    struct common_type;
+
+  template<typename _Tp>
+    struct common_type<_Tp>
+    {
+      static_assert(sizeof(_Tp) > 0, "must be complete type");
+      typedef _Tp type;
+    };
+
+  template<typename _Tp, typename _Up>
+    class common_type<_Tp, _Up>
+    {
+      static_assert(sizeof(_Tp) > 0, "must be complete type");
+      static_assert(sizeof(_Up) > 0, "must be complete type");
+
+      static _Tp&& __t();
+      static _Up&& __u();
+
+      // HACK: Prevents optimization of ?: in the decltype
+      // expression when the condition is the literal, "true".
+      // See, PR36628.
+      static bool __true_or_false();
+
+    public:
+      typedef decltype(__true_or_false() ? __t() : __u()) type;
+    };
+
+  template<typename _Tp, typename _Up, typename... _Vp>
+    struct common_type<_Tp, _Up, _Vp...>
+    {
+      typedef typename
+        common_type<typename common_type<_Tp, _Up>::type, _Vp...>::type type;
+    };
+
+  // @} group metaprogramming
 }
 
-#endif  // _GLIBCXX_CXX0X_TYPE_TRAITS 
+#endif  // __GXX_EXPERIMENTAL_CXX0X__
+
+#endif  // _GLIBCXX_TYPE_TRAITS 
 

@@ -2,12 +2,11 @@
 --                                                                          --
 --                GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                  --
 --                                                                          --
---     S Y S T E M . T A S K I N G . P R O T E C T E D _ O B J E C T S .    --
---                          S I N G L E _ E N T R Y                         --
+--             SYSTEM.TASKING.PROTECTED_OBJECTS.SINGLE_ENTRY                --
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---         Copyright (C) 1998-2005, Free Software Foundation, Inc.          --
+--         Copyright (C) 1998-2008, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,8 +32,8 @@
 ------------------------------------------------------------------------------
 
 pragma Style_Checks (All_Checks);
---  Turn off subprogram ordering check, since restricted GNARLI
---  subprograms are gathered together at end.
+--  Turn off subprogram ordering check, since restricted GNARLI subprograms are
+--  gathered together at end.
 
 --  This package provides an optimized version of Protected_Objects.Operations
 --  and Protected_Objects.Entries making the following assumptions:
@@ -60,19 +59,12 @@ pragma Polling (Off);
 --  operations. It can cause  infinite loops and other problems.
 
 pragma Suppress (All_Checks);
-
-with System.Task_Primitives.Operations;
---  used for Self
---           Finalize_Lock
---           Write_Lock
---           Unlock
+--  Why is this required ???
 
 with Ada.Exceptions;
---  used for Exception_Id
---           Raise_Exception
 
+with System.Task_Primitives.Operations;
 with System.Parameters;
---  used for Single_Lock
 
 package body System.Tasking.Protected_Objects.Single_Entry is
 
@@ -155,7 +147,7 @@ package body System.Tasking.Protected_Objects.Single_Entry is
       use type Ada.Exceptions.Exception_Id;
 
       E : constant Ada.Exceptions.Exception_Id :=
-        Entry_Call.Exception_To_Raise;
+            Entry_Call.Exception_To_Raise;
 
    begin
       if E /= Ada.Exceptions.Null_Id then
@@ -211,7 +203,9 @@ package body System.Tasking.Protected_Objects.Single_Entry is
    is
       Self_Id  : constant Task_Id := Entry_Call.Self;
       Timedout : Boolean;
+
       Yielded  : Boolean;
+      pragma Unreferenced (Yielded);
 
       use type Ada.Exceptions.Exception_Id;
 
@@ -413,7 +407,7 @@ package body System.Tasking.Protected_Objects.Single_Entry is
       --  have read ownership of the protected object, so that this method of
       --  storing the (single) protected object's owner does not work
       --  reliably for read locks. However, this is the approach taken for two
-      --  major reasosn: first, this function is not currently being used (it
+      --  major reasons: first, this function is not currently being used (it
       --  is provided for possible future use), and second, it largely
       --  simplifies the implementation.
 
@@ -548,10 +542,8 @@ package body System.Tasking.Protected_Objects.Single_Entry is
       Uninterpreted_Data : System.Address;
       Mode               : Call_Modes)
    is
-      Self_Id           : constant Task_Id := STPO.Self;
-      Entry_Call        : Entry_Call_Record renames Self_Id.Entry_Calls (1);
-      Ceiling_Violation : Boolean;
-
+      Self_Id    : constant Task_Id := STPO.Self;
+      Entry_Call : Entry_Call_Record renames Self_Id.Entry_Calls (1);
    begin
       --  If pragma Detect_Blocking is active then Program_Error must be
       --  raised if this potentially blocking operation is called from a
@@ -560,15 +552,10 @@ package body System.Tasking.Protected_Objects.Single_Entry is
       if Detect_Blocking
         and then Self_Id.Common.Protected_Action_Nesting > 0
       then
-         Ada.Exceptions.Raise_Exception
-           (Program_Error'Identity, "potentially blocking operation");
+         raise Program_Error with "potentially blocking operation";
       end if;
 
-      STPO.Write_Lock (Object.L'Access, Ceiling_Violation);
-
-      if Ceiling_Violation then
-         raise Program_Error;
-      end if;
+      Lock_Entry (Object);
 
       Entry_Call.Mode := Mode;
       Entry_Call.State := Now_Abortable;
@@ -669,7 +656,7 @@ package body System.Tasking.Protected_Objects.Single_Entry is
    -- Timed_Protected_Single_Entry_Call --
    ---------------------------------------
 
-   --  Compiler interface only. Do not call from within the RTS.
+   --  Compiler interface only (do not call from within the RTS)
 
    procedure Timed_Protected_Single_Entry_Call
      (Object                : Protection_Entry_Access;
@@ -690,8 +677,7 @@ package body System.Tasking.Protected_Objects.Single_Entry is
       if Detect_Blocking
         and then Self_Id.Common.Protected_Action_Nesting > 0
       then
-         Ada.Exceptions.Raise_Exception
-           (Program_Error'Identity, "potentially blocking operation");
+         raise Program_Error with "potentially blocking operation";
       end if;
 
       STPO.Write_Lock (Object.L'Access, Ceiling_Violation);

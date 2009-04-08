@@ -45,6 +45,7 @@ import java.awt.Font;
 import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.KeyboardFocusManager;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.event.ComponentEvent;
@@ -172,19 +173,17 @@ public class GtkWindowPeer extends GtkContainerPeer
 
   public void setBounds (int x, int y, int width, int height)
   {
-    if (x != getX()
-	|| y != getY()
-	|| width != getWidth()
-	|| height != getHeight())
+    if (x != getX()	|| y != getY() || width != getWidth() 
+        || height != getHeight())
       {
-	this.x = x;
-	this.y = y;
-	this.width = width;
-	this.height = height;
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
 	
-	nativeSetBounds (x, y,
-			 width - insets.left - insets.right,
-			 height - insets.top - insets.bottom);
+        nativeSetBounds (x, y,
+                         width - insets.left - insets.right,
+                         height - insets.top - insets.bottom);
       }
   }
 
@@ -211,7 +210,7 @@ public class GtkWindowPeer extends GtkContainerPeer
     width = awtComponent.getWidth();
     height = awtComponent.getHeight();
     setSize (width - insets.left - insets.right,
-	     height - insets.top - insets.bottom);
+             height - insets.top - insets.bottom);
     gtkWindowSetResizable (resizable);
   }
 
@@ -253,22 +252,20 @@ public class GtkWindowPeer extends GtkContainerPeer
         awtComponent.dispatchEvent(ev);
       }
 
-    if (frame_width != getWidth()
-	|| frame_height != getHeight())
+    if (frame_width != getWidth() || frame_height != getHeight())
       {
-	this.width = frame_width;
-	this.height = frame_height;
-	q().postEvent(new ComponentEvent(awtComponent,
-					 ComponentEvent.COMPONENT_RESIZED));
+        this.width = frame_width;
+        this.height = frame_height;
+        q().postEvent(new ComponentEvent(awtComponent,
+                                         ComponentEvent.COMPONENT_RESIZED));
       }
 
-    if (frame_x != getX()
-	|| frame_y != getY())
+    if (frame_x != getX() || frame_y != getY())
       {
-	this.x = frame_x;
-	this.y = frame_y;
-	q().postEvent(new ComponentEvent(awtComponent,
-					 ComponentEvent.COMPONENT_MOVED));
+        this.x = frame_x;
+        this.y = frame_y;
+        q().postEvent(new ComponentEvent(awtComponent,
+                                         ComponentEvent.COMPONENT_MOVED));
       }
 
   }
@@ -287,8 +284,8 @@ public class GtkWindowPeer extends GtkContainerPeer
   {
     if (id == WindowEvent.WINDOW_STATE_CHANGED)
       {
-	if (windowState != newState)
-	  {
+        if (windowState != newState)
+          {
             // Post old styleWindowEvent with WINDOW_ICONIFIED or
             // WINDOW_DEICONIFIED if appropriate.
             if ((windowState & Frame.ICONIFIED) != 0
@@ -302,10 +299,10 @@ public class GtkWindowPeer extends GtkContainerPeer
                                             WindowEvent.WINDOW_ICONIFIED,
                                             opposite, 0, 0));
             // Post new-style WindowStateEvent.
-	    q().postEvent (new WindowEvent ((Window) awtComponent, id,
+            q().postEvent (new WindowEvent ((Window) awtComponent, id,
                                             opposite, windowState, newState));
-	    windowState = newState;
-	  }
+            windowState = newState;
+          }
       }
     else
       q().postEvent (new WindowEvent ((Window) awtComponent, id, opposite));
@@ -384,7 +381,7 @@ public class GtkWindowPeer extends GtkContainerPeer
   }
 
   protected void postMouseEvent(int id, long when, int mods, int x, int y, 
-				int clickCount, boolean popupTrigger)
+                                int clickCount, boolean popupTrigger)
   {
     // Translate AWT co-ordinates, which include a window frame's
     // insets, to GTK co-ordinates, which do not include a window
@@ -392,8 +389,18 @@ public class GtkWindowPeer extends GtkContainerPeer
     // insets but GtkFramePeer and GtkDialogPeer insets will be
     // non-zero.
     super.postMouseEvent (id, when, mods, 
-			  x + insets.left, y + insets.top, 
-			  clickCount, popupTrigger);
+                          x + insets.left, y + insets.top, 
+                          clickCount, popupTrigger);
+  }
+
+  public Point getLocationOnScreen()
+  {
+    int point[] = new int[2];
+    if (Thread.currentThread() == GtkMainThread.mainThread)
+      gtkWindowGetLocationOnScreenUnlocked(point);
+    else
+      gtkWindowGetLocationOnScreen(point);
+    return new Point(point[0], point[1]);
   }
 
   // We override this to keep it in sync with our internal
@@ -401,5 +408,30 @@ public class GtkWindowPeer extends GtkContainerPeer
   public Rectangle getBounds()
   {
     return new Rectangle(x, y, width, height);
+  }
+
+  public void updateIconImages()
+  {
+    // TODO: Implement properly.
+  }
+
+  public void updateMinimumSize()
+  {
+    // TODO: Implement properly.
+  }
+
+  public void setModalBlocked(java.awt.Dialog d, boolean b)
+  {
+    // TODO: Implement properly.
+  }
+
+  public void updateFocusableWindowState()
+  {
+    // TODO: Implement properly.
+  }
+
+  public void setAlwaysOnTop(boolean b)
+  {
+    // TODO: Implement properly.
   }
 }

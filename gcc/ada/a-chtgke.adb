@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                      A D A . C O N T A I N E R S .                       --
---             H A S H _ T A B L E S . G E N E R I C _ K E Y S              --
+--                 ADA.CONTAINERS.HASH_TABLES.GENERIC_KEYS                  --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -247,7 +246,7 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
       end loop;
 
       --  We have determined that Key is not already in the hash table, so
-      --  the change is tenatively allowed. We now perform the standard
+      --  the change is tentatively allowed. We now perform the standard
       --  checks to determine whether the hash table is locked (because you
       --  cannot change an element while it's in use by Query_Element or
       --  Update_Element), or if the container is busy (because moving a
@@ -268,7 +267,7 @@ package body Ada.Containers.Hash_Tables.Generic_Keys is
          return;
       end if;
 
-      --  The node is a bucket different from the bucket implied by Key.
+      --  The node is a bucket different from the bucket implied by Key
 
       if HT.Busy > 0 then
          raise Program_Error with

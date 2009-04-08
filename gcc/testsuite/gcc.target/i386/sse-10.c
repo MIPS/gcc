@@ -1,12 +1,13 @@
 /* PR 17930 */
-/* { dg-do run { target i?86-*-* x86_64-*-* } } */
-/* { dg-options "-O1 -msse2 -mfpmath=sse -mno-accumulate-outgoing-args -fno-omit-frame-pointer" } */
+/* { dg-do run } */
+/* { dg-options "-O1 -msse2 -mfpmath=sse -mno-accumulate-outgoing-args -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer" } */
+/* { dg-options "-O1 -msse2 -mfpmath=sse -fno-omit-frame-pointer" { target *-*-mingw* *-*-cygwin* } } */
 
-#include "../../gcc.dg/i386-cpuid.h"
+#include "sse2-check.h"
 
 typedef _Complex double complex_16;
 
-void NOINLINE
+void __attribute__((noinline))
 test (complex_16 a[5][5])
 {
   int i, j, k;
@@ -21,14 +22,10 @@ test (complex_16 a[5][5])
       }
 }
 
-int main()
+static void
+sse2_test (void)
 {
   static complex_16 work[5][5];
-  unsigned long cpu_facilities;
 
-  cpu_facilities = i386_cpuid ();
-  if (cpu_facilities & bit_SSE2)
-    test (work); 
-
-  return 0;
+  test (work); 
 }

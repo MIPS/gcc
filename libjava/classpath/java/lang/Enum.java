@@ -89,7 +89,6 @@ public abstract class Enum<T extends Enum<T>>
    * @exception IllegalArgumentException when there is no value s in
    * the enum etype.
    */
-  @SuppressWarnings("unchecked")
   public static <S extends Enum<S>> S valueOf(Class<S> etype, String s)
   {
     if (etype == null || s == null)
@@ -97,10 +96,15 @@ public abstract class Enum<T extends Enum<T>>
 
     try
       {
+        // XXX We should not use getDeclaredField, because it does
+        // an unnecessary security check.
         Field f = etype.getDeclaredField(s);
         if (! f.isEnumConstant())
           throw new IllegalArgumentException(s);
-        return (S) f.get(null);
+        Class.setAccessible(f);
+	@SuppressWarnings("unchecked")
+	  S val = (S) f.get(null);
+        return val;
       }
     catch (NoSuchFieldException exception)
       {
@@ -220,4 +224,14 @@ public abstract class Enum<T extends Enum<T>>
       k = k.getSuperclass();
     return k;
   }
+
+  /**
+   * Enumerations can not have finalization methods.
+   *
+   * @since 1.6
+   */
+  protected final void finalize()
+  {
+  }
+
 }

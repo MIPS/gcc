@@ -1,12 +1,12 @@
 ;; Machine description for PowerPC synchronization instructions.
-;; Copyright (C) 2005 Free Software Foundation, Inc.
+;; Copyright (C) 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
 ;; Contributed by Geoffrey Keating.
 
 ;; This file is part of GCC.
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,14 +15,13 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-;; MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 (define_mode_attr larx [(SI "lwarx") (DI "ldarx")])
 (define_mode_attr stcx [(SI "stwcx.") (DI "stdcx.")])
 
-(define_code_macro FETCHOP [plus minus ior xor and])
+(define_code_iterator FETCHOP [plus minus ior xor and])
 (define_code_attr fetchop_name
   [(plus "add") (minus "sub") (ior "ior") (xor "xor") (and "and")])
 (define_code_attr fetchop_pred
@@ -34,8 +33,8 @@
   [(plus "rIL") (minus "r") (ior "rKJF") (xor "rKJF") (and "rSTKJ")])
 
 (define_expand "memory_barrier"
-  [(set (mem:BLK (match_dup 0))
-	(unspec:BLK [(mem:BLK (match_dup 0))] UNSPEC_SYNC))]
+  [(set (match_dup 0)
+	(unspec:BLK [(match_dup 0)] UNSPEC_SYNC))]
   ""
 {
   operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (Pmode));
@@ -44,7 +43,7 @@
 
 (define_insn "*sync_internal"
   [(set (match_operand:BLK 0 "" "")
-	(unspec:BLK [(match_operand:BLK 1 "" "")] UNSPEC_SYNC))]
+	(unspec:BLK [(match_dup 0)] UNSPEC_SYNC))]
   ""
   "{dcs|sync}"
   [(set_attr "type" "sync")])
@@ -211,8 +210,8 @@
 (define_expand "sync_nand<mode>"
   [(parallel [(set (match_operand:INT1 0 "memory_operand" "")
 	      (unspec:INT1
-		[(and:INT1 (not:INT1 (match_dup 0))
-		   (match_operand:INT1 1 "gpc_reg_operand" ""))]
+		[(ior:INT1 (not:INT1 (match_dup 0))
+			   (not:INT1 (match_operand:INT1 1 "gpc_reg_operand" "")))]
 		UNSPEC_ATOMIC))
 	      (clobber (scratch:INT1))
 	      (clobber (scratch:CC))])]
@@ -221,11 +220,10 @@
 {
   if (<MODE>mode != SImode && <MODE>mode != DImode)
     {
+      FAIL;
       if (PPC405_ERRATUM77)
 	FAIL;
-      rs6000_emit_sync (AND, <MODE>mode,
-			gen_rtx_NOT (<MODE>mode, operands[0]),
-			operands[1],
+      rs6000_emit_sync (NOT, <MODE>mode, operands[0], operands[1],
 			NULL_RTX, NULL_RTX, true);
       DONE;
     }
@@ -234,8 +232,8 @@
 (define_insn_and_split "*sync_nand<mode>_internal"
   [(set (match_operand:GPR 0 "memory_operand" "+Z")
 	(unspec:GPR
-	  [(and:GPR (not:GPR (match_dup 0))
-	     (match_operand:GPR 1 "gpc_reg_operand" "r"))]
+	  [(ior:GPR (not:GPR (match_dup 0))
+		    (not:GPR (match_operand:GPR 1 "gpc_reg_operand" "r")))]
 	  UNSPEC_ATOMIC))
    (clobber (match_scratch:GPR 2 "=&r"))
    (clobber (match_scratch:CC 3 "=&x"))]
@@ -317,8 +315,8 @@
 		   (match_operand:INT1 1 "memory_operand" ""))
 	      (set (match_dup 1)
 		   (unspec:INT1
-		     [(and:INT1 (not:INT1 (match_dup 1))
-			(match_operand:INT1 2 "gpc_reg_operand" ""))]
+		     [(ior:INT1 (not:INT1 (match_dup 1))
+				(not:INT1 (match_operand:INT1 2 "gpc_reg_operand" "")))]
 		     UNSPEC_ATOMIC))
 	      (clobber (scratch:INT1))
 	      (clobber (scratch:CC))])]
@@ -327,11 +325,10 @@
 {
   if (<MODE>mode != SImode && <MODE>mode != DImode)
     {
+      FAIL;
       if (PPC405_ERRATUM77)
 	FAIL;
-      rs6000_emit_sync (AND, <MODE>mode,
-			gen_rtx_NOT (<MODE>mode, operands[1]),
-			operands[2],
+      rs6000_emit_sync (NOT, <MODE>mode, operands[1], operands[2],
 			operands[0], NULL_RTX, true);
       DONE;
     }
@@ -342,8 +339,8 @@
 	(match_operand:GPR 1 "memory_operand" "+Z"))
    (set (match_dup 1)
 	(unspec:GPR
-	  [(and:GPR (not:GPR (match_dup 1))
-	     (match_operand:GPR 2 "gpc_reg_operand" "r"))]
+	  [(ior:GPR (not:GPR (match_dup 1))
+		    (not:GPR (match_operand:GPR 2 "gpc_reg_operand" "r")))]
 	  UNSPEC_ATOMIC))
    (clobber (match_scratch:GPR 3 "=&r"))
    (clobber (match_scratch:CC 4 "=&x"))]
@@ -425,12 +422,13 @@
 
 (define_expand "sync_new_nand<mode>"
   [(parallel [(set (match_operand:INT1 0 "gpc_reg_operand" "")
-		   (and:INT1
+		   (ior:INT1
 		     (not:INT1 (match_operand:INT1 1 "memory_operand" ""))
-		     (match_operand:INT1 2 "gpc_reg_operand" "")))
+		     (not:INT1 (match_operand:INT1 2 "gpc_reg_operand" ""))))
 	      (set (match_dup 1)
 		   (unspec:INT1
-		     [(and:INT1 (not:INT1 (match_dup 1)) (match_dup 2))]
+		     [(ior:INT1 (not:INT1 (match_dup 1))
+				(not:INT1 (match_dup 2)))]
 		     UNSPEC_ATOMIC))
 	      (clobber (scratch:INT1))
 	      (clobber (scratch:CC))])]
@@ -439,11 +437,10 @@
 {
   if (<MODE>mode != SImode && <MODE>mode != DImode)
     {
+      FAIL;
       if (PPC405_ERRATUM77)
 	FAIL;
-      rs6000_emit_sync (AND, <MODE>mode,
-			gen_rtx_NOT (<MODE>mode, operands[1]),
-			operands[2],
+      rs6000_emit_sync (NOT, <MODE>mode, operands[1], operands[2],
 			NULL_RTX, operands[0], true);
       DONE;
     }
@@ -451,12 +448,12 @@
 
 (define_insn_and_split "*sync_new_nand<mode>_internal"
   [(set (match_operand:GPR 0 "gpc_reg_operand" "=&r")
-	(and:GPR
+	(ior:GPR
 	  (not:GPR (match_operand:GPR 1 "memory_operand" "+Z"))
-	  (match_operand:GPR 2 "gpc_reg_operand" "r")))
+	  (not:GPR (match_operand:GPR 2 "gpc_reg_operand" "r"))))
    (set (match_dup 1)
 	(unspec:GPR
-	  [(and:GPR (not:GPR (match_dup 1)) (match_dup 2))]
+	  [(ior:GPR (not:GPR (match_dup 1)) (not:GPR (match_dup 2)))]
 	  UNSPEC_ATOMIC))
    (clobber (match_scratch:GPR 3 "=&r"))
    (clobber (match_scratch:CC 4 "=&x"))]
@@ -581,10 +578,10 @@
 ; Likewise, operand 5 is in practice either <= 2^16 or it is a register.
 (define_insn "*sync_boolcshort_internal"
   [(set (match_operand:SI 2 "gpc_reg_operand" "=&r")
-	(match_operator:SI 4 "boolean_operator"
-	 [(xor:SI (match_operand:SI 0 "memory_operand" "+Z")
-		  (match_operand:SI 5 "logical_operand" "rK"))
-	  (match_operand:SI 1 "gpc_reg_operand" "r")]))
+	(match_operator:SI 4 "boolean_or_operator"
+	 [(xor:SI (not:SI (match_operand:SI 0 "memory_operand" "+Z"))
+		  (not:SI (match_operand:SI 5 "logical_operand" "rK")))
+	 (match_operand:SI 1 "gpc_reg_operand" "r")]))
    (set (match_operand:SI 3 "gpc_reg_operand" "=&b") (match_dup 0))
    (set (match_dup 0) (unspec:SI [(match_dup 4)] UNSPEC_SYNC_OP))
    (clobber (match_scratch:CC 6 "=&x"))]

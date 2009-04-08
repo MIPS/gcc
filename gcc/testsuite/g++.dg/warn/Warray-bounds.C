@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-xfail-if "PR 31500" { hppa*-*-* && { ! hppa*64*-*-* } } } */
 /* { dg-options "-O2 -Warray-bounds" } */
 
 int a[10];
@@ -27,10 +26,10 @@ int* f(void) {
     a[ 9] = 0;
     a[10] = 0;             /* { dg-warning "array subscript" } */
     a[11] = 0;             /* { dg-warning "array subscript" } */
-    a[2 * n() - 11] = 0;    /* { dg-warning "array subscript" } */
-    a[2 * n() - 10] = 0;
-    a[2 * n() -  1] = 0;
-    a[2 * n() -  0] = 0;    /* { dg-warning "array subscript" } */
+    a[2 * n() - 11] = 1;    /* { dg-warning "array subscript" } */
+    a[2 * n() - 10] = 1;
+    a[2 * n() -  1] = 1;
+    a[2 * n() -  0] = 1;    /* { dg-warning "array subscript" } */
 
     b[-1] = 0;             /* { dg-warning "array subscript" } */
     b[ 0] = 0;
@@ -38,10 +37,10 @@ int* f(void) {
     b[ 9] = 0;
     b[10] = 0;             /* { dg-warning "array subscript" } */
     b[11] = 0;             /* { dg-warning "array subscript" } */
-    b[2 * n() - 11] = 0;    /* { dg-warning "array subscript" } */
-    b[2 * n() - 10] = 0;
-    b[2 * n() -  1] = 0;
-    b[2 * n() -  0] = 0;    /* { dg-warning "array subscript" } */
+    b[2 * n() - 11] = 1;    /* { dg-warning "array subscript" } */
+    b[2 * n() - 10] = 1;
+    b[2 * n() -  1] = 1;
+    b[2 * n() -  0] = 1;    /* { dg-warning "array subscript" } */
 
     c.c[-1] = 0;           /* { dg-warning "array subscript" } */
     c.c[ 0] = 0;
@@ -49,10 +48,10 @@ int* f(void) {
     c.c[ 9] = 0;
     c.c[10] = 0;           /* { dg-warning "array subscript" } */
     c.c[11] = 0;           /* { dg-warning "array subscript" } */
-    c.c[2 * n() - 11] = 0;  /* { dg-warning "array subscript" } */
-    c.c[2 * n() - 10] = 0;
-    c.c[2 * n() -  1] = 0;
-    c.c[2 * n() -  0] = 0;  /* { dg-warning "array subscript" } */
+    c.c[2 * n() - 11] = 1;  /* { dg-warning "array subscript" } */
+    c.c[2 * n() - 10] = 1;
+    c.c[2 * n() -  1] = 1;
+    c.c[2 * n() -  0] = 1;  /* { dg-warning "array subscript" } */
 
     g(&a[8]);
     g(&a[9]);
@@ -88,5 +87,5 @@ int* f(void) {
        c.c[-1] = 0;
 
     return a;
-} /* { dg-excess-errors "PR 31500" { xfail { hppa*-*-* && { ! hppa*64*-*-* } } } } */
+}
 

@@ -106,7 +106,7 @@ public class ObjectStreamClass implements Serializable
     if (cl == null)
       return null;
 
-    ObjectStreamClass osc = (ObjectStreamClass) classLookupTable.get(cl);
+    ObjectStreamClass osc = classLookupTable.get(cl);
 
     if (osc != null)
       return osc;
@@ -799,6 +799,14 @@ outer:
       result = cache.longValue(); 
     else
       {
+	// Note that we can't use Class.isEnum() here, because that returns
+	// false for java.lang.Enum and enum value sub classes.
+	if (Enum.class.isAssignableFrom(cl) || Proxy.isProxyClass(cl))
+	  {
+	    // Spec says that enums and dynamic proxies have
+	    // a serialVersionUID of 0L.
+	    return 0L;
+	  }
         try
           {
             result = getClassUIDFromField(cl);
@@ -822,7 +830,7 @@ outer:
           }
 
         if (loadedByBootOrApplicationClassLoader(cl))
-          uidCache.put(cl,new Long(result));
+          uidCache.put(cl,Long.valueOf(result));
       }
     return result;
   }
@@ -1066,7 +1074,7 @@ outer:
 
     try
     {
-	return (Externalizable)constructor.newInstance(null);
+	return (Externalizable)constructor.newInstance();
     }
     catch(Exception x)
     {

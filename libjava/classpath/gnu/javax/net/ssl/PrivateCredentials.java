@@ -1,5 +1,5 @@
 /* PrivateCredentials.java -- private key/certificate pairs.
-   Copyright (C) 2006  Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007  Free Software Foundation, Inc.
 
 This file is a part of GNU Classpath.
 
@@ -38,8 +38,8 @@ exception statement from your version.  */
 
 package gnu.javax.net.ssl;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import gnu.java.lang.CPStringBuilder;
+
 import java.io.EOFException;
 import java.io.InputStream;
 import java.io.IOException;
@@ -80,6 +80,7 @@ import gnu.javax.crypto.pad.WrongPaddingException;
 
 import gnu.java.security.der.DER;
 import gnu.java.security.der.DERReader;
+import gnu.java.util.Base64;
 
 /**
  * An instance of a manager factory parameters for holding a single
@@ -138,7 +139,7 @@ public class PrivateCredentials implements ManagerFactoryParameters
     boolean encrypted = false;
     String cipher = null;
     String salt = null;
-    StringBuffer base64 = new StringBuffer();
+    CPStringBuilder base64 = new CPStringBuilder();
     while (true)
       {
         line = readLine(privateKey);
@@ -236,7 +237,7 @@ public class PrivateCredentials implements ManagerFactoryParameters
   private String readLine(InputStream in) throws IOException
   {
     boolean eol_is_cr = System.getProperty("line.separator").equals("\r");
-    StringBuffer str = new StringBuffer();
+    CPStringBuilder str = new CPStringBuilder();
     while (true)
       {
         int i = in.read();

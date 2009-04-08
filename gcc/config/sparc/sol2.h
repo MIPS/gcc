@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC, for SPARC running Solaris 2
    Copyright 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005,
-   2006 Free Software Foundation, Inc.
+   2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@netcom.com).
    Additional changes by David V. Henkel-Wallace (gumby@cygnus.com).
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Supposedly the same as vanilla sparc svr4, except for the stuff below: */
 
@@ -46,12 +45,18 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_CPU_DEFAULT_SPEC "-xarch=v8plusb"
 #endif
 
+#if TARGET_CPU_DEFAULT == TARGET_CPU_niagara2
+#undef ASM_CPU_DEFAULT_SPEC
+#define ASM_CPU_DEFAULT_SPEC "-xarch=v8plusb"
+#endif
+
 #undef ASM_CPU_SPEC
 #define ASM_CPU_SPEC "\
 %{mcpu=v9:-xarch=v8plus} \
 %{mcpu=ultrasparc:-xarch=v8plusa} \
 %{mcpu=ultrasparc3:-xarch=v8plusb} \
 %{mcpu=niagara:-xarch=v8plusb} \
+%{mcpu=niagara2:-xarch=v8plusb} \
 %{!mcpu*:%(asm_cpu_default)} \
 "
 
@@ -133,9 +138,6 @@ Boston, MA 02110-1301, USA.  */
    SPARC ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
 
-/* But indicate that it isn't supported by the hardware.  */
-#define WIDEST_HARDWARE_FP_SIZE 64
-
 /* Solaris's _Qp_* library routine implementation clobbers the output
    memory before the inputs are fully consumed.  */
 
@@ -162,6 +164,9 @@ Boston, MA 02110-1301, USA.  */
 #define SUBTARGET_INSERT_ATTRIBUTES solaris_insert_attributes
 #define SUBTARGET_ATTRIBUTE_TABLE SOLARIS_ATTRIBUTE_TABLE
 
+/* Register the Solaris-specific #pragma directives.  */
+#define REGISTER_TARGET_PRAGMAS() solaris_register_pragmas ()
+
 /* Output a simple call for .init/.fini.  */
 #define ASM_OUTPUT_CALL(FILE, FN)			        \
   do								\
@@ -170,4 +175,22 @@ Boston, MA 02110-1301, USA.  */
       print_operand (FILE, XEXP (DECL_RTL (FN), 0), 0);	\
       fprintf (FILE, "\n\tnop\n");				\
     }								\
+  while (0)
+
+/* Solaris 'as' has a bug: a .common directive in .tbss section
+   behaves as .tls_common rather than normal non-TLS .common.  */
+#undef  ASM_OUTPUT_ALIGNED_COMMON
+#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
+  do									\
+    {									\
+      if (TARGET_SUN_TLS						\
+	  && in_section							\
+	  && ((in_section->common.flags & (SECTION_TLS | SECTION_BSS))	\
+	      == (SECTION_TLS | SECTION_BSS)))				\
+	switch_to_section (bss_section);				\
+      fprintf ((FILE), "%s", COMMON_ASM_OP);				\
+      assemble_name ((FILE), (NAME));					\
+      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
+	       (SIZE), (ALIGN) / BITS_PER_UNIT);			\
+    }									\
   while (0)

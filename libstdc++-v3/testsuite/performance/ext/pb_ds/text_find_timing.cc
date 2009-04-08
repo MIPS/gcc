@@ -51,8 +51,8 @@
 #include <performance/assoc/timing/find_test.hpp>
 #include <io/text_populate.hpp>
 #include <hash_fn/string_hash_fn.hpp>
-#include <native_type/assoc/native_hash_map.hpp>
-#include <native_type/assoc/native_map.hpp>
+#include <native_type/native_hash_map.hpp>
+#include <native_type/native_map.hpp>
 #include <iostream>
 #include <vector>
 
@@ -62,7 +62,7 @@ usage();
 int
 main(int argc, char* a_p_argv[])
 {
-  using namespace pb_ds::test;
+  using namespace __gnu_pbds::test;
   std::string f_name = "thirty_years_among_the_dead_preproc.txt";
   size_t vn = 200;
   size_t vs = 200;

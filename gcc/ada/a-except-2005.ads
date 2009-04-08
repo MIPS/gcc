@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -35,17 +35,13 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This version is used for all Ada 2005 builds. It differs from a-except.ads
---  only with respect to the addition of Wide_[Wide]Exception_Name functions.
---  The additional entities are marked with pragma Ada_05, so this extended
---  unit is also perfectly suitable for use in Ada 95 or Ada 83 mode.
+--  This version of Ada.Exceptions fully supports both Ada 95 and Ada 2005.
+--  It is used in all situations except for the build of the compiler and
+--  other basic tools. For these latter builds, we use an Ada 95-only version.
 
 --  The reason for this splitting off of a separate version is that bootstrap
 --  compilers often will be used that do not support Ada 2005 features, and
 --  Ada.Exceptions is part of the compiler sources.
-
---  The base version of this unit Ada.Exceptions omits the Wide version of
---  Exception_Name and is used to build the compiler and other basic tools.
 
 pragma Polling (Off);
 --  We must turn polling off for this unit, because otherwise we get
@@ -97,12 +93,8 @@ package Ada.Exceptions is
    pragma Ada_05 (Wide_Wide_Exception_Name);
 
    procedure Raise_Exception (E : Exception_Id; Message : String := "");
-   --  Note: it would be really nice to give a pragma No_Return for this
-   --  procedure, but it would be wrong, since Raise_Exception does return
-   --  if given the null exception. However we do special case the name in
-   --  the test in the compiler for issuing a warning for a missing return
-   --  after this call. Program_Error seems reasonable enough in such a case.
-   --  See also the routine Raise_Exception_Always in the private part.
+   pragma No_Return (Raise_Exception);
+   --  Note: In accordance with AI-466, CE is raised if E = Null_Id
 
    function Exception_Message (X : Exception_Occurrence) return String;
 
@@ -139,11 +131,10 @@ package Ada.Exceptions is
      (Source : Exception_Occurrence)
       return   Exception_Occurrence_Access;
 
-   --  Ada 2005 (AI-438): The language revision introduces the
-   --  following subprograms and attribute definitions. We do not
-   --  provide them explicitly; instead, the corresponding stream
-   --  attributes are made available through a pragma Stream_Convert
-   --  in the private part of this package.
+   --  Ada 2005 (AI-438): The language revision introduces the following
+   --  subprograms and attribute definitions. We do not provide them
+   --  explicitly. instead, the corresponding stream attributes are made
+   --  available through a pragma Stream_Convert in the private part.
 
    --  procedure Read_Exception_Occurrence
    --    (Stream : not null access Ada.Streams.Root_Stream_Type'Class;
@@ -209,23 +200,14 @@ private
    --  private barrier, so we can place this function in the private part
    --  where the compiler can find it, but the spec is unchanged.)
 
-   procedure Local_Raise (Excep : Exception_Id);
-   pragma Export (Ada, Local_Raise);
-   --  This is a dummy routine, used only by the debugger for the purpose of
-   --  logging local raise statements that were transformed into a direct goto
-   --  to the handler code. The compiler in this case generates:
-   --
-   --    Local_Raise (exception_id);
-   --    goto Handler
-
    procedure Raise_Exception_Always (E : Exception_Id; Message : String := "");
    pragma No_Return (Raise_Exception_Always);
    pragma Export (Ada, Raise_Exception_Always, "__gnat_raise_exception");
    --  This differs from Raise_Exception only in that the caller has determined
-   --  that for sure the parameter E is not null, and that therefore the call
-   --  to this procedure cannot return. The expander converts Raise_Exception
-   --  calls to Raise_Exception_Always if it can determine this is the case.
-   --  The Export allows this routine to be accessed from Pure units.
+   --  that for sure the parameter E is not null, and that therefore no check
+   --  for Null_Id is required. The expander converts Raise_Exception calls to
+   --  Raise_Exception_Always if it can determine this is the case. The Export
+   --  allows this routine to be accessed from Pure units.
 
    procedure Raise_From_Signal_Handler
      (E : Exception_Id;
@@ -244,6 +226,12 @@ private
    --  systems where the right way to get out of signal handler is to alter the
    --  PC value in the machine state or in some other way ask the operating
    --  system to return here rather than to the original location.
+
+   procedure Raise_From_Controlled_Operation
+     (X : Ada.Exceptions.Exception_Occurrence);
+   pragma No_Return (Raise_From_Controlled_Operation);
+   --  Raise Program_Error, providing information about X (an exception
+   --  raised during a controlled operation) in the exception message.
 
    procedure Reraise_Occurrence_Always (X : Exception_Occurrence);
    pragma No_Return (Reraise_Occurrence_Always);
@@ -273,7 +261,7 @@ private
    --  purposes (e.g. implementing watchpoints in software or in the debugger).
 
    --  In the GNAT technology itself, this interface is used to implement
-   --  immediate aynschronous transfer of control and immediate abort on
+   --  immediate asynchronous transfer of control and immediate abort on
    --  targets which do not provide for one thread interrupting another.
 
    --  Note: this used to be in a separate unit called System.Poll, but that

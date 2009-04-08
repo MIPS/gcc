@@ -130,7 +130,7 @@ public class TagParser
   {    
     ArrayList allTags = new ArrayList();
     if (document == null)
-      return null;;
+      return null;
     
     recurseDocument(document.getChildNodes());
 
@@ -292,7 +292,7 @@ public class TagParser
   /**
    * Parses the archive string and returns a list.
    * 
-   * @param the list of archives (comma-separated) in a String.
+   * @param arcs the list of archives (comma-separated) in a String.
    */
   static ArrayList parseArchives(String arcs, AppletTag t)
   {

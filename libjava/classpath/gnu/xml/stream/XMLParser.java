@@ -53,6 +53,8 @@ Partly derived from code which carried the following notice:
 
 package gnu.xml.stream;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.io.BufferedInputStream;
 import java.io.EOFException;
 import java.io.File;
@@ -176,11 +178,6 @@ public class XMLParser
    * The (type of the) current event.
    */
   private int event;
-
-  /**
-   * Whether we are looking ahead. Used by hasNext.
-   */
-  private boolean lookahead;
 
   /**
    * The element name stack. The first element in this stack will be the
@@ -439,6 +436,7 @@ public class XMLParser
             throw e2;
           }
       }
+    systemId = canonicalize(systemId);
     pushInput(new Input(in, null, null, systemId, null, null, false, true));
   }
 
@@ -513,6 +511,7 @@ public class XMLParser
             throw e2;
           }
       }
+    systemId = canonicalize(systemId);
     pushInput(new Input(null, reader, null, systemId, null, null, false, true));
   }
 
@@ -694,7 +693,7 @@ public class XMLParser
   {
     if (event != XMLStreamConstants.START_ELEMENT)
       throw new XMLStreamException("current event must be START_ELEMENT");
-    StringBuffer elementText = new StringBuffer();
+    CPStringBuilder elementText = new CPStringBuilder();
     int depth = stack.size();
     while (event != XMLStreamConstants.END_ELEMENT || stack.size() > depth)
       {
@@ -726,7 +725,10 @@ public class XMLParser
       case XMLStreamConstants.END_ELEMENT:
         String qName = buf.toString();
         int ci = qName.indexOf(':');
-        return (ci == -1) ? qName : qName.substring(ci + 1);
+        String localName = (ci == -1) ? qName : qName.substring(ci + 1);
+        if (stringInterning)
+          localName = localName.intern();
+        return localName;
       default:
         return null;
       }
@@ -746,9 +748,13 @@ public class XMLParser
         String qName = buf.toString();
         int ci = qName.indexOf(':');
         String localName = (ci == -1) ? qName : qName.substring(ci + 1);
+        if (stringInterning)
+          localName = localName.intern();
         String prefix = (ci == -1) ?
           (namespaceAware ? XMLConstants.DEFAULT_NS_PREFIX : null) :
           qName.substring(0, ci);
+        if (stringInterning && prefix != null)
+          prefix = prefix.intern();
         String namespaceURI = getNamespaceURI(prefix);
         return new QName(namespaceURI, localName, prefix);
       default:
@@ -832,9 +838,12 @@ public class XMLParser
       case XMLStreamConstants.END_ELEMENT:
         String qName = buf.toString();
         int ci = qName.indexOf(':');
-        return (ci == -1) ?
+        String prefix = (ci == -1) ?
           (namespaceAware ? XMLConstants.DEFAULT_NS_PREFIX : null) :
           qName.substring(0, ci);
+        if (stringInterning && prefix != null)
+          prefix = prefix.intern();
+        return prefix;
       default:
         return null;
       }
@@ -1011,24 +1020,12 @@ public class XMLParser
   public boolean hasNext()
     throws XMLStreamException
   {
-    if (event == XMLStreamConstants.END_DOCUMENT)
-      return false;
-    if (!lookahead)
-      {
-        next();
-        lookahead = true;
-      }
-    return event != -1;
+    return (event != XMLStreamConstants.END_DOCUMENT && event != -1);
   }
   
   public int next()
     throws XMLStreamException
   {
-    if (lookahead)
-      {
-        lookahead = false;
-        return event;
-      }
     if (event == XMLStreamConstants.END_ELEMENT)
       {
         // Pop namespace context
@@ -1540,7 +1537,7 @@ public class XMLParser
   {
     if (!externalEntities)
       return;
-    String url = absolutize(input.systemId, ids.systemId);
+    String url = canonicalize(absolutize(input.systemId, ids.systemId));
     // Check for recursion
     for (Iterator i = inputStack.iterator(); i.hasNext(); )
       {
@@ -1584,6 +1581,20 @@ public class XMLParser
     if (this.input != null)
       input.xml11 = this.input.xml11;
     this.input = input;
+  }
+
+  /**
+   * Returns a canonicalized version of the specified URL.
+   * This is largely to work around a problem with the specification of
+   * file URLs.
+   */
+  static String canonicalize(String url)
+  {
+    if (url == null)
+      return null;
+    if (url.startsWith("file:") && !url.startsWith("file://"))
+      url = "file://" + url.substring(5);
+    return url;
   }
 
   /**
@@ -2012,7 +2023,7 @@ public class XMLParser
     else
       {
         ContentModel model;
-        StringBuffer acc = new StringBuffer();
+        CPStringBuilder acc = new CPStringBuilder();
         require('(');
         acc.append('(');
         skipWhitespace();
@@ -2059,7 +2070,7 @@ public class XMLParser
   /**
    * Parses an element content model.
    */
-  private ElementContentModel readElements(StringBuffer acc)
+  private ElementContentModel readElements(CPStringBuilder acc)
     throws IOException, XMLStreamException
   {
     int separator;
@@ -2160,7 +2171,7 @@ public class XMLParser
   /**
    * Parse a cp production.
    */
-  private ContentParticle readContentParticle(StringBuffer acc)
+  private ContentParticle readContentParticle(CPStringBuilder acc)
     throws IOException, XMLStreamException
   {
     ContentParticle cp = new ContentParticle();
@@ -2229,7 +2240,7 @@ public class XMLParser
   {
     String name = readNmtoken(true);
     requireWhitespace();
-    StringBuffer acc = new StringBuffer();
+    CPStringBuilder acc = new CPStringBuilder();
     HashSet values = new HashSet();
     String type = readAttType(acc, values);
     if (validating)
@@ -2278,7 +2289,7 @@ public class XMLParser
   /**
    * Parse an attribute type.
    */
-  private String readAttType(StringBuffer acc, HashSet values)
+  private String readAttType(CPStringBuilder acc, HashSet values)
     throws IOException, XMLStreamException
   {
     if (tryRead('('))
@@ -2314,7 +2325,7 @@ public class XMLParser
   /**
    * Parse an enumeration.
    */
-  private void readEnumeration(boolean isNames, StringBuffer acc,
+  private void readEnumeration(boolean isNames, CPStringBuilder acc,
                                HashSet values)
     throws IOException, XMLStreamException
   {
@@ -2345,7 +2356,7 @@ public class XMLParser
   /**
    * Parse a notation type for an attribute.
    */
-  private void readNotationType(StringBuffer acc, HashSet values)
+  private void readNotationType(CPStringBuilder acc, HashSet values)
     throws IOException, XMLStreamException
   {
     requireWhitespace();
@@ -3519,7 +3530,7 @@ public class XMLParser
   private char[] readCharacterRef(int base)
     throws IOException, XMLStreamException
   {
-    StringBuffer b = new StringBuffer();
+    CPStringBuilder b = new CPStringBuilder();
     for (int c = readCh(); c != 0x3b && c != -1; c = readCh())
       b.append(Character.toChars(c));
     try
@@ -4247,7 +4258,7 @@ public class XMLParser
     throws XMLStreamException
   {
     // Use regular expression
-    StringBuffer buf = new StringBuffer();
+    CPStringBuilder buf = new CPStringBuilder();
     for (Iterator i = children.iterator(); i.hasNext(); )
       {
         buf.append((String) i.next());
@@ -4267,7 +4278,7 @@ public class XMLParser
   {
     if (model.regex == null)
       {
-        StringBuffer buf = new StringBuffer();
+        CPStringBuilder buf = new CPStringBuilder();
         buf.append('(');
         for (Iterator i = model.contentParticles.iterator(); i.hasNext(); )
           {
@@ -4477,7 +4488,7 @@ public class XMLParser
    */
   private static String encodeText(String text)
   {
-    StringBuffer b = new StringBuffer();
+    CPStringBuilder b = new CPStringBuilder();
     int len = text.length();
     for (int i = 0; i < len; i++)
       {
@@ -4581,6 +4592,28 @@ public class XMLParser
             return a.name.equals(name);
         }
       return false;
+    }
+
+    public String toString()
+    {
+      CPStringBuilder buf = new CPStringBuilder(getClass().getName());
+      buf.append('[');
+      buf.append("name=");
+      buf.append(name);
+      if (value != null)
+        {
+          buf.append(",value=");
+          buf.append(value);
+        }
+      if (type != null)
+        {
+          buf.append(",type=");
+          buf.append(type);
+        }
+      if (specified)
+        buf.append(",specified");
+      buf.append(']');
+      return buf.toString();
     }
     
   }

@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -28,8 +27,8 @@
 -- Semantic Analysis: General Model --
 --------------------------------------
 
---  Semantic processing involves 3 phases which are highly interwined
---  (ie mutually recursive):
+--  Semantic processing involves 3 phases which are highly intertwined
+--  (i.e. mutually recursive):
 
 --    Analysis     implements the bulk of semantic analysis such as
 --                 name analysis and type resolution for declarations,
@@ -52,7 +51,7 @@
 --                 recursive calls to itself to resolve operands.
 
 --    Expansion    if we are not generating code this phase is a no-op.
---                 otherwise this phase expands, ie transforms, original
+--                 otherwise this phase expands, i.e. transforms, original
 --                 declaration, expressions or instructions into simpler
 --                 structures that can be handled by the back-end. This
 --                 phase is also in charge of generating code which is
@@ -85,31 +84,37 @@
 --  Analysis-Resolution-Expansion model for expressions. The most prominent
 --  examples are the handling of default expressions and aggregates.
 
-----------------------------------------------------
--- Handling of Default and Per-Object Expressions --
-----------------------------------------------------
+-----------------------------------------------------------------------
+-- Handling of Default and Per-Object Expressions (Spec-Expressions) --
+-----------------------------------------------------------------------
 
 --  The default expressions in component declarations and in procedure
---  specifications (but not the ones in object declarations) are quite
---  tricky to handle. The problem is that some processing is required
---  at the point where the expression appears:
+--  specifications (but not the ones in object declarations) are quite tricky
+--  to handle. The problem is that some processing is required at the point
+--  where the expression appears:
 
 --    visibility analysis (including user defined operators)
 --    freezing of static expressions
 
---  but other processing must be deferred until the enclosing entity
---  (record or procedure specification) is frozen:
+--  but other processing must be deferred until the enclosing entity (record or
+--  procedure specification) is frozen:
 
---    freezing of any other types in the expression
---    expansion
+--    freezing of any other types in the expression expansion
+--    generation of code
 
 --  A similar situation occurs with the argument of priority and interrupt
 --  priority pragmas that appear in task and protected definition specs and
 --  other cases of per-object expressions (see RM 3.8(18)).
 
---  Expansion has to be deferred since you can't generate code for
---  expressions that refernce types that have not been frozen yet. As an
---  example, consider the following:
+--  Another similar case is the conditions in precondition and postcondition
+--  pragmas that appear with subprogram specifications rather than in the body.
+
+--  Collectively we call these Spec_Expressions. The routine that performs the
+--  special analysis is called Analyze_Spec_Expression.
+
+--  Expansion has to be deferred since you can't generate code for expressions
+--  that reference types that have not been frozen yet. As an example, consider
+--  the following:
 
 --      type x is delta 0.5 range -10.0 .. +10.0;
 --      ...
@@ -119,9 +124,9 @@
 
 --      for x'small use 0.25
 
---  The expander is in charge of dealing with fixed-point, and of course
---  the small declaration, which is not too late, since the declaration of
---  type q does *not* freeze type x, definitely affects the expanded code.
+--  The expander is in charge of dealing with fixed-point, and of course the
+--  small declaration, which is not too late, since the declaration of type q
+--  does *not* freeze type x, definitely affects the expanded code.
 
 --  Another reason that we cannot expand early is that expansion can generate
 --  range checks. These range checks need to be inserted not at the point of
@@ -133,26 +138,27 @@
 --  this is the one case where this model falls down. Here is how we patch
 --  it up without causing too much distortion to our basic model.
 
---  A switch (sede below) is set to indicate that we are in the initial
---  occurence of a default expression. The analyzer is then called on this
---  expression with the switch set true. Analysis and resolution proceed
---  almost as usual, except that Freeze_Expression will not freeze
---  non-static expressions if this switch is set, and the call to Expand at
---  the end of resolution is skipped. This also skips the code that normally
---  sets the Analyzed flag to True). The result is that when we are done the
---  tree is still marked as unanalyzed, but all types for static expressions
---  are frozen as required, and all entities of variables have been
---  recorded.  We then turn off the switch, and later on reanalyze the
---  expression with the switch off. The effect is that this second analysis
---  freezes the rest of the types as required, and generates code but
---  visibility analysis is not repeated since all the entities are marked.
+--  A switch (In_Spec_Expression) is set to show that we are in the initial
+--  occurrence of a default expression. The analyzer is then called on this
+--  expression with the switch set true. Analysis and resolution proceed almost
+--  as usual, except that Freeze_Expression will not freeze non-static
+--  expressions if this switch is set, and the call to Expand at the end of
+--  resolution is skipped. This also skips the code that normally sets the
+--  Analyzed flag to True. The result is that when we are done the tree is
+--  still marked as unanalyzed, but all types for static expressions are frozen
+--  as required, and all entities of variables have been recorded. We then turn
+--  off the switch, and later on reanalyze the expression with the switch off.
+--  The effect is that this second analysis freezes the rest of the types as
+--  required, and generates code but visibility analysis is not repeated since
+--  all the entities are marked.
 
 --  The second analysis (the one that generates code) is in the context
---  where the code is required. For a record field default, this is in
---  the initialization procedure for the record and for a subprogram
---  default parameter, it is at the point the subprogram is frozen.
---  For a priority or storage size pragma it is in the context of the
---  Init_Proc for the task or protected object.
+--  where the code is required. For a record field default, this is in the
+--  initialization procedure for the record and for a subprogram default
+--  parameter, it is at the point the subprogram is frozen. For a priority or
+--  storage size pragma it is in the context of the Init_Proc for the task or
+--  protected object. For a pre/postcondition pragma it is in the body when
+--  code for the pragma is generated.
 
 ------------------
 -- Pre-Analysis --
@@ -165,34 +171,35 @@
 --
 --     (1 .. 100 => new Thing (Function_Call))
 --
---  The normal Analysis-Resolution-Expansion mechanism where expansion
---  of the children is performed before expansion of the parent does not
---  work if the code generated for the children by the expander needs
---  to be evaluated repeatdly (for instance in the above aggregate
---  "new Thing (Function_Call)" needs to be called 100 times.)
---  The reason why this mecanism does not work is that, the expanded code
---  for the children is typically inserted above the parent and thus
---  when the father gets expanded no re-evaluation takes place. For instance
---  in the case of aggregates if "new Thing (Function_Call)" is expanded
---  before of the aggregate the expanded code will be placed outside
---  of the aggregate and when expanding the aggregate the loop from 1 to 100
---  will not surround the expanded code for "new Thing (Function_Call)".
---
---  To remedy this situation we introduce a new flag which signals whether
---  we want a full analysis (ie expansion is enabled) or a pre-analysis
---  which performs Analysis and Resolution but no expansion.
---
---  After the complete pre-analysis of an expression has been carried out
---  we can transform the expression and then carry out the full
---  Analyze-Resolve-Expand cycle on the transformed expression top-down
---  so that the expansion of inner expressions happens inside the newly
---  generated node for the parent expression.
---
+--  The normal Analysis-Resolution-Expansion mechanism where expansion of the
+--  children is performed before expansion of the parent does not work if the
+--  code generated for the children by the expander needs to be evaluated
+--  repeatedly (for instance in the above aggregate "new Thing (Function_Call)"
+--  needs to be called 100 times.)
+
+--  The reason why this mechanism does not work is that, the expanded code for
+--  the children is typically inserted above the parent and thus when the
+--  father gets expanded no re-evaluation takes place. For instance in the case
+--  of aggregates if "new Thing (Function_Call)" is expanded before of the
+--  aggregate the expanded code will be placed outside of the aggregate and
+--  when expanding the aggregate the loop from 1 to 100 will not surround the
+--  expanded code for "new Thing (Function_Call)".
+
+--  To remedy this situation we introduce a new flag which signals whether we
+--  want a full analysis (i.e. expansion is enabled) or a pre-analysis which
+--  performs Analysis and Resolution but no expansion.
+
+--  After the complete pre-analysis of an expression has been carried out we
+--  can transform the expression and then carry out the full three stage
+--  (Analyze-Resolve-Expand) cycle on the transformed expression top-down so
+--  that the expansion of inner expressions happens inside the newly generated
+--  node for the parent expression.
+
 --  Note that the difference between processing of default expressions and
 --  pre-analysis of other expressions is that we do carry out freezing in
 --  the latter but not in the former (except for static scalar expressions).
---  The routine that performs pre-analysis is called Pre_Analyze_And_Resolve
---  and is in Sem_Res.
+--  The routine that performs preanalysis and corresponding resolution is
+--  called Preanalyze_And_Resolve and is in Sem_Res.
 
 with Alloc;
 with Einfo;  use Einfo;
@@ -210,32 +217,28 @@ package Sem is
    -- Semantic Analysis Flags --
    -----------------------------
 
-   Explicit_Overriding : Boolean := False;
-   --  Switch to indicate whether checking mechanism described in AI-218
-   --  is enforced: subprograms that override inherited operations must be
-   --  be marked explicitly, to prevent accidental or omitted overriding.
-
    Full_Analysis : Boolean := True;
-   --  Switch to indicate whether we are doing a full analysis or a
-   --  pre-analysis. In normal analysis mode (Analysis-Expansion for
-   --  instructions or declarations) or (Analysis-Resolution-Expansion for
-   --  expressions) this flag is set. Note that if we are not generating
-   --  code the expansion phase merely sets the Analyzed flag to True in
-   --  this case. If we are in Pre-Analysis mode (see above) this flag is
-   --  set to False then the expansion phase is skipped.
-   --  When this flag is False the flag Expander_Active is also False
-   --  (the Expander_Activer flag defined in the spec of package Expander
-   --  tells you whether expansion is currently enabled).
-   --  You should really regard this as a read only flag.
+   --  Switch to indicate if we are doing a full analysis or a pre-analysis.
+   --  In normal analysis mode (Analysis-Expansion for instructions or
+   --  declarations) or (Analysis-Resolution-Expansion for expressions) this
+   --  flag is set. Note that if we are not generating code the expansion phase
+   --  merely sets the Analyzed flag to True in this case. If we are in
+   --  Pre-Analysis mode (see above) this flag is set to False then the
+   --  expansion phase is skipped.
+   --
+   --  When this flag is False the flag Expander_Active is also False (the
+   --  Expander_Active flag defined in the spec of package Expander tells you
+   --  whether expansion is currently enabled). You should really regard this
+   --  as a read only flag.
 
-   In_Default_Expression : Boolean := False;
-   --  Switch to indicate that we are in a default expression, as described
+   In_Spec_Expression : Boolean := False;
+   --  Switch to indicate that we are in a spec-expression, as described
    --  above. Note that this must be recursively saved on a Semantics call
-   --  since it is possible for the analysis of an expression to result in
-   --  a recursive call (e.g. to get the entity for System.Address as part
-   --  of the processing of an Address attribute reference).
-   --  When this switch is True then Full_Analysis above must be False.
-   --  You should really regard this as a read only flag.
+   --  since it is possible for the analysis of an expression to result in a
+   --  recursive call (e.g. to get the entity for System.Address as part of the
+   --  processing of an Address attribute reference). When this switch is True
+   --  then Full_Analysis above must be False. You should really regard this as
+   --  a read only flag.
 
    In_Deleted_Code : Boolean := False;
    --  If the condition in an if-statement is statically known, the branch
@@ -257,13 +260,136 @@ package Sem is
    --  package Expander). Only the generic processing can modify the
    --  status of this flag, any other client should regard it as read-only.
 
+   Inside_Freezing_Actions : Nat := 0;
+   --  Flag indicating whether we are within a call to Expand_N_Freeze_Actions.
+   --  Non-zero means we are inside (it is actually a level counter to deal
+   --  with nested calls). Used to avoid traversing the tree each time a
+   --  subprogram call is processed to know if we must not clear all constant
+   --  indications from entities in the current scope. Only the expansion of
+   --  freezing nodes can modify the status of this flag, any other client
+   --  should regard it as read-only.
+
    Unloaded_Subunits : Boolean := False;
    --  This flag is set True if we have subunits that are not loaded. This
    --  occurs when the main unit is a subunit, and contains lower level
    --  subunits that are not loaded. We use this flag to suppress warnings
    --  about unused variables, since these warnings are unreliable in this
    --  case. We could perhaps do a more accurate job and retain some of the
-   --  warnings, but it is quite a tricky job. See test 4323-002.
+   --  warnings, but it is quite a tricky job.
+
+   -----------------------------------
+   -- Handling of Check Suppression --
+   -----------------------------------
+
+   --  There are two kinds of suppress checks: scope based suppress checks,
+   --  and entity based suppress checks.
+
+   --  Scope based suppress checks for the predefined checks (from initial
+   --  command line arguments, or from Suppress pragmas not including an entity
+   --  entity name) are recorded in the Sem.Suppress variable, and all that is
+   --  necessary is to save the state of this variable on scope entry, and
+   --  restore it on scope exit. This mechanism allows for fast checking of
+   --  the scope suppress state without needing complex data structures.
+
+   --  Entity based checks, from Suppress/Unsuppress pragmas giving an
+   --  Entity_Id and scope based checks for non-predefined checks (introduced
+   --  using pragma Check_Name), are handled as follows. If a suppress or
+   --  unsuppress pragma is encountered for a given entity, then the flag
+   --  Checks_May_Be_Suppressed is set in the entity and an entry is made in
+   --  either the Local_Entity_Suppress stack (case of pragma that appears in
+   --  other than a package spec), or in the Global_Entity_Suppress stack (case
+   --  of pragma that appears in a package spec, which is by the rule of RM
+   --  11.5(7) applicable throughout the life of the entity). Similarly, a
+   --  Suppress/Unsuppress pragma for a non-predefined check which does not
+   --  specify an entity is also stored in one of these stacks.
+
+   --  If the Checks_May_Be_Suppressed flag is set in an entity then the
+   --  procedure is to search first the local and then the global suppress
+   --  stacks (we search these in reverse order, top element first). The only
+   --  other point is that we have to make sure that we have proper nested
+   --  interaction between such specific pragmas and locally applied general
+   --  pragmas applying to all entities. This is achieved by including in the
+   --  Local_Entity_Suppress table dummy entries with an empty Entity field
+   --  that are applicable to all entities. A similar search is needed for any
+   --  non-predefined check even if no specific entity is involved.
+
+   Scope_Suppress : Suppress_Array := Suppress_Options;
+   --  This array contains the current scope based settings of the suppress
+   --  switches. It is initialized from the options as shown, and then modified
+   --  by pragma Suppress. On entry to each scope, the current setting is saved
+   --  the scope stack, and then restored on exit from the scope. This record
+   --  may be rapidly checked to determine the current status of a check if
+   --  no specific entity is involved or if the specific entity involved is
+   --  one for which no specific Suppress/Unsuppress pragma has been set (as
+   --  indicated by the Checks_May_Be_Suppressed flag being set).
+
+   --  This scheme is a little complex, but serves the purpose of enabling
+   --  a very rapid check in the common case where no entity specific pragma
+   --  applies, and gives the right result when such pragmas are used even
+   --  in complex cases of nested Suppress and Unsuppress pragmas.
+
+   --  The Local_Entity_Suppress and Global_Entity_Suppress stacks are handled
+   --  using dynamic allocation and linked lists. We do not often use this
+   --  approach in the compiler (preferring to use extensible tables instead).
+   --  The reason we do it here is that scope stack entries save a pointer to
+   --  the current local stack top, which is also saved and restored on scope
+   --  exit. Furthermore for processing of generics we save pointers to the
+   --  top of the stack, so that the local stack is actually a tree of stacks
+   --  rather than a single stack, a structure that is easy to represent using
+   --  linked lists, but impossible to represent using a single table. Note
+   --  that because of the generic issue, we never release entries in these
+   --  stacks, but that's no big deal, since we are unlikely to have a huge
+   --  number of Suppress/Unsuppress entries in a single compilation.
+
+   type Suppress_Stack_Entry;
+   type Suppress_Stack_Entry_Ptr is access all Suppress_Stack_Entry;
+
+   type Suppress_Stack_Entry is record
+      Entity : Entity_Id;
+      --  Entity to which the check applies, or Empty for a check that has
+      --  no entity name (and thus applies to all entities).
+
+      Check : Check_Id;
+      --  Check which is set (can be All_Checks for the All_Checks case)
+
+      Suppress : Boolean;
+      --  Set True for Suppress, and False for Unsuppress
+
+      Prev : Suppress_Stack_Entry_Ptr;
+      --  Pointer to previous entry on stack
+
+      Next : Suppress_Stack_Entry_Ptr;
+      --  All allocated Suppress_Stack_Entry records are chained together in
+      --  a linked list whose head is Suppress_Stack_Entries, and the Next
+      --  field is used as a forward pointer (null ends the list). This is
+      --  used to free all entries in Sem.Init (which will be important if
+      --  we ever setup the compiler to be reused).
+   end record;
+
+   Suppress_Stack_Entries : Suppress_Stack_Entry_Ptr := null;
+   --  Pointer to linked list of records (see comments for Next above)
+
+   Local_Suppress_Stack_Top : Suppress_Stack_Entry_Ptr;
+   --  Pointer to top element of local suppress stack. This is the entry that
+   --  is saved and restored in the scope stack, and also saved for generic
+   --  body expansion.
+
+   Global_Suppress_Stack_Top : Suppress_Stack_Entry_Ptr;
+   --  Pointer to top element of global suppress stack
+
+   procedure Push_Local_Suppress_Stack_Entry
+     (Entity   : Entity_Id;
+      Check    : Check_Id;
+      Suppress : Boolean);
+   --  Push a new entry on to the top of the local suppress stack, updating
+   --  the value in Local_Suppress_Stack_Top;
+
+   procedure Push_Global_Suppress_Stack_Entry
+     (Entity   : Entity_Id;
+      Check    : Check_Id;
+      Suppress : Boolean);
+   --  Push a new entry on to the top of the global suppress stack, updating
+   --  the value in Global_Suppress_Stack_Top;
 
    -----------------
    -- Scope Stack --
@@ -315,7 +441,7 @@ package Sem is
    --  It is clear in retrospect that all semantic processing and visibility
    --  structures should have been fully recursive. The rtsfind mechanism,
    --  and the complexities brought about by subunits and by generic child
-   --  units and their instantitions, have led to a hybrid model that carries
+   --  units and their instantiations, have led to a hybrid model that carries
    --  more state than one would wish.
 
    type Scope_Stack_Entry is record
@@ -329,8 +455,11 @@ package Sem is
       Save_Scope_Suppress  : Suppress_Array;
       --  Save contents of Scope_Suppress on entry
 
-      Save_Local_Entity_Suppress : Int;
-      --  Save contents of Local_Entity_Suppress.Last on entry
+      Save_Local_Suppress_Stack_Top : Suppress_Stack_Entry_Ptr;
+      --  Save contents of Local_Suppress_Stack on entry to restore on exit
+
+      Save_Check_Policy_List : Node_Id;
+      --  Save contents of Check_Policy_List on entry to restore on exit
 
       Is_Transient : Boolean;
       --  Marks Transient Scopes (See Exp_Ch7 body for details)
@@ -387,92 +516,6 @@ package Sem is
      Table_Initial        => Alloc.Scope_Stack_Initial,
      Table_Increment      => Alloc.Scope_Stack_Increment,
      Table_Name           => "Sem.Scope_Stack");
-
-   -----------------------------------
-   -- Handling of Check Suppression --
-   -----------------------------------
-
-   --  There are two kinds of suppress checks: scope based suppress checks,
-   --  and entity based suppress checks.
-
-   --  Scope based suppress chems (from initial command line arguments,
-   --  or from Suppress pragmas not including an entity name) are recorded
-   --  in the Sem.Supress variable, and all that is necessary is to save the
-   --  state of this variable on scope entry, and restore it on scope exit.
-
-   --  Entity based suppress checks, from Suppress pragmas giving an Entity_Id,
-   --  are handled as follows. If a suppress or unsuppress pragma is
-   --  encountered for a given entity, then the flag Checks_May_Be_Suppressed
-   --  is set in the entity and an entry is made in either the
-   --  Local_Entity_Suppress table (case of pragma that appears in other than
-   --  a package spec), or in the Global_Entity_Suppress table (case of pragma
-   --  that appears in a package spec, which is by the rule of RM 11.5(7)
-   --  applicable throughout the life of the entity).
-
-   --  If the Checks_May_Be_Suppressed flag is set in an entity then the
-   --  procedure is to search first the local and then the global suppress
-   --  tables (the local one being searched in reverse order, i.e. last in
-   --  searched first). The only other point is that we have to make sure
-   --  that we have proper nested interaction between such specific pragmas
-   --  and locally applied general pragmas applying to all entities. This
-   --  is achieved by including in the Local_Entity_Suppress table dummy
-   --  entries with an empty Entity field that are applicable to all entities.
-
-   Scope_Suppress : Suppress_Array := Suppress_Options;
-   --  This array contains the current scope based settings of the suppress
-   --  switches. It is initialized from the options as shown, and then modified
-   --  by pragma Suppress. On entry to each scope, the current setting is saved
-   --  the scope stack, and then restored on exit from the scope. This record
-   --  may be rapidly checked to determine the current status of a check if
-   --  no specific entity is involved or if the specific entity involved is
-   --  one for which no specific Suppress/Unsuppress pragma has been set (as
-   --  indicated by the Checks_May_Be_Suppressed flag being set).
-
-   --  This scheme is a little complex, but serves the purpose of enabling
-   --  a very rapid check in the common case where no entity specific pragma
-   --  applies, and gives the right result when such pragmas are used even
-   --  in complex cases of nested Suppress and Unsuppress pragmas.
-
-   type Entity_Check_Suppress_Record is record
-      Entity : Entity_Id;
-      --  Entity to which the check applies, or Empty for a local check
-      --  that has no entity name (and thus applies to all entities).
-
-      Check : Check_Id;
-      --  Check which is set (note this cannot be All_Checks, if the All_Checks
-      --  case, a sequence of eentries appears for the individual checks.
-
-      Suppress : Boolean;
-      --  Set True for Suppress, and False for Unsuppress
-   end record;
-
-   --  The Local_Entity_Suppress table is a stack, to which new entries are
-   --  added for Suppress and Unsuppress pragmas appearing in other than
-   --  package specs. Such pragmas are effective only to the end of the scope
-   --  in which they appear. This is achieved by marking the stack on entry
-   --  to a scope and then cutting back the stack to that marked point on
-   --  scope exit.
-
-   package Local_Entity_Suppress is new Table.Table (
-     Table_Component_Type => Entity_Check_Suppress_Record,
-     Table_Index_Type     => Int,
-     Table_Low_Bound      => 0,
-     Table_Initial        => Alloc.Entity_Suppress_Initial,
-     Table_Increment      => Alloc.Entity_Suppress_Increment,
-     Table_Name           => "Local_Entity_Suppress");
-
-   --  The Global_Entity_Suppress table is used for entities which have
-   --  a Suppress or Unsuppress pragma naming a specific entity in a
-   --  package spec. Such pragmas always refer to entities in the package
-   --  spec and are effective throughout the lifetime of the named entity.
-
-   package Global_Entity_Suppress is new Table.Table (
-     Table_Component_Type => Entity_Check_Suppress_Record,
-     Table_Index_Type     => Int,
-     Table_Low_Bound      => 0,
-     Table_Initial        => Alloc.Entity_Suppress_Initial,
-     Table_Increment      => Alloc.Entity_Suppress_Increment,
-     Table_Name           => "Global_Entity_Suppress");
 
    -----------------
    -- Subprograms --

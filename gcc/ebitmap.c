@@ -1,12 +1,12 @@
 /* Sparse array-based bitmaps.
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -119,7 +118,7 @@ ebitmap_array_grow (ebitmap map, unsigned int newsize)
   newsize += newsize / 4;
 
   map->n_elts = newsize;
-  map->elts = xrealloc (map->elts, sizeof (EBITMAP_ELT_TYPE) * newsize);
+  map->elts = XRESIZEVEC (EBITMAP_ELT_TYPE, map->elts, newsize);
 }
 
 /* Grow the internal word array for MAP so it is at least SIZE
@@ -162,7 +161,7 @@ ebitmap_array_init (ebitmap map, unsigned int size)
 {
   if (size > 0)
     {
-      map->elts = xmalloc (sizeof (EBITMAP_ELT_TYPE) * size);
+      map->elts = XNEWVEC (EBITMAP_ELT_TYPE, size);
       map->n_elts = size;
     }
   else
@@ -203,7 +202,7 @@ ebitmap_clear (ebitmap map)
 ebitmap
 ebitmap_alloc (unsigned int size)
 {
-  ebitmap ret = xmalloc (sizeof (struct ebitmap_def));
+  ebitmap ret = XNEW (struct ebitmap_def);
   if (size == 0)
     size = EBITMAP_ELT_BITS;
   ebitmap_array_init (ret, (size + EBITMAP_ELT_BITS - 1) / EBITMAP_ELT_BITS);
@@ -596,7 +595,7 @@ ebitmap_ior_into (ebitmap dst, ebitmap src)
 	}
     }
   newarraysize = src->numwords + dst->numwords;
-  newarray = xmalloc (newarraysize * sizeof (EBITMAP_ELT_TYPE));
+  newarray = XNEWVEC (EBITMAP_ELT_TYPE, newarraysize);
 
   EXECUTE_IF_SET_IN_SBITMAP (tempmask, 0, i, sbi)
     {
@@ -705,7 +704,7 @@ ebitmap_ior (ebitmap dst, ebitmap src1, ebitmap src2)
 	}
     }
   newarraysize = src1->numwords + src2->numwords;
-  newarray = xmalloc (newarraysize * sizeof (EBITMAP_ELT_TYPE));
+  newarray = XNEWVEC (EBITMAP_ELT_TYPE, newarraysize);
 
   EXECUTE_IF_SET_IN_SBITMAP (tempmask, 0, i, sbi)
     {
@@ -884,7 +883,7 @@ ebitmap_and_compl (ebitmap dst, ebitmap src1, ebitmap src2)
   sbitmap_copy (tempmask, src1->wordmask);
 
   newarraysize = src1->numwords;
-  newarray = xmalloc (newarraysize * sizeof (EBITMAP_ELT_TYPE));
+  newarray = XNEWVEC (EBITMAP_ELT_TYPE, newarraysize);
 
   EXECUTE_IF_SET_IN_SBITMAP (src1->wordmask, 0, i, sbi)
     {

@@ -30,11 +30,10 @@ Boston, MA 02110-1301, USA.  */
 
 #include "libgfortran.h"
 
-extern GFC_LOGICAL_4 associated (const gfc_array_void *,
-				 const gfc_array_void *);
+extern int associated (const gfc_array_void *, const gfc_array_void *);
 export_proto(associated);
 
-GFC_LOGICAL_4
+int
 associated (const gfc_array_void *pointer, const gfc_array_void *target)
 {
   int n, rank;
@@ -49,10 +48,12 @@ associated (const gfc_array_void *pointer, const gfc_array_void *target)
   rank = GFC_DESCRIPTOR_RANK (pointer);
   for (n = 0; n < rank; n++)
     {
-      if (pointer->dim[n].stride != target->dim[n].stride)
+      long diff;
+      diff = pointer->dim[n].ubound - pointer->dim[n].lbound;
+
+      if (diff != (target->dim[n].ubound - target->dim[n].lbound))
         return 0;
-      if ((pointer->dim[n].ubound - pointer->dim[n].lbound)
-          != (target->dim[n].ubound - target->dim[n].lbound))
+      if (pointer->dim[n].stride != target->dim[n].stride && diff != 0)
         return 0;
       if (pointer->dim[n].ubound < pointer->dim[n].lbound)
 	return 0;

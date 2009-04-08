@@ -51,15 +51,18 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.net.URL;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.Collection;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Inherited;
+import java.lang.reflect.AccessibleObject;
 
 /**
  * A Class represents a Java type.  There will never be multiple Class
@@ -470,7 +473,7 @@ public final class Class<T>
    */
   private Field[] internalGetFields()
   {
-    HashSet set = new HashSet();
+    LinkedHashSet set = new LinkedHashSet();
     set.addAll(Arrays.asList(getDeclaredFields(true)));
     Class[] interfaces = getInterfaces();
     for (int i = 0; i < interfaces.length; i++)
@@ -1004,7 +1007,9 @@ public final class Class<T>
       {
 	try
 	  {
-	    return (T[]) getMethod("values").invoke(null);
+            Method m = getMethod("values");
+            setAccessible(m);
+	    return (T[]) m.invoke(null);
 	  }
 	catch (NoSuchMethodException exception)
 	  {
@@ -1070,22 +1075,27 @@ public final class Class<T>
    */
   public String getSimpleName()
   {
-    StringBuffer sb = new StringBuffer();
-    Class klass = this;
-    int arrayCount = 0;
-    while (klass.isArray())
-      {
-	klass = klass.getComponentType();
-	++arrayCount;
-      }
-    if (! klass.isAnonymousClass())
-      {
-	String fullName = klass.getName();
-	sb.append(fullName, fullName.lastIndexOf(".") + 1, fullName.length());
-      }
-    while (arrayCount-- > 0)
-      sb.append("[]");
-    return sb.toString();
+    if (isAnonymousClass())
+      return "";
+    if (isArray())
+      return getComponentType().getSimpleName() + "[]";
+
+    String fullName = getName();
+    Class enclosingClass = getEnclosingClass();
+    if (enclosingClass == null)
+      // It's a top level class.
+      return fullName.substring(fullName.lastIndexOf(".") + 1);
+
+    fullName = fullName.substring(enclosingClass.getName().length());
+
+    // We've carved off the enclosing class name; now we must have '$'
+    // followed optionally by digits, followed by the class name.
+    int pos = 1;
+    while (Character.isDigit(fullName.charAt(pos)))
+      ++pos;
+    fullName = fullName.substring(pos);
+
+    return fullName;
   }
 
   /**
@@ -1402,4 +1412,19 @@ public final class Class<T>
    * @since 1.5
    */
   public native boolean isMemberClass();
+
+  /**
+   * Utility method for use by classes in this package.
+   */
+  static void setAccessible(final AccessibleObject obj)
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public Object run()
+          {
+            obj.setAccessible(true);
+            return null;
+          }
+      });
+  }
 }

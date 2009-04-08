@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -26,6 +25,7 @@
 
 --  Type Support Subprogram (TSS) handling
 
+with Namet; use Namet;
 with Types; use Types;
 
 package Exp_Tss is
@@ -50,9 +50,9 @@ package Exp_Tss is
    -------------------------
 
    --  In the current version of this package, only the case of generating a
-   --  TSS at the point of declaration of the type is accomodated. A clear
+   --  TSS at the point of declaration of the type is accommodated. A clear
    --  improvement would be to follow through with the full implementation
-   --  as described above, and also accomodate the requirement of generating
+   --  as described above, and also accommodate the requirement of generating
    --  only one copy in a given object file.
 
    --  For now, we deal with the local case by generating duplicate versions
@@ -215,7 +215,7 @@ package Exp_Tss is
    function Has_Non_Null_Base_Init_Proc (Typ : Entity_Id) return Boolean;
    --  Returns true if the given type has a defined Base_Init_Proc and
    --  this init proc is not a null init proc (null init procs occur as
-   --  a result of the processing for Initialize_Scalars. This function
+   --  a result of the processing for Initialize_Scalars). This function
    --  is used to test for the presence of an init proc in cases where
    --  a null init proc is considered equivalent to no init proc.
 

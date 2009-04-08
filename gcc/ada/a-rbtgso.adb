@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---       A D A . C O N T A I N E R S . R E D _ B L A C K _ T R E E S .      --
---               G E N E R I C _ S E T _ O P E R A T I O N S                --
+--           ADA.CONTAINERS.RED_BLACK_TREES.GENERIC_SET_OPERATIONS          --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -51,6 +50,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
       pragma Assert (Tree.Lock = 0);
 
       Root : Node_Access := Tree.Root;
+      pragma Warnings (Off, Root);
 
    begin
       Tree.Root := null;
@@ -145,6 +145,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
       R_Node : Node_Access := Right.First;
 
       Dst_Node : Node_Access;
+      pragma Warnings (Off, Dst_Node);
 
    begin
       if Left'Address = Right'Address then
@@ -268,6 +269,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
       R_Node : Node_Access := Right.First;
 
       Dst_Node : Node_Access;
+      pragma Warnings (Off, Dst_Node);
 
    begin
       if Left'Address = Right'Address then
@@ -396,6 +398,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
       Src : Node_Access := Source.First;
 
       New_Tgt_Node : Node_Access;
+      pragma Warnings (Off, New_Tgt_Node);
 
    begin
       if Target.Busy > 0 then
@@ -460,6 +463,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
       R_Node : Node_Access := Right.First;
 
       Dst_Node : Node_Access;
+      pragma Warnings (Off, Dst_Node);
 
    begin
       if Left'Address = Right'Address then

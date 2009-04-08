@@ -1,7 +1,7 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007
+// 2006, 2007, 2008
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -45,6 +45,7 @@
 
 #include <ext/atomicity.h>
 #include <debug/debug.h>
+#include <initializer_list>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -52,8 +53,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @class basic_string basic_string.h <string>
    *  @brief  Managing sequences of characters and character-like objects.
    *
-   *  @ingroup Containers
-   *  @ingroup Sequences
+   *  @ingroup sequences
    *
    *  Meets the requirements of a <a href="tables.html#65">container</a>, a
    *  <a href="tables.html#66">reversible container</a>, and a
@@ -64,7 +64,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  @doctodo
    *
    *
-   *  @if maint
    *  Documentation?  What's that?
    *  Nathan Myers <ncm@cantrip.org>.
    *
@@ -104,7 +103,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *
    *  All but the last paragraph is considered pretty conventional
    *  for a C++ string implementation.
-   *  @endif
   */
   // 21.3  Template class basic_string
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -460,7 +458,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @param  n  Number of characters to copy.
        *  @param  a  Allocator to use (default is default allocator).
        *
-       *  NB: @a s must have at least @a n characters, '\0' has no special
+       *  NB: @a s must have at least @a n characters, '\\0' has no special
        *  meaning.
        */
       basic_string(const _CharT* __s, size_type __n,
@@ -478,6 +476,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @param  a  Allocator to use (default is default allocator).
        */
       basic_string(size_type __n, _CharT __c, const _Alloc& __a = _Alloc());
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Construct string from an initializer list.
+       *  @param  l  std::initializer_list of characters.
+       *  @param  a  Allocator to use (default is default allocator).
+       */
+      basic_string(initializer_list<_CharT> __l, const _Alloc& __a = _Alloc());
+#endif // __GXX_EXPERIMENTAL_CXX0X__
 
       /**
        *  @brief  Construct string as copy of a range.
@@ -524,6 +531,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	this->assign(1, __c); 
 	return *this;
       }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Set value to string constructed from initializer list.
+       *  @param  l  std::initializer_list.
+       */
+      basic_string&
+      operator=(initializer_list<_CharT> __l)
+      {
+	this->assign (__l.begin(), __l.end());
+	return *this;
+      }
+#endif // __GXX_EXPERIMENTAL_CXX0X__
 
       // Iterators:
       /**
@@ -796,6 +816,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	return *this;
       }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Append an initializer_list of characters.
+       *  @param l  The initializer_list of characters to be appended.
+       *  @return  Reference to this string.
+       */
+      basic_string&
+      operator+=(initializer_list<_CharT> __l)
+      { return this->append(__l.begin(), __l.end()); }
+#endif // __GXX_EXPERIMENTAL_CXX0X__
+
       /**
        *  @brief  Append a string to this string.
        *  @param str  The string to append.
@@ -850,6 +881,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        */
       basic_string&
       append(size_type __n, _CharT __c);
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Append an initializer_list of characters.
+       *  @param l  The initializer_list of characters to append.
+       *  @return  Reference to this string.
+       */
+      basic_string&
+      append(initializer_list<_CharT> __l)
+      { return this->append(__l.begin(), __l.end()); }
+#endif // __GXX_EXPERIMENTAL_CXX0X__
 
       /**
        *  @brief  Append a range of characters.
@@ -959,6 +1001,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
         assign(_InputIterator __first, _InputIterator __last)
         { return this->replace(_M_ibegin(), _M_iend(), __first, __last); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Set value to an initializer_list of characters.
+       *  @param l  The initializer_list of characters to assign.
+       *  @return  Reference to this string.
+       */
+      basic_string&
+      assign(initializer_list<_CharT> __l)
+      { return this->assign(__l.begin(), __l.end()); }
+#endif // __GXX_EXPERIMENTAL_CXX0X__
+
       /**
        *  @brief  Insert multiple characters.
        *  @param p  Iterator referencing location in string to insert at.
@@ -990,6 +1043,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
         void
         insert(iterator __p, _InputIterator __beg, _InputIterator __end)
         { this->replace(__p, __p, __beg, __end); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Insert an initializer_list of characters.
+       *  @param p  Iterator referencing location in string to insert at.
+       *  @param l  The initializer_list of characters to insert.
+       *  @throw  std::length_error  If new length exceeds @c max_size().
+       */
+      void
+      insert(iterator __p, initializer_list<_CharT> __l)
+      { this->insert(__p, __l.begin(), __l.end()); }
+#endif // __GXX_EXPERIMENTAL_CXX0X__
 
       /**
        *  @brief  Insert value of a string.
@@ -1436,6 +1501,25 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 			     __k1.base(), __k2 - __k1);
       }
       
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  @brief  Replace range of characters with initializer_list.
+       *  @param i1  Iterator referencing start of range to replace.
+       *  @param i2  Iterator referencing end of range to replace.
+       *  @param l  The initializer_list of characters to insert.
+       *  @return  Reference to this string.
+       *  @throw  std::length_error  If new length exceeds @c max_size().
+       *
+       *  Removes the characters in the range [i1,i2).  In place, characters
+       *  in the range [k1,k2) are inserted.  If the length of result exceeds
+       *  max_size(), length_error is thrown.  The value of the string doesn't
+       *  change if an error is thrown.
+      */
+      basic_string& replace(iterator __i1, iterator __i2,
+			    initializer_list<_CharT> __l)
+      { return this->replace(__i1, __i2, __l.begin(), __l.end()); }
+#endif // __GXX_EXPERIMENTAL_CXX0X__
+
     private:
       template<class _Integer>
 	basic_string&
@@ -1686,7 +1770,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find position of a character of C substring.
        *  @param s  String containing characters to locate.
-       *  @param pos  Index of character to search from (default 0).
+       *  @param pos  Index of character to search from.
        *  @param n  Number of characters from s to search for.
        *  @return  Index of first occurrence.
        *
@@ -1747,7 +1831,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find last position of a character of C substring.
        *  @param s  C string containing characters to locate.
-       *  @param pos  Index of character to search back from (default end).
+       *  @param pos  Index of character to search back from.
        *  @param n  Number of characters from s to search for.
        *  @return  Index of last occurrence.
        *
@@ -1778,7 +1862,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find last position of a character.
        *  @param c  Character to locate.
-       *  @param pos  Index of character to search back from (default 0).
+       *  @param pos  Index of character to search back from (default end).
        *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for @a c within this string.
@@ -1808,7 +1892,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find position of a character not in C substring.
        *  @param s  C string containing characters to avoid.
-       *  @param pos  Index of character to search from (default 0).
+       *  @param pos  Index of character to search from.
        *  @param n  Number of characters from s to consider.
        *  @return  Index of first occurrence.
        *
@@ -1853,8 +1937,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find last position of a character not in string.
        *  @param str  String containing characters to avoid.
-       *  @param pos  Index of character to search from (default 0).
-       *  @return  Index of first occurrence.
+       *  @param pos  Index of character to search back from (default end).
+       *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for a character not
        *  contained in @a str within this string.  If found, returns the index
@@ -1867,9 +1951,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find last position of a character not in C substring.
        *  @param s  C string containing characters to avoid.
-       *  @param pos  Index of character to search from (default 0).
+       *  @param pos  Index of character to search back from.
        *  @param n  Number of characters from s to consider.
-       *  @return  Index of first occurrence.
+       *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for a character not
        *  contained in the first @a n characters of @a s within this string.
@@ -1880,10 +1964,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       find_last_not_of(const _CharT* __s, size_type __pos,
 		       size_type __n) const;
       /**
-       *  @brief  Find position of a character not in C string.
+       *  @brief  Find last position of a character not in C string.
        *  @param s  C string containing characters to avoid.
-       *  @param pos  Index of character to search from (default 0).
-       *  @return  Index of first occurrence.
+       *  @param pos  Index of character to search back from (default end).
+       *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for a character not
        *  contained in @a s within this string.  If found, returns the index
@@ -1899,8 +1983,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find last position of a different character.
        *  @param c  Character to avoid.
-       *  @param pos  Index of character to search from (default 0).
-       *  @return  Index of first occurrence.
+       *  @param pos  Index of character to search back from (default end).
+       *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for a character other than
        *  @a c within this string.  If found, returns the index where it was
@@ -2056,7 +2140,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  result of the comparison is nonzero returns it, otherwise the shorter
        *  one is ordered first.
        *
-       *  NB: s must have at least n2 characters, '\0' has no special
+       *  NB: s must have at least n2 characters, '\\0' has no special
        *  meaning.
       */
       int
@@ -2157,6 +2241,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	       const basic_string<_CharT, _Traits, _Alloc>& __rhs)
     { return __lhs.compare(__rhs) == 0; }
 
+  template<typename _CharT>
+    inline
+    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, bool>::__type
+    operator==(const basic_string<_CharT>& __lhs,
+	       const basic_string<_CharT>& __rhs)
+    { return (__lhs.size() == __rhs.size()
+	      && !std::char_traits<_CharT>::compare(__lhs.data(), __rhs.data(),
+						    __lhs.size())); }
+
   /**
    *  @brief  Test equivalence of C string and string.
    *  @param lhs  C string.
@@ -2192,7 +2285,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     inline bool
     operator!=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
 	       const basic_string<_CharT, _Traits, _Alloc>& __rhs)
-    { return __rhs.compare(__lhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   /**
    *  @brief  Test difference of C string and string.
@@ -2204,7 +2297,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     inline bool
     operator!=(const _CharT* __lhs,
 	       const basic_string<_CharT, _Traits, _Alloc>& __rhs)
-    { return __rhs.compare(__lhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   /**
    *  @brief  Test difference of string and C string.
@@ -2216,7 +2309,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     inline bool
     operator!=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
 	       const _CharT* __rhs)
-    { return __lhs.compare(__rhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   // operator <
   /**
@@ -2467,5 +2560,138 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 #endif  
 
 _GLIBCXX_END_NAMESPACE
+
+#if (defined(__GXX_EXPERIMENTAL_CXX0X__) && defined(_GLIBCXX_USE_C99) \
+     && !defined(_GLIBCXX_HAVE_BROKEN_VSWPRINTF))
+
+#include <ext/string_conversions.h>
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
+  // 21.4 Numeric Conversions [string.conversions].
+  inline int
+  stoi(const string& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa<long, int>(&std::strtol, "stoi", __str.c_str(),
+					__idx, __base); }
+
+  inline long
+  stol(const string& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa(&std::strtol, "stol", __str.c_str(),
+			     __idx, __base); }
+
+  inline unsigned long
+  stoul(const string& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa(&std::strtoul, "stoul", __str.c_str(),
+			     __idx, __base); }
+
+  inline long long
+  stoll(const string& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa(&std::strtoll, "stoll", __str.c_str(),
+			     __idx, __base); }
+
+  inline unsigned long long
+  stoull(const string& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa(&std::strtoull, "stoull", __str.c_str(),
+			     __idx, __base); }
+
+  // NB: strtof vs strtod.
+  inline float
+  stof(const string& __str, size_t* __idx = 0)
+  { return __gnu_cxx::__stoa(&std::strtof, "stof", __str.c_str(), __idx); }
+
+  inline double
+  stod(const string& __str, size_t* __idx = 0)
+  { return __gnu_cxx::__stoa(&std::strtod, "stod", __str.c_str(), __idx); }
+
+  inline long double
+  stold(const string& __str, size_t* __idx = 0)
+  { return __gnu_cxx::__stoa(&std::strtold, "stold", __str.c_str(), __idx); }
+
+  // NB: (v)snprintf vs sprintf.
+  inline string
+  to_string(long long __val)
+  { return __gnu_cxx::__to_xstring<string>(&std::vsnprintf,
+					   4 * sizeof(long long),
+					   "%lld", __val); }
+
+  inline string
+  to_string(unsigned long long __val)
+  { return __gnu_cxx::__to_xstring<string>(&std::vsnprintf,
+					   4 * sizeof(unsigned long long),
+					   "%llu", __val); }
+
+  inline string
+  to_string(long double __val)
+  {
+    const int __n = 
+      __gnu_cxx::__numeric_traits<long double>::__max_exponent10 + 20;
+    return __gnu_cxx::__to_xstring<string>(&std::vsnprintf, __n,
+					   "%Lf", __val);
+  }
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+  inline int 
+  stoi(const wstring& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa<long, int>(&std::wcstol, "stoi", __str.c_str(),
+					__idx, __base); }
+
+  inline long 
+  stol(const wstring& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa(&std::wcstol, "stol", __str.c_str(),
+			     __idx, __base); }
+
+  inline unsigned long
+  stoul(const wstring& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa(&std::wcstoul, "stoul", __str.c_str(),
+			     __idx, __base); }
+
+  inline long long
+  stoll(const wstring& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa(&std::wcstoll, "stoll", __str.c_str(),
+			     __idx, __base); }
+
+  inline unsigned long long
+  stoull(const wstring& __str, size_t* __idx = 0, int __base = 10)
+  { return __gnu_cxx::__stoa(&std::wcstoull, "stoull", __str.c_str(),
+			     __idx, __base); }
+
+  // NB: wcstof vs wcstod.
+  inline float
+  stof(const wstring& __str, size_t* __idx = 0)
+  { return __gnu_cxx::__stoa(&std::wcstof, "stof", __str.c_str(), __idx); }
+
+  inline double
+  stod(const wstring& __str, size_t* __idx = 0)
+  { return __gnu_cxx::__stoa(&std::wcstod, "stod", __str.c_str(), __idx); }
+
+  inline long double
+  stold(const wstring& __str, size_t* __idx = 0)
+  { return __gnu_cxx::__stoa(&std::wcstold, "stold", __str.c_str(), __idx); }
+
+  inline wstring
+  to_wstring(long long __val)
+  { return __gnu_cxx::__to_xstring<wstring>(&std::vswprintf,
+					    4 * sizeof(long long),
+					    L"%lld", __val); }
+
+  inline wstring
+  to_wstring(unsigned long long __val)
+  { return __gnu_cxx::__to_xstring<wstring>(&std::vswprintf,
+					    4 * sizeof(unsigned long long),
+					    L"%llu", __val); }
+
+  inline wstring
+  to_wstring(long double __val)
+  {
+    const int __n =
+      __gnu_cxx::__numeric_traits<long double>::__max_exponent10 + 20;
+    return __gnu_cxx::__to_xstring<wstring>(&std::vswprintf, __n,
+					    L"%Lf", __val);
+  }
+#endif
+
+_GLIBCXX_END_NAMESPACE
+
+#endif
 
 #endif /* _BASIC_STRING_H */

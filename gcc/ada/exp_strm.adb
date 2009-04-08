@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -29,6 +28,7 @@ with Einfo;    use Einfo;
 with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
+with Opt;      use Opt;
 with Rtsfind;  use Rtsfind;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
@@ -80,11 +80,12 @@ package body Exp_Strm is
    --  The parameter Fnam is the name of the constructed function.
 
    function Has_Stream_Standard_Rep (U_Type : Entity_Id) return Boolean;
-   --  This function is used to test U_Type, which is a type
-   --  Returns True if U_Type has a standard representation for stream
-   --  purposes, i.e. there is no non-standard enumeration representation
-   --  clause, and the size of the first subtype is the same as the size
-   --  of the root type.
+   --  This function is used to test the type U_Type, to determine if it has
+   --  a standard representation from a streaming point of view. Standard means
+   --  that it has a standard representation (e.g. no enumeration rep clause),
+   --  and the size of the root type is the same as the streaming size (which
+   --  is defined as value specified by a Stream_Size clause if present, or
+   --  the Esize of U_Type if not).
 
    function Make_Stream_Subprogram_Name
      (Loc : Source_Ptr;
@@ -218,7 +219,7 @@ package body Exp_Strm is
              Make_Identifier (Loc, Name_S),
              Make_Identifier (Loc, Name_V))),
 
-         Make_Return_Statement (Loc,
+         Make_Simple_Return_Statement (Loc,
            Expression => Make_Identifier (Loc, Name_V)));
 
       Fnam :=
@@ -372,7 +373,7 @@ package body Exp_Strm is
       --  array may be user-defined, and be frozen after the type for which
       --  we are generating the stream subprogram. In that case, freeze the
       --  stream attribute of the component type, whose declaration could not
-      --  generate any additional freezing actions in any case. See 5509-003.
+      --  generate any additional freezing actions in any case.
 
       if Nam = Name_Read then
          RW := TSS (Base_Type (Ctyp), TSS_Stream_Read);
@@ -456,7 +457,7 @@ package body Exp_Strm is
       --  Compute the size of the stream element. This is either the size of
       --  the first subtype or if given the size of the Stream_Size attribute.
 
-      if Is_Elementary_Type (FST) and then Has_Stream_Size_Clause (FST) then
+      if Has_Stream_Size_Clause (FST) then
          P_Size := Static_Integer (Expression (Stream_Size_Clause (FST)));
       else
          P_Size := Esize (FST);
@@ -491,13 +492,37 @@ package body Exp_Strm is
       --  Floating point types
 
       elsif Is_Floating_Point_Type (U_Type) then
-         if P_Size <= Standard_Short_Float_Size then
+
+         --  Question: should we use P_Size or Rt_Type to distinguish between
+         --  possible floating point types? If a non-standard size or a stream
+         --  size is specified, then we should certainly use the size. But if
+         --  we have two types the same (notably Short_Float_Size = Float_Size
+         --  which is close to universally true, and Long_Long_Float_Size =
+         --  Long_Float_Size, true on most targets except the x86), then we
+         --  would really rather use the root type, so that if people want to
+         --  fiddle with System.Stream_Attributes to get inter-target portable
+         --  streams, they get the size they expect. Consider in particular the
+         --  case of a stream written on an x86, with 96-bit Long_Long_Float
+         --  being read into a non-x86 target with 64 bit Long_Long_Float. A
+         --  special version of System.Stream_Attributes can deal with this
+         --  provided the proper type is always used.
+
+         --  To deal with these two requirements we add the special checks
+         --  on equal sizes and use the root type to distinguish.
+
+         if P_Size <= Standard_Short_Float_Size
+           and then (Standard_Short_Float_Size /= Standard_Float_Size
+                     or else Rt_Type = Standard_Short_Float)
+         then
             Lib_RE := RE_I_SF;
 
          elsif P_Size <= Standard_Float_Size then
             Lib_RE := RE_I_F;
 
-         elsif P_Size <= Standard_Long_Float_Size then
+         elsif P_Size <= Standard_Long_Float_Size
+           and then (Standard_Long_Float_Size /= Standard_Long_Long_Float_Size
+                       or else Rt_Type = Standard_Long_Float)
+         then
             Lib_RE := RE_I_LF;
 
          else
@@ -644,7 +669,7 @@ package body Exp_Strm is
       --  Compute the size of the stream element. This is either the size of
       --  the first subtype or if given the size of the Stream_Size attribute.
 
-      if Is_Elementary_Type (FST) and then Has_Stream_Size_Clause (FST) then
+      if Has_Stream_Size_Clause (FST) then
          P_Size := Static_Integer (Expression (Stream_Size_Clause (FST)));
       else
          P_Size := Esize (FST);
@@ -681,12 +706,39 @@ package body Exp_Strm is
       --  Floating point types
 
       elsif Is_Floating_Point_Type (U_Type) then
-         if P_Size <= Standard_Short_Float_Size then
+
+         --  Question: should we use P_Size or Rt_Type to distinguish between
+         --  possible floating point types? If a non-standard size or a stream
+         --  size is specified, then we should certainly use the size. But if
+         --  we have two types the same (notably Short_Float_Size = Float_Size
+         --  which is close to universally true, and Long_Long_Float_Size =
+         --  Long_Float_Size, true on most targets except the x86), then we
+         --  would really rather use the root type, so that if people want to
+         --  fiddle with System.Stream_Attributes to get inter-target portable
+         --  streams, they get the size they expect. Consider in particular the
+         --  case of a stream written on an x86, with 96-bit Long_Long_Float
+         --  being read into a non-x86 target with 64 bit Long_Long_Float. A
+         --  special version of System.Stream_Attributes can deal with this
+         --  provided the proper type is always used.
+
+         --  To deal with these two requirements we add the special checks
+         --  on equal sizes and use the root type to distinguish.
+
+         if P_Size <= Standard_Short_Float_Size
+           and then (Standard_Short_Float_Size /= Standard_Float_Size
+                      or else Rt_Type = Standard_Short_Float)
+         then
             Lib_RE := RE_W_SF;
+
          elsif P_Size <= Standard_Float_Size then
             Lib_RE := RE_W_F;
-         elsif P_Size <= Standard_Long_Float_Size then
+
+         elsif P_Size <= Standard_Long_Float_Size
+           and then (Standard_Long_Float_Size /= Standard_Long_Long_Float_Size
+                      or else Rt_Type = Standard_Long_Float)
+         then
             Lib_RE := RE_W_LF;
+
          else
             Lib_RE := RE_W_LLF;
          end if;
@@ -712,6 +764,8 @@ package body Exp_Strm is
 
       --     type W is range -1 .. +254;
       --     for W'Size use 8;
+
+      --  forcing a biased and unsigned representation
 
       elsif not Is_Unsigned_Type (FST)
         and then
@@ -1038,13 +1092,14 @@ package body Exp_Strm is
       Decl : out Node_Id;
       Fnam : out Entity_Id)
    is
-      Cn     : Name_Id;
-      J      : Pos;
-      Decls  : List_Id;
-      Constr : List_Id;
-      Stms   : List_Id;
-      Discr  : Entity_Id;
-      Odef   : Node_Id;
+      Cn       : Name_Id;
+      J        : Pos;
+      Decls    : List_Id;
+      Constr   : List_Id;
+      Obj_Decl : Node_Id;
+      Stms     : List_Id;
+      Discr    : Entity_Id;
+      Odef     : Node_Id;
 
    begin
       Decls  := New_List;
@@ -1058,12 +1113,22 @@ package body Exp_Strm is
          while Present (Discr) loop
             Cn := New_External_Name ('C', J);
 
-            Append_To (Decls,
+            Decl :=
               Make_Object_Declaration (Loc,
                 Defining_Identifier => Make_Defining_Identifier (Loc, Cn),
                 Object_Definition =>
-                 New_Occurrence_Of (Etype (Discr), Loc)));
+                  New_Occurrence_Of (Etype (Discr), Loc));
 
+            --  If this is an access discriminant, do not perform default
+            --  initialization. The discriminant is about to get its value
+            --  from Read, and if the type is null excluding we do not want
+            --  spurious warnings on an initial null value.
+
+            if Is_Access_Type (Etype (Discr)) then
+               Set_No_Initialization (Decl);
+            end if;
+
+            Append_To (Decls, Decl);
             Append_To (Decls,
               Make_Attribute_Reference (Loc,
                 Prefix => New_Occurrence_Of (Etype (Discr), Loc),
@@ -1091,21 +1156,53 @@ package body Exp_Strm is
          Odef := New_Occurrence_Of (Typ, Loc);
       end if;
 
-      Append_To (Decls,
+      --  For Ada 2005 we create an extended return statement encapsulating
+      --  the result object and 'Read call, which is needed in general for
+      --  proper handling of build-in-place results (such as when the result
+      --  type is inherently limited).
+
+      --  Perhaps we should just generate an extended return in all cases???
+
+      Obj_Decl :=
         Make_Object_Declaration (Loc,
           Defining_Identifier => Make_Defining_Identifier (Loc, Name_V),
-          Object_Definition => Odef));
+          Object_Definition => Odef);
 
-      Stms := New_List (
-         Make_Attribute_Reference (Loc,
-           Prefix => New_Occurrence_Of (Typ, Loc),
-           Attribute_Name => Name_Read,
-           Expressions => New_List (
-             Make_Identifier (Loc, Name_S),
-             Make_Identifier (Loc, Name_V))),
+      --  If the type is an access type, do not perform default initialization.
+      --  The object is about to get its value from Read, and if the type is
+      --  null excluding we do not want spurious warnings on an initial null.
 
-         Make_Return_Statement (Loc,
-           Expression => Make_Identifier (Loc, Name_V)));
+      if Is_Access_Type (Typ) then
+         Set_No_Initialization (Obj_Decl);
+      end if;
+
+      if Ada_Version >= Ada_05 then
+         Stms := New_List (
+           Make_Extended_Return_Statement (Loc,
+             Return_Object_Declarations => New_List (Obj_Decl),
+             Handled_Statement_Sequence =>
+               Make_Handled_Sequence_Of_Statements (Loc,
+                 New_List (Make_Attribute_Reference (Loc,
+                             Prefix => New_Occurrence_Of (Typ, Loc),
+                             Attribute_Name => Name_Read,
+                             Expressions => New_List (
+                               Make_Identifier (Loc, Name_S),
+                               Make_Identifier (Loc, Name_V)))))));
+
+      else
+         Append_To (Decls, Obj_Decl);
+
+         Stms := New_List (
+            Make_Attribute_Reference (Loc,
+              Prefix => New_Occurrence_Of (Typ, Loc),
+              Attribute_Name => Name_Read,
+              Expressions => New_List (
+                Make_Identifier (Loc, Name_S),
+                Make_Identifier (Loc, Name_V))),
+
+            Make_Simple_Return_Statement (Loc,
+              Expression => Make_Identifier (Loc, Name_V)));
+      end if;
 
       Fnam := Make_Stream_Subprogram_Name (Loc, Typ, TSS_Stream_Input);
 
@@ -1378,12 +1475,15 @@ package body Exp_Strm is
             --  Loop through components, skipping all internal components,
             --  which are not part of the value (e.g. _Tag), except that we
             --  don't skip the _Parent, since we do want to process that
-            --  recursively.
+            --  recursively. If _Parent is an interface type, being abstract
+            --  with no components there is no need to handle it.
 
             while Present (Item) loop
                if Nkind (Item) = N_Component_Declaration
                  and then
-                   (Chars (Defining_Identifier (Item)) = Name_uParent
+                   ((Chars (Defining_Identifier (Item)) = Name_uParent
+                       and then not Is_Interface
+                                      (Etype (Defining_Identifier (Item))))
                      or else
                     not Is_Internal_Name (Chars (Defining_Identifier (Item))))
                then
@@ -1586,13 +1686,20 @@ package body Exp_Strm is
    -----------------------------
 
    function Has_Stream_Standard_Rep (U_Type : Entity_Id) return Boolean is
+      Siz : Uint;
+
    begin
       if Has_Non_Standard_Rep (U_Type) then
          return False;
-      else
-         return
-           Esize (First_Subtype (U_Type)) = Esize (Root_Type (U_Type));
       end if;
+
+      if Has_Stream_Size_Clause (U_Type) then
+         Siz := Static_Integer (Expression (Stream_Size_Clause (U_Type)));
+      else
+         Siz := Esize (First_Subtype (U_Type));
+      end if;
+
+      return Siz = Esize (Root_Type (U_Type));
    end Has_Stream_Standard_Rep;
 
    ---------------------------------

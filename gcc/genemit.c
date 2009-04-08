@@ -1,12 +1,12 @@
 /* Generate code from machine description to emit insns as rtl.
    Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "bconfig.h"
@@ -258,6 +257,7 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
       return;
 
     case CONST_DOUBLE:
+    case CONST_FIXED:
       /* These shouldn't be written in MD files.  Instead, the appropriate
 	 routines in varasm.c should be called.  */
       gcc_unreachable ();
@@ -357,17 +357,17 @@ gen_insn (rtx insn, int lineno)
 
 	      for (j = i + 1; j < XVECLEN (insn, 1); j++)
 		{
-		  rtx old = XEXP (XVECEXP (p->pattern, 1, j), 0);
-		  rtx new = XEXP (XVECEXP (insn, 1, j), 0);
+		  rtx old_rtx = XEXP (XVECEXP (p->pattern, 1, j), 0);
+		  rtx new_rtx = XEXP (XVECEXP (insn, 1, j), 0);
 
-		  /* OLD and NEW are the same if both are to be a SCRATCH
+		  /* OLD and NEW_INSN are the same if both are to be a SCRATCH
 		     of the same mode,
 		     or if both are registers of the same mode and number.  */
-		  if (! (GET_MODE (old) == GET_MODE (new)
-			 && ((GET_CODE (old) == MATCH_SCRATCH
-			      && GET_CODE (new) == MATCH_SCRATCH)
-			     || (REG_P (old) && REG_P (new)
-				 && REGNO (old) == REGNO (new)))))
+		  if (! (GET_MODE (old_rtx) == GET_MODE (new_rtx)
+			 && ((GET_CODE (old_rtx) == MATCH_SCRATCH
+			      && GET_CODE (new_rtx) == MATCH_SCRATCH)
+			     || (REG_P (old_rtx) && REG_P (new_rtx)
+				 && REGNO (old_rtx) == REGNO (new_rtx)))))
 		    break;
 		}
 

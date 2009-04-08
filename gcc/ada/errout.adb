@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -40,7 +39,6 @@ with Fname;    use Fname;
 with Gnatvsn;  use Gnatvsn;
 with Hostparm; use Hostparm;
 with Lib;      use Lib;
-with Namet;    use Namet;
 with Opt;      use Opt;
 with Nlists;   use Nlists;
 with Output;   use Output;
@@ -52,14 +50,15 @@ with Stand;    use Stand;
 with Style;
 with Uname;    use Uname;
 
-with Unchecked_Conversion;
-
 package body Errout is
 
    Errors_Must_Be_Ignored : Boolean := False;
    --  Set to True by procedure Set_Ignore_Errors (True), when calls to
    --  error message procedures should be ignored (when parsing irrelevant
    --  text in sources being preprocessed).
+
+   Finalize_Called : Boolean := False;
+   --  Set True if the Finalize routine has been called
 
    Warn_On_Instance : Boolean;
    --  Flag set true for warning message to be posted on instance
@@ -138,8 +137,9 @@ package body Errout is
    --  location of the flag, which is provided for the internal call to
    --  Set_Msg_Insertion_Line_Number,
 
-   procedure Set_Msg_Insertion_Unit_Name;
-   --  Handle unit name insertion ($ insertion character)
+   procedure Set_Msg_Insertion_Unit_Name (Suffix : Boolean := True);
+   --  Handle unit name insertion ($ insertion character). Depending on Boolean
+   --  parameter Suffix, (spec) or (body) is appended after the unit name.
 
    procedure Set_Msg_Node (Node : Node_Id);
    --  Add the sequence of characters for the name associated with the
@@ -191,8 +191,8 @@ package body Errout is
    procedure VMS_Convert;
    --  This procedure has no effect if called when the host is not OpenVMS.
    --  If the host is indeed OpenVMS, then the error message stored in
-   --  Msg_Buffer is scanned for appearences of switch names which need
-   --  converting to corresponding VMS qualifer names. See Gnames/Vnames
+   --  Msg_Buffer is scanned for appearances of switch names which need
+   --  converting to corresponding VMS qualifier names. See Gnames/Vnames
    --  table in Errout spec for precise definition of the conversion that
    --  is performed by this routine in OpenVMS mode.
 
@@ -223,6 +223,19 @@ package body Errout is
          Errors.Table (Error_Id).Next := Save_Next;
       end if;
    end Change_Error_Text;
+
+   ------------------------
+   -- Compilation_Errors --
+   ------------------------
+
+   function Compilation_Errors return Boolean is
+   begin
+      if not Finalize_Called then
+         raise Program_Error;
+      else
+         return Erroutc.Compilation_Errors;
+      end if;
+   end Compilation_Errors;
 
    ---------------
    -- Error_Msg --
@@ -751,6 +764,11 @@ package body Errout is
          elsif Debug_Flag_GG then
             null;
 
+         --  Keep warning if message text ends in !!
+
+         elsif Msg (Msg'Last) = '!' and then Msg (Msg'Last - 1) = '!' then
+            null;
+
          --  Here is where we delete a warning from a with'ed unit
 
          else
@@ -777,7 +795,8 @@ package body Errout is
 
       --  If error message line length set, and this is a continuation message
       --  then all we do is to append the text to the text of the last message
-      --  with a comma space separator.
+      --  with a comma space separator (eliminating a possible (style) or
+      --  info prefix).
 
       if Error_Msg_Line_Length /= 0
         and then Continuation
@@ -788,6 +807,7 @@ package body Errout is
             Oldm : String_Ptr := Errors.Table (Cur_Msg).Text;
             Newm : String (1 .. Oldm'Last + 2 + Msglen);
             Newl : Natural;
+            M    : Natural;
 
          begin
             --  First copy old message to new one and free it
@@ -795,6 +815,16 @@ package body Errout is
             Newm (Oldm'Range) := Oldm.all;
             Newl := Oldm'Length;
             Free (Oldm);
+
+            --  Remove (style) or info: at start of message
+
+            if Msglen > 8 and then Msg_Buffer (1 .. 8) = "(style) " then
+               M := 9;
+            elsif Msglen > 6 and then Msg_Buffer (1 .. 6) = "info: " then
+               M := 7;
+            else
+               M := 1;
+            end if;
 
             --  Now deal with separation between messages. Normally this
             --  is simply comma space, but there are some special cases.
@@ -810,16 +840,16 @@ package body Errout is
             --  successive parenthetical remarks into a single one with
             --  separating commas).
 
-            elsif Msg_Buffer (1) = '(' and then Msg_Buffer (Msglen) = ')' then
+            elsif Msg_Buffer (M) = '(' and then Msg_Buffer (Msglen) = ')' then
 
                --  Case where existing message ends in right paren, remove
                --  and separate parenthetical remarks with a comma.
 
                if Newm (Newl) = ')' then
                   Newm (Newl) := ',';
-                  Msg_Buffer (1) := ' ';
+                  Msg_Buffer (M) := ' ';
 
-                  --  Case where we are adding new parenthetical comment
+               --  Case where we are adding new parenthetical comment
 
                else
                   Newl := Newl + 1;
@@ -835,8 +865,9 @@ package body Errout is
 
             --  Append new message
 
-            Newm (Newl + 1 .. Newl + Msglen) := Msg_Buffer (1 .. Msglen);
-            Newl := Newl + Msglen;
+            Newm (Newl + 1 .. Newl + Msglen - M + 1) :=
+              Msg_Buffer (M .. Msglen);
+            Newl := Newl + Msglen - M + 1;
             Errors.Table (Cur_Msg).Text := new String'(Newm (1 .. Newl));
          end;
 
@@ -857,8 +888,7 @@ package body Errout is
       Errors.Table (Cur_Msg).Warn     := Is_Warning_Msg;
       Errors.Table (Cur_Msg).Style    := Is_Style_Msg;
       Errors.Table (Cur_Msg).Serious  := Is_Serious_Error;
-      Errors.Table (Cur_Msg).Uncond   := Is_Unconditional_Msg
-                                           or Is_Warning_Msg;
+      Errors.Table (Cur_Msg).Uncond   := Is_Unconditional_Msg;
       Errors.Table (Cur_Msg).Msg_Cont := Continuation;
       Errors.Table (Cur_Msg).Deleted  := False;
 
@@ -937,9 +967,9 @@ package body Errout is
            and then Compiler_State = Parsing
            and then not All_Errors_Mode
          then
-            --  Don't delete unconditional messages and at this stage,
-            --  don't delete continuation lines (we attempted to delete
-            --  those earlier if the parent message was deleted.
+            --  Don't delete unconditional messages and at this stage, don't
+            --  delete continuation lines (we attempted to delete those earlier
+            --  if the parent message was deleted.
 
             if not Errors.Table (Cur_Msg).Uncond
               and then not Continuation
@@ -955,9 +985,9 @@ package body Errout is
                          or
                        Errors.Table (Prev_Msg).Style)
                  or else
-                       (Errors.Table (Cur_Msg).Warn
+                      (Errors.Table (Cur_Msg).Warn
                          or
-                        Errors.Table (Cur_Msg).Style)
+                       Errors.Table (Cur_Msg).Style)
                then
                   --  All tests passed, delete the message by simply returning
                   --  without any further processing.
@@ -992,10 +1022,9 @@ package body Errout is
 
       --  Bump appropriate statistics count
 
-      if Errors.Table (Cur_Msg).Warn
-        or else Errors.Table (Cur_Msg).Style
-      then
+      if Errors.Table (Cur_Msg).Warn or Errors.Table (Cur_Msg).Style then
          Warnings_Detected := Warnings_Detected + 1;
+
       else
          Total_Errors_Detected := Total_Errors_Detected + 1;
 
@@ -1094,7 +1123,7 @@ package body Errout is
          Last_Killed := True;
       end if;
 
-      if not Is_Warning_Msg and then not Is_Style_Msg then
+      if not (Is_Warning_Msg or Is_Style_Msg) then
          Set_Posted (N);
       end if;
    end Error_Msg_NEL;
@@ -1162,10 +1191,246 @@ package body Errout is
    -- Finalize --
    --------------
 
-   procedure Finalize is
-      Cur      : Error_Msg_Id;
-      Nxt      : Error_Msg_Id;
-      E, F     : Error_Msg_Id;
+   procedure Finalize (Last_Call : Boolean) is
+      Cur : Error_Msg_Id;
+      Nxt : Error_Msg_Id;
+      F   : Error_Msg_Id;
+
+   begin
+      --  Eliminate any duplicated error messages from the list. This is
+      --  done after the fact to avoid problems with Change_Error_Text.
+
+      Cur := First_Error_Msg;
+      while Cur /= No_Error_Msg loop
+         Nxt := Errors.Table (Cur).Next;
+
+         F := Nxt;
+         while F /= No_Error_Msg
+           and then Errors.Table (F).Sptr = Errors.Table (Cur).Sptr
+         loop
+            Check_Duplicate_Message (Cur, F);
+            F := Errors.Table (F).Next;
+         end loop;
+
+         Cur := Nxt;
+      end loop;
+
+      --  Mark any messages suppressed by specific warnings as Deleted
+
+      Cur := First_Error_Msg;
+      while Cur /= No_Error_Msg loop
+         if not Errors.Table (Cur).Deleted
+           and then Warning_Specifically_Suppressed
+                     (Errors.Table (Cur).Sptr,
+                      Errors.Table (Cur).Text)
+         then
+            Errors.Table (Cur).Deleted := True;
+            Warnings_Detected := Warnings_Detected - 1;
+         end if;
+
+         Cur := Errors.Table (Cur).Next;
+      end loop;
+
+      Finalize_Called := True;
+
+      --  Check consistency of specific warnings (may add warnings). We only
+      --  do this on the last call, after all possible warnings are posted.
+
+      if Last_Call then
+         Validate_Specific_Warnings (Error_Msg'Access);
+      end if;
+   end Finalize;
+
+   ----------------
+   -- First_Node --
+   ----------------
+
+   function First_Node (C : Node_Id) return Node_Id is
+      L        : constant Source_Ptr        := Sloc (Original_Node (C));
+      Sfile    : constant Source_File_Index := Get_Source_File_Index (L);
+      Earliest : Node_Id;
+      Eloc     : Source_Ptr;
+
+      function Test_Earlier (N : Node_Id) return Traverse_Result;
+      --  Function applied to every node in the construct
+
+      procedure Search_Tree_First is new Traverse_Proc (Test_Earlier);
+      --  Create traversal procedure
+
+      ------------------
+      -- Test_Earlier --
+      ------------------
+
+      function Test_Earlier (N : Node_Id) return Traverse_Result is
+         Loc : constant Source_Ptr := Sloc (Original_Node (N));
+
+      begin
+         --  Check for earlier. The tests for being in the same file ensures
+         --  against strange cases of foreign code somehow being present. We
+         --  don't want wild placement of messages if that happens, so it is
+         --  best to just ignore this situation.
+
+         if Loc < Eloc
+           and then Get_Source_File_Index (Loc) = Sfile
+         then
+            Earliest := Original_Node (N);
+            Eloc     := Loc;
+         end if;
+
+         return OK_Orig;
+      end Test_Earlier;
+
+   --  Start of processing for First_Node
+
+   begin
+      Earliest := Original_Node (C);
+      Eloc := Sloc (Earliest);
+      Search_Tree_First (Original_Node (C));
+      return Earliest;
+   end First_Node;
+
+   ----------------
+   -- First_Sloc --
+   ----------------
+
+   function First_Sloc (N : Node_Id) return Source_Ptr is
+      SI : constant Source_File_Index := Source_Index (Get_Source_Unit (N));
+      SF : constant Source_Ptr        := Source_First (SI);
+      F  : Node_Id;
+      S  : Source_Ptr;
+
+   begin
+      F := First_Node (N);
+      S := Sloc (F);
+
+      --  The following circuit is a bit subtle. When we have parenthesized
+      --  expressions, then the Sloc will not record the location of the
+      --  paren, but we would like to post the flag on the paren. So what
+      --  we do is to crawl up the tree from the First_Node, adjusting the
+      --  Sloc value for any parentheses we know are present. Yes, we know
+      --  this circuit is not 100% reliable (e.g. because we don't record
+      --  all possible paren level values), but this is only for an error
+      --  message so it is good enough.
+
+      Node_Loop : loop
+         Paren_Loop : for J in 1 .. Paren_Count (F) loop
+
+            --  We don't look more than 12 characters behind the current
+            --  location, and in any case not past the front of the source.
+
+            Search_Loop : for K in 1 .. 12 loop
+               exit Search_Loop when S = SF;
+
+               if Source_Text (SI) (S - 1) = '(' then
+                  S := S - 1;
+                  exit Search_Loop;
+
+               elsif Source_Text (SI) (S - 1) <= ' ' then
+                  S := S - 1;
+
+               else
+                  exit Search_Loop;
+               end if;
+            end loop Search_Loop;
+         end loop Paren_Loop;
+
+         exit Node_Loop when F = N;
+         F := Parent (F);
+         exit Node_Loop when Nkind (F) not in N_Subexpr;
+      end loop Node_Loop;
+
+      return S;
+   end First_Sloc;
+
+   ----------------
+   -- Initialize --
+   ----------------
+
+   procedure Initialize is
+   begin
+      Errors.Init;
+      First_Error_Msg := No_Error_Msg;
+      Last_Error_Msg := No_Error_Msg;
+      Serious_Errors_Detected := 0;
+      Total_Errors_Detected := 0;
+      Warnings_Detected := 0;
+      Cur_Msg := No_Error_Msg;
+      List_Pragmas.Init;
+
+      --  Initialize warnings table, if all warnings are suppressed, supply
+      --  an initial dummy entry covering all possible source locations.
+
+      Warnings.Init;
+      Specific_Warnings.Init;
+
+      if Warning_Mode = Suppress then
+         Warnings.Increment_Last;
+         Warnings.Table (Warnings.Last).Start := Source_Ptr'First;
+         Warnings.Table (Warnings.Last).Stop  := Source_Ptr'Last;
+      end if;
+   end Initialize;
+
+   -----------------
+   -- No_Warnings --
+   -----------------
+
+   function No_Warnings (N : Node_Or_Entity_Id) return Boolean is
+   begin
+      if Error_Posted (N) then
+         return True;
+
+      elsif Nkind (N) in N_Entity and then Has_Warnings_Off (N) then
+         return True;
+
+      elsif Is_Entity_Name (N)
+        and then Present (Entity (N))
+        and then Has_Warnings_Off (Entity (N))
+      then
+         return True;
+
+      else
+         return False;
+      end if;
+   end No_Warnings;
+
+   -------------
+   -- OK_Node --
+   -------------
+
+   function OK_Node (N : Node_Id) return Boolean is
+      K : constant Node_Kind := Nkind (N);
+
+   begin
+      if Error_Posted (N) then
+         return False;
+
+      elsif K in N_Has_Etype
+        and then Present (Etype (N))
+        and then Error_Posted (Etype (N))
+      then
+         return False;
+
+      elsif (K in N_Op
+              or else K = N_Attribute_Reference
+              or else K = N_Character_Literal
+              or else K = N_Expanded_Name
+              or else K = N_Identifier
+              or else K = N_Operator_Symbol)
+        and then Present (Entity (N))
+        and then Error_Posted (Entity (N))
+      then
+         return False;
+      else
+         return True;
+      end if;
+   end OK_Node;
+
+   ---------------------
+   -- Output_Messages --
+   ---------------------
+
+   procedure Output_Messages is
+      E        : Error_Msg_Id;
       Err_Flag : Boolean;
 
       procedure Write_Error_Summary;
@@ -1297,55 +1562,24 @@ package body Errout is
          end if;
       end Write_Max_Errors;
 
-   --  Start of processing for Finalize
+   --  Start of processing for Output_Messages
 
    begin
+      --  Error if Finalize has not been called
+
+      if not Finalize_Called then
+         raise Program_Error;
+      end if;
+
       --  Reset current error source file if the main unit has a pragma
       --  Source_Reference. This ensures outputting the proper name of
       --  the source file in this situation.
 
-      if Main_Source_File = No_Source_File or else
-        Num_SRef_Pragmas (Main_Source_File) /= 0
+      if Main_Source_File = No_Source_File
+        or else Num_SRef_Pragmas (Main_Source_File) /= 0
       then
          Current_Error_Source_File := No_Source_File;
       end if;
-
-      --  Eliminate any duplicated error messages from the list. This is
-      --  done after the fact to avoid problems with Change_Error_Text.
-
-      Cur := First_Error_Msg;
-      while Cur /= No_Error_Msg loop
-         Nxt := Errors.Table (Cur).Next;
-
-         F := Nxt;
-         while F /= No_Error_Msg
-           and then Errors.Table (F).Sptr = Errors.Table (Cur).Sptr
-         loop
-            Check_Duplicate_Message (Cur, F);
-            F := Errors.Table (F).Next;
-         end loop;
-
-         Cur := Nxt;
-      end loop;
-
-      --  Mark any messages suppressed by specific warnings as Deleted
-
-      Cur := First_Error_Msg;
-      while Cur /= No_Error_Msg loop
-         if Warning_Specifically_Suppressed
-             (Errors.Table (Cur).Sptr,
-              Errors.Table (Cur).Text)
-         then
-            Errors.Table (Cur).Deleted := True;
-            Warnings_Detected := Warnings_Detected - 1;
-         end if;
-
-         Cur := Errors.Table (Cur).Next;
-      end loop;
-
-      --  Check consistency of specific warnings (may add warnings)
-
-      Validate_Specific_Warnings (Error_Msg'Access);
 
       --  Brief Error mode
 
@@ -1544,194 +1778,7 @@ package body Errout is
          Total_Errors_Detected := Total_Errors_Detected + Warnings_Detected;
          Warnings_Detected := 0;
       end if;
-   end Finalize;
-
-   ----------------
-   -- First_Node --
-   ----------------
-
-   function First_Node (C : Node_Id) return Node_Id is
-      L        : constant Source_Ptr        := Sloc (Original_Node (C));
-      Sfile    : constant Source_File_Index := Get_Source_File_Index (L);
-      Earliest : Node_Id;
-      Eloc     : Source_Ptr;
-      Discard  : Traverse_Result;
-
-      pragma Warnings (Off, Discard);
-
-      function Test_Earlier (N : Node_Id) return Traverse_Result;
-      --  Function applied to every node in the construct
-
-      function Search_Tree_First is new Traverse_Func (Test_Earlier);
-      --  Create traversal function
-
-      ------------------
-      -- Test_Earlier --
-      ------------------
-
-      function Test_Earlier (N : Node_Id) return Traverse_Result is
-         Loc : constant Source_Ptr := Sloc (Original_Node (N));
-
-      begin
-         --  Check for earlier. The tests for being in the same file ensures
-         --  against strange cases of foreign code somehow being present. We
-         --  don't want wild placement of messages if that happens, so it is
-         --  best to just ignore this situation.
-
-         if Loc < Eloc
-           and then Get_Source_File_Index (Loc) = Sfile
-         then
-            Earliest := Original_Node (N);
-            Eloc     := Loc;
-         end if;
-
-         return OK_Orig;
-      end Test_Earlier;
-
-   --  Start of processing for First_Node
-
-   begin
-      Earliest := Original_Node (C);
-      Eloc := Sloc (Earliest);
-      Discard := Search_Tree_First (Original_Node (C));
-      return Earliest;
-   end First_Node;
-
-   ----------------
-   -- First_Sloc --
-   ----------------
-
-   function First_Sloc (N : Node_Id) return Source_Ptr is
-      SI : constant Source_File_Index := Source_Index (Get_Source_Unit (N));
-      SF : constant Source_Ptr        := Source_First (SI);
-      F  : Node_Id;
-      S  : Source_Ptr;
-
-   begin
-      F := First_Node (N);
-      S := Sloc (F);
-
-      --  The following circuit is a bit subtle. When we have parenthesized
-      --  expressions, then the Sloc will not record the location of the
-      --  paren, but we would like to post the flag on the paren. So what
-      --  we do is to crawl up the tree from the First_Node, adjusting the
-      --  Sloc value for any parentheses we know are present. Yes, we know
-      --  this circuit is not 100% reliable (e.g. because we don't record
-      --  all possible paren level valoues), but this is only for an error
-      --  message so it is good enough.
-
-      Node_Loop : loop
-         Paren_Loop : for J in 1 .. Paren_Count (F) loop
-
-            --  We don't look more than 12 characters behind the current
-            --  location, and in any case not past the front of the source.
-
-            Search_Loop : for K in 1 .. 12 loop
-               exit Search_Loop when S = SF;
-
-               if Source_Text (SI) (S - 1) = '(' then
-                  S := S - 1;
-                  exit Search_Loop;
-
-               elsif Source_Text (SI) (S - 1) <= ' ' then
-                  S := S - 1;
-
-               else
-                  exit Search_Loop;
-               end if;
-            end loop Search_Loop;
-         end loop Paren_Loop;
-
-         exit Node_Loop when F = N;
-         F := Parent (F);
-         exit Node_Loop when Nkind (F) not in N_Subexpr;
-      end loop Node_Loop;
-
-      return S;
-   end First_Sloc;
-
-   ----------------
-   -- Initialize --
-   ----------------
-
-   procedure Initialize is
-   begin
-      Errors.Init;
-      First_Error_Msg := No_Error_Msg;
-      Last_Error_Msg := No_Error_Msg;
-      Serious_Errors_Detected := 0;
-      Total_Errors_Detected := 0;
-      Warnings_Detected := 0;
-      Cur_Msg := No_Error_Msg;
-      List_Pragmas.Init;
-
-      --  Initialize warnings table, if all warnings are suppressed, supply
-      --  an initial dummy entry covering all possible source locations.
-
-      Warnings.Init;
-      Specific_Warnings.Init;
-
-      if Warning_Mode = Suppress then
-         Warnings.Increment_Last;
-         Warnings.Table (Warnings.Last).Start := Source_Ptr'First;
-         Warnings.Table (Warnings.Last).Stop  := Source_Ptr'Last;
-      end if;
-   end Initialize;
-
-   -----------------
-   -- No_Warnings --
-   -----------------
-
-   function No_Warnings (N : Node_Or_Entity_Id) return Boolean is
-   begin
-      if Error_Posted (N) then
-         return True;
-
-      elsif Nkind (N) in N_Entity and then Warnings_Off (N) then
-         return True;
-
-      elsif Is_Entity_Name (N)
-        and then Present (Entity (N))
-        and then Warnings_Off (Entity (N))
-      then
-         return True;
-
-      else
-         return False;
-      end if;
-   end No_Warnings;
-
-   -------------
-   -- OK_Node --
-   -------------
-
-   function OK_Node (N : Node_Id) return Boolean is
-      K : constant Node_Kind := Nkind (N);
-
-   begin
-      if Error_Posted (N) then
-         return False;
-
-      elsif K in N_Has_Etype
-        and then Present (Etype (N))
-        and then Error_Posted (Etype (N))
-      then
-         return False;
-
-      elsif (K in N_Op
-              or else K = N_Attribute_Reference
-              or else K = N_Character_Literal
-              or else K = N_Expanded_Name
-              or else K = N_Identifier
-              or else K = N_Operator_Symbol)
-        and then Present (Entity (N))
-        and then Error_Posted (Entity (N))
-      then
-         return False;
-      else
-         return True;
-      end if;
-   end OK_Node;
+   end Output_Messages;
 
    ------------------------
    -- Output_Source_Line --
@@ -1747,6 +1794,9 @@ package body Errout is
 
       Line_Number_Output : Boolean := False;
       --  Set True once line number is output
+
+      Empty_Line : Boolean := True;
+      --  Set False if line includes at least one character
 
    begin
       if Sfile /= Current_Error_Source_File then
@@ -1835,11 +1885,19 @@ package body Errout is
             end if;
          end if;
 
+         Empty_Line := False;
          S := S + 1;
       end loop;
 
+      --  If we have output a source line, then add the line terminator, with
+      --  training spaces preserved (so we output the line exactly as input).
+
       if Line_Number_Output then
-         Write_Eol;
+         if Empty_Line then
+            Write_Eol;
+         else
+            Write_Eol_Keep_Blanks;
+         end if;
       end if;
    end Output_Source_Line;
 
@@ -1852,8 +1910,7 @@ package body Errout is
       function Check_For_Warning (N : Node_Id) return Traverse_Result;
       --  This function checks one node for a possible warning message
 
-      function Check_All_Warnings is new
-        Traverse_Func (Check_For_Warning);
+      function Check_All_Warnings is new Traverse_Func (Check_For_Warning);
       --  This defines the traversal operation
 
       -----------------------
@@ -1875,11 +1932,26 @@ package body Errout is
          function To_Be_Removed (E : Error_Msg_Id) return Boolean is
          begin
             if E /= No_Error_Msg
-              and then Errors.Table (E).Optr = Loc
-              and then (Errors.Table (E).Warn or Errors.Table (E).Style)
+
+               --  Don't remove if location does not match
+
+               and then Errors.Table (E).Optr = Loc
+
+               --  Don't remove if not warning/info message. Note that we do
+               --  not remove style messages here. They are warning messages
+               --  but not ones we want removed in this context.
+
+               and then Errors.Table (E).Warn
+
+               --  Don't remove unconditional messages
+
+               and then not Errors.Table (E).Uncond
             then
                Warnings_Detected := Warnings_Detected - 1;
                return True;
+
+            --  No removal required
+
             else
                return False;
             end if;
@@ -1914,15 +1986,14 @@ package body Errout is
            and then Original_Node (N) /= N
            and then No (Condition (N))
          then
-            --  Warnings may have been posted on subexpressions of
-            --  the original tree. We place the original node back
-            --  on the tree to remove those warnings, whose sloc
-            --  do not match those of any node in the current tree.
-            --  Given that we are in unreachable code, this modification
-            --  to the tree is harmless.
+            --  Warnings may have been posted on subexpressions of the original
+            --  tree. We place the original node back on the tree to remove
+            --  those warnings, whose sloc do not match those of any node in
+            --  the current tree. Given that we are in unreachable code, this
+            --  modification to the tree is harmless.
 
             declare
-               Status : Traverse_Result;
+               Status : Traverse_Final_Result;
 
             begin
                if Is_List_Member (N) then
@@ -1946,7 +2017,7 @@ package body Errout is
    begin
       if Warnings_Detected /= 0 then
          declare
-            Discard : Traverse_Result;
+            Discard : Traverse_Final_Result;
             pragma Warnings (Off, Discard);
 
          begin
@@ -1960,7 +2031,6 @@ package body Errout is
    begin
       if Is_Non_Empty_List (L) then
          Stat := First (L);
-
          while Present (Stat) loop
             Remove_Warning_Messages (Stat);
             Next (Stat);
@@ -1976,12 +2046,6 @@ package body Errout is
      (Identifier_Name : System.Address;
       File_Name       : System.Address)
    is
-      type Big_String is array (Positive) of Character;
-      type Big_String_Ptr is access all Big_String;
-
-      function To_Big_String_Ptr is new Unchecked_Conversion
-        (System.Address, Big_String_Ptr);
-
       Ident : constant Big_String_Ptr := To_Big_String_Ptr (Identifier_Name);
       File  : constant Big_String_Ptr := To_Big_String_Ptr (File_Name);
       Flen  : Natural;
@@ -2021,7 +2085,7 @@ package body Errout is
       for J in Name_Buffer'Range loop
          Name_Buffer (J) := Ident (J);
 
-         if Name_Buffer (J) = ASCII.Nul then
+         if Name_Buffer (J) = ASCII.NUL then
             Name_Len := J - 1;
             exit;
          end if;
@@ -2277,17 +2341,17 @@ package body Errout is
    -- Set_Msg_Insertion_Unit_Name --
    ---------------------------------
 
-   procedure Set_Msg_Insertion_Unit_Name is
+   procedure Set_Msg_Insertion_Unit_Name (Suffix : Boolean := True) is
    begin
-      if Error_Msg_Unit_1 = No_Name then
+      if Error_Msg_Unit_1 = No_Unit_Name then
          null;
 
-      elsif Error_Msg_Unit_1 = Error_Name then
+      elsif Error_Msg_Unit_1 = Error_Unit_Name then
          Set_Msg_Blank;
          Set_Msg_Str ("<error>");
 
       else
-         Get_Unit_Name_String (Error_Msg_Unit_1);
+         Get_Unit_Name_String (Error_Msg_Unit_1, Suffix);
          Set_Msg_Blank;
          Set_Msg_Quote;
          Set_Msg_Name_Buffer;
@@ -2335,14 +2399,17 @@ package body Errout is
       end if;
 
       --  The only remaining possibilities are identifiers, defining
-      --  identifiers, pragmas, and pragma argument associations, i.e.
-      --  nodes that have a Chars field.
+      --  identifiers, pragmas, and pragma argument associations.
 
-      --  Internal names generally represent something gone wrong. An exception
-      --  is the case of internal type names, where we try to find a reasonable
-      --  external representation for the external name
+      if Nkind (Node) = N_Pragma then
+         Nam := Pragma_Name (Node);
 
-      if Is_Internal_Name (Chars (Node))
+      --  The other cases have Chars fields, and we want to test for possible
+      --  internal names, which generally represent something gone wrong. An
+      --  exception is the case of internal type names, where we try to find a
+      --  reasonable external representation for the external name
+
+      elsif Is_Internal_Name (Chars (Node))
         and then
           ((Is_Entity_Name (Node)
                           and then Present (Entity (Node))
@@ -2365,6 +2432,8 @@ package body Errout is
             Unwind_Internal_Type (Ent);
             Nam := Chars (Ent);
          end if;
+
+      --  If not internal name, just use name in Chars field
 
       else
          Nam := Chars (Node);
@@ -2457,8 +2526,8 @@ package body Errout is
    ------------------
 
    procedure Set_Msg_Text (Text : String; Flag : Source_Ptr) is
-      C : Character;         -- Current character
-      P : Natural;           -- Current index;
+      C : Character;   -- Current character
+      P : Natural;     -- Current index;
 
    begin
       Manual_Quote_Mode := False;
@@ -2471,14 +2540,25 @@ package body Errout is
          C := Text (P);
          P := P + 1;
 
-         --  Check for insertion character
+         --  Check for insertion character or sequence
 
          case C is
             when '%' =>
-               Set_Msg_Insertion_Name;
+               if P <= Text'Last and then Text (P) = '%' then
+                  P := P + 1;
+                  Set_Msg_Insertion_Name_Literal;
+               else
+                  Set_Msg_Insertion_Name;
+               end if;
 
             when '$' =>
-               Set_Msg_Insertion_Unit_Name;
+               if P <= Text'Last and then Text (P) = '$' then
+                  P := P + 1;
+                  Set_Msg_Insertion_Unit_Name (Suffix => False);
+
+               else
+                  Set_Msg_Insertion_Unit_Name;
+               end if;
 
             when '{' =>
                Set_Msg_Insertion_File_Name;

@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -31,7 +30,14 @@
 
 with Table;
 
+with GNAT.Strings;
+
 package Prj.Attr is
+
+   function Package_Name_List return GNAT.Strings.String_List;
+   --  Returns the list of valid package names, including those added by
+   --  procedures Register_New_Package below. The String_Access components of
+   --  the returned String_List should never be freed.
 
    procedure Initialize;
    --  Initialize the predefined project level attributes and the predefined
@@ -48,6 +54,7 @@ package Prj.Attr is
    --  Characteristics of an attribute. Optional_Index indicates that there
    --  may be an optional index in the index of the associative array, as in
    --     for Switches ("files.ada" at 2) use ...
+   --  Above character literals should be documented ???
 
    subtype Defined_Attribute_Kind is Attribute_Kind
      range Single .. Optional_Index_Case_Insensitive_Associative_Array;
@@ -153,12 +160,17 @@ package Prj.Attr is
    --  Returns True if Attribute is a known attribute and may have an
    --  optional index. Returns False otherwise.
 
+   function Is_Read_Only (Attribute : Attribute_Node_Id) return Boolean;
+
    function Next_Attribute
      (After : Attribute_Node_Id) return Attribute_Node_Id;
    --  Returns the attribute that follow After in the list of project level
    --  attributes or the list of attributes in a package.
    --  Returns Empty_Attribute if After is either Empty_Attribute or is the
    --  last of the list.
+
+   function Others_Allowed_For (Attribute : Attribute_Node_Id) return Boolean;
+   --  True iff the index for an associative array attributes may be others
 
    --------------
    -- Packages --
@@ -169,6 +181,9 @@ package Prj.Attr is
 
    Empty_Package : constant Package_Node_Id;
    --  Default value of Package_Node_Id objects
+
+   Unknown_Package : constant Package_Node_Id;
+   --  Value of an unknown package that has been found but is unknown.
 
    procedure Register_New_Package (Name : String; Id : out Package_Node_Id);
    --  Add a new package. Fails if Name (the package name) is empty or is
@@ -249,11 +264,11 @@ private
    end record;
    --  Full declaration of self-initialized private type
 
-   Empty_Pkg : constant Pkg_Node_Id := Package_Node_Low_Bound;
-
-   Empty_Package : constant Package_Node_Id := (Value => Empty_Pkg);
-
-   First_Package : constant Pkg_Node_Id := Package_Node_Low_Bound + 1;
+   Empty_Pkg       : constant Pkg_Node_Id     := Package_Node_Low_Bound;
+   Empty_Package   : constant Package_Node_Id := (Value => Empty_Pkg);
+   Unknown_Pkg     : constant Pkg_Node_Id     := Package_Node_High_Bound;
+   Unknown_Package : constant Package_Node_Id := (Value => Unknown_Pkg);
+   First_Package   : constant Pkg_Node_Id     := Package_Node_Low_Bound + 1;
 
    First_Package_Node_Id  : constant Package_Node_Id :=
                               (Value => First_Package);
@@ -269,6 +284,8 @@ private
       Var_Kind       : Variable_Kind;
       Optional_Index : Boolean;
       Attr_Kind      : Attribute_Kind;
+      Read_Only      : Boolean;
+      Others_Allowed : Boolean;
       Next           : Attr_Node_Id;
    end record;
    --  Data for an attribute
@@ -287,9 +304,9 @@ private
    --------------
 
    type Package_Record is record
-      Name            : Name_Id;
-      Known           : Boolean := True;
-      First_Attribute : Attr_Node_Id;
+      Name             : Name_Id;
+      Known            : Boolean := True;
+      First_Attribute  : Attr_Node_Id;
    end record;
    --  Data for a package
 

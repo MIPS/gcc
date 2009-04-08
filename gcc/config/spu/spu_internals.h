@@ -1,5 +1,5 @@
 /* Definitions of Synergistic Processing Unit (SPU). */
-/* Copyright (C) 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2009 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -233,6 +233,15 @@
 #define si_rchcnt(imm)       __builtin_si_rchcnt(imm)
 #define si_wrch(imm,ra)      __builtin_si_wrch(imm,ra)
 
+/* celledp only instructions  */
+#ifdef __SPU_EDP__
+#define si_dfceq(ra,rb)      __builtin_si_dfceq(ra,rb)
+#define si_dfcmeq(ra,rb)     __builtin_si_dfcmeq(ra,rb)
+#define si_dfcgt(ra,rb)      __builtin_si_dfcgt(ra,rb)
+#define si_dfcmgt(ra,rb)     __builtin_si_dfcmgt(ra,rb)
+#define si_dftsv(ra,imm)     __builtin_si_dftsv(ra,imm)
+#endif /* __SPU_EDP__  */
+
 #define si_from_char(scalar)    __builtin_si_from_char(scalar)
 #define si_from_uchar(scalar)   __builtin_si_from_uchar(scalar)
 #define si_from_short(scalar)   __builtin_si_from_short(scalar)
@@ -295,6 +304,7 @@
 #define spu_cmpabsgt(ra,rb)       __builtin_spu_cmpabsgt(ra,rb) 
 #define spu_cmpeq(ra,rb)          __builtin_spu_cmpeq(ra,rb) 
 #define spu_cmpgt(ra,rb)          __builtin_spu_cmpgt(ra,rb) 
+#define spu_testsv(ra,imm)        __builtin_spu_testsv(ra,imm) 
 #define spu_hcmpeq(ra,rb)         __builtin_spu_hcmpeq(ra,rb) 
 #define spu_hcmpgt(ra,rb)         __builtin_spu_hcmpgt(ra,rb) 
 #define spu_cntb(ra)              __builtin_spu_cntb(ra) 
@@ -327,6 +337,11 @@
 #define spu_slqw(ra,rb)           __builtin_spu_slqw(ra,rb) 
 #define spu_slqwbyte(ra,rb)       __builtin_spu_slqwbyte(ra,rb) 
 #define spu_slqwbytebc(ra,rb)     __builtin_spu_slqwbytebc(ra,rb) 
+#define spu_sr(ra,rb)             __builtin_spu_sr(ra,rb) 
+#define spu_sra(ra,rb)            __builtin_spu_sra(ra,rb) 
+#define spu_srqw(ra,rb)           __builtin_spu_srqw(ra,rb) 
+#define spu_srqwbyte(ra,rb)       __builtin_spu_srqwbyte(ra,rb) 
+#define spu_srqwbytebc(ra,rb)     __builtin_spu_srqwbytebc(ra,rb) 
 #define spu_extract(ra,pos)       __builtin_spu_extract(ra,pos) 
 #define spu_insert(scalar,ra,pos) __builtin_spu_insert(scalar,ra,pos) 
 #define spu_promote(scalar,pos)   __builtin_spu_promote(scalar,pos) 

@@ -25,6 +25,7 @@ extern "Java"
         {
           namespace gtk
           {
+              class CairoSurface;
               class ComponentGraphics;
               class GtkComponentPeer;
               class GtkImage;
@@ -75,7 +76,7 @@ private:
   void lock();
   void unlock();
 public: // actually protected
-  virtual jlong initFromVolatile(jlong, jint, jint);
+  virtual jlong initFromVolatile(jlong);
 private:
   void start_gdk_drawing();
   void end_gdk_drawing();
@@ -132,6 +133,8 @@ public: // actually protected
   virtual void cairoFill(jlong, jdouble);
   virtual void cairoClip(jlong);
   virtual void cairoResetClip(jlong);
+  virtual void cairoSetAntialias(jlong, jboolean);
+  virtual void drawCairoSurface(::gnu::java::awt::peer::gtk::CairoSurface *, ::java::awt::geom::AffineTransform *, jdouble, jint);
 private:
   static jboolean hasXRenderExtension;
   ::gnu::java::awt::peer::gtk::GtkComponentPeer * __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::gtk::CairoGraphics2D)))) component;

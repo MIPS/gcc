@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2003-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2003-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -65,7 +64,7 @@
 --       appropriate vms equivalents. Note that replacements do not occur
 --       within ^alpha^beta^ sequences.
 
---       Any occurence of [filename].extension, where extension one of the
+--       Any occurrence of [filename].extension, where extension one of the
 --       following:
 
 --           "o", "ads", "adb", "ali", "ada", "atb", "ats", "adc", "c"
@@ -98,6 +97,7 @@ with Ada.Strings.Fixed;          use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded;      use Ada.Strings.Unbounded;
 with Ada.Strings.Maps;           use Ada.Strings.Maps;
 with Ada.Strings.Maps.Constants; use Ada.Strings.Maps.Constants;
+with Ada.Streams.Stream_IO;      use Ada.Streams.Stream_IO;
 with Ada.Text_IO;                use Ada.Text_IO;
 
 with GNAT.Spitbol;               use GNAT.Spitbol;
@@ -109,12 +109,14 @@ procedure Xgnatugn is
    --  Print usage information. Invoked if an invalid command line is
    --  encountered.
 
-   Output_File : File_Type;
+   subtype Sfile is Ada.Streams.Stream_IO.File_Type;
+
+   Output_File : Sfile;
    --  The preprocessed output is written to this file
 
    type Input_File is record
       Name : VString;
-      Data : File_Type;
+      Data : Ada.Text_IO.File_Type;
       Line : Natural := 0;
    end record;
    --  Records information on an input file. Name and Line are used
@@ -123,6 +125,10 @@ procedure Xgnatugn is
    function Get_Line (Input : access Input_File) return String;
    --  Returns a line from Input and performs the necessary
    --  line-oriented checks (length, character set, trailing spaces).
+
+   procedure Put_Line (F : Sfile; S : String);
+   procedure Put_Line (F : Sfile; S : VString);
+   --  Local version of Put_Line ensures Unix style line endings
 
    Number_Of_Warnings : Natural := 0;
    Number_Of_Errors   : Natural := 0;
@@ -353,6 +359,21 @@ procedure Xgnatugn is
       end;
    end Get_Line;
 
+   --------------
+   -- Put_Line --
+   --------------
+
+   procedure Put_Line (F : Sfile; S : String) is
+   begin
+      String'Write (Stream (F), S);
+      Character'Write (Stream (F), ASCII.LF);
+   end Put_Line;
+
+   procedure Put_Line (F : Sfile; S : VString) is
+   begin
+      Put_Line (F, To_String (S));
+   end Put_Line;
+
    -----------
    -- Error --
    -----------
@@ -477,7 +498,7 @@ procedure Xgnatugn is
                   Non_Word_Character : constant Natural :=
                                          Index (Source,
                                                 Word_Characters or
-                                                  To_Set (" "),
+                                                  To_Set (" ."),
                                                 Outside);
 
                begin
@@ -1312,7 +1333,7 @@ begin
          Open (Source_File.Data, In_File, Argument (2));
 
       exception
-         when Name_Error =>
+         when Ada.Text_IO.Name_Error =>
             Valid_Command_Line := False;
       end;
    end if;
@@ -1325,7 +1346,7 @@ begin
          Open (Dictionary_File.Data, In_File, Argument (3));
 
       exception
-         when Name_Error =>
+         when Ada.Text_IO.Name_Error =>
             Valid_Command_Line := False;
       end;
    end if;
@@ -1350,7 +1371,7 @@ begin
          Create (Output_File, Out_File, S (Output_File_Name));
 
       exception
-         when Name_Error | Use_Error =>
+         when Ada.Text_IO.Name_Error | Ada.Text_IO.Use_Error =>
             Valid_Command_Line := False;
       end;
    end if;

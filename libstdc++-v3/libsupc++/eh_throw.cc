@@ -1,5 +1,6 @@
 // -*- C++ -*- Exception handling routines for throwing.
-// Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+// Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -36,20 +37,28 @@ using namespace __cxxabiv1;
 static void
 __gxx_exception_cleanup (_Unwind_Reason_Code code, _Unwind_Exception *exc)
 {
-  __cxa_exception *header = __get_exception_header_from_ue (exc);
+  // This cleanup is set only for primaries.
+  __cxa_refcounted_exception *header
+    = __get_refcounted_exception_header_from_ue (exc);
 
-  // If we haven't been caught by a foreign handler, then this is
-  // some sort of unwind error.  In that case just die immediately.
+  // We only want to be called through _Unwind_DeleteException.
   // _Unwind_DeleteException in the HP-UX IA64 libunwind library
-  //  returns _URC_NO_REASON and not _URC_FOREIGN_EXCEPTION_CAUGHT
+  // returns _URC_NO_REASON and not _URC_FOREIGN_EXCEPTION_CAUGHT
   // like the GCC _Unwind_DeleteException function does.
   if (code != _URC_FOREIGN_EXCEPTION_CAUGHT && code != _URC_NO_REASON)
-    __terminate (header->terminateHandler);
+    __terminate (header->exc.terminateHandler);
 
-  if (header->exceptionDestructor)
-    header->exceptionDestructor (header + 1);
+#ifdef _GLIBCXX_ATOMIC_BUILTINS_4
+  if (__sync_sub_and_fetch (&header->referenceCount, 1) == 0)
+    {
+#endif
+      if (header->exc.exceptionDestructor)
+	header->exc.exceptionDestructor (header + 1);
 
-  __cxa_free_exception (header + 1);
+      __cxa_free_exception (header + 1);
+#ifdef _GLIBCXX_ATOMIC_BUILTINS_4
+    }
+#endif
 }
 
 
@@ -57,22 +66,25 @@ extern "C" void
 __cxxabiv1::__cxa_throw (void *obj, std::type_info *tinfo, 
 			 void (*dest) (void *))
 {
-  __cxa_exception *header = __get_exception_header_from_obj (obj);
-  header->exceptionType = tinfo;
-  header->exceptionDestructor = dest;
-  header->unexpectedHandler = __unexpected_handler;
-  header->terminateHandler = __terminate_handler;
-  __GXX_INIT_EXCEPTION_CLASS(header->unwindHeader.exception_class);
-  header->unwindHeader.exception_cleanup = __gxx_exception_cleanup;
+  // Definitely a primary.
+  __cxa_refcounted_exception *header
+    = __get_refcounted_exception_header_from_obj (obj);
+  header->referenceCount = 1;
+  header->exc.exceptionType = tinfo;
+  header->exc.exceptionDestructor = dest;
+  header->exc.unexpectedHandler = __unexpected_handler;
+  header->exc.terminateHandler = __terminate_handler;
+  __GXX_INIT_PRIMARY_EXCEPTION_CLASS(header->exc.unwindHeader.exception_class);
+  header->exc.unwindHeader.exception_cleanup = __gxx_exception_cleanup;
 
 #ifdef _GLIBCXX_SJLJ_EXCEPTIONS
-  _Unwind_SjLj_RaiseException (&header->unwindHeader);
+  _Unwind_SjLj_RaiseException (&header->exc.unwindHeader);
 #else
-  _Unwind_RaiseException (&header->unwindHeader);
+  _Unwind_RaiseException (&header->exc.unwindHeader);
 #endif
 
   // Some sort of unwinding error.  Note that terminate is a handler.
-  __cxa_begin_catch (&header->unwindHeader);
+  __cxa_begin_catch (&header->exc.unwindHeader);
   std::terminate ();
 }
 

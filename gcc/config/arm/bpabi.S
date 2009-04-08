@@ -1,6 +1,6 @@
 /* Miscellaneous BPABI functions.
 
-   Copyright (C) 2003, 2004, 2007  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2007, 2008  Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC.
 
    This file is free software; you can redistribute it and/or modify it
@@ -27,18 +27,6 @@
    the Free Software Foundation, 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.  */
 
-#ifdef __ARMEB__
-#define xxh r0
-#define xxl r1
-#define yyh r2
-#define yyl r3
-#else
-#define xxh r1
-#define xxl r0
-#define yyh r3
-#define yyl r2
-#endif	
-	
 #ifdef L_aeabi_lcmp
 
 ARM_FUNC_START aeabi_lcmp

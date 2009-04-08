@@ -1,13 +1,13 @@
 /* Definitions of target machine for GNU compiler,
    for Motorola M*CORE Processor.
-   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007,
+   2008  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_MCORE_H
 #define GCC_MCORE_H
@@ -51,8 +50,6 @@
     }									  \
   while (0)
 
-/* If -m4align is ever re-enabled then add this line to the definition of CPP_SPEC
-   %{!m4align:-D__MCORE_ALIGN_8__} %{m4align:-D__MCORE__ALIGN_4__}.  */
 #undef  CPP_SPEC
 #define CPP_SPEC "%{m210:%{mlittle-endian:%ethe m210 does not have little endian support}}"
 
@@ -68,7 +65,6 @@
 
 #define TARGET_DEFAULT	\
   (MASK_HARDLIT		\
-   | MASK_8ALIGN	\
    | MASK_DIV		\
    | MASK_RELAX_IMM	\
    | MASK_M340		\
@@ -380,6 +376,12 @@ enum reg_class
 
 #define N_REG_CLASSES  (int) LIM_REG_CLASSES
 
+#define IRA_COVER_CLASSES		\
+{					\
+  GENERAL_REGS, C_REGS, LIM_REG_CLASSES	\
+}
+
+
 /* Give names of register classes as strings for dump file.  */
 #define REG_CLASS_NAMES  \
 {			\
@@ -539,7 +541,7 @@ extern const enum reg_class reg_class_from_letter[];
 
 /* If defined, the maximum amount of space required for outgoing arguments
    will be computed and placed into the variable
-   `current_function_outgoing_args_size'.  No space will be pushed
+   `crtl->outgoing_args_size'.  No space will be pushed
    onto the stack for each call; instead, the function prologue should
    increase the stack frame size by this amount.  */
 #define ACCUMULATE_OUTGOING_ARGS 1

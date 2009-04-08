@@ -1,11 +1,12 @@
 # Generate a flat list of symbols to export.
+#	Copyright (C) 2007, 2008, 2009  Free Software Foundation, Inc.
 #	Contributed by Richard Henderson <rth@cygnus.com>
 #
 # This file is part of GCC.
 #
 # GCC is free software; you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free
-# Software Foundation; either version 2, or (at your option) any later
+# Software Foundation; either version 3, or (at your option) any later
 # version.
 #
 # GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +15,13 @@
 # License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with GCC; see the file COPYING.  If not, write to the Free
-# Software Foundation, 51 Franklin Street, Fifth Floor, Boston MA
-# 02110-1301, USA.
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+
+# Options:
+#   "-v leading_underscore=1" : Symbols in map need leading underscore.
+#   "-v pe_dll=1"             : Create .DEF file for Windows PECOFF
+#                               DLL link instead of map file.
 
 BEGIN {
   state = "nm";
@@ -56,7 +61,7 @@ state == "nm" {
 # Now we process a simplified variant of the Solaris symbol version
 # script.  We have one symbol per line, no semicolons, simple markers
 # for beginning and ending each section, and %inherit markers for
-# describing version inheritence.  A symbol may appear in more than
+# describing version inheritance.  A symbol may appear in more than
 # one symbol version, and the last seen takes effect.
 # The magic version name '%exclude' causes all the symbols given that
 # version to be dropped from the output (unless a later version overrides).
@@ -86,7 +91,13 @@ $1 == "}" {
 }
 
 END {
+
+  if (pe_dll) {
+    print "LIBRARY " pe_dll;
+    print "EXPORTS";
+  }
+
   for (sym in export)
-    if (def[sym])
+    if (def[sym] || (pe_dll && def["_" sym]))
       print sym;
 }

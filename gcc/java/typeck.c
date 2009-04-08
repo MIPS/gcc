@@ -1,12 +1,12 @@
 /* Handle types for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2007
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -132,8 +131,7 @@ convert (tree type, tree expr)
       if (type == char_type_node || type == promoted_char_type_node)
 	return fold_convert (type, expr);
       if ((really_constant_p (expr) || ! flag_unsafe_math_optimizations)
-	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
-	  && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
+	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE)
 	return convert_ieee_real_to_integer (type, expr);
       else
 	{
@@ -193,14 +191,6 @@ java_type_for_size (unsigned bits, int unsignedp)
   if (bits <= TYPE_PRECISION (long_type_node))
     return unsignedp ? unsigned_long_type_node : long_type_node;
   return 0;
-}
-
-/* Return a signed type the same as TYPE in other respects.  */
-
-tree
-java_signed_type (tree type)
-{
-  return get_signed_or_unsigned_type (0, type);
 }
 
 /* Mark EXP saying that we need to be able to take the
@@ -700,11 +690,11 @@ lookup_java_method (tree searched_class, tree method_name,
 		    method_signature, build_java_signature);
 }
 
-/* Return true iff CLASS (or its ancestors) has a method METHOD_NAME.  */
+/* Return true iff KLASS (or its ancestors) has a method METHOD_NAME.  */
 int
-has_method (tree class, tree method_name)
+has_method (tree klass, tree method_name)
 {
-  return lookup_do (class, SEARCH_INTERFACE,
+  return lookup_do (klass, SEARCH_INTERFACE,
 		    method_name, NULL_TREE,
 		    build_null_signature) != NULL_TREE;
 }
@@ -772,9 +762,7 @@ find_method_in_interfaces (tree searched_class, int flags, tree method_name,
       tree method;
 	  
       /* If the superinterface hasn't been loaded yet, do so now.  */
-      if (CLASS_FROM_SOURCE_P (iclass))
-	safe_layout_class (iclass);
-      else if (!CLASS_LOADED_P (iclass))
+      if (!CLASS_LOADED_P (iclass))
 	load_class (iclass, 1);
 	  
       /* First, we look in ICLASS.  If that doesn't work we'll

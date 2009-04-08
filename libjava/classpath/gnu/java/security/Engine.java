@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package gnu.java.security;
 
+import gnu.java.lang.CPStringBuilder;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
@@ -146,11 +148,11 @@ public final class Engine
       throw new IllegalArgumentException("Constructor's parameters MUST NOT be null");
 
     Enumeration enumer = provider.propertyNames();
-    String key;
+    String key = null;
     String alias;
     int count = 0;
     boolean algorithmFound = false;
-    StringBuilder sb = new StringBuilder();
+    CPStringBuilder sb = new CPStringBuilder();
     while (enumer.hasMoreElements())
       {
         key = (String) enumer.nextElement();
@@ -163,7 +165,7 @@ public final class Engine
           }
         else if (key.equalsIgnoreCase(ALG_ALIAS + service + "." + algorithm))
           {
-            alias = (String) provider.getProperty(key);
+            alias = provider.getProperty(key);
             if (! algorithm.equalsIgnoreCase(alias)) // does not refer to itself
               {
                 algorithm = alias;
@@ -193,7 +195,7 @@ public final class Engine
     Class clazz = null;
     ClassLoader loader = provider.getClass().getClassLoader();
     Constructor constructor = null;
-    String className = provider.getProperty(service + "." + algorithm);
+    String className = provider.getProperty(key);
     sb.append("Class [").append(className).append("] for algorithm [")
         .append(algorithm).append("] of type [").append(service)
         .append("] from provider [").append(provider).append("] ");

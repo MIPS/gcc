@@ -112,13 +112,15 @@
 #include <ext/array_allocator.h>
 #include <ext/atomicity.h>
 #include <ext/bitmap_allocator.h>
+#if _GLIBCXX_HAVE_ICONV
 #include <ext/codecvt_specializations.h>
+#endif
 #include <ext/concurrence.h>
 #include <ext/debug_allocator.h>
+#if _GLIBCXX_HAVE_ICONV
 #include <ext/enc_filebuf.h>
+#endif
 #include <ext/functional>
-#include <ext/hash_map>
-#include <ext/hash_set>
 #include <ext/iterator>
 #include <ext/malloc_allocator.h>
 #include <ext/memory>

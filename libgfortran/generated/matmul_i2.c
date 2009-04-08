@@ -1,5 +1,5 @@
 /* Implementation of the MATMUL intrinsic
-   Copyright 2002, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2002, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -28,11 +28,11 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "libgfortran.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "libgfortran.h"
+
 
 #if defined (HAVE_GFC_INTEGER_2)
 
@@ -135,6 +135,47 @@ matmul_i2 (gfc_array_i2 * const restrict retarray,
 	= internal_malloc_size (sizeof (GFC_INTEGER_2) * size0 ((array_t *) retarray));
       retarray->offset = 0;
     }
+    else if (unlikely (compile_options.bounds_check))
+      {
+	index_type ret_extent, arg_extent;
+
+	if (GFC_DESCRIPTOR_RANK (a) == 1)
+	  {
+	    arg_extent = b->dim[1].ubound + 1 - b->dim[1].lbound;
+	    ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	    if (arg_extent != ret_extent)
+	      runtime_error ("Incorrect extent in return array in"
+			     " MATMUL intrinsic: is %ld, should be %ld",
+			     (long int) ret_extent, (long int) arg_extent);
+	  }
+	else if (GFC_DESCRIPTOR_RANK (b) == 1)
+	  {
+	    arg_extent = a->dim[0].ubound + 1 - a->dim[0].lbound;
+	    ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	    if (arg_extent != ret_extent)
+	      runtime_error ("Incorrect extent in return array in"
+			     " MATMUL intrinsic: is %ld, should be %ld",
+			     (long int) ret_extent, (long int) arg_extent);	    
+	  }
+	else
+	  {
+	    arg_extent = a->dim[0].ubound + 1 - a->dim[0].lbound;
+	    ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	    if (arg_extent != ret_extent)
+	      runtime_error ("Incorrect extent in return array in"
+			     " MATMUL intrinsic for dimension 1:"
+			     " is %ld, should be %ld",
+			     (long int) ret_extent, (long int) arg_extent);
+
+	    arg_extent = b->dim[1].ubound + 1 - b->dim[1].lbound;
+	    ret_extent = retarray->dim[1].ubound + 1 - retarray->dim[1].lbound;
+	    if (arg_extent != ret_extent)
+	      runtime_error ("Incorrect extent in return array in"
+			     " MATMUL intrinsic for dimension 2:"
+			     " is %ld, should be %ld",
+			     (long int) ret_extent, (long int) arg_extent);
+	  }
+      }
 
 
   if (GFC_DESCRIPTOR_RANK (retarray) == 1)
@@ -169,7 +210,11 @@ matmul_i2 (gfc_array_i2 * const restrict retarray,
       xcount = a->dim[0].ubound + 1 - a->dim[0].lbound;
     }
 
-  assert(count == b->dim[0].ubound + 1 - b->dim[0].lbound);
+  if (count != b->dim[0].ubound + 1 - b->dim[0].lbound)
+    {
+      if (count > 0 || b->dim[0].ubound + 1 - b->dim[0].lbound > 0)
+	runtime_error ("dimension of array B incorrect in MATMUL intrinsic");
+    }
 
   if (GFC_DESCRIPTOR_RANK (b) == 1)
     {

@@ -48,7 +48,9 @@ import java.security.PrivilegedActionException;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.ServiceConfigurationError;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -176,7 +178,6 @@ public final class ServiceFactory
    */
   private static final Logger LOGGER = Logger.getLogger("gnu.classpath");
 
-
   /**
    * Declared private in order to prevent constructing instances of
    * this utility class.
@@ -222,11 +223,56 @@ public final class ServiceFactory
    * @throws IllegalArgumentException if <code>spi</code> is
    * <code>null</code>.
    */
-  public static Iterator lookupProviders(Class spi,
-                                         ClassLoader loader)
+  public static <P> Iterator<P> lookupProviders(Class<P> spi,
+						ClassLoader loader)
+  {
+    return lookupProviders(spi, loader, false);
+  }
+
+  /**
+   * Finds service providers that are implementing the specified
+   * Service Provider Interface.
+   *
+   * <p><b>On-demand loading:</b> Loading and initializing service
+   * providers is delayed as much as possible. The rationale is that
+   * typical clients will iterate through the set of installed service
+   * providers until one is found that matches some criteria (like
+   * supported formats, or quality of service). In such scenarios, it
+   * might make sense to install only the frequently needed service
+   * providers on the local machine. More exotic providers can be put
+   * onto a server; the server will only be contacted when no suitable
+   * service could be found locally.
+   *
+   * <p><b>Security considerations:</b> Any loaded service providers
+   * are loaded through the specified ClassLoader, or the system
+   * ClassLoader if <code>classLoader</code> is
+   * <code>null</code>. When <code>lookupProviders</code> is called,
+   * the current {@link AccessControlContext} gets recorded. This
+   * captured security context will determine the permissions when
+   * services get loaded via the <code>next()</code> method of the
+   * returned <code>Iterator</code>.
+   *
+   * @param spi the service provider interface which must be
+   * implemented by any loaded service providers.
+   *
+   * @param loader the class loader that will be used to load the
+   * service providers, or <code>null</code> for the system class
+   * loader. For using the context class loader, see {@link
+   * #lookupProviders(Class)}.
+   * @param error true if a {@link ServiceConfigurationError}
+   *              should be thrown when an error occurs, rather
+   *              than it merely being logged.
+   * @return an iterator over instances of <code>spi</code>.
+   *
+   * @throws IllegalArgumentException if <code>spi</code> is
+   * <code>null</code>.
+   */
+  public static <P> Iterator<P> lookupProviders(Class<P> spi,
+						ClassLoader loader,
+						boolean error)
   {
     String resourceName;
-    Enumeration urls;
+    Enumeration<URL> urls;
 
     if (spi == null)
       throw new IllegalArgumentException();
@@ -246,11 +292,18 @@ public final class ServiceFactory
          * does not return anything (no providers installed).
          */
         log(Level.WARNING, "cannot access {0}", resourceName, ioex);
-        return Collections.EMPTY_LIST.iterator();
+	if (error)
+	  throw new ServiceConfigurationError("Failed to access + " +
+					      resourceName, ioex);
+	else
+	  {
+	    List<P> empty = Collections.emptyList();
+	    return empty.iterator();
+	  }
       }
 
-    return new ServiceIterator(spi, urls, loader,
-                               AccessController.getContext());
+    return new ServiceIterator<P>(spi, urls, loader, error,
+				  AccessController.getContext());
   }
 
 
@@ -269,7 +322,7 @@ public final class ServiceFactory
    *
    * @see #lookupProviders(Class, ClassLoader)
    */
-  public static Iterator lookupProviders(Class spi)
+  public static <P> Iterator<P> lookupProviders(Class<P> spi)
   {
     ClassLoader ctxLoader;
 
@@ -286,14 +339,14 @@ public final class ServiceFactory
    *
    * @author <a href="mailto:brawer@dandelis.ch">Sascha Brawer</a>
    */
-  private static final class ServiceIterator
-    implements Iterator
+  private static final class ServiceIterator<P>
+    implements Iterator<P>
   {
     /**
      * The service provider interface (usually an interface, sometimes
      * an abstract class) which the services must implement.
      */
-    private final Class spi;
+    private final Class<P> spi;
 
 
     /**
@@ -301,7 +354,7 @@ public final class ServiceFactory
      * <code>META-INF/services/&lt;org.foo.SomeService&gt;</code>,
      * as returned by {@link ClassLoader#getResources(String)}.
      */
-    private final Enumeration urls;
+    private final Enumeration<URL> urls;
 
 
     /**
@@ -340,8 +393,13 @@ public final class ServiceFactory
      * {@link #next()}, or <code>null</code> if the iterator has
      * already returned all service providers.
      */
-    private Object nextProvider;
+    private P nextProvider;
 
+    /**
+     * True if a {@link ServiceConfigurationError} should be thrown
+     * when an error occurs, instead of it merely being logged.
+     */
+    private boolean error;
 
     /**
      * Constructs an Iterator that loads and initializes services on
@@ -359,16 +417,21 @@ public final class ServiceFactory
      * @param loader the ClassLoader that gets used for loading
      * service providers.
      *
+     * @param error true if a {@link ServiceConfigurationError}
+     *              should be thrown when an error occurs, rather
+     *              than it merely being logged.
+     *
      * @param securityContext the security context to use when loading
      * and initializing service providers.
      */
-    ServiceIterator(Class spi, Enumeration urls, ClassLoader loader,
-                    AccessControlContext securityContext)
+    ServiceIterator(Class<P> spi, Enumeration<URL> urls, ClassLoader loader,
+		    boolean error, AccessControlContext securityContext)
     {
       this.spi = spi;
       this.urls = urls;
       this.loader = loader;
       this.securityContext = securityContext;
+      this.error = error;
       this.nextProvider = loadNextServiceProvider();
     }
 
@@ -377,9 +440,9 @@ public final class ServiceFactory
      * @throws NoSuchElementException if {@link #hasNext} returns
      * <code>false</code>.
      */
-    public Object next()
+    public P next()
     {
-      Object result;
+      P result;
 
       if (!hasNext())
         throw new NoSuchElementException();
@@ -402,7 +465,7 @@ public final class ServiceFactory
     }
 
 
-    private Object loadNextServiceProvider()
+    private P loadNextServiceProvider()
     {
       String line;
       
@@ -426,6 +489,9 @@ public final class ServiceFactory
               log(Level.WARNING, "IOException upon reading {0}", currentURL,
                   readProblem);
               line = null;
+	      if (error)
+		throw new ServiceConfigurationError("Error reading " +
+						    currentURL, readProblem);
             }
 
           /* When we are at the end of one list of services,
@@ -461,7 +527,7 @@ public final class ServiceFactory
                * active when calling lookupProviders.
                */
               return AccessController.doPrivileged(
-                new ServiceProviderLoadingAction(spi, line, loader),
+                new ServiceProviderLoadingAction<P>(spi, line, loader),
                 securityContext);
             }
           catch (Exception ex)
@@ -477,6 +543,13 @@ public final class ServiceFactory
               log(Level.WARNING, msg,                  
                   new Object[] { line, spi.getName(), currentURL },
                   ex);
+	      if (error)
+		throw new ServiceConfigurationError("Cannot load service "+
+						    "provider class " +
+						    line + " specified by "+
+						    "\"META-INF/services/"+
+						    spi.getName() + "\" in "+
+						    currentURL, ex);
               continue;
             }
         }
@@ -497,6 +570,9 @@ public final class ServiceFactory
               catch (Exception ex)
                 {
                   log(Level.WARNING, "cannot close {0}", currentURL, ex);
+		  if (error)
+		    throw new ServiceConfigurationError("Cannot close " +
+							currentURL, ex);
                 }
               reader = null;
               currentURL = null;
@@ -505,7 +581,7 @@ public final class ServiceFactory
         if (!urls.hasMoreElements())
           return;
 
-        currentURL = (URL) urls.nextElement();
+        currentURL = urls.nextElement();
         try
           {
             reader = new BufferedReader(new InputStreamReader(
@@ -515,6 +591,9 @@ public final class ServiceFactory
         catch (Exception ex)
           {
             log(Level.WARNING, "cannot open {0}", currentURL, ex);
+	    if (error)
+	      throw new ServiceConfigurationError("Cannot open " +
+						  currentURL, ex);
           }
         }
       while (reader == null);

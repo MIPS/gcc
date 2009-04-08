@@ -1,5 +1,5 @@
 /* Target Definitions for R8C/M16C/M32C
-   Copyright (C) 2005
+   Copyright (C) 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Red Hat.
 
@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_M32C_H
 #define GCC_M32C_H
@@ -97,7 +96,7 @@ extern int target_memregs;
 
 #define TARGET_VERSION fprintf (stderr, " (m32c)");
 
-#define OVERRIDE_OPTIONS m32c_override_options ();
+#define OVERRIDE_OPTIONS m32c_override_options ()
 
 /* Defining data structures for per-function information */
 
@@ -144,6 +143,17 @@ machine_function;
 #define UNITS_PER_WORD 2
 #define POINTER_SIZE (TARGET_A16 ? 16 : 32)
 #define POINTERS_EXTEND_UNSIGNED 1
+/* We have a problem with libgcc2.  It only defines two versions of
+   each function, one for "int" and one for "long long".  Ie it assumes
+   that "sizeof (int) == sizeof (long)".  For the M32C this is not true
+   and we need a third set of functions.  We explicitly define
+   LIBGCC2_UNITS_PER_WORD here so that it is clear that we are expecting
+   to get the SI and DI versions from the libgcc2.c sources, and we
+   provide our own set of HI functions in m32c-lib2.c, which is why this
+   definition is surrounded by #ifndef..#endif.  */
+#ifndef LIBGCC2_UNITS_PER_WORD
+#define LIBGCC2_UNITS_PER_WORD 4
+#endif
 
 /* These match the alignment enforced by the two types of stack operations.  */
 #define PARM_BOUNDARY (TARGET_A16 ? 8 : 16)
@@ -154,6 +164,11 @@ machine_function;
    desired.  */
 #define FUNCTION_BOUNDARY 8
 #define BIGGEST_ALIGNMENT 8
+
+/* Since we have a maximum structure alignment of 8 there
+   is no need to enforce any alignment of bitfield types.  */
+#undef  PCC_BITFIELD_TYPE_MATTERS
+#define PCC_BITFIELD_TYPE_MATTERS 0
 
 #define STRICT_ALIGNMENT 0
 #define SLOW_BYTE_ACCESS 1
@@ -173,6 +188,9 @@ machine_function;
 
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE (TARGET_A16 ? "int" : "long int")
+
+#undef UINTPTR_TYPE
+#define UINTPTR_TYPE (TARGET_A16 ? "unsigned int" : "long unsigned int")
 
 /* REGISTER USAGE */
 
@@ -225,7 +243,7 @@ machine_function;
 
 #define REG_ALLOC_ORDER { \
 	0, 1, 2, 3, 4, 5, /* r0..r3, a0, a1 */ \
-	12, 13, 14, 15, 16, 17, 18, /* mem0..mem7 */  \
+        12, 13, 14, 15, 16, 17, 18, 19, /* mem0..mem7 */	\
 	6, 7, 8, 9, 10, 11 /* sb, fb, sp, pc, flg, ap */ }
 
 /* How Values Fit in Registers */
@@ -271,6 +289,7 @@ machine_function;
   { 0x000001f0 }, /* PS  - a0 a1 sb fp sp */\
   { 0x0000000f }, /* SI  - r0r2 r1r3 a0a1 */\
   { 0x0000003f }, /* HI  - r0 r1 r2 r3 a0 a1 */\
+  { 0x00000033 }, /* R02A  - r0r2 a0 a1 */ \
   { 0x0000003f }, /* RA  - r0..r3 a0 a1 */\
   { 0x0000007f }, /* GENERAL */\
   { 0x00000400 }, /* FLG */\
@@ -309,6 +328,7 @@ enum reg_class
   PS_REGS,
   SI_REGS,
   HI_REGS,
+  R02A_REGS,
   RA_REGS,
   GENERAL_REGS,
   FLG_REGS,
@@ -349,6 +369,7 @@ enum reg_class
 "PS_REGS", \
 "SI_REGS", \
 "HI_REGS", \
+"R02A_REGS", \
 "RA_REGS", \
 "GENERAL_REGS", \
 "FLG_REGS", \
@@ -459,6 +480,12 @@ enum reg_class
 #define DWARF_FRAME_REGNUM(N) m32c_dwarf_frame_regnum (N)
 #define DBX_REGISTER_NUMBER(N) m32c_dwarf_frame_regnum (N)
 
+#undef ASM_PREFERRED_EH_DATA_FORMAT
+/* This is the same as the default in practice, except that by making
+   it explicit we tell binutils what size pointers to use.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL) \
+  (TARGET_A16 ? DW_EH_PE_udata2 : DW_EH_PE_udata4)
+
 /* Eliminating Frame Pointer and Arg Pointer */
 
 /* If the frame pointer isn't used, we detect it manually.  But the
@@ -562,11 +589,11 @@ typedef struct m32c_cumulative_args
 
 #define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN) \
 	if (m32c_legitimize_address(&(X),OLDX,MODE)) \
-	  goto win;
+	  goto WIN;
 
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN) \
 	if (m32c_legitimize_reload_address(&(X),MODE,OPNUM,TYPE,IND_LEVELS)) \
-	  goto win;
+	  goto WIN;
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 

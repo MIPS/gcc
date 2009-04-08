@@ -1,6 +1,6 @@
 // Allocator that wraps "C" malloc -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <new>
 #include <bits/functexcept.h>
+#include <bits/move.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -46,6 +47,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
   /**
    *  @brief  An allocator that uses malloc.
+   *  @ingroup allocators
    *
    *  This is precisely the allocator defined in the C++ Standard. 
    *    - all allocation calls malloc
@@ -109,7 +111,14 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // 402. wrong new expression in [some_] allocator::construct
       void 
       construct(pointer __p, const _Tp& __val) 
-      { ::new(__p) value_type(__val); }
+      { ::new((void *)__p) value_type(__val); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename... _Args>
+        void
+        construct(pointer __p, _Args&&... __args) 
+	{ ::new((void *)__p) _Tp(std::forward<_Args>(__args)...); }
+#endif
 
       void 
       destroy(pointer __p) { __p->~_Tp(); }

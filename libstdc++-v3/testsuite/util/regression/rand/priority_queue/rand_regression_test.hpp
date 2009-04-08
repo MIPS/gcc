@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -49,13 +49,11 @@
 
 #include <iostream>
 #include <vector>
-#include <regression/rand/priority_queue/container_rand_regression_test.hpp>
 #include <io/verified_cmd_line_input.hpp>
-#include <common_type/priority_queue/common_type.hpp>
-#include <regression/basic_type.hpp>
-#include <regression/priority_queue/common_type.hpp>
+#include <regression/common_type.hpp>
+#include <regression/rand/priority_queue/container_rand_regression_test.h>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
 namespace test
 {
@@ -125,7 +123,7 @@ namespace detail
       {
 	detail::verify_params(sd, n, m, tp, ip, dp, ep, cp, mp, disp);
       }
-    catch(pb_ds::test::illegal_input_error&)
+    catch(__gnu_pbds::test::illegal_input_error&)
       {
 	detail::usage(name);
 	return -1;
@@ -209,6 +207,6 @@ namespace detail
   }
 } // namespace detail
 } // namespace test
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif

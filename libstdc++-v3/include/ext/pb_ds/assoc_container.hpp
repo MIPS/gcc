@@ -53,7 +53,7 @@
 #include <ext/pb_ds/detail/container_base_dispatch.hpp>
 #include <ext/pb_ds/detail/basic_tree_policy/traits.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
 #define PB_DS_BASE_C_DEC \
   detail::container_base_dispatch<Key, Mapped, Tag, Policy_Tl, Allocator>::type
@@ -71,13 +71,13 @@ namespace pb_ds
 
   public:
     typedef Tag 					container_category;
-    typedef Allocator 					allocator;
-    typedef typename allocator::size_type 		size_type;
-    typedef typename allocator::difference_type 	difference_type;
+    typedef Allocator 					allocator_type;
+    typedef typename allocator_type::size_type 		size_type;
+    typedef typename allocator_type::difference_type 	difference_type;
 
     // key_type
-    typedef typename allocator::template rebind<Key>::other::value_type key_type;
-    typedef typename allocator::template rebind<key_type>::other key_rebind;
+    typedef typename allocator_type::template rebind<Key>::other::value_type key_type;
+    typedef typename allocator_type::template rebind<key_type>::other key_rebind;
     typedef typename key_rebind::reference 		key_reference;
     typedef typename key_rebind::const_reference 	const_key_reference;
     typedef typename key_rebind::pointer 		key_pointer;
@@ -85,7 +85,7 @@ namespace pb_ds
 
     // mapped_type
     typedef Mapped 					mapped_type;
-    typedef typename allocator::template rebind<mapped_type>::other mapped_rebind;
+    typedef typename allocator_type::template rebind<mapped_type>::other mapped_rebind;
     typedef typename mapped_rebind::reference 		mapped_reference;
     typedef typename mapped_rebind::const_reference	const_mapped_reference;
     typedef typename mapped_rebind::pointer 		mapped_pointer;
@@ -93,7 +93,7 @@ namespace pb_ds
 
     // value_type
     typedef typename base_type::value_type 		value_type;
-    typedef typename allocator::template rebind<value_type>::other value_rebind;
+    typedef typename allocator_type::template rebind<value_type>::other value_rebind;
     typedef typename value_rebind::reference		reference;
     typedef typename value_rebind::const_reference 	const_reference;
     typedef typename value_rebind::pointer 		pointer;
@@ -495,7 +495,7 @@ namespace pb_ds
   template<typename Key, typename Mapped, typename Cmp_Fn = std::less<Key>,
 	   typename Tag = rb_tree_tag,
 	   template<typename Const_Node_Iterator, typename Node_Iterator, typename Cmp_Fn_, typename Allocator_>
-  class Node_Update = pb_ds::null_tree_node_update,
+  class Node_Update = __gnu_pbds::null_tree_node_update,
 	   typename Allocator = std::allocator<char> >
   class tree : public PB_DS_BASE_C_DEC
   {
@@ -684,6 +684,6 @@ namespace pb_ds
 
 #undef PB_DS_BASE_C_DEC
 
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif 

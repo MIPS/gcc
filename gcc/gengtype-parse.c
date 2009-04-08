@@ -1,11 +1,11 @@
 /* Process source files and output type information.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "bconfig.h"
 #include "system.h"
@@ -198,9 +197,9 @@ string_seq (void)
 
       l1 = strlen (s1);
       l2 = strlen (s2);
-      buf = XRESIZEVEC (char, s1, l1 + l2 + 1);
+      buf = XRESIZEVEC (char, CONST_CAST(char *, s1), l1 + l2 + 1);
       memcpy (buf + l1, s2, l2 + 1);
-      XDELETE (s2);
+      XDELETE (CONST_CAST (char *, s2));
       s1 = buf;
     }
   return s1;
@@ -222,8 +221,8 @@ typedef_name (void)
       c2 = require (ID);
       require (')');
       r = concat ("VEC_", c1, "_", c2, (char *)0);
-      free ((void *)c1);
-      free ((void *)c2);
+      free (CONST_CAST (char *, c1));
+      free (CONST_CAST (char *, c2));
       return r;
     }
   else

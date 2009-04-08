@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++0x" }
 // { dg-do compile }
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -82,16 +82,23 @@
 #include <tgmath.h>
 #endif
 #include <time.h>
+#ifdef _GLIBCXX_HAVE_WCHAR_H
 #include <wchar.h>
+#endif
+#ifdef _GLIBCXX_HAVE_WCTYPE_H
 #include <wctype.h>
+#endif
 
 // "C++" headers
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <chrono>
 #include <complex>
+#include <condition_variable>
 #include <deque>
 #include <exception>
+#include <forward_list>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -105,11 +112,13 @@
 #include <locale>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <numeric>
 #include <ostream>
 #include <queue>
 #include <random>
+#include <ratio>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -117,6 +126,7 @@
 #include <stdexcept>
 #include <streambuf>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <typeinfo>
 #include <type_traits>
@@ -188,16 +198,23 @@
 #include <tgmath.h>
 #endif
 #include <time.h>
+#ifdef _GLIBCXX_HAVE_WCHAR_H
 #include <wchar.h>
+#endif
+#ifdef _GLIBCXX_HAVE_WCTYPE_H
 #include <wctype.h>
+#endif
 
 // "C++" headers
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <chrono>
 #include <complex>
+#include <condition_variable>
 #include <deque>
 #include <exception>
+#include <forward_list>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -211,11 +228,13 @@
 #include <locale>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <numeric>
 #include <ostream>
 #include <queue>
 #include <random>
+#include <ratio>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -223,6 +242,7 @@
 #include <stdexcept>
 #include <streambuf>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <typeinfo>
 #include <type_traits>

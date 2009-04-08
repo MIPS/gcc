@@ -1,5 +1,5 @@
 /* VMDouble.c - java.lang.VMDouble native functions
-   Copyright (C) 1998, 1999, 2001, 2003, 2004, 2005, 2006
+   Copyright (C) 1998, 1999, 2001, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -112,30 +112,6 @@ Java_java_lang_VMDouble_initIDs (JNIEnv * env, jclass cls __attribute__ ((__unus
 
 /*
  * Class:     java_lang_VMDouble
- * Method:    doubleToLongBits
- * Signature: (D)J
- */
-JNIEXPORT jlong JNICALL
-Java_java_lang_VMDouble_doubleToLongBits
-  (JNIEnv * env __attribute__ ((__unused__)),
-   jclass cls __attribute__ ((__unused__)), jdouble doubleValue)
-{
-  jvalue val;
-  jlong e, f;
-
-  val.d = doubleValue;
-
-  e = val.j & 0x7ff0000000000000LL;
-  f = val.j & 0x000fffffffffffffLL;
-
-  if (e == 0x7ff0000000000000LL && f != 0L)
-    val.j = 0x7ff8000000000000LL;
-
-  return val.j;
-}
-
-/*
- * Class:     java_lang_VMDouble
  * Method:    doubleToRawLongBits
  * Signature: (D)J
  */
@@ -147,6 +123,16 @@ Java_java_lang_VMDouble_doubleToRawLongBits
   jvalue val;
 
   val.d = doubleValue;
+
+#if defined(__IEEE_BYTES_LITTLE_ENDIAN)
+  /* On little endian ARM processors when using FPA, word order of
+     doubles is still big endian. So take that into account here. When
+     using VFP, word order of doubles follows byte order. */
+
+#define SWAP_DOUBLE(a)    (((a) << 32) | (((a) >> 32) & 0x00000000ffffffff))
+
+  val.j = SWAP_DOUBLE(val.j);
+#endif
 
   return val.j;
 }
@@ -164,6 +150,10 @@ Java_java_lang_VMDouble_longBitsToDouble
   jvalue val;
 
   val.j = longValue;
+
+#if defined(__IEEE_BYTES_LITTLE_ENDIAN)
+  val.j = SWAP_DOUBLE(val.j);
+#endif
 
   return val.d;
 }
@@ -236,7 +226,7 @@ parseDoubleFromChars(JNIEnv * env, const char * buf)
 
 #ifdef DEBUG
       fprintf (stderr, "java.lang.VMDouble.parseDouble val = %g\n", val);
-      fprintf (stderr, "java.lang.VMDouble.parseDouble %i != %i ???\n",
+      fprintf (stderr, "java.lang.VMDouble.parseDouble %p != %p ???\n",
 	       endptr, last_non_ws);
 #endif
       if (endptr != last_non_ws)
@@ -450,7 +440,7 @@ Java_java_lang_VMDouble_parseDouble
       return val;
     }
 
-  buf = (char *) (*env)->GetStringUTFChars (env, str, &isCopy);
+  buf = (*env)->GetStringUTFChars (env, str, &isCopy);
   if (buf == NULL)
     {
       /* OutOfMemoryError already thrown */

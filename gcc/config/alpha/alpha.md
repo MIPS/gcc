@@ -1,13 +1,14 @@
 ;; Machine description for DEC Alpha for GNU C compiler
 ;; Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-;; 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+;; 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+;; Free Software Foundation, Inc.
 ;; Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -16,9 +17,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -89,12 +89,12 @@
 
 ;; On non-BWX targets, CQImode must be handled the similarly to HImode
 ;; when generating reloads.
-(define_mode_macro RELOAD12 [QI HI CQI])
+(define_mode_iterator RELOAD12 [QI HI CQI])
 (define_mode_attr reloadmode [(QI "qi") (HI "hi") (CQI "hi")])
 
-;; Other mode macros
-(define_mode_macro I12MODE [QI HI])
-(define_mode_macro I48MODE [SI DI])
+;; Other mode iterators
+(define_mode_iterator I12MODE [QI HI])
+(define_mode_iterator I48MODE [SI DI])
 (define_mode_attr modesuffix [(SI "l") (DI "q")])
 
 ;; Where necessary, the suffixes _le and _be are used to distinguish between
@@ -475,11 +475,11 @@
    && INTVAL (operands[2])
 	< (0x7fff8000
 	   - FIRST_PSEUDO_REGISTER * UNITS_PER_WORD
-	   - ALPHA_ROUND(current_function_outgoing_args_size)
+	   - ALPHA_ROUND(crtl->outgoing_args_size)
 	   - (ALPHA_ROUND (get_frame_size ()
 			   + max_reg_num () * UNITS_PER_WORD
-			   + current_function_pretend_args_size)
-	      - current_function_pretend_args_size))"
+			   + crtl->args.pretend_args_size)
+	      - crtl->args.pretend_args_size))"
   "@
    lda %0,%2(%1)
    ldah %0,%h2(%1)
@@ -506,7 +506,7 @@
   operands[4] = GEN_INT (low);
   if (satisfies_constraint_L (rest_rtx))
     operands[3] = rest_rtx;
-  else if (! no_new_pseudos)
+  else if (can_create_pseudo_p ())
     {
       operands[3] = gen_reg_rtx (DImode);
       emit_move_insn (operands[3], operands[2]);
@@ -4370,14 +4370,14 @@
    (clobber (match_scratch:DI 5 "=r"))]
   ""
   "#"
-  "! no_new_pseudos || reload_completed"
+  ""
   [(set (match_dup 5)
 	(match_op_dup:DI 1 [(match_dup 2) (const_int 0)]))
    (set (match_dup 0)
 	(plus:DI (mult:DI (match_dup 5) (match_dup 3))
 		 (match_dup 4)))]
 {
-  if (! no_new_pseudos)
+  if (can_create_pseudo_p ())
     operands[5] = gen_reg_rtx (DImode);
   else if (reg_overlap_mentioned_p (operands[5], operands[4]))
     operands[5] = operands[0];
@@ -4395,14 +4395,14 @@
    (clobber (match_scratch:SI 5 "=r"))]
   ""
   "#"
-  "! no_new_pseudos || reload_completed"
+  ""
   [(set (match_dup 5)
 	(match_op_dup:SI 1 [(match_dup 2) (const_int 0)]))
    (set (match_dup 0)
 	(plus:SI (mult:SI (match_dup 5) (match_dup 3))
 		 (match_dup 4)))]
 {
-  if (! no_new_pseudos)
+  if (can_create_pseudo_p ())
     operands[5] = gen_reg_rtx (DImode);
   else if (reg_overlap_mentioned_p (operands[5], operands[4]))
     operands[5] = operands[0];
@@ -4421,14 +4421,14 @@
    (clobber (match_scratch:SI 5 "=r"))]
   ""
   "#"
-  "! no_new_pseudos || reload_completed"
+  ""
   [(set (match_dup 5)
 	(match_op_dup:SI 1 [(match_dup 2) (const_int 0)]))
    (set (match_dup 0)
 	(sign_extend:DI (plus:SI (mult:SI (match_dup 5) (match_dup 3))
 				 (match_dup 4))))]
 {
-  if (! no_new_pseudos)
+  if (can_create_pseudo_p ())
     operands[5] = gen_reg_rtx (DImode);
   else if (reg_overlap_mentioned_p (operands[5], operands[4]))
     operands[5] = operands[0];
@@ -4446,14 +4446,14 @@
    (clobber (match_scratch:DI 5 "=r"))]
   ""
   "#"
-  "! no_new_pseudos || reload_completed"
+  ""
   [(set (match_dup 5)
 	(match_op_dup:DI 1 [(match_dup 2) (const_int 0)]))
    (set (match_dup 0)
 	(minus:DI (mult:DI (match_dup 5) (match_dup 3))
 		  (match_dup 4)))]
 {
-  if (! no_new_pseudos)
+  if (can_create_pseudo_p ())
     operands[5] = gen_reg_rtx (DImode);
   else if (reg_overlap_mentioned_p (operands[5], operands[4]))
     operands[5] = operands[0];
@@ -4471,14 +4471,14 @@
    (clobber (match_scratch:SI 5 "=r"))]
   ""
   "#"
-  "! no_new_pseudos || reload_completed"
+  ""
   [(set (match_dup 5)
 	(match_op_dup:SI 1 [(match_dup 2) (const_int 0)]))
    (set (match_dup 0)
 	(minus:SI (mult:SI (match_dup 5) (match_dup 3))
 		 (match_dup 4)))]
 {
-  if (! no_new_pseudos)
+  if (can_create_pseudo_p ())
     operands[5] = gen_reg_rtx (DImode);
   else if (reg_overlap_mentioned_p (operands[5], operands[4]))
     operands[5] = operands[0];
@@ -4497,14 +4497,14 @@
    (clobber (match_scratch:SI 5 "=r"))]
   ""
   "#"
-  "! no_new_pseudos || reload_completed"
+  ""
   [(set (match_dup 5)
 	(match_op_dup:SI 1 [(match_dup 2) (const_int 0)]))
    (set (match_dup 0)
 	(sign_extend:DI (minus:SI (mult:SI (match_dup 5) (match_dup 3))
 				  (match_dup 4))))]
 {
-  if (! no_new_pseudos)
+  if (can_create_pseudo_p ())
     operands[5] = gen_reg_rtx (DImode);
   else if (reg_overlap_mentioned_p (operands[5], operands[4]))
     operands[5] = operands[0];
@@ -5376,9 +5376,9 @@
 
 ;; Split the load of an address into a four-insn sequence on Unicos/Mk.
 ;; Always generate a REG_EQUAL note for the last instruction to facilitate
-;; optimizations. If the symbolic operand is a label_ref, generate REG_LABEL
-;; notes and update LABEL_NUSES because this is not done automatically.
-;; Labels may be incorrectly deleted if we don't do this.
+;; optimizations. If the symbolic operand is a label_ref, generate
+;; REG_LABEL_OPERAND notes and update LABEL_NUSES because this is not done
+;; automatically.  Labels may be incorrectly deleted if we don't do this.
 ;;
 ;; Describing what the individual instructions do correctly is too complicated
 ;; so use UNSPECs for each of the three parts of an address.
@@ -5402,11 +5402,11 @@
       rtx label;
 
       label = XEXP (operands[1], 0);
-      REG_NOTES (insn1) = gen_rtx_EXPR_LIST (REG_LABEL, label,
+      REG_NOTES (insn1) = gen_rtx_EXPR_LIST (REG_LABEL_OPERAND, label,
 					     REG_NOTES (insn1));
-      REG_NOTES (insn2) = gen_rtx_EXPR_LIST (REG_LABEL, label,
+      REG_NOTES (insn2) = gen_rtx_EXPR_LIST (REG_LABEL_OPERAND, label,
 					     REG_NOTES (insn2));
-      REG_NOTES (insn3) = gen_rtx_EXPR_LIST (REG_LABEL, label,
+      REG_NOTES (insn3) = gen_rtx_EXPR_LIST (REG_LABEL_OPERAND, label,
 					     REG_NOTES (insn3));
       LABEL_NUSES (label) += 3;
     }
@@ -5760,7 +5760,7 @@
     {
       rtx in[2], out[2], target;
 
-      gcc_assert (!no_new_pseudos);
+      gcc_assert (can_create_pseudo_p ());
 
       split_double (operands[1], &in[0], &in[1]);
 
@@ -5785,8 +5785,8 @@
       else
 	target = operands[0];
 
-      emit_insn (gen_movdi (gen_rtx_SUBREG (DImode, target, 0), out[0]));
-      emit_insn (gen_movdi (gen_rtx_SUBREG (DImode, target, 8), out[1]));
+      emit_insn (gen_movdi (operand_subword (target, 0, 0, TImode), out[0]));
+      emit_insn (gen_movdi (operand_subword (target, 1, 0, TImode), out[1]));
 
       if (target != operands[0])
 	emit_insn (gen_rtx_SET (VOIDmode, operands[0], target));
@@ -6254,7 +6254,7 @@
 
 ;; Vector operations
 
-(define_mode_macro VEC [V8QI V4HI V2SI])
+(define_mode_iterator VEC [V8QI V4HI V2SI])
 
 (define_expand "mov<mode>"
   [(set (match_operand:VEC 0 "nonimmediate_operand" "")
@@ -6949,8 +6949,8 @@
   emit_move_insn (hard_frame_pointer_rtx, fp);
   emit_move_insn (pv, lab);
   emit_stack_restore (SAVE_NONLOCAL, stack, NULL_RTX);
-  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
-  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+  emit_use (hard_frame_pointer_rtx);
+  emit_use (stack_pointer_rtx);
 
   /* Load the label we are jumping through into $27 so that we know
      where to look for it when we get back to setjmp's function for

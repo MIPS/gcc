@@ -33,6 +33,9 @@
 /* Define to 1 if you have the <crt_externs.h> header file. */
 #undef HAVE_CRT_EXTERNS_H
 
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
 /* Define to 1 if you have the <dssi.h> header file. */
 #undef HAVE_DSSI_H
 
@@ -60,6 +63,15 @@
 /* Define to 1 if you have the `ftruncate' function. */
 #undef HAVE_FTRUNCATE
 
+/* three-argument gethostbyname_r */
+#undef HAVE_FUNC_GETHOSTBYNAME_R_3
+
+/* five-argument gethostbyname_r */
+#undef HAVE_FUNC_GETHOSTBYNAME_R_5
+
+/* six-argument gethostbyname_r */
+#undef HAVE_FUNC_GETHOSTBYNAME_R_6
+
 /* Define to 1 if you have the `gethostbyname_r' function. */
 #undef HAVE_GETHOSTBYNAME_R
 
@@ -68,6 +80,9 @@
 
 /* Define to 1 if you have the `getifaddrs' function. */
 #undef HAVE_GETIFADDRS
+
+/* Define to 1 if you have the `getloadavg' function. */
+#undef HAVE_GETLOADAVG
 
 /* Define to 1 if you have the `getpagesize' function. */
 #undef HAVE_GETPAGESIZE
@@ -80,6 +95,9 @@
 
 /* Define to 1 if you have the `getsockopt' function. */
 #undef HAVE_GETSOCKOPT
+
+/* Define to 1 if you have the <gmp.h> header file. */
+#undef HAVE_GMP_H
 
 /* Define if function attributes a la GCC 2.5 and higher are available. */
 #undef HAVE_GNUC25_ATTRIB
@@ -129,6 +147,9 @@
 /* Define to 1 if you have the `ltdl' library (-lltdl). */
 #undef HAVE_LIBLTDL
 
+/* Define to 1 if you have the `socket' library (-lsocket). */
+#undef HAVE_LIBSOCKET
+
 /* Define to 1 if you have the `listen' function. */
 #undef HAVE_LISTEN
 
@@ -168,11 +189,23 @@
 /* Define this symbol if you have MSG_NOSIGNAL */
 #undef HAVE_MSG_NOSIGNAL
 
+/* Define this symbol if you have MSG_WAITALL */
+#undef HAVE_MSG_WAITALL
+
 /* Define to 1 if you have the `msync' function. */
 #undef HAVE_MSYNC
 
 /* Define to 1 if you have the `munmap' function. */
 #undef HAVE_MUNMAP
+
+/* Define to 1 if you have the <netinet/in_systm.h> header file. */
+#undef HAVE_NETINET_IN_SYSTM_H
+
+/* Define to 1 if you have the <netinet/ip.h> header file. */
+#undef HAVE_NETINET_IP_H
+
+/* Define to 1 if you have the <net/if.h> header file. */
+#undef HAVE_NET_IF_H
 
 /* Define to 1 if you have the `open' function. */
 #undef HAVE_OPEN
@@ -182,9 +215,6 @@
 
 /* Define to 1 if you have the `read' function. */
 #undef HAVE_READ
-
-/* Define to 1 if you have the `readdir_r' function. */
-#undef HAVE_READDIR_R
 
 /* Define to 1 if you have the `readlink' function. */
 #undef HAVE_READLINK
@@ -215,6 +245,9 @@
 
 /* Define this symbol if you have SO_NOSIGPIPE */
 #undef HAVE_SO_NOSIGPIPE
+
+/* Define to 1 if you have the `statvfs' function. */
+#undef HAVE_STATVFS
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -255,11 +288,17 @@
 /* Define to 1 if you have the <sys/ioctl.h> header file. */
 #undef HAVE_SYS_IOCTL_H
 
+/* Define to 1 if you have the <sys/loadavg.h> header file. */
+#undef HAVE_SYS_LOADAVG_H
+
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #undef HAVE_SYS_MMAN_H
 
 /* Define to 1 if you have the <sys/select.h> header file. */
 #undef HAVE_SYS_SELECT_H
+
+/* Define to 1 if you have the <sys/sockio.h> header file. */
+#undef HAVE_SYS_SOCKIO_H
 
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
@@ -308,12 +347,25 @@
 /* Define to 1 if you have libXrender. */
 #undef HAVE_XRENDER
 
+/* Define to 1 if you have libXtst. */
+#undef HAVE_XTEST
+
+/* Define to 1 if you have the `\' function. */
+#undef HAVE__
+
 /* Define if the host machine stores words of multi-word integers in
    big-endian order. */
 #undef HOST_WORDS_BIG_ENDIAN
 
 /* Define as const if the declaration of iconv() needs const. */
 #undef ICONV_CONST
+
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#undef LT_OBJDIR
+
+/* Define to 1 if your C compiler doesn't accept -c and -o together. */
+#undef NO_MINUS_C_MINUS_O
 
 /* Name of package */
 #undef PACKAGE
@@ -370,6 +422,9 @@
 /* Version number of package */
 #undef VERSION
 
+/* Define to 1 if gmp is usable */
+#undef WITH_GNU_MP
+
 /* whether byteorder is bigendian */
 #undef WORDS_BIGENDIAN
 
@@ -381,6 +436,12 @@
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
 
 /* GNU C attributes. */
 #ifndef FUNCATTR

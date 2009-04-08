@@ -1,12 +1,12 @@
 ;; Predicate definitions for the Blackfin.
-;; Copyright (C) 2005, 2006  Free Software Foundation, Inc.
+;; Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 ;; Contributed by Analog Devices.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Return nonzero iff OP is one of the integer constants 1 or 2.
 (define_predicate "pos_scale_operand"
@@ -35,7 +34,7 @@
 ;; if the constant would be cheap to load.
 (define_predicate "highbits_operand"
   (and (match_code "const_int")
-       (match_test "log2constp (-INTVAL (op)) && !CONST_7BIT_IMM_P (INTVAL (op))")))
+       (match_test "log2constp (-INTVAL (op)) && !satisfies_constraint_Ks7 (op)")))
 
 ;; Return nonzero if OP is suitable as a right-hand side operand for an
 ;; andsi3 operation.
@@ -100,7 +99,7 @@
 (define_predicate "reg_or_7bit_operand"
   (ior (match_operand 0 "register_operand")
        (and (match_code "const_int")
-	    (match_test "CONST_7BIT_IMM_P (INTVAL (op))"))))
+	    (match_test "satisfies_constraint_Ks7 (op)"))))
 
 ;; Return nonzero if OP is a register other than DREG and PREG.
 (define_predicate "nondp_register_operand"
@@ -124,7 +123,7 @@
 (define_predicate "reg_or_neg7bit_operand"
   (ior (match_operand 0 "register_operand")
        (and (match_code "const_int")
-	    (match_test "CONST_7BIT_IMM_P (-INTVAL (op))"))))
+	    (match_test "satisfies_constraint_KN7 (op)"))))
 
 ;; Used for secondary reloads, this function returns 1 if OP is of the
 ;; form (plus (fp) (const_int)).

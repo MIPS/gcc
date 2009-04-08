@@ -51,7 +51,7 @@
 #include <ext/pb_ds/detail/type_utils.hpp>
 #include <ext/pb_ds/detail/trie_policy/trie_policy_base.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   // A null node updator, indicating that no node updates are required.
   template<typename Const_Node_Iterator,
@@ -167,10 +167,10 @@ namespace pb_ds
     typedef typename e_access_traits::const_iterator const_e_iterator;
 
     // Allocator type.
-    typedef Allocator allocator;
+    typedef Allocator allocator_type;
 
     // Size type.
-    typedef typename allocator::size_type size_type;
+    typedef typename allocator_type::size_type size_type;
     typedef detail::null_node_metadata metadata_type;
     typedef Const_Node_Iterator const_node_iterator;
     typedef Node_Iterator node_iterator;
@@ -256,8 +256,8 @@ namespace pb_ds
   public:
     typedef E_Access_Traits e_access_traits;
     typedef typename e_access_traits::const_iterator const_e_iterator;
-    typedef Allocator allocator;
-    typedef typename allocator::size_type size_type;
+    typedef Allocator allocator_type;
+    typedef typename allocator_type::size_type size_type;
     typedef typename base_type::key_type key_type;
     typedef typename base_type::const_key_reference const_key_reference;
 
@@ -356,6 +356,6 @@ namespace pb_ds
 #undef PB_DS_CLASS_C_DEC
 #undef PB_DS_BASE_C_DEC
 
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif

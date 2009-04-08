@@ -1,12 +1,12 @@
 /* Operating system specific defines to be used when targeting GCC for any
    Solaris 2 system.
-   Copyright 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004, 2007, 2008, 2009 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* We use stabs-in-elf for debugging, because that is what the native
    toolchain uses.  */
@@ -38,6 +37,40 @@ Boston, MA 02110-1301, USA.  */
 
 #undef	WINT_TYPE_SIZE
 #define	WINT_TYPE_SIZE BITS_PER_WORD
+
+#define SIG_ATOMIC_TYPE "int"
+
+/* ??? This definition of int8_t follows the system header but does
+   not conform to C99.  Likewise int_fast8_t, int_least8_t.  */
+#define INT8_TYPE "char"
+#define INT16_TYPE "short int"
+#define INT32_TYPE "int"
+#define INT64_TYPE (LONG_TYPE_SIZE == 64 ? "long int" : "long long int")
+#define UINT8_TYPE "unsigned char"
+#define UINT16_TYPE "short unsigned int"
+#define UINT32_TYPE "unsigned int"
+#define UINT64_TYPE (LONG_TYPE_SIZE == 64 ? "long unsigned int" : "long long unsigned int")
+
+#define INT_LEAST8_TYPE "char"
+#define INT_LEAST16_TYPE "short int"
+#define INT_LEAST32_TYPE "int"
+#define INT_LEAST64_TYPE (LONG_TYPE_SIZE == 64 ? "long int" : "long long int")
+#define UINT_LEAST8_TYPE "unsigned char"
+#define UINT_LEAST16_TYPE "short unsigned int"
+#define UINT_LEAST32_TYPE "unsigned int"
+#define UINT_LEAST64_TYPE (LONG_TYPE_SIZE == 64 ? "long unsigned int" : "long long unsigned int")
+
+#define INT_FAST8_TYPE "char"
+#define INT_FAST16_TYPE "int"
+#define INT_FAST32_TYPE "int"
+#define INT_FAST64_TYPE (LONG_TYPE_SIZE == 64 ? "long int" : "long long int")
+#define UINT_FAST8_TYPE "unsigned char"
+#define UINT_FAST16_TYPE "unsigned int"
+#define UINT_FAST32_TYPE "unsigned int"
+#define UINT_FAST64_TYPE (LONG_TYPE_SIZE == 64 ? "long unsigned int" : "long long unsigned int")
+
+#define INTPTR_TYPE (LONG_TYPE_SIZE == 64 ? "long int" : "int")
+#define UINTPTR_TYPE (LONG_TYPE_SIZE == 64 ? "long unsigned int" : "unsigned int")
 
 #define TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME 1
 
@@ -233,9 +266,6 @@ __enable_execute_stack (void *addr)					\
       solaris_output_init_fini (FILE, DECL);			\
     }								\
   while (0)
-
-/* Register the Solaris-specific #pragma directives.  */
-#define REGISTER_TARGET_PRAGMAS() solaris_register_pragmas ()
 
 extern GTY(()) tree solaris_pending_aligns;
 extern GTY(()) tree solaris_pending_inits;

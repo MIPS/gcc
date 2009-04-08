@@ -1,5 +1,5 @@
 /* OpenMBeanAttributeInfoSupport.java -- Open typed info about an attribute.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -62,7 +62,7 @@ public class OpenMBeanAttributeInfoSupport
   /**
    * The open type of the attribute.
    */
-  private OpenType openType;
+  private OpenType<?> openType;
 
   /**
    * The default value of the attribute (may be <code>null</code>).
@@ -72,17 +72,17 @@ public class OpenMBeanAttributeInfoSupport
   /**
    * The possible legal values of the attribute (may be <code>null</code>).
    */
-  private Set legalValues;
+  private Set<?> legalValues;
 
   /**
    * The minimum value of the attribute (may be <code>null</code>).
    */
-  private Comparable minValue;
+  private Comparable<?> minValue;
 
   /**
    * The maximum value of the attribute (may be <code>null</code>).
    */
-  private Comparable maxValue;
+  private Comparable<?> maxValue;
 
   /**
    * The hash code of this instance.
@@ -112,7 +112,7 @@ public class OpenMBeanAttributeInfoSupport
    *                                  or the name or description are
    *                                  the empty string.
    */
-  public OpenMBeanAttributeInfoSupport(String name, String desc, OpenType type,
+  public OpenMBeanAttributeInfoSupport(String name, String desc, OpenType<?> type,
 				       boolean isReadable, boolean isWritable,
 				       boolean isIs)
   {
@@ -157,9 +157,9 @@ public class OpenMBeanAttributeInfoSupport
    *                           open type or the open type is an instance
    *                           of {@link ArrayType} or {@link TabularType}.
    */
-  public OpenMBeanAttributeInfoSupport(String name, String desc, OpenType type,
-				       boolean isReadable, boolean isWritable,
-				       boolean isIs, Object defaultValue)
+  public <T> OpenMBeanAttributeInfoSupport(String name, String desc, OpenType<T> type,
+					   boolean isReadable, boolean isWritable,
+					   boolean isIs, T defaultValue)
     throws OpenDataException
   {
     this(name, desc, type, isReadable, isWritable, isIs, defaultValue, null);
@@ -203,11 +203,12 @@ public class OpenMBeanAttributeInfoSupport
    *                                  the empty string.
    * @throws OpenDataException if any condition in the list above is broken.
    */
-  public OpenMBeanAttributeInfoSupport(String name, String desc, OpenType type,
-				       boolean isReadable, boolean isWritable,
-				       boolean isIs, Object defaultValue,
-				       Comparable minimumValue,
-				       Comparable maximumValue)
+  @SuppressWarnings("unchecked")
+  public <T> OpenMBeanAttributeInfoSupport(String name, String desc, OpenType<T> type,
+					   boolean isReadable, boolean isWritable,
+					   boolean isIs, T defaultValue,
+					   Comparable<T> minimumValue,
+					   Comparable<T> maximumValue)
     throws OpenDataException
   {
     this(name, desc, type, isReadable, isWritable, isIs);
@@ -224,16 +225,16 @@ public class OpenMBeanAttributeInfoSupport
 				 type instanceof TabularType))
       throw new OpenDataException("Default values are not applicable for " +
 				  "array or tabular types.");
-    if (minValue != null && maxValue != null 
-	&& minValue.compareTo(maxValue) > 0)
+    if (minimumValue != null && maximumValue != null 
+	&& minimumValue.compareTo((T) maximumValue) > 0)
       throw new OpenDataException("The minimum value is greater than the " +
 				  "maximum.");
-    if (minValue != null && defaultValue != null 
-	&& minValue.compareTo(defaultValue) > 0)
+    if (minimumValue != null && defaultValue != null 
+	&& minimumValue.compareTo(defaultValue) > 0)
       throw new OpenDataException("The minimum value is greater than the " +
 				  "default.");
-    if (defaultValue != null && maxValue != null
-	&& maxValue.compareTo(defaultValue) < 0)
+    if (defaultValue != null && maximumValue != null
+	&& maximumValue.compareTo(defaultValue) < 0)
       throw new OpenDataException("The default value is greater than the " +
 				  "maximum.");
     
@@ -280,10 +281,10 @@ public class OpenMBeanAttributeInfoSupport
    *                                  the empty string.
    * @throws OpenDataException if any condition in the list above is broken.
    */
-  public OpenMBeanAttributeInfoSupport(String name, String desc, OpenType type,
-				       boolean isReadable, boolean isWritable,
-				       boolean isIs, Object defaultValue,
-				       Object[] legalValues)
+  public <T> OpenMBeanAttributeInfoSupport(String name, String desc, OpenType<T> type,
+					   boolean isReadable, boolean isWritable,
+					   boolean isIs, T defaultValue,
+					   T[] legalValues)
     throws OpenDataException
   {
     this(name, desc, type, isReadable, isWritable, isIs);
@@ -300,7 +301,7 @@ public class OpenMBeanAttributeInfoSupport
 				  "array or tabular types.");
     if (legalValues != null && legalValues.length > 0)
       {
-	Set lv = new HashSet(legalValues.length);
+	Set<T> lv = new HashSet<T>(legalValues.length);
 	for (int a = 0; a < legalValues.length; ++a)
 	  {
 	    if (legalValues[a] != null && 
@@ -379,7 +380,7 @@ public class OpenMBeanAttributeInfoSupport
    * @return a set of legal values, or <code>null</code> if no such
    *         set exists.
    */
-  public Set getLegalValues()
+  public Set<?> getLegalValues()
   {
     return legalValues;
   }
@@ -390,7 +391,7 @@ public class OpenMBeanAttributeInfoSupport
    *
    * @return the maximum value, or <code>null</code> if none exists.
    */
-  public Comparable getMaxValue()
+  public Comparable<?> getMaxValue()
   {
     return maxValue;
   }
@@ -401,7 +402,7 @@ public class OpenMBeanAttributeInfoSupport
    *
    * @return the minimum value, or <code>null</code> if none exists.
    */
-  public Comparable getMinValue()
+  public Comparable<?> getMinValue()
   {
     return minValue;
   }
@@ -412,7 +413,7 @@ public class OpenMBeanAttributeInfoSupport
    *
    * @return the open type of this attribute.
    */
-  public OpenType getOpenType()
+  public OpenType<?> getOpenType()
   {
     return openType;
   }

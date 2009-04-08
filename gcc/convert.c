@@ -1,13 +1,13 @@
 /* Utility routines for data type conversion for GCC.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1997, 1998,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* These routines are somewhat language-independent utility function
@@ -34,6 +33,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "langhooks.h"
 #include "real.h"
+#include "fixed-value.h"
 
 /* Convert EXPR to some pointer or reference type TYPE.
    EXPR must be pointer, reference, integer, enumeral, or literal zero;
@@ -81,7 +81,7 @@ strip_float_extensions (tree exp)
       it properly and handle it like (type)(narrowest_type)constant.
       This way we can optimize for instance a=a*2.0 where "a" is float
       but 2.0 is double constant.  */
-  if (TREE_CODE (exp) == REAL_CST)
+  if (TREE_CODE (exp) == REAL_CST && !DECIMAL_FLOAT_TYPE_P (TREE_TYPE (exp)))
     {
       REAL_VALUE_TYPE orig;
       tree type = NULL;
@@ -98,8 +98,7 @@ strip_float_extensions (tree exp)
 	return build_real (type, real_value_truncate (TYPE_MODE (type), orig));
     }
 
-  if (TREE_CODE (exp) != NOP_EXPR
-      && TREE_CODE (exp) != CONVERT_EXPR)
+  if (!CONVERT_EXPR_P (exp))
     return exp;
 
   sub = TREE_OPERAND (exp, 0);
@@ -107,6 +106,9 @@ strip_float_extensions (tree exp)
   expt = TREE_TYPE (exp);
 
   if (!FLOAT_TYPE_P (subt))
+    return exp;
+
+  if (DECIMAL_FLOAT_TYPE_P (expt) != DECIMAL_FLOAT_TYPE_P (subt))
     return exp;
 
   if (TYPE_PRECISION (subt) > TYPE_PRECISION (expt))
@@ -118,7 +120,7 @@ strip_float_extensions (tree exp)
 
 /* Convert EXPR to some floating-point type TYPE.
 
-   EXPR must be float, integer, or enumeral;
+   EXPR must be float, fixed-point, integer, or enumeral;
    in other cases error is called.  */
 
 tree
@@ -137,40 +139,45 @@ convert_to_real (tree type, tree expr)
       switch (fcode)
         {
 #define CASE_MATHFN(FN) case BUILT_IN_##FN: case BUILT_IN_##FN##L:
-	  CASE_MATHFN (ACOS)
-	  CASE_MATHFN (ACOSH)
-	  CASE_MATHFN (ASIN)
-	  CASE_MATHFN (ASINH)
-	  CASE_MATHFN (ATAN)
-	  CASE_MATHFN (ATANH)
-	  CASE_MATHFN (CBRT)
-	  CASE_MATHFN (COS)
 	  CASE_MATHFN (COSH)
-	  CASE_MATHFN (ERF)
-	  CASE_MATHFN (ERFC)
 	  CASE_MATHFN (EXP)
 	  CASE_MATHFN (EXP10)
 	  CASE_MATHFN (EXP2)
-	  CASE_MATHFN (EXPM1)
-	  CASE_MATHFN (FABS)
+ 	  CASE_MATHFN (EXPM1)
 	  CASE_MATHFN (GAMMA)
 	  CASE_MATHFN (J0)
 	  CASE_MATHFN (J1)
 	  CASE_MATHFN (LGAMMA)
-	  CASE_MATHFN (LOG)
-	  CASE_MATHFN (LOG10)
-	  CASE_MATHFN (LOG1P)
-	  CASE_MATHFN (LOG2)
-	  CASE_MATHFN (LOGB)
 	  CASE_MATHFN (POW10)
-	  CASE_MATHFN (SIN)
 	  CASE_MATHFN (SINH)
-	  CASE_MATHFN (SQRT)
-	  CASE_MATHFN (TAN)
-	  CASE_MATHFN (TANH)
 	  CASE_MATHFN (TGAMMA)
 	  CASE_MATHFN (Y0)
 	  CASE_MATHFN (Y1)
+	    /* The above functions may set errno differently with float
+	       input or output so this transformation is not safe with
+	       -fmath-errno.  */
+	    if (flag_errno_math)
+	      break;
+	  CASE_MATHFN (ACOS)
+	  CASE_MATHFN (ACOSH)
+	  CASE_MATHFN (ASIN)
+ 	  CASE_MATHFN (ASINH)
+ 	  CASE_MATHFN (ATAN)
+	  CASE_MATHFN (ATANH)
+ 	  CASE_MATHFN (CBRT)
+ 	  CASE_MATHFN (COS)
+ 	  CASE_MATHFN (ERF)
+ 	  CASE_MATHFN (ERFC)
+ 	  CASE_MATHFN (FABS)
+	  CASE_MATHFN (LOG)
+	  CASE_MATHFN (LOG10)
+	  CASE_MATHFN (LOG2)
+ 	  CASE_MATHFN (LOG1P)
+ 	  CASE_MATHFN (LOGB)
+ 	  CASE_MATHFN (SIN)
+	  CASE_MATHFN (SQRT)
+ 	  CASE_MATHFN (TAN)
+ 	  CASE_MATHFN (TANH)
 #undef CASE_MATHFN
 	    {
 	      tree arg0 = strip_float_extensions (CALL_EXPR_ARG (expr, 0));
@@ -261,18 +268,22 @@ convert_to_real (tree type, tree expr)
 	     tree arg1 = strip_float_extensions (TREE_OPERAND (expr, 1));
 
 	     if (FLOAT_TYPE_P (TREE_TYPE (arg0))
-		 && FLOAT_TYPE_P (TREE_TYPE (arg1)))
+		 && FLOAT_TYPE_P (TREE_TYPE (arg1))
+		 && DECIMAL_FLOAT_TYPE_P (itype) == DECIMAL_FLOAT_TYPE_P (type))
 	       {
 		  tree newtype = type;
 
 		  if (TYPE_MODE (TREE_TYPE (arg0)) == SDmode
-		      || TYPE_MODE (TREE_TYPE (arg1)) == SDmode)
+		      || TYPE_MODE (TREE_TYPE (arg1)) == SDmode
+		      || TYPE_MODE (type) == SDmode)
 		    newtype = dfloat32_type_node;
 		  if (TYPE_MODE (TREE_TYPE (arg0)) == DDmode
-		      || TYPE_MODE (TREE_TYPE (arg1)) == DDmode)
+		      || TYPE_MODE (TREE_TYPE (arg1)) == DDmode
+		      || TYPE_MODE (type) == DDmode)
 		    newtype = dfloat64_type_node;
 		  if (TYPE_MODE (TREE_TYPE (arg0)) == TDmode
-		      || TYPE_MODE (TREE_TYPE (arg1)) == TDmode)
+		      || TYPE_MODE (TREE_TYPE (arg1)) == TDmode
+		      || TYPE_MODE (type) == TDmode)
                     newtype = dfloat128_type_node;
 		  if (newtype == dfloat32_type_node
 		      || newtype == dfloat64_type_node
@@ -290,7 +301,33 @@ convert_to_real (tree type, tree expr)
 		    newtype = TREE_TYPE (arg0);
 		  if (TYPE_PRECISION (TREE_TYPE (arg1)) > TYPE_PRECISION (newtype))
 		    newtype = TREE_TYPE (arg1);
-		  if (TYPE_PRECISION (newtype) < TYPE_PRECISION (itype))
+		  /* Sometimes this transformation is safe (cannot
+		     change results through affecting double rounding
+		     cases) and sometimes it is not.  If NEWTYPE is
+		     wider than TYPE, e.g. (float)((long double)double
+		     + (long double)double) converted to
+		     (float)(double + double), the transformation is
+		     unsafe regardless of the details of the types
+		     involved; double rounding can arise if the result
+		     of NEWTYPE arithmetic is a NEWTYPE value half way
+		     between two representable TYPE values but the
+		     exact value is sufficiently different (in the
+		     right direction) for this difference to be
+		     visible in ITYPE arithmetic.  If NEWTYPE is the
+		     same as TYPE, however, the transformation may be
+		     safe depending on the types involved: it is safe
+		     if the ITYPE has strictly more than twice as many
+		     mantissa bits as TYPE, can represent infinities
+		     and NaNs if the TYPE can, and has sufficient
+		     exponent range for the product or ratio of two
+		     values representable in the TYPE to be within the
+		     range of normal values of ITYPE.  */
+		  if (TYPE_PRECISION (newtype) < TYPE_PRECISION (itype)
+		      && (flag_unsafe_math_optimizations
+			  || (TYPE_PRECISION (newtype) == TYPE_PRECISION (type)
+			      && real_can_shorten_arithmetic (TYPE_MODE (itype),
+							      TYPE_MODE (type))
+			      && !excess_precision_type (newtype))))
 		    {
 		      expr = build2 (TREE_CODE (expr), newtype,
 				     fold (convert_to_real (newtype, arg0)),
@@ -320,6 +357,9 @@ convert_to_real (tree type, tree expr)
     case BOOLEAN_TYPE:
       return build1 (FLOAT_EXPR, type, expr);
 
+    case FIXED_POINT_TYPE:
+      return build1 (FIXED_CONVERT_EXPR, type, expr);
+
     case COMPLEX_TYPE:
       return convert (type,
 		      fold_build1 (REALPART_EXPR,
@@ -338,8 +378,8 @@ convert_to_real (tree type, tree expr)
 
 /* Convert EXPR to some integer (or enum) type TYPE.
 
-   EXPR must be pointer, integer, discrete (enum, char, or bool), float, or
-   vector; in other cases error is called.
+   EXPR must be pointer, integer, discrete (enum, char, or bool), float,
+   fixed-point or vector; in other cases error is called.
 
    The result of this is always supposed to be a newly created tree node
    not in use in any existing structure.  */
@@ -459,6 +499,7 @@ convert_to_integer (tree type, tree expr)
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
+    case OFFSET_TYPE:
       /* If this is a logical operation, which just returns 0 or 1, we can
 	 change the type of the expression.  */
 
@@ -658,7 +699,7 @@ convert_to_integer (tree type, tree expr)
 				|| ex_form == MINUS_EXPR)))
 		      typex = unsigned_type_for (typex);
 		    else
-		      typex = lang_hooks.types.signed_type (typex);
+		      typex = signed_type_for (typex);
 		    return convert (type,
 				    fold_build2 (ex_form, typex,
 						 convert (typex, arg0),
@@ -680,7 +721,7 @@ convert_to_integer (tree type, tree expr)
 	    if (TYPE_UNSIGNED (TREE_TYPE (expr)))
 	      typex = unsigned_type_for (type);
 	    else
-	      typex = lang_hooks.types.signed_type (type);
+	      typex = signed_type_for (type);
 	    return convert (type,
 			    fold_build1 (ex_form, typex,
 					 convert (typex,
@@ -714,6 +755,9 @@ convert_to_integer (tree type, tree expr)
     case REAL_TYPE:
       return build1 (FIX_TRUNC_EXPR, type, expr);
 
+    case FIXED_POINT_TYPE:
+      return build1 (FIXED_CONVERT_EXPR, type, expr);
+
     case COMPLEX_TYPE:
       return convert (type,
 		      fold_build1 (REALPART_EXPR,
@@ -743,6 +787,7 @@ convert_to_complex (tree type, tree expr)
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
@@ -804,6 +849,45 @@ convert_to_vector (tree type, tree expr)
 
     default:
       error ("can't convert value to a vector");
+      return error_mark_node;
+    }
+}
+
+/* Convert EXPR to some fixed-point type TYPE.
+
+   EXPR must be fixed-point, float, integer, or enumeral;
+   in other cases error is called.  */
+
+tree
+convert_to_fixed (tree type, tree expr)
+{
+  if (integer_zerop (expr))
+    {
+      tree fixed_zero_node = build_fixed (type, FCONST0 (TYPE_MODE (type)));
+      return fixed_zero_node;
+    }
+  else if (integer_onep (expr) && ALL_SCALAR_ACCUM_MODE_P (TYPE_MODE (type)))
+    {
+      tree fixed_one_node = build_fixed (type, FCONST1 (TYPE_MODE (type)));
+      return fixed_one_node;
+    }
+
+  switch (TREE_CODE (TREE_TYPE (expr)))
+    {
+    case FIXED_POINT_TYPE:
+    case INTEGER_TYPE:
+    case ENUMERAL_TYPE:
+    case BOOLEAN_TYPE:
+    case REAL_TYPE:
+      return build1 (FIXED_CONVERT_EXPR, type, expr);
+
+    case COMPLEX_TYPE:
+      return convert (type,
+		      fold_build1 (REALPART_EXPR,
+				   TREE_TYPE (TREE_TYPE (expr)), expr));
+
+    default:
+      error ("aggregate value used where a fixed-point was expected");
       return error_mark_node;
     }
 }

@@ -2,5 +2,9 @@
 
 class foo
 {
-  foo() {};      // { dg-error "extra" }
+  foo() {};
+  void bar() {};
+
+  foo(int) {};;  // { dg-warning "extra" }
+  void bar(int) {};;  // { dg-warning "extra" }
 };

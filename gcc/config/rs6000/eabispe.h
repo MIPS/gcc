@@ -1,6 +1,6 @@
 /* Core target definitions for GNU compiler
    for PowerPC embedded targeted systems with SPE support.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Aldy Hernandez (aldyh@redhat.com).
 
@@ -8,7 +8,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +17,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #undef  TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS | MASK_EABI	\
@@ -32,14 +31,12 @@
 #define SUBSUBTARGET_OVERRIDE_OPTIONS \
   if (rs6000_select[1].string == NULL) \
     rs6000_cpu = PROCESSOR_PPC8540; \
-  if (!rs6000_explicit_options.abi) \
+  if (!rs6000_explicit_options.spe_abi) \
     rs6000_spe_abi = 1; \
   if (!rs6000_explicit_options.float_gprs) \
     rs6000_float_gprs = 1; \
   if (!rs6000_explicit_options.spe) \
     rs6000_spe = 1; \
-  if (!rs6000_explicit_options.isel) \
-    rs6000_isel = 1; \
   if (target_flags & MASK_64BIT) \
     error ("-m64 not supported in this configuration")
 

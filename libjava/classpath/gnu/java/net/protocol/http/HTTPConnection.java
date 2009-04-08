@@ -39,6 +39,8 @@ exception statement from your version. */
 package gnu.java.net.protocol.http;
 
 import gnu.classpath.SystemProperties;
+
+import gnu.java.lang.CPStringBuilder;
 import gnu.java.net.EmptyX509TrustManager;
 
 import java.io.BufferedInputStream;
@@ -129,7 +131,7 @@ public class HTTPConnection
    */
   protected int minorVersion;
 
-  private final List handshakeCompletedListeners;
+  private final List<HandshakeCompletedListener> handshakeCompletedListeners;
 
   /**
    * The socket this connection communicates on.
@@ -154,7 +156,7 @@ public class HTTPConnection
   /**
    * Nonce values seen by this connection.
    */
-  private Map nonceCounts;
+  private Map<String, Integer> nonceCounts;
 
   /**
    * The cookie manager for this connection.
@@ -244,7 +246,8 @@ public class HTTPConnection
     this.connectionTimeout = connectionTimeout;
     this.timeout = timeout;
     majorVersion = minorVersion = 1;
-    handshakeCompletedListeners = new ArrayList(2);
+    handshakeCompletedListeners
+      = new ArrayList<HandshakeCompletedListener>(2);
   }
 
   /**
@@ -357,7 +360,8 @@ public class HTTPConnection
     /**
      * The pool
      */
-    final LinkedList connectionPool = new LinkedList();
+    final LinkedList<HTTPConnection> connectionPool
+      = new LinkedList<HTTPConnection>();
 
     /**
      * Maximum size of the pool.
@@ -666,7 +670,7 @@ public class HTTPConnection
         Cookie[] cookies = cookieManager.getCookies(hostname, secure, path);
         if (cookies != null && cookies.length > 0)
           {
-            StringBuilder buf = new StringBuilder();
+            CPStringBuilder buf = new CPStringBuilder();
             buf.append("$Version=1");
             for (int i = 0; i < cookies.length; i++)
               {
@@ -825,7 +829,7 @@ public class HTTPConnection
    */
   protected String getURI()
   {
-    StringBuilder buf = new StringBuilder();
+    CPStringBuilder buf = new CPStringBuilder();
     buf.append(secure ? "https://" : "http://");
     buf.append(hostname);
     if (secure)
@@ -857,7 +861,7 @@ public class HTTPConnection
       {
         return 0;
       }
-    return((Integer) nonceCounts.get(nonce)).intValue();
+    return nonceCounts.get(nonce).intValue();
   }
 
   /**
@@ -868,7 +872,7 @@ public class HTTPConnection
     int current = getNonceCount(nonce);
     if (nonceCounts == null)
       {
-        nonceCounts = new HashMap();
+        nonceCounts = new HashMap<String, Integer>();
       }
     nonceCounts.put(nonce, new Integer(current + 1));
   }

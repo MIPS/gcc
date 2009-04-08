@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    For ARM with ELF obj format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2004, 2005, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2004, 2005, 2007,
+   2008 Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org> and
    Catherine Moore <clm@cygnus.com>
    
@@ -9,7 +9,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -18,9 +18,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef OBJECT_FORMAT_ELF
  #error elf.h included before elfos.h
@@ -37,7 +36,8 @@
 #ifndef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS \
   { "subtarget_extra_asm_spec",	SUBTARGET_EXTRA_ASM_SPEC }, \
-  { "subtarget_asm_float_spec", SUBTARGET_ASM_FLOAT_SPEC },
+  { "subtarget_asm_float_spec", SUBTARGET_ASM_FLOAT_SPEC }, \
+  SUBSUBTARGET_EXTRA_SPECS
 #endif
 
 #ifndef SUBTARGET_EXTRA_ASM_SPEC
@@ -48,6 +48,9 @@
 #define SUBTARGET_ASM_FLOAT_SPEC "\
 %{mapcs-float:-mfloat}"
 #endif
+
+#undef SUBSUBTARGET_EXTRA_SPECS
+#define SUBSUBTARGET_EXTRA_SPECS
 
 #ifndef ASM_SPEC
 #define ASM_SPEC "\
@@ -145,4 +148,18 @@
 	fprintf (STREAM, "\t.align\t%d\n", POWER);	\
     }							\
   while (0)
+
+/* Horrible hack: We want to prevent some libgcc routines being included
+   for some multilibs.  */
+#ifndef __ARM_ARCH_6M__
+#undef L_fixdfsi
+#undef L_fixunsdfsi
+#undef L_truncdfsf2
+#undef L_fixsfsi
+#undef L_fixunssfsi
+#undef L_floatdidf
+#undef L_floatdisf
+#undef L_floatundidf
+#undef L_floatundisf
+#endif
 

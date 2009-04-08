@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --            (Version for IBM Mainframe Packed Decimal Format)             --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,7 +33,7 @@
 ------------------------------------------------------------------------------
 
 --  This unit defines the packed decimal format used by GNAT in response to
---  a specication of Machine_Radix 10 for a decimal fixed-point type. The
+--  a specification of Machine_Radix 10 for a decimal fixed-point type. The
 --  format and operations are completely encapsulated in this unit, so all
 --  that is necessary to compile using different packed decimal formats is
 --  to replace this single unit.

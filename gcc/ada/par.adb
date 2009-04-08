@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -51,8 +50,7 @@ with Tbuild;   use Tbuild;
 ---------
 
 function Par
-  (Configuration_Pragmas : Boolean;
-   From_Limited_With     : Boolean := False) return List_Id
+  (Configuration_Pragmas : Boolean) return List_Id
 is
    Num_Library_Units : Natural := 0;
    --  Count number of units parsed (relevant only in syntax check only mode,
@@ -184,12 +182,12 @@ is
    --   of such a nested region. Again, like case 2, this causes us to miss
    --   some nested cases, but it doesn't seen worth the effort to stack and
    --   unstack the SIS information. Maybe we will reconsider this if we ever
-   --   get a complaint about a missed case :-)
+   --   get a complaint about a missed case.
 
    --   4. We encounter a valid pragma INTERFACE or IMPORT that effectively
    --   supplies the missing body. In this case we reset the entry.
 
-   --   5. We encounter the end of the declarative region without encoutering
+   --   5. We encounter the end of the declarative region without encountering
    --   a BEGIN first. In this situation we simply reset the entry. We know
    --   that there is a missing body, but it seems more reasonable to let the
    --   later semantic checking discover this.
@@ -199,7 +197,7 @@ is
    ----------------------------------------------------
 
    --  Note: throughout the parser, the terms reserved word and keyword
-   --  are used interchangably to refer to the same set of reserved
+   --  are used interchangeably to refer to the same set of reserved
    --  keywords (including until, protected, etc).
 
    --  If a reserved word is used in place of an identifier, the parser
@@ -215,14 +213,14 @@ is
    --  further confirmation.
 
    --  In the case of an identifier appearing in the identifier list of a
-   --  declaration, the appearence of a comma or colon right after the
+   --  declaration, the appearance of a comma or colon right after the
    --  keyword on the same line is taken as confirmation. For an enumeration
    --  literal, a comma or right paren right after the identifier is also
    --  treated as adequate confirmation.
 
    --  The following type is used in calls to Is_Reserved_Identifier and
    --  also to P_Defining_Identifier and P_Identifier. The default for all
-   --  these functins is that reserved words in reserved word case are not
+   --  these functions is that reserved words in reserved word case are not
    --  considered to be reserved identifiers. The Id_Check value indicates
    --  tokens, which if they appear immediately after the identifier, are
    --  taken as confirming that the use of an identifier was expected
@@ -284,7 +282,7 @@ is
    --    end;
 
    --  The trouble is that the section of text from PROCEDURE B through END;
-   --  consitutes a valid procedure body, and the danger is that we find out
+   --  constitutes a valid procedure body, and the danger is that we find out
    --  far too late that something is wrong (indeed most compilers will behave
    --  uncomfortably on the above example).
 
@@ -298,7 +296,7 @@ is
    --  reserve the END; for the outer level.) For more details on this aspect
    --  of the handling, see package Par.Endh.
 
-   --  If we can avoid eating up the END; then the result in the absense of
+   --  If we can avoid eating up the END; then the result in the absence of
    --  any additional steps would be to post a missing END referring back to
    --  the subprogram with the bogus IS. Similarly, if the enclosing package
    --  has no BEGIN, then the result is a missing BEGIN message, which again
@@ -532,7 +530,10 @@ is
    -------------
 
    package Ch2 is
-      function P_Pragma                               return Node_Id;
+      function P_Pragma (Skipping : Boolean := False) return Node_Id;
+      --  Scan out a pragma. If Skipping is True, then the caller is skipping
+      --  the pragma in the context of illegal placement (this is used to avoid
+      --  some junk cascaded messages).
 
       function P_Identifier (C : Id_Check := None) return Node_Id;
       --  Scans out an identifier. The parameter C determines the treatment
@@ -636,7 +637,7 @@ is
       --  allowed).
 
       procedure Skip_Declaration (S : List_Id);
-      --  Used when scanning statements to skip past a mispaced declaration
+      --  Used when scanning statements to skip past a misplaced declaration
       --  The declaration is scanned out and appended to the given list.
       --  Token is known to be a declaration token (in Token_Class_Declk)
       --  on entry, so there definition is a declaration to be scanned.
@@ -913,7 +914,7 @@ is
       --  Used if an error occurs while scanning a parenthesized list of items
       --  separated by semicolons. The scan pointer is advanced to the next
       --  semicolon or right parenthesis at the outer parenthesis level, or
-      --  to the next is or RETURN keyword occurence, whichever comes first.
+      --  to the next is or RETURN keyword occurrence, whichever comes first.
 
       procedure Resync_Cunit;
       --  Synchronize to next token which could be the start of a compilation
@@ -967,7 +968,7 @@ is
       procedure T_When;
       procedure T_With;
 
-      --  Procedures have names of the form TF_xxx, where Tok_xxx is a token
+      --  Procedures having names of the form TF_xxx, where Tok_xxx is a token
       --  name check that the current token matches the required token, and
       --  if so, scan past it. If not, an error message is issued indicating
       --  that the required token is not present (xxx expected).
@@ -989,6 +990,13 @@ is
       procedure TF_Semicolon;
       procedure TF_Then;
       procedure TF_Use;
+
+      --  Procedures with names of the form U_xxx, where Tok_xxx is a token
+      --  name, are just like the corresponding T_xxx procedures except that
+      --  an error message, if given, is unconditional.
+
+      procedure U_Left_Paren;
+      procedure U_Right_Paren;
    end Tchk;
 
    --------------
@@ -1083,21 +1091,21 @@ is
       --  conditions are met, an error message is issued, and the merge is
       --  carried out, modifying the Chars field of Prev.
 
+      function Next_Token_Is (Tok : Token_Type) return Boolean;
+      --  Looks at token after current one and returns True if the token type
+      --  matches Tok. The scan is unconditionally restored on return.
+
       procedure No_Constraint;
       --  Called in a place where no constraint is allowed, but one might
       --  appear due to a common error (e.g. after the type mark in a procedure
       --  parameter. If a constraint is present, an error message is posted,
       --  and the constraint is scanned and discarded.
 
-      function No_Right_Paren (Expr : Node_Id) return Node_Id;
-      --  Function to check for no right paren at end of expression, returns
-      --  its argument if no right paren, else flags paren and returns Error.
-
       procedure Push_Scope_Stack;
       pragma Inline (Push_Scope_Stack);
       --  Push a new entry onto the scope stack. Scope.Last (the stack pointer)
       --  is incremented. The Junk field is preinitialized to False. The caller
-      --  is expected to fill in all remaining entries of the new new top stack
+      --  is expected to fill in all remaining entries of the new top stack
       --  entry at Scope.Table (Scope.Last).
 
       procedure Pop_Scope_Stack;
@@ -1244,10 +1252,10 @@ begin
 
                   --  Give error if bad pragma
 
-                  if Chars (P_Node) > Last_Configuration_Pragma_Name
-                    and then Chars (P_Node) /= Name_Source_Reference
+                  if not Is_Configuration_Pragma_Name (Pragma_Name (P_Node))
+                    and then Pragma_Name (P_Node) /= Name_Source_Reference
                   then
-                     if Is_Pragma_Name (Chars (P_Node)) then
+                     if Is_Pragma_Name (Pragma_Name (P_Node)) then
                         Error_Msg_N
                           ("only configuration pragmas allowed " &
                            "in configuration file", P_Node);

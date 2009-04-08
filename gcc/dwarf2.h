@@ -1,7 +1,7 @@
 /* Declarations and definitions of codes relating to the DWARF2 and
    DWARF3 symbolic debugging information formats.
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
    Written by Gary Funck (gary@intrepid.com) The Ada Joint Program
    Office (AJPO), Florida State University and Silicon Graphics Inc.
@@ -14,7 +14,7 @@
 
    GCC is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
+   Software Foundation; either version 3, or (at your option) any later
    version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -23,9 +23,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* This file is derived from the DWARF specification (a public document)
    Revision 2.0.0 (July 27, 1993) developed by the UNIX International
@@ -275,7 +274,8 @@ enum dwarf_attribute
     DW_AT_prototyped = 0x27,
     DW_AT_return_addr = 0x2a,
     DW_AT_start_scope = 0x2c,
-    DW_AT_stride_size = 0x2e,
+    DW_AT_bit_stride = 0x2e,
+    DW_AT_stride_size = DW_AT_bit_stride,
     DW_AT_upper_bound = 0x2f,
     DW_AT_abstract_origin = 0x31,
     DW_AT_accessibility = 0x32,
@@ -310,7 +310,8 @@ enum dwarf_attribute
     DW_AT_allocated     = 0x4e,
     DW_AT_associated    = 0x4f,
     DW_AT_data_location = 0x50,
-    DW_AT_stride        = 0x51,
+    DW_AT_byte_stride   = 0x51,
+    DW_AT_stride        = DW_AT_byte_stride,
     DW_AT_entry_pc      = 0x52,
     DW_AT_use_UTF8      = 0x53,
     DW_AT_extension     = 0x54,
@@ -540,6 +541,9 @@ enum dwarf_location_atom
     DW_OP_bit_piece = 0x9d,
     /* GNU extensions.  */
     DW_OP_GNU_push_tls_address = 0xe0,
+    /* The following is for marking variables that are uninitialized.  */
+    DW_OP_GNU_uninit     = 0xf0,
+    DW_OP_GNU_encoded_addr = 0xf1,
     /* HP extensions.  */
     DW_OP_HP_unknown     = 0xe0, /* Ouch, the same as GNU_push_tls_address.  */
     DW_OP_HP_is_value    = 0xe1,

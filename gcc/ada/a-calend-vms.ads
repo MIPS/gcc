@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -38,6 +38,7 @@
 --  This is the Alpha/VMS version
 
 with System.OS_Primitives;
+
 package Ada.Calendar is
 
    package OSP renames System.OS_Primitives;
@@ -106,6 +107,7 @@ private
    --  readability, this unit will be called "mili".
 
    Mili         : constant := 10_000_000;
+   Mili_F       : constant := 10_000_000.0;
    Milis_In_Day : constant := 864_000_000_000;
    Secs_In_Day  : constant := 86_400;
 
@@ -113,7 +115,7 @@ private
    --  system base date and time 1858-11-17 0.0 (the Smithsonian base date and
    --  time for the astronomic calendar).
 
-   --  The time value stored is typically a GMT value, as provided in standard
+   --  The time value stored is typically a UTC value, as provided in standard
    --  Unix environments. If this is the case then Split and Time_Of perform
    --  required conversions to and from local times.
 
@@ -122,11 +124,6 @@ private
    --  but this declaration makes for easier conversion.
 
    type Time is new OSP.OS_Time;
-
-   --  The range of Ada time expressed as milis since the VMS Epoch
-
-   Ada_Low  : constant Time :=  (10 * 366 +  32 * 365 + 45) * Milis_In_Day;
-   Ada_High : constant Time := (131 * 366 + 410 * 365 + 45) * Milis_In_Day;
 
    Days_In_Month : constant array (Month_Number) of Day_Number :=
                      (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31);
@@ -143,9 +140,14 @@ private
    --  NOTE: Delays does not need a target independent interface because
    --  VMS already has a target specific file for that package.
 
+   ---------------------------
+   -- Arithmetic_Operations --
+   ---------------------------
+
    package Arithmetic_Operations is
+
       function Add (Date : Time; Days : Long_Integer) return Time;
-      --  Add X number of days to a time value
+      --  Add a certain number of days to a time value
 
       procedure Difference
         (Left         : Time;
@@ -159,27 +161,80 @@ private
       --  values are positive, negative otherwise.
 
       function Subtract (Date : Time; Days : Long_Integer) return Time;
-      --  Subtract X number of days from a time value
+      --  Subtract a certain number of days from a time value
+
    end Arithmetic_Operations;
 
+   ---------------------------
+   -- Conversion_Operations --
+   ---------------------------
+
+   package Conversion_Operations is
+      function To_Ada_Time (Unix_Time : Long_Integer) return Time;
+      --  Unix to Ada Epoch conversion
+
+      function To_Ada_Time
+        (tm_year  : Integer;
+         tm_mon   : Integer;
+         tm_day   : Integer;
+         tm_hour  : Integer;
+         tm_min   : Integer;
+         tm_sec   : Integer;
+         tm_isdst : Integer) return Time;
+      --  Struct tm to Ada Epoch conversion
+
+      function To_Duration
+        (tv_sec  : Long_Integer;
+         tv_nsec : Long_Integer) return Duration;
+      --  Struct timespec to Duration conversion
+
+      procedure To_Struct_Timespec
+        (D       : Duration;
+         tv_sec  : out Long_Integer;
+         tv_nsec : out Long_Integer);
+      --  Duration to struct timespec conversion
+
+      procedure To_Struct_Tm
+        (T       : Time;
+         tm_year : out Integer;
+         tm_mon  : out Integer;
+         tm_day  : out Integer;
+         tm_hour : out Integer;
+         tm_min  : out Integer;
+         tm_sec  : out Integer);
+      --  Time to struct tm conversion
+
+      function To_Unix_Time (Ada_Time : Time) return Long_Integer;
+      --  Ada to Unix Epoch conversion
+
+   end Conversion_Operations;
+
+   ---------------------------
+   -- Formatting_Operations --
+   ---------------------------
+
    package Formatting_Operations is
+
       function Day_Of_Week (Date : Time) return Integer;
       --  Determine which day of week Date falls on. The returned values are
       --  within the range of 0 .. 6 (Monday .. Sunday).
 
       procedure Split
-        (Date       : Time;
-         Year       : out Year_Number;
-         Month      : out Month_Number;
-         Day        : out Day_Number;
-         Day_Secs   : out Day_Duration;
-         Hour       : out Integer;
-         Minute     : out Integer;
-         Second     : out Integer;
-         Sub_Sec    : out Duration;
-         Leap_Sec   : out Boolean;
-         Time_Zone  : Long_Integer);
-      --  Split a time value into its components
+        (Date      : Time;
+         Year      : out Year_Number;
+         Month     : out Month_Number;
+         Day       : out Day_Number;
+         Day_Secs  : out Day_Duration;
+         Hour      : out Integer;
+         Minute    : out Integer;
+         Second    : out Integer;
+         Sub_Sec   : out Duration;
+         Leap_Sec  : out Boolean;
+         Is_Ada_05 : Boolean;
+         Time_Zone : Long_Integer);
+      --  Split a time value into its components. Set Is_Ada_05 to use the
+      --  local time zone (the value in Time_Zone is ignored) when splitting
+      --  a time value.
 
       function Time_Of
         (Year         : Year_Number;
@@ -190,19 +245,28 @@ private
          Minute       : Integer;
          Second       : Integer;
          Sub_Sec      : Duration;
-         Leap_Sec     : Boolean;
-         Leap_Checks  : Boolean;
-         Use_Day_Secs : Boolean;
-         Time_Zone    : Long_Integer) return Time;
+         Leap_Sec     : Boolean := False;
+         Use_Day_Secs : Boolean := False;
+         Is_Ada_05    : Boolean := False;
+         Time_Zone    : Long_Integer := 0) return Time;
       --  Given all the components of a date, return the corresponding time
       --  value. Set Use_Day_Secs to use the value in Day_Secs, otherwise the
       --  day duration will be calculated from Hour, Minute, Second and Sub_
-      --  Sec. Set flag Leap_Checks to verify the validity of a leap second.
+      --  Sec. Set Is_Ada_05 to use the local time zone (the value in formal
+      --  Time_Zone is ignored) when building a time value and to verify the
+      --  validity of a requested leap second.
+
    end Formatting_Operations;
 
+   ---------------------------
+   -- Time_Zones_Operations --
+   ---------------------------
+
    package Time_Zones_Operations is
+
       function UTC_Time_Offset (Date : Time) return Long_Integer;
-      --  Return the offset in seconds from GMT
+      --  Return the offset in seconds from UTC
+
    end Time_Zones_Operations;
 
 end Ada.Calendar;

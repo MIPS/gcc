@@ -55,6 +55,18 @@ exception statement from your version. */
 
 #include "java_io_VMFile.h"
 
+/* ***** PRIVATE FUNCTIONS DELCARATION ***** */
+
+/**
+ * Enables of disables the passed permission bit of a file.
+ */
+static jboolean set_file_permissions (JNIEnv *env, jstring name,
+                                      jboolean enable,
+                                      jboolean ownerOnly,
+                                      int permissions);
+
+/* ***** END: PRIVATE FUNCTIONS DELCARATION ***** */
+
 /*************************************************************************/
 
 /*
@@ -85,7 +97,7 @@ Java_java_io_VMFile_create (JNIEnv * env,
   if (result != CPNATIVE_OK)
     {
       if (result != EEXIST)
-	JCL_ThrowException (env,
+        JCL_ThrowException (env,
 			    "java/io/IOException",
 			    cpnative_getErrorString (result));
       JCL_free_cstring (env, name, filename);
@@ -112,12 +124,11 @@ Java_java_io_VMFile_create (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_canRead (JNIEnv * env,
-			     jobject obj __attribute__ ((__unused__)),
-			     jstring name)
+                             jclass clazz __attribute__ ((__unused__)),
+                             jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
-  int fd;
   int result;
 
   /* Don't use the JCL convert function because it throws an exception
@@ -125,20 +136,18 @@ Java_java_io_VMFile_canRead (JNIEnv * env,
   filename = (*env)->GetStringUTFChars (env, name, 0);
   if (filename == NULL)
     {
-      return 0;
+      return JNI_FALSE;
     }
 
-  /* The lazy man's way out.  We actually do open the file for reading
-     briefly to verify it can be done */
-  result = cpio_openFile (filename, &fd, CPFILE_FLAG_READ, 0);
+  result = cpio_checkAccess (filename, CPFILE_FLAG_READ);
+  
   (*env)->ReleaseStringUTFChars (env, name, filename);
   if (result != CPNATIVE_OK)
-    return 0;
-  cpio_closeFile (fd);
+    return JNI_FALSE;
 
-  return 1;
+  return JNI_TRUE;
 #else /* not WITHOUT_FILESYSTEM */
-  return 0;
+  return JNI_FALSE;
 #endif /* not WITHOUT_FILESYSTEM */
 }
 
@@ -154,12 +163,11 @@ Java_java_io_VMFile_canRead (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_canWrite (JNIEnv * env,
-			      jobject obj __attribute__ ((__unused__)),
-			      jstring name)
+                              jclass clazz __attribute__ ((__unused__)),
+                              jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
-  int fd;
   int result;
 
   /* Don't use the JCL convert function because it throws an exception
@@ -167,24 +175,71 @@ Java_java_io_VMFile_canWrite (JNIEnv * env,
   filename = (*env)->GetStringUTFChars (env, name, 0);
   if (filename == NULL)
     {
-      return 0;
+      return JNI_FALSE;
     }
 
-  /* The lazy man's way out.  We actually do open the file for writing
-     briefly to verify it can be done */
-  result = cpio_openFile (filename, &fd, CPFILE_FLAG_READWRITE, 0);
+  result = cpio_checkAccess (filename, CPFILE_FLAG_WRITE);
+  
   (*env)->ReleaseStringUTFChars (env, name, filename);
   if (result != CPNATIVE_OK)
     {
-      return 0;
+      return JNI_FALSE;
     }
-  cpio_closeFile (fd);
 
-  return 1;
+  return JNI_TRUE;
 #else /* not WITHOUT_FILESYSTEM */
-  return 0;
+  return JNI_FALSE;
 #endif /* not WITHOUT_FILESYSTEM */
 }
+
+/*************************************************************************/
+
+JNIEXPORT jboolean JNICALL
+Java_java_io_VMFile_canWriteDirectory (JNIEnv *env, jclass clazz, jstring path)
+{
+  /* this is only valid on *nix systems  */
+  return Java_java_io_VMFile_canWrite(env, clazz, path);
+}
+
+/*************************************************************************/
+
+/*
+ * This method checks to see if we have execute permission on a file.
+ *
+ * Class:     java_io_VMFile
+ * Method:    canExecute
+ * Signature: (Ljava/lang/String;)Z
+ */
+
+JNIEXPORT jboolean JNICALL
+Java_java_io_VMFile_canExecute (JNIEnv * env,
+                                jclass clazz __attribute__ ((__unused__)),
+                                jstring name)
+{
+#ifndef WITHOUT_FILESYSTEM
+  const char *filename;
+  int result;
+
+  /* Don't use the JCL convert function because it throws an exception
+     on failure */
+  filename = (*env)->GetStringUTFChars (env, name, 0);
+  if (filename == NULL)
+    {
+      return JNI_FALSE;
+    }
+
+  result = cpio_checkAccess (filename, CPFILE_FLAG_EXEC);
+  
+  (*env)->ReleaseStringUTFChars (env, name, filename);
+  if (result != CPNATIVE_OK)
+    return JNI_FALSE;
+  
+  return JNI_TRUE;
+#else /* not WITHOUT_FILESYSTEM */
+  return JNI_FALSE;
+#endif /* not WITHOUT_FILESYSTEM */
+}
+
 
 /*************************************************************************/
 
@@ -198,8 +253,8 @@ Java_java_io_VMFile_canWrite (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_setReadOnly (JNIEnv * env,
-				 jobject obj __attribute__ ((__unused__)),
-				 jstring name)
+                                 jclass clazz __attribute__ ((__unused__)),
+                                 jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
@@ -225,6 +280,154 @@ Java_java_io_VMFile_setReadOnly (JNIEnv * env,
 /*************************************************************************/
 
 /*
+ * This method changes the read permission bit of a file.
+ *
+ * Class:     java_io_VMFile
+ * Method:    setReadable
+ * Signature: (Ljava/lang/String;ZZ)Z
+ */
+JNIEXPORT jboolean JNICALL
+Java_java_io_VMFile_setReadable (JNIEnv *env,
+                                 jclass clazz __attribute__ ((__unused__)),
+                                 jstring name,
+                                 jboolean readable,
+                                 jboolean ownerOnly)
+{
+  return set_file_permissions (env, name, readable, ownerOnly,
+                               CPFILE_FLAG_READ);
+}
+
+
+/*************************************************************************/
+
+/*
+ * This method changes the write permission bit of a file.
+ *
+ * Class:     java_io_VMFile
+ * Method:    setWritable
+ * Signature: (Ljava/lang/String;ZZ)Z
+ */
+JNIEXPORT jboolean JNICALL
+Java_java_io_VMFile_setWritable (JNIEnv *env,
+                                 jclass clazz __attribute__ ((__unused__)),
+                                 jstring name,
+                                 jboolean writable,
+                                 jboolean ownerOnly)
+{
+  return set_file_permissions (env, name, writable, ownerOnly,
+                               CPFILE_FLAG_WRITE);
+}
+
+/*************************************************************************/
+
+/*
+ * This method changes the execute permission bit of a file.
+ *
+ * Class:     java_io_VMFile
+ * Method:    setExecutable
+ * Signature: (Ljava/lang/String;ZZ)Z
+ */
+JNIEXPORT jboolean JNICALL
+Java_java_io_VMFile_setExecutable (JNIEnv *env,
+                                   jclass clazz __attribute__ ((__unused__)),
+                                   jstring name,
+                                   jboolean executable,
+                                   jboolean ownerOnly)
+{
+  return set_file_permissions (env, name, executable, ownerOnly,
+                               CPFILE_FLAG_EXEC);
+}
+
+/*************************************************************************/
+
+JNIEXPORT jlong JNICALL
+Java_java_io_VMFile_getTotalSpace (JNIEnv *env,
+                                   jclass clazz __attribute__ ((__unused__)),
+                                   jstring path)
+{
+#ifndef WITHOUT_FILESYSTEM
+  
+  jlong result;
+  const char *_path = NULL;
+  
+  _path = (*env)->GetStringUTFChars (env, path, 0);
+  if (_path == NULL)
+    {
+      return 0L;
+    }
+
+  result = cpio_df (_path, TOTAL);
+
+  (*env)->ReleaseStringUTFChars (env, path, _path);
+
+  return result;
+
+#else /* not WITHOUT_FILESYSTEM */
+  return 0L;
+#endif /* not WITHOUT_FILESYSTEM */  
+}
+
+/*************************************************************************/
+
+JNIEXPORT jlong JNICALL
+Java_java_io_VMFile_getFreeSpace (JNIEnv *env,
+                                  jclass clazz __attribute__ ((__unused__)),
+                                  jstring path)
+{
+#ifndef WITHOUT_FILESYSTEM
+  
+  jlong result;
+  const char *_path = NULL;
+  
+  _path = (*env)->GetStringUTFChars (env, path, 0);
+  if (_path == NULL)
+    {
+      return 0L;
+    }
+
+  result = cpio_df (_path, FREE);
+
+  (*env)->ReleaseStringUTFChars (env, path, _path);
+
+  return result;
+
+#else /* not WITHOUT_FILESYSTEM */
+  return 0L;
+#endif /* not WITHOUT_FILESYSTEM */  
+}
+
+/*************************************************************************/
+
+JNIEXPORT jlong JNICALL
+Java_java_io_VMFile_getUsableSpace (JNIEnv *env,
+                                    jclass clazz __attribute__ ((__unused__)),
+                                    jstring path)
+{
+#ifndef WITHOUT_FILESYSTEM
+  
+  jlong result;
+  const char *_path = NULL;
+  
+  _path = (*env)->GetStringUTFChars (env, path, 0);
+  if (_path == NULL)
+    {
+      return 0L;
+    }
+
+  result = cpio_df (_path, USABLE);
+
+  (*env)->ReleaseStringUTFChars (env, path, _path);
+
+  return result;
+
+#else /* not WITHOUT_FILESYSTEM */
+  return 0L;
+#endif /* not WITHOUT_FILESYSTEM */  
+}
+
+/*************************************************************************/
+
+/*
  * This method checks to see if a file exists.
  *
  * Class:     java_io_VMFile
@@ -234,8 +437,8 @@ Java_java_io_VMFile_setReadOnly (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_exists (JNIEnv * env,
-			    jobject obj __attribute__ ((__unused__)),
-			    jstring name)
+                            jclass clazz __attribute__ ((__unused__)),
+			                jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
@@ -271,8 +474,8 @@ Java_java_io_VMFile_exists (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_isFile (JNIEnv * env,
-			    jobject obj __attribute__ ((__unused__)),
-			    jstring name)
+                            jclass clazz __attribute__ ((__unused__)),
+                            jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
@@ -308,8 +511,8 @@ Java_java_io_VMFile_isFile (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_isDirectory (JNIEnv * env,
-				 jobject obj __attribute__ ((__unused__)),
-				 jstring name)
+                                 jclass clazz __attribute__ ((__unused__)),
+                                 jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
@@ -345,8 +548,8 @@ Java_java_io_VMFile_isDirectory (JNIEnv * env,
 
 JNIEXPORT jlong JNICALL
 Java_java_io_VMFile_length (JNIEnv * env,
-			    jobject obj __attribute__ ((__unused__)),
-			    jstring name)
+                            jclass clazz __attribute__ ((__unused__)),
+                            jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
@@ -393,8 +596,8 @@ Java_java_io_VMFile_length (JNIEnv * env,
 
 JNIEXPORT jlong JNICALL
 Java_java_io_VMFile_lastModified (JNIEnv * env,
-				  jobject obj __attribute__ ((__unused__)),
-				  jstring name)
+                                  jclass clazz __attribute__ ((__unused__)),
+                                  jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
@@ -430,8 +633,8 @@ Java_java_io_VMFile_lastModified (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_setLastModified (JNIEnv * env,
-				     jobject obj __attribute__ ((__unused__)),
-				     jstring name, jlong newtime)
+                                     jclass clazz __attribute__ ((__unused__)),
+                                     jstring name, jlong newtime)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
@@ -467,8 +670,8 @@ Java_java_io_VMFile_setLastModified (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_delete (JNIEnv * env,
-			    jobject obj __attribute__ ((__unused__)),
-			    jstring name)
+                            jclass clazz __attribute__ ((__unused__)),
+                            jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *filename;
@@ -503,8 +706,8 @@ Java_java_io_VMFile_delete (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_mkdir (JNIEnv * env,
-			   jobject obj __attribute__ ((__unused__)),
-			   jstring name)
+                           jclass clazz __attribute__ ((__unused__)),
+                           jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *pathname;
@@ -539,8 +742,8 @@ Java_java_io_VMFile_mkdir (JNIEnv * env,
 
 JNIEXPORT jboolean JNICALL
 Java_java_io_VMFile_renameTo (JNIEnv * env,
-			      jobject obj __attribute__ ((__unused__)),
-			      jstring t, jstring d)
+                              jclass clazz __attribute__ ((__unused__)),
+                              jstring t, jstring d)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *old_filename, *new_filename;
@@ -583,8 +786,9 @@ Java_java_io_VMFile_renameTo (JNIEnv * env,
  */
 
 JNIEXPORT jobjectArray JNICALL
-Java_java_io_VMFile_list (JNIEnv * env, jobject obj
-			  __attribute__ ((__unused__)), jstring name)
+Java_java_io_VMFile_list (JNIEnv * env,
+                          jclass clazz __attribute__ ((__unused__)),
+                          jstring name)
 {
 #ifndef WITHOUT_FILESYSTEM
   const int REALLOC_SIZE = 10;
@@ -791,8 +995,8 @@ maybeGrowBuf (JNIEnv *env, char *buf, int *size, int required)
 
 JNIEXPORT jstring JNICALL
 Java_java_io_VMFile_toCanonicalForm (JNIEnv *env,
-				     jclass class __attribute__ ((__unused__)),
-				     jstring jpath)
+				                     jclass class __attribute__ ((__unused__)),
+				                     jstring jpath)
 {
 #ifndef WITHOUT_FILESYSTEM
   const char *path;
@@ -965,5 +1169,46 @@ Java_java_io_VMFile_toCanonicalForm (JNIEnv *env,
   return jpath;
 #else /* not WITHOUT_FILESYSTEM */
   return NULL;
+#endif /* not WITHOUT_FILESYSTEM */
+}
+
+/*************************************************************************/
+
+/* ***** PRIVATE FUNCTIONS IMPLEMENTATION ***** */
+
+static jboolean set_file_permissions (JNIEnv *env, jstring name,
+                                      jboolean enable,
+                                      jboolean ownerOnly,
+                                      int permissions)
+{
+#ifndef WITHOUT_FILESYSTEM
+  const char *filename;
+  int result = JNI_FALSE;
+  
+  /* Don't use the JCL convert function because it throws an exception
+     on failure */
+  filename = (*env)->GetStringUTFChars (env, name, 0);
+  if (filename == NULL)
+    {
+      return JNI_FALSE;
+    }
+  
+  if (ownerOnly)
+    {
+      permissions |= CPFILE_FLAG_USR; 
+    }
+  
+  if (!enable)
+    {
+      permissions |= CPFILE_FLAG_OFF;
+    }
+  
+  result = cpio_chmod (filename, permissions);
+  (*env)->ReleaseStringUTFChars (env, name, filename);
+  
+  return result == CPNATIVE_OK ? JNI_TRUE : JNI_FALSE;
+  
+#else /* not WITHOUT_FILESYSTEM */
+  return JNI_FALSE;
 #endif /* not WITHOUT_FILESYSTEM */
 }

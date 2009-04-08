@@ -1,6 +1,6 @@
 // Temporary buffer implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -59,40 +59,14 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _TEMPBUF_H
-#define _TEMPBUF_H 1
+#ifndef _STL_TEMPBUF_H
+#define _STL_TEMPBUF_H 1
 
 #include <bits/stl_algobase.h>
 #include <bits/stl_construct.h>
 #include <bits/stl_uninitialized.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
-
-  /**
-   *  @if maint
-   *  This is a helper function.  The unused second parameter exists to
-   *  permit the real get_temporary_buffer to use template parameter deduction.
-   *  @endif
-   */
-  template<typename _Tp>
-    pair<_Tp*, ptrdiff_t>
-    __get_temporary_buffer(ptrdiff_t __len, _Tp*)
-    {
-      const ptrdiff_t __max =
-	__gnu_cxx::__numeric_traits<ptrdiff_t>::__max / sizeof(_Tp);
-      if (__len > __max)
-	__len = __max;
-      
-      while (__len > 0) 
-	{
-	  _Tp* __tmp = static_cast<_Tp*>(::operator new(__len * sizeof(_Tp), 
-							std::nothrow));
-	  if (__tmp != 0)
-	    return std::pair<_Tp*, ptrdiff_t>(__tmp, __len);
-	  __len /= 2;
-	}
-      return std::pair<_Tp*, ptrdiff_t>(static_cast<_Tp*>(0), 0);
-    }
 
   /**
    *  @brief Allocates a temporary buffer.
@@ -112,9 +86,24 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    * Provides the nothrow exception guarantee.
    */
   template<typename _Tp>
-    inline pair<_Tp*, ptrdiff_t>
+    pair<_Tp*, ptrdiff_t>
     get_temporary_buffer(ptrdiff_t __len)
-    { return std::__get_temporary_buffer(__len, static_cast<_Tp*>(0)); }
+    {
+      const ptrdiff_t __max =
+	__gnu_cxx::__numeric_traits<ptrdiff_t>::__max / sizeof(_Tp);
+      if (__len > __max)
+	__len = __max;
+      
+      while (__len > 0) 
+	{
+	  _Tp* __tmp = static_cast<_Tp*>(::operator new(__len * sizeof(_Tp), 
+							std::nothrow));
+	  if (__tmp != 0)
+	    return std::pair<_Tp*, ptrdiff_t>(__tmp, __len);
+	  __len /= 2;
+	}
+      return std::pair<_Tp*, ptrdiff_t>(static_cast<_Tp*>(0), 0);
+    }
 
   /**
    *  @brief The companion to get_temporary_buffer().
@@ -130,11 +119,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 
   /**
-   *  @if maint
    *  This class is used in two places: stl_algo.h and ext/memory,
    *  where it is wrapped as the temporary_buffer class.  See
    *  temporary_buffer docs for more notes.
-   *  @endif
    */
   template<typename _ForwardIterator, typename _Tp>
     class _Temporary_buffer
@@ -200,7 +187,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     : _M_original_len(std::distance(__first, __last)),
       _M_len(0), _M_buffer(0)
     {
-      try
+      __try
 	{
 	  std::pair<pointer, size_type> __p(std::get_temporary_buffer<
 					    value_type>(_M_original_len));
@@ -209,7 +196,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  if (!__is_pod(_Tp) && _M_len > 0)
 	    std::uninitialized_fill_n(_M_buffer, _M_len, *__first);
 	}
-      catch(...)
+      __catch(...)
 	{
 	  std::return_temporary_buffer(_M_buffer);
 	  _M_buffer = 0;
@@ -220,5 +207,5 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 _GLIBCXX_END_NAMESPACE
 
-#endif /* _TEMPBUF_H */
+#endif /* _STL_TEMPBUF_H */
 

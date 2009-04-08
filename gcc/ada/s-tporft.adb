@@ -2,12 +2,11 @@
 --                                                                          --
 --                 GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                 --
 --                                                                          --
---    S Y S T E M . T A S K _ P R I M I T I V E S . O P E R A T I O N S .   --
---               R E G I S T E R _ F O R E I G N _ T H R E A D              --
+--         SYSTEM.TASK_PRIMITIVES.OPERATIONS.REGISTER_FOREIGN_THREAD        --
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 2002-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2002-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -43,8 +42,6 @@ function Register_Foreign_Thread (Thread : Thread_Id) return Task_Id is
    Local_ATCB : aliased Ada_Task_Control_Block (0);
    Self_Id    : Task_Id;
    Succeeded  : Boolean;
-
-   use type Interfaces.C.unsigned;
 
 begin
    --  This section is tricky. We must not call anything that might require

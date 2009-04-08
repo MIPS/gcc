@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -84,6 +84,10 @@ package body Ada.Text_IO.Editing is
                --  character has already been made, so a count of one is a
                --  no-op, and a count of zero erases a character.
 
+               if Result_Index + Count - 2 > Result'Last then
+                  raise Picture_Error;
+               end if;
+
                for J in 2 .. Count loop
                   Result (Result_Index + J - 2) := Picture (Picture_Index - 1);
                end loop;
@@ -98,6 +102,10 @@ package body Ada.Text_IO.Editing is
                raise Picture_Error;
 
             when others =>
+               if Result_Index > Result'Last then
+                  raise Picture_Error;
+               end if;
+
                Result (Result_Index) := Picture (Picture_Index);
                Picture_Index := Picture_Index + 1;
                Result_Index := Result_Index + 1;
@@ -417,7 +425,7 @@ package body Ada.Text_IO.Editing is
                Answer (J) := Separator_Character;
 
             elsif Answer (J) = 'b' then
-               Answer (J) := '*';
+               Answer (J) := Fill_Character;
             end if;
          end loop;
 
@@ -426,7 +434,7 @@ package body Ada.Text_IO.Editing is
          end if;
 
          for J in Pic.Start_Float .. Position loop
-            Answer (J) := '*';
+            Answer (J) := Fill_Character;
          end loop;
 
       else
@@ -933,7 +941,9 @@ package body Ada.Text_IO.Editing is
                               Pic.Contents.Picture.Expanded;
    begin
       for J in Temp'Range loop
-         if Temp (J) = 'b' then Temp (J) := 'B'; end if;
+         if Temp (J) = 'b' then
+            Temp (J) := 'B';
+         end if;
       end loop;
 
       return Temp;
@@ -2448,9 +2458,10 @@ package body Ada.Text_IO.Editing is
 
       procedure Set_State (L : Legality) is
       begin
-         if Debug then Ada.Text_IO.Put_Line
-            ("  Set state from " & Legality'Image (State) &
-                             " to " & Legality'Image (L));
+         if Debug then
+            Ada.Text_IO.Put_Line
+              ("  Set state from " & Legality'Image (State)
+               & " to " & Legality'Image (L));
          end if;
 
          State := L;
@@ -2462,8 +2473,8 @@ package body Ada.Text_IO.Editing is
 
       procedure Skip is
       begin
-         if Debug then Ada.Text_IO.Put_Line
-            ("  Skip " & Pic.Picture.Expanded (Index));
+         if Debug then
+            Ada.Text_IO.Put_Line ("  Skip " & Pic.Picture.Expanded (Index));
          end if;
 
          Index := Index + 1;

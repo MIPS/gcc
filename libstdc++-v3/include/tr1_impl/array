@@ -1,6 +1,6 @@
 // class template array -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,8 +36,20 @@ namespace std
 {
 _GLIBCXX_BEGIN_NAMESPACE_TR1
 
-  /// @brief  struct array [6.2.2].
-  /// NB: Requires complete type _Tp.
+  /**
+   *  @brief A standard container for storing a fixed size sequence of elements.
+   *
+   *  @ingroup sequences
+   *
+   *  Meets the requirements of a <a href="tables.html#65">container</a>, a
+   *  <a href="tables.html#66">reversible container</a>, and a
+   *  <a href="tables.html#67">sequence</a>.
+   *
+   *  Sets support random access iterators.
+   *
+   *  @param  Tp  Type of element. Required to be a complete type.
+   *  @param  N  Number of elements.
+  */
   template<typename _Tp, std::size_t _Nm>
     struct array
     {
@@ -52,15 +64,20 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       typedef std::reverse_iterator<const_iterator>   const_reverse_iterator;
 
       // Support for zero-sized arrays mandatory.
-      value_type _M_instance[_Nm ? _Nm : 1] __attribute__((__aligned__));
+      value_type _M_instance[_Nm ? _Nm : 1];
 
       // No explicit construct/copy/destroy for aggregate type.
 
-      void 
+      void
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      // DR 776.
+      fill(const value_type& __u)
+#else
       assign(const value_type& __u)
+#endif
       { std::fill_n(begin(), size(), __u); }
 
-      void 
+      void
       swap(array& __other)
       { std::swap_ranges(begin(), end(), __other.begin()); }
 
@@ -74,7 +91,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       { return const_iterator(&_M_instance[0]); }
 
       iterator
-      end() 
+      end()
       { return iterator(&_M_instance[_Nm]); }
 
       const_iterator
@@ -97,6 +114,24 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       rend() const
       { return const_reverse_iterator(begin()); }
 
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+      const_iterator
+      cbegin() const 
+      { return const_iterator(&_M_instance[0]); }
+
+      const_iterator
+      cend() const
+      { return const_iterator(&_M_instance[_Nm]); }
+
+      const_reverse_iterator 
+      crbegin() const
+      { return const_reverse_iterator(end()); }
+
+      const_reverse_iterator 
+      crend() const
+      { return const_reverse_iterator(begin()); }
+#endif
+
       // Capacity.
       size_type 
       size() const { return _Nm; }
@@ -118,15 +153,17 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 
       reference
       at(size_type __n)
-      { 
-	_M_check<_Nm>(__n);
+      {
+	if (__builtin_expect(__n >= _Nm, false))
+	  std::__throw_out_of_range(__N("array::at"));
 	return _M_instance[__n];
       }
 
       const_reference
       at(size_type __n) const
       {
-	_M_check<_Nm>(__n);
+	if (__builtin_expect(__n >= _Nm, false))
+	  std::__throw_out_of_range(__N("array::at"));
 	return _M_instance[__n];
       }
 
@@ -153,21 +190,6 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       const _Tp* 
       data() const
       { return &_M_instance[0]; }
-
-    private:
-      template<std::size_t _Mm>
-        typename __gnu_cxx::__enable_if<_Mm, void>::__type
-        _M_check(size_type __n) const
-        {
-	  if (__builtin_expect(__n >= _Mm, false))
-	    std::__throw_out_of_range(__N("array::_M_check"));
-	}
-
-      // Avoid "unsigned comparison with zero" warnings.
-      template<std::size_t _Mm>
-        typename __gnu_cxx::__enable_if<!_Mm, void>::__type
-        _M_check(size_type) const
-        { std::__throw_out_of_range(__N("array::_M_check")); }
     };
 
   // Array comparisons.
@@ -211,26 +233,57 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
     { std::swap_ranges(__one.begin(), __one.end(), __two.begin()); }
 
   // Tuple interface to class template array [6.2.2.5].
-  template<typename _Tp> class tuple_size;
-  template<int _Int, typename _Tp> class tuple_element;
+
+  /// tuple_size
+  template<typename _Tp> 
+    class tuple_size;
+
+  /// tuple_element
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+  template<std::size_t _Int, typename _Tp>
+#else
+  template<int _Int, typename _Tp>
+#endif
+    class tuple_element;
 
   template<typename _Tp, std::size_t _Nm>
     struct tuple_size<array<_Tp, _Nm> >
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+    { static const std::size_t value = _Nm; };
+#else
     { static const int value = _Nm; };
+#endif
 
   template<typename _Tp, std::size_t _Nm>
-    const int tuple_size<array<_Tp, _Nm> >::value;
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+    const std::size_t
+#else
+    const int
+#endif
+    tuple_size<array<_Tp, _Nm> >::value;  
 
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+  template<std::size_t _Int, typename _Tp, std::size_t _Nm>
+#else
   template<int _Int, typename _Tp, std::size_t _Nm>
+#endif
     struct tuple_element<_Int, array<_Tp, _Nm> >
     { typedef _Tp type; };
 
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+  template<std::size_t _Int, typename _Tp, std::size_t _Nm>
+#else
   template<int _Int, typename _Tp, std::size_t _Nm>
+#endif
     inline _Tp&
     get(array<_Tp, _Nm>& __arr)
     { return __arr[_Int]; }
 
+#ifdef _GLIBCXX_INCLUDE_AS_CXX0X
+  template<std::size_t _Int, typename _Tp, std::size_t _Nm>
+#else
   template<int _Int, typename _Tp, std::size_t _Nm>
+#endif
     inline const _Tp&
     get(const array<_Tp, _Nm>& __arr)
     { return __arr[_Int]; }

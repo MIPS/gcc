@@ -49,8 +49,8 @@
 #include <io/verified_cmd_line_input.hpp>
 #include <common_type/priority_queue/common_type.hpp>
 #include <performance/priority_queue/timing/push_pop_test.hpp>
-#include <native_type/priority_queue/native_priority_queue.hpp>
-#include <rng/twister_rand_gen.hpp>
+#include <native_type/native_priority_queue.hpp>
+#include <testsuite_rng.h>
 #include <iostream>
 #include <vector>
 
@@ -60,7 +60,7 @@ usage();
 int
 main(int argc, char* a_p_argv[])
 {
-  using namespace pb_ds::test;
+  using namespace __gnu_pbds::test;
 
   size_t vn = 200;
   size_t vs = 200;

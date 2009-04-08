@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -27,6 +26,7 @@
 --  This package contains various utility procedures to assist in
 --  building specific types of tree nodes.
 
+with Namet; use Namet;
 with Types; use Types;
 
 package Tbuild is
@@ -48,17 +48,17 @@ package Tbuild is
 
    procedure Discard_Node (N : Node_Or_Entity_Id);
    pragma Inline (Discard_Node);
-   --  This is a dummy procedure that simply returns and does nothing.
-   --  It is used when a function returning a Node_Id value is called
-   --  for its side effect (e.g. a call to Make to construct a node)
-   --  but the Node_Id value is not required.
+   --  This is a dummy procedure that simply returns and does nothing. It is
+   --  used when a function returning a Node_Id value is called for its side
+   --  effect (e.g. a call to Make to construct a node) but the Node_Id value
+   --  is not required.
 
    procedure Discard_List (L : List_Id);
    pragma Inline (Discard_List);
-   --  This is a dummy procedure that simply returns and does nothing.
-   --  It is used when a function returning a Node_Id value is called
-   --  for its side effect (e.g. a call to the pareser to parse a list
-   --  of compilation units), but the List_Id value is not required.
+   --  This is a dummy procedure that simply returns and does nothing. It is
+   --  used when a function returning a Node_Id value is called for its side
+   --  effect (e.g. a call to the parser to parse a list of compilation
+   --  units), but the List_Id value is not required.
 
    function Make_Byte_Aligned_Attribute_Reference
      (Sloc           : Source_Ptr;
@@ -71,8 +71,8 @@ package Tbuild is
 
    function Make_DT_Access
      (Loc : Source_Ptr; Rec : Node_Id; Typ : Entity_Id) return Node_Id;
-   --  Create an access to the Dispatch Table by using the Tag field
-   --  of a tagged record : Acc_Dt (Rec.tag).all
+   --  Create an access to the Dispatch Table by using the Tag field of a
+   --  tagged record : Acc_Dt (Rec.tag).all
 
    function Make_Implicit_Exception_Handler
      (Sloc              : Source_Ptr;
@@ -82,8 +82,9 @@ package Tbuild is
    pragma Inline (Make_Implicit_Exception_Handler);
    --  This is just like Make_Exception_Handler, except that it also sets the
    --  Local_Raise_Statements field to No_Elist, ensuring that it is properly
-   --  initialized. This should always be used when creating exception handlers
-   --  as part of the expansion.
+   --  initialized. This should always be used when creating implicit exception
+   --  handlers during expansion (i.e. handlers that do not correspond to user
+   --  source program exception handlers).
 
    function Make_Implicit_If_Statement
      (Node            : Node_Id;
@@ -103,7 +104,7 @@ package Tbuild is
      (Loc                 : Source_Ptr;
       Defining_Identifier : Node_Id;
       Label_Construct     : Node_Id) return Node_Id;
-   --  Used to contruct an implicit label declaration node, including setting
+   --  Used to construct an implicit label declaration node, including setting
    --  the proper Label_Construct field (since Label_Construct is a semantic
    --  field, the normal call to Make_Implicit_Label_Declaration does not
    --  set this field).
@@ -135,6 +136,14 @@ package Tbuild is
       Sec : String) return Node_Id;
    --  Construct a Linker_Section pragma for entity Ent, using string Sec as
    --  the section name. Loc is the Sloc value to use in building the pragma.
+
+   function Make_Pragma
+     (Sloc                         : Source_Ptr;
+      Chars                        : Name_Id;
+      Pragma_Argument_Associations : List_Id := No_List;
+      Debug_Statement              : Node_Id := Empty) return Node_Id;
+   --  A convenient form of Make_Pragma not requiring a Pragma_Identifier
+   --  argument (this argument is built from the value given for Chars).
 
    function Make_Raise_Constraint_Error
      (Sloc      : Source_Ptr;
@@ -194,11 +203,11 @@ package Tbuild is
    --
    --  Prefix is prepended only if Prefix is non-blank (in which case it
    --  must be an upper case letter other than O,Q,U,W (which are used for
-   --  identifier encoding, see Namet), and T is reserved for use by implicit
-   --  types. and X is reserved for use by debug type encoding (see package
-   --  Exp_Dbug). Note: the reason that Prefix is last is that it is almost
-   --  always omitted. The notable case of Prefix being non-null is when
-   --  it is 'T' for an implicit type.
+   --  identifier encoding, see Namet), or an underscore, and T is reserved for
+   --  use by implicit types, and X is reserved for use by debug type encoding
+   --  (see package Exp_Dbug). Note: the reason that Prefix is last is that it
+   --  is almost always omitted. The notable case of Prefix being non-null is
+   --  when it is 'T' for an implicit type.
 
    --  Suffix_Index'Image is appended only if the value of Suffix_Index is
    --  positive, or if Suffix_Index is negative 1, then a unique serialized
@@ -206,7 +215,7 @@ package Tbuild is
 
    --  Suffix is also a single upper case letter other than O,Q,U,W,X and is a
    --  required parameter (T is permitted). The constructed name is stored
-   --  using Find_Name so that it can be located using a subsequent Find_Name
+   --  using Name_Find so that it can be located using a subsequent Name_Find
    --  operation (i.e. it is properly hashed into the names table). The upper
    --  case letter given as the Suffix argument ensures that the name does
    --  not clash with any Ada identifier name. These generated names are
@@ -220,7 +229,7 @@ package Tbuild is
    --    Suffix & Suffix_Index'Image
    --  where Suffix is a single upper case letter other than O,Q,U,W,X and is
    --  a required parameter (T is permitted). The constructed name is stored
-   --  using Find_Name so that it can be located using a subsequent Find_Name
+   --  using Name_Find so that it can be located using a subsequent Name_Find
    --  operation (i.e. it is properly hashed into the names table). The upper
    --  case letter given as the Suffix argument ensures that the name does
    --  not clash with any Ada identifier name. These generated names are

@@ -208,7 +208,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetCursorUnlocked
   GdkCursorType gdk_cursor_type;
   GdkCursor *gdk_cursor;
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   switch (type)
     {
@@ -287,8 +287,8 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetParent
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
-  parent_ptr = NSA_GET_PTR (env, parent);
+  ptr = gtkpeer_get_widget (env, obj);
+  parent_ptr = gtkpeer_get_widget (env, parent);
   
   widget = GTK_WIDGET (ptr);
   parent_widget = get_widget(GTK_WIDGET (parent_ptr));
@@ -332,7 +332,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetSensitive
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   gtk_widget_set_sensitive (get_widget(GTK_WIDGET (ptr)), sensitive);
 
@@ -348,7 +348,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetHasFocus
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
   
   retval = GTK_WIDGET_HAS_FOCUS((GTK_WIDGET (ptr)));
 
@@ -366,7 +366,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetCanFocus
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
   
   retval = GTK_WIDGET_CAN_FOCUS((GTK_WIDGET (ptr)));
 
@@ -383,7 +383,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetRequestFocus
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
   
   gtk_widget_grab_focus (get_widget(GTK_WIDGET (ptr)));
 
@@ -407,7 +407,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetDispatchKeyEvent
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   if (id == AWT_KEY_PRESSED)
     event = gdk_event_new (GDK_KEY_PRESS);
@@ -517,19 +517,27 @@ JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWindowGetLocationOnScreen
   (JNIEnv * env, jobject obj, jintArray jpoint)
 {
+  gdk_threads_enter();
+  
+  Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWindowGetLocationOnScreenUnlocked
+    (env, obj, jpoint);
+    
+  gdk_threads_leave();
+	
+}
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWindowGetLocationOnScreenUnlocked
+  (JNIEnv * env, jobject obj, jintArray jpoint)
+{
   void *ptr;
   jint *point;
 
-  gdk_threads_enter ();
-
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
   point = (*env)->GetIntArrayElements (env, jpoint, 0);
 
   gdk_window_get_root_origin (get_widget(GTK_WIDGET (ptr))->window, point, point+1);
 
   (*env)->ReleaseIntArrayElements(env, jpoint, point, 0);
-
-  gdk_threads_leave ();
 }
 
 /*
@@ -539,13 +547,23 @@ JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetLocationOnScreen
   (JNIEnv * env, jobject obj, jintArray jpoint)
 {
+  gdk_threads_enter();
+  
+  Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetLocationOnScreenUnlocked
+    (env, obj, jpoint);
+  
+  gdk_threads_leave();
+}
+
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetLocationOnScreenUnlocked
+  (JNIEnv * env, jobject obj, jintArray jpoint)
+{
   void *ptr;
   jint *point;
   GtkWidget *widget;
 
-  gdk_threads_enter ();
-
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
   point = (*env)->GetIntArrayElements (env, jpoint, 0);
 
   widget = get_widget(GTK_WIDGET (ptr));
@@ -557,8 +575,6 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetLocationOnScreen
   *(point+1) += GTK_WIDGET(ptr)->allocation.y;
 
   (*env)->ReleaseIntArrayElements(env, jpoint, point, 0);
-
-  gdk_threads_leave ();
 }
 
 /*
@@ -574,7 +590,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetDimensions
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   dims = (*env)->GetIntArrayElements (env, jdims, 0);  
   dims[0] = dims[1] = 0;
@@ -603,7 +619,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetPreferredDimensions
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   dims = (*env)->GetIntArrayElements (env, jdims, 0);  
   dims[0] = dims[1] = 0;
@@ -650,7 +666,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setNativeBounds
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   widget = GTK_WIDGET (ptr);
 
@@ -685,7 +701,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetBackground
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   bg = GTK_WIDGET (ptr)->style->bg[GTK_STATE_NORMAL];
 
@@ -714,7 +730,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetForeground
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   fg = get_widget(GTK_WIDGET (ptr))->style->fg[GTK_STATE_NORMAL];
 
@@ -743,7 +759,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetBackground
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   normal_color.red = (red / 255.0) * 65535;
   normal_color.green = (green / 255.0) * 65535;
@@ -774,7 +790,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetForeground
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   color.red = (red / 255.0) * 65535;
   color.green = (green / 255.0) * 65535;
@@ -796,7 +812,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_realize (JNIEnv *env, jobject obj)
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   gtk_widget_realize (GTK_WIDGET (ptr));
 
@@ -821,7 +837,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setVisibleNativeUnlocked
 {
   void *ptr;
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   if (visible)
     gtk_widget_show (GTK_WIDGET (ptr));
@@ -838,7 +854,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_isEnabled
   
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   ret_val = GTK_WIDGET_IS_SENSITIVE (get_widget(GTK_WIDGET (ptr)));
 
@@ -869,12 +885,12 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectSignals
   (JNIEnv *env, jobject obj)
 {
   void *ptr;
-  jobject *gref;
+  jobject gref;
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
-  gref = NSA_GET_GLOBAL_REF (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
+  gref = gtkpeer_get_global_ref (env, obj);
 
   cp_gtk_component_connect_signals (ptr, gref);
 
@@ -889,7 +905,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setNativeEventMask
 
   gdk_threads_enter ();
 
-  ptr = NSA_GET_PTR (env, obj);
+  ptr = gtkpeer_get_widget (env, obj);
 
   gtk_widget_add_events (get_widget(GTK_WIDGET (ptr)),
                          GDK_POINTER_MOTION_MASK
@@ -948,46 +964,46 @@ find_bg_color_widget (GtkWidget *widget)
 }
 
 void
-cp_gtk_component_connect_expose_signals (GObject *ptr, jobject *gref)
+cp_gtk_component_connect_expose_signals (GObject *ptr, jobject gref)
 {
   g_signal_connect (G_OBJECT (ptr), "expose-event",
-                    G_CALLBACK (component_expose_cb), *gref);
+                    G_CALLBACK (component_expose_cb), gref);
 }
 
 void
-cp_gtk_component_connect_focus_signals (GObject *ptr, jobject *gref)
+cp_gtk_component_connect_focus_signals (GObject *ptr, jobject gref)
 {
   g_signal_connect (G_OBJECT (ptr), "focus-in-event",
-                    G_CALLBACK (component_focus_in_cb), *gref);
+                    G_CALLBACK (component_focus_in_cb), gref);
  
   g_signal_connect (G_OBJECT (ptr), "focus-out-event",
-                    G_CALLBACK (component_focus_out_cb), *gref);
+                    G_CALLBACK (component_focus_out_cb), gref);
 }
 
 void
-cp_gtk_component_connect_mouse_signals (GObject *ptr, jobject *gref)
+cp_gtk_component_connect_mouse_signals (GObject *ptr, jobject gref)
 {
   g_signal_connect (G_OBJECT (ptr), "button-press-event",
-                    G_CALLBACK (component_button_press_cb), *gref);
+                    G_CALLBACK (component_button_press_cb), gref);
  
   g_signal_connect (G_OBJECT (ptr), "button-release-event",
-                    G_CALLBACK (component_button_release_cb), *gref);
+                    G_CALLBACK (component_button_release_cb), gref);
  
   g_signal_connect (G_OBJECT (ptr), "enter-notify-event",
-                    G_CALLBACK (component_enter_notify_cb), *gref);
+                    G_CALLBACK (component_enter_notify_cb), gref);
  
   g_signal_connect (G_OBJECT (ptr), "leave-notify-event",
-                    G_CALLBACK (component_leave_notify_cb), *gref);
+                    G_CALLBACK (component_leave_notify_cb), gref);
 
   g_signal_connect (G_OBJECT (ptr), "motion-notify-event",
-                    G_CALLBACK (component_motion_notify_cb), *gref);
+                    G_CALLBACK (component_motion_notify_cb), gref);
 
   g_signal_connect (G_OBJECT (ptr), "scroll-event",
-                    G_CALLBACK (component_scroll_cb), *gref);
+                    G_CALLBACK (component_scroll_cb), gref);
 }
 
 void
-cp_gtk_component_connect_signals (GObject *ptr, jobject *gref)
+cp_gtk_component_connect_signals (GObject *ptr, jobject gref)
 {
   cp_gtk_component_connect_expose_signals (ptr, gref);
   cp_gtk_component_connect_focus_signals (ptr, gref);

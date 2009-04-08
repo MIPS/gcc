@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1998, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1998, 2004, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -73,6 +73,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      void *__gthread_getspecific (__gthread_key_t key)
      int __gthread_setspecific (__gthread_key_t key, const void *ptr)
 
+     int __gthread_mutex_destroy (__gthread_mutex_t *mutex);
+
      int __gthread_mutex_lock (__gthread_mutex_t *mutex);
      int __gthread_mutex_trylock (__gthread_mutex_t *mutex);
      int __gthread_mutex_unlock (__gthread_mutex_t *mutex);
@@ -81,8 +83,56 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      int __gthread_recursive_mutex_trylock (__gthread_recursive_mutex_t *mutex);
      int __gthread_recursive_mutex_unlock (__gthread_recursive_mutex_t *mutex);
 
+   The following are supported in POSIX threads only. They are required to
+   fix a deadlock in static initialization inside libsupc++. The header file
+   gthr-posix.h defines a symbol __GTHREAD_HAS_COND to signify that these extra
+   features are supported.
+
+   Types:
+     __gthread_cond_t
+
+   Macros:
+     __GTHREAD_COND_INIT
+     __GTHREAD_COND_INIT_FUNCTION
+
+   Interface:
+     int __gthread_cond_broadcast (__gthread_cond_t *cond);
+     int __gthread_cond_wait (__gthread_cond_t *cond, __gthread_mutex_t *mutex);
+     int __gthread_cond_wait_recursive (__gthread_cond_t *cond,
+					__gthread_recursive_mutex_t *mutex);
+
    All functions returning int should return zero on success or the error
    number.  If the operation is not supported, -1 is returned.
+
+   If the following are also defined, you should 
+     #define __GTHREADS_CXX0X 1
+   to enable the c++0x thread library. 
+ 
+   Types:
+     __gthread_t
+     __gthread_time_t
+
+   Interface:
+     int __gthread_create (__gthread_t *thread, void *(*func) (void*), 
+                           void *args);
+     int __gthread_join (__gthread_t thread, void **value_ptr);
+     int __gthread_detach (__gthread_t thread);
+     int __gthread_equal (__gthread_t t1, __gthread_t t2);
+     __gthread_t __gthread_self (void);
+     int __gthread_yield (void);
+
+     int __gthread_mutex_timedlock (__gthread_mutex_t *m,
+                                    const __gthread_time_t *abs_timeout);
+     int __gthread_recursive_mutex_timedlock (__gthread_recursive_mutex_t *m,
+                                          const __gthread_time_t *abs_time);
+     
+     int __gthread_cond_signal (__gthread_cond_t *cond);
+     int __gthread_cond_timedwait (__gthread_cond_t *cond, 
+                                   __gthread_mutex_t *mutex,
+                                   const __gthread_time_t *abs_timeout);
+     int __gthread_cond_timedwait_recursive (__gthread_cond_t *cond,
+                                             __gthread_recursive_mutex_t *mutex,
+                                             const __gthread_time_t *abs_time)
 
    Currently supported threads packages are
      TPF threads with -D__tpf__
@@ -90,6 +140,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      POSIX/Unix95 threads with -D_PTHREADS95
      DCE threads with -D_DCE_THREADS
      Solaris/UI threads with -D_SOLARIS_THREADS
+   
 */
 
 /* Check first for thread specific defines.  */

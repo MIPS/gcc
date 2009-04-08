@@ -1,11 +1,11 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* The migration of target macros to target hooks works as follows:
 
@@ -76,6 +75,26 @@ default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 #endif
 }
 
+int
+default_unspec_may_trap_p (const_rtx x, unsigned flags)
+{
+  int i;
+
+  if (GET_CODE (x) == UNSPEC_VOLATILE
+      /* Any floating arithmetic may trap.  */
+      || (SCALAR_FLOAT_MODE_P (GET_MODE (x))
+	  && flag_trapping_math))
+    return 1;
+
+  for (i = 0; i < XVECLEN (x, 0); ++i)
+    {
+      if (may_trap_p_1 (XVECEXP (x, 0, i), flags))
+	return 1;
+    }
+
+  return 0;
+}
+
 enum machine_mode
 default_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
 {
@@ -85,14 +104,10 @@ default_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
 }
 
 bool
-default_return_in_memory (tree type,
-			  tree fntype ATTRIBUTE_UNUSED)
+default_return_in_memory (const_tree type,
+			  const_tree fntype ATTRIBUTE_UNUSED)
 {
-#ifndef RETURN_IN_MEMORY
   return (TYPE_MODE (type) == BLKmode);
-#else
-  return RETURN_IN_MEMORY (type);
-#endif
 }
 
 rtx
@@ -137,6 +152,24 @@ default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 enum machine_mode
 default_eh_return_filter_mode (void)
 {
+  return targetm.unwind_word_mode ();
+}
+
+enum machine_mode
+default_libgcc_cmp_return_mode (void)
+{
+  return word_mode;
+}
+
+enum machine_mode
+default_libgcc_shift_count_mode (void)
+{
+  return word_mode;
+}
+
+enum machine_mode
+default_unwind_word_mode (void)
+{
   return word_mode;
 }
 
@@ -173,6 +206,13 @@ hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS * a ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* Return machine mode for non-standard suffix
+   or VOIDmode if non-standard suffixes are unsupported.  */
+enum machine_mode
+default_mode_for_suffix (char suffix ATTRIBUTE_UNUSED)
+{
+  return VOIDmode;
+}
 
 /* The generic C++ ABI specifies this is a 64-bit value.  */
 tree
@@ -211,7 +251,7 @@ default_cxx_get_cookie_size (tree type)
 
 bool
 hook_pass_by_reference_must_pass_in_stack (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
-	enum machine_mode mode ATTRIBUTE_UNUSED, tree type ATTRIBUTE_UNUSED,
+	enum machine_mode mode ATTRIBUTE_UNUSED, const_tree type ATTRIBUTE_UNUSED,
 	bool named_arg ATTRIBUTE_UNUSED)
 {
   return targetm.calls.must_pass_in_stack (mode, type);
@@ -223,7 +263,7 @@ hook_pass_by_reference_must_pass_in_stack (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
 bool
 hook_callee_copies_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 			  enum machine_mode mode ATTRIBUTE_UNUSED,
-			  tree type ATTRIBUTE_UNUSED, bool named)
+			  const_tree type ATTRIBUTE_UNUSED, bool named)
 {
   return named;
 }
@@ -280,6 +320,10 @@ default_scalar_mode_supported_p (enum machine_mode mode)
       return false;
 
     case MODE_DECIMAL_FLOAT:
+    case MODE_FRACT:
+    case MODE_UFRACT:
+    case MODE_ACCUM:
+    case MODE_UACCUM:
       return false;
 
     default:
@@ -295,6 +339,14 @@ default_decimal_float_supported_p (void)
   return ENABLE_DECIMAL_FLOAT;
 }
 
+/* True if the target supports fixed-point arithmetic.  */
+
+bool
+default_fixed_point_supported_p (void)
+{
+  return ENABLE_FIXED_POINT;
+}
+
 /* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
    an error message.
   
@@ -306,7 +358,7 @@ default_decimal_float_supported_p (void)
    these cases.  */
 
 const char *
-default_invalid_within_doloop (rtx insn)
+default_invalid_within_doloop (const_rtx insn)
 {
   if (CALL_P (insn))
     return "Function call in loop.";
@@ -338,11 +390,21 @@ default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
   return NULL_TREE;
 }
 
+/* Reciprocal.  */
+
+tree
+default_builtin_reciprocal (enum built_in_function fn ATTRIBUTE_UNUSED,
+			    bool md_fn ATTRIBUTE_UNUSED,
+			    bool sqrt ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,
-	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+	const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
   return false;
 }
@@ -351,7 +413,7 @@ bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,
-	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+	const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
   return true;
 }
@@ -372,9 +434,9 @@ hook_void_bitmap (bitmap regs ATTRIBUTE_UNUSED)
 
 const char *
 hook_invalid_arg_for_unprototyped_fn (
-	tree typelist ATTRIBUTE_UNUSED,
-	tree funcdecl ATTRIBUTE_UNUSED,
-	tree val ATTRIBUTE_UNUSED)
+	const_tree typelist ATTRIBUTE_UNUSED,
+	const_tree funcdecl ATTRIBUTE_UNUSED,
+	const_tree val ATTRIBUTE_UNUSED)
 {
   return NULL;
 }
@@ -470,14 +532,15 @@ default_hidden_stack_protect_fail (void)
 }
 
 bool
-hook_bool_rtx_commutative_p (rtx x, int outer_code ATTRIBUTE_UNUSED)
+hook_bool_const_rtx_commutative_p (const_rtx x,
+				   int outer_code ATTRIBUTE_UNUSED)
 {
   return COMMUTATIVE_P (x);
 }
 
 rtx
-default_function_value (tree ret_type ATTRIBUTE_UNUSED,
-			tree fn_decl_or_type,
+default_function_value (const_tree ret_type ATTRIBUTE_UNUSED,
+			const_tree fn_decl_or_type,
 			bool outgoing ATTRIBUTE_UNUSED)
 {
   /* The old interface doesn't handle receiving the function type.  */
@@ -512,13 +575,22 @@ default_internal_arg_pointer (void)
     return virtual_incoming_args_rtx;
 }
 
+#ifdef IRA_COVER_CLASSES
+const enum reg_class *
+default_ira_cover_classes (void)
+{
+  static enum reg_class classes[] = IRA_COVER_CLASSES;
+  return classes;
+}
+#endif
+
 enum reg_class
 default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 			  enum reg_class reload_class ATTRIBUTE_UNUSED,
 			  enum machine_mode reload_mode ATTRIBUTE_UNUSED,
 			  secondary_reload_info *sri)
 {
-  enum reg_class class = NO_REGS;
+  enum reg_class rclass = NO_REGS;
 
   if (sri->prev_sri && sri->prev_sri->t_icode != CODE_FOR_nothing)
     {
@@ -527,13 +599,13 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
     }
 #ifdef SECONDARY_INPUT_RELOAD_CLASS
   if (in_p)
-    class = SECONDARY_INPUT_RELOAD_CLASS (reload_class, reload_mode, x);
+    rclass = SECONDARY_INPUT_RELOAD_CLASS (reload_class, reload_mode, x);
 #endif
 #ifdef SECONDARY_OUTPUT_RELOAD_CLASS
   if (! in_p)
-    class = SECONDARY_OUTPUT_RELOAD_CLASS (reload_class, reload_mode, x);
+    rclass = SECONDARY_OUTPUT_RELOAD_CLASS (reload_class, reload_mode, x);
 #endif
-  if (class != NO_REGS)
+  if (rclass != NO_REGS)
     {
       enum insn_code icode = (in_p ? reload_in_optab[(int) reload_mode]
 			      : reload_out_optab[(int) reload_mode]);
@@ -585,19 +657,19 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 
 	  if (reg_class_subset_p (reload_class, insn_class))
 	    {
-	      gcc_assert (scratch_class == class);
-	      class = NO_REGS;
+	      gcc_assert (scratch_class == rclass);
+	      rclass = NO_REGS;
 	    }
 	  else
-	    class = insn_class;
+	    rclass = insn_class;
 
         }
-      if (class == NO_REGS)
+      if (rclass == NO_REGS)
 	sri->icode = icode;
       else
 	sri->t_icode = icode;
     }
-  return class;
+  return rclass;
 }
 
 bool
@@ -622,6 +694,75 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
 					 tree id)
 {
    return id;
+}
+
+bool
+default_builtin_vector_alignment_reachable (const_tree type, bool is_packed)
+{
+  if (is_packed)
+    return false;
+
+  /* Assuming that types whose size is > pointer-size are not guaranteed to be
+     naturally aligned.  */
+  if (tree_int_cst_compare (TYPE_SIZE (type), bitsize_int (POINTER_SIZE)) > 0)
+    return false;
+
+  /* Assuming that types whose size is <= pointer-size
+     are naturally aligned.  */
+  return true;
+}
+
+bool
+default_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
+bool
+default_target_option_valid_attribute_p (tree ARG_UNUSED (fndecl),
+					 tree ARG_UNUSED (name),
+					 tree ARG_UNUSED (args),
+					 int ARG_UNUSED (flags))
+{
+  warning (OPT_Wattributes,
+	   "target attribute is not supported on this machine");
+
+  return false;
+}
+
+bool
+default_target_option_pragma_parse (tree ARG_UNUSED (args),
+				    tree ARG_UNUSED (pop_target))
+{
+  warning (OPT_Wpragmas,
+	   "#pragma GCC target is not supported for this machine");
+
+  return false;
+}
+
+bool
+default_target_option_can_inline_p (tree caller, tree callee)
+{
+  bool ret = false;
+  tree callee_opts = DECL_FUNCTION_SPECIFIC_TARGET (callee);
+  tree caller_opts = DECL_FUNCTION_SPECIFIC_TARGET (caller);
+
+  /* If callee has no option attributes, then it is ok to inline */
+  if (!callee_opts)
+    ret = true;
+
+  /* If caller has no option attributes, but callee does then it is not ok to
+     inline */
+  else if (!caller_opts)
+    ret = false;
+
+  /* If both caller and callee have attributes, assume that if the pointer is
+     different, the the two functions have different target options since
+     build_target_option_node uses a hash table for the options.  */
+  else
+    ret = (callee_opts == caller_opts);
+
+  return ret;
 }
 
 #include "gt-targhooks.h"

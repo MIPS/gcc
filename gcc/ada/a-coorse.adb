@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,7 +47,7 @@ package body Ada.Containers.Ordered_Sets is
    ------------------------------
 
    --  These subprograms provide functional notation for access to fields
-   --  of a node, and procedural notation for modifiying these fields.
+   --  of a node, and procedural notation for modifying these fields.
 
    function Color (Node : Node_Access) return Color_Type;
    pragma Inline (Color);
@@ -891,6 +891,8 @@ package body Ada.Containers.Ordered_Sets is
       New_Item  : Element_Type)
    is
       Position : Cursor;
+      pragma Unreferenced (Position);
+
       Inserted : Boolean;
 
    begin
@@ -955,6 +957,7 @@ package body Ada.Containers.Ordered_Sets is
       Dst_Node : out Node_Access)
    is
       Success : Boolean;
+      pragma Unreferenced (Success);
 
       function New_Node return Node_Access;
       pragma Inline (New_Node);
@@ -1100,7 +1103,7 @@ package body Ada.Containers.Ordered_Sets is
       T : Tree_Type renames Container.Tree'Unrestricted_Access.all;
       B : Natural renames T.Busy;
 
-   --  Start of prccessing for Iterate
+   --  Start of processing for Iterate
 
    begin
       B := B + 1;
@@ -1591,7 +1594,7 @@ package body Ada.Containers.Ordered_Sets is
       Tree     : Tree_Type;
       Node     : Node_Access;
       Inserted : Boolean;
-
+      pragma Unreferenced (Node, Inserted);
    begin
       Insert_Sans_Hint (Tree, New_Item, Node, Inserted);
       return Set'(Controlled with Tree);

@@ -1,5 +1,5 @@
 /* 128-bit long double support routines for Darwin.
-   Copyright (C) 1993, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1993, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -387,7 +387,7 @@ fmsub (double a, double b, double c)
     FP_DECL_Q(V);
     FP_DECL_D(R);
     double r;
-    long double u, v, x, y, z;
+    long double u, x, y, z;
 
     FP_INIT_ROUNDMODE;
     FP_UNPACK_RAW_D (A, a);
@@ -422,15 +422,13 @@ fmsub (double a, double b, double c)
     FP_UNPACK_SEMIRAW_Q(U,u);
     FP_UNPACK_SEMIRAW_Q(Z,z);
     FP_SUB_Q(V,U,Z);
-    FP_PACK_SEMIRAW_Q(v,V);
-    FP_HANDLE_EXCEPTIONS;
 
     /* Truncate quad to double.  */
-    FP_INIT_ROUNDMODE;
-    FP_UNPACK_SEMIRAW_Q(V,v);
 #if (2 * _FP_W_TYPE_SIZE) < _FP_FRACBITS_Q
+    V_f[3] &= 0x0007ffff;
     FP_TRUNC(D,Q,2,4,R,V);
 #else
+    V_f1 &= 0x0007ffffffffffffL;
     FP_TRUNC(D,Q,1,2,R,V);
 #endif
     FP_PACK_SEMIRAW_D(r,R);

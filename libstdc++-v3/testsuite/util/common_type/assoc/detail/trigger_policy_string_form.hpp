@@ -51,7 +51,7 @@
 #include <common_type/assoc/template_policy.hpp>
 #include <io/xml.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
 
   namespace test
@@ -70,7 +70,7 @@ namespace pb_ds
 	       typename Allocator::size_type Max_Load_Denom,
 	       bool External_Access>
       struct trigger_policy_string_form<
-	pb_ds::test::hash_load_check_resize_trigger_t_<
+	__gnu_pbds::test::hash_load_check_resize_trigger_t_<
         Allocator,
         Min_Load_Nom,
         Min_Load_Denom,
@@ -94,15 +94,14 @@ namespace pb_ds
         desc()
 	{
 	  const std::string ext_access_desc =
-            make_xml_tag(
-			 "External_Access",
+            make_xml_tag("External_Access",
 			 "value",(External_Access? "true" : "false"));
 
 	  const std::string loads_desc =
-            make_xml_tag(                "alpha_min",  "nom", Min_Load_Nom,  "denom", Min_Load_Denom) +
-            make_xml_tag(                "alpha_max",  "nom", Max_Load_Nom,  "denom", Max_Load_Denom);
+            make_xml_tag("alpha_min", "nom", Min_Load_Nom, "denom", Min_Load_Denom) +
+            make_xml_tag("alpha_max", "nom", Max_Load_Nom, "denom", Max_Load_Denom);
 
-	  return (make_xml_tag(            "Trigger_Policy", "value", "hash_load_check_resize_trigger", ext_access_desc + loads_desc));
+	  return (make_xml_tag("Trigger_Policy", "value", "hash_load_check_resize_trigger", ext_access_desc + loads_desc));
 	}
       };
 
@@ -111,7 +110,7 @@ namespace pb_ds
 	       typename Allocator::size_type Load_Denom,
 	       bool External_Access>
       struct trigger_policy_string_form<
-	pb_ds::test::cc_hash_max_collision_check_resize_trigger_t_<
+	__gnu_pbds::test::cc_hash_max_collision_check_resize_trigger_t_<
         Allocator,
         Load_Nom,
         Load_Denom,
@@ -132,14 +131,13 @@ namespace pb_ds
         desc()
 	{
 	  const std::string ext_access_desc =
-            make_xml_tag(
-			 "External_Access",
+            make_xml_tag("External_Access",
 			 "value",(External_Access? "true" : "false"));
 
 	  const std::string load_desc =
-            make_xml_tag(                "alpha",  "nom", Load_Nom,  "denom", Load_Denom);
+            make_xml_tag("alpha",  "nom", Load_Nom,  "denom", Load_Denom);
 
-	  return (make_xml_tag(            "Trigger_Policy", "value", "cc_hash_max_collision_check_resize_trigger", ext_access_desc + load_desc));
+	  return (make_xml_tag("Trigger_Policy", "value", "cc_hash_max_collision_check_resize_trigger", ext_access_desc + load_desc));
 	}
       };
 
@@ -147,7 +145,7 @@ namespace pb_ds
 
   } // namespace test
 
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif // #ifndef PB_DS_TRIGGER_POLICY_STRING_FORM_HPP
 

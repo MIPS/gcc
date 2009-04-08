@@ -2,11 +2,11 @@
 --                                                                          --
 --                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
---                        INTERFACES.FORTRAN.LAPACK                         --
+--             I N T E R F A C E S . F O R T R A N . L A P A C K            --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 2006, Free Software Foundation, Inc.            --
+--          Copyright (C) 2006-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -293,7 +293,7 @@ package Interfaces.Fortran.LAPACK is
       N      : Natural;
       A      : in out Real_Matrix;
       Ld_A   : Positive;
-      Tau    : in Real_Vector;
+      Tau    : Real_Vector;
       Work   : out Real_Vector;
       L_Work : Integer;
       Info   : access Integer);
@@ -303,7 +303,7 @@ package Interfaces.Fortran.LAPACK is
       N      : Natural;
       A      : in out Double_Precision_Matrix;
       Ld_A   : Positive;
-      Tau    : in Double_Precision_Vector;
+      Tau    : Double_Precision_Vector;
       Work   : out Double_Precision_Vector;
       L_Work : Integer;
       Info   : access Integer);
@@ -311,12 +311,12 @@ package Interfaces.Fortran.LAPACK is
    procedure sstebz
      (Rng      : access constant Character;
       Order    : access constant Character;
-      N        : in Natural;
-      Vl, Vu   : in Real := 0.0;
-      Il, Iu   : in Integer := 1;
-      Abs_Tol  : in Real := 0.0;
-      D        : in Real_Vector;
-      E        : in Real_Vector;
+      N        : Natural;
+      Vl, Vu   : Real := 0.0;
+      Il, Iu   : Integer := 1;
+      Abs_Tol  : Real := 0.0;
+      D        : Real_Vector;
+      E        : Real_Vector;
       M        : out Natural;
       N_Split  : out Natural;
       W        : out Real_Vector;
@@ -329,12 +329,12 @@ package Interfaces.Fortran.LAPACK is
    procedure dstebz
      (Rng      : access constant Character;
       Order    : access constant Character;
-      N        : in Natural;
-      Vl, Vu   : in Double_Precision := 0.0;
-      Il, Iu   : in Integer := 1;
-      Abs_Tol  : in Double_Precision := 0.0;
-      D        : in Double_Precision_Vector;
-      E        : in Double_Precision_Vector;
+      N        : Natural;
+      Vl, Vu   : Double_Precision := 0.0;
+      Il, Iu   : Integer := 1;
+      Abs_Tol  : Double_Precision := 0.0;
+      D        : Double_Precision_Vector;
+      E        : Double_Precision_Vector;
       M        : out Natural;
       N_Split  : out Natural;
       W        : out Double_Precision_Vector;

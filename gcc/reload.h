@@ -1,12 +1,12 @@
-/* Communication between reload.c and reload1.c.
-   Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+/* Communication between reload.c, reload1.c and the rest of compiler.
+   Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1997, 1998, 1999,
+   2000, 2001, 2003, 2004, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* If secondary reloads are the same for inputs and outputs, define those
@@ -84,7 +83,7 @@ struct reload
   rtx out;
 
   /* The class of registers to reload into.  */
-  enum reg_class class;
+  enum reg_class rclass;
 
   /* The mode this operand should have when reloaded, on input.  */
   enum machine_mode inmode;
@@ -206,21 +205,11 @@ struct insn_chain
      all insns that need reloading.  */
   struct insn_chain *next_need_reload;
 
-  /* The basic block this insn is in.  */
-  int block;
   /* The rtx of the insn.  */
   rtx insn;
-  /* Register life information: record all live hard registers, and all
-     live pseudos that have a hard register.  */
-  regset_head live_throughout;
-  regset_head dead_or_set;
 
-  /* Copies of the global variables computed by find_reloads.  */
-  struct reload *rld;
-  int n_reloads;
-
-  /* Indicates which registers have already been used for spills.  */
-  HARD_REG_SET used_spill_regs;
+  /* The basic block this insn is in.  */
+  int block;
 
   /* Nonzero if find_reloads said the insn requires reloading.  */
   unsigned int need_reload:1;
@@ -231,6 +220,19 @@ struct insn_chain
   unsigned int need_elim:1;
   /* Nonzero if this insn was inserted by perform_caller_saves.  */
   unsigned int is_caller_save_insn:1;
+
+  /* Register life information: record all live hard registers, and
+     all live pseudos that have a hard register.  This set also
+     contains pseudos spilled by IRA.  */
+  regset_head live_throughout;
+  regset_head dead_or_set;
+
+  /* Copies of the global variables computed by find_reloads.  */
+  struct reload *rld;
+  int n_reloads;
+
+  /* Indicates which registers have already been used for spills.  */
+  HARD_REG_SET used_spill_regs;
 };
 
 /* A chain of insn_chain structures to describe all non-note insns in

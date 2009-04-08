@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1999-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,8 +38,6 @@
 pragma Restrictions (No_Elaboration_Code);
 --  We want to guarantee the absence of elaboration code because the
 --  binder does not handle references to this package.
-
-with Ada.Exceptions;
 
 with System.Storage_Elements; use System.Storage_Elements;
 with System.Parameters; use System.Parameters;
@@ -86,6 +84,26 @@ package body System.Stack_Checking.Operations is
       Cache := Null_Stack;
    end Invalidate_Stack_Cache;
 
+   -----------------------------
+   -- Notify_Stack_Attributes --
+   -----------------------------
+
+   procedure Notify_Stack_Attributes
+     (Initial_SP : System.Address;
+      Size       : System.Storage_Elements.Storage_Offset)
+   is
+      My_Stack : constant Stack_Access := Soft_Links.Get_Stack_Info.all;
+
+      --  We piggyback on the 'Limit' field to store what will be used as the
+      --  'Base' and leave the 'Size' alone to not interfere with the logic in
+      --  Set_Stack_Info below.
+
+      pragma Unreferenced (Size);
+
+   begin
+      My_Stack.Limit := Initial_SP;
+   end Notify_Stack_Attributes;
+
    --------------------
    -- Set_Stack_Info --
    --------------------
@@ -102,7 +120,7 @@ package body System.Stack_Checking.Operations is
       Limit       : Integer;
 
    begin
-      --  The order of steps 1 .. 3 is important, see specification.
+      --  The order of steps 1 .. 3 is important, see specification
 
       --  1) Get the Stack_Access value for the current task
 
@@ -131,7 +149,14 @@ package body System.Stack_Checking.Operations is
             end if;
          end if;
 
-         My_Stack.Base := Frame_Address;
+         --  If a stack base address has been registered, honor it.
+         --  Fallback to the address of a local object otherwise.
+
+         if My_Stack.Limit /= System.Null_Address then
+            My_Stack.Base := My_Stack.Limit;
+         else
+            My_Stack.Base := Frame_Address;
+         end if;
 
          if Stack_Grows_Down then
 
@@ -189,9 +214,7 @@ package body System.Stack_Checking.Operations is
          (not Stack_Grows_Down and then
             Stack_Address < Frame_Address)
       then
-         Ada.Exceptions.Raise_Exception
-           (E       => Storage_Error'Identity,
-            Message => "stack overflow detected");
+         raise Storage_Error with "stack overflow detected";
       end if;
 
       --  This function first does a "cheap" check which is correct
@@ -243,9 +266,7 @@ package body System.Stack_Checking.Operations is
             (not Stack_Grows_Down and then
                   Stack_Address > My_Stack.Limit)
          then
-            Ada.Exceptions.Raise_Exception
-              (E       => Storage_Error'Identity,
-               Message => "stack overflow detected");
+            raise Storage_Error with "stack overflow detected";
          end if;
 
          return My_Stack;

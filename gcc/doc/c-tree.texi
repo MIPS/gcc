@@ -1,5 +1,5 @@
-@c Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004, 2005
-@c Free Software Foundation, Inc.
+@c Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
+@c 2009  Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -271,6 +271,7 @@ The elements are indexed from zero.
 @tindex TYPE_MIN_VALUE
 @tindex TYPE_MAX_VALUE
 @tindex REAL_TYPE
+@tindex FIXED_POINT_TYPE
 @tindex COMPLEX_TYPE
 @tindex ENUMERAL_TYPE
 @tindex BOOLEAN_TYPE
@@ -311,7 +312,7 @@ The elements are indexed from zero.
 
 All types have corresponding tree nodes.  However, you should not assume
 that there is exactly one tree node corresponding to each type.  There
-are often several nodes each of which correspond to the same type.
+are often multiple nodes corresponding to the same type.
 
 For the most part, different kinds of types have different tree codes.
 (For example, pointer types use a @code{POINTER_TYPE} code while arrays
@@ -497,6 +498,19 @@ that may be represented by this type.
 Used to represent the @code{float}, @code{double}, and @code{long
 double} types.  The number of bits in the floating-point representation
 is given by @code{TYPE_PRECISION}, as in the @code{INTEGER_TYPE} case.
+
+@item FIXED_POINT_TYPE
+Used to represent the @code{short _Fract}, @code{_Fract}, @code{long
+_Fract}, @code{long long _Fract}, @code{short _Accum}, @code{_Accum},
+@code{long _Accum}, and @code{long long _Accum} types.  The number of bits
+in the fixed-point representation is given by @code{TYPE_PRECISION},
+as in the @code{INTEGER_TYPE} case.  There may be padding bits, fractional
+bits and integral bits.  The number of fractional bits is given by
+@code{TYPE_FBIT}, and the number of integral bits is given by @code{TYPE_IBIT}.
+The fixed-point type is unsigned if @code{TYPE_UNSIGNED} holds; otherwise,
+it is signed.
+The fixed-point type is saturating if @code{TYPE_SATURATING} holds; otherwise,
+it is not saturating.
 
 @item COMPLEX_TYPE
 Used to represent GCC built-in @code{__complex__} data types.  The
@@ -1284,7 +1298,7 @@ tree structure; back ends must look at the @code{DECL_CONTEXT} for the
 referenced @code{VAR_DECL}.  If the @code{DECL_CONTEXT} for the
 referenced @code{VAR_DECL} is not the same as the function currently
 being processed, and neither @code{DECL_EXTERNAL} nor
-@code{DECL_STATIC} hold, then the reference is to a local variable in
+@code{TREE_STATIC} hold, then the reference is to a local variable in
 a containing function, and the back end must take appropriate action.
 
 @menu
@@ -1316,6 +1330,8 @@ a containing function, and the back end must take appropriate action.
 @findex DECL_GLOBAL_CTOR_P
 @findex DECL_GLOBAL_DTOR_P
 @findex GLOBAL_INIT_PRIORITY
+@findex DECL_FUNCTION_SPECIFIC_TARGET
+@findex DECL_FUNCTION_SPECIFIC_OPTIMIZATION
 
 The following macros and functions can be used on a @code{FUNCTION_DECL}:
 @ftable @code
@@ -1494,12 +1510,23 @@ whose @code{TREE_VALUE} represents a type.
 
 @item TYPE_NOTHROW_P
 This predicate holds when the exception-specification of its arguments
-if of the form `@code{()}'.
+is of the form `@code{()}'.
 
 @item DECL_ARRAY_DELETE_OPERATOR_P
 This predicate holds if the function an overloaded
 @code{operator delete[]}.
 
+@item DECL_FUNCTION_SPECIFIC_TARGET
+This macro returns a tree node that holds the target options that are
+to be used to compile this particular function or @code{NULL_TREE} if
+the function is to be compiled with the target options specified on
+the command line.
+
+@item DECL_FUNCTION_SPECIFIC_OPTIMIZATION
+This macro returns a tree node that holds the optimization options
+that are to be used to compile this particular function or
+@code{NULL_TREE} if the function is to be compiled with the
+optimization options specified on the command line.
 @end ftable
 
 @c ---------------------------------------------------------------------
@@ -1879,6 +1906,7 @@ This macro returns the attributes on the type @var{type}.
 @findex tree_int_cst_lt
 @findex tree_int_cst_equal
 @tindex REAL_CST
+@tindex FIXED_CST
 @tindex COMPLEX_CST
 @tindex VECTOR_CST
 @tindex STRING_CST
@@ -1907,6 +1935,7 @@ This macro returns the attributes on the type @var{type}.
 @tindex NON_LVALUE_EXPR
 @tindex NOP_EXPR
 @tindex CONVERT_EXPR
+@tindex FIXED_CONVERT_EXPR
 @tindex THROW_EXPR
 @tindex LSHIFT_EXPR
 @tindex RSHIFT_EXPR
@@ -1918,6 +1947,7 @@ This macro returns the attributes on the type @var{type}.
 @tindex TRUTH_AND_EXPR
 @tindex TRUTH_OR_EXPR
 @tindex TRUTH_XOR_EXPR
+@tindex POINTER_PLUS_EXPR
 @tindex PLUS_EXPR
 @tindex MINUS_EXPR
 @tindex MULT_EXPR
@@ -1965,6 +1995,7 @@ This macro returns the attributes on the type @var{type}.
 @tindex TARGET_EXPR
 @tindex AGGR_INIT_EXPR
 @tindex VA_ARG_EXPR
+@tindex CHANGE_DYNAMIC_TYPE_EXPR
 @tindex OMP_PARALLEL
 @tindex OMP_FOR
 @tindex OMP_SECTIONS
@@ -1999,7 +2030,7 @@ mind.  In particular, the expression ``tree'' is actually a directed
 acyclic graph.  (For example there may be many references to the integer
 constant zero throughout the source program; many of these will be
 represented by the same expression node.)  You should not rely on
-certain kinds of node being shared, nor should rely on certain kinds of
+certain kinds of node being shared, nor should you rely on certain kinds of
 nodes being unshared.
 
 The following macros can be used with all expression nodes:
@@ -2077,6 +2108,15 @@ its bit-pattern.
 
 FIXME: Talk about how to obtain representations of this constant, do
 comparisons, and so forth.
+
+@item FIXED_CST
+
+These nodes represent fixed-point constants.  The type of these constants
+is obtained with @code{TREE_TYPE}.  @code{TREE_FIXED_CST_PTR} points to
+to struct fixed_value;  @code{TREE_FIXED_CST} returns the structure itself.
+Struct fixed_value contains @code{data} with the size of two
+HOST_BITS_PER_WIDE_INT and @code{mode} as the associated fixed-point
+machine mode for @code{data}.
 
 @item COMPLEX_CST
 These nodes are used to represent complex number constants, that is a
@@ -2244,6 +2284,13 @@ cases are always indicated explicitly.  Similarly, a user-defined
 conversion is never represented by a @code{CONVERT_EXPR}; instead, the
 function calls are made explicit.
 
+@item FIXED_CONVERT_EXPR
+These nodes are used to represent conversions that involve fixed-point
+values.  For example, from a fixed-point value to another fixed-point value,
+from an integer to a fixed-point value, from a fixed-point value to an
+integer, from a floating-point value to a fixed-point value, or from
+a fixed-point value to a floating-point value.
+
 @item THROW_EXPR
 These nodes represent @code{throw} expressions.  The single operand is
 an expression for the code that should be executed to throw the
@@ -2290,6 +2337,12 @@ corresponding operators in C or C++, but the front end will sometimes
 generate these expressions anyhow, if it can tell that strictness does
 not matter.  The type of the operands and that of the result are
 always of @code{BOOLEAN_TYPE} or @code{INTEGER_TYPE}.
+
+@itemx POINTER_PLUS_EXPR
+This node represents pointer arithmetic.  The first operand is always
+a pointer/reference type.  The second operand is always an unsigned
+integer type compatible with sizetype.  This is the only binary
+arithmetic operand that can operate on pointer types.
 
 @itemx PLUS_EXPR
 @itemx MINUS_EXPR
@@ -2497,7 +2550,7 @@ tree call, arg;
 call_expr_arg_iterator iter;
 FOR_EACH_CALL_EXPR_ARG (arg, iter, call)
   /* arg is bound to successive arguments of call.  */
-  ...;
+  @dots{};
 @end smallexample
 
 For non-static
@@ -2583,10 +2636,10 @@ declaration order.  You should not assume that all fields will be
 represented.  Unrepresented fields will be set to zero.
 
 @item COMPOUND_LITERAL_EXPR
-@findex COMPOUND_LITERAL_EXPR_DECL_STMT
+@findex COMPOUND_LITERAL_EXPR_DECL_EXPR
 @findex COMPOUND_LITERAL_EXPR_DECL
 These nodes represent ISO C99 compound literals.  The
-@code{COMPOUND_LITERAL_EXPR_DECL_STMT} is a @code{DECL_STMT}
+@code{COMPOUND_LITERAL_EXPR_DECL_EXPR} is a @code{DECL_EXPR}
 containing an anonymous @code{VAR_DECL} for
 the unnamed object represented by the compound literal; the
 @code{DECL_INITIAL} of that @code{VAR_DECL} is a @code{CONSTRUCTOR}
@@ -2655,9 +2708,16 @@ mechanism.  It represents expressions like @code{va_arg (ap, type)}.
 Its @code{TREE_TYPE} yields the tree representation for @code{type} and
 its sole argument yields the representation for @code{ap}.
 
+@item CHANGE_DYNAMIC_TYPE_EXPR
+Indicates the special aliasing required by C++ placement new.  It has
+two operands: a type and a location.  It means that the dynamic type
+of the location is changing to be the specified type.  The alias
+analysis code takes this into account when doing type based alias
+analysis.
+
 @item OMP_PARALLEL
 
-Represents @code{#pragma omp parallel [clause1 ... clauseN]}. It
+Represents @code{#pragma omp parallel [clause1 @dots{} clauseN]}. It
 has four operands:
 
 Operand @code{OMP_PARALLEL_BODY} is valid while in GENERIC and
@@ -2682,7 +2742,7 @@ variables.
 
 @item OMP_FOR
 
-Represents @code{#pragma omp for [clause1 ... clauseN]}.  It
+Represents @code{#pragma omp for [clause1 @dots{} clauseN]}.  It
 has 5 operands:
 
 Operand @code{OMP_FOR_BODY} contains the loop body.
@@ -2715,7 +2775,7 @@ unspecified by the standard.
 
 @item OMP_SECTIONS
 
-Represents @code{#pragma omp sections [clause1 ... clauseN]}.
+Represents @code{#pragma omp sections [clause1 @dots{} clauseN]}.
 
 Operand @code{OMP_SECTIONS_BODY} contains the sections body,
 which in turn contains a set of @code{OMP_SECTION} nodes for
@@ -2766,7 +2826,7 @@ label the critical section.
 @item OMP_RETURN
 
 This does not represent any OpenMP directive, it is an artificial
-marker to indicate the end of the body of an OpenMP. It is used
+marker to indicate the end of the body of an OpenMP@. It is used
 by the flow graph (@code{tree-cfg.c}) and OpenMP region
 building code (@code{omp-low.c}).
 

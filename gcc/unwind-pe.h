@@ -1,5 +1,5 @@
 /* Exception handling and frame unwind runtime interface routines.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2008 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -69,6 +69,9 @@
 /* Given an encoding, return the number of bytes the format occupies.
    This is only defined for fixed-size encodings, and so does not
    include leb128.  */
+
+static unsigned int
+size_of_encoded_value (unsigned char encoding) __attribute__ ((unused));
 
 static unsigned int
 size_of_encoded_value (unsigned char encoding)

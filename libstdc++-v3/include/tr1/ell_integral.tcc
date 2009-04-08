@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2006-2007
+// Copyright (C) 2006, 2007, 2008
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -55,14 +55,7 @@ namespace tr1
 
   // [5.2] Special functions
 
-  /**
-   * @ingroup tr1_math_spec_func
-   * @{
-   */
-
-  //
   // Implementation-space details.
-  //
   namespace __detail
   {
 
@@ -313,7 +306,7 @@ namespace tr1
      *   Based on Carlson's algorithms:
      *   -  B. C. Carlson Numer. Math. 33, 1 (1979)
      *   -  B. C. Carlson, Special Functions of Applied Mathematics (1977)
-     *   -  Nunerical Recipes in C, 2nd ed, pp. 261-269,
+     *   -  Numerical Recipes in C, 2nd ed, pp. 261-269,
      *      by Press, Teukolsky, Vetterling, Flannery (1992)
      *
      *   @param  __x  The first of two symmetric arguments.
@@ -378,17 +371,18 @@ namespace tr1
               __zn = __c0 * (__zn + __lambda);
             }
 
-          _Tp __ea = __xndev * __yndev;
+	  // Note: __ea is an SPU badname.
+          _Tp __eaa = __xndev * __yndev;
           _Tp __eb = __zndev * __zndev;
-          _Tp __ec = __ea - __eb;
-          _Tp __ed = __ea - _Tp(6) * __eb;
+          _Tp __ec = __eaa - __eb;
+          _Tp __ed = __eaa - _Tp(6) * __eb;
           _Tp __ef = __ed + __ec + __ec;
           _Tp __s1 = __ed * (-__c1 + __c3 * __ed
                                    / _Tp(3) - _Tp(3) * __c4 * __zndev * __ef
                                    / _Tp(2));
           _Tp __s2 = __zndev
                    * (__c2 * __ef
-                    + __zndev * (-__c3 * __ec - __zndev * __c4 - __ea));
+                    + __zndev * (-__c3 * __ec - __zndev * __c4 - __eaa));
 
           return _Tp(3) * __sigma + __power4 * (_Tp(1) + __s1 + __s2)
                                         / (__mu * std::sqrt(__mu));
@@ -494,7 +488,7 @@ namespace tr1
      *   Based on Carlson's algorithms:
      *   -  B. C. Carlson Numer. Math. 33, 1 (1979)
      *   -  B. C. Carlson, Special Functions of Applied Mathematics (1977)
-     *   -  Nunerical Recipes in C, 2nd ed, pp. 261-269,
+     *   -  Numerical Recipes in C, 2nd ed, pp. 261-269,
      *      by Press, Teukolsky, Vetterling, Flannery (1992)
      *
      *   @param  __x  The first argument.
@@ -563,7 +557,7 @@ namespace tr1
      *   Based on Carlson's algorithms:
      *   -  B. C. Carlson Numer. Math. 33, 1 (1979)
      *   -  B. C. Carlson, Special Functions of Applied Mathematics (1977)
-     *   -  Nunerical Recipes in C, 2nd ed, pp. 261-269,
+     *   -  Numerical Recipes in C, 2nd ed, pp. 261-269,
      *      by Press, Teukolsky, Vetterling, Flannery (1992)
      *
      *   @param  __x  The first of three symmetric arguments.
@@ -641,16 +635,17 @@ namespace tr1
               __pn = __c0 * (__pn + __lambda);
             }
 
-          _Tp __ea = __xndev * (__yndev + __zndev) + __yndev * __zndev;
+	  // Note: __ea is an SPU badname.
+          _Tp __eaa = __xndev * (__yndev + __zndev) + __yndev * __zndev;
           _Tp __eb = __xndev * __yndev * __zndev;
           _Tp __ec = __pndev * __pndev;
-          _Tp __e2 = __ea - _Tp(3) * __ec;
-          _Tp __e3 = __eb + _Tp(2) * __pndev * (__ea - __ec);
+          _Tp __e2 = __eaa - _Tp(3) * __ec;
+          _Tp __e3 = __eb + _Tp(2) * __pndev * (__eaa - __ec);
           _Tp __s1 = _Tp(1) + __e2 * (-__c1 + _Tp(3) * __c3 * __e2 / _Tp(4)
                             - _Tp(3) * __c4 * __e3 / _Tp(2));
           _Tp __s2 = __eb * (__c2 / _Tp(2)
                    + __pndev * (-__c3 - __c3 + __pndev * __c4));
-          _Tp __s3 = __pndev * __ea * (__c2 - __pndev * __c3)
+          _Tp __s3 = __pndev * __eaa * (__c2 - __pndev * __c3)
                    - __c2 * __pndev * __ec;
 
           return _Tp(3) * __sigma + __power4 * (__s1 + __s2 + __s3)
@@ -753,9 +748,6 @@ namespace tr1
     }
 
   } // namespace std::tr1::__detail
-
-  /* @} */ // group tr1_math_spec_func
-
 }
 }
 

@@ -225,7 +225,7 @@ static ptr_t GC_first_common()
 
 # if defined(SUNOS4) || defined(SUNOS5DL)
 /* Add dynamic library data sections to the root set.		*/
-# if !defined(PCR) && !defined(GC_SOLARIS_THREADS) && defined(THREADS)
+# if !defined(PCR) && !defined(GC_SOLARIS_PTHREADS) && defined(THREADS)
 #   ifndef SRC_M3
 	--> fix mutual exclusion with dlopen
 #   endif  /* We assume M3 programs don't call dlopen for now */
@@ -1168,12 +1168,9 @@ static void GC_dyld_image_add(const struct GC_MACH_HEADER *hdr, intptr_t slide)
     const struct GC_MACH_SECTION *sec;
     if (GC_no_dls) return;
     for(i=0;i<sizeof(GC_dyld_sections)/sizeof(GC_dyld_sections[0]);i++) {
-#   if defined (__LP64__)
-      sec = getsectbynamefromheader_64(
-#   else
-      sec = getsectbynamefromheader(
-#   endif
-            hdr,GC_dyld_sections[i].seg,GC_dyld_sections[i].sect);
+
+      sec = GC_GETSECTBYNAME (hdr, GC_dyld_sections[i].seg,
+			      GC_dyld_sections[i].sect);
         if(sec == NULL || sec->size == 0) continue;
         start = slide + sec->addr;
         end = start + sec->size;
@@ -1194,12 +1191,8 @@ static void GC_dyld_image_remove(const struct GC_MACH_HEADER *hdr,
     unsigned long start,end,i;
     const struct GC_MACH_SECTION *sec;
     for(i=0;i<sizeof(GC_dyld_sections)/sizeof(GC_dyld_sections[0]);i++) {
-#   if defined (__LP64__)
-      sec = getsectbynamefromheader_64(
-#   else
-      sec = getsectbynamefromheader(
-#   endif
-            hdr,GC_dyld_sections[i].seg,GC_dyld_sections[i].sect);
+      sec = GC_GETSECTBYNAME (hdr, GC_dyld_sections[i].seg,
+			      GC_dyld_sections[i].sect);
         if(sec == NULL || sec->size == 0) continue;
         start = slide + sec->addr;
         end = start + sec->size;

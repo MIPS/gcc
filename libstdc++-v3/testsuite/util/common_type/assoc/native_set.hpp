@@ -48,11 +48,11 @@
 #define PB_DS_NATIVE_SET_HPP
 
 #include <ext/pb_ds/detail/standard_policies.hpp>
-#include <native_type/assoc/native_tree_tag.hpp>
+#include <native_type/native_tree_tag.hpp>
 #include <io/xml.hpp>
 #include <string>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace test
   {
@@ -88,7 +88,7 @@ namespace pb_ds
       { return (make_xml_tag("type", "value", "std_set")); }
     };
   } // namespace test
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif
 

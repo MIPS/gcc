@@ -49,7 +49,7 @@
 
 #include <ext/pb_ds/detail/basic_tree_policy/basic_tree_policy_base.hpp>
 
-namespace pb_ds
+namespace __gnu_pbds
 {
   namespace detail
   {
@@ -85,9 +85,9 @@ namespace pb_ds
 
       typedef E_Access_Traits e_access_traits;
 
-      typedef Allocator allocator;
+      typedef Allocator allocator_type;
 
-      typedef typename allocator::size_type size_type;
+      typedef typename allocator_type::size_type size_type;
 
       typedef null_node_metadata metadata_type;
 
@@ -249,7 +249,7 @@ namespace pb_ds
 #undef PB_DS_BASE_C_DEC
 
   } // namespace detail
-} // namespace pb_ds
+} // namespace __gnu_pbds
 
 #endif // #ifndef PB_DS_TRIE_POLICY_BASE_HPP
 

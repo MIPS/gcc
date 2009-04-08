@@ -1,7 +1,7 @@
 /* Specialized bits of code needed to support construction and
    destruction of file-scope objects in C++ code.
-   Copyright (C) 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   2002, 2003, 2004, 2005, 2006, 2007, 2009 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
 This file is part of GCC.
@@ -58,11 +58,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    identified the set of defines that need to go into auto-target.h,
    this will have to do.  */
 #include "auto-host.h"
-#undef gid_t
 #undef pid_t
 #undef rlim_t
 #undef ssize_t
-#undef uid_t
 #undef vfork
 #include "tconfig.h"
 #include "tsystem.h"
@@ -92,7 +90,10 @@ call_ ## FUNC (void)					\
     && !defined(inhibit_libc) && !defined(CRTSTUFFT_O) \
     && defined(__GLIBC__) && __GLIBC__ >= 2
 #include <link.h>
-# if (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
+/* uClibc pretends to be glibc 2.2 and DT_CONFIG is defined in its link.h.
+   But it doesn't use PT_GNU_EH_FRAME ELF segment currently.  */
+# if !defined(__UCLIBC__) \
+     && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
      || (__GLIBC__ == 2 && __GLIBC_MINOR__ == 2 && defined(DT_CONFIG)))
 #  define USE_PT_GNU_EH_FRAME
 # endif

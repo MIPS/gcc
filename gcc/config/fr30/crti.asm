@@ -1,6 +1,6 @@
 # crti.s for ELF
 
-#   Copyright (C) 1992, 1998, 1999 Free Software Foundation, Inc.
+#   Copyright (C) 1992, 1998, 1999, 2008 Free Software Foundation, Inc.
 #   Written By David Vinayak Henkel-Wallace, June 1992
 # 
 # This file is free software; you can redistribute it and/or modify it
@@ -36,8 +36,6 @@
 # This file just make a stack frame for the contents of the .fini and
 # .init sections.  Users may put any desired instructions in those
 # sections.
-
-	.file		"crti.asm"
 
 	.section	".init"
 	.global	_init

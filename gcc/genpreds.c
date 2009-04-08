@@ -2,14 +2,14 @@
    - prototype declarations for operand predicates (tm-preds.h)
    - function definitions of operand predicates, if defined new-style
      (insn-preds.c)
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -18,9 +18,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "bconfig.h"
 #include "system.h"
@@ -235,7 +234,7 @@ needs_variable (rtx exp, const char *var)
 	if (q != p && (ISALNUM (q[-1]) || q[-1] == '_'))
 	  return false;
 	q += strlen (var);
-	if (ISALNUM (q[0] || q[0] == '_'))
+	if (ISALNUM (q[0]) || q[0] == '_')
 	  return false;
       }
       return true;
@@ -691,8 +690,11 @@ static struct constraint_data **last_constraint_ptr = &first_constraint;
   for (iter_ = first_constraint; iter_; iter_ = iter_->next_textual)
 
 /* These letters, and all names beginning with them, are reserved for
-   generic constraints.  */
-static const char generic_constraint_letters[] = "EFVXgimnoprs";
+   generic constraints.
+   The 'm' constraint is not mentioned here since that constraint
+   letter can be overridden by the back end by defining the
+   TARGET_MEM_CONSTRAINT macro.  */
+static const char generic_constraint_letters[] = "EFVXginoprs";
 
 /* Machine-independent code expects that constraints with these
    (initial) letters will allow only (a subset of all) CONST_INTs.  */
@@ -730,7 +732,7 @@ mangle (const char *name)
       }
 
   obstack_1grow (rtl_obstack, '\0');
-  return obstack_finish (rtl_obstack);
+  return XOBFINISH (rtl_obstack, const char *);
 }
 
 /* Add one constraint, of any sort, to the tables.  NAME is its name;
@@ -895,7 +897,7 @@ add_constraint (const char *name, const char *regclass,
     }
 
   
-  c = obstack_alloc (rtl_obstack, sizeof (struct constraint_data));
+  c = XOBNEW (rtl_obstack, struct constraint_data);
   c->name = name;
   c->c_name = need_mangled_name ? mangle (name) : name;
   c->lineno = lineno;
@@ -957,7 +959,7 @@ write_enum_constraint_num (void)
 	 "  CONSTRAINT__UNKNOWN = 0", stdout);
   FOR_ALL_CONSTRAINTS (c)
     printf (",\n  CONSTRAINT_%s", c->c_name);
-  puts ("\n};\n");
+  puts (",\n  CONSTRAINT__LIMIT\n};\n");
 }
 
 /* Write out a function which looks at a string and determines what
@@ -1101,7 +1103,7 @@ write_tm_constrs_h (void)
 		"{\n", c->c_name,
 		needs_op ? "op" : "ARG_UNUSED (op)");
 	if (needs_mode)
-	  puts ("enum machine_mode mode = GET_MODE (op);");
+	  puts ("  enum machine_mode mode = GET_MODE (op);");
 	if (needs_ival)
 	  puts ("  HOST_WIDE_INT ival = 0;");
 	if (needs_hval)

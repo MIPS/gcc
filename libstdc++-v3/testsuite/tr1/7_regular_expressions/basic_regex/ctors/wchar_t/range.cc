@@ -1,8 +1,8 @@
-// { dg-do link }
+// { dg-do compile }
 
 // 2007-03-12  Stephen M. Webb  <stephen.webb@bregmasoft.com>
 //
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2009 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,7 +31,7 @@ void test01()
   typedef std::tr1::basic_regex<wchar_t> test_type;
 
   wchar_t s[] = L"a+b|c";
-  test_type re(s, s + sizeof(s));
+  test_type re(s, s + 5);
 }
 
 int

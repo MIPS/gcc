@@ -1,13 +1,13 @@
 /* Definitions for Motorola 68k running Linux-based GNU systems with
    ELF format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2006,
+   2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
@@ -28,10 +27,15 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_SPEC "%(asm_cpu_spec) %(asm_pcrel_spec) \
   %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*}"
 
+#undef PREFERRED_STACK_BOUNDARY
+#define PREFERRED_STACK_BOUNDARY 32
+
 /* for 68k machines this only needs to be TRUE for the 68000 */
 
 #undef STRICT_ALIGNMENT
 #define STRICT_ALIGNMENT 0
+#undef M68K_HONOR_TARGET_STRICT_ALIGNMENT
+#define M68K_HONOR_TARGET_STRICT_ALIGNMENT 0
 
 /* Here are four prefixes that are used by asm_fprintf to
    facilitate customization for alternate assembler syntaxes.
@@ -121,6 +125,13 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_OUTPUT_ALIGN(FILE,LOG)				\
   if ((LOG) > 0)						\
     fprintf ((FILE), "%s%u\n", ALIGN_ASM_OP, 1 << (LOG));
+
+#ifdef HAVE_GAS_BALIGN_AND_P2ALIGN
+/* Use "move.l %a4,%a4" to advance within code.  */
+#define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)			\
+  if ((LOG) > 0)						\
+    fprintf ((FILE), "\t.balignw %u,0x284c\n", 1 << (LOG));
+#endif
 
 /* If defined, a C expression whose value is a string containing the
    assembler operation to identify the following data as uninitialized global

@@ -1,12 +1,13 @@
 /* Subroutines common to both C and C++ pretty-printers.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,15 +16,15 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
 #include "real.h"
+#include "fixed-value.h"
 #include "c-pretty-print.h"
 #include "c-tree.h"
 #include "tree-iterator.h"
@@ -224,7 +225,10 @@ pp_c_space_for_pointer_operator (c_pretty_printer *pp, tree t)
 void
 pp_c_type_qualifier_list (c_pretty_printer *pp, tree t)
 {
-   int qualifiers;
+  int qualifiers;
+
+  if (!t || t == error_mark_node)
+    return;
 
   if (!TYPE_P (t))
     t = TREE_TYPE (t);
@@ -313,6 +317,7 @@ pp_c_type_specifier (c_pretty_printer *pp, tree t)
     case BOOLEAN_TYPE:
     case INTEGER_TYPE:
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
       if (TYPE_NAME (t))
 	{
 	  t = TYPE_NAME (t);
@@ -321,7 +326,10 @@ pp_c_type_specifier (c_pretty_printer *pp, tree t)
       else
 	{
 	  int prec = TYPE_PRECISION (t);
-	  t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
+	  if (ALL_FIXED_POINT_MODE_P (TYPE_MODE (t)))
+	    t = c_common_type_for_mode (TYPE_MODE (t), TYPE_SATURATING (t));
+	  else
+	    t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
 	  if (TYPE_NAME (t))
 	    {
 	      pp_c_type_specifier (pp, t);
@@ -342,6 +350,9 @@ pp_c_type_specifier (c_pretty_printer *pp, tree t)
 		  break;
 		case REAL_TYPE:
 		  pp_string (pp, "<unnamed-float:");
+		  break;
+		case FIXED_POINT_TYPE:
+		  pp_string (pp, "<unnamed-fixed:");
 		  break;
 		default:
 		  gcc_unreachable ();
@@ -540,6 +551,7 @@ pp_c_direct_abstract_declarator (c_pretty_printer *pp, tree t)
     case BOOLEAN_TYPE:
     case INTEGER_TYPE:
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case ENUMERAL_TYPE:
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -657,6 +669,7 @@ pp_c_direct_declarator (c_pretty_printer *pp, tree t)
 
     case INTEGER_TYPE:
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case ENUMERAL_TYPE:
     case UNION_TYPE:
     case RECORD_TYPE:
@@ -679,6 +692,7 @@ pp_c_declarator (c_pretty_printer *pp, tree t)
     {
     case INTEGER_TYPE:
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case ENUMERAL_TYPE:
     case UNION_TYPE:
     case RECORD_TYPE:
@@ -818,8 +832,8 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
 	  high = ~high + !low;
 	  low = -low;
 	}
-      sprintf (pp_buffer (pp)->digit_buffer,
-	       HOST_WIDE_INT_PRINT_DOUBLE_HEX, high, low);
+      sprintf (pp_buffer (pp)->digit_buffer, HOST_WIDE_INT_PRINT_DOUBLE_HEX, 
+	       (unsigned HOST_WIDE_INT) high, (unsigned HOST_WIDE_INT) low);
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
   if (TYPE_UNSIGNED (type))
@@ -926,6 +940,16 @@ pp_c_floating_constant (c_pretty_printer *pp, tree r)
     pp_string (pp, "df");
 }
 
+/* Print out a FIXED value as a decimal-floating-constant.  */
+
+static void
+pp_c_fixed_constant (c_pretty_printer *pp, tree r)
+{
+  fixed_to_decimal (pp_buffer (pp)->digit_buffer, &TREE_FIXED_CST (r),
+		   sizeof (pp_buffer (pp)->digit_buffer));
+  pp_string (pp, pp_buffer(pp)->digit_buffer);
+}
+
 /* Pretty-print a compound literal expression.  GNU extensions include
    vector constants.  */
 
@@ -951,9 +975,50 @@ pp_c_compound_literal (c_pretty_printer *pp, tree e)
     }
 }
 
+/* Pretty-print a COMPLEX_EXPR expression.  */
+
+static void
+pp_c_complex_expr (c_pretty_printer *pp, tree e)
+{
+  /* Handle a few common special cases, otherwise fallback
+     to printing it as compound literal.  */
+  tree type = TREE_TYPE (e);
+  tree realexpr = TREE_OPERAND (e, 0);
+  tree imagexpr = TREE_OPERAND (e, 1);
+
+  /* Cast of an COMPLEX_TYPE expression to a different COMPLEX_TYPE.  */
+  if (TREE_CODE (realexpr) == NOP_EXPR
+      && TREE_CODE (imagexpr) == NOP_EXPR
+      && TREE_TYPE (realexpr) == TREE_TYPE (type)
+      && TREE_TYPE (imagexpr) == TREE_TYPE (type)
+      && TREE_CODE (TREE_OPERAND (realexpr, 0)) == REALPART_EXPR
+      && TREE_CODE (TREE_OPERAND (imagexpr, 0)) == IMAGPART_EXPR
+      && TREE_OPERAND (TREE_OPERAND (realexpr, 0), 0)
+	 == TREE_OPERAND (TREE_OPERAND (imagexpr, 0), 0))
+    {
+      pp_c_type_cast (pp, type);
+      pp_expression (pp, TREE_OPERAND (TREE_OPERAND (realexpr, 0), 0));
+      return;
+    }
+
+  /* Cast of an scalar expression to COMPLEX_TYPE.  */
+  if ((integer_zerop (imagexpr) || real_zerop (imagexpr))
+      && TREE_TYPE (realexpr) == TREE_TYPE (type))
+    {
+      pp_c_type_cast (pp, type);
+      if (TREE_CODE (realexpr) == NOP_EXPR)
+	realexpr = TREE_OPERAND (realexpr, 0);
+      pp_expression (pp, realexpr);
+      return;
+    }
+
+  pp_c_compound_literal (pp, e);
+}
+
 /* constant:
       integer-constant
       floating-constant
+      fixed-point-constant
       enumeration-constant
       character-constant   */
 
@@ -983,8 +1048,19 @@ pp_c_constant (c_pretty_printer *pp, tree e)
       pp_c_floating_constant (pp, e);
       break;
 
+    case FIXED_CST:
+      pp_c_fixed_constant (pp, e);
+      break;
+
     case STRING_CST:
       pp_c_string_literal (pp, e);
+      break;
+
+    case COMPLEX_CST:
+      /* Sometimes, we are confused and we think a complex literal
+         is a constant.  Such thing is a compound literal which
+         grammatically belongs to postfix-expr production.  */
+      pp_c_compound_literal (pp, e);
       break;
 
     default:
@@ -1038,6 +1114,7 @@ pp_c_primary_expression (c_pretty_printer *pp, tree e)
 
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
       pp_c_constant (pp, e);
       break;
@@ -1059,7 +1136,7 @@ pp_c_primary_expression (c_pretty_printer *pp, tree e)
       break;
 
     default:
-      /* FIXME:  Make sure we won't get into an infinie loop.  */
+      /* FIXME:  Make sure we won't get into an infinite loop.  */
       pp_c_left_paren (pp);
       pp_expression (pp, e);
       pp_c_right_paren (pp);
@@ -1136,6 +1213,12 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
   tree type = TREE_TYPE (e);
   const enum tree_code code = TREE_CODE (type);
 
+  if (TREE_CODE (e) == CONSTRUCTOR)
+    {
+      pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
+      return;
+    }
+
   switch (code)
     {
     case RECORD_TYPE:
@@ -1170,16 +1253,12 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
     case VECTOR_TYPE:
       if (TREE_CODE (e) == VECTOR_CST)
 	pp_c_expression_list (pp, TREE_VECTOR_CST_ELTS (e));
-      else if (TREE_CODE (e) == CONSTRUCTOR)
-	pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
       else
 	break;
       return;
 
     case COMPLEX_TYPE:
-      if (TREE_CODE (e) == CONSTRUCTOR)
-	pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
-      else if (TREE_CODE (e) == COMPLEX_CST || TREE_CODE (e) == COMPLEX_EXPR)
+      if (TREE_CODE (e) == COMPLEX_CST || TREE_CODE (e) == COMPLEX_EXPR)
 	{
 	  const bool cst = TREE_CODE (e) == COMPLEX_CST;
 	  pp_expression (pp, cst ? TREE_REALPART (e) : TREE_OPERAND (e, 0));
@@ -1365,10 +1444,43 @@ pp_c_postfix_expression (c_pretty_printer *pp, tree e)
       }
       break;
 
+    case BIT_FIELD_REF:
+      {
+	tree type = TREE_TYPE (e);
+
+	type = signed_or_unsigned_type_for (TYPE_UNSIGNED (type), type);
+	if (type
+	    && tree_int_cst_equal (TYPE_SIZE (type), TREE_OPERAND (e, 1)))
+	  {
+	    HOST_WIDE_INT bitpos = tree_low_cst (TREE_OPERAND (e, 2), 0);
+	    HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (type), 0);
+	    if ((bitpos % size) == 0)
+	      {
+		pp_c_left_paren (pp);
+		pp_c_left_paren (pp);
+		pp_type_id (pp, type);
+		pp_c_star (pp);
+		pp_c_right_paren (pp);
+		pp_c_ampersand (pp);
+		pp_expression (pp, TREE_OPERAND (e, 0));
+		pp_c_right_paren (pp);
+		pp_c_left_bracket (pp);
+		pp_wide_integer (pp, bitpos / size);
+		pp_c_right_bracket (pp);
+		break;
+	      }
+	  }
+	pp_unsupported_tree (pp, e);
+      }
+      break;
+
     case COMPLEX_CST:
     case VECTOR_CST:
-    case COMPLEX_EXPR:
       pp_c_compound_literal (pp, e);
+      break;
+
+    case COMPLEX_EXPR:
+      pp_c_complex_expr (pp, e);
       break;
 
     case COMPOUND_LITERAL_EXPR:
@@ -1516,8 +1628,8 @@ pp_c_cast_expression (c_pretty_printer *pp, tree e)
     {
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
+    case VIEW_CONVERT_EXPR:
       pp_c_type_cast (pp, TREE_TYPE (e));
       pp_c_cast_expression (pp, TREE_OPERAND (e, 0));
       break;
@@ -1571,11 +1683,12 @@ pp_c_additive_expression (c_pretty_printer *pp, tree e)
   enum tree_code code = TREE_CODE (e);
   switch (code)
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
       pp_c_additive_expression (pp, TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
-      if (code == PLUS_EXPR)
+      if (code == PLUS_EXPR || code == POINTER_PLUS_EXPR)
 	pp_plus (pp);
       else
 	pp_minus (pp);
@@ -1703,10 +1816,14 @@ pp_c_and_expression (c_pretty_printer *pp, tree e)
 static void
 pp_c_exclusive_or_expression (c_pretty_printer *pp, tree e)
 {
-  if (TREE_CODE (e) == BIT_XOR_EXPR)
+  if (TREE_CODE (e) == BIT_XOR_EXPR
+      || TREE_CODE (e) == TRUTH_XOR_EXPR)
     {
       pp_c_exclusive_or_expression (pp, TREE_OPERAND (e, 0));
-      pp_c_maybe_whitespace (pp);
+      if (TREE_CODE (e) == BIT_XOR_EXPR)
+	pp_c_maybe_whitespace (pp);
+      else
+	pp_c_whitespace (pp);
       pp_carret (pp);
       pp_c_whitespace (pp);
       pp_c_and_expression (pp, TREE_OPERAND (e, 1));
@@ -1741,7 +1858,8 @@ pp_c_inclusive_or_expression (c_pretty_printer *pp, tree e)
 static void
 pp_c_logical_and_expression (c_pretty_printer *pp, tree e)
 {
-  if (TREE_CODE (e) == TRUTH_ANDIF_EXPR)
+  if (TREE_CODE (e) == TRUTH_ANDIF_EXPR
+      || TREE_CODE (e) == TRUTH_AND_EXPR)
     {
       pp_c_logical_and_expression (pp, TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
@@ -1760,7 +1878,8 @@ pp_c_logical_and_expression (c_pretty_printer *pp, tree e)
 void
 pp_c_logical_or_expression (c_pretty_printer *pp, tree e)
 {
-  if (TREE_CODE (e) == TRUTH_ORIF_EXPR)
+  if (TREE_CODE (e) == TRUTH_ORIF_EXPR
+      || TREE_CODE (e) == TRUTH_OR_EXPR)
     {
       pp_c_logical_or_expression (pp, TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
@@ -1807,14 +1926,13 @@ static void
 pp_c_assignment_expression (c_pretty_printer *pp, tree e)
 {
   if (TREE_CODE (e) == MODIFY_EXPR 
-      || TREE_CODE (e) == GIMPLE_MODIFY_STMT
       || TREE_CODE (e) == INIT_EXPR)
     {
-      pp_c_unary_expression (pp, GENERIC_TREE_OPERAND (e, 0));
+      pp_c_unary_expression (pp, TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
       pp_equal (pp);
       pp_space (pp);
-      pp_c_expression (pp, GENERIC_TREE_OPERAND (e, 1));
+      pp_c_expression (pp, TREE_OPERAND (e, 1));
     }
   else
     pp_c_conditional_expression (pp, e);
@@ -1843,6 +1961,10 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       pp_c_floating_constant (pp, e);
       break;
 
+    case FIXED_CST:
+      pp_c_fixed_constant (pp, e);
+      break;
+
     case STRING_CST:
       pp_c_string_literal (pp, e);
       break;
@@ -1864,6 +1986,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
     case ARRAY_REF:
     case CALL_EXPR:
     case COMPONENT_REF:
+    case BIT_FIELD_REF:
     case COMPLEX_CST:
     case COMPLEX_EXPR:
     case VECTOR_CST:
@@ -1897,8 +2020,8 @@ pp_c_expression (c_pretty_printer *pp, tree e)
 
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
+    case VIEW_CONVERT_EXPR:
       pp_c_cast_expression (pp, e);
       break;
 
@@ -1925,6 +2048,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       break;
 
     case BIT_XOR_EXPR:
+    case TRUTH_XOR_EXPR:
       pp_c_exclusive_or_expression (pp, e);
       break;
 
@@ -1933,10 +2057,12 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       break;
 
     case TRUTH_ANDIF_EXPR:
+    case TRUTH_AND_EXPR:
       pp_c_logical_and_expression (pp, e);
       break;
 
     case TRUTH_ORIF_EXPR:
+    case TRUTH_OR_EXPR:
       pp_c_logical_or_expression (pp, e);
       break;
 
@@ -1949,13 +2075,13 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       pp_conditional_expression (pp, e);
       break;
 
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
       pp_c_additive_expression (pp, e);
       break;
 
     case MODIFY_EXPR:
-    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
       pp_assignment_expression (pp, e);
       break;
@@ -1975,6 +2101,13 @@ pp_c_expression (c_pretty_printer *pp, tree e)
 
     case TARGET_EXPR:
       pp_postfix_expression (pp, TREE_OPERAND (e, 1));
+      break;
+
+    case BIND_EXPR:
+    case GOTO_EXPR:
+      /* We don't yet have a way of dumping statements in a
+         human-readable format.  */
+      pp_string (pp, "({...})");
       break;
 
     default:

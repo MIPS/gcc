@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1999-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -28,13 +27,43 @@
 --  about uses of uninitialized variables and unused with's. It also has
 --  some unrelated routines related to the generation of warnings.
 
+with Alloc; use Alloc;
+with Table;
 with Types; use Types;
 
 package Sem_Warn is
 
+   ------------------------
+   -- Warnings Off Table --
+   ------------------------
+
+   type Warnings_Off_Entry is record
+      N : Node_Id;
+      --  A pragma Warnings (Off, ent) node
+
+      E : Entity_Id;
+      --  The entity involved
+   end record;
+
+   --  An entry is made in the following table for any valid Pragma Warnings
+   --  (Off, entity) encountered while Opt.Warn_On_Warnings_Off is True. It
+   --  is used to generate warnings on any of these pragmas that turn out not
+   --  to be needed, or that could be replaced by Unmodified/Unreferenced.
+
+   package Warnings_Off_Pragmas is new Table.Table (
+     Table_Component_Type => Warnings_Off_Entry,
+     Table_Index_Type     => Int,
+     Table_Low_Bound      => 0,
+     Table_Initial        => Alloc.Warnings_Off_Pragmas_Initial,
+     Table_Increment      => Alloc.Warnings_Off_Pragmas_Increment,
+     Table_Name           => "Name_Warnings_Off_Pragmas");
+
    --------------------
    -- Initialization --
    --------------------
+
+   procedure Initialize;
+   --  Initialize this package for new compilation
 
    function Set_Warning_Switch (C : Character) return Boolean;
    --  This function sets the warning switch or switches corresponding to the
@@ -105,6 +134,13 @@ package Sem_Warn is
    -- Output Routines --
    ---------------------
 
+   procedure Output_Non_Modifed_In_Out_Warnings;
+   --  Warnings about IN OUT parameters that could be IN are collected till
+   --  the end of the compilation process (see body of this routine for a
+   --  discussion of why this is done). This procedure outputs the warnings.
+   --  Note: this should be called before Output_Unreferenced_Messages, since
+   --  if we have an IN OUT warning, that's the one we want to see!
+
    procedure Output_Obsolescent_Entity_Warnings (N : Node_Id; E : Entity_Id);
    --  N is a reference to obsolescent entity E, for which appropriate warning
    --  messages are to be generated (caller has already checked that warnings
@@ -115,15 +151,25 @@ package Sem_Warn is
    --  the compilation process (see Check_Unset_Reference for further
    --  details). This procedure outputs waiting warnings, if any.
 
+   procedure Output_Unused_Warnings_Off_Warnings;
+   --  Warnings about pragma Warnings (Off, ent) statements that are unused,
+   --  or could be replaced by Unmodified/Unreferenced pragmas, are collected
+   --  till the end of the compilation process. This procedure outputs waiting
+   --  warnings if any.
+
    ----------------------------
    -- Other Warning Routines --
    ----------------------------
 
    procedure Check_Code_Statement (N : Node_Id);
-   --  Peform warning checks on a code statement node
+   --  Perform warning checks on a code statement node
+
+   procedure Check_Infinite_Loop_Warning (Loop_Statement : Node_Id);
+   --  N is the node for a loop statement. This procedure checks if a warning
+   --  should be given for a possible infinite loop, and if so issues it.
 
    procedure Warn_On_Known_Condition (C : Node_Id);
-   --  C is a node for a boolean expression resluting from a relational
+   --  C is a node for a boolean expression resulting from a relational
    --  or membership operation. If the expression has a compile time known
    --  value, then a warning is output if all the following conditions hold:
    --
@@ -147,6 +193,11 @@ package Sem_Warn is
    --  If all these conditions are met, the warning is issued noting that
    --  the result of the test is always false or always true as appropriate.
 
+   function Warn_On_Modified_As_Out_Parameter (E : Entity_Id) return Boolean;
+   --  Returns True if we should activate warnings for entity E being modified
+   --  as an out parameter. True if either Warn_On_Modified_Unread is set for
+   --  an only OUT parameter, or if Warn_On_All_Unread_Out_Parameters is set.
+
    procedure Warn_On_Suspicious_Index (Name : Entity_Id; X : Node_Id);
    --  This is called after resolving an indexed component or a slice. Name
    --  is the entity for the name of the indexed array, and X is the subscript
@@ -156,15 +207,24 @@ package Sem_Warn is
    --  a warning is generated that the subscripting operation is possibly
    --  incorrectly assuming a lower bound of 1.
 
+   procedure Warn_On_Unassigned_Out_Parameter
+     (Return_Node : Node_Id;
+      Scope_Id    : Entity_Id);
+   --  Called when processing a return statement given by Return_Node. Scope_Id
+   --  is the Entity_Id for the procedure in which the return statement lives.
+   --  A check is made for the case of a procedure with out parameters that
+   --  have not yet been assigned, and appropriate warnings are given.
+
    procedure Warn_On_Useless_Assignment
      (Ent : Entity_Id;
-      Loc : Source_Ptr := No_Location);
+      N   : Node_Id := Empty);
    --  Called to check if we have a case of a useless assignment to the given
    --  entity Ent, as indicated by a non-empty Last_Assignment field. This call
-   --  should only be made if Warn_On_Modified_Unread is True, and if Ent is in
-   --  the extended main source unit. Loc is No_Location for the end of block
-   --  call (warning msg says value unreferenced), or the it is the location of
-   --  an overwriting assignment (warning msg points to this assignment).
+   --  should only be made if at least one of the flags Warn_On_Modified_Unread
+   --  or Warn_On_All_Unread_Out_Parameters is True, and if Ent is in the
+   --  extended main source unit. N is Empty for the end of block call
+   --  (warning message says value unreferenced), or the it is the node for
+   --  an overwriting assignment (warning message points to this assignment).
 
    procedure Warn_On_Useless_Assignments (E : Entity_Id);
    pragma Inline (Warn_On_Useless_Assignments);

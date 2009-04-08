@@ -1,5 +1,6 @@
 /* -----------------------------------------------------------------------
-   sysv.S - Copyright (c) 1996, 1998, 2001, 2002, 2003, 2005  Red Hat, Inc.
+   sysv.S - Copyright (c) 1996, 1998, 2001, 2002, 2003, 2005, 2008
+   Red Hat, Inc.
    
    X86 Foreign Function Interface 
 
@@ -59,16 +60,15 @@ ffi_call_SYSV:
 
 	call  *28(%ebp)
 
-	/* Remove the space we pushed for the args  */
-	movl  16(%ebp),%ecx
-	addl  %ecx,%esp
-
 	/* Load %ecx with the return type code  */
 	movl  20(%ebp),%ecx	
 
+	/* Protect %esi.  We're going to pop it in the epilogue.  */
+	pushl %esi
+
 	/* If the return value pointer is NULL, assume no return value.  */
 	cmpl  $0,24(%ebp)
-	jne   retint
+	jne  0f
 
 	/* Even if there is no space for the return value, we are 
 	   obliged to handle floating-point values.  */
@@ -78,51 +78,84 @@ ffi_call_SYSV:
 
         jmp   epilogue
 
-retint:
-	cmpl  $FFI_TYPE_INT,%ecx
-	jne   retfloat
-	/* Load %ecx with the pointer to storage for the return value  */
-	movl  24(%ebp),%ecx	
-	movl  %eax,0(%ecx)
-	jmp   epilogue
+0:
+	call  1f
+
+.Lstore_table:
+	.long	noretval-.Lstore_table	/* FFI_TYPE_VOID */
+	.long	retint-.Lstore_table	/* FFI_TYPE_INT */
+	.long	retfloat-.Lstore_table	/* FFI_TYPE_FLOAT */
+	.long	retdouble-.Lstore_table	/* FFI_TYPE_DOUBLE */
+	.long	retlongdouble-.Lstore_table	/* FFI_TYPE_LONGDOUBLE */
+	.long	retuint8-.Lstore_table	/* FFI_TYPE_UINT8 */
+	.long	retsint8-.Lstore_table	/* FFI_TYPE_SINT8 */
+	.long	retuint16-.Lstore_table	/* FFI_TYPE_UINT16 */
+	.long	retsint16-.Lstore_table	/* FFI_TYPE_SINT16 */
+	.long	retint-.Lstore_table	/* FFI_TYPE_UINT32 */
+	.long	retint-.Lstore_table	/* FFI_TYPE_SINT32 */
+	.long	retint64-.Lstore_table	/* FFI_TYPE_UINT64 */
+	.long	retint64-.Lstore_table	/* FFI_TYPE_SINT64 */
+	.long	retstruct-.Lstore_table	/* FFI_TYPE_STRUCT */
+	.long	retint-.Lstore_table	/* FFI_TYPE_POINTER */
+
+1:
+	pop  %esi
+	add  (%esi, %ecx, 4), %esi
+	jmp  *%esi
+
+	/* Sign/zero extend as appropriate.  */
+retsint8:
+	movsbl  %al, %eax
+	jmp  retint
+
+retsint16:
+	movswl  %ax, %eax
+	jmp  retint
+
+retuint8:
+	movzbl  %al, %eax
+	jmp  retint
+
+retuint16:
+	movzwl  %ax, %eax
+	jmp  retint
 
 retfloat:
-	cmpl  $FFI_TYPE_FLOAT,%ecx
-	jne   retdouble
 	/* Load %ecx with the pointer to storage for the return value  */
 	movl  24(%ebp),%ecx	
 	fstps (%ecx)
 	jmp   epilogue
 
 retdouble:
-	cmpl  $FFI_TYPE_DOUBLE,%ecx
-	jne   retlongdouble
 	/* Load %ecx with the pointer to storage for the return value  */
 	movl  24(%ebp),%ecx	
 	fstpl (%ecx)
 	jmp   epilogue
 
 retlongdouble:
-	cmpl  $FFI_TYPE_LONGDOUBLE,%ecx
-	jne   retint64
 	/* Load %ecx with the pointer to storage for the return value  */
 	movl  24(%ebp),%ecx	
 	fstpt (%ecx)
 	jmp   epilogue
 	
 retint64:	
-	cmpl  $FFI_TYPE_SINT64,%ecx
-        jne   retstruct
 	/* Load %ecx with the pointer to storage for the return value  */
 	movl  24(%ebp),%ecx	
 	movl  %eax,0(%ecx)
 	movl  %edx,4(%ecx)
+	jmp   epilogue
 	
+retint:
+	/* Load %ecx with the pointer to storage for the return value  */
+	movl  24(%ebp),%ecx	
+	movl  %eax,0(%ecx)
+
 retstruct:
 	/* Nothing to do!  */
 
 noretval:
 epilogue:
+        popl %esi
         movl %ebp,%esp
         popl %ebp
         ret
@@ -162,7 +195,15 @@ ffi_closure_SYSV:
 	movl	-12(%ebp), %ecx
 	cmpl	$FFI_TYPE_INT, %eax
 	je	.Lcls_retint
-	cmpl	$FFI_TYPE_FLOAT, %eax
+
+	/* Handle FFI_TYPE_UINT8, FFI_TYPE_SINT8, FFI_TYPE_UINT16,
+	   FFI_TYPE_SINT16, FFI_TYPE_UINT32, FFI_TYPE_SINT32.  */
+	cmpl	$FFI_TYPE_UINT64, %eax
+	jge	0f
+	cmpl	$FFI_TYPE_UINT8, %eax
+	jge	.Lcls_retint
+	
+0:	cmpl	$FFI_TYPE_FLOAT, %eax
 	je	.Lcls_retfloat
 	cmpl	$FFI_TYPE_DOUBLE, %eax
 	je	.Lcls_retdouble
@@ -170,6 +211,8 @@ ffi_closure_SYSV:
 	je	.Lcls_retldouble
 	cmpl	$FFI_TYPE_SINT64, %eax
 	je	.Lcls_retllong
+	cmpl	$FFI_TYPE_STRUCT, %eax
+	je	.Lcls_retstruct
 .Lcls_epilogue:
 	movl	%ebp, %esp
 	popl	%ebp
@@ -190,14 +233,29 @@ ffi_closure_SYSV:
 	movl	(%ecx), %eax
 	movl	4(%ecx), %edx
 	jmp	.Lcls_epilogue
+.Lcls_retstruct:
+	movl	%ebp, %esp
+	popl	%ebp
+	ret	$4
 .LFE2:
 	.size	ffi_closure_SYSV, .-ffi_closure_SYSV
 
 #if !FFI_NO_RAW_API
 
+/* Precalculate for e.g. the Solaris 10/x86 assembler.  */
+#if FFI_TRAMPOLINE_SIZE == 10
+#define RAW_CLOSURE_CIF_OFFSET 12
+#define RAW_CLOSURE_FUN_OFFSET 16
+#define RAW_CLOSURE_USER_DATA_OFFSET 20
+#elif FFI_TRAMPOLINE_SIZE == 24
+#define RAW_CLOSURE_CIF_OFFSET 24
+#define RAW_CLOSURE_FUN_OFFSET 28
+#define RAW_CLOSURE_USER_DATA_OFFSET 32
+#else
 #define RAW_CLOSURE_CIF_OFFSET ((FFI_TRAMPOLINE_SIZE + 3) & ~3)
 #define RAW_CLOSURE_FUN_OFFSET (RAW_CLOSURE_CIF_OFFSET + 4)
 #define RAW_CLOSURE_USER_DATA_OFFSET (RAW_CLOSURE_FUN_OFFSET + 4)
+#endif
 #define CIF_FLAGS_OFFSET 20
 
 	.align	4
@@ -226,6 +284,14 @@ ffi_closure_raw_SYSV:
 	movl	CIF_FLAGS_OFFSET(%esi), %eax		 /* rtype */
 	cmpl	$FFI_TYPE_INT, %eax
 	je	.Lrcls_retint
+
+	/* Handle FFI_TYPE_UINT8, FFI_TYPE_SINT8, FFI_TYPE_UINT16,
+	   FFI_TYPE_SINT16, FFI_TYPE_UINT32, FFI_TYPE_SINT32.  */
+	cmpl	$FFI_TYPE_UINT64, %eax
+	jge	0f
+	cmpl	$FFI_TYPE_UINT8, %eax
+	jge	.Lrcls_retint
+0:
 	cmpl	$FFI_TYPE_FLOAT, %eax
 	je	.Lrcls_retfloat
 	cmpl	$FFI_TYPE_DOUBLE, %eax
@@ -288,10 +354,12 @@ ffi_closure_raw_SYSV:
 	.long	.LEFDE1-.LASFDE1	/* FDE Length */
 .LASFDE1:
 	.long	.LASFDE1-.Lframe1	/* FDE CIE offset */
-#ifdef __PIC__
+#if defined __PIC__ && defined HAVE_AS_X86_PCREL
 	.long	.LFB1-.	/* FDE initial location */
+#elif defined __PIC__
+	.long	.LFB1@rel
 #else
-	.long	.LFB1	/* FDE initial location */
+	.long	.LFB1
 #endif
 	.long	.LFE1-.LFB1	/* FDE address range */
 #ifdef __PIC__
@@ -313,8 +381,10 @@ ffi_closure_raw_SYSV:
 	.long	.LEFDE2-.LASFDE2	/* FDE Length */
 .LASFDE2:
 	.long	.LASFDE2-.Lframe1	/* FDE CIE offset */
-#ifdef __PIC__
+#if defined __PIC__ && defined HAVE_AS_X86_PCREL
 	.long	.LFB2-.	/* FDE initial location */
+#elif defined __PIC__
+	.long	.LFB2@rel
 #else
 	.long	.LFB2
 #endif
@@ -347,8 +417,10 @@ ffi_closure_raw_SYSV:
 	.long	.LEFDE3-.LASFDE3	/* FDE Length */
 .LASFDE3:
 	.long	.LASFDE3-.Lframe1	/* FDE CIE offset */
-#ifdef __PIC__
+#if defined __PIC__ && defined HAVE_AS_X86_PCREL
 	.long	.LFB3-.	/* FDE initial location */
+#elif defined __PIC__
+	.long	.LFB3@rel
 #else
 	.long	.LFB3
 #endif
@@ -376,3 +448,7 @@ ffi_closure_raw_SYSV:
 #endif
 
 #endif /* ifndef __x86_64__ */
+
+#if defined __ELF__ && defined __linux__
+	.section	.note.GNU-stack,"",@progbits
+#endif

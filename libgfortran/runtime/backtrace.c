@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007 Free Software Foundation, Inc.
    Contributed by François-Xavier Coudert
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -27,9 +27,8 @@ along with libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#include "libgfortran.h"
 
-#include "config.h"
-#include <stdio.h>
 #include <string.h>
 
 #ifdef HAVE_STDLIB_H
@@ -44,12 +43,6 @@ Boston, MA 02110-1301, USA.  */
 #include <unistd.h>
 #endif
 
-#ifdef HAVE_INTPTR_T
-# define INTPTR_T intptr_t
-#else
-# define INTPTR_T int
-#endif
-
 #ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
 #endif
@@ -58,21 +51,28 @@ Boston, MA 02110-1301, USA.  */
 #include <sys/wait.h>
 #endif
 
-#ifdef HAVE_STRING_H
-#include <string.h>
-#endif
-
 #include <ctype.h>
 
-#include "libgfortran.h"
+
+/* Macros for common sets of capabilities: can we fork and exec, can
+   we use glibc-style backtrace functions, and can we use pipes.  */
+#define CAN_FORK (defined(HAVE_FORK) && defined(HAVE_EXECVP) \
+		  && defined(HAVE_WAIT))
+#define GLIBC_BACKTRACE (defined(HAVE_BACKTRACE) \
+			 && defined(HAVE_BACKTRACE_SYMBOLS))
+#define CAN_PIPE (CAN_FORK && defined(HAVE_PIPE) \
+		  && defined(HAVE_DUP2) && defined(HAVE_FDOPEN) \
+		  && defined(HAVE_CLOSE))
 
 
-
-#ifndef HAVE_STRCASESTR
-#define HAVE_STRCASESTR 1
+#if GLIBC_BACKTRACE && CAN_PIPE
 static char *
-strcasestr (const char *s1, const char *s2)
+local_strcasestr (const char *s1, const char *s2)
 {
+#ifdef HAVE_STRCASESTR
+  return strcasestr (s1, s2);
+#else
+
   const char *p = s1;
   const size_t len = strlen (s2);
   const char u = *s2, v = isupper((int) *s2) ? tolower((int) *s2)
@@ -88,16 +88,9 @@ strcasestr (const char *s1, const char *s2)
       if (strncasecmp (p, s2, len) == 0)
 	return (char *)p;
     }
+#endif
 }
 #endif
-
-#define CAN_FORK (defined(HAVE_FORK) && defined(HAVE_EXECVP) \
-		  && defined(HAVE_WAIT))
-#define GLIBC_BACKTRACE (defined(HAVE_BACKTRACE) \
-			 && defined(HAVE_BACKTRACE_SYMBOLS))
-#define CAN_PIPE (CAN_FORK && defined(HAVE_PIPE) \
-		  && defined(HAVE_DUP2) && defined(HAVE_FDOPEN) \
-		  && defined(HAVE_CLOSE))
 
 
 #if GLIBC_BACKTRACE
@@ -159,7 +152,7 @@ show_backtrace (void)
 
     /* Write the list of addresses in hexadecimal format.  */
     for (i = 0; i < depth; i++)
-      addr[i] = xtoa ((GFC_UINTEGER_LARGEST) (INTPTR_T) trace[i], addr_buf[i],
+      addr[i] = xtoa ((GFC_UINTEGER_LARGEST) (intptr_t) trace[i], addr_buf[i],
 		      sizeof (addr_buf[i]));
 
     /* Don't output an error message if something goes wrong, we'll simply
@@ -221,12 +214,13 @@ show_backtrace (void)
 	    /* Try to recognize the internal libgfortran functions.  */
 	    if (strncasecmp (func, "*_gfortran", 10) == 0
 		|| strncasecmp (func, "_gfortran", 9) == 0
-		|| strcmp (func, "main") == 0 || strcmp (func, "_start") == 0)
+		|| strcmp (func, "main") == 0 || strcmp (func, "_start") == 0
+		|| strcmp (func, "_gfortrani_handler") == 0)
 	      continue;
 
-	    if (strcasestr (str[i], "libgfortran.so") != NULL
-		|| strcasestr (str[i], "libgfortran.dylib") != NULL
-		|| strcasestr (str[i], "libgfortran.a") != NULL)
+	    if (local_strcasestr (str[i], "libgfortran.so") != NULL
+		|| local_strcasestr (str[i], "libgfortran.dylib") != NULL
+		|| local_strcasestr (str[i], "libgfortran.a") != NULL)
 	      continue;
 
 	    /* If we only have the address, use the glibc backtrace.  */
@@ -301,7 +295,11 @@ fallback:
 
 	st_printf ("\nBacktrace for this error:\n");
 	arg[0] = (char *) "pstack";
+#ifdef HAVE_SNPRINTF
 	snprintf (buf, sizeof(buf), "%d", (int) getppid ());
+#else
+	sprintf (buf, "%d", (int) getppid ());
+#endif
 	arg[1] = buf;
 	arg[2] = NULL;
 	execvp (arg[0], arg);

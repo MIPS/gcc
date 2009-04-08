@@ -1,12 +1,11 @@
 ;; GCC machine description for Alpha synchronization instructions.
-;; Copyright (C) 2005
-;; Free Software Foundation, Inc.
+;; Copyright (C) 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -15,11 +14,10 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
-(define_code_macro FETCHOP [plus minus ior xor and])
+(define_code_iterator FETCHOP [plus minus ior xor and])
 (define_code_attr fetchop_name
   [(plus "add") (minus "sub") (ior "ior") (xor "xor") (and "and")])
 (define_code_attr fetchop_pred
@@ -30,17 +28,17 @@
 
 
 (define_expand "memory_barrier"
-  [(set (mem:BLK (match_dup 0))
-	(unspec:BLK [(mem:BLK (match_dup 0))] UNSPEC_MB))]
+  [(set (match_dup 0)
+	(unspec:BLK [(match_dup 0)] UNSPEC_MB))]
   ""
 {
-  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (DImode));
+  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (Pmode));
   MEM_VOLATILE_P (operands[0]) = 1;
 })
 
-(define_insn "*mb_internal"
+(define_insn "*memory_barrier"
   [(set (match_operand:BLK 0 "" "")
-	(unspec:BLK [(match_operand:BLK 1 "" "")] UNSPEC_MB))]
+	(unspec:BLK [(match_dup 0)] UNSPEC_MB))]
   ""
   "mb"
   [(set_attr "type" "mb")])
@@ -91,8 +89,9 @@
 (define_insn_and_split "sync_nand<mode>"
   [(set (match_operand:I48MODE 0 "memory_operand" "+m")
 	(unspec:I48MODE
-	  [(and:I48MODE (not:I48MODE (match_dup 0))
-	     (match_operand:I48MODE 1 "register_operand" "r"))]
+	  [(not:I48MODE
+	     (and:I48MODE (match_dup 0)
+	       (match_operand:I48MODE 1 "register_operand" "r")))]
 	  UNSPEC_ATOMIC))
    (clobber (match_scratch:I48MODE 2 "=&r"))]
   ""
@@ -131,8 +130,9 @@
 	(match_operand:I48MODE 1 "memory_operand" "+m"))
    (set (match_dup 1)
 	(unspec:I48MODE
-	  [(and:I48MODE (not:I48MODE (match_dup 1))
-	     (match_operand:I48MODE 2 "register_operand" "r"))]
+	  [(not:I48MODE
+	     (and:I48MODE (match_dup 1)
+	       (match_operand:I48MODE 2 "register_operand" "r")))]
 	  UNSPEC_ATOMIC))
    (clobber (match_scratch:I48MODE 3 "=&r"))]
   ""
@@ -169,12 +169,12 @@
 
 (define_insn_and_split "sync_new_nand<mode>"
   [(set (match_operand:I48MODE 0 "register_operand" "=&r")
-	(and:I48MODE 
-	  (not:I48MODE (match_operand:I48MODE 1 "memory_operand" "+m"))
-	  (match_operand:I48MODE 2 "register_operand" "r")))
+	(not:I48MODE
+	  (and:I48MODE (match_operand:I48MODE 1 "memory_operand" "+m")
+	    (match_operand:I48MODE 2 "register_operand" "r"))))
    (set (match_dup 1)
 	(unspec:I48MODE
-	  [(and:I48MODE (not:I48MODE (match_dup 1)) (match_dup 2))]
+	  [(not:I48MODE (and:I48MODE (match_dup 1) (match_dup 2)))]
 	  UNSPEC_ATOMIC))
    (clobber (match_scratch:I48MODE 3 "=&r"))]
   ""
