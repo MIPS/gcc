@@ -1,3 +1,15 @@
+2009-04-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38863
+	* trans-array.c (gfc_trans_deferred_array): Return if this
+	is a result variable.
+
+2009-04-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/38152
+	* trans-decl.c (gfc_get_symbol_decl): Correctly set decl location for
+	procedure pointer decls.
+
 2009-04-07  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/38290

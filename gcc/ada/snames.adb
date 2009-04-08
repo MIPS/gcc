@@ -327,6 +327,7 @@ package body Snames is
      "task_info#" &
      "task_name#" &
      "task_storage#" &
+     "thread_local_storage#" &
      "time_slice#" &
      "title#" &
      "unchecked_union#" &
@@ -402,6 +403,7 @@ package body Snames is
      "no_task_attributes#" &
      "no_task_attributes_package#" &
      "on#" &
+     "policy#" &
      "parameter_types#" &
      "reference#" &
      "restricted#" &
@@ -704,6 +706,7 @@ package body Snames is
      "builder#" &
      "builder_switches#" &
      "compiler#" &
+     "compiler_command#" &
      "compiler_kind#" &
      "config_body_file_name#" &
      "config_body_file_name_pattern#" &
@@ -733,6 +736,7 @@ package body Snames is
      "global_config_file#" &
      "gnatls#" &
      "gnatstub#" &
+     "ide#" &
      "implementation#" &
      "implementation_exceptions#" &
      "implementation_suffix#" &

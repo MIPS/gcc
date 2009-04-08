@@ -1,5 +1,9 @@
 2009-04-08  Paolo Bonzini  <bonzini@gnu.org>
 
+	* Merge trunk up to revision 145750.
+
+2009-04-08  Paolo Bonzini  <bonzini@gnu.org>
+
         * optabs.c (HAVE_conditional_trap): Remove.
 	(gen_cond_optab): Do not check it.
 

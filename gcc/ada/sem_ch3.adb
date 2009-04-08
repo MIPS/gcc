@@ -140,7 +140,7 @@ package body Sem_Ch3 is
       Derived_Type : Entity_Id);
    --  Subsidiary procedure to Build_Derived_Type. For a derived enumeration
    --  type, we must create a new list of literals. Types derived from
-   --  Character and Wide_Character are special-cased.
+   --  Character and [Wide_]Wide_Character are special-cased.
 
    procedure Build_Derived_Numeric_Type
      (N            : Node_Id;
@@ -4962,7 +4962,7 @@ package body Sem_Ch3 is
       Rang_Expr     : Node_Id;
 
    begin
-      --  Since types Standard.Character and Standard.Wide_Character do
+      --  Since types Standard.Character and Standard.[Wide_]Wide_Character do
       --  not have explicit literals lists we need to process types derived
       --  from them specially. This is handled by Derived_Standard_Character.
       --  If the parent type is a generic type, there are no literals either,
@@ -5772,10 +5772,10 @@ package body Sem_Ch3 is
 
    --  The representation clauses for T can specify a completely different
    --  record layout from R's. Hence the same component can be placed in two
-   --  very different positions in objects of type T and R. If R and are tagged
-   --  types, representation clauses for T can only specify the layout of non
-   --  inherited components, thus components that are common in R and T have
-   --  the same position in objects of type R and T.
+   --  very different positions in objects of type T and R. If R and T are
+   --  tagged types, representation clauses for T can only specify the layout
+   --  of non inherited components, thus components that are common in R and T
+   --  have the same position in objects of type R and T.
 
    --  This has two implications. The first is that the entire tree for R's
    --  declaration needs to be copied for T in the untagged case, so that T
@@ -6392,10 +6392,12 @@ package body Sem_Ch3 is
               Type_Definition     =>
                 Make_Derived_Type_Definition (Loc,
                   Abstract_Present      => Abstract_Present (Type_Def),
+                  Limited_Present       => Limited_Present (Type_Def),
                   Subtype_Indication    =>
                     New_Occurrence_Of (Parent_Base, Loc),
                   Record_Extension_Part =>
-                    Relocate_Node (Record_Extension_Part (Type_Def))));
+                    Relocate_Node (Record_Extension_Part (Type_Def)),
+                  Interface_List        => Interface_List (Type_Def)));
 
          Set_Parent (New_Decl, Parent (N));
          Mark_Rewrite_Insertion (New_Decl);
@@ -6465,7 +6467,7 @@ package body Sem_Ch3 is
          --  could still refer to the full type prior the change to the new
          --  subtype and hence would not match the new base type created here.
 
-         Derive_Subprograms (Parent_Type, Derived_Type);
+         Derive_Subprograms (Parent_Type, Base_Type (Derived_Type));
 
          --  For tagged types the Discriminant_Constraint of the new base itype
          --  is inherited from the first subtype so that no subtype conformance
@@ -8272,6 +8274,30 @@ package body Sem_Ch3 is
       ----------------
 
       procedure Post_Error is
+
+         procedure Missing_Body;
+         --  Output missing body message
+
+         ------------------
+         -- Missing_Body --
+         ------------------
+
+         procedure Missing_Body is
+         begin
+            --  Spec is in same unit, so we can post on spec
+
+            if In_Same_Source_Unit (Body_Id, E) then
+               Error_Msg_N ("missing body for &", E);
+
+            --  Spec is in a separate unit, so we have to post on the body
+
+            else
+               Error_Msg_NE ("missing body for & declared#!", Body_Id, E);
+            end if;
+         end Missing_Body;
+
+      --  Start of processing for Post_Error
+
       begin
          if not Comes_From_Source (E) then
 
@@ -8361,13 +8387,12 @@ package body Sem_Ch3 is
                         Check_Type_Conformant (Candidate, E);
 
                      else
-                        Error_Msg_NE ("missing body for & declared#!",
-                           Body_Id, E);
+                        Missing_Body;
                      end if;
                   end;
+
                else
-                  Error_Msg_NE ("missing body for & declared#!",
-                     Body_Id, E);
+                  Missing_Body;
                end if;
             end if;
          end if;

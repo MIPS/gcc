@@ -1,3 +1,50 @@
+2009-04-08  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39614
+	PR c/39673
+	* gcc.c-torture/compile/pr39614-1.c,
+	gcc.c-torture/compile/pr39614-2.c,
+	gcc.c-torture/compile/pr39614-3.c,
+	gcc.c-torture/compile/pr39614-4.c,
+	gcc.c-torture/compile/pr39614-5.c,
+	gcc.c-torture/compile/pr39673-1.c,
+	gcc.c-torture/compile/pr39673-2.c: New tests.
+	* gcc.dg/gnu89-const-expr-2.c, gcc.dg/gnu99-const-expr-2.c: Test
+	more cases.
+	* gcc.dg/overflow-warn-1.c, gcc.dg/overflow-warn-2.c,
+	gcc.dg/overflow-warn-3.c, gcc.dg/overflow-warn-4.c: Update
+	expected errors.
+
+2009-04-08  Dodji Seketeli  <dodji@redhat.com>
+
+	PRc++/39637
+	* g++.dg/cpp0x/variadic-crash2.C: New test.
+
+2009-04-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/38863
+	* gfortran.dg/alloc_comp_result_1.f90: New test.
+
+2009-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34691
+	* g++.dg/overload/extern-C-1.C: New.
+
+2009-04-07  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR testsuite/39325
+	* gcc.misc-tests/linkage.exp: Use -m64 for 64-bit *86*-darwin.
+
+2009-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/25185
+	* g++.dg/template/error40.C: New.
+
+2009-04-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/38152
+	* gfortran.dg/proc_ptr_13.f90: Add "-g" option.
+
 2009-04-07  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/subp_elim_errors.ad[sb]: New test.

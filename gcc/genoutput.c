@@ -838,7 +838,7 @@ validate_optab_operands (struct data *d)
     return;
 
   /* Miscellaneous tests.  */
-  if (!strncmp (d->name, "cstore", 6)
+  if (strncmp (d->name, "cstore", 6) == 0
       && d->name[strlen (d->name) - 1] == '4'
       && d->operand[0].mode == VOIDmode)
     {
