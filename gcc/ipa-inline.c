@@ -1569,7 +1569,7 @@ struct gimple_opt_pass pass_early_inline =
   0,					/* static_pass_number */
   TV_INLINE_HEURISTICS,			/* tv_id */
   0,	                                /* properties_required */
-  PROP_cfg,				/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func    			/* todo_flags_finish */
@@ -1600,7 +1600,7 @@ struct simple_ipa_opt_pass pass_ipa_early_inline =
   0,					/* static_pass_number */
   TV_INLINE_HEURISTICS,			/* tv_id */
   0,	                                /* properties_required */
-  PROP_cfg,				/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_cgraph 		        /* todo_flags_finish */
@@ -1662,7 +1662,7 @@ struct gimple_opt_pass pass_inline_parameters =
   0,					/* static_pass_number */
   TV_INLINE_HEURISTICS,			/* tv_id */
   0,	                                /* properties_required */
-  PROP_cfg,				/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func		        /* todo_flags_finish */
@@ -1785,7 +1785,7 @@ struct ipa_opt_pass pass_ipa_inline =
   0,					/* static_pass_number */
   TV_INLINE_HEURISTICS,			/* tv_id */
   0,	                                /* properties_required */
-  PROP_cfg,				/* properties_provided */
+  0,					/* properties_provided */
   0,					/* properties_destroyed */
   TODO_remove_functions,		/* todo_flags_finish */
   TODO_dump_cgraph | TODO_dump_func

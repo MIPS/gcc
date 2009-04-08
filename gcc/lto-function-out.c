@@ -791,7 +791,6 @@ output_eh_region (struct output_block *ob, struct function *fn,
 		  == VEC_index (eh_region, fn->eh->region_array, curr_rn));
 
       output_record_start (ob, NULL, NULL, LTO_eh_table_shared_region);
-      output_sleb128 (ob, r->region_number);
       return;
     }
 
@@ -1297,7 +1296,6 @@ output_expr_operand (struct output_block *ob, tree expr)
     case BLOCK:
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
-    case NAME_MEMORY_TAG:
     case OMP_CRITICAL:
     case OMP_FOR:
     case OMP_MASTER:
@@ -1305,7 +1303,6 @@ output_expr_operand (struct output_block *ob, tree expr)
     case OMP_PARALLEL:
     case OMP_SECTIONS:
     case OMP_SINGLE:
-    case SYMBOL_MEMORY_TAG:
     case TARGET_MEM_REF:
     case TRY_CATCH_EXPR:
     case TRY_FINALLY_EXPR:
@@ -1754,8 +1751,16 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 
       for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  LTO_DEBUG_INDENT_TOKEN ("phi");
-	  output_phi (ob, gsi_stmt (bsi));
+	  gimple phi = gsi_stmt (bsi);
+
+	  /* Only emit PHIs for gimple registers.  PHI nodes for .MEM
+	     will be filled in on reading when the SSA form is
+	     updated.  */
+	  if (is_gimple_reg (gimple_phi_result (phi)))
+	    {
+	      LTO_DEBUG_INDENT_TOKEN ("phi");
+	      output_phi (ob, phi);
+	    }
 	}
 
       LTO_DEBUG_INDENT_TOKEN ("phi");
@@ -3483,7 +3488,6 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
     case BLOCK:
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
-    case NAME_MEMORY_TAG:
     case OMP_CRITICAL:
     case OMP_FOR:
     case OMP_MASTER:
@@ -3491,7 +3495,6 @@ output_tree_with_context (struct output_block *ob, tree expr, tree fn)
     case OMP_PARALLEL:
     case OMP_SECTIONS:
     case OMP_SINGLE:
-    case SYMBOL_MEMORY_TAG:
     case TARGET_MEM_REF:
     case TRY_CATCH_EXPR:
     case TRY_FINALLY_EXPR:

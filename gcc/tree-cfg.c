@@ -2875,7 +2875,9 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	     x = TREE_OPERAND (x, 0))
 	  ;
 
-	if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
+	if (!(TREE_CODE (x) == VAR_DECL
+	      || TREE_CODE (x) == PARM_DECL
+	      || TREE_CODE (x) == RESULT_DECL))
 	  return NULL;
 	if (!TREE_ADDRESSABLE (x))
 	  {
@@ -4965,7 +4967,6 @@ gimple_duplicate_bb (basic_block bb)
 	 operands.  */
       copy = gimple_copy (stmt);
       gsi_insert_after (&gsi_tgt, copy, GSI_NEW_STMT);
-      copy_virtual_operands (copy, stmt);
       region = lookup_stmt_eh_region (stmt);
       if (region >= 0)
 	add_stmt_to_eh_region (copy, region);
@@ -5137,7 +5138,7 @@ gimple_duplicate_sese_region (edge entry, edge exit,
       free_region_copy = true;
     }
 
-  gcc_assert (!need_ssa_update_p ());
+  gcc_assert (!need_ssa_update_p (cfun));
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
@@ -5296,7 +5297,7 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
       free_region_copy = true;
     }
 
-  gcc_assert (!need_ssa_update_p ());
+  gcc_assert (!need_ssa_update_p (cfun));
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
@@ -5623,19 +5624,6 @@ mark_virtual_ops_in_bb (basic_block bb)
     mark_virtual_ops_for_renaming (gsi_stmt (gsi));
 }
 
-/* Marks virtual operands of all statements in basic blocks BBS for
-   renaming.  */
-
-static void
-mark_virtual_ops_in_region (VEC (basic_block,heap) *bbs)
-{
-  basic_block bb;
-  unsigned i;
-
-  for (i = 0; VEC_iterate (basic_block, bbs, i, bb); i++)
-    mark_virtual_ops_in_bb (bb);
-}
-
 /* Move basic block BB from function CFUN to function DEST_FN.  The
    block is moved out of the original linked list and placed after
    block AFTER in the new list.  Also, the block is removed from the
@@ -5742,7 +5730,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  old_len = VEC_length (basic_block, cfg->x_label_to_block_map);
 	  if (old_len <= (unsigned) uid)
 	    {
-	      new_len = 3 * uid / 2;
+	      new_len = 3 * uid / 2 + 1;
 	      VEC_safe_grow_cleared (basic_block, gc,
 				     cfg->x_label_to_block_map, new_len);
 	    }
@@ -6003,11 +5991,6 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
     }
 
   pop_cfun ();
-
-  /* The ssa form for virtual operands in the source function will have to
-     be repaired.  We do not care for the real operands -- the sese region
-     must be closed with respect to those.  */
-  mark_virtual_ops_in_region (bbs);
 
   /* Move blocks from BBS into DEST_CFUN.  */
   gcc_assert (VEC_length (basic_block, bbs) >= 2);

@@ -379,33 +379,6 @@ ipcp_print_all_lattices (FILE * f)
     }
 }
 
-/* Return true if this NODE may be cloned in ltrans.
-
-   FIXME lto: returns false if any caller of NODE is a clone, described
-   in http://gcc.gnu.org/ml/gcc/2009-02/msg00297.html; this extra check
-   should be deleted if the underlying issue is resolved.  */
-
-static bool
-ipcp_ltrans_cloning_candidate_p (struct cgraph_node *node)
-{
-  struct cgraph_edge *e;
-
-  /* Check callers of this node to see if any is a clone.  */
-  for (e = node->callers; e; e = e->next_caller)
-    {
-      if (cgraph_is_clone_node (e->caller))
-	break;
-    }
-  if (e)
-    {
-      if (dump_file)
-        fprintf (dump_file, "Not considering %s for cloning; has a clone caller.\n",
- 	         cgraph_node_name (node));
-      return false;
-    }
-  return true;
-}
-
 /* Return true if this NODE is viable candidate for cloning.  */
 static bool
 ipcp_cloning_candidate_p (struct cgraph_node *node)
@@ -420,11 +393,6 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
      different constants, but current ipcp implementation is not good on this.
      */
   if (!node->needed || !node->analyzed)
-    return false;
-
-  /* If reading ltrans, we want an extra check here.
-     FIXME lto: see ipcp_ltrans_cloning_candidate_p above for details.  */
-  if (flag_ltrans && !ipcp_ltrans_cloning_candidate_p (node))
     return false;
 
   if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)
@@ -970,7 +938,6 @@ ipcp_update_callgraph (void)
         struct ipa_node_params *info = IPA_NODE_REF (orig_node);
         int i, count = ipa_get_param_count (info);
         struct cgraph_edge *cs, *next;
-	gimple *call_stmt_map;
 
 	for (i = 0; i < count; i++)
 	  {
@@ -989,55 +956,26 @@ ipcp_update_callgraph (void)
 	    if (lat->type == IPA_CONST_VALUE)
 	      bitmap_set_bit (args_to_skip, i);
 	  }
-
-	/* Use a map to store all the CALL_STMT replacements we make
-	   in the call edges coming from all the callers to NODE.
-	   This is needed for cases where callers have been cloned,
-	   resulting in two or more call graph nodes for the same
-	   function calling NODE.  After doing the first replacement,
-	   we will not be able to find the original statement in the
-	   caller body.  */
-	for (i = 0, cs = node->callers; cs; cs = cs->next_caller)
-	  gimple_set_uid (cs->call_stmt, i++);
-
-	call_stmt_map = (gimple *) xcalloc (i, sizeof (gimple));
-
-	/* Traverse all callers for NODE replacing the call to
-	   NODE->DECL with its specialized version.  */
 	for (cs = node->callers; cs; cs = next)
 	  {
 	    next = cs->next_caller;
 	    if (ipcp_node_is_clone (cs->caller) || !ipcp_need_redirect_p (cs))
 	      {
 		gimple new_stmt;
+		gimple_stmt_iterator gsi;
 
-		if (call_stmt_map[gimple_uid (cs->call_stmt)])
-		  {
-		    /* If we found CS->CALL_STMT in CALL_STMT_MAP it
-		       means that we had replaced it in another call
-		       edge in a previous iteration.  If we try to
-		       look for CS->CALL_STMT again in the body we
-		       will not find it.  Therefore,  we just pick up
-		       the replacement stored by a previous iteration.  */
-		    new_stmt = call_stmt_map[gimple_uid (cs->call_stmt)];
-		  }
-		else
-		  {
-		    gimple_stmt_iterator gsi;
-
-		    current_function_decl = cs->caller->decl;
-		    push_cfun (DECL_STRUCT_FUNCTION (cs->caller->decl));
-		    
-		    new_stmt = gimple_call_copy_skip_args (cs->call_stmt,
-							   args_to_skip);
-		    gsi = gsi_for_stmt (cs->call_stmt);
-		    gsi_replace (&gsi, new_stmt, true);
-		    pop_cfun ();
-		    current_function_decl = NULL;
-		    call_stmt_map[gimple_uid (cs->call_stmt)] = new_stmt;
-		  }
-
+		current_function_decl = cs->caller->decl;
+	        push_cfun (DECL_STRUCT_FUNCTION (cs->caller->decl));
+		
+		new_stmt = gimple_call_copy_skip_args (cs->call_stmt,
+						       args_to_skip);
+		if (gimple_vdef (new_stmt))
+		  SSA_NAME_DEF_STMT (gimple_vdef (new_stmt)) = new_stmt;
+		gsi = gsi_for_stmt (cs->call_stmt);
+		gsi_replace (&gsi, new_stmt, true);
 		cgraph_set_call_stmt (cs, new_stmt);
+	        pop_cfun ();
+		current_function_decl = NULL;
 	      }
 	    else
 	      {
@@ -1045,8 +983,6 @@ ipcp_update_callgraph (void)
 		gimple_call_set_fndecl (cs->call_stmt, orig_node->decl);
 	      }
 	  }
-
-	free (call_stmt_map);
       }
 }
 
@@ -1258,9 +1194,7 @@ ipcp_insert_stage (void)
     {
       struct ipa_node_params *info;
       /* Propagation of the constant is forbidden in certain conditions.  */
-      if (!node->analyzed
-	  || !ipcp_node_modifiable_p (node)
-	  || node->global.inlined_to)
+      if (!node->analyzed || !ipcp_node_modifiable_p (node))
 	  continue;
       info = IPA_NODE_REF (node);
       if (ipa_is_called_with_var_arguments (info))
@@ -1342,7 +1276,6 @@ ipcp_insert_stage (void)
       for (cs = node->callers; cs != NULL; cs = cs->next_caller)
 	VEC_quick_push (cgraph_edge_p, redirect_callers, cs);
 
-      gcc_assert (!node->global.inlined_to);
       /* Redirecting all the callers of the node to the
          new versioned node.  */
       node1 =
@@ -1434,6 +1367,12 @@ ipcp_generate_summary (void)
 static bool
 cgraph_gate_cp (void)
 {
+  /* FIXME lto.  IPA-CP does not tolerate running when the inlining decisions
+     have not been applied.  This happens when WPA modifies the callgraph.
+     Since those decisions are not applied until after all the IPA passes
+     have been run in LTRANS, this means that IPA passes may see partially
+     modified callgraphs.  The solution to this is to apply WPA decisions
+     early during LTRANS.  */
   return flag_ipa_cp && !flag_ltrans;
 }
 
@@ -1449,7 +1388,7 @@ struct ipa_opt_pass pass_ipa_cp =
   0,				/* static_pass_number */
   TV_IPA_CONSTANT_PROP,		/* tv_id */
   0,				/* properties_required */
-  PROP_trees,			/* properties_provided */
+  0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
   TODO_dump_cgraph | TODO_dump_func |

@@ -1060,11 +1060,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 	    result = build5 (code, type, ops[0], ops[1], ops[2], ops[3], 
 			     ops[4]);
 	    break;
-            /* No 'case 6'.  */
-	  case 7:
-	    result = build7 (code, type, ops[0], ops[1], ops[2], ops[3], 
-			     ops[4], ops[5], ops[6]);
-	    break;
 	  default:
 	    gcc_unreachable ();
 	  }
@@ -1078,7 +1073,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
     case BLOCK:
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
-    case NAME_MEMORY_TAG:
     case OMP_CRITICAL:
     case OMP_FOR:
     case OMP_MASTER:
@@ -1086,7 +1080,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
     case OMP_PARALLEL:
     case OMP_SECTIONS:
     case OMP_SINGLE:
-    case SYMBOL_MEMORY_TAG:
     case TARGET_MEM_REF:
     case TRY_CATCH_EXPR:
     case TRY_FINALLY_EXPR:
@@ -1385,22 +1378,11 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in,
   if (tag == 0)
     return NULL;
 
-  /* If TAG indicates that this is a shared region, then return the
-     original region read earlier.  */
+  /* If TAG indicates that this is a shared region, then return a NULL
+     region.  The caller is responsible for sharing EH regions in the
+     EH table using the AKA bitmaps.  */
   if (tag == LTO_eh_table_shared_region)
-    {
-      eh_region orig;
-      int orig_rn;
-      
-      orig_rn = lto_input_sleb128 (ib);
-      orig = VEC_index (eh_region, fn->eh->region_array, orig_rn);
-
-      /* The region that we are trying to read must exist in the AKA
-	 set of the original EH region.  */
-      gcc_assert (orig->aka && bitmap_bit_p (orig->aka, region_number));
-
-      return orig;
-    }
+    return NULL;
 
   r = GGC_CNEW (struct eh_region);
   r->region_number = lto_input_sleb128 (ib);
@@ -1542,6 +1524,17 @@ fixup_eh_region_pointers (struct function *fn, HOST_WIDE_INT root_region)
 	{
 	  fixup_region (r->u.eh_catch.next_catch);
 	  fixup_region (r->u.eh_catch.prev_catch);
+	}
+
+      /* If R has an AKA set, all the table slot for the regions
+	 mentioned in AKA must point to R.  */
+      if (r->aka)
+	{
+	  bitmap_iterator bi;
+	  unsigned i;
+
+	  EXECUTE_IF_SET_IN_BITMAP (r->aka, 0, i, bi)
+	    VEC_replace (eh_region, array, i, r);
 	}
     }
 
@@ -1854,7 +1847,9 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   /* Read the number of operands in the statement.  */
   num_ops = lto_input_uleb128 (ib);
 
-  /* Read the tuple header.  FIXME lto.  This seems unnecessarily slow.  */
+  /* Read the tuple header.  FIXME lto.  This seems unnecessarily slow
+     and it is reading pointers in the tuple that need to be re-built
+     locally (e.g, basic block, lexical block, operand vectors, etc).  */
   nbytes = gimple_size (code);
   stmt = gimple_alloc (code, num_ops);
   buf = (char *) stmt;
@@ -1882,11 +1877,6 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	}
     }
 
-  /* Reset any memory operand vectors in STMT.  FIXME lto, we
-     shouldn't need to do this.  The writer should simply not emit
-     these fields.  */
-  gimple_reset_mem_ops (stmt);
-
   /* Update the properties of symbols, SSA names and labels associated
      with STMT.  */
   if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
@@ -1910,6 +1900,31 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     }
 
   LTO_DEBUG_UNDENT ();
+
+  /* Clear out invalid pointer values read above.  FIXME lto, this
+     should disappear after we fix the unnecessary fields that are
+     written for every tuple.  */
+  gimple_set_bb (stmt, NULL);
+  gimple_set_block (stmt, NULL);
+  if (gimple_has_ops (stmt))
+    {
+      gimple_set_def_ops (stmt, NULL);
+      gimple_set_use_ops (stmt, NULL);
+      /* FIXME lto.  We cannot use gimple_set_addresses_taken here
+	 because the previous value for this bitmap is an invalid
+	 pointer.  */
+      stmt->gsops.opbase.addresses_taken = NULL;
+    }
+
+  if (gimple_has_mem_ops (stmt))
+    {
+      gimple_set_vdef (stmt, NULL);
+      gimple_set_vuse (stmt, NULL);
+    }
+
+  /* Mark the statement modified so its operand vectors can be filled in.  */
+  gimple_set_modified (stmt, true);
+
   return stmt;
 }
 
@@ -2073,7 +2088,8 @@ input_function (tree fn_decl, struct data_in *data_in,
 #ifdef LOCAL_TRACE
   fprintf (stderr, "\n");
 #endif
-  
+
+  update_ssa (TODO_update_ssa_only_virtuals); 
   free (stmts);
 
   LTO_DEBUG_UNDENT();
@@ -3635,7 +3651,6 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
     case BLOCK:
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
-    case NAME_MEMORY_TAG:
     case OMP_CRITICAL:
     case OMP_FOR:
     case OMP_MASTER:
@@ -3643,7 +3658,6 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
     case OMP_PARALLEL:
     case OMP_SECTIONS:
     case OMP_SINGLE:
-    case SYMBOL_MEMORY_TAG:
     case TARGET_MEM_REF:
     case TRY_CATCH_EXPR:
     case TRY_FINALLY_EXPR:

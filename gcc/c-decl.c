@@ -1884,7 +1884,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   {
     unsigned olddecl_uid = DECL_UID (olddecl);
     tree olddecl_context = DECL_CONTEXT (olddecl);
-    tree olddecl_arguments = NULL_TREE;
+    tree olddecl_arguments = NULL;
     if (TREE_CODE (olddecl) == FUNCTION_DECL)
       olddecl_arguments = DECL_ARGUMENTS (olddecl);
 

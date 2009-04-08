@@ -1,3 +1,39 @@
+2009-04-08  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @145637.
+
+	* configure.ac (acx_pkgversion): Update revision merge string.
+	* configure: Regenerate.
+
+2009-04-08  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.h (gimple_reset_mem_ops): Remove.  Update all users.
+	* ipa-cp.c (ipcp_ltrans_cloning_candidate_p): Remove.  Update all
+	users.
+	(ipcp_cloning_candidate_p): Do not check for LTRANS.
+	(ipcp_update_callgraph): Revert handling of cloned caller
+	nodes.
+	(graph_gate_cp): Add FIXME lto note.
+	* lto-function-in.c (input_expr_operand): Do not call build7.
+	Remove handling of NAME_MEMORY_TAG and SYMBOL_MEMORY_TAG.
+	(input_eh_region): Return NULL for LTO_eh_table_shared_region.
+	(fixup_eh_region_pointers): Setup region sharing using
+	AKA bitmap sets.
+	(input_gimple_stmt): Clear tuple fields with pointer values.
+	Mark the statement modified.
+	(input_function): Call update_ssa to update SSA on .MEM.
+	(input_tree_operand): Remove handling of NAME_MEMORY_TAG
+	and SYMBOL_MEMORY_TAG.
+	* lto-function-out.c (output_eh_region): Do not output
+	the region number for LTO_eh_table_shared_region.
+	(output_expr_operand): Remove handling of NAME_MEMORY_TAG
+	and SYMBOL_MEMORY_TAG.
+	(output_bb): Do not write PHI nodes for .MEM.
+	(output_tree_with_context): Remove handling of
+	NAME_MEMORY_TAG and SYMBOL_MEMORY_TAG.
+	* lto-tree-flags.def: Likewise.
+	* tree-into-ssa.c: Call bitmap_obstack_initialize.
+
 2009-04-06  Diego Novillo  <dnovillo@google.com>
 
 	* Makefile.in (lto-cgraph.o): Add dependency on lto-utils.h.

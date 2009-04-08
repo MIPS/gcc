@@ -1106,7 +1106,7 @@ Optional Packages:
                           use sysroot as the system root during the build
   --with-sysroot=DIR Search for usr/lib, usr/include, et al, within DIR.
   --with-pkgversion=PKG   Use PKG in the version string in place of "lto
-                          merged with rev 145453"
+                          merged with rev 145637"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
@@ -8135,7 +8135,7 @@ echo "$as_me: error: package version not specified" >&2;}
       *)   PKGVERSION="($withval) " ;;
      esac
 else
-  PKGVERSION="(lto merged with rev 145453) "
+  PKGVERSION="(lto merged with rev 145637) "
 
 fi;
 
@@ -22378,7 +22378,7 @@ echo "$as_me:$LINENO: checking linker -Bstatic/-Bdynamic option" >&5
 echo $ECHO_N "checking linker -Bstatic/-Bdynamic option... $ECHO_C" >&6
 gcc_cv_ld_static_dynamic=no
 if test $in_tree_ld = yes ; then
-  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 10; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 10 -o "$gcc_cv_gld_major_version" -gt 2; then
     gcc_cv_ld_static_dynamic=yes
   fi
 elif test x$gcc_cv_ld != x; then
