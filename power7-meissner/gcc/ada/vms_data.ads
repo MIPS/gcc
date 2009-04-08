@@ -1228,6 +1228,17 @@ package VMS_Data is
    --   filetype, instead of the object file. This may be useful if you need
    --   to examine the generated assembly code.
 
+   S_GCC_AValid  : aliased constant S := "/ASSUME_VALID "                  &
+                                             "-gnatB";
+   --        /NO_ASSUME_VALID (D)
+   --        /ASSUME_VALID
+   --
+   --   Use to tell the compiler to assume that all objects have valid values
+   --   except those occurring as prefixes to 'Valid attributes. In the default
+   --   mode, the compiler assumes that values may be invalid unless it can
+   --   be sure that they are valid, and code is generated to allow for this
+   --   possibility. The use of /ASSUME_VALID will improve the code.
+
    S_GCC_Checks  : aliased constant S := "/CHECKS="                        &
                                              "FULL "                       &
                                                 "-gnato,!-gnatE,!-gnatp "  &
@@ -2233,6 +2244,10 @@ package VMS_Data is
                                                "-gnatyo "                  &
                                             "NOORDERED_SUBPROGRAMS "       &
                                                "-gnaty-o "                 &
+                                            "OVERRIDING_INDICATORS "       &
+                                               "-gnatyO "                  &
+                                            "NOOVERRIDING_INDICATORS "     &
+                                               "-gnaty-O "                 &
                                             "PRAGMA "                      &
                                                "-gnatyp "                  &
                                             "NOPRAGMA "                    &
@@ -2471,6 +2486,12 @@ package VMS_Data is
    --                           suffix, then the value of this suffix is used
    --                           in the ordering (e.g. Junk2 comes before
    --                           Junk10).
+   --
+   --      OVERRIDING_INDICATORS Check that overriding subprograms are
+   --                           explicitly marked as such. The declaration of
+   --                           a primitive operation of a type extension that
+   --                           overrides an inherited operation must carry
+   --                           an overriding indicator.
    --
    --      PRAGMA               Check pragma casing.
    --                           Pragma names must be written in mixed case,
@@ -3346,6 +3367,7 @@ package VMS_Data is
                      S_GCC_Ada_05  'Access,
                      S_GCC_Add     'Access,
                      S_GCC_Asm     'Access,
+                     S_GCC_AValid  'Access,
                      S_GCC_Checks  'Access,
                      S_GCC_ChecksX 'Access,
                      S_GCC_Compres 'Access,
@@ -3715,7 +3737,7 @@ package VMS_Data is
    --   Specifies the main project file to be used. The project files rooted
    --   at the main project file will be parsed before looking for sources.
    --   The source and object directories to be searched will be communicated
-   --   to gnatfind  through logical names ADA_PRJ_INCLUDE_FILE and
+   --   to gnatfind through logical names ADA_PRJ_INCLUDE_FILE and
    --   ADA_PRJ_OBJECTS_FILE.
 
    S_Find_Ref     : aliased constant S := "/REFERENCES "                   &
@@ -5829,6 +5851,7 @@ package VMS_Data is
    --
    --   Specify the case of Ada keywords. The default is keywords in lower
    --   case.
+   --
    --   keyword-option may be one of the following:
    --
    --      LOWER_CASE (D)
@@ -5845,9 +5868,9 @@ package VMS_Data is
    --        /MAX_INDENT=nnn
    --
    --   Do not use an additional indentation level for case alternatives
-   --   and variants if their number is nnn or more. The default is  10.
-   --   If nnn is zero, an additional indentation level is  used for any number
-   --   of case alternatives and variants.
+   --   and variants if their number is nnn or more. The default is 10.
+   --   If nnn is zero, an additional indentation level is used for any
+   --   number of case alternatives and variants.
 
    S_Pretty_Mess      : aliased constant S := "/MESSAGES_PROJECT_FILE="    &
                                             "DEFAULT "                     &

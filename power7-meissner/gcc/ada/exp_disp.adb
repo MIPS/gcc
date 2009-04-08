@@ -36,6 +36,7 @@ with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
 with Itypes;   use Itypes;
+with Layout;   use Layout;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Namet;    use Namet;
@@ -557,7 +558,7 @@ package body Exp_Disp is
          Res_Typ := Etype (Subp);
       end if;
 
-      Subp_Typ := Create_Itype (E_Subprogram_Type, Call_Node);
+      Subp_Typ     := Create_Itype (E_Subprogram_Type, Call_Node);
       Subp_Ptr_Typ := Create_Itype (E_Access_Subprogram_Type, Call_Node);
       Set_Etype          (Subp_Typ, Res_Typ);
       Set_Returns_By_Ref (Subp_Typ, Returns_By_Ref (Subp));
@@ -615,9 +616,14 @@ package body Exp_Disp is
          Create_Extra_Formals (Subp_Typ);
       end;
 
+      --  Complete description of pointer type, including size information, as
+      --  must be done with itypes to prevent order-of-elaboration anomalies
+      --  in gigi.
+
       Set_Etype (Subp_Ptr_Typ, Subp_Ptr_Typ);
       Set_Directly_Designated_Type (Subp_Ptr_Typ, Subp_Typ);
       Set_Convention (Subp_Ptr_Typ, Convention (Subp_Typ));
+      Layout_Type    (Subp_Ptr_Typ);
 
       --  If the controlling argument is a value of type Ada.Tag or an abstract
       --  interface class-wide type then use it directly. Otherwise, the tag
@@ -3479,6 +3485,7 @@ package body Exp_Disp is
            or else not Is_Limited_Type (Typ)
            or else not Has_Interfaces (Typ)
            or else not Build_Thunks
+           or else not RTE_Record_Component_Available (RE_OSD_Table)
          then
             --  No OSD table required
 
@@ -6170,7 +6177,7 @@ package body Exp_Disp is
                       Prefix => New_Reference_To (Prim, Loc),
                       Attribute_Name => Name_Unrestricted_Access))));
 
-            --  Register copy of the pointer to the 'size primitive in the TSD.
+            --  Register copy of the pointer to the 'size primitive in the TSD
 
             if Chars (Prim) = Name_uSize
               and then RTE_Record_Component_Available (RE_Size_Func)
@@ -6531,7 +6538,7 @@ package body Exp_Disp is
 
          procedure Set_Fixed_Prim (Pos : Nat) is
          begin
-            pragma Assert (Pos >= 0 and then Pos <= Count_Prim);
+            pragma Assert (Pos <= Count_Prim);
             Fixed_Prim (Pos) := True;
          exception
             when Constraint_Error =>

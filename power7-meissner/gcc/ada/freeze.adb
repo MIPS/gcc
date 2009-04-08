@@ -1436,6 +1436,9 @@ package body Freeze is
       Formal : Entity_Id;
       Atype  : Entity_Id;
 
+      Has_Default_Initialization : Boolean := False;
+      --  This flag gets set to true for a variable with default initialization
+
       procedure Check_Current_Instance (Comp_Decl : Node_Id);
       --  Check that an Access or Unchecked_Access attribute with a prefix
       --  which is the current instance type can only be applied when the type
@@ -2714,8 +2717,37 @@ package body Freeze is
                       (Needs_Simple_Initialization (Etype (E))
                         and then not Is_Internal (E)))
                then
+                  Has_Default_Initialization := True;
                   Check_Restriction
                     (No_Default_Initialization, Declaration_Node (E));
+               end if;
+
+               --  Check that a Thread_Local_Storage variable does not have
+               --  default initialization, and any explicit initialization must
+               --  either be the null constant or a static constant.
+
+               if Has_Pragma_Thread_Local_Storage (E) then
+                  declare
+                     Decl : constant Node_Id := Declaration_Node (E);
+                  begin
+                     if Has_Default_Initialization
+                       or else
+                         (Has_Init_Expression (Decl)
+                            and then
+                             (No (Expression (Decl))
+                                or else not
+                                  (Is_Static_Expression (Expression (Decl))
+                                     or else
+                                   Nkind (Expression (Decl)) = N_Null)))
+                     then
+                        Error_Msg_NE
+                          ("Thread_Local_Storage variable& is "
+                           & "improperly initialized", Decl, E);
+                        Error_Msg_NE
+                          ("\only allowed initialization is explicit "
+                           & "NULL or static expression", Decl, E);
+                     end if;
+                  end;
                end if;
 
                --  For imported objects, set Is_Public unless there is also an
@@ -5509,13 +5541,19 @@ package body Freeze is
       end if;
 
       --  We only give the warning for non-imported entities of a type for
-      --  which a non-null base init proc is defined (or for access types which
-      --  have implicit null initialization).
+      --  which a non-null base init proc is defined, or for objects of access
+      --  types with implicit null initialization, or when Initialize_Scalars
+      --  applies and the type is scalar or a string type (the latter being
+      --  tested for because predefined String types are initialized by inline
+      --  code rather than by an init_proc).
 
       if Present (Expr)
-        and then (Has_Non_Null_Base_Init_Proc (Typ)
-                    or else Is_Access_Type (Typ))
         and then not Is_Imported (Ent)
+        and then (Has_Non_Null_Base_Init_Proc (Typ)
+                    or else Is_Access_Type (Typ)
+                    or else (Init_Or_Norm_Scalars
+                              and then (Is_Scalar_Type (Typ)
+                                         or else Is_String_Type (Typ))))
       then
          if Nkind (Expr) = N_Attribute_Reference
            and then Is_Entity_Name (Prefix (Expr))

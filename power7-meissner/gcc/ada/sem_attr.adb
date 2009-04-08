@@ -713,8 +713,7 @@ package body Sem_Attr is
                then
                   null;
 
-               --  OK if reference to the current instance of a protected
-               --  object.
+               --  OK if reference to current instance of a protected object
 
                elsif Is_Protected_Self_Reference (P) then
                   null;
@@ -1651,8 +1650,8 @@ package body Sem_Attr is
 
          elsif Is_Protected_Self_Reference (P) then
             Error_Attr_P
-              ("prefix of % attribute denotes current instance " &
-                 "(RM 9.4(21/2))");
+              ("prefix of % attribute denotes current instance "
+               & "(RM 9.4(21/2))");
 
          elsif Ekind (Entity (P)) = E_Incomplete_Type
             and then Present (Full_View (Entity (P)))
@@ -2021,8 +2020,8 @@ package body Sem_Attr is
          --  applies to other entity-denoting expressions.
 
          if Is_Protected_Self_Reference (P) then
-            --  An Address attribute on a protected object self reference
-            --  is legal.
+
+            --  Address attribute on a protected object self reference is legal
 
             null;
 
@@ -4840,7 +4839,7 @@ package body Sem_Attr is
 
          --  Check that result is in bounds of the type if it is static
 
-         if Is_In_Range (N, T) then
+         if Is_In_Range (N, T, Assume_Valid => False) then
             null;
 
          elsif Is_Out_Of_Range (N, T) then
@@ -5258,7 +5257,7 @@ package body Sem_Attr is
                if Present (AS) and then Is_Constrained (AS) then
                   P_Entity := AS;
 
-               --  If we have an unconstrained type, cannot fold
+               --  If we have an unconstrained type we cannot fold
 
                else
                   Check_Expressions;
@@ -5518,6 +5517,10 @@ package body Sem_Attr is
          --  Again we compute the variable Static for easy reference later
          --  (note that no array attributes are static in Ada 83).
 
+         --  We also need to set Static properly for subsequent legality checks
+         --  which might otherwise accept non-static constants in contexts
+         --  where they are not legal.
+
          Static := Ada_Version >= Ada_95
                      and then Statically_Denotes_Entity (P);
 
@@ -5526,6 +5529,16 @@ package body Sem_Attr is
 
          begin
             N := First_Index (P_Type);
+
+            --  The expression is static if the array type is constrained
+            --  by given bounds, and not by an initial expression. Constant
+            --  strings are static in any case.
+
+            if Root_Type (P_Type) /= Standard_String then
+               Static :=
+                 Static and then not Is_Constr_Subt_For_U_Nominal (P_Type);
+            end if;
+
             while Present (N) loop
                Static := Static and then Is_Static_Subtype (Etype (N));
 

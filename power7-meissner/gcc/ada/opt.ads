@@ -158,14 +158,14 @@ package Opt is
    --  GNAT
    --  Enable assertions made using pragma Assert
 
-   Assume_No_Invalid_Values : Boolean := True;
-   --  ??? true for now, enable by setting to false later
+   Assume_No_Invalid_Values : Boolean := False;
    --  GNAT
    --  Normally, in accordance with (RM 13.9.1 (9-11)) the front end assumes
    --  that values could have invalid representations, unless it can clearly
    --  prove that the values are valid. If this switch is set (by -gnatB or by
    --  pragma Assume_No_Invalid_Values (Off)), then the compiler assumes values
-   --  are valid and in range of their representations.
+   --  are valid and in range of their representations. This feature is now
+   --  fully enabled in the compiler.
 
    Back_Annotate_Rep_Info : Boolean := False;
    --  GNAT
@@ -1023,6 +1023,10 @@ package Opt is
    --  Set to True if a shared libgnat is requested by using the -shared
    --  option for GNATBIND and to False when using the -static option. The
    --  value of this flag is set by Gnatbind.Scan_Bind_Arg.
+
+   Sprint_Line_Limit : Nat := 72;
+   --  Limit values for chopping long lines in Sprint output, can be reset
+   --  by use of NNN parameter with -gnatG or -gnatD switches.
 
    Stack_Checking_Enabled : Boolean;
    --  GNAT
