@@ -4038,6 +4038,8 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
   /* Don't let both operands fail to indicate the mode.  */
   if (GET_MODE (x) == VOIDmode && GET_MODE (y) == VOIDmode)
     x = force_reg (mode, x);
+  if (mode == VOIDmode)
+    mode = GET_MODE (x) == VOIDmode ? GET_MODE (x) : GET_MODE (y);
 
   /* Handle all BLKmode compares.  */
 

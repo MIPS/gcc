@@ -1,3 +1,7 @@
+2009-04-09  Paolo Bonzini  <bonzini@gnu.org>
+
+        * optabs.c (prepare_cmp_insn): Initialize mode as soon as possible.
+
 2009-04-08  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Merge trunk up to revision 145750.
