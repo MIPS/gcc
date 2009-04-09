@@ -1,3 +1,80 @@
+2009-04-09  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (find_prev_try): Break out from ....
+	(duplicate_eh_regions): ... here; properly update prev_try pointers
+	when duplication part of tree.
+	(dump_eh_tree): Improve dumping.
+	(verify_eh_region): New.
+	(verify_eh_tree): Use it.
+
+2009-04-06  Richard Guenther  <rguenther@suse.de>
+
+	* c-gimplify.c (c_gimplify_expr): Fix the invalid GENERIC
+	&ARRAY addresses by adjusting their types and prepending
+	a conversion.
+	* tree-cfg.c (verify_gimple_assign_single): Verify that
+	addresses are correct.
+
+2009-04-09  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-ccp.c (maybe_fold_stmt_addition): Move non-constant
+	indices into an array reference if possible.
+	* tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_vars):
+	Fold POINTER_PLUS_EXPR statements with invariant address.
+
+2009-04-09  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/39634
+	* config.gcc (powerpc64-*-linux*): Always build biarch.
+
+2009-04-09  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/39613
+	* c-typeck.c (do_case): If case label is not an INTEGER_CST, fold
+	it and pedwarn if this results in an INTEGER_CST.
+
+2009-04-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/install.texi: Update minimum GMP version.  Remove obsolete
+	text in MPFR section.
+
+2009-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (class_scope_p): New static inline.
+	(class_or_namespace_scope_p): Use it.
+	(gen_variable_die): Use DW_TAG_member tag for static data member
+	declarations instead of DW_TAG_variable.
+
+	PR middle-end/39573
+	* omp-low.c (expand_omp_taskreg): Finalize taskreg static local_decls
+	variables.
+
+2009-04-08  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (valueize_refs): Do not continue to
+	valueize random data.
+
+2009-04-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* config.gcc (aix tm_file):  Add aix-stdint.h.
+	(aix tm clause use_gcc_stdint):  Set to wrap.
+	* config/rs6000/aix-stdint.h:  New file.
+	
+2009-04-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36291
+	* tree-dfa.c (add_referenced_var): Do not recurse into
+	global initializers.
+	* tree-ssa-ccp.c (get_symbol_constant_value): Add newly
+	exposed variables.
+	(fold_const_aggregate_ref): Likewise.
+
+2009-04-08  Paolo Bonzini  <bonzini@gnu.org>
+
+        * recog.c (ordered_comparison_operator): New.
+        * gensupport.c (std_preds): Add it.
+	* doc/md.texi (Machine-Independent Predicates): Document it.
+
 2009-04-08  Jan Hubicka  <jh@suse.cz>
 
 	* tree-eh.c (cleanup_eh): When not optimizing, do not try EH merging.

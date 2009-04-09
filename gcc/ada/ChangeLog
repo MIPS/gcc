@@ -1,3 +1,108 @@
+2009-04-09  Robert Dewar  <dewar@adacore.com>
+
+	* exp_ch4.adb (Expand_Concatenate): Improve handling of overflow cases
+
+2009-04-09  Pascal Obry  <obry@adacore.com>
+
+	* a-cihama.adb, a-cihama.ads, a-coinve.adb, a-coinve.ads,
+	s-tpoben.adb, s-tpoben.ads, s-finimp.adb, s-finimp.ads,
+	a-convec.adb, a-convec.ads, a-finali.adb, a-finali.ads,
+	a-filico.ads: Add some missing overriding keywords.
+
+2009-04-09  Pascal Obry  <obry@adacore.com>
+
+	* a-cihama.adb, a-cihama.ads, a-coinve.adb, a-coorma.ads, a-cihase.adb,
+	a-cihase.ads, a-cohama.adb, a-cohama.ads, a-coorse.adb, a-coorse.ads,
+	a-coormu.adb, a-coormu.ads, a-cohase.adb, a-cohase.ads: Minor
+	reformatting.
+
+2009-04-09  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Check_Overriding_Indicator): Do not generate warning on
+	missing overriding indicator if the new declaration is not seen as
+	primitive.
+
+2009-04-09  Thomas Quinot  <quinot@adacore.com>
+
+	* exp_ch4.adb (Expand_Concatenate): Add circuitry to properly handle
+	overflows in computation of bounds.
+
+2009-04-09  Pascal Obry  <obry@adacore.com>
+
+	* a-cihama.adb, a-cgcaso.adb, a-cihase.adb, a-cohase.adb: Fix some
+	typos in comment.
+
+2009-04-09  Robert Dewar  <dewar@adacore.com>
+
+	* sem_attr.adb (Check_Stream_Attribute): Check violation of
+	restriction No_Streams
+
+	* gnat_rm.texi: Clarify No_Streams restriction
+
+	* g-socket.adb: Minor reformatting.
+
+2009-04-09  Thomas Quinot  <quinot@adacore.com>
+
+	* g-socket.ads: Mark Initialize and Finalize as obsolesent interfaces.
+
+2009-04-09  Geert Bosch  <bosch@adacore.com>
+
+	* exp_fixd.adb (Build_Conversion): Accept new optional Trunc argument.
+	(Set_Result): Likewise.
+	(Expand_Convert_Float_To_Fixed): Have Set_Result truncate the
+	conversion, as required by RM 4.6(31).
+
+2009-04-08  Robert Dewar  <dewar@adacore.com>
+
+	* checks.adb (Enable_Overflow_Check): Do not enable if overflow checks
+	suppressed.
+	
+	* exp_ch4.adb (Expand_Concatenate): Make sure checks are off for all
+	resolution steps.
+
+2009-04-08  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch12.adb (Analyze_Package_Instantiation): Remove test for
+	No_Local_Allocators restriction preventing local instantiation.
+
+2009-04-08  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_eval.adb: Minor comment fix
+
+2009-04-08  Thomas Quinot  <quinot@adacore.com>
+
+	* g-socket.adb, g-socket.ads (GNAT.Sockets.Sockets_Library_Controller):
+	New limited controlled type used to automate the initialization and
+	finalization of the sockets implementation.
+	(GNAT.Sockets.Initialize, Finalize): Make these no-ops
+
+2009-04-08  Vincent Celier  <celier@adacore.com>
+
+	* prj-attr.adb: New read-only project-level attribute Project_Dir
+
+	* prj-proc.adb (Add_Attributes): New parameter Project_Dir, value of
+	read-only attribute of the same name.
+	(Process_Declarative_Items): Call Add_Attributes with Project_Dir
+	(Recursive_Process): Ditto
+
+	* snames.adb: Add new standard name Project_Dir
+
+	* snames.ads: Add new standard name Project_Dir
+
+2009-04-08  Thomas Quinot  <quinot@adacore.com>
+
+	* checks.adb: Minor reformatting
+
+2009-04-08  Vincent Celier  <celier@adacore.com>
+
+	* vms_data.ads: Add documentation for new style keyword
+	OVERRIDING_INDICATORS
+
+2009-04-08  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch3.adb (Check_Completion.Post_Error): Post error on spec if the
+	spec is in the current unit.
+
 2009-04-08  Ed Schonberg  <schonberg@adacore.com>
 
 	* sem_util.adb (Is_Protected_Self_Reference): Add guard to check for

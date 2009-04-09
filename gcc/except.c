@@ -1328,6 +1328,23 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
   return ret;
 }
 
+/* Return prev_try pointers catch subregions of R should
+   point to.  */
+
+static struct eh_region *
+find_prev_try (struct eh_region * r)
+{
+  for (; r && r->type != ERT_TRY; r = r->outer)
+    if (r->type == ERT_MUST_NOT_THROW
+	|| (r->type == ERT_ALLOWED_EXCEPTIONS
+	    && !r->u.allowed.type_list))
+      {
+	r = NULL;
+	break;
+      }
+  return r;
+}
+
 /* Duplicate the EH regions of IFUN, rooted at COPY_REGION, into current
    function and root the tree below OUTER_REGION.  Remap labels using MAP
    callback.  The special case of COPY_REGION of 0 means all regions.  */
@@ -1336,7 +1353,7 @@ int
 duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 		      void *data, int copy_region, int outer_region)
 {
-  eh_region cur, prev_try, outer, *splice;
+  eh_region cur, prev_try, old_prev_try, outer, *splice;
   int i, min_region, max_region, eh_offset, cfun_last_region_number;
   int num_regions;
 
@@ -1356,10 +1373,15 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
       max_region = 0;
 
       cur = VEC_index (eh_region, ifun->eh->region_array, copy_region);
+      old_prev_try = find_prev_try (cur);
       duplicate_eh_regions_0 (cur, &min_region, &max_region);
     }
   else
-    min_region = 1, max_region = ifun->eh->last_region_number;
+    {
+      min_region = 1;
+      max_region = ifun->eh->last_region_number;
+      old_prev_try = NULL;
+    }
   num_regions = max_region - min_region + 1;
   cfun_last_region_number = cfun->eh->last_region_number;
   eh_offset = cfun_last_region_number + 1 - min_region;
@@ -1429,16 +1451,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
      the prev_try short-cuts for ERT_CLEANUP regions.  */
   prev_try = NULL;
   if (outer_region > 0)
-    for (prev_try =
-	 VEC_index (eh_region, cfun->eh->region_array, outer_region);
-	 prev_try && prev_try->type != ERT_TRY; prev_try = prev_try->outer)
-      if (prev_try->type == ERT_MUST_NOT_THROW
-	  || (prev_try->type == ERT_ALLOWED_EXCEPTIONS
-	      && !prev_try->u.allowed.type_list))
-	{
-	  prev_try = NULL;
-	  break;
-	}
+    prev_try = find_prev_try (VEC_index (eh_region, cfun->eh->region_array, outer_region));
 
   /* Remap all of the internal catch and cleanup linkages.  Since we 
      duplicate entire subtrees, all of the referenced regions will have
@@ -1487,7 +1500,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 	  break;
 
 	case ERT_CLEANUP:
-	  if (cur->u.cleanup.prev_try)
+	  if (cur->u.cleanup.prev_try != old_prev_try)
 	    REMAP (cur->u.cleanup.prev_try);
 	  else
 	    cur->u.cleanup.prev_try = prev_try;
@@ -4706,6 +4719,10 @@ verify_eh_region (struct eh_region *region, struct eh_region *prev_try)
     }
   if (region->type == ERT_TRY)
     prev_try = region;
+  else if (region->type == ERT_MUST_NOT_THROW
+	   || (region->type == ERT_ALLOWED_EXCEPTIONS
+	       && !region->u.allowed.type_list))
+    prev_try = NULL;
   for (region = region->inner; region; region = region->next_peer)
     found |= verify_eh_region (region, prev_try);
   return found;
