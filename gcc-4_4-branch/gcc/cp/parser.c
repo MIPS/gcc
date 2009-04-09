@@ -1733,6 +1733,10 @@ static tree cp_parser_declarator_id
   (cp_parser *, bool);
 static tree cp_parser_type_id
   (cp_parser *);
+static tree cp_parser_template_type_arg
+  (cp_parser *);
+static tree cp_parser_type_id_1
+  (cp_parser *, bool);
 static void cp_parser_type_specifier_seq
   (cp_parser *, bool, cp_decl_specifier_seq *);
 static tree cp_parser_parameter_declaration_clause
@@ -4739,8 +4743,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    if (args)
 		      {
 			koenig_p = true;
-			postfix_expression
-			  = perform_koenig_lookup (postfix_expression, args);
+			if (!any_type_dependent_arguments_p (args))
+			  postfix_expression
+			    = perform_koenig_lookup (postfix_expression, args);
 		      }
 		    else
 		      postfix_expression
@@ -4762,8 +4767,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    if (!DECL_FUNCTION_MEMBER_P (fn))
 		      {
 			koenig_p = true;
-			postfix_expression
-			  = perform_koenig_lookup (postfix_expression, args);
+			if (!any_type_dependent_arguments_p (args))
+			  postfix_expression
+			    = perform_koenig_lookup (postfix_expression, args);
 		      }
 		  }
 	      }
@@ -5771,7 +5777,7 @@ cp_parser_new_type_id (cp_parser* parser, tree *nelts)
 	new_declarator = NULL;
     }
 
-  type = groktypename (&type_specifier_seq, new_declarator);
+  type = groktypename (&type_specifier_seq, new_declarator, false);
   return type;
 }
 
@@ -10543,7 +10549,7 @@ cp_parser_template_argument (cp_parser* parser)
 
      Therefore, we try a type-id first.  */
   cp_parser_parse_tentatively (parser);
-  argument = cp_parser_type_id (parser);
+  argument = cp_parser_template_type_arg (parser);
   /* If there was no error parsing the type-id but the next token is a
      '>>', our behavior depends on which dialect of C++ we're
      parsing. In C++98, we probably found a typo for '> >'. But there
@@ -10731,7 +10737,7 @@ cp_parser_template_argument (cp_parser* parser)
      was the only alternative that matched (albeit with a '>' after
      it). We can assume it's just a typo from the user, and a
      diagnostic will then be issued.  */
-  return cp_parser_type_id (parser);
+  return cp_parser_template_type_arg (parser);
 }
 
 /* Parse an explicit-instantiation.
@@ -12005,6 +12011,11 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
     }
   else
     value = NULL_TREE;
+
+  /* If we are processing a template, make sure the initializer of the
+     enumerator doesn't contain any bare template parameter pack.  */
+  if (check_for_bare_parameter_packs (value))
+    value = error_mark_node;
 
   /* Create the enumerator.  */
   build_enumerator (identifier, value, type);
@@ -13765,7 +13776,7 @@ cp_parser_declarator_id (cp_parser* parser, bool optional_p)
    Returns the TYPE specified.  */
 
 static tree
-cp_parser_type_id (cp_parser* parser)
+cp_parser_type_id_1 (cp_parser* parser, bool is_template_arg)
 {
   cp_decl_specifier_seq type_specifier_seq;
   cp_declarator *abstract_declarator;
@@ -13794,7 +13805,18 @@ cp_parser_type_id (cp_parser* parser)
       return error_mark_node;
     }
   
-  return groktypename (&type_specifier_seq, abstract_declarator);
+  return groktypename (&type_specifier_seq, abstract_declarator,
+		       is_template_arg);
+}
+
+static tree cp_parser_type_id (cp_parser *parser)
+{
+  return cp_parser_type_id_1 (parser, false);
+}
+
+static tree cp_parser_template_type_arg (cp_parser *parser)
+{
+  return cp_parser_type_id_1 (parser, true);
 }
 
 /* Parse a type-specifier-seq.

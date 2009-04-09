@@ -1,3 +1,34 @@
+2009-04-08  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/abi/post/mips64-linux-gnu/baseline_symbols.txt:
+	Regenerate
+	* config/abi/post/mips64-linux-gnu/64/baseline_symbols.txt: New
+	file.
+
+2009-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/39310
+	* include/tr1_impl/type_traits (is_function): Add partial
+	specializations with function cv-quals.
+	(__is_function_helper): Remove.
+	(is_member_pointer): Don't define in terms of is_member_*_pointer.
+
+2009-04-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/s390-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/ia64-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/s390x-linux-gnu/baseline_symbols.txt: Regenerated.
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt:
+	Regenerated.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Regenerated.
+
 2009-03-25  Edward Smith-Rowland  <3dw4rd@verizon.net>
 
 	* include/std/fstream (basic_filebuf<>::open(const std::string&,

@@ -5204,6 +5204,8 @@ fix_range (const char *const_str)
 static bool
 ia64_handle_option (size_t code, const char *arg, int value)
 {
+  static bool warned_itanium1_deprecated;
+
   switch (code)
     {
     case OPT_mfixed_range_:
@@ -5237,6 +5239,16 @@ ia64_handle_option (size_t code, const char *arg, int value)
 	  if (!strcmp (arg, processor_alias_table[i].name))
 	    {
 	      ia64_tune = processor_alias_table[i].processor;
+	      if (ia64_tune == PROCESSOR_ITANIUM
+		  && ! warned_itanium1_deprecated)
+		{
+		  inform (0,
+			  "value %<%s%> for -mtune= switch is deprecated",
+			  arg);
+		  inform (0, "GCC 4.4 is the last release with "
+			  "Itanium1 tuning support");
+		  warned_itanium1_deprecated = true;
+		}
 	      break;
 	    }
 	if (i == pta_size)

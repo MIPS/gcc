@@ -1,3 +1,93 @@
+2009-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/39573
+	* omp-low.c (expand_omp_taskreg): Finalize taskreg static local_decls
+	variables.
+
+2009-04-08  David Ayers  <ayers@fsfe.org>
+
+	PR objc/27377
+	* c-typeck.c (build_conditional_expr): Emit ObjC warnings
+	by calling objc_compare_types and surpress warnings about
+	incompatible C pointers that are compatible ObjC pointers.
+
+2009-04-07  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/39634
+	* config.gcc (powerpc-*-linux*): Include soft-fp/t-softfp after
+	rs6000/t-linux64.
+
+2009-04-04  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/39501
+	* arm.md (movsfcc): Disable if not TARGET_HARD_FLOAT.
+	* testsuite/gcc.c-torture/execute/pr39501.c: New file.
+	* testsuite/gcc.c-torture/execute/pr39501.x: New file.
+
+2009-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* unwind-dw2.h (_Unwind_FrameState): Add REG_UNDEFINED enum value.
+	* unwind-dw2.c (execute_cfa_program): Set how to REG_UNDEFINED
+	instead of REG_UNSAVED for DW_CFA_undefined.
+	(uw_update_context_1): Handle REG_UNDEFINED the same as REG_UNSAVED.
+	(uw_update_context): If RA column is REG_UNDEFINED, mark it as
+	outermost frame.
+
+2009-04-02  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/39595
+	* tree-vect-analyze.c (vect_build_slp_tree): Check that the size of
+	interleaved loads group is not greater than the SLP group size.
+
+2009-04-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/39588
+	* combine.c (merge_outer_ops): Do not set the constant when this
+	is not necessary.
+	(simplify_shift_const_1): Do not modify it either in this case.
+
+2009-04-01  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/ia64/ia64.c (ia64_handle_option): Inform user that Itanium1
+	tuning is deprecated if -mtune value is set to an Itanium1 variant.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39226
+	* config/rs6000/rs6000.md (andsi3_internal5_nomc,
+	anddi3_internal2_nomc, anddi3_internal3_nomc): Removed.
+	(booldi3_internal3): Use boolean_or_operator instead of
+	boolean_operator.
+
+	PR c/37772
+	* c-parser.c (c_parser_asm_statement): Skip until close paren and
+	return if c_parser_asm_string_literal returned NULL.
+
+2009-04-01  Kai Tietz  <kai.tietz@onevision.com>
+            Andrey Galkin <agalkin@hypercom.com>
+
+        PR/39492
+        * config/i386/host-mingw32.c (mingw32_gt_pch_use_address):
+        Make object_name unique for each process.
+
+2009-04-01  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.c (avr_override_options): Inform user that
+	-mno-tablejump option is deprecated.
+	* doc/invoke.texi (AVR Options): Update -mno-tablejump.
+
+2009-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/39591
+	* omp-low.c (remove_exit_barrier): Don't optimize if there are any
+	addressable variables in the parallel that could go out of scope while
+	running queued tasks.
+
+2009-03-30  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* doc/invoke.texi (-floop-interchange, -floop-strip-mine,
+	-floop-block): Document dependences on PPL, CLooG and Graphite.
+
 2009-03-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/39563
