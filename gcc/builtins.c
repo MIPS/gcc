@@ -1224,6 +1224,7 @@ get_memory_rtx (tree exp, tree len)
 	}
       set_mem_alias_set (mem, 0);
       set_mem_size (mem, NULL_RTX);
+      set_mem_orig_expr (mem, NULL_TREE);
     }
 
   return mem;

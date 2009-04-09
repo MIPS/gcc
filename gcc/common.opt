@@ -491,6 +491,18 @@ fexpensive-optimizations
 Common Report Var(flag_expensive_optimizations) Optimization
 Perform a number of minor, expensive optimizations
 
+falias-export
+Common Report Var(flag_alias_export) Optimization Init(2)
+Save alias information on Tree-SSA to be used on RTL
+
+falias-export-check
+Common Report Var(flag_alias_export_check) Optimization
+Regularly check integrity and consistency of saved alias information
+
+fddg-export
+Common Report Var(flag_ddg_export) Optimization Init(2)
+Save alias information on Tree-SSA to be used on RTL
+
 fexcess-precision=
 Common Joined RejectNegative
 -fexcess-precision=[fast|standard]	Specify handling of excess floating-point precision

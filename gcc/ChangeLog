@@ -1,3 +1,83 @@
+2009-04-09  Andrey Belevantsev  <abel@ispras.ru>
+	    Dmitry Melnik  <dm@ispras.ru>
+	    Alexander Monakov  <amonakov@ispras.ru>
+
+	* alias-export.c: New file.
+	* alias-export.h: New file.
+	* dbgcnt.def (alias_export): New counter.
+	* tree.c (iterative_hash_gimple): New.
+	* tree.h (iterative_hash_gimple): Export it.
+	* tree-pass.h (pass_check_alias_export_rtl, 
+	pass_report_alias_export_stat, pass_free_alias_export,
+	pass_gather_ddg_info, pass_free_ddg_info): Export.
+	* ddg.c: Include alias-export.h.
+	* builtins.c (get_memory_rtx): Also set MEM_ORIG_EXPR to NULL.
+	* tree-ssa-uncprop.c (pass_uncprop): Set TODO_rebuild_alias.
+	* toplev.c (finalize): Call alias_export_finish_once.
+	* tree-ssa-loop-ivopts.c: Include alias-export.h.
+	(copy_ref_info): Record new reference in ddg export data.
+	* tree-ssa-alias.c: Include alias-export.h.
+	(GET_PTR_INFO_FOR, GET_ESCAPED_SOLUTION): New macros.
+	(ptr_deref_may_alias_decl_p): Add expi and exescaped parameters.
+	Use them to access PTA data.  Adjust assert to include RTL case.
+	(ptr_derefs_may_alias_p): Add expi1, expi2, exescaped parameters.
+	Use them to access PTA data.  Adjust assert to include RTL case.
+	(indirect_ref_may_alias_decl_p): Add expi1 and exescaped parameters.
+	Use them to access PTA data.
+	(indirect_refs_may_alias_p): Add expi1, expi2, exesaped parameters.
+	Use them to access PTA data.
+	(refs_may_alias_p_1): Likewise.  Adjust assert to include RTL case.
+	* tree-ssa-alias.h (refs_may_alias_p_1, pt_solution_includes_1,
+	pt_solutions_intersect_1): Export.
+	* expr.c (expand_expr_real_1): When expanding TARGET_MEM_REF,
+	set MEM_ORIG_EXPR to its TMR_ORIGINAL.
+	* function.c (assign_parms_unsplit_complex): Also set MEM_ORIG_EXPR
+	for parm.
+	* alias.c: Include alias-export.h.
+	(query_alias_export_info): New.
+	(walk_mems_2): Also query ddg export info.
+	(memrefs_conflict_p): Return 2 when we're sure that memrefs conflict.
+	(true_dependence): Use query_alias_export_info.
+	(canon_true_dependence, write_dependence_p): Likewise.
+	* emit-rtl.c: Include alias-export.h.
+	(mem_attrs_htab_hash, get_mem_attrs, set_mem_attrs_from_reg,
+	set_mem_alias_set, set_mem_align, set_mem_expr, set_mem_offset, 
+	set_mem_size, change_address, offset_address, 
+	widen_memory_access, get_spill_slot_decl, 
+	set_mem_attrs_for_spill): Account for MEM_ORIG_EXPR.
+	(set_mem_orig_expr): New.
+	(set_mem_attributes_minus_bitpos): Record MEM_ORIG_EXPR.
+	(adjust_address_1): When we make a wider address, nullify MEM_ORIG_EXPR.
+	* cfgexpand.c: Include alias-export.h.
+	(union_stack_vars): Promote TRE_ADDRESSABLE to the merged partition
+	representative.
+	(record_stack_var_partitions): New.
+	(expand_used_vars): Call it.
+	(expand_gimple_cond, expand_gimple_tailcall, 
+	expand_gimple_basic_block): Make alias-export aware of currently expanding 
+	statement.
+	(discover_nonconstant_array_refs_r): Make only BLKmode arrays addressable.
+	Call record_addressable_bases.
+	(gimple_expand_cfg): Call release_temporary_export_maps.
+	* emit-rtl.h (set_mem_orig_expr): Export.
+	* common.opt (falias-export, falias-export-check, fddg-export): New options.
+	* tree-ssa.c: Include alias-export.h.
+	(delete_tree_ssa): Record escaped solution for alias export.
+	* rtl.h (struct mem_attrs): New field orig_expr.
+	(MEM_ORIG_EXPR): New access macro.
+	(alias_export_finish_once): Export.
+	* tree-outof-ssa.c: Include alias-export.h.
+	(replace_use_variable): New argument stmt.
+	Record PTA info and substitution info for alias export.
+	* Makefile.in (OBJS-common): Add alias-export.o. Reflect dependencies from
+	alias-export.h.
+	* tree-ssa-structalias.c (pt_solution_includes_1, pt_solutions_intersect_1):
+	Add escaped parameter, make global.
+	* gimple.h (find_pos_in_stmt): Export.
+	* passes.c (init_optimization_passes): Schedule passes of alias export
+	and ddg export.
+	* ipa-struct-reorg.c (find_pos_in_stmt): Make global.
+	
 2009-04-08  Andrey Belevantsev  <abel@ispras.ru>
         * Merge the branch with trunk rev. 145662.
 

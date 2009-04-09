@@ -3097,7 +3097,10 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all, tree fnargs)
 	  /* Set MEM_EXPR to the original decl, i.e. to PARM,
 	     instead of the copy of decl, i.e. FNARGS.  */
 	  if (DECL_INCOMING_RTL (parm) && MEM_P (DECL_INCOMING_RTL (parm)))
-	    set_mem_expr (DECL_INCOMING_RTL (parm), parm);
+	    {
+	      set_mem_expr (DECL_INCOMING_RTL (parm), parm);
+	      set_mem_orig_expr (DECL_INCOMING_RTL (parm), parm);
+	    }
 	}
 
       fnargs = TREE_CHAIN (fnargs);

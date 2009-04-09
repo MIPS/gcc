@@ -58,6 +58,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "alias-export.h"
+#include "pointer-set.h"
+#include "dbgcnt.h"
+
 
 /* Commonly used modes.  */
 
@@ -192,8 +196,8 @@ static int const_fixed_htab_eq (const void *, const void *);
 static rtx lookup_const_fixed (rtx);
 static hashval_t mem_attrs_htab_hash (const void *);
 static int mem_attrs_htab_eq (const void *, const void *);
-static mem_attrs *get_mem_attrs (alias_set_type, tree, rtx, rtx, unsigned int,
-				 enum machine_mode);
+static mem_attrs *get_mem_attrs (alias_set_type, tree, tree, rtx, rtx, 
+				 unsigned int, enum machine_mode);
 static hashval_t reg_attrs_htab_hash (const void *);
 static int reg_attrs_htab_eq (const void *, const void *);
 static reg_attrs *get_reg_attrs (tree, int);
@@ -295,7 +299,7 @@ mem_attrs_htab_hash (const void *x)
   return (p->alias ^ (p->align * 1000)
 	  ^ ((p->offset ? INTVAL (p->offset) : 0) * 50000)
 	  ^ ((p->size ? INTVAL (p->size) : 0) * 2500000)
-	  ^ (size_t) iterative_hash_expr (p->expr, 0));
+	  ^ (p->orig_expr ? (unsigned long) p->orig_expr : 0));
 }
 
 /* Returns nonzero if the value represented by X (which is really a
@@ -312,7 +316,12 @@ mem_attrs_htab_eq (const void *x, const void *y)
 	  && p->size == q->size && p->align == q->align
 	  && (p->expr == q->expr
 	      || (p->expr != NULL_TREE && q->expr != NULL_TREE
-		  && operand_equal_p (p->expr, q->expr, 0))));
+		  && operand_equal_p (p->expr, q->expr, 0)))
+          /* We do not use operand_equal_p for ORIG_EXPRs because we need to
+             distinguish memory references at different points of the loop (which
+             would have different indices in SSA form, like a[i_1] and a[i_2], but
+             were later rewritten to same a[i]).  */
+          && (p->orig_expr == q->orig_expr));
 }
 
 /* Allocate a new mem_attrs structure and insert it into the hash table if
@@ -320,8 +329,8 @@ mem_attrs_htab_eq (const void *x, const void *y)
    MEM of mode MODE.  */
 
 static mem_attrs *
-get_mem_attrs (alias_set_type alias, tree expr, rtx offset, rtx size,
-	       unsigned int align, enum machine_mode mode)
+get_mem_attrs (alias_set_type alias, tree expr, tree orig_expr, rtx offset, 
+	       rtx size, unsigned int align, enum machine_mode mode)
 {
   mem_attrs attrs;
   void **slot;
@@ -329,7 +338,7 @@ get_mem_attrs (alias_set_type alias, tree expr, rtx offset, rtx size,
   /* If everything is the default, we can just return zero.
      This must match what the corresponding MEM_* macros return when the
      field is not present.  */
-  if (alias == 0 && expr == 0 && offset == 0
+  if (alias == 0 && expr == 0 && orig_expr == 0 && offset == 0
       && (size == 0
 	  || (mode != BLKmode && GET_MODE_SIZE (mode) == INTVAL (size)))
       && (STRICT_ALIGNMENT && mode != BLKmode
@@ -338,6 +347,7 @@ get_mem_attrs (alias_set_type alias, tree expr, rtx offset, rtx size,
 
   attrs.alias = alias;
   attrs.expr = expr;
+  attrs.orig_expr = orig_expr;
   attrs.offset = offset;
   attrs.size = size;
   attrs.align = align;
@@ -1443,7 +1453,7 @@ component_ref_for_mem_expr (tree ref)
       while (CONVERT_EXPR_P (inner)
 	     || TREE_CODE (inner) == VIEW_CONVERT_EXPR
 	     || TREE_CODE (inner) == SAVE_EXPR)
-	inner = TREE_OPERAND (inner, 0);
+       inner = TREE_OPERAND (inner, 0);
 
       if (! DECL_P (inner))
 	inner = NULL_TREE;
@@ -1585,6 +1595,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 {
   alias_set_type alias = MEM_ALIAS_SET (ref);
   tree expr = MEM_EXPR (ref);
+  tree orig_expr = NULL_TREE;
   rtx offset = MEM_OFFSET (ref);
   rtx size = MEM_SIZE (ref);
   unsigned int align = MEM_ALIGN (ref);
@@ -1649,6 +1660,8 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
     {
       tree base;
       bool align_computed = false;
+
+      orig_expr = t;
 
       if (TREE_THIS_VOLATILE (t))
 	MEM_VOLATILE_P (ref) = 1;
@@ -1834,11 +1847,19 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	 we're overlapping.  */
       offset = NULL;
       expr = NULL;
+      orig_expr = NULL;
     }
-
-  /* Now set the attributes we computed above.  */
+  
+  /* Now set the attributes we computed above, but unshare orig_expr first.  */
+  if (orig_expr)
+    {
+      if (flag_alias_export || flag_ddg_export)
+        orig_expr = unshare_and_record_pta_info (orig_expr);
+      else
+        orig_expr = NULL_TREE;
+    }
   MEM_ATTRS (ref)
-    = get_mem_attrs (alias, expr, offset, size, align, GET_MODE (ref));
+    = get_mem_attrs (alias, expr, orig_expr, offset, size, align, GET_MODE (ref));
 
   /* If this is already known to be a scalar or aggregate, we are done.  */
   if (MEM_IN_STRUCT_P (ref) || MEM_SCALAR_P (ref))
@@ -1864,7 +1885,7 @@ void
 set_mem_attrs_from_reg (rtx mem, rtx reg)
 {
   MEM_ATTRS (mem)
-    = get_mem_attrs (MEM_ALIAS_SET (mem), REG_EXPR (reg),
+    = get_mem_attrs (MEM_ALIAS_SET (mem), REG_EXPR (reg), NULL_TREE, 
 		     GEN_INT (REG_OFFSET (reg)),
 		     MEM_SIZE (mem), MEM_ALIGN (mem), GET_MODE (mem));
 }
@@ -1879,9 +1900,9 @@ set_mem_alias_set (rtx mem, alias_set_type set)
   gcc_assert (alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)));
 #endif
 
-  MEM_ATTRS (mem) = get_mem_attrs (set, MEM_EXPR (mem), MEM_OFFSET (mem),
-				   MEM_SIZE (mem), MEM_ALIGN (mem),
-				   GET_MODE (mem));
+  MEM_ATTRS (mem) = get_mem_attrs (set, MEM_EXPR (mem), MEM_ORIG_EXPR (mem),
+				   MEM_OFFSET (mem), MEM_SIZE (mem), 
+				   MEM_ALIGN (mem), GET_MODE (mem));
 }
 
 /* Set the alignment of MEM to ALIGN bits.  */
@@ -1890,8 +1911,8 @@ void
 set_mem_align (rtx mem, unsigned int align)
 {
   MEM_ATTRS (mem) = get_mem_attrs (MEM_ALIAS_SET (mem), MEM_EXPR (mem),
-				   MEM_OFFSET (mem), MEM_SIZE (mem), align,
-				   GET_MODE (mem));
+				   MEM_ORIG_EXPR (mem), MEM_OFFSET (mem), 
+				   MEM_SIZE (mem), align, GET_MODE (mem));
 }
 
 /* Set the expr for MEM to EXPR.  */
@@ -1899,9 +1920,32 @@ set_mem_align (rtx mem, unsigned int align)
 void
 set_mem_expr (rtx mem, tree expr)
 {
+  tree orig_expr = MEM_ORIG_EXPR (mem);
+
+  /* If MEM_EXPR changes, clear MEM_ORIG_EXPR.  If we still can preserve it,
+     we insert set_mem_orig_expr call right after this function call.  */
+  if (!expr || !mem_expr_equal_p (MEM_EXPR (mem), expr))
+    orig_expr = NULL_TREE;
+  
   MEM_ATTRS (mem)
-    = get_mem_attrs (MEM_ALIAS_SET (mem), expr, MEM_OFFSET (mem),
-		     MEM_SIZE (mem), MEM_ALIGN (mem), GET_MODE (mem));
+    = get_mem_attrs (MEM_ALIAS_SET (mem), expr, orig_expr,
+		     MEM_OFFSET (mem), MEM_SIZE (mem), MEM_ALIGN (mem), 
+		     GET_MODE (mem));
+}
+
+
+/* Set the original expr for MEM to ORIG_EXPR.  */
+
+void
+set_mem_orig_expr (rtx mem, tree orig_expr)
+{
+  if (orig_expr 
+      && (flag_alias_export || flag_ddg_export))
+    orig_expr = unshare_and_record_pta_info (orig_expr);
+  MEM_ATTRS (mem)
+    = get_mem_attrs (MEM_ALIAS_SET (mem), MEM_EXPR (mem), orig_expr,
+		     MEM_OFFSET (mem), MEM_SIZE (mem), MEM_ALIGN (mem), 
+		     GET_MODE (mem));
 }
 
 /* Set the offset of MEM to OFFSET.  */
@@ -1909,9 +1953,16 @@ set_mem_expr (rtx mem, tree expr)
 void
 set_mem_offset (rtx mem, rtx offset)
 {
+  tree orig_expr = MEM_ORIG_EXPR (mem);
+
+  /* If MEM_EXPR changes, clear MEM_ORIG_EXPR.  If we still can preserve it,
+     we insert set_mem_orig_expr call right after this function call.  */
+  if (offset != MEM_OFFSET (mem))
+    orig_expr = NULL_TREE;
+
   MEM_ATTRS (mem) = get_mem_attrs (MEM_ALIAS_SET (mem), MEM_EXPR (mem),
-				   offset, MEM_SIZE (mem), MEM_ALIGN (mem),
-				   GET_MODE (mem));
+				   orig_expr, offset, MEM_SIZE (mem),
+				   MEM_ALIGN (mem), GET_MODE (mem));
 }
 
 /* Set the size of MEM to SIZE.  */
@@ -1920,8 +1971,8 @@ void
 set_mem_size (rtx mem, rtx size)
 {
   MEM_ATTRS (mem) = get_mem_attrs (MEM_ALIAS_SET (mem), MEM_EXPR (mem),
-				   MEM_OFFSET (mem), size, MEM_ALIGN (mem),
-				   GET_MODE (mem));
+				   MEM_ORIG_EXPR (mem), MEM_OFFSET (mem), 
+				   size, MEM_ALIGN (mem), GET_MODE (mem));
 }
 
 /* Return a memory reference like MEMREF, but with its mode changed to MODE
@@ -1988,7 +2039,7 @@ change_address (rtx memref, enum machine_mode mode, rtx addr)
     }
 
   MEM_ATTRS (new_rtx)
-    = get_mem_attrs (MEM_ALIAS_SET (memref), 0, 0, size, align, mmode);
+    = get_mem_attrs (MEM_ALIAS_SET (memref), 0, 0, 0, size, align, mmode);
 
   return new_rtx;
 }
@@ -2071,7 +2122,11 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
     size = plus_constant (MEM_SIZE (memref), -offset);
 
   MEM_ATTRS (new_rtx) = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref),
-				   memoffset, size, memalign, GET_MODE (new_rtx));
+                                       (offset != 0 || size == NULL
+                                        || GET_MODE_SIZE (mode) > INTVAL (size))
+                                       ? NULL_TREE
+                                       : MEM_ORIG_EXPR (memref), 
+                                       memoffset, size, memalign, GET_MODE (new_rtx));
 
   /* At some point, we should validate that this offset is within the object,
      if all the appropriate values are known.  */
@@ -2127,8 +2182,9 @@ offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
   /* Update the alignment to reflect the offset.  Reset the offset, which
      we don't know.  */
   MEM_ATTRS (new_rtx)
-    = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 0, 0,
-		     MIN (MEM_ALIGN (memref), pow2 * BITS_PER_UNIT),
+    = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 
+		     MEM_ORIG_EXPR (memref), 0, 0, 
+                     MIN (MEM_ALIGN (memref), pow2 * BITS_PER_UNIT),
 		     GET_MODE (new_rtx));
   return new_rtx;
 }
@@ -2231,9 +2287,9 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
 
   /* The widened memory may alias other stuff, so zap the alias set.  */
   /* ??? Maybe use get_alias_set on any remaining expression.  */
-
-  MEM_ATTRS (new_rtx) = get_mem_attrs (0, expr, memoffset, GEN_INT (size),
-				   MEM_ALIGN (new_rtx), mode);
+  MEM_ATTRS (new_rtx) = get_mem_attrs (0, expr, NULL_TREE, memoffset, 
+                                       GEN_INT (size), MEM_ALIGN (new_rtx), 
+                                       mode);
 
   return new_rtx;
 }
@@ -2259,7 +2315,7 @@ get_spill_slot_decl (bool force_build_p)
 
   rd = gen_rtx_MEM (BLKmode, frame_pointer_rtx);
   MEM_NOTRAP_P (rd) = 1;
-  MEM_ATTRS (rd) = get_mem_attrs (new_alias_set (), d, const0_rtx,
+  MEM_ATTRS (rd) = get_mem_attrs (new_alias_set (), d, NULL_TREE, const0_rtx,
 				  NULL_RTX, 0, BLKmode);
   SET_DECL_RTL (d, rd);
 
@@ -2291,7 +2347,7 @@ set_mem_attrs_for_spill (rtx mem)
       && GET_CODE (XEXP (addr, 1)) == CONST_INT)
     offset = XEXP (addr, 1);
 
-  MEM_ATTRS (mem) = get_mem_attrs (alias, expr, offset,
+  MEM_ATTRS (mem) = get_mem_attrs (alias, expr, NULL_TREE, offset,
 				   MEM_SIZE (mem), MEM_ALIGN (mem),
 				   GET_MODE (mem));
   MEM_NOTRAP_P (mem) = 1;

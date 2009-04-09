@@ -890,7 +890,7 @@ find_pos_in_stmt_1 (tree *tp, int *walk_subtrees, void * data)
 /* This function looks for the pointer of REF in STMT,
    It returns it, if found, and NULL otherwise.  */
 
-static tree *
+tree *
 find_pos_in_stmt (gimple stmt, tree ref)
 {
   struct ref_pos r_pos;

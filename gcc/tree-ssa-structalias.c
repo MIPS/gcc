@@ -4969,8 +4969,9 @@ pt_solution_includes_global (struct pt_solution *pt)
 /* Return true if the points-to solution *PT includes the variable
    declaration DECL.  */
 
-static bool
-pt_solution_includes_1 (struct pt_solution *pt, const_tree decl)
+bool
+pt_solution_includes_1 (struct pt_solution *pt, const_tree decl,
+                        struct pt_solution *escaped)
 {
   if (pt->anything)
     return true;
@@ -4985,7 +4986,7 @@ pt_solution_includes_1 (struct pt_solution *pt, const_tree decl)
 
   /* If the solution includes ESCAPED, check it.  */
   if (pt->escaped
-      && pt_solution_includes_1 (&cfun->gimple_df->escaped, decl))
+      && pt_solution_includes_1 (escaped, decl, escaped))
     return true;
 
   return false;
@@ -4994,7 +4995,7 @@ pt_solution_includes_1 (struct pt_solution *pt, const_tree decl)
 bool
 pt_solution_includes (struct pt_solution *pt, const_tree decl)
 {
-  bool res = pt_solution_includes_1 (pt, decl);
+  bool res = pt_solution_includes_1 (pt, decl, &cfun->gimple_df->escaped);
   if (res)
     ++pta_stats.pt_solution_includes_may_alias;
   else
@@ -5005,8 +5006,9 @@ pt_solution_includes (struct pt_solution *pt, const_tree decl)
 /* Return true if both points-to solutions PT1 and PT2 have a non-empty
    intersection.  */
 
-static bool
-pt_solutions_intersect_1 (struct pt_solution *pt1, struct pt_solution *pt2)
+bool
+pt_solutions_intersect_1 (struct pt_solution *pt1, struct pt_solution *pt2,
+                          struct pt_solution *escaped)
 {
   if (pt1->anything || pt2->anything)
     return true;
@@ -5022,7 +5024,7 @@ pt_solutions_intersect_1 (struct pt_solution *pt1, struct pt_solution *pt2)
 
   /* Check the escaped solution if required.  */
   if ((pt1->escaped || pt2->escaped)
-      && !pt_solution_empty_p (&cfun->gimple_df->escaped))
+      && !pt_solution_empty_p (escaped))
     {
       /* If both point to escaped memory and that solution
 	 is not empty they alias.  */
@@ -5032,9 +5034,9 @@ pt_solutions_intersect_1 (struct pt_solution *pt1, struct pt_solution *pt2)
       /* If either points to escaped memory see if the escaped solution
 	 intersects with the other.  */
       if ((pt1->escaped
-	   && pt_solutions_intersect_1 (&cfun->gimple_df->escaped, pt2))
+	   && pt_solutions_intersect_1 (escaped, pt2, escaped))
 	  || (pt2->escaped
-	      && pt_solutions_intersect_1 (&cfun->gimple_df->escaped, pt1)))
+	      && pt_solutions_intersect_1 (escaped, pt1, escaped)))
 	return true;
     }
 
@@ -5047,7 +5049,7 @@ pt_solutions_intersect_1 (struct pt_solution *pt1, struct pt_solution *pt2)
 bool
 pt_solutions_intersect (struct pt_solution *pt1, struct pt_solution *pt2)
 {
-  bool res = pt_solutions_intersect_1 (pt1, pt2);
+  bool res = pt_solutions_intersect_1 (pt1, pt2, &cfun->gimple_df->escaped);
   if (res)
     ++pta_stats.pt_solutions_intersect_may_alias;
   else

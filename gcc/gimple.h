@@ -4555,6 +4555,8 @@ tree walk_gimple_stmt (gimple_stmt_iterator *, walk_stmt_fn, walk_tree_fn,
 		       struct walk_stmt_info *);
 tree walk_gimple_op (gimple, walk_tree_fn, struct walk_stmt_info *);
 
+extern tree * find_pos_in_stmt (gimple, tree);
+
 #ifdef GATHER_STATISTICS
 /* Enum and arrays used for allocation stats.  Keep in sync with
    gimple.c:gimple_alloc_kind_names.  */

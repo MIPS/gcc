@@ -671,6 +671,9 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_complete_unroll);
 	  NEXT_PASS (pass_parallelize_loops);
 	  NEXT_PASS (pass_loop_prefetch);
+
+	  NEXT_PASS (pass_gather_ddg_info);
+
 	  NEXT_PASS (pass_iv_optimize);
 	  NEXT_PASS (pass_tree_loop_done);
 	}
@@ -706,6 +709,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_uncprop);
       NEXT_PASS (pass_local_pure_const);
     }
+
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_mark_used_blocks);
@@ -771,6 +775,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_match_asm_constraints);
       NEXT_PASS (pass_sms);
       NEXT_PASS (pass_sched);
+      NEXT_PASS (pass_check_alias_export_rtl);
       NEXT_PASS (pass_subregs_of_mode_init);
       NEXT_PASS (pass_ira);
       NEXT_PASS (pass_subregs_of_mode_finish);
@@ -793,6 +798,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_branch_target_load_optimize2);
 	  NEXT_PASS (pass_leaf_regs);
 	  NEXT_PASS (pass_split_before_sched2);
+          NEXT_PASS (pass_check_alias_export_rtl);
 	  NEXT_PASS (pass_sched2);
 	  NEXT_PASS (pass_stack_regs);
 	    {
@@ -805,6 +811,11 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_variable_tracking);
 	  NEXT_PASS (pass_free_cfg);
 	  NEXT_PASS (pass_machine_reorg);
+
+          NEXT_PASS (pass_report_alias_export_stat);
+	  NEXT_PASS (pass_free_alias_export);
+	  NEXT_PASS (pass_free_ddg_info);
+
 	  NEXT_PASS (pass_cleanup_barriers);
 	  NEXT_PASS (pass_delay_slots);
 	  NEXT_PASS (pass_split_for_shorten_branches);

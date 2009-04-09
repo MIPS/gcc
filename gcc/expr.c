@@ -7577,6 +7577,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	op0 = memory_address (mode, op0);
 	temp = gen_rtx_MEM (mode, op0);
 	set_mem_attributes (temp, TMR_ORIGINAL (exp), 0);
+        if (! MEM_ORIG_EXPR (temp))
+          set_mem_orig_expr (temp, TMR_ORIGINAL (exp));
       }
       return temp;
 

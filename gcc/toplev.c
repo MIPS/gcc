@@ -2204,6 +2204,7 @@ finalize (void)
   finish_optimization_passes ();
 
   ira_finish_once ();
+  alias_export_finish_once ();
 
   if (mem_report)
     dump_memory_report (true);

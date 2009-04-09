@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "alloc-pool.h"
 #include "tree-ssa-alias.h"
+#include "alias-export.h"
 
 /* Broad overview of how alias analysis on gimple works:
 
@@ -135,6 +136,12 @@ dump_alias_stats (FILE *s)
 	   + alias_stats.call_may_clobber_ref_p_may_alias);
 }
 
+#define GET_PTR_INFO_FOR(PTR,EXPI) (current_ir_type () == IR_GIMPLE     \
+                                    ? SSA_NAME_PTR_INFO (PTR)           \
+                                    : (EXPI))
+#define GET_ESCAPED_SOLUTION(EXES) (current_ir_type () == IR_GIMPLE     \
+                                    ? &cfun->gimple_df->escaped         \
+                                    : (EXES))
 
 /* Return true, if dereferencing PTR may alias with a global variable.  */
 
@@ -161,7 +168,8 @@ ptr_deref_may_alias_global_p (tree ptr)
 /* Return true if dereferencing PTR may alias DECL.  */
 
 static bool
-ptr_deref_may_alias_decl_p (tree ptr, tree decl)
+ptr_deref_may_alias_decl_p (tree ptr, tree decl, struct ptr_info_def *expi,
+                            struct pt_solution *exescaped)
 {
   struct ptr_info_def *pi;
 
@@ -172,10 +180,11 @@ ptr_deref_may_alias_decl_p (tree ptr, tree decl)
       || TREE_CODE (ptr) == INTEGER_CST)
     return true;
 
-  gcc_assert (TREE_CODE (ptr) == SSA_NAME
-	      && (TREE_CODE (decl) == VAR_DECL
-		  || TREE_CODE (decl) == PARM_DECL
-		  || TREE_CODE (decl) == RESULT_DECL));
+  gcc_assert ((TREE_CODE (ptr) == SSA_NAME
+               && (TREE_CODE (decl) == VAR_DECL
+                   || TREE_CODE (decl) == PARM_DECL
+                   || TREE_CODE (decl) == RESULT_DECL))
+              || current_ir_type () != IR_GIMPLE);
 
   /* Non-aliased variables can not be pointed to.  */
   if (!may_be_aliased (decl))
@@ -183,17 +192,20 @@ ptr_deref_may_alias_decl_p (tree ptr, tree decl)
 
   /* If we do not have useful points-to information for this pointer
      we cannot disambiguate anything else.  */
-  pi = SSA_NAME_PTR_INFO (ptr);
+  pi = GET_PTR_INFO_FOR (ptr, expi);
   if (!pi)
     return true;
 
-  return pt_solution_includes (&pi->pt, decl);
+  return pt_solution_includes_1 (&pi->pt, decl,
+                                 GET_ESCAPED_SOLUTION (exescaped));
 }
 
 /* Return true if dereferenced PTR1 and PTR2 may alias.  */
 
 static bool
-ptr_derefs_may_alias_p (tree ptr1, tree ptr2)
+ptr_derefs_may_alias_p (tree ptr1, tree ptr2, struct ptr_info_def *expi1,
+                        struct ptr_info_def *expi2,
+                        struct pt_solution *exescaped)
 {
   struct ptr_info_def *pi1, *pi2;
 
@@ -206,8 +218,9 @@ ptr_derefs_may_alias_p (tree ptr1, tree ptr2)
       || TREE_CODE (ptr2) == INTEGER_CST)
     return true;
 
-  gcc_assert (TREE_CODE (ptr1) == SSA_NAME
-	      && TREE_CODE (ptr2) == SSA_NAME);
+  gcc_assert ((TREE_CODE (ptr1) == SSA_NAME
+               && TREE_CODE (ptr2) == SSA_NAME)
+              || current_ir_type () != IR_GIMPLE);
 
   /* We may end up with two empty points-to solutions for two same pointers.
      In this case we still want to say both pointers alias, so shortcut
@@ -217,12 +230,13 @@ ptr_derefs_may_alias_p (tree ptr1, tree ptr2)
 
   /* If we do not have useful points-to information for either pointer
      we cannot disambiguate anything else.  */
-  pi1 = SSA_NAME_PTR_INFO (ptr1);
-  pi2 = SSA_NAME_PTR_INFO (ptr2);
+  pi1 = GET_PTR_INFO_FOR (ptr1, expi1);
+  pi2 = GET_PTR_INFO_FOR (ptr2, expi2);
   if (!pi1 || !pi2)
     return true;
 
-  return pt_solutions_intersect (&pi1->pt, &pi2->pt);
+  return pt_solutions_intersect_1 (&pi1->pt, &pi2->pt,
+                                   GET_ESCAPED_SOLUTION (exescaped));
 }
 
 /* Return true if STMT is an "escape" site from the current function.  Escape
@@ -535,11 +549,13 @@ decl_refs_may_alias_p (tree base1,
 
 static bool
 indirect_ref_may_alias_decl_p (tree ref1, tree ptr1,
+                               struct ptr_info_def *expi1,
 			       HOST_WIDE_INT offset1, HOST_WIDE_INT max_size1,
 			       alias_set_type base1_alias_set,
 			       tree ref2, tree base2,
 			       HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2,
-			       alias_set_type base2_alias_set)
+			       alias_set_type base2_alias_set,
+                               struct pt_solution *exescaped)
 {
   /* If only one reference is based on a variable, they cannot alias if
      the pointer access is beyond the extent of the variable access.
@@ -549,9 +565,9 @@ indirect_ref_may_alias_decl_p (tree ref1, tree ptr1,
   if (max_size2 != -1
       && !ranges_overlap_p (offset1, max_size1, 0, offset2 + max_size2))
     return false;
-  if (!ptr_deref_may_alias_decl_p (ptr1, base2))
+  if (!ptr_deref_may_alias_decl_p (ptr1, base2, expi1, exescaped))
     return false;
-
+  
   /* Disambiguations that rely on strict aliasing rules follow.  */
   if (!flag_strict_aliasing)
     return true;
@@ -598,18 +614,21 @@ indirect_ref_may_alias_decl_p (tree ref1, tree ptr1,
 
 static bool
 indirect_refs_may_alias_p (tree ref1, tree ptr1,
+                           struct ptr_info_def *expi1,
 			   HOST_WIDE_INT offset1, HOST_WIDE_INT max_size1,
 			   alias_set_type base1_alias_set,
 			   tree ref2, tree ptr2,
+                           struct ptr_info_def *expi2,
 			   HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2,
-			   alias_set_type base2_alias_set)
+			   alias_set_type base2_alias_set,
+                           struct pt_solution *exescaped)
 {
   /* If both bases are based on pointers they cannot alias if they may not
      point to the same memory object or if they point to the same object
      and the accesses do not overlap.  */
   if (operand_equal_p (ptr1, ptr2, 0))
     return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
-  if (!ptr_derefs_may_alias_p (ptr1, ptr2))
+  if (!ptr_derefs_may_alias_p (ptr1, ptr2, expi1, expi2, exescaped))
     return false;
 
   /* Disambiguations that rely on strict aliasing rules follow.  */
@@ -652,8 +671,11 @@ indirect_refs_may_alias_p (tree ref1, tree ptr1,
 
 /* Return true, if the two memory references REF1 and REF2 may alias.  */
 
-static bool
-refs_may_alias_p_1 (tree ref1, tree ref2)
+bool
+refs_may_alias_p_1 (tree ref1, tree ref2,
+                    struct ptr_info_def *expi1,
+                    struct ptr_info_def *expi2,
+                    struct pt_solution *exescaped)
 {
   tree base1, base2;
   HOST_WIDE_INT offset1 = 0, offset2 = 0;
@@ -661,15 +683,16 @@ refs_may_alias_p_1 (tree ref1, tree ref2)
   HOST_WIDE_INT max_size1 = -1, max_size2 = -1;
   bool var1_p, var2_p, ind1_p, ind2_p;
 
-  gcc_assert ((SSA_VAR_P (ref1)
-	       || handled_component_p (ref1)
-	       || INDIRECT_REF_P (ref1)
-	       || TREE_CODE (ref1) == TARGET_MEM_REF)
-	      && (SSA_VAR_P (ref2)
-		  || handled_component_p (ref2)
-		  || INDIRECT_REF_P (ref2)
-		  || TREE_CODE (ref2) == TARGET_MEM_REF));
-
+  gcc_assert (current_ir_type () != IR_GIMPLE
+              || ((SSA_VAR_P (ref1)
+                   || handled_component_p (ref1)
+                   || INDIRECT_REF_P (ref1)
+                   || TREE_CODE (ref1) == TARGET_MEM_REF)
+                  && (SSA_VAR_P (ref2)
+                      || handled_component_p (ref2)
+                      || INDIRECT_REF_P (ref2)
+                      || TREE_CODE (ref2) == TARGET_MEM_REF)));
+              
   /* Defer to TBAA if possible.  */
   if (flag_strict_aliasing
       && !alias_sets_conflict_p (get_alias_set (ref1), get_alias_set (ref2)))
@@ -701,28 +724,32 @@ refs_may_alias_p_1 (tree ref1, tree ref2)
     return decl_refs_may_alias_p (base1, offset1, max_size1,
 				  base2, offset2, max_size2);
   else if (var1_p && ind2_p)
-    return indirect_ref_may_alias_decl_p (ref2, TREE_OPERAND (base2, 0),
+    return indirect_ref_may_alias_decl_p (ref2, TREE_OPERAND (base2, 0), expi2,
 					  offset2, max_size2, -1,
 					  ref1, base1,
-					  offset1, max_size1, -1);
+					  offset1, max_size1, -1,
+                                          exescaped);
   else if (ind1_p && var2_p)
-    return indirect_ref_may_alias_decl_p (ref1, TREE_OPERAND (base1, 0),
+    return indirect_ref_may_alias_decl_p (ref1, TREE_OPERAND (base1, 0), expi1,
 					  offset1, max_size1, -1,
 					  ref2, base2,
-					  offset2, max_size2, -1);
+					  offset2, max_size2, -1,
+                                          exescaped);
   else if (ind1_p && ind2_p)
-    return indirect_refs_may_alias_p (ref1, TREE_OPERAND (base1, 0),
+    return indirect_refs_may_alias_p (ref1, TREE_OPERAND (base1, 0), expi1,
 				      offset1, max_size1, -1,
-				      ref2, TREE_OPERAND (base2, 0),
-				      offset2, max_size2, -1);
+				      ref2, TREE_OPERAND (base2, 0), expi2,
+				      offset2, max_size2, -1,
+                                      exescaped);
 
-  gcc_unreachable ();
+  gcc_assert (current_ir_type () != IR_GIMPLE);
+  return true;
 }
 
 bool
 refs_may_alias_p (tree ref1, tree ref2)
 {
-  bool res = refs_may_alias_p_1 (ref1, ref2);
+  bool res = refs_may_alias_p_1 (ref1, ref2, NULL, NULL, NULL);
   if (res)
     ++alias_stats.refs_may_alias_p_may_alias;
   else

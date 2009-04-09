@@ -1,0 +1,1353 @@
+/* Export of alias information to RTL.  
+   Copyright (C) 2009 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+#include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "tm.h"
+#include "tree.h"
+#include "tm_p.h"
+#include "basic-block.h"
+#include "timevar.h"
+#include "ggc.h"
+#include "function.h"
+#include "diagnostic.h"
+#include "toplev.h"
+#include "tree-dump.h"
+#include "gimple.h"
+#include "tree-flow.h"
+#include "tree-pass.h"
+#include "tree-ssa-propagate.h"
+#include "tree-ssa-alias.h"
+#include "vec.h"
+#include "bitmap.h"
+#include "bitmap.h"
+#include "alias-export.h"
+#include "rtl.h"
+#include "pointer-set.h"
+#include "df.h"
+#include "dbgcnt.h"
+#include "cfgloop.h"
+#include "tree-data-ref.h"
+#include "tree-scalar-evolution.h"
+
+/* Map of stmt->vector of {stmts, exprs} substituted in it.  */
+static struct pointer_map_t *substituted_in_stmts = NULL;
+
+/* The struct saved in the above map.  */
+typedef struct
+{
+  gimple stmt;
+  tree var;
+  tree expr;
+} stmt_tree_pair;
+DEF_VEC_O (stmt_tree_pair);
+DEF_VEC_ALLOC_O (stmt_tree_pair,heap);
+
+/* Map of (stmt, pointer) -> points-to set.  Used only for expand.  */
+static htab_t pta_sets;
+
+/* The final orig_expr -> pt set map used in RTL.  */
+static struct pointer_map_t *exprs_to_ptas = NULL;
+
+/* The map of decls to stack partitions.  */
+static struct pointer_map_t *decls_to_stack = NULL;
+
+/* The data for the hashtable.  */
+typedef struct
+{
+  gimple stmt;
+  tree pointer;
+  tree ssaname;
+  struct ptr_info_def *ppid;
+} pta_sets_key;
+
+/* A hash function for the above table.  */
+static hashval_t
+pta_sets_hash (const void *p)
+{
+  const pta_sets_key *data = (const pta_sets_key *) p;
+
+  return iterative_hash_gimple (data->stmt, 
+                                htab_hash_pointer (data->pointer));
+}
+
+/* An equality function for the above table.  */
+static int
+pta_sets_eq (const void *p, const void *q)
+{
+  const pta_sets_key *data1 = (const pta_sets_key *) p;
+  const pta_sets_key *data2 = (const pta_sets_key *) q;
+
+  return data1->stmt == data2->stmt && data1->pointer == data2->pointer;
+}
+
+/* Record the substitution happened in INTO_STMT with EXPR of STMT instead of VAR.  */
+void
+record_stmt_substitution (gimple into_stmt, gimple stmt, tree var, tree expr)
+{
+  VEC (stmt_tree_pair, heap) **ppv, *pv;
+  stmt_tree_pair pair;
+
+  if (!substituted_in_stmts)
+    substituted_in_stmts = pointer_map_create ();
+  ppv = (VEC (stmt_tree_pair, heap) **) pointer_map_contains (substituted_in_stmts, into_stmt);
+  if (ppv == NULL)
+    {
+      ppv = (VEC (stmt_tree_pair, heap) **) pointer_map_insert (substituted_in_stmts, into_stmt);
+      pv = NULL;
+    }
+  else
+    pv = *ppv;
+  pair.stmt = stmt;
+  pair.expr = expr;
+  pair.var = var;
+  VEC_safe_push (stmt_tree_pair, heap, pv, &pair);
+  *ppv = pv;
+
+  /* Record the information for original pointer.  */
+  record_stmt_pta_info (into_stmt, var, var);
+}
+
+/* Record the pta set for pointer VAR possibly substituted to NEW_VAR.  */
+void
+record_stmt_pta_info (gimple stmt, tree var, tree new_var)
+{
+  pta_sets_key key, **slot;
+  
+  if (TREE_CODE (var) != SSA_NAME
+      || SSA_NAME_PTR_INFO (var) == NULL)
+    return;
+  if (!pta_sets)
+    pta_sets = htab_create (128, pta_sets_hash, pta_sets_eq, NULL);
+
+  key.stmt = stmt;
+  key.pointer = new_var ? new_var : var;
+  slot = (pta_sets_key **) htab_find_slot (pta_sets, &key, INSERT);
+  gcc_assert (*slot == NULL
+              || (*slot)->ssaname == var);
+
+  *slot = XNEW (pta_sets_key);
+  (*slot)->stmt = key.stmt;
+  (*slot)->pointer = key.pointer;
+  (*slot)->ssaname = var;
+  if (SSA_NAME_PTR_INFO (var))
+    {
+      (*slot)->ppid = XNEW (struct ptr_info_def);
+      *(*slot)->ppid = *SSA_NAME_PTR_INFO (var);
+      if (SSA_NAME_PTR_INFO (var)->pt.vars)
+        {
+          (*slot)->ppid->pt.vars = BITMAP_ALLOC (NULL);
+          bitmap_copy ((*slot)->ppid->pt.vars, SSA_NAME_PTR_INFO (var)->pt.vars);
+        }
+    }
+  else
+    (*slot)->ppid = NULL;
+}
+
+static gimple currently_expanding_stmt = NULL;
+static tree currently_expanding_tree = NULL;
+
+/* Set the above variable to reflect the stuff we're expanding.  */
+void
+set_current_expand_info (gimple stmt, tree stmt_tree)
+{
+  currently_expanding_stmt = stmt;
+  currently_expanding_tree = stmt_tree;
+}
+
+/* Return the pointer on which REF access is based, or NULL, 
+   if there's no such thing.  */
+static tree
+get_pointer_from_ref (tree ref)
+{
+  HOST_WIDE_INT of, sz, maxsz;
+  tree base;
+  
+  if (SSA_VAR_P (ref)
+      || handled_component_p (ref)
+      || INDIRECT_REF_P (ref))
+    {
+      base = get_ref_base_and_extent (ref, &of, &sz, &maxsz);
+      if (INDIRECT_REF_P (base))
+        return TREE_OPERAND (base, 0);
+    }
+  return NULL;
+}
+
+
+/* Starting at STMT, find the original statement and pointer that 
+   has info for POINTER, and save this in KEY.  Return true on success.  */
+static bool
+find_original_stmt_and_pointer (gimple stmt, tree pointer, pta_sets_key *pkey)
+{
+  VEC (stmt_tree_pair, heap) **ppv;
+  stmt_tree_pair *pstp;
+  unsigned i;
+
+  /* If nothing to substitute, just check current stmt.  */
+  if (! substituted_in_stmts
+      || ! (ppv = ((VEC (stmt_tree_pair, heap) **) 
+                   pointer_map_contains (substituted_in_stmts, stmt))))
+    {
+      if (! find_pos_in_stmt (stmt, pointer))
+        return false;
+  
+      pkey->stmt = stmt;
+      pkey->pointer = pointer;
+      return true;
+    }
+  
+  /* Check whether the pointer is a subtree of substituted expr.  */
+  for (i = 0; VEC_iterate (stmt_tree_pair, *ppv, i, pstp); i++)
+    if (debug_find_tree (pstp->expr, pointer))
+      {
+        if (pstp->expr == pointer)
+          {
+            /* We have recorded the info for the original pointer of _this_ 
+               stmt then.  */
+            pkey->pointer = pstp->var;
+            pkey->stmt = stmt;
+
+            return true;
+          }
+        else
+          {
+            /* We need to search further.  In this case, we do assert that 
+               we've succeeded.  */
+            bool res;
+
+            res = find_original_stmt_and_pointer (pstp->stmt, pointer, pkey);
+            gcc_assert (res);
+
+            return true;
+          }
+      }
+
+  /* There was substitutions, but we're not part of them.  */
+  if (! find_pos_in_stmt (stmt, pointer))
+    return false;
+
+  pkey->stmt = stmt;
+  pkey->pointer = pointer;
+  
+  return true;
+}
+
+/* The callback for the below.  */
+static tree
+rewrite_expr_callback (tree *tp, int *walk_subtree, void *data)
+{
+  pta_sets_key *pkey = (pta_sets_key *) data, *slot;
+
+  /* Don't rewrite the tree root.  */
+  if (*tp != pkey->ssaname
+      && SSA_VAR_P (*tp))
+    {
+      /* The stmt is already set.  */
+      pkey->pointer = *tp;
+      slot = (pta_sets_key *) htab_find (pta_sets, pkey);
+      if (slot)
+        *tp = slot->ssaname;
+      *walk_subtree = 0;
+    }
+  return NULL;
+}
+
+/* Rewrite all vars in expr back to their respective ssa-names.  */
+static void
+rewrite_expr_to_ssanames (tree expr, gimple stmt)
+{
+  pta_sets_key key;
+
+  key.stmt = stmt;
+  /* Just use this for passing expr to callback.  */
+  key.ssaname = expr;
+  walk_tree_without_duplicates (&expr, rewrite_expr_callback, &key);
+}
+
+/* The callback for the below.  */
+static int
+rewrite_mem_callback (rtx *xp, void *data)
+{
+  rtx x = *xp;
+
+  if (!x
+      || GET_CODE (x) != MEM)
+    return 0;
+  if (MEM_ORIG_EXPR (x) == NULL)
+    return -1;
+  rewrite_expr_to_ssanames (MEM_ORIG_EXPR (x), (gimple) data);
+  return -1;
+}
+    
+/* Rewrite all MEM_ORIG_EXPRs with ssanames.  */
+void
+rewrite_mem_exprs (gimple stmt, rtx last)
+{
+  rtx insn;
+
+  if (!last || 1)
+    return;
+  for (insn = NEXT_INSN (last); insn; insn = NEXT_INSN (insn)) 
+    if (INSN_P (insn))
+      for_each_rtx (&PATTERN (insn), rewrite_mem_callback, stmt);
+}
+
+/* Find the points-to set for ORIG_EXPR.  */
+static struct ptr_info_def *
+find_pta_info (tree orig_expr)
+{
+  pta_sets_key key, *slot;
+  tree pointer;
+
+  /* No use searching if either htab of pta-infos is not present
+     or orig_expr doesn't have a pointer.  */
+  if (! pta_sets)
+    return NULL;
+  pointer = get_pointer_from_ref (orig_expr);
+  if (! pointer)
+    return NULL;
+  
+  /* Likewise if we can't figure out what pointer this came from.  */
+  if (! find_original_stmt_and_pointer (currently_expanding_stmt, pointer, &key))
+    return NULL;
+
+  slot = (pta_sets_key *) htab_find (pta_sets, &key);
+  if (slot)
+    return slot->ppid;
+  return NULL;
+}
+
+/* Record the final points-to set and returns orig expr.  */
+tree
+unshare_and_record_pta_info (tree orig_expr)
+{
+  struct ptr_info_def **ppid, *pid;
+  tree old_expr = orig_expr;
+
+  /* No point saving anything for calls.  */
+  if (TREE_CODE (orig_expr) == CALL_EXPR)
+    return NULL;
+    
+  pid = find_pta_info (orig_expr);
+  orig_expr = unshare_expr (orig_expr);
+
+  if (flag_ddg_export)
+    replace_var_in_datarefs (old_expr, orig_expr);
+  
+  if (!pid)
+    return orig_expr;
+
+  if (!exprs_to_ptas)
+    exprs_to_ptas = pointer_map_create ();
+  ppid = (struct ptr_info_def **) pointer_map_insert (exprs_to_ptas, orig_expr);
+  *ppid = pid; 
+
+  return orig_expr;
+}
+
+/* Save stack partitions.  */
+void
+record_stack_var_partition_for (tree decl, tree part_decl)
+{
+  if (!decls_to_stack)
+    decls_to_stack = pointer_map_create ();
+  *((tree *) pointer_map_insert (decls_to_stack, decl)) = part_decl;
+}
+
+/* Return the ptr-info-def structure for given expression.  */
+struct ptr_info_def *
+get_exported_ptr_info (tree expr)
+{
+  struct ptr_info_def **ppid;
+
+  if (! exprs_to_ptas)
+    return NULL;
+  ppid = (struct ptr_info_def **) pointer_map_contains (exprs_to_ptas, expr);
+  if (ppid)
+    return *ppid;
+  return NULL;
+}
+
+static struct pt_solution gimple_df_escaped;
+static struct pointer_set_t *bases_got_addressable = NULL;
+
+/* Save the above solution.  */
+void
+record_escaped_solution (struct pt_solution *escaped)
+{
+  gimple_df_escaped = *escaped;
+  if (escaped->vars)
+    {
+      gimple_df_escaped.vars = BITMAP_ALLOC (NULL);
+      bitmap_copy (gimple_df_escaped.vars, escaped->vars);
+    }
+}
+
+/* Mark bases that got addressable flags that they hadn't.  */
+void
+record_addressable_bases (tree t)
+{
+  if (!bases_got_addressable)
+    bases_got_addressable = pointer_set_create ();
+  pointer_set_insert (bases_got_addressable, t);
+}
+
+#if 0
+/* True when BASE got addressable flag set.  */
+static bool
+base_got_addressable (tree base)
+{
+  if (TREE_ADDRESSABLE (base)
+      && bases_got_addressable
+      && pointer_set_contains (bases_got_addressable, base))
+    return true;
+  return false;
+}
+
+static bool had_addressable_base = false;
+#endif
+
+/* Checks if two references conflict via trimmed oracle and pta info.  */
+static bool
+export_refs_may_alias_p (tree ref1, tree ref2)
+{
+  struct ptr_info_def *pid1, *pid2;
+  
+  if (! dbg_cnt (alias_export))
+    return true;
+  
+  pid1 = get_exported_ptr_info (ref1);
+  pid2 = get_exported_ptr_info (ref2);
+  return refs_may_alias_p_1 (ref1, ref2, pid1, pid2, &gimple_df_escaped);
+}
+
+/* Remove all temporary data, save the main hashtab.  */
+void
+release_temporary_export_maps (void)
+{
+  if (substituted_in_stmts)
+    pointer_map_destroy (substituted_in_stmts);
+  if (pta_sets)
+    htab_delete (pta_sets);
+  pta_sets = NULL;
+  substituted_in_stmts = NULL;
+}
+
+static bool
+gate_check_aliases (void)
+{
+  return flag_alias_export_check != 0;
+}
+
+/* Helper for handle_check_alias_export_rtl. For each mem, if it has MEM_ORIG_EXPR, checks, whether
+   we have already looked through this MEM_ORIG_EXPR. Also report mems without MEM_ORIG_EXPR */
+static int
+check_all_orig_exprs (rtx *xp, void *data)
+{
+  rtx x = *xp;
+  tree orig;
+  rtx insn = (rtx) data;
+
+  if (!dump_file)
+    return -1;
+  if (!x
+      /* Skip REQ_EQUAL notes and such.  */
+      || GET_CODE (x) == EXPR_LIST)
+    return -1;
+
+  /* In everything else, dive if this is not a MEM, maybe we'd find one.  */
+  if (GET_CODE (x) != MEM)
+    return 0;
+
+  orig = MEM_ORIG_EXPR (x);
+  if (!orig)
+    {
+      rtx op0 = XEXP (x, 0);
+
+      /* Never mind about mems pointing to symbol_refs.  */
+      if (GET_CODE (op0) == SYMBOL_REF)
+        return -1;
+
+      /* Never mind about anything frame related.  */
+      if (REG_P (op0) 
+          && REGNO_PTR_FRAME_P (REGNO (op0)))
+        return -1;
+      if (GET_CODE (op0) == PLUS
+          && REG_P (XEXP (op0, 0))
+          && REGNO_PTR_FRAME_P (REGNO (XEXP (op0, 0))))
+        return -1;
+
+      /* Never mind about bit-field calculations.  We don't check it directly,
+         but we allow ORIG_EXPR to be null when EXPR is null and mem references 
+         a structure field.  */
+      if (MEM_IN_STRUCT_P (x)
+          && ! MEM_EXPR (x))
+        return -1;
+
+      /* Maybe there wasn't MEM_ATTRS in the first place?  */
+      if (! MEM_ATTRS (x))
+        {
+          /* We know that happens on indirect calls.  */
+          if (GET_CODE (insn) == CALL_INSN)
+            return -1;
+
+          /* Frame related stuff was probably generated late in the pipeline.  */
+          if (RTX_FRAME_RELATED_P (insn)
+              && reload_completed)
+            return -1;
+
+          /* Likewise with scratch registers.  */
+          if (GET_CODE (XEXP (x, 0)) == SCRATCH
+              && reload_completed)
+            return -1;
+
+          /* BLKmode MEMs were created in peepholes.   */
+          if (GET_MODE (x) == BLKmode
+              && reload_completed)
+            return -1;
+          
+          /* Calculations of tablejump address don't have MEM_ATTRS.  */
+          if (MEM_READONLY_P (x)
+              && tablejump_p (insn, NULL, NULL))
+            return -1;
+
+          /* Also, this could be separately from the jump itself.  */
+          if (MEM_READONLY_P (x)
+              && GET_CODE (PATTERN (insn)) == SET)
+            {
+              rtx dest = SET_DEST (PATTERN (insn));
+              
+              if (REG_P (dest))
+                {
+                  if (df)
+                    {
+                      df_ref ref = DF_REG_USE_CHAIN (REGNO (dest));
+                      
+                      if (ref
+                          && DF_REF_NEXT_REG (ref) == NULL
+                          && tablejump_p (DF_REF_INSN (ref), NULL, NULL))
+                        return -1;
+                    }
+                  else
+                    fprintf (dump_file, "The below warning looks like for tablejump, " 
+                             "but we can't prove this without df\n");
+                }
+            }
+        }
+
+      /* BLKmode mems without MEM_EXPR can be generated when expanding calls.  
+         We don't have a good way of distinguishing them.  */
+      if (GET_MODE (x) == BLKmode
+          && ! MEM_EXPR (x))
+        return -1;
+      if (!MEM_EXPR (x)
+          && ! MEM_ALIAS_SET (x))
+        return -1;
+                    
+      fprintf (dump_file, "Warning: MEM  ");
+      print_rtl_single (dump_file, x);
+      fprintf (dump_file, "without MEM_ORIG_EXPR in insn: ");
+      print_rtl_single (dump_file, insn);
+      fprintf (dump_file, "\n\n");
+      return -1;
+    }
+
+  return -1;
+}
+
+
+/* Debug information about presence the MEM_ORIG_EXPRs of the rtl mems on
+   the RTL level. And checks whether we have looked through them  */
+static unsigned int
+handle_check_alias_export_rtl (void)
+{
+  basic_block bb;
+  rtx insn;
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "Checking alias information for function: %s"
+	      " (RTL level)\n", current_function_name ());
+      fprintf (dump_file, "\n");
+    }
+
+  FOR_EACH_BB (bb)
+    {
+      FOR_BB_INSNS (bb, insn)
+        {
+          if (!INSN_P (insn))
+            continue;
+          for_each_rtx (&insn, check_all_orig_exprs, insn);
+        }
+    }
+  
+  if (dump_file)
+    fprintf (dump_file, "\n\n");
+  return 0;
+}
+
+
+struct rtl_opt_pass pass_check_alias_export_rtl =
+{
+ {
+  RTL_PASS,
+  "aliasexpcheck",			/* name */
+  gate_check_aliases,			/* gate */
+  handle_check_alias_export_rtl,	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+ }
+};
+
+/* Routines to deal with substitutions of statements parts in tree-out-of-ssa
+   pass.  */
+
+/* Statistics counters.  */
+static int disambig_ref_alias_number = 0;
+static int disambig_ref_noalias_number = 0;
+static int real_ref_disambig_number = 0;
+static int dry_run_number = 0;
+static int no_orig_expr_queries = 0;
+static int equal_orig_expr_queries = 0;
+static int not_found_expr_queries = 0;
+static bool last_dry_run = false;
+
+/* Functions to be called when needed to use exported information.  */
+
+/* Main function to ask saved information about if S1 and S2 may
+   alias or not.  */
+bool
+alias_export_may_alias_p (tree s1, tree s2, const_rtx x, const_rtx mem)
+{
+  /* Both oracles are tried for statistics purposes, but the answers are given
+     only by the PTA-based oracle.  */
+  last_dry_run = false;
+  if (! export_refs_may_alias_p (s1, s2))
+    {
+      real_ref_disambig_number++;
+      return false;
+    }
+  else if (dump_file)
+    {
+      if (false /* had_addressable_base */)
+        fprintf (dump_file, "\nWe failed because the base got addressable\n");
+      else if ((DECL_P (s1) 
+                && TREE_CODE (s1) == PARM_DECL)
+               || (DECL_P (s2) 
+                   && TREE_CODE (s2) == PARM_DECL))
+        fprintf (dump_file, "\nThat was a PARM_DECL\n");
+      else
+        {
+          fprintf (dump_file, "\nPTA disambiguator failed!\n");
+          fprintf (dump_file, "1st MEM: ");
+          print_rtl_single (dump_file, x);
+          fprintf (dump_file, "1st expr: ");
+          print_generic_expr (dump_file, s1, TDF_VOPS | TDF_UID);
+          fprintf (dump_file, "2nd MEM: ");
+          print_rtl_single (dump_file, mem);
+          fprintf (dump_file, "2nd expr: ");
+          print_generic_expr (dump_file, s2, TDF_VOPS | TDF_UID);
+        }
+    }
+
+  return true;
+}
+
+/* Dry run.  Just gather statistic.  */
+bool
+alias_export_test (tree s1, tree s2)
+{
+  if (s1 == NULL || s2 == NULL)
+    {
+      no_orig_expr_queries++;
+      return true;
+    }
+  if (s1 == s2)
+    {
+      equal_orig_expr_queries++;
+      return true;
+    }
+  /* Dry run after another dry run means that refs were disambiguated without
+     export alias help.  */
+  if (last_dry_run)
+    dry_run_number++;
+  last_dry_run = true;
+
+  if (export_refs_may_alias_p (s1, s2))
+    disambig_ref_alias_number++;
+  else
+    {
+      disambig_ref_noalias_number++;
+      return false;
+    }
+  
+  return true;
+}
+
+/* Cleanup pass.  */
+static unsigned int
+handle_free_aliases (void)
+{
+  if (exprs_to_ptas)
+    {
+      pointer_map_destroy (exprs_to_ptas);
+      exprs_to_ptas = NULL;
+    }
+  if (decls_to_stack)
+    {
+      pointer_map_destroy (decls_to_stack);
+      decls_to_stack = NULL;
+    }
+  if (gimple_df_escaped.vars)
+    {
+      BITMAP_FREE (gimple_df_escaped.vars);
+      memset (&gimple_df_escaped, 0, sizeof gimple_df_escaped);
+    }
+  if (bases_got_addressable)
+    {
+      pointer_set_destroy (bases_got_addressable);
+      bases_got_addressable = NULL;
+    }
+  return 0;
+}
+
+static bool
+gate_free_aliases (void)
+{
+  return flag_alias_export != 0;
+}
+
+struct rtl_opt_pass pass_free_alias_export =
+{
+ {
+  RTL_PASS,
+  "aliasexpfree",                       /* name */
+  gate_free_aliases,                    /* gate */
+  handle_free_aliases,                  /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
+};
+
+
+static int unit_total = 0;
+static int unit_real_ref_disambig_number = 0;
+static int unit_dry_run_number = 0;
+static int unit_no_orig_expr_number = 0;
+static int unit_equal_orig_expr_number = 0;
+static int unit_not_found_expr_number = 0;
+static void print_ddg_export_stats (void);
+
+static bool
+gate_report_aliases (void)
+{
+  return ((flag_alias_export == 1
+           || flag_ddg_export == 1)
+          && flag_alias_export_check);
+}
+
+void alias_export_finish_once (void)
+{
+  FILE *report_file;
+  int unit_good_queries;
+
+  if (! gate_report_aliases ())
+    return;
+  
+  report_file = stderr;
+  unit_good_queries = unit_total - unit_dry_run_number;
+  if (report_file)
+    {
+      fprintf (report_file,
+               "====== Statistics for export aliasing information =======\n");
+      fprintf (report_file, "   Total queries per unit: %d\n", unit_total);
+      fprintf (report_file, "   Dry queries: %d (%d%%)\n", unit_dry_run_number,
+               (unit_dry_run_number * 100) / (unit_total == 0 ? 100 : unit_total));
+      fprintf (report_file, "   Helpful unit queries (ref): %d (%d%%)\n", 
+               unit_real_ref_disambig_number,
+               (unit_real_ref_disambig_number * 100) / (unit_good_queries == 0 ? 
+                                                        100 : unit_good_queries));
+      fprintf (report_file, "   No info saved queries: %d (%d%%)\n", 
+               unit_not_found_expr_number,
+               (unit_not_found_expr_number * 100) / (unit_good_queries == 0 ? 
+                                                     100 : unit_good_queries));
+      fprintf (report_file, "   Queries with null orig exprs: %d\n",
+               unit_no_orig_expr_number);
+      fprintf (report_file, "   Queries with equal orig exprs: %d\n",
+               unit_equal_orig_expr_number);
+    }
+}
+
+/* Reports gathered statistic.  */
+static unsigned int
+handle_report_aliases (void)
+{
+  int total = disambig_ref_alias_number + disambig_ref_noalias_number;
+
+  /* Last dry run could have no paired good run, so increase counter here.  */
+  if (last_dry_run)
+    dry_run_number++;
+  if (dump_file && flag_alias_export)
+    {
+      fprintf (dump_file,
+               "====== Statistics for export aliasing information =======\n");
+      fprintf (dump_file, "   Total queries: %d\n", total);
+      fprintf (dump_file, "   Helpful queries: %d\n", real_ref_disambig_number);
+      fprintf (dump_file, "   Dry queries: %d (%d%%)\n", dry_run_number,
+               (dry_run_number * 100) / (total == 0 ? 100 : total));
+      fprintf (dump_file, "   Aliased queries (ref): %d\n", disambig_ref_alias_number);
+      fprintf (dump_file, "   Non-aliased queries (ref): %d\n", disambig_ref_noalias_number);
+      fprintf (dump_file, "   Queries with null orig exprs: %d\n",
+               no_orig_expr_queries);
+      fprintf (dump_file, "   Queries with equal orig exprs: %d\n",
+               equal_orig_expr_queries);
+    }
+  unit_total += total;
+  unit_real_ref_disambig_number += real_ref_disambig_number;
+  unit_dry_run_number += dry_run_number;
+  unit_no_orig_expr_number += no_orig_expr_queries;
+  unit_equal_orig_expr_number += equal_orig_expr_queries;
+  unit_not_found_expr_number += not_found_expr_queries;
+
+  disambig_ref_noalias_number = 0;
+  disambig_ref_alias_number = 0;
+  real_ref_disambig_number = 0;
+  dry_run_number = 0;
+  no_orig_expr_queries = 0;
+  equal_orig_expr_queries = 0;
+  not_found_expr_queries = 0;
+  last_dry_run = false;
+
+  if (flag_ddg_export)
+    print_ddg_export_stats ();
+  return 0;
+}
+
+struct rtl_opt_pass pass_report_alias_export_stat =
+{
+ {
+  RTL_PASS,
+  "aliasexpreport",                     /* name */
+  gate_report_aliases,                    /* gate */
+  handle_report_aliases,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0                                     /* todo_flags_finish */
+ }
+};
+
+
+/* Data dependence export.  */
+/* Holds exported data references and relations.  */
+struct ddg_info_def
+{
+  htab_t tree_to_dataref;
+
+  htab_t datarefs_pair_to_ddr;
+
+  /* Used by the verifier.  */
+  VEC (data_reference_p, heap) *verifier_seen_datarefs;
+
+  int ddrs_known, ddrs_no, ddrs_unknown, ddrs_not_found;
+
+  /* Number of memory references without/with relevant exported info.  */
+  int refs_bad, refs_ok;
+
+  /* Statistics on DDG info usage in RTL disambiguation.  */
+  int alias_fail_no_tree, alias_fail_no_drf, alias_fail_no_ddr,
+      alias_fail_useless_ddr, alias_fail_graceful, alias_success_useless,
+      alias_success_new, alias_success_no_dep, alias_success_nonzero_dist;
+
+  /* Whether we should skip verification of exported data.  Enabled as late as
+     possible in the RTL pipeline by a separate pass.  */
+  bool skip_verification;
+
+  /* TRUE for passes that perform code motion across loop branches, like SMS.
+     For other passes we assume it is safe to disambiguate references that are
+     dependent and distance vectors are known and non-zero.  */
+  bool disambiguate_only_intra_loop_deps;
+};
+
+typedef struct {
+  const_tree ref;
+  data_reference_p drf;
+} tree_dataref;
+
+/* Data references and data dependence relations exported from Tree-SSA
+   level for use on RTL level.  */
+static struct ddg_info_def *ddg_info;
+
+/* Hash a dataref T.  */
+static hashval_t
+htab_hash_tree (const tree_dataref *t)
+{
+  return htab_hash_pointer (t->ref);
+}
+
+/* Equality function for struct tree_dataref.  */
+static int
+htab_eq_tree (const tree_dataref *t1, const tree_dataref *t2)
+{
+  return t1->ref == t2->ref;
+}
+
+/* When freeing hashtable, free the dataref memory.  */
+static void
+htab_del_tree_dataref (tree_dataref *t)
+{
+  if (t->drf)
+    free_data_ref (t->drf);
+}
+
+/* A struct for holding data dependence relations for datarefs pairs.  */
+typedef struct {
+  data_reference_p a;
+  data_reference_p b;
+  ddr_p ddr;
+} datarefs_pair_ddr;
+
+/* Hash function for the above.  */
+static hashval_t
+htab_hash_datarefs_pair (const datarefs_pair_ddr *dp)
+{
+  return iterative_hash (&dp->a, sizeof (data_reference_p),
+			 htab_hash_pointer (dp->b));
+}
+
+/* Equality function for the above.  */
+static int
+htab_eq_datarefs_pair (const datarefs_pair_ddr *dp1,
+		       const datarefs_pair_ddr *dp2)
+{
+  return dp1->a == dp2->a && dp1->b == dp2->b;
+}
+
+/* Free function for the above.  */
+static void
+htab_del_datarefs_pair (datarefs_pair_ddr *dp)
+{
+  free_dependence_relation (dp->ddr);
+}
+
+/* Init the ddg_info structure holding the saved data.  */
+static void
+init_ddg_info (void)
+{
+  gcc_assert (!ddg_info);
+
+  ddg_info = XCNEW (struct ddg_info_def);
+  ddg_info->tree_to_dataref
+   = htab_create (1, (htab_hash) htab_hash_tree, (htab_eq) htab_eq_tree,
+		  (htab_del) htab_del_tree_dataref);
+  ddg_info->datarefs_pair_to_ddr
+   = htab_create (1, (htab_hash) htab_hash_datarefs_pair,
+		  (htab_eq) htab_eq_datarefs_pair,
+		  (htab_del) htab_del_datarefs_pair);
+  ddg_info->disambiguate_only_intra_loop_deps = true;
+}
+
+/* Save the data reference DRF in the ddg_info structure.  */
+static void
+record_data_reference (data_reference_p drf)
+{
+  void **slot;
+  tree_dataref *td;
+
+  td = XNEW (tree_dataref);
+  td->ref = drf->ref;
+  td->drf = drf;
+
+  slot = htab_find_slot (ddg_info->tree_to_dataref, td, INSERT);
+  gcc_assert (!*slot);
+
+  *slot = td;
+}
+
+/* Save the data relation DDR in the ddg info structure.  */
+static void
+record_data_dependence_relation (ddr_p ddr)
+{
+  void **slot;
+  datarefs_pair_ddr *dp;
+
+  dp = XNEW (datarefs_pair_ddr);
+  dp->a = ddr->a;
+  dp->b = ddr->b;
+  dp->ddr = ddr;
+
+  slot = htab_find_slot (ddg_info->datarefs_pair_to_ddr, dp, INSERT);
+  gcc_assert (!*slot);
+
+  *slot = dp;
+}
+
+/* Export ddg info for loop LOOP.  */
+static void
+record_ddg_info_for (struct loop *loop)
+{
+  VEC (data_reference_p, heap) *datarefs = NULL;
+  VEC (ddr_p, heap) *ddrs = NULL;
+  unsigned int i;
+  data_reference_p drf;
+  ddr_p ddr;
+
+  compute_data_dependences_for_loop (loop, false, &datarefs, &ddrs);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      dump_data_references (dump_file, datarefs);
+      dump_ddrs (dump_file, ddrs);
+    }
+
+  for (i = 0; VEC_iterate (data_reference_p, datarefs, i, drf); i++)
+    {
+      /* We want to save only those data references that correspond to
+         iteration of innermost loop containing the reference.  */
+      if (!drf->ref || loop != loop_containing_stmt (drf->stmt))
+        continue;
+      record_data_reference (drf);
+    }
+
+  for (i = 0; VEC_iterate (ddr_p, ddrs, i, ddr); i++)
+    {
+      /* As above, we want to save only those DDRs that describe
+         relation of references for innermost loop containing them.  */
+      if (!(ddr->a && ddr->b)
+          || loop != loop_containing_stmt (ddr->a->stmt))
+        continue;
+      record_data_dependence_relation (ddr);
+    }
+
+  VEC_free (data_reference_p, heap, datarefs);
+  VEC_free (ddr_p, heap, ddrs);
+}
+
+/* For each loop in function, save datarefs and ddrs obtained via
+   compute_dependencies_for_loop into ddg_info.  */
+static unsigned int
+run_ddg_export (void)
+{
+  bool inside_tree_loop_opt_p = !!current_loops;
+  bool dom_info_was_avail_p = dom_info_available_p (CDI_DOMINATORS);
+  struct loop *loop;
+  loop_iterator li;
+
+  if (!inside_tree_loop_opt_p)
+    loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
+
+  /* This can be more than actual number of loops, because number_of_loops ()
+     includes deleted loops.  */
+  if (number_of_loops () > 1)
+    {
+      if (!inside_tree_loop_opt_p)
+	scev_initialize ();
+      init_ddg_info ();
+
+      FOR_EACH_LOOP (li, loop, 0)
+        record_ddg_info_for (loop);
+
+      if (!inside_tree_loop_opt_p)
+	scev_finalize ();
+    }
+
+  if (!inside_tree_loop_opt_p)
+    loop_optimizer_finalize ();
+
+  if (!dom_info_was_avail_p)
+    free_dominance_info (CDI_DOMINATORS);
+
+  return 0;
+}
+
+/* Replace FROM tree to TO in ref fields of saved datarefs.  */
+void
+replace_var_in_datarefs (tree from, tree to)
+{
+  void **slot;
+  tree_dataref td, *ptd;
+
+  if (!ddg_info)
+    return;
+
+  td.ref = from;
+  slot = htab_find_slot (ddg_info->tree_to_dataref, &td, NO_INSERT);
+
+  /* IVOPTS might want to change a memory reference for which no dataref was
+     produced.  However, it would be nice to enable this assert and see in
+     what cases it happens.  */
+  /* gcc_assert (slot); */
+  if (!slot)
+    return;
+
+  ptd = XNEW (tree_dataref);
+  ptd->ref = to;
+  ptd->drf = ((tree_dataref *) (*slot))->drf;
+  ((tree_dataref *) (*slot))->drf = NULL;
+  htab_clear_slot (ddg_info->tree_to_dataref, slot);
+  
+  slot = htab_find_slot (ddg_info->tree_to_dataref, ptd, INSERT);
+  gcc_assert (!*slot);
+  *slot = ptd;
+}
+
+/* Search for the dataref for T and return it if found, otherwise return
+   NULL.  */
+
+static data_reference_p
+find_dataref (const_tree t)
+{
+  tree_dataref td, *ptd;
+
+  td.ref = t;
+  ptd = (tree_dataref *) htab_find (ddg_info->tree_to_dataref, &td);
+  return ptd ? ptd->drf : NULL;
+}
+
+/* Search for data dependence relation for DR1 and DR2, return it if found;
+   otherwise return NULL.  */
+static ddr_p
+find_ddr (data_reference_p dr1, data_reference_p dr2)
+{
+  datarefs_pair_ddr dp, *pdp;
+
+  dp.a = dr1;
+  dp.b = dr2;
+  pdp = (datarefs_pair_ddr *) htab_find (ddg_info->datarefs_pair_to_ddr, &dp);
+  if (pdp)
+    return pdp->ddr;
+
+  dp.a = dr2;
+  dp.b = dr1;
+  pdp = (datarefs_pair_ddr *) htab_find (ddg_info->datarefs_pair_to_ddr, &dp);
+  return pdp ? pdp->ddr : NULL;
+}
+
+/* Depending on current IR, either check that we have saved datarefs for all
+   memory references, or we have MEM_ORIG_EXPRs for MEMs.  */
+static void
+print_ddg_export_stats (void)
+{
+  if (!ddg_info || !dump_file)
+    return;
+
+  if (dump_flags & TDF_STATS)
+    fprintf (dump_file,
+             "DDG info usage in RTL aliasing: %d no tree, %d no drf, %d no ddr, "
+             "%d useless ddr, %d graceful fails, %d useless successes, "
+             "%d new successes, %d no dep, %d nonzero dist\n",
+             ddg_info->alias_fail_no_tree, ddg_info->alias_fail_no_drf,
+             ddg_info->alias_fail_no_ddr, ddg_info->alias_fail_useless_ddr,
+             ddg_info->alias_fail_graceful, ddg_info->alias_success_useless,
+             ddg_info->alias_success_new, ddg_info->alias_success_no_dep,
+             ddg_info->alias_success_nonzero_dist);
+  
+  ddg_info->alias_fail_no_tree = 0;
+  ddg_info->alias_fail_no_drf = 0;
+  ddg_info->alias_fail_no_ddr = 0;
+  ddg_info->alias_fail_useless_ddr = 0;
+  ddg_info->alias_fail_graceful = 0;
+  ddg_info->alias_success_useless = 0;
+  ddg_info->alias_success_new = 0;
+  ddg_info->alias_success_no_dep = 0;
+  ddg_info->alias_success_nonzero_dist = 0;
+}
+
+#if 0
+void
+ddg_export_disambiguate_only_intra_loop_deps (bool b)
+{
+  if (ddg_info)
+    ddg_info->disambiguate_only_intra_loop_deps = b;
+}
+#endif
+
+/* Return TRUE if any of DIST_VECTS is non-zero.  */
+static bool
+nonzero_dist_vects (VEC (lambda_vector, heap) *dist_vects, int loops_count)
+{
+  lambda_vector dist_v;
+  int i, j;
+
+  for (i = 0; VEC_iterate (lambda_vector, dist_vects, i, dist_v); i++)
+    for (j = 0; j < loops_count; j++)
+      if (dist_v[j])
+	return true;
+
+  return false;
+}
+
+/* Return TRUE if we cannot prove from exported DDG info that MEM1 and MEM2
+   are independent memory references.  CALL is used to differentiate callers:
+   CALL=0 for early calls from RTL alias analysis, CALL=1 for late calls from
+   RTL alias analysis, CALL=2 for calls from modulo-scheduling DDG
+   construction.  */
+bool
+ddg_export_may_alias_p (tree t1, tree t2, int call)
+{
+  data_reference_p drf1, drf2;
+  ddr_p ddr;
+
+  if (!ddg_info || !t1 || !t2)
+    return true;
+
+  drf1 = find_dataref (t1);
+  drf2 = find_dataref (t2);
+  if (!drf1 || !drf2)
+    {
+      if (call == 1)
+	ddg_info->alias_fail_graceful++;
+      else
+	ddg_info->alias_fail_no_drf++;
+      return true;
+    }
+
+  ddr = find_ddr (drf1, drf2);
+  if (!ddr)
+    {
+      if (call == 1)
+	ddg_info->alias_fail_graceful++;
+      else
+	ddg_info->alias_fail_no_ddr++;
+      return true;
+    }
+
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+    {
+      if (call != 1)
+	ddg_info->alias_success_no_dep++;
+
+account_new:
+
+      if (call == 0)
+	ddg_info->alias_success_useless++;
+      else if (call == 1)
+	{
+	  ddg_info->alias_success_useless--;
+	  ddg_info->alias_success_new++;
+	}
+      else
+	{
+	  gcc_assert (call == 2);
+	  ddg_info->alias_success_new++;
+	}
+      return false;
+    }
+
+  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE 
+      && DDR_NUM_DIST_VECTS (ddr) > 0
+      && !ddg_info->disambiguate_only_intra_loop_deps
+      && nonzero_dist_vects (DDR_DIST_VECTS (ddr), DDR_NB_LOOPS (ddr)))
+    {
+      if (call != 1)
+	ddg_info->alias_success_nonzero_dist++;
+
+      goto account_new;
+    }
+
+  if (call == 1)
+    ddg_info->alias_fail_graceful++;
+  else
+    ddg_info->alias_fail_useless_ddr++;
+  return true;
+}
+
+static bool
+gate_ddg_export (void)
+{
+  return flag_ddg_export != 0;
+}
+
+struct gimple_opt_pass pass_gather_ddg_info =
+{
+ {
+  GIMPLE_PASS,
+  "ddg-export",				/* name */
+  gate_ddg_export,	                /* gate */
+  run_ddg_export,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
+};
+
+static unsigned int
+free_ddg_info (void)
+{
+  if (!ddg_info)
+    return 0;
+
+  /* TODO: DDR_LOOP_NESTs are not free'd.  */
+  htab_delete (ddg_info->datarefs_pair_to_ddr);
+  htab_delete (ddg_info->tree_to_dataref);
+
+  free (ddg_info);
+  ddg_info = NULL;
+  return 0;
+}
+
+struct rtl_opt_pass pass_free_ddg_info =
+{
+ {
+  RTL_PASS,
+  NULL,					/* name */
+  NULL,					/* gate */
+  free_ddg_info,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+ }
+};
+
+
+
+

@@ -29,6 +29,9 @@ extern void set_mem_align (rtx, unsigned int);
 /* Set the expr for MEM to EXPR.  */
 extern void set_mem_expr (rtx, tree);
 
+/* Set the original expr for MEM to ORIG_EXPR.  */
+extern void set_mem_orig_expr (rtx, tree);
+
 /* Set the offset for MEM to OFFSET.  */
 extern void set_mem_offset (rtx, rtx);
 

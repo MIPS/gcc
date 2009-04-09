@@ -146,6 +146,7 @@ typedef struct mem_attrs GTY(())
   rtx size;			/* Size in bytes, as a CONST_INT.  */
   alias_set_type alias;		/* Memory alias set.  */
   unsigned int align;		/* Alignment of MEM in bits.  */
+  tree orig_expr;		/* Explicit original tree expression.  */
 } mem_attrs;
 
 /* Structure used to describe the attributes of a REG in similar way as
@@ -1222,6 +1223,11 @@ do {						\
 (MEM_ATTRS (RTX) != 0 ? MEM_ATTRS (RTX)->align				\
  : (STRICT_ALIGNMENT && GET_MODE (RTX) != BLKmode			\
     ? GET_MODE_ALIGNMENT (GET_MODE (RTX)) : BITS_PER_UNIT))
+
+/* For a MEM rtx, the decl it is known to refer to, if it is known to
+   refer to part of a DECL.  It may also be a COMPONENT_REF.  */
+#define MEM_ORIG_EXPR(RTX)						\
+(MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->orig_expr)
 
 /* For a REG rtx, the decl it is known to refer to, if it is known to
    refer to part of a DECL.  */
@@ -2341,6 +2347,9 @@ extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
 
 /* In final.c  */
 extern unsigned int compute_alignments (void);
+
+extern void alias_export_finish_once (void);
+
 
 struct rtl_hooks
 {

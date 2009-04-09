@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
+#include "alias-export.h"
 #include "toplev.h"
 
 
@@ -549,7 +550,7 @@ assign_vars (var_map map)
    If the stmt is changed, return true.  */ 
 
 static inline bool
-replace_use_variable (var_map map, use_operand_p p, gimple *expr)
+replace_use_variable (var_map map, use_operand_p p, gimple stmt, gimple *expr)
 {
   tree new_var;
   tree var = USE_FROM_PTR (p);
@@ -560,12 +561,18 @@ replace_use_variable (var_map map, use_operand_p p, gimple *expr)
       int version = SSA_NAME_VERSION (var);
       if (expr[version])
         {
-	  SET_USE (p, gimple_assign_rhs_to_tree (expr[version]));
+          tree expr_tree = gimple_assign_rhs_to_tree (expr[version]);
+          
+          if (flag_alias_export)
+            record_stmt_substitution (stmt, expr[version], var, expr_tree);
+	  SET_USE (p, expr_tree);
 	  return true;
 	}
     }
 
   new_var = var_to_partition_to_var (map, var);
+  if (flag_alias_export)
+    record_stmt_pta_info (stmt, var, new_var);
   if (new_var)
     {
       SET_USE (p, new_var);
@@ -767,7 +774,7 @@ rewrite_trees (var_map map, gimple *values)
 	  copy_use_p = NULL_USE_OPERAND_P;
 	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	    {
-	      if (replace_use_variable (map, use_p, values))
+	      if (replace_use_variable (map, use_p, stmt, values))
 		changed = true;
 	      copy_use_p = use_p;
 	      num_uses++;

@@ -91,6 +91,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "langhooks.h"
 #include "tree-affine.h"
+#include "alias-export.h"
 #include "target.h"
 
 /* The infinite cost.  */
@@ -5230,7 +5231,14 @@ copy_ref_info (tree new_ref, tree old_ref)
   if (TREE_CODE (old_ref) == TARGET_MEM_REF)
     copy_mem_ref_info (new_ref, old_ref);
   else
-    TMR_ORIGINAL (new_ref) = unshare_and_remove_ssa_names (old_ref);
+    {
+      TMR_ORIGINAL (new_ref) = unshare_and_remove_ssa_names (old_ref);
+      /* As MEM_ORIG_EXPR binds MEM to TMR_ORIGINAL of TARGET_MEM_REF it was
+         produced from, we need to change all occurences of OLD_REF to
+         TMR_ORIGINAL (NEW_REF) in exported data.  */
+      if (flag_ddg_export)
+        replace_var_in_datarefs (old_ref, TMR_ORIGINAL (new_ref));
+    }
 }
 
 /* Rewrites USE (address that is an iv) using candidate CAND.  */

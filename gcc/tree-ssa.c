@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
+#include "alias-export.h"
 #include "toplev.h"
 
 /* Pointer map of variable mappings, keyed by edge.  */
@@ -871,6 +872,8 @@ delete_tree_ssa (void)
 
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
+  if (flag_alias_export)
+    record_escaped_solution (&cfun->gimple_df->escaped);
   pt_solution_reset (&cfun->gimple_df->escaped);
   pt_solution_reset (&cfun->gimple_df->callused);
   cfun->gimple_df->modified_noreturn_calls = NULL;

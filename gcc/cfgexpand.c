@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-inline.h"
 #include "value-prof.h"
+#include "alias-export.h"
 #include "target.h"
 
 
@@ -723,16 +724,20 @@ static void
 union_stack_vars (size_t a, size_t b, HOST_WIDE_INT offset)
 {
   size_t i, last;
+  bool adressable;
 
   /* Update each element of partition B with the given offset,
      and merge them into partition A.  */
+  adressable = false;
   for (last = i = b; i != EOC; last = i, i = stack_vars[i].next)
     {
       stack_vars[i].offset += offset;
       stack_vars[i].representative = a;
+      adressable |= TREE_ADDRESSABLE (stack_vars[i].decl);
     }
   stack_vars[last].next = stack_vars[a].next;
   stack_vars[a].next = b;
+  TREE_ADDRESSABLE (stack_vars[a].decl) |= adressable;
 
   /* Update the required alignment of partition A to account for B.  */
   if (stack_vars[a].alignb < stack_vars[b].alignb)
@@ -860,6 +865,21 @@ dump_stack_var_partition (void)
 	}
     }
 }
+
+/* Save the generated partitions for alias.c, so we can say whether two 
+   vars actually occupy different stack locations.  */
+
+static void
+record_stack_var_partitions (void)
+{
+  size_t i;
+  
+  /* Save all stack_vars partition info in the annotations.  */
+  for (i = 0; i < stack_vars_num; i++)
+    record_stack_var_partition_for (stack_vars[i].decl, 
+                                    stack_vars[stack_vars[i].representative].decl);
+}
+
 
 /* Assign rtl to DECL at frame offset OFFSET.  */
 
@@ -1558,6 +1578,9 @@ expand_used_vars (void)
 
       expand_stack_vars (NULL);
 
+      if (flag_alias_export)
+        record_stack_var_partitions ();
+
       fini_vars_expansion ();
     }
 
@@ -1646,7 +1669,9 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   rtx last2, last;
 
   last2 = last = get_last_insn ();
-
+          
+  if (flag_alias_export)
+    set_current_expand_info (stmt, pred);
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
   if (gimple_has_location (stmt))
     {
@@ -1759,6 +1784,8 @@ expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
 
   last2 = last = get_last_insn ();
 
+  if (flag_alias_export)
+    set_current_expand_info (stmt, stmt_tree);
   expand_expr_stmt (stmt_tree);
 
   release_stmt_tree (stmt, stmt_tree);
@@ -1767,6 +1794,8 @@ expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
     if (CALL_P (last) && SIBLING_CALL_P (last))
       goto found;
 
+  if (flag_alias_export)
+    rewrite_mem_exprs (stmt, last2);
   maybe_dump_rtl_for_gimple_stmt (stmt, last2);
 
   *can_fallthru = true;
@@ -1902,7 +1931,6 @@ expand_gimple_basic_block (basic_block bb)
     }
 
   elt = pointer_map_contains (lab_rtx_for_bb, bb);
-
   if (stmt || elt)
     {
       last = get_last_insn ();
@@ -1910,7 +1938,11 @@ expand_gimple_basic_block (basic_block bb)
       if (stmt)
 	{
 	  tree stmt_tree = gimple_to_tree (stmt);
+          if (flag_alias_export)
+            set_current_expand_info (stmt, stmt_tree);
 	  expand_expr_stmt (stmt_tree);
+          if (flag_alias_export)
+            rewrite_mem_exprs (stmt, last);
 	  release_stmt_tree (stmt, stmt_tree);
 	  gsi_next (&gsi);
 	}
@@ -1957,7 +1989,7 @@ expand_gimple_basic_block (basic_block bb)
 	{
 	  new_bb = expand_gimple_cond (bb, stmt);
 	  if (new_bb)
-	    return new_bb;
+            return new_bb;
 	}
       else
 	{
@@ -1970,14 +2002,18 @@ expand_gimple_basic_block (basic_block bb)
 		  if (can_fallthru)
 		    bb = new_bb;
 		  else
-		    return new_bb;
+                    return new_bb;
 		}
 	    }
 	  else if (gimple_code (stmt) != GIMPLE_CHANGE_DYNAMIC_TYPE)
 	    {
 	      tree stmt_tree = gimple_to_tree (stmt);
 	      last = get_last_insn ();
+              if (flag_alias_export)
+                set_current_expand_info (stmt, stmt_tree);
 	      expand_expr_stmt (stmt_tree);
+              if (flag_alias_export)
+                rewrite_mem_exprs (stmt, last);
 	      maybe_dump_rtl_for_gimple_stmt (stmt, last);
 	      release_stmt_tree (stmt, stmt_tree);
 	    }
@@ -2181,8 +2217,12 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
 	  t = get_base_address (t);
-	  if (t && DECL_P (t))
-	    TREE_ADDRESSABLE (t) = 1;
+	  if (t && DECL_P (t)
+              && DECL_MODE (t) != BLKmode)
+            {
+              TREE_ADDRESSABLE (t) = 1;
+              record_addressable_bases (t);
+            }
 	}
 
       *walk_subtrees = 0;
@@ -2393,6 +2433,8 @@ gimple_expand_cfg (void)
 
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
+  if (flag_alias_export)
+    release_temporary_export_maps ();
 
   /* Convert tree EH labels to RTL EH labels and zap the tree EH table.  */
   convert_from_eh_region_ranges ();
