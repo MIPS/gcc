@@ -1,3 +1,24 @@
+2009-04-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	* debuglocus.c: Move DEBUGLOCUS_VEC_SIZE to debuglocus.h.
+	Redefine DEBUGLOCUS_VEC_MEM.
+	Mark debugtable as a GC root.
+	(init_debuglocus_table): Adjust for GC'ed table.
+	(destroy_debuglocus_table): Same.
+	(get_debuglocus_entry): Same.
+	(debuglocus_index_from_pointer): Same.
+	(new_debuglocus_entry): Same.  Return previously computed dlocus.
+	(debuglocus_from_pointer): Fix formatting.
+	Include gt-debuglocus.h.
+	* debuglocus.h (struct debuglocus_entry_d): Mark with GTY.
+	(DEBUGLOCUS_VEC_SIZE): Define.
+	(struct debuglocus_segment_d): Define.
+	Define vector of debuglocus_segment_d's.
+	Remove debuglocus_p vector.
+	(struct debuglocus_table_d): Use segments.
+	* Makefile.in (debuglocus.o): Depend on gt-debuglocus.h.
+	(GTFILES): Add debuglocus.c.
+	
 2009-04-06  Aldy Hernandez  <aldyh@redhat.com>
 
 	* debuglocus.c (debuglocus_bitmap_populate_helper): New.

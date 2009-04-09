@@ -45,10 +45,8 @@ along with GCC; see the file COPYING3.  If not see
    allowing for transparent use of source locations on statements.  */
 
   
-#define DEBUGLOCUS_VEC_SIZE	8192
-#define DEBUGLOCUS_VEC_MEM	(DEBUGLOCUS_VEC_SIZE * sizeof (debuglocus))
 #define DEBUGLOCUS_INDEX(LOCUS) ((LOCUS) & ~DEBUGLOCUS_BIT)
-
+#define DEBUGLOCUS_VEC_MEM	(sizeof (struct debuglocus_segment_d))
 
 
 /* Create and initialize a new debuglocus table.  */
@@ -56,12 +54,12 @@ static debuglocus_table_t *
 init_debuglocus_table (void)
 {
   debuglocus_table_t *tab;
-  debuglocus_p dlocus;
+  debuglocus_segment_p seg;
 
-  tab = (debuglocus_table_t *) xmalloc (sizeof (debuglocus_table_t));
-  tab->table = VEC_alloc (debuglocus_p, heap, 100);
-  dlocus = (debuglocus_p) xmalloc (DEBUGLOCUS_VEC_MEM);
-  VEC_safe_push (debuglocus_p, heap, tab->table, dlocus);
+  tab = (debuglocus_table_t *) ggc_alloc (sizeof (debuglocus_table_t));
+  tab->table = VEC_alloc (debuglocus_segment_p, gc, 100);
+  seg = (debuglocus_segment_p) ggc_alloc_cleared (DEBUGLOCUS_VEC_MEM);
+  VEC_safe_push (debuglocus_segment_p, gc, tab->table, seg);
 
   /* Reserve space number 0 for the NULL entry.  */
   tab->size = 1;
@@ -69,7 +67,7 @@ init_debuglocus_table (void)
 }
 
 
-static debuglocus_table_t *debugtable = NULL;
+static GTY(()) debuglocus_table_t *debugtable = NULL;
 
 /* Create the current debuglocus table.  */
 void
@@ -87,10 +85,14 @@ destroy_debuglocus_table (void)
   if (debugtable)
     {
       unsigned int x;
-      for (x = 0; x < VEC_length (debuglocus_p, debugtable->table); x++)
-        free (VEC_index (debuglocus_p, debugtable->table, x));
-      VEC_free (debuglocus_p, heap, debugtable->table);
-      free (debugtable);
+      for (x = 0; x < VEC_length (debuglocus_segment_p, debugtable->table); x++)
+	{
+	  /* I wonder if it's worth it to free the segments individually, or let
+	     GC do it's thing.  */
+	  ggc_free (VEC_index (debuglocus_segment_p, debugtable->table, x));
+	}
+      VEC_free (debuglocus_segment_p, gc, debugtable->table);
+      ggc_free (debugtable);
     }
   debugtable = NULL;
 }
@@ -109,14 +111,14 @@ static debuglocus_p
 get_debuglocus_entry (debuglocus_table_t *tab, unsigned int i)
 {
   int v,e;
-  debuglocus_p table_vec;
+  debuglocus_segment_p seg;
   gcc_assert (tab != NULL);
   gcc_assert (i > 0 && i < tab->size);
 
   v = i / DEBUGLOCUS_VEC_SIZE;
   e = i % DEBUGLOCUS_VEC_SIZE;
-  table_vec = VEC_index (debuglocus_p, tab->table, v);
-  return &(table_vec[e]);
+  seg = VEC_index (debuglocus_segment_p, tab->table, v);
+  return &seg->entries[e];
 }
 
 
@@ -144,8 +146,9 @@ new_debuglocus_entry (debuglocus_table_t *tab)
   /* Check if we need to increase the size of the table vector.  */
   if (i % DEBUGLOCUS_VEC_SIZE == 0)
     {
-      dlocus = (debuglocus_p) xmalloc (DEBUGLOCUS_VEC_MEM);
-      VEC_safe_push (debuglocus_p, heap, tab->table, dlocus);
+      debuglocus_segment_p seg;
+      seg = (debuglocus_segment_p) ggc_alloc_cleared (DEBUGLOCUS_VEC_MEM);
+      VEC_safe_push (debuglocus_segment_p, gc, tab->table, seg);
     }
 
   dlocus = get_debuglocus_entry (tab, i);
@@ -155,7 +158,7 @@ new_debuglocus_entry (debuglocus_table_t *tab)
   dlocus->decl = NULL_TREE;
   dlocus->order = i;		    /* Initially the issuing index.  */
   dlocus->prev = dlocus->next = i;  /* Initialize the circular linked list.  */
-  return get_debuglocus_entry (tab, i);
+  return dlocus;
 }
 
 
@@ -263,9 +266,11 @@ debuglocus_index_from_pointer (debuglocus_p dlocus)
   source_location idx = UNKNOWN_LOCATION;
   debuglocus_table_t *tab = current_debuglocus_table();
 
-  for (x = 0; x  < VEC_length (debuglocus_p, tab->table); x++)
+  for (x = 0; x  < VEC_length (debuglocus_segment_p, tab->table); x++)
     {
-      debuglocus_p ptr = VEC_index (debuglocus_p, tab->table, x);
+      debuglocus_segment_p seg = VEC_index (debuglocus_segment_p, tab->table, x);
+      debuglocus_p ptr = &seg->entries[0];
+
       /* Find the table this pointer belongs to.  */
       if (ptr <= dlocus && dlocus < ptr + DEBUGLOCUS_VEC_SIZE)
         {
@@ -297,7 +302,7 @@ debuglocus_from_pointer (debuglocus_p dlocus)
 debuglocus_p 
 create_debuglocus_for_decl (tree var)
 {
-  debuglocus_p ptr = create_debuglocus_entry();
+  debuglocus_p ptr = create_debuglocus_entry ();
   ptr->decl = var;
   return ptr;
 }
@@ -754,3 +759,5 @@ debuglocus_bitmap_verify (FILE *f, bitmap before, bitmap after,
 	  fprintf (f, "debuglocus: orphaned debuglocus entry: %u\n", i);
     }
 }
+
+#include "gt-debuglocus.h"

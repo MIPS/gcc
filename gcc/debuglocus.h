@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 /* No entry. Used for terminating lists and returning no matches.  */
 #define DEBUGLOCUS_NONE			0
 
-struct debuglocus_entry_d GTY((skip)) {
+struct debuglocus_entry_d GTY(()) {
   tree decl;			/* debug decl  */
   int order;			/* Ordering for emission sorting.  */
   source_location locus;	/* locus of statement.  */
@@ -35,17 +35,30 @@ struct debuglocus_entry_d GTY((skip)) {
 typedef struct debuglocus_entry_d debuglocus;
 typedef struct debuglocus_entry_d *debuglocus_p;
 
+/* Number of debuglocus entries per segment.  */
+#define DEBUGLOCUS_VEC_SIZE	8192
 
-DEF_VEC_P(debuglocus_p);
-DEF_VEC_ALLOC_P(debuglocus_p, heap);
+/* Debuglocus segments for use in the debuglocus table, pathetically
+   laid out so GTY can understand what's inside the vector that's
+   inside the table.  */
+struct debuglocus_segment_d GTY(()) {
+  debuglocus entries[DEBUGLOCUS_VEC_SIZE];
+};
+
+typedef struct debuglocus_segment_d *debuglocus_segment_p;
+
+DEF_VEC_P(debuglocus_segment_p);
+DEF_VEC_ALLOC_P(debuglocus_segment_p, gc);
 
 /* The debuglocus table is implemented simply as an array of segments. This
    allows for simple growth of the table without having to relocate existing 
    memory in use.  The table can never shrink in size.  */
 
-struct debuglocus_table_d GTY((skip)) {
-  unsigned int size;		    /* Current number of debuglocus entries.  */
-  VEC(debuglocus_p, heap) *table;   /* list of Table segments.  */
+struct debuglocus_table_d GTY(()) {
+  /* Total number of debuglocus entries.  */
+  unsigned int size;
+  /* Vector of debuglocus segments.  */
+  VEC(debuglocus_segment_p, gc) *table;
 };
 
 typedef struct debuglocus_table_d debuglocus_table_t;
