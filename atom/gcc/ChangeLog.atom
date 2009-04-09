@@ -1,3 +1,8 @@
+2009-04-09  Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.c (distance_non_agu_define): Use attr_type to check
+	lea.
+
 2009-04-06  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/atom.md: Updated to GPL v3.

@@ -13004,9 +13004,7 @@ ix86_expand_unary_operator (enum rtx_code code, enum machine_mode mode,
    Search backward until 1. passed LEA_SEARCH_THRESHOLD instructions, 
    or 2. reach BB boundary, or reach agu definition. 
    Returns the distance between the non-agu definition point and insn.
-   If no definition point, returns -1 
-   TODO: Currently we have no way to distinguish if definition insn is a LEA. 
-   We just assume all definitions are non-lea. */
+   If no definition point, returns -1 */
 static int
 distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 {
@@ -13026,7 +13024,14 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 	      distance++;
 	      if ((reg_op1 && reg_set_p (reg_op1, prev))
 		  || (reg_op2 && reg_set_p (reg_op2, prev)))
-		return distance ;
+		{
+		  enum attr_type insn_type = get_attr_type (insn);
+		  /* Restore recog_data which may be modified by
+		   * get_attr_type */
+		  extract_insn_cached (insn);
+		  if (insn_type != TYPE_LEA)
+		    return distance;
+		}
 	    }
 	  if (prev == BB_HEAD (bb))
 	    break;
@@ -13059,7 +13064,14 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 		  distance++;
 		  if ((reg_op1 && reg_set_p (reg_op1, prev))
 		      || (reg_op2 && reg_set_p (reg_op2, prev)))
-		    return distance;
+		  {
+		    enum attr_type insn_type = get_attr_type (insn);
+		    /* Restore recog_data which may be modified by
+		     * get_attr_type */
+		    extract_insn_cached (insn);
+		    if (insn_type != TYPE_LEA)
+		      return distance;
+		  }
 		}
 	      prev = PREV_INSN (prev);
 	    }
