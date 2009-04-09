@@ -1,5 +1,16 @@
 2009-04-08  Jan Hubicka  <jh@suse.cz>
 
+	* except.c (remove_eh_handler_and_replace): Add update_try parameter;
+	update prev_catch pointer.
+	(list_match, eh_region_replaceable_by_p, replace_region,
+	hash_type_list, hash_eh_region, eh_regions_equal_p, merge_peers): New
+	functions.
+	(remove_unreachable_regions): Verify EH tree before starting with the
+	busy work; merge peers.
+	(remove_eh_handler, remove_eh_region_and_replace): Update.
+
+2009-04-08  Jan Hubicka  <jh@suse.cz>
+
 	* except.c (dump_eh_tree): Output all fields.
 	(verify_eh_region): New.
 	(verify_eh_tree): Use it.
