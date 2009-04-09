@@ -1,3 +1,10 @@
+2008-04-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	* simplify-rtx.c (simplify_binary_operation_1): Never remove
+	COMPARE on cc0 machines.
+	(simplify_relational_operation): Return a new expression when
+	a COMPARE could be removed.
+
 2009-04-09  Paolo Bonzini  <bonzini@gnu.org>
 
         * optabs.c (prepare_cmp_insn): Initialize mode as soon as possible.
