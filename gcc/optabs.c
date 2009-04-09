@@ -4039,7 +4039,7 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
   if (GET_MODE (x) == VOIDmode && GET_MODE (y) == VOIDmode)
     x = force_reg (mode, x);
   if (mode == VOIDmode)
-    mode = GET_MODE (x) == VOIDmode ? GET_MODE (x) : GET_MODE (y);
+    mode = GET_MODE (x) != VOIDmode ? GET_MODE (x) : GET_MODE (y);
 
   /* Handle all BLKmode compares.  */
 
@@ -4162,11 +4162,13 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
   if (methods != OPTAB_LIB_WIDEN)
     goto fail;
 
-  /* Handle a lib call just for the mode we are using.  */
-  libfunc = optab_libfunc (cmp_optab, mode);
-  if (libfunc && !SCALAR_FLOAT_MODE_P (mode))
+  if (!SCALAR_FLOAT_MODE_P (mode))
     {
       rtx result;
+
+      /* Handle a lib call just for the mode we are using.  */
+      libfunc = optab_libfunc (cmp_optab, mode);
+      gcc_assert (libfunc);
 
       /* If we want unsigned, and this mode has a distinct unsigned
 	 comparison routine, use that.  */
@@ -4200,13 +4202,13 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
 	    y = const0_rtx;
 	}
 
-      *ptest = gen_rtx_fmt_ee (comparison, word_mode, x, y);
       *pmode = word_mode;
-      return;
+      prepare_cmp_insn (x, y, comparison, NULL_RTX, unsignedp, methods,
+			ptest, pmode);
     }
+  else 
+    prepare_float_lib_cmp (x, y, comparison, ptest, pmode);
 
-  gcc_assert (SCALAR_FLOAT_MODE_P (mode));
-  prepare_float_lib_cmp (x, y, comparison, ptest, pmode);
   return;
 
  fail:
