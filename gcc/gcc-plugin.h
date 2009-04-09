@@ -61,6 +61,7 @@ struct plugin_pass
 struct plugin_info
 {
   const char *version;
+  const char *help;
 };
 
 /* Function type for the plugin initialization routine. Each plugin module

@@ -32,6 +32,8 @@ extern void invoke_plugin_callbacks (enum plugin_event event, void *gcc_data);
 extern void initialize_plugins (void);
 /* Print the version of each plugin. */
 extern void print_plugins_versions (FILE *file, const char *indent);
+/* Print help for each plugin. */
+extern void print_plugins_help (FILE *file, const char *indent);
 /* Free memory allocated by the plugin system. */
 extern void finalize_plugins (void);
 

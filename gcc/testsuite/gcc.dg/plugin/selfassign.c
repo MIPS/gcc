@@ -299,6 +299,15 @@ plugin_init (const char *plugin_name, int argc, struct plugin_argument *argv)
   struct plugin_pass pass_info;
   bool enabled = true;
   int i;
+  struct plugin_info info = {"0.1",
+			     "check-operator-eq:\n" \
+			     "  check calls to operator=\n"\
+			     "no-check-operator-eq: bar\n" \
+			     "  don't check calls to operator=\n" \
+			     "enable:\n" \
+			     "  register the pass\n" \
+			     "disable: bar\n"
+                             "  don't register the pass\n" };
 
   /* Self-assign detection should happen after SSA is constructed.  */
   pass_info.pass = &pass_warn_self_assign.pass;
@@ -351,6 +360,8 @@ plugin_init (const char *plugin_name, int argc, struct plugin_argument *argv)
         warning (0, G_("plugin %qs: unrecognized argument %qs ignored"),
                  plugin_name, argv[i].key);
     }
+
+  register_callback (plugin_name, PLUGIN_INFO, NULL, &info);
 
   /* Register this new pass with GCC if the analysis is enabled.  */
   if (enabled)
