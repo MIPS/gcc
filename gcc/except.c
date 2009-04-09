@@ -1352,9 +1352,6 @@ copy_eh_region (struct eh_region *old, struct eh_region *new_outer,
 	ret = n;
     }
   VEC_free (eh_region, heap, catch_list);
-#ifdef ENABLE_CHECKING
-  verify_eh_tree (cfun);
-#endif
   gcc_assert (ret);
   return ret;
 }
@@ -4426,7 +4423,7 @@ verify_eh_region (struct eh_region *region, struct eh_region *prev_try)
       }
       break;
     case ERT_CATCH:
-      if (!region->u.eh_catch.next_catch
+      if (!region->u.eh_catch.prev_catch
           && (!region->next_peer || region->next_peer->type != ERT_TRY))
 	{
 	  error ("Catch region %i should be followed by try", region->region_number);

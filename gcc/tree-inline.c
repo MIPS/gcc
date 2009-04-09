@@ -2285,7 +2285,6 @@ argument_set_in_function_p (struct function *fun, tree parm)
 {
   basic_block bb;
   gimple_stmt_iterator bsi;
-  unsigned int i;
 
   /* When profiling, we still do inlining on non-SSA form.   In this case just give up
      early rather than trying to compute operands.  */
@@ -2305,9 +2304,13 @@ argument_set_in_function_p (struct function *fun, tree parm)
 	    }
 	  if (gimple_code (stmt) == GIMPLE_ASM)
 	    {
-	      tree op = get_base_address (TREE_VALUE (gimple_asm_output_op (stmt, i)));
-	      if (op && op == parm)
-	        return true;
+	      unsigned int i;
+	      for (i = 0; i < gimple_asm_noutputs (stmt); i++)
+		{
+		  tree op = get_base_address (TREE_VALUE (gimple_asm_output_op (stmt, i)));
+		  if (op && op == parm)
+		    return true;
+		}
 	    }
 	}
     }

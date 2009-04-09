@@ -722,6 +722,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_calls);
       NEXT_PASS (pass_rename_ssa_copies);
+      NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_uncprop);
       NEXT_PASS (pass_local_pure_const);
     }
