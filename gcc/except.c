@@ -2854,17 +2854,17 @@ remove_eh_handler_and_replace (struct eh_region *region,
   /* When we are moving the region in EH tree, update prev_try pointers.  */
   if (outer != replace && region->inner)
     {
-      struct eh_region *prev_try = NULL;
-      for (prev_try = replace;
-           prev_try && prev_try->type != ERT_TRY;
-           prev_try = prev_try->outer)
-        continue;
+      struct eh_region *prev_try = find_prev_try (replace);
       p = region->inner;
       while (p != region)
         {
 	  if (p->type == ERT_CLEANUP)
 	    p->u.cleanup.prev_try = prev_try;
-          if (p->type != ERT_TRY && p->inner)
+          if (p->type != ERT_TRY
+	      && p->type != ERT_MUST_NOT_THROW
+	      && (p->type != ERT_ALLOWED_EXCEPTIONS
+	          || p->u.allowed.type_list)
+	      && p->inner)
 	    p = p->inner;
 	  else if (p->next_peer)
 	    p = p->next_peer;
