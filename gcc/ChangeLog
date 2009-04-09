@@ -1,9 +1,5 @@
 2009-04-08  Jan Hubicka  <jh@suse.cz>
 
-	* Merge from mainline.
-
-2009-04-08  Jan Hubicka  <jh@suse.cz>
-
 	* tree-eh.c (cleanup_eh): When not optimizing, do not try EH merging.
 	* function.h (rtl_eh): Remove exception_handler_label_map.
 	* except.c (ehl_hash, ehl_eq, add_ehl_entry,

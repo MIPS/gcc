@@ -1,5 +1,9 @@
 2009-04-08  Jan Hubicka  <jh@suse.cz>
 
+	* Merge from mainline.
+
+2009-04-08  Jan Hubicka  <jh@suse.cz>
+
 	* except.c (remove_eh_handler_and_replace): Add update_try parameter;
 	update prev_catch pointer.
 	(list_match, eh_region_replaceable_by_p, replace_region,
