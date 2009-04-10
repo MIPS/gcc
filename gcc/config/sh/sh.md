@@ -736,7 +736,7 @@
   [(set (pc)
 	(if_then_else (match_operator 0 "comparison_operator"
 			[(match_operand:DI 1 "arith_operand" "r,r")
-			 (match_operand:DI 2 "arith_operand" "rN,i")])
+			 (match_operand:DI 2 "arith_operand" "rN,I08")])
 		      (label_ref (match_operand 3 "" ""))
 		      (pc)))
    (clobber (match_scratch:SI 4 "=X,&r"))

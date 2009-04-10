@@ -1,3 +1,8 @@
+2009-04-10  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.md (cbranchdi4_i): Use an "I08" constraint
+	instead of an "i" constraint.
+
 2008-04-09  Paolo Bonzini  <bonzini@gnu.org>
 
 	* optabs.c (prepare_cmp_insn): Recurse after setting up integer libcall.
