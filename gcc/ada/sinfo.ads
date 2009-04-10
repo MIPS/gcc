@@ -1135,7 +1135,8 @@ package Sinfo is
    --    This flag is set in the N_With_Clause node that is implicitly
    --    generated for runtime units that are loaded by the expander, and also
    --    for package System, if it is loaded implicitly by a use of the
-   --    'Address or 'Tag attribute.
+   --    'Address or 'Tag attribute. ???There are other implicit with clauses
+   --    as well.
 
    --  Includes_Infinities (Flag11-Sem)
    --    This flag is present in N_Range nodes. It is set for the range of
@@ -2883,6 +2884,7 @@ package Sinfo is
       --  N_Access_Function_Definition
       --  Sloc points to ACCESS
       --  Null_Exclusion_Present (Flag11)
+      --  Null_Exclusion_In_Return_Present (Flag14)
       --  Protected_Present (Flag6)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Result_Definition (Node4) result subtype (subtype mark or access def)
@@ -3725,6 +3727,13 @@ package Sinfo is
       --  Do_Storage_Check (Flag17-Sem)
       --  Is_Dynamic_Coextension (Flag18-Sem)
       --  plus fields for expression
+
+      --  Note: like all nodes, the N_Allocator has the Comes_From_Source flag.
+      --  This flag has a special function in conjunction with the restriction
+      --  No_Implicit_Heap_Allocations, which will be triggered if this flag
+      --  is not set. This means that if a source allocator is replaced with
+      --  a constructed allocator, the Comes_From_Source flag should be copied
+      --  to the newly created allocator.
 
       ---------------------------------
       -- 5.1  Sequence Of Statements --
@@ -8088,6 +8097,9 @@ package Sinfo is
    function Null_Exclusion_Present
      (N : Node_Id) return Boolean;    -- Flag11
 
+   function Null_Exclusion_In_Return_Present
+     (N : Node_Id) return Boolean;    -- Flag14
+
    function Null_Record_Present
      (N : Node_Id) return Boolean;    -- Flag17
 
@@ -8969,6 +8981,9 @@ package Sinfo is
 
    procedure Set_Null_Exclusion_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag11
+
+   procedure Set_Null_Exclusion_In_Return_Present
+     (N : Node_Id; Val : Boolean := True);    -- Flag14
 
    procedure Set_Null_Record_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag17
@@ -11062,6 +11077,7 @@ package Sinfo is
    pragma Inline (No_Truncation);
    pragma Inline (Null_Present);
    pragma Inline (Null_Exclusion_Present);
+   pragma Inline (Null_Exclusion_In_Return_Present);
    pragma Inline (Null_Record_Present);
    pragma Inline (Object_Definition);
    pragma Inline (Original_Discriminant);
@@ -11353,6 +11369,7 @@ package Sinfo is
    pragma Inline (Set_No_Truncation);
    pragma Inline (Set_Null_Present);
    pragma Inline (Set_Null_Exclusion_Present);
+   pragma Inline (Set_Null_Exclusion_In_Return_Present);
    pragma Inline (Set_Null_Record_Present);
    pragma Inline (Set_Object_Definition);
    pragma Inline (Set_Original_Discriminant);

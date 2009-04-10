@@ -77,6 +77,7 @@ package body Einfo is
    --    Hiding_Loop_Variable            Node8
    --    Mechanism                       Uint8 (but returns Mechanism_Type)
    --    Normalized_First_Bit            Uint8
+   --    Postcondition_Proc              Node8
    --    Return_Applies_To               Node8
 
    --    Class_Wide_Type                 Node9
@@ -459,7 +460,7 @@ package body Einfo is
    --    Itype_Printed                   Flag202
    --    Has_Pragma_Pure                 Flag203
    --    Is_Known_Null                   Flag204
-   --    Low_Bound_Known                 Flag205
+   --    Low_Bound_Tested                Flag205
    --    Is_Visible_Formal               Flag206
    --    Known_To_Have_Preelab_Init      Flag207
    --    Must_Have_Preelab_Init          Flag208
@@ -2159,10 +2160,10 @@ package body Einfo is
       return Node16 (Id);
    end Lit_Strings;
 
-   function Low_Bound_Known (Id : E) return B is
+   function Low_Bound_Tested (Id : E) return B is
    begin
       return Flag205 (Id);
-   end Low_Bound_Known;
+   end Low_Bound_Tested;
 
    function Machine_Radix_10 (Id : E) return B is
    begin
@@ -2354,6 +2355,12 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Record_Type);
       return Node19 (Id);
    end Parent_Subtype;
+
+   function Postcondition_Proc (Id : E) return E is
+   begin
+      pragma Assert (Ekind (Id) = E_Procedure);
+      return Node8 (Id);
+   end Postcondition_Proc;
 
    function Primitive_Operations (Id : E) return L is
    begin
@@ -4620,11 +4627,11 @@ package body Einfo is
       Set_Node16 (Id, V);
    end Set_Lit_Strings;
 
-   procedure Set_Low_Bound_Known (Id : E; V : B := True) is
+   procedure Set_Low_Bound_Tested (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Formal (Id));
       Set_Flag205 (Id, V);
-   end Set_Low_Bound_Known;
+   end Set_Low_Bound_Tested;
 
    procedure Set_Machine_Radix_10 (Id : E; V : B := True) is
    begin
@@ -4823,6 +4830,12 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Record_Type);
       Set_Node19 (Id, V);
    end Set_Parent_Subtype;
+
+   procedure Set_Postcondition_Proc (Id : E; V : E) is
+   begin
+      pragma Assert (Ekind (Id) = E_Procedure);
+      Set_Node8 (Id, V);
+   end Set_Postcondition_Proc;
 
    procedure Set_Primitive_Operations (Id : E; V : L) is
    begin
@@ -6958,7 +6971,7 @@ package body Einfo is
       W ("Kill_Range_Checks",               Flag33  (Id));
       W ("Kill_Tag_Checks",                 Flag34  (Id));
       W ("Known_To_Have_Preelab_Init",      Flag207 (Id));
-      W ("Low_Bound_Known",                 Flag205 (Id));
+      W ("Low_Bound_Tested",                Flag205 (Id));
       W ("Machine_Radix_10",                Flag84  (Id));
       W ("Materialize_Entity",              Flag168 (Id));
       W ("Must_Be_On_Byte_Boundary",        Flag183 (Id));
@@ -7174,6 +7187,9 @@ package body Einfo is
 
          when E_Package                                    =>
             Write_Str ("Dependent_Instances");
+
+         when E_Procedure                                  =>
+            Write_Str ("Postcondition_Proc");
 
          when E_Return_Statement                           =>
             Write_Str ("Return_Applies_To");

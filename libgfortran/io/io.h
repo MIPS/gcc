@@ -500,9 +500,8 @@ typedef struct st_parameter_dt
 	  int expanded_read;
 	  /* Storage area for values except for strings.  Must be
 	     large enough to hold a complex value (two reals) of the
-	     largest kind.  It must also be sufficiently aligned for
-	     assigning any type we use into it.  */
-	  char value[32]  __attribute__ ((aligned (__BIGGEST_ALIGNMENT__)));
+	     largest kind.  */
+	  char value[32];
 	  GFC_IO_INT size_used;
 	} p;
       /* This pad size must be equal to the pad_size declared in
@@ -707,9 +706,6 @@ fnode;
 
 
 /* unix.c */
-
-extern int move_pos_offset (stream *, int);
-internal_proto(move_pos_offset);
 
 extern int compare_files (stream *, stream *);
 internal_proto(compare_files);

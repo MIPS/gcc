@@ -604,6 +604,36 @@ package body Sem_Warn is
       end if;
    end Check_Infinite_Loop_Warning;
 
+   ----------------------------
+   -- Check_Low_Bound_Tested --
+   ----------------------------
+
+   procedure Check_Low_Bound_Tested (Expr : Node_Id) is
+   begin
+      if Comes_From_Source (Expr) then
+         declare
+            L : constant Node_Id := Left_Opnd (Expr);
+            R : constant Node_Id := Right_Opnd (Expr);
+         begin
+            if Nkind (L) = N_Attribute_Reference
+              and then Attribute_Name (L) = Name_First
+              and then Is_Entity_Name (Prefix (L))
+              and then Is_Formal (Entity (Prefix (L)))
+            then
+               Set_Low_Bound_Tested (Entity (Prefix (L)));
+            end if;
+
+            if Nkind (R) = N_Attribute_Reference
+              and then Attribute_Name (R) = Name_First
+              and then Is_Entity_Name (Prefix (R))
+              and then Is_Formal (Entity (Prefix (R)))
+            then
+               Set_Low_Bound_Tested (Entity (Prefix (R)));
+            end if;
+         end;
+      end if;
+   end Check_Low_Bound_Tested;
+
    ----------------------
    -- Check_References --
    ----------------------
@@ -1610,9 +1640,36 @@ package body Sem_Warn is
                   --  As always, it is possible to construct cases where the
                   --  warning is wrong, that is why it is a warning!
 
-                  declare
+                  Potential_Unset_Reference : declare
                      SR : Entity_Id;
                      SE : constant Entity_Id := Scope (E);
+
+                     function Within_Postcondition return Boolean;
+                     --  Returns True iff N is within a Precondition
+
+                     --------------------------
+                     -- Within_Postcondition --
+                     --------------------------
+
+                     function Within_Postcondition return Boolean is
+                        Nod : Node_Id;
+
+                     begin
+                        Nod := Parent (N);
+                        while Present (Nod) loop
+                           if Nkind (Nod) = N_Pragma
+                             and then Pragma_Name (Nod) = Name_Postcondition
+                           then
+                              return True;
+                           end if;
+
+                           Nod := Parent (Nod);
+                        end loop;
+
+                        return False;
+                     end Within_Postcondition;
+
+                  --  Start of processing for Potential_Unset_Reference
 
                   begin
                      SR := Current_Scope;
@@ -1732,26 +1789,33 @@ package body Sem_Warn is
                         end Access_Type_Case;
                      end if;
 
-                     --  Here we definitely have a case for giving a warning
-                     --  for a reference to an unset value. But we don't give
-                     --  the warning now. Instead we set the Unset_Reference
-                     --  field of the identifier involved. The reason for this
-                     --  is that if we find the variable is never ever assigned
-                     --  a value then that warning is more important and there
-                     --  is no point in giving the reference warning.
+                     --  One more check, don't bother if we are within a
+                     --  postcondition pragma, since the expression occurs
+                     --  in a place unrelated to the actual test.
 
-                     --  If this is an identifier, set the field directly
+                     if not Within_Postcondition then
 
-                     if Nkind (N) = N_Identifier then
-                        Set_Unset_Reference (E, N);
+                        --  Here we definitely have a case for giving a warning
+                        --  for a reference to an unset value. But we don't
+                        --  give the warning now. Instead set Unset_Reference
+                        --  in the identifier involved. The reason for this is
+                        --  that if we find the variable is never ever assigned
+                        --  a value then that warning is more important and
+                        --  there is no point in giving the reference warning.
 
-                     --  Otherwise it is an expanded name, so set the field of
-                     --  the actual identifier for the reference.
+                        --  If this is an identifier, set the field directly
 
-                     else
-                        Set_Unset_Reference (E, Selector_Name (N));
+                        if Nkind (N) = N_Identifier then
+                           Set_Unset_Reference (E, N);
+
+                        --  Otherwise it is an expanded name, so set the field
+                        --  of the actual identifier for the reference.
+
+                        else
+                           Set_Unset_Reference (E, Selector_Name (N));
+                        end if;
                      end if;
-                  end;
+                  end Potential_Unset_Reference;
                end if;
             end;
 
@@ -1887,6 +1951,11 @@ package body Sem_Warn is
          --  warn that the context clause could be moved to the body, because
          --  the renaming may be intended to re-export the unit.
 
+         function Has_Visible_Entities (P : Entity_Id) return Boolean;
+         --  This function determines if a package has any visible entities.
+         --  True is returned if there is at least one declared visible entity,
+         --  otherwise False is returned (e.g. case of only pragmas present).
+
          -------------------------
          -- Check_Inner_Package --
          -------------------------
@@ -2011,6 +2080,46 @@ package body Sem_Warn is
             return Empty;
          end Find_Package_Renaming;
 
+         --------------------------
+         -- Has_Visible_Entities --
+         --------------------------
+
+         function Has_Visible_Entities (P : Entity_Id) return Boolean is
+            E : Entity_Id;
+
+         begin
+            --  If unit in context is not a package, it is a subprogram that
+            --  is not called or a generic unit that is not instantiated
+            --  in the current unit, and warning is appropriate.
+
+            if Ekind (P) /= E_Package then
+               return True;
+            end if;
+
+            --  If unit comes from a limited_with clause, look for declaration
+            --  of shadow entities.
+
+            if Present (Limited_View (P)) then
+               E := First_Entity (Limited_View (P));
+            else
+               E := First_Entity (P);
+            end if;
+
+            while Present (E)
+              and then E /= First_Private_Entity (P)
+            loop
+               if Comes_From_Source (E)
+                 or else Present (Limited_View (P))
+               then
+                  return True;
+               end if;
+
+               Next_Entity (E);
+            end loop;
+
+            return False;
+         end Has_Visible_Entities;
+
       --  Start of processing for Check_One_Unit
 
       begin
@@ -2064,9 +2173,13 @@ package body Sem_Warn is
                      if Unit = Spec_Unit then
                         Set_Unreferenced_In_Spec (Item);
 
-                     --  Otherwise simple unreferenced message
+                     --  Otherwise simple unreferenced message, but skip this
+                     --  if no visible entities, because that is most likely a
+                     --  case where warning would be false positive (e.g. a
+                     --  package with only a linker options pragma and nothing
+                     --  else or a pragma elaborate with a body library task).
 
-                     else
+                     elsif Has_Visible_Entities (Entity (Name (Item))) then
                         Error_Msg_N
                           ("?unit& is not referenced!", Name (Item));
                      end if;
@@ -3550,7 +3663,7 @@ package body Sem_Warn is
 
             if Is_Formal (Ent)
               and then Is_Suspicious_Type (Typ)
-              and then not Low_Bound_Known (Ent)
+              and then not Low_Bound_Tested (Ent)
             then
                Test_Suspicious_Index;
             end if;

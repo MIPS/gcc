@@ -1346,7 +1346,6 @@ package body Exp_Attr is
       begin
          --  We have an object of a task interface class-wide type as a prefix
          --  to Callable. Generate:
-
          --    callable (Task_Id (Pref._disp_get_task_id));
 
          if Ada_Version >= Ada_05
@@ -4341,6 +4340,13 @@ package body Exp_Attr is
 
          Ttyp := Underlying_Type (Ttyp);
 
+         --  Ada 2005: The type may be a synchronized tagged type, in which
+         --  case the tag information is stored in the corresponding record.
+
+         if Is_Concurrent_Type (Ttyp) then
+            Ttyp := Corresponding_Record_Type (Ttyp);
+         end if;
+
          if Prefix_Is_Type then
 
             --  For VMs we leave the type attribute unexpanded because
@@ -4354,7 +4360,7 @@ package body Exp_Attr is
                Analyze_And_Resolve (N, RTE (RE_Tag));
             end if;
 
-         --  (Ada 2005 (AI-251): The use of 'Tag in the sources always
+         --  Ada 2005 (AI-251): The use of 'Tag in the sources always
          --  references the primary tag of the actual object. If 'Tag is
          --  applied to class-wide interface objects we generate code that
          --  displaces "this" to reference the base of the object.
@@ -4401,7 +4407,6 @@ package body Exp_Attr is
       begin
          --  The prefix of Terminated is of a task interface class-wide type.
          --  Generate:
-
          --    terminated (Task_Id (Pref._disp_get_task_id));
 
          if Ada_Version >= Ada_05

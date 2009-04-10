@@ -92,8 +92,9 @@ package body GNAT.Command_Line is
       Index_In_Switches : out Integer;
       Switch_Length     : out Integer;
       Param             : out Switch_Parameter_Type);
-   --  return the Longest switch from Switches that matches at least
-   --  partially Arg. Index_In_Switches is set to 0 if none matches
+   --  Return the Longest switch from Switches that at least partially
+   --  partially Arg. Index_In_Switches is set to 0 if none matches.
+   --  What are other parameters??? in particular Param is not always set???
 
    procedure Unchecked_Free is new Ada.Unchecked_Deallocation
      (Argument_List, Argument_List_Access);
@@ -1508,22 +1509,43 @@ package body GNAT.Command_Line is
       end Group_Analysis;
 
    begin
-      --  Are we adding a switch that can in fact be expanded through aliases ?
-      --  If yes, we add separately each of its expansion.
+      --  First determine if the switch corresponds to one belonging to the
+      --  configuration. If so, run callback and exit.
+
+      if Cmd.Config /= null and then Cmd.Config.Switches /= null then
+         for S in Cmd.Config.Switches'Range loop
+            declare
+               Config_Switch : String renames Cmd.Config.Switches (S).all;
+            begin
+               if Actual_Switch (Config_Switch) = Switch
+                    and then
+                  ((Can_Have_Parameter (Config_Switch)
+                      and then Parameter /= "")
+                   or else
+                   (not Require_Parameter (Config_Switch)
+                       and then Parameter = ""))
+               then
+                  Callback (Switch, Parameter);
+                  return;
+               end if;
+            end;
+         end loop;
+      end if;
+
+      --  If adding a switch that can in fact be expanded through aliases,
+      --  add separately each of its expansions.
 
       --  This takes care of expansions like "-T" -> "-gnatwrs", where the
       --  alias and its expansion do not have the same prefix. Given the order
       --  in which we do things here, the expansion of the alias will itself
-      --  be checked for a common prefix and further split into simple switches
+      --  be checked for a common prefix and split into simple switches.
 
       if Unalias
         and then Cmd.Config /= null
         and then Cmd.Config.Aliases /= null
       then
          for A in Cmd.Config.Aliases'Range loop
-            if Cmd.Config.Aliases (A).all = Switch
-              and then Parameter = ""
-            then
+            if Cmd.Config.Aliases (A).all = Switch and then Parameter = "" then
                For_Each_Simple_Switch
                  (Cmd, Cmd.Config.Expansions (A).all, "");
                return;
@@ -1531,18 +1553,17 @@ package body GNAT.Command_Line is
          end loop;
       end if;
 
-      --  Are we adding a switch grouping several switches ? If yes, add each
-      --  of the simple switches instead.
+      --  If adding a switch grouping several switches, add each of the simple
+      --  switches instead.
 
-      if Cmd.Config /= null
-        and then Cmd.Config.Prefixes /= null
-      then
+      if Cmd.Config /= null and then Cmd.Config.Prefixes /= null then
          for P in Cmd.Config.Prefixes'Range loop
             if Switch'Length > Cmd.Config.Prefixes (P)'Length + 1
               and then Looking_At
                 (Switch, Switch'First, Cmd.Config.Prefixes (P).all)
             then
                --  Alias expansion will be done recursively
+
                if Cmd.Config.Switches = null then
                   for S in Switch'First + Cmd.Config.Prefixes (P)'Length
                             .. Switch'Last
@@ -1559,8 +1580,9 @@ package body GNAT.Command_Line is
                     (Switch'First + Cmd.Config.Prefixes (P)'Length
                       .. Switch'Last))
                then
-                  --  Recursive calls already done on each switch of the
-                  --  group. Let's return to not call Callback.
+                  --  Recursive calls already done on each switch of the group:
+                  --  Return without executing Callback.
+
                   return;
                end if;
             end if;

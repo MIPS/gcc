@@ -1,3 +1,474 @@
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_warn.ads, sem_warn.adb (Check_Low_Bound_Tested): Catch more cases
+	for warning suppression.
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch8.adb (Use_One_Type): If the two use_type clauses are
+	identical, there is no redudancy to check.
+
+2009-04-10  Gary Dismukes  <dismukes@adacore.com>
+
+	* exp_ch5.adb (Expand_N_Extended_Return_Statement): Delete redundant
+	calls initializing SS_Allocator (which is initialized in following
+	code).
+	(Expand_Simple_Function_Return): Add comment about False value for
+	Comes_From_Source on secondary-stack allocator.
+
+	* exp_ch9.adb (Build_Entry_Family_Name): Add comment.
+	(Build_Entry_Name): Add comment.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* einfo.ads, einfo.adb (Low_Bound_Tested): New name for Low_Bound_Known
+
+	* sem_prag.adb (Analyze_Pragma, case Check): Remove check for lower
+	bound tested, since this is now done more generally in Sem_Res.
+
+	* sem_res.adb (Resolve_Comparison_Op): Add call to
+	Check_Lower_Bound_Tested.
+	(Resolve_Equality_Op): Add call to Check_Lower_Bound_Tested
+
+	* sem_warn.ads, sem_warn.adb (Check_Low_Bound_Tested): New procedure
+	(Low_Bound_Tested): New name for Low_Bound_Known flag
+
+	* exp_ch5.adb: Minor reformatting
+
+	* exp_ch4.adb:
+	Add comments on copying the Comes_From_Source flag for allocators
+
+	* sinfo.ads:
+	Add comments on copying the Comes_From_Source flag for allocators
+
+	* exp_ch6.adb (Make_Build_In_Place_Call_In_Allocator): Copy
+	Comes_From_Source flag from old allocator to new one.
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.ads: Address missing documentation query
+
+2009-04-10  Vincent Celier  <celier@adacore.com>
+
+	* prj-attr.adb:
+	Add new Linker attributes Max_Command_Line_Length, Response_File_Format
+	and Response_File_Switches.
+
+	* prj-nmsc.adb (Process_Linker): Process new attributes
+	Max_Command_Line_Length, Response_File_Format and
+	Response_File_Switches.
+
+	* prj.ads (Response_File_Format): New enumeration type
+	(Project_Configuration): New componants Max_Command_Line_Length,
+	Resp_File_Format and Resp_File_Options.
+
+	* snames.ads-tmpl: Add new standard names for linking response files
+	for gprbuild: GNU, None, Object_List, Option_List,
+	Max_Command_Line_Length, Response_File_Format and
+	Response_File_Switches.
+
+2009-04-10  Geert Bosch  <bosch@adacore.com>
+
+	* system-aix.ads, system-darwin-ppc.ads, system-darwin-x86.ads,
+	system-freebsd-x86.ads, system-hpux.ads, system-hpux-ia64.ads,
+	system-irix-n32.ads, system-irix-o32.ads, system-linux-alpha.ads,
+	system-linux-hppa.ads, system-linux-ia64.ads, system-linux-ppc.ads,
+	system-linux-s390.ads, system-linux-s390x.ads, system-linux-sh4.ads,
+	system-linux-sparc.ads, system-linux-x86_64.ads, system-linux-x86.ads,
+	system-mingw.ads, system-solaris-sparc.ads, system-solaris-sparcv9.ads,
+	system-solaris-x86.ads, system-tru64.ads, system-vms_64.ads,
+	system-vms.ads, system-vms-ia64.ads, system-vms-zcx.ads,
+	system-vxworks-arm.ads, system-vxworks-m68k.ads,
+	system-vxworks-mips.ads, system-vxworks-ppc.ads,
+	system-vxworks-sparcv9.ads, system-vxworks-x86.ads
+	(Backend_Overflow_Checks): Set to True.
+
+2009-04-10  Thomas Quinot  <quinot@adacore.com>
+
+	* exp_attr.adb: Minor reformatting
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_prag.adb (Check_Precondition_Postcondition): Within a generic,
+	analyze the expression for a postcondition, even if the compiler mode
+	is Generate_Code.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_aux.adb: Minor reformatting
+
+2009-04-10  Ed Falis  <falis@adacore.com>
+
+	* init.c: Change VxWorks 6 stack overflow checking for kernel apps.
+
+	* system-vxworks-ppc.ads, system-vxworks-x86.ads: Update header.
+
+2009-04-10  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_ch6.ads (Check_Subtype_Conformant): Add ??? comment for
+	undocumented formal.
+	Minor reformatting
+
+	* a-direio.ads: Fix typo in comment
+
+	* sem_ch3.adb, g-dirope.adb, sem_type.adb, sem_ch12.adb, sem_case.adb,
+	errout.adb, sem_ch4.adb, sem_ch11.adb, exp_dist.adb, sem_ch13.adb:
+	Use uniform phrasing for comment at start of subprogram body.
+
+	* xsnamest.adb: Add note to explain why we use specific names for the
+	newly generated files instead of generating snames.{ads,adb,h} directly
+
+2009-04-10  Sergey Rybin  <rybin@adacore.com>
+
+	* vms_data.ads:
+	Add qualifier for new gnatstub option '--no-exception'
+
+	* gnat_ugn.texi:
+	Add the description of the new gnatstub option '--no-exception'
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* rtsfind.adb: Minor reformatting
+
+2009-04-10  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_disp.adb: Minor reformatting.
+	Add comment pointing to RM clause for the case of warning against a
+	(failed) attempt at declaring a primitive operation elsewhere than in a
+	package spec.
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Denotes_Formal_Package): Check whether the package is
+	an actual for a previous formal package of the current instance.
+
+2009-04-10  Bob Duff  <duff@adacore.com>
+
+	* rtsfind.adb (RTE): Put implicit with_clauses on whatever unit needs
+	them first, rather than on the extended main unit.
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Check_Discriminant_Conformance): If discriminant
+	specification of full view carries a null exclusion indicator, create
+	an itype for it, to check for conformance with partial view.
+
+2009-04-10  Bob Duff  <duff@adacore.com>
+
+	* rtsfind.ads: Minor code change: make RE_Unit_Table constant.
+
+	* rtsfind.adb: Minor comment changes, and remove useless code.
+
+	* sinfo.ads: Add ??? comment.
+
+2009-04-10  Vincent Celier  <celier@adacore.com>
+
+	* vms_data.ads: Add missing GNAT SYNC VMS qualifiers -main= and -U
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_attr.adb (Expand_N_Attribute_Reference, case 'Tag): If the tagged
+	type is a synchronized type, retrieve tag information from the
+	corresponding record, which has the dispatch table link.
+
+2009-04-10  Jerome Lambourg  <lambourg@adacore.com>
+
+	* g-comlin.adb (Group_Analysis): Take care of switches that might be
+	decomposed afterwards, but are present as-is in the command line
+	configuration, and thus should be kept as-is.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* gnat_rm.texi: Document that postconditions are tested on implicit
+	returns.
+
+	* sem_aux.adb: Minor reformatting
+
+2009-04-10  Gary Dismukes  <dismukes@adacore.com>
+
+	* itypes.adb (Create_Null_Excluding_Itype): Apply Base_Type when
+	setting Etype.
+	
+	* par-ch3.adb (P_Access_Type_Definition): Set new attribute
+	Null_Exclusion_In_Return_Present when an access-to-function type has a
+	result type with an explicit not null.
+
+	* sem_ch3.adb (Access_Subprogram_Definition): If a null exclusion is
+	given on the result type, then create a null-excluding itype for the
+	function.
+
+	* sem_ch6.adb (Analyze_Return_Type): Create a null-excluding itype in
+	the case where a null exclusion is imposed on a named access type.
+	(Analyze_Subprogram_Specification): Push and pop the scope of the
+	function around the call to Analyze_Return_Type in the case of no
+	formals, for consistency with handling when formals are present
+	(Process_Formals does this). Ensures that any itype created for the
+	return type will be associated with the proper scope.
+
+	* sem_ch12.adb (Analyze_Generic_Subprogram_Declaration): If a null
+	exclusion is given on a generic function's result type, then create a
+	null-excluding itype for the generic function.
+	(Instantiate_Object): Set Null_Exclusion_Present of a constant created
+	for an actual for a formal in object according to the setting on the
+	formal. Ensures null exclusion checks are done when the association is
+	elaborated.
+
+	* sinfo.ads: Add new flag Null_Exclusion_In_Return_Present on
+	N_Access_Function_Definition.
+
+	* sinfo.adb: Add Get_ and Set_ operations for
+	Null_Exclusion_In_Return_Present.
+
+2009-04-10  Bob Duff  <duff@adacore.com>
+
+	* exp_ch5.adb, exp_ch6.adb, sem_ch6.adb: Move the code that creates a
+	call to the _Postconditions procedure in the case of implicit returns
+	from analysis to expansion. This eliminates some duplicated code. Use
+	the Postcondition_Proc to find the identity of this procedure during
+	expansion.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch6.adb: Minor code clean up.
+
+	* einfo.ads, sem_attr.adb: Minor comment fixes.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch8.adb: Minor reformatting
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* einfo.ads, einfo.adb (Postcondition_Proc): New attribute for
+	procedures.
+
+	* sem_ch6.adb: Minor code clean up.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* mlib-tgt-specific-xi.adb: Minor reformatting
+
+2009-04-10  Bob Duff  <duff@adacore.com>
+
+	* einfo.ads: Minor comment fixes
+
+2009-04-10  Vincent Celier  <celier@adacore.com>
+
+	* snames.ads-tmpl: Remove names that are no longer used in the
+	Project Manager.
+	Mark specifically those that are used only in gprbuild
+
+2009-04-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* init.c: Adjust EH support code on Alpha/Tru64.
+
+2009-04-10  Bob Duff  <duff@adacore.com>
+
+	* sem_ch6.adb (Process_PPCs): Add a call to the _Postconditions
+	procedure on every path that could return implicitly (not via a return
+	statement) from a procedure.
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch9.adb (Build_Master_Entity): An extended return statement is a
+	valid scope for a task declarations and therefore for a master id.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_aux.adb: Minor reformatting
+
+2009-04-10  Vincent Celier  <celier@adacore.com>
+
+	* scn.adb (Obsolescent_Check_Flag): New Boolean flag, initialized to
+	True.
+	(Obsolescent_Check): Do nothing if Obsolescent_Check_Flag is False
+	(Set_Obsolescent_Check): New procedure to change the value of
+	Obsolescent_Check_Flag.
+
+	* scn.ads (Set_Obsolescent_Check): New procedure to control
+	Obsolescent_Check.
+
+	* sinput-l.adb (Load_File): Do not check for pragma Restrictions on
+	obsolescent features while preprocessing.
+
+2009-04-10  Thomas Quinot  <quinot@adacore.com>
+
+	* xsnamest.adb: Use XUtil to have uniform line endings (UNIX style) in
+	generated files on all platforms.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_aux.adb: Minor reformatting
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Access_Definition): Handle properly the case of a
+	protected function with formals that returns an anonymous access type.
+
+2009-04-10  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_disp.adb: Minor reformatting
+
+2009-04-10  Vasiliy Fofanov  <fofanov@adacore.com>
+
+	* seh_init.c: Do not use the 32-bit specific implementation of
+	__gnat_install_SEH_handler on 64-bit Windows target (64-bit specific
+	version TBD).
+
+2009-04-10  Jose Ruiz  <ruiz@adacore.com>
+
+	* mlib-tgt-specific-xi.adb (Get_Target_Prefix): Target_Name may contain
+	a '/' at the end so we better use the complete target name to determine
+	whether it is a PowerPC 55xx target.
+
+2009-04-10  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_eval.adb: Minor reformatting
+
+2009-04-10  Thomas Quinot  <quinot@adacore.com>
+
+	* snames.h, snames.ads, snames.adb: Remove files, now generated from
+	templates.
+
+	* snames.h-tmpl, snames.ads-tmpl, snames.adb-tmpl: Templates for the
+	above.
+
+	* xsnamest.adb: New file.
+
+	* gcc-interface/Make-lang.in: New target for automated generation of
+	snames.ads, snames.adb and snames.h
+
+2009-04-10  Tristan Gingold  <gingold@adacore.com>
+
+	* gcc-interface/Makefile.in, gcc-interface/utils.c: Include "rtl.h" to
+	avoid compile time warnings.
+	Do not add gcc/config in include search list while compiling the RTS.
+	Pragma Thread_Local_Storage is available on any target.
+
+2009-04-10  Bob Duff  <duff@adacore.com>
+
+	* sem.ads, par.adb, sem_ch6.adb, sem_ch8.adb: Minor comment fixes.
+
+2009-04-10  Tristan Gingold  <gingold@adacore.com>
+
+	* init.c: Install signal handler on Darwin.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_prag.adb: Minor reformatting
+
+	* exp_util.adb (Make_Non_Empty_Check): New function
+	(Silly_Boolean_Array_Not_Test): Add call to Make_Non_Empty_Check
+	(Silly_Boolean_Array_Xor_Test): Use Make_Non_Empty_Check
+
+2009-04-10  Arnaud Charlet  <charlet@adacore.com>
+
+	* make.adb, gnatlink.adb: Rename JGNAT toolchain.
+
+2009-04-10  Jose Ruiz  <ruiz@adacore.com>
+
+	* mlib-tgt-specific-xi.adb (Get_Target_Prefix): Insert the appropriate
+	tool prefix for AVR and PowerPC 55xx targets.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_warn.adb (Within_Postcondition): New function
+	(Check_Unset_Reference): Use Within_Postcondition to stop bad warning
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_warn.adb: Minor reformatting
+
+	* make.adb: Minor reformatting.
+
+2009-04-10  Gary Dismukes  <dismukes@adacore.com>
+
+	* exp_ch7.adb (Find_Final_List): When creating a finalization-chain
+	entity and the scope is a subprogram, retrieve the Sloc of the
+	subprogram's body rather than using the sloc of the spec, for better
+	line-stepping behavior in gdb.
+	(Wrap_Transient_Declaration): For the Sloc of nodes created with a list
+	controller, use the Sloc of the first declaration of the containing list
+	rather than that of the node that triggered creation of the list
+	controller.
+
+2009-04-10  Vincent Celier  <celier@adacore.com>
+
+	* prj-nmsc.adb (Check_Naming_Schemes): Initialize local variable Casing
+	to avoid gcc warning.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* g-comlin.adb: Add ??? comment
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_warn.adb (Check_Unused_Withs): Do not emit message about
+	unreferenced entities for a package with no visible declarations.
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* exp_ch9.adb: Minor reformatting
+
+2009-04-10  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_prag.adb: Minor reformatting
+
+2009-04-10  Vincent Celier  <celier@adacore.com>
+
+	* prj-nmsc.adb:
+	(Check_Library_Attributes): For a project qualified as a library project
+	that is not a library project, indicate in the error message which
+	attributes are missing (Library_Dir and/or Library_Name).
+
+2009-04-10  Bob Duff  <duff@adacore.com>
+
+	* exp_ch5.adb, exp_ch9.adb: Avoid use of No_Position in Sloc of
+	generated nodes, because it might confuse various circuits in the FE.
+
+2009-04-10  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma, case Task_Name): Do not expand argument
+	of pragma. It will be recopied and analyzed when used in call to
+	Create_Task.
+
+	* sem_res.adb (Resolve_Call): Clarify use of secondary stack within
+	initialization operations and recognize use of it in procedure calls
+	within init_procs.
+
+	* exp_ch9.adb (Make_Task_Create_Call): Copy full tree of Task_Name
+	argument, because it may have side-effects.
+
+	* exp_ch2.adb: Remove obsolete comments on default functions
+
+2009-04-10  Jose Ruiz  <ruiz@adacore.com>
+
+	* adaint.c (RTX section): Do for RTX the same thing as we do for
+	Windows (include ctype.h and define a fallback ISALPHA if IN_RTS).
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* sem_aux.ads, sem_aux.adb (Nearest_Current_Scope): New function.
+
+	* sem_res.adb (Resolve_Call): Fix test for
+	Suppress_Value_Tracking_On_Call (was wrong for the case of a call from
+	a non-dynamic scope).
+
+2009-04-10  Robert Dewar  <dewar@adacore.com>
+
+	* make.adb: Add comment.
+	Minor reformatting
+
+2009-04-10  Nicolas Setton  <setton@adacore.com>
+
+	* s-osprim-darwin.adb: New file.
+
+	* s-osinte-darwin.adb, s-osinte-darwin.ads: Fix binding to timespec.
+
+2009-04-10  Thomas Quinot  <quinot@adacore.com>
+
+	* g-socket.ads: Add comment clarifying alignment requirement for Fd_Set
+
 2009-04-09  Nick Clifton  <nickc@redhat.com>
 
 	* adadecode.h: Change copyright header to refer to version

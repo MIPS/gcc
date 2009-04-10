@@ -738,20 +738,25 @@ package body Exp_Ch9 is
       --  At the end of the statement sequence, Complete_Rendezvous is called.
       --  A label skipping the Complete_Rendezvous, and all other accept
       --  processing, has already been added for the expansion of requeue
-      --  statements.
+      --  statements. The Sloc is copied from the last statement since it
+      --  is really part of this last statement.
 
-      Call := Build_Runtime_Call (No_Location, RE_Complete_Rendezvous);
+      Call :=
+        Build_Runtime_Call
+          (Sloc (Last (Statements (Stats))), RE_Complete_Rendezvous);
       Insert_Before (Last (Statements (Stats)), Call);
       Analyze (Call);
 
       --  If exception handlers are present, then append Complete_Rendezvous
-      --  calls to the handlers, and construct the required outer block.
+      --  calls to the handlers, and construct the required outer block. As
+      --  above, the Sloc is copied from the last statement in the sequence.
 
       if Present (Exception_Handlers (Stats)) then
          Hand := First (Exception_Handlers (Stats));
-
          while Present (Hand) loop
-            Call := Build_Runtime_Call (No_Location, RE_Complete_Rendezvous);
+            Call :=
+              Build_Runtime_Call
+                (Sloc (Last (Statements (Hand))), RE_Complete_Rendezvous);
             Append (Call, Statements (Hand));
             Analyze (Call);
             Next (Hand);
@@ -786,13 +791,13 @@ package body Exp_Ch9 is
             Exception_Choices => New_List (Ohandle),
 
             Statements =>  New_List (
-              Make_Procedure_Call_Statement (No_Location,
+              Make_Procedure_Call_Statement (Sloc (Stats),
                 Name => New_Reference_To (
-                  RTE (RE_Exceptional_Complete_Rendezvous), No_Location),
+                  RTE (RE_Exceptional_Complete_Rendezvous), Sloc (Stats)),
                 Parameter_Associations => New_List (
-                  Make_Function_Call (No_Location,
+                  Make_Function_Call (Sloc (Stats),
                     Name => New_Reference_To (
-                      RTE (RE_Get_GNAT_Exception), No_Location))))))));
+                      RTE (RE_Get_GNAT_Exception), Sloc (Stats)))))))));
 
       Set_Parent (New_S, Astat); -- temp parent for Analyze call
       Analyze_Exception_Handlers (Exception_Handlers (New_S));
@@ -1216,6 +1221,10 @@ package body Exp_Ch9 is
          --  Generate:
          --    new String'("<Entry name>" & Lnn'Img);
 
+         --  This is an implicit heap allocation, and Comes_From_Source is
+         --  False, which ensures that it will get flagged as a violation of
+         --  No_Implicit_Heap_Allocations when that restriction applies.
+
          Val :=
            Make_Allocator (Loc,
              Make_Qualified_Expression (Loc,
@@ -1263,6 +1272,11 @@ package body Exp_Ch9 is
 
       begin
          Get_Name_String (Chars (Id));
+
+         --  This is an implicit heap allocation, and Comes_From_Source is
+         --  False, which ensures that it will get flagged as a violation of
+         --  No_Implicit_Heap_Allocations when that restriction applies.
+
          Val :=
            Make_Allocator (Loc,
              Make_Qualified_Expression (Loc,
@@ -2389,7 +2403,10 @@ package body Exp_Ch9 is
       --  in internal scopes, unless present already.. Required for nested
       --  limited aggregates, where the expansion of task components may
       --  generate inner blocks. If the block is the rewriting of a call
-      --  this is valid master.
+      --  or the scope is an extended return statement this is valid master.
+      --  The master in an extended return is only used within the return,
+      --  and is subsequently overwritten in Move_Activation_Chain, but it
+      --  must exist now.
 
       if Ada_Version >= Ada_05 then
          while Is_Internal (S) loop
@@ -2397,6 +2414,8 @@ package body Exp_Ch9 is
               and then
                 Nkind (Original_Node (Parent (S))) = N_Procedure_Call_Statement
             then
+               exit;
+            elsif Ekind (S) = E_Return_Statement then
                exit;
             else
                S := Scope (S);
@@ -11990,12 +12009,15 @@ package body Exp_Ch9 is
       if Present (Tdef)
         and then Has_Task_Name_Pragma (Tdef)
       then
+         --  Copy expression in full, because it may be dynamic and have
+         --  side effects.
+
          Append_To (Args,
-           New_Copy (
-             Expression (First (
-               Pragma_Argument_Associations (
-                 Find_Task_Or_Protected_Pragma
-                   (Tdef, Name_Task_Name))))));
+           New_Copy_Tree
+             (Expression (First
+                           (Pragma_Argument_Associations
+                             (Find_Task_Or_Protected_Pragma
+                               (Tdef, Name_Task_Name))))));
 
       else
          Append_To (Args, Make_Identifier (Loc, Name_uTask_Name));

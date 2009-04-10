@@ -726,11 +726,12 @@ package body Sem_Ch3 is
      (Related_Nod : Node_Id;
       N           : Node_Id) return Entity_Id
    is
-      Loc        : constant Source_Ptr := Sloc (Related_Nod);
-      Anon_Type  : Entity_Id;
-      Anon_Scope : Entity_Id;
-      Desig_Type : Entity_Id;
-      Decl       : Entity_Id;
+      Loc                 : constant Source_Ptr := Sloc (Related_Nod);
+      Anon_Type           : Entity_Id;
+      Anon_Scope          : Entity_Id;
+      Desig_Type          : Entity_Id;
+      Decl                : Entity_Id;
+      Enclosing_Prot_Type : Entity_Id := Empty;
 
    begin
       if Is_Entry (Current_Scope)
@@ -767,9 +768,23 @@ package body Sem_Ch3 is
          --  is associated with one of the protected operations, and must
          --  be available in the scope that encloses the protected declaration.
          --  Otherwise the type is in the scope enclosing the subprogram.
+         --  If the function has formals, The return type of a subprogram
+         --  declaration is analyzed in the scope of the subprogram (see
+         --  Process_Formals) and thus the protected type, if present, is
+         --  the scope of the current function scope.
 
          if Ekind (Current_Scope) = E_Protected_Type then
-            Anon_Scope := Scope (Scope (Defining_Entity (Related_Nod)));
+            Enclosing_Prot_Type := Current_Scope;
+
+         elsif Ekind (Current_Scope) = E_Function
+           and then Ekind (Scope (Current_Scope)) = E_Protected_Type
+         then
+            Enclosing_Prot_Type := Scope (Current_Scope);
+         end if;
+
+         if Present (Enclosing_Prot_Type) then
+            Anon_Scope := Scope (Enclosing_Prot_Type);
+
          else
             Anon_Scope := Scope (Defining_Entity (Related_Nod));
          end if;
@@ -947,8 +962,8 @@ package body Sem_Ch3 is
       elsif Nkind (Related_Nod) = N_Function_Specification
         and then not From_With_Type (Anon_Type)
       then
-         if Ekind (Current_Scope) = E_Protected_Type then
-            Build_Itype_Reference (Anon_Type, Parent (Current_Scope));
+         if Present (Enclosing_Prot_Type) then
+            Build_Itype_Reference (Anon_Type, Parent (Enclosing_Prot_Type));
 
          elsif Is_List_Member (Parent (Related_Nod))
            and then Nkind (Parent (N)) /= N_Parameter_Specification
@@ -1103,7 +1118,27 @@ package body Sem_Ch3 is
 
          else
             Analyze (Result_Definition (T_Def));
-            Set_Etype (Desig_Type, Entity (Result_Definition (T_Def)));
+
+            declare
+               Typ : constant Entity_Id := Entity (Result_Definition (T_Def));
+
+            begin
+               --  If a null exclusion is imposed on the result type, then
+               --  create a null-excluding itype (an access subtype) and use
+               --  it as the function's Etype.
+
+               if Is_Access_Type (Typ)
+                 and then Null_Exclusion_In_Return_Present (T_Def)
+               then
+                  Set_Etype  (Desig_Type,
+                    Create_Null_Excluding_Itype
+                      (T           => Typ,
+                       Related_Nod => T_Def,
+                       Scope_Id    => Current_Scope));
+               else
+                  Set_Etype (Desig_Type, Typ);
+               end if;
+            end;
          end if;
 
          if not (Is_Type (Etype (Desig_Type))) then
@@ -8399,7 +8434,7 @@ package body Sem_Ch3 is
          end if;
       end Post_Error;
 
-   --  Start processing for Check_Completion
+   --  Start of processing for Check_Completion
 
    begin
       E := First_Entity (Current_Scope);
@@ -13208,7 +13243,7 @@ package body Sem_Ch3 is
          end if;
       end Tag_Mismatch;
 
-   --  Start processing for Find_Type_Name
+   --  Start of processing for Find_Type_Name
 
    begin
       --  Find incomplete declaration, if one was given

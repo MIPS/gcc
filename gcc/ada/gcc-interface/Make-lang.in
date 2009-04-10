@@ -762,7 +762,7 @@ ada.uninstall:
 ada.mostlyclean:
 	-$(RM) ada/*$(objext) ada/*.ali ada/b_*.c
 	-$(RM) ada/*$(coverageexts)
-	-$(RM) ada/sdefault.adb ada/stamp-sdefault
+	-$(RM) ada/sdefault.adb ada/stamp-sdefault ada/stamp-snames
 	-$(RMDIR) ada/tools
 ada.clean:
 ada.distclean:
@@ -792,6 +792,7 @@ ada.maintainer-clean:
 	-$(RM) ada/nmake.adb
 	-$(RM) ada/nmake.ads
 	-$(RM) ada/treeprs.ads
+	-$(RM) ada/snames.ads ada/snames.adb ada/snames.h
 
 # Stage hooks:
 # The main makefile has already created stage?/ada
@@ -914,7 +915,7 @@ gnatstage2: force
 # Ada language specific files.
 
 ada_extra_files : ada/treeprs.ads ada/einfo.h ada/sinfo.h ada/nmake.adb \
-	ada/nmake.ads
+	ada/nmake.ads ada/snames.ads ada/snames.adb ada/snames.h
 
 ada/b_gnat1.c : $(GNAT1_ADA_OBJS)
 	$(GNATBIND) -C $(ADA_INCLUDES) -o ada/b_gnat1.c -n ada/gnat1drv.ali
@@ -942,6 +943,17 @@ ada/sinfo.h : ada/sinfo.ads ada/xsinfo.adb
 	$(RM) $(addprefix ada/bldtools/sinfo/,$(notdir $^))
 	$(CP) $^ ada/bldtools/sinfo
 	(cd ada/bldtools/sinfo && $(GNATMAKE) -q xsinfo && ./xsinfo ../../sinfo.h )
+
+ada/snames.h ada/snames.ads ada/snames.adb : ada/stamp-snames ; @true
+ada/stamp-snames : ada/snames.ads-tmpl ada/snames.adb-tmpl ada/snames.h-tmpl ada/xsnamest.adb ada/xutil.ads ada/xutil.adb
+	-$(MKDIR) ada/bldtools/snamest
+	$(RM) $(addprefix ada/bldtools/snamest/,$(notdir $^))
+	$(CP) $^ ada/bldtools/snamest
+	(cd ada/bldtools/snamest; gnatmake -q xsnamest ; ./xsnamest )
+	$(srcdir)/../move-if-change ada/bldtools/snamest/snames.ns ada/snames.ads
+	$(srcdir)/../move-if-change ada/bldtools/snamest/snames.nb ada/snames.adb
+	$(srcdir)/../move-if-change ada/bldtools/snamest/snames.nh ada/snames.h
+	touch ada/stamp-snames
 
 ada/nmake.adb : ada/sinfo.ads ada/nmake.adt ada/xnmake.adb ada/xutil.ads ada/xutil.adb
 	-$(MKDIR) ada/bldtools/nmake_b
@@ -3185,8 +3197,9 @@ ada/sem_aux.o : ada/ada.ads ada/a-except.ads ada/a-unccon.ads \
    ada/system.ads ada/s-exctab.ads ada/s-memory.ads ada/s-os_lib.ads \
    ada/s-parame.ads ada/s-stalib.ads ada/s-strops.ads ada/s-sopco3.ads \
    ada/s-sopco4.ads ada/s-sopco5.ads ada/s-string.ads ada/s-traent.ads \
-   ada/s-unstyp.ads ada/s-wchcon.ads ada/table.ads ada/table.adb \
-   ada/tree_io.ads ada/types.ads ada/unchconv.ads ada/unchdeal.ads 
+   ada/s-unstyp.ads ada/s-wchcon.ads ada/snames.ads ada/table.ads \
+   ada/table.adb ada/tree_io.ads ada/types.ads ada/unchconv.ads \
+   ada/unchdeal.ads 
 
 ada/sem_case.o : ada/ada.ads ada/a-except.ads ada/a-unccon.ads \
    ada/a-uncdea.ads ada/alloc.ads ada/atree.ads ada/atree.adb \

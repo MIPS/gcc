@@ -2757,15 +2757,13 @@ package Einfo is
 --       the nature and use of this entity for implementing the Image and
 --       Value attributes for the enumeration type in question.
 
---    Low_Bound_Known (Flag205)
+--    Low_Bound_Tested (Flag205)
 --       Present in all entities. Currently this can only be set True for
 --       formal parameter entries of a standard unconstrained one-dimensional
---       array or string type, where the lower bound of the index type is zero
---       or one. Indicates that the low bound is known to be equal to the lower
---       bound of the index type (e.g. 1 for String, since the index type is
---       Positive). This flag can only be set by a pragma Assert which
---       specifies this. If this flag is set, warnings about assuming the index
---       low bound to be zero or one are suppressed.
+--       array or string type. Indicates that an explicit test of the low bound
+--       of the formal appeared in the code, e.g. in a pragma Assert. If this
+--       flag is set, warnings about assuming the index low bound to be one
+--       are suppressed.
 
 --    Machine_Radix_10 (Flag84)
 --       Present in decimal types and subtypes, set if the Machine_Radix
@@ -3103,6 +3101,12 @@ package Einfo is
 --    Parent_Subtype (Node19)
 --       Present in E_Record_Type. Points to the subtype to use for a
 --       field that references the parent record.
+
+--    Postcondition_Proc (Node8)
+--       Present only in procedure entities, saves the entity of the generated
+--       postcondition proc if one is present, otherwise is set to Empty. Used
+--       to generate the call to this procedure in case the expander inserts
+--       implicit return statements.
 
 --    Primitive_Operations (Elist15)
 --       Present in tagged record types and subtypes and in tagged private
@@ -4514,7 +4518,7 @@ package Einfo is
    --    Kill_Elaboration_Checks             (Flag32)
    --    Kill_Range_Checks                   (Flag33)
    --    Kill_Tag_Checks                     (Flag34)
-   --    Low_Bound_Known                     (Flag205)
+   --    Low_Bound_Tested                    (Flag205)
    --    Materialize_Entity                  (Flag168)
    --    Needs_Debug_Info                    (Flag147)
    --    Never_Set_In_Source                 (Flag115)
@@ -4900,7 +4904,7 @@ package Einfo is
    --    Interface_Name                      (Node21)
    --    Scope_Depth_Value                   (Uint22)
    --    Generic_Renamings                   (Elist23)  (for an instance)
-   --    Inner_Instances                     (Elist23)  (generic function only)
+   --    Inner_Instances                     (Elist23)  (generic case only)
    --    Protection_Object                   (Node23)   (for concurrent kind)
    --    Spec_PPC_List                       (Node24)
    --    Interface_Alias                     (Node25)
@@ -5002,7 +5006,7 @@ package Einfo is
    --    Is_Controlling_Formal               (Flag97)
    --    Is_Only_Out_Parameter               (Flag226)
    --    Is_Optional_Parameter               (Flag134)
-   --    Low_Bound_Known                     (Flag205)
+   --    Low_Bound_Tested                    (Flag205)
    --    Is_Return_Object                    (Flag209)
    --    Parameter_Mode                      (synth)
 
@@ -5139,6 +5143,7 @@ package Einfo is
 
    --  E_Procedure
    --  E_Generic_Procedure
+   --    Postcondition_Proc                  (Node8)    (non-generic case only)
    --    Renaming_Map                        (Uint9)
    --    Handler_Records                     (List10)   (non-generic case only)
    --    Protected_Body_Subprogram           (Node11)
@@ -5154,8 +5159,8 @@ package Einfo is
    --    Last_Entity                         (Node20)
    --    Interface_Name                      (Node21)
    --    Scope_Depth_Value                   (Uint22)
-   --    Generic_Renamings                   (Elist23)  (for instance)
-   --    Inner_Instances                     (Elist23)  (for generic proc)
+   --    Generic_Renamings                   (Elist23)  (for an instance)
+   --    Inner_Instances                     (Elist23)  (generic case only)
    --    Protection_Object                   (Node23)   (for concurrent kind)
    --    Spec_PPC_List                       (Node24)
    --    Interface_Alias                     (Node25)
@@ -5177,10 +5182,9 @@ package Einfo is
    --    Has_Postconditions                  (Flag240)
    --    Has_Subprogram_Descriptor           (Flag93)
    --    Implemented_By_Entry                (Flag232)  (non-generic case only)
-   --    Is_Visible_Child_Unit               (Flag116)
    --    Is_Abstract_Subprogram              (Flag19)   (non-generic case only)
    --    Is_Asynchronous                     (Flag81)
-   --    Is_Called                           (Flag102)  (non-generic subprog)
+   --    Is_Called                           (Flag102)  (non-generic case only)
    --    Is_Constructor                      (Flag76)
    --    Is_Eliminated                       (Flag124)
    --    Is_Instantiated                     (Flag126)  (generic case only)
@@ -5893,7 +5897,7 @@ package Einfo is
    function Limited_View                        (Id : E) return E;
    function Lit_Indexes                         (Id : E) return E;
    function Lit_Strings                         (Id : E) return E;
-   function Low_Bound_Known                     (Id : E) return B;
+   function Low_Bound_Tested                    (Id : E) return B;
    function Machine_Radix_10                    (Id : E) return B;
    function Master_Id                           (Id : E) return E;
    function Materialize_Entity                  (Id : E) return B;
@@ -5924,6 +5928,7 @@ package Einfo is
    function Package_Instantiation               (Id : E) return N;
    function Packed_Array_Type                   (Id : E) return E;
    function Parent_Subtype                      (Id : E) return E;
+   function Postcondition_Proc                  (Id : E) return E;
    function Primitive_Operations                (Id : E) return L;
    function Prival                              (Id : E) return E;
    function Prival_Link                         (Id : E) return E;
@@ -6443,7 +6448,7 @@ package Einfo is
    procedure Set_Limited_View                    (Id : E; V : E);
    procedure Set_Lit_Indexes                     (Id : E; V : E);
    procedure Set_Lit_Strings                     (Id : E; V : E);
-   procedure Set_Low_Bound_Known                 (Id : E; V : B := True);
+   procedure Set_Low_Bound_Tested                (Id : E; V : B := True);
    procedure Set_Machine_Radix_10                (Id : E; V : B := True);
    procedure Set_Master_Id                       (Id : E; V : E);
    procedure Set_Materialize_Entity              (Id : E; V : B := True);
@@ -6474,6 +6479,7 @@ package Einfo is
    procedure Set_Package_Instantiation           (Id : E; V : N);
    procedure Set_Packed_Array_Type               (Id : E; V : E);
    procedure Set_Parent_Subtype                  (Id : E; V : E);
+   procedure Set_Postcondition_Proc              (Id : E; V : E);
    procedure Set_Primitive_Operations            (Id : E; V : L);
    procedure Set_Prival                          (Id : E; V : E);
    procedure Set_Prival_Link                     (Id : E; V : E);
@@ -7131,7 +7137,7 @@ package Einfo is
    pragma Inline (Limited_View);
    pragma Inline (Lit_Indexes);
    pragma Inline (Lit_Strings);
-   pragma Inline (Low_Bound_Known);
+   pragma Inline (Low_Bound_Tested);
    pragma Inline (Machine_Radix_10);
    pragma Inline (Master_Id);
    pragma Inline (Materialize_Entity);
@@ -7165,6 +7171,7 @@ package Einfo is
    pragma Inline (Packed_Array_Type);
    pragma Inline (Parameter_Mode);
    pragma Inline (Parent_Subtype);
+   pragma Inline (Postcondition_Proc);
    pragma Inline (Primitive_Operations);
    pragma Inline (Prival);
    pragma Inline (Prival_Link);
@@ -7518,7 +7525,7 @@ package Einfo is
    pragma Inline (Set_Limited_View);
    pragma Inline (Set_Lit_Indexes);
    pragma Inline (Set_Lit_Strings);
-   pragma Inline (Set_Low_Bound_Known);
+   pragma Inline (Set_Low_Bound_Tested);
    pragma Inline (Set_Machine_Radix_10);
    pragma Inline (Set_Master_Id);
    pragma Inline (Set_Materialize_Entity);
@@ -7549,6 +7556,7 @@ package Einfo is
    pragma Inline (Set_Package_Instantiation);
    pragma Inline (Set_Packed_Array_Type);
    pragma Inline (Set_Parent_Subtype);
+   pragma Inline (Set_Postcondition_Proc);
    pragma Inline (Set_Primitive_Operations);
    pragma Inline (Set_Prival);
    pragma Inline (Set_Prival_Link);

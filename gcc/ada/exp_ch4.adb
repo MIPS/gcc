@@ -657,6 +657,11 @@ package body Exp_Ch4 is
                      Make_Allocator (Loc,
                        New_Reference_To (Etype (Exp), Loc)));
 
+               --  Copy the Comes_From_Source flag for the allocator we just
+               --  built, since logically this allocator is a replacement of
+               --  the original allocator node. This is for proper handling of
+               --  restriction No_Implicit_Heap_Allocations.
+
                Set_Comes_From_Source
                  (Expression (Tmp_Node), Comes_From_Source (N));
 
@@ -672,6 +677,7 @@ package body Exp_Ch4 is
                end if;
 
                Convert_Aggr_In_Allocator (N, Tmp_Node, Exp);
+
             else
                Node := Relocate_Node (N);
                Set_Analyzed (Node);
@@ -726,6 +732,11 @@ package body Exp_Ch4 is
                       Expression          =>
                         Make_Allocator (Loc,
                           New_Reference_To (Etype (Exp), Loc)));
+
+                  --  Copy the Comes_From_Source flag for the allocator we just
+                  --  built, since logically this allocator is a replacement of
+                  --  the original allocator node. This is for proper handling
+                  --  of restriction No_Implicit_Heap_Allocations.
 
                   Set_Comes_From_Source
                     (Expression (Tmp_Node), Comes_From_Source (N));
@@ -928,6 +939,11 @@ package body Exp_Ch4 is
              Object_Definition   => New_Reference_To (PtrT, Loc),
              Expression          => Make_Allocator (Loc,
                  New_Reference_To (Etype (Exp), Loc)));
+
+         --  Copy the Comes_From_Source flag for the allocator we just built,
+         --  since logically this allocator is a replacement of the original
+         --  allocator node. This is for proper handling of restriction
+         --  No_Implicit_Heap_Allocations.
 
          Set_Comes_From_Source
            (Expression (Tmp_Node), Comes_From_Source (N));
@@ -4185,7 +4201,7 @@ package body Exp_Ch4 is
                            Make_Integer_Literal (Loc, Dim)));
                   end Construct_Attribute_Reference;
 
-               --  Start processing for Check_Subscripts
+               --  Start of processing for Check_Subscripts
 
                begin
                   for J in 1 .. Number_Dimensions (Typ) loop
@@ -4783,7 +4799,7 @@ package body Exp_Ch4 is
 
          --  Check for 64-bit division available, or long shifts if the divisor
          --  is a small power of 2 (since such divides will be converted into
-         --  long shifts.
+         --  long shifts).
 
          if Esize (Ltyp) > 32
            and then not Support_64_Bit_Divides_On_Target
@@ -5699,7 +5715,7 @@ package body Exp_Ch4 is
 
       --  Otherwise we have to introduce conversions (conversions are also
       --  required in the universal cases, since the runtime routine is
-      --  typed using one of the standard types.
+      --  typed using one of the standard types).
 
       else
          Rewrite (N,

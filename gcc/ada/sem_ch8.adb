@@ -449,8 +449,8 @@ package body Sem_Ch8 is
    --  private with on E.
 
    procedure Find_Expanded_Name (N : Node_Id);
-   --  Selected component is known to be expanded name. Verify legality
-   --  of selector given the scope denoted by prefix.
+   --  Selected component is known to be expanded name. Verify legality of
+   --  selector given the scope denoted by prefix.
 
    function Find_Renamed_Entity
      (N         : Node_Id;
@@ -3384,10 +3384,10 @@ package body Sem_Ch8 is
       --  Saves start of homonym chain
 
       Nvis_Entity : Boolean;
-      --  Set True to indicate that at there is at least one entity on the
-      --  homonym chain which, while not visible, is visible enough from the
-      --  user point of view to warrant an error message of "not visible"
-      --  rather than undefined.
+      --  Set True to indicate that there is at least one entity on the homonym
+      --  chain which, while not visible, is visible enough from the user point
+      --  of view to warrant an error message of "not visible" rather than
+      --  undefined.
 
       Nvis_Is_Private_Subprg : Boolean := False;
       --  Ada 2005 (AI-262): Set True to indicate that a form of Beaujolais
@@ -7219,6 +7219,15 @@ package body Sem_Ch8 is
                        and then
                      Nkind (Parent (Clause2)) = N_Compilation_Unit
                   then
+
+                     --  If the unit is a subprogram body that acts as spec,
+                     --  the context clause is shared with the constructed
+                     --  subprogram spec. Clearly there is no redundancy.
+
+                     if Clause1 = Clause2 then
+                        return;
+                     end if;
+
                      Unit1 := Unit (Parent (Clause1));
                      Unit2 := Unit (Parent (Clause2));
 
