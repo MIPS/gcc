@@ -6710,7 +6710,8 @@ gen_cond_trap (enum rtx_code code, rtx op1, rtx op2, rtx tcode)
     return 0;
 
   /* Some targets only accept a zero trap code.  */
-  if (!insn_data[icode].operand[3].predicate (tcode, VOIDmode))
+  if (insn_data[icode].operand[3].predicate
+      && !insn_data[icode].operand[3].predicate (tcode, VOIDmode))
     return 0;
 
   do_pending_stack_adjust ();
