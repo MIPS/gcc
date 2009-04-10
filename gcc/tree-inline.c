@@ -4941,7 +4941,7 @@ delete_unreachable_blocks_update_callgraph (copy_body_data *id)
 
   if (changed)
     tidy_fallthru_edges ();
-#ifdef ENABLE_CHECKING
+#ifdef ENABLE_CHECKING0
   verify_cgraph_node (id->dst_node);
   if (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES
       && id->dst_node->clones)
