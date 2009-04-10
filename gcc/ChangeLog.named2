@@ -1,6 +1,7 @@
 [gcc changes]
-2009-01-13  Ben Elliston  <bje@au.ibm.com>
+2009-04-10  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* doc/extend.texi (Named Address Spaces): Add new section
 	documenting named address space support.
@@ -373,8 +374,8 @@
 	(TARGET_ADDR_SPACE_KEYWORDS): New macro to define the __ea
 	keyword.
 
-	* config/spu/spu-elf.h (LIB_SPECS): Add support for
-	-mcache-size=, -matomic-updates switches.
+	* config/spu/spu-elf.h (LIB_SPEC): Handle -mcache-size= and
+	-matomic-updates switches.
 
 	* config/spu/spu.md (to_ea): New expanders for __ea named address
 	space support.
@@ -385,12 +386,12 @@
 
 	* config/spu/spu.opt (-mea32): New switch.
 	(-mea64): Ditto.
-	(-mcache-size=): Ditto.
-	(-matomic-updates): Ditto.
 	(-mno-ea-to-generic-conversion): Ditto.
 	(-mea-to-generic-conversion): Ditto.
 	(-mno-address-space-conversion): Ditto.
 	(-maddress-space-conversion): Ditto.
+	(-mcache-size=): Ditto.
+	(-matomic-updates): Ditto.
 
 	* config/spu/t-spu-elf (MULTILIB_OPTIONS): Add -mea64 multilib.
 	(EXTRA_MULTILIB_PARTS): Add libgcc_cachemgr.a,
@@ -407,13 +408,13 @@
 	(convert_to_integer): Ditto.
 
 [gcc/cp changes]
-2009-01-13  Ben Elliston  <bje@au.ibm.com>
+2009-04-10  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* typeck.c (cp_type_quals): Convert argument to const_tree.
 
 [gcc/testsuite changes]
-2009-01-13  Ben Elliston  <bje@au.ibm.com>
+2009-04-10  Ben Elliston  <bje@au.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* testsuite/gcc.target/spu/ea/cache-common.h: New file for named
