@@ -4913,7 +4913,7 @@ delete_unreachable_blocks_update_callgraph (copy_body_data *id)
 		    && id->dst_node->clones)
      		  for (node = id->dst_node->clones; node != id->dst_node;)
 		    {
-	              if ((e = cgraph_edge (id->dst_node, gsi_stmt (bsi))) != NULL)
+	              if ((e = cgraph_edge (node, gsi_stmt (bsi))) != NULL)
 			{
 		          if (!e->inline_failed)
 		            cgraph_remove_node_and_inline_clones (e->callee);
@@ -4941,6 +4941,30 @@ delete_unreachable_blocks_update_callgraph (copy_body_data *id)
 
   if (changed)
     tidy_fallthru_edges ();
+#ifdef ENABLE_CHECKING
+  verify_cgraph_node (id->dst_node);
+  if (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES
+      && id->dst_node->clones)
+    {
+      struct cgraph_node *node;
+      for (node = id->dst_node->clones; node != id->dst_node;)
+	{
+	  verify_cgraph_node (node);
+	   
+	  if (node->clones)
+	    node = node->clones;
+	  else if (node->next_sibling_clone)
+	    node = node->next_sibling_clone;
+	  else
+	    {
+	      while (node != id->dst_node && !node->next_sibling_clone)
+		node = node->clone_of;
+	      if (node != id->dst_node)
+		node = node->next_sibling_clone;
+	    }
+	}
+     }
+#endif
   return changed;
 }
 

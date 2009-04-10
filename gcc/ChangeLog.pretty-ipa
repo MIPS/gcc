@@ -1,5 +1,13 @@
 2009-04-09  Jan Hubicka  <jh@suse.cz>
 
+	* cgraph.c (cgraph_remove_node_and_inline_clones): Fix.
+	* cgraphunit.c (save_inlined_function_body): Update cgraph before
+	versioning.
+	* tree-inline.c (remove_unreachable_blocks_update_callgraph): Fix.
+	(tree_function_versioning): Sanity check.
+
+2009-04-09  Jan Hubicka  <jh@suse.cz>
+
 	* Merge from mainline.
 
 2009-04-08  Jan Hubicka  <jh@suse.cz>

@@ -1211,6 +1211,7 @@ cgraph_remove_node_and_inline_clones (struct cgraph_node *node)
       if (!e->inline_failed)
         cgraph_remove_node_and_inline_clones (e->callee);
     }
+  cgraph_remove_node (node);
 }
 
 /* Notify finalize_compilation_unit that given node is reachable.  */
