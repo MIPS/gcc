@@ -49,6 +49,7 @@ with Opt;      use Opt;
 with Output;   use Output;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch4;  use Sem_Ch4;
@@ -3093,10 +3094,12 @@ package body Sem_Ch6 is
    --  Start of processing for Build_Body_To_Inline
 
    begin
+      --  Return immediately if done already
+
       if Nkind (Decl) = N_Subprogram_Declaration
         and then Present (Body_To_Inline (Decl))
       then
-         return;    --  Done already.
+         return;
 
       --  Functions that return unconstrained composite types require
       --  secondary stack handling, and cannot currently be inlined, unless
@@ -3280,12 +3283,14 @@ package body Sem_Ch6 is
       Skip_Controlling_Formals : Boolean := False)
    is
       procedure Conformance_Error (Msg : String; N : Node_Id := New_Id);
-      --  Post error message for conformance error on given node. Two messages
-      --  are output. The first points to the previous declaration with a
-      --  general "no conformance" message. The second is the detailed reason,
-      --  supplied as Msg. The parameter N provide information for a possible
-      --  & insertion in the message, and also provides the location for
-      --  posting the message in the absence of a specified Err_Loc location.
+      --  Sets Conforms to False. If Errmsg is False, then that's all it does.
+      --  If Errmsg is True, then processing continues to post an error message
+      --  for conformance error on given node. Two messages are output. The
+      --  first message points to the previous declaration with a general "no
+      --  conformance" message. The second is the detailed reason, supplied as
+      --  Msg. The parameter N provide information for a possible & insertion
+      --  in the message, and also provides the location for posting the
+      --  message in the absence of a specified Err_Loc location.
 
       -----------------------
       -- Conformance_Error --
@@ -3462,13 +3467,24 @@ package body Sem_Ch6 is
 
       Old_Formal := First_Formal (Old_Id);
       New_Formal := First_Formal (New_Id);
-
       while Present (Old_Formal) and then Present (New_Formal) loop
          if Is_Controlling_Formal (Old_Formal)
            and then Is_Controlling_Formal (New_Formal)
            and then Skip_Controlling_Formals
          then
-            goto Skip_Controlling_Formal;
+            --  The controlling formals will have different types when
+            --  comparing an interface operation with its match, but both
+            --  or neither must be access parameters.
+
+            if Is_Access_Type (Etype (Old_Formal))
+                 =
+               Is_Access_Type (Etype (New_Formal))
+            then
+               goto Skip_Controlling_Formal;
+            else
+               Conformance_Error
+                 ("\access parameter does not match!", New_Formal);
+            end if;
          end if;
 
          if Ctype = Fully_Conformant then
@@ -3579,7 +3595,15 @@ package body Sem_Ch6 is
                       Get_Inst => Get_Inst)
            and then not Access_Types_Match
          then
-            Conformance_Error ("\type of & does not match!", New_Formal);
+            --  Don't give error message if old type is Any_Type. This test
+            --  avoids some cascaded errors, e.g. in case of a bad spec.
+
+            if Errmsg and then Old_Formal_Base = Any_Type then
+               Conforms := False;
+            else
+               Conformance_Error ("\type of & does not match!", New_Formal);
+            end if;
+
             return;
          end if;
 
@@ -4173,7 +4197,15 @@ package body Sem_Ch6 is
             Set_Is_Overriding_Operation (Subp);
          end if;
 
-         if Style_Check and then not Must_Override (Spec) then
+         --  If primitive flag is set, operation is overriding at the
+         --  point of its declaration, so warn if necessary. Otherwise
+         --  it may have been declared before the operation it overrides
+         --  and no check is required.
+
+         if Style_Check
+            and then not Must_Override (Spec)
+            and then Is_Primitive
+         then
             Style.Missing_Overriding (Decl, Subp);
          end if;
 
@@ -5507,6 +5539,7 @@ package body Sem_Ch6 is
                  and then Post_Error
                then
                   Error_Msg_Sloc := Sloc (E);
+
                   if Is_Imported (E) then
                      Error_Msg_NE
                       ("body not allowed for imported subprogram & declared#",
@@ -5636,7 +5669,6 @@ package body Sem_Ch6 is
             Act := First (Actuals);
 
             if Nkind (Op_Node) in N_Binary_Op then
-
                if not FCE (Left_Opnd (Op_Node), Act) then
                   return False;
                end if;
@@ -5761,7 +5793,6 @@ package body Sem_Ch6 is
 
                         Elt1 := First (Constraints (Constraint (Indic1)));
                         Elt2 := First (Constraints (Constraint (Indic2)));
-
                         while Present (Elt1) and then Present (Elt2) loop
                            if not FCE (Elt1, Elt2) then
                               return False;
@@ -6223,13 +6254,13 @@ package body Sem_Ch6 is
             return False;
          end if;
 
-         --  If the generic type is a private type, then the original
-         --  operation was not overriding in the generic, because there was
-         --  no primitive operation to override.
+         --  If the generic type is a private type, then the original operation
+         --  was not overriding in the generic, because there was no primitive
+         --  operation to override.
 
          if Nkind (Parent (G_Typ)) = N_Formal_Type_Declaration
            and then Nkind (Formal_Type_Definition (Parent (G_Typ))) =
-             N_Formal_Private_Type_Definition
+                      N_Formal_Private_Type_Definition
          then
             return True;
 
@@ -6463,6 +6494,15 @@ package body Sem_Ch6 is
       --  set when freezing entities, so we must examine the place of the
       --  declaration in the tree, and recognize wrapper packages as well.
 
+      function Is_Overriding_Alias
+        (Old_E : Entity_Id;
+         New_E : Entity_Id) return Boolean;
+      --  Check whether new subprogram and old subprogram are both inherited
+      --  from subprograms that have distinct dispatch table entries. This can
+      --  occur with derivations from instances with accidental homonyms.
+      --  The function is conservative given that the converse is only true
+      --  within instances that contain accidental overloadings.
+
       ------------------------------------
       -- Check_For_Primitive_Subprogram --
       ------------------------------------
@@ -6476,17 +6516,17 @@ package body Sem_Ch6 is
          B_Typ  : Entity_Id;
 
          function Visible_Part_Type (T : Entity_Id) return Boolean;
-         --  Returns true if T is declared in the visible part of
-         --  the current package scope; otherwise returns false.
-         --  Assumes that T is declared in a package.
+         --  Returns true if T is declared in the visible part of the current
+         --  package scope; otherwise returns false. Assumes that T is declared
+         --  in a package.
 
          procedure Check_Private_Overriding (T : Entity_Id);
          --  Checks that if a primitive abstract subprogram of a visible
-         --  abstract type is declared in a private part, then it must
-         --  override an abstract subprogram declared in the visible part.
-         --  Also checks that if a primitive function with a controlling
-         --  result is declared in a private part, then it must override
-         --  a function declared in the visible part.
+         --  abstract type is declared in a private part, then it must override
+         --  an abstract subprogram declared in the visible part. Also checks
+         --  that if a primitive function with a controlling result is declared
+         --  in a private part, then it must override a function declared in
+         --  the visible part.
 
          ------------------------------
          -- Check_Private_Overriding --
@@ -6502,7 +6542,7 @@ package body Sem_Ch6 is
                if Is_Abstract_Type (T)
                  and then Is_Abstract_Subprogram (S)
                  and then (not Is_Overriding
-                           or else not Is_Abstract_Subprogram (E))
+                            or else not Is_Abstract_Subprogram (E))
                then
                   Error_Msg_N ("abstract subprograms must be visible "
                                    & "(RM 3.9.3(10))!", S);
@@ -6531,8 +6571,8 @@ package body Sem_Ch6 is
             N : Node_Id;
 
          begin
-            --  If the entity is a private type, then it must be
-            --  declared in a visible part.
+            --  If the entity is a private type, then it must be declared in a
+            --  visible part.
 
             if Ekind (T) in Private_Kind then
                return True;
@@ -7008,14 +7048,33 @@ package body Sem_Ch6 is
                 (Is_List_Member (Decl)
                    and then List_Containing (Decl) = Priv_Decls)
               or else (Nkind (Parent (Decl)) = N_Package_Specification
-                         and then not Is_Compilation_Unit (
-                           Defining_Entity (Parent (Decl)))
+                         and then not
+                           Is_Compilation_Unit
+                             (Defining_Entity (Parent (Decl)))
                          and then List_Containing (Parent (Parent (Decl)))
-                           = Priv_Decls);
+                                    = Priv_Decls);
          else
             return False;
          end if;
       end Is_Private_Declaration;
+
+      --------------------------
+      -- Is_Overriding_Alias --
+      --------------------------
+
+      function Is_Overriding_Alias
+        (Old_E : Entity_Id;
+         New_E : Entity_Id) return Boolean
+      is
+         AO : constant Entity_Id := Alias (Old_E);
+         AN : constant Entity_Id := Alias (New_E);
+
+      begin
+         return Scope (AO) /= Scope (AN)
+           or else No (DTC_Entity (AO))
+           or else No (DTC_Entity (AN))
+           or else DT_Position (AO) = DT_Position (AN);
+      end Is_Overriding_Alias;
 
    --  Start of processing for New_Overloaded_Entity
 
@@ -7144,19 +7203,21 @@ package body Sem_Ch6 is
                --  odd case where both are derived operations declared at the
                --  same point, both operations should be declared, and in that
                --  case we bypass the following test and proceed to the next
-               --  part (this can only occur for certain obscure cases
-               --  involving homographs in instances and can't occur for
-               --  dispatching operations ???). Note that the following
-               --  condition is less than clear. For example, it's not at all
-               --  clear why there's a test for E_Entry here. ???
+               --  part. This can only occur for certain obscure cases in
+               --  instances, when an operation on a type derived from a formal
+               --  private type does not override a homograph inherited from
+               --  the actual. In subsequent derivations of such a type, the
+               --  DT positions of these operations remain distinct, if they
+               --  have been set.
 
                if Present (Alias (S))
                  and then (No (Alias (E))
                             or else Comes_From_Source (E)
-                            or else Is_Dispatching_Operation (E))
-                 and then
-                   (Ekind (E) = E_Entry
-                     or else Ekind (E) /= E_Enumeration_Literal)
+                            or else Is_Abstract_Subprogram (S)
+                            or else
+                              (Is_Dispatching_Operation (E)
+                                 and then Is_Overriding_Alias (E, S)))
+                 and then Ekind (E) /= E_Enumeration_Literal
                then
                   --  When an derived operation is overloaded it may be due to
                   --  the fact that the full view of a private extension
@@ -7200,7 +7261,7 @@ package body Sem_Ch6 is
                  and then (not In_Instance
                             or else No (Parent (E))
                             or else Nkind (Unit_Declaration_Node (E)) /=
-                               N_Subprogram_Renaming_Declaration)
+                                      N_Subprogram_Renaming_Declaration)
                then
                   --  A subprogram child unit is not allowed to override
                   --  an inherited subprogram (10.1.1(20)).
@@ -7214,6 +7275,7 @@ package body Sem_Ch6 is
 
                   if Is_Non_Overriding_Operation (E, S) then
                      Enter_Overloaded_Entity (S);
+
                      if No (Derived_Type)
                        or else Is_Tagged_Type (Derived_Type)
                      then
@@ -7236,7 +7298,6 @@ package body Sem_Ch6 is
 
                   begin
                      Prev := First_Entity (Current_Scope);
-
                      while Present (Prev)
                        and then Next_Entity (Prev) /= E
                      loop
@@ -7272,17 +7333,17 @@ package body Sem_Ch6 is
                      then
                         --  For nondispatching derived operations that are
                         --  overridden by a subprogram declared in the private
-                        --  part of a package, we retain the derived
-                        --  subprogram but mark it as not immediately visible.
-                        --  If the derived operation was declared in the
-                        --  visible part then this ensures that it will still
-                        --  be visible outside the package with the proper
-                        --  signature (calls from outside must also be
-                        --  directed to this version rather than the
-                        --  overriding one, unlike the dispatching case).
-                        --  Calls from inside the package will still resolve
-                        --  to the overriding subprogram since the derived one
-                        --  is marked as not visible within the package.
+                        --  part of a package, we retain the derived subprogram
+                        --  but mark it as not immediately visible. If the
+                        --  derived operation was declared in the visible part
+                        --  then this ensures that it will still be visible
+                        --  outside the package with the proper signature
+                        --  (calls from outside must also be directed to this
+                        --  version rather than the overriding one, unlike the
+                        --  dispatching case). Calls from inside the package
+                        --  will still resolve to the overriding subprogram
+                        --  since the derived one is marked as not visible
+                        --  within the package.
 
                         --  If the private operation is dispatching, we achieve
                         --  the overriding by keeping the implicit operation
@@ -7295,7 +7356,6 @@ package body Sem_Ch6 is
                         --  remove the implicit operation altogether.
 
                         if Is_Private_Declaration (S) then
-
                            if not Is_Dispatching_Operation (E) then
                               Set_Is_Immediately_Visible (E, False);
                            else
@@ -7419,6 +7479,7 @@ package body Sem_Ch6 is
                   declare
                      F1 : Entity_Id;
                      F2 : Entity_Id;
+
                   begin
                      F1 := First_Formal (S);
                      F2 := First_Formal (E);

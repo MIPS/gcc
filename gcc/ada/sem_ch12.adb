@@ -43,6 +43,7 @@ with Rident;   use Rident;
 with Restrict; use Restrict;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch6;  use Sem_Ch6;
@@ -1810,7 +1811,7 @@ package body Sem_Ch12 is
          Find_Type (Subtype_Mark (N));
          T := Entity (Subtype_Mark (N));
 
-         --  Verify that there is no redundant null exclusion.
+         --  Verify that there is no redundant null exclusion
 
          if Null_Exclusion_Present (N) then
             if not Is_Access_Type (T) then
@@ -3435,14 +3436,16 @@ package body Sem_Ch12 is
 
       Validate_Categorization_Dependency (N, Act_Decl_Id);
 
-      --  Check restriction, but skip this if something went wrong in the above
-      --  analysis, indicated by Act_Decl_Id being void.
+      --  There used to be a check here to prevent instantiations in local
+      --  contexts if the No_Local_Allocators restriction was active. This
+      --  check was removed by a binding interpretation in AI-95-00130/07,
+      --  but we retain the code for documentation purposes.
 
-      if Ekind (Act_Decl_Id) /= E_Void
-        and then not Is_Library_Level_Entity (Act_Decl_Id)
-      then
-         Check_Restriction (No_Local_Allocators, N);
-      end if;
+      --  if Ekind (Act_Decl_Id) /= E_Void
+      --    and then not Is_Library_Level_Entity (Act_Decl_Id)
+      --  then
+      --     Check_Restriction (No_Local_Allocators, N);
+      --  end if;
 
       if Inline_Now then
          Inline_Instance_Body (N, Gen_Unit, Act_Decl);

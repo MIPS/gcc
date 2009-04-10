@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1269,10 +1269,9 @@ package body Sem_Prag is
             elsif Nkind (P) = N_Handled_Sequence_Of_Statements then
                exit;
 
-            elsif Nkind (P) = N_Package_Specification then
-               return;
-
-            elsif Nkind (P) = N_Block_Statement then
+            elsif Nkind_In (P, N_Package_Specification,
+                               N_Block_Statement)
+            then
                return;
 
             --  Note: the following tests seem a little peculiar, because
@@ -2490,8 +2489,9 @@ package body Sem_Prag is
             then
                if Scope (E) /= Scope (Alias (E)) then
                   Error_Pragma_Ref
-                    ("cannot apply pragma% to non-local renaming&#", E);
+                    ("cannot apply pragma% to non-local entity&#", E);
                end if;
+
                E := Alias (E);
 
             elsif Nkind_In (Parent (E), N_Full_Type_Declaration,
@@ -2630,8 +2630,10 @@ package body Sem_Prag is
                     and then Scope (E1) /= Scope (Alias (E1))
                   then
                      Error_Pragma_Ref
-                       ("cannot apply pragma% to non-local renaming&#", E1);
+                       ("cannot apply pragma% to non-local entity& declared#",
+                        E1);
                   end if;
+
                   Set_Convention_From_Pragma (E1);
 
                   if Prag_Id = Pragma_Import then
@@ -3537,8 +3539,8 @@ package body Sem_Prag is
          elsif (C = Convention_Java or else C = Convention_CIL)
            and then
              (Is_Package_Or_Generic_Package (Def_Id)
-                or else Ekind (Def_Id) = E_Exception
-                or else Nkind (Parent (Def_Id)) = N_Component_Declaration)
+               or else Ekind (Def_Id) = E_Exception
+               or else Nkind (Parent (Def_Id)) = N_Component_Declaration)
          then
             Set_Imported (Def_Id);
             Set_Is_Public (Def_Id);
@@ -5786,8 +5788,9 @@ package body Sem_Prag is
          -- Check_Policy --
          ------------------
 
-         --  pragma Check_Policy ([Name =>] IDENTIFIER,
-         --                       POLICY_IDENTIFIER;
+         --  pragma Check_Policy (
+         --    [Name   =>] IDENTIFIER,
+         --    [Policy =>] POLICY_IDENTIFIER);
 
          --  POLICY_IDENTIFIER ::= ON | OFF | CHECK | IGNORE
 
@@ -5797,8 +5800,8 @@ package body Sem_Prag is
          when Pragma_Check_Policy =>
             GNAT_Pragma;
             Check_Arg_Count (2);
-            Check_No_Identifier (Arg2);
             Check_Optional_Identifier (Arg1, Name_Name);
+            Check_Optional_Identifier (Arg2, Name_Policy);
             Check_Arg_Is_One_Of
               (Arg2, Name_On, Name_Off, Name_Check, Name_Ignore);
 
@@ -6576,9 +6579,8 @@ package body Sem_Prag is
             Cunit_Node := Cunit (Current_Sem_Unit);
             Cunit_Ent  := Cunit_Entity (Current_Sem_Unit);
 
-            if Nkind (Unit (Cunit_Node)) = N_Package_Body
-                 or else
-               Nkind (Unit (Cunit_Node)) = N_Subprogram_Body
+            if Nkind_In (Unit (Cunit_Node), N_Package_Body,
+                                            N_Subprogram_Body)
             then
                Error_Pragma ("pragma% must refer to a spec, not a body");
             else
@@ -6624,12 +6626,11 @@ package body Sem_Prag is
          ---------------
 
          --  pragma Eliminate (
-         --      [Unit_Name       =>]  IDENTIFIER |
-         --                            SELECTED_COMPONENT
-         --    [,[Entity          =>]  IDENTIFIER |
-         --                            SELECTED_COMPONENT |
-         --                            STRING_LITERAL]
-         --    [,]OVERLOADING_RESOLUTION);
+         --      [Unit_Name  =>] IDENTIFIER | SELECTED_COMPONENT,
+         --    [,[Entity     =>] IDENTIFIER |
+         --                      SELECTED_COMPONENT |
+         --                      STRING_LITERAL]
+         --    [,                OVERLOADING_RESOLUTION]);
 
          --  OVERLOADING_RESOLUTION ::= PARAMETER_AND_RESULT_TYPE_PROFILE |
          --                             SOURCE_LOCATION
@@ -7414,9 +7415,8 @@ package body Sem_Prag is
             begin
                GP := Parent (Parent (N));
 
-               if Nkind (GP) = N_Package_Declaration
-                    or else
-                  Nkind (GP) = N_Generic_Package_Declaration
+               if Nkind_In (GP, N_Package_Declaration,
+                                N_Generic_Package_Declaration)
                then
                   GP := Parent (GP);
                end if;
@@ -8079,9 +8079,7 @@ package body Sem_Prag is
                Preanalyze_Spec_Expression (Arg, RTE (RE_Interrupt_Priority));
             end if;
 
-            if Nkind (P) /= N_Task_Definition
-              and then Nkind (P) /= N_Protected_Definition
-            then
+            if not Nkind_In (P, N_Task_Definition, N_Protected_Definition) then
                Pragma_Misplaced;
                return;
 
@@ -9055,9 +9053,16 @@ package body Sem_Prag is
          -- Obsolescent --
          -----------------
 
-         --  pragma Obsolescent [(
-         --    [Entity => NAME,]
-         --    [(static_string_EXPRESSION [, Ada_05])];
+         --  pragma Obsolescent;
+
+         --  pragma Obsolescent (
+         --    [Message =>] static_string_EXPRESSION
+         --  [,[Version =>] Ada_05]]);
+
+         --  pragma Obsolescent (
+         --    [Entity  =>] NAME
+         --  [,[Message =>] static_string_EXPRESSION
+         --  [,[Version =>] Ada_05]] );
 
          when Pragma_Obsolescent => Obsolescent : declare
             Ename : Node_Id;
@@ -9182,18 +9187,14 @@ package body Sem_Prag is
             --  See if first argument specifies an entity name
 
             if Arg_Count >= 1
-              and then Chars (Arg1) = Name_Entity
+              and then
+                (Chars (Arg1) = Name_Entity
+                   or else
+                     Nkind_In (Get_Pragma_Arg (Arg1), N_Character_Literal,
+                                                      N_Identifier,
+                                                      N_Operator_Symbol))
             then
                Ename := Get_Pragma_Arg (Arg1);
-
-               if Nkind (Ename) /= N_Character_Literal
-                    and then
-                  Nkind (Ename) /= N_Identifier
-                    and then
-                  Nkind (Ename) /= N_Operator_Symbol
-               then
-                  Error_Pragma_Arg ("entity name expected for pragma%", Arg1);
-               end if;
 
                --  Eliminate first argument, so we can share processing
 
@@ -9207,7 +9208,13 @@ package body Sem_Prag is
                Ename := Empty;
             end if;
 
-            Check_No_Identifiers;
+            if Arg_Count >= 1 then
+               Check_Optional_Identifier (Arg1, Name_Message);
+
+               if Arg_Count = 2 then
+                  Check_Optional_Identifier (Arg2, Name_Version);
+               end if;
+            end if;
 
             --  Get immediately preceding declaration
 
@@ -9249,8 +9256,8 @@ package body Sem_Prag is
                  and then Nkind (Decl) not in N_Generic_Declaration
                then
                   Error_Pragma
-                    ("pragma% misplaced, " &
-                     "must immediately follow a declaration");
+                    ("pragma% misplaced, "
+                     & "must immediately follow a declaration");
 
                else
                   Set_Obsolescent (Defining_Entity (Decl));
@@ -9785,10 +9792,7 @@ package body Sem_Prag is
 
             --  Task or Protected, must be of type Integer
 
-            elsif Nkind (P) = N_Protected_Definition
-                    or else
-                  Nkind (P) = N_Task_Definition
-            then
+            elsif Nkind_In (P, N_Protected_Definition, N_Task_Definition) then
                Arg := Expression (Arg1);
 
                --  The expression must be analyzed in the special manner
@@ -9812,10 +9816,7 @@ package body Sem_Prag is
             else
                Set_Has_Priority_Pragma (P, True);
 
-               if Nkind (P) = N_Protected_Definition
-                    or else
-                  Nkind (P) = N_Task_Definition
-               then
+               if Nkind_In (P, N_Protected_Definition, N_Task_Definition) then
                   Record_Rep_Item (Defining_Identifier (Parent (P)), N);
                   --  exp_ch9 should use this ???
                end if;
@@ -10061,10 +10062,7 @@ package body Sem_Prag is
                X : constant Node_Id := Original_Node (Arg);
 
             begin
-               if Nkind (X) /= N_String_Literal
-                    and then
-                  Nkind (X) /= N_Identifier
-               then
+               if not Nkind_In (X, N_String_Literal, N_Identifier) then
                   Error_Pragma_Arg
                     ("inappropriate argument for pragma %", Arg);
                end if;
@@ -10211,6 +10209,7 @@ package body Sem_Prag is
             if not GNAT_Mode then
                Error_Pragma ("pragma% only available in GNAT mode");
             end if;
+
             if Nkind (N) = N_Null_Statement then
                return;
             end if;
@@ -10432,12 +10431,11 @@ package body Sem_Prag is
             Cunit_Node := Cunit (Current_Sem_Unit);
             Cunit_Ent  := Cunit_Entity (Current_Sem_Unit);
 
-            if Nkind (Unit (Cunit_Node)) /= N_Package_Declaration
-              and then
-              Nkind (Unit (Cunit_Node)) /= N_Generic_Package_Declaration
+            if not Nkind_In (Unit (Cunit_Node), N_Package_Declaration,
+                                                N_Generic_Package_Declaration)
             then
-               Error_Pragma (
-                 "pragma% can only apply to a package declaration");
+               Error_Pragma
+                 ("pragma% can only apply to a package declaration");
             end if;
 
             Set_Is_Remote_Types (Cunit_Ent);
@@ -10564,12 +10562,11 @@ package body Sem_Prag is
             Cunit_Node := Cunit (Current_Sem_Unit);
             Cunit_Ent  := Cunit_Entity (Current_Sem_Unit);
 
-            if Nkind (Unit (Cunit_Node)) /= N_Package_Declaration
-              and then
-              Nkind (Unit (Cunit_Node)) /= N_Generic_Package_Declaration
+            if not Nkind_In (Unit (Cunit_Node), N_Package_Declaration,
+                                                N_Generic_Package_Declaration)
             then
-               Error_Pragma (
-                 "pragma% can only apply to a package declaration");
+               Error_Pragma
+                 ("pragma% can only apply to a package declaration");
             end if;
 
             Set_Is_Shared_Passive (Cunit_Ent);
@@ -11235,6 +11232,43 @@ package body Sem_Prag is
                raise Pragma_Exit;
             end if;
          end Task_Storage;
+
+         --------------------------
+         -- Thread_Local_Storage --
+         --------------------------
+
+         --  pragma Thread_Local_Storage ([Entity =>] LOCAL_NAME);
+
+         when Pragma_Thread_Local_Storage => Thread_Local_Storage : declare
+            Id : Node_Id;
+            E  : Entity_Id;
+
+         begin
+            GNAT_Pragma;
+            Check_Arg_Count (1);
+            Check_Optional_Identifier (Arg1, Name_Entity);
+            Check_Arg_Is_Library_Level_Local_Name (Arg1);
+
+            Id := Expression (Arg1);
+            Analyze (Id);
+
+            if not Is_Entity_Name (Id)
+              or else Ekind (Entity (Id)) /= E_Variable
+            then
+               Error_Pragma_Arg ("local variable name required", Arg1);
+            end if;
+
+            E := Entity (Id);
+
+            if Rep_Item_Too_Early (E, N)
+              or else Rep_Item_Too_Late (E, N)
+            then
+               raise Pragma_Exit;
+            end if;
+
+            Set_Has_Pragma_Thread_Local_Storage (E);
+            Set_Has_Gigi_Rep_Item (E);
+         end Thread_Local_Storage;
 
          ----------------
          -- Time_Slice --
@@ -12105,7 +12139,7 @@ package body Sem_Prag is
         and then
           (Is_Generic_Instance (Result)
             or else Nkind (Parent (Declaration_Node (Result))) =
-                    N_Subprogram_Renaming_Declaration)
+                                         N_Subprogram_Renaming_Declaration)
         and then Present (Alias (Result))
       loop
          Result := Alias (Result);
@@ -12364,6 +12398,7 @@ package body Sem_Prag is
       Pragma_Task_Info                     => -1,
       Pragma_Task_Name                     => -1,
       Pragma_Task_Storage                  =>  0,
+      Pragma_Thread_Local_Storage          =>  0,
       Pragma_Time_Slice                    => -1,
       Pragma_Title                         => -1,
       Pragma_Unchecked_Union               =>  0,

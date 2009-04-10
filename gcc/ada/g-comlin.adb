@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -263,24 +261,27 @@ package body GNAT.Command_Line is
                     (It.Levels (Current).Dir, It.Dir_Name (1 .. NL));
                end if;
             end if;
-
-         --  If not a directory, check the relative path against the pattern
-
-         else
-            declare
-               Name : String :=
-                        It.Dir_Name (It.Start .. It.Levels (Current).Name_Last)
-                          & S (1 .. Last);
-            begin
-               Canonical_Case_File_Name (Name);
-
-               --  If it matches return the relative path
-
-               if GNAT.Regexp.Match (Name, Iterator.Regexp) then
-                  return Name;
-               end if;
-            end;
          end if;
+
+         --  Check the relative path against the pattern
+
+         --  Note that we try to match also against directory names, since
+         --  clients of this function may expect to retrieve directories.
+
+         declare
+            Name : String :=
+                     It.Dir_Name (It.Start .. It.Levels (Current).Name_Last)
+                       & S (1 .. Last);
+
+         begin
+            Canonical_Case_File_Name (Name);
+
+            --  If it matches return the relative path
+
+            if GNAT.Regexp.Match (Name, Iterator.Regexp) then
+               return Name;
+            end if;
+         end;
       end loop;
    end Expansion;
 
@@ -1404,7 +1405,7 @@ package body GNAT.Command_Line is
       function Group_Analysis
         (Prefix : String;
          Group  : String) return Boolean;
-      --  Perform the analysis of a group of switches.
+      --  Perform the analysis of a group of switches
 
       --------------------
       -- Group_Analysis --

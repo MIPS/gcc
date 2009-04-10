@@ -62,7 +62,6 @@ extern void init_eh (void);
 extern void init_eh_for_function (void);
 
 extern rtx reachable_handlers (rtx);
-extern void maybe_remove_eh_handler (rtx);
 void remove_eh_region (int);
 
 extern void convert_from_eh_region_ranges (void);
@@ -97,6 +96,7 @@ extern struct eh_region *gen_eh_region_allowed (struct eh_region *, tree);
 extern struct eh_region *gen_eh_region_must_not_throw (struct eh_region *);
 extern int get_eh_region_number (struct eh_region *);
 extern bool get_eh_region_may_contain_throw (struct eh_region *);
+extern tree get_eh_region_no_tree_label (int);
 extern tree get_eh_region_tree_label (struct eh_region *);
 extern void set_eh_region_tree_label (struct eh_region *, tree);
 

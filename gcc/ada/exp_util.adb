@@ -41,6 +41,7 @@ with Opt;      use Opt;
 with Restrict; use Restrict;
 with Rident;   use Rident;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
@@ -4842,6 +4843,14 @@ package body Exp_Util is
       then
          return True;
 
+      --  If the expression has an access type (object or subprogram) we
+      --  assume that the conversion is safe, because the size of the target
+      --  is safe, even if it is a record (which might be treated as having
+      --  unknown size at this point).
+
+      elsif Is_Access_Type (Ityp) then
+         return True;
+
       --  If the size of output type is known at compile time, there is
       --  never a problem.  Note that unconstrained records are considered
       --  to be of known size, but we can't consider them that way here,
@@ -5139,7 +5148,7 @@ package body Exp_Util is
    --  This procedure implements an odd and silly test. We explicitly check
    --  for the XOR case where the component type is True .. True, since this
    --  will raise constraint error. A special check is required since CE
-   --  will not be required otherwise (cf Expand_Packed_Not).
+   --  will not be generated otherwise (cf Expand_Packed_Not).
 
    --  No such check is required for AND and OR, since for both these cases
    --  False op False = False, and True op True = True.
@@ -5147,34 +5156,46 @@ package body Exp_Util is
    procedure Silly_Boolean_Array_Xor_Test (N : Node_Id; T : Entity_Id) is
       Loc : constant Source_Ptr := Sloc (N);
       CT  : constant Entity_Id  := Component_Type (T);
-      BT  : constant Entity_Id  := Base_Type (CT);
 
    begin
+      --  The check we install is
+
+      --    constraint_error when
+      --      Boolean (component_type'First)
+      --        and then Boolean (component_type'Last)
+      --        and then array_type'Length /= 0)
+
+      --  We need the last guard because we don't want to raise CE for empty
+      --  arrays since no out of range values result (Empty arrays with a
+      --  component type of True .. True -- very useful -- even the ACATS
+      --  does not test that marginal case!).
+
       Insert_Action (N,
         Make_Raise_Constraint_Error (Loc,
           Condition =>
-            Make_Op_And (Loc,
+            Make_And_Then (Loc,
               Left_Opnd =>
-                Make_Op_Eq (Loc,
+                Make_And_Then (Loc,
                   Left_Opnd =>
-                    Make_Attribute_Reference (Loc,
-                      Prefix         => New_Occurrence_Of (CT, Loc),
-                      Attribute_Name => Name_First),
+                    Convert_To (Standard_Boolean,
+                      Make_Attribute_Reference (Loc,
+                        Prefix         => New_Occurrence_Of (CT, Loc),
+                        Attribute_Name => Name_First)),
 
                   Right_Opnd =>
-                    Convert_To (BT,
-                      New_Occurrence_Of (Standard_True, Loc))),
+                    Convert_To (Standard_Boolean,
+                      Make_Attribute_Reference (Loc,
+                        Prefix         => New_Occurrence_Of (CT, Loc),
+                        Attribute_Name => Name_Last))),
 
               Right_Opnd =>
-                Make_Op_Eq (Loc,
+                Make_Op_Ne (Loc,
                   Left_Opnd =>
                     Make_Attribute_Reference (Loc,
-                      Prefix         => New_Occurrence_Of (CT, Loc),
-                      Attribute_Name => Name_Last),
+                      Prefix => New_Reference_To (T, Loc),
+                      Attribute_Name => Name_Length),
+                  Right_Opnd => Make_Integer_Literal (Loc, 0))),
 
-                  Right_Opnd =>
-                    Convert_To (BT,
-                      New_Occurrence_Of (Standard_True, Loc)))),
           Reason => CE_Range_Check_Failed));
    end Silly_Boolean_Array_Xor_Test;
 

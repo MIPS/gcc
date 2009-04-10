@@ -46,6 +46,7 @@ with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sinfo;    use Sinfo;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch13; use Sem_Ch13;
@@ -851,12 +852,23 @@ package body Exp_Ch5 is
             --  conversions ???
 
             else
-               --  Copy the bounds and reset the Analyzed flag, because the
-               --  bounds of the index type itself may be universal, and must
-               --  must be reaanalyzed to acquire the proper type for Gigi.
+               --  Copy the bounds
 
                Cleft_Lo  := New_Copy_Tree (Left_Lo);
                Cright_Lo := New_Copy_Tree (Right_Lo);
+
+               --  If the types do not match we add an implicit conversion
+               --  here to ensure proper match
+
+               if Etype (Left_Lo) /= Etype (Right_Lo) then
+                  Cright_Lo :=
+                    Unchecked_Convert_To (Etype (Left_Lo), Cright_Lo);
+               end if;
+
+               --  Reset the Analyzed flag, because the bounds of the index
+               --  type itself may be universal, and must must be reaanalyzed
+               --  to acquire the proper type for the back end.
+
                Set_Analyzed (Cleft_Lo, False);
                Set_Analyzed (Cright_Lo, False);
 
@@ -3306,19 +3318,31 @@ package body Exp_Ch5 is
    -- Expand_N_Loop_Statement --
    -----------------------------
 
-   --  1. Deal with while condition for C/Fortran boolean
-   --  2. Deal with loops with a non-standard enumeration type range
-   --  3. Deal with while loops where Condition_Actions is set
-   --  4. Insert polling call if required
+   --  1. Remove null loop entirely
+   --  2. Deal with while condition for C/Fortran boolean
+   --  3. Deal with loops with a non-standard enumeration type range
+   --  4. Deal with while loops where Condition_Actions is set
+   --  5. Insert polling call if required
 
    procedure Expand_N_Loop_Statement (N : Node_Id) is
       Loc  : constant Source_Ptr := Sloc (N);
       Isc  : constant Node_Id    := Iteration_Scheme (N);
 
    begin
+      --  Delete null loop
+
+      if Is_Null_Loop (N) then
+         Rewrite (N, Make_Null_Statement (Loc));
+         return;
+      end if;
+
+      --  Deal with condition for C/Fortran Boolean
+
       if Present (Isc) then
          Adjust_Condition (Condition (Isc));
       end if;
+
+      --  Generate polling call
 
       if Is_Non_Empty_List (Statements (N)) then
          Generate_Poll_Call (First (Statements (N)));
@@ -3607,7 +3631,7 @@ package body Exp_Ch5 is
          Call :=
            Make_Procedure_Call_Statement (Loc,
              Name => New_Reference_To
-                       (RTE (RE_Complete_Rendezvous), Loc));
+                       (RTE (RE_Complete_Rendezvous), No_Location));
          Insert_Before (N, Call);
          --  why not insert actions here???
          Analyze (Call);
