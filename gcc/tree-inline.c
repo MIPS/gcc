@@ -4909,7 +4909,8 @@ delete_unreachable_blocks_update_callgraph (copy_body_data *id)
 		    else
 	              cgraph_remove_edge (e);
 		  }
-		if (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES)
+		if (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES
+		    && id->dst_node->clones)
      		  for (node = id->dst_node->clones; node != id->dst_node;)
 		    {
 	              if ((e = cgraph_edge (id->dst_node, gsi_stmt (bsi))) != NULL)
