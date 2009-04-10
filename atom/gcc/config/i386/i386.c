@@ -13025,7 +13025,7 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 	      if ((reg_op1 && reg_set_p (reg_op1, prev))
 		  || (reg_op2 && reg_set_p (reg_op2, prev)))
 		{
-		  enum attr_type insn_type = get_attr_type (insn);
+		  enum attr_type insn_type = get_attr_type (prev);
 		  /* Restore recog_data which may be modified by
 		   * get_attr_type */
 		  extract_insn_cached (insn);
@@ -13065,7 +13065,7 @@ distance_non_agu_define (rtx op1, rtx op2, rtx insn)
 		  if ((reg_op1 && reg_set_p (reg_op1, prev))
 		      || (reg_op2 && reg_set_p (reg_op2, prev)))
 		  {
-		    enum attr_type insn_type = get_attr_type (insn);
+		    enum attr_type insn_type = get_attr_type (prev);
 		    /* Restore recog_data which may be modified by
 		     * get_attr_type */
 		    extract_insn_cached (insn);
