@@ -70,7 +70,6 @@ static tree simp_cil_switch (tree);
 
 /* Misc functionality */
 static void set_statement_list_location (tree, location_t);
-static bool is_copy_required (tree);
 
 /* Top-level functionality */
 static tree simp_cil_stmt (tree);
@@ -104,32 +103,6 @@ set_statement_list_location (tree list, location_t locus)
     {
       SET_EXPR_LOCATION (tsi_stmt (tsi), locus);
       tsi_next (&tsi);
-    }
-}
-
-/* In the case of multiple uses of tree NODE, return whether
-   it is required to compute NODE only once or not.
-   If NODE has side effects, TRUE is obviously always returned.
-   If NODE has no side effects, TRUE is still returned if
-   it looks more profitable to compute NODE only once,
-   FALSE otherwise (this is a heuristic decision).   */
-
-static bool
-is_copy_required (tree node)
-{
-  if (TREE_SIDE_EFFECTS (node))
-    return TRUE;
-
-  switch (TREE_CODE (node))
-    {
-    case INTEGER_CST:
-    case REAL_CST:
-    case VAR_DECL:
-    case PARM_DECL:
-      return FALSE;
-
-    default:
-      return TRUE;
     }
 }
 

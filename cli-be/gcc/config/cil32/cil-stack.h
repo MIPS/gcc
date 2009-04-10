@@ -61,7 +61,7 @@ enum cil_type
   CIL_FLOAT32, /* Single precision floating-point */
   CIL_FLOAT64, /* Double precision floating-point */
   CIL_POINTER, /* Generic pointer */
-  CIL_VALUE_TYPE, /* Generic value type */
+  CIL_VALUE_TYPE /* Generic value type */
 };
 
 typedef enum cil_type cil_type_t;
