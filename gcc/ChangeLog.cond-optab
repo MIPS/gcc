@@ -1,5 +1,10 @@
 2009-04-10  Paolo Bonzini  <bonzini@gnu.org>
 
+	* optabs.c (emit_conditional_move, emit_conditional_add): Pass
+	unsignedp down to prepare_cmp_insn.
+
+2009-04-10  Paolo Bonzini  <bonzini@gnu.org>
+
         * optabs.c (gen_cond_trap): Accept no predicate for operand 3.
 
 2009-04-10  Kaz Kojima  <kkojima@gcc.gnu.org>
