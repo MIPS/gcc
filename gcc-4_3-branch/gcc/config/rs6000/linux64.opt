@@ -20,5 +20,5 @@
 ; <http://www.gnu.org/licenses/>.
 
 mprofile-kernel
-Target Report Mask(PROFILE_KERNEL)
+Target Report Var(TARGET_PROFILE_KERNEL)
 Call mcount for profiling before a function prologue

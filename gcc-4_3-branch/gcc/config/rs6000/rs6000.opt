@@ -111,21 +111,65 @@ mhard-float
 Target Report RejectNegative InverseMask(SOFT_FLOAT, HARD_FLOAT)
 Use hardware floating point
 
-mno-update
-Target Report RejectNegative Mask(NO_UPDATE)
-Do not generate load/store with update instructions
-
-mupdate
-Target Report RejectNegative InverseMask(NO_UPDATE, UPDATE)
-Generate load/store with update instructions
-
 mpopcntd
 Target Report Mask(POPCNTD)
 Use PowerPC V2.06 popcntd instruction
 
+mvsx
+Target Report Mask(VSX)
+Use vector/scalar (VSX) instructions
+
+mvsx-vector-memory
+Target Undocumented Report Var(TARGET_VSX_VECTOR_MEMORY) Init(-1)
+; If -mvsx, use VSX vector load/store instructions instead of Altivec instructions
+
+mvsx-vector-float
+Target Undocumented Report Var(TARGET_VSX_VECTOR_FLOAT) Init(-1)
+; If -mvsx, use VSX arithmetic instructions for float vectors (on by default)
+
+mvsx-vector-double
+Target Undocumented Report Var(TARGET_VSX_VECTOR_DOUBLE) Init(-1)
+; If -mvsx, use VSX arithmetic instructions for double vectors (on by default)
+
+mvsx-scalar-double
+Target Undocumented Report Var(TARGET_VSX_SCALAR_DOUBLE) Init(-1)
+; If -mvsx, use VSX arithmetic instructions for scalar double (on by default)
+
+mvsx-scalar-memory
+Target Undocumented Report Var(TARGET_VSX_SCALAR_MEMORY)
+; If -mvsx, use VSX scalar memory reference instructions for scalar double (off by default)
+
+mvsx-v4sf-altivec-regs
+Target Undocumented Report Var(TARGET_V4SF_ALTIVEC_REGS) Init(-1)
+; If -mvsx, prefer V4SF types to use Altivec regs and not the floating registers
+
+mreload-functions
+Target Undocumented Report Var(TARGET_RELOAD_FUNCTIONS) Init(-1)
+; If -mvsx or -maltivec, enable reload functions
+
+mpower7-adjust-cost
+Target Undocumented Var(TARGET_POWER7_ADJUST_COST)
+; Add extra cost for setting CR registers before a branch like is done for Power5
+
+mdisallow-float-in-lr-ctr
+Target Undocumented Var(TARGET_DISALLOW_FLOAT_IN_LR_CTR) Init(-1)
+; Disallow floating point in LR or CTR, causes some reload bugs
+
+mupdate
+Target Report Var(TARGET_UPDATE) Init(1)
+Generate load/store with update instructions
+
+mavoid-indexed-addresses
+Target Report Var(TARGET_AVOID_XFORM) Init(-1)
+Avoid generation of indexed load/store instructions when possible
+
 mfused-madd
 Target Report Var(TARGET_FUSED_MADD) Init(1)
 Generate fused multiply/add instructions
+
+mtls-markers
+Target Report Var(tls_markers) Init(1)
+Mark __tls_get_addr calls with argument info
 
 msched-prolog
 Target Report Var(TARGET_SCHED_PROLOG) Init(1)
@@ -190,7 +234,7 @@ Target RejectNegative Joined
 -mvrsave=yes/no	Deprecated option.  Use -mvrsave/-mno-vrsave instead
 
 misel
-Target Var(rs6000_isel)
+Target Report Mask(ISEL)
 Generate isel instructions
 
 misel=
@@ -198,7 +242,7 @@ Target RejectNegative Joined
 -misel=yes/no	Deprecated option.  Use -misel/-mno-isel instead
 
 mspe
-Target Var(rs6000_spe)
+Target
 Generate SPE SIMD instructions on E500
 
 mpaired
@@ -233,6 +277,14 @@ mlongcall
 Target Report Var(rs6000_default_long_calls)
 Avoid all range limits on call instructions
 
+mgen-cell-microcode
+Target Report Var(rs6000_gen_cell_microcode) Init(-1)
+Generate Cell microcode
+
+mwarn-cell-microcode
+Target Var(rs6000_warn_cell_microcode) Init(0) Warning
+Warn when a Cell microcoded instruction is emitted
+
 mwarn-altivec-long
 Target Var(rs6000_warn_altivec_long) Init(1)
 Warn about deprecated 'vector long ...' AltiVec type usage
@@ -260,3 +312,25 @@ Specify alignment of structure fields default/natural
 mprioritize-restricted-insns=
 Target RejectNegative Joined UInteger Var(rs6000_sched_restricted_insns_priority)
 Specify scheduling priority for dispatch slot restricted insns
+
+msingle-float
+Target RejectNegative Var(rs6000_single_float)
+Single-precision floating point unit
+
+mdouble-float
+Target RejectNegative Var(rs6000_double_float)
+Double-precision floating point unit
+
+msimple-fpu
+Target RejectNegative Var(rs6000_simple_fpu)
+Floating point unit does not support divide & sqrt
+
+mfpu=
+Target RejectNegative Joined 
+-mfpu=	Specify FP (sp, dp, sp-lite, dp-lite) (implies -mxilinx-fpu)
+
+mxilinx-fpu
+Target Var(rs6000_xilinx_fpu)
+Specify Xilinx FPU.
+
+

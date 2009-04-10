@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -42,6 +42,7 @@ extern void validate_condition_mode (enum rtx_code, enum machine_mode);
 extern bool legitimate_constant_pool_address_p (rtx);
 extern bool legitimate_indirect_address_p (rtx, int);
 extern bool legitimate_indexed_address_p (rtx, int);
+extern bool avoiding_indexed_address_p (enum machine_mode);
 
 extern rtx rs6000_got_register (rtx);
 extern rtx find_addr_reg (rtx);
@@ -63,9 +64,15 @@ extern int insvdi_rshift_rlwimi_p (rtx, rtx, rtx);
 extern int registers_ok_for_quad_peep (rtx, rtx);
 extern int mems_ok_for_quad_peep (rtx, rtx);
 extern bool gpr_or_gpr_p (rtx, rtx);
+extern enum reg_class rs6000_preferred_reload_class(rtx, enum reg_class);
 extern enum reg_class rs6000_secondary_reload_class (enum reg_class,
 						     enum machine_mode, rtx);
-
+extern bool rs6000_secondary_memory_needed (enum reg_class, enum reg_class,
+					    enum machine_mode);
+extern bool rs6000_cannot_change_mode_class (enum machine_mode,
+					     enum machine_mode,
+					     enum reg_class);
+extern void rs6000_secondary_reload_inner (rtx, rtx, rtx, bool);
 extern int paired_emit_vector_cond_expr (rtx, rtx, rtx,
                                          rtx, rtx, rtx);
 extern void paired_expand_vector_move (rtx operands[]);
@@ -77,6 +84,7 @@ extern int extract_ME (rtx);
 extern void rs6000_output_function_entry (FILE *, const char *);
 extern void print_operand (FILE *, rtx, int);
 extern void print_operand_address (FILE *, rtx);
+extern bool rs6000_output_addr_const_extra (FILE *, rtx);
 extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 					       enum rtx_code);
 extern void rs6000_emit_sCOND (enum rtx_code, rtx);
@@ -111,6 +119,7 @@ extern rtx rs6000_legitimize_reload_address (rtx, enum machine_mode,
 extern int rs6000_legitimate_address (enum machine_mode, rtx, int);
 extern bool rs6000_legitimate_offset_address_p (enum machine_mode, rtx, int);
 extern bool rs6000_mode_dependent_address (rtx);
+extern rtx rs6000_find_base_term (rtx);
 extern bool rs6000_offsettable_memref_p (rtx);
 extern rtx rs6000_return_addr (int, rtx);
 extern void rs6000_output_symbol_ref (FILE*, rtx);
@@ -167,7 +176,6 @@ extern int rs6000_register_move_cost (enum machine_mode,
 				      enum reg_class, enum reg_class);
 extern int rs6000_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern bool rs6000_tls_referenced_p (rtx);
-extern int rs6000_hard_regno_nregs (int, enum machine_mode);
 extern void rs6000_conditional_register_usage (void);
 
 /* Declare functions in rs6000-c.c */
@@ -179,5 +187,13 @@ extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
 char *output_call (rtx, rtx *, int, int);
 #endif
 
+#ifdef NO_DOLLAR_IN_LABEL
+const char * rs6000_xcoff_strip_dollar (const char *);
+#endif
+
+void rs6000_final_prescan_insn (rtx, rtx *operand, int num_operands);
+
 extern bool rs6000_hard_regno_mode_ok_p[][FIRST_PSEUDO_REGISTER];
+extern unsigned char rs6000_class_max_nregs[][LIM_REG_CLASSES];
+extern unsigned char rs6000_hard_regno_nregs[][FIRST_PSEUDO_REGISTER];
 #endif  /* rs6000-protos.h */

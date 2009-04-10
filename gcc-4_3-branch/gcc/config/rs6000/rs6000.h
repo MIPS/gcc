@@ -78,9 +78,10 @@
 #define ASM_CPU_POWER7_SPEC "-mpower4 -maltivec"
 #endif
 
-
-/* Common ASM definitions used by ASM_SPEC among the various targets
-   for handling -mcpu=xxx switches.  */
+/* Common ASM definitions used by ASM_SPEC among the various targets for
+   handling -mcpu=xxx switches.  There is a parallel list in driver-rs6000.c to
+   provide the default assembler options if the user uses -mcpu=native, so if
+   you make changes here, make them also there.  */
 #define ASM_CPU_SPEC \
 "%{!mcpu*: \
   %{mpower: %{!mpower2: -mpwr}} \
@@ -89,6 +90,7 @@
   %{!mpowerpc64*: %{mpowerpc*: -mppc}} \
   %{mno-power: %{!mpowerpc*: -mcom}} \
   %{!mno-power: %{!mpower*: %(asm_default)}}} \
+%{mcpu=native: %(asm_cpu_native)} \
 %{mcpu=common: -mcom} \
 %{mcpu=cell: -mcell} \
 %{mcpu=power: -mpwr} \
@@ -97,8 +99,8 @@
 %{mcpu=power4: -mpower4} \
 %{mcpu=power5: %(asm_cpu_power5)} \
 %{mcpu=power5+: %(asm_cpu_power5)} \
-%{mcpu=power6: %(asm_cpu_power6)} \
-%{mcpu=power6x: %(asm_cpu_power6)} \
+%{mcpu=power6: %(asm_cpu_power6) -maltivec} \
+%{mcpu=power6x: %(asm_cpu_power6) -maltivec} \
 %{mcpu=power7: %(asm_cpu_power7)} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
@@ -113,6 +115,8 @@
 %{mcpu=405fp: -m405} \
 %{mcpu=440: -m440} \
 %{mcpu=440fp: -m440} \
+%{mcpu=464: -m440} \
+%{mcpu=464fp: -m440} \
 %{mcpu=505: -mppc} \
 %{mcpu=601: -m601} \
 %{mcpu=602: -mppc} \
@@ -137,6 +141,9 @@
 %{mcpu=G5: -mpower4 -maltivec} \
 %{mcpu=8540: -me500} \
 %{mcpu=8548: -me500} \
+%{mcpu=e300c2: -me300} \
+%{mcpu=e300c3: -me300} \
+%{mcpu=e500mc: -me500mc} \
 %{maltivec: -maltivec} \
 -many"
 
@@ -159,6 +166,7 @@
 #define EXTRA_SPECS							\
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
   { "asm_cpu",			ASM_CPU_SPEC },				\
+  { "asm_cpu_native",		ASM_CPU_NATIVE_SPEC },			\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
   { "cc1_cpu",			CC1_CPU_SPEC },				\
   { "asm_cpu_power5",		ASM_CPU_POWER5_SPEC },			\
@@ -175,6 +183,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define EXTRA_SPEC_FUNCTIONS \
   { "local_cpu_detect", host_detect_local_cpu },
 #define HAVE_LOCAL_CPU_DETECT
+#define ASM_CPU_NATIVE_SPEC "%:local_cpu_detect(asm)"
+
+#else
+#define ASM_CPU_NATIVE_SPEC "%(asm_default)"
 #endif
 
 #ifndef CC1_CPU_SPEC
@@ -244,6 +256,15 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_POPCNTD 0
 #endif
 
+/* Define TARGET_TLS_MARKERS if the target assembler does not support
+   arg markers for __tls_get_addr calls.  */
+#ifndef HAVE_AS_TLS_MARKERS
+#undef  TARGET_TLS_MARKERS
+#define TARGET_TLS_MARKERS 0
+#else
+#define TARGET_TLS_MARKERS tls_markers
+#endif
+
 #ifndef TARGET_SECURE_PLT
 #define TARGET_SECURE_PLT 0
 #endif
@@ -293,12 +314,24 @@ enum processor_type
    PROCESSOR_PPC7400,
    PROCESSOR_PPC7450,
    PROCESSOR_PPC8540,
+   PROCESSOR_PPCE300C2,
+   PROCESSOR_PPCE300C3,
+   PROCESSOR_PPCE500MC,
    PROCESSOR_POWER4,
    PROCESSOR_POWER5,
    PROCESSOR_POWER6,
    PROCESSOR_POWER7,
    PROCESSOR_CELL
 };
+
+/* FPU operations supported. 
+   Each use of TARGET_SINGLE_FLOAT or TARGET_DOUBLE_FLOAT must 
+   also test TARGET_HARD_FLOAT.  */
+#define TARGET_SINGLE_FLOAT 1
+#define TARGET_DOUBLE_FLOAT 1
+#define TARGET_SINGLE_FPU   0
+#define TARGET_SIMPLE_FPU   0
+#define TARGET_XILINX_FPU   0
 
 extern enum processor_type rs6000_cpu;
 
@@ -314,6 +347,18 @@ extern enum processor_type rs6000_cpu;
 /* Define the default processor.  This is overridden by other tm.h files.  */
 #define PROCESSOR_DEFAULT   PROCESSOR_RIOS1
 #define PROCESSOR_DEFAULT64 PROCESSOR_RS64A
+
+/* FP processor type.  */
+enum fpu_type_t
+{
+	FPU_NONE,		/* No FPU */
+	FPU_SF_LITE,		/* Limited Single Precision FPU */
+	FPU_DF_LITE,		/* Limited Double Precision FPU */
+	FPU_SF_FULL,		/* Full Single Precision FPU */
+	FPU_DF_FULL		/* Full Double Single Precision FPU */
+};
+
+extern enum fpu_type_t fpu_type;
 
 /* Specify the dialect of assembler to use.  New mnemonics is dialect one
    and the old mnemonics are dialect zero.  */
@@ -369,9 +414,15 @@ extern struct rs6000_cpu_select rs6000_select[];
 extern const char *rs6000_debug_name;	/* Name for -mdebug-xxxx option */
 extern int rs6000_debug_stack;		/* debug stack applications */
 extern int rs6000_debug_arg;		/* debug argument handling */
+extern int rs6000_debug_reg;		/* debug register handling */
+extern int rs6000_debug_addr;		/* debug memory addressing */
+extern int rs6000_debug_cost;		/* debug rtx_costs */
 
 #define	TARGET_DEBUG_STACK	rs6000_debug_stack
 #define	TARGET_DEBUG_ARG	rs6000_debug_arg
+#define TARGET_DEBUG_REG	rs6000_debug_reg
+#define TARGET_DEBUG_ADDR	rs6000_debug_addr
+#define TARGET_DEBUG_COST	rs6000_debug_cost
 
 extern const char *rs6000_traceback_name; /* Type of traceback table.  */
 
@@ -381,10 +432,65 @@ extern int rs6000_long_double_type_size;
 extern int rs6000_ieeequad;
 extern int rs6000_altivec_abi;
 extern int rs6000_spe_abi;
+extern int rs6000_spe;
 extern int rs6000_float_gprs;
 extern int rs6000_alignment_flags;
 extern const char *rs6000_sched_insert_nops_str;
 extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
+extern int rs6000_xilinx_fpu;
+
+/* Describe which vector unit to use for a given machine mode.  */
+enum rs6000_vector {
+  VECTOR_NONE,			/* Type is not  a vector or not supported */
+  VECTOR_ALTIVEC,		/* Use altivec for vector processing */
+  VECTOR_VSX,			/* Use VSX for vector processing */
+  VECTOR_PAIRED,		/* Use paired floating point for vectors */
+  VECTOR_SPE,			/* Use SPE for vector processing */
+  VECTOR_OTHER			/* Some other vector unit */
+};
+
+extern enum rs6000_vector rs6000_vector_unit[];
+
+#define VECTOR_UNIT_NONE_P(MODE)			\
+  (rs6000_vector_unit[(MODE)] == VECTOR_NONE)
+
+#define VECTOR_UNIT_VSX_P(MODE)				\
+  (rs6000_vector_unit[(MODE)] == VECTOR_VSX)
+
+#define VECTOR_UNIT_ALTIVEC_P(MODE)			\
+  (rs6000_vector_unit[(MODE)] == VECTOR_ALTIVEC)
+
+#define VECTOR_UNIT_ALTIVEC_OR_VSX_P(MODE)		\
+  (rs6000_vector_unit[(MODE)] == VECTOR_ALTIVEC 	\
+   || rs6000_vector_unit[(MODE)] == VECTOR_VSX)
+
+/* Describe whether to use VSX loads or Altivec loads.  For now, just use the
+   same unit as the vector unit we are using, but we may want to migrate to
+   using VSX style loads even for types handled by altivec.  */
+extern enum rs6000_vector rs6000_vector_mem[];
+
+#define VECTOR_MEM_NONE_P(MODE)				\
+  (rs6000_vector_mem[(MODE)] == VECTOR_NONE)
+
+#define VECTOR_MEM_VSX_P(MODE)				\
+  (rs6000_vector_mem[(MODE)] == VECTOR_VSX)
+
+#define VECTOR_MEM_ALTIVEC_P(MODE)			\
+  (rs6000_vector_mem[(MODE)] == VECTOR_ALTIVEC)
+
+#define VECTOR_MEM_ALTIVEC_OR_VSX_P(MODE)		\
+  (rs6000_vector_mem[(MODE)] == VECTOR_ALTIVEC 	\
+   || rs6000_vector_mem[(MODE)] == VECTOR_VSX)
+
+/* Return the alignment of a given vector type, which is set based on the
+   vector unit use.  VSX for instance can load 32 or 64 bit aligned words
+   without problems, while Altivec requires 128-bit aligned vectors.  */
+extern int rs6000_vector_align[];
+
+#define VECTOR_ALIGN(MODE)						\
+  ((rs6000_vector_align[(MODE)] != 0)					\
+   ? rs6000_vector_align[(MODE)]					\
+   : (int)GET_MODE_BITSIZE ((MODE)))
 
 /* Alignment options for fields in structures for sub-targets following
    AIX-like ABI.
@@ -410,7 +516,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define TARGET_SPE_ABI 0
 #define TARGET_SPE 0
 #define TARGET_E500 0
-#define TARGET_ISEL 0
+#define TARGET_ISEL64 (TARGET_ISEL && TARGET_POWERPC64)
 #define TARGET_FPRS 1
 #define TARGET_E500_SINGLE 0
 #define TARGET_E500_DOUBLE 0
@@ -508,6 +614,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #endif
 #define UNITS_PER_FP_WORD 8
 #define UNITS_PER_ALTIVEC_WORD 16
+#define UNITS_PER_VSX_WORD 16
 #define UNITS_PER_SPE_WORD 8
 #define UNITS_PER_PAIRED_WORD 8
 
@@ -578,8 +685,9 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define PARM_BOUNDARY (TARGET_32BIT ? 32 : 64)
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY \
-  ((TARGET_32BIT && !TARGET_ALTIVEC && !TARGET_ALTIVEC_ABI) ? 64 : 128)
+#define STACK_BOUNDARY	\
+  ((TARGET_32BIT && !TARGET_ALTIVEC && !TARGET_ALTIVEC_ABI && !TARGET_VSX) \
+    ? 64 : 128)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -591,10 +699,11 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    local store.  TYPE is the data type, and ALIGN is the alignment
    that the object would ordinarily have.  */
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
-  ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :	\
+  (((TARGET_ALTIVEC || TARGET_VSX)				\
+    && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :			\
     (TARGET_E500_DOUBLE						\
-     && (TYPE_MODE (TYPE) == DFmode || TYPE_MODE (TYPE) == DDmode)) ? 64 : \
-    ((TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE \
+     && TYPE_MODE (TYPE) == DFmode) ? 64 :			\
+    ((TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE		\
      && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) || (TARGET_PAIRED_FLOAT \
         && TREE_CODE (TYPE) == VECTOR_TYPE \
         && PAIRED_VECTOR_MODE (TYPE_MODE (TYPE)))) ? 64 : ALIGN)
@@ -619,7 +728,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    fit into 1, whereas DI still needs two.  */
 #define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
   ((TARGET_SPE && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE) \
-   || (TARGET_E500_DOUBLE && ((MODE) == DFmode || (MODE) == DDmode)))
+   || (TARGET_E500_DOUBLE && (MODE) == DFmode))
 
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
@@ -628,6 +737,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    Make vector constants quadword aligned.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)                           \
   (TREE_CODE (EXP) == STRING_CST	                         \
+   && (STRICT_ALIGNMENT || !optimize_size)                       \
    && (ALIGN) < BITS_PER_WORD                                    \
    ? BITS_PER_WORD                                               \
    : (ALIGN))
@@ -639,7 +749,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
   (TREE_CODE (TYPE) == VECTOR_TYPE ? ((TARGET_SPE_ABI \
    || TARGET_PAIRED_FLOAT) ? 64 : 128)	\
    : (TARGET_E500_DOUBLE			\
-      && (TYPE_MODE (TYPE) == DFmode || TYPE_MODE (TYPE) == DDmode)) ? 64 \
+      && TYPE_MODE (TYPE) == DFmode) ? 64 \
    : TREE_CODE (TYPE) == ARRAY_TYPE		\
    && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
    && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
@@ -651,12 +761,17 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 /* Define this macro to be the value 1 if unaligned accesses have a cost
    many times greater than aligned accesses, for example if they are
    emulated in a trap handler.  */
+/* Altivec vector memory instructions simply ignore the low bits; SPE vector
+   memory instructions trap on unaligned accesses; VSX memory instructions are
+   aligned to 4 or 8 bytes.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
 	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
 	|| (MODE) == DImode)						\
-       && (ALIGN) < 32))
+       && (ALIGN) < 32)							\
+   || (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE))))
+
 
 /* Standard register usage.  */
 
@@ -883,15 +998,59 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 /* True if register is an AltiVec register.  */
 #define ALTIVEC_REGNO_P(N) ((N) >= FIRST_ALTIVEC_REGNO && (N) <= LAST_ALTIVEC_REGNO)
 
+/* True if register is a VSX register.  */
+#define VSX_REGNO_P(N) (FP_REGNO_P (N) || ALTIVEC_REGNO_P (N))
+
+/* Alternate name for any vector register supporting floating point, no matter
+   which instruction set(s) are available.  */
+#define VFLOAT_REGNO_P(N) \
+  (ALTIVEC_REGNO_P (N) || (TARGET_VSX && FP_REGNO_P (N)))
+
+/* Alternate name for any vector register supporting integer, no matter which
+   instruction set(s) are available.  */
+#define VINT_REGNO_P(N) ALTIVEC_REGNO_P (N)
+
+/* Alternate name for any vector register supporting logical operations, no
+   matter which instruction set(s) are available.  */
+#define VLOGICAL_REGNO_P(N) VFLOAT_REGNO_P (N)
+
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.  */
 
-#define HARD_REGNO_NREGS(REGNO, MODE) rs6000_hard_regno_nregs ((REGNO), (MODE))
+#define HARD_REGNO_NREGS(REGNO, MODE) rs6000_hard_regno_nregs[(MODE)][(REGNO)]
 
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
   ((TARGET_32BIT && TARGET_POWERPC64			\
     && (GET_MODE_SIZE (MODE) > 4)  \
     && INT_REGNO_P (REGNO)) ? 1 : 0)
+
+#define VSX_VECTOR_MODE(MODE)		\
+	 ((MODE) == V4SFmode		\
+	  || (MODE) == V2DFmode)	\
+
+#define VSX_VECTOR_MOVE_MODE(MODE)	\
+	 ((MODE) == V16QImode		\
+	  || (MODE) == V8HImode		\
+	  || (MODE) == V4SImode		\
+	  || (MODE) == V2DImode		\
+	  || (MODE) == V4SFmode		\
+	  || (MODE) == V2DFmode)	\
+
+#define VSX_SCALAR_MODE(MODE)		\
+	((MODE) == DFmode)
+
+#define VSX_MODE(MODE)			\
+	(VSX_VECTOR_MODE (MODE)		\
+	 || VSX_SCALAR_MODE (MODE))
+
+#define VSX_MOVE_MODE(MODE)		\
+	(VSX_VECTOR_MOVE_MODE (MODE)	\
+	 || VSX_SCALAR_MODE(MODE)	\
+	 || (MODE) == V16QImode		\
+	 || (MODE) == V8HImode		\
+	 || (MODE) == V4SImode		\
+	 || (MODE) == V2DImode		\
+	 || (MODE) == TImode)
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\
@@ -908,10 +1067,12 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define PAIRED_VECTOR_MODE(MODE)        \
          ((MODE) == V2SFmode)            
 
-#define UNITS_PER_SIMD_WORD					     \
-	(TARGET_ALTIVEC ? UNITS_PER_ALTIVEC_WORD		     \
-	 : (TARGET_SPE ? UNITS_PER_SPE_WORD : (TARGET_PAIRED_FLOAT ? \
-	 UNITS_PER_PAIRED_WORD : UNITS_PER_WORD)))
+#define UNITS_PER_SIMD_WORD						\
+	(TARGET_VSX ? UNITS_PER_VSX_WORD				\
+	 : (TARGET_ALTIVEC ? UNITS_PER_ALTIVEC_WORD			\
+	 : (TARGET_SPE ? UNITS_PER_SPE_WORD				\
+	 : (TARGET_PAIRED_FLOAT ? UNITS_PER_PAIRED_WORD			\
+	 : UNITS_PER_WORD))))
 
 /* Value is TRUE if hard register REGNO can hold a value of
    machine-mode MODE.  */
@@ -939,6 +1100,10 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    ? ALTIVEC_VECTOR_MODE (MODE2)		\
    : ALTIVEC_VECTOR_MODE (MODE2)		\
    ? ALTIVEC_VECTOR_MODE (MODE1)		\
+   : VSX_VECTOR_MODE (MODE1)			\
+   ? VSX_VECTOR_MODE (MODE2)			\
+   : VSX_VECTOR_MODE (MODE2)			\
+   ? VSX_VECTOR_MODE (MODE1)			\
    : 1)
 
 /* Post-reload, we can't use any new AltiVec registers, as we already
@@ -1030,9 +1195,10 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    For any two classes, it is very desirable that there be another
    class that represents their union.  */
 
-/* The RS/6000 has three types of registers, fixed-point, floating-point,
-   and condition registers, plus three special registers, MQ, CTR, and the
-   link register.  AltiVec adds a vector register class.
+/* The RS/6000 has three types of registers, fixed-point, floating-point, and
+   condition registers, plus three special registers, MQ, CTR, and the link
+   register.  AltiVec adds a vector register class.  VSX registers overlap the
+   FPR registers and the Altivec registers.
 
    However, r0 is special in that it cannot be used as a base register.
    So make a class for registers valid as base registers.
@@ -1047,6 +1213,7 @@ enum reg_class
   GENERAL_REGS,
   FLOAT_REGS,
   ALTIVEC_REGS,
+  VSX_REGS,
   VRSAVE_REGS,
   VSCR_REGS,
   SPE_ACC_REGS,
@@ -1077,6 +1244,7 @@ enum reg_class
   "GENERAL_REGS",							\
   "FLOAT_REGS",								\
   "ALTIVEC_REGS",							\
+  "VSX_REGS",								\
   "VRSAVE_REGS",							\
   "VSCR_REGS",								\
   "SPE_ACC_REGS",                                                       \
@@ -1106,6 +1274,7 @@ enum reg_class
   { 0xffffffff, 0x00000000, 0x00000008, 0x00020000 }, /* GENERAL_REGS */     \
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000 }, /* FLOAT_REGS */       \
   { 0x00000000, 0x00000000, 0xffffe000, 0x00001fff }, /* ALTIVEC_REGS */     \
+  { 0x00000000, 0xffffffff, 0xffffe000, 0x00001fff }, /* VSX_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00002000 }, /* VRSAVE_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00004000 }, /* VSCR_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00008000 }, /* SPE_ACC_REGS */     \
@@ -1124,33 +1293,49 @@ enum reg_class
   { 0xffffffff, 0xffffffff, 0xffffffff, 0x0003ffff }  /* ALL_REGS */	     \
 }
 
+/* The following macro defines cover classes for Integrated Register
+   Allocator.  Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  The macro value is
+   array of register classes with LIM_REG_CLASSES used as the end
+   marker.  */
+
+#define IRA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, SPECIAL_REGS, FLOAT_REGS, ALTIVEC_REGS,			     \
+  /*VRSAVE_REGS,*/ VSCR_REGS, SPE_ACC_REGS, SPEFSCR_REGS,		     \
+  /* MQ_REGS, LINK_REGS, CTR_REGS, */					     \
+  CR_REGS, XER_REGS, LIM_REG_CLASSES					     \
+}
+
 /* The same information, inverted:
    Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-#define REGNO_REG_CLASS(REGNO)			\
- ((REGNO) == 0 ? GENERAL_REGS			\
-  : (REGNO) < 32 ? BASE_REGS			\
-  : FP_REGNO_P (REGNO) ? FLOAT_REGS		\
-  : ALTIVEC_REGNO_P (REGNO) ? ALTIVEC_REGS	\
-  : (REGNO) == CR0_REGNO ? CR0_REGS		\
-  : CR_REGNO_P (REGNO) ? CR_REGS		\
-  : (REGNO) == MQ_REGNO ? MQ_REGS		\
-  : (REGNO) == LR_REGNO ? LINK_REGS	\
-  : (REGNO) == CTR_REGNO ? CTR_REGS	\
-  : (REGNO) == ARG_POINTER_REGNUM ? BASE_REGS	\
-  : (REGNO) == XER_REGNO ? XER_REGS		\
-  : (REGNO) == VRSAVE_REGNO ? VRSAVE_REGS	\
-  : (REGNO) == VSCR_REGNO ? VRSAVE_REGS		\
-  : (REGNO) == SPE_ACC_REGNO ? SPE_ACC_REGS	\
-  : (REGNO) == SPEFSCR_REGNO ? SPEFSCR_REGS	\
-  : (REGNO) == FRAME_POINTER_REGNUM ? BASE_REGS	\
-  : NO_REGS)
+extern enum reg_class rs6000_regno_regclass[FIRST_PSEUDO_REGISTER];
+
+#if ENABLE_CHECKING
+#define REGNO_REG_CLASS(REGNO) 						\
+  (gcc_assert (IN_RANGE ((REGNO), 0, FIRST_PSEUDO_REGISTER-1)),		\
+   rs6000_regno_regclass[(REGNO)])
+
+#else
+#define REGNO_REG_CLASS(REGNO) rs6000_regno_regclass[(REGNO)]
+#endif
+
+/* VSX register classes.  */
+extern enum reg_class rs6000_vector_reg_class[];
+extern enum reg_class rs6000_vsx_reg_class;
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS
 #define BASE_REG_CLASS BASE_REGS
+
+/* Return whether a given register class can hold VSX objects.  */
+#define VSX_REG_CLASS_P(CLASS)			\
+  ((CLASS) == VSX_REGS || (CLASS) == FLOAT_REGS || (CLASS) == ALTIVEC_REGS)
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -1171,13 +1356,7 @@ enum reg_class
  */
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  ((CONSTANT_P (X)					\
-    && reg_classes_intersect_p ((CLASS), FLOAT_REGS))	\
-   ? NO_REGS 						\
-   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
-      && (CLASS) == NON_SPECIAL_REGS)			\
-   ? GENERAL_REGS					\
-   : (CLASS))
+  rs6000_preferred_reload_class (X, CLASS)
 
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in CLASS in MODE.  If it can be done directly,
@@ -1192,18 +1371,7 @@ enum reg_class
    are available.*/
 
 #define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
- ((CLASS1) != (CLASS2) && (((CLASS1) == FLOAT_REGS			\
-                            && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				|| ((MODE != DFmode)			\
-				    && (MODE != DDmode)			\
-				    && (MODE != DImode))))		\
-			   || ((CLASS2) == FLOAT_REGS			\
-                               && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				   || ((MODE != DFmode)			\
-				       && (MODE != DDmode)		\
-				       && (MODE != DImode))))		\
-			   || (CLASS1) == ALTIVEC_REGS			\
-			   || (CLASS2) == ALTIVEC_REGS))
+  rs6000_secondary_memory_needed (CLASS1, CLASS2, MODE)
 
 /* For cpus that cannot load/store SDmode values from the 64-bit
    FP registers without using a full 64-bit load/store, we need
@@ -1215,32 +1383,15 @@ enum reg_class
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
 
-   On RS/6000, this is the size of MODE in words,
-   except in the FP regs, where a single reg is enough for two words.  */
-#define CLASS_MAX_NREGS(CLASS, MODE)					\
- (((CLASS) == FLOAT_REGS) 						\
-  ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
-  : (TARGET_E500_DOUBLE && (CLASS) == GENERAL_REGS			\
-     && ((MODE) == DFmode || (MODE) == DDmode))				\
-  ? 1                                                                   \
-  : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+   On RS/6000, this is the size of MODE in words, except in the FP regs, where
+   a single reg is enough for two words, unless we have VSX, where the FP
+   registers can hold 128 bits.  */
+#define CLASS_MAX_NREGS(CLASS, MODE) rs6000_class_max_nregs[(MODE)][(CLASS)]
 
 /* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				\
-   ? ((GET_MODE_SIZE (FROM) < 8 || GET_MODE_SIZE (TO) < 8		\
-       || TARGET_IEEEQUAD)						\
-      && reg_classes_intersect_p (FLOAT_REGS, CLASS))			\
-   : (((TARGET_E500_DOUBLE						\
-	&& ((((TO) == DFmode) + ((FROM) == DFmode)) == 1		\
-	    || (((TO) == TFmode) + ((FROM) == TFmode)) == 1		\
-	    || (((TO) == DDmode) + ((FROM) == DDmode)) == 1		\
-	    || (((TO) == TDmode) + ((FROM) == TDmode)) == 1		\
-	    || (((TO) == DImode) + ((FROM) == DImode)) == 1))		\
-       || (TARGET_SPE							\
-	   && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1))	\
-      && reg_classes_intersect_p (GENERAL_REGS, CLASS)))
+  rs6000_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1302,7 +1453,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
   (FRAME_GROWS_DOWNWARD							\
    ? 0									\
    : (RS6000_ALIGN (current_function_outgoing_args_size,		\
-		    TARGET_ALTIVEC ? 16 : 8)				\
+		    (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8)		\
       + RS6000_SAVE_AREA))
 
 /* Offset from the stack pointer register to an item dynamically
@@ -1313,7 +1464,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
    machines.  See `function.c' for details.  */
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
   (RS6000_ALIGN (current_function_outgoing_args_size,			\
-		 TARGET_ALTIVEC ? 16 : 8)				\
+		 (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8)		\
    + (STACK_POINTER_OFFSET))
 
 /* If we generate an insn to push BYTES bytes,
@@ -1828,6 +1979,8 @@ do {								\
   if (rs6000_mode_dependent_address (ADDR))			\
     goto LABEL;							\
 } while (0)
+
+#define FIND_BASE_TERM rs6000_find_base_term
 
 /* The register number of the register used to address a table of
    static data addresses in memory.  In some cases this register is
@@ -1861,7 +2014,8 @@ do {								\
 /* Define this if some processing needs to be done immediately before
    emitting code for an insn.  */
 
-/* #define FINAL_PRESCAN_INSN(INSN,OPERANDS,NOPERANDS) */
+#define FINAL_PRESCAN_INSN(INSN,OPERANDS,NOPERANDS) \
+  rs6000_final_prescan_insn (INSN, OPERANDS, NOPERANDS)
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
@@ -2271,7 +2425,24 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   /* no additional names for: mq, lr, ctr, ap */		\
   {"cr0",  68}, {"cr1",  69}, {"cr2",  70}, {"cr3",  71},	\
   {"cr4",  72}, {"cr5",  73}, {"cr6",  74}, {"cr7",  75},	\
-  {"cc",   68}, {"sp",    1}, {"toc",   2} }
+  {"cc",   68}, {"sp",    1}, {"toc",   2},			\
+  /* VSX registers overlaid on top of FR, Altivec registers */	\
+  {"vs0",  32}, {"vs1",  33}, {"vs2",  34}, {"vs3",  35},	\
+  {"vs4",  36}, {"vs5",  37}, {"vs6",  38}, {"vs7",  39},	\
+  {"vs8",  40}, {"vs9",  41}, {"vs10", 42}, {"vs11", 43},	\
+  {"vs12", 44}, {"vs13", 45}, {"vs14", 46}, {"vs15", 47},	\
+  {"vs16", 48}, {"vs17", 49}, {"vs18", 50}, {"vs19", 51},	\
+  {"vs20", 52}, {"vs21", 53}, {"vs22", 54}, {"vs23", 55},	\
+  {"vs24", 56}, {"vs25", 57}, {"vs26", 58}, {"vs27", 59},	\
+  {"vs28", 60}, {"vs29", 61}, {"vs30", 62}, {"vs31", 63},	\
+  {"vs32", 77}, {"vs33", 78}, {"vs34", 79}, {"vs35", 80},       \
+  {"vs36", 81}, {"vs37", 82}, {"vs38", 83}, {"vs39", 84},       \
+  {"vs40", 85}, {"vs41", 86}, {"vs42", 87}, {"vs43", 88},       \
+  {"vs44", 89}, {"vs45", 90}, {"vs46", 91}, {"vs47", 92},       \
+  {"vs48", 93}, {"vs49", 94}, {"vs50", 95}, {"vs51", 96},       \
+  {"vs52", 97}, {"vs53", 98}, {"vs54", 99}, {"vs55", 100},	\
+  {"vs56", 101},{"vs57", 102},{"vs58", 103},{"vs59", 104},      \
+  {"vs60", 105},{"vs61", 106},{"vs62", 107},{"vs63", 108} }
 
 /* Text to write out after a CALL that may be replaced by glue code by
    the loader.  This depends on the AIX version.  */
@@ -2323,6 +2494,12 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 /* Print a memory address as an operand to reference that memory location.  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
+
+#define OUTPUT_ADDR_CONST_EXTRA(STREAM, X, FAIL)		\
+  do								\
+    if (!rs6000_output_addr_const_extra (STREAM, X))		\
+      goto FAIL;						\
+  while (0)
 
 /* uncomment for disabling the corresponding default options */
 /* #define  MACHINE_no_sched_interblock */
@@ -2429,10 +2606,14 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VSEL_4SF,
   ALTIVEC_BUILTIN_VSEL_8HI,
   ALTIVEC_BUILTIN_VSEL_16QI,
+  ALTIVEC_BUILTIN_VSEL_2DF,		/* needed for VSX */
+  ALTIVEC_BUILTIN_VSEL_2DI,		/* needed for VSX */
   ALTIVEC_BUILTIN_VPERM_4SI,
   ALTIVEC_BUILTIN_VPERM_4SF,
   ALTIVEC_BUILTIN_VPERM_8HI,
   ALTIVEC_BUILTIN_VPERM_16QI,
+  ALTIVEC_BUILTIN_VPERM_2DF,		/* needed for VSX */
+  ALTIVEC_BUILTIN_VPERM_2DI,		/* needed for VSX */
   ALTIVEC_BUILTIN_VPKUHUM,
   ALTIVEC_BUILTIN_VPKUWUM,
   ALTIVEC_BUILTIN_VPKPX,
@@ -2515,10 +2696,18 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_LVXL,
   ALTIVEC_BUILTIN_LVX,
   ALTIVEC_BUILTIN_STVX,
+  ALTIVEC_BUILTIN_LVLX,
+  ALTIVEC_BUILTIN_LVLXL,
+  ALTIVEC_BUILTIN_LVRX,
+  ALTIVEC_BUILTIN_LVRXL,
   ALTIVEC_BUILTIN_STVEBX,
   ALTIVEC_BUILTIN_STVEHX,
   ALTIVEC_BUILTIN_STVEWX,
   ALTIVEC_BUILTIN_STVXL,
+  ALTIVEC_BUILTIN_STVLX,
+  ALTIVEC_BUILTIN_STVLXL,
+  ALTIVEC_BUILTIN_STVRX,
+  ALTIVEC_BUILTIN_STVRXL,
   ALTIVEC_BUILTIN_VCMPBFP_P,
   ALTIVEC_BUILTIN_VCMPEQFP_P,
   ALTIVEC_BUILTIN_VCMPEQUB_P,
@@ -2567,6 +2756,7 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_AND,
   ALTIVEC_BUILTIN_VEC_ANDC,
   ALTIVEC_BUILTIN_VEC_AVG,
+  ALTIVEC_BUILTIN_VEC_EXTRACT,
   ALTIVEC_BUILTIN_VEC_CEIL,
   ALTIVEC_BUILTIN_VEC_CMPB,
   ALTIVEC_BUILTIN_VEC_CMPEQ,
@@ -2593,6 +2783,10 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_LVEBX,
   ALTIVEC_BUILTIN_VEC_LVEHX,
   ALTIVEC_BUILTIN_VEC_LVEWX,
+  ALTIVEC_BUILTIN_VEC_LVLX,
+  ALTIVEC_BUILTIN_VEC_LVLXL,
+  ALTIVEC_BUILTIN_VEC_LVRX,
+  ALTIVEC_BUILTIN_VEC_LVRXL,
   ALTIVEC_BUILTIN_VEC_LVSL,
   ALTIVEC_BUILTIN_VEC_LVSR,
   ALTIVEC_BUILTIN_VEC_MADD,
@@ -2652,6 +2846,10 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_STVEBX,
   ALTIVEC_BUILTIN_VEC_STVEHX,
   ALTIVEC_BUILTIN_VEC_STVEWX,
+  ALTIVEC_BUILTIN_VEC_STVLX,
+  ALTIVEC_BUILTIN_VEC_STVLXL,
+  ALTIVEC_BUILTIN_VEC_STVRX,
+  ALTIVEC_BUILTIN_VEC_STVRXL,
   ALTIVEC_BUILTIN_VEC_SUB,
   ALTIVEC_BUILTIN_VEC_SUBC,
   ALTIVEC_BUILTIN_VEC_SUBS,
@@ -2768,7 +2966,11 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VEC_VUPKLSH,
   ALTIVEC_BUILTIN_VEC_XOR,
   ALTIVEC_BUILTIN_VEC_STEP,
-  ALTIVEC_BUILTIN_OVERLOADED_LAST = ALTIVEC_BUILTIN_VEC_STEP,
+  ALTIVEC_BUILTIN_VEC_PROMOTE,
+  ALTIVEC_BUILTIN_VEC_INSERT,
+  ALTIVEC_BUILTIN_VEC_SPLATS,
+
+  ALTIVEC_BUILTIN_OVERLOADED_LAST = ALTIVEC_BUILTIN_VEC_SPLATS,
 
   /* SPE builtins.  */
   SPE_BUILTIN_EVADDW,
@@ -3039,6 +3241,163 @@ enum rs6000_builtins
   RS6000_BUILTIN_RECIPF,
   RS6000_BUILTIN_RSQRTF,
 
+  /* VSX builtins.  */
+  VSX_BUILTIN_LXSDUX,
+  VSX_BUILTIN_LXSDX,
+  VSX_BUILTIN_LXVD2UX,
+  VSX_BUILTIN_LXVD2X,
+  VSX_BUILTIN_LXVDSX,
+  VSX_BUILTIN_LXVW4UX,
+  VSX_BUILTIN_LXVW4X,
+  VSX_BUILTIN_STXSDUX,
+  VSX_BUILTIN_STXSDX,
+  VSX_BUILTIN_STXVD2UX,
+  VSX_BUILTIN_STXVD2X,
+  VSX_BUILTIN_STXVW4UX,
+  VSX_BUILTIN_STXVW4X,
+  VSX_BUILTIN_XSABSDP,
+  VSX_BUILTIN_XSADDDP,
+  VSX_BUILTIN_XSCMPODP,
+  VSX_BUILTIN_XSCMPUDP,
+  VSX_BUILTIN_XSCPSGNDP,
+  VSX_BUILTIN_XSCVDPSP,
+  VSX_BUILTIN_XSCVDPSXDS,
+  VSX_BUILTIN_XSCVDPSXWS,
+  VSX_BUILTIN_XSCVDPUXDS,
+  VSX_BUILTIN_XSCVDPUXWS,
+  VSX_BUILTIN_XSCVSPDP,
+  VSX_BUILTIN_XSCVSXDDP,
+  VSX_BUILTIN_XSCVUXDDP,
+  VSX_BUILTIN_XSDIVDP,
+  VSX_BUILTIN_XSMADDADP,
+  VSX_BUILTIN_XSMADDMDP,
+  VSX_BUILTIN_XSMAXDP,
+  VSX_BUILTIN_XSMINDP,
+  VSX_BUILTIN_XSMOVDP,
+  VSX_BUILTIN_XSMSUBADP,
+  VSX_BUILTIN_XSMSUBMDP,
+  VSX_BUILTIN_XSMULDP,
+  VSX_BUILTIN_XSNABSDP,
+  VSX_BUILTIN_XSNEGDP,
+  VSX_BUILTIN_XSNMADDADP,
+  VSX_BUILTIN_XSNMADDMDP,
+  VSX_BUILTIN_XSNMSUBADP,
+  VSX_BUILTIN_XSNMSUBMDP,
+  VSX_BUILTIN_XSRDPI,
+  VSX_BUILTIN_XSRDPIC,
+  VSX_BUILTIN_XSRDPIM,
+  VSX_BUILTIN_XSRDPIP,
+  VSX_BUILTIN_XSRDPIZ,
+  VSX_BUILTIN_XSREDP,
+  VSX_BUILTIN_XSRSQRTEDP,
+  VSX_BUILTIN_XSSQRTDP,
+  VSX_BUILTIN_XSSUBDP,
+  VSX_BUILTIN_XSTDIVDP,
+  VSX_BUILTIN_XSTSQRTDP,
+  VSX_BUILTIN_XVABSDP,
+  VSX_BUILTIN_XVABSSP,
+  VSX_BUILTIN_XVADDDP,
+  VSX_BUILTIN_XVADDSP,
+  VSX_BUILTIN_XVCMPEQDP,
+  VSX_BUILTIN_XVCMPEQSP,
+  VSX_BUILTIN_XVCMPGEDP,
+  VSX_BUILTIN_XVCMPGESP,
+  VSX_BUILTIN_XVCMPGTDP,
+  VSX_BUILTIN_XVCMPGTSP,
+  VSX_BUILTIN_XVCPSGNDP,
+  VSX_BUILTIN_XVCPSGNSP,
+  VSX_BUILTIN_XVCVDPSP,
+  VSX_BUILTIN_XVCVDPSXDS,
+  VSX_BUILTIN_XVCVDPSXWS,
+  VSX_BUILTIN_XVCVDPUXDS,
+  VSX_BUILTIN_XVCVDPUXWS,
+  VSX_BUILTIN_XVCVSPDP,
+  VSX_BUILTIN_XVCVSPSXDS,
+  VSX_BUILTIN_XVCVSPSXWS,
+  VSX_BUILTIN_XVCVSPUXDS,
+  VSX_BUILTIN_XVCVSPUXWS,
+  VSX_BUILTIN_XVCVSXDDP,
+  VSX_BUILTIN_XVCVSXDSP,
+  VSX_BUILTIN_XVCVSXWDP,
+  VSX_BUILTIN_XVCVSXWSP,
+  VSX_BUILTIN_XVCVUXDDP,
+  VSX_BUILTIN_XVCVUXDSP,
+  VSX_BUILTIN_XVCVUXWDP,
+  VSX_BUILTIN_XVCVUXWSP,
+  VSX_BUILTIN_XVDIVDP,
+  VSX_BUILTIN_XVDIVSP,
+  VSX_BUILTIN_XVMADDDP,
+  VSX_BUILTIN_XVMADDSP,
+  VSX_BUILTIN_XVMAXDP,
+  VSX_BUILTIN_XVMAXSP,
+  VSX_BUILTIN_XVMINDP,
+  VSX_BUILTIN_XVMINSP,
+  VSX_BUILTIN_XVMSUBDP,
+  VSX_BUILTIN_XVMSUBSP,
+  VSX_BUILTIN_XVMULDP,
+  VSX_BUILTIN_XVMULSP,
+  VSX_BUILTIN_XVNABSDP,
+  VSX_BUILTIN_XVNABSSP,
+  VSX_BUILTIN_XVNEGDP,
+  VSX_BUILTIN_XVNEGSP,
+  VSX_BUILTIN_XVNMADDDP,
+  VSX_BUILTIN_XVNMADDSP,
+  VSX_BUILTIN_XVNMSUBDP,
+  VSX_BUILTIN_XVNMSUBSP,
+  VSX_BUILTIN_XVRDPI,
+  VSX_BUILTIN_XVRDPIC,
+  VSX_BUILTIN_XVRDPIM,
+  VSX_BUILTIN_XVRDPIP,
+  VSX_BUILTIN_XVRDPIZ,
+  VSX_BUILTIN_XVREDP,
+  VSX_BUILTIN_XVRESP,
+  VSX_BUILTIN_XVRSPI,
+  VSX_BUILTIN_XVRSPIC,
+  VSX_BUILTIN_XVRSPIM,
+  VSX_BUILTIN_XVRSPIP,
+  VSX_BUILTIN_XVRSPIZ,
+  VSX_BUILTIN_XVRSQRTEDP,
+  VSX_BUILTIN_XVRSQRTESP,
+  VSX_BUILTIN_XVSQRTDP,
+  VSX_BUILTIN_XVSQRTSP,
+  VSX_BUILTIN_XVSUBDP,
+  VSX_BUILTIN_XVSUBSP,
+  VSX_BUILTIN_XVTDIVDP,
+  VSX_BUILTIN_XVTDIVSP,
+  VSX_BUILTIN_XVTSQRTDP,
+  VSX_BUILTIN_XVTSQRTSP,
+  VSX_BUILTIN_XXLAND,
+  VSX_BUILTIN_XXLANDC,
+  VSX_BUILTIN_XXLNOR,
+  VSX_BUILTIN_XXLOR,
+  VSX_BUILTIN_XXLXOR,
+  VSX_BUILTIN_XXMRGHD,
+  VSX_BUILTIN_XXMRGHW,
+  VSX_BUILTIN_XXMRGLD,
+  VSX_BUILTIN_XXMRGLW,
+  VSX_BUILTIN_XXPERMDI,
+  VSX_BUILTIN_XXSEL,
+  VSX_BUILTIN_XXSLDWI,
+  VSX_BUILTIN_XXSPLTD,
+  VSX_BUILTIN_XXSPLTW,
+  VSX_BUILTIN_XXSWAPD,
+
+  /* VSX overloaded builtins, add the overloaded functions not present in
+     Altivec.  */
+  VSX_BUILTIN_VEC_MUL,
+  VSX_BUILTIN_OVERLOADED_FIRST = VSX_BUILTIN_VEC_MUL,
+  VSX_BUILTIN_VEC_MSUB,
+  VSX_BUILTIN_VEC_NMADD,
+  VSX_BUITLIN_VEC_NMSUB,
+  VSX_BUILTIN_VEC_DIV,
+  VSX_BUILTIN_OVERLOADED_LAST = VSX_BUILTIN_VEC_DIV,
+
+  /* Combined VSX/Altivec builtins.  */
+  VECTOR_BUILTIN_FLOAT_V4SI_V4SF,
+  VECTOR_BUILTIN_UNSFLOAT_V4SI_V4SF,
+  VECTOR_BUILTIN_FIX_V4SF_V4SI,
+  VECTOR_BUILTIN_FIXUNS_V4SF_V4SI,
+
   RS6000_BUILTIN_COUNT
 };
 
@@ -3052,6 +3411,8 @@ enum rs6000_builtin_type_index
   RS6000_BTI_V16QI,
   RS6000_BTI_V2SI,
   RS6000_BTI_V2SF,
+  RS6000_BTI_V2DI,
+  RS6000_BTI_V2DF,
   RS6000_BTI_V4HI,
   RS6000_BTI_V4SI,
   RS6000_BTI_V4SF,
@@ -3075,7 +3436,10 @@ enum rs6000_builtin_type_index
   RS6000_BTI_UINTHI,		 /* unsigned_intHI_type_node */
   RS6000_BTI_INTSI,		 /* intSI_type_node */
   RS6000_BTI_UINTSI,		 /* unsigned_intSI_type_node */
+  RS6000_BTI_INTDI,		 /* intDI_type_node */
+  RS6000_BTI_UINTDI,		 /* unsigned_intDI_type_node */
   RS6000_BTI_float,	         /* float_type_node */
+  RS6000_BTI_double,	         /* double_type_node */
   RS6000_BTI_void,	         /* void_type_node */
   RS6000_BTI_MAX
 };
@@ -3086,6 +3450,8 @@ enum rs6000_builtin_type_index
 #define opaque_p_V2SI_type_node       (rs6000_builtin_types[RS6000_BTI_opaque_p_V2SI])
 #define opaque_V4SI_type_node         (rs6000_builtin_types[RS6000_BTI_opaque_V4SI])
 #define V16QI_type_node               (rs6000_builtin_types[RS6000_BTI_V16QI])
+#define V2DI_type_node                (rs6000_builtin_types[RS6000_BTI_V2DI])
+#define V2DF_type_node                (rs6000_builtin_types[RS6000_BTI_V2DF])
 #define V2SI_type_node                (rs6000_builtin_types[RS6000_BTI_V2SI])
 #define V2SF_type_node                (rs6000_builtin_types[RS6000_BTI_V2SF])
 #define V4HI_type_node                (rs6000_builtin_types[RS6000_BTI_V4HI])
@@ -3112,7 +3478,10 @@ enum rs6000_builtin_type_index
 #define uintHI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_UINTHI])
 #define intSI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_INTSI])
 #define uintSI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_UINTSI])
+#define intDI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_INTDI])
+#define uintDI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_UINTDI])
 #define float_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_float])
+#define double_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_double])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
 
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
